@@ -36,6 +36,7 @@ function spatial(solver) {
 }
 
 function report(issue, dim, solver) {
+  const witness = issue === 2584 ? 'a translation of this joint leaves all attached trusses unstrained' : 'a frame can swing about a released end';
   const constrained = JSON.stringify({ solver, constraints: solver.constraints });
   const modal = JSON.stringify({
     solver,
@@ -56,7 +57,8 @@ function report(issue, dim, solver) {
       try {
         diagnostic = JSON.parse(String(error)).structuredDiagnostics?.[0];
       } catch {}
-      if (diagnostic?.code !== 'reduced_stiffness_rank' || diagnostic?.severity !== 'error') {
+      if (diagnostic?.code !== 'reduced_stiffness_rank' || diagnostic?.severity !== 'error'
+          || !diagnostic.message.includes(witness)) {
         failures.push(`#${issue} ${dim} ${name} returned ${error}`);
       }
     }

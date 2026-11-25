@@ -195,7 +195,12 @@ fn every_c08_reproducer_is_either_solved_identically_or_refused_by_the_verdict()
     for &issue in RANK_REFUSED {
         let (v, cell) = replay(issue);
         let expected_outcome = if issue == 1041 { cell.inconclusive == 1 } else { cell.refused == 1 };
-        if v.verdict != Verdict::Singular || v.reason != Reason::OperatorRounding
+        let expected_rank = if issue == 973 {
+            (Verdict::Mechanism, Reason::FrameMechanism)
+        } else {
+            (Verdict::Singular, Reason::OperatorRounding)
+        };
+        if (v.verdict, v.reason) != expected_rank
             || v.refusal().is_none() || !expected_outcome || !cell.fails.is_empty()
         {
             wrong.push(format!("#{issue} listed rank refused: {} {:?} {cell:?}", summary(&Ok(v.clone())), v.reason));

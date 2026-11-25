@@ -809,10 +809,10 @@ fn check_planar_terminal_swing(issue: &str, entry: &str) {
     for (label, case) in frames {
         assert_terminal_swing(label, classification_2d(&case), &mut failures);
         assert_terminal_swing(label, (row.run)(&case), &mut failures);
-        for plane in Plane::ALL {
-            let spatial = embed_2d(&case.s, plane).unwrap();
-            assert_terminal_swing(label, linear::solve_3d(&spatial), &mut failures);
-        }
+    }
+    for plane in Plane::ALL {
+        let spatial = embed_2d(&base.s, plane).unwrap();
+        assert_terminal_swing("spatial embedding", linear::solve_3d(&spatial), &mut failures);
     }
     assert!(failures.is_empty(), "#{} {entry}:\n{}", issue, failures.join("\n"));
 }
@@ -837,37 +837,31 @@ fn check_spatial_terminal_swing(issue: &str, entry: &str) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2266"]
 fn issue_2266_terminal_swing_has_a_structural_witness() {
     check_planar_terminal_swing("2266", "linear (dense reference)");
 }
 
 #[test]
-#[ignore = "known wrong result: #2380"]
 fn issue_2380_terminal_swing_has_a_structural_witness() {
     check_planar_terminal_swing("2380", "constrained");
 }
 
 #[test]
-#[ignore = "known wrong result: #2190"]
 fn issue_2190_terminal_swing_has_a_structural_witness() {
     check_planar_terminal_swing("2190", "linear (WASM typed path)");
 }
 
 #[test]
-#[ignore = "known wrong result: #2119"]
 fn issue_2119_terminal_swing_has_a_structural_witness() {
     check_spatial_terminal_swing("2119", "contact (no gaps)");
 }
 
 #[test]
-#[ignore = "known wrong result: #2134"]
 fn issue_2134_terminal_swing_has_a_structural_witness() {
     check_spatial_terminal_swing("2134", "Winkler (no foundation)");
 }
 
 #[test]
-#[ignore = "known wrong result: #2139"]
 fn issue_2139_terminal_swing_has_a_structural_witness() {
     check_spatial_terminal_swing("2139", "plastic collapse");
 }

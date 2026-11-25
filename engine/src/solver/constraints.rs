@@ -2573,6 +2573,14 @@ impl FreeConstraintSystem {
         self.c_ff.reduce_sparse(k_ff)
     }
 
+    pub(super) fn exact_identity_column(&self, row: usize) -> Option<usize> {
+        let col = self.independent_dofs().binary_search(&row).ok()?;
+        let start = self.c_ff.col_ptr[col];
+        (self.c_ff.col_ptr[col + 1] == start + 1
+            && self.c_ff.row_idx[start] == row && self.c_ff.csc_vals[start] == 1.0)
+            .then_some(col)
+    }
+
     pub(super) fn independent_dofs(&self) -> &[usize] { &self.independent }
 
     pub(super) fn coupled_free_dofs(&self) -> impl Iterator<Item = (usize, usize)> + '_ {

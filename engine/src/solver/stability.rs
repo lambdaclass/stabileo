@@ -5,7 +5,7 @@ use crate::types::*;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-use super::axial_kinematics::AxialKinematics;
+use super::structural_kinematics::{MechanismWitness, StructuralKinematics};
 
 pub(crate) fn has_member_releases_2d(input: &SolverInput) -> bool {
     input.elements.values().any(|e| e.hinge_start || e.hinge_end)
@@ -32,7 +32,7 @@ pub struct DofTag { pub node: usize, pub kind: DofKind }
 pub enum Verdict { Stable, Mechanism, Singular }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Reason { Resolved, FreeTranslation, SwingAtRounding, Conditioning, CoupledSoftDirection, ConstraintRounding, OperatorRounding, AxialMechanism, Indefinite, NonFinite }
+pub enum Reason { Resolved, FreeTranslation, SwingAtRounding, Conditioning, CoupledSoftDirection, ConstraintRounding, OperatorRounding, AxialMechanism, FrameMechanism, Indefinite, NonFinite }
 
 #[derive(Debug, Clone)]
 pub struct FreeDirection {
@@ -167,7 +167,7 @@ impl Stability {
 
     pub(super) fn rank_refusal(&self) -> Option<String> {
         match self.reason {
-            Reason::OperatorRounding | Reason::AxialMechanism => self.refusal(),
+            Reason::OperatorRounding | Reason::AxialMechanism | Reason::FrameMechanism => self.refusal(),
             Reason::ConstraintRounding => self.refusal().map(|message| {
                 crate::refusal::coded(DiagnosticCode::ReducedStiffnessRank, &message)
             }),
@@ -187,6 +187,13 @@ impl Stability {
                     DiagnosticCode::ReducedStiffnessRank,
                     Severity::Error,
                     format!("the structure is a mechanism{nodes}: a translation of this joint leaves all attached trusses unstrained and satisfies the restraints"),
+                ).with_nodes(self.mode_nodes.clone()),
+            )),
+            Reason::FrameMechanism => Some(crate::refusal::from_diagnostic(
+                StructuredDiagnostic::global(
+                    DiagnosticCode::ReducedStiffnessRank,
+                    Severity::Error,
+                    format!("the structure is a mechanism{nodes}: a frame can swing about a released end without straining its members or moving its restraints"),
                 ).with_nodes(self.mode_nodes.clone()),
             )),
             Reason::Indefinite => Some(format!(
@@ -318,15 +325,15 @@ fn couple_axes(out: &mut Vec<(usize, usize)>, dof: &DofNumbering, nodes: &[usize
 #[derive(Default)]
 pub(crate) struct ElasticKinematics {
     coupling: Vec<(usize, usize)>,
-    axial: AxialKinematics,
+    structure: StructuralKinematics,
 }
 
 pub(crate) fn elastic_kinematics_2d(input: &SolverInput, dof: &DofNumbering) -> ElasticKinematics {
-    ElasticKinematics { coupling: coupling_2d(input, dof), axial: AxialKinematics::planar(input, dof) }
+    ElasticKinematics { coupling: coupling_2d(input, dof), structure: StructuralKinematics::planar(input, dof) }
 }
 
 pub(crate) fn elastic_kinematics_3d(input: &SolverInput3D, dof: &DofNumbering) -> ElasticKinematics {
-    ElasticKinematics { coupling: coupling_3d(input, dof), axial: AxialKinematics::spatial(input, dof) }
+    ElasticKinematics { coupling: coupling_3d(input, dof), structure: StructuralKinematics::spatial(input, dof) }
 }
 
 fn coupling_2d(input: &SolverInput, dof: &DofNumbering) -> Vec<(usize, usize)> {
@@ -1625,9 +1632,12 @@ fn structural_mechanism(
     inactive: &[usize],
     supplemental_dofs: &[bool],
 ) -> Option<Stability> {
-    let node = kinematics.axial.mechanism_node(constraints, inactive, supplemental_dofs)?;
+    let (node, reason) = match kinematics.structure.mechanism(constraints, inactive, supplemental_dofs)? {
+        MechanismWitness::AxialJoint(node) => (node, Reason::AxialMechanism),
+        MechanismWitness::FrameSwing(node) => (node, Reason::FrameMechanism),
+    };
     Some(Stability {
-        verdict: Verdict::Mechanism, reason: Reason::AxialMechanism,
+        verdict: Verdict::Mechanism, reason,
         kappa: f64::INFINITY, anisotropy: 1.0, free: Vec::new(), mode_nodes: vec![node],
     })
 }
@@ -1758,7 +1768,7 @@ impl<'a> OperatorRank<'a> {
     pub(super) fn require_resolved(&self, free: &CscMatrix, reduced: Option<&CscMatrix>, support_magnitude: Option<&CscMatrix>) -> Result<(), String> {
         let result = self.classify(free, reduced, support_magnitude, &[]);
         match result.refusal() {
-            Some(error) if !matches!(result.reason, Reason::OperatorRounding | Reason::AxialMechanism) => Err(crate::refusal::coded(DiagnosticCode::ReducedStiffnessRank, &error)),
+            Some(error) if !matches!(result.reason, Reason::OperatorRounding | Reason::AxialMechanism | Reason::FrameMechanism) => Err(crate::refusal::coded(DiagnosticCode::ReducedStiffnessRank, &error)),
             Some(error) => Err(error),
             None => Ok(()),
         }
@@ -1780,13 +1790,7 @@ impl<'a> OperatorRank<'a> {
             let dofs = axis.iter().map(|&(i, _, _)| i).collect::<Vec<_>>();
             if let Some(cs) = self.constraints {
                 for &row in &dofs {
-                    let col = cs.independent_dofs().binary_search(&row).ok()?;
-                    let start = cs.c_ff.col_ptr[col];
-                    if cs.c_ff.col_ptr[col + 1] != start + 1
-                        || cs.c_ff.row_idx[start] != row || cs.c_ff.csc_vals[start] != 1.0
-                    {
-                        return None;
-                    }
+                    cs.exact_identity_column(row)?;
                 }
             }
             Some(FreeDirection {
@@ -1812,7 +1816,7 @@ impl<'a> OperatorRank<'a> {
         gauges.retain_mut(|direction| {
             if let Some(cs) = self.constraints {
                 for dof in &mut direction.dofs {
-                    let Ok(index) = cs.independent_dofs().binary_search(dof) else {
+                    let Some(index) = cs.exact_identity_column(*dof) else {
                         return false;
                     };
                     *dof = index;

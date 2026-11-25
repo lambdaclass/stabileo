@@ -165,6 +165,23 @@ registerFeatureDictionaries(Object.fromEntries(
 
 const AXIAL_JOINT_REASON = /^the structure is a mechanism at nodes \[(\d+)\]: a translation of this joint leaves all attached trusses unstrained and satisfies the restraints$/;
 
+const FRAME_SWING_MECHANISM = 'svc.engine.frameSwingMechanism';
+const frameSwingMechanism: Record<Locale, string> = {
+  de: 'Am Knoten {node} liegt ein Mechanismus vor. Ein Stab kann sich um ein Gelenkende drehen, ohne sich zu verformen oder seine Lagerbedingungen zu verletzen.',
+  en: 'There is a mechanism at joint {node}. A frame member can rotate about a released end without strain or movement at its restraints.',
+  es: 'Hay un mecanismo en el nudo {node}. Una barra puede girar alrededor de un extremo liberado sin deformarse ni mover sus restricciones.',
+  fr: 'Le nœud {node} présente un mécanisme. Une barre peut pivoter autour d’une extrémité articulée sans se déformer ni déplacer ses appuis.',
+  hu: 'A(z) {node} csomópontnál mechanizmus van. Egy rúd a csuklós vége körül alakváltozás és a megtámasztások elmozdulása nélkül elfordulhat.',
+  pt: 'Há um mecanismo no nó {node}. Uma barra pode girar em torno de uma extremidade liberada sem se deformar nem deslocar seus apoios.',
+  tr: '{node} düğümünde bir mekanizma var. Bir çubuk, şekil değiştirmeden veya mesnetlerini hareket ettirmeden mafsallı ucu etrafında dönebilir.',
+  zh: '节点 {node} 处存在机构。一根框架杆可绕释放端转动，杆件无应变，约束处无位移。',
+};
+registerFeatureDictionaries(Object.fromEntries(
+  Object.entries(frameSwingMechanism).map(([locale, message]) => [locale, { [FRAME_SWING_MECHANISM]: message }]),
+));
+
+const FRAME_SWING_REASON = /^the structure is a mechanism at nodes \[(\d+)\]: a frame can swing about a released end without straining its members or moving its restraints$/;
+
 const CONSTRAINT_RANK_REASON = /^the structure is a mechanism or so close to one that its stability cannot be decided in double precision(?: at nodes (\[[0-9, ]+\]))?: constraint reduction cancels stiffness contributions whose rounding is too large to resolve the remaining stiffness; reduce extreme stiffness contrasts or revise the constraints$/;
 
 /**
@@ -202,6 +219,8 @@ export function localizeEngineText(message: string): string {
   const original = rankRefusal instanceof CodedRefusal ? rankRefusal.message : message;
   const axialJoint = AXIAL_JOINT_REASON.exec(original);
   if (axialJoint) return fill(AXIAL_JOINT_MECHANISM, { node: axialJoint[1] });
+  const frameSwing = FRAME_SWING_REASON.exec(original);
+  if (frameSwing) return fill(FRAME_SWING_MECHANISM, { node: frameSwing[1] });
   const constraintRank = CONSTRAINT_RANK_REASON.exec(original);
   if (constraintRank) {
     const nodes = constraintRank[1];

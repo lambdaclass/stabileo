@@ -44,7 +44,7 @@ pub mod reduction;
 pub mod conditioning;
 pub mod definiteness;
 pub mod stability;
-mod axial_kinematics;
+mod structural_kinematics;
 pub mod sparse_assembly;
 pub(crate) mod sparse_tangent;
 pub mod pre_solve_gates;

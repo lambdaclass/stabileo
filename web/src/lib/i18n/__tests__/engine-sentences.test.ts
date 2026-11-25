@@ -107,6 +107,18 @@ describe('engine sentences', () => {
       .toBe('Hay un mecanismo en el nudo 2. El nudo puede desplazarse sin deformar las barras articuladas conectadas ni violar las restricciones.');
   });
 
+  it('localizes the proven released frame swing', async () => {
+    await setLocale('es');
+    const message = 'the structure is a mechanism at nodes [2]: a frame can swing about a released end without straining its members or moving its restraints';
+    const refusal = JSON.stringify({
+      message,
+      structuredDiagnostics: [{ code: 'reduced_stiffness_rank', severity: 'error', nodeIds: [2] }],
+    });
+    for (const text of [message, refusal]) {
+      expect(localizeEngineText(text)).toBe('Hay un mecanismo en el nudo 2. Una barra puede girar alrededor de un extremo liberado sin deformarse ni mover sus restricciones.');
+    }
+  });
+
   it('translates the plain reduced stiffness rank sentence', async () => {
     await setLocale('es');
     const message = 'The reduced stiffness rank cannot be resolved at assembly precision. Check member releases, supports, springs and constraints for a mechanism.';
