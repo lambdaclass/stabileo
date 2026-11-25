@@ -87,6 +87,35 @@ describe('the stairs the sheets find', () => {
     expect(simple.bars.some((b) => b.role.startsWith('top'))).toBe(false);
   });
 
+  it.each([
+    ['the party-wall building\'s flight', { riser: 1.4 / 9, tread: 0.33, steps: 9, waist: 0.23, width: 1.05, landingBottom: 1.2, landingTop: 1.2, landingThickness: 0.23 }],
+    ['a flight from the ground', { riser: 1.5 / 9, tread: 0.33, steps: 9, waist: 0.23, width: 1.05, landingBottom: 0, landingTop: 1.2, landingThickness: 0.23 }],
+    ['a steep flight with thin landings', { riser: 0.18, tread: 0.26, steps: 12, waist: 0.15, width: 1.2, landingBottom: 0.9, landingTop: 0.4, landingThickness: 0.12 }],
+  ])('keeps every bar of %s inside its concrete, the waist at the steps\' slope, crossed at the head and not cut by a level bar', (_n, over) => {
+    const row = stairRow(demand(over), ctx, undefined, fmt, 'cirsoc201-2025');
+    const sec = row.section, poly = sec.outline;
+    expect(Math.tan(sec.angle)).toBeCloseTo(over.riser / over.tread, 12);
+    const inside = ([x, z]: readonly [number, number]) => {
+      let c = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i]!, b = poly[j]!; if ((a[1] > z) !== (b[1] > z) && x < ((b[0] - a[0]) * (z - a[1])) / (b[1] - a[1]) + a[0]) c = !c; }
+      return c;
+    };
+    for (const b of row.bars) {
+      const pts = b.rows ?? b.shape.pts;
+      const lines = b.rows ? pts.map((p) => [p, p] as const) : pts.slice(1).map((p, i) => [pts[i]!, p] as const);
+      for (const [p, q] of lines) for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+        const at: [number, number] = [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t];
+        expect(inside(at), `${b.role} ${b.mark} at ${at.map((v) => v.toFixed(3))}`).toBe(true);
+      }
+    }
+    const head = sec.landingBottom + sec.run;
+    const land = row.bars.find((b) => b.role === 'landing')!;
+    const level = land.shape.pts.slice(1).map((p, i) => [land.shape.pts[i]!, p] as const).filter(([p, q]) => Math.abs(p[1] - q[1]) < 1e-9 && Math.abs(p[0] - q[0]) > 1e-9);
+    expect(Math.min(...level.flatMap(([p, q]) => [p[0], q[0]])), 'the landing\'s bottom bar runs level only under the last step and the landing').toBeGreaterThan(head - over.tread);
+    const main = row.bars.find((b) => b.role === 'main')!;
+    expect(Math.max(...main.shape.pts.map((p) => p[1])), 'the flight\'s bottom bar reaches the head landing\'s top').toBeGreaterThan(sec.rise - 0.05);
+  });
+
   it('says a code it does not design stairs under, instead of designing to another', () => {
     const ec = stairRow(demand(), ctx, undefined, fmt, 'en1992-1-1');
     expect(ec.status).toBe('none');
@@ -129,7 +158,7 @@ describe('a stair through the sheets\' outputs', () => {
     expect(sheet.rows[2]![2]).toBe('10 × 17.5/28');
   });
 
-  it('stands its bars in 3D along the flight\'s run, across its width', async () => {
+  it('stands its bars in 3D along the flight\'s run, across its width, from the foot landing\'s top over the shells\' mid-surface', async () => {
     const { stairBars3d } = await import('../rebar-3d-stairs');
     expect(stairBars3d(r, 0.025)).toEqual([]);
     const placed = stairRow({ ...demand(), place: { x: 2, y: 5, z: 3, dir: { x: 0, y: 1 } } }, ctx, undefined, fmt, 'cirsoc201-2025');
@@ -138,7 +167,7 @@ describe('a stair through the sheets\' outputs', () => {
     expect(bars.filter((b) => b.kind === 'stairMain')).toHaveLength(main.count);
     const first = bars.find((b) => b.kind === 'stairMain')!.segments[0]!;
     expect(first[0]![1]).toBeCloseTo(5 - 0.6 + main.shape.pts[0]![0], 9);
-    expect(first[0]![2]).toBeCloseTo(3 + main.shape.pts[0]![1], 9);
+    expect(first[0]![2]).toBeCloseTo(3 + placed.section.tl / 2 + main.shape.pts[0]![1], 9);
     expect(Math.max(...bars.flatMap((b) => b.segments.flat().map((p) => Math.abs(p[0] - 2))))).toBeLessThanOrEqual(0.6 + 1e-9);
   });
 });
