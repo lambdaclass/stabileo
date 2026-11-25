@@ -5738,6 +5738,7 @@ const hu: Translations = {
   "edit.refused.ambiguousRoller": "Az átalakítás előtt adja meg egyértelműen a rúdhoz nem kapcsolódó görgős támasz 3D megkötéseit.",
   "edit.refused.missingSupportMembers": "Jelölje ki a görgős támasz tengelyeit meghatározó összes rudat, vagy másoljon támaszok nélkül.",
   "edit.refused.changedSupportFrame": "Az átalakítás megváltoztatná egy görgős támasz helyi tengelyeit. Módosítsa az elhelyezést, vagy használjon globális tengelyekkel megadott támaszt.",
+  "svc.engine.unresolvedMovingAxle": "A mozgó teher útvonalának egyik csomópontján nem határozható meg a tengely helyzete.",
   "svc.engine.ambiguousRollerZ": "A rollerZ típus 3D-ben kétértelmű. A számítás előtt adja meg egyértelműen a 3D megkötéseket.",
   "edit.variableNotCut": "{n} változó keresztmetszetű rúd egészben maradt: a vágásnál a keresztmetszet nem lenne a végeik fajtájú keresztmetszet (két katalógusszelvény, vagy két egymásba nem simuló keresztmetszet).",
   "edit.cleanTitle": "Takarítás",

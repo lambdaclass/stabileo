@@ -698,7 +698,7 @@ pub fn moving_2d(
     let mut s = c.s.clone();
     let mut pos = 0.0;
     for _ in 0..env.num_positions {
-        s.loads = moving_loads::moving_loads_at_position_2d(&c.s, &env.train, &env.path, pos, span);
+        s.loads = moving_loads::moving_loads_at_position_2d(&c.s, &env.train, &env.path, pos)?;
         let raw = crate::response::static_2d(&linear::solve_2d(&s)?);
         let asm = assembly::assemble_2d(&s, &dof);
         let cs = FreeConstraintSystem::build_2d(&s, &dof)?;
@@ -758,7 +758,7 @@ pub fn moving_3d(
     let mut pos = 0.0;
     for _ in 0..env.num_positions {
         s.loads =
-            moving_loads::moving_loads_at_position_3d(&c.s, &env.train, "z", &env.path, pos, span);
+            moving_loads::moving_loads_at_position_3d(&c.s, &env.train, "z", &env.path, pos)?;
         let raw = crate::response::static_3d(&linear::solve_3d(&s)?);
         let asm = assembly::assemble_3d(&s, &dof);
         let cs = FreeConstraintSystem::build_3d(&s, &dof)?;

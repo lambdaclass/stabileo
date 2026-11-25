@@ -24,6 +24,7 @@
   import { toQ, unitQ } from '../../lib/store/display-units.svelte';
   import { downloadText } from '../../lib/store/file';
   import { errorText } from '../../lib/utils/error-text';
+  import { localizeEngineText } from '../../lib/i18n/engine-text';
   import { toCsv } from '../../lib/engine/result-tables';
   import { isVariableMember } from '../../lib/section/variable';
   import { getPredefinedTrains } from '../../lib/engine/moving-loads';
@@ -156,7 +157,7 @@
       else if (disposition) notes = [...notes, ...disposition.messages];
       if (result) resultProvenance = provenance(result);
     } catch (e) {
-      error = e instanceof DOMException && e.name === 'AbortError' ? t('train.analysisCancelled') : errorText(e, t('pro.unknownError'));
+      error = e instanceof DOMException && e.name === 'AbortError' ? t('train.analysisCancelled') : localizeEngineText(errorText(e, t('pro.unknownError')));
     } finally {
       running = false; controller = null;
     }

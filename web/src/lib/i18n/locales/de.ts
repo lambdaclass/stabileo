@@ -6018,6 +6018,7 @@ const de: Translations = {
   'edit.refused.ambiguousRoller': 'Legen Sie vor der Transformation die 3D-Bindungen des Rollenlagers ohne angeschlossene Stäbe ausdrücklich fest.',
   'edit.refused.missingSupportMembers': 'Beziehen Sie alle Stäbe ein, die das Bezugssystem des Rollenlagers definieren, oder kopieren Sie ohne Auflager.',
   'edit.refused.changedSupportFrame': 'Diese Transformation würde die lokalen Achsen eines Rollenlagers ändern. Passen Sie die Platzierung an oder verwenden Sie ein Lager im globalen Bezugssystem.',
+  "svc.engine.unresolvedMovingAxle": "Eine Achsposition an einem Knoten des Wanderlastpfads lässt sich nicht bestimmen.",
   'svc.engine.ambiguousRollerZ': 'Der Typ rollerZ ist in 3D mehrdeutig. Legen Sie die 3D-Bindungen vor der Berechnung ausdrücklich fest.',
   'edit.variableNotCut': '{n} Stäbe mit veränderlichem Querschnitt wurden ganz gelassen: Der Querschnitt an einer Teilungsstelle wäre keiner von der Art ihrer Enden (zwei Katalogprofile oder zwei Querschnitte, die sich nicht überblenden lassen).',
   'edit.cleanTitle': 'Bereinigen',

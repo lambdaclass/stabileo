@@ -491,6 +491,19 @@ pub fn solve_moving_loads_3d(json: &str) -> Result<String, JsValue> {
     to_json(&results)
 }
 
+#[wasm_bindgen]
+pub fn moving_axle_station(
+    start: f64, end: f64, length: f64, reversed: bool, position: f64,
+) -> Result<Option<f64>, JsValue> {
+    solver::moving_loads::sampled_axle_station(start, end, length, reversed, position)
+        .map_err(JsValue::from_str)
+}
+
+#[wasm_bindgen]
+pub fn check_moving_path_segment(start: f64, end: f64, length: f64) -> Result<(), JsValue> {
+    solver::moving_loads::check_path_segment(start, end, length).map_err(JsValue::from_str)
+}
+
 // ==================== Co-rotational Analysis ====================
 
 /// Solve 2D co-rotational (large displacement) analysis. JSON in → JSON out.

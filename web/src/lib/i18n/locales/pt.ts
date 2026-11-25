@@ -5909,6 +5909,7 @@ const pt: Translations = {
   'edit.refused.ambiguousRoller': 'Defina as restrições 3D explicitamente no apoio móvel sem barras antes de transformá-lo.',
   'edit.refused.missingSupportMembers': 'Inclua todas as barras que definem os eixos do apoio móvel ou copie sem apoios.',
   'edit.refused.changedSupportFrame': 'Esta transformação alteraria os eixos de um apoio móvel local. Ajuste a posição ou use um apoio em eixos globais.',
+  "svc.engine.unresolvedMovingAxle": "Não é possível determinar a posição de um eixo em um nó do trajeto da carga móvel.",
   'svc.engine.ambiguousRollerZ': 'O tipo rollerZ é ambíguo em 3D. Defina as restrições 3D explicitamente antes de resolver.',
   'edit.variableNotCut': '{n} barras de seção variável ficaram inteiras: a seção num corte não seria do tipo de suas extremidades (dois perfis de catálogo, ou duas seções que não se interpolam).',
   'edit.cleanTitle': 'Limpar',

@@ -6027,6 +6027,7 @@ const tr: Translations = {
   'edit.refused.ambiguousRoller': 'Dönüşümden önce çubuğa bağlı olmayan kayıcı mesnedin 3B kısıtlarını açıkça tanımlayın.',
   'edit.refused.missingSupportMembers': 'Kayıcı mesnedin eksenlerini tanımlayan tüm çubukları dahil edin veya mesnetler olmadan kopyalayın.',
   'edit.refused.changedSupportFrame': 'Bu dönüşüm, yerel eksenli bir kayıcı mesnedin eksenlerini değiştirir. Yerleşimi ayarlayın veya global eksenlerde tanımlı bir mesnet kullanın.',
+  "svc.engine.unresolvedMovingAxle": "Hareketli yük yolu üzerindeki bir düğümde aks konumu belirlenemiyor.",
   'svc.engine.ambiguousRollerZ': 'rollerZ türü 3B’de belirsizdir. Çözümden önce 3B kısıtları açıkça tanımlayın.',
   'edit.variableNotCut': 'Değişken kesitli {n} çubuk bütün bırakıldı: kesim yerindeki kesit, uçlarındaki türde bir kesit olmazdı (iki katalog profili veya birbirine geçiş yapmayan iki kesit).',
   'edit.cleanTitle': 'Temizle',

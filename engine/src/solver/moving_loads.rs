@@ -140,7 +140,7 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
         num_positions += 1;
 
         // Build loads for this position
-        let loads = moving_loads_at_position_2d(solver_input, train, &path, pos, total_length);
+        let loads = moving_loads_at_position_2d(solver_input, train, &path, pos)?;
 
         // Every position must solve: skipping a refusal would return an
         // incomplete envelope, or all zeros if every position failed.
@@ -192,20 +192,16 @@ pub fn moving_loads_at_position_2d(
     train: &LoadTrain,
     path: &[PathSegment],
     pos: f64,
-    total_length: f64,
-) -> Vec<SolverLoad> {
+) -> Result<Vec<SolverLoad>, String> {
     let mut loads = base_loads(solver_input);
 
     for axle in &train.axles {
         let axle_pos = pos + axle.offset;
-        if axle_pos < -1e-10 || axle_pos > total_length + 1e-10 {
-            continue;
-        }
 
-        // Find which segment this axle is on
         if let Some((seg, a)) = path.iter().find_map(|seg| {
-            sampled_axle_station(seg.start_pos, seg.end_pos, seg.length, seg.reversed, axle_pos).map(|a| (seg, a))
-        }) {
+            sampled_axle_station(seg.start_pos, seg.end_pos, seg.length, seg.reversed, axle_pos)
+                .map(|station| station.map(|a| (seg, a))).transpose()
+        }).transpose()? {
             // The axle weight acts straight down (−Z). In member axes (local
             // x = (c, s) from node_i to node_j, local y = (−s, c)) that is
             // p = −W·c transverse and px = −W·s axial — for any orientation.
@@ -222,7 +218,7 @@ pub fn moving_loads_at_position_2d(
         }
     }
 
-    loads
+    Ok(loads)
 }
 
 pub fn build_load_path(
@@ -260,6 +256,7 @@ pub fn build_load_path(
         let cos = dx / l;
         let sin = dy / l;
 
+        check_path_segment(cum_pos, cum_pos + l, l)?;
         path.push(PathSegment {
             element_id: *eid,
             start_pos: cum_pos,
@@ -289,20 +286,47 @@ fn auto_detect_path(input: &SolverInput) -> Result<Vec<usize>, String> {
     Ok(elem_list.iter().map(|e| e.id).collect())
 }
 
-fn sampled_axle_station(start: f64, end: f64, length: f64, reversed: bool, position: f64) -> Option<f64> {
-    if !(position >= start - 1e-10 && position <= end + 1e-10) {
-        return None;
-    }
-    let local = (position - start).max(0.0).min(length);
-    let endpoint_roundoff = 8.0 * f64::EPSILON * length;
-    let station = if local <= endpoint_roundoff {
-        0.0
-    } else if length - local <= endpoint_roundoff {
-        length
+const UNRESOLVED_AXLE_STATION: &str = "Moving loads: axle position cannot be resolved at a path joint";
+
+fn joint_roundoff(station: f64, length: f64) -> f64 {
+    let scale = if station == 0.0 { length } else { station.abs() };
+    (8.0 * f64::EPSILON) * scale
+}
+
+pub(crate) fn check_path_segment(start: f64, end: f64, length: f64) -> Result<(), &'static str> {
+    if length.is_finite() && length > 0.0 && end.is_finite()
+        && end - start > joint_roundoff(start, length) + joint_roundoff(end, length)
+    {
+        Ok(())
     } else {
-        local
-    };
-    Some(if reversed { length - station } else { station })
+        Err(UNRESOLVED_AXLE_STATION)
+    }
+}
+
+pub(crate) fn sampled_axle_station(
+    start: f64, end: f64, length: f64, reversed: bool, position: f64,
+) -> Result<Option<f64>, &'static str> {
+    check_path_segment(start, end, length)?;
+    if !position.is_finite() {
+        return Err(UNRESOLVED_AXLE_STATION);
+    }
+    let from_start = position - start;
+    let to_end = end - position;
+    if from_start.abs() <= joint_roundoff(start, length) {
+        return Ok(Some(if reversed { length } else { 0.0 }));
+    }
+    if to_end.abs() <= joint_roundoff(end, length) {
+        return Ok(Some(if reversed { 0.0 } else { length }));
+    }
+    if from_start < 0.0 || to_end < 0.0 {
+        return Ok(None);
+    }
+    let a = if reversed { to_end } else { from_start };
+    if 0.0 < a && a < length {
+        Ok(Some(a))
+    } else {
+        Err(UNRESOLVED_AXLE_STATION)
+    }
 }
 
 /// The permanent loads, all of them: every load in the input is permanent (the train's axle
@@ -431,8 +455,8 @@ pub fn solve_moving_loads_3d(input: &MovingLoadInput3D) -> Result<MovingLoadEnve
 
         // Build loads for this position
         let loads = moving_loads_at_position_3d_with_maps(
-            solver_input, train, gravity, &path, pos, total_length, &maps,
-        );
+            solver_input, train, gravity, &path, pos, &maps,
+        )?;
 
         // Constrained models bypass preparation, so geometry refusals arrive
         // here. Propagate them rather than returning a zero/partial envelope.
@@ -509,10 +533,9 @@ pub fn moving_loads_at_position_3d(
     gravity: &str,
     path: &[PathSegment3D],
     pos: f64,
-    total_length: f64,
-) -> Vec<SolverLoad3D> {
+) -> Result<Vec<SolverLoad3D>, String> {
     let maps = MovingLoadMaps3d::new(solver_input);
-    moving_loads_at_position_3d_with_maps(solver_input, train, gravity, path, pos, total_length, &maps)
+    moving_loads_at_position_3d_with_maps(solver_input, train, gravity, path, pos, &maps)
 }
 
 /// Same as `moving_loads_at_position_3d` but takes pre-built lookup maps, so
@@ -524,22 +547,19 @@ pub fn moving_loads_at_position_3d_with_maps(
     gravity: &str,
     path: &[PathSegment3D],
     pos: f64,
-    total_length: f64,
     maps: &MovingLoadMaps3d,
-) -> Vec<SolverLoad3D> {
+) -> Result<Vec<SolverLoad3D>, String> {
     let node_by_id = &maps.node_by_id;
     let elem_by_id = &maps.elem_by_id;
     let mut loads = base_loads_3d(solver_input);
 
     for axle in &train.axles {
         let axle_pos = pos + axle.offset;
-        if axle_pos < -1e-10 || axle_pos > total_length + 1e-10 {
-            continue;
-        }
 
         if let Some((seg, a)) = path.iter().find_map(|seg| {
-            sampled_axle_station(seg.start_pos, seg.end_pos, seg.length, seg.reversed, axle_pos).map(|a| (seg, a))
-        }) {
+            sampled_axle_station(seg.start_pos, seg.end_pos, seg.length, seg.reversed, axle_pos)
+                .map(|station| station.map(|a| (seg, a))).transpose()
+        }).transpose()? {
             // Gravity vector in global coordinates
             let (gx, gy, gz) = match gravity {
                 "y" => (0.0, -axle.weight, 0.0),
@@ -574,7 +594,7 @@ pub fn moving_loads_at_position_3d_with_maps(
         }
     }
 
-    loads
+    Ok(loads)
 }
 
 pub fn build_load_path_3d(
@@ -610,6 +630,7 @@ pub fn build_load_path_3d(
         let dz = nj.z - ni.z;
         let l = (dx * dx + dy * dy + dz * dz).sqrt();
 
+        check_path_segment(cum_pos, cum_pos + l, l)?;
         path.push(PathSegment3D {
             element_id: *eid,
             start_pos: cum_pos,

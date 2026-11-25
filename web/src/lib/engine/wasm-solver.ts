@@ -56,6 +56,8 @@ let wasmSolveModal2d: ((json: string, numModes: number) => string) | null = null
 let wasmSolveSpectral2d: ((json: string) => string) | null = null;
 let wasmSolvePlastic2d: ((json: string) => string) | null = null;
 let wasmSolveMovingLoads2d: ((json: string) => string) | null = null;
+let wasmMovingAxleStation: ((start: number, end: number, length: number, reversed: boolean, position: number) => number | undefined) | null = null;
+let wasmCheckMovingPathSegment: ((start: number, end: number, length: number) => void) | null = null;
 
 // 2D advanced analysis WASM functions
 let wasmSolveCorotational2d: ((json: string, maxIter: number, tolerance: number, nIncrements: number) => string) | null = null;
@@ -265,6 +267,8 @@ export async function initSolver(): Promise<void> {
     wasmSolveSpectral2d = wasm.solve_spectral_2d;
     wasmSolvePlastic2d = wasm.solve_plastic_2d;
     wasmSolveMovingLoads2d = wasm.solve_moving_loads_2d;
+    wasmMovingAxleStation = wasm.moving_axle_station;
+    wasmCheckMovingPathSegment = wasm.check_moving_path_segment;
     // 2D advanced
     wasmSolveCorotational2d = wasm.solve_corotational_2d;
     wasmSolveNonlinearMaterial2d = wasm.solve_nonlinear_material_2d;
@@ -1291,6 +1295,16 @@ export function solvePlastic(config: {
   return JSON.parse(resultJson);
 }
 
+export function movingAxleStation(start: number, end: number, length: number, reversed: boolean, position: number): number | undefined {
+  if (!wasmReady || !wasmMovingAxleStation) throw new EngineUnavailableError('moving axle station');
+  return wasmMovingAxleStation(start, end, length, reversed, position);
+}
+
+export function checkMovingPathSegment(start: number, end: number, length: number): void {
+  if (!wasmReady || !wasmCheckMovingPathSegment) throw new EngineUnavailableError('moving axle station');
+  wasmCheckMovingPathSegment(start, end, length);
+}
+
 /** Solve 2D moving loads analysis via WASM. */
 export function solveMovingLoads(config: {
   solver: SolverInput;
@@ -1300,14 +1314,7 @@ export function solveMovingLoads(config: {
 }) {
   if (!wasmReady || !wasmSolveMovingLoads2d) throw new Error('WASM solver not available.');
   const payload = finiteWireJson({
-    solver: {
-      nodes: mapToObj(config.solver.nodes),
-      materials: mapToObj(config.solver.materials),
-      sections: mapToObj(config.solver.sections),
-      elements: mapToObj(config.solver.elements),
-      supports: mapToObj(config.solver.supports),
-      loads: config.solver.loads,
-    },
+    solver: input2DToWireObject(config.solver),
     train: config.train,
     step: config.step,
     pathElementIds: config.pathElementIds,

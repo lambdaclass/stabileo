@@ -22,6 +22,7 @@
 import type { LoadTrain } from './moving-loads';
 import type { Load } from '../store/model.svelte';
 import type { PathSegment3D } from './moving-loads-3d';
+import { locateAxle } from './moving-axle-station';
 
 export interface Vehicle extends LoadTrain {
   /** The gap before axle `axle` (its offset minus the previous one's) ranging over [min, max]. */
@@ -119,11 +120,14 @@ export function vehicleFromJson(text: string): Vehicle | null {
 }
 
 /** Where an arc length along a path falls: the member and the distance from its node I. */
-export function pathPoint(path: readonly PathSegment3D[], s: number): { elementId: number; a: number } | null {
-  const seg = path.find((p) => s >= p.cumStart - 1e-12 && s <= p.cumStart + p.length + 1e-12);
-  if (!seg) return null;
-  const along = Math.min(Math.max(s - seg.cumStart, 0), seg.length);
-  return { elementId: seg.elementId, a: seg.reversed ? seg.length - along : along };
+export function pathPoint(path: readonly PathSegment3D[], s: number):
+  { nodeId: number } | { elementId: number; a: number } | null {
+  const at = locateAxle(path, s, (seg) => seg.reversed);
+  if (!at) return null;
+  const { segment: seg, a } = at;
+  if (a === 0) return { nodeId: seg.reversed ? seg.to : seg.from };
+  if (a === seg.length) return { nodeId: seg.reversed ? seg.from : seg.to };
+  return { elementId: seg.elementId, a };
 }
 
 /**
@@ -138,7 +142,12 @@ export function trainModelLoads(train: LoadTrain, ref: number, path: readonly Pa
     for (const p of path2 ? [path, path2] : [path]) {
       const at = pathPoint(p, ref + axle.offset);
       if (!at) continue;
-      out.push({ type: 'pointOnElement3d', data: { id: 0, elementId: at.elementId, a: at.a, px: 0, py: 0, pz: -axle.weight * share, frame: 'global', caseId } });
+      const fz = -axle.weight * share;
+      if ('nodeId' in at) {
+        out.push({ type: 'nodal3d', data: { id: 0, nodeId: at.nodeId, fx: 0, fy: 0, fz, mx: 0, my: 0, mz: 0, caseId } });
+      } else {
+        out.push({ type: 'pointOnElement3d', data: { id: 0, elementId: at.elementId, a: at.a, px: 0, py: 0, pz: fz, frame: 'global', caseId } });
+      }
     }
   }
   return out;

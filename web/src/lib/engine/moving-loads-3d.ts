@@ -30,6 +30,7 @@ import type { SolverInput3D, SolverLoad3D, AnalysisResults3D } from './types-3d'
 import type { LoadTrain } from './moving-loads';
 import { buildSolverInput3D, type ModelData } from './solver-service';
 import { withoutSettlement } from './settlement-case';
+import { checkAxlePath, locateAxle } from './moving-axle-station';
 // The position cases read the same symmetry and the same reversed train (`vehicles.ts`).
 import { isSymmetric, reversedTrain, usableStep } from './vehicles';
 
@@ -93,20 +94,21 @@ export function buildPath3D(input: SolverInput3D, ids: number[]): PathSegment3D[
 
 /** The solver loads of `train` with its reference axle at `refPos` along the path. */
 export function trainLoads(input: SolverInput3D, path: PathSegment3D[], train: LoadTrain, refPos: number): SolverLoad3D[] {
-  const total = path.reduce((s, p) => s + p.length, 0);
   const loads: SolverLoad3D[] = [];
   for (const axle of train.axles) {
-    const s = refPos + axle.offset;
-    if (s < 0 || s > total) continue;
-    const seg = path.find((p) => s >= p.cumStart - 1e-12 && s <= p.cumStart + p.length + 1e-12);
-    if (!seg) continue;
+    const at = locateAxle(path, refPos + axle.offset, (seg) => seg.reversed);
+    if (!at) continue;
+    const { segment: seg, a } = at;
     const e = input.elements.get(seg.elementId)!;
+    if (a === 0 || a === seg.length) {
+      const nodeId = a === 0 ? e.nodeI : e.nodeJ;
+      loads.push({ type: 'nodal', data: { nodeId, fx: 0, fy: 0, fz: -axle.weight, mx: 0, my: 0, mz: 0 } });
+      continue;
+    }
     const ni = input.nodes.get(e.nodeI)!, nj = input.nodes.get(e.nodeJ)!;
     const localY = e.localYx !== undefined && e.localYy !== undefined && e.localYz !== undefined
       ? { x: e.localYx, y: e.localYy, z: e.localYz } : undefined;
     const axes = computeLocalAxes3D(ni, nj, localY, e.rollAngle ?? 0, false);
-    const along = Math.min(Math.max(s - seg.cumStart, 0), seg.length);
-    const a = seg.reversed ? seg.length - along : along;
     const F: [number, number, number] = [0, 0, -axle.weight];
     const dot = (v: readonly number[]) => v[0]! * F[0] + v[1]! * F[1] + v[2]! * F[2];
     const py = dot(axes.ey), pz = dot(axes.ez), px = dot(axes.ex);
@@ -193,6 +195,8 @@ export async function sweepMovingLoad3D(
   base: SolverInput3D, path: PathSegment3D[], train: LoadTrain, opts: MovingLoad3DOptions = {},
 ): Promise<MovingEnvelope3D> {
   requireCableAnalysis(base.elements.values());
+  checkAxlePath(path);
+  if (opts.path2) checkAxlePath(opts.path2);
   // At least `MIN_STEP`: a step of a few micrometres ran for ever.
   const step = usableStep(opts.step ?? 0, 0.25);
   const total = path.reduce((s, p) => s + p.length, 0);
@@ -211,11 +215,10 @@ export async function sweepMovingLoad3D(
     for (const p of passes) {
       for (const r of p.refs) {
         if (opts.signal?.aborted) throw new DOMException('aborted', 'AbortError');
+        const loads = opts.path2
+          ? [...trainLoads(base, path, half(p.train), r), ...trainLoads(base, opts.path2, half(p.train), r)]
+          : trainLoads(base, path, p.train, r);
         try {
-          // Two wheel lines: half the train on each path (`MovingLoad3DOptions.path2`).
-          const loads = opts.path2
-            ? [...trainLoads(base, path, half(p.train), r), ...trainLoads(base, opts.path2, half(p.train), r)]
-            : trainLoads(base, path, p.train, r);
           const result = session.solve(loads);
           const diagnostics = result.structuredDiagnostics ?? [];
           if (diagnostics.some(d => d.code === 'known_issue' && d.severity === 'error')) {

@@ -74,7 +74,6 @@ fn assert_force(actual: f64, expected: f64) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2101"]
 fn issue_2101_inclined_support_moving_shear() {
     let fixture: Value =
         serde_json::from_str(include_str!("../fixtures/moving-shear-2101.json")).unwrap();
@@ -140,7 +139,6 @@ fn issue_2101_inclined_support_moving_shear() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2104"]
 fn issue_2104_tip_spring_moving_shear() {
     let fixture: Value =
         serde_json::from_str(include_str!("../fixtures/moving-shear-2104.json")).unwrap();
@@ -190,7 +188,6 @@ fn issue_2104_tip_spring_moving_shear() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2104"]
 fn issue_2104_cumulative_station_resolves_both_sides_of_a_joint() {
     use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
 
@@ -249,6 +246,44 @@ fn issue_2104_cumulative_station_resolves_both_sides_of_a_joint() {
                 s.vy_max_pos.max(s.vz_max_pos) - s.vy_max_neg.min(s.vz_max_neg),
                 expected,
             );
+        }
+    }
+
+    solver.elements.retain(|_, element| element.id <= 2);
+    solver.nodes.retain(|_, node| node.id <= 3);
+    solver.supports.remove("4");
+    let start = 1_000_000.0_f64;
+    let ulp = start.next_up() - start;
+    solver.nodes.get_mut("2").unwrap().x = start;
+    solver.nodes.get_mut("3").unwrap().x = start;
+    for (width, resolvable) in [(30.0 * ulp, false), (31.0 * ulp, true)] {
+        solver.nodes.get_mut("3").unwrap().z = width;
+        let spatial = embed_2d(&solver, Plane::XZ).unwrap();
+        let planar = solve_moving_loads_2d(&MovingLoadInput {
+            solver: solver.clone(),
+            train: train.clone(),
+            step: Some(start),
+            path_element_ids: Some(vec![1, 2]),
+        });
+        let spatial = solve_moving_loads_3d(&MovingLoadInput3D {
+            solver: spatial,
+            train: train.clone(),
+            step: Some(start),
+            path_element_ids: Some(vec![1, 2]),
+            gravity_direction: None,
+        });
+        if resolvable {
+            let p = &planar.unwrap().elements["2"];
+            assert_force(p.v_max_pos - p.v_max_neg, 0.0);
+            let s = &spatial.unwrap().elements["2"];
+            assert_force(
+                s.vy_max_pos.max(s.vz_max_pos) - s.vy_max_neg.min(s.vz_max_neg),
+                0.0,
+            );
+        } else {
+            let error = "Moving loads: axle position cannot be resolved at a path joint";
+            assert_eq!(planar.unwrap_err(), error);
+            assert_eq!(spatial.unwrap_err(), error);
         }
     }
 }

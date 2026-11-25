@@ -6018,6 +6018,7 @@ const fr: Translations = {
   'edit.refused.ambiguousRoller': 'Définissez explicitement les blocages 3D de l’appui à rouleaux sans barre avant de le transformer.',
   'edit.refused.missingSupportMembers': 'Incluez toutes les barres qui définissent les axes de l’appui à rouleaux ou copiez sans les appuis.',
   'edit.refused.changedSupportFrame': 'Cette transformation modifierait les axes locaux d’un appui à rouleaux. Ajustez le placement ou utilisez un appui défini dans les axes globaux.',
+  "svc.engine.unresolvedMovingAxle": "La position d’un essieu ne peut pas être déterminée à un nœud du trajet de la charge mobile.",
   'svc.engine.ambiguousRollerZ': 'Le type rollerZ est ambigu en 3D. Définissez explicitement les blocages 3D avant le calcul.',
   'edit.variableNotCut': '{n} barres à section variable sont restées entières : la section à la coupe ne serait pas du même type que celles de leurs extrémités (deux profilés du catalogue, ou deux sections qui ne se raccordent pas).',
   'edit.cleanTitle': 'Nettoyer',

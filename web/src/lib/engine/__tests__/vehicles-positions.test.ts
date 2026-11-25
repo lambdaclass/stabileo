@@ -187,10 +187,9 @@ describe('the second wheel line', () => {
     const r = addPositionCases('axle', [{ name: 'axle', axles: [{ offset: 0, weight: 100 }] }], ids, [...ids2].reverse(), 8, 1.8);
     expect('cases' in r && r.notes).toEqual([]);
     const mid = modelStore.model.loadCases.find((c) => c.name.includes('8.00'))!;
-    const xs = modelStore.model.loads.filter((l) => (l.data as { caseId: number }).caseId === mid.id).map((l) => {
-      const d = l.data as { elementId: number; a: number };
-      return modelStore.nodes.get(modelStore.elements.get(d.elementId)!.nodeI)!.x + d.a;
-    });
+    const loads = modelStore.model.loads.filter((l) => l.data.caseId === mid.id);
+    expect(loads.every((l) => l.type === 'nodal3d')).toBe(true);
+    const xs = loads.map((l) => modelStore.nodes.get((l.data as { nodeId: number }).nodeId)!.x);
     expect(xs).toEqual([8, 8]);
   });
 });

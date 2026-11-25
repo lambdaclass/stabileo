@@ -4129,6 +4129,7 @@ const zh: Translations = {
   "svc.engine.invalidDensity": "请为材料 {id} 输入有限且非负的密度 (rho)（收到的值为 {value}）。",
   "svc.engine.nonnegativeMassDensity": "质量密度必须有限且非负",
   "svc.engine.nonFiniteNumber": "请为 {path} 输入有限数值（收到的值为 {value}）。",
+  "svc.engine.unresolvedMovingAxle": "无法确定移动荷载路径节点处的车轴位置。",
   "svc.engine.ambiguousRollerZ": "rollerZ 在三维模型中的约束方向不明确。请明确指定三维约束后再求解。",
   "svc.engine.zeroDiagonal": "所有对角元素均为零：矩阵奇异",
   "svc.engine.singular": "刚度矩阵奇异",

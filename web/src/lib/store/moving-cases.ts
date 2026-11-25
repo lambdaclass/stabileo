@@ -20,6 +20,8 @@ import { withoutSettlement } from '../engine/settlement-case';
 import { buildPath3D } from '../engine/moving-loads-3d';
 import { alignSecondLine, passCount, positionPasses, trainModelLoads } from '../engine/vehicles';
 import { errorText } from '../utils/error-text';
+import { checkAxlePath } from '../engine/moving-axle-station';
+import { localizeEngineText } from '../i18n/engine-text';
 import type { LoadTrain } from '../engine/moving-loads';
 
 /** The most cases one run writes: more is a step to widen. */
@@ -65,15 +67,28 @@ export function addPositionCases(
     const mine = n + modelStore.model.loadCases.filter((lc) => lc.alternatives === group).length;
     notes.push({ key: 'moving.groupsMultiply', params: { groups: others.size + 1, n: [...others.values()].reduce((p, k) => p * k, mine) } });
   }
-  modelStore.batch(() => {
+  const cases: Array<{ title: string; loads: ReturnType<typeof trainModelLoads> }> = [];
+  try {
+    checkAxlePath(path);
+    if (line2?.path2) checkAxlePath(line2.path2);
     for (const train of trains) {
       for (const pass of positionPasses(train, total, step)) {
         for (const r of pass.refs) {
-          const id = modelStore.addLoadCase(tp(pass.reversed ? 'moving.positionCaseBack' : 'moving.positionCase', { name: train.name, x: r.toFixed(2) }), 'Tr', { alternatives: group });
-          for (const l of trainModelLoads(pass.train, r, path, line2?.path2 ?? null, id)) modelStore.addLoadEntry(l);
+          cases.push({
+            title: tp(pass.reversed ? 'moving.positionCaseBack' : 'moving.positionCase', { name: train.name, x: r.toFixed(2) }),
+            loads: trainModelLoads(pass.train, r, path, line2?.path2 ?? null, 0),
+          });
         }
       }
     }
+  } catch (error) {
+    return { error: localizeEngineText(errorText(error, 'Error')) };
+  }
+  modelStore.batch(() => {
+    for (const { title, loads } of cases) {
+      const id = modelStore.addLoadCase(title, 'Tr', { alternatives: group });
+      for (const load of loads) modelStore.addLoadEntry({ ...load, data: { ...load.data, caseId: id } } as typeof load);
+    }
   });
-  return { cases: n, notes };
+  return { cases: cases.length, notes };
 }

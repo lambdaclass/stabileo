@@ -6464,6 +6464,7 @@ const es: Record<string, string> = {
   'edit.refused.ambiguousRoller': 'Definí restricciones 3D explícitas para el rodillo sin barras antes de transformarlo.',
   'edit.refused.missingSupportMembers': 'Incluí todas las barras que definen los ejes del rodillo, o copiá sin apoyos.',
   'edit.refused.changedSupportFrame': 'Esta transformación cambiaría los ejes de un rodillo local. Ajustá la ubicación o usá un apoyo en ejes globales.',
+  "svc.engine.unresolvedMovingAxle": "No se puede determinar la posición de un eje en un nudo del recorrido de la carga móvil.",
   'svc.engine.ambiguousRollerZ': 'El tipo rollerZ es ambiguo en 3D. Definí restricciones 3D explícitas antes de resolver.',
   'edit.variableNotCut': '{n} barras de sección variable quedaron enteras: la sección en un corte no sería una del tipo de sus extremos (dos perfiles de catálogo, o dos secciones que no se interpolan).',
   'edit.cleanTitle': 'Limpiar',

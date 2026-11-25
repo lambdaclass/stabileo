@@ -1349,7 +1349,7 @@ fn bench_moving_influence_reuse(c: &mut Criterion) {
             b.iter(|| {
                 let mut pos = -max_offset;
                 while pos <= total_length + 1e-10 {
-                    let loads = moving_loads_at_position_2d(solver, &train, &path, pos, total_length);
+                    let loads = moving_loads_at_position_2d(solver, &train, &path, pos).unwrap();
                     let mut mi = solver.clone();
                     mi.loads = loads;
                     criterion::black_box(linear::solve_2d(&mi).unwrap());
