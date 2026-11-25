@@ -79,3 +79,37 @@ it('keeps the tributary-width profile for an independent rafter and for explicit
     }
   }
 });
+
+const gapResult = process.env.RUN_KNOWN_WRONG === '2295' ? it : it.skip;
+
+gapResult('known wrong result: #2295 the rafter receives the uncovered part of a rigidly attached roof run', () => {
+  const developed = Math.hypot(10, 2) / 10;
+  for (const [start, end] of [[4, 6], [2, 4]] as const) {
+    for (const [angle, mirror, subdivided] of [[0, 1, false], [0.53, -1, true]] as const) {
+      const { model } = offsetRoof(0.02, angle, mirror, subdivided, [start, end]);
+      const plan = roofPlan(model);
+      expect(plan.outcome).toBe('READY');
+      const dead = plan.distributed.filter(load => load.caseType === 'D');
+      expect(dead).toHaveLength(1);
+      expect(dead[0]).toMatchObject({ elementId: subdivided ? 2 : 1, frame: 'global', q: -options.tributaryWidth });
+      const load = dead[0]!;
+      const el = model.elements.get(load.elementId)!;
+      const a = model.nodes.get(el.nodeI)!, b = model.nodes.get(el.nodeJ)!;
+      const length = Math.hypot(b.x - a.x, b.y - a.y, b.z! - a.z!);
+      const localRun = a.x * Math.cos(angle) + a.y * Math.sin(angle);
+      const firstStation = load.a ?? 0, lastStation = load.b ?? length;
+      expect(localRun + firstStation / developed).toBeCloseTo(start, 10);
+      expect(localRun + lastStation / developed).toBeCloseTo(end, 10);
+      const shellArea = 4 * (10 - (end - start)) * developed;
+      const beamForce = options.tributaryWidth * (lastStation - firstStation);
+      expect(beamForce).toBeCloseTo(3 * (end - start) * developed, 10);
+      expect(plan.surface.filter(load => load.caseType === 'D')).toEqual([
+        { quadId: 1, caseType: 'D', q: 1 }, { quadId: 2, caseType: 'D', q: 1 },
+      ]);
+      expect(plan.levels.reduce((sum, l) => sum + l.superimposedKN, 0)).toBeCloseTo(shellArea + beamForce, 10);
+      const actualFirst = (localRun + (firstStation + lastStation) / (2 * developed)) * beamForce
+        + 2 * (start ** 2 + 100 - end ** 2) * developed;
+      expect(actualFirst).toBeCloseTo((200 - (end ** 2 - start ** 2) / 2) * developed, 10);
+    }
+  }
+});
