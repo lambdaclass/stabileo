@@ -5,7 +5,8 @@ use super::dof::DofNumbering;
 use super::assembly::*;
 use super::linear::SPARSE_THRESHOLD;
 use super::mass_matrix::*;
-use super::load_work::{gamma, mul_up, Work};
+use super::load_work::{product_rounding, Work};
+use super::stiffness_roundoff::{SolveStiffnessRoundoff, StiffnessRoundoff};
 use super::modal_mass::MassRange;
 use super::constraints::{FreeConstraintSystem, MasterMotion};
 
@@ -99,13 +100,18 @@ pub fn solve_modal_2d(
     // K is assembled in the inclined-roller frames (the same rotations by
     // either assembler); M, the influence vectors and the mode shapes follow.
     let sparse = nf >= SPARSE_THRESHOLD;
+    let mut stiffness_roundoff = StiffnessRoundoff::default();
+    let properties = crate::types::units::ElasticProperties2D::from_legacy(input);
     let (k_sparse, k_dense, its) = if sparse {
-        let s = super::sparse_assembly::assemble_stiffness_sparse_2d(input, &dof_num);
+        let s = super::sparse_assembly::assemble_stiffness_sparse_2d_recording(
+            input, &dof_num, &properties, Some(&mut stiffness_roundoff),
+        );
         (Some(s.k_ff), None, s.inclined_transforms_2d)
     } else {
-        let s = assemble_stiffness_2d(input, &dof_num);
+        let s = assemble_stiffness_2d_recording(input, &dof_num, &properties, Some(&mut stiffness_roundoff));
         (None, Some(extract_submatrix(&s.k, n, &free_idx, &free_idx)), s.inclined_transforms_2d)
     };
+    let stiffness_roundoff = stiffness_roundoff.finish(nf, cs.as_ref()).ok_or_else(stiffness_conditioning_refusal)?;
 
     // The ground-motion load of a unit rigid translation along X and along Y
     // is (M·r)_f with r = 1 on EVERY node's translation, supports included
@@ -148,7 +154,7 @@ pub fn solve_modal_2d(
             (k_ff, m_csc)
         };
         let ns = k_solve.n;
-        ModalStiffness::Sparse(&k_solve).reject_massive_null_translation(&mass_range, &dof_num, cs.as_ref(), &its, &[0, 2])?;
+        ModalStiffness::sparse(&k_solve, &stiffness_roundoff).reject_massive_null_translation(&mass_range, &dof_num, cs.as_ref(), &its, &[0, 2])?;
         let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(&k_solve, |observe| {
             mass_range.solve_sparse(&k_solve, &m_solve, num_modes, observe)
         });
@@ -183,7 +189,7 @@ pub fn solve_modal_2d(
         } else {
             (k_ff.clone(), m_ff.clone(), nf)
         };
-        ModalStiffness::Dense(&k_solve, ns).reject_massive_null_translation(&mass_range, &dof_num, cs.as_ref(), &its, &[0, 2])?;
+        ModalStiffness::dense(&k_solve, ns, &stiffness_roundoff).reject_massive_null_translation(&mass_range, &dof_num, cs.as_ref(), &its, &[0, 2])?;
         let result = mass_range.solve_dense(&k_solve, &m_solve, num_modes)
             .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(ns))?;
         crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::dense_stiffness_conditioning(&k_solve, ns).into_iter().collect());
@@ -221,7 +227,11 @@ pub fn solve_modal_2d(
             (Some(kk), Some(mm)) => mass_range.solve_sparse(kk, mm, k, &mut |_| {}),
             _ => mass_range.solve_dense(&k_check_dense, &m_solve, k),
         };
-        let classify = |r: &EigenResult| null_modes_or_mechanism(r, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_z)], &[&m_r_x, &m_r_y], &free, &shape, &dof_num, &["ux", "uz", "ry"], &k_abs);
+        let stiffness = match &k_check_sparse {
+            Some(k) => ModalStiffness::sparse(k, &stiffness_roundoff),
+            None => ModalStiffness::dense(&k_check_dense, ns, &stiffness_roundoff),
+        };
+        let classify = |r: &EigenResult| null_modes_or_mechanism(r, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_z)], &[&m_r_x, &m_r_y], &free, &shape, &dof_num, &["ux", "uz", "ry"], &k_abs, &stiffness);
         with_replacements(&result, num_modes, ns, &classify, &eigen)?
     };
 
@@ -376,16 +386,36 @@ const ZERO_CANCELLATION: f64 = 1e-14;
 const TRANSLATION_ROUND_OFF: f64 = 1e-8;
 const MASSLESS: f64 = 1e-12;
 
-enum ModalStiffness<'a> {
+fn stiffness_conditioning_refusal() -> String {
+    crate::refusal::coded(
+        DiagnosticCode::ModalStiffnessConditioning,
+        "Modal analysis: stiffness conditioning prevents reliable resolution of a positive mode. No modes are returned.",
+    )
+}
+
+enum StiffnessMatrix<'a> {
     Dense(&'a [f64], usize),
     Sparse(&'a CscMatrix),
 }
 
-impl ModalStiffness<'_> {
+struct ModalStiffness<'a> {
+    matrix: StiffnessMatrix<'a>,
+    roundoff: &'a SolveStiffnessRoundoff,
+}
+
+impl<'a> ModalStiffness<'a> {
+    fn dense(k: &'a [f64], size: usize, roundoff: &'a SolveStiffnessRoundoff) -> Self {
+        Self { matrix: StiffnessMatrix::Dense(k, size), roundoff }
+    }
+
+    fn sparse(k: &'a CscMatrix, roundoff: &'a SolveStiffnessRoundoff) -> Self {
+        Self { matrix: StiffnessMatrix::Sparse(k), roundoff }
+    }
+
     fn value(&self, row: usize, col: usize) -> f64 {
-        match self {
-            Self::Dense(k, n) => k[row * n + col],
-            Self::Sparse(k) => {
+        match self.matrix {
+            StiffnessMatrix::Dense(k, n) => k[row * n + col],
+            StiffnessMatrix::Sparse(k) => {
                 let (row, col) = (row.max(col), row.min(col));
                 let start = k.col_ptr[col];
                 k.row_idx[start..k.col_ptr[col + 1]]
@@ -393,6 +423,21 @@ impl ModalStiffness<'_> {
                     .map_or(0.0, |offset| k.values[start + offset])
             }
         }
+    }
+
+    fn elastic_work(&self, direction: &[f64]) -> Work {
+        let mut work = Work::default();
+        for ((row, col), bound) in self.roundoff.entries() {
+            let a = direction[row];
+            let b = direction[col];
+            if a != 0.0 && b != 0.0 {
+                let product = a * b;
+                work.product(
+                    self.value(row, col), bound, product, product_rounding(a, b, product),
+                );
+            }
+        }
+        work
     }
 
     fn reject_massive_null_translation(
@@ -403,9 +448,9 @@ impl ModalStiffness<'_> {
         inclined: &[impl InclinedFrame],
         axes: &[usize],
     ) -> Result<(), String> {
-        let size = match self {
-            Self::Dense(_, n) => *n,
-            Self::Sparse(k) => k.n,
+        let size = match self.matrix {
+            StiffnessMatrix::Dense(_, n) => n,
+            StiffnessMatrix::Sparse(k) => k.n,
         };
         let full = dof.entries_by_dof();
         let mut translations = BTreeMap::<usize, Vec<usize>>::new();
@@ -425,7 +470,6 @@ impl ModalStiffness<'_> {
             translations.entry(node).or_default().push(reduced);
         }
 
-        let entry_round_off = gamma(8);
         for (node, coordinates) in translations {
             let n = coordinates.len();
             let block: Vec<_> = coordinates.iter().flat_map(|&row| {
@@ -434,18 +478,16 @@ impl ModalStiffness<'_> {
             let (_, vectors) = super::stability::sym_eigen_small(&block, n);
             for column in 0..n {
                 let direction: Vec<_> = (0..n).map(|row| vectors[row * n + column]).collect();
-                let force_is_zero = |coefficients: &mut dyn Iterator<Item = f64>| {
+                let force_is_zero = |row| {
                     let mut force = Work::default();
-                    for (coefficient, &displacement) in coefficients.zip(&direction) {
-                        force.product(coefficient, mul_up(entry_round_off, coefficient.abs()), displacement, 0.0);
+                    for (&col, &displacement) in coordinates.iter().zip(&direction) {
+                        force.product(self.value(row, col), self.roundoff.error(row, col), displacement, 0.0);
                     }
                     force.contains_zero()
                 };
-                if !block.chunks_exact(n).all(|row| force_is_zero(&mut row.iter().copied()))
+                if !coordinates.iter().copied().all(force_is_zero)
                     || !mass.has_mass_in(&coordinates, &direction, ZERO_CANCELLATION)
-                    || !(0..size).filter(|row| !coordinates.contains(row)).all(|row| {
-                        force_is_zero(&mut coordinates.iter().map(|&col| self.value(row, col)))
-                    })
+                    || !(0..size).filter(|row| !coordinates.contains(row)).all(force_is_zero)
                 {
                     continue;
                 }
@@ -487,6 +529,7 @@ fn null_modes_or_mechanism(
     dof_num: &DofNumbering,
     dof_names: &[&str],
     k_abs: &dyn Fn(&[f64]) -> Vec<f64>,
+    stiffness: &ModalStiffness<'_>,
 ) -> Result<(EigenResult, Vec<NullMode>), String> {
     let nk = result.values.len();
     let mut dofs: Vec<(usize, usize, usize)> = dof_num.map.iter().filter(|(_, &g)| g < dof_num.n_free).map(|(&(node, local), &g)| (node, local, g)).collect();
@@ -529,11 +572,18 @@ fn null_modes_or_mechanism(
                 Some(&(n, l, _)) if translates => (n, dof_names.get(l).copied().unwrap_or("").to_string()),
                 _ => (node_id, dof.clone()),
             };
-            moving = Some((node, dof, lambda));
+            moving = Some((node, dof, lambda, idx));
         }
         out.push(NullMode { omega_sq: lambda, node_id, dof });
     }
-    if let Some((node, dof, lambda)) = moving {
+    if let Some((node, dof, lambda, idx)) = moving {
+        if lambda > 0.0 {
+            let direction: Vec<_> = (0..ns).map(|i| result.vectors[i * nk + idx]).collect();
+            let work = stiffness.elastic_work(&direction);
+            if work.value.is_finite() && work.value > work.bound() {
+                return Err(stiffness_conditioning_refusal());
+            }
+        }
         return Err(format!(
             "{MODAL_MECHANISM}: Modal analysis: the structure is a mechanism: {} mode(s) with ω² zero to round-off or negative; one (ω² = {lambda:.3e}) moves node {node} along {dof} with no positive stiffness against it, so a release, hinge, missing support or negative stiffness lets part of the mass move freely. No modes are returned.",
             out.len()
@@ -657,11 +707,13 @@ pub fn solve_modal_3d(
         return Err("No mass assigned — set material densities or nodal masses".into());
     }
 
-    let sasm = assemble_sparse_3d(input, &dof_num, false);
+    let mut stiffness_roundoff = StiffnessRoundoff::default();
+    let sasm = assemble_stiffness_sparse_3d_recording(input, &dof_num, false, Some(&mut stiffness_roundoff));
 
     // Apply constraint transform if present
     let cs = FreeConstraintSystem::build_3d(&input, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
+    let stiffness_roundoff = stiffness_roundoff.finish(nf, cs.as_ref()).ok_or_else(stiffness_conditioning_refusal)?;
 
     // Mass matrix: sparse CSC (free block). With the sparse constraint
     // transform, the constraint path also stays sparse end to end — K and M
@@ -680,7 +732,8 @@ pub fn solve_modal_3d(
     } else {
         (&sasm.k_ff, &m_sparse_ff)
     };
-    ModalStiffness::Sparse(k_solve).reject_massive_null_translation(&mass_range, &dof_num, cs.as_ref(), its, &[0, 1, 2])?;
+    let stiffness = ModalStiffness::sparse(k_solve, &stiffness_roundoff);
+    stiffness.reject_massive_null_translation(&mass_range, &dof_num, cs.as_ref(), its, &[0, 1, 2])?;
     let mut structured_diagnostics = known_model;
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Modal));
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_conditioning(&sasm.k_ff).into_iter().collect());
@@ -714,7 +767,7 @@ pub fn solve_modal_3d(
         let free = |phi: &[f64]| cs.as_ref().map_or_else(|| phi.to_vec(), |cs| cs.expand_solution(phi, MasterMotion::Homogeneous))[..nf].to_vec();
         let shape = |phi: &[f64]| to_global(&free(phi), n, its);
         let eigen = |k: usize| mass_range.solve_sparse(k_solve, m_solve, k, &mut |_| {});
-        let classify = |r: &EigenResult| null_modes_or_mechanism(r, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_y), (&l_z, mass_z)], &[&rigid[0], &rigid[1], &rigid[2]], &free, &shape, &dof_num, &["ux", "uy", "uz", "rx", "ry", "rz", "warping"], &k_abs);
+        let classify = |r: &EigenResult| null_modes_or_mechanism(r, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_y), (&l_z, mass_z)], &[&rigid[0], &rigid[1], &rigid[2]], &free, &shape, &dof_num, &["ux", "uy", "uz", "rx", "ry", "rz", "warping"], &k_abs, &stiffness);
         with_replacements(&result, num_modes, ns, &classify, &eigen)?
     };
 

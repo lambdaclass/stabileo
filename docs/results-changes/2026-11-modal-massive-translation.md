@@ -11,15 +11,20 @@ the eigenvalue cross zero and trigger the mechanism refusal instead.
 
 The new check examines each node's translational block of the stiffness after
 support and homogeneous constraint reduction. Each row of the restoring force
-must be compatible with zero at the round-off scale of the active terms. The
-same bounded projection checks the candidate's local block and the other
-rows. Its constraint expansion must be translational and have a nonzero
-projection onto the physically assembled mass range resolved at round-off.
+must be compatible with zero at the round-off scale of the active terms.
+Absolute contributions are recorded at stiffness assembly and carried
+through support-frame and constraint transforms. A nonzero residual during
+reduction of a tied translation can then be recognised as round-off even when
+the residual is the only entry in the reduced matrix. The same bounded
+projection checks the candidate's local block and the other rows. Its
+constraint expansion must be translational and have a resolved nonzero
+projection onto the physically assembled mass range. Only products that
+contribute to that projection set its round-off scale.
 A witness blocks the solve with MODAL-MECHANISM and carries a structured
 diagnostic with the node and dominant global displacement component of one
-detected mechanism. Both
-planar storage paths, the spatial path and their certified and WASM callers
-use this check before the eigensolve. The reported frequency of a candidate never enters the check.
+detected mechanism. Both planar storage paths, the spatial path and their
+certified and WASM callers use this check before the eigensolve. The
+reported frequency of a candidate never enters the check.
 
 The existing eigensolver, residual, orthogonality and certification checks
 continue to apply. The regression tests retain the previous handling for an
@@ -32,10 +37,11 @@ separate design.
 
 The skewed-spring regression uses an axial stiffness of `s = 1e14` and an
 axis-aligned spring of stiffness `k = 1`. The exact lower stiffness
-eigenvalue is `sk / (s + k + sqrt(s² + k²))`, approximately 0.5. The physical check resolves its restoring force. The existing
-post-eigensolve classifier still refuses that case at the conditioning seen
-on the parent solver. A spring of stiffness 4 on the same model returns a
-positive finite mode.
+eigenvalue is `sk / (s + k + sqrt(s² + k²))`, approximately 0.5. The physical
+check resolves its restoring force. The post-eigensolve classifier keeps its
+existing refusal threshold and reports a stiffness-conditioning refusal for
+this unresolved positive mode. A spring of stiffness 4 on the same model
+returns the positive finite mode.
 
 Re-check stored modal and dependent results for models with insufficient
 directional restraint. Registry entry `modal-massive-translation` covers modal,

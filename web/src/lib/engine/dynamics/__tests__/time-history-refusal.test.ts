@@ -81,7 +81,7 @@ describe('modalMechanismRefusal', () => {
   });
 });
 
-it.fails('translates an unresolved positive modal frequency as stiffness conditioning', () => {
+it('translates an unresolved positive modal frequency as stiffness conditioning', () => {
   const text = JSON.stringify({
     message: 'Modal analysis: stiffness conditioning prevents resolution of a positive mode.',
     structuredDiagnostics: [{ code: 'modal_stiffness_conditioning', severity: 'error' }],

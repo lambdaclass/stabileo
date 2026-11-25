@@ -355,6 +355,11 @@ fn check_review_case(result: Result<Value, String>, expected: &Value) {
                 assert_eq!(diagnostic["dofIndices"], json!([expected["component"]]), "{error}");
                 assert_eq!(diagnostic["nodeIds"], json!([2]), "{error}");
             }
+        } else if let Some(code) = expected["code"].as_str() {
+            let payload: Value = serde_json::from_str(&error).unwrap_or_else(|_| panic!("{error}"));
+            assert_eq!(payload["structuredDiagnostics"][0]["code"], code, "{error}");
+            assert_eq!(payload["structuredDiagnostics"][0]["severity"], "error", "{error}");
+            assert!(payload["message"].as_str().unwrap().starts_with(refusal), "{error}");
         } else if expected["legacyEigenFailure"].as_bool() == Some(true) {
             assert!(error.contains(refusal), "{error}");
         } else {
@@ -370,17 +375,12 @@ fn check_review_case(result: Result<Value, String>, expected: &Value) {
         let omega = result["modes"][0]["omega"].as_f64().unwrap();
         assert!(omega > 0.0);
         if let Some(analytic) = expected["omegaSquared"].as_f64() {
-            if let Some(bound) = expected["omegaSquaredBound"].as_f64() {
-                assert!((omega.powi(2) - analytic).abs() <= bound, "{omega}² vs {analytic} ± {bound}");
-            } else {
-                assert!((omega.powi(2) / analytic - 1.0).abs() < 1e-12, "{omega}² vs {analytic}");
-            }
+            assert!((omega.powi(2) / analytic - 1.0).abs() < 1e-12, "{omega}² vs {analytic}");
         }
     }
 }
 
 #[test]
-#[ignore = "known wrong result: #2585"]
 fn review_tied_translation_survives_stiffness_cancellation() {
     let null = json!({"refusal":PHYSICAL_NULL,"code":TRANSLATION_MECHANISM_CODE});
     for padding in [0, 32] {
@@ -418,7 +418,6 @@ fn review_tied_translation_survives_stiffness_cancellation() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2585"]
 fn review_rank_one_mass_detects_a_resolved_small_projection() {
     let null = json!({"refusal":PHYSICAL_NULL,"code":TRANSLATION_MECHANISM_CODE});
     for padding in [0, 32] {
@@ -452,7 +451,6 @@ fn review_rank_one_mass_detects_a_resolved_small_projection() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2585"]
 fn review_skewed_weak_spring_is_distinct_from_a_null_translation() {
     for padding in [0, 32] {
         for stiffness in [1.0, 4.0, 0.0] {
@@ -465,8 +463,8 @@ fn review_skewed_weak_spring_is_distinct_from_a_null_translation() {
             let omega_squared = axial * stiffness / (axial + stiffness + axial.hypot(stiffness));
             let expected = match stiffness {
                 0.0 => json!({"refusal":PHYSICAL_NULL,"code":TRANSLATION_MECHANISM_CODE}),
-                1.0 => json!({"refusal":"{\"message\":\"Modal analysis: stiffness conditioning", "detail":"modal_stiffness_conditioning"}),
-                _ => json!({"modes":1,"nulls":0,"omegaSquared":omega_squared,"omegaSquaredBound":8.0 * f64::EPSILON * axial}),
+                1.0 => json!({"refusal":"Modal analysis: stiffness conditioning","code":"modal_stiffness_conditioning"}),
+                _ => json!({"modes":1,"nulls":0,"omegaSquared":omega_squared}),
             };
             check_2d_review_case(&input, expected.clone());
             if padding == 0 {

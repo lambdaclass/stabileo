@@ -17,6 +17,7 @@ const MODAL_MECHANISM = /^MODAL-MECHANISM: .*?(\d+) mode\(s\) .* moves node (\d+
 
 /** The engine's refusal of a modal analysis whose zero modes move mass, as a message; null for any other error. */
 export function modalMechanismRefusal(text: string): EngineMessage | null {
+  if (refusalDiagnostic(text, 'modal_stiffness_conditioning')) return { key: 'advanced.modalStiffnessConditioning', params: {} };
   const witness = refusalDiagnostic(text, 'modal_translation_mechanism');
   const node = witness?.nodeIds?.[0];
   const dof = ['ux', 'uy', 'uz'][witness?.dofIndices?.[0] ?? -1];
