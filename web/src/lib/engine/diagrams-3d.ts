@@ -304,9 +304,9 @@ function spatialExtrema(curve: SpatialCurve, critical: readonly DiagramOrdinate[
   return { maxValue, minValue, maxAbsValue, maxAbsX: curve.cutLocations.get(t)?.x ?? t * length, maxAbsSide };
 }
 
-export function computeSpatialDiagramExtrema(ef: ElementForces3D, kind: Diagram3DKind) {
+export function computeSpatialDiagramExtrema(ef: ElementForces3D, kind: Diagram3DKind, inwardAtI = false) {
   const curve = spatialCurve(ef, kind);
-  const range = spatialExtrema(curve, diagramCriticalPoints(curve, curve.extrema()), ef.length);
+  const range = spatialExtrema(curve, diagramCriticalPoints(curve, curve.extrema(), inwardAtI), ef.length);
   return range.extrema && ef.combined ? { ...range, minValue: 0 } : range;
 }
 

@@ -27,7 +27,8 @@ import type { Quantity } from '../utils/units';
 import { csvCell } from './result-query';
 import type { ElementDesignDemands, GoverningDemand } from './station-design-forces';
 import { criticalForceStations, stationTs, type StationSpec } from './station-forces';
-import type { DiagramStation } from './member-diagram';
+import { unavailableDiagramExtrema, type DiagramStation } from './member-diagram';
+import { sameCutLocation } from './diagram-cut';
 import { memberCriticalOrdinates3D, prepareDiagramEvaluator3D, type Diagram3DKind } from './diagrams-3d';
 import { resultComponents } from '../axes/result-components';
 import { makeFrame, type AxesChoice } from '../axes/frame';
@@ -100,7 +101,7 @@ export interface Row { entity: number; end?: 'i' | 'j'; x?: number; side?: Extre
  * combinations allocated a quarter of a million rows, each copied once more for its resultants,
  * and the report spent nearly nine tenths of its time there (`scale-budget.test.ts`).
  */
-function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visit: (entity: number, end: 'i' | 'j' | undefined, x: number | undefined, values: number[], side?: Extreme['side']) => void): void {
+function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visit: (entity: number, end: 'i' | 'j' | undefined, x: number | undefined, values: number[], side?: Extreme['side']) => void, sharedStations?: ReadonlyMap<number, readonly DiagramStation[]>): void {
   const keep = (id: number) => !opts.entities || opts.entities.has(id);
   const fin = (v: number[]) => (opts.resultant ? withResultants(kind, v) : v);
   const { vec, rot } = resultComponents(makeFrame(opts.axes), r);
@@ -121,8 +122,9 @@ function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visi
       visit(f.elementId, 'j', f.length, fin([f.nEnd, f.vyEnd, f.vzEnd, f.mxEnd, f.myEnd, f.mzEnd]));
       continue;
     }
-    const stations: DiagramStation[] = spec === 'critical' ? criticalForceStations(f)
-      : stationTs(f, spec).map(t => ({ t }));
+    const stations: readonly DiagramStation[] | undefined = sharedStations ? sharedStations.get(f.elementId)
+      : spec === 'critical' ? criticalForceStations(f) : stationTs(f, spec).map(t => ({ t }));
+    if (!stations) throw unavailableDiagramExtrema();
     if (!stations.length) continue;
     const axial = prepareDiagramEvaluator3D(f, 'axial');
     const shearY = prepareDiagramEvaluator3D(f, 'shearY');
@@ -228,27 +230,61 @@ export function summaryRows(kind: TableKind, sources: readonly Source[], opts: T
 /** One node or member end or station, enveloped: per column the largest and smallest value and their source. */
 export interface EnvelopeRow { entity: number; end?: 'i' | 'j'; x?: number; side?: Extreme['side']; max: Array<{ value: number; source: Source }>; min: Array<{ value: number; source: Source }> }
 
+function criticalEnvelopeStations(sources: readonly Source[], opts: TableOptions): Map<number, DiagramStation[]> {
+  const members = new Map<number, Map<number, { station: DiagramStation; hasRight: boolean }>>();
+  for (const { results } of sources) {
+    for (const forces of results.elementForces) {
+      const { elementId } = forces;
+      if (opts.entities && !opts.entities.has(elementId)) continue;
+      let cuts = members.get(elementId);
+      if (!cuts) {
+        cuts = new Map();
+        members.set(elementId, cuts);
+      }
+      for (const { right, ...station } of criticalForceStations(forces)) {
+        const previous = cuts.get(station.t);
+        if (!previous) {
+          cuts.set(station.t, { station, hasRight: right === true });
+          continue;
+        }
+        const { distance, location } = station;
+        const existing = previous.station;
+        if (distance !== undefined) {
+          if (existing.distance !== undefined && !sameCutLocation(
+            existing.location ?? { x: existing.distance }, location ?? { x: distance },
+          )) throw unavailableDiagramExtrema();
+          if (existing.distance === undefined) previous.station = station;
+        }
+        previous.hasRight ||= right === true;
+      }
+    }
+  }
+  return new Map([...members].map(([id, cuts]) => [id, [...cuts.values()]
+    .sort((a, b) => a.station.t - b.station.t)
+    .flatMap(({ station, hasRight }) => hasRight ? [station, { ...station, right: true }] : [station])]));
+}
+
 /** For each node or member end (or station), the largest and smallest value of each column over the sources. */
 export function envelopeRows(kind: TableKind, sources: readonly Source[], opts: TableOptions): EnvelopeRow[] {
   const byKey = new Map<string, EnvelopeRow>();
+  const sharedStations = kind === 'forces' && opts.stations === 'critical' ? criticalEnvelopeStations(sources, opts) : undefined;
   for (const s of sources) {
-    for (const row of rowsOf(kind, s.results, opts)) {
-      const distance = opts.stations === 'critical' ? row.x : row.x?.toFixed(6);
-      const key = `${row.entity}:${row.end ?? ''}:${distance ?? ''}:${row.side ?? ''}`;
-      let e = byKey.get(key);
+    eachRow(kind, s.results, opts, (entity, end, x, values, side) => {
+      const distance = opts.stations === 'critical' ? x : x?.toFixed(6);
+      const key = `${entity}:${end ?? ''}:${distance ?? ''}:${side ?? ''}`;
+      const e = byKey.get(key);
       if (!e) {
-        e = { entity: row.entity, end: row.end, x: row.x, ...(row.side && { side: row.side }), max: row.values.map((v) => ({ value: v, source: s })), min: row.values.map((v) => ({ value: v, source: s })) };
-        byKey.set(key, e);
-        continue;
+        byKey.set(key, { entity, end, x, ...(side && { side }), max: values.map((v) => ({ value: v, source: s })), min: values.map((v) => ({ value: v, source: s })) });
+        return;
       }
-      row.values.forEach((v, c) => {
+      values.forEach((v, c) => {
         // A tie within round-off keeps the earlier source: the sources' order is stable, the last digit is not.
         const tol = (a: number) => 1e-9 * Math.max(Math.abs(v), Math.abs(a), 1e-12);
-        const max = e!.max[c]!.value, min = e!.min[c]!.value;
-        if (v - max > (opts.stations === 'critical' ? 0 : tol(max))) e!.max[c] = { value: v, source: s };
-        if (min - v > (opts.stations === 'critical' ? 0 : tol(min))) e!.min[c] = { value: v, source: s };
+        const max = e.max[c]!.value, min = e.min[c]!.value;
+        if (v - max > (opts.stations === 'critical' ? 0 : tol(max))) e.max[c] = { value: v, source: s };
+        if (min - v > (opts.stations === 'critical' ? 0 : tol(min))) e.min[c] = { value: v, source: s };
       });
-    }
+    }, sharedStations);
   }
   return [...byKey.values()];
 }

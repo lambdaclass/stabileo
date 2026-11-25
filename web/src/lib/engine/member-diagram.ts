@@ -1,4 +1,4 @@
-import type { DiagramCutLocation } from './diagram-cut';
+import { distanceUnits, type DiagramCutLocation } from './diagram-cut';
 import { roundDiagramSum, sumDiagramTerms, type DiagramSum } from './diagram-sum';
 
 export const DIAGRAM_EXTREMA_UNAVAILABLE = 'solver.diagramExtremaUnavailable';
@@ -26,8 +26,11 @@ export interface PolynomialBranch {
   polynomial: DiagramPolynomial;
 }
 
+type PeakTransferCertificate = (x: number, value: number) => boolean;
+
 export interface DiagramCurve {
   hasDistributedActions: boolean;
+  certifyPeakTransfer?: PeakTransferCertificate;
   cuts: number[];
   cutDistances: ReadonlyMap<number, number>;
   value: (station: DiagramStation) => number;
@@ -122,6 +125,12 @@ export function memberDiagram(
   const distributed = diagramLoads(distributedActions);
   const hasDistributedActions = distributed.length > 0;
   const hasActions = hasDistributedActions || points.length > 0;
+  const uniformMoment = order === 'moment' && change === 0 && points.length === 0
+    && Number.isFinite(start) && Number.isFinite(rate)
+    && distributedActions.every(load => load.a === 0 && load.b === length && load.qI === load.qJ && Number.isFinite(load.qI));
+  const certifyPeakTransfer: PeakTransferCertificate | undefined = uniformMoment
+    ? (x, value) => uniformMomentTransfers(length, start, rate, sign, distributedActions, x, value)
+    : undefined;
   const at = (x: number) => x / length;
   let cutDistances: ReadonlyMap<number, number> | undefined;
   const distances = () => {
@@ -181,6 +190,7 @@ export function memberDiagram(
   let cuts: [number, number][] | undefined;
   return {
     hasDistributedActions,
+    certifyPeakTransfer,
     get cuts() { return [...distances().keys()]; },
     get cutDistances() { return distances(); },
     value({ t, right, distance }) {
@@ -227,6 +237,7 @@ function diagramExtremum(
   combine: (values: number[]) => number,
   at?: number,
   keepAlias?: (t: number) => boolean,
+  certifyTransfer?: PeakTransferCertificate,
 ): DiagramExtremum | undefined {
   const projected = lo + (hi - lo) * u;
   const t = projected === hi ? hi - (hi - lo) * (1 - u) : projected;
@@ -245,9 +256,11 @@ function diagramExtremum(
     return { t, value: interior, canTransfer: () => false, aliased: true };
   }
   const canTransfer = (station: number, distance?: number) => {
-    const local = ((distance ?? station * length) - x0) / (x1 - x0);
+    const x = distance ?? station * length;
+    const local = (x - x0) / (x1 - x0);
     if (!(local > 0 && local < 1)) return false;
-    return combine(polynomials.map((p, i) => roundDiagramSum(moveOrdinate(ordinates[i]!, p, u, local - u)))) === value;
+    const moved = polynomials.map((p, i) => roundDiagramSum(moveOrdinate(ordinates[i]!, p, u, local - u)));
+    return combine(moved) === value || certifyTransfer?.(x, value) === true;
   };
   return { t, value, canTransfer };
 }
@@ -255,6 +268,7 @@ function diagramExtremum(
 interface ExtremaInterval {
   polynomials: DiagramPolynomial[];
   roots: number[];
+  certifyTransfer?: PeakTransferCertificate;
 }
 
 function prepareIntervalExtrema(
@@ -271,9 +285,9 @@ function prepareIntervalExtrema(
       const [lo, x0] = cuts[k - 1]!, [hi, x1] = cuts[k]!;
       if (!(hi > lo) || (at !== undefined && !(lo <= at && at <= hi))) continue;
       const branches = intervals[k] ??= prepare(lo, hi, x0, x1);
-      for (const { polynomials, roots } of branches) {
+      for (const { polynomials, roots, certifyTransfer } of branches) {
         for (const u of roots) {
-          const point = diagramExtremum(lo, hi, u, x0, x1, length, polynomials, combine, at, keepAlias);
+          const point = diagramExtremum(lo, hi, u, x0, x1, length, polynomials, combine, at, keepAlias, certifyTransfer);
           if (point) extrema.push(point);
         }
       }
@@ -287,7 +301,7 @@ export function prepareCurveExtrema(curve: DiagramCurve, length: number): (at?: 
   return prepareIntervalExtrema(() => [...curve.cutDistances], length, ([value]) => value!, (lo, hi) => {
     const polynomial = curve.polynomial(lo, hi);
     const roots = polynomialRootCandidates(polynomialDerivative(polynomial)).filter(u => u > 0 && u < 1);
-    return [{ polynomials: [polynomial], roots }];
+    return [{ polynomials: [polynomial], roots, certifyTransfer: curve.certifyPeakTransfer }];
   });
 }
 
@@ -324,6 +338,10 @@ export function checkedCurveValue(curve: Pick<DiagramCurve, 'value'>, station: D
 export type DiagramOrdinate = DiagramStation & { value: number; side?: 'left' | 'right' };
 type DiagramValues = Pick<DiagramCurve, 'cuts' | 'value'>;
 
+export function isInwardEndpointFace(t: number, right?: boolean): boolean {
+  return !((t === 0 && right === false) || (t === 1 && right === true));
+}
+
 export function diagramCriticalPoints(
   curve: DiagramValues, critical: readonly DiagramExtremum[], inwardAtI = false,
 ): DiagramOrdinate[] {
@@ -333,14 +351,14 @@ export function diagramCriticalPoints(
     const peak = extrema.get(t);
     const points: DiagramOrdinate[] = [];
     if (boundaries.has(t)) {
-      if (t > 0 || !inwardAtI) points.push({ t, value: curve.value({ t }) });
-      if (t < 1) {
+      if (!inwardAtI || isInwardEndpointFace(t, false)) points.push({ t, value: curve.value({ t }) });
+      if (isInwardEndpointFace(t, true)) {
         const right = { t, right: true };
         const value = curve.value(right);
         const left = points[0];
         if (value !== left?.value) {
           if (left) left.side = 'left';
-          points.push({ ...right, value, side: 'right' });
+          points.push({ ...right, value, ...(left && { side: 'right' }) });
         }
       }
     }
@@ -385,6 +403,40 @@ const zeroAction: readonly [number, number] = [0, 0];
 function polynomialValue(coefficients: DiagramPolynomial, x: number): DiagramSum {
   return coefficients.reduceRight<DiagramSum>((value, coefficient) =>
     sumDiagramTerms([...coefficient, ...value.map(term => term * x)]), []);
+}
+
+function uniformMomentTransfers(
+  length: number, start: number, rate: number, sign: number, loads: readonly DistributedAction[],
+  distance: number, expected: number,
+): boolean {
+  const unit = 1n << 1074n;
+  const moment = distanceUnits(start), shear = distanceUnits(rate), x = distanceUnits(distance);
+  const intensity = loads.reduce((sum, load) => sum + distanceUnits(sign * load.qI), 0n);
+  const direction = intensity < 0n ? -1n : 1n;
+  const absIntensity = intensity * direction;
+  const root = -direction * shear * unit;
+  if (root <= 0n || root >= absIntensity * distanceUnits(length)) return false;
+
+  const peakDenominator = 2n * absIntensity;
+  const peakNumerator = moment * peakDenominator - direction * shear * shear;
+  const stationDenominator = 2n * unit * unit;
+  const stationNumerator = moment * stationDenominator + 2n * shear * x * unit + intensity * x * x;
+  return ordinateRoundsTo(peakNumerator, peakDenominator, expected)
+    && ordinateRoundsTo(stationNumerator, stationDenominator, expected);
+}
+
+function ordinateRoundsTo(numerator: bigint, denominator: bigint, expected: number): boolean {
+  const magnitude = Math.abs(expected);
+  const center = distanceUnits(magnitude);
+  floatBits.setFloat64(0, magnitude);
+  const bits = floatBits.getBigUint64(0);
+  floatBits.setBigUint64(0, bits - 1n);
+  const below = magnitude === 0 ? -1n : distanceUnits(floatBits.getFloat64(0));
+  floatBits.setBigUint64(0, bits + 1n);
+  const above = magnitude === Number.MAX_VALUE ? 2n * center - below : distanceUnits(floatBits.getFloat64(0));
+  const doubled = 2n * (expected < 0 ? -numerator : numerator);
+  const lower = (center + below) * denominator, upper = (center + above) * denominator;
+  return (lower < doubled && doubled < upper) || ((bits & 1n) === 0n && (doubled === lower || doubled === upper));
 }
 
 function polynomialDerivative(coefficients: DiagramPolynomial): DiagramPolynomial {

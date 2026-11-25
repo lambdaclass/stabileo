@@ -237,19 +237,19 @@ it('known wrong result: #2226 refuses envelope cuts that share a rounded parent 
   expect(coincident.shearZ.elements[0]?.jumpCuts).toEqual([expect.objectContaining({ distance: 1.25 })]);
 });
 
-const finalReviewReproducer = process.env.RUN_KNOWN_WRONG === '2226' ? it : it.skip;
-
-finalReviewReproducer('known wrong result: #2226 uses inward endpoint faces for planar and spatial report peaks', () => {
-  for (const { start, end, atI, atJ, expected } of [
+it('known wrong result: #2226 uses inward endpoint faces for planar and spatial report peaks', () => {
+  const length = 4;
+  for (const { start, end, atI, atJ, expected, gradient = 0, peakAt = 0 } of [
     { start: 10, end: 20, atI: -5, atJ: 15, expected: 5 },
     { start: -10, end: -20, atI: 5, atJ: -15, expected: -5 },
     { start: 5, end: 20, atI: 0, atJ: 15, expected: 5 },
+    { start: 5, end: 24, atI: 0, atJ: 15, expected: 9, gradient: 1, peakAt: length },
     { start: 10, end: 10, atI: 0, atJ: 0, expected: 10 },
   ]) {
-    const length = 4;
     const points = [{ a: 0, p: atI }, { a: length, p: atJ }].filter(load => load.p !== 0);
-    const planar = r2D(ef2D({ length, vStart: start, vEnd: end, pointLoads: points }));
-    const spatial = r3D(ef3D({ length, vzStart: start, vzEnd: end, pointLoadsZ: points }));
+    const distributed = gradient === 0 ? [] : [{ a: 0, b: length, qI: gradient, qJ: gradient }];
+    const planar = r2D(ef2D({ length, vStart: start, vEnd: end, pointLoads: points, distributedLoads: distributed }));
+    const spatial = r3D(ef3D({ length, vzStart: start, vzEnd: end, pointLoadsZ: points, distributedLoadsZ: distributed }));
     const envelope2D = computeEnvelope([planar])!;
     const envelope3D = computeEnvelope3D([spatial])!;
     const legacy2D = structuredClone(envelope2D);
@@ -261,14 +261,16 @@ finalReviewReproducer('known wrong result: #2226 uses inward endpoint faces for 
         provenance: { kind: env ? 'envelope' : 'single' }, results2D: planar, envelope2D: env,
       }));
       expect.soft(num(row![3]!)).toBe(expected);
-      expect.soft(num(row![4]!)).toBe(0);
+      expect.soft(num(row![4]!)).toBe(peakAt);
     }
     for (const env of [undefined, envelope3D, legacy3D]) {
       const spatialRows = rows(report('shear', {
         provenance: { kind: env ? 'envelope' : 'single' },
         is3D: true, analysisMode: '3D', results3D: spatial, envelope3D: env,
       }));
-      expect.soft(spatialRows.at(-1)?.at(-1)).toBe(expected.toFixed(2) + ' (x = 0.00 m)');
+      const [value, x] = spatialRows.at(-1)!.at(-1)!.split(' (x = ');
+      expect.soft(num(value!)).toBe(expected);
+      expect.soft(num(x!)).toBe(peakAt);
     }
   }
 });

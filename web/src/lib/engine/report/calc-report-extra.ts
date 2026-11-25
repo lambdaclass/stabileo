@@ -14,7 +14,7 @@ import type { AnalysisResults, ElementEnvelopeDiagram, FullEnvelope } from '../t
 import type { AnalysisResults3D, FullEnvelope3D } from '../types-3d';
 import { computeDiagramValueAt, computePlanarDiagramExtrema } from '../diagrams';
 import { computeSpatialDiagramExtrema, type Diagram3DKind } from '../diagrams-3d';
-import type { DiagramOrdinate } from '../member-diagram';
+import { isInwardEndpointFace, type DiagramOrdinate } from '../member-diagram';
 import type { FigureContent } from '../../export/view-figure';
 
 /** A result the reader can have as a table, a diagram, or both. */
@@ -169,7 +169,9 @@ function cutLabel({ x, side }: Extreme, format: LengthFmt): string {
   return format(x, side !== undefined) + (side === 'left' ? '⁻' : side === 'right' ? '⁺' : '');
 }
 
-function envelopeValues(d: ElementEnvelopeDiagram, length: number, sign = 1): Extreme[] {
+type EnvelopeValue = Extreme & Pick<DiagramOrdinate, 't'>;
+
+function envelopeValues(d: ElementEnvelopeDiagram, length: number, sign = 1): EnvelopeValue[] {
   const faces = new Map<number, Pick<Extreme, 'x' | 'side'>>();
   const addFaces = (index: number, x: number) => {
     faces.set(index, { x, side: 'left' });
@@ -178,13 +180,18 @@ function envelopeValues(d: ElementEnvelopeDiagram, length: number, sign = 1): Ex
   for (const { index, distance } of envelopeJumpCuts(d, length)) addFaces(index, distance);
   return d.tPositions.map((t, i) => {
     const p = d.posValues[i] ?? 0, n = d.negValues[i] ?? 0;
-    return { value: sign * (Math.abs(n) > Math.abs(p) ? n : p), x: t * length, ...faces.get(i) };
+    return { t, value: sign * (Math.abs(n) > Math.abs(p) ? n : p), x: t * length, ...faces.get(i) };
   });
 }
 
-function envelopeExtreme(values: readonly Extreme[]): Extreme {
+function envelopeExtreme(values: readonly EnvelopeValue[]): Extreme {
   let best: Extreme = { value: 0, x: 0 };
-  for (const cut of values) if (Math.abs(cut.value) > Math.abs(best.value)) best = cut;
+  for (const { t, value, x, side } of values) {
+    const right = side === undefined ? undefined : side === 'right';
+    if (isInwardEndpointFace(t, right) && Math.abs(value) > Math.abs(best.value)) {
+      best = { value, x, ...(t > 0 && t < 1 && side && { side }) };
+    }
+  }
   return best;
 }
 
@@ -221,7 +228,7 @@ export function forceTable2D(
       vI = vals[0]!.value; vJ = vals[vals.length - 1]!.value; best = envelopeExtreme(vals);
     } else {
       const at = (x: number) => sign * computeDiagramValueAt(kind, x / ef.length, ef);
-      const extrema = computePlanarDiagramExtrema(kind, ef);
+      const extrema = computePlanarDiagramExtrema(kind, ef, true);
       vI = at(0);
       vJ = at(ef.length);
       best = { value: sign * extrema.maxAbsValue, x: extrema.maxAbsX, side: extrema.maxAbsSide };
@@ -267,7 +274,7 @@ export function forceTable3D(
         const e = env.get(ef.elementId);
         return e?.tPositions.length ? envelopeExtreme(envelopeValues(e, ef.length)) : null;
       }
-      const result = computeSpatialDiagramExtrema(ef, k);
+      const result = computeSpatialDiagramExtrema(ef, k, true);
       return result.extrema ? { value: result.maxAbsValue, x: undefined } : {
         value: result.maxAbsValue, x: result.maxAbsX, side: result.maxAbsSide,
       };

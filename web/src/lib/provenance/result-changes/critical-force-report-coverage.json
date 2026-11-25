@@ -1,0 +1,48 @@
+{
+  "id": "critical-force-report-coverage",
+  "date": "2026-11-25",
+  "prs": [
+    2581
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "members"
+    ],
+    "any": [
+      "memberLoads",
+      "selfWeight",
+      "combinations",
+      "magnitudeCombinations"
+    ]
+  },
+  "quantities": [
+    "diagrams",
+    "envelope",
+    "beamStations"
+  ],
+  "title": {
+    "en": "Member force peaks and critical envelopes",
+    "es": "Picos de esfuerzos en barras y envolventes críticas",
+    "pt": "Picos de esforços em barras e envoltórias críticas",
+    "de": "Stabschnittgrößen und kritische Einhüllende",
+    "fr": "Pics d’efforts dans les barres et enveloppes critiques",
+    "tr": "Eleman iç kuvveti tepe değerleri ve kritik zarflar",
+    "zh": "杆件内力峰值与临界截面包络",
+    "hu": "Rúd-igénybevételi csúcsok és kritikus burkolók"
+  },
+  "explanation": {
+    "en": "Reported member peaks use the inward end faces. Critical force envelopes evaluate every combination at each station and on both faces of a jump. Uniform-load moment stations can transfer when the peak and station round to the same reported value.",
+    "es": "Los picos de esfuerzos usan las caras interiores de los extremos. Las envolventes críticas evalúan cada combinación en cada sección y en ambas caras de un salto. Las secciones de momento con carga uniforme se aceptan cuando el pico y el valor en la sección se redondean al mismo valor informado.",
+    "pt": "Os picos de esforços usam as faces internas das extremidades. As envoltórias críticas avaliam cada combinação em cada seção e nas duas faces de um salto. As seções de momento sob carga uniforme são aceitas quando o pico e o valor na seção arredondam para o mesmo valor informado.",
+    "de": "Die angegebenen Spitzenwerte verwenden die inneren Schnittflächen an den Stabenden. Kritische Einhüllende werten jede Kombination an jeder Station und auf beiden Seiten eines Sprungs aus. Momentenstationen unter Gleichlast werden übernommen, wenn Spitzen- und Stationswert auf denselben ausgegebenen Wert runden.",
+    "fr": "Les pics d’efforts utilisent les faces intérieures aux extrémités. Les enveloppes critiques évaluent chaque combinaison à chaque section et sur les deux faces d’un saut. Sous charge uniforme, une section de moment est acceptée si le pic et la valeur à la section s’arrondissent à la même valeur publiée.",
+    "tr": "Rapordaki eleman tepe değerleri uçların iç yüzlerini kullanır. Kritik kuvvet zarfları her birleşimi her kesitte ve sıçramanın iki yüzünde değerlendirir. Düzgün yayılı yük altında tepe momenti ve kesitteki moment aynı rapor değerine yuvarlanıyorsa kesit kabul edilir.",
+    "zh": "报告中的杆件内力峰值采用杆端内侧截面值。临界截面内力包络在每一截面以及跳变的两侧评估所有组合。均布荷载下，若弯矩峰值和截面弯矩均舍入到同一报告值，则接受该截面。",
+    "hu": "A közölt rúderőcsúcsok a rúdvégek belső metszeti értékeit használják. A kritikus erőburkolók minden kombinációt kiértékelnek minden állomáson és az ugrások mindkét oldalán. Egyenletes teher esetén a nyomatéki állomás akkor fogadható el, ha a csúcs és az állomásérték ugyanarra a közölt értékre kerekedik."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-critical-force-report-coverage.md",
+    "heading": "Member force peaks and critical envelopes"
+  }
+}

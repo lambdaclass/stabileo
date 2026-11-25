@@ -616,9 +616,7 @@ it('known wrong result: #2437 keeps a small ramp peak when overlapping triangula
   }
 });
 
-const finalReviewReproducer = process.env.RUN_KNOWN_WRONG === '2226' ? it : it.skip;
-
-finalReviewReproducer('known wrong result: #2226 accepts the transferable moment station of the tubular truss', () => {
+it('known wrong result: #2226 accepts the transferable moment station of the tubular truss', () => {
   const span = 1.5620499351813308;
   const shear = 0.045069352012818566;
   const q = -0.042665245455608784;

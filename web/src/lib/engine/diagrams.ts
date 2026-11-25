@@ -75,9 +75,9 @@ function planarExtrema(critical: readonly DiagramOrdinate[]) {
   return { maxValue, minValue, maxAbsT, maxAbsValue, maxAbsSide };
 }
 
-export function computePlanarDiagramExtrema(kind: PlanarKind, ef: PlanarForces) {
+export function computePlanarDiagramExtrema(kind: PlanarKind, ef: PlanarForces, inwardAtI = false) {
   const curve = planarCurve(kind, ef);
-  const extrema = planarExtrema(diagramCriticalPoints(curve, curveExtrema(curve, ef.length)));
+  const extrema = planarExtrema(diagramCriticalPoints(curve, curveExtrema(curve, ef.length), inwardAtI));
   return { ...extrema, maxAbsX: curve.cutDistances.get(extrema.maxAbsT) ?? extrema.maxAbsT * ef.length };
 }
 

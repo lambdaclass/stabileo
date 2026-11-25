@@ -409,9 +409,7 @@ it('known wrong result: #2226 summarizes a two-case ABS resultant through the pr
   expect.soft(envelopeSectionHtml(sources, k => k, 'Envelope').join('')).toContain('V (kN)</td><td class="num">5.000</td>');
 });
 
-const finalReviewReproducer = process.env.RUN_KNOWN_WRONG === '2226' ? it : it.skip;
-
-finalReviewReproducer('known wrong result: #2226 evaluates every combination at each critical station and face', () => {
+it('known wrong result: #2226 evaluates every combination at each critical station and face', () => {
   const a = 1.72, peak = 2;
   const lowForces = {
     ...reviewForces, length: 3, nStart: -10, nEnd: 10, pointLoadsX: [{ a, p: -20 }],
