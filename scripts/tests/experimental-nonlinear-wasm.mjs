@@ -32,6 +32,13 @@ const space = {
 for (const [dimension, input] of [[2, plane], [3, space]]) {
   const solve = engine[`solve_experimental_corotational_${dimension}d`];
   for (const stepping of ['equal', 'adaptive']) {
+    test(`${dimension}D ${stepping} refuses an overflowing damped tangent`, () => {
+      assert.throws(() => solve(JSON.stringify(input), JSON.stringify({
+        method: { pseudoTransient: { damping: Number.MAX_VALUE } },
+        stepping, nIncrements: 1, maxIter: 50, tolerance: 1e-8,
+      })), /Pseudo-transient damping exceeds the finite tangent range/);
+    });
+
     test(`${dimension}D ${stepping} line search uses a fresh budget on each step`, () => {
       const run = (maxIter) => JSON.parse(solve(JSON.stringify(input), JSON.stringify({
         method: 'newtonLineSearch', stepping, nIncrements: 2, maxIter, tolerance: 1e-8,

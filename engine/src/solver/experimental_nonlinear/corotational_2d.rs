@@ -81,19 +81,33 @@ pub(super) fn kept_solve(factor: &Option<CachedTangentFactor>, rhs: &[f64]) -> O
 }
 
 /// Add `damping` times the absolute diagonal of the free tangent to it, in whichever form it is
-/// assembled.
+/// assembled. Refuse an unrepresentable diagonal before changing either storage form.
 pub(super) fn damp(
     (n, nf): (usize, usize),
     k_t: &mut [f64],
     (trip_rows, trip_cols, trip_vals): (&mut Vec<usize>, &mut Vec<usize>, &mut Vec<f64>),
     damping: f64,
-) {
+) -> Result<(), String> {
+    let overflow = || "Pseudo-transient damping exceeds the finite tangent range".to_string();
+    if !(damping.is_finite() && damping >= 0.0) {
+        return Err(overflow());
+    }
+    let check = |value: f64| {
+        let shifted = value + damping * value.abs();
+        if value.is_finite() && shifted.is_finite() { Ok(()) } else { Err(overflow()) }
+    };
     if k_t.is_empty() {
         let mut diagonal = vec![0.0; nf];
         for ((&i, &j), &value) in trip_rows.iter().zip(trip_cols.iter()).zip(trip_vals.iter()) {
             if i == j && i < nf {
                 diagonal[i] += value;
+                if !diagonal[i].is_finite() {
+                    return Err(overflow());
+                }
             }
+        }
+        for &value in &diagonal {
+            check(value)?;
         }
         for (i, value) in diagonal.into_iter().enumerate() {
             trip_rows.push(i);
@@ -102,9 +116,13 @@ pub(super) fn damp(
         }
     } else {
         for i in 0..nf {
+            check(k_t[i * n + i])?;
+        }
+        for i in 0..nf {
             k_t[i * n + i] += damping * k_t[i * n + i].abs();
         }
     }
+    Ok(())
 }
 
 impl incremental::IncrementalProblem for Corotational2D<'_> {
@@ -366,7 +384,7 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
                 &mut self.k_t,
                 (&mut self.trip_rows, &mut self.trip_cols, &mut self.trip_vals),
                 damping,
-            );
+            )?;
         }
         incremental::IncrementalProblem::correction(self, false)
     }
@@ -1262,6 +1280,53 @@ mod shared_driver_equivalence {
     }
 
     #[test]
+    fn a_forced_krylov_step_uses_the_current_tangent_and_keeps_its_factor() {
+        for n in [4, 30] {
+            let mut input = frame(n, 0.4, Some("pinned"));
+            for load in input.loads.iter_mut() {
+                if let SolverLoad::Nodal(nodal) = load { nodal.fx *= 0.01; nodal.fz *= 0.01; nodal.my *= 0.01; }
+            }
+            input.supports.get_mut("2").unwrap().dx = Some(1e-5);
+            let dof_num = DofNumbering::build_2d(&input);
+            let cs = FreeConstraintSystem::build_2d(&input, &dof_num).unwrap();
+            let asm = assembly::assemble_2d(&input, &dof_num);
+            let art = assembly::artificial_stiffness_entries(&asm);
+            let metric = crate::solver::convergence::EquilibriumMetric::for_2d(&input, &dof_num, cs.as_ref()).unwrap();
+            let zero = vec![0.0; dof_num.n_total];
+            let f_total = asm.f.clone();
+            let supports = vec![0.0; dof_num.n_total - dof_num.n_free];
+            let target_supports = crate::solver::linear::prescribed_displacements_2d(&input, &dof_num);
+            let mut problem = Corotational2D {
+                input: &input, dof_num: &dof_num, cs: &cs, asm: &asm, art: &art, metric: &metric,
+                ns: dof_num.n_free, f_total: &f_total, f_base: &zero, u_r_base: &supports, u_r_target: &target_supports,
+                start_internal: &zero, u_full: zero.clone(), u_converged: zero.clone(),
+                sparse_sym_cache: None, conditioning: None, f_ext: Vec::new(), active_supports: Vec::new(),
+                support_step: None, cached_factor: None, r_f: Vec::new(), unbalance: Vec::new(),
+                k_t: Vec::new(), trip_rows: Vec::new(), trip_cols: Vec::new(), trip_vals: Vec::new(),
+            };
+            use incremental::{Direction, IncrementalProblem};
+            for target in [0.5, 1.0] {
+                problem.begin_increment(target);
+                assert!(problem.cached_factor.is_none());
+                assert!(problem.linearize().unwrap().forced);
+                assert_eq!(problem.k_t.is_empty(), dof_num.n_free >= SPARSE_THRESHOLD);
+                let exact = problem.correction(false).unwrap();
+                assert!(problem.cached_factor.is_none());
+                let at = problem.linearize().unwrap();
+                assert!(at.forced);
+                let step = Direction::NewtonKrylov.step(&mut problem, at.forced).unwrap();
+                assert!(problem.cached_factor.is_some());
+                assert_eq!(step.len(), exact.len());
+                for (actual, expected) in step.iter().zip(&exact) {
+                    assert!((actual - expected).abs() <= 1e-12 * (1.0 + expected.abs()));
+                }
+                problem.advance(&step);
+                assert!(!problem.linearize().unwrap().forced);
+            }
+        }
+    }
+
+    #[test]
     fn pseudo_transient_continuation_reaches_the_solution_of_many_small_increments() {
         for n in [4, 12, 30] {
             for (rise, far_support) in [(0.0, None), (0.4, None), (0.4, Some("pinned"))] {
@@ -1281,16 +1346,56 @@ mod shared_driver_equivalence {
     fn damping_adds_a_share_of_the_absolute_diagonal_however_the_tangent_is_stored() {
         let (n, nf) = (3, 2);
         let mut dense = vec![4.0, 1.0, 9.0, 1.0, -2.0, 9.0, 9.0, 9.0, 7.0];
-        damp((n, nf), &mut dense, (&mut Vec::new(), &mut Vec::new(), &mut Vec::new()), 0.5);
+        damp((n, nf), &mut dense, (&mut Vec::new(), &mut Vec::new(), &mut Vec::new()), 0.5).unwrap();
         assert_eq!(dense, vec![6.0, 1.0, 9.0, 1.0, -1.0, 9.0, 9.0, 9.0, 7.0]);
 
         let (mut rows, mut cols, mut vals) = (vec![0, 0, 1, 0, 1, 2], vec![0, 0, 0, 1, 1, 2], vec![3.0, 1.0, 1.0, 1.0, -2.0, 7.0]);
-        damp((n, nf), &mut [], (&mut rows, &mut cols, &mut vals), 0.5);
+        damp((n, nf), &mut [], (&mut rows, &mut cols, &mut vals), 0.5).unwrap();
         let mut assembled = vec![0.0; n * n];
         for ((i, j), value) in rows.iter().zip(&cols).zip(&vals) {
             assembled[i * n + j] += value;
         }
         assert_eq!(assembled, vec![6.0, 1.0, 0.0, 1.0, -1.0, 0.0, 0.0, 0.0, 7.0]);
+    }
+
+    #[test]
+    fn overflowing_damping_does_not_modify_the_tangent() {
+        for (diagonal, damping) in [(2.0, f64::MAX), (f64::MAX, 1.0)] {
+            let mut dense = vec![diagonal];
+            assert!(damp((1, 1), &mut dense, (&mut Vec::new(), &mut Vec::new(), &mut Vec::new()), damping).is_err());
+            assert_eq!(dense, vec![diagonal]);
+            let (mut rows, mut cols, mut vals) = (vec![0], vec![0], vec![diagonal]);
+            assert!(damp((1, 1), &mut [], (&mut rows, &mut cols, &mut vals), damping).is_err());
+            assert_eq!((rows, cols, vals), (vec![0], vec![0], vec![diagonal]));
+        }
+    }
+
+    #[test]
+    fn damping_refusal_is_atomic_even_after_finite_diagonal_entries() {
+        let original = vec![1.0, 0.0, 0.0, f64::MAX];
+        let mut dense = original.clone();
+        assert!(damp((2, 2), &mut dense, (&mut Vec::new(), &mut Vec::new(), &mut Vec::new()), 1.0).is_err());
+        assert_eq!(dense, original);
+        // Overflow while accumulating duplicate sparse diagonal entries also refuses unchanged.
+        let (mut rows, mut cols, mut vals) = (vec![0, 1, 1], vec![0, 1, 1], vec![1.0, f64::MAX, f64::MAX]);
+        let original = (rows.clone(), cols.clone(), vals.clone());
+        assert!(damp((2, 2), &mut [], (&mut rows, &mut cols, &mut vals), 1.0).is_err());
+        assert_eq!((rows, cols, vals), original);
+        for damping in [f64::NAN, f64::INFINITY, -1.0] {
+            let mut dense = vec![1.0];
+            assert!(damp((1, 1), &mut dense, (&mut Vec::new(), &mut Vec::new(), &mut Vec::new()), damping).is_err());
+            assert_eq!(dense, vec![1.0]);
+        }
+    }
+
+    #[test]
+    fn overflowing_damping_is_refused_by_the_planar_solver() {
+        for n in [4, 30] {
+            let input = frame(n, 0.0, None);
+            let error = solve_corotational_2d_by(&input, None, 50, 1e-8, 1,
+                IterationMethod::PseudoTransient { damping: f64::MAX }).unwrap_err();
+            assert_eq!(error, "Pseudo-transient damping exceeds the finite tangent range");
+        }
     }
 
     #[test]
