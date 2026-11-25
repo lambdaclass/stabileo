@@ -1,6 +1,7 @@
 /**
  * The viewport draws the steps of every plate declared a flight, before the analysis meshes it and
- * after, keeps them while nothing about them changes and takes them away with their plate.
+ * after, keeps them while nothing about them changes, hides them with the flight's shells and takes
+ * them away with their plate.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import * as THREE from 'three';
@@ -12,6 +13,7 @@ import { galleryExample } from '../../data/__tests__/gallery-examples';
 import { physicalPlates, preparePlatesForAnalysis } from '../../store/physical-plates';
 import { meshBeforeAnalysis } from '../../store/mesh-policy.svelte';
 import { syncStairSteps } from '../stair-steps-sync';
+import { viewVisibility } from '../../store/view-state.svelte';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => { uiStore.analysisMode = 'pro'; modelStore.clear(); });
@@ -41,6 +43,11 @@ describe('the steps the viewport draws', () => {
     syncStairSteps(parent, 'physical', nodeAt);
     expect(drawn(parent)).toEqual(flights);
 
+    const flight = physicalPlates().find((p) => p.id === flights[1])!;
+    viewVisibility.hide({ nodes: [], elements: [], shells: (flight.group.members.quads ?? []).map((q) => `q${q}`) });
+    syncStairSteps(parent, 'physical', nodeAt);
+    expect(drawn(parent)).toEqual(flights.filter((id) => id !== flights[1]));
+    viewVisibility.showAll();
     modelStore.model.groups = new Map([...modelStore.model.groups].filter(([id]) => id !== flights[0]));
     syncStairSteps(parent, 'physical', nodeAt);
     expect(drawn(parent)).toEqual(flights.slice(1));

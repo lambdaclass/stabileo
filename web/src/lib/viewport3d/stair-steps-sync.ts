@@ -1,6 +1,7 @@
 /**
  * The steps of every plate declared a stair flight, meshed or not, kept under the shells' parent
- * apart from the shells themselves: they are drawn, never picked or tinted.
+ * apart from the shells themselves: they are drawn, never picked or tinted, and hidden with the
+ * flight's shells.
  */
 import type * as THREE from 'three';
 import { physicalPlates } from '../store/physical-plates';
@@ -8,6 +9,7 @@ import { plateLoops } from '../model/physical/plate';
 import { shellColorForMaterial, type ShellRenderMode } from '../three/create-shell-mesh';
 import { createFlightStepsMesh, flightSteps } from '../three/stair-steps';
 import { disposeObject } from '../three/selection-helpers';
+import { viewVisibility } from '../store/view-state.svelte';
 
 type Pt = { x: number; y: number; z: number };
 const drawn = new WeakMap<THREE.Object3D, Map<number, THREE.Group>>();
@@ -19,6 +21,8 @@ export function syncStairSteps(parent: THREE.Object3D, renderMode: ShellRenderMo
   for (const pl of physicalPlates()) {
     const steps = pl.physical.stair?.steps;
     if (!steps) continue;
+    const shells = [...(pl.group.members.quads ?? []).map((q) => `q${q}`), ...(pl.group.members.plates ?? []).map((q) => `p${q}`)];
+    if (shells.length && shells.every((k) => viewVisibility.isShellHidden(k))) continue;
     const outline = plateLoops(pl.group).outer.map(nodeAt);
     if (outline.some((p) => !p)) continue;
     const pts = outline as Pt[];

@@ -39,7 +39,8 @@ function sources(parent: THREE.Object3D): Array<THREE.Mesh | THREE.Line> {
 
 const lookOf = (o: THREE.Mesh | THREE.Line): string => {
   const m = o.material as THREE.Material;
-  return `${o instanceof THREE.Line ? 'L' : 'M'}|${o.renderOrder}|${m.type}|${m.transparent ? 1 : 0}|${m.opacity}|${m.depthWrite ? 1 : 0}|${m.depthTest ? 1 : 0}|${m.side}|${m.polygonOffset ? `${m.polygonOffsetFactor},${m.polygonOffsetUnits}` : ''}`;
+  const st = m as THREE.MeshStandardMaterial;
+  return `${o instanceof THREE.Line ? 'L' : 'M'}|${o.renderOrder}|${m.type}|${m.transparent ? 1 : 0}|${m.opacity}|${m.depthWrite ? 1 : 0}|${m.depthTest ? 1 : 0}|${m.side}|${m.polygonOffset ? `${m.polygonOffsetFactor},${m.polygonOffsetUnits}` : ''}|${st.roughness ?? ''}|${st.metalness ?? ''}|${st.emissive?.getHex() ?? ''}|${st.flatShading ? 1 : 0}|${st.wireframe ? 1 : 0}`;
 };
 
 /** The vertices a source draws, in the order a mesh's triangles or a set of line segments takes them: a line strip's or loop's as its segments. */
@@ -54,9 +55,14 @@ function order(o: THREE.Mesh | THREE.Line): number[] {
 
 interface Entry { o: THREE.Mesh | THREE.Line; look: string; start: number; count: number; paint: string }
 
+const attributeIds = new WeakMap<object, number>();
+let lastAttributeId = 0;
+const attributeId = (a: object) => attributeIds.get(a) ?? (attributeIds.set(a, ++lastAttributeId), lastAttributeId);
+
+/** A source's colours as copied: its material's colour, and its colour attribute by identity and version (a contour sets a new attribute each time, at version 0). */
 const paintOf = (o: THREE.Mesh | THREE.Line): string => {
-  const m = o.material as THREE.Material;
-  return `${colorOf(m)!.getHex()}|${m.vertexColors ? (o.geometry.getAttribute('color') as THREE.BufferAttribute | undefined)?.version ?? 'n' : '-'}`;
+  const m = o.material as THREE.Material, c = m.vertexColors ? o.geometry.getAttribute('color') as THREE.BufferAttribute | undefined : undefined;
+  return `${colorOf(m)!.getHex()}|${m.vertexColors ? (c ? `${attributeId(c)}.${c.version}` : 'n') : '-'}`;
 };
 
 export class ShellBatch {

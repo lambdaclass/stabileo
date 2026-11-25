@@ -14,7 +14,7 @@ import type { SheetFamily } from '../rc-sheets/types';
 import { storeyOf } from '../rc-sheets/storeys';
 
 export type Rebar3dFamily = SheetFamily;
-export const REBAR_FAMILIES: readonly Rebar3dFamily[] = ['beam', 'column', 'slab', 'wall', 'punching', 'footing'];
+export const REBAR_FAMILIES: readonly Rebar3dFamily[] = ['beam', 'column', 'slab', 'wall', 'punching', 'footing', 'stair'];
 
 const GHOST_KEY = 'stabileo-rc-rebar-3d-ghost';
 

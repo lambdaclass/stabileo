@@ -53,3 +53,44 @@ describe('the shells drawn in batches', () => {
     expect(batch.batches()).toEqual([]);
   });
 });
+
+describe('the batch against what changes its sources', () => {
+  it('takes a second contour, set as a new colour attribute at version 0 as the first was', () => {
+    const parent = new THREE.Group();
+    const shell = quad(0, 1);
+    parent.add(shell);
+    const face = shell.children.find((c) => c instanceof THREE.Mesh) as THREE.Mesh;
+    const paint = (r: number) => { const n = face.geometry.getAttribute('position').count; face.geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(Array.from({ length: n }, () => [r, 0, 1 - r]).flat()), 3)); (face.material as THREE.MeshStandardMaterial).vertexColors = true; (face.material as THREE.MeshStandardMaterial).color.set(0xffffff); };
+    const batch = new ShellBatch(parent);
+    paint(1);
+    batch.sync();
+    paint(0);
+    batch.sync();
+    const col = batch.batches().find((b) => b instanceof THREE.Mesh)!.geometry.getAttribute('color');
+    expect([col.getX(0), col.getZ(0)]).toEqual([0, 1]);
+  });
+
+  it('keeps apart sources that render differently, steel beside concrete', () => {
+    const parent = new THREE.Group();
+    const steel = quad(0, 1), concrete = quad(1, 2);
+    ((steel.children.find((c) => c instanceof THREE.Mesh) as THREE.Mesh).material as THREE.MeshStandardMaterial).metalness = 0.4;
+    parent.add(steel, concrete);
+    const batch = new ShellBatch(parent);
+    batch.sync();
+    expect(batch.batches().filter((b) => b instanceof THREE.Mesh)).toHaveLength(2);
+  });
+
+  it('is left alone by the category tones, which tone its sources, so a halftone is taken once', async () => {
+    const { toneObject } = await import('../../viewport3d/category-tone');
+    const parent = new THREE.Group();
+    parent.add(quad(0, 1));
+    const batch = new ShellBatch(parent);
+    toneObject(parent, 'halftone');
+    batch.sync();
+    const op = () => (batch.batches().find((b) => b instanceof THREE.Mesh)!.material as THREE.Material).opacity;
+    const once = op();
+    toneObject(parent, 'halftone');
+    batch.sync();
+    expect(op()).toBeCloseTo(once, 12);
+  });
+});
