@@ -429,18 +429,22 @@ function solvePosition(
 ): string | null {
   try {
     const sample = buildTrainLoads(baseInput, train, refPos, path);
-    const results = sample.fold((loads) => {
+    const solve = (loads: SolverLoad[]) => {
       const result = session.solve(loads);
       if (result.structuredDiagnostics?.some(d => d.code === 'known_issue' && d.severity === 'error')) {
         throw new Error(JSON.stringify({ structuredDiagnostics: result.structuredDiagnostics }));
       }
       return result;
-    }, (result, faces, reuse) => {
-      if (!reuse) {
-        sweep.results.push(result);
-        accumulate(envelope, result);
-      }
-      if (faces) sweep.foldFaces(result, faces);
+    };
+    const include = (result: AnalysisResults) => {
+      sweep.results.push(result);
+      accumulate(envelope, result);
+    };
+    const results = solve(sample.loads);
+    include(results);
+    sample.foldLimits(results, solve, (limit, faces, reuse) => {
+      if (!reuse) include(limit);
+      sweep.foldFaces(limit, faces);
     });
     sweep.positions.push({ refPosition: referenceStation(refPos), results });
     return null;

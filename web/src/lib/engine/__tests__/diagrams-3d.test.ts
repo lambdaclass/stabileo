@@ -19,6 +19,7 @@ import type {
   SolverSupport3D, AnalysisResults3D, ElementForces3D,
 } from '../types-3d';
 import type { SolverMaterial } from '../types';
+import { buildPath3D, trainLoads } from '../moving-loads-3d';
 
 // ─── Constants ──────────────────────────────────────────────────
 
@@ -563,27 +564,53 @@ function fixedSpan(length: number): SolverInput3D {
   );
 }
 
-it.skip('known wrong result: #1782 — a spatial moving axle at a fixed node is carried by the reaction', () => {
+it('#1782 — a spatial moving axle at a fixed node is carried by the reaction', () => {
   const length = 8, weight = 40;
   const solver = fixedSpan(length);
+  const path = buildPath3D(solver, [1])!;
   const train = { name: 'one axle', axles: [{ offset: 0, weight }] };
-  const exact = solveMovingLoads3D({ solver, train, step: length }).elements['1'];
-  expect.soft(exact.vzMaxPos).toBeCloseTo(0, 12);
-  expect.soft(exact.vzMaxNeg).toBeCloseTo(0, 12);
+  for (const [position, support] of [[0, 1], [length, 2]] as const) {
+    const loads = trainLoads(solver, path, train, position);
+    const input = { ...solver, loads };
+    const nonlinear = solvePDelta3D(input, 20, 1e-10);
+    expect(nonlinear.converged).toBe(true);
+    for (const exact of [solve3D(input), nonlinear.results as AnalysisResults3D]) {
+      const { vzStart, vzEnd } = getEF(exact, 1);
+      expect.soft(vzStart).toBeCloseTo(0, 12);
+      expect.soft(vzEnd).toBeCloseTo(0, 12);
+      expect(exact.reactions.find(r => r.nodeId === support)!.fz).toBeCloseTo(weight, 12);
+      expect(exact.reactions.find(r => r.nodeId !== support)!.fz).toBeCloseTo(0, 12);
+    }
+  }
 });
 
-it.skip('known wrong result: #1782 — the spatial WASM moving sweep resolves an axle at a rounded support', () => {
+it('#1782 — the spatial WASM moving sweep resolves an axle at a rounded support', () => {
   const length = 1 + Number.EPSILON, weight = 40;
   const solver = fixedSpan(length);
-  const run = (offset: number, step: number) => solveMovingLoads3D({
-    solver, train: { name: 'one axle', axles: [{ offset, weight }] }, step,
-  }).elements['1'];
-  expect.soft(run(8, length).vzMaxPos).toBeCloseTo(0, 12);
-  expect.soft(run(8, length).vzMaxNeg).toBeCloseTo(0, 12);
-  expect(run(0, length / 2).vzMaxPos).toBeCloseTo(weight / 2, 12);
-  expect(run(0, length / 2).vzMaxNeg).toBeCloseTo(-weight / 2, 12);
-  const within = run(0, length - 8 * Number.EPSILON);
-  const outside = run(0, length - 9 * Number.EPSILON);
-  expect(within.vzMaxPos - within.vzMaxNeg).toBeCloseTo(0, 12);
-  expect(outside.vzMaxPos - outside.vzMaxNeg).toBeCloseTo(weight, 12);
+  const path = buildPath3D(solver, [1])!;
+  const axle = (offset: number) => ({ name: 'one axle', axles: [{ offset, weight }] });
+  const runExact = (offset: number, step: number) => {
+    const loads = trainLoads(solver, path, axle(offset), { base: -offset, step, index: 1 });
+    const result = solve3D({ ...solver, loads });
+    return { ...getEF(result, 1), reactions: result.reactions };
+  };
+
+  const support = runExact(8, length);
+  expect.soft(support.vzStart).toBeCloseTo(0, 12);
+  expect.soft(support.vzEnd).toBeCloseTo(0, 12);
+  expect(support.reactions.find(r => r.nodeId === 2)!.fz).toBeCloseTo(weight, 12);
+  expect(support.reactions.find(r => r.nodeId === 1)!.fz).toBeCloseTo(0, 12);
+  const midpoint = runExact(0, length / 2);
+  expect(midpoint.vzStart).toBeCloseTo(weight / 2, 12);
+  expect(midpoint.vzEnd).toBeCloseTo(-weight / 2, 12);
+  const within = runExact(0, length - 8 * Number.EPSILON);
+  const outside = runExact(0, length - 9 * Number.EPSILON);
+  expect(within.vzStart - within.vzEnd).toBeCloseTo(0, 12);
+  expect(outside.vzStart - outside.vzEnd).toBeCloseTo(weight, 12);
+
+  for (const [offset, step] of [[8, length], [0, length / 2]] as const) {
+    const envelope = solveMovingLoads3D({ solver, train: axle(offset), step }).elements['1'];
+    expect.soft(envelope.vzMaxPos).toBeCloseTo(weight, 12);
+    expect.soft(envelope.vzMaxNeg).toBeCloseTo(-weight, 12);
+  }
 });

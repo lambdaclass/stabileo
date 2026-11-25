@@ -252,7 +252,7 @@ export async function sweepMovingLoad3D(
         addTrain(sample, base, path, wheelLine, r);
         if (opts.path2) addTrain(sample, base, opts.path2, wheelLine, r);
         try {
-          sample.fold((loads) => {
+          const solve = (loads: SolverLoad3D[]) => {
             const result = session.solve(loads);
             const diagnostics = result.structuredDiagnostics ?? [];
             if (diagnostics.some(d => d.code === 'known_issue' && d.severity === 'error')) {
@@ -263,7 +263,10 @@ export async function sweepMovingLoad3D(
               if (!seen.has(key)) { seen.add(key); structuredDiagnostics.push(d); }
             }
             return result;
-          }, (result, faces, reuse) => foldPosition(env, result, position, faces, reuse));
+          };
+          const exact = solve(sample.loads);
+          foldPosition(env, exact, position);
+          sample.foldLimits(exact, solve, (limit, faces, reuse) => foldPosition(env, limit, position, faces, reuse));
         } catch (error) {
           if (isContainmentRefusal(error) || sample.hasJoints) throw error;
           failed++;

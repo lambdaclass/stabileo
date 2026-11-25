@@ -54,16 +54,13 @@ export class MovingSample<L> {
     }
   }
 
-  fold<R>(solve: (loads: L[]) => R, fold: (result: R, faces?: FaceLoads, reuse?: boolean) => void): R {
-    const exact = solve(this.loads);
-    fold(exact);
+  foldLimits<R>(exact: R, solve: (loads: L[]) => R, fold: (result: R, faces: FaceLoads, reuse: boolean) => void): void {
     for (const limit of this.limits) {
       if (limit.changes.size) {
-        fold(limit.solve(this.loads, solve), limit.faces);
+        fold(limit.solve(this.loads, solve), limit.faces, false);
       } else if (limit.faces.size) {
         fold(exact, limit.faces, true);
       }
     }
-    return exact;
   }
 }
