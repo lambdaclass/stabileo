@@ -1593,3 +1593,33 @@ it('#2470 a spatial truss self-weight source cannot disappear below the nodal tr
   const control = buildSolverInput3D(withWeight(q), true)?.loads;
   expect(control?.map(row => row.type === 'nodal' && row.data.fx)).toEqual([q, q]);
 });
+
+const definedSources = process.env.RUN_KNOWN_WRONG === '2470-definitions' ? it : it.skip;
+
+definedSources('known wrong result: #2470 cancelling slab definitions must each reach their assigned cells once', async () => {
+  const { id } = floor();
+  expect(applyPlateMeshes([planPlateMesh(id)!]).plates).toBe(1);
+  expect(addPlateLoad(id, 1, -1, 'Opposite slab')).not.toBeNull();
+  syncDefinedLoadsForAnalysis();
+  const model = modelStore.model;
+  const original = [...model.loads];
+  const cells = plateEntry(id)!.group.members.quads!.length;
+  expect(original).toHaveLength(cells * 2);
+  const control = buildSolverInput3D(model);
+  expect(control?.loads).toHaveLength(cells * 8);
+  const duplicate = original.map((load, i) => ({
+    ...load, data: { ...load.data, id: Math.max(...original.map(row => row.data.id)) + i + 1 },
+  } as typeof load));
+  const cases = modelStore.loadCases;
+  const combos = modelStore.combinations;
+  for (const loads of [[], [...original, ...duplicate]]) {
+    const incorrect = { ...model, loads };
+    const paths = [
+      () => buildSolverInput3D(incorrect),
+      () => caseSolverLoads3D(incorrect, cases, false, false),
+      () => runDirectAnalysis(incorrect, cases, combos, { includeSelfWeight: false }),
+      () => solvePDelta3D(buildSolverInput3D(incorrect)!),
+    ];
+    for (const solve of paths) expect.soft(await outcome(solve)).toMatch(/case.*Test floor.*load/i);
+  }
+});
