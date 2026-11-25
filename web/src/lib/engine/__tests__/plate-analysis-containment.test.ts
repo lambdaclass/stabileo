@@ -615,9 +615,7 @@ it('#2430 solves a diamond wall and slab that share the full diagonal edge', () 
   expectLoadedSlab(modelStore.solve3D(false, false, true));
 });
 
-const review2580 = process.env.RUN_KNOWN_WRONG === '2580' ? it : it.skip;
-
-review2580('known wrong result: #2580 — solves a wall that shares the slab edge within the contact band', async () => {
+it('#2580 solves a wall that shares the slab edge within the contact band', async () => {
   const a = modelStore.addNode(0, 0, 0);
   const b = modelStore.addNode(4, 0, 0);
   const c = modelStore.addNode(2, 4, 0);

@@ -313,6 +313,15 @@ function pointMeetsFace(section: SectionPoint, sides: readonly FaceSide[]): bool
   return true;
 }
 
+function hasSectionEdge(cell: Cell, first: SectionPoint, last: SectionPoint): boolean {
+  if (first.nodes.length !== 1 || last.nodes.length !== 1) return false;
+  const a = first.nodes[0], b = last.nodes[0];
+  return cell.vertices.some(({ id }, index, vertices) => {
+    const next = vertices[(index + 1) % vertices.length]!.id;
+    return (id === a && next === b) || (id === b && next === a);
+  });
+}
+
 function wallFaceContact(wall: Cell, slab: Cell, sides: readonly FaceSide[]): readonly number[] | undefined {
   const { o, u, v, n } = slab.frame;
   const slabNodes = new Set(slab.vertices.map(vertex => vertex.id));
@@ -337,10 +346,8 @@ function wallFaceContact(wall: Cell, slab: Cell, sides: readonly FaceSide[]): re
     const start = section[0]!.point;
     section.sort((a, b) => dot(sub(a.point, start), direction) - dot(sub(b.point, start), direction));
     const first = section[0]!, last = section[section.length - 1]!;
-    const wallEdge = first.nodes.length === 1 && last.nodes.length === 1 && wall.vertices.some(({ id }, i, vertices) => {
-      const next = vertices[(i + 1) % vertices.length]!.id;
-      return (id === first.nodes[0] && next === last.nodes[0]) || (id === last.nodes[0] && next === first.nodes[0]);
-    });
+    const wallEdge = hasSectionEdge(wall, first, last);
+    if (section.length === 2 && wallEdge && hasSectionEdge(slab, first, last)) return undefined;
     if (segmentMeetsFace(first.point, last.point, sides, [0, 1], !wallEdge)) {
       return [...new Set([...first.nodes, ...last.nodes])];
     }
