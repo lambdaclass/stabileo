@@ -28,6 +28,7 @@ const ko: Translations = {
   'loadPlan.gravity.deckCheckFailed': "쉘의 데크 피복을 확인하지 못했습니다: {detail}",
   'loadPlan.gravity.exposureCheckFailed': "피복되지 않은 띠의 노출을 확인하지 못했습니다: {detail}",
   'loadPlan.gravity.mixedExposure': "지정된 영역에 지붕과 바닥 구역이 모두 포함됩니다. 각 구역의 하중을 명시적으로 지정하세요.",
+  'loadPlan.gravity.uncertainDeckCover': "데크 높이 범위가 피복 또는 유효 높이 한계에 걸쳐 있어 골조에서 높이를 확정할 수 없습니다. 평면 데크를 정의하거나 하중을 직접 지정하세요.",
   'loadPlan.gravity.stripSpan': "피복되지 않은 띠가 데크의 최대 경간을 초과합니다.",
   'loadPlan.gravity.headroomCheckFailed': "피복되지 않은 띠의 유효 높이를 확인하지 못했습니다: {detail}",
   'loadPlan.gravity.stripHeadroom': "피복되지 않은 띠의 층 유효 높이가 부족하거나 결정되지 않았습니다.",

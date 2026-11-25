@@ -8283,6 +8283,7 @@ const en: Record<string, string> = {
   'loadPlan.gravity.deckCheckFailed': "Shell deck coverage check failed: {detail}",
   'loadPlan.gravity.exposureCheckFailed': "Uncovered shell strip exposure check failed: {detail}",
   'loadPlan.gravity.mixedExposure': "An assigned area has mixed roof and floor exposure. Assign the roof and floor loads explicitly.",
+  'loadPlan.gravity.uncertainDeckCover': "The deck height crosses a gravity coverage or headroom limit and cannot be determined from the framing. Define a planar deck or assign the loads explicitly.",
   'loadPlan.gravity.stripSpan': "The uncovered shell strip exceeds the maximum deck span.",
   'loadPlan.gravity.headroomCheckFailed': "Uncovered shell strip headroom check failed: {detail}",
   'loadPlan.gravity.stripHeadroom': "The uncovered shell strip has insufficient or unresolved story headroom.",

@@ -8276,6 +8276,7 @@ const es: Record<string, string> = {
   'loadPlan.gravity.deckCheckFailed': "Falló la verificación de cobertura del tablero con placas: {detail}",
   'loadPlan.gravity.exposureCheckFailed': "Falló la verificación de exposición de las franjas descubiertas: {detail}",
   'loadPlan.gravity.mixedExposure': "Un área asignada incluye zonas de cubierta y de entrepiso. Asigná explícitamente las cargas de cada zona.",
+  'loadPlan.gravity.uncertainDeckCover': "La altura del paño cruza un límite de cobertura o de altura libre y no se puede determinar a partir del entramado. Definí un paño plano o asigná las cargas explícitamente.",
   'loadPlan.gravity.stripSpan': "La franja descubierta supera la luz máxima del tablero.",
   'loadPlan.gravity.headroomCheckFailed': "Falló la verificación de altura libre de la franja descubierta: {detail}",
   'loadPlan.gravity.stripHeadroom': "La altura libre de piso de la franja descubierta es insuficiente o no se pudo determinar.",
