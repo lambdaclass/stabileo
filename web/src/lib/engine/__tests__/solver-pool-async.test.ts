@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
-import { initSolver, assertFiniteWire } from '../wasm-solver';
+import { initSolver, finiteObjectWire } from '../wasm-solver';
 import * as glue from '../../wasm/dedaliano_engine.js';
 import { setWorkerFactoryForTests, destroyPool, type WorkerLike } from '../solver-pool';
 import {
@@ -48,12 +48,12 @@ class FakeWorker implements WorkerLike {
       }
       if (msg.type === 'solve' || msg.type === 'solve3d') {
         try {
-          assertFiniteWire(msg.input);
-          const result = msg.type === 'solve' ? glue.solve_2d(msg.input) : glue.solve_3d(msg.input);
+          const input = finiteObjectWire(msg.input);
+          const result = msg.type === 'solve' ? glue.solve_2d(input) : glue.solve_3d(input);
           fakeSolveCounts[msg.type === 'solve' ? 'solve2d' : 'solve3d']++;
           reply({ type: 'result', id: msg.id, result: structuredClone(result) });
         } catch (err: any) {
-          reply({ type: 'result', id: msg.id, error: err.message });
+          reply({ type: 'result', id: msg.id, error: err?.message ?? String(err) });
         }
       }
     });
@@ -76,7 +76,7 @@ function beam2D(): ModelData {
     elements: new Map([
       [1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 } as any],
     ]),
-    materials: new Map([[1, { id: 1, e: 200_000_000, nu: 0.3 } as any]]),
+    materials: new Map([[1, { id: 1, e: 200_000_000, nu: 0.3, rho: 0 } as any]]),
     sections: new Map([[1, { id: 1, a: 0.01, iz: 1e-4 } as any]]),
     supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' } as any]]),
     loads: [
@@ -92,7 +92,7 @@ function frame3D(): ModelData {
       [1, { id: 1, x: 0, y: 0, z: 0 } as any],
       [2, { id: 2, x: 5, y: 0, z: 0 } as any],
     ]),
-    materials: new Map([[1, { id: 1, e: 200_000_000, nu: 0.3 } as any]]),
+    materials: new Map([[1, { id: 1, e: 200_000_000, nu: 0.3, rho: 0 } as any]]),
     sections: new Map([[1, { id: 1, a: 0.01, iy: 1e-4, iz: 1e-4, j: 2e-4 } as any]]),
     elements: new Map([
       [1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 } as any],

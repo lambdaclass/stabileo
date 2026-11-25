@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { solve_2d, solve_3d, solve_pdelta_2d, solve_pdelta_3d } from '../../../wasm/dedaliano_engine.js';
 import { evaluateDiagramAt } from '../../diagrams-3d';
 import { buildSolverLoads3D } from '../../solver-service';
+import { finiteObjectWire } from '../../wasm-solver';
 import type { Load } from '../../../store/model.svelte';
 import type { AnalysisResults3D } from '../../types-3d';
 import type { AnalysisResults } from '../../types';
@@ -32,13 +33,13 @@ it('#2282 shell-borne gravity leaves the restrained offset rafters unloaded', ()
     ];
     const supported = [...new Set([...model.quads.values()].flatMap(quad => quad.nodes))].filter(id => id !== 4);
     const supports = new Map(supported.map(nodeId => [nodeId, { nodeId, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]));
-    const input = {
+    const input = finiteObjectWire({
       ...structuredClone(template),
       nodes: Object.fromEntries(model.nodes), elements: Object.fromEntries(model.elements),
       quads: Object.fromEntries(model.quads), constraints: model.constraints,
       supports: Object.fromEntries(supports),
       loads: buildSolverLoads3D({ ...model, supports, loads } as never, loads, false, false),
-    };
+    });
     const nonlinear = JSON.parse(solve_pdelta_3d(JSON.stringify(input), 100, 1e-10));
     expect(nonlinear.converged).toBe(true);
     for (const result of [solve_3d(input), nonlinear.results] as AnalysisResults3D[]) {
@@ -89,12 +90,12 @@ it('#2512 linear and P-Delta reactions include both nearby decks sharing a fixed
   const supports = new Map([...nodes.keys()].map(nodeId => [
     nodeId, { nodeId, rx: true, ry: true, rz: nodeId === ground, rrx: true, rry: true, rrz: true },
   ]));
-  const input = {
+  const input = finiteObjectWire({
     ...structuredClone(template),
     nodes: Object.fromEntries(nodes), elements: {}, quads: Object.fromEntries(quads), constraints: model.constraints,
     supports: Object.fromEntries(supports),
     loads: buildSolverLoads3D({ ...model, supports, loads } as never, loads, false, false),
-  };
+  });
   const nonlinear = JSON.parse(solve_pdelta_3d(JSON.stringify(input), 100, 1e-10));
   expect(nonlinear.converged).toBe(true);
   for (const result of [solve_3d(input), nonlinear.results] as AnalysisResults3D[]) {
@@ -117,7 +118,7 @@ it('#2512 exact cover preserves the plane beam reactions on both sides of the en
       layout, tributaryWidth: 1, floor: { dead: 1, lo: 0, liveOf: () => 0 },
       roof: { dead: 2, use: 'occupancy', weight: 'heavy', slopePercent: 0 },
     });
-    const input = {
+    const input = finiteObjectWire({
       nodes: Object.fromEntries([...nodes].map(([id, { x, z }]) => [id, { id, x, z }])),
       elements: Object.fromEntries(elements),
       materials: template.materials, sections: template.sections,
@@ -128,7 +129,7 @@ it('#2512 exact cover preserves the plane beam reactions on both sides of the en
       loads: area.distributed.filter(load => load.caseType === 'D').map(load => ({
         type: 'distributed', data: { elementId: load.elementId, a: load.a, b: load.b, qI: load.q, qJ: load.qJ ?? load.q },
       })),
-    };
+    });
     const nonlinear = JSON.parse(solve_pdelta_2d(JSON.stringify(input), 100, 1e-10));
     expect(nonlinear.converged).toBe(true);
     for (const result of [solve_2d(input), nonlinear.results] as AnalysisResults[]) {

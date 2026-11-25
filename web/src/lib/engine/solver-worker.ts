@@ -15,7 +15,7 @@
  * Inputs/outputs are plain JS objects — structured-cloned both ways, no JSON text.
  */
 
-import { assertFiniteWire, certificateOnly, isCertifyExport, readCertifyAnswer, solvePDelta3DWire } from './wasm-solver';
+import { finiteObjectWire, certificateOnly, isCertifyExport, readCertifyAnswer, solvePDelta3DWire } from './wasm-solver';
 import { nonlinearWorkerReply, nonlinearWorkerSession } from './nonlinear-worker-session';
 import { finishSolve3D } from './solve-finish';
 
@@ -36,8 +36,7 @@ function handleSolve(msg: any, solveFn: ((input: any) => any) | null): void {
   }
   try {
     // The finiteness guard preserves the old JSON-boundary semantics (NaN/Inf rejected).
-    assertFiniteWire(msg.input);
-    const raw = solveFn(msg.input);
+    const raw = solveFn(finiteObjectWire(msg.input));
     /* Finished as the main thread finishes it (`solve-finish.ts`). */
     const result = msg.type === 'solve3d' ? finishSolve3D(raw, msg.input) : raw;
     self.postMessage({ type: 'result', id: msg.id, result });
@@ -100,9 +99,8 @@ self.onmessage = async (e: MessageEvent) => {
       return;
     }
     try {
-      assertFiniteWire(msg.input);
       // Only the certificate crosses back: the results are the solve's, already on screen.
-      self.postMessage({ type: 'result', id: msg.id, result: certificateOnly(certify(msg.input)) });
+      self.postMessage({ type: 'result', id: msg.id, result: certificateOnly(certify(finiteObjectWire(msg.input))) });
     } catch (err: any) {
       self.postMessage({ type: 'result', id: msg.id, error: err?.message ?? String(err) });
     }
@@ -119,8 +117,8 @@ self.onmessage = async (e: MessageEvent) => {
     }
     try {
       const args: unknown[] = Array.isArray(msg.input) ? msg.input : [];
-      for (const a of args) if (a && typeof a === 'object') assertFiniteWire(a);
-      self.postMessage({ type: 'result', id: msg.id, result: readCertifyAnswer(name, (fn as (...a: unknown[]) => unknown)(...args)) });
+      const wireArgs = args.map(a => a && typeof a === 'object' ? finiteObjectWire(a) : a);
+      self.postMessage({ type: 'result', id: msg.id, result: readCertifyAnswer(name, (fn as (...a: unknown[]) => unknown)(...wireArgs)) });
     } catch (err: any) {
       self.postMessage({ type: 'result', id: msg.id, error: err?.message ?? String(err) });
     }

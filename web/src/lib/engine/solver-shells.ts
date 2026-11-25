@@ -11,6 +11,7 @@ import type { SolverLoad3D, AnalysisResults3D } from './types-3d';
 import type { Node, Material, SurfaceLoad3D, ThermalLoadQuad3D } from '../store/model.svelte';
 import { shellLoadForces } from './shell-load-integration';
 import { plateThermalToWire } from './unit-types';
+import { requireMaterialDensity } from '../section/weight';
 // Shell stress recovery now handled by WASM solver — TS fallback removed
 
 // ─── Types ───────────────────────────────────────────────────────
@@ -151,7 +152,7 @@ export function plateSelfWeightLoads(
     if (ns.some(n => !n)) continue;
     const [p0, p1, p2] = ns as [Node, Node, Node];
     const area = triArea3D(p0, p1, p2);
-    const totalWeight = mat.rho * plate.thickness * area;
+    const totalWeight = requireMaterialDensity(plate.materialId, mat) * plate.thickness * area;
     const wPerNode = -totalWeight / 3;
     for (const nid of plate.nodes) {
       out.push({
@@ -176,10 +177,11 @@ export function quadSelfWeightLoads(
     const ns = quad.nodes.map(nid => nodes.get(nid));
     if (ns.some(n => !n)) continue;
     const shares = quadCornerShares(ns as [Node, Node, Node, Node]);
+    const rho = requireMaterialDensity(quad.materialId, mat);
     quad.nodes.forEach((nid, i) => {
       out.push({
         type: 'nodal',
-        data: { nodeId: nid, fx: 0, fy: 0, fz: -mat.rho * quad.thickness * shares[i]!, mx: 0, my: 0, mz: 0 },
+        data: { nodeId: nid, fx: 0, fy: 0, fz: -rho * quad.thickness * shares[i]!, mx: 0, my: 0, mz: 0 },
       });
     });
   }

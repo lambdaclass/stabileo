@@ -30,6 +30,7 @@
  *
  * Pure of stores: the model and its combinations come in, results go out.
  */
+import { modelNumberRefusal } from './model-input-numbers';
 import { plateAnalysisRefusal } from './plate-analysis-refusal';
 import type { ModelData } from './solver-service';
 import { requireCableAnalysis } from './analysis-validity';
@@ -282,7 +283,7 @@ export async function runDirectAnalysis(
       for (const { caseId } of factors) caseIds.add(caseId);
       notionalByCombo.set(combo, factors);
     }
-    const orphan = orphanLoadRefusal(model);
+    const orphan = modelNumberRefusal(model) ?? orphanLoadRefusal(model);
     if (orphan) return orphan;
     model = withCaseEffects(model, loadCases, { includeSelfWeight: opts.includeSelfWeight, leftHand }, caseIds);
     const imposed = imposedRefusal(model);

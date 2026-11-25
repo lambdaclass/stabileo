@@ -1,3 +1,4 @@
+import { invalidPlanarPointTorsion, isFiniteInputNumber } from '../engine/model-input-numbers';
 import { POINT_END_TOL } from '../engine/member-point-loads';
 import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
 import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
@@ -27,7 +28,9 @@ import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { is3DWorkspace } from '../utils/workspace';
 import { globalAxes } from '../features';
-import { GRAVITY_SELF_WEIGHT, type SelfWeightLoad } from '../engine/analysis-settings';
+import { GRAVITY_SELF_WEIGHT, type AnalysisSettings, type SelfWeightLoad } from '../engine/analysis-settings';
+import { resolveSelfWeightScope, selfWeightFor } from '../engine/self-weight';
+import { isMaterialDensity } from '../section/weight';
 import { isBareCustom3D, isBareRollerZ, isPlaneRoller, isSupportType } from '../model/support-types';
 
 export const ANALYSIS_KINDS = [
@@ -57,7 +60,7 @@ export const FEATURE_IDS = [
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
-  'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
+  'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase',
   'superposedCombinations', 'repeatedCombinationCases', 'zeroOrOpposingCombinationFactors', 'explicitNotionalCombinationCases',
@@ -67,7 +70,7 @@ export const FEATURE_IDS = [
 export type FeatureId = (typeof FEATURE_IDS)[number];
 
 type Entries<T> = Array<[number, T]> | undefined;
-interface Mat { id: number; fy?: number; gradeId?: string; name?: string; e?: number }
+interface Mat { id: number; rho?: unknown; fy?: number; gradeId?: string; name?: string; e?: number }
 interface TensionEndSnapshot { kind?: string; connected?: string; webLines?: number; stagger?: { sMm?: number; gMm?: number } }
 const staggerGiven = (st: TensionEndSnapshot['stagger']) => !!st && [st.sMm, st.gMm].every((v) => typeof v === 'number' && Number.isFinite(v) && v > 0);
 interface Elem {
@@ -91,7 +94,7 @@ interface Sup {
 }
 
 /** What `modelFeatures` reads: the snapshot shape, loosely, so a file from any version is read. */
-type ShellSnapshot = { id?: number; nodes?: number[]; curved?: boolean; offset?: Offset3 };
+type ShellSnapshot = { id?: number; materialId?: number; nodes?: number[]; curved?: boolean; offset?: Offset3 };
 
 interface FeatureSnapshotFields {
   analysisMode?: string;
@@ -112,14 +115,16 @@ interface FeatureSnapshotFields {
   }>;
   combinations?: unknown[];
   combinationRules?: unknown[];
-  solidShells?: Entries<unknown>;
+  solidShells?: Entries<ShellSnapshot>;
+  quad9s?: Entries<ShellSnapshot>;
+  curvedShells?: Entries<ShellSnapshot>;
   plates?: Entries<ShellSnapshot>;
   quads?: Entries<ShellSnapshot>;
   constraints?: Array<Record<string, unknown>>;
   connectors?: Entries<{ kShear?: number; kShearZ?: number }>;
   footings?: Entries<unknown>;
   jointDesigns?: unknown;
-  groups?: Entries<{ name?: string; kind?: string; data?: unknown; members?: { nodes?: number[]; quads?: number[]; plates?: number[] } }>;
+  groups?: Entries<{ name?: string; kind?: string; data?: unknown; members?: { nodes?: number[]; elements?: number[]; quads?: number[]; plates?: number[] } | null }>;
   regulations?: { roles?: Record<string, { adapterId?: string | null; settings?: Record<string, unknown> } | undefined> };
   dynamics?: { timeHistory?: unknown; spectra?: unknown[] };
   massSource?: unknown;
@@ -262,6 +267,51 @@ function takesExplicitNotionalCase(
   return false;
 }
 
+function addSelfWeightFeatures(
+  snapshot: FeatureSnapshot,
+  materials: ReadonlyMap<number, Mat>,
+  cases: NonNullable<FeatureSnapshot['loadCases']>,
+  features: Set<FeatureId>,
+): void {
+  const rules = snapshot.analysis?.selfWeight;
+  const analysis: AnalysisSettings = {
+    selfWeight: Array.isArray(rules) ? rules.filter((rule): rule is SelfWeightLoad => !!rule && typeof rule === 'object') : undefined,
+    standaloneSelfWeight: snapshot.analysis?.standaloneSelfWeight === 'gravity' ? 'gravity' : undefined,
+  };
+  const includeSelfWeight = snapshot.includeSelfWeight === true;
+  const standalone = selfWeightFor({ analysis }, null, includeSelfWeight);
+  const weights = analysis.standaloneSelfWeight === 'gravity'
+    ? [...standalone, ...cases.flatMap(loadCase => selfWeightFor({ analysis }, loadCase, includeSelfWeight))]
+    : standalone;
+  if (!weights.length) return;
+
+  const space = features.has('space3D');
+  const invalidShells = (shells: Entries<ShellSnapshot>) => (space && Array.isArray(shells) ? shells : []).flatMap(entry => {
+    const materialId = entry?.[1]?.materialId;
+    const material = materialId === undefined ? undefined : materials.get(materialId);
+    if (!material || isMaterialDensity(material.rho)) return [];
+    const feature = isFiniteInputNumber(material.rho) ? 'negativeShellSelfWeightDensity' : 'invalidShellSelfWeightDensity';
+    return [[entry[0], feature] as const];
+  });
+  const plates = invalidShells(snapshot.plates);
+  const quads = invalidShells(snapshot.quads);
+  const groups = new Map(Array.isArray(snapshot.groups) ? snapshot.groups.filter(entry => entry?.[1]) : []);
+  for (const weight of weights) {
+    if (!space && weight.factor === 0) continue;
+    const scope = resolveSelfWeightScope({ groups }, weight);
+    if ('invalidGroup' in scope) {
+      features.add('invalidSelfWeightGroup');
+      continue;
+    }
+    for (const [id, feature] of plates) {
+      if (scope.plates?.has(id) ?? true) features.add(feature);
+    }
+    for (const [id, feature] of quads) {
+      if (scope.quads?.has(id) ?? true) features.add(feature);
+    }
+  }
+}
+
 /** The features of one saved model. */
 export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set<FeatureId> {
   const f = new Set<FeatureId>();
@@ -330,6 +380,12 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (jd && (Array.isArray(jd) ? jd.length : typeof jd === 'object' && Object.keys(jd as object).length)) f.add('jointDesigns');
 
   const quads = values(s.quads);
+  const massCarriers = [...elements, ...quads, ...values(s.plates), ...values(s.quad9s), ...values(s.solidShells), ...values(s.curvedShells)];
+  if (massCarriers.some(carrier => {
+    if (typeof carrier?.materialId !== 'number') return false;
+    const rho = materials.get(carrier.materialId)?.rho;
+    return !isFiniteInputNumber(rho) || rho < 0;
+  })) f.add('invalidDynamicMaterialDensity');
   if (quads.length || values(s.plates).length || values(s.solidShells).length) f.add('shells');
   if (mode !== 'pro' && (quads.length || values(s.plates).length)) f.add('shellsInBasic');
   if (values(s.groups).some(group => plateSurfaceOf({ data: group?.data as Record<string, unknown> }))) {
@@ -389,6 +445,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (globalAxes() && cases.some(c => c.axisNamed === true)) f.add(GLOBAL_AXES_EVIDENCE);
   if (cases.some((c) => c.alternatives?.startsWith('move:'))) f.add('movingLoads');
   if (s.includeSelfWeight || s.analysis?.selfWeight?.length) f.add('selfWeight');
+  addSelfWeightFeatures(s, materials, cases, f);
   if (s.analysis?.standaloneSelfWeight === 'gravity' && s.includeSelfWeight !== true &&
       (elements.length || quads.length || values(s.plates).length)) {
     f.add('standaloneGravityToggleOff');
@@ -431,6 +488,13 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (Array.isArray(storedLoads) && storedLoads.some(l => l.type === 'pointOnElement' && l.data &&
       (nonZero(l.data.mz) || planarPointMoment(l.data) === null))) {
     f.add('legacyPlanarPointCoupleAliases');
+  }
+  const planarLoadInputs = [...(Array.isArray(storedLoads) ? storedLoads : [])];
+  if (storedLoads !== s.loads && Array.isArray(s.loads)) planarLoadInputs.push(...s.loads);
+  for (const { type, data } of planarLoadInputs) {
+    if (type !== 'pointOnElement' && type !== 'nodal') continue;
+    if (data?.my === null || data?.mz === null) f.add('nullPlanarMomentAliases');
+    if (type === 'pointOnElement' && invalidPlanarPointTorsion(data?.mx)) f.add('invalidPlanarMemberTorsion');
   }
   for (const l of Array.isArray(s.loads) ? s.loads : []) {
     const t = l.type ?? '';

@@ -113,50 +113,22 @@
     "1": {
       "id": 1,
       "nodeId": 1,
-      "type": "fixed",
-      "kx": null,
-      "ky": null,
-      "kz": null,
-      "dx": null,
-      "dz": null,
-      "dry": null,
-      "angle": null
+      "type": "fixed"
     },
     "2": {
       "id": 2,
       "nodeId": 5,
-      "type": "pinned",
-      "kx": null,
-      "ky": null,
-      "kz": null,
-      "dx": null,
-      "dz": null,
-      "dry": null,
-      "angle": null
+      "type": "pinned"
     },
     "3": {
       "id": 3,
       "nodeId": 4,
-      "type": "rollerX",
-      "kx": null,
-      "ky": null,
-      "kz": null,
-      "dx": null,
-      "dz": null,
-      "dry": null,
-      "angle": null
+      "type": "rollerX"
     },
     "4": {
       "id": 4,
       "nodeId": 2,
-      "type": "fixed",
-      "kx": null,
-      "ky": null,
-      "kz": null,
-      "dx": null,
-      "dz": null,
-      "dry": null,
-      "angle": null
+      "type": "fixed"
     }
   },
   "loads": [
@@ -165,9 +137,7 @@
       "data": {
         "elementId": 2,
         "a": 0.2563215251264353,
-        "p": -431.9063284273432,
-        "px": null,
-        "my": null
+        "p": -431.9063284273432
       }
     }
   ],

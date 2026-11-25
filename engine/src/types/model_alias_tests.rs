@@ -92,8 +92,7 @@ fn canonical_model_aliases_reach_native_linear_and_pdelta_solves() {
 fn canonical_model_alias_positional_records_keep_legacy_field_order() {
     let support = json!([1, 1, "fixed", null, null, null, null, 0.01, 0.02, 0.02]);
     let expected = json!({
-        "id": 1, "nodeId": 1, "type": "fixed", "kx": null, "ky": null, "kz": null,
-        "dx": null, "dz": 0.01, "dry": 0.02, "angle": 0.02
+        "id": 1, "nodeId": 1, "type": "fixed", "dz": 0.01, "dry": 0.02, "angle": 0.02
     });
     assert_eq!(positional::<SolverSupport>(support.clone()), expected);
     assert_eq!(positional::<units::TypedSupport>(support.clone()), expected);
@@ -102,16 +101,14 @@ fn canonical_model_alias_positional_records_keep_legacy_field_order() {
     assert!(serde_json::from_value::<SolverSupport>(extra).is_err());
 
     let minimal = positional::<SolverSupport>(json!([1, 1, "fixed"]));
-    assert_eq!(minimal["dz"], Value::Null);
-    assert_eq!(minimal["dry"], Value::Null);
-    assert_eq!(minimal["angle"], Value::Null);
+    assert_eq!(minimal, json!({"id": 1, "nodeId": 1, "type": "fixed"}));
     assert_eq!(
         positional::<SolverNodalLoad>(json!([1, 0, 1, 2])),
         json!({"nodeId": 1, "fx": 0.0, "fz": 1.0, "my": 2.0})
     );
     assert_eq!(
         positional::<SolverPointLoadOnElement>(json!([1, 1, 2, null, 3])),
-        json!({"elementId": 1, "a": 1.0, "p": 2.0, "px": null, "my": 3.0})
+        json!({"elementId": 1, "a": 1.0, "p": 2.0, "my": 3.0})
     );
     assert_eq!(
         positional::<NodalMass>(json!([1, 2, 3, 4, 5])),

@@ -11,10 +11,11 @@
  * gets its wL²/8 at midspan, which weight lumped at the ends did not give it. On a shell it is
  * ρ·t over the area, split equally between the corners as before.
  */
+import { tp } from '../i18n';
 import { createSectionWeight } from '../section/weight';
 import type { ModelData } from './solver-service';
 import type { SolverLoad3D } from './types-3d';
-import type { Load } from '../store/model.svelte';
+import type { GroupMembers, Load } from '../store/model.svelte';
 import type { SelfWeightLoad } from './analysis-settings';
 import { GRAVITY_SELF_WEIGHT } from './analysis-settings';
 import { isCompositeCase } from './loads/combination-cases';
@@ -38,18 +39,53 @@ export function selfWeightFor(
 
 const UNIT: Record<SelfWeightLoad['direction'], Vec3> = { X: [1, 0, 0], Y: [0, 1, 0], Z: [0, 0, 1] };
 
-/** What a self-weight load covers: member ids, and the shells, or everything. */
-export function selfWeightScope(model: Pick<ModelData, 'groups'>, s: SelfWeightLoad): { members: Set<number> | null; plates: Set<number> | null; quads: Set<number> | null } {
+export class InvalidSelfWeightGroup extends Error {
+  constructor(groupId: number) {
+    super(tp('svc.engine.invalidSelfWeightGroup', { id: groupId }));
+  }
+}
+
+type SelfWeightGroups = {
+  groups?: ReadonlyMap<number, { members?: unknown }>;
+};
+
+type SelfWeightScope = { members: Set<number> | null; plates: Set<number> | null; quads: Set<number> | null };
+
+const groupMemberLists = { nodes: true, elements: true, plates: true, quads: true } satisfies Record<keyof GroupMembers, true>;
+
+function isGroupMembership(value: unknown): value is GroupMembers {
+  if (value === null || typeof value !== 'object') return false;
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) return false;
+  for (const [key, ids] of Object.entries(value)) {
+    if (!Object.hasOwn(groupMemberLists, key)) return false;
+    if (ids === undefined) continue;
+    if (!Array.isArray(ids)) return false;
+    for (const id of ids) {
+      if (!Number.isSafeInteger(id) || id < 0) return false;
+    }
+  }
+  return true;
+}
+
+export function resolveSelfWeightScope(model: SelfWeightGroups, s: SelfWeightLoad): SelfWeightScope | { invalidGroup: number } {
   if (s.groupId !== undefined) {
-    const g = model.groups?.get(s.groupId);
+    const members = model.groups?.get(s.groupId)?.members;
+    if (!isGroupMembership(members)) return { invalidGroup: s.groupId };
     return {
-      members: new Set(g?.members.elements ?? []),
-      plates: new Set(g?.members.plates ?? []),
-      quads: new Set(g?.members.quads ?? []),
+      members: new Set(members.elements),
+      plates: new Set(members.plates),
+      quads: new Set(members.quads),
     };
   }
   if (s.elements) return { members: new Set(s.elements), plates: new Set(), quads: new Set() };
   return { members: null, plates: null, quads: null };
+}
+
+export function selfWeightScope(model: SelfWeightGroups, s: SelfWeightLoad): SelfWeightScope {
+  const scope = resolveSelfWeightScope(model, s);
+  if ('invalidGroup' in scope) throw new InvalidSelfWeightGroup(scope.invalidGroup);
+  return scope;
 }
 
 /**

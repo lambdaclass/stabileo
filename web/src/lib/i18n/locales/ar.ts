@@ -3762,6 +3762,11 @@ const ar: Translations = {
   "autoLoad.work.draw": "رسم الأحمال",
   "autoLoad.work.step": "الخطوة {step} من {total}",
   "autoLoad.work.cancel": "إيقاف",
+  "svc.engine.unsupportedPointLoadMoment": "مركبة عزم غير مدعومة للحمل النقطي على العنصر",
+  "svc.engine.applyPointLoadMomentAtNode": "طبّق العزم عند عقدة ثلاثية الأبعاد في موضع الحمل الأصلي",
+  "svc.engine.invalidSelfWeightGroup": "مجموعة الوزن الذاتي {id} غير موجودة أو أن عضويتها غير صالحة. استعد المجموعة وعضويتها أو غيّر نطاق الوزن الذاتي.",
+  "svc.engine.invalidDensity": "أدخل كثافة (rho) منتهية وغير سالبة للمادة {id} (القيمة الواردة: {value}).",
+  "svc.engine.nonnegativeMassDensity": "يجب أن تكون الكثافة الكتلية منتهية وغير سالبة",
   "svc.engine.nonFiniteNumber": "أدخل عددًا منتهيًا في الحقل {path} (القيمة الواردة: {value}).",
 } as const satisfies Record<string, string>;
 

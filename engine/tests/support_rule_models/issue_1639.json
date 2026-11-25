@@ -160,38 +160,20 @@
   "solverOptions": null,
   "supports": {
     "1": {
-      "angle": null,
-      "dry": null,
-      "dx": null,
-      "dz": null,
       "id": 1,
-      "kx": null,
-      "ky": null,
-      "kz": null,
       "nodeId": 1,
       "type": "fixed"
     },
     "2": {
-      "angle": null,
-      "dry": null,
-      "dx": null,
-      "dz": null,
       "id": 2,
       "kx": 158.53682359264468,
       "ky": 30007.944019996707,
-      "kz": null,
       "nodeId": 2,
       "type": "guidedX"
     },
     "3": {
-      "angle": null,
-      "dry": null,
-      "dx": null,
       "dz": -0.0080553165813378,
       "id": 3,
-      "kx": null,
-      "ky": null,
-      "kz": null,
       "nodeId": 5,
       "type": "guidedX"
     }
