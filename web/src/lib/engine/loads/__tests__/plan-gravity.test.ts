@@ -1,6 +1,6 @@
 import { teAt } from '../../../i18n/engine-text';
 import { describe, it, expect, vi } from 'vitest';
-import { gravityLayout, type GravityModel } from '../plan-gravity';
+import { gravityLayout, MIN_STOREY_HEADROOM, type GravityModel } from '../plan-gravity';
 import * as gravityPlanner from '../plan-gravity';
 import { planAreaLoads } from '../plan-area-loads';
 import { floorLoad, type FloorBeam } from '../floor-loads';
@@ -1378,6 +1378,89 @@ for (const end of [10, 6]) it(`#2512 shell-owned bay area cannot mask a lower ro
     expect(separate.blockedKeys).toEqual(isolated.blockedKeys);
     expect(separate.surface.filter(load => load.caseType === 'Lr')).toEqual([]);
     expect(deadLoadKN(separate, model)).toBeCloseTo(60 + 6 * end, 10);
+  }
+});
+
+const reviewReproducer = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
+
+for (const offset of [0.051, 0.2, MIN_STOREY_HEADROOM - 0.125]) {
+  reviewReproducer(`known wrong result: #2512 a vertically attached upper shell at offset ${offset} cannot bypass bay ownership`, () => {
+    checkBlockedGravity(linkedShellBay(3 + offset), {
+      key: 'loadPlan.gravity.offsetShellDeck', params: { id: 1, members: '1, 2, 3, 4' },
+    });
+  });
+}
+
+it('#2512 established deck and storey separation retain their gravity loads', () => {
+  for (const offset of [0.049, 0.05]) checkOwnedFloor(linkedShellBay(3 + offset), [1], 60);
+  for (const offset of [MIN_STOREY_HEADROOM, MIN_STOREY_HEADROOM + 0.125]) {
+    checkOwnedFloor(linkedShellBay(3 + offset), [1], 120);
+  }
+  const released = linkedShellBay(3.2, [0, 1]);
+  const plan = buildLoadPlan(planInput(released, { dead: [{ labelKey: 'a', q: 1 }], gravity: { mode: 'panels', loadEveryPanel: true } }));
+  expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+  expect(deadLoadKN(plan, released)).toBeCloseTo(120, 10);
+  checkOwnedFloor(linkedShellBay(2.8), [1], 120);
+});
+
+function translationLinkedRafter(offset: number, dofs: number[] | undefined, subdivide = false) {
+  const { model } = offsetRoof(offset, 0, 1, subdivide);
+  return { ...model, constraints: model.constraints.map(link => ({ ...link, dofs })) };
+}
+
+for (const dofs of [undefined, [], [2], [0, 1, 2]]) {
+  it(`#2512 a rafter linked in ${JSON.stringify(dofs) ?? 'default DOFs'} carries no duplicate gravity`, () => {
+    for (const [offset, subdivide] of [[0.02, false], [-0.02, true], [0.049, false], [0.05, false]] as const) {
+      const model = translationLinkedRafter(offset, dofs, subdivide);
+      for (const loadEveryPanel of [false, true]) {
+        const gravity = { mode: 'panels', loadEveryPanel } as const;
+        const dead = [{ labelKey: 'a', q: 1 }];
+        const isolated = { ...model, elements: new Map() };
+        const expected = buildLoadPlan(planInput(isolated, { gravity, dead }));
+        const plan = buildLoadPlan(planInput(model, { gravity, dead }));
+        expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+        expect(deadLoadKN(plan, model)).toBeCloseTo(4 * Math.hypot(10, 2), 10);
+        expect(plan.surface).toEqual(expected.surface);
+        expect(plan.distributed).toEqual([]);
+        expect(plan.nodal).toEqual([]);
+        const areaLoads = (source: typeof plan) => source.levels.map(({ planAreaM2, superimposedKN, liveTotalKN }) =>
+          [planAreaM2, superimposedKN, liveTotalKN]);
+        expect(areaLoads(plan)).toEqual(areaLoads(expected));
+        expect(gravityLayout(model, { ...gravity, tributaryWidth: 3 }).widthMembers).toEqual([]);
+        expect(roofWeightFor(model, gravity, 3, 1)).toBe(roofWeightFor(isolated, gravity, 3, 1));
+      }
+      expect(snowDriftRefusal(model)).toEqual(snowDriftRefusal({ ...model, elements: new Map() }));
+    }
+  });
+}
+
+for (const offset of [0.051, 0.2, -0.2, MIN_STOREY_HEADROOM - 0.125]) {
+  it(`#2512 a vertical-only rafter tie at offset ${offset} refuses ambiguous ownership`, () => {
+    checkBlockedGravity(translationLinkedRafter(offset, [2]), { key: 'loadPlan.gravity.offsetRafter', params: { id: 1 } });
+  });
+}
+
+for (const subdivide of [false, true]) {
+  reviewReproducer(`known wrong result: #2512 a rafter with unequal vertical attachments refuses with subdivision=${subdivide}`, () => {
+    const model = translationLinkedRafter(0.2, [2], subdivide);
+    const rafterNodes = new Set([...model.elements.values()].flatMap(({ nodeI, nodeJ }) => [nodeI, nodeJ]));
+    for (const id of rafterNodes) {
+      const node = model.nodes.get(id)!;
+      node.z = 2.8 + node.x * 0.195;
+    }
+    checkBlockedGravity(model, { key: 'loadPlan.gravity.offsetRafter', params: { id: 1 } });
+  });
+}
+
+it('#2512 an untied rafter or one on a separate storey retains its width load', () => {
+  for (const [offset, dofs] of [[0.02, [0, 1]], [MIN_STOREY_HEADROOM, [2]], [MIN_STOREY_HEADROOM + 0.125, [2]]] as const) {
+    const model = translationLinkedRafter(offset, [...dofs]);
+    const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }], tributaryWidth: 3 }));
+    expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+    expect(plan.distributed.filter(load => load.caseType === 'D')).toEqual([
+      { elementId: 1, caseType: 'D', q: -3, frame: 'global' },
+    ]);
+    expect(deadLoadKN(plan, model)).toBeCloseTo(7 * Math.hypot(10, 2), 10);
   }
 });
 

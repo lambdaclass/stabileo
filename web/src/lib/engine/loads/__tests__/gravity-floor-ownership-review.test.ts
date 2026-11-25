@@ -145,12 +145,20 @@ it('#2512 the centre beam in a subdivided bay leaves its own shell exposed', () 
 });
 
 function checkWasmReactions(model: LoadModelData, loads: Load[], expected: number) {
-  const freeVertical = new Set(model.constraints?.flatMap(constraint => constraint.type === 'equalDOF' ? [constraint.slaveNode] : []));
+  const slaveDofs = new Map(model.constraints?.flatMap(constraint =>
+    constraint.type === 'equalDOF' || constraint.type === 'rigidLink'
+      ? [[constraint.slaveNode, new Set(constraint.dofs?.length ? constraint.dofs : [0, 1, 2])] as const]
+      : []));
+  const restraints = (nodeId: number) => {
+    const dofs = slaveDofs.get(nodeId);
+    return [0, 1, 2, 3, 4, 5].map(dof => !dofs?.has(dof));
+  };
   const shell = model.quads?.get(1);
-  freeVertical.add(shell?.nodes[1] ?? model.elements.values().next().value!.nodeI);
-  const supports = new Map([...model.nodes.keys()].map(nodeId => [
-    nodeId, { nodeId, rx: true, ry: true, rz: !freeVertical.has(nodeId), rrx: true, rry: true, rrz: true },
-  ]));
+  const freeVertical = shell?.nodes[1] ?? model.elements.values().next().value!.nodeI;
+  const supports = new Map([...model.nodes.keys()].map(nodeId => {
+    const [rx, ry, rz, rrx, rry, rrz] = restraints(nodeId);
+    return [nodeId, { nodeId, rx, ry, rz: rz && (nodeId !== freeVertical || slaveDofs.has(nodeId)), rrx, rry, rrz }];
+  }));
   const solverInput = {
     ...structuredClone(template),
     nodes: Object.fromEntries(model.nodes), elements: Object.fromEntries(model.elements),
@@ -820,6 +828,37 @@ it('#2512 restored apply blocks the matched 200 mm offset rafter', () => {
   expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('BLOCKED');
   expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf: key => key })).toEqual(offsetRafterRefusal);
   expect(modelStore.snapshot()).toEqual(before);
+});
+
+const offsetOwnershipReproducer = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
+
+for (const [name, fixture, reason] of [
+  ['an attached upper shell', () => subdividedShellBay(false, 3.2), { key: 'loadPlan.gravity.offsetShellDeck' }],
+  ['unequal vertical rafter ties', () => {
+    const { model } = offsetRoof(0.2);
+    for (const link of model.constraints) link.dofs = [2];
+    model.nodes.get(model.constraints[1]!.slaveNode)!.z! -= 0.05;
+    return model;
+  }, offsetRafterRefusal],
+] as const) {
+  offsetOwnershipReproducer(`known wrong result: #2512 restored apply refuses ${name}`, () => {
+    const { plan } = restoreAndPlan(fixture(), false, { mode: 'panels', loadEveryPanel: true });
+    const before = modelStore.snapshot();
+    expect(plan.outcome, JSON.stringify({ blocked: plan.blockedKeys, levels: plan.levels })).toBe('BLOCKED');
+    expect(plan.blockedKeys).toEqual([expect.objectContaining(reason)]);
+    expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf: key => key })).toEqual(plan.blockedKeys[0]);
+    expect(modelStore.snapshot()).toEqual(before);
+  });
+}
+
+it('#2512 linear and P-Delta reactions preserve the separated lower shell and bay loads', () => {
+  checkPlanReactions(subdividedShellBay(false, 2.8), 'D', 2 * area * pressure);
+});
+
+it('#2512 linear and P-Delta reactions count a translation-linked roof once', () => {
+  const { model } = offsetRoof(0.02);
+  for (const link of model.constraints) link.dofs = [2];
+  checkPlanReactions(model, 'D', 4 * Math.hypot(10, 2) * pressure);
 });
 
 it('#2512 a detached or gapped pitched shell cannot take ownership of a framed bay', () => {
