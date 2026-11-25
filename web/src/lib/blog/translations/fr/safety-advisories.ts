@@ -1,4 +1,5 @@
 import type { PostBody } from '../../types';
+import { nextReleaseAdvisoryBlocks } from '../../next-release-advisories';
 
 const body: PostBody = {
   "title": "Avis de sécurité : quels résultats ont changé et que faire",
@@ -114,34 +115,7 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-106-complementary-plate-remesh-arc.md", "label": "SA-2026-106", "t": "Entrées concernées et mesures à prendre."},
     {"k": "note", "t": "SA-2026-107 — Prochaine version après la 0.6.3 (mesure de protection)."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-107-plate-remesh-shell-edits.md", "label": "SA-2026-107", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-108 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-108-planar-projection-nodal-forces.md", "label": "SA-2026-108", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-109 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-109-dxf-support-labels.md", "label": "SA-2026-109", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-110 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-110-solver-json-boundary.md", "label": "SA-2026-110", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-111 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-111-gravity-shared-deck-coverage.md", "label": "SA-2026-111", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-112 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-112-basic-3d-shell-omission.md", "label": "SA-2026-112", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-113 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-113-native-supplied-linear-certificates.md", "label": "SA-2026-113", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-114 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-114-saved-combination-load-groups.md", "label": "SA-2026-114", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-115 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-115-gravity-floor-region-ownership.md", "label": "SA-2026-115", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-116 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-116-nonlinear-continuation-and-inclined-loads.md", "label": "SA-2026-116", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-117 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-117-static-shell-self-weight-density.md", "label": "SA-2026-117", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-118 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-118-self-weight-group-targets.md", "label": "SA-2026-118", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-119 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-119-modal-mass-missing-density.md", "label": "SA-2026-119", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-120 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-120-gravity-deck-load-placement.md", "label": "SA-2026-120", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-121 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-121-planar-nonlinear-member-loads.md", "label": "SA-2026-121", "t": "Entrées concernées et mesures à prendre."},
+    ...nextReleaseAdvisoryBlocks('Prochaine version après la 0.6.4.', 'Entrées concernées et mesures à prendre.'),
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO avec un portique en béton enregistré avant que les résultats soient versionnés. Un bandeau en bas indique des résultats périmés : le projet a été résolu avec une version antérieure et 19 changements enregistrés le concernent, avec les boutons pour voir ce qui a changé et relancer le calcul.", "caption": "Comment une correction atteint un projet enregistré : tant qu’il n’est pas recalculé, ses résultats restent marqués périmés, et les changements qui le concernent sont à un clic."},
     {
       "k": "h",
@@ -571,7 +545,8 @@ const body: PostBody = {
         ["SA-2026-118", "Un groupe cible invalide pouvait entraîner l’omission du poids propre de ce groupe. Corrigez le groupe cible, relancez les cas de charge et les combinaisons concernés, puis recalculez leurs enveloppes.", "Élevée", "Prochaine version après la 0.6.4"],
         ["SA-2026-119", "L’absence de masse volumique d’un matériau pouvait fausser les fréquences propres. Rétablissez la masse volumique, reconstruisez la source de masse et relancez les analyses dynamiques concernées.", "Élevée", "Prochaine version après la 0.6.4"],
         ["SA-2026-120", "La génération automatique pouvait doubler les charges gravitaires, les transférer à des panneaux dont la portée dépassait la limite du calcul automatique ou mal distinguer les zones de plancher et de toiture. Régénérez les plans de charges gravitaires, de neige et de vent concernés, vérifiez les charges et relancez les analyses correspondantes.", "Élevée", "Prochaine version après la 0.6.4"],
-        ["SA-2026-121", "L’analyse non linéaire plane pouvait donner des résultats erronés pour les charges sur les barres. Relancez les analyses concernées, y compris celles qui ont fourni l’état initial d’une continuation, et vérifiez les déplacements, les réactions et les efforts aux extrémités des barres.", "Moyenne", "Prochaine version après la 0.6.4"]
+        ["SA-2026-121", "L’analyse non linéaire plane pouvait donner des résultats erronés pour les charges sur les barres. Relancez les analyses concernées, y compris celles qui ont fourni l’état initial d’une continuation, et vérifiez les déplacements, les réactions et les efforts aux extrémités des barres.", "Moyenne", "Prochaine version après la 0.6.4"],
+        ["SA-2026-122", "Les combinaisons générées pouvaient omettre des variantes requises ou des charges d’exploitation de toiture saisies manuellement, utiliser une base de neige incorrecte ou inclure des cas de vent obsolètes. Vérifiez les charges, les coefficients des règles et les combinaisons de chaque enveloppe. Supprimez du modèle les cas de charge vides dont vous avez confirmé qu’ils sont obsolètes, y compris ceux qui étaient déjà vides dans la version 0.6.4. Régénérez les combinaisons et vérifiez qu’elles excluent les identifiants de ces cas avant de relancer les analyses concernées.", "Élevée", "Prochaine version après la 0.6.4"]
       ]
     },
     {
