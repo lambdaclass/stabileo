@@ -1487,6 +1487,35 @@ function gablePlan(evidenced: boolean, rotated: boolean, subdivided: boolean, sh
   return { model, plan, sink };
 }
 
+const gableResult = process.env.RUN_KNOWN_WRONG === '2332' ? it : it.skip;
+
+gableResult('known wrong result: #2332 a supported gable loads the rafter spans without a phantom ridge story', () => {
+  const length = Math.hypot(2, 1);
+  for (const rotated of [false, true]) for (const subdivided of [false, true]) for (const shift of [0, 1_000_000]) {
+    const { model, plan, sink } = gablePlan(false, rotated, subdivided, shift);
+    expect(plan.outcome).toBe('READY');
+    expect(plan.seismicModel!.levels.map(l => l.elevation)).toEqual([0, 2]);
+    expect(plan.factors.baseShear!.value).toBeCloseTo(4 * length, 10);
+    expect(sink.nodal).toEqual([]);
+    expect(sink.distributed).toHaveLength(subdivided ? 4 : 2);
+    let force = 0, overturning = 0;
+    for (const load of sink.distributed) {
+      const el = model.elements.get(load.elementId)!;
+      expect(el.id).toBeGreaterThan(2);
+      const q = rotated ? load.qX! : load.qY!;
+      expect(q).toBeCloseTo(2, 10);
+      expect(rotated ? load.qXJ : load.qYJ).toBeCloseTo(2, 10);
+      expect(load.a).toBe(0);
+      expect(load.b).toBeCloseTo(subdivided ? length / 2 : length, 10);
+      const zI = model.nodes.get(el.nodeI)!.z!, zJ = model.nodes.get(el.nodeJ)!.z!;
+      force += q * load.b!;
+      overturning += q * load.b! * (zI + zJ) / 2;
+    }
+    expect(force).toBeCloseTo(4 * length, 10);
+    expect(overturning).toBeCloseTo(10 * length, 10);
+  }
+});
+
 it('#2332 evidenced rafter mass is loaded on each physical story band', () => {
   const length = Math.sqrt(5);
   for (const rotated of [false, true]) for (const subdivided of [false, true]) for (const shift of [0, 1_000_000]) {
