@@ -298,7 +298,17 @@ function interiorContact(walls: readonly Cell[], slabs: readonly Cell[]) {
         if (axes.some(axis => Math.min(a[axis], b[axis]) > bounds[axis]!.hi
           || Math.max(a[axis], b[axis]) < bounds[axis]!.lo)) continue;
         const { o, n } = cell.frame;
-        if (Math.max(Math.abs(dot(sub(a, o), n)), Math.abs(dot(sub(b, o), n))) > PLATE_EDGE_TOL) continue;
+        const fromPlane = dot(sub(a, o), n), toPlane = dot(sub(b, o), n);
+        const contact = { wall: wall.key, slab: cell.key, edge: [first.id, last.id] as const };
+        if (Math.max(Math.abs(fromPlane), Math.abs(toPlane)) > PLATE_EDGE_TOL) {
+          if ((fromPlane < -PLATE_EDGE_TOL && toPlane > PLATE_EDGE_TOL)
+            || (toPlane < -PLATE_EDGE_TOL && fromPlane > PLATE_EDGE_TOL)) {
+            const t = fromPlane / (fromPlane - toPlane);
+            if (sides.every(({ point, inward }) =>
+              (1 - t) * dot(sub(a, point), inward) + t * dot(sub(b, point), inward) >= -PLATE_EDGE_TOL)) return contact;
+          }
+          continue;
+        }
         let lo = 0, hi = 1;
         for (const { point, inward } of sides) {
           const from = dot(sub(a, point), inward) - PLATE_EDGE_TOL;
@@ -311,7 +321,7 @@ function interiorContact(walls: readonly Cell[], slabs: readonly Cell[]) {
           if (to <= 0) hi = Math.min(hi, from / (from - to));
           if (lo >= hi) break;
         }
-        if (lo < hi) return { wall: wall.key, slab: cell.key, edge: [first.id, last.id] as const };
+        if (lo < hi) return contact;
       }
     }
   }

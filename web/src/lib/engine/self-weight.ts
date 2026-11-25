@@ -8,8 +8,7 @@
  * migrated.
  *
  * On a member it is a uniform load of ρ·A along the member, applied as a member load: a beam
- * gets its wL²/8 at midspan, which weight lumped at the ends did not give it. On a shell it is
- * ρ·t over the area, split equally between the corners as before.
+ * gets its wL²/8 at midspan, which weight lumped at the ends did not give it.
  */
 import { tp } from '../i18n';
 import { createSectionWeight, requireMaterialDensity } from '../section/weight';
@@ -19,7 +18,7 @@ import type { GroupMembers, Load } from '../store/model.svelte';
 import type { SelfWeightLoad } from './analysis-settings';
 import { GRAVITY_SELF_WEIGHT } from './analysis-settings';
 import { isCompositeCase } from './loads/combination-cases';
-import { globalDistributedToSolver, type MemberRef, type Vec3 } from './member-loads';
+import { globalDistributedToSolver, PLANAR_LINE_COMPONENT_CUTOFF, type MemberRef, type Vec3 } from './member-loads';
 import { plateSelfWeightLoads, quadSelfWeightLoads } from './solver-shells';
 
 /** The self-weight loads of one case, or of a single solve of every load when `caseRef` is null. */
@@ -101,6 +100,17 @@ export type RecordSelfWeight<T> = (source: SelfWeightSource, rows: readonly T[])
 
 export function selfWeightDirection(source: SelfWeightSource): Vec3 {
   return UNIT[source.direction];
+}
+
+export function planarSelfWeightComponents(
+  direction: SelfWeightLoad['direction'], intensity: number, dx: number, dy: number,
+): { axial: number; transverse: number } | null {
+  const length = Math.hypot(dx, dy);
+  if (!(length >= 1e-10) || direction === 'Y') return null;
+  const c = dx / length, s = dy / length;
+  const axial = intensity * (direction === 'X' ? c : s);
+  const transverse = intensity * (direction === 'X' ? -s : c);
+  return Math.max(Math.abs(axial), Math.abs(transverse)) > PLANAR_LINE_COMPONENT_CUTOFF ? { axial, transverse } : null;
 }
 
 export function* selfWeightSources(

@@ -120,10 +120,16 @@ export const TRUSS_LOAD_COMPONENT_CUTOFF = 1e-12;
  * `axialOnly` transfers the load to end nodes for members that carry no bending.
  */
 export function globalDistributedToSolver(m: MemberRef, gI: Vec3, gJ: Vec3, a: number, b: number, axialOnly = false): SolverLoad3D[] {
+  const { ex, ey, ez } = m.axes;
+  const local = (g: Vec3): Vec3 => [dot(g, ex), dot(g, ey), dot(g, ez)];
+  return localDistributedToSolver(m, local(gI), local(gJ), a, b, axialOnly);
+}
+
+export function localDistributedToSolver(
+  m: MemberRef, [xI, yI, zI]: Vec3, [xJ, yJ, zJ]: Vec3, a: number, b: number, axialOnly = false,
+): SolverLoad3D[] {
   const out: SolverLoad3D[] = [];
   const { ex, ey, ez, L } = m.axes;
-  const yI = dot(gI, ey), yJ = dot(gJ, ey), zI = dot(gI, ez), zJ = dot(gJ, ez);
-  const xI = dot(gI, ex), xJ = dot(gJ, ex);
   const tiny = (v: number) => Math.abs(v) < TRUSS_LOAD_COMPONENT_CUTOFF;
   const toNodes = (vI: Vec3, vJ: Vec3, axial = false) => {
     let fI: Vec3 = [0, 0, 0], fJ: Vec3 = [0, 0, 0];
@@ -171,10 +177,8 @@ export function transverseToNodes(loads: SolverLoad3D[], axialOnly: (elementId: 
     if (l.type === 'distributed') {
       const m = axialOnly(l.data.elementId);
       if (!m) { out.push(l); continue; }
-      const { ex, ey, ez } = m.axes;
-      const gI = add(add(scale(ey, l.data.qYI), ez, l.data.qZI), ex, l.data.qXI ?? 0);
-      const gJ = add(add(scale(ey, l.data.qYJ), ez, l.data.qZJ), ex, l.data.qXJ ?? 0);
-      out.push(...globalDistributedToSolver(m, gI, gJ, l.data.a ?? 0, l.data.b ?? m.axes.L, true));
+      const { qXI = 0, qXJ = 0, qYI, qYJ, qZI, qZJ, a = 0, b = m.axes.L } = l.data;
+      out.push(...localDistributedToSolver(m, [qXI, qYI, qZI], [qXJ, qYJ, qZJ], a, b, true));
     } else if (l.type === 'pointOnElement') {
       const m = axialOnly(l.data.elementId);
       if (!m) { out.push(l); continue; }

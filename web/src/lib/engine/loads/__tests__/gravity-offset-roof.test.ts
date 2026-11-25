@@ -136,7 +136,7 @@ function roofWithTwoGaps(split: boolean, shelter: boolean) {
   return model;
 }
 
-it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586')('known wrong result: #2586 mixed gap exposure refuses the physical run under subdivision', () => {
+it('mixed gap exposure refuses the physical run under subdivision', () => {
   const reason = { key: 'loadPlan.gravity.mixedExposure' };
   for (const split of [false, true]) {
     const model = roofWithTwoGaps(split, true);

@@ -1214,7 +1214,7 @@ describe('kinematic 3D', () => {
 });
 
 
-it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586')('known wrong result: #2586 keeps the authored local components on a skew frame', () => {
+it('keeps the authored local components on a skew frame', () => {
   for (const seed of [1, 2, 3]) {
     buildRandom('skew-frame', seed);
     const input = input3D()!;

@@ -29,7 +29,7 @@ import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { is3DWorkspace } from '../utils/workspace';
 import { globalAxes } from '../features';
 import { GRAVITY_SELF_WEIGHT, type AnalysisSettings, type SelfWeightLoad } from '../engine/analysis-settings';
-import { resolveSelfWeightScope, selfWeightFor } from '../engine/self-weight';
+import { planarSelfWeightComponents, resolveSelfWeightScope, selfWeightFor } from '../engine/self-weight';
 import { isMaterialDensity } from '../section/weight';
 import { isBareCustom3D, isBareRollerZ, isPlaneRoller, isSupportType } from '../model/support-types';
 
@@ -55,7 +55,7 @@ export const FEATURE_IDS = [
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
   'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
-  'physicalPlateDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
+  'physicalPlateDefinitions', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
@@ -313,14 +313,15 @@ function addSelfWeightFeatures(
       const area = el.sectionId === undefined ? undefined : sections.get(el.sectionId)?.a;
       if (!isMaterialDensity(density) || area === undefined) continue;
       const intensity = Math.abs(density * area * weight.factor);
+      const a = nodes.get(el.nodeI), b = nodes.get(el.nodeJ);
+      if (!a || !b) continue;
       if (space) {
-        const a = nodes.get(el.nodeI), b = nodes.get(el.nodeJ);
-        if (!a || !b) continue;
         const end = intensity * Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)) / 2;
         if ((intensity > 0 && intensity < TRUSS_LOAD_COMPONENT_CUTOFF) || (end > 0 && end < TRUSS_LOAD_COMPONENT_CUTOFF)) {
           features.add('smallMemberSelfWeight');
         }
-      } else if (intensity > 0 && intensity <= PLANAR_LINE_COMPONENT_CUTOFF) {
+      } else if (intensity > 0 && weight.direction !== 'Y'
+        && !planarSelfWeightComponents(weight.direction, intensity, b.x - a.x, b.y - a.y)) {
         features.add('smallMemberSelfWeight');
       }
     }
@@ -409,8 +410,18 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   })) f.add('invalidDynamicMaterialDensity');
   if (quads.length || values(s.plates).length || values(s.solidShells).length) f.add('shells');
   if (mode !== 'pro' && (quads.length || values(s.plates).length)) f.add('shellsInBasic');
-  if (values(s.groups).some(group => plateSurfaceOf({ data: group?.data as Record<string, unknown> }))) {
+  const physicalPlates = new Set((Array.isArray(s.groups) ? s.groups : []).flatMap(entry =>
+    plateSurfaceOf({ data: entry?.[1]?.data as Record<string, unknown> }) ? [entry[0]] : []));
+  if (physicalPlates.size) {
     f.add('physicalPlateDefinitions');
+    for (const group of values(s.groups)) {
+      if (group?.kind !== 'floorLoad') continue;
+      const data = group.data as { distribution?: string; target?: { by?: string; groupId?: number } } | undefined;
+      if (data?.distribution === 'slab' && data.target?.by === 'group'
+        && typeof data.target.groupId === 'number' && physicalPlates.has(data.target.groupId)) {
+        f.add('wholeSlabLoadDefinitions');
+      }
+    }
   }
   if (f.has('space3D') && (f.has('shells') || s.groups?.length)) {
     const plates = plateAnalysisModel(s);

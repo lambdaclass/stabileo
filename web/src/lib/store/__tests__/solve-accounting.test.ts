@@ -133,6 +133,9 @@ vi.mock('../../engine/member-loads', async importOriginal => {
     globalDistributedToSolver: (...args: Parameters<typeof original.globalDistributedToSolver>) =>
       fault.dropMemberLoad || (fault.dropLineIntensity !== 0 && args[1][2] === fault.dropLineIntensity)
         ? [] : original.globalDistributedToSolver(...args),
+    localDistributedToSolver: (...args: Parameters<typeof original.localDistributedToSolver>) =>
+      fault.dropMemberLoad || (fault.dropLineIntensity !== 0 && args[1][2] === fault.dropLineIntensity)
+        ? [] : original.localDistributedToSolver(...args),
   };
 });
 
@@ -1653,7 +1656,7 @@ async function expectSlabCellRefusal(model: ModelData) {
   for (const [path, solve] of Object.entries(paths)) expect.soft(await outcome(solve), path).toMatch(/case.*Strip slab.*quad #/i);
 }
 
-it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586')('known wrong result: #2586 four wrong slab pressures can preserve counts and the definition wrench', async () => {
+it('four wrong slab pressures can preserve counts and the definition wrench', async () => {
   const id = stripSlab(4);
   addPlateLoad(id, 1, 3);
   syncDefinedLoadsForAnalysis();
@@ -1707,7 +1710,7 @@ it('balances trapezoidal quad self-weight about its area centroid', async () => 
   }
 });
 
-it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586')('known wrong result: #2586 self-weight provenance uses the same two projected components as the planar solve', async () => {
+it('self-weight provenance uses the same two projected components as the planar solve', async () => {
   const memberId = cantilever('2d');
   const base = modelStore.model;
   const member = base.elements.get(memberId)!;

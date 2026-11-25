@@ -2,7 +2,8 @@
   "id": "seismic-supported-gable",
   "date": "2026-11-25",
   "prs": [
-    2332
+    2332,
+    2586
   ],
   "area": "loads",
   "when": {

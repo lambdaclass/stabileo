@@ -48,7 +48,7 @@ export interface GravityModel {
   elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId?: number; type?: 'frame' | 'truss' }>;
   quads?: Map<number, { id: number; nodes: number[] }>;
   constraints?: readonly Constraint3D[];
-  supports?: ReadonlyMap<number, Pick<Support, 'nodeId'> & Partial<Pick<Support, 'type' | 'dofRestraints' | 'dofFrame'>>>;
+  supports?: ReadonlyMap<number, Pick<Support, 'nodeId'> & Partial<Pick<Support, 'type' | 'dofRestraints' | 'dofFrame' | 'isInclined' | 'uplift' | 'curves'>>>;
 }
 
 export interface GravityOptions {
@@ -588,20 +588,24 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     (i, j) => panelLevel[i] === panelLevel[j] && [...panelBeams[i]!].some((id) => panelBeams[j]!.has(id)));
   out.widthColour = widthCheckerboard(model, out.widthMembers.map((m) => m.elementId));
 
+  const runExposure = new Map<readonly Segment[], boolean>();
   for (const m of out.widthMembers) {
     const fringe = memberFringes.get(m.elementId);
     const attached = attachedCoverage.get(m.elementId);
     const trace = segment(m.elementId);
-    const point = (t: number): Segment[0] => trace[0].map((p, i) => p + t * (trace[1][i]! - p)) as Segment[0];
-    const gapExposure = typeof attached === 'object'
-      ? new Set(attached.gaps.map(([t0, t1]) => !coverAbove.memberCovered([point(t0), point(t1)])))
-      : undefined;
-    if (gapExposure && gapExposure.size > 1 && !opts.uniformPressure) {
-      refuseGravityGeometry(msg('loadPlan.gravity.mixedExposure'));
+    let exposed: boolean | undefined;
+    if (typeof attached === 'object') {
+      exposed = runExposure.get(attached.runGaps);
+      if (exposed === undefined) {
+        const exposure = new Set(attached.runGaps.map(gap => !coverAbove.memberCovered(gap)));
+        if (exposure.size > 1 && !opts.uniformPressure) refuseGravityGeometry(msg('loadPlan.gravity.mixedExposure'));
+        exposed = exposure.has(true);
+        runExposure.set(attached.runGaps, exposed);
+      }
     }
-    const roof = gapExposure ? gapExposure.has(true) : fringe && opts.mode === 'panels'
+    const roof = exposed ?? (fringe && opts.mode === 'panels'
       ? !coverAbove.areaCovered(fringe, opts.uniformPressure === true)
-      : !!fringe || !coverAbove.memberCovered(trace);
+      : !!fringe || !coverAbove.memberCovered(trace));
     addArea(roof ? out.roofAreaOf : out.areaOf, m.elementId, widthSpans(m, opts.tributaryWidth).reduce((s, w) => s + w.width * (w.t1 - w.t0), 0) * m.horizontalLength);
     if (roof) out.roof.add(m.elementId);
   }
@@ -635,7 +639,7 @@ export const MAX_DECK_SPAN = 12;
 
 type ShellCoverage = 'none' | 'partial' | 'full';
 type RunInterval = [number, number];
-type AttachmentCoverage = ShellCoverage | 'unresolvedOffset' | { gaps: RunInterval[] };
+type AttachmentCoverage = ShellCoverage | 'unresolvedOffset' | { gaps: RunInterval[]; runGaps: readonly Segment[] };
 type ShellOffset = { offset: Segment[0]; error: number; shellNode: number };
 type ShellAttachment = { offset: Segment[0]; anchors: Set<number>; shellNodes: Set<number>; error: number };
 
@@ -805,6 +809,9 @@ function rigidShellCoverage(
         for (const id of ids) byMember.set(id, 'partial');
         continue;
       }
+      const start = attachmentPoint(run.a, [0, 0, 0]), end = attachmentPoint(run.b, [0, 0, 0]);
+      const at = (t: number): Segment[0] => start.map((coordinate, i) => coordinate + t * (end[i]! - coordinate)) as Segment[0];
+      const runGaps = gapIntervals.map(([lo, hi]): Segment => [at(lo), at(hi)]);
       for (const { id, a, b, start, end } of parts) {
         const tolerance = 64 * Number.EPSILON * Math.max(1, Math.abs(a), Math.abs(b));
         const gaps: RunInterval[] = [];
@@ -815,7 +822,7 @@ function rigidShellCoverage(
           const last = ((a < b ? hi : lo) - a) / (b - a);
           gaps.push([Math.max(0, first), Math.min(1, last)]);
         }
-        byMember.set(id, { gaps: gaps.sort((a, b) => a[0] - b[0]) });
+        byMember.set(id, { gaps: gaps.sort((a, b) => a[0] - b[0]), runGaps });
       }
     } else if (coverage !== 'none' || gapIntervals) {
       for (const id of ids) byMember.set(id, coverage === 'none' ? 'partial' : coverage);

@@ -5,6 +5,7 @@ import { hasShellOffset } from '../shell-offsets';
 import { hasMemberOffset } from '../member-offsets';
 import { pressureQuadrature } from './wind-pressure-field';
 import { createSectionWeight } from '../../section/weight';
+import { SupportMappingError, supportDofs3D } from '../support-dofs-3d';
 
 export type MassNode = { id: number; x: number; y: number; z: number };
 type LineGeometry = { elementId: number; nodeI: MassNode; nodeJ: MassNode; length: number; a: number; b: number };
@@ -264,7 +265,16 @@ export function buildSeismicModel(
     storyNodes.add(id);
   }
 
-  const supported = new Set([...model.supports?.values() ?? []].map(s => s.nodeId));
+  const supported = new Set<number>();
+  for (const [id, support] of model.supports ?? []) {
+    if (!support.type || support.isInclined || support.uplift || support.curves) continue;
+    try {
+      const { rx, ry, rz } = supportDofs3D({ ...support, id, type: support.type });
+      if (rx && ry && rz) supported.add(support.nodeId);
+    } catch (error) {
+      if (!(error instanceof SupportMappingError)) throw error;
+    }
+  }
   const highest = [...component.nodes].reduce((z, id) => Math.max(z, nodes.get(id)!.z), component.elevation);
   type Edge = { node: MassNode; elementId: number };
   const rafter = (edge: Edge) => {

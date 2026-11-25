@@ -2,7 +2,8 @@
   "id": "gravity-attached-rafter-gaps",
   "date": "2026-11-25",
   "prs": [
-    2295
+    2295,
+    2586
   ],
   "area": "loads",
   "when": {

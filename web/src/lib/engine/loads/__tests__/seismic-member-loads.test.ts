@@ -1468,6 +1468,7 @@ function gablePlan(evidenced: boolean, rotated: boolean, subdivided: boolean, sh
     ? [[left, at(1, 2.5)], [at(1, 2.5), ridge], [right, at(3, 2.5)], [at(3, 2.5), ridge]]
     : [[left, ridge], [right, ridge]];
   const model = supportAtZero(mesh([[at(continuousAtLeftEave ? -4 : 0, 0), left], [at(4, 0), right], ...rafters]));
+  model.supports = new Map([...model.supports!].map(([id, support]) => [id, { ...support, type: 'pinned3d' }]));
   model.sections.set(1, { id: 1, a: 0.5 });
   model.materials.set(1, { id: 1, rho: 4 });
   model.materials.set(2, { id: 2, rho: 0 });
@@ -1775,8 +1776,8 @@ it('#2332 a longitudinal ridge beam needs independent floor evidence at both end
 });
 
 
-it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586').each([0, 1])(
-  'known wrong result: #2586 a rotation-only support at gable base %s cannot establish its story',
+it.each([0, 1])(
+  'a rotation-only support at gable base %s cannot establish its story',
   base => {
     for (const rotated of [false, true]) {
       const { model } = gablePlan(false, rotated, false, 0);

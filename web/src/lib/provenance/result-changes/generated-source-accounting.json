@@ -2,14 +2,16 @@
   "id": "generated-source-accounting",
   "date": "2026-11-25",
   "prs": [
-    2470
+    2470,
+    2586
   ],
   "area": "analysis",
   "when": {
     "any": [
       "smallGeneratedLineLoads",
       "opposedShellPressures",
-      "smallMemberSelfWeight"
+      "smallMemberSelfWeight",
+      "wholeSlabLoadDefinitions"
     ]
   },
   "quantities": [

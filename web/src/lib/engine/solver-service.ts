@@ -35,8 +35,8 @@ import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from '
 import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D } from './orphan-rotations-3d';
 import { unheldNodalMoment2D } from './orphan-rotations-2d';
 import { computeLocalAxes3D, memberRoll } from './local-axes-3d';
-import { PLANAR_LINE_COMPONENT_CUTOFF, distributedGlobalEnds, globalDistributedToSolver, transverseToNodes, memberFrame3D, takesNoBending as memberTakesNoBending, type MemberRef } from './member-loads';
-import { InvalidSelfWeightGroup, selfWeightFor, selfWeightSources, selfWeightSolverLoads, type RecordSelfWeight } from './self-weight';
+import { PLANAR_LINE_COMPONENT_CUTOFF, distributedGlobalEnds, globalDistributedToSolver, localDistributedToSolver, transverseToNodes, memberFrame3D, takesNoBending as memberTakesNoBending, type MemberRef } from './member-loads';
+import { InvalidSelfWeightGroup, selfWeightFor, selfWeightSources, selfWeightSolverLoads, type RecordSelfWeight, planarSelfWeightComponents } from './self-weight';
 import type { SelfWeightLoad } from './analysis-settings';
 import type { SolverInput3D, SolverSection3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, NonlinearReport } from './types-3d';
 import { analyzeKinematics, type KinematicResult } from './kinematic-2d';
@@ -534,16 +534,11 @@ function convertSolverLoads2D(
     const ni = model.nodes.get(elem.nodeI);
     const nj = model.nodes.get(elem.nodeJ);
     if (ni && nj) {
-      const dx = nj.x - ni.x, dy = nj.y - ni.y;
-      const L = Math.hypot(dx, dy);
-      if (L >= 1e-10) {
-        const s = dy / L, c = dx / L;
-        const w = source.intensity;
-        const qPerp = source.direction === 'X' ? -w * s : w * c;
-        const qTangent = source.direction === 'X' ? w * c : w * s;
-        const keep = retainedPlanarProjections(true, [qTangent], [qPerp]);
-        if (keep.transverse) solverLoads.push({ type: 'distributed', data: { elementId: elem.id, qI: qPerp, qJ: qPerp } });
-        if (keep.axial) solverLoads.push({ type: 'axialDistributed', data: { elementId: elem.id, qI: qTangent, qJ: qTangent } });
+      const projected = planarSelfWeightComponents(source.direction, source.intensity, nj.x - ni.x, nj.y - ni.y);
+      if (projected) {
+        const { axial, transverse } = projected;
+        if (transverse !== 0) solverLoads.push({ type: 'distributed', data: { elementId: elem.id, qI: transverse, qJ: transverse } });
+        if (axial !== 0) solverLoads.push({ type: 'axialDistributed', data: { elementId: elem.id, qI: axial, qJ: axial } });
       }
     }
     recordWeight(source, solverLoads.slice(before));
@@ -1612,8 +1607,7 @@ export function buildSolverLoads3D(
 
   const truss = (id: number) => takesNoBending(id) ? refOf(id) : null;
   for (const l of loads) {
-    const emit = (...batch: SolverLoad3D[]) => {
-      const assembled = transverseToNodes(batch, truss);
+    const emitAssembled = (assembled: SolverLoad3D[]) => {
       if (opts.record && (l.type === 'distributed' || l.type === 'distributed3d')) {
         const member = truss(l.data.elementId);
         if (member) for (const row of assembled) {
@@ -1625,6 +1619,7 @@ export function buildSolverLoads3D(
       opts.record?.(l.data.caseId ?? 1, assembled, l);
       for (const load of assembled) solverLoads.push(load);
     };
+    const emit = (...batch: SolverLoad3D[]) => emitAssembled(transverseToNodes(batch, truss));
     if (l.type === 'nodal') {
       const vertical = get2DDisplayNodalLoadVertical(l.data);
       const moment = requirePlanarNodalMoment(l.data);
@@ -1707,9 +1702,17 @@ export function buildSolverLoads3D(
       const d = l.data as DistributedLoad3D;
       const m = refOf(d.elementId);
       if (!m) continue;
-      validateMemberLoadInterval(d.elementId, d.a ?? 0, d.b ?? m.axes.L, m.axes.L, m.points);
-      const g = distributedGlobalEnds(d, m.axes, userLeftHand);
-      emit(...globalDistributedToSolver(m, g.gI, g.gJ, g.a, g.b));
+      const { a = 0, b = m.axes.L } = d;
+      validateMemberLoadInterval(d.elementId, a, b, m.axes.L, m.points);
+      const axialOnly = takesNoBending(d.elementId);
+      if ((d.frame ?? 'local') === 'local') {
+        const y = userLeftHand ? -1 : 1;
+        emitAssembled(localDistributedToSolver(m, [d.qXI ?? 0, y * d.qYI, d.qZI],
+          [d.qXJ ?? 0, y * d.qYJ, d.qZJ], a, b, axialOnly));
+      } else {
+        const { gI, gJ } = distributedGlobalEnds(d, m.axes, userLeftHand);
+        emitAssembled(globalDistributedToSolver(m, gI, gJ, a, b, axialOnly));
+      }
     } else if (l.type === 'pointOnElement') {
       // A plane point load in the space axes (`planePointLoad3D`), then as a space one: its
       // couple, and its interior axial part, at the node the solve cut there.

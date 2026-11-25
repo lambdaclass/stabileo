@@ -468,15 +468,15 @@ function throughSlab(y: number, bottom = -1) {
   modelStore.addElement(corner!, a);
 }
 
-it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586').each(directEntries)(
-  'known wrong result: #2586 the %s entry refuses a wall passing through a slab',
+it.each(directEntries)(
+  'the %s entry refuses a wall passing through a slab',
   async (entry, solve) => {
     throughSlab(2);
     expect(await solve()).toEqual(entry === 'reproducible input' ? null : expect.stringMatching(/wall.*slab/i));
   },
 );
 
-it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586')('known wrong result: #2586 global analysis refuses a wall passing through a slab', async () => {
+it('global analysis refuses a wall passing through a slab', async () => {
   throughSlab(2);
   expect(await runGlobalSolve({ directBase: true })).toEqual({ ok: false, error: expect.stringMatching(/wall.*slab/i) });
   expect(resultsStore.results3D).toBeNull();
