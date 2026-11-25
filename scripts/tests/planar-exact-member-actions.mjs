@@ -45,3 +45,61 @@ export function registerExactMemberActionTests({ arc, displacement, corotational
     }
   }
 }
+
+export function registerMemberRotationTests({ arc, displacement, corotational }) {
+  const { solver: base, displacementControl } = JSON.parse(readFileSync(
+    new URL('./fixtures/planar-member-rotation.json', import.meta.url),
+  ));
+  const knownWrong = process.env.RUN_KNOWN_WRONG !== '2560' && 'known wrong result: #2560';
+  const tolerance = 1e-8;
+  const check = (result, motion, axial) => {
+    assert.equal(result.converged, true);
+    const tip = result.results.displacements.find((d) => d.nodeId === 2);
+    assert.deepEqual([tip.ux, tip.uz], motion);
+    const member = result.results.elementForces.find((m) => m.elementId === 1);
+    assert.equal(member.nEnd, axial);
+  };
+
+  test('member recovery resolves both signs of chord rotation', () => {
+    for (const [motion, axial] of [[[-3, 1], -3], [[2, -4], 4]]) {
+      const solver = structuredClone(base);
+      [solver.supports[2].dx, solver.supports[2].dz] = motion;
+      solver.loads[1].data.p = 5;
+      for (const result of corotational(solver, 1)) {
+        assert.equal(result.loadFactor, 1);
+        check(result, motion, axial);
+      }
+    }
+  });
+
+  test('#2560 member rotation after axial stretch: co-rotation', { skip: knownWrong }, () => {
+    for (const [motion, axial] of [[[0, 0], 0], [[3, 4], 2], [[-1.5, -2], -1]]) {
+      const solver = structuredClone(base);
+      [solver.supports[2].dx, solver.supports[2].dz] = motion;
+      for (const result of corotational(solver, 4)) {
+        assert.equal(result.loadFactor, 1);
+        check(result, motion, axial);
+      }
+    }
+  });
+
+  test('#2560 member rotation after axial stretch: arc length', { skip: knownWrong }, () => {
+    const radius = 0.75 * Math.SQRT2;
+    const result = arc({
+      solver: base, maxSteps: 1, maxIter: 20, tolerance,
+      initialDs: radius, minDs: radius, maxDs: radius,
+    });
+    assert.equal(result.finalLoadFactor, 0.75);
+    check(result, [2.25, 3], 1.5);
+  });
+
+  test('#2560 member rotation after axial stretch: displacement control', { skip: knownWrong }, () => {
+    const solver = { ...structuredClone(base), ...displacementControl };
+    delete solver.supports[2];
+    const result = displacement({
+      solver, controlNode: 4, controlDof: 0, targetDisplacement: 4,
+      nSteps: 1, maxIter: 20, tolerance,
+    });
+    check(result, [3, 4], 2);
+  });
+}

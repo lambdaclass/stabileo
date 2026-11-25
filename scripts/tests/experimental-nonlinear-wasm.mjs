@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import { registerArcReviewTests, registerDisplacementFixture, registerRoundTwoTests, registerRounding2560Tests } from './arc-review-wasm.mjs';
-import { registerExactMemberActionTests } from './planar-exact-member-actions.mjs';
+import { registerExactMemberActionTests, registerMemberRotationTests } from './planar-exact-member-actions.mjs';
 
 const require = createRequire(import.meta.url);
 const engine = require('../../target/experimental-nonlinear-wasm/dedaliano_engine.js');
@@ -188,3 +188,4 @@ const allReviewDrivers = {
 };
 registerRounding2560Tests(allReviewDrivers);
 registerExactMemberActionTests(allReviewDrivers);
+registerMemberRotationTests(allReviewDrivers);

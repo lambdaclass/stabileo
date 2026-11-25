@@ -1,0 +1,37 @@
+{
+  "solver": {
+    "nodes": {
+      "1": {"id": 1, "x": 0, "z": 0},
+      "2": {"id": 2, "x": 3, "z": 4},
+      "3": {"id": 3, "x": 0, "z": 1},
+      "4": {"id": 4, "x": 2, "z": 1}
+    },
+    "elements": {
+      "1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1},
+      "2": {"id": 2, "type": "frame", "nodeI": 3, "nodeJ": 4, "materialId": 1, "sectionId": 1}
+    },
+    "materials": {"1": {"id": 1, "e": 0.002, "nu": 0.3}},
+    "sections": {"1": {"id": 1, "a": 1, "iz": 1}},
+    "supports": {
+      "1": {"id": 1, "nodeId": 1, "type": "fixed"},
+      "2": {"id": 2, "nodeId": 2, "type": "fixed", "dx": 3, "dz": 4},
+      "3": {"id": 3, "nodeId": 3, "type": "fixed"},
+      "4": {"id": 4, "nodeId": 4, "type": "rollerX"}
+    },
+    "loads": [
+      {"type": "nodal", "data": {"nodeId": 4, "fx": 1, "fz": 0, "my": 0}},
+      {"type": "pointOnElement", "data": {"elementId": 1, "a": 5, "p": 18014398509481984}}
+    ]
+  },
+  "displacementControl": {
+    "constraints": [
+      {"type": "linearMPC", "terms": [{"nodeId": 2, "dof": 0, "coefficient": 1}, {"nodeId": 4, "dof": 0, "coefficient": -0.75}]},
+      {"type": "linearMPC", "terms": [{"nodeId": 2, "dof": 1, "coefficient": 1}, {"nodeId": 4, "dof": 0, "coefficient": -1}]}
+    ],
+    "loads": [
+      {"type": "nodal", "data": {"nodeId": 4, "fx": 6.5, "fz": 0, "my": 0}},
+      {"type": "pointOnElement", "data": {"elementId": 1, "a": 5, "p": 18014398509481984}},
+      {"type": "nodal", "data": {"nodeId": 2, "fx": 14411518807585588, "fz": -10808639105689190, "my": 0}}
+    ]
+  }
+}
