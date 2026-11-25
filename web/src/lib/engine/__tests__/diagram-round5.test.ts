@@ -278,3 +278,29 @@ it('#1782 browser and WASM moving analyses apply a rounded path endpoint at the 
     expect.soft(result.elements['2']).toMatchObject({ nMaxPos: 0, nMaxNeg: 0 });
   }
 });
+
+it.skip('known wrong result: #2437 carries a point jump through cancellation at an interval minimum', () => {
+  const [plane, space, planar, spatial] = forceRecords();
+  const scale = 2 ** 54;
+  const distributed = [{ a: 0.25, b: 0.75, qI: -8 * scale, qJ: 8 * scale }];
+  const point = [{ a: 0.25, p: 1 }];
+  for (const result of planar) {
+    const ef = Object.assign(result.elementForces[0]!, { length: 1, vStart: scale, vEnd: scale,
+      distributedLoads: distributed, pointLoads: point });
+    const diagram = computeElementDiagram('shear', ef, 0, 0, 1, 0);
+    expect.soft(Math.min(...diagram.points.map(p => p.value))).toBe(1);
+    expect.soft(computeDiagramValueAt('shear', 0.5, ef)).toBe(1);
+    expect.soft(prepareDiagramValueAt('shear', ef)(0.5)).toBe(1);
+    expect.soft(computeDiagramValueAtWasm('shear', 0.5, ef)).toBe(1);
+    expect.soft(Math.min(...computeDiagrams2D(plane, result).shear[0]!.points.map(p => p.value))).toBe(1);
+  }
+  for (const result of spatial) {
+    const ef = Object.assign(result.elementForces[0]!, { length: 1, vzStart: scale, vzEnd: scale,
+      distributedLoadsZ: distributed, pointLoadsZ: point });
+    expect.soft(computeDiagram3D(ef, 'shearZ').minValue).toBe(1);
+    expect.soft(evaluateDiagramAt(ef, 'shearZ', 0.5)).toBe(1);
+    expect.soft(prepareDiagramEvaluator3D(ef, 'shearZ')(0.5)).toBe(1);
+    expect.soft(computeDiagramValueAt3DWasm('shearZ', 0.5, ef)).toBe(1);
+    expect.soft(computeDiagrams3D(space, result).shearZ[0]!.minValue).toBe(1);
+  }
+});

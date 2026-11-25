@@ -3,6 +3,8 @@
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import { summaryRows, envelopeRows, allRows, maxByType, rowsOf, toCsv, columnsOf, whereOf, type Source } from '../result-tables';
+import { magnitudeCombination } from '../combination-methods';
+import { memberCriticalOrdinates3D } from '../diagrams-3d';
 import { envelopeMembers, pruneScopes } from '../result-scopes';
 import { DEFAULT_AXES } from '../../axes/frame';
 import { modelStore } from '../../store/model.svelte';
@@ -196,4 +198,49 @@ it('#2226 withholds a project summary whose nested magnitude has only a bound', 
   expect(envelopeSectionHtml(makeSources(f), tr, 'Envelope').join('')).toContain('V (kN)</td><td class="num">5.000</td>');
   const combined: ElementForces3D = { ...f, combined: { method: 'abs', parts: [f] } };
   expect(() => envelopeSectionHtml(makeSources(combined), tr, 'Envelope')).toThrow('Extrema withheld');
+});
+
+it.skip('known wrong result: #2226 evaluates both transverse components at the physical jump cut', () => {
+  const length = 3, a = 1.5, x = a + Number.EPSILON, slope = 2 ** 52;
+  const f = {
+    elementId: 7, length, nStart: 0, nEnd: 0, vyStart: 0, vyEnd: a * slope, vzStart: 4, vzEnd: 0,
+    mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0,
+    qYI: 0, qYJ: 0, qZI: 0, qZJ: 0,
+    pointLoadsY: [], pointLoadsZ: [{ a: x, p: -4 }],
+    distributedLoadsY: [{ a, b: length, qI: slope, qJ: slope }],
+  } as ElementForces3D;
+  const end = { ...f, length: 1, vyStart: f.vyEnd, distributedLoadsY: [], pointLoadsZ: [], vzStart: 0 };
+  const piecewise = { ...f, length: 4, pieces: [{ x0: 0, x1: 3, forces: f }, { x0: 3, x1: 4, forces: end }] };
+  for (const forces of [f, piecewise]) {
+    const sources = [{ ...A, results: { ...A.results, elementForces: [forces] } }];
+    const options = { ...canonical, stations: 'critical', resultant: true } as const;
+    const summary = summaryRows('forces', sources, options);
+    expect.soft(summary.find(r => r.column.key === 'v')?.min).toMatchObject({ value: 1, x });
+    expect.soft(memberCriticalOrdinates3D(forces, ['shearY', 'shearZ']).filter(p => p.x === x)).toEqual([
+      { t: x / forces.length, x, value: Math.hypot(1, 4) },
+      { t: x / forces.length, x, value: 1, right: true },
+    ]);
+  }
+});
+
+it.skip('known wrong result: #2226 finds the transverse extrema of an ordinary SRSS combination', () => {
+  const f = {
+    elementId: 7, length: 1, nStart: 0, nEnd: 0, vyStart: -3, vyEnd: 5, vzStart: -7, vzEnd: 1,
+    mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0,
+    qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, pointLoadsY: [], pointLoadsZ: [],
+    distributedLoadsY: [{ a: 0, b: 1, qI: 8, qJ: 8 }],
+    distributedLoadsZ: [{ a: 0, b: 1, qI: 8, qJ: 8 }],
+  } as ElementForces3D;
+  const constant = { ...f, vyStart: 4, vyEnd: 4, vzStart: 0, vzEnd: 0, distributedLoadsY: [], distributedLoadsZ: [] };
+  const cases = new Map([[1, f], [2, constant]].map(([id, forces]) =>
+    [id, { ...A.results, elementForces: [forces] }] as [number, AnalysisResults3D]));
+  const factors = [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 1 }];
+  const options = { ...canonical, stations: 'critical', resultant: true } as const;
+  const results = magnitudeCombination('srss', factors, cases)!;
+  const sources = [{ ...A, results }];
+  expect(summaryRows('forces', sources, options).find(r => r.column.key === 'v')?.min)
+    .toMatchObject({ value: Math.hypot(2, -2, 4), x: 5 / 8 });
+  expect(envelopeSectionHtml(sources, k => k, 'Envelope').join('')).toContain('4.899');
+  const abs = magnitudeCombination('abs', factors, cases)!;
+  expect(() => summaryRows('forces', [{ ...A, results: abs }], options)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
 });
