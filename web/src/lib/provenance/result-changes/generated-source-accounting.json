@@ -7,10 +7,9 @@
   "area": "analysis",
   "when": {
     "any": [
-      "generatedLoads",
-      "shells",
-      "selfWeight",
-      "areaDeadLoads"
+      "smallGeneratedLineLoads",
+      "opposedShellPressures",
+      "smallMemberSelfWeight"
     ]
   },
   "quantities": [

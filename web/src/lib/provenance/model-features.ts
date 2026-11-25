@@ -1,4 +1,5 @@
 import { invalidPlanarPointTorsion, isFiniteInputNumber } from '../engine/model-input-numbers';
+import { PLANAR_LINE_COMPONENT_CUTOFF, TRUSS_LOAD_COMPONENT_CUTOFF } from '../engine/member-loads';
 import { POINT_END_TOL } from '../engine/member-point-loads';
 import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
 import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
@@ -58,7 +59,7 @@ export const FEATURE_IDS = [
   'physicalPlateDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
-  'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
+  'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
@@ -104,7 +105,7 @@ interface FeatureSnapshotFields {
   nodes?: Entries<{ x: number; y: number; z?: number }>;
   materials?: Entries<Mat>;
   elements?: Entries<Elem>;
-  sections?: Entries<{ id: number; shearAreas?: unknown }>;
+  sections?: Entries<{ id: number; a?: number; shearAreas?: unknown }>;
   fiberSections?: Record<string, { materials?: Array<{ type?: string }> }>;
   supports?: Entries<Sup>;
   loads?: Array<{ type: string; data?: Record<string, unknown> }>;
@@ -293,6 +294,9 @@ function addSelfWeightFeatures(
     const feature = isFiniteInputNumber(material.rho) ? 'negativeShellSelfWeightDensity' : 'invalidShellSelfWeightDensity';
     return [[entry[0], feature] as const];
   });
+  const sections = new Map(values(snapshot.sections).map(section => [section.id, section]));
+  const nodes = new Map(Array.isArray(snapshot.nodes) ? snapshot.nodes : []);
+  const members = values(snapshot.elements).filter(el => !space || el.type === 'truss');
   const plates = invalidShells(snapshot.plates);
   const quads = invalidShells(snapshot.quads);
   const groups = new Map(Array.isArray(snapshot.groups) ? snapshot.groups.filter(entry => entry?.[1]) : []);
@@ -302,6 +306,23 @@ function addSelfWeightFeatures(
     if ('invalidGroup' in scope) {
       features.add('invalidSelfWeightGroup');
       continue;
+    }
+    for (const el of members) {
+      if (scope.members && !scope.members.has(el.id)) continue;
+      const density = materials.get(el.materialId)?.rho;
+      const area = el.sectionId === undefined ? undefined : sections.get(el.sectionId)?.a;
+      if (!isMaterialDensity(density) || area === undefined) continue;
+      const intensity = Math.abs(density * area * weight.factor);
+      if (space) {
+        const a = nodes.get(el.nodeI), b = nodes.get(el.nodeJ);
+        if (!a || !b) continue;
+        const end = intensity * Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)) / 2;
+        if ((intensity > 0 && intensity < TRUSS_LOAD_COMPONENT_CUTOFF) || (end > 0 && end < TRUSS_LOAD_COMPONENT_CUTOFF)) {
+          features.add('smallMemberSelfWeight');
+        }
+      } else if (intensity > 0 && intensity <= PLANAR_LINE_COMPONENT_CUTOFF) {
+        features.add('smallMemberSelfWeight');
+      }
     }
     for (const [id, feature] of plates) {
       if (scope.plates?.has(id) ?? true) features.add(feature);
@@ -497,6 +518,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (data?.my === null || data?.mz === null) f.add('nullPlanarMomentAliases');
     if (type === 'pointOnElement' && invalidPlanarPointTorsion(data?.mx)) f.add('invalidPlanarMemberTorsion');
   }
+  const pressureSigns = new Map<string, number>();
   for (const l of Array.isArray(s.loads) ? s.loads : []) {
     const t = l.type ?? '';
     const d = l.data ?? {};
@@ -534,6 +556,11 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     }
     if (t.startsWith('distributed')) {
       f.add('distributedMemberLoads');
+      if ((d.generatedBy || d.fromDef !== undefined) &&
+        [d.qI, d.qJ, d.qXI, d.qXJ, d.qYI, d.qYJ, d.qZI, d.qZJ]
+          .some(q => typeof q === 'number' && q !== 0 && Math.abs(q) <= PLANAR_LINE_COMPONENT_CUTOFF)) {
+        f.add('smallGeneratedLineLoads');
+      }
       if ([d.qI, d.qJ, d.qXI, d.qXJ, d.qYI, d.qYJ, d.qZI, d.qZJ]
         .some(q => typeof q === 'number' && q !== 0 && Math.abs(q) < 1e-12)) f.add('tinyDistributedLoads');
     }
@@ -562,6 +589,13 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (/edge/i.test(t)) f.add('shellEdgeLoads');
     const dead = caseType.get(d.caseId as number) === 'D' || d.caseId === undefined;
     if ((t === 'surface3d' || d.fromDef !== undefined) && dead) f.add('areaDeadLoads');
+    if (t === 'surface3d' && typeof d.q === 'number' && d.q !== 0) {
+      const key = `${d.caseId ?? 1}:${d.on ?? 'quad'}:${d.quadId}`;
+      const sign = Math.sign(d.q);
+      const previous = pressureSigns.get(key);
+      if (previous === -sign) f.add('opposedShellPressures');
+      pressureSigns.set(key, sign);
+    }
     if (fromLoadPlan(d.generatedBy)) {
       f.add('generatedLoads');
       if (typedCompositeCaseIds.has(d.caseId as number)) loadPlanInCompositeCase = true;

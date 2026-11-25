@@ -35,7 +35,7 @@ import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from '
 import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D } from './orphan-rotations-3d';
 import { unheldNodalMoment2D } from './orphan-rotations-2d';
 import { computeLocalAxes3D, memberRoll } from './local-axes-3d';
-import { distributedGlobalEnds, globalDistributedToSolver, transverseToNodes, memberFrame3D, takesNoBending as memberTakesNoBending, type MemberRef } from './member-loads';
+import { PLANAR_LINE_COMPONENT_CUTOFF, distributedGlobalEnds, globalDistributedToSolver, transverseToNodes, memberFrame3D, takesNoBending as memberTakesNoBending, type MemberRef } from './member-loads';
 import { InvalidSelfWeightGroup, selfWeightFor, selfWeightSources, selfWeightSolverLoads, type RecordSelfWeight } from './self-weight';
 import type { SelfWeightLoad } from './analysis-settings';
 import type { SolverInput3D, SolverSection3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, NonlinearReport } from './types-3d';
@@ -350,8 +350,8 @@ function accountAssembly<T extends object>(assemble: (record: RecordLoadCase<T>,
 }
 
 function retainedPlanarProjections(globalAxis: boolean, axial: number[], transverse: number[]) {
-  const keepAxial = axial.some(value => Math.abs(value) > 1e-10);
-  const keepTransverse = transverse.some(value => Math.abs(value) > 1e-10);
+  const keepAxial = axial.some(value => Math.abs(value) > PLANAR_LINE_COMPONENT_CUTOFF);
+  const keepTransverse = transverse.some(value => Math.abs(value) > PLANAR_LINE_COMPONENT_CUTOFF);
   const paired = globalAxis && (keepAxial || keepTransverse);
   return {
     axial: keepAxial || (paired && axial.some(value => value !== 0)),

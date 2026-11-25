@@ -112,6 +112,9 @@ export interface MemberRef {
   points?: readonly [Vec3, Vec3];
 }
 
+export const PLANAR_LINE_COMPONENT_CUTOFF = 1e-10;
+export const TRUSS_LOAD_COMPONENT_CUTOFF = 1e-12;
+
 /**
  * A global distributed load resolved onto all three local member axes.
  * `axialOnly` transfers the load to end nodes for members that carry no bending.
@@ -121,7 +124,7 @@ export function globalDistributedToSolver(m: MemberRef, gI: Vec3, gJ: Vec3, a: n
   const { ex, ey, ez, L } = m.axes;
   const yI = dot(gI, ey), yJ = dot(gJ, ey), zI = dot(gI, ez), zJ = dot(gJ, ez);
   const xI = dot(gI, ex), xJ = dot(gJ, ex);
-  const tiny = (v: number) => Math.abs(v) < 1e-12;
+  const tiny = (v: number) => Math.abs(v) < TRUSS_LOAD_COMPONENT_CUTOFF;
   const toNodes = (vI: Vec3, vJ: Vec3, axial = false) => {
     let fI: Vec3 = [0, 0, 0], fJ: Vec3 = [0, 0, 0];
     for (const p of trapezoidPieces(vI, vJ, a, b)) {
