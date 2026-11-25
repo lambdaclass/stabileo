@@ -7,9 +7,11 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import '../../store/index';
-import { initSolver, solvePDelta3D } from '../wasm-solver';
+import { initSolver, solve3D, solvePDelta3D } from '../wasm-solver';
 import { runDirectAnalysis } from '../direct-analysis';
-import { loadAccounting3D } from '../load-accounting';
+import { accountCombination, loadAccounting3D } from '../load-accounting';
+import { transverseToNodes } from '../member-loads';
+import { buildSolverLoads3D, memberRef3D, scaleSolverLoad } from '../solver-service';
 import { evaluateDiagramAt } from '../diagrams-3d';
 import { checkModel } from '../model-diagnostics';
 
@@ -292,4 +294,35 @@ describe('a joined end the solve cannot give a node of its own', () => {
     modelStore.updateElement(beam, { offset: { frame: 'global', j: { x: 0, y: 0, z: -0.2 } } });
     expect(named()).toEqual([beam]);
   });
+});
+
+
+const redistributedTendonRegression = process.env.RUN_KNOWN_WRONG === '2580' ? it : it.skip;
+
+redistributedTendonRegression('known wrong result: #2580 — audits redistributed curved tendon forces in the case wrench', () => {
+  const { member } = simplySupportedTendon(0, e0);
+  const q = 10;
+  modelStore.addDistributedLoad3D(member, 0, 0, -q, -q);
+  const model = modelStore.model;
+  const input = modelStore.buildSolverInput3D()!;
+  const ref = memberRef3D(model, member)!;
+  const tendon = buildSolverLoads3D(model, model.loads.filter(load => load.type === 'prestress3d'), false, false);
+  const gravity = buildSolverLoads3D(model, model.loads.filter(load => load.type === 'distributed3d'), false, false);
+  const transferred = transverseToNodes(tendon, () => ref);
+  expect(tendon.map(load => load.type)).toEqual(['nodal', 'nodal', 'distributed']);
+  expect(transferred.map(load => load.type)).toEqual(['nodal', 'nodal', 'nodal', 'nodal']);
+
+  const audit = loadAccounting3D(model, input, false, false, new Map(), false);
+  const totals = audit.verify(1, model.loads, input.loads);
+  const loads = [...transferred, ...gravity];
+  expect.soft(() => audit.verify(1, model.loads, loads)).not.toThrow();
+  const result = solve3D({ ...input, loads });
+  expect(result.reactions.reduce((sum, reaction) => sum + reaction.fz, 0)).toBeCloseTo(q * L, 8);
+
+  const factor = 0.25;
+  const scaled = loads.map(load => scaleSolverLoad(load, factor));
+  const terms = [{ factor, totals }];
+  expect.soft(() => accountCombination(model, input, 1, 'Factored tendon', scaled, terms)).not.toThrow();
+  expect(() => audit.verify(1, model.loads, loads.filter(load => load !== transferred[2]))).toThrow(/Fz/);
+  expect(() => accountCombination(model, input, 1, 'Factored tendon', scaled.filter((_, index) => index !== 2), terms)).toThrow(/Fz/);
 });
