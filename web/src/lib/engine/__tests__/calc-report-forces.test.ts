@@ -7,7 +7,7 @@ import { generateCalcReportHtml, DEFAULT_REPORT_CONTENT, type CalcReportData, ty
 import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';
 import '../../store/index';
-import { initSolver } from '../wasm-solver';
+import { computeEnvelope, computeEnvelope3D, initSolver } from '../wasm-solver';
 import type { AnalysisResults, ElementForces } from '../types';
 import type { AnalysisResults3D, ElementForces3D } from '../types-3d';
 
@@ -186,4 +186,22 @@ it('known wrong result: #2226 reports a shear peak inside a short partial-load i
     is3D: true, analysisMode: '3D', results3D: r3D(ef3D({ distributedLoadsZ: loads })),
   }));
   expect.soft(spatial.find(row => row.includes('Max |value|'))?.[2]).toBe('1.00 (x = 0.50 m)');
+});
+
+it.skip('known wrong result: #2226 identifies both governing cut faces in planar and spatial force tables', () => {
+  const a = 0.5, length = 1;
+  for (const [jump, value, side] of [[11, 6, '⁺'], [1, -5, '⁻']] as const) {
+    const distributed = [{ a: 0, b: a, qI: -2, qJ: -2 }, { a, b: length, qI: -2 * (jump - 5), qJ: -2 * (jump - 5) }];
+    const planar = r2D(ef2D({ length, vStart: -4, pointLoads: [{ a, p: jump }], distributedLoads: distributed }));
+    const spatial = r3D(ef3D({ length, vzStart: -4, pointLoadsZ: [{ a, p: jump }], distributedLoadsZ: distributed }));
+    for (const envelope2D of [undefined, computeEnvelope([planar]) ?? undefined]) {
+      const [row] = rows(report('shear', { results2D: planar, envelope2D }));
+      expect.soft(num(row![3]!)).toBe(value);
+      expect.soft(row![4]).toBe('0.50' + side);
+    }
+    for (const envelope3D of [undefined, computeEnvelope3D([spatial]) ?? undefined]) {
+      const html = report('shear', { is3D: true, analysisMode: '3D', results3D: spatial, envelope3D });
+      expect.soft(rows(html).at(-1)?.at(-1)).toBe(value.toFixed(2) + ' (x = 0.50' + side + ' m)');
+    }
+  }
 });

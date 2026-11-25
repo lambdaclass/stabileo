@@ -472,6 +472,51 @@ mod round3_tests {
     use super::*;
 
     #[test]
+    #[ignore = "known wrong result: #2437"]
+    fn issue_2437_station_transfer_uses_the_unrounded_peak() {
+        let d = 2.0_f64.powi(-53);
+        let high = 2.0_f64.powi(54);
+        let station = 0.5 + 4.0 * d;
+        for (numerator, transfers) in [(21.0, false), (22.0, true)] {
+            let k = numerator / (128.0 * d);
+            let curve = Curve {
+                length: 1.0, start: high, change: 0.0, slope: 0.0,
+                response: Response::Force(1.0),
+                distributed: std::iter::once(DistributedLoadInfo {
+                    a: 0.5, b: 0.5 + 8.0 * d, q_i: 7.0 * k, q_j: -9.0 * k,
+                }),
+                points: std::iter::empty(),
+            };
+            let cut = curve.critical_cuts().unwrap().into_iter().find(|cut| cut.t == station).unwrap();
+            assert_eq!(curve.checked_value(cut), Ok(high + 4.0));
+            assert_eq!(curve.checked_station_value(0.5, false), Ok(high));
+            let requested = curve.checked_station_value(station, false);
+            if transfers {
+                assert_eq!(requested, Ok(high + 4.0));
+            } else {
+                assert_eq!(requested, Err("member diagram extrema cannot be evaluated at the requested station"));
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2437"]
+    fn issue_2437_small_terms_survive_nested_cancellation() {
+        let high = 2.0_f64.powi(110);
+        let medium = 2.0_f64.powi(54);
+        let loads = [high, medium, 1.0, -medium, -high].map(|q| {
+            DistributedLoadInfo { a: 0.0, b: 1.0, q_i: q, q_j: q }
+        });
+        let curve = Curve {
+            length: 1.0, start: 0.0, change: 0.0, slope: 0.0, response: Response::Force(1.0),
+            distributed: loads.into_iter(), points: std::iter::empty(),
+        };
+        assert_eq!(curve.checked_station_value(0.5, false), Ok(0.5));
+        assert_eq!(curve.segment_change(0.0, 1.0), [1.0, 0.0, 0.0]);
+        assert_eq!(curve.interior_range(1.0), Ok((0.0, 1.0)));
+    }
+
+    #[test]
     fn round3_shear_peak_uses_interval_local_coordinate() {
         let a = 1.5_f64;
         let ulp = f64::from_bits(a.to_bits() + 1) - a;

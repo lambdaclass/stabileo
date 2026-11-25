@@ -433,3 +433,133 @@ it('known wrong result: #2437 keeps the sampled concrete policy for the seven-st
   expect(diagram.maxValue).toBeGreaterThan(f.myStart);
   expect(diagram.maxValue).toBeGreaterThan(f.myEnd);
 });
+
+it.skip('known wrong result: #2437 transfers a stationary shear only when the rounded cut agrees', () => {
+  const [plane, space] = cantilevers(1);
+  const d = 2 ** -53;
+  const high = 2 ** 54;
+  const station = 0.5 + 4 * d;
+  for (const [numerator, transfers] of [[21, false], [22, true]] as const) {
+    const k = numerator / (128 * d);
+    const distributedLoads = [{ a: 0.5, b: 1, qI: 7 * k, qJ: 7 * k - k / d }];
+    const check = (read: () => number) => {
+      if (transfers) expect.soft(read()).toBe(high + 4);
+      else expect.soft(read).toThrow(/extrema/i);
+    };
+    for (const result of [solve(plane), solvePDelta(plane).results]) {
+      const ef = Object.assign(result.elementForces[0]!, { vStart: high, distributedLoads });
+      expect.soft(computeDiagrams2D(plane, result).shear[0]!.points)
+        .toContainEqual(expect.objectContaining({ t: station, value: high + 4 }));
+      expect.soft(computeDiagramValueAtWasm('shear', 0.5, ef)).toBe(high);
+      check(() => computeDiagramValueAtWasm('shear', station, ef));
+      check(() => computeDiagramValueAt('shear', station, ef));
+      check(() => prepareDiagramValueAt('shear', ef)(station));
+    }
+    for (const result of [solve3D(space), solvePDelta3D(space).results]) {
+      const ef = Object.assign(result.elementForces[0]!, { vzStart: high, distributedLoadsZ: distributedLoads });
+      expect.soft(computeDiagrams3D(space, result).shearZ[0]!.points)
+        .toContainEqual(expect.objectContaining({ t: station, value: high + 4 }));
+      expect.soft(computeDiagramValueAt3DWasm('shearZ', 0.5, ef)).toBe(high);
+      check(() => computeDiagramValueAt3DWasm('shearZ', station, ef));
+      check(() => evaluateDiagramAt(ef, 'shearZ', station));
+      check(() => prepareDiagramEvaluator3D(ef, 'shearZ')(station));
+    }
+  }
+});
+
+it.skip('known wrong result: #2437 retains a small force through two levels of cancellation', () => {
+  const [plane, space] = cantilevers(1);
+  const high = 2 ** 110, medium = 2 ** 54;
+  const loads = [high, medium, 1, -medium, -high].map(q => ({ a: 0, b: 1, qI: q, qJ: q }));
+  for (const result of [solve(plane), solvePDelta(plane).results]) {
+    const ef = Object.assign(result.elementForces[0]!, { distributedLoads: loads });
+    for (const diagram of [computeElementDiagram('shear', ef, 0, 0, 1, 0), computeDiagrams2D(plane, result).shear[0]!]) {
+      expect.soft(diagram.maxValue).toBe(1);
+    }
+    expect.soft(computeEnvelope([result])!.shear.globalMax).toBe(1);
+    for (const t of [0, 0.25, 0.5, 1]) {
+      expect.soft(computeDiagramValueAt('shear', t, ef)).toBe(t);
+      expect.soft(prepareDiagramValueAt('shear', ef)(t)).toBe(t);
+      expect.soft(computeDiagramValueAtWasm('shear', t, ef)).toBe(t);
+    }
+  }
+  for (const result of [solve3D(space), solvePDelta3D(space).results]) {
+    const ef = Object.assign(result.elementForces[0]!, { distributedLoadsZ: loads });
+    for (const diagram of [computeDiagram3D(ef, 'shearZ'), computeDiagrams3D(space, result).shearZ[0]!]) {
+      expect.soft(diagram.maxValue).toBe(1);
+    }
+    expect.soft(computeEnvelope3D([result])!.shearZ.globalMax).toBe(1);
+    for (const t of [0, 0.25, 0.5, 1]) {
+      expect.soft(evaluateDiagramAt(ef, 'shearZ', t)).toBe(t);
+      expect.soft(prepareDiagramEvaluator3D(ef, 'shearZ')(t)).toBe(t);
+      expect.soft(computeDiagramValueAt3DWasm('shearZ', t, ef)).toBe(t);
+    }
+  }
+});
+
+it.skip('known wrong result: #2437 keeps the physical approach side when a rebased query rounds onto a jump', () => {
+  const [, space] = cantilevers(2);
+  const offset = 0.25 + 2 ** -53;
+  const localCut = 1.25;
+  const publishedCut = offset + localCut;
+  for (const result of [solve3D(space), solvePDelta3D(space).results]) {
+    const leaf = result.elementForces[0]!;
+    const member = { ...leaf, pieces: [
+      { x0: 0, x1: offset, forces: { ...leaf, length: offset } },
+      { x0: offset, x1: 2, forces: { ...leaf, length: 2 - offset, vzStart: -4, pointLoadsZ: [{ a: localCut, p: 9 }] } },
+    ] };
+    const direct = (station: { t: number; distance: number; right?: boolean }) => evaluateDiagramAt(member, 'shearZ', station);
+    for (const read of [direct, prepareDiagramEvaluator3D(member, 'shearZ')]) {
+      expect.soft(read({ t: publishedCut / 2, distance: publishedCut })).toBe(-4);
+      expect.soft(read({ t: publishedCut / 2, distance: publishedCut, right: true })).toBe(5);
+      const distance = 1.5 + 2 ** -52;
+      expect.soft(read({ t: distance / 2, distance })).toBe(5);
+      expect.soft(read({ t: distance / 2, distance, right: false })).toBe(5);
+    }
+    const distance = 1.5 + 2 ** -52;
+    expect.soft(extractForcesAtStation(member, { t: distance / 2, distance }).vz).toBe(5);
+  }
+});
+
+it.skip('known wrong result: #2226 emits only the two faces of a jump shared with a bounded candidate', () => {
+  const [, space] = cantilevers(1);
+  for (const result of [solve3D(space), solvePDelta3D(space).results]) {
+    const leaf = result.elementForces[0]!;
+    const signed = { ...leaf, distributedLoadsZ: [{ a: 0, b: 1, qI: 4, qJ: -4 }] };
+    const abs = { ...leaf, combined: { method: 'abs' as const, parts: [signed, leaf] } };
+    const jump = { ...leaf, pointLoadsZ: [{ a: 0.5, p: 3 }] };
+    const member = { ...leaf, combined: { method: 'srss' as const, parts: [abs, jump] } };
+    const diagram = computeDiagram3D(member, 'shearZ');
+    expect.soft(diagram.extrema).toBe('bounded');
+    expect.soft(diagram.points.filter(p => p.t === 0.5).map(p => p.value)).toEqual([1, Math.hypot(1, 3)]);
+    expect.soft(evaluateDiagramAt(member, 'shearZ', 0.5, true)).toBe(Math.hypot(1, 3));
+    expect.soft(computeDiagram3D(abs, 'shearZ').points.filter(p => p.t === 0.5).map(p => p.value)).toEqual([1]);
+  }
+});
+
+it.skip('known wrong result: #1782 keeps a reversed axle just inside a path endpoint', async () => {
+  const d = 2 ** -53;
+  const start = 0.25 + 3 * d;
+  const end = start + 1.5;
+  const interior = 1.75 + 2 * d;
+  const [plane, space] = cantilevers(start);
+  plane.nodes.set(2, { id: 2, x: 0, z: start });
+  plane.nodes.set(3, { id: 3, x: 1.5, z: start });
+  space.nodes.set(2, { id: 2, x: 0, y: 0, z: start });
+  space.nodes.set(3, { id: 3, x: 1.5, y: 0, z: start });
+  plane.elements.set(2, { ...plane.elements.get(1)!, id: 2, nodeI: 3, nodeJ: 2 });
+  space.elements.set(2, { ...space.elements.get(1)!, id: 2, nodeI: 3, nodeJ: 2 });
+  const train = { name: 'P', axles: [{ offset: 0, weight: 8 }] };
+  const config = { train, step: interior, pathElementIds: [1, 2] };
+  for (const result of [solveMovingLoads(plane, config), await solveMovingLoadsAsync(plane, config)]) {
+    if (typeof result === 'string') throw new Error(result);
+    const ef = result.positions.find(p => p.refPosition === interior)!.results.elementForces.find(f => f.elementId === 2)!;
+    expect.soft(ef.pointLoads).toEqual([expect.objectContaining({ a: d, p: 8 })]);
+    expect.soft(result.fullEnvelope?.shear.elements.find(e => e.elementId === 2)?.tPositions).toContain(d / 1.5);
+  }
+  const path = buildPath3D(space, [1, 2])!;
+  expect.soft(trainLoads(space, path, train, interior)).toContainEqual(
+    expect.objectContaining({ type: 'pointOnElement', data: expect.objectContaining({ elementId: 2, a: d }) }));
+  expect.soft(trainLoads(space, path, train, end)).toContainEqual(
+    expect.objectContaining({ type: 'pointOnElement', data: expect.objectContaining({ elementId: 2, a: 0 }) }));
+});
