@@ -270,6 +270,12 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-112-basic-3d-shell-omission.md", "label": "SA-2026-112", "t": "Érintett bemenetek és szükséges teendők."},
     {"k": "note", "t": "SA-2026-113 — A 0.6.4 utáni következő kiadás."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-113-native-supplied-linear-certificates.md", "label": "SA-2026-113", "t": "Érintett bemenetek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-114 — A 0.6.4 utáni következő kiadás."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-114-saved-combination-load-groups.md", "label": "SA-2026-114", "t": "Érintett bemenetek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-115 — A 0.6.4 utáni következő kiadás."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-115-gravity-floor-region-ownership.md", "label": "SA-2026-115", "t": "Érintett bemenetek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-116 — A 0.6.4 utáni következő kiadás."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-116-nonlinear-continuation-and-inclined-loads.md", "label": "SA-2026-116", "t": "Érintett bemenetek és szükséges teendők."},
     {
       "k": "img",
       "base": "blog/recheck-stale",
@@ -808,7 +814,10 @@ const body: PostBody = {
         ["SA-2026-110", "A webes számítás figyelmeztetés nélkül kihagyhatott egy nem véges merevségű rugót vagy egy teheresetet a teherkombinációból. Ellenőrizze a rugómerevségeket, a teheresetek nevét és a nettó tényezőket, majd számítsa újra az érintett eseteket és kombinációkat.", "Magas", "A 0.6.4 utáni következő kiadás"],
         ["SA-2026-111", "A gravitációs terhek panelenkénti automatikus előállítása kétszer vehette figyelembe ugyanazt a födémterhet. Ellenőrizze az átfedő héjelemeket és a hozzájuk kapcsolt gerendamezőket, generálja újra az érintett mentett gravitációs teherterveket, majd ismételje meg az érintett számításokat.", "Magas", "A 0.6.4 utáni következő kiadás"],
         ["SA-2026-112", "A Basic 3D számítás figyelmeztetés nélkül kihagyhatta az összes héjelemet. Számítsa újra az érintett tehereseteket és teherkombinációkat a PRO 3D-ben a teljes héjelemhálóval, majd ismételje meg az ezekre épülő méretezési ellenőrzéseket.", "Magas", "A 0.6.4 utáni következő kiadás"],
-        ["SA-2026-113", "A natív Rust API olyan teheresethez is tanúsíthatta a megadott lineáris eredményeket, amelyet a megoldó elutasított. Ismételje meg az érintett számításokat és a tanúsítást, beleértve a kapcsolódó teherkombinációkat és burkolókat is.", "Közepes", "A 0.6.4 utáni következő kiadás"]
+        ["SA-2026-113", "A natív Rust API olyan teheresethez is tanúsíthatta a megadott lineáris eredményeket, amelyet a megoldó elutasított. Ismételje meg az érintett számításokat és a tanúsítást, beleértve a kapcsolódó teherkombinációkat és burkolókat is.", "Közepes", "A 0.6.4 utáni következő kiadás"],
+        ["SA-2026-114", "A mentett kombinációs szabályok figyelmeztetés nélkül a rossz tehercsoporthoz rendelhettek tényezőket. Állítsa vissza a kívánt csoportokat, generálja újra az érintett kombinációkat és összetett tehereseteket, majd számítsa újra a hozzájuk tartozó eredményeket és burkolókat.", "Magas", "A 0.6.4 utáni következő kiadás"],
+        ["SA-2026-115", "A gravitációs terhek panelenkénti előállítása több teherhordó elemen keresztül is megterhelhette ugyanazt a födémterületet. Generálja újra az érintett teherterveket, oldja fel a terhelési vagy geometriai ütközéseket, és ismételje meg az érintett számításokat.", "Magas", "A 0.6.4 utáni következő kiadás"],
+        ["SA-2026-116", "A nemlineáris megoldók hibás ívhossz menti pályát fogadhattak el, vagy kihagyhatták a ferde görgős támasz érintőirányú erejét. Ismételje meg az érintett síkbeli nemlineáris és térbeli korotációs számításokat, az eltolt nyírási középpontú íves rudak számításait is.", "Magas", "A 0.6.4 utáni következő kiadás"]
       ]
     },
     {

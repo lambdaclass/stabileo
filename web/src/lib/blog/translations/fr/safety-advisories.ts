@@ -126,6 +126,12 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-112-basic-3d-shell-omission.md", "label": "SA-2026-112", "t": "Entrées concernées et mesures à prendre."},
     {"k": "note", "t": "SA-2026-113 — Prochaine version après la 0.6.4."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-113-native-supplied-linear-certificates.md", "label": "SA-2026-113", "t": "Entrées concernées et mesures à prendre."},
+    {"k": "note", "t": "SA-2026-114 — Prochaine version après la 0.6.4."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-114-saved-combination-load-groups.md", "label": "SA-2026-114", "t": "Entrées concernées et mesures à prendre."},
+    {"k": "note", "t": "SA-2026-115 — Prochaine version après la 0.6.4."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-115-gravity-floor-region-ownership.md", "label": "SA-2026-115", "t": "Entrées concernées et mesures à prendre."},
+    {"k": "note", "t": "SA-2026-116 — Prochaine version après la 0.6.4."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-116-nonlinear-continuation-and-inclined-loads.md", "label": "SA-2026-116", "t": "Entrées concernées et mesures à prendre."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO avec un portique en béton enregistré avant que les résultats soient versionnés. Un bandeau en bas indique des résultats périmés : le projet a été résolu avec une version antérieure et 19 changements enregistrés le concernent, avec les boutons pour voir ce qui a changé et relancer le calcul.", "caption": "Comment une correction atteint un projet enregistré : tant qu’il n’est pas recalculé, ses résultats restent marqués périmés, et les changements qui le concernent sont à un clic."},
     {
       "k": "h",
@@ -547,7 +553,10 @@ const body: PostBody = {
         ["SA-2026-110", "L’analyse web pouvait omettre sans avertissement un ressort de raideur non finie ou un cas de charge dans une combinaison. Vérifiez les raideurs, les noms des cas et les coefficients nets, puis relancez les analyses et les combinaisons concernées.", "Élevée", "Prochaine version après la 0.6.4"],
         ["SA-2026-111", "La génération automatique des charges gravitaires par panneaux pouvait compter deux fois la même charge de plancher. Vérifiez les coques qui se chevauchent et les travées de poutres qui leur sont reliées, régénérez les plans de charges gravitaires enregistrés concernés et relancez les analyses correspondantes.", "Élevée", "Prochaine version après la 0.6.4"],
         ["SA-2026-112", "L’analyse 3D en mode Basic pouvait omettre tous les éléments de coque sans avertissement. Recalculez les cas et combinaisons de charges concernés dans PRO 3D avec le maillage complet des coques, puis refaites les vérifications de dimensionnement qui en dépendent.", "Élevée", "Prochaine version après la 0.6.4"],
-        ["SA-2026-113", "L’API native Rust pouvait certifier des résultats linéaires fournis pour un cas de charge que le solveur refusait. Relancez les analyses et la certification concernées, y compris pour les combinaisons et enveloppes qui en dépendent.", "Moyenne", "Prochaine version après la 0.6.4"]
+        ["SA-2026-113", "L’API native Rust pouvait certifier des résultats linéaires fournis pour un cas de charge que le solveur refusait. Relancez les analyses et la certification concernées, y compris pour les combinaisons et enveloppes qui en dépendent.", "Moyenne", "Prochaine version après la 0.6.4"],
+        ["SA-2026-114", "Les règles de combinaison enregistrées pouvaient appliquer des coefficients au mauvais groupe de charges sans avertissement. Rétablissez les groupes prévus, régénérez les combinaisons et les cas composés concernés, puis recalculez les analyses et les enveloppes correspondantes.", "Élevée", "Prochaine version après la 0.6.4"],
+        ["SA-2026-115", "La génération des charges gravitaires par panneaux pouvait charger la même zone de plancher par plusieurs éléments porteurs. Régénérez les plans concernés, résolvez les conflits de charges ou de géométrie et relancez les analyses affectées.", "Élevée", "Prochaine version après la 0.6.4"],
+        ["SA-2026-116", "Les solveurs non linéaires pouvaient accepter un chemin par longueur d’arc incorrect ou omettre la force tangentielle sur un appui roulant incliné. Relancez les analyses planes non linéaires et spatiales par corotation concernées, y compris pour les barres courbes dont le centre de cisaillement est excentré.", "Élevée", "Prochaine version après la 0.6.4"]
       ]
     },
     {

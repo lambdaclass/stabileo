@@ -519,6 +519,36 @@ const body: PostBody = {
       "t": "受影响的输入和应采取的措施。"
     },
     {
+      "k": "note",
+      "t": "SA-2026-114 — 0.6.4 之后的下一个版本。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-114-saved-combination-load-groups.md",
+      "label": "SA-2026-114",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-115 — 0.6.4 之后的下一个版本。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-115-gravity-floor-region-ownership.md",
+      "label": "SA-2026-115",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-116 — 0.6.4 之后的下一个版本。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-116-nonlinear-continuation-and-inclined-loads.md",
+      "label": "SA-2026-116",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
       "k": "img",
       "base": "blog/recheck-stale",
       "w": 1600,
@@ -1210,6 +1240,24 @@ const body: PostBody = {
           "SA-2026-113",
           "原生 Rust API 可能会认证求解器已拒绝的荷载工况所提交的线性分析结果。请重新进行受影响的分析和认证，包括依赖这些工况的组合和包络。",
           "中",
+          "0.6.4 之后的下一个版本"
+        ],
+        [
+          "SA-2026-114",
+          "保存的荷载组合规则可能在没有提示的情况下将系数应用于错误的荷载组。请恢复预期的荷载组，重新生成受影响的组合和复合工况，再重新计算相关分析及包络。",
+          "高",
+          "0.6.4 之后的下一个版本"
+        ],
+        [
+          "SA-2026-115",
+          "按板格生成重力荷载时，同一楼面区域可能通过多个承载构件重复加载。请重新生成受影响的荷载方案，解决荷载或几何冲突，并重新进行相关分析。",
+          "高",
+          "0.6.4 之后的下一个版本"
+        ],
+        [
+          "SA-2026-116",
+          "非线性求解器可能接受错误的弧长路径，或遗漏倾斜滚动支座处的切向力。请重新进行受影响的平面非线性分析和空间共旋分析，包括剪切中心偏移的曲杆模型。",
+          "高",
           "0.6.4 之后的下一个版本"
         ]
       ]
