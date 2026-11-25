@@ -59,7 +59,7 @@ import { findCoincidentNode } from '../engine/mesh-weld';
 import { NodeIndex } from '../model/edit/node-index';
 import { weldTolerance } from '../model/weld-tolerance';
 import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
-import { loadFixture, validateFixtureSupportFrames, type JSONModel } from '../templates/load-fixture';
+import { loadFixture, validateFixtureReferences, type JSONModel } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
 import { constraintsAcrossDepth, constraintsCoupledAcrossPlane, constraintsInXZ } from '../engine/constraint-2d-remap';
 import { addsLoop, singleSolveModel } from '../engine/case-effects';
@@ -4760,7 +4760,7 @@ function createModelStore() {
       // without a rule and stated `selfWeight: []` for it, and the check below then took that
       // [] for the example's own rule: the example solved without its self-weight.
       const json = canonicalizeModelAliases(await loader() as JSONModel);
-      validateFixtureSupportFrames(json);
+      validateFixtureReferences(json);
       this.batch(() => {
         this.clear();
         if (opts.defaults) {

@@ -183,6 +183,8 @@ export function appliedResultant(
   // The structure the solve has, whoever asks: the loads panel's totals read the model as it is, and
   // counted the loads and weight of inactive members the statics check leaves out.
   model = activeModel(model);
+  const caseRef = caseId === null ? null : { id: caseId, type: caseTypes ? caseTypes.get(caseId) : 'D' };
+  const weights = selfWeightFor(model, caseRef, includeSelfWeight).map(sw => ({ sw, scope: selfWeightScope(model, sw) }));
   const applied: Resultant6 = { ...ZERO };
   const uncovered = new Set<string>();
   const addForce = (F: [number, number, number], p: [number, number, number]) => { addForceAt(applied, F, p); onForce?.(F, p); };
@@ -244,13 +246,9 @@ export function appliedResultant(
 
   // The case's self-weight loads, read by the same rule the solve reads (`self-weight.ts`).
   // Without case types every row is taken as a dead-load one, which is right for a single solve.
-  const caseRef = caseId === null ? null : { id: caseId, type: caseTypes ? caseTypes.get(caseId) : 'D' };
-  const weights = selfWeightFor(model, caseRef, includeSelfWeight);
-  const selfWeightHere = weights.length > 0;
   const sectionWeight = createSectionWeight(model.materials);
-  for (const sw of weights) {
+  for (const { sw, scope } of weights) {
     const dir: [number, number, number] = sw.direction === 'X' ? [1, 0, 0] : sw.direction === 'Y' ? [0, 1, 0] : [0, 0, 1];
-    const scope = selfWeightScope(model, sw);
     for (const el of model.elements.values()) {
       if (scope.members && !scope.members.has(el.id)) continue;
       const mat = model.materials.get(el.materialId);
@@ -283,7 +281,7 @@ export function appliedResultant(
       for (const n of ps as P3[]) addForce([dir[0] * w, dir[1] * w, dir[2] * w], [n.x, n.y, n.z ?? 0]);
     }
   }
-  return { applied, uncovered: [...uncovered].sort(), selfWeightIncluded: selfWeightHere };
+  return { applied, uncovered: [...uncovered].sort(), selfWeightIncluded: weights.length > 0 };
 }
 
 /** The resultant of a set of support reactions about the origin. */

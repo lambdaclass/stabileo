@@ -230,6 +230,10 @@ pub fn scale_loads_3d(loads: &[SolverLoad3D], k: f64) -> Vec<SolverLoad3D> {
         .collect()
 }
 
+pub(crate) fn case_rng(seed: u64, c: &Case3, a: &Ana3) -> Rng {
+    Rng::new(seed ^ hash(&c.name) ^ hash(a.name) ^ 0x3d)
+}
+
 pub(crate) fn rotation_for(a: &Ana3, rng: &mut Rng) -> Iso3 {
     let t = [rng.range(-40.0, 40.0), rng.range(-40.0, 40.0), rng.range(-40.0, 40.0)];
     match a.motion {
@@ -269,7 +273,7 @@ pub fn check_case(ctx: &Ctx, c: &Case3, anas: &[Ana3], invariants: &[&str]) {
                 continue;
             }
         };
-        let mut rng = Rng::new(ctx.rng_seed ^ hash(&c.name) ^ hash(a.name) ^ 0x3d);
+        let mut rng = case_rng(ctx.rng_seed, c, a);
         for &inv in invariants {
             let v = match inv {
                 "rotation" => {

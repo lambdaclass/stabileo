@@ -1,4 +1,5 @@
 use super::constraints::{FreeConstraintSystem, SparseTransform};
+use super::load_work::{mul_up, Work};
 use crate::certify::exact::{q, Q};
 use crate::linalg::{cholesky_decompose, CscMatrix, EigenResult};
 use num_traits::{Signed, ToPrimitive, Zero};
@@ -280,6 +281,30 @@ pub(super) struct MassRange {
 }
 
 impl MassRange {
+    pub(super) fn has_mass_in(&self, coordinates: &[usize], direction: &[f64], round_off: f64) -> bool {
+        if self.rank == self.transform.n_rows {
+            return true;
+        }
+        let mut projection = BTreeMap::<usize, Work>::new();
+        let transform = &self.transform;
+        for (&col, &displacement) in coordinates.iter().zip(direction) {
+            if displacement == 0.0 {
+                continue;
+            }
+            for p in transform.col_ptr[col]..transform.col_ptr[col + 1] {
+                let row = transform.row_idx[p];
+                if self.pivots.binary_search(&row).is_err() {
+                    continue;
+                }
+                let coefficient = if row == col { 1.0 } else { -transform.csc_vals[p] };
+                projection.entry(row).or_default().product(
+                    coefficient, mul_up(round_off, coefficient.abs()), displacement, 0.0,
+                );
+            }
+        }
+        projection.values().any(|work| work.value.is_finite() && work.value.abs() > work.bound())
+    }
+
     fn mass_on_range(&self) -> CscMatrix {
         let indices: Vec<_> = (0..self.weights.n_rows).collect();
         let identity =

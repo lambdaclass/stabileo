@@ -358,7 +358,7 @@ pub(crate) fn coupling_3d(input: &SolverInput3D, dof: &DofNumbering) -> Vec<(usi
     out
 }
 
-fn sym_eigen_small(a: &[f64], n: usize) -> (Vec<f64>, Vec<f64>) {
+pub(super) fn sym_eigen_small(a: &[f64], n: usize) -> (Vec<f64>, Vec<f64>) {
     sym_eigen_small_impl(a, n, true)
 }
 

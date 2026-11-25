@@ -1,4 +1,4 @@
-use crate::solver::support::{support_dofs_2d, support_dofs_3d};
+use crate::solver::support::{plain_rigid_dofs_2d, plain_rigid_dofs_3d, rigid_support_union, support_dofs_2d, support_dofs_3d, supports_by_node};
 use crate::types::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
@@ -81,6 +81,34 @@ fn count_support_restraints_2d(sup: &SolverSupport) -> (i32, bool) {
     (translations + i32::from(held[2]), held[2])
 }
 
+fn static_support_counts<S, const N: usize>(
+    supports: &HashMap<String, S>,
+    node_id: impl Fn(&S) -> usize,
+    rigid_dofs: impl Fn(&S) -> Option<[bool; N]>,
+    count_rigid: impl Fn([bool; N]) -> (i32, bool),
+    count_single: impl Fn(&S) -> (i32, bool),
+) -> (i32, std::collections::HashSet<usize>) {
+    let mut restraints = 0;
+    let mut rot_restrained_nodes = std::collections::HashSet::new();
+    for (node, group) in supports_by_node(supports, node_id) {
+        let (count, holds_rotation) = if let Some(dofs) =
+            rigid_support_union(group.iter().map(|&(_, support)| support), &rigid_dofs)
+        {
+            count_rigid(dofs)
+        } else {
+            group.iter().map(|&(_, support)| count_single(support))
+                .fold((0, false), |(total, any_rotation), (count, rotation)| {
+                    (total + count, any_rotation || rotation)
+                })
+        };
+        restraints += count;
+        if holds_rotation {
+            rot_restrained_nodes.insert(node);
+        }
+    }
+    (restraints, rot_restrained_nodes)
+}
+
 /// Compute the static degree of indeterminacy for a 2D structure.
 /// Frame: GH = 3*m_frame + m_truss + r - 3*n - c
 /// Pure truss: GH = m + r - 2*n
@@ -88,15 +116,11 @@ fn compute_static_degree_2d(input: &SolverInput) -> (i32, HashMap<usize, i32>) {
     let has_frames = crate::ordered::values(&input.elements).any(|e| e.elem_type == "frame");
 
     // Count support restraints
-    let mut r = 0i32;
-    let mut rot_restrained_nodes = std::collections::HashSet::new();
-    for sup in crate::ordered::values(&input.supports) {
-        let (sr, has_rot) = count_support_restraints_2d(sup);
-        r += sr;
-        if has_rot {
-            rot_restrained_nodes.insert(sup.node_id);
-        }
-    }
+    let (r, rot_restrained_nodes) = static_support_counts(
+        &input.supports, |s| s.node_id, plain_rigid_dofs_2d,
+        |dofs| (dofs.into_iter().filter(|&held| held).count() as i32, dofs[2]),
+        count_support_restraints_2d,
+    );
 
     if !has_frames {
         let m = input.elements.len() as i32;
@@ -492,15 +516,11 @@ fn count_support_restraints_3d(sup: &SolverSupport3D) -> (i32, bool) {
 fn compute_static_degree_3d(input: &SolverInput3D) -> (i32, HashMap<usize, i32>) {
     let has_frames = crate::ordered::values(&input.elements).any(|e| e.elem_type == "frame");
 
-    let mut r = 0i32;
-    let mut rot_restrained_nodes = std::collections::HashSet::new();
-    for sup in crate::ordered::values(&input.supports) {
-        let (sr, has_rot) = count_support_restraints_3d(sup);
-        r += sr;
-        if has_rot {
-            rot_restrained_nodes.insert(sup.node_id);
-        }
-    }
+    let (r, rot_restrained_nodes) = static_support_counts(
+        &input.supports, |s| s.node_id, plain_rigid_dofs_3d,
+        |dofs| (dofs[..6].iter().filter(|&&held| held).count() as i32, dofs[3..6].contains(&true)),
+        count_support_restraints_3d,
+    );
 
     if !has_frames {
         let m = input.elements.len() as i32;

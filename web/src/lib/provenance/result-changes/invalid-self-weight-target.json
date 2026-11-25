@@ -1,0 +1,49 @@
+{
+  "id": "invalid-self-weight-target",
+  "date": "2026-11-25",
+  "prs": [2565],
+  "area": "analysis",
+  "when": {
+    "all": ["invalidSelfWeightTarget"],
+    "any": ["analysis:linear", "analysis:pdelta", "analysis:buckling", "analysis:plastic", "analysis:nonlinear", "analysis:ssi", "analysis:modal", "analysis:spectral", "analysis:timeHistory", "analysis:harmonic"]
+  },
+  "quantities": ["solve.ok"],
+  "title": {
+    "en": "Refuse invalid self-weight targets",
+    "es": "Rechazo de destinos inválidos del peso propio",
+    "pt": "Rejeição de alvos inválidos do peso próprio",
+    "de": "Ungültige Ziele für das Eigengewicht werden abgelehnt",
+    "fr": "Refus des cibles invalides du poids propre",
+    "hu": "Érvénytelen önsúlycélok elutasítása",
+    "tr": "Geçersiz öz ağırlık hedefleri reddedilir",
+    "zh": "拒绝无效的自重作用对象",
+    "ar": "رفض أهداف الوزن الذاتي غير الصالحة",
+    "hi": "अमान्य स्वभार लक्ष्यों को अस्वीकार करें",
+    "id": "Menolak target berat sendiri yang tidak valid",
+    "it": "Rifiuto dei riferimenti non validi per il peso proprio",
+    "ja": "無効な自重の作用対象を拒否",
+    "ko": "유효하지 않은 자중 적용 대상 거부",
+    "ru": "Отклонение недопустимых целей приложения собственного веса"
+  },
+  "explanation": {
+    "en": "A self-weight rule refers to a missing member, plate or quad, or contains an invalid member ID. Earlier results could omit weight. Restore the target or correct the rule, then rerun the analysis. Asynchronous spatial solves with nonlinear behavior or P-Delta combinations capture the entire self-weight projection with the solver mesh, so source edits cannot change the selected weight of that solve.",
+    "es": "Una regla de peso propio hace referencia a una barra, placa o cuadrilátero ausente, o contiene un ID de barra inválido. Los resultados anteriores podían omitir peso. Restaurá el destino o corregí la regla y repetí el análisis. Los cálculos espaciales asíncronos con comportamiento no lineal o combinaciones P-Delta guardan toda la proyección del peso propio junto con la malla de cálculo para que las ediciones del modelo de origen no cambien el peso seleccionado durante ese cálculo.",
+    "pt": "Uma regra de peso próprio referencia um elemento, uma placa ou um quadrilátero ausente, ou contém um ID de elemento inválido. Resultados anteriores podiam omitir peso. Restaure o alvo ou corrija a regra e repita a análise. Os cálculos espaciais assíncronos com comportamento não linear ou combinações P-Delta guardam toda a projeção do peso próprio com a malha de cálculo para que alterações no modelo de origem não mudem o peso selecionado nesse cálculo.",
+    "de": "Eine Eigengewichtsregel verweist auf einen fehlenden Stab, ein fehlendes Dreiecks- oder Viereckselement oder enthält eine ungültige Stab-ID. Frühere Ergebnisse konnten Eigengewicht auslassen. Stellen Sie das Ziel wieder her oder korrigieren Sie die Regel und berechnen Sie das Modell erneut. Asynchrone räumliche Berechnungen mit nichtlinearem Verhalten oder P-Delta-Kombinationen erfassen die gesamte Eigengewichtsprojektion zusammen mit dem Berechnungsnetz. Änderungen am Ausgangsmodell können das ausgewählte Eigengewicht dieser Berechnung daher nicht verändern.",
+    "fr": "Une règle de poids propre vise une barre, une plaque triangulaire ou un quadrilatère absent, ou contient un identifiant de barre invalide. Les résultats antérieurs pouvaient omettre du poids. Rétablissez la cible ou corrigez la règle, puis relancez le calcul. Les calculs spatiaux asynchrones avec un comportement non linéaire ou des combinaisons P-Delta capturent toute la projection du poids propre avec le maillage de calcul. Les modifications du modèle source ne peuvent donc pas changer le poids sélectionné pour ce calcul.",
+    "hu": "Az önsúlyszabály hiányzó rúdra, háromszög- vagy négyszögelemre hivatkozik, vagy érvénytelen rúdazonosítót tartalmaz. A korábbi eredményekből kimaradhatott súly. Állítsa vissza a célt vagy javítsa a szabályt, majd futtassa újra a számítást. A nemlineáris vagy P-Delta kombinációkat használó aszinkron térbeli számítások a számítási hálóval együtt rögzítik a teljes önsúlyleképezést. A forrásmodell módosításai így nem változtathatják meg az adott számításhoz kiválasztott súlyt.",
+    "tr": "Bir öz ağırlık kuralı eksik bir çubuğa, üçgen veya dörtgen elemana başvuruyor ya da geçersiz bir çubuk kimliği içeriyor. Önceki sonuçlarda ağırlık eksik kalmış olabilir. Hedefi geri yükleyin veya kuralı düzeltip analizi yeniden çalıştırın. Doğrusal olmayan davranış veya P-Delta kombinasyonları kullanan eşzamansız uzaysal çözümler, öz ağırlık eşlemesinin tamamını çözüm ağıyla birlikte saklar. Kaynak modeldeki düzenlemeler bu çözüm için seçilen ağırlığı değiştiremez.",
+    "zh": "自重规则引用了缺失的杆件、三角板或四边形单元，或包含无效的杆件 ID。早期结果可能漏算重量。请恢复作用对象或更正规则，然后重新运行分析。 采用非线性行为或 P-Delta 组合的异步空间求解会在保存求解网格时一并保存完整的自重映射，因此修改源模型不会改变本次求解选定的自重。",
+    "ar": "تشير قاعدة للوزن الذاتي إلى عنصر خطي أو بلاطة مثلثة أو عنصر رباعي الأضلاع غير موجود، أو تحتوي على معرّف عنصر خطي غير صالح. ربما أغفلت النتائج السابقة جزءًا من الوزن. أعد العنصر المستهدف أو صحّح القاعدة، ثم أعد تشغيل التحليل. تحفظ عمليات الحل الفراغي غير المتزامنة ذات السلوك غير الخطي أو تراكيب P-Delta التعيين الكامل للوزن الذاتي مع شبكة الحل، لذلك لا يمكن لتعديلات النموذج الأصلي تغيير الوزن المحدد لتلك العملية.",
+    "hi": "स्वभार का कोई नियम ऐसे सदस्य, त्रिभुजीय प्लेट या चतुर्भुज तत्व को संदर्भित करता है जो मॉडल में मौजूद नहीं है, या उसमें सदस्य का अमान्य आईडी है। पहले के परिणामों में कुछ भार छूट सकता था। लक्ष्य को बहाल करें या नियम ठीक करें, फिर विश्लेषण दोबारा चलाएँ। अरैखिक व्यवहार या P-Delta संयोजनों वाली असमकालिक त्रिविमीय गणनाएँ सॉल्वर की मेश के साथ स्वभार का पूरा आवंटन सहेजती हैं। इससे स्रोत मॉडल में किए गए बदलाव उस गणना के लिए चुने गए स्वभार को बदल नहीं सकते।",
+    "id": "Aturan berat sendiri merujuk pada batang, pelat segitiga, atau elemen segi empat yang tidak ada, atau memuat ID batang yang tidak valid. Hasil sebelumnya dapat mengabaikan sebagian berat. Pulihkan target atau perbaiki aturan, lalu jalankan kembali analisis. Analisis tiga dimensi asinkron dengan perilaku nonlinier atau kombinasi P-Delta menyimpan seluruh pemetaan berat sendiri bersama mesh analisis, sehingga perubahan model sumber tidak dapat mengubah berat yang dipilih untuk analisis tersebut.",
+    "it": "Una regola del peso proprio fa riferimento a un’asta, a una piastra triangolare o a un elemento quadrilatero mancante, oppure contiene un ID di asta non valido. Nei risultati precedenti poteva mancare una parte del peso. Ripristinare l’elemento o correggere la regola, quindi rieseguire l’analisi. Le analisi spaziali asincrone con comportamento non lineare o combinazioni P-Delta acquisiscono l’intera mappatura del peso proprio insieme alla mesh di calcolo, così le modifiche al modello di origine non possono cambiare il peso selezionato per quell’analisi.",
+    "ja": "自重の設定が存在しない部材、三角形プレート、四角形要素を参照しているか、無効な部材 ID を含んでいます。以前の結果では重量の一部が計上されていない可能性があります。対象を復元するか設定を修正し、解析を再実行してください。非線形挙動または P-Delta の荷重組み合わせを扱う非同期の三次元解析では、解析メッシュとともに自重の割り当て全体を保持するため、元のモデルを編集しても実行中の解析に選択された自重は変わりません。",
+    "ko": "자중 규칙이 존재하지 않는 부재, 삼각형 판 또는 사각형 요소를 참조하거나 유효하지 않은 부재 ID를 포함합니다. 이전 결과에서는 자중의 일부가 누락되었을 수 있습니다. 대상을 복원하거나 규칙을 수정한 후 해석을 다시 실행하세요. 비선형 거동 또는 P-Delta 조합을 사용하는 비동기 3차원 해석은 계산 메시와 함께 전체 자중 매핑을 저장하므로 원본 모델을 편집해도 해당 해석에 선택된 자중은 바뀌지 않습니다.",
+    "ru": "Правило собственного веса ссылается на отсутствующий стержень, треугольную пластину или четырёхугольный элемент либо содержит недопустимый идентификатор стержня. В предыдущих результатах часть веса могла не учитываться. Восстановите элемент или исправьте правило, затем повторите расчёт. При асинхронных пространственных расчётах с нелинейным поведением или комбинациями P-Delta вместе с расчётной сеткой сохраняется полное соответствие между правилами собственного веса и элементами. Поэтому правки исходной модели не могут изменить вес, выбранный для этого расчёта."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-self-weight-selectors.md",
+    "heading": "Refuse invalid self-weight targets"
+  }
+}

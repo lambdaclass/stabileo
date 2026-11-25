@@ -7,6 +7,7 @@
  * elsewhere (variable-members.ts) and a straight cut would change their shape.
  */
 import type { ModelData } from '../../engine/solver-service';
+import { projectSelfWeightMembers, selfWeightMemberProjection } from '../../engine/self-weight';
 import type { Element, Load, Node } from '../../store/model.svelte';
 import { memberLoadGeometry, segmentFields, splitElementLoads } from './member-split';
 
@@ -55,5 +56,8 @@ export function subdivideForAnalysis(model: ModelData, n: number): Subdivision {
     segments.set(id, ids);
     inner.set(id, added);
   }
-  return { model: { ...model, nodes, elements, loads }, segments, inner };
+  return {
+    model: { ...model, nodes, elements, loads, [selfWeightMemberProjection]: projectSelfWeightMembers(model, segments) },
+    segments, inner,
+  };
 }
