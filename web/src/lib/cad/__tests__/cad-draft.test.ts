@@ -411,12 +411,7 @@ it('#2429 refuses an oblique CAD wall when slab meshing is disabled', () => {
   }
 });
 
-it.each([
-  ['fixedDivisions', 'diagonal'],
-  ['targetSize', 'diagonal'],
-  ['fixedDivisions', 'interior'],
-  ['targetSize', 'interior'],
-] as const)('#2429 %s meshes the full %s wall trace before transferring pressure', (meshMode, trace) => {
+function checkWallTrace(meshMode: 'fixedDivisions' | 'targetSize', trace: 'diagonal' | 'interior') {
   const outline = [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }, { x: 0, y: 4 }];
   const start = trace === 'diagonal' ? outline[0]! : { x: 1, y: 1 };
   const end = trace === 'diagonal' ? outline[2]! : { x: 3, y: 2 };
@@ -459,4 +454,14 @@ it.each([
     expect(new Set(reactions.map(r => r.nodeId))).toEqual(base);
     expect(reactions.reduce((sum, r) => sum + (base.has(r.nodeId) ? r.fz : 0), 0)).toBeCloseTo(4 * 4, 8);
   }
+}
+
+describe('Continuous shared edges resolve the former refusal', () => {
+  it('#2429 refuses an oblique CAD wall supported by isolated shared nodes', () => {
+    for (const meshMode of ['fixedDivisions', 'targetSize'] as const) checkWallTrace(meshMode, 'diagonal');
+  });
+});
+
+it.each(['fixedDivisions', 'targetSize'] as const)('#2429 %s meshes the full interior wall trace before transferring pressure', meshMode => {
+  checkWallTrace(meshMode, 'interior');
 });
