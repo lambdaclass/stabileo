@@ -67,9 +67,18 @@ impl LoadSession3D {
         crate::to_js_value(&result)
     }
 }
+
+impl TryFrom<SolverInput3D> for LoadSession3D {
+    type Error = String;
+
+    fn try_from(input: SolverInput3D) -> Result<Self, Self::Error> {
+        Self::from_input_with_prepare(input, prepare_static_3d)
+    }
+}
+
 impl LoadSession3D {
     pub fn from_input(input: SolverInput3D) -> Result<LoadSession3D, String> {
-        Self::from_input_with_prepare(input, prepare_static_3d)
+        Self::try_from(input)
     }
     fn from_input_with_prepare(mut input: SolverInput3D, mut prepare: impl FnMut(&SolverInput3D) -> Result<PreparedStatic3D, String>) -> Result<LoadSession3D, String> {
         crate::solver::linear::validate_input_3d(&input)?;

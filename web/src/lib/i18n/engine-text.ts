@@ -14,7 +14,8 @@ import { isMessage, type EngineMessage } from '../codes/message';
 import { AMBIGUOUS_ROLLER_Z } from '../engine/support-dofs-3d';
 import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../engine/member-diagram';
 import type { StructuredDiagnostic } from '../engine/types';
-import { i18n, tAt } from './store.svelte';
+import { i18n, registerFeatureDictionaries, tAt } from './store.svelte';
+import type { Locale } from './offered';
 import { axesStore } from '../axes/axes.svelte';
 import { axisTokensIn } from '../axes/case-names';
 
@@ -97,6 +98,21 @@ export function formatCombinationLabel(
     .join(' + ');
 }
 
+const PDELTA_PHYSICAL_RESIDUAL = 'svc.engine.pdeltaPhysicalResidual';
+const pdeltaPhysicalResidual: Record<Locale, string> = {
+  de: "Die P-Delta-Ergebnisse wurden zurückgehalten, weil das physikalische Residuum der freien Freiheitsgrade die geforderte Toleranz nicht einhielt.",
+  en: "P-Delta results were withheld because the physical free-DOF residual did not meet the requested tolerance.",
+  es: "Se retuvieron los resultados de P-Delta porque el residuo físico en los grados de libertad libres no cumplió la tolerancia solicitada.",
+  fr: "Les résultats P-Delta ont été retenus, car le résidu physique aux degrés de liberté libres ne satisfait pas la tolérance demandée.",
+  hu: "A P-Delta-eredmények nem érhetők el, mert a szabad szabadságfokok fizikai maradéka nem teljesítette a kért tűrést.",
+  pt: "Os resultados de P-Delta foram retidos porque o resíduo físico nos graus de liberdade livres não atendeu à tolerância solicitada.",
+  tr: "Serbestlik derecelerindeki fiziksel artık istenen toleransı karşılamadığı için P-Delta sonuçları verilmedi.",
+  zh: "自由自由度的物理残差未达到要求的容差，因此未提供 P-Delta 结果。",
+};
+registerFeatureDictionaries(Object.fromEntries(
+  Object.entries(pdeltaPhysicalResidual).map(([locale, message]) => [locale, { [PDELTA_PHYSICAL_RESIDUAL]: message }]),
+));
+
 /**
  * The solver's own error sentences, which it writes in English, in the app's language.
  *
@@ -113,6 +129,11 @@ const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
   ['non-finite moving load member diagram', DIAGRAM_EXTREMA_UNAVAILABLE],
   ['Repeated load case factors cancel to zero in this combination.', 'svc.engine.cancelledCombination'],
   [AMBIGUOUS_ROLLER_Z, 'svc.engine.ambiguousRollerZ'],
+  ['out-of-plane nodal component', 'xls.err.nodalOutOfPlane'],
+  ['Mass density must be finite and nonnegative', 'svc.engine.nonnegativeMassDensity'],
+  ['Unsupported point load field', 'svc.engine.unsupportedPointLoadMoment'],
+  ['apply the moment at a 3D node at the original load position', 'svc.engine.applyPointLoadMomentAtNode'],
+  ['P-Delta results were withheld because the physical free-DOF residual did not meet the requested tolerance.', PDELTA_PHYSICAL_RESIDUAL],
   ['exact plastic LP resource budget exceeded', 'plasticDiag.resourceBudget'],
   ['Singular stiffness matrix — structure is a mechanism', 'svc.engine.mechanism'],
   ['All diagonal entries are zero — singular matrix', 'svc.engine.zeroDiagonal'],

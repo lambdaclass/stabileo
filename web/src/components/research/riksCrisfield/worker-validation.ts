@@ -4,19 +4,40 @@ export type RawResult = {
   finalLoadFactor: number;
   converged: boolean;
   totalIterations: number;
+  rejectedIterations?: number;
   results: { displacements: { nodeId: number; ux: number; uz: number; ry: number }[] };
 };
 
-function summaryMatchesSteps(r: RawResult): boolean {
-  return Number.isFinite(r.finalLoadFactor) && Number.isFinite(r.totalIterations) && r.steps.length > 0 &&
-    r.finalLoadFactor === r.steps[r.steps.length - 1].loadFactor &&
-    r.totalIterations === r.steps.reduce((sum, s) => sum + s.iterations, 0) &&
-    r.converged === r.steps.every(s => s.converged);
+function summaryMatchesSteps(result: RawResult, requestedSteps: number): boolean {
+  if (!result || !Array.isArray(result.steps) || !Number.isSafeInteger(requestedSteps) ||
+      requestedSteps <= 0 || result.steps.length > requestedSteps ||
+      result.converged !== (result.steps.length === requestedSteps)) return false;
+
+  const rejected = result.rejectedIterations === undefined ? 0 : result.rejectedIterations;
+  if (!Number.isSafeInteger(rejected) || rejected < 0 || !Number.isSafeInteger(result.totalIterations)) return false;
+
+  let iterations = rejected;
+  for (const [index, step] of result.steps.entries()) {
+    if (!step || step.step !== index + 1 || step.converged !== true ||
+        !Number.isSafeInteger(step.iterations) || step.iterations <= 0 ||
+        !Number.isFinite(step.loadFactor) || !Number.isFinite(step.controlDisplacement)) return false;
+    iterations += step.iterations;
+  }
+  return result.totalIterations === iterations &&
+    result.finalLoadFactor === (result.steps.at(-1)?.loadFactor ?? 0);
 }
 
-export function validatePrefix(full: RawResult, prefix: RawResult, k: number, nodeIds: number[]) {
-  if (!summaryMatchesSteps(full)) throw new Error('Invalid full result');
-  if (prefix.steps.length !== k || !summaryMatchesSteps(prefix) || !prefix.converged) throw new Error('Invalid prefix result');
+export function validateFullResult(full: RawResult, requestedSteps: number): void {
+  if (!summaryMatchesSteps(full, requestedSteps)) throw new Error('Invalid full result');
+}
+
+export function validatePrefix(full: RawResult, prefix: RawResult, k: number, nodeIds: number[], requestedSteps: number) {
+  validateFullResult(full, requestedSteps);
+  if (!summaryMatchesSteps(prefix, k) || !prefix.converged ||
+      (prefix.rejectedIterations ?? 0) > (full.rejectedIterations ?? 0) ||
+      (full.converged && k === requestedSteps && prefix.totalIterations !== full.totalIterations)) {
+    throw new Error('Invalid prefix result');
+  }
   for (let i = 0; i < k; i++) {
     const a = prefix.steps[i], b = full.steps[i];
     if (!b || !Number.isFinite(a.loadFactor) || !Number.isFinite(a.iterations) || !a.converged ||

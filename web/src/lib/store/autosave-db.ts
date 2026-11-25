@@ -68,7 +68,7 @@ export interface AutosavePolicy<T> {
    * This is the same gate a `.ded` open goes through. A payload that fails it is refused
    * and reported as `invalid`; it is never partially applied.
    */
-  accept(payload: unknown): T | null;
+  accept(payload: unknown, onRefusal?: (reason: string) => void): T | null;
   /** Census used to detect a record that lost or gained entries in storage. */
   fingerprint(payload: unknown): AutosaveFingerprint;
 }
@@ -77,7 +77,7 @@ export interface AutosavePolicy<T> {
 export type AutosaveRejection =
   | { revision: number; timestamp: string; why: 'incomplete' }
   | { revision: number; timestamp: string; why: 'fingerprint'; expected: AutosaveFingerprint; actual: AutosaveFingerprint }
-  | { revision: number; timestamp: string; why: 'invalid' };
+  | { revision: number; timestamp: string; why: 'invalid'; reason?: string };
 
 export interface AutosaveReadResult<T> {
   backend: AutosaveBackend;
@@ -407,7 +407,7 @@ export async function autosaveRead<T>(policy: AutosavePolicy<T>): Promise<Autosa
   const database = await db();
   if (!database) return readLegacy(policy);
 
-  await importLegacyOnce(database, policy);
+  const legacyRefusal = await importLegacyOnce(database, policy);
 
   let meta: MetaRecord;
   let records: StoredRecord[];
@@ -423,7 +423,7 @@ export async function autosaveRead<T>(policy: AutosavePolicy<T>): Promise<Autosa
   }
 
   records.sort((a, b) => b.revision - a.revision);
-  const rejected: AutosaveRejection[] = [];
+  const rejected: AutosaveRejection[] = legacyRefusal ? [legacyRefusal] : [];
 
   for (const rec of records) {
     const stamp = typeof rec?.timestamp === 'string' ? rec.timestamp : '';
@@ -436,9 +436,10 @@ export async function autosaveRead<T>(policy: AutosavePolicy<T>): Promise<Autosa
       rejected.push({ revision: rec.revision, timestamp: stamp, why: 'fingerprint', expected: rec.fingerprint, actual });
       continue;
     }
-    const value = policy.accept(rec.payload);
+    let reason: string | undefined;
+    const value = policy.accept(rec.payload, message => { reason = message; });
     if (!value) {
-      rejected.push({ revision: rec.revision, timestamp: stamp, why: 'invalid' });
+      rejected.push({ revision: rec.revision, timestamp: stamp, why: 'invalid', ...(reason && { reason }) });
       continue;
     }
     return {
@@ -491,11 +492,12 @@ function readLegacy<T>(policy: AutosavePolicy<T>): AutosaveReadResult<T> {
   } catch {
     return { ...empty, rejected: [{ revision: 0, timestamp: '', why: 'invalid' }] };
   }
-  const value = policy.accept(parsed);
-  if (!value) return { ...empty, rejected: [{ revision: 0, timestamp: '', why: 'invalid' }] };
+  let reason: string | undefined;
+  const value = policy.accept(parsed, message => { reason = message; });
   const timestamp = typeof (parsed as { timestamp?: unknown })?.timestamp === 'string'
     ? (parsed as { timestamp: string }).timestamp
     : null;
+  if (!value) return { ...empty, rejected: [{ revision: 0, timestamp: timestamp ?? '', why: 'invalid', ...(reason && { reason }) }] };
   return { ...empty, value, revision: 0, timestamp };
 }
 
@@ -507,7 +509,7 @@ function readLegacy<T>(policy: AutosavePolicy<T>): AutosaveReadResult<T> {
  * read could be the older, with nothing on screen distinguishing them. After the import there
  * is exactly one autosave, and it is the newer of the two.
  */
-async function importLegacyOnce<T>(database: IDBDatabase, policy: AutosavePolicy<T>): Promise<void> {
+async function importLegacyOnce<T>(database: IDBDatabase, policy: AutosavePolicy<T>): Promise<AutosaveRejection | undefined> {
   let meta: MetaRecord;
   try {
     meta = await readMeta(database);
@@ -530,8 +532,11 @@ async function importLegacyOnce<T>(database: IDBDatabase, policy: AutosavePolicy
   if (raw && meta.lastRevision === 0) {
     try {
       const parsed = JSON.parse(raw) as unknown;
-      if (policy.accept(parsed)) {
+      let reason: string | undefined;
+      if (policy.accept(parsed, message => { reason = message; })) {
         await autosaveWrite(parsed, policy);
+      } else if (reason) {
+        return { revision: 0, timestamp: '', why: 'invalid', reason };
       }
     } catch {
       /* an unparseable legacy slot is not worth importing, and saying so is `rejected` */
@@ -545,6 +550,7 @@ async function importLegacyOnce<T>(database: IDBDatabase, policy: AutosavePolicy
   }
   const after = await readMeta(database).catch(() => meta);
   await writeMeta(database, { ...after, legacyImported: true }).catch(() => undefined);
+  return undefined;
 }
 
 /** The id of the newest committed IndexedDB write, or null when there is none or it cannot be read. */

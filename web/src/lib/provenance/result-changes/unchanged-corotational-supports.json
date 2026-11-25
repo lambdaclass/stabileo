@@ -1,0 +1,37 @@
+{
+  "id": "unchanged-corotational-supports",
+  "date": "2026-11-24",
+  "prs": [2539],
+  "area": "analysis",
+  "when": {
+    "all": ["plane2D", "analysis:nonlinear", "settlements"]
+  },
+  "quantities": [
+    "displacements", "reactions", "elementForces", "constraintForces",
+    "converged", "iterations", "loadFactor", "maxDisplacement"
+  ],
+  "title": {
+    "en": "Preserve unchanged support positions in planar co-rotational continuation",
+    "es": "Conservar las posiciones de apoyo en la continuación corrotacional plana",
+    "pt": "Preservar as posições dos apoios na continuação corrotacional plana",
+    "de": "Unveränderte Auflagerpositionen bei der ebenen korotationalen Fortsetzung erhalten",
+    "fr": "Conserver les positions d’appui inchangées dans la continuation corotationnelle plane",
+    "hu": "A változatlan támaszhelyzetek megőrzése a síkbeli korotációs folytatásban",
+    "tr": "Düzlemsel eş dönel çözümün devamında değişmeyen mesnet konumlarını koru",
+    "zh": "平面共旋延续分析保持未变化的支座位置"
+  },
+  "explanation": {
+    "en": "When the starting and prescribed support positions agree, the solver keeps that exact position at every continuation increment. Rounding of the support ramp could previously trigger an unnecessary correction or prevent convergence.",
+    "es": "Cuando coinciden la posición inicial y la prescrita del apoyo, el cálculo conserva esa posición exacta en cada incremento. El redondeo de la interpolación podía provocar una corrección innecesaria o impedir la convergencia.",
+    "pt": "Quando as posições inicial e prescrita do apoio coincidem, o cálculo mantém essa posição exata em cada incremento. O arredondamento da interpolação podia provocar uma correção desnecessária ou impedir a convergência.",
+    "de": "Wenn die Ausgangsposition des Auflagers mit der vorgegebenen Position übereinstimmt, bleibt diese in jedem Fortsetzungsschritt exakt erhalten. Rundung bei der Interpolation konnte eine unnötige Korrektur auslösen oder die Konvergenz verhindern.",
+    "fr": "Lorsque les positions initiale et imposée de l’appui coïncident, le calcul conserve cette position exacte à chaque incrément. L’arrondi de l’interpolation pouvait entraîner une correction inutile ou empêcher la convergence.",
+    "hu": "Ha a kezdeti és az előírt támaszhelyzet megegyezik, a megoldó minden folytatási lépésben pontosan megtartja ezt a helyzetet. Az interpoláció kerekítése korábban felesleges korrekciót okozhatott vagy megakadályozhatta a konvergenciát.",
+    "tr": "Başlangıç ve tanımlanan mesnet konumları aynıysa çözücü her artımda bu konumu tam olarak korur. Enterpolasyonun yuvarlanması gereksiz bir düzeltmeye yol açabiliyor veya yakınsamayı engelleyebiliyordu.",
+    "zh": "当支座的起始位置和指定位移对应的位置一致时，求解器在每个延续增量中保持该位置。先前插值的舍入误差可能触发多余的修正或阻止收敛。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-unchanged-corotational-supports.md",
+    "heading": "Preserve unchanged support positions in planar co-rotational continuation (2026-11-24)"
+  }
+}

@@ -10,6 +10,7 @@ defmodule StabileoRepo.Features do
   @usage_telemetry "usage_telemetry_enabled"
   @cloud_projects "cloud_projects_enabled"
   @save_requires_account "save_requires_account"
+  @editor_requires_account "editor_requires_account"
   @cloud_projects_limit "cloud_projects_limit"
   @cloud_projects_limit_range 1..100
 
@@ -67,6 +68,20 @@ defmodule StabileoRepo.Features do
       @save_requires_account,
       enabled,
       "Saving or exporting a model asks the user to sign in first"
+    )
+  end
+
+  def editor_requires_account? do
+    SystemSettings.get_flag(@editor_requires_account, false) == true
+  rescue
+    _ -> false
+  end
+
+  def set_editor_requires_account(enabled) when is_boolean(enabled) do
+    SystemSettings.set_flag(
+      @editor_requires_account,
+      enabled,
+      "Opening the editor asks the user to sign in first"
     )
   end
 

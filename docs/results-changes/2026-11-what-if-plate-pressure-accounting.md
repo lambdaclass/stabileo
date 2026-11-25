@@ -1,0 +1,9 @@
+# Independent pressure accounting in Explore
+
+When an Explore slider changes generated shell pressure, analysis checks the original pressure field and the requested slider factor. It derives the required shell load batches from the authored loads and declared case factors, including reference cases. A missing batch stops analysis even if the lost forces and moments cancel. Notional and mass sources also check that they receive the required batches.
+
+Analysis compares the scaled corner pressures or both endpoints of a varying field with the request. It integrates the expected nodal forces in closed form, independently of the solver load converter. The check covers whole triangular and quadrilateral shells and clipped triangular and parallelogram shells. Analysis refuses a clipped non-affine quadrilateral when it cannot certify the corner forces. Explicitly factored combinations check the nodal forces again after scaling.
+
+Alternating pressure errors on a rectangular shell can change equivalent nodal forces while leaving the total force and moment unchanged. A shell mismatch identifies the case, shell, and affected pressure value or nodal force when available. The case-wide force and moment check can report a mismatch at the case level. Live analysis clears the previous result on refusal, and correctly assembled and factored loads within the supported geometry retain their results.
+
+A signed pressure field can produce zero equivalent force at a corner. The nodal check uses the magnitudes of the terms contributing to that same force component when comparing roundoff. This keeps a correctly assembled case eligible to solve when the signed terms cancel. The same comparison applies to explicitly factored combinations.

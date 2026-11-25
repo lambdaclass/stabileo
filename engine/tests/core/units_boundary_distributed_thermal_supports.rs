@@ -133,12 +133,12 @@ fn every_2d_field() -> Value {
         "supports": {
             "1": {"id": 1, "nodeId": 1, "type": "fixed", "dx": 0.001, "dy": -0.0, "drz": 1e-4},
             "2": {"id": 2, "nodeId": 3, "type": "spring", "kx": 1234.5, "ky": 9876.5, "kz": 321.25, "angle": 0.3},
-            "3": {"id": 3, "nodeId": 4, "type": "pinned", "dx": -0.0, "dz": -0.002, "dry": null, "angle": null}
+            "3": {"id": 3, "nodeId": 4, "type": "pinned", "dx": -0.0, "dz": -0.002}
         },
         "loads": [
             {"type": "distributed", "data": {"elementId": 1, "qI": -5.5, "qJ": -2.25}},
             {"type": "distributed", "data": {"elementId": 2, "qI": -0.0, "qJ": 1e-9, "a": 0.25, "b": 2.0}},
-            {"type": "axialDistributed", "data": {"elementId": 3, "qI": 1.5, "qJ": -0.0, "a": 0.0, "b": null}},
+            {"type": "axialDistributed", "data": {"elementId": 3, "qI": 1.5, "qJ": -0.0, "a": 0.0}},
             {"type": "thermal", "data": {"elementId": 1, "dtUniform": 20.5, "dtGradient": -7.25}},
             {"type": "thermal", "data": {"elementId": 2, "dtUniform": -0.0, "dtGradient": 3.0, "alpha": 1.0e-5, "depth": 0.45}},
             {"type": "nodal", "data": {"nodeId": 2, "fx": 1.0, "fz": -3.0, "my": 0.0}}
@@ -164,7 +164,7 @@ fn every_3d_field() -> Value {
         "supports": {
             "1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true, "dz": -0.001, "dry": -0.0, "drz": 2e-4},
             "2": {"nodeId": 4, "rx": true, "ry": true, "rz": false, "rrx": false, "rry": true, "rrz": true, "kz": 4567.5, "krx": 89.125, "dx": 0.0},
-            "3": {"nodeId": 2, "rx": false, "ry": false, "rz": true, "rrx": false, "rry": false, "rrz": false, "kx": 1e4, "ky": 2e4, "kry": 3.5, "krz": -0.0, "drx": null}
+            "3": {"nodeId": 2, "rx": false, "ry": false, "rz": true, "rrx": false, "rry": false, "rrz": false, "kx": 1e4, "ky": 2e4, "kry": 3.5, "krz": -0.0}
         },
         "loads": [
             {"type": "distributed", "data": {"elementId": 1, "qYI": -5, "qYJ": -2.5, "qZI": 0, "qZJ": 1.25}},
@@ -185,7 +185,7 @@ fn every_shell_load_tag() -> Value {
     let mut model = every_3d_field();
     model["loads"] = json!([
         {"type": "quad9Pressure", "data": {"elementId": 1, "pressure": -0.0}},
-        {"type": "quad9Thermal", "data": {"elementId": 1, "dtUniform": 1.5, "dtGradient": -0.0, "alpha": null}},
+        {"type": "quad9Thermal", "data": {"elementId": 1, "dtUniform": 1.5, "dtGradient": -0.0}},
         {"type": "quad9Edge", "data": {"elementId": 1, "edge": 2, "qn": 1e-9}},
         {"type": "solidShellPressure", "data": {"elementId": 1, "pressure": 3.25}},
         {"type": "curvedShellPressure", "data": {"elementId": 1, "pressure": 4.5}},

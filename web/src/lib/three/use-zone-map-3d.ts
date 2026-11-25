@@ -5,7 +5,7 @@
  */
 import * as THREE from 'three';
 import { zoneLiveLoad, zoneStatus, zoneUseOf, type ZoneStatus } from '../model/use-zones';
-import { findAnyOccupancy as findOccupancy } from '../codes/families/occupancy-tables';
+import { findOccupancy } from '../codes/cirsoc101/live-loads';
 import { disposeObject } from './selection-helpers';
 import type { ModelGroup } from '../store/model.svelte';
 

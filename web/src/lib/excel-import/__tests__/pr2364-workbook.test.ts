@@ -105,7 +105,7 @@ it('known wrong result: #1986 framed plane nodal rows reject each nonzero out-of
     const read = (type: string, row: number[]) =>
       parseWorkbook({ ...base, Loads: [['type', 'case', 'node', ...columns], [type, 1, 1, ...row]] });
     expect(read('nodal', values).model.loads).toEqual([
-      { type: 'nodal', data: { id: 1, caseId: 1, nodeId: 1, fx: yUp ? -1 : 1, fy: 0, fz: yUp ? 2 : 3, my: yUp ? -6 : 5 } },
+      { type: 'nodal', data: { id: 1, caseId: 1, nodeId: 1, fx: yUp ? -1 : 1, fz: yUp ? 2 : 3, my: yUp ? -6 : 5 } },
     ]);
     for (const i of rejected) for (const invalid of [-1, 1]) {
       const components = values.with(i, invalid);

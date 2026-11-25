@@ -1,0 +1,32 @@
+{
+  "id": "what-if-plate-pressure-accounting",
+  "date": "2026-11-23",
+  "prs": [2479, 2542],
+  "area": "analysis",
+  "when": { "all": ["space3D", "physicalPlateDefinitions"] },
+  "quantities": ["solve.ok"],
+  "title": {
+    "en": "Independent pressure accounting in Explore",
+    "es": "Verificación independiente de presiones en Explorar",
+    "pt": "Verificação independente de pressões no Explorar",
+    "de": "Unabhängige Druckprüfung in Erkunden",
+    "fr": "Vérification indépendante des pressions dans Explorer",
+    "hu": "Független nyomásellenőrzés a Felfedezésben",
+    "tr": "Keşfet bölümünde bağımsız basınç denetimi",
+    "zh": "探索模式下的独立压力校核"
+  },
+  "explanation": {
+    "en": "Analysis stops if a shell pressure batch is missing or if a shell pressure or its assembled nodal forces differ from the Explore request beyond roundoff, even when the total force and moment agree. Correct signed pressure fields still pass when their equivalent forces cancel at a node.",
+    "es": "El análisis se detiene si falta una carga de presión de placa o si la presión en un elemento de placa o sus fuerzas nodales ensambladas difieren de lo solicitado en Explorar más allá del margen de redondeo, aunque coincidan la fuerza y el momento totales. Los campos de presión correctos con signo superan la verificación aunque sus fuerzas equivalentes se cancelen en un nodo.",
+    "pt": "A análise é interrompida se faltar uma carga de pressão de placa ou se a pressão em um elemento de placa ou suas forças nodais montadas diferirem do solicitado no Explorar além da margem de arredondamento, mesmo quando a força e o momento totais coincidirem. Campos de pressão corretos com sinal passam na verificação mesmo quando suas forças equivalentes se cancelam em um nó.",
+    "de": "Die Berechnung stoppt, wenn eine Schalendrucklast fehlt oder wenn der Druck auf ein Schalenelement oder seine assemblierten Knotenkräfte über die Rundungstoleranz hinaus von der Vorgabe in Erkunden abweichen, selbst wenn Gesamtkraft und Gesamtmoment übereinstimmen. Korrekte vorzeichenbehaftete Druckfelder bestehen die Prüfung auch dann, wenn sich ihre äquivalenten Kräfte an einem Knoten aufheben.",
+    "fr": "L’analyse s’arrête si un chargement de pression sur une coque manque ou si la pression sur un élément de coque ou ses forces nodales assemblées diffèrent de la demande dans Explorer au-delà de la marge d’arrondi, même si la force et le moment totaux concordent. Les champs de pression signés corrects satisfont la vérification même si leurs forces équivalentes s’annulent à un nœud.",
+    "hu": "A számítás leáll, ha egy héjelem nyomásterhe hiányzik, vagy ha a nyomása vagy az összeállított csomóponti erők a kerekítési tűrést meghaladóan eltérnek a Felfedezésben megadott terheléstől, akkor is, ha az eredő erő és nyomaték egyezik. A helyes előjeles nyomásmezők akkor is átmennek az ellenőrzésen, ha egyenértékű erőik kioltják egymást egy csomópontban.",
+    "tr": "Bir kabuk basınç yükü eksikse veya kabuk elemanındaki basınç veya birleştirilmiş düğüm kuvvetleri Keşfet bölümünde istenen değerden yuvarlama payını aşacak kadar farklıysa, toplam kuvvet ve moment aynı olsa bile analiz durur. İşaretli basınç alanları doğruysa eşdeğer kuvvetleri bir düğümde birbirini dengelediğinde de denetimden geçer.",
+    "zh": "即使总力和总力矩一致，只要壳单元压力荷载缺失，或壳单元压力或其组装后的节点力与探索模式中的设定值之差超过舍入误差限值，分析就会停止。正确的有符号压力场即使在某个节点的等效力相互抵消，也能通过校核。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-what-if-plate-pressure-accounting.md",
+    "heading": "Independent pressure accounting in Explore"
+  }
+}

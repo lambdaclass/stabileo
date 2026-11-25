@@ -1,19 +1,20 @@
 import { initSolver, solveArcLength } from '../../../lib/engine/wasm-solver';
 import type { ArcInput, BenchmarkFrame } from './benchmark';
+import { validateFullResult, validatePrefix, type RawResult } from './worker-validation';
 
 type RunMessage = { type: 'run'; runId: number; input: ArcInput; apexNodeId: number; direction: 'downward' | 'upward'; referenceLoad: number };
-import { validatePrefix, type RawResult } from './worker-validation';
 
 self.onmessage = async (event: MessageEvent<RunMessage>) => {
   const { runId, input, apexNodeId, direction, referenceLoad } = event.data;
   try {
     await initSolver();
     const full = solveArcLength(input) as RawResult;
+    validateFullResult(full, input.maxSteps);
     const nodeIds = Object.values(input.solver.nodes).sort((a, b) => a.id - b.id).map((node) => node.id);
     for (let k = 1; k <= full.steps.length; k++) {
       const prefix = solveArcLength({ ...input, maxSteps: k }) as RawResult;
       const expected = full.steps[k - 1];
-      const byNode = validatePrefix(full, prefix, k, nodeIds);
+      const byNode = validatePrefix(full, prefix, k, nodeIds, input.maxSteps);
       const apex = byNode.get(apexNodeId);
       if (!apex) throw new Error(`Missing apex displacement at step ${k}`);
       const displacement = -apex.uz;

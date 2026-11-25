@@ -1,0 +1,47 @@
+{
+  "id": "gravity-floor-ownership",
+  "date": "2026-11-23",
+  "prs": [
+    2284,
+    2299,
+    2347,
+    2499,
+    2512
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "space3D",
+      "generatedPanelGravity"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Assign each automatic gravity floor region to one carrier",
+    "es": "Asignar cada región de carga gravitatoria automática a un solo portante",
+    "pt": "Atribuir cada região de carga gravitacional automática a um único suporte",
+    "de": "Jeden Bereich der automatischen Schwerkraftlast einem Träger zuweisen",
+    "fr": "Attribuer chaque zone de charge de gravité automatique à un seul porteur",
+    "tr": "Her otomatik yerçekimi yükü bölgesini tek bir taşıyıcıya atama",
+    "zh": "将每个自动重力荷载区域分配给单个承载体",
+    "hu": "Az automatikus gravitációs teher minden területének hozzárendelése egyetlen teherhordóhoz"
+  },
+  "explanation": {
+    "en": "Regenerate panel gravity loads. Shells take over a beam bay when they fully cover the same deck. Shells on separate decks retain their own loads. Generation stops if ownership is unresolved.",
+    "es": "Regenerá las cargas gravitatorias por paños. Las placas toman la carga de un paño de vigas si cubren por completo el mismo entrepiso. Las placas en entrepisos independientes conservan sus cargas. La generación se detiene si no se puede resolver la asignación.",
+    "pt": "Gere novamente as cargas gravitacionais por painéis. As cascas assumem a carga de um painel de vigas quando cobrem todo o mesmo piso. Cascas em pisos independentes conservam suas cargas. A geração é interrompida quando a atribuição é indefinida.",
+    "de": "Erzeugen Sie die Schwerkraftlasten im Feldmodus neu. Schalen übernehmen die Last eines Trägerfelds, wenn sie dasselbe Deck vollständig abdecken. Schalen auf getrennten Decks behalten ihre Lasten. Bei unklarer Zuordnung stoppt die Erzeugung.",
+    "fr": "Régénérez les charges gravitaires par panneaux. Les coques reprennent la charge d’une travée lorsqu’elles couvrent entièrement le même plancher. Les coques sur des planchers distincts conservent leurs charges. La génération s’arrête si l’attribution reste indéterminée.",
+    "tr": "Panel yerçekimi yüklerini yeniden üretin. Kabuklar aynı döşemeyi bütünüyle kapladıklarında kiriş açıklığının yükünü alır. Ayrı döşemelerdeki kabuklar kendi yüklerini korur. Yükün nereye atanacağı belirlenemezse üretim durur.",
+    "zh": "请重新生成板格重力荷载。壳单元完全覆盖同一楼层时，承受梁格荷载。独立楼层上的壳单元保留各自的荷载。无法确定荷载归属时停止生成。",
+    "hu": "Generálja újra a mezőnkénti gravitációs terheket. A héjak átveszik a gerendamező terhét, ha teljesen lefedik ugyanazt a födémet. A különálló födémek héjai megtartják saját terheiket. A generálás leáll, ha a hozzárendelés nem egyértelmű."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-floor-ownership.md",
+    "heading": "Assign each automatic gravity floor region to one carrier"
+  }
+}

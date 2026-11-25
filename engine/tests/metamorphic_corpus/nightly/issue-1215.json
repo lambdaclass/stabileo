@@ -140,23 +140,7 @@
       "rrx": true,
       "rry": true,
       "rrz": true,
-      "kx": null,
-      "ky": null,
-      "kz": null,
-      "krx": null,
-      "kry": null,
-      "krz": null,
-      "dx": null,
-      "dy": null,
-      "dz": null,
-      "drx": null,
-      "dry": null,
-      "drz": null,
       "rw": null,
-      "kw": null,
-      "normalX": null,
-      "normalY": null,
-      "normalZ": null,
       "isInclined": null
     },
     "2": {
@@ -167,23 +151,7 @@
       "rrx": false,
       "rry": false,
       "rrz": false,
-      "kx": null,
-      "ky": null,
-      "kz": null,
-      "krx": null,
-      "kry": null,
-      "krz": null,
-      "dx": null,
-      "dy": null,
-      "dz": null,
-      "drx": null,
-      "dry": null,
-      "drz": null,
       "rw": null,
-      "kw": null,
-      "normalX": null,
-      "normalY": null,
-      "normalZ": null,
       "isInclined": null
     }
   },
@@ -197,9 +165,7 @@
         "qYI": 31.524584892042782,
         "qYJ": -57.31703463081574,
         "qZI": -16.108350756415305,
-        "qZJ": 80.98846937178723,
-        "a": null,
-        "b": null
+        "qZJ": 80.98846937178723
       }
     }
   ],
