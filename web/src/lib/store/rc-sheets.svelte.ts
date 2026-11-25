@@ -352,7 +352,7 @@ function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces
   const supportsByNode = new Map([...modelStore.supports.values()].map((s) => [s.nodeId, s]));
   const namer = storeyNamer();
   const groups: DemandGroup[] = physicalGroups().map((g) => ({
-    id: g.id, name: g.name, kind: g.physical.kind, level: levelName(g.physical.levelFrom, namer), ...(g.physical.stair ? { stair: true } : {}),
+    id: g.id, name: g.name, kind: g.physical.kind, level: levelName(g.physical.levelFrom, namer), ...(g.physical.stair || (g.physical.kind === 'slab' && g.physical.provenance === 'inferred') ? { stair: true } : {}),
     elements: (g.members.elements ?? []).filter((id) => inConcrete(modelStore.elements.get(id)?.materialId)),
     quads: (g.members.quads ?? []).filter((id) => inConcrete(modelStore.quads.get(id)?.materialId)),
     plates: (g.members.plates ?? []).filter((id) => inConcrete(modelStore.plates.get(id)?.materialId)),

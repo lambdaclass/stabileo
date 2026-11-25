@@ -22,7 +22,7 @@ type El = { id: number; nodeI: number; nodeJ: number; sectionId: number; type?: 
 
 export interface DemandGroup {
   id: number; name: string; kind: string;
-  /** A slab declared a stair flight: the stairs design it, never the slab panels. */
+  /** A slab whose sloped shells the stairs design, never the slab panels: declared a stair, or recognized rather than declared a slab. */
   stair?: boolean;
   level?: string;
   elements: number[]; quads: number[]; plates: number[];

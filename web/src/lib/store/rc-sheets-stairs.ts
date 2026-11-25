@@ -20,7 +20,7 @@ export function sheetStairs(o: StairInputs): StairRow[] {
   const declaredSteps = new Map<number, number>(), slabs = new Set<number>();
   for (const pl of physicalPlates()) {
     if (pl.physical.stair?.steps) for (const q of pl.group.members.quads ?? []) declaredSteps.set(q, pl.physical.stair.steps);
-    else if (pl.physical.kind === 'slab') for (const q of pl.group.members.quads ?? []) slabs.add(q);
+    else if (pl.physical.kind === 'slab' && pl.physical.provenance !== 'inferred') for (const q of pl.group.members.quads ?? []) slabs.add(q);
   }
   const at = (id: number) => { const n = modelStore.nodes.get(id); return n ? { x: n.x, y: n.y, z: n.z ?? 0 } : null; };
   const bars = [...modelStore.elements.values()].flatMap((e) => { const a = at(e.nodeI), b = at(e.nodeJ); return a && b && Math.abs(a.z - b.z) < 1e-6 ? [[a, b] as const] : []; });

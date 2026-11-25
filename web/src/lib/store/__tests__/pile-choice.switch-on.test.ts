@@ -30,8 +30,9 @@ describe('the available piles', () => {
     for (const [key, r] of both) {
       const options = [onSmall.get(key)!, onBig.get(key)!];
       const ok = options.filter((x) => x.status !== 'fail');
-      const best = Math.min(...(ok.length ? ok : options).map(footingConcrete));
-      expect(footingConcrete(r), key).toBeCloseTo(best, 9);
+      const best = (ok.length ? ok : options).reduce((b, x) => (footingConcrete(x) < footingConcrete(b) ? x : b));
+      expect(r.adopted.piles!.diameter, key).toBe(best.adopted.piles!.diameter);
+      expect(Math.abs(footingConcrete(r) - footingConcrete(best)) / footingConcrete(best), `${key}: the founding level follows the neighbours' piles`).toBeLessThan(0.01);
       used.add(r.adopted.piles!.diameter);
     }
     expect([...used].every((d) => d === 0.4 || d === 0.8)).toBe(true);
