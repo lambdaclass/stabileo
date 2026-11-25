@@ -346,3 +346,24 @@ it.each([false, true])('finds a malformed row independently of planar torsion (t
   expect.soft(features.has('malformedAuthoredLoad')).toBe(true);
   expect(modelFeatures({ ...snapshot, loads: [torsion] }).has('malformedAuthoredLoad')).toBe(false);
 });
+
+it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1').each([
+  ['my', '5'], ['mz', '5'], ['my', null], ['mz', null],
+] as const)('flags a malformed saved planar %s of %j before resolving moment aliases', async (field, value) => {
+  const { root, tip } = cantilever();
+  const data = { id: 1, nodeId: tip, fx: 0, fz: 0, caseId: 1 };
+  setLoad({ type: 'nodal', data: { ...data, mz: force } });
+  const control = validateAndSolve2D(modelStore.model);
+  expect(control).toMatchObject({ reactions: [{ nodeId: root, my: expect.closeTo(-force, 12) }], displacements: expect.any(Array) });
+  setLoad({ type: 'nodal', data: { ...data, [field]: value } });
+  const saved: ReturnType<typeof modelStore.snapshot> = JSON.parse(JSON.stringify(modelStore.snapshot()));
+  const part = `loads[0].data.${field}`;
+  expect.soft(assessProject(saved, null, 'basic').changes.map(entry => entry.id)).toContain('malformed-authored-loads');
+  expect.soft(modelFeatures({ ...saved, loads: [] }, { storedLoads: saved.loads })).toContain('malformedAuthoredLoad');
+  await refuses(part, {
+    ...planeEntries(), ...spaceEntries(),
+    'plane store sync': () => modelStore.solve(false, 'xz'),
+    'plane store async': () => modelStore.solveAsync(false, 'xz'),
+    'plane store advanced': () => modelStore.buildSolverInput(false, 'xz'),
+  });
+});

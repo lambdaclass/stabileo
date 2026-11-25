@@ -288,3 +288,36 @@ it.each([false, true])('validates solver table entry arrays (space = %s)', (is3D
   }
   expect(linear({ ...model, materials: [['1', material]] })).toEqual(linear(model));
 });
+
+it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1')('rejects trailing WASM shell connectivity rather than solving with a truncated array', () => {
+  const model = {
+    ...space,
+    nodes: { ...space.nodes, ...Object.fromEntries([
+      { id: 3, x: 2, y: 1, z: 0 }, { id: 4, x: 0, y: 1, z: 0 },
+    ].map(node => [node.id, node])) },
+    quads: indexed({ id: 1, nodes: [1, 2, 3, 4], materialId: 1, thickness: 0.1 }),
+  };
+  const wrap = (solver: object) => ({
+    solver,
+    loadCases: [{ name: 'D', loads: model.loads }],
+    combinations: [{ name: 'D', factors: { D: 1 } }],
+  });
+  const entries = {
+    linear: solve_3d,
+    certificate: certify_linear_3d,
+    discretization: estimate_discretization_3d,
+    convergence: (input: object) => convergence_study_3d(input, null),
+    combinations: (input: object) => solve_multi_case_3d(wrap(input)),
+    combinationCertificate: (input: object) => certify_multi_case_3d(wrap(input)),
+  };
+  expect(solve_3d(model)).toMatchObject({ reactions: expect.any(Array), displacements: expect.any(Array) });
+  for (const [entry, run] of Object.entries(entries)) {
+    expect.soft(() => run(model), entry).not.toThrow();
+    for (const nodes of [[1, 2, 3], [1, 2, 3, 4, 99], new Set([1, 2, 3, 4, 99])]) {
+      const quads = indexed({ ...model.quads[1]!, nodes });
+      expect.soft(() => run({ ...model, quads }), entry).toThrow(/Parse error: invalid length/i);
+    }
+  }
+  expect(solve_3d({ ...model, quads: indexed({ ...model.quads[1]!, nodes: new Set([1, 2, 3, 4]) }) }))
+    .toEqual(solve_3d(model));
+});

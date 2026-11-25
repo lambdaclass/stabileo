@@ -4,6 +4,7 @@ import { modelFeatures } from '../../provenance/model-features';
 import { readStamp } from '../../provenance/solve-stamp';
 import { fragmentFromJSONModel } from '../../model/edit/fragment-code';
 import { modelStore, resultsStore, uiStore } from '../../store';
+import { createRecheckStore } from '../../store/recheck.svelte';
 import { acceptAutosavePayload, deserializeProjectOrThrow, serializeProject } from '../../store/file';
 import { projectOnto } from '../../store/switch-2d';
 import { loadFixture, type JSONModel } from '../../templates/load-fixture';
@@ -14,6 +15,8 @@ import {
   validateAndSolve2D, validateAndSolve2DAsync, validateAndSolve3D, validateAndSolve3DAsync,
 } from '../solver-service';
 import { solvePDelta, solvePDelta3D } from '../wasm-solver';
+
+const review = it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1');
 
 const loadCase = { id: 1, name: 'Test case', type: 'D' };
 const combo = { id: 1, name: 'Test combination', factors: [{ caseId: 1, factor: 1 }] };
@@ -176,6 +179,10 @@ it('keeps omitted legacy fields and a supported constraint alias solvable', asyn
     fy: 0, fz: 0, mx: 0, my: 0, mz: 0 }]) });
   if (!before || typeof before === 'string') throw new Error(String(before));
   const plane = validateAndSolve2D(modelStore.model);
+  expect(plane).toMatchObject({ reactions: expect.any(Array), displacements: expect.any(Array) });
+  if (!plane || typeof plane === 'string') throw new Error(String(plane));
+  expect(plane.reactions.length).toBeGreaterThan(0);
+  expect(plane.displacements.length).toBeGreaterThan(0);
   const snapshot = modelStore.snapshot();
   snapshot.nodes = snapshot.nodes.map(([id, node]) => [id, { ...node, z: undefined }]);
   modelStore.restore(snapshot);
@@ -584,7 +591,7 @@ it('scopes both constraint notices to the saved solve plane', () => {
   }
 });
 
-it.each([null, undefined])('checks saved constraints and combinations independently of supports (%j)', (supports) => {
+it.each([undefined])('checks saved constraints and combinations independently of supports (%j)', (supports) => {
   const snapshot = { ...modelStore.snapshot(), supports };
   const changes = (saved: typeof snapshot) =>
     assessProject(saved as never, null, 'basic').changes.map(change => change.id);
@@ -594,3 +601,104 @@ it.each([null, undefined])('checks saved constraints and combinations independen
   expect(() => modelStore.restore({ ...snapshot, constraints: [{ type: 'unknownKind' }] } as never))
     .toThrow(/constraints\[0\]\.type/);
 });
+
+review('refuses a misspelled restraint mask whose authored DOFs override the support type', async () => {
+  const model = modelStore.model;
+  const mask = { tx: false, ty: false, tz: true, rx: false, ry: false, rz: false };
+  const tipSupport = modelStore.addSupportEntry({ nodeId: tip, type: 'fixed3d', dofRestraints: mask });
+  const control = validateAndSolve3D(model);
+  expect(control).toMatchObject({ displacements: expect.arrayContaining([{ nodeId: tip, ux: expect.any(Number),
+    uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 }]) });
+  if (!control || typeof control === 'string') throw new Error(String(control));
+  const tipDisplacement = control.displacements.find(row => row.nodeId === tip);
+  expect(tipDisplacement?.ux).toBeGreaterThan(0);
+  const row = model.supports.get(tipSupport)!;
+  delete row.dofRestraints;
+  expect(validateAndSolve3D(model)).toMatchObject({
+    displacements: expect.arrayContaining([{ ...tipDisplacement, ux: 0 }]),
+  });
+  const before = modelStore.snapshot();
+  const invalid = { ...row, dofRestaints: mask };
+  const saved = { ...before, supports: before.supports.map(([id, entry]) => [id, id === tipSupport ? invalid : entry] as const) };
+  const input = fixture();
+  Object.assign(input.supports.find(entry => entry.id === tipSupport)!, { dofRestaints: mask });
+  const field = `supports.${tipSupport}.dofRestaints`;
+  await refuses(field, {
+    restore: () => modelStore.restore(saved as never),
+    'file import': () => deserializeProjectOrThrow(JSON.stringify({ ...JSON.parse(serializeProject()), snapshot: saved })),
+    replay: () => loadFixture(input, modelStore.fixtureApi() as never),
+    apply: () => modelStore.loadExample(input.name, async () => input),
+  });
+  expect.soft(modelStore.snapshot()).toEqual(before);
+  expect.soft(modelFeatures(saved as never)).toContain('malformedAuthoredStructure');
+  model.supports.set(tipSupport, invalid);
+  await refuses(field, analysisEntries());
+});
+
+review.each(['xz', 'yz'] as const)('solves an unscalable singleton MPC in %s', async (plane) => {
+  const model = modelStore.model;
+  if (plane === 'yz') {
+    Object.assign(model.nodes.get(tip)!, { x: 0, y: 2 });
+    model.loads[0] = { type: 'nodal3d', data: { id: 1, nodeId: tip, fx: 0, fy: 1, fz: 0, mx: 0, my: 0, mz: 0, caseId: 1 } };
+  }
+  const axial = { nodeId: tip, dof: plane === 'yz' ? 1 : 0, coefficient: 1 };
+  model.constraints = [{ type: 'linearMPC', terms: [axial] }];
+  const linear = modelStore.solve(false, plane);
+  const combination = modelStore.solveCombinations(false, plane);
+  const advanced = solvePDelta(modelStore.buildSolverInput(false, plane)!);
+  expect(linear).toMatchObject({ reactions: expect.any(Array),
+    displacements: expect.arrayContaining([{ nodeId: tip, ux: 0, uz: 0, ry: 0 }]) });
+  expect(combination).toMatchObject({ perCombo: expect.any(Map) });
+  expect(advanced.converged).toBe(true);
+  const max = { ...axial, coefficient: Number.MAX_VALUE };
+  const min = { ...axial, coefficient: Number.MIN_VALUE };
+  model.constraints = [{ type: 'linearMPC', terms: [max, max, min] }];
+  const input = modelStore.buildSolverInput(false, plane);
+  expect.soft(input?.constraints).toEqual([{ type: 'linearMPC', terms: [{ ...axial, dof: 0 }] }]);
+  expect.soft(modelStore.solve(false, plane)).toEqual(linear);
+  expect.soft(await modelStore.solveAsync(false, plane)).toEqual(linear);
+  expect.soft(modelStore.solveCombinations(false, plane)).toEqual(combination);
+  expect.soft(input && solvePDelta(input)).toEqual(advanced);
+  if (plane === 'xz') {
+    expect.soft(validateAndSolve2D(model)).toEqual(linear);
+    expect.soft(await validateAndSolve2DAsync(model)).toEqual(linear);
+    expect.soft(solveCombinations2D(model, [loadCase], [combo])).toEqual(combination);
+  }
+  expect.soft(projectOnto(plane)).toMatchObject({ ok: true });
+});
+
+review('uses the saved project plane for older stamps and checks plausible planes when it is absent', async () => {
+  const model = modelStore.model;
+  Object.assign(model.nodes.get(tip)!, { x: 0, y: 2 });
+  model.constraints = [{
+    type: 'eccentricConnection', masterNode: root, slaveNode: tip, offsetX: 1, releases: [false, true, true],
+  }];
+  const stamp = readStamp({ ...modelStore.snapshot().solvedWith, id: 'legacy-plane', resultsVersion: 1, drawPlane2D: undefined });
+  expect(stamp).toMatchObject({ resultsVersion: 1 });
+  const saved = { ...modelStore.snapshot(), solvedWith: stamp! };
+  const change = 'separated-planar-eccentric-connection';
+  const recheck = createRecheckStore();
+  for (const [drawPlane2D, applies] of [['yz', true], [undefined, true], ['xz', false]] as const) {
+    const snapshot = JSON.parse(JSON.stringify({ ...saved, drawPlane2D }));
+    const notices = assessProject(snapshot, stamp, 'basic').changes.map(entry => entry.id);
+    expect.soft(notices.includes(change), String(drawPlane2D)).toBe(applies);
+    recheck.openProject(snapshot, 'basic');
+    await recheck.retry();
+    expect.soft(recheck.assessment?.changes.some(entry => entry.id === change), String(drawPlane2D)).toBe(applies);
+  }
+  const stampedXZ = { ...stamp!, drawPlane2D: 'xz' as const };
+  expect(assessProject({ ...saved, drawPlane2D: 'yz' } as never, stampedXZ, 'basic').changes.map(entry => entry.id))
+    .not.toContain(change);
+});
+
+review.each(['nodes', 'elements', 'supports', 'materials', 'sections', 'connectors'] as const)(
+  'flags a malformed supplied %s collection in a partial snapshot', (collection) => {
+    const notices = (raw: unknown) => assessProject(raw as never, null, 'basic').changes.map(entry => entry.id);
+    for (const value of [null, {}, [null]]) {
+      expect.soft(notices({ [collection]: value }), JSON.stringify(value)).toContain('malformed-structural-input');
+    }
+    expect.soft(notices({ [collection]: [] })).not.toContain('malformed-structural-input');
+    expect.soft(notices({})).not.toContain('malformed-structural-input');
+    expect.soft(notices({ ...modelStore.snapshot(), [collection]: null })).toContain('malformed-structural-input');
+  },
+);

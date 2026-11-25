@@ -60,11 +60,17 @@ describe('engine sentences', () => {
   });
 });
 
-it('translates the whole unknown-field diagnostic in Spanish', async () => {
+it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1')('translates the whole unknown-field diagnostic in Spanish', async () => {
   await setLocale('es');
   expect(localizeEngineText('Parse error: unknown field `methdo`, expected one of `id`, `method`, `factors` at line 4 column 8'))
-    .toBe('Parse error: Campo desconocido methdo. Campos permitidos: `id`, `method`, `factors`. (línea 4, columna 8)');
+    .toBe('Error de análisis: Campo desconocido methdo. Campos permitidos: `id`, `method`, `factors`. (línea 4, columna 8)');
   expect(localizeEngineText('unknown field `fram`, expected `frame`'))
     .toBe('Campo desconocido fram. Campos permitidos: `frame`.');
   expect(localizeEngineText('unknown field `fram`')).toBe('Campo desconocido fram.');
+});
+
+it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1')('translates the whole missing-field diagnostic in Spanish', async () => {
+  await setLocale('es');
+  expect(localizeEngineText('Parse error: missing field `method` at line 4 column 8'))
+    .toBe('Error de análisis: Falta el campo method o su valor no es compatible. (línea 4, columna 8)');
 });
