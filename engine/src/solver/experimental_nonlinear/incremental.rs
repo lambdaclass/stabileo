@@ -24,7 +24,7 @@ pub(crate) trait IncrementalProblem {
     fn residual(&self) -> Vec<f64>;
     /// The tangent of the last linearization times `v`. It is gone once `correction` is asked.
     fn tangent_times(&self, v: &[f64]) -> Vec<f64>;
-    /// K₀⁻¹·rhs with the tangent this increment factorized and kept; `None` when it kept none.
+    /// Solve with the latest kept tangent factor; `None` when no factor has been kept.
     fn lagged_solve(&self, rhs: &[f64]) -> Option<Vec<f64>>;
     /// A vector over those unknowns as a step `advance` takes.
     fn expand(&self, reduced: &[f64]) -> Vec<f64>;
