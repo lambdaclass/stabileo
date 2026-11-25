@@ -22,7 +22,7 @@ import {
   addPlateLoad, applyPlateMeshes, createPlate, meshBeforeAnalysis, planPlateMesh, plateEntry, plateStatus, setPlateMeshSpec, setPlateSideArc,
 } from '../physical-plates';
 
-const fault = vi.hoisted(() => ({ dropSceneCase: 0, integrateDrift: 0, signedForceDelta: 0, dropMemberLoad: false, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, assemblyDrift: null as { shell: number; relative: number } | null, combinationDrift: null as { shell: number; relative: number } | null, dropNodalFy: false }));
+const fault = vi.hoisted(() => ({ dropSceneCase: 0, integrateDrift: 0, signedForceDelta: 0, dropMemberLoad: false, dropFactoredAxialLine: false, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, assemblyDrift: null as { shell: number; relative: number } | null, combinationDrift: null as { shell: number; relative: number } | null, dropNodalFy: false }));
 
 vi.mock('../../engine/case-effects', async importOriginal => {
   const original = await importOriginal<typeof import('../../engine/case-effects')>();
@@ -82,7 +82,11 @@ vi.mock('../../engine/accounting-math', async importOriginal => {
     ...original,
     scaleAssembledMagnitudes3D: (...args: Parameters<typeof original.scaleAssembledMagnitudes3D>) => {
       original.scaleAssembledMagnitudes3D(...args);
-      const [source, scaled] = args;
+      const [source, scaled, factor] = args;
+      if (fault.dropFactoredAxialLine && factor !== 1 && scaled.type === 'distributed') {
+        scaled.data.qXI = 0;
+        scaled.data.qXJ = 0;
+      }
       const sign = combinationSigns.get(source);
       if (fault.combinationDrift && sign !== undefined && scaled.type === 'nodal') {
         scaled.data.fz *= 1 + sign * fault.combinationDrift.relative;
@@ -147,6 +151,7 @@ beforeEach(() => {
   fault.signedForceDelta = 0;
   fault.integrateDrift = 0;
   fault.dropMemberLoad = false;
+  fault.dropFactoredAxialLine = false;
   fault.dropLineIntensity = 0;
   fault.scaleCaseLoad = 1;
   fault.momentDelta = 0;
@@ -1455,6 +1460,41 @@ it('#2471 detects a lost self-equilibrated line load in spatial analysis', async
   ]);
   setEndpointIntensity(2 ** -39);
   expect(() => paths.advanced()).toThrow(/case.*member.*s·Fx/i);
+});
+
+const factoredLineWitness = process.env.RUN_KNOWN_WRONG === '2471' ? it : it.skip;
+
+factoredLineWitness.each([false, true])('known wrong result: #2471 refuses a line lost during combination scaling (cut member: %s)', async cut => {
+  const member = cantilever('3d');
+  modelStore.model.loads.push({ type: 'distributed3d', data: {
+    id: 1, elementId: member, qXI: 2, qXJ: -2, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, frame: 'global', caseId: 1,
+  } });
+  if (cut) modelStore.model.loads.push({ type: 'pointOnElement3d', data: {
+    id: 2, elementId: member, a: 0.5, px: 0, py: 0, pz: 0, my: 1, frame: 'global', caseId: 1,
+  } });
+  const comboId = modelStore.addCombination('Two dead loads', [{ caseId: 1, factor: 2 }]);
+  modelStore.setAnalysis({ perCombination: 'pdelta' });
+  const model = modelStore.model;
+  const combo = model.combinations.find(c => c.id === comboId)!;
+  const cases = caseSolverLoads3D(model, model.loadCases, false, false);
+  const axialLines = (loads: readonly SolverLoad3D[]) => loads.flatMap(l => l.type === 'distributed' ? [[l.data.qXI, l.data.qXJ]] : []);
+  const original = axialLines(cases.get(1)!);
+  expect(original).toEqual(cut ? [[2, 1], [1, -2]] : [[2, -2]]);
+  expect(axialLines(comboSolverLoads3D(combo, cases))).toEqual(original.map(pair => pair.map(q => 2 * q!)));
+
+  fault.dropFactoredAxialLine = true;
+  expect(axialLines(caseSolverLoads3D(model, model.loadCases, false, false).get(1)!)).toEqual(original);
+  const diagnostic = new RegExp('Two dead loads.*member.*' + member + '.*s·Fx.*assembled 0', 'i');
+  const paths = {
+    factored: () => comboSolverLoads3D(combo, cases),
+    pdelta: () => modelStore.solveCombinations3D(false, false, true),
+    parallel: () => modelStore.solveCombinations3DParallel(false, false, true),
+    direct: () => runDirectAnalysis(model, model.loadCases, [combo], { includeSelfWeight: false }),
+  };
+  for (const [path, solve] of Object.entries(paths)) {
+    const result = await outcome(solve);
+    expect.soft(typeof result === 'string' ? result : 'returned a result', path).toMatch(diagnostic);
+  }
 });
 
 it('#2471 detects a lost self-equilibrated line load before a planar projection solve', async () => {
