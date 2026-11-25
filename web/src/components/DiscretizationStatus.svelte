@@ -30,6 +30,7 @@
     if (target !== null) void discretizationStore.runAdaptive(target);
   }
   function applyMesh() {
+    applyRefusal = null;
     const done = applyAdaptiveMesh();
     if ('refused' in done) { applyRefusal = done.refused; return; }
     uiStore.toast(t('discretization.adaptiveApplied').replace('{shells}', String(done.shells)).replace('{nodes}', String(done.nodes)), 'success');

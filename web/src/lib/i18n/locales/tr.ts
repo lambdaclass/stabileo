@@ -12725,7 +12725,7 @@ const tr: Translations = {
   'discretization.adaptiveRefused.nothing': "Ağ sıklaştırılmadı: uygulanacak bir şey yok.",
   'discretization.adaptiveRefused.stale': "Model artık çözülen model değil. Yeniden çözün ve sıklaştırın.",
   'discretization.adaptiveRefused.physicalPlate': "Bölünecek bir kabuk, dış hattından ağ örülen bir döşemeye ait. Bunun yerine o döşemenin ağ boyutunu değiştirin.",
-  'discretization.adaptiveRefused.member': "Bölünen bir kenardaki çubuk eğri ya da değişken kesitli olduğundan burada kesilemez.",
+  'discretization.adaptiveRefused.member': "Bölünen bir kenardaki çubuk burada kesilemez: eğri, değişken kesitli ya da aynı kenarda başka bir çubuk var.",
   'discretization.adaptiveRefused.support': "Yeni bir düğüm, uçları farklı biçimde tutulan, zorlanmış yer değiştirmeli ya da eğik mesnetli bir kenara düşüyor. Bu kenara tek tür mesnet verin.",
   'discretization.col.pass': "Geçiş",
   'discretization.col.elements': "Elemanlar",

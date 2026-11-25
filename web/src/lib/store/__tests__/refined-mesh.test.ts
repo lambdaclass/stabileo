@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { modelStore } from '../model.svelte';
 import { uiStore } from '../ui.svelte';
 import { historyStore } from '../history.svelte';
@@ -111,6 +111,43 @@ describe('applying an adaptively refined mesh to the model', () => {
     expect(modelStore.loads.filter((l) => l.type === 'surface3d')).toHaveLength(12);
   });
 
+  it('undoes everything and refuses when a member cannot be cut where the mesh needs it', () => {
+    const { node } = lSlab();
+    const beam = modelStore.addElement(node(1, 2), node(2, 2), 'frame');
+    const other = modelStore.addElement(node(2, 1), node(2, 2), 'frame');
+    const wire = wireOf();
+    const out = adapt(wire);
+    expect(out.mesh.frames.length).toBe(2);
+    const before = { nodes: modelStore.nodes.size, quads: [...modelStore.quads.keys()], elements: [...modelStore.elements.keys()], loads: modelStore.loads.length };
+    const split = modelStore.splitMember.bind(modelStore);
+    const spy = vi.spyOn(modelStore, 'splitMember').mockImplementation((id, ts, opts) => (id === Math.max(beam, other) ? null : split(id, ts, opts)));
+    try {
+      expect(applyRefinedMesh(wire, out.mesh)).toEqual({ refused: 'member' });
+    } finally {
+      spy.mockRestore();
+    }
+    expect(modelStore.nodes.size).toBe(before.nodes);
+    expect([...modelStore.quads.keys()]).toEqual(before.quads);
+    expect([...modelStore.elements.keys()]).toEqual(before.elements);
+    expect(modelStore.loads).toHaveLength(before.loads);
+    expect(modelStore.constraints).toHaveLength(0);
+  });
+
+  it('refuses a model whose constraints were edited since it was solved, whatever their number', () => {
+    lSlab();
+    const first = wireOf();
+    const applied = applyRefinedMesh(first, adapt(first, 0.7).mesh);
+    if ('refused' in applied) throw new Error(applied.refused);
+    const second = wireOf();
+    const out = adapt(second, 0.7);
+    const kept = modelStore.constraints[0]!;
+    if (kept.type !== 'linearMPC') throw new Error(kept.type);
+    modelStore.removeConstraint(0);
+    modelStore.addConstraint({ ...kept, terms: kept.terms.map((term, i) => (i === 1 ? { ...term, coefficient: -0.25 } : term)) });
+    expect(modelStore.constraints).toHaveLength(second.constraints.length);
+    expect(applyRefinedMesh(second, out.mesh)).toEqual({ refused: 'stale' });
+  });
+
   it('can be refined again from the model it made', () => {
     lSlab();
     const first = wireOf();
@@ -215,6 +252,25 @@ describe('planning the edit', () => {
   it('refuses to split a plate meshed from its outline', () => {
     const groups = new Map([[1, { members: { quads: [1] }, data: { surface: {} } }]]);
     expect(planRefinedMesh(model({ groups }), wire(), mesh())).toEqual({ refused: 'physicalPlate' });
+  });
+
+  it('refuses two members along the same split edge', () => {
+    const elements = new Map([[7, { id: 7, nodeI: 1, nodeJ: 2 }], [8, { id: 8, nodeI: 1, nodeJ: 2 }]]);
+    const twice = wire({ elements: { 7: { id: 7, nodeI: 1, nodeJ: 2 }, 8: { id: 8, nodeI: 1, nodeJ: 2 } } });
+    const frames = [{ parent: 7, nodes: [5], at: [0.5] }, { parent: 8, nodes: [5], at: [0.5] }];
+    expect(planRefinedMesh(model({ elements }), twice, mesh({ frames }))).toEqual({ refused: 'member' });
+    expect('refused' in planRefinedMesh(model({ elements }), twice, mesh({ frames: frames.slice(0, 1) }))).toBe(false);
+  });
+
+  it('takes two supports for the same whatever order their fields were written in', () => {
+    const supports = new Map([
+      [1, { id: 1, nodeId: 1, type: 'custom3d', dofRestraints: { tx: true, ty: true, tz: true, rx: false, ry: false, rz: false }, dz: 0.01 }],
+      [2, { id: 2, nodeId: 2, dz: 0.01, dofRestraints: { rz: false, ry: false, rx: false, tz: true, ty: true, tx: true }, type: 'custom3d' }],
+    ]);
+    const given = mesh({ supports: [{ nodeId: 5, restrained: [true, true, true, false, false, false], plain: false }] });
+    const plan = planRefinedMesh(model({ supports }), wire(), given);
+    if ('refused' in plan) throw new Error(plan.refused);
+    expect(plan.supports[0]!.fields).toMatchObject({ type: 'custom3d', dz: 0.01 });
   });
 
   it('refuses to split a member of variable section', () => {

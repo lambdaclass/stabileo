@@ -341,6 +341,7 @@ function createDiscretizationStore() {
       if (!input || !this.applies() || studyInFlight) return;
       const gen = generation;
       adaptive = { status: 'running' };
+      refinedMesh = null;
       studyInFlight = true;
       let next: Adaptive;
       try {

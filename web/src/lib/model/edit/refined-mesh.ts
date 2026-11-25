@@ -17,7 +17,8 @@ export interface RefinedMesh {
 /**
  * `nothing`: the mesh was not refined. `stale`: the model is not the one solved. `physicalPlate`:
  * a shell to split belongs to a plate meshed from its outline, whose mesh is its own to make.
- * `member`: a member to split is curved or of variable section. `support`: a new node on a
+ * `member`: a member to split is curved, of variable section, or shares its edge with another
+ * member. `support`: a new node on a
  * supported edge whose ends are held differently, in a way one support cannot say.
  */
 export type RefinedMeshRefusal = 'nothing' | 'stale' | 'physicalPlate' | 'member' | 'support';
@@ -61,9 +62,19 @@ function fieldsOf(s: Support): Omit<Support, 'id' | 'nodeId'> {
 const sameNodes = (a: readonly number[] | undefined, b: readonly number[] | undefined) =>
   !!a && !!b && a.length === b.length && a.every((n, i) => n === b[i]);
 
+/** A value as text that does not depend on the order its keys were written in. */
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  if (value && typeof value === 'object') {
+    const fields = Object.entries(value as Record<string, unknown>).filter(([, v]) => v !== undefined).sort(([a], [b]) => (a < b ? -1 : 1));
+    return `{${fields.map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
 export function planRefinedMesh(model: RefinableModel, wire: Record<string, any>, mesh: RefinedMesh): RefinedMeshPlan | { refused: RefinedMeshRefusal } {
   if (mesh.shells.length === 0) return { refused: 'nothing' };
-  if (model.constraints.length !== (wire.constraints ?? []).length) return { refused: 'stale' };
+  if (canonical(model.constraints) !== canonical(wire.constraints ?? [])) return { refused: 'stale' };
   const added = new Set(mesh.nodes.map((n) => n.id));
   const known = (id: number) => added.has(id) || model.nodes.has(id);
   const asSolved = (id: number) => {
@@ -97,10 +108,12 @@ export function planRefinedMesh(model: RefinableModel, wire: Record<string, any>
     entry.children.push({ nodes: s.nodes, weights: s.weights });
   }
 
+  const onMembers = new Set<number>();
   for (const f of mesh.frames) {
     const declared = model.elements.get(f.parent), solved = wire.elements?.[f.parent];
     if (!declared || !solved || declared.nodeI !== solved.nodeI || declared.nodeJ !== solved.nodeJ || !f.nodes.every((n) => added.has(n))) return { refused: 'stale' };
-    if (declared.variableSection || declared.arc) return { refused: 'member' };
+    if (declared.variableSection || declared.arc || f.nodes.some((n) => onMembers.has(n))) return { refused: 'member' };
+    for (const n of f.nodes) onMembers.add(n);
   }
 
   const held = new Map<number, Omit<Support, 'id' | 'nodeId'>>();
@@ -111,7 +124,7 @@ export function planRefinedMesh(model: RefinableModel, wire: Record<string, any>
     const ends = between.get(s.nodeId);
     const [a, b] = ends ? [held.get(ends[0]), held.get(ends[1])] : [];
     let fields: Omit<Support, 'id' | 'nodeId'>;
-    if (a && b && JSON.stringify(a) === JSON.stringify(b)) fields = a;
+    if (a && b && canonical(a) === canonical(b)) fields = a;
     else if (s.plain && s.restrained.length === 6) {
       const [tx, ty, tz, rx, ry, rz] = s.restrained as [boolean, boolean, boolean, boolean, boolean, boolean];
       fields = { type: 'custom3d', dofRestraints: { tx, ty, tz, rx, ry, rz } };

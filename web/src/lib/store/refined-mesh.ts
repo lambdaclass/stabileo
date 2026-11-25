@@ -1,4 +1,5 @@
 import { modelStore } from './model.svelte';
+import { historyStore } from './history.svelte';
 import { discretizationStore } from './discretization.svelte';
 import type { Load, Plate, Quad } from './model.svelte';
 import type { Constraint3D } from '../engine/types-3d';
@@ -6,16 +7,21 @@ import { cornerValues, planRefinedMesh, type RefinedMesh, type RefinedMeshPlan, 
 
 type ShellLoad = Extract<Load, { type: 'surface3d' | 'thermalQuad3d' }>;
 
-/** Make the model's mesh the refined one, as one undo step. Returns what it added. */
-export function applyRefinedMeshPlan(plan: RefinedMeshPlan): { nodes: number; shells: number } {
+/**
+ * Make the model's mesh the refined one, as one undo step. Returns what it added. A member that
+ * cannot be cut where the mesh needs it undoes the step: its shells would be split around nodes
+ * the member does not reach.
+ */
+export function applyRefinedMeshPlan(plan: RefinedMeshPlan): { nodes: number; shells: number } | { refused: RefinedMeshRefusal } {
   const idOf = new Map<number, number>();
   const node = (id: number) => idOf.get(id) ?? id;
   const placed = new Map(plan.nodes.map((n) => [n.id, n]));
   let shells = 0;
+  let uncut = false;
   modelStore.batch(() => {
     for (const f of plan.frames) {
       const cut = modelStore.splitMember(f.parent, f.at);
-      if (!cut || cut.nodeIds.length !== f.nodes.length) continue;
+      if (!cut || cut.nodeIds.length !== f.nodes.length) { uncut = true; return; }
       f.nodes.forEach((engineId, k) => {
         const made = cut.nodeIds[k]!, at = placed.get(engineId)!, now = modelStore.nodes.get(made)!;
         idOf.set(engineId, made);
@@ -72,6 +78,10 @@ export function applyRefinedMeshPlan(plan: RefinedMeshPlan): { nodes: number; sh
       });
     }
   });
+  if (uncut) {
+    historyStore.undo();
+    return { refused: 'member' };
+  }
   return { nodes: plan.nodes.length, shells };
 }
 
@@ -83,5 +93,5 @@ export function applyRefinedMesh(wire: Record<string, any>, mesh: RefinedMesh): 
 /** Apply the adaptive refinement on screen to the model. */
 export function applyAdaptiveMesh(): { refused: RefinedMeshRefusal } | { nodes: number; shells: number } {
   const refined = discretizationStore.refinedMesh();
-  return refined ? applyRefinedMesh(refined.wire, refined.mesh) : { refused: 'nothing' };
+  return refined ? applyRefinedMesh(refined.wire, refined.mesh) : { refused: 'stale' };
 }

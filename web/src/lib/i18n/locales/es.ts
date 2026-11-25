@@ -13238,7 +13238,7 @@ const es: Record<string, string> = {
   'discretization.adaptiveRefused.nothing': "La malla no se refinó: no hay nada que aplicar.",
   'discretization.adaptiveRefused.stale': "El modelo ya no es el que se resolvió. Resolvé y refiná de nuevo.",
   'discretization.adaptiveRefused.physicalPlate': "Una cáscara a dividir pertenece a una losa mallada desde su contorno. Cambiá el tamaño de malla de esa losa.",
-  'discretization.adaptiveRefused.member': "Una barra sobre un borde dividido es curva o de sección variable y no se puede cortar acá.",
+  'discretization.adaptiveRefused.member': "Una barra sobre un borde dividido no se puede cortar acá: es curva, de sección variable, o hay otra barra sobre el mismo borde.",
   'discretization.adaptiveRefused.support': "Un nodo nuevo cae sobre un borde apoyado cuyos extremos están sujetos de distinta forma, con un desplazamiento impuesto o un apoyo inclinado. Dale a ese borde un solo tipo de apoyo.",
   'discretization.col.pass': "Pasada",
   'discretization.col.elements': "Elementos",
