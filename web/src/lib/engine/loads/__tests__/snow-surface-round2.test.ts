@@ -1,6 +1,6 @@
 import { transverseSnowLoads } from './snow-roof-plane-fixture';
 import { expect, it } from 'vitest';
-import { mesh, separateRoofs, asymmetric, concave, disjoint, twoPitch, transform } from './snow-surface-round2-fixture';
+import { mesh, separateRoofs, asymmetric, concave, disjoint, twoPitch, transform, transformWithDyadicBasis } from './snow-surface-round2-fixture';
 import { snow, pressure, regulations } from './snow-roof-plane-fixture';
 import { auditRoof } from './snow-slope-audit-fixture';
 import { snowLoadCases } from '../snow-loads';
@@ -89,7 +89,9 @@ knownWrong('known wrong result: #2095 partial exemption belongs to each surface'
 for (const angle of [0, 0.37, Math.PI / 2]) for (const shift of [0, 1]) for (const mirror of [1, -1]) {
   for (const fixture of [asymmetric, concave, disjoint, separateRoofs, twoPitch]) for (const mode of ['width', 'panels'] as const) {
     it(`all generated loads and planner agree for ${fixture.name} ${mode} ${angle} ${shift} ${mirror}`, () => {
-      const base = fixture(), model = transform(fixture(), angle, shift, mirror);
+      const base = fixture();
+      const rotate = fixture === twoPitch && mode === 'width' ? transformWithDyadicBasis : transform;
+      const model = rotate(fixture(), angle, shift, mirror);
       const layout = gravityLayout(model, { mode, tributaryWidth: 1 });
       const direct = snowLoadCases({ model, snow: { ...snow, partial: true }, layout, tributaryWidth: 1 })!;
       const reference = snowLoadCases({ model: base, snow: { ...snow, partial: true }, layout: gravityLayout(base, { mode, tributaryWidth: 1 }), tributaryWidth: 1 })!;

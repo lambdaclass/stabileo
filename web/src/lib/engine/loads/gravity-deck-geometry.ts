@@ -1,7 +1,8 @@
 import type { Polygon } from 'polygon-clipping';
 import { orient2d, orient3d } from 'robust-predicates';
 import { msg } from '../../codes/message';
-import { footprintArea, footprintBounds, footprintIntersection, planarShell, refuseGravityGeometry, type ShellPlane } from './gravity-shell-partition';
+import { clearanceMargin, compareClearance, doubledPlanPoint, exactElevation, exactPlaneHeight, type DoubledPlanPoint, type Elevation } from './gravity-exact-height';
+import { footprintArea, footprintBounds, footprintIntersection, planarShell, refuseGravityGeometry, type FittedShellPlane, type PlaneBasis, type ShellPlane } from './gravity-shell-partition';
 
 type Point = Polygon[number][number];
 type Point3 = [number, number, number];
@@ -10,21 +11,24 @@ type HeightRange = readonly [number, number];
 export type DeckSurface = {
   range: HeightRange;
   heights: (point: Point) => HeightRange;
+  exactHeight?: (point: DoubledPlanPoint) => Elevation;
 };
 
-export function deckSurface(range: HeightRange, plane?: ShellPlane): DeckSurface {
+type AffineHeight = { height: ShellPlane; exactHeight: NonNullable<DeckSurface['exactHeight']> };
+
+export function deckSurface(range: HeightRange, plane?: AffineHeight): DeckSurface {
   return {
-    range,
-    heights: plane ? point => { const z = plane(point); return [z, z]; } : () => range,
+    range, exactHeight: plane?.exactHeight,
+    heights: plane ? point => { const z = plane.height(point); return [z, z]; } : () => range,
   };
 }
 
 export type Deck = DeckSurface & {
   points: Point3[];
-  basis?: [Point3, Point3, Point3];
+  basis?: PlaneBasis;
 };
 
-export function physicalDeck(points: Point3[], plane?: ShellPlane): Deck {
+export function physicalDeck(points: Point3[], plane?: FittedShellPlane): Deck {
   const [a, ...rest] = points;
   const b = rest.find(p => p[0] !== a![0] || p[1] !== a![1]);
   const c = b && rest.find(p => orient2d(a![0], a![1], b[0], b[1], p[0], p[1]) !== 0);
@@ -33,7 +37,8 @@ export function physicalDeck(points: Point3[], plane?: ShellPlane): Deck {
   const surface = plane ?? (basis && planarShell(0, basis));
   const range = points.reduce(([low, high], p) =>
     [Math.min(low, p[2]), Math.max(high, p[2])] as const, [Infinity, -Infinity] as HeightRange);
-  return { points, basis, ...deckSurface(range, surface) };
+  const planeHeight = surface && { height: surface, exactHeight: (point: DoubledPlanPoint) => exactPlaneHeight(surface.basis, point) };
+  return { points, basis, ...deckSurface(range, planeHeight) };
 }
 
 export type DeckFootprint = { footprint: Polygon[]; geometry: DeckSurface };
@@ -43,16 +48,17 @@ function above(upper: number, lower: number, limit: number): number {
   return Math.min(upper - (lower + limit), (upper - lower) - limit);
 }
 
-function below(upper: number, lower: number, limit: number): number {
-  return Math.min((lower + limit) - upper, limit - (upper - lower));
-}
-
 export function separatedDeckRanges(a: DeckSurface, b: DeckSurface, limit: number): boolean {
   return above(a.range[0], b.range[1], limit) > 0 || above(b.range[0], a.range[1], limit) > 0;
 }
 
-function canOverlapInBand(lower: DeckSurface, upper: DeckSurface, min: number, max: number): boolean {
-  return above(upper.range[1], lower.range[0], min) > 0 && below(upper.range[0], lower.range[1], max) > 0;
+export function deckRangeBand(lower: DeckSurface, upper: DeckSurface, min: number, max: number): Band {
+  const gap = (top: number, base: number, limit: number) => {
+    const threshold = base + limit;
+    return top === threshold ? compareClearance(exactElevation(top), exactElevation(base), limit) : Math.sign(top - threshold);
+  };
+  if (gap(upper.range[1], lower.range[0], min) <= 0 || gap(upper.range[0], lower.range[1], max) >= 0) return 'none';
+  return gap(upper.range[0], lower.range[1], min) >= 0 && gap(upper.range[1], lower.range[0], max) <= 0 ? 'full' : 'partial';
 }
 
 function clearanceOver(part: Polygon, lower: DeckSurface, upper: DeckSurface) {
@@ -64,20 +70,38 @@ function clearanceOver(part: Polygon, lower: DeckSurface, upper: DeckSurface) {
     }
     return { baseLow, baseHigh, topLow, topHigh };
   };
-  const samples = part.flat().map(heightPair);
-  const band = (min: number, max: number): Band => {
-    if (samples.every(p => above(p.topHigh, p.baseLow, min) <= 0) ||
-        samples.every(p => below(p.topLow, p.baseHigh, max) <= 0)) return 'none';
-    return samples.every(p => above(p.topLow, p.baseHigh, min) >= 0 && below(p.topHigh, p.baseLow, max) >= 0)
-      ? 'full' : 'partial';
+  const elevationRange = ({ range: [min, max], exactHeight }: DeckSurface, point: DoubledPlanPoint): readonly [Elevation, Elevation] => {
+    if (min !== max && exactHeight) {
+      const z = exactHeight(point);
+      return [z, z];
+    }
+    return [exactElevation(min), exactElevation(max)];
   };
+  const elevationPair = (point: Point) => {
+    const plan = doubledPlanPoint(point);
+    return { base: elevationRange(lower, plan), top: elevationRange(upper, plan) };
+  };
+  const band = (min: number, max: number): Band => {
+    if (lower.range[0] === lower.range[1] && upper.range[0] === upper.range[1]) return deckRangeBand(lower, upper, min, max);
+    const bounds = part.flat().map(elevationPair);
+    const smallest = ({ base, top }: typeof bounds[number], limit: number) => compareClearance(top[0], base[1], limit);
+    const largest = ({ base, top }: typeof bounds[number], limit: number) => compareClearance(top[1], base[0], limit);
+    if (bounds.every(pair => largest(pair, min) <= 0) || bounds.every(pair => smallest(pair, max) >= 0)) return 'none';
+    return bounds.every(pair => smallest(pair, min) >= 0 && largest(pair, max) <= 0) ? 'full' : 'partial';
+  };
+  const hasHeight = (deck: DeckSurface) => deck.range[0] === deck.range[1] || !!deck.exactHeight;
   return {
     part, band,
-    separated: (limit: number) => samples.every(p => above(p.topLow, p.baseHigh, limit) > 0)
-      || samples.every(p => above(p.baseLow, p.topHigh, limit) > 0),
-    clearance: samples.every(p => p.topLow === p.topHigh && p.baseLow === p.baseHigh)
-      ? (point: Point) => { const { topLow, baseHigh } = heightPair(point); return topLow - baseHigh; }
-      : undefined,
+    separated: (limit: number) => {
+      const samples = part.flat().map(heightPair);
+      return samples.every(p => above(p.topLow, p.baseHigh, limit) > 0)
+        || samples.every(p => above(p.baseLow, p.topHigh, limit) > 0);
+    },
+    margin: hasHeight(lower) && hasHeight(upper)
+      ? (point: Point, limit: number) => {
+        const { base, top } = elevationPair(point);
+        return clearanceMargin(top[0], base[0], limit);
+      } : undefined,
   };
 }
 
@@ -97,9 +121,9 @@ export function deckOverlaps(lower: DeckFootprint, upper: DeckFootprint) {
 }
 
 export function deckOverlapsInBand(lower: DeckFootprint, upper: DeckFootprint, min: number, max: number) {
-  if (!canOverlapInBand(lower.geometry, upper.geometry, min, max)) return [];
-  return deckOverlaps(lower, upper).flatMap(({ part, band, clearance }) => {
+  if (deckRangeBand(lower.geometry, upper.geometry, min, max) === 'none') return [];
+  return deckOverlaps(lower, upper).flatMap(({ part, band, margin }) => {
     const coverage = band(min, max);
-    return coverage === 'none' ? [] : [{ part, coverage, clearance }];
+    return coverage === 'none' ? [] : [{ part, coverage, margin }];
   });
 }

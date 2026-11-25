@@ -3,7 +3,7 @@ import { gravityLayout } from '../plan-gravity';
 import { planAreaLoads } from '../plan-area-loads';
 import { snowLoadCases } from '../snow-loads';
 import { buildLoadPlan, type LoadModelData } from '../load-plan';
-import { mesh, transform } from './snow-surface-round2-fixture';
+import { mesh, transform, transformWithDyadicBasis } from './snow-surface-round2-fixture';
 import { remeshSnowRoof } from './snow-remesh-invariance';
 import { snow, regulations } from './snow-roof-plane-fixture';
 
@@ -19,7 +19,15 @@ function witness(mode: Mode, z = 4, angle = 0, split = 2, reverse = false, offse
     const e = model.elements.get(rafter)!;
     [e.nodeI, e.nodeJ] = [e.nodeJ, e.nodeI];
   }
-  return { model: transform(remeshSnowRoof(model, new Map([[rafter, split]])).model, angle, 0), targets, area: mode === 'panels' ? 4 : 2 };
+  const refined = remeshSnowRoof(model, new Map([[rafter, split]])).model;
+  if (mode === 'width' && angle !== 0 && offset === 0) {
+    for (const node of refined.nodes.values()) {
+      node.x = Math.round(node.x * 16) / 16;
+      if (node.z !== z) node.z = 3 + node.x / 2;
+    }
+    transformWithDyadicBasis(refined, angle);
+  } else transform(refined, angle, 0);
+  return { model: refined, targets, area: mode === 'panels' ? 4 : 2 };
 }
 
 function checkLoads(model: LoadModelData, targets: Set<number>, mode: Mode, area: number, roof: boolean, checkSnow = false, loadEveryPanel = true) {

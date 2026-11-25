@@ -4487,6 +4487,7 @@ const pt: Translations = {
   'loadPlan.gravity.deckCheckFailed': "Falha na verificação da cobertura do tabuleiro por cascas: {detail}",
   'loadPlan.gravity.exposureCheckFailed': "Falha na verificação da exposição das faixas descobertas: {detail}",
   'loadPlan.gravity.mixedExposure': "Uma área atribuída inclui zonas de cobertura e de piso. Atribua explicitamente as cargas de cada zona.",
+  'loadPlan.gravity.uncertainDeckCover': "O intervalo de altura da laje atravessa um limite de cobertura ou de altura livre e a altura não pode ser determinada pela estrutura. Defina uma laje plana ou atribua explicitamente as cargas.",
   'loadPlan.gravity.stripSpan': "A faixa descoberta excede o vão máximo do tabuleiro.",
   'loadPlan.gravity.headroomCheckFailed': "Falha na verificação da altura livre da faixa descoberta: {detail}",
   'loadPlan.gravity.stripHeadroom': "O pé-direito da faixa descoberta é insuficiente ou indeterminado.",

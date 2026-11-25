@@ -1,12 +1,11 @@
 import { expect, it } from 'vitest';
 import { applyLoadPlan } from '../../../store/apply-load-plan';
 import { buildLoadPlan, roofWeightFor, type LoadModelData } from '../load-plan';
-import { gravityLayout } from '../plan-gravity';
+import { gravityLayout, MIN_STOREY_HEADROOM } from '../plan-gravity';
 import { roofMembers } from '../wind-cases';
 import { regulations } from './snow-roof-plane-fixture';
 import { mesh } from './snow-surface-round2-fixture';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2564' ? it : it.skip;
 const modes = ['panels', 'width'] as const;
 type Mode = typeof modes[number];
 
@@ -23,8 +22,10 @@ function deadResultant(result: ReturnType<typeof plan>, model: LoadModelData, id
   const element = model.elements.get(id)!;
   const a = model.nodes.get(element.nodeI)!, b = model.nodes.get(element.nodeJ)!;
   const length = Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0));
-  return result.distributed.filter(load => load.elementId === id && load.caseType === 'D').reduce((sum, load) =>
-    sum - (load.q + (load.qJ ?? load.q)) / 2 * ((load.b ?? length) - (load.a ?? 0)), 0);
+  return result.distributed.filter(load => load.elementId === id && load.caseType === 'D').reduce((sum, load) => {
+    const span = (load.b ?? length) - (load.a ?? 0);
+    return sum - (load.q + (load.qJ ?? load.q)) / 2 * span;
+  }, 0);
 }
 
 function checkMemberActions(model: LoadModelData, mode: Mode, roof: boolean) {
@@ -42,7 +43,7 @@ function stackedBays(lower: number, upper: number) {
   return mesh([ring(lower), ring(upper), [[0, 3, upper], [6, 3, upper]]]);
 }
 
-regression('known wrong result: #2564 retained framing bays trim by their physical gap', () => {
+it('#2564 retained framing bays trim by their physical gap', () => {
   const model = stackedBays(3.0004, 5.1998);
   const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
   expect(layout.areaByLevel.get(3)).toBeUndefined();
@@ -53,21 +54,25 @@ regression('known wrong result: #2564 retained framing bays trim by their physic
   expect(result.nodal).toHaveLength(0);
 });
 
-regression('known wrong result: #2564 the headroom probes use the physical lower elevation', () => {
+it('#2564 the headroom probes use the physical lower elevation', () => {
   const model = stackedBays(3.0004, 5.2002);
   const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
   expect(layout.areaByLevel.get(3)).toBeUndefined();
   expect(layout.areaByLevel.get(5.2)).toBeCloseTo(36, 12);
 });
 
-regression('known wrong result: #2564 a retained framing bay clips a member strip at local clearance', () => {
-  const model = mesh([[[0, 3, 2.9996], [6, 3, 3.0004]], ring(5.2), [[0, 3, 5.2], [6, 3, 5.2]]]);
+it('#2564 a retained framing bay clips a member strip at local clearance', () => {
+  const lowerStart = 2.9996, lowerEnd = 3.0004;
+  const model = mesh([[[0, 3, lowerStart], [6, 3, lowerEnd]], ring(5.2), [[0, 3, 5.2], [6, 3, 5.2]]]);
   const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1, uniformPressure: true });
   const retained = (layout.areaOf.get(1) ?? 0) + (layout.roofAreaOf.get(1) ?? 0);
   expect(retained).toBeCloseTo(3, 10);
   const spans = layout.widthMembers.find(member => member.elementId === 1)?.spans ?? [];
   expect(spans.length).toBeGreaterThan(0);
   expect(Math.max(...spans.map(span => span.t1))).toBeCloseTo(0.5, 10);
+  const result = plan(model, 'panels', false);
+  expect(result.outcome).toBe('READY');
+  expect(deadResultant(result, model, 1)).toBeCloseTo(Math.hypot(3, (lowerEnd - lowerStart) / 2), 10);
 });
 
 it('#2564 clearance above the headroom limit keeps a full second storey', () => {
@@ -76,10 +81,17 @@ it('#2564 clearance above the headroom limit keeps a full second storey', () => 
   expect(layout.areaByLevel.get(5.2)).toBeCloseTo(36, 12);
 });
 
-function upperBay(low: number, high: number, y = 3) {
+it('#2564 clearance exactly at the headroom limit keeps the lower bay', () => {
+  const layout = gravityLayout(stackedBays(0, MIN_STOREY_HEADROOM), { mode: 'panels', tributaryWidth: 1 });
+  expect(layout.areaByLevel.get(0)).toBeCloseTo(36, 12);
+});
+
+function upperBay(low: number, high: number, y = 3, covered = false) {
   const upper = ring(high, 4);
   upper[0]![2] = low;
-  return mesh([[[2, y, 3], [4, y, 3]], upper]);
+  const rings = [[[2, y, 3], [4, y, 3]], upper];
+  if (covered) rings.push([[3, y - 1, 4], [3, y + 1, 4]]);
+  return mesh(rings);
 }
 
 function pitchedShell(x: number) {
@@ -94,7 +106,7 @@ function diagonal(x: number) {
 }
 
 for (const mode of modes) {
-  regression(`known wrong result: #2564 ${mode} refuses a noncoplanar bay straddling the cover threshold`, () => {
+  it(`#2564 ${mode} refuses a noncoplanar bay straddling the cover threshold`, () => {
     const model = upperBay(3.0498, 3.0502);
     const refusal = { key: 'loadPlan.gravity.uncertainDeckCover' };
     const result = plan(model, mode);
@@ -112,9 +124,10 @@ for (const mode of modes) {
     checkMemberActions(upperBay(3.0496, 3.0498), mode, true);
     checkMemberActions(upperBay(3.0502, 3.0504), mode, false);
     checkMemberActions(upperBay(3.0498, 3.0502, 5), mode, true);
+    checkMemberActions(upperBay(3.0498, 3.0502, 3, true), mode, false);
   });
 
-  regression(`known wrong result: #2564 ${mode} evaluates a pitched shell at the exact member midpoint`, () => {
+  it(`#2564 ${mode} evaluates a pitched shell at the exact member midpoint`, () => {
     checkMemberActions(pitchedShell(1 + Number.EPSILON), mode, true);
   });
 
@@ -122,8 +135,17 @@ for (const mode of modes) {
     checkMemberActions(pitchedShell(1), mode, false);
   });
 
-  regression(`known wrong result: #2564 ${mode} excludes a bare beam off the exact midpoint`, () => {
+  it(`#2564 ${mode} excludes a bare beam off the exact midpoint`, () => {
     checkMemberActions(diagonal(1 + Number.EPSILON), mode, true);
+  });
+
+  it(`#2564 ${mode} cover requires strictly more than the cover rise`, () => {
+    const lower = 0.0625;
+    const boundary = lower + 0.05;
+    for (const steps of [-1, 0, 1]) {
+      const upper = boundary + steps * 2 ** -56;
+      checkMemberActions(mesh([[[1, 0, lower], [1, 2, lower]], [[0, 0, upper], [2, 2, upper]]]), mode, steps <= 0);
+    }
   });
 
   it(`#2564 ${mode} keeps bare-beam cover through the exact midpoint`, () => {

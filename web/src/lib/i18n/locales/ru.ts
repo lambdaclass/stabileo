@@ -28,6 +28,7 @@ const ru: Translations = {
   'loadPlan.gravity.deckCheckFailed': "Не удалось проверить покрытие перекрытия оболочками: {detail}",
   'loadPlan.gravity.exposureCheckFailed': "Не удалось проверить открытость полос: {detail}",
   'loadPlan.gravity.mixedExposure': "Назначенная область включает участки кровли и перекрытия. Явно задайте нагрузки для каждого участка.",
+  'loadPlan.gravity.uncertainDeckCover': "Диапазон отметок настила пересекает предел покрытия или просвета, а точную отметку нельзя определить по каркасу. Задайте плоский настил или явно назначьте нагрузки.",
   'loadPlan.gravity.stripSpan': "Открытая полоса превышает максимальный пролёт перекрытия.",
   'loadPlan.gravity.headroomCheckFailed': "Не удалось проверить высоту в свету над открытой полосой: {detail}",
   'loadPlan.gravity.stripHeadroom': "Высота этажа в свету над открытой полосой недостаточна или не определена.",

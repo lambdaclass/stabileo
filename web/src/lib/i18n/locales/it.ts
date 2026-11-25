@@ -27,6 +27,7 @@ const it: Translations = {
   'loadPlan.gravity.deckCheckFailed': "Verifica della copertura dell’impalcato con gusci non riuscita: {detail}",
   'loadPlan.gravity.exposureCheckFailed': "Verifica dell’esposizione delle strisce scoperte non riuscita: {detail}",
   'loadPlan.gravity.mixedExposure': "Un’area assegnata comprende zone di copertura e di solaio. Assegna esplicitamente i carichi di ciascuna zona.",
+  'loadPlan.gravity.uncertainDeckCover': "L’intervallo di quota dell’impalcato attraversa un limite di copertura o di altezza libera e la quota non è determinabile dal telaio. Definisci un impalcato piano o assegna esplicitamente i carichi.",
   'loadPlan.gravity.stripSpan': "La striscia scoperta supera la luce massima dell’impalcato.",
   'loadPlan.gravity.headroomCheckFailed': "Verifica dell’altezza libera della striscia scoperta non riuscita: {detail}",
   'loadPlan.gravity.stripHeadroom': "L’altezza libera di piano della striscia scoperta è insufficiente o indeterminata.",

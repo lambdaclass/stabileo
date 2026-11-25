@@ -60,7 +60,7 @@ describe('recheckStore', () => {
     recheckStore.openProject(solved as never, 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
     expect(recheckStore.noticeOpen).toBe(true);
-    expect(recheckStore.assessment?.changes.map((c) => c.id)).toEqual(['generated-area-loads-headroom', 'snow-panel-geometry', 'concentrated-live-actions', 'gravity-width-mass', 'gravity-stations-and-exact-coverage', 'gravity-coverage-decisions', 'gravity-exact-ownership', 'gravity-local-deck-coverage', 'gravity-retained-span-midpoint']);
+    expect(recheckStore.assessment?.changes.map((c) => c.id)).toEqual(['generated-area-loads-headroom', 'snow-panel-geometry', 'concentrated-live-actions', 'gravity-width-mass', 'gravity-stations-and-exact-coverage', 'gravity-coverage-decisions', 'gravity-exact-ownership', 'gravity-local-deck-coverage', 'gravity-retained-span-midpoint', 'gravity-physical-thresholds']);
     recheckStore.reset();
     recheckStore.openProject({ ...solved, designData: { loadBasis: { resultsVersion: RESULTS_VERSION } } } as never, 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
@@ -73,7 +73,7 @@ describe('recheckStore', () => {
     recheckStore.reset();
     recheckStore.openProject(generated(headroom), 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
-    expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual(['snow-panel-geometry', 'concentrated-live-actions', 'gravity-width-mass', 'gravity-stations-and-exact-coverage', 'gravity-coverage-decisions', 'gravity-exact-ownership', 'gravity-local-deck-coverage', 'gravity-retained-span-midpoint']);
+    expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual(['snow-panel-geometry', 'concentrated-live-actions', 'gravity-width-mass', 'gravity-stations-and-exact-coverage', 'gravity-coverage-decisions', 'gravity-exact-ownership', 'gravity-local-deck-coverage', 'gravity-retained-span-midpoint', 'gravity-physical-thresholds']);
     expect(recheckStore.noticeOpen).toBe(true);
     recheckStore.reset();
     const { designData: _basis, ...unstamped } = generated() as unknown as Record<string, unknown>;
@@ -92,7 +92,7 @@ describe('recheckStore', () => {
     };
     const expected = [
       'snow-combination-provenance', 'snow-combination-validation', 'snow-companion-basis', 'snow-pair-coverage',
-      'concentrated-live-actions', 'generated-area-loads-headroom', 'gravity-retained-span-midpoint', 'snow-crossing-profile', 'snow-drift-coverage', 'snow-fallback-runs',
+      'concentrated-live-actions', 'generated-area-loads-headroom', 'gravity-physical-thresholds', 'gravity-retained-span-midpoint', 'snow-crossing-profile', 'snow-drift-coverage', 'snow-fallback-runs',
       'snow-flat-frame', 'snow-local-boundaries', 'snow-member-loading', 'snow-orientation-factors', 'snow-panel-geometry', 'snow-quadratic-intensity',
       'snow-ridge-mesh', 'snow-ridge-orientations', 'snow-roof-connectivity',
       'snow-roof-rotation', 'snow-roof-step', 'snow-selected-subsets', 'snow-surface-regions', 'snow-surface-support',
@@ -120,7 +120,7 @@ describe('recheckStore', () => {
   it.each(['2d', '3d', 'pro'])('keeps the exact wind regeneration notices after re-solving in %s', async mode => {
     for (const type of ['W', 'Wa']) {
       const snapshot = { analysisMode: mode, loadCases: [{ id: 1, type }], loads: [{ type: 'distributed', data: { caseId: 1, generatedBy: 'load-plan' } }], designData: { loadBasis: { resultsVersion: 0 } }, solvedWith: recheckStore.capture() };
-      const expected = ['generated-area-loads-headroom', 'gravity-retained-span-midpoint', 'snow-panel-geometry', 'wind-apex-torque', 'wind-band-width-and-shares', 'wind-carriers-and-continuous-width', 'wind-member-pressure-transfer', 'wind-physical-apex', 'wind-physical-pressure-field', 'wind-plan-couple-and-sign-face', 'wind-pressure-work-moments', 'wind-triangular-and-sign-minimum', 'wind-triangular-centroid'];
+      const expected = ['generated-area-loads-headroom', 'gravity-physical-thresholds', 'gravity-retained-span-midpoint', 'snow-panel-geometry', 'wind-apex-torque', 'wind-band-width-and-shares', 'wind-carriers-and-continuous-width', 'wind-member-pressure-transfer', 'wind-physical-apex', 'wind-physical-pressure-field', 'wind-plan-couple-and-sign-face', 'wind-pressure-work-moments', 'wind-triangular-and-sign-minimum', 'wind-triangular-centroid'];
       expected.unshift('concentrated-live-actions');
       recheckStore.openProject(snapshot, mode);
       await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
