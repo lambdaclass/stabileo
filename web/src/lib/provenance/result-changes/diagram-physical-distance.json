@@ -1,0 +1,32 @@
+{
+  "id": "diagram-physical-distance",
+  "date": "2026-11-25",
+  "prs": [2587],
+  "area": "analysis",
+  "when": { "all": ["members"], "any": ["memberLoads", "combinations", "movingLoads", "magnitudeCombinations"] },
+  "quantities": ["diagrams", "envelope", "beamStations", "movingLoads", "solve.ok"],
+  "title": {
+    "en": "Physical distances in member diagram queries",
+    "es": "Distancias físicas en las consultas de diagramas de barras",
+    "pt": "Distâncias físicas nas consultas aos diagramas de barras",
+    "de": "Physische Abstände bei Abfragen von Stabdiagrammen",
+    "fr": "Distances physiques dans les interrogations des diagrammes de barres",
+    "tr": "Eleman diyagramı sorgularında fiziksel mesafeler",
+    "zh": "杆件内力图查询中的实际距离",
+    "hu": "Fizikai távolságok a rúddiagramok lekérdezéseiben"
+  },
+  "explanation": {
+    "en": "Split-member diagrams use the physical query distance. The browser refuses distinct peaks that round to a load boundary. Point-force moments retain the lever-arm rounding residual. Critical exports include the signed distance residual. Recompute and re-export affected results.",
+    "es": "Los diagramas de barras divididas usan la distancia física de consulta. El navegador rechaza picos distintos que se redondean a un límite de carga. Los momentos de las fuerzas puntuales conservan el residuo de redondeo del brazo. Las exportaciones de estaciones críticas incluyen el residuo con signo de la distancia. Recalcule y vuelva a exportar los resultados afectados.",
+    "pt": "Os diagramas de barras subdivididas usam a distância física da consulta. O navegador recusa picos distintos que, por arredondamento, coincidem com um limite de carga. Os momentos de forças pontuais conservam o resíduo de arredondamento do braço de alavanca. As exportações de estações críticas incluem o resíduo da distância com sinal. Recalcule e exporte novamente os resultados afetados.",
+    "de": "Diagramme unterteilter Stäbe verwenden den physischen Abfrageabstand. Der Browser lehnt eigenständige Extremwerte ab, die durch Rundung auf eine Lastgrenze fallen. Momente aus Einzelkräften berücksichtigen den Rundungsrest des Hebelarms. Exporte kritischer Stationen enthalten den vorzeichenbehafteten Abstandsrest. Berechnen und exportieren Sie betroffene Ergebnisse erneut.",
+    "fr": "Les diagrammes de barres subdivisées utilisent la distance physique interrogée. Le navigateur refuse les pics distincts qui, après arrondi, coïncident avec une limite de charge. Les moments des forces ponctuelles conservent le résidu d’arrondi du bras de levier. Les exports aux stations critiques incluent le résidu signé de la distance. Recalculez et réexportez les résultats concernés.",
+    "tr": "Bölünmüş eleman diyagramları sorgunun fiziksel mesafesini kullanır. Tarayıcı, yuvarlama sonucu yük sınırıyla çakışan ayrı tepe noktalarını reddeder. Noktasal kuvvet momentleri, moment kolunun yuvarlama artık değerini korur. Kritik istasyon dışa aktarımları, mesafenin işaretli artık değerini içerir. Etkilenen sonuçları yeniden hesaplayın ve dışa aktarın.",
+    "zh": "分段杆件内力图使用查询点的实际距离。若不同的峰值位置舍入后与荷载边界重合，浏览器将拒绝给出结果。集中力矩计算保留力臂的舍入残差。临界测点的导出文件包含带符号的距离残差。请重新计算并导出受影响的结果。",
+    "hu": "Az osztott rudak diagramjai a lekérdezés fizikai távolságát használják. A böngésző elutasítja azokat a különálló csúcsokat, amelyek kerekítve terhelési határpontra esnek. A pontszerű erők nyomatéka megőrzi az erőkar kerekítési maradékát. A kritikus állomások exportja tartalmazza a távolság előjeles maradékát. Számítsa újra és exportálja ismét az érintett eredményeket."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-diagram-physical-distance.md",
+    "heading": "Physical distances in member diagram queries"
+  }
+}

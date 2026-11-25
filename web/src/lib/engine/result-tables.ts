@@ -216,11 +216,12 @@ export interface EnvelopeRow {
   end?: 'i' | 'j';
   x?: number;
   face?: 'left' | 'right';
+  xResidual?: number;
   max: Array<{ value: number; source: Source }>;
   min: Array<{ value: number; source: Source }>;
 }
 
-function firstEnvelopeRow(position: Pick<EnvelopeRow, 'entity' | 'end' | 'x' | 'face'>, values: readonly number[], source: Source): EnvelopeRow {
+function firstEnvelopeRow(position: Pick<EnvelopeRow, 'entity' | 'end' | 'x' | 'face' | 'xResidual'>, values: readonly number[], source: Source): EnvelopeRow {
   return { ...position, max: values.map(value => ({ value, source })), min: values.map(value => ({ value, source })) };
 }
 
@@ -260,10 +261,10 @@ export function countCriticalForceEnvelopeRows(sources: readonly Source[], opts:
 }
 
 export function* criticalForceEnvelopeRows(sources: readonly Source[], opts: TableOptions): IterableIterator<EnvelopeRow> {
-  for (const { entity, t, x, face, values } of criticalEnvelopeStations(sources, opts)) {
+  for (const { entity, t, x, xResidual, face, values } of criticalEnvelopeStations(sources, opts)) {
     const end = t === 0 ? 'i' : t === 1 ? 'j' : undefined;
     const [first, ...rest] = values();
-    const envelope = firstEnvelopeRow({ entity, end, x, face }, first!, sources[0]!);
+    const envelope = firstEnvelopeRow({ entity, end, x, xResidual, face }, first!, sources[0]!);
     rest.forEach((row, i) => foldEnvelopeRow(envelope, row, sources[i + 1]!));
     yield envelope;
   }

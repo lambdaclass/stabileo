@@ -790,7 +790,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2437"]
     fn issue_2437_point_force_lever_residual() {
         use crate::postprocess::{combinations, diagrams_3d};
         let (input, results) = round5_diagram_results_at(2.0);
@@ -859,12 +858,12 @@ mod tests {
             let mut jump = planar.clone();
             jump.element_forces[0].point_loads = vec![PointLoadInfo { a, p: 8.0, px: None, my: Some(4.0) }];
             let mut opposite = planar.clone();
-            opposite.element_forces[0].point_loads = vec![PointLoadInfo { a, p: -8.0, px: None, my: Some(-4.0) }];
+            opposite.element_forces[0].point_loads = vec![PointLoadInfo { a, p: -4.0, px: None, my: Some(-2.0) }];
             let plane = compute_envelope(&[jump, planar, opposite]).unwrap();
             let mut jump = spatial.clone();
             jump.element_forces[0].point_loads_z = vec![PointLoadInfo3D { a, p: 8.0 }];
             let mut opposite = spatial.clone();
-            opposite.element_forces[0].point_loads_z = vec![PointLoadInfo3D { a, p: -8.0 }];
+            opposite.element_forces[0].point_loads_z = vec![PointLoadInfo3D { a, p: -4.0 }];
             let space = compute_envelope_3d(&[jump, spatial, opposite]).unwrap();
             for (diagram, amplitude) in [(plane.shear, 8.0), (plane.moment, 4.0), (space.shear_z, 8.0)] {
                 let element = &diagram.elements[0];
@@ -877,7 +876,7 @@ mod tests {
                     let i = face["index"].as_u64().unwrap() as usize;
                     assert_eq!(element.t_positions[i], a / 3.0);
                     assert_eq!(element.pos_values[i], expected);
-                    assert_eq!(element.neg_values[i], -expected);
+                    assert_eq!(element.neg_values[i], -expected / 2.0);
                 }
             }
         }

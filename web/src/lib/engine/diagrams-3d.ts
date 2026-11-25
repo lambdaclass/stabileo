@@ -3,7 +3,7 @@
 // using equilibrium equations with distributed and point loads.
 
 import { type UnitSystem, formatDiagramValue } from '../utils/units';
-import { addMagnitudeBounds, checkedCurveValue, compareDiagramDistance, diagramCriticalPoints, diagramCurvePoints, fullSpanFallback, indexDiagramExtrema, memberDiagram, normalizeDiagramDistance, prepareCurveExtrema, prepareMagnitudeExtrema, shiftDiagramDistance, sortedStations, unavailableDiagramExtrema, type DiagramCurve, type DiagramDistance, type DiagramExtremum, type DiagramStation } from './member-diagram';
+import { addMagnitudeBounds, checkedCurveValue, compareDiagramDistance, diagramCriticalPoints, diagramCurvePoints, fullSpanFallback, indexDiagramExtrema, memberDiagram, multiplyDiagramDistance, normalizeDiagramDistance, prepareCurveExtrema, prepareMagnitudeExtrema, shiftDiagramDistance, sortedStations, unavailableDiagramExtrema, type DiagramCurve, type DiagramDistance, type DiagramExtremum, type DiagramStation } from './member-diagram';
 import type { ElementForces3D, EnvelopeDiagramData3D } from './types-3d';
 
 export type Diagram3DKind = 'momentY' | 'momentZ' | 'shearY' | 'shearZ' | 'axial' | 'torsion';
@@ -110,6 +110,7 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
     return magnitudeCurve(parts.map(p => spatialCurve(p, kind)), method, ef.length);
   }
   if (ef.pieces?.length) {
+    type PhysicalStation = DiagramStation & { distance: DiagramDistance };
     const pieces = ef.pieces.map(p => {
       const end = { x: p.x1, residual: 0 };
       const start = { x: p.x0, residual: 0 };
@@ -121,7 +122,6 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
       };
       type PieceCut = { t: number; local: DiagramDistance; parent: DiagramDistance };
       let boundaries: Map<number, PieceCut> | undefined;
-      let stations: [number, PieceCut][] | undefined;
       const cutMap = () => {
         if (boundaries) return boundaries;
         const mapped = new Map([...curve.cutDistances].map(([t, local]) => {
@@ -131,29 +131,18 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
         if (mapped.size !== curve.cutDistances.size) throw unavailableDiagramExtrema();
         return boundaries = mapped;
       };
-      const local = ({ t, right, distance }: DiagramStation): DiagramStation => {
-        const cuts = cutMap();
-        const cut = cuts.get(t);
-        if (cut && (!distance || compareDiagramDistance(distance, cut.parent) === 0)) {
+      const local = ({ t, right, distance }: PhysicalStation): PhysicalStation => {
+        const cut = cutMap().get(t);
+        if (cut && compareDiagramDistance(distance, cut.parent) === 0) {
           return { t: cut.t, right, distance: cut.local };
         }
-        if (distance) {
-          const localDistance = shiftDiagramDistance(distance, -p.x0);
-          return { t: localDistance.x / p.forces.length, distance: localDistance, right };
-        }
-        stations ??= [...cuts].sort(([a], [b]) => a - b);
-        const upper = stations.findIndex(([at]) => at > t);
-        if (upper <= 0) throw unavailableDiagramExtrema();
-        const [lo, left] = stations[upper - 1]!, [hi, next] = stations[upper]!;
-        const fromLeft = t - lo, fromRight = hi - t;
-        const localDistance = fromLeft <= fromRight ? shiftDiagramDistance(left.local, fromLeft * ef.length)
-          : shiftDiagramDistance(next.local, -fromRight * ef.length);
-        return { t: localDistance.x / p.forces.length, distance: localDistance, right };
+        const localDistance = shiftDiagramDistance(distance, -p.x0);
+        return { t: normalizeDiagramDistance(localDistance, p.forces.length), distance: localDistance, right };
       };
       return { end, curve, rebase, local, cutMap };
     });
-    const pieceAt = ({ t, right, distance }: DiagramStation) => pieces.find(p => {
-      const side = distance ? compareDiagramDistance(distance, p.end) : t - p.end.x / ef.length;
+    const pieceAt = ({ right, distance }: PhysicalStation) => pieces.find(p => {
+      const side = compareDiagramDistance(distance, p.end);
       return side < 0 || (side === 0 && !right);
     }) ?? pieces[pieces.length - 1]!;
     const magnitudeBound = pieces.some(p => p.curve.magnitudeBound) ? () => Math.max(...pieces.map(p => maxMagnitude(p.curve))) : undefined;
@@ -161,6 +150,10 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
     const joined = () => cutsByStation ??= joinedCuts(pieces.map(p =>
       new Map([...p.cutMap()].map(([t, cut]) => [t, cut.parent])),
     ));
+    const atPhysicalDistance = (station: DiagramStation): PhysicalStation => ({
+      ...station,
+      distance: station.distance ?? joined().get(station.t) ?? multiplyDiagramDistance(station.t, ef.length),
+    });
     let extrema: DiagramExtremum[] | undefined;
     return {
       magnitudeBound,
@@ -174,20 +167,21 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
           t, distance, value: peak.value,
           canTransfer(station) {
             if (station.distance && compareDiagramDistance(station.distance, distance) === 0) return true;
-            return p === pieceAt(station) && peak.canTransfer(p.local(station));
+            const physical = atPhysicalDistance(station);
+            return p === pieceAt(physical) && peak.canTransfer(p.local(physical));
           },
         };
       })),
       value(station) {
-        const distance = station.distance ?? joined().get(station.t);
-        const physical = { ...station, distance };
+        if (!station.distance && !(station.t >= 0 && station.t <= 1)) throw unavailableDiagramExtrema();
+        const physical = atPhysicalDistance(station);
         const p = pieceAt(physical);
         return p.curve.value(p.local(physical));
       },
       ...(pieces.every(p => p.curve.polynomial) ? { polynomial(lo: DiagramStation, hi: DiagramStation) {
-        const start = { ...lo, right: true };
+        const start = atPhysicalDistance({ ...lo, right: true });
         const p = pieceAt(start);
-        return p.curve.polynomial!(p.local(start), p.local(hi));
+        return p.curve.polynomial!(p.local(start), p.local(atPhysicalDistance(hi)));
       } } : {}),
     };
   }
@@ -229,7 +223,7 @@ export function* memberEnvelopeStations3D(forces: readonly ElementForces3D[], co
   const prepared = forces.map(f => components.map(kind => {
     const curve = componentCurve(f, kind);
     if (curve.magnitudeBound) throw unavailableDiagramExtrema();
-    const extrema = curve.extrema().map(peak => ({ ...peak, t: normalizeDiagramDistance(peak.distance, length) }));
+    const extrema = curve.extrema();
     return { curve, extrema, peaks: indexDiagramExtrema(extrema) };
   }));
   const all = prepared.flat();
@@ -239,13 +233,14 @@ export function* memberEnvelopeStations3D(forces: readonly ElementForces3D[], co
   const stations = sortedStations([0.25, 0.5, 0.75, ...distances.keys()]);
   const values = (station: DiagramStation) => prepared.map(curves => curves.map(({ curve, peaks }) => checkedCurveValue(curve, station, peaks)));
   for (const t of stations) {
-    const distance = distances.get(t);
-    const x = distance?.x ?? t * length;
+    const exact = distances.get(t);
+    const distance = exact ?? multiplyDiagramDistance(t, length);
+    const position = { t, x: distance.x, xResidual: distance.residual };
     const left = { t, distance };
     const right = { ...left, right: true };
-    const jump = t < 1 && distance !== undefined && all.some(({ curve }) => curve.value(left) !== curve.value(right));
-    yield { t, x, face: jump ? 'left' as const : undefined, values: () => values(left) };
-    if (jump) yield { t, x, face: 'right' as const, values: () => values(right) };
+    const jump = t < 1 && exact !== undefined && all.some(({ curve }) => curve.value(left) !== curve.value(right));
+    yield { ...position, face: jump ? 'left' as const : undefined, values: () => values(left) };
+    if (jump) yield { ...position, face: 'right' as const, values: () => values(right) };
   }
 }
 

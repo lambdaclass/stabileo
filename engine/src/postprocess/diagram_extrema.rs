@@ -120,6 +120,12 @@ pub(crate) struct Curve<D, P> {
     pub points: P,
 }
 
+fn add_distance(origin: f64, offset: f64) -> (f64, f64) {
+    let sum = origin + offset;
+    let delta = sum - origin;
+    (sum, (origin - (sum - delta)) + (offset - delta))
+}
+
 #[derive(Default)]
 struct DiagramSum {
     high: f64,
@@ -225,16 +231,22 @@ where
             });
         }
         for p in self.points.clone() {
-            let dx = distance(p.a);
+            let (base, subtraction_error) = add_distance(x, -p.a);
+            let (dx, offset_error) = add_distance(base, offset);
+            let (dx, residual) = add_distance(dx, subtraction_error + offset_error);
+            let side = if dx == 0.0 { residual } else { dx };
             let point_t = p.a / self.length;
             let included = if cut.location == Location::Grid {
                 cut.includes(point_t)
             } else {
-                dx > 0.0 || (cut.right && dx == 0.0)
+                side > 0.0 || (cut.right && side == 0.0)
             };
             if included {
                 if p.slope != 0.0 && (cut.location != Location::Grid || cut.t != point_t) {
                     value.add(p.slope * dx);
+                    if residual != 0.0 {
+                        value.add(p.slope * residual);
+                    }
                 }
                 value.add(p.jump);
             }

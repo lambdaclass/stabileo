@@ -294,7 +294,7 @@ function maximaSheet(input: ResultSheetsInput, opts: TableOptions): WorkbookShee
 }
 
 function envelopeSheet(input: ResultSheetsInput, opts: TableOptions, shells: boolean): StreamedSheet {
-  const header = ['table', 'entity', 'end', 'x [m]', 'component', 'unit', 'max', 'maxSourceId', 'maxSourceName', 'min', 'minSourceId', 'minSourceName', 'face'];
+  const header = ['table', 'entity', 'end', 'x [m]', 'component', 'unit', 'max', 'maxSourceId', 'maxSourceName', 'min', 'minSourceId', 'minSourceName', 'face', 'x residual [m]'];
   const governingSources = governing(input.sources);
   const sources = governingSources.map(asSource);
   const stations = input.stations;
@@ -321,12 +321,12 @@ function envelopeSheet(input: ResultSheetsInput, opts: TableOptions, shells: boo
           for (let c = 0; c < headings.length; c++) {
             const mx = e.max[c]!, mn = e.min[c]!;
             yield [kind, e.entity, e.end ?? '', e.x ?? '', headings[c]!.replace(/ \[.*$/, ''), UNITS[kind][c]!, mx.value,
-              mx.source.id, safeText(mx.source.name), mn.value, mn.source.id, safeText(mn.source.name), e.face ?? ''];
+              mx.source.id, safeText(mx.source.name), mn.value, mn.source.id, safeText(mn.source.name), e.face ?? '', e.xResidual ?? ''];
           }
         }
       }
       if (shells) {
-        for (const row of shellEnvelopeRows(governingSources, input.sources)) yield [...row, ''];
+        for (const row of shellEnvelopeRows(governingSources, input.sources)) yield [...row, '', ''];
       }
     },
   };

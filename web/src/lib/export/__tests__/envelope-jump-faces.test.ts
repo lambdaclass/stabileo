@@ -256,7 +256,7 @@ it('known wrong result: #2226 evaluates competing sources at the physical statio
   const csv = strFromU8(zip[Object.keys(zip).find(name => name.endsWith('-Envelope.csv'))!]!);
   const prefix = ['forces', first.elementId, '', at, 'Vz', ''].join(',');
   expect(csv.split('\n').filter(line => line.startsWith(prefix))).toEqual([
-    ['forces', first.elementId, '', at, 'Vz', 'kN', 4, 2, '2', 13 / 4, 1, '1', ''].join(','),
+    ['forces', first.elementId, '', at, 'Vz', 'kN', 4, 2, '2', 13 / 4, 1, '1', '', 0].join(','),
   ]);
 });
 
@@ -312,7 +312,7 @@ it.each(['linear', 'pdelta'] as const)('known wrong result: #2226 rebasing keeps
   await expect(streamWorkbookZip(resultSheetParts(input, want))).rejects.toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
 });
 
-it.skip.each(['linear', 'pdelta'] as const)('known wrong result: #2226 identifies the same-metre cuts in tables, XLSX and CSV (%s)', async method => {
+it.each(['linear', 'pdelta'] as const)('known wrong result: #2226 identifies the same-metre cuts in tables, XLSX and CSV (%s)', async method => {
   const member = cantilever(3);
   const { first, ids } = twoCombinations();
   if (method === 'pdelta') modelStore.adoptAnalysis({ perCombination: 'pdelta' });
@@ -328,7 +328,7 @@ it.skip.each(['linear', 'pdelta'] as const)('known wrong result: #2226 identifie
   const expected = [[-3 * 2 ** -55, 8, 8], [0, 12, 12]];
   const rows = envelopeRows('forces', sources, { axes: DEFAULT_AXES, stations: 'critical' });
   expect.soft(rows.filter(row => row.x === 1.25 && row.face === 'right').map(row =>
-    [Reflect.get(row, 'xResidual'), row.min[2]!.value, row.max[2]!.value])).toEqual(expected);
+    [row.xResidual, row.min[2]!.value, row.max[2]!.value])).toEqual(expected);
 
   const workbook = await buildExcelWorkbook({ onlyExtras: true, extraSheets: resultSheets(input, want), provenance: false });
   const file = read(write(workbook!, { bookType: 'xlsx', type: 'array' }), { type: 'array' });

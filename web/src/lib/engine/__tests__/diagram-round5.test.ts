@@ -4,9 +4,10 @@ import { computeDiagram3D, evaluateDiagramAt, prepareDiagramEvaluator3D, memberC
 import {
   computeDiagrams2D, computeDiagrams3D, computeDiagramValueAtWasm, computeDiagramValueAt3DWasm,
   computeEnvelope, computeEnvelope3D, extractBeamStations, extractBeamStations3D,
-  extractBeamStationsGrouped, extractBeamStationsGrouped3D, solve, solve3D, solvePDelta, solvePDelta3D,
+  extractBeamStationsGrouped, extractBeamStationsGrouped3D, extractBeamStationBuffer3D, solve, solve3D, solvePDelta, solvePDelta3D,
   solveMovingLoads as solveMovingLoadsWasm, solveMovingLoads3D as solveMovingLoads3DWasm,
 } from '../wasm-solver';
+import { decodeStationBuffer } from '../station-buffer';
 import { computeDiagramGlobalMax } from '../../canvas/draw-diagrams';
 import { computePointwiseEnvelope, solveMovingLoads, solveMovingLoadsAsync } from '../moving-loads';
 import { buildPath3D, foldPosition, sweepMovingLoad3D, trainLoads } from '../moving-loads-3d';
@@ -354,7 +355,7 @@ it('known wrong result: #2437 preserves nested cancellation in signed diagram or
   }
 });
 
-it.skip('known wrong result: #2437 evaluates ordinary piece queries at the physical parent distance', () => {
+it('known wrong result: #2437 evaluates ordinary piece queries at the physical parent distance', () => {
   const [, , , spatial] = forceRecords();
   const q = 2 ** 54;
   for (const result of spatial) {
@@ -381,7 +382,7 @@ it.skip('known wrong result: #2437 evaluates ordinary piece queries at the physi
   }
 });
 
-it.skip('known wrong result: #2437 refuses a physical root that rounds to a load boundary', () => {
+it('known wrong result: #2437 refuses a physical root that rounds to a load boundary', () => {
   const [, , planar, spatial] = forceRecords();
   const q = 2 ** 50;
   const load = { a: 1.5, b: 1.5 + 1 / q, qI: 9 * q, qJ: -41 * q };
@@ -389,7 +390,7 @@ it.skip('known wrong result: #2437 refuses a physical root that rounds to a load
     const ef = result.elementForces[0]!;
     ef.distributedLoads = [load];
     expect.soft(() => computeDiagramValueAt('shear', 0.5, ef)).toThrow(/extrema/i);
-    expect.soft(() => prepareDiagramValueAt('shear', ef)(0.5, true)).toThrow(/extrema/i);
+    expect.soft(() => prepareDiagramValueAt('shear', ef)(0.5)).toThrow(/extrema/i);
     expect.soft(() => computeElementDiagram('shear', ef, 0, 0, length, 0)).toThrow(/extrema/i);
     expect.soft(() => computeDiagramValueAtWasm('shear', 0.5, ef)).toThrow(/relative geometry limit/);
     expect.soft(computeDiagramValueAt('shear', 0.5 - 2 ** -54, ef)).toBe(0);
@@ -412,10 +413,12 @@ it.skip('known wrong result: #2437 refuses a physical root that rounds to a load
   }
 });
 
-it.skip('known wrong result: #2437 preserves the point-force lever residual in browser and WASM moments', () => {
+it('known wrong result: #2437 preserves the point-force lever residual in browser and WASM moments', () => {
   const [plane, space, planar, spatial] = forceRecords(2);
   const p = 2 ** 54;
   const start = -3 * (p / 4);
+  const members = [{ elementId: 1, length: 2, sectionId: 1, materialId: 1 }];
+  const numStations = 3;
   for (const [a, expected] of [[0.25, 0], [0.25 + 2 ** -54, -1], [0.25 - 2 ** -54, 1]] as const) {
     for (const result of planar) {
       const ef = result.elementForces[0]!;
@@ -426,6 +429,9 @@ it.skip('known wrong result: #2437 preserves the point-force lever residual in b
       expect.soft(computeElementDiagram('moment', ef, 0, 0, 2, 0).points.find(p => p.t === 0.5)?.value).toBe(expected);
       expect.soft(computeDiagramValueAtWasm('moment', 0.5, ef)).toBe(expected);
       expect.soft(computeDiagrams2D(plane, result).moment[0]!.points.find((p: { t: number }) => p.t === 0.5)?.value).toBe(expected);
+      const input = { members, numStations, combinations: [{ comboId: 1, results: result }] };
+      expect.soft(extractBeamStations(input).stations.find(s => s.t === 0.5)?.comboForces[0]?.m).toBe(expected);
+      expect.soft(extractBeamStationsGrouped(input).members[0]?.stations.find(s => s.t === 0.5)?.comboForces[0]?.m).toBe(expected);
       const envelope = computeEnvelope([result])!.moment.elements[0]!;
       const i = envelope.tPositions.indexOf(0.5);
       expect.soft([envelope.negValues[i], envelope.posValues[i]]).toEqual([Math.min(0, expected), Math.max(0, expected)]);
@@ -439,6 +445,13 @@ it.skip('known wrong result: #2437 preserves the point-force lever residual in b
       expect.soft(computeDiagram3D(ef, 'momentY').points.find(p => p.t === 0.5)?.value).toBe(expected);
       expect.soft(computeDiagramValueAt3DWasm('momentY', 0.5, ef)).toBe(expected);
       expect.soft(computeDiagrams3D(space, result).momentY[0]!.points.find((p: { t: number }) => p.t === 0.5)?.value).toBe(expected);
+      const input = { members, numStations, combinations: [{ comboId: 1, results: result }] };
+      expect.soft(extractBeamStations3D(input).stations.find(s => s.t === 0.5)?.comboForces[0]?.my).toBe(expected);
+      expect.soft(extractBeamStationsGrouped3D(input).members[0]?.stations.find(s => s.t === 0.5)?.comboForces[0]?.my).toBe(expected);
+      const packed = extractBeamStationBuffer3D({
+        members, numStations, combinations: [{ comboId: 1, elementForces: result.elementForces }],
+      });
+      expect.soft(decodeStationBuffer(packed!, new Map())[0]?.comboResults[0]?.stations.find(s => s.t === 0.5)?.my).toBe(expected);
       const envelope = computeEnvelope3D([result])!.momentY.elements[0]!;
       const i = envelope.tPositions.indexOf(0.5);
       expect.soft([envelope.negValues[i], envelope.posValues[i]]).toEqual([Math.min(0, expected), Math.max(0, expected)]);

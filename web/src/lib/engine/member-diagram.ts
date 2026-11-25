@@ -54,6 +54,24 @@ export function rebaseDiagramDistance(origin: number, local: number) {
   return { x, residual: (origin - (x - offset)) + (local - offset) };
 }
 
+export function multiplyDiagramDistance(fraction: number, length: number): DiagramDistance {
+  const x = fraction * length;
+  const splitter = 2 ** 27 + 1;
+  const scale = Math.abs(length) > Number.MAX_VALUE / splitter ? 2 ** 28 : 1;
+  const scaledLength = length / scale;
+  const split = (value: number) => {
+    const expanded = splitter * value;
+    return expanded - (expanded - value);
+  };
+  const highFraction = split(fraction);
+  const highLength = split(scaledLength);
+  const lowFraction = fraction - highFraction;
+  const lowLength = scaledLength - highLength;
+  const residual = ((highFraction * highLength - x / scale) + highFraction * lowLength
+    + lowFraction * highLength) + lowFraction * lowLength;
+  return { x, residual: residual * scale };
+}
+
 export function normalizeDiagramDistance({ x, residual }: DiagramDistance, length: number): number {
   let t = x / length;
   if (residual === 0) return t;
@@ -262,10 +280,12 @@ function diagramExtremum(
   u: number, length: number, polynomials: readonly number[][], curves: readonly Pick<DiagramCurve, 'value'>[],
   combine: (values: number[]) => number, at?: number,
 ): DiagramExtremum | undefined {
-  const t = lo.t + (hi.t - lo.t) * u;
-  if (at !== undefined && t !== at) return undefined;
   const x0 = lo.distance;
   const width = diagramDistanceBetween(hi.distance, x0);
+  const offset = multiplyDiagramDistance(u, width);
+  const distance = shiftDiagramDistance(shiftDiagramDistance(x0, offset.x), offset.residual);
+  const t = normalizeDiagramDistance(distance, length);
+  if (at !== undefined && t !== at) return undefined;
   if (!(t > lo.t && t < hi.t)) {
     const atStart = t === lo.t;
     const boundary = atStart ? { ...lo, right: true } : hi;
@@ -275,8 +295,6 @@ function diagramExtremum(
     if (!Number.isFinite(value) || peak !== value) throw unavailableDiagramExtrema();
     return undefined;
   }
-  const offset = width * u;
-  const distance = shiftDiagramDistance(x0, offset);
   const ordinates = curves.map(curve => curve.value({ t, distance }));
   const value = combine(ordinates);
   if (!Number.isFinite(value)) throw unavailableDiagramExtrema();
