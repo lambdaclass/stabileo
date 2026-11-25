@@ -93,13 +93,11 @@ fn check_loaded_planar_isometry(iso: Iso2) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1192"]
 fn issue_1192_mirror_agrees_with_the_original_solution() {
     check_loaded_planar_isometry(Iso2::mirror_line(0.4));
 }
 
 #[test]
-#[ignore = "known wrong result: #1192"]
 fn issue_1192_rotation_agrees_with_the_original_solution() {
     check_loaded_planar_isometry(Iso2::rotation(0.3).translated(2.0, -3.0));
 }
@@ -150,7 +148,6 @@ fn issue_1845_rotation_preserves_the_shared_rigid_restraint() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1848"]
 fn issue_1848_rotation_preserves_zero_static_indeterminacy() {
     let case = spatial_replay_case("1827");
     let analysis = spatial_analysis("kinematic check");
