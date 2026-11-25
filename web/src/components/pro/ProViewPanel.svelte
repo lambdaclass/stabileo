@@ -77,7 +77,7 @@
     modelStore.updateView(id, uiStore.cameraPosition3D, uiStore.cameraTarget3D, display());
   }
 
-  const STYLES = ['wireframe', 'solid', 'sections', 'physical'] as const;
+  const STYLES = ['wireframe', 'solid', 'sections'] as const;
 
   function save() {
     const n = name.trim() || tp('view.defaultName', { n: views.length + 1 });

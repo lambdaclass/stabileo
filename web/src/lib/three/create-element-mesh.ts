@@ -51,7 +51,7 @@ export interface CreateElementOpts {
   /** Element roll angle β in degrees (rotation around bar axis) */
   elementRollAngle?: number;
   /** Render mode: wireframe=simple lines, solid=cylinders, sections=extruded profiles */
-  renderMode?: 'wireframe' | 'solid' | 'sections' | 'physical';
+  renderMode?: 'wireframe' | 'solid' | 'sections';
   /**
    * In the `physical` and `sections` modes, the member's concrete as built and the joints it owns
    * (`store/physical-frame.ts`). Absent, the member is drawn as its section.
@@ -92,10 +92,10 @@ export function createElementGroup(
   else if (opts.hovered) baseColor = COLORS.elementHovered;
 
   // Cut by the physical frame: its layers, or nothing where the joints took it whole.
-  const physicalCut = (opts.renderMode === 'physical' || opts.renderMode === 'sections') && opts.physicalLayers !== undefined;
+  const physicalCut = opts.renderMode === 'sections' && opts.physicalLayers !== undefined;
   const physical = physicalCut ? prismLayersGeometry(opts.physicalLayers!) : null;
   // A member the physical frame did not cut is drawn as its section, like every steel member.
-  const mode = opts.renderMode === 'physical' ? 'sections' : opts.renderMode ?? 'solid';
+  const mode = opts.renderMode ?? 'solid';
 
   // In wireframe mode, brighten the base colors to distinguish from the grid
   if (mode === 'wireframe' && !opts.selected && !opts.hovered) {

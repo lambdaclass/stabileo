@@ -1,9 +1,13 @@
 ### Changed
-#### The 3D view menu is shorter (2026-11-25)
+#### The 3D view menu is shorter, and the sections are the physical geometry (2026-11-25)
 
 The menu under the view cube groups the three axis views in one row and the projection in a
 Perspective | Orthographic switch, and the clipping plane, the plan view and the distance measure
-show a tick when they are on. In Basic the bars are offered as lines or with their sections; the
-thick lines and the physical geometry stay in the settings. In PRO the menu no longer chooses how
-the bars are drawn: «More view options» opens the View panel, where that choice now sits at the top
-of the drawing card with a line saying what each style draws.
+show a tick when they are on. In Basic and in PRO it draws the bars, and in PRO the plates, as lines
+or with their sections; the thick lines stay in the settings, and in PRO «More view options» opens
+the View panel at that choice.
+
+The sections view and the physical geometry drew the same bars. They differed only in the slabs and
+walls, which the physical geometry cut where the frame passes through them. They are now one view,
+«Sections», which draws the slabs and walls cut. A saved project that showed the physical geometry
+opens with the sections.

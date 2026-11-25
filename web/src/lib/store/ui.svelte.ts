@@ -343,8 +343,8 @@ function createUIStore() {
   let showSecondarySelector = $state<boolean>(true);
 
   // 3D rendering mode — per-mode
-  let renderMode3D_basic = $state<'wireframe' | 'solid' | 'sections' | 'physical'>('wireframe');
-  let renderMode3D_pro = $state<'wireframe' | 'solid' | 'sections' | 'physical'>('wireframe');
+  let renderMode3D_basic = $state<'wireframe' | 'solid' | 'sections'>('wireframe');
+  let renderMode3D_pro = $state<'wireframe' | 'solid' | 'sections'>('wireframe');
 
   // Smooth-orbit LOD: when on, collapse to the batched wireframe during camera
   // motion for ANY model (not just heavy ones). Opt-in so the default "keep full
@@ -1069,7 +1069,7 @@ function createUIStore() {
     set showSecondarySelector(v: boolean) { showSecondarySelector = v; },
 
     get renderMode3D() { return analysisMode === 'pro' ? renderMode3D_pro : renderMode3D_basic; },
-    set renderMode3D(v: 'wireframe' | 'solid' | 'sections' | 'physical') { if (analysisMode === 'pro') renderMode3D_pro = v; else renderMode3D_basic = v; },
+    set renderMode3D(v: 'wireframe' | 'solid' | 'sections') { if (analysisMode === 'pro') renderMode3D_pro = v; else renderMode3D_basic = v; },
     get smoothOrbit3D() { return smoothOrbit3D; },
     set smoothOrbit3D(v: boolean) { smoothOrbit3D = v; },
 

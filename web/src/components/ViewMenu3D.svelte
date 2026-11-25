@@ -1,16 +1,11 @@
 <script lang="ts">
-  /**
-   * The cube's menu: where the camera looks from, how it projects, the view's tools and, in Basic,
-   * how the bars are drawn. PRO draws the bars from its View panel, which the menu opens, so a
-   * choice is made in one place.
-   */
   import { tick } from 'svelte';
   import Icon from './ribbon/Icon.svelte';
   import { t } from '../lib/i18n';
   import { uiStore } from '../lib/store/ui.svelte';
   import { buildTimelapse } from '../lib/store/build-timelapse.svelte';
   import { timelapseSound } from '../lib/viewport3d/timelapse-sound';
-  import { BASIC_BAR_STYLES, basicBarStyle } from '../lib/viewport3d/view-menu';
+  import { BAR_STYLES, barStyle } from '../lib/viewport3d/view-menu';
 
   let { pro, onfit, onview, onprojection, onclose }: {
     pro: boolean;
@@ -21,7 +16,7 @@
   } = $props();
 
   const VIEWS = [['top', '⊤', 'viewport3d.topView'], ['front', '⊡', 'viewport3d.frontView'], ['side', '⊟', 'viewport3d.sideView']] as const;
-  /** Opens the View panel at the bar style, which sits below the views and the categories. */
+
   async function openViewPanel() {
     uiStore.proActiveTab = 'view';
     onclose();
@@ -68,17 +63,16 @@
     <span class="cam-glyph">▶</span><span>{t('timelapse.menu')}</span>
   </button>
   <div class="cam-sep"></div>
+  <span class="cam-group-title">{t(pro ? 'viewMenu.barsPlates' : 'viewMenu.bars')}</span>
+  <div class="cam-seg" role="radiogroup" aria-label={t(pro ? 'viewMenu.barsPlates' : 'viewMenu.bars')} data-testid="cam-render">
+    {#each BAR_STYLES as s (s.style)}
+      <button class:on={barStyle(uiStore.renderMode3D) === s.style} role="radio" aria-checked={barStyle(uiStore.renderMode3D) === s.style}
+              onclick={() => { uiStore.renderMode3D = s.mode; }} title={t(s.hint)} data-testid="cam-bars-{s.style}">{t(s.label)}</button>
+    {/each}
+  </div>
   {#if pro}
     <button class="cam-item" onclick={openViewPanel} title={t('viewMenu.moreHint')} data-testid="cam-more-view">
       <span class="cam-glyph">⋯</span><span>{t('viewMenu.more')}</span>
     </button>
-  {:else}
-    <span class="cam-group-title">{t('viewMenu.bars')}</span>
-    <div class="cam-seg" role="radiogroup" aria-label={t('viewMenu.bars')} data-testid="cam-render">
-      {#each BASIC_BAR_STYLES as s (s.style)}
-        <button class:on={basicBarStyle(uiStore.renderMode3D) === s.style} role="radio" aria-checked={basicBarStyle(uiStore.renderMode3D) === s.style}
-                onclick={() => { uiStore.renderMode3D = s.mode; }} title={t(s.hint)} data-testid="cam-bars-{s.style}">{t(s.label)}</button>
-      {/each}
-    </div>
   {/if}
 </div>

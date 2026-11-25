@@ -271,7 +271,7 @@ function createTabManager() {
       uiStore.showAxes = state.showAxes;
 
       // Restore per-tab visualization config — 3D
-      uiStore.renderMode3D = state.renderMode3D;
+      uiStore.renderMode3D = state.renderMode3D === 'physical' ? 'sections' : state.renderMode3D;
       uiStore.momentStyle3D = state.momentStyle3D;
       uiStore.cameraMode3D = state.cameraMode3D;
       uiStore.showGrid3D = state.showGrid3D;

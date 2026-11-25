@@ -416,7 +416,7 @@
      * the scene graph. Both branches of this rebase hid the markers in sections mode
      * and each did it its own way; this is the one that says why.
      */
-    const drawn = uiStore.renderMode3D !== 'sections' && uiStore.renderMode3D !== 'physical';
+    const drawn = uiStore.renderMode3D !== 'sections';
     nodesInstanced.setDrawn(drawn);
     publishMarkerState(drawn, drawn ? undefined : null);
     if (!drawn) return;
