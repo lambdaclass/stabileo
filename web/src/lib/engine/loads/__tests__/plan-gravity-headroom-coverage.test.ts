@@ -74,12 +74,15 @@ function trussedRing(depth: number, purlins: boolean, stub = false, turn = 0): G
 }
 
 describe('a panel only partly under low roof structure keeps its area load', () => {
-  it('a floor with one low beam over an edge is loaded, and the derivation says so', () => {
-    const layout = gravityLayout(floorUnderOneLowBeam(), { mode: 'panels', tributaryWidth: 3 });
+  it('a partly covered floor retains uniform loads and refuses separate exposure actions', () => {
+    const model = floorUnderOneLowBeam();
+    const options = { mode: 'panels', tributaryWidth: 3 } as const;
+    const layout = gravityLayout(model, { ...options, uniformPressure: true });
     expect(layout.areaByLevel.get(3)).toBeCloseTo(36, 6);
     expect(sum(layout.areaOf)).toBeCloseTo(36, 6);
     expect(keys(layout)).not.toContain('loadPlan.gravity.lowHeadroom');
     expect(keys(layout)).toContain('loadPlan.gravity.headroomUnclear');
+    expect(() => gravityLayout(model, options)).toThrow(expect.objectContaining({ key: 'loadPlan.gravity.mixedExposure' }));
   });
 
   it('by width, the beam under the low one keeps its load', () => {

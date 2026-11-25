@@ -136,7 +136,7 @@ const MIN_COVER_RISE = 0.05;
 const BEAM_SLOPE_LIMIT = 0.5;
 type ShellCarrier = {
   id: number; poly: Polygon[number]; pts: Array<[number, number, number]>;
-  nodes: number[]; pitched: boolean; plane?: ShellPlane; height: ShellPlane; high: number;
+  nodes: number[]; pitched: boolean; plane?: ShellPlane; height: ShellPlane; low: number; high: number;
 };
 const levelIndex = (z: number) => Math.round(z / TOL);
 const levelKey = (z: number) => levelIndex(z) * TOL;
@@ -200,7 +200,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     const low = Math.min(...zs), high = Math.max(...zs);
     const pitched = high - low > TOL;
     const height: ShellPlane = plane ?? (low === high ? () => low : ([x, y]) => heightIn(xyz, [x, y, 0]));
-    const carrier = { id: q.id, poly, pts: xyz, nodes: q.nodes, plane, pitched, height, high };
+    const carrier = { id: q.id, poly, pts: xyz, nodes: q.nodes, plane, pitched, height, low, high };
     if (plan > 0) coverShells.push(carrier);
     const surface = surfaceArea(xyz);
     const cos = surface > 0 ? plan / surface : 0;
@@ -404,7 +404,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     flatAt.set(z, beams.filter(b => opts.mode === 'width' || (!loaded.has(b.id) && !inShell(b))));
   }
   for (const z of [...beamsAt.keys()].sort((a, b) => b - a)) {
-    for (const { panel, footprint } of deck ? levels.get(z)?.owned ?? [] : []) {
+    for (const { panel, footprint, geometry } of deck ? levels.get(z)?.owned ?? [] : []) {
       const why = deckReasons.get(panel);
       if (why === 'wide') continue;
       if (why === 'lowHeadroom') {
@@ -415,7 +415,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
             subtractFootprints([hole], [[outline!]]).length === 0 && subtractFootprints([outline!], [[hole]]).length === 0);
           if (match) unassigned.push(...match.footprint);
         }
-        const kept = deck!.uncarried(unionFootprints(unassigned), z, held);
+        const kept = deck!.uncarried(unionFootprints(unassigned), z, held, geometry);
         if (!kept.length) { dropped.add(panel); continue; }
         fringeKept.set(panel, kept);
         held.regions.push({ region: kept, z });
@@ -931,7 +931,7 @@ function notADeck(
   shellsLoaded: boolean,
 ): {
   why: (poly: Array<[number, number]>, z: number, zTop?: number) => 'lowHeadroom' | 'wide' | 'headroomUnclear' | null;
-  uncarried: (footprint: Region, z: number, held: Held) => Region;
+  uncarried: (footprint: Region, z: number, held: Held, geometry?: Deck) => Region;
 } {
   const headroomMembers = new Map<number, Segment>();
   const roofStatus = new Map<number, boolean>();
@@ -989,23 +989,38 @@ function notADeck(
     }
     return h;
   };
-  const uncarried = (footprint: Region, z: number, held: Held): Region => {
+  const uncarried = (footprint: Region, z: number, held: Held, geometry?: Deck): Region => {
     const low = (dz: number) => dz > TOL && dz < MIN_STOREY_HEADROOM;
     const cover: Polygon[] = held.regions.filter(k => low(k.z - z)).flatMap(k => k.region);
-    if (shellsLoaded) for (const c of carriers) if (c.pts.every(p => low(p[2] - z))) cover.push([c.poly]);
     for (const [a, b] of held.members) {
       const range = lowRange(a[2] - z, b[2] - z, TOL, MIN_STOREY_HEADROOM);
       if (!range || Math.hypot(b[0] - a[0], b[1] - a[1]) * (range[1] - range[0]) <= 1e-9) continue;
       cover.push([widthFootprint([a, b], range, tributaryWidth)]);
     }
-    if (!cover.length) return footprint;
-    return footprint.flatMap(polygon => {
+    const retained = cover.length ? footprint.flatMap(polygon => {
       const [x, y] = polygon[0]![0]!;
       const local = (p: Polygon) => shift([p], -x, -y)[0]!;
       const source = local(polygon), obstructions = cover.map(local);
       const total = footprintArea([polygon]);
       const kept = trimFootprint(source, obstructions, total);
       return shift(kept, x, y);
+    }) : footprint;
+    if (!shellsLoaded) return retained;
+    const level = [z, z] as const;
+    const lower = geometry ?? { range: level, heights: () => level };
+    const overhead = carriers.filter(shell => shell.high - lower.range[0] > TOL
+      && shell.low - lower.range[1] < MIN_STOREY_HEADROOM);
+    if (!overhead.length) return retained;
+    return retained.flatMap(polygon => {
+      const cover = unionFootprints(overhead.flatMap(shell => shellHeadroomCover(polygon, shell, lower)));
+      if (!cover.length) return [polygon];
+      const remainder = subtractFootprints(polygon, cover);
+      const originalArea = footprintArea([polygon]);
+      const coveredArea = footprintArea(cover);
+      if (!(coveredArea > 0) || !agrees(footprintArea(remainder) + coveredArea, originalArea, originalArea)) {
+        refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
+      }
+      return remainder;
     });
   };
   const headroom = (poly: Array<[number, number]>, z: number, zTop: number): 'lowHeadroom' | 'headroomUnclear' | null => {
@@ -1132,6 +1147,48 @@ function trimFootprint(source: Polygon, cover: Polygon[], total: number): Region
     if (remainder.length) throw error;
     return remainder;
   }
+}
+
+function shellHeadroomCover(source: Polygon, shell: ShellCarrier, lower: Pick<Deck, 'range' | 'heights'>): Region {
+  return footprintIntersection(source, [shell.poly]).flatMap(part => {
+    const clearance = (point: PlanPoint) => {
+      const z = shell.plane?.(point);
+      const [bottom, top] = lower.heights(point);
+      if (z === undefined || ![z - top, z - bottom].every(Number.isFinite)) {
+        refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
+      }
+      return [z - top, z - bottom] as const;
+    };
+    const ranges = part.flat().map(clearance);
+    if (ranges.every(([, high]) => high <= TOL) || ranges.every(([low]) => low >= MIN_STOREY_HEADROOM)) return [];
+    if (ranges.every(([low, high]) => low > TOL && high < MIN_STOREY_HEADROOM)) return [part];
+    if (ranges.some(([low, high]) => low !== high)) refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
+    if (ranges.every(([low]) => low >= TOL && low <= MIN_STOREY_HEADROOM)) return [part];
+
+    const height = (point: PlanPoint) => clearance(point)[0];
+    const { left, right, bottom, top } = footprintBounds(part[0]!);
+    const bounds: PlanPoint[] = [[left, bottom], [right, bottom], [right, top], [left, top]];
+    const above = clipClearance(bounds, point => height(point) - TOL);
+    const band = clipClearance(above, point => MIN_STOREY_HEADROOM - height(point));
+    const covered = band.length >= 3 ? footprintIntersection(part, [band]) : [];
+    if (!covered.length) refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
+    return covered;
+  });
+}
+
+function clipClearance(ring: PlanPoint[], margin: (point: PlanPoint) => number): PlanPoint[] {
+  const heights = ring.map(margin);
+  return ring.flatMap((a, i) => {
+    const j = (i + 1) % ring.length;
+    const b = ring[j]!;
+    const ha = heights[i]!, hb = heights[j]!;
+    const points = ha >= 0 ? [a] : [];
+    if ((ha < 0 && hb > 0) || (ha > 0 && hb < 0)) {
+      const t = ha / (ha - hb);
+      points.push([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])]);
+    }
+    return points;
+  });
 }
 
 /** Where along [0, 1] a height above the level, linear from `d0` to `d1`, lies strictly between `lo` and `hi`. */
@@ -1628,8 +1685,7 @@ function coverage(
     for (const shell of shells) {
       if (shell.high > deck.range[0] + MIN_COVER_RISE) checkOverlap([shell.poly], shell.height);
     }
-    const checkPanelFootprints = cover.length > 0 || mixedRise || footprint.some(poly => poly.length > 1);
-    if (checkPanelFootprints) for (const [above, panels] of panelsAt) {
+    for (const [above, panels] of panelsAt) {
       if (above > deck.range[0] + MIN_COVER_RISE) for (const panel of panels) checkOverlap(panel, () => above);
     }
     if (cover.length || mixedRise) {
@@ -1638,7 +1694,7 @@ function coverage(
     }
     const center = pointQuery(centroid(polygon));
     return footprint.some(part => footprintContains(center, part))
-      && coveredWithin(center, z, Infinity, undefined, undefined, uniformPressure || !checkPanelFootprints);
+      && coveredWithin(center, z, Infinity, undefined, undefined, uniformPressure);
   };
   return { pointCovered, memberCovered, panelCovered };
 }

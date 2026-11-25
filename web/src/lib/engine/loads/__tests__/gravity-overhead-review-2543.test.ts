@@ -8,7 +8,6 @@ import { snowDriftRefusal } from '../snow-drift-loads';
 import { input } from './gravity-width-mass-fixture';
 import { snow } from './snow-roof-plane-fixture';
 
-const review = process.env.RUN_KNOWN_WRONG === '2543' ? it : it.skip;
 const mixed = 'loadPlan.gravity.mixedExposure';
 const roof = { use: 'maintenance', weight: 'heavy', dead: 2, slopeDeg: 0 } as const;
 const panels = { mode: 'panels' } as const;
@@ -76,7 +75,7 @@ function deadAt(result: ReturnType<typeof plan>, elevation: number) {
   return result.levels.find(level => level.elevation === elevation)?.superimposedKN;
 }
 
-review('known wrong result: #2543 review refuses partial upper beam bay exposure before assigning roof actions', () => {
+it('#2543 review refuses partial upper beam bay exposure before assigning roof actions', () => {
   for (const gravity of [everyPanel, panels]) {
     for (const model of [stackedBays(), stackedBays(7, 10)]) {
       expectMixed(plan(model, { gravity, roof }));
@@ -84,14 +83,14 @@ review('known wrong result: #2543 review refuses partial upper beam bay exposure
   }
 });
 
-review('known wrong result: #2543 review refuses partial upper beam bay exposure for snow and roof weight', () => {
+it('#2543 review refuses partial upper beam bay exposure for snow and roof weight', () => {
   const model = stackedBays();
   expect.soft(() => roofWeightFor(model, everyPanel, 3, roof.dead)).toThrow(expect.objectContaining({ key: mixed }));
   expect.soft(() => snowDriftRefusal(model)).toThrow(expect.objectContaining({ key: mixed }));
   expectMixed(plan(model, { gravity: everyPanel, snow: enabledSnow }));
 });
 
-review('known wrong result: #2543 review blocks applying mixed actions to a restored beam model', () => {
+it('#2543 review blocks applying mixed actions to a restored beam model', () => {
   const model = stackedBays();
   modelStore.clear();
   try {
@@ -124,7 +123,7 @@ it('#2543 review accepts complete cover and edge contact for roof classification
   }
 });
 
-review('known wrong result: #2543 review trims a lower bay covered at low clearance under a pitched overhang', () => {
+it('#2543 review trims a lower bay covered at low clearance under a pitched overhang', () => {
   const model = pitchedCover(rectangle(0, 10), 10.5);
   const layout = gravityLayout(model, { ...panels, tributaryWidth: 3 });
   expect.soft(layout.panels.some(panel => panel.z === 3)).toBe(false);
@@ -132,12 +131,12 @@ review('known wrong result: #2543 review trims a lower bay covered at low cleara
   expect(deadAt(plan(model), 3)).toBe(0);
 });
 
-review('known wrong result: #2543 review clips the retained bay where local clearance crosses the headroom limit', () => {
+it('#2543 review clips the retained bay where local clearance crosses the headroom limit', () => {
   const model = pitchedCover([[0, 0], [10, 3], [0, 6]], 9);
   expect(deadAt(plan(model), 3)).toBeCloseTo(0.5 * 1 * 0.6, 10);
 });
 
-review('known wrong result: #2543 review clips a bare-member fringe at the same shell clearance limit', () => {
+it('#2543 review clips a bare-member fringe at the same shell clearance limit', () => {
   const model = pitchedCover([[0, 3], [10, 3]], 9);
   const layout = gravityLayout(model, { ...panels, tributaryWidth: 3 });
   const member = layout.widthMembers.find(member => member.elementId === 1)!;
