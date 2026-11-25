@@ -456,6 +456,38 @@ enum FactorizedKff {
     SparseCholesky(NumericCholesky),
 }
 
+struct PrescribedMotion(Vec<f64>);
+
+impl PrescribedMotion {
+    fn action_if_nonzero(&self, rows: usize, multiply: impl FnOnce() -> Vec<f64>) -> Vec<f64> {
+        if self.0.iter().all(|&value| value == 0.0) {
+            vec![0.0; rows]
+        } else {
+            multiply()
+        }
+    }
+
+    fn dense_action(&self, stiffness: &[f64], rows: usize) -> Vec<f64> {
+        mat_vec_rect(stiffness, &self.0, rows, self.0.len())
+    }
+
+    fn fully_restrained_action(&self, stiffness: &[f64]) -> Vec<f64> {
+        let n = self.0.len();
+        self.action_if_nonzero(n, || self.dense_action(stiffness, n))
+    }
+
+    fn sparse_free_action(&self, stiffness: &CscMatrix, nf: usize) -> Vec<f64> {
+        self.action_if_nonzero(nf, || stiffness.sparse_cross_block_matvec(&self.0, nf))
+    }
+
+    fn complete(&self, free: &[f64]) -> Vec<f64> {
+        let mut displacement = Vec::with_capacity(free.len() + self.0.len());
+        displacement.extend_from_slice(free);
+        displacement.extend_from_slice(&self.0);
+        displacement
+    }
+}
+
 /// 2D static analysis prepared for multiple right-hand sides: DOF numbering,
 /// assembled stiffness (inclined transforms applied), K_ff factorization, and
 /// the prescribed-displacement coupling terms — everything that depends only on
@@ -467,10 +499,9 @@ pub struct PreparedStatic2D<'a> {
     properties: ElasticProperties2D,
     input: Cow<'a, SolverInput>,
     dof_num: DofNumbering,
-    n: usize,
     nf: usize,
     nr: usize,
-    u_r: Vec<f64>,
+    u_r: PrescribedMotion,
     pre_solve_diags: Vec<StructuredDiagnostic>,
     stability: super::stability::Stability,
     inclined_transforms_2d: Vec<InclinedTransformData2D>,
@@ -480,7 +511,6 @@ pub struct PreparedStatic2D<'a> {
 enum PreparedPath2D {
     /// All DOFs restrained: no system to solve; reactions = K·u_r − F.
     FullyRestrained {
-        /// K · u_full (u_full = u_r); zero vector when u_r ≈ 0.
         ku_full: Vec<f64>,
     },
     Solve(Box<PreparedSolve2D>),
@@ -627,24 +657,12 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
 
     // Build prescribed displacement vector u_r for restrained DOFs
     let nr = n - nf;
-    let u_r = prescribed_displacements_2d(input, &dof_num);
+    let u_r = PrescribedMotion(prescribed_displacements_2d(input, &dof_num));
 
     // Fully restrained: all DOFs are restrained, no solve needed.
     if nf == 0 {
         let stiff = assemble_stiffness_2d_typed(input, &dof_num, &properties);
-        let u_full = u_r.clone();
-        // K · u_full via dense matvec (needed for reactions: R = K·u_r − F)
-        let ku_full = if u_r.iter().any(|v| v.abs() > 1e-15) {
-            let mut ku = vec![0.0; n];
-            for i in 0..n {
-                for j in 0..n {
-                    ku[i] += stiff.k[i * n + j] * u_full[j];
-                }
-            }
-            ku
-        } else {
-            vec![0.0; n]
-        };
+        let ku_full = u_r.fully_restrained_action(&stiff.k);
 
         return Ok(PreparedStatic2D {
             rotation_demand: crate::known_issues::RotationDemand2D::new(input),
@@ -652,7 +670,6 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
             properties,
             input: Cow::Borrowed(input),
             dof_num,
-            n,
             nf,
             nr,
             u_r,
@@ -672,12 +689,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
         let solver_opts = resolve_solver_options(&input.solver_options, nf, &mut pcg_diags_base);
         let use_pcg = solver_opts.method == SolverMethod::Pcg
             || (solver_opts.method == SolverMethod::Auto && nf >= ITERATIVE_THRESHOLD);
-        let has_prescribed = u_r.iter().any(|v| v.abs() > 1e-15);
-        let kfr_ur = if has_prescribed {
-            stiff.k_full.sparse_cross_block_matvec(&u_r, nf)
-        } else {
-            vec![0.0; nf]
-        };
+        let kfr_ur = u_r.sparse_free_action(&stiff.k_full, nf);
         if use_pcg {
             return Ok(PreparedStatic2D {
                 rotation_demand: crate::known_issues::RotationDemand2D::new(input),
@@ -685,7 +697,6 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
                 properties,
                 input: Cow::Borrowed(input),
                 dof_num,
-                n,
                 nf,
                 nr,
                 u_r,
@@ -711,7 +722,6 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
             properties,
             input: Cow::Borrowed(input),
             dof_num,
-            n,
             nf,
             nr,
             u_r,
@@ -733,10 +743,10 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
     let rest_idx: Vec<usize> = (nf..n).collect();
     let mut k_ff = extract_submatrix(&stiff.k, n, &free_idx, &free_idx);
     let k_fr = extract_submatrix(&stiff.k, n, &free_idx, &rest_idx);
-    let k_fr_ur = mat_vec_rect(&k_fr, &u_r, nf, nr);
+    let k_fr_ur = u_r.dense_action(&k_fr, nf);
     let k_rf = extract_submatrix(&stiff.k, n, &rest_idx, &free_idx);
     let k_rr = extract_submatrix(&stiff.k, n, &rest_idx, &rest_idx);
-    let k_rr_ur = mat_vec_rect(&k_rr, &u_r, nr, nr);
+    let k_rr_ur = u_r.dense_action(&k_rr, nr);
 
     let (pinned, stability) = super::stability::prepare_free_stiffness(&CscMatrix::from_dense_symmetric_exact(&k_ff, nf), &dof_num, true, None, &super::stability::coupling_2d(input, &dof_num), &super::stability::ReleasedRotations::default())?;
     k_ff = pinned.to_dense_symmetric();
@@ -757,7 +767,6 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
         properties,
         input: Cow::Borrowed(input),
         dof_num,
-        n,
         nf,
         nr,
         u_r,
@@ -791,7 +800,6 @@ impl PreparedStatic2D<'_> {
             properties: self.properties,
             input: Cow::Owned(self.input.into_owned()),
             dof_num: self.dof_num,
-            n: self.n,
             nf: self.nf,
             nr: self.nr,
             u_r: self.u_r,
@@ -874,7 +882,7 @@ impl PreparedStatic2D<'_> {
 
         let input = &*self.input;
         let dof_num = &self.dof_num;
-        let (n, nf, nr) = (self.n, self.nf, self.nr);
+        let (nf, nr) = (self.nf, self.nr);
         let f = assemble_load_vector_2d(input, loads, dof_num, &self.inclined_transforms_2d);
         let load_rounding = if self.stability.free_rotations().next().is_some() {
             super::load_work::assembly_rounding_2d(input,loads,dof_num,&self.inclined_transforms_2d)
@@ -885,7 +893,7 @@ impl PreparedStatic2D<'_> {
 
         match &self.path {
             PreparedPath2D::FullyRestrained { ku_full } => {
-                let mut u_full = self.u_r.clone(); // nf==0, restrained DOFs start at index 0
+                let mut u_full = self.u_r.complete(&[]);
 
                 // Reactions = K · u_r − F  (all DOFs are restrained, so K_rr = K, F_r = F)
                 let f_r: Vec<f64> = f.clone();
@@ -958,13 +966,7 @@ impl PreparedStatic2D<'_> {
                 })?;
 
                 // Build full displacement vector
-                let mut u_full = vec![0.0; n];
-                for i in 0..nf {
-                    u_full[i] = u_f[i];
-                }
-                for i in 0..nr {
-                    u_full[nf + i] = self.u_r[i];
-                }
+                let mut u_full = self.u_r.complete(&u_f);
 
                 // NaN/Inf guard: numerical blow-up means singular matrix
                 let has_nan_inf = u_f.iter().any(|v| v.is_nan() || v.is_infinite());
@@ -1132,9 +1134,7 @@ impl PreparedStatic2D<'_> {
                 self.stability.check_pins_with_rounding(&u_f, &f[..nf], &p.kfr_ur, &load_rounding)?;
 
                 // Build full displacement vector
-                let mut u_full = vec![0.0; n];
-                u_full[..nf].copy_from_slice(&u_f[..nf]);
-                u_full[nf..(nr + nf)].copy_from_slice(&self.u_r[..nr]);
+                let mut u_full = self.u_r.complete(&u_f);
 
                 // Reactions via full-K sym_mat_vec: R[i] = (K·u)[i] − F[i] for restrained DOFs
                 let ku = p.k_full.sym_mat_vec(&u_full);
@@ -1289,9 +1289,7 @@ impl PreparedStatic2D<'_> {
                 self.stability.check_pins_with_rounding(&u_f, &f[..nf], &p.kfr_ur, &load_rounding)?;
 
                 // Build full displacement vector
-                let mut u_full = vec![0.0; n];
-                u_full[..nf].copy_from_slice(&u_f[..nf]);
-                u_full[nf..(nr + nf)].copy_from_slice(&self.u_r[..nr]);
+                let mut u_full = self.u_r.complete(&u_f);
 
                 // Reactions via full-K sym_mat_vec: R[i] = (K·u)[i] − F[i] for restrained DOFs
                 let ku = p.k_full.sym_mat_vec(&u_full);
@@ -1556,12 +1554,11 @@ pub struct PreparedStatic3D {
     /// Curved-beam-expanded input (loads field unused by `solve_loads`).
     input: SolverInput3D,
     dof_num: DofNumbering,
-    n: usize,
     nf: usize,
     nr: usize,
     n_elements: usize,
     n_nodes: usize,
-    u_r: Vec<f64>,
+    u_r: PrescribedMotion,
     pre_solve_diags: Vec<StructuredDiagnostic>,
     stability: super::stability::Stability,
     path: PreparedPath3D,
@@ -1578,7 +1575,6 @@ enum PreparedPath3D {
 }
 
 struct FullyRestrained3D {
-    /// K · u_full (u_full = u_r); zero vector when u_r ≈ 0.
     ku_full: Vec<f64>,
     diagnostics: Vec<AssemblyDiagnostic>,
     inclined_transforms: Vec<InclinedTransformData>,
@@ -1754,31 +1750,17 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
     let nr = n - nf;
 
     // Build prescribed displacement vector u_r for restrained DOFs
-    let u_r = prescribed_displacements_3d(&input, &dof_num);
+    let u_r = PrescribedMotion(prescribed_displacements_3d(&input, &dof_num));
 
     // Fully restrained: all DOFs are restrained, no solve needed.
     if nf == 0 {
         let stiff = assemble_stiffness_3d(&input, &dof_num);
-        let u_full = u_r.clone();
-
-        // K · u_full via dense matvec (needed for reactions: R = K·u_r − F)
-        let ku_full = if u_r.iter().any(|v| v.abs() > 1e-15) {
-            let mut ku = vec![0.0; n];
-            for i in 0..n {
-                for j in 0..n {
-                    ku[i] += stiff.k[i * n + j] * u_full[j];
-                }
-            }
-            ku
-        } else {
-            vec![0.0; n]
-        };
+        let ku_full = u_r.fully_restrained_action(&stiff.k);
 
         return Ok(PreparedStatic3D {
             membrane_guard: crate::known_issues::MembraneBendingGuard::for_analysis(&input, analysis),
             input,
             dof_num,
-            n,
             nf,
             nr,
             n_elements,
@@ -1812,19 +1794,13 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
         let solver_opts = resolve_solver_options(&input.solver_options, nf, &mut solver_diags_base);
         let use_pcg = solver_opts.method == SolverMethod::Pcg
             || (solver_opts.method == SolverMethod::Auto && nf >= ITERATIVE_THRESHOLD);
-        let has_prescribed = u_r.iter().any(|v| v.abs() > 1e-15);
-        let kfr_ur = if has_prescribed {
-            stiff.k_full.as_ref().unwrap().sparse_cross_block_matvec(&u_r, nf)
-        } else {
-            vec![0.0; nf]
-        };
+        let kfr_ur = u_r.sparse_free_action(stiff.k_full.as_ref().unwrap(), nf);
         let nnz_kff = stiff.k_ff.col_ptr[nf];
         if use_pcg {
             return Ok(PreparedStatic3D {
                 membrane_guard: crate::known_issues::MembraneBendingGuard::for_analysis(&input, analysis),
                 input,
                 dof_num,
-                n,
                 nf,
                 nr,
                 n_elements,
@@ -1861,7 +1837,6 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
             membrane_guard: crate::known_issues::MembraneBendingGuard::for_analysis(&input, analysis),
             input,
             dof_num,
-            n,
             nf,
             nr,
             n_elements,
@@ -1898,10 +1873,10 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
         pre_solve_diags.extend(conditioning.structured_diagnostics());
 
         let k_fr = extract_submatrix(&stiff.k, n, &free_idx, &rest_idx);
-        let k_fr_ur = mat_vec_rect(&k_fr, &u_r, nf, nr);
+        let k_fr_ur = u_r.dense_action(&k_fr, nf);
         let k_rf = extract_submatrix(&stiff.k, n, &rest_idx, &free_idx);
         let k_rr = extract_submatrix(&stiff.k, n, &rest_idx, &rest_idx);
-        let k_rr_ur = mat_vec_rect(&k_rr, &u_r, nr, nr);
+        let k_rr_ur = u_r.dense_action(&k_rr, nr);
 
         let mut factor = k_ff.clone();
         if !cholesky_decompose(&mut factor, nf) { return Err(not_positive_definite()); }
@@ -1910,7 +1885,6 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
             membrane_guard: crate::known_issues::MembraneBendingGuard::for_analysis(&input, analysis),
             input,
             dof_num,
-            n,
             nf,
             nr,
             n_elements,
@@ -2031,7 +2005,7 @@ impl PreparedStatic3D {
         let nf = self.nf;
         let nr = self.nr;
         let f = assemble_load_vector_3d_dense(input, loads, dof_num, &p.inclined_transforms);
-        let u_full = self.u_r.clone();
+        let u_full = self.u_r.complete(&[]);
 
         // Reactions = K · u_r − F  (all DOFs restrained)
         let f_r: Vec<f64> = f.clone();
@@ -2089,7 +2063,7 @@ impl PreparedStatic3D {
     ) -> Result<AnalysisResults3D, String> {
         let input = &self.input;
         let dof_num = &self.dof_num;
-        let (n, nf, nr) = (self.n, self.nf, self.nr);
+        let (nf, nr) = (self.nf, self.nr);
 
         let f = assemble_load_vector_3d_dense(input, loads, dof_num, &p.inclined_transforms);
         let load_rounding = if self.stability.free_rotations().next().is_some() { super::load_work::assembly_rounding_3d(input,loads,dof_num,&p.inclined_transforms) } else { Vec::new() };
@@ -2134,9 +2108,7 @@ impl PreparedStatic3D {
             res2.sqrt() / f2.sqrt().max(1e-30)
         };
 
-        let mut u_full = vec![0.0; n];
-        for i in 0..nf { u_full[i] = u_f[i]; }
-        for i in 0..nr { u_full[nf + i] = self.u_r[i]; }
+        let mut u_full = self.u_r.complete(&u_f);
 
         // Compute reactions: R = K_rf · u_f + K_rr · u_r − F_r
         let f_r: Vec<f64> = f[nf..].to_vec();
@@ -2267,7 +2239,7 @@ impl PreparedStatic3D {
         let t_total = now_micros();
         let input = &self.input;
         let dof_num = &self.dof_num;
-        let (n, nf, nr) = (self.n, self.nf, self.nr);
+        let (nf, nr) = (self.nf, self.nr);
 
         // Rebuild only the load vector for this case
         let f = super::sparse_assembly::assemble_load_vector_sparse_3d(input, loads, dof_num, &p.inclined_transforms);
@@ -2329,9 +2301,7 @@ impl PreparedStatic3D {
         self.stability.check_pins_with_rounding(&u_f, &f[..nf], &p.kfr_ur, &load_rounding)?;
 
         // Build full displacement vector
-        let mut u_full = vec![0.0; n];
-        u_full[..nf].copy_from_slice(&u_f);
-        for i in 0..nr { u_full[nf + i] = self.u_r[i]; }
+        let mut u_full = self.u_r.complete(&u_f);
 
         // Reactions via full-K sym_mat_vec: R[i] = (K·u)[i] − F[i] for restrained DOFs
         let t0 = now_micros();
@@ -2529,7 +2499,7 @@ impl PreparedStatic3D {
         let t_total = now_micros();
         let input = &self.input;
         let dof_num = &self.dof_num;
-        let (n, nf, nr) = (self.n, self.nf, self.nr);
+        let (nf, nr) = (self.nf, self.nr);
 
         // Rebuild only the load vector for this case
         let f = super::sparse_assembly::assemble_load_vector_sparse_3d(input, loads, dof_num, &p.inclined_transforms);
@@ -2638,9 +2608,7 @@ impl PreparedStatic3D {
         self.stability.check_pins_with_rounding(&u_f, &f[..nf], &p.kfr_ur, &load_rounding)?;
 
         // Build full displacement vector
-        let mut u_full = vec![0.0; n];
-        u_full[..nf].copy_from_slice(&u_f);
-        for i in 0..nr { u_full[nf + i] = self.u_r[i]; }
+        let mut u_full = self.u_r.complete(&u_f);
 
         // Reactions via full-K sym_mat_vec: R[i] = (K·u)[i] − F[i] for restrained DOFs
         let t0 = now_micros();

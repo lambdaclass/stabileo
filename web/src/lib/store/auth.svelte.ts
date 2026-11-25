@@ -135,6 +135,7 @@ export const authStore = {
   get showAccountEntry() { return accounts() && (userLoginEnabled || account !== null); },
   get cloudProjectsEnabled() { return serverConfig?.cloud_projects_enabled === true; },
   get saveRequiresAccount() { return userLoginEnabled && serverConfig?.google_login === true && serverConfig?.save_requires_account === true; },
+  get editorRequiresAccount() { return userLoginEnabled && serverConfig?.google_login === true && serverConfig?.editor_requires_account === true; },
   get usageTelemetryEnabled() { return serverConfig?.usage_telemetry_enabled === true; },
   get termsVersion() { return serverConfig?.terms_version ?? null; },
   get googleLogin() { return serverConfig?.google_login === true; },

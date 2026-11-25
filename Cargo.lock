@@ -386,6 +386,8 @@ dependencies = [
  "ciborium",
  "console_error_panic_hook",
  "criterion",
+ "getrandom 0.2.17",
+ "getrandom 0.4.2",
  "num-bigint",
  "num-integer",
  "num-rational",

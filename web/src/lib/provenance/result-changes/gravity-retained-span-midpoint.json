@@ -1,0 +1,38 @@
+{
+  "id": "gravity-retained-span-midpoint",
+  "date": "2026-11-25",
+  "prs": [2543, 2563],
+  "area": "loads",
+  "when": {
+    "allOf": [
+      ["generatedLoads"],
+      ["generatedPanelGravity", "generatedWidthGravity", "generatedWindLoads", "snow"]
+    ]
+  },
+  "quantities": ["*", "solve.ok"],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Check retained deck spans and physical member midpoints",
+    "es": "Comprobar las luces de los paños restantes y los puntos medios reales de las barras",
+    "pt": "Verificar os vãos dos painéis restantes e os pontos médios reais das barras",
+    "de": "Spannweiten verbleibender Deckenflächen und tatsächliche Stabmittelpunkte prüfen",
+    "fr": "Vérifier les portées des surfaces restantes et les milieux réels des barres",
+    "tr": "Kalan döşeme açıklıklarını ve çubukların gerçek orta noktalarını denetle",
+    "zh": "检查保留板区的跨度和杆件的实际中点",
+    "hu": "A megmaradt födémrészek fesztávjának és a rudak tényleges felezőpontjának ellenőrzése"
+  },
+  "explanation": {
+    "en": "Automatic panel generation refuses a retained bay footprint that exceeds the deck span limit after headroom trimming. Member exposure uses the actual elevation at the midpoint. Regenerate affected gravity, roof wind and snow loads, then rerun analyses and combinations.",
+    "es": "La generación automática por paños se bloquea si un área restante supera la luz máxima tras el recorte por altura libre. La exposición de las barras se evalúa a la cota real de su punto medio. Regenerá las cargas gravitatorias, de viento sobre cubierta y de nieve afectadas y repetí los análisis y las combinaciones.",
+    "pt": "A geração automática por painéis é bloqueada se uma área restante exceder o vão máximo após o recorte por altura livre. A exposição das barras é avaliada na cota real do ponto médio. Gere novamente as cargas gravitacionais, de vento na cobertura e de neve afetadas e refaça as análises e combinações.",
+    "de": "Die automatische Flächenlastgenerierung wird abgelehnt, wenn eine nach der Prüfung der lichten Höhe verbleibende Deckenfläche die maximale Spannweite überschreitet. Die Exposition eines Stabs wird in der tatsächlichen Höhe seines Mittelpunkts bestimmt. Erzeugen Sie betroffene Schwerkraft-, Dachwind- und Schneelasten neu und wiederholen Sie Analysen und Kombinationen.",
+    "fr": "La génération automatique par panneaux est bloquée si une surface restante dépasse la portée maximale après découpage selon la hauteur libre. L’exposition des barres est évaluée à l’altitude réelle de leur milieu. Régénérez les charges gravitaires, de vent en toiture et de neige concernées, puis relancez les analyses et les combinaisons.",
+    "tr": "Net yükseklik kırpmasından sonra kalan bir döşeme alanı açıklık sınırını aşarsa otomatik panel yükü üretimi reddedilir. Çubukların örtülü olup olmadığı orta noktalarının gerçek kotunda belirlenir. Etkilenen yerçekimi, çatı rüzgârı ve kar yüklerini yeniden üretip analizleri ve birleşimleri tekrarlayın.",
+    "zh": "按净高剪裁后，若保留板区超过板跨上限，系统将拒绝自动生成板区荷载。杆件是否被覆盖按其中点的实际标高判定。请重新生成受影响的重力、屋面风和雪荷载，并重新运行分析和组合计算。",
+    "hu": "Az automatikus panelteher-generálás leáll, ha a szabad magasság szerinti levágás után megmaradt födémrész túllépi a fesztávhatárt. A rudak fedettségét a felezőpont tényleges magasságán értékeli. Generálja újra az érintett gravitációs, tetőszél- és hóterheket, majd ismételje meg az elemzéseket és a kombinációkat."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-retained-span-midpoint.md",
+    "heading": "Check retained deck spans and physical member midpoints"
+  }
+}

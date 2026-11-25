@@ -26,6 +26,7 @@
  * Pure: no store.
  */
 
+import { canonicalizeModelAliases, ModelAliasConflict } from '../canonical-aliases';
 import type { ModelSnapshot } from '../../store/history.svelte';
 import { COVERED_FIELDS, DERIVED_SUBFIELDS } from './coverage';
 import { globalAxes } from '../../features';
@@ -307,7 +308,6 @@ export function codeToModel(text: string): ParseResult {
         if (id === null || i === null || j === null) return;
         s.elements.push([id, {
           id, type, nodeI: i, nodeJ: j,
-          releaseI: { my: false, mz: false, t: false }, releaseJ: { my: false, mz: false, t: false },
           ...fields,
         }]);
         return;
@@ -432,5 +432,11 @@ export function codeToModel(text: string): ParseResult {
     soilProfile: Math.max(0, ...((s.geotechnical as { profiles?: Array<{ id: number }> } | undefined)?.profiles ?? []).map((p) => p.id)) + 1,
   };
   for (const k of Object.keys(s)) if (!COVERED_FIELDS.includes(k as never) && k !== 'nextId') delete s[k];
-  return { snapshot: (globalAxes() ? transformSnapshot(s, declared ?? DEFAULT_AXES, 'toModel') : s) as Partial<ModelSnapshot>, errors: [] };
+  try {
+    const canonical = canonicalizeModelAliases(s);
+    return { snapshot: (globalAxes() ? transformSnapshot(canonical, declared ?? DEFAULT_AXES, 'toModel') : canonical) as Partial<ModelSnapshot>, errors: [] };
+  } catch (error) {
+    if (!(error instanceof ModelAliasConflict)) throw error;
+    return { snapshot: null, errors: [{ line: lineOf.get(`${error.family}:${error.id}`) ?? 0, message: error.message }] };
+  }
 }

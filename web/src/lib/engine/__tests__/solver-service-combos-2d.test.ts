@@ -26,7 +26,7 @@ function beamModel(): ModelData {
     elements: new Map([
       [1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 } as any],
     ]),
-    materials: new Map([[1, { id: 1, e: 200_000_000, nu: 0.3 } as any]]),
+    materials: new Map([[1, { id: 1, e: 200_000_000, nu: 0.3, rho: 0 } as any]]),
     sections: new Map([[1, { id: 1, a: 0.01, iz: 1e-4 } as any]]),
     supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' } as any]]),
     loads: [

@@ -6,6 +6,7 @@
  * consume the same JSON files, eliminating mock divergence.
  */
 
+import { canonicalizeModelAliases } from '../model/canonical-aliases';
 import { generateCombinations } from '../codes/cirsoc101/combinations';
 import { withOrigin } from '../codes/families';
 import { CIRSOC101_BASIS } from '../codes/families/cirsoc';
@@ -116,8 +117,9 @@ interface FixtureLoadOptions {
  * materials → sections → nodes → elements → supports → loads → shells → constraints
  */
 export function loadFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOptions = {}): void {
-  validateFixtureSupportFrames(json);
-  const load = () => replayFixture(json, api, opts);
+  const canonical = canonicalizeModelAliases(json);
+  validateFixtureSupportFrames(canonical);
+  const load = () => replayFixture(canonical, api, opts);
   if (api.replay) api.replay(load);
   else load();
 }
@@ -222,12 +224,13 @@ function replayFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOpt
       }
     }
 
-    // Hinges
-    if (e.hingeStart && api.toggleHinge) api.toggleHinge(newId, 'start');
-    if (e.hingeEnd && api.toggleHinge) api.toggleHinge(newId, 'end');
     for (const [end, rel] of [['i', e.releaseI], ['j', e.releaseJ]] as const) {
-      if (!rel || !api.toggleRelease) continue;
-      for (const axis of ['my', 'mz', 't'] as const) if (rel[axis]) api.toggleRelease(newId, end, axis);
+      if (!rel) continue;
+      if (api.toggleRelease) {
+        for (const axis of ['my', 'mz', 't'] as const) if (rel[axis]) api.toggleRelease(newId, end, axis);
+      } else if (rel.mz) {
+        api.toggleHinge?.(newId, end === 'i' ? 'start' : 'end');
+      }
     }
   }
 
