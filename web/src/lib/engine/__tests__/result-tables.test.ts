@@ -408,3 +408,34 @@ it('known wrong result: #2226 summarizes a two-case ABS resultant through the pr
   expect.soft(v?.max?.value).toBe(5);
   expect.soft(envelopeSectionHtml(sources, k => k, 'Envelope').join('')).toContain('V (kN)</td><td class="num">5.000</td>');
 });
+
+const finalReviewReproducer = process.env.RUN_KNOWN_WRONG === '2226' ? it : it.skip;
+
+finalReviewReproducer('known wrong result: #2226 evaluates every combination at each critical station and face', () => {
+  const a = 1.72, peak = 2;
+  const lowForces = {
+    ...reviewForces, length: 3, nStart: -10, nEnd: 10, pointLoadsX: [{ a, p: -20 }],
+    vzStart: 4, vzEnd: -2, distributedLoadsZ: [{ a: 0, b: 3, qI: -2, qJ: -2 }],
+  };
+  const highForces = { ...reviewForces, length: 3, nStart: 100, nEnd: 100, vzStart: 0 };
+  const low = reviewSources(lowForces)[0]!;
+  const high = { ...B, results: reviewSources(highForces)[0]!.results };
+  const stations = (sources: Source[]) => envelopeRows('forces', sources, criticalOptions);
+  for (const sources of [[low, high], [high, low]]) {
+    const rows = stations(sources);
+    expect.soft(rows.filter(row => row.x === a).map(row => [row.side, row.min[0], row.max[0]])).toEqual([
+      ['left', { value: -10, source: low }, { value: 100, source: high }],
+      ['right', { value: 10, source: low }, { value: 100, source: high }],
+    ]);
+    expect.soft(rows.find(row => row.x === peak)?.max[0]).toEqual({ value: 100, source: high });
+    expect.soft(rows.find(row => row.x === 0.75)?.min[0]).toEqual({ value: -10, source: low });
+    expect.soft(rows.find(row => row.x === 3)?.max[0]).toEqual({ value: 100, source: high });
+  }
+  expect.soft(stations([high]).every(row => row.max[0]?.value === 100 && !row.side)).toBe(true);
+
+  const sheets = resultSheets({
+    sources: [low, high].map(source => ({ ...source, kind: 'combination' })), stations: 'critical', statics: null,
+  }, name => name === 'Envelope');
+  const axial = sheets.find(sheet => sheet.name === 'Envelope')!.rows.filter(row => row[3] === a && row[4] === 'N');
+  expect.soft(axial.map(row => [row[6], row[8], row.at(-1)])).toEqual([[100, high.name, '−'], [100, high.name, '+']]);
+});

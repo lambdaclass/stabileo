@@ -615,3 +615,34 @@ it('known wrong result: #2437 keeps a small ramp peak when overlapping triangula
     expect.soft(computeDiagramValueAt3DWasm('shearZ', 0.5, ef)).toBe(peak);
   }
 });
+
+const finalReviewReproducer = process.env.RUN_KNOWN_WRONG === '2226' ? it : it.skip;
+
+finalReviewReproducer('known wrong result: #2226 accepts the transferable moment station of the tubular truss', () => {
+  const span = 1.5620499351813308;
+  const shear = 0.045069352012818566;
+  const q = -0.042665245455608784;
+  const mI = -0.003161256078544587;
+  const moment = 0.020643206654111797;
+  const [plane, space] = cantilevers(span);
+  for (const result of [solve(plane), solvePDelta(plane).results]) {
+    const ef = {
+      ...result.elementForces[0]!, mStart: -mI, vStart: shear, distributedLoads: [{ a: 0, b: span, qI: q, qJ: q }],
+    };
+    const t = computeElementDiagram('moment', ef, 0, 0, span, 0).maxAbsT;
+    expect.soft(() => { expect(computeDiagramValueAt('moment', t, ef)).toBe(-moment); }).not.toThrow();
+    expect.soft(() => { expect(prepareDiagramValueAt('moment', ef)(t)).toBe(-moment); }).not.toThrow();
+    expect.soft(computeDiagramValueAtWasm('moment', t, ef)).toBeCloseTo(-moment, 15);
+  }
+  for (const result of [solve3D(space), solvePDelta3D(space).results]) {
+    const ef = {
+      ...result.elementForces[0]!, myStart: mI, vzStart: shear, distributedLoadsZ: [{ a: 0, b: span, qI: q, qJ: q }],
+    };
+    const diagram = computeDiagram3D(ef, 'momentY');
+    const t = diagram.points.find(p => p.value === diagram.maxAbsValue)!.t;
+    expect.soft(() => criticalDiagramStations3D(ef)).not.toThrow();
+    expect.soft(() => { expect(evaluateDiagramAt(ef, 'momentY', t)).toBe(moment); }).not.toThrow();
+    expect.soft(() => { expect(prepareDiagramEvaluator3D(ef, 'momentY')(t)).toBe(moment); }).not.toThrow();
+    expect.soft(computeDiagramValueAt3DWasm('momentY', t, ef)).toBeCloseTo(moment, 15);
+  }
+});
