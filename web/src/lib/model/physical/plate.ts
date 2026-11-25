@@ -65,7 +65,7 @@ export interface PlateSurface {
    */
   arcMids?: number[];
   /** Set when the current mesh was made: what it was made from, and what it is. */
-  meshed?: { signature: string; meshSignature?: string; cells: number; quality: MeshQuality };
+  meshed?: { signature: string; cells: number; quality: MeshQuality };
 }
 
 export interface MeshQuality {
@@ -302,7 +302,7 @@ export function plateKindOf(geo: Pick<PlateGeometry, 'frame'>): 'slab' | 'wall' 
  * plane inside the plate come back as the point where they cross; nodes of other things on the
  * plate as points.
  */
-export function externalFeatures(m: PlateModel, geo: PlateGeometry, owned: ReadonlySet<number>, loopNodes: ReadonlySet<number>, opts: { mine?: ReadonlySet<number>; neighbours?: ReadonlySet<number>; required?: ReadonlySet<number> } = {}): { points: Vec3[]; meshPoints: Vec3[]; retainedPoints: Vec3[]; requiredNodes: number[]; segments: Array<[Vec3, Vec3]> } {
+export function externalFeatures(m: PlateModel, geo: PlateGeometry, owned: ReadonlySet<number>, loopNodes: ReadonlySet<number>, opts: { mine?: ReadonlySet<number>; neighbours?: ReadonlySet<number> } = {}): { points: Vec3[]; meshPoints: Vec3[]; requiredNodes: number[]; segments: Array<[Vec3, Vec3]> } {
   // Members by node, to walk through the mesh's own nodes.
   const at = new Map<number, number[]>();
   for (const e of m.elements.values()) {
@@ -360,7 +360,6 @@ export function externalFeatures(m: PlateModel, geo: PlateGeometry, owned: Reado
     if (inPlane(p) && insidePlate(geo, p)) { points.push(p); pointNodes.add(id); }
   }
   const meshPoints = [...points];
-  const retainedPoints: Vec3[] = [];
   const requiredNodes = new Set<number>();
   for (const id of opts.neighbours ?? []) {
     if (loopNodes.has(id)) continue;
@@ -374,17 +373,7 @@ export function externalFeatures(m: PlateModel, geo: PlateGeometry, owned: Reado
       if (!opts.mine?.has(id) && !external.has(id)) points.push(p);
     }
   }
-  for (const id of opts.required ?? []) {
-    if (loopNodes.has(id)) continue;
-    const n = m.nodes.get(id);
-    if (!n) continue;
-    const p = v3(n);
-    if (inPlane(p) && insidePlate(geo, p)) {
-      requiredNodes.add(id);
-      if (!pointNodes.has(id)) retainedPoints.push(p);
-    }
-  }
-  return { points, meshPoints, retainedPoints, requiredNodes: [...requiredNodes], segments };
+  return { points, meshPoints, requiredNodes: [...requiredNodes], segments };
 }
 
 /** Whether a point of the plate's plane lies on its outline or a hole's edge (within the plane tolerance). */

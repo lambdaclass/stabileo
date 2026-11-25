@@ -286,7 +286,6 @@ export interface PlateMeshPlan {
   cells: number;
   quality: MeshQuality | null;
   signature: string;
-  meshSignature?: string;
   input: ReturnType<typeof plateMeshInput> | null;
   /** Loads put by hand on shells of the current mesh, which a new mesh cannot carry. */
   localLoads: number;
@@ -364,7 +363,6 @@ export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>,
   const f = plateMeshFeatures(modelStore.model, e.group, spec);
   if (f.refused) return { ...base, mesh: null, refused: f.refused, cells: 0, quality: null, signature: '', input: null, mixed: false };
   const signature = plateSignature(f.geo, spec, f.features);
-  const meshSignature = plateSignature(f.geo, spec, { ...f.features, points: f.features.meshPoints });
   const busy = new Set(constraintNodes(modelStore.model.constraints));
   for (const support of modelStore.supports.values()) busy.add(support.nodeId);
   for (const load of modelStore.loads) if ('nodeId' in load.data) busy.add((load.data as { nodeId: number }).nodeId);
@@ -385,7 +383,7 @@ export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>,
     if (placePlateEdits(e, mesh) === null) {
       return { ...base, mesh: null, refused: 'shellEdits', cells: 0, quality: null, signature, input, mixed: false };
     }
-    return { ...base, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), signature, meshSignature, input, mixed, grid };
+    return { ...base, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), signature, input, mixed, grid };
   };
   const grid = gridOfSpec(spec);
   if (grid) {
@@ -562,7 +560,7 @@ export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshRepo
       const g = modelStore.model.groups.get(p.id)!;
       const loops = plateLoops(g);
       modelStore.setGroupMembers(p.id, { ...g.members, nodes: [...loops.outer, ...loops.holes.flat(), ...created], quads: r.quads, plates: r.plates });
-      writeSurface(p.id, (s) => ({ ...s, mesh: p.spec, meshed: { signature: p.signature, meshSignature: p.meshSignature, cells: r.quads.length + r.plates.length, quality: p.quality! } }));
+      writeSurface(p.id, (s) => ({ ...s, mesh: p.spec, meshed: { signature: p.signature, cells: r.quads.length + r.plates.length, quality: p.quality! } }));
       report.plates++;
       report.cells += r.quads.length + r.plates.length;
     };
@@ -601,8 +599,7 @@ export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshRepo
           report.refused.push({ id: e.id, reason: 'cannotMesh' });
         } else if (current.has(e.id) || plans.some(p => p.id === e.id)) {
           const signature = plateSignature(f.geo, e.surface.mesh, f.features);
-          const meshSignature = plateSignature(f.geo, e.surface.mesh, { ...f.features, points: f.features.meshPoints });
-          writeSurface(e.id, s => ({ ...s, meshed: { ...s.meshed!, signature, meshSignature } }));
+          writeSurface(e.id, s => ({ ...s, meshed: { ...s.meshed!, signature } }));
         }
       }
       if (report.refused.length) rollback();
