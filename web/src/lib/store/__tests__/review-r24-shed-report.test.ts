@@ -53,7 +53,7 @@ it('known wrong result: #2080 the three-member memoria keeps its exact answer wh
   const certified = vi.spyOn(kernel, 'engineCertifyMembers');
   expect(runSteelCheck()).toEqual({ checked: 3 });
   const hash = createHash('sha256').update(JSON.stringify(canonical(verificationStore.steel))).digest('hex');
-  expect(hash).toBe('72e3b23250a535e28dec0424abf1c9acc2a1bbcccd9ae04f2a98b6d49e771812');
+  expect(hash).toBe('e7c5b61a718a0c07fdc2ae8cca8168e61aec9845759156c7fcffca4e9a15b414');
   expect(certified).toHaveBeenCalledTimes(3);
   const before = checked.mock.calls.length;
   expect(memoriaInput(k => k, 'en').elements).toHaveLength(3);

@@ -5,6 +5,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import { summaryRows, envelopeRows, allRows, maxByType, rowsOf, toCsv, columnsOf, whereOf, type Source } from '../result-tables';
 import { magnitudeCombination } from '../combination-methods';
 import { memberCriticalOrdinates3D } from '../diagrams-3d';
+import { criticalForceStations, extractForcesAtStation } from '../station-forces';
 import { envelopeMembers, pruneScopes } from '../result-scopes';
 import { DEFAULT_AXES } from '../../axes/frame';
 import { modelStore } from '../../store/model.svelte';
@@ -200,17 +201,18 @@ it('#2226 withholds a project summary whose nested magnitude has only a bound', 
   expect(() => envelopeSectionHtml(makeSources(combined), tr, 'Envelope')).toThrow('Extrema withheld');
 });
 
-it.skip('known wrong result: #2226 evaluates both transverse components at the physical jump cut', () => {
+it('known wrong result: #2226 evaluates both transverse components at the physical jump cut', () => {
   const length = 3, a = 1.5, x = a + Number.EPSILON, slope = 2 ** 52;
-  const f = {
+  const f: ElementForces3D = {
     elementId: 7, length, nStart: 0, nEnd: 0, vyStart: 0, vyEnd: a * slope, vzStart: 4, vzEnd: 0,
     mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0,
+    releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false,
     qYI: 0, qYJ: 0, qZI: 0, qZJ: 0,
-    pointLoadsY: [], pointLoadsZ: [{ a: x, p: -4 }],
+    pointLoadsY: [], pointLoadsZ: [{ a: x, p: -4 }], distributedLoadsZ: [],
     distributedLoadsY: [{ a, b: length, qI: slope, qJ: slope }],
-  } as ElementForces3D;
+  };
   const end = { ...f, length: 1, vyStart: f.vyEnd, distributedLoadsY: [], pointLoadsZ: [], vzStart: 0 };
-  const piecewise = { ...f, length: 4, pieces: [{ x0: 0, x1: 3, forces: f }, { x0: 3, x1: 4, forces: end }] };
+  const piecewise = { ...f, length: 4, pieces: [{ x0: 0, x1: 3, sectionId: 1, forces: f }, { x0: 3, x1: 4, sectionId: 2, forces: end }] };
   for (const forces of [f, piecewise]) {
     const sources = [{ ...A, results: { ...A.results, elementForces: [forces] } }];
     const options = { ...canonical, stations: 'critical', resultant: true } as const;
@@ -220,20 +222,33 @@ it.skip('known wrong result: #2226 evaluates both transverse components at the p
       { t: x / forces.length, x, value: Math.hypot(1, 4) },
       { t: x / forces.length, x, value: 1, right: true },
     ]);
+    const cuts = criticalForceStations(forces).filter(cut => cut.t === x / forces.length);
+    expect.soft(cuts.map(cut => {
+      const { vy, vz } = extractForcesAtStation(forces, cut);
+      return [vy, vz];
+    })).toEqual([[1, 4], [1, 0]]);
+    expect.soft(rowsOf('forces', sources[0]!.results, options).find(row => row.x === x)?.values[6]).toBe(Math.hypot(1, 4));
   }
+  const next = x + Number.EPSILON;
+  expect(next / length).toBe(x / length);
+  expect(() => memberCriticalOrdinates3D({ ...f, pointLoadsY: [{ a: next, p: 1 }] }, ['shearY', 'shearZ']))
+    .toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
 });
 
-it.skip('known wrong result: #2226 finds the transverse extrema of an ordinary SRSS combination', () => {
-  const f = {
+it('known wrong result: #2226 finds the transverse extrema of an ordinary SRSS combination', () => {
+  const f: ElementForces3D = {
     elementId: 7, length: 1, nStart: 0, nEnd: 0, vyStart: -3, vyEnd: 5, vzStart: -7, vzEnd: 1,
     mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0,
+    releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false,
     qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, pointLoadsY: [], pointLoadsZ: [],
     distributedLoadsY: [{ a: 0, b: 1, qI: 8, qJ: 8 }],
     distributedLoadsZ: [{ a: 0, b: 1, qI: 8, qJ: 8 }],
-  } as ElementForces3D;
+  };
   const constant = { ...f, vyStart: 4, vyEnd: 4, vzStart: 0, vzEnd: 0, distributedLoadsY: [], distributedLoadsZ: [] };
-  const cases = new Map([[1, f], [2, constant]].map(([id, forces]) =>
-    [id, { ...A.results, elementForces: [forces] }] as [number, AnalysisResults3D]));
+  const cases = new Map<number, AnalysisResults3D>([
+    [1, { ...A.results, elementForces: [f] }],
+    [2, { ...A.results, elementForces: [constant] }],
+  ]);
   const factors = [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 1 }];
   const options = { ...canonical, stations: 'critical', resultant: true } as const;
   const results = magnitudeCombination('srss', factors, cases)!;

@@ -26,7 +26,8 @@ import type { AnalysisResults3D } from './types-3d';
 import type { Quantity } from '../utils/units';
 import { csvCell } from './result-query';
 import type { ElementDesignDemands, GoverningDemand } from './station-design-forces';
-import { stationTs, type StationSpec } from './station-forces';
+import { criticalForceStations, stationTs, type StationSpec } from './station-forces';
+import type { DiagramStation } from './member-diagram';
 import { memberCriticalOrdinates3D, prepareDiagramEvaluator3D, type Diagram3DKind } from './diagrams-3d';
 import { resultComponents } from '../axes/result-components';
 import { makeFrame, type AxesChoice } from '../axes/frame';
@@ -120,18 +121,19 @@ function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visi
       visit(f.elementId, 'j', f.length, fin([f.nEnd, f.vyEnd, f.vzEnd, f.mxEnd, f.myEnd, f.mzEnd]));
       continue;
     }
-    const ts = stationTs(f, spec);
-    if (!ts.length) continue;
+    const stations: DiagramStation[] = spec === 'critical' ? criticalForceStations(f).filter(cut => !cut.right)
+      : stationTs(f, spec).map(t => ({ t }));
+    if (!stations.length) continue;
     const axial = prepareDiagramEvaluator3D(f, 'axial');
     const shearY = prepareDiagramEvaluator3D(f, 'shearY');
     const shearZ = prepareDiagramEvaluator3D(f, 'shearZ');
     const torsion = prepareDiagramEvaluator3D(f, 'torsion');
     const momentY = prepareDiagramEvaluator3D(f, 'momentY');
     const momentZ = prepareDiagramEvaluator3D(f, 'momentZ');
-    for (let k = 0; k < ts.length; k++) {
-      const t = ts[k]!;
-      const v = [axial(t), shearY(t), shearZ(t), torsion(t), momentY(t), momentZ(t)];
-      visit(f.elementId, k === 0 ? 'i' : k === ts.length - 1 ? 'j' : undefined, t * f.length, fin(v));
+    for (const station of stations) {
+      const { t, distance } = station;
+      const v = [axial(station), shearY(station), shearZ(station), torsion(station), momentY(station), momentZ(station)];
+      visit(f.elementId, t === 0 ? 'i' : t === 1 ? 'j' : undefined, distance ?? t * f.length, fin(v));
     }
   }
 }

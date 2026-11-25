@@ -9,3 +9,9 @@ The project report summary and the critical-station results summary use both loa
 The point-query and diagram paths use the same stationary-point candidates, including boundary alias checks. They refuse when a distinct extremum rounds onto a boundary with a different ordinate. Compensated accumulation retains smaller actions when large actions cancel. In the unit-span moment example in #2437, the opposite uniform loads cancel and the remaining moment is (t(1-t)/2), with peak (1/8) at midspan. A spatial piece keeps its physical cut locations when rebased onto the parent member.
 
 Rerun moving-load analyses and review member extrema in reports and saved diagrams for the affected models. See #2226, #2437 and the path endpoint follow-up on #1782.
+
+An interval keeps the compensation of its coefficients until the force or moment is evaluated. This preserves a unit point jump next to a shear of 2^54 when the subsequent line load cancels the shear. A transverse resultant uses the same physical location and requested face for every component, including at rebased piece cuts. For an SRSS combination, the transverse resultant uses the squared sum of all underlying component polynomials. Critical summaries require exact extrema and refuse mixed ABS and SRSS expressions that only expose a bound.
+
+## Recovered forces in steel verification
+
+Steel verification consumes the recovered force tuples and moment ordinates. In the pipe-rack reference model, twelve flexure or interaction checks now identify the other member end under the same load combination because the end demands differ at floating-point precision. The snapshot records the new locations. The shed calculation report also changes in the last digits of the recovered strong-axis bending demand, Cb and the dependent check results. Rerun steel verification to refresh the governing locations and check values.

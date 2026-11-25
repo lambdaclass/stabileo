@@ -1,0 +1,32 @@
+{
+  "id": "steel-recovered-station-rounding",
+  "date": "2026-11-25",
+  "prs": [2581],
+  "area": "design",
+  "when": { "all": ["steelMembers"], "any": ["memberLoads", "selfWeight"] },
+  "quantities": ["steel"],
+  "title": {
+    "en": "Recovered forces in steel verification",
+    "es": "Esfuerzos recuperados en la verificación de acero",
+    "pt": "Esforços recuperados na verificação de aço",
+    "de": "Rekonstruierte Schnittgrößen im Stahlnachweis",
+    "fr": "Efforts reconstitués dans les vérifications acier",
+    "tr": "Çelik kontrollerinde yeniden hesaplanan iç kuvvetler",
+    "zh": "钢结构验算采用恢复的内力",
+    "hu": "Visszaszámított igénybevételek az acélellenőrzésben"
+  },
+  "explanation": {
+    "en": "Compensated member-force recovery can change the governing end when both ends have nearly equal demands. It can also change the last digits of Cb and utilization. Rerun steel verification to refresh the report.",
+    "es": "La recuperación compensada de esfuerzos puede cambiar el extremo determinante cuando ambos tienen demandas casi iguales. También puede cambiar los últimos dígitos de Cb y del aprovechamiento. Repita la verificación de acero para actualizar la memoria.",
+    "pt": "A recuperação compensada de esforços pode mudar a extremidade determinante quando as duas têm solicitações quase iguais. Também pode mudar os últimos dígitos de Cb e da utilização. Refaça a verificação de aço para atualizar o memorial.",
+    "de": "Die kompensierte Schnittgrößenberechnung kann bei nahezu gleichen Beanspruchungen das maßgebende Stabende ändern. Auch die letzten Stellen von Cb und der Ausnutzung können sich ändern. Führen Sie die Stahlnachweise erneut aus, um den Bericht zu aktualisieren.",
+    "fr": "Le calcul compensé des efforts peut changer l’extrémité déterminante lorsque les deux extrémités sont presque également sollicitées. Il peut aussi modifier les derniers chiffres de Cb et du taux de travail. Relancez les vérifications acier pour actualiser le rapport.",
+    "tr": "Dengelenmiş iç kuvvet hesabı, iki uçtaki talepler birbirine çok yakın olduğunda belirleyici ucu değiştirebilir. Cb ve kullanım oranının son basamakları da değişebilir. Raporu güncellemek için çelik kontrollerini yeniden çalıştırın.",
+    "zh": "补偿式杆件内力恢复可能在两端需求几乎相等时改变控制端，也可能改变 Cb 和利用率的末位数字。请重新运行钢结构验算以更新报告。",
+    "hu": "A kompenzált igénybevétel-számítás közel azonos igénybevételek esetén megváltoztathatja a mértékadó rúdvéget. A Cb és a kihasználtság utolsó számjegyei is változhatnak. Futtassa újra az acélellenőrzést a jelentés frissítéséhez."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-member-diagram-pieces.md",
+    "heading": "Recovered forces in steel verification"
+  }
+}
