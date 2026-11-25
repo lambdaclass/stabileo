@@ -31,7 +31,7 @@ import { withoutSettlement } from './settlement-case';
 import { checkAxlePath, locateAxlePlacement, referenceStation, type ReferencePosition, type RouteSegment } from './moving-axle-station';
 // The position cases read the same symmetry and the same reversed train (`vehicles.ts`).
 import { positionPasses, usableStep } from './vehicles';
-import { MovingSample, type AxleFace, type FaceLoads } from './moving-sample';
+import { axleFaceForce, MovingSample, type AxleFace, type FaceLoads } from './moving-sample';
 
 export interface PathSegment3D extends RouteSegment {
   elementId: number;
@@ -126,7 +126,7 @@ function addTrain(
         const { e, force } = axleOn(segment.elementId, axle.weight);
         return {
           elementId: e.id, nodeId: atEnd ? e.nodeJ : e.nodeI, atEnd,
-          force: e.type === 'truss' ? [force[0], 0, 0] : force,
+          force: axleFaceForce(force, e.type === 'truss'),
         };
       };
       sample.addJoint([face(at.faces[0]), face(at.faces[1])], (nodeId) => (

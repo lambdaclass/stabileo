@@ -1,10 +1,14 @@
-type LocalForce = [number, number, number];
+type LocalForce = [axial: number, shearY: number, shearZ: number];
 
 export interface AxleFace {
   elementId: number;
   nodeId: number;
   atEnd: boolean;
   force: LocalForce;
+}
+
+export function axleFaceForce(force: LocalForce, axialOnly: boolean): LocalForce {
+    return axialOnly ? [force[0], 0, 0] : force;
 }
 
 export type FaceLoads = Map<number, [LocalForce, LocalForce]>;

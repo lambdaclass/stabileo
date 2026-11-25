@@ -328,14 +328,14 @@ it('#2101 — endpoint-only spatial sweeps recover axial face limits', async () 
   }
 });
 
-it.skip('known wrong result: #2101 — truss faces retain the signed axle projection without shear', async () => {
+it('#2101 — truss faces retain the signed axle projection without shear', async () => {
   const length = 5, weight = 10;
   const train = { name: 'one axle', axles: [{ offset: 0, weight }] };
   const config = { train, step: length, pathElementIds: [1] };
   for (const [x, z] of [[3, 4], [3, -4], [5, 0]]) {
     const { plane, space } = reviewSpan(x, z, true);
-    plane.elements.get(1)!.type = 'truss';
-    space.elements.get(1)!.type = 'truss';
+    plane.elements.set(1, { ...plane.elements.get(1)!, type: 'truss' });
+    space.elements.set(1, { ...space.elements.get(1)!, type: 'truss' });
     const axial = -weight * z / length;
 
     for (const result of [

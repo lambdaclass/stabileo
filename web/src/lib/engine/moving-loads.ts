@@ -9,7 +9,7 @@ import { t } from '../i18n';
 import { withoutSettlement } from './settlement-case';
 import { locateAxle, locateAxlePlacement, checkAxlePath, referenceGrid, referenceStation, type ReferencePosition, type RouteSegment } from './moving-axle-station';
 import { localizeEngineText } from '../i18n/engine-text';
-import { MovingSample, type AxleFace, type FaceLoads } from './moving-sample';
+import { axleFaceForce, MovingSample, type AxleFace, type FaceLoads } from './moving-sample';
 
 /** A single axle in a load train */
 export interface Axle {
@@ -330,7 +330,7 @@ function buildTrainLoads(
         elementId,
         nodeId: atEnd ? elem.nodeJ : elem.nodeI,
         atEnd,
-        force: elem.type === 'truss' ? [0, 0, 0] : [weight * (dy / length), 0, weight * (dx / length)],
+        force: axleFaceForce([weight * (dy / length), 0, weight * (dx / length)], elem.type === 'truss'),
       };
     };
     sample.addJoint([face(at.faces[0]), face(at.faces[1])], (nodeId) => (
