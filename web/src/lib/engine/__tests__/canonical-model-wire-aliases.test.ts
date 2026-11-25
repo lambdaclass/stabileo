@@ -425,7 +425,7 @@ it.each([false, true])('keeps connectors in iterable WASM tables (space = %s)', 
   }
 });
 
-it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1').each([false, true])(
+it.each([false, true])(
   'refuses repeated connector keys in JSON analysis (space = %s)',
   (is3D) => {
     const base = is3D ? space : planar;
@@ -494,7 +494,7 @@ it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1').each([false, true])(
   },
 );
 
-it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1')('translates the JSON duplicate-key refusal', async () => {
+it('translates the JSON duplicate-key refusal', async () => {
   await setLocale('es');
   try {
     expect(localizeEngineText('Parse error: duplicate key in field `connectors` at line 4 column 8'))

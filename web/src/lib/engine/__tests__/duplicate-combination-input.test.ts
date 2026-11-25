@@ -17,7 +17,7 @@ beforeEach(() => {
   uiStore.useNative3DPresentation();
 });
 
-it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1').each([
+it.each([
   'planar solve-each', 'planar superposition', 'planar store',
   'spatial solve-each', 'spatial superposition', 'spatial parallel',
   'spatial store', 'spatial parallel store',

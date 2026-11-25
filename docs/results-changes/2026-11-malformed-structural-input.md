@@ -12,6 +12,10 @@ The authored settings and constraint checks reject unknown keys before applying 
 
 WASM object analysis requires maps for named solver records, including materials. A positional array can no longer bypass named-field validation. Authored members refuse unknown keys before release defaults, including misspelled hinge fields. Eccentric release masks with more than six entries are refused before any plane rotation. Short masks retain the implicit unreleased entries. Malformed structural fixture rows are reported by collection and index before replay.
 
+JSON analysis refuses a repeated key in the `connectors` table while decoding both planar and spatial models. With two parallel axial connectors under one repeated key, earlier analysis used only the last connector. The omitted stiffness increased tip displacement and the axial force recovered in the parallel frame member. Two distinct keys still apply both connectors.
+
+Combination analysis refuses a repeated ID before resolving factors or running solves. For two combinations that scale the same load by 1 and 2, the distinct-ID model returns separate reactions that balance each scaled force. A repeated ID previously let the second result replace the first in the result map. The refusal identifies the repeated row's `combinations[i].id`.
+
 ## Planar analysis of eccentric connections with released translations
 
 A connection whose offset has a component normal to the plane can be solved in plane when both in-plane translations are released. Those two releases remove the only equations with normal-offset terms that couple in-plane and out-of-plane motion. The remaining in-plane rotation equation ties only rotations about the plane normal. A connection with either affected translation equation active still receives the plane-coupling refusal. The spatial equations are the same.

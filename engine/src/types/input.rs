@@ -264,6 +264,39 @@ impl<'de> de::Visitor<'de> for EmptyShellCollection2D {
     }
 }
 
+fn deserialize_connectors<'de, D: de::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<HashMap<String, ConnectorElement>, D::Error> {
+    struct ConnectorTable;
+
+    impl<'de> de::Visitor<'de> for ConnectorTable {
+        type Value = HashMap<String, ConnectorElement>;
+
+        fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("a map of connectors with unique keys")
+        }
+
+        fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+            use std::collections::hash_map::Entry;
+
+            let mut connectors = HashMap::new();
+            while let Some(key) = map.next_key()? {
+                match connectors.entry(key) {
+                    Entry::Vacant(entry) => {
+                        entry.insert(map.next_value()?);
+                    }
+                    Entry::Occupied(_) => {
+                        return Err(de::Error::custom("duplicate key in field `connectors`"));
+                    }
+                }
+            }
+            Ok(connectors)
+        }
+    }
+
+    deserializer.deserialize_map(ConnectorTable)
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SolverInputWire2D<M, S, N, L, P> {
@@ -275,7 +308,7 @@ struct SolverInputWire2D<M, S, N, L, P> {
     loads: Vec<L>,
     #[serde(default)]
     constraints: Vec<Constraint>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_connectors")]
     connectors: HashMap<String, ConnectorElement>,
     #[serde(default)]
     solver_options: Option<SolverOptions>,
@@ -803,7 +836,7 @@ pub struct SolverInput3D<M = SolverMaterial, S = SolverSection3D, N = SolverNode
     pub curved_shells: HashMap<String, SolverCurvedShellElement>,
     #[serde(default)]
     pub curved_beams: Vec<CurvedBeamInput>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_connectors")]
     pub connectors: HashMap<String, ConnectorElement>,
     #[serde(default)]
     pub solver_options: Option<SolverOptions>,

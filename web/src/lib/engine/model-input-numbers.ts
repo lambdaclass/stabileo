@@ -80,7 +80,7 @@ export function isFiniteInputNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
-function numberAt(path: string, value: unknown): void {
+function numberAt(path: string, value: unknown): asserts value is number {
   if (!isFiniteInputNumber(value)) throw new InvalidModelNumber(path, value);
 }
 
@@ -434,10 +434,15 @@ const combinationFactorFields = {
 } satisfies Record<keyof LoadCombination['factors'][number], true>;
 
 export function requireCombinationInput(combinations: unknown): void {
+  const ids = new Set<number>();
   arrayOf('combinations', combinations, (path, value) => {
     const combo = recordAt(path, value);
     requireKnownFields(path, combo, combinationFields);
-    numberAt(`${path}.id`, combo.id);
+    const idPath = `${path}.id`;
+    const { id } = combo;
+    numberAt(idPath, id);
+    requireInputField(idPath, !ids.has(id));
+    ids.add(id);
     optionalValue(`${path}.method`, combo.method, ['linear', 'srss', 'abs']);
     arrayOf(`${path}.factors`, combo.factors, (at, factor) => {
       const row = recordAt(at, factor);
