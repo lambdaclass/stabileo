@@ -12,7 +12,7 @@ import { withOrigin } from '../codes/families';
 import { CIRSOC101_BASIS } from '../codes/families/cirsoc';
 import { expandCombinations, modelCombinationCases, presentSymbols, type CombinationCase } from '../engine/loads/combination-cases';
 import { tp } from '../i18n';
-import { requireLoadInput } from '../engine/model-input-numbers';
+import { requireLoadCollection, requireLoadInput } from '../engine/model-input-numbers';
 import { remapSupportElement } from '../model/support-types';
 
 export interface JSONModel {
@@ -118,11 +118,18 @@ interface FixtureLoadOptions {
  * materials → sections → nodes → elements → supports → loads → shells → constraints
  */
 export function loadFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOptions = {}): void {
+  prepareFixture(json, api, opts)();
+}
+
+export function prepareFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOptions = {}): () => void {
+  requireLoadCollection(json.loads);
   const canonical = canonicalizeModelAliases(json);
   validateFixtureInput(canonical);
   const load = () => replayFixture(canonical, api, opts);
-  if (api.replay) api.replay(load);
-  else load();
+  return () => {
+    if (api.replay) api.replay(load);
+    else load();
+  };
 }
 
 function fixtureSupportElement(support: JSONModel['supports'][number], elementId: (id: number) => number | undefined): number | undefined {
@@ -133,7 +140,7 @@ function fixtureSupportElement(support: JSONModel['supports'][number], elementId
   return reference;
 }
 
-export function validateFixtureInput(json: JSONModel): void {
+function validateFixtureInput(json: JSONModel): void {
   requireLoadInput(json.loads);
   const ids = new Set(json.elements.map(e => e.id));
   for (const support of json.supports) fixtureSupportElement(support, id => ids.has(id) ? id : undefined);

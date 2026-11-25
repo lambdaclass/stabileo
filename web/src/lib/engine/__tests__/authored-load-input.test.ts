@@ -368,8 +368,7 @@ describe('authored load refusal and recheck', () => {
   });
 });
 
-
-describe.skipIf(process.env.STABILEO_REPRODUCE_AUTHORED_LOADS !== '1')('known wrong result: #2583', () => {
+describe('planar load notices and fixture collection refusals (#2583)', () => {
   it('opens a Basic saved-result notice for a nodal row missing both vertical component names', async () => {
     const { tip } = cantilever();
     const load = { type: 'nodal', data: { id: 1, nodeId: tip, fx: 0, my: 0 } };
@@ -379,11 +378,9 @@ describe.skipIf(process.env.STABILEO_REPRODUCE_AUTHORED_LOADS !== '1')('known wr
     const snapshot = {
       ...modelStore.snapshot(), analysisMode: '2d', loads: [load], solvedWith: undefined, pendingRecheckNotice: undefined,
     };
+    const restored = { ...snapshot, loads: [valid] };
     const recheck = createRecheckStore();
-    for (const [current, stored] of [
-      [snapshot, undefined],
-      [{ ...snapshot, loads: [valid] }, snapshot.loads],
-    ] as const) {
+    for (const [current, stored] of [[snapshot, undefined], [restored, snapshot.loads]] as const) {
       recheck.openProject(current, '2d', stored);
       await vi.waitFor(() => expect(recheck.pending).toBe(false));
       expect.soft(recheck.assessment?.changes.map(({ id }) => id)).toContain('malformed-authored-loads');

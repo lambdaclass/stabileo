@@ -118,12 +118,23 @@ function requireLoadRecord(load: unknown, i: number) {
   return { path, type, data };
 }
 
-export function requireLoadInput(loads: readonly unknown[]): void {
+function requireProjectionNumbers({ path, type, data }: ReturnType<typeof requireLoadRecord>): void {
+  const fields = loadFields[type].basicProjection;
+  if (fields) recordNumbers(path, data, fields);
+  if (type === 'nodal') numberAt(`${path}.fz/fy`, data.fz ?? data.fy);
+}
+
+export function requireLoadCollection(loads: unknown): asserts loads is readonly unknown[] {
+  requireInputField('loads', Array.isArray(loads));
+}
+
+export function requireLoadInput(loads: unknown): void {
+  requireLoadCollection(loads);
   for (const [i, load] of loads.entries()) {
-    const { path, type, data } = requireLoadRecord(load, i);
-    const fields = loadFields[type];
-    recordNumbers(path, data, fields);
-    if (fields.basicProjection) recordNumbers(path, data, fields.basicProjection);
+    const row = requireLoadRecord(load, i);
+    const { path, type, data } = row;
+    recordNumbers(path, data, loadFields[type]);
+    requireProjectionNumbers(row);
     recordNumbers(path, data, { required: [], optional: ['id', 'caseId'] });
     if (type === 'pointOnElement') {
       const { mx } = data;
@@ -133,7 +144,6 @@ export function requireLoadInput(loads: readonly unknown[]): void {
         throw new ModelInputError(`${t('svc.engine.unsupportedPointLoadMoment')} ${field}: ${t('svc.engine.applyPointLoadMomentAtNode')}`);
       }
     }
-    if (type === 'nodal') numberAt(`${path}.fz/fy`, data.fz ?? data.fy);
     if (type === 'surface3d') {
       const { dir, qNodes, vary, region } = data as Partial<Extract<Load, { type: 'surface3d' }>['data']>;
       if (dir !== undefined) vector(`${path}.dir`, dir);
@@ -170,9 +180,8 @@ export function loadInputRefusal(loads: readonly unknown[]): string | null {
 export function hasMalformedAuthoredLoad(loads: readonly unknown[], basicProjection: boolean): boolean {
   for (const [i, load] of loads.entries()) {
     const error = modelInputError(() => {
-      const { path, type, data } = requireLoadRecord(load, i);
-      const projected = loadFields[type].basicProjection;
-      if (basicProjection && projected) recordNumbers(path, data, projected);
+      const row = requireLoadRecord(load, i);
+      if (basicProjection) requireProjectionNumbers(row);
     });
     if (error) return true;
   }

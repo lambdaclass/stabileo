@@ -7,3 +7,5 @@ The Basic XZ path previously filled a missing spatial force with zero or discard
 Saved-result rechecks inspect each load row for applicability. In planar workspaces they also flag invalid numeric fields a Basic XZ or YZ projection could previously mask. A null row triggers the notice and the remaining rows are still inspected. Rows with a missing or invalid load type can still carry generation and load-case evidence. Basic clears the previous kinematic diagnosis when a new single solve starts and publishes a new diagnosis if it reaches the rank check.
 
 Review any result saved from a malformed load record. Restore the missing component or select a supported load type, frame, and target before rerunning analysis.
+
+Basic live solves and saved-result rechecks use the same vertical-component check for planar nodal loads. A row with neither `fz` nor its legacy alias `fy` requires correction. A finite `fy` on its own passes that check. Fixture replay, examples and generated-model application report a missing or non-array `loads` collection before alias conversion or model replacement. An empty array describes an unloaded model.
