@@ -75,6 +75,74 @@ it('#2564 a retained framing bay clips a member strip at local clearance', () =>
   expect(deadResultant(result, model, 1)).toBeCloseTo(Math.hypot(3, (lowerEnd - lowerStart) / 2), 10);
 });
 
+function stripUnderBay(upper: number) {
+  return mesh([[[0, 3, 2.9996], [6, 3, 3.0004]], ring(upper), [[0, 3, upper], [6, 3, upper]]]);
+}
+
+function bayUnderShell(upper: number, corner = 0.0004) {
+  const lower = ring(0);
+  lower[0]![2] = corner;
+  const model = mesh([lower, ring(upper)]);
+  model.quads = new Map([[1, { id: 1, nodes: [5, 6, 7, 8] }]]);
+  for (const id of [5, 6, 7, 8]) model.elements.delete(id);
+  return model;
+}
+
+const review2564 = process.env.RUN_KNOWN_WRONG === '2564' ? it : it.skip;
+
+review2564('known wrong result: #2564 clips low headroom beyond the last strip probe', () => {
+  const model = stripUnderBay(5.2003);
+  const keptLength = 5.25;
+  const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1, uniformPressure: true });
+  const retained = (layout.areaOf.get(1) ?? 0) + (layout.roofAreaOf.get(1) ?? 0);
+  expect.soft(retained).toBeCloseTo(keptLength, 10);
+  const spans = layout.widthMembers.find(member => member.elementId === 1)?.spans ?? [];
+  expect.soft(Math.max(...spans.map(span => span.t1))).toBeCloseTo(keptLength / 6, 10);
+
+  const result = plan(model, 'panels', false);
+  expect(result.outcome).toBe('READY');
+  expect(deadResultant(result, model, 1)).toBeCloseTo(Math.hypot(6, 3.0004 - 2.9996) * keptLength / 6, 10);
+});
+
+review2564('known wrong result: #2564 refuses indeterminate clearance at the strict headroom limit', () => {
+  const model = bayUnderShell(MIN_STOREY_HEADROOM);
+  const refusal = { key: 'loadPlan.gravity.uncertainDeckCover' };
+  const result = plan(model, 'panels', false);
+  expect(result.outcome).toBe('BLOCKED');
+  expect(result.blockedKeys).toEqual([expect.objectContaining(refusal)]);
+  expect(result.distributed).toHaveLength(0);
+  expect(result.nodal).toHaveLength(0);
+  expect(result.surface).toHaveLength(0);
+  expect(applyLoadPlan(result, { clearExisting: true, bothSenses: true, nameOf: key => key })).toEqual(refusal);
+  expect(() => roofWeightFor(model, { mode: 'panels', loadEveryPanel: false }, 1, 1)).toThrow(expect.objectContaining(refusal));
+});
+
+it('#2564 strip with headroom above the limit keeps its full load', () => {
+  const model = stripUnderBay(5.2005);
+  const result = plan(model, 'panels', false);
+  expect(result.outcome).toBe('READY');
+  expect(deadResultant(result, model, 1)).toBeCloseTo(Math.hypot(6, 3.0004 - 2.9996), 10);
+});
+
+it('#2564 width mode keeps the strip load when it does not retain the bay', () => {
+  const model = stripUnderBay(5.2003);
+  const result = plan(model, 'width', false);
+  expect(result.outcome).toBe('READY');
+  expect(deadResultant(result, model, 1)).toBeCloseTo(Math.hypot(6, 3.0004 - 2.9996), 10);
+});
+
+it.each([
+  { upper: MIN_STOREY_HEADROOM - 0.0004, corner: 0.0004, retained: false },
+  { upper: MIN_STOREY_HEADROOM + 0.0005, corner: 0.0004, retained: true },
+  { upper: MIN_STOREY_HEADROOM, corner: 0, retained: true },
+])('#2564 classifies a definite shell headroom band ($upper, $corner)', ({ upper, corner, retained }) => {
+  const model = bayUnderShell(upper, corner);
+  const result = plan(model, 'panels', false);
+  expect(result.outcome).toBe('READY');
+  expect(deadResultant(result, model, 2)).toBeCloseTo(retained ? 9 : 0, 10);
+  expect(result.surface.some(load => load.caseType === 'D')).toBe(true);
+});
+
 it('#2564 clearance above the headroom limit keeps a full second storey', () => {
   const layout = gravityLayout(stackedBays(2.9996, 5.1998), { mode: 'panels', tributaryWidth: 1 });
   expect(layout.areaByLevel.get(3)).toBeCloseTo(36, 12);
