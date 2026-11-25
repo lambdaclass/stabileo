@@ -228,14 +228,12 @@ impl FromIterator<DistributedLoadInfo> for DiagramLoads {
                 left.add(load.q_i);
                 right.add(load.q_j);
             }
-            for i in 0..left.partials.len().max(right.partials.len()).max(1) {
-                terms.push(DistributedLoadInfo {
-                    a,
-                    b,
-                    q_i: left.partials.get(i).copied().unwrap_or(0.0),
-                    q_j: right.partials.get(i).copied().unwrap_or(0.0),
-                });
-            }
+            let count = left.partials.len().max(right.partials.len()).max(1);
+            left.partials.resize(count, 0.0);
+            right.partials.resize(count, 0.0);
+            terms.extend(left.partials.into_iter().zip(right.partials).map(|(q_i, q_j)| {
+                DistributedLoadInfo { a, b, q_i, q_j }
+            }));
         }
         Self(terms)
     }
