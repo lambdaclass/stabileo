@@ -1,5 +1,7 @@
 import { beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { strFromU8, unzipSync } from 'fflate';
+import { read, utils, write } from 'xlsx';
+import { buildExcelWorkbook } from '../excel';
 import { DEFAULT_AXES } from '../../axes/frame';
 import { computeDiagram3D, evaluateDiagramAt, prepareDiagramEvaluator3D } from '../../engine/diagrams-3d';
 import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../../engine/member-diagram';
@@ -308,4 +310,38 @@ it.each(['linear', 'pdelta'] as const)('known wrong result: #2226 rebasing keeps
   expect(() => computeEnvelope3D([data])).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
   expect(() => resultSheets(input, want)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
   await expect(streamWorkbookZip(resultSheetParts(input, want))).rejects.toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+});
+
+it.skip.each(['linear', 'pdelta'] as const)('known wrong result: #2226 identifies the same-metre cuts in tables, XLSX and CSV (%s)', async method => {
+  const member = cantilever(3);
+  const { first, ids } = twoCombinations();
+  if (method === 'pdelta') modelStore.adoptAnalysis({ perCombination: 'pdelta' });
+  for (const at of [1, 2]) modelStore.addPointLoadOnElement(member, at, 0, { my: 8, caseId: first });
+  const solved = await modelStore.solveCombinations3DParallel(false, false, true);
+  if (!solved || typeof solved === 'string') throw new Error(String(solved));
+  const results = structuredClone(solved.perCombo.get(ids[0]!)!);
+  const piece = results.elementForces[0]!.pieces!.find(piece => piece.x0 === 1)!;
+  piece.forces.pointLoadsZ = [{ a: 0.24999999999999992, p: 8 }, { a: 0.25, p: 4 }];
+  const sources: WorkbookSource[] = [{ id: 1, name: '1', kind: 'combination', results }];
+  const input = { sources, stations: 'critical', statics: null } as const;
+  const want = (name: string) => name === 'Envelope';
+  const expected = [[-3 * 2 ** -55, 8, 8], [0, 12, 12]];
+  const rows = envelopeRows('forces', sources, { axes: DEFAULT_AXES, stations: 'critical' });
+  expect.soft(rows.filter(row => row.x === 1.25 && row.face === 'right').map(row =>
+    [Reflect.get(row, 'xResidual'), row.min[2]!.value, row.max[2]!.value])).toEqual(expected);
+
+  const workbook = await buildExcelWorkbook({ onlyExtras: true, extraSheets: resultSheets(input, want), provenance: false });
+  const file = read(write(workbook!, { bookType: 'xlsx', type: 'array' }), { type: 'array' });
+  const xlsxRows = utils.sheet_to_json<Record<string, string | number>>(file.Sheets.Envelope!);
+  const cuts = (rows: Record<string, string | number>[]) => rows.filter(row =>
+    Number(row['x [m]']) === 1.25 && row.component === 'Vz' && row.face === 'right');
+  expect.soft(cuts(xlsxRows).map(row => [row['x residual [m]'], row.min, row.max])).toEqual(expected);
+
+  const zip = unzipSync(new Uint8Array(await (await streamWorkbookZip(resultSheetParts(input, want))).arrayBuffer()));
+  const csv = strFromU8(zip[Object.keys(zip).find(name => name.endsWith('-Envelope.csv'))!]!);
+  const header = csv.split('\n')[0]!.split(',');
+  const csvRows = csv.split('\n').slice(1).map(line => Object.fromEntries(line.split(',').map((value, i) => [header[i], value])));
+  expect.soft(cuts(csvRows).map(row => [row['x residual [m]'], row.min, row.max])).toEqual(
+    expected.map(row => row.map(String)),
+  );
 });

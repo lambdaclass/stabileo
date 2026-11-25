@@ -657,8 +657,12 @@ mod tests {
 
 
     fn round5_diagram_results() -> (SolverInput, [(AnalysisResults, AnalysisResults3D); 2]) {
+        round5_diagram_results_at(3.0)
+    }
+
+    fn round5_diagram_results_at(length: f64) -> (SolverInput, [(AnalysisResults, AnalysisResults3D); 2]) {
         let (plane, space) = diagram_issue_models(
-            3.0,
+            length,
             serde_json::json!({"type":"distributed","data":{"elementId":1,"qI":0,"qJ":0}}),
             serde_json::json!({"type":"distributed","data":{"elementId":1,"qYI":0,"qYJ":0,"qZI":0,"qZJ":0}}),
         );
@@ -786,6 +790,41 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "known wrong result: #2437"]
+    fn issue_2437_point_force_lever_residual() {
+        use crate::postprocess::{combinations, diagrams_3d};
+        let (input, results) = round5_diagram_results_at(2.0);
+        let p = 2.0_f64.powi(54);
+        let start = -3.0 * (p / 4.0);
+        let mut observed = Vec::new();
+        let mut expected = Vec::new();
+        for (a, want) in [(0.25, 0.0_f64), (0.25 + 1.0 / p, -1.0), (0.25 - 1.0 / p, 1.0)] {
+            for (mut planar, mut spatial) in results.clone() {
+                planar.element_forces[0].m_start = start;
+                planar.element_forces[0].point_loads = vec![PointLoadInfo { a, p: -p, px: None, my: None }];
+                spatial.element_forces[0].my_start = start;
+                spatial.element_forces[0].point_loads_z = vec![PointLoadInfo3D { a, p }];
+                observed.extend([
+                    checked_diagram_value_2d("moment", 0.5, &planar.element_forces[0]).unwrap(),
+                    diagrams_3d::checked_diagram_value_3d(&spatial.element_forces[0], "momentY", 0.5).unwrap(),
+                    compute_diagrams_2d(&input, &planar).moment[0].points.iter().find(|p| p.t == 0.5).unwrap().value,
+                    diagrams_3d::compute_diagrams_3d(&spatial).moment_y[0].points.iter().find(|p| p.t == 0.5).unwrap().value,
+                ]);
+                expected.extend([want; 4]);
+                let plane = combinations::compute_envelope(&[planar]).unwrap().moment;
+                let space = combinations::compute_envelope_3d(&[spatial]).unwrap().moment_y;
+                for envelope in [plane, space] {
+                    let element = &envelope.elements[0];
+                    let i = element.t_positions.iter().position(|&t| t == 0.5).unwrap();
+                    observed.extend([element.neg_values[i], element.pos_values[i]]);
+                    expected.extend([want.min(0.0), want.max(0.0)]);
+                }
+            }
+        }
+        assert_eq!(observed, expected);
+    }
+
+    #[test]
     fn issue_2250_diagram_extrema_partial_load() {
         use crate::postprocess::{combinations, diagrams_3d};
         let (plane, space) = diagram_issue_models(
@@ -819,10 +858,14 @@ mod tests {
         for (planar, spatial) in results {
             let mut jump = planar.clone();
             jump.element_forces[0].point_loads = vec![PointLoadInfo { a, p: 8.0, px: None, my: Some(4.0) }];
-            let plane = compute_envelope(&[jump, planar]).unwrap();
+            let mut opposite = planar.clone();
+            opposite.element_forces[0].point_loads = vec![PointLoadInfo { a, p: -8.0, px: None, my: Some(-4.0) }];
+            let plane = compute_envelope(&[jump, planar, opposite]).unwrap();
             let mut jump = spatial.clone();
             jump.element_forces[0].point_loads_z = vec![PointLoadInfo3D { a, p: 8.0 }];
-            let space = compute_envelope_3d(&[jump, spatial]).unwrap();
+            let mut opposite = spatial.clone();
+            opposite.element_forces[0].point_loads_z = vec![PointLoadInfo3D { a, p: -8.0 }];
+            let space = compute_envelope_3d(&[jump, spatial, opposite]).unwrap();
             for (diagram, amplitude) in [(plane.shear, 8.0), (plane.moment, 4.0), (space.shear_z, 8.0)] {
                 let element = &diagram.elements[0];
                 let wire = serde_json::to_value(element).unwrap();
@@ -833,7 +876,8 @@ mod tests {
                     assert_eq!(face["right"].as_bool(), Some(right));
                     let i = face["index"].as_u64().unwrap() as usize;
                     assert_eq!(element.t_positions[i], a / 3.0);
-                    assert_eq!(element.pos_values[i].max(-element.neg_values[i]), expected);
+                    assert_eq!(element.pos_values[i], expected);
+                    assert_eq!(element.neg_values[i], -expected);
                 }
             }
         }

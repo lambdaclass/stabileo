@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { computeDiagramValueAt, computeElementDiagram, prepareDiagramValueAt } from '../diagrams';
-import { computeDiagram3D, evaluateDiagramAt, prepareDiagramEvaluator3D } from '../diagrams-3d';
+import { computeDiagram3D, evaluateDiagramAt, prepareDiagramEvaluator3D, memberCriticalOrdinates3D } from '../diagrams-3d';
 import {
   computeDiagrams2D, computeDiagrams3D, computeDiagramValueAtWasm, computeDiagramValueAt3DWasm,
   computeEnvelope, computeEnvelope3D, extractBeamStations, extractBeamStations3D,
@@ -42,8 +42,8 @@ function cantilevers(length: number): [SolverInput, SolverInput3D] {
   return [planar, spatial];
 }
 
-function forceRecords() {
-  const [plane, space] = cantilevers(length);
+function forceRecords(memberLength = length) {
+  const [plane, space] = cantilevers(memberLength);
   const linearPlane = solve(plane);
   const linearSpace = solve3D(space);
   const pDeltaPlane = solvePDelta(plane);
@@ -350,6 +350,98 @@ it('known wrong result: #2437 preserves nested cancellation in signed diagram or
       const envelope = computeEnvelope3D([result])!.momentY.elements[0]!;
       const i = envelope.tPositions.indexOf(0.5);
       expect.soft([envelope.negValues[i], envelope.posValues[i]]).toEqual([0, expected]);
+    }
+  }
+});
+
+it.skip('known wrong result: #2437 evaluates ordinary piece queries at the physical parent distance', () => {
+  const [, , , spatial] = forceRecords();
+  const q = 2 ** 54;
+  for (const result of spatial) {
+    const ef = result.elementForces[0]!;
+    const local = { ...ef, length: 1 };
+    const parent = {
+      ...ef,
+      pieces: [
+        { x0: 0, x1: 1, forces: local },
+        { x0: 1, x1: 2, forces: { ...local, vzStart: 4 - q / 2, distributedLoadsZ: [{ a: 0, b: 1, qI: q, qJ: q }] } },
+        { x0: 2, x1: 3, forces: local },
+      ],
+    };
+    const at = prepareDiagramEvaluator3D(parent, 'shearZ');
+    for (const [t, expected] of [[0.5 - 2 ** -54, 1], [0.5, 4], [0.5 + 2 ** -53, 10]] as const) {
+      expect.soft(evaluateDiagramAt(parent, 'shearZ', t)).toBe(expected);
+      expect.soft(at(t)).toBe(expected);
+    }
+    expect.soft(computeDiagram3D(parent, 'shearZ').points.find(p => p.t === 0.5)?.value).toBe(4);
+    expect.soft(at(1 / 3)).toBe(0);
+    expect.soft(at(1 / 3, true)).toBe(4 - q / 2);
+    expect.soft(at(2 / 3)).toBe(4 + q / 2);
+    expect.soft(at(2 / 3, true)).toBe(0);
+  }
+});
+
+it.skip('known wrong result: #2437 refuses a physical root that rounds to a load boundary', () => {
+  const [, , planar, spatial] = forceRecords();
+  const q = 2 ** 50;
+  const load = { a: 1.5, b: 1.5 + 1 / q, qI: 9 * q, qJ: -41 * q };
+  for (const result of planar) {
+    const ef = result.elementForces[0]!;
+    ef.distributedLoads = [load];
+    expect.soft(() => computeDiagramValueAt('shear', 0.5, ef)).toThrow(/extrema/i);
+    expect.soft(() => prepareDiagramValueAt('shear', ef)(0.5, true)).toThrow(/extrema/i);
+    expect.soft(() => computeElementDiagram('shear', ef, 0, 0, length, 0)).toThrow(/extrema/i);
+    expect.soft(() => computeDiagramValueAtWasm('shear', 0.5, ef)).toThrow(/relative geometry limit/);
+    expect.soft(computeDiagramValueAt('shear', 0.5 - 2 ** -54, ef)).toBe(0);
+    ef.distributedLoads = [{ a: 1.5, b: 2.25, qI: 4, qJ: -4 }];
+    expect.soft(computeDiagramValueAt('shear', 0.625, ef)).toBe(0.75);
+    expect.soft(computeDiagramValueAtWasm('shear', 0.625, ef)).toBe(0.75);
+  }
+  for (const result of spatial) {
+    const ef = result.elementForces[0]!;
+    ef.distributedLoadsZ = [load];
+    expect.soft(() => evaluateDiagramAt(ef, 'shearZ', 0.5)).toThrow(/extrema/i);
+    expect.soft(() => prepareDiagramEvaluator3D(ef, 'shearZ')(0.5, true)).toThrow(/extrema/i);
+    expect.soft(() => computeDiagram3D(ef, 'shearZ')).toThrow(/extrema/i);
+    expect.soft(() => memberCriticalOrdinates3D(ef, 'shearZ')).toThrow(/extrema/i);
+    expect.soft(() => computeDiagramValueAt3DWasm('shearZ', 0.5, ef)).toThrow(/relative geometry limit/);
+    expect.soft(evaluateDiagramAt(ef, 'shearZ', 0.5 - 2 ** -54)).toBe(0);
+    ef.distributedLoadsZ = [{ a: 1.5, b: 2.25, qI: 4, qJ: -4 }];
+    expect.soft(evaluateDiagramAt(ef, 'shearZ', 0.625)).toBe(0.75);
+    expect.soft(computeDiagramValueAt3DWasm('shearZ', 0.625, ef)).toBe(0.75);
+  }
+});
+
+it.skip('known wrong result: #2437 preserves the point-force lever residual in browser and WASM moments', () => {
+  const [plane, space, planar, spatial] = forceRecords(2);
+  const p = 2 ** 54;
+  const start = -3 * (p / 4);
+  for (const [a, expected] of [[0.25, 0], [0.25 + 2 ** -54, -1], [0.25 - 2 ** -54, 1]] as const) {
+    for (const result of planar) {
+      const ef = result.elementForces[0]!;
+      ef.mStart = start;
+      ef.pointLoads = [{ a, p: -p }];
+      expect.soft(computeDiagramValueAt('moment', 0.5, ef)).toBe(expected);
+      expect.soft(prepareDiagramValueAt('moment', ef)(0.5)).toBe(expected);
+      expect.soft(computeElementDiagram('moment', ef, 0, 0, 2, 0).points.find(p => p.t === 0.5)?.value).toBe(expected);
+      expect.soft(computeDiagramValueAtWasm('moment', 0.5, ef)).toBe(expected);
+      expect.soft(computeDiagrams2D(plane, result).moment[0]!.points.find((p: { t: number }) => p.t === 0.5)?.value).toBe(expected);
+      const envelope = computeEnvelope([result])!.moment.elements[0]!;
+      const i = envelope.tPositions.indexOf(0.5);
+      expect.soft([envelope.negValues[i], envelope.posValues[i]]).toEqual([Math.min(0, expected), Math.max(0, expected)]);
+    }
+    for (const result of spatial) {
+      const ef = result.elementForces[0]!;
+      ef.myStart = start;
+      ef.pointLoadsZ = [{ a, p }];
+      expect.soft(evaluateDiagramAt(ef, 'momentY', 0.5)).toBe(expected);
+      expect.soft(prepareDiagramEvaluator3D(ef, 'momentY')(0.5)).toBe(expected);
+      expect.soft(computeDiagram3D(ef, 'momentY').points.find(p => p.t === 0.5)?.value).toBe(expected);
+      expect.soft(computeDiagramValueAt3DWasm('momentY', 0.5, ef)).toBe(expected);
+      expect.soft(computeDiagrams3D(space, result).momentY[0]!.points.find((p: { t: number }) => p.t === 0.5)?.value).toBe(expected);
+      const envelope = computeEnvelope3D([result])!.momentY.elements[0]!;
+      const i = envelope.tPositions.indexOf(0.5);
+      expect.soft([envelope.negValues[i], envelope.posValues[i]]).toEqual([Math.min(0, expected), Math.max(0, expected)]);
     }
   }
 });
