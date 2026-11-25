@@ -1,14 +1,18 @@
+import { EngineMessageError } from '../codes/message';
+
 export const DIAGRAM_EXTREMA_UNAVAILABLE = 'solver.diagramExtremaUnavailable';
 
 export interface DiagramStation {
   t: number;
   right?: boolean;
+  x?: number;
 }
 
 export interface DiagramExtremum {
   t: number;
   value: number;
-  canTransfer: (t: number) => boolean;
+  canTransfer: (t: number, x?: number) => boolean;
+  coincides?: (x: number) => boolean;
 }
 
 export interface DiagramCurve {
@@ -36,6 +40,12 @@ const regularStations = Array.from({ length: 21 }, (_, i) => i / 20);
 
 export function sortedStations(stations: Iterable<number>): number[] {
   return [...new Set(stations)].sort((a, b) => a - b);
+}
+
+export function rebaseDiagramDistance(origin: number, local: number) {
+  const x = origin + local;
+  const offset = x - origin;
+  return { x, residual: (origin - (x - offset)) + (local - offset) };
 }
 
 export function fullSpanFallback(length: number, loads: DistributedAction[] | undefined, qI: number, qJ: number): DistributedAction[] {
@@ -123,11 +133,11 @@ export function memberDiagram(
     hasDistributedActions,
     get cuts() { return [...distances().keys()]; },
     get cutDistances() { return distances(); },
-    value({ t, right }) {
-      if (!hasActions) return diagramLineValue(start, change, rate, t * length, t);
+    value({ t, right, x = t * length }) {
+      if (!hasActions) return diagramLineValue(start, change, rate, x, t);
       const cut = distances().get(t);
       if (cut !== undefined || t < 0 || t > 1 || !Number.isFinite(t)) {
-        return boundaryValue(cut ?? t * length, t, right === true);
+        return boundaryValue(cut ?? x, t, right === true);
       }
       cuts ??= [...distances()];
       const upper = cuts.findIndex(([station]) => station > t);
@@ -137,7 +147,6 @@ export function memberDiagram(
         coefficients = polynomial(lo, hi, x0, x1);
         intervals.set(lo, coefficients);
       }
-      const x = t * length;
       const u = x <= x0 ? (t - lo) * length / (x1 - x0)
         : x >= x1 ? 1 - (hi - t) * length / (x1 - x0) : (x - x0) / (x1 - x0);
       return polynomialValue(coefficients, u);
@@ -171,8 +180,8 @@ function diagramExtremum(
     if (value !== combine(polynomials.map(p => polynomialValue(p, t === lo ? 0 : 1)))) throw unavailableDiagramExtrema();
     return undefined;
   }
-  const canTransfer = (station: number) => {
-    const local = (station * length - x0) / (x1 - x0);
+  const canTransfer = (station: number, x = station * length) => {
+    const local = (x - x0) / (x1 - x0);
     if (!(local > 0 && local < 1)) return false;
     const step = local - u;
     return combine(polynomials.map((p, i) => {
@@ -182,7 +191,7 @@ function diagramExtremum(
       return ordinates[i]! + change;
     })) === value;
   };
-  return { t, value, canTransfer };
+  return { t, value, canTransfer, coincides: x => x - x0 === (x1 - x0) * u };
 }
 
 interface ExtremaInterval {
@@ -243,7 +252,7 @@ export function indexDiagramExtrema(critical: readonly DiagramExtremum[]): Map<n
 export function checkedCurveValue(curve: Pick<DiagramCurve, 'value'>, station: DiagramStation, critical: ReadonlyMap<number, DiagramExtremum>): number {
   const peak = critical.get(station.t);
   if (peak) {
-    if (!peak.canTransfer(station.t)) throw unavailableDiagramExtrema();
+    if (!peak.canTransfer(station.t, station.x)) throw unavailableDiagramExtrema();
     return peak.value;
   }
   const value = curve.value(station);
@@ -288,7 +297,7 @@ export function diagramCurvePoints(curve: DiagramValues, critical: readonly Diag
 }
 
 export function unavailableDiagramExtrema(): Error {
-  return new Error(DIAGRAM_EXTREMA_UNAVAILABLE);
+  return new EngineMessageError({ key: DIAGRAM_EXTREMA_UNAVAILABLE });
 }
 
 const floatBits = new DataView(new ArrayBuffer(8));

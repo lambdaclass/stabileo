@@ -86,6 +86,13 @@ pub(crate) fn sort_cuts(cuts: &mut Vec<Cut>) -> Result<(), &'static str> {
     Ok(())
 }
 
+pub(crate) fn physical_envelope_station(cuts: &[Cut], length: f64) -> Option<f64> {
+    cuts.iter().find_map(|cut| match cut.location {
+        Location::Boundary(x) => Some(x),
+        _ => None,
+    }).or_else(|| cuts.iter().find(|cut| cut.location != Location::Grid).map(|cut| cut.station_x(length)))
+}
+
 pub(crate) fn uniform_cuts(count: usize) -> impl Iterator<Item = Cut> {
     (0..count).map(move |i| Cut::left(i as f64 / (count - 1) as f64))
 }

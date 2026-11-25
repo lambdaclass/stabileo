@@ -243,6 +243,12 @@ export interface AnalysisResults {
   timings?: SolveTimings;
 }
 
+export interface EnvelopeStation {
+  index: number;
+  x: number;
+  right: boolean;
+}
+
 /** Envolvente puntual pre-computada para un elemento */
 export interface ElementEnvelopeDiagram {
   elementId: number;
@@ -252,6 +258,7 @@ export interface ElementEnvelopeDiagram {
   posValues: number[];
   /** Valor máximo negativo en cada punto (≤ 0) */
   negValues: number[];
+  criticalStations?: EnvelopeStation[];
 }
 
 /** Datos de envolvente para un tipo de diagrama */

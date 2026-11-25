@@ -1,3 +1,4 @@
+import { EngineMessageError } from '../codes/message';
 import { accountingCaseSources, accountingProjection, accountingSource, copyAccountingLoad, scenarioSurfaceIntentOf, type AccountingCaseSources, type ScenarioSurfaceIntent } from './accounting-source';
 import { EngineCheckError, EngineUnavailableError } from './engine-unavailable';
 import { scaleAssembledMagnitudes3D, type Wrench } from './accounting-math';
@@ -18,7 +19,7 @@ import { casesToSolve, finishBundle, magnitudeRefusal, spectralRefusal } from '.
 import { isMagnitudeCombination } from './result-scopes';
 import { collapseVariableResults, collapseVariableEnvelope, variableExpansionFor, isVariableMember } from './variable-members';
 import { nodesOnMembers } from './nodes-on-members';
-import { localizeEngineText } from '../i18n/engine-text';
+import { localizeEngineText, te } from '../i18n/engine-text';
 import { errorText } from '../utils/error-text';
 import { createSectionWeight, InvalidMaterialDensity } from '../section/weight';
 import { expandSemiRigid3D, SemiRigidError } from './expand-semi-rigid-3d';
@@ -2177,6 +2178,7 @@ function buildSolveInput3D(...args: Parameters<typeof buildValidatedSolverInput3
 
 /** A load the solve cannot place, said by name: a moment on a member that takes no bending. */
 export function loadRefusal(err: unknown): string | null {
+  if (err instanceof EngineMessageError) return te(err);
   if (err instanceof EngineCheckError) return localizeEngineText(err.engineMessage);
   if (err instanceof EngineUnavailableError) return t('engine.unavailable');
   if (err instanceof MemberLoadIntervalError || err instanceof SolveAccountingError || err instanceof ModelInputError || err instanceof InvalidMaterialDensity) return err.message;

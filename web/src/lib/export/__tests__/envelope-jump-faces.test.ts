@@ -8,6 +8,8 @@ import { reexpandVariableResults } from '../../engine/variable-member-results';
 import { computeEnvelope3D, initSolver } from '../../engine/wasm-solver';
 import { modelStore, uiStore } from '../../store';
 import { publishCombinations3D } from '../../store/active-results';
+import { t } from '../../i18n';
+import { engineGuarded } from '../../store/engine-action';
 import { currentWorkbookParts, currentWorkbookSheets, streamWorkbookZip } from '../../store/project-workbook';
 import { resultSheets, type WorkbookSource } from '../workbook-results';
 import { partSize, type WorkbookSheet } from '../workbook-cells';
@@ -35,7 +37,7 @@ function twoCombinations() {
   return { first, second, ids };
 }
 
-it.skip.each([['linear', false], ['linear', true], ['pdelta', false], ['pdelta', true]] as const)(
+it.each([['linear', false], ['linear', true], ['pdelta', false], ['pdelta', true]] as const)(
   'known wrong result: #2226 workbook envelopes both faces and names each governing combination (%s, parallel=%s)', async (method, parallel) => {
   const member = cantilever(4);
   const { first, second, ids } = twoCombinations();
@@ -46,6 +48,7 @@ it.skip.each([['linear', false], ['linear', true], ['pdelta', false], ['pdelta',
   const solved = parallel ? await modelStore.solveCombinations3DParallel(false, false, true)
     : modelStore.solveCombinations3D(false, false, true);
   if (!solved || typeof solved === 'string') throw new Error(String(solved));
+  if (method === 'pdelta') expect(solved.perCombo.get(ids[0]!)?.secondOrder?.converged).toBe(true);
   publishCombinations3D(solved);
   const result = currentWorkbookSheets('critical', onlyEnvelope).find(sheet => sheet.name === 'Envelope')!;
   const faces = records(result).filter(row => row.entity === member && row['x [m]'] === at && row.component === 'Vz');
@@ -65,7 +68,7 @@ it.skip.each([['linear', false], ['linear', true], ['pdelta', false], ['pdelta',
   );
 });
 
-it.skip('known wrong result: #2226 keeps the two moment faces at a member split', () => {
+it('known wrong result: #2226 keeps the two moment faces at a member split', () => {
   const member = cantilever(4);
   const { first, second, ids } = twoCombinations();
   const at = 1.25, moment = 8;
@@ -96,7 +99,7 @@ function solvedMember(length: number): AnalysisResults3D {
   return structuredClone(result);
 }
 
-it.skip('known wrong result: #2226 keeps distinct nearby stations and exact physical distances in imported result envelopes', () => {
+it('known wrong result: #2226 keeps distinct nearby stations and exact physical distances in imported result envelopes', () => {
   const a = 1.25, b = a + 2 ** -24;
   const first = solvedMember(3);
   const second = structuredClone(first);
@@ -115,7 +118,7 @@ it.skip('known wrong result: #2226 keeps distinct nearby stations and exact phys
   ]);
 });
 
-it.skip('known wrong result: #2226 refuses an aliased cross-case jump and accepts the adjacent representable layout', () => {
+it('known wrong result: #2226 refuses an aliased cross-case jump and accepts the adjacent representable layout', () => {
   const length = 9, a = 7 + 12 * Number.EPSILON;
   const first = solvedMember(length), second = structuredClone(first);
   let b = a + 4 * Number.EPSILON;
@@ -125,12 +128,15 @@ it.skip('known wrong result: #2226 refuses an aliased cross-case jump and accept
   const options = { axes: DEFAULT_AXES, stations: 'critical' } as const;
   expect(a / length).toBe(b / length);
   expect(() => envelopeRows('forces', sources, options)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+  expect(engineGuarded(() => envelopeRows('forces', sources, options))).toEqual({
+    value: null, error: t(DIAGRAM_EXTREMA_UNAVAILABLE),
+  });
   b += 4 * Number.EPSILON;
   second.elementForces[0]!.pointLoadsZ[0]!.a = b;
   expect(envelopeRows('forces', sources, options).filter(row => row.x === b)).toHaveLength(2);
 });
 
-it.skip('known wrong result: #2226 rebased WASM envelopes refuse a jump that aliases a split face', () => {
+it('known wrong result: #2226 rebased WASM envelopes refuse a jump that aliases a split face', () => {
   const member = cantilever(1);
   const { first, ids } = twoCombinations();
   modelStore.addPointLoadOnElement(member, 0.5, 0, { my: 8, caseId: first });
@@ -148,7 +154,7 @@ it.skip('known wrong result: #2226 rebased WASM envelopes refuse a jump that ali
   expect(good.tPositions.filter(t => t === 0.5 + 2 ** -52)).toHaveLength(2);
 });
 
-it.skip('known wrong result: #2226 includes a resultant extremum between component stations in a critical envelope', () => {
+it('known wrong result: #2226 includes a resultant extremum between component stations in a critical envelope', () => {
   const results = solvedMember(1);
   const force = results.elementForces[0]!;
   force.vyStart = -3;

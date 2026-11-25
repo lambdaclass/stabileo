@@ -27,7 +27,8 @@ import type { Quantity } from '../utils/units';
 import { csvCell } from './result-query';
 import type { ElementDesignDemands, GoverningDemand } from './station-design-forces';
 import { stationTs, type StationSpec } from './station-forces';
-import { memberCriticalOrdinates3D, prepareDiagramEvaluator3D, type Diagram3DKind } from './diagrams-3d';
+import { memberCriticalOrdinates3D, memberEnvelopeStations3D, prepareDiagramEvaluator3D, type Diagram3DKind } from './diagrams-3d';
+import { unavailableDiagramExtrema } from './member-diagram';
 import { resultComponents } from '../axes/result-components';
 import { makeFrame, type AxesChoice } from '../axes/frame';
 
@@ -210,27 +211,75 @@ export function summaryRows(kind: TableKind, sources: readonly Source[], opts: T
 }
 
 /** One node or member end or station, enveloped: per column the largest and smallest value and their source. */
-export interface EnvelopeRow { entity: number; end?: 'i' | 'j'; x?: number; max: Array<{ value: number; source: Source }>; min: Array<{ value: number; source: Source }> }
+export interface EnvelopeRow {
+  entity: number;
+  end?: 'i' | 'j';
+  x?: number;
+  face?: 'left' | 'right';
+  max: Array<{ value: number; source: Source }>;
+  min: Array<{ value: number; source: Source }>;
+}
+
+function firstEnvelopeRow(position: Pick<EnvelopeRow, 'entity' | 'end' | 'x' | 'face'>, values: readonly number[], source: Source): EnvelopeRow {
+  return { ...position, max: values.map(value => ({ value, source })), min: values.map(value => ({ value, source })) };
+}
+
+function foldEnvelopeRow(row: EnvelopeRow, values: readonly number[], source: Source): void {
+  values.forEach((value, c) => {
+    const tolerance = (other: number) => 1e-9 * Math.max(Math.abs(value), Math.abs(other), 1e-12);
+    if (value - row.max[c]!.value > tolerance(row.max[c]!.value)) row.max[c] = { value, source };
+    if (row.min[c]!.value - value > tolerance(row.min[c]!.value)) row.min[c] = { value, source };
+  });
+}
+
+function* criticalEnvelopeStations(sources: readonly Source[], opts: TableOptions) {
+  const members = new Map<number, AnalysisResults3D['elementForces']>();
+  for (const source of sources) {
+    const seen = new Set<number>();
+    for (const force of source.results.elementForces) {
+      const id = force.elementId;
+      if (opts.entities && !opts.entities.has(id)) continue;
+      if (seen.has(id)) throw unavailableDiagramExtrema();
+      seen.add(id);
+      let matches = members.get(id);
+      if (!matches) members.set(id, matches = []);
+      matches.push(force);
+    }
+  }
+  const components = opts.resultant ? [...forceDiagrams, ...resultantDiagrams] : forceDiagrams;
+  for (const [entity, forces] of members) {
+    if (forces.length !== sources.length) throw unavailableDiagramExtrema();
+    for (const station of memberEnvelopeStations3D(forces, components)) yield { entity, ...station };
+  }
+}
+
+export function countCriticalForceEnvelopeRows(sources: readonly Source[], opts: TableOptions): number {
+  let count = 0;
+  for (const _ of criticalEnvelopeStations(sources, opts)) count++;
+  return count;
+}
+
+export function* criticalForceEnvelopeRows(sources: readonly Source[], opts: TableOptions): IterableIterator<EnvelopeRow> {
+  for (const { entity, t, x, face, values } of criticalEnvelopeStations(sources, opts)) {
+    const end = t === 0 ? 'i' : t === 1 ? 'j' : undefined;
+    const [first, ...rest] = values();
+    const envelope = firstEnvelopeRow({ entity, end, x, face }, first!, sources[0]!);
+    rest.forEach((row, i) => foldEnvelopeRow(envelope, row, sources[i + 1]!));
+    yield envelope;
+  }
+}
 
 /** For each node or member end (or station), the largest and smallest value of each column over the sources. */
 export function envelopeRows(kind: TableKind, sources: readonly Source[], opts: TableOptions): EnvelopeRow[] {
+  if (kind === 'forces' && opts.stations === 'critical') return [...criticalForceEnvelopeRows(sources, opts)];
   const byKey = new Map<string, EnvelopeRow>();
-  for (const s of sources) {
-    for (const row of rowsOf(kind, s.results, opts)) {
-      const key = `${row.entity}:${row.end ?? ''}:${row.x?.toFixed(6) ?? ''}`;
-      let e = byKey.get(key);
-      if (!e) {
-        e = { entity: row.entity, end: row.end, x: row.x, max: row.values.map((v) => ({ value: v, source: s })), min: row.values.map((v) => ({ value: v, source: s })) };
-        byKey.set(key, e);
-        continue;
-      }
-      row.values.forEach((v, c) => {
-        // A tie within round-off keeps the earlier source: the sources' order is stable, the last digit is not.
-        const tol = (a: number) => 1e-9 * Math.max(Math.abs(v), Math.abs(a), 1e-12);
-        if (v - e!.max[c]!.value > tol(e!.max[c]!.value)) e!.max[c] = { value: v, source: s };
-        if (e!.min[c]!.value - v > tol(e!.min[c]!.value)) e!.min[c] = { value: v, source: s };
-      });
-    }
+  for (const source of sources) {
+    eachRow(kind, source.results, opts, (entity, end, x, values) => {
+      const key = `${entity}:${end ?? ''}:${x ?? ''}`;
+      const row = byKey.get(key);
+      if (row) foldEnvelopeRow(row, values, source);
+      else byKey.set(key, firstEnvelopeRow({ entity, end, x }, values, source));
+    });
   }
   return [...byKey.values()];
 }

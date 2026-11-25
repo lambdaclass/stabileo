@@ -8,6 +8,7 @@
  * otherwise a zip with one CSV per sheet. A large model read at stations passes both, and
  * dropping rows to fit would publish a workbook that looks complete.
  */
+import { runEngineActionAsync } from './engine-action';
 import { ContainmentExportError } from '../export/containment';
 import { Zip, ZipDeflate, zipSync, strToU8 } from 'fflate';
 import { modelStore } from './model.svelte';
@@ -227,20 +228,22 @@ export function workbookZip(sheets: readonly WorkbookSheet[]): Uint8Array {
  * sheet alone, without the units and the signs its numbers are in.
  */
 export async function downloadProjectCsv(stations: StationSpec, opts: WorkbookOptions = {}): Promise<void> {
-  const token = captureProvenanceToken();
-  const record = await workbookRecord(token);
-  if (!record) return;
-  const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultAnalysis');
-  let parts: WorkbookPart[];
-  try { parts = currentWorkbookParts(stations, opts, record); }
-  catch (error) {
-    if (error instanceof ContainmentExportError) { uiStore.toast(error.message, 'error'); return; }
-    throw error;
-  }
-  const data = parts.filter((s) => s.name !== 'Cover' && s.name !== 'Conventions');
-  const name = data.length === 1 ? `${safeName}_${data[0]!.name}_csv.zip` : `${safeName}_csv.zip`;
-  const zip = await zipUnlessChanged(parts, token);
-  if (zip) downloadBlob(zip, name);
+  await runEngineActionAsync(async () => {
+    const token = captureProvenanceToken();
+    const record = await workbookRecord(token);
+    if (!record) return;
+    const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultAnalysis');
+    let parts: WorkbookPart[];
+    try { parts = currentWorkbookParts(stations, opts, record); }
+    catch (error) {
+      if (error instanceof ContainmentExportError) { uiStore.toast(error.message, 'error'); return; }
+      throw error;
+    }
+    const data = parts.filter((s) => s.name !== 'Cover' && s.name !== 'Conventions');
+    const name = data.length === 1 ? `${safeName}_${data[0]!.name}_csv.zip` : `${safeName}_csv.zip`;
+    const zip = await zipUnlessChanged(parts, token);
+    if (zip) downloadBlob(zip, name);
+  });
 }
 
 /** The zip, or null (said) when the project moved while its rows were being written: never a file of two states. */
@@ -269,23 +272,25 @@ async function workbookRecord(token: ProvenanceToken): Promise<ResultProvenance 
 
 /** Write the project workbook: xlsx when it fits, a zip of CSVs otherwise. */
 export async function downloadProjectWorkbook(stations: StationSpec, opts: WorkbookOptions = {}): Promise<void> {
-  const token = captureProvenanceToken();
-  const record = await workbookRecord(token);
-  if (!record) return;
-  const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultAnalysis');
-  let parts: WorkbookPart[];
-  try { parts = currentWorkbookParts(stations, opts, record); }
-  catch (error) {
-    if (error instanceof ContainmentExportError) { uiStore.toast(error.message, 'error'); return; }
-    throw error;
-  }
-  if (partsFitInXlsx(parts)) {
-    // The cover already carries the provenance, prepared above.
-    await exportToExcel({ filename: `${safeName}.xlsx`, onlyExtras: true, extraSheets: parts.map(materialize), provenance: false, modelOnly: opts.results === false && opts.design === false });
-    return;
-  }
-  const zip = await zipUnlessChanged(parts, token);
-  if (!zip) return;
-  downloadBlob(zip, `${safeName}.zip`);
-  uiStore.toast(t('wb.zipped'), 'info');
+  await runEngineActionAsync(async () => {
+    const token = captureProvenanceToken();
+    const record = await workbookRecord(token);
+    if (!record) return;
+    const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultAnalysis');
+    let parts: WorkbookPart[];
+    try { parts = currentWorkbookParts(stations, opts, record); }
+    catch (error) {
+      if (error instanceof ContainmentExportError) { uiStore.toast(error.message, 'error'); return; }
+      throw error;
+    }
+    if (partsFitInXlsx(parts)) {
+      // The cover already carries the provenance, prepared above.
+      await exportToExcel({ filename: `${safeName}.xlsx`, onlyExtras: true, extraSheets: parts.map(materialize), provenance: false, modelOnly: opts.results === false && opts.design === false });
+      return;
+    }
+    const zip = await zipUnlessChanged(parts, token);
+    if (!zip) return;
+    downloadBlob(zip, `${safeName}.zip`);
+    uiStore.toast(t('wb.zipped'), 'info');
+  });
 }

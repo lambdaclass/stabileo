@@ -1,4 +1,5 @@
-import type { AnalysisResults3D, Displacement3D, ElementForces3D, EnvelopeDiagramData3D, FullEnvelope3D } from './types-3d';
+import { rebaseDiagramDistance, unavailableDiagramExtrema } from './member-diagram';
+import type { AnalysisResults3D, Displacement3D, ElementForces3D, ElementEnvelopeDiagram3D, EnvelopeDiagramData3D, FullEnvelope3D } from './types-3d';
 import type { ResultPiece, VariableExpansion, VariableMember, VariablePiece } from './variable-members';
 
 function parentForces(m: VariableMember, byId: Map<number, ElementForces3D>, disp: Map<number, Displacement3D>): ElementForces3D | null {
@@ -88,25 +89,76 @@ export function sameVariableLayout(reference: VariableExpansion, other: Variable
   return true;
 }
 
-function collapseDiagram(d: EnvelopeDiagramData3D, exp: VariableExpansion): EnvelopeDiagramData3D {
-  const byId = new Map(d.elements.map((e) => [e.elementId, e]));
-  const pieceIds = new Set<number>();
-  const parents = [];
-  for (const m of exp.members.values()) {
-    const tPositions: number[] = [], posValues: number[] = [], negValues: number[] = [];
-    let complete = true;
-    for (const p of m.pieces) {
-      pieceIds.add(p.id);
-      const e = byId.get(p.id);
-      if (!e) { complete = false; continue; }
-      e.tPositions.forEach((t, i) => {
-        tPositions.push((p.x0 + t * (p.x1 - p.x0)) / m.length);
-        posValues.push(e.posValues[i]!); negValues.push(e.negValues[i]!);
+function rebaseEnvelopeMember(m: VariableMember, elements: ReadonlyMap<number, ElementEnvelopeDiagram3D>): ElementEnvelopeDiagram3D | null {
+  const pieces = m.pieces.map(p => ({ p, element: elements.get(p.id) }));
+  if (pieces.every(({ element }) => !element)) return null;
+  const candidates = [];
+  for (const { p, element } of pieces) {
+    if (!element) throw unavailableDiagramExtrema();
+    const { tPositions, criticalStations } = element;
+    if (!criticalStations?.length) throw unavailableDiagramExtrema();
+    const stations = new Map(criticalStations.map(station => [station.index, station]));
+    const start = p.x0 / m.length, end = p.x1 / m.length;
+    const internalStart = p.x0 > 0;
+    const hasStartJump = criticalStations.some(station => station.right && tPositions[station.index] === 0);
+    if (!(start < end)) throw unavailableDiagramExtrema();
+    let previousCritical: { local: number; t: number } | undefined;
+    for (let i = 0; i < tPositions.length; i++) {
+      const local = tPositions[i]!;
+      const station = stations.get(i);
+      if (internalStart && local === 0 && hasStartJump && !station?.right) continue;
+      const x = local === 0 ? p.x0 : local === 1 ? p.x1
+        : rebaseDiagramDistance(p.x0, station?.x ?? local * (p.x1 - p.x0)).x;
+      const t = x / m.length;
+      if (station) {
+        if ((local > 0 && local < 1 && !(start < t && t < end))
+          || (previousCritical && previousCritical.local !== local && previousCritical.t >= t)) throw unavailableDiagramExtrema();
+        previousCritical = { local, t };
+      }
+      candidates.push({
+        t, x, critical: !!station, right: (internalStart && local === 0) || !!station?.right,
+        pos: element.posValues[i]!, neg: element.negValues[i]!,
       });
     }
-    if (complete) parents.push({ elementId: m.parentId, tPositions, posValues, negValues });
   }
-  return { ...d, elements: [...d.elements.filter((e) => !pieceIds.has(e.elementId)), ...parents] };
+  candidates.sort((a, b) => a.t - b.t || Number(a.right) - Number(b.right));
+  const parent: ElementEnvelopeDiagram3D & { criticalStations: NonNullable<ElementEnvelopeDiagram3D['criticalStations']> } = {
+    elementId: m.parentId, tPositions: [], posValues: [], negValues: [], criticalStations: [],
+  };
+  for (let i = 0; i < candidates.length;) {
+    const first = candidates[i]!;
+    let j = i + 1;
+    while (candidates[j]?.t === first.t) j++;
+    const cuts = candidates.slice(i, j).filter(candidate => candidate.critical);
+    if (cuts.length > 2 || (cuts.length === 2 && (cuts[0]!.x !== cuts[1]!.x || cuts[0]!.right || !cuts[1]!.right))) {
+      throw unavailableDiagramExtrema();
+    }
+    for (const cut of cuts.length ? cuts : [first]) {
+      if (cut.critical) parent.criticalStations.push({ index: parent.tPositions.length, x: cut.x, right: cut.right });
+      parent.tPositions.push(cut.t);
+      parent.posValues.push(cut.pos);
+      parent.negValues.push(cut.neg);
+    }
+    i = j;
+  }
+  return parent;
+}
+
+function collapseDiagram(d: EnvelopeDiagramData3D, exp: VariableExpansion): EnvelopeDiagramData3D {
+  const byId = new Map(d.elements.map(e => [e.elementId, e]));
+  const pieceIds = new Set<number>();
+  const parents: ElementEnvelopeDiagram3D[] = [];
+  for (const member of exp.members.values()) {
+    for (const piece of member.pieces) pieceIds.add(piece.id);
+    const diagram = rebaseEnvelopeMember(member, byId);
+    if (diagram) parents.push(diagram);
+  }
+  const elements = [...d.elements.filter(e => !pieceIds.has(e.elementId)), ...parents];
+  let globalMax = 0;
+  for (const { posValues, negValues } of elements) {
+    for (let i = 0; i < posValues.length; i++) globalMax = Math.max(globalMax, posValues[i]!, -negValues[i]!);
+  }
+  return { ...d, elements, globalMax };
 }
 
 export function collapseVariableEnvelope(env: FullEnvelope3D, exp: VariableExpansion | undefined): FullEnvelope3D {

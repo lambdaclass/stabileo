@@ -1,0 +1,47 @@
+{
+  "id": "envelope-jump-faces",
+  "date": "2026-11-25",
+  "prs": [
+    2226
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "members"
+    ],
+    "any": [
+      "memberLoads",
+      "combinations"
+    ]
+  },
+  "quantities": [
+    "envelope",
+    "diagrams",
+    "beamStations",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Both faces in member force envelopes",
+    "es": "Ambas caras en las envolventes de esfuerzos de barras",
+    "pt": "Ambas as faces nas envoltórias de esforços das barras",
+    "de": "Beide Schnittseiten in Stabkraftumhüllenden",
+    "fr": "Les deux faces dans les enveloppes d'efforts de barre",
+    "tr": "Eleman iç kuvvet zarflarında kesitin iki yüzü",
+    "zh": "杆件内力包络保留截面两侧",
+    "hu": "Mindkét metszeti oldal a rúderő-burkolókban"
+  },
+  "explanation": {
+    "en": "Critical-station workbooks evaluate each combination on both sides of a force or moment jump. Spatial envelopes refuse distinct cuts that coincide after reassembly. Re-export affected workbooks and recompute affected envelopes.",
+    "es": "Los libros de estaciones críticas evalúan cada combinación a ambos lados de un salto de fuerza o momento. Las envolventes espaciales rechazan cortes distintos que coinciden al recomponer la barra. Vuelva a exportar los libros afectados y calcule de nuevo sus envolventes.",
+    "pt": "As planilhas de estações críticas avaliam cada combinação nos dois lados de um salto de força ou momento. As envoltórias espaciais recusam cortes distintos que coincidem ao recompor a barra. Exporte novamente as planilhas afetadas e recalcule as envoltórias.",
+    "de": "Arbeitsmappen mit kritischen Stationen werten jede Kombination auf beiden Seiten eines Kraft- oder Momentsprungs aus. Räumliche Umhüllende lehnen unterschiedliche Schnitte ab, die nach dem Zusammenfügen zusammenfallen. Exportieren Sie betroffene Arbeitsmappen erneut und berechnen Sie die Umhüllenden neu.",
+    "fr": "Les classeurs de stations critiques évaluent chaque combinaison des deux côtés d'un saut d'effort ou de moment. Les enveloppes spatiales refusent les coupes distinctes qui coïncident après reconstitution. Réexportez les classeurs concernés et recalculez leurs enveloppes.",
+    "tr": "Kritik istasyon çalışma kitapları her kombinasyonu bir kuvvet veya moment sıçramasının iki yanında değerlendirir. Uzamsal zarflar, eleman yeniden birleştirildiğinde çakışan ayrı kesitleri reddeder. Etkilenen çalışma kitaplarını yeniden dışa aktarın ve zarfları yeniden hesaplayın.",
+    "zh": "关键测点工作簿在力或力矩发生跳变的两侧对每个组合进行计算。空间包络会拒绝在杆件重新拼接后重合的不同截面。请重新导出受影响的工作簿并重算包络。",
+    "hu": "A kritikus állomások munkafüzetei minden kombinációt kiértékelnek az erő- vagy nyomatékugrás mindkét oldalán. A térbeli burkolók elutasítják az újraegyesítés után egybeeső különálló metszeteket. Exportálja újra az érintett munkafüzeteket, és számítsa újra a burkolókat."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-envelope-jump-faces.md",
+    "heading": "Both faces in member force envelopes"
+  }
+}

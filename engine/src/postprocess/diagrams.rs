@@ -767,7 +767,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2226"]
     fn issue_2226_envelopes_keep_physical_force_and_moment_faces() {
         use crate::postprocess::combinations::{compute_envelope, compute_envelope_3d};
         let a = 1.0;

@@ -11,6 +11,7 @@
    * reading the active list's envelope.
    */
   import { modelStore, resultsStore } from '../../lib/store';
+  import { runEngineAction } from '../../lib/store/engine-action';
   import { t, tp } from '../../lib/i18n';
   import { envelopeOver, designComboIds, isMagnitudeCombination, scopeEdits, type NamedEnvelope, type EnvelopePurpose, type ResultScopes } from '../../lib/engine/result-scopes';
 
@@ -82,7 +83,7 @@
   }
 
   function show(env: NamedEnvelope) {
-    const e = envelopeOver(resultsStore.perCombo3D, env.comboIds, resultsStore.perCase3D, env.caseIds ?? []);
+    const e = runEngineAction(() => envelopeOver(resultsStore.perCombo3D, env.comboIds, resultsStore.perCase3D, env.caseIds ?? []));
     if (!e) return;
     resultsStore.viewEnvelope3D(e, env.name);
     resultsStore.activeView = 'envelope';
