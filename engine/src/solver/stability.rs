@@ -463,14 +463,8 @@ struct FrameSwing {
 
 impl FrameSwing {
     fn project(&self, transform: &super::constraints::SparseTransform) -> Option<Self> {
-        let dofs = self.dofs.iter().map(|&row| {
-            let span = transform.row_ptr[row]..transform.row_ptr[row + 1];
-            if span.len() != 1 || transform.vals[span.start] != 1.0 {
-                return None;
-            }
-            let col = transform.col_idx[span.start];
-            (transform.col_ptr[col + 1] - transform.col_ptr[col] == 1).then_some(col)
-        }).collect::<Option<Vec<_>>>()?;
+        let dofs = self.dofs.iter().map(|&row| transform.isolated_unit_column(row))
+            .collect::<Option<Vec<_>>>()?;
         Some(Self { nodes: self.nodes.clone(), dofs })
     }
 }
@@ -722,7 +716,7 @@ pub(super) fn isolated_released_rotations_3d(
     input: &SolverInput3D,
     dof: &DofNumbering,
 ) -> Vec<Vec<(usize, f64, f64)>> {
-    if dof.dofs_per_node != 6 || !has_member_releases_3d(input) {
+    if !has_member_releases_3d(input) {
         return Vec::new();
     }
     let releases = released_rotations_3d(input, dof);

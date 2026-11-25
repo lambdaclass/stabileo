@@ -52,7 +52,6 @@ fn assert_settlement(input: NonlinearMaterialInput3D) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1090"]
 fn issue_1090_reversed_warping_frame_carries_its_prescribed_translation() {
     let case = case();
     let analysis = crate::ana3::rows().into_iter().find(|row| row.name == "material nonlinear").unwrap();
@@ -68,7 +67,6 @@ fn issue_1090_reversed_warping_frame_carries_its_prescribed_translation() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1090"]
 fn spatial_material_dense_and_sparse_follow_the_same_settlement() {
     let case = case();
     let images = [
@@ -89,4 +87,91 @@ fn spatial_material_dense_and_sparse_follow_the_same_settlement() {
     let relabelled = case.relabel(&relabel, SEED);
     let result = solve_nonlinear_material_3d(&material_input(relabelled.s)).unwrap();
     assert!(result.converged);
+}
+
+fn moment_along_release(mut input: NonlinearMaterialInput3D) -> NonlinearMaterialInput3D {
+    let solver = &mut input.solver;
+    let member = &solver.elements["1"];
+    let a = &solver.nodes[&member.node_i.to_string()];
+    let b = &solver.nodes[&member.node_j.to_string()];
+    let (_, y, _) = dedaliano_engine::element::compute_local_axes_3d(
+        a.x, a.y, a.z, b.x, b.y, b.z, member.local_yx, member.local_yy,
+        member.local_yz, member.roll_angle, solver.left_hand.unwrap_or(false),
+    );
+    solver.loads = serde_json::from_value(serde_json::json!([{
+        "type":"nodal",
+        "data":{"nodeId":2,"fx":0.0,"fy":0.0,"fz":0.0,"mx":y[0],"my":y[1],"mz":y[2]},
+    }])).unwrap();
+    input
+}
+
+fn unhinged() -> NonlinearMaterialInput3D {
+    let mut case = case();
+    case.s.elements.get_mut("1").unwrap().release_my_end = false;
+    material_input(case.s)
+}
+
+fn planar() -> dedaliano_engine::types::NonlinearMaterialInput {
+    let cases: Value = serde_json::from_str(include_str!("../fixtures/released-tip-mechanisms.json")).unwrap();
+    let mut solver: dedaliano_engine::types::SolverInput = serde_json::from_value(cases["2380"].clone()).unwrap();
+    let member = solver.elements.get_mut("1").unwrap();
+    member.hinge_start = false;
+    member.hinge_end = true;
+    solver.loads.clear();
+    solver.supports.get_mut("1").unwrap().dz = case().s.supports["1"].dz;
+    dedaliano_engine::types::NonlinearMaterialInput {
+        solver,
+        material_models: Default::default(),
+        section_capacities: Default::default(),
+        max_iter: 60,
+        tolerance: 1e-10,
+        n_increments: 4,
+    }
+}
+
+#[test]
+fn unloaded_release_is_a_gauge_and_a_loaded_release_refuses() {
+    let released = material_input(case().s);
+    let loaded = moment_along_release(released.clone());
+    for solver in [loaded.solver.clone(), pad_3d(&loaded.solver).0] {
+        let error = solve_nonlinear_material_3d(&material_input(solver)).unwrap_err();
+        assert!(error.contains("not supported") && error.contains("rotation"), "{error}");
+    }
+    let mut constrained = released.clone();
+    constrained.solver.constraints = serde_json::from_value(serde_json::json!([
+        {"type":"equalDOF","masterNode":1,"slaveNode":2,"dofs":[3,4,5]},
+    ])).unwrap();
+    assert_settlement(constrained);
+    assert_settlement(unhinged());
+
+    let planar = planar();
+    let result = dedaliano_engine::solver::material_nonlinear::solve_nonlinear_material_2d(&planar).unwrap();
+    assert!(result.converged);
+    let translation = planar.solver.supports["1"].dz.unwrap();
+    let tip = result.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
+    assert!((tip.uz - translation).abs() <= planar.tolerance * translation.abs());
+}
+
+#[test]
+fn material_release_wasm_cases() {
+    let Ok(path) = std::env::var("MATERIAL_RELEASE_WASM_CASES") else { return };
+    use serde_json::json;
+
+    let case = case();
+    let images = [
+        case.clone(),
+        reversed(&case),
+        case.iso(&Iso3::about_z(0.47).translated([1.0, 2.0, 3.0])).unwrap(),
+        case.units(&Units::froude(1e-3, 1e3)),
+        case.units(&Units::froude(25.0, 1e-2)),
+        case.units(&Units::froude(0.3048, 4.448)),
+    ];
+    let mut cases: Vec<_> = images.into_iter().flat_map(|image| {
+        let (padded, _, _) = pad_3d(&image.s);
+        [image.s, padded].into_iter().map(|solver| json!({ "dimension": 3, "input": material_input(solver) }))
+    }).collect();
+    cases.push(json!({ "dimension": 3, "input": unhinged(), "control": true }));
+    cases.push(json!({ "dimension": 3, "input": moment_along_release(material_input(case.s)), "refuses": true }));
+    cases.push(json!({ "dimension": 2, "input": planar(), "control": true }));
+    std::fs::write(path, serde_json::to_vec(&cases).unwrap()).unwrap();
 }

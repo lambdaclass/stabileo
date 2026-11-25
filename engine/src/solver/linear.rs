@@ -4233,7 +4233,7 @@ fn refuse_loaded_free_rotation_3d(stability: &super::stability::Stability, dof: 
     Err(moment_lost_3d(node, &format!("a loaded released rotation or unstiffened rotational/warping direction is present; free directions [{}] have no resolvable stiffness", directions.join("; "))))
 }
 
-fn moment_lost_3d(node: usize, why: &str) -> String {
+pub(super) fn moment_lost_3d(node: usize, why: &str) -> String {
     format!(
         "Nodal moment at node {node} is not supported: {why}, so the moment would not reach the structure. \
          Apply it as a force couple, or connect the node to a frame or shell"

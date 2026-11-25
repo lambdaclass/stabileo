@@ -55,6 +55,15 @@ pub struct SparseTransform {
 }
 
 impl SparseTransform {
+    pub(super) fn isolated_unit_column(&self, row: usize) -> Option<usize> {
+        let span = self.row_ptr[row]..self.row_ptr[row + 1];
+        if span.len() != 1 || self.vals[span.start] != 1.0 {
+            return None;
+        }
+        let col = self.col_idx[span.start];
+        (self.col_ptr[col + 1] - self.col_ptr[col] == 1).then_some(col)
+    }
+
     pub(crate) fn buckling_transform(&self) -> crate::linalg::lanczos::BucklingTransform<'_> {
         crate::linalg::lanczos::BucklingTransform {
             n_rows: self.n_rows, n_cols: self.n_cols,

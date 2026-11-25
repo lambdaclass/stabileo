@@ -448,22 +448,17 @@ impl<'a> ModalStiffness<'a> {
         constraints: Option<&FreeConstraintSystem>,
         artificial: &[usize],
     ) -> Result<(), String> {
+        if dof.dofs_per_node != 6 {
+            return Ok(());
+        }
         for mut axis in super::stability::isolated_released_rotations_3d(input, dof) {
             let already_pinned = axis.iter().all(|&(i, value, error)| {
                 (value == 0.0 && error == 0.0) || artificial.contains(&i)
             });
             if let Some(cs) = constraints {
                 for (coordinate, _, _) in &mut axis {
-                    let c = &cs.c_ff;
-                    let start = c.row_ptr[*coordinate];
-                    if c.row_ptr[*coordinate + 1] != start + 1 || c.vals[start] != 1.0 {
-                        return Err(stiffness_conditioning_refusal());
-                    }
-                    let reduced = c.col_idx[start];
-                    if c.col_ptr[reduced + 1] != c.col_ptr[reduced] + 1 {
-                        return Err(stiffness_conditioning_refusal());
-                    }
-                    *coordinate = reduced;
+                    *coordinate = cs.c_ff.isolated_unit_column(*coordinate)
+                        .ok_or_else(stiffness_conditioning_refusal)?;
                 }
             }
             if already_pinned || !mass.is_proven_massless(&axis) {

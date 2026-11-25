@@ -994,6 +994,8 @@ jobs:
         run: make test.engine.modal-released-axis-wasm
       - name: Unrestrained frame tip mechanism WASM regressions
         run: make test.engine.released-tip-mechanisms-wasm
+      - name: Released rotations in material tangent WASM regressions
+        run: make test.engine.material-release-wasm
       - name: SSI elastic refinement WASM regressions
         run: make test.engine.ssi-elastic-2011-wasm
 

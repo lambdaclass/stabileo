@@ -1176,6 +1176,10 @@ test.engine.modal-null-wasm: wasm
 test.engine.modal-released-axis-wasm: wasm scripts/tests/modal-released-axis-wasm.mjs
 	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.modal-released-axis.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; RELEASED_AXIS_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=modal_released_axis::released_axis_wasm_cases; node scripts/tests/modal-released-axis-wasm.mjs "$$cases"'
 
+.PHONY: test.engine.material-release-wasm
+test.engine.material-release-wasm: wasm scripts/tests/material-released-rotation-wasm.mjs
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.material-release.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; MATERIAL_RELEASE_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=material_released_rotation::material_release_wasm_cases; node scripts/tests/material-released-rotation-wasm.mjs "$$cases"'
+
 .PHONY: test.engine.released-tip-mechanisms-wasm
 test.engine.released-tip-mechanisms-wasm: wasm scripts/tests/released-tip-mechanisms-wasm.mjs
 	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.released-tip.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; RELEASED_TIP_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=released_tip_mechanisms::released_tip_wasm_cases; node scripts/tests/released-tip-mechanisms-wasm.mjs "$$cases"'
