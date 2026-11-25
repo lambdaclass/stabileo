@@ -78,11 +78,27 @@ export function exactBeamHeight(a: Point3, b: Point3, point: DoubledPlanPoint): 
   return elevation(az * denominator + (bz - az) * (point[axis] - 2n * start), denominator);
 }
 
-export function exactStripHeight(a: Point3, b: Point3, [x, y]: DoubledPlanPoint): Elevation {
-  const [ax, ay, az] = a.map(dyadicInteger) as [bigint, bigint, bigint];
-  const [bx, by, bz] = b.map(dyadicInteger) as [bigint, bigint, bigint];
+function projectedStation(a: Point3, b: Point3, [x, y]: DoubledPlanPoint) {
+  const ax = dyadicInteger(a[0]), ay = dyadicInteger(a[1]);
+  const bx = dyadicInteger(b[0]), by = dyadicInteger(b[1]);
   const dx = bx - ax, dy = by - ay;
-  const denominator = 2n * (dx * dx + dy * dy);
+  const length = 2n * (dx * dx + dy * dy);
   const station = (x - 2n * ax) * dx + (y - 2n * ay) * dy;
-  return elevation(az * denominator + (bz - az) * station, denominator);
+  return { station, length };
+}
+
+function heightAtStation(a: Point3, b: Point3, station: bigint, length: bigint): Elevation {
+  const az = dyadicInteger(a[2]), bz = dyadicInteger(b[2]);
+  return elevation(az * length + (bz - az) * station, length);
+}
+
+export function exactStripHeight(a: Point3, b: Point3, point: DoubledPlanPoint): Elevation {
+  const { station, length } = projectedStation(a, b, point);
+  return heightAtStation(a, b, station, length);
+}
+
+export function exactProjectedBeamHeight(a: Point3, b: Point3, point: DoubledPlanPoint): Elevation | undefined {
+  const { station, length } = projectedStation(a, b, point);
+  if (station < 0n || station > length) return undefined;
+  return heightAtStation(a, b, station, length);
 }

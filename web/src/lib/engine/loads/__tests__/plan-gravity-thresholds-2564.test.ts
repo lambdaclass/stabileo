@@ -167,9 +167,7 @@ it.each([undefined, 3])('#2564 refuses indeterminate clearance at the strict hea
   expect(() => roofWeightFor(model, { mode: 'panels', loadEveryPanel: false }, 1, 1)).toThrow(expect.objectContaining(refusal));
 });
 
-const resolvedHeadroom = process.env.RUN_KNOWN_WRONG === '2564' ? it : it.skip;
-
-resolvedHeadroom.each([false, true])('known wrong result: #2564 definite shell clips all indeterminate headroom (reverse %s)', reverse => {
+it.each([false, true])('#2564 definite shell clips all indeterminate headroom (reverse %s)', reverse => {
   const model = bayUnderShell(MIN_STOREY_HEADROOM, 0.0004, 0);
   if (reverse) model.quads = new Map([...model.quads!].reverse());
   const result = plan(model, 'panels', false);

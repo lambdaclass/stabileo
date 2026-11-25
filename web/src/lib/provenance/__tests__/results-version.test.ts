@@ -186,7 +186,7 @@ for (const mode of ['2d', '3d', 'pro']) it(`retains the exact generated snow not
   const snapshot: FeatureSnapshot = { loadCases: [{ id: 1, type: 'S' }], loads: [{ type: 'distributed', data: { caseId: 1, generatedBy: 'load-plan' } }] };
   const expected = [
     'snow-combination-provenance', 'snow-combination-validation', 'snow-companion-basis', 'snow-pair-coverage',
-    'concentrated-live-actions', 'generated-area-loads-headroom', 'gravity-physical-thresholds', 'gravity-retained-span-midpoint', ...(mode === '2d' ? [] : ['gravity-retained-bay-headroom', 'gravity-strict-headroom']), 'snow-crossing-profile', 'snow-drift-coverage', 'snow-fallback-runs',
+    'concentrated-live-actions', 'generated-area-loads-headroom', 'gravity-physical-thresholds', 'gravity-retained-span-midpoint', ...(mode === '2d' ? [] : ['gravity-resolved-cover', 'gravity-retained-bay-headroom', 'gravity-strict-headroom']), 'snow-crossing-profile', 'snow-drift-coverage', 'snow-fallback-runs',
     'snow-flat-frame', 'snow-local-boundaries', 'snow-member-loading', 'snow-orientation-factors', 'snow-panel-geometry', 'snow-quadratic-intensity', 'snow-ridge-mesh',
     'snow-ridge-orientations', 'snow-roof-connectivity', 'snow-roof-rotation', 'snow-roof-step', 'snow-selected-subsets',
     'snow-surface-regions', 'snow-surface-support',

@@ -38,7 +38,7 @@ import { SupportMappingError, supportDofs3D } from '../support-dofs-3d';
 import type { Support } from '../../store/model.svelte';
 import { agrees, roundoff, Sum } from '../accounting-math';
 import { deckOverlapsInBand, deckRangeBand, deckSurface, physicalDeck, type Deck, type DeckFootprint, type DeckSurface } from './gravity-deck-geometry';
-import { compareClearance, doubledPlanPoint, dyadicInteger, exactBeamHeight, exactElevation, exactPlaneHeight, exactStripHeight, midpointElevation, sign, type DoubledPlanPoint } from './gravity-exact-height';
+import { compareClearance, doubledPlanPoint, dyadicInteger, exactBeamHeight, exactElevation, exactPlaneHeight, exactProjectedBeamHeight, exactStripHeight, midpointElevation, sign, type DoubledPlanPoint } from './gravity-exact-height';
 import { partitionGravityFloors } from './gravity-floor-ownership';
 import { preparePhysicalFloorLoad, type FloorBay, type FloorBeam, type FloorPanel, type FloorLoadResult, type SideStretch } from './floor-loads';
 import { msg, round, type EngineMessage } from '../../codes/message';
@@ -1012,38 +1012,58 @@ function notADeck(
     }
     return h;
   };
-  const uncarried = (lower: DeckFootprint, bays: readonly DeckFootprint[], strips: readonly DeckFootprint[]): Region => {
-    const { footprint, geometry } = lower;
+  const uncarried = ({ footprint, geometry }: DeckFootprint, bays: readonly DeckFootprint[], strips: readonly DeckFootprint[]): Region => {
     const flat = (deck: DeckSurface) => deck.range[0] === deck.range[1];
-    const stripCover = strips.flatMap(upper => {
-      const band = deckRangeBand(geometry, upper.geometry, TOL, MIN_STOREY_HEADROOM);
-      return band === 'full' && flat(geometry) && flat(upper.geometry)
-        ? upper.footprint : headroomCover(headroomOverlaps(lower, [upper]));
-    });
-    const cover = [...headroomCover(headroomOverlaps(lower, bays)), ...stripCover];
-    const retained = cover.length ? footprint.flatMap(polygon => {
+    const trimFraming = (region: Region, cover: Region): Region => cover.length ? region.flatMap(polygon => {
       const [x, y] = polygon[0]![0]!;
       const local = (p: Polygon) => shift([p], -x, -y)[0]!;
       const source = local(polygon), obstructions = cover.map(local);
       const total = footprintArea([polygon]);
       const kept = trimFootprint(source, obstructions, total);
       return shift(kept, x, y);
-    }) : footprint;
-    if (!panelMode) return retained;
-    let clipped = false;
-    const remaining = retained.flatMap(polygon => {
-      const cover = unionFootprints(headroomCover(headroomOverlaps({ footprint: [polygon], geometry }, carriers)));
-      if (!cover.length) return [polygon];
-      clipped = true;
-      const remainder = subtractFootprints(polygon, cover);
-      const originalArea = footprintArea([polygon]);
-      const coveredArea = footprintArea(cover);
-      if (!(coveredArea > 0) || !agrees(footprintArea(remainder) + coveredArea, originalArea, originalArea)) {
-        refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
+    }) : region;
+    const trimShells = (region: Region, shells: readonly DeckFootprint[], pending: Set<DeckFootprint>): Region => {
+      if (!shells.length) return region;
+      let clipped = false;
+      const remaining = region.flatMap(polygon => {
+        const cover = unionFootprints(headroomCover({ footprint: [polygon], geometry }, shells, pending));
+        if (!cover.length) return [polygon];
+        clipped = true;
+        const remainder = subtractFootprints(polygon, cover);
+        const originalArea = footprintArea([polygon]);
+        const coveredArea = footprintArea(cover);
+        if (!(coveredArea > 0) || !agrees(footprintArea(remainder) + coveredArea, originalArea, originalArea)) {
+          refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
+        }
+        return remainder;
+      });
+      return clipped ? remaining : region;
+    };
+
+    let framing = bays;
+    let inferred = strips;
+    let shells: readonly DeckFootprint[] = panelMode ? carriers : [];
+    let region = footprint;
+    for (;;) {
+      const pendingFraming = new Set<DeckFootprint>(), pendingShells = new Set<DeckFootprint>();
+      const lower = { footprint: region, geometry };
+      const stripCover = inferred.flatMap(upper => {
+        const band = deckRangeBand(geometry, upper.geometry, TOL, MIN_STOREY_HEADROOM);
+        return band === 'full' && flat(geometry) && flat(upper.geometry)
+          ? upper.footprint : headroomCover(lower, [upper], pendingFraming);
+      });
+      const cover = [...headroomCover(lower, framing, pendingFraming), ...stripCover];
+      const retained = trimFraming(region, cover);
+      const remaining = trimShells(retained, shells, pendingShells);
+      if (!remaining.length || (!pendingFraming.size && !pendingShells.size)) return remaining;
+      if (remaining === region || footprintArea(remaining) >= footprintArea(region)) {
+        refuseGravityGeometry(msg('loadPlan.gravity.uncertainDeckCover'));
       }
-      return remainder;
-    });
-    return clipped ? remaining : retained;
+      region = remaining;
+      framing = [...pendingFraming];
+      shells = [...pendingShells];
+      inferred = [];
+    }
   };
   const headroom = (poly: PlanPoint[], deck: DeckFootprint, retainedBays: readonly DeckFootprint[]): 'lowHeadroom' | 'headroomUnclear' | null => {
     const probes: Array<[number, number]> = [centroid(poly)];
@@ -1186,10 +1206,13 @@ function headroomOverlaps(lower: DeckFootprint, upper: readonly DeckFootprint[])
   return upper.flatMap(deck => deckOverlapsInBand(lower, deck, TOL, MIN_STOREY_HEADROOM));
 }
 
-function headroomCover(overlaps: HeadroomOverlaps): Region {
-  return overlaps.flatMap(({ part, coverage, margin }) => {
+function headroomCover(lower: DeckFootprint, upper: readonly DeckFootprint[], pending: Set<DeckFootprint>): Region {
+  return upper.flatMap(deck => headroomOverlaps(lower, [deck]).flatMap(({ part, coverage, margin }) => {
     if (coverage === 'full') return [part];
-    if (!margin) refuseGravityGeometry(msg('loadPlan.gravity.uncertainDeckCover'));
+    if (!margin) {
+      pending.add(deck);
+      return [];
+    }
     const { left, right, bottom, top } = footprintBounds(part[0]!);
     const bounds: PlanPoint[] = [[left, bottom], [right, bottom], [right, top], [left, top]];
     const above = clipClearance(bounds, point => margin(point, TOL));
@@ -1197,7 +1220,7 @@ function headroomCover(overlaps: HeadroomOverlaps): Region {
     const covered = clipped.length >= 3 ? footprintIntersection(part, [clipped]) : [];
     if (!covered.length) refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
     return covered;
-  });
+  }));
 }
 
 function clipClearance(ring: PlanPoint[], margin: (point: PlanPoint) => number): PlanPoint[] {
@@ -1534,9 +1557,8 @@ type PlanQuery = {
 type CoverQuery = {
   plan: PlanQuery;
   elevation: number;
-  sample?: PlanPoint;
   compareClearance: (upper: ReturnType<typeof exactElevation>, limit: number) => number;
-};
+} & ({ sample: PlanPoint; midpointOf?: never } | { sample?: never; midpointOf: [PlanPoint, PlanPoint] });
 type RingLocation = 'boundary' | 'inside' | 'outside';
 
 function pointQuery(point: PlanPoint): PlanQuery {
@@ -1577,7 +1599,7 @@ function memberMidpointQuery([start, end]: Segment): CoverQuery {
   };
   let base: ReturnType<typeof exactElevation> | undefined;
   return {
-    plan, elevation: average(start[2], end[2]),
+    plan, elevation: average(start[2], end[2]), midpointOf: [a, b],
     compareClearance: (upper, limit) => compareClearance(upper, base ??= midpointElevation(start[2], end[2]), limit),
   };
 }
@@ -1669,7 +1691,7 @@ function coverage(
     return { segments, ownPanels };
   });
   const coveredWithin = (
-    { plan: query, elevation: zTop, sample, compareClearance }: CoverQuery, limit: number, ownMembers?: ReadonlySet<number>, ownShell?: number, includeAreaCover = true,
+    { plan: query, elevation: zTop, sample, midpointOf, compareClearance }: CoverQuery, limit: number, ownMembers?: ReadonlySet<number>, ownShell?: number, includeAreaCover = true,
   ): boolean => {
     const above = (z: ReturnType<typeof exactElevation>) => compareClearance(z, MIN_COVER_RISE) > 0;
     const below = (z: ReturnType<typeof exactElevation>) => limit === Infinity || compareClearance(z, limit) < 0;
@@ -1701,13 +1723,20 @@ function coverage(
       for (const { id, a, b, dx, dy, dz, lh } of segments) {
         if (ownMembers?.has(id)) continue;
         const start: PlanPoint = [a.x, a.y], end: PlanPoint = [b.x, b.y];
-        if (!withinSegmentBounds(query, start, end)) continue;
+        const normal: PlanPoint = [-dy / lh, dx / lh];
         if (sample) {
-          if (snowCoordinate(sample, start, [-dy / lh, dx / lh], [0]) !== 0) continue;
+          if (!withinSegmentBounds(query, start, end) || snowCoordinate(sample, start, normal, [0]) !== 0) continue;
           const station = snowCoordinate(sample, start, [dx / lh, dy / lh], [0, lh]);
           if (qualifies(exactElevation((a.z ?? 0) + station / lh * dz))) return true;
-        } else if (query.side(start, end) === 0 &&
-          qualifies(exactBeamHeight([a.x, a.y, a.z ?? 0], [b.x, b.y, b.z ?? 0], query.exact()))) return true;
+        } else {
+          const topStart: Segment[number] = [...start, a.z ?? 0], topEnd: Segment[number] = [...end, b.z ?? 0];
+          if (withinSegmentBounds(query, start, end) && query.side(start, end) === 0) {
+            if (qualifies(exactBeamHeight(topStart, topEnd, query.exact()))) return true;
+          } else if (midpointOf.every(point => snowCoordinate(point, start, normal, [0]) === 0)) {
+            const z = exactProjectedBeamHeight(topStart, topEnd, query.exact());
+            if (z && qualifies(z)) return true;
+          }
+        }
       }
     }
     for (const panel of rejectedPanels) {

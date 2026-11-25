@@ -8,7 +8,6 @@ import { remeshSnowRoof } from './snow-remesh-invariance';
 import { snow, regulations } from './snow-roof-plane-fixture';
 
 const regression = it;
-const rotatedCoverage = process.env.RUN_KNOWN_WRONG === '2564' ? it : it.skip;
 
 type Mode = 'panels' | 'width';
 function witness(mode: Mode, z = 4, angle = 0, split = 2, reverse = false, offset = 0, rotate = transform) {
@@ -53,9 +52,7 @@ function checkLoads(model: LoadModelData, targets: Set<number>, mode: Mode, area
 }
 
 for (const mode of ['panels', 'width'] as const) for (const angle of [0, 0.37]) for (const reverse of [false, true]) {
-  const knownWrong = mode === 'width' && angle === 0.37;
-  const check = knownWrong ? rotatedCoverage : regression;
-  check(`${knownWrong ? 'known wrong result: #2564 ' : ''}#2197 local upper rafter covers a separate lower ${mode} ${angle} ${reverse}`, () => {
+  regression(`#2197 local upper rafter covers a separate lower ${mode} ${angle} ${reverse}`, () => {
     for (const split of [1, 2, 3, 8]) {
       const { model, targets, area } = witness(mode, 4, angle, split, reverse);
       checkLoads(model, targets, mode, area, false, true);
@@ -65,14 +62,14 @@ for (const mode of ['panels', 'width'] as const) for (const angle of [0, 0.37]) 
 
 for (const reverse of [false, true]) {
   it(`#2197 local upper rafter covers a separate lower width with a dyadic rotation ${reverse}`, () => {
+    const rotate: typeof transform = (refined, angle) => {
+      for (const node of refined.nodes.values()) {
+        node.x = Math.round(node.x * 16) / 16;
+        if (node.z !== 4) node.z = 3 + node.x / 2;
+      }
+      return transformWithDyadicBasis(refined, angle);
+    };
     for (const split of [1, 2, 3, 8]) {
-      const rotate: typeof transform = (refined, angle) => {
-        for (const node of refined.nodes.values()) {
-          node.x = Math.round(node.x * 16) / 16;
-          if (node.z !== 4) node.z = 3 + node.x / 2;
-        }
-        return transformWithDyadicBasis(refined, angle);
-      };
       const { model, targets, area } = witness('width', 4, 0.37, split, reverse, 0, rotate);
       checkLoads(model, targets, 'width', area, false, true);
     }

@@ -11,7 +11,6 @@ import { roofSnow } from '../../../codes/cirsoc104/snow';
 import { buildLoadPlan } from '../load-plan';
 
 const knownWrong = it;
-const rotatedCoverage = process.env.RUN_KNOWN_WRONG === '2564' ? it : it.skip;
 const expected = (slopeDeg: number, W: number) => roofSnow({ ...snow, roof: { kind: 'gable', slippery: true, slopeDeg, W } });
 
 for (const angle of [0, 0.37, -0.8, Math.PI / 2, Math.PI]) for (const mirror of [1, -1]) {
@@ -118,9 +117,7 @@ function checkPlannerAgreement(fixture: typeof twoPitch, mode: 'width' | 'panels
 
 for (const angle of [0, 0.37, Math.PI / 2]) for (const shift of [0, 1]) for (const mirror of [1, -1]) {
   for (const fixture of [asymmetric, concave, disjoint, separateRoofs, twoPitch]) for (const mode of ['width', 'panels'] as const) {
-    const pending = fixture === twoPitch && mode === 'width' && (angle === 0.37 || (angle === Math.PI / 2 && shift === 0));
-    const check = pending ? rotatedCoverage : it;
-    check(`${pending ? 'known wrong result: #2564 ' : ''}all generated loads and planner agree for ${fixture.name} ${mode} ${angle} ${shift} ${mirror}`, () => {
+    it(`all generated loads and planner agree for ${fixture.name} ${mode} ${angle} ${shift} ${mirror}`, () => {
       checkPlannerAgreement(fixture, mode, transform(fixture(), angle, shift, mirror));
     });
   }
