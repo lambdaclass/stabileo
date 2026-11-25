@@ -6,3 +6,5 @@ Add a shared batched sparse-operator interface, the existing CPU kernel, and an 
 Add a hybrid PCG experiment that shares the CPU iteration loop, checks the original f64 residual, and reports CPU/GPU timings and displacement errors. GPU results remain isolated from production analysis.
 
 Add an experimental resident-vector PCG variant for WebGPU/Metal, with guarded scaled reductions, per-solve transfer counters, and comparison against the existing hybrid solver.
+
+Improve resident GPU memory access with contiguous vectors and bounded row interleaving, preserving accumulation order and falling back to CSR when padding or memory limits would be exceeded.

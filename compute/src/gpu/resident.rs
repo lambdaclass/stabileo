@@ -57,6 +57,7 @@ struct WgpuVectors {
     buffers: Vec<wgpu::Buffer>,
     n: usize,
     groups: u32,
+    interleaved: bool,
     row_norm: f64,
     max_inverse: f64,
     maxima: [f64; 3], // r, z, x
@@ -101,7 +102,9 @@ impl WgpuBackend {
         {
             return Err(ComputeError::ResourceLimit);
         }
-        let packed = PackedMatrix::new(&matrix, (remaining / 8).min(binding_limit / 4) as usize)?;
+        let mut packed =
+            PackedMatrix::new(&matrix, (remaining / 8).min(binding_limit / 4) as usize)?;
+        let interleaved = packed.interleave_rows(remaining + (n as u64 + 1) * 4, binding_limit);
         let diagonal = matrix.diagonal();
         let problem = PcgProblem::new(matrix)?;
         let inverse: Vec<f32> = diagonal
@@ -110,7 +113,7 @@ impl WgpuBackend {
             .collect::<Result<_, _>>()?;
         let max_inverse = inverse.iter().map(|v| f64::from(*v)).fold(0., f64::max);
         let sizes = [
-            (n as u64 + 1) * 4,
+            packed.offsets.len() as u64 * 4,
             (packed.columns.len() as u64 * 4).max(4),
             (packed.values.len() as u64 * 4).max(4),
             vector_bytes * 4,
@@ -248,6 +251,7 @@ impl WgpuBackend {
                 buffers,
                 n,
                 groups,
+                interleaved,
                 row_norm: packed.row_norm,
                 max_inverse,
                 maxima: [0.; 3],
@@ -281,6 +285,7 @@ impl WgpuVectors {
         let mut uniforms = [0u32; 12];
         uniforms[0] = self.n as u32;
         uniforms[1] = self.groups;
+        uniforms[2] = u32::from(self.interleaved);
         for (slot, value) in uniforms[4..10].iter_mut().zip(parameters) {
             *slot = value.to_bits();
         }

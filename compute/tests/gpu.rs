@@ -122,7 +122,7 @@ fn resident_pcg_reuses_vectors_reduces_transfer_bytes_and_refuses_unsafe_inputs(
     use stabileo_compute::fixtures::grid;
     pollster::block_on(async {
         let mut backend = WgpuBackend::new().await.unwrap();
-        for n in [3, 257, 4096] {
+        for n in [3, 31, 32, 33, 255, 256, 257, 4096] {
             let matrix = grid(n, 1, 4.);
             let expected: Vec<_> = (0..n).map(|i| (i % 13) as f64 * 0.125).collect();
             let rhs = matrix.sym_mat_vec(&expected);

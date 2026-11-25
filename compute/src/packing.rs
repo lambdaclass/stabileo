@@ -20,6 +20,50 @@ pub(crate) fn checked_f32(value: f64) -> Result<f32, ComputeError> {
 }
 
 impl PackedMatrix {
+    /// Repack CSR in stripes of 32 rows without reordering entries within a row.
+    /// Padding is never evaluated. Keep CSR if padding or device limits would
+    /// make the alternative unsuitable; failure leaves the matrix untouched.
+    #[cfg(any(feature = "metal", feature = "webgpu", test))]
+    pub fn interleave_rows(&mut self, max_bytes: u64, binding_bytes: u64) -> bool {
+        let n = self.offsets.len() - 1;
+        let stripes = n.div_ceil(32);
+        let offset_bytes = (self.offsets.len() as u64 + stripes as u64 + 1) * 4;
+        if offset_bytes > binding_bytes || offset_bytes > max_bytes {
+            return false;
+        }
+        let mut starts = Vec::with_capacity(stripes + 1);
+        let mut padded = 0u64;
+        starts.push(0u32);
+        for first in (0..n).step_by(32) {
+            let width = (first..(first + 32).min(n))
+                .map(|r| self.offsets[r + 1] - self.offsets[r])
+                .max()
+                .unwrap_or(0);
+            padded += u64::from(width) * 32;
+            if padded > u64::from(u32::MAX)
+                || padded > self.values.len() as u64 * 5 / 4
+                || padded.max(1) * 4 > binding_bytes
+                || offset_bytes + padded.max(1) * 8 > max_bytes
+            {
+                return false;
+            }
+            starts.push(padded as u32);
+        }
+        let mut columns = vec![0; padded as usize];
+        let mut values = vec![0.; padded as usize];
+        for row in 0..n {
+            let base = starts[row / 32] as usize + row % 32;
+            for (i, k) in (self.offsets[row]..self.offsets[row + 1]).enumerate() {
+                columns[base + i * 32] = self.columns[k as usize];
+                values[base + i * 32] = self.values[k as usize];
+            }
+        }
+        self.offsets.extend(starts);
+        self.columns = columns;
+        self.values = values;
+        true
+    }
+
     pub fn new(matrix: &CscMatrix, max_entries: usize) -> Result<Self, ComputeError> {
         validate_matrix(matrix)?;
         let n = matrix.n;
@@ -82,6 +126,83 @@ impl PackedMatrix {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stripes_preserve_each_row_including_value_bits_and_entry_order() {
+        for n in [31, 32, 255, 256, 257] {
+            let mut rows = vec![];
+            let mut cols = vec![];
+            let mut values = vec![];
+            for i in 0..n {
+                // An empty row, unequal row lengths and signed zero exercise
+                // stripe padding without adding its entries to the operator.
+                if i == 7 {
+                    continue;
+                }
+                rows.push(i);
+                cols.push(i);
+                values.push(if i == 3 { -0. } else { 4. });
+                if i + 1 < n && i + 1 != 7 {
+                    rows.push(i + 1);
+                    cols.push(i);
+                    values.push(-0.125);
+                }
+            }
+            let a = CscMatrix::from_triplets(n, &rows, &cols, &values);
+            let before = PackedMatrix::new(&a, usize::MAX).unwrap();
+            let mut after = PackedMatrix::new(&a, usize::MAX).unwrap();
+            assert!(after.interleave_rows(u64::MAX, u64::MAX));
+            assert_eq!(&after.offsets[..n + 1], &before.offsets);
+            assert_eq!(after.row_norm.to_bits(), before.row_norm.to_bits());
+            for row in 0..n {
+                let actual: Vec<_> = (0..before.offsets[row + 1] - before.offsets[row])
+                    .map(|i| {
+                        let k =
+                            after.offsets[n + 1 + row / 32] as usize + row % 32 + i as usize * 32;
+                        (after.columns[k], after.values[k].to_bits())
+                    })
+                    .collect();
+                let expected: Vec<_> = (before.offsets[row]..before.offsets[row + 1])
+                    .map(|k| {
+                        (
+                            before.columns[k as usize],
+                            before.values[k as usize].to_bits(),
+                        )
+                    })
+                    .collect();
+                assert_eq!(actual, expected);
+            }
+        }
+    }
+
+    #[test]
+    fn stripes_fall_back_without_mutation_on_padding_or_memory_limits() {
+        for n in [1, 33, 64] {
+            let a = crate::fixtures::grid(n, 1, 4.);
+            // n=1/33 have excessive padding; n=64 fits but exceeds each
+            // tested budget. In all cases the original CSR remains usable.
+            for (budget, binding) in [(0, u64::MAX), (u64::MAX, 0), (1500, 10000), (10000, 500)] {
+                let mut p = PackedMatrix::new(&a, usize::MAX).unwrap();
+                let offsets = p.offsets.clone();
+                let columns = p.columns.clone();
+                let values = p.values.clone();
+                assert!(!p.interleave_rows(budget, binding));
+                assert_eq!(p.offsets, offsets);
+                assert_eq!(p.columns, columns);
+                assert_eq!(p.values, values);
+            }
+        }
+        // A dense first row among short rows must not cause a large allocation.
+        let a = CscMatrix::from_triplets(
+            64,
+            &(0..64).collect::<Vec<_>>(),
+            &vec![0; 64],
+            &vec![1.; 64],
+        );
+        let mut p = PackedMatrix::new(&a, usize::MAX).unwrap();
+        assert!(!p.interleave_rows(u64::MAX, u64::MAX));
+    }
+
     #[test]
     fn conversion_preserves_the_symmetric_operator_and_empty_rows() {
         let matrix = CscMatrix {

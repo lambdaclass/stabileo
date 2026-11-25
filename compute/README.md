@@ -68,3 +68,6 @@ hybrid variant. Host control retains curvature, preconditioner, iteration and
 stagnation checks; conservative range bounds precede GPU operations. The original
 f64 residual still determines acceptance. One resident control interface serves
 backends; WebGPU and Metal use the same WGSL kernels. Production CPU code is unchanged.
+Resident vectors are contiguous, and sparse rows are interleaved in groups of 32
+when padding stays within 25% and existing memory limits. Each row retains its
+original summation order; other matrices keep CSR and padding is never evaluated.
