@@ -293,6 +293,15 @@ pub(crate) fn assemble_stiffness_sparse_2d_typed(
     input: &SolverInput, dof_num: &DofNumbering,
     properties: &crate::types::units::ElasticProperties2D,
 ) -> StiffnessSparseAssembly2D {
+    assemble_stiffness_sparse_2d_recording(input, dof_num, properties, None)
+}
+
+pub(super) fn assemble_stiffness_sparse_2d_recording(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    properties: &crate::types::units::ElasticProperties2D,
+    mut roundoff: Option<&mut super::stiffness_roundoff::StiffnessRoundoff>,
+) -> StiffnessSparseAssembly2D {
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
 
@@ -472,6 +481,9 @@ pub(crate) fn assemble_stiffness_sparse_2d_typed(
 
     // Apply 2D inclined support transformations (triplets before CSC conversion;
     // the force vector rotation happens in `assemble_load_vector_2d`)
+    if let Some(roundoff) = roundoff.as_deref_mut() {
+        roundoff.record_symmetric(&trip_rows, &trip_cols, &trip_vals);
+    }
     let mut inclined_transforms_2d = Vec::new();
     for sup in crate::ordered::values(&input.supports) {
         if sup.support_type == "inclinedRoller" {
@@ -486,6 +498,9 @@ pub(crate) fn assemble_stiffness_sparse_2d_typed(
                     &mut trip_rows, &mut trip_cols, &mut trip_vals,
                     &dofs, &r,
                 );
+                if let Some(roundoff) = roundoff.as_deref_mut() {
+                    roundoff.rotate(dofs, &r);
+                }
                 inclined_transforms_2d.push(InclinedTransformData2D {
                     node_id: sup.node_id,
                     dofs,
@@ -521,6 +536,9 @@ pub(crate) fn assemble_stiffness_sparse_2d_typed(
         trip_rows.push(d);
         trip_cols.push(d);
         trip_vals.push(artificial_k);
+        if let Some(roundoff) = roundoff.as_deref_mut() {
+            roundoff.record(d, d, artificial_k);
+        }
     }
     if !artificial_dofs.is_empty() {
         k_full = CscMatrix::from_triplets(n, &trip_rows, &trip_cols, &trip_vals);

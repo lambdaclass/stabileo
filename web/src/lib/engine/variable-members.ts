@@ -53,6 +53,7 @@ import { accountingMemberPieces } from './accounting-source';
  *
  * Pure: no store.
  */
+import { projectSelfWeightMembers, selfWeightMemberProjection } from './self-weight';
 import type { ModelData } from './solver-service';
 import type { AnalysisResults3D, ElementForces3D, Displacement3D, Constraint3D, ConnectorElement } from './types-3d';
 import type { ElementBucklingData3D } from './result-types';
@@ -386,8 +387,7 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
   }
 
   const rename = (ids: readonly number[]) => ids.flatMap((id) => renamed.get(id) ?? [id]);
-  const groups = (model as { groups?: Map<number, { members: { elements?: number[] } }> }).groups;
-  const analysis = (model as { analysis?: { selfWeight?: Array<{ elements?: number[] }> } }).analysis;
+  const { groups } = model;
   const supports = new Map([...model.supports].map(([id, s]) => {
     const own = (s as { dofLocalElementId?: number }).dofLocalElementId;
     const m = own !== undefined ? exp.members.get(own) : undefined;
@@ -399,8 +399,9 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
     ...model, nodes, elements, sections, loads, supports, [accountingMemberPieces]: memberPieces,
     ...(constraints !== model.constraints ? { constraints } : {}),
     ...(connectors !== model.connectors ? { connectors } : {}),
-    ...(groups ? { groups: new Map([...groups].map(([id, g]) => [id, g.members.elements ? { ...g, members: { ...g.members, elements: rename(g.members.elements) } } : g])) } : {}),
-    ...(analysis?.selfWeight ? { analysis: { ...analysis, selfWeight: analysis.selfWeight.map((r) => (r.elements ? { ...r, elements: rename(r.elements) } : r)) } } : {}),
+    [selfWeightMemberProjection]: projectSelfWeightMembers(model, renamed),
+    ...(groups ? { groups: new Map([...groups].map(([id, g]) => [id, Array.isArray(g?.members?.elements)
+      ? { ...g, members: { ...g.members, elements: rename(g.members.elements) } } : g])) } : {}),
   } as M;
 }
 

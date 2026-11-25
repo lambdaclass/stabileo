@@ -3,7 +3,9 @@
  */
 import { describe, it, expect } from 'vitest';
 import { expandCombinations, presentSymbols, symbolOfType } from '../combination-cases';
-import { generateCombinations } from '../../../codes/cirsoc101/combinations';
+import { sumCombinationFactors } from '../../wasm-solver';
+import { msg } from '../../../codes/message';
+import { generateCombinations, type CombinationTerm, type LoadCombinationSpec } from '../../../codes/cirsoc101/combinations';
 import { generateServiceCombinations } from '../../../codes/cirsoc101/service-combinations';
 
 const cases = [
@@ -146,4 +148,105 @@ describe('reversing a wind case by sign', () => {
     const signs = out.map((c) => c.factors.find((f) => f.caseId !== 1)!).map((f) => `${f.caseId}:${Math.sign(f.factor)}`).sort();
     expect(signs).toEqual(['4:-1', '4:1', '5:1']);
   });
+});
+
+const floorTerm = { symbol: 'L', factor: 1 } as const;
+const roofTerm = { symbol: 'Lr', factor: 1.5 } as const;
+const patternCases = [
+  { id: 1, type: 'L', name: 'Whole floor', alternatives: 'floor' },
+  { id: 2, type: 'L', name: 'Partial floor', alternatives: 'floor', pattern: true },
+  { id: 3, type: 'Lr', name: 'Whole roof', alternatives: 'roof' },
+  { id: 4, type: 'Lr', name: 'Partial roof', alternatives: 'roof', pattern: true },
+];
+
+function rule(...terms: CombinationTerm[]): LoadCombinationSpec {
+  return { id: 'pattern', label: 'Pattern selection', terms, refs: [], notes: [] };
+}
+
+function netFactors(combinations: ReturnType<typeof expandCombinations>) {
+  return combinations.map(c => sumCombinationFactors(c.factors).filter(f => f.factor !== 0));
+}
+
+function patternIds(terms: CombinationTerm[], options?: { patternsInCompanions: boolean }) {
+  return expandCombinations([rule(...terms)], patternCases, options)
+    .map(c => [...new Set(c.factors.map(f => f.caseId))]);
+}
+
+it('#2569 split floor live selects the same patterns and factors as one term', () => {
+  const single = rule({ ...floorTerm, factor: 2 }, roofTerm);
+  const split = rule(floorTerm, floorTerm, roofTerm);
+  expect(patternIds(single.terms)).toEqual([[1, 3], [2, 3]]);
+  expect(patternIds(split.terms)).toEqual([[1, 3], [2, 3]]);
+  expect(netFactors(expandCombinations([split], patternCases))).toEqual(netFactors(expandCombinations([single], patternCases)));
+});
+
+it('#2569 ranks the magnitude of the signed total and excludes canceled actions from the ranking', () => {
+  const negative = rule({ ...floorTerm, factor: -4 }, { ...floorTerm, factor: 2 }, roofTerm);
+  expect.soft(netFactors(expandCombinations([negative], patternCases))).toEqual(
+    netFactors(expandCombinations([rule({ ...floorTerm, factor: -2 }, roofTerm)], patternCases)),
+  );
+  expect.soft(patternIds([{ ...floorTerm, factor: 4 }, { ...floorTerm, factor: -3 }, roofTerm]))
+    .toEqual([[1, 3], [1, 4]]);
+  const canceled = rule({ ...floorTerm, factor: 4 }, { ...floorTerm, factor: -4 }, roofTerm);
+  const expected = netFactors(expandCombinations([rule(roofTerm)], patternCases));
+  expect(netFactors(expandCombinations([canceled], patternCases))).toEqual(expected);
+});
+
+it('#2569 uses the current tie boundary after summing each action', () => {
+  for (const [offset, expected] of [
+    [-2e-9, [[1, 3], [1, 4]]],
+    [-0.5e-9, [[1, 3], [2, 3], [1, 4]]],
+    [0, [[1, 3], [2, 3], [1, 4]]],
+    [0.5e-9, [[1, 3], [2, 3], [1, 4]]],
+    [2e-9, [[1, 3], [2, 3]]],
+  ] as const) {
+    expect.soft(patternIds([floorTerm, { ...floorTerm, factor: 0.5 + offset }, roofTerm]), String(offset)).toEqual(expected);
+  }
+  expect(patternIds([floorTerm, { ...floorTerm, factor: 0.5 }, roofTerm], { patternsInCompanions: true }))
+    .toEqual([[1, 3], [1, 4], [2, 3], [2, 4]]);
+});
+
+it('#2569 sums repeated named groups without mixing separate groups', () => {
+  const grouped = patternCases.map(c => c.type === 'L' ? { ...c, group: 'floor' } : c);
+  const partitioned = [...grouped, { id: 5, type: 'L', name: 'Other floor' }];
+  const named = { ...floorTerm, group: 'floor' };
+  const single = rule({ ...named, factor: 2 }, floorTerm, roofTerm);
+  const split = rule(named, named, floorTerm, roofTerm);
+  const expanded = expandCombinations([single], partitioned);
+  expect(expanded.map(c => c.factors.map(f => f.caseId))).toEqual([[1, 5, 3], [2, 5, 3]]);
+  expect.soft(netFactors(expandCombinations([split], partitioned))).toEqual(netFactors(expanded));
+  expect(expandCombinations([rule(named, floorTerm, roofTerm)], partitioned)
+    .map(c => c.factors.map(f => f.caseId))).toEqual([[1, 5, 3], [1, 5, 4]]);
+  expect(netFactors(expandCombinations([rule({ ...named, factor: 4 }, { ...named, factor: -4 }, floorTerm, roofTerm)], partitioned)))
+    .toEqual(netFactors(expandCombinations([rule({ ...named, factor: 0 }, floorTerm, roofTerm)], partitioned)));
+});
+
+it('#2569 combines explicit and legacy references to the same snow basis', () => {
+  const flatRoof = { symbol: 'S', factor: 1, snowBasis: 'flatRoof' } as const;
+  const physical = { symbol: 'S', factor: 1 } as const;
+  const snowCases = [
+    ...patternCases.slice(2),
+    { id: 5, type: 'S', name: 'Whole physical snow', alternatives: 'snow' },
+    { id: 6, type: 'S', name: 'Whole flat-roof snow', alternatives: 'snow', snowBasis: flatRoof.snowBasis },
+    { id: 7, type: 'S', name: 'Partial flat-roof snow', alternatives: 'snow', snowBasis: flatRoof.snowBasis, pattern: true },
+  ];
+  const single = rule({ ...flatRoof, factor: 2 }, roofTerm);
+  const split = { ...rule(flatRoof, physical, roofTerm), notes: [msg('loads.cirsoc101.note.snowAsFlatRoof')] };
+  const expanded = expandCombinations([single], snowCases);
+  expect(expanded.map(c => c.factors.map(f => f.caseId))).toEqual([[6, 3], [7, 3]]);
+  expect.soft(netFactors(expandCombinations([split], snowCases))).toEqual(netFactors(expanded));
+  expect(expandCombinations([rule(flatRoof, physical, roofTerm)], snowCases)
+    .map(c => c.factors.map(f => f.caseId))).toEqual([[6, 3], [6, 4], [5, 3], [5, 4]]);
+});
+
+it('#2569 sums finite factors independent of term order and refuses overflow', () => {
+  const large = { ...floorTerm, factor: Number.MAX_VALUE };
+  const half = { ...floorTerm, factor: Number.MAX_VALUE / 2 };
+  const negative = { ...large, factor: -large.factor };
+  const expected = netFactors(expandCombinations([rule(large, roofTerm)], patternCases));
+  expect(expected).toHaveLength(2);
+  expect.soft(netFactors(expandCombinations([rule(half, half, roofTerm)], patternCases))).toEqual(expected);
+  expect.soft(netFactors(expandCombinations([rule(large, large, negative, roofTerm)], patternCases))).toEqual(expected);
+  expect.soft(netFactors(expandCombinations([rule(negative, large, large, roofTerm)], patternCases))).toEqual(expected);
+  expect(() => expandCombinations([rule(large, large, roofTerm)], patternCases)).toThrow('combos.refused.factorTotal');
 });

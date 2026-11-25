@@ -32,6 +32,7 @@
  * deleted support's settlement on another support, a deleted member's tendon on another member.
  */
 
+import { selfWeightTargetClaimedByRemap, selfWeightScopeRefusal } from '../../engine/self-weight';
 import { modelStore, LOAD_TARGET, type Load } from '../../store/model.svelte';
 
 export type AxisOrder = 'zyx' | 'zxy' | 'xyz' | 'yxz';
@@ -48,7 +49,8 @@ export type RenumberResult =
   | { nodes: number; members: number; shells: number; changedNodes: number; changedMembers: number; changedShells: number }
   | { refused: 'hasDesignDocuments'; fields: string[] }
   | { refused: 'collision'; kind: 'nodes' | 'members' | 'plates' | 'quads'; ids: number[] }
-  | { refused: 'orphanLoads'; ids: number[] };
+  | { refused: 'orphanLoads'; ids: number[] }
+  | { refused: 'selfWeight'; message: string };
 
 const DERIVED = ['detailing', 'exports', 'manualEdits', 'jointDesigns', 'revisions'] as const;
 
@@ -158,6 +160,16 @@ export function renumber(opts: RenumberOptions): RenumberResult {
   if (!(quadMapR instanceof Map)) return quadMapR;
   const rp = (id: number) => plateMapR.get(id) ?? id, rq = (id: number) => quadMapR.get(id) ?? id;
 
+  const newIds = (map: ReadonlyMap<number, number>) => new Set([...map.values()].filter(id => !map.has(id)));
+  const rules = modelStore.model.analysis?.selfWeight ?? [];
+  if (rules.length && (opts.members || opts.shells)) {
+    const claimed = { elements: newIds(elemMap), plates: newIds(plateMapR), quads: newIds(quadMapR) };
+    for (const rule of rules) {
+      const issue = selfWeightTargetClaimedByRemap(modelStore.model, rule, claimed);
+      if (issue) return { refused: 'selfWeight', message: selfWeightScopeRefusal(issue) };
+    }
+  }
+
   snap.nodes = [...nodes.entries()].map(([id, n]) => [rn(id), { ...n, id: rn(id) }]);
   snap.elements = [...elements.entries()].map(([id, e]) => [re(id), { ...e, id: re(id), nodeI: rn(e.nodeI), nodeJ: rn(e.nodeJ) }]);
   snap.supports = (snap.supports ?? []).map(([id, s]: [number, any]) => [id, {
@@ -185,22 +197,26 @@ export function renumber(opts: RenumberOptions): RenumberResult {
   if (snap.footings) snap.footings = snap.footings.map(([id, f]: [number, any]) => [id, {
     ...f, nodeId: rn(f.nodeId), ...(f.columnElementId !== undefined ? { columnElementId: re(f.columnElementId) } : {}),
   }]);
-  if (snap.groups) snap.groups = snap.groups.map(([id, g]: [number, any]) => [id, {
-    ...g, members: {
-      ...g.members,
-      ...(g.members.nodes ? { nodes: g.members.nodes.map(rn) } : {}),
-      ...(g.members.elements ? { elements: g.members.elements.map(re) } : {}),
-      ...(g.members.plates ? { plates: g.members.plates.map(rp) } : {}),
-      ...(g.members.quads ? { quads: g.members.quads.map(rq) } : {}),
-    },
-  }]);
+  if (snap.groups) snap.groups = snap.groups.map(([id, g]: [number, any]) => {
+    const members = g.members;
+    if (!members || typeof members !== 'object' || Array.isArray(members)) return [id, g];
+    return [id, {
+      ...g, members: {
+        ...members,
+        ...(Array.isArray(members.nodes) ? { nodes: members.nodes.map(rn) } : {}),
+        ...(Array.isArray(members.elements) ? { elements: members.elements.map(re) } : {}),
+        ...(Array.isArray(members.plates) ? { plates: members.plates.map(rp) } : {}),
+        ...(Array.isArray(members.quads) ? { quads: members.quads.map(rq) } : {}),
+      },
+    }];
+  });
   // What the project keeps beside the model and names by id: the self-weight rule's member list,
   // a deflection rule on chosen members, what a saved view hides, a time-history force or a point
   // mass on a node.
   // Left alone, each kept its old numbers and so moved to whatever member, shell or node took them.
   if (snap.analysis?.selfWeight) snap.analysis = {
     ...snap.analysis,
-    selfWeight: snap.analysis.selfWeight.map((w: any) => (w.elements ? { ...w, elements: w.elements.map(re) } : w)),
+    selfWeight: snap.analysis.selfWeight.map((w: any) => (Array.isArray(w.elements) ? { ...w, elements: w.elements.map(re) } : w)),
   };
   if (snap.deflectionLimits?.rules) snap.deflectionLimits = {
     ...snap.deflectionLimits,

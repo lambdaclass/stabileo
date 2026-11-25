@@ -61,7 +61,30 @@ describe('modalMechanismRefusal', () => {
     }
   });
 
+  it('identifies a detected mechanism by its dominant component', () => {
+    const text = 'MODAL-MECHANISM: ' + JSON.stringify({
+      message: 'Modal analysis found a mechanism.',
+      structuredDiagnostics: [{ code: 'modal_translation_mechanism', severity: 'error', nodeIds: [7], dofIndices: [0] }],
+    });
+    const message = modalMechanismRefusal(text);
+    expect(message).toEqual({ key: 'advanced.modalTranslationMechanism', params: { node: 7, dof: 'ux' } });
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'hu', 'tr', 'zh']) {
+      const translated = teAt(message!, locale);
+      expect(translated, locale).toContain('7');
+      expect(translated, locale).toContain('ux');
+      expect(translated, locale).not.toContain('{');
+    }
+  });
+
   it('leaves every other engine error alone', () => {
     expect(modalMechanismRefusal('Eigenvalue decomposition failed')).toBeNull();
   });
+});
+
+it('translates an unresolved positive modal frequency as stiffness conditioning', () => {
+  const text = JSON.stringify({
+    message: 'Modal analysis: stiffness conditioning prevents resolution of a positive mode.',
+    structuredDiagnostics: [{ code: 'modal_stiffness_conditioning', severity: 'error' }],
+  });
+  expect(modalMechanismRefusal(text)).toEqual({ key: 'advanced.modalStiffnessConditioning', params: {} });
 });
