@@ -90,7 +90,7 @@ it('#2532 WASM JSON solvers preserve positional settlements and rotations', () =
   expect(linear(positional)).toEqual(linear(named));
 });
 
-it.skip('known wrong result: #2532 WASM planar decoders refuse out-of-plane nodal components', () => {
+it('#2532 WASM planar decoders refuse out-of-plane nodal components', () => {
   const model = (data: object) => ({ ...planar, loads: [{ type: 'nodal', data }] });
   const path = { maxSteps: 3, nSteps: 3, controlNode: 2, controlDof: 1, targetDisplacement: -0.005, tolerance: 1e-9 };
   const solvers = {
@@ -115,6 +115,8 @@ it.skip('known wrong result: #2532 WASM planar decoders refuse out-of-plane noda
 it('#2532 WASM spatial solvers retain the applied nodal couple', () => {
   const input = {
     ...space,
+    materials: indexed({ ...space.materials[1]!, e: 2 ** 18, nu: 0 }),
+    sections: indexed({ ...space.sections[1]!, j: 2 ** -10 }),
     loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: 0, mx: 5, my: 0, mz: 0 } }],
   };
   const linear = solve_3d(input);

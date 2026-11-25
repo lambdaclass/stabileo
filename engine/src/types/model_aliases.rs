@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use serde::{de, Deserialize, Deserializer, Serialize};
 
 use super::input::{NodalMass, SpectralModeDisp};
+use super::units::{Force, Moment};
 
 struct Field<T>(Option<T>);
 
@@ -55,23 +56,23 @@ macro_rules! named_value {
 
 macro_rules! deserialize_aliased_input {
     (
-        $name:ident $(<$($param:ident),+>)? as $record_name:literal,
+        $name:ident $(<$($param:ident $(: $bound:path)?),+>)? as $record_name:literal,
         $(#[$record:meta])*
         $($field:ident: $ty:ty => $wire_name:literal, $missing:ident $(, $legacy:ident => $legacy_name:literal)?;)+
+        $(@map $named:ident { $($extra:ident: $extra_ty:ty => $extra_name:literal;)+ } $normalize:block)?
     ) => {
-        impl<'de $(, $($param: Deserialize<'de> + PartialEq),+)?> Deserialize<'de>
+        impl<'de $(, $($param: Deserialize<'de> + PartialEq $(+ $bound)?),+)?> Deserialize<'de>
             for $name $(<$($param),+>)?
         {
             fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-                deserializer.deserialize_struct(
-                    $record_name,
-                    &[$($wire_name, $($legacy_name,)?)+],
-                    RecordVisitor::<Self>(PhantomData),
+                deserialize_aliased_input!(
+                    @read deserializer, $record_name, &[$($wire_name, $($legacy_name,)?)+],
+                    RecordVisitor::<Self>(PhantomData) $(, $named)?
                 )
             }
         }
 
-        impl<'de $(, $($param: Deserialize<'de> + PartialEq),+)?> de::Visitor<'de>
+        impl<'de $(, $($param: Deserialize<'de> + PartialEq $(+ $bound)?),+)?> de::Visitor<'de>
             for RecordVisitor<$name $(<$($param),+>)?>
         {
             type Value = $name $(<$($param),+>)?;
@@ -92,9 +93,19 @@ macro_rules! deserialize_aliased_input {
                             $legacy: Field<$ty>,
                         )?
                     )+
+                    $($(
+                        #[serde(default = "Field::default", rename = $extra_name)]
+                        $extra: Field<$extra_ty>,
+                    )+)?
                 }
 
-                let wire = Wire::deserialize(de::value::MapAccessDeserializer::new(map))?;
+                let wire: Wire $(<$($param),+>)? =
+                    Wire::deserialize(de::value::MapAccessDeserializer::new(map))?;
+                $(
+                    let mut $named = wire;
+                    $normalize
+                    let wire = $named;
+                )?
                 Ok($name {
                     $($field: $missing(named_value!(wire, $field $(, $wire_name, $legacy, $legacy_name)?), $wire_name)?,)+
                 })
@@ -110,6 +121,12 @@ macro_rules! deserialize_aliased_input {
                 Ok(record)
             }
         }
+    };
+    (@read $d:ident, $name:literal, $fields:expr, $visitor:expr) => {
+        $d.deserialize_struct($name, $fields, $visitor)
+    };
+    (@read $d:ident, $name:literal, $fields:expr, $visitor:expr, $named:ident) => {
+        $d.deserialize_any($visitor)
     };
 }
 
@@ -131,12 +148,57 @@ pub struct PlanarNodalLoad<F, M> {
     pub my: M,
 }
 
+trait NodalComponent {
+    fn is_zero(&self) -> bool;
+}
+
+impl NodalComponent for f64 {
+    fn is_zero(&self) -> bool {
+        *self == 0.0
+    }
+}
+
+impl NodalComponent for Force {
+    fn is_zero(&self) -> bool {
+        self.in_kn().is_zero()
+    }
+}
+
+impl NodalComponent for Moment {
+    fn is_zero(&self) -> bool {
+        self.in_kn_m().is_zero()
+    }
+}
+
+fn refuse_out_of_plane<E: de::Error>(field: &str) -> E {
+    E::custom(format_args!("out-of-plane nodal component `{field}`"))
+}
+
 deserialize_aliased_input! {
-    PlanarNodalLoad<F, M> as "SolverNodalLoad",
+    PlanarNodalLoad<F: NodalComponent, M: NodalComponent> as "SolverNodalLoad",
+    #[serde(deny_unknown_fields)]
     node_id: usize => "nodeId", required;
     fx: F => "fx", required;
     fz: F => "fz", required, fy => "fy";
     my: M => "my", required, mz => "mz";
+    @map wire { mx: f64 => "mx"; } {
+        if let Some(mx) = wire.mx.0 {
+            if !mx.is_zero() {
+                return Err(refuse_out_of_plane("mx"));
+            }
+            let complete = wire.fx.0.is_some() && wire.fz.0.is_some() && wire.my.0.is_some();
+            if let (true, Some(fy), Some(mz)) = (complete, &wire.fy.0, &wire.mz.0) {
+                if !fy.is_zero() {
+                    return Err(refuse_out_of_plane("fy"));
+                }
+                if !mz.is_zero() {
+                    return Err(refuse_out_of_plane("mz"));
+                }
+                wire.fy = Field::default();
+                wire.mz = Field::default();
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]

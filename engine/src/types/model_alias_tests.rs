@@ -157,156 +157,170 @@ fn canonical_model_alias_positional_support_reaches_native_linear_and_pdelta() {
     assert_eq!(actual.results_sha256, reference.results_sha256);
 }
 
-#[test]
-#[ignore = "known wrong result: #2532"]
-fn canonical_model_alias_planar_nodal_wire_keys_are_mapped_or_checked() {
-    fn check<T: DeserializeOwned + Serialize>(
-        key: &str,
-        wire: Value,
-        expected: Result<Value, &str>,
-    ) {
-        for decoded in [
-            serde_json::from_value::<T>(wire.clone()),
-            serde_json::from_str::<T>(&wire.to_string()),
-        ] {
-            match &expected {
-                Ok(expected) => assert_eq!(
-                    serde_json::to_value(decoded.unwrap()).unwrap(),
-                    *expected,
-                    "{key}"
-                ),
-                Err(message) => match decoded {
-                    Err(error) => assert!(error.to_string().contains(message), "{key}: {error}"),
-                    Ok(_) => panic!("{key}: accepted {wire}"),
-                },
+#[cfg(test)]
+mod planar_nodal {
+    use super::*;
+
+    #[test]
+    fn canonical_model_alias_planar_nodal_wire_keys_are_mapped_or_checked() {
+        fn check<T: DeserializeOwned + Serialize>(
+            key: &str,
+            wire: Value,
+            expected: Result<Value, &str>,
+        ) {
+            for decoded in [
+                serde_json::from_value::<T>(wire.clone()),
+                serde_json::from_str::<T>(&wire.to_string()),
+            ] {
+                match &expected {
+                    Ok(expected) => assert_eq!(
+                        serde_json::to_value(decoded.unwrap()).unwrap(),
+                        *expected,
+                        "{key}"
+                    ),
+                    Err(message) => match decoded {
+                        Err(error) => {
+                            assert!(error.to_string().contains(message), "{key}: {error}")
+                        }
+                        Ok(_) => panic!("{key}: accepted {wire}"),
+                    },
+                }
             }
         }
-    }
 
-    let canonical = json!({"nodeId": 2, "fx": 1.0, "fz": 2.0, "my": 3.0});
-    for (key, maps_to) in [
-        ("nodeId", "nodeId"),
-        ("fx", "fx"),
-        ("fz", "fz"),
-        ("my", "my"),
-        ("fy", "fz"),
-        ("mz", "my"),
-        ("mx", ""),
-    ] {
-        let mut wire = canonical.clone();
-        let expected = if maps_to.is_empty() {
-            wire[key] = json!(5);
-            Err("out-of-plane nodal component `mx`")
-        } else {
-            let value = if key == "nodeId" {
-                json!(7)
+        let canonical = json!({"nodeId": 2, "fx": 1.0, "fz": 2.0, "my": 3.0});
+        let cases = [
+            ("nodeId", Some("nodeId")),
+            ("fx", Some("fx")),
+            ("fz", Some("fz")),
+            ("my", Some("my")),
+            ("fy", Some("fz")),
+            ("mz", Some("my")),
+            ("mx", None),
+        ];
+        let mut unknown = canonical.clone();
+        unknown["unknown"] = json!(5);
+        let error = serde_json::from_value::<SolverNodalLoad>(unknown)
+            .unwrap_err()
+            .to_string();
+        let accepted_keys: std::collections::BTreeSet<_> =
+            error.split('`').skip(3).step_by(2).collect();
+        assert_eq!(accepted_keys, cases.iter().map(|&(key, _)| key).collect());
+        for (key, maps_to) in cases {
+            let mut wire = canonical.clone();
+            let expected = if let Some(maps_to) = maps_to {
+                let value = if key == "nodeId" {
+                    json!(7)
+                } else {
+                    json!(7.0)
+                };
+                let mut expected = canonical.clone();
+                expected[maps_to] = value.clone();
+                wire.as_object_mut().unwrap().remove(maps_to);
+                wire[key] = value;
+                Ok(expected)
             } else {
-                json!(7.0)
+                wire[key] = json!(5);
+                Err("out-of-plane nodal component `mx`")
             };
-            let mut expected = canonical.clone();
-            expected[maps_to] = value.clone();
-            wire.as_object_mut().unwrap().remove(maps_to);
-            wire[key] = value;
-            Ok(expected)
-        };
-        check::<SolverNodalLoad>(key, wire.clone(), expected.clone());
-        check::<units::TypedNodalLoad>(key, wire, expected);
-    }
-
-    let mut padded = canonical.clone();
-    for key in ["fy", "mx", "mz"] {
-        padded[key] = json!(-0.0);
-    }
-    check::<SolverNodalLoad>("zero padding", padded.clone(), Ok(canonical.clone()));
-    check::<units::TypedNodalLoad>("zero padding", padded.clone(), Ok(canonical.clone()));
-
-    for (key, message) in [
-        ("fy", "out-of-plane nodal component `fy`"),
-        ("mx", "out-of-plane nodal component `mx`"),
-        ("mz", "out-of-plane nodal component `mz`"),
-    ] {
-        for value in [json!(-5), json!(5), json!(null), json!("0")] {
-            let mut wire = padded.clone();
-            wire[key] = value;
-            let expected = if wire[key].is_number() {
-                message
-            } else {
-                "invalid type"
-            };
-            check::<SolverNodalLoad>(key, wire.clone(), Err(expected));
-            check::<units::TypedNodalLoad>(key, wire, Err(expected));
+            check::<SolverNodalLoad>(key, wire.clone(), expected.clone());
+            check::<units::TypedNodalLoad>(key, wire, expected);
         }
+
+        let mut padded = canonical.clone();
+        for key in ["fy", "mx", "mz"] {
+            padded[key] = json!(-0.0);
+        }
+        check::<SolverNodalLoad>("zero padding", padded.clone(), Ok(canonical.clone()));
+        check::<units::TypedNodalLoad>("zero padding", padded.clone(), Ok(canonical.clone()));
+
+        for (key, message) in [
+            ("fy", "out-of-plane nodal component `fy`"),
+            ("mx", "out-of-plane nodal component `mx`"),
+            ("mz", "out-of-plane nodal component `mz`"),
+        ] {
+            for value in [json!(-5), json!(5), json!(null), json!("0")] {
+                let mut wire = padded.clone();
+                wire[key] = value;
+                let expected = if wire[key].is_number() {
+                    message
+                } else {
+                    "invalid type"
+                };
+                check::<SolverNodalLoad>(key, wire.clone(), Err(expected));
+                check::<units::TypedNodalLoad>(key, wire, Err(expected));
+            }
+        }
+
+        for key in ["bw", "momentX"] {
+            let mut wire = canonical.clone();
+            wire[key] = json!(5);
+            check::<SolverNodalLoad>(key, wire.clone(), Err("unknown field"));
+            check::<units::TypedNodalLoad>(key, wire, Err("unknown field"));
+        }
+
+        let mut short = canonical.clone();
+        short["mx"] = json!(0);
+        check::<SolverNodalLoad>("short zero padding", short.clone(), Ok(canonical.clone()));
+        check::<units::TypedNodalLoad>("short zero padding", short, Ok(canonical));
     }
 
-    for key in ["bw", "momentX"] {
-        let mut wire = canonical.clone();
-        wire[key] = json!(5);
-        check::<SolverNodalLoad>(key, wire.clone(), Err("unknown field"));
-        check::<units::TypedNodalLoad>(key, wire, Err("unknown field"));
+    #[test]
+    fn canonical_model_alias_refuses_the_dropped_couple_before_native_solves() {
+        let mut model = json!({
+            "nodes": { "1": {"id":1,"x":0,"z":0}, "2": {"id":2,"x":2,"z":0} },
+            "elements": {"1":{"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1}},
+            "materials": {"1":{"id":1,"e":200000,"nu":0.3}},
+            "sections": {"1":{"id":1,"a":0.01,"iz":1e-4}},
+            "supports": {"1":{"id":1,"nodeId":1,"type":"fixed"}},
+            "loads": [{"type":"nodal","data":{"nodeId":2,"fx":0,"fy":0,"fz":0,"mx":5,"my":0,"mz":0}}]
+        });
+        let linear = |model: &Value| crate::reproduce::linear_hashes(&model.to_string(), false);
+        let pdelta = |model: &Value| {
+            let model: SolverInput =
+                serde_json::from_str(&model.to_string()).map_err(|e| e.to_string())?;
+            let result = crate::solver::pdelta::solve_pdelta_2d(&model, 20, 1e-9)?;
+            assert!(result.converged);
+            crate::reproduce::canonical_results_json(&result.results)
+        };
+
+        let refused = [linear(&model).err(), pdelta(&model).err()];
+        let mut control = model.clone();
+        control["loads"][0]["data"] = json!({"nodeId":2,"fx":0,"fz":0,"my":0});
+        let control_hashes = linear(&control).unwrap();
+        let control_pdelta = pdelta(&control).unwrap();
+        model["loads"][0]["data"]["mx"] = json!(0);
+        assert_eq!(
+            linear(&model).unwrap().results_sha256,
+            control_hashes.results_sha256
+        );
+        assert_eq!(pdelta(&model).unwrap(), control_pdelta);
+        assert!(
+            refused.iter().all(|error| error
+                .as_deref()
+                .is_some_and(|s| s.contains("out-of-plane nodal component `mx`"))),
+            "linear and P-Delta must refuse the applied couple: {refused:?}"
+        );
     }
 
-    let mut short = canonical.clone();
-    short["mx"] = json!(0);
-    check::<SolverNodalLoad>("short zero padding", short.clone(), Ok(canonical.clone()));
-    check::<units::TypedNodalLoad>("short zero padding", short, Ok(canonical));
-}
-
-#[test]
-#[ignore = "known wrong result: #2532"]
-fn canonical_model_alias_refuses_the_dropped_couple_before_native_solves() {
-    let mut model = json!({
-        "nodes": { "1": {"id":1,"x":0,"z":0}, "2": {"id":2,"x":2,"z":0} },
-        "elements": {"1":{"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1}},
-        "materials": {"1":{"id":1,"e":200000,"nu":0.3}},
-        "sections": {"1":{"id":1,"a":0.01,"iz":1e-4}},
-        "supports": {"1":{"id":1,"nodeId":1,"type":"fixed"}},
-        "loads": [{"type":"nodal","data":{"nodeId":2,"fx":0,"fy":0,"fz":0,"mx":5,"my":0,"mz":0}}]
-    });
-    let linear = |model: &Value| crate::reproduce::linear_hashes(&model.to_string(), false);
-    let pdelta = |model: &Value| {
-        let model: SolverInput =
-            serde_json::from_str(&model.to_string()).map_err(|e| e.to_string())?;
-        let result = crate::solver::pdelta::solve_pdelta_2d(&model, 20, 1e-9)?;
-        assert!(result.converged);
-        crate::reproduce::canonical_results_json(&result.results)
-    };
-
-    let refused = [linear(&model).err(), pdelta(&model).err()];
-    let mut control = model.clone();
-    control["loads"][0]["data"] = json!({"nodeId":2,"fx":0,"fz":0,"my":0});
-    let control_hashes = linear(&control).unwrap();
-    let control_pdelta = pdelta(&control).unwrap();
-    model["loads"][0]["data"]["mx"] = json!(0);
-    assert_eq!(
-        linear(&model).unwrap().results_sha256,
-        control_hashes.results_sha256
-    );
-    assert_eq!(pdelta(&model).unwrap(), control_pdelta);
-    assert!(
-        refused.iter().all(|error| error
-            .as_deref()
-            .is_some_and(|s| s.contains("out-of-plane nodal component `mx`"))),
-        "linear and P-Delta must refuse the applied couple: {refused:?}"
-    );
-}
-
-#[test]
-fn canonical_model_alias_spatial_nodal_couple_reaches_native_solves() {
-    let model = json!({
-        "nodes": { "1": {"id":1,"x":0,"y":0,"z":0}, "2": {"id":2,"x":2,"y":0,"z":0} },
-        "elements": {"1":{"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1}},
-        "materials": {"1":{"id":1,"e":200000,"nu":0.3}},
-        "sections": {"1":{"id":1,"a":0.01,"iy":1e-4,"iz":1e-4,"j":2e-4}},
-        "supports": {"1":{"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}},
-        "loads": [{"type":"nodal","data":{"nodeId":2,"fx":0,"fy":0,"fz":0,"mx":5,"my":0,"mz":0}}]
-    });
-    let model: units::ElasticInput3D = serde_json::from_str(&model.to_string()).unwrap();
-    let model = model.into_legacy();
-    let linear = crate::solver::linear::solve_3d(&model).unwrap();
-    let pdelta = crate::solver::pdelta::solve_pdelta_3d(&model, 20, 1e-9).unwrap();
-    assert!(pdelta.converged);
-    for reactions in [&linear.reactions, &pdelta.results.reactions] {
-        assert_eq!(reactions.len(), 1);
-        assert_eq!(reactions[0].mx, -5.0);
+    #[test]
+    fn canonical_model_alias_spatial_nodal_couple_reaches_native_solves() {
+        let model = json!({
+            "nodes": { "1": {"id":1,"x":0,"y":0,"z":0}, "2": {"id":2,"x":2,"y":0,"z":0} },
+            "elements": {"1":{"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1}},
+            "materials": {"1":{"id":1,"e":262144,"nu":0}},
+            "sections": {"1":{"id":1,"a":0.01,"iy":1e-4,"iz":1e-4,"j":0.0009765625}},
+            "supports": {"1":{"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}},
+            "loads": [{"type":"nodal","data":{"nodeId":2,"fx":0,"fy":0,"fz":0,"mx":5,"my":0,"mz":0}}]
+        });
+        let model: units::ElasticInput3D = serde_json::from_str(&model.to_string()).unwrap();
+        let model = model.into_legacy();
+        let linear = crate::solver::linear::solve_3d(&model).unwrap();
+        let pdelta = crate::solver::pdelta::solve_pdelta_3d(&model, 20, 1e-9).unwrap();
+        assert!(pdelta.converged);
+        for reactions in [&linear.reactions, &pdelta.results.reactions] {
+            assert_eq!(reactions.len(), 1);
+            assert_eq!(reactions[0].mx, -5.0);
+        }
     }
 }

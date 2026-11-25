@@ -50,6 +50,18 @@ describe('audited output changes are registered narrowly', () => {
     }, '3d')).toBeUndefined();
   });
 
+  it('attributes planar nodal solver refusals only to explicit solver input evidence', () => {
+    const id = 'planar-nodal-wire-components';
+    const entry = RESULT_CHANGES.changes.find(c => c.id === id)!;
+    const stamp = { ...unknownStamp(), resultsVersion: entry.resultsVersion - 1, analyses: ['linear' as const] };
+    const ids = (evidence?: ReadonlySet<string>) =>
+      assessProject(model, stamp, '2d', RESULT_CHANGES, evidence).changes.map(c => c.id);
+    expect(declaredQuantities[id]).toEqual(['solve.ok']);
+    expect(ids()).not.toContain(id);
+    expect(ids(new Set(['outOfPlaneNodalComponents']))).not.toContain(id);
+    expect(ids(new Set(['native:planar-nodal-vector']))).toContain(id);
+  });
+
   it('registers SSI in both dimensions without warning a recorded linear run', () => {
     for (const mode of ['2d', '3d', 'pro']) {
       expect(applicable('ssi-support-reactions', mode, ['ssi'])).toBe(true);

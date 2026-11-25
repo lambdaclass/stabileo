@@ -35,6 +35,13 @@ describe('engine sentences', () => {
       .toBe('Se retuvieron los resultados de P-Delta porque el residuo físico en los grados de libertad libres no cumplió la tolerancia solicitada.');
   });
 
+  it('translates an out-of-plane nodal refusal and keeps the field name', async () => {
+    await setLocale('es');
+    const message = 'Parse error: out-of-plane nodal component `mx`';
+    expect(localizeEngineText(message))
+      .toBe('Parse error: Esta componente está fuera del plano de la carga nodal. Use nodal3d para cargas espaciales. `mx`');
+  });
+
   it('leaves a sentence it does not know as it is', () => {
     setLocale('es');
     expect(localizeEngineText('Residual 1.2e-3 exceeds tolerance')).toBe('Residual 1.2e-3 exceeds tolerance');
