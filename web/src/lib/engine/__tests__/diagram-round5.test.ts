@@ -213,6 +213,39 @@ it('known wrong result: #2437 reads the plotted polynomial extremum through prep
   }
 });
 
+it.skip('known wrong result: #2437 keeps small planar couples and spatial forces through baseline cancellation', () => {
+  const [, , planar, spatial] = forceRecords();
+  const big = 2 ** 54;
+  for (const result of planar) {
+    const base = { ...result.elementForces[0]!, length: 2, mStart: big, vStart: big };
+    for (const pointLoads of [
+      [{ a: 0.5, p: 0, my: 1 }],
+      [{ a: 0.25, p: 0, my: big }, { a: 0.5, p: 0, my: 1 }, { a: 0.75, p: 0, my: -big }],
+    ]) {
+      const ef = { ...base, pointLoads };
+      expect.soft(computeDiagramValueAt('moment', 0.5, ef)).toBe(1);
+      expect.soft(prepareDiagramValueAt('moment', ef)(0.5)).toBe(1);
+      expect.soft(computeElementDiagram('moment', ef, 0, 0, 2, 0).points.find(p => p.t === 0.5)?.value).toBe(1);
+      expect.soft(computeDiagramValueAtWasm('moment', 0.5, ef)).toBe(1);
+    }
+    expect.soft(computeDiagramValueAt('moment', 0.5, base)).toBe(0);
+  }
+  for (const result of spatial) {
+    const base = { ...result.elementForces[0]!, length: 2, myStart: big, vzStart: -big };
+    for (const pointLoadsZ of [
+      [{ a: 0.5, p: 2 }],
+      [{ a: 0, p: big }, { a: 0.5, p: 2 }, { a: 0.75, p: -4 * big }],
+    ]) {
+      const ef = { ...base, pointLoadsZ };
+      expect.soft(evaluateDiagramAt(ef, 'momentY', 0.5)).toBe(1);
+      expect.soft(prepareDiagramEvaluator3D(ef, 'momentY')(0.5)).toBe(1);
+      expect.soft(computeDiagram3D(ef, 'momentY').points.find(p => p.t === 0.5)?.value).toBe(1);
+      expect.soft(computeDiagramValueAt3DWasm('momentY', 0.5, ef)).toBe(1);
+    }
+    expect.soft(evaluateDiagramAt(base, 'momentY', 0.5)).toBe(0);
+  }
+});
+
 it('known wrong result: #2437 retains both faces of a physically rebased piece cut', () => {
   const [, , , spatial] = forceRecords();
   for (const result of spatial) {

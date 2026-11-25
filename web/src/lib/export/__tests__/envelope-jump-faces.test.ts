@@ -118,6 +118,33 @@ it('known wrong result: #2226 keeps distinct nearby stations and exact physical 
   ]);
 });
 
+it.skip('known wrong result: #2226 compares every source at the unrounded physical cut', () => {
+  const first = solvedMember(3);
+  const second = structuredClone(first);
+  const a = 0.24999999999999992;
+  const slope = 2 ** 54;
+  const pieces = (results: AnalysisResults3D) => {
+    const force = results.elementForces[0]!;
+    const local = { ...force, length: 1 };
+    return force.pieces = [0, 1, 2].map(x0 => ({ x0, x1: x0 + 1, forces: { ...local } }));
+  };
+  pieces(first)[1]!.forces.pointLoadsZ = [{ a, p: 16 }];
+  pieces(first)[2]!.forces.vzStart = 16;
+  const other = pieces(second)[1]!.forces;
+  other.vzStart = 16 - slope / 4;
+  other.distributedLoadsZ = [{ a: 0, b: 1, qI: slope, qJ: slope }];
+  other.vzEnd = other.vzStart + slope;
+  const sources: WorkbookSource[] = [first, second].map((results, i) => ({
+    id: i + 1, name: String(i + 1), kind: 'combination', results,
+  }));
+  const sheet = resultSheets({ sources, stations: 'critical', statics: null }, name => name === 'Envelope')[0]!;
+  const rows = records(sheet).filter(row => row.component === 'Vz' && row['x [m]'] === 1 + a);
+  expect(rows.map(row => [row.face, row.min, row.minSourceId, row.max, row.maxSourceId])).toEqual([
+    ['left', 0, 1, 14.5, 2],
+    ['right', 14.5, 2, 16, 1],
+  ]);
+});
+
 it('known wrong result: #2226 refuses an aliased cross-case jump and accepts the adjacent representable layout', () => {
   const length = 9, a = 7 + 12 * Number.EPSILON;
   const first = solvedMember(length), second = structuredClone(first);
