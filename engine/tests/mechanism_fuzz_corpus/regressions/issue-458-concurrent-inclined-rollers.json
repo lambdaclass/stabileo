@@ -54,24 +54,12 @@
           "id": 2,
           "nodeId": 2,
           "type": "inclinedRoller",
-          "kx": null,
-          "ky": null,
-          "kz": null,
-          "dx": null,
-          "dz": null,
-          "dry": null,
           "angle": -2.356194490192345
         },
         "1": {
           "id": 1,
           "nodeId": 1,
           "type": "inclinedRoller",
-          "kx": null,
-          "ky": null,
-          "kz": null,
-          "dx": null,
-          "dz": null,
-          "dry": null,
           "angle": 1.1071487177940904
         }
       },

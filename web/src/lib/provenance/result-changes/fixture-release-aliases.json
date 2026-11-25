@@ -1,0 +1,42 @@
+{
+  "id": "fixture-release-aliases",
+  "date": "2026-11-24",
+  "prs": [
+    2532
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "duplicateFixtureEndRelease"
+    ]
+  },
+  "quantities": [
+    "displacements",
+    "reactions",
+    "elementForces"
+  ],
+  "title": {
+    "en": "Agreeing member releases in fixture replay",
+    "es": "Liberaciones de extremo coincidentes al cargar modelos",
+    "pt": "Libertações de extremidade coincidentes ao carregar modelos",
+    "de": "Übereinstimmende Stabendfreigaben beim Laden von Modellen",
+    "fr": "Relâchements d’extrémité concordants au chargement des modèles",
+    "hu": "Egyező rúdvég-felengedések a modellek betöltésekor",
+    "tr": "Model yüklemede aynı uç serbestliğini belirten alanlar",
+    "zh": "载入算例时一致的杆端释放字段"
+  },
+  "explanation": {
+    "en": "A source fixture that declares the same end release with both fields now applies the release once. Earlier replay could leave the end rigid. Reload the original fixture and recompute affected results.",
+    "es": "Si el modelo de origen declara la misma liberación de extremo con ambos campos, ahora se aplica una sola vez. Antes, la carga del modelo podía dejar el extremo rígido. Vuelva a cargar el modelo de origen y recalcule los resultados afectados.",
+    "pt": "Quando o modelo de origem declara a mesma libertação de extremidade em ambos os campos, esta é aplicada uma vez. O carregamento anterior podia deixar a extremidade rígida. Carregue novamente o modelo de origem e recalcule os resultados afetados.",
+    "de": "Wenn das Quellmodell dieselbe Stabendfreigabe in beiden Feldern angibt, wird sie einmal angewendet. Beim früheren Laden konnte das Stabende starr bleiben. Laden Sie das Quellmodell erneut und berechnen Sie die betroffenen Ergebnisse neu.",
+    "fr": "Lorsque le modèle source déclare le même relâchement d’extrémité dans les deux champs, celui-ci est appliqué une fois. Auparavant, le chargement pouvait laisser l’extrémité rigide. Rechargez le modèle source et recalculez les résultats concernés.",
+    "hu": "Ha a forrásmodell ugyanazt a rúdvég-felengedést mindkét mezőben megadja, a program egyszer alkalmazza. Korábban a betöltés után a rúdvég merev maradhatott. Töltse be újra a forrásmodellt, és számítsa újra az érintett eredményeket.",
+    "tr": "Kaynak model aynı uç serbestliğini iki alanda da belirtiyorsa serbestlik bir kez uygulanır. Önceki yükleme ucu rijit bırakabiliyordu. Kaynak modeli yeniden yükleyin ve etkilenen sonuçları yeniden hesaplayın.",
+    "zh": "如果源算例的两个字段声明了同一杆端释放，现在只应用一次。旧版载入时可能将该杆端保留为刚接。请重新载入原始算例并重新计算受影响的结果。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-fixture-release-aliases.md",
+    "heading": "Agreeing member releases in fixture replay"
+  }
+}

@@ -36,6 +36,7 @@
  * beams between repeated frames, the purlins of a polar array.
  */
 
+import { canonicalizeModelAliases } from '../canonical-aliases';
 import { weldTolerance } from '../weld-tolerance';
 import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';
@@ -121,12 +122,13 @@ function copySupportRefusal(frag: Fragment, transforms: readonly Affine[], opts:
  * With `link`, copy k's nodes are joined to copy k−1's (copy 0 to the fragment's own ids, which
  * only exist when the fragment is `local`).
  */
-export function insertFragment(frag: Fragment, transforms: readonly Affine[], opts: Omit<CopyOptions, 'withGroups'> = {}): EditReport {
+export function insertFragment(input: Fragment, transforms: readonly Affine[], opts: Omit<CopyOptions, 'withGroups'> = {}): EditReport {
   const report: EditReport = {
     nodes: [], elements: [], quads: [], plates: [], links: [], groups: [], welded: 0, duplicates: 0, supportKept: 0, loadKept: 0,
     added: { materials: 0, sections: 0, loadCases: 0 }, maps: [], warnings: {},
   };
-  if (frag.nodes.length === 0 || transforms.length === 0) return report;
+  if (input.nodes.length === 0 || transforms.length === 0) return report;
+  const frag = input.local ? input : canonicalizeModelAliases(input);
   const refusal = copySupportRefusal(frag, transforms, opts);
   if (refusal) {
     report.refused = refuseSupportTransform(refusal);

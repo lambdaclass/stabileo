@@ -1,7 +1,7 @@
 /**
  * The before/after preview of applying a load plan. Moved out of `load-plan.ts` as it was.
  */
-import { expandCombinations, type ExpandOptions } from './combination-cases';
+import { expandCombinations, type CombinationCase, type ExpandOptions } from './combination-cases';
 import { msg, type EngineMessage } from '../../codes/message';
 import type { LoadPlan } from './load-plan';
 
@@ -12,8 +12,10 @@ import type { LoadPlan } from './load-plan';
  * (`combination-cases.ts`), so the two cannot disagree. Counting one per wind or seismic case
  * by hand missed both senses of the earthquake, the Wa cases and the snow patterns.
  */
-export function expandPlannedCombinations(plan: LoadPlan, options: ExpandOptions) {
-  const cases = plan.cases.map((c, i) => ({ ...c, id: i + 1, name: String(i) }));
+export function expandPlannedCombinations(
+  plan: LoadPlan, options: ExpandOptions,
+  cases: readonly CombinationCase[] = plan.cases.map((c, i) => ({ ...c, id: i + 1, name: String(i) })),
+) {
   return expandCombinations(plan.combinations, cases, options);
 }
 
@@ -116,9 +118,15 @@ export interface CurrentLoadState {
 export function describePlanDelta(
   plan: LoadPlan,
   current: CurrentLoadState,
-  options: { replaceExisting: boolean; bothSenses?: ExpandOptions['bothSenses']; patternsInCompanions?: boolean; alsoUnmarked?: boolean },
+  options: ExpandOptions & { replaceExisting: boolean; alsoUnmarked?: boolean },
+  cases?: readonly CombinationCase[],
 ): PlanDelta {
-  const plannedCombinationCount = expandPlannedCombinations(plan, options).length;
+  const expanded = expandPlannedCombinations(plan, options, cases);
+  const plannedCombinationCount = expanded.length;
+  const combinedIds = new Set(expanded.flatMap(c => c.factors.map(f => f.caseId)));
+  const retainedCases = options.retainedCases ?? [];
+  const retainedTypes = new Set(retainedCases.filter(c => combinedIds.has(c.id)).map(c => c.type));
+  for (const c of retainedCases) if (!combinedIds.has(c.id)) retainedTypes.delete(c.type);
   const replace = options.replaceExisting;
   const alsoUnmarked = !!options.alsoUnmarked;
   const afterTypes = [...new Set(plan.cases.map((c) => String(c.type)))].sort();
@@ -158,7 +166,7 @@ export function describePlanDelta(
       reason: msg(clears
         ? 'loadPlan.disposition.cleared'
         : 'loadPlan.disposition.retained', { caseType: t }),
-      lossy: true,
+      lossy: clears || !retainedTypes.has(t),
     });
   }
   dispositions.sort((a, b) => a.caseType.localeCompare(b.caseType));
@@ -199,8 +207,7 @@ export function describePlanDelta(
     }));
   }
   for (const t of removed) {
-    // The load case is one thing; its participation in the combinations is another, and
-    // that participation ends either way. That is the part users were not being told.
+    if (!clears && retainedTypes.has(t)) continue;
     warnings.push(msg(clears
       ? 'loadPlan.warning.caseCleared'
       : 'loadPlan.warning.caseRetainedNotCombined', { caseType: t }));

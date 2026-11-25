@@ -122,7 +122,7 @@ fn check_export(
             "{}_pdelta_{dimension}d",
             if certified { "certify" } else { "solve" }
         );
-        if expected["results"]["equilibrium"]["residualOk"] == false {
+        if expected["refused"] == true {
             let error = if dimension == 2 {
                 let model = serde_json::from_value(input.clone()).unwrap();
                 dedaliano_engine::certify::pdelta::certify_pdelta_2d(&model, max_iter, 1e-12).unwrap_err()
@@ -130,12 +130,8 @@ fn check_export(
                 let model = serde_json::from_value(input.clone()).unwrap();
                 dedaliano_engine::certify::pdelta::certify_pdelta_3d(&model, max_iter, 1e-12).unwrap_err()
             };
-            assert!(error.contains("non-finite"), "{error}");
-            assert!(expected["results"]["reactions"].as_array().unwrap().iter().all(|r| r[if dimension == 2 {"rx"} else {"fx"}].is_null()));
-            assert!(expected["results"]["elementForces"].as_array().unwrap().iter().all(|r| r["nStart"].is_null()));
-            let mut refused = expected.clone();
-            refused["refused"] = json!(true);
-            record(cases, &api, input.clone(), max_iter, refused);
+            crate::red_ci::assert_pdelta_physical_refusal(&error, 1e-12);
+            record(cases, &api, input.clone(), max_iter, expected.clone());
             continue;
         }
         let result = match (dimension, certified) {
@@ -182,18 +178,24 @@ fn native_exports_and_wasm_cases_keep_answers_and_iteration_limits() {
             assert!(result.iterations > 1);
             let input = serde_json::to_value(&c.s).unwrap();
             for limit in [0, 1, result.iterations - 1, result.iterations, 100] {
-                let limited = pdelta::solve_pdelta_3d(&c.s, limit, 1e-12).unwrap();
-                assert_eq!(
-                    limited.converged,
-                    limit >= result.iterations,
-                    "{name}, {limit}"
-                );
+                let limited = match pdelta::solve_pdelta_3d(&c.s, limit, 1e-12) {
+                    Ok(solved) => {
+                        assert_eq!(solved.converged, limit >= result.iterations);
+                        assert!(solved.results.equilibrium.as_ref().unwrap().residual_ok);
+                        serde_json::to_value(solved).unwrap()
+                    }
+                    Err(error) => {
+                        assert!(limit < result.iterations, "iteration limit {limit}: {error}");
+                        crate::red_ci::assert_pdelta_physical_refusal(&error, 1e-12);
+                        json!({"refused":true})
+                    }
+                };
                 check_export(
                     &mut cases,
                     &input,
                     3,
                     limit,
-                    &serde_json::to_value(limited).unwrap(),
+                    &limited,
                 );
             }
             let lin = linear::solve_3d(&c.s).unwrap();
@@ -234,14 +236,24 @@ fn native_exports_and_wasm_cases_keep_answers_and_iteration_limits() {
         assert!(result.converged && result.iterations > 1);
         let input = serde_json::to_value(&c.s).unwrap();
         for limit in [0, 1, result.iterations - 1, result.iterations, 100] {
-            let limited = pdelta::solve_pdelta_2d(&c.s, limit, 1e-12).unwrap();
-            assert_eq!(limited.converged, limit >= result.iterations);
+            let limited = match pdelta::solve_pdelta_2d(&c.s, limit, 1e-12) {
+                Ok(solved) => {
+                    assert_eq!(solved.converged, limit >= result.iterations);
+                    assert!(solved.results.equilibrium.as_ref().unwrap().residual_ok);
+                    serde_json::to_value(solved).unwrap()
+                }
+                Err(error) => {
+                    assert!(limit < result.iterations, "iteration limit {limit}: {error}");
+                    crate::red_ci::assert_pdelta_physical_refusal(&error, 1e-12);
+                    json!({"refused":true})
+                }
+            };
             check_export(
                 &mut cases,
                 &input,
                 2,
                 limit,
-                &serde_json::to_value(limited).unwrap(),
+                &limited,
             );
         }
         record(

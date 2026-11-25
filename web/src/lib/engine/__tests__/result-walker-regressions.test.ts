@@ -59,7 +59,7 @@ describe('#807 review: a combination keeps the known issues of its load cases', 
   const model: ModelData = {
     nodes: new Map([[1, { id: 1, x: 0, y: 0 } as never], [2, { id: 2, x: 5, y: 0 } as never]]),
     elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 } as never]]),
-    materials: new Map([[1, { id: 1, e: 200_000_000, nu: 0.3 } as never]]),
+    materials: new Map([[1, { id: 1, e: 200_000_000, nu: 0.3, rho: 0 } as never]]),
     sections: new Map([[1, { id: 1, a: 0.01, iz: 1e-4 } as never]]),
     supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' } as never]]),
     loads: [{ type: 'nodal', data: { id: 1, nodeId: 2, fx: 0, fz: -10, my: 0 } } as never],

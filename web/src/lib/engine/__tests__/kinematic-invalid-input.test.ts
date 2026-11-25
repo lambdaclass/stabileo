@@ -42,7 +42,7 @@ const cantileverModel = (nu: number): ModelData => ({
     [1, { id: 1, x: 0, y: 0 }],
     [2, { id: 2, x: 4, y: 0 }],
   ]),
-  materials: new Map([[1, { id: 1, e: 200_000_000, nu }]]),
+  materials: new Map([[1, { id: 1, e: 200_000_000, nu, rho: 0 }]]),
   sections: new Map([[1, { id: 1, a: 0.01, iz: 1e-4 }]]),
   elements: new Map([
     [1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }],

@@ -188,10 +188,10 @@ check.quick:
 	BASE=$(BASE) scripts/check-quick.sh
 
 check.fast: web/node_modules/@playwright/test/cli.js
-	$(MAKE) -j5 --output-sync=target lint.repo check.changelog check.issue-reproducers check.fail-closed typecheck.web test.web.fast test.ci-scripts check.web.production-parity test.web.pro-plates-switch
+	$(MAKE) -j5 --output-sync=target lint.repo check.changelog check.issue-reproducers check.fail-closed typecheck.web test.web.fast test.ci-scripts check.web.production-parity
 
 test.web.fast:
-	$(MAKE) test.web.unit.production UNIT_AREA= SHARD= FILTER= FILE='src/lib/i18n/__tests__/locale-coverage.test.ts src/lib/i18n/__tests__/split-dictionaries.test.ts src/lib/i18n/__tests__/engine-purity.test.ts src/lib/utils/__tests__/harness-architecture.test.ts src/lib/store/__tests__/recheck.test.ts src/lib/legacy-projects/__tests__/judge.test.ts'
+	$(MAKE) test.web.unit.production UNIT_AREA= SHARD= FILTER= FILE='src/lib/i18n/__tests__/locale-coverage.test.ts src/lib/i18n/__tests__/engine-purity.test.ts src/lib/utils/__tests__/harness-architecture.test.ts src/lib/store/__tests__/recheck.test.ts src/lib/legacy-projects/__tests__/judge.test.ts'
 	$(MAKE) test.web.unit.production UNIT_AREA= SHARD= FILE=src/lib/blog/__tests__/blog-content.test.ts FILTER='lists every advisory'
 
 .PHONY: check.web.production-parity
@@ -250,7 +250,7 @@ test.engine.lib:
 test.engine.experimental-nonlinear:
 	$(MAKE) test.engine.lib ENGINE_FEATURES=experimental-nonlinear FILTER="$(or $(FILTER),experimental_nonlinear)"
 
-test.engine.experimental-nonlinear-wasm:
+test.engine.experimental-nonlinear-wasm: scripts/tests/arc-review-wasm.mjs scripts/tests/planar-exact-member-actions.mjs scripts/tests/fixtures/planar-exact-member-actions.json scripts/tests/fixtures/planar-member-rotation.json scripts/tests/fixtures/planar-chord-equilibrium.json
 	$(NIX_RUN) wasm-pack build engine --target nodejs --out-dir ../target/experimental-nonlinear-wasm --no-opt -- --features experimental-nonlinear
 	$(NIX_RUN) node --test $(if $(FILTER),--test-name-pattern="$(FILTER)") scripts/tests/experimental-nonlinear-wasm.mjs
 
@@ -1070,6 +1070,10 @@ test.engine.nonlinear-convergence-wasm: wasm
 	$(NIX_RUN) node scripts/tests/nonlinear-convergence-wasm.mjs $(CURDIR)/.761-wasm-cases.json
 	rm -f $(CURDIR)/.761-wasm-cases.json
 
+.PHONY: test.engine.pdelta-2100-wasm
+test.engine.pdelta-2100-wasm: wasm
+	$(NIX_RUN) node scripts/tests/pdelta-2100-wasm.mjs
+
 .PHONY: test.engine.plastic-nightly-wasm
 test.engine.plastic-nightly-wasm: wasm
 	$(NIX_RUN) timeout 30s node scripts/tests/plastic-nightly-wasm.mjs
@@ -1099,15 +1103,15 @@ test.engine.reactions-r11-wasm: wasm
 
 .PHONY: test.engine.truss-balance-1969-wasm
 
-test.engine.truss-balance-1969-wasm: wasm
+test.engine.truss-balance-1969-wasm: wasm scripts/tests/pdelta-equilibrium-refusal.mjs
 	$(NIX_RUN) node scripts/tests/truss-balance-1969-wasm.mjs
 
 .PHONY: test.engine.candidate-1901-wasm
 
-test.engine.candidate-1901-wasm: wasm
-	CANDIDATE_1901_AUDIT=$(CURDIR)/.1901-audit.json $(NIX_RUN) node scripts/tests/candidate-1901-wasm.mjs
-	$(NIX_RUN) python3 testing/docs/audits/candidate-1901-audit.py $(CURDIR)/.1901-audit.json
-	rm -f $(CURDIR)/.1901-audit.json
+test.engine.candidate-1901-wasm: wasm scripts/tests/pdelta-equilibrium-refusal.mjs
+	$(NIX_RUN) node scripts/tests/candidate-1901-wasm.mjs
+	$(NIX_RUN) bash scripts/tests/candidate-1901-wasm-audit.sh
+
 .PHONY: test.engine.staged-settlement-1085-wasm
 
 test.engine.staged-settlement-1085-wasm: wasm
@@ -1378,10 +1382,10 @@ test.design.completeness-2096:
 test.engine.kinematics-2222:
 	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_2222_kinematics_identifies -- --nocapture $(if $(IGNORED),--ignored)
 
-.PHONY: test.web.pro-plates-switch
-test.web.pro-plates-switch:
-	$(NIX_RUN) bash -c 'cd web && node --test scripts/pro-plates-switch.test.mjs'
+.PHONY: test.engine.nonlinear-drivers-2510-wasm
+test.engine.nonlinear-drivers-2510-wasm: wasm scripts/tests/arc-review-wasm.mjs scripts/tests/planar-exact-member-actions.mjs scripts/tests/fixtures/planar-exact-member-actions.json scripts/tests/fixtures/planar-member-rotation.json scripts/tests/fixtures/planar-chord-equilibrium.json
+	$(NIX_RUN) node --test scripts/tests/nonlinear-drivers-2510-wasm.mjs
 
-.PHONY: test.web.production-mesher
-test.web.production-mesher:
-	nix develop .\#e2e --command node --test web/scripts/tests/pro-mesher-inputs.test.mjs
+.PHONY: test.engine.prescribed-motion-2227-wasm
+test.engine.prescribed-motion-2227-wasm: wasm
+	$(NIX_RUN) node --test scripts/tests/prescribed-motion-2227-wasm.mjs

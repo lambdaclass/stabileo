@@ -19,8 +19,7 @@
         "a": 1.5,
         "elementId": 1,
         "my": 40.0,
-        "p": 0.0,
-        "px": null
+        "p": 0.0
       },
       "type": "pointOnElement"
     },
@@ -69,14 +68,7 @@
   "solverOptions": null,
   "supports": {
     "1": {
-      "angle": null,
-      "dry": null,
-      "dx": null,
-      "dz": null,
       "id": 1,
-      "kx": null,
-      "ky": null,
-      "kz": null,
       "nodeId": 1,
       "type": "fixed"
     }

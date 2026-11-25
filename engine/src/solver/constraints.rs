@@ -811,6 +811,53 @@ pub fn build_constraint_transform(
     nodes_3d: Option<&HashMap<String, SolverNode3D>>,
     inclined: &[InclinedDofs],
 ) -> Result<ConstraintTransform, String> {
+    build_constraint_transform_with_ties(constraints, dof_num, nodes_2d, nodes_3d, inclined, false)
+}
+
+const PREFERRED_PIVOT_FRACTION: f64 = 0.1;
+
+fn exact_tie_pivot(
+    mpc: &LinearMPCConstraint,
+    current: usize,
+    dof_num: &DofNumbering,
+    references: &[usize],
+) -> usize {
+    let [first, second] = mpc.terms.as_slice() else { return current };
+    let (Some(&a), Some(&b)) = (
+        dof_num.map.get(&(first.node_id, first.dof)),
+        dof_num.map.get(&(second.node_id, second.dof)),
+    ) else { return current };
+    if a == b || a >= dof_num.n_free || b >= dof_num.n_free ||
+        references[a] != 1 || references[b] != 1 {
+        return current;
+    }
+
+    let numerator = mpc.terms[current].coefficient;
+    let denominator = mpc.terms[1 - current].coefficient;
+    if denominator.abs() < PREFERRED_PIVOT_FRACTION * numerator.abs() || denominator == 0.0 {
+        return current;
+    }
+    let exact_quotient = |n: f64, d: f64| {
+        use num_rational::BigRational;
+        BigRational::from_float(n / d).is_some_and(|quotient| {
+            quotient * BigRational::from_float(d).unwrap() == BigRational::from_float(n).unwrap()
+        })
+    };
+    if !exact_quotient(denominator, numerator) && exact_quotient(numerator, denominator) {
+        1 - current
+    } else {
+        current
+    }
+}
+
+fn build_constraint_transform_with_ties(
+    constraints: &[Constraint],
+    dof_num: &DofNumbering,
+    nodes_2d: Option<&HashMap<String, SolverNode>>,
+    nodes_3d: Option<&HashMap<String, SolverNode3D>>,
+    inclined: &[InclinedDofs],
+    preserve_exact_ties: bool,
+) -> Result<ConstraintTransform, String> {
     let n = dof_num.n_total;
 
     // Build O(1) lookup maps: node numeric id -> &Node
@@ -819,6 +866,21 @@ pub fn build_constraint_transform(
     });
     let node_by_id_3d: Option<HashMap<usize, &SolverNode3D>> = nodes_3d.map(|nodes| {
         nodes.values().map(|n| (n.id, n)).collect()
+    });
+
+    let references = preserve_exact_ties.then(|| {
+        let mut references = vec![0; n];
+        for constraint in constraints {
+            for (dependent, masters) in collect_dependent_dofs(
+                constraint, dof_num, node_by_id_2d.as_ref(), node_by_id_3d.as_ref(),
+            ) {
+                references[dependent] += 1;
+                for master in masters {
+                    references[master] += 1;
+                }
+            }
+        }
+        references
     });
 
     // Collect all dependent DOFs and their constraint equations.
@@ -1075,8 +1137,10 @@ pub fn build_constraint_transform(
 
             Constraint::LinearMPC(mpc) => {
                 // General MPC: Σ(coeff_i × u_i) = 0
-                // First term with largest coefficient becomes dependent
-                let Some(dep_idx) = mpc_dependent_term(mpc, dof_num) else { continue; };
+                let Some(mut dep_idx) = mpc_dependent_term(mpc, dof_num) else { continue; };
+                if let Some(references) = &references {
+                    dep_idx = exact_tie_pivot(mpc, dep_idx, dof_num, references);
+                }
 
                 let dep_term = &mpc.terms[dep_idx];
                 if let Some(&dep_global) = dof_num.map.get(&(dep_term.node_id, dep_term.dof)) {
@@ -1394,7 +1458,7 @@ fn equations_in_inclined_frames(
                 .map(|(&d, &c)| (d, c))
         };
         let pivot = match (best(true), best(false)) {
-            (Some(own), Some(any)) if own.1.abs() >= 0.1 * any.1.abs() => Some(own),
+            (Some(own), Some(any)) if own.1.abs() >= PREFERRED_PIVOT_FRACTION * any.1.abs() => Some(own),
             (_, any) => any,
         };
         // No free DOF left: the equation ties prescribed values only (a
@@ -2339,9 +2403,19 @@ impl FreeConstraintSystem {
     /// in; `Err` when a constraint on an inclined-support node cannot be
     /// enforced there.
     pub fn build_2d(input: &SolverInput, dof_num: &DofNumbering) -> Result<Option<Self>, String> {
+        Self::build_planar(input, dof_num, false)
+    }
+
+    pub(super) fn for_displacement_control(input: &SolverInput, dof_num: &DofNumbering) -> Result<Option<Self>, String> {
+        Self::build_planar(input, dof_num, true)
+    }
+
+    fn build_planar(input: &SolverInput, dof_num: &DofNumbering, preserve_exact_ties: bool) -> Result<Option<Self>, String> {
         if input.constraints.is_empty() { return Ok(None); }
         let inclined = inclined_dofs_2d(input, dof_num);
-        let ct = build_constraint_transform(&input.constraints, dof_num, Some(&input.nodes), None, &inclined)?;
+        let ct = build_constraint_transform_with_ties(
+            &input.constraints, dof_num, Some(&input.nodes), None, &inclined, preserve_exact_ties,
+        )?;
         Ok(Some(Self::from_transform(&ct, dof_num.n_free, 2).with_inclined(inclined)))
     }
 
@@ -2521,6 +2595,12 @@ impl FreeConstraintSystem {
         let particular = self.prescribed_free(restrained);
         if particular.iter().any(|&p| p != 0.0) {
             for (f, kp) in rhs.iter_mut().zip(k_ff.sym_mat_vec(&particular)) { *f -= kp; }
+        }
+    }
+
+    pub(super) fn advance_independent(&self, full: &mut [f64], correction: &[f64]) {
+        for &i in &self.independent {
+            full[i] += correction[i];
         }
     }
 

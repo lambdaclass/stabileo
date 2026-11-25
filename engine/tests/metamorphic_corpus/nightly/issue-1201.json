@@ -54,14 +54,7 @@
     "1": {
       "id": 1,
       "nodeId": 1,
-      "type": "fixed",
-      "kx": null,
-      "ky": null,
-      "kz": null,
-      "dx": null,
-      "dz": null,
-      "dry": null,
-      "angle": null
+      "type": "fixed"
     }
   },
   "loads": [
@@ -70,9 +63,7 @@
       "data": {
         "elementId": 1,
         "qI": 68.73999838550935,
-        "qJ": 29.453399118330083,
-        "a": null,
-        "b": null
+        "qJ": 29.453399118330083
       }
     },
     {
@@ -80,9 +71,7 @@
       "data": {
         "elementId": 1,
         "qI": 36.35084971027513,
-        "qJ": -33.31551338481566,
-        "a": null,
-        "b": null
+        "qJ": -33.31551338481566
       }
     }
   ],

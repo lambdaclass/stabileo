@@ -415,7 +415,11 @@ fn a_thousand_elements_per_member_still_return_the_lowest_modes() {
 fn seesaw_on_rollers(support: &str, angle: Option<f64>) -> SolverInput {
     let mut input = serde_json::to_value(seesaw(2.0, 10.0, 0.0)).unwrap();
     for (id, node) in [("3", 1), ("4", 3)] {
-        input["supports"][id] = json!({"id": id.parse::<usize>().unwrap(), "nodeId": node, "type": support, "angle": angle});
+        let mut roller = json!({"id": id.parse::<usize>().unwrap(), "nodeId": node, "type": support});
+        if let Some(angle) = angle {
+            roller["angle"] = json!(angle);
+        }
+        input["supports"][id] = roller;
     }
     input["masses"]["nodal"] = json!([{"nodeId": 1, "mass": 1.0}, {"nodeId": 3, "mass": 1.0}]);
     serde_json::from_value(input).unwrap()

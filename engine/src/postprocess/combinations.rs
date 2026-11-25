@@ -5,7 +5,7 @@ use super::diagrams_3d::{diagram_critical_cuts_3d, try_evaluate_diagram_cut_3d};
 use num_rational::BigRational;
 use num_traits::{ToPrimitive, Zero};
 use serde::{Deserialize, Serialize};
-use std::{borrow::Cow, collections::{HashMap, HashSet}};
+use std::{borrow::Cow, collections::{HashMap, HashSet}, hash::Hash};
 
 // ==================== Input Types ====================
 
@@ -314,12 +314,82 @@ fn index_by_id(ids: impl Iterator<Item = usize>) -> std::collections::HashMap<us
 
 // ==================== 2D Combination ====================
 
+enum FactorSum {
+    Single(f64),
+    Exact(BigRational),
+    NonFinite,
+}
+
+impl FactorSum {
+    fn add(&mut self, factor: f64) {
+        match self {
+            Self::Single(first) => {
+                *self = BigRational::from_float(*first)
+                    .zip(BigRational::from_float(factor))
+                    .map_or(Self::NonFinite, |(a, b)| Self::Exact(a + b));
+            }
+            Self::Exact(sum) => match BigRational::from_float(factor) {
+                Some(factor) => *sum += factor,
+                None => *self = Self::NonFinite,
+            },
+            Self::NonFinite => {}
+        }
+    }
+}
+
+pub(crate) struct CaseFactorSums<Id>(Vec<(Id, f64)>);
+
+impl<Id> CaseFactorSums<Id> {
+    pub(crate) fn iter(&self) -> impl Iterator<Item = &(Id, f64)> {
+        self.0.iter()
+    }
+}
+
+impl<Id: Copy + Eq + Hash> CaseFactorSums<Id> {
+    pub(crate) fn new(factors: &[(Id, f64)]) -> Self {
+        let mut slots = HashMap::new();
+        let mut totals: Vec<(Id, FactorSum)> = Vec::new();
+        for &(id, factor) in factors {
+            if factor == 0.0 {
+                continue;
+            }
+            let slot = *slots.entry(id).or_insert(totals.len());
+            if slot == totals.len() {
+                totals.push((id, FactorSum::Single(factor)));
+            } else {
+                totals[slot].1.add(factor);
+            }
+        }
+        let nonzero = totals
+            .into_iter()
+            .filter_map(|(id, total)| {
+                let factor = match total {
+                    FactorSum::Single(factor) => factor,
+                    FactorSum::Exact(sum) if sum.is_zero() => return None,
+                    FactorSum::Exact(sum) => sum.to_f64().unwrap_or(f64::NAN),
+                    FactorSum::NonFinite => factors
+                        .iter()
+                        .filter(|(other, _)| *other == id)
+                        .map(|(_, factor)| factor)
+                        .sum(),
+                };
+                Some((id, factor))
+            })
+            .collect();
+        Self(nonzero)
+    }
+}
+
 struct ResolvedFactors {
     terms: Vec<(f64, usize)>,
 }
 
 impl ResolvedFactors {
     fn new<T>(factors: &[CombinationFactor], cases: &[(usize, &T)]) -> Result<Self, String> {
+        Self::resolve(factors, cases, false)
+    }
+
+    fn resolve<T>(factors: &[CombinationFactor], cases: &[(usize, &T)], allow_cancellation: bool) -> Result<Self, String> {
         let mut slots = HashMap::with_capacity(cases.len());
         for (slot, &(id, _)) in cases.iter().enumerate() {
             if slots.insert(id, slot).is_some() {
@@ -327,41 +397,20 @@ impl ResolvedFactors {
             }
         }
 
-        let mut ordered_slots = Vec::with_capacity(cases.len());
-        let mut totals = vec![None; cases.len()];
+        let mut weighted_slots = Vec::new();
         for &CombinationFactor { case_id, factor } in factors {
-            let Some(&slot) = slots.get(&case_id) else {
-                if factor == 0.0 {
-                    continue;
-                }
-                return Err(format!("Cannot combine results: missing result for load case {case_id}"));
-            };
             if factor == 0.0 {
                 continue;
             }
-            let total = totals[slot].get_or_insert_with(|| {
-                ordered_slots.push(slot);
-                Some(BigRational::zero())
-            });
-            let Some(sum) = total else { continue };
-            if let Some(value) = BigRational::from_float(factor) {
-                *sum += value;
-            } else {
-                *total = None;
-            }
-        }
-
-        let has_nonzero_factors = !ordered_slots.is_empty();
-        let terms: Vec<_> = ordered_slots.into_iter().filter_map(|slot| {
-            let factor = match totals[slot].take().unwrap() {
-                Some(sum) if sum.is_zero() => return None,
-                Some(sum) => sum.to_f64().unwrap_or(f64::NAN),
-                None => factors.iter().filter(|f| f.case_id == cases[slot].0).map(|f| f.factor).sum(),
+            let Some(&slot) = slots.get(&case_id) else {
+                return Err(format!("Cannot combine results: missing result for load case {case_id}"));
             };
-            Some((factor, slot))
-        }).collect();
-
-        if terms.is_empty() && has_nonzero_factors {
+            weighted_slots.push((slot, factor));
+        }
+        let terms: Vec<_> = CaseFactorSums::new(&weighted_slots).0.into_iter()
+            .map(|(slot, factor)| (factor, slot))
+            .collect();
+        if !allow_cancellation && terms.is_empty() && !weighted_slots.is_empty() {
             return Err("Repeated load case factors cancel to zero in this combination.".into());
         }
         Ok(Self { terms })
@@ -389,10 +438,10 @@ impl ResolvedFactors {
     }
 }
 
-pub(crate) fn net_combination_factors(factors: &[CombinationFactor]) -> Result<Vec<CombinationFactor>, String> {
+pub(crate) fn net_combination_factors(factors: &[CombinationFactor], allow_cancellation: bool) -> Result<Vec<CombinationFactor>, String> {
     let mut seen = HashSet::with_capacity(factors.len());
     let cases: Vec<_> = factors.iter().map(|f| f.case_id).filter(|&id| seen.insert(id)).map(|id| (id, &())).collect();
-    let resolved = ResolvedFactors::new(factors, &cases)?;
+    let resolved = ResolvedFactors::resolve(factors, &cases, allow_cancellation)?;
     resolved.require_finite(&cases)?;
 
     seen.clear();
@@ -436,8 +485,7 @@ pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &Ana
                 .filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0))
                 .find_map(|(_, r)| crate::boundary::find_non_finite(*r).ok().flatten())?;
             let mut structured_diagnostics = vec![non_finite.diagnostic()];
-            let factors = &resolved.case_factors(cases);
-            let (_, screen) = combined_screen_2d(factors, cases, &[]);
+            let (_, screen) = combined_screen_2d(&resolved, cases, &[]);
             crate::known_issues::attach(&mut structured_diagnostics, screen);
             Some(AnalysisResults {
                 displacements: vec![], reactions: vec![], element_forces: vec![], constraint_forces: vec![],
@@ -448,9 +496,12 @@ pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &Ana
     }
 }
 
-fn combined_screen_2d(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults)], carried: &[StructuredDiagnostic]) -> (Option<f64>, Vec<StructuredDiagnostic>) {
-    let ratio = crate::known_issues::combined_ratio(cases.iter().map(|(id, r)| (factors.iter().filter(|f| f.case_id == *id).map(|f| f.factor.abs()).sum(), r.result_summary.as_ref(), r.element_forces.iter().any(axial_2d))));
-    let diagnostics = crate::known_issues::combined_second_order(carried.iter(), factors.iter().any(|f| f.factor < 0.0 && cases.iter().any(|(id, _)| *id == f.case_id)), ratio);
+fn combined_screen_2d(resolved: &ResolvedFactors, cases: &[(usize, &AnalysisResults)], carried: &[StructuredDiagnostic]) -> (Option<f64>, Vec<StructuredDiagnostic>) {
+    let ratio = crate::known_issues::combined_ratio(cases.iter().enumerate().map(|(slot, (_, r))| {
+        let factor = resolved.terms.iter().find(|&&(_, s)| s == slot).map_or(0.0, |&(factor, _)| factor);
+        (factor.abs(), r.result_summary.as_ref(), r.element_forces.iter().any(axial_2d))
+    }));
+    let diagnostics = crate::known_issues::combined_second_order(carried.iter(), resolved.terms.iter().any(|&(factor, _)| factor < 0.0), ratio);
     (ratio, diagnostics)
 }
 
@@ -552,8 +603,7 @@ pub(crate) fn combine_results_refs_checked(factors: &[CombinationFactor], cases:
         second_order.extend(second);
         crate::known_issues::attach(&mut structured_diagnostics, others);
     }
-    let factors = &resolved.case_factors(cases);
-    let (ratio, screen) = combined_screen_2d(factors, cases, &second_order);
+    let (ratio, screen) = combined_screen_2d(&resolved, cases, &second_order);
     crate::known_issues::attach(&mut structured_diagnostics, screen);
     let mut combined = AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, result_summary: Some(ResultSummary { second_order_ratio: ratio, ..Default::default() }), solver_run_meta: None };
     check_result_fields("Cannot combine results", std::iter::once((0, EnvelopedFields {

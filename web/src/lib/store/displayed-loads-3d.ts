@@ -6,6 +6,7 @@
  * case is on screen): it is matched by identity against the solve's cases, combinations and
  * single solve, never read off the selection on screen.
  */
+import { sumCombinationFactors } from '../engine/wasm-solver';
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { uiStore } from './ui.svelte';
@@ -94,8 +95,8 @@ export function displayedLoads3D(r: AnalysisResults3D | null | undefined = resul
   } else {
     const cases = withCaseEffects(base, modelStore.loadCases, { includeSelfWeight: include, leftHand: uiStore.axisConvention3D === 'leftHand' });
     const combo = w.kind === 'combo' ? modelStore.combinations.find((c) => c.id === w.id) : undefined;
-    const factors = new Map<number, number>();
-    for (const f of combo?.factors ?? [{ caseId: w.id, factor: 1 }]) factors.set(f.caseId, (factors.get(f.caseId) ?? 0) + f.factor);
+    const factors = new Map(sumCombinationFactors(combo?.factors ?? [{ caseId: w.id, factor: 1 }])
+      .map(({ caseId, factor }) => [caseId, factor]));
     loads = cases.loads.flatMap((l) => {
       const k = factors.get(l.data.caseId ?? 1) ?? 0;
       return k === 0 ? [] : [k === 1 ? l : scaledLoad(l, k)];

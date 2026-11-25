@@ -125,3 +125,97 @@ it('#2220 applying a signed wind profile preserves both horizontal member-load e
     expect(load.data.frame).toBe('global');
   }
 });
+
+it('#2499 restoring then applying refuses two ambiguous shell pressures', () => {
+  modelStore.clear();
+  const corners: Array<[number, number]> = [[0, 0], [10, 0], [10, 6], [0, 6]];
+  const addLayer = (z: number) => corners.map(([x, y]) => modelStore.addNode(x, y, z)) as [number, number, number, number];
+  const lower = addLayer(3), upper = addLayer(3.02);
+  const materialId = modelStore.model.materials.keys().next().value!;
+  const first = modelStore.addQuad(lower, materialId, 0.1);
+  const gravity = { mode: 'panels' } as const;
+  const dead = [{ labelKey: 'a', q: 1 }];
+  const valid = buildLoadPlan({ ...planInput(), gravity, dead });
+  expect(valid.outcome).toBe('READY');
+  expect(applyLoadPlan(valid, { clearExisting: true, bothSenses: true, nameOf })).toBeUndefined();
+  expect(modelStore.model.loads).toContainEqual(expect.objectContaining({ type: 'surface3d', data: expect.objectContaining({ quadId: first, q: 1 }) }));
+  const second = modelStore.addQuad(upper, materialId, 0.1);
+  lower.forEach((masterNode, i) => modelStore.addConstraint({
+    type: 'eccentricConnection', masterNode, slaveNode: upper[i]!, offsetZ: 0.02,
+  }));
+  modelStore.restore(JSON.parse(JSON.stringify(modelStore.snapshot())));
+  const input = planInput();
+  const model = { ...input.model, constraints: modelStore.model.constraints };
+  const plan = buildLoadPlan({ ...input, model, gravity, dead });
+  const before = modelStore.snapshot();
+  expect(before.loads).toContainEqual(expect.objectContaining({
+    type: 'surface3d', data: expect.objectContaining({ quadId: first, q: 1 }),
+  }));
+  const reason = { key: 'loadPlan.gravity.overlappingShells', params: { first, second } };
+  expect(plan).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [reason], surface: [], distributed: [], nodal: [] });
+  expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf })).toEqual(reason);
+  expect(modelStore.snapshot()).toEqual(before);
+});
+
+it('#2512 restored platforms sharing a fixed UZ master each retain their applied dead pressure', () => {
+  modelStore.clear();
+  const addPlatform = (z: number) => {
+    const nodes = [
+      modelStore.addNode(0, 0, z), modelStore.addNode(10, 0, z),
+      modelStore.addNode(10, 6, z), modelStore.addNode(0, 6, z),
+    ] as const;
+    const materialId = modelStore.model.materials.keys().next().value!;
+    return { nodes, quad: modelStore.addQuad([...nodes], materialId, 0.1) };
+  };
+  const lower = addPlatform(3), upper = addPlatform(6);
+  const masterNode = modelStore.addNode(-1, -1, 0);
+  modelStore.addSupport(masterNode, 'custom3d', undefined, {
+    dofRestraints: { tx: false, ty: false, tz: true, rx: false, ry: false, rz: false },
+  });
+  for (const slaveNode of [lower.nodes[0], upper.nodes[0]]) modelStore.addConstraint({
+    type: 'equalDOF', masterNode, slaveNode, dofs: [2],
+  });
+  modelStore.restore(JSON.parse(JSON.stringify(modelStore.snapshot())));
+  const input = planInput();
+  const model = { ...input.model, constraints: modelStore.model.constraints };
+  const plan = buildLoadPlan({ ...input, model, gravity: { mode: 'panels' }, dead: [{ labelKey: 'a', q: 1 }] });
+  expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf })).toBeUndefined();
+  const dead = modelStore.model.loadCases.find(c => c.type === 'D')!;
+  expect(modelStore.model.loads.filter(load => load.type === 'surface3d' && load.data.caseId === dead.id))
+    .toEqual([lower.quad, upper.quad].map(quadId => expect.objectContaining({ data: expect.objectContaining({ quadId, q: 1 }) })));
+});
+
+it('#2512 restored platforms with a second tie keep both pressures at a fixed master', () => {
+  modelStore.clear();
+  const addPlatform = (z: number) => {
+    const nodes = [
+      modelStore.addNode(0, 0, z), modelStore.addNode(10, 0, z),
+      modelStore.addNode(10, 6, z), modelStore.addNode(0, 6, z),
+    ] as const;
+    const materialId = modelStore.model.materials.keys().next().value!;
+    return { nodes, quad: modelStore.addQuad([...nodes], materialId, 0.1) };
+  };
+  const lower = addPlatform(3), upper = addPlatform(6);
+  const masterNode = modelStore.addNode(-1, -1, 0);
+  modelStore.addSupport(masterNode, 'custom3d', undefined, {
+    dofRestraints: { tx: false, ty: false, tz: true, rx: false, ry: false, rz: false },
+  });
+  for (const slaveNode of [...lower.nodes.slice(0, 3), ...upper.nodes.slice(0, 3)]) modelStore.addConstraint({
+    type: 'equalDOF', masterNode, slaveNode, dofs: [2],
+  });
+  modelStore.addConstraint({ type: 'equalDOF', masterNode: lower.nodes[3], slaveNode: upper.nodes[3], dofs: [2] });
+  modelStore.restore(JSON.parse(JSON.stringify(modelStore.snapshot())));
+  const input = planInput();
+  const model = { ...input.model, constraints: modelStore.model.constraints, supports: modelStore.supports };
+  expect(model.supports.size).toBe(1);
+  expect([...model.supports.values()][0]).toMatchObject({ nodeId: masterNode, dofRestraints: { tz: true } });
+  expect(model.constraints).toEqual([
+    ...[...lower.nodes.slice(0, 3), ...upper.nodes.slice(0, 3)].map(slaveNode => ({ type: 'equalDOF', masterNode, slaveNode, dofs: [2] })),
+    { type: 'equalDOF', masterNode: lower.nodes[3], slaveNode: upper.nodes[3], dofs: [2] },
+  ]);
+  const plan = buildLoadPlan({ ...input, model, gravity: { mode: 'panels' }, dead: [{ labelKey: 'a', q: 1 }] });
+  expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf })).toBeUndefined();
+  const dead = modelStore.model.loadCases.find(c => c.type === 'D')!;
+  expect(modelStore.model.loads.filter(load => load.type === 'surface3d' && load.data.caseId === dead.id))
+    .toEqual([lower.quad, upper.quad].map(quadId => expect.objectContaining({ data: expect.objectContaining({ quadId, q: 1 }) })));
+});
