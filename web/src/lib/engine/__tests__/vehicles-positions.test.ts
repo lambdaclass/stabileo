@@ -193,3 +193,20 @@ describe('the second wheel line', () => {
     expect(xs).toEqual([8, 8]);
   });
 });
+
+const review2101 = process.env.RUN_KNOWN_WRONG === '2101' ? it : it.skip;
+
+review2101('known wrong result: #2101 — an imported vehicle keeps an indexed tip sample on both wheel lines', () => {
+  const length = 0.1234567894;
+  const ids = beam([2 * length]);
+  const other = beam([2 * length], 1);
+  const imported = vehicleFromJson(JSON.stringify({ name: 'one axle', axles: [{ offset: 0, weight: 100 }] }))!;
+  const result = addPositionCases(imported.name, [imported], ids, other, length);
+  if (!('cases' in result)) throw new Error(result.error);
+  expect(result.cases).toBe(3);
+  const last = modelStore.model.loadCases.filter((c) => c.type === 'Tr').at(-1)!;
+  const loads = modelStore.model.loads.filter((l) => l.data.caseId === last.id);
+  const tips = [ids, other].map((line) => modelStore.model.elements.get(line[1])!.nodeJ);
+  expect(loads.map((load) => [load.type, 'nodeId' in load.data ? load.data.nodeId : undefined, 'fz' in load.data ? load.data.fz : undefined]))
+    .toEqual(tips.map((node) => ['nodal3d', node, -50]));
+});
