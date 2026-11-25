@@ -35,9 +35,11 @@ function twoCombinations() {
   return { first, second, ids };
 }
 
-it.skip.each([false, true])('known wrong result: #2226 workbook envelopes both faces and names each governing combination (parallel=%s)', async parallel => {
+it.skip.each([['linear', false], ['linear', true], ['pdelta', false], ['pdelta', true]] as const)(
+  'known wrong result: #2226 workbook envelopes both faces and names each governing combination (%s, parallel=%s)', async (method, parallel) => {
   const member = cantilever(4);
   const { first, second, ids } = twoCombinations();
+  if (method === 'pdelta') modelStore.adoptAnalysis({ perCombination: 'pdelta' });
   const at = 1.25, later = 2.5, force = 8;
   modelStore.addPointLoadOnElement3D(member, at, 0, -force, first);
   modelStore.addPointLoadOnElement3D(member, later, 0, -force / 2, second);
@@ -73,13 +75,13 @@ it.skip('known wrong result: #2226 keeps the two moment faces at a member split'
   if (!solved || typeof solved === 'string') throw new Error(String(solved));
   publishCombinations3D(solved);
   const sheet = currentWorkbookSheets('critical', onlyEnvelope).find(sheet => sheet.name === 'Envelope')!;
-  const faces = records(sheet).filter(row => row.entity === member && row['x [m]'] === at && row.component === 'My');
+  const faces = records(sheet).filter(row => row.entity === member && row['x [m]'] === at && row.component === 'Mz');
   expect(faces.map(row => row.face)).toEqual(['left', 'right']);
   for (const face of faces) {
     expect([face.maxSourceId, face.minSourceId].sort()).toEqual(ids);
   }
   expect(Math.max(...faces.map(row => Math.abs(Number(row.max) - Number(row.min))))).toBeCloseTo(moment / 2, 10);
-  const memberCurve = solved.envelope.momentY.elements.find(curve => curve.elementId === member)!;
+  const memberCurve = solved.envelope.momentZ.elements.find(curve => curve.elementId === member)!;
   const cuts = memberCurve.tPositions.flatMap((t, i) => t === at / 4 ? [i] : []);
   expect(cuts).toHaveLength(2);
   expect(cuts.map(i => Math.max(Math.abs(memberCurve.posValues[i]!), Math.abs(memberCurve.negValues[i]!)))).toEqual([
@@ -144,4 +146,19 @@ it.skip('known wrong result: #2226 rebased WASM envelopes refuse a jump that ali
   piece.forces.pointLoadsZ[0]!.a = 2 ** -52;
   const good = computeEnvelope3D([data])!.shearZ.elements.find(element => element.elementId === member)!;
   expect(good.tPositions.filter(t => t === 0.5 + 2 ** -52)).toHaveLength(2);
+});
+
+it.skip('known wrong result: #2226 includes a resultant extremum between component stations in a critical envelope', () => {
+  const results = solvedMember(1);
+  const force = results.elementForces[0]!;
+  force.vyStart = -3;
+  force.vyEnd = 5;
+  force.vzStart = -7;
+  force.vzEnd = 1;
+  force.distributedLoadsY = [{ a: 0, b: 1, qI: 8, qJ: 8 }];
+  force.distributedLoadsZ = [{ a: 0, b: 1, qI: 8, qJ: 8 }];
+  const source = { id: 1, name: 'Control', results };
+  const rows = envelopeRows('forces', [source], { axes: DEFAULT_AXES, stations: 'critical', resultant: true });
+  const row = rows.find(row => row.x === 5 / 8);
+  expect(row?.min[6]).toEqual({ value: Math.hypot(2, -2), source });
 });

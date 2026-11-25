@@ -529,3 +529,21 @@ it('#2292 named 3D solves scale a load once by its net case factor', async () =>
 it('#2292 named 3D methods distinguish exact cancellation from a unit residual', async () => {
   await checkNamed3DResiduals([[1, factorsWithUnitResidual]], factorsWithExactCancellation);
 });
+
+it.skip.each(['linear', 'pdelta'] as const)('known wrong result: #2226 retains both point-couple faces from the %s worker solve', async method => {
+  const i = modelStore.addNode(0, 0, 0), j = modelStore.addNode(4, 0, 0);
+  const member = modelStore.addElement(i, j, 'frame');
+  modelStore.addSupport(i, 'fixed3d');
+  if (method === 'pdelta') modelStore.adoptAnalysis({ perCombination: 'pdelta' });
+  const loadCase = modelStore.model.loadCases[0]!.id;
+  const at = 1.25, moment = 8;
+  modelStore.addPointLoadOnElement(member, at, 0, { my: moment, caseId: loadCase });
+  modelStore.model.combinations = [{ id: 1, name: 'Couple', factors: [{ caseId: loadCase, factor: 1 }] }];
+  const bundle = await modelStore.solveCombinations3DParallel(false, false, true);
+  if (!bundle || typeof bundle === 'string') throw new Error(String(bundle));
+  const curve = bundle.envelope.momentZ.elements.find(element => element.elementId === member)!;
+  const metadata = (curve as typeof curve & { criticalStations?: Array<{ index: number; x: number; right: boolean }> }).criticalStations;
+  expect(metadata?.filter(station => station.x === at).map(({ index, right }) => ({
+    right, ordinate: Math.max(curve.posValues[index]!, -curve.negValues[index]!),
+  }))).toEqual([{ right: false, ordinate: expect.closeTo(moment, 10) }, { right: true, ordinate: expect.closeTo(0, 10) }]);
+});
