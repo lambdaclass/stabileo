@@ -354,31 +354,76 @@ describe('reading time', () => {
 describe('the safety-advisories post quotes the advisories', () => {
   const post = findPost('safety-advisories');
 
-  it('known wrong result: #2589 — lists every advisory awaiting the next release with its own adjacent link', () => {
-    const filenames = readdirSync(new URL('../../../../../docs/advisories/', import.meta.url));
-    expect(filenames).toContain('SA-2026-122-generated-load-combinations.md');
-    for (const locale of new Set<PublicLocale>([...REQUIRED, 'hu'])) {
-      const body = post!.i18n[locale] ?? (locale === 'hu' ? huAdvisories : undefined);
-      expect(body, locale).toBeDefined();
-      const blocks = body!.blocks;
-      const summary = blocks.find((block) => block.k === 'table')!;
-      const firstRow = summary.rows.findIndex(([id]) => id === 'SA-2026-108');
-      expect(firstRow, locale).toBeGreaterThanOrEqual(0);
-      const nextRelease = summary.rows[firstRow]![3];
-      const expected = summary.rows.slice(firstRow)
-        .filter((row) => row[3] === nextRelease)
-        .flatMap(([id]) => {
-          const filename = filenames.find((name) => name.startsWith(id + '-'));
-          expect(filename, id).toBeDefined();
-          return [
-            { k: 'note', t: id + ' — ' + nextRelease + (locale === 'zh' ? '。' : '.') },
-            { k: 'ext', label: id, href: 'https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/' + filename },
-          ];
-        });
-      const start = blocks.findIndex((block) => block.k === 'note' && block.t.startsWith('SA-2026-108 — '));
-      expect(start, locale).toBeGreaterThanOrEqual(0);
-      expect.soft(blocks.slice(start, start + expected.length), locale).toMatchObject(expected);
-    }
+  const advisoryLocales = [...new Set<PublicLocale>([...REQUIRED, 'hu'])];
+  const advisoryDirectory = new URL('../../../../../docs/advisories/', import.meta.url);
+
+  function advisoryBlocks(locale: PublicLocale): Block[] {
+    const body = post!.i18n[locale] ?? (locale === 'hu' ? huAdvisories : undefined);
+    expect(body, locale).toBeDefined();
+    return body!.blocks;
+  }
+
+  function expectNextReleaseAdvisories(blocks: Block[], locale: PublicLocale): void {
+    const filenames = readdirSync(advisoryDirectory);
+    const summary = blocks.find((block) => block.k === 'table')!;
+    const firstRow = summary.rows.findIndex(([id]) => id === 'SA-2026-108');
+    expect(firstRow, locale).toBeGreaterThanOrEqual(0);
+    const nextRelease = summary.rows[firstRow]![3];
+    const expected = summary.rows.slice(firstRow)
+      .filter((row) => row[3] === nextRelease)
+      .flatMap(([id]) => {
+        const filename = filenames.find((name) => name.startsWith(id + '-'));
+        expect(filename, id).toBeDefined();
+        return [
+          { k: 'note', t: id + ' — ' + nextRelease + (locale === 'zh' ? '。' : '.') },
+          { k: 'ext', label: id, href: 'https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/' + filename },
+        ];
+      });
+    const start = blocks.findIndex((block) => block.k === 'note' && block.t.startsWith('SA-2026-108 — '));
+    expect(start, locale).toBeGreaterThanOrEqual(0);
+    expect(blocks.slice(start, start + expected.length), locale).toMatchObject(expected);
+  }
+
+  it.each(advisoryLocales)('known wrong result: #2589 — %s lists every advisory awaiting the next release with its own adjacent link', (locale) => {
+    expect(readdirSync(advisoryDirectory)).toContain('SA-2026-122-generated-load-combinations.md');
+    expectNextReleaseAdvisories(advisoryBlocks(locale), locale);
+  });
+
+  const omittedAdvisories = advisoryLocales.flatMap((locale) =>
+    ['SA-2026-121', 'SA-2026-122'].map((id) => ({ locale, id })));
+
+  it.fails.each(omittedAdvisories)('known wrong result: #2589 — $locale rejects omission of $id from both the summary and evidence blocks', ({ locale, id }) => {
+    const blocks = advisoryBlocks(locale);
+    const summary = blocks.find((block) => block.k === 'table')!;
+    expect(summary.rows.some(([rowId]) => rowId === id), id).toBe(true);
+    const withoutAdvisory = blocks
+      .filter((block) => !(block.k === 'note' && block.t.startsWith(id + ' — ')))
+      .filter((block) => !(block.k === 'ext' && block.label === id))
+      .map((block) => block === summary
+        ? { ...summary, rows: summary.rows.filter(([rowId]) => rowId !== id) }
+        : block);
+    expect(() => expectNextReleaseAdvisories(withoutAdvisory, locale)).toThrow(`${locale}: ${id} summary row`);
+  });
+
+  const emptyCaseRecovery: Record<PublicLocale, string> = {
+    en: 'Remove confirmed obsolete empty load cases from the model, including cases already empty in 0.6.4. Regenerate the combinations and verify that they exclude those case IDs before rerunning affected analyses.',
+    es: 'Eliminá del modelo los estados de carga vacíos que hayas confirmado como obsoletos, incluidos los que ya estaban vacíos en la versión 0.6.4. Regenerá las combinaciones y verificá que no incluyan los identificadores de esos estados antes de repetir los análisis afectados.',
+    pt: 'Remova do modelo os casos de carga vazios confirmados como obsoletos, inclusive os que já estavam vazios na versão 0.6.4. Gere novamente as combinações e verifique se elas excluem os identificadores desses casos antes de refazer as análises afetadas.',
+    de: 'Entfernen Sie nachweislich veraltete leere Lastfälle aus dem Modell, auch wenn sie bereits in Version 0.6.4 leer waren. Erzeugen Sie die Kombinationen neu und prüfen Sie, dass sie diese Lastfall-IDs ausschließen, bevor Sie die betroffenen Berechnungen wiederholen.',
+    fr: 'Supprimez du modèle les cas de charge vides dont vous avez confirmé qu’ils sont obsolètes, y compris ceux qui étaient déjà vides dans la version 0.6.4. Régénérez les combinaisons et vérifiez qu’elles excluent les identifiants de ces cas avant de relancer les analyses concernées.',
+    hu: 'Távolítsa el a modellből a bizonyítottan elavult üres tehereseteket, azokat is, amelyek már a 0.6.4-es verzióban üresek voltak. Hozza létre újra a kombinációkat, és az érintett számítások megismétlése előtt ellenőrizze, hogy a kombinációk nem tartalmazzák ezeket a tehereset-azonosítókat.',
+    tr: 'Artık geçerli olmadığını doğruladığınız boş yük durumlarını, 0.6.4 sürümünde zaten boş olanlar dahil, modelden kaldırın. Birleşimleri yeniden oluşturun ve etkilenen analizleri tekrarlamadan önce bu yük durumu kimliklerinin birleşimlerde yer almadığını doğrulayın.',
+    zh: '从模型中删除经确认已失效的空荷载工况，包括在 0.6.4 版中已经为空的工况。重新生成组合，并在重新进行受影响的分析前，核实新组合不含这些工况的编号。',
+  };
+
+  it.fails.each(advisoryLocales)('known wrong result: #2589 — %s summarizes how to exclude obsolete empty cases from regenerated combinations', (locale) => {
+    const release = locale === 'en' ? 'v0.6.4.md' : `v0.6.4.${locale}.md`;
+    const notes = readFileSync(new URL(`../releases/${release}`, advisoryDirectory), 'utf8');
+    const releaseRow = notes.split('\n').find((line) => line.startsWith('| [SA-2026-122]('));
+    const summary = advisoryBlocks(locale).find((block) => block.k === 'table');
+    const blogRow = summary?.rows.find(([id]) => id === 'SA-2026-122');
+    expect.soft(releaseRow, `${locale}: release notes`).toContain(emptyCaseRecovery[locale]);
+    expect.soft(blogRow?.[1], `${locale}: blog`).toContain(emptyCaseRecovery[locale]);
   });
 
   const generatedCombinationsAdvisory = new URL(
