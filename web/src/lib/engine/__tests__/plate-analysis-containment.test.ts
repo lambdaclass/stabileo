@@ -614,3 +614,41 @@ it('#2430 solves a diamond wall and slab that share the full diagonal edge', () 
   diamondWall(true);
   expectLoadedSlab(modelStore.solve3D(false, false, true));
 });
+
+const review2580 = process.env.RUN_KNOWN_WRONG === '2580' ? it : it.skip;
+
+review2580('known wrong result: #2580 — solves a wall that shares the slab edge within the contact band', async () => {
+  const a = modelStore.addNode(0, 0, 0);
+  const b = modelStore.addNode(4, 0, 0);
+  const c = modelStore.addNode(2, 4, 0);
+  const i = modelStore.addNode(0, PLATE_EDGE_TOL * 0.95, -PLATE_EDGE_TOL * 0.95);
+  const j = modelStore.addNode(4, PLATE_EDGE_TOL * 0.95, -PLATE_EDGE_TOL * 0.95);
+  modelStore.addSurfaceLoad3D(modelStore.addPlate([a, b, c], 1, 0.15), 1, undefined, { on: 'plate' });
+  modelStore.addQuad([a, i, j, b], 1, 0.15);
+  modelStore.addSupport(i, 'fixed3d');
+  modelStore.addSupport(j, 'fixed3d');
+
+  for (const [entry, solve] of directEntries) {
+    const result = await solve();
+    expect.soft(result, entry).not.toBeNull();
+    expect.soft(typeof result, entry + ': ' + String(result)).toBe('object');
+  }
+  const outcome = await runGlobalSolve({ directBase: true });
+  expect.soft(outcome).toMatchObject({ ok: true });
+  const result = resultsStore.results3D;
+  if (!result) throw new Error('Missing result for the shared wall edge');
+  expect(result.reactions.reduce((sum, support) => sum + support.fz, 0)).toBeCloseTo(4 * 4 / 2, 8);
+});
+
+it('#2580 refuses a wall edge that shares slab corners across an unmeshed diagonal', async () => {
+  const [a, , c] = loadedSlab();
+  const base = modelStore.addNode(2, 2, -2);
+  modelStore.addSupport(base, 'fixed3d');
+  const wall = modelStore.addPlate([a!, base, c!], 1, 0.15);
+  const refusal = expect.stringMatching(new RegExp('wall p' + wall + '.*slab q1', 'i'));
+  for (const [entry, solve] of directEntries) {
+    expect.soft(await solve(), entry).toEqual(entry === 'reproducible input' ? null : refusal);
+  }
+  expect(await runGlobalSolve({ directBase: true })).toEqual({ ok: false, error: refusal });
+  expect(resultsStore.results3D).toBeNull();
+});
