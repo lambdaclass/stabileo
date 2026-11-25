@@ -779,12 +779,13 @@ const plannedFloor = { id: 1, type: 'L', name: 'Planned floor', alternatives: 'f
 const plannedRoof = { id: 2, type: 'Lr', name: 'Planned roof' } as const;
 const manualRoof = { id: 3, type: 'Lr', name: 'Manual roof', alternatives: plannedFloor.alternatives } as const;
 
-function roofLiveFixture(alternatives: string, own: boolean) {
+function roofLiveFixture(alternatives: string, own: boolean, generated = false, plannedAlternative?: string) {
   restoreGroupedProject(roofLiveTerm);
-  const retained = { ...manualRoof, alternatives };
-  modelStore.restore({ ...modelStore.snapshot(), loadCases: [plannedFloor, plannedRoof, retained] });
+  const retained = { ...manualRoof, alternatives, ...(generated ? { generated } : {}) };
+  const target = { ...plannedRoof, alternatives: plannedAlternative };
+  modelStore.restore({ ...modelStore.snapshot(), loadCases: [plannedFloor, target, retained] });
   const { base, tip } = loadedCantilever('3d', [[manualRoof.id, roofForce]]);
-  const input = projectPlan([roofLiveTerm], [plannedFloor, plannedRoof]);
+  const input = projectPlan([roofLiveTerm], [plannedFloor, target]);
   input.cases[1]!.own = own;
   input.nodal = [{ nodeId: tip, fx: 0, fy: 0, fz: -floorForce, caseType: 'Lr' }];
   return { base, input };
@@ -804,6 +805,26 @@ it('#2558 Auto Loads includes retained manual roof live with a shared key', () =
       .toBeCloseTo((floorForce + roofForce) * roofLiveTerm.factor, 8);
     modelStore.clear();
   }
+});
+
+const issue2566 = process.env.RUN_KNOWN_WRONG === '2566' ? it : it.skip;
+
+issue2566.each([true, false])('known wrong result: #2566 Preview and Apply include a marked case with a surviving manual load, replace=%s', clearExisting => {
+  const { input } = roofLiveFixture('roof-pattern', false, true, 'roof-pattern');
+  expect.soft(previewLoadPlan(input, applyOptions.nameOf, { replaceExisting: clearExisting, alsoUnmarked: true })
+    .after.combinations).toBe(2);
+  expect(applyLoadPlan(input, { ...applyOptions, clearExisting, alsoUnmarked: true })).toBeUndefined();
+  expect.soft(modelStore.loads.map(l => l.data.caseId)).toEqual([manualRoof.id, plannedRoof.id]);
+  expect(combinationIds(modelStore.combinations)).toEqual([[plannedRoof.id], [manualRoof.id]]);
+});
+
+it('#2566 a marked obsolete roof case with no surviving load is excluded after replacement', () => {
+  const { input } = roofLiveFixture('roof-pattern', true, true, 'roof-pattern');
+  modelStore.replaceLoads(modelStore.loads.map(l => ({ ...l, data: { ...l.data, generatedBy: 'load-plan' } })));
+  expect(previewLoadPlan(input, applyOptions.nameOf, { replaceExisting: true }).after.combinations).toBe(1);
+  expect(applyLoadPlan(input, applyOptions)).toBeUndefined();
+  expect(modelStore.loads.map(l => l.data.caseId)).toEqual([plannedRoof.id]);
+  expect(combinationIds(modelStore.combinations)).toEqual([[plannedRoof.id]]);
 });
 
 it('#2558 an independent manual roof case still contributes beside the plan', () => {
@@ -865,7 +886,7 @@ function combinationRuleEditor() {
   const makeEditor = new Function('modelStore', 'RULE_SYMBOLS', 'rulesFromTemplate', 'freshRuleIds', 'uiStore', 'tp', 't',
     `const rules = modelStore.combinationRules; ${outputText} return { setFactor, importTemplate };`);
   return makeEditor(modelStore, RULE_SYMBOLS, rulesFromTemplate, freshRuleIds, uiStore, tp, (key: string) => key) as {
-    setFactor: (id: string, symbol: 'S', raw: string, snowBasis?: 'flatRoof') => void;
+    setFactor: (id: string, symbol: CombinationTerm['symbol'], raw: string, snowBasis?: 'flatRoof') => void;
     importTemplate: (event: { currentTarget: { files: { text: () => Promise<string> }[]; value: string } }) => Promise<void>;
   };
 }
@@ -910,30 +931,76 @@ it('#2558 the editor can update and clear either ungrouped snow basis independen
   expect(modelStore.combinationRules[0]?.terms).toEqual([grouped, { ...flatRoofTerm, factor: 3 }]);
 });
 
+const deadTerm = { symbol: 'D', factor: 1 } as const;
+const duplicateDeadTerm = { ...deadTerm, factor: 2 };
+
+function displayedFactor(id: string, symbol: string) {
+  return render(ProCombinationRules).body.match(new RegExp(`<input[^>]+data-testid="combo-rule-${id}-${symbol}"[^>]*>`))?.[0];
+}
+
+issue2566.each(['saved', 'imported'])('known wrong result: #2566 the editor displays, replaces and clears the total factor of %s duplicate terms', async source => {
+  const grouped = { ...deadTerm, group: 'permanent' };
+  const terms = [deadTerm, physicalTerm, duplicateDeadTerm, grouped];
+  if (source === 'imported') {
+    modelStore.setCombinationRules([]);
+    const template = rulesToTemplate([{ id: 'grouped', purpose: 'strength', terms }], 'Repeated dead');
+    await combinationRuleEditor().importTemplate({ currentTarget: { files: [{ text: async () => template }], value: 'repeated.json' } });
+  } else {
+    restoreGroupedProject(...terms);
+  }
+  const { id } = modelStore.combinationRules[0]!;
+  expect.soft(displayedFactor(id, 'D')).toContain('value="3"');
+  combinationRuleEditor().setFactor(id, 'D', '3');
+  expect.soft(modelStore.combinationRules[0]?.terms.filter(t => t.symbol === 'D')).toEqual([{ ...deadTerm, factor: 3 }, grouped]);
+  modelStore.setCombinationRules([{ id, purpose: 'strength', terms }]);
+  combinationRuleEditor().setFactor(id, 'D', '');
+  expect(modelStore.combinationRules[0]?.terms).toEqual([physicalTerm, grouped]);
+});
+
+issue2566('known wrong result: #2566 cancelling flat-roof terms display as empty and clear independently', () => {
+  const grouped = { ...flatRoofTerm, group: 'roof' };
+  const rule = restoreGroupedProject(physicalTerm, flatRoofTerm, { ...flatRoofTerm, factor: -1 }, grouped);
+  expect.soft(displayedFactor(rule.id, 'S-flatRoof')).toContain('value=""');
+  combinationRuleEditor().setFactor(rule.id, 'S', '0', 'flatRoof');
+  expect(modelStore.combinationRules[0]?.terms).toEqual([physicalTerm, grouped]);
+});
+
 const combinationRoutes = [
   '2D linear', '3D sync linear', '3D async linear', '3D sync pdelta', '3D async pdelta',
   '3D sync uplift', '3D async uplift', '3D direct', '3D worker direct',
 ] as const;
 
-for (const route of combinationRoutes) for (const failure of ['alternatives', 'snow', 'roof live'] as const) {
-  if (route === '2D linear' && failure === 'roof live') continue;
-  it(`#2558 ${route} solves the corrected ${failure} combinations`, async () => {
+for (const route of combinationRoutes)
+  for (const failure of ['alternatives', 'snow', 'roof live', 'generated roof live', 'duplicate factors'] as const) {
+  if (route === '2D linear' && (failure === 'roof live' || failure === 'generated roof live')) continue;
+  const review = failure === 'generated roof live' || failure === 'duplicate factors';
+  const test = review ? issue2566 : it;
+  test(`${review ? 'known wrong result: #2566' : '#2558'} ${route} solves the corrected ${failure} combinations`, async () => {
     const dim = route === '2D linear' ? '2d' : '3d';
     let expected: number[];
     let base: number;
     let tip: number;
-    if (failure === 'roof live') {
-      const fixture = roofLiveFixture(plannedFloor.alternatives, true);
+    if (failure === 'roof live' || failure === 'generated roof live') {
+      const fixture = roofLiveFixture(plannedFloor.alternatives, true, failure === 'generated roof live');
+      if (failure === 'generated roof live') modelStore.addCombination('Manual reference', [{ caseId: manualRoof.id, factor: 1 }]);
       base = fixture.base;
       tip = [...modelStore.nodes.keys()].pop()!;
       expect(applyLoadPlan(fixture.input, applyOptions)).toBeUndefined();
       expected = [(roofForce + floorForce) * roofLiveTerm.factor];
+      if (failure === 'generated roof live') expected.push(roofForce);
     } else if (failure === 'alternatives') {
       restoreGroupedProject(...lateralTerms);
       modelStore.restore({ ...modelStore.snapshot(), loadCases: [...lateralCases] });
       ({ base, tip } = loadedCantilever(dim, lateralCases.map((c, i) => [c.id, lateralForces[i]!])));
       addGeneratedCombinations(projectCombinations());
       expected = lateralSelections.map(ids => ids.reduce((sum, id) => sum + lateralForces[id - 1]!, 0));
+    } else if (failure === 'duplicate factors') {
+      const rule = restoreGroupedProject(deadTerm, duplicateDeadTerm);
+      modelStore.restore({ ...modelStore.snapshot(), loadCases: [{ id: 1, type: 'D', name: 'Dead' }] });
+      ({ base, tip } = loadedCantilever(dim, [[1, floorForce]]));
+      combinationRuleEditor().setFactor(rule.id, 'D', '3');
+      addGeneratedCombinations(projectCombinations());
+      expected = [floorForce * 3];
     } else {
       const rule = restoreGroupedProject(flatRoofTerm);
       modelStore.restore({ ...modelStore.snapshot(), loadCases: snowCases });
