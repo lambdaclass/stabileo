@@ -42,8 +42,8 @@ test.describe('@timing model fluidity with design', () => {
     await page.keyboard.press('Escape');
 
     const wire = await editTimes(page);
-    await page.getByTestId('cam-menu').click();
-    await page.getByTestId('cam-menu-pop').getByText(/physical geometry|geometr[ií]a f[ií]sica/i).click();
+    await page.evaluate(() => window.__stabileoActions.openProTab('view'));
+    await page.getByTestId('view-style').selectOption('physical');
     await expect.poll(() => page.evaluate(() => window.__stabileo.renderMode3D())).toBe('physical');
     const physical = await editTimes(page);
     console.log(`FLUIDITY wireframe ${wire.toFixed(0)} ms · physical ${physical.toFixed(0)} ms`);

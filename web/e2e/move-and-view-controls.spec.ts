@@ -186,12 +186,24 @@ test.describe('@smoke the two controls over a 3D model', () => {
     await page.getByTestId('cam-menu').click();
     const menu = page.getByTestId('cam-menu-pop');
     await expect(menu).toBeVisible();
-    /* Fit, three axis views, projection, clipping, measure, sections. */
+    /* Fit, three axis views, plan view, clipping, measure, the build animation. */
     expect(await menu.locator('.cam-item').count()).toBeGreaterThanOrEqual(8);
 
     await menu.locator('.cam-item').first().click();
     await expect(menu, 'picking a view is done once, so the menu closes')
       .toHaveCount(0);
+  });
+
+  test('the bars are drawn as lines or with their sections, one choice of two', async ({ page }) => {
+    await go3D(page);
+    await page.getByTestId('cam-menu').click();
+    const menu = page.getByTestId('cam-menu-pop');
+    await expect(menu.getByTestId('cam-bars-lines')).toBeVisible();
+    await expect(menu.getByText(/physical geometry|geometr[ií]a f[ií]sica|thick bar|barras gruesas/i)).toHaveCount(0);
+    await menu.getByTestId('cam-bars-sections').click();
+    await expect.poll(() => page.evaluate(() => window.__stabileo.renderMode3D())).toBe('sections');
+    await expect(menu.getByTestId('cam-bars-sections')).toHaveAttribute('aria-checked', 'true');
+    await expect(menu.getByTestId('cam-bars-lines')).toHaveAttribute('aria-checked', 'false');
   });
 
   test('a state stays open, because the next choice is usually next door', async ({ page }) => {

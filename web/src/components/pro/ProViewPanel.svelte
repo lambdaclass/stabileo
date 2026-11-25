@@ -155,10 +155,6 @@
       {/each}
     </div>
     <div class="pk-row">
-      <span class="pk-label">{t('view.style')}</span>
-      <select bind:value={uiStore.renderMode3D} data-testid="view-style">
-        {#each STYLES as m (m)}<option value={m}>{t(`config.${m}`)}</option>{/each}
-      </select>
       <button class="pk-btn" disabled={!viewCategories.anyChanged} onclick={() => viewCategories.reset()} data-testid="view-cat-reset">{t('view.catReset')}</button>
     </div>
   </section>
@@ -240,6 +236,13 @@
 
   <section class="pk-card">
     <h4 class="pk-heading">{t('view.draw')}</h4>
+    <div class="pk-row">
+      <span class="pk-label">{t('viewport.render.title')}</span>
+      <select bind:value={uiStore.renderMode3D} title={t(`viewport.render.${uiStore.renderMode3D}Hint`)} data-testid="view-style">
+        {#each STYLES as m (m)}<option value={m} title={t(`viewport.render.${m}Hint`)}>{t(`config.${m}`)}</option>{/each}
+      </select>
+    </div>
+    <p class="vp-style-hint" data-testid="view-style-hint">{t(`viewport.render.${uiStore.renderMode3D}Hint`)}</p>
     {#if !uiStore.isMobile}
       <label class="pk-check"><input type="checkbox" bind:checked={viewState.split} data-testid="view-split" /> {t('viewport.split')}</label>
       <Hint text={t('viewport.splitHint')} />
@@ -311,4 +314,5 @@
   .vp-legend li { display: inline-flex; gap: 4px; align-items: center; }
   .vp-swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
   kbd { font-size: 0.58rem; color: var(--st-text-3); border: 1px solid var(--st-hair); border-radius: 2px; padding: 0 3px; font-family: var(--st-mono); }
+  .vp-style-hint { margin: 0 0 0.4rem; font-size: 0.68rem; color: var(--st-text-3); line-height: 1.3; }
 </style>

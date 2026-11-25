@@ -57,6 +57,7 @@
   import { createDrawFeedback } from '../lib/viewport3d/draw-feedback';
   import PlanViewChip from './viewport/PlanViewChip.svelte';
   import PointerModeButton from './PointerModeButton.svelte';
+  import ViewMenu3D from './ViewMenu3D.svelte';
   import SelectionDeleteButton from './ribbon/SelectionDeleteButton.svelte';
   import SelectionClipboardButtons from './ribbon/SelectionClipboardButtons.svelte';
   import ConnectionPrompt from './ConnectionPrompt.svelte';
@@ -103,7 +104,6 @@
   import { buildTimelapse, FORMAT_SIZE } from '../lib/store/build-timelapse.svelte';
   import { createTimelapseView } from '../lib/viewport3d/build-timelapse-view';
   import { createTimelapseCompositor } from '../lib/viewport3d/timelapse-compositor';
-  import { timelapseSound } from '../lib/viewport3d/timelapse-sound';
   import { setLineResolution } from '../lib/three/create-element-mesh';
   import BuildTimelapsePanel from './BuildTimelapsePanel.svelte';
   import { drawFreeBody, freeBodyFocus } from '../lib/canvas/free-body';
@@ -210,8 +210,6 @@
   let timelapseAspect: number | null = null;
   let toolBeforeTimelapse: typeof uiStore.currentTool | null = null;
   /** How the bars can be drawn, one at a time, from the lightest to the building as built. */
-  const RENDER_MODES = ['wireframe', 'solid', 'sections', 'physical'] as const;
-  const RENDER_GLYPH: Record<(typeof RENDER_MODES)[number], string> = { wireframe: '╱', solid: '▬', sections: '⬡', physical: '▣' };
   let boxSelect3D = $state<{ startX: number; startY: number; endX: number; endY: number; additive: boolean } | null>(null);
   /** The lasso's outline while one is being drawn (`viewState.lasso`). */
   let lassoPath = $state<Array<{ x: number; y: number }>>([]);
@@ -4477,82 +4475,7 @@
           aria-label={t('ribbon.close')}
           tabindex="-1"
         ></button>
-        <div class="cam-menu" data-testid="cam-menu-pop">
-          <button class="cam-item" onclick={() => { zoomToFit(); camMenuOpen = false; }}>
-            <Icon name="fit" size={15} /><span>{t('viewport3d.zoomToFit')}</span>
-          </button>
-          <div class="cam-sep"></div>
-          <button class="cam-item" onclick={() => { setView('top'); camMenuOpen = false; }}>
-            <span class="cam-glyph">⊤</span><span>{t('viewport3d.topView')}</span>
-          </button>
-          <button class="cam-item" onclick={() => { setView('front'); camMenuOpen = false; }}>
-            <span class="cam-glyph">⊡</span><span>{t('viewport3d.frontView')}</span>
-          </button>
-          <button class="cam-item" onclick={() => { setView('side'); camMenuOpen = false; }}>
-            <span class="cam-glyph">⊟</span><span>{t('viewport3d.sideView')}</span>
-          </button>
-          <div class="cam-sep"></div>
-          <!--
-            These four are STATES, so they stay open on click and show a tick:
-            a reader turning clipping on usually wants to reach for the axis
-            next, and a menu that vanished would make them open it again.
-          -->
-          <!-- The plan view and what a drag does: states too, how the reader holds the view while modelling. -->
-          <button class="cam-item" class:on={uiStore.planView3D} onclick={() => { uiStore.planView3D = !uiStore.planView3D; }}
-                  title={uiStore.planView3D ? t('viewport.planViewOff') : t('viewport.planViewOn')} data-testid="nav-plan-view">
-            <span class="cam-glyph">▦</span><span>{t('viewport.planView')}</span>
-          </button>
-          {#if uiStore.analysisMode === 'pro' && !uiStore.isMobile}
-            <button class="cam-item" class:on={viewState.split} onclick={() => { viewState.split = !viewState.split; }} data-testid="nav-split-view">
-              <span class="cam-glyph">◫</span><span>{t('viewport.split')}</span>
-            </button>
-          {/if}
-          <button class="cam-item" onclick={toggleCameraMode}>
-            <span class="cam-glyph">{uiStore.cameraMode3D === 'perspective' ? 'P' : 'O'}</span>
-            <span>{uiStore.cameraMode3D === 'perspective'
-              ? t('viewport3d.switchToOrtho') : t('viewport3d.switchToPersp')}</span>
-          </button>
-          <button
-            class="cam-item" class:on={uiStore.clippingEnabled}
-            onclick={() => { uiStore.clippingEnabled = !uiStore.clippingEnabled; }}
-          >
-            <span class="cam-glyph">✂</span>
-            <span>{uiStore.clippingEnabled
-              ? t('viewport3d.disableClipping') : t('viewport3d.enableClipping')}</span>
-          </button>
-          <button
-            class="cam-item" class:on={uiStore.measureMode}
-            onclick={() => { uiStore.measureMode = !uiStore.measureMode; }}
-          >
-            <span class="cam-glyph">📏</span>
-            <span>{uiStore.measureMode
-              ? t('viewport3d.disableMeasure') : t('viewport3d.enableMeasure')}</span>
-          </button>
-          <div class="cam-sep"></div>
-          <!--
-            How the bars are drawn: one choice of four (QA of 20-oct: «Modelo con secciones» and
-            «Geometría física» read as two things on at once). Each says what it draws.
-          -->
-          <div class="cam-group" role="radiogroup" aria-label={t('viewport.render.title')} data-testid="cam-render">
-            <span class="cam-group-title">{t('viewport.render.title')}</span>
-            {#each RENDER_MODES as m (m)}
-              <button class="cam-item" class:on={uiStore.renderMode3D === m} role="radio" aria-checked={uiStore.renderMode3D === m}
-                      onclick={() => { uiStore.renderMode3D = m; }} title={t(`viewport.render.${m}Hint`)}
-                      data-testid={m === 'physical' ? 'cam-physical' : `cam-render-${m}`}>
-                <span class="cam-glyph">{RENDER_GLYPH[m]}</span>
-                <span class="cam-two"><span>{t(`config.${m}`)}</span><small>{t(`viewport.render.${m}Hint`)}</small></span>
-              </button>
-            {/each}
-          </div>
-          <div class="cam-sep"></div>
-          <button
-            class="cam-item" class:on={buildTimelapse.active} data-testid="cam-build-timelapse"
-            onclick={() => { if (buildTimelapse.active) buildTimelapse.close(); else { timelapseSound.unlock(); buildTimelapse.open(); } camMenuOpen = false; }}
-          >
-            <span class="cam-glyph">▶</span>
-            <span>{t('timelapse.menu')}</span>
-          </button>
-        </div>
+        <ViewMenu3D pro={uiStore.analysisMode === 'pro'} onfit={zoomToFit} onview={setView} onprojection={(m) => { if (uiStore.cameraMode3D !== m) toggleCameraMode(); }} onclose={() => (camMenuOpen = false)} />
       {/if}
     </div>
   </div>

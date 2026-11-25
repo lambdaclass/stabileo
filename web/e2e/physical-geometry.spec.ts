@@ -1,5 +1,5 @@
 /**
- * The concrete as built, through the interface: the model viewer's «Physical geometry» mode, the
+ * The concrete as built, through the interface: the View panel's «Physical geometry» style, the
  * reinforcement workspace's beam-column joints with their own switch, and the IFC's column top as a
  * project setting. The geometry itself is pinned in `engine/physical/__tests__/physical-frame.test.ts`
  * and its four readers in `store/__tests__/physical-frame-consumers.test.ts`.
@@ -18,16 +18,20 @@ async function load(page: import('@playwright/test').Page) {
   await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length)).toBe(16);
 }
 
-test('@smoke the view menu turns the physical geometry on and back to the lines', async ({ pro: page }) => {
+test('@smoke the View panel turns the physical geometry on and back to the lines', async ({ pro: page }) => {
   await load(page);
+  // PRO chooses how the bars are drawn in one place: the cube's menu only opens the View panel.
   await page.getByTestId('cam-menu').click();
-  // One choice of four: the physical geometry, then the plain lines, never two at once.
-  await page.getByTestId('cam-physical').click();
+  await expect(page.getByTestId('cam-render')).toHaveCount(0);
+  await page.getByTestId('cam-more-view').click();
+  await expect(page.getByTestId('cam-menu-pop')).toHaveCount(0);
+  const style = page.getByTestId('view-style');
+  await expect(style).toBeVisible();
+  await style.selectOption('physical');
   await expect.poll(() => page.evaluate(() => window.__stabileo.renderMode3D())).toBe('physical');
-  await expect(page.getByTestId('cam-physical')).toHaveAttribute('aria-checked', 'true');
-  await page.getByTestId('cam-render-wireframe').click();
+  await expect(page.getByTestId('view-style-hint')).not.toBeEmpty();
+  await style.selectOption('wireframe');
   await expect.poll(() => page.evaluate(() => window.__stabileo.renderMode3D())).toBe('wireframe');
-  await expect(page.getByTestId('cam-physical')).toHaveAttribute('aria-checked', 'false');
 });
 
 test.describe('@slow the joints of a designed frame', () => {
