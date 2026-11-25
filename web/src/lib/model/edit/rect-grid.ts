@@ -24,6 +24,8 @@ export interface RectGridInput {
   fixedPoints?: Vec3[];
   fixedSegments?: Array<[Vec3, Vec3]>;
   maxCells: number;
+  /** Lines given along u or v, in the frame's coordinate (`tartan.ts`): taken within the region, and no others filled in along that direction. */
+  lines?: { u?: readonly number[] | null; v?: readonly number[] | null };
 }
 
 const to2 = (f: GridFrame, p: Vec3): P2 => { const d = [p[0] - f.o[0], p[1] - f.o[1], p[2] - f.o[2]]; return [d[0]! * f.u[0] + d[1]! * f.u[1] + d[2]! * f.u[2], d[0]! * f.v[0] + d[1]! * f.v[1] + d[2]! * f.v[2]]; };
@@ -77,8 +79,11 @@ export function rectGrid(o: RectGridInput): MeshOutput | null {
     for (const q of [a, b]) if (within(q)) { us.push(q[0]); vs.push(q[1]); }
     if (Math.abs(a[0] - b[0]) < TOL) us.push(a[0]); else vs.push(a[1]);
   }
-  const xs = stations(us.filter((u) => u > x0 - TOL && u < x1 + TOL), o.a);
-  const ys = stations(vs.filter((v) => v > y0 - TOL && v < y1 + TOL), o.b);
+  const lu = o.lines?.u, lv = o.lines?.v;
+  if (lu) us.push(...lu);
+  if (lv) vs.push(...lv);
+  const xs = stations(us.filter((u) => u > x0 - TOL && u < x1 + TOL), lu ? Infinity : o.a);
+  const ys = stations(vs.filter((v) => v > y0 - TOL && v < y1 + TOL), lv ? Infinity : o.b);
   if ((xs.length - 1) * (ys.length - 1) * (o.element === 'tri' ? 2 : 1) > o.maxCells) return null;
 
   const index = new Map<number, number>(), points: Vec3[] = [], boundary = new Set<number>();
