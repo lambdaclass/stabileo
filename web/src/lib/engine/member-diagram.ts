@@ -118,18 +118,20 @@ function diagramLoads(loads: DistributedAction[]): DistributedAction[] {
 }
 
 export function memberDiagram(
-  length: number, start: number, change: number, distributedActions: DistributedAction[],
-  points: PointAction[], order: 'force' | 'moment' = 'force', sign = 1, rate = 0,
+  length: number, start: number, change: number, distributedActions: readonly DistributedAction[],
+  pointActions: readonly PointAction[], order: 'force' | 'moment' = 'force', sign = 1, rate = 0,
 ): DiagramCurve {
   if (!(length > 0 && Number.isFinite(length))) throw unavailableDiagramExtrema();
-  const distributed = diagramLoads(distributedActions);
+  const actions = distributedActions.map(action => ({ ...action }));
+  const points = pointActions.map(action => ({ ...action }));
+  const distributed = diagramLoads(actions);
   const hasDistributedActions = distributed.length > 0;
   const hasActions = hasDistributedActions || points.length > 0;
   const uniformMoment = order === 'moment' && change === 0 && points.length === 0
     && Number.isFinite(start) && Number.isFinite(rate)
-    && distributedActions.every(load => load.a === 0 && load.b === length && load.qI === load.qJ && Number.isFinite(load.qI));
+    && actions.every(load => load.a === 0 && load.b === length && load.qI === load.qJ && Number.isFinite(load.qI));
   const certifyPeakTransfer: PeakTransferCertificate | undefined = uniformMoment
-    ? (x, value) => uniformMomentTransfers(length, start, rate, sign, distributedActions, x, value)
+    ? (x, value) => uniformMomentTransfers(length, start, rate, sign, actions, x, value)
     : undefined;
   const at = (x: number) => x / length;
   let cutDistances: ReadonlyMap<number, number> | undefined;
@@ -330,6 +332,10 @@ export function checkedCurveValue(curve: Pick<DiagramCurve, 'value'>, station: D
     if (!peak.canTransfer(station.t, station.distance)) throw unavailableDiagramExtrema();
     return peak.value;
   }
+  return checkedSectionValue(curve, station);
+}
+
+export function checkedSectionValue(curve: Pick<DiagramCurve, 'value'>, station: DiagramStation): number {
   const value = curve.value(station);
   if (!Number.isFinite(value)) throw unavailableDiagramExtrema();
   return value;

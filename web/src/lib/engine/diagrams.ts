@@ -2,7 +2,7 @@
 // Given end forces and distributed load, compute intermediate values
 
 import { computeDeformedShape as wasmComputeDeformedShape } from './wasm-solver';
-import { checkedCurveValue, curveExtrema, diagramCriticalPoints, diagramCurvePoints, diagramLineValue, distributedActionTerms, fullSpanFallback, indexDiagramExtrema, maxAbsDiagramOrdinate, memberDiagram, prepareCurveExtrema, unavailableDiagramExtrema, type DiagramOrdinate, type DiagramStation } from './member-diagram';
+import { checkedCurveValue, checkedSectionValue, curveExtrema, diagramCriticalPoints, diagramCurvePoints, diagramLineValue, distributedActionTerms, fullSpanFallback, indexDiagramExtrema, maxAbsDiagramOrdinate, memberDiagram, prepareCurveExtrema, unavailableDiagramExtrema, type DiagramOrdinate, type DiagramStation } from './member-diagram';
 
 export interface DiagramPoint extends DiagramStation {
   /** World coordinates */
@@ -66,7 +66,7 @@ function planarQuery([length, start, change, loads, points, order, sign, rate]: 
   if (cached?.key.length === key.length && key.every((entry, i) => Object.is(entry, cached.key[i]))) {
     return cached.evaluate;
   }
-  const curve = memberDiagram(length, start, change, loads.map(load => ({ ...load })), points, order, sign, rate);
+  const curve = memberDiagram(length, start, change, loads, points, order, sign, rate);
   const extremaAt = prepareCurveExtrema(curve, length);
   const evaluate = curve.hasDistributedActions
     ? (t: number) => checkedCurveValue(curve, { t }, indexDiagramExtrema(extremaAt(t)))
@@ -174,6 +174,11 @@ export function computeDiagramValueAt(kind: PlanarKind, t: number, ef: PlanarFor
     return diagramLineValue(moment ? ef.mStart : ef.vStart, 0, moment ? -ef.vStart : 0, t * length, t);
   }
   return planarQuery(planarCurveArgs(kind, ef))(t);
+}
+
+export function computePlanarSectionValue(kind: PlanarKind, distance: number, ef: PlanarForces): number {
+  if (!(distance >= 0 && distance <= ef.length)) throw unavailableDiagramExtrema();
+  return checkedSectionValue(planarCurve(kind, ef), { t: distance / ef.length, distance });
 }
 
 export function prepareDiagramValueAt(kind: PlanarKind, ef: PlanarForces): (t: number) => number {

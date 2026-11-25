@@ -23,6 +23,7 @@ import {
   computeShearDiagram,
   computeAxialDiagram,
   computeDiagramValueAt,
+  computePlanarSectionValue,
   computeDeformedShape,
 } from '../diagrams';
 
@@ -557,4 +558,15 @@ it('known wrong result: #1782 — the planar WASM moving sweep resolves an axle 
   const outside = run(0, length - 9 * Number.EPSILON);
   expect(within.vMaxPos - within.vMaxNeg).toBeCloseTo(0, 12);
   expect(outside.vMaxPos - outside.vMaxNeg).toBeCloseTo(weight, 12);
+});
+
+it('reads a physical section only within the member', () => {
+  const forces = {
+    length: 4, vStart: 4, vEnd: -4, mStart: 0, mEnd: 0, nStart: 0, nEnd: 0, qI: -2, qJ: -2,
+  };
+  const shearAt = (x: number) => computePlanarSectionValue('shear', x, forces);
+  expect([shearAt(0), shearAt(1), shearAt(4)]).toEqual([4, 2, -4]);
+  for (const x of [-Number.MIN_VALUE, 4 + 4 * Number.EPSILON, NaN]) {
+    expect(() => shearAt(x)).toThrow('solver.diagramExtremaUnavailable');
+  }
 });

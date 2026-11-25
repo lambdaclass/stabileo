@@ -275,9 +275,7 @@ it('known wrong result: #2226 uses inward endpoint faces for planar and spatial 
   }
 });
 
-const envelopeEndsTest = process.env.RUN_KNOWN_WRONG === '2226' ? it : it.skip;
-
-envelopeEndsTest('known wrong result: #2226 reads planar envelope end cells from the same inward faces as the peak', () => {
+it('known wrong result: #2226 reads planar envelope end cells from the same inward faces as the peak', () => {
   const length = 4;
   for (const [atI, atJ] of [[20, 0], [0, -20], [20, -20], [0, 0]] as const) {
     const planar = r2D(ef2D({

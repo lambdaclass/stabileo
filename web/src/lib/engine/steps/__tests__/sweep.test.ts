@@ -503,9 +503,7 @@ function truss(seed: number) {
 
 // ── The sweep ───────────────────────────────────────────────────────
 
-const cutsComparisonTest = process.env.RUN_KNOWN_WRONG === '2226' ? it : it.skip;
-
-cutsComparisonTest.each([10, 28])('known wrong result: #2226 checks the matrix moment at frame %i teaching cuts', seed => {
+it.each([10, 28])('known wrong result: #2226 checks the matrix moment at frame %i teaching cuts', seed => {
   frame(seed);
   const ctx = context()!;
   const cuts = allMethods().find(method => method.id === 'cuts')!;

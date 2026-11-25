@@ -1,0 +1,35 @@
+{
+  "id": "prepared-member-forces",
+  "date": "2026-11-25",
+  "prs": [2581],
+  "area": "analysis",
+  "when": {
+    "all": ["members"],
+    "any": ["memberLoads", "combinations"]
+  },
+  "quantities": ["diagrams", "envelope"],
+  "title": {
+    "en": "Prepared member diagrams and planar envelope end forces",
+    "es": "Diagramas de barras preparados y fuerzas de extremo de envolventes planas",
+    "pt": "Diagramas de barras preparados e forças de extremidade de envoltórias planas",
+    "de": "Vorbereitete Stabdiagramme und Stabendkräfte in ebenen Einhüllenden",
+    "fr": "Diagrammes de barres préparés et efforts aux extrémités des enveloppes planes",
+    "tr": "Hazırlanmış eleman diyagramları ve düzlemsel zarf uç kuvvetleri",
+    "zh": "预计算杆件内力图与平面包络杆端内力",
+    "hu": "Előkészített rúdábrák és síkbeli burkolók rúdvégerői"
+  },
+  "explanation": {
+    "en": "A prepared diagram keeps the actions supplied at creation. Planar envelope reports use the inward sectional forces at both ends.",
+    "es": "Un diagrama preparado conserva las acciones suministradas al crearlo. Los informes de envolventes planas usan los esfuerzos de la sección interior en ambos extremos.",
+    "pt": "Um diagrama preparado conserva as ações fornecidas na sua criação. Os relatórios de envoltórias planas usam os esforços da seção interna nas duas extremidades.",
+    "de": "Ein vorbereitetes Diagramm behält die bei der Erstellung übergebenen Einwirkungen. Berichte zu ebenen Einhüllenden verwenden an beiden Enden die inneren Schnittgrößen.",
+    "fr": "Un diagramme préparé conserve les actions fournies à sa création. Les rapports d’enveloppes planes utilisent les efforts sur la face intérieure aux deux extrémités.",
+    "tr": "Hazırlanmış bir diyagram, oluşturulurken verilen etkileri korur. Düzlemsel zarf raporları her iki uçta da iç kesit kuvvetlerini kullanır.",
+    "zh": "预计算内力图保留创建时提供的作用。平面包络报告采用杆件两端内侧的截面内力。",
+    "hu": "Az előkészített ábra a létrehozásakor megadott hatásokat őrzi meg. A síkbeli burkolók jelentései mindkét végén a belső metszeti igénybevételeket használják."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-prepared-member-forces.md",
+    "heading": "Prepared member diagrams and planar envelope end forces"
+  }
+}

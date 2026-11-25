@@ -645,9 +645,7 @@ it('known wrong result: #2226 accepts the transferable moment station of the tub
   }
 });
 
-const preparedActionsTest = process.env.RUN_KNOWN_WRONG === '2226' ? it : it.skip;
-
-preparedActionsTest('known wrong result: #2226 prepared planar and spatial curves retain their original actions at cuts', () => {
+it('known wrong result: #2226 prepared planar and spatial curves retain their original actions at cuts', () => {
   const span = 4;
   const [plane, space] = cantilevers(span);
   const planar = [solve(plane), solvePDelta(plane).results];

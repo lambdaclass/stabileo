@@ -171,7 +171,7 @@ function cutLabel({ x, side }: Extreme, format: LengthFmt): string {
 
 type EnvelopeValue = Extreme & Pick<DiagramOrdinate, 't'>;
 
-function envelopeValues(d: ElementEnvelopeDiagram, length: number, sign = 1): EnvelopeValue[] {
+function inwardEnvelopeValues(d: ElementEnvelopeDiagram, length: number, sign = 1): EnvelopeValue[] {
   const faces = new Map<number, Pick<Extreme, 'x' | 'side'>>();
   const addFaces = (index: number, x: number) => {
     faces.set(index, { x, side: 'left' });
@@ -181,14 +181,13 @@ function envelopeValues(d: ElementEnvelopeDiagram, length: number, sign = 1): En
   return d.tPositions.map((t, i) => {
     const p = d.posValues[i] ?? 0, n = d.negValues[i] ?? 0;
     return { t, value: sign * (Math.abs(n) > Math.abs(p) ? n : p), x: t * length, ...faces.get(i) };
-  });
+  }).filter(({ t, side }) => isInwardEndpointFace(t, side === undefined ? undefined : side === 'right'));
 }
 
 function envelopeExtreme(values: readonly EnvelopeValue[]): Extreme {
   let best: Extreme = { value: 0, x: 0 };
   for (const { t, value, x, side } of values) {
-    const right = side === undefined ? undefined : side === 'right';
-    if (isInwardEndpointFace(t, right) && Math.abs(value) > Math.abs(best.value)) {
+    if (Math.abs(value) > Math.abs(best.value)) {
       best = { value, x, ...(t > 0 && t < 1 && side && { side }) };
     }
   }
@@ -224,7 +223,7 @@ export function forceTable2D(
     if (env) {
       const e = env.get(ef.elementId);
       if (!e?.tPositions.length) { h.push(`<tr><td>${ef.elementId}</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>`); continue; }
-      const vals = envelopeValues(e, ef.length, sign);
+      const vals = inwardEnvelopeValues(e, ef.length, sign);
       vI = vals[0]!.value; vJ = vals[vals.length - 1]!.value; best = envelopeExtreme(vals);
     } else {
       const at = (x: number) => sign * computeDiagramValueAt(kind, x / ef.length, ef);
@@ -272,7 +271,7 @@ export function forceTable3D(
       const env = envOf.get(k);
       if (env) {
         const e = env.get(ef.elementId);
-        return e?.tPositions.length ? envelopeExtreme(envelopeValues(e, ef.length)) : null;
+        return e?.tPositions.length ? envelopeExtreme(inwardEnvelopeValues(e, ef.length)) : null;
       }
       const result = computeSpatialDiagramExtrema(ef, k, true);
       return result.extrema ? { value: result.maxAbsValue, x: undefined } : {

@@ -295,7 +295,7 @@ export function valuesStep(S: CutsCtx, cuts: Map<number, MemberCut>, reactions: 
     cmp.push({ label: `M_{${mt}}(0)`, method: cu.Mi, matrix: ref0.M, unit: 'kN·m' });
     for (const s of cu.segs) for (const e of s.extremes) {
       tableRows.push([m.name, { tex: num(e.x) }, snapF(peval(s.N, e.x)), 0, snapM(e.M), tx('steps.cuts.tab.extreme')]);
-      cmp.push({ label: `M_{${mt}}(${num(e.x)})`, method: e.M, matrix: ref.momentAt(id, e.x / m.L), unit: 'kN·m' });
+      cmp.push({ label: `M_{${mt}}(${num(e.x)})`, method: e.M, matrix: ref.momentAtDistance(id, e.x), unit: 'kN·m' });
     }
     tableRows.push([m.name, { tex: num(m.L) }, snapF(cu.Nj), snapF(cu.Vj), snapM(cu.Mj), tx('steps.cuts.tab.endJ', { n: nameOf(m.j) })]);
     // The reference carries the axial force at I; it is the one at J too when no axial load sits in between.
