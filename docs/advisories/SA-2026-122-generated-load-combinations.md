@@ -79,18 +79,28 @@ combinations and their scope memberships on repeat Apply.
 
 Verify the intended cases and factors independently and enter them
 directly in the affected combinations. Check the project's loads
-against the original model or backup, then verify which combinations
-are included in each envelope before relying on its results.
+against the original model or backup. Rebuild affected composite cases
+using the verified case IDs and factors, then verify which combinations
+are included in each envelope. Rerun the affected analyses, rebuild the
+envelopes from the new results, and repeat dependent design checks
+before using the results.
 
 ## What to do with results you already have
 
 Restore missing manual loads and snow bases from the original model
-or template. Review empty load cases and keep intentional alternatives.
+or template. Review all empty load cases, including those already empty
+when the project was last saved in 0.6.4. Remove confirmed obsolete empty
+cases from the project's load-case list so generation cannot select them.
+Keep intentional empty alternatives.
+
 Reapply affected Auto Loads plans with the fixed version and regenerate
-affected combinations and composite cases. Restore any lost envelope
-memberships or active selections. Rerun affected analyses and rebuild
-the envelopes, then repeat dependent design checks and regenerate
-reports. Opening the project alone leaves its saved factors in place.
+affected combinations and composite cases. Verify that the regenerated
+combinations exclude every obsolete case ID. Check the combination
+factors and the inputs of any composite cases they reference. Restore any
+lost envelope memberships or active selections. Rerun affected analyses
+and rebuild the envelopes, then repeat dependent design checks and
+regenerate reports. Opening the project alone leaves its saved factors
+in place.
 
 ## Credits and references
 

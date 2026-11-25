@@ -354,7 +354,7 @@ describe('reading time', () => {
 describe('the safety-advisories post quotes the advisories', () => {
   const post = findPost('safety-advisories');
 
-  it.fails('known wrong result: #2589 — lists every advisory awaiting the next release with its own adjacent link', () => {
+  it('known wrong result: #2589 — lists every advisory awaiting the next release with its own adjacent link', () => {
     const filenames = readdirSync(new URL('../../../../../docs/advisories/', import.meta.url));
     expect(filenames).toContain('SA-2026-122-generated-load-combinations.md');
     for (const locale of new Set<PublicLocale>([...REQUIRED, 'hu'])) {
@@ -386,13 +386,13 @@ describe('the safety-advisories post quotes the advisories', () => {
     import.meta.url,
   );
 
-  it.fails('known wrong result: #2589 — requires rebuilding the results after manually correcting combinations', () => {
+  it('known wrong result: #2589 — requires rebuilding the results after manually correcting combinations', () => {
     const advisory = readFileSync(generatedCombinationsAdvisory, 'utf8');
     const workaround = advisory.split('## Workaround\n')[1]?.split('\n## ')[0]?.replace(/\s+/g, ' ');
     expect(workaround).toMatch(/enter them directly in the affected combinations.*Rebuild affected composite cases.*Rerun the affected analyses, rebuild the envelopes.*repeat dependent design checks before using the results/);
   });
 
-  it.fails('known wrong result: #2589 — excludes already-empty obsolete cases from regenerated combinations', () => {
+  it('known wrong result: #2589 — excludes already-empty obsolete cases from regenerated combinations', () => {
     const advisory = readFileSync(generatedCombinationsAdvisory, 'utf8');
     const recovery = advisory.split('## What to do with results you already have\n')[1]?.split('\n## ')[0]?.replace(/\s+/g, ' ');
     expect(recovery).toMatch(/already empty.*0\.6\.4.*Remove confirmed obsolete empty cases from the project's load-case list.*Keep intentional empty alternatives.*Reapply affected Auto Loads plans.*regenerate affected combinations.*Verify that the regenerated combinations exclude every obsolete case ID/);
