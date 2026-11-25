@@ -4,9 +4,19 @@ use crate::solver::corotational::{
 };
 
 #[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct Case {
     name: String,
     loads: Vec<SolverLoad>,
+    element_type: Option<String>,
+    #[serde(default)]
+    hinge_start: bool,
+    #[serde(default)]
+    hinge_end: bool,
+    #[serde(default)]
+    shear_flexible: bool,
+    #[serde(default)]
+    far_axial_load: f64,
 }
 
 #[derive(serde::Deserialize)]
@@ -40,14 +50,17 @@ fn check_actions(solve: impl Fn(SolverInput) -> (AnalysisResults, f64, bool)) {
     for case in cases {
         let mut input = solver.clone();
         input.loads.extend(case.loads);
-        if case.name == "released shear-flexible frame" {
-            let frame = input.elements.get_mut("1").unwrap();
-            frame.hinge_start = true;
-            frame.hinge_end = true;
-            input.sections.get_mut("1").unwrap().as_y = Some(1.0);
+        let member = input.elements.get_mut("1").unwrap();
+        member.hinge_start = case.hinge_start;
+        member.hinge_end = case.hinge_end;
+        if let Some(element_type) = case.element_type {
+            member.elem_type = element_type;
         }
-        if case.name.starts_with("truss") {
-            input.elements.get_mut("1").unwrap().elem_type = "truss".to_owned();
+        if case.shear_flexible {
+            input.materials.get_mut("1").unwrap().nu = 0.0;
+            let section = input.sections.get_mut("1").unwrap();
+            section.as_y = Some(1.0);
+            section.iz = 3.0;
         }
         let (result, factor, converged) = solve(input);
         let reaction = result.reactions.iter().find(|r| r.node_id == 2).unwrap();
@@ -56,11 +69,7 @@ fn check_actions(solve: impl Fn(SolverInput) -> (AnalysisResults, f64, bool)) {
             .iter()
             .find(|f| f.element_id == 1)
             .unwrap();
-        let axial = if case.name == "endpoint control" {
-            -2.0 * factor
-        } else {
-            0.0
-        };
+        let axial = -case.far_axial_load * factor;
         if !converged
             || factor <= 0.0
             || [
@@ -82,7 +91,6 @@ fn check_actions(solve: impl Fn(SolverInput) -> (AnalysisResults, f64, bool)) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2560"]
 fn issue_2560_exact_member_actions_arc() {
     check_actions(|solver| {
         let result = solve_arc_length(&arc_input(solver)).unwrap();
@@ -91,24 +99,28 @@ fn issue_2560_exact_member_actions_arc() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2560"]
 fn issue_2560_exact_member_actions_warm_arc() {
-    check_actions(|solver| {
+    check_actions(|mut solver| {
         let mut base = solver.clone();
-        base.loads.clear();
+        base.loads = vec![solver.loads.remove(1)];
         let initial = solve_corotational_2d(&base, 20, TOLERANCE, 1, false).unwrap();
         assert!(initial.converged);
         let start = CorotationalStart2D {
             input: &base,
             displacements: &initial.results.displacements,
         };
-        let result = solve_arc_length_from(&arc_input(solver), Some(&start)).unwrap();
+        let mut input = arc_input(solver);
+        let radius = 2.0_f64.sqrt();
+        input.initial_ds = radius;
+        input.min_ds = radius;
+        input.max_ds = radius;
+        let result = solve_arc_length_from(&input, Some(&start)).unwrap();
+        assert_eq!(result.final_load_factor, 1.0);
         (result.results, result.final_load_factor, result.converged)
     });
 }
 
 #[test]
-#[ignore = "known wrong result: #2560"]
 fn issue_2560_exact_member_actions_displacement_control() {
     check_actions(|solver| {
         let result = solve_displacement_control(&DisplacementControlInput {
@@ -126,7 +138,6 @@ fn issue_2560_exact_member_actions_displacement_control() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2560"]
 fn issue_2560_exact_member_actions_corotation() {
     for modified in [false, true] {
         check_actions(|solver| {
@@ -137,7 +148,6 @@ fn issue_2560_exact_member_actions_corotation() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2560"]
 fn issue_2560_exact_member_actions_warm_corotation() {
     check_actions(|solver| {
         let initial = solve_corotational_2d(&solver, 20, TOLERANCE, 1, false).unwrap();
@@ -154,7 +164,6 @@ fn issue_2560_exact_member_actions_warm_corotation() {
 
 #[cfg(feature = "experimental-nonlinear")]
 #[test]
-#[ignore = "known wrong result: #2560"]
 fn issue_2560_exact_member_actions_experimental_corotation() {
     use crate::solver::experimental_nonlinear::{
         solve_corotational_2d_by, solve_corotational_2d_stepped, IterationMethod, LoadStepping,

@@ -899,12 +899,29 @@ fn assemble_truss_load_contributions_2d<'a>(
 ) {
     let axes = [[cos,sin,0.0],[-sin,cos,0.0],[0.0,0.0,1.0]];
     let dofs = [[Some(truss_dofs[0]),Some(truss_dofs[1])],[Some(truss_dofs[2]),Some(truss_dofs[3])]];
+    let thermal_axial = |tl: &SolverThermalLoad| e * area * tl.alpha() * tl.dt_uniform;
     for (index, load) in loads {
+        if let PlanarLoadVisitor::Local(add) = visitor {
+            let actions = if let SolverLoad::Thermal(tl) = load {
+                let fx = thermal_axial(tl);
+                LocalMemberActions2D::Thermal([-fx, 0.0, 0.0, fx, 0.0, 0.0])
+            } else {
+                LocalMemberActions2D::Mechanical { length: l, frame: None }
+            };
+            add(PlanarLoadContribution::Member(LocalMemberLoad2D {
+                index,
+                element_id: elem_id,
+                direction: [cos, sin],
+                dofs: [dofs[0][0], dofs[0][1], None, dofs[1][0], dofs[1][1], None],
+                actions,
+            }));
+            continue;
+        }
         let mut local = [[0.0;3];2];
         let mut error = [[0.0;3];2];
         match load {
             SolverLoad::Thermal(tl) if tl.element_id == elem_id => {
-                let fx = e * area * tl.alpha() * tl.dt_uniform;
+                let fx = thermal_axial(tl);
                 local[0][0] = -fx;
                 local[1][0] = fx;
             }
@@ -929,16 +946,8 @@ fn assemble_truss_load_contributions_2d<'a>(
             }
             _ => continue,
         }
-        match visitor {
-            PlanarLoadVisitor::Local(add) => add(PlanarLoadContribution::Member(LocalMemberLoad2D {
-                index,
-                element_id: elem_id,
-                thermal: matches!(load, SolverLoad::Thermal(_)),
-                direction: [cos, sin],
-                dofs: [dofs[0][0], dofs[0][1], None, dofs[1][0], dofs[1][1], None],
-                actions: [local[0][0], local[0][1], 0.0, local[1][0], local[1][1], 0.0],
-            })),
-            PlanarLoadVisitor::Rounded { track_rounding, add } => visit_truss_components(local, error, axes, dofs, *track_rounding, add),
+        if let PlanarLoadVisitor::Rounded { track_rounding, add } = visitor {
+            visit_truss_components(local, error, axes, dofs, *track_rounding, add);
         }
     }
 }
@@ -979,10 +988,21 @@ pub(crate) fn assemble_load_vector_2d_with_rounding(
 pub(super) struct LocalMemberLoad2D {
     pub index: usize,
     pub element_id: usize,
-    pub thermal: bool,
     pub direction: [f64; 2],
     pub dofs: [Option<usize>; 6],
-    pub actions: [f64; 6],
+    pub actions: LocalMemberActions2D,
+}
+
+pub(super) enum LocalMemberActions2D {
+    Mechanical { length: f64, frame: Option<FrameLoadGeometry> },
+    Thermal([f64; 6]),
+}
+
+#[derive(Clone, Copy)]
+pub(super) struct FrameLoadGeometry {
+    pub phi: f64,
+    pub hinge_start: bool,
+    pub hinge_end: bool,
 }
 
 pub(super) enum PlanarLoadContribution {
@@ -1158,7 +1178,36 @@ fn assemble_frame_load_contributions_2d<'a>(
         0.0
     };
 
+    let thermal_actions = |tl: &SolverThermalLoad| {
+        let mut fef = fef_thermal_2d(
+            e, sec.a, sec.iz, l, tl.dt_uniform, tl.dt_gradient, tl.alpha(), tl.depth(sec.a, sec.iz),
+        );
+        adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
+        fef
+    };
     for (index, load) in loads {
+        if let PlanarLoadVisitor::Local(add) = visitor {
+            let actions = if let SolverLoad::Thermal(tl) = load {
+                LocalMemberActions2D::Thermal(thermal_actions(tl))
+            } else {
+                LocalMemberActions2D::Mechanical {
+                    length: l,
+                    frame: Some(FrameLoadGeometry {
+                        phi,
+                        hinge_start: elem.hinge_start,
+                        hinge_end: elem.hinge_end,
+                    }),
+                }
+            };
+            add(PlanarLoadContribution::Member(LocalMemberLoad2D {
+                index,
+                element_id: elem.id,
+                direction: [t[0], t[1]],
+                dofs: std::array::from_fn(|i| Some(elem_dofs[i])),
+                actions,
+            }));
+            continue;
+        }
         let fef = match load {
             SolverLoad::Distributed(dl) if dl.element_id == elem.id => {
                 let a = dl.a.unwrap_or(0.0);
@@ -1186,34 +1235,15 @@ fn assemble_frame_load_contributions_2d<'a>(
 
                 fef
             }
-            SolverLoad::Thermal(tl) if tl.element_id == elem.id => {
-                let alpha = tl.alpha();
-                let h = tl.depth(sec.a, sec.iz);
-                let mut fef = fef_thermal_2d(
-                    e, sec.a, sec.iz, l,
-                    tl.dt_uniform, tl.dt_gradient, alpha, h,
-                );
-
-                adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
-
-                fef
-            }
+            SolverLoad::Thermal(tl) if tl.element_id == elem.id => thermal_actions(tl),
             SolverLoad::AxialDistributed(al) if al.element_id == elem.id => {
                 let fef = crate::element::fef_axial_distributed_2d(al.q_i, al.q_j, al.a.unwrap_or(0.0), al.b.unwrap_or(l), l);
                 fef
             }
             _ => continue,
         };
-        match visitor {
-            PlanarLoadVisitor::Local(add) => add(PlanarLoadContribution::Member(LocalMemberLoad2D {
-                index,
-                element_id: elem.id,
-                thermal: matches!(load, SolverLoad::Thermal(_)),
-                direction: [t[0], t[1]],
-                dofs: std::array::from_fn(|i| Some(elem_dofs[i])),
-                actions: fef,
-            })),
-            PlanarLoadVisitor::Rounded { track_rounding, add } => visit_frame_load(&fef, t, 6, elem_dofs, None, *track_rounding, add),
+        if let PlanarLoadVisitor::Rounded { track_rounding, add } = visitor {
+            visit_frame_load(&fef, t, 6, elem_dofs, None, *track_rounding, add);
         }
     }
 }

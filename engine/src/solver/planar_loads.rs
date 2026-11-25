@@ -3,9 +3,14 @@ use std::collections::{BTreeMap, HashMap};
 use num_rational::BigRational;
 use num_traits::{ToPrimitive, Zero};
 
-use super::assembly::{self, InclinedTransformData2D, PlanarLoadContribution, PlanarLoadVisitor};
+use super::assembly::{
+    self, FrameLoadGeometry, InclinedTransformData2D, LocalMemberActions2D, PlanarLoadContribution,
+    PlanarLoadVisitor,
+};
 use super::dof::DofNumbering;
 use crate::types::*;
+
+mod mechanical;
 
 #[derive(Default)]
 struct ExactSum {
@@ -262,22 +267,17 @@ impl PlanarLoadPattern {
             .filter(|load| matches!(load, SolverLoad::Nodal(_) | SolverLoad::Thermal(_)))
             .cloned()
             .collect();
-        let mut unit = ExactSum::default();
-        unit.add(1.0);
-        let mut weights = vec![&unit; loads.len()];
-        for member in &members {
-            for (i, weight) in member.components.iter().enumerate() {
-                if weight.is_zero() {
-                    continue;
-                }
-                let mut load = member.load.clone();
-                let mut basis = [0.0; 3];
-                basis[i] = 1.0;
-                set_member_load_components(&mut load, basis);
-                loads.push(load);
-                weights.push(weight);
-            }
-        }
+        let member_offset = loads.len();
+        let active_members: Vec<_> = members
+            .iter()
+            .filter(|member| {
+                member
+                    .components
+                    .iter()
+                    .any(|component| !component.is_zero())
+            })
+            .collect();
+        loads.extend(active_members.iter().map(|member| member.load.clone()));
 
         let mut forces = Vec::new();
         forces.resize_with(dofs.n_total, || None::<ExactSum>);
@@ -293,25 +293,32 @@ impl PlanarLoadPattern {
                     }
                 }
                 PlanarLoadContribution::Member(local) => {
-                    let weight = weights[local.index];
                     let actions = actions.entry(local.element_id).or_default();
-                    let sums = if local.thermal {
-                        &mut actions.thermal
-                    } else {
-                        &mut actions.dead
+                    let (sums, local_actions) = match local.actions {
+                        LocalMemberActions2D::Mechanical { length, frame } => (
+                            &mut actions.dead,
+                            mechanical::actions(
+                                active_members[local.index - member_offset],
+                                length,
+                                frame,
+                            ),
+                        ),
+                        LocalMemberActions2D::Thermal(values) => (
+                            &mut actions.thermal,
+                            values.map(|value| {
+                                let mut action = ExactSum::default();
+                                action.add(value);
+                                action
+                            }),
+                        ),
                     };
-                    let weighted = local.actions.map(|value| {
-                        let mut sum = ExactSum::default();
-                        sum.add_scaled(weight, value);
-                        sum
-                    });
-                    for (sum, action) in sums.iter_mut().zip(&weighted) {
+                    for (sum, action) in sums.iter_mut().zip(&local_actions) {
                         sum.add_scaled(action, 1.0);
                     }
                     let [c, s] = local.direction;
                     for offset in [0, 3] {
                         let [axial, transverse, moment] =
-                            std::array::from_fn(|i| &weighted[offset + i]);
+                            std::array::from_fn(|i| &local_actions[offset + i]);
                         for (i, row) in [[c, -s], [s, c]].into_iter().enumerate() {
                             if let Some(dof) = local.dofs[offset + i] {
                                 let force = forces[dof].get_or_insert_with(ExactSum::default);

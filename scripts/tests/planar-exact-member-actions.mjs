@@ -15,22 +15,25 @@ export function registerExactMemberActionTests({ arc, displacement, corotational
       targetDisplacement: 0.75, nSteps: 1, maxIter: 20, tolerance })]],
     ['co-rotation', (solver) => corotational(solver, 4)],
   ]) {
-    for (const { name, loads } of cases) {
-      test(`#2560 exact member actions: ${driver}, ${name}`, {
-        skip: process.env.RUN_KNOWN_WRONG !== '2560' && 'known wrong result: #2560',
-      }, () => {
+    for (const {
+      name, loads, elementType, hingeStart = false, hingeEnd = false,
+      shearFlexible = false, farAxialLoad = 0,
+    } of cases) {
+      test(`#2560 exact member actions: ${driver}, ${name}`, () => {
         const solver = structuredClone(base);
         solver.loads.push(...loads);
-        if (name === 'released shear-flexible frame') {
-          Object.assign(solver.elements[1], { hingeStart: true, hingeEnd: true });
-          solver.sections[1].asY = 1;
+        const memberInput = solver.elements[1];
+        Object.assign(memberInput, { hingeStart, hingeEnd });
+        if (elementType) memberInput.type = elementType;
+        if (shearFlexible) {
+          solver.materials[1].nu = 0;
+          Object.assign(solver.sections[1], { asY: 1, iz: 3 });
         }
-        if (name.startsWith('truss')) solver.elements[1].type = 'truss';
         for (const result of solve(solver)) {
           assert.equal(result.converged, true);
           const factor = result.finalLoadFactor ?? result.loadFactor;
           assert.ok(factor > 0);
-          const axial = name === 'endpoint control' ? -2 * factor : 0;
+          const axial = -farAxialLoad * factor;
           const reaction = result.results.reactions.find((r) => r.nodeId === 2);
           const member = result.results.elementForces.find((m) => m.elementId === 1);
           assert.ok(reaction.rx === axial && member.nEnd === axial,
