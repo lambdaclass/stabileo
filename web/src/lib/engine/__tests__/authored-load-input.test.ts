@@ -208,7 +208,7 @@ describe('malformed authored loads', () => {
 });
 
 it.each(['xz', 'yz'] as const)('preserves a complete spatial force through Basic %s projection and P-Delta', async (plane) => {
-  const { tip } = cantilever(false, 0, plane);
+  const { root, tip } = cantilever(false, 0, plane);
   setLoad({ type: 'nodal3d', data: {
     id: 1, nodeId: tip, fx: 0, fy: 0, fz: -force, mx: 0, my: 0, mz: 0,
   } });
@@ -219,9 +219,13 @@ it.each(['xz', 'yz'] as const)('preserves a complete spatial force through Basic
     ...projected,
     loads: [{ type: 'nodal', data: { nodeId: tip, fx: 0, fz: -force, my: 0 } }],
   });
-  expect(solvePDelta(projected)).toMatchObject({
+  const pdelta = solvePDelta(projected);
+  expect(pdelta).toMatchObject({
     converged: true, results: { reactions: control.results.reactions },
   });
+  const supportReaction = { nodeId: root, rz: expect.closeTo(force, 12) };
+  expect.soft(control.results.reactions).toMatchObject([supportReaction]);
+  expect.soft(pdelta.results.reactions).toMatchObject([supportReaction]);
   expect(modelFeatures(modelStore.snapshot(), { analysisMode: '2d' }).has('malformedAuthoredLoad')).toBe(false);
 });
 
@@ -366,6 +370,47 @@ describe('authored load refusal and recheck', () => {
     await vi.waitFor(() => expect(recheck.pending).toBe(false));
     expect(recheck.assessment?.changes.map(({ id }) => id)).not.toContain('seismic-modal-generation-unavailable');
   });
+});
+
+describe.skipIf(process.env.STABILEO_REPRODUCE_LOAD_COLLECTIONS !== '1')(
+  'saved load collections (known wrong result: #2583)',
+  () => {
+    it.each(['2d', '3d', 'pro'].flatMap(mode => [[mode, {}], [mode, null]] as const))(
+      'flags a present non-array loads collection in %s (%j)',
+      async (analysisMode, malformedLoads) => {
+        cantilever(analysisMode !== '2d');
+        const snapshot = {
+          ...modelStore.snapshot(), analysisMode, loads: [completeForce], solvedWith: undefined, pendingRecheckNotice: undefined,
+        };
+        const loads = malformedLoads as unknown as FeatureSnapshot['loads'];
+        const malformed = { ...snapshot, loads };
+        expect.soft(assessProject(malformed, null, analysisMode).changes.map(({ id }) => id))
+          .toContain('malformed-authored-loads');
+
+        const recheck = createRecheckStore();
+        for (const [current, stored] of [[malformed, undefined], [snapshot, loads]] as const) {
+          recheck.openProject(current, analysisMode, stored);
+          await vi.waitFor(() => expect(recheck.pending).toBe(false));
+          expect.soft(recheck.assessment?.changes.map(({ id }) => id)).toContain('malformed-authored-loads');
+          expect.soft(recheck.noticeOpen).toBe(true);
+        }
+      },
+    );
+  },
+);
+
+it.each(['2d', '3d', 'pro'])('accepts empty or omitted loads evidence in %s rechecks', async (analysisMode) => {
+  cantilever(analysisMode !== '2d');
+  const { loads: _loads, ...snapshot } = modelStore.snapshot();
+  const unloaded = { ...snapshot, analysisMode, solvedWith: undefined, pendingRecheckNotice: undefined };
+  const empty = { ...unloaded, loads: [] };
+  const recheck = createRecheckStore();
+  for (const [current, stored] of [[unloaded, empty.loads], [empty, undefined]] as const) {
+    recheck.openProject(current, analysisMode, stored);
+    await vi.waitFor(() => expect(recheck.pending).toBe(false));
+    expect(recheck.loadFailed).toBe(false);
+    expect(recheck.assessment?.changes.map(({ id }) => id)).not.toContain('malformed-authored-loads');
+  }
 });
 
 describe('planar load notices and fixture collection refusals (#2583)', () => {
