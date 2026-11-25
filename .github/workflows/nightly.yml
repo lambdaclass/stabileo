@@ -1064,3 +1064,14 @@ jobs:
         with:
           script: |
             await require('./.github/scripts/nightly-findings.cjs')({ github, context, core });
+
+  replay-open-findings:
+    needs: [plan, findings]
+    if: always() && !cancelled() && github.event_name == 'schedule' && github.ref == 'refs/heads/main' && needs.plan.result == 'success'
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    uses: ./.github/workflows/replay-findings.yml
+    with:
+      record_night: ${{ needs.findings.result == 'success' }}

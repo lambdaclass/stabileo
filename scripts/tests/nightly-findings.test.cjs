@@ -23,6 +23,7 @@ async function fixture(fn) {
       calls.push({name, args});
       if (name === 'getLabel') throw Object.assign(new Error('missing label'), {status: 404});
       if (name === 'create') return {data: {...args, number: 1, state: 'open'}};
+      if (name === 'update' && args.body) Object.assign(issues.find(i => i.number === args.issue_number), {body: args.body});
       return {data: {}};
     }]));
   const args = {github: {rest: {issues: api}, paginate: async method => method === api.listForRepo ? issues : comments},
@@ -464,9 +465,7 @@ test('a legacy issue adopted by one group cannot be adopted by another in a late
   assert.equal(calls.filter(c => c.name === 'create').length, 1);
 }));
 
-const pendingNightlyLifecycle = {skip: !process.env.RUN_NIGHTLY_REGRESSIONS && 'known wrong result: nightly finding lifecycle'};
-
-test('fuzz signatures ignore artifact hashes and keep different messages and targets distinct', pendingNightlyLifecycle, () => fixture(async ({args, calls, issues, save}) => {
+test('fuzz signatures ignore artifact hashes and keep different messages and targets distinct', () => fixture(async ({args, calls, issues, save}) => {
   const fuzz = (seed, target, message) => ({...finding, test: `fuzz/${target}`, seed,
     model: {raw_hex: seed.toString(16).padStart(2, '0')}, details: message});
   save('first', fuzz(1, 'json_plastic', `timeout-${'a'.repeat(40)}`));
@@ -489,7 +488,7 @@ test('fuzz signatures ignore artifact hashes and keep different messages and tar
   assert.equal(calls.filter(c => c.name === 'create').length, 2);
 }));
 
-test('sighting comments stop at the cap and overflow updates the total once', pendingNightlyLifecycle, () => fixture(async ({args, calls, issues, comments, save}) => {
+test('sighting comments stop at the cap and overflow updates the total once', () => fixture(async ({args, calls, issues, comments, save}) => {
   save('a');
   await report(args);
   const created = calls.find(c => c.name === 'create');
@@ -515,7 +514,7 @@ test('sighting comments stop at the cap and overflow updates the total once', pe
   }
 }));
 
-test('migration keeps the oldest matching issue and leaves other findings alone', pendingNightlyLifecycle, () => {
+test('migration keeps the oldest matching issue and leaves other findings alone', () => {
   const {planMigration} = require('../../scripts/migrate-nightly-findings.cjs');
   const issue = (number, created_at, title) => ({number, created_at, state: 'open', title});
   const group = [
@@ -525,3 +524,33 @@ test('migration keeps the oldest matching issue and leaves other findings alone'
   ];
   assert.deepEqual(planMigration(group).duplicates.map(({keep, close}) => [keep, close]), [[1802, [1944]]]);
 });
+
+test('an open matching issue receives sightings ahead of an older closed one', () => fixture(async ({args, calls, issues, save}) => {
+  save('a');
+  await report(args);
+  const {body} = calls.find(c => c.name === 'create').args;
+  issues.push({number: 2, state: 'closed', body}, {number: 3, state: 'open', body});
+  args.context.runId++;
+  calls.length = 0;
+  await report(args);
+  assert.deepEqual(calls.filter(c => c.name === 'createComment').map(c => c.args.issue_number), [3]);
+  assert.equal(calls.filter(c => ['create', 'update'].includes(c.name)).length, 0);
+}));
+
+test('machine reproducers preserve an exact u64 seed and every replay selector in a finding group', () => fixture(async ({args, calls, save}) => {
+  const details = ['seeded: displacement error 0.002 exceeds tolerance 1e-6'];
+  save('mirror', {...finding, test: 'metamorphic/linear/mirror', details});
+  save('rotation', {...finding, test: 'metamorphic/linear/rotation', details});
+  const file = 'nightly-findings/rotation.finding.json';
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('"seed":42', '"seed":18446744073709551615'));
+  await report(args);
+  const created = calls.filter(c => c.name === 'create');
+  assert.equal(created.length, 1);
+  const payload = created[0].args.body.match(/<!-- nightly-reproducer:v1 (\S+) -->/)[1];
+  const {gunzipSync} = require('node:zlib');
+  const records = JSON.parse(gunzipSync(Buffer.from(payload, 'base64')));
+  assert.deepEqual(records.map(({test, seed, path}) => [test, seed, path]),
+    [['metamorphic/linear/mirror', '42', 'nightly-findings/mirror.finding.json'],
+     ['metamorphic/linear/rotation', '18446744073709551615', file]]);
+  assert.equal(records[1].artifact, fs.readFileSync(file, 'utf8'));
+}));

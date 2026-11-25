@@ -1,4 +1,7 @@
+import base64
 import contextlib
+import gzip
+import hashlib
 import importlib.util
 import io
 import json
@@ -11,7 +14,7 @@ import sys
 import tempfile
 import textwrap
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[3]
 spec = importlib.util.spec_from_file_location('models', ROOT / 'testing/scripts/nightly-models.py')
@@ -19,7 +22,6 @@ models = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(models)
 
 
-@unittest.skipUnless(os.environ.get('RUN_NIGHTLY_REGRESSIONS'), 'known wrong result: nightly finding lifecycle')
 class NightlyReplayLifecycle(unittest.TestCase):
     def setUp(self):
         replay_spec = importlib.util.spec_from_file_location('replay', ROOT / 'scripts/replay-findings.py')
@@ -51,6 +53,69 @@ class NightlyReplayLifecycle(unittest.TestCase):
         spec = {'test': 'codeaster/silent_singular', 'check_kind': 'silent_singular', 'kind': 'silent_singular'}
         self.assertNotEqual(self.replay.classify_diff(spec, {'status': 'refused'})[0], 'passes-now')
         self.assertEqual(self.replay.classify_diff(spec, {'status': 'ok'})[0], 'passes-now')
+
+
+    def test_every_stored_reproducer_must_have_an_explicit_pass(self):
+        replays = []
+        for relation, seed in (('mirror', 42), ('rotation', (1 << 64) - 1)):
+            test = f'metamorphic/linear/{relation}'
+            artifact = json.dumps({'test': test, 'model': {'tag': relation}, 'seed': seed})
+            replays.append({'test': test, 'seed': str(seed), 'kind': 'wrong-result-candidate',
+                            'message': 'stress mismatch', 'reduction': '1-minimal',
+                            'artifact': artifact, 'artifactHash': hashlib.sha256(artifact.encode()).hexdigest(),
+                            'path': f'nightly-findings/{relation}.finding.json', 'runId': '10'})
+
+        def issue_body(records):
+            encoded = base64.b64encode(gzip.compress(json.dumps(records).encode())).decode()
+            return f'<!-- nightly-reproducer:v1 {encoded} -->\n<!-- nightly-run:10:1 -->'
+
+        issue = {'number': 8, 'body': issue_body(replays[:1]), 'sightings': [issue_body(replays[1:])]}
+
+        def runner(cmd, *, env, timeout):
+            source = json.loads(Path(env['NIGHTLY_MODEL']).read_text())['tag']
+            self.assertEqual(int(env['METAMORPHIC_SEED']), 42 if source == 'mirror' else (1 << 64) - 1)
+            count = {'pass': 1} if source == 'mirror' else {'refused': 1}
+            Path(env['NIGHTLY_RESULTS']).write_text(json.dumps(
+                {'verdicts': [{'analysis': 'linear', 'invariant': source, **count}]}))
+            return subprocess.CompletedProcess(cmd, 0, '', '')
+
+        partial = self.replay.replay_issues([issue], runner=runner, metamorphic_bin='metamorphic')
+        self.assertEqual([result['status'] for result in partial], ['passes-now', 'not-replayable'])
+        self.assertEqual(self.replay.merge_reports([issue], [partial])[0]['status'], 'not-replayable')
+        self.assertEqual(self.replay.merge_reports([issue], [partial[:1]])[0]['status'], 'not-replayable')
+        partial[1]['status'] = 'passes-now'
+        self.assertEqual(self.replay.merge_reports([issue], [partial])[0]['status'], 'passes-now')
+
+    def test_new_sighting_resets_passes_and_closure_rechecks_the_issue(self):
+        issue = {'number': 8, 'body': '<!-- nightly-run:10:1 -->'}
+        report = [{'issue': 8, 'status': 'passes-now'}]
+        plan = self.replay.plan_nightly_actions
+        for night in ('2026-11-01', '2026-11-02'):
+            action, = plan([issue], report, night, '11', 'https://example.com/run', 'abc')
+            self.assertNotIn('comment', action)
+            issue['body'] = action['body']
+        old_body = issue['body']
+        changed, = plan([issue], report, '2026-11-03', '10', 'https://example.com/run', 'abc')
+        self.assertNotIn('comment', changed)
+        self.assertIn('"streak":0', changed['body'])
+        action, = plan([issue], report, '2026-11-03', '11', 'https://example.com/run', 'abc')
+        self.assertIn('2026-11-03', action['comment'])
+        self.assertIn('abc', action['comment'])
+
+        calls = []
+
+        def gh(*args, data=None):
+            calls.append((args, data))
+            return json.dumps({'state': 'open', 'body': old_body, 'comments': 0})
+
+        self.replay.apply_nightly_actions('owner/repo', [action], gh_runner=gh)
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(json.loads(calls[-1][1])['state'], 'closed')
+
+        updated = Mock(return_value=json.dumps({'state': 'open', 'body': old_body + ' changed'}))
+        with patch('builtins.print'):
+            self.replay.apply_nightly_actions('owner/repo', [action], gh_runner=updated)
+        updated.assert_called_once_with('api', 'repos/owner/repo/issues/8')
 
 
 class Models(unittest.TestCase):
