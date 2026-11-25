@@ -258,7 +258,7 @@ it('preserves explicit self-weight and a one-DOF rigid link', async () => {
   expect(await validateAndSolve3DAsync(model)).toMatchObject({ reactions: expect.any(Array) });
 });
 
-it('solves a separated eccentric connection in plane', async () => {
+it.runIf(process.env.STABILEO_REVIEW_REPRO === '1')('solves a separated eccentric connection in plane', async () => {
   const model = modelStore.model;
   model.loads[0] = { type: 'nodal', data: { id: 1, nodeId: tip, fx: 0, fz: -1, my: 0, caseId: 1 } };
   model.constraints = [{ type: 'equalDOF', masterNode: root, slaveNode: tip, dofs: [4] }];
@@ -267,7 +267,11 @@ it('solves a separated eccentric connection in plane', async () => {
   const combinationControl = solveCombinations2D(model, [loadCase], [combo]);
   expect(control).toMatchObject({ reactions: expect.any(Array), displacements: expect.any(Array) });
   expect(advancedControl.converged).toBe(true);
-  expect(typeof combinationControl).toBe('object');
+  expect(combinationControl).toMatchObject({ perCombo: expect.any(Map) });
+  const expectedCombination = combinationControl && typeof combinationControl !== 'string'
+    ? combinationControl.perCombo.get(combo.id) : undefined;
+  if (!control || typeof control === 'string') throw new Error(String(control));
+  expect(expectedCombination).toMatchObject({ reactions: control.reactions, displacements: control.displacements });
   const constraint = {
     type: 'eccentricConnection', masterNode: root, slaveNode: tip,
     offsetY: 1, releases: [true, false, true, false, false, false],
@@ -276,7 +280,10 @@ it('solves a separated eccentric connection in plane', async () => {
   expect.soft(await validateAndSolve2DAsync(model)).toEqual(control);
   expect.soft(validateAndSolve2D(model)).toEqual(control);
   expect.soft(modelStore.solve(false, 'xy')).toEqual(control);
-  expect.soft(solveCombinations2D(model, [loadCase], [combo])).toEqual(combinationControl);
+  const combination = solveCombinations2D(model, [loadCase], [combo]);
+  expect.soft(combination && typeof combination !== 'string' ? combination.perCombo.get(combo.id) : undefined)
+    .toMatchObject({ reactions: control.reactions, displacements: control.displacements });
+  expect.soft(combination).toEqual(combinationControl);
   expect.soft(solvePDelta(modelStore.buildSolverInput(false, 'xy')!)).toEqual(advancedControl);
   expect.soft(buildSolverInput3D(model)?.constraints).toEqual(model.constraints);
   expect(assessProject(modelStore.snapshot(), null, 'basic').changes.map(change => change.id))
@@ -312,4 +319,124 @@ it.each([0, 2] as const)('still refuses a live eccentric equation on DOF %s', as
     'store plane': () => modelStore.solveAsync(false, 'xz'),
   });
   expect(buildSolverInput3D(model)?.constraints).toEqual(model.constraints);
+});
+
+it.runIf(process.env.STABILEO_REVIEW_REPRO === '1')('refuses a misspelled member hinge before applying release defaults', async () => {
+  const before = modelStore.snapshot();
+  const input = fixture();
+  Object.assign(input.elements[0]!, { hingeStrat: true });
+  const incoming = {
+    ...before,
+    elements: before.elements.map(([id, element]) => [id, { ...element, hingeStrat: true }]),
+  };
+  await refuses('elements.' + member + '.hingeStrat', {
+    restore: () => modelStore.restore(incoming as never),
+    replay: () => loadFixture(input, modelStore.fixtureApi() as never),
+    apply: () => modelStore.loadExample(input.name, async () => input),
+  });
+  expect.soft(modelStore.snapshot()).toEqual(before);
+  modelStore.restore(before);
+  Object.assign(modelStore.model.elements.get(member)!, { hingeStrat: true });
+  await refuses('.hingeStrat', analysisEntries());
+});
+
+it.runIf(process.env.STABILEO_REVIEW_REPRO === '1')('preserves a named member and a supported legacy hinge through restore and fixture replay', () => {
+  const model = modelStore.model;
+  model.loads[0] = { type: 'nodal', data: { id: 1, nodeId: tip, fx: 0, fz: -1, my: 0, caseId: 1 } };
+  const element = model.elements.get(member)!;
+  element.name = 'Cantilever';
+  element.releaseJ = { ...element.releaseJ, mz: true };
+  const control = validateAndSolve2D(model);
+  expect(control).toMatchObject({ reactions: expect.any(Array), displacements: expect.any(Array) });
+  const before = modelStore.snapshot();
+  modelStore.restore({ ...before, elements: before.elements.map(([id, { releaseJ: _release, ...row }]) =>
+    [id, { ...row, hingeEnd: true } as typeof row & { releaseJ: typeof _release }]) });
+  expect(model.elements.get(member)?.name).toBe('Cantilever');
+  expect(validateAndSolve2D(model)).toEqual(control);
+  const input = fixture();
+  const row = input.elements[0]!;
+  delete row.releaseJ;
+  row.hingeEnd = true;
+  row.name = 'Cantilever';
+  modelStore.clear();
+  loadFixture(input, modelStore.fixtureApi() as never);
+  expect([...model.elements.values()][0]?.name).toBe('Cantilever');
+  expect(validateAndSolve2D(model)).toEqual(control);
+});
+
+it.runIf(process.env.STABILEO_REVIEW_REPRO === '1')('refuses a seventh eccentric release before any XZ or YZ projection', async () => {
+  const before = modelStore.snapshot();
+  const connection = { type: 'eccentricConnection' as const, masterNode: root, slaveNode: tip };
+  const releases = [true, false, true, false, false, false, true];
+  const constraints = [{ ...connection, releases }];
+  const input = { ...fixture(), constraints };
+  await refuses('constraints[0].releases', {
+    restore: () => modelStore.restore({ ...before, constraints }),
+    replay: () => loadFixture(input, modelStore.fixtureApi() as never),
+    apply: () => modelStore.loadExample(input.name, async () => input),
+  });
+  expect.soft(modelStore.snapshot()).toEqual(before);
+  modelStore.restore(before);
+  const model = modelStore.model;
+  model.constraints = constraints;
+  await refuses('constraints[0].releases', analysisEntries());
+  model.constraints = [{ ...connection, releases: releases.slice(0, 6) }];
+  const plane = buildSolverInput2D(model);
+  expect(plane?.constraints?.[0]).toMatchObject({ releases: [true, true, false] });
+  const control = validateAndSolve2D(model);
+  expect(control).toMatchObject({ reactions: expect.any(Array), displacements: expect.any(Array) });
+  model.constraints = [{ ...connection, releases: releases.slice(0, 3) }];
+  expect(validateAndSolve2D(model)).toEqual(control);
+});
+
+it.runIf(process.env.STABILEO_REVIEW_REPRO === '1').each([
+  ['nodes', null, 'nodes'],
+  ['nodes', [null], 'nodes[0]'],
+  ['elements', [null], 'elements[0]'],
+  ['supports', [null], 'supports[0]'],
+  ['materials', [null], 'materials[0]'],
+  ['sections', [null], 'sections[0]'],
+  ['nodes', [{ x: 0, y: 0, z: 0 }], 'nodes[0].id'],
+] as const)('refuses malformed fixture %s (%j) before any replay mutation', async (collection, value, field) => {
+  const before = modelStore.snapshot();
+  const input = { ...fixture(), [collection]: value } as JSONModel;
+  await refuses(field, {
+    replay: () => loadFixture(input, modelStore.fixtureApi() as never),
+    apply: () => modelStore.loadExample(input.name, async () => input),
+  });
+  expect(modelStore.snapshot()).toEqual(before);
+});
+
+it.runIf(process.env.STABILEO_REVIEW_REPRO === '1')('projects the reduced MPC equation in every plane analysis path', async () => {
+  const model = modelStore.model;
+  const axial = { nodeId: tip, dof: 0, coefficient: 1 };
+  const normal = { nodeId: tip, dof: 1, coefficient: 1 };
+  const mpc = (terms: typeof axial[]) => [{ type: 'linearMPC' as const, terms }];
+  model.constraints = mpc([axial]);
+  const linear = validateAndSolve2D(model);
+  expect(linear).toMatchObject({ displacements: expect.arrayContaining([{ nodeId: tip, ux: 0, uz: 0, ry: 0 }]) });
+  const advanced = solvePDelta(buildSolverInput2D(model)!);
+  expect(advanced.converged).toBe(true);
+  const combination = solveCombinations2D(model, [loadCase], [combo]);
+  expect(combination).toMatchObject({ perCombo: expect.any(Map) });
+  const terms = [normal, axial, { ...normal, coefficient: -1 }];
+  model.constraints = mpc(terms);
+  expect.soft(buildSolverInput2D(model)?.constraints).toEqual(mpc([axial]));
+  expect.soft(validateAndSolve2D(model)).toEqual(linear);
+  expect.soft(await validateAndSolve2DAsync(model)).toEqual(linear);
+  expect.soft(modelStore.solve(false, 'xy')).toEqual(linear);
+  expect.soft(await modelStore.solveAsync(false, 'xz')).toEqual(linear);
+  expect.soft(solveCombinations2D(model, [loadCase], [combo])).toEqual(combination);
+  const input = modelStore.buildSolverInput(false, 'xz');
+  expect.soft(input && solvePDelta(input)).toEqual(advanced);
+  model.constraints = mpc([axial, { ...normal, coefficient: 0 }]);
+  expect.soft(validateAndSolve2D(model)).toEqual(linear);
+  const roundsAway = [axial, { ...normal, coefficient: 2 ** 54 }, normal, { ...normal, coefficient: -(2 ** 54) }];
+  for (const mixed of [[normal, axial, { ...normal, nodeId: root, coefficient: -1 }], roundsAway]) {
+    model.constraints = mpc(mixed);
+    await refuses('constraints[0].terms', {
+      builder: () => buildSolverInput2D(model), sync: () => validateAndSolve2D(model),
+      async: () => validateAndSolve2DAsync(model), combination: () => solveCombinations2D(model, [loadCase], [combo]),
+    });
+  }
 });

@@ -178,3 +178,11 @@ it('rejects missing or malformed PR metadata before a consumer reads includes', 
     expect(validateRegistry({ ...RESULT_CHANGES, changes: [{ ...entry, prs } as typeof entry] }, new Set(FEATURE_IDS))).toContain(`change ${entry.id}: prs must be a list of positive integer issue or PR numbers`);
   }
 });
+
+it.runIf(process.env.STABILEO_REVIEW_REPRO === '1')('serves the separated eccentric connection notice in the supplemental languages', () => {
+  const entry = RESULT_CHANGES.changes.find(change => change.id === 'separated-planar-eccentric-connection');
+  for (const locale of ['ar', 'hi', 'hu', 'id', 'it', 'ja', 'ko', 'ru'] as const) {
+    expect.soft(entry?.title[locale]?.trim(), locale).toBeTruthy();
+    expect.soft(entry?.explanation[locale]?.trim(), locale).toBeTruthy();
+  }
+});

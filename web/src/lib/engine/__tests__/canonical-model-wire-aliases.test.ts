@@ -1,6 +1,6 @@
 import { beforeAll, expect, it } from 'vitest';
 import { initSolver } from '../wasm-solver';
-import { certify_time_history_2d, certify_time_history_3d, solve_time_history_2d, solve_time_history_3d, engine_reproduce_hashes, solve_2d, solve_3d, solve_arc_length, solve_displacement_control, solve_pdelta_2d, solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
+import { certify_time_history_2d, certify_time_history_3d, solve_time_history_2d, solve_time_history_3d, engine_reproduce_hashes, certify_linear_2d, certify_linear_3d, solve_multi_case_2d, solve_multi_case_3d, certify_multi_case_2d, certify_multi_case_3d, estimate_discretization_3d, convergence_study_3d, solve_2d, solve_3d, solve_arc_length, solve_displacement_control, solve_pdelta_2d, solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
 
 beforeAll(async () => { await initSolver(); });
 
@@ -204,3 +204,34 @@ it.each([false, true])(
     }
   },
 );
+
+it.runIf(process.env.STABILEO_REVIEW_REPRO === '1').each([false, true])('requires named material records in WASM object analysis (space = %s)', (is3D) => {
+  const model = is3D ? space : planar;
+  const wrap = (solver: object) => ({
+    solver,
+    loadCases: [{ name: 'D', loads: model.loads }],
+    combinations: [{ name: 'D', factors: { D: 1 } }],
+  });
+  const entries = is3D ? {
+    linear: solve_3d,
+    certificate: certify_linear_3d,
+    discretization: estimate_discretization_3d,
+    convergence: (input: object) => convergence_study_3d(input, null),
+    combinations: (input: object) => solve_multi_case_3d(wrap(input)),
+    combinationCertificate: (input: object) => certify_multi_case_3d(wrap(input)),
+  } : {
+    linear: solve_2d,
+    certificate: certify_linear_2d,
+    combinations: (input: object) => solve_multi_case_2d(wrap(input)),
+    combinationCertificate: (input: object) => certify_multi_case_2d(wrap(input)),
+  };
+  const { id, e, nu } = model.materials[1]!;
+  const linear = is3D ? solve_3d : solve_2d;
+  expect(linear(model).reactions).toHaveLength(1);
+  expect(linear({ ...model, materials: new Map([['1', { id, e, nu }]]) })).toEqual(linear(model));
+  for (const [entry, run] of Object.entries(entries)) {
+    for (const record of [[id, e, nu], [id, e, nu, { poissonRatio: nu }], Object.assign([id, e, nu], { id, e, nu })]) {
+      expect.soft(() => run({ ...model, materials: indexed(record) }), entry).toThrow(/expected .*record|expected .*map/i);
+    }
+  }
+});

@@ -236,3 +236,40 @@ it.each([
   const current = { ...saved, loads: [] };
   expect.soft(modelFeatures(current, { storedLoads: saved.loads }).has('malformedAuthoredLoad')).toBe(true);
 });
+
+it.runIf(process.env.STABILEO_REVIEW_REPRO === '1').each([
+  ['distributed3d', 'isGlobal', { qYI: 0, qYJ: 0, qZI: -force, qZJ: -force, isGlobal: true }],
+  ['pointOnElement3d', 'isGlobal', { a: 1, py: 0, pz: -force, frame: 'local', isGlobal: false }],
+  ['distributed', 'frame', { qI: -force, qJ: -force, frame: 'global' }],
+  ['distributed', 'on', { qI: -force, qJ: -force, on: 'plate' }],
+])('refuses the %s selector %s from another load schema', async (type, selector, data) => {
+  const { member } = cantilever(false, length);
+  const load = { type, data: { id: 1, elementId: member, caseId: 1, ...data } };
+  setLoad(load);
+  const before = modelStore.snapshot();
+  const fixture: JSONModel = {
+    name: 'Wrong selector', nodes: [], elements: [], supports: [], materials: [], sections: [],
+    loads: [load], plates: [], quads: [], constraints: [], loadCases: [loadCase], combinations: [combo],
+  };
+  await refuses('loads[0].data.' + selector, {
+    ...planeEntries(), ...spaceEntries(),
+    'plane store sync': () => modelStore.solve(false, 'xz'),
+    'plane store async': () => modelStore.solveAsync(false, 'xz'),
+    'plane store combinations': () => modelStore.solveCombinations(false, 'xz'),
+    'plane store builder': () => modelStore.buildSolverInput(false, 'xz'),
+    'fixture replay': () => loadFixture(fixture, modelStore.fixtureApi() as never),
+    'example apply': () => modelStore.loadExample(fixture.name, async () => fixture),
+  });
+  expect(modelStore.snapshot()).toEqual(before);
+});
+
+it.runIf(process.env.STABILEO_REVIEW_REPRO === '1')('shows the saved-model notice for a null load without losing valid load features', () => {
+  cantilever();
+  setLoad(null);
+  const saved: ReturnType<typeof modelStore.snapshot> = JSON.parse(JSON.stringify(modelStore.snapshot()));
+  expect.soft(assessProject(saved, null, 'basic').changes.map(change => change.id)).toContain('malformed-authored-loads');
+  setLoad({ type: 'distributed', data: { elementId: 1, qI: -force, qJ: -force } });
+  const features = modelFeatures(modelStore.snapshot(), { storedLoads: saved.loads });
+  expect.soft(features.has('malformedAuthoredLoad')).toBe(true);
+  expect(features.has('distributedMemberLoads')).toBe(true);
+});
