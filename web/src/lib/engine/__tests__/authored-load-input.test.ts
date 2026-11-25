@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { tp } from '../../i18n';
 import { assessProject } from '../../provenance/applicability';
 import {
   loadsGeneratedWith, modelFeatures, unverifiedSeismicLoads, type FeatureSnapshot,
 } from '../../provenance/model-features';
 import { modelStore, uiStore } from '../../store';
+import { applyGeneratedModel } from '../../store/generator-apply';
 import type { Load } from '../../store/model.svelte';
 import { createRecheckStore } from '../../store/recheck.svelte';
 import { loadFixture, type JSONModel } from '../../templates/load-fixture';
 import { runDirectAnalysis } from '../direct-analysis';
+import { tallyRoles } from '../generators/member-roles';
 import {
   buildSolverInput2D, buildSolverInput3D, buildSolverLoads3D, prepareSolverInput3D,
   solveCombinations2D, solveCombinations3D, solveCombinations3DParallel,
@@ -363,4 +366,96 @@ describe('authored load refusal and recheck', () => {
     await vi.waitFor(() => expect(recheck.pending).toBe(false));
     expect(recheck.assessment?.changes.map(({ id }) => id)).not.toContain('seismic-modal-generation-unavailable');
   });
+});
+
+
+describe.skipIf(process.env.STABILEO_REPRODUCE_AUTHORED_LOADS !== '1')('known wrong result: #2583', () => {
+  it('opens a Basic saved-result notice for a nodal row missing both vertical component names', async () => {
+    const { tip } = cantilever();
+    const load = { type: 'nodal', data: { id: 1, nodeId: tip, fx: 0, my: 0 } };
+    setLoad(load);
+    const field = 'loads[0].data.fz/fy';
+    const valid = { ...load, data: { ...load.data, fz: 0 } };
+    const snapshot = {
+      ...modelStore.snapshot(), analysisMode: '2d', loads: [load], solvedWith: undefined, pendingRecheckNotice: undefined,
+    };
+    const recheck = createRecheckStore();
+    for (const [current, stored] of [
+      [snapshot, undefined],
+      [{ ...snapshot, loads: [valid] }, snapshot.loads],
+    ] as const) {
+      recheck.openProject(current, '2d', stored);
+      await vi.waitFor(() => expect(recheck.pending).toBe(false));
+      expect.soft(recheck.assessment?.changes.map(({ id }) => id)).toContain('malformed-authored-loads');
+      expect.soft(recheck.noticeOpen).toBe(true);
+    }
+
+    for (const plane of ['xy', 'xz', 'yz'] as const) {
+      if (plane === 'yz') Object.assign(modelStore.nodes.get(tip)!, { x: 0, y: length });
+      await returnsRefusal(field, {
+        sync: () => modelStore.solve(false, plane),
+        async: () => modelStore.solveAsync(false, plane),
+        combinations: () => modelStore.solveCombinations(false, plane),
+      });
+      throwsRefusal(field, { 'advanced input': () => modelStore.buildSolverInput(false, plane) });
+    }
+  });
+
+  it.each([null, {}, undefined])('refuses a malformed fixture loads collection (%j) before replay', async (loads) => {
+    cantilever();
+    const before = modelStore.snapshot();
+    const fixture: JSONModel = {
+      name: 'Malformed collection fixture', nodes: [], elements: [], supports: [], materials: [], sections: [],
+      loads: loads as unknown as JSONModel['loads'], plates: [], quads: [], constraints: [],
+      loadCases: [loadCase], combinations: [combo],
+    };
+    const refusal = tp('svc.engine.invalidInputField', { path: 'loads' });
+    expect.soft(() => loadFixture(fixture, modelStore.fixtureApi() as never), 'fixture replay').toThrow(refusal);
+    expect.soft(modelStore.snapshot()).toEqual(before);
+    await expect.soft(modelStore.loadExample(fixture.name, async () => fixture), 'example apply').rejects.toThrow(refusal);
+    expect.soft(modelStore.snapshot()).toEqual(before);
+    expect.soft(() => applyGeneratedModel({
+      json: fixture, counts: tallyRoles([]), totalLengthM: 0, slopePercent: null, assumptions: [], sections: {},
+    }, { source: 'generator-structure', params: {}, atIso: '2026-11-25T00:00:00Z' }), 'generated model apply').toThrow(refusal);
+    expect.soft(modelStore.snapshot()).toEqual(before);
+  });
+});
+
+it('solves a legacy fy-only nodal load without a malformed-load notice', async () => {
+  const { tip } = cantilever();
+  const load = { type: 'nodal', data: { id: 1, nodeId: tip, fx: 0, my: 0, fy: -force } };
+  setLoad(load);
+  const snapshot = {
+    ...modelStore.snapshot(), analysisMode: '2d', loads: [load], solvedWith: undefined, pendingRecheckNotice: undefined,
+  };
+  const recheck = createRecheckStore();
+  recheck.openProject(snapshot, '2d', snapshot.loads);
+  await vi.waitFor(() => expect(recheck.pending).toBe(false));
+  expect(recheck.loadFailed).toBe(false);
+  expect(recheck.assessment?.solvedVersion).toBe(0);
+  expect(recheck.assessment?.changes.map(({ id }) => id)).not.toContain('malformed-authored-loads');
+
+  const input = modelStore.buildSolverInput(false, 'xy')!;
+  const control = solvePDelta({
+    ...input,
+    loads: [{ type: 'nodal', data: { nodeId: tip, fx: 0, fz: -force, my: 0 } }],
+  });
+  expect(await modelStore.solveAsync(false, 'xy')).toMatchObject({ reactions: [{ rz: force }] });
+  expect(solvePDelta(input)).toMatchObject({
+    converged: true, results: { reactions: control.results.reactions },
+  });
+});
+
+it('accepts an empty loads collection through fixture replay and example apply', async () => {
+  const fixture: JSONModel = {
+    name: 'Unloaded fixture', nodes: [{ id: 1, x: 0, y: 0, z: 0 }], elements: [], supports: [],
+    materials: [], sections: [], loads: [], plates: [], quads: [], constraints: [],
+    loadCases: [loadCase], combinations: [combo],
+  };
+  loadFixture(fixture, modelStore.fixtureApi() as never);
+  expect(modelStore.nodes.size).toBe(1);
+  expect(modelStore.loads).toEqual([]);
+  await modelStore.loadExample(fixture.name, async () => fixture);
+  expect(modelStore.nodes.size).toBe(1);
+  expect(modelStore.loads).toEqual([]);
 });
