@@ -10,7 +10,8 @@
   import { isVariableMember } from '../lib/engine/variable-members';
   import { certificateStore, formatBound } from '../lib/store/certificate.svelte';
   import {
-    discretizationStore, discretizationClaims, isInconclusive, approxPercent, percentText, thresholdTick, studyUnit, type QuantityConvergence,
+    discretizationStore, discretizationClaims, isInconclusive, approxPercent, percentText, thresholdTick, studyUnit, adaptiveTarget, adaptedChange,
+    type QuantityConvergence,
   } from '../lib/store/discretization.svelte';
   import { localizeEngineText } from '../lib/i18n/engine-text';
   import { shellContourColor } from '../lib/three/stress-heatmap';
@@ -18,6 +19,9 @@
   const is3D = $derived(uiStore.is3DWorkspace);
   const est = $derived(discretizationStore.estimate);
   const study = $derived(discretizationStore.study);
+  const adaptive = $derived(discretizationStore.adaptive);
+  let targetPercent = $state(5);
+  const target = $derived(adaptiveTarget(targetPercent));
   const visible = $derived(is3D && est.status !== 'idle' && discretizationStore.applies());
   const cert = $derived(certificateStore.shown(true));
 
@@ -33,21 +37,21 @@
     return Math.abs(x) >= 1e4 || (Math.abs(x) < 1e-2 && x !== 0) ? x.toExponential(3) : x.toPrecision(4);
   }
 
-  function quantityLabel(q: QuantityConvergence): string {
+  function quantityLabel(q: Pick<QuantityConvergence, 'quantity' | 'nodeId'>): string {
     const base = t(`discretization.q.${q.quantity}`);
     const label = q.nodeId !== undefined ? base.replace('{node}', String(q.nodeId)) : base;
     return `${label} [${studyUnit(q.quantity, uiStore.unitSystem).unit}]`;
   }
 
   /** A study value (SI) in the reader's units. */
-  function value(q: QuantityConvergence, v: number | null | undefined): string {
+  function value(q: Pick<QuantityConvergence, 'quantity'>, v: number | null | undefined): string {
     return num(v == null ? v : v * studyUnit(q.quantity, uiStore.unitSystem).factor);
   }
 
   /** A refusal the panel can name, else the generic line; the engine's own words stay as detail. */
-  function studyFailure(reason: string): string {
+  function studyFailure(reason: string, line = 'discretization.studyFailed'): string {
     const key = `discretization.refuse.${reason}`;
-    return t('discretization.studyFailed').replace('{reason}', t(key) === key ? t('discretization.refuse.other') : t(key));
+    return t(line).replace('{reason}', t(key) === key ? t('discretization.refuse.other') : t(key));
   }
 
   const discretization = $derived(est.status === 'done' ? est.estimate : null);
@@ -176,6 +180,77 @@
         {/each}
       {/if}
     </div>
+
+    <details class="advanced" data-testid="discretization-adaptive">
+      <summary>{t('discretization.adaptiveTitle')}</summary>
+      <div class="note">{t('discretization.adaptiveExplain')}</div>
+      <label class="toggle">
+        {t('discretization.adaptiveTarget')}
+        <input type="number" min="0.1" max="50" step="0.5" bind:value={targetPercent} data-testid="discretization-adaptive-target" />
+      </label>
+      {#if adaptive.status === 'running'}
+        <span>{t('discretization.adaptiveRunning')}</span>
+      {:else}
+        <button class="link" disabled={target === null || !discretizationStore.canRunAdaptive()} onclick={() => target !== null && discretizationStore.runAdaptive(target)} data-testid="discretization-run-adaptive">
+          {t('discretization.adaptiveRun')}
+        </button>
+      {/if}
+      {#if adaptive.status === 'failed'}
+        <div class="note" title={localizeEngineText(adaptive.reason)} data-testid="discretization-adaptive-failed">{studyFailure(adaptive.reason, 'discretization.adaptiveFailed')}</div>
+      {:else if adaptive.status === 'done'}
+        {@const last = adaptive.report.passes[adaptive.report.passes.length - 1]}
+        <div class="note" class:warning={adaptive.report.status !== 'converged'} data-testid="discretization-adaptive-status">
+          {t(`discretization.adaptiveStatus.${adaptive.report.status}`).replace('{pct}', approxPercent(last.relativeError)).replace('{n}', String(last.shellElements))}
+        </div>
+        <table data-testid="discretization-adaptive-passes">
+          <thead>
+            <tr>
+              <th>{t('discretization.col.pass')}</th>
+              <th>{t('discretization.col.elements')}</th>
+              <th>{t('discretization.col.hanging')}</th>
+              <th>{t('discretization.col.error')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each adaptive.report.passes as p, i}
+              <tr>
+                <td>{i === 0 ? t('discretization.col.model') : i}</td>
+                <td>{p.shellElements}</td>
+                <td>{p.hangingNodes}</td>
+                <td>{approxPercent(p.relativeError)}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+        {#if adaptive.report.passes.length > 1}
+          <table data-testid="discretization-adaptive-quantities">
+            <thead>
+              <tr>
+                <th>{t('discretization.col.quantity')}</th>
+                <th>{t('discretization.col.model')}</th>
+                <th>{t('discretization.col.adapted')}</th>
+                <th>{t('discretization.col.change')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each adaptive.report.quantities as q}
+                {@const change = adaptedChange(q.model, q.adapted)}
+                <tr class:bad={change === null || change > adaptive.report.estimate.threshold}>
+                  <td>{quantityLabel(q)}</td>
+                  <td>{value(q, q.model)}</td>
+                  <td>{value(q, q.adapted)}</td>
+                  <td>{change === null ? '—' : approxPercent(change)}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        {/if}
+        <div class="note">{t('discretization.adaptiveNote')}</div>
+        {#each adaptive.report.caveats as c}
+          <div class="note">{t(`discretization.caveat.${c}`).replace('{n}', String(adaptive.report.supportsInferred ?? ''))}</div>
+        {/each}
+      {/if}
+    </details>
   </div>
 {/if}
 
@@ -194,6 +269,9 @@
   .ticks { position: relative; display: flex; justify-content: space-between; font-size: 0.6rem; }
   .thr { position: absolute; top: 0; transform: translateX(-50%); }
   .study { margin-top: 3px; }
+  .advanced { margin-top: 4px; }
+  .advanced summary { cursor: pointer; }
+  .advanced input { width: 4.5em; font: inherit; }
   .link { padding: 0; border: none; background: none; color: var(--st-accent); font: inherit; text-decoration: underline; cursor: pointer; }
   .link:disabled { opacity: 0.5; cursor: default; }
   table { margin-top: 3px; border-collapse: collapse; width: 100%; }

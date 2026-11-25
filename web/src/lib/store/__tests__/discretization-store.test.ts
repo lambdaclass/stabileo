@@ -20,7 +20,7 @@ let wire: Record<string, unknown> = {};
 vi.mock('../../engine/certify-jobs', () => ({ runCertify: (...a: unknown[]) => runCertify(...(a as [])), hasCertify: () => true }));
 vi.mock('../../engine/solver-service', () => ({ estimableInputOf: () => ({ dim: '3d', wire: () => wire }) }));
 
-const { discretizationStore, discretizationClaims, isInconclusive, viewportShellKey, approxPercent, percentText, thresholdTick, studyUnit } = await import('../discretization.svelte');
+const { discretizationStore, discretizationClaims, isInconclusive, viewportShellKey, approxPercent, percentText, thresholdTick, studyUnit, adaptiveTarget, adaptedChange } = await import('../discretization.svelte');
 const { resultsStore } = await import('../results.svelte');
 
 async function settle() {
@@ -177,6 +177,80 @@ describe('discretization store', () => {
     expect(discretizationStore.study.status).toBe('idle');
     expect(discretizationStore.studyFinishing).toBe(false);
     expect(discretizationStore.canRunStudy()).toBe(true);
+  });
+
+  it('runs the adaptive refinement on demand, keeps its report without the refined model, and drops it on a re-solve', async () => {
+    wire = { quads: { 3: {} } };
+    const base = { displacements: [], reactions: [], elementForces: [] } as never;
+    discretizationStore.track(base, '3d');
+    resultsStore.setResults3D(base);
+    await settle();
+    expect(discretizationStore.adaptive.status).toBe('idle');
+    expect(discretizationStore.canRunAdaptive()).toBe(true);
+    const report = {
+      certified: false, status: 'converged', estimate, caveats: ['supportsInferred'], supportsInferred: 2,
+      passes: [{ shellElements: 1, nodes: 4, hangingNodes: 0, relativeError: 0.08, marked: 1 }, { shellElements: 4, nodes: 9, hangingNodes: 0, relativeError: 0.03, marked: 0 }],
+      quantities: [{ quantity: 'maxDisplacement', model: 1, adapted: 1.1 }],
+    };
+    runCertify.mockImplementationOnce(async () => ({ ...report, input: { quads: { 9: {} } } }) as never);
+    const running = discretizationStore.runAdaptive(0.04);
+    expect(discretizationStore.adaptive.status).toBe('running');
+    expect(discretizationStore.studyFinishing).toBe(false);
+    expect(discretizationStore.canRunStudy()).toBe(false);
+    expect(discretizationStore.canRunAdaptive()).toBe(false);
+    await running;
+    expect(runCertify).toHaveBeenLastCalledWith('adapt_mesh_3d', [wire, { target: 0.04 }]);
+    const a = discretizationStore.adaptive;
+    expect(a.status).toBe('done');
+    if (a.status !== 'done') return;
+    expect(a.report).toEqual(report);
+    expect('input' in a.report).toBe(false);
+    expect(discretizationStore.canRunStudy()).toBe(true);
+
+    discretizationStore.track(base, '3d');
+    expect(discretizationStore.adaptive.status).toBe('idle');
+  });
+
+  it('reports an adaptive refinement the engine refuses, and discards one a re-solve superseded', async () => {
+    wire = { quads: { 3: {} } };
+    const base = { displacements: [], reactions: [], elementForces: [] } as never;
+    discretizationStore.track(base, '3d');
+    resultsStore.setResults3D(base);
+    await settle();
+    runCertify.mockImplementationOnce(async () => { throw new Error('constraints'); });
+    await discretizationStore.runAdaptive(0.05);
+    expect(discretizationStore.adaptive).toEqual({ status: 'failed', reason: 'constraints' });
+
+    let finish!: (v: unknown) => void;
+    runCertify.mockImplementationOnce(() => new Promise((r) => { finish = r; }) as never);
+    const running = discretizationStore.runAdaptive(0.05);
+    const next = { displacements: [], reactions: [], elementForces: [] } as never;
+    discretizationStore.track(next, '3d');
+    resultsStore.setResults3D(next);
+    await settle();
+    expect(discretizationStore.adaptive.status).toBe('idle');
+    expect(discretizationStore.canRunAdaptive()).toBe(false);
+    const calls = runCertify.mock.calls.length;
+    await discretizationStore.runAdaptive(0.05);
+    expect(runCertify.mock.calls.length).toBe(calls);
+    finish({ certified: false, status: 'converged', passes: [], quantities: [], caveats: [], input: {} });
+    await running;
+    expect(discretizationStore.adaptive.status).toBe('idle');
+    expect(discretizationStore.canRunAdaptive()).toBe(true);
+  });
+
+  it('takes an adaptive target between 0.1 % and 50 %, and reads how far a quantity moved', () => {
+    expect(adaptiveTarget(5)).toBe(0.05);
+    expect(adaptiveTarget(0.1)).toBe(0.001);
+    expect(adaptiveTarget(50)).toBe(0.5);
+    for (const bad of [0, 0.09, 50.1, -1, NaN, Infinity]) expect(adaptiveTarget(bad)).toBeNull();
+    expect(adaptedChange(1, 1.25)).toBeCloseTo(0.2);
+    expect(adaptedChange(-1, -0.8)).toBeCloseTo(0.25);
+    expect(adaptedChange(0, 0)).toBe(0);
+    expect(adaptedChange(1, 0)).toBeNull();
+    expect(adaptedChange(1, null)).toBeNull();
+    expect(adaptedChange(1, undefined)).toBeNull();
+    expect(adaptedChange(NaN, 1)).toBeNull();
   });
 
   it('prints a percentage below 0.01 % as such, never as ~0.00 %', () => {

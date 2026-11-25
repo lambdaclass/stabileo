@@ -59,6 +59,11 @@ describe('discretization error', () => {
     expect(Object.keys(out.input.nodes)).toHaveLength(last.nodes);
     expect(last.shellElements).toBeGreaterThan(16);
 
+    const moved = out.quantities.find((q: { quantity: string }) => q.quantity === 'maxDisplacement');
+    expect(moved.model).toBeGreaterThan(0);
+    expect(moved.adapted).toBeGreaterThan(0);
+    expect(Math.abs(moved.adapted - moved.model) / moved.adapted).toBeLessThan(0.2);
+
     const again = callCertify('estimate_discretization_3d', [out.input]);
     expect(again.relativeError).toBe(out.estimate.relativeError);
     expect(again.elements).toHaveLength(last.shellElements);

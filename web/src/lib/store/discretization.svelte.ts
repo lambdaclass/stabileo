@@ -69,6 +69,29 @@ export interface ConvergenceStudy {
   supportsInferred?: number;
 }
 
+/** The adaptive refinement's report (the refined model itself is not kept). */
+export interface AdaptiveRefinement {
+  certified: false;
+  status: 'converged' | 'passLimit' | 'elementLimit' | 'unestimable' | 'nothingToRefine';
+  estimate: DiscretizationEstimate;
+  passes: Array<{ shellElements: number; nodes: number; hangingNodes: number; relativeError?: number | null; marked: number }>;
+  quantities: Array<{ quantity: QuantityConvergence['quantity']; nodeId?: number; model: number; adapted?: number | null }>;
+  caveats: string[];
+  supportsInferred?: number;
+}
+
+/** The target the adaptive refinement is asked for, from the percentage typed: 0.1 % to 50 %, else none. */
+export function adaptiveTarget(percent: number): number | null {
+  return Number.isFinite(percent) && percent >= 0.1 && percent <= 50 ? percent / 100 : null;
+}
+
+/** How far a governing quantity moved from the model to the refined mesh, relative to the refined value. */
+export function adaptedChange(model: number, adapted: number | null | undefined): number | null {
+  if (adapted == null || !Number.isFinite(adapted) || !Number.isFinite(model)) return null;
+  if (adapted === 0) return model === 0 ? 0 : null;
+  return Math.abs(adapted - model) / Math.abs(adapted);
+}
+
 /**
  * What the panel may claim about an estimate (pure, so each claim is tested): a percentage only
  * when one was estimated; "members are exact" only when the engine says so for every member AND
@@ -157,8 +180,15 @@ type Study =
   | { status: 'done'; study: ConvergenceStudy }
   | { status: 'failed'; reason: string };
 
+type Adaptive =
+  | { status: 'idle' }
+  | { status: 'running' }
+  | { status: 'done'; report: AdaptiveRefinement }
+  | { status: 'failed'; reason: string };
+
 const ESTIMATE_EXPORT = 'estimate_discretization_3d';
 const STUDY_EXPORT = 'convergence_study_3d';
+const ADAPT_EXPORT = 'adapt_mesh_3d';
 const SETTLE_MS = 300;
 /** The dimension of the solves this store estimates (shells exist in 3D only). */
 const SPACE = '3d' as const;
@@ -193,6 +223,7 @@ function hasShells(wire: Record<string, any>): boolean {
 function createDiscretizationStore() {
   let estimate = $state<Estimate>({ status: 'idle' });
   let study = $state<Study>({ status: 'idle' });
+  let adaptive = $state<Adaptive>({ status: 'idle' });
   /** Paint shells by their element error indicator. */
   let showMap = $state(false);
   let input: CertifiableInput | null = null;
@@ -232,10 +263,11 @@ function createDiscretizationStore() {
   return {
     get estimate() { return estimate; },
     get study() { return study; },
+    get adaptive() { return adaptive; },
     get showMap() { return showMap; },
     get idleReason() { return idleWhy; },
     /** A superseded convergence check still running: no new one until it ends. */
-    get studyFinishing() { return studyInFlight && study.status !== 'running'; },
+    get studyFinishing() { return studyInFlight && study.status !== 'running' && adaptive.status !== 'running'; },
     /** Whether the error map may take over the viewport: switched on, and an estimate to draw. */
     mapActive(): boolean { return showMap && mapDrawable(estimate) && this.applies(); },
     set showMap(v: boolean) { showMap = v; },
@@ -245,6 +277,7 @@ function createDiscretizationStore() {
       generation++;
       if (timer !== null) { clearTimeout(timer); timer = null; }
       study = { status: 'idle' };
+      adaptive = { status: 'idle' };
       input = null;
       estimated = null;
       const pub = generation;
@@ -291,6 +324,31 @@ function createDiscretizationStore() {
         studyInFlight = false;
       }
       if (gen === generation) study = next;
+    },
+
+    canRunAdaptive(): boolean {
+      return input !== null && this.applies() && hasCertify(ADAPT_EXPORT) && !studyInFlight;
+    },
+
+    /**
+     * Refine the mesh where the estimate is largest and re-solve, down to `target` (a fraction).
+     * Shares the convergence check's one-at-a-time rule: both re-solve the model many times.
+     */
+    async runAdaptive(target: number): Promise<void> {
+      if (!input || !this.applies() || studyInFlight) return;
+      const gen = generation;
+      adaptive = { status: 'running' };
+      studyInFlight = true;
+      let next: Adaptive;
+      try {
+        const { input: _refined, ...report } = await runCertify(ADAPT_EXPORT, [input.wire(), { target }]);
+        next = { status: 'done', report };
+      } catch (e) {
+        next = { status: 'failed', reason: errorText(e, 'error') };
+      } finally {
+        studyInFlight = false;
+      }
+      if (gen === generation) adaptive = next;
     },
 
     /** The scale of the error map (%): 0 to the larger of twice the threshold and the largest value. */

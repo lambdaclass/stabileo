@@ -1510,6 +1510,18 @@ fn adaptive_refinement_reaches_the_target_with_far_fewer_elements_than_uniform()
 
     let again = adapt_3d(&coarse, &options).unwrap();
     assert!(same_model(&out.input, &again.input));
+
+    let max_node = coarse.nodes.values().map(|n| n.id).max().unwrap();
+    let (first, last) = (governing(&coarse, &solve(&coarse), max_node), governing(&out.input, &solve(&out.input), max_node));
+    assert_eq!(out.quantities.len(), first.len());
+    assert!(out.quantities.iter().any(|q| q.quantity == "maxDisplacement") && out.quantities.iter().any(|q| q.quantity == "reaction" && q.node_id.is_some()));
+    for q in &out.quantities {
+        let key = (q.quantity.clone(), first.keys().find(|k| k.0 == q.quantity && (q.node_id.is_none() || q.node_id == Some(k.1))).unwrap().1);
+        assert_eq!(q.model, first[&key], "{}", q.quantity);
+        assert_eq!(q.adapted, last.get(&key).copied(), "{}", q.quantity);
+    }
+    let moved = out.quantities.iter().find(|q| q.quantity == "maxDisplacement").unwrap();
+    assert!(moved.adapted.unwrap() > moved.model, "the coarse membrane is too stiff: {moved:?}");
 }
 
 #[test]
@@ -1534,6 +1546,7 @@ fn adaptive_refinement_stops_at_its_limits_and_says_which() {
     let already = adapt_3d(&coarse, &AdaptOptions { target: 0.9, ..tight.clone() }).unwrap();
     assert_eq!((already.status.as_str(), already.passes.len()), ("converged", 1));
     assert!(same_model(&already.input, &coarse));
+    assert!(!already.quantities.is_empty() && already.quantities.iter().all(|q| q.adapted == Some(q.model)));
 
     let single = square_plate(Fam::Mitc4, 1, true).input;
     let lone = adapt_3d(&single, &tight).unwrap();

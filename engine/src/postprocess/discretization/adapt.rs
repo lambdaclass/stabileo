@@ -11,6 +11,7 @@ use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};
 
+use super::convergence::governing;
 use super::refine::{hanging_nodes, refine_marked, ElementKey, GeometryMode};
 use super::{estimate_3d, DiscretizationEstimate, DEFAULT_THRESHOLD};
 use crate::types::*;
@@ -52,6 +53,19 @@ pub struct AdaptPass {
     pub marked: usize,
 }
 
+/// A governing quantity (see `convergence`) on the model as given and on the last one solved.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdaptedQuantity {
+    pub quantity: String,
+    /// The first node of the support group, for a reaction.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub node_id: Option<usize>,
+    pub model: f64,
+    /// None when the quantity did not carry over to the refined mesh.
+    pub adapted: Option<f64>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Adapted {
@@ -62,6 +76,7 @@ pub struct Adapted {
     /// The estimate of that model.
     pub estimate: DiscretizationEstimate,
     pub passes: Vec<AdaptPass>,
+    pub quantities: Vec<AdaptedQuantity>,
     /// `converged` (the estimate is at or under the target), `passLimit`, `elementLimit`,
     /// `unestimable` (see the estimate's `unestimableReason`) or `nothingToRefine` (over the
     /// target with no element the estimator can point at).
@@ -119,9 +134,22 @@ pub fn adapt_3d(input: &SolverInput3D, options: &AdaptOptions) -> Result<Adapted
     let mut passes = Vec::new();
     let mut caveats: Vec<String> = Vec::new();
     let mut supports_inferred = 0;
+    let original_max_node = input.nodes.values().map(|n| n.id).max().unwrap_or(0);
+    let mut as_given = None;
     loop {
         let results = crate::solver::linear::solve_3d(&model)?;
         let estimate = estimate_3d(&model, &results)?;
+        let now = governing(&model, &results, original_max_node);
+        let quantities: Vec<AdaptedQuantity> = as_given
+            .get_or_insert_with(|| now.clone())
+            .iter()
+            .map(|(key, &model)| AdaptedQuantity {
+                quantity: key.0.clone(),
+                node_id: (key.0 == "reaction").then_some(key.1),
+                model,
+                adapted: now.get(key).copied().filter(|v| v.is_finite()),
+            })
+            .collect();
         let mut pass = AdaptPass {
             shell_elements: shell_elements(&model),
             nodes: model.nodes.len(),
@@ -131,7 +159,7 @@ pub fn adapt_3d(input: &SolverInput3D, options: &AdaptOptions) -> Result<Adapted
         };
         let done = |status: &str, pass: AdaptPass, mut passes: Vec<AdaptPass>, model: SolverInput3D, caveats: Vec<String>| {
             passes.push(pass);
-            Ok(Adapted { certified: false, input: model, estimate: estimate.clone(), passes, status: status.into(), caveats, supports_inferred })
+            Ok(Adapted { certified: false, input: model, estimate: estimate.clone(), passes, quantities: quantities.clone(), status: status.into(), caveats, supports_inferred })
         };
         let Some(relative_error) = estimate.relative_error else {
             return done("unestimable", pass, passes, model, caveats);
