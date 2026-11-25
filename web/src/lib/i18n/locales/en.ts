@@ -4333,6 +4333,7 @@ const en: Record<string, string> = {
   "svc.engine.invalidSelfWeightGroup": "Self-weight group {id} is missing or has invalid membership. Restore the group and its membership or change the self-weight target.",
   "svc.engine.invalidDensity": "Enter a finite, nonnegative density (rho) for material {id} (received {value}).",
   "svc.engine.nonnegativeMassDensity": "Mass density must be finite and nonnegative",
+  "svc.engine.invalidInputField": "Field {path} is missing or has an unsupported value.",
   "svc.engine.nonFiniteNumber": "Enter a finite number for {path} (received {value}).",
   'svc.engine.zeroDiagonal': "All diagonal entries are zero: singular matrix",
   'svc.engine.singular': "Singular stiffness matrix",

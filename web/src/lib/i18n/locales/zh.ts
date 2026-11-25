@@ -4128,6 +4128,7 @@ const zh: Translations = {
   "svc.engine.invalidSelfWeightGroup": "自重组 {id} 不存在，或其成员列表无效。请恢复该组及其成员列表，或更改自重的作用对象。",
   "svc.engine.invalidDensity": "请为材料 {id} 输入有限且非负的密度 (rho)（收到的值为 {value}）。",
   "svc.engine.nonnegativeMassDensity": "质量密度必须有限且非负",
+  "svc.engine.invalidInputField": "字段 {path} 缺失或包含不受支持的值。",
   "svc.engine.nonFiniteNumber": "请为 {path} 输入有限数值（收到的值为 {value}）。",
   "svc.engine.ambiguousRollerZ": "rollerZ 在三维模型中的约束方向不明确。请明确指定三维约束后再求解。",
   "svc.engine.zeroDiagonal": "所有对角元素均为零：矩阵奇异",

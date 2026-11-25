@@ -55,7 +55,7 @@ import { axialShares, combineShares, giveBackAxialShares } from './axial-shares'
 import { addSettlementCase, addSettlementCase2D, hasSettlement, withoutSettlement, SETTLEMENT_CASE_ID } from './settlement-case';
 import { memberAlphaOf, thermalAlphaOf, ENGINE_ALPHA } from './thermal-alpha';
 import { pointToSolver, pointToEnds, PointLoadNeedsCut, planePointLoad3D, pointWithCoupleToEnds, planarMoment3D, planarPointOrigin, requirePlanarNodalMoment, requirePlanarPointMoment, PlanarLoadMomentError, type PlanePointLoadLike } from './member-point-loads';
-import { ModelInputError, modelNumberRefusal, requireLoadNumbers, requireModelNumbers } from './model-input-numbers';
+import { ModelInputError, modelNumberRefusal, requireLoadInput, requireModelNumbers } from './model-input-numbers';
 import { planarPointMomentWithoutProjection, planarPointProjectionTooShort } from './planar-point-load';
 import { planarLoadDirection } from './planar-load-direction';
 import { prestressToSolver } from './prestress';
@@ -285,7 +285,7 @@ class PlaneSelfWeightError extends Error {}
 function buildSolverLoads2D(
   model: ModelData, input: SolverInput, loads: Load[], weights: readonly SelfWeightLoad[], caseIds?: readonly number[],
 ): SolverInput['loads'] {
-  requireLoadNumbers(loads);
+  requireLoadInput(loads);
   const projection = model[accountingProjection];
   const originals = loadCaseBatches(projection?.source.loads.filter(load => load.type.endsWith('3d')) ?? []);
   const batches = loadCaseBatches(loads, caseIds ?? [...originals.keys()]);
@@ -1581,7 +1581,7 @@ export function buildSolverLoads3D(
   opts: { forcesOnly?: boolean; record?: RecordLoadCase<SolverLoad3D> } = {},
 ): SolverLoad3D[] {
   const leftHand = false;
-  requireLoadNumbers(loads);
+  requireLoadInput(loads);
   const solverLoads: SolverLoad3D[] = [];
   const project2DToXZ = shouldEmbedFlat2DModelIn3D(model);
   const refOf = (id: number) => memberRef3D(model, id, project2DToXZ);

@@ -3929,6 +3929,7 @@ const fr: Translations = {
   "svc.engine.invalidSelfWeightGroup": "Le groupe de poids propre {id} est absent ou sa liste d’éléments est invalide. Rétablissez le groupe et ses éléments ou modifiez la cible du poids propre.",
   "svc.engine.invalidDensity": "Saisissez une masse volumique (rho) finie et positive ou nulle pour le matériau {id} (valeur reçue : {value}).",
   "svc.engine.nonnegativeMassDensity": "La masse volumique doit être finie et positive ou nulle",
+  "svc.engine.invalidInputField": "Le champ {path} est manquant ou contient une valeur non prise en charge.",
   "svc.engine.nonFiniteNumber": "Saisissez un nombre fini pour {path} (valeur reçue : {value}).",
   'svc.engine.zeroDiagonal': 'Tous les termes diagonaux sont nuls : matrice singulière',
   'svc.engine.singular': 'Matrice de rigidité singulière',

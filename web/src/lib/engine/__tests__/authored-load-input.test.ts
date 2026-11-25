@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { modelFeatures } from '../../provenance/model-features';
 import { modelStore, uiStore } from '../../store';
 import type { Load } from '../../store/model.svelte';
 import { loadFixture, type JSONModel } from '../../templates/load-fixture';
@@ -79,7 +80,7 @@ function spaceEntries() {
   };
 }
 
-describe.runIf(process.env.STABILEO_REPRODUCE_AUTHORED_LOADS === '1')('known wrong result: cause:A', () => {
+describe('malformed authored loads', () => {
   it.each([
     ['unknown discriminator', { type: 'futureLoad', data: {} }, 'loads[0].type'],
     ['missing discriminator', { data: {} }, 'loads[0].type'],
@@ -175,6 +176,7 @@ describe.runIf(process.env.STABILEO_REPRODUCE_AUTHORED_LOADS === '1')('known wro
       frame: 'futureFrame',
     } }] as unknown as typeof snapshot.loads;
     modelStore.restore(snapshot);
+    expect(modelFeatures(modelStore.snapshot()).has('malformedAuthoredLoad')).toBe(true);
     await refuses('loads[0].data.frame', {
       'restore and solve': () => modelStore.solve3D(false, false, true),
     });
@@ -188,9 +190,15 @@ it('preserves a complete spatial force through Basic XZ projection and P-Delta',
   } });
   const result = await modelStore.solveAsync(false, 'xz');
   expect(result).toMatchObject({ reactions: [{ rz: force, my: expect.closeTo(force * length, 12) }] });
-  expect(solvePDelta(modelStore.buildSolverInput(false, 'xz')!)).toMatchObject({
-    converged: true, results: { reactions: [{ rz: force }] },
+  const projected = modelStore.buildSolverInput(false, 'xz')!;
+  const control = solvePDelta({
+    ...projected,
+    loads: [{ type: 'nodal', data: { nodeId: tip, fx: 0, fz: -force, my: 0 } }],
   });
+  expect(solvePDelta(projected)).toMatchObject({
+    converged: true, results: { reactions: control.results.reactions },
+  });
+  expect(modelFeatures(modelStore.snapshot()).has('malformedAuthoredLoad')).toBe(false);
 });
 
 it.each([undefined, 'local', 'global', 'projected'] as const)(

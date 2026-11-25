@@ -3699,6 +3699,7 @@ const hu: Translations = {
   "svc.engine.invalidSelfWeightGroup": "A(z) {id} önsúlycsoport hiányzik, vagy érvénytelen a taglistája. Állítsa vissza a csoportot és a taglistáját, vagy módosítsa az önsúly célját.",
   "svc.engine.invalidDensity": "Adjon meg véges, nemnegatív sűrűséget (rho) a(z) {id}. anyaghoz (kapott érték: {value}).",
   "svc.engine.nonnegativeMassDensity": "A tömegsűrűségnek végesnek és nemnegatívnak kell lennie",
+  "svc.engine.invalidInputField": "A(z) {path} mező hiányzik vagy nem támogatott értéket tartalmaz.",
   "svc.engine.nonFiniteNumber": "Adjon meg véges számot itt: {path} (kapott érték: {value}).",
   "svc.engine.zeroDiagonal": "Minden átlóelem nulla: szinguláris mátrix",
   "svc.engine.singular": "Szinguláris merevségi mátrix",

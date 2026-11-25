@@ -3938,6 +3938,7 @@ const tr: Translations = {
   "svc.engine.invalidSelfWeightGroup": "Öz ağırlık grubu {id} eksik veya üye listesi geçersiz. Grubu ve üye listesini geri yükleyin ya da öz ağırlığın hedefini değiştirin.",
   "svc.engine.invalidDensity": "{id} numaralı malzeme için sonlu ve negatif olmayan bir yoğunluk (rho) girin (alınan değer: {value}).",
   "svc.engine.nonnegativeMassDensity": "Kütle yoğunluğu sonlu ve negatif olmayan bir değer olmalıdır",
+  "svc.engine.invalidInputField": "{path} alanı eksik veya desteklenmeyen bir değer içeriyor.",
   "svc.engine.nonFiniteNumber": "{path} alanına sonlu bir sayı girin (alınan değer: {value}).",
   'svc.engine.zeroDiagonal': 'Köşegen terimlerin tümü sıfır: tekil matris',
   'svc.engine.singular': 'Tekil rijitlik matrisi',

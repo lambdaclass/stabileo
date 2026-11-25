@@ -70,23 +70,60 @@ export function invalidPlanarPointTorsion(mx: unknown): boolean {
   return mx !== undefined && mx !== 0;
 }
 
-export function requireLoadNumbers(loads: readonly Load[]): void {
+class InvalidAuthoredLoadField extends ModelInputError {
+  constructor(path: string) {
+    super(tp('svc.engine.invalidInputField', { path }));
+  }
+}
+
+function requireInputField(path: string, valid: boolean): asserts valid {
+  if (!valid) throw new InvalidAuthoredLoadField(path);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isLoadType(type: unknown): type is Load['type'] {
+  return typeof type === 'string' && Object.hasOwn(loadFields, type);
+}
+
+function requireLoadSelectors(path: string, type: Load['type'], data: Record<string, unknown>): void {
+  if (type === 'distributed' || type === 'pointOnElement') {
+    const { isGlobal } = data;
+    requireInputField(`${path}.isGlobal`, isGlobal === undefined || typeof isGlobal === 'boolean');
+  }
+  if (type === 'distributed3d' || type === 'pointOnElement3d' || type === 'surface3d') {
+    const { frame } = data;
+    requireInputField(`${path}.frame`, frame === undefined || frame === 'local' || frame === 'global'
+      || (frame === 'projected' && type !== 'pointOnElement3d'));
+  }
+  if (type === 'surface3d' || type === 'thermalQuad3d') {
+    requireInputField(`${path}.on`, data.on === undefined || data.on === 'plate');
+  }
+}
+
+export function requireLoadInput(loads: readonly unknown[]): void {
   for (const [i, load] of loads.entries()) {
-    const path = `loads[${i}].data`;
-    const { data } = load;
-    recordNumbers(path, data, loadFields[load.type]);
+    const row = `loads[${i}]`;
+    requireInputField(`${row}.type`, isRecord(load) && isLoadType(load.type));
+    const path = `${row}.data`;
+    const { type, data } = load;
+    requireInputField(path, isRecord(data));
+    requireLoadSelectors(path, type, data);
+    recordNumbers(path, data, loadFields[type]);
     recordNumbers(path, data, { required: [], optional: ['id', 'caseId'] });
-    if (load.type === 'pointOnElement') {
-      const mx = (data as { mx?: unknown }).mx;
+    if (type === 'pointOnElement') {
+      const { mx } = data;
       if (invalidPlanarPointTorsion(mx)) {
         const field = `${path}.mx`;
         numberAt(field, mx);
         throw new ModelInputError(`${t('svc.engine.unsupportedPointLoadMoment')} ${field}: ${t('svc.engine.applyPointLoadMomentAtNode')}`);
       }
     }
-    if (load.type === 'nodal') numberAt(`${path}.fz/fy`, load.data.fz ?? load.data.fy);
-    if (load.type === 'surface3d') {
-      const { dir, qNodes, vary, region } = load.data;
+    if (type === 'nodal') numberAt(`${path}.fz/fy`, data.fz ?? data.fy);
+    if (type === 'surface3d') {
+      const { dir, qNodes, vary, region } = data as Partial<Extract<Load, { type: 'surface3d' }>['data']>;
       if (dir !== undefined) vector(`${path}.dir`, dir);
       if (qNodes !== undefined) arrayOf(`${path}.qNodes`, qNodes, numberAt);
       if (vary !== undefined) {
@@ -104,8 +141,26 @@ export function requireLoadNumbers(loads: readonly Load[]): void {
   }
 }
 
+function loadInputError(loads: readonly unknown[]): ModelInputError | null {
+  try {
+    requireLoadInput(loads);
+    return null;
+  } catch (error) {
+    if (error instanceof ModelInputError) return error;
+    throw error;
+  }
+}
+
+export function loadInputRefusal(loads: readonly unknown[]): string | null {
+  return loadInputError(loads)?.message ?? null;
+}
+
+export function hasMalformedAuthoredLoad(loads: readonly unknown[]): boolean {
+  return loadInputError(loads) instanceof InvalidAuthoredLoadField;
+}
+
 export function requireModelNumbers(model: ModelData): void {
-  requireLoadNumbers(model.loads);
+  requireLoadInput(model.loads);
   for (const [id, support] of model.supports) {
     const path = `supports.${id}`;
     recordNumbers(path, support, supportFields);

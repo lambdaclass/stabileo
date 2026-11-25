@@ -8380,6 +8380,7 @@ const pt: Translations = {
   "svc.engine.invalidSelfWeightGroup": "O grupo de peso próprio {id} não existe ou tem uma lista de elementos inválida. Restaure o grupo e os seus elementos ou altere o alvo do peso próprio.",
   "svc.engine.invalidDensity": "Insira uma densidade (rho) finita e não negativa para o material {id} (valor recebido: {value}).",
   "svc.engine.nonnegativeMassDensity": "A massa específica deve ser finita e não negativa",
+  "svc.engine.invalidInputField": "O campo {path} está ausente ou contém um valor não aceito.",
   "svc.engine.nonFiniteNumber": "Insira um número finito em {path} (valor recebido: {value}).",
   'svc.engine.zeroDiagonal': "Todas as entradas da diagonal são zero: matriz singular",
   'svc.engine.singular': "Matriz de rigidez singular",

@@ -4326,6 +4326,7 @@ const es: Record<string, string> = {
   "svc.engine.invalidSelfWeightGroup": "El grupo de peso propio {id} no existe o tiene una lista de integrantes inválida. Restaurá el grupo y sus integrantes o cambiá el destino del peso propio.",
   "svc.engine.invalidDensity": "Ingresá un valor de densidad (rho) finito y no negativo para el material {id} (valor recibido: {value}).",
   "svc.engine.nonnegativeMassDensity": "La densidad de masa debe ser finita y no negativa",
+  "svc.engine.invalidInputField": "Falta el campo {path} o su valor no es compatible.",
   "svc.engine.nonFiniteNumber": "Ingresá un número finito en {path} (valor recibido: {value}).",
   'svc.engine.zeroDiagonal': "Todas las entradas de la diagonal son cero: matriz singular",
   'svc.engine.singular': "Matriz de rigidez singular",
