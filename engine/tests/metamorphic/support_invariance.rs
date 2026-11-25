@@ -54,7 +54,6 @@ fn assert_equivalent_planar_supports(shared: &Case2, canonical: &Case2) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1192"]
 fn issue_1192_pinned_and_roller_supports_rotate_as_one_restraint() {
     let model = include_str!("../metamorphic_corpus/nightly/issue-1192.json");
     let case = Case2::new("issue-1192", serde_json::from_str(model).unwrap());
@@ -99,7 +98,6 @@ fn loaded_planar_case() -> Case2 {
 }
 
 #[test]
-#[ignore = "known wrong result: #1192"]
 fn perpendicular_planar_rollers_match_a_pin_before_and_after_rotation() {
     let mut rollers = loaded_planar_case();
     let mut pin = rollers.clone();

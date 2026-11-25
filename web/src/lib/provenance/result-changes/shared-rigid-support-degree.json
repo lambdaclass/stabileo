@@ -40,10 +40,10 @@
     "tr": "Bir düğümde birden çok rijit mesnet varsa kısıtlanan her serbestlik derecesi bir kez sayılır. Bu modellerin hiperstatiklik derecesini, sınıflandırmasını ve tanısını yeniden kontrol edin.",
     "zh": "同一节点上有多个刚性支座时，每个受约束的自由度只计一次。请重新检查这些模型的超静定次数、分类和诊断。",
     "ar": "عند وجود عدة مساند صلبة في العقدة نفسها، تُحتسب كل درجة حرية مقيدة مرة واحدة. أعد التحقق من درجة عدم التحديد الساكن والتصنيف والتشخيص لهذه النماذج.",
-    "hi": "जब एक नोड पर कई कठोर आधार होते हैं, तो हर बाधित स्वतंत्रता कोटि को एक बार गिना जाता है। इन मॉडलों में स्थैतिक अनिश्चितता की डिग्री, वर्गीकरण और निदान की फिर से जाँच करें।",
+    "hi": "जब एक नोड पर कई कठोर आधार होते हैं, तो हर बाधित स्वतंत्रता कोटि को एक बार गिना जाता है। इन मॉडलों में स्थैतिक अनिर्धार्यता की कोटि, वर्गीकरण और निदान की फिर से जाँच करें।",
     "id": "Jika beberapa tumpuan kaku berada pada satu simpul, setiap derajat kebebasan yang terkekang dihitung satu kali. Periksa kembali derajat hiperstatis, klasifikasi, dan diagnosis model tersebut.",
     "it": "Quando più vincoli rigidi condividono un nodo, ogni grado di libertà vincolato viene contato una sola volta. Ricontrollare il grado di iperstaticità, la classificazione e la diagnosi di questi modelli.",
-    "ja": "同じ節点に複数の剛な支持がある場合、拘束された各自由度は一度だけ数えます。該当するモデルの超静定次数、分類、診断を再確認してください。",
+    "ja": "同じ節点に複数の剛な支持がある場合、拘束された各自由度は一度だけ数えます。該当するモデルの不静定次数、分類、診断を再確認してください。",
     "ko": "한 절점에 여러 강체 지지가 있으면 각 구속 자유도를 한 번만 계산합니다. 해당 모델의 부정정 차수, 분류, 진단을 다시 확인하세요.",
     "ru": "Если несколько жёстких опор находятся в одном узле, каждая закреплённая степень свободы учитывается один раз. Перепроверьте степень статической неопределимости, классификацию и диагностику этих моделей."
   },
