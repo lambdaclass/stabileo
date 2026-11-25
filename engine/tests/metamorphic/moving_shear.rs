@@ -39,28 +39,34 @@ fn minimum_shear(
             .map(|axle| (ref_pos + axle.offset, axle.weight))
             .filter(|(x, _)| (0.0..=length).contains(x))
             .collect();
-        let mut cuts = vec![start, end];
-        cuts.extend(
-            axles
-                .iter()
-                .map(|&(x, _)| x)
-                .filter(|&x| start < x && x < end),
-        );
-        cuts.sort_by(f64::total_cmp);
-        let tip = reaction(
-            axles
-                .iter()
-                .map(|&(x, weight)| weight * tip_flexibility(x, length, 1.0))
-                .sum(),
-        );
-        for interval in cuts.windows(2) {
-            let cut = (interval[0] + interval[1]) / 2.0;
-            let downward = axles
-                .iter()
-                .filter(|&&(x, _)| x > cut)
-                .map(|&(_, weight)| weight)
-                .sum::<f64>();
-            minimum = minimum.min(downward - tip);
+        for side in [-1, 0, 1] {
+            let active: Vec<_> = axles.iter().copied()
+                .filter(|&(x, _)| (side >= 0 || x != 0.0) && (side <= 0 || x != length))
+                .collect();
+            let mut cuts = vec![start, end];
+            cuts.extend(active.iter().map(|&(x, _)| x).filter(|&x| start < x && x < end));
+            cuts.sort_by(f64::total_cmp);
+            let tip = reaction(
+                active.iter()
+                    .map(|&(x, weight)| weight * tip_flexibility(x, length, 1.0))
+                    .sum(),
+            );
+            let shear = |cut, includes_joint| {
+                active.iter()
+                    .filter(|&&(x, _)| x > cut || (includes_joint && x == cut))
+                    .map(|&(_, weight)| weight)
+                    .sum::<f64>() - tip
+            };
+            for interval in cuts.windows(2) {
+                let cut = (interval[0] + interval[1]) / 2.0;
+                minimum = minimum.min(shear(cut, false));
+            }
+            if side > 0 && active.iter().any(|&(x, _)| x == start) {
+                minimum = minimum.min(shear(start, true));
+            }
+            if side < 0 && active.iter().any(|&(x, _)| x == end) {
+                minimum = minimum.min(shear(end, false));
+            }
         }
     }
     minimum
@@ -216,8 +222,8 @@ fn issue_2104_cumulative_station_resolves_both_sides_of_a_joint() {
     let ids = Some(vec![1, 2, 3]);
 
     for (station, expected) in [
-        (2.0 - 16.0 * f64::EPSILON, [0.0, 0.0]),
-        (2.0 + 16.0 * f64::EPSILON, [0.0, 0.0]),
+        (2.0 - 16.0 * f64::EPSILON, [weight, weight]),
+        (2.0 + 16.0 * f64::EPSILON, [weight, weight]),
         (2.0 - 17.0 * f64::EPSILON, [weight, 0.0]),
         ((2.0 + 16.0 * f64::EPSILON).next_up(), [0.0, weight]),
     ] {
@@ -303,7 +309,6 @@ fn review_beam(length: f64) -> SolverInput {
 }
 
 #[test]
-#[ignore = "known wrong result: #2101"]
 fn issue_2101_shear_limits_at_both_support_faces() {
     use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
 
@@ -343,7 +348,6 @@ fn issue_2101_shear_limits_at_both_support_faces() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2104"]
 fn issue_2104_a_joint_axle_governs_both_adjacent_members() {
     use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
 
@@ -390,7 +394,7 @@ fn issue_2104_a_joint_axle_governs_both_adjacent_members() {
     assert_force(p.elements["1"].v_max_neg, -2.0 * weight);
     assert_force(p.elements["2"].v_max_pos, 2.0 * weight);
     assert_force(s.elements["1"].vz_max_neg, -2.0 * weight);
-    assert_force(s.elements["2"].vz_max_pos, 2.0 * weight);
+    assert_force(s.elements["2"].vz_max_neg, -2.0 * weight);
 }
 
 #[test]
@@ -555,4 +559,38 @@ fn review_2104_reversed_interior_axle_cancels_coincident_load() {
     let actual = &spatial(weight).elements["2"];
     assert_force(actual.vz_max_neg, reference.vz_max_neg);
     assert_force(actual.vz_max_pos, reference.vz_max_pos);
+}
+
+#[test]
+fn simultaneous_entrance_and_exit_use_the_same_travel_direction() {
+    use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
+
+    let length = 10.0;
+    let weight = 100.0;
+    let solver = review_beam(length);
+    let spatial = embed_2d(&solver, Plane::XZ).unwrap();
+    let train = LoadTrain {
+        name: "axle spacing equals route length".into(),
+        axles: vec![
+            Axle { offset: 0.0, weight },
+            Axle { offset: length, weight },
+        ],
+    };
+    let planar = solve_moving_loads_2d(&MovingLoadInput {
+        solver,
+        train: train.clone(),
+        path_element_ids: Some(vec![1]),
+        step: Some(length),
+    })
+    .unwrap();
+    let spatial = solve_moving_loads_3d(&MovingLoadInput3D {
+        solver: spatial,
+        train,
+        path_element_ids: Some(vec![1]),
+        step: Some(length),
+        gravity_direction: None,
+    })
+    .unwrap();
+    assert_force(planar.elements["1"].v_max_neg, -weight);
+    assert_force(spatial.elements["1"].vz_max_neg, -weight);
 }

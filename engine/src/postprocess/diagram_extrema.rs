@@ -90,6 +90,15 @@ pub(crate) fn uniform_cuts(count: usize) -> impl Iterator<Item = Cut> {
     (0..count).map(move |i| Cut::left(i as f64 / (count - 1) as f64))
 }
 
+pub(crate) fn moving_face_force(interior: f64, local_force: f64, at_end: bool, axial: bool) -> Result<f64, &'static str> {
+    let value = if at_end != axial { interior + local_force } else { interior - local_force };
+    if value.is_finite() {
+        Ok(value)
+    } else {
+        Err("non-finite moving load member diagram")
+    }
+}
+
 #[derive(Clone, Copy)]
 pub(crate) struct PointAction {
     pub a: f64,
@@ -269,7 +278,7 @@ where
         Ok(cuts)
     }
 
-    pub fn interior_range(&self, end: f64) -> Result<(f64, f64), &'static str> {
+    pub fn interior_range(&self, end: f64, face_loads: [f64; 2]) -> Result<(f64, f64), &'static str> {
         let end_jump = self.points.clone().filter(|p| p.a == self.length).map(|p| p.jump).sum::<f64>();
         let end_limit = end - end_jump;
         if !end_limit.is_finite() {
@@ -287,6 +296,20 @@ where
             }
             lo = lo.min(value);
             hi = hi.max(value);
+        }
+        if let Response::Force(sign) = self.response {
+            let [start_load, end_load] = face_loads;
+            if start_load != 0.0 {
+                let interior = self.checked_value(Cut::boundary(0.0, 0.0, true))?;
+                let value = moving_face_force(interior, start_load, false, sign < 0.0)?;
+                lo = lo.min(value);
+                hi = hi.max(value);
+            }
+            if end_load != 0.0 {
+                let value = moving_face_force(end_limit, end_load, true, sign < 0.0)?;
+                lo = lo.min(value);
+                hi = hi.max(value);
+            }
         }
         Ok((lo, hi))
     }

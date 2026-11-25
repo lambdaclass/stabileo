@@ -112,6 +112,138 @@ pub fn reference_positions(
     Ok((0..count).map(move |index| start + index as f64 * step))
 }
 
+#[derive(Clone, Copy)]
+struct RouteSegment {
+    start: f64,
+    end: f64,
+    length: f64,
+    reversed: bool,
+}
+
+enum RouteStation {
+    Interior { segment: usize, a: f64 },
+    Joint(usize),
+}
+
+fn route_station(
+    count: usize,
+    segment: impl Fn(usize) -> RouteSegment,
+    position: f64,
+    scale: f64,
+) -> Result<Option<RouteStation>, &'static str> {
+    if count == 0 {
+        return Ok(None);
+    }
+    let mut range = 0..count;
+    while range.start < range.end {
+        let mid = range.start + (range.end - range.start) / 2;
+        if position > segment(mid).end {
+            range.start = mid + 1;
+        } else {
+            range.end = mid;
+        }
+    }
+    let index = range.start.min(count - 1);
+    let part = segment(index);
+    let a = sampled_axle_station(part.start, part.end, part.length, part.reversed, position, scale)?;
+    Ok(a.map(|a| {
+        if a == 0.0 {
+            RouteStation::Joint(index + usize::from(part.reversed))
+        } else if a == part.length {
+            RouteStation::Joint(index + usize::from(!part.reversed))
+        } else {
+            RouteStation::Interior { segment: index, a }
+        }
+    }))
+}
+
+#[derive(Clone, Copy)]
+struct AxleFace {
+    element: usize,
+    node: usize,
+    at_end: bool,
+    local_force: [f64; 3],
+}
+
+#[derive(Default)]
+struct FaceLoads {
+    start: [f64; 3],
+    end: [f64; 3],
+}
+
+impl FaceLoads {
+    fn include(&mut self, face: AxleFace) {
+        let load = if face.at_end { &mut self.end } else { &mut self.start };
+        for (sum, action) in load.iter_mut().zip(face.local_force) {
+            *sum += action;
+        }
+    }
+
+    fn component(&self, axis: usize) -> [f64; 2] {
+        [self.start[axis], self.end[axis]]
+    }
+}
+
+struct SampleLimit<L> {
+    changes: Vec<(usize, Option<L>)>,
+    faces: HashMap<usize, FaceLoads>,
+}
+
+struct MovingSample<L> {
+    loads: Vec<L>,
+    limits: [SampleLimit<L>; 2],
+}
+
+impl<L: Clone> MovingSample<L> {
+    fn new(loads: Vec<L>) -> Self {
+        Self {
+            loads,
+            limits: std::array::from_fn(|_| SampleLimit { changes: Vec::new(), faces: HashMap::new() }),
+        }
+    }
+
+    fn add_joint(&mut self, faces: [Option<AxleFace>; 2], load_at: impl Fn(usize) -> L) {
+        let Some(node) = faces.iter().flatten().next().map(|face| face.node) else { return };
+        let index = self.loads.len();
+        self.loads.push(load_at(node));
+        for (limit, face) in self.limits.iter_mut().zip(faces) {
+            if let Some(face) = face {
+                limit.faces.entry(face.element).or_default().include(face);
+            }
+            if face.map(|face| face.node) != Some(node) {
+                limit.changes.push((index, face.map(|face| load_at(face.node))));
+            }
+        }
+    }
+
+    fn fold<R>(
+        &self,
+        mut solve: impl FnMut(&[L]) -> Result<R, String>,
+        mut fold: impl FnMut(&R, &HashMap<usize, FaceLoads>, bool) -> Result<(), String>,
+    ) -> Result<(), String> {
+        let exact = solve(&self.loads)?;
+        fold(&exact, &HashMap::new(), false)?;
+        for limit in &self.limits {
+            if limit.changes.is_empty() {
+                if !limit.faces.is_empty() {
+                    fold(&exact, &limit.faces, true)?;
+                }
+                continue;
+            }
+            let mut changes = limit.changes.iter().peekable();
+            let loads: Vec<_> = self.loads.iter().enumerate().filter_map(|(index, load)| {
+                if changes.peek().is_some_and(|(changed, _)| *changed == index) {
+                    changes.next().unwrap().1.clone()
+                } else {
+                    Some(load.clone())
+                }
+            }).collect();
+            fold(&solve(&loads)?, &limit.faces, false)?;
+        }
+        Ok(())
+    }
+}
+
 fn axle_offset_scale(train: &LoadTrain) -> f64 {
     train.axles.iter().map(|axle| axle.offset.abs()).fold(0.0, f64::max)
 }
@@ -147,7 +279,7 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
         });
     }
 
-    // Step through positions
+    let elements = crate::ordered::values(&solver_input.elements).map(|elem| (elem.id, elem)).collect();
     let mut num_positions = 0;
 
     // Prepare the structure once (assembly + factorization of K); each
@@ -170,38 +302,39 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
     for pos in positions {
         num_positions += 1;
 
-        // Build loads for this position
-        let loads = moving_loads_at_position_2d(solver_input, train, &path, pos)?;
-
-        // Every position must solve: skipping a refusal would return an
-        // incomplete envelope, or all zeros if every position failed.
-        let results = match &prepared {
-            Some(p) => p.solve_loads(&loads)?,
-            None => {
-                let mut modified_input = solver_input.clone();
-                modified_input.loads = loads;
-                solve_2d(&modified_input)?
-            }
-        };
-
-        // Update envelopes
-        crate::known_issues::attach(&mut structured_diagnostics, results.structured_diagnostics.clone());
-        for ef in &results.element_forces {
-            if let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) {
-                // Along the member, not only at its ends: under a span load M peaks inside the
-                // span, and under a sign-changing axial span load so does N.
-                let (m_min, m_max) = member_diagram_range_2d(ef, "moment")?;
-                let (v_min, v_max) = member_diagram_range_2d(ef, "shear")?;
-                let (n_min, n_max) = member_diagram_range_2d(ef, "axial")?;
-
-                env.m_max_pos = env.m_max_pos.max(m_max);
-                env.m_max_neg = env.m_max_neg.min(m_min);
-                env.v_max_pos = env.v_max_pos.max(v_max);
-                env.v_max_neg = env.v_max_neg.min(v_min);
-                env.n_max_pos = env.n_max_pos.max(n_max);
-                env.n_max_neg = env.n_max_neg.min(n_min);
-            }
-        }
+        let sample = sample_2d(solver_input, train, &path, pos, &elements)?;
+        sample.fold(
+            |loads| match &prepared {
+                Some(p) => p.solve_loads(loads),
+                None => {
+                    let mut modified_input = solver_input.clone();
+                    modified_input.loads = loads.to_vec();
+                    solve_2d(&modified_input)
+                }
+            },
+            |results, faces, reuse| {
+                if !reuse {
+                    crate::known_issues::attach(&mut structured_diagnostics, results.structured_diagnostics.clone());
+                }
+                for ef in &results.element_forces {
+                    let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) else { continue };
+                    let face = faces.get(&ef.element_id);
+                    if reuse && face.is_none() {
+                        continue;
+                    }
+                    let (lo, hi) = member_diagram_range_2d(ef, "moment", [0.0; 2])?;
+                    env.m_max_pos = env.m_max_pos.max(hi);
+                    env.m_max_neg = env.m_max_neg.min(lo);
+                    let (lo, hi) = member_diagram_range_2d(ef, "shear", face.map_or([0.0; 2], |f| f.component(2)))?;
+                    env.v_max_pos = env.v_max_pos.max(hi);
+                    env.v_max_neg = env.v_max_neg.min(lo);
+                    let (lo, hi) = member_diagram_range_2d(ef, "axial", face.map_or([0.0; 2], |f| f.component(0)))?;
+                    env.n_max_pos = env.n_max_pos.max(hi);
+                    env.n_max_neg = env.n_max_neg.min(lo);
+                }
+                Ok(())
+            },
+        )?;
     }
 
     Ok(MovingLoadEnvelope {
@@ -222,36 +355,62 @@ pub fn moving_loads_at_position_2d(
     path: &[PathSegment],
     pos: f64,
 ) -> Result<Vec<SolverLoad>, String> {
-    let mut loads = base_loads(solver_input);
+    let elements = crate::ordered::values(&solver_input.elements).map(|elem| (elem.id, elem)).collect();
+    Ok(sample_2d(solver_input, train, path, pos, &elements)?.loads)
+}
 
-    let arithmetic_scale = axle_offset_scale(train);
+fn sample_2d(
+    input: &SolverInput,
+    train: &LoadTrain,
+    path: &[PathSegment],
+    pos: f64,
+    elements: &HashMap<usize, &SolverElement>,
+) -> Result<MovingSample<SolverLoad>, String> {
+    let mut sample = MovingSample::new(input.loads.clone());
+    let scale = axle_offset_scale(train);
     for seg in path {
-        check_path_segment(seg.start_pos, seg.end_pos, seg.length, arithmetic_scale)?;
+        check_path_segment(seg.start_pos, seg.end_pos, seg.length, scale)?;
     }
     for axle in &train.axles {
-        let axle_pos = pos + axle.offset;
-
-        if let Some((seg, a)) = path.iter().find_map(|seg| {
-            sampled_axle_station(seg.start_pos, seg.end_pos, seg.length, seg.reversed, axle_pos, arithmetic_scale)
-                .map(|station| station.map(|a| (seg, a))).transpose()
-        }).transpose()? {
-            // The axle weight acts straight down (−Z). In member axes (local
-            // x = (c, s) from node_i to node_j, local y = (−s, c)) that is
-            // p = −W·c transverse and px = −W·s axial — for any orientation.
-            // The former branch for near-horizontal members used −W·|c|,
-            // which pushed the train UP on a member drawn right-to-left
-            // (found by the metamorphic mirror check).
-            loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement {
-                element_id: seg.element_id,
-                a,
-                p: -axle.weight * seg.cos,
-                px: if seg.sin != 0.0 { Some(-axle.weight * seg.sin) } else { None },
-                my: None,
-            }));
+        let station = route_station(path.len(), |index| {
+            let part = &path[index];
+            RouteSegment { start: part.start_pos, end: part.end_pos, length: part.length, reversed: part.reversed }
+        }, pos + axle.offset, scale)?;
+        match station {
+            Some(RouteStation::Interior { segment, a }) => {
+                let part = &path[segment];
+                sample.loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement {
+                    element_id: part.element_id,
+                    a,
+                    p: -axle.weight * part.cos,
+                    px: if part.sin != 0.0 { Some(-axle.weight * part.sin) } else { None },
+                    my: None,
+                }));
+            }
+            Some(RouteStation::Joint(index)) => {
+                let face = |segment: &PathSegment, exit: bool| {
+                    let elem = elements[&segment.element_id];
+                    let at_end = exit != segment.reversed;
+                    AxleFace {
+                        element: elem.id,
+                        node: if at_end { elem.node_j } else { elem.node_i },
+                        at_end,
+                        local_force: [
+                            -axle.weight * segment.sin,
+                            0.0,
+                            if elem.elem_type == "truss" { 0.0 } else { -axle.weight * segment.cos },
+                        ],
+                    }
+                };
+                sample.add_joint(
+                    [index.checked_sub(1).map(|i| face(&path[i], true)), path.get(index).map(|seg| face(seg, false))],
+                    |node_id| SolverLoad::Nodal(SolverNodalLoad { node_id, fx: 0.0, fz: -axle.weight, my: 0.0 }),
+                );
+            }
+            None => {}
         }
     }
-
-    Ok(loads)
+    Ok(sample)
 }
 
 pub fn build_load_path(
@@ -363,14 +522,6 @@ pub(crate) fn sampled_axle_station(
     } else {
         Err(UNRESOLVED_AXLE_STATION)
     }
-}
-
-/// The permanent loads, all of them: every load in the input is permanent (the train's axle
-/// loads are generated per position, never read from it). Point loads on members used to be
-/// filtered out as if they were the train's, so a permanent point load on a member, and since
-/// #437 the axial part of an inclined one, was missing from every envelope.
-fn base_loads(input: &SolverInput) -> Vec<SolverLoad> {
-    input.loads.clone()
 }
 
 // ==================== 3D Moving Loads ====================
@@ -485,45 +636,48 @@ pub fn solve_moving_loads_3d(input: &MovingLoadInput3D) -> Result<MovingLoadEnve
     for pos in positions {
         num_positions += 1;
 
-        // Build loads for this position
-        let loads = moving_loads_at_position_3d_with_maps(
-            solver_input, train, gravity, &path, pos, &maps,
+        let sample = sample_3d(solver_input, train, gravity, &path, pos, &maps)?;
+        sample.fold(
+            |loads| match &prepared {
+                Some(p) => p.solve_loads(loads),
+                None => {
+                    let mut modified_input = solver_input.clone();
+                    modified_input.loads = loads.to_vec();
+                    solve_3d(&modified_input)
+                }
+            },
+            |results, faces, reuse| {
+                if !reuse {
+                    crate::known_issues::attach(&mut structured_diagnostics, results.structured_diagnostics.clone());
+                }
+                for ef in &results.element_forces {
+                    let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) else { continue };
+                    let face = faces.get(&ef.element_id);
+                    if reuse && face.is_none() {
+                        continue;
+                    }
+                    let (lo, hi) = member_diagram_range_3d(ef, "axial", face.map_or([0.0; 2], |f| f.component(0)))?;
+                    env.n_max_pos = env.n_max_pos.max(hi);
+                    env.n_max_neg = env.n_max_neg.min(lo);
+                    let (lo, hi) = member_diagram_range_3d(ef, "shearY", face.map_or([0.0; 2], |f| f.component(1)))?;
+                    env.vy_max_pos = env.vy_max_pos.max(hi);
+                    env.vy_max_neg = env.vy_max_neg.min(lo);
+                    let (lo, hi) = member_diagram_range_3d(ef, "shearZ", face.map_or([0.0; 2], |f| f.component(2)))?;
+                    env.vz_max_pos = env.vz_max_pos.max(hi);
+                    env.vz_max_neg = env.vz_max_neg.min(lo);
+                    let (lo, hi) = member_diagram_range_3d(ef, "momentY", [0.0; 2])?;
+                    env.my_max_pos = env.my_max_pos.max(hi);
+                    env.my_max_neg = env.my_max_neg.min(lo);
+                    let (lo, hi) = member_diagram_range_3d(ef, "momentZ", [0.0; 2])?;
+                    env.mz_max_pos = env.mz_max_pos.max(hi);
+                    env.mz_max_neg = env.mz_max_neg.min(lo);
+                    let (lo, hi) = member_diagram_range_3d(ef, "torsion", [0.0; 2])?;
+                    env.mx_max_pos = env.mx_max_pos.max(hi);
+                    env.mx_max_neg = env.mx_max_neg.min(lo);
+                }
+                Ok(())
+            },
         )?;
-
-        // Constrained models bypass preparation, so geometry refusals arrive
-        // here. Propagate them rather than returning a zero/partial envelope.
-        let results = match &prepared {
-            Some(p) => p.solve_loads(&loads)?,
-            None => {
-                let mut modified_input = solver_input.clone();
-                modified_input.loads = loads;
-                solve_3d(&modified_input)?
-            }
-        };
-
-        crate::known_issues::attach(&mut structured_diagnostics, results.structured_diagnostics.clone());
-        for ef in &results.element_forces {
-            if let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) {
-                let (lo, hi) = member_diagram_range_3d(ef, "axial")?;
-                env.n_max_pos = env.n_max_pos.max(hi);
-                env.n_max_neg = env.n_max_neg.min(lo);
-                let (lo, hi) = member_diagram_range_3d(ef, "shearY")?;
-                env.vy_max_pos = env.vy_max_pos.max(hi);
-                env.vy_max_neg = env.vy_max_neg.min(lo);
-                let (lo, hi) = member_diagram_range_3d(ef, "shearZ")?;
-                env.vz_max_pos = env.vz_max_pos.max(hi);
-                env.vz_max_neg = env.vz_max_neg.min(lo);
-                let (lo, hi) = member_diagram_range_3d(ef, "momentY")?;
-                env.my_max_pos = env.my_max_pos.max(hi);
-                env.my_max_neg = env.my_max_neg.min(lo);
-                let (lo, hi) = member_diagram_range_3d(ef, "momentZ")?;
-                env.mz_max_pos = env.mz_max_pos.max(hi);
-                env.mz_max_neg = env.mz_max_neg.min(lo);
-                let (lo, hi) = member_diagram_range_3d(ef, "torsion")?;
-                env.mx_max_pos = env.mx_max_pos.max(hi);
-                env.mx_max_neg = env.mx_max_neg.min(lo);
-            }
-        }
     }
 
     Ok(MovingLoadEnvelope3D {
@@ -579,56 +733,74 @@ pub fn moving_loads_at_position_3d_with_maps(
     pos: f64,
     maps: &MovingLoadMaps3d,
 ) -> Result<Vec<SolverLoad3D>, String> {
-    let node_by_id = &maps.node_by_id;
-    let elem_by_id = &maps.elem_by_id;
-    let mut loads = base_loads_3d(solver_input);
+    Ok(sample_3d(solver_input, train, gravity, path, pos, maps)?.loads)
+}
 
-    let arithmetic_scale = axle_offset_scale(train);
+fn sample_3d(
+    input: &SolverInput3D,
+    train: &LoadTrain,
+    gravity: &str,
+    path: &[PathSegment3D],
+    pos: f64,
+    maps: &MovingLoadMaps3d,
+) -> Result<MovingSample<SolverLoad3D>, String> {
+    let mut sample = MovingSample::new(input.loads.clone());
+    let scale = axle_offset_scale(train);
     for seg in path {
-        check_path_segment(seg.start_pos, seg.end_pos, seg.length, arithmetic_scale)?;
+        check_path_segment(seg.start_pos, seg.end_pos, seg.length, scale)?;
     }
+    let gravity_axis = if gravity == "y" { 1 } else { 2 };
     for axle in &train.axles {
-        let axle_pos = pos + axle.offset;
-
-        if let Some((seg, a)) = path.iter().find_map(|seg| {
-            sampled_axle_station(seg.start_pos, seg.end_pos, seg.length, seg.reversed, axle_pos, arithmetic_scale)
-                .map(|station| station.map(|a| (seg, a))).transpose()
-        }).transpose()? {
-            // Gravity vector in global coordinates
-            let (gx, gy, gz) = match gravity {
-                "y" => (0.0, -axle.weight, 0.0),
-                _ => (0.0, 0.0, -axle.weight), // "z" default
-            };
-
-            // Compute the element's local axes using the same function as the solver
-            if let Some(&elem) = elem_by_id.get(&seg.element_id) {
-                let ni = node_by_id[&elem.node_i];
-                let nj = node_by_id[&elem.node_j];
-                let left_hand = solver_input.left_hand.unwrap_or(false);
-                let (lex, ley, lez) = crate::element::compute_local_axes_3d(
-                    ni.x, ni.y, ni.z, nj.x, nj.y, nj.z,
-                    elem.local_yx, elem.local_yy, elem.local_yz,
-                    elem.roll_angle, left_hand,
-                );
-
-                // Project gravity force onto local axes
-                // py = gravity · local_y, pz = gravity · local_z
-                let py = gx * ley[0] + gy * ley[1] + gz * ley[2];
-                let pz = gx * lez[0] + gy * lez[1] + gz * lez[2];
-
-                // Apply as point-on-element load (proper FEF treatment)
-                loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
-                    px: gx * lex[0] + gy * lex[1] + gz * lex[2],
-                    element_id: seg.element_id,
-                    a,
-                    py,
-                    pz,
+        let station = route_station(path.len(), |index| {
+            let part = &path[index];
+            RouteSegment { start: part.start_pos, end: part.end_pos, length: part.length, reversed: part.reversed }
+        }, pos + axle.offset, scale)?;
+        let local_force = |elem: &SolverElement3D| {
+            let ni = maps.node_by_id[&elem.node_i];
+            let nj = maps.node_by_id[&elem.node_j];
+            let (ex, ey, ez) = crate::element::compute_local_axes_3d(
+                ni.x, ni.y, ni.z, nj.x, nj.y, nj.z,
+                elem.local_yx, elem.local_yy, elem.local_yz,
+                elem.roll_angle, input.left_hand.unwrap_or(false),
+            );
+            [ex, ey, ez].map(|axis| -axle.weight * axis[gravity_axis])
+        };
+        match station {
+            Some(RouteStation::Interior { segment, a }) => {
+                let part = &path[segment];
+                let [px, py, pz] = local_force(maps.elem_by_id[&part.element_id]);
+                sample.loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
+                    element_id: part.element_id, a, px, py, pz,
                 }));
             }
+            Some(RouteStation::Joint(index)) => {
+                let face = |part: &PathSegment3D, exit: bool| {
+                    let elem = maps.elem_by_id[&part.element_id];
+                    let at_end = exit != part.reversed;
+                    let [px, mut py, mut pz] = local_force(elem);
+                    if elem.elem_type == "truss" {
+                        py = 0.0;
+                        pz = 0.0;
+                    }
+                    AxleFace {
+                        element: elem.id,
+                        node: if at_end { elem.node_j } else { elem.node_i },
+                        at_end,
+                        local_force: [px, py, pz],
+                    }
+                };
+                sample.add_joint(
+                    [index.checked_sub(1).map(|i| face(&path[i], true)), path.get(index).map(|seg| face(seg, false))],
+                    |node_id| SolverLoad3D::Nodal(SolverNodalLoad3D {
+                        node_id, fx: 0.0, fy: if gravity_axis == 1 { -axle.weight } else { 0.0 },
+                        fz: if gravity_axis == 2 { -axle.weight } else { 0.0 }, mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+                    }),
+                );
+            }
+            None => {}
         }
     }
-
-    Ok(loads)
+    Ok(sample)
 }
 
 pub fn build_load_path_3d(
@@ -692,12 +864,6 @@ fn auto_detect_path_3d(input: &SolverInput3D) -> Result<Vec<usize>, String> {
     Ok(elem_list.iter().map(|e| e.id).collect())
 }
 
-/// As `base_loads`: every input load is permanent (point loads on members, bimoments and
-/// shell loads used to be dropped).
-fn base_loads_3d(input: &SolverInput3D) -> Vec<SolverLoad3D> {
-    input.loads.clone()
-}
-
 #[cfg(test)]
 mod diagram_limit_tests {
     use super::*;
@@ -712,9 +878,9 @@ mod diagram_limit_tests {
             "qZI": -1.0, "qZJ": -1.0, "distributedLoadsY": [], "distributedLoadsZ": [],
             "pointLoadsY": [], "pointLoadsZ": [{"a": 10.0, "p": 10.0}]
         })).unwrap();
-        assert_eq!(member_diagram_range_3d(&ef, "shearZ").unwrap(), (-10.0, 0.0));
+        assert_eq!(member_diagram_range_3d(&ef, "shearZ", [0.0; 2]).unwrap(), (-10.0, 0.0));
         ef.point_loads_z[0].a = f64::from_bits(10.0_f64.to_bits() - 1);
-        let range = member_diagram_range_3d(&ef, "shearZ").unwrap();
+        let range = member_diagram_range_3d(&ef, "shearZ", [0.0; 2]).unwrap();
         assert!(range.0 > -10.0 && range.0 < -9.0, "{range:?}");
     }
 }

@@ -2,13 +2,14 @@
 
 import type { SolverInput, SolverLoad, AnalysisResults, FullEnvelope, ElementEnvelopeDiagram, EnvelopeDiagramData } from './types';
 import { errorText as baseErrorText } from '../utils/error-text';
-import { prepareLoadSession2D, isWasmReady } from './wasm-solver';
+import { prepareLoadSession2D, isWasmReady, movingFaceForce } from './wasm-solver';
 import { analyzeKinematics, type KinematicResult } from './kinematic-2d';
 import { computeDiagramValueAt } from './diagrams';
 import { t } from '../i18n';
 import { withoutSettlement } from './settlement-case';
-import { axleOffsetScale, locateAxle, checkAxlePath, referenceGrid } from './moving-axle-station';
+import { axleOffsetScale, locateAxle, locateAxlePlacement, checkAxlePath, referenceGrid } from './moving-axle-station';
 import { localizeEngineText } from '../i18n/engine-text';
+import { MovingSample, type AxleFace, type FaceLoads } from './moving-sample';
 
 /** A single axle in a load train */
 export interface Axle {
@@ -300,22 +301,36 @@ function buildTrainLoads(
   refPos: number,
   scale: number,
   path: PathSegment[],
-): SolverInput['loads'] {
-  const loads: SolverInput['loads'] = [];
+): MovingSample<SolverLoad> {
+  const sample = new MovingSample<SolverLoad>();
 
   for (const axle of train.axles) {
-    const at = locateAxle(path, refPos, axle.offset, scale, (seg) => input.elements.get(seg.elementId)!.nodeI !== seg.nodeI);
+    const at = locateAxlePlacement(path, refPos, axle.offset, scale, (seg) => input.elements.get(seg.elementId)!.nodeI !== seg.nodeI);
     if (!at) continue;
-    const elem = input.elements.get(at.segment.elementId)!;
-    if (at.a === 0 || at.a === at.segment.length) {
-      const nodeId = at.a === 0 ? elem.nodeI : elem.nodeJ;
-      loads.push({ type: 'nodal', data: { nodeId, fx: 0, fz: -axle.weight, my: 0 } });
-    } else {
-      loads.push(...verticalLoadOnMember(input, elem.id, at.a, axle.weight));
+    if (at.kind === 'interior') {
+      sample.loads.push(...verticalLoadOnMember(input, at.segment.elementId, at.a, axle.weight));
+      continue;
     }
+    const face = (routeFace: typeof at.faces[number]): AxleFace | undefined => {
+      if (!routeFace) return undefined;
+      const { segment, atEnd } = routeFace;
+      const { dx, dy, length, elementId } = segment;
+      const elem = input.elements.get(elementId)!;
+      const direction = elem.nodeI === segment.nodeI ? -1 : 1;
+      const weight = direction * axle.weight;
+      return {
+        elementId,
+        nodeId: atEnd ? elem.nodeJ : elem.nodeI,
+        atEnd,
+        force: elem.type === 'truss' ? [0, 0, 0] : [weight * (dy / length), 0, weight * (dx / length)],
+      };
+    };
+    sample.addJoint([face(at.faces[0]), face(at.faces[1])], (nodeId) => (
+      { type: 'nodal', data: { nodeId, fx: 0, fz: -axle.weight, my: 0 } }
+    ));
   }
 
-  return loads;
+  return sample;
 }
 
 type ElementEnvelope = { mMaxPos: number; mMaxNeg: number; vMaxPos: number; vMaxNeg: number; nMaxPos: number; nMaxNeg: number };
@@ -360,6 +375,41 @@ function trainBase(input: SolverInput): SolverInput {
  * Solve a single position. A position that fails refuses the whole run: an
  * envelope missing the positions that failed would read as complete.
  */
+type EndRange = { min: number; max: number };
+type FaceComponent = 'shear' | 'axial';
+
+class PlanarSweepResults {
+  readonly positions: MovingLoadEnvelope['positions'] = [];
+  readonly results: AnalysisResults[] = [];
+  readonly faces = new Map<number, Record<FaceComponent, [EndRange, EndRange]>>();
+
+  foldFaces(results: AnalysisResults, faces: FaceLoads): void {
+    for (const ef of results.elementForces) {
+      const loads = faces.get(ef.elementId);
+      if (!loads) continue;
+      let ranges = this.faces.get(ef.elementId);
+      if (!ranges) {
+        const range = () => ({ min: 0, max: 0 });
+        ranges = { shear: [range(), range()], axial: [range(), range()] };
+        this.faces.set(ef.elementId, ranges);
+      }
+      for (const end of [0, 1] as const) {
+        for (const [kind, axis, force] of [
+          ['shear', 2, end ? ef.vEnd : ef.vStart],
+          ['axial', 0, end ? ef.nEnd : ef.nStart],
+        ] as const) {
+          const load = loads[end][axis];
+          if (load === 0) continue;
+          const value = movingFaceForce(force, load, end === 1, kind === 'axial');
+          const range = ranges[kind][end];
+          range.min = Math.min(range.min, value);
+          range.max = Math.max(range.max, value);
+        }
+      }
+    }
+  }
+}
+
 function solvePosition(
   baseInput: SolverInput,
   train: LoadTrain,
@@ -367,17 +417,25 @@ function solvePosition(
   scale: number,
   path: PathSegment[],
   envelope: Map<number, ElementEnvelope>,
-  positions: MovingLoadEnvelope['positions'],
+  sweep: PlanarSweepResults,
   session: ReturnType<typeof prepareLoadSession2D>,
 ): string | null {
   try {
-    const loads = buildTrainLoads(baseInput, train, refPos, scale, path);
-    const results = session.solve(loads);
-    if (results.structuredDiagnostics?.some(d => d.code === 'known_issue' && d.severity === 'error')) {
-      throw new Error(JSON.stringify({ structuredDiagnostics: results.structuredDiagnostics }));
-    }
-    positions.push({ refPosition: refPos, results });
-    accumulate(envelope, results);
+    const sample = buildTrainLoads(baseInput, train, refPos, scale, path);
+    const results = sample.fold((loads) => {
+      const result = session.solve(loads);
+      if (result.structuredDiagnostics?.some(d => d.code === 'known_issue' && d.severity === 'error')) {
+        throw new Error(JSON.stringify({ structuredDiagnostics: result.structuredDiagnostics }));
+      }
+      return result;
+    }, (result, faces, reuse) => {
+      if (!reuse) {
+        sweep.results.push(result);
+        accumulate(envelope, result);
+      }
+      if (faces) sweep.foldFaces(result, faces);
+    });
+    sweep.positions.push({ refPosition: refPos, results });
     return null;
   } catch (e) {
     return t('svc.solverError').replace('{n}', localizeEngineText(errorText(e)));
@@ -489,18 +547,18 @@ export function solveMovingLoads(
 
   const session = prepareLoadSession2D(baseInput);
   try {
-    const positions: MovingLoadEnvelope['positions'] = [];
+    const sweep = new PlanarSweepResults();
     for (const { train, refs, scale } of passes) {
       for (const refPos of refs) {
-        const err = solvePosition(baseInput, train, refPos, scale, path, envelope, positions, session);
+        const err = solvePosition(baseInput, train, refPos, scale, path, envelope, sweep, session);
         if (err) return err;
       }
     }
 
-    if (positions.length === 0) return t('train.noPositionSolved');
+    if (sweep.positions.length === 0) return t('train.noPositionSolved');
 
-    const allResults = positions.map(p => p.results);
-    const fullEnvelope = computePointwiseEnvelope(allResults);
+    const { positions, results: allResults, faces } = sweep;
+    const fullEnvelope = computePointwiseEnvelope(allResults, faces);
     elementExtremesFromPointwise(envelope, fullEnvelope);
 
     return { structuredDiagnostics: [...new Map(allResults.flatMap(r => r.structuredDiagnostics ?? []).map(d => [JSON.stringify(d), d])).values()], elements: envelope, positions, fullEnvelope, train: config.train, path };
@@ -552,13 +610,13 @@ export async function solveMovingLoadsAsync(
 
   const session = prepareLoadSession2D(baseInput);
   try {
-    const positions: MovingLoadEnvelope['positions'] = [];
+    const sweep = new PlanarSweepResults();
 
     for (let idx = 0; idx < total; idx++) {
       if (signal?.aborted) return t('train.analysisCancelled');
 
       const { train, refPos, scale } = allRefPositions[idx];
-      const err = solvePosition(baseInput, train, refPos, scale, path, envelope, positions, session);
+      const err = solvePosition(baseInput, train, refPos, scale, path, envelope, sweep, session);
       if (err) return err;
 
       onProgress?.({ current: idx + 1, total, refPosition: refPos });
@@ -566,10 +624,10 @@ export async function solveMovingLoadsAsync(
     }
 
     if (signal?.aborted) return t('train.analysisCancelled');
-    if (positions.length === 0) return t('train.noPositionSolved');
+    if (sweep.positions.length === 0) return t('train.noPositionSolved');
 
-    const allResults = positions.map(p => p.results);
-    const fullEnvelope = computePointwiseEnvelope(allResults);
+    const { positions, results: allResults, faces } = sweep;
+    const fullEnvelope = computePointwiseEnvelope(allResults, faces);
     elementExtremesFromPointwise(envelope, fullEnvelope);
 
     return { structuredDiagnostics: [...new Map(allResults.flatMap(r => r.structuredDiagnostics ?? []).map(d => [JSON.stringify(d), d])).values()], elements: envelope, positions, fullEnvelope, train: config.train, path };
@@ -580,7 +638,9 @@ export async function solveMovingLoadsAsync(
  * Compute pointwise FullEnvelope from multiple AnalysisResults.
  * Reusable for both combination envelopes and moving load envelopes.
  */
-export function computePointwiseEnvelope(results: AnalysisResults[]): FullEnvelope | undefined {
+export function computePointwiseEnvelope(
+  results: AnalysisResults[], faces?: PlanarSweepResults['faces'],
+): FullEnvelope | undefined {
   if (results.length === 0) return undefined;
   const first = results[0];
   const N_POINTS = 21;
@@ -620,6 +680,7 @@ export function computePointwiseEnvelope(results: AnalysisResults[]): FullEnvelo
 
     for (let eIdx = 0; eIdx < first.elementForces.length; eIdx++) {
       const elemId = first.elementForces[eIdx].elementId;
+      const faceRanges = kind === 'moment' ? undefined : faces?.get(elemId)?.[kind];
       const tPositions: number[] = [];
       const posValues: number[] = [];
       const negValues: number[] = [];
@@ -638,6 +699,14 @@ export function computePointwiseEnvelope(results: AnalysisResults[]): FullEnvelo
           if (val < maxNeg) maxNeg = val;
         }
 
+        const face = j === 0 ? faceRanges?.[0] : j === N_POINTS - 1 ? faceRanges?.[1] : undefined;
+        if (face) {
+          maxPos = Math.max(maxPos, face.max);
+          maxNeg = Math.min(maxNeg, face.min);
+          const value = Math.abs(face.max) >= Math.abs(face.min) ? face.max : face.min;
+          const key = kind === 'axial' ? (j === 0 ? 'nStart' : 'nEnd') : (j === 0 ? 'vStart' : 'vEnd');
+          if (Math.abs(value) > Math.abs(elementForces[eIdx][key])) elementForces[eIdx][key] = value;
+        }
         posValues.push(maxPos);
         negValues.push(maxNeg);
         globalMax = Math.max(globalMax, Math.abs(maxPos), Math.abs(maxNeg));

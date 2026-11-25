@@ -23,16 +23,17 @@ import type { StructuredDiagnostic } from './types';
  * point load, the axial part as nodal forces shared by the two ends in proportion to position.
  * A train that is not symmetric also runs the other way, on the mirrored positions.
  */
-import { prepareLoadSession3D } from './wasm-solver';
+import { prepareLoadSession3D, movingFaceForce } from './wasm-solver';
 import { computeLocalAxes3D } from './local-axes-3d';
 import { criticalForceStations, extractForcesAtStation } from './station-forces';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D } from './types-3d';
 import type { LoadTrain } from './moving-loads';
 import { buildSolverInput3D, type ModelData } from './solver-service';
 import { withoutSettlement } from './settlement-case';
-import { axleOffsetScale, checkAxlePath, locateAxle } from './moving-axle-station';
+import { axleOffsetScale, checkAxlePath, locateAxlePlacement } from './moving-axle-station';
 // The position cases read the same symmetry and the same reversed train (`vehicles.ts`).
 import { positionPasses, usableStep } from './vehicles';
+import { MovingSample, type AxleFace, type FaceLoads } from './moving-sample';
 
 export interface PathSegment3D {
   elementId: number;
@@ -98,35 +99,53 @@ export function trainLoads(input: SolverInput3D, path: PathSegment3D[], train: L
     scale = axleOffsetScale(train);
     checkAxlePath(path, scale);
   }
-  const loads: SolverLoad3D[] = [];
-  for (const axle of train.axles) {
-    const at = locateAxle(path, refPos, axle.offset, scale, (seg) => seg.reversed);
-    if (!at) continue;
-    const { segment: seg, a } = at;
-    const e = input.elements.get(seg.elementId)!;
-    if (a === 0 || a === seg.length) {
-      const nodeId = a === 0 ? e.nodeI : e.nodeJ;
-      loads.push({ type: 'nodal', data: { nodeId, fx: 0, fy: 0, fz: -axle.weight, mx: 0, my: 0, mz: 0 } });
-      continue;
-    }
+  const sample = new MovingSample<SolverLoad3D>();
+  addTrain(sample, input, path, train, refPos, scale);
+  return sample.loads;
+}
+
+function addTrain(
+  sample: MovingSample<SolverLoad3D>, input: SolverInput3D, path: PathSegment3D[],
+  train: LoadTrain, refPos: number, scale: number,
+): void {
+  const axesOn = (elementId: number) => {
+    const e = input.elements.get(elementId)!;
     const ni = input.nodes.get(e.nodeI)!, nj = input.nodes.get(e.nodeJ)!;
     const localY = e.localYx !== undefined && e.localYy !== undefined && e.localYz !== undefined
       ? { x: e.localYx, y: e.localYy, z: e.localYz } : undefined;
-    const axes = computeLocalAxes3D(ni, nj, localY, e.rollAngle ?? 0, false);
-    const F: [number, number, number] = [0, 0, -axle.weight];
-    const dot = (v: readonly number[]) => v[0]! * F[0] + v[1]! * F[1] + v[2]! * F[2];
-    const py = dot(axes.ey), pz = dot(axes.ez), px = dot(axes.ex);
+    return { e, axes: computeLocalAxes3D(ni, nj, localY, e.rollAngle ?? 0, input.leftHand) };
+  };
+  for (const axle of train.axles) {
+    const at = locateAxlePlacement(path, refPos, axle.offset, scale, (seg) => seg.reversed);
+    if (!at) continue;
+    if (at.kind === 'joint') {
+      const face = (routeFace: typeof at.faces[number]): AxleFace | undefined => {
+        if (!routeFace) return undefined;
+        const { segment, atEnd } = routeFace;
+        const { e, axes } = axesOn(segment.elementId);
+        return {
+          elementId: e.id, nodeId: atEnd ? e.nodeJ : e.nodeI, atEnd,
+          force: e.type === 'truss' ? [0, 0, 0] : [0, -axle.weight * axes.ey[2], -axle.weight * axes.ez[2]],
+        };
+      };
+      sample.addJoint([face(at.faces[0]), face(at.faces[1])], (nodeId) => (
+        { type: 'nodal', data: { nodeId, fx: 0, fy: 0, fz: -axle.weight, mx: 0, my: 0, mz: 0 } }
+      ));
+      continue;
+    }
+    const { segment: seg, a } = at;
+    const { e, axes } = axesOn(seg.elementId);
+    const py = -axle.weight * axes.ey[2], pz = -axle.weight * axes.ez[2], px = -axle.weight * axes.ex[2];
     if (Math.abs(py) > 1e-12 || Math.abs(pz) > 1e-12) {
-      loads.push({ type: 'pointOnElement', data: { elementId: e.id, a, py, pz } });
+      sample.loads.push({ type: 'pointOnElement', data: { elementId: e.id, a, py, pz } });
     }
     if (Math.abs(px) > 1e-12) {
       const t = a / seg.length;
       for (const [node, f] of [[e.nodeI, px * (1 - t)], [e.nodeJ, px * t]] as const) {
-        loads.push({ type: 'nodal', data: { nodeId: node, fx: f * axes.ex[0], fy: f * axes.ex[1], fz: f * axes.ex[2], mx: 0, my: 0, mz: 0 } });
+        sample.loads.push({ type: 'nodal', data: { nodeId: node, fx: f * axes.ex[0], fy: f * axes.ex[1], fz: f * axes.ex[2], mx: 0, my: 0, mz: 0 } });
       }
     }
   }
-  return loads;
 }
 
 function blank(): Record<EnvelopeComponent, { max: Extreme; min: Extreme }> {
@@ -135,16 +154,33 @@ function blank(): Record<EnvelopeComponent, { max: Extreme; min: Extreme }> {
 }
 
 /** Fold one position's results into the envelope, at each member's critical stations. */
-export function foldPosition(env: MovingEnvelope3D['elements'], results: AnalysisResults3D, position: number): void {
+export function foldPosition(
+  env: MovingEnvelope3D['elements'], results: AnalysisResults3D, position: number, faces?: FaceLoads, reuse = false,
+): void {
+  const include = (component: { max: Extreme; min: Extreme }, value: number, x: number) => {
+    if (value > component.max.value) component.max = { value, x, position };
+    if (value < component.min.value) component.min = { value, x, position };
+  };
   for (const ef of results.elementForces) {
+    const loads = faces?.get(ef.elementId);
+    if (reuse && !loads) continue;
     let rec = env.get(ef.elementId);
     if (!rec) { rec = blank(); env.set(ef.elementId, rec); }
-    for (const t of criticalForceStations(ef)) {
-      const f = extractForcesAtStation(ef, t);
-      for (const c of ENVELOPE_COMPONENTS) {
-        const v = f[c];
-        if (v > rec[c].max.value) rec[c].max = { value: v, x: f.x, position };
-        if (v < rec[c].min.value) rec[c].min = { value: v, x: f.x, position };
+    if (!reuse) {
+      for (const t of criticalForceStations(ef)) {
+        const f = extractForcesAtStation(ef, t);
+        for (const c of ENVELOPE_COMPONENTS) include(rec[c], f[c], f.x);
+      }
+    }
+    if (loads) {
+      for (const end of [0, 1] as const) {
+        for (const [axis, component, force] of [
+          [1, 'vy', end ? ef.vyEnd : ef.vyStart],
+          [2, 'vz', end ? ef.vzEnd : ef.vzStart],
+        ] as const) {
+          const load = loads[end][axis];
+          if (load !== 0) include(rec[component], movingFaceForce(force, load, end === 1, false), end * ef.length);
+        }
       }
     }
   }
@@ -217,22 +253,25 @@ export async function sweepMovingLoad3D(
     for (const p of passes) {
       for (const r of p.refs) {
         if (opts.signal?.aborted) throw new DOMException('aborted', 'AbortError');
-        const loads = opts.path2
-          ? [...trainLoads(base, path, half(p.train), r, p.scale), ...trainLoads(base, opts.path2, half(p.train), r, p.scale)]
-          : trainLoads(base, path, p.train, r, p.scale);
+        const sample = new MovingSample<SolverLoad3D>();
+        const wheelLine = opts.path2 ? half(p.train) : p.train;
+        addTrain(sample, base, path, wheelLine, r, p.scale);
+        if (opts.path2) addTrain(sample, base, opts.path2, wheelLine, r, p.scale);
         try {
-          const result = session.solve(loads);
-          const diagnostics = result.structuredDiagnostics ?? [];
-          if (diagnostics.some(d => d.code === 'known_issue' && d.severity === 'error')) {
-            throw new Error(JSON.stringify({ structuredDiagnostics: diagnostics }));
-          }
-          for (const d of diagnostics) {
-            const key = JSON.stringify(d);
-            if (!seen.has(key)) { seen.add(key); structuredDiagnostics.push(d); }
-          }
-          foldPosition(env, result, r);
+          sample.fold((loads) => {
+            const result = session.solve(loads);
+            const diagnostics = result.structuredDiagnostics ?? [];
+            if (diagnostics.some(d => d.code === 'known_issue' && d.severity === 'error')) {
+              throw new Error(JSON.stringify({ structuredDiagnostics: diagnostics }));
+            }
+            for (const d of diagnostics) {
+              const key = JSON.stringify(d);
+              if (!seen.has(key)) { seen.add(key); structuredDiagnostics.push(d); }
+            }
+            return result;
+          }, (result, faces, reuse) => foldPosition(env, result, r, faces, reuse));
         } catch (error) {
-          if (isContainmentRefusal(error)) throw error;
+          if (isContainmentRefusal(error) || sample.hasJoints) throw error;
           failed++;
         }
         done++;

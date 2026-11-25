@@ -141,7 +141,7 @@ pub(crate) fn try_evaluate_diagram_cut_2d(kind: &str, cut: Cut, ef: &ElementForc
     planar_curve(ef, kind, sorted_pl).checked_value(cut).map_err(str::to_owned)
 }
 
-pub(crate) fn member_diagram_range_2d(ef: &ElementForces, kind: &str) -> Result<(f64, f64), String> {
+pub(crate) fn member_diagram_range_2d(ef: &ElementForces, kind: &str, face_loads: [f64; 2]) -> Result<(f64, f64), String> {
     validate_diagram_loads_2d(ef)?;
     let end = match kind {
         "moment" => ef.m_end,
@@ -149,7 +149,7 @@ pub(crate) fn member_diagram_range_2d(ef: &ElementForces, kind: &str) -> Result<
         "axial" => ef.n_end,
         _ => 0.0,
     };
-    planar_curve(ef, kind, &sorted_point_loads(ef)).interior_range(end).map_err(str::to_owned)
+    planar_curve(ef, kind, &sorted_point_loads(ef)).interior_range(end, face_loads).map_err(str::to_owned)
 }
 
 // ==================== 2D Diagrams ====================

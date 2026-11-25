@@ -23,6 +23,10 @@ fn assert_f64_eq(a: f64, b: f64, what: &str) {
     assert!(a == b || (a - b).abs() <= 1e-12 * a.abs().max(b.abs()).max(1.0), "mismatch at {}: {} vs {} (diff {:e})", what, a, b, (a - b).abs());
 }
 
+fn include_limit_ends((lo, hi): (f64, f64), start: f64, end: f64, side: i8) -> (f64, f64) {
+    if side == 0 { (lo, hi) } else { (lo.min(start).min(end), hi.max(start).max(end)) }
+}
+
 fn member_limits(start: f64, end: f64, length: f64, jumps: impl Iterator<Item = (f64, f64)>) -> (f64, f64) {
     let mut at_start = 0.0;
     let mut at_end = 0.0;
@@ -260,8 +264,11 @@ fn legacy_build_path_2d(solver_input: &SolverInput, path_element_ids: Option<&[u
     path
 }
 
-fn legacy_find_segment_2d(path: &[PathSegment], global_pos: f64) -> Option<(&PathSegment, f64)> {
+fn legacy_find_segment_2d(path: &[PathSegment], global_pos: f64, side: i8) -> Option<(&PathSegment, f64)> {
     for seg in path {
+        if side > 0 && global_pos == seg.end_pos {
+            continue;
+        }
         if global_pos >= seg.start_pos - 1e-10 && global_pos <= seg.end_pos + 1e-10 {
             let local = (global_pos - seg.start_pos).max(0.0).min(seg.length);
             return Some((seg, local));
@@ -276,16 +283,19 @@ fn legacy_loads_at_position_2d(
     path: &[PathSegment],
     pos: f64,
     total_length: f64,
+    side: i8,
 ) -> Vec<SolverLoad> {
     // Every input load is permanent (the axle loads are built below).
     let mut loads: Vec<SolverLoad> = solver_input.loads.clone();
 
     for axle in &train.axles {
         let axle_pos = pos + axle.offset;
-        if axle_pos < -1e-10 || axle_pos > total_length + 1e-10 {
+        if axle_pos < -1e-10 || axle_pos > total_length + 1e-10
+            || (side < 0 && axle_pos == 0.0) || (side > 0 && axle_pos == total_length)
+        {
             continue;
         }
-        if let Some((seg, local_pos)) = legacy_find_segment_2d(path, axle_pos) {
+        if let Some((seg, local_pos)) = legacy_find_segment_2d(path, axle_pos, side) {
             let perp_force = -axle.weight;
             loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement {
                 element_id: seg.element_id,
@@ -352,8 +362,11 @@ fn legacy_build_path_3d(solver_input: &SolverInput3D, path_element_ids: Option<&
     path
 }
 
-fn legacy_find_segment_3d(path: &[PathSegment3D], global_pos: f64) -> Option<(&PathSegment3D, f64)> {
+fn legacy_find_segment_3d(path: &[PathSegment3D], global_pos: f64, side: i8) -> Option<(&PathSegment3D, f64)> {
     for seg in path {
+        if side > 0 && global_pos == seg.end_pos {
+            continue;
+        }
         if global_pos >= seg.start_pos - 1e-10 && global_pos <= seg.end_pos + 1e-10 {
             let local = (global_pos - seg.start_pos).max(0.0).min(seg.length);
             return Some((seg, local));
@@ -369,6 +382,7 @@ fn legacy_loads_at_position_3d(
     path: &[PathSegment3D],
     pos: f64,
     total_length: f64,
+    side: i8,
 ) -> Vec<SolverLoad3D> {
     let mut loads: Vec<SolverLoad3D> = solver_input.loads.clone();
 
@@ -377,10 +391,12 @@ fn legacy_loads_at_position_3d(
 
     for axle in &train.axles {
         let axle_pos = pos + axle.offset;
-        if axle_pos < -1e-10 || axle_pos > total_length + 1e-10 {
+        if axle_pos < -1e-10 || axle_pos > total_length + 1e-10
+            || (side < 0 && axle_pos == 0.0) || (side > 0 && axle_pos == total_length)
+        {
             continue;
         }
-        if let Some((seg, local_pos)) = legacy_find_segment_3d(path, axle_pos) {
+        if let Some((seg, local_pos)) = legacy_find_segment_3d(path, axle_pos, side) {
             let (gx, gy, gz) = match gravity {
                 "y" => (0.0, -axle.weight, 0.0),
                 _ => (0.0, 0.0, -axle.weight),
@@ -573,21 +589,26 @@ fn legacy_moving_2d(input: &MovingLoadInput) -> MovingLoadEnvelope {
     let num_positions = ((total_length + max_offset) / step).floor() as usize + 1;
     for index in 0..num_positions {
         let pos = index as f64 * step - max_offset;
-        let loads = legacy_loads_at_position_2d(solver_input, train, &path, pos, total_length);
-        let mut modified_input = solver_input.clone();
-        modified_input.loads = loads;
-        if let Ok(results) = solve_2d(&modified_input) {
-            for ef in &results.element_forces {
-                if let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) {
-                    let (m_min, m_max) = reference_range_2d(ef, "moment", ef.m_start, ef.m_end);
-                    let (v_min, v_max) = reference_range_2d(ef, "shear", ef.v_start, ef.v_end);
-                    let (n_min, n_max) = reference_range_2d(ef, "axial", ef.n_start, ef.n_end);
-                    env.m_max_pos = env.m_max_pos.max(m_max);
-                    env.m_max_neg = env.m_max_neg.min(m_min);
-                    env.v_max_pos = env.v_max_pos.max(v_max);
-                    env.v_max_neg = env.v_max_neg.min(v_min);
-                    env.n_max_pos = env.n_max_pos.max(n_max);
-                    env.n_max_neg = env.n_max_neg.min(n_min);
+        for side in [-1, 0, 1] {
+            let loads = legacy_loads_at_position_2d(solver_input, train, &path, pos, total_length, side);
+            let mut modified_input = solver_input.clone();
+            modified_input.loads = loads;
+            if let Ok(results) = solve_2d(&modified_input) {
+                for ef in &results.element_forces {
+                    if let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) {
+                        let (m_min, m_max) = reference_range_2d(ef, "moment", ef.m_start, ef.m_end);
+                        let (m_min, m_max) = include_limit_ends((m_min, m_max), ef.m_start, ef.m_end, side);
+                        let (v_min, v_max) = reference_range_2d(ef, "shear", ef.v_start, ef.v_end);
+                        let (v_min, v_max) = include_limit_ends((v_min, v_max), ef.v_start, ef.v_end, side);
+                        let (n_min, n_max) = reference_range_2d(ef, "axial", ef.n_start, ef.n_end);
+                        let (n_min, n_max) = include_limit_ends((n_min, n_max), ef.n_start, ef.n_end, side);
+                        env.m_max_pos = env.m_max_pos.max(m_max);
+                        env.m_max_neg = env.m_max_neg.min(m_min);
+                        env.v_max_pos = env.v_max_pos.max(v_max);
+                        env.v_max_neg = env.v_max_neg.min(v_min);
+                        env.n_max_pos = env.n_max_pos.max(n_max);
+                        env.n_max_neg = env.n_max_neg.min(n_min);
+                    }
                 }
             }
         }
@@ -642,30 +663,38 @@ fn legacy_moving_3d(input: &MovingLoadInput3D) -> MovingLoadEnvelope3D {
     let num_positions = ((total_length + max_offset) / step).floor() as usize + 1;
     for index in 0..num_positions {
         let pos = index as f64 * step - max_offset;
-        let loads = legacy_loads_at_position_3d(solver_input, train, gravity, &path, pos, total_length);
-        let mut modified_input = solver_input.clone();
-        modified_input.loads = loads;
-        if let Ok(results) = solve_3d(&modified_input) {
-            for ef in &results.element_forces {
-                if let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) {
-                    let (lo, hi) = reference_range_3d(ef, "axial", ef.n_start, ef.n_end);
-                    env.n_max_pos = env.n_max_pos.max(hi);
-                    env.n_max_neg = env.n_max_neg.min(lo);
-                    let (lo, hi) = reference_range_3d(ef, "shearY", ef.vy_start, ef.vy_end);
-                    env.vy_max_pos = env.vy_max_pos.max(hi);
-                    env.vy_max_neg = env.vy_max_neg.min(lo);
-                    let (lo, hi) = reference_range_3d(ef, "shearZ", ef.vz_start, ef.vz_end);
-                    env.vz_max_pos = env.vz_max_pos.max(hi);
-                    env.vz_max_neg = env.vz_max_neg.min(lo);
-                    let (lo, hi) = reference_range_3d(ef, "momentY", ef.my_start, ef.my_end);
-                    env.my_max_pos = env.my_max_pos.max(hi);
-                    env.my_max_neg = env.my_max_neg.min(lo);
-                    let (lo, hi) = reference_range_3d(ef, "momentZ", ef.mz_start, ef.mz_end);
-                    env.mz_max_pos = env.mz_max_pos.max(hi);
-                    env.mz_max_neg = env.mz_max_neg.min(lo);
-                    let (lo, hi) = reference_range_3d(ef, "torsion", ef.mx_start, ef.mx_end);
-                    env.mx_max_pos = env.mx_max_pos.max(hi);
-                    env.mx_max_neg = env.mx_max_neg.min(lo);
+        for side in [-1, 0, 1] {
+            let loads = legacy_loads_at_position_3d(solver_input, train, gravity, &path, pos, total_length, side);
+            let mut modified_input = solver_input.clone();
+            modified_input.loads = loads;
+            if let Ok(results) = solve_3d(&modified_input) {
+                for ef in &results.element_forces {
+                    if let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) {
+                        let (lo, hi) = reference_range_3d(ef, "axial", ef.n_start, ef.n_end);
+                        let (lo, hi) = include_limit_ends((lo, hi), ef.n_start, ef.n_end, side);
+                        env.n_max_pos = env.n_max_pos.max(hi);
+                        env.n_max_neg = env.n_max_neg.min(lo);
+                        let (lo, hi) = reference_range_3d(ef, "shearY", ef.vy_start, ef.vy_end);
+                        let (lo, hi) = include_limit_ends((lo, hi), ef.vy_start, ef.vy_end, side);
+                        env.vy_max_pos = env.vy_max_pos.max(hi);
+                        env.vy_max_neg = env.vy_max_neg.min(lo);
+                        let (lo, hi) = reference_range_3d(ef, "shearZ", ef.vz_start, ef.vz_end);
+                        let (lo, hi) = include_limit_ends((lo, hi), ef.vz_start, ef.vz_end, side);
+                        env.vz_max_pos = env.vz_max_pos.max(hi);
+                        env.vz_max_neg = env.vz_max_neg.min(lo);
+                        let (lo, hi) = reference_range_3d(ef, "momentY", ef.my_start, ef.my_end);
+                        let (lo, hi) = include_limit_ends((lo, hi), ef.my_start, ef.my_end, side);
+                        env.my_max_pos = env.my_max_pos.max(hi);
+                        env.my_max_neg = env.my_max_neg.min(lo);
+                        let (lo, hi) = reference_range_3d(ef, "momentZ", ef.mz_start, ef.mz_end);
+                        let (lo, hi) = include_limit_ends((lo, hi), ef.mz_start, ef.mz_end, side);
+                        env.mz_max_pos = env.mz_max_pos.max(hi);
+                        env.mz_max_neg = env.mz_max_neg.min(lo);
+                        let (lo, hi) = reference_range_3d(ef, "torsion", ef.mx_start, ef.mx_end);
+                        let (lo, hi) = include_limit_ends((lo, hi), ef.mx_start, ef.mx_end, side);
+                        env.mx_max_pos = env.mx_max_pos.max(hi);
+                        env.mx_max_neg = env.mx_max_neg.min(lo);
+                    }
                 }
             }
         }

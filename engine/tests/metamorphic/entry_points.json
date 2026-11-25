@@ -436,6 +436,7 @@
     "init": {"scope": "utility"},
     "loads_request": {"scope": "design"},
     "moving_axle_station": {"scope": "utility"},
+    "moving_face_force": {"scope": "utility"},
     "moving_reference_sample_count": {"scope": "utility"},
     "net_combination_factors": {"scope": "utility"},
     "recover_member": {"scope": "postprocess"},

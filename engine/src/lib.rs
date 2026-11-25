@@ -500,6 +500,11 @@ pub fn moving_axle_station(
 }
 
 #[wasm_bindgen]
+pub fn moving_face_force(interior: f64, local_force: f64, at_end: bool, axial: bool) -> Result<f64, JsValue> {
+    postprocess::diagram_extrema::moving_face_force(interior, local_force, at_end, axial).map_err(JsValue::from_str)
+}
+
+#[wasm_bindgen]
 pub fn check_moving_path_segment(
     start: f64, end: f64, length: f64, arithmetic_scale: f64,
 ) -> Result<(), JsValue> {

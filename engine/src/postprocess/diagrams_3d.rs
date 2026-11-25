@@ -86,7 +86,7 @@ pub(crate) fn try_evaluate_diagram_cut_3d(ef: &ElementForces3D, kind: &str, cut:
     spatial_curve(ef, kind).checked_value(cut).map_err(str::to_owned)
 }
 
-pub(crate) fn member_diagram_range_3d(ef: &ElementForces3D, kind: &str) -> Result<(f64, f64), String> {
+pub(crate) fn member_diagram_range_3d(ef: &ElementForces3D, kind: &str, face_loads: [f64; 2]) -> Result<(f64, f64), String> {
     validate_diagram_loads_3d(ef)?;
     let end = match kind {
         "momentY" => ef.my_end,
@@ -97,7 +97,7 @@ pub(crate) fn member_diagram_range_3d(ef: &ElementForces3D, kind: &str) -> Resul
         "torsion" => ef.mx_end,
         _ => 0.0,
     };
-    spatial_curve(ef, kind).interior_range(end).map_err(str::to_owned)
+    spatial_curve(ef, kind).interior_range(end, face_loads).map_err(str::to_owned)
 }
 
 fn spatial_curve<'a>(

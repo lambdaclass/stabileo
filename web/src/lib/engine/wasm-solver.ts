@@ -56,6 +56,7 @@ let wasmSolveModal2d: ((json: string, numModes: number) => string) | null = null
 let wasmSolveSpectral2d: ((json: string) => string) | null = null;
 let wasmSolvePlastic2d: ((json: string) => string) | null = null;
 let wasmSolveMovingLoads2d: ((json: string) => string) | null = null;
+let wasmMovingFaceForce: ((interior: number, localForce: number, atEnd: boolean, axial: boolean) => number) | null = null;
 let wasmMovingAxleStation: ((start: number, end: number, length: number, reversed: boolean, position: number, scale: number) => number | undefined) | null = null;
 let wasmCheckMovingPathSegment: ((start: number, end: number, length: number, scale: number) => void) | null = null;
 let wasmMovingReferenceSampleCount: ((start: number, end: number, step: number) => number) | null = null;
@@ -268,6 +269,7 @@ export async function initSolver(): Promise<void> {
     wasmSolveSpectral2d = wasm.solve_spectral_2d;
     wasmSolvePlastic2d = wasm.solve_plastic_2d;
     wasmSolveMovingLoads2d = wasm.solve_moving_loads_2d;
+    wasmMovingFaceForce = wasm.moving_face_force;
     wasmMovingAxleStation = wasm.moving_axle_station;
     wasmCheckMovingPathSegment = wasm.check_moving_path_segment;
     wasmMovingReferenceSampleCount = wasm.moving_reference_sample_count;
@@ -1295,6 +1297,11 @@ export function solvePlastic(config: {
   });
   const resultJson = wasmSolvePlastic2d(payload);
   return JSON.parse(resultJson);
+}
+
+export function movingFaceForce(interior: number, localForce: number, atEnd: boolean, axial: boolean): number {
+  if (!wasmReady || !wasmMovingFaceForce) throw new EngineUnavailableError('moving axle face');
+  return wasmMovingFaceForce(interior, localForce, atEnd, axial);
 }
 
 export function movingAxleStation(start: number, end: number, length: number, reversed: boolean, position: number, scale: number): number | undefined {

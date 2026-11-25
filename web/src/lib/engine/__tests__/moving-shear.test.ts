@@ -47,30 +47,92 @@ function rotatedInclined(): SolverInput3D {
   } as SolverInput3D;
 }
 
+function tipFlexibility(x: number, length: number, ei: number): number {
+  return x ** 2 * (3 * length - x) / (6 * ei);
+}
+
+function cantileverMinimumShear(
+  axles: typeof train.axles, length: number, member: number, tipReaction: (flexibility: number) => number,
+): number {
+  const start = member - 1, end = member;
+  let minimum = 0;
+  for (let reference = -Math.max(...axles.map(axle => axle.offset)); reference <= length; reference += step) {
+    const positions = axles.map(axle => ({ x: reference + axle.offset, weight: axle.weight }));
+    for (const side of [-1, 0, 1]) {
+      const active = positions.filter(({ x }) => x >= 0 && x <= length && (x !== 0 || side >= 0) && (x !== length || side <= 0));
+      const reaction = tipReaction(active.reduce((sum, axle) => sum + axle.weight * tipFlexibility(axle.x, length, 1), 0));
+      const shear = (cut: number, includeAtCut = false) => active.reduce((sum, { x, weight }) => (
+        x > cut || (includeAtCut && x === cut) ? sum + weight : sum
+      ), -reaction);
+      const cuts = [start, ...active.map(({ x }) => x).filter(x => x > start && x < end).sort((a, b) => a - b), end];
+      for (let i = 1; i < cuts.length; i++) minimum = Math.min(minimum, shear((cuts[i - 1] + cuts[i]) / 2));
+      if (side > 0 && active.some(({ x }) => x === start)) minimum = Math.min(minimum, shear(start, true));
+      if (side < 0 && active.some(({ x }) => x === end)) minimum = Math.min(minimum, shear(end));
+    }
+  }
+  return minimum;
+}
+
+function inclinedTipReaction(flexibility: number, axialForce: number): number {
+  const section = inclinedFixture.sections['6'];
+  const e = inclinedFixture.materials['1'].e * 1000;
+  const length = inclinedFixture.nodes['7'].x;
+  const axial = length / (e * section.a), ei = e * section.iy;
+  const { normalX: nx, normalZ: nz } = inclinedFixture.supports['7'];
+  return nz * (-nx * axialForce * axial + nz * flexibility / ei)
+    / (nx ** 2 * axial + nz ** 2 * tipFlexibility(length, length, ei));
+}
+
+function springTipReaction(flexibility: number): number {
+  const ei = springFixture.materials['1'].e * 1000 * springFixture.sections['1'].iz;
+  const length = springFixture.nodes['7'].x;
+  return flexibility / ei / (1 / springFixture.supports['2'].ky + tipFlexibility(length, length, ei));
+}
+
 it('#2101 WASM resolves the axle at the inclined support', () => {
-  for (const constraints of [[], [{ type: 'equalDOF', masterNode: 1, slaveNode: 7, dofs: [5] }]] as SolverInput3D['constraints'][]) {
-    const result = solveMovingLoads3D({ solver: { ...rotatedInclined(), constraints }, train, step, pathElementIds: ids });
-    expect(result.structuredDiagnostics.every((d: { severity: string }) => d.severity === 'info')).toBe(true);
-    expect(result.elements['6'].vzMaxNeg).toBeCloseTo(-47.852317077234325, 9);
+  const rotated = rotatedInclined();
+  const original: SolverInput3D = {
+    ...rotated,
+    nodes: byId(inclinedFixture.nodes),
+    supports: new Map<number, SolverSupport3D>([
+      [1, inclinedFixture.supports['1']],
+      [7, inclinedFixture.supports['7']],
+    ]),
+    loads: [{ type: 'nodal', data: inclinedFixture.loads[0].data }],
+  };
+  const expected = cantileverMinimumShear(train.axles, inclinedFixture.nodes['7'].x, 6,
+    (flexibility) => inclinedTipReaction(flexibility, inclinedFixture.loads[0].data.fx));
+  for (const solver of [original, rotated]) {
+    for (const constraints of [[], [{ type: 'equalDOF', masterNode: 1, slaveNode: 7, dofs: [5] }]] as SolverInput3D['constraints'][]) {
+      const result = solveMovingLoads3D({ solver: { ...solver, constraints }, train, step, pathElementIds: ids });
+      expect(result.structuredDiagnostics.every((d: { severity: string }) => d.severity === 'info')).toBe(true);
+      expect.soft(result.elements['6'].vzMaxNeg).toBeCloseTo(expected, 9);
+    }
   }
 });
 
 it('#2104 WASM resolves the axle at the mirrored spring model joint', () => {
-  for (const constraints of [[], [{ type: 'equalDOF', masterNode: 1, slaveNode: 7, dofs: [0] }]] as SolverInput['constraints'][]) {
-    const result = solveNative2D({ solver: { ...mirroredSpring(), constraints }, train, step, pathElementIds: ids });
-    expect(result.structuredDiagnostics.every((d: { severity: string }) => d.severity === 'info')).toBe(true);
-    expect(result.elements['2'].vMaxPos).toBeCloseTo(0.865788246268656, 9);
+  const mirrored = mirroredSpring();
+  const original: SolverInput = {
+    ...mirrored,
+    nodes: byId(springFixture.nodes),
+    loads: springFixture.loads.map(({ data }) => ({ type: 'nodal', data })),
+  };
+  const expected = cantileverMinimumShear(train.axles, springFixture.nodes['7'].x, 2, springTipReaction);
+  for (const [solver, reflected] of [[original, false], [mirrored, true]] as const) {
+    for (const constraints of [[], [{ type: 'equalDOF', masterNode: 1, slaveNode: 7, dofs: [0] }]] as SolverInput['constraints'][]) {
+      const result = solveNative2D({ solver: { ...solver, constraints }, train, step, pathElementIds: ids });
+      expect(result.structuredDiagnostics.every((d: { severity: string }) => d.severity === 'info')).toBe(true);
+      const member = result.elements['2'];
+      expect.soft(reflected ? -member.vMaxPos : member.vMaxNeg).toBeCloseTo(expected, 9);
+    }
   }
 });
 
 it('#2104 browser sync and async sweeps recover the mirrored spring shear', async () => {
   const solver = mirroredSpring();
   const config = { train: { name: 'single axle', axles: train.axles.slice(0, 1) }, step, pathElementIds: ids };
-  const rigidity = springFixture.materials['1'].e * 1000 * springFixture.sections['1'].iz;
-  const length = springFixture.nodes['7'].x;
-  const station = 1.5;
-  const flexibility = station ** 2 * (3 * length - station) / (6 * rigidity);
-  const expected = config.train.axles[0].weight * flexibility / (1 / springFixture.supports['2'].ky + length ** 3 / (3 * rigidity));
+  const expected = -cantileverMinimumShear(config.train.axles, springFixture.nodes['7'].x, 2, springTipReaction);
   for (const run of [solveMovingLoads, solveMovingLoadsAsync]) {
     const result = await run(solver, config);
     if (typeof result === 'string') throw new Error(result);
@@ -91,11 +153,8 @@ it('#2101 the browser spatial sweep resolves an axle at the inclined tip', async
   const length = inclinedFixture.nodes['7'].x;
   const axial = length / (e * section.a);
   const { normalX: nx, normalZ: nz } = inclinedFixture.supports['7'];
-  const x = length - step;
-  const freeTip = train.axles[0].weight * x ** 2 * (3 * length - x) / (6 * e * section.iy);
-  const support = nz ** 2 * freeTip
-    / (nx ** 2 * axial + nz ** 2 * length ** 3 / (3 * e * section.iy));
-  expect(result.elements.get(6)?.vz.min.value).toBeCloseTo(-support, 9);
+  const expected = cantileverMinimumShear(single.axles, length, 6, (flexibility) => inclinedTipReaction(flexibility, 0));
+  expect(result.elements.get(6)?.vz.min.value).toBeCloseTo(expected, 9);
   const tipFlexibility = length ** 3 / (3 * e * section.iy);
   const tipAxial = Math.abs(nx * nz) * single.axles[0].weight * tipFlexibility
     / (nx ** 2 * axial + nz ** 2 * tipFlexibility);
@@ -202,4 +261,39 @@ it('#2104 — browser loads preserve the reversed member station', async () => {
   expect.soft(trainModelLoads(single, 64.0625, path, null, 1)[0]).toMatchObject({
     type: 'pointOnElement3d', data: { elementId: 2, a: station },
   });
+});
+
+it('#2104 spatial wheel lines retain both member faces at a joint', async () => {
+  const solver = { ...rotatedInclined(), loads: [] };
+  solver.nodes = new Map();
+  solver.elements = new Map();
+  solver.supports = new Map();
+  for (const line of [0, 1]) {
+    for (const x of [0, 1, 2]) {
+      const id = line * 3 + x + 1;
+      solver.nodes.set(id, { id, x, y: line, z: 0 });
+      solver.supports.set(id, { ...inclinedFixture.supports['1'], nodeId: id });
+      if (x < 2) {
+        const element = line * 2 + x + 1;
+        solver.elements.set(element, { ...inclinedFixture.elements['1'], type: 'frame', id: element, nodeI: id, nodeJ: id + 1 });
+      }
+    }
+  }
+  const path = buildPath3D(solver, [1, 2])!;
+  const path2 = buildPath3D(solver, [3, 4])!;
+  const weight = train.axles[0].weight;
+  const vehicle = { ...train, axles: [{ weight, offset: 0 }] };
+  const checkFaces = (env: Awaited<ReturnType<typeof sweepMovingLoad3D>>, left: number, right: number, load: number) => {
+    expect(env.failed).toBe(0);
+    const before = env.elements.get(left)!.vz.min;
+    const after = env.elements.get(right)!.vz.max;
+    expect(before.value).toBeCloseTo(-load, 9);
+    expect(after.value).toBeCloseTo(load, 9);
+    expect(before).toMatchObject({ x: 1, position: 1 });
+    expect(after).toMatchObject({ x: 0, position: 1 });
+  };
+  checkFaces(await sweepMovingLoad3D(solver, path, vehicle, { step: 1 }), 1, 2, weight);
+  const split = await sweepTrains3D(solver, path, [vehicle, vehicle], { step: 1, path2 });
+  checkFaces(split, 1, 2, weight / 2);
+  checkFaces(split, 3, 4, weight / 2);
 });
