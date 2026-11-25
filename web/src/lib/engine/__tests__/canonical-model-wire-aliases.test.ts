@@ -1,6 +1,6 @@
 import { beforeAll, expect, it } from 'vitest';
 import { initSolver } from '../wasm-solver';
-import { certify_time_history_2d, certify_time_history_3d, solve_time_history_2d, solve_time_history_3d, engine_reproduce_hashes, certify_linear_2d, certify_linear_3d, solve_multi_case_2d, solve_multi_case_3d, certify_multi_case_2d, certify_multi_case_3d, estimate_discretization_3d, convergence_study_3d, solve_2d, solve_3d, solve_arc_length, solve_displacement_control, solve_pdelta_2d, solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
+import { LoadSession3D, certify_time_history_2d, certify_time_history_3d, solve_time_history_2d, solve_time_history_3d, engine_reproduce_hashes, certify_linear_2d, certify_linear_3d, solve_multi_case_2d, solve_multi_case_3d, certify_multi_case_2d, certify_multi_case_3d, estimate_discretization_3d, convergence_study_3d, solve_2d, solve_3d, solve_arc_length, solve_displacement_control, solve_pdelta_2d, solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
 
 beforeAll(async () => { await initSolver(); });
 
@@ -304,6 +304,14 @@ it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1')('rejects trailing WASM shel
   });
   const entries = {
     linear: solve_3d,
+    reused: (input: object) => {
+      const session = new LoadSession3D(input);
+      try {
+        return session.solve(model.loads);
+      } finally {
+        session.free();
+      }
+    },
     certificate: certify_linear_3d,
     discretization: estimate_discretization_3d,
     convergence: (input: object) => convergence_study_3d(input, null),
