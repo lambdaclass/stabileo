@@ -142,3 +142,48 @@ it('#2532 WASM spatial solvers retain the applied nodal couple', () => {
     expect(result.reactions[0].mx).toBe(-5);
   }
 });
+
+const strictWire = process.env.STABILEO_REPRODUCE_STRUCTURE_INPUT === '1';
+
+it.skipIf(!strictWire).each([false, true])('refuses fields dropped by typed object and JSON analysis (space = %s)', (is3D) => {
+  const model = is3D ? space : planar;
+  const linear = is3D ? solve_3d : solve_2d;
+  const pdelta = is3D ? solve_pdelta_3d : solve_pdelta_2d;
+  const solve = {
+    object: linear,
+    json: (input: object) => pdelta(JSON.stringify(input), 20, 1e-9),
+    replay: (input: object) => engine_reproduce_hashes(JSON.stringify(input), is3D),
+  };
+  const cases = [
+    ['solverOption', { ...model, solverOption: { method: 'direct' } }],
+    ['maxIteration', { ...model, solverOptions: { maxIteration: 1 } }],
+    ['poissonRatio', { ...model, materials: indexed({ ...model.materials[1]!, poissonRatio: 0 }) }],
+    ['shearArea', { ...model, sections: indexed({ ...model.sections[1]!, shearArea: 1 }) }],
+    ['rhs', { ...model, constraints: [{ type: 'linearMPC', terms: [{ nodeId: 2, dof: 0, coefficient: 1 }], rhs: 1 }] }],
+    ['kAxiall', { ...model, connectors: indexed({ id: 1, nodeI: 1, nodeJ: 2, kAxiall: 1 }) }],
+    ...(is3D ? [
+      ['dofFrame', { ...model, supports: indexed({ ...model.supports[1]!, dofFrame: 'local' }) }],
+      ['frame', { ...model, loads: [{ type: 'distributed', data: {
+        elementId: 1, qYI: 0, qYJ: 0, qZI: 1, qZJ: 1, frame: 'global',
+      } }] }],
+    ] : []),
+  ] as const;
+  for (const [field, invalid] of cases) {
+    for (const [entry, run] of Object.entries(solve)) {
+      expect.soft(() => run(invalid), entry).toThrow(new RegExp('unknown field .'+field+'[\x60\x27]'));
+    }
+  }
+});
+
+it('accepts documented empty planar shell collections, aliases and linear options', () => {
+  const model = {
+    ...planar,
+    plates: {}, quads: [], curvedShells: {}, solidShells: [], quad9s: {},
+    nodes: indexed({ id: 1, x: 0, y: 0 }, { id: 2, x: 2, y: 0 }),
+    solverOptions: { method: 'direct' },
+  };
+  expect(solve_2d(model).reactions).toEqual(solve_2d(planar).reactions);
+  const loadedShell = { ...model, plates: { 1: {} } };
+  expect(() => solve_2d(loadedShell)).toThrow(/Shell elements require 3D analysis/);
+  expect(() => solve_pdelta_2d(JSON.stringify(loadedShell), 20, 1e-9)).toThrow(/Shell elements require 3D analysis/);
+});

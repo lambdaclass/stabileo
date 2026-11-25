@@ -82,6 +82,45 @@ mod tests {
     use crate::types::{SolverInput, SolverInput3D};
     use serde_json::{json, Value};
 
+    #[test]
+    #[ignore = "known wrong result: cause:A"]
+    fn strict_analysis_wire_rejects_ignored_fields() {
+        let mut failures = Vec::new();
+        for space in [false, true] {
+            for (pointer, field, value) in [
+                ("", "solverOption", json!({"method": "direct"})),
+                ("/materials/1", "poissonRatio", json!(0)),
+                ("/sections/1", "shearArea", json!(1)),
+            ] {
+                let mut model = cantilever(space);
+                assert!(linear_hashes(&model.to_string(), space).is_ok());
+                model.pointer_mut(pointer).unwrap()[field] = value;
+                let text = model.to_string();
+                let legacy = if space {
+                    serde_json::from_str::<SolverInput3D>(&text).map(|_| ())
+                } else {
+                    serde_json::from_str::<SolverInput>(&text).map(|_| ())
+                };
+                let typed = if space {
+                    serde_json::from_str::<crate::types::units::ElasticInput3D>(&text).map(|_| ())
+                } else {
+                    serde_json::from_str::<crate::types::units::ElasticInput2D>(&text).map(|_| ())
+                };
+                for (path, result) in [
+                    ("linear replay", linear_hashes(&text, space).map(|_| ())),
+                    ("legacy wire", legacy.map_err(|error| error.to_string())),
+                    ("typed wire", typed.map_err(|error| error.to_string())),
+                ] {
+                    let expected = format!("unknown field `{field}`");
+                    if !matches!(&result, Err(error) if error.contains(&expected)) {
+                        failures.push(format!("space={space}, {path}, {field}: {result:?}"));
+                    }
+                }
+            }
+        }
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+
     fn cantilever(space: bool) -> Value {
         let mut input = json!({
             "nodes": {"1": {"id": 1, "x": 0, "z": 0}, "2": {"id": 2, "x": 5, "z": 0}},
