@@ -41,14 +41,24 @@ export function twoPitch() {
   return m;
 }
 
-export function transform(m: ReturnType<typeof mesh>, angle: number, shift = 1, mirror = 1) {
+function transformWithBasis(m: ReturnType<typeof mesh>, cos: number, sin: number, shift: number, mirror: number) {
   for (const n of m.nodes.values()) {
     const x = mirror * n.x, y = n.y;
-    n.x = x * Math.cos(angle) - y * Math.sin(angle) + 137 * shift;
-    n.y = x * Math.sin(angle) + y * Math.cos(angle) - 91 * shift;
+    n.x = x * cos - y * sin + 137 * shift;
+    n.y = x * sin + y * cos - 91 * shift;
     n.z = (n.z ?? 0) + 11 * shift;
   }
   return m;
+}
+
+export function transform(m: ReturnType<typeof mesh>, angle: number, shift = 1, mirror = 1) {
+  return transformWithBasis(m, Math.cos(angle), Math.sin(angle), shift, mirror);
+}
+
+export function transformWithDyadicBasis(m: ReturnType<typeof mesh>, angle: number, shift = 0, mirror = 1) {
+  const scale = 2 ** 44;
+  const dyadic = (value: number) => Math.round(value * scale) / scale;
+  return transformWithBasis(m, dyadic(Math.cos(angle)), dyadic(Math.sin(angle)), shift, mirror);
 }
 
 export function separateRoofs() {
