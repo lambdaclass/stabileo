@@ -13,6 +13,10 @@ export function isPlaneRoller(type: unknown): boolean {
   return type === 'rollerX' || type === 'rollerY' || type === 'rollerZ';
 }
 
+export function isPlaneSupportType(type: unknown): boolean {
+  return type === 'fixed' || type === 'pinned' || type === 'spring' || isPlaneRoller(type);
+}
+
 export function isLocalPlaneRoller(support: { type: unknown; isGlobal?: boolean }): boolean {
   return support.isGlobal === false && isPlaneRoller(support.type);
 }

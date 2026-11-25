@@ -666,38 +666,12 @@ mod wire {
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
-    pub struct SolverNode {
-        pub id: usize,
-        pub x: Length,
-        #[serde(rename = "z", alias = "y")]
-        pub z: Length,
-    }
-
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
     pub struct SolverNode3D {
         pub id: usize,
         pub x: Length,
         pub y: Length,
         pub z: Length,
     }
-
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct SolverNodalLoad {
-        #[serde(deserialize_with = "numeric::node_id::required")]
-        pub node_id: usize,
-        #[serde(deserialize_with = "numeric::fx::required")]
-        pub fx: Force,
-        #[serde(rename = "fz", alias = "fy")]
-        #[serde(deserialize_with = "numeric::fz_or_fy::required")]
-        pub fz: Force,
-        #[serde(rename = "my", alias = "mz")]
-        #[serde(deserialize_with = "numeric::my_or_mz::required")]
-        pub my: Moment,
-    }
-
-    pub type SolverPointLoadOnElement = super::super::SolverPointLoadOnElement<Length, Force, Moment>;
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
@@ -868,38 +842,6 @@ mod wire {
         #[serde(default)]
         #[serde(deserialize_with = "numeric::qt::required")]
         pub qt: LineLoad,
-    }
-
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct SolverSupport {
-        #[serde(deserialize_with = "numeric::id::required")]
-        pub id: usize,
-        #[serde(deserialize_with = "numeric::node_id::required")]
-        pub node_id: usize,
-        #[serde(rename = "type")]
-        pub support_type: String,
-        #[serde(default)]
-        #[serde(deserialize_with = "numeric::kx::optional", skip_serializing_if = "Option::is_none")]
-        pub kx: Option<TranslationalStiffness>,
-        #[serde(default)]
-        #[serde(deserialize_with = "numeric::ky::optional", skip_serializing_if = "Option::is_none")]
-        pub ky: Option<TranslationalStiffness>,
-        #[serde(default)]
-        #[serde(deserialize_with = "numeric::kz::optional", skip_serializing_if = "Option::is_none")]
-        pub kz: Option<RotationalStiffness>,
-        #[serde(default)]
-        #[serde(deserialize_with = "numeric::dx::optional", skip_serializing_if = "Option::is_none")]
-        pub dx: Option<Length>,
-        #[serde(default, rename = "dz", alias = "dy")]
-        #[serde(deserialize_with = "numeric::dz_or_dy::optional", skip_serializing_if = "Option::is_none")]
-        pub dz: Option<Length>,
-        #[serde(default, rename = "dry", alias = "drz")]
-        #[serde(deserialize_with = "numeric::dry_or_drz::optional", skip_serializing_if = "Option::is_none")]
-        pub dry: Option<Angle>,
-        #[serde(default)]
-        #[serde(deserialize_with = "numeric::angle::optional", skip_serializing_if = "Option::is_none")]
-        pub angle: Option<Angle>,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1159,11 +1101,11 @@ mod wire {
     #[serde(tag = "type", content = "data")]
     pub enum SolverLoad {
         #[serde(rename = "nodal")]
-        Nodal(SolverNodalLoad),
+        Nodal(TypedNodalLoad),
         #[serde(rename = "distributed")]
         Distributed(SolverDistributedLoad),
         #[serde(rename = "pointOnElement")]
-        PointOnElement(SolverPointLoadOnElement),
+        PointOnElement(TypedPointLoad),
         #[serde(rename = "thermal")]
         Thermal(SolverThermalLoad),
         #[serde(rename = "axialDistributed")]
@@ -1218,17 +1160,23 @@ mod wire {
         CurvedShellSelfWeight(crate::types::SolverQuadSelfWeightLoad),
     }
 }
+pub type TypedNode = super::model_aliases::PlanarNode<Length>;
+pub type TypedNodalLoad = super::model_aliases::PlanarNodalLoad<Force, Moment>;
+pub type TypedPointLoad = super::model_aliases::PlanarPointLoad<Length, Force, Moment>;
+pub type TypedSupport =
+    super::model_aliases::PlanarSupport<Length, Angle, TranslationalStiffness, RotationalStiffness>;
+
 pub use wire::{
     Displacement as TypedDisplacement, Displacement3D as TypedDisplacement3D, DistributedLoadInfo as TypedDistributedLoadInfo,
     ElementForces as TypedElementForces, ElementForces3D as TypedElementForces3D, PointLoadInfo as TypedPointLoadInfo,
     PointLoadInfo3D as TypedPointLoadInfo3D, Reaction as TypedReaction, Reaction3D as TypedReaction3D,
     SolverAxialDistributedLoad as TypedAxialDistributedLoad, SolverDistributedLoad as TypedDistributedLoad,
     SolverDistributedLoad3D as TypedDistributedLoad3D, SolverElement3D as TypedElement3D, SolverLoad as TypedLoad,
-    SolverLoad3D as TypedLoad3D, SolverMaterial as ElasticMaterial, SolverNodalLoad as TypedNodalLoad,
-    SolverNodalLoad3D as TypedNodalLoad3D, SolverNode as TypedNode, SolverNode3D as TypedNode3D,
+    SolverLoad3D as TypedLoad3D, SolverMaterial as ElasticMaterial,
+    SolverNodalLoad3D as TypedNodalLoad3D, SolverNode3D as TypedNode3D,
     SolverPlateThermalLoad as TypedPlateThermalLoad, SolverPointLoad3D as TypedPointLoad3D,
-    SolverPointLoadOnElement as TypedPointLoad, SolverPressureLoad as TypedPressureLoad, SolverQuadEdgeLoad as TypedQuadEdgeLoad,
-    SolverSection as ElasticSection2D, SolverSection3D as ElasticSection3D, SolverSupport as TypedSupport,
+    SolverPressureLoad as TypedPressureLoad, SolverQuadEdgeLoad as TypedQuadEdgeLoad,
+    SolverSection as ElasticSection2D, SolverSection3D as ElasticSection3D,
     SolverSupport3D as TypedSupport3D, SolverThermalLoad as TypedThermalLoad, SolverThermalLoad3D as TypedThermalLoad3D,
 };
 impl ElasticSection2D {

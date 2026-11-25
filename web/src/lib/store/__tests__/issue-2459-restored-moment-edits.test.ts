@@ -203,7 +203,7 @@ for (const mode of ['2d', '3d'] as const) {
     });
   }
 
-  for (const aliases of [{ my: legacyMoment, mz: legacyMoment }, { my: legacyMoment, mz: 0 }, { my: 0, mz: legacyMoment }]) {
+  for (const aliases of [{ my: legacyMoment, mz: legacyMoment }]) {
     it(`#2459 collapses compatible aliases ${JSON.stringify(aliases)} (${mode})`, () => {
       const member = cantilever(mode);
       restorePointCouple(member, aliases);
@@ -215,7 +215,7 @@ for (const mode of ['2d', '3d'] as const) {
   it(`#2459 treats an explicit zero nodal moment as zero (${mode})`, () => {
     const member = cantilever(mode);
     const nodeId = modelStore.model.elements.get(member)!.nodeJ;
-    openLegacyFile('nodal', { nodeId, fx: 0, fz: 0, my: 0, mz: legacyMoment });
+    openLegacyFile('nodal', { nodeId, fx: 0, fz: 0, my: 0, mz: 0 });
     const moment = mode === '2d'
       ? planeMoment(validateAndSolve2D(modelStore.model), member, before)
       : spaceMoment(validateAndSolve3D(modelStore.model), member, before);
@@ -224,14 +224,14 @@ for (const mode of ['2d', '3d'] as const) {
   });
 
   for (const type of ['pointOnElement', 'nodal'] as const) {
-    it(`#2459 preserves a genuine ${type} conflict and refuses the solve (${mode})`, async () => {
+    it(`#2459 refuses to reopen a genuine ${type} conflict and still refuses it in analysis (${mode})`, async () => {
       const member = cantilever(mode);
       const nodeId = modelStore.model.elements.get(member)!.nodeJ;
       const aliases = { my: legacyMoment, mz: -legacyMoment };
       const fields = type === 'pointOnElement' ? { elementId: member, a: position, p: 0 } : { nodeId, fx: 0, fz: 0 };
-      openLegacyFile(type, { ...fields, ...aliases });
+      modelStore.model.loads = [{ type, data: { id: loadId, ...fields, ...aliases } }] as typeof modelStore.model.loads;
       expect(modelStore.updateLoad(loadId, { caseId: 1 })).toBe(true);
-      expect(deserializeProject(serializeProject())).toBe(true);
+      expect(deserializeProject(serializeProject())).toBe(false);
       expect(modelStore.loads[0]?.data).toMatchObject(aliases);
       const solve = () => mode === '2d' ? validateAndSolve2D(modelStore.model) : validateAndSolve3D(modelStore.model);
       const key = type === 'pointOnElement' ? 'svc.planarPointLoadMomentAliases' : 'svc.planarNodalLoadMomentAliases';
@@ -257,7 +257,12 @@ function openLegacyMoment(member: number, type: 'pointOnElement' | 'nodal', conf
   const nodeId = modelStore.model.elements.get(member)!.nodeJ;
   const fields = type === 'pointOnElement' ? { elementId: member, a: position, p: 0 } : { nodeId, fx: 0, fz: 0 };
   const moments = conflict ? { my: legacyMoment, mz: -legacyMoment } : { mz: legacyMoment };
-  openLegacyFile(type, { ...fields, ...moments, caseId: loadCase.id });
+  if (conflict) {
+    const loads = [{ type, data: { id: loadId, ...fields, ...moments, caseId: loadCase.id } }] as typeof modelStore.model.loads;
+    modelStore.model.loads = loads;
+  } else {
+    openLegacyFile(type, { ...fields, ...moments, caseId: loadCase.id });
+  }
   historyStore.clear();
   const key = type === 'pointOnElement' ? 'svc.planarPointLoadMomentAliases' : 'svc.planarNodalLoadMomentAliases';
   return t(key).replace('{load}', String(loadId)).replace('{n}', String(type === 'pointOnElement' ? member : nodeId));
@@ -324,10 +329,9 @@ for (const mode of ['2d', '3d', 'pro', 'pdelta'] as const) {
         const fields = type === 'pointOnElement' ? { elementId: member, a: position, p: 0 } : { nodeId, fx: 0, fz: 0 };
         const project = JSON.parse(serializeProject());
         if (field === 'mz') project.version = '1.0';
-        const otherAlias = field === 'my' ? 'mz' : 'my';
         const data = { id: loadId, caseId: loadCase.id, ...fields };
         project.snapshot.loads = [{ type, data: {
-          ...data, ...(input === 'null' ? { [otherAlias]: legacyMoment } : {}), [field]: input,
+          ...data, [field]: input,
         } }];
         if (typeof input === 'number') {
           modelStore.restore(project.snapshot);
@@ -380,7 +384,7 @@ it('#2459 preserves result-change applicability when opening and resaving a lega
   const file = JSON.parse(serializeProject());
   delete file.snapshot.solvedWith;
   file.snapshot.loads = [{
-    type: 'pointOnElement', data: { id: loadId, elementId: member, a: position, p: 0, my: 0, mz: legacyMoment },
+    type: 'pointOnElement', data: { id: loadId, elementId: member, a: position, p: 0, my: legacyMoment, mz: legacyMoment },
   }];
   expect(deserializeProject(JSON.stringify(file))).toBe(true);
   expectCanonicalMoment(legacyMoment);

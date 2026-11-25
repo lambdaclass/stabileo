@@ -20,6 +20,7 @@ import { symbolOfType, symbolsByAlternativeSet } from '../engine/loads/combinati
  *
  * Pure: no store, no runes.
  */
+import { modelAliasRefusalFeature } from '../model/canonical-aliases';
 import type { ArcSpec } from '../model/curved-member';
 import { plateAnalysisIssue, type PlateAnalysisModel } from '../model/physical/plate-analysis';
 import { plateSurfaceOf } from '../model/physical/plate';
@@ -47,7 +48,8 @@ export const GLOBAL_AXES_EVIDENCE = 'axisNamedLoads';
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
   'gallery:slab-on-columns:walls', 'example:rc-beam-flexure', 'native:supplied-linear-certificate',
-  GLOBAL_AXES_EVIDENCE,
+  'native:planar-nodal-vector',
+  GLOBAL_AXES_EVIDENCE, 'conflictingModelAliases', 'outOfPlaneNodalComponents', 'duplicateFixtureEndRelease',
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
@@ -73,6 +75,7 @@ const staggerGiven = (st: TensionEndSnapshot['stagger']) => !!st && [st.sMm, st.
 interface Elem {
   id: number; type?: string; behaviour?: string; materialId: number; sectionId?: number; nodeI: number; nodeJ: number;
   releaseI?: object; releaseJ?: object;
+  hingeStart?: boolean; hingeEnd?: boolean;
   semiRigid?: unknown; reinforcement?: unknown;
   tensionConnection?: { i?: TensionEndSnapshot; j?: TensionEndSnapshot };
   unbracedLength?: number;
@@ -135,6 +138,7 @@ export interface FeatureSnapshot extends FeatureSnapshotFields {
 
 export interface FeatureContext {
   storedLoads?: FeatureSnapshot['loads'];
+  storedElements?: FeatureSnapshot['elements'];
   /** The workspace the project opens in (the file's `analysisMode`). */
   analysisMode?: string;
   /** Analyses the project's results came from, as its stamp records them; null: not recorded. */
@@ -448,7 +452,24 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const typedCompositeCaseIds = new Set(cases.filter(c => symbolOfType(c.type) && isCompositeCase(c)).map(c => c.id));
   let loadPlanInCompositeCase = false;
   let generatedSeismic = !!loadBasis?.seismic || loadNoteKeys.has('loadPlan.derivation.seismic');
+  if (values(ctx.storedElements ?? s.elements).some(member => {
+    if (member.type !== 'frame') return false;
+    const { hingeStart, hingeEnd, releaseI, releaseJ } = member;
+    return (hingeStart === true && (releaseI as { mz?: boolean })?.mz === true)
+      || (hingeEnd === true && (releaseJ as { mz?: boolean })?.mz === true);
+  })) {
+    f.add('duplicateFixtureEndRelease');
+  }
   const storedLoads = ctx.storedLoads ?? s.loads;
+  const refusal = modelAliasRefusalFeature({
+    nodes: values(s.nodes),
+    elements,
+    supports,
+    loads: Array.isArray(storedLoads) ? storedLoads : undefined,
+    plates: s.plates,
+    quads: s.quads,
+  }, ctx.analysisMode ?? s.analysisMode);
+  if (refusal) f.add(refusal);
   if (Array.isArray(storedLoads) && storedLoads.some(l => l.type === 'pointOnElement' && l.data &&
       (nonZero(l.data.mz) || planarPointMoment(l.data) === null))) {
     f.add('legacyPlanarPointCoupleAliases');

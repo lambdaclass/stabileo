@@ -234,7 +234,7 @@ for (const mode of ['2d', '3d'] as const) {
     modelStore.restore({
       ...cleared,
       loads: [{ type: 'pointOnElement', data: {
-        id: 1, elementId: member, a: 1, p: 0, my: 5, mz: 5, enteredZeroMoment: true,
+        id: 1, elementId: member, a: 1, p: 0, my: 0, mz: 0, enteredZeroMoment: true,
       } }],
     });
     const result = mode === '2d' ? modelStore.solve() : modelStore.solve3D();

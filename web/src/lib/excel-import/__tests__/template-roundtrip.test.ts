@@ -94,7 +94,8 @@ describe('the downloaded template', () => {
     expect((thermal!.data as Record<string, number>).dtUniform).toBe(20);
 
     const nodal = model.loads.find((l) => l.type === 'nodal');
-    expect((nodal!.data as Record<string, number>).fy).toBe(-20);
+    expect(nodal?.data).toHaveProperty('fz', -20);
+    expect(nodal?.data).not.toHaveProperty('fy');
     expect((nodal!.data as Record<string, number>).qI, 'a nodal load has no qI').toBeUndefined();
   });
 

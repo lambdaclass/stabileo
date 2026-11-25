@@ -16,6 +16,52 @@ const applicable = (id: string, mode: string, analyses: string[], snapshot = mod
 };
 
 describe('audited output changes are registered narrowly', () => {
+  it('registers only the refusal for conflicting model aliases', () => {
+    const id = 'canonical-model-aliases';
+    expect(declaredQuantities[id]).toEqual(['solve.ok']);
+    const registered = (snapshot: FeatureSnapshot, mode: string) =>
+      assessProject(snapshot, undefined, mode).changes.find(change => change.id === id);
+    const releases = { ...model.elements![0]![1], releaseI: { mz: false }, hingeStart: true };
+    const conflicts: FeatureSnapshot[] = [
+      { loads: [{ type: 'nodal', data: { my: 0, mz: 5 } }] },
+      { loads: [{ type: 'pointOnElement', data: { my: 5, enteredZeroMoment: true } }] },
+      { loads: [{ type: 'nodal', data: { fz: 0, fy: 5 } }] },
+      { loads: [{ type: 'distributed', data: { q: 1, qJ: 0 } }] },
+      { supports: [[1, { nodeId: 1, type: 'fixed', dz: 0, dy: 1 }]] },
+      { elements: [[1, releases]] },
+    ];
+    for (const snapshot of conflicts) {
+      expect(registered(snapshot, '2d')).toBeDefined();
+    }
+
+    const admitted: FeatureSnapshot[] = [
+      { loads: [{ type: 'nodal', data: { fz: 5, my: 5 } }] },
+      { loads: [{ type: 'nodal', data: { fz: 5, fy: 5, my: 5, mz: 5 } }] },
+      { loads: [{ type: 'pointOnElement', data: { mz: 5 } }] },
+      { loads: [{ type: 'distributed', data: { qI: 1, qJ: 0 } }] },
+    ];
+    for (const snapshot of admitted) {
+      expect(registered(snapshot, '2d')).toBeUndefined();
+    }
+    expect(registered(conflicts[0]!, '3d')).toBeDefined();
+    expect(registered({
+      loads: [{ type: 'nodal3d', data: { fy: 1, fz: 2, my: 3, mz: 4 } }],
+      supports: [[1, { nodeId: 1, type: 'fixed3d', dz: 1, dy: 2, dry: 3, drz: 4 }]],
+    }, '3d')).toBeUndefined();
+  });
+
+  it('attributes planar nodal solver refusals only to explicit solver input evidence', () => {
+    const id = 'planar-nodal-wire-components';
+    const entry = RESULT_CHANGES.changes.find(c => c.id === id)!;
+    const stamp = { ...unknownStamp(), resultsVersion: entry.resultsVersion - 1, analyses: ['linear' as const] };
+    const ids = (evidence?: ReadonlySet<string>) =>
+      assessProject(model, stamp, '2d', RESULT_CHANGES, evidence).changes.map(c => c.id);
+    expect(declaredQuantities[id]).toEqual(['solve.ok']);
+    expect(ids()).not.toContain(id);
+    expect(ids(new Set(['outOfPlaneNodalComponents']))).not.toContain(id);
+    expect(ids(new Set(['native:planar-nodal-vector']))).toContain(id);
+  });
+
   it('registers SSI in both dimensions without warning a recorded linear run', () => {
     for (const mode of ['2d', '3d', 'pro']) {
       expect(applicable('ssi-support-reactions', mode, ['ssi'])).toBe(true);

@@ -4,14 +4,7 @@ use std::collections::HashMap;
 
 // ==================== 2D Input Types ====================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SolverNode {
-    pub id: usize,
-    pub x: f64,
-    #[serde(rename = "z", alias = "y")]
-    pub z: f64,
-}
+pub type SolverNode = super::model_aliases::PlanarNode<f64>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -52,52 +45,9 @@ pub struct SolverElement {
     pub hinge_end: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SolverSupport {
-    #[serde(deserialize_with = "numeric::id::required")]
-    pub id: usize,
-    #[serde(deserialize_with = "numeric::node_id::required")]
-    pub node_id: usize,
-    #[serde(rename = "type")]
-    pub support_type: String,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::kx::optional", skip_serializing_if = "Option::is_none")]
-    pub kx: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::ky::optional", skip_serializing_if = "Option::is_none")]
-    pub ky: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::kz::optional", skip_serializing_if = "Option::is_none")]
-    pub kz: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::dx::optional", skip_serializing_if = "Option::is_none")]
-    pub dx: Option<f64>,
-    #[serde(default, rename = "dz", alias = "dy")]
-    #[serde(deserialize_with = "numeric::dz_or_dy::optional", skip_serializing_if = "Option::is_none")]
-    pub dz: Option<f64>,
-    #[serde(default, rename = "dry", alias = "drz")]
-    #[serde(deserialize_with = "numeric::dry_or_drz::optional", skip_serializing_if = "Option::is_none")]
-    pub dry: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::angle::optional", skip_serializing_if = "Option::is_none")]
-    pub angle: Option<f64>,
-}
+pub type SolverSupport = super::model_aliases::PlanarSupport<f64, f64, f64, f64>;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SolverNodalLoad {
-    #[serde(deserialize_with = "numeric::node_id::required")]
-    pub node_id: usize,
-    #[serde(deserialize_with = "numeric::fx::required")]
-    pub fx: f64,
-    #[serde(rename = "fz", alias = "fy")]
-    #[serde(deserialize_with = "numeric::fz_or_fy::required")]
-    pub fz: f64,
-    #[serde(rename = "my", alias = "mz")]
-    #[serde(deserialize_with = "numeric::my_or_mz::required")]
-    pub my: f64,
-}
+pub type SolverNodalLoad = super::model_aliases::PlanarNodalLoad<f64, f64>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -118,49 +68,7 @@ pub struct SolverDistributedLoad {
     pub b: Option<f64>,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SolverPointLoadOnElement<L = f64, F = f64, M = f64> {
-    pub element_id: usize,
-    pub a: L,
-    pub p: F,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub px: Option<F>,
-    #[serde(rename = "my", skip_serializing_if = "Option::is_none")]
-    pub my: Option<M>,
-}
-
-impl<'de, L, F, M> Deserialize<'de> for SolverPointLoadOnElement<L, F, M>
-where
-    L: Deserialize<'de> + numeric::Numeric,
-    F: Deserialize<'de> + numeric::Numeric,
-    M: Deserialize<'de> + numeric::Numeric,
-{
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        #[derive(Deserialize)]
-        #[serde(
-            rename_all = "camelCase",
-            bound(deserialize = "L: Deserialize<'de> + numeric::Numeric, F: Deserialize<'de> + numeric::Numeric, M: Deserialize<'de> + numeric::Numeric")
-        )]
-        struct Fields<L, F, M> {
-            #[serde(deserialize_with = "numeric::element_id::required")]
-            element_id: usize,
-            #[serde(deserialize_with = "numeric::a::required")]
-            a: L,
-            #[serde(deserialize_with = "numeric::p::required")]
-            p: F,
-            #[serde(default, deserialize_with = "numeric::px::optional")]
-            px: Option<F>,
-            #[serde(default, alias = "mz", deserialize_with = "numeric::my_or_mz::optional")]
-            my: Option<M>,
-            #[serde(default, rename = "mx", deserialize_with = "numeric::point_moment::mx")]
-            _mx: (),
-        }
-
-        let Fields { element_id, a, p, px, my, .. } = Fields::deserialize(deserializer)?;
-        Ok(Self { element_id, a, p, px, my })
-    }
-}
+pub type SolverPointLoadOnElement = super::model_aliases::PlanarPointLoad<f64, f64, f64>;
 
 /// A load along a plane member's axis, linear from `q_i` at `a` to `q_j` at `b` (kN/m,
 /// positive toward J). The part of a load in global axes, or at an angle, that runs along an
@@ -421,18 +329,14 @@ impl MassInput {
 /// `mass` applies to both translations; `massX`/`massZ` replace it in their
 /// direction when given (a mass that moves with the floor horizontally but
 /// not vertically, say).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NodalMass {
     pub node_id: usize,
-    #[serde(default)]
     pub mass: f64,
-    #[serde(default)]
     pub mass_x: Option<f64>,
-    #[serde(default, rename = "massZ", alias = "massY")]
     pub mass_z: Option<f64>,
-    /// Rotary inertia about the out-of-plane axis, t·m².
-    #[serde(default, rename = "iy", alias = "iz")]
+    #[serde(rename = "iy")]
     pub rotary_inertia: f64,
 }
 
@@ -1112,14 +1016,12 @@ pub struct SpectralModeInput {
     pub effective_mass_y: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpectralModeDisp {
     pub node_id: usize,
     pub ux: f64,
-    #[serde(rename = "uz", alias = "uy")]
     pub uz: f64,
-    #[serde(rename = "ry", alias = "rz")]
     pub ry: f64,
 }
 

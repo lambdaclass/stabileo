@@ -16,6 +16,19 @@ impl Numeric for usize {
     }
 }
 
+impl<T: Numeric> Numeric for Option<T> {
+    fn is_finite(&self) -> bool {
+        self.as_ref().is_none_or(Numeric::is_finite)
+    }
+}
+
+pub(super) fn finite<T: Numeric, E: de::Error>(value: T, field: &str) -> Result<T, E> {
+    if !value.is_finite() {
+        return Err(E::custom(format!("Invalid numeric input at {field} (non-finite number)")));
+    }
+    Ok(value)
+}
+
 fn decode<'de, D, T>(deserializer: D, field: &str) -> Result<T, D::Error>
 where
     D: Deserializer<'de>,
@@ -23,10 +36,7 @@ where
 {
     let value = T::deserialize(deserializer)
         .map_err(|error| de::Error::custom(format!("Invalid numeric input at {field} ({error})")))?;
-    if !value.is_finite() {
-        return Err(de::Error::custom(format!("Invalid numeric input at {field} (non-finite number)")));
-    }
-    Ok(value)
+    finite(value, field)
 }
 
 pub(super) fn nonnegative_density<'de, D: Deserializer<'de>>(deserializer: D) -> Result<f64, D::Error> {
@@ -41,7 +51,11 @@ pub(super) mod point_moment {
     use super::{de, decode, Deserializer};
 
     fn zero<'de, D: Deserializer<'de>>(deserializer: D, field: &str) -> Result<(), D::Error> {
-        if decode::<_, f64>(deserializer, field)? != 0.0 {
+        require_zero(decode::<_, f64>(deserializer, field)?, field)
+    }
+
+    pub(in crate::types) fn require_zero<E: de::Error>(value: f64, field: &str) -> Result<(), E> {
+        if value != 0.0 {
             return Err(de::Error::custom(format!(
                 "Unsupported point load field {field}: apply the moment at a 3D node at the original load position"
             )));
@@ -84,6 +98,15 @@ macro_rules! fields {
                     T: Deserialize<'de> + Numeric,
                 {
                     required(deserializer).map(Some)
+                }
+
+                #[allow(dead_code)]
+                pub(in crate::types) fn present_optional<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
+                where
+                    D: Deserializer<'de>,
+                    T: Deserialize<'de> + Numeric,
+                {
+                    optional(deserializer).map(Some)
                 }
             }
         )+

@@ -53,9 +53,9 @@ describe('acceptSessionTabs', () => {
   it('refuses malformed shapes without throwing', () => {
     expect(acceptSessionTabs([tab(snapshot({ elements: [[1, null]] }))]).tabs).toEqual([]);
     expect(acceptSessionTabs([tab(snapshot(), { analysisMode: 'nope' })]).tabs).toEqual([]);
-    expect(acceptSessionTabs([null])).toEqual({ tabs: [], dropped: [{ index: 0, name: null }] });
-    expect(acceptSessionTabs([])).toEqual({ tabs: [], dropped: [] });
-    expect(acceptSessionTabs('x')).toEqual({ tabs: [], dropped: [] });
+    expect(acceptSessionTabs([null])).toEqual({ tabs: [], dropped: [{ index: 0, name: null }], discardedHistory: [] });
+    expect(acceptSessionTabs([])).toEqual({ tabs: [], dropped: [], discardedHistory: [] });
+    expect(acceptSessionTabs('x')).toEqual({ tabs: [], dropped: [], discardedHistory: [] });
   });
 
   it('drops undo/redo stacks containing an invalid snapshot', () => {

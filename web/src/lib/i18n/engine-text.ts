@@ -129,6 +129,7 @@ const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
   ['non-finite moving load member diagram', DIAGRAM_EXTREMA_UNAVAILABLE],
   ['Repeated load case factors cancel to zero in this combination.', 'svc.engine.cancelledCombination'],
   [AMBIGUOUS_ROLLER_Z, 'svc.engine.ambiguousRollerZ'],
+  ['out-of-plane nodal component', 'xls.err.nodalOutOfPlane'],
   ['Mass density must be finite and nonnegative', 'svc.engine.nonnegativeMassDensity'],
   ['Unsupported point load field', 'svc.engine.unsupportedPointLoadMoment'],
   ['apply the moment at a 3D node at the original load position', 'svc.engine.applyPointLoadMomentAtNode'],
