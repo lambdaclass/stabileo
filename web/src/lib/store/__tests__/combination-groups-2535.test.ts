@@ -969,6 +969,46 @@ const combinationRoutes = [
   '3D sync uplift', '3D async uplift', '3D direct', '3D worker direct',
 ] as const;
 
+async function solveCombinationReactions(route: typeof combinationRoutes[number], base: number, tip: number) {
+  const dim = route === '2D linear' ? '2d' : '3d';
+  const model = modelStore.model as ModelData;
+  const { loadCases, combinations } = modelStore;
+  const worker = route.includes('async') || route.includes('worker');
+  const jobs = worker ? recordWorkerJobs() : [];
+  let reactions: number[];
+  if (dim === '2d') {
+    const solved = solveCombinations2D(model, loadCases, combinations);
+    if (!solved || typeof solved === 'string') throw new Error(String(solved));
+    reactions = [...solved.perCombo.values()].map(result => result.reactions.find(r => r.nodeId === base)!.rz);
+  } else if (route.endsWith('direct')) {
+    const solved = await runDirectAnalysis(model, loadCases, combinations, {
+      includeSelfWeight: false, settings: { notional: 0, tauB: 'unity' },
+      ...(worker ? { run: workerPDelta(pdelta3DInWorker) } : {}),
+    });
+    if (typeof solved === 'string') throw new Error(solved);
+    if (worker) expect(jobs).toContain('pdelta3d');
+    reactions = [...solved.perCombo.values()].map(result => result.reactions.find(r => r.nodeId === base)!.fz);
+  } else {
+    if (route.endsWith('uplift')) {
+      const support = modelStore.addSupport(tip, 'custom3d', undefined, {
+        dofRestraints: { tx: false, ty: false, tz: true, rx: false, ry: false, rz: false },
+      });
+      modelStore.updateSupport(support, { uplift: true });
+    } else {
+      modelStore.setAnalysis({ perCombination: route.endsWith('pdelta') ? 'pdelta' : 'linear' });
+    }
+    const solve = worker ? solveCombinations3DParallel : solveCombinations3D;
+    const solved = await solve(model, loadCases, combinations);
+    if (!solved || typeof solved === 'string') throw new Error(String(solved));
+    if (worker) expect(jobs).toContain(route.endsWith('uplift') ? 'nonlinear-step' : route.endsWith('pdelta') ? 'pdelta3d' : 'solve3d');
+    if (route.endsWith('pdelta')) {
+      for (const result of solved.perCombo.values()) expect.soft(result.secondOrder).toMatchObject({ stable: true, converged: true });
+    }
+    reactions = [...solved.perCombo.values()].map(result => result.reactions.reduce((sum, r) => sum + r.fz, 0));
+  }
+  return reactions;
+}
+
 const combinationRegressions = ['alternatives', 'snow', 'roof live', 'generated roof live', 'duplicate factors'] as const;
 
 for (const route of combinationRoutes) for (const failure of combinationRegressions) {
@@ -1009,41 +1049,7 @@ for (const route of combinationRoutes) for (const failure of combinationRegressi
       expected = [roofForce * 2];
     }
 
-    const model = modelStore.model as ModelData;
-    const { loadCases, combinations } = modelStore;
-    const worker = route.includes('async') || route.includes('worker');
-    const jobs = worker ? recordWorkerJobs() : [];
-    let reactions: number[];
-    if (dim === '2d') {
-      const solved = solveCombinations2D(model, loadCases, combinations);
-      if (!solved || typeof solved === 'string') throw new Error(String(solved));
-      reactions = [...solved.perCombo.values()].map(result => result.reactions.find(r => r.nodeId === base)!.rz);
-    } else if (route.endsWith('direct')) {
-      const solved = await runDirectAnalysis(model, loadCases, combinations, {
-        includeSelfWeight: false, settings: { notional: 0, tauB: 'unity' },
-        ...(worker ? { run: workerPDelta(pdelta3DInWorker) } : {}),
-      });
-      if (typeof solved === 'string') throw new Error(solved);
-      if (worker) expect(jobs).toContain('pdelta3d');
-      reactions = [...solved.perCombo.values()].map(result => result.reactions.find(r => r.nodeId === base)!.fz);
-    } else {
-      if (route.endsWith('uplift')) {
-        const support = modelStore.addSupport(tip, 'custom3d', undefined, {
-          dofRestraints: { tx: false, ty: false, tz: true, rx: false, ry: false, rz: false },
-        });
-        modelStore.updateSupport(support, { uplift: true });
-      } else {
-        modelStore.setAnalysis({ perCombination: route.endsWith('pdelta') ? 'pdelta' : 'linear' });
-      }
-      const solve = worker ? solveCombinations3DParallel : solveCombinations3D;
-      const solved = await solve(model, loadCases, combinations);
-      if (!solved || typeof solved === 'string') throw new Error(String(solved));
-      if (worker) expect(jobs).toContain(route.endsWith('uplift') ? 'nonlinear-step' : route.endsWith('pdelta') ? 'pdelta3d' : 'solve3d');
-      if (route.endsWith('pdelta')) {
-        for (const result of solved.perCombo.values()) expect.soft(result.secondOrder).toMatchObject({ stable: true, converged: true });
-      }
-      reactions = [...solved.perCombo.values()].map(result => result.reactions.reduce((sum, r) => sum + r.fz, 0));
-    }
+    const reactions = await solveCombinationReactions(route, base, tip);
     expect.soft(reactions).toHaveLength(expected.length);
     reactions.sort((a, b) => b - a);
     for (const [i, force] of expected.sort((a, b) => b - a).entries()) expect.soft(reactions[i]).toBeCloseTo(force, 8);
@@ -1081,4 +1087,80 @@ it('#2566 recheck identifies occupied generated cases and repeated editable term
   expect(changes()).toContain(notice);
   modelStore.replaceLoads([]);
   expect(changes()).not.toContain(notice);
+});
+
+const knownWrongRanking = process.env.RUN_KNOWN_WRONG === '2569' ? it : it.skip;
+const rankingCases = [
+  { id: 1, type: 'L', name: 'Whole floor', alternatives: 'floor' },
+  { id: 2, type: 'L', name: 'First floor pattern', alternatives: 'floor', pattern: true },
+  { id: 3, type: 'L', name: 'Second floor pattern', alternatives: 'floor', pattern: true },
+  { id: 4, type: 'Lr', name: 'Whole roof', alternatives: 'roof' },
+  { id: 5, type: 'Lr', name: 'Roof pattern', alternatives: 'roof', pattern: true },
+] as const;
+const rankingRoofTerm = { symbol: 'Lr', factor: 1.5 } as const;
+const rankingForces = [floorForce, livePatternForce, 8, roofForce, 7] as const;
+const rankingReactions = rankingForces.slice(0, 3).map(v => 2 * v + rankingRoofTerm.factor * rankingForces[3]);
+
+function rankingProject(dim: '2d' | '3d', repeated: boolean) {
+  const terms = repeated ? [floorTerm, floorTerm, rankingRoofTerm] : [{ ...floorTerm, factor: 2 }, rankingRoofTerm];
+  const rule = restoreGroupedProject(...terms);
+  const snapshot = modelStore.snapshot();
+  modelStore.restore({ ...snapshot, loadCases: [...rankingCases], nextId: { ...snapshot.nextId!, loadCase: rankingCases.length + 1 } });
+  const cantilever = loadedCantilever(dim, rankingCases.map(({ id }, i) => [id, rankingForces[i]!]));
+  return { ...cantilever, rule };
+}
+
+function expectRankingReactions(reactions: number[]) {
+  expect.soft(reactions).toHaveLength(rankingReactions.length);
+  reactions.sort((a, b) => a - b);
+  const expected = [...rankingReactions].sort((a, b) => a - b);
+  for (const [i, force] of expected.entries()) expect.soft(reactions[i]).toBeCloseTo(force, 8);
+}
+
+for (const route of combinationRoutes) {
+  knownWrongRanking(`known wrong result: #2569 ${route} includes the governing floor pattern from a saved project rule`, async () => {
+    const { base, tip } = rankingProject(route === '2D linear' ? '2d' : '3d', true);
+    expect(deserializeProject(serializeProject())).toBe(true);
+    addGeneratedCombinations(projectCombinations());
+    expectRankingReactions(await solveCombinationReactions(route, base, tip));
+  });
+}
+
+for (const writer of ['composite cases', 'Auto Loads'] as const) {
+  knownWrongRanking(`known wrong result: #2569 an imported template keeps the floor patterns when generating ${writer}`, async () => {
+    const { base, tip, rule } = rankingProject('3d', true);
+    expect(deserializeProject(serializeProject())).toBe(true);
+    const template = rulesToTemplate([rule], 'Repeated floor live');
+    modelStore.setCombinationRules([]);
+    await combinationRuleEditor().importTemplate({ currentTarget: { files: [{ text: async () => template }], value: 'repeated.json' } });
+
+    if (writer === 'composite cases') {
+      addCompositeCases(projectCombinations());
+      expect.soft(modelStore.loadCases.filter(c => c.generated && c.includes?.length)).toHaveLength(3);
+    } else {
+      const terms = modelStore.combinationRules[0]!.terms;
+      const input = { ...plan(...terms), cases: rankingCases.map(({ id, name, ...c }) => ({ ...c, existingId: id, nameKey: name, own: true })) };
+      expect.soft(describePlanDelta(input, empty, { replaceExisting: true }).after.combinations).toBe(3);
+      expect.soft(previewLoadPlan(input, applyOptions.nameOf, { replaceExisting: true }).after.combinations).toBe(3);
+      expect(applyLoadPlan(input, applyOptions)).toBeUndefined();
+    }
+    expectRankingReactions(await solveCombinationReactions('3D sync linear', base, tip));
+  });
+}
+
+it('#2569 a canonical rule still includes the governing floor pattern', async () => {
+  const { base, tip } = rankingProject('3d', false);
+  addGeneratedCombinations(projectCombinations());
+  expectRankingReactions(await solveCombinationReactions('3D sync linear', base, tip));
+});
+
+knownWrongRanking('known wrong result: #2569 Preview and Apply refuse an overflowing rule before saving combinations', () => {
+  rankingProject('3d', false);
+  const large = { ...floorTerm, factor: Number.MAX_VALUE };
+  const input = { ...plan(large, large, rankingRoofTerm), cases: rankingCases.map(({ id, name, ...c }) => ({ ...c, existingId: id, nameKey: name, own: true })) };
+  const before = modelStore.snapshot();
+  const message = tp('combos.refused.factorTotal', { rule: input.combinations[0]!.label });
+  expect.soft(engineGuarded(() => previewLoadPlan(input, applyOptions.nameOf, { replaceExisting: true })).error).toBe(message);
+  expect.soft(engineGuarded(() => applyLoadPlan(input, applyOptions)).error).toBe(message);
+  expect(modelStore.snapshot()).toEqual(before);
 });
