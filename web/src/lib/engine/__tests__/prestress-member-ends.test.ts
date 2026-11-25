@@ -104,6 +104,36 @@ it('#2470 solves the straight eccentric tendon through 3D analysis entry points'
   check(typeof direct === 'object' ? direct.perCombo.get(id) ?? null : direct, 'direct analysis', factor, false);
 });
 
+const reviewPrestress = process.env.RUN_KNOWN_WRONG === '2580' ? it : it.skip;
+
+reviewPrestress('known wrong result: #2580 applies a curved tendon and gravity together through spatial analysis', async () => {
+  const { member } = simplySupportedTendon();
+  modelStore.addLoadEntry({ type: 'prestress3d', data: { id: 0, elementId: member, force: P, eI: 0, eM: e0, eJ: 0, caseId: 1 } });
+  const q = 10;
+  modelStore.addDistributedLoad3D(member, 0, 0, -q, -q, undefined, undefined, 1);
+  for (const { id } of [...modelStore.combinations]) modelStore.removeCombination(id);
+  const factor = 2;
+  const id = modelStore.addCombination('Tendon and gravity', [{ caseId: 1, factor }]);
+  const check = (result: ReturnType<typeof solve> | string | null, label: string, scale = 1) => {
+    expect.soft(result, label).toMatchObject({ reactions: expect.any(Array) });
+    if (!result || typeof result === 'string') return;
+    expect(result.reactions.reduce((sum, reaction) => sum + reaction.fz, 0)).toBeCloseTo(scale * q * L, 8);
+  };
+  const checkCombo = (result: ReturnType<typeof modelStore.solveCombinations3D>, label: string) =>
+    check(result && typeof result === 'object' ? result.perCombo.get(id) ?? null : result, label, factor);
+
+  check(modelStore.solve3D(false, false, true), 'linear');
+  check(await modelStore.solve3DAsync(false, false, true), 'parallel linear');
+  expect.soft(modelStore.singleSolveInput3D(false, false, true)).toMatchObject({ dim: '3d' });
+  checkCombo(modelStore.solveCombinations3D(false, false, true), 'linear combination');
+  checkCombo(await modelStore.solveCombinations3DParallel(false, false, true), 'parallel linear combination');
+  modelStore.setAnalysis({ perCombination: 'pdelta' });
+  checkCombo(modelStore.solveCombinations3D(false, false, true), 'P-Delta combination');
+  checkCombo(await modelStore.solveCombinations3DParallel(false, false, true), 'parallel P-Delta combination');
+  const model = modelStore.model;
+  checkCombo(await runDirectAnalysis(model, model.loadCases, model.combinations, { includeSelfWeight: false }), 'direct analysis');
+});
+
 it('#2470 bounds a zero-total tendon component by its cancelling terms', () => {
   const eccentricity = 1 / 8;
   const { a } = simplySupportedTendon(eccentricity);

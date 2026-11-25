@@ -484,3 +484,62 @@ it('#2430 transfers the entire slab load into the wall when both share the inter
   expect(result.reactions.map(r => r.nodeId).sort((a, b) => a - b)).toEqual([i, j]);
   for (const support of result.reactions) expect(support.fz).toBeCloseTo(4 * 4 / 2, 8);
 });
+
+
+function loadedSeam() {
+  const at = (x: number, y: number, z: number) => modelStore.addNode(x, y, z);
+  const a = at(0, 0, 0), b = at(2, 0, 0), c = at(4, 0, 0);
+  const d = at(0, 4, 0), e = at(2, 4, 0), f = at(4, 4, 0);
+  for (const nodes of [[a, b, e, d], [b, c, f, e]] as const) {
+    modelStore.addSurfaceLoad3D(modelStore.addQuad([...nodes], 1, 0.15), 1);
+  }
+  return { a, b, c, d, e, at };
+}
+
+function wallPiercingSeam() {
+  const { a, c, d, at } = loadedSeam();
+  for (const node of [a, c, d]) modelStore.addSupport(node, 'fixed3d');
+  const i = at(2, 1, -3), j = at(2, 3, -3);
+  const k = at(2, 1, 1), l = at(2, 3, 1);
+  modelStore.addSupport(i, 'fixed3d');
+  modelStore.addSupport(j, 'fixed3d');
+  modelStore.addElement(a, i);
+  return modelStore.addQuad([i, j, l, k], 1, 0.15);
+}
+
+const reviewWall = process.env.RUN_KNOWN_WRONG === '2430' ? it : it.skip;
+
+reviewWall('known wrong result: #2430 refuses a wall piercing the internal edge of a loaded slab mesh', async () => {
+  for (const [entry, solve] of directEntries) {
+    modelStore.clear();
+    wallPiercingSeam();
+    const result = await solve();
+    expect.soft(result && typeof result === 'object' ? 'returned a result' : result, entry)
+      .toEqual(entry === 'reproducible input' ? null : expect.stringMatching(/wall q3.*slab q[12]/i));
+  }
+
+  modelStore.clear();
+  wallPiercingSeam();
+  const outcome = await runGlobalSolve({ directBase: true });
+  expect.soft(outcome.ok ? 'returned a result' : outcome.error).toEqual(expect.stringMatching(/wall q3.*slab q[12]/i));
+  expect(resultsStore.results3D).toBeNull();
+});
+
+reviewWall('known wrong result: #2430 solves a loaded acute wall joint that shares the slab seam', async () => {
+  const { b, e, at } = loadedSeam();
+  const apex = at(3.5, 2, 1);
+  modelStore.addPlate([b, e, apex], 1, 0.15);
+  modelStore.addSupport(apex, 'fixed3d');
+
+  for (const [entry, solve] of directEntries) {
+    const result = await solve();
+    expect.soft(result, entry).not.toBeNull();
+    expect.soft(typeof result, entry + ': ' + String(result)).toBe('object');
+  }
+  const outcome = await runGlobalSolve({ directBase: true });
+  expect.soft(outcome).toMatchObject({ ok: true });
+  const result = resultsStore.results3D;
+  if (!result) throw new Error('Missing result at the shared acute joint');
+  expectLoadedSlab(result);
+  expect(result.reactions.map(r => r.nodeId)).toEqual([apex]);
+});
