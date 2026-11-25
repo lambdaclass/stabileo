@@ -180,6 +180,59 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "known wrong result: #2588"]
+    fn json_analysis_refuses_duplicate_connector_keys() {
+        let mut failures = Vec::new();
+        for space in [false, true] {
+            let mut model = cantilever(space);
+            model["loads"] = if space {
+                json!([{"type": "nodal", "data": {"nodeId": 2, "fx": 1, "fy": 0, "fz": 0, "mx": 0, "my": 0, "mz": 0}}])
+            } else {
+                json!([{"type": "nodal", "data": {"nodeId": 2, "fx": 1, "fz": 0, "my": 0}}])
+            };
+            let first = json!({"id": 17, "nodeI": 1, "nodeJ": 2, "kAxial": 1e6});
+            let second = json!({"id": 18, "nodeI": 1, "nodeJ": 2, "kAxial": 2e6});
+            let last_only = json!({"17": second}).to_string();
+            let both = json!({"17": first, "18": second}).to_string();
+            let empty = model.to_string();
+            model["connectors"] = json!({});
+            let with_table = |table: &str| model.to_string().replace(r#""connectors":{}"#, &format!(r#""connectors":{table}"#));
+            let response = |text: &str| {
+                if space {
+                    let result = solve_3d(&serde_json::from_str(text).unwrap()).unwrap();
+                    (result.displacements.iter().find(|n| n.node_id == 2).unwrap().ux, result.element_forces[0].n_start.abs())
+                } else {
+                    let result = solve_2d(&serde_json::from_str(text).unwrap()).unwrap();
+                    (result.displacements.iter().find(|n| n.node_id == 2).unwrap().ux, result.element_forces[0].n_start.abs())
+                }
+            };
+            let (bare_ux, bare_force) = response(&empty);
+            let (last_ux, last_force) = response(&with_table(&last_only));
+            let (both_ux, both_force) = response(&with_table(&both));
+            assert!(0.0 < both_ux && both_ux < last_ux && last_ux < bare_ux);
+            assert!(0.0 < both_force && both_force < last_force && last_force < bare_force);
+            assert!(pdelta(&with_table(&both), space).is_ok());
+
+            for table in [
+                format!(r#"{{"17":{first},"17":{second}}}"#),
+                format!(r#"{{"17":{first},"18":{second},"1\u0037":{first}}}"#),
+                format!(r#"{{"17":{first},"17":null}}"#),
+            ] {
+                let text = with_table(&table);
+                for (path, result) in [
+                    ("linear replay", linear_hashes(&text, space).map(|_| ())),
+                    ("P-Delta", pdelta(&text, space)),
+                ] {
+                    if !matches!(&result, Err(error) if error.contains("duplicate key in field `connectors`")) {
+                        failures.push(format!("space={space}, {path}: {result:?}"));
+                    }
+                }
+            }
+        }
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+
+    #[test]
     fn planar_json_requires_a_named_model() {
         let model = cantilever(false);
         let positional = json!([

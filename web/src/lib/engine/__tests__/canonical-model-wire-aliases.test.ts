@@ -1,5 +1,8 @@
 import { beforeAll, expect, it } from 'vitest';
+import { localizeEngineText } from '../../i18n/engine-text';
+import { setLocale } from '../../i18n';
 import { initSolver } from '../wasm-solver';
+import * as wasm from '../../wasm/dedaliano_engine.js';
 import { LoadSession2D, LoadSession3D, certify_time_history_2d, certify_time_history_3d, solve_time_history_2d, solve_time_history_3d, engine_reproduce_hashes, certify_linear_2d, certify_linear_3d, solve_multi_case_2d, solve_multi_case_3d, certify_multi_case_2d, certify_multi_case_3d, estimate_discretization_3d, convergence_study_3d, solve_2d, solve_3d, solve_arc_length, solve_displacement_control, solve_pdelta_2d, solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
 
 beforeAll(async () => { await initSolver(); });
@@ -419,5 +422,84 @@ it.each([false, true])('keeps connectors in iterable WASM tables (space = %s)', 
       expect.soft(() => run(withConnectors(table)), entry + ' ' + shape)
         .toThrow(/Parse error:.*(?:map entr|duplicate|expected .*map|unknown field .*kAxiall)/i);
     }
+  }
+});
+
+it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1').each([false, true])(
+  'refuses repeated connector keys in JSON analysis (space = %s)',
+  (is3D) => {
+    const base = is3D ? space : planar;
+    const loads = [{ type: 'nodal', data: { nodeId: 2, fx: 1, fz: 0, my: 0,
+      ...(is3D ? { fy: 0, mx: 0, mz: 0 } : {}),
+    } }];
+    const model = { ...base, loads, connectors: {} };
+    const first = { id: 17, nodeI: 1, nodeJ: 2, kAxial: 1e6 };
+    const second = { id: 18, nodeI: 1, nodeJ: 2, kAxial: 2e6 };
+    const encode = (entries: string) => JSON.stringify(model).replace('"connectors":{}', `"connectors":{${entries}}`);
+    const duplicate = encode(`"17":${JSON.stringify(first)},"17":${JSON.stringify(second)}`);
+    const distinct = encode(`"17":${JSON.stringify(first)},"18":${JSON.stringify(second)}`);
+    const lastOnly = encode(`"17":${JSON.stringify(second)}`);
+    const pdelta = is3D ? solve_pdelta_3d : solve_pdelta_2d;
+    const dim = is3D ? '3d' : '2d';
+    const nested = (solver: string) => `{"solver":${solver}}`;
+    const multiCase = (solver: string) =>
+      `{"solver":${solver},"loadCases":[{"name":"D","loads":${JSON.stringify(loads)}}],"combinations":[{"name":"D","factors":{"D":1}}]}`;
+    const entries = {
+      replay: (input: string) => engine_reproduce_hashes(input, is3D),
+      'linear bundle': wasm[`export_linear_bundle_${dim}`],
+      'combination bundle': (input: string) => wasm[`export_combination_bundle_${dim}`](multiCase(input)),
+      'P-Delta': (input: string) => pdelta(input, 20, 1e-9),
+      'P-Delta certificate': (input: string) => wasm[`certify_pdelta_${dim}`](input, 20, 1e-9),
+      buckling: (input: string) => wasm[`solve_buckling_${dim}`](input, 1),
+      'buckling certificate': (input: string) => wasm[`certify_buckling_${dim}`](input, 1),
+      'buckling result certificate': (input: string) => wasm[`certify_buckling_result_${dim}`](input, '{}'),
+      corotational: (input: string) => wasm[`solve_corotational_${dim}`](input, 20, 1e-9, 1),
+      kinematics: wasm[`analyze_kinematics_${dim}`],
+      modal: (input: string) => wasm[`solve_modal_${dim}`](nested(input), 1),
+      'modal certificate': (input: string) => wasm[`certify_modal_${dim}`](nested(input), 1),
+      cable: (input: string) => wasm[`solve_cable_${dim}`](nested(input), 20, 1e-9),
+      'steel combination certificate': (input: string) =>
+        wasm[`certify_steel_multi_case_${dim}`](`{"multiCase":${multiCase(input)},"members":[]}`),
+      ...(is3D ? {} : {
+        'arc length': (input: string) => solve_arc_length(nested(input)),
+        'displacement control': (input: string) => solve_displacement_control(nested(input)),
+        Guyan: (input: string) => wasm.guyan_reduce_2d(nested(input)),
+        'Craig-Bampton': (input: string) => wasm.craig_bampton_2d(nested(input)),
+      }),
+    };
+    const nestedEntries = [
+      'export_plastic_bundle', 'solve_spectral', 'certify_spectral', 'solve_plastic', 'certify_plastic',
+      'solve_moving_loads', 'solve_nonlinear_material', 'solve_time_history', 'certify_time_history',
+      'solve_harmonic', 'certify_harmonic', 'solve_winkler', 'solve_constrained', 'solve_contact',
+      'solve_ssi', 'solve_fiber_nonlinear', 'solve_creep_shrinkage', 'solve_with_imperfections',
+    ] as const;
+    const solve = (input: string) => JSON.parse(entries['P-Delta'](input));
+    const tip = (input: string) => {
+      const result = solve(input);
+      expect(result.converged).toBe(true);
+      return result.results.displacements.find((node: { nodeId: number }) => node.nodeId === 2).ux;
+    };
+    expect(tip(distinct)).toBeGreaterThan(0);
+    expect(tip(distinct)).toBeLessThan(tip(lastOnly));
+    expect(tip(lastOnly)).toBeLessThan(tip(encode('')));
+    const refusal = /duplicate key in field `connectors`/;
+    for (const [entry, run] of Object.entries(entries)) {
+      expect.soft(() => run(duplicate), entry).toThrow(refusal);
+    }
+    for (const name of nestedEntries) {
+      expect.soft(() => wasm[`${name}_${dim}`](nested(duplicate)), name).toThrow(refusal);
+    }
+    const influence = is3D ? wasm.compute_influence_line_3d : wasm.compute_influence_line;
+    expect.soft(() => influence(nested(duplicate)), 'influence line').toThrow(refusal);
+  },
+);
+
+it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1')('translates the JSON duplicate-key refusal', async () => {
+  await setLocale('es');
+  try {
+    expect(localizeEngineText('Parse error: duplicate key in field `connectors` at line 4 column 8'))
+      .toBe('Error de análisis: Falta el campo connectors o su valor no es compatible. (línea 4, columna 8)');
+  } finally {
+    await setLocale('en');
   }
 });
