@@ -1368,18 +1368,18 @@ mod shared_driver_equivalence {
             }
             let dof_num = DofNumbering::build_2d(&input);
             let cs = FreeConstraintSystem::build_2d(&input, &dof_num).unwrap();
-            let asm = assembly::assemble_2d(&input, &dof_num);
-            let art = assembly::artificial_stiffness_entries(&asm);
+            let asm = assembly::assemble_stiffness_2d(&input, &dof_num);
+            let art = asm.artificial_stiffness_entries();
             let metric = crate::solver::convergence::EquilibriumMetric::for_2d(&input, &dof_num, cs.as_ref()).unwrap();
             let zero = vec![0.0; dof_num.n_total];
-            let f_total = asm.f.clone();
+            let loads = PlanarLoadPath::increments(&input, None, &dof_num, &asm.inclined_transforms_2d);
             let supports = vec![0.0; dof_num.n_total - dof_num.n_free];
             let mut problem = Corotational2D {
                 input: &input, dof_num: &dof_num, cs: &cs, asm: &asm, art: &art, metric: &metric,
-                ns: dof_num.n_free, f_total: &f_total, f_base: &zero, u_r_base: &supports, u_r_target: &supports,
+                ns: dof_num.n_free, loads: &loads, f_base: &zero, u_r_base: &supports, u_r_target: &supports,
                 start_internal: &zero, u_full: zero.clone(), u_converged: zero.clone(),
-                sparse_sym_cache: None, conditioning: None, f_ext: Vec::new(), active_supports: Vec::new(),
-                support_step: None, cached_factor: None, r_f: Vec::new(), unbalance: Vec::new(),
+                sparse_sym_cache: None, conditioning: None, targets: IncrementTargets2D::default(),
+                cached_factor: None, r_f: Vec::new(), unbalance: Vec::new(),
                 k_t: Vec::new(), trip_rows: Vec::new(), trip_cols: Vec::new(), trip_vals: Vec::new(),
             };
             use incremental::IncrementalProblem;
@@ -1408,19 +1408,19 @@ mod shared_driver_equivalence {
             input.supports.get_mut("2").unwrap().dx = Some(1e-5);
             let dof_num = DofNumbering::build_2d(&input);
             let cs = FreeConstraintSystem::build_2d(&input, &dof_num).unwrap();
-            let asm = assembly::assemble_2d(&input, &dof_num);
-            let art = assembly::artificial_stiffness_entries(&asm);
+            let asm = assembly::assemble_stiffness_2d(&input, &dof_num);
+            let art = asm.artificial_stiffness_entries();
             let metric = crate::solver::convergence::EquilibriumMetric::for_2d(&input, &dof_num, cs.as_ref()).unwrap();
             let zero = vec![0.0; dof_num.n_total];
-            let f_total = asm.f.clone();
+            let loads = PlanarLoadPath::increments(&input, None, &dof_num, &asm.inclined_transforms_2d);
             let supports = vec![0.0; dof_num.n_total - dof_num.n_free];
             let target_supports = crate::solver::linear::prescribed_displacements_2d(&input, &dof_num);
             let mut problem = Corotational2D {
                 input: &input, dof_num: &dof_num, cs: &cs, asm: &asm, art: &art, metric: &metric,
-                ns: dof_num.n_free, f_total: &f_total, f_base: &zero, u_r_base: &supports, u_r_target: &target_supports,
+                ns: dof_num.n_free, loads: &loads, f_base: &zero, u_r_base: &supports, u_r_target: &target_supports,
                 start_internal: &zero, u_full: zero.clone(), u_converged: zero.clone(),
-                sparse_sym_cache: None, conditioning: None, f_ext: Vec::new(), active_supports: Vec::new(),
-                support_step: None, cached_factor: None, r_f: Vec::new(), unbalance: Vec::new(),
+                sparse_sym_cache: None, conditioning: None, targets: IncrementTargets2D::default(),
+                cached_factor: None, r_f: Vec::new(), unbalance: Vec::new(),
                 k_t: Vec::new(), trip_rows: Vec::new(), trip_cols: Vec::new(), trip_vals: Vec::new(),
             };
             use incremental::{Direction, IncrementalProblem};
