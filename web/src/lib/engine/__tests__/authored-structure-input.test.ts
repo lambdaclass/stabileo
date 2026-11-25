@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { assessProject } from '../../provenance/applicability';
 import { modelFeatures } from '../../provenance/model-features';
+import { readStamp, stampSolve } from '../../provenance/solve-stamp';
 import { fragmentFromJSONModel } from '../../model/edit/fragment-code';
 import { modelStore, uiStore } from '../../store';
 import { acceptAutosavePayload, deserializeProjectOrThrow, serializeProject } from '../../store/file';
@@ -486,4 +487,98 @@ it('reduces MPC terms after rotating a YZ plane', async () => {
   expect(await modelStore.solveAsync(false, 'yz')).toEqual(control);
   expect(projectOnto('yz')).toMatchObject({ ok: true });
   expect(modelStore.solve(false, 'xy')).toEqual(control);
+});
+
+it.runIf(process.env.STABILEO_REVIEW_REPRO === '1')('refuses an unknown combination method key before combining opposing cases', async () => {
+  const model = modelStore.model;
+  const cases = [loadCase, { ...loadCase, id: 2, name: 'Opposing case' }];
+  model.loadCases = cases;
+  model.loads.push({ type: 'nodal', data: { id: 2, nodeId: tip, fx: -1, fz: 0, my: 0, caseId: 2 } });
+  const factors = [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 1 }];
+  const correct = { ...combo, method: 'srss' as const, factors };
+  const linear = solveCombinations2D(model, cases, [{ ...combo, factors }]);
+  const srss = solveCombinations2D(model, cases, [correct]);
+  expect(linear && typeof linear !== 'string' ? linear.perCombo.get(combo.id) : linear)
+    .toMatchObject({ reactions: [{ rx: 0 }] });
+  expect(srss && typeof srss !== 'string' ? srss.perCombo.get(combo.id) : srss)
+    .toMatchObject({ reactions: [{ rx: expect.closeTo(Math.SQRT2, 12) }] });
+
+  const misspelled = { ...combo, methdo: 'srss', factors };
+  const before = modelStore.snapshot();
+  const input = { ...fixture(), loadCases: cases, combinations: [misspelled] };
+  await refuses('combinations[0].methdo', {
+    restore: () => modelStore.restore({ ...before, combinations: [misspelled] }),
+    'fixture replay': () => loadFixture(input, modelStore.fixtureApi() as never),
+    'example apply': () => modelStore.loadExample(input.name, async () => input),
+  });
+  expect.soft(modelStore.snapshot()).toEqual(before);
+  model.combinations = [misspelled];
+  const runs = {
+    'plane combinations': () => solveCombinations2D(model, cases, [misspelled]),
+    'plane store combinations': () => modelStore.solveCombinations(false, 'xz'),
+    'space combinations': () => solveCombinations3D(model, cases, [misspelled]),
+    'space parallel combinations': () => solveCombinations3DParallel(model, cases, [misspelled]),
+    'space direct analysis': () => runDirectAnalysis(model, cases, [misspelled], { includeSelfWeight: false }),
+    'space store combinations': () => modelStore.solveCombinations3D(false, false, true),
+    'space store parallel combinations': () => modelStore.solveCombinations3DParallel(false, false, true),
+  };
+  await refuses('combinations[0].methdo', runs);
+  model.supports.get(support)!.uplift = true;
+  await refuses('combinations[0].methdo', runs);
+});
+
+it.runIf(process.env.STABILEO_REVIEW_REPRO === '1')('preserves solved displacements when reducing overflowing homogeneous MPC terms', async () => {
+  const model = modelStore.model;
+  const axial = { nodeId: tip, dof: 0, coefficient: 1 };
+  model.constraints = [{ type: 'linearMPC', terms: [axial] }];
+  const reference = validateAndSolve2D(model);
+  expect(reference).toMatchObject({ displacements: expect.arrayContaining([{ nodeId: tip, ux: 0, uz: 0, ry: 0 }]) });
+  const combination = solveCombinations2D(model, [loadCase], [combo]);
+  expect(combination).toMatchObject({ perCombo: expect.any(Map) });
+  const advanced = solvePDelta(buildSolverInput2D(model)!);
+  expect(advanced.converged).toBe(true);
+  const max = { ...axial, coefficient: Number.MAX_VALUE };
+  model.constraints = [{ type: 'linearMPC', terms: [max, max] }];
+  expect.soft(validateAndSolve2D(model)).toEqual(reference);
+  expect.soft(await validateAndSolve2DAsync(model)).toEqual(reference);
+  expect.soft(modelStore.solve(false, 'xz')).toEqual(reference);
+  expect.soft(await modelStore.solveAsync(false, 'xz')).toEqual(reference);
+  expect.soft(solveCombinations2D(model, [loadCase], [combo])).toEqual(combination);
+  const input = modelStore.buildSolverInput(false, 'xz');
+  expect.soft(input && solvePDelta(input)).toEqual(advanced);
+  const rotation = { ...max, dof: 4, coefficient: Number.MIN_VALUE };
+  model.constraints = [{ type: 'linearMPC', terms: [max, max, rotation, rotation] }];
+  expect.soft(buildSolverInput2D(model)?.constraints).toEqual([{
+    type: 'linearMPC', terms: [max, { ...rotation, dof: 2, coefficient: -Number.MIN_VALUE }],
+  }]);
+});
+
+it.runIf(process.env.STABILEO_REVIEW_REPRO === '1')('scopes both constraint notices to the saved solve plane', () => {
+  const model = modelStore.model;
+  const offset = { type: 'eccentricConnection' as const, masterNode: root, slaveNode: tip, offsetX: 1, releases: [false, true, true] };
+  const term = { nodeId: root, dof: 1, coefficient: 1 };
+  const mpc = { type: 'linearMPC' as const, terms: [term, { ...term, coefficient: -1 }] };
+  model.constraints = [offset, mpc];
+  expect(modelStore.solve(false, 'xz')).toMatchObject({ reactions: expect.any(Array) });
+  const saved = modelStore.snapshot();
+  const notices = (plane: string) => {
+    const stamp = readStamp({ ...stampSolve('linear', null), resultsVersion: 1, drawPlane2D: plane });
+    return assessProject(saved, stamp, 'basic').changes.map(change => change.id);
+  };
+  for (const change of ['separated-planar-eccentric-connection', 'reduced-planar-mpc']) {
+    expect.soft(notices('xz')).not.toContain(change);
+    expect.soft(notices('yz')).toContain(change);
+    expect.soft(notices('xy')).not.toContain(change);
+  }
+});
+
+it.runIf(process.env.STABILEO_REVIEW_REPRO === '1').each([null, undefined])('checks saved constraints and combinations independently of supports (%j)', (supports) => {
+  const snapshot = { ...modelStore.snapshot(), supports };
+  const changes = (saved: typeof snapshot) =>
+    assessProject(saved as never, null, 'basic').changes.map(change => change.id);
+  expect.soft(changes(snapshot)).not.toContain('malformed-structural-input');
+  expect.soft(changes({ ...snapshot, constraints: [{ type: 'unknownKind' }] as never })).toContain('malformed-structural-input');
+  expect.soft(changes({ ...snapshot, combinations: [{ ...combo, method: 'unsupported' }] as never })).toContain('malformed-structural-input');
+  expect(() => modelStore.restore({ ...snapshot, constraints: [{ type: 'unknownKind' }] } as never))
+    .toThrow(/constraints\[0\]\.type/);
 });

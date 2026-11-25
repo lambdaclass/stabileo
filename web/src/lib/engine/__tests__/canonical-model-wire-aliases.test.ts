@@ -235,3 +235,46 @@ it.each([false, true])('requires named material records in WASM object analysis 
     }
   }
 });
+
+it.runIf(process.env.STABILEO_REVIEW_REPRO === '1')('rejects a positional planar model in WASM JSON solvers', () => {
+  const positional = [
+    planar.nodes, planar.materials, planar.sections, planar.elements, planar.supports, planar.loads,
+    [], {}, null, {}, false, {}, {}, {}, {}, {},
+  ];
+  for (const [entry, run] of Object.entries(planarWireSolvers)) {
+    expect.soft(() => run(planar), entry).not.toThrow();
+    expect.soft(() => run(positional), entry).toThrow();
+  }
+});
+
+it.runIf(process.env.STABILEO_REVIEW_REPRO === '1').each([false, true])('validates solver table entry arrays (space = %s)', (is3D) => {
+  const model = is3D ? space : planar;
+  const wrap = (solver: object) => ({ solver, loadCases: [], combinations: [] });
+  const entries = is3D ? {
+    linear: solve_3d,
+    certificate: certify_linear_3d,
+    discretization: estimate_discretization_3d,
+    convergence: (input: object) => convergence_study_3d(input, null),
+    combinations: (input: object) => solve_multi_case_3d(wrap(input)),
+    combinationCertificate: (input: object) => certify_multi_case_3d(wrap(input)),
+  } : {
+    linear: solve_2d,
+    certificate: certify_linear_2d,
+    combinations: (input: object) => solve_multi_case_2d(wrap(input)),
+    combinationCertificate: (input: object) => certify_multi_case_2d(wrap(input)),
+  };
+  const linear = is3D ? solve_3d : solve_2d;
+  const material = model.materials[1]!;
+  for (const [entry, run] of Object.entries(entries)) {
+    const input = { ...model, materials: [['1', material]] };
+    expect.soft(() => run(input), entry).not.toThrow();
+    for (const malformed of [
+      [material], [['1']], [['1', material, 0]], [['1', material], ['1', material]],
+    ]) {
+      expect.soft(() => run({ ...model, materials: malformed }), entry).toThrow(/map entr|duplicate/i);
+    }
+    expect.soft(() => run({ ...model, materials: [['1', { ...material, unexpected: true }]] }), entry)
+      .toThrow(/unknown field .unexpected/);
+  }
+  expect(linear({ ...model, materials: [['1', material]] })).toEqual(linear(model));
+});

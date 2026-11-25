@@ -180,6 +180,24 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "known wrong result: #2588"]
+    fn planar_json_requires_a_named_model() {
+        let model = cantilever(false);
+        let positional = json!([
+            model["nodes"], model["materials"], model["sections"],
+            model["elements"], model["supports"], model["loads"],
+            [], {}, null, {}, false, {}, {}, {}, {}, {}
+        ]);
+        let named = model.to_string();
+        let unnamed = positional.to_string();
+        assert!(linear_hashes(&named, false).is_ok());
+        assert!(pdelta(&named, false).is_ok());
+        assert!(linear_hashes(&unnamed, false).is_err());
+        assert!(pdelta(&unnamed, false).is_err());
+        assert!(serde_json::from_value::<SolverInput>(positional).is_err());
+    }
+
+    #[test]
     fn issue_2472_native_linear_refuses_null_numeric_fields() {
         check_refusals(|text, space| linear_hashes(text, space).map(|_| ()));
     }

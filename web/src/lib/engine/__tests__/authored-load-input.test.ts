@@ -272,3 +272,68 @@ it('shows the saved-model notice for a null load without losing valid load featu
   expect.soft(features.has('malformedAuthoredLoad')).toBe(true);
   expect(features.has('distributedMemberLoads')).toBe(true);
 });
+
+it.runIf(process.env.STABILEO_REVIEW_REPRO === '1')('refuses a misspelled load frame on an inclined member', async () => {
+  const rise = length;
+  const { member } = cantilever(true, rise);
+  const load = { type: 'distributed3d', data: {
+    id: 1, elementId: member, qYI: 0, qYJ: 0, qZI: -force, qZJ: -force,
+  } };
+  setLoad({ ...load, data: { ...load.data, frame: 'global' } });
+  expect(validateAndSolve3D(modelStore.model)).toMatchObject({
+    reactions: [{ fx: expect.closeTo(0, 12), fz: expect.closeTo(force * Math.hypot(length, rise), 12) }],
+  });
+  setLoad(load);
+  expect(validateAndSolve3D(modelStore.model)).toMatchObject({
+    reactions: [{ fx: expect.closeTo(-force * rise, 12), fz: expect.closeTo(force * length, 12) }],
+  });
+  const snapshot = modelStore.snapshot();
+  const invalid = { ...load, data: { ...load.data, fram: 'global' } };
+  modelStore.restore({ ...snapshot, loads: [invalid] });
+  const fixture: JSONModel = {
+    name: 'Misspelled frame', nodes: [], elements: [], supports: [], materials: [], sections: [],
+    loads: [invalid], plates: [], quads: [], constraints: [], loadCases: [loadCase], combinations: [combo],
+  };
+  await refuses('loads[0].data.fram', {
+    ...planeEntries(), ...spaceEntries(),
+    'plane store sync': () => modelStore.solve(false, 'xz'),
+    'plane store async': () => modelStore.solveAsync(false, 'xz'),
+    'plane store nonlinear': () => modelStore.buildSolverInput(false, 'xz'),
+    'fixture replay': () => loadFixture(fixture, modelStore.fixtureApi() as never),
+    'example apply': () => modelStore.loadExample(fixture.name, async () => fixture),
+  });
+  expect(assessProject(modelStore.snapshot(), null, 'pro').changes.map(change => change.id)).toContain('malformed-authored-loads');
+});
+
+it.runIf(process.env.STABILEO_REVIEW_REPRO === '1').each([null, {}])('refuses and flags a non-array loads collection (%j)', async (loads) => {
+  cantilever();
+  const snapshot = modelStore.snapshot();
+  const saved = { ...snapshot, loads } as typeof snapshot;
+  expect.soft(assessProject(saved, null, 'basic').changes.map(change => change.id)).toContain('malformed-authored-loads');
+  expect.soft(modelFeatures(snapshot, { storedLoads: saved.loads }).has('malformedAuthoredLoad')).toBe(true);
+  expect.soft(modelFeatures({ ...snapshot, loads: undefined }).has('malformedAuthoredLoad')).toBe(false);
+  expect.soft(() => modelStore.restore(saved)).toThrow(/Field loads /);
+  const fixture: JSONModel = {
+    name: 'Malformed load collection', nodes: [], elements: [], supports: [], materials: [], sections: [],
+    loads: loads as JSONModel['loads'], plates: [], quads: [], constraints: [], loadCases: [loadCase], combinations: [combo],
+  };
+  modelStore.model.loads = loads as Load[];
+  await refuses('Field loads ', {
+    ...planeEntries(), ...spaceEntries(),
+    'plane store sync': () => modelStore.solve(false, 'xz'),
+    'plane store async': () => modelStore.solveAsync(false, 'xz'),
+    'fixture replay': () => loadFixture(fixture, modelStore.fixtureApi() as never),
+    'example apply': () => modelStore.loadExample(fixture.name, async () => fixture),
+  });
+});
+
+it.runIf(process.env.STABILEO_REVIEW_REPRO === '1').each([false, true])('finds a malformed row independently of planar torsion (torsion first = %s)', (torsionFirst) => {
+  const { member } = cantilever();
+  const snapshot = modelStore.snapshot();
+  const torsion = { type: 'pointOnElement', data: { id: 1, elementId: member, a: 1, p: -force, mx: force } };
+  const invalid = { ...snapshot, loads: torsionFirst ? [torsion, null] : [null, torsion] } as typeof snapshot;
+  const features = modelFeatures(invalid);
+  expect.soft(features.has('invalidPlanarMemberTorsion')).toBe(true);
+  expect.soft(features.has('malformedAuthoredLoad')).toBe(true);
+  expect(modelFeatures({ ...snapshot, loads: [torsion] }).has('malformedAuthoredLoad')).toBe(false);
+});
