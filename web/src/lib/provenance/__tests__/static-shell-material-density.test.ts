@@ -1,6 +1,8 @@
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { modelStore, uiStore } from '../../store';
 import { tp } from '../../i18n';
+import { onProjectOpened } from '../../store/file';
+import { recheckStore } from '../../store/recheck.svelte';
 import { GRAVITY_SELF_WEIGHT } from '../../engine/analysis-settings';
 import { solveCombinations3D, solveCombinations3DParallel } from '../../engine/solver-service';
 import type { AnalysisResults3D } from '../../engine/types-3d';
@@ -9,6 +11,8 @@ import type { FeatureSnapshot } from '../model-features';
 import { stampSolve } from '../solve-stamp';
 
 const notice = 'negative-static-shell-density';
+const invalidNotice = 'invalid-static-shell-density';
+const held = process.env.RUN_KNOWN_WRONG === '2472' ? it : it.skip;
 const thickness = 1 / 8;
 const gravity = { caseId: 1, ...GRAVITY_SELF_WEIGHT };
 const cases = [{ id: gravity.caseId, name: 'Gravity', type: 'D' as const }];
@@ -16,6 +20,8 @@ const combinations = [{ id: 1, name: 'Gravity', factors: [{ caseId: gravity.case
 
 afterEach(() => {
   modelStore.clear();
+  recheckStore.reset();
+  uiStore.includeSelfWeight = false;
   uiStore.analysisMode = '2d';
 });
 
@@ -104,5 +110,49 @@ it.each(['plate', 'quad'] as const)('#2472 refuses negative %s self-weight on th
         expect.soft(result?.reactions.reduce((total, reaction) => total + reaction.fz, 0), label).toBeCloseTo(rho * thickness * area, 10);
       }
     }
+  }
+});
+
+held.each(['plate', 'quad'] as const)('known wrong result: #2472 opening a saved %s solve flags null density', async kind => {
+  const { material } = shell(kind, 1);
+  Object.assign(material, { rho: null });
+  const saved = JSON.parse(JSON.stringify({ ...modelStore.snapshot(), solvedWith: oldStamp('linear') }));
+  modelStore.restore(saved);
+  uiStore.includeSelfWeight = true;
+  onProjectOpened(saved, 'pro');
+  await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+  expect.soft(recheckStore.assessment?.changes.map(change => change.id)).toContain(invalidNotice);
+  const answer = modelStore.solve3D(true, false, true);
+  const result = answer && typeof answer !== 'string' ? answer : undefined;
+  const reactions = result?.reactions.reduce((sum, reaction) => sum + reaction.fz, 0);
+  expect.soft(typeof answer === 'string' ? answer : `returned sum of Z reactions ${reactions}`)
+    .toMatch(/rho.*null/);
+});
+
+held.each(['plate', 'quad'] as const)('known wrong result: #2472 the saved %s notice follows density validity and weight scope', kind => {
+  const { id, material } = shell(kind, 1);
+  const group = { members: kind === 'plate' ? { plates: [id] } : { quads: [id] } };
+  for (const rho of [null, undefined, '0', Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -1, -0, 1]) {
+    Object.assign(material, { rho });
+    const saved = { ...modelStore.snapshot(), analysisMode: 'pro', includeSelfWeight: true };
+    const notices = (override: Partial<FeatureSnapshot> = {}, when = oldStamp('pdelta')) =>
+      assessProject({ ...saved, ...override }, when).changes.map(change => change.id);
+    const invalid = typeof rho !== 'number' || !Number.isFinite(rho);
+    expect.soft(notices().includes(invalidNotice), String(rho)).toBe(invalid);
+    expect.soft(notices().includes(notice), String(rho)).toBe(rho === -1);
+    expect.soft(notices({
+      includeSelfWeight: false,
+      analysis: { standaloneSelfWeight: 'gravity', selfWeight: [{ ...gravity, groupId: 1, factor: 0 }] },
+      groups: [[1, group]],
+    }).includes(invalidNotice), String(rho)).toBe(invalid);
+    for (const override of [
+      { analysisMode: '2d' }, { includeSelfWeight: false }, { analysis: { selfWeight: [] } },
+      { analysis: { selfWeight: [{ ...gravity, elements: [id] }] } },
+      { analysis: { selfWeight: [{ ...gravity, groupId: 1 }] }, groups: [[1, { members: {} }]] },
+      { analysis: { selfWeight: [{ ...gravity, groupId: 1 }] }, groups: [[1, {}]] },
+    ] satisfies Array<Partial<FeatureSnapshot>>) {
+      expect.soft(notices(override), JSON.stringify(override)).not.toContain(invalidNotice);
+    }
+    expect.soft(notices({}, stampSolve('pdelta', null))).not.toContain(invalidNotice);
   }
 });
