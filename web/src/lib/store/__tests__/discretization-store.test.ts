@@ -192,7 +192,9 @@ describe('discretization store', () => {
       passes: [{ shellElements: 1, nodes: 4, hangingNodes: 0, relativeError: 0.08, marked: 1 }, { shellElements: 4, nodes: 9, hangingNodes: 0, relativeError: 0.03, marked: 0 }],
       quantities: [{ quantity: 'maxDisplacement', model: 1, adapted: 1.1 }],
     };
-    runCertify.mockImplementationOnce(async () => ({ ...report, input: { quads: { 9: {} } } }) as never);
+    const mesh = { nodes: [], shells: [{ family: 'quad', parent: 3, id: 9, nodes: [1, 2, 3, 4], weights: [] }], frames: [], supports: [], constraints: [] };
+    runCertify.mockImplementationOnce(async () => ({ ...report, input: { quads: { 9: {} } }, mesh }) as never);
+    expect(discretizationStore.refinedMesh()).toBeNull();
     const running = discretizationStore.runAdaptive(0.04);
     expect(discretizationStore.adaptive.status).toBe('running');
     expect(discretizationStore.studyFinishing).toBe(false);
@@ -205,10 +207,21 @@ describe('discretization store', () => {
     if (a.status !== 'done') return;
     expect(a.report).toEqual(report);
     expect('input' in a.report).toBe(false);
+    expect(a.refined).toBe(true);
+    expect(discretizationStore.refinedMesh()).toEqual({ wire, mesh });
     expect(discretizationStore.canRunStudy()).toBe(true);
 
+    runCertify.mockImplementationOnce(async () => ({ ...report, input: {}, mesh: { ...mesh, shells: [] } }) as never);
+    await discretizationStore.runAdaptive(0.5);
+    expect(discretizationStore.adaptive).toMatchObject({ status: 'done', refined: false });
+    expect(discretizationStore.refinedMesh()).toBeNull();
+
+    runCertify.mockImplementationOnce(async () => ({ ...report, input: {}, mesh }) as never);
+    await discretizationStore.runAdaptive(0.04);
+    expect(discretizationStore.refinedMesh()).not.toBeNull();
     discretizationStore.track(base, '3d');
     expect(discretizationStore.adaptive.status).toBe('idle');
+    expect(discretizationStore.refinedMesh()).toBeNull();
   });
 
   it('reports an adaptive refinement the engine refuses, and discards one a re-solve superseded', async () => {

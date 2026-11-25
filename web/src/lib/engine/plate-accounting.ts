@@ -1,5 +1,6 @@
 import { tp } from '../i18n';
 import { plateLoops, plateSurfaceOf } from '../model/physical/plate';
+import { hangingEdgeNodes } from '../model/edit/refined-mesh';
 import type { ShellOffset } from '../model/element-3d-metadata';
 import { resolveShellOffsetGlobal } from './shell-offsets';
 import type { ModelData } from './solver-service';
@@ -152,6 +153,9 @@ function measurePlate(model: ModelData, input: SolverInput3D, group: PlateGroup)
   const specifiedArea = loops.reduce((area, loop, i) => area + (i === 0 ? 1 : -1) * Math.abs(loop.area), 0);
   const assembled = new Sum();
   const edges = new Map<string, Edge>();
+  // An edge with a hanging node at its middle is its two halves, which is how the cells of the
+  // finer side have it: counted whole it would read as a hole's edge inside the plate.
+  const hanging = hangingEdgeNodes(model.constraints, model.nodes);
   const shells = [
     ...(group.members.plates ?? []).map(id => ({ declared: model.plates?.get(id), wire: input.plates?.get(id) })),
     ...(group.members.quads ?? []).map(id => {
@@ -193,10 +197,15 @@ function measurePlate(model: ModelData, input: SolverInput3D, group: PlateGroup)
       const a = boundaryPoints[i]!, b = boundaryPoints[j]!;
       if (!agrees(dot(normal, sub(a, origin)), 0, scale)) throw geometryError(false);
       const ni = nodeIds[i]!, nj = nodeIds[j]!;
-      const key = ni < nj ? `${ni}:${nj}` : `${nj}:${ni}`;
-      const old = edges.get(key);
-      if (old) old.count++;
-      else edges.set(key, { a, b, from: ni, to: nj, count: 1 });
+      const mid = hanging.get(ni < nj ? `${ni}:${nj}` : `${nj}:${ni}`);
+      const at = mid === undefined ? undefined : model.nodes.get(mid);
+      const pieces: Array<[number, number, Vector, Vector]> = mid !== undefined && at ? [[ni, mid, a, xyz({ x: at.x, y: at.y, z: at.z ?? 0 })], [mid, nj, xyz({ x: at.x, y: at.y, z: at.z ?? 0 }), b]] : [[ni, nj, a, b]];
+      for (const [from, to, pa, pb] of pieces) {
+        const key = from < to ? `${from}:${to}` : `${to}:${from}`;
+        const old = edges.get(key);
+        if (old) old.count++;
+        else edges.set(key, { a: pa, b: pb, from, to, count: 1 });
+      }
     }
   }
 

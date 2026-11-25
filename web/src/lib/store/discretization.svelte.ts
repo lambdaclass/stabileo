@@ -14,6 +14,7 @@ import { runCertify, hasCertify } from '../engine/certify-jobs';
 import { errorText } from '../utils/error-text';
 import { toDisplay, unitLabel, type Quantity, type UnitSystem } from '../utils/units';
 import { resultsStore } from './results.svelte';
+import type { RefinedMesh } from '../model/edit/refined-mesh';
 
 export interface ElementErrorIndicator {
   kind: 'plate' | 'quad' | 'quad9' | 'curvedShell' | 'solidShell';
@@ -69,7 +70,7 @@ export interface ConvergenceStudy {
   supportsInferred?: number;
 }
 
-/** The adaptive refinement's report (the refined model itself is not kept). */
+/** The adaptive refinement's report (the refined model is kept apart, as changes to the one solved). */
 export interface AdaptiveRefinement {
   certified: false;
   status: 'converged' | 'passLimit' | 'elementLimit' | 'unestimable' | 'nothingToRefine' | 'depthLimit' | 'refused';
@@ -185,7 +186,7 @@ type Study =
 type Adaptive =
   | { status: 'idle' }
   | { status: 'running' }
-  | { status: 'done'; report: AdaptiveRefinement }
+  | { status: 'done'; report: AdaptiveRefinement; refined: boolean }
   | { status: 'failed'; reason: string };
 
 const ESTIMATE_EXPORT = 'estimate_discretization_3d';
@@ -229,6 +230,7 @@ function createDiscretizationStore() {
   /** Paint shells by their element error indicator. */
   let showMap = $state(false);
   let input: CertifiableInput | null = null;
+  let refinedMesh: { wire: Record<string, any>; mesh: RefinedMesh } | null = null;
   /** Why the store is idle (diagnostics for tests: `2d`, `cleared`, `notCertifiable`, `noExport`, `noShells`). */
   let idleWhy: string | null = null;
   /**
@@ -280,6 +282,7 @@ function createDiscretizationStore() {
       if (timer !== null) { clearTimeout(timer); timer = null; }
       study = { status: 'idle' };
       adaptive = { status: 'idle' };
+      refinedMesh = null;
       input = null;
       estimated = null;
       const pub = generation;
@@ -340,17 +343,26 @@ function createDiscretizationStore() {
       if (!input || !this.applies() || studyInFlight) return;
       const gen = generation;
       adaptive = { status: 'running' };
+      refinedMesh = null;
       studyInFlight = true;
       let next: Adaptive;
       try {
-        const { input: _refined, ...report } = await runCertify(ADAPT_EXPORT, [input.wire(), { target }]);
-        next = { status: 'done', report };
+        const wire = input.wire();
+        const { input: _refined, mesh, ...report } = await runCertify(ADAPT_EXPORT, [wire, { target }]);
+        const refined = (mesh?.shells?.length ?? 0) > 0;
+        if (gen === generation) refinedMesh = refined ? { wire, mesh } : null;
+        next = { status: 'done', report, refined };
       } catch (e) {
         next = { status: 'failed', reason: errorText(e, 'error') };
       } finally {
         studyInFlight = false;
       }
       if (gen === generation) adaptive = next;
+    },
+
+    /** The last adaptive refinement's mesh with the solver input it refines, while its result is on screen. */
+    refinedMesh(): { wire: Record<string, any>; mesh: RefinedMesh } | null {
+      return adaptive.status === 'done' && this.applies() ? refinedMesh : null;
     },
 
     /** The scale of the error map (%): 0 to the larger of twice the threshold and the largest value. */

@@ -14,6 +14,8 @@
     type QuantityConvergence,
   } from '../lib/store/discretization.svelte';
   import { localizeEngineText } from '../lib/i18n/engine-text';
+  import { applyAdaptiveMesh } from '../lib/store/refined-mesh';
+  import type { RefinedMeshRefusal } from '../lib/model/edit/refined-mesh';
   import { shellContourColor } from '../lib/three/stress-heatmap';
 
   const is3D = $derived(uiStore.is3DWorkspace);
@@ -22,6 +24,17 @@
   const adaptive = $derived(discretizationStore.adaptive);
   let targetPercent = $state(5);
   const target = $derived(adaptiveTarget(targetPercent));
+  let applyRefusal = $state<RefinedMeshRefusal | null>(null);
+  function runAdaptive() {
+    applyRefusal = null;
+    if (target !== null) void discretizationStore.runAdaptive(target);
+  }
+  function applyMesh() {
+    applyRefusal = null;
+    const done = applyAdaptiveMesh();
+    if ('refused' in done) { applyRefusal = done.refused; return; }
+    uiStore.toast(t('discretization.adaptiveApplied').replace('{shells}', String(done.shells)).replace('{nodes}', String(done.nodes)), 'success');
+  }
   const visible = $derived(is3D && est.status !== 'idle' && discretizationStore.applies());
   const cert = $derived(certificateStore.shown(true));
 
@@ -191,7 +204,7 @@
       {#if adaptive.status === 'running'}
         <span>{t('discretization.adaptiveRunning')}</span>
       {:else}
-        <button class="link" disabled={target === null || !discretizationStore.canRunAdaptive()} onclick={() => target !== null && discretizationStore.runAdaptive(target)} data-testid="discretization-run-adaptive">
+        <button class="link" disabled={target === null || !discretizationStore.canRunAdaptive()} onclick={runAdaptive} data-testid="discretization-run-adaptive">
           {t('discretization.adaptiveRun')}
         </button>
       {/if}
@@ -246,6 +259,13 @@
           </table>
         {/if}
         <div class="note">{t('discretization.adaptiveNote')}</div>
+        {#if adaptive.refined}
+          <button class="link" onclick={applyMesh} data-testid="discretization-apply-adaptive">{t('discretization.adaptiveApply')}</button>
+          <div class="note">{t('discretization.adaptiveApplyNote')}</div>
+          {#if applyRefusal}
+            <div class="note warning" data-testid="discretization-apply-refused">{t(`discretization.adaptiveRefused.${applyRefusal}`)}</div>
+          {/if}
+        {/if}
         {#each adaptive.report.caveats as c}
           <div class="note">{t(`discretization.caveat.${c}`).replace('{n}', String(adaptive.report.supportsInferred ?? ''))}</div>
         {/each}

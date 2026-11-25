@@ -1698,6 +1698,94 @@ fn no_hanging_node_is_left_on_a_fold() {
 }
 
 #[test]
+fn the_adapted_mesh_is_told_as_changes_to_the_model_given() {
+    let mut coarse = l_membrane(4);
+    coarse.sections.insert("1".into(), SolverSection3D {
+        id: 1, name: None, a: 0.01, iy: 1e-5, iz: 1e-5, j: 2e-5, cw: None, as_y: None, as_z: None,
+        shear_center_y: None, shear_center_z: None,
+    });
+    let at = |x: f64, y: f64| coarse.nodes.values().find(|n| (n.x - x).abs() < 1e-9 && (n.y - y).abs() < 1e-9).unwrap().id;
+    let (end_i, end_j) = (at(0.25, 0.5), at(0.5, 0.5));
+    coarse.elements.insert("1000".into(), beam(1000, end_i, end_j));
+    let options = AdaptOptions { target: 0.1, max_passes: 20, geometry: GeometryMode::Faceted, ..AdaptOptions::default() };
+    let out = adapt_3d(&coarse, &options).unwrap();
+    assert_eq!(out.status, "converged");
+    let max_node = coarse.nodes.values().map(|n| n.id).max().unwrap();
+    let place = |id: usize| out.input.nodes.values().find(|n| n.id == id).map(|n| [n.x, n.y, n.z]).unwrap();
+    let mesh = &out.mesh;
+
+    let added: Vec<usize> = mesh.nodes.iter().map(|n| n.id).collect();
+    let mut expected: Vec<usize> = out.input.nodes.values().map(|n| n.id).filter(|id| *id > max_node).collect();
+    expected.sort_unstable();
+    assert_eq!(added, expected);
+    for n in &mesh.nodes {
+        assert_eq!([n.x, n.y, n.z], place(n.id));
+        if let Some([a, b]) = n.between {
+            let (pa, pb) = (place(a), place(b));
+            for k in 0..3 {
+                assert!((0.5 * (pa[k] + pb[k]) - place(n.id)[k]).abs() < 1e-12);
+            }
+        }
+    }
+    assert!(mesh.nodes.iter().any(|n| n.between.is_some()) && mesh.nodes.iter().any(|n| n.between.is_none()));
+
+    let mut ids: Vec<usize> = mesh.shells.iter().map(|s| s.id).collect();
+    let split: std::collections::HashSet<usize> = mesh.shells.iter().map(|s| s.parent).collect();
+    assert!(!split.is_empty());
+    ids.extend(coarse.quads.values().map(|q| q.id).filter(|id| !split.contains(id)));
+    ids.sort_unstable();
+    let mut last: Vec<usize> = out.input.quads.values().map(|q| q.id).collect();
+    last.sort_unstable();
+    assert_eq!(ids, last);
+    let deepest = mesh.shells.iter().flat_map(|s| s.weights.iter().flatten()).filter(|w| **w > 0.0).cloned().fold(1.0, f64::min);
+    assert!(deepest < 0.25, "some element is a part of a part: {deepest}");
+    for s in &mesh.shells {
+        assert_eq!(s.family, "quad");
+        let parent = coarse.quads.values().find(|q| q.id == s.parent).unwrap().nodes;
+        assert_eq!(s.nodes, out.input.quads.values().find(|q| q.id == s.id).unwrap().nodes.to_vec());
+        for (corner, row) in s.nodes.iter().zip(&s.weights) {
+            assert!((row.iter().sum::<f64>() - 1.0).abs() < 1e-12);
+            for k in 0..3 {
+                let there: f64 = row.iter().zip(parent).map(|(w, n)| w * place(n)[k]).sum();
+                assert!((there - place(*corner)[k]).abs() < 1e-12, "element {} corner {corner}", s.id);
+            }
+        }
+    }
+
+    let [frame] = mesh.frames.as_slice() else { panic!("{:?}", mesh.frames) };
+    assert_eq!(frame.parent, 1000);
+    assert!(!frame.nodes.is_empty() && frame.at.windows(2).all(|w| w[0] < w[1]));
+    assert_eq!(out.input.elements.len(), frame.nodes.len() + 1);
+    let (pi, pj) = (place(end_i), place(end_j));
+    for (node, t) in frame.nodes.iter().zip(&frame.at) {
+        for k in 0..3 {
+            assert!((pi[k] + t * (pj[k] - pi[k]) - place(*node)[k]).abs() < 1e-12, "node {node} at {t}");
+        }
+    }
+    let mut chain = vec![end_i];
+    chain.extend(&frame.nodes);
+    chain.push(end_j);
+    for pair in chain.windows(2) {
+        assert!(out.input.elements.values().any(|e| (e.node_i, e.node_j) == (pair[0], pair[1])), "{pair:?}");
+    }
+
+    let given: HashMap<usize, [bool; 6]> = mesh.supports.iter().map(|s| (s.node_id, s.restrained)).collect();
+    let held: HashMap<usize, [bool; 6]> =
+        out.input.supports.values().filter(|s| s.node_id > max_node).map(|s| (s.node_id, [s.rx, s.ry, s.rz, s.rrx, s.rry, s.rrz])).collect();
+    assert!(!given.is_empty());
+    assert_eq!(given, held);
+    assert!(mesh.supports.iter().all(|s| s.plain));
+
+    let hanging = hanging_nodes(&out.input).unwrap();
+    assert!(!hanging.is_empty());
+    assert_eq!(mesh.constraints.len(), 6 * hanging.len());
+    assert!(mesh.constraints.iter().all(|terms| hanging.contains_key(&terms[0].node_id)));
+
+    let untouched = adapt_3d(&coarse, &AdaptOptions { target: 0.9, ..options }).unwrap().mesh;
+    assert!(untouched.nodes.is_empty() && untouched.shells.is_empty() && untouched.frames.is_empty() && untouched.constraints.is_empty());
+}
+
+#[test]
 fn a_constraint_that_only_looks_like_a_hanging_node_is_refused() {
     let m = bent_square(3, false).input;
     let once = refine_marked(&m, GeometryMode::Faceted, &only(&[element_at(&m, false, 0.5, 0.5)])).unwrap().input;

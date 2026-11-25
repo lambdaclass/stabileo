@@ -71,7 +71,42 @@ pub struct Refined {
     pub caveats: Vec<String>,
     /// New nodes given a support (exterior edges between supported nodes).
     pub supports_inferred: usize,
+    /// The shell-type elements split, by family and id.
+    pub splits: Vec<Split>,
+    /// The frame members split: the member, its two halves from end I to end J, the node between.
+    pub frame_splits: Vec<(usize, [usize; 2], usize)>,
+    /// Every node made, with the nodes it was put between (two for one on an edge).
+    pub created: Vec<(usize, Vec<usize>)>,
 }
+
+/// An element split and its children. Each child comes with one row per corner of its own: the
+/// weights of the parent's corners there, in the parent's natural coordinates (none for a MITC9
+/// quad or a solid-shell).
+#[derive(Debug, Clone)]
+pub struct Split {
+    pub family: &'static str,
+    pub parent: usize,
+    pub children: Vec<(usize, Vec<Vec<f64>>)>,
+}
+
+fn corner_weights(corners: usize, rows: &[&[usize]]) -> Vec<Vec<f64>> {
+    rows.iter()
+        .map(|of| {
+            let mut w = vec![0.0; corners];
+            for &corner in *of {
+                w[corner] = 1.0 / of.len() as f64;
+            }
+            w
+        })
+        .collect()
+}
+
+fn quad_child_weights(k: usize) -> Vec<Vec<f64>> {
+    corner_weights(4, &[&[k], &[k, (k + 1) % 4], &[0, 1, 2, 3], &[(k + 3) % 4, k]])
+}
+
+const PLATE_CHILD_CORNERS: [[&[usize]; 3]; 4] =
+    [[&[0], &[0, 1], &[2, 0]], [&[0, 1], &[1], &[1, 2]], [&[2, 0], &[1, 2], &[2]], [&[0, 1], &[1, 2], &[2, 0]]];
 
 /// Why a model cannot be refined automatically, or Ok. Node references are checked here:
 /// refinement indexes node coordinates before any solver validation runs.
@@ -604,6 +639,7 @@ fn refine(
     // (family tag, parent id) → children; and for quads, parent edge → (child, child edge).
     let mut children: HashMap<(&'static str, usize), Vec<usize>> = HashMap::new();
     let mut edge_children: HashMap<(&'static str, usize, usize), Vec<(usize, usize)>> = HashMap::new();
+    let mut split_record: Vec<Split> = Vec::new();
 
     let mut plates: Vec<_> = input.plates.values().cloned().collect();
     plates.sort_by_key(|e| e.id);
@@ -620,6 +656,11 @@ fn refine(
             out.plates.insert(id.to_string(), SolverPlateElement { id, nodes, ..p.clone() });
             ids.push(id);
         }
+        split_record.push(Split {
+            family: "plate",
+            parent: p.id,
+            children: ids.iter().zip(PLATE_CHILD_CORNERS).map(|(&id, rows)| (id, corner_weights(3, &rows))).collect(),
+        });
         children.insert(("plate", p.id), ids);
     }
 
@@ -642,6 +683,7 @@ fn refine(
             out.quads.insert(id.to_string(), SolverQuadElement { id, nodes, ..q.clone() });
             ids.push(id);
         }
+        split_record.push(Split { family: "quad", parent: q.id, children: ids.iter().enumerate().map(|(k, &id)| (id, quad_child_weights(k))).collect() });
         for e in 0..4 {
             edge_children.insert(("quad", q.id, e), vec![(ids[e], 0), (ids[(e + 1) % 4], 3)]);
         }
@@ -694,6 +736,7 @@ fn refine(
             out.curved_shells.insert(id.to_string(), SolverCurvedShellElement { id, nodes, normals, ..cs.clone() });
             ids.push(id);
         }
+        split_record.push(Split { family: "curvedShell", parent: cs.id, children: ids.iter().enumerate().map(|(k, &id)| (id, quad_child_weights(k))).collect() });
         for e in 0..4 {
             edge_children.insert(("curvedShell", cs.id, e), vec![(ids[e], 0), (ids[(e + 1) % 4], 3)]);
         }
@@ -747,6 +790,7 @@ fn refine(
             out.quad9s.insert(id.to_string(), SolverQuad9Element { id, nodes, ..q.clone() });
             ids.push(id);
         }
+        split_record.push(Split { family: "quad9", parent: q.id, children: ids.iter().map(|&id| (id, Vec::new())).collect() });
         // Parent edge e lies on children (e, e+1) of the quadrant order, on their edge e.
         for e in 0..4 {
             edge_children.insert(("quad9", q.id, e), vec![(ids[e], e), (ids[(e + 1) % 4], e)]);
@@ -775,6 +819,7 @@ fn refine(
             out.solid_shells.insert(id.to_string(), SolverSolidShellElement { id, nodes, ..ss.clone() });
             ids.push(id);
         }
+        split_record.push(Split { family: "solidShell", parent: ss.id, children: ids.iter().map(|&id| (id, Vec::new())).collect() });
         children.insert(("solidShell", ss.id), ids);
     }
 
@@ -807,6 +852,7 @@ fn refine(
 
     // Frames along split edges.
     let mut frame_halves: HashMap<usize, (usize, usize, f64)> = HashMap::new(); // parent → (child1, child2, L1/L)
+    let mut frame_splits = Vec::new();
     let mut frames: Vec<_> = input.elements.values().cloned().collect();
     frames.sort_by_key(|e| e.id);
     for f in frames {
@@ -825,6 +871,7 @@ fn refine(
             id: id2, node_i: m, release_my_start: false, release_mz_start: false, release_t_start: false, ..f.clone()
         });
         frame_halves.insert(f.id, (id1, id2, l1 / (l1 + l2)));
+        frame_splits.push((f.id, [id1, id2], m));
     }
 
     // Loads.
@@ -994,7 +1041,7 @@ fn refine(
         let normal = normals.get(&(a, c)).ok_or_else(|| format!("node {node} hangs on an edge no MITC4 quad has"))?;
         out.constraints.extend(hanging_constraints(node, (a, c), sub(&b.c(c), &b.c(a)), *normal));
     }
-    Ok(Refined { input: out, caveats, supports_inferred })
+    Ok(Refined { input: out, caveats, supports_inferred, splits: split_record, frame_splits, created: b.parents })
 }
 
 /// Small dense solve with partial pivoting; None when (nearly) singular.
