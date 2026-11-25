@@ -564,6 +564,19 @@ export function accountLoads2D(
   compare(label, expected, wire.toWorld(projection.plane, origin));
 }
 
+type SlabSource = { name: string; cells: ReadonlyMap<string, number>; expected: Wrench };
+
+function addSlabSource(targets: Map<number, SlabSource>, id: number, receipt: SlabSource, factor: number) {
+  const previous = targets.get(id);
+  const cells = new Map(previous?.cells);
+  for (const [cell, count] of receipt.cells) cells.set(cell, (cells.get(cell) ?? 0) + count);
+  const expected = previous?.expected ?? new Wrench();
+  expected.addScaled(receipt.expected, factor);
+  targets.set(id, { name: receipt.name, cells, expected });
+}
+
+const slabCell = (on: 'plate' | undefined, id: number) => `${on ?? 'quad'} #${id}`;
+
 export function loadAccounting3D(
   model: ModelData, input: SolverInput3D, embedded: boolean, leftHand: boolean,
   plates: ReadonlyMap<number, PlateMeasure>, checkAuthored: boolean,
@@ -574,40 +587,64 @@ export function loadAccounting3D(
   const scenarioExpected = effects
     ? scenarioSurfaceExpectations(effects)
     : (id: number) => scenarioIntents(authored.get(id) ?? []);
-  const pressures = new Map<number, Array<{ id: number; plate: PlateMeasure; pressure: LoadVector }>>();
+  const pressures = new Map<number, Map<number, SlabSource>>();
+  const sourceNames = new Map<number, string>();
   for (const [id, group] of source.groups ?? []) {
     if (group.kind !== 'floorLoad') continue;
     const d = group.data as unknown as FloorLoadDef | undefined;
     if (!d || d.distribution !== 'slab' || d.target.by !== 'group') continue;
     const plate = plates.get(d.target.groupId);
     if (!plate) continue;
-    const batch = pressures.get(d.caseId) ?? [];
+    const batch = pressures.get(d.caseId) ?? new Map<number, SlabSource>();
     const pressure = LoadVector.from([0, 0, -d.q]);
-    batch.push({ id, plate, pressure: d.perPlanArea ? pressure.scale(Math.abs(plate.normal[2])) : pressure });
+    const expected = new Wrench();
+    const force = d.perPlanArea ? pressure.scale(Math.abs(plate.normal[2])) : pressure;
+    expected.apply(plate.centroid, force.scale(plate.area));
+    const members = source.groups?.get(d.target.groupId)?.members;
+    const cells = new Map<string, number>([
+      ...(members?.plates ?? []).map(cell => [slabCell('plate', cell), 1] as const),
+      ...(members?.quads ?? []).map(cell => [slabCell(undefined, cell), 1] as const),
+    ]);
+    const name = group.name ?? plate.name;
+    sourceNames.set(id, name);
+    batch.set(id, { name, cells, expected });
     pressures.set(d.caseId, batch);
   }
 
   const frame = embedded ? 'xz' : 'space';
-  const cache = new Map<number, { totals: Wrench; names: Set<string> }>();
-  const expected = (caseId: number): { totals: Wrench; names: Set<string> } => {
+  type CaseMeasure = { totals: Wrench; names: Set<string>; slabs: Map<number, SlabSource> };
+  const cache = new Map<number, CaseMeasure>();
+  const expected = (caseId: number): CaseMeasure => {
     const cached = cache.get(caseId);
     if (cached) return cached;
-    const batch = pressures.get(caseId) ?? [];
-    const definitions = new Set(batch.map(({ id }) => id));
-    const totals = enteredLoads(source, authored.get(caseId) ?? [], frame, leftHand, caseId, definitions);
-    const names = new Set(batch.map(({ plate }) => plate.name));
-    for (const { plate, pressure } of batch) totals.apply(plate.centroid, pressure.scale(plate.area));
+    const batch = pressures.get(caseId) ?? new Map<number, SlabSource>();
+    const definitions = new Set(batch.keys());
+    const authoredLoads = authored.get(caseId) ?? [];
+    const totals = enteredLoads(source, authoredLoads, frame, leftHand, caseId, definitions);
+    const names = new Set([...batch.values()].map(slab => slab.name));
     const rule = effects?.cases.get(caseId);
+    const ratio = rule?.ratio ?? 1;
+    const slabs = new Map<number, SlabSource>();
+    for (const [id, slab] of batch) {
+      totals.addScaled(slab.expected, 1);
+      addSlabSource(slabs, id, slab, ratio);
+    }
+    for (const load of authoredLoads) {
+      if (load.type !== 'surface3d' || load.data.fromDef === undefined || !scenarioSurfaceIntentOf(load)) continue;
+      const slab = slabs.get(load.data.fromDef);
+      if (slab) slab.expected.addScaled(enteredLoads(source, [load], frame, leftHand, caseId, definitions), ratio);
+    }
     const result = new Wrench();
-    result.addScaled(totals, rule?.ratio ?? 1);
+    result.addScaled(totals, ratio);
     const generated = effects?.generated.get(caseId);
     if (generated) result.addScaled(enteredLoads(source, generated, frame, leftHand, caseId, definitions), 1);
     for (const { caseId: from, factor } of rule?.includes ?? []) {
       const part = expected(from);
       result.addScaled(part.totals, factor);
       for (const name of part.names) names.add(name);
+      for (const [id, slab] of part.slabs) addSlabSource(slabs, id, slab, factor);
     }
-    const entry = { totals: result, names };
+    const entry = { totals: result, names, slabs };
     cache.set(caseId, entry);
     return entry;
   };
@@ -616,17 +653,41 @@ export function loadAccounting3D(
     cases: effects?.targets ?? new Set([...authored.keys(), ...pressures.keys()]),
     verify(
       caseId: number, loads: readonly Load[], assembled: readonly SolverLoad3D[],
-      sources?: ReadonlyMap<Load, readonly SolverLoad3D[]>,
+      sources: ReadonlyMap<Load, readonly SolverLoad3D[]>,
+      checkedSource?: (source: CheckedSource3D) => void,
     ): Wrench {
-      const { totals, names } = !checkAuthored
-        ? { totals: enteredLoads(model, loads, frame, leftHand, caseId, new Set()), names: [] }
+      const { totals, names, slabs } = !checkAuthored
+        ? { totals: enteredLoads(model, loads, frame, leftHand, caseId, new Set()), names: [], slabs: undefined }
         : effects && !effects.targets.has(caseId)
-          ? { totals: new Wrench(), names: [] }
+          ? { totals: new Wrench(), names: [], slabs: undefined }
           : expected(caseId);
       const label = [caseLabel(model, caseId), ...names].join(' · ');
       compare(label, totals, assembled3D(model, input, assembled, caseId));
       const intents = checkAuthored ? (!effects || effects.targets.has(caseId) ? scenarioExpected(caseId) : []) : undefined;
       verifyScenarioSurfaceLoads(source, caseId, loads, sources, label, intents);
+      if (slabs) {
+        const delivered = new Map<number, { cells: Map<string, number>; rows: SolverLoad3D[] }>();
+        for (const load of loads) {
+          if (load.type !== 'surface3d' || load.data.fromDef === undefined || !sourceNames.has(load.data.fromDef)) continue;
+          const id = load.data.fromDef;
+          const batch = delivered.get(id) ?? { cells: new Map(), rows: [] };
+          const cell = slabCell(load.data.on, load.data.quadId);
+          batch.cells.set(cell, (batch.cells.get(cell) ?? 0) + 1);
+          for (const row of sources.get(load) ?? []) batch.rows.push(row);
+          delivered.set(id, batch);
+        }
+        for (const id of new Set([...slabs.keys(), ...delivered.keys()])) {
+          const intended = slabs.get(id), actual = delivered.get(id);
+          const sourceLabel = `${caseLabel(model, caseId)} · ${sourceNames.get(id)}`;
+          for (const cell of new Set([...(intended?.cells.keys() ?? []), ...(actual?.cells.keys() ?? [])])) {
+            const count = intended?.cells.get(cell) ?? 0, actualCount = actual?.cells.get(cell) ?? 0;
+            compareComponent(sourceLabel, `${tp('whatif.loads')} · ${cell}`, count, actualCount, 0, 0);
+          }
+          const receipt = { label: sourceLabel, expected: intended?.expected ?? new Wrench(), rows: actual?.rows ?? [] };
+          accountSource3D(model, input, caseId, receipt);
+          checkedSource?.(receipt);
+        }
+      }
       return totals;
     },
   };

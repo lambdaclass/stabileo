@@ -6,6 +6,8 @@ Prepared analyses now compare the force and moment of each materialized generate
 
 Opposite loads on a member can disappear in planar conversion while leaving both the case wrench and the member totals at zero. A pair of opposite shell pressures can also mask a changed moment when the case totals are compared. A sufficiently small self-weight can disappear at the existing planar component or spatial truss transfer cutoff. The new comparisons detect these losses individually.
 
+A whole-slab definition also declares the load on its physical plate and the set of assigned cells. Each cell must receive that definition once. Separate definitions with opposite pressures can no longer hide two missing or repeated applications. The cell assignment and its wrench follow case inclusion and combination factors.
+
 ## Transfer connected X-brace inertia on the brace spans
 
 At a four-way joint, the seismic mass model follows each pair of uniquely collinear member legs independently. The joint contributes no story elevation. Each run ends at a supported or evidenced floor station, and its inertia stays distributed over the portions of the brace assigned to the active story. A kinked or ambiguous crossing still blocks the plan.

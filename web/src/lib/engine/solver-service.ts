@@ -1956,7 +1956,7 @@ function checkedSolverLoads3D(
   const selected = plateCases === true ? [...accounting.cases] : plateCases || [];
   for (const [caseId, entered] of loadCaseBatches(loads, selected)) {
     const assembled = assembledByCase.get(caseId) ?? [];
-    const totals = accounting.verify(caseId, entered, assembled, sources);
+    const totals = accounting.verify(caseId, entered, assembled, sources, checkedSource);
     checkedCase?.(caseId, assembled, totals);
     for (const load of entered) {
       if (hasGeneratedSource(load)) {

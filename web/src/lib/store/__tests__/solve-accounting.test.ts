@@ -1594,9 +1594,7 @@ it('#2470 a spatial truss self-weight source cannot disappear below the nodal tr
   expect(control?.map(row => row.type === 'nodal' && row.data.fx)).toEqual([q, q]);
 });
 
-const definedSources = process.env.RUN_KNOWN_WRONG === '2470-definitions' ? it : it.skip;
-
-definedSources('known wrong result: #2470 cancelling slab definitions must each reach their assigned cells once', async () => {
+it('#2470 cancelling slab definitions must each reach their assigned cells once', async () => {
   const { id } = floor();
   expect(applyPlateMeshes([planPlateMesh(id)!]).plates).toBe(1);
   expect(addPlateLoad(id, 1, -1, 'Opposite slab')).not.toBeNull();

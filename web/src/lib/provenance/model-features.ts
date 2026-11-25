@@ -519,6 +519,12 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (type === 'pointOnElement' && invalidPlanarPointTorsion(data?.mx)) f.add('invalidPlanarMemberTorsion');
   }
   const pressureSigns = new Map<string, number>();
+  const notePressure = (source: string, q: number) => {
+    const sign = Math.sign(q);
+    if (!sign) return;
+    if (pressureSigns.get(source) === -sign) f.add('opposedShellPressures');
+    pressureSigns.set(source, sign);
+  };
   for (const l of Array.isArray(s.loads) ? s.loads : []) {
     const t = l.type ?? '';
     const d = l.data ?? {};
@@ -589,12 +595,8 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (/edge/i.test(t)) f.add('shellEdgeLoads');
     const dead = caseType.get(d.caseId as number) === 'D' || d.caseId === undefined;
     if ((t === 'surface3d' || d.fromDef !== undefined) && dead) f.add('areaDeadLoads');
-    if (t === 'surface3d' && typeof d.q === 'number' && d.q !== 0) {
-      const key = `${d.caseId ?? 1}:${d.on ?? 'quad'}:${d.quadId}`;
-      const sign = Math.sign(d.q);
-      const previous = pressureSigns.get(key);
-      if (previous === -sign) f.add('opposedShellPressures');
-      pressureSigns.set(key, sign);
+    if (t === 'surface3d' && typeof d.q === 'number') {
+      notePressure(`cell:${d.caseId ?? 1}:${d.on ?? 'quad'}:${d.quadId}`, d.q);
     }
     if (fromLoadPlan(d.generatedBy)) {
       f.add('generatedLoads');
@@ -623,10 +625,14 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (widthMode && (memberGravity || generatedSeismic)) f.add('generatedWidthGravity');
   const floorDefs = values(s.groups).filter(g => g?.kind === 'floorLoad');
   if (floorDefs.length) f.add('areaDeadLoads');
-  if (floorDefs.some(g => {
-    const data = g.data as { target?: { by?: string }; distribution?: string } | undefined;
-    return data?.target?.by === 'zone' && data.distribution !== 'slab';
-  })) f.add('memberFloorZones');
+  for (const g of floorDefs) {
+    const data = g.data as { target?: { by?: string; groupId?: number }; distribution?: string; q?: number; caseId?: number } | undefined;
+    if (!data) continue;
+    if (data.target?.by === 'zone' && data.distribution !== 'slab') f.add('memberFloorZones');
+    if (data.distribution === 'slab' && data.target?.by === 'group' && typeof data.q === 'number') {
+      notePressure(`group:${data.caseId}:${data.target.groupId}`, data.q);
+    }
+  }
   if (values(s.groups).some((g) => g?.kind === 'generated')) f.add('generatedStructures');
 
   const types = new Set(cases.map((c) => c.type));
