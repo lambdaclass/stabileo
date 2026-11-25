@@ -136,10 +136,8 @@ it.each(['plates', 'quads'] as const)(
   },
 );
 
-const lastReview = process.env.RUN_KNOWN_WRONG === '2565' ? it : it.skip;
-
-lastReview.each(['explicit', 'group'] as const)(
-  'known wrong result: #2565 — a fractional ID cannot hide member 20 in a %s selector',
+it.each(['explicit', 'group'] as const)(
+  '#2565 — a fractional ID cannot hide member 20 in the %s selector',
   kind => {
     const { beam } = scrambled();
     const groupId = modelStore.addGroup('Gravity members', 'selection', { elements: [1.5, 20] });
@@ -170,8 +168,8 @@ lastReview.each(['explicit', 'group'] as const)(
   },
 );
 
-lastReview.each(['plates', 'quads'] as const)(
-  'known wrong result: #2565 — bad member IDs cannot hide a claimed target in %s',
+it.each(['plates', 'quads'] as const)(
+  '#2565 — bad member IDs cannot hide a claimed target in %s',
   family => {
     const { top1, top2, base1, base2 } = scrambled();
     const plate = modelStore.addPlate([base1, base2, top1], 1, 0.2);

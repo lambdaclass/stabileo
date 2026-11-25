@@ -43,7 +43,8 @@ const UNIT: Record<SelfWeightLoad['direction'], Vec3> = { X: [1, 0, 0], Y: [0, 1
 export const selfWeightMemberProjection = Symbol('selfWeightMemberProjection');
 
 type IdLookup = Pick<ReadonlySet<number>, 'has' | 'keys'>;
-type TargetFamily = 'elements' | 'plates' | 'quads';
+const targetFamilies = ['elements', 'plates', 'quads'] as const;
+type TargetFamily = (typeof targetFamilies)[number];
 type HasTarget = (family: TargetFamily, id: number) => boolean;
 type SelfWeightTargets = {
   elements: IdLookup;
@@ -59,7 +60,8 @@ export type SelfWeightMemberProjection = {
 };
 
 type SelfWeightScope = { members: ReadonlySet<number> | null; plates: ReadonlySet<number> | null; quads: ReadonlySet<number> | null };
-type ScopeFailure = { invalidGroup: number } | { invalidMemberId: unknown } | { missingTarget: { family: TargetFamily; id: number } };
+type MissingTarget = { missingTarget: { family: TargetFamily; id: number } };
+type ScopeFailure = { invalidGroup: number } | { invalidMemberId: unknown } | MissingTarget;
 
 const groupMemberLists = { nodes: true, elements: true, plates: true, quads: true } satisfies Record<keyof GroupMembers, true>;
 const targetLabels = { elements: 'table.elemLabel', plates: 'quickEdit.plate', quads: 'quickEdit.quad' } as const;
@@ -68,8 +70,12 @@ function isSelectorId(id: unknown): id is number {
   return typeof id === 'number' && Number.isSafeInteger(id) && id >= 0;
 }
 
+function isMembershipRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 function isGroupMembership(value: unknown): value is GroupMembers {
-  if (value === null || typeof value !== 'object') return false;
+  if (!isMembershipRecord(value)) return false;
   const prototype = Object.getPrototypeOf(value);
   if (prototype !== Object.prototype && prototype !== null) return false;
   for (const [key, ids] of Object.entries(value)) {
@@ -83,9 +89,18 @@ function isGroupMembership(value: unknown): value is GroupMembers {
   return true;
 }
 
-function missingTarget(hasTarget: HasTarget, family: TargetFamily, ids: readonly number[]): ScopeFailure | null {
+function missingTarget(hasTarget: HasTarget, family: TargetFamily, ids: unknown): MissingTarget | null {
+  if (!Array.isArray(ids)) return null;
   for (const id of ids) {
-    if (!hasTarget(family, id)) return { missingTarget: { family, id } };
+    if (isSelectorId(id) && !hasTarget(family, id)) return { missingTarget: { family, id } };
+  }
+  return null;
+}
+
+function missingGroupTarget(hasTarget: HasTarget, members: Partial<Record<TargetFamily, unknown>>): MissingTarget | null {
+  for (const family of targetFamilies) {
+    const missing = missingTarget(hasTarget, family, members[family]);
+    if (missing) return missing;
   }
   return null;
 }
@@ -102,12 +117,7 @@ export function resolveSelfWeightScope(model: SelfWeightTargets, s: Pick<SelfWei
     return { ...scope, members };
   }
 
-  return authoredSelfWeightScope(model.groups, s, (family, id) => model[family]?.has(id) ?? false);
-}
-
-function authoredSelfWeightScope(
-  groups: SelfWeightTargets['groups'], s: Pick<SelfWeightLoad, 'elements' | 'groupId'>, hasTarget: HasTarget,
-): SelfWeightScope | ScopeFailure {
+  const hasTarget: HasTarget = (family, id) => model[family]?.has(id) ?? false;
   if (s.elements !== undefined) {
     if (!Array.isArray(s.elements)) return { invalidMemberId: s.elements };
     for (const id of s.elements) {
@@ -117,11 +127,9 @@ function authoredSelfWeightScope(
     if (missing) return missing;
   }
   if (s.groupId !== undefined) {
-    const members = groups?.get(s.groupId)?.members;
+    const members = model.groups?.get(s.groupId)?.members;
     if (!isGroupMembership(members)) return { invalidGroup: s.groupId };
-    return missingTarget(hasTarget, 'elements', members.elements ?? [])
-      ?? missingTarget(hasTarget, 'plates', members.plates ?? [])
-      ?? missingTarget(hasTarget, 'quads', members.quads ?? [])
+    return missingGroupTarget(hasTarget, members)
       ?? { members: new Set(members.elements), plates: new Set(members.plates), quads: new Set(members.quads) };
   }
   if (s.elements !== undefined) return { members: new Set(s.elements), plates: new Set(), quads: new Set() };
@@ -131,9 +139,12 @@ function authoredSelfWeightScope(
 export function selfWeightTargetClaimedByRemap(
   model: Pick<SelfWeightTargets, 'groups'>, rule: Pick<SelfWeightLoad, 'elements' | 'groupId'>,
   claimed: Record<TargetFamily, ReadonlySet<number>>,
-): ScopeFailure | null {
-  const scope = authoredSelfWeightScope(model.groups, rule, (family, id) => !claimed[family].has(id));
-  return 'missingTarget' in scope ? scope : null;
+): MissingTarget | null {
+  const remainsUnclaimed: HasTarget = (family, id) => !claimed[family].has(id);
+  const explicit = missingTarget(remainsUnclaimed, 'elements', rule.elements);
+  if (explicit) return explicit;
+  const members = rule.groupId === undefined ? undefined : model.groups?.get(rule.groupId)?.members;
+  return isMembershipRecord(members) ? missingGroupTarget(remainsUnclaimed, members) : null;
 }
 
 export function selfWeightScopeRefusal(issue: ScopeFailure): string {

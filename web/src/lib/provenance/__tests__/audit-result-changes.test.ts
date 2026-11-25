@@ -156,8 +156,8 @@ it('#2297 shell notices require a zero or possibly cancelling factor', () => {
   expect.soft(notice([dead, { caseId: 2, factor: Number.MIN_VALUE }])).toBe(false);
 });
 
-it('#2565 — registers the self-weight recheck notice in every shipped locale', () => {
-  const change = RESULT_CHANGES.changes.find(c => c.id === 'invalid-self-weight-target');
+it.each(['invalid-self-weight-target', 'subdivided-member-self-weight'])('#2565 — registers %s in every shipped locale', id => {
+  const change = RESULT_CHANGES.changes.find(c => c.id === id);
   expect(change).toBeDefined();
   for (const [label, texts] of Object.entries({ title: change!.title, explanation: change!.explanation })) {
     const registered = new Map(Object.entries(texts));
@@ -169,16 +169,15 @@ it('#2565 — registers the self-weight recheck notice in every shipped locale',
   }
 });
 
-const lastReview = process.env.RUN_KNOWN_WRONG === '2565' ? it : it.skip;
-
-lastReview.each([
+it.each([
   ['2d', 'linear'],
   ['3d', 'nonlinear'],
   ['pro', 'pdelta'],
-] as const)('known wrong result: #2565 — rechecks older %s %s results for valid scoped member self-weight', (mode, analysis) => {
-  const id = 'invalid-self-weight-target';
-  const change = RESULT_CHANGES.changes.find(c => c.id === id)!;
-  const stamp = { ...unknownStamp(), resultsVersion: change.resultsVersion - 1, analyses: [analysis], recorded: [...ANALYSIS_KINDS] };
+] as const)('#2565 — rechecks older %s %s results for valid scoped member self-weight', (mode, analysis) => {
+  const id = 'subdivided-member-self-weight';
+  const invalid = 'invalid-self-weight-target';
+  const original = RESULT_CHANGES.changes.find(c => c.id === invalid)!;
+  const stamp = { ...unknownStamp(), resultsVersion: original.resultsVersion - 1, analyses: [analysis], recorded: [...ANALYSIS_KINDS] };
   const snapshot: FeatureSnapshot = {
     ...model,
     nodes: [[1, { x: 0, y: 0 }], [2, { x: 1, y: 0 }]],
@@ -191,9 +190,11 @@ lastReview.each([
 
   expect.soft(notices({ groupId: 1 })).toContain(id);
   expect.soft(notices({ elements: [1] })).toContain(id);
-  expect.soft(notices({ elements: [20] })).toContain(id);
-  expect.soft(notices({ groupId: 1 }, { ...stamp, resultsVersion: change.resultsVersion })).not.toContain(id);
-  expect.soft(notices({ groupId: 1 }, { ...stamp, analyses: [] })).not.toContain(id);
+  expect.soft(notices({ elements: [20] })).toContain(invalid);
+  expect.soft(notices({ elements: [20] })).not.toContain(id);
+  const current = { ...stamp, resultsVersion: RESULT_CHANGES.currentResultsVersion };
+  expect.soft(notices({ groupId: 1 }, current)).not.toContain(id);
+  expect.soft(notices({ groupId: 1 }, { ...current, analyses: [] })).not.toContain(id);
   expect.soft(notices({ groupId: 1, factor: 0 })).not.toContain(id);
   expect.soft(notices({ groupId: 2 })).not.toContain(id);
   expect.soft(notices({ elements: [] })).not.toContain(id);
