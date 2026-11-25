@@ -6,3 +6,5 @@ Linear, staged, modal and covered nonlinear analyses now refuse when roundoff ca
 Carry stiffness rounding through inclined supports and constraints and check the active corotational tangent before reporting convergence. Translate the rank refusal with or without its diagnostic envelope.
 
 Require physical tangent rank before accepting material convergence, retain compatible corotational release cases, and preserve the specific cause in translated rank refusals.
+
+Require resolved physical rank before solving SSI secants. Preserve verified release gauges with signed corotational stiffness and report constraint-rounding refusals in modal and kinematic results, with localized corrective guidance.

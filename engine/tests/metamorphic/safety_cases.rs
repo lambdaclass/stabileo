@@ -251,7 +251,17 @@ fn issue_762_2d_refuses_reported_unreliable_models_in_equivalent_frames() {
                     let matches = match seed {
                         20756 | 20795 => reason.contains("constraint reduction cancels stiffness contributions"),
                         20824 => reason.contains("the matrix exceeds a conditioning limit or the recovered response fails its accuracy check")
-                            || reason.starts_with("the structure cannot be solved reliably: stiffness factorization accuracy is unresolved after the stability check;"),
+                            || reason.starts_with("the structure cannot be solved reliably: stiffness factorization accuracy is unresolved after the stability check;")
+                            || serde_json::from_str::<serde_json::Value>(reason).is_ok_and(|envelope| {
+                                let Some(diagnostics) = envelope["structuredDiagnostics"].as_array() else { return false; };
+                                diagnostics.len() == 1
+                                    && diagnostics[0]["code"] == "reduced_stiffness_rank"
+                                    && diagnostics[0]["severity"] == "error"
+                                    && diagnostics[0]["message"] == envelope["message"]
+                                    && envelope["message"].as_str().is_some_and(|message| {
+                                        message.contains("the reduced stiffness rank cannot be resolved at assembly precision")
+                                    })
+                            }),
                         _ => reason.starts_with("the structure is a mechanism at nodes [3]: a node can move freely"),
                     };
                     assert!(matches, "{context}: {reason}");

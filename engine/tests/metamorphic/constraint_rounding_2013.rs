@@ -333,7 +333,6 @@ fn material_nonlinear_zero_residual_requires_resolved_constraint_rank() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2584"]
 fn kinematics_reports_constraint_rounding_despite_zero_rounded_mechanisms() {
     use dedaliano_engine::solver::kinematic::{analyze_kinematics_2d, analyze_kinematics_3d};
 
@@ -351,19 +350,40 @@ fn kinematics_reports_constraint_rounding_despite_zero_rounded_mechanisms() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2584"]
 fn modal_reports_constraint_rounding_before_the_eigensolve() {
     use dedaliano_engine::{certify, solver::modal};
     let mut case = crate::corpus::fuzz_case_2d(20754, 20795 - 20754);
     case.s = crate::common::explicit_rigid_support_control(&case.s);
     let densities = case.s.materials.keys().map(|id| (id.clone(), 1.0)).collect();
-    for error in [
-        modal::solve_modal_2d(&case.s, &densities, 2).unwrap_err(),
-        certify::modal::certify_modal_2d(&case.s, &densities, 2).unwrap_err(),
-    ] {
+    let assert_refusal = |error: String| {
         let value: Value = serde_json::from_str(&error).unwrap_or_else(|_| panic!("{error}"));
         assert_eq!(value["structuredDiagnostics"][0]["code"], "reduced_stiffness_rank");
         assert_eq!(value["structuredDiagnostics"][0]["severity"], "error");
         assert!(value["message"].as_str().unwrap().contains("constraint reduction cancels stiffness contributions"));
+    };
+    assert_refusal(modal::solve_modal_2d(&case.s, &densities, 2).unwrap_err());
+    assert_refusal(certify::modal::certify_modal_2d(&case.s, &densities, 2).unwrap_err());
+
+    let assert_mode = |result: Result<Vec<f64>, String>, refused: bool| {
+        if refused {
+            assert_refusal(result.unwrap_err());
+        } else {
+            let modes = result.unwrap();
+            assert_eq!(modes.len(), 1);
+            assert!(modes[0].is_finite() && modes[0] > 0.0);
+        }
+    };
+    for (model, _, refused) in cancellation_boundaries(false) {
+        let spatial = embed(&model, Plane::XZ);
+        for planar in [crate::case::pad_2d(&model).0, model] {
+            assert_mode(modal::solve_modal_2d(&planar, &densities, 1)
+                .map(|result| result.modes.iter().map(|mode| mode.omega).collect()), refused);
+            assert_mode(certify::modal::certify_modal_2d(&planar, &densities, 1)
+                .map(|result| result.results.modes.iter().map(|mode| mode.omega).collect()), refused);
+        }
+        assert_mode(modal::solve_modal_3d(&spatial, &densities, 1)
+            .map(|result| result.modes.iter().map(|mode| mode.omega).collect()), refused);
+        assert_mode(certify::modal::certify_modal_3d(&spatial, &densities, 1)
+            .map(|result| result.results.modes.iter().map(|mode| mode.omega).collect()), refused);
     }
 }

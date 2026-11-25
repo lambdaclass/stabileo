@@ -26,7 +26,7 @@ struct SpringStiffness {
     rows: Vec<usize>,
     cols: Vec<usize>,
     vals: Vec<f64>,
-    magnitude: Option<CscMatrix>,
+    magnitude: CscMatrix,
 }
 
 /// The soil springs at their current secants as stiffness triplets in the
@@ -45,7 +45,7 @@ fn spring_stiffness<T: InclinedFrame>(
             vals.push(spring_k[si]);
         }
     }
-    let magnitude = (!its.is_empty()).then(|| assembly::triplet_magnitude(&rows, &cols, &vals, dof_num, its));
+    let magnitude = assembly::triplet_magnitude(&rows, &cols, &vals, dof_num, its);
     for it in its {
         it.rotate_triplets(&mut rows, &mut cols, &mut vals);
     }
@@ -136,6 +136,8 @@ fn dense_free_stiffness(k: &[f64], n: usize, nf: usize) -> CscMatrix {
     CscMatrix { n: nf, col_ptr, row_idx, values }
 }
 
+struct SecantSystem(CscMatrix);
+
 fn secant_system(
     base: &CscMatrix,
     reduced_base: Option<&CscMatrix>,
@@ -143,7 +145,7 @@ fn secant_system(
     cs: Option<&FreeConstraintSystem>,
     rank: &super::stability::OperatorRank<'_>,
     support_magnitude: Option<&CscMatrix>,
-) -> Result<CscMatrix, String> {
+) -> Result<SecantSystem, String> {
     let nf = base.n;
     let SpringStiffness { rows, cols, vals, magnitude } = soil;
     let mut sr = Vec::new();
@@ -159,9 +161,12 @@ fn secant_system(
     let soil = CscMatrix::from_triplets(nf, &sr, &sc, &sv);
     let physical = add_stiffness(base, &soil);
     let reduced = cs.zip(reduced_base).map(|(cs, base)| add_stiffness(base, &cs.reduce_matrix_sparse(&soil)));
-    let magnitude = support_magnitude.zip(magnitude.as_ref()).map(|(base, soil)| add_stiffness(base, soil));
-    rank.check_rounding(&physical, reduced.as_ref(), magnitude.as_ref())?;
-    Ok(reduced.unwrap_or(physical))
+    let magnitude = match support_magnitude {
+        Some(base) => add_stiffness(base, &magnitude),
+        None => add_stiffness(&super::stability::absolute_stiffness(base), &magnitude),
+    };
+    rank.check_secant(&physical, reduced.as_ref(), &magnitude)?;
+    Ok(SecantSystem(reduced.unwrap_or(physical)))
 }
 
 fn add_stiffness(base: &CscMatrix, soil: &CscMatrix) -> CscMatrix {
@@ -262,7 +267,7 @@ struct SecantState {
 impl SecantState {
     fn update(
         state: &mut Option<Self>,
-        k: CscMatrix,
+        SecantSystem(k): SecantSystem,
         force: &[f64],
         sparse: bool,
         cache: &mut Option<SparseSymbolicCache>,
@@ -727,9 +732,7 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
 
 fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     super::linear::validate_input_3d(&input.solver)?;
-    if input.soil_springs.is_empty() {
-        super::linear::refuse_initial_free_rotation_loads_3d(&input.solver)?;
-    }
+    super::linear::refuse_initial_free_rotation_loads_3d(&input.solver)?;
     validate_springs(&input.soil_springs)?;
     super::feature_gates::refuse_3d(&input.solver, "Soil-structure interaction analysis", &[super::feature_gates::Feature::PrescribedDisplacements])?;
 

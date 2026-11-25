@@ -185,6 +185,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
         };
     }
 
+    let physical_input = input;
     let rank_input = rank_springs_2d(input);
     let input = rank_input.as_ref().unwrap_or(input);
     let dof_num = DofNumbering::build_2d(input);
@@ -210,7 +211,13 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     // assembly and the dense LU rank below. Anything unusual — a floating
     // translation, an unexpected zero, a failed factorization — falls through
     // to the full path, which names the DOFs.
-    if nf >= KINEMATIC_SPARSE_THRESHOLD && input.constraints.is_empty() {
+    let physical_refusal = rank_input.as_ref().and_then(|_| {
+        let cs = FreeConstraintSystem::build_2d(physical_input, &dof_num).ok()?;
+        let asm = super::assembly::without_artificial_stiffness(|| assemble_sparse_2d(physical_input, &dof_num));
+        super::stability::OperatorRank::for_2d(physical_input, &dof_num, cs.as_ref())
+            .check_free_rounding(&asm.k_ff, asm.support_magnitude.as_ref()).err()
+    });
+    if physical_refusal.is_none() && nf >= KINEMATIC_SPARSE_THRESHOLD && input.constraints.is_empty() {
         if let Some(result) = fast_solvable_2d(input, &dof_num, degree) {
             return result;
         }
@@ -288,8 +295,9 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     let mut mechanism_nodes: Vec<usize> = node_set.into_iter().collect();
     mechanism_nodes.sort();
 
-    let is_solvable = mechanism_modes == 0 && rank_stability.verdict != super::stability::Verdict::Mechanism
-        && rank_stability.reason != super::stability::Reason::OperatorRounding;
+    let rank_refusal = physical_refusal.or_else(|| rank_stability.rounding_refusal());
+    let is_solvable = mechanism_modes == 0
+        && rank_stability.verdict != super::stability::Verdict::Mechanism && rank_refusal.is_none();
     let classification = if degree > 0 && is_solvable {
         "hyperstatic"
     } else if degree == 0 && is_solvable {
@@ -298,11 +306,9 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
         "hypostatic"
     }.to_string();
 
-    let diagnosis = if rank_stability.reason == super::stability::Reason::OperatorRounding {
-        rank_stability.refusal().unwrap()
-    } else {
+    let diagnosis = rank_refusal.unwrap_or_else(|| {
         build_diagnosis_2d(degree, mechanism_modes, &mechanism_nodes, &unconstrained_dofs)
-    };
+    });
 
     KinematicResult {
         degree,
@@ -415,7 +421,7 @@ fn fast_solvable_2d(
     let (physical, stability) = super::stability::analyze_free_stiffness(
         &sasm.k_ff, dof_num, true, None, &super::stability::coupling_2d(input, dof_num), &super::stability::ReleasedRotations::default(), sasm.support_magnitude.as_ref(),
     );
-    if stability.verdict == super::stability::Verdict::Mechanism || stability.reason == super::stability::Reason::OperatorRounding { return None; }
+    if stability.verdict == super::stability::Verdict::Mechanism || stability.rounding_refusal().is_some() { return None; }
     let pinned = stability.pin_sparse(&physical);
     let k = &pinned;
     let mut symbolic = None;
@@ -564,6 +570,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
         };
     }
 
+    let physical_input = input;
     let rank_input = rank_springs_3d(input);
     let input = rank_input.as_ref().unwrap_or(input);
     let dof_num = DofNumbering::build_3d(input);
@@ -605,6 +612,11 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
         },
     };
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
+    let physical_refusal = rank_input.as_ref().and_then(|_| {
+        let asm = super::assembly::without_artificial_stiffness(|| assemble_sparse_3d(physical_input, &dof_num, false));
+        super::stability::OperatorRank::for_3d(physical_input, &dof_num, cs.as_ref())
+            .check_free_rounding(&asm.k_ff, asm.support_magnitude.as_ref()).err()
+    });
     let (k_s, rank_stability) = super::stability::analyze_free_stiffness(
         &crate::linalg::sparse::CscMatrix::from_dense_symmetric_exact(&k_ff, nf),
         &dof_num, false, cs.as_ref(), &super::stability::coupling_3d(input, &dof_num), &super::stability::released_rotations_3d(input, &dof_num), support_magnitude.as_ref(),
@@ -653,8 +665,9 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
     let mut mechanism_nodes: Vec<usize> = node_set.into_iter().collect();
     mechanism_nodes.sort();
 
-    let is_solvable = mechanism_modes == 0 && rank_stability.verdict != super::stability::Verdict::Mechanism
-        && rank_stability.reason != super::stability::Reason::OperatorRounding;
+    let rank_refusal = physical_refusal.or_else(|| rank_stability.rounding_refusal());
+    let is_solvable = mechanism_modes == 0
+        && rank_stability.verdict != super::stability::Verdict::Mechanism && rank_refusal.is_none();
     let classification = if degree > 0 && is_solvable {
         "hyperstatic"
     } else if degree == 0 && is_solvable {
@@ -663,11 +676,9 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
         "hypostatic"
     }.to_string();
 
-    let diagnosis = if rank_stability.reason == super::stability::Reason::OperatorRounding {
-        rank_stability.refusal().unwrap()
-    } else {
+    let diagnosis = rank_refusal.unwrap_or_else(|| {
         build_diagnosis_2d(degree, mechanism_modes, &mechanism_nodes, &unconstrained_dofs)
-    };
+    });
 
     KinematicResult {
         degree,

@@ -162,6 +162,29 @@ for (const dim of ['2d', '3d']) {
     const run = () => nonlinear('nonlinear_material', dim, {
       solver: model, materialModels: {}, sectionCapacities: {}, maxIter: 8, tolerance: 1e-12, nIncrements: 1,
     });
+    const constraintRankError = error => codedRankError(error) && String(error).includes('constraint reduction cancels stiffness contributions');
+    const kinematic = JSON.parse(engine[`analyze_kinematics_${dim}`](JSON.stringify(model)));
+    assert.equal(kinematic.mechanismModes, 0);
+    assert.equal(kinematic.isSolvable, !refused, `${dim} kinematics at stiffness ${stiffness}`);
+    if (refused) {
+      assert.equal(kinematic.classification, 'hypostatic');
+      assert.ok(constraintRankError(kinematic.diagnosis));
+    }
+    const modal = JSON.stringify({ solver: model, densities: { 1: 1 } });
+    for (const entry of ['solve_modal', 'certify_modal']) {
+      const solve = () => engine[`${entry}_${dim}`](modal, 1);
+      if (refused) {
+        assert.throws(solve, constraintRankError);
+        const noMass = JSON.stringify({ solver: model, densities: {} });
+        assert.throws(() => engine[`${entry}_${dim}`](noMass, 1), /dynamic analysis needs mass/);
+      }
+      else {
+        const answer = JSON.parse(solve());
+        const modes = (answer.results ?? answer).modes;
+        assert.equal(modes.length, 1);
+        assert.ok(Number.isFinite(modes[0].omega) && modes[0].omega > 0);
+      }
+    }
     if (refused) {
       assert.throws(run, error => codedRankError(error) && String(error).includes('constraint reduction cancels stiffness contributions'));
     } else {
@@ -187,4 +210,31 @@ for (const dim of ['2d', '3d']) {
   const result = run();
   assert.equal(result.converged, true);
   assertDisplacements(result.results, dim, [1, 2]);
+}
+
+for (const dim of ['2d', '3d']) {
+  const model = dim === '2d' ? structuredClone(truss) : spatial(truss);
+  const stiffness = 1024;
+  model.materials[1].e = stiffness / 1000;
+  for (const nodeId of [1, 2]) {
+    model.supports[nodeId] = dim === '2d'
+      ? { id: nodeId, nodeId, type: 'rollerX' }
+      : { nodeId, rx: false, ry: true, rz: true, rrx: true, rry: true, rrz: true };
+  }
+  model.nodes[3] = dim === '2d' ? { id: 3, x: 0, z: 1 } : { id: 3, x: 0, y: 0, z: 1 };
+  model.supports[3] = dim === '2d'
+    ? { id: 3, nodeId: 3, type: 'fixed' }
+    : { nodeId: 3, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true };
+  const load = { nodeId: 3, fx: 1, fz: 0, my: 0 };
+  if (dim === '3d') Object.assign(load, { fy: 0, mx: 0, mz: 0 });
+  model.loads = [{ type: 'nodal', data: load }];
+  const solve = secant => JSON.parse(engine[`solve_ssi_${dim}`](JSON.stringify({
+    solver: model,
+    soilSprings: [{ nodeId: 1, direction: 0, curve: { type: 'custom', points: [[0, 0], [1, secant]] }, tributaryLength: 1 }],
+    maxIter: 2,
+  })));
+  const result = solve(1);
+  assert.equal(result.converged, true);
+  assertDisplacements(result.results, dim, [1, 2, 3]);
+  assert.throws(() => solve(stiffness * 4 * Number.EPSILON), codedRankError);
 }

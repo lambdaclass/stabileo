@@ -40,28 +40,30 @@ fn refused(issue: u64, analysis: &str, prefix: &str, diagnostic: Option<Value>) 
         }
     };
     if let Some(expected) = diagnostic {
-        let value: Value = serde_json::from_str(&error).unwrap();
+        let value: Value = serde_json::from_str(&error)
+            .unwrap_or_else(|_| panic!("#{issue}: expected a structured refusal, got {error}"));
         let actual = value["structuredDiagnostics"].as_array().unwrap();
         assert_eq!(actual.len(), 1);
         for (key, expected_value) in expected.as_object().unwrap() {
             assert_eq!(&actual[0][key], expected_value, "#{issue}: {key}");
         }
+        if !prefix.is_empty() {
+            assert!(value["message"].as_str().unwrap().starts_with(prefix), "#{issue}: {error}");
+        }
     } else {
-        let envelope = serde_json::from_str::<Value>(&error).ok();
-        let message = envelope.as_ref().map_or(error.as_str(), |value| {
-            let diagnostics = value["structuredDiagnostics"].as_array().unwrap();
-            assert_eq!(diagnostics.len(), 1, "#{issue}: {error}");
-            assert_eq!(diagnostics[0]["code"], "reduced_stiffness_rank", "#{issue}: {error}");
-            assert_eq!(diagnostics[0]["severity"], "error", "#{issue}: {error}");
-            value["message"].as_str().unwrap()
-        });
-        assert!(message.starts_with(prefix), "#{issue}: {error}");
+        assert!(error.starts_with(prefix), "#{issue}: {error}");
     }
+}
+
+fn rank_refused(issue: u64, analysis: &str, prefix: &str) {
+    refused(issue, analysis, prefix, Some(serde_json::json!({
+        "code": "reduced_stiffness_rank", "severity": "error"
+    })));
 }
 
 #[test]
 fn issue_1912_refuses_unresolved_stiffness() {
-    refused(1912, "linear (WASM typed path)", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
+    rank_refused(1912, "linear (WASM typed path)", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision");
 }
 
 #[test]
@@ -71,12 +73,12 @@ fn issue_1908_refuses_unresolved_stiffness() {
 
 #[test]
 fn issue_1906_refuses_unresolved_stiffness() {
-    refused(1906, "certified linear", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
+    rank_refused(1906, "certified linear", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision");
 }
 
 #[test]
 fn issue_1905_refuses_unresolved_stiffness() {
-    refused(1905, "linear (load session)", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
+    rank_refused(1905, "linear (load session)", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision");
 }
 
 #[test]
@@ -86,7 +88,7 @@ fn issue_1903_refuses_unrestrained_translation() {
 
 #[test]
 fn issue_1902_refuses_unresolved_stiffness() {
-    refused(1902, "linear", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
+    rank_refused(1902, "linear", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision");
 }
 
 #[test]
@@ -96,12 +98,12 @@ fn issue_1859_refuses_unrestrained_translation() {
 
 #[test]
 fn issue_1858_refuses_unresolved_stiffness() {
-    refused(1858, "certified linear", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
+    rank_refused(1858, "certified linear", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision");
 }
 
 #[test]
 fn issue_1856_refuses_unresolved_stiffness() {
-    refused(1856, "linear (WASM typed path)", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
+    rank_refused(1856, "linear (WASM typed path)", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision");
 }
 
 #[test]
@@ -111,7 +113,7 @@ fn issue_1852_refuses_unrestrained_translation() {
 
 #[test]
 fn issue_1851_refuses_unresolved_stiffness() {
-    refused(1851, "P-Delta", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
+    rank_refused(1851, "P-Delta", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision");
 }
 
 #[test]
@@ -126,7 +128,7 @@ fn issue_1847_refuses_unrestrained_translation() {
 
 #[test]
 fn issue_1842_refuses_unresolved_stiffness() {
-    refused(1842, "linear", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
+    rank_refused(1842, "linear", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision");
 }
 
 #[test]

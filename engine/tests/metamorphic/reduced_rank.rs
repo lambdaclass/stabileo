@@ -159,6 +159,11 @@ fn unhinged_and_independently_restrained_frames_solve() {
         for input in [unhinged, restrained] {
             assert!(stability::of_2d(&input).unwrap().is_stable());
             let result = linear::solve_2d(&input).unwrap();
+            let mut node_ids: Vec<_> = result.displacements.iter().map(|u| u.node_id).collect();
+            node_ids.sort_unstable();
+            let mut expected_ids: Vec<_> = input.nodes.values().map(|node| node.id).collect();
+            expected_ids.sort_unstable();
+            assert_eq!(node_ids, expected_ids);
             assert!(result.displacements.iter().all(|u| u.ux == 0.0 && u.uz == 0.0 && u.ry == 0.0));
         }
     }
@@ -416,7 +421,6 @@ fn restrained_load_does_not_resolve_a_material_mechanism() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2584"]
 fn ssi_requires_resolved_secant_rank_under_restrained_load() {
     use dedaliano_engine::solver::{soil_curves::SoilCurve, ssi::*};
 
@@ -436,30 +440,55 @@ fn ssi_requires_resolved_secant_rank_under_restrained_load() {
     let planar: SolverInput = serde_json::from_value(planar).unwrap();
     let spatial = embed_2d(&planar, Plane::XZ).unwrap();
     let mut failures = Vec::new();
-    for secant in [1.0, rounded] {
-        let soil = SoilSpring {
-            node_id: 1,
-            direction: 0,
-            curve: SoilCurve::Custom { points: vec![[0.0, 0.0], [1.0, secant]] },
-            tributary_length: 1.0,
-        };
-        let result2 = solve_ssi_2d(&SSIInput {
-            solver: planar.clone(), soil_springs: vec![soil.clone()], max_iter: 2, tolerance: 1e-4,
-        });
-        let result3 = solve_ssi_3d(&SSIInput3D {
-            solver: spatial.clone(), soil_springs: vec![soil], max_iter: 2, tolerance: 1e-4,
-        });
-        if secant == rounded {
-            report("planar SSI", result2, &mut failures);
-            report("spatial SSI", result3, &mut failures);
+    for sparse in [false, true] {
+        let (mut planar_input, mut spatial_input) = if sparse {
+            (crate::case::pad_2d(&planar).0, crate::case::pad_3d(&spatial).0)
         } else {
-            let planar_result = result2.unwrap();
-            let spatial_result = result3.unwrap();
-            assert!(planar_result.converged && spatial_result.converged);
-            assert_eq!(planar_result.results.displacements.len(), planar.nodes.len());
-            assert_eq!(spatial_result.results.displacements.len(), spatial.nodes.len());
-            assert!(planar_result.results.displacements.iter().all(|u| u.ux == 0.0 && u.uz == 0.0 && u.ry == 0.0));
-            assert!(spatial_result.results.displacements.iter().all(|u| u.ux == 0.0 && u.uy == 0.0 && u.uz == 0.0 && u.rx == 0.0 && u.ry == 0.0 && u.rz == 0.0));
+            (planar.clone(), spatial.clone())
+        };
+        for constrained in [false, true] {
+            if constrained {
+                if !sparse {
+                    planar_input = crate::case::pad_2d(&planar).0;
+                    spatial_input = crate::case::pad_3d(&spatial).0;
+                    planar_input.nodes.retain(|_, node| node.id <= 5);
+                    spatial_input.nodes.retain(|_, node| node.id <= 5);
+                    planar_input.elements.retain(|_, element| element.node_j <= 5);
+                    spatial_input.elements.retain(|_, element| element.node_j <= 5);
+                }
+                let independent = Constraint::LinearMPC(LinearMPCConstraint {
+                    terms: vec![MPCTerm { node_id: 5, dof: 0, coefficient: 1.0 }],
+                });
+                planar_input.constraints.push(independent.clone());
+                spatial_input.constraints.push(independent);
+            }
+            let resolved = if constrained { vec![1.0] } else { vec![1.0, stiffness * 512.0 * f64::EPSILON] };
+            for secant in resolved.into_iter().chain([rounded]) {
+                let soil = SoilSpring {
+                    node_id: 1,
+                    direction: 0,
+                    curve: SoilCurve::Custom { points: vec![[0.0, 0.0], [1.0, secant]] },
+                    tributary_length: 1.0,
+                };
+                let result2 = solve_ssi_2d(&SSIInput {
+                    solver: planar_input.clone(), soil_springs: vec![soil.clone()], max_iter: 2, tolerance: 1e-4,
+                });
+                let result3 = solve_ssi_3d(&SSIInput3D {
+                    solver: spatial_input.clone(), soil_springs: vec![soil], max_iter: 2, tolerance: 1e-4,
+                });
+                if secant == rounded {
+                    report(&format!("planar SSI sparse={sparse} constrained={constrained}"), result2, &mut failures);
+                    report(&format!("spatial SSI sparse={sparse} constrained={constrained}"), result3, &mut failures);
+                } else {
+                    let planar_result = result2.unwrap();
+                    let spatial_result = result3.unwrap();
+                    assert!(planar_result.converged && spatial_result.converged);
+                    assert_eq!(planar_result.results.displacements.len(), planar_input.nodes.len());
+                    assert_eq!(spatial_result.results.displacements.len(), spatial_input.nodes.len());
+                    assert!(planar_result.results.displacements.iter().all(|u| u.ux == 0.0 && u.uz == 0.0 && u.ry == 0.0));
+                    assert!(spatial_result.results.displacements.iter().all(|u| u.ux == 0.0 && u.uy == 0.0 && u.uz == 0.0 && u.rx == 0.0 && u.ry == 0.0 && u.rz == 0.0));
+                }
+            }
         }
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));

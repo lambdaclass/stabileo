@@ -64,21 +64,23 @@ describe('engine sentences', () => {
       .toBe('El rango de la rigidez reducida no se puede determinar con la precisión del ensamblaje. Revisá las liberaciones, los apoyos, los resortes y las restricciones para detectar un mecanismo.');
   });
 
-  it('translates a coded rank refusal and retains the constraint-specific cause', async () => {
+  it('translates a coded rank refusal and retains an unrecognized cause', async () => {
     await setLocale('es');
-    const cause = 'constraint reduction cancels stiffness contributions at nodes [2, 3]';
+    const cause = 'Check node 42 before continuing.';
     const message = 'The reduced stiffness rank cannot be resolved at assembly precision. ' + cause;
     const refusal = JSON.stringify({ message, structuredDiagnostics: [{ code: 'reduced_stiffness_rank', severity: 'error' }] });
     expect(localizeEngineText(errorText(refusal, 'Unknown error')))
       .toBe('El rango de la rigidez reducida no se puede determinar con la precisión del ensamblaje. Revisá las liberaciones, los apoyos, los resortes y las restricciones para detectar un mecanismo. ' + cause);
   });
 
-  it.fails('translates the affected nodes and guidance in coded and plain constraint rank diagnoses', async () => {
+  it('translates the affected nodes and guidance in coded and plain constraint rank diagnoses', async () => {
     await setLocale('es');
     const cause = 'the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2, 3]: constraint reduction cancels stiffness contributions whose rounding is too large to resolve the remaining stiffness; reduce extreme stiffness contrasts or revise the constraints';
     const refusal = JSON.stringify({ message: cause, structuredDiagnostics: [{ code: 'reduced_stiffness_rank', severity: 'error' }] });
     const translated = 'La reducción de las restricciones cancela aportes de rigidez en los nodos [2, 3]. El redondeo impide determinar la rigidez restante. Reducí los contrastes extremos de rigidez o revisá las restricciones.';
     for (const text of [refusal, cause]) expect(localizeEngineText(text)).toBe(translated);
+    expect(localizeEngineText(cause.replace(' at nodes [2, 3]', '')))
+      .toBe(translated.replace(' en los nodos [2, 3]', ''));
   });
 
   it('translates the plain reduced stiffness rank sentence', async () => {

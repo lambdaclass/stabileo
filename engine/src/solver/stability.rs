@@ -172,6 +172,16 @@ impl Stability {
         self.free.iter().filter(|f| f.moves_translation)
     }
 
+    pub(super) fn rounding_refusal(&self) -> Option<String> {
+        match self.reason {
+            Reason::OperatorRounding => self.refusal(),
+            Reason::ConstraintRounding => self.refusal().map(|message| {
+                crate::refusal::coded(DiagnosticCode::ReducedStiffnessRank, &message)
+            }),
+            _ => None,
+        }
+    }
+
     pub fn refusal(&self) -> Option<String> {
         let nodes = if self.mode_nodes.is_empty() { String::new() } else { format!(" at nodes {:?}", self.mode_nodes) };
         match self.reason {
@@ -1072,6 +1082,13 @@ fn tangent_has_resolved_rank(k: &CscMatrix, magnitude: &CscMatrix) -> bool {
     sparse_negative_inertia(&symbolic, &shifted) == Some(lower)
 }
 
+fn is_null_action(k: &CscMatrix, absolute: &CscMatrix, direction: &[f64], terms: usize) -> bool {
+    let size: Vec<_> = direction.iter().map(|value| value.abs()).collect();
+    k.sym_mat_vec(direction).into_iter().zip(absolute.sym_mat_vec(&size))
+        .all(|(value, bound)| value.is_finite() && bound.is_finite()
+            && value.abs() <= ROUNDING * terms as f64 * f64::EPSILON * bound)
+}
+
 pub const COUPLED: f64 = 1e-4;
 const ROUNDING: f64 = 64.0;
 
@@ -1597,27 +1614,22 @@ impl<'a> OperatorRank<'a> {
 
     pub(super) fn check_rounding(&self, free: &CscMatrix, reduced: Option<&CscMatrix>, support_magnitude: Option<&CscMatrix>) -> Result<(), String> {
         let result = self.classify(free, reduced, support_magnitude, &self.releases);
-        Self::rounding_refusal(&result)
+        result.rounding_refusal().map_or(Ok(()), Err)
     }
 
-    pub(super) fn modal_rounding_refusal(
-        &self, free: &CscMatrix, reduced: Option<&CscMatrix>, support_magnitude: Option<&CscMatrix>,
-    ) -> Result<Option<String>, String> {
-        let result = self.classify(free, reduced, support_magnitude, &self.releases);
-        let refusal = Self::rounding_refusal(&result);
-        if result.reason == Reason::ConstraintRounding { return Ok(refusal.err()); }
-        refusal.map(|()| None)
+    pub(super) fn check_free_rounding(&self, free: &CscMatrix, magnitude: Option<&CscMatrix>) -> Result<(), String> {
+        let reduced = self.constraints.map(|cs| cs.reduce_matrix_sparse(free));
+        self.check_rounding(free, reduced.as_ref(), magnitude)
     }
 
-    fn rounding_refusal(result: &Stability) -> Result<(), String> {
-        match result.reason {
-            Reason::OperatorRounding => Err(operator_rounding_refusal()),
-            Reason::ConstraintRounding => Err(crate::refusal::coded(
-                DiagnosticCode::ReducedStiffnessRank,
-                &result.refusal().unwrap(),
-            )),
-            _ => Ok(()),
-        }
+    pub(super) fn check_secant(
+        &self, free: &CscMatrix, reduced: Option<&CscMatrix>, magnitude: &CscMatrix,
+    ) -> Result<(), String> {
+        self.check_rounding(free, reduced, Some(magnitude))?;
+        let reduced_magnitude = self.constraints.map(|cs| cs.reduce_stiffness_magnitude(magnitude));
+        let physical = reduced.unwrap_or(free);
+        let envelope = reduced_magnitude.as_ref().unwrap_or(magnitude);
+        self.check_physical_tangent(physical, envelope, &self.releases)
     }
 
     pub(super) fn check_tangent(
@@ -1627,29 +1639,96 @@ impl<'a> OperatorRank<'a> {
         let reduced_magnitude = self.constraints.map(|cs| cs.reduce_stiffness_magnitude(magnitude));
         let k = reduced.as_ref().unwrap_or(free);
         let magnitude = reduced_magnitude.as_ref().unwrap_or(magnitude);
-        if tangent_has_resolved_rank(k, magnitude) { return Ok(()); }
+        self.check_physical_tangent(k, magnitude, active_releases.unwrap_or(&self.releases))
+    }
 
-        let releases = active_releases.unwrap_or(&self.releases);
-        let mut stability = self.classify(free, reduced.as_ref(), None, releases);
-        if stability.is_stable() {
-            let projected = self.constraints.map(|cs| releases.project(&cs.c_ff));
-            let releases = projected.as_ref().unwrap_or(releases);
-            let row_magnitude = magnitude.sym_mat_vec(&vec![1.0; k.n]);
-            stability.free.retain(|direction| {
-                !direction.moves_translation && direction.coupling.is_empty()
-                    && (releases.permits(direction.node, &direction.dofs, &direction.direction)
-                        || direction.dofs.iter().zip(&direction.direction).all(|(&dof, &component)| {
-                            component == 0.0 || row_magnitude[dof] == 0.0
-                        }))
-            });
-            let pins = stability.pins();
-            if !pins.is_empty() {
-                let pinned = with_stiffness_entries(k, pins.iter().copied());
-                let envelope = with_stiffness_entries(magnitude, pins.into_iter().map(|(i, j, value)| (i, j, value.abs())));
-                if tangent_has_resolved_rank(&pinned, &envelope) { return Ok(()); }
-            }
+    fn check_physical_tangent(
+        &self, k: &CscMatrix, magnitude: &CscMatrix, releases: &ReleasedRotations,
+    ) -> Result<(), String> {
+        if tangent_has_resolved_rank(k, magnitude) { return Ok(()); }
+        if k.values.iter().chain(&magnitude.values).any(|value| !value.is_finite()) {
+            return Err(operator_rounding_refusal());
+        }
+
+        let kept = self.tangent_coordinates(k, magnitude, releases);
+        if kept.len() < k.n
+            && tangent_has_resolved_rank(
+                &k.extract_principal_submatrix(&kept),
+                &magnitude.extract_principal_submatrix(&kept),
+            )
+        {
+            return Ok(());
         }
         Err(operator_rounding_refusal())
+    }
+
+    fn tangent_coordinates(
+        &self, k: &CscMatrix, magnitude: &CscMatrix, releases: &ReleasedRotations,
+    ) -> Vec<usize> {
+        let tags = tags(self.dof, self.two_d);
+        let reduced_tags = self.constraints.map(|cs| {
+            cs.independent_dofs().iter().map(|&d| tags[d]).collect::<Vec<_>>()
+        });
+        let solve_tags = reduced_tags.as_deref().unwrap_or(&tags[..k.n]);
+        let projected = self.constraints.map(|cs| releases.project(&cs.c_ff));
+        let releases = projected.as_ref().unwrap_or(releases);
+        let translates = |direction: &[f64]| {
+            let physical = self.constraints.map(|cs| cs.c_ff.mul_vec(direction));
+            physical.as_deref().unwrap_or(direction).iter().zip(&tags)
+                .any(|(&component, tag)| tag.kind == DofKind::Translation && component != 0.0)
+        };
+
+        let absolute = absolute_stiffness(k);
+        let ones = vec![1.0; k.n];
+        let row_scale = magnitude.sym_mat_vec(&ones);
+        let row_entries = absolute.sym_mat_vec(&ones);
+        let mut excluded = vec![false; k.n];
+        let mut direction = vec![0.0; k.n];
+        let mut groups = BTreeMap::<usize, Vec<usize>>::new();
+        for (d, tag) in solve_tags.iter().enumerate() {
+            if tag.kind == DofKind::Translation { continue; }
+            if row_scale[d] == 0.0 && row_entries[d] == 0.0 {
+                direction[d] = 1.0;
+                excluded[d] = !translates(&direction);
+                direction[d] = 0.0;
+            }
+            if tag.kind == DofKind::Rotation && releases.nodes.contains(&tag.node) {
+                groups.entry(tag.node).or_default().push(d);
+            }
+        }
+
+        let mut pivots = BTreeMap::<usize, Vec<(usize, ReleasedVector)>>::new();
+        for (node, source) in &releases.directions {
+            let Some(dofs) = groups.get(node) else { continue; };
+            if source.iter().any(|&(d, value, _)| value != 0.0 && !dofs.contains(&d)) {
+                continue;
+            }
+            let mut candidate = ReleasedVector::zero(dofs.len());
+            for (i, &d) in dofs.iter().enumerate() {
+                if let Some(&(_, value, rounding)) = source.iter().find(|&&(slot, _, _)| slot == d) {
+                    candidate.values[i] = value;
+                    candidate.rounding[i] = rounding;
+                }
+                direction[d] = candidate.values[i];
+            }
+            let admissible = !translates(&direction)
+                && releases.permits(*node, dofs, &candidate.values)
+                && is_null_action(k, &absolute, &direction, dofs.len());
+            for &d in dofs { direction[d] = 0.0; }
+            if !admissible { continue; }
+
+            let basis = pivots.entry(*node).or_default();
+            for (pivot, previous) in basis.iter() {
+                candidate.add_scaled(previous, -candidate.values[*pivot] / previous.values[*pivot]);
+            }
+            let Some((pivot, _)) = candidate.values.iter().enumerate()
+                .filter(|&(i, value)| !excluded[dofs[i]] && value.abs() > candidate.rounding[i])
+                .max_by(|a, b| a.1.abs().total_cmp(&b.1.abs()))
+            else { continue; };
+            excluded[dofs[pivot]] = true;
+            basis.push((pivot, candidate));
+        }
+        (0..k.n).filter(|&d| !excluded[d]).collect()
     }
 
 }
@@ -1681,7 +1760,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #2584"]
     fn signed_tangent_excludes_a_verified_release_gauge_before_testing_inertia() {
         let dof = DofNumbering {
             map: [((1, 3), 0), ((1, 4), 1), ((2, 0), 2)].into(),

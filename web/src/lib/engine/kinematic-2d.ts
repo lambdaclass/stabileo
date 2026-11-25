@@ -194,8 +194,8 @@ export function computeStaticDegree(input: SolverInput, slidingConditions = 0): 
 }
 
 /** Classification from a degree and the rank check, by the engine's rule. */
-export function classifyKinematic(degree: number, mechanismModes: number): KinematicResult['classification'] {
-  if (mechanismModes > 0) return 'hypostatic';
+export function classifyKinematic(degree: number, mechanismModes: number, isSolvable = true): KinematicResult['classification'] {
+  if (!isSolvable || mechanismModes > 0) return 'hypostatic';
   return degree > 0 ? 'hyperstatic' : degree === 0 ? 'isostatic' : 'hypostatic';
 }
 
@@ -387,6 +387,6 @@ export function analyzeKinematics(input: SolverInput): KinematicResult {
   return normalizeKinematicResult({
     ...raw,
     degree,
-    classification: classifyKinematic(degree, raw.mechanismModes ?? 0),
+    classification: classifyKinematic(degree, raw.mechanismModes ?? 0, raw.isSolvable),
   });
 }

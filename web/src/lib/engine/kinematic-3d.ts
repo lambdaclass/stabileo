@@ -300,7 +300,7 @@ export function analyzeKinematics3D(input: SolverInput3D): KinematicResult3D {
   return {
     ...raw,
     degree,
-    classification: classifyKinematic(degree, raw.mechanismModes ?? 0),
+    classification: classifyKinematic(degree, raw.mechanismModes ?? 0, raw.isSolvable),
     rankAnalysis: raw.invalidInput ? 'invalid' : 'available',
     // The engine writes `diagnosis` in Spanish only; rebuild it in the active language.
     diagnosis: localizeKinematicDiagnosis({

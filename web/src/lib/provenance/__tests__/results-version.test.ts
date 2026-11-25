@@ -110,13 +110,15 @@ describe('results versions', () => {
     const stamp = { resultsVersion: 4, analyses: ['modal'] } as unknown as SolveStamp;
     const precedingRegistry = {
       ...RESULT_CHANGES,
-      changes: RESULT_CHANGES.changes.filter(c => c.id !== 'kinematic-translation-motion'),
+      changes: RESULT_CHANGES.changes.filter(c =>
+        c.id !== 'kinematic-translation-motion' && c.id !== 'reduced-stiffness-rank'),
     };
     const ids = (resultsVersion: number) => {
       const saved = { ...stamp, resultsVersion };
       const preceding = assessProject(frame, saved, 'pro', precedingRegistry).changes.map(c => c.id).sort();
       const combined = assessProject(frame, saved, 'pro').changes.map(c => c.id).sort();
-      const staged = resultsVersion === RESULT_CHANGES.currentResultsVersion ? [] : ['kinematic-translation-motion'];
+      const staged = resultsVersion === RESULT_CHANGES.currentResultsVersion
+        ? [] : ['kinematic-translation-motion', 'reduced-stiffness-rank'];
       expect(combined).toEqual([...preceding, ...staged].sort());
       return preceding;
     };

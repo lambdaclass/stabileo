@@ -42,3 +42,14 @@ The current corotational rank check uses both diagonal and off-diagonal
 terms when scaling signed tangents. It checks the physical directions
 after excluding verified rotation gauges in the current member frames.
 An unresolved physical tangent still blocks convergence.
+
+SSI checks the rank of the current structural and soil secant before
+factoring it, including when a restrained load leaves a zero free residual.
+A positive pivot within the assembly rounding margin now produces a rank
+refusal. Resolved negative corotational stiffness can coexist with a verified
+release gauge. The rank check in that case assesses the remaining physical
+directions.
+
+Modal analysis reports unresolved constraint rank after validating mass and
+before computing modes. Kinematics reports the same diagnosis and marks the
+model unsolvable even if the rounded mode count is zero.

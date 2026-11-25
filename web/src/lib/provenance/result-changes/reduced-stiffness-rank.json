@@ -22,14 +22,14 @@
     "zh": "拒绝求解秩无法判定的约化刚度矩阵"
   },
   "explanation": {
-    "en": "The solver now refuses models when rounding of the reduced stiffness can conceal a mechanism. Re-run saved results that depended on the unresolved stiffness.",
-    "es": "El motor ahora rechaza los modelos cuando el redondeo de la rigidez reducida puede ocultar un mecanismo. Recalculá los resultados guardados que dependían de esa rigidez.",
-    "pt": "O motor agora recusa modelos quando o arredondamento da rigidez reduzida pode ocultar um mecanismo. Recalcule os resultados salvos que dependiam dessa rigidez.",
-    "de": "Der Solver lehnt Modelle ab, wenn Rundung der reduzierten Steifigkeit einen Mechanismus verdecken kann. Berechnen Sie gespeicherte Ergebnisse neu, die von dieser Steifigkeit abhingen.",
-    "fr": "Le solveur refuse désormais les modèles dont l’arrondi de la raideur réduite peut masquer un mécanisme. Recalculez les résultats enregistrés qui dépendaient de cette raideur.",
-    "hu": "A megoldó elutasítja a modellt, ha a redukált merevség kerekítése elfedhet egy mechanizmust. Számítsa újra az ettől a merevségtől függő mentett eredményeket.",
-    "tr": "Çözücü artık indirgenmiş rijitliğin yuvarlanması bir mekanizmayı gizleyebiliyorsa modeli reddeder. Bu rijitliğe bağlı kayıtlı sonuçları yeniden hesaplayın.",
-    "zh": "如果约化刚度的舍入误差可能掩盖机构，求解器现在会拒绝求解。请重新计算依赖该刚度的已保存结果。"
+    "en": "The solver now refuses models when rounding of the reduced stiffness can conceal a mechanism. Re-run saved analysis results and kinematic checks that depended on the unresolved stiffness.",
+    "es": "El motor ahora rechaza los modelos cuando el redondeo de la rigidez reducida puede ocultar un mecanismo. Recalculá los resultados de análisis y las verificaciones cinemáticas guardadas que dependían de esa rigidez.",
+    "pt": "O motor agora recusa modelos quando o arredondamento da rigidez reduzida pode ocultar um mecanismo. Recalcule os resultados de análise e as verificações cinemáticas salvas que dependiam dessa rigidez.",
+    "de": "Der Solver lehnt Modelle ab, wenn Rundung der reduzierten Steifigkeit einen Mechanismus verdecken kann. Berechnen Sie gespeicherte Analyseergebnisse und kinematische Prüfungen neu, die von dieser Steifigkeit abhingen.",
+    "fr": "Le solveur refuse désormais les modèles dont l’arrondi de la raideur réduite peut masquer un mécanisme. Recalculez les résultats d’analyse et les vérifications cinématiques enregistrés qui dépendaient de cette raideur.",
+    "hu": "A megoldó elutasítja a modellt, ha a redukált merevség kerekítése elfedhet egy mechanizmust. Számítsa újra az ettől a merevségtől függő mentett elemzési eredményeket és kinematikai ellenőrzéseket.",
+    "tr": "Çözücü artık indirgenmiş rijitliğin yuvarlanması bir mekanizmayı gizleyebiliyorsa modeli reddeder. Bu rijitliğe bağlı kayıtlı analiz sonuçlarını ve kinematik kontrolleri yeniden hesaplayın.",
+    "zh": "如果约化刚度的舍入误差可能掩盖机构，求解器现在会拒绝求解。请重新计算依赖该刚度的已保存分析结果和运动学检查。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-reduced-stiffness-rank.md",

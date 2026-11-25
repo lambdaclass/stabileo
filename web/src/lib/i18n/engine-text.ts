@@ -129,6 +129,27 @@ registerFeatureDictionaries(Object.fromEntries(
   Object.entries(reducedStiffnessRank).map(([locale, message]) => [locale, { [REDUCED_STIFFNESS_RANK]: message }]),
 ));
 
+const CONSTRAINT_STIFFNESS_RANK = 'svc.engine.constraintStiffnessRank';
+const CONSTRAINT_STIFFNESS_NODES = 'svc.engine.constraintStiffnessNodes';
+const constraintStiffnessRank: Record<Locale, [string, string]> = {
+  de: ['Bei der Reduktion der Kopplungen heben sich Steifigkeitsbeiträge{where} auf. Wegen Rundung lässt sich die verbleibende Steifigkeit nicht bestimmen. Verringern Sie extreme Steifigkeitsunterschiede oder überarbeiten Sie die Kopplungen.', ' an den Knoten {nodes}'],
+  en: ['Constraint reduction cancels stiffness contributions{where}. Rounding prevents resolving the remaining stiffness. Reduce extreme stiffness contrasts or revise the constraints.', ' at nodes {nodes}'],
+  es: ['La reducción de las restricciones cancela aportes de rigidez{where}. El redondeo impide determinar la rigidez restante. Reducí los contrastes extremos de rigidez o revisá las restricciones.', ' en los nodos {nodes}'],
+  fr: ['La réduction des contraintes annule des contributions à la raideur{where}. L’arrondi empêche de déterminer la raideur restante. Réduisez les contrastes extrêmes de raideur ou révisez les contraintes.', ' aux nœuds {nodes}'],
+  hu: ['A kényszerek redukciója kioltja a merevségi hozzájárulásokat{where}. A kerekítés miatt a fennmaradó merevség nem határozható meg. Csökkentse a szélsőséges merevségkülönbségeket, vagy módosítsa a kényszereket.', ' a(z) {nodes} csomópontokban'],
+  pt: ['A redução das restrições cancela contribuições de rigidez{where}. O arredondamento impede determinar a rigidez restante. Reduza os contrastes extremos de rigidez ou revise as restrições.', ' nos nós {nodes}'],
+  tr: ['Kısıtların indirgenmesi{where} rijitlik katkılarını birbirini götürecek şekilde birleştiriyor. Yuvarlama kalan rijitliğin belirlenmesini engelliyor. Aşırı rijitlik farklarını azaltın veya kısıtları gözden geçirin.', ' {nodes} düğümlerinde'],
+  zh: ['约束消元使刚度贡献{where}相互抵消。舍入误差导致剩余刚度无法判定。请减小过大的刚度差异或调整约束。', '在节点 {nodes} 处'],
+};
+registerFeatureDictionaries(Object.fromEntries(
+  Object.entries(constraintStiffnessRank).map(([locale, [message, nodes]]) => [locale, {
+    [CONSTRAINT_STIFFNESS_RANK]: message,
+    [CONSTRAINT_STIFFNESS_NODES]: nodes,
+  }]),
+));
+
+const CONSTRAINT_RANK_REASON = /^the structure is a mechanism or so close to one that its stability cannot be decided in double precision(?: at nodes (\[[0-9, ]+\]))?: constraint reduction cancels stiffness contributions whose rounding is too large to resolve the remaining stiffness; reduce extreme stiffness contrasts or revise the constraints$/;
+
 /**
  * The solver's own error sentences, which it writes in English, in the app's language.
  *
@@ -162,6 +183,13 @@ const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
 export function localizeEngineText(message: string): string {
   const rankRefusal = asCodedRefusal(message, 'reduced_stiffness_rank');
   const original = rankRefusal instanceof CodedRefusal ? rankRefusal.message : message;
+  const constraintRank = CONSTRAINT_RANK_REASON.exec(original);
+  if (constraintRank) {
+    const nodes = constraintRank[1];
+    return fill(CONSTRAINT_STIFFNESS_RANK, {
+      where: nodes ? fill(CONSTRAINT_STIFFNESS_NODES, { nodes }) : '',
+    });
+  }
   let out = original;
   let translatedRank = false;
   for (const [en, key] of ENGINE_SENTENCES) {
