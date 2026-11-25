@@ -181,6 +181,7 @@ web/src/lib/api/error-text.ts: if (message === 'is too large') return t('account
 scripts/check-agent-mistakes.mjs: return annotation?.match(issueTag)?.[1];
 
 ## Decodes historical nightly artifact categories from libFuzzer filenames, which are the producer's structured tags.
+.github/scripts/nightly-defects.cjs: const artifact = fuzz ? FUZZ_ARTIFACT.exec(String(input).trim()) : null;
 scripts/replay-findings.py: if artifact.startswith("slow-unit-") or "slow-unit-" in details:
 scripts/replay-findings.py: artifact.startswith("oom-") and "tmin" not in reduction
 

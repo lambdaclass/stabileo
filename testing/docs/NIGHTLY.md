@@ -123,19 +123,23 @@ and reduction share a 14-minute budget within the 15-minute collection step.
 Metamorphic exports retain the case name and densities because
 those affect transformations and dynamic checks. A defect signature uses the
 check (including its analysis), finding kind, and normalized cause (including
-any stable diagnostic code). The signature excludes the seed, model hash,
-relation, instance IDs, and numeric results. Differential findings with a
+any stable diagnostic code). For structural model checks, the signature excludes
+the seed, model hash, relation, instance IDs, and numeric results. Differential findings with a
 `worst` list distinguish the quantities being compared. Transformed-model
 failures after an accepted original are labeled `invariance-refusal` and
-numeric mismatches are labeled `wrong-result-candidate`.
+numeric mismatches are labeled `wrong-result-candidate`. Fuzz crash
+diagnostics are grouped within a target. When a crash is described only by
+its artifact filename, the exact input bytes identify the finding.
 
 The reporter records the smallest available reproducer per replay selector for
-each reported defect. The issue body and up to five sighting comments include
-a machine-readable reproducer block. After five comments, the issue body
-keeps a cumulative count and replaces the previous overflow entry with the
-latest reproducers. Oversized records point to the original run artifact and
-include a digest of the exact finding file. Closed findings can reopen when
-they recur.
+each reported defect and retains each distinct fuzz input in a batch. The
+issue body and up to five sighting comments include a machine-readable
+reproducer block. After five comments, the issue body keeps a cumulative count
+and the latest overflow batch. The first overflow remains eligible for closure
+when every retained input passes. Replacing that batch or encountering a legacy
+overflow of uncertain completeness blocks automatic closure. Oversized records
+point to the original run artifact and include a digest of the exact finding
+file. Closed findings can reopen when they recur.
 
 On scheduled runs, the nightly workflow uses `replay-findings.yml` to replay
 the saved inputs against that night's main commit. Closure requires three
@@ -145,7 +149,9 @@ legacy records, and failed replay jobs leave the issue open. A new sighting
 in the same nightly run also prevents counting a pass. Older issue bodies
 and bot sighting comments with inline models remain replay candidates.
 The manual replay workflow defaults to reporting and also has an explicit
-maintainer close option.
+maintainer close option. Both closure modes recheck the live issue body and
+bot sightings against their replay snapshot. The publishing and closure jobs
+share a workflow concurrency group on main.
 
 The offline migration planner takes a JSON issue export with the `number`,
 `title`, `body`, `createdAt` or `created_at`, `state`, and `labels` fields.

@@ -1041,6 +1041,9 @@ jobs:
             await require('./.github/scripts/cadence-reports.cjs').upsertIssue({ github, context, core, title: 'Monthly dependency audit', label: 'deps-audit', body, mode: 'replace', dry: process.env.DRY === 'true' });
 
   findings:
+    concurrency:
+      group: nightly-finding-issue-writes-${{ github.ref }}
+      cancel-in-progress: false
     needs: [fuzz, random-models, properties, metamorphic-nightly, opensees-diff, codeaster-diff]
     if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-24.04

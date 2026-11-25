@@ -1,5 +1,6 @@
 const crypto = require('node:crypto');
 
+const FUZZ_ARTIFACT = /^(crash|timeout|oom|leak|slow-unit)-[0-9a-f]{12,64}(?:\.min)?$/i;
 const hash = x => crypto.createHash('sha256').update(x).digest('hex');
 const canonical = x => Array.isArray(x) ? `[${x.map(canonical).join(',')}]` :
   x !== null && typeof x === 'object' ? `{${Object.keys(x).sort().map(k => `${JSON.stringify(k)}:${canonical(x[k])}`).join(',')}}` : JSON.stringify(x);
@@ -35,10 +36,21 @@ function legacyNormalize(message, ids = true) {
     .replace(/#(?:\s*,\s*#)+/g, '#')
     .replace(/\s+/g, ' ').trim().toLowerCase();
 }
+function fuzzInputHash(model) {
+  const bytes = model.raw_hex;
+  if (typeof bytes !== 'string') return null;
+  const chunks = bytes.split(/[ \t\r\n\v\f]+/);
+  if (chunks.some(chunk => chunk.length % 2 || /[^0-9a-f]/i.test(chunk))) return null;
+  return hash(Buffer.from(chunks.join(''), 'hex'));
+}
+
 function signature(cause) {
+  if (cause.inputHash === null) return null;
   const check = [cause.check, cause.analysis || 'unspecified'];
   const message = [cause.code || 'unspecified', normalize(cause.message)];
-  return hash(canonical([check, cause.kind, message]));
+  const identity = [check, cause.kind, message];
+  if (cause.inputHash !== undefined) identity.push(cause.inputHash);
+  return hash(canonical(identity));
 }
 
 function previousSignature(cause) {
@@ -65,13 +77,20 @@ function causes(f) {
   }
   const messages = Array.isArray(d) ? d : typeof d === 'string' ? [d] :
     Array.isArray(d?.why) ? d.why.filter(message => !/^(?:(?:opensees|reference) kappa=\S+|code_aster solves it \(NPREC=\d+ singularity check passed\))$/.test(message)) :
-      d?.why ? [d.why] : [d?.message || d?.status || analysis || 'failure'];
+      d?.why ? [d.why] : [d?.message || d?.diagnostic?.message || d?.status || analysis || 'failure'];
+  const fuzz = check === 'fuzz';
+  const replayInput = fuzz ? fuzzInputHash(f.model) : null;
   return messages.map(raw => {
     const refusal = check === 'metamorphic' && /original solved but transformed model failed:/i.test(raw);
     const kind = refusal ? 'invariance-refusal' : check === 'metamorphic' || analysis === 'mismatch' ? 'wrong-result-candidate' : d?.status || analysis || 'failure';
     const input = check === 'metamorphic' && !/^original solved but transformed model failed:/i.test(raw) ? String(raw).replace(/^[^:]+:\s*/, '') : raw;
-    return {check, kind, code, message: normalize(input), legacyInputs: [input],
-      analysis: relation ? analysis : d?.analysis || f.model.analysis || 'unspecified', relation: relation || d?.relation || 'unspecified'};
+    const artifact = fuzz ? FUZZ_ARTIFACT.exec(String(input).trim()) : null;
+    const bareCrash = artifact?.[1].toLowerCase() === 'crash' && code === 'unspecified';
+    const scopedFuzz = fuzz && (bareCrash || !artifact || code !== 'unspecified');
+    return {check, kind, code, message: normalize(input), legacyInputs: scopedFuzz ? [] : [input], replayInput,
+      inputHash: bareCrash ? replayInput : undefined,
+      analysis: scopedFuzz || relation ? analysis : d?.analysis || f.model.analysis || 'unspecified',
+      relation: relation || d?.relation || 'unspecified'};
   });
 }
 
@@ -92,7 +111,7 @@ function readDefect(issue) {
       const analysis = body.match(/^Analyses \(hits\): ([^,\n]+): \d+/m)?.[1];
       const candidates = causes({test, model: model ? JSON.parse(model) : {analysis}, details: JSON.parse(details)});
       const matches = new Set(candidates.filter(cause => cause.check === check[1] && cause.kind === check[2] &&
-        (cause.message.slice(0, 200) === normalize(root).slice(0, 200))).map(signature));
+        (cause.message.slice(0, 200) === normalize(root).slice(0, 200))).map(signature).filter(Boolean));
       if (matches.size === 1) return [...matches][0];
     } catch (error) {
       if (!(error instanceof SyntaxError || error instanceof TypeError)) throw error;
@@ -104,7 +123,8 @@ function readDefect(issue) {
       return signature({check: check[1], kind: check[2], code: check[3], analysis, message: root});
     }
   }
-  if (titleParts?.[1] === 'fuzz' && /^(crash|timeout|oom|leak)-[0-9a-f]{12,64}(?:\.min)?$/i.test(titleParts[3])) {
+  const titleArtifact = titleParts?.[1] === 'fuzz' && FUZZ_ARTIFACT.exec(titleParts[3]);
+  if (titleArtifact && ['timeout', 'oom', 'leak'].includes(titleArtifact[1].toLowerCase())) {
     return signature({check: titleParts[1], kind: titleParts[2], message: titleParts[3]});
   }
   return null;

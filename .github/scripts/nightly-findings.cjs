@@ -6,7 +6,8 @@ const {canonical, causes, hash, legacySignatures, previousSignature, readDefect,
 
 const ADOPTED = '<!-- nightly-finding-adopted -->';
 const MAX_SIGHTING_COMMENTS = 5;
-const OVERFLOW = /^<!-- nightly-sightings:(\d+):(\d+):(\d+) -->\n[^\n]*\n(?:<!-- nightly-reproducer:v1 [A-Za-z0-9+/=]+ -->\n)?/m;
+const OVERFLOW_COMPLETE = '<!-- nightly-overflow-complete -->';
+const OVERFLOW = /^<!-- nightly-sightings:(\d+):(\d+):(\d+) -->\n[^\n]*\n(?:<!-- nightly-overflow-complete -->\n)?(?:<!-- nightly-reproducer:v1 [A-Za-z0-9+/=]+ -->\n)?/m;
 const REPLAY_STATE = /^<!-- nightly-replay:v1 \{[^\n]*\} -->\n?/m;
 const DUPLICATE = /^<!-- nightly-duplicate:\d+ -->$/m;
 const LEGACY_KEY = /^<!-- nightly-finding:([0-9a-f]{64}) -->$/m;
@@ -75,9 +76,10 @@ module.exports = async ({github, context, core}) => {
     const fileSignatures = new Set();
     for (const cause of causes(f)) {
       const key = signature(cause);
+      if (key === null) throw Error(`Invalid crash input: ${file}`);
       if (!findings.has(key)) findings.set(key, {cause, hits: 0, analyses: new Map(), relations: new Map(), models: new Set(), legacyKeys: new Set(), previousKeys: new Set(), examples: new Map()});
       const group = findings.get(key);
-      group.previousKeys.add(previousSignature(cause));
+      if (cause.legacyInputs.length) group.previousKeys.add(previousSignature(cause));
       for (const legacyKey of legacySignatures(cause)) group.legacyKeys.add(legacyKey);
       if (fileSignatures.has(key)) continue;
       fileSignatures.add(key);
@@ -91,7 +93,8 @@ module.exports = async ({github, context, core}) => {
         (size(f) === size(example) && canonical(f.model).length < canonical(example.model).length);
       const example = {...f, modelHash};
       if (smallerThan(group.example)) group.example = example;
-      if (smallerThan(group.examples.get(f.test))) group.examples.set(f.test, example);
+      const selector = cause.replayInput ? canonical([f.test, cause.replayInput]) : f.test;
+      if (smallerThan(group.examples.get(selector))) group.examples.set(selector, example);
     }
   }
   if (!findings.size) { core.info('No structured numerical findings; see job logs for infrastructure failures.'); return; }
@@ -141,13 +144,14 @@ module.exports = async ({github, context, core}) => {
       const priorSightings = [oldBody, ...reporterComments.map(c => c.body || '')].map(body => OCCURRENCE.exec(body)?.[0]);
       if (!alreadyCounted && !new Set(priorSightings).has(occurrence)) {
         const sightings = priorSightings.slice(1).filter(Boolean);
-        if (sightings.length < MAX_SIGHTING_COMMENTS) {
+        if (!overflow && sightings.length < MAX_SIGHTING_COMMENTS) {
           await github.rest.issues.createComment({owner, repo, issue_number, body});
         } else {
           const total = Number(overflow?.[1] || 0) + group.hits;
           const header = `<!-- nightly-sightings:${total}:${runId}:${attempt} -->\n` +
             `${total} additional sighting${total === 1 ? '' : 's'} after the detailed comment limit. [Latest run](${run}). ` +
-            'Automatic closure is blocked because overflow reproducers are outstanding.\n';
+            (overflow ? 'Automatic closure is blocked because overflow reproducers are outstanding.\n' :
+              'The first overflow batch is retained for replay.\n' + OVERFLOW_COMPLETE + '\n');
           const replaceSummary = records => overflow ? oldBody.replace(OVERFLOW, () => header + records + '\n') :
             header + records + '\n\n' + oldBody;
           nextBody = replaceSummary(records);

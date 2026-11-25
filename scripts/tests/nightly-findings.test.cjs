@@ -647,9 +647,7 @@ test('a later run attempt updates overflow with its own exact reproducer', () =>
   assert.match(issues[0].body, /<!-- nightly-sightings:3:123:2 -->/);
 }));
 
-const secondReviewRepro = {skip: process.env.RUN_NIGHTLY_SECOND_REVIEW !== '1' && 'known wrong result: #2578'};
-
-test('bare crash artifacts identify exact inputs even when names are reused', secondReviewRepro, () => fixture(async ({args, calls, save}) => {
+test('bare crash artifacts identify exact inputs even when names are reused', () => fixture(async ({args, calls, logs, save}) => {
   const crash = (raw_hex, details, seed) => ({...finding, test: 'fuzz/json_plastic', seed, model: {raw_hex}, details});
   const filename = 'crash-' + 'a'.repeat(40);
   save('first', crash('01', filename, 1));
@@ -662,9 +660,15 @@ test('bare crash artifacts identify exact inputs even when names are reused', se
   const models = created.map(({args: {body}}) => JSON.parse(body.split('```json\n')[1].split('\n```')[0]).raw_hex);
   assert.deepEqual(models.sort(), ['01', '02']);
   assert.ok(created.some(({args: {body}}) => body.includes('**2 findings**')));
+
+  calls.length = 0;
+  process.env.FINDINGS_DRY_RUN = 'true';
+  await report(args);
+  assert.equal(calls.length, 0);
+  assert.equal(logs.length, 2);
 }));
 
-test('stable fuzz diagnostics group variants without dropping distinct inputs', secondReviewRepro, () => fixture(async ({args, calls, save}) => {
+test('stable fuzz diagnostics group variants without dropping distinct inputs', () => fixture(async ({args, calls, save}) => {
   const crash = (target, raw_hex, count, code = 'index_out_of_bounds') => ({...finding,
     test: 'fuzz/' + target, model: {raw_hex},
     details: {code, status: 'crash', message: 'pivot index out of bounds, length ' + count}});
@@ -684,7 +688,7 @@ test('stable fuzz diagnostics group variants without dropping distinct inputs', 
   assert.deepEqual(batches.sort(), [['01', '02'], ['03'], ['04']]);
 }));
 
-test('overflow stays complete until the reporter replaces a saved batch', secondReviewRepro, () => fixture(async ({args, calls, comments, issues, save}) => {
+test('overflow stays complete until the reporter replaces a saved batch', () => fixture(async ({args, calls, comments, issues, save}) => {
   const writes = () => calls.filter(call => ['createComment', 'update'].includes(call.name));
   const complete = '<!-- nightly-overflow-complete -->';
   save('first');

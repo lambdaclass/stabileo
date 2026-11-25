@@ -85,9 +85,11 @@ MODEL_RE = re.compile(r"Save as model\.json:\s+```json\n([\s\S]*?)\n```")
 DETAILS_RE = re.compile(r"Details:\s+```text\n([\s\S]*?)\n```")
 
 REPRODUCER_PREFIX = "<!-- nightly-reproducer:"
-REPRODUCER_RE = re.compile(r"^<!-- nightly-reproducer:v1 ([A-Za-z0-9+/=]+) -->$", re.M)
+REPRODUCER_LINE = r"<!-- nightly-reproducer:v1 ([A-Za-z0-9+/=]+) -->"
+REPRODUCER_RE = re.compile(rf"^{REPRODUCER_LINE}$", re.M)
 RUN_RE = re.compile(r"^<!-- nightly-run:(\d+):\d+ -->$", re.M)
 SIGHTINGS_RE = re.compile(r"^<!-- nightly-sightings:\d+:(\d+):\d+ -->$", re.M)
+OVERFLOW_COMPLETE_RE = re.compile(rf"\n[^\n]*\n<!-- nightly-overflow-complete -->\n{REPRODUCER_LINE}$", re.M)
 REPLAY_STATE_RE = re.compile(r"^<!-- nightly-replay:v1 (\{[^\n]*\}) -->\n?", re.M)
 ARTIFACT_PATH_RE = re.compile(r"nightly-findings/(nightly-findings-[\w.-]+)/([\w./-]+\.finding\.json)", re.ASCII)
 MAX_RECORD_BYTES = 4_000_000
@@ -678,7 +680,9 @@ def merge_reports(issues, partial_lists):
             )
             evidence = "\n".join(f"{entry['status']}: {entry['evidence']}" for entry in entries)
             result = _report_entry(specs[0], status, evidence)
-        if SIGHTINGS_RE.search(issue.get("body") or ""):
+        body = issue.get("body") or ""
+        overflow = list(SIGHTINGS_RE.finditer(body))
+        if overflow and not (len(overflow) == 1 and OVERFLOW_COMPLETE_RE.match(body, overflow[0].end())):
             result = {**result, "evidence": result["evidence"] + "\nAutomatic closure blocked: overflow reproducers are outstanding."}
             if result["status"] == "passes-now":
                 result["status"] = "not-replayable"
@@ -786,6 +790,10 @@ def _bot_comments(repo, number, run_gh):
             if (comment.get("user") or {}).get("login") == "github-actions[bot]"]
 
 
+def _sightings(comments):
+    return [body for body in comments if RUN_RE.search(body)]
+
+
 def _resolve_artifact(repo, record, run_gh, archives):
     path = ARTIFACT_PATH_RE.fullmatch(record["path"])
     run_id = record["runId"]
@@ -825,7 +833,7 @@ def fetch_open_issues(repo, gh_runner=None):
     )
     issues = [
         {"number": i["number"], "title": i.get("title") or "", "body": i.get("body") or "",
-         "sightings": [body for body in _bot_comments(repo, i["number"], run_gh) if RUN_RE.search(body)]
+         "sightings": _sightings(_bot_comments(repo, i["number"], run_gh))
          if i.get("comments") else []}
         for page in pages for i in page if "pull_request" not in i
     ]
@@ -856,21 +864,28 @@ def fetch_open_issues(repo, gh_runner=None):
     return sorted(issues, key=lambda i: i["number"])
 
 
+def _unchanged_replay_comments(repo, number, body, sightings, run_gh):
+    current = json.loads(run_gh("api", f"repos/{repo}/issues/{number}"))
+    if current["state"] != "open" or (current.get("body") or "") != body:
+        print(f"#{number}: issue changed since replay")
+        return None
+    comments = _bot_comments(repo, number, run_gh) if current.get("comments") else []
+    if _sightings(comments) != sightings:
+        print(f"#{number}: sightings changed since replay")
+        return None
+    return comments
+
+
 def apply_nightly_actions(repo, actions, gh_runner=None):
     run_gh = gh_runner or gh
     for action in actions:
         number = action["issue"]
         endpoint = f"repos/{repo}/issues/{number}"
-        current = json.loads(run_gh("api", endpoint))
-        if current["state"] != "open" or (current.get("body") or "") != action["previous_body"]:
-            print(f"#{number}: issue changed since replay")
+        comments = _unchanged_replay_comments(repo, number, action["previous_body"], action["sightings"], run_gh)
+        if comments is None:
             continue
         patch = {"body": action["body"]}
         if "comment" in action:
-            comments = _bot_comments(repo, number, run_gh) if current.get("comments") else []
-            if [body for body in comments if RUN_RE.search(body)] != action["sightings"]:
-                print(f"#{number}: sightings changed since replay")
-                continue
             if not any(action["close_marker"] in comment for comment in comments):
                 run_gh("api", "--method", "POST", f"{endpoint}/comments",
                        "--input", "-", data=json.dumps({"body": action["comment"]}))
@@ -878,10 +893,15 @@ def apply_nightly_actions(repo, actions, gh_runner=None):
         run_gh("api", "--method", "PATCH", endpoint, "--input", "-", data=json.dumps(patch))
 
 
-def apply_issue_actions(repo, actions, gh_runner=None):
+def apply_issue_actions(repo, actions, issues, gh_runner=None):
     run_gh = gh_runner or gh
+    snapshots = {issue["number"]: issue for issue in issues}
     for action in actions:
         if action["action"] == "close":
+            number = action["issue"]
+            issue = snapshots[number]
+            if _unchanged_replay_comments(repo, number, issue.get("body") or "", issue.get("sightings", []), run_gh) is None:
+                continue
             run_gh("issue", "close", str(action["issue"]), "--repo", repo, "--comment", action["body"])
         elif action["action"] == "comment":
             run_gh("issue", "comment", str(action["issue"]), "--repo", repo, "--body-file", "-", data=action["body"])
@@ -978,7 +998,7 @@ def main(argv=None):
     else:
         actions = plan_issue_actions(report, args.close_passing, args.run_url, args.commit)
         if actions:
-            apply_issue_actions(args.repo, actions)
+            apply_issue_actions(args.repo, actions, issues)
     return 0
 
 

@@ -241,6 +241,9 @@ jobs:
           retention-days: 90
 
   report:
+    concurrency:
+      group: nightly-finding-issue-writes-${{ github.ref }}
+      cancel-in-progress: false
     needs: [issues, metamorphic, opensees, codeaster, fuzz]
     if: always() && needs.issues.result == 'success'
     runs-on: ubuntu-24.04

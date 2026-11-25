@@ -5,7 +5,6 @@ import hashlib
 import importlib.util
 import io
 import json
-import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -80,6 +79,18 @@ def make_issue(
         "title": f"Nightly finding: {check}/{kind}: {root_cause} [{key[:12]}]",
         "body": "\n".join(lines),
     }
+
+
+def issue_action_runner(issues, calls):
+    def run(*args, data=None):
+        calls.append((args, data))
+        if len(args) == 2 and args[0] == "api":
+            number = int(args[1].rsplit("/", 1)[-1])
+            issue = next(issue for issue in issues if issue["number"] == number)
+            return json.dumps({**issue, "state": "open", "comments": 0})
+        return ""
+
+    return run
 
 
 class MappingTest(unittest.TestCase):
@@ -349,10 +360,13 @@ class ReplayAndClassificationTest(unittest.TestCase):
         self.assertNotIn(40, [a["issue"] for a in actions])
 
         gh_calls = []
-        rf.apply_issue_actions("o/r", actions, gh_runner=lambda *args, data=None: gh_calls.append((args, data)))
-        self.assertEqual(len(gh_calls), 2)
-        self.assertEqual(gh_calls[0][0][:4], ("issue", "close", "10", "--repo"))
-        self.assertEqual(gh_calls[1][0][:4], ("issue", "comment", "20", "--repo"))
+        snapshots = [passing_issue, failing_issue, placeholder_issue, refused_metamorphic_issue]
+        rf.apply_issue_actions("o/r", actions, snapshots, gh_runner=issue_action_runner(snapshots, gh_calls))
+        self.assertEqual(gh_calls[0][0], ("api", "repos/o/r/issues/10"))
+        writes = [args for args, _ in gh_calls if args[0] == "issue"]
+        self.assertEqual(len(writes), 2)
+        self.assertEqual(writes[0][:4], ("issue", "close", "10", "--repo"))
+        self.assertEqual(writes[1][:4], ("issue", "comment", "20", "--repo"))
 
     def test_differential_and_fuzz_classification_rules(self):
         false_reject_spec = rf.parse_issue(
@@ -588,7 +602,7 @@ class ReplayAndClassificationTest(unittest.TestCase):
 
             calls = []
             orig_gh = rf.gh
-            rf.gh = lambda *args, data=None: calls.append((args, data))
+            rf.gh = issue_action_runner(issues, calls)
             with contextlib.redirect_stdout(io.StringIO()):
                 try:
                     rc = rf.main([
@@ -617,8 +631,10 @@ class ReplayAndClassificationTest(unittest.TestCase):
                         "--close-passing",
                     ])
                     self.assertEqual(rc, 0)
-                    self.assertEqual(len(calls), 1)
-                    self.assertEqual(calls[0][0][:4], ("issue", "close", "1", "--repo"))
+                    self.assertEqual(calls[0][0], ("api", "repos/o/r/issues/1"))
+                    writes = [args for args, _ in calls if args[0] == "issue"]
+                    self.assertEqual(len(writes), 1)
+                    self.assertEqual(writes[0][:4], ("issue", "close", "1", "--repo"))
                 finally:
                     rf.gh = orig_gh
 
@@ -641,7 +657,7 @@ class ReplayAndClassificationTest(unittest.TestCase):
 
             calls = []
             orig_gh = rf.gh
-            rf.gh = lambda *args, data=None: calls.append((args, data))
+            rf.gh = issue_action_runner(issues, calls)
             with contextlib.redirect_stdout(io.StringIO()):
                 try:
                     rc = rf.main([
@@ -661,8 +677,10 @@ class ReplayAndClassificationTest(unittest.TestCase):
                         [(1, "passes-now"), (2, "not-replayable")],
                     )
                     self.assertIn("no replay result recorded", written[1]["evidence"])
-                    self.assertEqual(len(calls), 1)
-                    self.assertEqual(calls[0][0][:4], ("issue", "close", "1", "--repo"))
+                    self.assertEqual(calls[0][0], ("api", "repos/o/r/issues/1"))
+                    writes = [args for args, _ in calls if args[0] == "issue"]
+                    self.assertEqual(len(writes), 1)
+                    self.assertEqual(writes[0][:4], ("issue", "close", "1", "--repo"))
                 finally:
                     rf.gh = orig_gh
 
@@ -750,13 +768,13 @@ class ReplayClosureReviewTest(unittest.TestCase):
         partials[1] = {**partials[0], "issue": 2}
         report, calls = self.assert_report_actions(issues, partials, ["passes-now", "not-replayable", "passes-now", "passes-now"])
         self.assertIn("legacy seed exceeds JavaScript's safe integer range", report[1]["evidence"])
-        self.assertEqual([args[2] for args, _ in calls], ["1", "3", "4"])
+        self.assertEqual([args[2] for args, _ in calls if args[0] == "issue"], ["1", "3", "4"])
 
     def test_replaced_overflow_reproducer_prevents_closure_of_passing_subset(self):
         original = make_issue(1, model={"nodes": {}})
         passing = {"issue": 1, "source": "metamorphic", "status": "passes-now", "evidence": "retained input passed"}
         report, calls = self.assert_report_actions([original], [passing], ["passes-now"])
-        self.assertEqual(calls[0][0][:3], ("issue", "close", "1"))
+        self.assertEqual([args[:3] for args, _ in calls if args[0] == "issue"], [("issue", "close", "1")])
 
         latest = self.record(12, {"nodes": {"retained": {}}})
         issue = {**original, "body": (
@@ -784,7 +802,6 @@ class ReplayClosureReviewTest(unittest.TestCase):
         self.assertEqual(calls[0][0][:3], ("issue", "comment", "1"))
 
 
-    @unittest.skipUnless(os.environ.get("RUN_NIGHTLY_SECOND_REVIEW") == "1", "known wrong result: #2578")
     def test_retained_first_overflow_can_close_only_after_all_batches_pass(self):
         original = make_issue(1, model={"nodes": {}})
         latest = self.record(12, {"nodes": {"latest": {}}})
@@ -824,7 +841,6 @@ class ReplayClosureReviewTest(unittest.TestCase):
                 _, calls = self.assert_report_actions([incomplete], completed_replays, ["not-replayable"])
                 self.assertFalse(any(args[:2] == ("issue", "close") for args, _ in calls))
 
-    @unittest.skipUnless(os.environ.get("RUN_NIGHTLY_SECOND_REVIEW") == "1", "known wrong result: #2578")
     def test_manual_report_checks_live_body_and_trusted_sightings_before_close(self):
         original = make_issue(1, model={"nodes": {}})
         sighting = make_issue(1, seed="7", model={"nodes": {"known": {}}})["body"].replace(
