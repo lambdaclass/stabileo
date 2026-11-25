@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { computeDiagramValueAt, computeElementDiagram, prepareDiagramValueAt } from '../diagrams';
-import { computeDiagram3D, evaluateDiagramAt, prepareDiagramEvaluator3D } from '../diagrams-3d';
+import { computeDiagram3D, criticalDiagramStations3D, evaluateDiagramAt, prepareDiagramEvaluator3D } from '../diagrams-3d';
 import {
   computeDiagrams2D, computeDiagrams3D, computeDiagramValueAtWasm, computeDiagramValueAt3DWasm,
   computeEnvelope, computeEnvelope3D, extractBeamStations, extractBeamStations3D,
@@ -11,6 +11,7 @@ import { computeDiagramGlobalMax } from '../../canvas/draw-diagrams';
 import { computePointwiseEnvelope, solveMovingLoads, solveMovingLoadsAsync } from '../moving-loads';
 import { buildPath3D, foldPosition, sweepMovingLoad3D, trainLoads } from '../moving-loads-3d';
 import type { SolverInput } from '../types';
+import { extractForcesAtStation } from '../station-forces';
 import type { SolverInput3D } from '../types-3d';
 
 const length = 3;
@@ -305,4 +306,118 @@ it('known wrong result: #2437 carries a point jump through cancellation at an in
     expect.soft(computeDiagrams3D(space, result).shearZ[0]!.minValue).toBe(1);
     expect.soft(evaluateDiagramAt(ef, 'shearZ', 5 / 8)).toBe(scale / 4 + 1);
   }
+});
+
+it.skip('known wrong result: #2437 retains signed endpoint terms through force recovery', () => {
+  const [plane, space] = cantilevers(1);
+  const planar = [solve(plane), solvePDelta(plane).results];
+  const spatial = [solve3D(space), solvePDelta3D(space).results];
+  const huge = 2 ** 54;
+  const loads = [[1, huge], [0, -huge], [0, -1]].map(([qI, qJ]) => ({ a: 0, b: 1, qI: qI!, qJ: qJ! }));
+  for (const result of planar) {
+    const ef = result.elementForces[0]!;
+    ef.distributedLoads = loads;
+    const browser = computeElementDiagram('shear', ef, 0, 0, 1, 0);
+    const wasm = computeDiagrams2D(plane, result).shear[0]!;
+    expect.soft(browser.maxAbsT).toBe(0.5);
+    expect.soft(browser.maxValue).toBe(0.25);
+    expect.soft(wasm.maxAbsT).toBe(0.5);
+    expect.soft(wasm.maxValue).toBe(0.25);
+    for (const [t, value] of [[0, 0], [0.25, 3 / 16], [0.5, 0.25], [0.75, 3 / 16], [1, 0]] as const) {
+      expect.soft(computeDiagramValueAtWasm('shear', t, ef)).toBe(value);
+      expect.soft(prepareDiagramValueAt('shear', ef)(t)).toBe(value);
+    }
+    expect.soft(computeEnvelope([result])!.shear.globalMax).toBe(0.25);
+  }
+  for (const result of spatial) {
+    const ef = result.elementForces[0]!;
+    ef.distributedLoadsZ = loads;
+    for (const diagram of [computeDiagram3D(ef, 'shearZ'), computeDiagrams3D(space, result).shearZ[0]!]) {
+      expect.soft(diagram.maxValue).toBe(0.25);
+      expect.soft(diagram.points).toContainEqual(expect.objectContaining({ t: 0.5, value: 0.25 }));
+    }
+    for (const [t, value] of [[0, 0], [0.25, 3 / 16], [0.5, 0.25], [0.75, 3 / 16], [1, 0]] as const) {
+      expect.soft(computeDiagramValueAt3DWasm('shearZ', t, ef)).toBe(value);
+      expect.soft(prepareDiagramEvaluator3D(ef, 'shearZ')(t)).toBe(value);
+    }
+    expect.soft(computeEnvelope3D([result])!.shearZ.globalMax).toBe(0.25);
+  }
+});
+
+it.skip('known wrong result: #2437 checks the compensated ordinate of an aliased peak', () => {
+  const [plane, space, planar, spatial] = forceRecords();
+  const baseline = 2 ** 54;
+  const refusal = /interior member diagram extremum has no distinct normalized station/;
+  const jump = { a: 1, p: 1 };
+  for (const [qI, qJ, aliases] of [[2 ** 57, -(2 ** 112), true], [2 ** 56, -(2 ** 111), false]] as const) {
+    const load = { a: 1.5, b: 2.25, qI, qJ };
+    for (const result of planar) {
+      const ef = result.elementForces[0]!;
+      Object.assign(ef, { vStart: baseline, pointLoads: [jump], distributedLoads: [load] });
+      expect.soft(computeDiagramValueAtWasm('shear', 0.5 - Number.EPSILON / 4, ef)).toBe(baseline);
+      const query = () => computeDiagramValueAtWasm('shear', 0.5, ef);
+      const diagram = () => computeDiagrams2D(plane, result).shear[0]!.maxValue;
+      if (aliases) {
+        expect.soft(query).toThrow(refusal);
+        expect.soft(diagram).toThrow(refusal);
+      } else {
+        expect.soft(query()).toBe(baseline);
+        expect.soft(diagram()).toBe(baseline);
+      }
+    }
+    for (const result of spatial) {
+      const ef = result.elementForces[0]!;
+      Object.assign(ef, { vzStart: baseline, pointLoadsZ: [jump], distributedLoadsZ: [load] });
+      expect.soft(computeDiagramValueAt3DWasm('shearZ', 0.5 - Number.EPSILON / 4, ef)).toBe(baseline);
+      const query = () => computeDiagramValueAt3DWasm('shearZ', 0.5, ef);
+      const diagram = () => computeDiagrams3D(space, result).shearZ[0]!.maxValue;
+      if (aliases) {
+        expect.soft(query).toThrow(refusal);
+        expect.soft(diagram).toThrow(refusal);
+      } else {
+        expect.soft(query()).toBe(baseline);
+        expect.soft(diagram()).toBe(baseline);
+      }
+    }
+  }
+});
+
+it.skip('known wrong result: #2437 selects the jump face from the supplied physical distance', () => {
+  const [, , , spatial] = forceRecords();
+  for (const result of spatial) {
+    const parent = result.elementForces[0]!;
+    const local = { ...parent, length: 1, vzStart: -4, vzEnd: 3, pointLoadsZ: [{ a: 0.25, p: 7 }] };
+    const piecewise = {
+      ...parent, length: 2,
+      pieces: [
+        { x0: 0, x1: 1, forces: { ...local, pointLoadsZ: [] } },
+        { x0: 1, x1: 2, forces: local },
+      ],
+    };
+    const abs = { ...local, combined: { method: 'abs' as const, parts: [local] } };
+    for (const [ef, distance, left] of [[local, 0.25, -4], [piecewise, 1.25, -4], [abs, 0.25, 4]] as const) {
+      const t = distance / ef.length;
+      const prepared = prepareDiagramEvaluator3D(ef, 'shearZ');
+      for (const adjacent of [t - Number.EPSILON / 8, t, t + Number.EPSILON / 2]) {
+        expect.soft(evaluateDiagramAt(ef, 'shearZ', { t: adjacent, distance })).toBe(left);
+        expect.soft(prepared({ t: adjacent, distance, right: true })).toBe(3);
+        expect.soft(extractForcesAtStation(ef, { t: adjacent, distance }).vz).toBe(left);
+      }
+      expect.soft(prepared(t + Number.EPSILON / 2)).toBe(3);
+    }
+  }
+});
+
+it.skip('known wrong result: #2437 keeps the sampled concrete policy for the seven-storey force record', () => {
+  const [, , , [result]] = forceRecords();
+  const f = {
+    ...result!.elementForces[0]!, elementId: 104, length: 5,
+    vzStart: 15.111138439043934, vzEnd: -20.888861560956066,
+    myStart: -3.402192018069118, myEnd: -17.84649982284948,
+    distributedLoadsZ: [{ a: 0, b: 5, qI: -7.199999999999999, qJ: -7.199999999999999 }],
+  };
+  expect(criticalDiagramStations3D(f, 'concrete-design').map(cut => cut.t)).toEqual([0, 1]);
+  const diagram = computeDiagram3D(f, 'momentY');
+  expect(diagram.maxValue).toBeGreaterThan(f.myStart);
+  expect(diagram.maxValue).toBeGreaterThan(f.myEnd);
 });

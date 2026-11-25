@@ -465,6 +465,58 @@ mod round3_tests {
     }
 
     #[test]
+    #[ignore = "known wrong result: #2437"]
+    fn issue_2437_endpoint_terms_survive_cancellation() {
+        let huge = 2.0_f64.powi(54);
+        let loads = [(1.0, huge), (0.0, -huge), (0.0, -1.0)].map(|(q_i, q_j)| {
+            DistributedLoadInfo { a: 0.0, b: 1.0, q_i, q_j }
+        });
+        let curve = Curve {
+            length: 1.0, start: 0.0, change: 0.0, slope: 0.0,
+            response: Response::Force(1.0),
+            distributed: loads.into_iter(),
+            points: std::iter::empty(),
+        };
+        let cuts = curve.critical_cuts().unwrap();
+        assert_eq!(cuts.iter().map(|cut| cut.t).collect::<Vec<_>>(), [0.0, 0.5, 1.0]);
+        assert_eq!(curve.interior_range(0.0), Ok((0.0, 0.25)));
+        assert_eq!(curve.checked_station_value(0.5, false), Ok(0.25));
+        assert_eq!(curve.checked_station_value(1.0, false), Ok(0.0));
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2437"]
+    fn issue_2437_aliased_peak_compares_compensated_ordinates() {
+        let a = 1.5_f64;
+        let ulp = a.next_up() - a;
+        let start = 2.0_f64.powi(54);
+        let refusal = "interior member diagram extremum has no distinct normalized station";
+        for (steps, scale, aliases) in [(2, 4.0, true), (2, 1.0, false), (8, 4.0, false)] {
+            let q = scale / ulp;
+            let curve = Curve {
+                length: 3.0, start, change: 0.0, slope: 0.0,
+                response: Response::Force(1.0),
+                distributed: std::iter::once(DistributedLoadInfo {
+                    a, b: a + f64::from(steps) * ulp, q_i: q, q_j: -q,
+                }),
+                points: std::iter::once(PointAction { a: 1.0, jump: 1.0, slope: 0.0 }),
+            };
+            let at = a / curve.length;
+            assert_eq!(curve.checked_station_value(at.next_down(), false), Ok(start));
+            for right in [false, true] {
+                assert_eq!(curve.checked_station_value(at, right), if aliases { Err(refusal) } else { Ok(start) });
+            }
+            if aliases {
+                assert_eq!(curve.diagram_cuts(21), Err(refusal));
+                assert_eq!(curve.interior_range(start), Err(refusal));
+            } else {
+                let expected = if steps == 2 { start } else { start + 8.0 };
+                assert_eq!(curve.interior_range(start), Ok((start, expected)));
+            }
+        }
+    }
+
+    #[test]
     fn issue_2250_rounded_terminal_shear_uses_interval_change() {
         let loads = [
             DistributedLoadInfo { a: 0.0, b: 2.25, q_i: 0.0, q_j: -5.625 },

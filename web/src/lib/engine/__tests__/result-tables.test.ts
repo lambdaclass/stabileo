@@ -15,6 +15,7 @@ import { initSolver } from '../wasm-solver';
 import { publishCombinations3D, activePerCombo3D, activeCombinations } from '../../store/active-results';
 import { computeStationDemands } from '../verification-service';
 import { combinationPeakRows } from '../../export/excel';
+import { resultSheets } from '../../export/workbook-results';
 import { envelopeSectionHtml } from '../report/project-sections';
 import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../member-diagram';
 import type { AnalysisResults3D, ElementForces3D } from '../types-3d';
@@ -258,4 +259,74 @@ it('known wrong result: #2226 finds the transverse extrema of an ordinary SRSS c
   expect(envelopeSectionHtml(sources, k => k, 'Envelope').join('')).toContain('4.899');
   const abs = magnitudeCombination('abs', factors, cases)!;
   expect(() => summaryRows('forces', [{ ...A, results: abs }], options)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+});
+
+const reviewForces: ElementForces3D = {
+  elementId: 7, length: 1, nStart: 0, nEnd: 0, vyStart: 0, vyEnd: 0, vzStart: 4, vzEnd: 0,
+  mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0,
+  releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false,
+  releaseTStart: false, releaseTEnd: false, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0,
+  pointLoadsY: [], pointLoadsZ: [],
+};
+
+const criticalOptions = { ...canonical, stations: 'critical', resultant: true } as const;
+const reviewSources = (forces: ElementForces3D) => [{ ...A, results: { ...A.results, elementForces: [forces] } }];
+
+it.skip('known wrong result: #2226 refuses distinct transverse jumps that round to the same rebased cut', () => {
+  const first = 0.25 - 2 ** -55;
+  const second = 0.25;
+  expect(first).toBeLessThan(second);
+  expect(1 + first).toBe(1 + second);
+  const firstPiece = { x0: 0, x1: 1, forces: reviewForces };
+  const parent = (a: number) => ({
+    ...reviewForces, length: 2,
+    pieces: [firstPiece, {
+      x0: 1, x1: 2, forces: { ...reviewForces, pointLoadsY: [{ a, p: 3 }], pointLoadsZ: [{ a: second, p: -4 }] },
+    }],
+  });
+  const summary = (a: number) => summaryRows('forces', reviewSources(parent(a)), criticalOptions).find(r => r.column.key === 'v');
+  expect.soft(() => summary(first)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+  expect.soft(() => criticalForceStations(parent(first))).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+  expect.soft(summary(second)?.max?.value).toBe(4);
+  expect.soft(summary(0.25 - 2 ** -52)?.max?.value).toBe(5);
+});
+
+it.skip('known wrong result: #2226 summarizes the exact transverse norm of a one-part ABS combination', () => {
+  const f = {
+    ...reviewForces, vyStart: -3, vyEnd: 5, vzStart: -7, vzEnd: 1,
+    distributedLoadsY: [{ a: 0, b: 1, qI: 8, qJ: 8 }],
+    distributedLoadsZ: [{ a: 0, b: 1, qI: 8, qJ: 8 }],
+  };
+  const cases = new Map([[1, reviewSources(f)[0]!.results]]);
+  const results = magnitudeCombination('abs', [{ caseId: 1, factor: 1 }], cases)!;
+  const sources = [{ ...A, results }];
+  const v = summaryRows('forces', sources, criticalOptions).find(r => r.column.key === 'v');
+  expect.soft(v?.min).toMatchObject({ value: Math.hypot(2, -2), x: 5 / 8 });
+  expect.soft(v?.max).toMatchObject({ value: Math.hypot(-3, -7), x: 0 });
+  expect.soft(envelopeSectionHtml(sources, k => k, 'Envelope').join('')).toContain('2.828');
+});
+
+it.skip('known wrong result: #2226 labels the governing jump face in critical summaries', () => {
+  const a = 0.5;
+  const f = {
+    ...reviewForces, vzStart: -4, vzEnd: 0,
+    pointLoadsZ: [{ a, p: 11 }],
+    distributedLoadsZ: [{ a: 0, b: a, qI: -2, qJ: -2 }, { a, b: 1, qI: -12, qJ: -12 }],
+  };
+  const sources = reviewSources(f);
+  const summary = summaryRows('forces', sources, criticalOptions).find(r => r.column.key === 'vz')!;
+  expect.soft(summary.min).toMatchObject({ value: -5, x: a, side: 'left' });
+  expect.soft(summary.max).toMatchObject({ value: 6, x: a, side: 'right' });
+  expect.soft(whereOf(summary.min!, true)).toBe('7 @ 0.50⁻');
+  expect.soft(whereOf(summary.max!, true)).toBe('7 @ 0.50⁺');
+  const html = envelopeSectionHtml(sources, k => k, 'Envelope').join('');
+  expect.soft(html).toContain('7 @ 0.50⁺');
+  expect.soft(html).toContain('7 @ 0.50⁻');
+  const [sheet] = resultSheets({
+    sources: sources.map(source => ({ ...source, kind: 'combination' })), stations: 'critical', statics: null,
+  }, name => name === 'Maxima');
+  const side = sheet!.rows[0]!.indexOf('cut side');
+  expect.soft(side).toBeGreaterThanOrEqual(0);
+  expect.soft(sheet!.rows.find(row => row[1] === 'Vz' && row[3] === 'max')?.[side]).toBe('+');
+  expect.soft(sheet!.rows.find(row => row[1] === 'Vz' && row[3] === 'min')?.[side]).toBe('−');
 });
