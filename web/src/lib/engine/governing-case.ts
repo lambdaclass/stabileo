@@ -24,44 +24,26 @@ export interface GoverningPerElement {
   axial?: GoverningComboRef;
 }
 
-const ENDS_3D = {
-  momentZ: ['mzStart', 'mzEnd'],
-  shearY: ['vyStart', 'vyEnd'],
-  axial: ['nStart', 'nEnd'],
-  momentY: ['myStart', 'myEnd'],
-  shearZ: ['vzStart', 'vzEnd'],
-  torsion: ['mxStart', 'mxEnd'],
-} as const satisfies Record<keyof GoverningPerElement3D, readonly [keyof ElementForces3D, keyof ElementForces3D]>;
+const components3D = ['momentZ', 'shearY', 'axial', 'momentY', 'shearZ', 'torsion'] as const;
+const components2D = ['moment', 'shear', 'axial'] as const;
 
-const ENDS_2D = {
-  moment: ['mStart', 'mEnd'],
-  shear: ['vStart', 'vEnd'],
-  axial: ['nStart', 'nEnd'],
-} as const satisfies Record<keyof GoverningPerElement, readonly [keyof ElementForces, keyof ElementForces]>;
-
-export type Component3D = keyof typeof ENDS_3D;
-export type Component2D = keyof typeof ENDS_2D;
+export type Component3D = typeof components3D[number];
+export type Component2D = typeof components2D[number];
 
 type Magnitude = { value: number; bounded?: true };
 
-const peak = (...values: number[]): number => Math.max(...values.map(Math.abs));
-
-/** The largest magnitude of the component anywhere along the member, its interior included. */
 export function governingMagnitude3D(ef: ElementForces3D, component: Component3D): Magnitude {
-  const [s, e] = ENDS_3D[component];
-  const d = computeSpatialDiagramExtrema(ef, component);
-  const value = peak(ef[s] as number, ef[e] as number, d.maxValue, d.minValue);
+  const d = computeSpatialDiagramExtrema(ef, component, true);
+  const value = Math.abs(d.maxAbsValue);
   return d.extrema === 'bounded' ? { value, bounded: true } : { value };
 }
 
-export function peakAlong(kind: Component2D, ef: ElementForces): number {
-  return Math.abs(computePlanarDiagramExtrema(kind, ef).maxAbsValue);
+export function peakAlong(kind: Component2D, ef: ElementForces, inwardAtI = false): number {
+  return Math.abs(computePlanarDiagramExtrema(kind, ef, inwardAtI).maxAbsValue);
 }
 
-/** The largest magnitude of the component anywhere along the member, its interior included. */
 export function governingMagnitude2D(ef: ElementForces, component: Component2D): number {
-  const [s, e] = ENDS_2D[component];
-  return peak(ef[s], ef[e], peakAlong(component, ef));
+  return peakAlong(component, ef, true);
 }
 
 function governing<E extends { elementId: number }, C extends string>(
@@ -102,12 +84,12 @@ export function computeGoverning3D(
   perCombo: Map<number, AnalysisResults3D>,
   comboNames: Map<number, string>,
 ): Map<number, GoverningPerElement3D> {
-  return governing(perCombo, comboNames, Object.keys(ENDS_3D) as Component3D[], governingMagnitude3D);
+  return governing(perCombo, comboNames, components3D, governingMagnitude3D);
 }
 
 export function computeGoverning2D(
   perCombo: Map<number, AnalysisResults>,
   comboNames: Map<number, string>,
 ): Map<number, GoverningPerElement> {
-  return governing(perCombo, comboNames, Object.keys(ENDS_2D) as Component2D[], (ef, component) => ({ value: governingMagnitude2D(ef, component) }));
+  return governing(perCombo, comboNames, components2D, (ef, component) => ({ value: governingMagnitude2D(ef, component) }));
 }

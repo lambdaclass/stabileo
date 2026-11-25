@@ -86,6 +86,22 @@ describe('Diagrams: Simply-Supported Beam, uniform load', () => {
     expect(computeDiagramValueAt('moment', 1, ef)).toBeCloseTo(0, 1);
   });
 
+  it('reads the current distributed actions after a force record is edited in place', () => {
+    const load = { a: 0, b: 4, qI: -2, qJ: -2 };
+    const forces = {
+      length: 4, mStart: 0, mEnd: 0, vStart: 4, vEnd: -4, nStart: 0, nEnd: 0,
+      qI: 0, qJ: 0, distributedLoads: [load],
+    };
+    const original = { ...forces, distributedLoads: [{ ...load }] };
+    expect(computeDiagramValueAt('moment', 0.25, forces)).toBe(-3);
+    load.qI = load.qJ = -4;
+    forces.mEnd = 16;
+    forces.vEnd = -12;
+    expect(computeDiagramValueAt('moment', 1, original)).toBe(0);
+    expect(computeDiagramValueAt('moment', 0.25, forces)).toBe(-2);
+    expect(computeDiagramValueAt('moment', 0.25, original)).toBe(-3);
+  });
+
   it('computeDiagramValueAt matches shear diagram', () => {
     const ef = { mStart, mEnd, vStart, vEnd: -vStart, nStart: 0, nEnd: 0, qI: q, qJ: q, length: L };
     expect(computeDiagramValueAt('shear', 0, ef)).toBeCloseTo(vStart, 4);

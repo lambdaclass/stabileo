@@ -63,7 +63,7 @@ describe('governing shear uses the section inside each member end', () => {
   const length = 3;
   const pointLoads = [{ a: 0, p: -10 }, { a: 1, p: -5 }, { a: 2, p: 7 }, { a: length, p: 28 }];
 
-  it.skip('known wrong result: #2226 ranks planar combinations by inward shear', () => {
+  it('known wrong result: #2226 ranks planar combinations by inward shear', () => {
     const jumped = ef2d({ length, vStart: 10, vEnd: 30, pointLoads });
     const select = (shear: number) => computeGoverning2D(new Map([
       [1, results2D([jumped])],
@@ -74,7 +74,7 @@ describe('governing shear uses the section inside each member end', () => {
     expect(select(6)).toMatchObject({ comboId: 2, value: 6 });
   });
 
-  it.skip('known wrong result: #2226 ranks spatial combinations by inward shear', () => {
+  it('known wrong result: #2226 ranks spatial combinations by inward shear', () => {
     const jumped = ef3d({ length, vzStart: 10, vzEnd: 30, pointLoadsZ: pointLoads });
     const select = (shear: number) => computeGoverning3D(new Map([
       [1, results3D([jumped])],

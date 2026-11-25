@@ -2,7 +2,7 @@
 // Given end forces and distributed load, compute intermediate values
 
 import { computeDeformedShape as wasmComputeDeformedShape } from './wasm-solver';
-import { checkedCurveValue, curveExtrema, diagramCriticalPoints, diagramCurvePoints, diagramLineValue, distributedActionTerms, fullSpanFallback, indexDiagramExtrema, maxAbsDiagramOrdinate, memberDiagram, unavailableDiagramExtrema, type DiagramOrdinate, type DiagramStation } from './member-diagram';
+import { checkedCurveValue, curveExtrema, diagramCriticalPoints, diagramCurvePoints, diagramLineValue, distributedActionTerms, fullSpanFallback, indexDiagramExtrema, maxAbsDiagramOrdinate, memberDiagram, prepareCurveExtrema, unavailableDiagramExtrema, type DiagramOrdinate, type DiagramStation } from './member-diagram';
 
 export interface DiagramPoint extends DiagramStation {
   /** World coordinates */
@@ -32,7 +32,9 @@ type PlanarForces = {
   distributedLoadsX?: Array<{ qI: number; qJ: number; a: number; b: number }>;
 };
 
-function planarCurve(kind: PlanarKind, ef: PlanarForces) {
+type PlanarCurveArgs = Parameters<typeof memberDiagram>;
+
+function planarCurveArgs(kind: PlanarKind, ef: PlanarForces): PlanarCurveArgs {
   const { length } = ef;
   const points = [...(ef.pointLoads ?? [])].sort((a, b) => a.a - b.a);
   if (kind === 'axial') {
@@ -40,13 +42,37 @@ function planarCurve(kind: PlanarKind, ef: PlanarForces) {
     const axial = points.filter(p => p.px).map(p => ({ a: p.a, jump: -p.px! }));
     const pointTotal = axial.reduce((sum, p) => sum - p.jump, 0);
     const distributedTotal = loads.reduce((sum, load) => sum + distributedActionTerms(load, length)[0], 0);
-    return memberDiagram(length, ef.nStart, ef.nEnd + pointTotal + distributedTotal - ef.nStart, loads, axial, 'force', -1);
+    return [length, ef.nStart, ef.nEnd + pointTotal + distributedTotal - ef.nStart, loads, axial, 'force', -1];
   }
   const loads = fullSpanFallback(length, ef.distributedLoads, ef.qI, ef.qJ);
   return kind === 'moment'
-    ? memberDiagram(length, ef.mStart, 0, loads,
-      points.map(p => ({ a: p.a, jump: p.my ?? 0, slope: -p.p })), 'moment', -1, -ef.vStart)
-    : memberDiagram(length, ef.vStart, 0, loads, points.map(p => ({ a: p.a, jump: p.p })));
+    ? [length, ef.mStart, 0, loads,
+      points.map(p => ({ a: p.a, jump: p.my ?? 0, slope: -p.p })), 'moment', -1, -ef.vStart]
+    : [length, ef.vStart, 0, loads, points.map(p => ({ a: p.a, jump: p.p }))];
+}
+
+function planarCurve(kind: PlanarKind, ef: PlanarForces) {
+  return memberDiagram(...planarCurveArgs(kind, ef));
+}
+
+let lastPlanarQuery: { key: readonly (number | string | undefined)[]; evaluate: (t: number) => number } | undefined;
+
+function planarQuery([length, start, change, loads, points, order, sign, rate]: PlanarCurveArgs) {
+  const key = [length, start, change, order, sign, rate, loads.length,
+    ...loads.flatMap(({ a, b, qI, qJ }) => [a, b, qI, qJ]),
+    ...points.flatMap(({ a, jump, slope }) => [a, jump, slope]),
+  ];
+  const cached = lastPlanarQuery;
+  if (cached?.key.length === key.length && key.every((entry, i) => Object.is(entry, cached.key[i]))) {
+    return cached.evaluate;
+  }
+  const curve = memberDiagram(length, start, change, loads.map(load => ({ ...load })), points, order, sign, rate);
+  const extremaAt = prepareCurveExtrema(curve, length);
+  const evaluate = curve.hasDistributedActions
+    ? (t: number) => checkedCurveValue(curve, { t }, indexDiagramExtrema(extremaAt(t)))
+    : (t: number) => curve.value({ t });
+  lastPlanarQuery = { key, evaluate };
+  return evaluate;
 }
 
 function buildDiagram(
@@ -147,9 +173,7 @@ export function computeDiagramValueAt(kind: PlanarKind, t: number, ef: PlanarFor
     const moment = kind === 'moment';
     return diagramLineValue(moment ? ef.mStart : ef.vStart, 0, moment ? -ef.vStart : 0, t * length, t);
   }
-  const curve = planarCurve(kind, ef);
-  if (!curve.hasDistributedActions) return curve.value({ t });
-  return checkedCurveValue(curve, { t }, indexDiagramExtrema(curveExtrema(curve, length, t)));
+  return planarQuery(planarCurveArgs(kind, ef))(t);
 }
 
 export function prepareDiagramValueAt(kind: PlanarKind, ef: PlanarForces): (t: number) => number {
