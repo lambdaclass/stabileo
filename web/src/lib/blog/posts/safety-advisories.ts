@@ -139,6 +139,14 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-115-gravity-floor-region-ownership.md", "label": "SA-2026-115", "t": "Entradas afectadas y acciones necesarias."},
         {"k": "note", "t": "SA-2026-116 — Próxima versión después de la 0.6.4."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-116-nonlinear-continuation-and-inclined-loads.md", "label": "SA-2026-116", "t": "Entradas afectadas y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-117 — Próxima versión después de la 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-117-static-shell-self-weight-density.md", "label": "SA-2026-117", "t": "Entradas afectadas y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-118 — Próxima versión después de la 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-118-self-weight-group-targets.md", "label": "SA-2026-118", "t": "Entradas afectadas y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-119 — Próxima versión después de la 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-119-modal-mass-missing-density.md", "label": "SA-2026-119", "t": "Entradas afectadas y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-120 — Próxima versión después de la 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-120-gravity-deck-load-placement.md", "label": "SA-2026-120", "t": "Entradas afectadas y acciones necesarias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO con un pórtico de hormigón guardado antes de que los resultados tuvieran versión. Un aviso abajo indica que los resultados están desactualizados porque el proyecto se resolvió con una versión anterior y 19 cambios registrados lo afectan, con los botones para ver qué cambió y volver a calcular.', caption: 'Cómo llega una corrección a un proyecto guardado: hasta que se resuelve de nuevo, sus resultados quedan marcados como desactualizados, con los cambios que lo afectan a un clic.' },
 
         { k: 'h', t: 'Resumen' },
@@ -261,7 +269,11 @@ export const safetyAdvisories: Post = {
             ["SA-2026-113", "La API nativa de Rust podía certificar resultados lineales aportados para un caso de carga que el solver rechazaba. Repetí los análisis y la certificación afectados, incluidas las combinaciones y envolventes que dependan de esos casos.", "Media", "Próxima versión después de la 0.6.4"],
             ["SA-2026-114", "Las reglas de combinación guardadas podían aplicar factores al grupo de cargas equivocado sin aviso. Restablecé los grupos previstos, regenerá las combinaciones y los casos compuestos afectados, y repetí sus análisis y envolventes.", "Alta", "Próxima versión después de la 0.6.4"],
             ["SA-2026-115", "La generación de cargas gravitatorias por paños podía cargar una misma región de piso a través de varios elementos portantes. Regenerá los planes afectados, resolvé los conflictos de carga o geometría y repetí los análisis correspondientes.", "Alta", "Próxima versión después de la 0.6.4"],
-            ["SA-2026-116", "Los solvers no lineales podían aceptar una trayectoria incorrecta de longitud de arco u omitir la fuerza tangencial en un rodillo inclinado. Repetí los análisis no lineales planos y corrotacionales espaciales afectados, incluidos los de barras curvas con centro de corte excéntrico.", "Alta", "Próxima versión después de la 0.6.4"]
+            ["SA-2026-116", "Los solvers no lineales podían aceptar una trayectoria incorrecta de longitud de arco u omitir la fuerza tangencial en un rodillo inclinado. Repetí los análisis no lineales planos y corrotacionales espaciales afectados, incluidos los de barras curvas con centro de corte excéntrico.", "Alta", "Próxima versión después de la 0.6.4"],
+            ["SA-2026-117", "Una densidad negativa o nula en una cáscara podía invertir u omitir su peso propio. Restablecé las densidades previstas, repetí los casos y las combinaciones estáticas afectadas y volvé a hacer las verificaciones que dependan de esos resultados.", "Alta", "Próxima versión después de la 0.6.4"],
+            ["SA-2026-118", "Un grupo de destino inválido podía hacer que se omitiera su peso propio. Corregí el grupo de destino, repetí los casos y las combinaciones afectados y recalculá sus envolventes.", "Alta", "Próxima versión después de la 0.6.4"],
+            ["SA-2026-119", "Omitir la densidad de un material podía dar frecuencias modales incorrectas. Restablecé la densidad, reconstruí la fuente de masa y repetí los análisis dinámicos afectados.", "Alta", "Próxima versión después de la 0.6.4"],
+            ["SA-2026-120", "La generación automática podía duplicar cargas gravitatorias, transferirlas a paños que superaban el límite de luz del método automático o confundir las zonas de piso y techo. Regenerá los planes afectados de cargas gravitatorias, nieve y viento, verificá las cargas y repetí los análisis correspondientes.", "Alta", "Próxima versión después de la 0.6.4"]
           ],
         },
         {
@@ -556,6 +568,14 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-115-gravity-floor-region-ownership.md", "label": "SA-2026-115", "t": "Affected inputs and user action."},
         {"k": "note", "t": "SA-2026-116 — Next release after 0.6.4."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-116-nonlinear-continuation-and-inclined-loads.md", "label": "SA-2026-116", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-117 — Next release after 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-117-static-shell-self-weight-density.md", "label": "SA-2026-117", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-118 — Next release after 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-118-self-weight-group-targets.md", "label": "SA-2026-118", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-119 — Next release after 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-119-modal-mass-missing-density.md", "label": "SA-2026-119", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-120 — Next release after 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-120-gravity-deck-load-placement.md", "label": "SA-2026-120", "t": "Affected inputs and user action."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO with a concrete frame saved before results were versioned. A banner at the bottom reads “Results stale: this project was last solved with an older version, and 19 registered changes concern it”, with the buttons “What changed” and “Re-run”.', caption: 'How a fix reaches a saved project: until it is solved again, its results stay marked stale, with the changes that concern it one click away.' },
 
         { k: 'h', t: 'Summary' },
@@ -678,7 +698,11 @@ export const safetyAdvisories: Post = {
             ["SA-2026-113", "The native Rust API could certify supplied linear results for a load case the solver refused. Rerun affected analyses and certification, including dependent combinations and envelopes.", "Medium", "Next release after 0.6.4"],
             ["SA-2026-114", "Saved combination rules could apply factors to the wrong load group without warning. Restore the intended groups, regenerate affected combinations and composite cases, and rerun their analyses and envelopes.", "High", "Next release after 0.6.4"],
             ["SA-2026-115", "Panel gravity generation could load the same floor region through multiple carriers. Regenerate affected gravity plans, resolve conflicting loads or geometry, and rerun affected analyses.", "High", "Next release after 0.6.4"],
-            ["SA-2026-116", "Nonlinear solvers could accept an incorrect arc-length path or omit the tangential force at an inclined roller. Rerun affected planar nonlinear and spatial co-rotational analyses, including curved frames with shear-centre offsets.", "High", "Next release after 0.6.4"]
+            ["SA-2026-116", "Nonlinear solvers could accept an incorrect arc-length path or omit the tangential force at an inclined roller. Rerun affected planar nonlinear and spatial co-rotational analyses, including curved frames with shear-centre offsets.", "High", "Next release after 0.6.4"],
+            ["SA-2026-117", "Negative or null shell density could reverse or omit self-weight. Restore the intended densities, rerun affected static cases and combinations, and repeat dependent checks.", "High", "Next release after 0.6.4"],
+            ["SA-2026-118", "An invalid self-weight group target could omit the group’s weight. Repair the target, rerun affected cases and combinations, and rebuild their envelopes.", "High", "Next release after 0.6.4"],
+            ["SA-2026-119", "An omitted material density could give incorrect modal frequencies. Restore the density, rebuild the mass source, and rerun affected dynamic analyses.", "High", "Next release after 0.6.4"],
+            ["SA-2026-120", "Automatic gravity could duplicate deck loads, transfer loads to bays beyond the automatic span limit, or misclassify roof and floor exposure. Regenerate affected gravity, snow and wind plans, verify the loads, and rerun dependent analyses.", "High", "Next release after 0.6.4"]
           ],
         },
         {
@@ -973,6 +997,14 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-115-gravity-floor-region-ownership.md", "label": "SA-2026-115", "t": "Entradas afetadas e ações necessárias."},
         {"k": "note", "t": "SA-2026-116 — Próxima versão após a 0.6.4."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-116-nonlinear-continuation-and-inclined-loads.md", "label": "SA-2026-116", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-117 — Próxima versão após a 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-117-static-shell-self-weight-density.md", "label": "SA-2026-117", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-118 — Próxima versão após a 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-118-self-weight-group-targets.md", "label": "SA-2026-118", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-119 — Próxima versão após a 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-119-modal-mass-missing-density.md", "label": "SA-2026-119", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-120 — Próxima versão após a 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-120-gravity-deck-load-placement.md", "label": "SA-2026-120", "t": "Entradas afetadas e ações necessárias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO com um pórtico de concreto salvo antes de os resultados terem versão. Um aviso embaixo indica que os resultados estão desatualizados porque o projeto foi resolvido com uma versão anterior e 19 mudanças registradas o afetam, com os botões para ver o que mudou e recalcular.', caption: 'Como uma correção chega a um projeto salvo: até ser resolvido de novo, seus resultados ficam marcados como desatualizados, com as mudanças que o afetam a um clique.' },
 
         { k: 'h', t: 'Resumo' },
@@ -1095,7 +1127,11 @@ export const safetyAdvisories: Post = {
             ["SA-2026-113", "A API nativa em Rust podia certificar resultados lineares fornecidos para um caso de carga que o solver recusava. Refaça as análises e a certificação afetadas, incluindo as combinações e envoltórias que dependem desses casos.", "Média", "Próxima versão após a 0.6.4"],
             ["SA-2026-114", "Regras de combinação salvas podiam aplicar coeficientes ao grupo de cargas errado sem aviso. Restaure os grupos pretendidos, gere novamente as combinações e os casos compostos afetados e refaça as análises e envoltórias correspondentes.", "Alta", "Próxima versão após a 0.6.4"],
             ["SA-2026-115", "A geração de cargas gravitacionais por painéis podia carregar a mesma região do piso por meio de vários elementos portantes. Gere novamente os planos afetados, resolva os conflitos de carga ou de geometria e refaça as análises afetadas.", "Alta", "Próxima versão após a 0.6.4"],
-            ["SA-2026-116", "Os solvers não lineares podiam aceitar uma trajetória incorreta de comprimento de arco ou omitir a força tangencial em um apoio móvel inclinado. Refaça as análises não lineares planas e corrotacionais espaciais afetadas, incluindo as de barras curvas com centro de cisalhamento excêntrico.", "Alta", "Próxima versão após a 0.6.4"]
+            ["SA-2026-116", "Os solvers não lineares podiam aceitar uma trajetória incorreta de comprimento de arco ou omitir a força tangencial em um apoio móvel inclinado. Refaça as análises não lineares planas e corrotacionais espaciais afetadas, incluindo as de barras curvas com centro de cisalhamento excêntrico.", "Alta", "Próxima versão após a 0.6.4"],
+            ["SA-2026-117", "Uma densidade negativa ou nula na casca podia inverter ou omitir seu peso próprio. Restaure as densidades previstas, refaça os casos e as combinações estáticas afetados e repita as verificações correspondentes.", "Alta", "Próxima versão após a 0.6.4"],
+            ["SA-2026-118", "Um grupo de destino inválido podia fazer com que seu peso próprio fosse omitido. Corrija o grupo de destino, refaça os casos e as combinações afetados e recalcule suas envoltórias.", "Alta", "Próxima versão após a 0.6.4"],
+            ["SA-2026-119", "A ausência da densidade de um material podia gerar frequências modais incorretas. Restaure a densidade, reconstrua a fonte de massa e refaça as análises dinâmicas afetadas.", "Alta", "Próxima versão após a 0.6.4"],
+            ["SA-2026-120", "A geração automática podia duplicar cargas gravitacionais, transferi-las a painéis que excediam o limite de vão do método automático ou classificar incorretamente pisos e coberturas. Gere novamente os planos de cargas gravitacionais, neve e vento afetados, confira as cargas e refaça as análises correspondentes.", "Alta", "Próxima versão após a 0.6.4"]
           ],
         },
         {

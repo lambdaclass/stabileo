@@ -132,6 +132,14 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-115-gravity-floor-region-ownership.md", "label": "SA-2026-115", "t": "Entrées concernées et mesures à prendre."},
     {"k": "note", "t": "SA-2026-116 — Prochaine version après la 0.6.4."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-116-nonlinear-continuation-and-inclined-loads.md", "label": "SA-2026-116", "t": "Entrées concernées et mesures à prendre."},
+    {"k": "note", "t": "SA-2026-117 — Prochaine version après la 0.6.4."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-117-static-shell-self-weight-density.md", "label": "SA-2026-117", "t": "Entrées concernées et mesures à prendre."},
+    {"k": "note", "t": "SA-2026-118 — Prochaine version après la 0.6.4."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-118-self-weight-group-targets.md", "label": "SA-2026-118", "t": "Entrées concernées et mesures à prendre."},
+    {"k": "note", "t": "SA-2026-119 — Prochaine version après la 0.6.4."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-119-modal-mass-missing-density.md", "label": "SA-2026-119", "t": "Entrées concernées et mesures à prendre."},
+    {"k": "note", "t": "SA-2026-120 — Prochaine version après la 0.6.4."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-120-gravity-deck-load-placement.md", "label": "SA-2026-120", "t": "Entrées concernées et mesures à prendre."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO avec un portique en béton enregistré avant que les résultats soient versionnés. Un bandeau en bas indique des résultats périmés : le projet a été résolu avec une version antérieure et 19 changements enregistrés le concernent, avec les boutons pour voir ce qui a changé et relancer le calcul.", "caption": "Comment une correction atteint un projet enregistré : tant qu’il n’est pas recalculé, ses résultats restent marqués périmés, et les changements qui le concernent sont à un clic."},
     {
       "k": "h",
@@ -556,7 +564,11 @@ const body: PostBody = {
         ["SA-2026-113", "L’API native Rust pouvait certifier des résultats linéaires fournis pour un cas de charge que le solveur refusait. Relancez les analyses et la certification concernées, y compris pour les combinaisons et enveloppes qui en dépendent.", "Moyenne", "Prochaine version après la 0.6.4"],
         ["SA-2026-114", "Les règles de combinaison enregistrées pouvaient appliquer des coefficients au mauvais groupe de charges sans avertissement. Rétablissez les groupes prévus, régénérez les combinaisons et les cas composés concernés, puis recalculez les analyses et les enveloppes correspondantes.", "Élevée", "Prochaine version après la 0.6.4"],
         ["SA-2026-115", "La génération des charges gravitaires par panneaux pouvait charger la même zone de plancher par plusieurs éléments porteurs. Régénérez les plans concernés, résolvez les conflits de charges ou de géométrie et relancez les analyses affectées.", "Élevée", "Prochaine version après la 0.6.4"],
-        ["SA-2026-116", "Les solveurs non linéaires pouvaient accepter un chemin par longueur d’arc incorrect ou omettre la force tangentielle sur un appui roulant incliné. Relancez les analyses planes non linéaires et spatiales par corotation concernées, y compris pour les barres courbes dont le centre de cisaillement est excentré.", "Élevée", "Prochaine version après la 0.6.4"]
+        ["SA-2026-116", "Les solveurs non linéaires pouvaient accepter un chemin par longueur d’arc incorrect ou omettre la force tangentielle sur un appui roulant incliné. Relancez les analyses planes non linéaires et spatiales par corotation concernées, y compris pour les barres courbes dont le centre de cisaillement est excentré.", "Élevée", "Prochaine version après la 0.6.4"],
+        ["SA-2026-117", "Une masse volumique négative ou enregistrée comme null pouvait inverser ou supprimer le poids propre d’une coque. Rétablissez les masses volumiques prévues et recalculez les cas de charge statiques, les combinaisons et les vérifications concernés.", "Élevée", "Prochaine version après la 0.6.4"],
+        ["SA-2026-118", "Un groupe cible invalide pouvait entraîner l’omission du poids propre de ce groupe. Corrigez le groupe cible, relancez les cas de charge et les combinaisons concernés, puis recalculez leurs enveloppes.", "Élevée", "Prochaine version après la 0.6.4"],
+        ["SA-2026-119", "L’absence de masse volumique d’un matériau pouvait fausser les fréquences propres. Rétablissez la masse volumique, reconstruisez la source de masse et relancez les analyses dynamiques concernées.", "Élevée", "Prochaine version après la 0.6.4"],
+        ["SA-2026-120", "La génération automatique pouvait doubler les charges gravitaires, les transférer à des panneaux dont la portée dépassait la limite du calcul automatique ou mal distinguer les zones de plancher et de toiture. Régénérez les plans de charges gravitaires, de neige et de vent concernés, vérifiez les charges et relancez les analyses correspondantes.", "Élevée", "Prochaine version après la 0.6.4"]
       ]
     },
     {
