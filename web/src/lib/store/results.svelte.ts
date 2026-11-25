@@ -1248,13 +1248,14 @@ function createResultsStore() {
     setGoverning3D(g: Map<number, GoverningPerElement3D>) { governing3D = g; },
 
     setCombinationResults3D(pc: Map<number, AnalysisResults3D>, pco: Map<number, AnalysisResults3D>, env: FullEnvelope3D, unstable: readonly number[] = []) {
-      _onComboPublish?.(pc, pco, '3d');
+      const originalCases = pc, originalCombinations = pco;
       if (_normalise3D) {
         const n = _normalise3D;
         pc = new Map([...pc].map(([k, r]) => [k, n(r)]));
         pco = new Map([...pco].map(([k, r]) => [k, n(r)]));
         if (_normaliseEnvelope3D && env) env = _normaliseEnvelope3D(env);
       }
+      _onComboPublish?.(originalCases, originalCombinations, '3d');
       for (const r of [...pc.values(), ...pco.values(), env?.maxAbsResults3D, env, pc, pco]) freezeResult(r);
       noteStructuralSolve();
       _onResultsPublish?.();

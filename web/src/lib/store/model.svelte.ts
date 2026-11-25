@@ -761,6 +761,7 @@ export const loadMemberId = (l: Load): number | undefined =>
 export type LoadCaseType = string;
 
 export interface LoadCase {
+  autoLoadsRetired?: true;
   group?: string;
   snowBasis?: 'flatRoof';
   id: number;
@@ -4518,7 +4519,7 @@ function createModelStore() {
      * still edited: only a loop it did not have is refused (`addsLoop`), so its factors change
      * and any link of the loop can go.
      */
-    updateLoadCaseFields(id: number, patch: Partial<Pick<LoadCase, 'includes' | 'reference' | 'solve' | 'notional' | 'reduction' | 'alternatives' | 'pattern' | 'spectral'>>): boolean {
+    updateLoadCaseFields(id: number, patch: Partial<Pick<LoadCase, 'includes' | 'reference' | 'solve' | 'notional' | 'reduction' | 'alternatives' | 'pattern' | 'spectral' | 'autoLoadsRetired'>>): boolean {
       const lc = model.loadCases.find((c) => c.id === id);
       if (!lc) return false;
       if (('includes' in patch || 'notional' in patch) && addsLoop(model.loadCases, id, { ...('includes' in patch ? { includes: patch.includes } : {}), ...('notional' in patch ? { notional: patch.notional } : {}) })) return false;
@@ -4645,19 +4646,17 @@ function createModelStore() {
       if (typeof analysisModel === 'string') return analysisModel;
       // Shell recombination is the engine's kernel: its absence or refusal is the solve's
       // error message, as every other solve failure is, never an exception past the button.
-      let r;
       try {
-        r = solveCombinations3DFn(
+        const r = solveCombinations3DFn(
           analysisModel,
           model.loadCases, model.combinations, includeSelfWeight, leftHand, spectral,
         );
+        return isPro ? scopeBundle3D(r, model.resultScopes, model.combinations) : r;
       } catch (err) {
         const m = engineFailureMessage(err);
         if (!m) throw err;
         return te(m);
       }
-      // The active list is a PRO definition; Basic keeps enveloping every combination.
-      return isPro ? scopeBundle3D(r, model.resultScopes, model.combinations) : r;
     },
 
     /** Async parallel version of solveCombinations3D — uses Web Workers for parallel solving. */
@@ -4667,20 +4666,18 @@ function createModelStore() {
       if (typeof analysisModel === 'string') return analysisModel;
       // Shell recombination is the engine's kernel: its absence or refusal is the solve's
       // error message, as every other solve failure is, never an exception past the button.
-      let r;
       try {
-        r = await solveCombinations3DParallelFn(
+        const r = await solveCombinations3DParallelFn(
           analysisModel,
           model.loadCases, model.combinations, includeSelfWeight, leftHand, spectral, options,
         );
+        return isPro ? scopeBundle3D(r, model.resultScopes, model.combinations) : r;
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') return t('results.editedDuringSolve');
         const m = engineFailureMessage(err);
         if (!m) throw err;
         return te(m);
       }
-      // The active list is a PRO definition; Basic keeps enveloping every combination.
-      return isPro ? scopeBundle3D(r, model.resultScopes, model.combinations) : r;
     },
 
     /** Compute influence line: move unit load P=1 (downward, or across) over the elements */

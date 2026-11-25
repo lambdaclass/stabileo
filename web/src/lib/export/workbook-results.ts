@@ -10,7 +10,7 @@
  * Signs are the solver's everywhere, which is also what the screen shows; the Conventions sheet
  * states them.
  */
-import { rowsOf, summaryRows, envelopeRows, beatsExtreme, COLUMNS, type Source, type TableKind, type TableOptions } from '../engine/result-tables';
+import { rowsOf, summaryRows, envelopeRows, criticalForceEnvelopeRows, countCriticalForceEnvelopeRows, beatsExtreme, COLUMNS, type Source, type TableKind, type TableOptions } from '../engine/result-tables';
 import { stationTs, type StationSpec } from '../engine/station-forces';
 import { memberStationStresses, type SectionStressModel } from '../engine/member-stresses';
 import type { AnalysisResults3D, Displacement3D, ElementForces3D } from '../engine/types-3d';
@@ -293,20 +293,43 @@ function maximaSheet(input: ResultSheetsInput, opts: TableOptions): WorkbookShee
   return { name: 'Maxima', rows };
 }
 
-function envelopeSheet(input: ResultSheetsInput, opts: TableOptions): WorkbookSheet {
-  const rows: WorkbookSheet['rows'] = [['table', 'entity', 'end', 'x [m]', 'component', 'unit', 'max', 'maxSourceId', 'maxSourceName', 'min', 'minSourceId', 'minSourceName']];
-  const sources = governing(input.sources).map(asSource);
-  for (const kind of ['reactions', 'displacements', 'forces'] as const) {
-    // At the same stations as Maxima, so the two sheets read the same members the same way.
-    for (const e of envelopeRows(kind, sources, { ...opts, stations: input.stations })) {
-      head(kind).forEach((h, c) => {
-        const mx = e.max[c]!, mn = e.min[c]!;
-        rows.push([kind, e.entity, e.end ?? '', e.x ?? '', h.replace(/ \[.*$/, ''), UNITS[kind][c]!, mx.value, mx.source.id, safeText(mx.source.name), mn.value, mn.source.id, safeText(mn.source.name)]);
-      });
-    }
-  }
-  if (input.shells && hasShells(input)) rows.push(...shellEnvelopeRows(governing(input.sources), input.sources));
-  return { name: 'Envelope', rows };
+function envelopeSheet(input: ResultSheetsInput, opts: TableOptions, shells: boolean): StreamedSheet {
+  const header = ['table', 'entity', 'end', 'x [m]', 'component', 'unit', 'max', 'maxSourceId', 'maxSourceName', 'min', 'minSourceId', 'minSourceName', 'face'];
+  const governingSources = governing(input.sources);
+  const sources = governingSources.map(asSource);
+  const stations = input.stations;
+  const tableOpts = { ...opts, stations };
+  const critical = stations === 'critical';
+  return {
+    name: 'Envelope', columns: header.length, header,
+    count() {
+      const shellRows = shells ? sources.reduce((n, s) => n + ((s.results.plateStresses?.length ?? 0) + (s.results.quadStresses?.length ?? 0)) * SHELL_ENVELOPE_KEYS.length, 0) : 0;
+      const reactionCount = new Set(sources.flatMap(s => s.results.reactions.map(row => row.nodeId))).size;
+      const displacementCount = new Set(sources.flatMap(s => s.results.displacements.map(row => row.nodeId))).size;
+      const fixedForceCount = (count: number) => {
+        const lengths = new Set(sources.flatMap(s => s.results.elementForces.map(f => `${f.elementId}:${f.length}`)));
+        return lengths.size * Math.max(2, Math.floor(count));
+      };
+      const forceCount = critical ? countCriticalForceEnvelopeRows(sources, tableOpts) : fixedForceCount(stations);
+      return 6 * (reactionCount + displacementCount + forceCount) + shellRows;
+    },
+    *body() {
+      for (const kind of ['reactions', 'displacements', 'forces'] as const) {
+        const envelopes = kind === 'forces' && critical ? criticalForceEnvelopeRows(sources, tableOpts) : envelopeRows(kind, sources, tableOpts);
+        const headings = head(kind);
+        for (const e of envelopes) {
+          for (let c = 0; c < headings.length; c++) {
+            const mx = e.max[c]!, mn = e.min[c]!;
+            yield [kind, e.entity, e.end ?? '', e.x ?? '', headings[c]!.replace(/ \[.*$/, ''), UNITS[kind][c]!, mx.value,
+              mx.source.id, safeText(mx.source.name), mn.value, mn.source.id, safeText(mn.source.name), e.face ?? ''];
+          }
+        }
+      }
+      if (shells) {
+        for (const row of shellEnvelopeRows(governingSources, input.sources)) yield [...row, ''];
+      }
+    },
+  };
 }
 
 const SHELL_ENVELOPE_UNIT = (key: ShellEnvelopeKey) =>
@@ -429,13 +452,7 @@ export function resultSheetParts(input: ResultSheetsInput, want: (name: string) 
     ['Deflections', () => deflectionsSheet(input)],
     ['Stresses', () => stressesSheet(input)],
     ['Maxima', () => deferred('Maxima', 11, () => maximaSheet(input, opts), () => 3 * 6 * 2 + (shells ? SHELL_MAXIMA.length * 2 : 0))],
-    ['Envelope', () => deferred('Envelope', 12, () => envelopeSheet(input, opts), () => {
-      const sources = governing(input.sources);
-      const g = sources[0];
-      if (!g) return 0;
-      const shellRows = shells ? sources.reduce((n, s) => n + ((s.results.plateStresses?.length ?? 0) + (s.results.quadStresses?.length ?? 0)) * SHELL_ENVELOPE_KEYS.length, 0) : 0;
-      return 6 * (g.results.reactions.length + g.results.displacements.length + stationRows([g], input.stations)) + shellRows;
-    })],
+    ['Envelope', () => envelopeSheet(input, opts, shells)],
     ['ShellCentres', () => (shells ? shellCentresSheet(input) : null)],
     ['ShellNodes', () => (shells ? shellNodesSheet(input) : null)],
     ['ShellCorners', () => (shells ? shellCornersSheet(input) : null)],

@@ -12,6 +12,7 @@
    * how many points of each member the station sheets read. It is offered only when one of those
    * sheets is chosen, and says which they are.
    */
+  import { engineGuarded } from '../../../lib/store/engine-action';
   import { t, tp } from '../../../lib/i18n';
   import { modelStore, resultsStore, uiStore } from '../../../lib/store';
   import ExportDialog from '../../export/ExportDialog.svelte';
@@ -120,7 +121,8 @@
     };
   }
   /** What the chosen file will hold, counted without writing it; only once there are results to count. */
-  const estimate = $derived(open && resultsStore.results3D ? workbookEstimate(stations, choices(wantsResults)) : null);
+  const guardedEstimate = $derived(engineGuarded(() => open && resultsStore.results3D ? workbookEstimate(stations, choices(wantsResults)) : null));
+  const estimate = $derived(guardedEstimate.value);
   const millions = (n: number) => (n / 1e6).toLocaleString(undefined, { maximumFractionDigits: n < 1e7 ? 1 : 0 });
   async function run() {
     if (busy || modelCount + resultCount === 0) return;
@@ -150,7 +152,9 @@
       <button type="button" class:on={format === 'csv'} onclick={() => (format = 'csv')} data-testid="pro-data-format-csv">CSV</button>
     </div>
     <Hint class="xs-note" text={format === 'xlsx' ? t('proExport.formatXlsxNote') : t('proExport.formatCsvNote')} />
-    {#if estimate}
+    {#if guardedEstimate.error}
+      <p class="xs-note dx-warn" role="alert">{guardedEstimate.error}</p>
+    {:else if estimate}
       <p class="xs-note" class:dx-warn={format === 'xlsx' && !estimate.xlsx} data-testid="pro-data-estimate">
         {tp(format === 'xlsx' && !estimate.xlsx ? 'proExport.estimateZip' : 'proExport.estimate', { cells: millions(estimate.cells) })}
       </p>

@@ -767,6 +767,34 @@ mod tests {
     }
 
     #[test]
+    fn issue_2226_envelopes_keep_physical_force_and_moment_faces() {
+        use crate::postprocess::combinations::{compute_envelope, compute_envelope_3d};
+        let a = 1.0;
+        let (_, results) = round5_diagram_results();
+        for (planar, spatial) in results {
+            let mut jump = planar.clone();
+            jump.element_forces[0].point_loads = vec![PointLoadInfo { a, p: 8.0, px: None, my: Some(4.0) }];
+            let plane = compute_envelope(&[jump, planar]).unwrap();
+            let mut jump = spatial.clone();
+            jump.element_forces[0].point_loads_z = vec![PointLoadInfo3D { a, p: 8.0 }];
+            let space = compute_envelope_3d(&[jump, spatial]).unwrap();
+            for (diagram, amplitude) in [(plane.shear, 8.0), (plane.moment, 4.0), (space.shear_z, 8.0)] {
+                let element = &diagram.elements[0];
+                let wire = serde_json::to_value(element).unwrap();
+                let faces = wire["criticalStations"].as_array().expect("exact envelope station metadata");
+                let faces: Vec<_> = faces.iter().filter(|f| f["x"].as_f64() == Some(a)).collect();
+                assert_eq!(faces.len(), 2);
+                for (face, right, expected) in [(faces[0], false, 0.0), (faces[1], true, amplitude)] {
+                    assert_eq!(face["right"].as_bool(), Some(right));
+                    let i = face["index"].as_u64().unwrap() as usize;
+                    assert_eq!(element.t_positions[i], a / 3.0);
+                    assert_eq!(element.pos_values[i].max(-element.neg_values[i]), expected);
+                }
+            }
+        }
+    }
+
+    #[test]
     fn issue_2226_diagram_extrema_concentrated_jump() {
         use crate::postprocess::diagrams_3d::evaluate_diagram_3d_at;
         let mut measured = Vec::new();
