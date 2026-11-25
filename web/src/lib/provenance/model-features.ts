@@ -110,7 +110,7 @@ interface FeatureSnapshotFields {
   loads?: Array<{ type: string; data?: Record<string, unknown> }>;
   loadCases?: Array<{
     id: number; name?: string; type?: string; spectral?: unknown; alternatives?: string; axisNamed?: boolean;
-    group?: string; snowBasis?: 'flatRoof'; generated?: boolean;
+    group?: string; snowBasis?: 'flatRoof'; generated?: boolean; autoLoadsRetired?: true;
     includes?: ReadonlyArray<{ caseId?: number; factor: number }>; reduction?: { ratio: number }; notional?: unknown;
   }>;
   combinations?: unknown[];
@@ -620,7 +620,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
         return symbol ? [{ c, symbol }] : [];
       });
       if (ordinary.some(({ c, symbol }) =>
-        !c.generated && !occupiedCaseIds.has(c.id) && !weightedCaseIds.has(c.id) &&
+        !c.generated && c.autoLoadsRetired !== true && !occupiedCaseIds.has(c.id) && !weightedCaseIds.has(c.id) &&
         c.spectral === undefined && c.notional === undefined &&
         (c.group !== undefined || ordinary.some(other => other.c.id !== c.id &&
           (other.symbol === symbol || (c.alternatives && c.alternatives === other.c.alternatives)))))) {

@@ -1,12 +1,13 @@
 import { beforeEach, expect, it } from 'vitest';
-import { buildLoadPlan } from '../../engine/loads/load-plan';
+import { applyCode } from '../../model/code/apply';
+import { modelToCode } from '../../model/code/format';
+import { buildLoadPlan, type LoadPlan } from '../../engine/loads/load-plan';
 import { mesh } from '../../engine/loads/__tests__/snow-surface-round2-fixture';
 import { regulations } from '../../engine/loads/__tests__/snow-roof-plane-fixture';
 import { applyLoadPlan, previewLoadPlan } from '../apply-load-plan';
 import { deserializeProject, serializeProject } from '../file';
 import { modelStore, uiStore } from '../index';
 
-const repeatApply = process.env.RUN_KNOWN_WRONG === '2566' ? it : it.skip;
 const replace = { nameOf: (key: string) => key, clearExisting: true, bothSenses: false };
 
 beforeEach(() => {
@@ -14,7 +15,7 @@ beforeEach(() => {
   modelStore.clear();
 });
 
-function windPlans(group?: string) {
+function windPlans(group?: string, useDefaultWind = false) {
   const base = buildLoadPlan({
     model: mesh([[[0, 0, 3], [10, 0, 3]]]), regulations: regulations(), dead: [],
     occupancyKey: 'vivienda', tributaryWidth: 1, reductionElementKind: 'interiorBeam',
@@ -28,8 +29,10 @@ function windPlans(group?: string) {
   const node = modelStore.addNode(0, 0, 0);
   const dead = modelStore.addLoadCase('Gravity', 'D');
   const wind = modelStore.addLoadCase('Wind +X', 'W', { group });
-  const oldWind = modelStore.addLoadCase('Wind -X', 'W', { group });
-  const current = {
+  const oldWind = useDefaultWind
+    ? modelStore.loadCases.find(c => c.type === 'W' && c.id !== wind)!.id
+    : modelStore.addLoadCase('Wind -X', 'W', { group });
+  const current: LoadPlan = {
     ...base,
     cases: [
       { existingId: dead, type: 'D', nameKey: 'Gravity' },
@@ -41,7 +44,7 @@ function windPlans(group?: string) {
       { nodeId: node, caseType: 'W', fx: 5, fy: 0, fz: 0 },
     ],
   };
-  const previous = {
+  const previous: LoadPlan = {
     ...current,
     cases: [...current.cases, { existingId: oldWind, type: 'W', nameKey: 'Wind -X', own: true, group }],
     nodal: [...current.nodal, { nodeId: node, caseType: 'W', caseIndex: 2, fx: -5, fy: 0, fz: 0 }],
@@ -51,23 +54,27 @@ function windPlans(group?: string) {
 
 function loadCatalog() {
   const { loadCases, combinations, resultScopes } = modelStore.snapshot();
-  return { loadCases, combinations, resultScopes };
+  return { loadCases: loadCases!, combinations: combinations!, resultScopes };
 }
 
-for (const { source, alsoUnmarked, group } of [
-  { source: 'open project', alsoUnmarked: false },
-  { source: 'reopened project', alsoUnmarked: false },
-  { source: 'reopened project with a named wind group', alsoUnmarked: true, group: 'wind' },
+for (const { source, alsoUnmarked, group, useDefaultWind, reload } of [
+  { source: 'open project', alsoUnmarked: false, reload: () => {} },
+  { source: 'reopened project', alsoUnmarked: false, reload: () => expect(deserializeProject(serializeProject())).toBe(true) },
+  { source: 'reopened project with a named wind group', alsoUnmarked: true, group: 'wind',
+    reload: () => expect(deserializeProject(serializeProject())).toBe(true) },
+  { source: 'project with a formerly default wind case', alsoUnmarked: false, useDefaultWind: true, reload: () => {} },
+  { source: 'model imported from code', alsoUnmarked: false,
+    reload: () => expect(applyCode(modelToCode(modelStore.snapshot())).applied).toBe(true) },
 ]) {
-  repeatApply(`known wrong result: #2566 — replacing the same wind plan twice in a ${source} preserves the exact catalog`, () => {
-    const { current, previous, dead, wind, oldWind } = windPlans(group);
+  it(`#2566 — replacing the same wind plan twice in a ${source} preserves the exact catalog`, () => {
+    const { current, previous, dead, wind, oldWind } = windPlans(group, useDefaultWind);
     expect(applyLoadPlan(previous, replace)).toBeUndefined();
     expect(modelStore.loads.some(l => l.data.caseId === oldWind)).toBe(true);
     const noWind = modelStore.addLoadCase('No wind', 'W', { group });
     const expected = [[dead, wind], [dead, noWind]].map(ids => ids.map(caseId => ({ caseId, factor: 1 })));
     let once: ReturnType<typeof loadCatalog> | undefined;
     for (const apply of [1, 2]) {
-      if (apply === 2 && source.startsWith('reopened')) expect(deserializeProject(serializeProject())).toBe(true);
+      if (apply === 2) reload();
       expect.soft(previewLoadPlan(current, replace.nameOf, { replaceExisting: true, alsoUnmarked }).after.combinations)
         .toBe(expected.length);
       expect(applyLoadPlan(current, { ...replace, alsoUnmarked })).toBeUndefined();
@@ -79,7 +86,7 @@ for (const { source, alsoUnmarked, group } of [
   });
 }
 
-repeatApply('known wrong result: #2566 — repeat Apply retains full strength and service identities with the surviving manual load', () => {
+it('#2566 — repeat Apply retains full strength and service identities with the surviving manual load', () => {
   const { current, previous, node, dead, wind, oldWind } = windPlans();
   expect(applyLoadPlan(previous, replace)).toBeUndefined();
   const manualLoad = modelStore.addNodalLoad3D(node, -2, 0, 0, 0, 0, 0, oldWind);

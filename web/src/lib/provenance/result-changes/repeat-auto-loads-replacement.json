@@ -1,0 +1,35 @@
+{
+  "id": "repeat-auto-loads-replacement",
+  "date": "2026-11-25",
+  "prs": [2566],
+  "area": "loads",
+  "when": {
+    "all": ["generatedLoads", "emptyManualLoadAlternatives"]
+  },
+  "quantities": ["*"],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Keep Auto Loads replacement idempotent",
+    "es": "Mantener estable el reemplazo de cargas automáticas",
+    "pt": "Manter estável a substituição de cargas automáticas",
+    "de": "Ersetzen automatischer Lasten stabil halten",
+    "fr": "Stabiliser le remplacement des charges automatiques",
+    "tr": "Otomatik Yükleri değiştirirken birleşimleri koru",
+    "zh": "保持自动荷载替换结果一致",
+    "hu": "Az automatikus terhek cseréjének stabilizálása"
+  },
+  "explanation": {
+    "en": "Replacing Auto Loads could generate combinations that included a case emptied by replacement. Review empty cases and retain intentional alternatives, then regenerate the combinations and rerun the analyses and envelopes.",
+    "es": "Al reemplazar cargas automáticas se podían generar combinaciones con un estado de carga vaciado por el reemplazo. Revisá los estados vacíos y conservá las alternativas intencionales. Luego regenerá las combinaciones y volvé a calcular los análisis y las envolventes.",
+    "pt": "A substituição de cargas automáticas podia gerar combinações com um caso esvaziado pela substituição. Revise os casos vazios e preserve as alternativas intencionais. Em seguida, gere novamente as combinações e refaça as análises e as envoltórias.",
+    "de": "Beim Ersetzen automatischer Lasten konnten Kombinationen einen dabei geleerten Lastfall enthalten. Prüfen Sie leere Lastfälle und behalten Sie beabsichtigte Varianten bei. Erzeugen Sie anschließend die Kombinationen neu und berechnen Sie Analysen und Einhüllende erneut.",
+    "fr": "Le remplacement des charges automatiques pouvait générer des combinaisons incluant un cas vidé par ce remplacement. Vérifiez les cas vides et conservez les variantes voulues. Régénérez ensuite les combinaisons, puis relancez les analyses et le calcul des enveloppes.",
+    "tr": "Otomatik Yükleri değiştirmek, bu işlemde boşalan bir yük durumunu içeren birleşimler oluşturabiliyordu. Boş durumları gözden geçirin ve amaçlanan alternatifleri koruyun. Ardından birleşimleri yeniden oluşturun ve analizleri ve zarfları yeniden hesaplayın.",
+    "zh": "替换自动荷载时，生成的组合可能包含在替换过程中被清空的荷载工况。请检查空工况并保留有意设置的备选工况，然后重新生成组合并重新计算分析和包络。",
+    "hu": "Az automatikus terhek cseréje olyan kombinációkat hozhatott létre, amelyek egy a csere során kiürült teheresetet tartalmaztak. Ellenőrizze az üres tehereseteket, és tartsa meg a szándékos alternatívákat. Ezután hozza létre újra a kombinációkat, és számítsa újra az elemzéseket és a burkológörbéket."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-repeat-auto-loads-replacement.md",
+    "heading": "Keep Auto Loads replacement idempotent"
+  }
+}
