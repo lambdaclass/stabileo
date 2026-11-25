@@ -118,15 +118,15 @@ interface FixtureLoadOptions {
  * materials → sections → nodes → elements → supports → loads → shells → constraints
  */
 export function loadFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOptions = {}): void {
-  prepareFixture(json, api, opts)();
+  prepareFixture(json, opts)(api);
 }
 
-export function prepareFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOptions = {}): () => void {
+export function prepareFixture(json: JSONModel, opts: FixtureLoadOptions = {}): (api: FixtureLoader) => void {
   requireLoadCollection(json.loads);
   const canonical = canonicalizeModelAliases(json);
   validateFixtureInput(canonical);
-  const load = () => replayFixture(canonical, api, opts);
-  return () => {
+  return (api) => {
+    const load = () => replayFixture(canonical, api, opts);
     if (api.replay) api.replay(load);
     else load();
   };

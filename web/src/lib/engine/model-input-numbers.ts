@@ -177,15 +177,15 @@ export function loadInputRefusal(loads: readonly unknown[]): string | null {
   return modelInputError(() => requireLoadInput(loads))?.message ?? null;
 }
 
-export function hasMalformedAuthoredLoad(loads: readonly unknown[], basicProjection: boolean): boolean {
-  for (const [i, load] of loads.entries()) {
-    const error = modelInputError(() => {
+export function hasMalformedAuthoredLoad(loads: unknown, basicProjection: boolean): boolean {
+  if (loads === undefined) return false;
+  return modelInputError(() => {
+    requireLoadCollection(loads);
+    for (const [i, load] of loads.entries()) {
       const row = requireLoadRecord(load, i);
       if (basicProjection) requireProjectionNumbers(row);
-    });
-    if (error) return true;
-  }
-  return false;
+    }
+  }) !== null;
 }
 
 export function requireModelNumbers(model: ModelData): void {

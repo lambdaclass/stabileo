@@ -69,10 +69,10 @@ export function applyGeneratedModel(g: GeneratedModel, opts: ApplyOptions): Appl
   // wrapper is what makes it ONE undo step — without it `clear()` pushes a snapshot and
   // `bulkMutate()` pushes a second one (of the now-empty model), so the first Ctrl+Z would
   // restore nothing and the promise in `generator.ui.replacesModel` would be a lie.
-  const load = prepareFixture({ ...g.json, name: opts.name ?? g.json.name }, modelStore.fixtureApi() as never);
+  const replay = prepareFixture({ ...g.json, name: opts.name ?? g.json.name });
   modelStore.batch(() => {
     modelStore.clear();
-    load();
+    replay(modelStore.fixtureApi() as never);
   });
   modelStore.refreshCanonicalSections();
   modelStore.model.provenance = provenance;

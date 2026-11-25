@@ -372,30 +372,25 @@ describe('authored load refusal and recheck', () => {
   });
 });
 
-describe.skipIf(process.env.STABILEO_REPRODUCE_LOAD_COLLECTIONS !== '1')(
-  'saved load collections (known wrong result: #2583)',
-  () => {
-    it.each(['2d', '3d', 'pro'].flatMap(mode => [[mode, {}], [mode, null]] as const))(
-      'flags a present non-array loads collection in %s (%j)',
-      async (analysisMode, malformedLoads) => {
-        cantilever(analysisMode !== '2d');
-        const snapshot = {
-          ...modelStore.snapshot(), analysisMode, loads: [completeForce], solvedWith: undefined, pendingRecheckNotice: undefined,
-        };
-        const loads = malformedLoads as unknown as FeatureSnapshot['loads'];
-        const malformed = { ...snapshot, loads };
-        expect.soft(assessProject(malformed, null, analysisMode).changes.map(({ id }) => id))
-          .toContain('malformed-authored-loads');
+it.each(['2d', '3d', 'pro'].flatMap(mode => [[mode, {}], [mode, null]] as const))(
+  'flags a present non-array loads collection in %s (%j)',
+  async (analysisMode, malformedLoads) => {
+    cantilever(analysisMode !== '2d');
+    const snapshot = {
+      ...modelStore.snapshot(), analysisMode, loads: [completeForce], solvedWith: undefined, pendingRecheckNotice: undefined,
+    };
+    const loads = malformedLoads as unknown as FeatureSnapshot['loads'];
+    const malformed = { ...snapshot, loads };
+    expect.soft(assessProject(malformed, null, analysisMode).changes.map(({ id }) => id))
+      .toContain('malformed-authored-loads');
 
-        const recheck = createRecheckStore();
-        for (const [current, stored] of [[malformed, undefined], [snapshot, loads]] as const) {
-          recheck.openProject(current, analysisMode, stored);
-          await vi.waitFor(() => expect(recheck.pending).toBe(false));
-          expect.soft(recheck.assessment?.changes.map(({ id }) => id)).toContain('malformed-authored-loads');
-          expect.soft(recheck.noticeOpen).toBe(true);
-        }
-      },
-    );
+    const recheck = createRecheckStore();
+    for (const [current, stored] of [[malformed, undefined], [snapshot, loads]] as const) {
+      recheck.openProject(current, analysisMode, stored);
+      await vi.waitFor(() => expect(recheck.pending).toBe(false));
+      expect.soft(recheck.assessment?.changes.map(({ id }) => id)).toContain('malformed-authored-loads');
+      expect.soft(recheck.noticeOpen).toBe(true);
+    }
   },
 );
 

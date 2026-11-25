@@ -486,11 +486,10 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   })) {
     f.add('duplicateFixtureEndRelease');
   }
-  const rawStoredLoads = ctx.storedLoads ?? s.loads;
+  const rawStoredLoads = ctx.storedLoads === undefined ? s.loads : ctx.storedLoads;
   const basicProjection = f.has('plane2D');
-  if ((Array.isArray(s.loads) && hasMalformedAuthoredLoad(s.loads, basicProjection)) ||
-      (rawStoredLoads !== s.loads && Array.isArray(rawStoredLoads) &&
-        hasMalformedAuthoredLoad(rawStoredLoads, basicProjection))) {
+  if (hasMalformedAuthoredLoad(s.loads, basicProjection) ||
+      (rawStoredLoads !== s.loads && hasMalformedAuthoredLoad(rawStoredLoads, basicProjection))) {
     f.add('malformedAuthoredLoad');
   }
   const loads = featureLoads(s.loads);

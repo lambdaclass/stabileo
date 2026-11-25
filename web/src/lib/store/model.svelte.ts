@@ -4775,14 +4775,14 @@ function createModelStore() {
       // first, the PRO panel's self-weight effect ran during this await, found an empty model
       // without a rule and stated `selfWeight: []` for it, and the check below then took that
       // [] for the example's own rule: the example solved without its self-weight.
-      const load = prepareFixture(await loader() as JSONModel, this.fixtureApi() as any, opts);
+      const replay = prepareFixture(await loader() as JSONModel, opts);
       this.batch(() => {
         this.clear();
         if (opts.defaults) {
           model.materials.set(1, structuredClone(opts.defaults.material));
           model.sections.set(1, resolveDefaultSection(structuredClone(opts.defaults.section)));
         }
-        load();
+        replay(this.fixtureApi() as any);
 
         // Settle canonical state once the whole model is in place. Sections the
         // fixture added are already resolved (addSection resolves per add, and
