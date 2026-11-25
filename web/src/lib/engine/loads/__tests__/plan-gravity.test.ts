@@ -1701,3 +1701,19 @@ it('#2512 case accounting refuses lost and excess emitted panel loads', () => {
 });
 
 const gravityLayoutBeforeFault = gravityLayout;
+
+const triangularGravityOracle = process.env.RUN_KNOWN_WRONG === '2429' ? it : it.skip;
+
+triangularGravityOracle.each(['panels', 'width'] as const)('known wrong result: #2429 %s gravity refuses a triangular floor it cannot allocate', mode => {
+  const model = floor(1, 1, 4, 4);
+  model.plates = new Map([
+    [1, { id: 1, nodes: [1, 2, 4] }],
+    [2, { id: 2, nodes: [1, 4, 3] }],
+  ]);
+  const expected = { key: 'loadPlan.gravity.triangularPlate', params: { id: 1 } };
+  const gravity = { mode };
+  const plan = buildLoadPlan(planInput(model, { gravity, dead: [{ labelKey: 'a', q: 1 }] }));
+  expect.soft(plan).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [expected], cases: [], distributed: [], nodal: [], surface: [] });
+  expect.soft(() => gravityLayout(model, { ...gravity, tributaryWidth: 3 })).toThrow(expect.objectContaining(expected));
+  expect(() => roofWeightFor(model, gravity, 3, 1)).toThrow(expect.objectContaining(expected));
+});
