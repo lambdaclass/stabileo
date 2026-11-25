@@ -185,6 +185,23 @@ mesh, with its hanging-node constraints, is not something the app's model can ho
   side. The model given back carries those constraints and no others, and can be refined
   again; any other constraint is refused, as in section 2.
 
+`Adapted.mesh` tells the last mesh as changes to the model given, in that model's ids: the
+nodes added (with the ends of the edge each was put on), the parts that stand where each split
+element stood (with the weights of the parent's corners at each corner of a part, so a value
+given at the parent's corners can be read on the part), the nodes added along each split
+member, the supports given to new nodes and the constraints of the hanging nodes.
+
+The app applies it to its own model on request (`model/edit/refined-mesh.ts`), as one undo
+step: each split shell is replaced by its parts, which keep its material, thickness, loads
+of every case and groups; members along split edges are cut; a new node between two supports
+takes the support they share, or their common restraints when they differ; the hanging-node
+constraints become constraints of the model. It refuses a model that is no longer the one
+solved, a shell of a plate meshed from its outline (that mesh is remade from the outline, and
+would be lost), a curved or variable-section member to cut, and a support it cannot say on
+one node. The model applied spreads its surface loads over the new nodes; the engine's own
+refinement of the solver input leaves the nodal forces the app gave it where they were, so the
+estimate after solving again is close to the one reported, not equal to it.
+
 Measured on an L-shaped domain (the unit square without a quarter), MITC4, from 12 elements:
 
 | | To an estimate of | Adaptive | Uniform |

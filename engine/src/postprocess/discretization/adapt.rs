@@ -7,12 +7,12 @@
 //! their recovery patches) are never marked. Like the estimate it is driven by, the result is
 //! not a certificate.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 
 use super::convergence::governing;
-use super::refine::{hanging_nodes, refine_marked, ElementKey, GeometryMode};
+use super::refine::{hanging_nodes, refine_marked, ElementKey, GeometryMode, Refined};
 use super::{estimate_3d, DiscretizationEstimate, DEFAULT_THRESHOLD};
 use crate::types::*;
 
@@ -84,6 +84,177 @@ pub struct Adapted {
     /// The refinement caveats of every pass (see `refine::Refined`).
     pub caveats: Vec<String>,
     pub supports_inferred: usize,
+    /// How `input` was made from the model given, in that model's ids.
+    pub mesh: AdaptedMesh,
+}
+
+/// The last mesh as changes to the first: enough to refine a model that holds more than the
+/// solver is given (the app's) the same way.
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdaptedMesh {
+    /// The nodes added, by id.
+    pub nodes: Vec<MeshNode>,
+    /// The elements that stand where each split shell-type element stood.
+    pub shells: Vec<MeshShell>,
+    /// The frame members split.
+    pub frames: Vec<MeshFrame>,
+    /// The supports given to added nodes.
+    pub supports: Vec<MeshSupport>,
+    /// The terms of every linear constraint of the last model: those of its hanging nodes.
+    pub constraints: Vec<Vec<MPCTerm>>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MeshNode {
+    pub id: usize,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    /// The ends of the edge it was put on; none for a node inside an element.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub between: Option<[usize; 2]>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MeshShell {
+    pub family: String,
+    /// The element of the model given that it is a part of.
+    pub parent: usize,
+    pub id: usize,
+    pub nodes: Vec<usize>,
+    /// One row per corner: the weights of the parent's corners there (see `refine::Split`).
+    pub weights: Vec<Vec<f64>>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MeshFrame {
+    pub parent: usize,
+    /// The nodes added along it from end I to end J, and how far along each is (0 to 1, by
+    /// halving: a node off the chord is still counted at the middle of its piece).
+    pub nodes: Vec<usize>,
+    pub at: Vec<f64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MeshSupport {
+    pub node_id: usize,
+    /// Restrained translations along x, y, z and rotations about them.
+    pub restrained: [bool; 6],
+    /// Whether it is no more than those restraints: no imposed displacement, not inclined.
+    pub plain: bool,
+}
+
+/// What each element of the current model descends from, kept from pass to pass.
+#[derive(Default)]
+struct Lineage {
+    /// Current element → the original it is a part of, and its corner weights there.
+    shells: HashMap<ElementKey, (usize, Vec<Vec<f64>>)>,
+    /// Original member → its pieces from end I to end J: (current id, parameter at its end J).
+    frames: HashMap<usize, Vec<(usize, f64, usize)>>,
+    frame_of: HashMap<usize, usize>,
+    between: HashMap<usize, [usize; 2]>,
+}
+
+fn times(child: &[Vec<f64>], parent: &[Vec<f64>]) -> Vec<Vec<f64>> {
+    if child.is_empty() || parent.is_empty() {
+        return Vec::new();
+    }
+    child
+        .iter()
+        .map(|row| (0..parent[0].len()).map(|corner| row.iter().zip(parent).map(|(w, of)| w * of[corner]).sum()).collect())
+        .collect()
+}
+
+impl Lineage {
+    fn record(&mut self, refined: &Refined) {
+        for split in &refined.splits {
+            let own = self.shells.remove(&(split.family, split.parent));
+            for (child, weights) in &split.children {
+                let entry = match &own {
+                    Some((original, within)) => (*original, times(weights, within)),
+                    None => (split.parent, weights.clone()),
+                };
+                self.shells.insert((split.family, *child), entry);
+            }
+        }
+        for &(parent, [first, second], mid) in &refined.frame_splits {
+            let original = self.frame_of.remove(&parent).unwrap_or(parent);
+            let pieces = self.frames.entry(original).or_insert_with(|| vec![(parent, 1.0, usize::MAX)]);
+            let Some(at) = pieces.iter().position(|piece| piece.0 == parent) else { continue };
+            let (_, end, end_node) = pieces[at];
+            let start = if at == 0 { 0.0 } else { pieces[at - 1].1 };
+            pieces.splice(at..=at, [(first, 0.5 * (start + end), mid), (second, end, end_node)]);
+            self.frame_of.insert(first, original);
+            self.frame_of.insert(second, original);
+        }
+        for (node, parents) in &refined.created {
+            if let [a, b] = parents.as_slice() {
+                self.between.insert(*node, [*a, *b]);
+            }
+        }
+    }
+
+    fn mesh(&self, model: &SolverInput3D, original_max_node: usize) -> AdaptedMesh {
+        let mut nodes: Vec<MeshNode> = model
+            .nodes
+            .values()
+            .filter(|n| n.id > original_max_node)
+            .map(|n| MeshNode { id: n.id, x: n.x, y: n.y, z: n.z, between: self.between.get(&n.id).copied() })
+            .collect();
+        nodes.sort_by_key(|n| n.id);
+        let corners = |family: &str, id: usize| -> Option<Vec<usize>> {
+            let key = id.to_string();
+            Some(match family {
+                "plate" => model.plates.get(&key)?.nodes.to_vec(),
+                "quad" => model.quads.get(&key)?.nodes.to_vec(),
+                "quad9" => model.quad9s.get(&key)?.nodes.to_vec(),
+                "curvedShell" => model.curved_shells.get(&key)?.nodes.to_vec(),
+                _ => model.solid_shells.get(&key)?.nodes.to_vec(),
+            })
+        };
+        let mut shells: Vec<MeshShell> = self
+            .shells
+            .iter()
+            .filter_map(|(&(family, id), (parent, weights))| {
+                Some(MeshShell { family: family.into(), parent: *parent, id, nodes: corners(family, id)?, weights: weights.clone() })
+            })
+            .collect();
+        shells.sort_by(|a, b| (&a.family, a.parent, a.id).cmp(&(&b.family, b.parent, b.id)));
+        let mut frames: Vec<MeshFrame> = self
+            .frames
+            .iter()
+            .map(|(&parent, pieces)| {
+                let inner = &pieces[..pieces.len() - 1];
+                MeshFrame { parent, nodes: inner.iter().map(|p| p.2).collect(), at: inner.iter().map(|p| p.1).collect() }
+            })
+            .collect();
+        frames.sort_by_key(|f| f.parent);
+        let mut supports: Vec<MeshSupport> = model
+            .supports
+            .values()
+            .filter(|s| s.node_id > original_max_node)
+            .map(|s| MeshSupport {
+                node_id: s.node_id,
+                restrained: [s.rx, s.ry, s.rz, s.rrx, s.rry, s.rrz],
+                plain: s.is_inclined != Some(true) && [s.dx, s.dy, s.dz, s.drx, s.dry, s.drz].iter().all(|d| d.is_none_or(|v| v == 0.0)),
+            })
+            .collect();
+        supports.sort_by_key(|s| s.node_id);
+        let constraints = model
+            .constraints
+            .iter()
+            .filter_map(|c| match c {
+                Constraint::LinearMPC(mpc) => Some(mpc.terms.clone()),
+                _ => None,
+            })
+            .collect();
+        AdaptedMesh { nodes, shells, frames, supports, constraints }
+    }
 }
 
 fn shell_elements(input: &SolverInput3D) -> usize {
@@ -136,6 +307,7 @@ pub fn adapt_3d(input: &SolverInput3D, options: &AdaptOptions) -> Result<Adapted
     let mut supports_inferred = 0;
     let original_max_node = input.nodes.values().map(|n| n.id).max().unwrap_or(0);
     let mut as_given = None;
+    let mut lineage = Lineage::default();
     loop {
         let results = crate::solver::linear::solve_3d(&model)?;
         let estimate = estimate_3d(&model, &results)?;
@@ -159,7 +331,8 @@ pub fn adapt_3d(input: &SolverInput3D, options: &AdaptOptions) -> Result<Adapted
         };
         let done = |status: &str, pass: AdaptPass, mut passes: Vec<AdaptPass>, model: SolverInput3D, caveats: Vec<String>| {
             passes.push(pass);
-            Ok(Adapted { certified: false, input: model, estimate: estimate.clone(), passes, quantities: quantities.clone(), status: status.into(), caveats, supports_inferred })
+            let mesh = lineage.mesh(&model, original_max_node);
+            Ok(Adapted { certified: false, input: model, estimate: estimate.clone(), passes, quantities: quantities.clone(), status: status.into(), caveats, supports_inferred, mesh })
         };
         let Some(relative_error) = estimate.relative_error else {
             return done("unestimable", pass, passes, model, caveats);
@@ -180,6 +353,7 @@ pub fn adapt_3d(input: &SolverInput3D, options: &AdaptOptions) -> Result<Adapted
         }
         pass.marked = to_split.len();
         passes.push(pass);
+        lineage.record(&refined);
         for caveat in refined.caveats {
             if !caveats.contains(&caveat) {
                 caveats.push(caveat);

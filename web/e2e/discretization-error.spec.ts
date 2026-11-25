@@ -67,4 +67,13 @@ test('the adaptive refinement is folded away until asked for, runs in the worker
   await expect(passes.locator('tbody tr').first()).toContainText(/model/i);
   expect(await passes.locator('tbody tr').count()).toBeGreaterThanOrEqual(1);
   await expect(page.getByTestId('discretization-estimate').first()).toContainText(/not certified/i);
+
+  const quads = await page.evaluate(() => window.__stabileo.quadIds().length);
+  await page.getByTestId('discretization-apply-adaptive').first().click();
+  await expect(page.getByTestId('discretization-apply-refused')).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => window.__stabileo.quadIds().length)).toBeGreaterThan(quads);
+  await solveModel(page);
+  await expect.poll(() => page.evaluate(() => window.__stabileo.discretizationState().estimate), { timeout: 60_000 })
+    .toBe('done');
+  expect((await page.evaluate(() => window.__stabileo.discretizationState())).reason).toBeNull();
 });

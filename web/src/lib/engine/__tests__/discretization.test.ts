@@ -64,6 +64,17 @@ describe('discretization error', () => {
     expect(moved.adapted).toBeGreaterThan(0);
     expect(Math.abs(moved.adapted - moved.model) / moved.adapted).toBeLessThan(0.2);
 
+    expect(out.mesh.nodes).toHaveLength(last.nodes - 25);
+    expect(out.mesh.nodes[0]).toMatchObject({ id: 26, z: 0 });
+    expect(new Set(out.mesh.shells.map((s: { id: number }) => s.id)).size).toBe(out.mesh.shells.length);
+    for (const s of out.mesh.shells) {
+      expect(s.family).toBe('quad');
+      expect(s.nodes).toEqual(out.input.quads[s.id].nodes);
+      expect(s.weights).toHaveLength(4);
+    }
+    expect(out.mesh.constraints).toHaveLength(out.input.constraints.length);
+    expect(out.mesh.supports.every((s: { nodeId: number; restrained: boolean[]; plain: boolean }) => s.nodeId > 25 && s.restrained.length === 6 && s.plain)).toBe(true);
+
     const again = callCertify('estimate_discretization_3d', [out.input]);
     expect(again.relativeError).toBe(out.estimate.relativeError);
     expect(again.elements).toHaveLength(last.shellElements);
