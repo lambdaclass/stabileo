@@ -4157,7 +4157,7 @@
       ]
     },
     "src/lib/data/pro-examples.ts": {
-      "source": "98af22b2e7df8e730ed51359dcc0edf31cd7871f7f2370908946c0f7bd63c0e3",
+      "source": "5a6f31ac34842c5a761558e6255985d623be3cc566c7f8a9380afb7664de9896",
       "original": "3cf070d6b00c33f840b2813f6b8ceaeb24071def5db135129be8885102ee1eaa",
       "changes": [
         [
@@ -10032,6 +10032,7 @@
     },
     "src/lib/model/edit/mesh-stations.ts": null,
     "src/lib/model/edit/rect-grid.ts": null,
+    "src/lib/model/edit/tartan.ts": null,
     "src/lib/model/foundation/edges.ts": null,
     "src/lib/model/foundation/generate.ts": {
       "source": "0207e73afbf3fcb943a4c5761d694fbdbc97f318591356f676e68bc45cfe0526",
@@ -11549,7 +11550,7 @@
       ]
     },
     "src/lib/store/physical-plates.ts": {
-      "source": "e88955f8028f04cc609ba2505ad5e91d7f79e2cf5c629ab26ec4d48ce87d45bf",
+      "source": "8f835f563bb7df23f2cad64a465beac432ec31f0ff66af382ca26702aa079167",
       "original": "f1087ec325f40fca6cbb4381606d060bd2deac498987efe69681fe3eb98fa8f1",
       "changes": [
         [
@@ -11581,25 +11582,25 @@
         ],
         [
           33,
-          4,
+          5,
           [
             "import { applyPlacedMesh, placeMesh, regionOccupied, type MeshPlacement } from '../model/edit/mesh-apply';"
           ]
         ],
         [
-          38,
+          39,
           1,
           [
             "import { addFloorLoadDef } from './defined-loads';"
           ]
         ],
         [
-          41,
+          42,
           2,
           []
         ],
         [
-          44,
+          45,
           5,
           [
             "import type { FloorLoadDef } from '../model/loads/floor-definitions';",
@@ -11607,24 +11608,24 @@
           ]
         ],
         [
-          90,
+          91,
           4,
           []
         ],
         [
-          95,
-          179,
+          96,
+          204,
           []
         ],
         [
-          284,
+          310,
           9,
           [
             "  const s = e ? plateStatusOf(modelStore.model, e.group) : 'invalid';"
           ]
         ],
         [
-          297,
+          323,
           32,
           [
             "/** The plates whose mesh is missing or out of date. */",
@@ -11633,24 +11634,24 @@
           ]
         ],
         [
-          339,
+          365,
           2,
           []
         ],
         [
-          359,
+          385,
           20,
           []
         ],
         [
-          386,
+          412,
           2,
           [
             "  const surface: PlateSurface = { loops: [p.outline.length, ...holes.map((h) => h.length)], materialId: p.materialId, thickness: p.thickness, mesh: { ...(p.mesh ?? DEFAULT_PLATE_MESH) }, ...(arcs.arcMids.length ? { arcMids: arcs.arcMids } : {}) };"
           ]
         ],
         [
-          390,
+          416,
           3,
           [
             "  const physical: PhysicalData & { surface: PlateSurface } = { kind: plateKindOf(geo), provenance: 'declared', surface };",
@@ -11661,24 +11662,24 @@
           ]
         ],
         [
-          403,
+          429,
           14,
           []
         ],
         [
-          464,
+          490,
           11,
           [
             "  const problem = plateProblem(plateModel(), loops.outer, holes, outerArcs);"
           ]
         ],
         [
-          476,
+          502,
           2,
           []
         ],
         [
-          479,
+          505,
           5,
           [
             "    modelStore.setGroupMembers(id, { ...e.group.members, nodes: [...loops.outer, ...holes.flat(), ...loops.owned] });",
@@ -11686,12 +11687,12 @@
           ]
         ],
         [
-          537,
+          563,
           16,
           []
         ],
         [
-          556,
+          582,
           1,
           [
             "  const def: FloorLoadDef = { caseId, q, target: { by: 'group', groupId: id }, distribution: 'slab' };",
@@ -11699,36 +11700,36 @@
           ]
         ],
         [
-          570,
+          596,
           1,
           [
             "export type PlateMeshRefusalReason = 'invalid' | 'tooManyCells' | 'cannotMesh' | 'occupied' | 'ambiguousSweep' | 'shellEdits';"
           ]
         ],
         [
-          579,
+          605,
           0,
           [
             "  version: number;"
           ]
         ],
         [
-          591,
+          617,
           5,
           []
         ],
         [
-          611,
+          637,
           33,
           []
         ],
         [
-          645,
+          671,
           1,
           []
         ],
         [
-          649,
+          675,
           2,
           [
             "    const d = l.data as { quadId: number; on?: string; fromDef?: number };",
@@ -11736,19 +11737,19 @@
           ]
         ],
         [
-          674,
+          700,
           1,
           []
         ],
         [
-          677,
+          703,
           1,
           [
             "    const plan = planPlateMesh(ids[i]!, spec);"
           ]
         ],
         [
-          680,
+          706,
           1,
           [
             "    // Give the page a frame between plates, so a long batch can be watched and stopped.",
@@ -11756,19 +11757,19 @@
           ]
         ],
         [
-          685,
+          711,
           5,
           []
         ],
         [
-          691,
+          717,
           1,
           [
             "export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>): PlateMeshPlan | null {"
           ]
         ],
         [
-          694,
+          720,
           7,
           [
             "  const spec = { ...e.surface.mesh, ...(specOverride ?? {}) };",
@@ -11778,14 +11779,14 @@
           ]
         ],
         [
-          702,
+          728,
           18,
           [
             "  const signature = plateSignature(f.geo, spec, f.features);"
           ]
         ],
         [
-          723,
+          749,
           0,
           [
             "  const preview = (mesh: MeshOutput, mixed: boolean, grid?: PlateMeshPlan['grid']): PlateMeshPlan => {",
@@ -11798,85 +11799,85 @@
           ]
         ],
         [
-          725,
+          751,
           7,
           []
         ],
         [
-          739,
+          765,
           1,
           [
             "    return preview(mesh, bandCells > 0, { gridCells, bandCells, cellA, cellB });"
           ]
         ],
         [
-          741,
+          767,
           2,
           [
             "  const mesh = generateMesh(input);"
           ]
         ],
         [
-          746,
-          92,
+          772,
+          94,
           []
         ],
         [
-          856,
+          884,
           1,
           [
             "function removePlateMesh(id: number, preserveNodes?: ReadonlySet<number>): { removedNodes: number; keptNodes: number } {"
           ]
         ],
         [
-          862,
-          1,
-          []
-        ],
-        [
-          864,
-          9,
-          []
-        ],
-        [
-          877,
+          890,
           1,
           []
         ],
         [
           892,
+          9,
+          []
+        ],
+        [
+          905,
+          1,
+          []
+        ],
+        [
+          920,
           5,
           []
         ],
         [
-          902,
+          930,
           6,
           []
         ],
         [
-          910,
+          938,
           1,
           [
             "    return quad && (quad.offset !== undefined || quad.curved) ? [quad] : [];"
           ]
         ],
         [
-          914,
+          942,
           1,
           [
             "    return plate?.offset !== undefined ? [plate] : [];"
           ]
         ],
         [
-          955,
+          983,
           5,
           [
             "    if ('curved' in edit && edit.curved) cell.curved = true;"
           ]
         ],
         [
-          966,
-          61,
+          994,
+          62,
           [
             "export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshReport {",
             "  const report: PlateMeshReport = { plates: 0, cells: 0, refused: [], droppedLocalLoads: 0, keptNodes: 0 };",
@@ -11909,8 +11910,8 @@
           ]
         ],
         [
-          1028,
-          93,
+          1057,
+          99,
           [
             "  for (const [i, plan] of plans.entries()) {",
             "    const apply = prepare(plan, false);",
@@ -11923,26 +11924,26 @@
           ]
         ],
         [
-          1122,
+          1157,
           201,
           [
             "  return report;"
           ]
         ],
         [
-          1343,
+          1378,
           1,
           [
             "  | { ok: true; meshed: number; cells: number }"
           ]
         ],
         [
-          1348,
+          1383,
           33,
           []
         ],
         [
-          1388,
+          1423,
           5,
           [
             "  const { invalid, ambiguousSweep, needsMesh } = physicalPlateProblems(modelStore.model);",
@@ -11963,7 +11964,7 @@
           ]
         ],
         [
-          1394,
+          1429,
           15,
           [
             "  if (!meshBeforeAnalysis.value) return { ok: false, reason: 'needsMesh', plates: names(need) };",
@@ -11975,7 +11976,7 @@
           ]
         ],
         [
-          1410,
+          1445,
           11,
           [
             "  // Loads put by hand on the old mesh's elements cannot follow a new mesh: the plate is meshed",
@@ -11993,7 +11994,7 @@
           ]
         ],
         [
-          1422,
+          1457,
           0,
           [
             "  return checked(r.plates, r.cells);"
