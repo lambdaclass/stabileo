@@ -7,7 +7,7 @@
 | Issue | [#2569](https://github.com/lambdaclass/stabileo/issues/2569) |
 | Fix | PR [#2590](https://github.com/lambdaclass/stabileo/pull/2590), merged as `a2cbf8c74` |
 | Fixed release | the next release after 0.6.4 |
-| Affected versions | Pattern ranking by individual term and editable project rules date to the first numbered release, 0.2.0 (`e738d775c`, `cbc3c83ac`). Flat-roof snow terms date to 0.6.2 (`aa75ce1db`). The affected ranking is present in 0.6.4. The shared snow alternative case was replayed on pre-fix main. |
+| Affected versions | Pattern ranking by individual term and editable project rules date to the first numbered release, 0.2.0 (`e738d775c`, `cbc3c83ac`). Ranking of flat-roof snow terms was affected from 0.6.2 (`aa75ce1db`). The affected ranking is present in 0.6.4. The snowless shared alternative was reproduced on the hosted build with [#2547](https://github.com/lambdaclass/stabileo/pull/2547) (`7d23b8c14`) and persisted through pre-fix main. |
 | Re-check registry | [`repeated-combination-pattern-ranking`](../../web/src/lib/provenance/result-changes/repeated-combination-pattern-ranking.json) |
 
 ## Affected features
@@ -29,8 +29,8 @@ omitted admissible reactions of 23.5 kN and 33.5 kN.
 
 When physical and flat-roof snow cases shared an alternative set,
 opposing terms for physical snow could also produce a snowless
-combination. The regression returned vertical reactions of 18.5 kN and
-7.5 kN. The applicable flat-roof snow belongs in both combinations,
+combination on the hosted build. The regression returned vertical
+reactions of 18.5 kN and 7.5 kN. The applicable flat-roof snow belongs in both combinations,
 giving reactions of 18.5 kN and 15.5 kN. Both errors occurred without a
 warning about case selection.
 
