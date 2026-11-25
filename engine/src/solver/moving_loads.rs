@@ -1,3 +1,4 @@
+use crate::postprocess::diagram_extrema::{CoincidentAxle, MovingForceCuts};
 use crate::postprocess::{diagrams::member_diagram_range_2d, diagrams_3d::member_diagram_range_3d};
 use crate::types::*;
 use crate::solver::linear::{prepare_static_2d, prepare_static_3d, solve_2d, solve_3d};
@@ -208,50 +209,82 @@ struct AxleFace {
     local_force: [f64; 3],
 }
 
-#[derive(Default)]
-struct FaceLoads {
-    start: [f64; 3],
-    end: [f64; 3],
+fn axle_cut_force([axial, y, z]: [f64; 3], axial_only: bool) -> [f64; 3] {
+    if axial_only { [axial, 0.0, 0.0] } else { [axial, y, z] }
 }
 
-impl FaceLoads {
-    fn include(&mut self, face: AxleFace) {
-        let load = if face.at_end { &mut self.end } else { &mut self.start };
+#[derive(Default)]
+struct MemberLimit {
+    faces: [[f64; 3]; 2],
+    coincident: Vec<CoincidentAxle>,
+}
+
+impl MemberLimit {
+    fn add_face(&mut self, face: AxleFace) {
+        let load = &mut self.faces[usize::from(face.at_end)];
         for (sum, action) in load.iter_mut().zip(face.local_force) {
             *sum += action;
         }
     }
 
-    fn component(&self, axis: usize) -> [f64; 2] {
-        [self.start[axis], self.end[axis]]
+    fn add_coincident(&mut self, station: f64, force: [f64; 3], moving_after: bool) {
+        if let Some(axle) = self.coincident.iter_mut().find(|axle| axle.station == station && axle.moving_after == moving_after) {
+            for (sum, action) in axle.force.iter_mut().zip(force) {
+                *sum += action;
+            }
+        } else {
+            self.coincident.push(CoincidentAxle { station, force, moving_after });
+        }
+    }
+
+    fn component(&self, axis: usize) -> MovingForceCuts<'_> {
+        MovingForceCuts { faces: self.faces.map(|face| face[axis]), coincident: &self.coincident, axis }
     }
 }
 
 struct SampleLimit<L> {
     changes: Vec<(usize, Option<L>)>,
-    faces: HashMap<usize, FaceLoads>,
+    members: HashMap<usize, MemberLimit>,
 }
 
 struct MovingSample<L> {
     loads: Vec<L>,
     limits: [SampleLimit<L>; 2],
+    permanent_stations: HashMap<usize, Vec<f64>>,
+    has_joint: bool,
 }
 
 impl<L: Clone> MovingSample<L> {
-    fn new(loads: Vec<L>) -> Self {
+    fn new(loads: &[L], point_station: impl Fn(&L) -> Option<(usize, f64)>) -> Self {
+        let mut permanent_stations = HashMap::<_, Vec<_>>::new();
+        for (element, station) in loads.iter().filter_map(point_station) {
+            permanent_stations.entry(element).or_default().push(station);
+        }
         Self {
-            loads,
-            limits: std::array::from_fn(|_| SampleLimit { changes: Vec::new(), faces: HashMap::new() }),
+            loads: loads.to_vec(),
+            limits: std::array::from_fn(|_| SampleLimit { changes: Vec::new(), members: HashMap::new() }),
+            permanent_stations,
+            has_joint: false,
+        }
+    }
+
+    fn add_interior(&mut self, load: L, element: usize, station: f64, reversed: bool, force: [f64; 3]) {
+        self.loads.push(load);
+        if self.permanent_stations.get(&element).is_some_and(|stations| stations.contains(&station)) {
+            for (limit, moving_after) in self.limits.iter_mut().zip([reversed, !reversed]) {
+                limit.members.entry(element).or_default().add_coincident(station, force, moving_after);
+            }
         }
     }
 
     fn add_joint(&mut self, faces: [Option<AxleFace>; 2], load_at: impl Fn(usize) -> L) {
         let Some(node) = faces.iter().flatten().next().map(|face| face.node) else { return };
+        self.has_joint = true;
         let index = self.loads.len();
         self.loads.push(load_at(node));
         for (limit, face) in self.limits.iter_mut().zip(faces) {
             if let Some(face) = face {
-                limit.faces.entry(face.element).or_default().include(face);
+                limit.members.entry(face.element).or_default().add_face(face);
             }
             if face.map(|face| face.node) != Some(node) {
                 limit.changes.push((index, face.map(|face| load_at(face.node))));
@@ -262,14 +295,17 @@ impl<L: Clone> MovingSample<L> {
     fn fold<R>(
         &self,
         mut solve: impl FnMut(&[L]) -> Result<R, String>,
-        mut fold: impl FnMut(&R, &HashMap<usize, FaceLoads>, bool) -> Result<(), String>,
+        mut fold: impl FnMut(&R, &HashMap<usize, MemberLimit>, bool) -> Result<(), String>,
     ) -> Result<(), String> {
         let exact = solve(&self.loads)?;
         fold(&exact, &HashMap::new(), false)?;
+        if !self.has_joint {
+            return Ok(());
+        }
         for limit in &self.limits {
             if limit.changes.is_empty() {
-                if !limit.faces.is_empty() {
-                    fold(&exact, &limit.faces, true)?;
+                if !limit.members.is_empty() {
+                    fold(&exact, &limit.members, true)?;
                 }
                 continue;
             }
@@ -281,7 +317,7 @@ impl<L: Clone> MovingSample<L> {
                     Some(load.clone())
                 }
             }).collect();
-            fold(&solve(&loads)?, &limit.faces, false)?;
+            fold(&solve(&loads)?, &limit.members, false)?;
         }
         Ok(())
     }
@@ -351,23 +387,24 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
                     solve_2d(&modified_input)
                 }
             },
-            |results, faces, reuse| {
+            |results, limits, reuse| {
                 if !reuse {
                     crate::known_issues::attach(&mut structured_diagnostics, results.structured_diagnostics.clone());
                 }
                 for ef in &results.element_forces {
                     let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) else { continue };
-                    let face = faces.get(&ef.element_id);
-                    if reuse && face.is_none() {
+                    let limit = limits.get(&ef.element_id);
+                    if reuse && limit.is_none() {
                         continue;
                     }
-                    let (lo, hi) = member_diagram_range_2d(ef, "moment", [0.0; 2])?;
+                    let cuts = |axis| limit.map_or_else(MovingForceCuts::default, |limit| limit.component(axis));
+                    let (lo, hi) = member_diagram_range_2d(ef, "moment", MovingForceCuts::default())?;
                     env.m_max_pos = env.m_max_pos.max(hi);
                     env.m_max_neg = env.m_max_neg.min(lo);
-                    let (lo, hi) = member_diagram_range_2d(ef, "shear", face.map_or([0.0; 2], |f| f.component(2)))?;
+                    let (lo, hi) = member_diagram_range_2d(ef, "shear", cuts(2))?;
                     env.v_max_pos = env.v_max_pos.max(hi);
                     env.v_max_neg = env.v_max_neg.min(lo);
-                    let (lo, hi) = member_diagram_range_2d(ef, "axial", face.map_or([0.0; 2], |f| f.component(0)))?;
+                    let (lo, hi) = member_diagram_range_2d(ef, "axial", cuts(0))?;
                     env.n_max_pos = env.n_max_pos.max(hi);
                     env.n_max_neg = env.n_max_neg.min(lo);
                 }
@@ -405,7 +442,10 @@ fn sample_2d(
     pos: ReferencePosition,
     elements: &HashMap<usize, &SolverElement>,
 ) -> Result<MovingSample<SolverLoad>, String> {
-    let mut sample = MovingSample::new(input.loads.clone());
+    let mut sample = MovingSample::new(&input.loads, |load| match load {
+        SolverLoad::PointOnElement(load) => Some((load.element_id, load.a)),
+        _ => None,
+    });
     for axle in &train.axles {
         let station = route_station(path.len(), |index| {
             let part = &path[index];
@@ -414,13 +454,13 @@ fn sample_2d(
         match station {
             Some(RouteStation::Interior { segment, a }) => {
                 let part = &path[segment];
-                sample.loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement {
-                    element_id: part.element_id,
-                    a,
-                    p: -axle.weight * part.cos,
-                    px: if part.sin != 0.0 { Some(-axle.weight * part.sin) } else { None },
-                    my: None,
-                }));
+                let p = -axle.weight * part.cos;
+                let px = (part.sin != 0.0).then_some(-axle.weight * part.sin);
+                let load = SolverLoad::PointOnElement(SolverPointLoadOnElement {
+                    element_id: part.element_id, a, p, px, my: None,
+                });
+                let force = axle_cut_force([px.unwrap_or(0.0), 0.0, p], elements[&part.element_id].elem_type == "truss");
+                sample.add_interior(load, part.element_id, a, part.reversed, force);
             }
             Some(RouteStation::Joint(index)) => {
                 let face = |segment: &PathSegment, exit: bool| {
@@ -430,11 +470,10 @@ fn sample_2d(
                         element: elem.id,
                         node: if at_end { elem.node_j } else { elem.node_i },
                         at_end,
-                        local_force: [
-                            -axle.weight * segment.sin,
-                            0.0,
-                            if elem.elem_type == "truss" { 0.0 } else { -axle.weight * segment.cos },
-                        ],
+                        local_force: axle_cut_force(
+                            [-axle.weight * segment.sin, 0.0, -axle.weight * segment.cos],
+                            elem.elem_type == "truss",
+                        ),
                     }
                 };
                 sample.add_joint(
@@ -708,32 +747,33 @@ pub fn solve_moving_loads_3d(input: &MovingLoadInput3D) -> Result<MovingLoadEnve
                     solve_3d(&modified_input)
                 }
             },
-            |results, faces, reuse| {
+            |results, limits, reuse| {
                 if !reuse {
                     crate::known_issues::attach(&mut structured_diagnostics, results.structured_diagnostics.clone());
                 }
                 for ef in &results.element_forces {
                     let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) else { continue };
-                    let face = faces.get(&ef.element_id);
-                    if reuse && face.is_none() {
+                    let limit = limits.get(&ef.element_id);
+                    if reuse && limit.is_none() {
                         continue;
                     }
-                    let (lo, hi) = member_diagram_range_3d(ef, "axial", face.map_or([0.0; 2], |f| f.component(0)))?;
+                    let cuts = |axis| limit.map_or_else(MovingForceCuts::default, |limit| limit.component(axis));
+                    let (lo, hi) = member_diagram_range_3d(ef, "axial", cuts(0))?;
                     env.n_max_pos = env.n_max_pos.max(hi);
                     env.n_max_neg = env.n_max_neg.min(lo);
-                    let (lo, hi) = member_diagram_range_3d(ef, "shearY", face.map_or([0.0; 2], |f| f.component(1)))?;
+                    let (lo, hi) = member_diagram_range_3d(ef, "shearY", cuts(1))?;
                     env.vy_max_pos = env.vy_max_pos.max(hi);
                     env.vy_max_neg = env.vy_max_neg.min(lo);
-                    let (lo, hi) = member_diagram_range_3d(ef, "shearZ", face.map_or([0.0; 2], |f| f.component(2)))?;
+                    let (lo, hi) = member_diagram_range_3d(ef, "shearZ", cuts(2))?;
                     env.vz_max_pos = env.vz_max_pos.max(hi);
                     env.vz_max_neg = env.vz_max_neg.min(lo);
-                    let (lo, hi) = member_diagram_range_3d(ef, "momentY", [0.0; 2])?;
+                    let (lo, hi) = member_diagram_range_3d(ef, "momentY", MovingForceCuts::default())?;
                     env.my_max_pos = env.my_max_pos.max(hi);
                     env.my_max_neg = env.my_max_neg.min(lo);
-                    let (lo, hi) = member_diagram_range_3d(ef, "momentZ", [0.0; 2])?;
+                    let (lo, hi) = member_diagram_range_3d(ef, "momentZ", MovingForceCuts::default())?;
                     env.mz_max_pos = env.mz_max_pos.max(hi);
                     env.mz_max_neg = env.mz_max_neg.min(lo);
-                    let (lo, hi) = member_diagram_range_3d(ef, "torsion", [0.0; 2])?;
+                    let (lo, hi) = member_diagram_range_3d(ef, "torsion", MovingForceCuts::default())?;
                     env.mx_max_pos = env.mx_max_pos.max(hi);
                     env.mx_max_neg = env.mx_max_neg.min(lo);
                 }
@@ -806,7 +846,10 @@ fn sample_3d(
     pos: ReferencePosition,
     maps: &MovingLoadMaps3d,
 ) -> Result<MovingSample<SolverLoad3D>, String> {
-    let mut sample = MovingSample::new(input.loads.clone());
+    let mut sample = MovingSample::new(&input.loads, |load| match load {
+        SolverLoad3D::PointOnElement(load) => Some((load.element_id, load.a)),
+        _ => None,
+    });
     let gravity_axis = if gravity == "y" { 1 } else { 2 };
     for axle in &train.axles {
         let station = route_station(path.len(), |index| {
@@ -826,25 +869,23 @@ fn sample_3d(
         match station {
             Some(RouteStation::Interior { segment, a }) => {
                 let part = &path[segment];
-                let [px, py, pz] = local_force(maps.elem_by_id[&part.element_id]);
-                sample.loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
+                let elem = maps.elem_by_id[&part.element_id];
+                let force = local_force(elem);
+                let [px, py, pz] = force;
+                let load = SolverLoad3D::PointOnElement(SolverPointLoad3D {
                     element_id: part.element_id, a, px, py, pz,
-                }));
+                });
+                sample.add_interior(load, part.element_id, a, part.reversed, axle_cut_force(force, elem.elem_type == "truss"));
             }
             Some(RouteStation::Joint(index)) => {
                 let face = |part: &PathSegment3D, exit: bool| {
                     let elem = maps.elem_by_id[&part.element_id];
                     let at_end = exit != part.reversed;
-                    let [px, mut py, mut pz] = local_force(elem);
-                    if elem.elem_type == "truss" {
-                        py = 0.0;
-                        pz = 0.0;
-                    }
                     AxleFace {
                         element: elem.id,
                         node: if at_end { elem.node_j } else { elem.node_i },
                         at_end,
-                        local_force: [px, py, pz],
+                        local_force: axle_cut_force(local_force(elem), elem.elem_type == "truss"),
                     }
                 };
                 sample.add_joint(
@@ -940,9 +981,9 @@ mod diagram_limit_tests {
             "qZI": -1.0, "qZJ": -1.0, "distributedLoadsY": [], "distributedLoadsZ": [],
             "pointLoadsY": [], "pointLoadsZ": [{"a": 10.0, "p": 10.0}]
         })).unwrap();
-        assert_eq!(member_diagram_range_3d(&ef, "shearZ", [0.0; 2]).unwrap(), (-10.0, 0.0));
+        assert_eq!(member_diagram_range_3d(&ef, "shearZ", MovingForceCuts::default()).unwrap(), (-10.0, 0.0));
         ef.point_loads_z[0].a = f64::from_bits(10.0_f64.to_bits() - 1);
-        let range = member_diagram_range_3d(&ef, "shearZ", [0.0; 2]).unwrap();
+        let range = member_diagram_range_3d(&ef, "shearZ", MovingForceCuts::default()).unwrap();
         assert!(range.0 > -10.0 && range.0 < -9.0, "{range:?}");
     }
 }

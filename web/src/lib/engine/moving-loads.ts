@@ -2,14 +2,14 @@
 
 import type { SolverInput, SolverLoad, AnalysisResults, FullEnvelope, ElementEnvelopeDiagram, EnvelopeDiagramData } from './types';
 import { errorText as baseErrorText } from '../utils/error-text';
-import { prepareLoadSession2D, isWasmReady, movingFaceForce, movingSegmentRoundoff } from './wasm-solver';
+import { prepareLoadSession2D, isWasmReady, movingSegmentRoundoff } from './wasm-solver';
 import { analyzeKinematics, type KinematicResult } from './kinematic-2d';
 import { computeDiagramValueAt } from './diagrams';
 import { t } from '../i18n';
 import { withoutSettlement } from './settlement-case';
 import { locateAxle, locateAxlePlacement, checkAxlePath, referenceGrid, referenceStation, type ReferencePosition, type RouteSegment } from './moving-axle-station';
 import { localizeEngineText } from '../i18n/engine-text';
-import { axleFaceForce, MovingSample, type AxleFace, type FaceLoads } from './moving-sample';
+import { axleFaceForce, MovingSample, recoverAxleFace, type AxleFace, type FaceLoads } from './moving-sample';
 
 /** A single axle in a load train */
 export interface Axle {
@@ -402,13 +402,11 @@ class PlanarSweepResults {
         this.faces.set(ef.elementId, ranges);
       }
       for (const end of [0, 1] as const) {
-        for (const [kind, axis, force] of [
-          ['shear', 2, end ? ef.vEnd : ef.vStart],
-          ['axial', 0, end ? ef.nEnd : ef.nStart],
-        ] as const) {
+        for (const [kind, axis] of [['shear', 2], ['axial', 0]] as const) {
           const load = loads[end][axis];
           if (load === 0) continue;
-          const value = movingFaceForce(force, load, end === 1, kind === 'axial');
+          const value = recoverAxleFace(end, load, kind === 'axial',
+            (t, right) => computeDiagramValueAt(kind, t, ef, right));
           const range = ranges[kind][end];
           range.min = Math.min(range.min, value);
           range.max = Math.max(range.max, value);

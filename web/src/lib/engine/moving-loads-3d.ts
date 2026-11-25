@@ -21,8 +21,9 @@ import type { StructuredDiagnostic } from './types';
  * embedded in).
  * A train that is not symmetric also runs the other way, on the mirrored positions.
  */
-import { prepareLoadSession3D, movingFaceForce, movingSegmentRoundoff } from './wasm-solver';
+import { prepareLoadSession3D, movingSegmentRoundoff } from './wasm-solver';
 import { computeLocalAxes3D } from './local-axes-3d';
+import { evaluateDiagramAt } from './diagrams-3d';
 import { criticalForceStations, extractForcesAtStation } from './station-forces';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D } from './types-3d';
 import type { LoadTrain } from './moving-loads';
@@ -31,7 +32,7 @@ import { withoutSettlement } from './settlement-case';
 import { checkAxlePath, locateAxlePlacement, referenceStation, type ReferencePosition, type RouteSegment } from './moving-axle-station';
 // The position cases read the same symmetry and the same reversed train (`vehicles.ts`).
 import { positionPasses, usableStep } from './vehicles';
-import { axleFaceForce, MovingSample, type AxleFace, type FaceLoads } from './moving-sample';
+import { axleFaceForce, MovingSample, recoverAxleFace, type AxleFace, type FaceLoads } from './moving-sample';
 
 export interface PathSegment3D extends RouteSegment {
   elementId: number;
@@ -168,13 +169,14 @@ export function foldPosition(
     }
     if (loads) {
       for (const end of [0, 1] as const) {
-        for (const [axis, component, force] of [
-          [0, 'n', end ? ef.nEnd : ef.nStart],
-          [1, 'vy', end ? ef.vyEnd : ef.vyStart],
-          [2, 'vz', end ? ef.vzEnd : ef.vzStart],
+        for (const [axis, component, kind] of [
+          [0, 'n', 'axial'], [1, 'vy', 'shearY'], [2, 'vz', 'shearZ'],
         ] as const) {
           const load = loads[end][axis];
-          if (load !== 0) include(rec[component], movingFaceForce(force, load, end === 1, component === 'n'), end * ef.length);
+          if (load === 0) continue;
+          const value = recoverAxleFace(end, load, kind === 'axial',
+            (t, right) => evaluateDiagramAt(ef, kind, t, right));
+          include(rec[component], value, end * ef.length);
         }
       }
     }

@@ -662,59 +662,90 @@ fn distant_axle_does_not_snap_an_exact_interior_sample() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2101"]
 fn issue_2101_coincident_interior_axle_has_two_one_sided_shear_limits() {
     use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
 
     let length = 3.0;
     let station = 2.0;
     let weight = 100.0;
-    let train = LoadTrain {
-        name: "coincident interior axle".into(),
-        axles: vec![
-            Axle { offset: 0.0, weight: 1.0 },
-            Axle { offset: station, weight },
-        ],
-    };
-    let mut solver = review_beam(length);
-    let mut fixed = solver.supports["2"].clone();
-    fixed.id = 1;
-    fixed.node_id = 1;
-    solver.supports.insert("1".into(), fixed);
-    solver.loads = vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
-        element_id: 1,
-        a: station,
-        p: weight,
-        px: None,
-        my: None,
-    })];
-    let spatial = embed_2d(&solver, Plane::XZ).unwrap();
-    let planar = solve_moving_loads_2d(&MovingLoadInput {
-        solver,
-        train: train.clone(),
-        step: Some(station),
-        path_element_ids: Some(vec![1]),
-    })
-    .unwrap();
-    let spatial = solve_moving_loads_3d(&MovingLoadInput3D {
-        solver: spatial,
-        train,
-        step: Some(station),
-        path_element_ids: Some(vec![1]),
-        gravity_direction: None,
-    })
-    .unwrap();
-    let p = &planar.elements["1"];
-    let s = &spatial.elements["1"];
-    assert_eq!(planar.num_positions, 3);
-    assert_eq!(spatial.num_positions, 3);
-    assert_force(p.v_max_pos, weight);
-    assert_force(s.vz_max_pos, weight);
-    assert!(
-        (p.v_max_neg + weight).abs() < 1e-9 && (s.vz_max_neg + weight).abs() < 1e-9,
-        "expected {0} in 2D and 3D, got {1} and {2}",
-        -weight,
-        p.v_max_neg,
-        s.vz_max_neg,
-    );
+    for connected_joint in [false, true] {
+        let mut solver = review_beam(length);
+        let mut fixed = solver.supports["2"].clone();
+        fixed.id = 1;
+        fixed.node_id = 1;
+        solver.supports.insert("1".into(), fixed.clone());
+        let mut axles = vec![Axle { offset: 0.0, weight: 1.0 }];
+        let (path, step, a, p) = if connected_joint {
+            solver.nodes.insert("3".into(), SolverNode { id: 3, x: -1.0, z: 0.0 });
+            fixed.id = 3;
+            fixed.node_id = 3;
+            solver.supports.insert("3".into(), fixed);
+            let mut approach = solver.elements["1"].clone();
+            approach.id = 2;
+            approach.node_i = 3;
+            approach.node_j = 1;
+            solver.elements.insert("2".into(), approach);
+            let member = solver.elements.get_mut("1").unwrap();
+            (member.node_i, member.node_j) = (member.node_j, member.node_i);
+            axles.extend([
+                Axle { offset: station, weight: weight * 0.4 },
+                Axle { offset: station, weight: weight * 0.6 },
+            ]);
+            (vec![2, 1], length, length - station, -weight)
+        } else {
+            axles.push(Axle { offset: station, weight });
+            (vec![1], station, station, weight)
+        };
+        solver.loads = vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
+            element_id: 1, a, p, px: None, my: None,
+        })];
+        let train = LoadTrain { name: "coincident interior axle".into(), axles };
+        for constrained in [false, true] {
+            let mut planar_input = solver.clone();
+            if constrained {
+                planar_input.nodes.insert("4".into(), SolverNode { id: 4, x: length + 1.0, z: 0.0 });
+                let mut branch = solver.elements["1"].clone();
+                branch.id = 3;
+                branch.node_i = 2;
+                branch.node_j = 4;
+                planar_input.elements.insert("3".into(), branch);
+            }
+            let mut spatial = embed_2d(&planar_input, Plane::XZ).unwrap();
+            if constrained {
+                let constraint = Constraint::EqualDOF(EqualDOFConstraint {
+                    master_node: 1, slave_node: 2, dofs: vec![0],
+                });
+                planar_input.constraints.push(constraint.clone());
+                spatial.constraints.push(constraint);
+            }
+            let planar = solve_moving_loads_2d(&MovingLoadInput {
+                solver: planar_input,
+                train: train.clone(),
+                step: Some(step),
+                path_element_ids: Some(path.clone()),
+            })
+            .unwrap();
+            let spatial_result = solve_moving_loads_3d(&MovingLoadInput3D {
+                solver: spatial.clone(),
+                train: train.clone(),
+                step: Some(step),
+                path_element_ids: Some(path.clone()),
+                gravity_direction: None,
+            })
+            .unwrap();
+            let p = &planar.elements["1"];
+            let s = &spatial_result.elements["1"];
+            assert_eq!(planar.num_positions, 3);
+            assert_eq!(spatial_result.num_positions, 3);
+            assert_force(p.v_max_pos, weight);
+            assert_force(s.vz_max_pos, weight);
+            assert!(
+                (p.v_max_neg + weight).abs() < 1e-9 && (s.vz_max_neg + weight).abs() < 1e-9,
+                "expected {0} in 2D and 3D, got {1} and {2}",
+                -weight,
+                p.v_max_neg,
+                s.vz_max_neg,
+            );
+        }
+    }
 }

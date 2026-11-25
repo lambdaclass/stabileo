@@ -106,6 +106,19 @@ pub(crate) struct PointAction {
     pub slope: f64,
 }
 
+pub(crate) struct CoincidentAxle {
+    pub station: f64,
+    pub force: [f64; 3],
+    pub moving_after: bool,
+}
+
+#[derive(Default)]
+pub(crate) struct MovingForceCuts<'a> {
+    pub faces: [f64; 2],
+    pub coincident: &'a [CoincidentAxle],
+    pub axis: usize,
+}
+
 #[derive(Clone, Copy)]
 pub(crate) enum Response {
     Force(f64),
@@ -278,7 +291,7 @@ where
         Ok(cuts)
     }
 
-    pub fn interior_range(&self, end: f64, face_loads: [f64; 2]) -> Result<(f64, f64), &'static str> {
+    pub fn interior_range(&self, end: f64, limits: MovingForceCuts<'_>) -> Result<(f64, f64), &'static str> {
         let end_jump = self.points.clone().filter(|p| p.a == self.length).map(|p| p.jump).sum::<f64>();
         let end_limit = end - end_jump;
         if !end_limit.is_finite() {
@@ -298,7 +311,7 @@ where
             hi = hi.max(value);
         }
         if let Response::Force(sign) = self.response {
-            let [start_load, end_load] = face_loads;
+            let [start_load, end_load] = limits.faces;
             if start_load != 0.0 {
                 let interior = self.checked_value(Cut::boundary(0.0, 0.0, true))?;
                 let value = moving_face_force(interior, start_load, false, sign < 0.0)?;
@@ -307,6 +320,17 @@ where
             }
             if end_load != 0.0 {
                 let value = moving_face_force(end_limit, end_load, true, sign < 0.0)?;
+                lo = lo.min(value);
+                hi = hi.max(value);
+            }
+            for axle in limits.coincident {
+                let force = axle.force[limits.axis];
+                if force == 0.0 {
+                    continue;
+                }
+                let cut = Cut::boundary(axle.station / self.length, axle.station, axle.moving_after);
+                let baseline = self.checked_value(cut)?;
+                let value = moving_face_force(baseline, force, !axle.moving_after, sign < 0.0)?;
                 lo = lo.min(value);
                 hi = hi.max(value);
             }

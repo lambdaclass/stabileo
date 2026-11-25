@@ -455,7 +455,7 @@ it('#2101 — a spatial interior axle recovers both axial cuts', async () => {
   }
 });
 
-it.skip('known wrong result: #2101 — native WASM retains the shear between coincident moving and static loads', () => {
+it('#2101 — native WASM retains the shear between coincident moving and static loads', () => {
   const length = 3, station = 2, weight = 100;
   const { plane, space } = reviewSpan(length, 0, true);
   const train = { name: 'coincident interior axle', axles: [{ offset: 0, weight: 1 }, { offset: station, weight }] };
@@ -470,7 +470,7 @@ it.skip('known wrong result: #2101 — native WASM retains the shear between coi
   expect.soft(s.vzMaxNeg).toBeCloseTo(-weight, 9);
 });
 
-it.skip('known wrong result: #2101 — browser axle-face shear excludes opposing endpoint point loads', async () => {
+it('#2101 — browser axle-face shear excludes opposing endpoint point loads', async () => {
   const length = 3, weight = 100, opposing = 40;
   const { plane, space } = reviewSpan(length, 0, true);
   const train = { name: 'one axle', axles: [{ offset: 0, weight }] };
