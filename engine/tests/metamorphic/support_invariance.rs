@@ -200,7 +200,6 @@ fn issue_2195_rotation_preserves_the_shared_rigid_restraint() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2579"]
 fn shared_spatial_plane_requires_a_representable_normal() {
     let data = include_str!("../fixtures/support-invariance.json");
     let fixtures: serde_json::Value = serde_json::from_str(data).unwrap();
@@ -248,7 +247,6 @@ fn shared_supports_with_settlements_still_refuse_in_both_dimensions() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2579"]
 fn shared_planar_support_with_a_rotational_spring_refuses() {
     let mut case = loaded_planar_case();
     let iso = Iso2::rotation(std::f64::consts::FRAC_PI_2);
@@ -265,7 +263,6 @@ fn shared_planar_support_with_a_rotational_spring_refuses() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2579"]
 fn shared_spatial_support_with_a_rotational_spring_refuses() {
     let mut case = spatial_replay_case("1829");
     let iso = Iso3::about_z(0.37);
@@ -282,7 +279,6 @@ fn shared_spatial_support_with_a_rotational_spring_refuses() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2579"]
 fn shared_planar_support_with_an_inclined_restraint_refuses() {
     let mut case = loaded_planar_case();
     let iso = Iso2::rotation(0.37);
@@ -301,7 +297,6 @@ fn shared_planar_support_with_an_inclined_restraint_refuses() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2579"]
 fn shared_spatial_support_with_an_inclined_restraint_refuses() {
     let mut case = spatial_replay_case("1829");
     let iso = Iso3::about_z(0.37);
