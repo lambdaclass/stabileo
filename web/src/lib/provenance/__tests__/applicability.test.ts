@@ -94,6 +94,25 @@ describe('which registered changes concern a model', () => {
     expect(ids(curved)).toContain(entry.id);
   });
 
+  it.fails('covers saved modal and dependent results of pin-ended frames', () => {
+    const entry = RESULT_CHANGES.changes.find(change => change.id === 'modal-massive-translation')!;
+    for (const analysisMode of ['2d', '3d', 'pro']) {
+      const frame = model({
+        analysisMode,
+        nodes: [node(1, 0), node(2, 3, 4)],
+        elements: [member(1, 1, 'frame', { releaseI: { rz: true }, releaseJ: { rz: true } })],
+      });
+      const before = (kind: 'modal' | 'spectral' | 'linear') =>
+        ({ ...stampSolve(kind, null), resultsVersion: entry.resultsVersion - 1 });
+      expect(ids(frame, before('modal')), analysisMode).toContain(entry.id);
+      expect(ids(frame, before('spectral')), analysisMode).toContain(entry.id);
+      const seismic = { ...frame, loadCases: [{ id: 2, type: 'E' }] };
+      expect(ids(seismic, before('linear')), analysisMode).toContain(entry.id);
+      expect(ids(frame, before('linear')), analysisMode).not.toContain(entry.id);
+      expect(ids(frame, stampSolve('modal', null)), analysisMode).not.toContain(entry.id);
+    }
+  });
+
   it('#2007: scopes physical mass range changes to modal constraints or support rotations', () => {
     const entry = RESULT_CHANGES.changes.find(c => c.id === 'modal-physical-mass-range')!;
     for (const analysisMode of ['2d', 'pro']) {

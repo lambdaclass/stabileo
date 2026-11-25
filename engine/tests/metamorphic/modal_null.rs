@@ -1,6 +1,6 @@
 use crate::{ana3, case::Case3, checks2::hash, checks3::rotation_for};
 use dedaliano_engine::certify::modal::{certify_modal_2d, certify_modal_3d};
-use dedaliano_engine::metamorphic::{relabel::Relabel, Rng};
+use dedaliano_engine::metamorphic::{planes::{embed_2d, Plane}, relabel::Relabel, Rng};
 use dedaliano_engine::solver::modal::{solve_modal_2d, solve_modal_3d};
 use dedaliano_engine::types::{SolverInput, SolverInput3D};
 use serde_json::{json, Value};
@@ -311,4 +311,101 @@ fn spatial_independent_spring_restores_modes_on_the_issue_model() {
         serde_json::to_value(raw).unwrap(),
         serde_json::to_value(certified.results).unwrap()
     );
+}
+
+fn check_2d_review_case(input: &SolverInput, expected: Value) {
+    let densities = HashMap::new();
+    for api in ["solve_modal_2d", "certify_modal_2d"] {
+        record_case(api, 1, input, &densities, expected.clone());
+    }
+    let raw = solve_modal_2d(input, &densities, 1).map(|r| json!(r));
+    let certified = certify_modal_2d(input, &densities, 1).map(|r| json!(r.results));
+    check_review_case(raw, &expected);
+    check_review_case(certified, &expected);
+}
+
+fn check_3d_review_case(input: &SolverInput3D, expected: Value) {
+    let densities = HashMap::new();
+    for api in ["solve_modal_3d", "certify_modal_3d"] {
+        record_case(api, 1, input, &densities, expected.clone());
+    }
+    let raw = solve_modal_3d(input, &densities, 1).map(|r| json!(r));
+    let certified = certify_modal_3d(input, &densities, 1).map(|r| json!(r.results));
+    check_review_case(raw, &expected);
+    check_review_case(certified, &expected);
+}
+
+fn check_review_case(result: Result<Value, String>, expected: &Value) {
+    if let Some(refusal) = expected["refusal"].as_str() {
+        let error = result.unwrap_err();
+        assert!(error.starts_with(refusal), "{error}");
+        if let Some(detail) = expected["detail"].as_str() {
+            assert!(error.contains(detail), "{error}");
+        }
+    } else {
+        let result = result.unwrap();
+        assert_eq!(result["modes"].as_array().unwrap().len(), 1);
+        assert_eq!(result["nullModes"].as_array().map_or(0, Vec::len), 0);
+        assert!(result["modes"][0]["omega"].as_f64().unwrap() > 0.0);
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2585"]
+fn review_skewed_weak_spring_is_distinct_from_a_null_translation() {
+    for padding in [0, 32] {
+        for stiffness in [1.0, 4.0, 0.0] {
+            let mut input = planar(padding, 1.0, stiffness, true);
+            let tip = input.nodes.get_mut("2").unwrap();
+            tip.x = 1.0;
+            tip.z = 1.0;
+            input.materials.get_mut("1").unwrap().e = 1e14 * 2.0_f64.sqrt() / 1000.0;
+            let expected = match stiffness {
+                0.0 => json!({"refusal":PHYSICAL_NULL}),
+                1.0 => json!({"refusal":"MODAL-MECHANISM: Modal analysis: the structure is a mechanism"}),
+                _ => json!({"modes":1,"nulls":0}),
+            };
+            check_2d_review_case(&input, expected.clone());
+            if padding == 0 {
+                let spatial = embed_2d(&input, Plane::ALL[0]).unwrap();
+                check_3d_review_case(&spatial, expected);
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2585"]
+fn review_one_detected_mechanism_reports_its_dominant_component() {
+    let expected =
+        json!({"refusal":PHYSICAL_NULL,"detail":"has a mechanism at node 2 (dominant component: ux)"});
+    for padding in [0, 32] {
+        for pin_ended in [false, true] {
+            let mut input = planar(padding, 1.0, 0.0, true);
+            if pin_ended {
+                let element = input.elements.get_mut("1").unwrap();
+                element.elem_type = "frame".into();
+                element.hinge_start = true;
+                element.hinge_end = true;
+            }
+            check_2d_review_case(&input, expected.clone());
+            if padding == 0 {
+                let spatial = embed_2d(&input, Plane::ALL[0]).unwrap();
+                check_3d_review_case(&spatial, expected.clone());
+            }
+        }
+    }
+    let spatial: SolverInput3D = serde_json::from_value(json!({
+        "nodes": {
+            "1":{"id":1,"x":0.0,"y":0.0,"z":0.0},
+            "2":{"id":2,"x":0.0,"y":1.0,"z":0.0}
+        },
+        "elements":{"1":{"id":1,"type":"truss","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1}},
+        "materials":{"1":{"id":1,"e":1.0,"nu":0.3}},
+        "sections":{"1":{"id":1,"a":1.0,"iy":1.0,"iz":1.0,"j":1.0}},
+        "supports":{"1":{"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}},
+        "masses":{"nodal":[{"nodeId":2,"mass":1.0}]},
+        "loads":[]
+    })).unwrap();
+    check_3d_review_case(&spatial, expected);
 }

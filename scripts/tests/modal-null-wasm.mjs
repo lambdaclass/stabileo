@@ -12,6 +12,7 @@ for (const [index, { api, count, input, expected }] of cases.entries()) {
       assert.throws(solve, error => {
         const diagnostic = String(error);
         return diagnostic.includes(expected.refusal)
+          && (expected.detail === undefined || diagnostic.includes(expected.detail))
           && (expected.node === undefined || diagnostic.includes(`moves node ${expected.node} along u`));
       });
       return;

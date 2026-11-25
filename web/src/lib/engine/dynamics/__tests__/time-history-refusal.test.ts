@@ -61,6 +61,18 @@ describe('modalMechanismRefusal', () => {
     }
   });
 
+  it.fails('identifies a detected mechanism by its dominant component', () => {
+    const text = 'MODAL-MECHANISM: Modal analysis: the constrained physical stiffness has a mechanism at node 7 (dominant component: ux) with inertia and no resolvable restoring stiffness. No modes are returned.';
+    const message = modalMechanismRefusal(text);
+    expect(message).toEqual({ key: 'advanced.modalTranslationMechanism', params: { node: 7, dof: 'ux' } });
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'hu', 'tr', 'zh']) {
+      const translated = teAt(message!, locale);
+      expect(translated, locale).toContain('7');
+      expect(translated, locale).toContain('ux');
+      expect(translated, locale).not.toContain('{');
+    }
+  });
+
   it('leaves every other engine error alone', () => {
     expect(modalMechanismRefusal('Eigenvalue decomposition failed')).toBeNull();
   });
