@@ -1843,3 +1843,32 @@ it('#2586 continues a supported gable post through subdivision', () => {
     });
   }
 });
+
+it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586')('#2586 recognizes a supported gable with a horizontal eave tie', () => {
+  for (const rotated of [false, true]) {
+    const { model } = gablePlan(false, rotated, false, 0);
+    const [left, right] = [...model.nodes.values()].filter(node => node.z === 2);
+    const column = model.elements.get(1)!;
+    const tie = model.elements.size + 1;
+    model.elements.set(tie, { ...column, id: tie, nodeI: left!.id, nodeJ: right!.id });
+    const options = request(model, { directions: { x: rotated, y: !rotated } }, { generateCombinations: true });
+    const plan = buildLoadPlan(options);
+    const sink = seismicSink();
+    INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
+    expect.soft(plan.outcome).toBe('READY');
+    expect.soft(plan.seismicModel!.levels.map(level => level.elevation)).toEqual([0, 2]);
+    expect.soft(sink.nodal).toEqual([]);
+    expect.soft(sink.distributed).toHaveLength(2);
+    expect.soft(plan.factors.baseShear?.value).toBeCloseTo(4 * Math.sqrt(5), 10);
+    const ambiguous = tie + 1;
+    model.elements.set(ambiguous, { ...column, id: ambiguous });
+    expect.soft(buildLoadPlan(options)).toMatchObject({
+      outcome: 'BLOCKED', blockedKeys: [{ key: 'loadPlan.blocked.seismicAmbiguousStory' }],
+    });
+    model.elements.delete(ambiguous);
+    model.elements.delete(column.id);
+    expect.soft(buildLoadPlan(options)).toMatchObject({
+      outcome: 'BLOCKED', blockedKeys: [{ key: 'loadPlan.blocked.seismicAmbiguousStory' }],
+    });
+  }
+});

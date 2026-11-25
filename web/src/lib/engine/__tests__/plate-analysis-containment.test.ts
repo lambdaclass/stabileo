@@ -521,3 +521,60 @@ it('transfers the slab load across a shared wall trace with wall cells above and
   expect(result.reactions.map(reaction => reaction.nodeId).sort((a, b) => a - b)).toEqual([i, j]);
   for (const reaction of result.reactions) expect(reaction.fz).toBeCloseTo(8, 8);
 });
+
+function skewWallSlab() {
+  const at = ([x, y, z]: number[]) => modelStore.addNode(x!, y!, z!);
+  const translate = (p: number[], v: number[]) => p.map((x, i) => x + v[i]!);
+  const a = [0.3, 11.78, 0.32], span = [4.11, 0.11, 1.01], width = [-0.32, 2.24, 0.21], drop = [0.15, -0.12, -2.21];
+  const b = translate(a, span);
+  const left = at(a), right = at(b);
+  const i = at(translate(a, drop)), j = at(translate(b, drop));
+  const slab = modelStore.addQuad([at(translate(a, width)), at(translate(b, width)), right, left], 1, 0.15);
+  modelStore.addSurfaceLoad3D(slab, 1);
+  modelStore.addQuad([i, j, right, left], 1, 0.15);
+  modelStore.addSupport(i, 'fixed3d');
+  modelStore.addSupport(j, 'fixed3d');
+  const area = Math.sqrt(span.reduce((s, x) => s + x * x, 0) * width.reduce((s, x) => s + x * x, 0)
+    - span.reduce((s, x, k) => s + x * width[k]!, 0) ** 2);
+  return { area, bases: [i, j] };
+}
+
+function cornerWall(y: number) {
+  const [corner] = loadedSlab();
+  const a = modelStore.addNode(0, y, -1), b = modelStore.addNode(-2, y + 2, -1);
+  const c = modelStore.addNode(-2, y + 2, 1), d = modelStore.addNode(0, y, 1);
+  modelStore.addSupport(a, 'fixed3d');
+  modelStore.addSupport(b, 'fixed3d');
+  modelStore.addQuad([a, b, c, d], 1, 0.15);
+  modelStore.addElement(corner!, a);
+}
+
+it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586').each([['skew shared edge', skewWallSlab], ['slab corner', () => { cornerWall(0); }]] as const)(
+  '#2586 accepts wall contact at a %s',
+  async (_, setup) => {
+    for (const [entry, solve] of entries) {
+      modelStore.clear();
+      setup();
+      const result = await solve();
+      expect.soft(result, entry).toBeTypeOf('object');
+      expect.soft(result, entry).not.toBeNull();
+    }
+    modelStore.clear();
+    const expected = setup();
+    expect(() => modelStore.buildSolverInput3D()).not.toThrow();
+    expect(modelStore.singleSolveInput3D(false, false, true)).not.toBeNull();
+    expect(await runGlobalSolve({ directBase: true })).toMatchObject({ ok: true });
+    const result = resultsStore.results3D;
+    if (!expected) {
+      expectLoadedSlab(result);
+      return;
+    }
+    expect(result?.reactions.map(reaction => reaction.nodeId).sort((a, b) => a - b)).toEqual(expected.bases);
+    expect(result?.reactions.reduce((sum, reaction) => sum + reaction.fz, 0)).toBeCloseTo(expected.area, 8);
+  },
+);
+
+it('#2586 still refuses a wall edge crossing the slab strictly inside the face', () => {
+  cornerWall(2 * PLATE_EDGE_TOL);
+  expect(modelStore.solve3D(false, false, true)).toMatch(/wall.*slab/i);
+});
