@@ -1,0 +1,158 @@
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { deflateSync, inflateSync } from 'fflate';
+import LZString from 'lz-string';
+import { tp } from '../../i18n';
+import { initSolver } from '../../engine/wasm-solver';
+import { compressSnapshot, loadFromShareLink, loadFromURLHash } from '../../utils/url-sharing';
+import { acceptAutosavePayload, acceptSessionTabs, buildProjectFile, deserializeProject } from '../file';
+import { modelStore } from '../model.svelte';
+import { uiStore } from '../ui.svelte';
+import '../index';
+
+type Project = ReturnType<typeof buildProjectFile>;
+const routes = ['file', 'autosave', 'session', 'v1 share', 'v2 share', 'v2 embed', 'data hash', 'embed hash'] as const;
+const knownWrong = it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1');
+
+beforeEach(() => {
+  vi.stubGlobal('location', { hash: '', pathname: '/', search: '' });
+  vi.stubGlobal('history', { replaceState: vi.fn() });
+  vi.stubGlobal('window', { dispatchEvent: vi.fn() });
+  uiStore.analysisMode = '2d';
+  uiStore.drawPlane2D = 'xy';
+  uiStore.includeSelfWeight = false;
+  modelStore.clear();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  uiStore.drawPlane2D = 'xy';
+});
+
+function frame(mode: '2d' | 'pro') {
+  uiStore.analysisMode = mode;
+  const root = modelStore.addNode(0, 0);
+  const tip = modelStore.addNode(5, 0);
+  modelStore.addElement(root, tip, 'frame');
+  modelStore.addSupport(root, mode === '2d' ? 'fixed' : 'fixed3d');
+  const force = 10;
+  if (mode === '2d') modelStore.addNodalLoad(tip, force, 0);
+  else modelStore.addNodalLoad3D(tip, force, 0, 0, 0, 0, 0);
+  const connector = modelStore.addConnector({ nodeI: root, nodeJ: tip, kAxial: 1000 });
+  const second = modelStore.addConnector({ nodeI: root, nodeJ: tip, kAxial: 2000 });
+  return { root, tip, force, connector, second, file: buildProjectFile() };
+}
+
+function duplicate(file: Project): Project {
+  const [first, second] = file.snapshot.connectors!;
+  return { ...file, snapshot: { ...file.snapshot, connectors: [first, [first[0], { ...second[1], id: first[0] }]] } };
+}
+
+function sharePayload(file: Project, route: typeof routes[number]) {
+  const { nodes, materials, sections, elements, supports, loads, connectors, nextId, drawPlane2D } = file.snapshot;
+  if (route === 'v1 share') {
+    return LZString.compressToEncodedURIComponent(JSON.stringify({
+      analysisMode: file.analysisMode, nodes, materials, sections, elements, supports, loads, connectors, nextId, drawPlane2D,
+    }));
+  }
+  const compressed = compressSnapshot({ ...file.snapshot, drawPlane2D: undefined, analysisMode: file.analysisMode });
+  const compact = JSON.parse(new TextDecoder().decode(inflateSync(Buffer.from(compressed.slice(2), 'base64url'))));
+  compact.dp = drawPlane2D;
+  return '2.' + Buffer.from(deflateSync(new TextEncoder().encode(JSON.stringify(compact)))).toString('base64url');
+}
+
+function open(file: Project, route: typeof routes[number]) {
+  const report = vi.fn();
+  const toast = vi.spyOn(uiStore, 'toast');
+  let opened: boolean;
+  if (route === 'file') {
+    opened = deserializeProject(JSON.stringify(file));
+  } else if (route === 'autosave') {
+    opened = acceptAutosavePayload(file, report) !== null;
+  } else if (route === 'session') {
+    const verdict = acceptSessionTabs([{
+      id: 'stored', name: file.name, analysisMode: file.analysisMode, modelSnapshot: file.snapshot,
+      undoStack: [], redoStack: [],
+    }]);
+    opened = verdict.tabs.length > 0;
+    report(verdict.dropped[0]?.reason);
+  } else {
+    const kind = route === 'v2 embed' || route === 'embed hash' ? 'embed' : 'data';
+    const hash = `#${kind}=${sharePayload(file, route)}`;
+    if (route.endsWith('hash')) {
+      location.hash = hash;
+      opened = loadFromURLHash() !== null;
+    } else {
+      opened = loadFromShareLink(hash);
+    }
+  }
+  return { opened, messages: [...report.mock.calls, ...toast.mock.calls].map(([message]) => message) };
+}
+
+knownWrong.each(routes)('known wrong result: #2588 — %s refuses duplicate connector keys', route => {
+  const { file, connector } = frame('pro');
+  const before = modelStore.snapshot();
+  const result = open(duplicate(file), route);
+  expect.soft(result.opened).toBe(false);
+  expect.soft(result.messages).toContain(tp('svc.engine.invalidInputField', { path: `connectors.${connector}` }));
+  expect(modelStore.snapshot()).toEqual(before);
+});
+
+knownWrong.each(['2d', 'pro'] as const)('known wrong result: #2588 — %s restore refuses duplicate connector keys before install', mode => {
+  const { file, connector } = frame(mode);
+  const before = modelStore.snapshot();
+  const beforeInstall = vi.fn();
+  expect.soft(() => modelStore.restore(duplicate(file).snapshot, beforeInstall)).toThrow(
+    tp('svc.engine.invalidInputField', { path: `connectors.${connector}` }),
+  );
+  expect.soft(beforeInstall).not.toHaveBeenCalled();
+  expect(modelStore.snapshot()).toEqual(before);
+});
+
+knownWrong.each(routes)('known wrong result: #2588 — %s refuses an invalid saved plane', route => {
+  const { file } = frame('2d');
+  uiStore.analysisMode = 'pro';
+  uiStore.drawPlane2D = 'yz';
+  const before = modelStore.snapshot();
+  const invalid = { ...file, snapshot: { ...file.snapshot, drawPlane2D: 'yx' } } as unknown as Project;
+  const result = open(invalid, route);
+  expect.soft(result.opened).toBe(false);
+  expect.soft(result.messages).toContain(tp('svc.engine.invalidInputField', { path: 'drawPlane2D' }));
+  expect.soft(uiStore.analysisMode).toBe('pro');
+  expect.soft(uiStore.drawPlane2D).toBe('yz');
+  expect(modelStore.snapshot()).toEqual(before);
+});
+
+knownWrong.each([null, '', false, 0])('known wrong result: #2588 — a supplied plane of %j is refused', drawPlane2D => {
+  const { file } = frame('pro');
+  const invalid = { ...file, snapshot: { ...file.snapshot, drawPlane2D } } as unknown as Project;
+  for (const route of ['file', 'v2 share'] as const) {
+    const result = open(invalid, route);
+    expect.soft(result.opened).toBe(false);
+    expect.soft(result.messages).toContain(tp('svc.engine.invalidInputField', { path: 'drawPlane2D' }));
+  }
+});
+
+it.each(['2d', 'pro'] as const)('solves a restored %s project with distinct connector keys', async mode => {
+  await initSolver();
+  const { file, root, tip, force, connector, second } = frame(mode);
+  const solve = () => mode === '2d' ? modelStore.solve(false, 'xy') : modelStore.solve3D(false, false, true);
+  const reference = solve();
+  expect(reference).toMatchObject({ displacements: expect.arrayContaining([{ nodeId: tip, ux: expect.any(Number) }].map(expect.objectContaining)) });
+  if (!reference || typeof reference === 'string') throw new Error(String(reference));
+  const reaction = reference.reactions.find(r => r.nodeId === root);
+  expect(reaction && ('fx' in reaction ? reaction.fx : reaction.rx)).toBeCloseTo(-force);
+  expect(open(file, 'file').opened).toBe(true);
+  expect([...modelStore.connectors.keys()]).toEqual([connector, second]);
+  expect(solve()).toEqual(reference);
+});
+
+it.each(['xy', 'xz', 'yz', undefined] as const)('opens the saved plane %s through file and share', drawPlane2D => {
+  const { file } = frame('2d');
+  const project = { ...file, snapshot: { ...file.snapshot, drawPlane2D } };
+  for (const route of ['file', 'v1 share', 'v2 share'] as const) {
+    uiStore.drawPlane2D = 'yz';
+    expect(open(project, route).opened).toBe(true);
+    expect(uiStore.drawPlane2D).toBe(drawPlane2D ?? 'xy');
+  }
+});
