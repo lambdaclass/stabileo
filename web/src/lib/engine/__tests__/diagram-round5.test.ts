@@ -644,3 +644,37 @@ it('known wrong result: #2226 accepts the transferable moment station of the tub
     expect.soft(computeDiagramValueAt3DWasm('momentY', t, ef)).toBeCloseTo(moment, 15);
   }
 });
+
+const preparedActionsTest = process.env.RUN_KNOWN_WRONG === '2226' ? it : it.skip;
+
+preparedActionsTest('known wrong result: #2226 prepared planar and spatial curves retain their original actions at cuts', () => {
+  const span = 4;
+  const [plane, space] = cantilevers(span);
+  const planar = [solve(plane), solvePDelta(plane).results];
+  const spatial = [solve3D(space), solvePDelta3D(space).results];
+  const verify = (prepare: () => (t: number) => number, load: { a: number; qI: number; qJ: number }) => {
+    const evaluate = prepare();
+    expect(evaluate(0.25)).toBe(2);
+    Object.assign(load, { qI: -4, qJ: -4 });
+    expect.soft(evaluate(0.25)).toBe(2);
+    expect.soft(evaluate(1)).toBe(-4);
+    const current = prepare();
+    expect.soft(current(0.25)).toBe(0);
+    expect.soft(current(1)).toBe(-12);
+    load.a = 2;
+    expect.soft(current(0.25)).toBe(0);
+    expect.soft(current(1)).toBe(-12);
+    expect.soft(prepare()(0.25)).toBe(4);
+    expect.soft(prepare()(1)).toBe(-4);
+  };
+  for (const { elementForces: [ef] } of planar) {
+    const load = { a: 0, b: span, qI: -2, qJ: -2 };
+    Object.assign(ef!, { vStart: 4, distributedLoads: [load] });
+    verify(() => prepareDiagramValueAt('shear', ef!), load);
+  }
+  for (const { elementForces: [ef] } of spatial) {
+    const load = { a: 0, b: span, qI: -2, qJ: -2 };
+    Object.assign(ef!, { vzStart: 4, distributedLoadsZ: [load] });
+    verify(() => prepareDiagramEvaluator3D(ef!, 'shearZ'), load);
+  }
+});

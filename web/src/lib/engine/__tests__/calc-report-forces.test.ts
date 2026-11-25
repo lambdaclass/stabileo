@@ -274,3 +274,33 @@ it('known wrong result: #2226 uses inward endpoint faces for planar and spatial 
     }
   }
 });
+
+const envelopeEndsTest = process.env.RUN_KNOWN_WRONG === '2226' ? it : it.skip;
+
+envelopeEndsTest('known wrong result: #2226 reads planar envelope end cells from the same inward faces as the peak', () => {
+  const length = 4;
+  for (const [atI, atJ] of [[20, 0], [0, -20], [20, -20], [0, 0]] as const) {
+    const planar = r2D(ef2D({
+      length, vStart: 4 - atI, vEnd: 8 + atJ,
+      pointLoads: [{ a: 0, p: atI }, { a: length, p: atJ }].filter(load => load.p !== 0),
+      distributedLoads: [{ a: 0, b: length, qI: 1, qJ: 1 }],
+    }));
+    const envelope2D = computeEnvelope([planar])!;
+    if (atJ !== 0) {
+      const diagram = envelope2D.shear.elements[0]!;
+      diagram.jumpCuts ??= [];
+      diagram.jumpCuts.push({ index: diagram.tPositions.length - 1, distance: length });
+      diagram.tPositions.push(1);
+      diagram.posValues.push(0);
+      diagram.negValues.push(8 + atJ);
+    }
+    const legacy = structuredClone(envelope2D);
+    delete legacy.shear.elements[0]!.jumpCuts;
+    for (const envelope of [envelope2D, legacy]) {
+      const [row] = rows(report('shear', {
+        provenance: { kind: 'envelope' }, results2D: envelope.maxAbsResults, envelope2D: envelope,
+      }));
+      expect.soft(row?.slice(1).map(num), `I action ${atI}, J action ${atJ}`).toEqual([4, 8, 8, length]);
+    }
+  }
+});
