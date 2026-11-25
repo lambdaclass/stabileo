@@ -1,5 +1,7 @@
 mod frame;
 mod truss;
+#[cfg(feature = "experimental-nonlinear")]
+pub mod total_lagrangian_truss;
 mod fef;
 mod transform;
 pub mod cable;
