@@ -4,7 +4,7 @@ import type { AnalysisResults3D } from '../../engine/types-3d';
 import { historyStore, modelStore, uiStore } from '..';
 import { plateLoops } from '../../model/physical/plate';
 import {
-  addPlateLoad, applyPlateMeshes, applyPlateMeshesAsync, clearPlateMesh, createPlate, meshBeforeAnalysis, planPlateMesh, plateStatus, setPlateMeshSpec,
+  addPlateLoad, applyPlateMeshes, clearPlateMesh, createPlate, meshBeforeAnalysis, planPlateMesh, plateStatus, setPlateMeshSpec,
   preparePlatesForAnalysis,
 } from '../physical-plates';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
@@ -142,7 +142,7 @@ describe('remeshing adjacent plates with boundary members', () => {
   it('can release imposed spacing after clearing a neighbor', () => {
     const { ids } = build(2, 1);
     mesh(ids);
-    expect(mesh([ids[0]!], 1).cells).toBe(32);
+    expect(mesh([ids[0]!], 1).cells).toBe(48);
     clearPlateMesh(ids[1]!);
     expect(planPlateMesh(ids[0]!)!.cells).toBe(24);
     expect(planPlateMesh(ids[0]!)!.cells).toBe(24);
@@ -182,20 +182,6 @@ describe('remeshing adjacent plates with boundary members', () => {
     const add = vi.spyOn(modelStore, 'addQuad').mockImplementationOnce(() => { throw new Error('mesh application failed'); });
     try { expect(() => applyPlateMeshes(plans)).toThrow('mesh application failed'); }
     finally { add.mockRestore(); }
-    expect(modelStore.snapshot()).toEqual(before);
-  });
-
-  it('restores the model when a later asynchronous slice throws', async () => {
-    const { ids } = build(2, 1);
-    mesh(ids);
-    const plans = ids.map(id => planPlateMesh(id, { size: 1 })!);
-    const before = modelStore.snapshot();
-    const add = vi.spyOn(modelStore, 'addQuad');
-    try {
-      await expect(applyPlateMeshesAsync(plans, done => {
-        if (done === 1) add.mockImplementationOnce(() => { throw new Error('later mesh failed'); });
-      }, 0)).rejects.toThrow('later mesh failed');
-    } finally { add.mockRestore(); }
     expect(modelStore.snapshot()).toEqual(before);
   });
 
@@ -310,10 +296,27 @@ describe('remeshing adjacent plates with boundary members', () => {
     mesh([ids[0]!], 1);
     expectConnected(ids);
     for (const id of ids) expect(owned(id).every((n) => shellNodes(id).has(n))).toBe(true);
+    // Neighbouring fine meshes can still require all of the first plate's edge stations.
+    // Coarsening the whole batch releases those stations and unused interior nodes.
+    mesh(ids, 1);
+    expectConnected(ids);
     expect(loops[0]!.owned.some((n) => !modelStore.nodes.has(n))).toBe(true);
     for (const id of ids) clearPlateMesh(id);
     expect(modelStore.quads.size).toBe(0);
     expect(ids.map(owned)).toEqual(ids.map(() => []));
+  });
+
+  it('rolls back a batch when two initially empty plates occupy the same region', () => {
+    const { ids } = build(1);
+    const outline = plateLoops(modelStore.model.groups.get(ids[0]!)!).outer;
+    const other = createPlate({ outline, materialId: 1, thickness: 0.15 });
+    expect('id' in other).toBe(true);
+    if (!('id' in other)) throw new Error(JSON.stringify(other));
+    const plans = [ids[0]!, other.id].map(id => planPlateMesh(id)!);
+    expect(plans.every(p => p.mesh)).toBe(true);
+    const before = modelStore.snapshot();
+    expect(applyPlateMeshes(plans)).toMatchObject({ plates: 0, cells: 0, refused: [{ id: other.id, reason: 'occupied' }] });
+    expect(modelStore.snapshot()).toEqual(before);
   });
 
   it('leaves the existing mesh intact when a replacement exceeds the cell budget', () => {
@@ -341,7 +344,7 @@ describe('remeshing adjacent plates with boundary members', () => {
     }
   });
 
-  it.each([false, true])('refines a one-cell interface together with its neighbor, stale=%s', (stale) => {
+  it.each([false, true])('refuses a one-cell replacement that disconnects its neighbor, stale=%s', (stale) => {
     const nodes = [[0, 0], [2, 0], [4, 0], [0, 2], [2, 2], [4, 2]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
     const ids = [[0, 1, 4, 3], [1, 2, 5, 4]].map(indices => {
       const p = createPlate({ outline: indices.map(i => nodes[i]!), materialId: 1, thickness: 0.15,
@@ -354,12 +357,14 @@ describe('remeshing adjacent plates with boundary members', () => {
       setPlateMeshSpec([ids[1]!], { size: 3 });
       expect(plateStatus(ids[1]!)).toBe('stale');
     }
+    const before = modelStore.snapshot();
     const result = applyPlateMeshes([planPlateMesh(ids[0]!, { size: 1 })!]);
-    expect(result).toMatchObject({ plates: 2, refused: [] });
+    expect(result).toMatchObject({ plates: 0, refused: [{ id: ids[1], reason: 'cannotMesh' }] });
+    expect(modelStore.snapshot()).toEqual(before);
     const edge = (id: number) => [...shellNodes(id)].filter(n => modelStore.nodes.get(n)!.x === 2).sort((a, b) => a - b);
     expect(edge(ids[0]!)).toEqual(edge(ids[1]!));
-    expect(edge(ids[0]!)).toHaveLength(3);
-    expect(ids.map(plateStatus)).toEqual(['current', 'current']);
+    expect(edge(ids[0]!)).toHaveLength(2);
+    expect(ids.map(plateStatus)).toEqual(['current', stale ? 'stale' : 'current']);
   });
 
   it('allows an isolated plate to coarsen without retaining its old boundary spacing', () => {
@@ -392,7 +397,7 @@ describe('remeshing adjacent plates with boundary members', () => {
   it('releases the shared-edge spacing after the neighboring mesh is cleared', () => {
     const { ids } = build(2, 1);
     mesh(ids);
-    expect(mesh([ids[0]!], 1).cells).toBe(32);
+    expect(mesh([ids[0]!], 1).cells).toBe(48);
     clearPlateMesh(ids[1]!);
     expect(mesh([ids[0]!], 1).cells).toBe(24);
     expect(plateStatus(ids[0]!)).toBe('current');

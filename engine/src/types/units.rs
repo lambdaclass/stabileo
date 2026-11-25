@@ -481,6 +481,11 @@ macro_rules! quantity {
         #[repr(transparent)]
         #[serde(transparent)]
         pub struct $name(f64);
+        impl super::numeric::Numeric for $name {
+            fn is_finite(&self) -> bool {
+                self.0.is_finite()
+            }
+        }
         impl $name {
             #[inline]
             pub const fn $new(value: f64) -> Self {
@@ -615,11 +620,15 @@ quotient!(FlexuralRigidity, Length => Moment);
 /// records' names, so serde reports malformed input with the same text; renaming one changes it.
 mod wire {
     use super::*;
+    use crate::types::numeric;
     #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct SolverMaterial {
+        #[serde(deserialize_with = "numeric::id::required")]
         pub id: usize,
+        #[serde(deserialize_with = "numeric::e::required")]
         pub e: ModulusMPa,
+        #[serde(deserialize_with = "numeric::nu::required")]
         pub nu: Ratio,
     }
 
@@ -657,15 +666,6 @@ mod wire {
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
-    pub struct SolverNode {
-        pub id: usize,
-        pub x: Length,
-        #[serde(rename = "z", alias = "y")]
-        pub z: Length,
-    }
-
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
     pub struct SolverNode3D {
         pub id: usize,
         pub x: Length,
@@ -675,89 +675,80 @@ mod wire {
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
-    pub struct SolverNodalLoad {
-        pub node_id: usize,
-        pub fx: Force,
-        #[serde(rename = "fz", alias = "fy")]
-        pub fz: Force,
-        #[serde(rename = "my", alias = "mz")]
-        pub my: Moment,
-    }
-
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct SolverPointLoadOnElement {
-        pub element_id: usize,
-        pub a: Length,
-        pub p: Force,
-        #[serde(default)]
-        pub px: Option<Force>,
-        #[serde(default, rename = "my", alias = "mz")]
-        pub my: Option<Moment>,
-    }
-
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
     pub struct SolverNodalLoad3D {
+        #[serde(deserialize_with = "numeric::node_id::required")]
         pub node_id: usize,
+        #[serde(deserialize_with = "numeric::fx::required")]
         pub fx: Force,
+        #[serde(deserialize_with = "numeric::fy::required")]
         pub fy: Force,
+        #[serde(deserialize_with = "numeric::fz::required")]
         pub fz: Force,
+        #[serde(deserialize_with = "numeric::mx::required")]
         pub mx: Moment,
+        #[serde(deserialize_with = "numeric::my::required")]
         pub my: Moment,
+        #[serde(deserialize_with = "numeric::mz::required")]
         pub mz: Moment,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::bw::optional", skip_serializing_if = "Option::is_none")]
         pub bw: Option<Bimoment>,
     }
 
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct SolverPointLoad3D {
-        pub element_id: usize,
-        pub a: Length,
-        #[serde(default)]
-        pub px: Force,
-        pub py: Force,
-        pub pz: Force,
-    }
+    pub type SolverPointLoad3D = super::super::SolverPointLoad3D<Length, Force>;
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct SolverDistributedLoad {
+        #[serde(deserialize_with = "numeric::element_id::required")]
         pub element_id: usize,
         #[serde(rename = "qI")]
+        #[serde(deserialize_with = "numeric::q_i::required")]
         pub q_i: LineLoad,
         #[serde(rename = "qJ")]
+        #[serde(deserialize_with = "numeric::q_j::required")]
         pub q_j: LineLoad,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::a::optional", skip_serializing_if = "Option::is_none")]
         pub a: Option<Length>,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::b::optional", skip_serializing_if = "Option::is_none")]
         pub b: Option<Length>,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct SolverAxialDistributedLoad {
+        #[serde(deserialize_with = "numeric::element_id::required")]
         pub element_id: usize,
         #[serde(rename = "qI")]
+        #[serde(deserialize_with = "numeric::q_i::required")]
         pub q_i: LineLoad,
         #[serde(rename = "qJ")]
+        #[serde(deserialize_with = "numeric::q_j::required")]
         pub q_j: LineLoad,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::a::optional", skip_serializing_if = "Option::is_none")]
         pub a: Option<Length>,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::b::optional", skip_serializing_if = "Option::is_none")]
         pub b: Option<Length>,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct SolverThermalLoad {
+        #[serde(deserialize_with = "numeric::element_id::required")]
         pub element_id: usize,
+        #[serde(deserialize_with = "numeric::dt_uniform::required")]
         pub dt_uniform: TemperatureDifference,
+        #[serde(deserialize_with = "numeric::dt_gradient::required")]
         pub dt_gradient: TemperatureDifference,
         #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(deserialize_with = "numeric::alpha::optional")]
         pub alpha: Option<ThermalExpansion>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(deserialize_with = "numeric::depth::optional")]
         pub depth: Option<Length>,
     }
 
@@ -765,94 +756,98 @@ mod wire {
     #[serde(rename_all = "camelCase")]
     pub struct SolverDistributedLoad3D {
         #[serde(default, rename = "qXI")]
+        #[serde(deserialize_with = "numeric::q_xi::required")]
         pub q_xi: LineLoad,
         #[serde(default, rename = "qXJ")]
+        #[serde(deserialize_with = "numeric::q_xj::required")]
         pub q_xj: LineLoad,
+        #[serde(deserialize_with = "numeric::element_id::required")]
         pub element_id: usize,
         #[serde(rename = "qYI")]
+        #[serde(deserialize_with = "numeric::q_yi::required")]
         pub q_yi: LineLoad,
         #[serde(rename = "qYJ")]
+        #[serde(deserialize_with = "numeric::q_yj::required")]
         pub q_yj: LineLoad,
         #[serde(rename = "qZI")]
+        #[serde(deserialize_with = "numeric::q_zi::required")]
         pub q_zi: LineLoad,
         #[serde(rename = "qZJ")]
+        #[serde(deserialize_with = "numeric::q_zj::required")]
         pub q_zj: LineLoad,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::a::optional", skip_serializing_if = "Option::is_none")]
         pub a: Option<Length>,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::b::optional", skip_serializing_if = "Option::is_none")]
         pub b: Option<Length>,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct SolverThermalLoad3D {
+        #[serde(deserialize_with = "numeric::element_id::required")]
         pub element_id: usize,
+        #[serde(deserialize_with = "numeric::dt_uniform::required")]
         pub dt_uniform: TemperatureDifference,
+        #[serde(deserialize_with = "numeric::dt_gradient_y::required")]
         pub dt_gradient_y: TemperatureDifference,
+        #[serde(deserialize_with = "numeric::dt_gradient_z::required")]
         pub dt_gradient_z: TemperatureDifference,
         #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(deserialize_with = "numeric::alpha::optional")]
         pub alpha: Option<ThermalExpansion>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(deserialize_with = "numeric::depth_y::optional")]
         pub depth_y: Option<Length>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(deserialize_with = "numeric::depth_z::optional")]
         pub depth_z: Option<Length>,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct SolverPressureLoad {
+        #[serde(deserialize_with = "numeric::element_id::required")]
         pub element_id: usize,
+        #[serde(deserialize_with = "numeric::pressure::required")]
         pub pressure: AreaLoad,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct SolverPlateThermalLoad {
+        #[serde(deserialize_with = "numeric::element_id::required")]
         pub element_id: usize,
+        #[serde(deserialize_with = "numeric::dt_uniform::required")]
         pub dt_uniform: TemperatureDifference,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::dt_gradient::required")]
         pub dt_gradient: TemperatureDifference,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::alpha::optional", skip_serializing_if = "Option::is_none")]
         pub alpha: Option<ThermalExpansion>,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct SolverQuadEdgeLoad {
+        #[serde(deserialize_with = "numeric::element_id::required")]
         pub element_id: usize,
+        #[serde(deserialize_with = "numeric::edge::required")]
         pub edge: usize,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::qn::required")]
         pub qn: LineLoad,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::qt::required")]
         pub qt: LineLoad,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
-    pub struct SolverSupport {
-        pub id: usize,
-        pub node_id: usize,
-        #[serde(rename = "type")]
-        pub support_type: String,
-        #[serde(default)]
-        pub kx: Option<TranslationalStiffness>,
-        #[serde(default)]
-        pub ky: Option<TranslationalStiffness>,
-        #[serde(default)]
-        pub kz: Option<RotationalStiffness>,
-        #[serde(default)]
-        pub dx: Option<Length>,
-        #[serde(default, rename = "dz", alias = "dy")]
-        pub dz: Option<Length>,
-        #[serde(default, rename = "dry", alias = "drz")]
-        pub dry: Option<Angle>,
-        #[serde(default)]
-        pub angle: Option<Angle>,
-    }
-
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
     pub struct SolverSupport3D {
+        #[serde(deserialize_with = "numeric::node_id::required")]
         pub node_id: usize,
         pub rx: bool,
         pub ry: bool,
@@ -861,38 +856,54 @@ mod wire {
         pub rry: bool,
         pub rrz: bool,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::kx::optional", skip_serializing_if = "Option::is_none")]
         pub kx: Option<TranslationalStiffness>,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::ky::optional", skip_serializing_if = "Option::is_none")]
         pub ky: Option<TranslationalStiffness>,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::kz::optional", skip_serializing_if = "Option::is_none")]
         pub kz: Option<TranslationalStiffness>,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::krx::optional", skip_serializing_if = "Option::is_none")]
         pub krx: Option<RotationalStiffness>,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::kry::optional", skip_serializing_if = "Option::is_none")]
         pub kry: Option<RotationalStiffness>,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::krz::optional", skip_serializing_if = "Option::is_none")]
         pub krz: Option<RotationalStiffness>,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::dx::optional", skip_serializing_if = "Option::is_none")]
         pub dx: Option<Length>,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::dy::optional", skip_serializing_if = "Option::is_none")]
         pub dy: Option<Length>,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::dz::optional", skip_serializing_if = "Option::is_none")]
         pub dz: Option<Length>,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::drx::optional", skip_serializing_if = "Option::is_none")]
         pub drx: Option<Angle>,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::dry::optional", skip_serializing_if = "Option::is_none")]
         pub dry: Option<Angle>,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::drz::optional", skip_serializing_if = "Option::is_none")]
         pub drz: Option<Angle>,
         #[serde(default)]
         pub rw: Option<bool>,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::kw::optional", skip_serializing_if = "Option::is_none")]
         pub kw: Option<f64>,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::normal_x::optional", skip_serializing_if = "Option::is_none")]
         pub normal_x: Option<f64>,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::normal_y::optional", skip_serializing_if = "Option::is_none")]
         pub normal_y: Option<f64>,
         #[serde(default)]
+        #[serde(deserialize_with = "numeric::normal_z::optional", skip_serializing_if = "Option::is_none")]
         pub normal_z: Option<f64>,
         #[serde(default)]
         pub is_inclined: Option<bool>,
@@ -1090,11 +1101,11 @@ mod wire {
     #[serde(tag = "type", content = "data")]
     pub enum SolverLoad {
         #[serde(rename = "nodal")]
-        Nodal(SolverNodalLoad),
+        Nodal(TypedNodalLoad),
         #[serde(rename = "distributed")]
         Distributed(SolverDistributedLoad),
         #[serde(rename = "pointOnElement")]
-        PointOnElement(SolverPointLoadOnElement),
+        PointOnElement(TypedPointLoad),
         #[serde(rename = "thermal")]
         Thermal(SolverThermalLoad),
         #[serde(rename = "axialDistributed")]
@@ -1149,17 +1160,23 @@ mod wire {
         CurvedShellSelfWeight(crate::types::SolverQuadSelfWeightLoad),
     }
 }
+pub type TypedNode = super::model_aliases::PlanarNode<Length>;
+pub type TypedNodalLoad = super::model_aliases::PlanarNodalLoad<Force, Moment>;
+pub type TypedPointLoad = super::model_aliases::PlanarPointLoad<Length, Force, Moment>;
+pub type TypedSupport =
+    super::model_aliases::PlanarSupport<Length, Angle, TranslationalStiffness, RotationalStiffness>;
+
 pub use wire::{
     Displacement as TypedDisplacement, Displacement3D as TypedDisplacement3D, DistributedLoadInfo as TypedDistributedLoadInfo,
     ElementForces as TypedElementForces, ElementForces3D as TypedElementForces3D, PointLoadInfo as TypedPointLoadInfo,
     PointLoadInfo3D as TypedPointLoadInfo3D, Reaction as TypedReaction, Reaction3D as TypedReaction3D,
     SolverAxialDistributedLoad as TypedAxialDistributedLoad, SolverDistributedLoad as TypedDistributedLoad,
     SolverDistributedLoad3D as TypedDistributedLoad3D, SolverElement3D as TypedElement3D, SolverLoad as TypedLoad,
-    SolverLoad3D as TypedLoad3D, SolverMaterial as ElasticMaterial, SolverNodalLoad as TypedNodalLoad,
-    SolverNodalLoad3D as TypedNodalLoad3D, SolverNode as TypedNode, SolverNode3D as TypedNode3D,
+    SolverLoad3D as TypedLoad3D, SolverMaterial as ElasticMaterial,
+    SolverNodalLoad3D as TypedNodalLoad3D, SolverNode3D as TypedNode3D,
     SolverPlateThermalLoad as TypedPlateThermalLoad, SolverPointLoad3D as TypedPointLoad3D,
-    SolverPointLoadOnElement as TypedPointLoad, SolverPressureLoad as TypedPressureLoad, SolverQuadEdgeLoad as TypedQuadEdgeLoad,
-    SolverSection as ElasticSection2D, SolverSection3D as ElasticSection3D, SolverSupport as TypedSupport,
+    SolverPressureLoad as TypedPressureLoad, SolverQuadEdgeLoad as TypedQuadEdgeLoad,
+    SolverSection as ElasticSection2D, SolverSection3D as ElasticSection3D,
     SolverSupport3D as TypedSupport3D, SolverThermalLoad as TypedThermalLoad, SolverThermalLoad3D as TypedThermalLoad3D,
 };
 impl ElasticSection2D {

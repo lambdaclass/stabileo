@@ -37,7 +37,11 @@ fn cantilever_2d(second_support: serde_json::Value) -> SolverInput {
 
 fn cantilever_3d() -> SolverInput3D {
     let sup = |dx: Option<f64>| {
-        json!({ "nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true, "dx": dx })
+        let mut support = json!({ "nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true });
+        if let Some(dx) = dx {
+            support["dx"] = json!(dx);
+        }
+        support
     };
     serde_json::from_value(json!({
         "nodes": { "1": { "id": 1, "x": -0.5, "y": -0.5, "z": -1.0 }, "2": { "id": 2, "x": -0.5, "y": -35.5, "z": -0.5 } },

@@ -1,0 +1,32 @@
+{
+  "id": "planar-nodal-vectors",
+  "date": "2026-11-24",
+  "prs": [2532],
+  "area": "analysis",
+  "when": { "all": ["outOfPlaneNodalComponents"] },
+  "quantities": ["solve.ok"],
+  "title": {
+    "en": "Out-of-plane components in planar nodal loads",
+    "es": "Componentes fuera del plano en cargas nodales planas",
+    "pt": "Componentes fora do plano em cargas nodais planas",
+    "de": "Komponenten senkrecht zur Ebene bei ebenen Knotenlasten",
+    "fr": "Composantes hors plan dans les charges nodales planes",
+    "hu": "Síkon kívüli összetevők a síkbeli csomóponti terhekben",
+    "tr": "Düzlemsel düğüm yüklerinde düzlem dışı bileşenler",
+    "zh": "平面节点荷载中的面外分量"
+  },
+  "explanation": {
+    "en": "Opening a model now refuses a planar nodal vector with an out-of-plane component that is nonzero or invalid. Check the source load. Use a spatial nodal load if the component is intentional.",
+    "es": "Al abrir un modelo se rechaza un vector nodal plano con un componente fuera del plano distinto de cero o inválido. Revisá la carga de origen. Si el componente es intencional, usá una carga nodal espacial.",
+    "pt": "Ao abrir um modelo, um vetor nodal plano com um componente fora do plano diferente de zero ou inválido é recusado. Verifique a carga original. Se o componente for intencional, use uma carga nodal espacial.",
+    "de": "Beim Öffnen eines Modells wird ein ebener Knotenlastvektor mit einer ungültigen oder von null verschiedenen Komponente senkrecht zur Ebene abgelehnt. Prüfen Sie die ursprüngliche Last. Verwenden Sie eine räumliche Knotenlast, wenn die Komponente beabsichtigt ist.",
+    "fr": "À l’ouverture d’un modèle, un vecteur de charge nodale plane dont une composante hors plan est non nulle ou invalide est refusé. Vérifiez la charge d’origine. Si cette composante est voulue, utilisez une charge nodale spatiale.",
+    "hu": "A modell megnyitásakor a program elutasítja az érvénytelen vagy nem nulla, síkon kívüli összetevővel rendelkező síkbeli csomóponti tehervektort. Ellenőrizze az eredeti terhet. Ha az összetevő szándékos, használjon térbeli csomóponti terhet.",
+    "tr": "Model açılırken düzlem dışı bileşeni sıfırdan farklı veya geçersiz olan düzlemsel düğüm yükü vektörü reddedilir. Kaynak yükü kontrol edin. Bileşen kasıtlıysa uzamsal düğüm yükü kullanın.",
+    "zh": "打开模型时，若平面节点荷载向量包含非零或无效的面外分量，系统会拒绝该记录。请核对原始荷载。若该分量是有意设置的，请使用空间节点荷载。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-planar-nodal-vectors.md",
+    "heading": "Planar nodal vectors"
+  }
+}

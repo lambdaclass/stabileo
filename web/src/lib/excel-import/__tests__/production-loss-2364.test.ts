@@ -133,9 +133,9 @@ for (const [entry, install] of [['sheet arrays', applyWorkbook], ['XLSX file', i
     const accepted = await install(workbook([' FY [N] ', fy * 1000]));
     expect(accepted?.problems).toEqual([]);
     expect(accepted?.loaded.nodes).toBe(1);
-    expect(accepted?.model.loads).toEqual([{ type: loadType, data: expect.objectContaining({ fy, fz: -3 }) }]);
-    const stored = workspace === '2d' ? { fx: 0, fz: -3, my: 0 } : { fx: 0, fy, fz: -3 };
-    expect(modelStore.loads).toEqual([{ type: loadType, data: expect.objectContaining(stored) }]);
+    const components = workspace === '2d' ? { fx: 0, fz: -3, my: 0 } : { fx: 0, fy, fz: -3, mx: 0, my: 0, mz: 0 };
+    expect(accepted?.model.loads).toEqual([{ type: loadType, data: { id: 1, caseId: 1, nodeId: 1, ...components } }]);
+    expect(modelStore.loads).toEqual([{ type: loadType, data: expect.objectContaining(components) }]);
   });
 
   it.each(types)(`known wrong result: #2364 ${entry} rejects duplicate prescribed rotation headers for $workspace`, async ({ workspace, geometry, support }) => {

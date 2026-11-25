@@ -3,8 +3,6 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { inflateSync } from 'node:zlib';
-import { readProPlatesManifest } from '../pro-plates-source.mjs';
 
 export const DIR = 'web/src/lib/provenance/result-changes';
 export const NUMBERED = 'numbered.json';
@@ -128,12 +126,8 @@ function orderFromFile(root, fingerprint) {
   return order.landings;
 }
 
-export function readRegistry(root, { proPlatesUnified = globalThis.__PUBLIC_FEATURES__?.proPlatesUnified ?? true } = {}) {
-  if (root === undefined && !proPlatesUnified) {
-    const { resultsRegistry } = readProPlatesManifest();
-    return JSON.parse(inflateSync(Buffer.from(resultsRegistry, 'base64')).toString('utf8'));
-  }
-  root ??= REPO;
+/** The registry of the checkout at `root`: its files as they are on disk, ordered by its history. */
+export function readRegistry(root = REPO) {
   const { numbered, fragments, fingerprint } = readWorkingTree(root);
   const landings = insideGit(root) ? landingsAt(gitIn(root), 'HEAD') : orderFromFile(root, fingerprint);
   return assemble({ numbered, fragments, landings });

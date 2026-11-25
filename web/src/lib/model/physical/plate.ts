@@ -64,26 +64,8 @@ export interface PlateSurface {
    * so the plate keeps its curved side whatever its mesh does with it (`arcSampler`).
    */
   arcMids?: number[];
-  /** Its mesh's quads are solved as curved shells, whatever the mesh. */
-  curved?: boolean;
-  /** The mid-surface offset every element of its mesh is given, whatever the mesh. */
-  offset?: import('../element-3d-metadata').ShellOffset;
-  /**
-   * Sides held all along, each from one outline node to another: every node of its mesh on the
-   * segment between them gets the support type given, made again with every mesh.
-   */
-  edgeSupports?: Array<{ from: number; to: number; type: string }>;
-  /** Foundation springs k = ks · A at the nodes of its mesh, made again with every mesh. */
-  springs?: { ks: number; uplift: boolean; holdHorizontal: boolean };
   /** Set when the current mesh was made: what it was made from, and what it is. */
-  meshed?: {
-    signature: string; cells: number; quality: MeshQuality;
-    /** Mesh nodes given an edge support's type (`edgeSupports`), taken away with the mesh. */
-    supported?: number[];
-    supportIds?: number[];
-    /** The shells the plate came with, as the model had them: no mesher made them. */
-    original?: boolean;
-  };
+  meshed?: { signature: string; meshSignature?: string; cells: number; quality: MeshQuality };
 }
 
 export interface MeshQuality {
@@ -313,8 +295,15 @@ export function plateKindOf(geo: Pick<PlateGeometry, 'frame'>): 'slab' | 'wall' 
   return Math.abs(geo.frame.n[2]) >= Math.cos((30 * Math.PI) / 180) ? 'slab' : 'wall';
 }
 
-/** Every member as its whole extent, end node to end node, walked through the `owned` nodes a mesh created along it. */
-export function memberChains(m: PlateModel, owned: ReadonlySet<number>): Array<[number, number]> {
+/**
+ * The members the mesh has to meet, as their whole extents: a member the current mesh cut is put
+ * back together through the nodes the mesh created, so the answer does not change once a mesh is
+ * in. Members in the plate's plane come back as segments the mesh follows; members crossing the
+ * plane inside the plate come back as the point where they cross; nodes of other things on the
+ * plate as points.
+ */
+export function externalFeatures(m: PlateModel, geo: PlateGeometry, owned: ReadonlySet<number>, loopNodes: ReadonlySet<number>, opts: { mine?: ReadonlySet<number>; neighbours?: ReadonlySet<number>; required?: ReadonlySet<number> } = {}): { points: Vec3[]; meshPoints: Vec3[]; retainedPoints: Vec3[]; requiredNodes: number[]; segments: Array<[Vec3, Vec3]> } {
+  // Members by node, to walk through the mesh's own nodes.
   const at = new Map<number, number[]>();
   for (const e of m.elements.values()) {
     if (!m.nodes.has(e.nodeI) || !m.nodes.has(e.nodeJ)) continue;
@@ -343,19 +332,6 @@ export function memberChains(m: PlateModel, owned: ReadonlySet<number>): Array<[
     const a = walk(e.nodeJ, e.nodeI), b = walk(e.nodeI, e.nodeJ);
     chains.push(a < b ? [a, b] : [b, a]);
   }
-  return chains;
-}
-
-/**
- * The members the mesh has to meet, as their whole extents: a member the current mesh cut is put
- * back together through the nodes the mesh created, so the answer does not change once a mesh is
- * in. Members in the plate's plane come back as segments the mesh follows; members crossing the
- * plane inside the plate come back as the point where they cross; nodes of other things on the
- * plate as points. `owned` are the nodes the plate's own mesh created, which do not count.
- */
-export function externalFeatures(m: PlateModel, geo: PlateGeometry, owned: ReadonlySet<number>, loopNodes: ReadonlySet<number>, opts: { mine?: ReadonlySet<number>; neighbours?: ReadonlySet<number>; chains?: ReadonlyArray<readonly [number, number]> } = {}): { points: Vec3[]; segments: Array<[Vec3, Vec3]> } {
-  const chains = opts.chains ?? memberChains(m, owned);
-  const pos = (id: number) => v3(m.nodes.get(id)!);
   const points: Vec3[] = [];
   const segments: Array<[Vec3, Vec3]> = [];
   const inPlane = (p: Vec3) => offPlane(geo.frame, p) <= PLANE_TOL;
@@ -377,21 +353,38 @@ export function externalFeatures(m: PlateModel, geo: PlateGeometry, owned: Reado
     const x: Vec3 = [pa[0] + (pb[0] - pa[0]) * t, pa[1] + (pb[1] - pa[1]) * t, pa[2] + (pb[2] - pa[2]) * t];
     if (insidePlate(geo, x)) points.push(x);
   }
+  const pointNodes = new Set<number>();
   for (const id of external) {
     if (owned.has(id) || loopNodes.has(id)) continue;
     const p = pos(id);
-    if (inPlane(p) && insidePlate(geo, p)) points.push(p);
+    if (inPlane(p) && insidePlate(geo, p)) { points.push(p); pointNodes.add(id); }
   }
-  // The mesh of a plate beside this one: its nodes on this plate's outline are where this mesh
-  // meets it, so the two share them (`opts.mine`, this plate's own mesh nodes, do not count).
+  const meshPoints = [...points];
+  const retainedPoints: Vec3[] = [];
+  const requiredNodes = new Set<number>();
   for (const id of opts.neighbours ?? []) {
-    if (opts.mine?.has(id) || loopNodes.has(id) || external.has(id)) continue;
+    if (loopNodes.has(id)) continue;
     const n = m.nodes.get(id);
     if (!n) continue;
     const p = v3(n);
-    if (inPlane(p) && onOutline(geo, p)) points.push(p);
+    if (inPlane(p) && onOutline(geo, p)) {
+      requiredNodes.add(id);
+      if (!pointNodes.has(id)) meshPoints.push(p);
+      pointNodes.add(id);
+      if (!opts.mine?.has(id) && !external.has(id)) points.push(p);
+    }
   }
-  return { points, segments };
+  for (const id of opts.required ?? []) {
+    if (loopNodes.has(id)) continue;
+    const n = m.nodes.get(id);
+    if (!n) continue;
+    const p = v3(n);
+    if (inPlane(p) && insidePlate(geo, p)) {
+      requiredNodes.add(id);
+      if (!pointNodes.has(id)) retainedPoints.push(p);
+    }
+  }
+  return { points, meshPoints, retainedPoints, requiredNodes: [...requiredNodes], segments };
 }
 
 /** Whether a point of the plate's plane lies on its outline or a hole's edge (within the plane tolerance). */
@@ -416,17 +409,13 @@ const r6 = (v: number) => (Math.round(v * 1e6) / 1e6).toString();
  * What a mesh is made from, as one string: equal strings, the same mesh. Written in the plate's own
  * axes, so a plate moved or turned whole with what it meets (a copy) keeps a current mesh.
  */
-export function plateSignature(
-  geo: PlateGeometry, spec: PlateMeshSpec,
-  features: { points: Vec3[]; segments: Array<[Vec3, Vec3]> } | null,
-  shellNeighbours: readonly Vec3[] = [],
-): string {
+export function plateSignature(geo: PlateGeometry, spec: PlateMeshSpec, features: { points: Vec3[]; segments: Array<[Vec3, Vec3]> } | null): string {
   const f = geo.frame;
   const key3 = (p: Vec3) => { const d = sub(p, f.o); return `${r6(dot(d, f.u))},${r6(dot(d, f.v))},${r6(dot(d, f.n))}`; };
   const loops = [geo.outer, ...geo.holes].map((l) => l.map(key3).join(';')).join('|');
   const ft = features && spec.followMembers
     ? `${features.points.map(key3).sort().join(';')}#${features.segments.map(([a, b]) => [key3(a), key3(b)].sort().join('>')).sort().join(';')}`
-    : shellNeighbours.map(key3).sort().join(';');
+    : '';
   // A grid adds its shape to the string; a free mesh's string is what it always was.
   const grid = gridOfSpec(spec);
   const g = grid ? `/grid:${r6(grid.a)}x${r6(grid.b)}:${grid.orient}` : '';

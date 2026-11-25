@@ -1,0 +1,15 @@
+{
+    "nodes": {
+        "1": {"id":1,"x":0,"z":0},
+        "2": {"id":2,"x":1,"z":0},
+        "3": {"id":3,"x":2,"z":0}
+    },
+    "elements": {}, "materials": {}, "sections": {},
+    "supports": {
+        "1": {"id":1,"nodeId":1,"type":"fixed"},
+        "2": {"id":2,"nodeId":2,"type":"spring","kx":1,"ky":1},
+        "3": {"id":3,"nodeId":3,"type":"spring","kx":1,"ky":1}
+    },
+    "constraints":[{"type":"equalDOF","masterNode":1,"slaveNode":2,"dofs":[0]}],
+    "loads":[{"type":"nodal","data":{"nodeId":3,"fx":1,"fz":0,"my":0}}]
+}

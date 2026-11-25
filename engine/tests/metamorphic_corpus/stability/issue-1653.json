@@ -152,38 +152,17 @@
   "1": {
    "id": 1,
    "nodeId": 1,
-   "type": "pinned",
-   "kx": null,
-   "ky": null,
-   "kz": null,
-   "dx": null,
-   "dz": null,
-   "dry": null,
-   "angle": null
+   "type": "pinned"
   },
   "2": {
    "id": 2,
    "nodeId": 7,
-   "type": "rollerX",
-   "kx": null,
-   "ky": null,
-   "kz": null,
-   "dx": null,
-   "dz": null,
-   "dry": null,
-   "angle": null
+   "type": "rollerX"
   },
   "3": {
    "id": 3,
    "nodeId": 8,
-   "type": "pinned",
-   "kx": null,
-   "ky": null,
-   "kz": null,
-   "dx": null,
-   "dz": null,
-   "dry": null,
-   "angle": null
+   "type": "pinned"
   }
  },
  "loads": [
