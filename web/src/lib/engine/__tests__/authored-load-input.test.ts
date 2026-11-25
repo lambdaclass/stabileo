@@ -27,9 +27,9 @@ beforeEach(() => {
   modelStore.model.combinations = [combo];
 });
 
-function cantilever(space = false, rise = 0) {
+function cantilever(space = false, rise = 0, plane: 'xz' | 'yz' = 'xz') {
   const root = modelStore.addNode(0, 0, 0);
-  const tip = modelStore.addNode(length, 0, rise);
+  const tip = modelStore.addNode(plane === 'xz' ? length : 0, plane === 'yz' ? length : 0, rise);
   const member = modelStore.addElement(root, tip);
   modelStore.addSupportEntry({ nodeId: root, type: space ? 'fixed3d' : 'fixed' });
   return { root, tip, member };
@@ -152,25 +152,25 @@ describe('malformed authored loads', () => {
     throwsRefusal(field, spaceBuilders());
   });
 
-  it.each([
-    ['missing projected force', 'nodal3d', 'fz', undefined],
-    ['non-finite force on the discarded axis', 'nodal3d', 'fy', NaN],
-    ['missing distributed ordinate', 'distributed3d', 'qZI', undefined],
-  ] as const)('checks the authored load for %s before XZ and YZ projection', async (_, type, key, invalid) => {
-    const { tip, member } = cantilever();
-    const data = type === 'nodal3d'
-      ? { nodeId: tip, fx: 0, fy: 0, fz: -force, mx: 0, my: 0, mz: 0 }
-      : { elementId: member, qYI: 0, qYJ: 0, qZI: -force, qZJ: -force };
-    setLoad({ type, data: { id: 1, ...data, [key]: invalid } });
-    const field = 'loads[0].data.' + key;
-    for (const plane of ['xz', 'yz'] as const) {
+  describe.each(['xz', 'yz'] as const)('Basic %s projection', (plane) => {
+    it.each([
+      ['missing projected force', 'nodal3d', 'fz', undefined],
+      ['non-finite spatial force', 'nodal3d', 'fy', NaN],
+      ['missing distributed ordinate', 'distributed3d', 'qZI', undefined],
+    ] as const)('checks the authored load for %s before projection', async (_, type, key, invalid) => {
+      const { tip, member } = cantilever(false, 0, plane);
+      const data = type === 'nodal3d'
+        ? { nodeId: tip, fx: 0, fy: 0, fz: -force, mx: 0, my: 0, mz: 0 }
+        : { elementId: member, qYI: 0, qYJ: 0, qZI: -force, qZJ: -force };
+      setLoad({ type, data: { id: 1, ...data, [key]: invalid } });
+      const field = 'loads[0].data.' + key;
       await returnsRefusal(field, {
         'store plane sync': () => modelStore.solve(false, plane),
         'store plane async': () => modelStore.solveAsync(false, plane),
         'store plane combinations': () => modelStore.solveCombinations(false, plane),
       });
       throwsRefusal(field, { 'store plane advanced input': () => modelStore.buildSolverInput(false, plane) });
-    }
+    });
   });
 
   it('refuses an unknown load in both fixture apply paths before mutating the model', async () => {
@@ -202,14 +202,14 @@ describe('malformed authored loads', () => {
   });
 });
 
-it('preserves a complete spatial force through Basic XZ projection and P-Delta', async () => {
-  const { tip } = cantilever();
+it.each(['xz', 'yz'] as const)('preserves a complete spatial force through Basic %s projection and P-Delta', async (plane) => {
+  const { tip } = cantilever(false, 0, plane);
   setLoad({ type: 'nodal3d', data: {
     id: 1, nodeId: tip, fx: 0, fy: 0, fz: -force, mx: 0, my: 0, mz: 0,
   } });
-  const result = await modelStore.solveAsync(false, 'xz');
+  const result = await modelStore.solveAsync(false, plane);
   expect(result).toMatchObject({ reactions: [{ rz: force, my: expect.closeTo(force * length, 12) }] });
-  const projected = modelStore.buildSolverInput(false, 'xz')!;
+  const projected = modelStore.buildSolverInput(false, plane)!;
   const control = solvePDelta({
     ...projected,
     loads: [{ type: 'nodal', data: { nodeId: tip, fx: 0, fz: -force, my: 0 } }],
@@ -217,7 +217,7 @@ it('preserves a complete spatial force through Basic XZ projection and P-Delta',
   expect(solvePDelta(projected)).toMatchObject({
     converged: true, results: { reactions: control.results.reactions },
   });
-  expect(modelFeatures(modelStore.snapshot()).has('malformedAuthoredLoad')).toBe(false);
+  expect(modelFeatures(modelStore.snapshot(), { analysisMode: '2d' }).has('malformedAuthoredLoad')).toBe(false);
 });
 
 const rise = 1.5;
