@@ -818,6 +818,23 @@ it('#2291 a detached sloped shell starting at bay level blocks gravity', () => {
   checkBlockedGravity(model, differentDeck);
 });
 
+const independentDeckOracle = process.env.RUN_KNOWN_WRONG === '2291' ? it : it.skip;
+
+independentDeckOracle('known wrong result: #2291 detached independently supported roof and bay both carry gravity', () => {
+  for (const angle of [0, 0.37]) for (const loadEveryPanel of [false, true]) {
+    const model = floor(1, 1, 10, 6);
+    rectangularShell(model, 1, 0, 10, 3, 6);
+    model.supports = new Map([...model.nodes.keys()].map(id => [id, { id, nodeId: id, type: 'fixed3d' as const }]));
+    rotatePlan(model, angle);
+    const gravity = { mode: 'panels', loadEveryPanel } as const;
+    const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }], gravity }));
+    expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+    expect(-totalKN(plan.distributed.filter(load => load.caseType === 'D'), model)).toBeCloseTo(60, 9);
+    expect(surfaceKN(plan.surface.filter(load => load.caseType === 'D'), model)).toBeCloseTo(10 * Math.sqrt(45), 9);
+    expect(gravityLayout(model, { ...gravity, tributaryWidth: 3 }).areaOf.size).toBe(4);
+  }
+});
+
 it('#2295 a rafter beneath a shell gap needs two independently tied ends', () => {
   const { model } = offsetRoof(0.02, 0, 1, false, [4, 6]);
   model.constraints.pop();

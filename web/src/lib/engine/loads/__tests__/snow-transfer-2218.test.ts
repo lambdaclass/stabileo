@@ -176,3 +176,38 @@ transferOracle('known wrong result: #2218 the step triangle retains force and bo
   expect(actual[1]).toBeCloseTo(1.549167482304, 10);
   expect(actual[2]).toBeCloseTo(6.099084576, 10);
 });
+
+transferOracle('known wrong result: #2218 a one-way roof delivers both exact step-drift bearing reactions', () => {
+  const balanced = 0.7;
+  const gravity = { mode: 'panels', slab: 'oneWay', spanAxis: 'x' } as const;
+  const config = { ...snow, roofKind: 'mono', slippery: false, partial: false } as const;
+  for (const cuts of [[], [0.17, 0.63]]) for (const angle of [0, 0.37]) for (const rise of [0, 0.075]) {
+    const model = transform(steppedRoof(cuts, 5, rise), angle, 0);
+    const layout = gravityLayout(model, { ...gravity, tributaryWidth: 1 });
+    const transfer = driftAndSlidingLoads(model, layout, { pg: 1, balanced, pf: balanced, slippery: false, tributaryWidth: 1 }).distributed;
+    const forceBySide = [0, 0];
+    for (const load of transfer) {
+      const member = model.elements.get(load.elementId)!;
+      const a = model.nodes.get(member.nodeI)!, b = model.nodes.get(member.nodeJ)!;
+      const x = a.x * Math.cos(angle) + a.y * Math.sin(angle);
+      const side = Math.round(x / 7.5);
+      expect(x).toBeCloseTo(side * 7.5, 10);
+      expect(b.x * Math.cos(angle) + b.y * Math.sin(angle)).toBeCloseTo(side * 7.5, 10);
+      const length = Math.hypot(b.x - a.x, b.y - a.y);
+      const force = -(load.q + (load.qJ ?? load.q)) * ((load.b ?? length) - (load.a ?? 0)) / 2;
+      forceBySide[side] = forceBySide[side]! + force;
+      expect(load.q).toBeCloseTo(-(side === 0 ? 3.049542288 - 1.549167482304 / 7.5 : 1.549167482304 / 7.5) / 4, 10);
+    }
+    expect(forceBySide[0]).toBeCloseTo(3.049542288 - 1.549167482304 / 7.5, 10);
+    expect(forceBySide[1]).toBeCloseTo(1.549167482304 / 7.5, 10);
+    const direct = snowLoadCases({ model, snow: config, tributaryWidth: 1, layout })!;
+    expect(direct.result.refused).toBeUndefined();
+    const plan = buildLoadPlan({
+      model, gravity, regulations: regulations(), dead: [], occupancyKey: 'vivienda', tributaryWidth: 1,
+      reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true,
+      snow: { ...config, enabled: true, source: 'site' },
+    });
+    expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+    expect(plan.distributed.filter(load => load.caseType === 'S').length).toBeGreaterThan(0);
+  }
+});
