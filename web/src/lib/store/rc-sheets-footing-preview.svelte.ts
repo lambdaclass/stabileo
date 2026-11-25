@@ -1,6 +1,7 @@
 import { modelStore } from './model.svelte';
 import type { FoundationSystem } from '../rc-sheets/footing-types';
 
+let pilesOpen = $state(false);
 let picked = $state<{ system: FoundationSystem; compare: boolean; epoch: number }>({ system: 'auto', compare: false, epoch: -1 });
 const fresh = () => picked.epoch === modelStore.loadEpoch;
 const pick = (next: Partial<Pick<typeof picked, 'system' | 'compare'>>) => {
@@ -17,4 +18,7 @@ export const footingPreview = {
   set system(system: FoundationSystem) { pick({ system }); },
   get compare(): boolean { return fresh() && picked.compare; },
   set compare(compare: boolean) { pick({ compare }); },
+  /** Whether the available piles' section is open: kept while the sheets are designed again under it. */
+  get pilesOpen(): boolean { return pilesOpen; },
+  set pilesOpen(open: boolean) { pilesOpen = open; },
 };

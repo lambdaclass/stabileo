@@ -40,3 +40,24 @@ describe('the pile block', () => {
     expect(html).toContain('data-testid="rc-foundation-pile-capacity-read"');
   });
 });
+
+describe('the available piles', () => {
+  it('come as one by default, and take more diameters at the common length, each read from the ground or as stated', async () => {
+    const { pileSpecs } = await import('../rc-sheets-footings');
+    expect(pileSpecs()).toEqual([expect.objectContaining({ diameter: 0.5, length: 12, capacity: 600, source: 'presumed' })]);
+    patchDesignData({ presumedPile: { diameter: 0.5, length: 15, capacity: 600, more: [{ diameter: 0.8, capacity: 1500 }, { diameter: 0.5, capacity: 9 }, { diameter: 2, capacity: 900 }] } });
+    expect(pileSpecs().map((p) => [p.diameter, p.length, p.capacity])).toEqual([[0.5, 15, 600], [0.8, 15, 1500]]);
+    patchDesignData({ presumedPile: { diameter: 0.5, length: 10, capacity: 600, more: [{ diameter: 0.8, capacity: 1500 }], layers: [{ to: 50, shaft: 40, tip: 1500 }] } });
+    expect(pileSpecs()[1]).toMatchObject({ source: 'layers', capacity: expect.closeTo(40 * Math.PI * 0.8 * 10 + 1500 * Math.PI * 0.64 / 4, 6) });
+  });
+
+  it('are listed with a row each, their loads typed only where no ground gives them, and offer another diameter', () => {
+    patchDesignData({ presumedPile: { diameter: 0.5, length: 12, capacity: 600, more: [{ diameter: 0.7, capacity: 1100 }] } });
+    const html = render(RcFootingLayouts, { props: { layouts: [], adopted: null, preview: 'piles' } }).body;
+    expect(html.match(/data-testid="rc-foundation-pile"/g)).toHaveLength(2);
+    expect(html).toContain('data-testid="rc-foundation-pile-more-capacity"');
+    expect(html).toContain('data-testid="rc-foundation-pile-add"');
+    expect(html).toContain('Available piles');
+    expect(html).not.toContain('Presumed pile');
+  });
+});

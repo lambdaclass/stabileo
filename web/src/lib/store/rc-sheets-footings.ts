@@ -23,6 +23,7 @@ import { FOOTING_BAR_RANGE, listIn, type Adopted } from '../rc-sheets/types';
 import { rcSheetsData, saveRcSheetsData } from './rc-sheets.svelte';
 import type { FootingAdopted, FootingContext, FootingDemand, FootingGroup, FootingRow, FootingSetup, FootingSizing, FootingSolution, FootingSoil, FoundationSystem, PileSpec, StrapResult } from '../rc-sheets/footing-types';
 import { chooseFoundationsSteps, groupDemand, lineOf } from '../rc-sheets/footing-choice';
+import { footingConcrete } from '../rc-sheets/footing-layouts';
 import { check } from '../rc-sheets/types';
 
 const DEFAULT_FC = 25;
@@ -47,16 +48,35 @@ export function soilOf(profileId: number | null): FootingSoil {
   };
 }
 
-/** The piles a pile foundation is designed with: the presumed pile's diameter and length, and the allowable load the soil profile's strata give it, else the presumed one; the group's efficiency is the criterion's. */
-export function pileSpec(): PileSpec {
+/**
+ * The piles a pile foundation may use: each available diameter at the common length, its allowable
+ * load from the soil profile's strata, else from the project's own layers of ground, else the one
+ * stated for it; the group's efficiency is the criterion's. The first is the presumed pile.
+ */
+export function pileSpecs(): PileSpec[] {
   const dd = designData(), p = presumedPileOf(dd.presumedPile), geo = modelStore.model.geotechnical;
   const prof = findProfile(geo, geo?.defaultProfileId ?? null);
-  const cap = prof?.strata?.length ? pileCapacity(prof.strata, p.diameter, p.length) : null;
   const efficiency = criteriaOf(dd.designOptions?.criteria).footingPileEfficiency;
-  if (cap && cap.total > 0 && !cap.beyondStrata) return { diameter: p.diameter, length: p.length, capacity: cap.total, source: 'strata', efficiency };
-  const layers = p.layers?.length ? pileLayerStrata(p.layers) : null, own = layers ? pileCapacity(layers, p.diameter, p.length) : null;
-  if (layers && own && own.total > 0) return { diameter: p.diameter, length: p.length, capacity: own.total, source: 'layers', efficiency, strata: layers };
-  return { diameter: p.diameter, length: p.length, capacity: p.capacity, source: 'presumed', efficiency };
+  const layers = p.layers?.length ? pileLayerStrata(p.layers) : null;
+  return [{ diameter: p.diameter, capacity: p.capacity }, ...(p.more ?? [])].map(({ diameter, capacity }): PileSpec => {
+    const cap = prof?.strata?.length ? pileCapacity(prof.strata, diameter, p.length) : null;
+    if (cap && cap.total > 0 && !cap.beyondStrata) return { diameter, length: p.length, capacity: cap.total, source: 'strata', efficiency };
+    const own = layers ? pileCapacity(layers, diameter, p.length) : null;
+    if (layers && own && own.total > 0) return { diameter, length: p.length, capacity: own.total, source: 'layers', efficiency, strata: layers };
+    return { diameter, length: p.length, capacity, source: 'presumed', efficiency };
+  });
+}
+
+/** The presumed pile, the first the design tries. */
+export const pileSpec = (): PileSpec => pileSpecs()[0]!;
+
+/** Of a column's caps on each available pile: the one on the pile it adopted, else the first that verifies with the least concrete, else the least failing. */
+function pickPiled<T extends { d: FootingDemand; f: { row: FootingRow } }>(made: readonly T[], adopted: FootingAdopted | undefined): T {
+  const own = adopted?.piles ? made.find((m) => Math.abs((m.d.piles?.diameter ?? 0) - adopted.piles!.diameter) < 1e-9) : undefined;
+  if (own) return own;
+  const ok = made.filter((m) => m.f.row.status !== 'fail');
+  const pool = ok.length ? ok : made;
+  return pool.reduce((b, m) => (footingConcrete(m.f.row) < footingConcrete(b.f.row) - 1e-9 ? m : b));
 }
 
 /** Up the column from its foot to the first node a beam or a slab frames into, m. */
@@ -261,12 +281,17 @@ export function* foundationRowsSteps(feet: readonly FootingDemand[], o: Foundati
 function* layoutSteps(feet: readonly FootingDemand[], o: FoundationInput): Generator<FoundationStep, FootingRow[]> {
   const ctx = (d: FootingDemand) => footingContext(d, o.sizing, o.columns);
   const design = (d: FootingDemand, adopted?: FootingAdopted) => o.rules.footingRow(d, ctx(d), adopted, o.fmt);
-  const piles = o.system === 'piles' ? pileSpec() : null;
+  const piles = o.system === 'piles' ? pileSpecs() : null;
   const grouped = collapseModelGroups(feet);
   const pass = function* (at: (d: FootingDemand) => number | undefined, levelling = false): Generator<FoundationStep, FootingRow[]> {
-    const ds = grouped.map((d) => { const z = at(d); return z === undefined || d.footing ? d : { ...d, founding: z }; }).map((d) => (piles && !d.footing && !d.group && d.column ? { ...d, piles } : d));
+    const ds = grouped.map((d) => { const z = at(d); return z === undefined || d.footing ? d : { ...d, founding: z }; });
     const rows: FootingRow[] = [];
-    for (const d of ds) { const f = footingRowOf(d, o.rules, o.adopted, o.sizing, o.columns, o.fmt); o.redo(d.key, f.redo); rows.push(f.row); yield { footing: rows.length, footings: ds.length, levelling }; }
+    for (const d0 of ds) {
+      const options = piles && !d0.footing && !d0.group && d0.column ? piles.map((p) => ({ ...d0, piles: p })) : [d0];
+      const made = options.map((d) => ({ d, f: footingRowOf(d, o.rules, o.adopted, o.sizing, o.columns, o.fmt) }));
+      const { d, f } = made.length > 1 ? pickPiled(made, o.adopted[d0.key] as FootingAdopted | undefined) : made[0]!;
+      o.redo(d.key, f.redo); rows.push(f.row); yield { footing: rows.length, footings: ds.length, levelling };
+    }
     const steps = chooseFoundationsSteps(rows, {
       capped: (d, cap) => o.rules.footingRow(d, ctx(d), undefined, o.fmt, cap),
       combine: (a, b) => { const d = { ...a, carried: b }; o.redo(d.key, (x) => design(x)); return design(d); },
