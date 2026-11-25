@@ -9,9 +9,10 @@ const MAX_SIGHTING_COMMENTS = 5;
 const MAX_BODY_BYTES = 64_000;
 const MAX_PAYLOAD_LENGTH = 16_000;
 const MAX_INLINE_BYTES = 3_000_000;
+const MAX_MANIFEST_BYTES = 4_000_000;
 const MANIFEST_DIRECTORY = 'nightly-replay-manifests';
 const OVERFLOW_COMPLETE = '<!-- nightly-overflow-complete -->';
-const OVERFLOW = /^<!-- nightly-sightings:(\d+):(\d+):(\d+) -->\n[^\n]*\n(?:<!-- nightly-overflow-complete -->\n)?(?:<!-- nightly-reproducer:(?:v1 [A-Za-z0-9+/=]+|v2 \d+ \d+ [0-9a-f]{64}) -->\n)?/m;
+const OVERFLOW = /^<!-- nightly-sightings:(\d+):(\d+):(\d+) -->\n[^\n]*\n(?:<!-- nightly-overflow-complete -->\n)?(?:<!-- nightly-reproducer:(?:v1 [A-Za-z0-9+/=]+|v[23] \d+ \d+ [0-9a-f]{64}) -->\n)?/m;
 const REPLAY_STATE = /^<!-- nightly-replay:v1 \{[^\n]*\} -->\n?/m;
 const DUPLICATE = /^<!-- nightly-duplicate:\d+ -->$/m;
 const LEGACY_KEY = /^<!-- nightly-finding:([0-9a-f]{64}) -->$/m;
@@ -36,24 +37,52 @@ function encodeReproducers(group, runId, attempt) {
     const payload = gzipSync(content).toString('base64');
     if (payload.length <= MAX_PAYLOAD_LENGTH) return {marker: '<!-- nightly-reproducer:v1 ' + payload + ' -->'};
   }
-  const digest = hash(compact);
-  return {marker: '<!-- nightly-reproducer:v2 ' + [runId, attempt, digest].join(' ') + ' -->',
-    file: path.join(MANIFEST_DIRECTORY, digest + '.json'), content: compact};
+  const files = new Map();
+  const write = content => {
+    if (Buffer.byteLength(content) > MAX_MANIFEST_BYTES) throw Error('Nightly replay manifest file exceeds the replay limit');
+    const digest = hash(content);
+    files.set(path.join(MANIFEST_DIRECTORY, digest + '.json'), content);
+    return digest;
+  };
+  let version = 'v2';
+  let digest;
+  if (compactBytes <= MAX_MANIFEST_BYTES) {
+    digest = write(compact);
+  } else {
+    version = 'v3';
+    const chunks = [];
+    let records = [];
+    let bytes = 2;
+    for (const reference of references) {
+      const record = JSON.stringify(reference);
+      const length = Buffer.byteLength(record);
+      if (records.length && bytes + 1 + length > MAX_MANIFEST_BYTES) {
+        chunks.push(write('[' + records.join(',') + ']'));
+        records = [];
+        bytes = 2;
+      }
+      bytes += length + (records.length ? 1 : 0);
+      records.push(record);
+    }
+    chunks.push(write('[' + records.join(',') + ']'));
+    digest = write(JSON.stringify({chunks}));
+  }
+  return {marker: '<!-- nightly-reproducer:' + [version, runId, attempt, digest].join(' ') + ' -->', files};
 }
 
 function persistManifests(batches, {prepareManifests, manifestArtifactId, dry}) {
-  const oversized = [...batches.values()].filter(batch => batch.file);
-  if (prepareManifests && oversized.length) {
+  const files = new Map([...batches.values()].flatMap(batch => [...(batch.files || [])]));
+  if (prepareManifests && files.size) {
     fs.mkdirSync(MANIFEST_DIRECTORY, {recursive: true});
-    for (const {file, content} of oversized) fs.writeFileSync(file, content);
+    for (const [file, content] of files) fs.writeFileSync(file, content);
   } else if (!prepareManifests && !dry) {
-    for (const {file, content} of oversized) {
+    for (const [file, content] of files) {
       if (!/^\d+$/.test(manifestArtifactId || '') || !fs.existsSync(file) || fs.readFileSync(file, 'utf8') !== content) {
         throw Error('Nightly replay manifest upload is required for ' + file);
       }
     }
   }
-  return oversized.length > 0;
+  return files.size > 0;
 }
 
 function display(value, limit) {

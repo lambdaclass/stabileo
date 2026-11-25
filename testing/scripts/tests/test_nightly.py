@@ -537,7 +537,6 @@ class Artifacts(unittest.TestCase):
 
 class Workflow(unittest.TestCase):
 
-    @unittest.expectedFailure
     def test_issue_writer_queue_preserves_pending_publication(self):
         for workflow, job in (("nightly", "findings"), ("replay-findings", "report")):
             source = (ROOT / f".github/workflows/{workflow}.yml").read_text()

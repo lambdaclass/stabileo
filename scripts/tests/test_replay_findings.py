@@ -18,6 +18,8 @@ spec = importlib.util.spec_from_file_location("replay_findings", ROOT / "scripts
 rf = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(rf)
 REPLAY_COMMIT = "1" * 40
+CURRENT_MARKER = "<!-- nightly-defect:" + "a" * 64 + " -->\n"
+SINGLE_FINDING = "This run: **1 findings**, **1 analyses**, **1 relations**, **1 models**."
 
 
 def make_issue(
@@ -40,6 +42,8 @@ def make_issue(
         f"Check: **{check}** · kind: **{kind}**",
         "",
         f"Root cause: {root_cause}",
+        "",
+        SINGLE_FINDING,
         "",
         f"Test: **{test}**",
         "",
@@ -753,9 +757,9 @@ class ReplayClosureReviewTest(unittest.TestCase):
     def test_missing_primary_inventory_prevents_manual_and_scheduled_closure(self):
         original = make_issue(1, model={"nodes": {}})
         run = "<!-- nightly-run:41275933376:1 -->"
-        current = "<!-- nightly-defect:" + "a" * 64 + " -->\n" + original["body"]
+        current = CURRENT_MARKER + original["body"]
         summary = "This run: **2 findings**, **1 analyses**, **1 relations**, **2 models**.\n"
-        legacy = original["body"].replace("Test:", summary + "Test:")
+        legacy = original["body"].replace(SINGLE_FINDING + "\n", summary)
         overflow = (
             "<!-- nightly-sightings:1:3:1 -->\nAdditional sighting.\n"
             "<!-- nightly-overflow-complete -->\n" + self.record(3, {"nodes": {}}) + "\n\n"
@@ -779,7 +783,7 @@ class ReplayClosureReviewTest(unittest.TestCase):
             ("legacy comment missing models", original["body"], [legacy], False),
             ("adopted legacy missing models", "<!-- nightly-finding-adopted -->\n" + current.replace(original["body"], legacy), [], False),
             ("legacy recovery still incomplete", recovered(recovered_records[:1]), [], False),
-            ("legacy inventory recovered", recovered(recovered_records), [], True),
+            ("legacy batch omits displayed input", recovered(recovered_records), [], False),
         ]
         verdict = {"verdicts": [{"analysis": "linear", "invariant": "rotation", "pass": 1}]}
         commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
@@ -800,19 +804,19 @@ class ReplayClosureReviewTest(unittest.TestCase):
                                  for args, data in calls)
                     self.assertEqual(closed, closes)
 
-    @unittest.expectedFailure
     def test_legacy_sample_and_counts_do_not_prove_the_original_inventory(self):
         model = {"nodes": {}}
         issue = make_issue(1, seed="42", model=model)
         run = "<!-- nightly-run:41275933376:1 -->"
         summary = "This run: **2 findings**, **1 analyses**, **2 relations**, **1 model**.\n"
-        multi = issue["body"].replace("Test:", summary + "Test:", 1)
+        multi = issue["body"].replace(SINGLE_FINDING + "\n", summary)
         displayed = self.records(self.record(42, model))
         unrelated = self.records(self.record(99, {"nodes": {"unrelated": {}}}))
         wrong_seed = self.records(self.record(43, model))
         restored = (
             ("one model, multiple findings", multi),
             ("aggregate with no count", multi.replace(summary, "One smallest available reproducer\n")),
+            ("no evidence of the number of inputs", issue["body"].replace(SINGLE_FINDING + "\n", "")),
             ("enough records omit displayed input", multi.replace(run, self.batch(wrong_seed + unrelated) + "\n" + run)),
             ("one display and an unrelated record", multi.replace(run, self.batch(displayed + unrelated) + "\n" + run)),
         )
@@ -841,7 +845,9 @@ class ReplayClosureReviewTest(unittest.TestCase):
         payload = base64.b64encode(gzip.compress(json.dumps(records).encode())).decode()
         return f"<!-- nightly-reproducer:v1 {payload} -->"
 
-    @unittest.expectedFailure
+    def with_inventory(self, body, marker):
+        return CURRENT_MARKER + body.replace("<!-- nightly-run:", marker + "\n<!-- nightly-run:", 1)
+
     def test_rounded_legacy_inline_model_needs_original_bytes_even_with_a_safe_seed(self):
         safe = (1 << 53) - 1
         exact = (1 << 53) + 1
@@ -857,8 +863,7 @@ class ReplayClosureReviewTest(unittest.TestCase):
             with self.subTest(number=number):
                 issue = make_issue(number, seed="42", model=displayed)
                 if original is not None:
-                    issue["body"] = issue["body"].replace(
-                        "<!-- nightly-run:", self.record(42, original) + "\n<!-- nightly-run:", 1)
+                    issue["body"] = self.with_inventory(issue["body"], self.record(42, original))
                 seen = []
 
                 def runner(cmd, *, env, timeout):
@@ -872,7 +877,6 @@ class ReplayClosureReviewTest(unittest.TestCase):
                 self.assertEqual(seen, [] if expected == "not-replayable" else [original or displayed])
                 self.assertEqual(any(args[:2] == ("issue", "close") for args, _ in calls), expected == "passes-now")
 
-    @unittest.expectedFailure
     def test_live_closure_detects_a_new_bot_comment_with_missing_run_marker(self):
         issue = make_issue(1, model={"nodes": {}})
         new_sighting = {"user": {"login": "github-actions[bot]"}, "body": self.record(42, {"nodes": {"new": {}}})}
@@ -892,12 +896,11 @@ class ReplayClosureReviewTest(unittest.TestCase):
                 self.assertEqual(len(calls), 2)
                 self.assertIn("/comments?", calls[-1][0][-1])
 
-    @unittest.expectedFailure
     def test_fetch_retains_bot_reproducer_comments_with_broken_occurrence_markers(self):
         issue = make_issue(1, model={"nodes": {}})
         record = self.record(42, {"nodes": {"comment": {}}})
         bot = {"login": "github-actions[bot]"}
-        finding = "<!-- nightly-defect:" + "a" * 64 + " -->"
+        finding = CURRENT_MARKER.rstrip("\n")
         intact = f"{finding}\n{record}\n<!-- nightly-run:12:1 -->"
         for body, expected in (
             (intact, "passes-now"),
@@ -955,7 +958,7 @@ class ReplayClosureReviewTest(unittest.TestCase):
                 body = (
                     "<!-- nightly-sightings:1:3:1 -->\nOne additional sighting.\n"
                     "<!-- nightly-overflow-complete -->\n" + reference(overflow_run) + "\n\n" +
-                    issue["body"].replace(hint, reference(primary_run) + "\n" + hint)
+                    self.with_inventory(issue["body"], reference(primary_run))
                 )
 
                 def gh(*args, data=None):
@@ -983,7 +986,6 @@ class ReplayClosureReviewTest(unittest.TestCase):
                 report = rf.merge_reports(fetched, [partials], REPLAY_COMMIT)
                 self.assertEqual([row["status"] for row in report], [expected])
 
-    @unittest.expectedFailure
     def test_verified_copy_matches_exact_input_across_diagnostic_changes(self):
         issue = make_issue(1, model={"nodes": {}})
         model = {"nodes": {"exact": {"id": (1 << 53) + 1}}}
@@ -997,7 +999,7 @@ class ReplayClosureReviewTest(unittest.TestCase):
             for change, expected in (
                 ("diagnostics", "passes-now"), ("model", "not-replayable"), ("seed", "not-replayable"),
                 ("test", "not-replayable"), ("wrong model hash", "not-replayable"),
-                ("bad file digest", "not-replayable"),
+                ("bad file digest", "not-replayable"), ("contradictory original", "not-replayable"),
             ):
                 with self.subTest(reverse=reverse, change=change):
                     copy = {**original, "runId": "2"}
@@ -1012,14 +1014,20 @@ class ReplayClosureReviewTest(unittest.TestCase):
                         copy["test"] = artifact["test"] = "metamorphic/linear/mirror"
                     raw = json.dumps(artifact).encode()
                     copy["artifactHash"] = hashlib.sha256(raw).hexdigest()
-                    ordered = [copy, original] if reverse else [original, copy]
-                    body = issue["body"].replace("<!-- nightly-run:", self.batch(ordered) + "\n<!-- nightly-run:", 1)
+                    prior = original
+                    if change == "contradictory original":
+                        original_bytes = json.dumps({**artifact, "model": {"nodes": {"different": {}}}}).encode()
+                        prior = {**prior, "artifactHash": hashlib.sha256(original_bytes).hexdigest()}
+                    ordered = [copy, prior] if reverse else [prior, copy]
+                    body = self.with_inventory(issue["body"], self.batch(ordered))
 
                     def gh(*args, data=None):
                         return json.dumps([[{**issue, "body": body}]])
 
                     def read(repo, run_id, name, member, *_):
                         if run_id == "1":
+                            if change == "contradictory original":
+                                return original_bytes
                             raise ValueError("expired")
                         return raw + (b" " if change == "bad file digest" else b"")
 
@@ -1031,7 +1039,6 @@ class ReplayClosureReviewTest(unittest.TestCase):
                     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
                     self.assert_report_actions(fetched, partials, [expected], commit=commit)
 
-    @unittest.expectedFailure
     def test_chunked_manifests_require_every_committed_chunk_and_finding(self):
         issue = make_issue(1, model={"nodes": {}})
         files = {}
@@ -1055,7 +1062,7 @@ class ReplayClosureReviewTest(unittest.TestCase):
                 digest = hashlib.sha256(index).hexdigest()
                 members[digest + ".json"] = index
                 pointer = f"<!-- nightly-reproducer:v3 41275933376 1 {digest} -->"
-                body = issue["body"].replace("<!-- nightly-run:", pointer + "\n<!-- nightly-run:", 1)
+                body = self.with_inventory(issue["body"], pointer)
                 if variant == "missing chunk":
                     del members[chunks[1] + ".json"]
                 if variant == "corrupt chunk":
@@ -1082,7 +1089,7 @@ class ReplayClosureReviewTest(unittest.TestCase):
         manifest = json.dumps([record]).encode()
         digest = hashlib.sha256(manifest).hexdigest()
         pointer = f"<!-- nightly-reproducer:v2 41275933376 1 {digest} -->"
-        issue["body"] = issue["body"].replace("<!-- nightly-run:", pointer + "\n<!-- nightly-run:", 1)
+        issue["body"] = self.with_inventory(issue["body"], pointer)
 
         def zipped(member, content):
             data = io.BytesIO()
@@ -1134,7 +1141,7 @@ class ReplayClosureReviewTest(unittest.TestCase):
         ]
         for number, seed in [(3, unsafe_seed), (4, (1 << 64) - 1)]:
             issue = make_issue(number, seed=str(seed), model=model)
-            issue["body"] = issue["body"].replace("<!-- nightly-run:", self.record(seed, model) + "\n<!-- nightly-run:", 1)
+            issue["body"] = self.with_inventory(issue["body"], self.record(seed, model))
             issues.append(issue)
 
         seen = []

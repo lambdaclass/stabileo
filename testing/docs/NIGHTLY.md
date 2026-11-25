@@ -142,10 +142,12 @@ overflow of uncertain completeness blocks automatic closure. If a legacy body
 has no room for the overflow batch, a bounded sighting comment preserves the new
 evidence alongside the old body. Large finding files are referenced by digest.
 When the inventory of references also exceeds the inline limit, the workflow
-uploads a replay manifest before publishing the sighting. Replay verifies the
-manifest digest and each referenced finding's digest and selector. A verified
-copy of an exact input is sufficient when another copy has expired. Closed
-findings can reopen when they recur.
+uploads a replay manifest before publishing the sighting. Inventories above the
+per-file replay limit use an index that names each chunk by digest. Replay
+verifies the index, every chunk, and each referenced finding's digest and
+selector. A verified copy with the same test, exact model and seed can replace
+an expired reference even if its diagnostics differ. Closed findings can
+reopen when they recur.
 
 On scheduled runs, the nightly workflow uses `replay-findings.yml` to replay
 the saved inputs against that night's main commit. Closure requires three
@@ -157,12 +159,17 @@ records, and failed replay jobs leave the issue open. A false-rejection finding
 requires explicit acceptance by the differential check. A new sighting in the
 same nightly run also prevents counting a pass. Current-format sightings require
 their primary machine-readable inventory. A legacy sighting can use its inline
-model if the report did not list other models. Multi-model legacy sightings need
-the recovered exact inventory before closure.
-The manual replay workflow defaults to reporting and also has an explicit
-maintainer close option. Both closure modes recheck the live issue body and
-bot sightings against their replay snapshot. The publishing and closure jobs
-share a workflow concurrency group on main.
+model when the report establishes a single finding and the inline integers and
+seed are safe. When the report cannot establish all original inputs, recover
+the original run's exact test, model and seed inventory before closing the
+issue manually. An arbitrary batch added to the issue cannot establish which
+finding files the historical reporter grouped together.
+
+The manual replay workflow defaults to reporting and has an explicit close
+option. Both closure modes recheck the live issue body and bot sightings
+against their replay snapshot. Bot comments with reporter evidence and a
+missing or malformed run marker keep the issue open. The publishing and
+closure jobs share a concurrency group that queues pending jobs.
 
 The offline migration planner takes a JSON issue export with the `number`,
 `title`, `body`, `createdAt` or `created_at`, `state`, and `labels` fields.

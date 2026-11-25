@@ -86,20 +86,27 @@ DETAILS_RE = re.compile(r"Details:\s+```text\n([\s\S]*?)\n```")
 REPRODUCER_PREFIX = "<!-- nightly-reproducer:"
 REPRODUCER_LINE = (
     r"<!-- nightly-reproducer:(?:v1 (?P<payload>[A-Za-z0-9+/=]+)"
-    r"|v2 (?P<run_id>\d+) (?P<attempt>\d+) (?P<digest>[0-9a-f]{64})) -->"
+    r"|(?P<version>v[23]) (?P<run_id>\d+) (?P<attempt>\d+) (?P<digest>[0-9a-f]{64})) -->"
 )
 REPRODUCER_RE = re.compile(rf"^{REPRODUCER_LINE}$", re.M | re.ASCII)
 CURRENT_FINDING_RE = re.compile(r"^(?:<!-- nightly-defect:[0-9a-f]{64} -->|Reproducer path: [^\n]+)$", re.M)
 LEGACY_ADOPTED_RE = re.compile(r"^<!-- nightly-finding-adopted -->$", re.M)
-LEGACY_MODELS_RE = re.compile(
-    r"^This run:[^\n]*?\*\*(\d+) models?\*\*",
+LEGACY_INVENTORY_RE = re.compile(
+    r"^This run: \*\*(\d+) findings?\*\*, \*\*(\d+) analyses?\*\*, "
+    r"\*\*(\d+) relations?\*\*, \*\*(\d+) models?\*\*\.$",
     re.M | re.ASCII,
 )
-RUN_RE = re.compile(r"^<!-- nightly-run:(\d+):\d+ -->$", re.M)
+LEGACY_SUMMARY_RE = re.compile(r"^(?:This run:|One smallest available reproducer)", re.M)
+RUN_RE = re.compile(r"^<!-- nightly-run:([0-9]+):[0-9]+ -->$", re.M)
+REPORTER_COMMENT_RE = re.compile(r"^(?:<!-- nightly-(?:run:|finding:|defect:|reproducer:|sightings:|overflow-complete\b)"
+                                 r"|Reproducer path: )", re.M)
+RUN_LINK_RE = re.compile(r"^\[Run and artifacts\]\(", re.M)
 SIGHTINGS_RE = re.compile(r"^<!-- nightly-sightings:\d+:(\d+):\d+ -->$", re.M)
 OVERFLOW_COMPLETE_RE = re.compile(rf"\n[^\n]*\n<!-- nightly-overflow-complete -->\n{REPRODUCER_LINE}$", re.M)
 REPLAY_STATE_RE = re.compile(r"^<!-- nightly-replay:v1 (\{[^\n]*\}) -->\n?", re.M)
 ARTIFACT_PATH_RE = re.compile(r"nightly-findings/(nightly-findings-[\w.-]+)/([\w./-]+\.finding\.json)", re.ASCII)
+SHA256_RE = re.compile(r"[0-9a-f]{64}")
+SURROGATE_RE = re.compile(r"[\ud800-\udfff]")
 MAX_RECORD_BYTES = 4_000_000
 MAX_ARTIFACT_BYTES = 64_000_000
 
@@ -107,6 +114,14 @@ MAX_ARTIFACT_BYTES = 64_000_000
 def _match(pattern, text):
     m = pattern.search(text)
     return m.group(1).strip() if m else ""
+
+
+def _unsafe_inline_integer(value):
+    if isinstance(value, dict):
+        return any(_unsafe_inline_integer(child) for child in value.values())
+    if isinstance(value, list):
+        return any(_unsafe_inline_integer(child) for child in value)
+    return (type(value) is int or isinstance(value, float) and value.is_integer()) and abs(value) > MAX_JS_SAFE_INTEGER
 
 
 def parse_issue(issue, record=None):
@@ -211,6 +226,10 @@ def parse_issue(issue, record=None):
         spec["not_replayable_reason"] = f"{label}: model.json is not a JSON object"
         return spec
 
+    if record is None and _unsafe_inline_integer(model):
+        spec["not_replayable_reason"] = f"{label}: legacy model contains an unsafe integer; exact artifact required"
+        return spec
+
     if source == "metamorphic":
         parts = test.split("/", 2)
         if len(parts) != 3 or parts[0] != "metamorphic" or not parts[1] or not parts[2]:
@@ -272,50 +291,76 @@ def finding_bodies(issue):
     return [issue.get("body") or "", *(issue.get("sightings") or [])]
 
 
-def _manifest_location(block):
-    run_id, attempt, digest = block.group("run_id", "attempt", "digest")
+def _manifest_location(block, digest):
+    run_id, attempt = block.group("run_id", "attempt")
     return run_id, f"nightly-replay-manifests-{attempt}", f"{digest}.json", digest
 
 
-def _verified_json(raw, digest, label):
+def _verified_json(raw, digest, label, **json_options):
     if len(raw) > MAX_RECORD_BYTES or hashlib.sha256(raw).hexdigest() != digest:
         raise ValueError(f"{label} size or digest differs")
-    return json.loads(raw)
+    return json.loads(raw, **json_options)
+
+
+def _manifest_batches(block, load):
+    def read(digest):
+        return _verified_json(load(_manifest_location(block, digest)), digest, "nightly replay manifest")
+
+    root = read(block["digest"])
+    if block["version"] == "v2":
+        return [root]
+    chunks = root.get("chunks") if isinstance(root, dict) else None
+    if (not isinstance(chunks, list) or not chunks
+            or not all(isinstance(digest, str) and SHA256_RE.fullmatch(digest) for digest in chunks)
+            or len(chunks) != len(set(chunks))):
+        raise ValueError("invalid nightly replay manifest chunk index")
+    return [read(digest) for digest in chunks]
 
 
 def _decode_reproducer(block, manifests):
+    def load(location):
+        manifest = manifests.get(" ".join(location), {})
+        if "content" not in manifest:
+            raise ValueError(manifest.get("error", "nightly replay manifest unavailable"))
+        return manifest["content"].encode()
+
     if block["payload"]:
         with gzip.GzipFile(fileobj=io.BytesIO(base64.b64decode(block["payload"], validate=True))) as compressed:
             content = compressed.read(MAX_RECORD_BYTES + 1)
         if len(content) > MAX_RECORD_BYTES:
             raise ValueError("reproducer block exceeds replay size limit")
-        batch = json.loads(content)
+        batches = [json.loads(content)]
     else:
-        manifest = manifests.get(" ".join(_manifest_location(block)), {})
-        if "content" not in manifest:
-            raise ValueError(manifest.get("error", "nightly replay manifest unavailable"))
-        batch = _verified_json(manifest["content"].encode(), block["digest"], "nightly replay manifest")
+        batches = _manifest_batches(block, load)
 
     keys = ("test", "seed", "kind", "message", "reduction", "path", "runId", "artifactHash")
-    if not isinstance(batch, list) or not batch or not all(
-        isinstance(record, dict) and all(isinstance(record.get(key), str) for key in keys)
-        for record in batch
-    ):
-        raise ValueError("invalid reproducer records")
     records = []
-    for entry in batch:
-        record = {key: entry[key] for key in keys}
-        if "artifact" in entry:
-            try:
-                record.update(_model_from_artifact(record, entry["artifact"].encode()))
-            except (AttributeError, ValueError, KeyError) as error:
-                record["error"] = str(error)
-        records.append(record)
+    for batch in batches:
+        if not isinstance(batch, list) or not batch:
+            raise ValueError("invalid reproducer records")
+        for entry in batch:
+            if not isinstance(entry, dict) or not all(isinstance(entry.get(key), str) for key in keys):
+                raise ValueError("invalid reproducer record")
+            record = {key: entry[key] for key in keys}
+            if "modelHash" in entry:
+                if not isinstance(entry["modelHash"], str) or not SHA256_RE.fullmatch(entry["modelHash"]):
+                    raise ValueError("invalid nightly reproducer model digest")
+                record["modelHash"] = entry["modelHash"]
+            if "artifact" in entry:
+                try:
+                    record.update(_model_from_artifact(record, entry["artifact"].encode()))
+                except (AttributeError, ValueError, KeyError, RecursionError) as error:
+                    record["error"] = str(error)
+            records.append(record)
     return records
 
 
 def _artifact_selector(record):
-    return json.dumps([record["artifactHash"], record["test"], record["seed"]])
+    return json.dumps([record[key] for key in ("runId", "path", "artifactHash", "test", "seed")] + [record.get("modelHash")])
+
+
+def _input_selector(record, model_hash):
+    return record["test"], record["seed"], model_hash
 
 
 def _body_reproducers(body, manifests):
@@ -324,7 +369,7 @@ def _body_reproducers(body, manifests):
         primary = body[block.end():block.end() + 1] == "\n" and bool(RUN_RE.match(body, block.end() + 1))
         try:
             yield primary, _decode_reproducer(block, manifests), None
-        except (ValueError, EOFError, OSError, zlib.error) as error:
+        except (ValueError, EOFError, OSError, RecursionError, zlib.error) as error:
             yield primary, [], str(error)
     if len(blocks) != body.count(REPRODUCER_PREFIX):
         yield False, [], "invalid or unsupported reproducer block"
@@ -334,24 +379,25 @@ def parse_reproducers(issue):
     specs = []
     resolved = issue.get("resolved_models", {})
     manifests = issue.get("resolved_manifests", {})
-    for body in finding_bodies(issue):
+    for index, body in enumerate(finding_bodies(issue)):
         sighting = {**issue, "body": body}
         batches = list(_body_reproducers(body, manifests))
         primary = [records for is_primary, records, _ in batches if is_primary]
         current = CURRENT_FINDING_RE.search(body) and not LEGACY_ADOPTED_RE.search(body)
-        known_models = max((int(count) for count in LEGACY_MODELS_RE.findall(body)), default=1)
-        if len(primary) > 1:
+        legacy_summary = LEGACY_INVENTORY_RE.findall(body)
+        has_legacy_report = not current and (LEGACY_SUMMARY_RE.search(body) or MARKER_RE.search(body))
+        if (index or current or has_legacy_report) and len(RUN_RE.findall(body)) != 1:
+            missing = "missing or malformed nightly sighting run marker"
+        elif len(primary) > 1:
             missing = "ambiguous primary nightly reproducer inventory"
         elif current and not primary:
             missing = "missing primary nightly reproducer inventory"
-        elif not current and known_models > 1 and (
-            not primary or len({_artifact_selector(record) for record in primary[0]}) < known_models
-        ):
-            missing = "legacy nightly report lists multiple models; original reproducer inventory required"
+        elif has_legacy_report and legacy_summary != [("1", "1", "1", "1")]:
+            missing = "legacy nightly report cannot establish every input; original test/model/seed inventory required"
         else:
             missing = None
 
-        if missing or (not primary and not any(error for _, _, error in batches)):
+        if missing or has_legacy_report or (not primary and not any(error for _, _, error in batches)):
             spec = parse_issue(sighting)
             if missing:
                 spec.update(replayable=False, not_replayable_reason=missing)
@@ -851,16 +897,25 @@ def _bot_comments(repo, number, run_gh):
 
 
 def _sightings(comments):
-    return [body for body in comments if RUN_RE.search(body)]
+    return [body for body in comments if REPORTER_COMMENT_RE.search(body)
+            or (TEST_RE.search(body) and SEED_RE.search(body) and RUN_LINK_RE.search(body))]
+
+
+class _InvalidFindingArtifact(ValueError):
+    pass
 
 
 def _resolve_artifact(repo, record, run_gh, archives):
     path = ARTIFACT_PATH_RE.fullmatch(record["path"])
     run_id = record["runId"]
     if not path or not re.fullmatch(r"[0-9]+", run_id) or ".." in path[2].split("/"):
-        raise ValueError("invalid nightly run or artifact path")
+        raise _InvalidFindingArtifact("invalid nightly run or artifact path")
     name, member = path.groups()
-    return _model_from_artifact(record, _read_artifact_member(repo, run_id, name, member, run_gh, archives))
+    raw = _read_artifact_member(repo, run_id, name, member, run_gh, archives)
+    try:
+        return _model_from_artifact(record, raw)
+    except (ValueError, RecursionError) as error:
+        raise _InvalidFindingArtifact(str(error)) from error
 
 
 def _read_artifact_member(repo, run_id, name, member, run_gh, archives):
@@ -880,13 +935,32 @@ def _read_artifact_member(repo, run_id, name, member, run_gh, archives):
         return entry.read(MAX_RECORD_BYTES + 1)
 
 
+class _JsonNumber(str):
+    pass
+
+
+def _canonical_model_json(value):
+    if isinstance(value, _JsonNumber):
+        return value
+    if isinstance(value, list):
+        return "[" + ",".join(map(_canonical_model_json, value)) + "]"
+    if isinstance(value, dict):
+        keys = sorted(value, key=lambda key: key.encode("utf-16-be", errors="surrogatepass"))
+        return "{" + ",".join(f"{_canonical_model_json(key)}:{_canonical_model_json(value[key])}" for key in keys) + "}"
+    return SURROGATE_RE.sub(lambda match: f"\\u{ord(match[0]):04x}", json.dumps(value, ensure_ascii=False))
+
+
 def _model_from_artifact(record, raw):
     finding = _verified_json(raw, record["artifactHash"], "nightly finding file")
     if not isinstance(finding, dict) or finding.get("test") != record["test"] or str(finding.get("seed")) != record["seed"]:
         raise ValueError("nightly finding selector differs")
     if not isinstance(finding.get("model"), dict):
         raise ValueError("nightly finding model is not a JSON object")
-    return {"model": finding["model"]}
+    exact = json.loads(raw, parse_int=_JsonNumber, parse_float=_JsonNumber)["model"]
+    model_hash = hashlib.sha256(_canonical_model_json(exact).encode()).hexdigest()
+    if record.get("modelHash", model_hash) != model_hash:
+        raise ValueError("nightly finding model digest differs")
+    return {"model": finding["model"], "verified_model_hash": model_hash}
 
 
 ARTIFACT_ERRORS = (ValueError, KeyError, OSError, EOFError, RuntimeError, zipfile.BadZipFile,
@@ -895,35 +969,65 @@ ARTIFACT_ERRORS = (ValueError, KeyError, OSError, EOFError, RuntimeError, zipfil
 
 def _resolve_issue_reproducers(repo, issue, run_gh, archives, downloaded):
     manifests = {}
-    models = {}
-    for body in finding_bodies(issue):
+
+    def load_manifest(location):
+        run_id, name, member, digest = location
+        key = " ".join(location)
+        if key not in manifests:
+            try:
+                raw = _read_artifact_member(repo, run_id, name, member, run_gh, archives)
+                _verified_json(raw, digest, "nightly replay manifest")
+                manifests[key] = {"content": raw.decode()}
+            except ARTIFACT_ERRORS as error:
+                manifests[key] = {"error": f"nightly replay manifest {digest}: {error}"}
+        manifest = manifests[key]
+        if "error" in manifest:
+            raise ValueError(manifest["error"])
+        return manifest["content"].encode()
+
+    bodies = finding_bodies(issue)
+    for body in bodies:
         for block in REPRODUCER_RE.finditer(body):
-            if not block["digest"]:
-                continue
-            run_id, name, member, digest = _manifest_location(block)
-            location = " ".join((run_id, name, member, digest))
-            if location not in manifests:
+            if block["digest"]:
                 try:
-                    raw = _read_artifact_member(repo, run_id, name, member, run_gh, archives)
-                    _verified_json(raw, digest, "nightly replay manifest")
-                    manifests[location] = {"content": raw.decode()}
-                except ARTIFACT_ERRORS as error:
-                    manifests[location] = {"error": f"nightly replay manifest {digest}: {error}"}
-        for _, records, _ in _body_reproducers(body, manifests):
-            for record in records:
+                    _manifest_batches(block, load_manifest)
+                except ARTIFACT_ERRORS:
+                    continue
+
+    records = {}
+    models = {}
+    exact_inputs = {}
+    exact_files = {}
+    for body in bodies:
+        for _, batch, _ in _body_reproducers(body, manifests):
+            for record in batch:
                 selector = _artifact_selector(record)
-                if models.get(selector, {}).get("model") is not None:
-                    continue
+                records[selector] = record
                 if record.get("model") is not None:
-                    models[selector] = {"model": record["model"]}
-                    continue
-                location = (record["runId"], record["path"], selector)
-                if location not in downloaded:
-                    try:
-                        downloaded[location] = _resolve_artifact(repo, record, run_gh, archives)
-                    except ARTIFACT_ERRORS as error:
-                        downloaded[location] = {"error": f"{record['path']}: {error}"}
-                models[selector] = downloaded[location]
+                    result = {key: record[key] for key in ("model", "verified_model_hash")}
+                else:
+                    if selector not in downloaded:
+                        try:
+                            downloaded[selector] = _resolve_artifact(repo, record, run_gh, archives)
+                        except _InvalidFindingArtifact as error:
+                            downloaded[selector] = {"error": f"{record['path']}: {error}", "invalid": True}
+                        except ARTIFACT_ERRORS as error:
+                            downloaded[selector] = {"error": f"{record['path']}: {error}"}
+                    result = downloaded[selector]
+                if "model" in result:
+                    models[selector] = result
+                    exact_inputs[_input_selector(record, result["verified_model_hash"])] = result
+                    exact_files[_input_selector(record, record["artifactHash"])] = result
+                elif result.get("invalid") or record.get("error"):
+                    models.setdefault(selector, result)
+
+    for selector, record in records.items():
+        if selector in models:
+            continue
+        digest = record.get("modelHash")
+        copy = (exact_inputs.get(_input_selector(record, digest)) if digest
+                else exact_files.get(_input_selector(record, record["artifactHash"])))
+        models[selector] = copy if copy is not None else downloaded[selector]
     if manifests:
         issue["resolved_manifests"] = manifests
     if models:

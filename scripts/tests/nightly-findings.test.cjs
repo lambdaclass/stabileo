@@ -882,9 +882,10 @@ test('oversized exact inventories use a verified manifest and publication contin
     assert.match(logs.at(-2), /nightly-reproducer:v2 132 1 /);
   }));
 
-test('inventories above the replay size limit are published as bounded verified chunks', {todo: 'known wrong result: #2578'},
-  () => fixture(async ({args, calls, save}) => {
+test('inventories above the replay size limit are published as bounded verified chunks',
+  () => fixture(async ({args, calls, comments, issues, save}) => {
     const count = 450;
+    const limit = 4_000_000;
     const reduction = 'a'.repeat(9_000);
     fs.mkdirSync('nightly-findings/nightly-findings-opensees');
     for (let seed = 0; seed < count; seed++) {
@@ -899,7 +900,7 @@ test('inventories above the replay size limit are published as bounded verified 
     assert.ok(pointer, 'inventories beyond 4 MB need a chunk index');
     const read = digest => {
       const bytes = fs.readFileSync(path.join(manifestDir, digest + '.json'));
-      assert.ok(bytes.length <= 4_000_000);
+      assert.ok(bytes.length <= limit);
       assert.equal(createHash('sha256').update(bytes).digest('hex'), digest);
       return JSON.parse(bytes);
     };
@@ -915,4 +916,33 @@ test('inventories above the replay size limit are published as bounded verified 
     calls.length = 0;
     await assert.rejects(report({...args, manifestArtifactId: '123'}), /manifest.*upload/i);
     assert.equal(calls.length, 0);
+
+    issues.push({number: 1, state: 'open', body: published});
+    for (const run of [111, 112, 113, 114, 115]) comments.push(botComment('<!-- nightly-run:' + run + ':1 -->'));
+    for (const run of [124, 125]) {
+      args.context.runId = run;
+      await report({...args, prepareManifests: true});
+      await report({...args, manifestArtifactId: String(run)});
+      const markers = [...issues[0].body.matchAll(/<!-- nightly-reproducer:v3 (\d+) 1 ([0-9a-f]{64}) -->/g)];
+      assert.deepEqual(markers.map(marker => Number(marker[1])), [run, 123]);
+      assert.equal(read(markers[0][2]).chunks.flatMap(read).length, count);
+    }
+
+    issues.length = 0;
+    let excess = Buffer.byteLength(JSON.stringify(records)) - limit;
+    for (const {seed} of records) {
+      if (!excess) break;
+      const trim = Math.min(excess, reduction.length);
+      save('nightly-findings-opensees/case-' + seed, {...finding, seed, reduction: reduction.slice(trim)});
+      excess -= trim;
+    }
+    assert.equal(excess, 0);
+    calls.length = 0;
+    await report({...args, prepareManifests: true});
+    await report({...args, manifestArtifactId: '125'});
+    const bounded = calls.find(call => call.name === 'create').args.body;
+    const manifest = bounded.match(/<!-- nightly-reproducer:v2 125 1 ([0-9a-f]{64}) -->/);
+    assert.ok(manifest, 'the exact limit fits in one manifest');
+    assert.equal(fs.statSync(path.join(manifestDir, manifest[1] + '.json')).size, limit);
+    assert.equal(read(manifest[1]).length, count);
   }));
