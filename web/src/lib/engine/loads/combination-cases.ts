@@ -44,7 +44,9 @@
  * cases the regulation generator makes (the same forces on every node of a level, mirrored),
  * and a statement about any case loaded by hand, which the option says where it is offered.
  */
-import { isCombinationGroup } from './combination-rules';
+import { combinationActionKey, isCombinationGroup } from './combination-rules';
+import { EngineCheckError } from '../engine-unavailable';
+import { sumCombinationFactors } from '../wasm-solver';
 import type { AnalysisSettings } from '../analysis-settings';
 import { EngineMessageError, msg } from '../../codes/message';
 import type { LoadCombinationSpec, LoadSymbol, CombinationInputs } from '../../codes/cirsoc101/combinations';
@@ -273,6 +275,28 @@ function combineChoiceSlots(slots: readonly PickSlot[], rule: string): CasePick[
   return complete;
 }
 
+type ResolvedAction = { id: number; symbol: LoadSymbol; cases: CombinationCase[] };
+type ResolvedTerm = { action: ResolvedAction; factor: number };
+
+function principalPatternActions(terms: readonly ResolvedTerm[], actions: readonly ResolvedAction[], rule: string): ResolvedAction[] {
+  const factors = terms.map(({ action, factor }) => ({ caseId: action.id, factor }));
+  let totals: ReturnType<typeof sumCombinationFactors>;
+  try {
+    totals = sumCombinationFactors(factors);
+  } catch (error) {
+    if (!(error instanceof EngineCheckError)) throw error;
+    throw new EngineMessageError(msg('combos.refused.factorTotal', { rule }));
+  }
+  const variable = totals.flatMap(({ caseId, factor }) => {
+    const action = actions[caseId]!;
+    return factor !== 0 && VARIABLE.has(action.symbol) ? [{ action, magnitude: Math.abs(factor) }] : [];
+  });
+  const principal = variable.reduce((largest, { magnitude }) => Math.max(largest, magnitude), 0);
+  return variable.filter(({ action, magnitude }) => magnitude >= principal - 1e-9
+    && !isDirectional(action.symbol) && action.cases.some(c => c.pattern))
+    .map(({ action }) => action);
+}
+
 export function expandCombinations(
   specs: readonly LoadCombinationSpec[],
   cases: readonly CombinationCase[],
@@ -300,16 +324,21 @@ export function expandCombinations(
     const activeTerms = spec.terms.filter((t) => t.factor !== 0);
     const legacyFlatRoof = spec.notes?.some(n => n.key === 'loads.cirsoc101.note.snowAsFlatRoof');
     const seismic = hasSeismicProvenance(spec);
-    const selected = new Map(activeTerms.map(t => {
+    const actions: ResolvedAction[] = [];
+    const actionsByKey = new Map<string, ResolvedAction>();
+    const terms = activeTerms.map(t => {
       if (t.snowBasis && t.symbol !== 'S') throw new EngineMessageError(msg('snow.refused.flatRoofCase'));
       if (t.symbol === 'S' && !t.snowBasis && legacyFlatRoof && seismic) throw new EngineMessageError(msg('snow.refused.legacyCombination'));
+      const basis = t.snowBasis ?? (t.symbol === 'S' && legacyFlatRoof ? 'flatRoof' : undefined);
+      const key = combinationActionKey({ ...t, snowBasis: basis });
+      const known = actionsByKey.get(key);
+      if (known) return { action: known, factor: t.factor };
       const available = availableBySymbol.get(t.symbol) ?? [];
       const named = namedGroups.get(t.symbol);
       const all = t.group === undefined
         ? available.filter(c => c.group === undefined || !named?.has(c.group))
         : available.filter(c => c.group === t.group);
       if (t.group !== undefined && all.length === 0) throw unresolvedGroup(t.symbol, t.group);
-      const basis = t.snowBasis ?? (t.symbol === 'S' && legacyFlatRoof ? 'flatRoof' : undefined);
       const matching = all.filter(c => t.symbol !== 'S' || c.snowBasis === basis);
       const missingSnowCase = basis === 'flatRoof' ? msg('snow.refused.flatRoofCase') : msg('snow.refused.physicalCase');
       if (t.symbol === 'S') {
@@ -322,24 +351,23 @@ export function expandCombinations(
         if (counterparts.some(c => !covered(c))) throw new EngineMessageError(missingSnowCase);
       }
       if ((basis === 'flatRoof' || all.length > 0) && !matching.length) throw new EngineMessageError(missingSnowCase);
-      return [t, matching] as const;
-    }));
-    const casesFor = (t: (typeof activeTerms)[number]) => selected.get(t)!;
-    const terms = activeTerms.filter(t => casesFor(t).length > 0);
+      const action = { id: actions.length, symbol: t.symbol, cases: matching };
+      actions.push(action);
+      actionsByKey.set(key, action);
+      return { action, factor: t.factor };
+    }).filter(({ action }) => action.cases.length > 0);
     if (activeTerms.some(t => !availableBySymbol.has(t.symbol))) continue;
-    const principal = Math.max(0, ...terms.filter((t) => VARIABLE.has(t.symbol)).map((t) => Math.abs(t.factor)));
-    const arranged = (t: (typeof terms)[number]) => !isDirectional(t.symbol) && casesFor(t).some((c) => c.pattern);
-    const tied = terms.flatMap((t, i) => (VARIABLE.has(t.symbol) && Math.abs(t.factor) >= principal - 1e-9 && arranged(t) ? [i] : []));
-    const alternativeSymbols = symbolsByAlternativeSet(terms.flatMap(casesFor));
-    const slotsFor = (varying: number | null): PickSlot[] => {
+    const tied = principalPatternActions(terms, actions, spec.label);
+    const alternativeSymbols = symbolsByAlternativeSet(actions.flatMap(action => action.cases));
+    const slotsFor = (varying: ResolvedAction | null): PickSlot[] => {
       const slots: Array<PickSlot | ChoiceSlot> = [];
       const slotsByAction = new Map<string, ChoiceSlot>();
-      terms.forEach((t, i) => {
-        const direction = isDirectional(t.symbol) ? t.symbol : undefined;
-        const all = casesFor(t);
+      for (const { action, factor } of terms) {
+        const { symbol, cases: all } = action;
+        const direction = isDirectional(symbol) ? symbol : undefined;
         const plain = direction ? [] : all.filter(c => !c.alternatives);
         if (plain.length > 0) {
-          slots.push({ kind: 'plain', picks: [{ factors: plain.map(c => ({ caseId: c.id, factor: t.factor })), label: '' }] });
+          slots.push({ kind: 'plain', picks: [{ factors: plain.map(c => ({ caseId: c.id, factor })), label: '' }] });
         }
         for (const c of all) {
           const set = c.alternatives || undefined;
@@ -356,17 +384,17 @@ export function expandCombinations(
           }
           let choice = slot.choices.get(c.id);
           if (!choice) {
-            choice = { loadCase: c, symbol: t.symbol, factors: [], allowPattern: false };
+            choice = { loadCase: c, symbol, factors: [], allowPattern: false };
             slot.choices.set(c.id, choice);
           }
-          choice.factors.push(t.factor);
-          choice.allowPattern ||= opts.patternsInCompanions === true || i === varying;
+          choice.factors.push(factor);
+          choice.allowPattern ||= opts.patternsInCompanions === true || action === varying;
         }
-      });
+      }
       return slots.map(slot => 'choices' in slot ? { ...slot, picks: choicePicks(slot, opts) } : slot);
     };
-    const missingDirections = new Map(terms.filter(t => isDirectional(t.symbol))
-      .flatMap(t => casesFor(t).map(c => [c.id, c.name] as const)));
+    const missingDirections = new Map(actions.filter(action => isDirectional(action.symbol))
+      .flatMap(action => action.cases.map(c => [c.id, c.name] as const)));
     const seen = new Set<string>();
     for (const varying of opts.patternsInCompanions || tied.length === 0 ? [null] : tied) {
       for (const chosen of combineChoiceSlots(slotsFor(varying), spec.label)) {

@@ -11557,6 +11557,7 @@ const zh: Translations = {
   "combos.refused.unresolvedGroup": "没有荷载工况与符号 {symbol} 和组“{group}”匹配。请检查已保存的组合规则及其荷载工况。",
   "combos.refused.alternativeSet": "规则“{rule}”若不组合具有相同方向荷载符号的工况，就无法涵盖备选组“{set}”中的全部工况。请检查规则和备选组。",
   "combos.refused.directionalCase": "规则“{rule}”的所有组合均遗漏方向荷载工况“{case}”。请检查规则和备选组。",
+  "combos.refused.factorTotal": "规则“{rule}”中的一个荷载系数总和无法表示为有限数值。请检查该规则的系数。",
   "snow.refused.physicalCase": "该组合需要单独的实际雪荷载工况。请先重新生成雪荷载，再生成组合。",
   "snow.case.balanced": "均衡雪荷载（ps = {ps} kN/m²）",
   "snow.derivation.multipleUnbalanced": "不均衡（§6.3，图 6）：从屋脊处的 0.5 pf 到谷底的 {valley} kN/m²，谷上的雪保持低于屋脊上的雪。",

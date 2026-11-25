@@ -1,0 +1,33 @@
+{
+  "id": "repeated-combination-pattern-ranking",
+  "date": "2026-11-25",
+  "prs": [2569],
+  "area": "loads",
+  "when": { "all": ["repeatedCombinationRuleActions"] },
+  "quantities": ["*", "solve.ok"],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Rank load patterns by total action factor",
+    "es": "Ordenar los patrones de carga por el factor total de la acción",
+    "pt": "Ordenar os padrões de carga pelo fator total da ação",
+    "de": "Lastmuster nach der Summe der Faktoren je Einwirkung auswählen",
+    "fr": "Classer les configurations de charge selon le coefficient total de l’action",
+    "tr": "Yük düzenlerini etkinin toplam katsayısına göre sırala",
+    "zh": "按作用的总系数对荷载布置排序",
+    "hu": "A terhelési minták rangsorolása a hatás összesített tényezője szerint"
+  },
+  "explanation": {
+    "en": "Rules with repeated terms for the same action could omit governing load patterns. Review the rules, regenerate the affected combinations, and rerun analyses and envelopes.",
+    "es": "Las reglas con términos repetidos para una misma acción podían omitir patrones de carga determinantes. Revisá las reglas, regenerá las combinaciones afectadas y volvé a calcular los análisis y las envolventes.",
+    "pt": "As regras com termos repetidos para a mesma ação podiam omitir padrões de carga determinantes. Revise as regras, gere novamente as combinações afetadas e refaça as análises e envoltórias.",
+    "de": "Regeln mit wiederholten Termen für dieselbe Einwirkung konnten maßgebende Lastmuster auslassen. Prüfen Sie die Regeln, erzeugen Sie die betroffenen Kombinationen neu und berechnen Sie Analysen und Einhüllende erneut.",
+    "fr": "Les règles comportant des termes répétés pour une même action pouvaient omettre des configurations de charge déterminantes. Vérifiez les règles, régénérez les combinaisons concernées, puis relancez les analyses et le calcul des enveloppes.",
+    "tr": "Aynı etki için yinelenen terimler içeren kurallar belirleyici yük düzenlerini atlayabiliyordu. Kuralları gözden geçirin, etkilenen birleşimleri yeniden oluşturun ve analizleri ve zarfları yeniden hesaplayın.",
+    "zh": "对同一作用含有重复项的规则可能遗漏起控制作用的荷载布置。请检查规则，重新生成受影响的组合，并重新运行分析和计算包络。",
+    "hu": "Az ugyanahhoz a hatáshoz ismétlődő tagokat tartalmazó szabályok kihagyhatták a mértékadó terhelési mintákat. Ellenőrizze a szabályokat, hozza létre újra az érintett kombinációkat, majd számítsa újra az elemzéseket és a burkológörbéket."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-repeated-combination-pattern-ranking.md",
+    "heading": "Rank load patterns by total action factor"
+  }
+}

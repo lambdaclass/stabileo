@@ -1089,7 +1089,6 @@ it('#2566 recheck identifies occupied generated cases and repeated editable term
   expect(changes()).not.toContain(notice);
 });
 
-const knownWrongRanking = process.env.RUN_KNOWN_WRONG === '2569' ? it : it.skip;
 const rankingCases = [
   { id: 1, type: 'L', name: 'Whole floor', alternatives: 'floor' },
   { id: 2, type: 'L', name: 'First floor pattern', alternatives: 'floor', pattern: true },
@@ -1118,7 +1117,7 @@ function expectRankingReactions(reactions: number[]) {
 }
 
 for (const route of combinationRoutes) {
-  knownWrongRanking(`known wrong result: #2569 ${route} includes the governing floor pattern from a saved project rule`, async () => {
+  it(`#2569 ${route} includes the governing floor pattern from a saved project rule`, async () => {
     const { base, tip } = rankingProject(route === '2D linear' ? '2d' : '3d', true);
     expect(deserializeProject(serializeProject())).toBe(true);
     addGeneratedCombinations(projectCombinations());
@@ -1127,7 +1126,7 @@ for (const route of combinationRoutes) {
 }
 
 for (const writer of ['composite cases', 'Auto Loads'] as const) {
-  knownWrongRanking(`known wrong result: #2569 an imported template keeps the floor patterns when generating ${writer}`, async () => {
+  it(`#2569 an imported template keeps the floor patterns when generating ${writer}`, async () => {
     const { base, tip, rule } = rankingProject('3d', true);
     expect(deserializeProject(serializeProject())).toBe(true);
     const template = rulesToTemplate([rule], 'Repeated floor live');
@@ -1154,7 +1153,7 @@ it('#2569 a canonical rule still includes the governing floor pattern', async ()
   expectRankingReactions(await solveCombinationReactions('3D sync linear', base, tip));
 });
 
-knownWrongRanking('known wrong result: #2569 Preview and Apply refuse an overflowing rule before saving combinations', () => {
+it('#2569 Preview and Apply refuse an overflowing rule before saving combinations', () => {
   rankingProject('3d', false);
   const large = { ...floorTerm, factor: Number.MAX_VALUE };
   const input = { ...plan(large, large, rankingRoofTerm), cases: rankingCases.map(({ id, name, ...c }) => ({ ...c, existingId: id, nameKey: name, own: true })) };
@@ -1163,4 +1162,18 @@ knownWrongRanking('known wrong result: #2569 Preview and Apply refuse an overflo
   expect.soft(engineGuarded(() => previewLoadPlan(input, applyOptions.nameOf, { replaceExisting: true })).error).toBe(message);
   expect.soft(engineGuarded(() => applyLoadPlan(input, applyOptions)).error).toBe(message);
   expect(modelStore.snapshot()).toEqual(before);
+});
+
+it('#2569 recheck requests regeneration for repetitions within the same action', () => {
+  const id = 'repeated-combination-pattern-ranking';
+  const notices = (...terms: CombinationTerm[]) => {
+    const combinationRules = [{ id: 'pattern', purpose: 'strength', terms }];
+    return assessProject({ loadCases: [...rankingCases], combinationRules }, null, 'pro').changes;
+  };
+  const named = { ...floorTerm, group: 'floor' };
+  expect.soft(notices(floorTerm, floorTerm)).toContainEqual(expect.objectContaining({ id, requiresLoadRegeneration: true }));
+  expect.soft(notices(named, named)).toContainEqual(expect.objectContaining({ id, requiresLoadRegeneration: true }));
+  expect.soft(notices(named, floorTerm).map(change => change.id)).not.toContain(id);
+  expect.soft(notices(physicalTerm, flatRoofTerm).map(change => change.id)).not.toContain(id);
+  expect(notices(floorTerm, { ...floorTerm, factor: 0 }).map(change => change.id)).not.toContain(id);
 });

@@ -150,7 +150,6 @@ describe('reversing a wind case by sign', () => {
   });
 });
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2569' ? it : it.skip;
 const floorTerm = { symbol: 'L', factor: 1 } as const;
 const roofTerm = { symbol: 'Lr', factor: 1.5 } as const;
 const patternCases = [
@@ -173,7 +172,7 @@ function patternIds(terms: CombinationTerm[], options?: { patternsInCompanions: 
     .map(c => [...new Set(c.factors.map(f => f.caseId))]);
 }
 
-knownWrong('known wrong result: #2569 split floor live selects the same patterns and factors as one term', () => {
+it('#2569 split floor live selects the same patterns and factors as one term', () => {
   const single = rule({ ...floorTerm, factor: 2 }, roofTerm);
   const split = rule(floorTerm, floorTerm, roofTerm);
   expect(patternIds(single.terms)).toEqual([[1, 3], [2, 3]]);
@@ -181,7 +180,7 @@ knownWrong('known wrong result: #2569 split floor live selects the same patterns
   expect(netFactors(expandCombinations([split], patternCases))).toEqual(netFactors(expandCombinations([single], patternCases)));
 });
 
-knownWrong('known wrong result: #2569 ranks the magnitude of the signed total and excludes canceled actions from the ranking', () => {
+it('#2569 ranks the magnitude of the signed total and excludes canceled actions from the ranking', () => {
   const negative = rule({ ...floorTerm, factor: -4 }, { ...floorTerm, factor: 2 }, roofTerm);
   expect.soft(netFactors(expandCombinations([negative], patternCases))).toEqual(
     netFactors(expandCombinations([rule({ ...floorTerm, factor: -2 }, roofTerm)], patternCases)),
@@ -193,7 +192,7 @@ knownWrong('known wrong result: #2569 ranks the magnitude of the signed total an
   expect(netFactors(expandCombinations([canceled], patternCases))).toEqual(expected);
 });
 
-knownWrong('known wrong result: #2569 uses the current tie boundary after summing each action', () => {
+it('#2569 uses the current tie boundary after summing each action', () => {
   for (const [offset, expected] of [
     [-2e-9, [[1, 3], [1, 4]]],
     [-0.5e-9, [[1, 3], [2, 3], [1, 4]]],
@@ -207,7 +206,7 @@ knownWrong('known wrong result: #2569 uses the current tie boundary after summin
     .toEqual([[1, 3], [1, 4], [2, 3], [2, 4]]);
 });
 
-knownWrong('known wrong result: #2569 sums repeated named groups without mixing separate groups', () => {
+it('#2569 sums repeated named groups without mixing separate groups', () => {
   const grouped = patternCases.map(c => c.type === 'L' ? { ...c, group: 'floor' } : c);
   const partitioned = [...grouped, { id: 5, type: 'L', name: 'Other floor' }];
   const named = { ...floorTerm, group: 'floor' };
@@ -222,7 +221,7 @@ knownWrong('known wrong result: #2569 sums repeated named groups without mixing 
     .toEqual(netFactors(expandCombinations([rule({ ...named, factor: 0 }, floorTerm, roofTerm)], partitioned)));
 });
 
-knownWrong('known wrong result: #2569 combines explicit and legacy references to the same snow basis', () => {
+it('#2569 combines explicit and legacy references to the same snow basis', () => {
   const flatRoof = { symbol: 'S', factor: 1, snowBasis: 'flatRoof' } as const;
   const physical = { symbol: 'S', factor: 1 } as const;
   const snowCases = [
@@ -240,7 +239,7 @@ knownWrong('known wrong result: #2569 combines explicit and legacy references to
     .map(c => c.factors.map(f => f.caseId))).toEqual([[6, 3], [6, 4], [5, 3], [5, 4]]);
 });
 
-knownWrong('known wrong result: #2569 sums finite factors independent of term order and refuses overflow', () => {
+it('#2569 sums finite factors independent of term order and refuses overflow', () => {
   const large = { ...floorTerm, factor: Number.MAX_VALUE };
   const half = { ...floorTerm, factor: Number.MAX_VALUE / 2 };
   const negative = { ...large, factor: -large.factor };

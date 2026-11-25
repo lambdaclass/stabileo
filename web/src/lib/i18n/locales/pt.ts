@@ -11355,6 +11355,7 @@ const pt: Translations = {
   "combos.refused.unresolvedGroup": "Nenhum caso de carga corresponde ao símbolo {symbol} e ao grupo “{group}”. Revise a regra de combinação salva e seus casos de carga.",
   "combos.refused.alternativeSet": "A regra “{rule}” não pode representar todos os casos do conjunto de alternativas “{set}” sem combinar casos do mesmo símbolo de carga direcional. Revise a regra e os conjuntos de alternativas.",
   "combos.refused.directionalCase": "A regra “{rule}” deixa o caso de carga direcional “{case}” fora de todas as combinações. Revise a regra e os conjuntos de alternativas.",
+  "combos.refused.factorTotal": "A regra “{rule}” tem um fator de carga total que não pode ser representado como um número finito. Revise os fatores da regra.",
   "snow.refused.physicalCase": "Esta combinação exige um caso separado de neve física. Gere novamente as cargas de neve antes das combinações.",
   'snow.case.balanced': 'Neve balanceada (ps = {ps} kN/m²)',
   'snow.derivation.multipleUnbalanced': "Não balanceada (§6.3, Figura 6): de 0,5 pf nas cumeeiras a {valley} kN/m² nos vales, sem que a neve do vale supere a da cumeeira.",

@@ -11462,6 +11462,7 @@ const tr: Translations = {
   "combos.refused.unresolvedGroup": "Hiçbir yük durumu {symbol} simgesine ve “{group}” grubuna uymuyor. Kayıtlı birleşim kuralını ve yük durumlarını gözden geçirin.",
   "combos.refused.alternativeSet": "“{rule}” kuralı, aynı yönlü yük simgesine sahip durumları birleştirmeden “{set}” alternatif kümesindeki tüm durumları temsil edemiyor. Kuralı ve alternatif kümelerini gözden geçirin.",
   "combos.refused.directionalCase": "“{rule}” kuralı, “{case}” yönlü yük durumunu tüm birleşimlerin dışında bırakıyor. Kuralı ve alternatif kümelerini gözden geçirin.",
+  "combos.refused.factorTotal": "“{rule}” kuralındaki bir toplam yük katsayısı sonlu bir sayı olarak gösterilemiyor. Kuralın katsayılarını gözden geçirin.",
   "snow.refused.physicalCase": "Bu birleşim ayrı bir fiziksel kar yükü durumu gerektirir. Birleşimleri oluşturmadan önce kar yüklerini yeniden üretin.",
   'snow.case.balanced': 'Dengeli kar (ps = {ps} kN/m²)',
   'snow.derivation.multipleUnbalanced': 'Dengesiz (§6.3, Şekil 6): mahyalarda 0,5 pf değerinden derelerde {valley} kN/m² değerine; bir dere üzerindeki kar, mahya üzerindeki karın altında tutulur.',

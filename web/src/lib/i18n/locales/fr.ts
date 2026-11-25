@@ -11453,6 +11453,7 @@ const fr: Translations = {
   "combos.refused.unresolvedGroup": "Aucun cas de charge ne correspond au symbole {symbol} et au groupe « {group} ». Vérifiez la règle de combinaison enregistrée et ses cas de charge.",
   "combos.refused.alternativeSet": "La règle « {rule} » ne peut pas représenter tous les cas de l’ensemble de variantes « {set} » sans combiner des cas du même symbole de charge directionnelle. Vérifiez la règle et les ensembles de variantes.",
   "combos.refused.directionalCase": "La règle « {rule} » exclut le cas de charge directionnelle « {case} » de toutes les combinaisons. Vérifiez la règle et les ensembles de variantes.",
+  "combos.refused.factorTotal": "La règle « {rule} » contient une somme de coefficients de charge qui ne peut pas être représentée par un nombre fini. Vérifiez les coefficients de la règle.",
   "snow.refused.physicalCase": "Cette combinaison exige un cas distinct de neige physique. Régénérez les charges de neige avant les combinaisons.",
   'snow.case.balanced': 'Neige équilibrée (ps = {ps} kN/m²)',
   'snow.derivation.multipleUnbalanced': 'Dissymétrique (§6.3, figure 6) : de 0.5 pf aux faîtages à {valley} kN/m² dans les noues, la neige au-dessus d\'une noue restant inférieure à celle au-dessus du faîtage.',
