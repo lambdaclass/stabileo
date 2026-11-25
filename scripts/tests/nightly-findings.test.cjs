@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const {execFileSync} = require('node:child_process');
+const {createHash} = require('node:crypto');
 const os = require('node:os');
 const path = require('node:path');
 const {test} = require('node:test');
@@ -800,3 +801,72 @@ Test: **fuzz/json_plastic**` +
   assert.deepEqual(plan.unresolved, [1, 2, 3]);
   assert.deepEqual(plan.duplicates.map(({keep, close}) => [keep, close]), [[4, [5]]]);
 });
+
+test('oversized exact inventories use a verified manifest and publication continues',
+  {skip: !process.env.RUN_NIGHTLY_FOURTH_REVIEW && 'known wrong result: #2578'},
+  () => fixture(async ({args, calls, comments, issues, save, logs}) => {
+    const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
+    const count = 900;
+    const manifests = 'nightly-replay-manifests';
+    fs.mkdirSync('nightly-findings/nightly-findings-opensees');
+    for (let index = 0; index < count; index++) {
+      const name = sha256(String(index));
+      save('nightly-findings-opensees/a-' + name, {...finding, model: {nodes: {[name]: {}}}, seed: index});
+    }
+    save('z', {...finding, test: 'codeaster/mismatch'});
+    const api = args.github.rest.issues;
+    for (const operation of ['create', 'createComment', 'update']) {
+      const write = api[operation];
+      api[operation] = async request => {
+        if (request.body) assert.ok(Buffer.byteLength(request.body) <= 64_000, 'GitHub rejects an oversized body');
+        return write(request);
+      };
+    }
+
+    await report({...args, prepareManifests: true});
+    assert.equal(calls.length, 0);
+    await assert.rejects(report(args), /manifest.*upload/i);
+    await report({...args, manifestArtifactId: '123'});
+    const created = calls.filter(call => call.name === 'create').map(call => call.args);
+    assert.equal(created.length, 2);
+    const verify = (body, run, attempt) => {
+      const pointer = body.match(/<!-- nightly-reproducer:v2 (\d+) (\d+) ([0-9a-f]{64}) -->/);
+      assert.ok(pointer);
+      assert.deepEqual(pointer.slice(1, 3), [String(run), String(attempt)]);
+      const raw = fs.readFileSync(path.join(manifests, pointer[3] + '.json'));
+      assert.equal(sha256(raw), pointer[3]);
+      const entries = JSON.parse(raw);
+      assert.equal(entries.length, count);
+      assert.equal(new Set(entries.map(entry => entry.seed)).size, count);
+      for (const entry of entries) assert.equal(sha256(fs.readFileSync(entry.path)), entry.artifactHash);
+    };
+    verify(created[0].body, 123, 1);
+    assert.match(created[1].body, /nightly-reproducer:v1 /);
+
+    issues.push({number: 1, state: 'open', ...created[0]});
+    args.context.runId = 124;
+    await report({...args, prepareManifests: true});
+    await report({...args, manifestArtifactId: '124'});
+    verify(calls.find(call => call.name === 'createComment').args.body, 124, 1);
+
+    for (let run = 124; run <= 128; run++) comments.push(botComment('<!-- nightly-run:' + run + ':1 -->'));
+    args.context.runId = 129;
+    await report({...args, prepareManifests: true});
+    await report({...args, manifestArtifactId: '129'});
+    assert.match(issues[0].body, /nightly-overflow-complete/);
+    verify(issues[0].body, 129, 1);
+    args.context.runId = 130;
+    await report({...args, prepareManifests: true});
+    await report({...args, manifestArtifactId: '130'});
+    assert.equal((issues[0].body.match(/nightly-sightings:/g) || []).length, 1);
+    assert.doesNotMatch(issues[0].body, /nightly-overflow-complete/);
+    verify(issues[0].body, 130, 1);
+    assert.match(issues[0].body, /nightly-reproducer:v2 123 1 /);
+
+    args.context.runId = 131;
+    process.env.FINDINGS_DRY_RUN = 'true';
+    const previousCalls = calls.length;
+    await report(args);
+    assert.equal(calls.length, previousCalls);
+    assert.match(logs.at(-2), /nightly-reproducer:v2 131 1 /);
+  }));

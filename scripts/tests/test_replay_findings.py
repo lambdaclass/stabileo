@@ -10,6 +10,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+import zipfile
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -748,6 +749,172 @@ class ReplayClosureReviewTest(unittest.TestCase):
             report = json.loads(output.read_text())
         self.assertEqual([entry["status"] for entry in report], expected)
         return report, calls
+
+    @unittest.skipUnless(os.environ.get("RUN_NIGHTLY_FOURTH_REVIEW"), "known wrong result: #2578")
+    def test_missing_primary_inventory_prevents_manual_and_scheduled_closure(self):
+        original = make_issue(1, model={"nodes": {}})
+        run = "<!-- nightly-run:41275933376:1 -->"
+        current = "<!-- nightly-defect:" + "a" * 64 + " -->\n" + original["body"]
+        summary = "This run: **2 findings**, **1 analyses**, **1 relations**, **2 models**.\n"
+        legacy = original["body"].replace("Test:", summary + "Test:")
+        overflow = (
+            "<!-- nightly-sightings:1:3:1 -->\nAdditional sighting.\n"
+            "<!-- nightly-overflow-complete -->\n" + self.record(3, {"nodes": {}}) + "\n\n"
+        )
+        recovered_records = []
+        for seed in (42, 43):
+            marker = self.record(seed, {"nodes": {str(seed): {}}})
+            recovered_records.extend(json.loads(gzip.decompress(base64.b64decode(marker.split()[2]))))
+        def recovered(records):
+            payload = base64.b64encode(gzip.compress(json.dumps(records).encode())).decode()
+            return legacy.replace(run, f"<!-- nightly-reproducer:v1 {payload} -->\n{run}")
+
+        cases = [
+            ("legacy singleton", original["body"], [], True),
+            ("adopted legacy singleton", "<!-- nightly-finding-adopted -->\n" + current, [], True),
+            ("current body missing block", current, [], False),
+            ("current sighting missing block", original["body"], [current], False),
+            ("current body missing block despite overflow", overflow + current, [], False),
+            ("legacy body missing models", legacy, [], False),
+            ("legacy comment missing models", original["body"], [legacy], False),
+            ("adopted legacy missing models", "<!-- nightly-finding-adopted -->\n" + current.replace(original["body"], legacy), [], False),
+            ("legacy recovery still incomplete", recovered(recovered_records[:1]), [], False),
+            ("legacy inventory recovered", recovered(recovered_records), [], True),
+        ]
+        verdict = {"verdicts": [{"analysis": "linear", "invariant": "rotation", "pass": 1}]}
+        commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+        for name, body, sightings, closes in cases:
+            issue = {**original, "body": body, "sightings": sightings}
+            for scheduled in (False, True):
+                with self.subTest(name=name, scheduled=scheduled):
+                    snapshot = issue
+                    if scheduled:
+                        fingerprint = rf._replay_fingerprint(rf.parse_reproducers(issue)) if hasattr(rf, "_replay_fingerprint") else "0" * 64
+                        state = json.dumps({"night": "2026-11-24", "fingerprint": fingerprint, "streak": 2})
+                        snapshot = {**issue, "body": f"<!-- nightly-replay:v1 {state} -->\n{body}"}
+                    partials = self.replay_cli([snapshot], lambda *_: (verdict, None))
+                    expected = "passes-now" if closes else "not-replayable"
+                    _, calls = self.assert_report_actions([snapshot], partials, [expected], scheduled=scheduled, commit=commit)
+                    closed = any(args[:2] == ("issue", "close") or
+                                 (args[:3] == ("api", "--method", "PATCH") and json.loads(data).get("state") == "closed")
+                                 for args, data in calls)
+                    self.assertEqual(closed, closes)
+
+    @unittest.skipUnless(os.environ.get("RUN_NIGHTLY_FOURTH_REVIEW"), "known wrong result: #2578")
+    def test_false_reject_requires_acceptance_in_both_differential_adapters(self):
+        sources = {"opensees": "testing/opensees/compare.py", "codeaster": "testing/differential/codeaster/run.py"}
+        issues = [make_issue(number, check=source, kind="false_reject", test=f"{source}/false_reject",
+                             model={"nodes": {}}) for number, source in enumerate(sources, 1)]
+        for status, expected in (("refused", "not-replayable"), ("ok", "passes-now"), ("false_reject", "still-fails")):
+            def runner(cmd, env=None, cwd=None, timeout=None):
+                self.assertIn(cmd[1], sources.values())
+                Path(cmd[cmd.index("--report") + 1]).write_text(json.dumps([{"status": status}]))
+                return subprocess.CompletedProcess(cmd, 0)
+
+            for jobs in (1, 2):
+                with self.subTest(status=status, jobs=jobs):
+                    partials = rf.replay_issues(issues, commit=REPLAY_COMMIT, jobs=jobs, solve_bin="/bin/solve", runner=runner)
+                    _, calls = self.assert_report_actions(issues, partials, [expected, expected])
+                    closes = [args[2] for args, _ in calls if args[:2] == ("issue", "close")]
+                    self.assertEqual(closes, ["1", "2"] if status == "ok" else [])
+
+    @unittest.skipUnless(os.environ.get("RUN_NIGHTLY_FOURTH_REVIEW"), "known wrong result: #2578")
+    def test_verified_artifact_copy_survives_expired_reference_in_either_order(self):
+        issue = make_issue(1, model={"nodes": {}})
+        marker = self.record(42, {"nodes": {"exact": {}}})
+        record, = json.loads(gzip.decompress(base64.b64decode(marker.split()[2])))
+        artifact = record.pop("artifact")
+        zip_data = io.BytesIO()
+        with zipfile.ZipFile(zip_data, "w") as archive:
+            archive.writestr("reproducer.finding.json", artifact)
+
+        def reference(run_id):
+            payload = base64.b64encode(gzip.compress(json.dumps([{**record, "runId": str(run_id)}]).encode())).decode()
+            return f"<!-- nightly-reproducer:v1 {payload} -->"
+
+        hint = "<!-- nightly-run:41275933376:1 -->"
+        for overflow_run, primary_run in ((2, 1), (1, 2), (1, 1), (2, 2)):
+            with self.subTest(overflow_run=overflow_run, primary_run=primary_run):
+                body = (
+                    "<!-- nightly-sightings:1:3:1 -->\nOne additional sighting.\n"
+                    "<!-- nightly-overflow-complete -->\n" + reference(overflow_run) + "\n\n" +
+                    issue["body"].replace(hint, reference(primary_run) + "\n" + hint)
+                )
+
+                def gh(*args, data=None):
+                    if args[:3] == ("api", "--paginate", "--slurp"):
+                        return json.dumps([[{**issue, "body": body}]])
+                    run_id = int(args[-1].split("/runs/")[1].split("/")[0])
+                    return json.dumps({"artifacts": [{"name": "nightly-findings-metamorphic", "id": run_id,
+                                                     "expired": run_id == 2, "size_in_bytes": len(zip_data.getvalue())}]})
+
+                with patch.object(rf.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, stdout=zip_data.getvalue())):
+                    fetched = rf.fetch_open_issues("owner/repo", gh)
+                seen = []
+
+                def runner(cmd, env=None, cwd=None, timeout=None):
+                    seen.append(json.loads(Path(env["NIGHTLY_MODEL"]).read_text()))
+                    verdict = {"analysis": "linear", "invariant": "rotation", "pass": 1}
+                    Path(env["NIGHTLY_RESULTS"]).write_text(json.dumps({"verdicts": [verdict]}))
+                    return subprocess.CompletedProcess(cmd, 0)
+
+                partials = rf.replay_issues(fetched, commit=REPLAY_COMMIT, jobs=2, metamorphic_bin="/bin/metamorphic", runner=runner)
+                passes = 1 in (overflow_run, primary_run)
+                expected = "passes-now" if passes else "not-replayable"
+                self.assertEqual(seen, [{"nodes": {"exact": {}}}] * (2 if passes else 0))
+                self.assertEqual([row["status"] for row in partials], [expected, expected])
+                report = rf.merge_reports(fetched, [partials], REPLAY_COMMIT)
+                self.assertEqual([row["status"] for row in report], [expected])
+
+    @unittest.skipUnless(os.environ.get("RUN_NIGHTLY_FOURTH_REVIEW"), "known wrong result: #2578")
+    def test_manifest_and_original_bytes_must_both_verify_before_closure(self):
+        issue = make_issue(1, model={"nodes": {}})
+        record, = json.loads(gzip.decompress(base64.b64decode(self.record(42, {"nodes": {"exact": {}}}).split()[2])))
+        artifact = record.pop("artifact").encode()
+        manifest = json.dumps([record]).encode()
+        digest = hashlib.sha256(manifest).hexdigest()
+        pointer = f"<!-- nightly-reproducer:v2 41275933376 1 {digest} -->"
+        issue["body"] = issue["body"].replace("<!-- nightly-run:", pointer + "\n<!-- nightly-run:", 1)
+
+        def zipped(member, content):
+            data = io.BytesIO()
+            with zipfile.ZipFile(data, "w") as archive:
+                archive.writestr(member, content)
+            return data.getvalue()
+
+        for state in ("valid", "corrupt manifest", "missing manifest", "corrupt finding"):
+            with self.subTest(state=state):
+                manifest_zip = zipped(f"{digest}.json", manifest + (b" " if state == "corrupt manifest" else b""))
+                finding_zip = zipped("reproducer.finding.json", artifact + (b" " if state == "corrupt finding" else b""))
+
+                def gh(*args, data=None):
+                    if args[:3] == ("api", "--paginate", "--slurp"):
+                        return json.dumps([[issue]])
+                    name = args[-1].split("?name=")[1]
+                    manifest_request = name == "nightly-replay-manifests-1"
+                    items = [] if manifest_request and state == "missing manifest" else [
+                        {"name": name, "id": 1 if manifest_request else 2, "expired": False,
+                         "size_in_bytes": len(manifest_zip if manifest_request else finding_zip)}]
+                    return json.dumps({"artifacts": items})
+
+                def download(cmd, **kwargs):
+                    data = manifest_zip if cmd[-1].endswith("/1/zip") else finding_zip
+                    return subprocess.CompletedProcess(cmd, 0, stdout=data)
+
+                with patch.object(rf.subprocess, "run", side_effect=download):
+                    fetched = rf.fetch_open_issues("owner/repo", gh)
+
+                def runner(cmd, env=None, cwd=None, timeout=None):
+                    self.assertEqual(json.loads(Path(env["NIGHTLY_MODEL"]).read_text()), {"nodes": {"exact": {}}})
+                    verdict = {"analysis": "linear", "invariant": "rotation", "pass": 1}
+                    Path(env["NIGHTLY_RESULTS"]).write_text(json.dumps({"verdicts": [verdict]}))
+                    return subprocess.CompletedProcess(cmd, 0)
+
+                partials = rf.replay_issues(fetched, commit=REPLAY_COMMIT, metamorphic_bin="/bin/metamorphic", runner=runner)
+                expected = "passes-now" if state == "valid" else "not-replayable"
+                _, calls = self.assert_report_actions(fetched, partials, [expected])
+                closes = [args[2] for args, _ in calls if args[:2] == ("issue", "close")]
+                self.assertEqual(closes, ["1"] if state == "valid" else [])
 
     def test_rounded_legacy_seed_cannot_close_but_safe_and_exact_seeds_are_replayed(self):
         model = {"nodes": {}}
