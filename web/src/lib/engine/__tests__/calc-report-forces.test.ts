@@ -214,3 +214,23 @@ it('known wrong result: #2226 identifies both governing cut faces in planar and 
     }
   }
 });
+
+it.fails('known wrong result: #2226 refuses envelope cuts that share a rounded parent station', () => {
+  const boundary = { ux: 0, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 };
+  const [dI, dM, dJ] = [1, 2, 3].map(nodeId => ({ ...boundary, nodeId }));
+  const build = (a: number) => r3D(ef3D({
+    elementId: 7, length: 2,
+    pieces: [
+      { x0: 0, x1: 1, sectionId: 1, dI, dJ: dM, forces: ef3D({ elementId: 8, length: 1 }) },
+      { x0: 1, x1: 2, sectionId: 1, dI: dM, dJ, forces: ef3D({
+        elementId: 9, length: 1, vzEnd: 2, pointLoadsZ: [{ a, p: 1 }, { a: 0.25, p: 1 }],
+      }) },
+    ],
+  }));
+  const clear = build(0.25 - 2 ** -52);
+  const envelope3D = computeEnvelope3D([clear])!;
+  expect(report('shear', {
+    is3D: true, analysisMode: '3D', results3D: clear, envelope3D, provenance: { kind: 'envelope' },
+  })).toContain('1.25⁺');
+  expect(() => computeEnvelope3D([build(0.25 - 2 ** -55)])).toThrow('solver.diagramExtremaUnavailable');
+});

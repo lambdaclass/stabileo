@@ -351,3 +351,45 @@ it('known wrong result: #2226 keeps the strict critical force extremes at nearly
   const tiedRows = summaryRows('forces', tied, criticalOptions);
   expect.soft(tiedRows.find(row => row.column.key === 'vy')?.max).toMatchObject({ value: 1, x: 0, end: 'i' });
 });
+
+it.fails('known wrong result: #2226 evaluates a rebased cut in both piece-local components', () => {
+  const a = 0.25 - 2 ** -55;
+  const first = { ...reviewForces, vyStart: -(2 ** 53), vyEnd: -(2 ** 53), vzStart: 0 };
+  const next = {
+    ...first, vyEnd: 3 * 2 ** 53, vzEnd: 4,
+    distributedLoadsY: [{ a: 0, b: 1, qI: 2 ** 55, qJ: 2 ** 55 }],
+    pointLoadsZ: [{ a, p: 4 }],
+  };
+  const forces = {
+    ...first, length: 2,
+    pieces: [{ x0: 0, x1: 1, sectionId: 1, forces: first }, { x0: 1, x1: 2, sectionId: 2, forces: next }],
+  };
+  const v = summaryRows('forces', reviewSources(forces), criticalOptions).find(r => r.column.key === 'v');
+  expect.soft(v?.min).toMatchObject({ value: 1, x: 1.25, side: 'left' });
+  expect.soft(memberCriticalOrdinates3D(forces, ['shearY', 'shearZ']).filter(p => p.x === 1.25)
+    .map(p => p.value)).toEqual([1, Math.hypot(1, 4)]);
+});
+
+it.fails('known wrong result: #2226 keeps both faces in critical rows and row envelopes', () => {
+  const a = 0.5;
+  const f = {
+    ...reviewForces, vzStart: -5, vzEnd: 6, pointLoadsZ: [{ a, p: 11 }],
+  };
+  const [source] = reviewSources(f);
+  const rows = rowsOf('forces', source!.results, criticalOptions).filter(row => row.x === a);
+  expect.soft(rows.map(row => [whereOf(row, true), row.values[2]])).toEqual([['7 @ 0.50⁻', -5], ['7 @ 0.50⁺', 6]]);
+  const envelope = envelopeRows('forces', [source!], criticalOptions).filter(row => row.x === a);
+  expect.soft(envelope.map(row => [whereOf(row, true), row.max[2]!.value])).toEqual([['7 @ 0.50⁻', -5], ['7 @ 0.50⁺', 6]]);
+});
+
+it.fails('known wrong result: #2226 summarizes a two-case ABS resultant through the project report', () => {
+  const a = { ...reviewForces, vyStart: -3, vyEnd: -3, vzStart: 0 };
+  const b = { ...reviewForces, vyStart: 0, vzStart: 4, vzEnd: 4 };
+  const cases = new Map([[1, reviewSources(a)[0]!.results], [2, reviewSources(b)[0]!.results]]);
+  const results = magnitudeCombination('abs', [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 1 }], cases)!;
+  const sources = [{ ...A, results }];
+  const v = summaryRows('forces', sources, criticalOptions).find(row => row.column.key === 'v');
+  expect.soft(v?.min?.value).toBe(5);
+  expect.soft(v?.max?.value).toBe(5);
+  expect.soft(envelopeSectionHtml(sources, k => k, 'Envelope').join('')).toContain('V (kN)</td><td class="num">5.000</td>');
+});

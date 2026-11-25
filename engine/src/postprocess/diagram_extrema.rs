@@ -514,6 +514,57 @@ mod round3_tests {
     use super::*;
 
     #[test]
+    #[ignore = "known wrong result: #2437"]
+    fn issue_2437_interval_intensity_survives_overlapping_ramps() {
+        let high = 2.0_f64.powi(54);
+        let start = 1.0 / high;
+        let loads = [
+            DistributedLoadInfo { a: 0.0, b: 1.0, q_i: high, q_j: 0.0 },
+            DistributedLoadInfo { a: 0.0, b: 1.0, q_i: 0.0, q_j: high },
+            DistributedLoadInfo { a: 0.0, b: 1.0, q_i: -high, q_j: -high },
+            DistributedLoadInfo { a: start, b: 1.0, q_i: 1.0, q_j: -1.0 },
+        ];
+        let curve = Curve {
+            length: 1.0, start: 0.0, change: 0.0, slope: 0.0,
+            response: Response::Force(1.0), distributed: loads.into_iter(), points: std::iter::empty(),
+        };
+        assert_eq!(curve.interior_range(0.0), Ok((0.0, 0.25)));
+        assert_eq!(curve.checked_station_value(0.5, false), Ok(0.25));
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2437"]
+    fn issue_2437_moving_range_uses_the_physical_j_left_cut() {
+        let jump = 2.0_f64.powi(54);
+        for (action, stored) in [(jump, jump), (-jump, 1.0 - jump), (0.0, 1.0)] {
+            let curve = Curve {
+                length: 1.0, start: 2.0, change: 0.0, slope: -1.0,
+                response: Response::Force(1.0), distributed: std::iter::empty(),
+                points: std::iter::once(PointAction { a: 1.0, jump: action, slope: 0.0 }),
+            };
+            assert_eq!(curve.interior_range(stored), Ok((1.0, 2.0)));
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2437"]
+    fn issue_2437_transfer_preserves_the_small_change_near_j() {
+        let high = 2.0_f64.powi(54);
+        let u = 1.0 - 2.0_f64.powi(-53);
+        let mut linear = DiagramSum::default();
+        linear.add(2.0 * high - 4.0);
+        let mut quadratic = DiagramSum::default();
+        quadratic.add(-high);
+        let change = [linear, quadratic, DiagramSum::default()];
+        let mut ordinate = DiagramSum::default();
+        ordinate.add(2.0);
+        add_change(&mut ordinate, &change, 1.0, u);
+        assert_eq!(ordinate.value(), 2.0);
+        add_change(&mut ordinate, &change, u, 1.0);
+        assert_eq!(ordinate.partials, [2.0]);
+    }
+
+    #[test]
     fn issue_2437_station_transfer_uses_the_unrounded_peak() {
         let d = 2.0_f64.powi(-53);
         let high = 2.0_f64.powi(54);
