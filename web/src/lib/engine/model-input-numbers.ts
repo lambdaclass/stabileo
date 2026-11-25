@@ -1,4 +1,5 @@
 import { t, tp } from '../i18n';
+import { isDrawPlane } from '../geometry/plane-projection';
 import type { Element, Load, LoadCombination, Material, Support } from '../store/model.svelte';
 import { isSupportType } from '../model/support-types';
 import type { Constraint3D, LinearMpcConstraint } from './types-3d';
@@ -485,6 +486,18 @@ export function fixtureRows(path: string, value: unknown): ModelRows {
     if (!isFiniteInputNumber(id)) throw new InvalidModelNumber(`${at}.id`, id);
     return [id, row] as const;
   });
+}
+
+export function requireStoredProjectInput(snapshot: { drawPlane2D?: unknown; connectors?: unknown }): void {
+  requireInputField('drawPlane2D', snapshot.drawPlane2D === undefined || isDrawPlane(snapshot.drawPlane2D));
+  if (!Array.isArray(snapshot.connectors)) return;
+  const keys = new Set<unknown>();
+  for (const row of snapshot.connectors) {
+    if (!Array.isArray(row)) continue;
+    const [key] = row;
+    if (keys.has(key)) throw new InvalidModelInputField(typeof key === 'number' ? `connectors.${key}` : 'connectors');
+    keys.add(key);
+  }
 }
 
 export function requireStructureInput(model: {

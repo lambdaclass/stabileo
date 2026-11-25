@@ -11,7 +11,6 @@ import '../index';
 
 type Project = ReturnType<typeof buildProjectFile>;
 const routes = ['file', 'autosave', 'session', 'v1 share', 'v2 share', 'v2 embed', 'data hash', 'embed hash'] as const;
-const knownWrong = it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1');
 
 beforeEach(() => {
   vi.stubGlobal('location', { hash: '', pathname: '/', search: '' });
@@ -86,10 +85,12 @@ function open(file: Project, route: typeof routes[number]) {
       opened = loadFromShareLink(hash);
     }
   }
-  return { opened, messages: [...report.mock.calls, ...toast.mock.calls].map(([message]) => message) };
+  const messages = [...report.mock.calls, ...toast.mock.calls].map(([message]) => message);
+  toast.mockRestore();
+  return { opened, messages };
 }
 
-knownWrong.each(routes)('known wrong result: #2588 — %s refuses duplicate connector keys', route => {
+it.each(routes)('known wrong result: #2588 — %s refuses duplicate connector keys', route => {
   const { file, connector } = frame('pro');
   const before = modelStore.snapshot();
   const result = open(duplicate(file), route);
@@ -98,7 +99,7 @@ knownWrong.each(routes)('known wrong result: #2588 — %s refuses duplicate conn
   expect(modelStore.snapshot()).toEqual(before);
 });
 
-knownWrong.each(['2d', 'pro'] as const)('known wrong result: #2588 — %s restore refuses duplicate connector keys before install', mode => {
+it.each(['2d', 'pro'] as const)('known wrong result: #2588 — %s restore refuses duplicate connector keys before install', mode => {
   const { file, connector } = frame(mode);
   const before = modelStore.snapshot();
   const beforeInstall = vi.fn();
@@ -109,7 +110,7 @@ knownWrong.each(['2d', 'pro'] as const)('known wrong result: #2588 — %s restor
   expect(modelStore.snapshot()).toEqual(before);
 });
 
-knownWrong.each(routes)('known wrong result: #2588 — %s refuses an invalid saved plane', route => {
+it.each(routes)('known wrong result: #2588 — %s refuses an invalid saved plane', route => {
   const { file } = frame('2d');
   uiStore.analysisMode = 'pro';
   uiStore.drawPlane2D = 'yz';
@@ -123,7 +124,7 @@ knownWrong.each(routes)('known wrong result: #2588 — %s refuses an invalid sav
   expect(modelStore.snapshot()).toEqual(before);
 });
 
-knownWrong.each([null, '', false, 0])('known wrong result: #2588 — a supplied plane of %j is refused', drawPlane2D => {
+it.each([null, '', false, 0])('known wrong result: #2588 — a supplied plane of %j is refused', drawPlane2D => {
   const { file } = frame('pro');
   const invalid = { ...file, snapshot: { ...file.snapshot, drawPlane2D } } as unknown as Project;
   for (const route of ['file', 'v2 share'] as const) {
@@ -138,7 +139,7 @@ it.each(['2d', 'pro'] as const)('solves a restored %s project with distinct conn
   const { file, root, tip, force, connector, second } = frame(mode);
   const solve = () => mode === '2d' ? modelStore.solve(false, 'xy') : modelStore.solve3D(false, false, true);
   const reference = solve();
-  expect(reference).toMatchObject({ displacements: expect.arrayContaining([{ nodeId: tip, ux: expect.any(Number) }].map(expect.objectContaining)) });
+  expect(reference).toMatchObject({ displacements: expect.arrayContaining([expect.objectContaining({ nodeId: tip, ux: expect.any(Number) })]) });
   if (!reference || typeof reference === 'string') throw new Error(String(reference));
   const reaction = reference.reactions.find(r => r.nodeId === root);
   expect(reaction && ('fx' in reaction ? reaction.fx : reaction.rx)).toBeCloseTo(-force);

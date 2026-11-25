@@ -1,5 +1,4 @@
-import { ModelInputError } from '../engine/model-input-numbers';
-import { isDrawPlane } from '../geometry/plane-projection';
+import { ModelInputError, requireStoredProjectInput } from '../engine/model-input-numbers';
 import { resultComponents } from '../axes/result-components';
 import { exportMessages, warningImage, warningCanvas } from '../export/containment';
 // File operations: save/load projects, export results, autosave
@@ -377,6 +376,11 @@ function storedProjectSnapshot(snapshot: ModelSnapshot, mode: ModelSnapshot['ana
   return { ...snapshot, analysisMode: mode ?? snapshot.analysisMode };
 }
 
+function acceptStoredProjectSnapshot(snapshot: ModelSnapshot, mode: ModelSnapshot['analysisMode']): ModelSnapshot {
+  requireStoredProjectInput(snapshot);
+  return canonicalizeModelAliases(storedProjectSnapshot(snapshot, mode));
+}
+
 /**
  * What every load path does once a stored project is the one on screen: the one-time notes about
  * conventions it was saved under, and the re-check of results it was last solved with
@@ -387,7 +391,7 @@ export function onProjectOpened(snap: ModelSnapshot | undefined, analysisMode: s
   noteAxisConventionMigrationIfNeeded(snap, analysisMode);
   if (snap) {
     if (!is3DWorkspace(analysisMode ?? snap.analysisMode ?? '2d')) {
-      uiStore.drawPlane2D = isDrawPlane(snap.drawPlane2D) ? snap.drawPlane2D : 'xy';
+      uiStore.drawPlane2D = snap.drawPlane2D ?? 'xy';
     }
     // Assess the model that restore actually installed (including legacy defaults,
     // such as Wind/Earthquake load cases), which is also what the next save writes.
@@ -581,12 +585,12 @@ function acceptSessionTab(raw: unknown): { tab: TabState; discardedHistory?: { r
     if (!SESSION_TAB_MODES.has(tab.analysisMode)) return null;
     const asFile = (snapshot: unknown) => ({ version: DEDAL_FILE_VERSION, name: tab.name, snapshot });
     if (!isValidDedalFile(asFile(tab.modelSnapshot))) return null;
-    tab.modelSnapshot = canonicalizeModelAliases({ ...tab.modelSnapshot, analysisMode: tab.analysisMode });
+    tab.modelSnapshot = acceptStoredProjectSnapshot(tab.modelSnapshot, tab.analysisMode);
     const normalizeHistory = (stack: ModelSnapshot[]) => {
       if (!Array.isArray(stack) || !stack.every(snap => isValidDedalFile(asFile(snap)))) {
         throw new Error(t('file.invalidFormat'));
       }
-      return stack.map(snap => canonicalizeModelAliases({ ...snap, analysisMode: snap.analysisMode ?? tab.analysisMode }));
+      return stack.map(snap => acceptStoredProjectSnapshot(snap, snap.analysisMode ?? tab.analysisMode));
     };
     let discardedHistory: { reason?: string } | undefined;
     try {
@@ -957,7 +961,7 @@ export function acceptAutosavePayload(raw: unknown, onRefusal?: (reason: string)
   if (typeof data.version !== 'string' || !KNOWN_VERSIONS.has(data.version)) return null;
   if (!isValidDedalFile(data)) return null;
   try {
-    data.snapshot = canonicalizeModelAliases(storedProjectSnapshot(data.snapshot, data.analysisMode));
+    data.snapshot = acceptStoredProjectSnapshot(data.snapshot, data.analysisMode);
     data.analysisMode = data.snapshot.analysisMode;
   } catch (error) {
     if (!(error instanceof ModelAliasConflict || error instanceof ModelInputError)) throw error;

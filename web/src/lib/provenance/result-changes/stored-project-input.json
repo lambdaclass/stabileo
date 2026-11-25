@@ -1,0 +1,32 @@
+{
+  "id": "stored-project-input",
+  "date": "2026-11-25",
+  "prs": [2588],
+  "area": "analysis",
+  "when": {
+    "all": ["invalidStoredProjectInput"]
+  },
+  "quantities": ["solve.ok"],
+  "title": {
+    "en": "Invalid saved project input",
+    "es": "Datos inválidos en el proyecto guardado",
+    "pt": "Dados inválidos no projeto salvo",
+    "de": "Ungültige Daten im gespeicherten Projekt",
+    "fr": "Données invalides dans le projet enregistré",
+    "tr": "Kaydedilen projede geçersiz veri",
+    "zh": "已保存项目中的无效输入"
+  },
+  "explanation": {
+    "en": "Project open refuses duplicate connector keys and invalid saved drawing planes. A project file with a duplicate connector key could previously solve with only the last connector for that key.",
+    "es": "Al abrir el proyecto se rechazan las claves de conectores duplicadas y los planos de dibujo guardados que sean inválidos. Antes, un archivo con una clave de conector duplicada podía resolverse usando solo el último conector de esa clave.",
+    "pt": "A abertura do projeto rejeita chaves de conectores duplicadas e planos de desenho salvos inválidos. Antes, um arquivo com uma chave de conector duplicada podia ser calculado usando apenas o último conector dessa chave.",
+    "de": "Beim Öffnen eines Projekts werden doppelte Schlüssel für Verbindungselemente und ungültige gespeicherte Zeichenebenen abgelehnt. Zuvor konnte bei doppelten Schlüsseln nur das jeweils letzte Verbindungselement in die Berechnung eingehen.",
+    "fr": "L’ouverture du projet refuse les clés de connecteurs en double et les plans de dessin enregistrés invalides. Auparavant, un fichier contenant une clé en double pouvait être calculé avec seulement le dernier connecteur associé à cette clé.",
+    "tr": "Proje açılırken yinelenen bağlantı elemanı anahtarları ve geçersiz kaydedilmiş çizim düzlemleri reddedilir. Daha önce yinelenen anahtara sahip bir dosya, o anahtara ait son bağlantı elemanı kullanılarak çözülebiliyordu.",
+    "zh": "打开项目时会拒绝重复的连接件键和无效的已保存绘图平面。此前，包含重复连接件键的文件可能只使用该键对应的最后一个连接件进行计算。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-stored-project-input.md",
+    "heading": "Invalid saved project input"
+  }
+}

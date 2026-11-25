@@ -1,4 +1,4 @@
-import { ModelInputError, migrateModelConstraints, modelInputRefusal, requireCombinationInput, requireModelInput, requireStructureInput } from '../engine/model-input-numbers';
+import { ModelInputError, migrateModelConstraints, modelInputRefusal, requireCombinationInput, requireModelInput, requireStoredProjectInput, requireStructureInput } from '../engine/model-input-numbers';
 import { canonicalizeLoadAliases, canonicalizeModelAliases, NO_RELEASE } from '../model/canonical-aliases';
 import { accountingProjection, scenarioSurfaceAdjustment } from '../engine/accounting-source';
 import { globalAxes } from '../features';
@@ -2374,6 +2374,7 @@ function createModelStore() {
       // `hydrateProjectProvenance`, which file-open and tab-activation call.
       const { detailing: savedDetailing, ...modelFields } = rawSnapshot;
       const copy = plainDeepCopy(modelFields);
+      requireStoredProjectInput(copy);
       const constraints = migrateModelConstraints(copy.constraints);
       if (copy.combinations !== undefined) requireCombinationInput(copy.combinations);
       const s = canonicalizeModelAliases(copy);
@@ -2464,9 +2465,7 @@ function createModelStore() {
     model.designData = s.designData ? migrateDesignData(s.designData) : undefined;
     model.designDecisions = s.designDecisions ? migrateStoredDecisions(s.designDecisions) : undefined;
       model.constraints = constraints;
-      model.connectors = (s as any).connectors
-        ? new Map((s as any).connectors.map(([k, v]: [number, ConnectorElement]) => [k, { ...v }] as [number, ConnectorElement]))
-        : new Map();
+      model.connectors = new Map(s.connectors?.map(([key, connector]) => [key, { ...connector }]));
       nextId.node = s.nextId.node;
       nextId.material = s.nextId.material;
       nextId.section = s.nextId.section;

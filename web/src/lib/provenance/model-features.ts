@@ -1,5 +1,5 @@
 import { classifyEccentricNormalOffset, constraintsForPlanarSolve, hasReducedPlanarMpc } from '../engine/constraint-2d-remap';
-import { hasMalformedAuthoredLoad, invalidPlanarPointTorsion, isFiniteInputNumber, ModelInputError, migrateModelConstraints, requireCombinationInput, requireStructureInput } from '../engine/model-input-numbers';
+import { hasMalformedAuthoredLoad, invalidPlanarPointTorsion, isFiniteInputNumber, ModelInputError, migrateModelConstraints, requireCombinationInput, requireStoredProjectInput, requireStructureInput } from '../engine/model-input-numbers';
 import { DRAW_PLANES, isDrawPlane, type DrawPlane } from '../geometry/plane-projection';
 import { POINT_END_TOL } from '../engine/member-point-loads';
 import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
@@ -58,7 +58,7 @@ export const FEATURE_IDS = [
   'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
   'physicalPlateDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
-  'connectors', 'connectorsWithShear', 'pathAnalysis',
+  'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'malformedAuthoredLoad', 'malformedAuthoredStructure', 'separatedPlanarEccentricConnection', 'reducedPlanarMpc', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
@@ -362,6 +362,12 @@ function addAuthoredStructureFeatures(s: FeatureSnapshot, features: Set<FeatureI
 /** The features of one saved model. */
 export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set<FeatureId> {
   const f = new Set<FeatureId>();
+  try {
+    requireStoredProjectInput(s);
+  } catch (error) {
+    if (!(error instanceof ModelInputError)) throw error;
+    f.add('invalidStoredProjectInput');
+  }
   s = {
     ...s,
     nodes: structureFeatureRows(s.nodes, f),
