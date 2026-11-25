@@ -36,6 +36,7 @@ mod modal_checks;
 mod modal_mass_range;
 mod modal_released_axis;
 mod released_tip_mechanisms;
+mod material_released_rotation;
 mod modal_null;
 mod parity;
 mod nightly_tolerances;
