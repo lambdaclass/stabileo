@@ -454,10 +454,25 @@ fn native_and_wasm_share_released_load_models() {
 
 #[test]
 fn pdelta_admits_compatible_released_work_to_its_iterations() {
-    for s in transforms(&member("Mz", "Start", true)) {
-        let result = dedaliano_engine::solver::pdelta::solve_pdelta_3d(&s, 100, 1e-12).unwrap();
-        assert_eq!(result.linear_results.displacements.len(), 2);
-        assert_eq!(result.results.element_forces.len(), 1);
+    let tolerance = 1e-12;
+    let cases = transforms(&member("Mz", "Start", true));
+    assert_eq!(cases.len(), 9);
+    for (case, model) in cases.iter().enumerate() {
+        let linear = linear::solve_3d(model).unwrap();
+        assert_eq!(linear.displacements.len(), 2);
+        assert_eq!(linear.element_forces.len(), 1);
+        let result = dedaliano_engine::solver::pdelta::solve_pdelta_3d(model, 100, tolerance);
+        if matches!(case, 6 | 7) {
+            crate::common::assert_pdelta_equilibrium_refusal(&result.unwrap_err(), tolerance);
+        } else {
+            let result = result.unwrap_or_else(|error| panic!("transform {case}: {error}"));
+            assert_eq!(result.linear_results.displacements.len(), 2);
+            assert_eq!(result.results.element_forces.len(), 1);
+            let equilibrium = result.results.equilibrium.unwrap();
+            assert!(equilibrium.residual_ok);
+            assert!(equilibrium.relative_residual.is_finite());
+            assert!(equilibrium.relative_residual <= tolerance);
+        }
     }
 }
 

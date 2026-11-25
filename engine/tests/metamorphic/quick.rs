@@ -520,7 +520,7 @@ fn pdelta_units_conflict_is_refused_and_rigid_control_solves() {
     assert!(refusal["message"].as_str().unwrap().contains("kx"));
     let control = pdelta_units_rigid_control();
     let mut expected = serde_json::to_value(&original.s).unwrap();
-    expected["supports"]["3"]["kx"] = serde_json::Value::Null;
+    assert!(expected["supports"]["3"].as_object_mut().unwrap().remove("kx").is_some());
     assert_eq!(serde_json::to_value(&control.s).unwrap(), expected);
     linear::solve_2d(&control.s).unwrap();
     assert!(pdelta::solve_pdelta_2d(&control.s, 100, 1e-12).unwrap().converged);

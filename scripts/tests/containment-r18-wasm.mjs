@@ -12,14 +12,21 @@ for (const dim of [2, 3]) {
       const args = [JSON.stringify(c.model), ...(kind !== 'time' ? [c.iterations, c.tolerance] : [])];
       const solve = () => JSON.parse(engine[`solve_${api}_${dim}d`](...args));
       const certify = () => JSON.parse(engine[`certify_${api}_${dim}d`](...args));
-      if (kind !== 'time' && !c.output.results.equilibrium.residualOk) {
-        assert.throws(solve, e => {
-          const refusal = JSON.parse(String(e));
-          assert.equal(refusal.structuredDiagnostics[0].code, 'non_finite_result');
-          assert.equal(refusal.structuredDiagnostics[0].severity, 'error');
-          return true;
-        });
-        assert.throws(certify, /non-finite/);
+      if (c.error) {
+        const nativeRefusal = JSON.parse(c.error);
+        for (const invoke of [solve, certify]) {
+          assert.throws(invoke, error => {
+            const refusal = JSON.parse(String(error));
+            const diagnostic = refusal.structuredDiagnostics[0];
+            assert.equal(refusal.message, nativeRefusal.message);
+            assert.equal(diagnostic.code, 'result_quantity_unavailable');
+            assert.equal(diagnostic.severity, 'error');
+            assert.equal(diagnostic.phase, 'equilibrium');
+            assert.equal(diagnostic.threshold, c.tolerance);
+            assert.ok(Number.isFinite(diagnostic.value) && diagnostic.value > c.tolerance);
+            return true;
+          });
+        }
         checked++;
         continue;
       }

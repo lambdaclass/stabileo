@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::solver::support::{support_dofs_3d};
 use crate::types::*;
 use crate::linalg::*;
@@ -6,6 +8,7 @@ use super::dof::DofNumbering;
 use super::assembly;
 use super::constraints::{FreeConstraintSystem, MasterMotion};
 use super::linear::SPARSE_THRESHOLD;
+use super::planar_loads::{PlanarDisplacements, PlanarLoadPath, PlanarLoadState};
 use super::sparse_tangent::{
     cached_symbolic, solve_tangent_sparse_diagnosed, tangent_free_sparse_triplets, SparseSymbolicCache,
 };
@@ -67,15 +70,66 @@ pub(crate) fn chord_rotation(dx0: f64, dz0: f64, dux: f64, duz: f64) -> f64 {
     )
 }
 
+#[derive(Default)]
+struct IncrementTargets2D {
+    forces: Vec<f64>,
+    supports: Vec<f64>,
+    support_step: Option<Vec<f64>>,
+}
+
+impl IncrementTargets2D {
+    fn new(
+        forces: Vec<f64>,
+        base_supports: &[f64],
+        target_supports: &[f64],
+        current_supports: &[f64],
+        factor: f64,
+    ) -> Self {
+        let supports = super::planar_loads::affine_positions(base_supports, target_supports, factor);
+        let step: Vec<_> = supports
+            .iter()
+            .zip(current_supports)
+            .map(|(target, current)| target - current)
+            .collect();
+        let support_step = step.iter().any(|&value| value != 0.0).then_some(step);
+        Self {
+            forces,
+            supports,
+            support_step,
+        }
+    }
+
+    fn advance(
+        &mut self,
+        full: &mut [f64],
+        correction: &[f64],
+        constraints: Option<&FreeConstraintSystem>,
+    ) {
+        if let Some(cs) = constraints {
+            cs.advance_independent(full, correction);
+        } else {
+            for (u, delta) in full.iter_mut().zip(correction) {
+                *u += delta;
+            }
+        }
+        if self.support_step.take().is_some() {
+            full[correction.len()..].copy_from_slice(&self.supports);
+        }
+        if let Some(cs) = constraints {
+            cs.impose_motion(full);
+        }
+    }
+}
+
 struct Corotational2D<'a> {
     input: &'a SolverInput,
     dof_num: &'a DofNumbering,
     cs: &'a Option<FreeConstraintSystem>,
-    asm: &'a assembly::AssemblyResult,
+    asm: &'a assembly::StiffnessAssembly2D,
     art: &'a [(usize, f64)],
     metric: &'a super::convergence::EquilibriumMetric,
     ns: usize,
-    f_total: &'a [f64],
+    loads: &'a PlanarLoadPath,
     f_base: &'a [f64],
     u_r_base: &'a [f64],
     u_r_target: &'a [f64],
@@ -84,9 +138,7 @@ struct Corotational2D<'a> {
     u_converged: Vec<f64>,
     sparse_sym_cache: Option<SparseSymbolicCache>,
     conditioning: Option<StructuredDiagnostic>,
-    f_ext: Vec<f64>,
-    active_supports: Vec<f64>,
-    support_step: Option<Vec<f64>>,
+    targets: IncrementTargets2D,
     cached_factor: Option<CachedTangentFactor>,
     r_f: Vec<f64>,
     k_t: Vec<f64>,
@@ -97,16 +149,14 @@ struct Corotational2D<'a> {
 
 impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
     fn begin_increment(&mut self, load_factor: f64) {
-        let (n, nf) = (self.dof_num.n_total, self.dof_num.n_free);
-        let (f_base, f_total, u_r_base, u_r_target) = (self.f_base, self.f_total, self.u_r_base, self.u_r_target);
-        self.f_ext = (0..n).map(|i| f_base[i] + load_factor * (f_total[i] - f_base[i])).collect();
-        self.active_supports = u_r_base.iter().zip(u_r_target).map(|(base, target)| base + load_factor * (target - base)).collect();
-        self.support_step = Some(
-            u_r_base.iter().zip(u_r_target).enumerate()
-                .map(|(i, (base, target))| base + load_factor * (target - base) - self.u_full[nf + i])
-                .collect::<Vec<f64>>(),
-        )
-        .filter(|du| du.iter().any(|&v| v != 0.0));
+        let nf = self.dof_num.n_free;
+        self.targets = IncrementTargets2D::new(
+            self.loads.at(load_factor).forces(),
+            self.u_r_base,
+            self.u_r_target,
+            &self.u_full[nf..],
+            load_factor,
+        );
         self.cached_factor = None;
     }
 
@@ -167,7 +217,7 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
             );
 
             // Rotate K_T/f_int back into the rotated (tangent, normal) basis
-            // at inclined-support DOFs so they stay consistent with self.f_ext
+            // at inclined-support DOFs so they stay consistent with self.targets.forces
             // (already rotated by assemble_2d above) for the residual/solve
             // below — without this, the tangent-stiffness system enforces
             // "restrain literal global Z" instead of "restrain normal to
@@ -180,19 +230,26 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
         // Residual R = F_ext - f_int
         let mut residual = vec![0.0; n];
         for i in 0..n {
-            residual[i] = self.f_ext[i] - f_int[i];
+            residual[i] = self.targets.forces[i] - f_int[i];
         }
 
         // Reduce residual and check convergence on independent DOFs
         let r_f: Vec<f64> = residual[..nf].to_vec();
-        let rel_error = metric.continuation_residual(&residual,&self.f_ext,&self.active_supports,&f_base,&start_internal,cs.as_ref());
+        let rel_error = metric.continuation_residual(
+            &residual,
+            &self.targets.forces,
+            &self.targets.supports,
+            f_base,
+            start_internal,
+            cs.as_ref(),
+        );
 
         self.r_f = r_f;
         self.k_t = k_t;
         self.trip_rows = trip_rows;
         self.trip_cols = trip_cols;
         self.trip_vals = trip_vals;
-        Ok(super::nonlinear::Linearization { measure: rel_error, forced: self.support_step.is_some() })
+        Ok(super::nonlinear::Linearization { measure: rel_error, forced: self.targets.support_step.is_some() })
     }
 
     fn correct(&mut self, modified_nr: bool) -> Result<(), String> {
@@ -206,7 +263,7 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
         // predictor's load −K_fr·Δu_r: moving only the support nodes
         // would crush the elements next to them.
         let mut r_f = r_f;
-        if let Some(ref du_r) = self.support_step {
+        if let Some(ref du_r) = self.targets.support_step {
             let mut known = vec![0.0; n];
             known[nf..].copy_from_slice(du_r);
             if let Some(ref cs) = *cs { cs.impose_motion(&mut known); }
@@ -293,7 +350,7 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
         };
 
         let delta_u_f = if let Some(ref cs) = *cs {
-            cs.expand_solution(&delta_u_indep, self.support_step.as_deref().map_or(
+            cs.expand_solution(&delta_u_indep, self.targets.support_step.as_deref().map_or(
                 MasterMotion::Homogeneous,
                 MasterMotion::Prescribed,
             ))
@@ -301,15 +358,7 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
             delta_u_indep
         };
 
-        // Update displacements (free DOFs only)
-        for i in 0..nf {
-            self.u_full[i] += delta_u_f[i];
-        }
-        if let Some(du_r) = self.support_step.take() {
-            for (r, du) in du_r.iter().enumerate() {
-                self.u_full[nf + r] += du;
-            }
-        }
+        self.targets.advance(&mut self.u_full, &delta_u_f, cs.as_ref());
         Ok(())
     }
 
@@ -344,6 +393,34 @@ pub struct CorotationalStart2D<'a> {
     pub displacements: &'a [Displacement],
 }
 
+pub(super) struct PlaneInputs<'a> {
+    pub target: Cow<'a, SolverInput>,
+    base: Option<(Cow<'a, SolverInput>, &'a [Displacement])>,
+}
+
+impl<'a> PlaneInputs<'a> {
+    pub fn new(target: &'a SolverInput, start: Option<&CorotationalStart2D<'a>>) -> Self {
+        Self {
+            target: super::member_loads::plane_input(target),
+            base: start.map(|start| {
+                (
+                    super::member_loads::plane_input(start.input),
+                    start.displacements,
+                )
+            }),
+        }
+    }
+
+    pub fn start(&self) -> Option<CorotationalStart2D<'_>> {
+        self.base
+            .as_ref()
+            .map(|(input, displacements)| CorotationalStart2D {
+                input,
+                displacements,
+            })
+    }
+}
+
 /// Co-rotational analysis that continues from `start` instead of the
 /// undeformed state. The external loads and the restrained DOFs ramp linearly
 /// from the start model's to `input`'s, so every restrained DOF ends at the
@@ -357,8 +434,10 @@ pub fn solve_corotational_2d_from(
     n_increments: usize,
     modified_nr: bool,
 ) -> Result<CorotationalResult, String> {
-    let canonical_input = super::member_loads::plane_input(input);
-    let input = canonical_input.as_ref();
+    let plane = PlaneInputs::new(input, start);
+    let input = plane.target.as_ref();
+    let start = plane.start();
+    let start = start.as_ref();
 
     // Degenerate parameters, rejected before any work. These arrive from the
     // public WASM entry point exactly as the caller sent them, and the UI's
@@ -406,14 +485,23 @@ pub fn solve_corotational_2d_from(
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Get the full external load vector from linear assembly (reference load)
-    let asm = assembly::assemble_2d(input, &dof_num);
-    let f_total = asm.f.clone();
-    let art = assembly::artificial_stiffness_entries(&asm);
+    let asm = assembly::assemble_stiffness_2d(input, &dof_num);
+    let art = asm.artificial_stiffness_entries();
 
-    let (u_full, f_base) = match start {
-        Some(start) => start_state_2d(input, start, &dof_num)?,
-        None => (vec![0.0; n], vec![0.0; n]),
+    let mut u_full = match start {
+        Some(start) => start_displacements_2d(input, start, &dof_num)?,
+        None => vec![0.0; n],
     };
+    let loads = PlanarLoadPath::increments(
+        input,
+        start.map(|start| start.input),
+        &dof_num,
+        &asm.inclined_transforms_2d,
+    );
+    let f_base = loads.base().forces();
+    if let Some(cs) = &cs {
+        cs.impose_motion(&mut u_full);
+    }
     let u_r_base: Vec<f64> = u_full[nf..].to_vec();
     let u_r_target = super::linear::prescribed_displacements_2d(input, &dof_num);
     let support_extent: Vec<_> = u_r_base.iter().zip(&u_r_target)
@@ -436,7 +524,7 @@ pub fn solve_corotational_2d_from(
         art: &art,
         metric: &metric,
         ns,
-        f_total: &f_total,
+        loads: &loads,
         f_base: &f_base,
         u_r_base: &u_r_base,
         u_r_target: &u_r_target,
@@ -445,9 +533,7 @@ pub fn solve_corotational_2d_from(
         u_full,
         sparse_sym_cache: None,
         conditioning: None,
-        f_ext: Vec::new(),
-        active_supports: Vec::new(),
-        support_step: None,
+        targets: IncrementTargets2D::default(),
         cached_factor: None,
         r_f: Vec::new(),
         k_t: Vec::new(),
@@ -463,17 +549,10 @@ pub fn solve_corotational_2d_from(
     let max_displacement = compute_max_displacement(&dof_num, &u_full);
 
     // Results of the last converged state, under the loads it carries.
-    let scaled;
-    let at_state = if let Some(start) = start {
-        scaled = blended_loads_2d(start.input, input, converged_factor);
-        &scaled
-    } else if converged_factor < 1.0 {
-        scaled = scaled_loads_2d(input, converged_factor);
-        &scaled
-    } else {
-        input
-    };
-    let mut results = build_final_results(at_state, &dof_num, &u_full, &cs, &asm.inclined_transforms_2d)?;
+    let mut results = build_planar_results(
+        input, &dof_num, &u_full, &cs, &asm.inclined_transforms_2d,
+        &loads.at(converged_factor),
+    )?;
     crate::known_issues::attach(&mut results.structured_diagnostics, conditioning.into_iter().collect());
     crate::known_issues::attach(&mut results.structured_diagnostics, crate::known_issues::for_2d(input, crate::known_issues::Analysis::Corotational));
 
@@ -490,29 +569,28 @@ pub fn solve_corotational_2d_from(
 /// The model under `factor` times its loads: the state an unconverged solve
 /// reports is the last converged increment, and its reactions and member
 /// forces are those of the load that increment carries.
+#[cfg(test)]
 pub(super) fn scaled_loads_2d(input: &SolverInput, factor: f64) -> SolverInput {
-    let mut m = input.clone();
-    for l in m.loads.iter_mut() {
-        match l {
-            SolverLoad::Nodal(n) => { n.fx *= factor; n.fz *= factor; n.my *= factor; }
-            SolverLoad::Distributed(d) => { d.q_i *= factor; d.q_j *= factor; }
-            SolverLoad::AxialDistributed(d) => { d.q_i *= factor; d.q_j *= factor; }
-            SolverLoad::PointOnElement(p) => {
-                p.p *= factor;
-                p.px = p.px.map(|v| v * factor);
-                p.my = p.my.map(|v| v * factor);
-            }
-            // Refused at the entry point.
-            SolverLoad::Thermal(_) => {}
-        }
+    let mut model = input.clone();
+    for load in &mut model.loads {
+        scale_load_2d(load, factor);
     }
-    m
+    model
 }
 
-fn blended_loads_2d(from: &SolverInput, to: &SolverInput, factor: f64) -> SolverInput {
-    let mut m = scaled_loads_2d(to, factor);
-    m.loads.extend(scaled_loads_2d(from, 1.0 - factor).loads);
-    m
+#[cfg(test)]
+fn scale_load_2d(load: &mut SolverLoad, factor: f64) {
+    match load {
+        SolverLoad::Nodal(n) => { n.fx *= factor; n.fz *= factor; n.my *= factor; }
+        SolverLoad::Distributed(d) => { d.q_i *= factor; d.q_j *= factor; }
+        SolverLoad::AxialDistributed(d) => { d.q_i *= factor; d.q_j *= factor; }
+        SolverLoad::PointOnElement(p) => {
+            p.p *= factor;
+            p.px = p.px.map(|v| v * factor);
+            p.my = p.my.map(|v| v * factor);
+        }
+        SolverLoad::Thermal(_) => {}
+    }
 }
 
 pub(crate) fn refuse_inclined_motion_2d(input: &SolverInput, from_start: bool) -> Result<(), String> {
@@ -530,7 +608,7 @@ pub(crate) fn refuse_inclined_motion_2d(input: &SolverInput, from_start: bool) -
     }
 }
 
-pub(crate) fn start_state_2d(input: &SolverInput, start: &CorotationalStart2D, dof_num: &DofNumbering) -> Result<(Vec<f64>, Vec<f64>), String> {
+pub(super) fn start_displacements_2d(input: &SolverInput, start: &CorotationalStart2D, dof_num: &DofNumbering) -> Result<Vec<f64>, String> {
     super::linear::validate_input_2d(start.input)?;
     refuse_inclined_motion_2d(start.input, true)?;
     let same_nodes = start.input.nodes.len() == input.nodes.len()
@@ -550,6 +628,17 @@ pub(crate) fn start_state_2d(input: &SolverInput, start: &CorotationalStart2D, d
             .ok_or_else(|| format!("The start state has no displacement for node {node_id}"))?;
         u[index] = [d.ux, d.uz, d.ry][local];
     }
+    Ok(u)
+}
+
+#[cfg(test)]
+fn start_state_2d(
+    input: &SolverInput,
+    start: &CorotationalStart2D,
+    dof_num: &DofNumbering,
+) -> Result<(Vec<f64>, Vec<f64>), String> {
+    let u = start_displacements_2d(input, start, dof_num)?;
+    let start_dofs = DofNumbering::build_2d(start.input);
     let f_start = assembly::assemble_2d(start.input, &start_dofs).f;
     let mut f = vec![0.0; dof_num.n_total];
     for (key, &i) in &start_dofs.map {
@@ -560,8 +649,6 @@ pub(crate) fn start_state_2d(input: &SolverInput, start: &CorotationalStart2D, d
     Ok((u, f))
 }
 
-/// 3D twin of [`scaled_loads_2d`] (shell, thermal and bimoment loads are
-/// refused at the entry point).
 fn scaled_loads_3d(input: &SolverInput3D, factor: f64) -> SolverInput3D {
     let mut m = input.clone();
     for l in m.loads.iter_mut() {
@@ -1040,6 +1127,14 @@ fn subtract_element_fef(
             _ => {}
         }
     }
+    subtract_planar_end_actions(actions, member_chords, f_local);
+}
+
+fn subtract_planar_end_actions(
+    actions: MemberFixedEndActions<6>,
+    member_chords: ([f64; 2], [f64; 2]),
+    f_local: &mut [f64; 6],
+) {
     let ([c0, s0], [cn, sn]) = member_chords;
     let actions = actions.in_final_frame(
         ([c0, s0, 0.0], [-s0, c0, 0.0], [0.0, 0.0, 1.0]),
@@ -1162,6 +1257,7 @@ fn compute_max_displacement(dof_num: &DofNumbering, u_full: &[f64]) -> f64 {
 }
 
 /// Build final AnalysisResults from the converged displacement field.
+#[cfg(test)]
 pub(super) fn build_final_results(
     input: &SolverInput,
     dof_num: &DofNumbering,
@@ -1169,11 +1265,37 @@ pub(super) fn build_final_results(
     cs: &Option<FreeConstraintSystem>,
     its: &[assembly::InclinedTransformData2D],
 ) -> Result<AnalysisResults, String> {
-    let canonical_input = super::member_loads::plane_input(input);
-    let input = canonical_input.as_ref();
+    let canonical = super::member_loads::plane_input(input);
+    let input = canonical.as_ref();
+    finish_planar_results(input, dof_num, u_full, cs, its, None)
+}
 
-    // Reactions: co-rotational internal forces at restrained DOFs minus external loads
-    let f_applied = assembly::assemble_load_vector_2d(input, &input.loads, dof_num, its);
+pub(super) fn build_planar_results(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    u_full: &[f64],
+    cs: &Option<FreeConstraintSystem>,
+    its: &[assembly::InclinedTransformData2D],
+    loads: &PlanarLoadState<'_>,
+) -> Result<AnalysisResults, String> {
+    finish_planar_results(input, dof_num, u_full, cs, its, Some(loads))
+}
+
+fn finish_planar_results(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    u_full: &[f64],
+    cs: &Option<FreeConstraintSystem>,
+    its: &[assembly::InclinedTransformData2D],
+    loads: Option<&PlanarLoadState<'_>>,
+) -> Result<AnalysisResults, String> {
+    let f_applied = loads.map_or_else(
+        || assembly::assemble_load_vector_2d(input, &input.loads, dof_num, its),
+        PlanarLoadState::forces,
+    );
+    if f_applied.iter().any(|force| !force.is_finite()) {
+        return Err("Applied load vector is not finite".into());
+    }
     // Reverse the inclined-support rotation to get TRUE global displacements
     // — needed both for correct co-rotational element geometry (elements
     // must see real nodal x/z, not the rotated tangent/normal pair stored
@@ -1190,7 +1312,17 @@ pub(super) fn build_final_results(
     let recovered = super::reaction_recovery::RecoveredForces::from_physical(&physical, &f_applied, dof_num, cs.as_ref());
     let reactions = recovered.reactions_2d(dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_geom), its)?;
     let constraint_forces = recovered.constraint_forces;
-    let mut element_forces = compute_corotational_forces(input, dof_num, &u_geom);
+    let mut element_forces = if let Some(loads) = loads {
+        member_forces_2d(
+            input, dof_num, &u_geom, &loads.descriptions(),
+            Some((loads, &loads.displacements(u_full))),
+        )
+    } else {
+        compute_corotational_forces(input, dof_num, &u_geom)
+    };
+    if loads.is_some() {
+        crate::boundary::require_finite(&element_forces)?;
+    }
     element_forces.sort_by_key(|ef| ef.element_id);
 
     Ok(AnalysisResults {
@@ -1220,6 +1352,16 @@ pub fn compute_corotational_forces(
     input: &SolverInput,
     dof_num: &DofNumbering,
     u_full: &[f64],
+) -> Vec<ElementForces> {
+    member_forces_2d(input, dof_num, u_full, &input.loads, None)
+}
+
+fn member_forces_2d(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    u_full: &[f64],
+    descriptions: &[SolverLoad],
+    applied: Option<(&PlanarLoadState<'_>, &PlanarDisplacements<'_>)>,
 ) -> Vec<ElementForces> {
     let mut forces = Vec::new();
 
@@ -1264,25 +1406,35 @@ pub fn compute_corotational_forces(
             let (mut f_i, mut f_j) = (0.0, 0.0);
             let mut axial_loads_info = Vec::new();
             let mut truss_point_loads = Vec::new();
-            for load in &input.loads {
+            for load in descriptions {
                 match load {
                     SolverLoad::PointOnElement(pl) if pl.element_id == elem.id => {
                         let px = pl.px.unwrap_or(0.0);
                         if px != 0.0 {
-                            f_i += px * (1.0 - pl.a / l0);
-                            f_j += px * pl.a / l0;
+                            if applied.is_none() {
+                                f_i += px * (1.0 - pl.a / l0);
+                                f_j += px * pl.a / l0;
+                            }
                             truss_point_loads.push(PointLoadInfo { a: pl.a, p: 0.0, px: Some(px), my: None });
                         }
                     }
                     SolverLoad::AxialDistributed(al) if al.element_id == elem.id => {
                         let (a, b) = (al.a.unwrap_or(0.0), al.b.unwrap_or(l0));
-                        let [fa, fb] = crate::element::axial_distributed_fef(al.q_i, al.q_j, a, b, l0);
-                        f_i += fa;
-                        f_j += fb;
+                        if applied.is_none() {
+                            let [fa, fb] = crate::element::axial_distributed_fef(al.q_i, al.q_j, a, b, l0);
+                            f_i += fa;
+                            f_j += fb;
+                        }
                         axial_loads_info.push(DistributedLoadInfo { q_i: al.q_i, q_j: al.q_j, a, b });
                     }
                     _ => {}
                 }
+            }
+
+            if let Some((applied, _)) = applied {
+                let actions = applied.actions(elem.id);
+                f_i = actions[0];
+                f_j = actions[3];
             }
 
             forces.push(ElementForces {
@@ -1330,7 +1482,20 @@ pub fn compute_corotational_forces(
             let mut f_local = corotational_frame_end_forces(&k_local, &d_local, l_n);
 
             // Subtract FEF for output (element forces = K*u - FEF)
-            subtract_element_fef(input, elem, l0, e, mat.nu, ([dx0 / l0, dy0 / l0], [dx_n / l_n, dy_n / l_n]), &mut f_local, sec);
+            if let Some((applied, solver_displacements)) = applied {
+                let actions = applied.frame_actions(elem.id, || {
+                    solver_displacements.member_action_projection(
+                        [node_i, node_j],
+                        &[[elem_dofs[0], elem_dofs[1]], [elem_dofs[3], elem_dofs[4]]],
+                    )
+                });
+                for (force, action) in f_local.iter_mut().zip(actions) {
+                    *force -= action;
+                }
+            } else {
+                let chords = ([dx0 / l0, dy0 / l0], [dx_n / l_n, dy_n / l_n]);
+                subtract_element_fef(input, elem, l0, e, mat.nu, chords, &mut f_local, sec);
+            }
 
             // Collect load metadata
             let (mut total_qi, mut total_qj) = (0.0, 0.0);
@@ -1338,7 +1503,7 @@ pub fn compute_corotational_forces(
             let mut dist_loads_info = Vec::new();
             let mut axial_loads_info = Vec::new();
 
-            for load in &input.loads {
+            for load in descriptions {
                 match load {
                     SolverLoad::Distributed(dl) if dl.element_id == elem.id => {
                         let a_dist = dl.a.unwrap_or(0.0);
@@ -1403,6 +1568,28 @@ pub fn compute_corotational_forces(
 // 3D Co-rotational Large Displacement Solver
 // ============================================================
 
+fn checked_corotational_frames_3d(input: &SolverInput3D) -> Result<SolverInput3D, String> {
+    let input = super::linear::expand_curved_beams_3d(input);
+    let frame_sections: std::collections::HashSet<usize> = crate::ordered::values(&input.elements)
+        .filter(|e| e.elem_type == "frame")
+        .map(|e| e.section_id)
+        .collect();
+    if let Some(sec) = crate::ordered::values(&input.sections)
+        .filter(|s| frame_sections.contains(&s.id))
+        .find(|s| {
+            s.shear_center_y.is_some_and(|v| v != 0.0) || s.shear_center_z.is_some_and(|v| v != 0.0)
+        })
+    {
+        return Err(format!(
+            "Corotational 3D solver does not model a shear-centre offset (section {}): \
+             flexural-torsional coupling is not included. Use linear buckling or P-Delta.",
+            sec.id
+        ));
+    }
+
+    Ok(input)
+}
+
 /// Solve a 3D frame using co-rotational large displacement analysis.
 ///
 /// Extends the 2D formulation to 3D with:
@@ -1452,25 +1639,6 @@ pub fn solve_corotational_3d(
         return Err("Corotational 3D solver does not support shell elements. \
             Use the linear solver for models with plates, quads, or shells.".into());
     }
-    // The co-rotational element carries the Wagner term of a doubly symmetric
-    // section (internal torque and tangent) but not the shear-centre coupling of
-    // a monosymmetric one: refused rather than missing its flexural-torsional
-    // instability without a word.
-    // Only the sections of frame members: the catalogue may hold unused ones, and a truss has
-    // no flexural-torsional coupling to miss.
-    let frame_sections: std::collections::HashSet<usize> =
-        crate::ordered::values(&input.elements).filter(|e| e.elem_type == "frame").map(|e| e.section_id).collect();
-    if let Some(sec) = crate::ordered::values(&input.sections).filter(|s| frame_sections.contains(&s.id)).find(|s| {
-        s.shear_center_y.is_some_and(|v| v != 0.0) || s.shear_center_z.is_some_and(|v| v != 0.0)
-    }) {
-        return Err(format!(
-            "Corotational 3D solver does not model a shear-centre offset (section {}): \
-             flexural-torsional coupling is not included. Use linear buckling or P-Delta.",
-            sec.id
-        ));
-    }
-
-    // Expand curved beams before DOF numbering and assembly.
     // As in 2D: no prescribed-displacement term, and
     // temperature as fixed global forces.
     super::feature_gates::refuse_3d(input, "Corotational analysis", &[
@@ -1479,7 +1647,7 @@ pub fn solve_corotational_3d(
         super::feature_gates::Feature::Warping,
     ])?;
     crate::element::connector::refuse_for_corotational_3d(input, "Corotational analysis")?;
-    let input = &super::linear::expand_curved_beams_3d(input);
+    let input = &checked_corotational_frames_3d(input)?;
     let dof_num = DofNumbering::build_3d(input);
 
     if dof_num.n_free == 0 {
@@ -3602,6 +3770,18 @@ mod shared_driver_equivalence {
     use super::*;
     use std::collections::HashMap;
 
+    fn exact_nodal_ramp(base: &[f64], target: &[f64], factor: f64) -> Vec<f64> {
+        use crate::certify::exact::q;
+        use num_traits::ToPrimitive;
+
+        let factor = q(factor).unwrap();
+        base.iter().zip(target).map(|(&base, &target)| {
+            let base = q(base).unwrap();
+            let target = q(target).unwrap();
+            (&base + &factor * (target - &base)).to_f64().unwrap()
+        }).collect()
+    }
+
     fn before_the_shared_driver(
         input: &SolverInput,
         start: Option<&CorotationalStart2D>,
@@ -3643,7 +3823,6 @@ mod shared_driver_equivalence {
         let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
         let asm = assembly::assemble_2d(input, &dof_num);
-        let f_total = asm.f.clone();
         let art = assembly::artificial_stiffness_entries(&asm);
 
         let (mut u_full, f_base) = match start {
@@ -3675,7 +3854,11 @@ mod shared_driver_equivalence {
         for increment in 1..=n_increments {
             let load_factor = increment as f64 / n_increments as f64;
 
-            let f_ext: Vec<f64> = (0..n).map(|i| f_base[i] + load_factor * (f_total[i] - f_base[i])).collect();
+            let f_ext = if start.is_some() {
+                exact_nodal_ramp(&f_base, &asm.f, load_factor)
+            } else {
+                asm.f.iter().map(|force| 0.0 + load_factor * force).collect()
+            };
             let active_supports:Vec<_>=u_r_base.iter().zip(&u_r_target).map(|(base,target)|base+load_factor*(target-base)).collect();
             let mut support_step: Option<Vec<f64>> = Some(
                 u_r_base.iter().zip(&u_r_target).enumerate()
@@ -3860,7 +4043,9 @@ mod shared_driver_equivalence {
 
         let scaled;
         let at_state = if let Some(start) = start {
-            scaled = blended_loads_2d(start.input, input, converged_factor);
+            let mut state = scaled_loads_2d(input, converged_factor);
+            state.loads.extend(scaled_loads_2d(start.input, 1.0 - converged_factor).loads);
+            scaled = state;
             &scaled
         } else if converged_factor < 1.0 {
             scaled = scaled_loads_2d(input, converged_factor);

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { assertPDeltaEquilibriumRefusal } from './pdelta-equilibrium-refusal.mjs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 
 engine.initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
@@ -55,10 +56,10 @@ for (const dimension of [2, 3]) {
     assertDisplacements(result, input, dimension);
     assert.deepEqual(result.displacements, reference.displacements);
   });
-  test(`${dimension}D nonlinear initial truss member actions`, () => {
-    const result = JSON.parse(engine[`solve_pdelta_${dimension}d`](JSON.stringify(input), 1, Number.EPSILON));
-    assertDisplacements(result.linearResults, input, dimension);
-    assertDisplacements(result.results, input, dimension);
+  test(`${dimension}D truss member actions pass linear balance and fail one-step P-Delta balance`, () => {
+    assertDisplacements(engine[`solve_${dimension}d`](input), input, dimension);
+    assert.throws(() => engine[`solve_pdelta_${dimension}d`](JSON.stringify(input), 1, Number.EPSILON),
+      error => assertPDeltaEquilibriumRefusal(error, Number.EPSILON));
   });
 }
 for (const dimension of [2, 3]) {
@@ -106,9 +107,8 @@ for (const dimension of [2, 3]) {
             : { elementId: 5, px: fixtures['1969'].loads[0].data.qJ, py: load.qYI, pz: load.qZI, a: length/3 } }];
         }
         assertDisplacements(engine[`solve_${dimension}d`](input), input, dimension);
-        const nonlinear = JSON.parse(engine[`solve_pdelta_${dimension}d`](JSON.stringify(input), 1, Number.EPSILON));
-        assertDisplacements(nonlinear.linearResults, input, dimension);
-        assertDisplacements(nonlinear.results, input, dimension);
+        assert.throws(() => engine[`solve_pdelta_${dimension}d`](JSON.stringify(input), 1, Number.EPSILON),
+          error => assertPDeltaEquilibriumRefusal(error, Number.EPSILON));
       });
     }
   }

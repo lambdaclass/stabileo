@@ -1,0 +1,43 @@
+{
+  "id": "gravity-coverage-decisions",
+  "date": "2026-11-24",
+  "prs": [
+    2512
+  ],
+  "area": "loads",
+  "when": {
+    "any": [
+      "generatedPanelGravity",
+      "generatedWidthGravity"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Preserve gravity on valid deck and roof geometry",
+    "es": "Conservar cargas gravitatorias en entrepisos y cubiertas válidos",
+    "pt": "Preservar cargas gravitacionais em pisos e coberturas válidos",
+    "de": "Schwerkraftlasten für gültige Decken- und Dachgeometrie erhalten",
+    "fr": "Préserver les charges gravitaires pour les planchers et toitures de géométrie valide",
+    "tr": "Geçerli döşeme ve çatı geometrisinde yerçekimi yüklerini koru",
+    "zh": "保留有效楼层和屋面几何上的重力荷载",
+    "hu": "A gravitációs terhek megőrzése érvényes födém- és tetőgeometria esetén"
+  },
+  "explanation": {
+    "en": "Regenerate automatic gravity loads. Bay ownership excludes openings, disconnected overlaps are checked separately, and roof coverage uses the member endpoints for a midpoint on a collinear edge.",
+    "es": "Regenerá las cargas gravitatorias automáticas. La asignación del paño excluye las aberturas, los solapes separados se verifican por separado y la cobertura usa los extremos de la barra si el punto medio está en un borde colineal.",
+    "pt": "Gere novamente as cargas gravitacionais automáticas. A atribuição do painel exclui aberturas, as sobreposições separadas são verificadas individualmente e a cobertura usa as extremidades da barra quando o ponto médio está em uma borda colinear.",
+    "de": "Erzeugen Sie die automatischen Schwerkraftlasten neu. Öffnungen gehören nicht zum Trägerfeld, getrennte Überlappungen werden einzeln geprüft, und am kollinearen Dachrand bestimmen die Stabenden die Lage des Mittelpunkts.",
+    "fr": "Régénérez les charges gravitaires automatiques. L’attribution de la travée exclut les ouvertures, les zones de chevauchement disjointes sont vérifiées séparément et les extrémités de la barre déterminent la position de son milieu sur une rive colinéaire.",
+    "tr": "Otomatik yerçekimi yüklerini yeniden üretin. Açıklıkların yük alanından boşluklar çıkarılır, bağlantısız örtüşmeler ayrı denetlenir ve doğrudaş çatı kenarındaki orta nokta eleman uçlarıyla belirlenir.",
+    "zh": "请重新生成自动重力荷载。梁格的承载范围排除开口，各个不连通的重叠区分别检查。构件与屋面边缘共线时，通过构件端点确定中点是否受到遮盖。",
+    "hu": "Generálja újra az automatikus gravitációs terheket. A mező teherterülete kizárja a nyílásokat. A különálló átfedéseket egyenként ellenőrizzük, és a rúddal egy egyenesbe eső tetőszélen a rúdvégek határozzák meg a felezőpont helyét."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-coverage-decisions.md",
+    "heading": "Preserve gravity on valid deck and roof geometry"
+  }
+}

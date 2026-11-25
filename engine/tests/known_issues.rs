@@ -4,7 +4,7 @@
 use crate::common;
 use common::{make_3d_beam, make_beam};
 use dedaliano_engine::known_issues::{for_3d, Analysis};
-use dedaliano_engine::solver::linear::{prepare_static_2d, solve_2d};
+use dedaliano_engine::solver::linear::{prepare_static_2d, solve_2d, solve_3d};
 use dedaliano_engine::solver::constraints::{solve_constrained_2d, ConstrainedInput};
 use dedaliano_engine::solver::ssi::{solve_ssi_2d, SSIInput, SoilSpring};
 use dedaliano_engine::solver::material_nonlinear::solve_nonlinear_material_2d;
@@ -2794,6 +2794,53 @@ fn issue_1753_an_independent_load_cannot_mask_constraint_cancellation() {
 }
 
 #[test]
+fn planar_nodal_metadata_preserves_native_solve_and_component_refusals() {
+    use dedaliano_engine::reproduce::{canonical_results_json, linear_hashes};
+    use dedaliano_engine::solver::{linear::solve_2d_typed, pdelta::solve_pdelta_2d};
+    use dedaliano_engine::types::units::ElasticInput2D;
+    use serde_json::{json, Value};
+
+    let model: Value = serde_json::from_str(include_str!("fixtures/cantilever-input.json")).unwrap();
+    let solve = |model: &Value| {
+        let json = model.to_string();
+        let replay = linear_hashes(&json, false);
+        let typed = serde_json::from_str::<ElasticInput2D>(&json)
+            .map_err(|error| error.to_string())
+            .and_then(|input| solve_2d_typed(&input))
+            .and_then(|result| canonical_results_json(&result));
+        let pdelta = serde_json::from_value::<SolverInput>(model.clone())
+            .map_err(|error| error.to_string())
+            .and_then(|input| solve_pdelta_2d(&input, 20, 1e-9))
+            .and_then(|result| {
+                assert!(result.converged);
+                canonical_results_json(&result.results)
+            });
+        [
+            replay.map(|result| format!("{} {}", result.input_sha256, result.results_sha256)),
+            typed,
+            pdelta,
+        ]
+    };
+
+    let control = solve(&model).map(Result::unwrap).map(Ok);
+    for metadata in [json!({"id": 17}), json!({"caseId": 2}), json!({"id": 17, "caseId": 2})] {
+        let mut annotated = model.clone();
+        let data = annotated["loads"][0]["data"].as_object_mut().unwrap();
+        data.extend(metadata.as_object().unwrap().clone());
+        assert_eq!(solve(&annotated), control, "{metadata}");
+    }
+
+    let mut unsupported = model;
+    unsupported["loads"][0]["data"]["id"] = json!(17);
+    unsupported["loads"][0]["data"]["caseId"] = json!(2);
+    unsupported["loads"][0]["data"]["bw"] = json!(1);
+    for result in solve(&unsupported) {
+        let error = result.expect_err("a planar solve accepted a bimoment");
+        assert!(error.contains("unknown field `bw`"), "{error}");
+    }
+}
+
+#[test]
 fn issue_1753_three_hinge_arch_snapshot_preserves_exact_statics_and_current_warnings() {
     let mut fixture: serde_json::Value = serde_json::from_str(include_str!("../../web/src/lib/templates/fixtures/three-hinge-arch.json")).unwrap();
     for node in fixture["nodes"].as_array_mut().unwrap() {
@@ -3002,5 +3049,114 @@ fn accepted_3d_cantilever_retains_conditioning_in_both_diagnostic_lists() {
             assert!(result.solver_diagnostics.iter().any(|d| d.category == "conditioning" && d.severity == "warning"), "padded={padded} pcg={pcg}: {:?}", result.solver_diagnostics);
             assert!(result.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::NearZeroDiagonal && d.phase.as_deref() == Some("conditioning") && d.severity == Severity::Warning), "padded={padded} pcg={pcg}: {:?}", result.structured_diagnostics);
         }
+    }
+}
+
+#[test]
+fn issue_2535_warped_mitc_uses_node_ids_in_linear_and_nonlinear_solves() {
+    use dedaliano_engine::solver::{linear::prepare_static_3d, pdelta::solve_pdelta_3d};
+    for (quad9, nx, ny) in [(false, 12, 4), (true, 6, 2)] {
+        let (mut input, _) = twisted_strip(quad9, nx, ny, 90.0, 0.32, [0.0, 0.0, 1.0]);
+        input.nodes = input.nodes.into_values().map(|n| (format!("corner-{}", n.id), n)).collect();
+        let input: SolverInput3D = serde_json::from_value(serde_json::to_value(input).unwrap()).unwrap();
+        let issue = warped_id(quad9);
+        common::assert_containment(solve_3d(&input), issue);
+        common::assert_containment(prepare_static_3d(&input).and_then(|solver| solver.solve_loads(&input.loads)), issue);
+        common::assert_containment(solve_pdelta_3d(&input, 10, 1e-6), issue);
+    }
+}
+
+#[test]
+fn issue_2535_warped_mitc_preserves_both_bands_with_labelled_nodes() {
+    use dedaliano_engine::element::{quad::quad_twist_curvature, quad9::quad9_twist_curvature};
+    use dedaliano_engine::known_issues::{WARPED_MITC4_TWIST, WARPED_MITC9_TWIST};
+
+    let corners = [
+        [0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.01], [0.0, 1.0, 0.0],
+        [0.5, 0.0, 0.0], [1.0, 0.5, 0.005], [0.5, 1.0, 0.005], [0.0, 0.5, 0.0], [0.5, 0.5, 0.0025],
+    ];
+    for (quad9, (warn, refuse)) in [(false, WARPED_MITC4_TWIST), (true, WARPED_MITC9_TWIST)] {
+        let kappa = if quad9 { quad9_twist_curvature(&corners) } else { quad_twist_curvature(&corners[..4].try_into().unwrap()) };
+        let n = if quad9 { 9 } else { 4 };
+        let nodes = corners[..n].iter().enumerate().map(|(i, &[x, y, z])| (i + 1, x, y, z)).collect();
+        let load = SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 3, fx: 0.0, fy: 0.0, fz: -1.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None });
+        let fixed = if quad9 { vec![1, 4, 8] } else { vec![1, 4] };
+        let mut input = common::make_3d_input(nodes, vec![(1, 29_000.0, 0.22)], vec![], vec![],
+            fixed.into_iter().map(|id| (id, vec![true; 6])).collect(), vec![load]);
+        input.nodes = input.nodes.into_values().map(|node| (format!("corner-{}", node.id), node)).collect();
+
+        for (kt, expected) in [(0.999 * warn, None), (1.001 * warn, Some(Severity::Warning)), (0.999 * refuse, Some(Severity::Warning)), (1.001 * refuse, Some(Severity::Error))] {
+            if quad9 {
+                input.quad9s.insert("1".into(), SolverQuad9Element { id: 1, nodes: std::array::from_fn(|i| i + 1), material_id: 1, thickness: kt / kappa });
+            } else {
+                input.quads.insert("1".into(), SolverQuadElement { id: 1, nodes: [1, 2, 3, 4], material_id: 1, thickness: kt / kappa });
+            }
+            let result = solve_3d(&input);
+            if expected == Some(Severity::Error) {
+                common::assert_containment(result, warped_id(quad9));
+            } else {
+                let result = result.unwrap();
+                let findings = warped_findings(&result.structured_diagnostics);
+                assert_eq!(findings.first().map(|d| d.severity), expected, "{} at {kt}", warped_id(quad9));
+                assert!(result.displacements.iter().any(|d| d.node_id == 3 && d.uz < 0.0));
+            }
+        }
+    }
+}
+
+#[test]
+fn issue_2535_plane_wire_input_rejects_shells_before_they_disappear() {
+    let input = make_beam(4, 4.0, E, 0.045, 3.375e-4, "fixed", None, tip(-10.0));
+    let mut wire = serde_json::to_value(input).unwrap();
+    wire["quads"] = serde_json::json!({});
+    wire["maxIter"] = serde_json::json!(20);
+    let plane: SolverInput = serde_json::from_value(wire.clone()).unwrap();
+    assert!(solve_2d(&plane).is_ok());
+    assert!(dedaliano_engine::solver::pdelta::solve_pdelta_2d(&plane, 20, 1e-4).is_ok());
+
+    let mut staged = wire.clone();
+    staged["stages"] = serde_json::json!([]);
+    assert!(dedaliano_engine::solver::staged::parse_staged_2d(&staged.to_string()).is_ok());
+
+    wire["quads"] = serde_json::json!({"1": {"id": 1, "nodes": [1, 2, 3, 4], "materialId": 1, "thickness": 0.32}});
+    let error = serde_json::from_value::<SolverInput>(wire.clone()).unwrap_err();
+    assert!(error.to_string().contains("Shell elements require 3D analysis"), "{error}");
+
+    staged["quads"] = wire["quads"].clone();
+    let error = dedaliano_engine::solver::staged::parse_staged_2d(&staged.to_string()).unwrap_err();
+    assert!(error.contains("Shell elements require 3D analysis"), "{error}");
+}
+
+#[test]
+fn issue_2535_plane_wire_accepts_empty_legacy_shell_lists_and_refuses_populated_lists() {
+    use dedaliano_engine::solver::staged::{parse_staged_2d, solve_staged_2d};
+
+    let input = make_beam(4, 4.0, E, 0.045, 3.375e-4, "fixed", None, tip(-10.0));
+    let mut wire = serde_json::to_value(input).unwrap();
+    wire["stages"] = serde_json::json!([{
+        "name": "Load the beam",
+        "elementsAdded": [1, 2, 3, 4],
+        "supportsAdded": [1],
+        "loadIndices": [0]
+    }]);
+    let values = |wire: &serde_json::Value| {
+        let plane: SolverInput = serde_json::from_value(wire.clone()).unwrap();
+        let linear = solve_2d(&plane).unwrap();
+        let nonlinear = dedaliano_engine::solver::pdelta::solve_pdelta_2d(&plane, 20, 1e-4).unwrap();
+        let staged = solve_staged_2d(&parse_staged_2d(&wire.to_string()).unwrap()).unwrap();
+        serde_json::to_value((linear, nonlinear, staged)).unwrap()
+    };
+    let expected = values(&wire);
+
+    for field in ["plates", "quads", "quad9s", "curvedShells", "solidShells"] {
+        let mut legacy = wire.clone();
+        legacy[field] = serde_json::json!([]);
+        assert_eq!(values(&legacy), expected, "{field}");
+
+        legacy[field] = serde_json::json!([{"id": 1}]);
+        let error = serde_json::from_value::<SolverInput>(legacy.clone()).unwrap_err();
+        assert!(error.to_string().contains("Shell elements require 3D analysis"), "{field}: {error}");
+        let error = parse_staged_2d(&legacy.to_string()).unwrap_err();
+        assert!(error.contains("Shell elements require 3D analysis"), "{field}: {error}");
     }
 }

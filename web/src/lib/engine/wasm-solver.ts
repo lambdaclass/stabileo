@@ -75,7 +75,7 @@ let wasmAnalyzeKinematics3d: ((json: string) => string) | null = null;
 let wasmReviewModelSanity: ((json: string) => string) | null = null;
 
 // Combinations & Envelope
-let wasmNetCombinationFactors: ((input: unknown) => unknown) | null = null;
+let wasmNetCombinationFactors: ((input: unknown, allowCancellation?: boolean) => unknown) | null = null;
 let wasmCombineResults2d: ((input: any) => any) | null = null;
 let wasmCombineResults3d: ((input: any) => any) | null = null;
 let wasmCombineResultsBatch3d: ((input: any) => any) | null = null;
@@ -474,19 +474,37 @@ class NonFiniteWireInput extends CodedRefusal {
 }
 
 export function assertFiniteWire(value: unknown, path = 'input'): void {
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value)) {
-      throw new NonFiniteWireInput(path, value);
-    }
-    return;
-  }
+  inspectWire(value, path, false);
+}
+
+export function finiteObjectWire<T>(value: T, path = 'input'): T {
+  return inspectWire(value, path, true) as T;
+}
+
+function inspectWire(value: unknown, path: string, omitUndefined: boolean): unknown {
+  if (typeof value === 'number' && !Number.isFinite(value)) throw new NonFiniteWireInput(path, value);
   if (Array.isArray(value)) {
-    for (let i = 0; i < value.length; i++) assertFiniteWire(value[i], `${path}[${i}]`);
-    return;
+    let copy: unknown[] | undefined;
+    for (let i = 0; i < value.length; i++) {
+      const item = inspectWire(value[i], `${path}[${i}]`, omitUndefined);
+      if (item !== value[i]) (copy ??= value.slice())[i] = item;
+    }
+    return copy ?? value;
   }
-  if (value !== null && typeof value === 'object') {
-    for (const k of Object.keys(value)) assertFiniteWire((value as Record<string, unknown>)[k], `${path}.${k}`);
+  if (value === null || typeof value !== 'object') return value;
+
+  const record = value as Record<string, unknown>;
+  let copy: Record<string, unknown> | undefined;
+  for (const key of Object.keys(record)) {
+    const original = record[key];
+    if (omitUndefined && original === undefined) {
+      delete (copy ??= { ...record })[key];
+    } else {
+      const checked = inspectWire(original, `${path}.${key}`, omitUndefined);
+      if (checked !== original) (copy ??= { ...record })[key] = checked;
+    }
   }
+  return copy ?? value;
 }
 
 export function finiteWireJson(payload: unknown, options?: Record<string, number>): string {
@@ -826,16 +844,14 @@ function eigen3D<R>(input: SolverInput3D, run: (i: SolverInput3D) => R): { resul
 export function solve(input: SolverInput, session?: ReturnType<typeof prepareLoadSession2D>): AnalysisResultsWire {
   if (session) return resultsFromWasm(session.solveInput(input));
   if (!wasmReady || !wasmSolve2d) throw new Error('WASM solver not initialized. Call initSolver() first.');
-  const wire = input2DToWireObject(input);
-  assertFiniteWire(wire);
+  const wire = finiteObjectWire(input2DToWireObject(input));
   return resultsFromWasm(wasmSolve2d(wire));
 }
 
 /** Solve 3D linear static analysis via WASM. JsValue in/out — no JSON round trip. */
 export function solve3D(input: SolverInput3D): AnalysisResults3DWire {
   if (!wasmReady || !wasmSolve3d) throw new Error('WASM solver not initialized. Call initSolver() first.');
-  const wire = input3DToWireObject(input);
-  assertFiniteWire(wire);
+  const wire = finiteObjectWire(input3DToWireObject(input));
   // Intercept console.error to capture Rust panic messages from console_error_panic_hook
   const captured: string[] = [];
   const origError = console.error;
@@ -868,12 +884,11 @@ function loadSession<L, R>(Constructor: LoadSessionConstructor | null, wire: () 
       if (!useNative) return fallback(loads);
       if (!attempted) {
         attempted = true;
-        try { const input = wire(); assertFiniteWire(input); native = new Constructor!(input); }
+        try { native = new Constructor!(finiteObjectWire(wire())); }
         catch (e) { failure = e; failed = true; }
       }
       if (failed) throw failure;
-      assertFiniteWire(loads, 'loads');
-      return finish(native!.solve(loads), loads);
+      return finish(native!.solve(finiteObjectWire(loads, 'loads')), loads);
     },
     free() { if (!closed) { closed = true; native?.free(); native = null; } },
   };
@@ -1021,16 +1036,14 @@ function normalizeLinear<T extends { certificate: LinearCertificate; endToEnd?: 
 /** Solve and certify a 2D linear static analysis (a few times the cost of `solve`). */
 export function certifyLinear2D(input: SolverInput): CertifiedLinear2D {
   if (!wasmReady || !wasmCertifyLinear2d) throw new Error('WASM certificate export not available.');
-  const wire = input2DToWireObject(input);
-  assertFiniteWire(wire);
+  const wire = finiteObjectWire(input2DToWireObject(input));
   return normalizeLinear(wasmCertifyLinear2d(wire));
 }
 
 /** Solve and certify a 3D linear static analysis (a few times the cost of `solve3D`). */
 export function certifyLinear3D(input: SolverInput3D): CertifiedLinear3D {
   if (!wasmReady || !wasmCertifyLinear3d) throw new Error('WASM certificate export not available.');
-  const wire = input3DToWireObject(input);
-  assertFiniteWire(wire);
+  const wire = finiteObjectWire(input3DToWireObject(input));
   const out: CertifiedLinear3D = normalizeLinear(wasmCertifyLinear3d(wire));
   finishSolve3D(out.results, input);
   return out;
@@ -1040,8 +1053,7 @@ export function certifyLinear3D(input: SolverInput3D): CertifiedLinear3D {
 export function certifyLinearWire(dim: '2d' | '3d', wire: Record<string, any>): LinearCertificateOnly {
   const certify = { '2d': wasmCertifyLinear2d, '3d': wasmCertifyLinear3d }[dim];
   if (!wasmReady || !certify) throw new Error('WASM certificate export not available.');
-  assertFiniteWire(wire);
-  return certificateOnly(normalizeLinear(certify(wire)));
+  return certificateOnly(normalizeLinear(certify(finiteObjectWire(wire))));
 }
 
 /** A linear certificate without the results it re-solved (3D carries the shells' bounds). */
@@ -1105,8 +1117,7 @@ export function hasCertify(name: string): boolean {
 export function callCertify(name: string, args: unknown[]): any {
   const fn = certifyExports.get(name);
   if (!wasmReady || !fn) throw new Error(`WASM certificate export ${name} not available.`);
-  for (const a of args) if (a && typeof a === 'object') assertFiniteWire(a);
-  return readCertifyAnswer(name, fn(...args));
+  return readCertifyAnswer(name, fn(...args.map(a => a && typeof a === 'object' ? finiteObjectWire(a) : a)));
 }
 
 /** A certify export's answer as the callers read it (shared with the worker). */
@@ -1307,17 +1318,26 @@ export function solveMovingLoads(config: {
 
 // ─── 3D Advanced Analysis ─────────────────────────────────────────
 
+function preparePDelta3D(input: SolverInput3D, maxIter: number, tolerance: number) {
+  const wire = input3DToWireObject(input);
+  refuse(guards?.refuse3D(input));
+  refuse(torsionGapRefusal(input, 'pdelta'));
+  return { wire, json: finiteWireJson(wire, { maxIter, tolerance }) };
+}
+
+function publishPDelta3D(result: any, json: string, maxIter: number, tolerance: number) {
+  if (guards && result?.linearResults && !(maxDisplacement(result.linearResults) > 0)) return linearPDelta(result.linearResults, 'noLoads');
+  return tagCertifyJob(normalizePDeltaResult(result), { name: 'certify_pdelta_3d', args: [json, maxIter, tolerance] });
+}
+
 /**
  * Solve 3D P-Delta analysis via WASM, as the engine answers. Its member forces are
  * (K + Kg(N))·u − FEF, the geometric stiffness included, so they balance the reactions.
  */
 export function solvePDelta3D(input: SolverInput3D, maxIter = 20, tolerance = 1e-4) {
   if (!wasmReady || !wasmSolvePdelta3d) throw new Error('WASM P-Delta 3D solver not available.');
-  const wire = input3DToWireObject(input);
-  refuse(guards?.refuse3D(input));
-  refuse(torsionGapRefusal(input, 'pdelta'));
+  const { json } = preparePDelta3D(input, maxIter, tolerance);
   let result;
-  const json = finiteWireJson(wire, { maxIter, tolerance });
   try {
     result = JSON.parse(wasmSolvePdelta3d(json, maxIter, tolerance));
   } catch (e) {
@@ -1325,10 +1345,34 @@ export function solvePDelta3D(input: SolverInput3D, maxIter = 20, tolerance = 1e
     if (guards) return linearPDelta(solve3D(input), 'noFreeDofs');
     throw asCodedRefusal(e, 'no_free_dofs');
   }
-  // Same as `solve3D` (`solve-finish.ts`). The no-free-DOF answer above is solve3D's, already finished.
   finishPDelta3D(result, input);
-  if (guards && result?.linearResults && !(maxDisplacement(result.linearResults) > 0)) return linearPDelta(result.linearResults, 'noLoads');
-  return tagCertifyJob(normalizePDeltaResult(result), { name: 'certify_pdelta_3d', args: [json, maxIter, tolerance] });
+  return publishPDelta3D(result, json, maxIter, tolerance);
+}
+
+export function solvePDelta3DWire(
+  input: ReturnType<typeof input3DToWireObject>,
+  maxIter: number,
+  tolerance: number,
+  run: (json: string, maxIter: number, tolerance: number) => string,
+) {
+  const json = finiteWireJson(input, { maxIter, tolerance });
+  return finishPDelta3D(JSON.parse(run(json, maxIter, tolerance)), input);
+}
+
+export async function solvePDelta3DAsync(
+  input: SolverInput3D,
+  maxIter: number,
+  tolerance: number,
+  run: (wire: ReturnType<typeof input3DToWireObject>, maxIter: number, tol: number) => Promise<any>,
+) {
+  const { wire, json } = preparePDelta3D(input, maxIter, tolerance);
+  let result;
+  try {
+    result = await run(wire, maxIter, tolerance);
+  } catch {
+    return solvePDelta3D(input, maxIter, tolerance);
+  }
+  return publishPDelta3D(result, json, maxIter, tolerance);
 }
 
 /** Solve 3D modal analysis via WASM. */
@@ -1508,11 +1552,21 @@ function combinationCases<T>(factors: Array<{ caseId: number }>, perCase: Map<nu
     .map(caseId => ({ caseId, results: perCase.get(caseId)! }));
 }
 
-export function netCombinationFactors(factors: Array<{ caseId: number; factor: number }>): typeof factors {
+type CaseFactor = { caseId: number; factor: number };
+
+export function netCombinationFactors(factors: CaseFactor[], allowCancellation?: boolean): CaseFactor[] {
   assertFiniteWire(factors);
   if (factors.length <= 1 || new Set(factors.map(f => f.caseId)).size === factors.length) return factors;
-  if (!wasmNetCombinationFactors) throw new Error('WASM solver not initialized.');
-  return wasmNetCombinationFactors(factors) as typeof factors;
+  if (!wasmNetCombinationFactors) throw new EngineUnavailableError('load case factors');
+  return wasmNetCombinationFactors(factors, allowCancellation) as CaseFactor[];
+}
+
+export function sumCombinationFactors(factors: readonly CaseFactor[]): CaseFactor[] {
+  try { return netCombinationFactors([...factors], true); }
+  catch (err) {
+    if (err instanceof EngineUnavailableError) throw err;
+    throw new EngineCheckError('load case factors', errorText(err, String(err)));
+  }
 }
 
 /** Combine 2D results with factors via WASM. JsValue in/out — no JSON round trip. */
@@ -2156,8 +2210,7 @@ export function solveMultiCase2D(config: any): any {
   if (config.solver && config.solver.nodes instanceof Map) {
     config = { ...config, solver: input2DToWireObject(config.solver) };
   }
-  assertFiniteWire(config);
-  return wasmSolveMultiCase2d(config);
+  return wasmSolveMultiCase2d(finiteObjectWire(config));
 }
 
 /** Solve 3D multi-case analysis via WASM. JsValue in/out — no JSON round trip. */
@@ -2169,7 +2222,7 @@ export function solveMultiCase3D(config: any): any {
   if (config.solver && config.solver.nodes instanceof Map) {
     config = { ...config, solver: input3DToWireObject(config.solver) };
   }
-  assertFiniteWire(config);
+  config = finiteObjectWire(config);
   const captured: string[] = [];
   const origError = console.error;
   console.error = (...args: any[]) => { captured.push(args.map(String).join(' ')); origError.apply(console, args); };

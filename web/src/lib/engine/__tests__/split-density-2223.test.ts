@@ -5,7 +5,7 @@ import { subdivideForAnalysis } from '../../model/edit/analysis-subdivision';
 import { expandVariableMembers } from '../variable-members';
 import { refineInput } from '../second-order/refine';
 import { buildSolverInput2D, buildSolverInput3D } from '../solver-service';
-import { initSolver, input2DToWireObject, input3DToWireObject } from '../wasm-solver';
+import { finiteObjectWire, initSolver, input2DToWireObject, input3DToWireObject } from '../wasm-solver';
 import { toSectionFields } from '../../section/section-choice';
 import { computeSectionProperties } from '../../data/section-shapes';
 import { splitElementLoads } from '../../model/edit/member-split';
@@ -57,7 +57,8 @@ for (const dim of [2, 3]) for (const kind of dim === 2 ? ['distributed'] : ['dis
       for (const n of model.nodes.values()) if (!attached.has(n.id)) model.nodes.delete(n.id);
       for (const nodeId of [i, j]) model.supports.set(nodeId, { id: nodeId, nodeId, type: dim === 2 ? 'fixed' : 'fixed3d' } as never);
       const built = dim === 2 ? buildSolverInput2D(model, false)! : buildSolverInput3D(model, false)!;
-      const input = dim === 2 ? input2DToWireObject(entry === 'refine' ? refineInput(built as never, 20).input : built as never) : input3DToWireObject(built as never);
+      const wire = dim === 2 ? input2DToWireObject(entry === 'refine' ? refineInput(built as never, 20).input : built as never) : input3DToWireObject(built as never);
+      const input = finiteObjectWire(wire);
       expect(Object.keys(input.elements)).toHaveLength(count);
       if (['direct', 'subdivide', 'nodes', 'allNodes'].includes(entry)) {
         expect([...model.elements.values()].filter(e => e.nodeI === midpoint || e.nodeJ === midpoint)).toHaveLength(2);

@@ -14,7 +14,7 @@ test('serves the page, the harness and the wasm build', () => {
   assert.equal(fileFor('/'), resolve(here, 'index.html'));
   assert.equal(fileFor('/determinism/cases.mjs'), resolve(here, 'cases.mjs'));
   assert.equal(fileFor('/wasm/dedaliano_engine.js'), resolve(here, '../src/lib/wasm/dedaliano_engine.js'));
-  assert.equal(fileFor('/repo/verify/samples/combo-2d-frame.input.json'), resolve(here, '../../verify/samples/combo-2d-frame.input.json'));
+  assert.equal(fileFor('/repo/engine/tests/fixtures/certificates/combo-2d-frame.input.json'), resolve(here, '../../engine/tests/fixtures/certificates/combo-2d-frame.input.json'));
 });
 
 test('refuses anything outside its roots', () => {
@@ -22,7 +22,7 @@ test('refuses anything outside its roots', () => {
     '/wasm//etc/passwd', '/wasm/%2Fetc%2Fpasswd', '/determinism//etc/passwd',
     '/wasm/../../../etc/passwd', '/wasm/%2e%2e/%2e%2e/package.json', '/determinism/..%2F..%2FCargo.toml',
     '/wasm/..\\..\\x', '/wasm/a%00b', '/wasm/%E0%A4%A', '/wasm/', '/etc/passwd', '/__proto__/x', '/constructor/x',
-    '/repo/Cargo.toml', '/repo/../etc/passwd', '/repo//etc/passwd',
+    '/repo/verify/samples/combo-2d-frame.input.json', '/repo/Cargo.toml', '/repo/../etc/passwd', '/repo//etc/passwd',
   ]) {
     assert.equal(fileFor(p), null, p);
   }

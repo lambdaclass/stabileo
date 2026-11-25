@@ -1,0 +1,34 @@
+{
+  "id": "planar-member-chord-rotation",
+  "date": "2026-11-25",
+  "prs": [2567],
+  "area": "analysis",
+  "when": {
+    "all": ["plane2D", "analysis:nonlinear", "memberLoads"]
+  },
+  "quantities": ["elementForces"],
+  "title": {
+    "en": "Recover planar member forces from the chord rotation",
+    "es": "Recuperar los esfuerzos de barra a partir del giro de la cuerda",
+    "pt": "Recuperar os esforços nas barras pela rotação da corda",
+    "de": "Stabkräfte aus der Drehung der Stabsehne ermitteln",
+    "fr": "Calculer les efforts de barre à partir de la rotation de la corde",
+    "hu": "Rúderők számítása a húr elfordulásából",
+    "tr": "Düzlemsel eleman kuvvetlerini eleman ekseninin dönmesinden hesapla",
+    "zh": "根据弦线转角计算平面杆件内力"
+  },
+  "explanation": {
+    "en": "Planar nonlinear recovery calculates member rotation from the chord components before rounding. A purely axial displacement keeps transverse member loads out of the recovered axial force.",
+    "es": "En el análisis no lineal plano, el giro de la barra se calcula a partir de las componentes de la cuerda antes de redondear. Con un desplazamiento puramente axial, las cargas transversales de barra no contribuyen al esfuerzo axial recuperado.",
+    "pt": "Na análise não linear plana, a rotação da barra é calculada a partir das componentes da corda antes do arredondamento. Com um deslocamento puramente axial, as cargas transversais da barra não contribuem para o esforço axial recuperado.",
+    "de": "Die ebene nichtlineare Auswertung berechnet die Stabdrehung vor der Rundung aus den Sehnenkomponenten. Bei rein axialer Verschiebung tragen quer wirkende Stablasten nicht zur ermittelten Normalkraft bei.",
+    "fr": "En analyse non linéaire plane, la rotation de la barre est calculée à partir des composantes de la corde avant arrondi. Avec un déplacement purement axial, les charges transversales sur la barre ne contribuent pas à l’effort axial calculé.",
+    "hu": "A síkbeli nemlineáris számítás kerekítés előtt a húr komponenseiből határozza meg a rúd elfordulását. Tisztán tengelyirányú elmozdulásnál a keresztirányú rúdterhek nem járulnak hozzá a számított normálerőhöz.",
+    "tr": "Düzlemsel doğrusal olmayan analizde elemanın dönmesi, yuvarlama öncesinde eleman ekseninin bileşenlerinden hesaplanır. Yalnızca eksenel yer değiştirme olduğunda, enine eleman yükleri hesaplanan eksenel kuvvete katkıda bulunmaz.",
+    "zh": "平面非线性分析在舍入前根据弦线分量计算杆件转角。纯轴向位移时，横向杆件荷载不会计入恢复得到的轴力。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-planar-member-chord-rotation.md",
+    "heading": "Recover planar member forces from the chord rotation (2026-11-25)"
+  }
+}

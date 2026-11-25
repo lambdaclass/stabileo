@@ -1,0 +1,52 @@
+{
+  "id": "planar-member-torsion-refusal",
+  "date": "2026-11-23",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "invalidPlanarMemberTorsion"
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Refuse torsion on planar member point loads",
+    "es": "Rechazo de torsión en cargas puntuales de barra planas",
+    "pt": "Rejeição de torção em cargas pontuais de barras planas",
+    "de": "Torsion bei ebenen Stabpunktlasten wird abgelehnt",
+    "fr": "Rejet de la torsion dans les charges ponctuelles sur barre en 2D",
+    "hu": "A csavarás elutasítása síkbeli rúdpontterheknél",
+    "tr": "Düzlemsel çubuk nokta yüklerinde burulmanın reddi",
+    "zh": "拒绝平面杆件集中荷载中的扭矩",
+    "ar": "رفض الالتواء في الأحمال النقطية على العناصر المستوية",
+    "hi": "समतलीय सदस्य के बिंदु भार में मरोड़ की अस्वीकृति",
+    "id": "Penolakan puntir pada beban titik batang bidang",
+    "it": "Rifiuto della torsione nei carichi puntuali su aste nel piano",
+    "ja": "平面部材の集中荷重に含まれるねじりを拒否",
+    "ko": "평면 부재의 집중하중에 포함된 비틀림 거부",
+    "ru": "Отклонение кручения в сосредоточенных нагрузках на плоские стержни"
+  },
+  "explanation": {
+    "en": "Analysis now refuses a planar member point load with an invalid or nonzero mx. Omit mx or enter zero if no torsion acts. Apply a nonzero torsional moment at a node in a 3D model at the original load position, then rerun analysis.",
+    "es": "El análisis ahora rechaza una carga puntual de barra plana con mx inválido o distinto de cero. Omití mx o ingresá cero si no actúa torsión. Aplicá un momento torsor distinto de cero en un nodo de un modelo 3D en la posición original de la carga y repetí el análisis.",
+    "pt": "A análise agora rejeita uma carga pontual de barra plana com mx inválido ou diferente de zero. Omita mx ou introduza zero se não houver torção. Aplique um momento torsor não nulo num nó de um modelo 3D na posição original da carga e repita a análise.",
+    "de": "Die Berechnung lehnt jetzt ebene Stabpunktlasten mit ungültigem oder von null verschiedenem mx ab. Bei fehlender Torsion lassen Sie mx weg oder geben null ein. Bringen Sie ein von null verschiedenes Torsionsmoment an einem Knoten eines 3D-Modells am ursprünglichen Lastangriffspunkt auf und berechnen Sie das Modell erneut.",
+    "fr": "Le calcul refuse désormais une charge ponctuelle sur barre en 2D avec un mx invalide ou non nul. Omettez mx ou saisissez zéro si aucune torsion ne s’applique. Appliquez un moment de torsion non nul à un nœud d’un modèle 3D à la position initiale de la charge, puis relancez le calcul.",
+    "hu": "Az elemzés most elutasítja az érvénytelen vagy nem nulla mx értékű síkbeli rúdpontterhet. Ha nincs csavarás, hagyja el az mx mezőt, vagy adjon meg nullát. Nem nulla csavarónyomatékot 3D modellben, az eredeti teherhelyen lévő csomóponton adjon meg, majd futtassa újra az elemzést.",
+    "tr": "Analiz, mx değeri geçersiz veya sıfırdan farklı olan düzlemsel çubuk nokta yükünü artık reddeder. Burulma yoksa mx alanını boş bırakın veya sıfır girin. Sıfırdan farklı burulma momentini 3B modelde yükün asıl konumundaki düğüme uygulayın ve analizi yeniden çalıştırın.",
+    "zh": "分析现在会拒绝 mx 无效或非零的平面杆件集中荷载。若没有扭矩，请省略 mx 或输入零。若扭矩非零，请在三维模型中原荷载位置的节点施加该扭矩，然后重新运行分析。",
+    "ar": "يرفض التحليل الآن الحمل النقطي على عنصر مستوٍ إذا كانت قيمة mx غير صالحة أو غير صفرية. احذف mx أو أدخل صفرًا عند عدم وجود التواء. طبّق عزم الالتواء غير الصفري عند عقدة في نموذج ثلاثي الأبعاد في موضع الحمل الأصلي، ثم أعد التحليل.",
+    "hi": "विश्लेषण अब अमान्य या गैर-शून्य mx वाले समतलीय सदस्य के बिंदु भार को अस्वीकार करता है। मरोड़ न हो तो mx छोड़ दें या शून्य दर्ज करें। गैर-शून्य मरोड़ आघूर्ण को 3D मॉडल में भार के मूल स्थान पर स्थित नोड पर लगाएँ, फिर विश्लेषण दोबारा चलाएँ।",
+    "id": "Analisis kini menolak beban titik pada batang bidang dengan mx tidak valid atau bukan nol. Hilangkan mx atau masukkan nol jika tidak ada puntir. Terapkan momen puntir bukan nol pada simpul model 3D di lokasi awal beban, lalu jalankan kembali analisis.",
+    "it": "L’analisi ora rifiuta un carico puntuale su un’asta nel piano con mx non valido o diverso da zero. Omettere mx o inserire zero in assenza di torsione. Applicare un momento torcente diverso da zero a un nodo del modello 3D nella posizione originale del carico, quindi ripetere l’analisi.",
+    "ja": "平面部材の集中荷重で mx が無効またはゼロ以外の場合、解析はその入力を拒否します。ねじりが作用しない場合は mx を省略するか、ゼロを入力してください。ゼロ以外のねじりモーメントは、元の荷重位置にある三次元モデルの節点に作用させてから、解析を再実行してください。",
+    "ko": "이제 mx가 유효하지 않거나 0이 아닌 평면 부재의 집중하중은 해석에서 거부됩니다. 비틀림이 작용하지 않으면 mx를 생략하거나 0을 입력하세요. 0이 아닌 비틀림 모멘트는 원래 하중 위치에 해당하는 3D 모델의 절점에 적용한 뒤 해석을 다시 실행하세요.",
+    "ru": "Расчёт теперь отклоняет сосредоточенную нагрузку на плоский стержень при недопустимом или ненулевом mx. Если кручения нет, опустите mx или введите ноль. Приложите ненулевой крутящий момент в узле трёхмерной модели в исходном месте нагрузки и повторите расчёт."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-invalid-solver-numbers.md",
+    "heading": "Refuse unsupported torsion on planar member point loads"
+  }
+}

@@ -35,7 +35,8 @@ import { stripStabilisedReactions } from './stabilised-reactions';
 import { finishSolve3D } from './solve-finish';
 import { addConstraintConnectivity } from './constraint-connectivity';
 import { t } from '../i18n';
-import { massDensities } from './dynamics/requests';
+import { G } from './dynamics/requests';
+import { requireMaterialDensity } from '../section/weight';
 import { CONCRETE_FY_CEILING } from '../model/material-family';
 
 export type MemberBehaviour = 'tensionOnly' | 'compressionOnly' | 'inactive' | 'cable';
@@ -302,11 +303,13 @@ function* nonlinearSteps(model: ModelData, input: SolverInput3D): Generator<Nonl
   // Their own weight sets their sag and softens them, from the density in kg/m³ (the one
   // conversion the dynamic analyses use too). It is not a load to the engine: the self-weight
   // already in the loads carries it.
-  const kgPerM3 = massDensities(model.materials as Map<number, { rho?: number }>);
   const densities: Record<string, number> = {};
   for (const id of cables) {
     const mid = input.elements.get(id)!.materialId;
-    if ((kgPerM3.get(mid) ?? 0) > 0) densities[String(mid)] = kgPerM3.get(mid)!;
+    const material = model.materials.get(mid);
+    if (material?.rho === undefined) continue;
+    const rho = requireMaterialDensity(mid, material);
+    if (rho > 0) densities[String(mid)] = rho * 1000 / G;
   }
   // The pretensions given (#527); a cable without one is as long as its chord.
   const pretension: Record<string, number> = {};
