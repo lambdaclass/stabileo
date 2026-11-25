@@ -386,7 +386,9 @@ function storedProjectSnapshot(snapshot: ModelSnapshot, mode: ModelSnapshot['ana
 export function onProjectOpened(snap: ModelSnapshot | undefined, analysisMode: string | undefined): void {
   noteAxisConventionMigrationIfNeeded(snap, analysisMode);
   if (snap) {
-    if (!is3DWorkspace(analysisMode ?? snap.analysisMode ?? '2d') && isDrawPlane(snap.drawPlane2D)) uiStore.drawPlane2D = snap.drawPlane2D;
+    if (!is3DWorkspace(analysisMode ?? snap.analysisMode ?? '2d')) {
+      uiStore.drawPlane2D = isDrawPlane(snap.drawPlane2D) ? snap.drawPlane2D : 'xy';
+    }
     // Assess the model that restore actually installed (including legacy defaults,
     // such as Wind/Earthquake load cases), which is also what the next save writes.
     // Otherwise reloading that save adds applicability to the unread notice and

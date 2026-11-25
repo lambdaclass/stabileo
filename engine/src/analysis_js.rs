@@ -1,4 +1,4 @@
-use web_sys::js_sys::{try_iter, Array, Map, Object, Set};
+use web_sys::js_sys::{try_iter, Array, Object, Reflect, Set, Symbol};
 use serde::de::value::{MapDeserializer, SeqDeserializer};
 use serde::de::{self, Deserializer, IntoDeserializer, Visitor};
 use serde_wasm_bindgen::Error;
@@ -28,37 +28,43 @@ impl<'de> Deserializer<'de> for AnalysisJs {
     }
 
     fn deserialize_map<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Error> {
-        if let Some(array) = self.0.dyn_ref::<Array>() {
-            let seen = Set::new(&JsValue::UNDEFINED);
-            let mut entries = Vec::with_capacity(array.length() as usize);
-            for entry in array.iter() {
-                let Some(pair) = entry.dyn_ref::<Array>() else {
-                    return Err(de::Error::custom("expected a map entry pair"));
-                };
-                if pair.length() != 2 {
-                    return Err(de::Error::custom("expected a map entry pair with exactly two values"));
-                }
-                let key = pair.get(0);
-                if seen.has(&key) {
-                    return Err(de::Error::custom("duplicate map entry key"));
-                }
-                seen.add(&key);
-                entries.push((AnalysisJs(key), AnalysisJs(pair.get(1))));
-            }
-            return visitor.visit_map(MapDeserializer::new(entries.into_iter()));
+        const EXPECTED_MAP: &str = "expected a map record or an iterable of map entry pairs";
+        if !self.0.is_object() {
+            return Err(de::Error::custom(EXPECTED_MAP));
         }
 
-        let entries = if self.0.has_type::<Map>() {
-            Array::from(&self.0)
-        } else if let Some(object) = self.0.dyn_ref::<Object>() {
-            Object::entries(object)
-        } else {
-            return serde_wasm_bindgen::Deserializer::from(self.0).deserialize_map(visitor);
+        let Some(iter) = try_iter(&self.0)? else {
+            let prototype = Reflect::get_prototype_of(&self.0)?;
+            if Reflect::has(&self.0, Symbol::iterator().as_ref())?
+                || (!prototype.is_null() && !Reflect::get_prototype_of(prototype.as_ref())?.is_null())
+            {
+                return Err(de::Error::custom(EXPECTED_MAP));
+            }
+            let entries = Object::entries(self.0.unchecked_ref());
+            return visitor.visit_map(MapDeserializer::new(entries.iter().map(|entry| {
+                let pair = entry.unchecked_into::<Array>();
+                (AnalysisJs(pair.get(0)), AnalysisJs(pair.get(1)))
+            })));
         };
-        visitor.visit_map(MapDeserializer::new(entries.iter().map(|entry| {
-            let pair = entry.unchecked_into::<Array>();
-            (AnalysisJs(pair.get(0)), AnalysisJs(pair.get(1)))
-        })))
+
+        let seen = Set::new(&JsValue::UNDEFINED);
+        let mut entries = Vec::new();
+        for entry in iter {
+            let entry = entry?;
+            let Some(pair) = entry.dyn_ref::<Array>() else {
+                return Err(de::Error::custom("expected a map entry pair"));
+            };
+            if pair.length() != 2 {
+                return Err(de::Error::custom("expected a map entry pair with exactly two values"));
+            }
+            let key = pair.get(0);
+            if seen.has(&key) {
+                return Err(de::Error::custom("duplicate map entry key"));
+            }
+            seen.add(&key);
+            entries.push((AnalysisJs(key), AnalysisJs(pair.get(1))));
+        }
+        visitor.visit_map(MapDeserializer::new(entries.into_iter()))
     }
 
     fn deserialize_struct<V: Visitor<'de>>(

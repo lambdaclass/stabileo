@@ -114,9 +114,7 @@ for (const [analysis, latest, issue] of [
   }
 }
 
-const reviewReproducer = process.env.STABILEO_REVIEW_REPRO === '1' ? it : it.skip;
-
-reviewReproducer.each(entries)('opens a legacy XY project with its X load after opening a YZ project via %s', async entry => {
+it.each(entries)('opens a legacy XY project with its X load after opening a YZ project via %s', async entry => {
   await initSolver();
   uiStore.analysisMode = '2d';
   uiStore.drawPlane2D = 'xy';
@@ -134,6 +132,7 @@ reviewReproducer.each(entries)('opens a legacy XY project with its X load after 
     expect(reference).toMatchObject({ reactions: [{ nodeId: root, rx: expect.any(Number) }] });
     expect(reference && typeof reference !== 'string' && reference.reactions[0]?.rx).toBeCloseTo(-fx);
     expect(deserializeProject(JSON.stringify(yz))).toBe(true);
+    expect(uiStore.drawPlane2D).toBe('yz');
     open(entry, legacy);
     expect.soft(uiStore.drawPlane2D).toBe('xy');
     const restored = modelStore.solve(false, uiStore.drawPlane2D);

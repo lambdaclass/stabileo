@@ -334,9 +334,7 @@ it('rejects trailing WASM shell connectivity rather than solving with a truncate
   expect(() => solve_pdelta_3d(JSON.stringify(extraNode), 20, 1e-9)).toThrow(/trailing characters|invalid length/i);
 });
 
-const reviewReproducer = process.env.STABILEO_REVIEW_REPRO === '1' ? it : it.skip;
-
-reviewReproducer.each([false, true])('keeps connectors in iterable WASM tables (space = %s)', (is3D) => {
+it.each([false, true])('keeps connectors in iterable WASM tables (space = %s)', (is3D) => {
   const base = is3D ? space : planar;
   const loads = [{ type: 'nodal', data: { nodeId: 2, fx: 10, fz: 0, my: 0,
     ...(is3D ? { fy: 0, mx: 0, mz: 0 } : {}),
