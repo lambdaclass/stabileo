@@ -8,6 +8,7 @@ import { rulesFor } from '../codes';
 import { makeFmt } from '../format';
 import { beyondShare, capPlan, pileLoads, pilePattern, capColumns, PILE_PHI, pileBars } from '../pile-cap';
 import type { FootingContext, FootingDemand, PileSpec } from '../footing-types';
+import { CONCRETE_WEIGHT } from '../footing-mechanics';
 
 const fmt = makeFmt('.');
 const footingRow = rulesFor('cirsoc201-2025').footingRow;
@@ -111,6 +112,24 @@ describe('a cap\'s piles under factored loads', () => {
     const v = pulled.verifications.find((x) => x.label === 'rcSheets.v.pileTension')!;
     expect(v.ok).toBe(false);
     expect(v.capacity).toMatch(/^0 %/);
+  });
+
+  it('count the cap\'s own weight at 0,9 where a pile is least pressed, at 1,2 where it is most', () => {
+    const lifted = demand(1500, { combos: [{ combo: '1.2D+1.6L', N: 2100, Mx: 0, My: 0, Vx: 0, Vy: 0 }, { combo: '0.9D+1.6W', N: 0, Mx: 0, My: 0, Vx: 0, Vy: 0 }] });
+    const r = footingRow(lifted, ctx, undefined, fmt);
+    const n = (r.adopted as { piles: { at: unknown[] } }).piles.at.length, W = CONCRETE_WEIGHT * r.B * r.L * r.adopted.h;
+    expect(r.verifications.find((x) => x.label === 'rcSheets.v.pileUplift')!.demand).toMatch(new RegExp(` · ${fmt((0.9 * W) / n, 1).replace('.', '\\.')} kN$`));
+  });
+
+  it('propose again a cap adopted on piles no longer the ones given, a diameter or a length changed', () => {
+    const first = footingRow(demand(1500), ctx, undefined, fmt);
+    const kept = footingRow(demand(1500), ctx, first.adopted, fmt);
+    expect(kept.isAdopted).toBe(true);
+    for (const piles of [{ ...spec, diameter: 0.6, capacity: 900 }, { ...spec, length: 15 }]) {
+      const r = footingRow(demand(1500, { piles }), ctx, first.adopted, fmt);
+      expect(r.isAdopted).toBe(false);
+      expect([r.adopted.piles!.diameter, r.adopted.piles!.length]).toEqual([piles.diameter, piles.length]);
+    }
   });
 
   it('size a cast-in-place pile with φ = 0,55 (Table 13.4.3.2)', () => {

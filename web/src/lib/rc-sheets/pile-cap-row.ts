@@ -145,10 +145,11 @@ function steps(r: CapAnalysis, a: CapAdopted, fmt: Fmt, reached: boolean | null,
   ];
 }
 
-/** A pile cap's row: the cap and its piles proposed, or as adopted, read by `analyseCap`. */
+/** A pile cap's row: the cap and its piles proposed, or as adopted on these same piles, read by `analyseCap`. */
 export function capRow(d: FootingDemand, c: FootingContext, adopted: FootingAdopted | undefined, fmt: Fmt, code: FootingRowCode): FootingRow | null {
-  const prop = adopted?.piles ? null : proposeCap(d, c, code);
-  const a = (adopted?.piles ? adopted : prop?.adopted) as CapAdopted | undefined;
+  const own = adopted?.piles && d.piles && Math.abs(adopted.piles.diameter - d.piles.diameter) < 1e-9 && Math.abs(adopted.piles.length - d.piles.length) < 1e-9 ? adopted : undefined;
+  const prop = own ? null : proposeCap(d, c, code);
+  const a = (own ?? prop?.adopted) as CapAdopted | undefined;
   if (!a) return null;
   const r = analyseCap(d, c, a, code);
   const edge = capEdge(d, r, a);
@@ -159,7 +160,7 @@ export function capRow(d: FootingDemand, c: FootingContext, adopted: FootingAdop
   const cover = capCover(c.cover);
   return {
     family: 'footing', key: d.key, name: d.carried ? `${d.name} + ${d.carried.name}` : d.name, level: d.level, demand: d,
-    B: a.B, L: a.L, h: a.h, ex: a.ex, ey: a.ey, cover, proposed: prop?.adopted ?? a, adopted: a, isAdopted: !!adopted,
+    B: a.B, L: a.L, h: a.h, ex: a.ex, ey: a.ey, cover, proposed: prop?.adopted ?? a, adopted: a, isAdopted: !!own,
     sizing: { mode: c.sizing, reached: prop?.reached ?? !!adopted, from: 'loads' },
     bearing: null, layers: r.layers, x: r.x, y: r.y,
     punching: r.columnPunching, dowels: r.dowels ? { count: r.dowels.count, dia: r.dowels.dia, ldc: Math.max(r.dowels.ldc, r.dowels.ldh), available: r.dowels.available, lap: r.dowels.lap, tension: r.dowels.tension, above: r.dowels.above, offset: r.dowels.offset } : null,

@@ -7,7 +7,7 @@ import * as wasmSolver from '../../engine/wasm-solver';
 import { buildSheetRows } from '../rc-sheets.svelte';
 import { solvedExample } from './rc-rebar-3d-fixture';
 import { patchDesignData } from '../design-data';
-import { setFoundationSystem } from '../rc-sheets-footings';
+import { setFoundationSystem, writableFooting } from '../rc-sheets-footings';
 import { footingConcrete } from '../../rc-sheets/footing-layouts';
 
 beforeAll(async () => { await wasmSolver.initSolver(); });
@@ -35,5 +35,6 @@ describe('the available piles', () => {
       used.add(r.adopted.piles!.diameter);
     }
     expect([...used].every((d) => d === 0.4 || d === 0.8)).toBe(true);
+    expect([...both.values()].some(writableFooting)).toBe(false);
   }, 900_000);
 });

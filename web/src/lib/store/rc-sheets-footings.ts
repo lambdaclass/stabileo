@@ -363,6 +363,9 @@ function writeGroupFooting(row: FootingRow, g: FootingGroup): number {
   return id!;
 }
 
+/** Whether the row's footing can be written to the model and still be read back by the sheets: not a pile cap, which the model's footings hold but the sheets leave out of scope. */
+export const writableFooting = (row: FootingRow): boolean => !row.adopted.piles;
+
 /** The row's footing written to the model, made where there is none, its top at the column's foot; a combined footing as one carrying both columns, in place of theirs; a pier's as one under its whole base. One undo step. */
 export function writeFootingToModel(row: FootingRow): number {
   if (row.demand.group) return writeGroupFooting(row, row.demand.group);

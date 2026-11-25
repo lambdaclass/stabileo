@@ -17,6 +17,7 @@ export const capCover = (cover: number): number => Math.max(cover, PILE_EMBED + 
 export const PILE_COVER = 0.075;
 /** The factor on the cap's own weight in the factored pile loads. */
 const CAP_WEIGHT_FACTOR = 1.2;
+const CAP_WEIGHT_UPLIFT = 0.9;
 const STEP_H = 0.05, MAX_H = 3;
 const PILE_BARS = [12, 16, 20, 25];
 /** A hooked bottom bar rises about this many of its diameters over its axis: its bend and the hook's leg, which must stay under the cap's top cover. */
@@ -201,7 +202,7 @@ export function analyseCap(d: FootingDemand, c: FootingContext, a: FootingAdopte
   const byCombo = names.map((n) => ({ combo: n, acts: cols.map((k) => k.demand.combos.find((q) => q.combo === n)) })).filter((k) => k.acts.every(Boolean))
     .map((k) => { const l = pileLoads(cols, k.acts, piles, CAP_WEIGHT_FACTOR * weight, balance, lever); return { combo: k.combo, acts: k.acts as FootingAction[], R: l.R, unheld: l.unheld }; });
   const factored = piles.map((_, i) => Math.max(0, ...byCombo.map((k) => k.R[i]!)));
-  const leastFactored = Math.min(...byCombo.flatMap((k) => k.R));
+  const leastFactored = Math.min(...byCombo.flatMap((k) => pileLoads(cols, k.acts, piles, CAP_WEIGHT_UPLIFT * weight, balance, lever).R));
   const unheld = Math.max(sv.unheld, ...byCombo.map((k) => k.unheld));
   const pull = { service: Math.max(0, -Math.min(...sv.R)), factored: Math.max(0, -leastFactored), shaft: read ? read.shaft : null };
   const phi = 0.75, strip = stripReading(c, a.h, code);
