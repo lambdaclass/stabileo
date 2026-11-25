@@ -1,0 +1,144 @@
+import { beforeAll, expect, it } from 'vitest';
+import { initSolver } from '../wasm-solver';
+import { engine_reproduce_hashes, solve_2d, solve_3d, solve_arc_length, solve_displacement_control, solve_pdelta_2d, solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
+
+beforeAll(async () => { await initSolver(); });
+
+const indexed = <T>(...items: T[]) => Object.fromEntries(items.map((item, index) => [index + 1, item]));
+
+const planar = {
+  nodes: indexed({ id: 1, x: 0, z: 0 }, { id: 2, x: 2, z: 0 }),
+  elements: indexed({ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }),
+  materials: indexed({ id: 1, e: 200000, nu: 0.3 }),
+  sections: indexed({ id: 1, a: 0.01, iz: 1e-4 }),
+  supports: indexed({ id: 1, nodeId: 1, type: 'fixed' }),
+  loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: 0, my: 5 } }],
+};
+
+const space = {
+  ...planar,
+  nodes: indexed(...Object.values(planar.nodes).map(n => ({ ...n, y: 0 }))),
+  sections: indexed(...Object.values(planar.sections).map(s => ({ ...s, iy: s.iz, j: 2 * s.iz }))),
+  supports: indexed({ nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }),
+  loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 1, fz: 2, mx: 0, my: 3, mz: 4 } }],
+};
+
+const planarSolvers = {
+  linear: solve_2d,
+  pdelta: (input: object) => JSON.parse(solve_pdelta_2d(JSON.stringify(input), 20, 1e-9)).results,
+};
+
+for (const [name, solve] of Object.entries(planarSolvers)) {
+  it(`roadmap 2.4 reconciles a moment alias before WASM ${name} analysis`, () => {
+    const input = (mz: number) => ({ ...planar, loads: planar.loads.map(l => ({ ...l, data: { ...l.data, mz } })) });
+    expect(() => solve(input(0))).toThrow(/my/);
+    const reference = solve(planar);
+    expect(reference.reactions).toHaveLength(1);
+    const agreeing = solve(input(5));
+    expect(agreeing.reactions).toEqual(reference.reactions);
+    expect(agreeing.displacements).toEqual(reference.displacements);
+  });
+}
+
+const spatialSolvers = {
+  linear: () => solve_3d(space),
+  pdelta: () => JSON.parse(solve_pdelta_3d(JSON.stringify(space), 20, 1e-9)).results,
+};
+
+for (const [name, solve] of Object.entries(spatialSolvers)) {
+  it(`roadmap 2.4 retains independent spatial moments through WASM ${name}`, () => {
+    const result = solve();
+    expect(result.reactions).toHaveLength(1);
+    expect(result.reactions[0].my).toBeCloseTo(1, 14);
+    expect(result.reactions[0].mz).toBeCloseTo(-6, 14);
+  });
+}
+
+it('#1949 WASM planar solvers refuse a second node coordinate', () => {
+  const path = {
+    maxSteps: 3, nSteps: 3, controlNode: 2, controlDof: 1,
+    targetDisplacement: -0.005, tolerance: 1e-9,
+  };
+  const solvers = {
+    ...planarSolvers,
+    arc: (solver: object) => JSON.parse(solve_arc_length(JSON.stringify({ ...path, solver }))).results,
+    displacement: (solver: object) => JSON.parse(solve_displacement_control(JSON.stringify({ ...path, solver }))).results,
+  };
+  for (const solve of Object.values(solvers)) {
+    for (const z of [0, 1, -1]) {
+      const { z: _z, ...tip } = planar.nodes[2]!;
+      const model = (node: object) => ({ ...planar, nodes: { ...planar.nodes, 2: node } });
+      const reference = solve(model({ ...tip, z }));
+      expect(reference.displacements).toHaveLength(2);
+      const legacy = solve(model({ ...tip, y: z }));
+      expect(legacy.displacements).toEqual(reference.displacements);
+      expect(legacy.reactions).toEqual(reference.reactions);
+      for (const y of [z, z + 1]) {
+        expect(() => solve(model({ ...tip, y, z }))).toThrow(/duplicate field .z/);
+      }
+    }
+  }
+});
+
+it('#2532 WASM JSON solvers preserve positional settlements and rotations', () => {
+  const named = { ...planar, supports: indexed({ id: 1, nodeId: 1, type: 'fixed', dz: 0.01, dry: 0.02, angle: 0.02 }) };
+  const positional = { ...planar, supports: indexed([1, 1, 'fixed', null, null, null, null, 0.01, 0.02, 0.02]) };
+  const linear = (input: object) => JSON.parse(engine_reproduce_hashes(JSON.stringify(input), false));
+  const reference = planarSolvers.pdelta(named);
+  expect(reference.displacements).toHaveLength(2);
+  expect.soft(planarSolvers.pdelta(positional)).toEqual(reference);
+  expect(linear(positional)).toEqual(linear(named));
+});
+
+const planarWithNodalLoad = (data: object) => ({ ...planar, loads: [{ type: 'nodal', data }] });
+const path = { maxSteps: 3, nSteps: 3, controlNode: 2, controlDof: 1, targetDisplacement: -0.005, tolerance: 1e-9 };
+const planarWireSolvers = {
+  ...planarSolvers,
+  replay: (input: object) => JSON.parse(engine_reproduce_hashes(JSON.stringify(input), false)),
+  arc: (solver: object) => JSON.parse(solve_arc_length(JSON.stringify({ ...path, solver }))).results,
+  displacement: (solver: object) => JSON.parse(solve_displacement_control(JSON.stringify({ ...path, solver }))).results,
+};
+
+it.each(Object.entries(planarWireSolvers))('#2532 WASM %s accepts planar nodal metadata and still refuses components', (_name, solve) => {
+  const load = planar.loads[0]!.data;
+  const reference = solve(planar);
+  for (const metadata of [{ id: 17 }, { caseId: 2 }, { id: 17, caseId: 2 }]) {
+    expect.soft(() => solve(planarWithNodalLoad({ ...load, ...metadata })), JSON.stringify(metadata)).not.toThrow();
+  }
+  const annotated = { ...load, id: 17, caseId: 2 };
+  expect.soft(() => solve(planarWithNodalLoad({ ...annotated, bw: 1 }))).toThrow(/unknown field `bw`/);
+  expect.soft(() => solve(planarWithNodalLoad({ ...annotated, mx: 1 }))).toThrow(/out-of-plane nodal component `mx`/);
+  expect(solve(planarWithNodalLoad(annotated))).toEqual(reference);
+  const maxId = Number.MAX_SAFE_INTEGER;
+  expect(solve(planarWithNodalLoad({ ...load, id: maxId, caseId: maxId }))).toEqual(reference);
+});
+
+it('#2532 WASM planar decoders refuse out-of-plane nodal components', () => {
+  const zero = { nodeId: 2, fx: 0, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 };
+  const control = planar.loads[0]!.data;
+  for (const [name, solve] of Object.entries(planarWireSolvers)) {
+    expect.soft(() => solve(planarWithNodalLoad({ ...zero, mx: 5 })), name).toThrow(/out-of-plane nodal component `mx`/);
+    expect.soft(() => solve(planarWithNodalLoad({ ...control, mx: -5 })), name).toThrow(/out-of-plane nodal component `mx`/);
+    expect.soft(() => solve(planarWithNodalLoad({ ...control, momentX: 5 })), name).toThrow(/unknown field `momentX`/);
+    for (const field of ['fy', 'mx', 'mz']) {
+      expect.soft(() => solve(planarWithNodalLoad({ ...zero, [field]: -5 })), name).toThrow(new RegExp(`out-of-plane nodal component .${field}.`));
+    }
+    expect.soft(solve(planarWithNodalLoad({ ...zero, ...control, mx: -0 })), name).toEqual(solve(planar));
+  }
+});
+
+it('#2532 WASM spatial solvers retain the applied nodal couple', () => {
+  const input = {
+    ...space,
+    materials: indexed({ ...space.materials[1]!, e: 2 ** 18, nu: 0 }),
+    sections: indexed({ ...space.sections[1]!, j: 2 ** -10 }),
+    loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: 0, mx: 5, my: 0, mz: 0 } }],
+  };
+  const linear = solve_3d(input);
+  const pdelta = JSON.parse(solve_pdelta_3d(JSON.stringify(input), 20, 1e-9));
+  expect(pdelta.converged).toBe(true);
+  for (const result of [linear, pdelta.results]) {
+    expect(result.reactions).toHaveLength(1);
+    expect(result.reactions[0].mx).toBe(-5);
+  }
+});

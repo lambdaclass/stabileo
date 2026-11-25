@@ -129,6 +129,7 @@ const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
   ['non-finite moving load member diagram', DIAGRAM_EXTREMA_UNAVAILABLE],
   ['Repeated load case factors cancel to zero in this combination.', 'svc.engine.cancelledCombination'],
   [AMBIGUOUS_ROLLER_Z, 'svc.engine.ambiguousRollerZ'],
+  ['out-of-plane nodal component', 'xls.err.nodalOutOfPlane'],
   ['P-Delta results were withheld because the physical free-DOF residual did not meet the requested tolerance.', PDELTA_PHYSICAL_RESIDUAL],
   ['exact plastic LP resource budget exceeded', 'plasticDiag.resourceBudget'],
   ['Singular stiffness matrix — structure is a mechanism', 'svc.engine.mechanism'],

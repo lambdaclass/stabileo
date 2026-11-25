@@ -4,6 +4,7 @@ import { DEFAULT_OSNAP, OSNAP_MODES, type OsnapMode } from '../model/osnap-modes
 import type { NodeStylePref } from '../three/nodes-instanced';
 import { DEFAULT_WORKING_PLANE, VERTICAL_AXIS, type ViewportPresentation3D } from '../geometry/coordinate-system';
 import { isUnitSystem, type UnitSystem } from '../utils/units';
+import { is3DWorkspace, isAnalysisMode, type AnalysisMode } from '../utils/workspace';
 
 /**
  * `moveNodes` is a pointer mode, not a builder.
@@ -40,13 +41,7 @@ export type TouchDensity = 'compact' | 'comfortable';
  */
 export const EDIT_TOOLS: readonly Tool[] = ['node', 'element', 'support', 'load'];
 
-/** The four modes the app has. */
-export type AnalysisMode = '2d' | '3d' | 'pro' | 'edu';
-export const ANALYSIS_MODES: readonly AnalysisMode[] = ['2d', '3d', 'pro', 'edu'];
-import { is3DWorkspace } from '../utils/workspace';
-export function isAnalysisMode(v: unknown): v is AnalysisMode {
-  return (ANALYSIS_MODES as readonly unknown[]).includes(v);
-}
+export { ANALYSIS_MODES, isAnalysisMode, type AnalysisMode } from '../utils/workspace';
 export type ILQuantity = import('./model.svelte').InfluenceQuantity;
 export type SupportTool = 'fixed' | 'pinned' | 'roller' | 'spring';
 /**

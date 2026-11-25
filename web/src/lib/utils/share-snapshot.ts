@@ -1,3 +1,4 @@
+import { canonicalizeModelAliases } from '../model/canonical-aliases';
 import type { ModelSnapshot } from '../store/history.svelte';
 import type { Load } from '../store/model.svelte';
 import { migrateFootings } from '../model/footing';
@@ -219,5 +220,5 @@ export function prepareSharedSnapshot(value: unknown): ModelSnapshot | null {
   const ground = migrateGeotechnical(value.geotechnical).geotechnical;
   if (!ensureCounter('footing', [...footings.keys()])) return null;
   if (!ensureCounter('soilProfile', ground.profiles.map(profile => profile.id))) return null;
-  return { ...value, nextId } as unknown as ModelSnapshot;
+  return canonicalizeModelAliases({ ...value, nextId } as unknown as ModelSnapshot);
 }
