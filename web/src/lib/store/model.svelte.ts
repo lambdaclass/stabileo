@@ -762,6 +762,7 @@ export const loadMemberId = (l: Load): number | undefined =>
 export type LoadCaseType = string;
 
 export interface LoadCase {
+  autoLoadsRetired?: true;
   group?: string;
   snowBasis?: 'flatRoof';
   id: number;
@@ -4526,7 +4527,7 @@ function createModelStore() {
      * still edited: only a loop it did not have is refused (`addsLoop`), so its factors change
      * and any link of the loop can go.
      */
-    updateLoadCaseFields(id: number, patch: Partial<Pick<LoadCase, 'includes' | 'reference' | 'solve' | 'notional' | 'reduction' | 'alternatives' | 'pattern' | 'spectral'>>): boolean {
+    updateLoadCaseFields(id: number, patch: Partial<Pick<LoadCase, 'includes' | 'reference' | 'solve' | 'notional' | 'reduction' | 'alternatives' | 'pattern' | 'spectral' | 'autoLoadsRetired'>>): boolean {
       const lc = model.loadCases.find((c) => c.id === id);
       if (!lc) return false;
       if (('includes' in patch || 'notional' in patch) && addsLoop(model.loadCases, id, { ...('includes' in patch ? { includes: patch.includes } : {}), ...('notional' in patch ? { notional: patch.notional } : {}) })) return false;
