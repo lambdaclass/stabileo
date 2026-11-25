@@ -1,3 +1,4 @@
+import { accountingMemberPieces } from './accounting-source';
 /**
  * Members of variable section, solved as chains of prismatic pieces and reported as themselves.
  *
@@ -365,11 +366,21 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
   }
   const geometry = memberLoadGeometry({ ...model, sections });
   const renamed = new Map<number, number[]>();
+  const memberPieces = new Map(model[accountingMemberPieces]);
   for (const m of exp.members.values()) {
     const ids = m.pieces.map((p) => p.id);
     const partition = geometry.partition(model.elements.get(m.parentId)!, nodes, elements, ids);
     const bounds = partition.bounds(), lengths = partition.lengths;
-    m.pieces.forEach((p, k) => { p.x0 = bounds[k]; p.x1 = bounds[k + 1]; });
+    const parent = memberPieces.get(m.parentId);
+    m.pieces.forEach((p, k) => {
+      p.x0 = bounds[k];
+      p.x1 = bounds[k + 1];
+      memberPieces.set(p.id, {
+        member: parent?.member ?? m.parentId,
+        offset: (parent?.offset ?? 0) + p.x0 * (parent?.scale ?? 1),
+        scale: (parent?.scale ?? 1) * ((p.x1 - p.x0) / lengths[k]!),
+      });
+    });
     const split = splitElementLoads(loads, m.parentId, bounds, ids, () => nextLoad++, lengths, partition.points);
     loads = [...split.kept, ...split.added];
     renamed.set(m.parentId, ids);
@@ -385,7 +396,7 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
     return [id, { ...s, dofLocalElementId: at.id }] as const;
   }));
   return {
-    ...model, nodes, elements, sections, loads, supports,
+    ...model, nodes, elements, sections, loads, supports, [accountingMemberPieces]: memberPieces,
     ...(constraints !== model.constraints ? { constraints } : {}),
     ...(connectors !== model.connectors ? { connectors } : {}),
     [selfWeightMemberProjection]: projectSelfWeightMembers(model, renamed),
