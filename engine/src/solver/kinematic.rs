@@ -254,7 +254,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
     let (k_s, rank_stability) = super::stability::analyze_free_stiffness(
         &crate::linalg::sparse::CscMatrix::from_dense_symmetric_exact(&k_ff, nf),
-        &dof_num, true, cs.as_ref(), &super::stability::coupling_2d(input, &dof_num), &super::stability::ReleasedRotations::default(), support_magnitude.as_ref(),
+        &dof_num, true, cs.as_ref(), &super::stability::elastic_kinematics_2d(input, &dof_num), &super::stability::ReleasedRotations::default(), support_magnitude.as_ref(),
     );
     let k_s = rank_stability.pin_sparse(&k_s).to_dense_symmetric();
 
@@ -300,7 +300,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     let mut mechanism_nodes: Vec<usize> = node_set.into_iter().collect();
     mechanism_nodes.sort();
 
-    let rank_refusal = physical_refusal.or_else(|| rank_stability.rounding_refusal());
+    let rank_refusal = physical_refusal.or_else(|| rank_stability.rank_refusal());
     let kinematic_is_solvable = mechanism_modes == 0
         && rank_stability.verdict != super::stability::Verdict::Mechanism;
     let (classification, is_solvable) = classify_rank(degree, kinematic_is_solvable, rank_refusal.is_some());
@@ -430,9 +430,9 @@ fn fast_solvable_2d(
     // entry for entry (rotated springs, inclined-roller frames included).
     let sasm = super::assembly::without_artificial_stiffness(|| assemble_sparse_2d(input, dof_num));
     let (physical, stability) = super::stability::analyze_free_stiffness(
-        &sasm.k_ff, dof_num, true, None, &super::stability::coupling_2d(input, dof_num), &super::stability::ReleasedRotations::default(), sasm.support_magnitude.as_ref(),
+        &sasm.k_ff, dof_num, true, None, &super::stability::elastic_kinematics_2d(input, dof_num), &super::stability::ReleasedRotations::default(), sasm.support_magnitude.as_ref(),
     );
-    if stability.verdict == super::stability::Verdict::Mechanism || stability.rounding_refusal().is_some() { return None; }
+    if stability.verdict == super::stability::Verdict::Mechanism || stability.rank_refusal().is_some() { return None; }
     let pinned = stability.pin_sparse(&physical);
     let k = &pinned;
     let mut symbolic = None;
@@ -634,7 +634,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
     });
     let (k_s, rank_stability) = super::stability::analyze_free_stiffness(
         &crate::linalg::sparse::CscMatrix::from_dense_symmetric_exact(&k_ff, nf),
-        &dof_num, false, cs.as_ref(), &super::stability::coupling_3d(input, &dof_num), &super::stability::released_rotations_3d(input, &dof_num), support_magnitude.as_ref(),
+        &dof_num, false, cs.as_ref(), &super::stability::elastic_kinematics_3d(input, &dof_num), &super::stability::released_rotations_3d(input, &dof_num), support_magnitude.as_ref(),
     );
     let k_s = rank_stability.pin_sparse(&k_s).to_dense_symmetric();
 
@@ -680,7 +680,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
     let mut mechanism_nodes: Vec<usize> = node_set.into_iter().collect();
     mechanism_nodes.sort();
 
-    let rank_refusal = physical_refusal.or_else(|| rank_stability.rounding_refusal());
+    let rank_refusal = physical_refusal.or_else(|| rank_stability.rank_refusal());
     let kinematic_is_solvable = mechanism_modes == 0
         && rank_stability.verdict != super::stability::Verdict::Mechanism;
     let (classification, is_solvable) = classify_rank(degree, kinematic_is_solvable, rank_refusal.is_some());

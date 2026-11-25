@@ -186,7 +186,7 @@ fn staged_review_numeric_nonfinite_solutions_are_refused() {
                     None,
                     two_d,
                     &connected,
-                    &[],
+                    &super::super::stability::ElasticKinematics::default(),
                     &super::super::stability::ReleasedRotations::default(),
                     &f,
                     &f,
@@ -298,7 +298,7 @@ fn staged_final_zero_stiffness_uses_accumulated_load() {
                 let force_scale = 1e30;
                 let k = CscMatrix::from_triplets(1, &[0], &[0], &[stiffness * force_scale]);
                 let solve = |increment: f64, applied: f64| solve_stage_free(
-                    &k, None, &dof, None, true, &connected, &[],
+                    &k, None, &dof, None, true, &connected, &super::super::stability::ElasticKinematics::default(),
                     &super::super::stability::ReleasedRotations::default(),
                     &[increment * force_scale], &[increment * force_scale], &[applied * force_scale], &[], &[], sparse, &mut None, &mut None,
                 );
@@ -335,7 +335,7 @@ fn staged_round8_multiple_null_rotations_keep_supported_loads() {
             let k = CscMatrix::from_dense_symmetric_exact(&matrix, 3);
             let applied = k.sym_mat_vec(&expected);
             let u = solve_stage_free(
-                &k, None, &dof, None, false, &HashSet::from([1,2]), &[],
+                &k, None, &dof, None, false, &HashSet::from([1,2]), &super::super::stability::ElasticKinematics::default(),
                 &super::super::stability::ReleasedRotations::default(),
                 &increment, &increment, &applied, &[], &[], sparse, &mut None, &mut None,
             ).unwrap();
@@ -356,7 +356,7 @@ fn staged_round8_projection_preserves_prescribed_drive_and_positive_stiffness() 
     for sparse in [false, true] {
         let oblique = CscMatrix::from_dense_symmetric_exact(&[1.0,-1.0,0.0,-1.0,1.0,0.0,0.0,0.0,2.0], 3);
         let driven = solve_stage_free(
-            &oblique, None, &dof, None, false, &HashSet::from([1,2]), &[],
+            &oblique, None, &dof, None, false, &HashSet::from([1,2]), &super::super::stability::ElasticKinematics::default(),
             &super::super::stability::ReleasedRotations::default(),
             &[-1.0,-1.0,0.0], &[0.0;3], &[0.0;3], &[], &[], sparse, &mut None, &mut None,
         );
@@ -364,7 +364,7 @@ fn staged_round8_projection_preserves_prescribed_drive_and_positive_stiffness() 
         let tiny = 1e-13;
         let unresolved = CscMatrix::from_dense_symmetric_exact(&[1.0+tiny,-1.0+tiny,0.0,-1.0+tiny,1.0+tiny,0.0,0.0,0.0,1.0], 3);
         let loaded = solve_stage_free(
-            &unresolved, None, &dof, None, false, &HashSet::from([1,2]), &[],
+            &unresolved, None, &dof, None, false, &HashSet::from([1,2]), &super::super::stability::ElasticKinematics::default(),
             &super::super::stability::ReleasedRotations::default(),
             &[-1.0,-1.0,0.0], &[-1.0,-1.0,0.0], &[0.0;3], &[], &[], sparse, &mut None, &mut None,
         );
@@ -373,7 +373,7 @@ fn staged_round8_projection_preserves_prescribed_drive_and_positive_stiffness() 
             let force_scale = 1e30;
             let k = CscMatrix::from_triplets(3, &[0,1,2], &[0,1,2], &[stiffness * force_scale;3]);
             let solve = |applied: &[f64]| solve_stage_free(
-                &k, None, &dof, None, false, &HashSet::from([1,2]), &[],
+                &k, None, &dof, None, false, &HashSet::from([1,2]), &super::super::stability::ElasticKinematics::default(),
                 &super::super::stability::ReleasedRotations::default(),
                 &[-force_scale,0.0,0.0], &applied.iter().map(|x| x * force_scale).collect::<Vec<_>>(), &[0.0;3], &[], &[], sparse, &mut None, &mut None,
             );

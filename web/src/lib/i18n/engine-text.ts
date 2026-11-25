@@ -148,6 +148,23 @@ registerFeatureDictionaries(Object.fromEntries(
   }]),
 ));
 
+const AXIAL_JOINT_MECHANISM = 'svc.engine.axialJointMechanism';
+const axialJointMechanism: Record<Locale, string> = {
+  de: 'Am Knoten {node} liegt ein Mechanismus vor. Der Knoten kann sich verschieben, ohne die angeschlossenen Fachwerkstäbe zu dehnen oder die Lagerbedingungen zu verletzen.',
+  en: 'There is a mechanism at joint {node}. The joint can translate without straining its attached truss members or violating the restraints.',
+  es: 'Hay un mecanismo en el nudo {node}. El nudo puede desplazarse sin deformar las barras articuladas conectadas ni violar las restricciones.',
+  fr: 'Le nœud {node} présente un mécanisme. Il peut se déplacer sans déformer les barres de treillis connectées ni violer les contraintes.',
+  hu: 'A(z) {node} csomópontnál mechanizmus van. A csomópont elmozdulhat a kapcsolódó rácsrudak alakváltozása és a kényszerek megsértése nélkül.',
+  pt: 'Há um mecanismo no nó {node}. O nó pode se deslocar sem deformar as barras de treliça ligadas a ele e sem violar as restrições.',
+  tr: '{node} düğümünde bir mekanizma var. Düğüm, bağlı kafes çubuklarını deforme etmeden ve kısıtları ihlal etmeden ötelenebilir.',
+  zh: '节点 {node} 处存在机构。该节点可以平移，而不使相连的桁架杆产生应变，也不违反约束。',
+};
+registerFeatureDictionaries(Object.fromEntries(
+  Object.entries(axialJointMechanism).map(([locale, message]) => [locale, { [AXIAL_JOINT_MECHANISM]: message }]),
+));
+
+const AXIAL_JOINT_REASON = /^the structure is a mechanism at nodes \[(\d+)\]: a translation of this joint leaves all attached trusses unstrained and satisfies the restraints$/;
+
 const CONSTRAINT_RANK_REASON = /^the structure is a mechanism or so close to one that its stability cannot be decided in double precision(?: at nodes (\[[0-9, ]+\]))?: constraint reduction cancels stiffness contributions whose rounding is too large to resolve the remaining stiffness; reduce extreme stiffness contrasts or revise the constraints$/;
 
 /**
@@ -183,6 +200,8 @@ const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
 export function localizeEngineText(message: string): string {
   const rankRefusal = asCodedRefusal(message, 'reduced_stiffness_rank');
   const original = rankRefusal instanceof CodedRefusal ? rankRefusal.message : message;
+  const axialJoint = AXIAL_JOINT_REASON.exec(original);
+  if (axialJoint) return fill(AXIAL_JOINT_MECHANISM, { node: axialJoint[1] });
   const constraintRank = CONSTRAINT_RANK_REASON.exec(original);
   if (constraintRank) {
     const nodes = constraintRank[1];

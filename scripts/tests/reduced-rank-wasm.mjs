@@ -253,10 +253,7 @@ for (const dim of ['2d', '3d']) {
   for (let id = 2; id <= 1025; id++) {
     model.elements[id] = { ...model.elements[1], id, sectionId: 2 };
   }
-  if (process.env.STABILEO_RUN_IGNORED_2584) {
-    report(2584, dim, model);
-    assert.deepEqual(failures, []);
-  }
+  report(2584, dim, model);
   for (const modified of [false, true]) {
     const solve = () => JSON.parse(engine[`solve_corotational_${dim}`](JSON.stringify(model), 8, 1e-12, 1, modified));
     model.constraints = [];
@@ -267,6 +264,8 @@ for (const dim of ['2d', '3d']) {
     assertDisplacements(result.results, dim, [1, 2]);
   }
 }
+
+assert.deepEqual(failures, []);
 
 for (const dim of ['2d', '3d']) {
   const model = dim === '2d' ? structuredClone(truss) : spatial(truss);

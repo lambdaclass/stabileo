@@ -96,6 +96,17 @@ describe('engine sentences', () => {
       .toBe(translated.replace(' en los nodos [2, 3]', ''));
   });
 
+  it('localizes proven axial joint freedom and keeps the joint identifier', async () => {
+    await setLocale('es');
+    const message = 'the structure is a mechanism at nodes [2]: a translation of this joint leaves all attached trusses unstrained and satisfies the restraints';
+    const refusal = JSON.stringify({
+      message,
+      structuredDiagnostics: [{ code: 'reduced_stiffness_rank', severity: 'error', nodeIds: [2] }],
+    });
+    expect(localizeEngineText(errorText(refusal, 'Unknown error')))
+      .toBe('Hay un mecanismo en el nudo 2. El nudo puede desplazarse sin deformar las barras articuladas conectadas ni violar las restricciones.');
+  });
+
   it('translates the plain reduced stiffness rank sentence', async () => {
     await setLocale('es');
     const message = 'The reduced stiffness rank cannot be resolved at assembly precision. Check member releases, supports, springs and constraints for a mechanism.';

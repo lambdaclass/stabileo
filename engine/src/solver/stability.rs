@@ -5,6 +5,8 @@ use crate::types::*;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
+use super::axial_kinematics::AxialKinematics;
+
 pub(crate) fn has_member_releases_2d(input: &SolverInput) -> bool {
     input.elements.values().any(|e| e.hinge_start || e.hinge_end)
 }
@@ -30,7 +32,7 @@ pub struct DofTag { pub node: usize, pub kind: DofKind }
 pub enum Verdict { Stable, Mechanism, Singular }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Reason { Resolved, FreeTranslation, SwingAtRounding, Conditioning, CoupledSoftDirection, ConstraintRounding, OperatorRounding, Indefinite, NonFinite }
+pub enum Reason { Resolved, FreeTranslation, SwingAtRounding, Conditioning, CoupledSoftDirection, ConstraintRounding, OperatorRounding, AxialMechanism, Indefinite, NonFinite }
 
 #[derive(Debug, Clone)]
 pub struct FreeDirection {
@@ -172,9 +174,9 @@ impl Stability {
         self.free.iter().filter(|f| f.moves_translation)
     }
 
-    pub(super) fn rounding_refusal(&self) -> Option<String> {
+    pub(super) fn rank_refusal(&self) -> Option<String> {
         match self.reason {
-            Reason::OperatorRounding => self.refusal(),
+            Reason::OperatorRounding | Reason::AxialMechanism => self.refusal(),
             Reason::ConstraintRounding => self.refusal().map(|message| {
                 crate::refusal::coded(DiagnosticCode::ReducedStiffnessRank, &message)
             }),
@@ -188,6 +190,13 @@ impl Stability {
             Reason::Resolved => None,
             Reason::FreeTranslation => Some(format!(
                 "the structure is a mechanism{nodes}: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases"
+            )),
+            Reason::AxialMechanism => Some(crate::refusal::from_diagnostic(
+                StructuredDiagnostic::global(
+                    DiagnosticCode::ReducedStiffnessRank,
+                    Severity::Error,
+                    format!("the structure is a mechanism{nodes}: a translation of this joint leaves all attached trusses unstrained and satisfies the restraints"),
+                ).with_nodes(self.mode_nodes.clone()),
             )),
             Reason::Indefinite => Some(format!(
                 "the stiffness matrix is not positive semidefinite{nodes}: the structure has a direction of negative stiffness (a negative spring or a negative member property, say), so it is unstable; check the springs and member properties there"
@@ -268,7 +277,21 @@ fn couple_axes(out: &mut Vec<(usize, usize)>, dof: &DofNumbering, nodes: &[usize
     }
 }
 
-pub(crate) fn coupling_2d(input: &SolverInput, dof: &DofNumbering) -> Vec<(usize, usize)> {
+#[derive(Default)]
+pub(crate) struct ElasticKinematics {
+    coupling: Vec<(usize, usize)>,
+    axial: AxialKinematics,
+}
+
+pub(crate) fn elastic_kinematics_2d(input: &SolverInput, dof: &DofNumbering) -> ElasticKinematics {
+    ElasticKinematics { coupling: coupling_2d(input, dof), axial: AxialKinematics::planar(input, dof) }
+}
+
+pub(crate) fn elastic_kinematics_3d(input: &SolverInput3D, dof: &DofNumbering) -> ElasticKinematics {
+    ElasticKinematics { coupling: coupling_3d(input, dof), axial: AxialKinematics::spatial(input, dof) }
+}
+
+fn coupling_2d(input: &SolverInput, dof: &DofNumbering) -> Vec<(usize, usize)> {
     let nodes: BTreeMap<_, _> = input.nodes.values().map(|n| (n.id, n)).collect();
     let mut out = Vec::new();
     for e in input.elements.values() {
@@ -1533,40 +1556,71 @@ pub(crate) fn analyze_free_stiffness(
     k: &CscMatrix,
     dof: &DofNumbering,
     two_d: bool,
-    constraints: Option<&crate::solver::constraints::FreeConstraintSystem>,
-    coupling: &[(usize, usize)],
-    releases: &ReleasedRotations, support_magnitude: Option<&CscMatrix>,
+    constraints: Option<&super::constraints::FreeConstraintSystem>,
+    kinematics: &ElasticKinematics,
+    releases: &ReleasedRotations,
+    support_magnitude: Option<&CscMatrix>,
 ) -> (CscMatrix, Stability) {
-    analyze_free_stiffness_excluding(k, dof, two_d, constraints, coupling, releases, &[], support_magnitude)
+    analyze_free_stiffness_excluding(k, dof, two_d, constraints, kinematics, releases, &[], support_magnitude)
 }
 
 pub(crate) fn analyze_free_stiffness_excluding(
-    k: &CscMatrix, dof: &DofNumbering, two_d: bool,
-    constraints: Option<&crate::solver::constraints::FreeConstraintSystem>,
-    coupling: &[(usize, usize)], releases: &ReleasedRotations, inactive: &[usize], support_magnitude: Option<&CscMatrix>,
+    k: &CscMatrix,
+    dof: &DofNumbering,
+    two_d: bool,
+    constraints: Option<&super::constraints::FreeConstraintSystem>,
+    kinematics: &ElasticKinematics,
+    releases: &ReleasedRotations,
+    inactive: &[usize],
+    support_magnitude: Option<&CscMatrix>,
 ) -> (CscMatrix, Stability) {
     let reduced = constraints.map_or_else(|| k.clone(), |c| c.reduce_matrix_sparse(k));
-    let stability = if assumed() {
-        Stability::stable()
-    } else if let Some(c) = constraints {
-        c.stability_excluding(&reduced, dof, k, coupling, releases, inactive, support_magnitude)
+    let stability = classify_free_stiffness(
+        k, &reduced, dof, two_d, constraints, kinematics, releases, inactive, support_magnitude, &[],
+    );
+    (reduced, stability)
+}
+
+pub(super) fn classify_free_stiffness(
+    physical: &CscMatrix,
+    reduced: &CscMatrix,
+    dof: &DofNumbering,
+    two_d: bool,
+    constraints: Option<&super::constraints::FreeConstraintSystem>,
+    kinematics: &ElasticKinematics,
+    releases: &ReleasedRotations,
+    inactive: &[usize],
+    support_magnitude: Option<&CscMatrix>,
+    supplemental_dofs: &[bool],
+) -> Stability {
+    if assumed() {
+        return Stability::stable();
+    }
+    if let Some(node) = kinematics.axial.mechanism_node(constraints, inactive, supplemental_dofs) {
+        return Stability {
+            verdict: Verdict::Mechanism, reason: Reason::AxialMechanism,
+            kappa: f64::INFINITY, anisotropy: 1.0, free: Vec::new(), mode_nodes: vec![node],
+        };
+    }
+    if let Some(c) = constraints {
+        c.stability_excluding(reduced, dof, physical, &kinematics.coupling, releases, inactive, support_magnitude)
     } else {
         let mut free_tags = tags(dof, two_d);
         free_tags.truncate(dof.n_free);
-        analyze_excluding(k, &free_tags, &[], coupling, None, releases, inactive, support_magnitude)
-    };
-    (reduced, stability)
+        analyze_excluding(physical, &free_tags, &[], &kinematics.coupling, None, releases, inactive, support_magnitude)
+    }
 }
 
 pub(crate) fn prepare_free_stiffness(
     k: &CscMatrix,
     dof: &DofNumbering,
     two_d: bool,
-    constraints: Option<&crate::solver::constraints::FreeConstraintSystem>,
-    coupling: &[(usize, usize)],
-    releases: &ReleasedRotations, support_magnitude: Option<&CscMatrix>,
+    constraints: Option<&super::constraints::FreeConstraintSystem>,
+    kinematics: &ElasticKinematics,
+    releases: &ReleasedRotations,
+    support_magnitude: Option<&CscMatrix>,
 ) -> Result<(CscMatrix, Stability), String> {
-    let (reduced, stability) = analyze_free_stiffness(k, dof, two_d, constraints, coupling, releases, support_magnitude);
+    let (reduced, stability) = analyze_free_stiffness(k, dof, two_d, constraints, kinematics, releases, support_magnitude);
     if let Some(refusal) = stability.refusal() { return Err(refusal); }
     Ok((stability.pin_sparse(&reduced), stability))
 }
@@ -1587,7 +1641,7 @@ pub(super) struct OperatorRank<'a> {
     dof: &'a DofNumbering,
     two_d: bool,
     constraints: Option<&'a super::constraints::FreeConstraintSystem>,
-    coupling: Vec<(usize, usize)>,
+    kinematics: ElasticKinematics,
     releases: ReleasedRotations,
 }
 
@@ -1596,39 +1650,50 @@ impl<'a> OperatorRank<'a> {
         input: &SolverInput, dof: &'a DofNumbering,
         constraints: Option<&'a super::constraints::FreeConstraintSystem>,
     ) -> Self {
-        Self { dof, two_d: true, constraints, coupling: coupling_2d(input, dof), releases: ReleasedRotations::default() }
+        Self { dof, two_d: true, constraints, kinematics: elastic_kinematics_2d(input, dof), releases: ReleasedRotations::default() }
     }
 
     pub(super) fn for_3d(
         input: &SolverInput3D, dof: &'a DofNumbering,
         constraints: Option<&'a super::constraints::FreeConstraintSystem>,
     ) -> Self {
-        Self { dof, two_d: false, constraints, coupling: coupling_3d(input, dof), releases: released_rotations_3d(input, dof) }
+        Self { dof, two_d: false, constraints, kinematics: elastic_kinematics_3d(input, dof), releases: released_rotations_3d(input, dof) }
     }
 
     fn classify(
-        &self, free: &CscMatrix, reduced: Option<&CscMatrix>, support_magnitude: Option<&CscMatrix>,
-        releases: &ReleasedRotations,
+        &self,
+        free: &CscMatrix,
+        reduced: Option<&CscMatrix>,
+        support_magnitude: Option<&CscMatrix>,
+        supplemental_dofs: &[bool],
     ) -> Stability {
-        if let (Some(constraints), Some(reduced)) = (self.constraints, reduced) {
-            constraints.stability(reduced, self.dof, free, &self.coupling, releases, support_magnitude)
-        } else {
-            analyze_free_stiffness(free, self.dof, self.two_d, self.constraints, &self.coupling, releases, support_magnitude).1
-        }
+        let projected;
+        let reduced = match (self.constraints, reduced) {
+            (_, Some(reduced)) => reduced,
+            (Some(constraints), None) => {
+                projected = constraints.reduce_matrix_sparse(free);
+                &projected
+            }
+            (None, None) => free,
+        };
+        classify_free_stiffness(
+            free, reduced, self.dof, self.two_d, self.constraints, &self.kinematics,
+            &self.releases, &[], support_magnitude, supplemental_dofs,
+        )
     }
 
     pub(super) fn require_resolved(&self, free: &CscMatrix, reduced: Option<&CscMatrix>, support_magnitude: Option<&CscMatrix>) -> Result<(), String> {
-        let result = self.classify(free, reduced, support_magnitude, &self.releases);
+        let result = self.classify(free, reduced, support_magnitude, &[]);
         match result.refusal() {
-            Some(error) if result.reason != Reason::OperatorRounding => Err(crate::refusal::coded(DiagnosticCode::ReducedStiffnessRank, &error)),
+            Some(error) if !matches!(result.reason, Reason::OperatorRounding | Reason::AxialMechanism) => Err(crate::refusal::coded(DiagnosticCode::ReducedStiffnessRank, &error)),
             Some(error) => Err(error),
             None => Ok(()),
         }
     }
 
     pub(super) fn check_rounding(&self, free: &CscMatrix, reduced: Option<&CscMatrix>, support_magnitude: Option<&CscMatrix>) -> Result<(), String> {
-        let result = self.classify(free, reduced, support_magnitude, &self.releases);
-        result.rounding_refusal().map_or(Ok(()), Err)
+        let result = self.classify(free, reduced, support_magnitude, &[]);
+        result.rank_refusal().map_or(Ok(()), Err)
     }
 
     pub(super) fn check_free_rounding(&self, free: &CscMatrix, magnitude: Option<&CscMatrix>) -> Result<(), String> {
@@ -1638,8 +1703,12 @@ impl<'a> OperatorRank<'a> {
 
     pub(super) fn check_secant(
         &self, free: &CscMatrix, reduced: Option<&CscMatrix>, magnitude: &CscMatrix,
+        soil_magnitude: &CscMatrix,
     ) -> Result<(), String> {
-        self.check_rounding(free, reduced, Some(magnitude))?;
+        let soil_dofs: Vec<_> = soil_magnitude.diagonal().iter().map(|&value| value != 0.0).collect();
+        if let Some(refusal) = self.classify(free, reduced, Some(magnitude), &soil_dofs).rank_refusal() {
+            return Err(refusal);
+        }
         let reduced_magnitude = self.constraints.map(|cs| cs.reduce_stiffness_magnitude(magnitude));
         let physical = reduced.unwrap_or(free);
         let envelope = reduced_magnitude.as_ref().unwrap_or(magnitude);
@@ -1756,7 +1825,7 @@ pub fn of_2d(input: &SolverInput) -> Result<Stability, String> {
     let dof = DofNumbering::build_2d(input);
     let (asm, support_magnitude) = crate::solver::assembly::without_artificial_stiffness(|| crate::solver::assembly::assemble_2d_with_magnitude(input, &dof));
     let fcs = crate::solver::constraints::FreeConstraintSystem::build_2d(input, &dof)?;
-    Ok(analyze_free_stiffness(&dense_free_block(&asm.k, &dof), &dof, true, fcs.as_ref(), &coupling_2d(input, &dof), &ReleasedRotations::default(), support_magnitude.as_ref()).1)
+    Ok(analyze_free_stiffness(&dense_free_block(&asm.k, &dof), &dof, true, fcs.as_ref(), &elastic_kinematics_2d(input, &dof), &ReleasedRotations::default(), support_magnitude.as_ref()).1)
 }
 
 pub fn of_3d(input: &SolverInput3D) -> Result<Stability, String> {
@@ -1764,7 +1833,7 @@ pub fn of_3d(input: &SolverInput3D) -> Result<Stability, String> {
     let dof = DofNumbering::build_3d(input);
     let (asm, support_magnitude) = crate::solver::assembly::without_artificial_stiffness(|| crate::solver::assembly::assemble_3d_with_magnitude(input, &dof));
     let fcs = crate::solver::constraints::FreeConstraintSystem::build_3d(input, &dof)?;
-    Ok(analyze_free_stiffness(&dense_free_block(&asm.k, &dof), &dof, false, fcs.as_ref(), &coupling_3d(input, &dof), &released_rotations_3d(input, &dof), support_magnitude.as_ref()).1)
+    Ok(analyze_free_stiffness(&dense_free_block(&asm.k, &dof), &dof, false, fcs.as_ref(), &elastic_kinematics_3d(input, &dof), &released_rotations_3d(input, &dof), support_magnitude.as_ref()).1)
 }
 
 #[cfg(test)]
@@ -1797,7 +1866,7 @@ mod tests {
                 dof: &dof,
                 two_d: false,
                 constraints: None,
-                coupling: vec![(0, 1)],
+                kinematics: ElasticKinematics { coupling: vec![(0, 1)], ..Default::default() },
                 releases: ReleasedRotations {
                     rows: vec![vec![(0, 1.0), (1, -1.0)], vec![(2, 1.0)]],
                     nodes: [1].into(),

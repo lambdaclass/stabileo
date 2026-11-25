@@ -147,7 +147,7 @@ fn secant_system(
     support_magnitude: Option<&CscMatrix>,
 ) -> Result<SecantSystem, String> {
     let nf = base.n;
-    let SpringStiffness { rows, cols, vals, magnitude } = soil;
+    let SpringStiffness { rows, cols, vals, magnitude: soil_magnitude } = soil;
     let mut sr = Vec::new();
     let mut sc = Vec::new();
     let mut sv = Vec::new();
@@ -162,10 +162,10 @@ fn secant_system(
     let physical = add_stiffness(base, &soil);
     let reduced = cs.zip(reduced_base).map(|(cs, base)| add_stiffness(base, &cs.reduce_matrix_sparse(&soil)));
     let magnitude = match support_magnitude {
-        Some(base) => add_stiffness(base, &magnitude),
-        None => add_stiffness(&super::stability::absolute_stiffness(base), &magnitude),
+        Some(base) => add_stiffness(base, &soil_magnitude),
+        None => add_stiffness(&super::stability::absolute_stiffness(base), &soil_magnitude),
     };
-    rank.check_secant(&physical, reduced.as_ref(), &magnitude)?;
+    rank.check_secant(&physical, reduced.as_ref(), &magnitude, &soil_magnitude)?;
     Ok(SecantSystem(reduced.unwrap_or(physical)))
 }
 

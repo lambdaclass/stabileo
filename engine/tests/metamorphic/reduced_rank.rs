@@ -503,27 +503,7 @@ fn collinear_truss_scatter_cannot_create_transverse_stiffness() {
 
     let mut failures = Vec::new();
     for weak_members in [16, 1024] {
-        let mut model = truss();
-        let chord = 41.0_f64.sqrt();
-        let direction = 4.0 / chord;
-        let area = chord / (direction * direction);
-        model.sections.get_mut("1").unwrap().a = area;
-        let mut weak = model.sections["1"].clone();
-        weak.id = 2;
-        weak.a *= 0.36 * f64::EPSILON;
-        model.sections.insert("2".into(), weak);
-        let tip = model.nodes.get_mut("2").unwrap();
-        (tip.x, tip.z) = (4.0, 5.0);
-        model.supports.remove("2");
-        model.loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 1, fx: 1.0, fz: 0.0, my: 0.0,
-        })];
-        for id in 2..=weak_members + 1 {
-            let mut element = model.elements["1"].clone();
-            element.id = id;
-            element.section_id = 2;
-            model.elements.insert(id.to_string(), element);
-        }
+        let model = weak_parallel_trusses(weak_members);
         let padded = crate::case::pad_2d(&model).0;
         for (sparse, input) in [(false, model), (true, padded)] {
             for restrained in [false, true] {
@@ -725,7 +705,6 @@ fn sparse_drop_trusses(factor: f64) -> dedaliano_engine::types::SolverInput3D {
 }
 
 #[test]
-#[ignore = "known wrong result: #2584"]
 fn axial_joint_rank_does_not_depend_on_parallel_scatter() {
     let input = weak_parallel_trusses(1024);
     let base = Case2::new("parallel axial rows", input);
@@ -754,7 +733,6 @@ fn axial_joint_rank_does_not_depend_on_parallel_scatter() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2584"]
 fn sparse_drop_cannot_restrain_the_third_translation() {
     let mut failures = Vec::new();
     for factor in [1.0, 4.0] {
@@ -767,4 +745,44 @@ fn sparse_drop_cannot_restrain_the_third_translation() {
         }
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn weak_parallel_trusses_keep_independently_supported_results() {
+    let mut held = weak_parallel_trusses(1024);
+    held.loads = vec![SolverLoad::Nodal(SolverNodalLoad {
+        node_id: 2, fx: 1.0, fz: 0.0, my: 0.0,
+    })];
+    let mut spring = truss().supports.remove("2").unwrap();
+    spring.angle = None;
+
+    for add_spring in [false, true] {
+        let mut planar = held.clone();
+        if add_spring {
+            planar.supports.insert("2".into(), spring.clone());
+        }
+        let mut spatial = embed_2d(&planar, Plane::XZ).unwrap();
+        if !add_spring {
+            planar.constraints.push(Constraint::LinearMPC(LinearMPCConstraint {
+                terms: vec![MPCTerm { node_id: 2, dof: 1, coefficient: 1.0 }],
+            }));
+            spatial.constraints.push(Constraint::LinearMPC(LinearMPCConstraint {
+                terms: vec![MPCTerm { node_id: 2, dof: 2, coefficient: 1.0 }],
+            }));
+        }
+        let planar = linear::solve_2d(&planar).unwrap();
+        let spatial = linear::solve_3d(&spatial).unwrap();
+        let planar_tip = planar.displacements.iter().find(|d| d.node_id == 2).unwrap();
+        let spatial_tip = spatial.displacements.iter().find(|d| d.node_id == 2).unwrap();
+        assert_eq!(planar.displacements.len(), 2);
+        assert_eq!(spatial.displacements.len(), 2);
+        assert_eq!(spatial_tip.uy, 0.0);
+        let (planar_bits, spatial_bits) = if add_spring {
+            ([4612952655822585061, 13831680355561634567], [4612952655822585056, 13831680355561634560])
+        } else {
+            ([4607182418800017408, 0], [4607182418800016672, 0])
+        };
+        assert_eq!([planar_tip.ux, planar_tip.uz].map(f64::to_bits), planar_bits);
+        assert_eq!([spatial_tip.ux, spatial_tip.uz].map(f64::to_bits), spatial_bits);
+    }
 }
