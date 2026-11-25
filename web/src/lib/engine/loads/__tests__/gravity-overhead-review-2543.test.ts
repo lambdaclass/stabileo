@@ -3,8 +3,10 @@ import { teAt } from '../../../i18n/engine-text';
 import { applyLoadPlan } from '../../../store/apply-load-plan';
 import { modelStore } from '../../../store/index';
 import { buildLoadPlan, roofWeightFor, type LoadModelData, type LoadPlanInput } from '../load-plan';
+import { planAreaLoads } from '../plan-area-loads';
 import { gravityLayout, MIN_STOREY_HEADROOM, widthSpans } from '../plan-gravity';
 import { snowDriftRefusal } from '../snow-drift-loads';
+import type { Constraint3D } from '../../types-3d';
 import { input } from './gravity-width-mass-fixture';
 import { snow } from './snow-roof-plane-fixture';
 
@@ -21,8 +23,9 @@ function fixture() {
   const nodes: LoadModelData['nodes'] = new Map();
   const elements: LoadModelData['elements'] = new Map();
   const quads: NonNullable<LoadModelData['quads']> = new Map();
+  const constraints: Constraint3D[] = [];
   const model = {
-    nodes, elements, quads, loadCases: [],
+    nodes, elements, quads, constraints, loadCases: [],
     sections: new Map([[1, { id: 1, a: 0.1 }]]),
     materials: new Map([[1, { id: 1, rho: 25 }]]),
   } satisfies LoadModelData;
@@ -40,7 +43,8 @@ function fixture() {
     });
   };
   const shell = (points: Point[], height: (x: number) => number) => {
-    quads.set(1, { id: 1, nodes: polygon(points, height), materialId: 1, thickness: 0.1 });
+    const id = quads.size + 1;
+    quads.set(id, { id, nodes: polygon(points, height), materialId: 1, thickness: 0.1 });
   };
   return { model, beams, shell };
 }
@@ -149,5 +153,129 @@ it('#2543 review clips a bare-member fringe at the same shell clearance limit', 
 it('#2543 review retains a lower bay at storey clearance and when every panel is requested', () => {
   for (const [bandEdge, gravity] of [[-2, panels], [10.5, everyPanel]] as const) {
     expect(deadAt(plan(pitchedCover(rectangle(0, 10), bandEdge), { gravity }), 3)).toBeCloseTo(60, 10);
+  }
+});
+
+const round2 = process.env.RUN_KNOWN_WRONG === '2543' ? it : it.skip;
+const offset = 'loadPlan.gravity.offsetShellDeck';
+const distinctRoof = { ...roof, use: 'occupancy', occupancyKey: 'vivienda' } as const;
+
+function offsetBay(gap: number, dof = 2, left = 0) {
+  const { model, beams, shell } = fixture();
+  beams(rectangle(0, 10), 3);
+  shell(rectangle(left, left + 10), () => 3 + gap);
+  model.constraints.push({ type: 'equalDOF', masterNode: 1, slaveNode: 5, dofs: [dof] });
+  return model;
+}
+
+function stackedShells(left: number, right: number) {
+  const { model, shell } = fixture();
+  shell(rectangle(0, 10), () => 3);
+  shell(rectangle(left, right), () => 6);
+  return model;
+}
+
+round2('known wrong result: #2543 a 60 mm vertical tie cannot allocate two decks', () => {
+  for (const gap of [0.06, -0.06, MIN_STOREY_HEADROOM - 0.001]) {
+    for (const gravity of [panels, everyPanel]) {
+      const model = offsetBay(gap);
+      const result = plan(model, { gravity });
+      expect.soft(result, JSON.stringify(result.levels)).toMatchObject({
+        outcome: 'BLOCKED', blockedKeys: [{ key: offset }], distributed: [], nodal: [], surface: [],
+      });
+      expect.soft(() => roofWeightFor(model, gravity, 3, 0)).toThrow(expect.objectContaining({ key: offset }));
+      expect.soft(() => snowDriftRefusal(model)).toThrow(expect.objectContaining({ key: offset }));
+    }
+  }
+});
+
+round2('known wrong result: #2543 shell headroom over the first 4 m removes that area from a 10 m bay', () => {
+  const model = pitchedCover(rectangle(0, 10), 4);
+  const result = plan(model);
+  expect.soft(deadAt(result, 3)).toBeCloseTo(36, 10);
+  const layout = gravityLayout(model, { ...panels, tributaryWidth: 3 });
+  expect.soft(layout.areaByLevel.get(3)).toBeCloseTo(36, 10);
+  expect.soft(layout.panels.find(panel => panel.z === 3)?.roof).toBe(false);
+  expect(deadAt(plan(model, { gravity: everyPanel }), 3)).toBeCloseTo(60, 10);
+});
+
+round2('known wrong result: #2543 a beam deck just above the cover rise covers the entire lower bay', () => {
+  for (const gravity of [panels, everyPanel]) {
+    const { model, beams } = fixture();
+    beams(rectangle(0, 10), 4);
+    beams([[-1, -1], [11, -1], [11, 7], [-1, 7]], 4.0502);
+    const layout = gravityLayout(model, { ...gravity, tributaryWidth: 3 });
+    expect.soft(layout.panels.find(panel => panel.z === 4)?.roof).toBe(false);
+    expect.soft(layout.pieces.filter(piece => piece.elementId <= 4).every(piece => !piece.roof)).toBe(true);
+  }
+});
+
+round2('known wrong result: #2543 the retained triangular tip under the pitched shell receives floor actions', () => {
+  const model = pitchedCover([[0, 0], [10, 3], [0, 6]], 9);
+  const layout = gravityLayout(model, { ...panels, tributaryWidth: 3 });
+  expect.soft(layout.panels.find(panel => panel.z === 3)?.roof).toBe(false);
+  expect.soft(layout.areaOf.size).toBeGreaterThan(0);
+  expect.soft(deadAt(plan(model), 3)).toBeCloseTo(0.5 * 1 * 0.6, 10);
+});
+
+round2('known wrong result: #2543 a shell with 18 square metres exposed needs an explicit load assignment', () => {
+  const model = stackedShells(0, 7);
+  for (const gravity of [panels, everyPanel]) {
+    expect.soft(plan(model, { gravity, snow: enabledSnow })).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [{ key: mixed }] });
+    expect.soft(() => roofWeightFor(model, gravity, 3, 0)).toThrow(expect.objectContaining({ key: mixed }));
+    expectMixed(plan(model, { gravity, roof: distinctRoof }));
+    expect(deadAt(plan(model, { gravity }), 3)).toBeCloseTo(60, 10);
+  }
+  expect(() => snowDriftRefusal(model)).toThrow(expect.objectContaining({ key: mixed }));
+});
+
+round2('known wrong result: #2543 restored mixed shell exposure blocks applying generated actions', () => {
+  const model = stackedShells(0, 7);
+  modelStore.clear();
+  try {
+    const ids = new Map([...model.nodes].map(([id, { x, y, z }]) => [id, modelStore.addNode(x, y, z)]));
+    for (const quad of model.quads.values()) {
+      const [a, b, c, d] = quad.nodes.map(id => ids.get(id)!);
+      modelStore.addQuad([a!, b!, c!, d!], modelStore.materials.keys().next().value!, quad.thickness!);
+    }
+    modelStore.addNodalLoad3D(ids.get(1)!, 0, 0, -1, 0, 0, 0);
+    modelStore.restore(JSON.parse(JSON.stringify(modelStore.snapshot())));
+    const result = plan(modelStore.model, { roof: distinctRoof });
+    expectMixed(result);
+    const prior = modelStore.snapshot();
+    expect(applyLoadPlan(result, { clearExisting: true, bothSenses: true, nameOf: key => key })).toEqual(result.blockedKeys[0]);
+    expect(modelStore.snapshot()).toEqual(prior);
+  } finally {
+    modelStore.clear();
+  }
+});
+
+it('#2543 separated or vertically independent shell and bay selections retain both actions', () => {
+  for (const model of [offsetBay(MIN_STOREY_HEADROOM + 0.001), offsetBay(0.06, 0), offsetBay(0.06, 2, 10)]) {
+    const result = plan(model, { gravity: everyPanel });
+    expect(deadAt(result, 3)).toBeCloseTo(60, 10);
+    expect(result.surface.filter(load => load.caseType === 'D')).toEqual([expect.objectContaining({ quadId: 1, q: 1 })]);
+  }
+});
+
+it('#2543 explicit independent beam decks below the cover rise leave the lower deck exposed', () => {
+  for (const upper of [4.0498, 4.05]) {
+    const { model, beams } = fixture();
+    beams(rectangle(0, 10), 4);
+    beams(rectangle(0, 10), upper);
+    const layout = gravityLayout(model, { ...everyPanel, tributaryWidth: 3 });
+    expect(layout.panels.find(panel => panel.z === 4)?.roof).toBe(true);
+  }
+});
+
+it('#2543 complete upper shell cover and edge contact give a single exposure', () => {
+  for (const [model, exposed] of [[stackedShells(0, 10), false], [stackedShells(10, 17), true]] as const) {
+    const layout = gravityLayout(model, { ...panels, tributaryWidth: 3 });
+    expect(layout.roofQuads.has(1)).toBe(exposed);
+    const actions = planAreaLoads({
+      layout, tributaryWidth: 3, floor: { dead: 1, lo: 0, liveOf: () => 0 },
+      roof: { use: 'occupancy', weight: 'heavy', dead: 2, slopePercent: 0 },
+    });
+    expect(actions.surface.find(load => load.quadId === 1 && load.caseType === 'D')?.q).toBe(exposed ? 2 : 1);
   }
 });
