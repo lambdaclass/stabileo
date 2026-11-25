@@ -1374,7 +1374,10 @@ for (const end of [10, 6]) it(`#2512 shell-owned bay area cannot mask a lower ro
     }
 
     for (const id of shell.nodes) model.nodes.get(id)!.z = 2.8;
-    if (end === 10) model.constraints = [];
+    if (end < 10) checkBlockedGravity(model, {
+      key: 'loadPlan.gravity.offsetShellDeck', params: { id: 1, members: '1, 2, 3, 4' },
+    });
+    model.constraints = [];
     const separate = buildLoadPlan(planInput(model, input));
     expect(separate.blockedKeys).toEqual(isolated.blockedKeys);
     expect(separate.surface.filter(load => load.caseType === 'Lr')).toEqual([]);
@@ -1620,19 +1623,18 @@ it('#2512 a split eccentric rafter attachment keeps the shell as carrier', () =>
   expect(buildLoadPlan({ ...input, model: released }).distributed.some(load => load.caseType === 'D')).toBe(true);
 });
 
-it('#2512 roof coverage follows the shell boundary in both gravity modes', () => {
-  for (const mode of ['width', 'panels'] as const) for (const edge of [5.01, 5, 4.99]) {
+it('#2512 width diagnostics follow the shell boundary and panel actions require uniform shell exposure', () => {
+  for (const edge of [5.01, 5, 4.99]) {
     const model = floor(0, 0, 10, 6);
     rectangularShell(model, 1, 0, 10, 3);
     rectangularShell(model, 2, edge, 10, 6);
-    const layout = gravityLayout(model, { mode, tributaryWidth: 3 });
-    expect(layout.roofQuads.has(1)).toBe(edge > 5);
-    if (mode === 'width') continue;
-    const area = planAreaLoads({
-      layout, tributaryWidth: 3, floor: { dead: 1, lo: 0, liveOf: () => 0 },
-      roof: { use: 'occupancy', weight: 'heavy', dead: 2, slopePercent: 0 },
-    });
-    expect(area.surface.find(load => load.quadId === 1 && load.caseType === 'D')?.q).toBe(edge > 5 ? 2 : 1);
+    const width = gravityLayout(model, { mode: 'width', tributaryWidth: 3 });
+    expect(width.roofQuads.has(1)).toBe(edge > 5);
+    const panels = { mode: 'panels', tributaryWidth: 3 } as const;
+    expect(() => gravityLayout(model, panels)).toThrow(expect.objectContaining({ key: 'loadPlan.gravity.mixedExposure' }));
+    const layout = gravityLayout(model, { ...panels, uniformPressure: true });
+    const area = planAreaLoads({ layout, tributaryWidth: 3, floor: { dead: 1, lo: 0, liveOf: () => 0 } });
+    expect(area.surface.find(load => load.quadId === 1 && load.caseType === 'D')?.q).toBe(1);
   }
 });
 

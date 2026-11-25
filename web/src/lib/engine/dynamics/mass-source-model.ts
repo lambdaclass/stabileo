@@ -18,7 +18,7 @@ import type { Load, SurfaceLoad3D } from '../../store/model.svelte';
 import { surfaceDownwardPressure } from '../solver-shells';
 import { withCaseEffects } from '../case-effects';
 import { accountingCaseSources, scenarioSurfaceExpectations } from '../accounting-source';
-import { matchScenarioSurfaces } from '../load-accounting';
+import { checkedScenarioSurfacePressures } from '../load-accounting';
 import { massWeightLoads, WEIGHT_CASE } from './mass-weights';
 import type { SolverInput3D } from '../types-3d';
 import {
@@ -43,12 +43,13 @@ export function caseMassLoads(
   for (const f of factors) {
     if (!(f.factor > 0)) continue;
     const own = model.loads.filter((l) => (l.data.caseId ?? 1) === f.caseId);
-    if (expected) matchScenarioSurfaces(model, f.caseId, own, expected(f.caseId));
+    const checked = new Map([...checkedScenarioSurfacePressures(model, f.caseId, own, undefined, expected?.(f.caseId))]
+      .map(({ load, expected }) => [load, expected] as const));
     // A surface load's weight is its downward resultant, whatever its direction or field
     // (`shell-load-integration.ts`), spread over the shell: a suction or a wall pressure weighs nothing.
     const surface = own.filter((l) => l.type === 'surface3d').flatMap((l) => {
       const d = l.data as SurfaceLoad3D;
-      const q = surfaceDownwardPressure(d, model.quads as never, model.nodes as never, model.plates as never);
+      const q = surfaceDownwardPressure({ ...d, ...checked.get(l) }, model.quads as never, model.nodes as never, model.plates as never);
       return q === null ? [] : [{ quadId: d.quadId, q, ...(d.on ? { on: d.on } : {}) }];
     });
     // A nodal load that names its member (a floor's share at a re-entrant corner) weighs on it,

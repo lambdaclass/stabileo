@@ -95,7 +95,7 @@ const zh: Translations = {
   'loadPlan.gravity.differentSlopedDeck': "覆盖梁格的倾斜壳单元必须与梁格属于同一板面。",
   'loadPlan.gravity.deckCheckFailed': "板面壳单元覆盖检查失败：{detail}",
   'loadPlan.gravity.exposureCheckFailed': "未覆盖条带的暴露情况检查失败：{detail}",
-  'loadPlan.gravity.mixedExposure': "未覆盖条带同时包含屋面区和楼面区。",
+  'loadPlan.gravity.mixedExposure': "已分配的区域同时包含屋面和楼面。请明确指定各区域的荷载。",
   'loadPlan.gravity.stripSpan': "未覆盖条带超过板面允许的最大跨度。",
   'loadPlan.gravity.headroomCheckFailed': "未覆盖条带的净空检查失败：{detail}",
   'loadPlan.gravity.stripHeadroom': "未覆盖条带的楼层净高不足或无法确定。",

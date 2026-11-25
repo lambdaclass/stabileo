@@ -770,7 +770,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
   const panelMode = input.gravity?.mode === 'panels';
   const layout = gravityLayout(input.model, {
     mode: panelMode ? 'panels' : 'width', slab: input.gravity?.slab, spanAxis: input.gravity?.spanAxis, loadEveryPanel: input.gravity?.loadEveryPanel,
-    tributaryWidth: input.tributaryWidth,
+    tributaryWidth: input.tributaryWidth, uniformPressure: !input.roof && !input.snow?.enabled,
   });
   derivation.push(...layout.notes);
   if (layout.oneSided.length > 0) {
