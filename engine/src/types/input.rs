@@ -1378,7 +1378,7 @@ pub struct ImperfectionInput {
 // ==================== Time History Analysis ====================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TimeHistoryInput {
     pub solver: SolverInput,
     pub densities: HashMap<String, f64>,
@@ -1407,7 +1407,7 @@ fn default_newmark_beta() -> f64 { 0.25 }
 fn default_newmark_gamma() -> f64 { 0.5 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TimeForceRecord {
     pub time: f64,
     pub loads: Vec<SolverNodalLoad>,
@@ -1416,7 +1416,7 @@ pub struct TimeForceRecord {
 // ==================== 3D Time History ====================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TimeHistoryInput3D {
     #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
@@ -1448,7 +1448,7 @@ pub struct TimeHistoryInput3D {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TimeForceRecord3D {
     pub time: f64,
     pub loads: Vec<SolverNodalLoad3D>,

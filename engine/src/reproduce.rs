@@ -121,7 +121,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: cause:A"]
     fn time_history_rejects_cross_dimension_excitation() {
         use crate::solver::time_integration::{solve_time_history_2d, solve_time_history_3d};
         use crate::types::{TimeHistoryInput, TimeHistoryInput3D};

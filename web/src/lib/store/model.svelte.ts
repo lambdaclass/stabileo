@@ -62,7 +62,7 @@ import { weldTolerance } from '../model/weld-tolerance';
 import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
 import { loadFixture, validateFixtureInput, type JSONModel } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
-import { constraintsAcrossDepth, constraintsCoupledAcrossPlane, constraintsInXZ } from '../engine/constraint-2d-remap';
+import { constraintsAcrossDepth, constraintsInXZ, planeConstraintRefusal } from '../engine/constraint-2d-remap';
 import { addsLoop, singleSolveModel } from '../engine/case-effects';
 import { t } from '../i18n';
 import { GRAVITY_SELF_WEIGHT, planSelfWeight, type SelfWeightLoad } from '../engine/analysis-settings';
@@ -1252,7 +1252,8 @@ function createModelStore() {
     const { nodes, elements, supports, loads, loadCases, materials, sections, connectors } = model;
     const source = { nodes, elements, supports, loads, loadCases, materials, sections, connectors, analysis };
     const constraints = plane === 'xy' ? model.constraints : constraintsInXZ(plane, model.constraints);
-    if (constraintsCoupledAcrossPlane(constraints).length > 0) return t('svc.constraintsCoupled');
+    const constraintRefusal = planeConstraintRefusal(constraints, plane === 'yz' ? 'offsetX' : 'offsetY');
+    if (constraintRefusal) throw new ModelInputError(constraintRefusal);
     if (plane !== 'xy' && constraintsAcrossDepth(plane, model.constraints, (id) => model.nodes.get(id)).length > 0) return t('svc.constraintsCoupled');
     if (plane === 'xy') {
       return { ...source, constraints };

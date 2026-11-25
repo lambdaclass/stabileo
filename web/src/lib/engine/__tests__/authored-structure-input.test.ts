@@ -184,7 +184,7 @@ it('keeps omitted legacy fields and a supported constraint alias solvable', asyn
   expect(validateAndSolve2D(modelStore.model)).toEqual(plane);
 });
 
-describe.skipIf(process.env.STABILEO_REPRODUCE_STRUCTURE_DISPATCH !== '1')('known wrong result: cause:A', () => {
+describe('lossy structural dispatch', () => {
   it.each([null, false, 1])('refuses a supplied release container %s before canonicalisation can erase it', async (releaseI) => {
     const before = modelStore.snapshot();
     const badSnapshot = {

@@ -5,3 +5,5 @@ The authored model boundary checks support frames and restraint masks, spring cu
 The shared 2D and 3D solver wires, their options, and the audited material, section, support, constraint, connector and spatial distributed-load records report unknown field names. These checks apply to native JSON decoding and to the WASM object and JSON inputs that use the same types. The 2D wire still accepts documented empty shell collections, and the confirmed planar aliases and optional fields keep their meaning.
 
 Previous versions could return a result after treating an unknown combination method as linear, a string-valued release flag as rigid, or an unsupported constraint field as absent. Correct the reported field before relying on a result from an affected model. The changes leave the equations and solver tolerances in place.
+
+Plane analysis refuses equations that couple its degrees of freedom to those outside the plane. Time-history solves and certificates refuse unknown request fields, including ground acceleration fields for the other dimension. Sending a 2D ground-motion record to the previous 3D decoder could produce a result with the excitation omitted.

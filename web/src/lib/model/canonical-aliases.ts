@@ -67,7 +67,9 @@ export const NO_RELEASE: Readonly<Release> = Object.freeze({ my: false, mz: fals
 function member(record: object): Fields {
   return normalizeRecord(record, 'member', (copy, conflict) => {
     for (const [field, alias] of [['releaseI', 'hingeStart'], ['releaseJ', 'hingeEnd']]) {
-      const release = { ...copy[field] as Fields | undefined };
+      const value = copy[field];
+      if (value !== undefined && (value === null || typeof value !== 'object' || Array.isArray(value))) continue;
+      const release = { ...value as Fields | undefined };
       reconcile(release, 'mz', copy[alias], alias, () => conflict(field + '.mz', alias));
       copy[field] = { ...NO_RELEASE, ...release };
       delete copy[alias];

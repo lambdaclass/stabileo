@@ -34,6 +34,8 @@
  *       XZ (the model's plane)  → the rigid body, rotation tied (as the space solve ties it)
  */
 
+import { t } from '../i18n';
+import { ModelInputError } from './model-input-numbers';
 import type { Constraint3D } from './types-3d';
 import type { DrawPlane } from '../geometry/plane-projection';
 
@@ -87,13 +89,22 @@ const DOF_3D_TO_2D: Record<number, number> = { 0: 0, 2: 1, 4: 2 };
  * The plane solver has no out-of-plane DOFs, so it cannot keep that coupling (#466).
  */
 export function constraintsCoupledAcrossPlane(constraints: readonly Constraint3D[]): Constraint3D[] {
-  return constraints.filter((c) => {
-    if (c.type === 'linearMPC') {
-      const live = c.terms.filter((t) => t.coefficient !== 0);
-      return live.some((t) => DOF_3D_TO_2D[t.dof] !== undefined) && live.some((t) => DOF_3D_TO_2D[t.dof] === undefined);
-    }
-    return c.type === 'eccentricConnection' && (c.offsetY ?? 0) !== 0;
-  });
+  return constraints.filter(couplesAcrossPlane);
+}
+
+function couplesAcrossPlane(c: Constraint3D): boolean {
+  if (c.type === 'linearMPC') {
+    const live = c.terms.filter((t) => t.coefficient !== 0);
+    return live.some((t) => DOF_3D_TO_2D[t.dof] !== undefined) && live.some((t) => DOF_3D_TO_2D[t.dof] === undefined);
+  }
+  return c.type === 'eccentricConnection' && (c.offsetY ?? 0) !== 0;
+}
+
+export function planeConstraintRefusal(constraints: readonly Constraint3D[] = [], offsetField: 'offsetX' | 'offsetY' = 'offsetY'): string | null {
+  const index = constraints.findIndex(couplesAcrossPlane);
+  if (index === -1) return null;
+  const field = constraints[index]!.type === 'linearMPC' ? 'terms' : offsetField;
+  return `${t('svc.constraintsCoupled')} constraints[${index}].${field}`;
 }
 
 const NORMAL: Record<DrawPlane, 'x' | 'y' | 'z'> = { xz: 'y', yz: 'x', xy: 'z' };
@@ -134,6 +145,8 @@ function mapDofs(dofs: number[] | undefined): number[] | undefined {
  */
 export function constraintsTo2D(constraints: Constraint3D[] | undefined): Constraint3D[] {
   if (!constraints || constraints.length === 0) return [];
+  const refusal = planeConstraintRefusal(constraints);
+  if (refusal) throw new ModelInputError(refusal);
   const out: Constraint3D[] = [];
   for (const c of constraints) {
     switch (c.type) {

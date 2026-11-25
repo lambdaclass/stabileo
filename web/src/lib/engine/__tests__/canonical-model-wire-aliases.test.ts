@@ -188,7 +188,7 @@ it('accepts documented empty planar shell collections, aliases and linear option
   expect(() => solve_pdelta_2d(JSON.stringify(loadedShell), 20, 1e-9)).toThrow(/Shell elements require 3D analysis/);
 });
 
-it.skipIf(process.env.STABILEO_REPRODUCE_STRUCTURE_DISPATCH !== '1').each([false, true])(
+it.each([false, true])(
   'refuses an excitation field used by the other dimension (space = %s)', (is3D) => {
     const solver = is3D ? space : planar;
     const solve = is3D ? solve_time_history_3d : solve_time_history_2d;

@@ -60,7 +60,7 @@ import { planarPointMomentWithoutProjection, planarPointProjectionTooShort } fro
 import { planarLoadDirection } from './planar-load-direction';
 import { prestressToSolver } from './prestress';
 import { hasCaseDisplacements, imposedOf, imposedUnsupported, supportsWithImposed, casesWithDisplacements } from './case-displacements';
-import { constraintsTo2D } from './constraint-2d-remap';
+import { constraintsTo2D, planeConstraintRefusal } from './constraint-2d-remap';
 import { initPool, isPoolReady, solveParallel, solve2DInWorker, solve3DInWorker, pdelta3DInWorker, PoolUnavailableError, nonlinearSessionInWorker, checkSolveCancelled, type NonlinearSolveOptions } from './solver-pool';
 import { i18n, t, tp } from '../i18n';
 // Counts app-side structural-solve dispatches so browser tests can assert that a
@@ -553,7 +553,7 @@ export function shellsRequirePro3D(model: Pick<ModelData, 'plates' | 'quads'>): 
  * reuses downstream.
  */
 function preflightModel2D(model: ModelData): { error: string | null; connectedNodes: Set<number> } {
-  const shellRefusal = shellsRequirePro3D(model);
+  const shellRefusal = shellsRequirePro3D(model) ?? planeConstraintRefusal(model.constraints);
   if (shellRefusal) return { error: shellRefusal, connectedNodes: new Set() };
   // Constraints are stored in 3D semantics; the 2D solver speaks [ux, uz, ry].
   // Remap ONCE and use the result for both the connectivity preflight and the

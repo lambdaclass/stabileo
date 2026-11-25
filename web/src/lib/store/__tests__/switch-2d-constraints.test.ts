@@ -163,7 +163,8 @@ describe('a plane model keeps the meaning of the constraints of a space model st
       modelStore.addElement(b, d, 'frame');
       const free = modelStore.solve3D(false, false, true);
       if (!free || typeof free === 'string') throw new Error(`3D: ${String(free)}`);
-      modelStore.addConstraint(tie(b, d));
+      const constraint = tie(b, d);
+      modelStore.addConstraint(constraint);
       const tied = modelStore.solve3D(false, false, true);
       if (!tied || typeof tied === 'string') throw new Error(`3D: ${String(tied)}`);
       const sway = (r: typeof tied) => inPlane3D(plane, r.displacements.find((x) => x.nodeId === b)!)[0];
@@ -172,8 +173,10 @@ describe('a plane model keeps the meaning of the constraints of a space model st
         expect(take()).toEqual({ ok: false, error: 'slice.constraintsCoupled' });
         expect(uiStore.simplified2DMode).toBe(false);
       }
-      expect(modelStore.solve(false, plane)).toBe(t('svc.constraintsCoupled'));
-      expect(modelStore.buildSolverInput(false, plane)).toBeNull();
+      const field = constraint.type === 'linearMPC' ? 'terms' : 'offsetX';
+      const refusal = `${t('svc.constraintsCoupled')} constraints[0].${field}`;
+      expect(modelStore.solve(false, plane)).toBe(refusal);
+      expect(() => modelStore.buildSolverInput(false, plane)).toThrow(refusal);
     });
   }
 

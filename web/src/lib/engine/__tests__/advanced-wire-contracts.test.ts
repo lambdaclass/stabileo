@@ -205,16 +205,12 @@ describe('advanced analyses: 3D payloads the engine accepts', () => {
       ...r.peakDisplacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0)),
     );
     const res = solveTimeHistory3D({ ...base, groundAccelX: accel });
-    // The old payload sent the 2D pair { groundAccel, groundDirection },
-    // which hit no field on TimeHistoryInput3D: `has_ground` stayed false
-    // and the run fell back to the static loads as the only excitation. If
-    // the per-axis series is ever dropped again, `res` degenerates to
-    // exactly this — so the two peaks must differ.
-    const dropped = solveTimeHistory3D({ ...base, groundAccel: accel, groundDirection: 'X' });
+    expect(() => solveTimeHistory3D({ ...base, groundAccel: accel, groundDirection: 'X' })).toThrow('groundAccel');
+    const zeroGround = solveTimeHistory3D(base);
     expect(res.nSteps).toBe(50);
     expect(peak(res)).toBeGreaterThan(0);
     expect(
-      Math.abs(peak(res) - peak(dropped)),
+      Math.abs(peak(res) - peak(zeroGround)),
       'a run whose ground motion arrived must not match a zero-ground run',
     ).toBeGreaterThan(1e-6);
   });

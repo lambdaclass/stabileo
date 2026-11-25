@@ -55,7 +55,7 @@ describe('constraintsTo2D mapping', () => {
     const out = constraintsTo2D([
       {
         type: 'eccentricConnection', masterNode: 1, slaveNode: 2,
-        offsetX: 0.1, offsetY: 9, offsetZ: 0.5,
+        offsetX: 0.1, offsetY: 0, offsetZ: 0.5,
         releases: [true, false, false, false, true, false], // ux + ry released
       },
     ]);
@@ -68,9 +68,12 @@ describe('constraintsTo2D mapping', () => {
     ]);
   });
 
-  it('drops linearMPC equations touching out-of-plane DOFs, maps the rest (θ = −ry: the ry coefficient turns)', () => {
-    const out = constraintsTo2D([
+  it('refuses a mixed linearMPC and drops equations confined to out-of-plane DOFs', () => {
+    expect(() => constraintsTo2D([
       { type: 'linearMPC', terms: [{ nodeId: 1, dof: 0, coefficient: 1 }, { nodeId: 2, dof: 1, coefficient: -1 }] },
+    ])).toThrow('constraints[0].terms');
+    const out = constraintsTo2D([
+      { type: 'linearMPC', terms: [{ nodeId: 1, dof: 3, coefficient: 1 }, { nodeId: 2, dof: 1, coefficient: -1 }] },
       { type: 'linearMPC', terms: [{ nodeId: 1, dof: 2, coefficient: 1 }, { nodeId: 2, dof: 4, coefficient: -1 }] },
     ]);
     expect(out.length).toBe(1);
