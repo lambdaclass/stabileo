@@ -275,40 +275,6 @@ pub fn solve_corotational_3d_by(
     )
 }
 
-/// What 3D co-rotational analysis accepts, with its curved beams expanded: validation, the
-/// pre-solve gates, and the refusals of shells, shear-centre offsets, prescribed
-/// displacements, thermal loads, warping and connectors, in that order.
-pub(super) fn admitted_3d(
-    input: &SolverInput3D,
-    analysis: &str,
-) -> Result<(SolverInput3D, Vec<StructuredDiagnostic>), String> {
-    crate::solver::linear::validate_input_3d(input)?;
-    crate::solver::linear::refuse_initial_free_rotation_loads_3d(input)?;
-    let pre_solve_diags = crate::solver::pre_solve_gates::run_pre_solve_gates_3d(input);
-
-    let has_shells = !input.plates.is_empty()
-        || !input.quads.is_empty()
-        || !input.quad9s.is_empty()
-        || !input.solid_shells.is_empty()
-        || !input.curved_shells.is_empty();
-    if has_shells {
-        return Err("Corotational 3D solver does not support shell elements. \
-            Use the linear solver for models with plates, quads, or shells."
-            .into());
-    }
-    crate::solver::feature_gates::refuse_3d(
-        input,
-        analysis,
-        &[
-            crate::solver::feature_gates::Feature::PrescribedDisplacements,
-            crate::solver::feature_gates::Feature::ThermalLoads,
-            crate::solver::feature_gates::Feature::Warping,
-        ],
-    )?;
-    crate::element::connector::refuse_for_corotational_3d(input, analysis)?;
-    Ok((checked_corotational_frames_3d(input)?, pre_solve_diags))
-}
-
 fn corotational_3d(
     input: &SolverInput3D,
     max_iter: usize,
@@ -331,8 +297,31 @@ fn corotational_3d(
     }
     incremental::validate(method)?;
 
-    let (expanded, pre_solve_diags) = admitted_3d(input, "Corotational analysis")?;
-    let input = &expanded;
+    crate::solver::linear::validate_input_3d(input)?;
+    crate::solver::linear::refuse_initial_free_rotation_loads_3d(input)?;
+    let pre_solve_diags = crate::solver::pre_solve_gates::run_pre_solve_gates_3d(input);
+
+    let has_shells = !input.plates.is_empty()
+        || !input.quads.is_empty()
+        || !input.quad9s.is_empty()
+        || !input.solid_shells.is_empty()
+        || !input.curved_shells.is_empty();
+    if has_shells {
+        return Err("Corotational 3D solver does not support shell elements. \
+            Use the linear solver for models with plates, quads, or shells."
+            .into());
+    }
+    crate::solver::feature_gates::refuse_3d(
+        input,
+        "Corotational analysis",
+        &[
+            crate::solver::feature_gates::Feature::PrescribedDisplacements,
+            crate::solver::feature_gates::Feature::ThermalLoads,
+            crate::solver::feature_gates::Feature::Warping,
+        ],
+    )?;
+    crate::element::connector::refuse_for_corotational_3d(input, "Corotational analysis")?;
+    let input = &checked_corotational_frames_3d(input)?;
     let dof_num = DofNumbering::build_3d(input);
 
     if dof_num.n_free == 0 {
