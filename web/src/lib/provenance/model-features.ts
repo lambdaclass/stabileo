@@ -618,7 +618,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (generatedSeismic) f.add('generatedSeismicLoads');
   if (unverifiedSeismicLoads(s).length > 0) f.add(UNVERIFIED_SEISMIC_FEATURE);
   const hasShellGravity = shellGravity || ['shellLevel', 'slopedShells', 'partlyUnderShells'].some(kind => loadNoteKeys.has(`loadPlan.gravity.${kind}`));
-  if (quads.length && (s.constraints ?? []).some(c => c?.type === 'rigidLink' || c?.type === 'eccentricConnection')) {
+  if (quads.length && Array.isArray(s.constraints) && s.constraints.some(c => c?.type === 'rigidLink' || c?.type === 'eccentricConnection')) {
     f.add('roofShellFrameLinks');
   }
   if (hasShellGravity || (gravityMode === 'panels' && memberGravity && quads.length > 0)) f.add('generatedPanelGravityShells');

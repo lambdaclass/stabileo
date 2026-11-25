@@ -565,6 +565,7 @@ export function accountLoads2D(
 }
 
 type SlabSource = { name: string; cells: ReadonlyMap<string, number>; expected: Wrench };
+type SlabDelivery = { cells: Map<string, number>; rows: SolverLoad3D[] };
 
 function addSlabSource(targets: Map<number, SlabSource>, id: number, receipt: SlabSource, factor: number) {
   const previous = targets.get(id);
@@ -666,11 +667,11 @@ export function loadAccounting3D(
       const intents = checkAuthored ? (!effects || effects.targets.has(caseId) ? scenarioExpected(caseId) : []) : undefined;
       verifyScenarioSurfaceLoads(source, caseId, loads, sources, label, intents);
       if (slabs) {
-        const delivered = new Map<number, { cells: Map<string, number>; rows: SolverLoad3D[] }>();
+        const delivered = new Map<number, SlabDelivery>();
         for (const load of loads) {
           if (load.type !== 'surface3d' || load.data.fromDef === undefined || !sourceNames.has(load.data.fromDef)) continue;
           const id = load.data.fromDef;
-          const batch = delivered.get(id) ?? { cells: new Map(), rows: [] };
+          const batch: SlabDelivery = delivered.get(id) ?? { cells: new Map(), rows: [] };
           const cell = slabCell(load.data.on, load.data.quadId);
           batch.cells.set(cell, (batch.cells.get(cell) ?? 0) + 1);
           for (const row of sources.get(load) ?? []) batch.rows.push(row);

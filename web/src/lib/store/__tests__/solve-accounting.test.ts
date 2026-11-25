@@ -1504,13 +1504,13 @@ it('#2470 equal and opposite generated rows cannot hide lost planar loads', asyn
   const cases = [{ id: 1, name: 'D', type: 'D' }, { id: 2, name: 'L', type: 'L' }];
   const combos = [{ id: 1, name: 'D only', factors: [{ caseId: 1, factor: 1 }] }];
   const generated = (q: number): ModelData => ({
-    ...model, loadCases: cases, loads: [q, -q].map((p, index) => ({
-      type: 'distributed', data: {
-        id: index + 1, caseId: 1, elementId, qI: p, qJ: p, isGlobal: true, generatedBy: 'generator',
-      },
-    })),
+    ...model, loadCases: cases,
+    loads: [
+      { type: 'distributed', data: { id: 1, caseId: 1, elementId, qI: q, qJ: q, isGlobal: true, generatedBy: 'generator' } },
+      { type: 'distributed', data: { id: 2, caseId: 1, elementId, qI: -2 * q, qJ: -2 * q, a: 0.5, b: 1.5, isGlobal: true, generatedBy: 'generator' } },
+    ],
   });
-  const below = generated(2 ** -34);
+  const below = generated(2 ** -35);
   const paths = {
     linear: () => validateAndSolve2D(below),
     async: () => validateAndSolve2DAsync(below),
@@ -1522,9 +1522,10 @@ it('#2470 equal and opposite generated rows cannot hide lost planar loads', asyn
     expect.soft(await outcome(solve), path).toMatch(/case.*#1.*Fy/i);
   }
   const above = 2 ** -33;
-  expect(buildSolverInput2D(generated(above))?.loads).toEqual([above, -above].map(q => ({
-    type: 'distributed', data: { elementId, qI: q, qJ: q },
-  })));
+  expect(buildSolverInput2D(generated(above))?.loads).toEqual([
+    { type: 'distributed', data: { elementId, qI: above, qJ: above } },
+    { type: 'distributed', data: { elementId, qI: -2 * above, qJ: -2 * above, a: 0.5, b: 1.5 } },
+  ]);
 });
 
 it('#2470 a generated planar self-weight source cannot disappear below the conversion cutoff', async () => {
