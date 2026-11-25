@@ -2794,6 +2794,54 @@ fn issue_1753_an_independent_load_cannot_mask_constraint_cancellation() {
 }
 
 #[test]
+#[ignore = "known wrong result: #2532"]
+fn planar_nodal_metadata_preserves_native_solve_and_component_refusals() {
+    use dedaliano_engine::reproduce::{canonical_results_json, linear_hashes};
+    use dedaliano_engine::solver::{linear::solve_2d_typed, pdelta::solve_pdelta_2d};
+    use dedaliano_engine::types::units::ElasticInput2D;
+    use serde_json::{json, Value};
+
+    let model: Value = serde_json::from_str(include_str!("fixtures/cantilever-input.json")).unwrap();
+    let solve = |model: &Value| {
+        let json = model.to_string();
+        let replay = linear_hashes(&json, false);
+        let typed = serde_json::from_str::<ElasticInput2D>(&json)
+            .map_err(|error| error.to_string())
+            .and_then(|input| solve_2d_typed(&input))
+            .and_then(|result| canonical_results_json(&result));
+        let pdelta = serde_json::from_value::<SolverInput>(model.clone())
+            .map_err(|error| error.to_string())
+            .and_then(|input| solve_pdelta_2d(&input, 20, 1e-9))
+            .and_then(|result| {
+                assert!(result.converged);
+                canonical_results_json(&result.results)
+            });
+        [
+            replay.map(|result| format!("{} {}", result.input_sha256, result.results_sha256)),
+            typed,
+            pdelta,
+        ]
+    };
+
+    let control = solve(&model).map(Result::unwrap).map(Ok);
+    for metadata in [json!({"id": 17}), json!({"caseId": 2}), json!({"id": 17, "caseId": 2})] {
+        let mut annotated = model.clone();
+        let data = annotated["loads"][0]["data"].as_object_mut().unwrap();
+        data.extend(metadata.as_object().unwrap().clone());
+        assert_eq!(solve(&annotated), control, "{metadata}");
+    }
+
+    let mut unsupported = model;
+    unsupported["loads"][0]["data"]["id"] = json!(17);
+    unsupported["loads"][0]["data"]["caseId"] = json!(2);
+    unsupported["loads"][0]["data"]["bw"] = json!(1);
+    for result in solve(&unsupported) {
+        let error = result.expect_err("a planar solve accepted a bimoment");
+        assert!(error.contains("unknown field `bw`"), "{error}");
+    }
+}
+
+#[test]
 fn issue_1753_three_hinge_arch_snapshot_preserves_exact_statics_and_current_warnings() {
     let mut fixture: serde_json::Value = serde_json::from_str(include_str!("../../web/src/lib/templates/fixtures/three-hinge-arch.json")).unwrap();
     for node in fixture["nodes"].as_array_mut().unwrap() {

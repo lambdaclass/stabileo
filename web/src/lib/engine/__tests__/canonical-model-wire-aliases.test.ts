@@ -90,25 +90,38 @@ it('#2532 WASM JSON solvers preserve positional settlements and rotations', () =
   expect(linear(positional)).toEqual(linear(named));
 });
 
+const planarWithNodalLoad = (data: object) => ({ ...planar, loads: [{ type: 'nodal', data }] });
+const path = { maxSteps: 3, nSteps: 3, controlNode: 2, controlDof: 1, targetDisplacement: -0.005, tolerance: 1e-9 };
+const planarWireSolvers = {
+  ...planarSolvers,
+  replay: (input: object) => JSON.parse(engine_reproduce_hashes(JSON.stringify(input), false)),
+  arc: (solver: object) => JSON.parse(solve_arc_length(JSON.stringify({ ...path, solver }))).results,
+  displacement: (solver: object) => JSON.parse(solve_displacement_control(JSON.stringify({ ...path, solver }))).results,
+};
+
+it.skip.each(Object.entries(planarWireSolvers))('#2532 WASM %s accepts planar nodal metadata and still refuses components', (_name, solve) => {
+  const load = planar.loads[0]!.data;
+  const reference = solve(planar);
+  for (const metadata of [{ id: 17 }, { caseId: 2 }, { id: 17, caseId: 2 }]) {
+    expect.soft(() => solve(planarWithNodalLoad({ ...load, ...metadata })), JSON.stringify(metadata)).not.toThrow();
+  }
+  const annotated = { ...load, id: 17, caseId: 2 };
+  expect.soft(() => solve(planarWithNodalLoad({ ...annotated, bw: 1 }))).toThrow(/unknown field `bw`/);
+  expect.soft(() => solve(planarWithNodalLoad({ ...annotated, mx: 1 }))).toThrow(/out-of-plane nodal component `mx`/);
+  expect(solve(planarWithNodalLoad(annotated))).toEqual(reference);
+});
+
 it('#2532 WASM planar decoders refuse out-of-plane nodal components', () => {
-  const model = (data: object) => ({ ...planar, loads: [{ type: 'nodal', data }] });
-  const path = { maxSteps: 3, nSteps: 3, controlNode: 2, controlDof: 1, targetDisplacement: -0.005, tolerance: 1e-9 };
-  const solvers = {
-    ...planarSolvers,
-    replay: (input: object) => JSON.parse(engine_reproduce_hashes(JSON.stringify(input), false)),
-    arc: (solver: object) => JSON.parse(solve_arc_length(JSON.stringify({ ...path, solver }))).results,
-    displacement: (solver: object) => JSON.parse(solve_displacement_control(JSON.stringify({ ...path, solver }))).results,
-  };
   const zero = { nodeId: 2, fx: 0, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 };
   const control = planar.loads[0]!.data;
-  for (const [name, solve] of Object.entries(solvers)) {
-    expect.soft(() => solve(model({ ...zero, mx: 5 })), name).toThrow(/out-of-plane nodal component `mx`/);
-    expect.soft(() => solve(model({ ...control, mx: -5 })), name).toThrow(/out-of-plane nodal component `mx`/);
-    expect.soft(() => solve(model({ ...control, momentX: 5 })), name).toThrow(/unknown field `momentX`/);
+  for (const [name, solve] of Object.entries(planarWireSolvers)) {
+    expect.soft(() => solve(planarWithNodalLoad({ ...zero, mx: 5 })), name).toThrow(/out-of-plane nodal component `mx`/);
+    expect.soft(() => solve(planarWithNodalLoad({ ...control, mx: -5 })), name).toThrow(/out-of-plane nodal component `mx`/);
+    expect.soft(() => solve(planarWithNodalLoad({ ...control, momentX: 5 })), name).toThrow(/unknown field `momentX`/);
     for (const field of ['fy', 'mx', 'mz']) {
-      expect.soft(() => solve(model({ ...zero, [field]: -5 })), name).toThrow(new RegExp(`out-of-plane nodal component .${field}.`));
+      expect.soft(() => solve(planarWithNodalLoad({ ...zero, [field]: -5 })), name).toThrow(new RegExp(`out-of-plane nodal component .${field}.`));
     }
-    expect.soft(solve(model({ ...zero, ...control, mx: -0 })), name).toEqual(solve(planar));
+    expect.soft(solve(planarWithNodalLoad({ ...zero, ...control, mx: -0 })), name).toEqual(solve(planar));
   }
 });
 
