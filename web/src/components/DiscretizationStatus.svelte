@@ -199,7 +199,7 @@
         <div class="note" title={localizeEngineText(adaptive.reason)} data-testid="discretization-adaptive-failed">{studyFailure(adaptive.reason, 'discretization.adaptiveFailed')}</div>
       {:else if adaptive.status === 'done'}
         {@const last = adaptive.report.passes[adaptive.report.passes.length - 1]}
-        <div class="note" class:warning={adaptive.report.status !== 'converged'} data-testid="discretization-adaptive-status">
+        <div class="note" class:warning={adaptive.report.status !== 'converged'} title={adaptive.report.refused ? localizeEngineText(adaptive.report.refused) : undefined} data-testid="discretization-adaptive-status">
           {t(`discretization.adaptiveStatus.${adaptive.report.status}`).replace('{pct}', approxPercent(last.relativeError)).replace('{n}', String(last.shellElements))}
         </div>
         <table data-testid="discretization-adaptive-passes">

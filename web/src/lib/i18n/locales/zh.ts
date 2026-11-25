@@ -12802,6 +12802,8 @@ const zh: Translations = {
   "discretization.adaptiveStatus.elementLimit": "在达到目标前已到单元数上限：{n} 个单元时估计 {pct}",
   "discretization.adaptiveStatus.unestimable": "无法估计此网格的误差，因此无处可细化",
   "discretization.adaptiveStatus.nothingToRefine": "高于目标，但估计器未指向任何单元：{n} 个单元时估计 {pct}",
+  "discretization.adaptiveStatus.depthLimit": "误差不再下降：它位于网格已经最细的地方，例如集中荷载下、点支座处或角点。用 {n} 个单元估计为 {pct}",
+  "discretization.adaptiveStatus.refused": "下一个网格无法求解，因此这是最后一个已求解的网格：用 {n} 个单元估计为 {pct}",
   "discretization.adaptiveNote": "这是估计，不是证书。细化后的网格不会替换您的模型。",
   "discretization.col.pass": "遍数",
   "discretization.col.elements": "单元",

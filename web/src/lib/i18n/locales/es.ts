@@ -13231,6 +13231,8 @@ const es: Record<string, string> = {
   'discretization.adaptiveStatus.elementLimit': "Se llegó al límite de elementos sin alcanzar el objetivo: {pct} estimado con {n} elementos",
   'discretization.adaptiveStatus.unestimable': "El error de esta malla no se puede estimar, así que no hay dónde refinar",
   'discretization.adaptiveStatus.nothingToRefine': "Por encima del objetivo, pero el estimador no señala ningún elemento: {pct} estimado con {n} elementos",
+  'discretization.adaptiveStatus.depthLimit': "El error deja de bajar: está donde la malla ya es lo más fina posible, como bajo una carga puntual, en un apoyo puntual o en una esquina. {pct} estimado con {n} elementos",
+  'discretization.adaptiveStatus.refused': "La malla siguiente no se pudo resolver, así que esta es la última que sí: {pct} estimado con {n} elementos",
   'discretization.adaptiveNote': "Estimación, no certificado. La malla refinada no reemplaza a tu modelo.",
   'discretization.col.pass': "Pasada",
   'discretization.col.elements': "Elementos",

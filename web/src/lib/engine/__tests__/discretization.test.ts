@@ -87,6 +87,11 @@ describe('discretization error', () => {
     expect(() => callCertify('adapt_mesh_3d', [plateWire(2), { fraction: 2 }])).toThrow(/marked fraction/);
     expect(() => callCertify('adapt_mesh_3d', [plateWire(2), { maxPasses: 1000 }])).toThrow(/At most 50 passes/);
     expect(() => callCertify('adapt_mesh_3d', [plateWire(2), { maxElements: 1e9 }])).toThrow(/At most 200000 shell elements/);
+    expect(() => callCertify('adapt_mesh_3d', [plateWire(2), { maxLevels: 17 }])).toThrow(/At most 16 levels/);
+    const shallow = callCertify('adapt_mesh_3d', [plateWire(4), { target: 1e-6, maxLevels: 1, maxPasses: 12 }]);
+    expect(shallow.status).toBe('depthLimit');
+    expect(shallow.refused).toBeUndefined();
+    expect(Object.keys(shallow.input.quads).length).toBeLessThanOrEqual(64);
   });
 
   it('the estimate is never certified, and falls as the mesh is refined', () => {

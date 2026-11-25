@@ -13242,6 +13242,8 @@ const en: Record<string, string> = {
   'discretization.adaptiveStatus.elementLimit': "Element limit reached before the target: {pct} estimated with {n} elements",
   'discretization.adaptiveStatus.unestimable': "The error of this mesh cannot be estimated, so there is nowhere to refine",
   'discretization.adaptiveStatus.nothingToRefine': "Over the target, but the estimator points at no element: {pct} estimated with {n} elements",
+  'discretization.adaptiveStatus.depthLimit': "The error stops coming down: it sits where the mesh is already at its finest, as under a point load, at a point support or in a corner. {pct} estimated with {n} elements",
+  'discretization.adaptiveStatus.refused': "The next mesh could not be solved, so this is the last one that was: {pct} estimated with {n} elements",
   'discretization.adaptiveNote': "An estimate, not a certificate. The refined mesh does not replace your model.",
   'discretization.col.pass': "Pass",
   'discretization.col.elements': "Elements",

@@ -12718,6 +12718,8 @@ const tr: Translations = {
   'discretization.adaptiveStatus.elementLimit': "Hedeften önce eleman sınırına ulaşıldı: {n} elemanla tahmini {pct}",
   'discretization.adaptiveStatus.unestimable': "Bu ağın hatası tahmin edilemiyor, bu yüzden sıklaştırılacak yer yok",
   'discretization.adaptiveStatus.nothingToRefine': "Hedefin üzerinde, ancak tahminci hiçbir elemanı göstermiyor: {n} elemanla tahmini {pct}",
+  'discretization.adaptiveStatus.depthLimit': "Hata artık azalmıyor: ağın zaten en sık olduğu yerde, örneğin tekil bir yükün altında, noktasal bir mesnette ya da bir köşede bulunuyor. {n} elemanla {pct} tahmin edildi",
+  'discretization.adaptiveStatus.refused': "Sonraki ağ çözülemedi; bu, çözülebilen son ağdır: {n} elemanla {pct} tahmin edildi",
   'discretization.adaptiveNote': "Tahmindir, sertifika değildir. Sıklaştırılmış ağ modelinizin yerini almaz.",
   'discretization.col.pass': "Geçiş",
   'discretization.col.elements': "Elemanlar",

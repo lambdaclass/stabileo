@@ -154,7 +154,15 @@ mesh, with its hanging-node constraints, is not something the app's model can ho
   (default 5 %), otherwise mark, refine the marked elements and solve again. It also stops at
   `maxPasses` (8; at most 50) and before a pass that would exceed `maxElements` (20 000; at most
   200 000), and says which
-  (`status`: `converged`, `passLimit`, `elementLimit`, `unestimable`, `nothingToRefine`). Every
+  (`status`: `converged`, `passLimit`, `elementLimit`, `unestimable`, `nothingToRefine`,
+  `depthLimit`, `refused`). An element `maxLevels` halvings (10; at most 16) finer than the
+  smallest of the model given is not split again, and when the elements that may still be
+  split cannot carry the marked share of the error the loop stops with `depthLimit`: under a
+  point force a membrane's strain energy is unbounded, and at a point support or a corner the
+  error may fall slower than any target, so without the limit the loop refined one node until
+  the solver refused the elements (at 6·10⁻⁸ m on a 1 m model) and the report was lost. A
+  mesh that cannot be made, solved or estimated after the first now ends the loop at the last
+  one that was (`refused`, with the reason). Every
   pass is reported with its element, node and hanging-node counts and its estimate. The result
   is the last model solved and its estimate. Like the estimate that drives it, it is not a
   certificate.

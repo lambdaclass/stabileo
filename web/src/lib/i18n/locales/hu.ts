@@ -12351,6 +12351,8 @@ const hu: Translations = {
   "discretization.adaptiveStatus.elementLimit": "Az elemkorlát a cél előtt betelt: {pct} becsült hiba {n} elemmel",
   "discretization.adaptiveStatus.unestimable": "Ennek a hálónak a hibája nem becsülhető, ezért nincs hol finomítani",
   "discretization.adaptiveStatus.nothingToRefine": "A cél felett, de a becslő egyetlen elemre sem mutat: {pct} becsült hiba {n} elemmel",
+  "discretization.adaptiveStatus.depthLimit": "A hiba nem csökken tovább: ott van, ahol a háló már a legsűrűbb, például koncentrált erő alatt, pontszerű támasznál vagy sarokban. {pct} becsülve {n} elemmel",
+  "discretization.adaptiveStatus.refused": "A következő hálót nem lehetett kiszámítani, ezért ez az utolsó, amelyet igen: {pct} becsülve {n} elemmel",
   "discretization.adaptiveNote": "Becslés, nem tanúsítvány. A finomított háló nem váltja fel a modellt.",
   "discretization.col.pass": "Lépés",
   "discretization.col.elements": "Elemek",

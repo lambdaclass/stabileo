@@ -12884,6 +12884,8 @@ const pt: Translations = {
   'discretization.adaptiveStatus.elementLimit': "Limite de elementos atingido sem alcançar o objetivo: {pct} estimado com {n} elementos",
   'discretization.adaptiveStatus.unestimable': "O erro desta malha não pode ser estimado, portanto não há onde refinar",
   'discretization.adaptiveStatus.nothingToRefine': "Acima do objetivo, mas o estimador não aponta nenhum elemento: {pct} estimado com {n} elementos",
+  'discretization.adaptiveStatus.depthLimit': "O erro deixa de diminuir: está onde a malha já é a mais fina possível, como sob uma carga pontual, em um apoio pontual ou em um canto. {pct} estimado com {n} elementos",
+  'discretization.adaptiveStatus.refused': "A malha seguinte não pôde ser resolvida, portanto esta é a última que foi: {pct} estimado com {n} elementos",
   'discretization.adaptiveNote': "Estimativa, não certificado. A malha refinada não substitui o seu modelo.",
   'discretization.col.pass': "Passada",
   'discretization.col.elements': "Elementos",

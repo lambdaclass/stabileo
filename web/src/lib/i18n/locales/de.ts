@@ -12709,6 +12709,8 @@ const de: Translations = {
   'discretization.adaptiveStatus.elementLimit': "Elementgrenze vor dem Ziel erreicht: {pct} geschätzt mit {n} Elementen",
   'discretization.adaptiveStatus.unestimable': "Der Fehler dieses Netzes lässt sich nicht schätzen, daher gibt es nichts zu verfeinern",
   'discretization.adaptiveStatus.nothingToRefine': "Über dem Ziel, aber der Schätzer zeigt auf kein Element: {pct} geschätzt mit {n} Elementen",
+  'discretization.adaptiveStatus.depthLimit': "Der Fehler sinkt nicht weiter: Er liegt dort, wo das Netz bereits am feinsten ist, etwa unter einer Einzellast, an einem Punktlager oder in einer Ecke. {pct} geschätzt mit {n} Elementen",
+  'discretization.adaptiveStatus.refused': "Das nächste Netz konnte nicht berechnet werden, daher ist dies das letzte berechnete: {pct} geschätzt mit {n} Elementen",
   'discretization.adaptiveNote': "Eine Schätzung, kein Zertifikat. Das verfeinerte Netz ersetzt Ihr Modell nicht.",
   'discretization.col.pass': "Durchlauf",
   'discretization.col.elements': "Elemente",
