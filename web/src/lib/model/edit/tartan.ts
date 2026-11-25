@@ -14,6 +14,7 @@ export type AxisLines = readonly [readonly number[], readonly number[], readonly
 
 /** The lines along one axis: the forced coordinates, and between each pair as many more as keep the gap at or under `size`. */
 export function axisStations(forced: readonly number[], size: number): number[] {
+  if (!(size > 0)) throw new RangeError(`mesh size ${size}`);
   const s = [...forced].sort((x, y) => x - y).filter((x, i, all) => i === 0 || x - all[i - 1]! > MERGE);
   const out: number[] = [];
   for (let i = 0; i < s.length; i++) {

@@ -14,7 +14,7 @@ import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { historyStore, modelStore, uiStore } from '..';
 import {
-  addPlateLoad, applyPlateMeshes, clearPlateMesh, createPlate, deletePlate, meshBeforeAnalysis, physicalPlates, planPlateMesh,
+  addPlateLoad, applyPlateMeshes, clearPlateMesh, createPlate, deletePlate, meshBeforeAnalysis, physicalPlates, planPlateMesh, planPlateMeshes,
   plateOfShell, plateShellKeys, plateStatus, preparePlatesForAnalysis, setShellProperties,
 } from '../physical-plates';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
@@ -276,6 +276,27 @@ describe('a physical plate', () => {
     applyPlateMeshes([planPlateMesh(B, { size: 0.3, element: 'quad', followMembers: true })!]);
     expect(shared().a).toEqual(shared().b);
     expect([plateStatus(A), plateStatus(B)]).toEqual(['current', 'current']);
+  });
+
+  it('meshes two plates coarser together again, the old mesh leaving no line behind; keeps a rectangle cell along v; plans as it applies', async () => {
+    modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
+    const n = (x: number, y: number) => modelStore.addNode(x, y, 0);
+    const a0 = n(0, 0), a1 = n(5, 0), a2 = n(5, 5), a3 = n(0, 5), b1 = n(10, 0), b2 = n(10, 5);
+    const A = (createPlate({ outline: [a0, a1, a2, a3], materialId: 1, thickness: 0.2 }) as { id: number }).id;
+    const B = (createPlate({ outline: [a1, b1, b2, a2], materialId: 1, thickness: 0.2 }) as { id: number }).id;
+    const ys = (id: number) => [...new Set((modelStore.model.groups.get(id)!.members.quads ?? []).flatMap((q) => modelStore.quads.get(q)!.nodes).map((k) => Math.round(modelStore.nodes.get(k)!.y * 1000) / 1000))].sort((p, q) => p - q);
+    const fine = { size: 0.25, element: 'quad' as const, followMembers: true, pattern: 'rect' as const, sizeV: 0.25 };
+    applyPlateMeshes([planPlateMesh(A, fine)!, planPlateMesh(B, fine)!]);
+    expect(ys(A)).toHaveLength(21);
+    const coarse = { ...fine, size: 1, sizeV: 1 };
+    applyPlateMeshes([planPlateMesh(A, coarse)!, planPlateMesh(B, coarse)!]);
+    expect(ys(A)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(ys(B)).toEqual([0, 1, 2, 3, 4, 5]);
+    const tall = { ...coarse, sizeV: 0.5 };
+    const plans = (await planPlateMeshes([A, B], tall))!;
+    applyPlateMeshes(plans);
+    expect(ys(A)).toHaveLength(11);
+    expect(plans.map((p) => p.cells)).toEqual([A, B].map((id) => modelStore.model.groups.get(id)!.members.quads!.length));
   });
 
   it.each([false, true])('shares a frame station between three incident plates (reverse=%s)', reverse => {
