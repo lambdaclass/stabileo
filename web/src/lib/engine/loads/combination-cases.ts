@@ -277,8 +277,9 @@ function combineChoiceSlots(slots: readonly PickSlot[], rule: string): CasePick[
 
 type ResolvedAction = { id: number; symbol: LoadSymbol; cases: CombinationCase[] };
 type ResolvedTerm = { action: ResolvedAction; factor: number };
+type ActiveAction = ResolvedAction & { magnitude: number };
 
-function principalPatternActions(terms: readonly ResolvedTerm[], actions: readonly ResolvedAction[], rule: string): ResolvedAction[] {
+function activeActions(terms: readonly ResolvedTerm[], actions: readonly ResolvedAction[], rule: string): Map<number, ActiveAction> {
   const factors = terms.map(({ action, factor }) => ({ caseId: action.id, factor }));
   let totals: ReturnType<typeof sumCombinationFactors>;
   try {
@@ -287,14 +288,18 @@ function principalPatternActions(terms: readonly ResolvedTerm[], actions: readon
     if (!(error instanceof EngineCheckError)) throw error;
     throw new EngineMessageError(msg('combos.refused.factorTotal', { rule }));
   }
-  const variable = totals.flatMap(({ caseId, factor }) => {
-    const action = actions[caseId]!;
-    return factor !== 0 && VARIABLE.has(action.symbol) ? [{ action, magnitude: Math.abs(factor) }] : [];
-  });
+  const active = new Map<number, ActiveAction>();
+  for (const { caseId, factor } of totals) {
+    if (factor !== 0) active.set(caseId, { ...actions[caseId]!, magnitude: Math.abs(factor) });
+  }
+  return active;
+}
+
+function principalPatternActions(actions: readonly ActiveAction[]): ActiveAction[] {
+  const variable = actions.filter(action => VARIABLE.has(action.symbol));
   const principal = variable.reduce((largest, { magnitude }) => Math.max(largest, magnitude), 0);
-  return variable.filter(({ action, magnitude }) => magnitude >= principal - 1e-9
-    && !isDirectional(action.symbol) && action.cases.some(c => c.pattern))
-    .map(({ action }) => action);
+  return variable.filter(({ magnitude, symbol, cases }) =>
+    magnitude >= principal - 1e-9 && !isDirectional(symbol) && cases.some(c => c.pattern));
 }
 
 export function expandCombinations(
@@ -321,12 +326,12 @@ export function expandCombinations(
       const retained = retainedBySymbol.get(symbol);
       if (retained) availableBySymbol.set(symbol, [...(bySymbol.get(symbol) ?? []), ...retained]);
     }
-    const activeTerms = spec.terms.filter((t) => t.factor !== 0);
+    const nonzeroTerms = spec.terms.filter((t) => t.factor !== 0);
     const legacyFlatRoof = usesLegacyFlatRoofSnow(spec.notes);
     const seismic = hasSeismicProvenance(spec);
-    const actions: ResolvedAction[] = [];
+    const resolvedActions: ResolvedAction[] = [];
     const actionsByKey = new Map<string, ResolvedAction>();
-    const terms = activeTerms.map(t => {
+    const resolvedTerms = nonzeroTerms.map(t => {
       if (t.snowBasis && t.symbol !== 'S') throw new EngineMessageError(msg('snow.refused.flatRoofCase'));
       if (t.symbol === 'S' && !t.snowBasis && legacyFlatRoof && seismic) throw new EngineMessageError(msg('snow.refused.legacyCombination'));
       const { key, snowBasis: basis } = resolveCombinationAction(t, legacyFlatRoof);
@@ -350,15 +355,21 @@ export function expandCombinations(
         if (counterparts.some(c => !covered(c))) throw new EngineMessageError(missingSnowCase);
       }
       if ((basis === 'flatRoof' || all.length > 0) && !matching.length) throw new EngineMessageError(missingSnowCase);
-      const action = { id: actions.length, symbol: t.symbol, cases: matching };
-      actions.push(action);
+      const action = { id: resolvedActions.length, symbol: t.symbol, cases: matching };
+      resolvedActions.push(action);
       actionsByKey.set(key, action);
       return { action, factor: t.factor };
     }).filter(({ action }) => action.cases.length > 0);
-    if (activeTerms.some(t => !availableBySymbol.has(t.symbol))) continue;
-    const tied = principalPatternActions(terms, actions, spec.label);
+    if (nonzeroTerms.some(t => !availableBySymbol.has(t.symbol))) continue;
+    const activeById = activeActions(resolvedTerms, resolvedActions, spec.label);
+    const actions = [...activeById.values()];
+    const terms = resolvedTerms.flatMap(({ action, factor }) => {
+      const active = activeById.get(action.id);
+      return active ? [{ action: active, factor }] : [];
+    });
+    const tied = principalPatternActions(actions);
     const alternativeSymbols = symbolsByAlternativeSet(actions.flatMap(action => action.cases));
-    const slotsFor = (varying: ResolvedAction | null): PickSlot[] => {
+    const slotsFor = (varying: ActiveAction | null): PickSlot[] => {
       const slots: Array<PickSlot | ChoiceSlot> = [];
       const slotsByAction = new Map<string, ChoiceSlot>();
       for (const { action, factor } of terms) {

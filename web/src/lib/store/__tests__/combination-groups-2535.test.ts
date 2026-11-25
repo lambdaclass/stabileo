@@ -260,11 +260,14 @@ it('#2535 directional picks retain the factor and the allowed senses of each cas
 });
 
 it('#2535 two terms selecting the same case contribute both factors to one pick', () => {
-  const second = { ...namedFloorTerm, factor: -namedFloorTerm.factor };
+  const second = { ...namedFloorTerm, factor: -namedFloorTerm.factor / 2 };
   const selections = expandCombinations([spec(namedFloorTerm, roofTerm, second)], alternativeCases);
   expect(selections.map(c => c.factors)).toEqual([
     [...alternativeFactors[0]!, { caseId: floor.id, factor: second.factor }], alternativeFactors[1],
   ]);
+  const canceled = { ...namedFloorTerm, factor: -namedFloorTerm.factor };
+  expect(expandCombinations([spec(namedFloorTerm, roofTerm, canceled)], alternativeCases)
+    .map(c => c.factors)).toEqual([alternativeFactors[1]]);
 });
 
 for (const group of [undefined, roof.group]) for (const match of ['name', 'explicit ID'] as const) {
@@ -1024,9 +1027,8 @@ const zeroSnowTerms = [flatRoofTerm, singleZeroSnow, cancellationRoof] as const;
 const admissibleSnowFactors = [3, 4].map(caseId => [
   { caseId: 2, factor: flatRoofTerm.factor }, { caseId, factor: cancellationRoof.factor },
 ]);
-const knownWrongCanceledChoice = process.env.RUN_KNOWN_WRONG === '2569' ? it : it.skip;
 
-knownWrongCanceledChoice('known wrong result: #2569 split snow cancellation has the same shared-set choices as one zero term', () => {
+it('#2569 split snow cancellation has the same shared-set choices as one zero term', () => {
   for (const patternsInCompanions of [false, true]) {
     const options = { patternsInCompanions };
     const zero = expandCombinations([spec(...zeroSnowTerms)], cancellationCases, options);
@@ -1051,7 +1053,7 @@ it('#2569 either sign of a nonzero snow total still supplies an alternative', ()
   }
 });
 
-knownWrongCanceledChoice('known wrong result: #2569 canceled actions cannot turn a wind direction into a required shared set', () => {
+it('#2569 canceled actions cannot turn a wind direction into a required shared set', () => {
   const cases = [
     { id: 1, type: 'W', name: 'Wind X', alternatives: 'wind' },
     { id: 2, type: 'L', name: 'Live', alternatives: 'wind' },
@@ -1097,7 +1099,7 @@ function expectCancellationReactions(reactions: number[]) {
 }
 
 for (const route of combinationRoutes) {
-  knownWrongCanceledChoice(`known wrong result: #2569 ${route} includes flat-roof snow in every generated combination`, async () => {
+  it(`#2569 ${route} includes flat-roof snow in every generated combination`, async () => {
     const { base, tip } = cancellationProject(route === '2D linear' ? '2d' : '3d', cancellationTerms);
     expect(deserializeProject(serializeProject())).toBe(true);
     addGeneratedCombinations(projectCombinations());
@@ -1106,7 +1108,7 @@ for (const route of combinationRoutes) {
 }
 
 for (const writer of ['composite cases', 'Auto Loads'] as const) {
-  knownWrongCanceledChoice(`known wrong result: #2569 ${writer} keeps flat-roof snow after rule-template import`, async () => {
+  it(`#2569 ${writer} keeps flat-roof snow after rule-template import`, async () => {
     const { base, tip, rule } = cancellationProject('3d', cancellationTerms);
     const template = rulesToTemplate([rule], 'Snow cancellation');
     modelStore.setCombinationRules([]);
