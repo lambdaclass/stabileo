@@ -6,7 +6,7 @@
   import ProCombinationsList from './ProCombinationsList.svelte';
   import { windCaseReversible } from '../../lib/store/wind-reversal';
   import ProFloorLoadSection from './ProFloorLoadSection.svelte';
-  import { expandCombinations, presentSymbols, type CaseCombination } from '../../lib/engine/loads/combination-cases';
+  import { expandCombinations, modelCombinationCases, presentSymbols, type CaseCombination } from '../../lib/engine/loads/combination-cases';
   import { activeCombinationFactors, addGeneratedCombinations, addCompositeCases, generatedCombinationMatcher, templateCombinationSpecs } from '../../lib/store/generated-combinations';
   import { withNotionalVariants } from '../../lib/engine/loads/notional-combinations';
   import { modelStore, uiStore } from '../../lib/store';
@@ -74,7 +74,7 @@
    * and an ASD set labelled "service", which is allowable-stress design and not serviceability.
    */
   function candidatesFrom(template: ComboTemplate): CandidateCombo[] {
-    const cases = modelStore.model.loadCases;
+    const cases = modelCombinationCases(modelStore.model);
     const present = presentSymbols(cases);
     // The project's rules carry their own factors: W is written as the engineer means it. Each
     // says which code wrote it and what for, so service ones stay out of design.
