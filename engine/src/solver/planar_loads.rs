@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use num_rational::BigRational;
 use num_traits::{ToPrimitive, Zero};
 
-use super::assembly::{self, InclinedTransformData2D};
+use super::assembly::{self, InclinedTransformData2D, PlanarLoadContribution, PlanarLoadVisitor};
 use super::dof::DofNumbering;
 use crate::types::*;
 
@@ -23,18 +23,44 @@ impl ExactSum {
         }
     }
 
-    fn projected(row: [f64; 2], components: &[Option<Self>; 2]) -> Option<Self> {
+    fn add_scaled(&mut self, sum: &Self, coefficient: f64) {
+        if coefficient == 0.0 {
+            return;
+        }
+        self.nonfinite |= sum.nonfinite;
+        if coefficient == 1.0 {
+            self.value += &sum.value;
+            return;
+        }
+        if sum.value.is_zero() && coefficient.is_finite() {
+            return;
+        }
+        match BigRational::from_float(coefficient) {
+            Some(coefficient) => self.value += coefficient * &sum.value,
+            None => self.nonfinite = true,
+        }
+    }
+
+    fn is_zero(&self) -> bool {
+        !self.nonfinite && self.value.is_zero()
+    }
+
+    fn rounded(self) -> f64 {
+        if self.nonfinite {
+            f64::NAN
+        } else {
+            self.value.to_f64().unwrap_or(f64::NAN)
+        }
+    }
+
+    fn projected(row: [f64; 2], components: [Option<&Self>; 2]) -> Self {
         let mut result = Self::default();
         for (coefficient, component) in row.into_iter().zip(components) {
             if let Some(component) = component {
-                match BigRational::from_float(coefficient) {
-                    Some(coefficient) => result.value += coefficient * &component.value,
-                    None => result.nonfinite = true,
-                }
-                result.nonfinite |= component.nonfinite;
+                result.add_scaled(component, coefficient);
             }
         }
-        (result.nonfinite || !result.value.is_zero()).then_some(result)
+        result
     }
 }
 
@@ -51,30 +77,62 @@ impl Weight {
         }
     }
 
+    fn complement(&self) -> Self {
+        Self {
+            value: 1.0 - self.value,
+            exact: BigRational::from_integer(1.into()) - &self.exact,
+        }
+    }
+
     fn term(&self, sum: &ExactSum) -> BigRational {
         &self.exact * &sum.value
     }
 }
 
-fn combined<'a>(terms: impl Iterator<Item = (Option<&'a ExactSum>, &'a Weight)>) -> f64 {
-    let mut sum = None;
+fn combined<'a>(terms: impl Iterator<Item = (Option<&'a ExactSum>, &'a Weight)>) -> ExactSum {
+    let mut sum = ExactSum::default();
     for (term, weight) in terms {
         let Some(term) = term else { continue };
         if weight.value == 0.0 {
             continue;
         }
-        if term.nonfinite || !weight.value.is_finite() {
-            return f64::NAN;
-        }
+        sum.nonfinite |= term.nonfinite || !weight.value.is_finite();
         if !term.value.is_zero() {
-            let term = weight.term(term);
-            sum = Some(match sum {
-                Some(previous) => previous + term,
-                None => term,
-            });
+            sum.value += weight.term(term);
         }
     }
-    sum.map_or(0.0, |sum: BigRational| sum.to_f64().unwrap_or(f64::NAN))
+    sum
+}
+
+pub(super) fn affine_positions(base: &[f64], target: &[f64], factor: f64) -> Vec<f64> {
+    match factor {
+        0.0 => base.to_vec(),
+        1.0 => target.to_vec(),
+        _ => {
+            let target_weight = Weight::new(factor);
+            let base_weight = target_weight.complement();
+            base.iter()
+                .zip(target)
+                .map(|(&base, &target)| {
+                    if base == target {
+                        return target;
+                    }
+                    let mut base_sum = ExactSum::default();
+                    base_sum.add(base);
+                    let mut target_sum = ExactSum::default();
+                    target_sum.add(target);
+                    combined(
+                        [
+                            (Some(&base_sum), &base_weight),
+                            (Some(&target_sum), &target_weight),
+                        ]
+                        .into_iter(),
+                    )
+                    .rounded()
+                })
+                .collect()
+        }
+    }
 }
 
 #[derive(Default)]
@@ -83,10 +141,10 @@ struct MemberActions {
     thermal: [ExactSum; 6],
 }
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum LoadPosition {
-    Transverse(usize, Option<u64>, Option<u64>),
-    Axial(usize, Option<u64>, Option<u64>),
+    Transverse(usize, u64, u64),
+    Axial(usize, u64, u64),
     Point(usize, u64),
 }
 
@@ -98,14 +156,25 @@ fn position_bits(value: f64) -> u64 {
     }
 }
 
-fn member_load_components(load: &SolverLoad) -> Option<(LoadPosition, [f64; 3])> {
+fn member_load_components(
+    load: &SolverLoad,
+    lengths: &HashMap<usize, f64>,
+) -> Option<(LoadPosition, [f64; 3])> {
     match load {
         SolverLoad::Distributed(d) => Some((
-            LoadPosition::Transverse(d.element_id, d.a.map(position_bits), d.b.map(position_bits)),
+            LoadPosition::Transverse(
+                d.element_id,
+                position_bits(d.a.unwrap_or(0.0)),
+                position_bits(d.b.unwrap_or(lengths[&d.element_id])),
+            ),
             [d.q_i, d.q_j, 0.0],
         )),
         SolverLoad::AxialDistributed(d) => Some((
-            LoadPosition::Axial(d.element_id, d.a.map(position_bits), d.b.map(position_bits)),
+            LoadPosition::Axial(
+                d.element_id,
+                position_bits(d.a.unwrap_or(0.0)),
+                position_bits(d.b.unwrap_or(lengths[&d.element_id])),
+            ),
             [d.q_i, d.q_j, 0.0],
         )),
         SolverLoad::PointOnElement(p) => Some((
@@ -135,10 +204,49 @@ fn set_member_load_components(load: &mut SolverLoad, [first, second, third]: [f6
     }
 }
 
+struct MemberComponents {
+    position: LoadPosition,
+    load: SolverLoad,
+    components: [ExactSum; 3],
+}
+
+fn sum_member_components(input: &SolverInput) -> Vec<MemberComponents> {
+    let nodes: HashMap<_, _> = input.nodes.values().map(|node| (node.id, node)).collect();
+    let lengths = input
+        .elements
+        .values()
+        .filter_map(|element| {
+            let i = nodes.get(&element.node_i)?;
+            let j = nodes.get(&element.node_j)?;
+            let (dx, dz) = (j.x - i.x, j.z - i.z);
+            Some((element.id, (dx * dx + dz * dz).sqrt()))
+        })
+        .collect();
+    let mut positions = HashMap::<LoadPosition, usize>::new();
+    let mut members = Vec::<MemberComponents>::new();
+    for load in &input.loads {
+        let Some((position, components)) = member_load_components(load, &lengths) else {
+            continue;
+        };
+        let index = *positions.entry(position).or_insert_with(|| {
+            members.push(MemberComponents {
+                position,
+                load: load.clone(),
+                components: Default::default(),
+            });
+            members.len() - 1
+        });
+        for (sum, value) in members[index].components.iter_mut().zip(components) {
+            sum.add(value);
+        }
+    }
+    members
+}
+
 struct PlanarLoadPattern {
     forces: Vec<Option<ExactSum>>,
     actions: BTreeMap<usize, MemberActions>,
-    descriptions: Vec<SolverLoad>,
+    members: Vec<MemberComponents>,
 }
 
 impl PlanarLoadPattern {
@@ -147,48 +255,90 @@ impl PlanarLoadPattern {
         dofs: &DofNumbering,
         transforms: &[InclinedTransformData2D],
     ) -> Self {
+        let members = sum_member_components(input);
+        let mut loads: Vec<_> = input
+            .loads
+            .iter()
+            .filter(|load| matches!(load, SolverLoad::Nodal(_) | SolverLoad::Thermal(_)))
+            .cloned()
+            .collect();
+        let mut unit = ExactSum::default();
+        unit.add(1.0);
+        let mut weights = vec![&unit; loads.len()];
+        for member in &members {
+            for (i, weight) in member.components.iter().enumerate() {
+                if weight.is_zero() {
+                    continue;
+                }
+                let mut load = member.load.clone();
+                let mut basis = [0.0; 3];
+                basis[i] = 1.0;
+                set_member_load_components(&mut load, basis);
+                loads.push(load);
+                weights.push(weight);
+            }
+        }
+
         let mut forces = Vec::new();
         forces.resize_with(dofs.n_total, || None::<ExactSum>);
         let mut actions: BTreeMap<usize, MemberActions> = BTreeMap::new();
         assembly::visit_load_vector_2d(
             input,
-            &input.loads,
+            &loads,
             dofs,
-            false,
-            true,
-            &mut |i, value, _| {
-                if value != 0.0 {
-                    forces[i].get_or_insert_with(ExactSum::default).add(value);
+            PlanarLoadVisitor::Local(&mut |contribution| match contribution {
+                PlanarLoadContribution::Nodal(i, value) => {
+                    if value != 0.0 {
+                        forces[i].get_or_insert_with(ExactSum::default).add(value);
+                    }
                 }
-            },
-            &mut |id, thermal, values| {
-                let actions = actions.entry(id).or_default();
-                let sums = if thermal {
-                    &mut actions.thermal
-                } else {
-                    &mut actions.dead
-                };
-                for (sum, value) in sums.iter_mut().zip(values) {
-                    sum.add(value);
+                PlanarLoadContribution::Member(local) => {
+                    let weight = weights[local.index];
+                    let actions = actions.entry(local.element_id).or_default();
+                    let sums = if local.thermal {
+                        &mut actions.thermal
+                    } else {
+                        &mut actions.dead
+                    };
+                    let weighted = local.actions.map(|value| {
+                        let mut sum = ExactSum::default();
+                        sum.add_scaled(weight, value);
+                        sum
+                    });
+                    for (sum, action) in sums.iter_mut().zip(&weighted) {
+                        sum.add_scaled(action, 1.0);
+                    }
+                    let [c, s] = local.direction;
+                    for offset in [0, 3] {
+                        let [axial, transverse, moment] =
+                            std::array::from_fn(|i| &weighted[offset + i]);
+                        for (i, row) in [[c, -s], [s, c]].into_iter().enumerate() {
+                            if let Some(dof) = local.dofs[offset + i] {
+                                let force = forces[dof].get_or_insert_with(ExactSum::default);
+                                force.add_scaled(axial, row[0]);
+                                force.add_scaled(transverse, row[1]);
+                            }
+                        }
+                        if let Some(dof) = local.dofs[offset + 2] {
+                            forces[dof]
+                                .get_or_insert_with(ExactSum::default)
+                                .add_scaled(moment, 1.0);
+                        }
+                    }
                 }
-            },
+            }),
         );
         for transform in transforms {
             let components = transform.dofs.map(|i| forces[i].take());
             for (dof, row) in transform.dofs.into_iter().zip(transform.r) {
-                forces[dof] = ExactSum::projected(row, &components);
+                let force = ExactSum::projected(row, components.each_ref().map(Option::as_ref));
+                forces[dof] = (!force.is_zero()).then_some(force);
             }
         }
-        let descriptions = input
-            .loads
-            .iter()
-            .filter(|load| member_load_components(load).is_some())
-            .cloned()
-            .collect();
         Self {
             forces,
             actions,
-            descriptions,
+            members,
         }
     }
 }
@@ -254,12 +404,59 @@ impl PlanarLoadPath {
         if self.interpolate_base {
             let mut state = self.weighted(factor, 1.0 - factor);
             if let Some((_, base)) = &mut state.base {
-                base.exact = BigRational::from_integer(1.into()) - &state.target.1.exact;
+                *base = state.target.1.complement();
             }
             state
         } else {
             self.weighted(factor, 1.0)
         }
+    }
+}
+
+pub(super) struct PlanarDisplacements<'a> {
+    solver: &'a [f64],
+    axes: HashMap<usize, Vec<[[f64; 2]; 2]>>,
+}
+
+impl<'a> PlanarDisplacements<'a> {
+    pub(super) fn new(solver: &'a [f64], transforms: &[InclinedTransformData2D]) -> Self {
+        let mut axes = HashMap::<_, Vec<_>>::new();
+        for transform in transforms {
+            axes.entry(transform.node_id).or_default().push(transform.r);
+        }
+        Self { solver, axes }
+    }
+
+    pub(super) fn member_rotation(
+        &self,
+        node_ids: [usize; 2],
+        dofs: &[[usize; 2]; 2],
+        length: f64,
+        [c, s]: [f64; 2],
+    ) -> [f64; 2] {
+        let mut chord = [ExactSum::default(), ExactSum::default()];
+        chord[0].add(length);
+        for ((node, dofs), sign) in node_ids.into_iter().zip(dofs).zip([-1.0, 1.0]) {
+            let mut global = dofs.map(|dof| {
+                let mut sum = ExactSum::default();
+                sum.add(self.solver[dof]);
+                sum
+            });
+            if let Some(axes) = self.axes.get(&node) {
+                for &[[a, b], [c, d]] in axes {
+                    global = [[a, c], [b, d]]
+                        .map(|row| ExactSum::projected(row, global.each_ref().map(Some)));
+                }
+            }
+            let [x, z] = global;
+            for (component, row) in chord.iter_mut().zip([[c, s], [-s, c]]) {
+                component.add_scaled(&x, sign * row[0]);
+                component.add_scaled(&z, sign * row[1]);
+            }
+        }
+        let [axial, transverse] = chord.map(ExactSum::rounded);
+        let length = axial.hypot(transverse);
+        [axial / length, transverse / length]
     }
 }
 
@@ -276,11 +473,11 @@ impl PlanarLoadState<'_> {
 
     pub(super) fn forces(&self) -> Vec<f64> {
         (0..self.target.0.forces.len())
-            .map(|i| combined(self.patterns().map(|(p, w)| (p.forces[i].as_ref(), w))))
+            .map(|i| combined(self.patterns().map(|(p, w)| (p.forces[i].as_ref(), w))).rounded())
             .collect()
     }
 
-    pub(super) fn actions(&self, id: usize, thermal: bool) -> [f64; 6] {
+    fn exact_actions(&self, id: usize, thermal: bool) -> [ExactSum; 6] {
         std::array::from_fn(|i| {
             combined(self.patterns().map(|(p, w)| {
                 let sum = p
@@ -292,29 +489,48 @@ impl PlanarLoadState<'_> {
         })
     }
 
+    pub(super) fn actions(&self, id: usize) -> [f64; 6] {
+        self.exact_actions(id, false).map(ExactSum::rounded)
+    }
+
+    pub(super) fn frame_actions(&self, id: usize, rotation: impl FnOnce() -> [f64; 2]) -> [f64; 6] {
+        let mut dead = self.exact_actions(id, false);
+        if [0, 1, 3, 4].into_iter().any(|i| !dead[i].is_zero()) {
+            let [c, s] = rotation();
+            for offset in [0, 3] {
+                let local = [Some(&dead[offset]), Some(&dead[offset + 1])];
+                let [axial, shear] = [[c, s], [-s, c]].map(|row| ExactSum::projected(row, local));
+                dead[offset] = axial;
+                dead[offset + 1] = shear;
+            }
+        }
+        let mut thermal = self.exact_actions(id, true).into_iter();
+        dead.map(|mut dead| {
+            dead.add_scaled(&thermal.next().unwrap(), 1.0);
+            dead.rounded()
+        })
+    }
+
     pub(super) fn descriptions(&self) -> Vec<SolverLoad> {
         let mut positions = HashMap::<LoadPosition, usize>::new();
-        let mut loads = Vec::<(SolverLoad, [BigRational; 3])>::new();
+        let mut loads = Vec::<(SolverLoad, [ExactSum; 3])>::new();
         for (pattern, weight) in self.patterns().filter(|(_, weight)| weight.value != 0.0) {
-            for load in &pattern.descriptions {
-                let (position, components) = member_load_components(load).unwrap();
-                let entry = *positions.entry(position).or_insert_with(|| {
-                    loads.push((load.clone(), Default::default()));
+            for member in &pattern.members {
+                let entry = *positions.entry(member.position).or_insert_with(|| {
+                    loads.push((member.load.clone(), Default::default()));
                     loads.len() - 1
                 });
                 let (_, sums) = &mut loads[entry];
-                for (sum, component) in sums.iter_mut().zip(components) {
-                    let mut term = ExactSum::default();
-                    term.add(component);
-                    *sum += weight.term(&term);
+                for (sum, component) in sums.iter_mut().zip(&member.components) {
+                    sum.nonfinite |= component.nonfinite || !weight.value.is_finite();
+                    sum.value += weight.term(component);
                 }
             }
         }
         loads
             .into_iter()
             .map(|(mut load, sums)| {
-                let components = sums.map(|value| value.to_f64().unwrap_or(f64::NAN));
-                set_member_load_components(&mut load, components);
+                set_member_load_components(&mut load, sums.map(ExactSum::rounded));
                 load
             })
             .collect()

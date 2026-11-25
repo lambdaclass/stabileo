@@ -47,11 +47,15 @@ fn displacement(displacements: &[Displacement], node_id: usize) -> &Displacement
     displacements.iter().find(|d| d.node_id == node_id).unwrap()
 }
 
-fn check_inclined(solve: impl Fn(&SolverInput) -> (AnalysisResults, f64)) {
-    let mut solver: SolverInput = serde_json::from_str(include_str!(
+fn inclined_model() -> SolverInput {
+    serde_json::from_str(include_str!(
         "../../../../../scripts/tests/fixtures/nonlinear-rounding-2560-inclined.json"
     ))
-    .unwrap();
+    .unwrap()
+}
+
+fn check_inclined(solve: impl Fn(&SolverInput) -> (AnalysisResults, f64)) {
+    let mut solver = inclined_model();
     let (combined, factor) = solve(&solver);
     let SolverLoad::PointOnElement(load) = &mut solver.loads[0] else {
         unreachable!();
@@ -81,7 +85,6 @@ fn check_inclined(solve: impl Fn(&SolverInput) -> (AnalysisResults, f64)) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2560"]
 fn issue_2560_inclined_member_projection_arc() {
     check_inclined(|solver| {
         let result = solve_arc_length(&arc_input(solver)).unwrap();
@@ -91,7 +94,6 @@ fn issue_2560_inclined_member_projection_arc() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2560"]
 fn issue_2560_inclined_member_projection_corotation() {
     check_inclined(|solver| {
         let result = solve_corotational_2d(solver, 20, TOLERANCE, 4, false).unwrap();
@@ -101,7 +103,6 @@ fn issue_2560_inclined_member_projection_corotation() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2560"]
 fn issue_2560_displacement_control_reconstructs_the_scaled_tie() {
     let mut solver = tied_springs();
     solver.constraints = serde_json::from_str(
@@ -126,11 +127,15 @@ fn issue_2560_displacement_control_reconstructs_the_scaled_tie() {
     }
 }
 
-fn check_coincident(solve: impl Fn(&SolverInput) -> (AnalysisResults, f64)) {
-    let mut solver: SolverInput = serde_json::from_str(include_str!(
+fn coincident_model() -> SolverInput {
+    serde_json::from_str(include_str!(
         "../../../../../scripts/tests/fixtures/nonlinear-rounding-2560-coincident.json"
     ))
-    .unwrap();
+    .unwrap()
+}
+
+fn check_coincident(solve: impl Fn(&SolverInput) -> (AnalysisResults, f64)) {
+    let mut solver = coincident_model();
     let (split, factor) = solve(&solver);
     solver.loads.remove(1);
     let SolverLoad::PointOnElement(load) = &mut solver.loads[0] else {
@@ -154,7 +159,6 @@ fn check_coincident(solve: impl Fn(&SolverInput) -> (AnalysisResults, f64)) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2560"]
 fn issue_2560_coincident_member_loads_arc() {
     check_coincident(|solver| {
         let result = solve_arc_length(&arc_input(solver)).unwrap();
@@ -164,7 +168,6 @@ fn issue_2560_coincident_member_loads_arc() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2560"]
 fn issue_2560_coincident_member_loads_displacement_control() {
     check_coincident(|solver| {
         let input = displacement_input(solver.clone(), 4, 0.75, 1);
@@ -175,7 +178,6 @@ fn issue_2560_coincident_member_loads_displacement_control() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2560"]
 fn issue_2560_coincident_member_loads_corotation() {
     check_coincident(|solver| {
         let result = solve_corotational_2d(solver, 20, TOLERANCE, 4, true).unwrap();
@@ -215,7 +217,6 @@ fn check_prescribed_ramp(
 }
 
 #[test]
-#[ignore = "known wrong result: #2560"]
 fn issue_2560_prescribed_position_at_last_accepted_increment() {
     check_prescribed_ramp(|target, state| {
         solve_corotational_2d_from(target, Some(state), 4, 1e-20, 4, false).unwrap()
@@ -224,10 +225,110 @@ fn issue_2560_prescribed_position_at_last_accepted_increment() {
 
 #[cfg(feature = "experimental-nonlinear")]
 #[test]
-#[ignore = "known wrong result: #2560"]
 fn issue_2560_prescribed_position_in_experimental_corotation() {
     use crate::solver::experimental_nonlinear::{solve_corotational_2d_by, IterationMethod};
     check_prescribed_ramp(|target, state| {
         solve_corotational_2d_by(target, Some(state), 4, 1e-20, 4, IterationMethod::Newton).unwrap()
     });
+}
+
+#[test]
+fn issue_2560_a_pure_normal_member_action_does_not_drive_the_roller() {
+    let mut solver = inclined_model();
+    let SolverLoad::PointOnElement(load) = &mut solver.loads[0] else {
+        unreachable!();
+    };
+    load.p = 1.0;
+    load.px = None;
+    assert_eq!(
+        solve_arc_length(&arc_input(&solver)).unwrap_err(),
+        "Zero reference load"
+    );
+    let result = solve_corotational_2d(&solver, 20, TOLERANCE, 4, false).unwrap();
+    assert!(result.converged);
+    assert_eq!(displacement(&result.results.displacements, 2).ux, 0.0);
+    assert_eq!(displacement(&result.results.displacements, 2).uz, 0.0);
+
+    let input = displacement_input(solver, 2, 0.1, 7);
+    assert_eq!(
+        solve_displacement_control(&input).unwrap_err(),
+        "Displacement-control analysis does not support inclined supports (support 2 (node 2)); it would solve the model without them. Remove them or use an analysis that supports them."
+    );
+}
+
+#[test]
+fn issue_2560_coincident_member_loads_across_an_arc_start_and_reference() {
+    let mut target = coincident_model();
+    let mut base = target.clone();
+    base.loads.truncate(1);
+    target.loads.remove(0);
+    let initial = solve_corotational_2d(&base, 20, TOLERANCE, 1, false).unwrap();
+    assert!(initial.converged);
+    let start = CorotationalStart2D {
+        input: &base,
+        displacements: &initial.results.displacements,
+    };
+    let mut input = arc_input(&target);
+    let radius = 2.0_f64.sqrt();
+    input.initial_ds = radius;
+    input.min_ds = radius;
+    input.max_ds = radius;
+    let result = solve_arc_length_from(&input, Some(&start)).unwrap();
+    assert!(result.converged);
+    assert_eq!(result.final_load_factor, 1.0);
+    assert_eq!(result.results.reactions[1].rx, -1.5);
+    let member = &result.results.element_forces[0];
+    assert_eq!(member.n_start, 0.5);
+    assert_eq!(member.n_end, -1.5);
+    assert_eq!(member.point_loads.len(), 1);
+    assert_eq!(member.point_loads[0].px, Some(2.0));
+}
+
+#[test]
+fn issue_2560_keeps_separate_member_point_stations() {
+    let mut solver = coincident_model();
+    let SolverLoad::PointOnElement(first) = &mut solver.loads[0] else {
+        unreachable!();
+    };
+    first.px = Some(2.0);
+    let SolverLoad::PointOnElement(second) = &mut solver.loads[1] else {
+        unreachable!();
+    };
+    second.a = 0.5;
+    second.px = Some(-2.0);
+    let result = solve_arc_length(&arc_input(&solver)).unwrap();
+    assert!(result.converged);
+    let factor = result.final_load_factor;
+    let member = &result.results.element_forces[0];
+    assert_eq!(member.n_start, -factor);
+    assert_eq!(member.n_end, -factor);
+    assert_eq!(member.point_loads.len(), 2);
+}
+
+#[test]
+fn issue_2560_respects_conditioning_when_selecting_an_exact_tie_pivot() {
+    for (ratio, dependent) in [(4.0, 3), (10.0, 2), (11.0, 3)] {
+        let mut solver = tied_springs();
+        solver.constraints = vec![Constraint::LinearMPC(LinearMPCConstraint {
+            terms: vec![
+                MPCTerm {
+                    node_id: 2,
+                    dof: 0,
+                    coefficient: 1.0,
+                },
+                MPCTerm {
+                    node_id: 3,
+                    dof: 0,
+                    coefficient: -ratio,
+                },
+            ],
+        })];
+        let dofs = DofNumbering::build_2d(&solver);
+        let constraints = FreeConstraintSystem::for_displacement_control(&solver, &dofs)
+            .unwrap()
+            .unwrap();
+        assert!(constraints.is_dependent(dofs.global_dof(dependent, 0).unwrap()));
+        let result = solve_displacement_control(&displacement_input(solver, 3, 0.1, 7)).unwrap();
+        assert!(result.converged);
+    }
 }

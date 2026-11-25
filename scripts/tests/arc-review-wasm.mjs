@@ -170,7 +170,6 @@ export function registerRoundTwoTests({ arc, displacement, corotational }) {
 }
 
 export function registerRounding2560Tests({ arc, displacement, corotational }) {
-  const reproduce = process.env.RUN_KNOWN_WRONG === '2560' ? test : test.skip;
   const fixture = (name) => JSON.parse(readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url)));
   const tolerance = 1e-8;
   const radius = 0.75 * Math.SQRT2;
@@ -184,7 +183,7 @@ export function registerRounding2560Tests({ arc, displacement, corotational }) {
     ['arc length', (solver) => [arcAt(solver)]],
     ['co-rotation', (solver) => corotational(solver, 4)],
   ]) {
-    reproduce(`#2560 ${name} preserves axial action at an inclined support`, () => {
+    test(`#2560 ${name} preserves axial action at an inclined support`, () => {
       const split = fixture('nonlinear-rounding-2560-inclined');
       const axial = structuredClone(split);
       axial.loads[0].data.p = 0;
@@ -202,7 +201,7 @@ export function registerRounding2560Tests({ arc, displacement, corotational }) {
     });
   }
 
-  reproduce('#2560 displacement control reconstructs the 3:1 tie at each final state', () => {
+  test('#2560 displacement control reconstructs the 3:1 tie at each final state', () => {
     const solver = fixture('arc-tied-springs');
     solver.constraints = [{ type: 'linearMPC', terms: [
       { nodeId: 2, dof: 0, coefficient: 1 },
@@ -222,7 +221,7 @@ export function registerRounding2560Tests({ arc, displacement, corotational }) {
     ['displacement control', (solver) => [control(solver, 4, 0.75, 1)]],
     ['co-rotation', (solver) => corotational(solver, 4)],
   ]) {
-    reproduce(`#2560 ${name} recovers the resultant of coincident member loads`, () => {
+    test(`#2560 ${name} recovers the resultant of coincident member loads`, () => {
       const split = fixture('nonlinear-rounding-2560-coincident');
       const single = structuredClone(split);
       single.loads.splice(1, 1);

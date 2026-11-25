@@ -42,9 +42,7 @@ const empty: RawResult = {
   results: { displacements: [{ nodeId: 1, ux: 0, uz: 0, ry: 0 }] },
 };
 
-const reproduce = process.env.RUN_KNOWN_WRONG === '2560' ? it : it.skip;
-
-reproduce('known wrong result: #2560 refuses a successful empty full solve before prefix playback', async () => {
+it('#2560 refuses a successful empty full solve before prefix playback', async () => {
   const { events, solves } = await reply({
     ...empty,
     converged: true,
@@ -66,4 +64,30 @@ it('reports a valid zero-step nonconvergence', async () => {
     finalLoadFactor: 0,
     totalIterations: 2,
   }]);
+});
+
+it.each([
+  { converged: true },
+  { finalLoadFactor: 1 },
+  { totalIterations: 1 },
+  { rejectedIterations: -1 },
+])('#2560 refuses inconsistent empty summaries with %j', async (summary) => {
+  const { events, solves } = await reply({ ...empty, ...summary });
+  expect(solves).toBe(1);
+  expect(events).toEqual([{ type: 'error', runId: 1, error: 'Invalid full result' }]);
+});
+
+it('#2560 checks the last step before requesting the first prefix', async () => {
+  const { events, solves } = await reply({
+    ...empty,
+    steps: [
+      { step: 1, iterations: 1, converged: true, loadFactor: 0.1, controlDisplacement: 0.1 },
+      { step: 2, iterations: 1, converged: true, loadFactor: 0.2, controlDisplacement: NaN },
+    ],
+    converged: true,
+    finalLoadFactor: 0.2,
+    totalIterations: 4,
+  });
+  expect(solves).toBe(1);
+  expect(events).toEqual([{ type: 'error', runId: 1, error: 'Invalid full result' }]);
 });

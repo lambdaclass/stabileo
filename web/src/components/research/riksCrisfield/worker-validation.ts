@@ -8,21 +8,32 @@ export type RawResult = {
   results: { displacements: { nodeId: number; ux: number; uz: number; ry: number }[] };
 };
 
-function summaryMatchesSteps(r: RawResult, requestedSteps: number): boolean {
-  const rejected = r.rejectedIterations === undefined ? 0 : r.rejectedIterations;
-  const accepted = r.steps.reduce((sum, step) => sum + step.iterations, 0);
-  return Number.isSafeInteger(rejected) && rejected >= 0 &&
-    Number.isFinite(r.finalLoadFactor) && Number.isSafeInteger(r.totalIterations) &&
-    r.steps.length > 0 && r.steps.length <= requestedSteps &&
-    r.finalLoadFactor === r.steps[r.steps.length - 1].loadFactor &&
-    r.steps.every(step => step.converged && Number.isSafeInteger(step.iterations) && step.iterations > 0) &&
-    r.totalIterations === accepted + rejected &&
-    r.converged === (r.steps.length === requestedSteps);
+function summaryMatchesSteps(result: RawResult, requestedSteps: number): boolean {
+  if (!result || !Array.isArray(result.steps) || !Number.isSafeInteger(requestedSteps) ||
+      requestedSteps <= 0 || result.steps.length > requestedSteps ||
+      result.converged !== (result.steps.length === requestedSteps)) return false;
+
+  const rejected = result.rejectedIterations === undefined ? 0 : result.rejectedIterations;
+  if (!Number.isSafeInteger(rejected) || rejected < 0 || !Number.isSafeInteger(result.totalIterations)) return false;
+
+  let iterations = rejected;
+  for (const [index, step] of result.steps.entries()) {
+    if (!step || step.step !== index + 1 || step.converged !== true ||
+        !Number.isSafeInteger(step.iterations) || step.iterations <= 0 ||
+        !Number.isFinite(step.loadFactor) || !Number.isFinite(step.controlDisplacement)) return false;
+    iterations += step.iterations;
+  }
+  return result.totalIterations === iterations &&
+    result.finalLoadFactor === (result.steps.at(-1)?.loadFactor ?? 0);
+}
+
+export function validateFullResult(full: RawResult, requestedSteps: number): void {
+  if (!summaryMatchesSteps(full, requestedSteps)) throw new Error('Invalid full result');
 }
 
 export function validatePrefix(full: RawResult, prefix: RawResult, k: number, nodeIds: number[], requestedSteps: number) {
-  if (!summaryMatchesSteps(full, requestedSteps)) throw new Error('Invalid full result');
-  if (prefix.steps.length !== k || !summaryMatchesSteps(prefix, k) ||
+  validateFullResult(full, requestedSteps);
+  if (!summaryMatchesSteps(prefix, k) || !prefix.converged ||
       (prefix.rejectedIterations ?? 0) > (full.rejectedIterations ?? 0) ||
       (full.converged && k === requestedSteps && prefix.totalIterations !== full.totalIterations)) {
     throw new Error('Invalid prefix result');

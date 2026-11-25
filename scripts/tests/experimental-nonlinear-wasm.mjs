@@ -165,14 +165,23 @@ test('issue 2484 the final arc state matches its last accepted point', () => {
 registerArcReviewTests(engine.solve_experimental_arc_length);
 registerDisplacementFixture(engine.solve_experimental_displacement_control);
 
+const solvePlanar = (solver, nIncrements, method, stepping) =>
+  JSON.parse(engine.solve_experimental_corotational_2d(JSON.stringify(solver), JSON.stringify({
+    method, stepping, nIncrements, maxIter: 20, tolerance: 1e-8,
+  })));
+
 const reviewDrivers = {
   arc: (input) => JSON.parse(engine.solve_experimental_arc_length(JSON.stringify(input))),
   displacement: (input) => JSON.parse(engine.solve_experimental_displacement_control(JSON.stringify(input))),
   corotational: (solver, nIncrements) => ['newton', 'modifiedNewton', 'newtonLineSearch'].map((method) =>
-    JSON.parse(engine.solve_experimental_corotational_2d(JSON.stringify(solver), JSON.stringify({
-      method, stepping: 'equal', nIncrements, maxIter: 20, tolerance: 1e-8,
-    }))),
+    solvePlanar(solver, nIncrements, method, 'equal'),
   ),
 };
 registerRoundTwoTests(reviewDrivers);
-registerRounding2560Tests(reviewDrivers);
+registerRounding2560Tests({
+  ...reviewDrivers,
+  corotational: (solver, nIncrements) => [
+    ...reviewDrivers.corotational(solver, nIncrements),
+    solvePlanar(solver, nIncrements, 'newtonLineSearch', 'adaptive'),
+  ],
+});

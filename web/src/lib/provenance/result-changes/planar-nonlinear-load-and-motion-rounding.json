@@ -1,0 +1,39 @@
+{
+  "id": "planar-nonlinear-load-and-motion-rounding",
+  "date": "2026-11-25",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": ["plane2D", "analysis:nonlinear"],
+    "any": ["memberLoads", "constraints", "settlements", "caseDisplacements"]
+  },
+  "quantities": [
+    "solve.ok", "displacements", "reactions", "elementForces", "constraintForces",
+    "steps", "finalLoadFactor", "loadFactor", "converged", "iterations",
+    "totalIterations", "rejectedIterations", "maxDisplacement", "loadIncrements"
+  ],
+  "title": {
+    "en": "Preserve planar nonlinear loads and prescribed motion",
+    "es": "Conservar las cargas y los desplazamientos impuestos en el análisis no lineal plano",
+    "pt": "Preservar as cargas e os deslocamentos impostos na análise não linear plana",
+    "de": "Lasten und vorgegebene Verschiebungen in der ebenen nichtlinearen Analyse erhalten",
+    "fr": "Préserver les charges et les déplacements imposés en analyse non linéaire plane",
+    "hu": "A terhek és az előírt elmozdulások megőrzése síkbeli nemlineáris számításban",
+    "tr": "Düzlemsel doğrusal olmayan analizde yükleri ve tanımlanmış hareketleri koru",
+    "zh": "保留平面非线性分析中的荷载和规定的位移"
+  },
+  "explanation": {
+    "en": "Planar nonlinear analysis combines coincident member loads before computing nodal actions, preserves small tangential loads at inclined supports, and reconstructs tied or prescribed displacements for each state.",
+    "es": "El análisis no lineal plano suma las cargas coincidentes de barra antes de calcular las acciones nodales, conserva las cargas tangenciales pequeñas en apoyos inclinados y reconstruye los desplazamientos ligados o impuestos en cada estado.",
+    "pt": "A análise não linear plana soma as cargas coincidentes nas barras antes de calcular as ações nodais, preserva pequenas cargas tangenciais em apoios inclinados e reconstrói os deslocamentos vinculados ou impostos em cada estado.",
+    "de": "Die ebene nichtlineare Analyse summiert zusammenfallende Stablasten vor der Berechnung der Knotenlasten, erhält kleine Tangentiallasten an geneigten Lagern und rekonstruiert gekoppelte oder vorgegebene Verschiebungen für jeden Zustand.",
+    "fr": "L’analyse non linéaire plane somme les charges de barre coïncidentes avant de calculer les actions nodales, préserve les faibles charges tangentielles aux appuis inclinés et reconstitue les déplacements liés ou imposés à chaque état.",
+    "hu": "A síkbeli nemlineáris számítás a csomóponti terhek meghatározása előtt összegzi az egy helyen ható rúdterheket, megőrzi a ferde támaszok kis érintőirányú terheit, és minden állapotban újraszámítja a kapcsolt vagy előírt elmozdulásokat.",
+    "tr": "Düzlemsel doğrusal olmayan analiz, düğüm yüklerini hesaplamadan önce aynı konumdaki eleman yüklerini toplar, eğik mesnetlerdeki küçük teğetsel yükleri korur ve her durumda bağlı veya tanımlanmış yer değiştirmeleri yeniden hesaplar.",
+    "zh": "平面非线性分析先合并同位置的杆件荷载再计算节点等效力，保留倾斜支座处较小的切向荷载，并在每个状态重建受约束或规定的位移。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-planar-nonlinear-load-and-motion-rounding.md",
+    "heading": "Preserve planar nonlinear loads and prescribed motion (2026-11-25)"
+  }
+}
