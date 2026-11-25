@@ -8,7 +8,7 @@
  * (§10.7.4.2). A bar longer than a stock bar is cut and lapped where it is cut.
  */
 import { columnLayout, layoutDias, type PlacedBar } from './column-layout';
-import type { ColumnRow } from './column-row';
+import { jointRise, type ColumnRow } from './column-row';
 import { columnTieLayout } from './column-ties';
 import { CRANK_LIMIT, CRANK_SLOPE, inwardOf, lapOffset } from './column-stack';
 import { crankedBar, developedLength, hookedStraight, type BarShape, type BendRules } from './shape';
@@ -67,7 +67,7 @@ export function columnStorey(rows: readonly ColumnRow[], r: ColumnRow): ColumnSt
 /** Where a storey's lap with the bars from below starts, m up from its bottom node: the face of the joint below, or the start of the middle half under chapter 18; its node where nothing laps. */
 export function lapStart(r: ColumnRow, code: SheetCode): number {
   if (!r.lap) return 0;
-  return (r.demand.joints?.bottom ?? 0) / 2 + (columnTieLayout(r, code).lap?.from ?? 0);
+  return jointRise(r.demand, 'bottom') + (columnTieLayout(r, code).lap?.from ?? 0);
 }
 
 export interface StoreyRun {
@@ -82,9 +82,9 @@ export interface StoreyRun {
 export function storeyRun(r: ColumnRow, s: ColumnStorey, code: SheetCode): StoreyRun {
   const from = lapStart(r, code), lapUp = s.up?.lap?.length ?? 0;
   const own = r.lap?.length ?? lapUp;
-  if (s.hooked || !s.up) return { from, top: r.length + (r.demand.joints?.top ?? 0) / 2 - r.cover, crankAt: null, own };
+  if (s.hooked || !s.up) return { from, top: r.length + jointRise(r.demand, 'top') - r.cover, crankAt: null, own };
   const up = s.up, startUp = lapStart(up, code);
-  const crankAt = r.length + (s.e > 1e-3 ? (up.demand.joints?.bottom ?? 0) / 2 : startUp);
+  const crankAt = r.length + (s.e > 1e-3 ? jointRise(up.demand, 'bottom') : startUp);
   return { from, top: r.length + startUp + lapUp, crankAt, own };
 }
 

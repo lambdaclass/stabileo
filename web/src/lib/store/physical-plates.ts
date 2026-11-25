@@ -21,6 +21,7 @@ import { plateRemeshMessage, wallSlabRefusal } from '../engine/plate-analysis-re
  * follow every mesh; a load put by hand on one shell of the mesh cannot, and is reported.
  */
 import { modelStore } from './model.svelte';
+import { applyPlacement } from './placement';
 import { uiStore } from './ui.svelte';
 import { physicalDataOf, type PhysicalData } from '../model/physical';
 import { levelAt } from '../model/physical/recognize';
@@ -483,6 +484,17 @@ export function setShellProperties(keys: readonly string[], patch: { materialId?
     for (const id of plates) setPlateProperties(id, patch);
   });
   return [...plates];
+}
+
+/** Set or clear a plate's mid-surface offset, on its definition and every shell of its mesh; one undo step. */
+export function setPlateOffset(id: number, offset: import('../model/element-3d-metadata').ShellOffset | undefined): void {
+  const e = plateEntry(id);
+  if (!e) return;
+  modelStore.batch(() => {
+    writeSurface(id, (s) => { const { offset: _old, ...rest } = s; return offset ? { ...rest, offset: { ...offset } } : rest; });
+    for (const q of e.group.members.quads ?? []) modelStore.setShellOffset('quad', q, offset);
+    for (const q of e.group.members.plates ?? []) modelStore.setShellOffset('plate', q, offset);
+  });
 }
 
 /** Change how a plate is to be meshed. Its mesh, if any, is then out of date. */
@@ -1447,6 +1459,7 @@ function checkPreparedPlates(report: PlateMeshReport): PlatePreparation {
  * which plates stop it instead. Runs once per solve, before its inputs are taken.
  */
 export function preparePlatesForAnalysis(): PlatePreparation {
+  applyPlacement();
   // Plates still on the coarse shells they came with are meshed when asked to; otherwise they solve as they came.
   const invalid = invalidPreparation();
   if (invalid) return invalid;
@@ -1462,6 +1475,7 @@ export function preparePlatesForAnalysis(): PlatePreparation {
 export async function preparePlatesForAnalysisAsync(recognizePhysicalModel?: () => number): Promise<PlatePreparation> {
   // A mesh the plates' dialog started is let finish: two runs would write the model at once.
   while (meshProgress.now) await nextFrame();
+  applyPlacement();
   // Plates still on the coarse shells they came with are meshed when asked to; otherwise they solve as they came.
   const invalid = invalidPreparation();
   if (invalid) return invalid;

@@ -16,9 +16,11 @@ import type { Signed } from './types';
 import type { LevelGeometry, PlanBeam, PlanColumn } from './slab-plan';
 import type { CutForces } from './piers';
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
+import { memberReferenceLine } from '../engine/member-offsets';
+import { resolveShellOffsetGlobal } from '../engine/shell-offsets';
 
 type Pt = { id: number; x: number; y: number; z?: number };
-type El = { id: number; nodeI: number; nodeJ: number; sectionId: number; type?: string; rollAngle?: number };
+type El = { id: number; nodeI: number; nodeJ: number; sectionId: number; type?: string; rollAngle?: number; offset?: import('../model/element-3d-metadata').MemberOffset };
 
 export interface DemandGroup {
   id: number; name: string; kind: string;
@@ -377,6 +379,34 @@ function slabsAlong(m: DemandInput, span: ReadonlyArray<{ e: El; forward: boolea
 }
 
 /** Nodes a horizontal shell takes: a flat slab cuts a column into storeys as a beam does. */
+/**
+ * The concrete of the floor a column meets at a node, m from the node: how deep it is and how far
+ * its top stands above the node. The beams and level slabs framing in, each where its offset puts
+ * it; with none moved, a beam's depth centred on the node.
+ */
+function jointAt(m: DemandInput, inc: Map<number, El[]>, mine: ReadonlySet<number>, node: number): { depth: number; rise: number } {
+  const p = m.nodes.get(node);
+  if (!p) return { depth: 0, rise: 0 };
+  const z0 = zOf(p);
+  let top = -Infinity, bottom = Infinity;
+  for (const o of inc.get(node) ?? []) {
+    if (mine.has(o.id) || isVertical(m, o)) continue;
+    const h = m.sections.get(o.sectionId)?.h, a = m.nodes.get(o.nodeI), b = m.nodes.get(o.nodeJ);
+    if (!h || !a || !b) continue;
+    const line = memberReferenceLine(o as never, a, b, m.sections as never), oz = (o.nodeI === node ? line.i.z : line.j.z) - z0;
+    top = Math.max(top, oz + h / 2); bottom = Math.min(bottom, oz - h / 2);
+  }
+  for (const map of [m.shells.quads, m.shells.plates]) for (const sh of map?.values() ?? []) {
+    if (!sh.nodes.includes(node)) continue;
+    const pts = sh.nodes.map((n) => m.nodes.get(n)).filter((q): q is NonNullable<typeof q> => !!q);
+    if (pts.length !== sh.nodes.length || Math.max(...pts.map(zOf)) - Math.min(...pts.map(zOf)) > 1e-3) continue;
+    const off = (sh as { offset?: import('../model/element-3d-metadata').ShellOffset }).offset;
+    const oz = off ? (resolveShellOffsetGlobal(off, pts.map((q) => ({ x: q.x, y: q.y, z: zOf(q) })))?.z ?? 0) : 0;
+    top = Math.max(top, oz + sh.thickness / 2); bottom = Math.min(bottom, oz - sh.thickness / 2);
+  }
+  return top === -Infinity ? { depth: 0, rise: 0 } : { depth: Math.round((top - bottom) * 1e9) / 1e9, rise: Math.round(top * 1e9) / 1e9 };
+}
+
 function slabNodes(m: DemandInput): Set<number> {
   const out = new Set<number>();
   for (const map of [m.shells.quads, m.shells.plates]) for (const sh of map?.values() ?? []) {
@@ -421,14 +451,15 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
       const top = r.forward ? r.e.nodeJ : r.e.nodeI;
       if (i < run.length - 1 && ((inc.get(top) ?? []).some((o) => !mine.has(o.id) && !isVertical(m, o)) || floorNodes.has(top))) storeys.push([]);
     });
-    const deepest = (node: number) => Math.max(0, ...(inc.get(node) ?? []).filter((o) => !mine.has(o.id) && !isVertical(m, o)).map((o) => m.sections.get(o.sectionId)?.h ?? 0));
+    const joint = (node: number) => jointAt(m, inc, mine, node);
     storeys.forEach((st, k) => {
       const bottom = st[0]!, top = st[st.length - 1]!;
       const sec = smallestSection(m, st);
       if (!sec) return;
       const nBot = bottom.forward ? bottom.e.nodeI : bottom.e.nodeJ, nTop = top.forward ? top.e.nodeJ : top.e.nodeI;
       const L = st.reduce((s, r) => s + lengthOf(m, r.e), 0);
-      const lu = Math.max(0.1, L - (deepest(nBot) + deepest(nTop)) / 2);
+      const jb = joint(nBot), jt = joint(nTop);
+      const lu = Math.max(0.1, L - jb.rise - (jt.depth - jt.rise));
       const pb = m.psi?.(bottom.e.id), pt = m.psi?.(top.e.id);
       const psiBot = pb ? (bottom.forward ? pb.psiA : pb.psiB) : 1, psiTop = pt ? (top.forward ? pt.psiB : pt.psiA) : 1;
       const at = (ef: ElementForces3D | undefined, forward: boolean, end: 'bottom' | 'top') =>
@@ -472,7 +503,7 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
       } : undefined;
       out.push({
         key: `column:${g.id}:${k}`, name: g.name, level: m.levelAt ? m.levelAt(zOf(m.nodes.get(nBot))) : g.level,
-        b: sec.b, h: sec.h, length: L, lu, psiTop, psiBot, cases, nodes: { bottom: nBot, top: nTop }, joints: { bottom: deepest(nBot), top: deepest(nTop) },
+        b: sec.b, h: sec.h, length: L, lu, psiTop, psiBot, cases, nodes: { bottom: nBot, top: nTop }, joints: { bottom: jb.depth, top: jt.depth, bottomRise: jb.rise, topRise: jt.rise },
         ...(axes && pBot ? { plan: { x: pBot.x, y: pBot.y, z: zOf(pBot), ey: [axes.ey[0], axes.ey[1]] as [number, number], ez: [axes.ez[0], axes.ez[1]] as [number, number] } } : {}),
         ...(sway ? { sway } : {}),
         ...(missing.length ? { missing } : {}),
