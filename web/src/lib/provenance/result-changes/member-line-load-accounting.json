@@ -25,14 +25,14 @@
     "zh": "逐构件线荷载校核"
   },
   "explanation": {
-    "en": "Analysis stops when a member’s distributed force or its first moment along that member changes during preparation. This also detects a lost axial load whose net force is zero.",
-    "es": "El análisis se detiene si al preparar el cálculo cambia la fuerza distribuida de una barra o su primer momento a lo largo de la barra. Así también se detecta la pérdida de una carga axial de resultante nula.",
-    "pt": "A análise é interrompida se a força distribuída ou seu primeiro momento ao longo da barra mudar durante a preparação. A verificação também detecta a perda de uma carga axial com resultante nula.",
-    "de": "Die Berechnung stoppt, wenn sich die Streckenlastresultierende oder ihr erstes Moment entlang des Stabs bei der Vorbereitung ändert. Die Prüfung erkennt auch eine fehlende Axiallast mit der Resultierenden null.",
-    "fr": "Le calcul s’arrête si la résultante d’une charge répartie ou son moment du premier ordre le long de la barre change lors de la préparation. La vérification détecte aussi la perte d’une charge axiale de résultante nulle.",
-    "hu": "A számítás leáll, ha az előkészítés során megváltozik egy rúd megoszló terhének eredője vagy a rúd menti első nyomatéka. Az ellenőrzés a nulla eredőjű tengelyirányú teher elvesztését is felismeri.",
-    "tr": "Hazırlık sırasında bir çubuğun yayılı yükünün bileşkesi veya çubuk boyunca birinci momenti değişirse analiz durur. Sonucu sıfır olan eksenel yüklerin kaybolması da tespit edilir.",
-    "zh": "如果准备求解时构件分布力的合力或沿构件的一阶矩发生变化，分析会停止。此校核也能发现合力为零的轴向荷载丢失。"
+    "en": "Analysis stops when a member’s distributed force or its first moment along that member changes during preparation. This also detects a lost axial load whose net force is zero. Redistributed truss loads must also reach their intended end nodes.",
+    "es": "El análisis se detiene si al preparar el cálculo cambia la fuerza distribuida de una barra o su primer momento a lo largo de la barra. Así también se detecta la pérdida de una carga axial de resultante nula. Las cargas redistribuidas de barras articuladas también deben llegar a sus nodos de extremo previstos.",
+    "pt": "A análise é interrompida se a força distribuída ou seu primeiro momento ao longo da barra mudar durante a preparação. A verificação também detecta a perda de uma carga axial com resultante nula. As cargas redistribuídas de barras de treliça também devem chegar aos nós de extremidade previstos.",
+    "de": "Die Berechnung stoppt, wenn sich die Streckenlastresultierende oder ihr erstes Moment entlang des Stabs bei der Vorbereitung ändert. Die Prüfung erkennt auch eine fehlende Axiallast mit der Resultierenden null. Umgelagerte Fachwerklasten müssen außerdem die vorgesehenen Endknoten erreichen.",
+    "fr": "Le calcul s’arrête si la résultante d’une charge répartie ou son moment du premier ordre le long de la barre change lors de la préparation. La vérification détecte aussi la perte d’une charge axiale de résultante nulle. Les charges redistribuées des barres de treillis doivent aussi atteindre les nœuds d’extrémité prévus.",
+    "hu": "A számítás leáll, ha az előkészítés során megváltozik egy rúd megoszló terhének eredője vagy a rúd menti első nyomatéka. Az ellenőrzés a nulla eredőjű tengelyirányú teher elvesztését is felismeri. A rácsrudak átosztott terheinek a kijelölt végcsomópontokra kell kerülniük.",
+    "tr": "Hazırlık sırasında bir çubuğun yayılı yükünün bileşkesi veya çubuk boyunca birinci momenti değişirse analiz durur. Sonucu sıfır olan eksenel yüklerin kaybolması da tespit edilir. Yeniden dağıtılan kafes çubuk yükleri de doğru uç düğümlerine ulaşmalıdır.",
+    "zh": "如果准备求解时构件分布力的合力或沿构件的一阶矩发生变化，分析会停止。此校核也能发现合力为零的轴向荷载丢失。重新分配的桁架杆荷载还必须施加到对应的端节点。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-load-accounting-and-wall-contact.md",

@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 const pt: Translations = {
   'svc.accountingMismatch': "Análise recusada. Caso de carga {case}, {component}. Valor introduzido {entered}, valor montado {assembled}.",
+  'svc.accountingLineEnd': "Análise recusada. Caso de carga {case}, extremidade {end} da barra {member}. A carga redistribuída chegou ao nó {actual}. Esperava-se o nó {expected}.",
   'svc.accountingUnsupported': "Análise recusada. No caso de carga {case}, não é possível contabilizar as forças e os momentos de {kind} {id}.",
   'svc.accountingArea': "Análise recusada. A placa {plate} tem uma área ou um contorno diferente no solver. Área especificada {entered}, área montada {assembled}.",
   'svc.accountingSweep': "Análise recusada. A placa {plate} tem outro percurso da aresta curva no solver. Área especificada {entered}, área montada {assembled}.",
@@ -14416,7 +14417,7 @@ const pt: Translations = {
   "plates.analysisMeshRefused": "Não foi possível malhar: {names}. Revise o tamanho do elemento ou o contorno.",
   "plates.analysisInvalid": "A análise foi interrompida. Corrija a geometria ou as propriedades das placas inválidas: {names}.",
   "plates.analysisWallSlab": "A análise foi interrompida. A parede {wall} e a laje {slab} não compartilham um vértice de malha no nó {node}. Gere novamente a malha da junção com nós compartilhados.",
-  "plates.analysisWallSlabFace": "A análise foi interrompida. A borda {edge} da parede {wall} encontra a laje {slab} no interior de um elemento da malha. Remalhe a junção com bordas compartilhadas.",
+  "plates.analysisWallSlabFace": "A análise foi interrompida. A borda {edge} da parede {wall} encontra a laje {slab} no interior da malha da laje. Remalhe a junção com bordas compartilhadas.",
   "plates.meshedAtAnalysis": "{n} placas malhadas antes do cálculo ({cells} elementos)",
   "plates.liveNeedsMesh": "{n} placas sem malha vigente: o cálculo ao vivo espera o cálculo completo, que as malha.",
   "plates.problem.needNodes": "São necessários pelo menos três nós existentes.",

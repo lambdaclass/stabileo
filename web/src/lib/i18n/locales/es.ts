@@ -1,5 +1,6 @@
 const es: Record<string, string> = {
   'svc.accountingMismatch': "Análisis rechazado. Caso de carga {case}, {component}. Valor ingresado {entered}, valor ensamblado {assembled}.",
+  'svc.accountingLineEnd': "Análisis rechazado. Caso de carga {case}, extremo {end} de la barra {member}. La carga redistribuida llegó al nodo {actual}. Se esperaba el nodo {expected}.",
   'svc.accountingUnsupported': "Análisis rechazado. En el caso de carga {case} no se pueden contabilizar las fuerzas ni los momentos de {kind} {id}.",
   'svc.accountingArea': "Análisis rechazado. La placa {plate} tiene otra área o contorno en el solver. Área especificada {entered}, área ensamblada {assembled}.",
   'svc.accountingSweep': "Análisis rechazado. La placa {plate} tiene otro recorrido de borde curvo en el solver. Área especificada {entered}, área ensamblada {assembled}.",
@@ -14763,7 +14764,7 @@ const es: Record<string, string> = {
   "plates.analysisMeshRefused": "No se pudo mallar: {names}. Revisá su tamaño de elemento o su contorno.",
   "plates.analysisInvalid": "Se detuvo el análisis. Corregí la geometría o las propiedades de las placas no válidas: {names}.",
   "plates.analysisWallSlab": "Se detuvo el análisis. El muro {wall} y la losa {slab} no comparten un vértice de malla en el nodo {node}. Volvé a mallar la unión con nodos compartidos.",
-  "plates.analysisWallSlabFace": "Se detuvo el análisis. El borde {edge} del muro {wall} encuentra la losa {slab} en el interior de un elemento de la malla. Volvé a mallar la unión con bordes compartidos.",
+  "plates.analysisWallSlabFace": "Se detuvo el análisis. El borde {edge} del muro {wall} encuentra la losa {slab} en el interior de la malla de la losa. Volvé a mallar la unión con bordes compartidos.",
   "plates.meshedAtAnalysis": "Se mallaron {n} placas antes del cálculo ({cells} elementos)",
   "plates.liveNeedsMesh": "{n} placas sin malla vigente: el cálculo en vivo espera al cálculo completo, que las malla.",
   "plates.problem.needNodes": "Hacen falta al menos tres nodos existentes.",

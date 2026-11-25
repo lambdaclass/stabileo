@@ -2,6 +2,7 @@ import type { Translations } from '../types';
 
 const tr: Translations = {
   'svc.accountingMismatch': "Analiz reddedildi. Yük durumu {case}, {component}. Girilen {entered}, birleştirilen {assembled}.",
+  'svc.accountingLineEnd': "Analiz reddedildi. Yük durumu {case}, {member} numaralı elemanın {end} ucu. Yeniden dağıtılan yük {actual} düğümüne uygulandı. Beklenen düğüm {expected}.",
   'svc.accountingUnsupported': "Analiz reddedildi. {case} yük durumunda {kind} {id} için kuvvet ve moment hesabı yapılamıyor.",
   'svc.accountingArea': "Analiz reddedildi. Çözücüde {plate} plağının alanı veya sınırı farklı. Belirtilen alan {entered}, birleştirilen alan {assembled}.",
   'svc.accountingSweep': "Analiz reddedildi. Çözücüde {plate} plağının eğri kenar yayı farklı. Belirtilen alan {entered}, birleştirilen alan {assembled}.",
@@ -14238,7 +14239,7 @@ const tr: Translations = {
   'plates.analysisMeshRefused': 'Ağ oluşturulamadı: {names}. Eleman boyutlarını veya konturlarını kontrol edin.',
   "plates.analysisInvalid": "Analiz durduruldu. Geçersiz plakaların geometrisini veya özelliklerini düzeltin: {names}.",
   "plates.analysisWallSlab": "Analiz durduruldu. {wall} duvarı ve {slab} döşemesi, {node} düğümünde ortak bir ağ köşesine sahip değil. Birleşimi ortak düğümlerle yeniden ağlayın.",
-  "plates.analysisWallSlabFace": "Analiz durduruldu. {wall} duvarının {edge} kenarı, {slab} döşemesiyle bir kabuk elemanın içinde birleşiyor. Birleşimi ortak kenarlarla yeniden ağlayın.",
+  "plates.analysisWallSlabFace": "Analiz durduruldu. {wall} duvarının {edge} kenarı, {slab} döşemesiyle döşeme ağının içinde birleşiyor. Birleşimi ortak kenarlarla yeniden ağlayın.",
   'plates.meshedAtAnalysis': 'Analizden önce {n} plağın ağı oluşturuldu ({cells} eleman)',
   'plates.liveNeedsMesh': 'Güncel ağı olmayan {n} plak: canlı hesap, ağları oluşturan tam analizi bekliyor.',
   'plates.problem.needNodes': 'En az üç mevcut düğüm gerekir.',

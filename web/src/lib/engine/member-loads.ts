@@ -26,6 +26,7 @@
 import type { SolverLoad3D } from './types-3d';
 import { assembledMagnitudes3D, LoadVector, zero } from './accounting-math';
 import type { ModelData } from './solver-service';
+import { mapModelNodeToSolver3D, shouldEmbedFlat2DModelIn3D } from './model-embedding';
 import { computeLocalAxes3D } from './local-axes-3d';
 import { hasMemberOffset, offsetVecToSolver } from './member-offsets';
 
@@ -152,15 +153,15 @@ function distributedVectorsToSolver(m: MemberRef, gI: LoadVector, gJ: LoadVector
       fI = fI.add(force.scale(1 - t));
       fJ = fJ.add(force.scale(t));
     }
-    for (const [end, nodeId, station, force, arm] of [
-      ['i', m.nodeI, 0, fI, m.armI], ['j', m.nodeJ, L, fJ, m.armJ],
+    for (const [end, nodeId, force, arm] of [
+      ['i', m.nodeI, fI, m.armI], ['j', m.nodeJ, fJ, m.armJ],
     ] as const) {
       if (force.value.every(tiny)) continue;
       const row = nodal(nodeId, force.value, arm);
       if (axial) row.data.axialOf = { elementId: m.elementId, end, p: dot(force.value, ex) };
       assembledMagnitudes3D.set(row, {
         force, couple: arm ? force.momentAt(arm) : LoadVector.from(zero()),
-        memberLine: { member: m.elementId, station },
+        memberLine: { member: m.elementId, end },
       });
       out.push(row);
     }
@@ -255,4 +256,22 @@ export function memberFrame3D(
     ni: [A2.x, A2.y, A2.z], nj: [B2.x, B2.y, B2.z], ax,
     armI: [A2.x - A.x, A2.y - A.y, A2.z - A.z], armJ: [B2.x - B.x, B2.y - B.y, B2.z - B.z],
   };
+}
+
+export function memberRef3D(model: ModelData, elementId: number, project2DToXZ = shouldEmbedFlat2DModelIn3D(model)): MemberRef | null {
+  const elem = model.elements.get(elementId);
+  if (!elem) return null;
+  if (!project2DToXZ) {
+    const f = memberFrame3D(model, elem);
+    return f && f.ax.L > 1e-10
+      ? { elementId, nodeI: elem.nodeI, nodeJ: elem.nodeJ, axes: { ex: f.ax.ex, ey: f.ax.ey, ez: f.ax.ez, L: f.ax.L }, points: [f.ni, f.nj], ...(f.armI ? { armI: f.armI, armJ: f.armJ } : {}) }
+      : null;
+  }
+  const ni = model.nodes.get(elem.nodeI), nj = model.nodes.get(elem.nodeJ);
+  if (!ni || !nj) return null;
+  const a = mapModelNodeToSolver3D(ni, project2DToXZ), b = mapModelNodeToSolver3D(nj, project2DToXZ);
+  const rot = model.sections.get(elem.sectionId)?.rotation ?? 0;
+  if (!(Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z) > 1e-10)) return null;
+  const axes = computeLocalAxes3D(a, b, undefined, (elem.rollAngle ?? 0) + rot, false);
+  return { elementId, nodeI: elem.nodeI, nodeJ: elem.nodeJ, axes: { ex: axes.ex, ey: axes.ey, ez: axes.ez, L: axes.L }, points: [[a.x, a.y, a.z], [b.x, b.y, b.z]] };
 }

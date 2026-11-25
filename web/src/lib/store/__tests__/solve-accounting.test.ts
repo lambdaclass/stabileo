@@ -22,7 +22,7 @@ import {
   addPlateLoad, applyPlateMeshes, createPlate, meshBeforeAnalysis, planPlateMesh, plateEntry, plateStatus, setPlateMeshSpec, setPlateSideArc,
 } from '../physical-plates';
 
-const fault = vi.hoisted(() => ({ dropSceneCase: 0, integrateDrift: 0, signedForceDelta: 0, dropMemberLoad: false, dropFactoredAxialLine: false, misrouteLineEnd: 0, misrouteFactoredLineEnd: 0, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, assemblyDrift: null as { shell: number; relative: number } | null, combinationDrift: null as { shell: number; relative: number } | null, dropNodalFy: false }));
+const fault = vi.hoisted(() => ({ dropSceneCase: 0, integrateDrift: 0, signedForceDelta: 0, dropMemberLoad: false, dropFactoredAxialLine: false, misrouteLineEnd: null as { from: number; to: number } | null, misrouteFactoredLineEnd: 0, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, assemblyDrift: null as { shell: number; relative: number } | null, combinationDrift: null as { shell: number; relative: number } | null, dropNodalFy: false }));
 
 vi.mock('../../engine/case-effects', async importOriginal => {
   const original = await importOriginal<typeof import('../../engine/case-effects')>();
@@ -141,9 +141,10 @@ vi.mock('../../engine/member-loads', async importOriginal => {
         ? [] : original.globalDistributedToSolver(...args),
     transverseToNodes: (...args: Parameters<typeof original.transverseToNodes>) => {
       const rows = original.transverseToNodes(...args);
-      for (const row of rows) {
-        if (fault.misrouteLineEnd && row.type === 'nodal' && row.data.axialOf?.end === 'j') {
-          row.data.nodeId = fault.misrouteLineEnd;
+      const transfer = fault.misrouteLineEnd;
+      if (transfer && args[0].some(row => row.type === 'distributed')) {
+        for (const row of rows) {
+          if (row.type === 'nodal' && row.data.nodeId === transfer.from) row.data.nodeId = transfer.to;
         }
       }
       return rows;
@@ -164,7 +165,7 @@ beforeEach(() => {
   fault.integrateDrift = 0;
   fault.dropMemberLoad = false;
   fault.dropFactoredAxialLine = false;
-  fault.misrouteLineEnd = 0;
+  fault.misrouteLineEnd = null;
   fault.misrouteFactoredLineEnd = 0;
   fault.dropLineIntensity = 0;
   fault.scaleCaseLoad = 1;
@@ -1565,10 +1566,7 @@ it('#2471 detects a lost self-equilibrated line load before a planar projection 
   for (const [path, solve] of Object.entries(paths)) expect.soft(await outcome(solve), path).toEqual(diagnostic);
 });
 
-
-const reviewTransfer = process.env.RUN_KNOWN_WRONG === '2471' ? it : it.skip;
-
-reviewTransfer('known wrong result: #2471 refuses a sign-reversing truss line whose end forces reach the same node', async () => {
+it('#2471 refuses a sign-reversing truss line whose end forces reach the same node', async () => {
   const member = cantilever('3d');
   modelStore.updateElement(member, { type: 'truss' });
   const { nodeI, nodeJ } = modelStore.elements.get(member)!;
@@ -1601,7 +1599,7 @@ reviewTransfer('known wrong result: #2471 refuses a sign-reversing truss line wh
   });
 
   const caseDiagnostic = /load case.*redistributed.*node/i;
-  fault.misrouteLineEnd = nodeI;
+  fault.misrouteLineEnd = { from: nodeJ, to: nodeI };
   for (const [path, solve] of Object.entries(paths)) {
     expect.soft(await outcome(solve), path).toEqual(expect.stringMatching(caseDiagnostic));
   }
@@ -1609,7 +1607,7 @@ reviewTransfer('known wrong result: #2471 refuses a sign-reversing truss line wh
   modelStore.setAnalysis({ perCombination: 'pdelta' });
   expect.soft(await outcome(paths.combinations), 'P-Delta case').toEqual(expect.stringMatching(caseDiagnostic));
   expect.soft(await outcome(paths.parallel), 'parallel P-Delta case').toEqual(expect.stringMatching(caseDiagnostic));
-  fault.misrouteLineEnd = 0;
+  fault.misrouteLineEnd = null;
 
   const factored = () => comboSolverLoads3D(combo, caseSolverLoads3D(model, model.loadCases, false, false));
   expect(factored()).toEqual([
@@ -1622,4 +1620,29 @@ reviewTransfer('known wrong result: #2471 refuses a sign-reversing truss line wh
   for (const [path, solve] of Object.entries({ factored, sync: paths.combinations, parallel: paths.parallel, direct: paths.direct })) {
     expect.soft(await outcome(solve), path).toEqual(expect.stringMatching(factoredDiagnostic));
   }
+  fault.misrouteFactoredLineEnd = 0;
+  modelStore.updateSupport([...modelStore.supports.values()].find(s => s.nodeId === nodeI)!.id, { uplift: true });
+  modelStore.addNodalLoad3D(nodeI, 0, 0, -1, 0, 0, 0, 1);
+  modelStore.setAnalysis({ perCombination: 'linear' });
+  expect(paths.combinations()).toMatchObject({
+    perCombo: new Map([[comboId, expect.objectContaining({ nonlinear: expect.any(Object) })]]),
+  });
+  fault.misrouteFactoredLineEnd = nodeI;
+  expect.soft(await outcome(paths.combinations), 'active-set sync').toEqual(expect.stringMatching(factoredDiagnostic));
+  expect.soft(await outcome(paths.parallel), 'active-set parallel').toEqual(expect.stringMatching(factoredDiagnostic));
+  fault.misrouteFactoredLineEnd = 0;
+
+  modelStore.clear();
+  const planar = cantilever('2d');
+  modelStore.updateElement(planar, { type: 'truss' });
+  const { nodeI: planarI, nodeJ: planarJ } = modelStore.elements.get(planar)!;
+  modelStore.addSupport(planarJ, 'fixed');
+  modelStore.addDistributedLoad(planar, 2, -2, 0, true, 1);
+  const embedded = () => buildSolverInput3D(modelStore.model);
+  expect(embedded()?.loads).toEqual([
+    expect.objectContaining({ type: 'nodal', data: expect.objectContaining({ nodeId: planarI, fz: expect.closeTo(2 / 3, 12) }) }),
+    expect.objectContaining({ type: 'nodal', data: expect.objectContaining({ nodeId: planarJ, fz: expect.closeTo(-2 / 3, 12) }) }),
+  ]);
+  fault.misrouteLineEnd = { from: planarJ, to: planarI };
+  expect(() => embedded()).toThrow(caseDiagnostic);
 });

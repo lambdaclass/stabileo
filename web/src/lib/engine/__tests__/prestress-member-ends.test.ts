@@ -57,12 +57,12 @@ function beamCarriesThePrimaryOnly(r: ReturnType<typeof solve>, beam: number, co
   }
 }
 
-function simplySupportedTendon(eccentricity = e0) {
+function simplySupportedTendon(eccentricity = e0, midpoint = eccentricity) {
   const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(L, 0, 0);
   const member = modelStore.addElement(a, b, 'frame');
   modelStore.addSupport(a, 'pinned3d');
   modelStore.addSupport(b, 'custom3d', undefined, { dofRestraints: { ...ONLY_TZ, ty: true, rx: true } });
-  straight(member, eccentricity);
+  modelStore.addLoadEntry({ type: 'prestress3d', data: { id: 0, elementId: member, force: P, eI: eccentricity, eM: midpoint, eJ: eccentricity } });
   return { a, member };
 }
 
@@ -103,23 +103,19 @@ it('#2470 solves the straight eccentric tendon through 3D analysis entry points'
   });
   check(typeof direct === 'object' ? direct.perCombo.get(id) ?? null : direct, 'direct analysis', factor, false);
 });
-
-const reviewPrestress = process.env.RUN_KNOWN_WRONG === '2580' ? it : it.skip;
-
-reviewPrestress('known wrong result: #2580 applies a curved tendon and gravity together through spatial analysis', async () => {
-  const { member } = simplySupportedTendon();
-  modelStore.addLoadEntry({ type: 'prestress3d', data: { id: 0, elementId: member, force: P, eI: 0, eM: e0, eJ: 0, caseId: 1 } });
+it('#2580 applies a curved tendon and gravity together through spatial analysis', async () => {
+  const { member } = simplySupportedTendon(0, e0);
   const q = 10;
   modelStore.addDistributedLoad3D(member, 0, 0, -q, -q, undefined, undefined, 1);
   for (const { id } of [...modelStore.combinations]) modelStore.removeCombination(id);
-  const factor = 2;
+  const factor = 0.25;
   const id = modelStore.addCombination('Tendon and gravity', [{ caseId: 1, factor }]);
   const check = (result: ReturnType<typeof solve> | string | null, label: string, scale = 1) => {
     expect.soft(result, label).toMatchObject({ reactions: expect.any(Array) });
     if (!result || typeof result === 'string') return;
     expect(result.reactions.reduce((sum, reaction) => sum + reaction.fz, 0)).toBeCloseTo(scale * q * L, 8);
   };
-  const checkCombo = (result: ReturnType<typeof modelStore.solveCombinations3D>, label: string) =>
+  const checkCombo = (result: { perCombo: ReadonlyMap<number, ReturnType<typeof solve>> } | string | null, label: string) =>
     check(result && typeof result === 'object' ? result.perCombo.get(id) ?? null : result, label, factor);
 
   check(modelStore.solve3D(false, false, true), 'linear');

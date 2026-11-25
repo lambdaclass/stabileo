@@ -272,20 +272,35 @@ function unmatchedVertex(cell: Cell, stations: Station[][], equations: EdgeEquat
   return undefined;
 }
 
-function edgeMeetsFace(a: Vec3, b: Vec3, frame: Cell['frame'], sides: readonly { point: Vec3; inward: Vec3 }[]): boolean {
-  const { o, n } = frame;
-  const fromPlane = dot(sub(a, o), n), toPlane = dot(sub(b, o), n);
-  let lo = 0, hi = 1;
-  if (fromPlane === toPlane) {
-    if (Math.abs(fromPlane) > PLATE_EDGE_TOL) return false;
-  } else {
-    const delta = fromPlane - toPlane;
-    const t0 = (fromPlane - PLATE_EDGE_TOL) / delta;
-    const t1 = (fromPlane + PLATE_EDGE_TOL) / delta;
-    lo = Math.max(lo, Math.min(t0, t1));
-    hi = Math.min(hi, Math.max(t0, t1));
-    if (lo > hi) return false;
+type FaceSide = { point: Vec3; inward: Vec3; shared: boolean };
+
+function edgeMeetsFace(first: Vertex, last: Vertex, cell: Cell, sides: readonly FaceSide[]): boolean {
+  const { o, n } = cell.frame;
+  const a = first.point, b = last.point;
+  const firstShared = cell.vertices.some(vertex => vertex.id === first.id);
+  const lastShared = cell.vertices.some(vertex => vertex.id === last.id);
+  const fromPlane = firstShared ? 0 : dot(sub(a, o), n);
+  const toPlane = lastShared ? 0 : dot(sub(b, o), n);
+  const direction = sub(b, a);
+  const normalTravel = dot(direction, n);
+  const normalMagnitude = axes.reduce<number>((sum, axis) => sum + Math.abs(direction[axis] * n[axis]), 0);
+  if ((fromPlane !== 0 || toPlane !== 0) && Math.abs(normalTravel) > 4 * Number.EPSILON * normalMagnitude) {
+    if (firstShared || lastShared) return false;
+    const t = fromPlane / (fromPlane - toPlane);
+    if (!(t >= 0 && t <= 1)) return false;
+    let onSeam = false;
+    for (const { point, inward, shared } of sides) {
+      const from = dot(sub(a, point), inward), to = dot(sub(b, point), inward);
+      const distance = (1 - t) * from + t * to;
+      if (distance > PLATE_EDGE_TOL) continue;
+      if (!shared || onSeam || distance < -PLATE_EDGE_TOL || t === 0 || t === 1) return false;
+      onSeam = true;
+    }
+    return true;
   }
+
+  if (Math.max(Math.abs(fromPlane), Math.abs(toPlane)) > PLATE_EDGE_TOL) return false;
+  let lo = 0, hi = 1;
   for (const { point, inward } of sides) {
     const from = dot(sub(a, point), inward) - PLATE_EDGE_TOL;
     const to = dot(sub(b, point), inward) - PLATE_EDGE_TOL;
@@ -294,23 +309,27 @@ function edgeMeetsFace(a: Vec3, b: Vec3, frame: Cell['frame'], sides: readonly {
     if (to <= 0) hi = Math.min(hi, from / (from - to));
     if (lo > hi) return false;
   }
-  return lo < hi || (lo === hi && sides.every(({ point, inward }) => {
-    const from = dot(sub(a, point), inward), to = dot(sub(b, point), inward);
-    return (1 - lo) * from + lo * to > PLATE_EDGE_TOL;
-  }));
+  return lo < hi;
 }
 
 function interiorContact(walls: readonly Cell[], slabs: readonly Cell[]) {
+  const slabEdges = new Map<string, FaceSide>();
   const faces = slabs.map(cell => {
     const { vertices, frame } = cell;
     const bounds = axes.map(axis => {
       const coordinates = vertices.map(vertex => vertex.point[axis]);
       return { lo: Math.min(...coordinates) - PLATE_EDGE_TOL, hi: Math.max(...coordinates) + PLATE_EDGE_TOL };
     });
-    const sides = vertices.map(({ point }, index) => {
-      const edge = sub(vertices[(index + 1) % vertices.length]!.point, point);
+    const sides = vertices.map(({ id, point }, index) => {
+      const next = vertices[(index + 1) % vertices.length]!;
+      const edge = sub(next.point, point);
       const length = norm(edge);
-      return { point, inward: cross(frame.n, edge).map(value => value / length) as Vec3 };
+      const key = `${Math.min(id, next.id)}:${Math.max(id, next.id)}`;
+      const other = slabEdges.get(key);
+      const side: FaceSide = { point, inward: cross(frame.n, edge).map(value => value / length) as Vec3, shared: !!other };
+      if (other) other.shared = true;
+      else slabEdges.set(key, side);
+      return side;
     });
     return { cell, bounds, sides };
   }).sort((a, b) => a.bounds[0]!.lo - b.bounds[0]!.lo);
@@ -325,7 +344,7 @@ function interiorContact(walls: readonly Cell[], slabs: readonly Cell[]) {
         if (bounds[0]!.lo > right) break;
         if (axes.some(axis => Math.min(a[axis], b[axis]) > bounds[axis]!.hi
           || Math.max(a[axis], b[axis]) < bounds[axis]!.lo)) continue;
-        if (edgeMeetsFace(a, b, cell.frame, sides)) return { wall: wall.key, slab: cell.key, edge: [first.id, last.id] as const };
+        if (edgeMeetsFace(first, last, cell, sides)) return { wall: wall.key, slab: cell.key, edge: [first.id, last.id] as const };
       }
     }
   }

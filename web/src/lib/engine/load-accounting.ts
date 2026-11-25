@@ -6,7 +6,8 @@ import type { ModelData } from './solver-service';
 import type { SolverInput, SolverLoad } from './types';
 import type { SolverInput3D, SolverLoad3D } from './types-3d';
 import { computeLocalAxes3D, memberRoll, type LocalAxes3D } from './local-axes-3d';
-import { memberFrame3D } from './member-loads';
+import { memberFrame3D, memberRef3D, type MemberRef } from './member-loads';
+import { shouldEmbedFlat2DModelIn3D } from './model-embedding';
 import { planarLoadDirection } from './planar-load-direction';
 import { transverseSign } from './transverse-sign-2d';
 import { agreesAtScale, assembledMagnitudes3D, LoadScalar, LoadVector, norm, positionAt, sub, unit, xyz, zero, Wrench, type Vector } from './accounting-math';
@@ -382,7 +383,9 @@ function assembled2D(model: ModelData, input: SolverInput, loads: readonly Solve
   return result;
 }
 
-function assembled3D(model: ModelData, input: SolverInput3D, loads: readonly SolverLoad3D[], caseId: number): Wrench {
+function assembled3D(
+  model: ModelData, input: SolverInput3D, loads: readonly SolverLoad3D[], caseId: number, label: string,
+): Wrench {
   const result = new Wrench(model[accountingMemberPieces]);
   const at = (id: number): Vector => {
     const node = input.nodes.get(id);
@@ -390,6 +393,8 @@ function assembled3D(model: ModelData, input: SolverInput3D, loads: readonly Sol
     return xyz(node);
   };
   const frames = new Map<number, { start: Vector; axes: LocalAxes3D }>();
+  const members = new Map<number, MemberRef>();
+  let embedded: boolean | undefined;
   for (const load of loads) {
     const kind: string = load.type;
     if (kind === 'thermal' || kind === 'plateThermal' || kind === 'quadThermal' || kind === 'curvedShellThermal') continue;
@@ -400,7 +405,22 @@ function assembled3D(model: ModelData, input: SolverInput3D, loads: readonly Sol
       const force = LoadVector.from([fx, fy, fz], nodal?.force.magnitude, nodal?.force.underflow);
       result.apply(at(nodeId), force, LoadVector.from([mx, my, mz], nodal?.couple.magnitude, nodal?.couple.underflow));
       const redistributed = nodal?.memberLine;
-      if (redistributed) result.memberLineForce(redistributed.member, new LoadScalar(redistributed.station), force);
+      if (redistributed) {
+        const { member, end } = redistributed;
+        let ref = members.get(member);
+        if (!ref) {
+          ref = memberRef3D(model, member, embedded ??= shouldEmbedFlat2DModelIn3D(model)) ?? undefined;
+          if (!ref) unsupported(model, caseId, kind, member);
+          members.set(member, ref);
+        }
+        const expected = end === 'i' ? ref.nodeI : ref.nodeJ;
+        if (nodeId !== expected) {
+          throw new SolveAccountingError(tp('svc.accountingLineEnd', {
+            case: label, member, end: end.toUpperCase(), actual: nodeId, expected,
+          }));
+        }
+        result.memberLineForce(member, new LoadScalar(end === 'i' ? 0 : ref.axes.L), force);
+      }
       continue;
     }
     if (kind === 'pressure' || kind === 'quadPressure' || kind === 'curvedShellPressure') {
@@ -429,7 +449,7 @@ function assembled3D(model: ModelData, input: SolverInput3D, loads: readonly Sol
       const line = magnitudes && 'qI' in magnitudes ? magnitudes : undefined;
       result.line(start, axes.ex, d.a ?? 0, d.b ?? axes.L,
         localVector(axes, d.qXI ?? 0, d.qYI, d.qZI, line?.qI),
-        localVector(axes, d.qXJ ?? 0, d.qYJ, d.qZJ, line?.qJ), elementId);
+        localVector(axes, d.qXJ ?? 0, d.qYJ, d.qZJ, line?.qJ), line?.source === 'prestress' ? undefined : elementId);
     } else {
       const d = load.data;
       result.apply(positionAt(start, axes.ex, d.a), localVector(axes, 0, d.py, d.pz));
@@ -529,7 +549,7 @@ export function loadAccounting3D(
           ? { totals: new Wrench(), names: [] }
           : expected(caseId);
       const label = [caseLabel(model, caseId), ...names].join(' · ');
-      compare(label, totals, assembled3D(model, input, assembled, caseId));
+      compare(label, totals, assembled3D(model, input, assembled, caseId, label));
       const intents = checkAuthored ? (!effects || effects.targets.has(caseId) ? scenarioExpected(caseId) : []) : undefined;
       verifyScenarioSurfaceLoads(source, caseId, loads, sources, label, intents);
       return totals;
@@ -543,5 +563,6 @@ export function accountCombination(
 ): void {
   const entered = new Wrench();
   for (const { factor, totals } of terms) entered.addScaled(totals, factor);
-  compare(`#${id} (${name})`, entered, assembled3D(model, input, loads, id));
+  const label = `#${id} (${name})`;
+  compare(label, entered, assembled3D(model, input, loads, id, label));
 }

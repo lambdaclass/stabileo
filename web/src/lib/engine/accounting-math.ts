@@ -146,8 +146,8 @@ export class LoadVector {
 }
 
 type AssembledMagnitudes3D =
-  | { force: LoadVector; couple: LoadVector; memberLine?: { member: number; station: number } }
-  | { qI: LoadVector; qJ: LoadVector };
+  | { force: LoadVector; couple: LoadVector; memberLine?: { member: number; end: 'i' | 'j' } }
+  | { qI: LoadVector; qJ: LoadVector; source?: 'prestress' };
 
 export const assembledMagnitudes3D = new WeakMap<SolverLoad3D, AssembledMagnitudes3D>();
 
@@ -156,7 +156,7 @@ export function scaleAssembledMagnitudes3D(source: SolverLoad3D, scaled: SolverL
   if (!magnitudes) return;
   assembledMagnitudes3D.set(scaled, 'force' in magnitudes
     ? { ...magnitudes, force: magnitudes.force.scale(factor), couple: magnitudes.couple.scale(factor) }
-    : { qI: magnitudes.qI.scale(factor), qJ: magnitudes.qJ.scale(factor) });
+    : { ...magnitudes, qI: magnitudes.qI.scale(factor), qJ: magnitudes.qJ.scale(factor) });
 }
 
 const zeroCouple = LoadVector.from(zero());
