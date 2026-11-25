@@ -19,6 +19,10 @@ const solvers = {
 };
 const update = process.env.RESULTS_FROZEN_UPDATE === '1';
 const reactionKeys = ['fx', 'fy', 'fz', 'mx', 'my', 'mz'] as const;
+const ssiRankRefusals = new Set([
+  'solve_ssi_2d-c703b27bda5f4eb8.json',
+  'solve_ssi_2d-169f627ba8e7f8cf.json',
+]);
 
 function expectSameReactions(reference: Reaction3D[], current: Reaction3D[]): void {
   expect(current.map(r => r.nodeId)).toEqual(reference.map(r => r.nodeId));
@@ -93,6 +97,22 @@ for (const c of inputs) {
       for (const fy of [NaN, Infinity, -Infinity]) {
         expect(() => expectSameReactions(reference, reference.map(r => ({ ...r, fy })))).toThrow();
       }
+    });
+  }
+  if (ssiRankRefusals.has(c.model)) {
+    it.skip(`known wrong result: #2584 freezes the rank refusal for ${c.model}`, () => {
+      const message = 'the structure is a mechanism or so close to one that its stability cannot be decided in double precision: the reduced stiffness rank cannot be resolved at assembly precision. Check member releases, supports, springs and constraints for a mechanism.';
+      let refusal: unknown;
+      try {
+        engine.solveSSI2D(c.input[0]);
+      } catch (error) {
+        refusal = JSON.parse(String(error));
+      }
+      expect(refusal).toEqual({
+        message,
+        structuredDiagnostics: [{ code: 'reduced_stiffness_rank', severity: 'error', message }],
+      });
+      check(c.model.replace(/\.json$/, ''), ['plane2D', 'members', 'analysis:ssi'], refusal, 'ssi.refusal');
     });
   }
   it(`freezes every serialized field of ${c.model}`, () => {
