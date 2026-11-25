@@ -16,7 +16,7 @@
   import { downloadText } from '../../lib/store/file';
   import { generateCombinations } from '../../lib/codes/cirsoc101/combinations';
   import { generateServiceCombinations } from '../../lib/codes/cirsoc101/service-combinations';
-  import { presentSymbols } from '../../lib/engine/loads/combination-cases';
+  import { modelCombinationCases, presentSymbols } from '../../lib/engine/loads/combination-cases';
   import {
     RULE_SYMBOLS, ruleLabel, ruleTermSymbol, rulesFromTemplate, rulesToTemplate, specToRule, freshRuleIds, type CombinationRule,
   } from '../../lib/engine/loads/combination-rules';
@@ -70,7 +70,7 @@
 
   /** Start from CIRSOC 101, strength and service, for the loads the model has. */
   function seed() {
-    const present = presentSymbols(modelStore.model.loadCases);
+    const present = presentSymbols(modelCombinationCases(modelStore.model));
     const specs = runEngineAction(() => [...generateCombinations({ present }), ...generateServiceCombinations({ present })]);
     if (!specs) return;
     const ids = freshRuleIds(rules, specs.length);

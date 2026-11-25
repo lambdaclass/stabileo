@@ -6,9 +6,9 @@
  * times.
  */
 import { modelStore } from './index';
-import { addGeneratedCombinations, loadCasesWithDirectEffects, takeBackCompositeCases } from './generated-combinations';
+import { addGeneratedCombinations, takeBackCompositeCases } from './generated-combinations';
 import type { LoadPlan } from '../engine/loads/load-plan';
-import { isCompositeCase, type CaseCombination } from '../engine/loads/combination-cases';
+import { eligibleCombinationCase, isCompositeCase, loadCasesWithDirectEffects, type CaseCombination } from '../engine/loads/combination-cases';
 import { describePlanDelta, expandPlannedCombinations, type CurrentLoadState } from '../engine/loads/load-plan-delta';
 import { findPlannedCase, plannedCaseName, type Load, type LoadCase, type LoadCombination } from './model.svelte';
 import { designData, patchDesignData } from './design-data';
@@ -206,6 +206,7 @@ function prepareCombinationCases(
     const pc = { ...planned, group: found?.group ?? planned.group };
     const projectedCase: LoadCase = {
       ...found,
+      autoLoadsRetired: undefined,
       id: found?.id ?? virtualId--,
       name: found?.name ?? plannedCaseName(available, name, pc.type, pc),
       type: found?.type ?? pc.type,
@@ -236,11 +237,12 @@ function prepareCombinationCases(
       continue;
     }
     const empty = !occupied.has(c.id);
-    const retired = c.autoLoadsRetired === true || (empty && replacedCaseIds.has(c.id));
-    if (retired && c.autoLoadsRetired !== true) caseRetirement.set(c.id, true);
-    if (empty && (retired || c.generated)) continue;
-    if (supplementedTypes.has((c.type ?? '').toUpperCase())) cases.push(c);
-    else retainedCases.push(c);
+    const retiredNow = empty && replacedCaseIds.has(c.id);
+    if (retiredNow && c.autoLoadsRetired !== true) caseRetirement.set(c.id, true);
+    const candidate = eligibleCombinationCase(retiredNow ? { ...c, autoLoadsRetired: true } : c, !empty);
+    if (!candidate || (empty && candidate.generated)) continue;
+    if (supplementedTypes.has((candidate.type ?? '').toUpperCase())) cases.push(candidate);
+    else retainedCases.push(candidate);
   }
   return { bindings, cases, retainedCases, caseRetirement };
 }

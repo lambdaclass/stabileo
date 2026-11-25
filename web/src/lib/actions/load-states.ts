@@ -3,7 +3,7 @@
  * combinations written onto the model's states, and the combination that governs each member.
  */
 import { modelStore, resultsStore, uiStore } from '../store';
-import { expandCombinations, presentSymbols } from '../engine/loads/combination-cases';
+import { expandCombinations, modelCombinationCases, presentSymbols } from '../engine/loads/combination-cases';
 import { addGeneratedCombinations, templateCombinationSpecs } from '../store/generated-combinations';
 import { runEngineAction } from '../store/engine-action';
 import { computeGoverning2D, type GoverningPerElement } from '../engine/governing-case';
@@ -20,7 +20,7 @@ const sameFactors = (a: ReadonlyArray<{ caseId: number; factor: number }>, b: Re
  * model already has. Needs a state of type D. Returns how many were added, or null when refused.
  */
 export function addCirsocCombinations(): number | null {
-  const cases = modelStore.model.loadCases;
+  const cases = modelCombinationCases(modelStore.model);
   if (!cases.some((c) => (c.type || '').toUpperCase() === 'D')) {
     uiStore.toast(t('course.influence.states.needDead'), 'error');
     return null;

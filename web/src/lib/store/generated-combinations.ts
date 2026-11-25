@@ -19,7 +19,7 @@ import { caseOrder } from '../engine/case-effects';
 import { EngineCheckError } from '../engine/engine-unavailable';
 import { sumCombinationFactors } from '../engine/wasm-solver';
 import { modelStore, type LoadCombination, type StructureModel } from './model.svelte';
-import type { CaseCombination } from '../engine/loads/combination-cases';
+import { loadCasesWithDirectEffects, type CaseCombination } from '../engine/loads/combination-cases';
 import { generateCombinations, type LoadCombinationSpec, type CombinationInputs } from '../codes/cirsoc101/combinations';
 import { generateServiceCombinations } from '../codes/cirsoc101/service-combinations';
 import { ruleToSpec, type CombinationRule } from '../engine/loads/combination-rules';
@@ -97,14 +97,6 @@ export function addCompositeCases(list: readonly CaseCombination[], prefix: (c: 
     addGeneratedCombinations(combos);
   });
   return ids;
-}
-
-export function loadCasesWithDirectEffects({ loadCases, loads, analysis }: CompositeModel): Set<number> {
-  return new Set([
-    ...loads.map(l => l.data.caseId ?? 1),
-    ...(analysis?.selfWeight ?? []).map(row => row.caseId),
-    ...loadCases.filter(c => c.spectral !== undefined || c.notional !== undefined).map(c => c.id),
-  ]);
 }
 
 /**

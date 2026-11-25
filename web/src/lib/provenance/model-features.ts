@@ -62,7 +62,7 @@ export const FEATURE_IDS = [
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase', 'loadPlanCombinationSupplements', 'flatRoofSnowCombinations',
-  'occupiedGeneratedLoadCases', 'repeatedUngroupedRuleTerms', 'emptyManualLoadAlternatives',
+  'occupiedGeneratedLoadCases', 'repeatedUngroupedRuleTerms', 'emptyManualLoadAlternatives', 'retiredAutoLoadsCases',
   'superposedCombinations', 'repeatedCombinationCases', 'zeroOrOpposingCombinationFactors', 'explicitNotionalCombinationCases',
   'prototypeNamedLoadCase', 'staticCaseEffects', 'projectedSpatialLoads', 'offsetMemberLoadFrame', 'inactiveSpatialMembers',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
@@ -600,6 +600,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (types.has('W') || types.has('Wa')) f.add('wind');
   const combos = (Array.isArray(s.combinations) && s.combinations.length > 0) || (Array.isArray(s.combinationRules) && s.combinationRules.length > 0);
   if (loadPlanInCompositeCase) f.add('loadPlanInCompositeCase');
+  if (cases.some(c => c.autoLoadsRetired === true)) f.add('retiredAutoLoadsCases');
   if (combos || cases.some(isCompositeCase)) {
     if ([...symbolsByAlternativeSet(cases).values()].some(symbols => symbols.size > 1)) f.add('crossSymbolCombinationAlternatives');
     if (cases.some(c => c.snowBasis === 'flatRoof' && symbolOfCase(c) === 'S')) f.add('flatRoofSnowCombinations');

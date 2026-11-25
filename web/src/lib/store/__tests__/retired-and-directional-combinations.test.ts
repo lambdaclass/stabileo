@@ -11,6 +11,7 @@ import { mesh } from '../../engine/loads/__tests__/snow-surface-round2-fixture';
 import { regulations } from '../../engine/loads/__tests__/snow-roof-plane-fixture';
 import { withNotionalVariants } from '../../engine/loads/notional-combinations';
 import { initSolver } from '../../engine/wasm-solver';
+import { modelFeatures } from '../../provenance/model-features';
 import { t, tp } from '../../i18n';
 import { fixtureLoadCases } from '../../templates/load-fixture';
 import { applyLoadPlan, previewLoadPlan } from '../apply-load-plan';
@@ -19,7 +20,6 @@ import { deserializeProject, serializeProject } from '../file';
 import * as generated from '../generated-combinations';
 import { modelStore, uiStore } from '../index';
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2566' ? it : it.skip;
 const applyOptions = { clearExisting: true, bothSenses: false, nameOf: (key: string) => key };
 const terms = [{ symbol: 'D', factor: 1 }, { symbol: 'W', factor: 1 }] as const;
 const gravity = { id: 11, type: 'D', name: 'Gravity' } as const;
@@ -84,7 +84,7 @@ function caseIds(combinations: readonly { factors: ReadonlyArray<{ caseId: numbe
   return combinations.map(c => c.factors.map(f => f.caseId).sort((a, b) => a - b).join('+')).sort();
 }
 
-knownWrong('known wrong result: #2566 — saved project rules exclude a wind case emptied by replacement', () => {
+it('#2566 — saved project rules exclude a wind case emptied by replacement', () => {
   const spec = rule(...terms);
   installCases([gravity, ...winds], spec);
   const node = modelStore.addNode(0, 0, 0);
@@ -99,15 +99,20 @@ knownWrong('known wrong result: #2566 — saved project rules exclude a wind cas
   expect(applyLoadPlan(replacement, applyOptions)).toBeUndefined();
   expect(deserializeProject(serializeProject())).toBe(true);
   expect(modelStore.loadCases.map(c => c.id)).toContain(winds[1].id);
+  expect.soft(modelFeatures(modelStore.snapshot())).toContain('retiredAutoLoadsCases');
   const expected = [`${gravity.id}+${winds[0].id}`];
   expect.soft(caseIds(modelStore.combinations)).toEqual(expected);
   expect.soft(caseIds(expandCombinations([spec], modelStore.loadCases))).toEqual(expected);
   expect.soft(caseIds(loadsCandidates('project')!.map(c => c.generated))).toEqual(expected);
   expect.soft(previewLoadPlan(replacement, applyOptions.nameOf, { replaceExisting: true }).after.combinations).toBe(1);
+  modelStore.addNodalLoad3D(node, -3, 0, 0, 0, 0, 0, winds[1].id);
+  expect(previewLoadPlan(replacement, applyOptions.nameOf, { replaceExisting: true }).after.combinations).toBe(2);
+  expect(applyLoadPlan(replacement, applyOptions)).toBeUndefined();
+  expect(caseIds(modelStore.combinations)).toEqual(['11+12', '11+13']);
 });
 
-knownWrong.each(['2d', '3d'] as const)(
-  'known wrong result: #2566 — rule generation in %s follows direct loads on a retired case', dim => {
+it.each(['2d', '3d'] as const)(
+  '#2566 — rule generation in %s follows direct loads on a retired case', dim => {
     const spec = rule(...terms);
     const retired = { ...winds[1], autoLoadsRetired: true as const };
     const manual = { id: 14, type: 'W', name: 'Intentional no wind' };
@@ -122,7 +127,8 @@ knownWrong.each(['2d', '3d'] as const)(
       return modelStore.combinations;
     };
     const fixture = () => fixtureLoadCases({
-      name: 'Retired wind', loadCases: modelStore.loadCases, combinations: [], loads: modelStore.loads,
+      name: 'Retired wind', loadCases: modelStore.loadCases, combinations: [],
+      loads: modelStore.loads.map(({ type, data }) => ({ type, data: { caseId: data.caseId } })),
     }, { loadCases: [], combinations: [] }).combinations;
     const expected = (occupied: boolean) => {
       expect.soft(caseIds(loadsCandidates('project')!.map(c => c.generated))).toEqual(
@@ -154,8 +160,8 @@ const sharedCases = [
 const standalone = { id: 25, type: 'W', name: 'Standalone wind' } as const;
 const lateralTerms = [...terms, { symbol: 'E', factor: 1 }] as const;
 
-knownWrong.each(['2d', 'pro'] as const)(
-  'known wrong result: #2566 — a %s rule refuses a standalone direction that two shared sets leave out', mode => {
+it.each(['2d', 'pro'] as const)(
+  '#2566 — a %s rule refuses a standalone direction that two shared sets leave out', mode => {
     uiStore.analysisMode = mode;
     const spec = rule(...lateralTerms);
     const cases = [gravity, ...sharedCases, standalone];
@@ -174,7 +180,7 @@ knownWrong.each(['2d', 'pro'] as const)(
       toast.mockRestore();
     }
 
-    const message = tp(refusal as Parameters<typeof tp>[0], { rule: spec.label, case: standalone.name });
+    const message = tp(refusal, { rule: spec.label, case: standalone.name });
     expect.soft(engineGuarded(() => previewLoadPlan(input, applyOptions.nameOf, { replaceExisting: true })).error).toBe(message);
     expect.soft(engineGuarded(() => applyLoadPlan(input, applyOptions)).error).toBe(message);
     expect(modelStore.snapshot()).toEqual(before);
@@ -190,4 +196,6 @@ it('#2566 two shared sets with no competing standalone wind retain both legal co
   expect(previewLoadPlan(input, applyOptions.nameOf, { replaceExisting: true }).after.combinations).toBe(2);
   expect(applyLoadPlan(input, applyOptions)).toBeUndefined();
   expect(caseIds(modelStore.combinations)).toEqual(['11+21+24', '11+22+23']);
+  expect(caseIds(expandCombinations([spec], [gravity, ...sharedCases.slice(0, 2), standalone])))
+    .toEqual(['11+21', '11+22+25']);
 });

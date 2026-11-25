@@ -45,6 +45,7 @@
  * and a statement about any case loaded by hand, which the option says where it is offered.
  */
 import { isCombinationGroup } from './combination-rules';
+import type { AnalysisSettings } from '../analysis-settings';
 import { EngineMessageError, msg } from '../../codes/message';
 import type { LoadCombinationSpec, LoadSymbol, CombinationInputs } from '../../codes/cirsoc101/combinations';
 
@@ -99,8 +100,8 @@ export interface CaseCombination {
 }
 
 /** Which load symbols the model has cases for. */
-export function presentSymbols(cases: ReadonlyArray<{ type?: string; includes?: ReadonlyArray<unknown> }>): CombinationInputs['present'] {
-  const has = (s: LoadSymbol) => cases.some((c) => symbolOfCase(c) === s);
+export function presentSymbols(cases: readonly CombinationSymbolCase[]): CombinationInputs['present'] {
+  const has = (s: LoadSymbol) => cases.some((c) => combinationSymbol(c) === s);
   return { L: has('L'), Lr: has('Lr'), S: has('S'), R: has('R'), W: has('W'), E: has('E'), F: has('F'), H: has('H'), Wa: has('Wa'), T: has('T') };
 }
 
@@ -141,12 +142,57 @@ export interface CombinationCase {
   pattern?: boolean;
   includes?: ReadonlyArray<unknown>;
   snowBasis?: 'flatRoof';
+  autoLoadsRetired?: true;
+}
+
+type CombinationSymbolCase = Pick<CombinationCase, 'type' | 'includes' | 'autoLoadsRetired'>;
+
+type DirectEffectsModel<C> = {
+  loadCases: readonly C[];
+  loads: ReadonlyArray<{ data: { caseId?: unknown } & Record<string, unknown> }>;
+  analysis?: Pick<AnalysisSettings, 'selfWeight'>;
+};
+
+export function loadCasesWithDirectEffects({
+  loadCases, loads, analysis,
+}: DirectEffectsModel<{ id: number; spectral?: unknown; notional?: unknown }>): Set<number> {
+  const ids = new Set([
+    ...(analysis?.selfWeight ?? []).map(row => row.caseId),
+    ...loadCases.filter(c => c.spectral !== undefined || c.notional !== undefined).map(c => c.id),
+  ]);
+  for (const { data } of loads) {
+    if (data.caseId == null) ids.add(1);
+    else if (typeof data.caseId === 'number') ids.add(data.caseId);
+  }
+  return ids;
+}
+
+export function eligibleCombinationCase<C extends { autoLoadsRetired?: true }>(c: C, hasDirectEffects = false): Omit<C, 'autoLoadsRetired'> | undefined {
+  if (c.autoLoadsRetired !== true) return c;
+  if (hasDirectEffects) return { ...c, autoLoadsRetired: undefined };
+  return undefined;
+}
+
+export function modelCombinationCases<C extends CombinationCase & { spectral?: unknown; notional?: unknown }>(
+  model: DirectEffectsModel<C>,
+): readonly Omit<C, 'autoLoadsRetired'>[] {
+  if (!model.loadCases.some(c => c.autoLoadsRetired === true)) return model.loadCases;
+  const occupied = loadCasesWithDirectEffects(model);
+  return model.loadCases.flatMap(c => {
+    const eligible = eligibleCombinationCase(c, occupied.has(c.id));
+    return eligible ? [eligible] : [];
+  });
+}
+
+function combinationSymbol(c: CombinationSymbolCase): LoadSymbol | null {
+  const eligible = eligibleCombinationCase(c);
+  return eligible ? symbolOfCase(eligible) : null;
 }
 
 function casesBySymbol(cases: readonly CombinationCase[]): Map<LoadSymbol, CombinationCase[]> {
   const bySymbol = new Map<LoadSymbol, CombinationCase[]>();
   for (const c of cases) {
-    const symbol = symbolOfCase(c);
+    const symbol = combinationSymbol(c);
     if (!symbol) continue;
     const matching = bySymbol.get(symbol);
     if (matching) matching.push(c);
@@ -319,6 +365,8 @@ export function expandCombinations(
       });
       return slots.map(slot => 'choices' in slot ? { ...slot, picks: choicePicks(slot, opts) } : slot);
     };
+    const missingDirections = new Map(terms.filter(t => isDirectional(t.symbol))
+      .flatMap(t => casesFor(t).map(c => [c.id, c.name] as const)));
     const seen = new Set<string>();
     for (const varying of opts.patternsInCompanions || tied.length === 0 ? [null] : tied) {
       for (const chosen of combineChoiceSlots(slotsFor(varying), spec.label)) {
@@ -326,9 +374,14 @@ export function expandCombinations(
         const key = factors.map((f) => `${f.caseId}:${f.factor}`).sort().join(' ');
         if (seen.has(key)) continue;
         seen.add(key);
+        for (const { caseId } of factors) missingDirections.delete(caseId);
         const which = chosen.map((p) => p.label).filter(Boolean).join(', ');
         out.push({ name: which ? `${spec.label} (${which})` : spec.label, factors, purpose: spec.purpose ?? 'strength', specId: spec.id, ...(spec.origin ? { origin: spec.origin } : {}) });
       }
+    }
+    const omittedCase = missingDirections.values().next().value;
+    if (omittedCase !== undefined) {
+      throw new EngineMessageError(msg('combos.refused.directionalCase', { rule: spec.label, case: omittedCase }));
     }
   }
   return out;
