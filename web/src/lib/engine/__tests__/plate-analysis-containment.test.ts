@@ -458,9 +458,9 @@ it('#2430 transfers the entire slab load into the wall when both share the inter
 });
 
 
-function throughSlab(y: number, bottom = -1) {
+function throughSlab(y: number, bottom = -1, left = 1, right = 3) {
   const [corner] = loadedSlab();
-  const points: [number, number, number][] = [[1, y, bottom], [3, y, bottom], [3, y, 1], [1, y, 1]];
+  const points: [number, number, number][] = [[left, y, bottom], [right, y, bottom], [right, y, 1], [left, y, 1]];
   const [a, b, c, d] = points.map(([x, py, z]) => modelStore.addNode(x, py, z)) as [number, number, number, number];
   modelStore.addSupport(a, 'fixed3d');
   modelStore.addSupport(b, 'fixed3d');
@@ -484,5 +484,23 @@ it('global analysis refuses a wall passing through a slab', async () => {
 
 it.each([[2, 0.01], [-0.01, -1]])('solves the loaded slab and a wall clear of its face at y=%s, bottom=%s', (y, bottom) => {
   throughSlab(y, bottom);
+  expectLoadedSlab(modelStore.solve3D(false, false, true));
+});
+
+const review = it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586');
+
+review.each(directEntries)('known wrong result: #2586 — the %s entry refuses a wall spanning the slab face', async (entry, solve) => {
+  throughSlab(2, -1, -1, 5);
+  expect(await solve()).toEqual(entry === 'reproducible input' ? null : expect.stringMatching(/wall.*slab/i));
+});
+
+review('known wrong result: #2586 — global solve refuses a face intersection with no wall-edge crossings', async () => {
+  throughSlab(2, -1, -1, 5);
+  expect(await runGlobalSolve({ directBase: true })).toEqual({ ok: false, error: expect.stringMatching(/wall.*slab/i) });
+  expect(resultsStore.results3D).toBeNull();
+});
+
+it('solves when the wide wall crosses the slab plane beyond its face', () => {
+  throughSlab(-2 * PLATE_EDGE_TOL, -1, -1, 5);
   expectLoadedSlab(modelStore.solve3D(false, false, true));
 });

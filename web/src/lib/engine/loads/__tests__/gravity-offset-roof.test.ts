@@ -153,3 +153,44 @@ it('mixed gap exposure refuses the physical run under subdivision', () => {
     expect([...layout.roofAreaOf.values()].reduce((a, b) => a + b, 0)).toBeCloseTo(12, 10);
   }
 });
+
+const review = it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586');
+
+it('#2586 keeps the full explicit width on a rigidly attached rafter with a bounded gap', () => {
+  for (const subdivided of [false, true]) {
+    const { model } = offsetRoof(0.02, 0, 1, subdivided, [4, 6]);
+    const plan = roofPlan(model, 'width');
+    expect(plan.outcome).toBe('READY');
+    expect(plan.surface).toEqual([]);
+    expect(plan.distributed.filter(load => load.caseType === 'D')).toEqual([...model.elements.keys()].map(elementId => ({
+      caseType: 'D', elementId, q: -options.tributaryWidth, frame: 'global',
+    })));
+  }
+});
+
+review('known wrong result: #2586 — partitions one attached gap at a canopy edge', () => {
+  const reason = { key: 'loadPlan.gravity.mixedExposure' };
+  for (const subdivided of [false, true]) for (const end of [4, 5, 6]) {
+    const { model } = offsetRoof(0.02, 0, 1, subdivided, [4, 6]);
+    const nodes = [[3, -1], [end, -1], [end, 1], [3, 1]].map(([x, y]) => {
+      const id = model.nodes.size + 1;
+      model.nodes.set(id, { id, x: x!, y: y!, z: 8 });
+      return id;
+    });
+    model.quads.set(3, { id: 3, nodes, materialId: 1, thickness: 0.1 });
+    const plan = (mode: 'panels' | 'width') => buildLoadPlan(input(model, {
+      gravity: { mode }, roof: { use: 'maintenance', weight: 'heavy', dead: 1, slopeDeg: Math.atan(0.2) * 180 / Math.PI },
+    }));
+    expect.soft(plan('width').outcome).toBe('READY');
+    expect.soft(() => gravityLayout(model, { ...options, uniformPressure: true })).not.toThrow();
+    if (end === 5) {
+      expect.soft(plan('panels')).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [reason], distributed: [], surface: [] });
+      expect.soft(() => roofWeightFor(model, options, options.tributaryWidth, 1)).toThrow(expect.objectContaining(reason));
+    } else {
+      expect.soft(plan('panels').outcome).toBe('READY');
+      const layout = gravityLayout(model, options);
+      const areas = end === 4 ? layout.roofAreaOf : layout.areaOf;
+      expect.soft([...model.elements.keys()].reduce((sum, id) => sum + (areas.get(id) ?? 0), 0)).toBeCloseTo(6, 10);
+    }
+  }
+});

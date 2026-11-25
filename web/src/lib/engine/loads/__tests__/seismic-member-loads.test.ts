@@ -1808,3 +1808,40 @@ it.each([0, 1])(
     }
   },
 );
+
+const review = it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586');
+
+review('known wrong result: #2586 — continues a supported gable post through subdivision', () => {
+  for (const rotated of [false, true]) for (const subdivision of [0, 1, 2]) {
+    const { model } = gablePlan(false, rotated, false, 0);
+    const post = model.elements.get(1)!;
+    const bottom = model.nodes.get(post.nodeI)!;
+    const top = model.nodes.get(post.nodeJ)!;
+    let previous = bottom.id;
+    for (let cut = 1; cut <= subdivision; cut++) {
+      const id = model.nodes.size + 1;
+      model.nodes.set(id, { ...bottom, id, z: cut * 2 / (subdivision + 1) });
+      const piece = cut === 1 ? post.id : model.elements.size + 1;
+      model.elements.set(piece, { ...post, id: piece, nodeI: previous, nodeJ: id });
+      previous = id;
+    }
+    if (subdivision) {
+      const id = model.elements.size + 1;
+      model.elements.set(id, { ...post, id, nodeI: previous, nodeJ: top.id });
+    }
+    const options = request(model, { directions: { x: rotated, y: !rotated } }, { generateCombinations: true });
+    const plan = buildLoadPlan(options);
+    const sink = seismicSink();
+    INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
+    expect.soft(plan.outcome, String(subdivision)).toBe('READY');
+    expect.soft(plan.seismicModel!.levels.map(level => level.elevation)).toEqual([0, 2]);
+    expect.soft(sink.nodal).toEqual([]);
+    expect.soft(sink.distributed).toHaveLength(2);
+    expect.soft(plan.factors.baseShear?.value).toBeCloseTo(4 * Math.sqrt(5), 10);
+    if (subdivision === 0) continue;
+    model.nodes.get(previous)![rotated ? 'x' : 'y'] += 0.01;
+    expect.soft(buildLoadPlan(options)).toMatchObject({
+      outcome: 'BLOCKED', blockedKeys: [{ key: 'loadPlan.blocked.seismicAmbiguousStory' }],
+    });
+  }
+});
