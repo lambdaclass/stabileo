@@ -79,12 +79,17 @@ function stripUnderBay(upper: number) {
   return mesh([[[0, 3, 2.9996], [6, 3, 3.0004]], ring(upper), [[0, 3, upper], [6, 3, upper]]]);
 }
 
-function bayUnderShell(upper: number, corner = 0.0004) {
+function bayUnderShell(upper: number, corner = 0.0004, definiteShellStart?: number) {
   const lower = ring(0);
   lower[0]![2] = corner;
-  const model = mesh([lower, ring(upper)]);
+  const rings = [lower, ring(upper)];
+  if (definiteShellStart !== undefined) {
+    rings.push(ring(1).map(([x, y, z]) => [x === 0 ? definiteShellStart : x, y, z]));
+  }
+  const model = mesh(rings);
   model.quads = new Map([[1, { id: 1, nodes: [5, 6, 7, 8] }]]);
-  for (const id of [5, 6, 7, 8]) model.elements.delete(id);
+  if (definiteShellStart !== undefined) model.quads.set(2, { id: 2, nodes: [9, 10, 11, 12] });
+  for (const id of model.elements.keys()) if (id > 4) model.elements.delete(id);
   return model;
 }
 
@@ -149,8 +154,8 @@ it('#2564 keeps the full load when all bays are explicitly selected', () => {
   expect([1, 2, 3, 4].reduce((sum, id) => sum + deadResultant(result, model, id), 0)).toBeCloseTo(36, 12);
 });
 
-it('#2564 refuses indeterminate clearance at the strict headroom limit', () => {
-  const model = bayUnderShell(MIN_STOREY_HEADROOM);
+it.each([undefined, 3])('#2564 refuses indeterminate clearance at the strict headroom limit on uncovered area (shell start %s)', definiteShellStart => {
+  const model = bayUnderShell(MIN_STOREY_HEADROOM, 0.0004, definiteShellStart);
   const refusal = { key: 'loadPlan.gravity.uncertainDeckCover' };
   const result = plan(model, 'panels', false);
   expect(result.outcome).toBe('BLOCKED');
@@ -160,6 +165,23 @@ it('#2564 refuses indeterminate clearance at the strict headroom limit', () => {
   expect(result.surface).toHaveLength(0);
   expect(applyLoadPlan(result, { clearExisting: true, bothSenses: true, nameOf: key => key })).toEqual(refusal);
   expect(() => roofWeightFor(model, { mode: 'panels', loadEveryPanel: false }, 1, 1)).toThrow(expect.objectContaining(refusal));
+});
+
+const resolvedHeadroom = process.env.RUN_KNOWN_WRONG === '2564' ? it : it.skip;
+
+resolvedHeadroom.each([false, true])('known wrong result: #2564 definite shell clips all indeterminate headroom (reverse %s)', reverse => {
+  const model = bayUnderShell(MIN_STOREY_HEADROOM, 0.0004, 0);
+  if (reverse) model.quads = new Map([...model.quads!].reverse());
+  const result = plan(model, 'panels', false);
+  expect(result.outcome).toBe('READY');
+  expect(result.blockedKeys).toEqual([]);
+  expect(result.distributed.filter(load => load.elementId <= 4)).toHaveLength(0);
+  expect(result.nodal.filter(load => load.nodeId <= 4)).toHaveLength(0);
+  expect(result.surface.filter(load => load.caseType === 'D').map(load => load.quadId).sort()).toEqual([1, 2]);
+
+  const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
+  expect(layout.areaByLevel.get(0)).toBeUndefined();
+  expect(() => roofWeightFor(model, { mode: 'panels', loadEveryPanel: false }, 1, 1)).not.toThrow();
 });
 
 it('#2564 strip with headroom above the limit keeps its full load', () => {

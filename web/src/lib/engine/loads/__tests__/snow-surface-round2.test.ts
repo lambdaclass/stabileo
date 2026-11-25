@@ -11,6 +11,7 @@ import { roofSnow } from '../../../codes/cirsoc104/snow';
 import { buildLoadPlan } from '../load-plan';
 
 const knownWrong = it;
+const rotatedCoverage = process.env.RUN_KNOWN_WRONG === '2564' ? it : it.skip;
 const expected = (slopeDeg: number, W: number) => roofSnow({ ...snow, roof: { kind: 'gable', slippery: true, slopeDeg, W } });
 
 for (const angle of [0, 0.37, -0.8, Math.PI / 2, Math.PI]) for (const mirror of [1, -1]) {
@@ -86,39 +87,46 @@ knownWrong('known wrong result: #2095 partial exemption belongs to each surface'
   expect(out.cases.filter(c => c.pattern && c.nameParams.axis === 'Y').length).toBeGreaterThan(0);
 });
 
+function checkPlannerAgreement(fixture: typeof twoPitch, mode: 'width' | 'panels', model: ReturnType<typeof twoPitch>) {
+  const base = fixture();
+  const layout = gravityLayout(model, { mode, tributaryWidth: 1 });
+  const direct = snowLoadCases({ model, snow: { ...snow, partial: true }, layout, tributaryWidth: 1 })!;
+  const reference = snowLoadCases({ model: base, snow: { ...snow, partial: true }, layout: gravityLayout(base, { mode, tributaryWidth: 1 }), tributaryWidth: 1 })!;
+  expect(direct.result.refused).toBe(reference.result.refused);
+  expect(direct.cases.length).toBe(reference.cases.length);
+  const canonical = (c: typeof direct.cases[number]) => [...c.distributed].sort((a, b) => a.elementId - b.elementId || (a.a ?? 0) - (b.a ?? 0) || a.q - b.q);
+  for (const [k, c] of direct.cases.entries()) {
+    const actual = canonical(c), expected = canonical(reference.cases[k]!);
+    expect(actual.length).toBe(expected.length);
+    for (const [j, d] of actual.entries()) {
+      expect(d.elementId).toBe(expected[j]!.elementId);
+      for (const key of ['q', 'qJ', 'a', 'b'] as const) expect(d[key] ?? 0).toBeCloseTo(expected[j]![key] ?? 0, 9);
+    }
+  }
+  const plan = buildLoadPlan({ regulations: regulations(), dead: [], occupancyKey: 'vivienda', reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true, model, gravity: { mode }, tributaryWidth: 1, snow: { ...snow, partial: true, enabled: true, source: 'site' } });
+  if (fixture === twoPitch && mode === 'panels') {
+    expect(direct).toMatchObject({ result: { refused: 'snow.refused.stepDriftTransfer' }, cases: [] });
+    expect(plan).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [{ key: 'snow.refused.stepDriftTransfer' }], cases: [], distributed: [] });
+    return;
+  }
+  expect(plan.outcome).toBe('READY');
+  const index = plan.cases.findIndex(c => c.type === 'S');
+  const planned = plan.distributed.filter(d => d.caseIndex === index);
+  const compare = mode === 'panels' ? direct : snowLoadCases({ model, snow, tributaryWidth: 1 })!;
+  for (const id of model.elements.keys()) expect(pressure(planned, id)).toBeCloseTo(pressure(compare.cases[0]!.distributed, id), 9);
+}
+
 for (const angle of [0, 0.37, Math.PI / 2]) for (const shift of [0, 1]) for (const mirror of [1, -1]) {
   for (const fixture of [asymmetric, concave, disjoint, separateRoofs, twoPitch]) for (const mode of ['width', 'panels'] as const) {
-    it(`all generated loads and planner agree for ${fixture.name} ${mode} ${angle} ${shift} ${mirror}`, () => {
-      const base = fixture();
-      const rotate = fixture === twoPitch && mode === 'width' ? transformWithDyadicBasis : transform;
-      const model = rotate(fixture(), angle, shift, mirror);
-      const layout = gravityLayout(model, { mode, tributaryWidth: 1 });
-      const direct = snowLoadCases({ model, snow: { ...snow, partial: true }, layout, tributaryWidth: 1 })!;
-      const reference = snowLoadCases({ model: base, snow: { ...snow, partial: true }, layout: gravityLayout(base, { mode, tributaryWidth: 1 }), tributaryWidth: 1 })!;
-      expect(direct.result.refused).toBe(reference.result.refused);
-      expect(direct.cases.length).toBe(reference.cases.length);
-      const canonical = (c: typeof direct.cases[number]) => [...c.distributed].sort((a, b) => a.elementId - b.elementId || (a.a ?? 0) - (b.a ?? 0) || a.q - b.q);
-      for (const [k, c] of direct.cases.entries()) {
-        const actual = canonical(c), expected = canonical(reference.cases[k]!);
-        expect(actual.length).toBe(expected.length);
-        for (const [j, d] of actual.entries()) {
-          expect(d.elementId).toBe(expected[j]!.elementId);
-          for (const key of ['q', 'qJ', 'a', 'b'] as const) expect(d[key] ?? 0).toBeCloseTo(expected[j]![key] ?? 0, 9);
-        }
-      }
-      const plan = buildLoadPlan({ regulations: regulations(), dead: [], occupancyKey: 'vivienda', reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true, model, gravity: { mode }, tributaryWidth: 1, snow: { ...snow, partial: true, enabled: true, source: 'site' } });
-      if (fixture === twoPitch && mode === 'panels') {
-        expect(direct).toMatchObject({ result: { refused: 'snow.refused.stepDriftTransfer' }, cases: [] });
-        expect(plan).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [{ key: 'snow.refused.stepDriftTransfer' }], cases: [], distributed: [] });
-        return;
-      }
-      expect(plan.outcome).toBe('READY');
-      const index = plan.cases.findIndex(c => c.type === 'S');
-      const planned = plan.distributed.filter(d => d.caseIndex === index);
-      const compare = mode === 'panels' ? direct : snowLoadCases({ model, snow, tributaryWidth: 1 })!;
-      for (const id of model.elements.keys()) expect(pressure(planned, id)).toBeCloseTo(pressure(compare.cases[0]!.distributed, id), 9);
+    const pending = fixture === twoPitch && mode === 'width' && (angle === 0.37 || (angle === Math.PI / 2 && shift === 0));
+    const check = pending ? rotatedCoverage : it;
+    check(`${pending ? 'known wrong result: #2564 ' : ''}all generated loads and planner agree for ${fixture.name} ${mode} ${angle} ${shift} ${mirror}`, () => {
+      checkPlannerAgreement(fixture, mode, transform(fixture(), angle, shift, mirror));
     });
   }
+  it(`all generated loads and planner agree for twoPitch width with a dyadic rotation ${angle} ${shift} ${mirror}`, () => {
+    checkPlannerAgreement(twoPitch, 'width', transformWithDyadicBasis(twoPitch(), angle, shift, mirror));
+  });
 }
 
 it('ridge tributaries use the width and pressure of the surface they carry', () => {
