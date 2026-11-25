@@ -275,3 +275,17 @@ fn issue_2125_ground_motion_preserves_half_turn_symmetry() {
 }
 
 mod moving_shear;
+
+#[test]
+#[ignore = "known wrong result: #2101"]
+fn inclined_support_moving_shear_is_invariant_under_ci_rotation() {
+    let seed = 20261018;
+    let model = corpus::cases_3d(corpus::Tier::Pr, seed).into_iter()
+        .find(|c| c.name == "feature_matrix/3d-inclined-support-roller-normal-at-30--with")
+        .unwrap();
+    let analysis: Vec<_> = ana3::rows().into_iter().filter(|a| a.name == "moving loads").collect();
+    let tally = Tally::default();
+    let ctx = checks3::Ctx { tally: &tally, rng_seed: seed };
+    checks3::check_case(&ctx, &model, &analysis, &["rotation"]);
+    assert!(tally.failures().is_empty(), "{}", tally.failures().join("\n"));
+}
