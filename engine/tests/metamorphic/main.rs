@@ -44,6 +44,7 @@ mod dynamic_accuracy;
 mod quick;
 mod regressions;
 mod harmonic_linearity;
+mod harmonic_dc_equilibration;
 mod linear_identities;
 mod completeness;
 mod response;
