@@ -389,6 +389,26 @@ mod round3_tests {
     }
 
     #[test]
+    #[ignore = "known wrong result: #2437"]
+    fn issue_2437_checked_station_validates_the_adjoining_interval() {
+        let a = 1.5_f64;
+        let ulp = f64::from_bits(a.to_bits() + 1) - a;
+        for steps in [2, 8] {
+            let curve = Curve {
+                length: 3.0, start: 0.0, change: 0.0, slope: 0.0,
+                response: Response::Force(1.0),
+                distributed: std::iter::once(DistributedLoadInfo {
+                    a, b: a + f64::from(steps) * ulp, q_i: 1.0 / ulp, q_j: -1.0 / ulp,
+                }),
+                points: std::iter::empty(),
+            };
+            assert_eq!(curve.checked_station_value(0.5, false).is_err(), steps == 2);
+            assert_eq!(curve.checked_station_value(0.5, true).is_err(), steps == 2);
+            assert_eq!(curve.checked_station_value(0.25, false), Ok(0.0));
+        }
+    }
+
+    #[test]
     fn issue_2250_rounded_terminal_shear_uses_interval_change() {
         let loads = [
             DistributedLoadInfo { a: 0.0, b: 2.25, q_i: 0.0, q_j: -5.625 },

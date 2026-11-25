@@ -648,6 +648,20 @@ mod diagram_limit_tests {
     use super::*;
 
     #[test]
+    #[ignore = "known wrong result: #1782"]
+    fn issue_1782_path_endpoint_identity_survives_cumulative_rounding() {
+        let start = 1024.0;
+        let length = 1.0 + 2.0_f64.powi(-45);
+        let end = start + length;
+        assert_eq!(sampled_axle_station(start, end, length, false, end), Some(length));
+        assert_eq!(sampled_axle_station(start, end, length, true, end), Some(0.0));
+        assert_eq!(sampled_axle_station(start, end, length, false, start), Some(0.0));
+        assert_eq!(sampled_axle_station(start, end, length, false, start + 0.5), Some(0.5));
+        let before = f64::from_bits(end.to_bits() - 1);
+        assert_eq!(sampled_axle_station(start, end, length, false, before), Some(before - start));
+    }
+
+    #[test]
     fn moving_range_keeps_end_forces_and_recovered_tip_limits() {
         let mut ef: ElementForces3D = serde_json::from_value(serde_json::json!({
             "elementId": 1, "length": 10.0, "nStart": 0.0, "nEnd": 0.0,

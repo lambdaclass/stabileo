@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { solveMovingLoads } from '../moving-loads';
+import { solveMovingLoads, solveMovingLoadsAsync } from '../moving-loads';
 import type { SolverInput } from '../types';
 import type { MovingLoadEnvelope } from '../moving-loads';
 
@@ -112,4 +112,18 @@ describe('Moving loads symmetry', () => {
     // Moment is negative in our convention (load pushes down)
     expect(Math.abs(mData.negValues[midIdx])).toBeCloseTo(P * L / 4, 0);
   });
+});
+
+it.skip('known wrong result: #2226 sync and async planar sweeps capture an axle between display stations', async () => {
+  const length = 6, weight = 100, step = 2.9;
+  const input = makeSimpleBeam(length);
+  const config = { train: { name: 'P', axles: [{ offset: 0, weight }] }, step };
+  const exact = weight * step * (length - step) / length;
+  for (const result of [solveMovingLoads(input, config), await solveMovingLoadsAsync(input, config)]) {
+    expect(typeof result).not.toBe('string');
+    const env = result as MovingLoadEnvelope;
+    expect.soft(env.fullEnvelope!.moment.globalMax).toBeCloseTo(exact, 10);
+    expect.soft(Math.abs(env.elements.get(1)!.mMaxPos || env.elements.get(1)!.mMaxNeg)).toBeCloseTo(exact, 10);
+    expect.soft(env.fullEnvelope!.moment.elements[0]!.tPositions).toContain(step / length);
+  }
 });

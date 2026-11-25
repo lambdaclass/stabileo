@@ -1,11 +1,14 @@
 import { expect, it } from 'vitest';
 import { computeDiagramValueAt, computeElementDiagram, prepareDiagramValueAt } from '../diagrams';
-import { computeDiagram3D, evaluateDiagramAt } from '../diagrams-3d';
+import { computeDiagram3D, evaluateDiagramAt, prepareDiagramEvaluator3D } from '../diagrams-3d';
 import {
   computeDiagrams2D, computeDiagrams3D, computeDiagramValueAtWasm, computeDiagramValueAt3DWasm,
   computeEnvelope, computeEnvelope3D, extractBeamStations, extractBeamStations3D,
   extractBeamStationsGrouped, extractBeamStationsGrouped3D, solve, solve3D, solvePDelta, solvePDelta3D,
 } from '../wasm-solver';
+import { computeDiagramGlobalMax } from '../../canvas/draw-diagrams';
+import { computePointwiseEnvelope } from '../moving-loads';
+import { buildPath3D, foldPosition, trainLoads } from '../moving-loads-3d';
 import type { SolverInput } from '../types';
 import type { SolverInput3D } from '../types-3d';
 
@@ -138,4 +141,107 @@ it('#2250 refuses distinct extrema aliased within one normalized station', () =>
   for (const diagram of momentInputs(64)) {
     expect(diagram().points.filter(p => p.t > 0.5 && p.t < (a + 64 * Number.EPSILON) / length).length).toBeGreaterThanOrEqual(2);
   }
+});
+
+it.skip('known wrong result: #2226 uses the partial-load shear peak for the overlay and pointwise envelope', () => {
+  const [, , planar] = forceRecords();
+  for (const result of planar) {
+    const start = 1 / 32, end = 1 / 16, q = 128;
+    result.elementForces[0]!.distributedLoads = [{ a: start, b: end, qI: q, qJ: -q }];
+    const expected = (end - start) * q / 4;
+    expect.soft(computeDiagramGlobalMax(result, 'shear')).toBe(expected);
+    expect.soft(computePointwiseEnvelope([result])!.shear.globalMax).toBe(expected);
+  }
+});
+
+it.skip('known wrong result: #2226 folds only inward endpoint faces into spatial moving-load envelopes', () => {
+  const [, , , spatial] = forceRecords();
+  for (const result of spatial) {
+    const ef = result.elementForces[0]!;
+    ef.vzStart = 10;
+    ef.vzEnd = 30;
+    ef.pointLoadsZ = [{ a: 0, p: -10 }, { a: 1, p: -5 }, { a: 2, p: 7 }, { a: length, p: 28 }];
+    const envelope: Parameters<typeof foldPosition>[0] = new Map();
+    foldPosition(envelope, result, 4);
+    const shear = envelope.get(ef.elementId)!.vz;
+    expect.soft(shear.min).toEqual({ value: -5, x: 1, position: 4 });
+    expect.soft(shear.max).toEqual({ value: 2, x: 2, position: 4 });
+  }
+});
+
+it.skip('known wrong result: #2437 checks a point query for an extremum aliased onto its boundary', () => {
+  const [, , planar, spatial] = forceRecords();
+  const at = a / length;
+  const loads = [{ a, b: 2.25, qI: 1, qJ: -(2 ** 54) }];
+  for (const result of planar) {
+    const ef = { ...result.elementForces[0]!, distributedLoads: loads };
+    expect.soft(() => computeDiagramValueAtWasm('shear', at, ef)).toThrow(/extrema/i);
+    expect.soft(() => computeDiagramValueAt('shear', at, ef)).toThrow(/extrema/i);
+    expect.soft(() => prepareDiagramValueAt('shear', ef)(at)).toThrow(/extrema/i);
+    expect.soft(computeDiagramValueAtWasm('shear', at - Number.EPSILON, ef)).toBe(0);
+    expect.soft(computeDiagramValueAtWasm('shear', at, { ...ef, distributedLoads: [{ ...loads[0]!, qJ: -1 }] })).toBe(0);
+  }
+  for (const result of spatial) {
+    const ef = { ...result.elementForces[0]!, distributedLoadsZ: loads };
+    expect.soft(() => computeDiagramValueAt3DWasm('shearZ', at, ef)).toThrow(/extrema/i);
+    expect.soft(() => evaluateDiagramAt(ef, 'shearZ', at)).toThrow(/extrema/i);
+    expect.soft(() => prepareDiagramEvaluator3D(ef, 'shearZ')(at)).toThrow(/extrema/i);
+    expect.soft(computeDiagramValueAt3DWasm('shearZ', at - Number.EPSILON, ef)).toBe(0);
+    expect.soft(computeDiagramValueAt3DWasm('shearZ', at, { ...ef, distributedLoadsZ: [{ ...loads[0]!, qJ: -1 }] })).toBe(0);
+  }
+});
+
+it.skip('known wrong result: #2437 reads the plotted polynomial extremum through prepared and direct queries', () => {
+  const [, , planar, spatial] = forceRecords();
+  const distributed = [-(2 ** 54), 2 ** 54, 1].map(q => ({ a: 0, b: 1, qI: q, qJ: q }));
+  for (const result of planar) {
+    const ef = { ...result.elementForces[0]!, length: 1, vStart: -0.5, distributedLoads: distributed };
+    expect.soft(computeElementDiagram('moment', ef, 0, 0, 1, 0).maxValue).toBe(0.125);
+    expect.soft(computeDiagramValueAt('moment', 0.5, ef)).toBe(0.125);
+    expect.soft(prepareDiagramValueAt('moment', ef)(0.5)).toBe(0.125);
+  }
+  for (const result of spatial) {
+    const ef = { ...result.elementForces[0]!, length: 1, vyStart: -0.5, distributedLoadsY: distributed };
+    expect.soft(computeDiagram3D(ef, 'momentZ').maxValue).toBe(0.125);
+    expect.soft(evaluateDiagramAt(ef, 'momentZ', 0.5)).toBe(0.125);
+    expect.soft(prepareDiagramEvaluator3D(ef, 'momentZ')(0.5)).toBe(0.125);
+  }
+});
+
+it.skip('known wrong result: #2437 retains both faces of a physically rebased piece cut', () => {
+  const [, , , spatial] = forceRecords();
+  for (const result of spatial) {
+    const ef = result.elementForces[0]!;
+    const local = { ...ef, length: 1 };
+    const a = 0.24999999999999992;
+    const parent = {
+      ...ef, length: 3,
+      pieces: [
+        { x0: 0, x1: 1, forces: local },
+        { x0: 1, x1: 2, forces: { ...local, pointLoadsZ: [{ a, p: 10 }] } },
+        { x0: 2, x1: 3, forces: { ...local, vzStart: 10 } },
+      ],
+    };
+    const cut = (1 + a) / 3;
+    const at = prepareDiagramEvaluator3D(parent, 'shearZ');
+    expect.soft(at(cut - Number.EPSILON / 4)).toBe(0);
+    expect.soft(at(cut)).toBe(0);
+    expect.soft(at(cut, true)).toBe(10);
+    expect.soft(at(cut + Number.EPSILON / 4)).toBe(10);
+    expect.soft(computeDiagram3D(parent, 'shearZ').points.filter(p => p.t === cut).map(p => p.value)).toEqual([0, 10]);
+  }
+});
+
+it.skip('known wrong result: #1782 assigns the last axle to the exact spatial path endpoint', () => {
+  const [, input] = cantilevers(256);
+  input.nodes.set(3, { id: 3, x: 257, y: 0, z: 2 ** -22 });
+  input.elements.set(2, { ...input.elements.get(1)!, id: 2, nodeI: 2, nodeJ: 3 });
+  const path = buildPath3D(input, [1, 2])!;
+  const last = path[1]!;
+  const end = last.cumStart + last.length;
+  expect(last.length).toBeGreaterThan(end - last.cumStart);
+  const train = { name: 'P', axles: [{ offset: 0, weight: 10 }] };
+  const loadsAt = (x: number) => trainLoads(input, path, train, x);
+  expect.soft(loadsAt(end).find(l => l.type === 'pointOnElement')?.data).toMatchObject({ elementId: 2, a: last.length });
+  expect.soft(loadsAt(last.cumStart + 0.5).find(l => l.type === 'pointOnElement')?.data).toMatchObject({ elementId: 2, a: 0.5 });
 });
