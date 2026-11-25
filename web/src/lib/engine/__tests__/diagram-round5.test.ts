@@ -583,3 +583,33 @@ it('known wrong result: #1782 keeps a reversed axle just inside a path endpoint'
   expect.soft([forces.vy.max, forces.vy.min, forces.vz.max, forces.vz.min]).toContainEqual(
     expect.objectContaining({ x: d, position: interior }));
 });
+
+it.fails('known wrong result: #2437 keeps a small ramp peak when overlapping triangular loads cancel', () => {
+  const [plane, space] = cantilevers(1);
+  const high = 2 ** 54, start = 1 / high;
+  const loads = [
+    { a: 0, b: 1, qI: high, qJ: 0 },
+    { a: 0, b: 1, qI: 0, qJ: high },
+    { a: 0, b: 1, qI: -high, qJ: -high },
+    { a: start, b: 1, qI: 1, qJ: -1 },
+  ];
+  const peak = (1 - start) / 4;
+  for (const result of [solve(plane), solvePDelta(plane).results]) {
+    const ef = Object.assign(result.elementForces[0]!, { distributedLoads: loads });
+    expect.soft(computeElementDiagram('shear', ef, 0, 0, 1, 0).maxValue).toBe(peak);
+    expect.soft(computeDiagrams2D(plane, result).shear[0]!.maxValue).toBe(peak);
+    expect.soft(computeEnvelope([result])!.shear.globalMax).toBe(peak);
+    expect.soft(computeDiagramValueAt('shear', 0.5, ef)).toBe(peak);
+    expect.soft(prepareDiagramValueAt('shear', ef)(0.5)).toBe(peak);
+    expect.soft(computeDiagramValueAtWasm('shear', 0.5, ef)).toBe(peak);
+  }
+  for (const result of [solve3D(space), solvePDelta3D(space).results]) {
+    const ef = Object.assign(result.elementForces[0]!, { distributedLoadsZ: loads });
+    expect.soft(computeDiagram3D(ef, 'shearZ').maxValue).toBe(peak);
+    expect.soft(computeDiagrams3D(space, result).shearZ[0]!.maxValue).toBe(peak);
+    expect.soft(computeEnvelope3D([result])!.shearZ.globalMax).toBe(peak);
+    expect.soft(evaluateDiagramAt(ef, 'shearZ', 0.5)).toBe(peak);
+    expect.soft(prepareDiagramEvaluator3D(ef, 'shearZ')(0.5)).toBe(peak);
+    expect.soft(computeDiagramValueAt3DWasm('shearZ', 0.5, ef)).toBe(peak);
+  }
+});
