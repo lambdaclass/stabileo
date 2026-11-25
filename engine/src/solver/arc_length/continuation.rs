@@ -1182,3 +1182,6 @@ mod nonlinear_rounding_tests;
 
 #[cfg(test)]
 mod exact_member_action_tests;
+
+#[cfg(test)]
+mod chord_equilibrium_tests;

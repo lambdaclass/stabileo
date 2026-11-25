@@ -102,3 +102,54 @@ export function registerMemberRotationTests({ arc, displacement, corotational })
     check(result, [3, 4], 2);
   });
 }
+
+export function registerChordEquilibriumTests({ arc, displacement, corotational }) {
+  const { solver: base, assemblyLoads, recoveryLoads, rotationMotion, rotationConstraints } =
+    JSON.parse(readFileSync(new URL('./fixtures/planar-chord-equilibrium.json', import.meta.url)));
+  const tolerance = 1e-8;
+  const radius = Math.SQRT2;
+  const knownWrong = { skip: 'known wrong result: #2560' };
+  for (const [driver, solve] of [
+    ['arc length', (solver) => [arc({ solver, maxSteps: 1, maxIter: 20, tolerance,
+      initialDs: radius, minDs: radius, maxDs: radius })]],
+    ['displacement control', (solver) => [displacement({ solver, controlNode: 4, controlDof: 0,
+      targetDisplacement: 4, nSteps: 1, maxIter: 20, tolerance })]],
+    ['co-rotation', (solver) => corotational(solver, 1)],
+  ]) {
+    for (const memberType of ['frame', 'truss']) {
+      test(`#2560 chord assembly equilibrium: ${driver}, ${memberType}`, knownWrong, () => {
+        const solver = structuredClone(base);
+        solver.elements[1].type = memberType;
+        solver.loads.push(...assemblyLoads);
+        for (const result of solve(solver)) {
+          assert.equal(result.converged, true);
+          assert.ok((result.finalLoadFactor ?? result.loadFactor) > 0);
+          const tip = result.results.reactions.find((r) => r.nodeId === 2);
+          assert.ok(tip.rx === 0 && tip.rz === 0 && tip.my === 0,
+            `tip reaction (${tip.rx}, ${tip.rz}, ${tip.my})`);
+        }
+      });
+    }
+
+    test(`#2560 chord recovery equilibrium: ${driver}`, knownWrong, () => {
+      const solver = structuredClone(base);
+      Object.assign(solver.nodes[2], { x: 5, z: 0 });
+      solver.loads.push(...recoveryLoads);
+      if (driver === 'displacement control') {
+        delete solver.supports[2];
+        solver.constraints = rotationConstraints;
+        solver.loads[0].data.fx = 4;
+      } else {
+        [solver.supports[2].dx, solver.supports[2].dz] = rotationMotion;
+      }
+      for (const result of solve(solver)) {
+        assert.equal(result.converged, true);
+        assert.ok((result.finalLoadFactor ?? result.loadFactor) > 0);
+        const tip = result.results.displacements.find((d) => d.nodeId === 2);
+        assert.deepEqual([tip.ux, tip.uz], rotationMotion);
+        const member = result.results.elementForces.find((m) => m.elementId === 1);
+        assert.equal(member.nEnd, 0);
+      }
+    });
+  }
+}
