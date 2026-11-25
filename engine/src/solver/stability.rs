@@ -5,6 +5,8 @@ use crate::types::*;
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
+mod planar_frame_swing;
+
 pub(crate) fn has_member_releases_2d(input: &SolverInput) -> bool {
     input.elements.values().any(|e| e.hinge_start || e.hinge_end)
 }
@@ -451,15 +453,15 @@ pub(crate) struct ReleasedRotations {
     pub rows: Vec<Vec<(usize, f64)>>,
     nodes: std::collections::BTreeSet<usize>,
     directions: Vec<(usize, Vec<(usize, f64, f64)>)>,
-    tip_swings: Vec<TipSwing>,
+    frame_swings: Vec<FrameSwing>,
 }
 
-struct TipSwing {
-    node: usize,
+struct FrameSwing {
+    nodes: Vec<usize>,
     dofs: Vec<usize>,
 }
 
-impl TipSwing {
+impl FrameSwing {
     fn project(&self, transform: &super::constraints::SparseTransform) -> Option<Self> {
         let dofs = self.dofs.iter().map(|&row| {
             let span = transform.row_ptr[row]..transform.row_ptr[row + 1];
@@ -469,15 +471,15 @@ impl TipSwing {
             let col = transform.col_idx[span.start];
             (transform.col_ptr[col + 1] - transform.col_ptr[col] == 1).then_some(col)
         }).collect::<Option<Vec<_>>>()?;
-        Some(Self { node: self.node, dofs })
+        Some(Self { nodes: self.nodes.clone(), dofs })
     }
 }
 
-fn unrestrained_tip_swings(
+fn unrestrained_frame_swings(
     dof: &DofNumbering,
     members: impl Iterator<Item = (usize, usize, bool, bool)>,
     mut attached: BTreeSet<usize>,
-) -> Vec<TipSwing> {
+) -> Vec<FrameSwing> {
     let mut seen = BTreeSet::new();
     let mut candidates = BTreeSet::new();
     for (i, j, release_i, release_j) in members {
@@ -494,7 +496,7 @@ fn unrestrained_tip_swings(
         let dofs = (0..dof.dofs_per_node)
             .map(|local| dof.global_dof(node, local).filter(|&index| index < dof.n_free))
             .collect::<Option<Vec<_>>>()?;
-        Some(TipSwing { node, dofs })
+        Some(FrameSwing { nodes: vec![node], dofs })
     }).collect()
 }
 
@@ -503,19 +505,11 @@ fn has_spring<const N: usize>(dofs: [super::support::SupportDof; N]) -> bool {
 }
 
 pub(crate) fn elastic_releases_2d(input: &SolverInput, dof: &DofNumbering) -> ReleasedRotations {
-    if !has_member_releases_2d(input) {
+    if dof.dofs_per_node != 3 {
         return ReleasedRotations::default();
     }
-    let attached = input.connectors.values().flat_map(|e| [e.node_i, e.node_j])
-        .chain(input.supports.values().filter_map(|support| {
-            has_spring(super::support::support_dofs_2d(support)).then_some(support.node_id)
-        })).collect();
-    let members = input.elements.values().map(|e| {
-        let frame = e.elem_type == "frame";
-        (e.node_i, e.node_j, frame && e.hinge_start, frame && e.hinge_end)
-    });
     ReleasedRotations {
-        tip_swings: unrestrained_tip_swings(dof, members, attached),
+        frame_swings: planar_frame_swing::find_swings(input, dof),
         ..ReleasedRotations::default()
     }
 }
@@ -542,7 +536,7 @@ pub(crate) fn elastic_releases_3d(input: &SolverInput3D, dof: &DofNumbering) -> 
             (e.node_i, e.node_j, frame && (e.release_my_start || e.release_mz_start),
                 frame && (e.release_my_end || e.release_mz_end))
         });
-        releases.tip_swings = unrestrained_tip_swings(dof, members, attached);
+        releases.frame_swings = unrestrained_frame_swings(dof, members, attached);
     }
     releases
 }
@@ -675,8 +669,8 @@ impl ReleasedRotations {
             }
             Some((*node, projected))
         }).collect();
-        let tip_swings = self.tip_swings.iter().filter_map(|swing| swing.project(c)).collect();
-        Self { rows, nodes: self.nodes.clone(), directions, tip_swings }
+        let frame_swings = self.frame_swings.iter().filter_map(|swing| swing.project(c)).collect();
+        Self { rows, nodes: self.nodes.clone(), directions, frame_swings }
     }
 }
 
@@ -856,14 +850,14 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
     if k.values.iter().any(|v| !v.is_finite()) {
         return non_finite();
     }
-    if !releases.tip_swings.is_empty() {
+    if !releases.frame_swings.is_empty() {
         return Stability {
             verdict: Verdict::Mechanism,
             reason: Reason::FreeTranslation,
             kappa: f64::INFINITY,
             anisotropy: 1.0,
             free: Vec::new(),
-            mode_nodes: releases.tip_swings.iter().map(|swing| swing.node).collect(),
+            mode_nodes: releases.frame_swings.iter().flat_map(|swing| swing.nodes.iter().copied()).collect::<BTreeSet<_>>().into_iter().collect(),
         };
     }
     let diagonal_rounding = rounding.map(CscMatrix::diagonal);
@@ -1447,7 +1441,7 @@ pub(crate) fn analyze_excluding(
     let coupling: Vec<_> = coupling.iter().filter_map(|&(i, j)| Some((map.get(i).copied().flatten()?, map.get(j).copied().flatten()?))).collect();
     let remap = |row: &Vec<(usize, f64)>| row.iter().filter_map(|&(i, v)| map.get(i).copied().flatten().map(|j| (j, v))).collect();
     let releases = ReleasedRotations {
-        tip_swings: releases.tip_swings.iter().filter_map(|swing| swing.project(&selection)).collect(),
+        frame_swings: releases.frame_swings.iter().filter_map(|swing| swing.project(&selection)).collect(),
         rows: releases.rows.iter().map(remap).collect(), nodes: releases.nodes.clone(),
         directions: releases.directions.iter().map(|(node,row)| (*node,row.iter().filter_map(|&(i,v,e)|map.get(i).copied().flatten().map(|j|(j,v,e))).collect())).collect(),
     };

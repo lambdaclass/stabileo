@@ -161,6 +161,16 @@ fn mechanisms_refuse_across_factorization_entry_points() {
         "Winkler (no foundation)", "creep & shrinkage (t = t0)",
     ] {
         replay_2d("2266", name, 2026111702194);
+        if name.starts_with("staged") {
+            let mut case = case_2d("2029");
+            for support in case.s.supports.values_mut().filter(|s| s.support_type == "rollerX") {
+                support.support_type = "pinned".into();
+            }
+            let analysis = ana2::rows().into_iter().find(|row| row.name == name).unwrap();
+            expect_mechanisms(images_2d(&case, name, 2026111302132).iter().map(analysis.run));
+        } else {
+            replay_2d("2029", name, 2026111302132);
+        }
     }
     for name in [
         "linear", "linear (load session)", "linear (sparse path)", "linear (PCG)",
@@ -238,7 +248,9 @@ fn released_tip_wasm_cases() {
     let planar = case_2d("2380");
     let spatial = case_3d("2021");
     let staged = ana3::rows().into_iter().find(|row| row.name == "staged (loads in two stages)").unwrap();
-    let planar_cases = images_2d(&planar, "constrained", 2026112003058);
+    let mut planar_cases = images_2d(&planar, "constrained", 2026112003058);
+    planar_cases.extend(images_2d(&case_2d("2029"), "linear (WASM typed path)", 2026111302132));
+    planar_cases.extend(images_2d(&case_2d("2063"), "linear", 2026111300670));
     let spatial_cases = images_3d(&spatial, &staged, 2026111300767);
     let mut cases: Vec<Value> = planar_cases.iter().chain(&[unhinged_2d()]).enumerate().map(|(i, case)| {
         json!({
@@ -261,19 +273,28 @@ fn released_tip_wasm_cases() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2029"]
 fn issue_2029_typed_solve_refuses_the_frame_and_parallel_truss_swing() {
     replay_2d("2029", "linear (WASM typed path)", 2026111302132);
 }
 
 #[test]
-#[ignore = "known wrong result: #2061"]
 fn issue_2061_pcg_refuses_the_frame_and_parallel_truss_swing() {
     replay_2d("2061", "linear (PCG)", 2026111302132);
 }
 
 #[test]
-#[ignore = "known wrong result: #2063"]
 fn issue_2063_linear_refuses_the_connected_frame_swing() {
     replay_2d("2063", "linear", 2026111300670);
+}
+
+#[test]
+fn a_rotational_restraint_at_the_pivot_stabilizes_the_planar_frame_group() {
+    use dedaliano_engine::solver::linear::solve_2d;
+
+    for issue in ["2029", "2063"] {
+        let mut case = case_2d(issue);
+        case.s.supports.values_mut().find(|support| support.node_id == 2).unwrap().support_type = "guidedX".into();
+        let result = solve_2d(&case.s).unwrap();
+        assert!(result.displacements.iter().any(|d| d.ux != 0.0 || d.uz != 0.0));
+    }
 }

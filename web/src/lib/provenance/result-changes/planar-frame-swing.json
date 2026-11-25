@@ -1,0 +1,34 @@
+{
+  "id": "planar-frame-swing",
+  "date": "2026-11-25",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "allOf": [["plane2D"], ["frameMembers"], ["analysis:linear", "analysis:pdelta", "analysis:buckling", "analysis:plastic", "analysis:nonlinear", "pathAnalysis"]]
+  },
+  "quantities": ["solve.ok", "stages", "finalResults"],
+  "title": {
+    "en": "Rigid-body swing of a planar frame group",
+    "es": "Giro de cuerpo rígido de un grupo de barras en el plano",
+    "pt": "Rotação de corpo rígido de um grupo de barras no plano",
+    "de": "Starrkörperdrehung einer ebenen Stabgruppe",
+    "fr": "Rotation de corps rigide d’un groupe de barres dans le plan",
+    "hu": "Síkbeli rúdcsoport merevtest-elfordulása",
+    "tr": "Düzlemsel çubuk grubunun rijit cisim dönmesi",
+    "zh": "平面杆系的刚体转动"
+  },
+  "explanation": {
+    "en": "Planar elastic analysis refuses when a group of connected members can rotate without strain about a common joint. Re-run affected analyses.",
+    "es": "El análisis elástico plano rechaza el modelo cuando un grupo de barras conectadas puede girar sin deformarse alrededor de un nudo común. Repita los análisis afectados.",
+    "pt": "A análise elástica plana recusa o modelo quando um grupo de barras conectadas pode girar sem deformação em torno de um nó comum. Refaça as análises afetadas.",
+    "de": "Die ebene elastische Berechnung lehnt Modelle ab, bei denen sich eine verbundene Stabgruppe verzerrungsfrei um einen gemeinsamen Knoten drehen kann. Wiederholen Sie betroffene Berechnungen.",
+    "fr": "L’analyse élastique plane rejette le modèle si un groupe de barres connectées peut tourner sans déformation autour d’un nœud commun. Relancez les analyses concernées.",
+    "hu": "A síkbeli rugalmas számítás elutasítja a modellt, ha egy összekapcsolt rúdcsoport alakváltozás nélkül elfordulhat egy közös csomópont körül. Futtassa újra az érintett számításokat.",
+    "tr": "Düzlemsel elastik analiz, bağlı bir çubuk grubu ortak bir düğüm etrafında şekil değiştirmeden dönebildiğinde modeli reddeder. Etkilenen analizleri yeniden çalıştırın.",
+    "zh": "如果相连的杆件组可绕同一节点作无应变转动，平面弹性分析将拒绝求解。请重新运行受影响的分析。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-planar-frame-swing.md",
+    "heading": "Rigid-body swing of a planar frame group"
+  }
+}

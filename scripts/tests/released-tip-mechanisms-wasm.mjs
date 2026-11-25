@@ -24,7 +24,12 @@ for (const dimension of [2, 3]) {
     };
     for (const [name, call] of Object.entries(calls)) {
       if (refuses) {
-        assert.throws(call, mechanism, `${suffix} ${name} case ${index}`);
+        const inclinedStage = dimension === 2 && name === 'staged' &&
+          Object.values(input.supports).some(support => support.type === 'inclinedRoller');
+        const expected = inclinedStage
+          ? error => /Inclined supports are not yet supported in staged construction analysis/.test(String(error))
+          : mechanism;
+        assert.throws(call, expected, `${suffix} ${name} case ${index}`);
       } else {
         assert.doesNotThrow(call, `${suffix} ${name} control`);
       }
