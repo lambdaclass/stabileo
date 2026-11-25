@@ -4,8 +4,10 @@ import { applyLoadPlan } from '../../../store/apply-load-plan';
 import { modelStore } from '../../../store/index';
 import { buildLoadPlan, roofWeightFor, type LoadModelData, type LoadPlanInput } from '../load-plan';
 import { planAreaLoads } from '../plan-area-loads';
-import { gravityLayout, MIN_STOREY_HEADROOM, widthSpans } from '../plan-gravity';
+import { gravityLayout, MAX_DECK_SPAN, MIN_STOREY_HEADROOM, widthSpans } from '../plan-gravity';
 import { snowDriftRefusal } from '../snow-drift-loads';
+import { snowLoadCases } from '../snow-loads';
+import { roofMembers } from '../wind-cases';
 import type { Constraint3D } from '../../types-3d';
 import { input } from './gravity-width-mass-fixture';
 import { snow } from './snow-roof-plane-fixture';
@@ -277,4 +279,168 @@ it('#2543 complete upper shell cover and edge contact give a single exposure', (
     });
     expect(actions.surface.find(load => load.quadId === 1 && load.caseType === 'D')?.q).toBe(exposed ? 2 : 1);
   }
+});
+
+const roundThree = process.env.RUN_KNOWN_WRONG === '2543' ? it : it.skip;
+const wideRefusal = { key: 'loadPlan.gravity.widePanels', params: { n: 1, span: MAX_DECK_SPAN } };
+const autoLayout = { ...panels, tributaryWidth: 3 };
+
+function square(left: number, bottom: number, right: number, top: number): Point[] {
+  return [[left, bottom], [right, bottom], [right, top], [left, top]];
+}
+
+function coveredRing(span: number, cover: Point[]) {
+  const { model, beams, shell } = fixture();
+  beams(square(0, 0, span, span), 3);
+  shell(cover, () => 4);
+  return model;
+}
+
+function expectWideBlock(result: ReturnType<typeof plan>) {
+  const { outcome, blockedKeys, cases, distributed, nodal, surface } = result;
+  expect.soft({ outcome, blockedKeys, cases: cases.length, distributed: distributed.length, nodal: nodal.length, surface: surface.length },
+    JSON.stringify({ levels: result.levels.map(level => [level.elevation, level.superimposedKN]), notes: result.derivation.map(note => note.key) }))
+    .toEqual({ outcome: 'BLOCKED', blockedKeys: [wideRefusal], cases: 0, distributed: 0, nodal: 0, surface: 0 });
+}
+
+roundThree('known wrong result: #2543 round 3 a corner shell cannot license an oversized retained bay', () => {
+  const model = coveredRing(MAX_DECK_SPAN + 1, square(0, 0, 1, 1));
+  for (const options of [{}, { snow: enabledSnow }]) expectWideBlock(plan(model, options));
+  expect.soft(() => gravityLayout(model, autoLayout)).toThrow(expect.objectContaining(wideRefusal));
+  expect.soft(() => roofWeightFor(model, panels, 3, 0)).toThrow(expect.objectContaining(wideRefusal));
+  expect.soft(() => snowDriftRefusal(model)).toThrow(expect.objectContaining(wideRefusal));
+  expect(teAt(wideRefusal, 'en')).toContain('no slab spans');
+});
+
+function restoreModel(model: LoadModelData) {
+  const ids = new Map([...model.nodes].map(([id, { x, y, z }]) => [id, modelStore.addNode(x, y, z)]));
+  for (const { nodeI, nodeJ } of model.elements.values()) modelStore.addElement(ids.get(nodeI)!, ids.get(nodeJ)!);
+  for (const quad of model.quads?.values() ?? []) {
+    const [a, b, c, d] = quad.nodes.map(id => ids.get(id)!);
+    modelStore.addQuad([a!, b!, c!, d!], modelStore.materials.keys().next().value!, quad.thickness!);
+  }
+  modelStore.addNodalLoad3D(ids.get(1)!, 0, 0, -1, 0, 0, 0);
+  modelStore.restore(JSON.parse(JSON.stringify(modelStore.snapshot())));
+}
+
+roundThree('known wrong result: #2543 round 3 an oversized retained bay cannot be applied after restore', () => {
+  modelStore.clear();
+  try {
+    restoreModel(coveredRing(MAX_DECK_SPAN + 1, square(0, 0, 1, 1)));
+    const result = plan(modelStore.model);
+    expectWideBlock(result);
+    const before = modelStore.snapshot();
+    expect.soft(applyLoadPlan(result, { clearExisting: true, bothSenses: true, nameOf: key => key })).toEqual(wideRefusal);
+    expect(modelStore.snapshot()).toEqual(before);
+  } finally {
+    modelStore.clear();
+  }
+});
+
+roundThree('known wrong result: #2543 round 3 span is checked on each retained region after clipping', () => {
+  const span = MAX_DECK_SPAN + 2;
+  const strip = (left: number, right: number) => coveredRing(span, square(left, 0, right, span));
+  const below = MAX_DECK_SPAN - 0.125;
+  expectWideBlock(plan(strip(0, span - MAX_DECK_SPAN - 0.125)));
+  for (const [model, area] of [
+    [strip(0, span - MAX_DECK_SPAN), MAX_DECK_SPAN * span],
+    [strip(0, span - below), below * span],
+    [strip(5, span - 5), 10 * span],
+  ] as const) {
+    expect.soft(deadAt(plan(model), 3)).toBeCloseTo(area, 10);
+  }
+});
+
+it('#2543 round 3 empty retained bays, edge contact and explicit panel selection keep their behavior', () => {
+  const span = MAX_DECK_SPAN + 1;
+  const full = coveredRing(span, square(0, 0, span, span));
+  const touch = coveredRing(span, square(-1, -1, 0, 0));
+  expect(deadAt(plan(full), 3)).toBe(0);
+  const edge = plan(touch);
+  expect(deadAt(edge, 3)).toBe(0);
+  expect(edge.derivation).toContainEqual(wideRefusal);
+  expect(deadAt(plan(touch, { gravity: everyPanel }), 3)).toBeCloseTo(span ** 2, 10);
+});
+
+function midpointCover(shellZ: number, stations = [3, 3.0004]) {
+  const { model, beams, shell } = fixture();
+  beams([[0, 3], [10, 3]], stations[0]!);
+  model.nodes.set(2, { ...model.nodes.get(2)!, z: stations[1]! });
+  shell(square(4, 0, 6, 6), () => shellZ);
+  return model;
+}
+
+const widthMode = { mode: 'width' } as const;
+
+function expectMemberActions(layout: ReturnType<typeof gravityLayout>, floor: boolean) {
+  const result = planAreaLoads({
+    layout, tributaryWidth: 3, floor: { dead: 1, lo: 0, liveOf: () => 0 },
+    roof: { use: 'occupancy', weight: 'heavy', dead: roof.dead, slopePercent: 0 },
+  });
+  expect.soft(result.distributed.find(load => load.elementId === 1 && load.caseType === 'D')?.q)
+    .toBe(-(floor ? 1 : roof.dead) * 3);
+}
+
+roundThree('known wrong result: #2543 round 3 cover above the member midpoint assigns floor actions', () => {
+  for (const stations of [[3, 3.0004], [3.0004, 3]]) {
+    const model = midpointCover(3.0503, stations);
+    for (const gravity of [widthMode, everyPanel]) {
+      const layout = gravityLayout(model, { ...gravity, tributaryWidth: 3 });
+      expect.soft(layout.roof.has(1)).toBe(false);
+      expect.soft(layout.areaOf.get(1)).toBeCloseTo(30, 10);
+      expect.soft(layout.notes.map(note => note.key)).not.toContain('loadPlan.gravity.headroomUnclearRoof');
+      expectMemberActions(layout, true);
+    }
+    expect.soft(roofWeightFor(model, widthMode, 3, 0)).toBe('light');
+    const result = plan(model, { gravity: widthMode, roof: distinctRoof });
+    expect.soft(result.outcome).toBe('READY');
+    expect.soft(result.distributed.find(load => load.elementId === 1 && load.caseType === 'D')?.q).toBe(-3);
+  }
+});
+
+roundThree('known wrong result: #2543 round 3 wind and selected-roof snow exclude the covered midpoint', () => {
+  const model = midpointCover(3.0503);
+  expect.soft(roofMembers(model)).toEqual([]);
+  expect.soft(roofMembers(model, new Set([1]))).toEqual([]);
+  expect(selectedSnowOnMember(model)).toBe(false);
+});
+
+roundThree('known wrong result: #2543 round 3 rounded headroom levels cannot cover a member midpoint', () => {
+  const model = midpointCover(3.0501);
+  const layout = gravityLayout(model, { ...widthMode, tributaryWidth: 3 });
+  expect(layout.notes.map(note => note.key)).toContain('loadPlan.gravity.headroomUnclearRoof');
+});
+
+function selectedSnowOnMember(model: LoadModelData) {
+  const out = snowLoadCases({ model, snow: { ...enabledSnow, roof: [1] }, tributaryWidth: 3 });
+  return out?.cases.some(load => load.distributed.some(force => force.elementId === 1)) ?? false;
+}
+
+it('#2543 round 3 shells at or below the midpoint cover rise leave the roof actions', () => {
+  const model = midpointCover(3.0501);
+  expect(roofMembers(model).map(member => member.id)).toEqual([1]);
+  for (const gravity of [widthMode, everyPanel]) expectMemberActions(gravityLayout(model, { ...gravity, tributaryWidth: 3 }), false);
+  expect(roofWeightFor(model, widthMode, 3, 0)).toBe('heavy');
+  expect(selectedSnowOnMember(model)).toBe(true);
+  const atLimit = midpointCover(0.096875, [0.03125, 0.0625]);
+  expect(gravityLayout(atLimit, { ...widthMode, tributaryWidth: 3 }).roof.has(1)).toBe(true);
+});
+
+roundThree('known wrong result: #2543 round 3 the cover limit is compared to the unrounded midpoint', () => {
+  const model = midpointCover(3.050001, [3, 3.000002]);
+  expect(gravityLayout(model, { ...widthMode, tributaryWidth: 3 }).roof.has(1)).toBe(false);
+});
+
+roundThree('known wrong result: #2543 round 3 low framing cannot transfer an oversized retained bay', () => {
+  const { model, beams } = fixture();
+  const span = 30;
+  beams(square(0, 0, span, span), 3);
+  beams(square(15, 15, 28, 28), 3);
+  for (let y = 0; y <= span; y++) {
+    beams([[0, y], [span, y]], 4);
+    const id = model.elements.size;
+    model.elements.set(id, { ...model.elements.get(id)!, type: 'truss' });
+  }
+  beams(square(14.6, 14.6, 15.5, 15.5), 4);
+  expectWideBlock(plan(model));
 });
