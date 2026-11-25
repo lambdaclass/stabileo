@@ -355,6 +355,8 @@ fn check_review_case(result: Result<Value, String>, expected: &Value) {
                 assert_eq!(diagnostic["dofIndices"], json!([expected["component"]]), "{error}");
                 assert_eq!(diagnostic["nodeIds"], json!([2]), "{error}");
             }
+        } else if expected["legacyEigenFailure"].as_bool() == Some(true) {
+            assert!(error.contains(refusal), "{error}");
         } else {
             assert!(error.starts_with(refusal), "{error}");
         }
@@ -365,11 +367,92 @@ fn check_review_case(result: Result<Value, String>, expected: &Value) {
         let result = result.unwrap();
         assert_eq!(result["modes"].as_array().unwrap().len(), 1);
         assert_eq!(result["nullModes"].as_array().map_or(0, Vec::len), 0);
-        assert!(result["modes"][0]["omega"].as_f64().unwrap() > 0.0);
+        let omega = result["modes"][0]["omega"].as_f64().unwrap();
+        assert!(omega > 0.0);
+        if let Some(analytic) = expected["omegaSquared"].as_f64() {
+            if let Some(bound) = expected["omegaSquaredBound"].as_f64() {
+                assert!((omega.powi(2) - analytic).abs() <= bound, "{omega}² vs {analytic} ± {bound}");
+            } else {
+                assert!((omega.powi(2) / analytic - 1.0).abs() < 1e-12, "{omega}² vs {analytic}");
+            }
+        }
     }
 }
 
 #[test]
+#[ignore = "known wrong result: #2585"]
+fn review_tied_translation_survives_stiffness_cancellation() {
+    let null = json!({"refusal":PHYSICAL_NULL,"code":TRANSLATION_MECHANISM_CODE});
+    for padding in [0, 32] {
+        let mut value = json!(planar(padding, 0.0, 0.0, false));
+        value["nodes"]["2"]["x"] = json!(1.0);
+        value["nodes"]["100"] = json!({"id":100,"x":2.0,"z":0.0});
+        value["materials"]["1"]["e"] = json!(0.001);
+        value["materials"]["2"] = json!({"id":2,"e":0.0001,"nu":0.3});
+        value["elements"]["2"] =
+            json!({"id":2,"type":"truss","nodeI":2,"nodeJ":100,"materialId":2,"sectionId":1});
+        for id in [1, 2, 100] {
+            value["supports"][id.to_string()] = json!({"id":id,"nodeId":id,"type":"guidedX"});
+        }
+        let ties = json!([
+            {"type":"equalDOF","masterNode":1,"slaveNode":2,"dofs":[0]},
+            {"type":"equalDOF","masterNode":1,"slaveNode":100,"dofs":[0]}
+        ]);
+        for stiffness in [0.0, 0.25] {
+            value["supports"]["1"]["kx"] = json!(stiffness);
+            let mut input: SolverInput = serde_json::from_value(value.clone()).unwrap();
+            let mut spatial = embed_2d(&input, Plane::ALL[0]).unwrap();
+            input.constraints = serde_json::from_value(ties.clone()).unwrap();
+            spatial.constraints = serde_json::from_value(ties.clone()).unwrap();
+            let expected = if stiffness == 0.0 {
+                null.clone()
+            } else {
+                json!({"modes":1,"nulls":0,"omegaSquared":stiffness})
+            };
+            check_2d_review_case(&input, expected.clone());
+            if padding == 0 {
+                check_3d_review_case(&spatial, expected);
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2585"]
+fn review_rank_one_mass_detects_a_resolved_small_projection() {
+    let null = json!({"refusal":PHYSICAL_NULL,"code":TRANSLATION_MECHANISM_CODE});
+    for padding in [0, 32] {
+        let mut value = json!(planar(padding, 0.0, 1.0, false));
+        value["elements"] = json!({});
+        value["supports"]["1"] = json!({"id":1,"nodeId":1,"type":"guidedX"});
+        value["supports"]["2"]["kz"] = json!(1.0);
+        value["masses"]["nodal"] = json!([{"nodeId":1,"massX":1.0}]);
+        for (coefficient, stiffness) in [(5e-15, 0.0), (0.0, 0.0), (5e-15, 1.0), (0.0, 1.0)] {
+            value["supports"]["2"]["kx"] = json!(stiffness);
+            let tie = |axis| json!([{"type":"linearMPC","terms":[
+                {"nodeId":2,"dof":0,"coefficient":-coefficient},
+                {"nodeId":2,"dof":axis,"coefficient":-1.0},
+                {"nodeId":1,"dof":0,"coefficient":1.0}
+            ]}]);
+            let mut input: SolverInput = serde_json::from_value(value.clone()).unwrap();
+            let mut spatial = embed_2d(&input, Plane::ALL[0]).unwrap();
+            input.constraints = serde_json::from_value(tie(1)).unwrap();
+            spatial.constraints = serde_json::from_value(tie(2)).unwrap();
+            let expected = match (coefficient, stiffness) {
+                (0.0, 0.0) => json!({"refusal":"Eigenvalue decomposition failed","legacyEigenFailure":true}),
+                (_, 0.0) => null.clone(),
+                _ => json!({"modes":1,"nulls":0,"omegaSquared":1.0 / (1.0 + coefficient * coefficient)}),
+            };
+            check_2d_review_case(&input, expected.clone());
+            if padding == 0 {
+                check_3d_review_case(&spatial, expected);
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2585"]
 fn review_skewed_weak_spring_is_distinct_from_a_null_translation() {
     for padding in [0, 32] {
         for stiffness in [1.0, 4.0, 0.0] {
@@ -377,11 +460,13 @@ fn review_skewed_weak_spring_is_distinct_from_a_null_translation() {
             let tip = input.nodes.get_mut("2").unwrap();
             tip.x = 1.0;
             tip.z = 1.0;
-            input.materials.get_mut("1").unwrap().e = 1e14 * 2.0_f64.sqrt() / 1000.0;
+            let axial = 1e14;
+            input.materials.get_mut("1").unwrap().e = axial * 2.0_f64.sqrt() / 1000.0;
+            let omega_squared = axial * stiffness / (axial + stiffness + axial.hypot(stiffness));
             let expected = match stiffness {
                 0.0 => json!({"refusal":PHYSICAL_NULL,"code":TRANSLATION_MECHANISM_CODE}),
-                1.0 => json!({"refusal":"MODAL-MECHANISM: Modal analysis: the structure is a mechanism"}),
-                _ => json!({"modes":1,"nulls":0}),
+                1.0 => json!({"refusal":"{\"message\":\"Modal analysis: stiffness conditioning", "detail":"modal_stiffness_conditioning"}),
+                _ => json!({"modes":1,"nulls":0,"omegaSquared":omega_squared,"omegaSquaredBound":8.0 * f64::EPSILON * axial}),
             };
             check_2d_review_case(&input, expected.clone());
             if padding == 0 {

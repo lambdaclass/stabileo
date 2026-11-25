@@ -80,3 +80,11 @@ describe('modalMechanismRefusal', () => {
     expect(modalMechanismRefusal('Eigenvalue decomposition failed')).toBeNull();
   });
 });
+
+it.fails('translates an unresolved positive modal frequency as stiffness conditioning', () => {
+  const text = JSON.stringify({
+    message: 'Modal analysis: stiffness conditioning prevents resolution of a positive mode.',
+    structuredDiagnostics: [{ code: 'modal_stiffness_conditioning', severity: 'error' }],
+  });
+  expect(modalMechanismRefusal(text)).toEqual({ key: 'advanced.modalStiffnessConditioning', params: {} });
+});

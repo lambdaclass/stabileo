@@ -32,7 +32,12 @@ for (const [index, { api, count, input, expected }] of cases.entries()) {
     assert.equal(result.nullModes?.length ?? 0, expected.nulls);
     assert.ok(result.modes.every(mode => mode.omega > 0));
     if (expected.omegaSquared !== undefined) {
-      assert.ok(Math.abs(result.modes[0].omega ** 2 / expected.omegaSquared - 1) < 1e-12);
+      const actual = result.modes[0].omega ** 2;
+      if (expected.omegaSquaredBound === undefined) {
+        assert.ok(Math.abs(actual / expected.omegaSquared - 1) < 1e-12);
+      } else {
+        assert.ok(Math.abs(actual - expected.omegaSquared) <= expected.omegaSquaredBound);
+      }
     }
   });
 }
