@@ -8,7 +8,7 @@ import { modelStore, uiStore } from '../../store';
 import { applyGeneratedModel } from '../../store/generator-apply';
 import type { Load } from '../../store/model.svelte';
 import { createRecheckStore } from '../../store/recheck.svelte';
-import { loadFixture, type JSONModel } from '../../templates/load-fixture';
+import { loadFixture, prepareFixture, type JSONModel } from '../../templates/load-fixture';
 import { runDirectAnalysis } from '../direct-analysis';
 import { tallyRoles } from '../generators/member-roles';
 import {
@@ -495,4 +495,96 @@ it('accepts an empty loads collection through fixture replay and example apply',
   await modelStore.loadExample(fixture.name, async () => fixture);
   expect(modelStore.nodes.size).toBe(1);
   expect(modelStore.loads).toEqual([]);
+});
+
+function loadTargetFixture(): JSONModel {
+  return {
+    name: 'Load targets fixture',
+    nodes: [
+      { id: 11, x: 0, y: 0, z: 0 },
+      { id: 12, x: length, y: 0, z: 0 },
+      { id: 13, x: length, y: length, z: 0 },
+      { id: 14, x: 0, y: length, z: 0 },
+    ],
+    elements: [{ id: 1, type: 'frame', nodeI: 11, nodeJ: 12, materialId: 1, sectionId: 1 }],
+    plates: [{ id: 1, nodes: [11, 12, 13], materialId: 1, thickness: 0.2 }],
+    quads: [{ id: 41, nodes: [11, 12, 13, 14], materialId: 1, thickness: 0.2 }],
+    materials: [], sections: [], supports: [], loads: [], constraints: [],
+    loadCases: [loadCase], combinations: [combo],
+  };
+}
+
+function applyGeneratedFixture(json: JSONModel) {
+  return applyGeneratedModel({
+    json, counts: tallyRoles([]), totalLengthM: 0, slopePercent: null, assumptions: [], sections: {},
+  }, { source: 'generator-structure', params: {}, atIso: '2026-11-25T00:00:00Z' });
+}
+
+const missingTargetCases = [
+  ['nodal', 'nodeId', 1, 12, { fx: 0, fz: -force }],
+  ['nodal3d', 'nodeId', 1, 12, { fx: 0, fy: 0, fz: -force, mx: 0, my: 0, mz: 0 }],
+  ['displacement3d', 'nodeId', 1, 12, { dz: 0.001 }],
+  ['distributed', 'elementId', 11, 1, { qI: -force, qJ: -force }],
+  ['pointOnElement', 'elementId', 11, 1, { a: length / 2, p: -force }],
+  ['thermal', 'elementId', 11, 1, { dtUniform: 1, dtGradient: 0 }],
+  ['distributed3d', 'elementId', 11, 1, { qYI: 0, qYJ: 0, qZI: -force, qZJ: -force }],
+  ['pointOnElement3d', 'elementId', 11, 1, { a: length / 2, py: 0, pz: -force }],
+  ['prestress3d', 'elementId', 11, 1, { force, eI: 0, eM: 0, eJ: 0 }],
+  ['surface3d', 'quadId', 1, 41, { q: force }],
+  ['surface3d', 'quadId', 41, 1, { on: 'plate', q: force }],
+  ['thermalQuad3d', 'quadId', 1, 41, { dtUniform: 1, dtGradient: 0 }],
+  ['thermalQuad3d', 'quadId', 41, 1, { on: 'plate', dtUniform: 1, dtGradient: 0 }],
+] as const;
+
+describe.skipIf(process.env.STABILEO_REPRODUCE_FIXTURE_TARGETS !== '1')('known wrong result: #2583', () => {
+  it.each(missingTargetCases)(
+    'refuses fixture %s with %s %i outside its target collection',
+    async (type, field, missing, existing, data) => {
+      cantilever();
+      const before = modelStore.snapshot();
+      const fixture = loadTargetFixture();
+      fixture.loads = [{ type, data: { ...data, [field]: missing } }];
+      const refusal = tp('svc.engine.invalidInputField', { path: `loads[0].data.${field}` });
+
+      expect.soft(() => prepareFixture(fixture), 'fixture preflight').toThrow(refusal);
+      expect.soft(() => loadFixture(fixture, modelStore.fixtureApi() as never), 'direct replay').toThrow(refusal);
+      expect.soft(modelStore.snapshot(), 'after direct replay').toEqual(before);
+      await expect.soft(modelStore.loadExample(fixture.name, async () => fixture), 'example apply').rejects.toThrow(refusal);
+      expect.soft(modelStore.snapshot(), 'after example apply').toEqual(before);
+      expect.soft(() => applyGeneratedFixture(fixture), 'generator apply').toThrow(refusal);
+      expect.soft(modelStore.snapshot(), 'after generator apply').toEqual(before);
+
+      const valid = { ...fixture, loads: [{ type, data: { ...data, [field]: existing } }] };
+      expect(() => prepareFixture(valid)).not.toThrow();
+    },
+  );
+});
+
+it.each(['plane', 'space'] as const)('solves valid %s fixture loads after remapping their targets', async (mode) => {
+  const fixture = loadTargetFixture();
+  fixture.nodes = fixture.nodes.slice(0, 2);
+  fixture.plates = [];
+  fixture.quads = [];
+  fixture.supports = [{ id: 1, nodeId: 11, type: mode === 'plane' ? 'fixed' : 'fixed3d' }];
+  fixture.loads = mode === 'plane' ? [
+    { type: 'nodal', data: { nodeId: 12, fx: 0, fz: -force } },
+    { type: 'distributed', data: { elementId: 1, qI: -force, qJ: -force } },
+  ] : [
+    { type: 'nodal3d', data: { nodeId: 12, fx: 0, fy: 0, fz: -force, mx: 0, my: 0, mz: 0 } },
+    { type: 'distributed3d', data: { elementId: 1, qYI: 0, qYJ: 0, qZI: -force, qZJ: -force, frame: 'global' } },
+  ];
+  const reaction = expect.closeTo(force + force * length, 12);
+  for (const apply of [
+    () => loadFixture(fixture, modelStore.fixtureApi() as never),
+    () => modelStore.loadExample(fixture.name, async () => fixture),
+    () => applyGeneratedFixture(fixture),
+  ]) {
+    modelStore.clear();
+    await apply();
+    if (mode === 'plane') {
+      expect(modelStore.solve(false, 'xy')).toMatchObject({ reactions: [{ rz: reaction }] });
+    } else {
+      expect(modelStore.solve3D(false, false, true)).toMatchObject({ reactions: [{ fz: reaction }] });
+    }
+  }
 });
