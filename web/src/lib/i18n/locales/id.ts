@@ -58,6 +58,7 @@ const id: Translations = {
   'landing.heroTitle2': 'Seketika.',
   'landing.heroSub': 'Analisis struktur 2D & 3D tingkat profesional di browser Anda. Tanpa instalasi, tanpa kompromi.',
   'landing.tryApp': 'Coba aplikasi',
+  'landing.openingEditor': 'Membuka editor…',
   'landing.tryTour': 'Coba tur panduan',
   'landing.metricLanguages': 'Bahasa',
   'landing.metricAnalysis': 'Analisis Lengkap',
@@ -2789,8 +2790,10 @@ const id: Translations = {
   'pro.unknown': 'Tidak diketahui',
 
   // ─── PRO: Shell ───
+  'pro.nPlatesQuads': '{plates} pelat, {quads} quad',
   'pro.plateTriDKT': 'Pelat segitiga (DKT)',
   'pro.quadMITC4': 'Quad MITC4',
+  'pro.meshGenerator': 'Generator mesh',
   'pro.meshHint': 'Definisikan 4 titik sudut (berlawanan arah jarum jam) dan subdivisi NxM. Titik simpul dan quad antara dibuat otomatis.',
   'pro.corners': 'Sudut',
   'pro.subdivisions': 'Subdivisi',

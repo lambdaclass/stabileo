@@ -14,7 +14,7 @@ import Root from './Root.svelte';
 import { mount } from 'svelte';
 import { routeKind, restoreRedirectedRoute } from './lib/public-route';
 import { restoreMovedRoute } from './lib/legacy-routes';
-import { i18n, ensureLocale, ensurePublicLocale, warnLocaleLoadFailure } from './lib/i18n/store.svelte';
+import { i18n, ensurePublicLocale, warnLocaleLoadFailure } from './lib/i18n/store.svelte';
 import { parsePublicPath } from './lib/i18n/public-routes';
 import { accounts } from './lib/features';
 
@@ -34,35 +34,17 @@ function installTestHooks() {
   }
 }
 
-/*
- * The application, or the public pages without it.
- *
- * An address that is the application's (`/app/…`, `?embed`, a shared model) mounts App.svelte
- * at once, as it always did, and the browser-test hooks with it. Any other address mounts
- * Root.svelte, which renders the landing and the blog without downloading the application
- * (3 MB of JavaScript and 3 MB of WASM they used to wait on) and loads it when asked.
- */
-// Do not await lazy chunks at module scope. Rollup can put shared public UI in
-// this entry and make App import it; top-level await would then deadlock App.
 async function bootstrap() {
   restoreRedirectedRoute();
   if (__PUBLIC_FEATURES__.tools || __PUBLIC_FEATURES__.diagramGame) restoreMovedRoute();
   if (__PUBLIC_FEATURES__.accounts && accounts()) void import('./lib/tracking/tracking').then(m => m.startTracking());
   const target = document.getElementById('app')!;
+  window.addEventListener('stabileo-app-ready', installTestHooks, { once: true });
   if (routeKind().kind === 'app') {
     document.getElementById('prerender')?.remove();
     document.documentElement.classList.add('app-boot');
-    await ensureLocale(i18n.locale);
-    // Keep the loader namespace separate: Vite's dynamic-import analysis treats
-    // destructuring an awaited .then() chain as destructuring the import itself.
-    const loader = await import('./load-app');
-    const application = await loader.loadApplication();
-    const app = mount(application.default, { target });
-    installTestHooks();
-    return app;
+    return mount(Root, { target });
   }
-  // Register before mounting: a ready event must never outrun its subscriber.
-  window.addEventListener('stabileo-app-ready', installTestHooks, { once: true });
   const startLocale = parsePublicPath(location.pathname).locale ?? i18n.locale;
   await ensurePublicLocale(startLocale).catch((err) => {
     warnLocaleLoadFailure(startLocale, err);

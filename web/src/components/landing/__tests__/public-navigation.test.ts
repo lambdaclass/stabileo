@@ -55,6 +55,24 @@ it('honors saveData for speculative loads but still permits navigation', async (
   expect(research).toHaveBeenCalledOnce();
 });
 
+it.each([true, false])('prefetches the editor according to saveData=%s and always permits activation', async saveData => {
+  vi.stubGlobal('navigator', { connection: { saveData } });
+  const target = new EventTarget();
+  vi.stubGlobal('window', target);
+  const prefetched = vi.fn();
+  const entered = vi.fn();
+  target.addEventListener('stabileo-prefetch-app', prefetched);
+  target.addEventListener('stabileo-enter-app', entered);
+  const { prefetchApp, enterApp } = await import('../landing-utils');
+
+  prefetchApp();
+  expect(prefetched).toHaveBeenCalledTimes(saveData ? 0 : 1);
+  expect(entered).not.toHaveBeenCalled();
+
+  enterApp();
+  expect(entered).toHaveBeenCalledOnce();
+});
+
 it('warms both index chunks only when the idle callback fires, and cancels on teardown', async () => {
   let idle: () => void = () => {};
   const cancel = vi.fn();

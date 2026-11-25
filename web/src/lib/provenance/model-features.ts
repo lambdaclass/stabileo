@@ -1,6 +1,7 @@
 import { POINT_END_TOL } from '../engine/member-point-loads';
 import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
 import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
+import { isCompositeCase } from '../engine/loads/combination-cases';
 /**
  * Which features a saved model has, for deciding which registered result changes concern it.
  *
@@ -25,7 +26,6 @@ import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { is3DWorkspace } from '../utils/workspace';
 import { globalAxes } from '../features';
 import { GRAVITY_SELF_WEIGHT, type SelfWeightLoad } from '../engine/analysis-settings';
-import { DEFAULT_PLATE_MESH } from '../model/physical/plate';
 import { isBareCustom3D, isBareRollerZ, isPlaneRoller, isSupportType } from '../model/support-types';
 
 export const ANALYSIS_KINDS = [
@@ -43,12 +43,12 @@ export const GLOBAL_AXES_EVIDENCE = 'axisNamedLoads';
 
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
-  'gallery:slab-on-columns:walls', 'example:rc-beam-flexure',
+  'gallery:slab-on-columns:walls', 'example:rc-beam-flexure', 'native:supplied-linear-certificate',
   GLOBAL_AXES_EVIDENCE,
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
-  'shells', 'physicalPlateRemesh', 'plateAnalysisIssue', 'curvedShells', 'shellEdgeLoads', 'eccentricities', 'coarseShellsPro', 'unifiedPlateMeshes',
+  'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
   'physicalPlateDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
@@ -56,7 +56,8 @@ export const FEATURE_IDS = [
   'generatedWidthGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
-  'superposedCombinations', 'repeatedCombinationCases', 'prototypeNamedLoadCase', 'staticCaseEffects', 'projectedSpatialLoads', 'offsetMemberLoadFrame', 'inactiveSpatialMembers',
+  'superposedCombinations', 'repeatedCombinationCases', 'zeroOrOpposingCombinationFactors', 'explicitNotionalCombinationCases',
+  'prototypeNamedLoadCase', 'staticCaseEffects', 'projectedSpatialLoads', 'offsetMemberLoadFrame', 'inactiveSpatialMembers',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
 export type FeatureId = (typeof FEATURE_IDS)[number];
@@ -101,7 +102,7 @@ interface FeatureSnapshotFields {
   loads?: Array<{ type: string; data?: Record<string, unknown> }>;
   loadCases?: Array<{
     id: number; name?: string; type?: string; spectral?: unknown; alternatives?: string; axisNamed?: boolean;
-    includes?: ReadonlyArray<{ factor: number }>; reduction?: { ratio: number };
+    includes?: ReadonlyArray<{ caseId?: number; factor: number }>; reduction?: { ratio: number }; notional?: unknown;
   }>;
   combinations?: unknown[];
   combinationRules?: unknown[];
@@ -112,21 +113,13 @@ interface FeatureSnapshotFields {
   connectors?: Entries<{ kShear?: number; kShearZ?: number }>;
   footings?: Entries<unknown>;
   jointDesigns?: unknown;
-  groups?: Entries<{
-    name?: string;
-    kind?: string;
-    members?: { nodes?: number[]; quads?: number[]; plates?: number[] };
-    data?: { typology?: string; surface?: { loops?: number[]; arcMids?: number[]; mesh?: { size?: number } } };
-  }>;
+  groups?: Entries<{ name?: string; kind?: string; data?: unknown; members?: { nodes?: number[]; quads?: number[]; plates?: number[] } }>;
   regulations?: { roles?: Record<string, { adapterId?: string | null; settings?: Record<string, unknown> } | undefined> };
   dynamics?: { timeHistory?: unknown; spectra?: unknown[] };
   massSource?: unknown;
   analysis?: { selfWeight?: unknown[]; standaloneSelfWeight?: string };
   includeSelfWeight?: boolean;
-  designData?: {
-    loadBasis?: { resultsVersion?: unknown; derivation?: Array<{ key?: string }>; seismic?: unknown }; site?: { phases?: unknown[] };
-    specialFloors?: { systems?: Record<string, { ribbed?: { spacingX?: number; spacingY?: number } } | undefined> };
-  };
+  designData?: { loadBasis?: { resultsVersion?: unknown; derivation?: Array<{ key?: string }>; seismic?: unknown }; site?: { phases?: unknown[] } };
 }
 
 export interface FeatureSnapshot extends FeatureSnapshotFields {
@@ -156,26 +149,6 @@ function isInclined(s: Sup): boolean {
   if (s.isGlobal === false || s.dofFrame === 'local') return true;
   if (nonZero(s.angle) && (s.angle as number) % 360 !== 0) return true;
   return false;
-}
-
-const shellEntries = (e: Entries<unknown>, kind: 'q' | 'p'): Array<[string, unknown]> =>
-  (Array.isArray(e) ? e : []).filter((x) => !!x?.[1]).map((x) => [`${kind}${x[0]}`, x[1]]);
-
-/** The mesh size each plate's shells are meshed at, by shell key: the plate's own, no coarser than a waffle slab's ribs. */
-function plateMeshSizes(s: FeatureSnapshot): Map<string, number> {
-  const out = new Map<string, number>();
-  const systems = s.designData?.specialFloors?.systems ?? {};
-  for (const [id, g] of Array.isArray(s.groups) ? s.groups : []) {
-    const surface = g?.data?.surface;
-    const size = surface?.mesh?.size;
-    if (!Array.isArray(surface?.loops) || !surface!.loops.length || !(typeof size === 'number' && size > 0)) continue;
-    const rib = g?.data?.typology === 'waffle' ? systems[`S${id}`]?.ribbed : undefined;
-    const ribs = [rib?.spacingX, rib?.spacingY ?? rib?.spacingX].filter((v): v is number => typeof v === 'number' && v > 0);
-    const own = Math.min(size, ...ribs);
-    for (const q of g?.members?.quads ?? []) out.set(`q${q}`, own);
-    for (const p of g?.members?.plates ?? []) out.set(`p${p}`, own);
-  }
-  return out;
 }
 
 /** A member insertion (`offset.i` / `offset.j`) or a shell offset that moves anything. */
@@ -248,6 +221,40 @@ function plateAnalysisModel(s: FeatureSnapshot): PlateAnalysisModel {
   };
 }
 
+type FactorEvidence = { caseId?: number; factor?: number } | null;
+
+function hasZeroOrOpposingFactors(factors: readonly FactorEvidence[]): boolean {
+  const signs = new Map<number, number>();
+  for (const term of factors) {
+    const caseId = term?.caseId;
+    const factor = term?.factor;
+    if (typeof caseId !== 'number' || typeof factor !== 'number' || !Number.isFinite(factor)) continue;
+    const sign = Math.sign(factor);
+    if (sign === 0 || signs.get(caseId) === -sign) return true;
+    signs.set(caseId, sign);
+  }
+  return false;
+}
+
+function takesExplicitNotionalCase(
+  cases: NonNullable<FeatureSnapshot['loadCases']>,
+  combinations: readonly FactorEvidence[][],
+): boolean {
+  const byId = new Map(cases.map(c => [c.id, c]));
+  const roots = combinations.flatMap(factors => factors.flatMap(term =>
+    typeof term?.caseId === 'number' && nonZero(term.factor) ? [term.caseId] : []));
+  const pending = new Set(roots);
+  for (const id of pending) {
+    const c = byId.get(id);
+    if (!c) continue;
+    if (c.notional || (!isCompositeCase(c) && (c.type ?? '').toUpperCase() === 'N')) return true;
+    for (const term of c.includes ?? []) {
+      if (typeof term?.caseId === 'number' && nonZero(term.factor)) pending.add(term.caseId);
+    }
+  }
+  return false;
+}
+
 /** The features of one saved model. */
 export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set<FeatureId> {
   const f = new Set<FeatureId>();
@@ -317,6 +324,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
 
   const quads = values(s.quads);
   if (quads.length || values(s.plates).length || values(s.solidShells).length) f.add('shells');
+  if (mode !== 'pro' && (quads.length || values(s.plates).length)) f.add('shellsInBasic');
   if (values(s.groups).some(group => plateSurfaceOf({ data: group?.data as Record<string, unknown> }))) {
     f.add('physicalPlateDefinitions');
   }
@@ -336,18 +344,6 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (issue && issue.kind !== 'unmeshed') f.add('plateAnalysisIssue');
   }
   if (quads.some((q) => q?.curved)) f.add('curvedShells');
-  // PRO meshes before the analysis a plate whose shells came coarser than its mesh size (`coarseAsModelled`); a shell no plate holds yet gets the default size.
-  if (mode === 'pro') {
-    const at = new Map((Array.isArray(s.nodes) ? s.nodes : []).map((e) => [e?.[0], e?.[1]] as const));
-    if (values(s.groups).some(group => group.data?.surface?.loops?.length)) f.add('unifiedPlateMeshes');
-    const sizeOf = plateMeshSizes(s);
-    const long = (key: string, ns: number[] | undefined) => (ns ?? []).some((a, k) => {
-      const p = at.get(a), q = at.get(ns![(k + 1) % ns!.length]!);
-      return !!p && !!q && Math.hypot((q.x ?? 0) - (p.x ?? 0), (q.y ?? 0) - (p.y ?? 0), (q.z ?? 0) - (p.z ?? 0)) > 1.5 * (sizeOf.get(key) ?? DEFAULT_PLATE_MESH.size);
-    });
-    const shellsWithKeys = [...shellEntries(s.quads, 'q'), ...shellEntries(s.plates, 'p')];
-    if (shellsWithKeys.some(([key, sh]) => long(key, (sh as { nodes?: number[] } | undefined)?.nodes))) f.add('coarseShellsPro');
-  }
   if ([...quads, ...values(s.plates)].some((q) => offsetMoves(q?.offset))) f.add('eccentricities');
 
   const supports = values(s.supports);
@@ -519,12 +515,16 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       return method === 'abs' || method === 'srss';
     })) f.add('magnitudeCombinations');
     if (s.analysis?.combinationMethod === 'superpose') f.add('superposedCombinations');
-    if (Array.isArray(s.combinations) && s.combinations.some(combination => {
+    const factorLists = (Array.isArray(s.combinations) ? s.combinations : []).flatMap(combination => {
       const factors = (combination as { factors?: unknown } | null)?.factors;
-      if (!Array.isArray(factors)) return false;
-      const ids = factors.map(factor => factor?.caseId).filter(id => typeof id === 'number');
+      return Array.isArray(factors) ? [factors as FactorEvidence[]] : [];
+    });
+    if (factorLists.some(factors => {
+      const ids = factors.map(term => term?.caseId).filter(id => typeof id === 'number');
       return new Set(ids).size < ids.length;
     })) f.add('repeatedCombinationCases');
+    if (factorLists.some(hasZeroOrOpposingFactors)) f.add('zeroOrOpposingCombinationFactors');
+    if (takesExplicitNotionalCase(cases, factorLists)) f.add('explicitNotionalCombinationCases');
     if (loadsCode === null || loadsCode.startsWith('cirsoc')) f.add('cirsocCombinations');
   }
 

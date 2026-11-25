@@ -270,10 +270,14 @@ metamorphic and differential tests; this layer has had almost none. The order be
       legal switches turn on (Mohr precision near hydrostatic stress, a plot tick hang, legal-link
       locales);
     - Global axes for 2D, 3D and PRO ([#2364](https://github.com/lambdaclass/stabileo/pull/2364),
-      merged in `0.6.3`), PRO plate modelling & physical-model view
-      ([#2365](https://github.com/lambdaclass/stabileo/pull/2365), merged on `main`), and the
-      shared nonlinear drivers ([#2483](https://github.com/lambdaclass/stabileo/pull/2483), merged
-      on `main`) sit behind switches that are off in production.
+      merged in `0.6.3`) and the shared nonlinear drivers
+      ([#2483](https://github.com/lambdaclass/stabileo/pull/2483), merged on `main`) sit behind
+      switches that are off in production.
+    - [#2509](https://github.com/lambdaclass/stabileo/pull/2509) reverted PRO plate modelling &
+      the physical-model view ([#2365](https://github.com/lambdaclass/stabileo/pull/2365)) because
+      serving production from a frozen copy of `main` froze production fixes. PRO plates
+      ([#1928](https://github.com/lambdaclass/stabileo/pull/1928)) can re-land only after owner
+      approval, with a real switch gating one shared code path.
     - [#1929](https://github.com/lambdaclass/stabileo/pull/1929) stays held until its review
       findings are fixed.
 17. **Shell formulation fixes:** turn the MITC4 and MITC9 warnings and refusals
@@ -291,17 +295,17 @@ metamorphic and differential tests; this layer has had almost none. The order be
 - [#2276](https://github.com/lambdaclass/stabileo/issues/2276) Ambiguous or unknown support types could act as fixed supports in 3D. Fixed in [#2277](https://github.com/lambdaclass/stabileo/pull/2277).
 - [#2278](https://github.com/lambdaclass/stabileo/issues/2278) DXF import silently maps unknown support labels to pinned supports. Contained on `main` in [#2494](https://github.com/lambdaclass/stabileo/pull/2494) ([SA-2026-109](../advisories/SA-2026-109-dxf-support-labels.md)).
 - [#2284](https://github.com/lambdaclass/stabileo/issues/2284) Overlapping shells on the same plane can count floor load twice. Contained on `main` in [#2495](https://github.com/lambdaclass/stabileo/pull/2495) ([SA-2026-111](../advisories/SA-2026-111-gravity-shared-deck-coverage.md)).
-- [#2289](https://github.com/lambdaclass/stabileo/issues/2289) A quarter-turn of a plane roller with no attached member can fix every movement in 3D. Recheck the 3D case after [#2277](https://github.com/lambdaclass/stabileo/pull/2277).
+- [#2289](https://github.com/lambdaclass/stabileo/issues/2289) A quarter-turn of a plane roller with no attached member could fix every movement in 3D. Refused on `main`. Closed 2026-11-21. Reproducer in [#2340](https://github.com/lambdaclass/stabileo/pull/2340). Behavior confirmed in [#2456](https://github.com/lambdaclass/stabileo/pull/2456).
 - [#2291](https://github.com/lambdaclass/stabileo/issues/2291) A detached sloping shell above a beam bay can hide the floor load below. [#2282](https://github.com/lambdaclass/stabileo/pull/2282) refuses the reported model.
 - [#2292](https://github.com/lambdaclass/stabileo/issues/2292) The synchronous cable and soil–structure solvers can treat non-finite spring stiffness as absent, and repeated case factors can cancel a nonzero response. Contained on `main` in [#2496](https://github.com/lambdaclass/stabileo/pull/2496) ([SA-2026-110](../advisories/SA-2026-110-solver-json-boundary.md)).
-- [#2294](https://github.com/lambdaclass/stabileo/issues/2294) Copying only a roller node can lose its member axes and restrain the wrong movement.
+- [#2294](https://github.com/lambdaclass/stabileo/issues/2294) Copying only a roller node could lose its member axes and restrain the wrong movement. Copies that omit the local roller's member frame are refused on `main`. Closed 2026-11-21. Reproducer in [#2340](https://github.com/lambdaclass/stabileo/pull/2340). Behavior confirmed in [#2456](https://github.com/lambdaclass/stabileo/pull/2456).
 - [#2295](https://github.com/lambdaclass/stabileo/issues/2295) An offset rafter and split roof shells can both receive load over the same area. [#2282](https://github.com/lambdaclass/stabileo/pull/2282) refuses the reported model.
 - [#2296](https://github.com/lambdaclass/stabileo/issues/2296) The provided-beam shear check can miss gaps in the stirrups or use the wrong effective depth at the checked section. Contained in [#2338](https://github.com/lambdaclass/stabileo/pull/2338).
 - [#2299](https://github.com/lambdaclass/stabileo/issues/2299) A shell rigidly linked above a closed beam bay can receive the same gravity load as the beams below. Contained on `main` in [#2495](https://github.com/lambdaclass/stabileo/pull/2495) ([SA-2026-111](../advisories/SA-2026-111-gravity-shared-deck-coverage.md)).
 - [#2300](https://github.com/lambdaclass/stabileo/issues/2300) The torsion check can count longitudinal bars beyond their ends. Contained in [#2338](https://github.com/lambdaclass/stabileo/pull/2338).
 - [#2301](https://github.com/lambdaclass/stabileo/issues/2301) The reported cage already retained its declared primary legs on main. [#2338](https://github.com/lambdaclass/stabileo/pull/2338) adds a translated refusal when a fixed cage needs more legs.
 - [#2302](https://github.com/lambdaclass/stabileo/issues/2302) The seismic check can pass a dense stirrup zone that ends too early in the reopened beam line. Contained in [#2338](https://github.com/lambdaclass/stabileo/pull/2338).
-- [#2304](https://github.com/lambdaclass/stabileo/issues/2304) Saving and reopening a 3D Y roller can change its label to Z while keeping the Y restraints, so a later edit can give a wrong reaction.
+- [#2304](https://github.com/lambdaclass/stabileo/issues/2304) Saving and reopening a 3D Y roller could change its label to Z while keeping the Y restraints. On `main`, snapshots preserve `rollerY` and ambiguous edits require an explicit restraint mask. Closed 2026-11-21. Reproducer in [#2340](https://github.com/lambdaclass/stabileo/pull/2340). Behavior confirmed in [#2456](https://github.com/lambdaclass/stabileo/pull/2456).
 
 #### Other follow-ups
 
@@ -412,7 +416,6 @@ Per [docs/roadmap/README.md](README.md#rules-for-these-documents), detailed land
   DXF support label refusal ([#2494](https://github.com/lambdaclass/stabileo/pull/2494)), duplicate
   shared-deck gravity refusal ([#2495](https://github.com/lambdaclass/stabileo/pull/2495)), web
   solver JSON boundary validation ([#2496](https://github.com/lambdaclass/stabileo/pull/2496)), plus
-  default-off PRO plate modelling ([#2365](https://github.com/lambdaclass/stabileo/pull/2365)) and
   shared nonlinear drivers ([#2483](https://github.com/lambdaclass/stabileo/pull/2483)). Open
   follow-up issues from these fixes remain tracked in Priority now items 10 and 11 above.
 
@@ -683,7 +686,7 @@ Each moves to section 2 or 3 when it starts.
 
 **First vertical slices (effort & dependencies — full table in [high_leverage_solver_and_product_plan.md](../research/high_leverage_solver_and_product_plan.md#first-vertical-slices-execution-scope-effort--dependencies)):**
 - *Quick wins (Effort S, days):* constrained `PreparedStatic` factorization reuse in `engine/src/solver/load_cases.rs` & `engine/src/load_session.rs` (`State2D`/`State3D::Constrained`), and determinism-gated `wasm-opt` + streaming WASM compile ([#1072](https://github.com/lambdaclass/stabileo/issues/1072), [#1466](https://github.com/lambdaclass/stabileo/issues/1466)).
-- *Wave 1 vertical slices (Effort M–L, weeks–months):* Physical IR Slice 1 (one slab + opening + perimeter beams + gravity/wind load surface compiled purely in Rust, building on merged [#2365](https://github.com/lambdaclass/stabileo/pull/2365), [#2409](https://github.com/lambdaclass/stabileo/pull/2409), [#2470](https://github.com/lambdaclass/stabileo/pull/2470) and [#1928](https://github.com/lambdaclass/stabileo/pull/1928)); Executable Design-Code IR Slice 1 (CIRSOC 201 rectangular beam flexure + shear authored once as a unit-typed AST under [#390](https://github.com/lambdaclass/stabileo/issues/390)); Adjoint + Woodbury interactive pilot on linear drift/moments + single-member `EI` drag.
+- *Wave 1 vertical slices (Effort M–L, weeks–months):* Physical IR Slice 1 (one slab + opening + perimeter beams + gravity/wind load surface compiled purely in Rust, depending on the PRO plates re-land ([#1928](https://github.com/lambdaclass/stabileo/pull/1928), pending owner approval) plus [#2409](https://github.com/lambdaclass/stabileo/pull/2409) and [#2470](https://github.com/lambdaclass/stabileo/pull/2470)); Executable Design-Code IR Slice 1 (CIRSOC 201 rectangular beam flexure + shear authored once as a unit-typed AST under [#390](https://github.com/lambdaclass/stabileo/issues/390)); Adjoint + Woodbury interactive pilot on linear drift/moments + single-member `EI` drag.
 - *Wave 2 vertical slices (Effort M, 2–4 weeks each):* `<150 KB` offline `verify.stabileo.com` WASM verifier + authenticated timestamped Ed25519 attestation & transparency log / per-firm PKI ([#499](https://github.com/lambdaclass/stabileo/issues/499), [#346](https://github.com/lambdaclass/stabileo/issues/346)); local stdio `stabileo-mcp` (review/audit/certify first) + frame-only `.s2k`/`.e2k` second-opinion audit ([#351](https://github.com/lambdaclass/stabileo/issues/351), [#731](https://github.com/lambdaclass/stabileo/issues/731)).
 - *Issue tracking:* new Wave 1–4 items without an existing issue receive `roadmap:*` GitHub issues linked under tracker [#396](https://github.com/lambdaclass/stabileo/issues/396) as each slice opens.
 

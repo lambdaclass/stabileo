@@ -58,6 +58,7 @@ const ko: Translations = {
   'landing.heroTitle2': '즉시.',
   'landing.heroSub': '브라우저에서 전문가 수준의 2D 및 3D 구조 해석. 설치 불필요, 타협 없음.',
   'landing.tryApp': '앱 체험',
+  'landing.openingEditor': '편집기를 여는 중…',
   'landing.tryTour': '가이드 투어 체험',
   'landing.metricLanguages': '언어',
   'landing.metricAnalysis': '완전한 해석',
@@ -2790,8 +2791,10 @@ const ko: Translations = {
   'pro.unknown': '알 수 없음',
 
   // ─── PRO: Shell ───
+  'pro.nPlatesQuads': '{plates}개 판, {quads}개 사각형',
   'pro.plateTriDKT': '삼각 판 (DKT)',
   'pro.quadMITC4': '사각형 MITC4',
+  'pro.meshGenerator': '메쉬 생성기',
   'pro.meshHint': '4개 모서리 절점(반시계 방향)과 NxM 분할을 정의하세요. 중간 절점과 사각형이 자동 생성됩니다.',
   'pro.corners': '모서리',
   'pro.subdivisions': '분할',

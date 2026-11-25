@@ -3,6 +3,7 @@
  * the same building made bar by bar, and with its slabs it is still in equilibrium.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
+import { t } from '../../../i18n';
 import { historyStore, modelStore, uiStore } from '../../../store';
 import { placeFrame, placeSlabs } from '../build-on-grid';
 import { physicalGroups } from '../../../store/physical';
@@ -25,8 +26,8 @@ function loadRoof() {
     if (Math.abs((n.z ?? 0) - 21.5) < 1e-9 && Math.abs(n.x - 13.5) < 1e-9 && YS.some((y) => Math.abs(n.y - y) < 1e-9)) modelStore.addNodalLoad3D(n.id, 20, 0, -50, 0, 0, 0);
   }
 }
-const solve = () => {
-  const r = modelStore.solve3D(false, false, false);
+const solve = (mode: 'basic' | 'pro') => {
+  const r = modelStore.solve3D(false, false, mode === 'pro');
   expect(typeof r, String(r)).not.toBe('string');
   return r as AnalysisResults3D;
 };
@@ -48,7 +49,7 @@ describe('a seven-storey building placed with the tools', () => {
     // One continuous beam per axis and level: 2 along X, 3 along Y, on 7 levels.
     expect(physicalGroups().filter((g) => g.physical.kind === 'beam')).toHaveLength(7 * 5);
     loadRoof();
-    const tools = at(solve());
+    const tools = at(solve('basic'));
 
     modelStore.clear();
     const id = new Map<string, number>();
@@ -67,7 +68,7 @@ describe('a seven-storey building placed with the tools', () => {
       for (const x of XS) for (let j = 1; j < YS.length; j++) modelStore.addElement(node(x, YS[j - 1]!, z), node(x, YS[j]!, z));
     }
     loadRoof();
-    const bars = at(solve());
+    const bars = at(solve('basic'));
 
     expect(tools.size).toBe(bars.size);
     for (const [k, u] of bars) {
@@ -76,12 +77,26 @@ describe('a seven-storey building placed with the tools', () => {
     }
   });
 
-  it('with its slabs meshed into the beams, the reactions balance the loads', () => {
+  function placeBuildingWithSlabs() {
     placeFrame(grid, { x: ['x0', 'x2'], y: ['y0', 'y1'], levels: ['N0', 'N7'], columns: S, beamsX: S, beamsY: S }, { fixBase: true });
-    const r = placeSlabs(grid, { levels: ['N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7'], thickness: 0.15, materialId: 1, meshSize: 1.5 });
-    expect(r.created).toBe(14);
+    const slabs = placeSlabs(grid, { levels: ['N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7'], thickness: 0.15, materialId: 1, meshSize: 1.5 });
+    expect(slabs.created).toBe(14);
+    expect(slabs.shells).toBeGreaterThan(0);
     loadRoof();
-    const res = solve();
+    return slabs.shells;
+  }
+
+  it('Basic 3D refuses the seven-storey building with meshed slabs', () => {
+    placeBuildingWithSlabs();
+    const result = modelStore.solve3D(false, false, false);
+    expect(typeof result).toBe('string');
+    expect(result).toBe(t('svc.shellsRequirePro3d'));
+  });
+
+  it('with its slabs meshed into the beams, the PRO reactions balance the loads', () => {
+    const shells = placeBuildingWithSlabs();
+    const res = solve('pro');
+    expect((res.quadStresses?.length ?? 0) + (res.plateStresses?.length ?? 0)).toBe(shells);
     const sum = [0, 0, 0];
     for (const q of res.reactions) { sum[0] += q.fx; sum[1] += q.fy; sum[2] += q.fz; }
     expect(sum[0]).toBeCloseTo(-40, 6);

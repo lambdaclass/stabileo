@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Serialize};
 use std::collections::HashMap;
 
 // ==================== 2D Input Types ====================
@@ -223,7 +223,11 @@ pub struct SolverOptions {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(
+    rename_all = "camelCase",
+    from = "SolverInputWire2D<M, S, N, L, P>",
+    bound(deserialize = "M: Deserialize<'de>, S: Deserialize<'de>, N: Deserialize<'de>, L: Deserialize<'de>, P: Deserialize<'de>")
+)]
 pub struct SolverInput<M = SolverMaterial, S = SolverSection, N = SolverNode, L = SolverLoad, P = SolverSupport> {
     pub nodes: HashMap<String, N>,
     pub materials: HashMap<String, M>,
@@ -242,6 +246,94 @@ pub struct SolverInput<M = SolverMaterial, S = SolverSection, N = SolverNode, L 
     /// time history, harmonic, reduction) and never as a static load.
     #[serde(default, skip_serializing_if = "MassInput::is_empty")]
     pub masses: MassInput,
+}
+
+#[derive(Deserialize)]
+struct UnsupportedShells2D {
+    #[serde(default, rename = "plates", deserialize_with = "empty_shell_collection_2d")]
+    _plates: (),
+    #[serde(default, rename = "quads", deserialize_with = "empty_shell_collection_2d")]
+    _quads: (),
+    #[serde(default, rename = "quad9s", deserialize_with = "empty_shell_collection_2d")]
+    _quad9s: (),
+    #[serde(default, rename = "curvedShells", deserialize_with = "empty_shell_collection_2d")]
+    _curved_shells: (),
+    #[serde(default, rename = "solidShells", deserialize_with = "empty_shell_collection_2d")]
+    _solid_shells: (),
+}
+
+fn empty_shell_collection_2d<'de, D: de::Deserializer<'de>>(d: D) -> Result<(), D::Error> {
+    d.deserialize_any(EmptyShellCollection2D)
+}
+
+struct EmptyShellCollection2D;
+
+impl EmptyShellCollection2D {
+    fn require_empty<E: de::Error>(empty: bool) -> Result<(), E> {
+        if empty {
+            Ok(())
+        } else {
+            Err(E::custom("Shell elements require 3D analysis"))
+        }
+    }
+}
+
+impl<'de> de::Visitor<'de> for EmptyShellCollection2D {
+    type Value = ();
+
+    fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("an empty shell map or list")
+    }
+
+    fn visit_unit<E: de::Error>(self) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_none<E: de::Error>(self) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<(), A::Error> {
+        Self::require_empty(map.next_key::<de::IgnoredAny>()?.is_none())
+    }
+
+    fn visit_seq<A: de::SeqAccess<'de>>(self, mut seq: A) -> Result<(), A::Error> {
+        Self::require_empty(seq.next_element::<de::IgnoredAny>()?.is_none())
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SolverInputWire2D<M, S, N, L, P> {
+    nodes: HashMap<String, N>,
+    materials: HashMap<String, M>,
+    sections: HashMap<String, S>,
+    elements: HashMap<String, SolverElement>,
+    supports: HashMap<String, P>,
+    loads: Vec<L>,
+    #[serde(default)]
+    constraints: Vec<Constraint>,
+    #[serde(default)]
+    connectors: HashMap<String, ConnectorElement>,
+    #[serde(default)]
+    solver_options: Option<SolverOptions>,
+    #[serde(default)]
+    masses: MassInput,
+    #[serde(flatten)]
+    _unsupported_shells: UnsupportedShells2D,
+}
+
+impl<M, S, N, L, P> From<SolverInputWire2D<M, S, N, L, P>> for SolverInput<M, S, N, L, P> {
+    fn from(wire: SolverInputWire2D<M, S, N, L, P>) -> Self {
+        let SolverInputWire2D {
+            nodes, materials, sections, elements, supports, loads, constraints, connectors,
+            solver_options, masses, _unsupported_shells: _,
+        } = wire;
+        Self {
+            nodes, materials, sections, elements, supports, loads, constraints, connectors,
+            solver_options, masses,
+        }
+    }
 }
 
 /// Mass beyond the material densities (2D). Units: t (= kN·s²/m) for mass,
@@ -639,6 +731,24 @@ pub struct SolverInput3D<M = SolverMaterial, S = SolverSection3D, N = SolverNode
     /// as a static load.
     #[serde(default, skip_serializing_if = "MassInput3D::is_empty")]
     pub masses: MassInput3D,
+}
+
+impl SolverInput3D {
+    pub(crate) fn nodes_by_id(&self) -> HashMap<usize, &SolverNode3D> {
+        crate::ordered::values(&self.nodes).map(|node| (node.id, node)).collect()
+    }
+}
+
+pub(crate) fn node_positions_3d<const N: usize>(
+    nodes: &HashMap<usize, &SolverNode3D>,
+    ids: &[usize; N],
+) -> Option<[[f64; 3]; N]> {
+    let mut positions = [[0.0; 3]; N];
+    for (position, id) in positions.iter_mut().zip(ids) {
+        let node = nodes.get(id)?;
+        *position = [node.x, node.y, node.z];
+    }
+    Some(positions)
 }
 
 /// Mass beyond the material densities (3D). Units: t (= kN·s²/m) for mass,
@@ -1323,7 +1433,7 @@ impl Default for TendonProfile {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", from = "StagedInputWire2D")]
 pub struct StagedInput {
     pub nodes: HashMap<String, SolverNode>,
     pub materials: HashMap<String, SolverMaterial>,
@@ -1334,6 +1444,21 @@ pub struct StagedInput {
     pub stages: Vec<ConstructionStage>,
     #[serde(default)]
     pub constraints: Vec<Constraint>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StagedInputWire2D {
+    #[serde(flatten)]
+    solver: SolverInput,
+    stages: Vec<ConstructionStage>,
+}
+
+impl From<StagedInputWire2D> for StagedInput {
+    fn from(wire: StagedInputWire2D) -> Self {
+        let SolverInput { nodes, materials, sections, elements, supports, loads, constraints, .. } = wire.solver;
+        Self { nodes, materials, sections, elements, supports, loads, constraints, stages: wire.stages }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
