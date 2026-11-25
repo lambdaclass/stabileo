@@ -1,4 +1,4 @@
-import { accountingCaseSources, accountingProjection, accountingSource, scenarioIntents, scenarioSurfaceExpectations, scenarioSurfaceIntentOf, type ScenarioSurfaceIntent } from './accounting-source';
+import { accountingCaseSources, accountingMemberPieces, accountingProjection, accountingSource, scenarioIntents, scenarioSurfaceExpectations, scenarioSurfaceIntentOf, type ScenarioSurfaceIntent } from './accounting-source';
 import { tp } from '../i18n';
 import type { Load, PointLoadOnElement } from '../store/model.svelte';
 import type { FloorLoadDef } from '../model/loads/floor-definitions';
@@ -55,8 +55,6 @@ function compare(label: string, entered: Wrench, assembled: Wrench): void {
       first?.get(id) ?? empty, second?.get(id) ?? empty);
   }
 }
-
-export const redistributedLineLoads = new WeakMap<SolverLoad3D, { member: number; station: number }>();
 
 type ScenarioNodeForce = { shellId: number; nodeId: number; force: LoadVector };
 
@@ -195,10 +193,8 @@ export function verifyScenarioSurfaceLoads(
 }
 
 function localVector(axes: LocalAxes3D, x: number, y: number, z: number, budget?: LoadVector): LoadVector {
-  const along = LoadVector.from(axes.ex).scale(new LoadScalar(x, budget?.underflow[0]), budget?.magnitude[0]);
-  const transverseY = LoadVector.from(axes.ey).scale(new LoadScalar(y, budget?.underflow[1]), budget?.magnitude[1]);
-  const transverseZ = LoadVector.from(axes.ez).scale(new LoadScalar(z, budget?.underflow[2]), budget?.magnitude[2]);
-  return along.add(transverseY.add(transverseZ));
+  const local = LoadVector.from([x, y, z], budget?.magnitude, budget?.underflow);
+  return local.componentAlong(0, axes.ex).add(local.componentAlong(1, axes.ey).add(local.componentAlong(2, axes.ez)));
 }
 
 function coordinates(point: Vector, id: number) {
@@ -234,7 +230,7 @@ function enteredMoment(d: PointLoadOnElement): number {
 }
 
 function enteredLoads(model: ModelData, loads: readonly Load[], frame: Frame, leftHand: boolean, caseId: number, definitions: ReadonlySet<number>): Wrench {
-  const out = new Wrench();
+  const out = new Wrench(model[accountingMemberPieces]);
   const at = (id: number): Vector => {
     const node = model.nodes.get(id);
     if (!node) return unsupported(model, caseId, 'node', id);
@@ -387,7 +383,7 @@ function assembled2D(model: ModelData, input: SolverInput, loads: readonly Solve
 }
 
 function assembled3D(model: ModelData, input: SolverInput3D, loads: readonly SolverLoad3D[], caseId: number): Wrench {
-  const result = new Wrench();
+  const result = new Wrench(model[accountingMemberPieces]);
   const at = (id: number): Vector => {
     const node = input.nodes.get(id);
     if (!node) return unsupported(model, caseId, 'node', id);
@@ -403,7 +399,7 @@ function assembled3D(model: ModelData, input: SolverInput3D, loads: readonly Sol
       const nodal = magnitudes && 'force' in magnitudes ? magnitudes : undefined;
       const force = LoadVector.from([fx, fy, fz], nodal?.force.magnitude, nodal?.force.underflow);
       result.apply(at(nodeId), force, LoadVector.from([mx, my, mz], nodal?.couple.magnitude, nodal?.couple.underflow));
-      const redistributed = redistributedLineLoads.get(load);
+      const redistributed = nodal?.memberLine;
       if (redistributed) result.memberLineForce(redistributed.member, new LoadScalar(redistributed.station), force);
       continue;
     }

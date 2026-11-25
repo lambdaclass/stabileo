@@ -1,7 +1,7 @@
-import { accountingCaseSources, accountingProjection, accountingSource, copyAccountingLoad, scenarioSurfaceIntentOf, type AccountingCaseSources, type ScenarioSurfaceIntent } from './accounting-source';
+import { accountingCaseSources, accountingMemberPieces, accountingProjection, accountingSource, copyAccountingLoad, scenarioSurfaceIntentOf, type AccountingCaseSources, type ScenarioSurfaceIntent } from './accounting-source';
 import { EngineCheckError, EngineUnavailableError } from './engine-unavailable';
-import { scaleAssembledMagnitudes3D, type Wrench } from './accounting-math';
-import { accountCombination, accountLoads2D, loadAccounting3D, loadCaseBatches, redistributedLineLoads, verifyFactoredScenarioNode, verifyScenarioSurfaceLoads } from './load-accounting';
+import { LoadVector, scaleAssembledMagnitudes3D, zero, type MemberLinePieces, type Wrench } from './accounting-math';
+import { accountCombination, accountLoads2D, loadAccounting3D, loadCaseBatches, verifyFactoredScenarioNode, verifyScenarioSurfaceLoads } from './load-accounting';
 import { accountPlateGeometry, SolveAccountingError } from './plate-accounting';
 import { shouldEmbedFlat2DModelIn3D } from './model-embedding';
 export { shouldEmbedFlat2DModelIn3D } from './model-embedding';
@@ -35,7 +35,7 @@ import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from '
 import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D } from './orphan-rotations-3d';
 import { unheldNodalMoment2D } from './orphan-rotations-2d';
 import { computeLocalAxes3D, memberRoll } from './local-axes-3d';
-import { distributedGlobalEnds, globalDistributedToSolver, transverseToNodes, memberFrame3D, takesNoBending as memberTakesNoBending, type MemberRef } from './member-loads';
+import { distributedGlobalEnds, distributedSolverRow3D, globalDistributedToSolver, transverseToNodes, memberFrame3D, takesNoBending as memberTakesNoBending, type MemberRef } from './member-loads';
 import { InvalidSelfWeightGroup, selfWeightFor, selfWeightScope, selfWeightSolverLoads } from './self-weight';
 import type { SelfWeightLoad } from './analysis-settings';
 import type { SolverInput3D, SolverSection3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, NonlinearReport } from './types-3d';
@@ -116,6 +116,7 @@ function thermalDepths(model: ModelData, elementId: number, embedded: boolean | 
 
 export interface ModelData {
   [accountingSource]?: ModelData;
+  [accountingMemberPieces]?: MemberLinePieces;
   [accountingProjection]?: { plane: 'xz' | 'yz'; source: ModelData };
   [accountingCaseSources]?: AccountingCaseSources;
   nodes: Map<number, Node>;
@@ -153,6 +154,8 @@ function snapshotNonlinearModel(model: ModelData): ModelData {
   };
   const source = model[accountingSource];
   if (source) snapshot[accountingSource] = snapshotNonlinearModel(source);
+  const pieces = model[accountingMemberPieces];
+  if (pieces) snapshot[accountingMemberPieces] = snapshotMap(pieces);
   return snapshot;
 }
 
@@ -1594,14 +1597,6 @@ export function buildSolverLoads3D(
   for (const l of loads) {
     const emit = (...batch: SolverLoad3D[]) => {
       const assembled = transverseToNodes(batch, truss);
-      if (opts.record && (l.type === 'distributed' || l.type === 'distributed3d')) {
-        const member = truss(l.data.elementId);
-        if (member) for (const row of assembled) {
-          if (row.type !== 'nodal') continue;
-          const station = row.data.nodeId === member.nodeI ? 0 : row.data.nodeId === member.nodeJ ? member.axes.L : NaN;
-          redistributedLineLoads.set(row, { member: member.elementId, station });
-        }
-      }
       opts.record?.(l.data.caseId ?? 1, assembled, l.type === 'surface3d' && scenarioSurfaceIntentOf(l) ? l : undefined);
       for (const load of assembled) solverLoads.push(load);
     };
@@ -1649,8 +1644,8 @@ export function buildSolverLoads3D(
       const secRot1 = model.sections.get(elem.sectionId)?.rotation ?? 0;
       const axes = computeLocalAxes3D(niSolver, njSolver, elemLocalY, (elem.rollAngle ?? 0) + secRot1, leftHand);
 
-      const projectLoad = (q: number): { qY: number; qZ: number; qAxial: number } => {
-        if (Math.abs(q) < 1e-15) return { qY: 0, qZ: 0, qAxial: 0 };
+      const projectLoad = (q: number): LoadVector => {
+        if (Math.abs(q) < 1e-15) return LoadVector.from(zero());
         let dirX: number, dirY: number, dirZ: number;
         if (isGlobal) {
           dirX = Math.sin(angleRad);
@@ -1664,10 +1659,7 @@ export function buildSolverLoads3D(
           dirY = project2DToXZ ? 0 : (perpFactor * cosTheta + axialFactor * sinTheta);
           dirZ = project2DToXZ ? (perpFactor * cosTheta + axialFactor * sinTheta) : 0;
         }
-        const projY = dirX * axes.ey[0] + dirY * axes.ey[1] + dirZ * axes.ey[2];
-        const projZ = dirX * axes.ez[0] + dirY * axes.ez[1] + dirZ * axes.ez[2];
-        const projX = dirX * axes.ex[0] + dirY * axes.ex[1] + dirZ * axes.ex[2];
-        return { qY: projY * q, qZ: projZ * q, qAxial: projX * q };
+        return LoadVector.from([dirX, dirY, dirZ]).projectOnto(axes).scale(q);
       };
 
       const projI = projectLoad(d.qI);
@@ -1676,11 +1668,8 @@ export function buildSolverLoads3D(
       // Across the member and along it, one member load: the engine carries the axial part
       // (qX) along the span, so N varies as the load says. As loads at the end nodes it left the
       // member a constant N, the average of its true end values.
-      if ([projI.qY, projJ.qY, projI.qZ, projJ.qZ, projI.qAxial, projJ.qAxial].some((v) => Math.abs(v) > 1e-10)) {
-        emit({
-          type: 'distributed',
-          data: { elementId: d.elementId, qXI: projI.qAxial, qXJ: projJ.qAxial, qYI: projI.qY, qYJ: projJ.qY, qZI: projI.qZ, qZJ: projJ.qZ, a: d.a, b: d.b },
-        });
+      if ([...projI.value, ...projJ.value].some(v => Math.abs(v) > 1e-10)) {
+        emit(distributedSolverRow3D(d.elementId, projI, projJ, d.a, d.b));
       }
     } else if (l.type === 'distributed3d') {
       // Local, global or projected, with its axial part: one reading for every consumer.
@@ -3311,8 +3300,6 @@ export function scaleSolverLoad(l: SolverLoad3D, f: number): SolverLoad3D {
   if (ax) data.axialOf = { ...ax, p: ax.p * f };
   const scaled = { ...l, data } as unknown as SolverLoad3D;
   scaleAssembledMagnitudes3D(l, scaled, f);
-  const redistributed = redistributedLineLoads.get(l);
-  if (redistributed) redistributedLineLoads.set(scaled, redistributed);
   return scaled;
 }
 

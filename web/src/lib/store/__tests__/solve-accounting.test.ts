@@ -1462,9 +1462,7 @@ it('#2471 detects a lost self-equilibrated line load in spatial analysis', async
   expect(() => paths.advanced()).toThrow(/case.*member.*s·Fx/i);
 });
 
-const factoredLineWitness = process.env.RUN_KNOWN_WRONG === '2471' ? it : it.skip;
-
-factoredLineWitness.each([false, true])('known wrong result: #2471 refuses a line lost during combination scaling (cut member: %s)', async cut => {
+it.each([false, true])('#2471 refuses a line lost during combination scaling (cut member: %s)', async cut => {
   const member = cantilever('3d');
   modelStore.model.loads.push({ type: 'distributed3d', data: {
     id: 1, elementId: member, qXI: 2, qXJ: -2, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, frame: 'global', caseId: 1,
@@ -1472,6 +1470,7 @@ factoredLineWitness.each([false, true])('known wrong result: #2471 refuses a lin
   if (cut) modelStore.model.loads.push({ type: 'pointOnElement3d', data: {
     id: 2, elementId: member, a: 0.5, px: 0, py: 0, pz: 0, my: 1, frame: 'global', caseId: 1,
   } });
+  for (const { id } of [...modelStore.combinations]) modelStore.removeCombination(id);
   const comboId = modelStore.addCombination('Two dead loads', [{ caseId: 1, factor: 2 }]);
   modelStore.setAnalysis({ perCombination: 'pdelta' });
   const model = modelStore.model;
@@ -1482,6 +1481,9 @@ factoredLineWitness.each([false, true])('known wrong result: #2471 refuses a lin
   expect(original).toEqual(cut ? [[2, 1], [1, -2]] : [[2, -2]]);
   expect(axialLines(comboSolverLoads3D(combo, cases))).toEqual(original.map(pair => pair.map(q => 2 * q!)));
 
+  expect(modelStore.solveCombinations3D(false, false, true)).toMatchObject({
+    perCombo: new Map([[comboId, expect.objectContaining({ elementForces: expect.any(Array) })]]),
+  });
   fault.dropFactoredAxialLine = true;
   expect(axialLines(caseSolverLoads3D(model, model.loadCases, false, false).get(1)!)).toEqual(original);
   const diagnostic = new RegExp('Two dead loads.*member.*' + member + '.*s·Fx.*assembled 0', 'i');

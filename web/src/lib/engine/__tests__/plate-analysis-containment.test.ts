@@ -425,9 +425,7 @@ it('#2430 refuses a supported wall ending inside a loaded slab face', async () =
   expect(resultsStore.results3D).toBeNull();
 });
 
-const piercingWitness = process.env.RUN_KNOWN_WRONG === '2430' ? it : it.skip;
-
-piercingWitness('known wrong result: #2430 refuses a wall edge piercing the interior of a loaded slab', async () => {
+it('#2430 refuses a wall edge piercing the interior of a loaded slab', async () => {
   for (const [entry, solve] of directEntries) {
     modelStore.clear();
     const { wall } = wallUnderSlab(-1);
@@ -440,6 +438,11 @@ piercingWitness('known wrong result: #2430 refuses a wall edge piercing the inte
   const outcome = await runGlobalSolve({ directBase: true });
   expect.soft(outcome.ok ? 'returned a result' : outcome.error).toEqual(expect.stringMatching(/wall.*slab/i));
   expect(resultsStore.results3D).toBeNull();
+});
+
+it('#2430 refuses a piercing wall just inside the slab face', () => {
+  const { wall } = wallUnderSlab(-1, 3 - 2 * PLATE_EDGE_TOL);
+  expect(modelStore.solve3D(false, false, true)).toEqual(expect.stringMatching(new RegExp('wall q' + wall + '.*slab q1', 'i')));
 });
 
 it('#2430 solves a wall crossing the slab elevation outside the slab face', () => {

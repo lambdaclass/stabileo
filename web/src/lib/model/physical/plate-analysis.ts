@@ -272,6 +272,34 @@ function unmatchedVertex(cell: Cell, stations: Station[][], equations: EdgeEquat
   return undefined;
 }
 
+function edgeMeetsFace(a: Vec3, b: Vec3, frame: Cell['frame'], sides: readonly { point: Vec3; inward: Vec3 }[]): boolean {
+  const { o, n } = frame;
+  const fromPlane = dot(sub(a, o), n), toPlane = dot(sub(b, o), n);
+  let lo = 0, hi = 1;
+  if (fromPlane === toPlane) {
+    if (Math.abs(fromPlane) > PLATE_EDGE_TOL) return false;
+  } else {
+    const delta = fromPlane - toPlane;
+    const t0 = (fromPlane - PLATE_EDGE_TOL) / delta;
+    const t1 = (fromPlane + PLATE_EDGE_TOL) / delta;
+    lo = Math.max(lo, Math.min(t0, t1));
+    hi = Math.min(hi, Math.max(t0, t1));
+    if (lo > hi) return false;
+  }
+  for (const { point, inward } of sides) {
+    const from = dot(sub(a, point), inward) - PLATE_EDGE_TOL;
+    const to = dot(sub(b, point), inward) - PLATE_EDGE_TOL;
+    if (from <= 0 && to <= 0) return false;
+    if (from <= 0) lo = Math.max(lo, from / (from - to));
+    if (to <= 0) hi = Math.min(hi, from / (from - to));
+    if (lo > hi) return false;
+  }
+  return lo < hi || (lo === hi && sides.every(({ point, inward }) => {
+    const from = dot(sub(a, point), inward), to = dot(sub(b, point), inward);
+    return (1 - lo) * from + lo * to > PLATE_EDGE_TOL;
+  }));
+}
+
 function interiorContact(walls: readonly Cell[], slabs: readonly Cell[]) {
   const faces = slabs.map(cell => {
     const { vertices, frame } = cell;
@@ -297,21 +325,7 @@ function interiorContact(walls: readonly Cell[], slabs: readonly Cell[]) {
         if (bounds[0]!.lo > right) break;
         if (axes.some(axis => Math.min(a[axis], b[axis]) > bounds[axis]!.hi
           || Math.max(a[axis], b[axis]) < bounds[axis]!.lo)) continue;
-        const { o, n } = cell.frame;
-        if (Math.max(Math.abs(dot(sub(a, o), n)), Math.abs(dot(sub(b, o), n))) > PLATE_EDGE_TOL) continue;
-        let lo = 0, hi = 1;
-        for (const { point, inward } of sides) {
-          const from = dot(sub(a, point), inward) - PLATE_EDGE_TOL;
-          const to = dot(sub(b, point), inward) - PLATE_EDGE_TOL;
-          if (from <= 0 && to <= 0) {
-            hi = lo;
-            break;
-          }
-          if (from <= 0) lo = Math.max(lo, from / (from - to));
-          if (to <= 0) hi = Math.min(hi, from / (from - to));
-          if (lo >= hi) break;
-        }
-        if (lo < hi) return { wall: wall.key, slab: cell.key, edge: [first.id, last.id] as const };
+        if (edgeMeetsFace(a, b, cell.frame, sides)) return { wall: wall.key, slab: cell.key, edge: [first.id, last.id] as const };
       }
     }
   }

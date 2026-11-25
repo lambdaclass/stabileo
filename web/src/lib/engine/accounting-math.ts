@@ -117,6 +117,18 @@ export class LoadVector {
       mul(this.magnitude, magnitude));
   }
 
+  componentAlong(index: 0 | 1 | 2, axis: Vector): LoadVector {
+    return LoadVector.from(axis).scale(this.at(index), this.magnitude[index]);
+  }
+
+  projectOnto(axes: { ex: Vector; ey: Vector; ez: Vector }): LoadVector {
+    const project = ([x, y, z]: Vector) => this.at(0).scale(x).add(this.at(1).scale(y)).add(this.at(2).scale(z));
+    const { ex, ey, ez } = axes;
+    return LoadVector.fromComponents([project(ex), project(ey), project(ez)], [
+      dot(this.magnitude, absolute(ex)), dot(this.magnitude, absolute(ey)), dot(this.magnitude, absolute(ez)),
+    ]);
+  }
+
   scaleComponents(factors: Vector): LoadVector {
     return LoadVector.fromComponents([this.at(0).scale(factors[0]), this.at(1).scale(factors[1]), this.at(2).scale(factors[2])],
       [this.magnitude[0] * Math.abs(factors[0]), this.magnitude[1] * Math.abs(factors[1]), this.magnitude[2] * Math.abs(factors[2])]);
@@ -133,7 +145,9 @@ export class LoadVector {
   }
 }
 
-type AssembledMagnitudes3D = { force: LoadVector; couple: LoadVector } | { qI: LoadVector; qJ: LoadVector };
+type AssembledMagnitudes3D =
+  | { force: LoadVector; couple: LoadVector; memberLine?: { member: number; station: number } }
+  | { qI: LoadVector; qJ: LoadVector };
 
 export const assembledMagnitudes3D = new WeakMap<SolverLoad3D, AssembledMagnitudes3D>();
 
@@ -141,7 +155,7 @@ export function scaleAssembledMagnitudes3D(source: SolverLoad3D, scaled: SolverL
   const magnitudes = assembledMagnitudes3D.get(source);
   if (!magnitudes) return;
   assembledMagnitudes3D.set(scaled, 'force' in magnitudes
-    ? { force: magnitudes.force.scale(factor), couple: magnitudes.couple.scale(factor) }
+    ? { ...magnitudes, force: magnitudes.force.scale(factor), couple: magnitudes.couple.scale(factor) }
     : { qI: magnitudes.qI.scale(factor), qJ: magnitudes.qJ.scale(factor) });
 }
 
@@ -153,11 +167,15 @@ export function positionAt(start: Vector, axis: Vector, station: number | LoadSc
   return LoadVector.from(start).add(LoadVector.from(axis).scale(station));
 }
 
+export type MemberLinePieces = ReadonlyMap<number, { member: number; offset: number; scale: number }>;
+
 export class Wrench {
   private memberLines?: Map<number, Wrench>;
   private readonly components: WrenchComponent[] = Array.from({ length: 6 }, () => ({
     total: new Sum(), magnitude: new Sum(), underflow: new Sum(),
   }));
+
+  constructor(private readonly memberPieces?: MemberLinePieces) {}
 
   apply(at: Vector | LoadVector, force: LoadVector, couple = zeroCouple): void {
     this.addTotals(force, force.momentAt(at).add(couple));
@@ -193,6 +211,11 @@ export class Wrench {
   }
 
   memberLineForce(id: number, station: LoadScalar, force: LoadVector): void {
+    const piece = this.memberPieces?.get(id);
+    if (piece) {
+      station = station.scale(piece.scale).add(new LoadScalar(piece.offset));
+      id = piece.member;
+    }
     this.memberLineMeasure(id).addTotals(force, force.scale(station));
   }
 
