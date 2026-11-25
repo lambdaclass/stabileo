@@ -561,6 +561,77 @@ mod tests {
         assert!(sparse >= 1);
     }
 
+    fn lee_input() -> (ArcLengthInput3D, serde_json::Value) {
+        let data: serde_json::Value = serde_json::from_str(include_str!("../../../tests/benchmarks/lee_frame.json")).unwrap();
+        let plane = &data["input"]["solver"];
+        let mut nodes = serde_json::Map::new();
+        for (id, node) in plane["nodes"].as_object().unwrap() {
+            nodes.insert(id.clone(), serde_json::json!({"id": node["id"], "x": node["x"], "y": 0.0, "z": node["z"]}));
+        }
+        let pinned: std::collections::BTreeSet<usize> = plane["supports"].as_object().unwrap().values()
+            .map(|support| support["nodeId"].as_u64().unwrap() as usize).collect();
+        let supports: serde_json::Map<String, serde_json::Value> = nodes.keys().map(|id| {
+            let node_id = id.parse::<usize>().unwrap();
+            let end = pinned.contains(&node_id);
+            (id.clone(), serde_json::json!({
+                "nodeId": node_id, "rx": end, "ry": true, "rz": end, "rrx": true, "rry": false, "rrz": true
+            }))
+        }).collect();
+        let mut sections = plane["sections"].clone();
+        for section in sections.as_object_mut().unwrap().values_mut() {
+            let iz = section["iz"].as_f64().unwrap();
+            section["iy"] = serde_json::json!(iz);
+            section["j"] = serde_json::json!(2.0 * iz);
+        }
+        let mut elements = plane["elements"].clone();
+        for element in elements.as_object_mut().unwrap().values_mut() {
+            let object = element.as_object_mut().unwrap();
+            object.remove("hingeStart");
+            object.remove("hingeEnd");
+        }
+        let load = &plane["loads"][0]["data"];
+        let solver: SolverInput3D = serde_json::from_value(serde_json::json!({
+            "nodes": nodes, "elements": elements, "supports": supports,
+            "materials": plane["materials"], "sections": sections,
+            "loads": [{"type": "nodal", "data": {
+                "nodeId": load["nodeId"], "fx": load["fx"], "fy": 0.0, "fz": load["fz"],
+                "mx": 0.0, "my": load["my"], "mz": 0.0
+            }}]
+        })).unwrap();
+        let flat: ArcLengthInput = serde_json::from_value(data["input"].clone()).unwrap();
+        (ArcLengthInput3D {
+            solver,
+            max_steps: flat.max_steps,
+            max_iter: flat.max_iter,
+            tolerance: flat.tolerance,
+            initial_ds: flat.initial_ds,
+            min_ds: flat.min_ds,
+            max_ds: flat.max_ds,
+            target_iter: flat.target_iter,
+        }, data)
+    }
+
+    #[test]
+    fn lee_frame_in_3d_reaches_the_shared_and_published_first_peak() {
+        let (input, data) = lee_input();
+        let followed = solve_arc_length_3d(&input).unwrap();
+        assert!(followed.converged);
+        assert_eq!(followed.steps.len(), input.max_steps);
+        assert!(followed.steps.iter().all(|step| step.converged && step.displacements.iter()
+            .all(|d| d.uy == 0.0 && d.rx == 0.0 && d.rz == 0.0)));
+        let peak = followed.steps.windows(3)
+            .find(|w| w[1].load_factor > w[0].load_factor && w[1].load_factor > w[2].load_factor)
+            .map(|w| w[1].clone()).expect("first peak reached");
+        let expected = data["regression"]["firstLimitLoad"].as_f64().unwrap();
+        let tolerance = data["regression"]["absoluteTolerance"].as_f64().unwrap();
+        assert!((peak.load_factor - expected).abs() < tolerance, "{} vs {expected}", peak.load_factor);
+        assert_eq!(peak.step as u64, data["regression"]["firstPeakStep"].as_u64().unwrap());
+        let published = data["reference"]["load"].as_f64().unwrap();
+        let percent = 100.0 * (peak.load_factor / published - 1.0);
+        assert_eq!(percent.round() as i32, 2, "published reading {published} kN, computed {} kN", peak.load_factor);
+        assert!(followed.final_load_factor < 0.5 * peak.load_factor);
+    }
+
     #[test]
     fn a_shallow_truss_is_followed_past_its_limit_load() {
         let (_, space) = planar(2, 0.3, "truss", (0.0, -1.0));
