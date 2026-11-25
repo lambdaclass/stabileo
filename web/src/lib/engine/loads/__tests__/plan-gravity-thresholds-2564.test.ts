@@ -1,0 +1,132 @@
+import { expect, it } from 'vitest';
+import { applyLoadPlan } from '../../../store/apply-load-plan';
+import { buildLoadPlan, roofWeightFor, type LoadModelData } from '../load-plan';
+import { gravityLayout } from '../plan-gravity';
+import { roofMembers } from '../wind-cases';
+import { regulations } from './snow-roof-plane-fixture';
+import { mesh } from './snow-surface-round2-fixture';
+
+const regression = process.env.RUN_KNOWN_WRONG === '2564' ? it : it.skip;
+const modes = ['panels', 'width'] as const;
+type Mode = typeof modes[number];
+
+function plan(model: LoadModelData, mode: Mode, loadEveryPanel = true, separateRoof = false) {
+  return buildLoadPlan({
+    model, regulations: regulations(), occupancyKey: 'vivienda', dead: [{ labelKey: 'test', q: 1 }],
+    reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false,
+    generateCombinations: false, tributaryWidth: 1, gravity: { mode, loadEveryPanel },
+    ...(separateRoof ? { roof: { dead: 3, use: 'occupancy', occupancyKey: 'vivienda', slopeDeg: 0 } as const } : {}),
+  });
+}
+
+function deadResultant(result: ReturnType<typeof plan>, model: LoadModelData, id: number) {
+  const element = model.elements.get(id)!;
+  const a = model.nodes.get(element.nodeI)!, b = model.nodes.get(element.nodeJ)!;
+  const length = Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0));
+  return result.distributed.filter(load => load.elementId === id && load.caseType === 'D').reduce((sum, load) =>
+    sum - (load.q + (load.qJ ?? load.q)) / 2 * ((load.b ?? length) - (load.a ?? 0)), 0);
+}
+
+function checkMemberActions(model: LoadModelData, mode: Mode, roof: boolean) {
+  const result = plan(model, mode, true, true);
+  expect(result.blockedKeys).toEqual([{ key: 'loadPlan.blocked.concentratedRoof' }]);
+  expect(deadResultant(result, model, 1)).toBeCloseTo(roof ? 6 : 2, 12);
+  if (mode === 'width') expect(roofMembers(model).some(member => member.id === 1)).toBe(roof);
+}
+
+function ring(z: number, side = 6) {
+  return [[0, 0, z], [side, 0, z], [side, side, z], [0, side, z]];
+}
+
+function stackedBays(lower: number, upper: number) {
+  return mesh([ring(lower), ring(upper), [[0, 3, upper], [6, 3, upper]]]);
+}
+
+regression('known wrong result: #2564 retained framing bays trim by their physical gap', () => {
+  const model = stackedBays(3.0004, 5.1998);
+  const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
+  expect(layout.areaByLevel.get(3)).toBeUndefined();
+  expect(layout.areaByLevel.get(5.2)).toBeCloseTo(36, 12);
+  const result = plan(model, 'panels', false);
+  expect(result.outcome).toBe('READY');
+  expect(result.distributed.filter(load => load.elementId <= 4)).toHaveLength(0);
+  expect(result.nodal).toHaveLength(0);
+});
+
+regression('known wrong result: #2564 the headroom probes use the physical lower elevation', () => {
+  const model = stackedBays(3.0004, 5.2002);
+  const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
+  expect(layout.areaByLevel.get(3)).toBeUndefined();
+  expect(layout.areaByLevel.get(5.2)).toBeCloseTo(36, 12);
+});
+
+regression('known wrong result: #2564 a retained framing bay clips a member strip at local clearance', () => {
+  const model = mesh([[[0, 3, 2.9996], [6, 3, 3.0004]], ring(5.2), [[0, 3, 5.2], [6, 3, 5.2]]]);
+  const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1, uniformPressure: true });
+  const retained = (layout.areaOf.get(1) ?? 0) + (layout.roofAreaOf.get(1) ?? 0);
+  expect(retained).toBeCloseTo(3, 10);
+  const spans = layout.widthMembers.find(member => member.elementId === 1)?.spans ?? [];
+  expect(spans.length).toBeGreaterThan(0);
+  expect(Math.max(...spans.map(span => span.t1))).toBeCloseTo(0.5, 10);
+});
+
+it('#2564 clearance above the headroom limit keeps a full second storey', () => {
+  const layout = gravityLayout(stackedBays(2.9996, 5.1998), { mode: 'panels', tributaryWidth: 1 });
+  expect(layout.areaByLevel.get(3)).toBeCloseTo(36, 12);
+  expect(layout.areaByLevel.get(5.2)).toBeCloseTo(36, 12);
+});
+
+function upperBay(low: number, high: number, y = 3) {
+  const upper = ring(high, 4);
+  upper[0]![2] = low;
+  return mesh([[[2, y, 3], [4, y, 3]], upper]);
+}
+
+function pitchedShell(x: number) {
+  const model = mesh([[[1, 0, 1.45], [x, 2, 1.45]], [[0, 0, 2], [2, 0, 1], [2, 2, 1], [0, 2, 2]]]);
+  model.quads = new Map([[1, { id: 1, nodes: [3, 4, 5, 6] }]]);
+  for (const id of [2, 3, 4, 5]) model.elements.delete(id);
+  return model;
+}
+
+function diagonal(x: number) {
+  return mesh([[[1, 0, 3], [x, 2, 3]], [[0, 0, 4], [2, 2, 4]]]);
+}
+
+for (const mode of modes) {
+  regression(`known wrong result: #2564 ${mode} refuses a noncoplanar bay straddling the cover threshold`, () => {
+    const model = upperBay(3.0498, 3.0502);
+    const refusal = { key: 'loadPlan.gravity.uncertainDeckCover' };
+    const result = plan(model, mode);
+    expect(result.outcome).toBe('BLOCKED');
+    expect(result.blockedKeys).toEqual([expect.objectContaining(refusal)]);
+    expect(result.distributed).toHaveLength(0);
+    expect(result.nodal).toHaveLength(0);
+    expect(result.surface).toHaveLength(0);
+    expect(applyLoadPlan(result, { clearExisting: true, bothSenses: true, nameOf: key => key })).toEqual(refusal);
+    expect(() => roofWeightFor(model, { mode, loadEveryPanel: true }, 1, 1)).toThrow(expect.objectContaining(refusal));
+    if (mode === 'width') expect(() => roofMembers(model)).toThrow(expect.objectContaining(refusal));
+  });
+
+  it(`#2564 ${mode} decides a bay on either side of the limit or outside the footprint`, () => {
+    checkMemberActions(upperBay(3.0496, 3.0498), mode, true);
+    checkMemberActions(upperBay(3.0502, 3.0504), mode, false);
+    checkMemberActions(upperBay(3.0498, 3.0502, 5), mode, true);
+  });
+
+  regression(`known wrong result: #2564 ${mode} evaluates a pitched shell at the exact member midpoint`, () => {
+    checkMemberActions(pitchedShell(1 + Number.EPSILON), mode, true);
+  });
+
+  it(`#2564 ${mode} keeps pitched shell cover on the other side of the threshold`, () => {
+    checkMemberActions(pitchedShell(1), mode, false);
+  });
+
+  regression(`known wrong result: #2564 ${mode} excludes a bare beam off the exact midpoint`, () => {
+    checkMemberActions(diagonal(1 + Number.EPSILON), mode, true);
+  });
+
+  it(`#2564 ${mode} keeps bare-beam cover through the exact midpoint`, () => {
+    checkMemberActions(diagonal(1), mode, false);
+  });
+}
