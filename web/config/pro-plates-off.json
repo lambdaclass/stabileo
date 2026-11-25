@@ -6250,7 +6250,7 @@
       ]
     },
     "src/lib/i18n/locales/de.ts": {
-      "source": "ea9eaf44d7f55685196e73453246e57d0088d3a6585e28408164f29d5289dada",
+      "source": "d578b7220f06c58d7d71a60f13121b2fe6649d07f0430913a577b369e5120d70",
       "original": "0b1cffc73c321c88dd80b93e39f81e925705babc0f2e91df63e10c19111fe052",
       "changes": [
         [
@@ -6627,18 +6627,18 @@
         ],
         [
           15130,
-          1054,
+          1060,
           []
         ],
         [
-          16189,
+          16195,
           1039,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/en.ts": {
-      "source": "6389dfb0cf87d5f40b347dfecd35089b3165897b8e863e0226160e25a1a19e6e",
+      "source": "31baf5c5c01f2b93065da11e7509df8582bb9e0ba11bc05765e96243177aa6d4",
       "original": "99343e2eeb7cf4140cbbcb69424c37461d3ec4e5c925d64439f6b56ee0e9e6b3",
       "changes": [
         [
@@ -6987,18 +6987,18 @@
         ],
         [
           15288,
-          1056,
+          1062,
           []
         ],
         [
-          16351,
+          16357,
           1039,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/es.ts": {
-      "source": "20cb358bbdfc7381a59b77d0317c6fd0d08ed7d84be402e0d9863429e2465da4",
+      "source": "8ce3e5f9a3b59450a4bd17013b412f73c8cda0814228412e4f9b1aeeb209fc7f",
       "original": "df939d2beed0420d6833617b3561c95098e34704ee1a3b4f15f21dda24fa4e09",
       "changes": [
         [
@@ -7347,18 +7347,18 @@
         ],
         [
           15277,
-          1056,
+          1062,
           []
         ],
         [
-          16340,
+          16346,
           1039,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/fr.ts": {
-      "source": "b0f1ef3b9221c314852ad3e5b60ce8db05ed101ec7512ab0ba25b55466396aa0",
+      "source": "ffd80774108932212a68ab3a3be49ca206fad7d52a08b4c4ac0c6fc8ed61d802",
       "original": "26693801514fc282fbb8a5a4ad627431cbfce3c6e3f0720639c8cb5cef4e4b20",
       "changes": [
         [
@@ -7735,11 +7735,11 @@
         ],
         [
           15130,
-          1054,
+          1060,
           []
         ],
         [
-          16189,
+          16195,
           1039,
           []
         ]
@@ -7766,7 +7766,7 @@
       ]
     },
     "src/lib/i18n/locales/hu.ts": {
-      "source": "6a433f7dd4c447bec047753c51ef90519737cd68df5249dc3d45745d010e0889",
+      "source": "69113b5dec02342868d6e8ef5d4323b89f29a95ff773fb93a881288691b490ce",
       "original": "050bb2fb50b6d61761b6836086403490f8b3deedc1ac4af88de298aa3fd3966e",
       "changes": [
         [
@@ -8077,7 +8077,7 @@
         ],
         [
           14788,
-          2153,
+          2159,
           [
             "  \"edu.game.hint\": \"Játék: egy szerkezet, három ábra, és csak az egyik helyes.\"",
             ""
@@ -8166,7 +8166,7 @@
       ]
     },
     "src/lib/i18n/locales/pt.ts": {
-      "source": "4600f8a48347fea81c5bd0c23d5a034c95783a3004d2cb4805636ceb10e9887b",
+      "source": "8ff0dd7662883185064ebfcc3172d88495e0094f63e26a8f70fde22a0ae71860",
       "original": "f013a27bd1465964fefdc7d531a470bc4855e8593daa03ed54ed7453509bdd37",
       "changes": [
         [
@@ -8515,11 +8515,11 @@
         ],
         [
           14930,
-          1056,
+          1062,
           []
         ],
         [
-          15993,
+          15999,
           1039,
           []
         ]
@@ -8848,7 +8848,7 @@
       ]
     },
     "src/lib/i18n/locales/tr.ts": {
-      "source": "a2a26f801fa1e402ca97282ac70b2ff728907a84b7782454a17b621933bc7f99",
+      "source": "8eab280d0666319cb11ae65bb7c07fe4bbdb6e78094ee378d47179e551fdb4b0",
       "original": "dfae3be5cd45792b6b2c9720f3433a60bace6b76a70d785cd4f6cc88d7ef096f",
       "changes": [
         [
@@ -9204,18 +9204,18 @@
         ],
         [
           15130,
-          1054,
+          1060,
           []
         ],
         [
-          16189,
+          16195,
           1039,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/zh.ts": {
-      "source": "b5b109a78ff4afea99bc2b823039c51b456ca4f32f4f701fdf4111109ed287a7",
+      "source": "6b5b8abe0eb8115d60f1fba79d7e3e79817cce0140741972a539b569369dbdd4",
       "original": "187ecdf53aa596a80d7c584c8c8fc84768c7dd6c4d6540750c3a9cdcf2caee26",
       "changes": [
         [
@@ -9515,7 +9515,7 @@
         ],
         [
           14810,
-          2155,
+          2161,
           []
         ]
       ]
