@@ -230,6 +230,20 @@ Measured on an L-shaped domain (the unit square without a quarter), MITC4, from 
 | The same | 5.5 % | 1 572 elements | 12 288 elements |
 | Plate, clamped on two edges, uniform pressure | 4 % | 1 374 elements | between 768 (5.8 %) and 3 072 (3.0 %) |
 
+A square slab on a 3 × 3 grid of point supports under uniform pressure (8 × 8 MITC4, or the
+same as 128 DKT triangles), the error concentrated at the supports:
+
+| | To an estimate of | Adaptive | Uniform |
+|---|---|---|---|
+| MITC4 | half the coarse one (20 %) | 364 elements, 4 passes | 1 024 elements |
+| MITC4 | a quarter (10 %) | 1 312 elements, 6 passes | 4 096 elements |
+| DKT | half (22 %) | 416 elements, 3 passes | 2 048 elements |
+| DKT | a quarter (11 %) | 1 600 elements, 5 passes | 8 192 elements |
+
+The L membrane sheared by forces at the nodes of its edge, instead of a traction, does not
+converge: its estimate settles near 15 % however fine the mesh, and the loop ends with
+`depthLimit` (765 quads after 13 passes, where uniform refinement is at 12.5 % with 49 152).
+
 The membrane has a stress singularity at the re-entrant corner and gains most. The plate's
 error is spread over the domain, so there is less to gain. On the Scordelis-Lo roof (curved,
 4 × 4 MITC4) six adaptive passes give the free-edge deflection of three uniform refinements
