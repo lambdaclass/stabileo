@@ -1410,9 +1410,7 @@ it('#2543 refuses an incorrect pressure in a reference case used only for modal 
   }
 });
 
-const memberAccountingWitness = process.env.RUN_KNOWN_WRONG === '2471' ? it : it.skip;
-
-memberAccountingWitness('known wrong result: #2471 detects a lost self-equilibrated line load in spatial analysis', async () => {
+it('#2471 detects a lost self-equilibrated line load in spatial analysis', async () => {
   const member = cantilever('3d');
   const model = modelStore.model;
   model.loads.push({ type: 'distributed3d', data: {
@@ -1439,9 +1437,27 @@ memberAccountingWitness('known wrong result: #2471 detects a lost self-equilibra
   modelStore.setAnalysis({ perCombination: 'pdelta' });
   expect.soft(await outcome(paths.combinations), 'P-Delta').toEqual(diagnostic);
   expect.soft(await outcome(paths.parallel), 'parallel P-Delta').toEqual(diagnostic);
+
+  fault.dropMemberLoad = false;
+  modelStore.updateElement(member, { type: 'truss' });
+  const load = model.loads[0]!;
+  if (load.type !== 'distributed3d') throw new Error('Expected a spatial line load');
+  const setEndpointIntensity = (q: number) => {
+    load.data.qXI = q;
+    load.data.qXJ = -q;
+  };
+  const above = 2 ** -38;
+  setEndpointIntensity(above);
+  const expectedEndForce = above / 3;
+  expect(paths.advanced()?.loads).toEqual([
+    expect.objectContaining({ type: 'nodal', data: expect.objectContaining({ fx: expect.closeTo(expectedEndForce, 25) }) }),
+    expect.objectContaining({ type: 'nodal', data: expect.objectContaining({ fx: expect.closeTo(-expectedEndForce, 25) }) }),
+  ]);
+  setEndpointIntensity(2 ** -39);
+  expect(() => paths.advanced()).toThrow(/case.*member.*s·Fx/i);
 });
 
-memberAccountingWitness('known wrong result: #2471 detects a lost self-equilibrated line load before a planar projection solve', async () => {
+it('#2471 detects a lost self-equilibrated line load before a planar projection solve', async () => {
   const elementId = cantilever('2d');
   const model = modelStore.model;
   const cases = [{ id: 1, name: 'Dead', type: 'D' }, { id: 2, name: 'Live', type: 'L' }];
@@ -1462,6 +1478,15 @@ memberAccountingWitness('known wrong result: #2471 detects a lost self-equilibra
   expect(validateAndSolve2D(complete)).toMatchObject({ elementForces: [expect.objectContaining({
     distributedLoadsX: [{ qI: 2, qJ: -2, a: 0, b: 2 }],
   })] });
+  const planar = (q: number): ModelData => ({
+    ...model, loads: [{ type: 'distributed', data: { id: 1, elementId, qI: q, qJ: -q, isGlobal: true, angle: 90 } }],
+  });
+  const above = 2 ** -33;
+  expect(validateAndSolve2D(planar(above))).toMatchObject({ elementForces: [expect.objectContaining({
+    distributedLoadsX: [{ qI: above, qJ: -above, a: 0, b: 2 }],
+  })] });
+  expect.soft(await outcome(() => validateAndSolve2D(planar(2 ** -34))), 'planar conversion cutoff')
+    .toEqual(expect.stringMatching(/case.*member.*s·Fx/i));
   const diagnostic = expect.stringMatching(new RegExp('case.*member.*' + elementId + '.*Fx', 'i'));
   const paths = {
     linear: () => validateAndSolve2D(projected),

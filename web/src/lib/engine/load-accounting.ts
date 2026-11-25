@@ -36,12 +36,27 @@ function compareComponent(
   }
 }
 
-function compare(label: string, entered: Wrench, assembled: Wrench): void {
-  for (let i = 0; i < components.length; i++) {
+function compareMeasures(label: string, names: readonly string[], entered: Wrench, assembled: Wrench): void {
+  for (const [i, name] of names.entries()) {
     const a = entered.component(i), b = assembled.component(i);
-    compareComponent(label, components[i]!, a.value, b.value, Math.max(a.scale, b.scale), a.underflow + b.underflow);
+    compareComponent(label, name, a.value, b.value, Math.max(a.scale, b.scale), a.underflow + b.underflow);
   }
 }
+
+const stationComponents = ['Fx', 'Fy', 'Fz', 's·Fx', 's·Fy', 's·Fz'];
+
+function compare(label: string, entered: Wrench, assembled: Wrench): void {
+  compareMeasures(label, components, entered, assembled);
+  const first = entered.memberLineMeasures, second = assembled.memberLineMeasures;
+  if (!first && !second) return;
+  const empty = new Wrench();
+  for (const id of new Set([...(first?.keys() ?? []), ...(second?.keys() ?? [])])) {
+    compareMeasures(`${label} · ${tp('whatif.member', { n: id })}`, stationComponents,
+      first?.get(id) ?? empty, second?.get(id) ?? empty);
+  }
+}
+
+export const redistributedLineLoads = new WeakMap<SolverLoad3D, { member: number; station: number }>();
 
 type ScenarioNodeForce = { shellId: number; nodeId: number; force: LoadVector };
 
@@ -298,7 +313,7 @@ function enteredLoads(model: ModelData, loads: readonly Load[], frame: Frame, le
         out.apply(positionAt(start, axis, a), planar, planeMoment(frame, enteredMoment(load.data)));
       } else {
         const { qI, qJ, a, b } = load.data;
-        out.line(start, axis, a ?? 0, b ?? length, force(qI), force(qJ));
+        out.line(start, axis, a ?? 0, b ?? length, force(qI), force(qJ), member.id);
       }
       continue;
     }
@@ -328,7 +343,7 @@ function enteredLoads(model: ModelData, loads: readonly Load[], frame: Frame, le
         return local(x, y, z);
       };
       out.line(start, axis, d.a ?? 0, d.b ?? length,
-        inFrame(d.qXI ?? 0, d.qYI, d.qZI), inFrame(d.qXJ ?? 0, d.qYJ, d.qZJ));
+        inFrame(d.qXI ?? 0, d.qYI, d.qZI), inFrame(d.qXJ ?? 0, d.qYJ, d.qZJ), member.id);
     }
   }
   return out;
@@ -365,7 +380,7 @@ function assembled2D(model: ModelData, input: SolverInput, loads: readonly Solve
     } else {
       const { qI, qJ, a: start, b: end } = load.data;
       const direction = load.type === 'distributed' ? normal : axis;
-      result.line(a, axis, start ?? 0, end ?? length, LoadVector.from(direction).scale(qI), LoadVector.from(direction).scale(qJ));
+      result.line(a, axis, start ?? 0, end ?? length, LoadVector.from(direction).scale(qI), LoadVector.from(direction).scale(qJ), elementId);
     }
   }
   return result;
@@ -386,9 +401,10 @@ function assembled3D(model: ModelData, input: SolverInput3D, loads: readonly Sol
     if (load.type === 'nodal') {
       const { nodeId, fx, fy, fz, mx, my, mz } = load.data;
       const nodal = magnitudes && 'force' in magnitudes ? magnitudes : undefined;
-      result.apply(at(nodeId),
-        LoadVector.from([fx, fy, fz], nodal?.force.magnitude, nodal?.force.underflow),
-        LoadVector.from([mx, my, mz], nodal?.couple.magnitude, nodal?.couple.underflow));
+      const force = LoadVector.from([fx, fy, fz], nodal?.force.magnitude, nodal?.force.underflow);
+      result.apply(at(nodeId), force, LoadVector.from([mx, my, mz], nodal?.couple.magnitude, nodal?.couple.underflow));
+      const redistributed = redistributedLineLoads.get(load);
+      if (redistributed) result.memberLineForce(redistributed.member, new LoadScalar(redistributed.station), force);
       continue;
     }
     if (kind === 'pressure' || kind === 'quadPressure' || kind === 'curvedShellPressure') {
@@ -417,7 +433,7 @@ function assembled3D(model: ModelData, input: SolverInput3D, loads: readonly Sol
       const line = magnitudes && 'qI' in magnitudes ? magnitudes : undefined;
       result.line(start, axes.ex, d.a ?? 0, d.b ?? axes.L,
         localVector(axes, d.qXI ?? 0, d.qYI, d.qZI, line?.qI),
-        localVector(axes, d.qXJ ?? 0, d.qYJ, d.qZJ, line?.qJ));
+        localVector(axes, d.qXJ ?? 0, d.qYJ, d.qZJ, line?.qJ), elementId);
     } else {
       const d = load.data;
       result.apply(positionAt(start, axes.ex, d.a), localVector(axes, 0, d.py, d.pz));

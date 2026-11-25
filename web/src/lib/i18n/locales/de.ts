@@ -14236,6 +14236,7 @@ const de: Translations = {
   'plates.analysisMeshRefused': 'Vernetzung nicht möglich: {names}. Prüfen Sie ihre Elementgröße oder ihren Umriss.',
   "plates.analysisInvalid": "Berechnung abgebrochen. Korrigieren Sie die Geometrie oder Eigenschaften der ungültigen Platten: {names}.",
   "plates.analysisWallSlab": "Berechnung abgebrochen. Wand {wall} und Deckenplatte {slab} haben bei Knoten {node} keinen gemeinsamen Netzknoten. Vernetzen Sie den Anschluss mit gemeinsamen Knoten neu.",
+  "plates.analysisWallSlabFace": "Berechnung abgebrochen. Die Kante {edge} der Wand {wall} trifft die Deckenplatte {slab} im Inneren eines Schalenelements. Vernetzen Sie den Anschluss mit gemeinsamen Kanten neu.",
   'plates.meshedAtAnalysis': '{n} Platten vor der Berechnung vernetzt ({cells} Elemente)',
   'plates.liveNeedsMesh': '{n} Platten ohne aktuelles Netz: Die Live-Berechnung wartet auf die vollständige Berechnung, die sie vernetzt.',
   'plates.problem.needNodes': 'Mindestens drei vorhandene Knoten sind erforderlich.',

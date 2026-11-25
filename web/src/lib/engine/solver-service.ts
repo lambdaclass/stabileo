@@ -1,7 +1,7 @@
 import { accountingCaseSources, accountingProjection, accountingSource, copyAccountingLoad, scenarioSurfaceIntentOf, type AccountingCaseSources, type ScenarioSurfaceIntent } from './accounting-source';
 import { EngineCheckError, EngineUnavailableError } from './engine-unavailable';
 import { scaleAssembledMagnitudes3D, type Wrench } from './accounting-math';
-import { accountCombination, accountLoads2D, loadAccounting3D, loadCaseBatches, verifyFactoredScenarioNode, verifyScenarioSurfaceLoads } from './load-accounting';
+import { accountCombination, accountLoads2D, loadAccounting3D, loadCaseBatches, redistributedLineLoads, verifyFactoredScenarioNode, verifyScenarioSurfaceLoads } from './load-accounting';
 import { accountPlateGeometry, SolveAccountingError } from './plate-accounting';
 import { shouldEmbedFlat2DModelIn3D } from './model-embedding';
 export { shouldEmbedFlat2DModelIn3D } from './model-embedding';
@@ -1594,6 +1594,14 @@ export function buildSolverLoads3D(
   for (const l of loads) {
     const emit = (...batch: SolverLoad3D[]) => {
       const assembled = transverseToNodes(batch, truss);
+      if (opts.record && (l.type === 'distributed' || l.type === 'distributed3d')) {
+        const member = truss(l.data.elementId);
+        if (member) for (const row of assembled) {
+          if (row.type !== 'nodal') continue;
+          const station = row.data.nodeId === member.nodeI ? 0 : row.data.nodeId === member.nodeJ ? member.axes.L : NaN;
+          redistributedLineLoads.set(row, { member: member.elementId, station });
+        }
+      }
       opts.record?.(l.data.caseId ?? 1, assembled, l.type === 'surface3d' && scenarioSurfaceIntentOf(l) ? l : undefined);
       for (const load of assembled) solverLoads.push(load);
     };
@@ -3303,6 +3311,8 @@ export function scaleSolverLoad(l: SolverLoad3D, f: number): SolverLoad3D {
   if (ax) data.axialOf = { ...ax, p: ax.p * f };
   const scaled = { ...l, data } as unknown as SolverLoad3D;
   scaleAssembledMagnitudes3D(l, scaled, f);
+  const redistributed = redistributedLineLoads.get(l);
+  if (redistributed) redistributedLineLoads.set(scaled, redistributed);
   return scaled;
 }
 

@@ -14414,6 +14414,7 @@ const pt: Translations = {
   "plates.analysisMeshRefused": "Não foi possível malhar: {names}. Revise o tamanho do elemento ou o contorno.",
   "plates.analysisInvalid": "A análise foi interrompida. Corrija a geometria ou as propriedades das placas inválidas: {names}.",
   "plates.analysisWallSlab": "A análise foi interrompida. A parede {wall} e a laje {slab} não compartilham um vértice de malha no nó {node}. Gere novamente a malha da junção com nós compartilhados.",
+  "plates.analysisWallSlabFace": "A análise foi interrompida. A borda {edge} da parede {wall} encontra a laje {slab} no interior de um elemento da malha. Remalhe a junção com bordas compartilhadas.",
   "plates.meshedAtAnalysis": "{n} placas malhadas antes do cálculo ({cells} elementos)",
   "plates.liveNeedsMesh": "{n} placas sem malha vigente: o cálculo ao vivo espera o cálculo completo, que as malha.",
   "plates.problem.needNodes": "São necessários pelo menos três nós existentes.",

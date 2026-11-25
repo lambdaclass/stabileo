@@ -3,7 +3,7 @@ import { cross, dot, type Vec3 } from '../edit/affine';
 import { pieceOf, type PieceModel } from '../curve-entity';
 import {
   arcInterior, circleThrough, externalFeatures, frameOfLoop, plateGeometry, plateKindOf, plateLoops,
-  PLANE_TOL, plateProblem, plateSignature, plateSurfaceOf, type ArcSampler, type PlateMeshSpec,
+  PLANE_TOL, plateProblem, plateSignature, plateSurfaceOf, type ArcSampler, type PlateFrame, type PlateMeshSpec,
 } from './plate';
 
 type Shell = { id: number; nodes: readonly number[]; curved?: boolean };
@@ -156,7 +156,7 @@ export const PLATE_EDGE_TOL = 1e-7;
 const axes = [0, 1, 2] as const;
 type Axis = typeof axes[number];
 type Vertex = { id: number; point: Vec3; shell: string; curved?: boolean };
-type Cell = { key: string; vertices: Vertex[] };
+type Cell = { key: string; vertices: Vertex[]; frame: PlateFrame };
 
 type Station = Vertex & { incident: Array<{ point: Vec3; shell: string; curved?: boolean }> };
 
@@ -272,7 +272,55 @@ function unmatchedVertex(cell: Cell, stations: Station[][], equations: EdgeEquat
   return undefined;
 }
 
-export function nonconformingWallSlab(model: PlateAnalysisModel): { wall: string; slab: string; node: number } | null {
+function interiorContact(walls: readonly Cell[], slabs: readonly Cell[]) {
+  const faces = slabs.map(cell => {
+    const { vertices, frame } = cell;
+    const bounds = axes.map(axis => {
+      const coordinates = vertices.map(vertex => vertex.point[axis]);
+      return { lo: Math.min(...coordinates) - PLATE_EDGE_TOL, hi: Math.max(...coordinates) + PLATE_EDGE_TOL };
+    });
+    const sides = vertices.map(({ point }, index) => {
+      const edge = sub(vertices[(index + 1) % vertices.length]!.point, point);
+      const length = norm(edge);
+      return { point, inward: cross(frame.n, edge).map(value => value / length) as Vec3 };
+    });
+    return { cell, bounds, sides };
+  }).sort((a, b) => a.bounds[0]!.lo - b.bounds[0]!.lo);
+
+  for (const wall of walls) {
+    for (const [index, first] of wall.vertices.entries()) {
+      const last = wall.vertices[(index + 1) % wall.vertices.length]!;
+      const a = first.point, b = last.point;
+      if (norm(sub(a, b)) <= PLATE_EDGE_TOL) continue;
+      const right = Math.max(a[0], b[0]);
+      for (const { cell, bounds, sides } of faces) {
+        if (bounds[0]!.lo > right) break;
+        if (axes.some(axis => Math.min(a[axis], b[axis]) > bounds[axis]!.hi
+          || Math.max(a[axis], b[axis]) < bounds[axis]!.lo)) continue;
+        const { o, n } = cell.frame;
+        if (Math.max(Math.abs(dot(sub(a, o), n)), Math.abs(dot(sub(b, o), n))) > PLATE_EDGE_TOL) continue;
+        let lo = 0, hi = 1;
+        for (const { point, inward } of sides) {
+          const from = dot(sub(a, point), inward) - PLATE_EDGE_TOL;
+          const to = dot(sub(b, point), inward) - PLATE_EDGE_TOL;
+          if (from <= 0 && to <= 0) {
+            hi = lo;
+            break;
+          }
+          if (from <= 0) lo = Math.max(lo, from / (from - to));
+          if (to <= 0) hi = Math.min(hi, from / (from - to));
+          if (lo >= hi) break;
+        }
+        if (lo < hi) return { wall: wall.key, slab: cell.key, edge: [first.id, last.id] as const };
+      }
+    }
+  }
+  return null;
+}
+
+type WallSlabJoint = { wall: string; slab: string } & ({ node: number } | { edge: readonly [number, number] });
+
+export function nonconformingWallSlab(model: PlateAnalysisModel): WallSlabJoint | null {
   const cells: Record<'slab' | 'wall', Cell[]> = { slab: [], wall: [] };
   for (const [prefix, shells] of [['q', model.quads], ['p', model.plates]] as const) {
     for (const shell of shells?.values() ?? []) {
@@ -284,7 +332,7 @@ export function nonconformingWallSlab(model: PlateAnalysisModel): { wall: string
       }
       if (vertices.length !== shell.nodes.length) continue;
       const frame = frameOfLoop(vertices.map(v => v.point));
-      if (frame && Number.isFinite(frame.n[2])) cells[plateKindOf({ frame })].push({ key, vertices });
+      if (frame && Number.isFinite(frame.n[2])) cells[plateKindOf({ frame })].push({ key, vertices, frame });
     }
   }
   if (!cells.slab.length || !cells.wall.length) return null;
@@ -308,7 +356,8 @@ export function nonconformingWallSlab(model: PlateAnalysisModel): { wall: string
       }
     }
   }
-  return null;
+  const interior = interiorContact(cells.wall, cells.slab);
+  return interior && { ...interior, wall: label(interior.wall), slab: label(interior.slab) };
 }
 
 export function plateAnalysisIssue(model: PlateAnalysisModel) {

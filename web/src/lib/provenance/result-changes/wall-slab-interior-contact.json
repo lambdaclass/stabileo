@@ -1,0 +1,41 @@
+{
+  "id": "wall-slab-interior-contact",
+  "date": "2026-11-25",
+  "prs": [
+    2429,
+    2430
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "wallSlabInteriorContact"
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Wall edges inside slab faces",
+    "es": "Bordes de muros en el interior de losas",
+    "pt": "Bordas de paredes no interior de lajes",
+    "de": "Wandkanten im Inneren von Deckenplatten",
+    "fr": "Bords de voiles à l’intérieur des dalles",
+    "hu": "Falélek a födémelemek belsejében",
+    "tr": "Döşeme elemanlarının içindeki duvar kenarları",
+    "zh": "楼板单元内部的墙边"
+  },
+  "explanation": {
+    "en": "Spatial analysis stops when a wall edge meets the interior of a slab cell. Remesh the junction so that the wall and slab share edges.",
+    "es": "El análisis espacial se detiene cuando el borde de un muro entra en el interior de un elemento de losa. Volvé a mallar la unión para que el muro y la losa compartan bordes.",
+    "pt": "A análise espacial é interrompida quando a borda de uma parede encontra o interior de um elemento de laje. Remalhe a junção para que a parede e a laje compartilhem bordas.",
+    "de": "Die räumliche Berechnung stoppt, wenn eine Wandkante auf das Innere eines Deckenelements trifft. Vernetzen Sie den Anschluss so, dass Wand und Decke gemeinsame Kanten haben.",
+    "fr": "Le calcul spatial s’arrête lorsqu’un bord de voile rencontre l’intérieur d’un élément de dalle. Remaillez la jonction pour que le voile et la dalle partagent leurs bords.",
+    "hu": "A térbeli számítás leáll, ha egy fal éle egy födémelem belsejében fekszik. Hálózza újra a csatlakozást, hogy a falnak és a födémnek közös élei legyenek.",
+    "tr": "Bir duvar kenarı döşeme elemanının iç kısmına temas ederse üç boyutlu analiz durur. Birleşimi duvar ve döşeme ortak kenarlara sahip olacak şekilde yeniden ağlayın.",
+    "zh": "当墙边与楼板单元内部相接时，空间分析会停止。请重新划分连接处的网格，使墙与楼板共用边。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-load-accounting-and-wall-contact.md",
+    "heading": "Wall edges inside slab faces"
+  }
+}

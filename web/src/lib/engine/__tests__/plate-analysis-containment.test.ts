@@ -411,9 +411,7 @@ function wallUnderSlab(clearance = 0) {
   return { wall, base: [i, j] };
 }
 
-const interiorWallWitness = process.env.RUN_KNOWN_WRONG === '2430' ? it : it.skip;
-
-interiorWallWitness('known wrong result: #2430 refuses a supported wall ending inside a loaded slab face', async () => {
+it('#2430 refuses a supported wall ending inside a loaded slab face', async () => {
   for (const [entry, solve] of directEntries) {
     modelStore.clear();
     const { wall } = wallUnderSlab();
@@ -435,8 +433,26 @@ it('#2430 a separately supported wall beyond the contact limit keeps the loaded 
   expect(result.reactions.filter(r => base.includes(r.nodeId)).map(r => r.fz)).toEqual([0, 0]);
 });
 
-interiorWallWitness('known wrong result: #2430 refuses a wall inside the contact limit', () => {
+it('#2430 refuses a wall inside the contact limit', () => {
   wallUnderSlab(PLATE_EDGE_TOL / 2);
   const result = modelStore.solve3D(false, false, true);
   expect(result && typeof result === 'object' ? 'returned a result' : result).toEqual(expect.stringMatching(/wall.*slab/i));
+});
+
+it('#2430 transfers the entire slab load into the wall when both share the interior mesh edge', () => {
+  const at = (x: number, y: number, z: number) => modelStore.addNode(x, y, z);
+  const a = at(0, 0, 0), b = at(2, 0, 0), c = at(4, 0, 0);
+  const d = at(0, 4, 0), e = at(2, 4, 0), f = at(4, 4, 0);
+  const i = at(2, 0, -3), j = at(2, 4, -3);
+  for (const nodes of [[a, b, e, d], [b, c, f, e]] as const) {
+    modelStore.addSurfaceLoad3D(modelStore.addQuad([...nodes], 1, 0.15), 1);
+  }
+  modelStore.addQuad([b, e, j, i], 1, 0.15);
+  modelStore.addSupport(i, 'fixed3d');
+  modelStore.addSupport(j, 'fixed3d');
+  const result = modelStore.solve3D(false, false, true);
+  expectLoadedSlab(result);
+  if (!result || typeof result === 'string') throw new Error(String(result));
+  expect(result.reactions.map(r => r.nodeId).sort((a, b) => a - b)).toEqual([i, j]);
+  for (const support of result.reactions) expect(support.fz).toBeCloseTo(4 * 4 / 2, 8);
 });

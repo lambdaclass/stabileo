@@ -154,6 +154,7 @@ export function positionAt(start: Vector, axis: Vector, station: number | LoadSc
 }
 
 export class Wrench {
+  private memberLines?: Map<number, Wrench>;
   private readonly components: WrenchComponent[] = Array.from({ length: 6 }, () => ({
     total: new Sum(), magnitude: new Sum(), underflow: new Sum(),
   }));
@@ -176,6 +177,23 @@ export class Wrench {
   addScaled(other: Wrench, factor: number): void {
     const force = other.read(0), moment = other.read(3);
     this.addTotals(factor === 1 ? force : force.scale(factor), factor === 1 ? moment : moment.scale(factor));
+    for (const [id, measure] of other.memberLines ?? []) this.memberLineMeasure(id).addScaled(measure, factor);
+  }
+
+  get memberLineMeasures(): ReadonlyMap<number, Wrench> | undefined { return this.memberLines; }
+
+  private memberLineMeasure(id: number): Wrench {
+    this.memberLines ??= new Map();
+    let measure = this.memberLines.get(id);
+    if (!measure) {
+      measure = new Wrench();
+      this.memberLines.set(id, measure);
+    }
+    return measure;
+  }
+
+  memberLineForce(id: number, station: LoadScalar, force: LoadVector): void {
+    this.memberLineMeasure(id).addTotals(force, force.scale(station));
   }
 
   toWorld(plane: 'xz' | 'yz', origin: Vector): Wrench {
@@ -185,6 +203,9 @@ export class Wrench {
     const force = toWorldVector(this.read(0)), moment = toWorldVector(this.read(3));
     const world = new Wrench();
     world.addTotals(force, moment.add(force.momentAt(origin)));
+    for (const [id, measure] of this.memberLines ?? []) {
+      world.memberLineMeasure(id).addTotals(toWorldVector(measure.read(0)), toWorldVector(measure.read(3)));
+    }
     return world;
   }
 
@@ -200,11 +221,17 @@ export class Wrench {
     return LoadVector.from(vector('total'), vector('magnitude'), vector('underflow'));
   }
 
-  line(start: Vector, axis: Vector, a: number, b: number, qI: LoadVector, qJ: LoadVector): void {
+  line(start: Vector, axis: Vector, a: number, b: number, qI: LoadVector, qJ: LoadVector, member?: number): void {
     const length = new LoadScalar(b - a);
     const half = length.divide(2), third = length.divide(3);
-    this.apply(positionAt(start, axis, new LoadScalar(a).add(third)), qI.scale(half));
-    this.apply(positionAt(start, axis, new LoadScalar(b).subtract(third)), qJ.scale(half));
+    const parts = [
+      [new LoadScalar(a).add(third), qI.scale(half)],
+      [new LoadScalar(b).subtract(third), qJ.scale(half)],
+    ] as const;
+    for (const [station, force] of parts) {
+      this.apply(positionAt(start, axis, station), force);
+      if (member !== undefined) this.memberLineForce(member, station, force);
+    }
   }
 }
 

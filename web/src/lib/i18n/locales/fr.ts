@@ -14236,6 +14236,7 @@ const fr: Translations = {
   'plates.analysisMeshRefused': 'Maillage impossible : {names}. Vérifiez leur taille d\'élément ou leur contour.',
   "plates.analysisInvalid": "Calcul arrêté. Corrigez la géométrie ou les propriétés des plaques non valides : {names}.",
   "plates.analysisWallSlab": "Calcul arrêté. Le voile {wall} et la dalle {slab} ne partagent aucun sommet de maillage au nœud {node}. Remaillez la jonction avec des nœuds communs.",
+  "plates.analysisWallSlabFace": "Calcul arrêté. Le bord {edge} du voile {wall} rencontre la dalle {slab} à l’intérieur d’un élément de coque. Remaillez la jonction avec des bords communs.",
   'plates.meshedAtAnalysis': '{n} plaques maillées avant le calcul ({cells} éléments)',
   'plates.liveNeedsMesh': '{n} plaques sans maillage à jour : le calcul en direct attend le calcul complet, qui les maille.',
   'plates.problem.needNodes': 'Il faut au moins trois nœuds existants.',
