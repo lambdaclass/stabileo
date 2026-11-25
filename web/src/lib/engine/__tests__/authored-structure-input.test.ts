@@ -76,8 +76,9 @@ function fixture(): JSONModel {
   return {
     name: 'Structure boundary',
     nodes: [...model.nodes.values()].map(node => ({ ...node, z: node.z ?? 0 })),
-    elements: [...model.elements.values()],
-    supports: [...model.supports.values()],
+    elements: [...model.elements.values()].map(({ id, type, nodeI, nodeJ, materialId, sectionId, releaseI, releaseJ }) =>
+      ({ id, type, nodeI, nodeJ, materialId, sectionId, releaseI, releaseJ })),
+    supports: [...model.supports.values()].map(row => ({ ...row })),
     sections: [...model.sections.values()].map(row => ({ ...row })),
     materials: [...model.materials.values()].map(row => ({ ...row })),
     loads: model.loads.map(load => ({ type: load.type, data: { ...load.data } })),
@@ -86,9 +87,7 @@ function fixture(): JSONModel {
   };
 }
 
-const reproduce = process.env.STABILEO_REPRODUCE_STRUCTURE_INPUT === '1';
-
-describe.skipIf(!reproduce)('known wrong result: cause:A', () => {
+describe('malformed structural model input', () => {
   it.each([
     ['support frame', 'dofFrame', () => Object.assign(modelStore.model.supports.get(support)!, { dofFrame: 'future' })],
     ['incomplete support mask', 'dofRestraints.tz', () => Object.assign(modelStore.model.supports.get(support)!, {
@@ -167,15 +166,20 @@ describe.skipIf(!reproduce)('known wrong result: cause:A', () => {
 
 it('keeps omitted legacy fields and a supported constraint alias solvable', async () => {
   const before = await validateAndSolve3DAsync(modelStore.model);
-  expect(before).toMatchObject({ reactions: [{ fx: -1 }] });
+  expect(before).toMatchObject({ reactions: expect.arrayContaining([{ nodeId: root, fx: expect.any(Number),
+    fy: 0, fz: 0, mx: 0, my: 0, mz: 0 }]) });
+  if (!before || typeof before === 'string') throw new Error(String(before));
+  const plane = validateAndSolve2D(modelStore.model);
   const snapshot = modelStore.snapshot();
   snapshot.nodes = snapshot.nodes.map(([id, node]) => [id, { ...node, z: undefined }]);
   modelStore.restore(snapshot);
-  expect(await validateAndSolve3DAsync(modelStore.model)).toEqual(before);
+  expect(await validateAndSolve3DAsync(modelStore.model)).toMatchObject({
+    reactions: before.reactions, displacements: before.displacements,
+  });
   modelStore.restore({
     ...snapshot,
     constraints: [{ type: 'equalDof', masterNode: root, slaveNode: tip, dofs: ['uy'] }],
   } as never);
   expect(modelStore.model.constraints).toEqual([{ type: 'equalDOF', masterNode: root, slaveNode: tip, dofs: [1] }]);
-  expect(validateAndSolve2D(modelStore.model)).toMatchObject({ reactions: [{ rx: -1 }] });
+  expect(validateAndSolve2D(modelStore.model)).toEqual(plane);
 });

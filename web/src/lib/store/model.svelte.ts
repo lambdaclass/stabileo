@@ -1,4 +1,4 @@
-import { ModelInputError, loadInputRefusal, requireLoadInput } from '../engine/model-input-numbers';
+import { ModelInputError, migrateModelConstraints, modelInputRefusal, requireCombinationInput, requireModelInput, requireStructureInput } from '../engine/model-input-numbers';
 import { canonicalizeLoadAliases, canonicalizeModelAliases, NO_RELEASE } from '../model/canonical-aliases';
 import { accountingProjection, scenarioSurfaceAdjustment } from '../engine/accounting-source';
 import { globalAxes } from '../features';
@@ -1236,63 +1236,6 @@ function createModelStore() {
    */
   let loadEpoch = $state(0);
 
-  /** DOF-name → index map for migrating pre-rename persisted constraints. */
-  const LEGACY_DOF_NAME_TO_INDEX: Record<string, number> = { ux: 0, uy: 1, uz: 2, rx: 3, ry: 4, rz: 5 };
-
-  /**
-   * Read-migration for constraints persisted before the discriminator/DOF
-   * rename ('equalDof'→'equalDOF', 'linearMpc'→'linearMPC', DOF name strings
-   * → integer indices). Mirrors the hinge→release and iy/iz read-migrations:
-   * the write path emits only the new shape, so old snapshots/share URLs and
-   * autosaves are normalized here, at the single restore chokepoint.
-   * Unknown constraint kinds are dropped rather than shipped to the solver
-   * (Rust serde would reject the whole payload).
-   */
-  function migrateConstraint(raw: any): Constraint3D | null {
-    if (!raw || typeof raw !== 'object' || typeof raw.type !== 'string') return null;
-    const type = raw.type === 'equalDof' ? 'equalDOF'
-      : raw.type === 'linearMpc' ? 'linearMPC'
-      : raw.type;
-    const mapDofs = (dofs: any): number[] | undefined => Array.isArray(dofs)
-      ? dofs
-          .map((d: any) => (typeof d === 'string' ? LEGACY_DOF_NAME_TO_INDEX[d] : d))
-          .filter((d: any) => Number.isInteger(d) && d >= 0 && d <= 5)
-      : undefined;
-    switch (type) {
-      case 'rigidLink': {
-        // `dofs` is OPTIONAL on a rigid link (absent = all translational DOFs), and Rust
-        // spells that `#[serde(default)] dofs: Vec<usize>`. `#[serde(default)]` covers a
-        // MISSING field, not a field that is present and holds a unit value — so writing
-        // `dofs: undefined` here materialised an own property that made serde reject the
-        // whole payload with `invalid type: unit value, expected a sequence`, aborting the
-        // first load case of every restored project. Emit the key only when there is one.
-        const dofs = mapDofs(raw.dofs);
-        const out = { ...raw, type } as any;
-        if (dofs) out.dofs = dofs; else delete out.dofs;
-        return out;
-      }
-      case 'equalDOF':
-        return { ...raw, type, dofs: mapDofs(raw.dofs) ?? [] };
-      case 'linearMPC': {
-        const terms = (raw.terms ?? []).map((t: any) => ({
-          ...t,
-          dof: typeof t.dof === 'string' ? LEGACY_DOF_NAME_TO_INDEX[t.dof] : t.dof,
-        }));
-        // An unmappable term DOF must drop the whole constraint — silently
-        // rewriting it (e.g. to ux) would change the equation's meaning.
-        if (terms.length === 0 || terms.some((t: any) => !Number.isInteger(t.dof) || t.dof < 0 || t.dof > 5)) {
-          return null;
-        }
-        return { ...raw, type, terms };
-      }
-      case 'diaphragm':
-      case 'eccentricConnection':
-        return { ...raw, type };
-      default:
-        return null;
-    }
-  }
-
   /**
    * Create a remapped model view where node coordinates and loads are projected
    * into the 2D convention (x=horizontal, y=vertical) for the given plane.
@@ -1301,6 +1244,7 @@ function createModelStore() {
   function remapModelForPlane(plane: DrawPlane, includeSelfWeight = false): ModelData | string {
     const shellRefusal = shellsRequirePro3D(model);
     if (shellRefusal) return shellRefusal;
+    requireModelInput(model);
     // Only Basic's self-weight rule rides along: which case carries it.
     const sw = basicSelfWeight(includeSelfWeight);
     const analysis = sw ? { selfWeight: sw } : undefined;
@@ -1312,8 +1256,6 @@ function createModelStore() {
     if (plane === 'xy') {
       return { ...source, constraints };
     }
-
-    requireLoadInput(loads);
 
     // Remap nodes into the selected 2D plane
     const remappedNodes = new Map<number, Node>();
@@ -1714,7 +1656,7 @@ function createModelStore() {
   }
 
   function analysisModel3D(isPro: boolean, includeSelfWeight: boolean): ModelData | string {
-    const refusal = (!isPro && shellsRequirePro3D(model)) || loadInputRefusal(model.loads);
+    const refusal = (!isPro && shellsRequirePro3D(model)) || modelInputRefusal(model);
     if (refusal) return refusal;
     return {
       nodes: model.nodes, elements: model.elements, supports: model.supports,
@@ -2429,6 +2371,9 @@ function createModelStore() {
       // `hydrateProjectProvenance`, which file-open and tab-activation call.
       const { detailing: savedDetailing, ...modelFields } = rawSnapshot;
       const s = canonicalizeModelAliases(plainDeepCopy(modelFields));
+      const constraints = migrateModelConstraints(s.constraints);
+      requireStructureInput(s);
+      if (s.combinations !== undefined) requireCombinationInput(s.combinations);
       beforeInstall?.();
       loadEpoch++;
       _onReplaced?.();
@@ -2514,11 +2459,7 @@ function createModelStore() {
     model.underlays = s.underlays ? JSON.parse(JSON.stringify(s.underlays)) : undefined;
     model.designData = s.designData ? migrateDesignData(s.designData) : undefined;
     model.designDecisions = s.designDecisions ? migrateStoredDecisions(s.designDecisions) : undefined;
-      model.constraints = (s as any).constraints
-        ? ((s as any).constraints as any[])
-            .map(migrateConstraint)
-            .filter((c): c is Constraint3D => c !== null)
-        : [];
+      model.constraints = constraints;
       model.connectors = (s as any).connectors
         ? new Map((s as any).connectors.map(([k, v]: [number, ConnectorElement]) => [k, { ...v }] as [number, ConnectorElement]))
         : new Map();
@@ -4595,7 +4536,7 @@ function createModelStore() {
     buildSolverInput3D(includeSelfWeight = false, leftHand = false, opts: { expandMemberOffsets?: boolean; basic?: boolean; uncut?: boolean; caseDisplacements?: boolean } = {}): SolverInput3D | null {
       // Loads that follow the model (floor-load definitions) brought up to date first, unless this is
       // read inside a reactive computation, which must not write the model.
-      requireLoadInput(model.loads);
+      requireModelInput(model);
       if (!$effect.tracking()) _beforeAnalysisInput?.();
       const loads = model.loads.filter((l) => (opts.caseDisplacements || l.type !== 'displacement3d') && !(opts.uncut && l.type === 'pointOnElement3d'));
       return buildSolverInput3DFn(

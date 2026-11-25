@@ -12,7 +12,7 @@ import { withOrigin } from '../codes/families';
 import { CIRSOC101_BASIS } from '../codes/families/cirsoc';
 import { expandCombinations, presentSymbols } from '../engine/loads/combination-cases';
 import { tp } from '../i18n';
-import { requireLoadInput } from '../engine/model-input-numbers';
+import { migrateModelConstraints, requireCombinationInput, requireLoadInput, requireStructureInput } from '../engine/model-input-numbers';
 import { remapSupportElement } from '../model/support-types';
 
 export interface JSONModel {
@@ -119,8 +119,8 @@ interface FixtureLoadOptions {
  */
 export function loadFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOptions = {}): void {
   const canonical = canonicalizeModelAliases(json);
-  validateFixtureInput(canonical);
-  const load = () => replayFixture(canonical, api, opts);
+  const constraints = validateFixtureInput(canonical);
+  const load = () => replayFixture({ ...canonical, constraints }, api, opts);
   if (api.replay) api.replay(load);
   else load();
 }
@@ -133,10 +133,18 @@ function fixtureSupportElement(support: JSONModel['supports'][number], elementId
   return reference;
 }
 
-export function validateFixtureInput(json: JSONModel): void {
+export function validateFixtureInput(json: JSONModel) {
   requireLoadInput(json.loads);
+  const rows = (values: readonly { id: number }[]) => values.map(row => [row.id, row] as const);
+  requireStructureInput({
+    nodes: rows(json.nodes), elements: rows(json.elements), supports: rows(json.supports),
+    materials: rows(json.materials), sections: rows(json.sections), analysis: json.analysis,
+  });
+  requireCombinationInput(json.combinations);
+  const constraints = migrateModelConstraints(json.constraints);
   const ids = new Set(json.elements.map(e => e.id));
   for (const support of json.supports) fixtureSupportElement(support, id => ids.has(id) ? id : undefined);
+  return constraints.map(constraint => ({ ...constraint }));
 }
 
 function replayFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOptions): void {

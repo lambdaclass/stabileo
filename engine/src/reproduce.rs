@@ -83,7 +83,6 @@ mod tests {
     use serde_json::{json, Value};
 
     #[test]
-    #[ignore = "known wrong result: cause:A"]
     fn strict_analysis_wire_rejects_ignored_fields() {
         let mut failures = Vec::new();
         for space in [false, true] {

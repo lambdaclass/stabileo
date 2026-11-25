@@ -622,7 +622,7 @@ mod wire {
     use super::*;
     use crate::types::numeric;
     #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "camelCase", deny_unknown_fields)]
     pub struct SolverMaterial {
         #[serde(deserialize_with = "numeric::id::required")]
         pub id: usize,
@@ -633,7 +633,7 @@ mod wire {
     }
 
     #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "camelCase", deny_unknown_fields)]
     pub struct SolverSection {
         pub id: usize,
         pub a: Area,
@@ -643,7 +643,7 @@ mod wire {
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "camelCase", deny_unknown_fields)]
     pub struct SolverSection3D {
         pub id: usize,
         #[serde(default)]
@@ -753,7 +753,7 @@ mod wire {
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "camelCase", deny_unknown_fields)]
     pub struct SolverDistributedLoad3D {
         #[serde(default, rename = "qXI")]
         #[serde(deserialize_with = "numeric::q_xi::required")]
@@ -845,7 +845,7 @@ mod wire {
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "camelCase", deny_unknown_fields)]
     pub struct SolverSupport3D {
         #[serde(deserialize_with = "numeric::node_id::required")]
         pub node_id: usize,

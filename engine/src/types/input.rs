@@ -7,7 +7,7 @@ use std::collections::HashMap;
 pub type SolverNode = super::model_aliases::PlanarNode<f64>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SolverMaterial {
     #[serde(deserialize_with = "numeric::id::required")]
     pub id: usize,
@@ -18,7 +18,7 @@ pub struct SolverMaterial {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SolverSection {
     pub id: usize,
     pub a: f64,  // m²
@@ -182,7 +182,7 @@ pub enum SolverLoad {
 /// Absent entirely → legacy behavior (direct solvers only, chosen by size).
 /// Unknown strings are ignored with a warning diagnostic and the default applies.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SolverOptions {
     /// "auto" (default) | "direct" | "pcg"
     pub method: Option<String>,
@@ -220,18 +220,11 @@ pub struct SolverInput<M = SolverMaterial, S = SolverSection, N = SolverNode, L 
     pub masses: MassInput,
 }
 
-#[derive(Deserialize)]
-struct UnsupportedShells2D {
-    #[serde(default, rename = "plates", deserialize_with = "empty_shell_collection_2d")]
-    _plates: (),
-    #[serde(default, rename = "quads", deserialize_with = "empty_shell_collection_2d")]
-    _quads: (),
-    #[serde(default, rename = "quad9s", deserialize_with = "empty_shell_collection_2d")]
-    _quad9s: (),
-    #[serde(default, rename = "curvedShells", deserialize_with = "empty_shell_collection_2d")]
-    _curved_shells: (),
-    #[serde(default, rename = "solidShells", deserialize_with = "empty_shell_collection_2d")]
-    _solid_shells: (),
+fn planar_handedness<'de, D: de::Deserializer<'de>>(d: D) -> Result<(), D::Error> {
+    if bool::deserialize(d)? {
+        return Err(de::Error::custom("unsupported field `leftHand` for 2D analysis"));
+    }
+    Ok(())
 }
 
 fn empty_shell_collection_2d<'de, D: de::Deserializer<'de>>(d: D) -> Result<(), D::Error> {
@@ -275,7 +268,7 @@ impl<'de> de::Visitor<'de> for EmptyShellCollection2D {
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SolverInputWire2D<M, S, N, L, P> {
     nodes: HashMap<String, N>,
     materials: HashMap<String, M>,
@@ -291,15 +284,25 @@ struct SolverInputWire2D<M, S, N, L, P> {
     solver_options: Option<SolverOptions>,
     #[serde(default)]
     masses: MassInput,
-    #[serde(flatten)]
-    _unsupported_shells: UnsupportedShells2D,
+    #[serde(default, rename = "leftHand", deserialize_with = "planar_handedness")]
+    _left_hand: (),
+    #[serde(default, rename = "plates", deserialize_with = "empty_shell_collection_2d")]
+    _plates: (),
+    #[serde(default, rename = "quads", deserialize_with = "empty_shell_collection_2d")]
+    _quads: (),
+    #[serde(default, rename = "quad9s", deserialize_with = "empty_shell_collection_2d")]
+    _quad9s: (),
+    #[serde(default, rename = "curvedShells", deserialize_with = "empty_shell_collection_2d")]
+    _curved_shells: (),
+    #[serde(default, rename = "solidShells", deserialize_with = "empty_shell_collection_2d")]
+    _solid_shells: (),
 }
 
 impl<M, S, N, L, P> From<SolverInputWire2D<M, S, N, L, P>> for SolverInput<M, S, N, L, P> {
     fn from(wire: SolverInputWire2D<M, S, N, L, P>) -> Self {
         let SolverInputWire2D {
             nodes, materials, sections, elements, supports, loads, constraints, connectors,
-            solver_options, masses, _unsupported_shells: _,
+            solver_options, masses, ..
         } = wire;
         Self {
             nodes, materials, sections, elements, supports, loads, constraints, connectors,
@@ -367,7 +370,7 @@ pub struct SolverNode3D {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SolverSection3D {
     pub id: usize,
     #[serde(default)]
@@ -435,7 +438,7 @@ pub struct SolverElement3D {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SolverSupport3D {
     #[serde(deserialize_with = "numeric::node_id::required")]
     pub node_id: usize,
@@ -522,7 +525,7 @@ pub struct SolverNodalLoad3D {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SolverDistributedLoad3D {
     #[serde(default, rename = "qXI")]
     #[serde(deserialize_with = "numeric::q_xi::required")]
@@ -756,7 +759,7 @@ pub struct SolverPlateThermalLoad {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", bound(deserialize = "M: super::units::TypedWire + Deserialize<'de>, S: super::units::TypedWire + Deserialize<'de>, N: super::units::TypedWire + Deserialize<'de>, L: super::units::TypedWire + Deserialize<'de>, P: super::units::TypedWire + Deserialize<'de>, E: super::units::TypedWire + Deserialize<'de>"))]
+#[serde(rename_all = "camelCase", bound(deserialize = "M: super::units::TypedWire + Deserialize<'de>, S: super::units::TypedWire + Deserialize<'de>, N: super::units::TypedWire + Deserialize<'de>, L: super::units::TypedWire + Deserialize<'de>, P: super::units::TypedWire + Deserialize<'de>, E: super::units::TypedWire + Deserialize<'de>"), deny_unknown_fields)]
 pub struct SolverInput3D<M = SolverMaterial, S = SolverSection3D, N = SolverNode3D, L = SolverLoad3D, P = SolverSupport3D, E = SolverElement3D> {
     pub nodes: HashMap<String, N>,
     pub materials: HashMap<String, M>,
@@ -1701,7 +1704,7 @@ fn default_diaphragm_plane() -> String { "XY".into() }
 
 /// General linear MPC: Σ(coeff_i × u_{node_i, dof_i}) = 0
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct LinearMPCConstraint {
     pub terms: Vec<MPCTerm>,
 }
@@ -1728,7 +1731,7 @@ pub struct EqualDOFConstraint {
 /// Provides point-to-point stiffness (and damping) in specified directions.
 /// Useful for bearings, isolators, soil springs, joints, etc.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ConnectorElement {
     pub id: usize,
     pub node_i: usize,

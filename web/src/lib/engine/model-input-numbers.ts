@@ -1,5 +1,7 @@
 import { t, tp } from '../i18n';
 import type { Load, Material, Support } from '../store/model.svelte';
+import { isSupportType } from '../model/support-types';
+import type { Constraint3D } from './types-3d';
 import type { ModelData } from './solver-service';
 
 type NumberKeys<T> = { [K in keyof T]-?: Exclude<T[K], undefined> extends number ? K : never }[keyof T] & string;
@@ -58,7 +60,7 @@ function recordNumbers(
   }
 }
 
-function arrayOf<T>(path: string, value: readonly T[], check: (path: string, value: T) => void, size?: number): void {
+function arrayOf<T>(path: string, value: unknown, check: (path: string, value: T) => void, size?: number): void {
   if (!Array.isArray(value) || (size !== undefined && value.length !== size)) throw new InvalidModelNumber(path, value);
   for (let i = 0; i < value.length; i++) check(`${path}[${i}]`, value[i]!);
 }
@@ -70,14 +72,14 @@ export function invalidPlanarPointTorsion(mx: unknown): boolean {
   return mx !== undefined && mx !== 0;
 }
 
-class InvalidAuthoredLoadField extends ModelInputError {
+class InvalidModelInputField extends ModelInputError {
   constructor(path: string) {
     super(tp('svc.engine.invalidInputField', { path }));
   }
 }
 
 function requireInputField(path: string, valid: boolean): asserts valid {
-  if (!valid) throw new InvalidAuthoredLoadField(path);
+  if (!valid) throw new InvalidModelInputField(path);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -156,32 +158,235 @@ export function loadInputRefusal(loads: readonly unknown[]): string | null {
 }
 
 export function hasMalformedAuthoredLoad(loads: readonly unknown[]): boolean {
-  return loadInputError(loads) instanceof InvalidAuthoredLoadField;
+  return loadInputError(loads) instanceof InvalidModelInputField;
 }
 
-export function requireModelNumbers(model: ModelData): void {
-  requireLoadInput(model.loads);
-  for (const [id, support] of model.supports) {
-    const path = `supports.${id}`;
-    recordNumbers(path, support, supportFields);
-    if (support.curves === undefined) continue;
-    if (!support.curves) throw new InvalidModelNumber(`${path}.curves`, support.curves);
-    for (const axis of ['x', 'y', 'z'] as const) {
-      const curve = support.curves[axis];
-      if (curve !== undefined) arrayOf(`${path}.curves.${axis}`, curve, (at, pair) => arrayOf(at, pair, numberAt, 2));
+function recordAt(path: string, value: unknown): Record<string, unknown> {
+  requireInputField(path, isRecord(value));
+  return value;
+}
+
+function optionalValue(path: string, value: unknown, allowed: readonly unknown[]): void {
+  requireInputField(path, value === undefined || allowed.includes(value));
+}
+
+function booleanAt(path: string, value: unknown): void {
+  requireInputField(path, typeof value === 'boolean');
+}
+
+function validateSupport(path: string, value: unknown): void {
+  const row = recordAt(path, value);
+  recordNumbers(path, row, supportFields);
+  if (!isSupportType(row.type)) throw new InvalidModelInputField(`${path}.type (${String(row.type)})`);
+  optionalValue(`${path}.dofFrame`, row.dofFrame, ['global', 'local']);
+  for (const field of ['isGlobal', 'isInclined', 'uplift']) {
+    optionalValue(`${path}.${field}`, row[field], [true, false]);
+  }
+  if (row.dofRestraints !== undefined) {
+    const mask = recordAt(`${path}.dofRestraints`, row.dofRestraints);
+    for (const field of ['tx', 'ty', 'tz', 'rx', 'ry', 'rz']) {
+      booleanAt(`${path}.dofRestraints.${field}`, mask[field]);
     }
   }
-  for (const [id, material] of model.materials) recordNumbers(`materials.${id}`, material, materialFields);
-  for (const [i, weight] of (model.analysis?.selfWeight ?? []).entries()) {
-    const path = `analysis.selfWeight[${i}]`;
-    recordNumbers(path, weight, { required: ['caseId', 'factor'], optional: ['groupId'] });
-    if (weight.elements !== undefined) arrayOf(`${path}.elements`, weight.elements, numberAt);
+  if (row.curves !== undefined) {
+    const curves = recordAt(`${path}.curves`, row.curves);
+    for (const [axis, curve] of Object.entries(curves)) {
+      const field = `${path}.curves.${axis}`;
+      requireInputField(field, axis === 'x' || axis === 'y' || axis === 'z');
+      if (curve !== undefined) arrayOf(field, curve, (at, pair) => arrayOf(at, pair, numberAt, 2));
+    }
   }
 }
 
-export function modelNumberRefusal(model: ModelData): string | null {
+function validateElement(path: string, value: unknown): void {
+  const row = recordAt(path, value);
+  recordNumbers(path, row, {
+    required: ['id', 'nodeI', 'nodeJ', 'materialId', 'sectionId'],
+    optional: ['rollAngle', 'cablePretension'],
+  });
+  requireInputField(`${path}.type`, row.type === 'frame' || row.type === 'truss');
+  optionalValue(`${path}.behaviour`, row.behaviour, ['tensionOnly', 'compressionOnly', 'inactive', 'cable']);
+  for (const field of ['hingeStart', 'hingeEnd']) optionalValue(`${path}.${field}`, row[field], [true, false]);
+  for (const end of ['I', 'J']) {
+    const field = `${path}.release${end}`;
+    const release = row[`release${end}`];
+    if (release !== undefined) {
+      for (const [key, flag] of Object.entries(recordAt(field, release))) {
+        const at = `${field}.${key}`;
+        if (key === 'slide') optionalValue(at, flag, ['x', 'z']);
+        else if (key === 'slideAxis') optionalValue(at, flag, ['global', 'local']);
+        else {
+          requireInputField(at, key === 'my' || key === 'mz' || key === 't');
+          optionalValue(at, flag, [true, false]);
+        }
+      }
+    }
+    const joint = row[`joint${end}`];
+    if (joint !== undefined) {
+      const at = `${path}.joint${end}`;
+      arrayOf(`${at}.dof`, recordAt(at, joint).dof, booleanAt, 6);
+    }
+  }
+  const axes = ['localYx', 'localYy', 'localYz'];
+  if (axes.some(axis => row[axis] !== undefined)) {
+    recordNumbers(path, row, { required: axes, optional: [] });
+  }
+  if (row.variableSection !== undefined) {
+    const at = `${path}.variableSection`;
+    recordNumbers(at, recordAt(at, row.variableSection), { required: ['sectionJ'], optional: ['segments'] });
+  }
+  if (row.stiffness !== undefined) {
+    const at = `${path}.stiffness`;
+    const stiffness = recordAt(at, row.stiffness);
+    recordNumbers(at, stiffness, { required: [], optional: ['a', 'iy', 'iz', 'j'] });
+    optionalValue(`${at}.preset`, stiffness.preset, ['column', 'wallUncracked', 'wallCracked', 'beam', 'slab']);
+  }
+}
+
+function validateSection(path: string, value: unknown): void {
+  const row = recordAt(path, value);
+  recordNumbers(path, row, {
+    required: ['id', 'a', 'iz'],
+    optional: ['iy', 'j', 'rotation', 'b', 'h', 'tw', 'tf', 't', 'tl'],
+  });
+  if (row.shearAreas === undefined) return;
+  const at = `${path}.shearAreas`;
+  const spec = recordAt(at, row.shearAreas);
+  requireInputField(`${at}.basis`, spec.basis === 'geometry' || spec.basis === 'declared');
+  if (spec.basis === 'declared') {
+    for (const field of ['asY', 'asZ']) {
+      const area = spec[field];
+      requireInputField(`${at}.${field}`, isFiniteInputNumber(area) && area > 0);
+    }
+  }
+}
+
+const legacyDofNames = ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'];
+
+function constraintDof(path: string, value: unknown, migrate: boolean): number {
+  const index = migrate && typeof value === 'string' ? legacyDofNames.indexOf(value) : value;
+  requireInputField(path, typeof index === 'number' && Number.isInteger(index) && index >= 0 && index < legacyDofNames.length);
+  return index;
+}
+
+function readConstraint(path: string, input: unknown, migrate: boolean): Constraint3D {
+  const row = recordAt(path, input);
+  const type = migrate && row.type === 'equalDof' ? 'equalDOF'
+    : migrate && row.type === 'linearMpc' ? 'linearMPC' : row.type;
+  if (type === 'linearMPC') {
+    requireInputField(`${path}.rhs`, row.rhs === undefined);
+    requireInputField(`${path}.terms`, Array.isArray(row.terms) && row.terms.length > 0);
+    const terms = row.terms.map((value: unknown, index: number) => {
+      const at = `${path}.terms[${index}]`;
+      const term = recordAt(at, value);
+      recordNumbers(at, term, { required: ['nodeId', 'coefficient'], optional: [] });
+      const dof = constraintDof(`${at}.dof`, term.dof, migrate);
+      return { ...term, dof };
+    });
+    return { ...row, type, terms } as Constraint3D;
+  }
+  requireInputField(`${path}.type`, type === 'rigidLink' || type === 'equalDOF'
+    || type === 'diaphragm' || type === 'eccentricConnection');
+  numberAt(`${path}.masterNode`, row.masterNode);
+  if (type === 'diaphragm') {
+    arrayOf(`${path}.slaveNodes`, row.slaveNodes, numberAt);
+    const plane = typeof row.plane === 'string' ? row.plane.toUpperCase() : row.plane;
+    optionalValue(`${path}.plane`, plane, ['XY', 'XZ', 'YZ']);
+  } else {
+    numberAt(`${path}.slaveNode`, row.slaveNode);
+  }
+  if (type === 'eccentricConnection') {
+    recordNumbers(path, row, { required: [], optional: ['offsetX', 'offsetY', 'offsetZ'] });
+    if (row.releases !== undefined) arrayOf(`${path}.releases`, row.releases, booleanAt);
+  }
+  if (type === 'equalDOF' || (type === 'rigidLink' && row.dofs !== undefined)) {
+    requireInputField(`${path}.dofs`, Array.isArray(row.dofs));
+    const dofs = row.dofs.map((value: unknown, index: number) => constraintDof(`${path}.dofs[${index}]`, value, migrate));
+    return { ...row, type, dofs } as Constraint3D;
+  }
+  if (migrate && type === 'rigidLink' && row.dofs === undefined) {
+    const { dofs: _omitted, ...constraint } = row;
+    return constraint as unknown as Constraint3D;
+  }
+  return row as unknown as Constraint3D;
+}
+
+export function migrateModelConstraints(constraints: unknown): Constraint3D[] {
+  if (constraints === undefined) return [];
+  requireInputField('constraints', Array.isArray(constraints));
+  return constraints.map((constraint, index) => readConstraint(`constraints[${index}]`, constraint, true));
+}
+
+export function requireCombinationInput(combinations: unknown): void {
+  arrayOf('combinations', combinations, (path, value) => {
+    const combo = recordAt(path, value);
+    numberAt(`${path}.id`, combo.id);
+    optionalValue(`${path}.method`, combo.method, ['linear', 'srss', 'abs']);
+    arrayOf(`${path}.factors`, combo.factors, (at, factor) => {
+      recordNumbers(at, recordAt(at, factor), { required: ['caseId', 'factor'], optional: [] });
+    });
+  });
+}
+
+function requireAnalysisInput(value: unknown): void {
+  if (value === undefined) return;
+  const analysis = recordAt('analysis', value);
+  optionalValue('analysis.combinationMethod', analysis.combinationMethod, ['solveEach', 'superpose']);
+  optionalValue('analysis.perCombination', analysis.perCombination, ['linear', 'pdelta']);
+  optionalValue('analysis.shearDeformation', analysis.shearDeformation, ['none']);
+  optionalValue('analysis.standaloneSelfWeight', analysis.standaloneSelfWeight, ['gravity']);
+  recordNumbers('analysis', analysis, { required: [], optional: ['beamTorsion'] });
+  if (analysis.selfWeight === undefined) return;
+  arrayOf('analysis.selfWeight', analysis.selfWeight, (path, value) => {
+    const weight = recordAt(path, value);
+    recordNumbers(path, weight, { required: ['caseId', 'factor'], optional: ['groupId'] });
+    requireInputField(`${path}.direction`, weight.direction === 'X' || weight.direction === 'Y' || weight.direction === 'Z');
+    if (weight.elements !== undefined) arrayOf(`${path}.elements`, weight.elements, numberAt);
+  });
+}
+
+type ModelRows = Iterable<readonly [number, unknown]>;
+
+export function requireStructureInput(model: {
+  nodes: ModelRows;
+  elements: ModelRows;
+  supports: ModelRows;
+  materials: ModelRows;
+  sections: ModelRows;
+  connectors?: ModelRows;
+  analysis?: unknown;
+}): void {
+  for (const [id, node] of model.nodes) {
+    const path = `nodes.${id}`;
+    recordNumbers(path, recordAt(path, node), { required: ['id', 'x', 'y'], optional: ['z'] });
+  }
+  for (const [id, element] of model.elements) validateElement(`elements.${id}`, element);
+  for (const [id, support] of model.supports) validateSupport(`supports.${id}`, support);
+  for (const [id, section] of model.sections) validateSection(`sections.${id}`, section);
+  for (const [id, material] of model.materials) {
+    const path = `materials.${id}`;
+    recordNumbers(path, recordAt(path, material), materialFields);
+  }
+  for (const [id, connector] of model.connectors ?? []) {
+    const path = `connectors.${id}`;
+    recordNumbers(path, recordAt(path, connector), {
+      required: ['id', 'nodeI', 'nodeJ'], optional: ['kAxial', 'kShear', 'kMoment', 'kShearZ', 'kBendY', 'kBendZ'],
+    });
+  }
+  requireAnalysisInput(model.analysis);
+}
+
+export function requireModelInput(model: ModelData): void {
+  requireLoadInput(model.loads);
+  requireStructureInput(model);
+  if (model.constraints !== undefined) {
+    arrayOf('constraints', model.constraints, (path, constraint) => readConstraint(path, constraint, false));
+  }
+}
+
+export function modelInputRefusal(model: ModelData): string | null {
   try {
-    requireModelNumbers(model);
+    requireModelInput(model);
     return null;
   } catch (error) {
     if (error instanceof ModelInputError) return error.message;
