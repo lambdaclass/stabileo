@@ -19,6 +19,40 @@ models = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(models)
 
 
+@unittest.skipUnless(os.environ.get('RUN_NIGHTLY_REGRESSIONS'), 'known wrong result: nightly finding lifecycle')
+class NightlyReplayLifecycle(unittest.TestCase):
+    def setUp(self):
+        replay_spec = importlib.util.spec_from_file_location('replay', ROOT / 'scripts/replay-findings.py')
+        self.replay = importlib.util.module_from_spec(replay_spec)
+        replay_spec.loader.exec_module(self.replay)
+
+    def test_close_requires_three_consecutive_nights_for_the_same_reproducers(self):
+        advance = self.replay.advance_nightly_replay
+        state, close = advance({}, '2026-11-01', 'a', 'passes-now')
+        self.assertEqual(state['streak'], 1)
+        self.assertFalse(close)
+        self.assertEqual(advance(state, '2026-11-01', 'a', 'passes-now'), (state, False))
+        state, close = advance(state, '2026-11-02', 'a', 'passes-now')
+        self.assertEqual(state['streak'], 2)
+        self.assertFalse(close)
+        for night, fingerprint, result in (
+                ('2026-11-04', 'a', 'passes-now'),
+                ('2026-11-03', 'b', 'passes-now'),
+                ('2026-11-03', 'a', 'not-replayable'),
+                ('2026-11-03', 'a', 'still-fails')):
+            changed, close = advance(state, night, fingerprint, result)
+            self.assertEqual(changed['streak'], int(result == 'passes-now'))
+            self.assertFalse(close)
+        state, close = advance(state, '2026-11-03', 'a', 'passes-now')
+        self.assertEqual(state['streak'], 3)
+        self.assertTrue(close)
+
+    def test_wrong_result_refusal_does_not_pass(self):
+        spec = {'test': 'codeaster/silent_singular', 'check_kind': 'silent_singular', 'kind': 'silent_singular'}
+        self.assertNotEqual(self.replay.classify_diff(spec, {'status': 'refused'})[0], 'passes-now')
+        self.assertEqual(self.replay.classify_diff(spec, {'status': 'ok'})[0], 'passes-now')
+
+
 class Models(unittest.TestCase):
     def replay(self, status, wrapped=False, budget=30, harness_exit=1):
         with tempfile.TemporaryDirectory() as tmp:

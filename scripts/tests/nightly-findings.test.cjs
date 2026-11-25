@@ -463,3 +463,65 @@ test('a legacy issue adopted by one group cannot be adopted by another in a late
   assert.equal(calls.filter(c => c.name === 'createComment').length, 0);
   assert.equal(calls.filter(c => c.name === 'create').length, 1);
 }));
+
+const pendingNightlyLifecycle = {skip: !process.env.RUN_NIGHTLY_REGRESSIONS && 'known wrong result: nightly finding lifecycle'};
+
+test('fuzz signatures ignore artifact hashes and keep different messages and targets distinct', pendingNightlyLifecycle, () => fixture(async ({args, calls, issues, save}) => {
+  const fuzz = (seed, target, message) => ({...finding, test: `fuzz/${target}`, seed,
+    model: {raw_hex: seed.toString(16).padStart(2, '0')}, details: message});
+  save('first', fuzz(1, 'json_plastic', `timeout-${'a'.repeat(40)}`));
+  await report(args);
+  const first = calls.find(c => c.name === 'create');
+  assert.ok(first);
+  issues.push({number: 1944, state: 'open', body: first.args.body});
+  calls.length = 0;
+  args.context.runId = 456;
+  require('node:fs').rmSync('nightly-findings/first.finding.json');
+  save('second', fuzz(2, 'json_plastic', `timeout-${'b'.repeat(40)}`));
+  save('crash', fuzz(3, 'json_plastic', `crash-${'c'.repeat(40)}`));
+  save('certify', fuzz(4, 'model_certify', `timeout-${'d'.repeat(40)}`));
+  await report(args);
+  const commented = calls.filter(c => c.name === 'createComment');
+  assert.deepEqual(commented.map(c => c.args.issue_number), [1944]);
+  assert.match(commented[0].args.body, /Seed: `2`/);
+  assert.match(commented[0].args.body, /second\.finding\.json/);
+  assert.match(commented[0].args.body, /<!-- nightly-reproducer:v1 /);
+  assert.equal(calls.filter(c => c.name === 'create').length, 2);
+}));
+
+test('sighting comments stop at the cap and overflow updates the total once', pendingNightlyLifecycle, () => fixture(async ({args, calls, issues, comments, save}) => {
+  save('a');
+  await report(args);
+  const created = calls.find(c => c.name === 'create');
+  assert.match(created.args.body, /<!-- nightly-reproducer:v1 /);
+  issues.push({number: 6, state: 'open', body: created.args.body});
+  for (let i = 1; i <= 6; i++) {
+    args.context.runId++;
+    calls.length = 0;
+    await report(args);
+    const comment = calls.find(c => c.name === 'createComment');
+    if (i <= 5) {
+      assert.ok(comment);
+      comments.push({body: comment.args.body});
+      continue;
+    }
+    assert.equal(comment, undefined);
+    const update = calls.find(c => c.name === 'update');
+    assert.match(update.args.body, /1 additional sighting/);
+    issues[0].body = update.args.body;
+    calls.length = 0;
+    await report(args);
+    assert.equal(calls.filter(c => ['create', 'createComment', 'update'].includes(c.name)).length, 0);
+  }
+}));
+
+test('migration keeps the oldest matching issue and leaves other findings alone', pendingNightlyLifecycle, () => {
+  const {planMigration} = require('../../scripts/migrate-nightly-findings.cjs');
+  const issue = (number, created_at, title) => ({number, created_at, state: 'open', title});
+  const group = [
+    issue(1944, '2026-11-09', `Nightly finding: fuzz/json_plastic: timeout-${'a'.repeat(40)}`),
+    issue(1802, '2026-11-08', `Nightly finding: fuzz/json_plastic: timeout-${'b'.repeat(40)}`),
+    issue(1762, '2026-11-07', `Nightly finding: fuzz/model_certify: crash-${'c'.repeat(40)}`)
+  ];
+  assert.deepEqual(planMigration(group).duplicates.map(({keep, close}) => [keep, close]), [[1802, [1944]]]);
+});
