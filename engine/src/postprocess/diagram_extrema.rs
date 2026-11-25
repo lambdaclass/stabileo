@@ -122,25 +122,58 @@ pub(crate) struct Curve<D, P> {
 
 #[derive(Default)]
 struct DiagramSum {
-    sum: f64,
-    correction: f64,
+    high: f64,
+    partials: Vec<f64>,
 }
 
 impl DiagramSum {
-    fn add(&mut self, term: f64) {
-        let next = self.sum + term;
-        if next.is_finite() {
-            self.correction += if self.sum.abs() >= term.abs() {
-                (self.sum - next) + term
-            } else {
-                (term - next) + self.sum
-            };
+    fn add(&mut self, mut high: f64) {
+        let mut retained = 0;
+        for i in 0..=self.partials.len() {
+            let mut low = self.partials.get(i).copied().unwrap_or(self.high);
+            if high.abs() < low.abs() {
+                std::mem::swap(&mut high, &mut low);
+            }
+            let sum = high + low;
+            if !sum.is_finite() {
+                self.high = f64::NAN;
+                self.partials.clear();
+                return;
+            }
+            let error = low - (sum - high);
+            if error != 0.0 {
+                if let Some(partial) = self.partials.get_mut(retained) {
+                    *partial = error;
+                } else {
+                    self.partials.push(error);
+                }
+                retained += 1;
+            }
+            high = sum;
         }
-        self.sum = next;
+        self.partials.truncate(retained);
+        self.high = high;
     }
 
-    fn value(self) -> f64 {
-        self.sum + self.correction
+    fn value(mut self) -> f64 {
+        let mut high = self.high;
+        while let Some(low) = self.partials.pop() {
+            let sum = high + low;
+            let error = low - (sum - high);
+            high = sum;
+            if error == 0.0 {
+                continue;
+            }
+            if self.partials.last().is_some_and(|next| next.is_sign_positive() == error.is_sign_positive()) {
+                let twice = 2.0 * error;
+                let rounded = high + twice;
+                if rounded - high == twice {
+                    return rounded;
+                }
+            }
+            break;
+        }
+        high
     }
 }
 
@@ -206,7 +239,12 @@ where
                 value.add(p.jump);
             }
         }
-        Ok(value.value())
+        let value = value.value();
+        if value.is_finite() {
+            Ok(value)
+        } else {
+            Err("non-finite member diagram ordinate")
+        }
     }
 
     pub fn checked_station_value(&self, t: f64, right: bool) -> Result<f64, &'static str> {

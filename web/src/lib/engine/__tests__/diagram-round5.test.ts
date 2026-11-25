@@ -260,7 +260,7 @@ it('known wrong result: #2437 retains both faces of a physically rebased piece c
         { x0: 2, x1: 3, forces: { ...local, vzStart: 10 } },
       ],
     };
-    const cut = (1 + a) / 3;
+    const cut = 0.41666666666666663;
     const at = prepareDiagramEvaluator3D(parent, 'shearZ');
     expect.soft(at(cut - Number.EPSILON / 4)).toBe(0);
     expect.soft(at(cut)).toBe(0);
@@ -313,11 +313,17 @@ it('#1782 browser and WASM moving analyses apply a rounded path endpoint at the 
 });
 
 
-it.skip('known wrong result: #2437 preserves nested cancellation in signed diagram ordinates', () => {
+it('known wrong result: #2437 preserves nested cancellation in signed diagram ordinates', () => {
   const [plane, space, planar, spatial] = forceRecords();
   const large = 2 ** 108, small = 2 ** 54;
-  for (const [fifth, expected] of [[-1, 0], [1, 2]] as const) {
-    const terms = [large, small, 1, -small, fifth, -large];
+  const half = Number.EPSILON / 2, tail = 2 ** -108;
+  for (const [terms, expected] of [
+    [[large, small, 1, -small, -1, -large], 0],
+    [[large, small, 1, -small, 1, -large], 2],
+    [[1, half, -tail], 1],
+    [[1, half], 1],
+    [[1, half, tail], 1 + Number.EPSILON],
+  ] as const) {
     for (const result of planar) {
       const ef = result.elementForces[0]!;
       ef.pointLoads = terms.map((my, i) => ({ a: (i + 1) / 8, p: 0, my }));
@@ -325,7 +331,7 @@ it.skip('known wrong result: #2437 preserves nested cancellation in signed diagr
       expect.soft(prepareDiagramValueAt('moment', ef)(0.5)).toBe(expected);
       expect.soft(computeElementDiagram('moment', ef, 0, 0, 3, 0).points.find(p => p.t === 0.5)?.value).toBe(expected);
       expect.soft(computeDiagramValueAtWasm('moment', 0.5, ef)).toBe(expected);
-      expect.soft(computeDiagrams2D(plane, result).moment[0]!.points.find(p => p.t === 0.5)?.value).toBe(expected);
+      expect.soft(computeDiagrams2D(plane, result).moment[0]!.points.find((p: { t: number }) => p.t === 0.5)?.value).toBe(expected);
       const envelope = computeEnvelope([result])!.moment.elements[0]!;
       const i = envelope.tPositions.indexOf(0.5);
       expect.soft([envelope.negValues[i], envelope.posValues[i]]).toEqual([0, expected]);
@@ -340,7 +346,7 @@ it.skip('known wrong result: #2437 preserves nested cancellation in signed diagr
       expect.soft(prepareDiagramEvaluator3D(ef, 'momentY')(0.5)).toBe(expected);
       expect.soft(computeDiagram3D(ef, 'momentY').points.find(p => p.t === 0.5)?.value).toBe(expected);
       expect.soft(computeDiagramValueAt3DWasm('momentY', 0.5, ef)).toBe(expected);
-      expect.soft(computeDiagrams3D(space, result).momentY[0]!.points.find(p => p.t === 0.5)?.value).toBe(expected);
+      expect.soft(computeDiagrams3D(space, result).momentY[0]!.points.find((p: { t: number }) => p.t === 0.5)?.value).toBe(expected);
       const envelope = computeEnvelope3D([result])!.momentY.elements[0]!;
       const i = envelope.tPositions.indexOf(0.5);
       expect.soft([envelope.negValues[i], envelope.posValues[i]]).toEqual([0, expected]);

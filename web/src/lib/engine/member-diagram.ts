@@ -16,9 +16,9 @@ export interface DiagramStation {
 
 export interface DiagramExtremum {
   t: number;
+  distance: DiagramDistance;
   value: number;
   canTransfer: (station: DiagramStation) => boolean;
-  coincides?: (distance: DiagramDistance) => boolean;
 }
 
 export interface DiagramCurve {
@@ -52,6 +52,28 @@ export function rebaseDiagramDistance(origin: number, local: number) {
   const x = origin + local;
   const offset = x - origin;
   return { x, residual: (origin - (x - offset)) + (local - offset) };
+}
+
+export function normalizeDiagramDistance({ x, residual }: DiagramDistance, length: number): number {
+  let t = x / length;
+  if (residual === 0) return t;
+  if (!(t >= 0 && Number.isFinite(t))) throw unavailableDiagramExtrema();
+  const twiceDistance = (binary64Units(x) + binary64Units(residual)) << (binary64UnitsExponent + 1n);
+  const divisor = binary64Units(length);
+  const step = residual > 0 ? 1n : -1n;
+  floatBits.setFloat64(0, t);
+  let bits = floatBits.getBigUint64(0);
+  while (bits !== 0n || step > 0n) {
+    floatBits.setBigUint64(0, bits + step);
+    const next = floatBits.getFloat64(0);
+    if (!Number.isFinite(next)) throw unavailableDiagramExtrema();
+    const midpoint = (binary64Units(t) + binary64Units(next)) * divisor;
+    const comparison = (twiceDistance - midpoint) * step;
+    if (comparison < 0n || (comparison === 0n && (bits & 1n) === 0n)) break;
+    t = next;
+    bits += step;
+  }
+  return t;
 }
 
 export function shiftDiagramDistance(distance: DiagramDistance, origin: number): DiagramDistance {
@@ -198,13 +220,37 @@ export function memberDiagram(
 }
 
 function sumDiagramTerms(terms: readonly number[]): number {
-  let sum = 0, correction = 0;
-  for (const term of terms) {
-    const next = sum + term;
-    correction += Math.abs(sum) >= Math.abs(term) ? (sum - next) + term : (term - next) + sum;
-    sum = next;
+  const partials: number[] = [];
+  for (let high of terms) {
+    if (!Number.isFinite(high)) return NaN;
+    let retained = 0;
+    for (let low of partials) {
+      if (Math.abs(high) < Math.abs(low)) [high, low] = [low, high];
+      const sum = high + low;
+      if (!Number.isFinite(sum)) return NaN;
+      const error = low - (sum - high);
+      if (error !== 0) partials[retained++] = error;
+      high = sum;
+    }
+    partials.length = retained;
+    partials.push(high);
   }
-  return sum + correction;
+  let high = partials.pop() ?? 0;
+  while (partials.length) {
+    const low = partials.pop()!;
+    const sum = high + low;
+    const error = low - (sum - high);
+    high = sum;
+    if (error === 0) continue;
+    const next = partials.at(-1) ?? 0;
+    if ((error > 0 && next > 0) || (error < 0 && next < 0)) {
+      const twice = 2 * error;
+      const rounded = high + twice;
+      if (rounded - high === twice) return rounded;
+    }
+    break;
+  }
+  return high;
 }
 
 function intervalChange([, linear = 0, quadratic = 0, cubic = 0]: readonly number[], from: number, to: number): number {
@@ -236,11 +282,12 @@ function diagramExtremum(
   if (!Number.isFinite(value)) throw unavailableDiagramExtrema();
   const localOffset = (position: DiagramDistance) => diagramDistanceBetween(position, x0);
   const canTransfer = (station: DiagramStation) => {
+    if (station.distance && compareDiagramDistance(station.distance, distance) === 0) return true;
     const local = localOffset(station.distance ?? { x: station.t * length, residual: 0 }) / width;
     if (!(local > 0 && local < 1)) return false;
     return combine(ordinates.map((ordinate, i) => ordinate + intervalChange(polynomials[i]!, u, local))) === value;
   };
-  return { t, value, canTransfer, coincides: position => localOffset(position) === offset };
+  return { t, distance, value, canTransfer };
 }
 
 interface ExtremaInterval {
@@ -352,6 +399,17 @@ export function unavailableDiagramExtrema(): Error {
 }
 
 const floatBits = new DataView(new ArrayBuffer(8));
+
+const binary64UnitsExponent = 1074n;
+
+function binary64Units(value: number): bigint {
+  floatBits.setFloat64(0, value);
+  const bits = floatBits.getBigUint64(0);
+  const exponent = (bits >> 52n) & 0x7ffn;
+  const fraction = bits & 0xfffffffffffffn;
+  const magnitude = exponent === 0n ? fraction : ((1n << 52n) | fraction) << (exponent - 1n);
+  return bits >> 63n ? -magnitude : magnitude;
+}
 
 export function addMagnitudeBounds(a: number, b: number): number {
   const sum = a + b;

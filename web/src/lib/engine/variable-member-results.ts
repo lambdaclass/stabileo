@@ -1,4 +1,4 @@
-import { rebaseDiagramDistance, unavailableDiagramExtrema } from './member-diagram';
+import { compareDiagramDistance, normalizeDiagramDistance, rebaseDiagramDistance, unavailableDiagramExtrema } from './member-diagram';
 import type { AnalysisResults3D, Displacement3D, ElementForces3D, ElementEnvelopeDiagram3D, EnvelopeDiagramData3D, FullEnvelope3D } from './types-3d';
 import type { ResultPiece, VariableExpansion, VariableMember, VariablePiece } from './variable-members';
 
@@ -107,16 +107,16 @@ function rebaseEnvelopeMember(m: VariableMember, elements: ReadonlyMap<number, E
       const local = tPositions[i]!;
       const station = stations.get(i);
       if (internalStart && local === 0 && hasStartJump && !station?.right) continue;
-      const x = local === 0 ? p.x0 : local === 1 ? p.x1
-        : rebaseDiagramDistance(p.x0, station?.x ?? local * (p.x1 - p.x0)).x;
-      const t = x / m.length;
+      const distance = local === 0 || local === 1 ? { x: local === 0 ? p.x0 : p.x1, residual: 0 }
+        : rebaseDiagramDistance(p.x0, station?.x ?? local * (p.x1 - p.x0));
+      const t = normalizeDiagramDistance(distance, m.length);
       if (station) {
         if ((local > 0 && local < 1 && !(start < t && t < end))
           || (previousCritical && previousCritical.local !== local && previousCritical.t >= t)) throw unavailableDiagramExtrema();
         previousCritical = { local, t };
       }
       candidates.push({
-        t, x, critical: !!station, right: (internalStart && local === 0) || !!station?.right,
+        t, distance, critical: !!station, right: (internalStart && local === 0) || !!station?.right,
         pos: element.posValues[i]!, neg: element.negValues[i]!,
       });
     }
@@ -130,11 +130,11 @@ function rebaseEnvelopeMember(m: VariableMember, elements: ReadonlyMap<number, E
     let j = i + 1;
     while (candidates[j]?.t === first.t) j++;
     const cuts = candidates.slice(i, j).filter(candidate => candidate.critical);
-    if (cuts.length > 2 || (cuts.length === 2 && (cuts[0]!.x !== cuts[1]!.x || cuts[0]!.right || !cuts[1]!.right))) {
+    if (cuts.length > 2 || (cuts.length === 2 && (compareDiagramDistance(cuts[0]!.distance, cuts[1]!.distance) !== 0 || cuts[0]!.right || !cuts[1]!.right))) {
       throw unavailableDiagramExtrema();
     }
     for (const cut of cuts.length ? cuts : [first]) {
-      if (cut.critical) parent.criticalStations.push({ index: parent.tPositions.length, x: cut.x, right: cut.right });
+      if (cut.critical) parent.criticalStations.push({ index: parent.tPositions.length, x: cut.distance.x, right: cut.right });
       parent.tPositions.push(cut.t);
       parent.posValues.push(cut.pos);
       parent.negValues.push(cut.neg);

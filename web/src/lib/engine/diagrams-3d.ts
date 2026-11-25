@@ -3,7 +3,7 @@
 // using equilibrium equations with distributed and point loads.
 
 import { type UnitSystem, formatDiagramValue } from '../utils/units';
-import { addMagnitudeBounds, checkedCurveValue, compareDiagramDistance, diagramCriticalPoints, diagramCurvePoints, fullSpanFallback, indexDiagramExtrema, memberDiagram, prepareCurveExtrema, prepareMagnitudeExtrema, shiftDiagramDistance, sortedStations, unavailableDiagramExtrema, type DiagramCurve, type DiagramDistance, type DiagramExtremum, type DiagramStation } from './member-diagram';
+import { addMagnitudeBounds, checkedCurveValue, compareDiagramDistance, diagramCriticalPoints, diagramCurvePoints, fullSpanFallback, indexDiagramExtrema, memberDiagram, normalizeDiagramDistance, prepareCurveExtrema, prepareMagnitudeExtrema, shiftDiagramDistance, sortedStations, unavailableDiagramExtrema, type DiagramCurve, type DiagramDistance, type DiagramExtremum, type DiagramStation } from './member-diagram';
 import type { ElementForces3D, EnvelopeDiagramData3D } from './types-3d';
 
 export type Diagram3DKind = 'momentY' | 'momentZ' | 'shearY' | 'shearZ' | 'axial' | 'torsion';
@@ -69,7 +69,7 @@ function leafCurve(ef: ElementForces3D, kind: Diagram3DKind): DiagramCurve {
     points.map(p => ({ a: p.a, jump: 0, slope: sign * p.p })), 'moment', sign, sign * shear);
 }
 
-function joinedCuts(sources: Iterable<ReadonlyMap<number, DiagramDistance>>) {
+function joinedCuts(sources: Iterable<Iterable<readonly [number, DiagramDistance]>>) {
   const cuts = new Map<number, DiagramDistance>();
   for (const source of sources) {
     for (const [t, distance] of source) {
@@ -98,7 +98,7 @@ function magnitudeCurve(curves: readonly SpatialCurve[], method: 'srss' | 'abs',
     get cuts() { return cuts(); },
     get cutDistances() { return joined(); },
     extrema: exact ? prepareMagnitudeExtrema(polynomialParts, method, joined, length)
-      : () => curves.flatMap(curve => curve.extrema().map(({ t }) => ({ t, value: combine({ t }), canTransfer: () => false }))),
+      : () => curves.flatMap(curve => curve.extrema().map(({ t, distance }) => ({ t, distance, value: combine({ t, distance }), canTransfer: () => false }))),
     ...(!exact ? { magnitudeBound } : {}),
     value: combine,
   };
@@ -119,7 +119,6 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
         if (distance.residual === 0 && distance.x === p.forces.length) return end;
         return shiftDiagramDistance(distance, p.x0);
       };
-      const parent = (t: number) => rebase({ x: t * p.forces.length, residual: 0 }).x / ef.length;
       type PieceCut = { t: number; local: DiagramDistance; parent: DiagramDistance };
       let boundaries: Map<number, PieceCut> | undefined;
       let stations: [number, PieceCut][] | undefined;
@@ -127,7 +126,7 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
         if (boundaries) return boundaries;
         const mapped = new Map([...curve.cutDistances].map(([t, local]) => {
           const distance = rebase(local);
-          return [distance.x / ef.length, { t, local, parent: distance }];
+          return [normalizeDiagramDistance(distance, ef.length), { t, local, parent: distance }];
         }));
         if (mapped.size !== curve.cutDistances.size) throw unavailableDiagramExtrema();
         return boundaries = mapped;
@@ -151,7 +150,7 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
           : shiftDiagramDistance(next.local, -fromRight * ef.length);
         return { t: localDistance.x / p.forces.length, distance: localDistance, right };
       };
-      return { end, curve, parent, local, cutMap };
+      return { end, curve, rebase, local, cutMap };
     });
     const pieceAt = ({ t, right, distance }: DiagramStation) => pieces.find(p => {
       const side = distance ? compareDiagramDistance(distance, p.end) : t - p.end.x / ef.length;
@@ -168,15 +167,13 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
       get cuts() { return sortedStations(this.cutDistances.keys()); },
       get cutDistances() { return joined(); },
       extrema: () => extrema ??= pieces.flatMap(p => p.curve.extrema().map(peak => {
-        const t = p.parent(peak.t);
+        const distance = p.rebase(peak.distance);
+        const t = normalizeDiagramDistance(distance, ef.length);
         if (p.cutMap().has(t)) throw unavailableDiagramExtrema();
         return {
-          t, value: peak.value,
-          coincides(distance) {
-            if (p !== pieceAt({ t, distance })) return false;
-            return peak.coincides?.(p.local({ t, distance }).distance!) ?? false;
-          },
+          t, distance, value: peak.value,
           canTransfer(station) {
+            if (station.distance && compareDiagramDistance(station.distance, distance) === 0) return true;
             return p === pieceAt(station) && peak.canTransfer(p.local(station));
           },
         };
@@ -232,11 +229,14 @@ export function* memberEnvelopeStations3D(forces: readonly ElementForces3D[], co
   const prepared = forces.map(f => components.map(kind => {
     const curve = componentCurve(f, kind);
     if (curve.magnitudeBound) throw unavailableDiagramExtrema();
-    return { curve, peaks: indexDiagramExtrema(curve.extrema()) };
+    const extrema = curve.extrema().map(peak => ({ ...peak, t: normalizeDiagramDistance(peak.distance, length) }));
+    return { curve, extrema, peaks: indexDiagramExtrema(extrema) };
   }));
   const all = prepared.flat();
-  const distances = joinedCuts(all.map(({ curve }) => curve.cutDistances));
-  const stations = sortedStations([0.25, 0.5, 0.75, ...distances.keys(), ...all.flatMap(({ peaks }) => [...peaks.keys()])]);
+  const distances = joinedCuts(all.flatMap(({ curve, extrema }) => [
+    curve.cutDistances, extrema.map(({ t, distance }) => [t, distance] as const),
+  ]));
+  const stations = sortedStations([0.25, 0.5, 0.75, ...distances.keys()]);
   const values = (station: DiagramStation) => prepared.map(curves => curves.map(({ curve, peaks }) => checkedCurveValue(curve, station, peaks)));
   for (const t of stations) {
     const distance = distances.get(t);
@@ -244,10 +244,6 @@ export function* memberEnvelopeStations3D(forces: readonly ElementForces3D[], co
     const left = { t, distance };
     const right = { ...left, right: true };
     const jump = t < 1 && distance !== undefined && all.some(({ curve }) => curve.value(left) !== curve.value(right));
-    if (jump && all.some(({ peaks }) => {
-      const peak = peaks.get(t);
-      return peak && !peak.coincides?.(distance);
-    })) throw unavailableDiagramExtrema();
     yield { t, x, face: jump ? 'left' as const : undefined, values: () => values(left) };
     if (jump) yield { t, x, face: 'right' as const, values: () => values(right) };
   }

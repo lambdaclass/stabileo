@@ -1,6 +1,7 @@
 import { beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { strFromU8, unzipSync } from 'fflate';
 import { DEFAULT_AXES } from '../../axes/frame';
+import { computeDiagram3D, evaluateDiagramAt, prepareDiagramEvaluator3D } from '../../engine/diagrams-3d';
 import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../../engine/member-diagram';
 import { envelopeRows } from '../../engine/result-tables';
 import type { AnalysisResults3D } from '../../engine/types-3d';
@@ -225,7 +226,7 @@ it('known wrong result: #2226 includes a resultant extremum between component st
 });
 
 
-it.skip('known wrong result: #2226 evaluates competing sources at the physical stationary point', async () => {
+it('known wrong result: #2226 evaluates competing sources at the physical stationary point', async () => {
   const peak = solvedMember(3);
   const other = structuredClone(peak);
   const first = peak.elementForces[0]!;
@@ -257,7 +258,7 @@ it.skip('known wrong result: #2226 evaluates competing sources at the physical s
   ]);
 });
 
-it.skip.each(['linear', 'pdelta'] as const)('known wrong result: #2226 rebasing keeps adjacent normalized cuts (%s)', async method => {
+it.each(['linear', 'pdelta'] as const)('known wrong result: #2226 rebasing keeps adjacent normalized cuts (%s)', async method => {
   const member = cantilever(3);
   const { first, ids } = twoCombinations();
   if (method === 'pdelta') modelStore.adoptAnalysis({ perCombination: 'pdelta' });
@@ -272,11 +273,24 @@ it.skip.each(['linear', 'pdelta'] as const)('known wrong result: #2226 rebasing 
   piece.forces.pointLoadsZ = [{ a: 0.24999999999999992, p: 8 }, { a: 0.25, p: 4 }];
   const raw = computeEnvelope3D([reexpandVariableResults(data).results])!;
   const rawPiece = raw.shearZ.elements.find(element => element.elementId === piece.forces.elementId)!;
-  expect(rawPiece.criticalStations?.filter(station => station.x === 0.24999999999999992 || station.x === 0.25)).toHaveLength(4);
-  const rebased = computeEnvelope3D([data])!.shearZ.elements.find(element => element.elementId === member)!;
-  expect(rebased.tPositions.flatMap((t, i) => t === tA || t === tB ? [[t, rebased.negValues[i], rebased.posValues[i]]] : [])).toEqual([
-    [tA, 0, 0], [tA, 0, 8], [tB, 0, 8], [tB, 0, 12],
-  ]);
+  expect.soft(rawPiece.criticalStations?.filter(station => station.x === 0.24999999999999992 || station.x === 0.25)).toHaveLength(4);
+  expect.soft(() => {
+    const rebased = computeEnvelope3D([data])!.shearZ.elements.find(element => element.elementId === member)!;
+    expect(rebased.tPositions.flatMap((t, i) => t === tA || t === tB ? [[t, rebased.negValues[i], rebased.posValues[i]]] : [])).toEqual([
+      [tA, 0, 0], [tA, 0, 8], [tB, 0, 8], [tB, 0, 12],
+    ]);
+  }).not.toThrow();
+  expect.soft(() => {
+    const at = prepareDiagramEvaluator3D(force, 'shearZ');
+    const faces = [[tA, false, 0], [tA, true, 8], [tB, false, 8], [tB, true, 12]] as const;
+    for (const [t, right, value] of faces) {
+      expect(evaluateDiagramAt(force, 'shearZ', t, right)).toBe(value);
+      expect(at(t, right)).toBe(value);
+    }
+    const diagram = computeDiagram3D(force, 'shearZ');
+    expect(diagram.points.filter(point => point.t === tA || point.t === tB).map(point =>
+      [point.t, !!point.right, point.value])).toEqual(faces);
+  }).not.toThrow();
   const sources: WorkbookSource[] = [{ id: 1, name: '1', kind: 'combination', results: data }];
   const input = { sources, stations: 'critical', statics: null } as const;
   const want = (name: string) => name === 'Envelope';
@@ -290,4 +304,8 @@ it.skip.each(['linear', 'pdelta'] as const)('known wrong result: #2226 rebasing 
   expect(csv.split('\n').filter(line => line.startsWith('forces,' + member + ',,1.25,Vz,'))).toEqual(
     rows.map(row => sheet.rows[0]!.map(key => row[key]).join(',')),
   );
+  piece.forces.pointLoadsZ[1]!.a = 0.25 - 2 ** -55;
+  expect(() => computeEnvelope3D([data])).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+  expect(() => resultSheets(input, want)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+  await expect(streamWorkbookZip(resultSheetParts(input, want))).rejects.toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
 });

@@ -741,7 +741,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2437"]
     fn issue_2437_nested_moment_cancellation() {
         use crate::postprocess::{combinations, diagrams_3d};
         let (input, results) = round5_diagram_results();
@@ -749,13 +748,20 @@ mod tests {
         let small = 2.0_f64.powi(54);
         let mut observed = Vec::new();
         let mut expected = Vec::new();
-        for (fifth, moment) in [(-1.0, 0.0), (1.0, 2.0)] {
-            let terms = [large, small, 1.0, -small, fifth, -large];
+        let half = f64::EPSILON / 2.0;
+        let tail = 2.0_f64.powi(-108);
+        for (terms, moment) in [
+            (&[large, small, 1.0, -small, -1.0, -large][..], 0.0),
+            (&[large, small, 1.0, -small, 1.0, -large], 2.0),
+            (&[1.0, half, -tail], 1.0),
+            (&[1.0, half], 1.0),
+            (&[1.0, half, tail], 1.0 + f64::EPSILON),
+        ] {
             for (mut plane, mut space) in results.clone() {
-                plane.element_forces[0].point_loads = terms.into_iter().enumerate().map(|(i, my)| {
+                plane.element_forces[0].point_loads = terms.iter().copied().enumerate().map(|(i, my)| {
                     PointLoadInfo { a: (i + 1) as f64 / 8.0, p: 0.0, px: None, my: Some(my) }
                 }).collect();
-                space.element_forces[0].point_loads_z = terms.into_iter().enumerate().map(|(i, moment)| {
+                space.element_forces[0].point_loads_z = terms.iter().copied().enumerate().map(|(i, moment)| {
                     let arm = 2.0_f64.powi(-(i as i32));
                     PointLoadInfo3D { a: 1.5 - arm, p: moment / arm }
                 }).collect();
