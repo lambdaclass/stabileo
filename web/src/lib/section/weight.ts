@@ -29,11 +29,13 @@ export class InvalidMaterialDensity extends Error {
   }
 }
 
+export function isMaterialDensity(rho: unknown): rho is number {
+  return typeof rho === 'number' && Number.isFinite(rho) && rho >= 0;
+}
+
 export function requireMaterialDensity(materialId: number, material: { rho?: number } | undefined): number {
   const rho = material?.rho;
-  if (typeof rho !== 'number' || !Number.isFinite(rho) || rho < 0) {
-    throw new InvalidMaterialDensity(materialId, rho);
-  }
+  if (!isMaterialDensity(rho)) throw new InvalidMaterialDensity(materialId, rho);
   return rho;
 }
 

@@ -3768,6 +3768,7 @@ const ru: Translations = {
   "autoLoad.work.cancel": "Остановить",
   "svc.engine.unsupportedPointLoadMoment": "Недопустимая компонента момента сосредоточенной нагрузки на стержень",
   "svc.engine.applyPointLoadMomentAtNode": "приложите момент к узлу 3D-модели в исходной точке приложения нагрузки",
+  "svc.engine.missingSelfWeightGroupMembership": "Собственный вес задан для группы {id}, список элементов которой отсутствует. Восстановите состав группы или измените область приложения собственного веса.",
   "svc.engine.invalidDensity": "Введите конечную неотрицательную плотность (rho) для материала {id} (получено: {value}).",
   "svc.engine.nonnegativeMassDensity": "Плотность массы должна быть конечной и неотрицательной",
   "svc.engine.nonFiniteNumber": "Введите конечное число для {path} (получено: {value}).",

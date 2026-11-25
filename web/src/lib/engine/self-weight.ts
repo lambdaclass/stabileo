@@ -11,6 +11,7 @@
  * gets its wL²/8 at midspan, which weight lumped at the ends did not give it. On a shell it is
  * ρ·t over the area, split equally between the corners as before.
  */
+import { tp } from '../i18n';
 import { createSectionWeight } from '../section/weight';
 import type { ModelData } from './solver-service';
 import type { SolverLoad3D } from './types-3d';
@@ -38,13 +39,23 @@ export function selfWeightFor(
 
 const UNIT: Record<SelfWeightLoad['direction'], Vec3> = { X: [1, 0, 0], Y: [0, 1, 0], Z: [0, 0, 1] };
 
-/** What a self-weight load covers: member ids, and the shells, or everything. */
-export function selfWeightScope(
-  model: { groups?: ReadonlyMap<number, { members?: { elements?: readonly number[]; plates?: readonly number[]; quads?: readonly number[] } }> },
-  s: SelfWeightLoad,
-): { members: Set<number> | null; plates: Set<number> | null; quads: Set<number> | null } {
+export class MissingSelfWeightGroupMembership extends Error {
+  constructor(groupId: number) {
+    super(tp('svc.engine.missingSelfWeightGroupMembership', { id: groupId }));
+  }
+}
+
+type SelfWeightGroups = {
+  groups?: ReadonlyMap<number, { members?: { elements?: readonly number[]; plates?: readonly number[]; quads?: readonly number[] } | null }>;
+};
+
+type SelfWeightScope = { members: Set<number> | null; plates: Set<number> | null; quads: Set<number> | null };
+
+export function resolveSelfWeightScope(model: SelfWeightGroups, s: SelfWeightLoad): SelfWeightScope | { missingMembership: number } {
   if (s.groupId !== undefined) {
-    const members = model.groups?.get(s.groupId)?.members;
+    const group = model.groups?.get(s.groupId);
+    const members = group?.members;
+    if (group && members == null) return { missingMembership: s.groupId };
     return {
       members: new Set(members?.elements ?? []),
       plates: new Set(members?.plates ?? []),
@@ -53,6 +64,12 @@ export function selfWeightScope(
   }
   if (s.elements) return { members: new Set(s.elements), plates: new Set(), quads: new Set() };
   return { members: null, plates: null, quads: null };
+}
+
+export function selfWeightScope(model: SelfWeightGroups, s: SelfWeightLoad): SelfWeightScope {
+  const scope = resolveSelfWeightScope(model, s);
+  if ('missingMembership' in scope) throw new MissingSelfWeightGroupMembership(scope.missingMembership);
+  return scope;
 }
 
 /**

@@ -11,7 +11,6 @@ import {
   validateAndSolve3DAsync,
 } from '../solver-service';
 
-const held = process.env.RUN_KNOWN_WRONG === '2472' ? it : it.skip;
 const dead = { id: 1, name: 'Gravity', type: 'D' as const };
 const combo = { id: 1, name: dead.name, factors: [{ caseId: dead.id, factor: 1 }] };
 const groupId = 7;
@@ -82,7 +81,7 @@ const reaction3D = (answer: Awaited<ReturnType<(typeof paths3D)[keyof typeof pat
   return result?.reactions.reduce((total, r) => total + r.fz, 0);
 };
 
-held.each(['missing', 'null'] as const)('known wrong result: #2472 refuses %s self-weight membership in planar inputs and solves', async membership => {
+it.each(['missing', 'null'] as const)('known wrong result: #2472 refuses %s self-weight membership in planar inputs and solves', async membership => {
   const model = cantilever(membership);
   for (const [name, solve] of Object.entries(paths2D)) {
     expect.soft(String(reaction2D(await solve(model))), name).toContain(refusal);
@@ -90,7 +89,7 @@ held.each(['missing', 'null'] as const)('known wrong result: #2472 refuses %s se
   expect(() => buildSolverInput2D(model)).toThrow(refusal);
 });
 
-held.each([
+it.each([
   { membership: 'missing', activeSet: false }, { membership: 'null', activeSet: false },
   { membership: 'missing', activeSet: true },
 ] as const)('known wrong result: #2472 refuses $membership self-weight membership in spatial inputs and solves (active set $activeSet)', async ({ membership, activeSet }) => {
@@ -102,7 +101,7 @@ held.each([
   expect(() => buildSolverInput3D(model, false, false)).toThrow(refusal);
 });
 
-held('known wrong result: #2472 flags saved results from a self-weight group with missing membership', () => {
+it('known wrong result: #2472 flags saved results from a self-weight group with missing membership', () => {
   cantilever('missing');
   const stamp = { ...stampSolve('linear', null), resultsVersion: 120 };
   expect(assessProject(modelStore.snapshot(), stamp).changes.map(change => change.id)).toContain('missing-self-weight-group-membership');

@@ -3696,6 +3696,7 @@ const hu: Translations = {
   'svc.engine.cancelledCombination': "Az ismétlődő teheresetek tényezői ebben a kombinációban nullára összegződnek.",
   "svc.engine.unsupportedPointLoadMoment": "Nem támogatott rúdpontteher-nyomatékösszetevő",
   "svc.engine.applyPointLoadMomentAtNode": "adja meg a nyomatékot egy 3D csomóponton a teher eredeti helyén",
+  "svc.engine.missingSelfWeightGroupMembership": "Az önsúly a(z) {id} csoportra hivatkozik, amelynek hiányzik a taglistája. Állítsa vissza a csoport taglistáját, vagy módosítsa az önsúly célját.",
   "svc.engine.invalidDensity": "Adjon meg véges, nemnegatív sűrűséget (rho) a(z) {id}. anyaghoz (kapott érték: {value}).",
   "svc.engine.nonnegativeMassDensity": "A tömegsűrűségnek végesnek és nemnegatívnak kell lennie",
   "svc.engine.nonFiniteNumber": "Adjon meg véges számot itt: {path} (kapott érték: {value}).",

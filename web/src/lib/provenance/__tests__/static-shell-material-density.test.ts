@@ -12,7 +12,6 @@ import { stampSolve } from '../solve-stamp';
 
 const notice = 'negative-static-shell-density';
 const invalidNotice = 'invalid-static-shell-density';
-const held = process.env.RUN_KNOWN_WRONG === '2472' ? it : it.skip;
 const thickness = 1 / 8;
 const gravity = { caseId: 1, ...GRAVITY_SELF_WEIGHT };
 const cases = [{ id: gravity.caseId, name: 'Gravity', type: 'D' as const }];
@@ -113,7 +112,7 @@ it.each(['plate', 'quad'] as const)('#2472 refuses negative %s self-weight on th
   }
 });
 
-held.each(['plate', 'quad'] as const)('known wrong result: #2472 opening a saved %s solve flags null density', async kind => {
+it.each(['plate', 'quad'] as const)('known wrong result: #2472 opening a saved %s solve flags null density', async kind => {
   const { material } = shell(kind, 1);
   Object.assign(material, { rho: null });
   const saved = JSON.parse(JSON.stringify({ ...modelStore.snapshot(), solvedWith: oldStamp('linear') }));
@@ -122,6 +121,8 @@ held.each(['plate', 'quad'] as const)('known wrong result: #2472 opening a saved
   onProjectOpened(saved, 'pro');
   await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
   expect.soft(recheckStore.assessment?.changes.map(change => change.id)).toContain(invalidNotice);
+  expect.soft(recheckStore.stale).toBe(true);
+  expect.soft(recheckStore.noticeOpen).toBe(true);
   const answer = modelStore.solve3D(true, false, true);
   const result = answer && typeof answer !== 'string' ? answer : undefined;
   const reactions = result?.reactions.reduce((sum, reaction) => sum + reaction.fz, 0);
@@ -129,7 +130,7 @@ held.each(['plate', 'quad'] as const)('known wrong result: #2472 opening a saved
     .toMatch(/rho.*null/);
 });
 
-held.each(['plate', 'quad'] as const)('known wrong result: #2472 the saved %s notice follows density validity and weight scope', kind => {
+it.each(['plate', 'quad'] as const)('known wrong result: #2472 the saved %s notice follows density validity and weight scope', kind => {
   const { id, material } = shell(kind, 1);
   const group = { members: kind === 'plate' ? { plates: [id] } : { quads: [id] } };
   for (const rho of [null, undefined, '0', Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -1, -0, 1]) {
