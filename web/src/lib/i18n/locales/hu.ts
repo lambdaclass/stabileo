@@ -12359,7 +12359,6 @@ const hu: Translations = {
   "discretization.adaptiveApplied": "A háló alkalmazva: {shells} héj a felosztottak helyén, {nodes} új csomópont. Számoljon újra.",
   "discretization.adaptiveRefused.nothing": "A háló nem finomodott: nincs mit alkalmazni.",
   "discretization.adaptiveRefused.stale": "A modell már nem az, amelyet kiszámoltak. Számoljon és finomítson újra.",
-  "discretization.adaptiveRefused.physicalPlate": "Egy felosztandó héj a körvonalából hálózott lemezhez tartozik. Inkább annak a lemeznek a hálóméretét módosítsa.",
   "discretization.adaptiveRefused.member": "Egy felosztott él mentén futó rúd itt nem vágható el: íves, változó keresztmetszetű, vagy ugyanazon az élen másik rúd is fut.",
   "discretization.adaptiveRefused.support": "Egy új csomópont olyan megtámasztott élre esik, amelynek végei eltérően vannak megfogva, előírt elmozdulással vagy ferde támasszal. Adjon ennek az élnek egyféle támaszt.",
   "discretization.col.pass": "Lépés",

@@ -33,6 +33,7 @@ import { applyPlacedMesh, placeMesh, regionOccupied, type MeshPlacement } from '
 import { mergeCollinear } from '../model/edit/merge-collinear';
 import { addFloorLoadDef } from './defined-loads';
 import { constraintNodes } from '../engine/steel/unbraced-length';
+import { hangingEdgeNodes } from '../model/edit/refined-mesh';
 import { meshBeforeAnalysis } from './mesh-policy.svelte';
 export { meshBeforeAnalysis };
 import type { FloorLoadDef } from '../model/loads/floor-definitions';
@@ -306,9 +307,28 @@ const held = (except?: number): Set<number> => {
   for (const sp of modelStore.supports.values()) s.add(sp.nodeId);
   for (const l of modelStore.loads) if ('nodeId' in l.data) s.add((l.data as { nodeId: number }).nodeId);
   for (const n of constraintNodes(modelStore.model.constraints)) s.add(n);
-  for (const g of modelStore.model.groups.values()) if (g.id !== except) g.members.nodes?.forEach((n) => s.add(n));
+  for (const g of modelStore.model.groups.values()) {
+    if (g.id === except) continue;
+    // Of another plate, its outline: a node of its mesh that nothing above uses is held by no one,
+    // and one a refinement put on a shared side is listed by both plates.
+    const loops = plateSurfaceOf(g) ? plateLoops(g) : null;
+    (loops ? [...loops.outer, ...loops.holes.flat()] : g.members.nodes ?? []).forEach((n) => s.add(n));
+  }
   return s;
 };
+
+/** Remove the ties of the hanging nodes a refinement left on a plate's mesh: they go with the mesh. */
+function untieHangingNodes(owned: ReadonlySet<number>): void {
+  const loose = new Set<number>();
+  for (const [ends, node] of hangingEdgeNodes(modelStore.constraints, modelStore.nodes)) {
+    if (owned.has(node) || ends.split(':').some((end) => owned.has(Number(end)))) loose.add(node);
+  }
+  if (!loose.size) return;
+  for (let i = modelStore.constraints.length - 1; i >= 0; i--) {
+    const c = modelStore.constraints[i]!;
+    if (c.type === 'linearMPC' && loose.has(c.terms[0]?.nodeId ?? -1)) modelStore.removeConstraint(i);
+  }
+}
 
 function localLoadsOn(e: PlateEntry): number {
   const quads = new Set(e.group.members.quads ?? []), plates = new Set(e.group.members.plates ?? []);
@@ -410,6 +430,7 @@ function removePlateMesh(id: number, preserveNodes?: ReadonlySet<number>): { rem
   const owned = new Set(loops.owned);
   let removedNodes = 0, keptNodes = 0;
   modelStore.batch(() => {
+    untieHangingNodes(owned);
     if (e.group.members.quads?.length || e.group.members.plates?.length) modelStore.bulkMutate(() => {
       for (const q of e.group.members.quads ?? []) if (modelStore.quads.has(q)) modelStore.removeQuad(q);
       for (const p of e.group.members.plates ?? []) if (modelStore.plates.has(p)) modelStore.removePlate(p);
@@ -488,6 +509,27 @@ function placePlateEdits(e: PlateEntry, mesh: MeshOutput): MeshPlacement | undef
 export interface PlateMeshReport { plates: number; cells: number; refused: Array<{ id: number; reason: PlateMeshRefusalReason }>; droppedLocalLoads: number; keptNodes: number }
 
 export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshReport {
+  const refined = refinedPlates();
+  if (!refined.length || !plans.some((p) => p.mesh && p.input)) return applyPlans(plans);
+  let report!: PlateMeshReport;
+  modelStore.batch(() => {
+    let dropped = 0;
+    for (const e of refined) {
+      if (!plans.some((p) => p.id === e.id)) dropped += localLoadsOn(e);
+      removePlateMesh(e.id);
+    }
+    report = applyPlans(plans);
+    report.droppedLocalLoads += dropped;
+  });
+  return report;
+}
+
+/** The plates whose mesh a refinement changed: the ones that start over when any plate is meshed. */
+export function refinedPlates(): PlateEntry[] {
+  return physicalPlates().filter((p) => p.surface.meshed?.refined);
+}
+
+function applyPlans(plans: readonly PlateMeshPlan[]): PlateMeshReport {
   const report: PlateMeshReport = { plates: 0, cells: 0, refused: [], droppedLocalLoads: 0, keptNodes: 0 };
   const prepare = (planned: PlateMeshPlan, replan: boolean) => {
     const refuse = (reason: PlateMeshRefusalReason) => { report.refused.push({ id: planned.id, reason }); return null; };
@@ -526,6 +568,32 @@ export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshRepo
     break;
   }
   return report;
+}
+
+/**
+ * A plate's mesh was refined in place: `nodes` it gained are its mesh's, and its cell count and
+ * quality are those of the cells it has now. Without the count the plate reads as invalid;
+ * without the nodes, a plate beside it reads as out of date and is meshed again at the next
+ * analysis, which takes the refinement away.
+ */
+export function recordPlateRefinement(id: number, nodes: readonly number[]): void {
+  const e = plateEntry(id);
+  if (!e?.surface.meshed) return;
+  const members = e.group.members;
+  const have = new Set(members.nodes ?? []);
+  const gained = [...new Set(nodes)].filter((n) => !have.has(n) && modelStore.nodes.has(n));
+  if (gained.length) modelStore.setGroupMembers(id, { ...members, nodes: [...(members.nodes ?? []), ...gained] });
+  const index = new Map<number, number>();
+  const points: Array<[number, number, number]> = [];
+  const cells: number[][] = [];
+  for (const shell of [...(members.quads ?? []).map((q) => modelStore.quads.get(q)), ...(members.plates ?? []).map((p) => modelStore.plates.get(p))]) {
+    if (!shell) continue;
+    cells.push(shell.nodes.map((n) => {
+      if (!index.has(n)) { const at = modelStore.nodes.get(n)!; index.set(n, points.length); points.push([at.x, at.y, at.z ?? 0]); }
+      return index.get(n)!;
+    }));
+  }
+  writeSurface(id, (s) => (s.meshed ? { ...s, meshed: { ...s.meshed, cells: cells.length, quality: meshQuality({ points, cells }), refined: true } } : s));
 }
 
 /** Remove a plate with its mesh and its area loads; one undo step. */
@@ -573,6 +641,7 @@ export function preparePlatesForAnalysis(): PlatePreparation {
   };
   const need = needsMesh.map(p => p.id);
   if (!need.length) return checked(0, 0);
+  for (const p of refinedPlates()) if (!need.includes(p.id)) need.push(p.id);
   const names = (ids: number[]) => ids.map((id) => plateEntry(id)?.name ?? `#${id}`);
   if (!meshBeforeAnalysis.value) return { ok: false, reason: 'needsMesh', plates: names(need) };
   const plans: PlateMeshPlan[] = [];

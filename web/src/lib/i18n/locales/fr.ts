@@ -12717,7 +12717,6 @@ const fr: Translations = {
   'discretization.adaptiveApplied': "Maillage appliqué : {shells} coques à la place de celles divisées, {nodes} nœuds ajoutés. Recalculez.",
   'discretization.adaptiveRefused.nothing': "Le maillage n'a pas été raffiné : il n'y a rien à appliquer.",
   'discretization.adaptiveRefused.stale': "Le modèle n'est plus celui qui a été calculé. Recalculez et raffinez de nouveau.",
-  'discretization.adaptiveRefused.physicalPlate': "Une coque à diviser appartient à une dalle maillée à partir de son contour. Modifiez plutôt la taille de maille de cette dalle.",
   'discretization.adaptiveRefused.member': "Une barre le long d'un bord divisé ne peut pas être coupée ici : elle est courbe, de section variable, ou une autre barre se trouve sur le même bord.",
   'discretization.adaptiveRefused.support': "Un nouveau nœud tombe sur un bord appuyé dont les extrémités sont tenues différemment, avec un déplacement imposé ou un appui incliné. Donnez à ce bord un seul type d'appui.",
   'discretization.col.pass': "Passe",
