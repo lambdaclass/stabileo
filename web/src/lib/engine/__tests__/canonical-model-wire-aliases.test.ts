@@ -89,3 +89,39 @@ it('#2532 WASM JSON solvers preserve positional settlements and rotations', () =
   expect.soft(planarSolvers.pdelta(positional)).toEqual(reference);
   expect(linear(positional)).toEqual(linear(named));
 });
+
+it.skip('known wrong result: #2532 WASM planar decoders refuse out-of-plane nodal components', () => {
+  const model = (data: object) => ({ ...planar, loads: [{ type: 'nodal', data }] });
+  const path = { maxSteps: 3, nSteps: 3, controlNode: 2, controlDof: 1, targetDisplacement: -0.005, tolerance: 1e-9 };
+  const solvers = {
+    ...planarSolvers,
+    replay: (input: object) => JSON.parse(engine_reproduce_hashes(JSON.stringify(input), false)),
+    arc: (solver: object) => JSON.parse(solve_arc_length(JSON.stringify({ ...path, solver }))).results,
+    displacement: (solver: object) => JSON.parse(solve_displacement_control(JSON.stringify({ ...path, solver }))).results,
+  };
+  const zero = { nodeId: 2, fx: 0, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 };
+  const control = planar.loads[0]!.data;
+  for (const [name, solve] of Object.entries(solvers)) {
+    expect.soft(() => solve(model({ ...zero, mx: 5 })), name).toThrow(/out-of-plane nodal component `mx`/);
+    expect.soft(() => solve(model({ ...control, mx: -5 })), name).toThrow(/out-of-plane nodal component `mx`/);
+    expect.soft(() => solve(model({ ...control, momentX: 5 })), name).toThrow(/unknown field `momentX`/);
+    for (const field of ['fy', 'mx', 'mz']) {
+      expect.soft(() => solve(model({ ...zero, [field]: -5 })), name).toThrow(new RegExp(`out-of-plane nodal component .${field}.`));
+    }
+    expect.soft(solve(model({ ...zero, ...control, mx: -0 })), name).toEqual(solve(planar));
+  }
+});
+
+it('#2532 WASM spatial solvers retain the applied nodal couple', () => {
+  const input = {
+    ...space,
+    loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: 0, mx: 5, my: 0, mz: 0 } }],
+  };
+  const linear = solve_3d(input);
+  const pdelta = JSON.parse(solve_pdelta_3d(JSON.stringify(input), 20, 1e-9));
+  expect(pdelta.converged).toBe(true);
+  for (const result of [linear, pdelta.results]) {
+    expect(result.reactions).toHaveLength(1);
+    expect(result.reactions[0].mx).toBe(-5);
+  }
+});
