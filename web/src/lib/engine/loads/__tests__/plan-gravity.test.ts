@@ -1389,6 +1389,24 @@ for (const offset of [0.051, 0.2, MIN_STOREY_HEADROOM - 0.125]) {
   });
 }
 
+const finalReviewReproducer = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
+
+for (const offset of [0.051, 0.2, MIN_STOREY_HEADROOM - 0.125]) {
+  finalReviewReproducer(`known wrong result: #2512 a vertically attached lower shell at offset ${offset} cannot bypass bay ownership`, () => {
+    checkBlockedGravity(linkedShellBay(3 - offset), {
+      key: 'loadPlan.gravity.offsetShellDeck', params: { id: 1, members: '1, 2, 3, 4' },
+    }, 1);
+  });
+}
+
+it('#2512 lower shells respect the deck and storey separation limits', () => {
+  for (const offset of [0.049, 0.05]) checkOwnedFloor(linkedShellBay(3 - offset), [1], 60);
+  for (const offset of [MIN_STOREY_HEADROOM, MIN_STOREY_HEADROOM + 0.125]) {
+    checkOwnedFloor(linkedShellBay(3 - offset), [1], 120);
+  }
+  checkOwnedFloor(linkedShellBay(2.8, [0, 1]), [1], 120);
+});
+
 it('#2512 established deck and storey separation retain their gravity loads', () => {
   for (const offset of [0.049, 0.05]) checkOwnedFloor(linkedShellBay(3 + offset), [1], 60);
   for (const offset of [MIN_STOREY_HEADROOM, MIN_STOREY_HEADROOM + 0.125]) {
