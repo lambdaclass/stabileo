@@ -305,7 +305,7 @@ describe('malformed authored load provenance', () => {
   });
 });
 
-describe.skipIf(process.env.STABILEO_REPRODUCE_AUTHORED_LOADS !== '1')('known wrong result: #2583', () => {
+describe('authored load refusal and recheck', () => {
   it.each([
     ['xz', 'sync', 'fy'],
     ['xz', 'async', 'fy'],
@@ -332,7 +332,7 @@ describe.skipIf(process.env.STABILEO_REPRODUCE_AUTHORED_LOADS !== '1')('known wr
     [mode, undefined], [mode, 7],
   ] as const))('rechecks generated seismic payloads in %s with type %s', async (analysisMode, type) => {
     const generated = { ...(type === undefined ? {} : { type }), data: { caseId: 1, generatedBy: 'auto' } };
-    const generatedLoads = [generated] as unknown as NonNullable<FeatureSnapshot['loads']>;
+    const generatedLoads = [generated];
     const staticLoad = { type: 'nodal3d', data: {
       ...completeForce.data, caseId: 1, generatedBy: 'auto', seismicGeneration: 'static',
     } };

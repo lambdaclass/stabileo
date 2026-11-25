@@ -1389,6 +1389,17 @@ function createModelStore() {
     }
   }
 
+  function solveSingle2D<T>(
+    plane: DrawPlane,
+    includeSelfWeight: boolean,
+    solve: (input: ModelData, selfWeight: boolean, onKinematic: (result: KinematicResult | null) => void) => T,
+  ): T | string {
+    lastKinematicResult = null;
+    const mapped = mappedSolveModel(plane, includeSelfWeight);
+    if (typeof mapped === 'string') return mapped;
+    return solve(mapped, includeSelfWeight, result => { lastKinematicResult = result; });
+  }
+
   let nextId = $state({
     node: 1,
     material: 1,
@@ -4204,17 +4215,13 @@ function createModelStore() {
     },
 
     solve(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): AnalysisResults | string | null {
-      const mapped = mappedSolveModel(drawPlane, includeSelfWeight);
-      if (typeof mapped === 'string') return mapped;
-      return validateAndSolve2D(mapped, includeSelfWeight, (k) => { lastKinematicResult = k; });
+      return solveSingle2D(drawPlane, includeSelfWeight, validateAndSolve2D);
     },
 
     /** Async 2D solve via the worker pool (UI stays responsive). Same result
      *  shape and string-error semantics as solve(). */
     async solveAsync(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): Promise<AnalysisResults | string | null> {
-      const mapped = mappedSolveModel(drawPlane, includeSelfWeight);
-      if (typeof mapped === 'string') return mapped;
-      return validateAndSolve2DAsync(mapped, includeSelfWeight, (k) => { lastKinematicResult = k; });
+      return solveSingle2D(drawPlane, includeSelfWeight, validateAndSolve2DAsync);
     },
 
     /** Build a SolverInput from the current model state (no validation). Returns null if model is empty. */

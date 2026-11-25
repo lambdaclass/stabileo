@@ -95,6 +95,7 @@ interface Sup {
 
 /** What `modelFeatures` reads: the snapshot shape, loosely, so a file from any version is read. */
 type ShellSnapshot = { id?: number; materialId?: number; nodes?: number[]; curved?: boolean; offset?: Offset3 };
+type FeatureLoad = { type?: unknown; data?: Record<string, unknown> };
 
 interface FeatureSnapshotFields {
   analysisMode?: string;
@@ -107,7 +108,7 @@ interface FeatureSnapshotFields {
   sections?: Entries<{ id: number; shearAreas?: unknown }>;
   fiberSections?: Record<string, { materials?: Array<{ type?: string }> }>;
   supports?: Entries<Sup>;
-  loads?: Array<{ type: string; data?: Record<string, unknown> }>;
+  loads?: FeatureLoad[];
   loadCases?: Array<{
     id: number; name?: string; type?: string; spectral?: unknown; alternatives?: string; axisNamed?: boolean;
     group?: string; snowBasis?: 'flatRoof'; generated?: boolean; autoLoadsRetired?: true;
@@ -185,8 +186,14 @@ function slaveNodes(c: Record<string, unknown>): number[] {
 
 export const fromLoadPlan = (by: unknown): boolean => typeof by === 'string' && !!by && !/^(stair|arch):/.test(by);
 
-function featureLoads(loads: FeatureSnapshot['loads']): NonNullable<FeatureSnapshot['loads']> {
-  return Array.isArray(loads) ? loads.filter(load => typeof load?.type === 'string') : [];
+function hasLoadType(load: FeatureLoad): load is FeatureLoad & { type: string } {
+  return typeof load.type === 'string';
+}
+
+function featureLoads(loads: FeatureSnapshot['loads']): FeatureLoad[] {
+  if (!Array.isArray(loads)) return [];
+  return loads.filter(load => load != null && (hasLoadType(load) ||
+    (load.data != null && typeof load.data === 'object' && !Array.isArray(load.data))));
 }
 
 export function unverifiedSeismicLoads(s: FeatureSnapshot) {
@@ -200,7 +207,7 @@ export function unverifiedSeismicLoads(s: FeatureSnapshot) {
   return featureLoads(s.loads).filter(l =>
     cases.has((l.data?.caseId ?? 1) as number) && l.data?.seismicGeneration !== 'static' &&
     (l.data?.seismicGeneration === 'unverified' || fromLoadPlan(l.data?.generatedBy) || modalBasis ||
-      (earlyGenerator && /^nodal/.test(l.type))));
+      (earlyGenerator && hasLoadType(l) && /^nodal/.test(l.type))));
 }
 
 export function loadsGeneratedWith(s: FeatureSnapshot): number {
@@ -492,7 +499,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     nodes: values(s.nodes),
     elements,
     supports,
-    loads: storedLoads,
+    loads: storedLoads.filter(hasLoadType),
     plates: s.plates,
     quads: s.quads,
   }, ctx.analysisMode ?? s.analysisMode);
@@ -508,7 +515,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (type === 'pointOnElement' && invalidPlanarPointTorsion(data?.mx)) f.add('invalidPlanarMemberTorsion');
   }
   for (const l of loads) {
-    const t = l.type;
+    const t = hasLoadType(l) ? l.type : '';
     const d = l.data ?? {};
     if ((t === 'pointOnElement3d' || (t === 'pointOnElement' && f.has('space3D')))
       && typeof d.a === 'number' && d.a > 0) {
@@ -622,7 +629,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   }
   if (combos) {
     f.add('combinations');
-    const occupiedCaseIds = new Set(storedLoads.map(l => l.data?.caseId ?? 1));
+    const occupiedCaseIds = new Set((Array.isArray(storedLoads) ? storedLoads : []).map(l => l.data?.caseId ?? 1));
     if (cases.some(c => c.generated && symbolOfCase(c) && occupiedCaseIds.has(c.id))) f.add('occupiedGeneratedLoadCases');
     if (f.has('generatedLoads')) {
       const weightedCaseIds = new Set((Array.isArray(weightRules) ? weightRules : [])
