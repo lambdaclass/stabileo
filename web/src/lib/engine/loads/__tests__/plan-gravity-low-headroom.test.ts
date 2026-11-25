@@ -146,11 +146,10 @@ describe('the industrial hall and the stadium of the examples', () => {
     };
   };
 
-  it('#2512 the hall: its girt rings and the panels under its trusses carry no floor, its roof is loaded', async () => {
-    const g = gravityLayout(await fixture('3d-nave-industrial'), { mode: 'panels', tributaryWidth: 3 });
-    expect([...g.areaOf.values()].reduce((s, a) => s + a, 0)).toBe(0);
-    expect(g.notes.map((n) => n.key)).toEqual(expect.arrayContaining(['loadPlan.gravity.lowHeadroom', 'loadPlan.gravity.widePanels']));
-    expect([...g.roofAreaOf.values()].reduce((s, a) => s + a, 0)).toBeGreaterThan(0);
+  it('#2543 the hall refuses automatic panel loads on its oversized retained bay', async () => {
+    const model = await fixture('3d-nave-industrial');
+    expect(() => gravityLayout(model, { mode: 'panels', tributaryWidth: 3 }))
+      .toThrow(expect.objectContaining({ key: 'loadPlan.gravity.widePanels', params: { n: 1, span: MAX_DECK_SPAN } }));
   });
 
   it('the hall by width: a chord within the roof keeps, as roof, the stretches of its strip nothing above carries', async () => {

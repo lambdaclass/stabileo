@@ -94,7 +94,7 @@ fn every_2d_field() -> Value {
             {"type": "nodal", "data": {"nodeId": 3, "fx": -0.0, "fy": 7.1, "mz": -2.2}},
             {"type": "pointOnElement", "data": {"elementId": 1, "a": 1.1, "p": -4.4, "px": 0.7, "my": 1.9}},
             {"type": "pointOnElement", "data": {"elementId": 2, "a": 0.4, "p": 3, "mz": -0.6}},
-            {"type": "pointOnElement", "data": {"elementId": 2, "a": 2.0, "p": 1e-9, "px": null}},
+            {"type": "pointOnElement", "data": {"elementId": 2, "a": 2.0, "p": 1e-9}},
             {"type": "distributed", "data": {"elementId": 1, "qI": -5, "qJ": -2}}
         ]
     })

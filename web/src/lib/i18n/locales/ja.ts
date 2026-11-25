@@ -27,7 +27,7 @@ const ja: Translations = {
   'loadPlan.gravity.differentSlopedDeck': "梁パネルを覆う傾斜シェルは、梁パネルと同じデッキに属する必要があります。",
   'loadPlan.gravity.deckCheckFailed': "シェルによるデッキの被覆を確認できませんでした：{detail}",
   'loadPlan.gravity.exposureCheckFailed': "被覆されていない帯の上部の覆いを確認できませんでした：{detail}",
-  'loadPlan.gravity.mixedExposure': "被覆されていない帯には屋根と床の両方の領域があります。",
+  'loadPlan.gravity.mixedExposure': "割り当てた領域に屋根と床の両方が含まれます。各領域の荷重を明示的に指定してください。",
   'loadPlan.gravity.stripSpan': "被覆されていない帯がデッキの最大スパンを超えています。",
   'loadPlan.gravity.headroomCheckFailed': "被覆されていない帯の有効高さを確認できませんでした：{detail}",
   'loadPlan.gravity.stripHeadroom': "被覆されていない帯の階の有効高さが不足しているか、特定できません。",
@@ -3754,6 +3754,11 @@ const ja: Translations = {
   "autoLoad.work.draw": "荷重を描画中",
   "autoLoad.work.step": "ステップ {step} / {total}",
   "autoLoad.work.cancel": "停止",
+  "svc.engine.unsupportedPointLoadMoment": "部材集中荷重で指定できないモーメント成分",
+  "svc.engine.applyPointLoadMomentAtNode": "荷重の元の位置にある 3D 節点にモーメントを適用してください",
+  "svc.engine.invalidSelfWeightGroup": "自重グループ {id} が存在しないか、所属要素の情報が無効です。グループとその所属要素を復元するか、自重の適用対象を変更してください。",
+  "svc.engine.invalidDensity": "材料 {id} の密度 (rho) に有限かつ非負の数値を入力してください（受け取った値: {value}）。",
+  "svc.engine.nonnegativeMassDensity": "質量密度は有限かつ非負でなければなりません",
   "svc.engine.nonFiniteNumber": "{path} に有限の数値を入力してください（受け取った値: {value}）。",
 } as const satisfies Record<string, string>;
 

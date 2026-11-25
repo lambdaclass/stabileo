@@ -24,7 +24,7 @@ const hi: Translations = {
   'loadPlan.gravity.differentSlopedDeck': "बीम पैनल को ढकने वाला ढलवाँ शेल उसी डेक का हिस्सा होना चाहिए।",
   'loadPlan.gravity.deckCheckFailed': "डेक पर शेल आवरण की जाँच विफल रही: {detail}",
   'loadPlan.gravity.exposureCheckFailed': "खुली शेल पट्टियों के ऊपर आवरण की जाँच विफल रही: {detail}",
-  'loadPlan.gravity.mixedExposure': "खुली पट्टियों में छत और फर्श दोनों के क्षेत्र हैं।",
+  'loadPlan.gravity.mixedExposure': "निर्धारित क्षेत्र में छत और फर्श दोनों के हिस्से हैं। हर हिस्से के भार स्पष्ट रूप से निर्धारित करें।",
   'loadPlan.gravity.stripSpan': "खुली पट्टी डेक के अधिकतम स्पैन से लंबी है।",
   'loadPlan.gravity.headroomCheckFailed': "खुली पट्टी की मुक्त ऊँचाई की जाँच विफल रही: {detail}",
   'loadPlan.gravity.stripHeadroom': "खुली पट्टी में मंज़िल की मुक्त ऊँचाई अपर्याप्त है या निर्धारित नहीं हो सकी।",
@@ -3772,6 +3772,11 @@ const hi: Translations = {
   "autoLoad.work.draw": "भार बनाए जा रहे हैं",
   "autoLoad.work.step": "चरण {step} / {total}",
   "autoLoad.work.cancel": "रोकें",
+  "svc.engine.unsupportedPointLoadMoment": "सदस्य के बिंदु भार में असमर्थित आघूर्ण घटक",
+  "svc.engine.applyPointLoadMomentAtNode": "आघूर्ण को भार की मूल स्थिति पर स्थित 3D नोड पर लगाएँ",
+  "svc.engine.invalidSelfWeightGroup": "स्व-भार समूह {id} अनुपलब्ध है या उसकी सदस्य सूची अमान्य है। समूह और उसके सदस्यों को पुनर्स्थापित करें या स्व-भार का लक्ष्य बदलें।",
+  "svc.engine.invalidDensity": "सामग्री {id} के लिए परिमित और गैर-ऋणात्मक घनत्व (rho) दर्ज करें (प्राप्त मान: {value})।",
+  "svc.engine.nonnegativeMassDensity": "द्रव्यमान घनत्व परिमित और गैर-ऋणात्मक होना चाहिए",
   "svc.engine.nonFiniteNumber": "{path} में एक परिमित संख्या दर्ज करें (प्राप्त मान: {value})।",
 };
 export default hi;

@@ -72,8 +72,10 @@ test.describe('@smoke the wind of a flexible building, and the dialog reading ba
     await page.getByTestId('al-roof').check();
     await page.getByTestId('al-roof-dead').fill('0.25');
     await page.getByTestId('al-roof-dead').press('Tab');
-    await expectLoadGenerationRefusal(page, /concentrated roof actions/);
+    await expectLoadGenerationRefusal(page, /1 panels measure more than 12 m both ways/);
     await page.getByTestId('al-roof').uncheck();
+    await alSection(page, 'applying');
+    await page.getByTestId('al-gravity-mode').selectOption('width');
     await page.getByTestId('al-preview-btn').click();
     await expect(page.getByTestId('al-delta')).toBeVisible();
     expect(Number(await page.getByTestId('al-after-dist').innerText())).toBeGreaterThan(0);

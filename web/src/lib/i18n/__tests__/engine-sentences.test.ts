@@ -27,6 +27,18 @@ describe('engine sentences', () => {
     }
   });
 
+  it('translates a member point moment refusal and preserves its component', () => {
+    setLocale('es');
+    expect(localizeEngineText('Unsupported point load field mx: apply the moment at a 3D node at the original load position'))
+      .toBe('Momento no compatible con una carga puntual de barra en mx: aplicá el momento en un nodo 3D en la posición original de la carga');
+  });
+
+  it('translates a negative shell self-weight density refusal', () => {
+    setLocale('es');
+    expect(localizeEngineText('Parse error: Mass density must be finite and nonnegative'))
+      .toBe('Parse error: La densidad de masa debe ser finita y no negativa');
+  });
+
   it('#2100 explains a failed P-Delta equilibrium check in the active language', async () => {
     await setLocale('es');
     const message = 'P-Delta results were withheld because the physical free-DOF residual did not meet the requested tolerance.';

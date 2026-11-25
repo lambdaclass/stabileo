@@ -4,6 +4,7 @@ import { buildLoadPlan } from '../load-plan';
 import { witness, input } from './gravity-width-mass-fixture';
 import { solve_3d, solve_pdelta_3d } from '../../../wasm/dedaliano_engine.js';
 import { evaluateDiagramAt } from '../../diagrams-3d';
+import { finiteObjectWire } from '../../wasm-solver';
 import type { AnalysisResults3D } from '../../types-3d';
 
 const fixture = JSON.parse(readFileSync(new URL('../../../../../../engine/tests/fixtures/nightly-2026-11-13.json', import.meta.url), 'utf8'))['2023'];
@@ -20,7 +21,8 @@ for (const separation of [3, 6]) for (const angle of [0, 37]) for (const pieces 
     for (const key of ['cw', 'asY', 'asZ']) delete s.sections['1'][key];
     s.supports = Object.fromEntries([1, pieces + 2].map(nodeId => [nodeId, { nodeId, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]));
     s.loads = plan.distributed.filter(load => load.caseType === 'D').map(load => ({ type: 'distributed', data: { elementId: load.elementId, a: load.a, b: load.b, qYI: 0, qYJ: 0, qZI: load.q, qZJ: load.qJ ?? load.q } }));
-    for (const result of [solve_3d(s), JSON.parse(solve_pdelta_3d(JSON.stringify(s), 100, 1e-10)).results] as AnalysisResults3D[]) {
+    const wire = finiteObjectWire(s);
+    for (const result of [solve_3d(wire), JSON.parse(solve_pdelta_3d(JSON.stringify(wire), 100, 1e-10)).results] as AnalysisResults3D[]) {
       for (const [id, element] of model.elements) {
         const carrier = id <= pieces ? 0 : 1;
         const root = model.nodes.get(carrier === 0 ? 1 : pieces + 2)!;

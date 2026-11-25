@@ -1,0 +1,35 @@
+{
+  "id": "negative-static-shell-density",
+  "date": "2026-11-25",
+  "prs": [2540],
+  "area": "analysis",
+  "when": {
+    "all": ["negativeShellSelfWeightDensity"],
+    "any": ["analysis:linear", "analysis:pdelta", "analysis:buckling", "analysis:plastic", "analysis:nonlinear", "analysis:ssi"]
+  },
+  "quantities": ["solve.ok"],
+  "title": {
+    "en": "Refuse negative density in shell self-weight",
+    "es": "Rechazo de densidad negativa en el peso propio de láminas",
+    "pt": "Rejeição de densidade negativa no peso próprio de cascas",
+    "de": "Negative Dichte beim Eigengewicht von Schalen unzulässig",
+    "fr": "Refus d’une masse volumique négative pour le poids propre des coques",
+    "hu": "Negatív sűrűség elutasítása a héjak önsúlyánál",
+    "tr": "Kabuk öz ağırlığında negatif yoğunluk reddedilir",
+    "zh": "拒绝使用负密度计算壳单元自重"
+  },
+  "explanation": {
+    "en": "A negative material density could reverse a plate or shell’s self-weight in a static analysis. The solve now refuses that input. Enter the material’s finite, nonnegative density and rerun the analysis.",
+    "es": "Una densidad negativa podía invertir el peso propio de una placa o lámina en un análisis estático. El cálculo ahora rechaza ese dato. Ingresá un valor de densidad finito y no negativo y repetí el análisis.",
+    "pt": "Uma densidade negativa podia inverter o peso próprio de uma placa ou casca numa análise estática. O cálculo agora rejeita esse valor. Introduza a densidade finita e não negativa do material e repita a análise.",
+    "de": "Eine negative Materialdichte konnte bei einer statischen Berechnung das Eigengewicht einer Platte oder Schale umkehren. Die Berechnung lehnt diese Eingabe jetzt ab. Geben Sie eine endliche, nichtnegative Materialdichte ein und berechnen Sie das Modell erneut.",
+    "fr": "Une masse volumique négative pouvait inverser le poids propre d’une plaque ou d’une coque en analyse statique. Le calcul refuse désormais cette valeur. Saisissez une masse volumique finie et positive ou nulle, puis relancez le calcul.",
+    "hu": "A negatív anyagsűrűség a statikai számításban megfordíthatta a lemez vagy héj önsúlyának irányát. A számítás most elutasítja ezt az adatot. Adjon meg véges, nemnegatív anyagsűrűséget, majd futtassa újra a számítást.",
+    "tr": "Negatif malzeme yoğunluğu, statik analizde bir plak veya kabuğun öz ağırlığının yönünü tersine çevirebiliyordu. Analiz artık bu girdiyi reddediyor. Sonlu ve negatif olmayan bir malzeme yoğunluğu girip analizi yeniden çalıştırın.",
+    "zh": "在静力分析中，负的材料密度可能使板或壳单元的自重方向反转。求解器现在会拒绝该输入。请输入有限且非负的材料密度，然后重新运行分析。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-invalid-solver-numbers.md",
+    "heading": "Refuse negative density in shell self-weight"
+  }
+}

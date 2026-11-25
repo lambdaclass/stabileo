@@ -27,7 +27,7 @@ const ko: Translations = {
   'loadPlan.gravity.differentSlopedDeck': "보 패널을 덮는 경사 쉘은 패널과 같은 데크에 속해야 합니다.",
   'loadPlan.gravity.deckCheckFailed': "쉘의 데크 피복을 확인하지 못했습니다: {detail}",
   'loadPlan.gravity.exposureCheckFailed': "피복되지 않은 띠의 노출을 확인하지 못했습니다: {detail}",
-  'loadPlan.gravity.mixedExposure': "피복되지 않은 띠에 지붕과 바닥 영역이 모두 포함되어 있습니다.",
+  'loadPlan.gravity.mixedExposure': "지정된 영역에 지붕과 바닥 구역이 모두 포함됩니다. 각 구역의 하중을 명시적으로 지정하세요.",
   'loadPlan.gravity.stripSpan': "피복되지 않은 띠가 데크의 최대 경간을 초과합니다.",
   'loadPlan.gravity.headroomCheckFailed': "피복되지 않은 띠의 유효 높이를 확인하지 못했습니다: {detail}",
   'loadPlan.gravity.stripHeadroom': "피복되지 않은 띠의 층 유효 높이가 부족하거나 결정되지 않았습니다.",
@@ -3761,6 +3761,11 @@ const ko: Translations = {
   "autoLoad.work.draw": "하중 그리는 중",
   "autoLoad.work.step": "{total}단계 중 {step}단계",
   "autoLoad.work.cancel": "중지",
+  "svc.engine.unsupportedPointLoadMoment": "부재 집중하중에서 지원하지 않는 모멘트 성분",
+  "svc.engine.applyPointLoadMomentAtNode": "원래 하중 위치에 있는 3D 절점에 모멘트를 적용하세요",
+  "svc.engine.invalidSelfWeightGroup": "자중 그룹 {id}이(가) 없거나 구성 요소 목록이 유효하지 않습니다. 그룹과 구성 요소를 복원하거나 자중 적용 대상을 변경하세요.",
+  "svc.engine.invalidDensity": "재료 {id}의 밀도 (rho)에 유한한 음이 아닌 값을 입력하세요(받은 값: {value}).",
+  "svc.engine.nonnegativeMassDensity": "질량 밀도는 유한한 음이 아닌 값이어야 합니다",
   "svc.engine.nonFiniteNumber": "{path}에 유한한 수를 입력하세요(받은 값: {value}).",
 } as const satisfies Record<string, string>;
 

@@ -27,7 +27,7 @@ const id: Translations = {
   'loadPlan.gravity.differentSlopedDeck': "Cangkang miring yang menutupi panel balok harus berada pada pelat yang sama.",
   'loadPlan.gravity.deckCheckFailed': "Pemeriksaan cakupan cangkang pada pelat gagal: {detail}",
   'loadPlan.gravity.exposureCheckFailed': "Pemeriksaan keterbukaan jalur yang tidak tertutup gagal: {detail}",
-  'loadPlan.gravity.mixedExposure': "Jalur yang tidak tertutup mencakup area atap dan lantai.",
+  'loadPlan.gravity.mixedExposure': "Area yang ditetapkan mencakup bagian atap dan lantai. Tetapkan beban setiap bagian secara eksplisit.",
   'loadPlan.gravity.stripSpan': "Jalur yang tidak tertutup melampaui bentang maksimum pelat.",
   'loadPlan.gravity.headroomCheckFailed': "Pemeriksaan tinggi bebas jalur yang tidak tertutup gagal: {detail}",
   'loadPlan.gravity.stripHeadroom': "Tinggi bebas lantai pada jalur yang tidak tertutup tidak mencukupi atau belum dapat ditentukan.",
@@ -3764,6 +3764,11 @@ const id: Translations = {
   "autoLoad.work.draw": "Menggambar beban",
   "autoLoad.work.step": "Langkah {step} dari {total}",
   "autoLoad.work.cancel": "Hentikan",
+  "svc.engine.unsupportedPointLoadMoment": "Komponen momen yang tidak didukung untuk beban titik pada batang",
+  "svc.engine.applyPointLoadMomentAtNode": "terapkan momen pada simpul 3D di posisi beban semula",
+  "svc.engine.invalidSelfWeightGroup": "Grup berat sendiri {id} tidak ditemukan atau daftar anggotanya tidak valid. Pulihkan grup dan daftar anggotanya atau ubah sasaran berat sendiri.",
+  "svc.engine.invalidDensity": "Masukkan massa jenis (rho) yang berhingga dan tidak negatif untuk material {id} (nilai yang diterima: {value}).",
+  "svc.engine.nonnegativeMassDensity": "Massa jenis harus berhingga dan tidak negatif",
   "svc.engine.nonFiniteNumber": "Masukkan bilangan berhingga untuk {path} (nilai yang diterima: {value}).",
 } as const satisfies Record<string, string>;
 

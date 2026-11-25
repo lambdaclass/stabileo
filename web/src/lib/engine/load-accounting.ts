@@ -73,7 +73,7 @@ function scenarioKey(intent: ScenarioSurfaceIntent): string {
   return [baseline.caseId ?? 1, baseline.id, ...caseFactors.filter(factor => factor !== 1)].join(':');
 }
 
-export function matchScenarioSurfaces(
+function matchScenarioSurfaces(
   model: ModelData, caseId: number, loads: readonly Load[], expectedIntents?: readonly ScenarioSurfaceIntent[],
 ) {
   const pending = new Map<string, ScenarioSurfaceIntent[]>();
@@ -98,15 +98,29 @@ export function matchScenarioSurfaces(
   return matched;
 }
 
-export function verifyScenarioSurfaceLoads(
-  model: ModelData, caseId: number, loads: readonly Load[], sources: ReadonlyMap<Load, readonly SolverLoad3D[]> | undefined,
+function matchesPressureGeometry(a: ShellLoadSpec, b: ShellLoadSpec): boolean {
+  const sameVector = (x: Vector | undefined, y: Vector | undefined) =>
+    x && y ? x.every((value, i) => value === y[i]) : x === y;
+  const sameRing = (x: Vector[], y: Vector[]) => x.length === y.length && x.every((point, i) => sameVector(point, y[i]));
+  if (a.frame !== b.frame || !sameVector(a.dir, b.dir)) return false;
+  if (a.vary && b.vary && (a.vary.c1 !== b.vary.c1 || a.vary.c2 !== b.vary.c2 || !sameVector(a.vary.dir, b.vary.dir))) {
+    return false;
+  }
+  if (!a.region || !b.region) return a.region === b.region;
+  const holesA = a.region.holes ?? [], holesB = b.region.holes ?? [];
+  return sameVector(a.region.normal, b.region.normal) && sameRing(a.region.points, b.region.points)
+    && holesA.length === holesB.length && holesA.every((ring, i) => sameRing(ring, holesB[i]!));
+}
+
+export function* checkedScenarioSurfacePressures(
+  model: ModelData, caseId: number, loads: readonly Load[],
   label = caseLabel(model, caseId), expectedIntents?: readonly ScenarioSurfaceIntent[],
-): void {
+) {
   for (const { load, intent } of matchScenarioSurfaces(model, caseId, loads, expectedIntents)) {
     const { data } = load;
     const { baseline, factor } = intent;
     const shell = (baseline.on === 'plate' ? model.plates : model.quads)?.get(baseline.quadId);
-    if (!shell || data.quadId !== baseline.quadId || data.on !== baseline.on) {
+    if (!shell || data.quadId !== baseline.quadId || data.on !== baseline.on || !matchesPressureGeometry(data, baseline)) {
       unsupported(model, caseId, load.type, data.id);
     }
     const scale = (q: number) => (intent.caseFactors ?? []).reduce(
@@ -138,17 +152,27 @@ export function verifyScenarioSurfaceLoads(
       if (baseline.qNodes) expected.qNodes = pressures;
     }
 
+    yield { load, shell, expected };
+  }
+}
+
+export function verifyScenarioSurfaceLoads(
+  model: ModelData, caseId: number, loads: readonly Load[], sources: ReadonlyMap<Load, readonly SolverLoad3D[]> | undefined,
+  label = caseLabel(model, caseId), expectedIntents?: readonly ScenarioSurfaceIntent[],
+): void {
+  for (const { load, shell, expected } of checkedScenarioSurfacePressures(model, caseId, loads, label, expectedIntents)) {
+    const { data } = load;
     const points = shell.nodes.map(nodeId => xyz(model.nodes.get(nodeId) ?? unsupported(model, caseId, 'node', nodeId)));
     const forces = expectedSurfaceNodeForces(points, expected);
     const batch = sources?.get(load) ?? [];
-    if (!forces || batch.length !== shell.nodes.length) unsupported(model, caseId, load.type, baseline.quadId);
+    if (!forces || batch.length !== shell.nodes.length) unsupported(model, caseId, load.type, data.quadId);
     const byNode = new Map(batch.map(wire => {
       if (wire.type !== 'nodal') unsupported(model, caseId, load.type, data.id);
       return [wire.data.nodeId, wire] as const;
     }));
     for (const [i, nodeId] of shell.nodes.entries()) {
       const wire = byNode.get(nodeId) ?? unsupported(model, caseId, load.type, data.id);
-      const expectedNode = { shellId: baseline.quadId, nodeId, force: forces[i]! };
+      const expectedNode = { shellId: data.quadId, nodeId, force: forces[i]! };
       verifyScenarioNode(model, caseId, label, wire, expectedNode);
       scenarioNodeForces.set(wire, expectedNode);
     }

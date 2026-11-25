@@ -26,7 +26,7 @@ const it: Translations = {
   'loadPlan.gravity.differentSlopedDeck': "Il guscio inclinato di copertura deve appartenere allo stesso impalcato del pannello di travi.",
   'loadPlan.gravity.deckCheckFailed': "Verifica della copertura dell’impalcato con gusci non riuscita: {detail}",
   'loadPlan.gravity.exposureCheckFailed': "Verifica dell’esposizione delle strisce scoperte non riuscita: {detail}",
-  'loadPlan.gravity.mixedExposure': "Le strisce scoperte comprendono zone di copertura e di solaio.",
+  'loadPlan.gravity.mixedExposure': "Un’area assegnata comprende zone di copertura e di solaio. Assegna esplicitamente i carichi di ciascuna zona.",
   'loadPlan.gravity.stripSpan': "La striscia scoperta supera la luce massima dell’impalcato.",
   'loadPlan.gravity.headroomCheckFailed': "Verifica dell’altezza libera della striscia scoperta non riuscita: {detail}",
   'loadPlan.gravity.stripHeadroom': "L’altezza libera di piano della striscia scoperta è insufficiente o indeterminata.",
@@ -3775,6 +3775,11 @@ const it: Translations = {
   "autoLoad.work.draw": "Disegno dei carichi",
   "autoLoad.work.step": "Passo {step} di {total}",
   "autoLoad.work.cancel": "Ferma",
+  "svc.engine.unsupportedPointLoadMoment": "Componente del momento incompatibile con un carico puntuale sull’asta",
+  "svc.engine.applyPointLoadMomentAtNode": "applicare il momento a un nodo 3D nella posizione originaria del carico",
+  "svc.engine.invalidSelfWeightGroup": "Il gruppo del peso proprio {id} è assente o il suo elenco di elementi non è valido. Ripristina il gruppo e i suoi elementi o modifica la destinazione del peso proprio.",
+  "svc.engine.invalidDensity": "Inserisci una densità (rho) finita e non negativa per il materiale {id} (valore ricevuto: {value}).",
+  "svc.engine.nonnegativeMassDensity": "La densità di massa deve essere finita e non negativa",
   "svc.engine.nonFiniteNumber": "Inserisci un numero finito per {path} (valore ricevuto: {value}).",
 };
 export default it;

@@ -46,8 +46,6 @@
  "loads": [
   {
    "data": {
-    "a": null,
-    "b": null,
     "elementId": 1,
     "qI": -24.373604150844614,
     "qJ": 90.78738285901045
@@ -67,16 +65,12 @@
    "data": {
     "a": 0.3779609571521446,
     "elementId": 1,
-    "my": null,
-    "p": -85.34243465551293,
-    "px": null
+    "p": -85.34243465551293
    },
    "type": "pointOnElement"
   },
   {
    "data": {
-    "a": null,
-    "b": null,
     "elementId": 3,
     "qI": 51.002462385431045,
     "qJ": 88.93684836847135
@@ -151,26 +145,12 @@
  "solverOptions": null,
  "supports": {
   "1": {
-   "angle": null,
-   "dry": null,
-   "dx": null,
-   "dz": null,
    "id": 1,
-   "kx": null,
-   "ky": null,
-   "kz": null,
    "nodeId": 1,
    "type": "pinned"
   },
   "2": {
-   "angle": null,
-   "dry": null,
-   "dx": null,
-   "dz": null,
    "id": 2,
-   "kx": null,
-   "ky": null,
-   "kz": null,
    "nodeId": 2,
    "type": "rollerZ"
   }

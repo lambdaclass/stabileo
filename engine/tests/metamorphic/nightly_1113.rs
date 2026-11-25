@@ -319,7 +319,7 @@ fn issue_2012_archived_pair_preserves_source_and_scaled_physics() {
         .iter()
         .find(|issue| issue["issue"] == 2012)
         .unwrap();
-    let source: Value = serde_json::from_str(
+    let mut source: Value = serde_json::from_str(
         issue["source"]["body"]
             .as_str()
             .unwrap()
@@ -333,6 +333,11 @@ fn issue_2012_archived_pair_preserves_source_and_scaled_physics() {
     .unwrap();
     assert_eq!(source, witness("2012"));
     assert_eq!(source["elements"]["9"]["materialId"], 2);
+    for support in source["supports"].as_object_mut().unwrap().values_mut() {
+        support.as_object_mut().unwrap().retain(|field, value| {
+            !(value.is_null() && matches!(field.as_str(), "angle" | "dry" | "dx" | "dz" | "kx" | "ky" | "kz"))
+        });
+    }
     let input: SolverInput = serde_json::from_value(source).unwrap();
     let transformed: SolverInput = serde_json::from_value(witness("transformed-2012")).unwrap();
     assert_eq!(

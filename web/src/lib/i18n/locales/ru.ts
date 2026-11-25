@@ -27,7 +27,7 @@ const ru: Translations = {
   'loadPlan.gravity.differentSlopedDeck': "Перекрывающая наклонная оболочка должна относиться к тому же перекрытию, что и ячейка из балок.",
   'loadPlan.gravity.deckCheckFailed': "Не удалось проверить покрытие перекрытия оболочками: {detail}",
   'loadPlan.gravity.exposureCheckFailed': "Не удалось проверить открытость полос: {detail}",
-  'loadPlan.gravity.mixedExposure': "Открытые полосы включают участки кровли и междуэтажного перекрытия.",
+  'loadPlan.gravity.mixedExposure': "Назначенная область включает участки кровли и перекрытия. Явно задайте нагрузки для каждого участка.",
   'loadPlan.gravity.stripSpan': "Открытая полоса превышает максимальный пролёт перекрытия.",
   'loadPlan.gravity.headroomCheckFailed': "Не удалось проверить высоту в свету над открытой полосой: {detail}",
   'loadPlan.gravity.stripHeadroom': "Высота этажа в свету над открытой полосой недостаточна или не определена.",
@@ -3766,6 +3766,11 @@ const ru: Translations = {
   "autoLoad.work.draw": "Отрисовка нагрузок",
   "autoLoad.work.step": "Шаг {step} из {total}",
   "autoLoad.work.cancel": "Остановить",
+  "svc.engine.unsupportedPointLoadMoment": "Недопустимая компонента момента сосредоточенной нагрузки на стержень",
+  "svc.engine.applyPointLoadMomentAtNode": "приложите момент к узлу 3D-модели в исходной точке приложения нагрузки",
+  "svc.engine.invalidSelfWeightGroup": "Группа собственного веса {id} отсутствует или содержит недопустимый список элементов. Восстановите группу и её состав или измените область приложения собственного веса.",
+  "svc.engine.invalidDensity": "Введите конечную неотрицательную плотность (rho) для материала {id} (получено: {value}).",
+  "svc.engine.nonnegativeMassDensity": "Плотность массы должна быть конечной и неотрицательной",
   "svc.engine.nonFiniteNumber": "Введите конечное число для {path} (получено: {value}).",
 } as const satisfies Record<string, string>;
 
