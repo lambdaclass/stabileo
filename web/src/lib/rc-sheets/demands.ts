@@ -1,3 +1,4 @@
+import { FLIGHT_SLOPE } from './stair-demands';
 import { buildCriticalStations, extractForcesAtStation, type StationForces } from '../engine/station-forces';
 import { shellCentreRows, shellLocalAxes, type ShellCentreRow, type ShellModel } from '../engine/shell-results';
 import { woodArmer } from '../engine/wood-armer';
@@ -581,17 +582,19 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
     const pts = [...g.quads.flatMap(quadNodes), ...g.plates.flatMap(plateNodes)].map((n) => m.nodes.get(n)).filter((p): p is Pt => !!p);
     if (!pts.length) continue;
     const flipOf = new Map<string, number>();
-    let horizontal = true;
+    let horizontal = true, flight = true;
     for (const [kind, ids, nodesOf] of [['quad', g.quads, quadNodes], ['plate', g.plates, plateNodes]] as const) {
       for (const id of ids) {
         const ax = shellLocalAxes(kind, nodesOf(id).map((n) => m.nodes.get(n)!).filter(Boolean));
         if (!ax) continue;
         if (Math.abs(ax.ez[2]) < VERTICAL) horizontal = false;
+        const slope = (Math.acos(Math.min(1, Math.abs(ax.ez[2]))) * 180) / Math.PI;
+        if (slope < FLIGHT_SLOPE.min || slope > FLIGHT_SLOPE.max) flight = false;
         // With the element's local z up, a positive engine moment sags (checked against a downward load).
         flipOf.set(`${kind === 'quad' ? 'q' : 'p'}${id}`, ax.ez[2] >= 0 ? 1 : -1);
       }
     }
-    if (!horizontal && g.kind !== 'slab') continue;
+    if (!horizontal && (g.kind !== 'slab' || flight)) continue;
     const h = thickness(g);
     if (!h) continue;
     const posts = slabPosts(m, keys, h);

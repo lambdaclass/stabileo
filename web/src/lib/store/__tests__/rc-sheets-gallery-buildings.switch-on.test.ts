@@ -30,6 +30,8 @@ describe('the building between party walls in the sheets', () => {
     expect(stairs.filter((s) => s.demand.spec.landingBottom > 1).length, 'every flight but the first leaves a landing').toBe(11);
     expect(new Set(stairs.map((s) => s.level)).size).toBe(6);
     expect(rows.wall.length).toBeGreaterThanOrEqual(5 * 7);
+    expect(rows.slab.filter((r) => r.name.startsWith('Tramo')).map((r) => r.name), 'a flight is a stair of the sheets, never also a slab panel barred level').toEqual([]);
+    expect(rows.slab.filter((r) => r.name.startsWith('Descanso')).length).toBe(12);
     const bars = sheetBars3d(rows).filter((b) => b.family === 'stair'), ghosts = sheetGhosts3d(rows).filter((g) => g.family === 'stair');
     expect(new Set(bars.map((b) => b.element)).size).toBe(12);
     const out = bars.flatMap((b) => bentPoints(b).flatMap((p) => {
