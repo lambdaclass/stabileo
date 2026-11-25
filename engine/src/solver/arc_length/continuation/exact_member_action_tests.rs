@@ -249,7 +249,6 @@ fn member_recovery_resolves_both_signs_of_chord_rotation() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2560"]
 fn issue_2560_member_rotation_after_axial_stretch_corotation() {
     let mut solver = rotation_fixture().solver;
     for (motion, axial) in [([0.0, 0.0], 0.0), ([3.0, 4.0], 2.0), ([-1.5, -2.0], -1.0)] {
@@ -265,7 +264,6 @@ fn issue_2560_member_rotation_after_axial_stretch_corotation() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2560"]
 fn issue_2560_member_rotation_after_axial_stretch_warm_corotation() {
     let solver = rotation_fixture().solver;
     let mut base = solver.clone();
@@ -282,7 +280,6 @@ fn issue_2560_member_rotation_after_axial_stretch_warm_corotation() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2560"]
 fn issue_2560_member_rotation_after_axial_stretch_arc() {
     let solver = rotation_fixture().solver;
     let result = solve_arc_length(&arc_input(solver)).unwrap();
@@ -291,7 +288,6 @@ fn issue_2560_member_rotation_after_axial_stretch_arc() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2560"]
 fn issue_2560_member_rotation_after_axial_stretch_warm_arc() {
     let mut solver = rotation_fixture().solver;
     let mut base = solver.clone();
@@ -311,7 +307,6 @@ fn issue_2560_member_rotation_after_axial_stretch_warm_arc() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2560"]
 fn issue_2560_member_rotation_after_axial_stretch_displacement_control() {
     let RotationFixture {
         mut solver,
@@ -335,7 +330,6 @@ fn issue_2560_member_rotation_after_axial_stretch_displacement_control() {
 
 #[cfg(feature = "experimental-nonlinear")]
 #[test]
-#[ignore = "known wrong result: #2560"]
 fn issue_2560_member_rotation_after_axial_stretch_experimental_corotation() {
     use crate::solver::experimental_nonlinear::{
         solve_corotational_2d_by, solve_corotational_2d_stepped, IterationMethod, LoadStepping,

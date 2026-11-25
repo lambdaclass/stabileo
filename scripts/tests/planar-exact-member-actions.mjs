@@ -50,7 +50,6 @@ export function registerMemberRotationTests({ arc, displacement, corotational })
   const { solver: base, displacementControl } = JSON.parse(readFileSync(
     new URL('./fixtures/planar-member-rotation.json', import.meta.url),
   ));
-  const knownWrong = process.env.RUN_KNOWN_WRONG !== '2560' && 'known wrong result: #2560';
   const tolerance = 1e-8;
   const check = (result, motion, axial) => {
     assert.equal(result.converged, true);
@@ -72,7 +71,7 @@ export function registerMemberRotationTests({ arc, displacement, corotational })
     }
   });
 
-  test('#2560 member rotation after axial stretch: co-rotation', { skip: knownWrong }, () => {
+  test('#2560 member rotation after axial stretch: co-rotation', () => {
     for (const [motion, axial] of [[[0, 0], 0], [[3, 4], 2], [[-1.5, -2], -1]]) {
       const solver = structuredClone(base);
       [solver.supports[2].dx, solver.supports[2].dz] = motion;
@@ -83,7 +82,7 @@ export function registerMemberRotationTests({ arc, displacement, corotational })
     }
   });
 
-  test('#2560 member rotation after axial stretch: arc length', { skip: knownWrong }, () => {
+  test('#2560 member rotation after axial stretch: arc length', () => {
     const radius = 0.75 * Math.SQRT2;
     const result = arc({
       solver: base, maxSteps: 1, maxIter: 20, tolerance,
@@ -93,7 +92,7 @@ export function registerMemberRotationTests({ arc, displacement, corotational })
     check(result, [2.25, 3], 1.5);
   });
 
-  test('#2560 member rotation after axial stretch: displacement control', { skip: knownWrong }, () => {
+  test('#2560 member rotation after axial stretch: displacement control', () => {
     const solver = { ...structuredClone(base), ...displacementControl };
     delete solver.supports[2];
     const result = displacement({

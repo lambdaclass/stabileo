@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use num_rational::BigRational;
-use num_traits::{ToPrimitive, Zero};
+use num_traits::{Signed, ToPrimitive, Zero};
 
 use super::assembly::{
     self, FrameLoadGeometry, InclinedTransformData2D, LocalMemberActions2D, PlanarLoadContribution,
@@ -434,36 +434,71 @@ impl<'a> PlanarDisplacements<'a> {
         Self { solver, axes }
     }
 
+    fn global_member_motion(
+        &self,
+        node: usize,
+        dofs: &[usize; 2],
+        [dx, dz]: [f64; 2],
+    ) -> [ExactSum; 2] {
+        let mut motion = dofs.map(|dof| {
+            let mut sum = ExactSum::default();
+            sum.add(self.solver[dof]);
+            sum
+        });
+        let Some((last, earlier)) = self.axes.get(&node).and_then(|axes| axes.split_last()) else {
+            return motion;
+        };
+        let reverse = |axes: [[f64; 2]; 2], motion: &[ExactSum; 2]| {
+            let [[a, b], [c, d]] = axes;
+            [[a, c], [b, d]].map(|row| ExactSum::projected(row, motion.each_ref().map(Some)))
+        };
+        for &rotation in earlier {
+            motion = reverse(rotation, &motion);
+        }
+
+        let length = (dx * dx + dz * dz).sqrt();
+        let chord_axes = [[dx, dz], [-dx, -dz], [-dz, dx], [dz, -dx]]
+            .map(|[x, z]| [[x, z], [z, -x]])
+            .into_iter()
+            .find(|axes| axes.map(|row| row.map(|value| value / length)) == *last);
+        if let (Some(axes), Some(length)) = (chord_axes, BigRational::from_float(length)) {
+            reverse(axes, &motion).map(|mut component| {
+                component.value /= &length;
+                component
+            })
+        } else {
+            reverse(*last, &motion)
+        }
+    }
+
     pub(super) fn member_rotation(
         &self,
-        node_ids: [usize; 2],
+        nodes: [&SolverNode; 2],
         dofs: &[[usize; 2]; 2],
-        length: f64,
-        [c, s]: [f64; 2],
     ) -> [f64; 2] {
-        let mut chord = [ExactSum::default(), ExactSum::default()];
-        chord[0].add(length);
-        for ((node, dofs), sign) in node_ids.into_iter().zip(dofs).zip([-1.0, 1.0]) {
-            let mut global = dofs.map(|dof| {
-                let mut sum = ExactSum::default();
-                sum.add(self.solver[dof]);
-                sum
-            });
-            if let Some(axes) = self.axes.get(&node) {
-                for &[[a, b], [c, d]] in axes {
-                    global = [[a, c], [b, d]]
-                        .map(|row| ExactSum::projected(row, global.each_ref().map(Some)));
-                }
-            }
-            let [x, z] = global;
-            for (component, row) in chord.iter_mut().zip([[c, s], [-s, c]]) {
-                component.add_scaled(&x, sign * row[0]);
-                component.add_scaled(&z, sign * row[1]);
+        let [i, j] = nodes;
+        let [dx, dz] = [j.x - i.x, j.z - i.z];
+        let mut chord = [dx, dz].map(|component| {
+            let mut sum = ExactSum::default();
+            sum.add(component);
+            sum
+        });
+        for ((node, dofs), sign) in nodes.into_iter().zip(dofs).zip([-1.0, 1.0]) {
+            let global = self.global_member_motion(node.id, dofs, [dx, dz]);
+            for (component, displacement) in chord.iter_mut().zip(&global) {
+                component.add_scaled(displacement, sign);
             }
         }
-        let [axial, transverse] = chord.map(ExactSum::rounded);
-        let length = axial.hypot(transverse);
-        [axial / length, transverse / length]
+        let [parallel, transverse] =
+            [[dx, dz], [-dz, dx]].map(|row| ExactSum::projected(row, chord.each_ref().map(Some)));
+        let scale = parallel.value.abs().max(transverse.value.abs());
+        if parallel.nonfinite || transverse.nonfinite || scale.is_zero() {
+            return [f64::NAN; 2];
+        }
+        let [parallel, transverse] = [parallel, transverse]
+            .map(|component| (component.value / &scale).to_f64().unwrap_or(f64::NAN));
+        let length = parallel.hypot(transverse);
+        [parallel / length, transverse / length]
     }
 }
 

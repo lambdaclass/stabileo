@@ -1482,21 +1482,18 @@ fn member_forces_2d(
             let mut f_local = corotational_frame_end_forces(&k_local, &d_local, l_n);
 
             // Subtract FEF for output (element forces = K*u - FEF)
-            let reference = [dx0 / l0, dy0 / l0];
             if let Some((applied, solver_displacements)) = applied {
                 let actions = applied.frame_actions(elem.id, || {
                     solver_displacements.member_rotation(
-                        [elem.node_i, elem.node_j],
+                        [node_i, node_j],
                         &[[elem_dofs[0], elem_dofs[1]], [elem_dofs[3], elem_dofs[4]]],
-                        l0,
-                        reference,
                     )
                 });
                 for (force, action) in f_local.iter_mut().zip(actions) {
                     *force -= action;
                 }
             } else {
-                let chords = (reference, [dx_n / l_n, dy_n / l_n]);
+                let chords = ([dx0 / l0, dy0 / l0], [dx_n / l_n, dy_n / l_n]);
                 subtract_element_fef(input, elem, l0, e, mat.nu, chords, &mut f_local, sec);
             }
 
