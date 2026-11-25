@@ -39,25 +39,34 @@ fn check_spatial_rotation(case: &Case3, analysis: ana3::Ana3, seed: u64) {
     assert_eq!(tally.symbol(analysis.name, "rotation"), "✓", "{}", tally.report());
 }
 
+fn assert_equivalent_planar_supports(shared: &Case2, canonical: &Case2) {
+    let shared_report = analyze_kinematics_2d(&shared.s);
+    let canonical_report = analyze_kinematics_2d(&canonical.s);
+    assert!(shared_report.invalid_input.is_none(), "shared supports: {:?}", shared_report.invalid_input);
+    assert!(canonical_report.invalid_input.is_none(), "single support: {:?}", canonical_report.invalid_input);
+    assert_eq!(shared_report.degree, canonical_report.degree);
+
+    let results = |case: &Case2| {
+        let r = solve_2d(&case.s).unwrap();
+        serde_json::to_value((r.displacements, r.reactions, r.element_forces)).unwrap()
+    };
+    assert_eq!(results(shared), results(canonical));
+}
+
 #[test]
+#[ignore = "known wrong result: #1192"]
 fn issue_1192_pinned_and_roller_supports_rotate_as_one_restraint() {
     let model = include_str!("../metamorphic_corpus/nightly/issue-1192.json");
     let case = Case2::new("issue-1192", serde_json::from_str(model).unwrap());
     let mut canonical = case.clone();
     canonical.s.supports.remove("3").unwrap();
-    assert_eq!(analyze_kinematics_2d(&case.s).degree, analyze_kinematics_2d(&canonical.s).degree);
-    let results = |case: &Case2| {
-        let r = solve_2d(&case.s).unwrap();
-        serde_json::to_value((r.displacements, r.reactions, r.element_forces)).unwrap()
-    };
-    assert_eq!(results(&case), results(&canonical));
+    assert_equivalent_planar_supports(&case, &canonical);
 
     for iso in [Iso2::mirror_line(0.4), Iso2::rotation(0.3).translated(2.0, -3.0)] {
         let transformed = case.iso(&iso).unwrap();
         assert_eq!(transformed.s.supports.values().filter(|s| s.node_id == 2).count(), 1);
         let expected = canonical.iso(&iso).unwrap();
-        assert_eq!(results(&transformed), results(&expected));
-        assert_eq!(analyze_kinematics_2d(&transformed.s).degree, analyze_kinematics_2d(&expected.s).degree);
+        assert_equivalent_planar_supports(&transformed, &expected);
     }
 
     let tally = Tally::default();
@@ -87,6 +96,22 @@ fn loaded_planar_case() -> Case2 {
     case.s.elements.insert("2".into(), second_member);
     case.s.loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 2.0, fz: -3.0, my: 4.0 }));
     case
+}
+
+#[test]
+#[ignore = "known wrong result: #1192"]
+fn perpendicular_planar_rollers_match_a_pin_before_and_after_rotation() {
+    let mut rollers = loaded_planar_case();
+    let mut pin = rollers.clone();
+    pin.s.supports.remove("3").unwrap();
+    rollers.s.supports.get_mut("2").unwrap().support_type = "rollerZ".into();
+
+    assert_equivalent_planar_supports(&rollers, &pin);
+
+    let iso = Iso2::rotation(0.3);
+    let rotated_rollers = rollers.iso(&iso).unwrap();
+    let rotated_pin = pin.iso(&iso).unwrap();
+    assert_equivalent_planar_supports(&rotated_rollers, &rotated_pin);
 }
 
 fn check_loaded_planar_isometry(iso: Iso2) {

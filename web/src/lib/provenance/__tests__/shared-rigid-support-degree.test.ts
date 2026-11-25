@@ -11,10 +11,10 @@ const terms = {
   tr: 'hiperstatiklik derecesi',
   zh: '超静定次数',
   ar: 'درجة عدم التحديد الساكن',
-  hi: 'स्थैतिक अनिश्चितता की डिग्री',
+  hi: 'स्थैतिक अनिर्धार्यता की कोटि',
   id: 'derajat hiperstatis',
   it: 'grado di iperstaticità',
-  ja: '超静定次数',
+  ja: '不静定次数',
   ko: '부정정 차수',
   ru: 'степень статической неопределимости',
 } as const;
