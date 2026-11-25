@@ -126,6 +126,12 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-112-basic-3d-shell-omission.md", "label": "SA-2026-112", "t": "Betroffene Eingaben und erforderliche Schritte."},
     {"k": "note", "t": "SA-2026-113 — Nächste Version nach 0.6.4."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-113-native-supplied-linear-certificates.md", "label": "SA-2026-113", "t": "Betroffene Eingaben und erforderliche Schritte."},
+    {"k": "note", "t": "SA-2026-114 — Nächste Version nach 0.6.4."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-114-saved-combination-load-groups.md", "label": "SA-2026-114", "t": "Betroffene Eingaben und erforderliche Schritte."},
+    {"k": "note", "t": "SA-2026-115 — Nächste Version nach 0.6.4."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-115-gravity-floor-region-ownership.md", "label": "SA-2026-115", "t": "Betroffene Eingaben und erforderliche Schritte."},
+    {"k": "note", "t": "SA-2026-116 — Nächste Version nach 0.6.4."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-116-nonlinear-continuation-and-inclined-loads.md", "label": "SA-2026-116", "t": "Betroffene Eingaben und erforderliche Schritte."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO mit einem Stahlbetonrahmen, gespeichert, bevor Ergebnisse versioniert wurden. Ein Hinweis unten meldet veraltete Ergebnisse: Das Projekt wurde mit einer älteren Version gelöst, und 19 registrierte Änderungen betreffen es; daneben die Schaltflächen, um die Änderungen zu sehen und neu zu rechnen.", "caption": "Wie eine Korrektur ein gespeichertes Projekt erreicht: Bis es neu gelöst ist, bleiben seine Ergebnisse als veraltet markiert, und die Änderungen, die es betreffen, sind einen Klick entfernt."},
     {
       "k": "h",
@@ -547,7 +553,10 @@ const body: PostBody = {
         ["SA-2026-110", "Die Webanwendung konnte eine Feder mit nicht endlicher Steifigkeit oder einen Lastfall in einer Kombination ohne Warnung auslassen. Prüfen Sie die Federsteifigkeiten, die Lastfallnamen und die resultierenden Faktoren. Berechnen Sie die betroffenen Fälle und Kombinationen erneut.", "Hoch", "Nächste Version nach 0.6.4"],
         ["SA-2026-111", "Die automatische Erzeugung von Schwerelasten für Deckenfelder konnte dieselbe Deckenlast doppelt ansetzen. Prüfen Sie überlappende Schalen und angeschlossene Trägerfelder, erzeugen Sie betroffene gespeicherte Schwerelastpläne neu und wiederholen Sie die betroffenen Berechnungen.", "Hoch", "Nächste Version nach 0.6.4"],
         ["SA-2026-112", "Die 3D-Berechnung im Basic-Modus konnte alle Schalenelemente ohne Warnung auslassen. Berechnen Sie die betroffenen Lastfälle und Lastkombinationen in PRO 3D mit dem vollständigen Schalennetz erneut und wiederholen Sie die darauf beruhenden Bemessungsnachweise.", "Hoch", "Nächste Version nach 0.6.4"],
-        ["SA-2026-113", "Die native Rust-API konnte übergebene lineare Ergebnisse für einen Lastfall zertifizieren, den der Solver ablehnte. Wiederholen Sie die betroffenen Berechnungen und Zertifizierungen, einschließlich der davon abhängigen Lastkombinationen und Einhüllenden.", "Mittel", "Nächste Version nach 0.6.4"]
+        ["SA-2026-113", "Die native Rust-API konnte übergebene lineare Ergebnisse für einen Lastfall zertifizieren, den der Solver ablehnte. Wiederholen Sie die betroffenen Berechnungen und Zertifizierungen, einschließlich der davon abhängigen Lastkombinationen und Einhüllenden.", "Mittel", "Nächste Version nach 0.6.4"],
+        ["SA-2026-114", "Gespeicherte Kombinationsregeln konnten Faktoren ohne Warnung der falschen Lastgruppe zuordnen. Stellen Sie die vorgesehenen Gruppen wieder her, erzeugen Sie betroffene Lastkombinationen und zusammengesetzte Lastfälle neu und wiederholen Sie die zugehörigen Berechnungen und Einhüllenden.", "Hoch", "Nächste Version nach 0.6.4"],
+        ["SA-2026-115", "Bei der Erzeugung von Schwerelasten für Deckenfelder konnte derselbe Deckenbereich über mehrere tragende Elemente belastet werden. Erzeugen Sie betroffene Lastpläne neu, klären Sie Konflikte bei Lasten oder Geometrie und wiederholen Sie die betroffenen Berechnungen.", "Hoch", "Nächste Version nach 0.6.4"],
+        ["SA-2026-116", "Nichtlineare Löser konnten einen fehlerhaften Bogenlängenpfad akzeptieren oder die Tangentialkraft an einem geneigten Rollenlager auslassen. Wiederholen Sie betroffene ebene nichtlineare und räumliche korotationale Berechnungen, auch für gekrümmte Stäbe mit versetztem Schubmittelpunkt.", "Hoch", "Nächste Version nach 0.6.4"]
       ]
     },
     {

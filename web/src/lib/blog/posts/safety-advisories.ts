@@ -133,6 +133,12 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-112-basic-3d-shell-omission.md", "label": "SA-2026-112", "t": "Entradas afectadas y acciones necesarias."},
         {"k": "note", "t": "SA-2026-113 — Próxima versión después de la 0.6.4."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-113-native-supplied-linear-certificates.md", "label": "SA-2026-113", "t": "Entradas afectadas y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-114 — Próxima versión después de la 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-114-saved-combination-load-groups.md", "label": "SA-2026-114", "t": "Entradas afectadas y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-115 — Próxima versión después de la 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-115-gravity-floor-region-ownership.md", "label": "SA-2026-115", "t": "Entradas afectadas y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-116 — Próxima versión después de la 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-116-nonlinear-continuation-and-inclined-loads.md", "label": "SA-2026-116", "t": "Entradas afectadas y acciones necesarias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO con un pórtico de hormigón guardado antes de que los resultados tuvieran versión. Un aviso abajo indica que los resultados están desactualizados porque el proyecto se resolvió con una versión anterior y 19 cambios registrados lo afectan, con los botones para ver qué cambió y volver a calcular.', caption: 'Cómo llega una corrección a un proyecto guardado: hasta que se resuelve de nuevo, sus resultados quedan marcados como desactualizados, con los cambios que lo afectan a un clic.' },
 
         { k: 'h', t: 'Resumen' },
@@ -252,7 +258,10 @@ export const safetyAdvisories: Post = {
             ["SA-2026-110", "El análisis web podía omitir sin aviso un resorte de rigidez no finita o un caso de carga de una combinación. Revisá las rigideces, los nombres de los casos y los factores netos, y volvé a calcular los análisis y las combinaciones afectados.", "Alta", "Próxima versión después de la 0.6.4"],
             ["SA-2026-111", "La generación automática de cargas gravitatorias por paños podía contar dos veces la misma carga de piso. Revisá las cáscaras superpuestas y los paños de vigas conectados, regenerá los planes de cargas gravitatorias guardados que estén afectados y repetí los análisis correspondientes.", "Alta", "Próxima versión después de la 0.6.4"],
             ["SA-2026-112", "El análisis Básico 3D podía omitir sin aviso todos los elementos de cáscara. Repetí los casos y las combinaciones de carga afectados en PRO 3D con la malla completa de cáscaras y volvé a hacer las verificaciones que dependan de esos resultados.", "Alta", "Próxima versión después de la 0.6.4"],
-            ["SA-2026-113", "La API nativa de Rust podía certificar resultados lineales aportados para un caso de carga que el solver rechazaba. Repetí los análisis y la certificación afectados, incluidas las combinaciones y envolventes que dependan de esos casos.", "Media", "Próxima versión después de la 0.6.4"]
+            ["SA-2026-113", "La API nativa de Rust podía certificar resultados lineales aportados para un caso de carga que el solver rechazaba. Repetí los análisis y la certificación afectados, incluidas las combinaciones y envolventes que dependan de esos casos.", "Media", "Próxima versión después de la 0.6.4"],
+            ["SA-2026-114", "Las reglas de combinación guardadas podían aplicar factores al grupo de cargas equivocado sin aviso. Restablecé los grupos previstos, regenerá las combinaciones y los casos compuestos afectados, y repetí sus análisis y envolventes.", "Alta", "Próxima versión después de la 0.6.4"],
+            ["SA-2026-115", "La generación de cargas gravitatorias por paños podía cargar una misma región de piso a través de varios elementos portantes. Regenerá los planes afectados, resolvé los conflictos de carga o geometría y repetí los análisis correspondientes.", "Alta", "Próxima versión después de la 0.6.4"],
+            ["SA-2026-116", "Los solvers no lineales podían aceptar una trayectoria incorrecta de longitud de arco u omitir la fuerza tangencial en un rodillo inclinado. Repetí los análisis no lineales planos y corrotacionales espaciales afectados, incluidos los de barras curvas con centro de corte excéntrico.", "Alta", "Próxima versión después de la 0.6.4"]
           ],
         },
         {
@@ -541,6 +550,12 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-112-basic-3d-shell-omission.md", "label": "SA-2026-112", "t": "Affected inputs and user action."},
         {"k": "note", "t": "SA-2026-113 — Next release after 0.6.4."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-113-native-supplied-linear-certificates.md", "label": "SA-2026-113", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-114 — Next release after 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-114-saved-combination-load-groups.md", "label": "SA-2026-114", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-115 — Next release after 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-115-gravity-floor-region-ownership.md", "label": "SA-2026-115", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-116 — Next release after 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-116-nonlinear-continuation-and-inclined-loads.md", "label": "SA-2026-116", "t": "Affected inputs and user action."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO with a concrete frame saved before results were versioned. A banner at the bottom reads “Results stale: this project was last solved with an older version, and 19 registered changes concern it”, with the buttons “What changed” and “Re-run”.', caption: 'How a fix reaches a saved project: until it is solved again, its results stay marked stale, with the changes that concern it one click away.' },
 
         { k: 'h', t: 'Summary' },
@@ -660,7 +675,10 @@ export const safetyAdvisories: Post = {
             ["SA-2026-110", "Web analysis could silently omit a spring with non-finite stiffness or a load case in a combination. Check spring stiffnesses, case names and net factors, then rerun affected analyses and combinations.", "High", "Next release after 0.6.4"],
             ["SA-2026-111", "Automatic panel gravity generation could count the same floor load twice. Check overlapping shells and connected beam bays, regenerate affected saved gravity load plans and rerun affected analyses.", "High", "Next release after 0.6.4"],
             ["SA-2026-112", "Basic 3D could silently omit all shell elements. Rerun affected load cases and combinations in PRO 3D with the complete shell mesh, then repeat dependent design checks.", "High", "Next release after 0.6.4"],
-            ["SA-2026-113", "The native Rust API could certify supplied linear results for a load case the solver refused. Rerun affected analyses and certification, including dependent combinations and envelopes.", "Medium", "Next release after 0.6.4"]
+            ["SA-2026-113", "The native Rust API could certify supplied linear results for a load case the solver refused. Rerun affected analyses and certification, including dependent combinations and envelopes.", "Medium", "Next release after 0.6.4"],
+            ["SA-2026-114", "Saved combination rules could apply factors to the wrong load group without warning. Restore the intended groups, regenerate affected combinations and composite cases, and rerun their analyses and envelopes.", "High", "Next release after 0.6.4"],
+            ["SA-2026-115", "Panel gravity generation could load the same floor region through multiple carriers. Regenerate affected gravity plans, resolve conflicting loads or geometry, and rerun affected analyses.", "High", "Next release after 0.6.4"],
+            ["SA-2026-116", "Nonlinear solvers could accept an incorrect arc-length path or omit the tangential force at an inclined roller. Rerun affected planar nonlinear and spatial co-rotational analyses, including curved frames with shear-centre offsets.", "High", "Next release after 0.6.4"]
           ],
         },
         {
@@ -949,6 +967,12 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-112-basic-3d-shell-omission.md", "label": "SA-2026-112", "t": "Entradas afetadas e ações necessárias."},
         {"k": "note", "t": "SA-2026-113 — Próxima versão após a 0.6.4."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-113-native-supplied-linear-certificates.md", "label": "SA-2026-113", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-114 — Próxima versão após a 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-114-saved-combination-load-groups.md", "label": "SA-2026-114", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-115 — Próxima versão após a 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-115-gravity-floor-region-ownership.md", "label": "SA-2026-115", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-116 — Próxima versão após a 0.6.4."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-116-nonlinear-continuation-and-inclined-loads.md", "label": "SA-2026-116", "t": "Entradas afetadas e ações necessárias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO com um pórtico de concreto salvo antes de os resultados terem versão. Um aviso embaixo indica que os resultados estão desatualizados porque o projeto foi resolvido com uma versão anterior e 19 mudanças registradas o afetam, com os botões para ver o que mudou e recalcular.', caption: 'Como uma correção chega a um projeto salvo: até ser resolvido de novo, seus resultados ficam marcados como desatualizados, com as mudanças que o afetam a um clique.' },
 
         { k: 'h', t: 'Resumo' },
@@ -1068,7 +1092,10 @@ export const safetyAdvisories: Post = {
             ["SA-2026-110", "A análise web podia omitir sem aviso uma mola com rigidez não finita ou um caso de carga de uma combinação. Confira as rigidezes, os nomes dos casos e os fatores resultantes, e refaça as análises e combinações afetadas.", "Alta", "Próxima versão após a 0.6.4"],
             ["SA-2026-111", "A geração automática de cargas gravitacionais por painéis podia contabilizar duas vezes a mesma carga de piso. Confira as cascas sobrepostas e os painéis de vigas conectados, gere novamente os planos de cargas gravitacionais salvos que foram afetados e refaça as análises correspondentes.", "Alta", "Próxima versão após a 0.6.4"],
             ["SA-2026-112", "A análise Básica 3D podia omitir todos os elementos de casca sem aviso. Refaça os casos e as combinações de carga afetados no PRO 3D com a malha completa de cascas e repita as verificações de projeto que dependem desses resultados.", "Alta", "Próxima versão após a 0.6.4"],
-            ["SA-2026-113", "A API nativa em Rust podia certificar resultados lineares fornecidos para um caso de carga que o solver recusava. Refaça as análises e a certificação afetadas, incluindo as combinações e envoltórias que dependem desses casos.", "Média", "Próxima versão após a 0.6.4"]
+            ["SA-2026-113", "A API nativa em Rust podia certificar resultados lineares fornecidos para um caso de carga que o solver recusava. Refaça as análises e a certificação afetadas, incluindo as combinações e envoltórias que dependem desses casos.", "Média", "Próxima versão após a 0.6.4"],
+            ["SA-2026-114", "Regras de combinação salvas podiam aplicar coeficientes ao grupo de cargas errado sem aviso. Restaure os grupos pretendidos, gere novamente as combinações e os casos compostos afetados e refaça as análises e envoltórias correspondentes.", "Alta", "Próxima versão após a 0.6.4"],
+            ["SA-2026-115", "A geração de cargas gravitacionais por painéis podia carregar a mesma região do piso por meio de vários elementos portantes. Gere novamente os planos afetados, resolva os conflitos de carga ou de geometria e refaça as análises afetadas.", "Alta", "Próxima versão após a 0.6.4"],
+            ["SA-2026-116", "Os solvers não lineares podiam aceitar uma trajetória incorreta de comprimento de arco ou omitir a força tangencial em um apoio móvel inclinado. Refaça as análises não lineares planas e corrotacionais espaciais afetadas, incluindo as de barras curvas com centro de cisalhamento excêntrico.", "Alta", "Próxima versão após a 0.6.4"]
           ],
         },
         {
