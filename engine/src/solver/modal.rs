@@ -535,6 +535,13 @@ pub struct ModeShape3D {
 }
 
 /// Solve 3D modal analysis.
+/// Proof of concept, off by default: `solve_modal_3d` and the like run inside `f` solve the
+/// uncondensed pencil instead of condensing the massless coordinates.
+#[doc(hidden)]
+pub fn with_implicit_mass_range<T>(f: impl FnOnce() -> T) -> T {
+    super::modal_mass::with_implicit_mass_range(f)
+}
+
 pub fn solve_modal_3d(
     input: &SolverInput3D,
     densities: &HashMap<String, f64>,

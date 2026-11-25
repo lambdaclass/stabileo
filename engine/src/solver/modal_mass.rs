@@ -400,6 +400,9 @@ impl MassRange {
             let factor = numeric_cholesky(&symbolic, stiffness);
             observe(factor.as_ref());
         }
+        if IMPLICIT.with(|on| on.get()) {
+            return self.solve_sparse_implicit(stiffness, count);
+        }
         let condensed = self.condensed(stiffness)?;
         let result = crate::linalg::lanczos::lanczos_generalized_eigen_sparse_observed(
             &condensed.stiffness,
@@ -412,6 +415,45 @@ impl MassRange {
             return None;
         }
         self.recover(&condensed, result)
+    }
+}
+
+thread_local! {
+    static IMPLICIT: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Proof of concept: run `f` with the sparse modal solve on the uncondensed pencil
+/// (`solve_sparse_implicit`) where it would condense the massless coordinates.
+pub(super) fn with_implicit_mass_range<T>(f: impl FnOnce() -> T) -> T {
+    let before = IMPLICIT.with(|on| on.replace(true));
+    let out = f();
+    IMPLICIT.with(|on| on.set(before));
+    out
+}
+
+impl MassRange {
+    /// The modes of the pencil on the mass range without forming the condensed stiffness: the
+    /// massless coordinates stay in the stiffness and have no mass, so the finite eigenvalues
+    /// of (K, M) are those of the condensed pencil and each vector already carries them.
+    fn solve_sparse_implicit(&self, stiffness: &CscMatrix, count: usize) -> Option<EigenResult> {
+        let n = self.transform.n_rows;
+        let stiffness = self.transform.reduce_sparse(stiffness);
+        let mass = self.mass_on_range();
+        let want = count.min(self.rank);
+        let result = crate::linalg::lanczos::lanczos_generalized_eigen_sparse_observed(&stiffness, &mass, want, 0.0, &mut |_| {})?;
+        if result.values.len() != want {
+            return None;
+        }
+        let found = result.values.len();
+        let mut vectors = vec![0.0; n * found];
+        for j in 0..found {
+            let column: Vec<_> = (0..n).map(|i| result.vectors[i * found + j]).collect();
+            let column = self.transform.mul_vec(&column);
+            for i in 0..n {
+                vectors[i * found + j] = column[i];
+            }
+        }
+        Some(EigenResult { values: result.values, vectors })
     }
 }
 

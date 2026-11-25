@@ -12,6 +12,8 @@ mod common;
 mod constrained_shell_stress;
 #[path = "../discretization_error.rs"]
 mod discretization_error;
+#[path = "../modal_implicit_poc.rs"]
+mod modal_implicit_poc;
 #[path = "../shell_degeneracy_validation.rs"]
 mod shell_degeneracy_validation;
 #[path = "../shell_mesh_quality_gates.rs"]
