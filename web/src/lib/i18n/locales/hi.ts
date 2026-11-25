@@ -3780,6 +3780,7 @@ const hi: Translations = {
   "svc.engine.missingSelfWeightTarget": "स्व-भार का लक्ष्य {kind} {id} अनुपलब्ध है। उसे पुनर्स्थापित करें या स्व-भार का लक्ष्य बदलें।",
   "svc.engine.invalidDensity": "सामग्री {id} के लिए परिमित और गैर-ऋणात्मक घनत्व (rho) दर्ज करें (प्राप्त मान: {value})।",
   "svc.engine.nonnegativeMassDensity": "द्रव्यमान घनत्व परिमित और गैर-ऋणात्मक होना चाहिए",
+  "svc.engine.invalidInputField": "फ़ील्ड {path} मौजूद नहीं है या उसका मान समर्थित नहीं है।",
   "svc.engine.nonFiniteNumber": "{path} में एक परिमित संख्या दर्ज करें (प्राप्त मान: {value})।",
 };
 export default hi;

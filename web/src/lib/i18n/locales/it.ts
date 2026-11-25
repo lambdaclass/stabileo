@@ -3783,6 +3783,7 @@ const it: Translations = {
   "svc.engine.missingSelfWeightTarget": "La destinazione del peso proprio {kind} {id} è assente. Ripristinala o modifica la destinazione del peso proprio.",
   "svc.engine.invalidDensity": "Inserisci una densità (rho) finita e non negativa per il materiale {id} (valore ricevuto: {value}).",
   "svc.engine.nonnegativeMassDensity": "La densità di massa deve essere finita e non negativa",
+  "svc.engine.invalidInputField": "Il campo {path} è mancante o contiene un valore non supportato.",
   "svc.engine.nonFiniteNumber": "Inserisci un numero finito per {path} (valore ricevuto: {value}).",
 };
 export default it;
