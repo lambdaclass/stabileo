@@ -198,7 +198,7 @@ it('#2226 withholds a project summary whose nested magnitude has only a bound', 
   const makeSources = (forces: ElementForces3D) => [{ ...A, results: { ...A.results, elementForces: [forces] } }];
   const tr = (key: string) => key === DIAGRAM_EXTREMA_UNAVAILABLE ? 'Extrema withheld' : key;
   expect(envelopeSectionHtml(makeSources(f), tr, 'Envelope').join('')).toContain('V (kN)</td><td class="num">5.000</td>');
-  const combined: ElementForces3D = { ...f, combined: { method: 'abs', parts: [f] } };
+  const combined: ElementForces3D = { ...f, combined: { method: 'abs', parts: [f, { ...f, vyStart: -1 }] } };
   expect(() => envelopeSectionHtml(makeSources(combined), tr, 'Envelope')).toThrow('Extrema withheld');
 });
 
@@ -266,32 +266,34 @@ const reviewForces: ElementForces3D = {
   mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0,
   releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false,
   releaseTStart: false, releaseTEnd: false, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0,
-  pointLoadsY: [], pointLoadsZ: [],
+  pointLoadsY: [], pointLoadsZ: [], distributedLoadsY: [], distributedLoadsZ: [],
 };
 
 const criticalOptions = { ...canonical, stations: 'critical', resultant: true } as const;
 const reviewSources = (forces: ElementForces3D) => [{ ...A, results: { ...A.results, elementForces: [forces] } }];
 
-it.skip('known wrong result: #2226 refuses distinct transverse jumps that round to the same rebased cut', () => {
+it('known wrong result: #2226 refuses distinct transverse jumps that round to the same rebased cut', () => {
   const first = 0.25 - 2 ** -55;
   const second = 0.25;
   expect(first).toBeLessThan(second);
   expect(1 + first).toBe(1 + second);
-  const firstPiece = { x0: 0, x1: 1, forces: reviewForces };
+  const firstPiece = { x0: 0, x1: 1, sectionId: 1, forces: reviewForces };
   const parent = (a: number) => ({
     ...reviewForces, length: 2,
     pieces: [firstPiece, {
-      x0: 1, x1: 2, forces: { ...reviewForces, pointLoadsY: [{ a, p: 3 }], pointLoadsZ: [{ a: second, p: -4 }] },
+      x0: 1, x1: 2, sectionId: 2, forces: { ...reviewForces, pointLoadsY: [{ a, p: 3 }], pointLoadsZ: [{ a: second, p: -4 }] },
     }],
   });
   const summary = (a: number) => summaryRows('forces', reviewSources(parent(a)), criticalOptions).find(r => r.column.key === 'v');
   expect.soft(() => summary(first)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+  const tr = (key: string) => key === DIAGRAM_EXTREMA_UNAVAILABLE ? 'Extrema withheld' : key;
+  expect.soft(() => envelopeSectionHtml(reviewSources(parent(first)), tr, 'Envelope')).toThrow('Extrema withheld');
   expect.soft(() => criticalForceStations(parent(first))).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
   expect.soft(summary(second)?.max?.value).toBe(4);
   expect.soft(summary(0.25 - 2 ** -52)?.max?.value).toBe(5);
 });
 
-it.skip('known wrong result: #2226 summarizes the exact transverse norm of a one-part ABS combination', () => {
+it('known wrong result: #2226 summarizes the exact transverse norm of a one-part ABS combination', () => {
   const f = {
     ...reviewForces, vyStart: -3, vyEnd: 5, vzStart: -7, vzEnd: 1,
     distributedLoadsY: [{ a: 0, b: 1, qI: 8, qJ: 8 }],
@@ -306,7 +308,7 @@ it.skip('known wrong result: #2226 summarizes the exact transverse norm of a one
   expect.soft(envelopeSectionHtml(sources, k => k, 'Envelope').join('')).toContain('2.828');
 });
 
-it.skip('known wrong result: #2226 labels the governing jump face in critical summaries', () => {
+it('known wrong result: #2226 labels the governing jump face in critical summaries', () => {
   const a = 0.5;
   const f = {
     ...reviewForces, vzStart: -4, vzEnd: 0,

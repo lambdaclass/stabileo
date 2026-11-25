@@ -159,7 +159,7 @@ export function allRows(kind: TableKind, sources: readonly Source[], opts: Table
 }
 
 /** A value, where it is, and under which source. */
-export interface Extreme { value: number; entity: number; end?: 'i' | 'j'; x?: number; source: Source }
+export interface Extreme { value: number; entity: number; end?: 'i' | 'j'; x?: number; side?: 'left' | 'right'; source: Source }
 
 /**
  * Whether `v` at `(entity, x)` takes the place of the current extreme `e`: beyond it by more than
@@ -189,19 +189,23 @@ export function summaryRows(kind: TableKind, sources: readonly Source[], opts: T
   const max: Array<Extreme | null> = cols.map(() => null);
   const min: Array<Extreme | null> = cols.map(() => null);
   for (const source of sources) {
-    const visit = (c: number, value: number, entity: number, end: 'i' | 'j' | undefined, x: number | undefined) => {
+    const visit = (c: number, value: number, entity: number, end: Extreme['end'], x: number | undefined, side?: Extreme['side']) => {
       if (!Number.isFinite(value)) return;
-      if (beatsExtreme(1, value, entity, x, max[c]!)) max[c] = { value, entity, end, x, source };
-      if (beatsExtreme(-1, value, entity, x, min[c]!)) min[c] = { value, entity, end, x, source };
+      const where = { value, entity, end, x, source, ...(side && { side }) };
+      if (beatsExtreme(1, value, entity, x, max[c]!)) max[c] = where;
+      if (beatsExtreme(-1, value, entity, x, min[c]!)) min[c] = where;
     };
     if (kind === 'forces' && opts.stations === 'critical') {
       const diagrams = opts.resultant ? [...forceDiagrams, ...resultantDiagrams] : forceDiagrams;
       for (const ef of source.results.elementForces) {
         if (opts.entities && !opts.entities.has(ef.elementId)) continue;
         diagrams.forEach((diagram, c) => {
-          for (const { t, value, x } of memberCriticalOrdinates3D(ef, diagram)) {
-            visit(c, value, ef.elementId, t === 0 ? 'i' : t === 1 ? 'j' : undefined, x);
-          }
+          const ordinates = memberCriticalOrdinates3D(ef, diagram);
+          ordinates.forEach(({ t, value, x, right }, i) => {
+            const next = ordinates[i + 1];
+            const side = right ? 'right' : next?.right && next.t === t ? 'left' : undefined;
+            visit(c, value, ef.elementId, t === 0 ? 'i' : t === 1 ? 'j' : undefined, x, side);
+          });
         });
       }
     } else {
@@ -269,8 +273,13 @@ export function maxByType(demands: ReadonlyMap<number, ElementDesignDemands>, en
 }
 
 /** Where a row is, as the tables write it: a node, a member end (12·i) or a station (12 @ 1,50). */
-export function whereOf(r: { entity: number; end?: 'i' | 'j'; x?: number }, stations = false): string {
-  if (stations && r.x !== undefined) return `${r.entity} @ ${r.x.toFixed(2)}`;
+export function whereOf(r: Pick<Extreme, 'entity' | 'end' | 'x' | 'side'>, stations = false): string {
+  if ((stations || r.side) && r.x !== undefined) {
+    const rounded = r.x.toFixed(2);
+    const distance = r.side && Number(rounded) !== r.x ? String(r.x) : rounded;
+    const side = r.side === 'right' ? '⁺' : r.side === 'left' ? '⁻' : '';
+    return `${r.entity} @ ${distance}${side}`;
+  }
   return r.end ? `${r.entity}·${r.end}` : String(r.entity);
 }
 

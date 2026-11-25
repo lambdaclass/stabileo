@@ -25,9 +25,15 @@ export interface ElementDiagram3D {
 
 const diagramKinds = ['momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion'] as const;
 
-interface SpatialCurve extends Pick<DiagramCurve, 'cuts' | 'cutDistances' | 'value'> {
+interface CutLocation {
+  x: number;
+  rebased?: { offset: number; local: CutLocation };
+}
+
+interface SpatialCurve extends Pick<DiagramCurve, 'cuts' | 'value'> {
+  cutLocations: ReadonlyMap<number, CutLocation>;
   polynomial?: DiagramCurve['polynomial'];
-  srssParts?: readonly SpatialCurve[];
+  squaredParts?: readonly SpatialCurve[];
   extrema: (at?: number) => DiagramExtremum[];
   magnitudeBound?: () => number;
 }
@@ -70,39 +76,61 @@ function leafCurve(ef: ElementForces3D, kind: Diagram3DKind): DiagramCurve {
     points.map(p => ({ a: p.a, jump: 0, slope: sign * p.p })), 'moment', sign, sign * shear);
 }
 
-function joinedCutDistances(curves: Iterable<ReadonlyMap<number, number>>): Map<number, number> {
-  const distances = new Map<number, number>();
+const cutBits = new DataView(new ArrayBuffer(8));
+
+function distanceUnits(value: number): bigint {
+  cutBits.setFloat64(0, value);
+  const bits = cutBits.getBigUint64(0);
+  const exponent = (bits >> 52n) & 0x7ffn;
+  const fraction = bits & 0xfffffffffffffn;
+  const units = exponent === 0n ? fraction : (fraction | (1n << 52n)) << (exponent - 1n);
+  return bits >> 63n ? -units : units;
+}
+
+function exactCutUnits(cut: CutLocation): bigint {
+  return cut.rebased ? distanceUnits(cut.rebased.offset) + exactCutUnits(cut.rebased.local) : distanceUnits(cut.x);
+}
+
+function joinedCutLocations(curves: Iterable<ReadonlyMap<number, CutLocation>>): Map<number, CutLocation> {
+  const locations = new Map<number, CutLocation>();
   for (const curve of curves) {
-    for (const [t, x] of curve) {
-      const existing = distances.get(t);
-      if (existing !== undefined && existing !== x) throw unavailableDiagramExtrema();
-      distances.set(t, x);
+    for (const [t, cut] of curve) {
+      const existing = locations.get(t);
+      if (!existing) {
+        locations.set(t, cut);
+      } else if (existing.x !== cut.x || ((existing.rebased || cut.rebased) && exactCutUnits(existing) !== exactCutUnits(cut))) {
+        throw unavailableDiagramExtrema();
+      }
     }
   }
-  return distances;
+  return locations;
 }
 
 function magnitudeCurve(components: readonly SpatialCurve[], method: 'srss' | 'abs', length: number): SpatialCurve {
-  const curves = method === 'srss' ? components.flatMap(component => component.srssParts ?? [component]) : components;
-  let cutDistances: Map<number, number> | undefined;
-  const distances = () => cutDistances ??= joinedCutDistances([new Map([[0, 0], [1, length]]), ...curves.map(c => c.cutDistances)]);
-  const cuts = () => sortedStations(distances().keys());
+  const curves = method === 'srss' ? components.flatMap(component => component.squaredParts ?? [component]) : components;
+  let cutLocations: Map<number, CutLocation> | undefined;
+  const locations = () => cutLocations ??= joinedCutLocations([
+    new Map([[0, { x: 0 }], [1, { x: length }]]), ...curves.map(c => c.cutLocations),
+  ]);
+  const distances = () => new Map([...locations()].map(([t, cut]) => [t, cut.x]));
+  const cuts = () => sortedStations(locations().keys());
   const polynomialParts = curves.flatMap(c => c.polynomial ? [{ polynomial: c.polynomial }] : []);
   const exact = polynomialParts.length === curves.length;
   const combine = (station: DiagramStation) => {
-    const cuts = distances();
-    const at = { ...station, distance: station.distance ?? cuts.get(station.t) };
+    const cuts = locations();
+    const at = { ...station, distance: station.distance ?? cuts.get(station.t)?.x };
     const values = curves.map(curve => curve.value(at));
     return method === 'srss' ? Math.hypot(...values) : values.reduce((sum, value) => sum + Math.abs(value), 0);
   };
   const magnitudeBound = () => curves.reduce((bound, curve) => addMagnitudeBounds(bound, maxMagnitude(curve)), 0);
   return {
     get cuts() { return cuts(); },
-    get cutDistances() { return distances(); },
+    get cutLocations() { return locations(); },
     extrema: exact ? prepareMagnitudeExtrema(polynomialParts, method, distances, length)
       : () => curves.flatMap(curve => curve.extrema().map(({ t }) => ({ t, value: combine({ t }), canTransfer: () => false }))),
     ...(!exact ? { magnitudeBound } : {}),
-    ...(method === 'srss' ? { srssParts: curves } : {}),
+    ...(method === 'srss' ? { squaredParts: curves }
+      : curves.length === 1 ? { squaredParts: curves[0]!.squaredParts ?? curves } : {}),
     value: combine,
   };
 }
@@ -117,24 +145,26 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
       const end = p.x1 / ef.length;
       const curve = spatialCurve(p.forces, kind);
       const distance = (x: number) => x === 0 ? p.x0 : x === p.forces.length ? p.x1 : p.x0 + x;
-      const parent = (t: number) => distance(curve.cutDistances.get(t) ?? t * p.forces.length) / ef.length;
+      const parent = (t: number) => distance(curve.cutLocations.get(t)?.x ?? t * p.forces.length) / ef.length;
       const localDistance = (x: number) => x === p.x1 ? p.forces.length : x - p.x0;
-      type PieceCut = { t: number; x: number; localX: number };
+      type PieceCut = { t: number; location: CutLocation; localX: number };
       let boundaries: Map<number, PieceCut> | undefined;
       let stations: [number, PieceCut][] | undefined;
       const cutMap = () => {
         if (boundaries) return boundaries;
-        const mapped = new Map([...curve.cutDistances].map(([t, localX]) => {
-          const x = distance(localX);
-          return [x / ef.length, { t, x, localX }];
+        const localCuts = curve.cutLocations;
+        const mapped = new Map([...localCuts].map(([t, local]) => {
+          const x = distance(local.x);
+          const location = t === 0 || t === 1 ? { x } : { x, rebased: { offset: p.x0, local } };
+          return [x / ef.length, { t, location, localX: local.x }];
         }));
-        if (mapped.size !== curve.cutDistances.size) throw unavailableDiagramExtrema();
+        if (mapped.size !== localCuts.size) throw unavailableDiagramExtrema();
         return boundaries = mapped;
       };
       const local = ({ t, right, distance }: DiagramStation): DiagramStation => {
         const cuts = cutMap();
-        const cut = cuts.get(t);
-        if (cut && (distance === undefined || distance === cut.x)) {
+        const cut = cuts.get(distance === undefined ? t : distance / ef.length);
+        if (cut && (distance === undefined || distance === cut.location.x)) {
           return { t: cut.t, right, distance: cut.localX };
         }
         if (distance !== undefined) {
@@ -161,14 +191,14 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
         return right ? x < end : x <= end;
       }) ?? pieces[pieces.length - 1]!;
     const magnitudeBound = pieces.some(p => p.curve.magnitudeBound) ? () => Math.max(...pieces.map(p => maxMagnitude(p.curve))) : undefined;
-    let cutDistances: Map<number, number> | undefined;
-    const distances = () => cutDistances ??= joinedCutDistances(pieces.map(p =>
-      new Map([...p.cutMap()].map(([t, cut]) => [t, cut.x]))));
+    let cutLocations: Map<number, CutLocation> | undefined;
+    const locations = () => cutLocations ??= joinedCutLocations(pieces.map(p =>
+      new Map([...p.cutMap()].map(([t, cut]) => [t, cut.location]))));
     let extrema: DiagramExtremum[] | undefined;
     return {
       magnitudeBound,
-      get cuts() { return sortedStations(this.cutDistances.keys()); },
-      get cutDistances() { return distances(); },
+      get cuts() { return sortedStations(locations().keys()); },
+      get cutLocations() { return locations(); },
       extrema: () => extrema ??= pieces.flatMap(p => p.curve.extrema().map(peak => {
         const t = p.parent(peak.t);
         if (p.cutMap().has(t)) throw unavailableDiagramExtrema();
@@ -180,7 +210,7 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
         } };
       })),
       value(station) {
-        distances();
+        locations();
         const p = pieceAt(station);
         return p.curve.value(p.local(station));
       },
@@ -193,9 +223,10 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
     };
   }
   const curve = leafCurve(ef, kind);
+  let cutLocations: Map<number, CutLocation> | undefined;
   return {
     get cuts() { return curve.cuts; },
-    get cutDistances() { return curve.cutDistances; },
+    get cutLocations() { return cutLocations ??= new Map([...curve.cutDistances].map(([t, x]) => [t, { x }])); },
     value: curve.value, polynomial: curve.polynomial, extrema: prepareCurveExtrema(curve, ef.length),
   };
 }
@@ -203,14 +234,15 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
 export function criticalDiagramStations3D(ef: ElementForces3D, purpose: 'diagram' | 'concrete-design' = 'diagram'): DiagramStation[] {
   const curves = diagramKinds.map(kind => ({ kind, curve: spatialCurve(ef, kind) }));
   if (curves.some(({ curve }) => curve.magnitudeBound)) throw unavailableDiagramExtrema();
-  const cuts = joinedCutDistances(curves.map(({ curve }) => curve.cutDistances));
+  const cuts = joinedCutLocations(curves.map(({ curve }) => curve.cutLocations));
   const extrema = curves.flatMap(({ kind, curve }) => {
+    const sampled = purpose === 'concrete-design' && usesSampledBending(ef, kind);
     const peaks = [...indexDiagramExtrema(curve.extrema()).values()];
-    if (peaks.some(peak => cuts.has(peak.t) || !peak.canTransfer(peak.t))) throw unavailableDiagramExtrema();
-    return purpose === 'concrete-design' && usesSampledBending(ef, kind) ? [] : peaks;
+    if (peaks.some(peak => cuts.has(peak.t) || (!sampled && !peak.canTransfer(peak.t)))) throw unavailableDiagramExtrema();
+    return sampled ? [] : peaks;
   });
   return sortedStations([...cuts.keys(), ...extrema.map(peak => peak.t)]).flatMap(t => {
-    const x = cuts.get(t);
+    const x = cuts.get(t)?.x;
     const left = x !== undefined ? { t, distance: x } : { t };
     const right = { ...left, right: true };
     return t < 1 && x !== undefined && curves.some(({ curve }) => curve.value(left) !== curve.value(right)) ? [left, right] : [left];
@@ -225,7 +257,7 @@ export function memberCriticalOrdinates3D(
   if (curve.magnitudeBound) throw unavailableDiagramExtrema();
   return diagramCriticalPoints(curve, curve.extrema(), inwardAtI).map(point => ({
     ...point,
-    x: curve.cutDistances.get(point.t) ?? point.t * ef.length,
+    x: curve.cutLocations.get(point.t)?.x ?? point.t * ef.length,
   }));
 }
 
@@ -245,7 +277,7 @@ function spatialExtrema(curve: SpatialCurve, critical: readonly DiagramPoint3D[]
     if (!Number.isFinite(bound)) throw unavailableDiagramExtrema();
     return { maxValue: bound, minValue: -bound, maxAbsValue: bound, extrema: 'bounded' as const };
   }
-  return { maxValue, minValue, maxAbsValue, maxAbsX: curve.cutDistances.get(maxAbsT) ?? maxAbsT * length };
+  return { maxValue, minValue, maxAbsValue, maxAbsX: curve.cutLocations.get(maxAbsT)?.x ?? maxAbsT * length };
 }
 
 export function computeSpatialDiagramExtrema(ef: ElementForces3D, kind: Diagram3DKind) {
@@ -322,17 +354,18 @@ export function getDiagramLocalDirection(kind: Diagram3DKind): 'y' | 'z' {
  * Uses analytical equilibrium equations.
  */
 export function evaluateDiagramAt(ef: ElementForces3D, kind: Diagram3DKind, station: number | DiagramStation, right = false): number {
-  return evaluateSpatialCurve(spatialCurve(ef, kind), typeof station === 'number' ? { t: station, right } : station);
+  return evaluateSpatialCurve(spatialCurve(ef, kind), ef.length, typeof station === 'number' ? { t: station, right } : station);
 }
 
 export function prepareDiagramEvaluator3D(ef: ElementForces3D, kind: Diagram3DKind): (station: number | DiagramStation, right?: boolean) => number {
   const curve = spatialCurve(ef, kind);
-  return (station, right = false) => evaluateSpatialCurve(curve, typeof station === 'number' ? { t: station, right } : station);
+  return (station, right = false) => evaluateSpatialCurve(curve, ef.length, typeof station === 'number' ? { t: station, right } : station);
 }
 
-function evaluateSpatialCurve(curve: SpatialCurve, station: DiagramStation): number {
-  if (curve.magnitudeBound) return curve.value(station);
-  return checkedCurveValue(curve, station, indexDiagramExtrema(curve.extrema(station.t)));
+function evaluateSpatialCurve(curve: SpatialCurve, length: number, station: DiagramStation): number {
+  const at = station.distance === undefined ? station : { ...station, t: station.distance / length };
+  if (curve.magnitudeBound) return curve.value(at);
+  return checkedCurveValue(curve, at, indexDiagramExtrema(curve.extrema(at.t)));
 }
 
 /** Format a 3D diagram value for display.

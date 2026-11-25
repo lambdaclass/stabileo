@@ -65,6 +65,8 @@ describe('Moving loads symmetry', () => {
     expect(env.fullEnvelope).toBeDefined();
 
     const mData = env.fullEnvelope!.moment.elements[0];
+    expect(mData.tPositions.length).toBeGreaterThan(0);
+    expect(mData.tPositions).toHaveLength(mData.negValues.length);
     for (const [i, station] of mData.tPositions.entries()) {
       const mirror = mData.tPositions.findIndex(t => Math.abs(t - (1 - station)) <= 4 * Number.EPSILON);
       expect(mirror).toBeGreaterThanOrEqual(0);

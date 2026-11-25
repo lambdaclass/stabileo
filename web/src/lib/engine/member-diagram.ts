@@ -47,15 +47,37 @@ export function fullSpanFallback(length: number, loads: DistributedAction[] | un
 }
 
 export function distributedActionTerms(load: DistributedAction, x: number): [force: number, moment: number] {
-  const span = load.b - load.a;
-  const distance = x - load.a;
+  return integratedActionTerms(load.qI, load.qJ, load.b - load.a, x - load.a);
+}
+
+function integratedActionTerms(qI: number, qJ: number, span: number, distance: number): [number, number] {
   if (span <= 0 || distance <= 0) return [0, 0];
   const s = Math.min(span, distance);
   const u = s / span;
-  const left = load.qI * s;
-  const right = load.qJ * s;
+  const left = qI * s;
+  const right = qJ * s;
   const force = left * (1 - u / 2) + right * (u / 2);
   return [force, (left * (0.5 - u / 6) + right * (u / 6)) * s + force * (distance - s)];
+}
+
+function addActionTerms(
+  terms: number[], load: DistributedAction, x: number, component: 0 | 1, scale: number,
+): void {
+  const { qI, qJ, a, b } = load;
+  const span = b - a, distance = x - a;
+  if (qI === qJ) {
+    terms.push(scale * integratedActionTerms(qI, qJ, span, distance)[component]);
+    return;
+  }
+  const inside = Math.min(distance, span);
+  const left = qI === 0 ? zero : integratedActionTerms(qI, 0, span, inside);
+  const right = qJ === 0 ? zero : integratedActionTerms(0, qJ, span, inside);
+  const add = (index: 0 | 1, factor: number) => {
+    const [sum, correction] = compensatedDiagramTerms([left[index], right[index]]);
+    terms.push(factor * sum, factor * correction);
+  };
+  add(component, scale);
+  if (component === 1 && distance > span) add(0, scale * (distance - span));
 }
 
 export function diagramLineValue(start: number, change: number, rate: number, x: number, t: number): number {
@@ -82,7 +104,7 @@ export function memberDiagram(
   const component = order === 'force' ? 0 : 1;
   const boundaryValue = (x: number, t: number, right: boolean) => {
     const contributions = [start, rate * x, change * t];
-    for (const load of distributed) contributions.push(sign * distributedActionTerms(load, x)[component]);
+    for (const load of distributed) addActionTerms(contributions, load, x, component, sign);
     for (const point of points) {
       if (point.a < x || (right && point.a === x)) {
         if (point.slope) contributions.push(point.slope * (x - point.a));
@@ -103,19 +125,20 @@ export function memberDiagram(
       if (point.slope && point.a <= x0) linear.push(point.slope * width);
     }
     for (const load of distributed) {
-      if (component === 1) linear.push(sign * distributedActionTerms(load, x0)[0] * width);
+      if (component === 1) addActionTerms(linear, load, x0, 0, sign * width);
       if (x0 < load.a || x0 >= load.b) continue;
       const span = load.b - load.a;
       const u = (x0 - load.a) / span;
-      const initial = (sign * width) * (load.qI * (1 - u) + load.qJ * u);
-      const fraction = width / span;
-      const delta = (sign * width) * (load.qJ * fraction) - (sign * width) * (load.qI * fraction);
-      if (component === 0) {
-        linear.push(initial);
-        quadratic.push(delta / 2);
+      const [initial, gradient, integral, gradientIntegral] = component === 0
+        ? [linear, quadratic, 1, 0.5] as const
+        : [quadratic, cubic, width / 2, width / 6] as const;
+      const signedWidth = sign * width;
+      if (load.qI === load.qJ) {
+        initial.push(signedWidth * load.qI * integral);
       } else {
-        quadratic.push(initial * (width / 2));
-        cubic.push(delta * (width / 6));
+        initial.push(signedWidth * (load.qI * (1 - u)) * integral, signedWidth * (load.qJ * u) * integral);
+        const fraction = width / span;
+        gradient.push(signedWidth * (load.qJ * fraction) * gradientIntegral, -signedWidth * (load.qI * fraction) * gradientIntegral);
       }
     }
     return [boundaryValue(x0, lo, true), compensatedDiagramTerms(linear), compensatedDiagramTerms(quadratic), compensatedDiagramTerms(cubic)];
@@ -128,11 +151,12 @@ export function memberDiagram(
     get cuts() { return [...distances().keys()]; },
     get cutDistances() { return distances(); },
     value({ t, right, distance }) {
-      if (!hasActions) return diagramLineValue(start, change, rate, distance ?? t * length, t);
-      const cut = distances().get(t);
+      const station = distance === undefined ? t : at(distance);
+      if (!hasActions) return diagramLineValue(start, change, rate, distance ?? t * length, station);
+      const cut = distances().get(station);
       const x = distance ?? cut ?? t * length;
       if (x === cut || x < 0 || x > length || !Number.isFinite(x)) {
-        return roundedSum(boundaryValue(x, t, right === true));
+        return roundedSum(boundaryValue(x, station, right === true));
       }
       cuts ??= [...distances()];
       const upper = cuts.findIndex(([station, physical]) => distance === undefined ? station > t : physical > distance);

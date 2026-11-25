@@ -308,11 +308,12 @@ it('known wrong result: #2437 carries a point jump through cancellation at an in
   }
 });
 
-it.skip('known wrong result: #2437 retains signed endpoint terms through force recovery', () => {
+it('known wrong result: #2437 retains signed endpoint terms through force recovery', () => {
   const [plane, space] = cantilevers(1);
   const planar = [solve(plane), solvePDelta(plane).results];
   const spatial = [solve3D(space), solvePDelta3D(space).results];
   const huge = 2 ** 54;
+  const members = [{ elementId: 1, length: 1, sectionId: 1, materialId: 1 }];
   const loads = [[1, huge], [0, -huge], [0, -1]].map(([qI, qJ]) => ({ a: 0, b: 1, qI: qI!, qJ: qJ! }));
   for (const result of planar) {
     const ef = result.elementForces[0]!;
@@ -325,7 +326,12 @@ it.skip('known wrong result: #2437 retains signed endpoint terms through force r
     expect.soft(wasm.maxValue).toBe(0.25);
     for (const [t, value] of [[0, 0], [0.25, 3 / 16], [0.5, 0.25], [0.75, 3 / 16], [1, 0]] as const) {
       expect.soft(computeDiagramValueAtWasm('shear', t, ef)).toBe(value);
+      expect.soft(computeDiagramValueAt('shear', t, ef)).toBe(value);
       expect.soft(prepareDiagramValueAt('shear', ef)(t)).toBe(value);
+    }
+    const input = { members, combinations: [{ comboId: 1, results: result }] };
+    for (const stations of [extractBeamStations(input).stations, extractBeamStationsGrouped(input).members[0]!.stations]) {
+      expect.soft(stations.find(s => s.t === 0.5)?.comboForces[0]?.v).toBe(0.25);
     }
     expect.soft(computeEnvelope([result])!.shear.globalMax).toBe(0.25);
   }
@@ -338,13 +344,18 @@ it.skip('known wrong result: #2437 retains signed endpoint terms through force r
     }
     for (const [t, value] of [[0, 0], [0.25, 3 / 16], [0.5, 0.25], [0.75, 3 / 16], [1, 0]] as const) {
       expect.soft(computeDiagramValueAt3DWasm('shearZ', t, ef)).toBe(value);
+      expect.soft(evaluateDiagramAt(ef, 'shearZ', t)).toBe(value);
       expect.soft(prepareDiagramEvaluator3D(ef, 'shearZ')(t)).toBe(value);
+    }
+    const input = { members, combinations: [{ comboId: 1, results: result }] };
+    for (const stations of [extractBeamStations3D(input).stations, extractBeamStationsGrouped3D(input).members[0]!.stations]) {
+      expect.soft(stations.find(s => s.t === 0.5)?.comboForces[0]?.vz).toBe(0.25);
     }
     expect.soft(computeEnvelope3D([result])!.shearZ.globalMax).toBe(0.25);
   }
 });
 
-it.skip('known wrong result: #2437 checks the compensated ordinate of an aliased peak', () => {
+it('known wrong result: #2437 checks the compensated ordinate of an aliased peak', () => {
   const [plane, space, planar, spatial] = forceRecords();
   const baseline = 2 ** 54;
   const refusal = /interior member diagram extremum has no distinct normalized station/;
@@ -382,7 +393,7 @@ it.skip('known wrong result: #2437 checks the compensated ordinate of an aliased
   }
 });
 
-it.skip('known wrong result: #2437 selects the jump face from the supplied physical distance', () => {
+it('known wrong result: #2437 selects the jump face from the supplied physical distance', () => {
   const [, , , spatial] = forceRecords();
   for (const result of spatial) {
     const parent = result.elementForces[0]!;
@@ -390,8 +401,8 @@ it.skip('known wrong result: #2437 selects the jump face from the supplied physi
     const piecewise = {
       ...parent, length: 2,
       pieces: [
-        { x0: 0, x1: 1, forces: { ...local, pointLoadsZ: [] } },
-        { x0: 1, x1: 2, forces: local },
+        { x0: 0, x1: 1, sectionId: 1, forces: { ...local, pointLoadsZ: [] } },
+        { x0: 1, x1: 2, sectionId: 2, forces: local },
       ],
     };
     const abs = { ...local, combined: { method: 'abs' as const, parts: [local] } };
@@ -408,7 +419,7 @@ it.skip('known wrong result: #2437 selects the jump face from the supplied physi
   }
 });
 
-it.skip('known wrong result: #2437 keeps the sampled concrete policy for the seven-storey force record', () => {
+it('known wrong result: #2437 keeps the sampled concrete policy for the seven-storey force record', () => {
   const [, , , [result]] = forceRecords();
   const f = {
     ...result!.elementForces[0]!, elementId: 104, length: 5,
@@ -417,6 +428,7 @@ it.skip('known wrong result: #2437 keeps the sampled concrete policy for the sev
     distributedLoadsZ: [{ a: 0, b: 5, qI: -7.199999999999999, qJ: -7.199999999999999 }],
   };
   expect(criticalDiagramStations3D(f, 'concrete-design').map(cut => cut.t)).toEqual([0, 1]);
+  expect(() => criticalDiagramStations3D(f)).toThrow(/extrema/i);
   const diagram = computeDiagram3D(f, 'momentY');
   expect(diagram.maxValue).toBeGreaterThan(f.myStart);
   expect(diagram.maxValue).toBeGreaterThan(f.myEnd);

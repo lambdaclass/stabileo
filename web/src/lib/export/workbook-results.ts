@@ -279,17 +279,23 @@ const asSource = (s: WorkbookSource): Source & { kind: string } => ({ id: s.id, 
 
 function maximaSheet(input: ResultSheetsInput, opts: TableOptions): WorkbookSheet {
   const rows: WorkbookSheet['rows'] = [['table', 'component', 'unit', 'extreme', 'value', 'entity', 'end', 'x [m]', 'source', 'sourceId', 'sourceName']];
+  const withSide = input.stations === 'critical';
+  if (withSide) rows[0]!.push('cut side');
   const sources = governing(input.sources).map(asSource);
   for (const kind of ['reactions', 'displacements', 'forces'] as const) {
     summaryRows(kind, sources, { ...opts, stations: input.stations }).forEach((r, c) => {
       for (const [extreme, e] of [['max', r.max], ['min', r.min]] as const) {
         if (!e) continue;
         const s = e.source as Source & { kind: string };
-        rows.push([kind, head(kind)[c]!.replace(/ \[.*$/, ''), UNITS[kind][c]!, extreme, e.value, e.entity, e.end ?? '', e.x ?? '', s.kind, s.id, safeText(s.name)]);
+        const row = [kind, head(kind)[c]!.replace(/ \[.*$/, ''), UNITS[kind][c]!, extreme, e.value, e.entity, e.end ?? '', e.x ?? '', s.kind, s.id, safeText(s.name)];
+        if (withSide) row.push(e.side === 'right' ? '+' : e.side === 'left' ? '−' : '');
+        rows.push(row);
       }
     });
   }
-  if (input.shells && hasShells(input)) rows.push(...shellMaximaRows(input));
+  if (input.shells && hasShells(input)) {
+    for (const row of shellMaximaRows(input)) rows.push(withSide ? [...row, ''] : row);
+  }
   return { name: 'Maxima', rows };
 }
 
@@ -428,7 +434,7 @@ export function resultSheetParts(input: ResultSheetsInput, want: (name: string) 
     ['Stations', () => stationsSheet(input.sources, input.stations, opts)],
     ['Deflections', () => deflectionsSheet(input)],
     ['Stresses', () => stressesSheet(input)],
-    ['Maxima', () => deferred('Maxima', 11, () => maximaSheet(input, opts), () => 3 * 6 * 2 + (shells ? SHELL_MAXIMA.length * 2 : 0))],
+    ['Maxima', () => deferred('Maxima', input.stations === 'critical' ? 12 : 11, () => maximaSheet(input, opts), () => 3 * 6 * 2 + (shells ? SHELL_MAXIMA.length * 2 : 0))],
     ['Envelope', () => deferred('Envelope', 12, () => envelopeSheet(input, opts), () => {
       const sources = governing(input.sources);
       const g = sources[0];

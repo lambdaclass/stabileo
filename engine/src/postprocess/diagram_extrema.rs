@@ -1,4 +1,4 @@
-use crate::element::{distributed_load_terms, distributed_load_terms_at_distance};
+use crate::element::distributed_load_terms_at_distance;
 use crate::types::DistributedLoadInfo;
 
 const ALIASED_CUTS: &str = "distinct member diagram cuts share a normalized station";
@@ -41,6 +41,19 @@ impl Cut {
             Location::Grid => self.t * length,
             Location::Boundary(x) => x,
             Location::Interior { start, end, u } => start + (end - start) * u,
+        }
+    }
+
+    fn aliased_boundary(self, length: f64) -> Option<(Self, f64)> {
+        let Location::Interior { start, end, .. } = self.location else { return None };
+        let lo = start / length;
+        let hi = end / length;
+        if self.t <= lo {
+            Some((Self::boundary(lo, start, true), 0.0))
+        } else if self.t >= hi {
+            Some((Self::boundary(hi, end, false), 1.0))
+        } else {
+            None
         }
     }
 
@@ -135,6 +148,42 @@ impl DiagramSum {
     fn value(self) -> f64 {
         self.sum + self.correction
     }
+
+    fn add_scaled(&mut self, other: &Self, scale: f64) {
+        self.add(other.sum * scale);
+        self.add(other.correction * scale);
+    }
+}
+
+fn add_load_ordinate(sum: &mut DiagramSum, load: &DistributedLoadInfo, distance: f64, response: Response, scale: f64) {
+    let span = load.b - load.a;
+    if load.q_i == load.q_j {
+        let (force, moment) = distributed_load_terms_at_distance(load.q_i, load.q_j, span, distance);
+        sum.add(scale * match response {
+            Response::Force(sign) => sign * force,
+            Response::Moment(sign) => sign * moment,
+        });
+        return;
+    }
+    let inside = distance.min(span);
+    let mut force = DiagramSum::default();
+    let mut moment = DiagramSum::default();
+    for (q_i, q_j) in [(load.q_i, 0.0), (0.0, load.q_j)] {
+        if q_i != 0.0 || q_j != 0.0 {
+            let (f, m) = distributed_load_terms_at_distance(q_i, q_j, span, inside);
+            force.add(f);
+            moment.add(m);
+        }
+    }
+    match response {
+        Response::Force(sign) => sum.add_scaled(&force, sign * scale),
+        Response::Moment(sign) => {
+            sum.add_scaled(&moment, sign * scale);
+            if distance > span {
+                sum.add_scaled(&force, sign * scale * (distance - span));
+            }
+        }
+    }
 }
 
 pub(crate) fn distributed_actions(
@@ -154,6 +203,17 @@ where
     P: Iterator<Item = PointAction> + Clone,
 {
     pub fn checked_value(&self, cut: Cut) -> Result<f64, &'static str> {
+        if let Location::Interior { start, end, u } = cut.location {
+            if let Some((boundary, from)) = cut.aliased_boundary(self.length) {
+                let mut value = self.accumulate_cut(boundary)?;
+                value.add(change_between(self.segment_change(start, end), from, u));
+                return Ok(value.value());
+            }
+        }
+        self.accumulate_cut(cut).map(DiagramSum::value)
+    }
+
+    fn accumulate_cut(&self, cut: Cut) -> Result<DiagramSum, &'static str> {
         let (x, offset, t) = match cut.location {
             Location::Grid => {
                 let mut hits = self.action_distances().filter(|a| a / self.length == cut.t);
@@ -178,11 +238,7 @@ where
             value.add(self.change * (offset / self.length));
         }
         for d in self.distributed.clone() {
-            let (force, moment) = distributed_load_terms_at_distance(d.q_i, d.q_j, d.b - d.a, distance(d.a));
-            value.add(match self.response {
-                Response::Force(sign) => sign * force,
-                Response::Moment(sign) => sign * moment,
-            });
+            add_load_ordinate(&mut value, &d, distance(d.a), self.response, 1.0);
         }
         for p in self.points.clone() {
             let dx = distance(p.a);
@@ -199,7 +255,7 @@ where
                 value.add(p.jump);
             }
         }
-        Ok(value.value())
+        Ok(value)
     }
 
     pub fn checked_station_value(&self, t: f64, right: bool) -> Result<f64, &'static str> {
@@ -291,27 +347,20 @@ where
         if x0 == x1 {
             return Ok(());
         }
-        let lo = (x0 + 0.0) / self.length;
-        let hi = (x1 + 0.0) / self.length;
         let change = self.segment_change(x0, x1);
         for u in interior_roots(change)? {
             let cut = Cut::interior(self.length, x0, x1, u);
             if at.is_some_and(|t| t != cut.t) {
                 continue;
             }
-            if lo < cut.t && cut.t < hi {
-                visit(cut, change, u)?;
-                continue;
-            }
-            let (boundary, v) = if cut.t == lo {
-                (Cut::boundary(lo, x0, true), 0.0)
+            if let Some((boundary, _)) = cut.aliased_boundary(self.length) {
+                let boundary_value = self.checked_value(boundary)?;
+                let peak = self.checked_value(cut)?;
+                if !peak.is_finite() || peak != boundary_value {
+                    return Err("interior member diagram extremum has no distinct normalized station");
+                }
             } else {
-                (Cut::boundary(hi, x1, false), 1.0)
-            };
-            let boundary_value = self.checked_value(boundary)?;
-            let peak = boundary_value + change_between(change, v, u);
-            if !peak.is_finite() || peak != boundary_value {
-                return Err("interior member diagram extremum has no distinct normalized station");
+                visit(cut, change, u)?;
             }
         }
         Ok(())
@@ -362,7 +411,7 @@ where
             let sign = match self.response {
                 Response::Force(sign) => sign,
                 Response::Moment(sign) => {
-                    linear.add((sign * width) * distributed_load_terms(d.q_i, d.q_j, d.a, d.b, x).0);
+                    add_load_ordinate(&mut linear, &d, x - d.a, Response::Force(sign), width);
                     sign
                 }
             };
@@ -371,18 +420,19 @@ where
             }
             let span = d.b - d.a;
             let u = (x - d.a) / span;
-            let initial = (sign * width) * (d.q_i * (1.0 - u) + d.q_j * u);
-            let fraction = width / span;
-            let delta = (sign * width) * (d.q_j * fraction) - (sign * width) * (d.q_i * fraction);
-            match self.response {
-                Response::Force(_) => {
-                    linear.add(initial);
-                    quadratic.add(delta / 2.0);
-                }
-                Response::Moment(_) => {
-                    quadratic.add(initial * (width / 2.0));
-                    cubic.add(delta * (width / 6.0));
-                }
+            let (initial, gradient, integral, gradient_integral) = match self.response {
+                Response::Force(_) => (&mut linear, &mut quadratic, 1.0, 0.5),
+                Response::Moment(_) => (&mut quadratic, &mut cubic, width / 2.0, width / 6.0),
+            };
+            let signed_width = sign * width;
+            if d.q_i == d.q_j {
+                initial.add(signed_width * d.q_i * integral);
+            } else {
+                initial.add(signed_width * (d.q_i * (1.0 - u)) * integral);
+                initial.add(signed_width * (d.q_j * u) * integral);
+                let fraction = width / span;
+                gradient.add(signed_width * (d.q_j * fraction) * gradient_integral);
+                gradient.add(-signed_width * (d.q_i * fraction) * gradient_integral);
             }
         }
         [linear.value(), quadratic.value(), cubic.value()]
@@ -465,7 +515,6 @@ mod round3_tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2437"]
     fn issue_2437_endpoint_terms_survive_cancellation() {
         let huge = 2.0_f64.powi(54);
         let loads = [(1.0, huge), (0.0, -huge), (0.0, -1.0)].map(|(q_i, q_j)| {
@@ -485,7 +534,6 @@ mod round3_tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2437"]
     fn issue_2437_aliased_peak_compares_compensated_ordinates() {
         let a = 1.5_f64;
         let ulp = a.next_up() - a;
@@ -513,6 +561,24 @@ mod round3_tests {
                 let expected = if steps == 2 { start } else { start + 8.0 };
                 assert_eq!(curve.interior_range(start), Ok((start, expected)));
             }
+        }
+    }
+
+    #[test]
+    fn issue_2437_cancelling_endpoints_share_the_moment_transport_distance() {
+        let q = 2.0_f64.powi(1023);
+        let curve = Curve {
+            length: 8.0, start: 0.0, change: 0.0, slope: 0.0,
+            response: Response::Moment(1.0),
+            distributed: std::iter::once(DistributedLoadInfo {
+                a: 0.0, b: 1.0, q_i: -q, q_j: q,
+            }),
+            points: std::iter::empty(),
+        };
+        assert!(curve.critical_cuts().is_ok());
+        for t in [0.125, 0.5, 1.0] {
+            let value = curve.checked_station_value(t, false).unwrap();
+            assert!((value / q + 1.0 / 6.0).abs() <= f64::EPSILON);
         }
     }
 
