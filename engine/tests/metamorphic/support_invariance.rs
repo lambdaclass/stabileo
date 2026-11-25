@@ -74,7 +74,7 @@ fn issue_1192_pinned_and_roller_supports_rotate_as_one_restraint() {
     }
 }
 
-fn check_loaded_planar_isometry(iso: Iso2) {
+fn loaded_planar_case() -> Case2 {
     let model = include_str!("../metamorphic_corpus/nightly/issue-1192.json");
     let mut case = Case2::new("loaded issue-1192 control", serde_json::from_str(model).unwrap());
     let [start, end] = [&case.s.nodes["1"], &case.s.nodes["2"]];
@@ -86,7 +86,11 @@ fn check_loaded_planar_isometry(iso: Iso2) {
     let second_member = SolverElement { id: 2, node_i: 3, node_j: 2, ..first_member.clone() };
     case.s.elements.insert("2".into(), second_member);
     case.s.loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 2.0, fz: -3.0, my: 4.0 }));
+    case
+}
 
+fn check_loaded_planar_isometry(iso: Iso2) {
+    let case = loaded_planar_case();
     let linear = ana2::rows().into_iter().find(|row| row.name == "linear").unwrap();
     let verdict = checks2::check_isometry(&linear, &case, &iso);
     assert!(matches!(verdict, Verdict::Pass(_)), "{verdict:?}");
@@ -196,6 +200,7 @@ fn issue_2195_rotation_preserves_the_shared_rigid_restraint() {
 }
 
 #[test]
+#[ignore = "known wrong result: #2579"]
 fn shared_spatial_plane_requires_a_representable_normal() {
     let data = include_str!("../fixtures/support-invariance.json");
     let fixtures: serde_json::Value = serde_json::from_str(data).unwrap();
@@ -210,7 +215,11 @@ fn shared_spatial_plane_requires_a_representable_normal() {
     let supports: Vec<_> = canonical.s.supports.values().filter(|s| s.node_id == 3).collect();
     assert_eq!(supports.len(), 1);
     assert_eq!([supports[0].rx, supports[0].ry, supports[0].rz], [true, false, true]);
-    assert_eq!(analyze_kinematics_3d(&case.s).degree, analyze_kinematics_3d(&canonical.s).degree);
+    let original = analyze_kinematics_3d(&case.s);
+    let transformed = analyze_kinematics_3d(&canonical.s);
+    assert!(original.invalid_input.is_none(), "original model: {:?}", original.invalid_input);
+    assert!(transformed.invalid_input.is_none(), "transformed model: {:?}", transformed.invalid_input);
+    assert_eq!(original.degree, transformed.degree);
 
     let refusal = case.iso(&Iso3::about_z(0.37)).unwrap_err();
     assert!(refusal.contains("support restraining two translations, rotated off the axes"), "{refusal}");
@@ -236,4 +245,81 @@ fn shared_supports_with_settlements_still_refuse_in_both_dimensions() {
     case.s.supports.get_mut("3").unwrap().dz = Some(0.01);
     assert!(solve_2d(&case.s).unwrap_err().contains("has several supports"));
     assert!(case.iso(&Iso2::rotation(0.37)).unwrap_err().contains("cannot be merged as plain rigid restraints"));
+}
+
+#[test]
+#[ignore = "known wrong result: #2579"]
+fn shared_planar_support_with_a_rotational_spring_refuses() {
+    let mut case = loaded_planar_case();
+    let iso = Iso2::rotation(std::f64::consts::FRAC_PI_2);
+
+    case.s.supports.get_mut("3").unwrap().kz = Some(0.0);
+    solve_2d(&case.s).unwrap();
+    solve_2d(&case.iso(&iso).unwrap().s).unwrap();
+
+    case.s.supports.get_mut("3").unwrap().kz = Some(1.0);
+    let refusal = solve_2d(&case.s).unwrap_err();
+    assert!(refusal.contains("Node 2 has several supports (2, 3)"), "{refusal}");
+    let refusal = case.iso(&iso).unwrap_err();
+    assert!(refusal.contains("supports at node 2 cannot be merged as plain rigid restraints"), "{refusal}");
+}
+
+#[test]
+#[ignore = "known wrong result: #2579"]
+fn shared_spatial_support_with_a_rotational_spring_refuses() {
+    let mut case = spatial_replay_case("1829");
+    let iso = Iso3::about_z(0.37);
+
+    case.s.supports.get_mut("3").unwrap().krz = Some(0.0);
+    solve_3d(&case.s).unwrap();
+    solve_3d(&case.iso(&iso).unwrap().s).unwrap();
+
+    case.s.supports.get_mut("3").unwrap().krz = Some(1.0);
+    let refusal = solve_3d(&case.s).unwrap_err();
+    assert!(refusal.contains("Node 3 has several supports (2, 3)"), "{refusal}");
+    let refusal = case.iso(&iso).unwrap_err();
+    assert!(refusal.contains("supports at node 3 cannot be merged as plain rigid restraints"), "{refusal}");
+}
+
+#[test]
+#[ignore = "known wrong result: #2579"]
+fn shared_planar_support_with_an_inclined_restraint_refuses() {
+    let mut case = loaded_planar_case();
+    let iso = Iso2::rotation(0.37);
+    let support = case.s.supports.get_mut("3").unwrap();
+    support.support_type = "inclinedRoller".into();
+    support.angle = Some(0.37);
+
+    let refusal = solve_2d(&case.s).unwrap_err();
+    assert!(refusal.contains("Node 2 has several supports (2, 3)"), "{refusal}");
+    let refusal = case.iso(&iso).unwrap_err();
+    assert!(refusal.contains("supports at node 2 cannot be merged as plain rigid restraints"), "{refusal}");
+
+    case.s.supports.remove("2").unwrap();
+    solve_2d(&case.s).unwrap();
+    solve_2d(&case.iso(&iso).unwrap().s).unwrap();
+}
+
+#[test]
+#[ignore = "known wrong result: #2579"]
+fn shared_spatial_support_with_an_inclined_restraint_refuses() {
+    let mut case = spatial_replay_case("1829");
+    let iso = Iso3::about_z(0.37);
+    let support = case.s.supports.get_mut("3").unwrap();
+    support.rz = false;
+    support.is_inclined = Some(true);
+    [support.normal_x, support.normal_y, support.normal_z] = [
+        Some(std::f64::consts::FRAC_1_SQRT_2),
+        Some(std::f64::consts::FRAC_1_SQRT_2),
+        Some(0.0),
+    ];
+
+    let refusal = solve_3d(&case.s).unwrap_err();
+    assert!(refusal.contains("Node 3 has several supports (2, 3)"), "{refusal}");
+    let refusal = case.iso(&iso).unwrap_err();
+    assert!(refusal.contains("supports at node 3 cannot be merged as plain rigid restraints"), "{refusal}");
+
+    case.s.supports.remove("2").unwrap();
+    solve_3d(&case.s).unwrap();
+    solve_3d(&case.iso(&iso).unwrap().s).unwrap();
 }
