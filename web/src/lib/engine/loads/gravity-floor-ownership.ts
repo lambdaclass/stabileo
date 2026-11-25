@@ -57,8 +57,8 @@ function connectedPitchedRoofs<S extends Shell>(shells: readonly ShellDeck<S>[])
 }
 
 export type BayAssignment =
-  | { partition: { kind: 'uncovered' }; region: [Polygon]; deck: Deck }
-  | { partition: { kind: 'shell' }; region: []; deck?: never };
+  | { partition: { kind: 'uncovered' }; region: [Polygon]; deck: Deck; independentShells?: ReadonlySet<number> }
+  | { partition: { kind: 'shell' }; region: []; deck?: never; independentShells?: never };
 
 const bayMembers = (bay: FloorBay) => [...bay.members].sort((a, b) => a - b).join(', ');
 
@@ -71,6 +71,7 @@ export function partitionGravityFloors<S extends Shell>(
   coordinates: (node: number) => Point3,
   shellBayAttachment: (shell: S, bay: FloorBay) => 'independent' | 'linked' | 'attached',
   shellSeparation: (first: S, second: S) => number,
+  independentDecks: (shell: S, bay: FloorBay) => boolean,
 ): { shellBayMembers: ReadonlyMap<number, ReadonlySet<number>>; bays: Map<FloorBay, BayAssignment> } {
   const shellCarriers: ShellDeck<S>[] = shells.map(shell => ({
     kind: 'shell', shell, footprint: shell.footprint, geometry: shell.geometry,
@@ -100,6 +101,7 @@ export function partitionGravityFloors<S extends Shell>(
       refuseGravityGeometry(shellOverlapMessage(a.shell, b.shell));
     }
   }
+  const independentShells = new Map<FloorBay, Set<number>>();
   let pitchedRoofs: ReturnType<typeof connectedPitchedRoofs<S>> | undefined;
   for (const [a, b] of potentiallyOverlapping([...shellCarriers, ...bayCarriers], carrierOutline)) {
     if (a.kind === 'bay' && b.kind === 'bay') {
@@ -119,6 +121,14 @@ export function partitionGravityFloors<S extends Shell>(
     if (attachment === 'independent' && separatedDeckRanges(bay.geometry, shell.geometry, tolerance)) continue;
     const overlap = deckOverlaps(bay, shell);
     if (!overlap.length) continue;
+    const [bayLow, bayHigh] = bay.geometry.range;
+    const mayCoverEaves = bay.footprint[0].length === 1 && bayLow === bayHigh && shell.shell.pitched && shell.geometry.range[0] >= bayHigh;
+    if (mayCoverEaves && attachment === 'independent' && independentDecks(shell.shell, bay.bay)) {
+      const independent = independentShells.get(bay.bay) ?? new Set<number>();
+      independent.add(shell.shell.id);
+      independentShells.set(bay.bay, independent);
+      continue;
+    }
     if (overlap.every(part => part.separated(tolerance))) {
       if (attachment !== 'independent' && overlap.some(part => part.band(-storeyHeadroom, storeyHeadroom) !== 'none')) {
         refuseGravityGeometry(msg('loadPlan.gravity.offsetShellDeck', { id: shell.shell.id, members: bayMembers(bay.bay) }));
@@ -132,8 +142,6 @@ export function partitionGravityFloors<S extends Shell>(
     const match = matchesFor(bay.bay);
     const attached = !coplanar && bay.footprint[0].length === 1 && attachment === 'attached'
       && subtractFootprints(bay.footprint[0], shell.footprint).length === 0;
-    const [bayLow, bayHigh] = bay.geometry.range;
-    const mayCoverEaves = bay.footprint[0].length === 1 && bayLow === bayHigh && shell.shell.pitched && shell.geometry.range[0] >= bayHigh;
     if (coplanar || attached) {
       if (match.roof) refuseGravityGeometry(msg('loadPlan.gravity.differentDeck'));
       match.covering.push(shell);
@@ -158,7 +166,7 @@ export function partitionGravityFloors<S extends Shell>(
     const match = matches.get(bay);
     const covering = match?.roof ?? match?.covering ?? [];
     if (!covering.length) {
-      assignments.set(bay, { partition: { kind: 'uncovered' }, region: [footprint], deck });
+      assignments.set(bay, { partition: { kind: 'uncovered' }, region: [footprint], deck, independentShells: independentShells.get(bay) });
       continue;
     }
     const footprints = covering.flatMap(shell => shell.footprint);

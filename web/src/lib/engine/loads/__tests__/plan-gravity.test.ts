@@ -818,20 +818,33 @@ it('#2291 a detached sloped shell starting at bay level blocks gravity', () => {
   checkBlockedGravity(model, differentDeck);
 });
 
-const independentDeckOracle = process.env.RUN_KNOWN_WRONG === '2291' ? it : it.skip;
-
-independentDeckOracle('known wrong result: #2291 detached independently supported roof and bay both carry gravity', () => {
-  for (const angle of [0, 0.37]) for (const loadEveryPanel of [false, true]) {
+it('#2291 detached independently supported roof and bay both carry gravity', () => {
+  for (const angle of [0, 0.37]) for (const cuts of [[], [0.25, 0.75]]) for (const loadEveryPanel of [false, true]) {
     const model = floor(1, 1, 10, 6);
-    rectangularShell(model, 1, 0, 10, 3, 6);
-    model.supports = new Map([...model.nodes.keys()].map(id => [id, { id, nodeId: id, type: 'fixed3d' as const }]));
+    const shell = rectangularShell(model, 1, 0, 10, 3, 6);
+    const supports = new Map([...model.nodes.keys()].map(id => [id, { id, nodeId: id, type: 'fixed3d' as const }]));
+    model.supports = supports;
+    subdivideMembers(model, cuts);
     rotatePlan(model, angle);
     const gravity = { mode: 'panels', loadEveryPanel } as const;
     const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }], gravity }));
     expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
     expect(-totalKN(plan.distributed.filter(load => load.caseType === 'D'), model)).toBeCloseTo(60, 9);
     expect(surfaceKN(plan.surface.filter(load => load.caseType === 'D'), model)).toBeCloseTo(10 * Math.sqrt(45), 9);
-    expect(gravityLayout(model, { ...gravity, tributaryWidth: 3 }).areaOf.size).toBe(4);
+    expect(gravityLayout(model, { ...gravity, tributaryWidth: 3 }).areaOf.size).toBe(model.elements.size);
+    expect(() => roofWeightFor(model, gravity, 3, 1)).not.toThrow();
+    const bridge = { ...model.elements.get(1)!, id: 1000, nodeI: 4, nodeJ: shell[2]!, type: 'truss' as const };
+    model.elements.set(bridge.id, bridge);
+    expect(buildLoadPlan(planInput(model, { gravity })).outcome).toBe('READY');
+    model.supports = new Map<number, { id: number; nodeId: number; type: 'fixed3d' | 'pinned3d' }>([...supports, [4, { id: 4, nodeId: 4, type: 'pinned3d' }]]);
+    checkBlockedGravity(model, differentDeck);
+    model.elements.delete(bridge.id);
+    model.supports = supports;
+    model.connectors = new Map([[1, { nodeI: 1, nodeJ: shell[2]! }]]);
+    checkBlockedGravity(model, differentDeck);
+    model.connectors = undefined;
+    supports.delete(1);
+    checkBlockedGravity(model, differentDeck);
   }
 });
 

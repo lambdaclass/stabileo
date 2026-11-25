@@ -10,10 +10,10 @@ import { buildLoadPlan } from '../load-plan';
 import { pressure, regulations, snow } from './snow-roof-plane-fixture';
 import { mesh, transform } from './snow-surface-round2-fixture';
 
-function steppedRoof(cuts: number[] = [], upperZ = 5, upperRise = 0) {
+function steppedRoof(cuts: number[] = [], upperZ = 5, upperRise = 0, depth = 7.5) {
   const edge = cuts.map(t => [0, 4 * t, 3]);
   return mesh([
-    [[0, 0, 3], [7.5, 0, 3], [7.5, 4, 3], [0, 4, 3], ...edge.reverse()],
+    [[0, 0, 3], [depth, 0, 3], [depth, 4, 3], [0, 4, 3], ...edge.reverse()],
     [[-7.5, 0, upperZ + upperRise], [0, 0, upperZ], [0, 4, upperZ], [-7.5, 4, upperZ + upperRise]],
   ]);
 }
@@ -158,11 +158,9 @@ it('#2218 flat and pitched fixtures share the physical triangle oracle', () => {
   expect(force * 2).toBeCloseTo(6.099084576, 10);
 });
 
-const transferOracle = process.env.RUN_KNOWN_WRONG === '2218' ? it : it.skip;
-
-transferOracle('known wrong result: #2218 the step triangle retains force and both physical first moments', () => {
+it('#2218 the step triangle retains force and both physical first moments', () => {
   const model = steppedRoof();
-  const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
+  const layout = gravityLayout(model, { mode: 'panels', slab: 'oneWay', spanAxis: 'x', tributaryWidth: 1 });
   const out = driftAndSlidingLoads(model, layout, { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1 });
   const actual = out.distributed.reduce((v, d) => {
     const e = model.elements.get(d.elementId)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
@@ -177,11 +175,11 @@ transferOracle('known wrong result: #2218 the step triangle retains force and bo
   expect(actual[2]).toBeCloseTo(6.099084576, 10);
 });
 
-transferOracle('known wrong result: #2218 a one-way roof delivers both exact step-drift bearing reactions', () => {
+it('#2218 a one-way roof delivers both exact step-drift bearing reactions', () => {
   const balanced = 0.7;
-  const gravity = { mode: 'panels', slab: 'oneWay', spanAxis: 'x' } as const;
   const config = { ...snow, roofKind: 'mono', slippery: false, partial: false } as const;
-  for (const cuts of [[], [0.17, 0.63]]) for (const angle of [0, 0.37]) for (const rise of [0, 0.075]) {
+  for (const cuts of [[], [0.17, 0.63]]) for (const angle of [0, Math.PI / 2]) for (const rise of [0, 0.00025]) {
+    const gravity = { mode: 'panels', slab: 'oneWay', spanAxis: angle === 0 ? 'x' : 'y' } as const;
     const model = transform(steppedRoof(cuts, 5, rise), angle, 0);
     const layout = gravityLayout(model, { ...gravity, tributaryWidth: 1 });
     const transfer = driftAndSlidingLoads(model, layout, { pg: 1, balanced, pf: balanced, slippery: false, tributaryWidth: 1 }).distributed;
@@ -210,4 +208,36 @@ transferOracle('known wrong result: #2218 a one-way roof delivers both exact ste
     expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
     expect(plan.distributed.filter(load => load.caseType === 'S').length).toBeGreaterThan(0);
   }
+});
+
+it('#2218 integrates the portion of a positive drift inside the receiving bay', () => {
+  const depth = 1;
+  const model = steppedRoof([], 5, 0, depth);
+  const layout = gravityLayout(model, { mode: 'panels', slab: 'oneWay', spanAxis: 'x', tributaryWidth: 1 });
+  const inputs = { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1 };
+  const { w, pd } = stepDrift({ ...inputs, stepHeight: 2, luUpper: 7.5, luLower: depth });
+  expect(w).toBeGreaterThan(depth);
+  const rows = driftAndSlidingLoads(model, layout, inputs).distributed;
+  const near = pd * (depth / 2 - depth ** 2 / (6 * w));
+  const far = pd * (depth / 2 - depth ** 2 / (3 * w));
+  expect(rows.map(row => row.elementId).sort()).toEqual([2, 4]);
+  expect(rows.find(row => row.elementId === 4)!.q).toBeCloseTo(-near, 10);
+  expect(rows.find(row => row.elementId === 2)!.q).toBeCloseTo(-far, 10);
+});
+
+it('#2218 requires both bearings to deliver the positive drift', () => {
+  const model = steppedRoof();
+  const gravity = { mode: 'panels', slab: 'oneWay', spanAxis: 'x' } as const;
+  const layout = gravityLayout(model, { ...gravity, tributaryWidth: 1 });
+  const config = { ...snow, roofKind: 'mono', slippery: false } as const;
+  const inputs = { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1 };
+  expect(() => driftAndSlidingLoads(model, layout, { ...inputs, receivers: new Set([2]) })).toThrow('snow.refused.stepDriftTransfer');
+  expect(() => driftAndSlidingLoads(model, layout, { ...inputs, receivers: new Set([2, 4]) })).not.toThrow();
+  const scoped = snowLoadCases({ model, layout, tributaryWidth: 1, snow: { ...config, roof: [2, 5, 6, 7, 8] } })!;
+  expect(scoped).toMatchObject({ result: { refused: 'snow.refused.stepDriftTransfer' }, cases: [] });
+  const across = gravityLayout(model, { ...gravity, spanAxis: 'y', tributaryWidth: 1 });
+  expect(() => driftAndSlidingLoads(model, across, inputs)).toThrow('snow.refused.stepDriftTransfer');
+  const hb = inputs.balanced / snowDensity(inputs.pg);
+  const low = steppedRoof([], 3 + 1.199 * hb);
+  expect(driftAndSlidingLoads(low, gravityLayout(low, { ...gravity, tributaryWidth: 1 }), inputs).distributed).toEqual([]);
 });

@@ -1,3 +1,5 @@
+import { agrees, roundoff, Sum } from '../accounting-math';
+import { ringArea } from './gravity-shell-partition';
 import { snowCoordinate, snowRoofSteps, snowRoofSurfaces, roofSurfaceModel } from './snow-roof-surfaces';
 import { gravityLayout, widthSpans, type GravityLayout, type GravityModel } from './plan-gravity';
 import { driftShapeMargins, stepDriftMargins, stepDrift, parapetDrift, slidingSnow, REF_DRIFT, REF_DRIFT_ADJACENT, REF_FIG9, REF_PARAPET, REF_SLIDING, type StepDrift } from '../../codes/cirsoc104/drift';
@@ -83,6 +85,7 @@ export interface DriftInputs {
   pfFor?: (slope: number, W: number) => number;
   slippery: boolean;
   tributaryWidth: number;
+  receivers?: ReadonlySet<number>;
   parapet?: { height: number };
   adjacent?: Array<{ side: '+x' | '-x' | '+y' | '-y'; topZ: number; separation: number; length: number }>;
 }
@@ -143,6 +146,73 @@ export function snowDriftRefusal(model: GravityModel, layout?: GravityLayout, su
 
 export const STEP_DRIFT_REFUSAL = 'snow.refused.stepDriftTransfer';
 
+function stepBearingLoads(
+  model: GravityModel, layout: GravityLayout, panelIndex: number, line: ReturnType<typeof lineInto>,
+  drift: StepDrift, stationError: number,
+): SnowSurchargeLoad[] {
+  const fail = (): never => { throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL)); };
+  const panel = layout.panels[panelIndex]!;
+  const span = panel.oneWaySpan;
+  const { p0, u, n, len } = line;
+  if (!span || Math.abs(n[span === 'x' ? 1 : 0]) * len > stationError || !Number.isFinite(len) || len <= stationError) return fail();
+  const local = (point: P2): P2 => [dot(sub(point, p0), u), dot(sub(point, p0), n)];
+  const rectangle = panel.polygon.map(local);
+  const lo = Math.min(...rectangle.map(([t]) => t));
+  const hi = Math.max(...rectangle.map(([t]) => t));
+  const depth = Math.max(...rectangle.map(([, d]) => d));
+  const area = (hi - lo) * depth;
+  const same = (a: number, b: number) => Math.abs(a - b) <= stationError;
+  if (depth <= stationError || lo > stationError || hi + stationError < len
+    || !same(Math.min(...rectangle.map(([, d]) => d)), 0)
+    || !agrees(ringArea(rectangle), area, area)
+    || rectangle.some(([t, d]) => !same(t, lo) && !same(t, hi) && !same(d, 0) && !same(d, depth))) return fail();
+
+  const extent = Math.min(depth, drift.w);
+  const ratio = extent / drift.w;
+  const force = drift.pd * extent * (1 - ratio / 2);
+  const first = drift.pd * extent ** 2 * (1 / 2 - ratio / 3);
+  const far = first / depth;
+  const rows: SnowSurchargeLoad[] = [];
+  const assigned = [new Sum(), new Sum(), new Sum()];
+  for (const [side, q] of [[0, force - far], [depth, far]] as const) {
+    const spans: Array<{ from: number; to: number; row: SnowSurchargeLoad; meanT: number; meanD: number }> = [];
+    for (const piece of layout.pieces) {
+      if (piece.panel !== panelIndex) continue;
+      const member = model.elements.get(piece.elementId);
+      const a = member && model.nodes.get(member.nodeI), b = member && model.nodes.get(member.nodeJ);
+      if (!member || !a || !b) return fail();
+      const [ta, da] = local([a.x, a.y]), [tb, db] = local([b.x, b.y]);
+      if (!same(da, side) || !same(db, side)) continue;
+      const length = Math.hypot(b.x - a.x, b.y - a.y);
+      if (!same(length, Math.abs(tb - ta)) || length <= stationError || (a.z ?? 0) !== (b.z ?? 0)) return fail();
+      const tAt = (s: number) => ta + (tb - ta) * s / length;
+      const tA = tAt(piece.a ?? 0), tB = tAt(piece.b ?? length);
+      const from = Math.max(0, Math.min(tA, tB)), to = Math.min(len, Math.max(tA, tB));
+      if (to - from <= stationError) continue;
+      const station = (t: number) => Math.min(length, Math.max(0, (t - ta) * length / (tb - ta)));
+      const x0 = station(from), x1 = station(to);
+      const meanT = tAt((x0 + x1) / 2);
+      const meanD = da + (db - da) * ((x0 + x1) / 2) / length;
+      const row = { elementId: member.id, a: Math.min(x0, x1), b: Math.max(x0, x1), q: -q, frame: 'projected' as const };
+      spans.push({ from, to, row, meanT, meanD });
+    }
+    let end = 0;
+    for (const { from, to, row, meanT, meanD } of spans.sort((a, b) => a.from - b.from)) {
+      if (!same(from, end)) return fail();
+      end = to;
+      const F = q * (row.b! - row.a!);
+      assigned[0]!.add(F);
+      assigned[1]!.add(F * meanT);
+      assigned[2]!.add(F * meanD);
+      rows.push(row);
+    }
+    if (!same(end, len)) return fail();
+  }
+  const target = [force * len, force * len ** 2 / 2, first * len];
+  if (!(far > 0 && force > far) || target.some((value, k) => !agrees(assigned[k]!.value, value, value))) return fail();
+  return rows;
+}
+
 export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout, i: DriftInputs, surfaceModel = roofSurfaceModel(model)): {
   distributed: SnowSurchargeLoad[]; derivation: EngineMessage[]; refs: ClauseRef[];
 } {
@@ -153,6 +223,9 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
   const bands: Band[] = [];
   const derivation: EngineMessage[] = [];
   const refs: ClauseRef[] = [];
+  const out: SnowSurchargeLoad[] = [];
+  const modelScale = [...model.nodes.values()].reduce((scale, p) => Math.max(scale, Math.abs(p.x), Math.abs(p.y)), 1);
+  const stationError = roundoff * modelScale;
   const roofs = layout.panels.map((p, k) => ({ ...p, k })).filter((p) => p.roof);
   const roofOf = (k: number): typeof roofs => {
     const start = roofs.find((p) => p.k === k);
@@ -179,17 +252,28 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
     if (typeof i.balanced !== 'number' && i.balancedConstantOnPlanes !== true) {
       throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL));
     }
-    const stepWithoutTransfer = (pt: P2): StepDrift => {
-      const dr = stepDrift(inputs(pt));
-      if (!Number.isFinite(dr.hb) || !Number.isFinite(dr.hc) || !Number.isFinite(dr.pd) || !Number.isFinite(dr.w)
-        || (dr.applies && dr.pd > 0 && dr.w > 0)) throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL));
+    const checkedDrift = (input: ReturnType<typeof inputs>): StepDrift => {
+      const dr = stepDrift(input);
+      if (![dr.hb, dr.hc, dr.pd, dr.w].every(Number.isFinite)) throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL));
       return dr;
     };
     const ranges = surfaceModel.edgeRanges(a, b, layout, pt => stepDriftMargins(inputs(pt)));
-    for (const { point } of ranges) stepWithoutTransfer(point);
     const samples: P2[] = [a, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], b];
+    const checks = [...ranges.map(range => range.point), ...samples].map(inputs);
+    const profiles = checks.map(checkedDrift);
+    const first = profiles.find(dr => dr.applies && dr.pd > 0 && dr.w > 0);
+    if (first) {
+      const heights = surfaceModel.edgeHeights(a, b, layout, U.k, L.k);
+      const heightScale = Math.max(Math.abs(U.z), Math.abs(L.z));
+      const sameHeight = heights.length > 0 && heights.every(h => agrees(h, heights[0]!, heightScale));
+      if (!sameHeight || roofOf(L.k).length !== 1
+        || profiles.some(dr => !dr.applies || dr.pd !== first.pd || dr.w !== first.w)) throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL));
+      const bearings = stepBearingLoads(model, layout, L.k, line, first, stationError);
+      if (i.receivers && bearings.some(row => !i.receivers!.has(row.elementId))) throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL));
+      out.push(...bearings);
+    }
     for (const pt of samples) {
-      const dr = stepWithoutTransfer(pt);
+      const dr = checkedDrift(inputs(pt));
       derivation.push(msg(dr.applies ? 'snow.derivation.drift' : 'snow.derivation.noDrift', {
         z: round(surfaces(L.k).elevation(pt), 2), up: round(surfaces(U.k).elevation(pt), 2), hb: round(dr.hb, 3), hc: round(dr.hc, 3),
         lee: round(dr.hdLeeward, 3), wind: round(dr.hdWindward, 3), h: round(dr.height, 3), w: round(dr.w, 2), pd: round(dr.pd, 3),
@@ -298,16 +382,14 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
       }
     }
   }
-  if (bands.length === 0) return { distributed: [], derivation, refs };
+  if (bands.length === 0) return { distributed: out, derivation, refs };
   const ranges = (a: P2, b: P2) => surfaceModel.edgeRanges(a, b, layout, pt => bands.flatMap(band => {
     const t = snowCoordinate(pt, band.p0, band.u, [0, band.len]), d = snowCoordinate(pt, band.p0, band.n, [0, ...(band.distanceBreaks ?? [])]);
     return [t, band.len - t, d, ...band.margins(d, t)];
   }));
   const stations = (a: P2, b: P2) => ranges(a, b).flatMap(r => [r.from, r.to]);
-  const stationError = 128 * Number.EPSILON * [...model.nodes.values()].reduce((scale, p) => Math.max(scale, Math.abs(p.x), Math.abs(p.y)), 1);
   const insideLimit = (x: number, toward: number) => x + Math.sign(toward - x) * Math.min(Math.abs(toward - x) / 2, stationError);
   const sortedCuts = (xs: number[]) => xs.sort((a, b) => a - b).filter((v, k, all) => k === 0 || v - all[k - 1]! > stationError);
-  const out: SnowSurchargeLoad[] = [];
   const at = (id: number) => {
     const el = model.elements.get(id)!;
     const a = model.nodes.get(el.nodeI)!, b = model.nodes.get(el.nodeJ)!;

@@ -213,7 +213,7 @@ export function snowLoadCases(input: SnowCasesInput): {
         balanced: (panel, pt) => shaped ? shaped.balanced(roofPoint({ x: pt[0], y: pt[1] })) + result.rainOnSnow : localResult(driftSurfaces.panel(panel, layout).planeAt(pt)).ps,
         balancedConstantOnPlanes: !shaped || kind === 'multiple',
         pf: result.pf, pfFor: (slope, W) => surfaceAt(slope, W).pf, slippery: input.snow.slippery,
-        tributaryWidth: input.tributaryWidth, parapet: input.snow.parapet, adjacent: input.snow.adjacent,
+        tributaryWidth: input.tributaryWidth, receivers: only, parapet: input.snow.parapet, adjacent: input.snow.adjacent,
       }, driftSurfaces);
     } catch (err) {
       if (!(err instanceof EngineMessageError) || err.key !== STEP_DRIFT_REFUSAL) throw err;

@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, onTestFinished } from 'vitest';
 import { modelStore } from '../model.svelte';
-import '../index';
+import { uiStore } from '../index';
 import { applyLoadPlan, loadStateForPlan } from '../apply-load-plan';
 import { buildLoadPlan, describePlanDelta, type LoadPlanInput } from '../../engine/loads/load-plan';
+import { regulations, snow } from '../../engine/loads/__tests__/snow-roof-plane-fixture';
 import { defaultRegulations, type ProjectRegulations } from '../../codes/roles';
 import { defaultCombinations, defaultLoadCases, DEFAULT_CASE_NAME_KEYS } from '../../model/default-loads';
 import { t } from '../../i18n';
@@ -218,4 +219,76 @@ it('#2512 restored platforms with a second tie keep both pressures at a fixed ma
   const dead = modelStore.model.loadCases.find(c => c.type === 'D')!;
   expect(modelStore.model.loads.filter(load => load.type === 'surface3d' && load.data.caseId === dead.id))
     .toEqual([lower.quad, upper.quad].map(quadId => expect.objectContaining({ data: expect.objectContaining({ quadId, q: 1 }) })));
+});
+
+it.each(['D', 'S'] as const)('applied geometry-supported %s loads retain their bearing reactions', async caseType => {
+  const mode = uiStore.analysisMode;
+  onTestFinished(() => { uiStore.analysisMode = mode; });
+  uiStore.analysisMode = 'pro';
+  modelStore.clear();
+  const ring = (x0: number, x1: number, width: number, z0: number, z1: number) => {
+    const nodes = [
+      modelStore.addNode(x0, 0, z0), modelStore.addNode(x1, 0, z0),
+      modelStore.addNode(x1, width, z1), modelStore.addNode(x0, width, z1),
+    ] as [number, number, number, number];
+    for (const id of nodes) modelStore.addSupport(id, 'fixed3d');
+    return nodes;
+  };
+  const framed = (nodes: [number, number, number, number], y: number, z: number) => {
+    const mid = modelStore.addNode(modelStore.nodes.get(nodes[0])!.x, y, z);
+    const cycle = [...nodes, mid];
+    for (const [index, id] of cycle.entries()) modelStore.addElement(id, cycle[(index + 1) % cycle.length]!);
+  };
+  const gravity = caseType === 'D' ? { mode: 'panels' } as const
+    : { mode: 'panels', slab: 'oneWay', spanAxis: 'x' } as const;
+  const lower = caseType === 'D' ? ring(0, 10, 6, 3, 3) : ring(0, 7.5, 4, 3, 3);
+  framed(lower, caseType === 'D' ? 3 : 2, 3);
+  const upper = caseType === 'D' ? ring(0, 10, 6, 3, 6) : ring(-7.5, 0, 4, 5, 5);
+  if (caseType === 'D') {
+    const material = modelStore.model.materials.keys().next().value!;
+    modelStore.addQuad(upper, material, 0.15);
+  } else {
+    framed(upper, 2, 5);
+  }
+
+  if (caseType === 'D') modelStore.addElement(lower[2], upper[2], 'truss');
+  else modelStore.addElement(lower[0], upper[1], 'truss');
+
+  modelStore.restore(JSON.parse(JSON.stringify(modelStore.snapshot())));
+  const input = planInput();
+  const plan = buildLoadPlan({
+    ...input, gravity, regulations: regulations(), model: { ...input.model, supports: modelStore.supports },
+    dead: caseType === 'D' ? [{ labelKey: 'a', q: 1 }] : [],
+    snow: caseType === 'S' ? { ...snow, roofKind: 'mono', enabled: true, slippery: false, source: 'site' } : undefined,
+  });
+  expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+  expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf })).toBeUndefined();
+  const loadCase = modelStore.model.loadCases.find(entry => entry.type === caseType)!;
+  const combination = modelStore.addCombination('Bearing reactions', [{ caseId: loadCase.id, factor: 1 }]);
+  const ps = caseType === 'S' ? plan.cases.find(entry => entry.type === 'S')!.nameParams?.ps as number : 0;
+  for (const result of [modelStore.solve3D(false, false, true), await modelStore.solve3DAsync(false, false, true)]) {
+    if (!result || typeof result === 'string') throw new Error(String(result));
+    expect(result.reactions.length).toBe(8);
+  }
+  expect(modelStore.singleSolveInput3D(false, false, true)).toBeTruthy();
+  expect(modelStore.buildSolverInput3D()).toBeTruthy();
+  for (const perCombination of ['linear', 'pdelta'] as const) {
+    modelStore.setAnalysis({ perCombination });
+    for (const bundle of [
+      modelStore.solveCombinations3D(false, false, true),
+      await modelStore.solveCombinations3DParallel(false, false, true),
+    ]) {
+      if (!bundle || typeof bundle === 'string') throw new Error(String(bundle));
+      const { reactions } = bundle.perCombo.get(combination)!;
+      const force = (ids: number[]) => reactions.filter(row => ids.includes(row.nodeId)).reduce((sum, row) => sum + row.fz, 0);
+      if (caseType === 'D') {
+        expect(force(lower)).toBeCloseTo(60, 8);
+        expect(force(upper)).toBeCloseTo(10 * Math.sqrt(45), 8);
+      } else {
+        expect(force([lower[0], lower[3]])).toBeCloseTo(15 * ps + 3.049542288 - 1.549167482304 / 7.5, 8);
+        expect(force([lower[1], lower[2]])).toBeCloseTo(15 * ps + 1.549167482304 / 7.5, 8);
+        expect(force(upper)).toBeCloseTo(30 * ps, 8);
+      }
+    }
+  }
 });

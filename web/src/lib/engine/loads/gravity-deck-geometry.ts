@@ -36,7 +36,7 @@ export function physicalDeck(points: Point3[], plane?: ShellPlane): Deck {
   return { points, basis, ...deckSurface(range, surface) };
 }
 
-export type DeckFootprint = { footprint: Polygon[]; geometry: DeckSurface };
+export type DeckFootprint = { footprint: Polygon[]; geometry: DeckSurface; independentShells?: ReadonlySet<number> };
 type Band = 'none' | 'full' | 'partial';
 
 function above(upper: number, lower: number, limit: number): number {
