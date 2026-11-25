@@ -303,6 +303,97 @@ fn review_beam(length: f64) -> SolverInput {
 }
 
 #[test]
+#[ignore = "known wrong result: #2101"]
+fn issue_2101_shear_limits_at_both_support_faces() {
+    use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
+
+    let mut solver = review_beam(10.0);
+    let support = solver.supports.get_mut("2").unwrap();
+    support.support_type = "rollerX".into();
+    let mut pin = support.clone();
+    pin.id = 1;
+    pin.node_id = 1;
+    pin.support_type = "pinned".into();
+    solver.supports.insert("1".into(), pin);
+    let spatial = embed_2d(&solver, Plane::XZ).unwrap();
+    let weight = 100.0;
+    let train = LoadTrain {
+        name: "one axle".into(),
+        axles: vec![Axle { offset: 0.0, weight }],
+    };
+    let p = solve_moving_loads_2d(&MovingLoadInput {
+        solver,
+        train: train.clone(),
+        step: Some(0.25),
+        path_element_ids: Some(vec![1]),
+    })
+    .unwrap();
+    let s = solve_moving_loads_3d(&MovingLoadInput3D {
+        solver: spatial,
+        train,
+        step: Some(0.25),
+        path_element_ids: Some(vec![1]),
+        gravity_direction: None,
+    })
+    .unwrap();
+    assert_force(p.elements["1"].v_max_pos, weight);
+    assert_force(p.elements["1"].v_max_neg, -weight);
+    assert_force(s.elements["1"].vz_max_pos, weight);
+    assert_force(s.elements["1"].vz_max_neg, -weight);
+}
+
+#[test]
+#[ignore = "known wrong result: #2104"]
+fn issue_2104_a_joint_axle_governs_both_adjacent_members() {
+    use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
+
+    let mut solver: SolverInput =
+        serde_json::from_str(include_str!("../fixtures/moving-shear-2104.json")).unwrap();
+    solver.loads.clear();
+    solver.elements.retain(|_, e| e.id <= 2);
+    solver.nodes.retain(|_, n| n.id <= 3);
+    let mut fixed = solver.supports["1"].clone();
+    solver.supports.clear();
+    for id in [1, 2, 3] {
+        fixed.id = id;
+        fixed.node_id = id;
+        solver.supports.insert(id.to_string(), fixed.clone());
+    }
+    let second = solver.elements.get_mut("2").unwrap();
+    (second.node_i, second.node_j) = (second.node_j, second.node_i);
+    let spatial = embed_2d(&solver, Plane::XZ).unwrap();
+    let weight = 50.0;
+    let train = LoadTrain {
+        name: "stacked axles".into(),
+        axles: vec![
+            Axle { offset: 0.0, weight },
+            Axle { offset: 0.0, weight },
+        ],
+    };
+    let p = solve_moving_loads_2d(&MovingLoadInput {
+        solver,
+        train: train.clone(),
+        step: Some(1.0),
+        path_element_ids: Some(vec![1, 2]),
+    })
+    .unwrap();
+    let s = solve_moving_loads_3d(&MovingLoadInput3D {
+        solver: spatial,
+        train,
+        step: Some(1.0),
+        path_element_ids: Some(vec![1, 2]),
+        gravity_direction: None,
+    })
+    .unwrap();
+    assert_eq!(p.num_positions, 3);
+    assert_eq!(s.num_positions, 3);
+    assert_force(p.elements["1"].v_max_neg, -2.0 * weight);
+    assert_force(p.elements["2"].v_max_pos, 2.0 * weight);
+    assert_force(s.elements["1"].vz_max_neg, -2.0 * weight);
+    assert_force(s.elements["2"].vz_max_pos, 2.0 * weight);
+}
+
+#[test]
 fn review_2101_sampled_entrance_axle_governs_shear() {
     use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
 

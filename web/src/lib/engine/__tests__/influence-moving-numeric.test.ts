@@ -124,6 +124,24 @@ describe('moving loads', () => {
     expect(worst).toBeCloseTo(250, 0);
   });
 
+  (process.env.RUN_MOVING_FACES ? it : it.skip)('support faces govern the shear envelope', async () => {
+    const weight = single.axles[0].weight;
+    for (const run of [solveMovingLoads, solveMovingLoadsAsync]) {
+      const env = await run(solverBeam(10), { train: single, step: 0.25 });
+      if (typeof env === 'string') throw new Error(env);
+      const shear = env.fullEnvelope!.shear!.elements[0];
+      expect.soft(shear.posValues[0]).toBeCloseTo(weight, 9);
+      expect.soft(shear.negValues.at(-1)).toBeCloseTo(-weight, 9);
+      for (const [position, node] of [[0, 1], [10, 2]]) {
+        const atSupport = env.positions.find((sample) => sample.refPosition === position)!.results;
+        expect.soft(atSupport.reactions.find((reaction) => reaction.nodeId === node)?.rz).toBeCloseTo(weight, 9);
+        const member = atSupport.elementForces[0];
+        expect.soft(member.vStart).toBeCloseTo(0, 9);
+        expect.soft(member.vEnd).toBeCloseTo(0, 9);
+      }
+    }
+  });
+
   it('shear envelopes to the reaction at the nearest interior sample', () => {
     const span = 10;
     const step = 0.25;
