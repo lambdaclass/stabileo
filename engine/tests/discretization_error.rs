@@ -2237,6 +2237,7 @@ fn sizes_are_put_back_on_a_mesh_of_triangles_and_within_limits() {
     assert_eq!(capped.status, "elementLimit");
     assert!(capped.input.quads.len() <= 40);
     let shallow = resize_3d(&coarse, &ResizeOptions { max_levels: 1, ..options.clone() }).unwrap();
+    assert_eq!(shallow.status, "levelLimit");
     assert!(shallow.input.quads.len() <= 4 * coarse.quads.len() + 12 && shallow.passes <= 2, "{} elements in {} passes", shallow.input.quads.len(), shallow.passes);
 
     let bad = |samples: Vec<[f64; 4]>| resize_3d(&coarse, &ResizeOptions { samples, ..ResizeOptions::default() }).unwrap_err();
@@ -2244,4 +2245,99 @@ fn sizes_are_put_back_on_a_mesh_of_triangles_and_within_limits() {
     assert_eq!(bad(vec![[f64::NAN, 0.1, 0.0, 0.1]]), "A sample needs finite coordinates and a positive size");
     assert_eq!(resize_3d(&coarse, &ResizeOptions { max_levels: 17, ..ResizeOptions::default() }).unwrap_err(), "At most 16 levels");
     assert_eq!(resize_3d(&coarse, &ResizeOptions { max_elements: 1_000_000, ..ResizeOptions::default() }).unwrap_err(), "At most 200000 shell elements");
+}
+
+#[test]
+fn resize_does_not_report_success_for_unmet_sizes() {
+    let coarse = l_plate(4);
+    let samples = vec![[0.1, 0.1, 0.0, 1e-6]];
+    let out = resize_3d(&coarse, &ResizeOptions { samples, max_levels: 0, ..ResizeOptions::default() }).unwrap();
+    assert_eq!(out.status, "levelLimit");
+    assert_eq!(out.passes, 0);
+    assert!(same_model(&out.input, &coarse));
+
+    let out = resize_3d(&coarse, &ResizeOptions { samples: vec![[10.0, 10.0, 0.0, 0.1]], ..ResizeOptions::default() }).unwrap();
+    assert_eq!(out.status, "unmatchedSamples");
+    assert_eq!(out.passes, 0);
+}
+
+#[test]
+fn resize_regions_keep_nearby_shells_separate_through_multiple_passes() {
+    use dedaliano_engine::postprocess::discretization::adapt::ResizeRegion;
+    let mut coarse = l_plate(4);
+    let original = coarse.quads.values().min_by_key(|q| q.id).unwrap().clone();
+    let mut nearby = original.clone();
+    nearby.id = 1000;
+    for id in &mut nearby.nodes {
+        let mut n = coarse.nodes[&id.to_string()].clone();
+        n.id += 1000;
+        n.z += 0.001;
+        *id = n.id;
+        coarse.nodes.insert(n.id.to_string(), n);
+    }
+    coarse.quads.insert(nearby.id.to_string(), nearby.clone());
+    let centre = |axis: fn(&SolverNode3D) -> f64| original.nodes.iter().map(|id| axis(&coarse.nodes[&id.to_string()]) / 4.0).sum::<f64>();
+    let sample = [centre(|n| n.x), centre(|n| n.y), 0.0, 0.02];
+    let options = ResizeOptions {
+        regions: vec![ResizeRegion { shells: vec![("quad".into(), original.id)], samples: vec![sample] }],
+        geometry: GeometryMode::Faceted,
+        ..ResizeOptions::default()
+    };
+    let scoped = resize_3d(&coarse, &options).unwrap();
+    assert_eq!(scoped.status, "done");
+    assert!(scoped.passes > 1);
+    // Connected neighbours may split to retain the refiner's conformity/balance guards.
+    assert!(scoped.mesh.shells.iter().any(|s| s.parent == original.id));
+    assert!(scoped.mesh.shells.iter().all(|s| s.parent != nearby.id));
+    assert_eq!(scoped.input.quads["1000"].nodes, nearby.nodes);
+    let global = resize_3d(&coarse, &ResizeOptions { samples: vec![sample], regions: vec![], ..options.clone() }).unwrap();
+    assert!(global.mesh.shells.iter().any(|s| s.parent == nearby.id));
+
+    // The spatial lookup also works for a vertical YZ wall, whose x coordinate is constant.
+    for n in coarse.nodes.values_mut() { (n.x, n.y, n.z) = (n.z, n.x, n.y); }
+    let mut rotated = options.clone();
+    rotated.regions[0].samples[0] = [sample[2], sample[0], sample[1], sample[3]];
+    let wall = resize_3d(&coarse, &rotated).unwrap();
+    assert_eq!((wall.status.as_str(), wall.passes, wall.mesh.shells.len()), ("done", scoped.passes, scoped.mesh.shells.len()));
+    assert_eq!(wall.input.quads["1000"].nodes, nearby.nodes);
+    for n in coarse.nodes.values_mut() { n.x *= 1000.0; n.y *= 1000.0; n.z *= 1000.0; }
+    for v in &mut rotated.regions[0].samples[0] { *v *= 1000.0; }
+    let scaled = resize_3d(&coarse, &rotated).unwrap();
+    assert_eq!((scaled.status.as_str(), scaled.passes, scaled.mesh.shells.len()), ("done", wall.passes, wall.mesh.shells.len()));
+}
+
+#[test]
+fn resize_bounds_samples_and_rejects_ambiguous_regions() {
+    use dedaliano_engine::postprocess::discretization::adapt::{ResizeRegion, MOST_ELEMENTS};
+    let coarse = l_plate(4);
+    let excessive = ResizeOptions { samples: vec![[0.1, 0.1, 0.0, 0.1]; MOST_ELEMENTS + 1], ..ResizeOptions::default() };
+    assert!(resize_3d(&coarse, &excessive).unwrap_err().contains("size samples"));
+    let region = ResizeRegion { shells: vec![("quad".into(), 1)], samples: vec![[0.1, 0.1, 0.0, 0.1]] };
+    let duplicated = ResizeOptions { regions: vec![region.clone(), region], ..ResizeOptions::default() };
+    assert_eq!(resize_3d(&coarse, &duplicated).unwrap_err(), "Resize regions must not overlap");
+    let partial: ResizeOptions = serde_json::from_value(serde_json::json!({"samples": []})).unwrap();
+    assert_eq!((partial.max_elements, partial.max_levels), (20_000, 10));
+}
+
+#[test]
+fn resize_reports_the_hard_pass_limit_on_a_mesh_with_very_different_sizes() {
+    use dedaliano_engine::postprocess::discretization::adapt::MOST_LEVELS;
+    let mut coarse = l_plate(4);
+    for n in coarse.nodes.values_mut() { n.x *= 10_000.0; n.y *= 10_000.0; }
+    let mut tiny = coarse.quads.values().min_by_key(|q| q.id).unwrap().clone();
+    tiny.id = 1000;
+    for id in &mut tiny.nodes {
+        let mut n = coarse.nodes[&id.to_string()].clone();
+        n.id += 1000;
+        n.x = 100_000.0 + n.x * 4e-8;
+        n.y = 100_000.0 + n.y * 4e-8;
+        *id = n.id;
+        coarse.nodes.insert(n.id.to_string(), n);
+    }
+    coarse.quads.insert(tiny.id.to_string(), tiny);
+    // The global finest-cell floor is far below what sixteen local passes can reach.
+    let samples = vec![[100.123, 100.123, 0.0, 1e-4]];
+    let out = resize_3d(&coarse, &ResizeOptions { samples: samples.clone(), max_levels: 0, geometry: GeometryMode::Faceted, ..ResizeOptions::default() }).unwrap();
+    assert_eq!((out.status.as_str(), out.passes), ("levelLimit", MOST_LEVELS));
+    assert!(oversize(&out.input, &samples) > 1.5);
 }

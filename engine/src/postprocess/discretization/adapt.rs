@@ -437,6 +437,8 @@ pub fn adapt_3d(input: &SolverInput3D, options: &AdaptOptions) -> Result<Adapted
 pub struct ResizeOptions {
     /// Points of the mesh with the element size wanted there: x, y, z and the longest edge.
     pub samples: Vec<[f64; 4]>,
+    /// Alternatively, samples scoped to original shell IDs and their descendants.
+    pub regions: Vec<ResizeRegion>,
     /// A pass that would leave more shell-type elements than this is not made. At most
     /// `MOST_ELEMENTS`.
     pub max_elements: usize,
@@ -445,9 +447,35 @@ pub struct ResizeOptions {
     pub geometry: GeometryMode,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResizeRegion {
+    pub shells: Vec<(String, usize)>,
+    pub samples: Vec<[f64; 4]>,
+}
+
+/// Choose the widest coordinate of each region, including walls with constant x.
+struct SampleIndex {
+    samples: Vec<[f64; 4]>,
+    axis: usize,
+}
+
+impl SampleIndex {
+    fn new(samples: &[[f64; 4]]) -> Self {
+        let span = |axis: usize| {
+            let (lo, hi) = samples.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), s| (lo.min(s[axis]), hi.max(s[axis])));
+            hi - lo
+        };
+        let axis = (0..3).max_by(|&a, &b| span(a).total_cmp(&span(b))).unwrap();
+        let mut samples = samples.to_vec();
+        samples.sort_by(|a, b| a[axis].total_cmp(&b[axis]));
+        Self { samples, axis }
+    }
+}
+
 impl Default for ResizeOptions {
     fn default() -> Self {
-        ResizeOptions { samples: Vec::new(), max_elements: 20_000, max_levels: 10, geometry: GeometryMode::default() }
+        ResizeOptions { samples: Vec::new(), regions: Vec::new(), max_elements: 20_000, max_levels: 10, geometry: GeometryMode::default() }
     }
 }
 
@@ -459,7 +487,7 @@ pub struct Resized {
     pub mesh: AdaptedMesh,
     /// The refinements made.
     pub passes: usize,
-    /// `done` (no element is larger than wanted where a sample lies in it) or `elementLimit`.
+    /// `done`, `elementLimit`, `levelLimit`, or `unmatchedSamples`. Only `done` meets all sizes.
     pub status: String,
     pub caveats: Vec<String>,
     pub supports_inferred: usize,
@@ -515,37 +543,86 @@ pub fn resize_3d(input: &SolverInput3D, options: &ResizeOptions) -> Result<Resiz
     if options.max_levels > MOST_LEVELS {
         return Err(format!("At most {MOST_LEVELS} levels"));
     }
-    if options.samples.iter().flatten().any(|v| !v.is_finite()) || options.samples.iter().any(|s| s[3] <= 0.0) {
+    if !options.samples.is_empty() && !options.regions.is_empty() {
+        return Err("Use either samples or scoped regions".into());
+    }
+    let count = options.regions.iter().try_fold(options.samples.len(), |n, r| n.checked_add(r.samples.len()));
+    if !count.is_some_and(|n| n <= MOST_ELEMENTS) {
+        return Err(format!("At most {MOST_ELEMENTS} size samples"));
+    }
+    let shell_count = options.regions.iter().try_fold(0usize, |n, r| n.checked_add(r.shells.len()));
+    if !shell_count.is_some_and(|n| n <= MOST_ELEMENTS) || options.regions.len() > MOST_ELEMENTS {
+        return Err(format!("At most {MOST_ELEMENTS} scoped shells and regions"));
+    }
+    let all_samples = || options.samples.iter().chain(options.regions.iter().flat_map(|r| &r.samples));
+    if all_samples().any(|s| s.iter().any(|v| !v.is_finite()) || s[3] <= 0.0) {
         return Err("A sample needs finite coordinates and a positive size".into());
     }
+    let mut region_of = HashMap::new();
+    for (i, region) in options.regions.iter().enumerate() {
+        for (family, id) in &region.shells {
+            let family = match family.as_str() {
+                "plate" => "plate",
+                "quad" => "quad",
+                "curvedShell" => "curvedShell",
+                _ => return Err("Unknown resize shell family".into()),
+            };
+            if region_of.insert((family, *id), i).is_some() {
+                return Err("Resize regions must not overlap".into());
+            }
+        }
+    }
+    let indices: Vec<_> = if options.regions.is_empty() {
+        vec![SampleIndex::new(&options.samples)]
+    } else {
+        options.regions.iter().map(|r| SampleIndex::new(&r.samples)).collect()
+    };
     let finest = sizes(input).into_values().fold(f64::INFINITY, f64::min) / 2f64.powi(options.max_levels as i32);
-    let mut samples = options.samples.clone();
-    samples.sort_by(|a, b| a[0].total_cmp(&b[0]));
     let Some(original_max_node) = input.nodes.values().map(|n| n.id).max() else { return Err("noShellElements".into()) };
     let mut model = input.clone();
     let mut lineage = Lineage::default();
     let mut caveats: Vec<String> = Vec::new();
     let (mut passes, mut supports_inferred) = (0, 0);
     let mut status = "done";
-    for _ in 0..=MOST_LEVELS {
+    for pass in 0..=MOST_LEVELS {
         let mut to_split: HashSet<ElementKey> = HashSet::new();
+        let mut limited = false;
+        let mut matched: Vec<Vec<bool>> = indices.iter().map(|i| vec![false; i.samples.len()]).collect();
         for (key, corners, longest) in cells(&model) {
-            if longest <= TOO_LARGE * finest {
-                continue;
+            let original = (key.0, lineage.shells.get(&key).map_or(key.1, |(id, _)| *id));
+            let region = if options.regions.is_empty() { 0 } else {
+                let Some(&region) = region_of.get(&original) else { continue };
+                region
+            };
+            let SampleIndex { samples, axis } = &indices[region];
+            let (low, high) = corners.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(low, high), c| (low.min(c[*axis]), high.max(c[*axis])));
+            let from = samples.partition_point(|s| s[*axis] < low - 0.25 * longest);
+            let mut wanted = f64::INFINITY;
+            for (i, s) in samples.iter().enumerate().skip(from).take_while(|(_, s)| s[*axis] <= high + 0.25 * longest) {
+                if holds(&corners, longest, &[s[0], s[1], s[2]]) {
+                    matched[region][i] = true;
+                    wanted = wanted.min(s[3]);
+                }
             }
-            let (low, high) = corners.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(low, high), c| (low.min(c[0]), high.max(c[0])));
-            let from = samples.partition_point(|s| s[0] < low - 0.25 * longest);
-            let wanted = samples[from..]
-                .iter()
-                .take_while(|s| s[0] <= high + 0.25 * longest)
-                .filter(|s| holds(&corners, longest, &[s[0], s[1], s[2]]))
-                .map(|s| s[3])
-                .fold(f64::INFINITY, f64::min);
             if longest > TOO_LARGE * wanted {
-                to_split.insert(key);
+                if longest <= TOO_LARGE * finest {
+                    limited = true;
+                } else {
+                    to_split.insert(key);
+                }
             }
         }
+        if matched.iter().flatten().any(|found| !found) {
+            status = "unmatchedSamples";
+            break;
+        }
         if to_split.is_empty() {
+            if limited { status = "levelLimit"; }
+            break;
+        }
+        // Keep the hard work budget, but never label an exhausted budget as completion.
+        if pass == MOST_LEVELS {
+            status = "levelLimit";
             break;
         }
         let refined = refine_marked(&model, options.geometry, &to_split)?;

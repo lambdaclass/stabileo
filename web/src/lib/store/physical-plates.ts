@@ -190,7 +190,12 @@ export function setShellProperties(keys: readonly string[], patch: { materialId?
 /** Change how a plate is to be meshed. Its mesh, if any, is then out of date. */
 export function setPlateMeshSpec(ids: readonly number[], spec: Partial<PlateMeshSpec>): void {
   modelStore.batch(() => {
-    for (const id of ids) writeSurface(id, (s) => { const { refinement: _sizes, ...rest } = s; return { ...rest, mesh: { ...s.mesh, ...spec } }; });
+    for (const id of ids) writeSurface(id, (s) => {
+      const mesh = { ...s.mesh, ...spec };
+      if (Object.keys(spec).every((key) => mesh[key as keyof PlateMeshSpec] === s.mesh[key as keyof PlateMeshSpec])) return s;
+      const { refinement: _sizes, ...rest } = s;
+      return { ...rest, mesh };
+    });
   });
 }
 
@@ -590,13 +595,12 @@ export function recordPlateRefinement(id: number, nodes: readonly number[], made
   const e = plateEntry(id);
   if (!e?.surface.meshed) return;
   const sizes: number[] = [];
-  const round = (v: number) => Math.round(v * 1e6) / 1e6;
-  for (const shell of made ? [...made.quads.map((q) => modelStore.quads.get(q)), ...made.plates.map((p) => modelStore.plates.get(p))] : []) {
+  for (const shell of made ? [...(e.group.members.quads ?? []).map((q) => modelStore.quads.get(q)), ...(e.group.members.plates ?? []).map((p) => modelStore.plates.get(p))] : []) {
     if (!shell) continue;
     const at = shell.nodes.map((n) => modelStore.nodes.get(n)!);
     const centre = (axis: 'x' | 'y' | 'z') => at.reduce((sum, p) => sum + (p[axis] ?? 0), 0) / at.length;
     const longest = Math.max(...at.map((p, k) => { const q = at[(k + 1) % at.length]!; return Math.hypot(q.x - p.x, q.y - p.y, (q.z ?? 0) - (p.z ?? 0)); }));
-    sizes.push(round(centre('x')), round(centre('y')), round(centre('z')), round(longest));
+    sizes.push(centre('x'), centre('y'), centre('z'), longest);
   }
   const members = e.group.members;
   const have = new Set(members.nodes ?? []);
@@ -614,7 +618,7 @@ export function recordPlateRefinement(id: number, nodes: readonly number[], made
   }
   writeSurface(id, (s) => (s.meshed ? {
     ...s,
-    ...(sizes.length ? { refinement: { samples: [...(s.refinement?.samples ?? []), ...sizes] } } : {}),
+    ...(sizes.length ? { refinement: { samples: sizes } } : {}),
     meshed: { ...s.meshed, cells: cells.length, quality: meshQuality({ points, cells }), refined: true },
   } : s));
 }

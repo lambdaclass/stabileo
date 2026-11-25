@@ -4,10 +4,12 @@ import { uiStore } from '../ui.svelte';
 import { historyStore } from '../history.svelte';
 import '../index';
 import { initSolver, callCertify } from '../../engine/wasm-solver';
+import * as wasmSolver from '../../engine/wasm-solver';
+import * as meshPlanner from '../../model/edit/refined-mesh';
 import { applyRefinedMesh, restoreRefinements } from '../refined-mesh';
 import { planRefinedMesh, cornerValues, hangingEdgeNodes, type RefinedMesh } from '../../model/edit/refined-mesh';
 import {
-  addPlateLoad, applyPlateMeshes, createPlate, forgetPlateRefinement, meshBeforeAnalysis, planPlateMesh, plateEntry, plateStatus, preparePlatesForAnalysis, setPlateMeshSpec,
+  addPlateLoad, applyPlateMeshes, createPlate, forgetPlateRefinement, meshBeforeAnalysis, planPlateMesh, plateEntry, plateLoadDefs, plateStatus, preparePlatesForAnalysis, setPlateMeshSpec,
 } from '../physical-plates';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 
@@ -333,7 +335,7 @@ describe('applying it to plates meshed from their outlines', () => {
     const refined = { cells: modelStore.quads.size, estimate: ownEstimate() };
     expect(refined.estimate).toBeLessThan(0.7 * coarse);
     expect(plateEntry(a)!.surface.refinement!.samples.length % 4).toBe(0);
-    expect(plateEntry(a)!.surface.refinement!.samples.length + plateEntry(b)!.surface.refinement!.samples.length).toBe(4 * applied.shells);
+    expect(plateEntry(a)!.surface.refinement!.samples.length + plateEntry(b)!.surface.refinement!.samples.length).toBe(4 * modelStore.quads.size);
 
     meshPlate(a, 1);
     expect(modelStore.constraints).toHaveLength(0);
@@ -381,7 +383,7 @@ describe('applying it to plates meshed from their outlines', () => {
     const wire = wireOf();
     const applied = applyRefinedMesh(wire, adapt(wire).mesh);
     if ('refused' in applied) throw new Error(applied.refused);
-    setPlateMeshSpec([a], { size: 1 });
+    setPlateMeshSpec([a], { size: 2 });
     expect(plateEntry(a)!.surface.refinement).toBeUndefined();
     expect(plateEntry(b)!.surface.refinement).toBeDefined();
     forgetPlateRefinement([b]);
@@ -395,7 +397,86 @@ describe('applying it to plates meshed from their outlines', () => {
     historyStore.undo();
   });
 
-  it('is dropped when it cannot be put back, and not tried again', () => {
+  it.each(['elementLimit', 'levelLimit', 'unmatchedSamples', 'exception'])('keeps the mesh and samples pending on %s, then retries successfully', (status) => {
+    const [a, b] = twoSlabs();
+    const wire = wireOf();
+    const applied = applyRefinedMesh(wire, adapt(wire).mesh);
+    if ('refused' in applied) throw new Error(applied.refused);
+    const saved = [a, b].map((id) => [...plateEntry(id)!.surface.refinement!.samples]);
+    meshPlate(a, 1);
+    const realCall = wasmSolver.callCertify;
+    const resize = vi.spyOn(wasmSolver, 'callCertify').mockImplementation((name, args) => {
+      if (name !== 'resize_mesh_3d') return realCall(name, args);
+      if (status === 'exception') throw new Error('temporary resize failure');
+      // A nonempty partial mesh must be rejected, not just the empty-mesh special case.
+      return { ...realCall(name, args), status };
+    });
+    try {
+      settle();
+      expect(modelStore.quads.size).toBe(32);
+      expect([a, b].map((id) => plateEntry(id)!.surface.refinement!.samples)).toEqual(saved);
+      expect([a, b].map((id) => plateEntry(id)!.surface.meshed!.refined)).toEqual([undefined, undefined]);
+      const options = resize.mock.calls.find(([name]) => name === 'resize_mesh_3d')![1][1];
+      expect(options).toMatchObject({ maxElements: 200_000, regions: expect.any(Array) });
+    } finally { resize.mockRestore(); }
+    expect(restoreRefinements()).toBeGreaterThan(0);
+    expect([a, b].map((id) => plateEntry(id)!.surface.meshed!.refined)).toEqual([true, true]);
+  });
+
+  it('restores a model loaded only by self-weight without adding loads', () => {
+    const [a, b] = twoSlabs();
+    const wire = wireOf();
+    const applied = applyRefinedMesh(wire, adapt(wire).mesh);
+    if ('refused' in applied) throw new Error(applied.refused);
+    for (const id of [a, b]) for (const def of plateLoadDefs(id)) modelStore.removeGroup(def.id);
+    for (const load of [...modelStore.loads]) modelStore.removeLoad(load.id);
+    meshPlate(a, 1);
+    settle();
+    // The input builder already accepts zero external loads; restoration needs no gravity
+    // workaround and must not alter the analysis' load policy.
+    expect(modelStore.singleSolveInput3D(false, false, true)).not.toBeNull();
+    expect(modelStore.singleSolveInput3D(true, false, true)).not.toBeNull();
+    expect([a, b].map((id) => plateEntry(id)!.surface.meshed!.refined)).toEqual([true, true]);
+    expect(modelStore.quads.size).toBeGreaterThan(32);
+    expect(modelStore.loads).toHaveLength(0);
+  });
+
+  it('retains sizes when applying the replacement mesh is refused', () => {
+    const [a, b] = twoSlabs();
+    const wire = wireOf();
+    const applied = applyRefinedMesh(wire, adapt(wire).mesh);
+    if ('refused' in applied) throw new Error(applied.refused);
+    const saved = [a, b].map((id) => [...plateEntry(id)!.surface.refinement!.samples]);
+    meshPlate(a, 1);
+    const plan = vi.spyOn(meshPlanner, 'planRefinedMesh').mockReturnValue({ refused: 'stale' });
+    try {
+      settle();
+      expect(modelStore.quads.size).toBe(32);
+      expect([a, b].map((id) => plateEntry(id)!.surface.refinement!.samples)).toEqual(saved);
+      expect([a, b].map((id) => plateEntry(id)!.surface.meshed!.refined)).toEqual([undefined, undefined]);
+    } finally { plan.mockRestore(); }
+    expect(restoreRefinements()).toBeGreaterThan(0);
+  });
+
+  it('records only current leaf cells and keeps samples when settings are unchanged', () => {
+    const [a, b] = twoSlabs();
+    for (let round = 0; round < 2; round++) {
+      const wire = wireOf();
+      const applied = applyRefinedMesh(wire, adapt(wire, 0.5 / (round + 1)).mesh);
+      if ('refused' in applied) throw new Error(applied.refused);
+      expect(applied.shells).toBeGreaterThan(0);
+      for (const id of [a, b]) {
+        const entry = plateEntry(id)!;
+        expect(entry.surface.refinement!.samples.length).toBe(4 * ((entry.group.members.quads?.length ?? 0) + (entry.group.members.plates?.length ?? 0)));
+        const sizes = [...entry.surface.refinement!.samples];
+        setPlateMeshSpec([id], entry.surface.mesh);
+        expect(plateEntry(id)!.surface.refinement!.samples).toEqual(sizes);
+      }
+      syncDefinedLoadsForAnalysis();
+    }
+  });
+
+  it('keeps both plates’ sizes pending when restoration fails', () => {
     const [a, b] = twoSlabs();
     const wire = wireOf();
     const applied = applyRefinedMesh(wire, adapt(wire).mesh);
@@ -405,7 +486,9 @@ describe('applying it to plates meshed from their outlines', () => {
     modelStore.setGroupData(a, { ...group.data, surface: { ...surface, refinement: { samples: [...surface.refinement.samples.slice(0, 3), -1] } } });
     meshPlate(a, 1);
     settle();
-    expect([plateEntry(a)!.surface.refinement, plateEntry(b)!.surface.refinement]).toEqual([undefined, undefined]);
+    expect(plateEntry(a)!.surface.refinement!.samples[3]).toBe(-1);
+    expect(plateEntry(b)!.surface.refinement).toBeDefined();
+    expect([plateEntry(a)!.surface.meshed!.refined, plateEntry(b)!.surface.meshed!.refined]).toEqual([undefined, undefined]);
     expect(modelStore.quads.size).toBe(32);
     expect(restoreRefinements()).toBe(0);
   });
