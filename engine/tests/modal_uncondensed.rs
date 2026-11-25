@@ -1,4 +1,5 @@
-use dedaliano_engine::solver::modal::{solve_modal_3d, uncondensed_solves, with_condensed_mass_range, ModalResult3D};
+use dedaliano_engine::solver::modal::{solve_modal_2d, solve_modal_3d, uncondensed_solves, with_condensed_mass_range, ModalResult3D};
+use serde_json::json;
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
@@ -61,14 +62,22 @@ fn densities() -> HashMap<String, f64> {
     HashMap::from([("1".to_string(), 2500.0)])
 }
 
-/// Both ways of solving `model`, and that they agree: the frequencies to 1e-9, the mass and its
-/// cumulative ratios, and with `shapes` each mode's shape up to sign.
+/// `compared`, for a model that has massless coordinates and is solved without condensing them.
 fn agree(name: &str, model: &SolverInput3D, modes: usize, shapes: bool) -> ModalResult3D {
+    let (found, uncondensed) = compared(name, model, modes, shapes);
+    assert!(uncondensed, "{name}: the model has massless coordinates and is solved without condensing them");
+    found
+}
+
+/// Both ways of solving `model`, and that they agree: the frequencies to 1e-9, the mass and its
+/// cumulative ratios, and with `shapes` each mode's shape up to sign. With the modes, whether
+/// the default way was the uncondensed one.
+fn compared(name: &str, model: &SolverInput3D, modes: usize, shapes: bool) -> (ModalResult3D, bool) {
     let before = uncondensed_solves();
     let condensed = with_condensed_mass_range(|| solve_modal_3d(model, &densities(), modes)).unwrap_or_else(|e| panic!("{name}, condensed: {e}"));
     assert_eq!(uncondensed_solves(), before, "{name}: the comparison condenses");
     let found = solve_modal_3d(model, &densities(), modes).unwrap_or_else(|e| panic!("{name}: {e}"));
-    assert!(uncondensed_solves() > before, "{name}: the model has massless coordinates and is solved without condensing them");
+    let uncondensed = uncondensed_solves() > before;
     assert_eq!(found.modes.len(), modes, "{name}");
     assert_eq!((found.modes.len(), found.n_dof), (condensed.modes.len(), condensed.n_dof), "{name}");
     assert!((found.total_mass - condensed.total_mass).abs() <= 1e-12 * condensed.total_mass, "{name}");
@@ -94,7 +103,7 @@ fn agree(name: &str, model: &SolverInput3D, modes: usize, shapes: bool) -> Modal
             }
         }
     }
-    found
+    (found, uncondensed)
 }
 
 #[test]
@@ -190,4 +199,216 @@ fn asking_for_half_the_finite_modes_or_more_takes_the_condensed_way() {
             assert!((a.frequency - b.frequency).abs() <= 1e-8 * b.frequency, "{modes} modes: {} against {}", a.frequency, b.frequency);
         }
     }
+}
+
+/// The nodes of an (m + 1) × (m + 1) lattice on the surface `at`, numbered row by row from `first`.
+fn lattice(input: &mut SolverInput3D, m: usize, first: usize, at: &dyn Fn(f64, f64) -> [f64; 3]) {
+    for i in 0..=m {
+        for j in 0..=m {
+            let id = first + i * (m + 1) + j;
+            let [x, y, z] = at(i as f64, j as f64);
+            input.nodes.insert(id.to_string(), SolverNode3D { id, x, y, z });
+        }
+    }
+}
+
+#[test]
+fn a_slab_of_nine_node_quads_has_the_same_modes() {
+    let n = 8;
+    let mut model = empty();
+    lattice(&mut model, 2 * n, 1, &|i, j| [0.5 * i, 0.35 * j, 3.0]);
+    let node = |i: usize, j: usize| 1 + i * (2 * n + 1) + j;
+    let mut id = 1;
+    for i in 0..n {
+        for j in 0..n {
+            let at = |di: usize, dj: usize| node(2 * i + di, 2 * j + dj);
+            model.quad9s.insert(id.to_string(), SolverQuad9Element {
+                id, nodes: [at(0, 0), at(2, 0), at(2, 2), at(0, 2), at(1, 0), at(2, 1), at(1, 2), at(0, 1), at(1, 1)], material_id: 1, thickness: 0.2,
+            });
+            id += 1;
+        }
+    }
+    for i in (0..=2 * n).step_by(8) {
+        for j in (0..=2 * n).step_by(8) {
+            model.supports.insert(node(i, j).to_string(), held(node(i, j), PINNED));
+        }
+    }
+    agree("nine-node quads", &model, 6, true);
+}
+
+#[test]
+fn a_roof_of_curved_shell_elements_has_the_same_modes() {
+    let n = 14;
+    let radius = 25.0;
+    let mut model = empty();
+    lattice(&mut model, n, 1, &|i, j| {
+        let angle = (i / n as f64 - 0.5) * 80f64.to_radians();
+        [radius * angle.sin(), 3.1 * j, radius * angle.cos()]
+    });
+    let node = |i: usize, j: usize| 1 + i * (n + 1) + j;
+    let mut id = 1;
+    for i in 0..n {
+        for j in 0..n {
+            model.curved_shells.insert(id.to_string(), SolverCurvedShellElement {
+                id, nodes: [node(i, j), node(i + 1, j), node(i + 1, j + 1), node(i, j + 1)], material_id: 1, thickness: 0.2, normals: None,
+            });
+            id += 1;
+        }
+    }
+    hold(&mut model, n, &|_, j| (j == 0 || j == n).then_some(PINNED));
+    agree("curved shell elements", &model, 6, true);
+}
+
+#[test]
+fn a_slab_of_solid_shells_has_no_massless_coordinate_and_is_solved_as_it_was() {
+    let n = 12;
+    let mut model = empty();
+    let layer = (n + 1) * (n + 1);
+    lattice(&mut model, n, 1, &|i, j| [i, 0.7 * j, 2.9]);
+    lattice(&mut model, n, 1 + layer, &|i, j| [i, 0.7 * j, 3.1]);
+    let node = |i: usize, j: usize| 1 + i * (n + 1) + j;
+    let mut id = 1;
+    for i in 0..n {
+        for j in 0..n {
+            let bottom = [node(i, j), node(i + 1, j), node(i + 1, j + 1), node(i, j + 1)];
+            model.solid_shells.insert(id.to_string(), SolverSolidShellElement {
+                id, nodes: [bottom[0], bottom[1], bottom[2], bottom[3], bottom[0] + layer, bottom[1] + layer, bottom[2] + layer, bottom[3] + layer], material_id: 1,
+            });
+            id += 1;
+        }
+    }
+    hold(&mut model, n, &|i, j| (i % 4 == 0 && j % 4 == 0).then_some(PINNED));
+    let (_, uncondensed) = compared("solid shells", &model, 6, true);
+    assert!(!uncondensed, "a solid-shell has no rotations, so no coordinate without mass, and is solved as it was");
+}
+
+#[test]
+fn three_slabs_apart_have_each_frequency_three_times() {
+    let n = 8;
+    let mut model = empty();
+    let per = (n + 1) * (n + 1);
+    let mut id = 1;
+    for copy in 0..3 {
+        let first = 1 + copy * per;
+        lattice(&mut model, n, first, &|i, j| [i + 20.0 * copy as f64, 0.7 * j, 3.0]);
+        let node = |i: usize, j: usize| first + i * (n + 1) + j;
+        for i in 0..n {
+            for j in 0..n {
+                model.quads.insert(id.to_string(), SolverQuadElement { id, nodes: [node(i, j), node(i + 1, j), node(i + 1, j + 1), node(i, j + 1)], material_id: 1, thickness: 0.2 });
+                id += 1;
+                if i % 4 == 0 && j % 4 == 0 {
+                    model.supports.insert(node(i, j).to_string(), held(node(i, j), PINNED));
+                }
+            }
+        }
+        for k in (0..=n).step_by(4) {
+            model.supports.insert(node(n, k).to_string(), held(node(n, k), PINNED));
+            model.supports.insert(node(k, n).to_string(), held(node(k, n), PINNED));
+        }
+    }
+    let found = agree("three slabs", &model, 9, false);
+    for triple in found.modes.chunks(3) {
+        assert!((triple[2].frequency - triple[0].frequency).abs() <= 1e-8 * triple[0].frequency, "{:?}", found.modes.iter().map(|m| m.frequency).collect::<Vec<_>>());
+    }
+    assert!(found.modes[3].frequency > 1.0001 * found.modes[2].frequency);
+}
+
+#[test]
+fn a_space_frame_with_its_mass_lumped_at_the_joints_has_the_same_modes() {
+    let (bays, storeys) = (3, 6);
+    let mut model = empty();
+    model.sections.insert("1".into(), SolverSection3D {
+        id: 1, name: None, a: 0.09, iy: 6.75e-4, iz: 4.1e-4, j: 1.1e-3, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None,
+    });
+    let node = |i: usize, j: usize, k: usize| 1 + (k * (bays + 1) + i) * (bays + 1) + j;
+    let mut masses = Vec::new();
+    for k in 0..=storeys {
+        for i in 0..=bays {
+            for j in 0..=bays {
+                let id = node(i, j, k);
+                model.nodes.insert(id.to_string(), SolverNode3D { id, x: 5.0 * i as f64, y: 4.0 * j as f64, z: 3.0 * k as f64 });
+                if k == 0 {
+                    model.supports.insert(id.to_string(), held(id, FIXED));
+                } else {
+                    masses.push(json!({"nodeId": id, "mass": 2.0 + 0.01 * (i + 2 * j) as f64}));
+                }
+            }
+        }
+    }
+    model.masses = serde_json::from_value(json!({"nodal": masses})).unwrap();
+    let mut id = 1;
+    let mut member = |model: &mut SolverInput3D, a: usize, b: usize| {
+        model.elements.insert(id.to_string(), SolverElement3D {
+            id, elem_type: "frame".into(), node_i: a, node_j: b, material_id: 1, section_id: 1,
+            release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false,
+            release_t_start: false, release_t_end: false, local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
+        });
+        id += 1;
+    };
+    for k in 1..=storeys {
+        for i in 0..=bays {
+            for j in 0..=bays {
+                member(&mut model, node(i, j, k - 1), node(i, j, k));
+                if i < bays { member(&mut model, node(i, j, k), node(i + 1, j, k)); }
+                if j < bays { member(&mut model, node(i, j, k), node(i, j + 1, k)); }
+            }
+        }
+    }
+    let none = HashMap::new();
+    let before = uncondensed_solves();
+    let condensed = with_condensed_mass_range(|| solve_modal_3d(&model, &none, 6)).unwrap();
+    let found = solve_modal_3d(&model, &none, 6).unwrap();
+    assert!(uncondensed_solves() > before, "the rotations of every joint are without mass");
+    for (a, b) in found.modes.iter().zip(&condensed.modes) {
+        assert!((a.frequency - b.frequency).abs() <= 1e-9 * b.frequency, "{} against {}", a.frequency, b.frequency);
+    }
+    assert!((found.cumulative_mass_ratio_x - condensed.cumulative_mass_ratio_x).abs() <= 1e-8);
+    assert!((found.cumulative_mass_ratio_y - condensed.cumulative_mass_ratio_y).abs() <= 1e-8);
+}
+
+#[test]
+fn a_plane_frame_with_its_mass_lumped_at_the_joints_has_the_same_modes() {
+    let (bays, storeys) = (8, 14);
+    let node = |i: usize, k: usize| 1 + k * (bays + 1) + i;
+    let (mut nodes, mut supports, mut elements, mut masses) = (serde_json::Map::new(), serde_json::Map::new(), serde_json::Map::new(), Vec::new());
+    let mut id = 1;
+    for k in 0..=storeys {
+        for i in 0..=bays {
+            let n = node(i, k);
+            nodes.insert(n.to_string(), json!({"id": n, "x": 5.0 * i as f64, "z": 3.0 * k as f64}));
+            if k == 0 {
+                supports.insert(n.to_string(), json!({"id": n, "nodeId": n, "type": "fixed"}));
+                continue;
+            }
+            masses.push(json!({"nodeId": n, "mass": 2.0 + 0.01 * i as f64}));
+            let mut member = |a: usize, b: usize| {
+                elements.insert(id.to_string(), json!({"id": id, "type": "frame", "nodeI": a, "nodeJ": b, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false}));
+                id += 1;
+            };
+            member(node(i, k - 1), n);
+            if i < bays { member(n, node(i + 1, k)); }
+        }
+    }
+    let model: SolverInput = serde_json::from_value(json!({
+        "nodes": nodes, "materials": {"1": {"id": 1, "e": 30000.0, "nu": 0.2}}, "sections": {"1": {"id": 1, "a": 0.09, "iz": 6.75e-4}},
+        "elements": elements, "supports": supports, "loads": [], "masses": {"nodal": masses},
+    })).unwrap();
+    let none = HashMap::new();
+    let before = uncondensed_solves();
+    let condensed = with_condensed_mass_range(|| solve_modal_2d(&model, &none, 6)).unwrap();
+    assert_eq!(uncondensed_solves(), before);
+    let found = solve_modal_2d(&model, &none, 6).unwrap();
+    assert!(uncondensed_solves() > before, "the rotation of every joint is without mass, and the mass rank is over 200");
+    assert_eq!(found.modes.len(), 6);
+    for (a, b) in found.modes.iter().zip(&condensed.modes) {
+        assert!((a.frequency - b.frequency).abs() <= 1e-9 * b.frequency, "{} against {}", a.frequency, b.frequency);
+        let scale = b.displacements.iter().flat_map(|d| [d.ux, d.uz, d.ry]).fold(0.0f64, |m, v| m.max(v.abs()));
+        let sign = a.displacements.iter().zip(&b.displacements).map(|(x, y)| x.ux * y.ux + x.uz * y.uz).sum::<f64>().signum();
+        for (x, y) in a.displacements.iter().zip(&b.displacements) {
+            for (p, q) in [(x.ux, y.ux), (x.uz, y.uz), (x.ry, y.ry)] {
+                assert!((sign * p - q).abs() <= 1e-6 * scale, "node {}: {p} against {q}", x.node_id);
+            }
+        }
+    }
+    assert!((found.cumulative_mass_ratio_x - condensed.cumulative_mass_ratio_x).abs() <= 1e-8);
 }
