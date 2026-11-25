@@ -17,7 +17,11 @@ fn model(fixtures: &str, issue: &str) -> Value {
 }
 
 fn case_2d(issue: &str) -> Case2 {
-    Case2::new("replay", serde_json::from_value(model(FIXTURES, issue)).unwrap())
+    let fixtures = match issue {
+        "2029" | "2061" | "2063" => NOVEMBER_13,
+        _ => FIXTURES,
+    };
+    Case2::new("replay", serde_json::from_value(model(fixtures, issue)).unwrap())
 }
 
 fn case_3d(issue: &str) -> Case3 {
@@ -254,4 +258,22 @@ fn released_tip_wasm_cases() {
         })
     }));
     std::fs::write(path, serde_json::to_vec(&cases).unwrap()).unwrap();
+}
+
+#[test]
+#[ignore = "known wrong result: #2029"]
+fn issue_2029_typed_solve_refuses_the_frame_and_parallel_truss_swing() {
+    replay_2d("2029", "linear (WASM typed path)", 2026111302132);
+}
+
+#[test]
+#[ignore = "known wrong result: #2061"]
+fn issue_2061_pcg_refuses_the_frame_and_parallel_truss_swing() {
+    replay_2d("2061", "linear (PCG)", 2026111302132);
+}
+
+#[test]
+#[ignore = "known wrong result: #2063"]
+fn issue_2063_linear_refuses_the_connected_frame_swing() {
+    replay_2d("2063", "linear", 2026111300670);
 }
