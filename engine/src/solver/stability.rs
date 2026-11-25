@@ -1172,6 +1172,12 @@ fn lanczos_top(apply: &dyn Fn(&[f64]) -> Vec<f64>, m: usize, seed: u64, certify:
 }
 
 fn positive_definite(s: &CscMatrix, sym: &Rc<SymbolicCholesky>, scale: f64, shift: f64) -> bool {
+    #[cfg(test)]
+    tests::DEFINITENESS_FACTORIZATIONS.with(|count| count.set(count.get() + 1));
+    factorizes(s, sym, scale, shift)
+}
+
+fn factorizes(s: &CscMatrix, sym: &Rc<SymbolicCholesky>, scale: f64, shift: f64) -> bool {
     let mut a = s.clone();
     for j in 0..a.n {
         for p in a.col_ptr[j]..a.col_ptr[j + 1] {
@@ -1192,18 +1198,39 @@ fn certified_top(s: &CscMatrix, sym: &Rc<SymbolicCholesky>, estimate: f64) -> Op
 
 const FAST_WIDENINGS: [f64; 3] = [1.0, 1e2, 1e4];
 const ESTIMATE_SLACK: f64 = 8.0;
+/// The order up to which, and the largest row sum from which, `upper I - S` needs no
+/// factorization to be known positive definite (`row_sums_bound_the_top`).
+const ROW_SUM_BOUND_ORDER: usize = 1_000_000;
+const ROW_SUM_BOUND_SCALE: f64 = 1e-6;
+
+/// Whether the Cholesky factorization of `upper I - S` is certain to succeed for `upper` a
+/// factor 1 + CERTIFY over the largest absolute row sum, so that it need not be run. Every
+/// row of `upper I - S` then has its diagonal over the sum of the rest by CERTIFY times that
+/// row sum, which bounds its lowest eigenvalue from below (Gershgorin) and with it every pivot
+/// of the factorization; the three conditions keep that margin over the rounding of a
+/// factorization of this order and over the pivot `numeric_cholesky` refuses, and make sure
+/// the shift reaches every row.
+fn row_sums_bound_the_top(s: &CscMatrix, largest_row_sum: f64, diagonals: usize) -> bool {
+    diagonals == s.n && s.n <= ROW_SUM_BOUND_ORDER && largest_row_sum > ROW_SUM_BOUND_SCALE
+}
 
 fn fast_sparse_bound(s: &CscMatrix, sym: &Rc<SymbolicCholesky>, anisotropy: f64, amplification: f64) -> Option<f64> {
     let mut rows = vec![0.0; s.n];
+    let mut diagonals = 0;
+    let mut finite = true;
     for j in 0..s.n {
         for p in s.col_ptr[j]..s.col_ptr[j + 1] {
             let i = s.row_idx[p];
+            finite &= s.values[p].is_finite();
             rows[i] += s.values[p].abs();
-            if i != j { rows[j] += s.values[p].abs(); }
+            if i != j { rows[j] += s.values[p].abs(); } else { diagonals += 1; }
         }
     }
-    let upper = (1.0 + CERTIFY) * rows.into_iter().fold(0.0f64, f64::max);
+    let largest = rows.into_iter().fold(0.0f64, f64::max);
+    let upper = (1.0 + CERTIFY) * largest;
     if !upper.is_finite() { return None; }
+    let bounded = finite && row_sums_bound_the_top(s, largest, diagonals);
+    debug_assert!(!bounded || factorizes(s, sym, -1.0, upper), "upper I - S is not positive definite at the row-sum bound");
     let mut below_upper = None;
     for widening in FAST_WIDENINGS {
         let lower = upper / (RESOLVABLE.sqrt() * widening);
@@ -1212,7 +1239,7 @@ fn fast_sparse_bound(s: &CscMatrix, sym: &Rc<SymbolicCholesky>, anisotropy: f64,
         if lower <= 0.0 || !kappa.is_finite() || slack * kappa * anisotropy > RESOLVABLE || slack * kappa * amplification > RESOLVABLE {
             return None;
         }
-        if !*below_upper.get_or_insert_with(|| positive_definite(s, sym, -1.0, upper)) { return None; }
+        if !*below_upper.get_or_insert_with(|| bounded || positive_definite(s, sym, -1.0, upper)) { return None; }
         if positive_definite(s, sym, 1.0, -lower) { return Some(kappa); }
     }
     None
@@ -1409,6 +1436,7 @@ mod tests {
     thread_local! {
         pub(super) static PROJECT_ROWS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static LANCZOS_RUNS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+        pub(super) static DEFINITENESS_FACTORIZATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static IDENTITY_ROTATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static EIGENVALUE_DECOMPOSITIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static EIGENVECTOR_ROTATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
@@ -2137,6 +2165,174 @@ mod tests {
             let direction=ReleasedVector {values:vec![value],rounding:vec![radius]};
             assert_eq!(direction.normalized().is_some(),expected);
         }
+    }
+
+    /// `fast_sparse_bound` as it was while it factorized `upper I - S` every time.
+    fn fast_sparse_bound_factorizing_the_top(s: &CscMatrix, sym: &Rc<SymbolicCholesky>, anisotropy: f64, amplification: f64) -> Option<f64> {
+        let mut rows = vec![0.0; s.n];
+        for j in 0..s.n {
+            for p in s.col_ptr[j]..s.col_ptr[j + 1] {
+                let i = s.row_idx[p];
+                rows[i] += s.values[p].abs();
+                if i != j { rows[j] += s.values[p].abs(); }
+            }
+        }
+        let upper = (1.0 + CERTIFY) * rows.into_iter().fold(0.0f64, f64::max);
+        if !upper.is_finite() { return None; }
+        let mut below_upper = None;
+        for widening in FAST_WIDENINGS {
+            let lower = upper / (RESOLVABLE.sqrt() * widening);
+            let kappa = upper / lower;
+            let slack = if widening > 1.0 { ESTIMATE_SLACK } else { 1.0 };
+            if lower <= 0.0 || !kappa.is_finite() || slack * kappa * anisotropy > RESOLVABLE || slack * kappa * amplification > RESOLVABLE {
+                return None;
+            }
+            if !*below_upper.get_or_insert_with(|| positive_definite(s, sym, -1.0, upper)) { return None; }
+            if positive_definite(s, sym, 1.0, -lower) { return Some(kappa); }
+        }
+        None
+    }
+
+    fn counted<T>(run: impl FnOnce() -> T) -> (T, usize) {
+        DEFINITENESS_FACTORIZATIONS.with(|count| count.set(0));
+        let out = run();
+        (out, DEFINITENESS_FACTORIZATIONS.with(|count| count.get()))
+    }
+
+    /// A banded symmetric matrix of order `n` with entries drawn by `unit`, its diagonal `lift`
+    /// times the sum of its row: over 1 it is positive definite, under 1 it need not be.
+    fn banded(n: usize, band: usize, scale: f64, lift: f64, unit: &mut dyn FnMut() -> f64) -> CscMatrix {
+        let mut off = vec![vec![0.0; band + 1]; n];
+        let mut sums = vec![0.0; n];
+        for i in 0..n {
+            for d in 1..=band {
+                if i + d >= n { continue; }
+                let v = scale * (unit() - 0.5);
+                off[i][d] = v;
+                sums[i] += v.abs();
+                sums[i + d] += v.abs();
+            }
+        }
+        let (mut rows, mut cols, mut values) = (Vec::new(), Vec::new(), Vec::new());
+        for i in 0..n {
+            rows.push(i);
+            cols.push(i);
+            values.push(lift * sums[i] + scale * 1e-3);
+            for d in 1..=band {
+                if i + d >= n { continue; }
+                rows.push(i + d);
+                cols.push(i);
+                values.push(off[i][d]);
+            }
+        }
+        CscMatrix::from_triplets(n, &rows, &cols, &values)
+    }
+
+    fn generator(seed: u64) -> impl FnMut() -> f64 {
+        let mut state = seed;
+        move || {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            (state >> 11) as f64 / (1u64 << 53) as f64
+        }
+    }
+
+    #[test]
+    fn the_row_sum_bound_spares_a_factorization_and_changes_no_answer() {
+        let mut unit = generator(0x5EED_1234_ABCD_0001);
+        let (mut certified, mut refused, mut spared) = (0, 0, 0);
+        for n in [70, 97, 150, 240, 400] {
+            for band in [1, 3, 9] {
+                for scale in [1e-5, 1e-2, 1.0, 1e3, 1e9] {
+                    for lift in [0.2, 0.9, 1.0 + 1e-9, 1.0 + 1e-5, 1.5, 30.0] {
+                        let matrix = banded(n, band, scale, lift, &mut unit);
+                        let symbolic = Rc::new(symbolic_cholesky(&matrix));
+                        for (anisotropy, amplification) in [(1.0, 1.0), (1e3, 1.0), (1.0, 1e5), (1e7, 1e7)] {
+                            let (before, before_count) = counted(|| fast_sparse_bound_factorizing_the_top(&matrix, &symbolic, anisotropy, amplification));
+                            let (now, now_count) = counted(|| fast_sparse_bound(&matrix, &symbolic, anisotropy, amplification));
+                            assert_eq!(now.map(f64::to_bits), before.map(f64::to_bits), "n {n}, band {band}, scale {scale}, lift {lift}");
+                            if before_count > 0 {
+                                assert_eq!(now_count + 1, before_count, "n {n}, band {band}, scale {scale}, lift {lift}");
+                                spared += 1;
+                            } else {
+                                assert_eq!(now_count, 0);
+                            }
+                            if now.is_some() { certified += 1 } else { refused += 1 }
+                        }
+                    }
+                }
+            }
+        }
+        assert!(certified > 200 && refused > 200 && spared > 400, "{certified} certified, {refused} refused, {spared} spared");
+    }
+
+    #[test]
+    fn the_matrix_shifted_to_its_row_sum_bound_always_factorizes() {
+        let mut unit = generator(0xC0FF_EE00_1357_9BDF);
+        let mut tried = 0;
+        for n in [70, 131, 260, 900] {
+            for band in [1, 4, 12] {
+                for scale in [2e-6, 1e-3, 1.0, 1e6, 1e12] {
+                    for lift in [0.0, 0.5, 1.0, 4.0] {
+                        let matrix = banded(n, band, scale, lift, &mut unit);
+                        let symbolic = Rc::new(symbolic_cholesky(&matrix));
+                        let mut rows = vec![0.0; n];
+                        for j in 0..n {
+                            for p in matrix.col_ptr[j]..matrix.col_ptr[j + 1] {
+                                let i = matrix.row_idx[p];
+                                rows[i] += matrix.values[p].abs();
+                                if i != j { rows[j] += matrix.values[p].abs(); }
+                            }
+                        }
+                        let largest = rows.into_iter().fold(0.0f64, f64::max);
+                        if !row_sums_bound_the_top(&matrix, largest, n) { continue; }
+                        assert!(factorizes(&matrix, &symbolic, -1.0, (1.0 + CERTIFY) * largest), "n {n}, band {band}, scale {scale}, lift {lift}");
+                        assert!(!factorizes(&matrix, &symbolic, -1.0, 0.5 * matrix.values.iter().fold(0.0f64, |m, v| m.max(*v))), "the shift matters");
+                        tried += 1;
+                    }
+                }
+            }
+        }
+        assert!(tried > 200, "{tried}");
+    }
+
+    #[test]
+    fn the_top_is_still_factorized_where_the_row_sum_bound_is_not_certain() {
+        let mut unit = generator(0x0DD5_F00D_2468_ACE1);
+        let healthy = banded(120, 3, 1.0, 1.5, &mut unit);
+        let symbolic = Rc::new(symbolic_cholesky(&healthy));
+        let (answer, count) = counted(|| fast_sparse_bound(&healthy, &symbolic, 1.0, 1.0));
+        assert!(answer.is_some());
+        assert_eq!(count, 1, "only the lower bound is factorized");
+
+        let tiny = banded(120, 3, 1e-8, 1.5, &mut unit);
+        let symbolic = Rc::new(symbolic_cholesky(&tiny));
+        let (now, now_count) = counted(|| fast_sparse_bound(&tiny, &symbolic, 1.0, 1.0));
+        let (before, before_count) = counted(|| fast_sparse_bound_factorizing_the_top(&tiny, &symbolic, 1.0, 1.0));
+        assert_eq!((now.map(f64::to_bits), now_count), (before.map(f64::to_bits), before_count), "a matrix under the pivot the factorization refuses");
+        assert!(now_count >= 1);
+
+        let n = 90;
+        let (mut rows, mut cols, mut values) = (Vec::new(), Vec::new(), Vec::new());
+        for i in 0..n {
+            if i != 40 { rows.push(i); cols.push(i); values.push(4.0); }
+            if i + 1 < n { rows.push(i + 1); cols.push(i); values.push(-1.0); }
+        }
+        let hollow = CscMatrix::from_triplets(n, &rows, &cols, &values);
+        let symbolic = Rc::new(symbolic_cholesky(&hollow));
+        let (now, now_count) = counted(|| fast_sparse_bound(&hollow, &symbolic, 1.0, 1.0));
+        let (before, before_count) = counted(|| fast_sparse_bound_factorizing_the_top(&hollow, &symbolic, 1.0, 1.0));
+        assert_eq!((now, now_count), (before, before_count), "a row the shift does not reach");
+        assert_eq!((now, now_count), (None, 1));
+
+        let mut poisoned = healthy.clone();
+        poisoned.values[7] = f64::NAN;
+        let symbolic = Rc::new(symbolic_cholesky(&poisoned));
+        let (now, now_count) = counted(|| fast_sparse_bound(&poisoned, &symbolic, 1.0, 1.0));
+        let (before, before_count) = counted(|| fast_sparse_bound_factorizing_the_top(&poisoned, &symbolic, 1.0, 1.0));
+        assert_eq!((now, now_count), (before, before_count), "a value that is not a number");
+        assert_eq!(now, None);
     }
 
 }
