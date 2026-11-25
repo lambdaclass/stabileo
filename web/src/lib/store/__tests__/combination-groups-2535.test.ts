@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import ts from 'typescript';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { addCirsocCombinations } from '../../actions/load-states';
 import { fixtureLoadCases } from '../../templates/load-fixture';
@@ -9,7 +11,7 @@ import { engineGuarded, runEngineAction, runEngineActionAsync } from '../engine-
 import { expandCombinations, presentSymbols } from '../../engine/loads/combination-cases';
 import { describePlanDelta, expandPlannedCombinations } from '../../engine/loads/load-plan-delta';
 import { buildLoadPlan, type LoadPlan } from '../../engine/loads/load-plan';
-import { rulesFromTemplate, rulesToTemplate, type CombinationRule } from '../../engine/loads/combination-rules';
+import { RULE_SYMBOLS, freshRuleIds, rulesFromTemplate, rulesToTemplate, type CombinationRule } from '../../engine/loads/combination-rules';
 import { mesh } from '../../engine/loads/__tests__/snow-surface-round2-fixture';
 import { regulations } from '../../engine/loads/__tests__/snow-roof-plane-fixture';
 import type { CombinationTerm, LoadCombinationSpec } from '../../codes/cirsoc101/combinations';
@@ -678,5 +680,281 @@ for (const entry of ['main thread', 'worker adapter'] as const) for (const selec
       expect.soft(solved.info.get(ids[i]!)).toMatchObject({ stable: true, converged: true });
       expect.soft(solved.perCombo.get(ids[i]!)?.reactions.find(r => r.nodeId === base)?.fz).toBeCloseTo(force, 8);
     }
+  });
+}
+
+const issue2558 = process.env.RUN_KNOWN_WRONG === '2558' ? it : it.skip;
+const lateralTerms = [{ symbol: 'W', factor: 1 }, { symbol: 'E', factor: 1 }] as const;
+const lateralCases = [
+  { id: 1, type: 'W', name: 'Shared wind', alternatives: 'lateral' },
+  { id: 2, type: 'E', name: 'Shared seismic', alternatives: 'lateral' },
+  { id: 3, type: 'W', name: 'Standalone wind' },
+  { id: 4, type: 'E', name: 'Standalone seismic' },
+] as const;
+const lateralForces = [2, 4, 8, 16] as const;
+const lateralSelections = [[1, 4], [2, 3]];
+
+function combinationIds(combinations: ReadonlyArray<{ factors: ReadonlyArray<{ caseId: number }> }>) {
+  return combinations.map(c => c.factors.map(f => f.caseId).sort((a, b) => a - b)).sort((a, b) => a[0]! - b[0]!);
+}
+
+function projectPlan(terms: readonly CombinationTerm[], cases: ReadonlyArray<{
+  id: number; type: LoadPlan['cases'][number]['type']; name: string; alternatives?: string;
+}>): LoadPlan {
+  return {
+    ...plan(...terms),
+    combinations: [spec(...terms)],
+    cases: cases.map(({ id, name, ...c }) => ({ ...c, existingId: id, nameKey: name, own: true })),
+    seismicGeneration: 'static',
+  };
+}
+
+issue2558('known wrong result: #2558 a directional combination cannot skip a shared alternative set', () => {
+  restoreGroupedProject(...lateralTerms);
+  modelStore.restore({ ...modelStore.snapshot(), loadCases: [...lateralCases] });
+  const input = projectPlan(lateralTerms, lateralCases);
+  const fromLoads = projectCombinations();
+  expect.soft(combinationIds(fromLoads)).toEqual(lateralSelections);
+  addCompositeCases(fromLoads);
+  expect.soft(combinationIds(modelStore.loadCases.flatMap(c => c.includes ? [{ factors: c.includes }] : []))).toEqual(lateralSelections);
+  expect.soft(combinationIds(expandPlannedCombinations(input, {}))).toEqual(lateralSelections);
+  expect.soft(previewLoadPlan(input, applyOptions.nameOf, { replaceExisting: true }).after.combinations).toBe(2);
+  expect(applyLoadPlan(input, applyOptions)).toBeUndefined();
+  expect(combinationIds(modelStore.combinations)).toEqual(lateralSelections);
+});
+
+it('#2558 a directional pick can substitute for a standalone case of the same symbol', () => {
+  const combinations = expandCombinations([spec(...lateralTerms)], lateralCases.slice(0, 3));
+  expect(combinationIds(combinations)).toEqual([[1], [2, 3]]);
+});
+
+function lateralSets(count: number) {
+  return Array.from({ length: count }, (_, i) => lateralCases.slice(0, 2).map((c, j) => ({
+    ...c, id: i * 2 + j + 1, name: `${c.name} ${i + 1}`, alternatives: `set-${i + 1}`,
+  }))).flat();
+}
+
+issue2558('known wrong result: #2558 incompatible mandatory sets are refused before any update', () => {
+  const cases = lateralSets(3);
+  restoreGroupedProject(...lateralTerms);
+  modelStore.restore({ ...modelStore.snapshot(), loadCases: cases });
+  const input = projectPlan(lateralTerms, cases);
+  const before = modelStore.snapshot();
+  expect.soft(() => projectCombinations()).toThrow('combos.refused.alternativeSet');
+  expect.soft(() => expandPlannedCombinations(input, {})).toThrow('combos.refused.alternativeSet');
+  expect.soft(engineGuarded(() => previewLoadPlan(input, applyOptions.nameOf, { replaceExisting: true })).error)
+    .toBe(tp('combos.refused.alternativeSet' as Parameters<typeof tp>[0], { rule: 'Grouped live', set: 'set-1' }));
+  expect.soft(engineGuarded(() => applyLoadPlan(input, applyOptions)).error)
+    .toBe(tp('combos.refused.alternativeSet' as Parameters<typeof tp>[0], { rule: 'Grouped live', set: 'set-1' }));
+  expect(modelStore.snapshot()).toEqual(before);
+});
+
+it('#2558 two directional sets can each contribute every eligible choice', () => {
+  const combinations = expandCombinations([spec(...lateralTerms)], lateralSets(2));
+  expect(combinationIds(combinations)).toEqual([[1, 4], [2, 3]]);
+});
+
+issue2558('known wrong result: #2558 a partially representable shared set is refused', () => {
+  const cases = [...lateralSets(2), { id: 5, type: 'W', name: 'Third wind', alternatives: 'third' },
+    { id: 6, type: 'Wa', name: 'Third service wind', alternatives: 'third' }];
+  expect(() => expandCombinations([spec(...lateralTerms, { symbol: 'Wa', factor: 1 })], cases))
+    .toThrow('combos.refused.alternativeSet');
+});
+
+function loadedCantilever(dim: '2d' | '3d', loads: readonly (readonly [number, number])[]) {
+  const base = modelStore.addNode(0, 0, 0);
+  const tip = dim === '2d' ? modelStore.addNode(4, 0) : modelStore.addNode(0, 0, 4);
+  modelStore.addElement(base, tip, 'frame');
+  modelStore.addSupport(base, dim === '2d' ? 'fixed' : 'fixed3d');
+  for (const [id, force] of loads) {
+    if (dim === '2d') modelStore.addNodalLoad(tip, 0, -force, 0, id);
+    else modelStore.addNodalLoad3D(tip, 0, 0, -force, 0, 0, 0, id);
+  }
+  return { base, tip };
+}
+
+const roofLiveTerm = { symbol: 'Lr', factor: 2 } as const;
+const plannedFloor = { id: 1, type: 'L', name: 'Planned floor', alternatives: 'floor-pattern' } as const;
+const plannedRoof = { id: 2, type: 'Lr', name: 'Planned roof' } as const;
+const manualRoof = { id: 3, type: 'Lr', name: 'Manual roof', alternatives: plannedFloor.alternatives } as const;
+
+function roofLiveFixture(alternatives: string, own: boolean) {
+  restoreGroupedProject(roofLiveTerm);
+  modelStore.restore({ ...modelStore.snapshot(), loadCases: [plannedFloor, plannedRoof, { ...manualRoof, alternatives }] });
+  const { base, tip } = loadedCantilever('3d', [[manualRoof.id, roofForce]]);
+  const input = projectPlan([roofLiveTerm], [plannedFloor, plannedRoof]);
+  input.cases[1]!.own = own;
+  input.nodal = [{ nodeId: tip, fx: 0, fy: 0, fz: -floorForce, caseType: 'Lr' }];
+  return { base, input };
+}
+
+issue2558('known wrong result: #2558 Auto Loads includes retained manual roof live with a shared key', () => {
+  for (const own of [true, false]) for (const clearExisting of [true, false]) {
+    const { base, input } = roofLiveFixture(plannedFloor.alternatives, own);
+    expect.soft(previewLoadPlan(input, applyOptions.nameOf, { replaceExisting: clearExisting }).after.combinations).toBe(1);
+    expect(applyLoadPlan(input, { ...applyOptions, clearExisting })).toBeUndefined();
+    expect.soft(modelStore.loads.map(l => l.data.caseId)).toEqual([manualRoof.id, plannedRoof.id]);
+    expect.soft(combinationIds(modelStore.combinations)).toEqual([[plannedRoof.id, manualRoof.id]]);
+    const solved = solveCombinations3D(modelStore.model as ModelData, modelStore.loadCases, modelStore.combinations);
+    if (!solved || typeof solved === 'string') throw new Error(String(solved));
+    const combo = modelStore.combinations[0]!;
+    expect.soft(solved.perCombo.get(combo.id)?.reactions.find(r => r.nodeId === base)?.fz)
+      .toBeCloseTo((floorForce + roofForce) * roofLiveTerm.factor, 8);
+    modelStore.clear();
+  }
+});
+
+it('#2558 an independent manual roof case still contributes beside the plan', () => {
+  const { input } = roofLiveFixture('independent', true);
+  expect(applyLoadPlan(input, applyOptions)).toBeUndefined();
+  expect(combinationIds(modelStore.combinations)).toEqual([[plannedRoof.id, manualRoof.id]]);
+});
+
+issue2558('known wrong result: #2558 replacing an old pattern excludes it only if its loads are removed', () => {
+  for (const clearExisting of [true, false]) for (const hasManualLoad of [true, false]) {
+    const { input } = roofLiveFixture(plannedFloor.alternatives, true);
+    modelStore.replaceLoads(modelStore.loads.map(l => ({ ...l, data: { ...l.data, generatedBy: 'load-plan' } })));
+    if (hasManualLoad) {
+      const nodeId = [...modelStore.nodes.keys()].pop()!;
+      modelStore.addNodalLoad3D(nodeId, 0, 0, -roofForce, 0, 0, 0, manualRoof.id);
+    }
+    expect(applyLoadPlan(input, { ...applyOptions, clearExisting })).toBeUndefined();
+    expect.soft(combinationIds(modelStore.combinations))
+      .toEqual([clearExisting && !hasManualLoad ? [plannedRoof.id] : [plannedRoof.id, manualRoof.id]]);
+    modelStore.clear();
+  }
+});
+
+const snowCases = [
+  { id: 1, type: 'S', name: 'Physical snow' },
+  { id: 2, type: 'S', name: 'Flat-roof snow', snowBasis: 'flatRoof' as const },
+];
+const flatRoofTerm = { symbol: 'S', factor: 1, snowBasis: 'flatRoof' } as const;
+const physicalTerm = { symbol: 'S', factor: 1 } as const;
+
+function combinationRuleEditor() {
+  const svelte = readFileSync('src/components/pro/ProCombinationRules.svelte', 'utf8');
+  const script = svelte.slice(svelte.indexOf('>') + 1, svelte.indexOf('</script>'));
+  const ast = ts.createSourceFile('ProCombinationRules.ts', script, ts.ScriptTarget.ESNext, true);
+  const names = ['factorOf', 'write', 'setFactor', 'importTemplate'];
+  const declarations = ast.statements.filter(statement =>
+    ts.isFunctionDeclaration(statement) ? names.includes(statement.name?.text ?? '') :
+      ts.isVariableStatement(statement) && statement.declarationList.declarations.some(d => names.includes(d.name.getText(ast))));
+  const { outputText } = ts.transpileModule(declarations.map(d => d.getText(ast)).join('\n'), {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  });
+  const makeEditor = new Function('modelStore', 'RULE_SYMBOLS', 'rulesFromTemplate', 'freshRuleIds', 'uiStore', 'tp', 't',
+    `const rules = modelStore.combinationRules; ${outputText} return { setFactor, importTemplate };`);
+  return makeEditor(modelStore, RULE_SYMBOLS, rulesFromTemplate, freshRuleIds, uiStore, tp, (key: string) => key) as {
+    setFactor: (id: string, symbol: 'S', raw: string, snowBasis?: 'flatRoof') => void;
+    importTemplate: (event: { currentTarget: { files: { text: () => Promise<string> }[]; value: string } }) => Promise<void>;
+  };
+}
+
+async function importSnowRule() {
+  const template = rulesToTemplate([{ id: 'snow', purpose: 'strength', terms: [flatRoofTerm] }], 'Snow');
+  await combinationRuleEditor().importTemplate({ currentTarget: { files: [{ text: async () => template }], value: 'snow.json' } });
+}
+
+it('#2558 template import preserves an ungrouped flat-roof snow term', async () => {
+  modelStore.setCombinationRules([]);
+  await importSnowRule();
+  expect(modelStore.combinationRules[0]?.terms).toEqual([flatRoofTerm]);
+});
+
+issue2558('known wrong result: #2558 editing an ungrouped snow factor keeps its flat-roof basis', async () => {
+  for (const imported of [false, true]) {
+    modelStore.restore({ ...modelStore.snapshot(), loadCases: snowCases, combinationRules: [] });
+    if (imported) await importSnowRule();
+    else modelStore.setCombinationRules([{ id: 'snow', purpose: 'strength', terms: [flatRoofTerm] }]);
+    const id = modelStore.combinationRules[0]!.id;
+    expect(projectCombinations()[0]?.factors).toEqual([{ caseId: 2, factor: 1 }]);
+    combinationRuleEditor().setFactor(id, 'S', '2', 'flatRoof');
+    expect.soft(modelStore.combinationRules[0]?.terms).toEqual([{ ...flatRoofTerm, factor: 2 }]);
+    expect.soft(projectCombinations()[0]?.factors).toEqual([{ caseId: 2, factor: 2 }]);
+  }
+});
+
+issue2558('known wrong result: #2558 the editor can update and clear either ungrouped snow basis independently', () => {
+  const grouped = { ...flatRoofTerm, group: 'roof' };
+  const rule = restoreGroupedProject(physicalTerm, flatRoofTerm, grouped);
+  combinationRuleEditor().setFactor(rule.id, 'S', '2', 'flatRoof');
+  expect.soft(modelStore.combinationRules[0]?.terms).toEqual([physicalTerm, { ...flatRoofTerm, factor: 2 }, grouped]);
+  combinationRuleEditor().setFactor(rule.id, 'S', '', 'flatRoof');
+  expect.soft(modelStore.combinationRules[0]?.terms).toEqual([physicalTerm, grouped]);
+  combinationRuleEditor().setFactor(rule.id, 'S', '3', 'flatRoof');
+  expect.soft(modelStore.combinationRules[0]?.terms).toEqual(expect.arrayContaining([physicalTerm, grouped, { ...flatRoofTerm, factor: 3 }]));
+  combinationRuleEditor().setFactor(rule.id, 'S', '0');
+  expect(modelStore.combinationRules[0]?.terms).toEqual(expect.arrayContaining([grouped, { ...flatRoofTerm, factor: 3 }]));
+});
+
+const combinationRoutes = [
+  '2D linear', '3D sync linear', '3D async linear', '3D sync pdelta', '3D async pdelta',
+  '3D sync uplift', '3D async uplift', '3D direct', '3D worker direct',
+] as const;
+
+for (const route of combinationRoutes) for (const failure of ['alternatives', 'snow', 'roof live'] as const) {
+  if (route === '2D linear' && failure === 'roof live') continue;
+  issue2558(`known wrong result: #2558 ${route} solves the corrected ${failure} combinations`, async () => {
+    const dim = route === '2D linear' ? '2d' : '3d';
+    let expected: number[];
+    let base: number;
+    let tip: number;
+    if (failure === 'roof live') {
+      const fixture = roofLiveFixture(plannedFloor.alternatives, true);
+      base = fixture.base;
+      tip = [...modelStore.nodes.keys()].pop()!;
+      expect(applyLoadPlan(fixture.input, applyOptions)).toBeUndefined();
+      expected = [(roofForce + floorForce) * roofLiveTerm.factor];
+    } else if (failure === 'alternatives') {
+      restoreGroupedProject(...lateralTerms);
+      modelStore.restore({ ...modelStore.snapshot(), loadCases: [...lateralCases] });
+      ({ base, tip } = loadedCantilever(dim, lateralCases.map((c, i) => [c.id, lateralForces[i]!])));
+      addGeneratedCombinations(projectCombinations());
+      expected = lateralSelections.map(ids => ids.reduce((sum, id) => sum + lateralForces[id - 1]!, 0));
+    } else {
+      const rule = restoreGroupedProject(flatRoofTerm);
+      modelStore.restore({ ...modelStore.snapshot(), loadCases: snowCases });
+      ({ base, tip } = loadedCantilever(dim, [[1, floorForce], [2, roofForce]]));
+      combinationRuleEditor().setFactor(rule.id, 'S', '2', 'flatRoof');
+      addGeneratedCombinations(projectCombinations());
+      expected = [roofForce * 2];
+    }
+
+    const model = modelStore.model as ModelData;
+    const { loadCases, combinations } = modelStore;
+    const worker = route.includes('async') || route.includes('worker');
+    const jobs = worker ? recordWorkerJobs() : [];
+    let reactions: number[];
+    if (dim === '2d') {
+      const solved = solveCombinations2D(model, loadCases, combinations);
+      if (!solved || typeof solved === 'string') throw new Error(String(solved));
+      reactions = [...solved.perCombo.values()].map(result => result.reactions.find(r => r.nodeId === base)!.rz);
+    } else if (route.endsWith('direct')) {
+      const solved = await runDirectAnalysis(model, loadCases, combinations, {
+        includeSelfWeight: false, settings: { notional: 0, tauB: 'unity' },
+        ...(worker ? { run: workerPDelta(pdelta3DInWorker) } : {}),
+      });
+      if (typeof solved === 'string') throw new Error(solved);
+      if (worker) expect(jobs).toContain('pdelta3d');
+      reactions = [...solved.perCombo.values()].map(result => result.reactions.find(r => r.nodeId === base)!.fz);
+    } else {
+      if (route.endsWith('uplift')) {
+        const support = modelStore.addSupport(tip, 'custom3d', undefined, {
+          dofRestraints: { tx: false, ty: false, tz: true, rx: false, ry: false, rz: false },
+        });
+        modelStore.updateSupport(support, { uplift: true });
+      } else {
+        modelStore.setAnalysis({ perCombination: route.endsWith('pdelta') ? 'pdelta' : 'linear' });
+      }
+      const solve = worker ? solveCombinations3DParallel : solveCombinations3D;
+      const solved = await solve(model, loadCases, combinations);
+      if (!solved || typeof solved === 'string') throw new Error(String(solved));
+      if (worker) expect(jobs).toContain(route.endsWith('uplift') ? 'nonlinear-step' : route.endsWith('pdelta') ? 'pdelta3d' : 'solve3d');
+      reactions = [...solved.perCombo.values()].map(result => result.reactions.reduce((sum, r) => sum + r.fz, 0));
+    }
+    expect.soft(reactions).toHaveLength(expected.length);
+    reactions.sort((a, b) => b - a);
+    for (const [i, force] of expected.sort((a, b) => b - a).entries()) expect.soft(reactions[i]).toBeCloseTo(force, 8);
   });
 }
