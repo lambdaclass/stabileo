@@ -156,7 +156,6 @@ it('#2543 review retains a lower bay at storey clearance and when every panel is
   }
 });
 
-const round2 = process.env.RUN_KNOWN_WRONG === '2543' ? it : it.skip;
 const offset = 'loadPlan.gravity.offsetShellDeck';
 const distinctRoof = { ...roof, use: 'occupancy', occupancyKey: 'vivienda' } as const;
 
@@ -175,7 +174,7 @@ function stackedShells(left: number, right: number) {
   return model;
 }
 
-round2('known wrong result: #2543 a 60 mm vertical tie cannot allocate two decks', () => {
+it('#2543 a 60 mm vertical tie cannot allocate two decks', () => {
   for (const gap of [0.06, -0.06, MIN_STOREY_HEADROOM - 0.001]) {
     for (const gravity of [panels, everyPanel]) {
       const model = offsetBay(gap);
@@ -189,7 +188,7 @@ round2('known wrong result: #2543 a 60 mm vertical tie cannot allocate two decks
   }
 });
 
-round2('known wrong result: #2543 shell headroom over the first 4 m removes that area from a 10 m bay', () => {
+it('#2543 shell headroom over the first 4 m removes that area from a 10 m bay', () => {
   const model = pitchedCover(rectangle(0, 10), 4);
   const result = plan(model);
   expect.soft(deadAt(result, 3)).toBeCloseTo(36, 10);
@@ -199,7 +198,7 @@ round2('known wrong result: #2543 shell headroom over the first 4 m removes that
   expect(deadAt(plan(model, { gravity: everyPanel }), 3)).toBeCloseTo(60, 10);
 });
 
-round2('known wrong result: #2543 a beam deck just above the cover rise covers the entire lower bay', () => {
+it('#2543 a beam deck just above the cover rise covers the entire lower bay', () => {
   for (const gravity of [panels, everyPanel]) {
     const { model, beams } = fixture();
     beams(rectangle(0, 10), 4);
@@ -210,7 +209,7 @@ round2('known wrong result: #2543 a beam deck just above the cover rise covers t
   }
 });
 
-round2('known wrong result: #2543 the retained triangular tip under the pitched shell receives floor actions', () => {
+it('#2543 the retained triangular tip under the pitched shell receives floor actions', () => {
   const model = pitchedCover([[0, 0], [10, 3], [0, 6]], 9);
   const layout = gravityLayout(model, { ...panels, tributaryWidth: 3 });
   expect.soft(layout.panels.find(panel => panel.z === 3)?.roof).toBe(false);
@@ -218,7 +217,7 @@ round2('known wrong result: #2543 the retained triangular tip under the pitched 
   expect.soft(deadAt(plan(model), 3)).toBeCloseTo(0.5 * 1 * 0.6, 10);
 });
 
-round2('known wrong result: #2543 a shell with 18 square metres exposed needs an explicit load assignment', () => {
+it('#2543 a shell with 18 square metres exposed needs an explicit load assignment', () => {
   const model = stackedShells(0, 7);
   for (const gravity of [panels, everyPanel]) {
     expect.soft(plan(model, { gravity, snow: enabledSnow })).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [{ key: mixed }] });
@@ -229,7 +228,7 @@ round2('known wrong result: #2543 a shell with 18 square metres exposed needs an
   expect(() => snowDriftRefusal(model)).toThrow(expect.objectContaining({ key: mixed }));
 });
 
-round2('known wrong result: #2543 restored mixed shell exposure blocks applying generated actions', () => {
+it('#2543 restored mixed shell exposure blocks applying generated actions', () => {
   const model = stackedShells(0, 7);
   modelStore.clear();
   try {

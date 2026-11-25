@@ -291,9 +291,11 @@ it('#2512 a partial attachment is ambiguous inside the separation limit', () => 
   for (const loadEveryPanel of [false, true]) {
     expectPanelRefusal(tiedShellBay(3.049), separateBayRefusal, loadEveryPanel);
   }
-  deadResultant(tiedShellBay(3.051), true, [1], 2 * area);
-  const separatedSlope = tiedShellBay(3.051, 3.06);
-  deadResultant(separatedSlope, true, [1], area + 6 * Math.hypot(10, 0.009), 2 * area);
+  const offset = { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 1, members: '1, 2, 3, 4' } };
+  expectPanelRefusal(tiedShellBay(3.051), offset, true);
+  expectPanelRefusal(tiedShellBay(3.051, 3.06), offset, true);
+  deadResultant(tiedShellBay(3.051, 3.051, false), true, [1], 2 * area);
+  deadResultant(tiedShellBay(3.051, 3.06, false), true, [1], area + 6 * Math.hypot(10, 0.009), 2 * area);
 });
 
 it('#2512 a near-level shell extending beyond the bay does not own it', () => {
@@ -427,7 +429,10 @@ it('#2512 apply refuses to put pressure on a restored coincident bay with ambigu
 it('#2512 a bay cannot inherit shell ownership from a chain of attachments', () => {
   for (const loadEveryPanel of [false, true]) {
     expectPanelRefusal(coincidentBayWithShadowedShell(0.02, 2), shadowRefusal, loadEveryPanel);
-    deadResultant(coincidentBayWithShadowedShell(0.051, 1), loadEveryPanel, [1, 2], 2 * area);
+    expectPanelRefusal(coincidentBayWithShadowedShell(0.051, 1), {
+      key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2, members: '1, 2, 3, 4' },
+    }, loadEveryPanel);
+    deadResultant(coincidentBayWithShadowedShell(0.051), loadEveryPanel, [1, 2], 2 * area);
   }
 });
 
@@ -577,10 +582,15 @@ it('#2512 uneven offsets do not establish an owner within the level tolerance', 
   expectPanelRefusal(shellOverhangingBay(0.0005), separateBayRefusal, true);
 });
 
-it('#2512 only a separated shell retains independent gravity with incomplete attachments', () => {
-  deadResultant(shellOverhangingBay(0.051), true, [1], 13 * 9 + area);
+it('#2512 nearby offset shells require independence before assigning separate loads', () => {
+  const offset = { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 1, members: '1, 2, 3, 4' } };
+  expectPanelRefusal(shellOverhangingBay(0.051), offset, true);
+  deadResultant(shellOverhangingBay(0.051, 0), true, [1], 13 * 9 + area);
   expectPanelRefusal(shellOverhangingBay(0.02, 1), separateBayRefusal, true);
-  deadResultant(baysSharingOneShell(0.102), true, [1], 3 * area);
+  const shared = baysSharingOneShell(0.102);
+  expectPanelRefusal(shared, offset, true);
+  shared.constraints.length = 0;
+  deadResultant(shared, true, [1], 3 * area);
 });
 
 for (const [name, model, reason] of [
@@ -706,7 +716,8 @@ for (const loadEveryPanel of [false, true]) {
 
   it(`#2512 separation is independent across disconnected bay overlaps (${loadEveryPanel})`, () => {
     const model = shellAcrossBayGap();
-    deadResultant(model, loadEveryPanel, [1], 36 + 2 * Math.hypot(10, 0.5), 56, false);
+    const bayArea = loadEveryPanel ? 36 : 32;
+    deadResultant(model, loadEveryPanel, [1], bayArea + 2 * Math.hypot(10, 0.5), bayArea + 20, false);
     expectPanelRefusal(shellAcrossBayGap(true), separateBayRefusal, loadEveryPanel);
     expect(() => roofWeightFor(model, { mode: 'panels', loadEveryPanel }, 3, pressure))
       .toThrow(expect.objectContaining({ key: 'loadPlan.gravity.mixedExposure' }));

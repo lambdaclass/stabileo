@@ -162,10 +162,16 @@ it('#2543 cover entirely in a hole leaves the annulus exposed', () => {
   const { model, ring, shell, quad } = fixture();
   ring(rectangle(0, 0, 10, 10), 3);
   quad(ring(rectangle(3, 3, 7, 7), 3));
-  shell(rectangle(4, 4, 6, 6), 7);
-  const layout = gravityLayout(model, { mode: 'panels', loadEveryPanel: true, tributaryWidth: 3 });
+  const upper = shell(rectangle(4, 4, 6, 6), 7);
+  const options = { mode: 'panels', loadEveryPanel: true, tributaryWidth: 3 } as const;
+  expect(() => gravityLayout(model, options)).toThrow(expect.objectContaining({ key: 'loadPlan.gravity.mixedExposure' }));
+  const uniform = gravityLayout(model, { ...options, uniformPressure: true });
   expect(planFor(model, true).outcome).toBe('READY');
+  expect(uniform.panels.find(panel => panel.z === 3)?.roof).toBe(true);
+  rectangle(3, 3, 7, 7).forEach(([x, y], i) => Object.assign(model.nodes.get(upper[i]!)!, { x, y }));
+  const layout = gravityLayout(model, options);
   expect(layout.panels.find(panel => panel.z === 3)?.roof).toBe(true);
+  expect(layout.roofQuads).toEqual(new Set([2]));
 });
 
 for (const mode of ['panels', 'width'] as const) it(`#2543 pitched shell covers the lower roof at its high end in ${mode}`, () => {
@@ -221,11 +227,12 @@ for (const every of [false, true]) it(`#2543 inclined overlapping decks with ver
   }
 });
 
-it.each([false, true])('#2543 inclined parallel decks can load independently without a vertical tie (%s)', every => {
-  for (const ties of [0, 4]) {
-    const plan = planFor(inclinedParallelDeck(0.0502, ties, 0), every);
+it.each([false, true])('#2543 independent inclined decks follow automatic headroom and explicit selection (%s)', every => {
+  for (const ties of [0, 4]) for (const gap of [0.0502, MIN_STOREY_HEADROOM + 0.001]) {
+    const plan = planFor(inclinedParallelDeck(gap, ties, 0), every);
     expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
-    expect(plan.levels.reduce((sum, level) => sum + level.superimposedKN, 0)).toBeCloseTo(60 * (1 + Math.hypot(10, 0.0008) / 10), 10);
+    const bayArea = every || gap > MIN_STOREY_HEADROOM ? 60 : 0;
+    expect(plan.levels.reduce((sum, level) => sum + level.superimposedKN, 0)).toBeCloseTo(bayArea + 6 * Math.hypot(10, 0.0008), 10);
   }
 });
 
