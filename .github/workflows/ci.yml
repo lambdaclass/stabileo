@@ -549,6 +549,8 @@ jobs:
       - name: Plastic replay with the built engine
         run: make test.engine.plastic-replay
       - name: Opt-in nonlinear drivers
+        env:
+          BEAM_STUDY_NATIVE_OUTPUT: ${{ runner.temp }}/beam-study-native.json
         run: make test.engine.experimental-nonlinear test.engine.experimental-nonlinear-wasm
       - name: Report wall-clock overruns without failing
         if: ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'merge_group') }}
@@ -1830,6 +1832,13 @@ jobs:
           test -s web/dist/research-wasm/shauer-2025/phasefield_bg.wasm
           test -s web/dist/research-wasm/shauer-2025/replay.srpl
           test -s web/dist/research-wasm/viewer/viewer.js
+      - name: Experimental beam viewer
+        run: |
+          if [ "${{ runner.environment }}" = self-hosted ]; then
+            nix develop .#e2e -c make test.web.beam-study NIX_RUN=
+          else
+            make test.web.beam-study
+          fi
       - name: Share tested production site with Docker smoke
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
