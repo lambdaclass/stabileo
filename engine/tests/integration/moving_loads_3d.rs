@@ -867,8 +867,11 @@ fn issue_1782_endpoint_axles_are_carried_by_supports() {
             for value in [e.n_max_neg, e.n_max_pos, e.my_max_neg, e.my_max_pos, e.mz_max_neg, e.mz_max_pos] {
                 assert_planar_value(value, 0.0);
             }
-            assert_planar_value(e.vy_max_pos.max(e.vz_max_pos), weight);
-            assert_planar_value(e.vy_max_neg.min(e.vz_max_neg), -weight);
+            let (vy, vz) = if plane == Plane::XY { (weight, 0.0) } else { (0.0, weight) };
+            assert_planar_value(e.vy_max_pos, vy);
+            assert_planar_value(e.vy_max_neg, -vy);
+            assert_planar_value(e.vz_max_pos, vz);
+            assert_planar_value(e.vz_max_neg, -vz);
             for position in [0.0, length] {
                 let f = spatial_sample(&embedded, position);
                 for value in [f.n_start, f.n_end, f.vy_start, f.vy_end, f.vz_start, f.vz_end, f.my_start, f.my_end, f.mz_start, f.mz_end] {

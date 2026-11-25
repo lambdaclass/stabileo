@@ -25,14 +25,14 @@
     "hu": "Mozgó tengelyek az útvonal csomópontjain"
   },
   "explanation": {
-    "en": "Moving-load sweeps now include both member-face limits at path joints. This can change the governing shear. Re-run affected sweeps and regenerate saved vehicle position cases.",
-    "es": "Las envolventes de cargas móviles ahora incluyen los límites en ambas caras de cada nudo del recorrido. Esto puede cambiar el cortante determinante. Vuelva a calcular las envolventes afectadas y regenere los casos guardados de posición del vehículo.",
-    "pt": "As envoltórias de cargas móveis agora incluem os limites nas duas faces de cada nó do trajeto. Isso pode alterar a força cortante determinante. Recalcule as envoltórias afetadas e gere novamente os casos salvos de posição do veículo.",
-    "de": "Wanderlastumhüllende berücksichtigen nun die Grenzwerte an beiden Stabseiten eines Pfadknotens. Dadurch kann sich die maßgebende Querkraft ändern. Berechnen Sie betroffene Umhüllende erneut und erzeugen Sie gespeicherte Fahrzeugpositionslastfälle neu.",
-    "fr": "Les enveloppes de charges mobiles incluent désormais les valeurs limites de part et d’autre des nœuds du trajet. L’effort tranchant déterminant peut changer. Recalculez les enveloppes concernées et régénérez les cas enregistrés de position du véhicule.",
-    "tr": "Hareketli yük zarfları artık yol düğümlerinin her iki tarafındaki sınır değerlerini içerir. Belirleyici kesme kuvveti değişebilir. Etkilenen zarfları yeniden hesaplayın ve kayıtlı araç konumu yük durumlarını yeniden oluşturun.",
-    "zh": "移动荷载包络现计入路径节点两侧杆件端面的极限值。这可能改变控制剪力。请重新计算受影响的包络，并重新生成已保存的车辆位置荷载工况。",
-    "hu": "A mozgóteher-burkolók most az útvonal csomópontjainak mindkét oldalán figyelembe veszik a rúdvég határértékeit. Ez megváltoztathatja a mértékadó nyíróerőt. Futtassa újra az érintett vizsgálatokat, és hozza létre újra a mentett járműpozíció-tehereseteket."
+    "en": "Moving-load sweeps now include the member-face limits when a sampled axle lands on a path joint. This can change the governing shear and axial force. Re-run affected sweeps and regenerate saved vehicle position cases.",
+    "es": "Las envolventes de cargas móviles ahora incluyen los valores límite en las caras de las barras cuando un eje coincide con un nudo del recorrido en una posición muestreada. Esto puede cambiar el cortante y el axil determinantes. Vuelva a calcular las envolventes afectadas y regenere los casos guardados de posición del vehículo.",
+    "pt": "As envoltórias de cargas móveis agora incluem os valores-limite nas extremidades das barras quando um eixo coincide com um nó do trajeto em uma posição amostrada. Isso pode alterar as forças cortante e axial determinantes. Recalcule as envoltórias afetadas e gere novamente os casos salvos de posição do veículo.",
+    "de": "Wanderlastumhüllende berücksichtigen nun die Grenzwerte an den Stabenden, wenn eine Achse an einer abgetasteten Position auf einem Pfadknoten liegt. Dadurch können sich die maßgebenden Quer- und Normalkräfte ändern. Berechnen Sie betroffene Umhüllende erneut und erzeugen Sie gespeicherte Fahrzeugpositionslastfälle neu.",
+    "fr": "Les enveloppes de charges mobiles incluent désormais les valeurs limites aux extrémités des barres lorsqu’un essieu coïncide avec un nœud du trajet à une position échantillonnée. Les efforts tranchants et normaux déterminants peuvent changer. Recalculez les enveloppes concernées et régénérez les cas enregistrés de position du véhicule.",
+    "tr": "Hareketli yük zarfları artık bir aks örneklenen bir konumda yol düğümüne denk geldiğinde eleman uçlarındaki sınır değerlerini içerir. Belirleyici kesme ve eksenel kuvvetler değişebilir. Etkilenen zarfları yeniden hesaplayın ve kayıtlı araç konumu yük durumlarını yeniden oluşturun.",
+    "zh": "当车轴在某个采样位置恰好落在路径节点上时，移动荷载包络现计入相邻杆件端面的极限值。这可能改变控制剪力和轴力。请重新计算受影响的包络，并重新生成已保存的车辆位置荷载工况。",
+    "hu": "A mozgóteher-burkolók most figyelembe veszik a rúdvég határértékeit, ha egy tengely a mintavételezett helyzetben az útvonal csomópontjára esik. Ez megváltoztathatja a mértékadó nyíró- és normálerőt. Futtassa újra az érintett vizsgálatokat, és hozza létre újra a mentett járműpozíció-tehereseteket."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-moving-axle-joints.md",

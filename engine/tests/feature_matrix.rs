@@ -1303,40 +1303,135 @@ fn il_values(r: &influence::InfluenceLineResult, c: &Case2) -> Vec<f64> {
     pts.iter().map(|p| p.value).collect()
 }
 
+const REFERENCE_AXLE_WEIGHT: f64 = 50.0;
+
+struct ReferenceMember {
+    id: usize,
+    ends: [usize; 2],
+    length: f64,
+}
+
+#[derive(Clone, Copy)]
+struct ReferenceFace {
+    element_id: usize,
+    at_end: bool,
+}
+
+enum ReferencePlacement {
+    Span { element_id: usize, a: f64 },
+    Joint { node_id: usize, face: Option<ReferenceFace> },
+    OffPath,
+}
+
+fn reference_placements(path: &[ReferenceMember], include_limits: bool) -> Vec<ReferencePlacement> {
+    let mut entries = Vec::new();
+    let mut exits = Vec::new();
+    let mut boundaries = vec![0.0];
+    for (i, member) in path.iter().enumerate() {
+        let reversed = if i == 0 {
+            path.get(1).is_some_and(|next| next.ends.contains(&member.ends[0]) && !next.ends.contains(&member.ends[1]))
+        } else {
+            exits[i - 1] == member.ends[1] && exits[i - 1] != member.ends[0]
+        };
+        entries.push(member.ends[usize::from(reversed)]);
+        exits.push(member.ends[usize::from(!reversed)]);
+        boundaries.push(boundaries[i] + member.length);
+    }
+    let mut placements = Vec::new();
+    for index in 0.. {
+        let position = index as f64 / 2.0;
+        let on_boundary = |distance: f64, length: f64| {
+            (position - distance).abs() <= 8.0 * f64::EPSILON * distance.max(length)
+        };
+        if let Some(joint) = boundaries.iter().enumerate().position(|(j, &distance)| {
+            let left = j.checked_sub(1).map_or(0.0, |i| path[i].length);
+            let right = path.get(j).map_or(0.0, |m| m.length);
+            on_boundary(distance, left.max(right))
+        }) {
+            let prior = joint.checked_sub(1).map(|i| (i, exits[i]));
+            let next = entries.get(joint).map(|&node_id| (joint, node_id));
+            let (_, node_id) = prior.or(next).unwrap();
+            placements.push(ReferencePlacement::Joint { node_id, face: None });
+            if include_limits {
+                for candidate in [prior, next] {
+                    placements.push(match candidate {
+                        Some((i, node_id)) => ReferencePlacement::Joint {
+                            node_id,
+                            face: Some(ReferenceFace { element_id: path[i].id, at_end: node_id == path[i].ends[1] }),
+                        },
+                        None => ReferencePlacement::OffPath,
+                    });
+                }
+            }
+        } else if let Some(i) = boundaries.windows(2).position(|span| span[0] < position && position < span[1]) {
+            let distance = position - boundaries[i];
+            let a = if entries[i] == path[i].ends[0] { distance } else { path[i].length - distance };
+            placements.push(ReferencePlacement::Span { element_id: path[i].id, a });
+        } else {
+            break;
+        }
+    }
+    placements
+}
+
+fn reference_shear_cuts(
+    length: f64, start: f64, end: f64, points: impl Iterator<Item = (f64, f64)>,
+) -> [f64; 2] {
+    let endpoint_tolerance = 8.0 * f64::EPSILON * length;
+    let mut cuts = [start, end];
+    for (a, p) in points {
+        if a.abs() <= endpoint_tolerance { cuts[0] += p; }
+        if (a - length).abs() <= endpoint_tolerance { cuts[1] -= p; }
+    }
+    cuts
+}
+
 /// Reference for moving loads / influence lines: the same loads, one position
 /// at a time, through the linear solver on the full model.
-fn moving_reference_2d(ana: &str, c: &Case2) -> Result<Out, String> {
+fn moving_reference_2d(ana: &str, c: &Case2, include_limits: bool) -> Result<Out, String> {
     let path = c.path.clone().ok_or("no path")?;
     let m = &c.with;
     if ana == "moving loads" {
         let mut env: BTreeMap<usize, [f64; 4]> = path.iter().map(|&id| (id, [0.0; 4])).collect();
-        let lens: Vec<f64> = path.iter().map(|id| elem_len_2d(m, *id)).collect();
-        let total: f64 = lens.iter().sum();
-        let mut pos = 0.0;
-        while pos <= total + 1e-10 {
-            let (mut acc, mut k) = (0.0, 0);
-            while k + 1 < lens.len() && pos > acc + lens[k] + 1e-10 {
-                acc += lens[k];
-                k += 1;
-            }
+        let members: Vec<_> = path.iter().map(|id| {
+            let e = &m.s.elements[&id.to_string()];
+            ReferenceMember { id: *id, ends: [e.node_i, e.node_j], length: elem_len_2d(m, *id) }
+        }).collect();
+        let project = |id: usize| {
+            let e = &m.s.elements[&id.to_string()];
+            let (i, j) = (&m.s.nodes[&e.node_i.to_string()], &m.s.nodes[&e.node_j.to_string()]);
+            let load = -REFERENCE_AXLE_WEIGHT / elem_len_2d(m, id);
+            (load * (j.x - i.x), load * (j.z - i.z))
+        };
+        for placement in reference_placements(&members, include_limits) {
             let mut s = m.s.clone();
-            s.loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement { element_id: path[k], a: (pos - acc).clamp(0.0, lens[k]), p: -50.0, px: None, my: None }));
+            let face = match placement {
+                ReferencePlacement::Span { element_id, a } => {
+                    let (p, px) = project(element_id);
+                    s.loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement { element_id, a, p, px: Some(px), my: None }));
+                    None
+                }
+                ReferencePlacement::Joint { node_id, face } => {
+                    s.loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id, fx: 0.0, fz: -REFERENCE_AXLE_WEIGHT, my: 0.0 }));
+                    face
+                }
+                ReferencePlacement::OffPath => None,
+            };
             let r = linear::solve_2d(&s)?;
             // Along the member, as the envelope reads it since #437: the ends and every
             // station the diagram samples (the point load among them).
             let range = |ef: &ElementForces, kind: &str, a0: f64, a1: f64| -> (f64, f64) {
                 let mut interior = None;
                 let (a0, a1) = if kind == "shear" {
-                    let jump0: f64 = ef.point_loads.iter().filter(|p| p.a.abs() <= 8.0 * f64::EPSILON * ef.length).map(|p| p.p).sum();
-                    let jump1: f64 = ef.point_loads.iter().filter(|p| (p.a - ef.length).abs() <= 8.0 * f64::EPSILON * ef.length).map(|p| p.p).sum();
-                    if jump0 != 0.0 || jump1 != 0.0 {
+                    let [start, end] = reference_shear_cuts(ef.length, a0, a1, ef.point_loads.iter().map(|p| (p.a, p.p)));
+                    if ef.point_loads.iter().any(|p| p.a.abs() <= 8.0 * f64::EPSILON * ef.length || (p.a - ef.length).abs() <= 8.0 * f64::EPSILON * ef.length) {
                         let mut member = ef.clone();
-                        member.v_start = a0 + jump0;
-                        member.v_end = a1 - jump1;
+                        member.v_start = start;
+                        member.v_end = end;
                         member.point_loads.retain(|p| p.a.abs() > 8.0 * f64::EPSILON * ef.length && (p.a - ef.length).abs() > 8.0 * f64::EPSILON * ef.length);
                         interior = Some(member);
                     }
-                    (a0 + jump0, a1 - jump1)
+                    (start, end)
                 } else { (a0, a1) };
                 let ef = interior.as_ref().unwrap_or(ef);
                 let (mut lo, mut hi) = (a0.min(a1), a0.max(a1));
@@ -1354,9 +1449,15 @@ fn moving_reference_2d(ana: &str, c: &Case2) -> Result<Out, String> {
                     e[1] = e[1].min(m_lo);
                     e[2] = e[2].max(v_hi);
                     e[3] = e[3].min(v_lo);
+                    if let Some(face) = face.filter(|f| f.element_id == ef.element_id && m.s.elements[&f.element_id.to_string()].elem_type != "truss") {
+                        let [start, end] = reference_shear_cuts(ef.length, ef.v_start, ef.v_end, ef.point_loads.iter().map(|p| (p.a, p.p)));
+                        let (p, _) = project(face.element_id);
+                        let v = if face.at_end { end + p } else { start - p };
+                        e[2] = e[2].max(v);
+                        e[3] = e[3].min(v);
+                    }
                 }
             }
-            pos += 0.5;
         }
         Ok(Out::S(path.iter().flat_map(|id| env[id]).collect(), false))
     } else {
@@ -1607,7 +1708,7 @@ fn run_2d(c: &Case2, a: &Ana2) -> Cell {
     };
     let reference = (|| -> Result<(Out, String), String> {
         if a.kind == Kind::Moving {
-            return guarded(|| moving_reference_2d(a.name, c)).map(|o| (o, "linear solves position by position".into()));
+            return guarded(|| moving_reference_2d(a.name, c, true)).map(|o| (o, "linear solves position by position".into()));
         }
         if let Some((_, o)) = c.analytic.iter().find(|(k, _)| *k == a.kind) {
             return Ok((o.clone(), "the analytical value".into()));
@@ -3128,7 +3229,7 @@ fn translation_invariants(k: &[f64], n: usize) -> Vec<f64> {
     invariants(&b, 3)
 }
 
-fn moving_reference_3d(ana: &str, c: &Case3) -> Result<Out, String> {
+fn moving_reference_3d(ana: &str, c: &Case3, include_limits: bool) -> Result<Out, String> {
     let path = c.path.clone().ok_or("no path")?;
     let m = &c.with;
     let mut base = m.s.clone();
@@ -3142,35 +3243,29 @@ fn moving_reference_3d(ana: &str, c: &Case3) -> Result<Out, String> {
         }
     };
     if ana == "moving loads" {
-        let lens: Vec<f64> = path.iter().map(|&id| m.elem_len(id)).collect();
-        let total: f64 = lens.iter().sum();
-        let mut env: BTreeMap<usize, [f64; 4]> = path.iter().map(|&id| (id, [0.0; 4])).collect();
-        let first = &m.s.elements[&path[0].to_string()];
-        let mut entry = first.node_i;
-        if path.len() > 1 {
-            let next = &m.s.elements[&path[1].to_string()];
-            if entry == next.node_i || entry == next.node_j { entry = first.node_j; }
-        }
-        let mut reversed = Vec::new();
-        for id in &path {
+        let members: Vec<_> = path.iter().map(|id| {
             let e = &m.s.elements[&id.to_string()];
-            reversed.push(entry == e.node_j);
-            entry = if entry == e.node_i { e.node_j } else { e.node_i };
-        }
-        let mut pos = 0.0;
-        while pos <= total + 1e-10 {
-            let (mut acc, mut k) = (0.0, 0);
-            while k + 1 < lens.len() && pos > acc + lens[k] + 1e-10 {
-                acc += lens[k];
-                k += 1;
-            }
+            ReferenceMember { id: *id, ends: [e.node_i, e.node_j], length: m.elem_len(*id) }
+        }).collect();
+        let mut env: BTreeMap<usize, [f64; 4]> = path.iter().map(|&id| (id, [0.0; 4])).collect();
+        for placement in reference_placements(&members, include_limits) {
             let mut loads = m.s.loads.clone();
-            let (ex, ey, ez) = m.axes(path[k]);
-            let a = (pos - acc).clamp(0.0, lens[k]);
-            loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
-                element_id: path[k], a: if reversed[k] { lens[k] - a } else { a },
-                px: -50.0 * ex[2], py: -50.0 * ey[2], pz: -50.0 * ez[2],
-            }));
+            let face = match placement {
+                ReferencePlacement::Span { element_id, a } => {
+                    let (ex, ey, ez) = m.axes(element_id);
+                    loads.push(SolverLoad3D::PointOnElement(SolverPointLoad3D {
+                        element_id, a, px: -REFERENCE_AXLE_WEIGHT * ex[2], py: -REFERENCE_AXLE_WEIGHT * ey[2], pz: -REFERENCE_AXLE_WEIGHT * ez[2],
+                    }));
+                    None
+                }
+                ReferencePlacement::Joint { node_id, face } => {
+                    loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
+                        node_id, fx: 0.0, fy: 0.0, fz: -REFERENCE_AXLE_WEIGHT, mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+                    }));
+                    face
+                }
+                ReferencePlacement::OffPath => None,
+            };
             let r = solve(&loads)?;
             for ef in &r.element_forces {
                 if let Some(e) = env.get_mut(&ef.element_id) {
@@ -3179,10 +3274,16 @@ fn moving_reference_3d(ana: &str, c: &Case3) -> Result<Out, String> {
                     for dl in &ef.distributed_loads_z { xs.extend([dl.a, dl.b]); }
                     e[0] = e[0].max(ef.my_start).max(ef.my_end);
                     e[1] = e[1].min(ef.my_start).min(ef.my_end);
-                    let start = ef.vz_start + ef.point_loads_z.iter().filter(|p| p.a.abs() <= 8.0 * f64::EPSILON * ef.length).map(|p| p.p).sum::<f64>();
-                    let end = ef.vz_end - ef.point_loads_z.iter().filter(|p| (p.a - ef.length).abs() <= 8.0 * f64::EPSILON * ef.length).map(|p| p.p).sum::<f64>();
+                    let [start, end] = reference_shear_cuts(ef.length, ef.vz_start, ef.vz_end, ef.point_loads_z.iter().map(|p| (p.a, p.p)));
                     e[2] = e[2].max(start).max(end);
                     e[3] = e[3].min(start).min(end);
+                    if let Some(face) = face.filter(|f| f.element_id == ef.element_id && m.s.elements[&f.element_id.to_string()].elem_type != "truss") {
+                        let (_, _, ez) = m.axes(face.element_id);
+                        let p = -REFERENCE_AXLE_WEIGHT * ez[2];
+                        let v = if face.at_end { end + p } else { start - p };
+                        e[2] = e[2].max(v);
+                        e[3] = e[3].min(v);
+                    }
                     for x in xs.into_iter().filter(|&x| x > 8.0 * f64::EPSILON * ef.length && ef.length - x > 8.0 * f64::EPSILON * ef.length) {
                         let (mut moment, mut shear) = (ef.my_end - ef.vz_end * (ef.length - x), ef.vz_end);
                         for dl in &ef.distributed_loads_z {
@@ -3209,7 +3310,6 @@ fn moving_reference_3d(ana: &str, c: &Case3) -> Result<Out, String> {
                     }
                 }
             }
-            pos += 0.5;
         }
         Ok(Out::S(path.iter().flat_map(|id| env[id]).collect(), false))
     } else {
@@ -3249,7 +3349,7 @@ fn run_3d(c: &Case3, a: &Ana3) -> Cell {
     let with = run(&c.with);
     let reference = (|| -> Result<(Out, String), String> {
         if a.kind == Kind::Moving {
-            return guarded(|| moving_reference_3d(a.name, c)).map(|o| (o, "linear solves position by position".into()));
+            return guarded(|| moving_reference_3d(a.name, c, true)).map(|o| (o, "linear solves position by position".into()));
         }
         if let Some((_, o)) = c.analytic.iter().find(|(k, _)| *k == a.kind) {
             return Ok((o.clone(), "the analytical value".into()));
@@ -3353,7 +3453,7 @@ fn issue_1782_moving_3d_reference_includes_interior_forces() {
     m.sup(2, [false, true, true, true, false, false]);
     let mut c = Case3::base("baseline frame", "single span", &[], m.clone(), m, vec![1, 2]);
     c.path = Some(vec![1]);
-    let Out::S(reference, _) = moving_reference_3d("moving loads", &c).unwrap() else { panic!("scalar envelope required") };
+    let Out::S(reference, _) = moving_reference_3d("moving loads", &c, false).unwrap() else { panic!("scalar envelope required") };
     let expected = (0..=7).map(|i| {
         let x = 0.5 * i as f64;
         50.0 * x * (length - x) / length
@@ -3371,7 +3471,7 @@ fn issue_1782_endpoint_2d_reference_obeys_equilibrium() {
         }));
         let mut c = Case2::base("baseline frame", "endpoint loads", &[], m.clone(), m, vec![1, 2]);
         c.path = Some(vec![1]);
-        let Out::S(values, _) = moving_reference_2d("moving loads", &c).unwrap() else { panic!("scalar envelope required") };
+        let Out::S(values, _) = moving_reference_2d("moving loads", &c, false).unwrap() else { panic!("scalar envelope required") };
         for value in values { assert!(value.abs() < 1e-9, "support carries endpoint loads: {value}"); }
     }
 }
@@ -3386,7 +3486,7 @@ fn issue_1782_endpoint_3d_reference_obeys_equilibrium() {
         }));
         let mut c = Case3::base("baseline frame", "endpoint loads", &[], m.clone(), m, vec![1, 2]);
         c.path = Some(vec![1]);
-        let Out::S(values, _) = moving_reference_3d("moving loads", &c).unwrap() else { panic!("scalar envelope required") };
+        let Out::S(values, _) = moving_reference_3d("moving loads", &c, false).unwrap() else { panic!("scalar envelope required") };
         for value in values { assert!(value.abs() < 1e-9, "support carries endpoint loads: {value}"); }
     }
 }
@@ -3398,12 +3498,11 @@ fn issue_1782_planar_thermal_moving_limits_match_position_solves() {
     let cell = run_2d(&case, &analysis);
     assert_eq!(
         cell.verdict, Verdict::Supported, "{}: computed {:?}, reference {:?}",
-        cell.note, (analysis.run)(&case.with, &case), moving_reference_2d(analysis.name, &case),
+        cell.note, (analysis.run)(&case.with, &case), moving_reference_2d(analysis.name, &case, true),
     );
 }
 
 #[test]
-#[ignore = "known wrong result: #2101"]
 fn review_2101_reference_includes_sampled_support_faces() {
     let weight = 50.0;
     for length in [1.0, 1.1] {
@@ -3417,7 +3516,7 @@ fn review_2101_reference_includes_sampled_support_faces() {
         c3.path = Some(vec![1]);
         let t = 1.0 / length;
         let last_shear = -weight * t * t * (3.0 - 2.0 * t);
-        for result in [moving_reference_2d("moving loads", &c2), moving_reference_3d("moving loads", &c3)] {
+        for result in [moving_reference_2d("moving loads", &c2, true), moving_reference_3d("moving loads", &c3, true)] {
             let Out::S(values, _) = result.unwrap() else { panic!("scalar envelope required") };
             assert!((values[2] - weight).abs() < 1e-9, "entrance face: {} vs {weight}", values[2]);
             assert!((values[3] - last_shear).abs() < 1e-9, "exit face: {} vs {last_shear}", values[3]);

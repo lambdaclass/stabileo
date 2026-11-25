@@ -298,7 +298,7 @@ it('#2104 spatial wheel lines retain both member faces at a joint', async () => 
   checkFaces(split, 3, 4, weight / 2);
 });
 
-it.runIf(process.env.RUN_MOVING_REVIEW === '1')('#2101 — endpoint-only spatial sweeps recover axial face limits', async () => {
+it('#2101 — endpoint-only spatial sweeps recover axial face limits', async () => {
   const length = 1;
   const weight = 100;
   const train = { name: 'one axle', axles: [{ offset: 0, weight }] };

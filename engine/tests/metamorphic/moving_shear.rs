@@ -489,6 +489,10 @@ fn review_2101_sampled_entrance_axle_governs_shear() {
 #[test]
 fn review_2104_reversed_interior_axle_cancels_coincident_load() {
     use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
+    use dedaliano_engine::solver::{
+        linear::{solve_2d, solve_3d},
+        moving_loads::{build_load_path, build_load_path_3d, moving_loads_at_position_2d, moving_loads_at_position_3d},
+    };
 
     let mut solver = review_beam(0.0);
     solver.nodes.get_mut("2").unwrap().z = 64.0;
@@ -510,43 +514,38 @@ fn review_2104_reversed_interior_axle_cancels_coincident_load() {
     fixed.node_id = 3;
     solver.supports.insert("3".into(), fixed);
     let weight = 100.0;
+    let station = 0.1 - 0.0625;
+    let position = 64.0625;
+    let path_ids = [1, 2];
     solver
         .loads
         .push(SolverLoad::PointOnElement(SolverPointLoadOnElement {
             element_id: 2,
-            a: 0.1 - 0.0625,
+            a: station,
             p: -weight,
             px: None,
             my: None,
         }));
     let spatial = embed_2d(&solver, Plane::XZ).unwrap();
+    let train = |weight| LoadTrain {
+        name: "coincident".into(),
+        axles: vec![Axle { offset: 0.0, weight }],
+    };
     let planar = |weight| {
         solve_moving_loads_2d(&MovingLoadInput {
             solver: solver.clone(),
-            train: LoadTrain {
-                name: "coincident".into(),
-                axles: vec![Axle {
-                    offset: 0.0,
-                    weight,
-                }],
-            },
-            step: Some(64.0625),
-            path_element_ids: Some(vec![1, 2]),
+            train: train(weight),
+            step: Some(position),
+            path_element_ids: Some(path_ids.to_vec()),
         })
         .unwrap()
     };
-    let spatial = |weight| {
+    let spatial_envelope = |weight| {
         solve_moving_loads_3d(&MovingLoadInput3D {
             solver: spatial.clone(),
-            train: LoadTrain {
-                name: "coincident".into(),
-                axles: vec![Axle {
-                    offset: 0.0,
-                    weight,
-                }],
-            },
-            step: Some(64.0625),
-            path_element_ids: Some(vec![1, 2]),
+            train: train(weight),
+            step: Some(position),
+            path_element_ids: Some(path_ids.to_vec()),
             gravity_direction: None,
         })
         .unwrap()
@@ -555,10 +554,52 @@ fn review_2104_reversed_interior_axle_cancels_coincident_load() {
     let actual = &planar(weight).elements["2"];
     assert_force(actual.v_max_neg, reference.v_max_neg);
     assert_force(actual.v_max_pos, reference.v_max_pos);
-    let reference = &spatial(0.0).elements["2"];
-    let actual = &spatial(weight).elements["2"];
+    let reference = &spatial_envelope(0.0).elements["2"];
+    let actual = &spatial_envelope(weight).elements["2"];
     assert_force(actual.vz_max_neg, reference.vz_max_neg);
     assert_force(actual.vz_max_pos, reference.vz_max_pos);
+
+    let path = build_load_path(&solver, Some(&path_ids)).unwrap();
+    let mut planar_sample = solver;
+    planar_sample.loads = moving_loads_at_position_2d(&planar_sample, &train(weight), &path, position).unwrap();
+    let [SolverLoad::PointOnElement(permanent), SolverLoad::PointOnElement(axle)] = planar_sample.loads.as_slice() else {
+        panic!("expected the permanent point load and the axle");
+    };
+    assert_eq!(axle.element_id, 2);
+    assert_eq!(axle.a, station);
+    assert_eq!(axle.a, permanent.a);
+    assert_force(axle.p, weight);
+    assert_force(axle.p + permanent.p, 0.0);
+    let result = solve_2d(&planar_sample).unwrap();
+    let member = result.element_forces.iter().find(|f| f.element_id == 2).unwrap();
+    assert_force(member.v_start, 0.0);
+    assert_force(member.v_end, 0.0);
+    let t = station / member.length;
+    for cut in [t / 2.0, (1.0 + t) / 2.0] {
+        let shear = dedaliano_engine::postprocess::diagrams::compute_diagram_value_at("shear", cut, member);
+        assert_force(shear, 0.0);
+    }
+
+    let path = build_load_path_3d(&spatial, Some(&path_ids)).unwrap();
+    let mut spatial_sample = spatial;
+    spatial_sample.loads = moving_loads_at_position_3d(&spatial_sample, &train(weight), "z", &path, position).unwrap();
+    let [SolverLoad3D::PointOnElement(permanent), SolverLoad3D::PointOnElement(axle)] = spatial_sample.loads.as_slice() else {
+        panic!("expected the permanent point load and the axle");
+    };
+    assert_eq!(axle.element_id, 2);
+    assert_eq!(axle.a, station);
+    assert_eq!(axle.a, permanent.a);
+    assert_force(axle.pz, -weight);
+    assert_force(axle.pz + permanent.pz, 0.0);
+    let result = solve_3d(&spatial_sample).unwrap();
+    let member = result.element_forces.iter().find(|f| f.element_id == 2).unwrap();
+    assert_force(member.vz_start, 0.0);
+    assert_force(member.vz_end, 0.0);
+    let t = station / member.length;
+    for cut in [t / 2.0, (1.0 + t) / 2.0] {
+        let shear = dedaliano_engine::postprocess::diagrams_3d::checked_diagram_value_3d(member, "shearZ", cut).unwrap();
+        assert_force(shear, 0.0);
+    }
 }
 
 #[test]

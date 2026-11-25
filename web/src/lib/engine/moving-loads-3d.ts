@@ -108,12 +108,14 @@ function addTrain(
   sample: MovingSample<SolverLoad3D>, input: SolverInput3D, path: PathSegment3D[],
   train: LoadTrain, refPos: number, scale: number,
 ): void {
-  const axesOn = (elementId: number) => {
+  const axleOn = (elementId: number, weight: number) => {
     const e = input.elements.get(elementId)!;
     const ni = input.nodes.get(e.nodeI)!, nj = input.nodes.get(e.nodeJ)!;
     const localY = e.localYx !== undefined && e.localYy !== undefined && e.localYz !== undefined
       ? { x: e.localYx, y: e.localYy, z: e.localYz } : undefined;
-    return { e, axes: computeLocalAxes3D(ni, nj, localY, e.rollAngle ?? 0, input.leftHand) };
+    const axes = computeLocalAxes3D(ni, nj, localY, e.rollAngle ?? 0, input.leftHand);
+    const force: AxleFace['force'] = [-weight * axes.ex[2], -weight * axes.ey[2], -weight * axes.ez[2]];
+    return { e, ex: axes.ex, force };
   };
   for (const axle of train.axles) {
     const at = locateAxlePlacement(path, refPos, axle.offset, scale, (seg) => seg.reversed);
@@ -122,10 +124,10 @@ function addTrain(
       const face = (routeFace: typeof at.faces[number]): AxleFace | undefined => {
         if (!routeFace) return undefined;
         const { segment, atEnd } = routeFace;
-        const { e, axes } = axesOn(segment.elementId);
+        const { e, force } = axleOn(segment.elementId, axle.weight);
         return {
           elementId: e.id, nodeId: atEnd ? e.nodeJ : e.nodeI, atEnd,
-          force: e.type === 'truss' ? [0, 0, 0] : [0, -axle.weight * axes.ey[2], -axle.weight * axes.ez[2]],
+          force: e.type === 'truss' ? [force[0], 0, 0] : force,
         };
       };
       sample.addJoint([face(at.faces[0]), face(at.faces[1])], (nodeId) => (
@@ -134,15 +136,14 @@ function addTrain(
       continue;
     }
     const { segment: seg, a } = at;
-    const { e, axes } = axesOn(seg.elementId);
-    const py = -axle.weight * axes.ey[2], pz = -axle.weight * axes.ez[2], px = -axle.weight * axes.ex[2];
+    const { e, ex, force: [px, py, pz] } = axleOn(seg.elementId, axle.weight);
     if (Math.abs(py) > 1e-12 || Math.abs(pz) > 1e-12) {
       sample.loads.push({ type: 'pointOnElement', data: { elementId: e.id, a, py, pz } });
     }
     if (Math.abs(px) > 1e-12) {
       const t = a / seg.length;
       for (const [node, f] of [[e.nodeI, px * (1 - t)], [e.nodeJ, px * t]] as const) {
-        sample.loads.push({ type: 'nodal', data: { nodeId: node, fx: f * axes.ex[0], fy: f * axes.ex[1], fz: f * axes.ex[2], mx: 0, my: 0, mz: 0 } });
+        sample.loads.push({ type: 'nodal', data: { nodeId: node, fx: f * ex[0], fy: f * ex[1], fz: f * ex[2], mx: 0, my: 0, mz: 0 } });
       }
     }
   }
@@ -175,11 +176,12 @@ export function foldPosition(
     if (loads) {
       for (const end of [0, 1] as const) {
         for (const [axis, component, force] of [
+          [0, 'n', end ? ef.nEnd : ef.nStart],
           [1, 'vy', end ? ef.vyEnd : ef.vyStart],
           [2, 'vz', end ? ef.vzEnd : ef.vzStart],
         ] as const) {
           const load = loads[end][axis];
-          if (load !== 0) include(rec[component], movingFaceForce(force, load, end === 1, false), end * ef.length);
+          if (load !== 0) include(rec[component], movingFaceForce(force, load, end === 1, component === 'n'), end * ef.length);
         }
       }
     }
