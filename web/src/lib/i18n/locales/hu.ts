@@ -723,6 +723,8 @@ const hu: Translations = {
   "advanced.noFreeDofsModal": "Minden szabadságfok meg van fogva: semmi sem tud rezegni. Osszon fel a rudat szakaszokra a sajátrezgésalakok megkapásához.",
   "advanced.mechanismOnlyModes": "Minden talált rezgésalaknak nulla a sajátértéke: a szerkezet mechanizmus. Ellenőrizze a támaszokat és a kioldásokat.",
   "advanced.modalMechanism": "A szerkezet mechanizmus: {count} rezgésalak nulla vagy negatív frekvencianégyzettel, amelyek közül az egyik a(z) {node}. csomópontot mozgatja {dof} mentén anélkül, hogy pozitív merevség fogná, így egy kioldás, csukló, hiányzó támasz vagy negatív merevség szabadon mozogni hagyja a tömeg egy részét. Rezgésalakokat nem jelenítünk meg. Ellenőrizze a támaszokat, a kioldásokat és az esetleges negatív rugókat.",
+  "advanced.modalTranslationMechanism": "A(z) {node}. csomópontnál transzlációs tehetetlenséggel rendelkező mechanizmus észlelhető (az elmozdulás domináns összetevője: {dof}). A rezgésalakok nem jelennek meg.",
+  "advanced.modalStiffnessConditioning": "A modális vizsgálat a merevségek nagy eltérése miatt nem tudott megbízhatóan meghatározni pozitív frekvenciát. Nem adott vissza módusokat.",
   "advanced.nullModesDiscarded": "{n} nulla sajátértékű rezgésalakot elvetettünk: a szerkezet ebben az irányban mechanizmus ({where}). Ellenőrizze a támaszokat és a kioldásokat.",
   "advanced.plasticNoLoads": "Nincs teher, amely a szerkezetet igénybe venné (a modellben nincs teher, vagy mind a támaszokon hat): nincs mi alatt tönkremenjen.",
   "advanced.runDynamicFirst": "Előbb futtassa a dinamikai (modális) analízist",

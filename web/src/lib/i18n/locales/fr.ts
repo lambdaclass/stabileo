@@ -725,6 +725,8 @@ const fr: Translations = {
   'advanced.noFreeDofsModal': 'Tous les degrés de liberté sont bloqués : rien n\'est libre de vibrer. Divisez la barre en tronçons pour obtenir ses modes propres.',
   'advanced.mechanismOnlyModes': 'Tous les modes trouvés ont une valeur propre nulle : la structure est un mécanisme. Vérifiez les appuis et les libérations.',
   'advanced.modalMechanism': 'La structure est un mécanisme : {count} mode(s) dont la fréquence au carré est nulle ou négative, dont l\'un déplace le nœud {node} selon {dof} sans rigidité positive pour le retenir ; une libération, une rotule, un appui manquant ou une rigidité négative laisse une partie de la masse bouger librement. Aucun mode n\'est affiché. Vérifiez les appuis, les libérations et les ressorts négatifs.',
+  'advanced.modalTranslationMechanism': 'Un mécanisme avec inertie de translation a été détecté au nœud {node} (composante dominante du déplacement : {dof}). Aucun mode n’est affiché.',
+  "advanced.modalStiffnessConditioning": "L’analyse modale n’a pas pu déterminer de façon fiable une fréquence positive en raison des écarts de rigidité. Aucun mode n’a été renvoyé.",
   'advanced.nullModesDiscarded': '{n} mode(s) à valeur propre nulle écarté(s) : la structure est un mécanisme dans cette direction ({where}). Vérifiez les appuis et les libérations.',
   'advanced.plasticNoLoads': 'Aucune charge ne sollicite la structure (le modèle n\'a pas de charges, ou elles agissent toutes sur les appuis) : rien ne peut provoquer sa ruine.',
   'advanced.runDynamicFirst': 'Lancez d\'abord l\'analyse dynamique (modale)',

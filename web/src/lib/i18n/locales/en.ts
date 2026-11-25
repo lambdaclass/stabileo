@@ -1076,6 +1076,8 @@ const en: Record<string, string> = {
   'advanced.noFreeDofsModal': 'Every degree of freedom is restrained: nothing is free to vibrate. Split the member into segments to get its natural modes.',
   'advanced.mechanismOnlyModes': 'Every mode found has a zero eigenvalue: the structure is a mechanism. Check the supports and the releases.',
   'advanced.modalMechanism': 'The structure is a mechanism: {count} mode(s) with zero or negative frequency squared, one of which moves node {node} along {dof} with no positive stiffness against it, so a release, hinge, missing support or negative stiffness lets part of the mass move freely. No modes are shown. Check the supports, the releases and any negative springs.',
+  'advanced.modalTranslationMechanism': 'A mechanism with translational inertia was detected at node {node} (dominant displacement component: {dof}). No modes are shown.',
+  "advanced.modalStiffnessConditioning": "Modal analysis could not reliably resolve a positive frequency because of the stiffness contrast. No modes were returned.",
   'advanced.nullModesDiscarded': '{n} zero-eigenvalue mode(s) discarded: the structure is a mechanism in that direction ({where}). Check the supports and the releases.',
   'advanced.plasticNoLoads': 'No load stresses the structure (the model has no loads, or they all act on the supports): there is nothing for it to collapse under.',
   'advanced.runDynamicFirst': 'Run dynamic analysis (modal) first',
