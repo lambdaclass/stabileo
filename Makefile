@@ -231,6 +231,10 @@ audit.810.run:
 test.engine.targeted:
 	$(NIX_RUN) cargo test -p dedaliano-engine --test $(TEST) $(FILTER) -- --nocapture $(if $(IGNORED),--ignored)
 
+.PHONY: test.engine.reduced-rank-wasm
+test.engine.reduced-rank-wasm: wasm
+	$(NIX_RUN) node scripts/tests/reduced-rank-wasm.mjs
+
 NEWMARK_DIR = $(CURDIR)/research/benchmarks/newmark-1959
 research.newmark.replay:
 	NEWMARK_REPLAY_OUT=$(NEWMARK_DIR)/results/stabileo_results.json NEWMARK_VALIDATION_OUT=$(NEWMARK_DIR)/VALIDATION.json \
