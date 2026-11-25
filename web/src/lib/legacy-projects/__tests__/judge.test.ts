@@ -328,18 +328,20 @@ describe('against real corpus files', () => {
       try {
         const entry = readManifest('v0.4.0').examples.find((e) => e.example === 'deep-beam-shell')!;
         const opened = await openAndSolve(readCorpusText(`v0.4.0/${entry.file}`));
+        const plateWithdrawals = ['plates-coarse-as-modelled-meshed-withdrawn', 'plates-conforming-batch-mesh-withdrawn'];
         expect(opened.changes.map((c) => c.id)).toEqual(orderedIds([
           'solid-shell-local-stress-axes', 'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks',
           'shell-envelope-per-component', 'modal-mechanism-refused', 'shell-figures-paint-the-screen-field', 'safety-containment-diagnostics',
           'harmonic-modal-residual-checked', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness',
           'soft-rotation-not-orphan', 'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency', 'combined-shell-stresses', 'linear-stability-refusals', 'harmonic-omitted-modes', 'linear-pin-coupling',
           'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'independent-applied-force-checks', 'compensated-applied-force-totals',
+          ...plateWithdrawals,
           ...(includeSSI ? ['ssi-support-reactions'] : []),
         ]));
         if (includeSSI) {
-        if (mainFirst) expect(opened.changes.slice(-13).map(c => c.id)).toEqual(orderedIds(['compensated-applied-force-totals', 'independent-applied-force-checks', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'harmonic-omitted-modes', 'ssi-support-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
+        if (mainFirst) expect(opened.changes.slice(-15).map(c => c.id)).toEqual(orderedIds(['compensated-applied-force-totals', 'independent-applied-force-checks', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'harmonic-omitted-modes', 'ssi-support-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling', ...plateWithdrawals]));
         } else {
-        if (mainFirst) expect(opened.changes.slice(-12).map(c => c.id)).toEqual(orderedIds(['compensated-applied-force-totals', 'independent-applied-force-checks', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
+        if (mainFirst) expect(opened.changes.slice(-14).map(c => c.id)).toEqual(orderedIds(['compensated-applied-force-totals', 'independent-applied-force-checks', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling', ...plateWithdrawals]));
         }
         const then = readResults(`v0.4.0/${entry.results}`);
         const stress = Object.keys(then).find((k) => /^base\.quadStresses\[[^\]]+\]\.sigmaXx$/.test(k))!;

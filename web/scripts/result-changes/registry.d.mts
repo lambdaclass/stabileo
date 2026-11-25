@@ -12,7 +12,7 @@ export function assemble(input: {
   landings: string[][];
 }): ResultChangeRegistry;
 export function landingsAt(git: (...args: string[]) => string, rev: string): string[][];
-export function readRegistry(root?: string, options?: { proPlatesUnified?: boolean }): ResultChangeRegistry;
+export function readRegistry(root?: string): ResultChangeRegistry;
 export function readRegistryAt(rev: string, root?: string): ResultChangeRegistry | null;
 export function writeOrderFile(root?: string): string[][];
 export interface RegistrySources {

@@ -4,8 +4,6 @@ export type BuildFeatures = Readonly<{
   tools: boolean;
   diagramGame: boolean;
   globalAxes: boolean;
-  proPlatesUnified: boolean;
-  proRcSheets: boolean;
 }>;
 
 export function validateFeatures(value: unknown, label: string): BuildFeatures;

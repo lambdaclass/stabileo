@@ -1,7 +1,7 @@
 import { factorsWithExactCancellation, factorsWithUnitResidual } from './combination-factor-fixture';
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import * as native from '../../wasm/dedaliano_engine.js';
-import { initSolver } from '../wasm-solver';
+import { initSolver, solvePDelta3DWire } from '../wasm-solver';
 import { finishSolve3D } from '../solve-finish';
 import { nonlinearWorkerReply, nonlinearWorkerSession } from '../nonlinear-worker-session';
 import { destroyPool, initPool, nonlinearSessionInWorker, setWorkerFactoryForTests, type WorkerLike } from '../solver-pool';
@@ -24,6 +24,15 @@ class FakeWorker implements WorkerLike {
       if (msg.type === 'init') { reply({ type: 'ready' }); return; }
       if (msg.type === 'solve3d') {
         reply({ type: 'result', id: msg.id, result: finishSolve3D(native.solve_3d(msg.input), msg.input) });
+        return;
+      }
+      if (msg.type === 'pdelta3d') {
+        try {
+          const result = solvePDelta3DWire(msg.input, msg.maxIter, msg.tol, native.solve_pdelta_3d);
+          reply({ type: 'result', id: msg.id, result });
+        } catch (error) {
+          reply({ type: 'result', id: msg.id, error: error instanceof Error ? error.message : String(error) });
+        }
         return;
       }
       if (msg.type === 'nonlinear-free') freed++;

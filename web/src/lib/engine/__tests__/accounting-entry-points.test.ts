@@ -100,6 +100,8 @@ it('keeps WASM structural entry points and raw load conversion in the audited ca
     'lib/engine/solver-service.ts solveMultiCase2D',
     'lib/engine/solver-service.ts solveMultiCase3D',
     'lib/engine/solver-service.ts solvePDelta3D',
+    'lib/engine/solver-service.ts solvePDelta3DAsync',
+    'lib/engine/solver-worker.ts solvePDelta3DWire',
     'lib/engine/steps/influence-doc.ts solve',
     'lib/engine/steps/influence-figs.ts solve',
     'lib/engine/steps/methods/dynamics.ts solveModal',
@@ -121,7 +123,6 @@ it('keeps WASM structural entry points and raw load conversion in the audited ca
     'lib/engine/wasm-solver.ts',
   ]);
   expect([...converters].sort()).toEqual([
-    'lib/engine/case-effects.ts',
     'lib/engine/dynamics/mass-source-model.ts',
     'lib/engine/solver-service.ts',
     'lib/store/materialize-space.ts',
@@ -132,4 +133,9 @@ it('keeps WASM structural entry points and raw load conversion in the audited ca
   expect(checked3D).toMatch(/\bloadAccounting3D\(/);
   expect(checked3D).toMatch(/\baccounting\.verify\(/);
   expect(service).toMatch(/function caseSolverLoads3D[\s\S]*?checkedSolverLoads3D\(/);
+  const pdelta = service.match(/function\* pdeltaCombinationSteps\([\s\S]*?\n\}/)?.[0];
+  expect(pdelta).toMatch(/const caseLoads = caseSolverLoads3D\(/);
+  expect(pdelta).toMatch(/comboSolverLoads3D\(combo, caseLoads\)/);
+  const worker = readFileSync(`${root}/lib/engine/solver-worker.ts`, 'utf8');
+  expect(worker).toMatch(/solvePDelta3DWire\(msg\.input, maxIter, tolerance, solve_pdelta_3d\)/);
 });

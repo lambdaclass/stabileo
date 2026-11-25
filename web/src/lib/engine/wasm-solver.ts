@@ -75,7 +75,7 @@ let wasmAnalyzeKinematics3d: ((json: string) => string) | null = null;
 let wasmReviewModelSanity: ((json: string) => string) | null = null;
 
 // Combinations & Envelope
-let wasmNetCombinationFactors: ((input: unknown) => unknown) | null = null;
+let wasmNetCombinationFactors: ((input: unknown, allowCancellation?: boolean) => unknown) | null = null;
 let wasmCombineResults2d: ((input: any) => any) | null = null;
 let wasmCombineResults3d: ((input: any) => any) | null = null;
 let wasmCombineResultsBatch3d: ((input: any) => any) | null = null;
@@ -1307,17 +1307,26 @@ export function solveMovingLoads(config: {
 
 // ─── 3D Advanced Analysis ─────────────────────────────────────────
 
+function preparePDelta3D(input: SolverInput3D, maxIter: number, tolerance: number) {
+  const wire = input3DToWireObject(input);
+  refuse(guards?.refuse3D(input));
+  refuse(torsionGapRefusal(input, 'pdelta'));
+  return { wire, json: finiteWireJson(wire, { maxIter, tolerance }) };
+}
+
+function publishPDelta3D(result: any, json: string, maxIter: number, tolerance: number) {
+  if (guards && result?.linearResults && !(maxDisplacement(result.linearResults) > 0)) return linearPDelta(result.linearResults, 'noLoads');
+  return tagCertifyJob(normalizePDeltaResult(result), { name: 'certify_pdelta_3d', args: [json, maxIter, tolerance] });
+}
+
 /**
  * Solve 3D P-Delta analysis via WASM, as the engine answers. Its member forces are
  * (K + Kg(N))·u − FEF, the geometric stiffness included, so they balance the reactions.
  */
 export function solvePDelta3D(input: SolverInput3D, maxIter = 20, tolerance = 1e-4) {
   if (!wasmReady || !wasmSolvePdelta3d) throw new Error('WASM P-Delta 3D solver not available.');
-  const wire = input3DToWireObject(input);
-  refuse(guards?.refuse3D(input));
-  refuse(torsionGapRefusal(input, 'pdelta'));
+  const { json } = preparePDelta3D(input, maxIter, tolerance);
   let result;
-  const json = finiteWireJson(wire, { maxIter, tolerance });
   try {
     result = JSON.parse(wasmSolvePdelta3d(json, maxIter, tolerance));
   } catch (e) {
@@ -1325,10 +1334,34 @@ export function solvePDelta3D(input: SolverInput3D, maxIter = 20, tolerance = 1e
     if (guards) return linearPDelta(solve3D(input), 'noFreeDofs');
     throw asCodedRefusal(e, 'no_free_dofs');
   }
-  // Same as `solve3D` (`solve-finish.ts`). The no-free-DOF answer above is solve3D's, already finished.
   finishPDelta3D(result, input);
-  if (guards && result?.linearResults && !(maxDisplacement(result.linearResults) > 0)) return linearPDelta(result.linearResults, 'noLoads');
-  return tagCertifyJob(normalizePDeltaResult(result), { name: 'certify_pdelta_3d', args: [json, maxIter, tolerance] });
+  return publishPDelta3D(result, json, maxIter, tolerance);
+}
+
+export function solvePDelta3DWire(
+  input: ReturnType<typeof input3DToWireObject>,
+  maxIter: number,
+  tolerance: number,
+  run: (json: string, maxIter: number, tolerance: number) => string,
+) {
+  const json = finiteWireJson(input, { maxIter, tolerance });
+  return finishPDelta3D(JSON.parse(run(json, maxIter, tolerance)), input);
+}
+
+export async function solvePDelta3DAsync(
+  input: SolverInput3D,
+  maxIter: number,
+  tolerance: number,
+  run: (wire: ReturnType<typeof input3DToWireObject>, maxIter: number, tol: number) => Promise<any>,
+) {
+  const { wire, json } = preparePDelta3D(input, maxIter, tolerance);
+  let result;
+  try {
+    result = await run(wire, maxIter, tolerance);
+  } catch {
+    return solvePDelta3D(input, maxIter, tolerance);
+  }
+  return publishPDelta3D(result, json, maxIter, tolerance);
 }
 
 /** Solve 3D modal analysis via WASM. */
@@ -1508,11 +1541,21 @@ function combinationCases<T>(factors: Array<{ caseId: number }>, perCase: Map<nu
     .map(caseId => ({ caseId, results: perCase.get(caseId)! }));
 }
 
-export function netCombinationFactors(factors: Array<{ caseId: number; factor: number }>): typeof factors {
+type CaseFactor = { caseId: number; factor: number };
+
+export function netCombinationFactors(factors: CaseFactor[], allowCancellation?: boolean): CaseFactor[] {
   assertFiniteWire(factors);
   if (factors.length <= 1 || new Set(factors.map(f => f.caseId)).size === factors.length) return factors;
-  if (!wasmNetCombinationFactors) throw new Error('WASM solver not initialized.');
-  return wasmNetCombinationFactors(factors) as typeof factors;
+  if (!wasmNetCombinationFactors) throw new EngineUnavailableError('load case factors');
+  return wasmNetCombinationFactors(factors, allowCancellation) as CaseFactor[];
+}
+
+export function sumCombinationFactors(factors: readonly CaseFactor[]): CaseFactor[] {
+  try { return netCombinationFactors([...factors], true); }
+  catch (err) {
+    if (err instanceof EngineUnavailableError) throw err;
+    throw new EngineCheckError('load case factors', errorText(err, String(err)));
+  }
 }
 
 /** Combine 2D results with factors via WASM. JsValue in/out — no JSON round trip. */

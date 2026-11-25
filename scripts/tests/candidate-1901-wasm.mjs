@@ -1,6 +1,7 @@
-import test, { after } from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
+import { assertPDeltaEquilibriumRefusal } from './pdelta-equilibrium-refusal.mjs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 
 engine.initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
@@ -23,29 +24,18 @@ function compare(displacements, expected, axes) {
   }
 }
 
-const auditCases = {};
-function solveRecorded(name, solve, model) {
-  const result = JSON.parse(solve(JSON.stringify(model), 100, 1e-12));
-  auditCases[name] = { input: model, result };
-  return result;
+function assertRefusal(solve, model) {
+  assert.throws(() => solve(JSON.stringify(model), 100, 1e-12),
+    error => assertPDeltaEquilibriumRefusal(error, 1e-12));
 }
-after(() => {
-  if (process.env.CANDIDATE_1901_AUDIT) {
-    assert.deepEqual(Object.keys(auditCases).sort(), ['XY', 'XZ', 'YZ', 'original', 'rotated'].sort());
-    writeFileSync(process.env.CANDIDATE_1901_AUDIT, JSON.stringify(auditCases));
-  }
-});
 
 const axes2 = [['ux', 'ux', 1], ['uz', 'uz', 1], ['ry', 'ry', 1]];
 test('1901 2D linear agrees with independent reference', () => {
   compare(engine.solve_2d(input).displacements, reference.linear, axes2);
 });
 test('1901 2D P-Delta retains explicit nonconvergence', () => {
-  const result = solveRecorded('original', engine.solve_pdelta_2d, input);
-  assert.equal(result.converged, false);
-  assert.equal(result.isStable, false);
-  assert.equal(result.iterations, 100);
-  compare(result.linearResults.displacements, reference.linear, axes2);
+  assertRefusal(engine.solve_pdelta_2d, input);
+  assertRefusal(engine.certify_pdelta_2d, input);
 });
 for (const [plane, axes] of Object.entries({
   XZ: [['ux', 'ux', 1], ['uz', 'uz', 1], ['ry', 'ry', -1]],
@@ -56,11 +46,8 @@ for (const [plane, axes] of Object.entries({
     compare(engine.solve_3d(embeddings[plane]).displacements, reference.linear, axes);
   });
   test(`1901 ${plane} P-Delta retains explicit nonconvergence`, () => {
-    const result = solveRecorded(plane, engine.solve_pdelta_3d, embeddings[plane]);
-    assert.equal(result.converged, false);
-    assert.equal(result.isStable, false);
-    assert.equal(result.iterations, 100);
-    compare(result.linearResults.displacements, reference.linear, axes);
+    assertRefusal(engine.solve_pdelta_3d, embeddings[plane]);
+    assertRefusal(engine.certify_pdelta_3d, embeddings[plane]);
   });
 }
 
@@ -74,11 +61,8 @@ test('1901 rigidly rotated 2D P-Delta retains explicit nonconvergence', () => {
     n.x = c*x - s*z;
     n.z = s*x + c*z;
   }
-  const result = solveRecorded('rotated', engine.solve_pdelta_2d, rotated);
-  assert.equal(result.converged, false);
-  assert.equal(result.isStable, false);
-  assert.equal(result.iterations, 100);
-  assert.deepEqual(result.linearResults.displacements, engine.solve_2d(rotated).displacements);
+  assertRefusal(engine.solve_pdelta_2d, rotated);
+  assertRefusal(engine.certify_pdelta_2d, rotated);
 });
 
 for (const [name, model, solve, fields] of [

@@ -43,10 +43,14 @@ for (const dim of [2, 3]) {
         if (key !== 'nodeId') assert.ok(Math.abs(tip[key] - value)*(rotations.includes(key) ? length : 1) <= 1e-10 * scale, `${entry} ${dim}D ${key}: ${tip[key]} != ${value}`);
       }
       assert.throws(() => engine[`${entry}_${dim}d`](JSON.stringify(model), 0, 1e-12), error => {
-        if (typeof error !== 'string') return false;
-        if (error.startsWith('non-finite number in the results')) return true;
-        const refusal = JSON.parse(error);
-        return refusal.structuredDiagnostics?.some(d => d.code === 'non_finite_result' && d.severity === 'error');
+        const refusal = JSON.parse(String(error));
+        const diagnostic = refusal.structuredDiagnostics[0];
+        assert.equal(diagnostic.code, 'result_quantity_unavailable');
+        assert.equal(diagnostic.severity, 'error');
+        assert.equal(diagnostic.phase, 'equilibrium');
+        assert.equal(diagnostic.threshold, 1e-12);
+        assert.ok(Number.isFinite(diagnostic.value) && diagnostic.value > diagnostic.threshold);
+        return true;
       });
       count++;
     }

@@ -17,8 +17,6 @@
   import { generateCombinations } from '../../lib/codes/cirsoc101/combinations';
   import { generateServiceCombinations } from '../../lib/codes/cirsoc101/service-combinations';
   import { presentSymbols } from '../../lib/engine/loads/combination-cases';
-  import { loadCodeFor } from '../../lib/codes/families';
-  import { regulationsStore } from '../../lib/store/regulations.svelte';
   import {
     RULE_SYMBOLS, ruleLabel, rulesFromTemplate, rulesToTemplate, specToRule, freshRuleIds, type CombinationRule,
   } from '../../lib/engine/loads/combination-rules';
@@ -29,7 +27,7 @@
   let fileInput = $state<HTMLInputElement | null>(null);
 
   const nextId = () => freshRuleIds(rules, 1)[0]!;
-  const factorOf = (r: CombinationRule, s: LoadSymbol) => r.terms.find((x) => x.symbol === s)?.factor ?? 0;
+  const factorOf = (r: CombinationRule, s: LoadSymbol) => r.terms.find((x) => x.symbol === s && x.group === undefined)?.factor ?? 0;
 
   function write(next: CombinationRule[]) { modelStore.setCombinationRules(next); }
 
@@ -41,7 +39,7 @@
     const f = raw.trim() === '' ? 0 : Number(raw.replace(',', '.'));
     if (!Number.isFinite(f)) return;
     write(rules.map((r) => r.id !== id ? r : {
-      ...r, terms: [...r.terms.filter((x) => x.symbol !== s), ...(f !== 0 ? [{ symbol: s, factor: f }] : [])]
+      ...r, terms: [...r.terms.filter((x) => x.symbol !== s || x.group !== undefined), ...(f !== 0 ? [{ symbol: s, factor: f }] : [])]
         .sort((a, b) => RULE_SYMBOLS.indexOf(a.symbol) - RULE_SYMBOLS.indexOf(b.symbol)),
     }));
   }
@@ -52,17 +50,10 @@
 
   function remove(id: string) { write(rules.filter((r) => r.id !== id)); }
 
-  /** The bound basis code: the rules start from its combinations, never from another family's. */
-  const basis = $derived.by(() => { const m = loadCodeFor(regulationsStore.binding('basis')?.adapterId); return m?.role === 'basis' ? m : undefined; });
-  const basisTitle = $derived(basis?.title ?? 'CIRSOC 101-2025');
-
-  /** Start from the bound basis code (CIRSOC 101 without one), strength and service, for the loads the model has. */
+  /** Start from CIRSOC 101, strength and service, for the loads the model has. */
   function seed() {
     const present = presentSymbols(modelStore.model.loadCases);
-    const b = basis;
-    const specs = runEngineAction(() => (b
-      ? [...b.strength({ present }).combinations, ...b.service({ present })]
-      : [...generateCombinations({ present }), ...generateServiceCombinations({ present })]));
+    const specs = runEngineAction(() => [...generateCombinations({ present }), ...generateServiceCombinations({ present })]);
     if (!specs) return;
     const ids = freshRuleIds(rules, specs.length);
     write([...rules, ...specs.map((s, i) => specToRule(s, ids[i]!))]);
@@ -103,7 +94,7 @@
 
 <div class="cr" data-testid="combo-rules">
   <Hint text={t('combos.rules.hint')} />
-  {#if rules.length === 0}<p class="al-hint" data-testid="combo-rules-none">{tp('combos.rules.noneCode', { code: basisTitle })}</p>{/if}
+  {#if rules.length === 0}<p class="al-hint" data-testid="combo-rules-none">{t('combos.rules.none')}</p>{/if}
   {#if rules.length > 0}
     <div class="cr-wrap">
       <table class="cr-table">
@@ -134,7 +125,7 @@
   {/if}
   <div class="cr-row">
     <button class="al-btn-sm" onclick={add} data-testid="combo-rule-add">{t('combos.rules.add')}</button>
-    <button class="al-btn-sm" onclick={seed} data-testid="combo-rule-seed">{tp('combos.rules.seedCode', { code: basisTitle })}</button>
+    <button class="al-btn-sm" onclick={seed} data-testid="combo-rule-seed">{t('combos.rules.seed')}</button>
     <button class="al-btn-sm" disabled={rules.length === 0} onclick={exportTemplate} data-testid="combo-rule-export">{t('combos.rules.export')}</button>
     <button class="al-btn-sm" onclick={() => fileInput?.click()} data-testid="combo-rule-import">{t('combos.rules.import')}</button>
     <input type="file" accept="application/json,.json" hidden bind:this={fileInput} onchange={importTemplate} data-testid="combo-rule-file" />

@@ -40,11 +40,6 @@ declare module 'virtual:app-i18n/zh' {
   export const zh: Record<string, string>;
 }
 
-declare module 'virtual:mesher-i18n' {
-  const dictionaries: Record<string, Record<string, string>>;
-  export default dictionaries;
-}
-
 declare module 'virtual:result-change-metadata' {
   const registry: { currentResultsVersion: number };
   export default registry;

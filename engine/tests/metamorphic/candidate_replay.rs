@@ -358,9 +358,23 @@ fn displacement_1901(node: usize, actual: [f64; 3], reference: &Value) {
     }
 }
 
+fn assert_1901_equilibrium_refusal(error: &str) {
+    let refusal: Value = serde_json::from_str(error).unwrap();
+    let diagnostics = refusal["structuredDiagnostics"].as_array().unwrap();
+    assert_eq!(diagnostics.len(), 1);
+    let diagnostic = &diagnostics[0];
+    assert_eq!(diagnostic["code"], "result_quantity_unavailable");
+    assert_eq!(diagnostic["severity"], "error");
+    assert_eq!(diagnostic["phase"], "equilibrium");
+    assert_eq!(diagnostic["threshold"].as_f64(), Some(1e-12));
+    let residual = diagnostic["value"].as_f64().unwrap();
+    assert!(residual.is_finite() && residual > 1e-12);
+}
+
 #[test]
 fn issue_1992_1901_linear_reference_and_pdelta_outcome() {
     use dedaliano_engine::{
+        certify::pdelta as certify_pdelta,
         load_session::{LoadSession2D, LoadSession3D},
         metamorphic::planes::{embed_2d, Plane},
         solver::{linear, pdelta},
@@ -388,25 +402,30 @@ fn issue_1992_1901_linear_reference_and_pdelta_outcome() {
             displacement_1901(d.node_id, [d.ux, d.uz, d.ry], &reference["linear"]);
         }
     }
-    let nonlinear = pdelta::solve_pdelta_2d(&solver, 100, 1e-12).unwrap();
-    assert!(!nonlinear.converged && !nonlinear.is_stable);
-    assert_eq!(nonlinear.iterations, 100);
+    let refusal = pdelta::solve_pdelta_2d(&solver, 100, 1e-12)
+        .err().expect("solver must refuse");
+    assert_1901_equilibrium_refusal(&refusal);
+    let certified_refusal = certify_pdelta::certify_pdelta_2d(&solver, 100, 1e-12)
+        .err().expect("solver certification must refuse");
+    assert_eq!(certified_refusal, refusal);
     let angle = 37.0_f64.to_radians();
     let rotated = dedaliano_engine::metamorphic::transform::transform_2d(
         &solver,
         &dedaliano_engine::metamorphic::transform::Iso2::rotation(angle),
     )
     .unwrap();
-    let nonlinear = pdelta::solve_pdelta_2d(&rotated, 100, 1e-12).unwrap();
-    assert!(!nonlinear.converged && !nonlinear.is_stable);
-    assert_eq!(nonlinear.iterations, 100);
+    let refusal = pdelta::solve_pdelta_2d(&rotated, 100, 1e-12)
+        .err().expect("rotated must refuse");
+    assert_1901_equilibrium_refusal(&refusal);
+    let certified_refusal = certify_pdelta::certify_pdelta_2d(&rotated, 100, 1e-12)
+        .err().expect("rotated certification must refuse");
+    assert_eq!(certified_refusal, refusal);
     let adapter2 = ana2::rows()
         .into_iter()
         .find(|a| a.name == "P-Delta")
         .unwrap();
-    assert_eq!(
-        (adapter2.run)(&Case2::new("1901 rotated", rotated.clone())).unwrap_err(),
-        "did not converge"
+    assert_1901_equilibrium_refusal(
+        &(adapter2.run)(&Case2::new("1901 rotated", rotated.clone())).unwrap_err(),
     );
     for model in [&solver, &rotated] {
         let mut unloaded = model.clone();
@@ -452,21 +471,22 @@ fn issue_1992_1901_linear_reference_and_pdelta_outcome() {
                 );
             }
         }
-        let nonlinear = pdelta::solve_pdelta_3d(&embedded, 100, 1e-12).unwrap();
-        assert!(!nonlinear.converged && !nonlinear.is_stable);
-        assert_eq!(nonlinear.iterations, 100);
+        let refusal = pdelta::solve_pdelta_3d(&embedded, 100, 1e-12)
+            .err().expect("embedded model must refuse");
+        assert_1901_equilibrium_refusal(&refusal);
+        let certified_refusal = certify_pdelta::certify_pdelta_3d(&embedded, 100, 1e-12)
+            .err().expect("embedded certification must refuse");
+        assert_eq!(certified_refusal, refusal);
         let adapter3 = ana3::rows()
             .into_iter()
             .find(|a| a.name == "P-Delta")
             .unwrap();
-        assert_eq!(
-            (adapter3.run)(&Case3::new("1901 embedded", embedded.clone())).unwrap_err(),
-            "did not converge"
+        assert_1901_equilibrium_refusal(
+            &(adapter3.run)(&Case3::new("1901 embedded", embedded.clone())).unwrap_err(),
         );
         let case2 = Case2::new("1901 planar", solver.clone());
-        assert_eq!(
-            (adapter2.planar.unwrap())(&case2, plane, &embedded).unwrap_err(),
-            "did not converge"
+        assert_1901_equilibrium_refusal(
+            &(adapter2.planar.unwrap())(&case2, plane, &embedded).unwrap_err(),
         );
         let mut unloaded = embedded.clone();
         unloaded.loads.clear();
@@ -478,5 +498,10 @@ fn issue_1992_1901_linear_reference_and_pdelta_outcome() {
         }
         (adapter3.run)(&Case3::new("1901 unloaded embedded", unloaded)).unwrap();
     }
-    refused(1901, "P-Delta", "did not converge", None);
+    refused(1901, "P-Delta", "", Some(serde_json::json!({
+        "code": "result_quantity_unavailable",
+        "severity": "error",
+        "phase": "equilibrium",
+        "threshold": 1e-12,
+    })));
 }

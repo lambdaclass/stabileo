@@ -61,6 +61,7 @@ import { generate, FAMILIES, rng, type GenMeta } from './helpers/random-models-2
 import { runPDelta2D } from '../second-order/run-pdelta';
 import { runBuckling2D } from '../second-order/run-buckling';
 import { DEFAULT_SETTINGS } from '../second-order/settings';
+import { expectPDeltaEquilibriumRefusal } from './helpers/pdelta-refusal';
 
 // ── Size of the sweep ────────────────────────────────────────────────
 const SEEDS_PER_FAMILY = 50;
@@ -454,17 +455,20 @@ function checkBasicBuckling(label: string, res: AnalysisResults, input: SolverIn
 
 function checkPDelta(label: string, input: SolverInput, bk: Buck, hasLoads: boolean) {
   ran('pdelta');
+  const tolerance = 1e-4;
+  const shouldRefuse = ['gable#9', 'gable#15', 'gable#21', 'gable#33', 'arch#34', 'mixed#4'].includes(label);
   let pd;
-  try { pd = solvePDelta(input); } catch (e) {
+  try { pd = solvePDelta(input, 20, tolerance); } catch (e) {
     const m = errMsg(e);
-    if (['gable#9', 'gable#15', 'gable#21', 'gable#33', 'arch#34', 'mixed#4'].includes(label)) {
+    if (shouldRefuse) {
       expect('lambda1' in bk && bk.lambda1 < 0.95).toBe(true);
-      expect(JSON.parse(m).structuredDiagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'non_finite_result', severity: 'error', phase: 'results.reactions[0].rx' })]));
+      expectPDeltaEquilibriumRefusal(m, tolerance);
       return;
     }
     fail('pdelta', `${label}: threw "${m.slice(0, 120)}"`);
     return;
   }
+  expect(shouldRefuse, label).toBe(false);
   const bad = nonFinite(pd.results);
   if (bad.length) fail('pdelta', `${label}: non-finite ${bad.join(', ')}`);
   if (!hasLoads) {

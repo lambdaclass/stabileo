@@ -122,6 +122,10 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-110-solver-json-boundary.md", "label": "SA-2026-110", "t": "Etkilenen girdiler ve yapılması gerekenler."},
     {"k": "note", "t": "SA-2026-111 — 0.6.4’ten sonraki ilk sürüm."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-111-gravity-shared-deck-coverage.md", "label": "SA-2026-111", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    {"k": "note", "t": "SA-2026-112 — 0.6.4’ten sonraki ilk sürüm."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-112-basic-3d-shell-omission.md", "label": "SA-2026-112", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    {"k": "note", "t": "SA-2026-113 — 0.6.4’ten sonraki ilk sürüm."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-113-native-supplied-linear-certificates.md", "label": "SA-2026-113", "t": "Etkilenen girdiler ve yapılması gerekenler."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
       "k": "h",
@@ -541,7 +545,9 @@ const body: PostBody = {
         ["SA-2026-108", "XZ veya YZ düzlemine izdüşüm, düğüm kuvvetinin analiz düzlemine dik bileşenini uyarı vermeden atlayabiliyordu. Her yük durumundaki düğüm kuvvetlerini kontrol edin ve etkilenen analizleri ve tasarım kontrollerini uzamsal modelle yineleyin.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
         ["SA-2026-109", "Düzlemsel DXF çizimlerindeki tanınmayan mesnet etiketleri uyarı verilmeden mafsallı mesnet olarak içe aktarılabiliyordu. İçe aktarılan mesnetleri özgün çizimle karşılaştırın, farklılıkları düzeltin ve etkilenen analizleri yineleyin.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
         ["SA-2026-110", "Web analizi, sonlu olmayan rijitlikteki bir yayı veya bir birleşimdeki yük durumunu uyarı vermeden atlayabiliyordu. Yay rijitliklerini, yük durumu adlarını ve net katsayıları kontrol edip etkilenen analizleri ve birleşimleri yeniden hesaplayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
-        ["SA-2026-111", "Panel yöntemiyle otomatik yerçekimi yükü oluşturma, aynı döşeme yükünü iki kez hesaba katabiliyordu. Örtüşen kabukları ve bunlara bağlı kiriş gözlerini kontrol edin, etkilenen kayıtlı yerçekimi yükü planlarını yeniden oluşturun ve ilgili analizleri yineleyin.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"]
+        ["SA-2026-111", "Panel yöntemiyle otomatik yerçekimi yükü oluşturma, aynı döşeme yükünü iki kez hesaba katabiliyordu. Örtüşen kabukları ve bunlara bağlı kiriş gözlerini kontrol edin, etkilenen kayıtlı yerçekimi yükü planlarını yeniden oluşturun ve ilgili analizleri yineleyin.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
+        ["SA-2026-112", "Basic 3B analiz tüm kabuk elemanlarını uyarı vermeden atlayabiliyordu. Etkilenen yük durumlarını ve yük birleşimlerini eksiksiz kabuk ağıyla PRO 3B’de yeniden analiz edin ve bu sonuçlara dayanan tasarım kontrollerini tekrarlayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
+        ["SA-2026-113", "Yerel Rust API’si, çözücünün reddettiği bir yük durumu için sağlanan doğrusal analiz sonuçlarını sertifikalandırabiliyordu. Etkilenen analizleri ve sertifikasyon işlemlerini, bunlara bağlı birleşimler ve zarflar dahil, tekrarlayın.", "Orta", "0.6.4’ten sonraki ilk sürüm"]
       ]
     },
     {

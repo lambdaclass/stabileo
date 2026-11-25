@@ -11,7 +11,6 @@ import os
 import re
 from pathlib import Path
 import subprocess
-from collections import defaultdict
 
 SPECS = {
     'research': ['research*.spec.ts'],
@@ -46,34 +45,24 @@ def _resolve(base, spec):
     return None
 
 
-def discover_slow_specs(e2e_dir):
-    specs = [(p.name, p.resolve()) for p in sorted(e2e_dir.glob('*.spec.ts'))
-             if p.name != 'rc-design-visual.spec.ts' and not p.name.endswith('.timing.spec.ts')]
-    pending = {path for _, path in specs}
-    scanned = set()
-    importers = defaultdict(list)
-    reaches_slow = set()
-    while pending:
-        path = pending.pop()
-        scanned.add(path)
-        source = path.read_text(errors='replace')
-        if SLOW_TAG.search(source):
-            reaches_slow.add(path)
-            continue
-        for spec in IMPORT.findall(source):
-            target = _resolve(path, spec)
-            if target is not None and target.suffix in ('.ts', '.mjs', '.js'):
-                importers[target].append(path)
-                if target not in scanned:
-                    pending.add(target)
+def _reaches_slow(path, seen):
+    if path in seen:
+        return False
+    seen.add(path)
+    source = path.read_text(errors='replace')
+    if SLOW_TAG.search(source):
+        return True
+    for spec in IMPORT.findall(source):
+        target = _resolve(path, spec)
+        if target is not None and target.suffix in ('.ts', '.mjs', '.js') and _reaches_slow(target, seen):
+            return True
+    return False
 
-    slow = list(reaches_slow)
-    while slow:
-        for importer in importers.get(slow.pop(), ()):
-            if importer not in reaches_slow:
-                reaches_slow.add(importer)
-                slow.append(importer)
-    return tuple(name for name, path in specs if path in reaches_slow)
+
+def discover_slow_specs(e2e_dir):
+    return tuple(p.name for p in sorted(e2e_dir.glob('*.spec.ts'))
+                 if p.name != 'rc-design-visual.spec.ts' and not p.name.endswith('.timing.spec.ts')
+                 and _reaches_slow(p.resolve(), set()))
 
 
 ALL_SLOW_SPECS = discover_slow_specs(REPO_ROOT / 'web/e2e')
