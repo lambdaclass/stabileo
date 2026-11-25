@@ -145,9 +145,9 @@ export function stairBars(spec: StairDesignSpec, sec: StairSection, a: StairAdop
   const Lb = sec.landingBottom, Lt = sec.landingTop, run = sec.run, rise = sec.rise, tl = sec.tl, end = Lb + run + Lt, tv = sec.tv;
   const soffitBar = (s: number) => (s - Lb) * m - tv + e * root;
   const onSoffit = (z: number) => Lb + (z + tv - e * root) / m;
-  const count = (s: number) => Math.floor((w - 2 * c.cover) / s + 1e-9) + 1;
+  const count = (b: { dia: number; spacing: number }) => Math.floor((w - 2 * c.cover - b.dia / 1000) / b.spacing + 1e-9) + 1;
   const bars: StairBar[] = [];
-  const push = (role: StairBarRole, b: { dia: number; spacing: number }, pts: Array<[number, number]>, n = count(b.spacing)) => {
+  const push = (role: StairBarRole, b: { dia: number; spacing: number }, pts: Array<[number, number]>, n = count(b)) => {
     const p = pts.map(([x, y]) => [r3(x), r3(y)] as [number, number]);
     bars.push({ mark: '', role, dia: b.dia, spacing: b.spacing, count: n, shape: { pts: p, mandrel: (6 * b.dia) / 1000, dia: b.dia }, length: r3(lengthOf(p)) });
   };

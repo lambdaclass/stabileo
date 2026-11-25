@@ -1011,9 +1011,13 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
   };
   if (adopted) { allow180 = true; bars = layout(a); env = verify(a, bars); }
   const nearest = (x: number) => env.reduce((b, e) => (Math.abs(e.xl - x) < Math.abs(b.xl - x) ? e : b), env[0]!);
-  const classA = (b: LineBar) => !perimeter && env.length > 0 && b.kind === 'continuous' && b.bars.count >= 2 && lastSplices.filter((sp) => sp.mark === b.mark).every((sp) => {
-    const e = nearest(sp.x), m = b.face === 'bottom' ? e.pos : e.neg, cap = b.face === 'bottom' ? e.phiPos : e.phiNeg;
-    return m <= 1e-6 || cap >= 2 * m - 1e-6;
+  const classA = (b: LineBar) => !perimeter && env.length > 0 && b.kind === 'continuous' && lastSplices.filter((sp) => sp.mark === b.mark).every((sp) => {
+    if (sp.bars * 2 > b.bars.count) return false;
+    const over = env.filter((e) => Math.abs(e.xl - sp.x) <= sp.length / 2 + 1e-9);
+    return (over.length ? over : [nearest(sp.x)]).every((e) => {
+      const m = b.face === 'bottom' ? e.pos : e.neg, cap = b.face === 'bottom' ? e.phiPos : e.phiNeg;
+      return m <= 1e-6 || cap >= 2 * m - 1e-6;
+    });
   });
   bars = bars.map((b) => {
     if (!b.shape.laps || !classA(b)) return b;

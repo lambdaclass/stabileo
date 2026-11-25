@@ -312,19 +312,25 @@ describe('the course notes and CIRSOC 201-2025 on a line', () => {
     expect(beamLine(inner, bctx, undefined, fmt).verifications.find((x) => x.label === 'rcSheets.v.lineIntegrity')).toBeUndefined();
   });
 
-  it('staggers the laps of the continuous bars, class A where they may be (an inner beam, twice the steel needed), class B in a perimeter beam', () => {
+  it('staggers the laps of the continuous bars, class A where they may be (an inner beam, twice the steel needed, half the bars spliced), class B in a perimeter beam or an odd count', () => {
     const spans = [{ L: 6, h: 0.55 }, { L: 6, h: 0.55 }, { L: 6, h: 0.55 }];
     const edge = lineOf(spans).line;
     const rows = rowsOf(spans, bctx);
     rows.forEach((r) => { r.demand.perimeter = false; });
-    const inner = beamLine(rows, bctx, undefined, fmt);
+    const proposed = beamLine(rows, bctx, undefined, fmt).adopted;
+    const withBottom = (count: number) => beamLine(rows, bctx, { ...proposed, bottom: { ...proposed.bottom, count } }, fmt);
+    const inner = withBottom(proposed.bottom.count + (proposed.bottom.count % 2));
     const of = (l: typeof edge) => l.splices.filter((sp) => sp.face === 'bottom' && l.bars.find((b) => b.mark === sp.mark)!.kind === 'continuous');
     expect(of(edge).every((sp) => sp.spliceClass === 'B')).toBe(true);
-    expect(of(inner).every((sp) => sp.spliceClass === 'A')).toBe(true);
+    expect(of(inner).length).toBeGreaterThan(0);
+    expect(of(inner).every((sp) => sp.spliceClass === 'A' && sp.bars * 2 === inner.adopted.bottom.count)).toBe(true);
     expect(of(inner)[0]!.length).toBeLessThan(of(edge)[0]!.length);
     const [p, q] = of(edge);
     expect(q!.x - p!.x).toBeGreaterThanOrEqual(p!.length - 1e-9);
     expect(p!.bars + q!.bars).toBe(edge.adopted.bottom.count);
+    const three = withBottom(inner.adopted.bottom.count + 1);
+    expect(of(three).length).toBeGreaterThan(0);
+    expect(of(three).every((sp) => sp.spliceClass === 'B')).toBe(true);
   });
 
   it('keeps the positive bars\' ld within Mn/Vu + ℓa at the points of inflection (§9.7.3.8.3(b)), the proposal by a thinner bar', () => {

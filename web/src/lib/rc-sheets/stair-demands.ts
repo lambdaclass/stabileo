@@ -18,6 +18,8 @@ export interface StairModelInput {
   live: number;
   /** The risers a shell's flight declares (`PhysicalData.stair`), by shell id. */
   declaredSteps?: ReadonlyMap<number, number>;
+  /** Shells of slabs not declared stairs (a sloped roof, a ramp): never read as a flight. */
+  notFlights?: ReadonlySet<number>;
   /** The level bars a landing may bear on (the beams), each by its two ends. */
   bars?: ReadonlyArray<readonly [P, P]>;
 }
@@ -70,7 +72,7 @@ export function stairDemands(m: StairModelInput): StairDemand[] {
   const normals = new Map<number, { x: number; y: number; z: number }>();
   for (const q of m.quads.values()) { const ps = q.nodes.map((n) => pt(m, n)).filter((p): p is P => !!p); const n = ps.length === q.nodes.length ? normalOf(ps) : null; if (n) normals.set(q.id, n); }
   const linked = new Set(m.entries.flatMap((e) => e.analysisQuads ?? []));
-  const inclined = [...normals].filter(([id, n]) => { const s = slopeDeg(n); return s >= FLIGHT_SLOPE.min && s <= FLIGHT_SLOPE.max && !linked.has(id); }).map(([id]) => id);
+  const inclined = [...normals].filter(([id, n]) => { const s = slopeDeg(n); return s >= FLIGHT_SLOPE.min && s <= FLIGHT_SLOPE.max && !linked.has(id) && !m.notFlights?.has(id); }).map(([id]) => id);
   const level = [...normals].filter(([, n]) => slopeDeg(n) < 2).map(([id]) => id);
   const parallel = (a: number, b: number) => { const p = normals.get(a)!, q = normals.get(b)!; return p.x * q.x + p.y * q.y + p.z * q.z > 0.995; };
   const bearings = bearingLines(m, normals);
@@ -152,9 +154,9 @@ function landingLength(m: StairModelInput, level: readonly number[], f: FlightPl
   for (const [a, b] of bearings) {
     if (Math.abs(a.z - z) > TOL) continue;
     const da = side * (sOf(a) - edge), db = side * (sOf(b) - edge);
-    if (Math.abs(da - db) > TOL || da <= TOL) continue;
+    if (Math.abs(da - db) > TOL || da < -TOL) continue;
     const lo = Math.max(f.w0, Math.min(wOf(a), wOf(b))), hi = Math.min(f.w1, Math.max(wOf(a), wOf(b)));
-    if (hi > lo) { const k = Math.round(((da + db) / 2) * 100); covered.set(k, (covered.get(k) ?? 0) + hi - lo); }
+    if (hi > lo) { const k = Math.max(0, Math.round(((da + db) / 2) * 100)); covered.set(k, (covered.get(k) ?? 0) + hi - lo); }
   }
   const stop = Math.min(Infinity, ...[...covered].filter(([, c]) => c >= 0.5 * (f.w1 - f.w0)).map(([k]) => k / 100));
   let reach = 0, thickness: number | undefined;

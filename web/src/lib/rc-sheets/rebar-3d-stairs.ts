@@ -1,6 +1,6 @@
 /**
  * A stair's bars in the building: each position of its section laid along the flight's run, from
- * the foot support, at its spacing across the width, the section's level the foot landing's top (the
+ * the foot support, at its spacing across the width centred on it, the section's level the foot landing's top (the
  * model's shells are mid-surfaces); the distribution bars across at their rows.
  * A stair with no flight in the model has nowhere to stand and gives none.
  */
@@ -25,8 +25,7 @@ export function stairBars3d(r: StairRow, cover: number): Rebar3d[] {
       continue;
     }
     for (let k = 0; k < b.count; k++) {
-      const u = -w / 2 + cover + b.dia / 2000 + k * b.spacing;
-      if (u > w / 2 - cover + 1e-9) break;
+      const u = (k - (b.count - 1) / 2) * b.spacing;
       out.push({ ...base, segments: [b.shape.pts.map(([s, z]) => at(s, u, z))] });
     }
   }

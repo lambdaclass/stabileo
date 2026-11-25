@@ -500,6 +500,18 @@ describe('reinforcement sheets from a solved model', () => {
     expect(c.demand.cases.find((x) => x.combo === '1.2D + 1.6L')!.puD).toBeGreaterThan(0);
   });
 
+  it('takes a column\'s sustained load as each dead case at its own factor, so two dead cases are not counted twice', () => {
+    frame();
+    const D = modelStore.model.loadCases.find((c) => c.type === 'D')!.id;
+    const D2 = modelStore.addLoadCase('Superimposed', 'D');
+    for (const e of [...modelStore.elements.values()].filter((x) => Math.abs(modelStore.nodes.get(x.nodeI)!.z! - 3) < 1e-9 && Math.abs(modelStore.nodes.get(x.nodeJ)!.z! - 3) < 1e-9)) modelStore.addDistributedLoad3D(e.id, 0, 0, -20, -20, undefined, undefined, D2);
+    modelStore.addCombination('1.2D + 1.2D2', [{ caseId: D, factor: 1.2 }, { caseId: D2, factor: 1.2 }]);
+    solve();
+    const dead = buildSheetRows().column[1]!.demand.cases.find((x) => x.combo === '1.2D + 1.2D2')!;
+    expect(dead.pu).toBeGreaterThan(100);
+    expect(dead.puD!).toBeCloseTo(dead.pu, 3);
+  });
+
   it('designs a simply supported slab with bottom steel at midspan and top steel at the corners for the twisting moment', () => {
     slab(); solve();
     const rows = buildSheetRows();

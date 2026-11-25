@@ -62,6 +62,17 @@ describe('the stairs the sheets find', () => {
     expect([s!.spec.landingBottom, s!.spec.landingTop]).toEqual([expect.closeTo(0.6, 9), expect.closeTo(0.48, 9)]);
   });
 
+  it('takes a beam or wall right at the flight\'s foot as its support, no landing before it', async () => {
+    const { stairDemands } = await import('../stair-demands');
+    const [s] = stairDemands({ nodes, quads, entries: [], live: 5, bars: [[{ x: 1, y: -1, z: 0 }, { x: 1, y: 3, z: 0 }]] });
+    expect(s!.spec.landingBottom).toBe(0);
+  });
+
+  it('never reads as a flight the shells of a slab not declared a stair, a sloped roof or a ramp', async () => {
+    const { stairDemands } = await import('../stair-demands');
+    expect(stairDemands({ nodes, quads, entries: [], live: 5, notFlights: new Set([2]) })).toEqual([]);
+  });
+
   it('finds none where the model has no flight, and takes a desk stair over the flight it is linked to', async () => {
     const { stairDemands } = await import('../stair-demands');
     const flat = new Map([[9, quads.get(9)!]]);
@@ -138,7 +149,7 @@ describe('a stair through the sheets\' outputs', () => {
     expect(e.family).toBe('stair');
     expect(e.pieces.map((p) => p.kind)).toEqual(r.bars.map((b) => ({ main: 'stairMain', landing: 'stairLanding', topFoot: 'stairTop', topFootFlight: 'stairTop', topHead: 'stairTop', dist: 'stairDist', distTop: 'stairDist' })[b.role]));
     const main = r.bars.find((b) => b.role === 'main')!;
-    expect(main.count).toBe(Math.floor((1.2 - 2 * 0.025) / main.spacing + 1e-9) + 1);
+    expect(main.count).toBe(Math.floor((1.2 - 2 * 0.025 - main.dia / 1000) / main.spacing + 1e-9) + 1);
   });
 
   it('draws its section to scale with every position and its schedule', async () => {

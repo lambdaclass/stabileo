@@ -10,7 +10,7 @@
  */
 import { developedLength, shapeKey, shapeWeight, type BarShape } from '../shape';
 import { rulesFor } from '../codes';
-import type { MarkScope, SheetFamily } from '../types';
+import { SHEET_FAMILIES, type MarkScope, type SheetFamily } from '../types';
 import { scheduleElements, type PieceKind, type PieceOptions, type PieceRows, type ScheduleElement } from './pieces';
 import { buildSchedule } from './stock';
 
@@ -155,8 +155,7 @@ export function scheduleOf(elements: readonly ScheduleElement[], o: Pick<Schedul
   const byDiameter = [...byDia].sort((a, b) => a[0] - b[0]).map(([dia, d]) => ({
     dia, length: d.length, kg: d.kg, withWaste: d.kg * (1 + waste), stockBars: stock.byDiameter.find((x) => x.diameterMm === dia)?.stockBars ?? 0,
   }));
-  const fams: SheetFamily[] = ['beam', 'column', 'slab', 'wall', 'footing'];
-  const byFamily = fams.map((family) => {
+  const byFamily = SHEET_FAMILIES.map((family) => {
     const kg = out.filter((r) => r.family === family).reduce((s, r) => s + r.kg, 0);
     return { family, kg, withWaste: kg * (1 + waste) };
   }).filter((f) => f.kg > 0);

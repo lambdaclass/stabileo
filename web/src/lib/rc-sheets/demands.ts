@@ -1,4 +1,3 @@
-import { FLIGHT_SLOPE } from './stair-demands';
 import { buildCriticalStations, extractForcesAtStation, type StationForces } from '../engine/station-forces';
 import { shellCentreRows, shellLocalAxes, type ShellCentreRow, type ShellModel } from '../engine/shell-results';
 import { woodArmer } from '../engine/wood-armer';
@@ -23,6 +22,8 @@ type El = { id: number; nodeI: number; nodeJ: number; sectionId: number; type?: 
 
 export interface DemandGroup {
   id: number; name: string; kind: string;
+  /** A slab declared a stair flight: the stairs design it, never the slab panels. */
+  stair?: boolean;
   level?: string;
   elements: number[]; quads: number[]; plates: number[];
 }
@@ -30,8 +31,8 @@ export interface DemandGroup {
 export interface DemandSet {
   name: string;
   result: AnalysisResults3D;
-  /** Sum of the factors the combination gives the dead-load cases. */
-  deadFactor?: number;
+  /** The factor the combination gives each of the input's `dead` cases, in their order. */
+  deadFactors?: readonly number[];
   /** The combination carries an earthquake case. */
   seismic?: boolean;
   /** Its wind and earthquake cases at their factors, first order: what sways a storey. */
@@ -432,7 +433,7 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
       const psiBot = pb ? (bottom.forward ? pb.psiA : pb.psiB) : 1, psiTop = pt ? (top.forward ? pt.psiB : pt.psiA) : 1;
       const at = (ef: ElementForces3D | undefined, forward: boolean, end: 'bottom' | 'top') =>
         ef ? extractForcesAtStation(ef, (end === 'bottom') === forward ? 0 : 1) : undefined;
-      const deadPu = deadBy.reduce((s, by) => s - (at(by.get(bottom.e.id), bottom.forward, 'bottom')?.n ?? 0), 0);
+      const deadPu = deadBy.map((by) => -(at(by.get(bottom.e.id), bottom.forward, 'bottom')?.n ?? 0));
       const cases: ColumnCase[] = [];
       const missing: string[] = [];
       const endMoments = (r: AnalysisResults3D | undefined) => {
@@ -457,7 +458,7 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
           .map((x) => ({ pu: -x.s.n, mx: x.s.my, my: x.s.mz }));
         cases.push({
           combo: set.name, pu: Math.max(-b.n, -t.n), puMin: Math.min(-b.n, -t.n),
-          ...(m.dead?.length && set.deadFactor !== undefined ? { puD: Math.max(0, set.deadFactor * deadPu) } : {}),
+          ...(deadPu.length && set.deadFactors?.length === deadPu.length ? { puD: Math.max(0, deadPu.reduce((sum, p, i) => sum + set.deadFactors![i]! * p, 0)) } : {}),
           mxTop: t.my, mxBot: b.my, myTop: t.mz, myBot: b.mz, vx, vy, tu,
           ...(axes ? { base: cutOf(b, axes, bottom.forward ? 1 : -1) } : {}),
           ...(inner.length ? { inner } : {}),
@@ -597,19 +598,17 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
     const pts = [...g.quads.flatMap(quadNodes), ...g.plates.flatMap(plateNodes)].map((n) => m.nodes.get(n)).filter((p): p is Pt => !!p);
     if (!pts.length) continue;
     const flipOf = new Map<string, number>();
-    let horizontal = true, flight = true;
+    let horizontal = true;
     for (const [kind, ids, nodesOf] of [['quad', g.quads, quadNodes], ['plate', g.plates, plateNodes]] as const) {
       for (const id of ids) {
         const ax = shellLocalAxes(kind, nodesOf(id).map((n) => m.nodes.get(n)!).filter(Boolean));
         if (!ax) continue;
         if (Math.abs(ax.ez[2]) < VERTICAL) horizontal = false;
-        const slope = (Math.acos(Math.min(1, Math.abs(ax.ez[2]))) * 180) / Math.PI;
-        if (slope < FLIGHT_SLOPE.min || slope > FLIGHT_SLOPE.max) flight = false;
         // With the element's local z up, a positive engine moment sags (checked against a downward load).
         flipOf.set(`${kind === 'quad' ? 'q' : 'p'}${id}`, ax.ez[2] >= 0 ? 1 : -1);
       }
     }
-    if (!horizontal && (g.kind !== 'slab' || flight)) continue;
+    if (!horizontal && (g.kind !== 'slab' || g.stair)) continue;
     const h = thickness(g);
     if (!h) continue;
     const posts = slabPosts(m, keys, h);
