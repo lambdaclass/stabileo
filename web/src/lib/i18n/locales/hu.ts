@@ -3697,6 +3697,8 @@ const hu: Translations = {
   "svc.engine.unsupportedPointLoadMoment": "Nem támogatott rúdpontteher-nyomatékösszetevő",
   "svc.engine.applyPointLoadMomentAtNode": "adja meg a nyomatékot egy 3D csomóponton a teher eredeti helyén",
   "svc.engine.invalidSelfWeightGroup": "A(z) {id} önsúlycsoport hiányzik, vagy érvénytelen a taglistája. Állítsa vissza a csoportot és a taglistáját, vagy módosítsa az önsúly célját.",
+  "svc.engine.invalidSelfWeightMemberId": "Az önsúlyhoz megadott {id} rúdazonosítónak nemnegatív, pontosan ábrázolható egész számnak kell lennie. Módosítsa az önsúly célját.",
+  "svc.engine.missingSelfWeightTarget": "Az önsúlyhoz megadott {kind} {id} hiányzik. Állítsa vissza vagy módosítsa az önsúly célját.",
   "svc.engine.invalidDensity": "Adjon meg véges, nemnegatív sűrűséget (rho) a(z) {id}. anyaghoz (kapott érték: {value}).",
   "svc.engine.nonnegativeMassDensity": "A tömegsűrűségnek végesnek és nemnegatívnak kell lennie",
   "svc.engine.nonFiniteNumber": "Adjon meg véges számot itt: {path} (kapott érték: {value}).",
