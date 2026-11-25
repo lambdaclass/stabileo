@@ -70,7 +70,7 @@ describe('audited output changes are registered narrowly', () => {
     }
   });
 
-  it.skip.each(['2d', '3d', 'pro'])('shows the reduced stiffness rank notice for older buckling results in %s (known wrong result: #2584)', (mode) => {
+  it.each(['2d', '3d', 'pro'])('shows the reduced stiffness rank notice for older buckling results in %s', (mode) => {
     const id = 'reduced-stiffness-rank';
     const entry = RESULT_CHANGES.changes.find(change => change.id === id)!;
     const stamp = {
