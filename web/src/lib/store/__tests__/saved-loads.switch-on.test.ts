@@ -71,6 +71,13 @@ describe('loads from the saved settings', () => {
     expect(count()).toBe(before);
   });
 
+  it('refuses a temperature on plates not meshed yet, rather than write loads on shells that do not exist', () => {
+    const memory = autoLoadsMemory(regulationsStore.roles, { wind: true, seismic: false });
+    const plan = buildLoadPlan(planInputOf({ ...memory, special: { ...memory.special, thermal: { ...memory.special.thermal, on: true, dt: 20, grad: 0 } } }, { roles: regulationsStore.roles, model: loadPlanModel() }));
+    expect(plan.blockedKeys?.map((m) => m.key)).toContain('loadPlan.blocked.unmeshedPlateThermal');
+    expect(plan.thermal.some((t) => (t.quadId ?? 0) < 0)).toBe(true);
+  });
+
   it('refuses what the regulation refuses and leaves the model as it was', () => {
     regulationsStore.configureRole('loads', { occupancyKey: 'oficina' }, true);
     const cases = modelStore.model.loadCases.length;

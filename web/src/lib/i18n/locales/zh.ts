@@ -117,6 +117,7 @@ const zh: Translations = {
   "loadPlan.blocked.concentratedLive": "{occupancy}需要按CIRSOC 101 §4.4验算{force} kN集中活荷载。目前不评估最不利位置以及均布荷载与集中荷载的替代工况。自动生成已被阻止；请手动建模并验算这些作用。",
   "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4要求在最不利位置考虑集中屋面作用，并与§4.8的屋面活荷载分别验算。目前不执行这些验算。自动生成已被阻止；请手动建模并验算屋面作用。",
   "loadPlan.blocked.unmeshedPlatePressure": "土压力或流体压力作用在尚未划分网格的板上。请先为该板划分网格（或计算一次），再重新生成荷载。",
+  "loadPlan.blocked.unmeshedPlateThermal": "温度荷载作用在尚未划分网格的板上。请先为该板划分网格（或计算一次），再重新生成荷载。",
   "account.err.invalid_credentials": "电子邮箱或密码不正确。",
   "account.err.refresh_failed": "您的会话已过期，请重新登录。",
   "account.err.network_error": "无法连接账户服务器。",

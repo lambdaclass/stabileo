@@ -243,7 +243,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
       const id = caseOf('T', th.caseIndex);
       if (id === undefined) continue;
       if (th.elementId !== undefined) modelStore.addThermalLoad(th.elementId, th.dtUniform, th.dtGradient, id);
-      else if (th.quadId !== undefined) modelStore.addThermalLoadQuad3D(th.quadId, th.dtUniform, th.dtGradient, id);
+      else if (th.quadId !== undefined && th.quadId > 0) modelStore.addThermalLoadQuad3D(th.quadId, th.dtUniform, th.dtGradient, id);
     }
     const onPlates = new Map<string, { groupId: number; caseId: number; q: number; dir?: [number, number, number] }>();
     for (const s of p.surface) {
