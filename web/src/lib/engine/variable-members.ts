@@ -53,6 +53,7 @@
  * Pure: no store.
  */
 import type { ModelData } from './solver-service';
+import { accountingMemberStations } from './accounting-source';
 import type { AnalysisResults3D, ElementForces3D, Displacement3D, Constraint3D, ConnectorElement } from './types-3d';
 import type { ElementBucklingData3D } from './result-types';
 import type { Element, Section } from '../store/model.svelte';
@@ -364,11 +365,21 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
   }
   const geometry = memberLoadGeometry({ ...model, sections });
   const renamed = new Map<number, number[]>();
+  const stations = new Map(model[accountingMemberStations]);
   for (const m of exp.members.values()) {
     const ids = m.pieces.map((p) => p.id);
     const partition = geometry.partition(model.elements.get(m.parentId)!, nodes, elements, ids);
     const bounds = partition.bounds(), lengths = partition.lengths;
-    m.pieces.forEach((p, k) => { p.x0 = bounds[k]; p.x1 = bounds[k + 1]; });
+    const parent = stations.get(m.parentId);
+    m.pieces.forEach((p, k) => {
+      p.x0 = bounds[k];
+      p.x1 = bounds[k + 1];
+      stations.set(p.id, {
+        id: parent?.id ?? m.parentId,
+        offset: p.x0 * (parent?.scale ?? 1) + (parent?.offset ?? 0),
+        scale: (p.x1 - p.x0) / lengths[k]! * (parent?.scale ?? 1),
+      });
+    });
     const split = splitElementLoads(loads, m.parentId, bounds, ids, () => nextLoad++, lengths, partition.points);
     loads = [...split.kept, ...split.added];
     renamed.set(m.parentId, ids);
@@ -385,7 +396,7 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
     return [id, { ...s, dofLocalElementId: at.id }] as const;
   }));
   return {
-    ...model, nodes, elements, sections, loads, supports,
+    ...model, nodes, elements, sections, loads, supports, [accountingMemberStations]: stations,
     ...(constraints !== model.constraints ? { constraints } : {}),
     ...(connectors !== model.connectors ? { connectors } : {}),
     ...(groups ? { groups: new Map([...groups].map(([id, g]) => [id, g.members.elements ? { ...g, members: { ...g.members, elements: rename(g.members.elements) } } : g])) } : {}),

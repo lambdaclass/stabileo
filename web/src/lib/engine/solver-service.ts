@@ -1,4 +1,4 @@
-import { accountingCaseSources, accountingProjection, accountingSource, copyAccountingLoad, type AccountingCaseSources, type ScenarioSurfaceIntent } from './accounting-source';
+import { accountingCaseSources, accountingMemberStations, type AuthoredStation, accountingProjection, accountingSource, copyAccountingLoad, type AccountingCaseSources, type ScenarioSurfaceIntent } from './accounting-source';
 import { EngineCheckError, EngineUnavailableError } from './engine-unavailable';
 import { scaleAssembledMagnitudes3D, type Wrench } from './accounting-math';
 import { accountCombination, accountLoads2D, accountSource3D, accountWeight2D, generatedSource3D, hasGeneratedSource, weightSource3D, type CheckedSource3D, loadAccounting3D, loadCaseBatches, redistributedLineLoads, verifyFactoredScenarioNode, verifyScenarioSurfaceLoads } from './load-accounting';
@@ -116,6 +116,7 @@ function thermalDepths(model: ModelData, elementId: number, embedded: boolean | 
 
 export interface ModelData {
   [accountingSource]?: ModelData;
+  [accountingMemberStations]?: ReadonlyMap<number, AuthoredStation>;
   [accountingProjection]?: { plane: 'xz' | 'yz'; source: ModelData };
   [accountingCaseSources]?: AccountingCaseSources;
   nodes: Map<number, Node>;
@@ -153,6 +154,8 @@ function snapshotNonlinearModel(model: ModelData): ModelData {
   };
   const source = model[accountingSource];
   if (source) snapshot[accountingSource] = snapshotNonlinearModel(source);
+  const stations = model[accountingMemberStations];
+  if (stations) snapshot[accountingMemberStations] = snapshotMap(stations);
   return snapshot;
 }
 

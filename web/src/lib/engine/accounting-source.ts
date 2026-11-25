@@ -13,6 +13,9 @@ export interface AccountingCaseSources {
 }
 
 export const accountingSource = Symbol();
+export const accountingMemberStations = Symbol();
+
+export type AuthoredStation = { id: number; offset: number; scale: number };
 export const scenarioSurfaceAdjustment = Symbol();
 export const accountingCaseSources = Symbol();
 export const accountingProjection = Symbol();

@@ -1,3 +1,4 @@
+import type { AuthoredStation } from './accounting-source';
 import type { SolverLoad3D } from './types-3d';
 
 export type Vector = [number, number, number];
@@ -221,7 +222,7 @@ export class Wrench {
     return LoadVector.from(vector('total'), vector('magnitude'), vector('underflow'));
   }
 
-  line(start: Vector, axis: Vector, a: number, b: number, qI: LoadVector, qJ: LoadVector, member?: number): void {
+  line(start: Vector, axis: Vector, a: number, b: number, qI: LoadVector, qJ: LoadVector, member?: number | AuthoredStation): void {
     const length = new LoadScalar(b - a);
     const half = length.divide(2), third = length.divide(3);
     const parts = [
@@ -230,7 +231,8 @@ export class Wrench {
     ] as const;
     for (const [station, force] of parts) {
       this.apply(positionAt(start, axis, station), force);
-      if (member !== undefined) this.memberLineForce(member, station, force);
+      if (typeof member === 'number') this.memberLineForce(member, station, force);
+      else if (member) this.memberLineForce(member.id, station.scale(member.scale).add(new LoadScalar(member.offset)), force);
     }
   }
 }
