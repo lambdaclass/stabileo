@@ -486,6 +486,10 @@ pub fn solve_corotational_2d_from(
 
     // Get the full external load vector from linear assembly (reference load)
     let asm = assembly::assemble_stiffness_2d(input, &dof_num);
+    if start.is_none() {
+        super::stability::OperatorRank::for_2d(input, &dof_num, cs.as_ref())
+        .check(&super::stability::dense_free_block(&asm.k, &dof_num), None)?;
+    }
     let art = asm.artificial_stiffness_entries();
 
     let mut u_full = match start {
@@ -1665,6 +1669,8 @@ pub fn solve_corotational_3d(
 
     // Reference load vector from linear assembly
     let asm = assembly::assemble_3d(input, &dof_num);
+    super::stability::OperatorRank::for_3d(input, &dof_num, cs.as_ref())
+        .check(&super::stability::dense_free_block(&asm.k, &dof_num), None)?;
     let f_total = asm.f.clone();
 
     let mut u_full = vec![0.0; n];

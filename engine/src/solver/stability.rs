@@ -30,7 +30,7 @@ pub struct DofTag { pub node: usize, pub kind: DofKind }
 pub enum Verdict { Stable, Mechanism, Singular }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Reason { Resolved, FreeTranslation, SwingAtRounding, Conditioning, CoupledSoftDirection, ConstraintRounding, Indefinite, NonFinite }
+pub enum Reason { Resolved, FreeTranslation, SwingAtRounding, Conditioning, CoupledSoftDirection, ConstraintRounding, OperatorRounding, Indefinite, NonFinite }
 
 #[derive(Debug, Clone)]
 pub struct FreeDirection {
@@ -200,6 +200,10 @@ impl Stability {
             Reason::NonFinite => Some(
                 "the stiffness matrix has an infinite or undefined entry: check member properties, spring stiffnesses and node coordinates for zero lengths, infinities or missing values".to_string()
             ),
+            Reason::OperatorRounding => Some(crate::refusal::coded(
+                crate::types::DiagnosticCode::ReducedStiffnessRank,
+                "The reduced stiffness rank cannot be resolved at assembly precision. Check member releases, supports, springs and constraints for a mechanism.",
+            )),
             Reason::ConstraintRounding => Some(format!(
                 "the structure is a mechanism or so close to one that its stability cannot be decided in double precision{nodes}: constraint reduction cancels stiffness contributions whose rounding is too large to resolve the remaining stiffness; reduce extreme stiffness contrasts or revise the constraints"
             )),
@@ -884,10 +888,18 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
     if projected_rounding.as_ref().is_some_and(|bound| !bound.resolved(&s, symbolic.as_ref().unwrap())) {
         return Stability { verdict: Verdict::Singular, reason: Reason::ConstraintRounding, kappa: f64::INFINITY, anisotropy, free, mode_nodes: tags.iter().map(|t| t.node).collect() };
     }
+    let verify_rank = |kappa, free| {
+        let (verdict, reason) = if resolves_rank(k, &s, &groups, &group_of, &columns, symbolic.as_ref()) {
+            (Verdict::Stable, Reason::Resolved)
+        } else {
+            (Verdict::Singular, Reason::OperatorRounding)
+        };
+        Stability { verdict, reason, kappa, anisotropy, free, mode_nodes: Vec::new() }
+    };
     if let Some(kappa) = symbolic.as_ref().filter(|_| m > FULL_SPECTRUM).and_then(|sym| fast_sparse_bound(&s, sym, anisotropy, amplification)) {
         let coupled = coupled_free(k, &mut free, &own, &columns, &groups, &group_of, kappa, releases);
         if coupled.is_empty() && free.iter().all(|direction| direction.coupling.is_empty()) {
-            return Stability { verdict: Verdict::Stable, reason: Reason::Resolved, kappa, anisotropy, free, mode_nodes: Vec::new() };
+            return verify_rank(kappa, free);
         }
     }
     let (kappa, mode, indefinite) = spectrum(&s, anisotropy, amplification, symbolic.as_ref());
@@ -904,9 +916,41 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
         if !coupled.is_empty() {
             return Stability { verdict: Verdict::Singular, reason: Reason::CoupledSoftDirection, kappa, anisotropy, free, mode_nodes: coupled };
         }
+        return verify_rank(kappa, free);
     }
-    let reason = if verdict == Verdict::Stable { Reason::Resolved } else { Reason::Conditioning };
-    Stability { verdict, reason, kappa, anisotropy, free, mode_nodes: if verdict == Verdict::Stable { Vec::new() } else { mode_nodes } }
+    Stability { verdict, reason: Reason::Conditioning, kappa, anisotropy, free, mode_nodes }
+}
+
+fn resolves_rank(
+    physical: &CscMatrix, scaled_operator: &CscMatrix, groups: &[((usize, DofKind), Vec<usize>)],
+    group_of: &[(usize, usize)], columns: &[Column], symbolic: Option<&Rc<SymbolicCholesky>>,
+) -> bool {
+    let mut magnitude = physical.clone();
+    magnitude.values.iter_mut().for_each(|value| *value = value.abs());
+    let weights: Vec<_> = columns.iter().map(|column| Column {
+        group: column.group,
+        w: column.w.iter().map(|value| value.abs()).collect(),
+    }).collect();
+    let envelope = scaled(&magnitude, groups, group_of, &weights);
+    let margin = envelope.sym_mat_vec(&vec![ROUNDING * f64::EPSILON; envelope.n]);
+    let mut shifted = scaled_operator.clone();
+    for (j, radius) in margin.into_iter().enumerate() {
+        let Some(p) = (shifted.col_ptr[j]..shifted.col_ptr[j + 1])
+            .find(|&p| shifted.row_idx[p] == j) else { return false };
+        shifted.values[p] -= radius;
+        if !radius.is_finite() || shifted.values[p] <= 0.0 {
+            return false;
+        }
+    }
+    let owned;
+    let symbolic = match symbolic {
+        Some(sym) => sym,
+        None => {
+            owned = Rc::new(symbolic_cholesky(&shifted));
+            &owned
+        }
+    };
+    numeric_cholesky(symbolic, &shifted).is_some()
 }
 
 pub const COUPLED: f64 = 1e-4;
@@ -1376,7 +1420,7 @@ pub(crate) fn prepare_free_stiffness(
     Ok((stability.pin_sparse(&reduced), stability))
 }
 
-fn of_assembled(k: &[f64], dof: &DofNumbering, two_d: bool, fcs: Option<crate::solver::constraints::FreeConstraintSystem>, coupling: &[(usize, usize)], releases: &ReleasedRotations) -> Stability {
+pub(super) fn dense_free_block(k: &[f64], dof: &DofNumbering) -> CscMatrix {
     let nf = dof.n_free;
     let (mut rows, mut cols, mut values) = (Vec::new(), Vec::new(), Vec::new());
     for j in 0..nf {
@@ -1385,15 +1429,50 @@ fn of_assembled(k: &[f64], dof: &DofNumbering, two_d: bool, fcs: Option<crate::s
             if value != 0.0 { rows.push(i); cols.push(j); values.push(value); }
         }
     }
-    let k = CscMatrix::from_triplets(nf, &rows, &cols, &values);
-    analyze_free_stiffness(&k, dof, two_d, fcs.as_ref(), coupling, releases).1
+    CscMatrix::from_triplets(nf, &rows, &cols, &values)
+}
+
+pub(super) struct OperatorRank<'a> {
+    dof: &'a DofNumbering,
+    two_d: bool,
+    constraints: Option<&'a super::constraints::FreeConstraintSystem>,
+    coupling: Vec<(usize, usize)>,
+    releases: ReleasedRotations,
+}
+
+impl<'a> OperatorRank<'a> {
+    pub(super) fn for_2d(
+        input: &SolverInput, dof: &'a DofNumbering,
+        constraints: Option<&'a super::constraints::FreeConstraintSystem>,
+    ) -> Self {
+        Self { dof, two_d: true, constraints, coupling: coupling_2d(input, dof), releases: ReleasedRotations::default() }
+    }
+
+    pub(super) fn for_3d(
+        input: &SolverInput3D, dof: &'a DofNumbering,
+        constraints: Option<&'a super::constraints::FreeConstraintSystem>,
+    ) -> Self {
+        Self { dof, two_d: false, constraints, coupling: coupling_3d(input, dof), releases: released_rotations_3d(input, dof) }
+    }
+
+    pub(super) fn check(&self, free: &CscMatrix, reduced: Option<&CscMatrix>) -> Result<(), String> {
+        let result = if let (Some(constraints), Some(reduced)) = (self.constraints, reduced) {
+            constraints.stability(reduced, self.dof, free, &self.coupling, &self.releases)
+        } else {
+            analyze_free_stiffness(free, self.dof, self.two_d, self.constraints, &self.coupling, &self.releases).1
+        };
+        if result.reason == Reason::OperatorRounding {
+            return Err(result.refusal().unwrap());
+        }
+        Ok(())
+    }
 }
 
 pub fn of_2d(input: &SolverInput) -> Result<Stability, String> {
     let dof = DofNumbering::build_2d(input);
     let asm = crate::solver::assembly::without_artificial_stiffness(|| crate::solver::assembly::assemble_2d(input, &dof));
     let fcs = crate::solver::constraints::FreeConstraintSystem::build_2d(input, &dof)?;
-    Ok(of_assembled(&asm.k, &dof, true, fcs, &coupling_2d(input, &dof), &ReleasedRotations::default()))
+    Ok(analyze_free_stiffness(&dense_free_block(&asm.k, &dof), &dof, true, fcs.as_ref(), &coupling_2d(input, &dof), &ReleasedRotations::default()).1)
 }
 
 pub fn of_3d(input: &SolverInput3D) -> Result<Stability, String> {
@@ -1401,7 +1480,7 @@ pub fn of_3d(input: &SolverInput3D) -> Result<Stability, String> {
     let dof = DofNumbering::build_3d(input);
     let asm = crate::solver::assembly::without_artificial_stiffness(|| crate::solver::assembly::assemble_3d(input, &dof));
     let fcs = crate::solver::constraints::FreeConstraintSystem::build_3d(input, &dof)?;
-    Ok(of_assembled(&asm.k, &dof, false, fcs, &coupling_3d(input, &dof), &released_rotations_3d(input, &dof)))
+    Ok(analyze_free_stiffness(&dense_free_block(&asm.k, &dof), &dof, false, fcs.as_ref(), &coupling_3d(input, &dof), &released_rotations_3d(input, &dof)).1)
 }
 
 #[cfg(test)]

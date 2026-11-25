@@ -55,7 +55,6 @@ fn classification_2d(case: &Case2) -> Result<(), String> {
 }
 
 #[test]
-#[ignore = "known wrong result: #2266"]
 fn issue_2266_dense_in_original_and_scaled_units() {
     let case = model("2266");
     let entry = "linear (dense reference)";
@@ -71,7 +70,6 @@ fn issue_2266_dense_in_original_and_scaled_units() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2380"]
 fn issue_2380_constrained_in_original_and_rotated_coordinates() {
     let case = model("2380");
     let entry = "constrained";
@@ -92,7 +90,6 @@ fn issue_2380_constrained_in_original_and_rotated_coordinates() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2380"]
 fn issue_2380_through_native_operator_entries() {
     let case = model("2380");
     let spatial = Case3::new("spatial", embed_2d(&case.s, Plane::XZ).unwrap());
@@ -172,25 +169,21 @@ fn check_spatial_issue(issue: &str, entry: &str, seed: u64, rotation: bool) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2119"]
 fn issue_2119_contact_refuses_unresolved_operator() {
     check_spatial_issue("2119", "contact (no gaps)", 2026111404217, true);
 }
 
 #[test]
-#[ignore = "known wrong result: #2134"]
 fn issue_2134_winkler_refuses_unresolved_operator() {
     check_spatial_issue("2134", "Winkler (no foundation)", 2026111401487, false);
 }
 
 #[test]
-#[ignore = "known wrong result: #2139"]
 fn issue_2139_plastic_refuses_unresolved_operator() {
     check_spatial_issue("2139", "plastic collapse", 2026111404217, false);
 }
 
 #[test]
-#[ignore = "known wrong result: #2190"]
 fn issue_2190_typed_planar_refuses_unresolved_operator() {
     let base = model("2190");
     let entry = "linear (WASM typed path)";

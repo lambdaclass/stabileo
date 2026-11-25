@@ -54,6 +54,16 @@ describe('engine sentences', () => {
       .toBe('Parse error: Esta componente está fuera del plano de la carga nodal. Use nodal3d para cargas espaciales. `mx`');
   });
 
+  it('translates a reduced stiffness rank refusal by diagnostic code', async () => {
+    await setLocale('es');
+    const refusal = JSON.stringify({
+      message: 'The reduced stiffness rank cannot be resolved at assembly precision.',
+      structuredDiagnostics: [{ code: 'reduced_stiffness_rank', severity: 'error' }],
+    });
+    expect(localizeEngineText(errorText(refusal, 'Unknown error')))
+      .toBe('El rango de la rigidez reducida no se puede determinar con la precisión del ensamblaje. Revisá las liberaciones, los apoyos, los resortes y las restricciones para detectar un mecanismo.');
+  });
+
   it('leaves a sentence it does not know as it is', () => {
     setLocale('es');
     expect(localizeEngineText('Residual 1.2e-3 exceeds tolerance')).toBe('Residual 1.2e-3 exceeds tolerance');

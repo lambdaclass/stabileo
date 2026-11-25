@@ -84,6 +84,7 @@ fn solve_nonlinear_material_2d_inner(
 
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_2d(&solver, &dof_num)?;
+    let rank = super::stability::OperatorRank::for_2d(solver, &dof_num, cs.as_ref());
     let metric = super::convergence::EquilibriumMetric::for_2d(solver, &dof_num, cs.as_ref())?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
@@ -212,6 +213,10 @@ fn solve_nonlinear_material_2d_inner(
             }
 
             // Residual: R = F_ext - f_int
+            let tangent = MaterialTangent::prepare(
+                &k_t, sparse_tangent.then_some((&trip_rows, &trip_cols, &trip_vals)),
+                n, &free_idx, cs.as_ref(), &rank,
+            )?;
             let mut residual = vec![0.0; n];
             for i in 0..n {
                 residual[i] = f_ext[i] - f_int[i];
@@ -233,28 +238,11 @@ fn solve_nonlinear_material_2d_inner(
             // The prescribed-displacement coupling K_fr * u_r is already in
             // the residual via f_int (u_full carries the restrained values),
             // so the RHS is the residual itself.
-            let delta_u_indep = if sparse_tangent {
-                // CSC free block built directly from the rotated lower-triangle
-                // triplets (free×free filter + constraint reduction in sparse
-                // form); solved with cached-symbolic sparse Cholesky.
-                let k_s_csc = tangent_free_sparse_triplets(
-                    &trip_rows, &trip_cols, &trip_vals, nf, &cs,
-                );
-                let rhs_s = if let Some(ref cs) = cs {
-                    cs.reduce_vector(&r_free)
-                } else {
-                    r_free
-                };
-                solve_tangent_sparse(&k_s_csc, &rhs_s, &mut sparse_sym_cache)?
-            } else {
-                let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
-                let (k_s, rhs_s) = if let Some(ref cs) = cs {
-                    (cs.reduce_matrix(&k_ff), cs.reduce_vector(&r_free))
-                } else {
-                    (k_ff, r_free)
-                };
-                solve_system(k_s, rhs_s, ns)?
+            let rhs = match &cs {
+                Some(cs) => cs.reduce_vector(&r_free),
+                None => r_free,
             };
+            let delta_u_indep = tangent.solve(rhs, &mut sparse_sym_cache)?;
             let delta_u_f = if let Some(ref cs) = cs {
                 cs.expand_solution(&delta_u_indep, MasterMotion::Homogeneous)
             } else {
@@ -796,6 +784,48 @@ fn yield_utilization(n: f64, m: f64, np: f64, mp: f64) -> f64 {
     axial_ratio * axial_ratio + moment_ratio
 }
 
+enum MaterialTangent {
+    Dense(Vec<f64>),
+    Sparse(CscMatrix),
+}
+
+impl MaterialTangent {
+    fn prepare(
+        dense: &[f64],
+        triplets: Option<(&[usize], &[usize], &[f64])>,
+        n: usize,
+        free: &[usize],
+        constraints: Option<&FreeConstraintSystem>,
+        rank: &super::stability::OperatorRank<'_>,
+    ) -> Result<Self, String> {
+        let nf = free.len();
+        if let Some((rows, cols, values)) = triplets {
+            let original = tangent_free_sparse_triplets(rows, cols, values, nf, &None);
+            let reduced = constraints.map(|cs| cs.reduce_matrix_sparse(&original));
+            rank.check(&original, reduced.as_ref())?;
+            return Ok(Self::Sparse(reduced.unwrap_or(original)));
+        }
+        let original = extract_submatrix(dense, n, free, free);
+        let reduced = constraints.map(|cs| cs.reduce_matrix(&original));
+        let physical = CscMatrix::from_dense_symmetric_exact(&original, nf);
+        let reduced_operator = reduced.as_ref().zip(constraints).map(|(k, cs)| {
+            CscMatrix::from_dense_symmetric_exact(k, cs.n_free_indep)
+        });
+        rank.check(&physical, reduced_operator.as_ref())?;
+        Ok(Self::Dense(reduced.unwrap_or(original)))
+    }
+
+    fn solve(self, rhs: Vec<f64>, cache: &mut Option<SparseSymbolicCache>) -> Result<Vec<f64>, String> {
+        match self {
+            Self::Dense(k) => {
+                let n = rhs.len();
+                solve_system(k, rhs, n)
+            }
+            Self::Sparse(k) => solve_tangent_sparse(&k, &rhs, cache),
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Solve a linear system with the dense solver. Only called on the small-model
 // path (ns/nf < SPARSE_THRESHOLD); larger systems go through
@@ -983,6 +1013,7 @@ fn solve_nonlinear_material_3d_inner(
 
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_3d(&solver, &dof_num)?;
+    let rank = super::stability::OperatorRank::for_3d(solver, &dof_num, cs.as_ref());
     let metric = super::convergence::EquilibriumMetric::for_3d(solver, &dof_num, cs.as_ref())?;
 
     // Prescribed displacements, in the inclined-support frames the restrained
@@ -1090,6 +1121,10 @@ fn solve_nonlinear_material_3d_inner(
                 }
             }
 
+            let tangent = MaterialTangent::prepare(
+                &k_t, sparse_tangent.then_some((&trip_rows, &trip_cols, &trip_vals)),
+                n, &free_idx, cs.as_ref(), &rank,
+            )?;
             let mut residual = vec![0.0; n];
             for i in 0..n {
                 residual[i] = f_ext[i] - f_int[i];
@@ -1115,24 +1150,11 @@ fn solve_nonlinear_material_3d_inner(
             // the structure it iterated on: a diaphragm-tied pair of columns
             // was solved as two independent columns, and a node tied only by
             // a constraint left the tangent singular.
-            let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
-            let rhs_s = match &cs {
+            let rhs = match &cs {
                 Some(cs) => cs.reduce_vector(&r_free),
                 None => r_free,
             };
-            let delta_u_indep = if sparse_tangent {
-                let k_s_csc = tangent_free_sparse_triplets(
-                    &trip_rows, &trip_cols, &trip_vals, nf, &cs,
-                );
-                solve_tangent_sparse(&k_s_csc, &rhs_s, &mut sparse_sym_cache)?
-            } else {
-                let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
-                let k_s = match &cs {
-                    Some(cs) => cs.reduce_matrix(&k_ff),
-                    None => k_ff,
-                };
-                solve_system(k_s, rhs_s, ns)?
-            };
+            let delta_u_indep = tangent.solve(rhs, &mut sparse_sym_cache)?;
             let delta_u_f = match &cs {
                 Some(cs) => cs.expand_solution(&delta_u_indep, MasterMotion::Homogeneous),
                 None => delta_u_indep,

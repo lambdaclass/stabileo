@@ -14,6 +14,7 @@ import { isMessage, type EngineMessage } from '../codes/message';
 import { AMBIGUOUS_ROLLER_Z } from '../engine/support-dofs-3d';
 import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../engine/member-diagram';
 import type { StructuredDiagnostic } from '../engine/types';
+import { refusedWithCode } from '../engine/containment-error';
 import { i18n, registerFeatureDictionaries, tAt } from './store.svelte';
 import type { Locale } from './offered';
 import { axesStore } from '../axes/axes.svelte';
@@ -113,6 +114,21 @@ registerFeatureDictionaries(Object.fromEntries(
   Object.entries(pdeltaPhysicalResidual).map(([locale, message]) => [locale, { [PDELTA_PHYSICAL_RESIDUAL]: message }]),
 ));
 
+const REDUCED_STIFFNESS_RANK = 'svc.engine.reducedStiffnessRank';
+const reducedStiffnessRank: Record<Locale, string> = {
+  de: 'Der Rang der reduzierten Steifigkeitsmatrix lässt sich mit der Genauigkeit der Assemblierung nicht bestimmen. Prüfen Sie Freigaben, Auflager, Federn und Kopplungen auf einen Mechanismus.',
+  en: 'The reduced stiffness rank cannot be resolved at assembly precision. Check member releases, supports, springs and constraints for a mechanism.',
+  es: 'El rango de la rigidez reducida no se puede determinar con la precisión del ensamblaje. Revisá las liberaciones, los apoyos, los resortes y las restricciones para detectar un mecanismo.',
+  fr: 'Le rang de la raideur réduite ne peut pas être déterminé à la précision de l’assemblage. Vérifiez les relâchements, les appuis, les ressorts et les contraintes pour détecter un mécanisme.',
+  hu: 'A redukált merevségi mátrix rangja az összeállítás pontosságával nem határozható meg. Mechanizmus kereséséhez ellenőrizze a rúdvégi feloldásokat, a támaszokat, a rugókat és a kényszereket.',
+  pt: 'Não é possível determinar o posto da rigidez reduzida com a precisão da montagem. Verifique as liberações, os apoios, as molas e as restrições para identificar um mecanismo.',
+  tr: 'İndirgenmiş rijitlik matrisinin mertebesi montaj hassasiyetiyle belirlenemiyor. Bir mekanizma olup olmadığını görmek için eleman mafsallarını, mesnetleri, yayları ve kısıtları kontrol edin.',
+  zh: '在组装精度下无法判定约化刚度矩阵的秩。请检查杆端释放、支座、弹簧和约束是否形成机构。',
+};
+registerFeatureDictionaries(Object.fromEntries(
+  Object.entries(reducedStiffnessRank).map(([locale, message]) => [locale, { [REDUCED_STIFFNESS_RANK]: message }]),
+));
+
 /**
  * The solver's own error sentences, which it writes in English, in the app's language.
  *
@@ -141,6 +157,7 @@ const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
 ];
 
 export function localizeEngineText(message: string): string {
+  if (refusedWithCode(message, 'reduced_stiffness_rank')) return tAt(REDUCED_STIFFNESS_RANK, i18n.locale);
   let out = message;
   for (const [en, key] of ENGINE_SENTENCES) if (out.includes(en)) out = out.split(en).join(tAt(key, i18n.locale));
   out = out.replace(/Non-finite number \((NaN|Infinity|-Infinity)\) at (\S+)/g, (_, value: string, path: string) =>

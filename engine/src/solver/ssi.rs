@@ -130,10 +130,12 @@ fn dense_free_stiffness(k: &[f64], n: usize, nf: usize) -> CscMatrix {
 
 fn secant_system(
     base: &CscMatrix,
+    reduced_base: Option<&CscMatrix>,
     soil: (Vec<usize>, Vec<usize>, Vec<f64>),
-    nf: usize,
     cs: Option<&FreeConstraintSystem>,
-) -> CscMatrix {
+    rank: &super::stability::OperatorRank<'_>,
+) -> Result<CscMatrix, String> {
+    let nf = base.n;
     let (rows, cols, values) = soil;
     let mut sr = Vec::new();
     let mut sc = Vec::new();
@@ -146,9 +148,15 @@ fn secant_system(
         }
     }
     let soil = CscMatrix::from_triplets(nf, &sr, &sc, &sv);
-    let soil = cs.map_or_else(|| soil.clone(), |cs| cs.reduce_matrix_sparse(&soil));
+    let physical = add_stiffness(base, &soil);
+    let reduced = cs.zip(reduced_base).map(|(cs, base)| add_stiffness(base, &cs.reduce_matrix_sparse(&soil)));
+    rank.check(&physical, reduced.as_ref())?;
+    Ok(reduced.unwrap_or(physical))
+}
+
+fn add_stiffness(base: &CscMatrix, soil: &CscMatrix) -> CscMatrix {
     let (mut rows, mut cols, mut values) = (Vec::new(), Vec::new(), Vec::new());
-    for k in [base, &soil] {
+    for k in [base, soil] {
         for j in 0..k.n {
             for p in k.col_ptr[j]..k.col_ptr[j + 1] {
                 rows.push(k.row_idx[p]);
@@ -546,7 +554,8 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
     } else {
         dense_free_stiffness(&dense_asm.as_ref().unwrap().k, n, nf)
     };
-    let base = cs.as_ref().map_or_else(|| base.clone(), |cs| cs.reduce_matrix_sparse(&base));
+    let reduced_base = cs.as_ref().map(|cs| cs.reduce_matrix_sparse(&base));
+    let rank = super::stability::OperatorRank::for_2d(&input.solver, &dof_num, cs.as_ref());
     let force = cs.as_ref().map_or_else(|| f_global[..nf].to_vec(), |cs| cs.reduce_vector(&f_global[..nf]));
 
     // Initialize secant stiffnesses (use initial tangent from curves)
@@ -578,7 +587,10 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
     for iter in 0..input.max_iter {
         total_iters = iter + 1;
 
-        let k = secant_system(&base, spring_triplets(&input.soil_springs, &spring_k, &dof_num, its), nf, cs.as_ref());
+        let k = secant_system(
+            &base, reduced_base.as_ref(), spring_triplets(&input.soil_springs, &spring_k, &dof_num, its),
+            cs.as_ref(), &rank,
+        )?;
         SecantState::update(&mut secant_state, k, &force, use_sparse, &mut sparse_sym_cache, &mut conditioning)?;
         let state = secant_state.as_mut().unwrap();
         let u_indep = state.u.clone();
@@ -761,7 +773,8 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     } else {
         dense_free_stiffness(&dense_asm.as_ref().unwrap().k, n, nf)
     };
-    let base = cs.as_ref().map_or_else(|| base.clone(), |cs| cs.reduce_matrix_sparse(&base));
+    let reduced_base = cs.as_ref().map(|cs| cs.reduce_matrix_sparse(&base));
+    let rank = super::stability::OperatorRank::for_3d(&expanded_solver, &dof_num, cs.as_ref());
     let force = cs.as_ref().map_or_else(|| f_global[..nf].to_vec(), |cs| cs.reduce_vector(&f_global[..nf]));
 
     let mut spring_k: Vec<f64> = input.soil_springs.iter()
@@ -792,7 +805,10 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     for iter in 0..input.max_iter {
         total_iters = iter + 1;
 
-        let k = secant_system(&base, spring_triplets(&input.soil_springs, &spring_k, &dof_num, its), nf, cs.as_ref());
+        let k = secant_system(
+            &base, reduced_base.as_ref(), spring_triplets(&input.soil_springs, &spring_k, &dof_num, its),
+            cs.as_ref(), &rank,
+        )?;
         SecantState::update(&mut secant_state, k, &force, use_sparse, &mut sparse_sym_cache, &mut conditioning)?;
         let state = secant_state.as_mut().unwrap();
         let u_indep = state.u.clone();
