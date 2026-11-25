@@ -11447,6 +11447,7 @@ const tr: Translations = {
   "snow.case.flatRoof": "Düz çatı eşlikçi kar yükü (pf)",
   "snow.refused.legacyCombination": "Bu kayıtlı deprem birleşiminin kar yükü temeli belirsiz. Kullanmadan önce birleşimleri yeniden üretin; yalnızca kar yüklerini yeniden üretmek yeterli değildir.",
   "snow.refused.flatRoofCase": "Bu birleşim ayrı bir düz çatı kar yükü durumu gerektirir. Birleşimleri oluşturmadan önce kar yüklerini yeniden üretin.",
+  "combos.refused.unresolvedGroup": "Hiçbir yük durumu {symbol} simgesine ve “{group}” grubuna uymuyor. Kayıtlı birleşim kuralını ve yük durumlarını gözden geçirin.",
   "snow.refused.physicalCase": "Bu birleşim ayrı bir fiziksel kar yükü durumu gerektirir. Birleşimleri oluşturmadan önce kar yüklerini yeniden üretin.",
   'snow.case.balanced': 'Dengeli kar (ps = {ps} kN/m²)',
   'snow.derivation.multipleUnbalanced': 'Dengesiz (§6.3, Şekil 6): mahyalarda 0,5 pf değerinden derelerde {valley} kN/m² değerine; bir dere üzerindeki kar, mahya üzerindeki karın altında tutulur.',

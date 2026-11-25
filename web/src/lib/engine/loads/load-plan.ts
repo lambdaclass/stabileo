@@ -276,6 +276,7 @@ export function windDirectionsOf(w: { directions: { x: boolean; y: boolean }; bo
 // ─── Plan ────────────────────────────────────────────────────────
 
 export interface PlannedCase {
+  group?: string;
   snowBasis?: 'flatRoof';
   /** Existing case id when one matches, else null → a new case is needed. */
   existingId: number | null;
