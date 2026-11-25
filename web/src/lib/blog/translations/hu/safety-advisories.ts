@@ -285,7 +285,9 @@ const body: PostBody = {
     {"k": "note", "t": "SA-2026-120 — A 0.6.4 utáni következő kiadás."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-120-gravity-deck-load-placement.md", "label": "SA-2026-120", "t": "Érintett bemenetek és szükséges teendők."},
     {"k": "note", "t": "SA-2026-121 — A 0.6.4 utáni következő kiadás."},
+    {"k": "note", "t": "SA-2026-122 — A 0.6.4 utáni következő kiadás."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-121-planar-nonlinear-member-loads.md", "label": "SA-2026-121", "t": "Érintett bemenetek és szükséges teendők."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-122-generated-load-combinations.md", "label": "SA-2026-122", "t": "Érintett bemenetek és szükséges teendők."},
     {
       "k": "img",
       "base": "blog/recheck-stale",
@@ -832,7 +834,8 @@ const body: PostBody = {
         ["SA-2026-118", "Érvénytelen célcsoport esetén kimaradhatott a csoport önsúlya. Javítsa a csoport hozzárendelését, és számítsa újra az érintett tehereseteket, kombinációkat és burkolókat.", "Magas", "A 0.6.4 utáni következő kiadás"],
         ["SA-2026-119", "A hiányzó anyagsűrűség hibás sajátfrekvenciát eredményezhetett. Állítsa vissza a sűrűséget, építse fel újra a tömegforrást, és ismételje meg az érintett dinamikai számításokat.", "Magas", "A 0.6.4 utáni következő kiadás"],
         ["SA-2026-120", "Az automatikus tehergenerálás megkettőzhette a gravitációs terheket, az automatikus fesztávhatárt meghaladó mezőkre vihette át őket, vagy hibásan sorolhatta be a tető- és födémterületeket. Generálja újra az érintett gravitációs, hó- és szélterheket, ellenőrizze őket, és ismételje meg a kapcsolódó számításokat.", "Magas", "A 0.6.4 utáni következő kiadás"],
-        ["SA-2026-121", "A síkbeli nemlineáris számítás hibás eredményeket adhatott a rudak terheire. Ismételje meg az érintett számításokat, beleértve a folytatás kezdeti állapotát meghatározó számításokat is, és ellenőrizze az elmozdulásokat, a támaszreakciókat és a rúdvég-igénybevételeket.", "Közepes", "A 0.6.4 utáni következő kiadás"]
+        ["SA-2026-121", "A síkbeli nemlineáris számítás hibás eredményeket adhatott a rudak terheire. Ismételje meg az érintett számításokat, beleértve a folytatás kezdeti állapotát meghatározó számításokat is, és ellenőrizze az elmozdulásokat, a támaszreakciókat és a rúdvég-igénybevételeket.", "Közepes", "A 0.6.4 utáni következő kiadás"],
+        ["SA-2026-122", "A létrehozott teherkombinációkból kimaradhattak kötelező alternatívák vagy kézzel megadott tetőhasznos terhek. A kombinációk hibás hóteheralapot vagy elavult széltehereseteket is tartalmazhattak. Ellenőrizze a terheket, a szabálytényezőket és a burkolókhoz rendelt kombinációkat, majd hozza létre újra a kombinációkat, és ismételje meg az érintett számításokat.", "Magas", "A 0.6.4 utáni következő kiadás"]
       ]
     },
     {

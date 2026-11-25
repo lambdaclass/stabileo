@@ -141,7 +141,9 @@ const body: PostBody = {
     {"k": "note", "t": "SA-2026-120 — Prochaine version après la 0.6.4."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-120-gravity-deck-load-placement.md", "label": "SA-2026-120", "t": "Entrées concernées et mesures à prendre."},
     {"k": "note", "t": "SA-2026-121 — Prochaine version après la 0.6.4."},
+    {"k": "note", "t": "SA-2026-122 — Prochaine version après la 0.6.4."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-121-planar-nonlinear-member-loads.md", "label": "SA-2026-121", "t": "Entrées concernées et mesures à prendre."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-122-generated-load-combinations.md", "label": "SA-2026-122", "t": "Entrées concernées et mesures à prendre."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO avec un portique en béton enregistré avant que les résultats soient versionnés. Un bandeau en bas indique des résultats périmés : le projet a été résolu avec une version antérieure et 19 changements enregistrés le concernent, avec les boutons pour voir ce qui a changé et relancer le calcul.", "caption": "Comment une correction atteint un projet enregistré : tant qu’il n’est pas recalculé, ses résultats restent marqués périmés, et les changements qui le concernent sont à un clic."},
     {
       "k": "h",
@@ -571,7 +573,8 @@ const body: PostBody = {
         ["SA-2026-118", "Un groupe cible invalide pouvait entraîner l’omission du poids propre de ce groupe. Corrigez le groupe cible, relancez les cas de charge et les combinaisons concernés, puis recalculez leurs enveloppes.", "Élevée", "Prochaine version après la 0.6.4"],
         ["SA-2026-119", "L’absence de masse volumique d’un matériau pouvait fausser les fréquences propres. Rétablissez la masse volumique, reconstruisez la source de masse et relancez les analyses dynamiques concernées.", "Élevée", "Prochaine version après la 0.6.4"],
         ["SA-2026-120", "La génération automatique pouvait doubler les charges gravitaires, les transférer à des panneaux dont la portée dépassait la limite du calcul automatique ou mal distinguer les zones de plancher et de toiture. Régénérez les plans de charges gravitaires, de neige et de vent concernés, vérifiez les charges et relancez les analyses correspondantes.", "Élevée", "Prochaine version après la 0.6.4"],
-        ["SA-2026-121", "L’analyse non linéaire plane pouvait donner des résultats erronés pour les charges sur les barres. Relancez les analyses concernées, y compris celles qui ont fourni l’état initial d’une continuation, et vérifiez les déplacements, les réactions et les efforts aux extrémités des barres.", "Moyenne", "Prochaine version après la 0.6.4"]
+        ["SA-2026-121", "L’analyse non linéaire plane pouvait donner des résultats erronés pour les charges sur les barres. Relancez les analyses concernées, y compris celles qui ont fourni l’état initial d’une continuation, et vérifiez les déplacements, les réactions et les efforts aux extrémités des barres.", "Moyenne", "Prochaine version après la 0.6.4"],
+        ["SA-2026-122", "Les combinaisons générées pouvaient omettre des variantes requises ou des charges d’exploitation de toiture saisies manuellement, utiliser une base de neige incorrecte ou inclure des cas de vent obsolètes. Vérifiez les charges, les coefficients des règles et les combinaisons de chaque enveloppe. Régénérez les combinaisons et relancez les analyses concernées.", "Élevée", "Prochaine version après la 0.6.4"]
       ]
     },
     {

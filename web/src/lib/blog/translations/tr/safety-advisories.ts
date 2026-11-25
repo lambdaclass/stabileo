@@ -141,7 +141,9 @@ const body: PostBody = {
     {"k": "note", "t": "SA-2026-120 — 0.6.4’ten sonraki ilk sürüm."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-120-gravity-deck-load-placement.md", "label": "SA-2026-120", "t": "Etkilenen girdiler ve yapılması gerekenler."},
     {"k": "note", "t": "SA-2026-121 — 0.6.4’ten sonraki ilk sürüm."},
+    {"k": "note", "t": "SA-2026-122 — 0.6.4’ten sonraki ilk sürüm."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-121-planar-nonlinear-member-loads.md", "label": "SA-2026-121", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-122-generated-load-combinations.md", "label": "SA-2026-122", "t": "Etkilenen girdiler ve yapılması gerekenler."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
       "k": "h",
@@ -571,7 +573,8 @@ const body: PostBody = {
         ["SA-2026-118", "Geçersiz bir öz ağırlık grubu hedefi grubun ağırlığının atlanmasına yol açabiliyordu. Grup hedefini düzeltin, etkilenen yük durumlarını ve birleşimleri yeniden hesaplayın, ardından zarflarını yeniden oluşturun.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
         ["SA-2026-119", "Girilmeyen malzeme yoğunluğu hatalı doğal frekanslara yol açabiliyordu. Yoğunluğu geri yükleyin, kütle kaynağını yeniden oluşturun ve etkilenen dinamik analizleri tekrarlayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
         ["SA-2026-120", "Otomatik yük oluşturma, yerçekimi yüklerini iki kez uygulayabiliyor, otomatik yöntemin açıklık sınırını aşan panellere aktarabiliyor veya çatı ve döşeme bölgelerini yanlış sınıflandırabiliyordu. Etkilenen yerçekimi, kar ve rüzgâr yükü planlarını yeniden oluşturun, yükleri doğrulayın ve ilgili analizleri tekrarlayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
-        ["SA-2026-121", "Düzlemsel doğrusal olmayan analiz, eleman yükleri için hatalı sonuçlar verebiliyordu. Devam analizinin başlangıç durumunu belirleyenler dahil etkilenen analizleri tekrarlayın ve yer değiştirmeleri, mesnet tepkilerini ve eleman uç kuvvetlerini inceleyin.", "Orta", "0.6.4’ten sonraki ilk sürüm"]
+        ["SA-2026-121", "Düzlemsel doğrusal olmayan analiz, eleman yükleri için hatalı sonuçlar verebiliyordu. Devam analizinin başlangıç durumunu belirleyenler dahil etkilenen analizleri tekrarlayın ve yer değiştirmeleri, mesnet tepkilerini ve eleman uç kuvvetlerini inceleyin.", "Orta", "0.6.4’ten sonraki ilk sürüm"],
+        ["SA-2026-122", "Oluşturulan birleşimler zorunlu alternatifleri veya elle girilen çatı hareketli yüklerini atlayabiliyor, yanlış kar yükü esasını kullanabiliyor ya da artık geçerli olmayan rüzgâr durumlarını içerebiliyordu. Yükleri, kural katsayılarını ve her zarfa dahil edilen birleşimleri kontrol edin. Birleşimleri yeniden oluşturun ve etkilenen analizleri tekrarlayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"]
       ]
     },
     {
