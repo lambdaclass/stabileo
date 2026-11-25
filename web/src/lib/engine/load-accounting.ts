@@ -654,7 +654,7 @@ export function loadAccounting3D(
     cases: effects?.targets ?? new Set([...authored.keys(), ...pressures.keys()]),
     verify(
       caseId: number, loads: readonly Load[], assembled: readonly SolverLoad3D[],
-      sources: ReadonlyMap<Load, readonly SolverLoad3D[]>,
+      sources?: ReadonlyMap<Load, readonly SolverLoad3D[]>,
       checkedSource?: (source: CheckedSource3D) => void,
     ): Wrench {
       const { totals, names, slabs } = !checkAuthored
@@ -674,7 +674,7 @@ export function loadAccounting3D(
           const batch: SlabDelivery = delivered.get(id) ?? { cells: new Map(), rows: [] };
           const cell = slabCell(load.data.on, load.data.quadId);
           batch.cells.set(cell, (batch.cells.get(cell) ?? 0) + 1);
-          for (const row of sources.get(load) ?? []) batch.rows.push(row);
+          for (const row of sources?.get(load) ?? []) batch.rows.push(row);
           delivered.set(id, batch);
         }
         for (const id of new Set([...slabs.keys(), ...delivered.keys()])) {

@@ -1503,11 +1503,12 @@ it('#2470 equal and opposite generated rows cannot hide lost planar loads', asyn
   const model = modelStore.model;
   const cases = [{ id: 1, name: 'D', type: 'D' }, { id: 2, name: 'L', type: 'L' }];
   const combos = [{ id: 1, name: 'D only', factors: [{ caseId: 1, factor: 1 }] }];
+  const generatedFields = { caseId: 1, elementId, isGlobal: true, generatedBy: 'generator' };
   const generated = (q: number): ModelData => ({
     ...model, loadCases: cases,
     loads: [
-      { type: 'distributed', data: { id: 1, caseId: 1, elementId, qI: q, qJ: q, isGlobal: true, generatedBy: 'generator' } },
-      { type: 'distributed', data: { id: 2, caseId: 1, elementId, qI: -2 * q, qJ: -2 * q, a: 0.5, b: 1.5, isGlobal: true, generatedBy: 'generator' } },
+      { type: 'distributed', data: { ...generatedFields, id: 1, qI: q, qJ: q } },
+      { type: 'distributed', data: { ...generatedFields, id: 2, qI: -2 * q, qJ: -2 * q, a: 0.5, b: 1.5 } },
     ],
   });
   const below = generated(2 ** -35);
