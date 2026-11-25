@@ -5,6 +5,7 @@ import { ANALYSIS_KINDS, modelFeatures, type FeatureSnapshot } from '../model-fe
 import { GRAVITY_SELF_WEIGHT } from '../../engine/analysis-settings';
 import { stampSolve } from '../solve-stamp';
 import declaration from '../result-changes/distributed-load-diagram-integration.json';
+import resultantsDeclaration from '../result-changes/planar-nonlinear-resultants.json';
 import { fieldCovered } from '../../../../scripts/results-snapshot/applicability.mjs';
 
 const entry = RESULT_CHANGES.changes.find(c => c.id === 'distributed-load-diagram-integration')!;
@@ -38,7 +39,7 @@ it('known wrong result: #2223 — unrelated older nodal projects have no diagram
   }
 });
 
-it.skip('known wrong result: #2539 — planar nonlinear resultants require structural evidence', () => {
+it('known wrong result: #2539 — planar nonlinear resultants require structural evidence', () => {
   const change = RESULT_CHANGES.changes.find(c => c.id === 'planar-nonlinear-resultants');
   expect(change).toBeDefined();
   const snapshots: Array<[string, FeatureSnapshot]> = [
@@ -63,7 +64,7 @@ it.skip('known wrong result: #2539 — planar nonlinear resultants require struc
             .toBe(expected && offset === -1);
         }
         const features = modelFeatures(model, { analysesRun: [analysis], analysesRecorded: ANALYSIS_KINDS });
-        expect(fieldCovered(change, 'nonlinear.results.reactions[0].rx', [...features]), label).toBe(expected);
+        expect(fieldCovered(resultantsDeclaration, 'nonlinear.results.reactions[0].rx', [...features]), label).toBe(expected);
       }
     }
   }

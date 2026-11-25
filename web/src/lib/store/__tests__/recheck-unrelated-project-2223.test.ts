@@ -83,13 +83,13 @@ function open(entry: typeof entries[number], file: ReturnType<typeof buildProjec
 
 const resultantsVersion = RESULT_CHANGES.changes.find(c => c.id === 'planar-nonlinear-resultants')?.resultsVersion ?? RESULTS_VERSION;
 
-for (const [analysis, latest, issue, test] of [
-  ['linear', RESULTS_VERSION, 2223, it],
-  ['nonlinear', resultantsVersion, 2539, it.skip],
+for (const [analysis, latest, issue] of [
+  ['linear', RESULTS_VERSION, 2223],
+  ['nonlinear', resultantsVersion, 2539],
 ] as const) {
   const version = latest - 1;
   for (const entry of entries) {
-    test.each(['2d', '3d', 'pro'] as const)(`known wrong result: #${issue} — ${entry} keeps an unrelated older %s ${analysis} project quiet through autosave recovery`, async mode => {
+    it.each(['2d', '3d', 'pro'] as const)(`known wrong result: #${issue} — ${entry} keeps an unrelated older %s ${analysis} project quiet through autosave recovery`, async mode => {
       const file = project(mode, analysis, version);
       open(entry, file);
       await vi.waitFor(() => expect(recheckStore.pending).toBe(false));

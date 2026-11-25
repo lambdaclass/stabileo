@@ -4,7 +4,8 @@
   "prs": [2539],
   "area": "analysis",
   "when": {
-    "all": ["plane2D", "analysis:nonlinear"]
+    "all": ["plane2D", "analysis:nonlinear"],
+    "any": ["members", "springs", "constraints"]
   },
   "quantities": [
     "solve.ok", "displacements", "reactions", "elementForces", "constraintForces",
