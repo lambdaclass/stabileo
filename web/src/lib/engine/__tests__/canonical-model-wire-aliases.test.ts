@@ -99,7 +99,7 @@ const planarWireSolvers = {
   displacement: (solver: object) => JSON.parse(solve_displacement_control(JSON.stringify({ ...path, solver }))).results,
 };
 
-it.skip.each(Object.entries(planarWireSolvers))('#2532 WASM %s accepts planar nodal metadata and still refuses components', (_name, solve) => {
+it.each(Object.entries(planarWireSolvers))('#2532 WASM %s accepts planar nodal metadata and still refuses components', (_name, solve) => {
   const load = planar.loads[0]!.data;
   const reference = solve(planar);
   for (const metadata of [{ id: 17 }, { caseId: 2 }, { id: 17, caseId: 2 }]) {
@@ -109,6 +109,8 @@ it.skip.each(Object.entries(planarWireSolvers))('#2532 WASM %s accepts planar no
   expect.soft(() => solve(planarWithNodalLoad({ ...annotated, bw: 1 }))).toThrow(/unknown field `bw`/);
   expect.soft(() => solve(planarWithNodalLoad({ ...annotated, mx: 1 }))).toThrow(/out-of-plane nodal component `mx`/);
   expect(solve(planarWithNodalLoad(annotated))).toEqual(reference);
+  const maxId = Number.MAX_SAFE_INTEGER;
+  expect(solve(planarWithNodalLoad({ ...load, id: maxId, caseId: maxId }))).toEqual(reference);
 });
 
 it('#2532 WASM planar decoders refuse out-of-plane nodal components', () => {

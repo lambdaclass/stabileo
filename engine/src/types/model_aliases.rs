@@ -181,7 +181,11 @@ deserialize_aliased_input! {
     fx: F => "fx", required;
     fz: F => "fz", required, fy => "fy";
     my: M => "my", required, mz => "mz";
-    @map wire { mx: f64 => "mx"; } {
+    @map wire {
+        mx: f64 => "mx";
+        _id: Option<u64> => "id";
+        _case_id: Option<u64> => "caseId";
+    } {
         if let Some(mx) = wire.mx.0 {
             if !mx.is_zero() {
                 return Err(refuse_out_of_plane("mx"));

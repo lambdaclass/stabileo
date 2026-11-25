@@ -2794,7 +2794,6 @@ fn issue_1753_an_independent_load_cannot_mask_constraint_cancellation() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2532"]
 fn planar_nodal_metadata_preserves_native_solve_and_component_refusals() {
     use dedaliano_engine::reproduce::{canonical_results_json, linear_hashes};
     use dedaliano_engine::solver::{linear::solve_2d_typed, pdelta::solve_pdelta_2d};

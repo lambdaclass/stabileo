@@ -196,7 +196,8 @@ mod planar_nodal {
             ("my", Some("my")),
             ("fy", Some("fz")),
             ("mz", Some("my")),
-            ("mx", None),
+            ("id", None),
+            ("caseId", None),
         ];
         let mut unknown = canonical.clone();
         unknown["unknown"] = json!(5);
@@ -205,7 +206,10 @@ mod planar_nodal {
             .to_string();
         let accepted_keys: std::collections::BTreeSet<_> =
             error.split('`').skip(3).step_by(2).collect();
-        assert_eq!(accepted_keys, cases.iter().map(|&(key, _)| key).collect());
+        assert_eq!(
+            accepted_keys,
+            cases.iter().map(|&(key, _)| key).chain(["mx"]).collect()
+        );
         for (key, maps_to) in cases {
             let mut wire = canonical.clone();
             let expected = if let Some(maps_to) = maps_to {
@@ -220,8 +224,8 @@ mod planar_nodal {
                 wire[key] = value;
                 Ok(expected)
             } else {
-                wire[key] = json!(5);
-                Err("out-of-plane nodal component `mx`")
+                wire[key] = json!(9_007_199_254_740_991_u64);
+                Ok(canonical.clone())
             };
             check::<SolverNodalLoad>(key, wire.clone(), expected.clone());
             check::<units::TypedNodalLoad>(key, wire, expected);
@@ -260,6 +264,10 @@ mod planar_nodal {
         }
 
         let mut short = canonical.clone();
+        short["mx"] = json!(5);
+        let unsupported = "out-of-plane nodal component `mx`";
+        check::<SolverNodalLoad>("short nonzero padding", short.clone(), Err(unsupported));
+        check::<units::TypedNodalLoad>("short nonzero padding", short.clone(), Err(unsupported));
         short["mx"] = json!(0);
         check::<SolverNodalLoad>("short zero padding", short.clone(), Ok(canonical.clone()));
         check::<units::TypedNodalLoad>("short zero padding", short, Ok(canonical));
