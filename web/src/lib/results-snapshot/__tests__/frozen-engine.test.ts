@@ -99,8 +99,8 @@ for (const c of inputs) {
       }
     });
   }
-  if (ssiRankRefusals.has(c.model)) {
-    it.skip(`known wrong result: #2584 freezes the rank refusal for ${c.model}`, () => {
+  if (c.analysis === 'solve_ssi_2d' && ssiRankRefusals.has(c.model)) {
+    it(`freezes the rank refusal for ${c.model}`, () => {
       const message = 'the structure is a mechanism or so close to one that its stability cannot be decided in double precision: the reduced stiffness rank cannot be resolved at assembly precision. Check member releases, supports, springs and constraints for a mechanism.';
       let refusal: unknown;
       try {
@@ -112,8 +112,27 @@ for (const c of inputs) {
         message,
         structuredDiagnostics: [{ code: 'reduced_stiffness_rank', severity: 'error', message }],
       });
-      check(c.model.replace(/\.json$/, ''), ['plane2D', 'members', 'analysis:ssi'], refusal, 'ssi.refusal');
+      check(c.model.replace(/\.json$/, ''), ['plane2D', 'members', 'analysis:ssi', 'ssiHistory'], refusal, 'ssi.refusal');
     });
+    it(`solves ${c.model} with transverse soil restraint`, () => {
+      const input = c.input[0];
+      if (!('soilSprings' in input)) throw new Error('SSI input must contain soil springs');
+      const lateralSpring = {
+        nodeId: input.soilSprings[0].nodeId,
+        direction: 0,
+        tributaryLength: 1,
+        curve: { type: 'custom', points: [[0, 0], [1, 1000]] },
+      };
+      const result = engine.solveSSI2D({ ...input, soilSprings: [...input.soilSprings, lateralSpring] });
+      expect(result.converged).toBe(true);
+      expect(result.springResults).toHaveLength(input.soilSprings.length + 1);
+      expect(result.results.displacements).toHaveLength(Object.keys(input.solver.nodes).length);
+      for (const displacement of result.results.displacements) {
+        expect(Math.abs(displacement.ux)).toBe(0);
+        expect(Math.abs(displacement.ry)).toBe(0);
+      }
+    });
+    continue;
   }
   it(`freezes every serialized field of ${c.model}`, () => {
     const arc = c.analysis === 'solve_arc_length';

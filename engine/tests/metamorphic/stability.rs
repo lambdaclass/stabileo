@@ -121,7 +121,8 @@ fn same(a: &Stability, b: &Stability) -> Result<(), String> {
 
 
 const REFUSED: &[u32] = &[964, 965, 966, 967, 968, 1008, 1028, 1083, 1091, 1095, 1103, 1112, 1353, 1355, 1359, 1362, 1648, 1651];
-const CONDITIONAL_REFS: &[u32] = &[973, 993, 1029, 1041, 1115, 1357, 1653];
+const CONDITIONAL_REFS: &[u32] = &[993, 1115, 1357, 1653];
+const RANK_REFUSED: &[u32] = &[973, 1029, 1041];
 const SOLVED: &[u32] = &[954, 956, 960, 994, 1086, 1097, 1101, 1102, 1116, 1117, 1118, 1216, 1265];
 const STABLE_PENDING: &[u32] = &[972, 1099, 1647];
 const RELEASE_STABLE: &[u32] = &[1090, 1106, 1193, 1351, 1352, 1635];
@@ -178,9 +179,8 @@ fn replay_as(issue: u32, analysis_override: Option<&str>) -> (Stability, crate::
 }
 
 #[test]
-#[ignore = "known wrong result: #2584"]
 fn every_c08_reproducer_is_either_solved_identically_or_refused_by_the_verdict() {
-    let listed: std::collections::BTreeSet<u32> = REFUSED.iter().chain(SOLVED).chain(STABLE_PENDING).chain(RELEASE_STABLE).chain(CONDITIONAL_REFS).copied().collect();
+    let listed: std::collections::BTreeSet<u32> = REFUSED.iter().chain(SOLVED).chain(STABLE_PENDING).chain(RELEASE_STABLE).chain(CONDITIONAL_REFS).chain(RANK_REFUSED).copied().collect();
     assert_eq!(listed, C08.iter().map(|c| c.0).collect(), "every C08 issue is classified once");
     let mut wrong = Vec::new();
     for &issue in REFUSED {
@@ -191,6 +191,15 @@ fn every_c08_reproducer_is_either_solved_identically_or_refused_by_the_verdict()
         let (v, cell) = replay(issue);
         println!("CONDITIONAL REF #{issue}: {} {cell:?}", summary(&Ok(v.clone())));
         if !v.needs_accuracy_check() { wrong.push(format!("#{issue} listed conditional reference: {}", summary(&Ok(v)))); }
+    }
+    for &issue in RANK_REFUSED {
+        let (v, cell) = replay(issue);
+        let expected_outcome = if issue == 1041 { cell.inconclusive == 1 } else { cell.refused == 1 };
+        if v.verdict != Verdict::Singular || v.reason != Reason::OperatorRounding
+            || v.refusal().is_none() || !expected_outcome || !cell.fails.is_empty()
+        {
+            wrong.push(format!("#{issue} listed rank refused: {} {:?} {cell:?}", summary(&Ok(v.clone())), v.reason));
+        }
     }
     for &issue in SOLVED {
         let (v, cell) = replay(issue);

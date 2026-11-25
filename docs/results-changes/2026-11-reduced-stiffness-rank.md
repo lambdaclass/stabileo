@@ -74,3 +74,30 @@ The kinematic calculation reports its own solvability flag alongside the
 mode count. Plastic limit analysis checks its existing uniform-stiffness
 model for mechanisms and uses the same model to compute the equilibrium
 fields for its collapse calculation.
+
+## Refuse pinned axial pile mechanisms in SSI
+
+The frozen SSI corpus includes two axial piles,
+`solve_ssi_2d-c703b27bda5f4eb8.json` and
+`solve_ssi_2d-169f627ba8e7f8cf.json`. Each is vertical, has a pinned
+base, and has soil springs parallel to the pile axis. An infinitesimal rotation
+about the base pin produces transverse displacement proportional to height
+above the pin, zero axial strain and zero curvature. The axial soil springs
+have zero displacement in that motion, so they provide no restraint against it.
+Both models returned converged results with a NUM-INVARIANCE warning on
+origin/main at `adf9de0ca`. Their frozen outputs now record the blocking
+`reduced_stiffness_rank` diagnosis. The previous numerical outputs are in
+`web/results-frozen/` at that revision. For each input, a transverse soil
+spring above the pin restores a converged solve under the same axial load.
+
+## C08 rank verdicts
+
+The C08 fixtures for #973 and #1029 each have one member whose supported
+end can rotate. In #973 the member is released at the fixed support. In #1029
+the support is a pin and the member is released at the free tip. A rigid
+rotation about the support has zero member strain in both fixtures. The
+static rank verdict now classifies both as singular at assembly precision.
+The replay checks the refusal from modal analysis for #973 and from the
+no-foundation Winkler solve for #1029. The #1041 time-history replay uses
+the #1029 model and shares its static rank verdict. Time integration keeps
+its existing treatment of this model.
