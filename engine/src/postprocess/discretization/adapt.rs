@@ -380,7 +380,18 @@ pub fn adapt_3d(input: &SolverInput3D, options: &AdaptOptions) -> Result<Adapted
         let done = |status: &str, pass: AdaptPass, mut passes: Vec<AdaptPass>, model: SolverInput3D, caveats: Vec<String>| {
             passes.push(pass);
             let mesh = lineage.mesh(&model, original_max_node);
-            Ok(Adapted { certified: false, input: model, estimate: estimate.clone(), passes, quantities: quantities.clone(), status: status.into(), refused: None, caveats, supports_inferred, mesh })
+            Ok(Adapted {
+                certified: false,
+                input: model,
+                estimate: estimate.clone(),
+                passes,
+                quantities: quantities.clone(),
+                status: status.into(),
+                refused: None,
+                caveats,
+                supports_inferred,
+                mesh,
+            })
         };
         let Some(relative_error) = estimate.relative_error else {
             return done("unestimable", pass, passes, model, caveats);
