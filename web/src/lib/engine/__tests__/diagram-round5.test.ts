@@ -213,7 +213,7 @@ it('known wrong result: #2437 reads the plotted polynomial extremum through prep
   }
 });
 
-it.skip('known wrong result: #2437 keeps small planar couples and spatial forces through baseline cancellation', () => {
+it('known wrong result: #2437 keeps small planar couples and spatial forces through baseline cancellation', () => {
   const [, , planar, spatial] = forceRecords();
   const big = 2 ** 54;
   for (const result of planar) {

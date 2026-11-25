@@ -23,3 +23,10 @@ piece results.
 
 Re-export critical-station workbooks for affected projects and recompute any
 affected spatial combination envelopes. See #2226.
+
+All sources use the physical distance of a cut, including any rounding
+residual from adding a piece offset. Consider a cut at a piece-local
+coordinate of 0.24999999999999992 with a piece offset of 1. A second
+combination with local shear 16 + 2⁵⁴(x − 0.25) contributes 14.5 at the cut.
+Using the rounded normalized coordinate can give 18 and select that source
+over the actual governing shear of 16.

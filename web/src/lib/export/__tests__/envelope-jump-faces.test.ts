@@ -11,7 +11,7 @@ import { publishCombinations3D } from '../../store/active-results';
 import { t } from '../../i18n';
 import { engineGuarded } from '../../store/engine-action';
 import { currentWorkbookParts, currentWorkbookSheets, streamWorkbookZip } from '../../store/project-workbook';
-import { resultSheets, type WorkbookSource } from '../workbook-results';
+import { resultSheetParts, resultSheets, type WorkbookSource } from '../workbook-results';
 import { partSize, type WorkbookSheet } from '../workbook-cells';
 
 beforeAll(async () => { await initSolver(); });
@@ -53,11 +53,10 @@ it.each([['linear', false], ['linear', true], ['pdelta', false], ['pdelta', true
   const result = currentWorkbookSheets('critical', onlyEnvelope).find(sheet => sheet.name === 'Envelope')!;
   const faces = records(result).filter(row => row.entity === member && row['x [m]'] === at && row.component === 'Vz');
   expect(faces.map(row => row.face)).toEqual(['left', 'right']);
-  expect([faces[0]!.maxSourceId, faces[0]!.minSourceId].sort()).toEqual(ids);
-  expect([faces[1]!.maxSourceId, faces[1]!.minSourceId].sort()).toEqual(ids);
-  const governing = faces[0]!.maxSourceId === ids[0] ? 'max' : 'min';
-  expect(Math.abs(Number(faces[0]![governing]))).toBeCloseTo(force, 10);
-  expect(Math.abs(Number(faces[1]![governing]))).toBeCloseTo(force / 2, 10);
+  expect(faces).toMatchObject([
+    { maxSourceId: ids[0], max: expect.closeTo(force, 10), minSourceId: ids[1], min: expect.closeTo(force / 2, 10) },
+    { maxSourceId: ids[1], max: expect.closeTo(force / 2, 10), minSourceId: ids[0], min: expect.closeTo(0, 10) },
+  ]);
   const parts = currentWorkbookParts('critical', onlyEnvelope);
   const part = parts.find(sheet => sheet.name === 'Envelope')!;
   expect(partSize(part).rows).toBe(result.rows.length);
@@ -80,9 +79,10 @@ it('known wrong result: #2226 keeps the two moment faces at a member split', () 
   const sheet = currentWorkbookSheets('critical', onlyEnvelope).find(sheet => sheet.name === 'Envelope')!;
   const faces = records(sheet).filter(row => row.entity === member && row['x [m]'] === at && row.component === 'Mz');
   expect(faces.map(row => row.face)).toEqual(['left', 'right']);
-  for (const face of faces) {
-    expect([face.maxSourceId, face.minSourceId].sort()).toEqual(ids);
-  }
+  expect(faces).toMatchObject([
+    { maxSourceId: ids[1], max: expect.closeTo(-moment / 2, 10), minSourceId: ids[0], min: expect.closeTo(-moment, 10) },
+    { maxSourceId: ids[0], max: expect.closeTo(0, 10), minSourceId: ids[1], min: expect.closeTo(-moment / 2, 10) },
+  ]);
   expect(Math.max(...faces.map(row => Math.abs(Number(row.max) - Number(row.min))))).toBeCloseTo(moment / 2, 10);
   const memberCurve = solved.envelope.momentZ.elements.find(curve => curve.elementId === member)!;
   const cuts = memberCurve.tPositions.flatMap((t, i) => t === at / 4 ? [i] : []);
@@ -118,7 +118,7 @@ it('known wrong result: #2226 keeps distinct nearby stations and exact physical 
   ]);
 });
 
-it.skip('known wrong result: #2226 compares every source at the unrounded physical cut', () => {
+it.each([false, true])('known wrong result: #2226 compares every source at the unrounded physical cut (split=%s)', async split => {
   const first = solvedMember(3);
   const second = structuredClone(first);
   const a = 0.24999999999999992;
@@ -126,23 +126,42 @@ it.skip('known wrong result: #2226 compares every source at the unrounded physic
   const pieces = (results: AnalysisResults3D) => {
     const force = results.elementForces[0]!;
     const local = { ...force, length: 1 };
-    return force.pieces = [0, 1, 2].map(x0 => ({ x0, x1: x0 + 1, forces: { ...local } }));
+    const sectionId = modelStore.elements.get(force.elementId)!.sectionId;
+    const result = [0, 1, 2].map(x0 => ({ x0, x1: x0 + 1, sectionId, forces: { ...local } }));
+    force.pieces = result;
+    return result;
   };
-  pieces(first)[1]!.forces.pointLoadsZ = [{ a, p: 16 }];
-  pieces(first)[2]!.forces.vzStart = 16;
-  const other = pieces(second)[1]!.forces;
-  other.vzStart = 16 - slope / 4;
-  other.distributedLoadsZ = [{ a: 0, b: 1, qI: slope, qJ: slope }];
-  other.vzEnd = other.vzStart + slope;
+  const firstPieces = pieces(first);
+  firstPieces[1]!.forces.pointLoadsZ = [{ a, p: 16 }];
+  firstPieces[2]!.forces.vzStart = 16;
+  const other = split ? pieces(second)[1]!.forces : second.elementForces[0]!;
+  const offset = split ? 0.25 : 1.25;
+  other.vzStart = 16 - slope * offset;
+  other.distributedLoadsZ = [{ a: 0, b: other.length, qI: slope, qJ: slope }];
+  other.vzEnd = other.vzStart + slope * other.length;
   const sources: WorkbookSource[] = [first, second].map((results, i) => ({
     id: i + 1, name: String(i + 1), kind: 'combination', results,
   }));
-  const sheet = resultSheets({ sources, stations: 'critical', statics: null }, name => name === 'Envelope')[0]!;
-  const rows = records(sheet).filter(row => row.component === 'Vz' && row['x [m]'] === 1 + a);
-  expect(rows.map(row => [row.face, row.min, row.minSourceId, row.max, row.maxSourceId])).toEqual([
+  const input = { sources, stations: 'critical', statics: null } as const;
+  const want = (name: string) => name === 'Envelope';
+  const x = 1 + a;
+  const sheet = resultSheets(input, want)[0]!;
+  const rows = records(sheet).filter(row => row.component === 'Vz' && row['x [m]'] === x);
+  const expected = [
     ['left', 0, 1, 14.5, 2],
     ['right', 14.5, 2, 16, 1],
-  ]);
+  ];
+  expect(rows.map(row => [row.face, row.min, row.minSourceId, row.max, row.maxSourceId])).toEqual(expected);
+  const table = envelopeRows('forces', sources, { axes: DEFAULT_AXES, stations: 'critical' });
+  expect(table.filter(row => row.x === x).map(({ face, min, max }) =>
+    [face, min[2]!.value, min[2]!.source.id, max[2]!.value, max[2]!.source.id])).toEqual(expected);
+  const csvPart = resultSheetParts(input, want);
+  const zip = unzipSync(new Uint8Array(await (await streamWorkbookZip(csvPart)).arrayBuffer()));
+  const csv = strFromU8(zip[Object.keys(zip).find(name => name.endsWith('-Envelope.csv'))!]!);
+  const prefix = ['forces', first.elementForces[0]!.elementId, '', x, 'Vz', ''].join(',');
+  expect(csv.split('\n').filter(line => line.startsWith(prefix))).toEqual(
+    rows.map(row => sheet.rows[0]!.map(key => row[key]).join(',')),
+  );
 });
 
 it('known wrong result: #2226 refuses an aliased cross-case jump and accepts the adjacent representable layout', () => {

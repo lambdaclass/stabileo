@@ -62,16 +62,17 @@ export function stationTs(ef: ElementForces3D, spec: StationSpec): number[] {
 
 /** Extract the full force tuple at a single station. */
 export function extractForcesAtStation(ef: ElementForces3D, station: number | DiagramStation): StationForces {
-  const { t, right } = typeof station === 'number' ? { t: station, right: false } : station;
-  const x = t * ef.length;
+  const cut = typeof station === 'number' ? { t: station } : station;
+  const { t } = cut;
+  const x = cut.distance?.x ?? t * ef.length;
   return {
     t,
     x: +x.toFixed(4),
-    n: evaluateDiagramAt(ef, 'axial', t, right),
-    vy: evaluateDiagramAt(ef, 'shearY', t, right),
-    vz: evaluateDiagramAt(ef, 'shearZ', t, right),
-    my: evaluateDiagramAt(ef, 'momentY', t, right),
-    mz: evaluateDiagramAt(ef, 'momentZ', t, right),
-    torsion: evaluateDiagramAt(ef, 'torsion', t, right),
+    n: evaluateDiagramAt(ef, 'axial', cut),
+    vy: evaluateDiagramAt(ef, 'shearY', cut),
+    vz: evaluateDiagramAt(ef, 'shearZ', cut),
+    my: evaluateDiagramAt(ef, 'momentY', cut),
+    mz: evaluateDiagramAt(ef, 'momentZ', cut),
+    torsion: evaluateDiagramAt(ef, 'torsion', cut),
   };
 }
