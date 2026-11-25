@@ -12,6 +12,8 @@ pub use super::total_lagrangian::{ArcControl, LoadControl};
 use crate::element::total_lagrangian_beam_2d::TotalLagrangianBeam2D;
 use crate::solver::stability::{DofKind, DofTag};
 
+pub mod stability;
+
 #[derive(Debug, Clone)]
 pub struct BeamMember2D {
     pub nodes: [usize; 2],
