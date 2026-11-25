@@ -1,138 +1,122 @@
-# Dedaliano Infrastructure Roadmap
+# Stabileo Infrastructure Roadmap
+
+> **Updated 2026-11-22.** Re-aligned to the live Elixir/Phoenix umbrella backend (`backend/`), Caddy edge (`infra/caddy/Caddyfile`), planned retirement of the legacy Rust/Axum AI service (`ai-backend/`), and Waves 1–3 of [`high_leverage_solver_and_product_plan.md`](../research/high_leverage_solver_and_product_plan.md). The prior October 2026 Axum-era snapshot is preserved verbatim in [`docs/archive/roadmap/INFRASTRUCTURE_AXUM_2026_10.md`](../archive/roadmap/INFRASTRUCTURE_AXUM_2026_10.md).
 
 ## Purpose
 
-This is the infrastructure roadmap: backend services, deployment, runtime environments, auth, persistence, observability, reproducibility, and operational tooling. It is not the solver mechanics roadmap or the product UX roadmap.
+This is the infrastructure roadmap: backend services, edge hosting and headers, authentication, storage, certificate-signing and offline verification infrastructure, observability, reproducibility, desktop/native runtimes, and operational tooling. It is not the solver mechanics roadmap or the product UX roadmap.
 
 See also:
-- [`SOLVER_ROADMAP.md`](SOLVER_ROADMAP.md)
-- [`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md)
-- [`AI_ROADMAP.md`](AI_ROADMAP.md)
+- [`README.md`](README.md) — roadmap entry point
+- [`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md) — soundness-first priorities and product backlog
+- [`SOLVER_ROADMAP.md`](SOLVER_ROADMAP.md) — solver mechanics and high-leverage solver tracks
+- [`AI_ROADMAP.md`](AI_ROADMAP.md) — AI capabilities, ecosystem-first MCP/Python track, and safety rules
+- [`specs/backend.md`](../../specs/backend.md) and [`specs/services/`](../../specs/README.md) — Elixir/Phoenix umbrella architecture and service contracts (`accounts`, `admin`, `projects`, `insights`, `marketing`)
+- [`research/high_leverage_solver_and_product_plan.md`](../research/high_leverage_solver_and_product_plan.md) — Waves 0–4 architecture plan
 - [`research/ai_provider_architecture.md`](../research/ai_provider_architecture.md)
 - [`research/open_source_vs_hosted_ai_boundary.md`](../research/open_source_vs_hosted_ai_boundary.md)
 
 ## Principles
 
-1. `Backend-controlled, provider-agnostic AI`
-   Frontend calls Dedaliano services, not vendor SDKs directly.
+1. **Browser-first Rust/WASM solver; backend owns identity, persistence, and trust services**
+   The core solver runs locally in the browser as WASM (and locally in CLI / `stabileo-mcp` / PyO3 / Tauri). The backend never solves routine models: it owns accounts, cloud persistence, authenticated timestamped digest attestation + transparency logging, shared snapshots, billing, collaboration, and—later—opt-in batch/heavy server compute.
 
-2. `One contract, many runtimes`
-   Browser, Tauri desktop, native/server, and batch workflows should share stable contracts.
+2. **Zero-upload privacy by default**
+   NDA engineering models stay on the engineer's machine for core solving, ETABS/SAP2000 second-opinion audits, offline verification (`verify.stabileo.com`), and default local stdio `stabileo-mcp`. Hosted storage, remote MCP, and model sharing are explicit opt-in actions (private by default).
 
-3. `Reproducibility before scale`
-   Captured solver-run artifacts, deterministic metadata, and traceability matter before complex orchestration.
+3. **Backend-controlled, provider-agnostic AI**
+   Hosted AI features call Stabileo backend capability contracts, not vendor SDKs directly (outside any explicit BYO-key local mode).
 
-4. `Operational simplicity first`
-   Ship a narrow service surface cleanly before building a platform.
+4. **One contract, many runtimes**
+   Browser WASM, Tauri desktop, local CLI / MCP / Python, and native/server batch workers share one versioned engine and artifact contract ([`#731`](https://github.com/lambdaclass/stabileo/issues/731)).
 
-5. `Product and solver dependencies stay explicit`
-   Infrastructure exists to support solver trust and product workflows, not as a separate vanity stack.
+5. **Reproducibility before scale**
+   Captured solver-run artifacts, provenance metadata, deterministic replay, and verifiable signatures matter before complex distributed orchestration.
 
-## Where We Are
+6. **Operational simplicity first**
+   Keep one Elixir/Phoenix umbrella + PostgreSQL + Caddy edge clean and observable before splitting services or adding premature platform layers.
 
-Already in place:
-- browser-first main app
-- Rust solver through WASM
-- backend AI service (Rust/Axum) with 6 providers (Claude, OpenAI, DeepSeek, Mistral, Kimi, Gemini)
-- provider-agnostic AI adapter layer with env-driven selection (`AI_PROVIDER`)
-- provider-agnostic tool/function-calling contract behind provider adapters
-- 4 AI capability endpoints — all authenticated, with timeout guards:
-  - `review-model` — verified end-to-end with Kimi and GPT-4o
-  - `explain-diagnostic` — diagnostic code explanation and fix steps
-  - `build-model` — conversational build/edit over deterministic generators and edit actions
-  - `interpret-results` — result-question answering with code references
-- provider timeout guard (configurable via `PROVIDER_TIMEOUT_SECS`, default 90s)
-- 75 backend tests passing, including capability parsing, malformed/refusal cases, stub provider integration, tool-calling flows, and build/edit action coverage
-- reusable solver-run artifact contract at the engine layer
-- containerized local/proxy setup (`Dockerfile`, `docker-compose.yml`, `nginx.conf`)
-- local developer bootstrap helpers (`Makefile`, `flake.nix` — verified working)
+## Current Infrastructure Surface (2026-11-22)
 
-Not yet complete:
-- frontend integration for remaining AI capabilities (Explain and Query still need wiring)
-- input validation and request size limits
-- rate limiting and abuse controls
-- AI output validation (generated model JSON must be validated before import)
-- persistent artifact capture/export/import flows
-- replay/support workflows
-- production observability beyond basic tracing
-- request IDs and structured logging
-- startup config validation
-- native/server solve packaging
-- batch execution and job orchestration
-- multi-environment deployment discipline
+### Already in place
 
-The live near-term blockers are now:
-- abuse and security hardening for AI-facing routes — before any broader rollout
-- frontend integration for remaining AI capabilities (Query and Explain tabs)
-- input validation, request size limits, and abuse controls for AI and artifact flows
-- product-side solver-run artifact capture, storage, export/import, and replay flows
-- backend observability, rate limiting, and startup validation
-- a documented path from browser-only execution to native/server and batch execution without forking contracts
+- **Web & edge hosting (`infra/caddy/Caddyfile`):**
+  - Caddy serves static builds for `{$APP_DOMAIN}` (`live/frontends/app`) and the separate admin site `{$ADMIN_DOMAIN}` (`live/frontends/admin`), reverse-proxying `/api/*` to the Phoenix backend (`127.0.0.1:4100`, multi-instance `4100 + INST*10`).
+  - Compression is already live: `encode zstd gzip` plus `file_server { precompressed br }` on static assets and fallback routes.
+  - Cache discipline is live: immutable 1-year `Cache-Control` on `/assets/*` and `/research-wasm/builds/*`; `no-cache` on HTML and unhashed research manifests.
+  - Security headers (`X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`, `-Server`) and 8-locale routing (`en/es/pt/de/fr/tr/hu/zh`) are live.
+- **Primary SaaS backend (`backend/` — Elixir/Phoenix umbrella + PostgreSQL; see [`specs/backend.md`](../../specs/backend.md)):**
+  - Single `StabileoWeb.Endpoint` routing to umbrella apps:
+    - `stabileo_repo`: Ecto Repo, all schemas/migrations, runtime feature switches (`system_settings`), migration safety checks.
+    - `stabileo_utils`: controller macros, `FallbackController`, `config/runtime.exs` env discipline (`StabileoUtils.fetch_env!/2`, enforced by Credo `NoRawEnv`), `VersionHeader`, `BuildInfo`, in-memory IP `RateLimit` plug.
+    - `stabileo_auth`: Google OAuth sign-up/sign-in with PKCE-style attempt verifier, `app: "app"` vs `app: "admin"` JWT isolation (15-min HS256 access tokens, row-locked rotating refresh tokens), Google Workspace domain + `admin_allowed_emails` allowlist re-checked on every admin request, append-only `consents` and transactional `admin_actions` audit log (`specs/services/accounts.md`, `specs/services/admin.md`).
+    - `stabileo_projects`: per-account cloud `.ded` saves stored gzipped in PostgreSQL `bytea` (5 MB compressed / 50 MB inflated ceiling, optimistic locking on `revision`, advisory-locked per-account limit; `specs/services/projects.md`).
+    - `stabileo_insights`: anonymous rate-limited (`30 batches/min/IP`) usage event ingestion with 13-month daily retention (`StabileoInsights.Retention`), authenticated feedback inbox, admin metrics (`specs/services/insights.md`).
+    - `stabileo_marketing`: consent-gated attribution (`signup_sources`, `account_milestones`, `account_active_days`) and Oban-backed Meta Conversions API delivery (`ad_conversions` queue with `Lifeline` rescue; `specs/services/marketing.md`).
+  - All user-facing hosted features sit behind live runtime switches in `system_settings` (`user_login_enabled`, `usage_telemetry_enabled`, `cloud_projects_enabled`, `save_requires_account`, `cloud_projects_limit`), toggled from the admin site without redeploying.
+- **Legacy AI service (`ai-backend/` — Rust/Axum, scheduled for migration and deletion):**
+  - Provider-agnostic adapter layer (Claude, OpenAI, DeepSeek, Mistral, Kimi, Gemini), tool-calling contract, 90s provider timeout guard, 75 contract tests, and 4 capability endpoints (`review-model`, `explain-diagnostic`, `build-model`, `interpret-results`), with Review and Build wired in the frontend drawer.
+  - **Migration rule (`CLAUDE.md`, `specs/backend.md`):** `ai-backend/` is legacy. Port AI capability routes into a dedicated Elixir app under `backend/apps/` so auth, rate limiting, runtime kill switches, secrets, and audit logging share the single Phoenix backend, then delete `ai-backend/`.
+- **Engine, dev & CI foundation:**
+  - Rust solver (`engine/`) compiled to WASM as the sole production solve path; reusable engine-level solver-run artifact contract.
+  - Reproducible Nix + `Makefile` developer environment; self-hosted CI runner pools and merge-queue workflows (tracked in [`testing/ROADMAP.md`](../../testing/ROADMAP.md#ci-and-feedback-loop-2026-11-04)).
 
-## ASAP Infrastructure Work
+### Open infrastructure gaps
 
-Before broadening the infrastructure into heavier deployment, batch, or team workflows, the following items should land because they shape every later stage:
+- **Edge & WASM delivery:** WASM binary slimming (`wasm-opt`, streaming compile, CI size gate [`#1072`](https://github.com/lambdaclass/stabileo/issues/1072)); CDN decision (Cloudflare proxy + HTML edge cache purge on deploy); COOP/COEP cross-origin isolation headers if/when WASM `SharedArrayBuffer` threads are enabled.
+- **Wave 2 trust & sharing infrastructure:**
+  - Isolated static origin for **`verify.stabileo.com`** (<150 KB offline `certcheck` WASM verifier + embedded timestamped advisory/revocation snapshots + unauthenticated public advisory/revocation JSON feed).
+  - **Authenticated timestamped digest attestation & key management** in `backend/` (Ed25519 attestation binding signer identity, server timestamp, key ID, and canonicalized report/bundle SHA-256 digest into an append-only transparency log with zero model upload, plus key rotation and published JWKS/revocation feeds) alongside per-firm PKI.
+  - **Object storage (S3 / Cloudflare R2)** replacing Postgres `bytea` for cloud projects (`specs/services/projects.md`) and immutable shared models (`stabileo.com/m/<id>`, `model_revisions`, `shares`, `forks`), plus DNS/origin setup for `snapshots.stabileo.com` ([`#777`](https://github.com/lambdaclass/stabileo/pull/777)).
+  - **Opt-in remote `stabileo-mcp` tier** (scoped tokens, tenant isolation, quotas, explicit upload consent — behind the 100% local stdio default).
+- **AI runtime migration & abuse hardening:** port `ai-backend/` into `backend/` with per-account/per-capability rate limits, token/cost ceilings, strict payload bounds, `build-model` output schema validation, request IDs, structured logs, and per-provider kill switches in `system_settings`.
+- **Observability, operations & staging:** Sentry/PromEx metrics & alerting, staging-before-production promotion ([`#385`](https://github.com/lambdaclass/stabileo/issues/385)), Ansible/Caddy deploy & tested rollback playbooks, backup/restore drills for PostgreSQL and object storage.
+- **Reproducibility & later runtimes:** product-side solver-run artifact capture/export/replay flows, Tauri desktop packaging ([`#728`](https://github.com/lambdaclass/stabileo/issues/728)), versioned native/server solve path ([`#731`](https://github.com/lambdaclass/stabileo/issues/731)), Oban/worker batch orchestration, and multi-tenant organizations/roles (`specs/backend.md` "Not yet ported from scasaas").
 
-1. `Treat abuse and security as a first-class concern` — NOT DONE. Add strict input limits, rate limiting, timeout/cost ceilings, auth hardening, validation/sanitization, abuse-aware logging, safe AI output handling, CORS discipline, storage/privacy controls, and incident response paths now, not later.
-2. `Capture solver-run artifacts in product flows` — STILL OPEN. The engine-level artifact contract exists; the app still needs solve-time capture, export/import, and replay wiring.
-3. `Make backend failures diagnosable` — PARTIALLY DONE. Error mapping and a health route exist, but request IDs, structured logs, metrics, and clear provider-failure classification still need to be hardened.
-4. `Fail fast on config/provider mistakes` — PARTIALLY DONE. Env-based config exists, but startup validation and clearer invalid-provider / missing-key behavior should be treated as a first-class operational requirement.
-5. `Bound hosted AI risk` — PARTIALLY DONE. Timeout guards exist, but rate limiting, retry policy, token ceilings, per-request budget limits, and fallback rules still need to be added.
-6. `Keep AI capability contracts clean` — DONE. Four capabilities ship as separate endpoints with distinct contracts: `review-model`, `explain-diagnostic`, `build-model`, `interpret-results`.
-7. `Keep runtime environments aligned` — NOT DONE. Browser, desktop, native/server, and batch execution still need an explicit parity and routing story.
+## Wave 1–3 Infrastructure Tracks
 
-## Near-Term Task List
+Aligned strictly behind Wave 0 soundness closure ([`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md#overall-order)):
 
-These are the next concrete infrastructure tasks in execution order:
+### Wave 1 — WASM Delivery & Edge Readiness
+- **WASM build & streaming pipeline (`#1072`):** determinism-gated `wasm-opt`, `WebAssembly.instantiateStreaming`, release-profile enforcement for app WASM (`#1466`), and CI WASM size gate.
+- **Cross-Origin Isolation (conditional on WASM threads):** if `SharedArrayBuffer` / Web Worker threads are enabled for parallel WASM assembly/factorization, add `Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy` in `infra/caddy/Caddyfile` only after verifying compatibility with Google OAuth popups (`/google` -> `/oauth-callback.html`), embedded viewers, and `snapshots.stabileo.com`.
+- **CDN & static caching:** resolve Cloudflare proxy / edge-HTML caching with automated purge on deploy; verify long-lived caching on static fonts and icons alongside `/assets/*`.
 
-1. `Provider timeout guard` — DONE. Configurable timeout on all 4 capability endpoints.
-2. `Capability contract tests` — DONE. 75 backend tests covering all 4 capabilities plus tool-calling and build/edit action flows.
-3. `Explain-diagnostic capability` — DONE. Backend endpoint with contract tests.
-4. `Build-model capability` — DONE. Backend endpoint with model JSON validation and contract tests.
-5. `Interpret-results capability` — DONE. Backend endpoint with contract tests.
-6. `Input validation and request size limits` — NOT DONE. Max body size, max artifact size, max prompt/context length, max elements/nodes in AI requests. See Abuse and Security section.
-7. `Rate limiting and abuse controls` — NOT DONE. Per-IP, per-key, per-capability. Stricter on expensive AI routes. See Abuse and Security section.
-8. `AI output validation` — NOT DONE. Generated model JSON from `build-model` must be validated/sanitized before frontend import. AI text output is advisory only.
-9. `Request IDs and structured request logging` — NOT DONE.
-10. `Startup validation for provider/config/API keys` — NOT DONE.
-11. `Review-model frontend integration` — DONE. Stabileo AI right-side drawer with Review tab, risk chip, finding cards with severity badges, zoom-to-issue, regenerate button.
-12. `Build frontend integration` — DONE. Conversational build/edit drawer flow with Apply/Retry/Cancel, model-context-aware edit requests, and preview-on-canvas behavior.
-13. `Query/Explain frontend tabs` — NOT STARTED. Drawer tabs exist as placeholders, need wiring to backend endpoints.
-14. `Solve-time artifact capture in product` — NOT STARTED.
-15. `Artifact export/import and local persistence` — NOT STARTED.
-16. `Replay/support flow on top of artifacts` — NOT STARTED.
-17. `Storage boundary decision` — NOT STARTED. Define local vs hosted artifact storage explicitly.
-18. `API/artifact versioning policy` — NOT STARTED. Define compatibility and migration rules.
-19. `Named native/server solve path` — NOT STARTED.
-20. `Browser/native parity smoke coverage` — NOT STARTED.
-21. `Worker/job model for long-running tasks` — NOT STARTED.
-22. `Batch execution with progress/cancellation` — NOT STARTED.
-23. `Deployment promotion/rollback discipline` — NOT STARTED.
+### Wave 2 — Verification Portal, Signing, Object Storage & Remote MCP
+- **`verify.stabileo.com` (Offline Verification Portal — `#499`, `#346`):**
+  - Static isolated origin serving the <150 KB `certcheck` WASM module, strict CSP (`default-src 'self'`, `connect-src` restricted to the public read-only advisory/revocation feed only when the user opts into an online freshness check), and embedded timestamped advisory + key-revocation snapshots.
+  - **Zero-upload signing & attestation trust model:**
+    - *Authoritative engineering proof (`certcheck`):* mathematical soundness and certified solver/design bounds are proved **solely** by `certcheck` WASM re-verifying the embedded proof bundle against the report's bound values — never by a signature alone.
+    - *Tamper-evident authorship & timestamping (no blind signing oracle):* a server signing arbitrary client-supplied hashes would act as a signing oracle, so attestation is explicitly bound to signer identity, server timestamp, and an append-only transparency log:
+      - *Per-firm / engineer PKI (self-sovereign):* firms sign the canonicalized report + bundle digest (excluding the embedded QR/signature placeholder region) with their own keys; zero data leaves the machine and `verify.stabileo.com` checks against the firm's public key.
+      - *Authenticated timestamped digest attestation (zero-upload hosted option):* the browser canonicalizes the report + bundle (excluding the QR/signature placeholder region), computes its SHA-256 digest locally, and sends only the digest to an authenticated `backend/` endpoint. The server constructs and Ed25519-signs a canonical attestation statement binding `(account_or_firm_id, server_timestamp, key_id, canonical_digest)` — never unsigned loose metadata — and appends it to a verifiable transparency log. Re-signing a modified report produces a distinct logged entry under the signer's identity rather than silently overwriting the original; `verify.stabileo.com` displays the signer identity, timestamp, and transparency-log proof alongside the `certcheck` verdict.
+    - *Revocation & advisory freshness:* offline verification checks signature validity and advisory/revocation status against the embedded timestamped snapshot and explicitly labels current status as `snapshot-dated (<date>)` until an optional online-only fetch refreshes the public advisory & key-revocation feeds.
+- **Object Storage Migration (S3 / R2) for Cloud Projects & `stabileo.com/m/<id>`:**
+  - Migrate `.ded` gzipped payloads out of PostgreSQL `projects.content` (`bytea`) to S3/R2 while keeping Postgres as the metadata, revision, permission, and concurrency-invariant store (`projects`, `model_revisions`, `shares`, `forks`).
+  - Enforce content-type/gzip inflation caps before storage, private-by-default ACLs, hard deletion on share revocation, and XSS/untrusted-text sanitization for all shared model fields.
+  - Provision DNS and isolated origin for `snapshots.stabileo.com` (`#777`).
+- **Opt-in Remote `stabileo-mcp` Tier:**
+  - Keep local stdio `stabileo-mcp` as the zero-upload default for NDA models.
+  - For the opt-in authenticated remote MCP endpoint: issue revocable scoped API tokens (`stabileo_auth`), enforce per-account quotas and request limits, isolate tenant scratch state, log structured audit events without persisting model payloads unless explicitly saved, and require explicit client consent before uploading model data.
 
-## Current Infra Surface
-
-This is the concrete infrastructure surface that exists today and should be treated as the baseline:
-
-- `backend/` service workspace with shared engine contracts
-- environment-driven provider selection for AI capabilities
-- authenticated API boundary
-- health endpoint and basic request handling
-- container/proxy files for local and deployment-shaped execution
-- first engine-level replayable artifact contract
-
-This baseline should stay simple and stable while the roadmap expands around it.
+### Wave 3 — Heavy Compute, Batch Orchestration & Team Tenancy
+- **Sandboxed native/server solve workers:** expose the same versioned engine interface (`#731`) for >100k-DOF solves, large SOCP/CBFEM/pushover sweeps, and public challenge grading inside resource-capped, network-isolated sandboxes (CPU/RAM/wall-clock limits, no access to backend secrets or other tenants).
+- **Batch orchestration:** build on PostgreSQL + Oban (already running in `backend/` for `ad_conversions`) for durable queues, retries, cancellation, progress polling, and dead-letter handling before introducing any separate queue broker.
+- **Firm tenancy & observability:** port organizations, roles/permissions, email (verification, advisories [`#727`](https://github.com/lambdaclass/stabileo/issues/727)), idempotency keys, and Sentry/PromEx instrumentation into `backend/` when firm workflows require them (`specs/backend.md`).
 
 ## Decision Log Rule
 
 Important infrastructure choices should not live only in chat history or commits.
 
 Create and maintain short ADR-style notes for decisions such as:
-- job queue technology
+- object storage vendor and bucket/key layout (S3 vs R2)
+- `verify.stabileo.com` signing key lifecycle and revocation publication
+- job queue scaling beyond Oban
 - local vs hosted storage boundary
-- solver-run artifact format
-- auth/token model
-- provider routing policy
-- native/server runtime packaging
+- solver-run artifact format and versioning
+- auth/token scoping model (product, admin, remote MCP)
+- provider routing policy for migrated AI routes
+- native/server runtime packaging and sandboxing
 
 Rule:
 - record the decision
@@ -141,439 +125,287 @@ Rule:
 
 ## Cross-Cutting Requirements
 
-These are not one-stage features. They need to shape every infrastructure stage from the start.
+These are not one-stage features. They shape every infrastructure stage from the start.
 
 ### Testing Strategy
 
-- contract tests for backend request/response schemas
-- mocked-provider tests for every AI adapter
-- solver-run artifact round-trip and replay-verification tests
-- deployment smoke tests for health/auth/basic capability paths
-- browser/native/server parity smoke tests where the same contracts cross runtimes
+- ExUnit controller, schema, and real-connection concurrency-invariant tests in `backend/` (advisory locks, row-locked token rotation, unique indices per `specs/backend.md`)
+- contract tests for backend and AI request/response schemas, with mocked providers for every AI adapter
+- solver-run artifact and signed proof-bundle round-trip + offline replay verification tests (`certcheck` WASM vs native)
+- deployment smoke tests for health, auth, Caddy headers/routing, and basic capability paths
+- browser/native/server parity smoke tests where the same engine contracts cross runtimes
 
 ### Privacy and Retention
 
-- define exactly what a solver-run artifact stores
-- define redaction rules for logs and artifacts
-- ensure secrets and provider credentials never appear in logs, artifacts, or error bodies
-- document artifact retention windows for local, hosted, and support workflows
-- make export/import behavior explicit so users understand what they are sharing
+- define exactly what a solver-run artifact and proof bundle store
+- preserve zero-upload defaults for local solving, ETABS/SAP2000 audits, offline verification, and stdio MCP
+- define redaction rules for logs, bug-report artifacts, and AI requests
+- ensure secrets, tokens, and provider credentials never appear in logs, artifacts, Oban job args, or error bodies
+- enforce documented retention windows (e.g., 13-month retention on `usage_events` via `StabileoInsights.Retention`; explicit retention for logs, artifacts, and deleted projects)
+- make export/import and sharing visibility explicit so users always know what leaves their device
 
 ### Versioning Policy
 
-- version backend request/response contracts explicitly
-- version solver-run artifacts explicitly
-- define compatibility policy between frontend, backend, and engine contract versions
+- version backend API routes (`/api/v1/...`), engine interface contracts (`#731`), `.ded` project files (`#730`), and proof/artifact bundles explicitly
+- define compatibility policy between frontend, backend, `verify.stabileo.com`, and engine contract versions
 - treat breaking contract changes as intentional migrations, not casual refactors
-- define rollback expectations when a new contract version is deployed and then reverted
+- define rollback expectations when a new backend release or contract version is deployed and reverted
 
 ### Security Baseline
 
 See the full [Abuse and Security](#abuse-and-security) section below for the detailed threat model, controls, and implementation priority.
 
-- environment-specific CORS policy
-- API key / token scope model
-- rate limiting and abuse controls
-- secret rotation expectations
-- audit logging for hosted/team workflows
-- fail-safe behavior when auth/config is missing or invalid
+- environment-specific CORS allowlist (`CORS_ALLOWED_ORIGINS`) and explicit `TRUSTED_PROXIES` for `X-Forwarded-For`
+- strict separation of product (`app: "app"`), admin (`app: "admin"`), and scoped API/MCP tokens
+- rate limiting and abuse controls on all unauthenticated and expensive routes
+- secret rotation expectations and immediate revocation without redeploy
+- transactional audit logging (`admin_actions`) for all administrative changes
+- fail-safe startup behavior when required config or secrets are missing (`config/runtime.exs`)
 
 ### Storage Decisions
 
-- local persistence boundary: IndexedDB vs local filesystem vs desktop file export
-- hosted persistence boundary: metadata store vs blob store
-- artifact deduplication policy
-- separation between OSS/local storage expectations and hosted/private storage layers
+- local persistence boundary: IndexedDB / browser storage vs local filesystem / Tauri desktop file export
+- hosted persistence boundary: PostgreSQL for metadata/permissions/revisions vs S3/R2 object storage for `.ded` blobs, artifacts, and shared snapshots
+- content-hash deduplication policy for immutable revisions and research snapshots
+- strict separation between OSS/local storage expectations and hosted/private storage layers
 
 ### Cost Controls
 
-- per-capability timeout ceilings
-- per-provider token/model ceilings
-- model routing by quality/cost class
-- fallback rules when the preferred provider fails or is too expensive
-- hosted budget controls before broad AI rollout
+- per-capability timeout ceilings and token/input ceilings on migrated AI routes
+- model routing by quality/cost class and explicit fallback rules when preferred providers fail or exceed budget
+- hosted budget controls and per-account/per-tier quotas before broad AI or remote MCP rollout
+- storage and egress budgets for cloud projects, shared models, and server compute
 
 ### Operational Targets
 
-- define latency targets per capability
-- define acceptable provider failure behavior
-- define replay success expectations for solver-run artifacts
-- define basic availability targets before firms depend on hosted workflows
+- define latency targets per endpoint and AI capability
+- define acceptable provider failure behavior (graceful degradation; solver and editor never depend on backend or AI availability)
+- define replay success expectations for solver-run artifacts and offline proof bundles
+- define availability and RPO/RTO backup targets before firms depend on hosted workflows
 
 ## Abuse and Security
 
-This is a first-class infrastructure concern, not a later-stage polish item. The backend exposes AI-powered endpoints that call paid provider APIs. Attackers will try prompt injection, cost exhaustion via giant payloads, malicious model generation, repeated expensive calls, and attempts to exfiltrate system prompts or internal data.
+This is a first-class infrastructure concern, not a later-stage polish item. Hosted endpoints expose paid AI provider APIs, cloud storage, authentication, signing keys, and—later—remote MCP and compute workers. Attackers will attempt prompt injection, cost exhaustion via giant payloads or zip bombs, malicious model generation, XSS via shared model metadata, credential/token abuse, and key/signature forgery.
 
-The practical rule: validate input, bound cost, limit rate, log safely, treat AI output as untrusted.
+The practical rule: validate input, bound cost and inflation, limit rate, log safely, isolate origins, treat AI and user-model output as untrusted.
 
 ### 1. Strict Input Limits
 
-- **Max request body size** — enforce at the HTTP layer (Axum/tower). Reject before deserialization.
-- **Max artifact size** — `SolverRunArtifact` payloads for `review-model` should have an explicit byte ceiling.
-- **Max prompt/context length** — `build-model` description, `interpret-results` question, `explain-diagnostic` context fields should be bounded.
-- **Max elements/nodes/results in AI requests** — prevent sending a 50,000-element model to `review-model`. Define per-capability limits and reject early.
+- **Max request body size** — enforce at Caddy and `Plug.Parsers` (currently 8 MB default; tighten per-route for AI/JSON endpoints) before deserialization.
+- **Compression inflation ceilings** — enforce bounded decompression (as `StabileoProjects.Content` already enforces 5 MB compressed / 50 MB inflated) on every compressed upload or artifact.
+- **Max artifact, prompt, and model size** — bound `SolverRunArtifact` byte size, prompt/context lengths, and max nodes/elements/results accepted by AI or remote MCP routes. Reject early before calling any provider or worker.
 
 ### 2. Rate Limiting
 
-- **Per IP** — basic flood protection at the HTTP layer.
-- **Per API key** — the real rate-limit dimension for authenticated callers.
-- **Per capability** — `build-model` and `review-model` are expensive (high token count); `explain-diagnostic` is cheap. Rate limits should reflect cost.
-- **Stricter on expensive routes** — AI review of a large model costs 10-100x more than a diagnostic explanation. Rate limits and burst allowances should differ accordingly.
-- **Backpressure signaling** — return `429 Too Many Requests` with `Retry-After` header so clients can back off cleanly.
+- **Per IP** — flood protection on open endpoints (already live on `/api/v1/insights/events` and `/api/v1/marketing/activity` via `StabileoUtils.Plugs.RateLimit`; extend across auth, signing, and public share routes, and move beyond single-node in-memory ETS when running multiple nodes).
+- **Per account / scoped API token** — primary rate-limit dimension for authenticated AI, cloud storage, signing, and remote MCP callers.
+- **Per capability** — expensive routes (`build-model`, `review-model`, remote batch solves) carry much tighter rate and burst limits than cheap routes (`explain-diagnostic`, digest signing).
+- **Backpressure signaling** — return `429 Too Many Requests` with `Retry-After` so clients back off cleanly.
 
 ### 3. Timeouts and Cost Ceilings
 
-- **Provider timeout** — DONE. Configurable via `PROVIDER_TIMEOUT_SECS`, default 90s.
-- **Token ceilings** — set `max_tokens` per capability (already done in prompts). Also enforce a hard ceiling on input tokens by estimating before sending.
-- **Per-request budget limits** — reject requests whose estimated token cost exceeds a configurable threshold.
-- **Provider fallback rules** — define behavior when the preferred provider is down, slow, or over budget. Degrade to a cheaper model, return a clear error, or queue for retry — never silently burn money on retries to an expensive provider.
+- **Provider timeout** — preserve configurable per-provider timeout (90s baseline from `ai-backend/`) when porting AI routes into `backend/`.
+- **Token ceilings** — enforce both output `max_tokens` and pre-flight input-token ceilings per capability.
+- **Per-request and per-account budget limits** — reject calls whose estimated token cost exceeds configured thresholds.
+- **Provider fallback rules** — degrade cleanly to a cheaper model or clear error; never silently burn budget retrying an expensive failing provider.
 
-### 4. Authentication Hardening
+### 4. Authentication and Signing Key Hardening
 
-- **Rotate keys** — define a rotation cadence. Current single `DEDALIANO_API_KEY` is a bootstrap mechanism, not a long-term auth model.
-- **Separate dev/staging/prod keys** — never share credentials across environments.
-- **Scoped tokens (later)** — move from one global bearer to per-user or per-team tokens with capability scopes.
-- **Key revocation** — ability to revoke a compromised key immediately without redeploying.
+- **Separate token audiences** — preserve `app: "app"` vs `app: "admin"` isolation (`stabileo_auth`) and add distinct scopes for remote MCP / API tokens (retiring the legacy single `DEDALIANO_API_KEY` static bearer as `ai-backend/` is removed).
+- **Separate dev/staging/prod secrets** — never share `SECRET_KEY_BASE`, `JWT_SECRET`, OAuth clients, AI keys, or Ed25519 signing keys across environments.
+- **Key rotation and revocation** — rotate signing and API keys on a defined cadence; revoke compromised user sessions (`force-logout`), API tokens, or signing keys immediately without redeploying; publish key-revocation metadata for `verify.stabileo.com`.
 
 ### 5. Validation and Sanitization
 
-- **Reject malformed/oversized artifacts** — deserialize into typed structs (already done), but also enforce size and structural limits before the AI call.
-- **Reject unsupported schema versions** — when versioned contracts land, reject unknown or too-old versions explicitly.
-- **Never trust frontend-provided metadata blindly** — model counts, solver paths, and diagnostic codes should be re-derived or validated, not taken at face value from the request.
+- **Typed deserialization & schema rejection** — validate every payload against versioned schemas and reject unknown/unsupported versions explicitly.
+- **Re-derive authoritative metadata** — never trust frontend-provided diagnostic codes, solver paths, or certification claims blindly; verify signatures and digests server-side or inside `certcheck`.
+- **Untrusted model text** — escape/sanitize all user-supplied names, notes, and shared-model strings (`stabileo.com/m/<id>`) to prevent stored XSS.
 
 ### 6. Abuse-Aware Logging
 
-- **Request IDs** — every request gets a UUID, propagated to provider calls and responses. NOT DONE yet.
-- **Structured fields** — log provider, model, capability, latency, input/output tokens, error class, HTTP status.
-- **Never log secrets** — API keys, bearer tokens, and provider credentials must never appear in logs, error bodies, or artifacts.
-- **Never log full sensitive payloads by default** — log sizes and metadata, not full artifact JSON or AI responses. Enable verbose logging only in dev/debug modes.
-- **Detect abuse patterns** — repeated 429s from one key, sudden token-count spikes, requests with suspiciously large payloads.
+- **Request IDs** — propagate `x-request-id` across Caddy, Phoenix logs, Oban jobs, and outbound provider calls.
+- **Structured fields** — log request ID, endpoint/capability, provider/model, latency, token counts, payload size, error class, and HTTP status.
+- **Never log secrets or raw model payloads** — redact authorization headers, tokens, OAuth codes, provider keys, and raw `.ded` / artifact bodies by default.
+- **Detect abuse patterns** — alert on repeated 429s, OAuth/auth failure bursts, sudden token-spend spikes, or oversized upload attempts.
 
 ### 7. Safe AI Output Handling
 
-- **Never let model output directly execute actions** — AI responses are data, not commands. No `eval()`, no direct code execution.
-- **Generated model JSON must be validated before import** — `build-model` returns a `Value`; the frontend must validate it against the `ModelSnapshot` schema before loading. Malicious or malformed JSON from the AI should be caught and rejected.
-- **Explanations and reviews are advisory, not authoritative** — the UI must make this clear. AI output should never override solver results or bypass safety checks.
-- **Strip or escape AI output in UI rendering** — prevent XSS if AI returns HTML/script fragments in text fields.
+- **Never execute AI output directly** — AI responses are data, not code (`eval()` / unvalidated execution forbidden).
+- **Validate generated model JSON on both backend and frontend** — validate `build-model` and MCP edit outputs against the canonical model schema and run pre-solve sanity/mechanism checks before loading.
+- **Advisory by design** — AI reviews and explanations are visibly advisory and never override certified solver bounds or containment refusals.
+- **Escape AI text in UI rendering** — prevent XSS from HTML/script fragments in model responses.
 
-### 8. CORS and Origin Policy
+### 8. CORS, CSP, and Origin Policy
 
-- **Tight allowlist in production** — only `stabileo.com`, `dedaliano.com`, and explicitly listed origins.
-- **No wildcard convenience in hosted mode** — `Access-Control-Allow-Origin: *` is acceptable only in local dev, never in staging or production.
-- **Review CORS config on every deployment** — treat origin policy as a security-critical config, not a convenience toggle.
+- **Tight allowlist in production** — `CORS_ALLOWED_ORIGINS` on authenticated `backend/` APIs is restricted strictly to production app and admin origins (`stabileo.com` and admin domain); no wildcard `*` on authenticated APIs, and **`verify.stabileo.com` is kept out of the authenticated-API CORS allowlist** so untrusted dropped bundles never gain cross-origin access to authenticated endpoints.
+- **Separate unauthenticated read-only feed** — serve the public advisory and key-revocation JSON snapshots from a dedicated unauthenticated static/read-only endpoint with its own read-only CORS policy for `verify.stabileo.com`'s optional online freshness check.
+- **Origin isolation** — keep `verify.stabileo.com` and `snapshots.stabileo.com` on dedicated origins with strict CSP so untrusted user/historical bundles cannot share cookies or storage with the main app or admin site.
+- **Review origin and proxy config on every deploy** — verify `CORS_ALLOWED_ORIGINS`, `TRUSTED_PROXIES`, and Caddy headers on every environment promotion.
 
 ### 9. Storage and Privacy Controls
 
-- **Retention windows** — define how long artifacts, logs, and AI request/response records are kept in each environment.
-- **Export/import clarity** — users must understand what data leaves the system when they export an artifact or share a bug report.
-- **Redaction for hosted bug-report artifacts** — strip or redact sensitive fields (user-provided context, custom notes) before artifacts leave the user's control.
-- **No ambient data collection** — do not send telemetry, model data, or usage metrics to third parties without explicit user consent.
+- **Retention windows** — enforce documented deletion schedules (`usage_events` 13 months; defined TTLs for logs, temporary artifacts, revoked shares, and soft-deleted projects).
+- **Export/import and sharing clarity** — make it unmistakable when data stays local vs uploads to Stabileo servers; default shared links to private.
+- **Redaction for support artifacts** — strip or redact personal/project context before uploading bug-report artifacts.
+- **Consent-gated telemetry & marketing** — keep `usage_telemetry_enabled` and advertising tracking strictly gated by user consent and runtime flags (`specs/services/insights.md`, `specs/services/marketing.md`).
 
 ### 10. Incident Handling
 
-- **Detect abuse patterns** — automated alerts for token-count spikes, repeated failures, unusual request volumes.
-- **Temporarily disable a provider/capability** — feature flags or config toggles to turn off a specific AI capability or provider without redeploying.
-- **Revoke keys** — immediate key revocation path, documented and tested.
-- **Degrade gracefully instead of going down** — if AI providers are unavailable, the solver, model editor, and all non-AI workflows must continue working. AI features show clear "unavailable" state, not broken UI.
-- **Post-incident review** — document what happened, what was exploited, and what changed. Treat security incidents as learning events, not blame events.
+- **Abuse & outage detection** — automated alerts on token spikes, 5xx bursts, Oban dead letters, and health-check failures.
+- **Runtime kill switches** — extend `system_settings` feature flags (`stabileo_auth` admin UI) to disable individual AI capabilities, providers, remote MCP, or cloud writes live without redeploying.
+- **Immediate revocation** — tested runbooks to revoke user sessions, API tokens, or signing keys.
+- **Graceful degradation** — if `backend/`, object storage, or AI providers go down, the browser WASM solver, local `.ded` save/open, and offline `verify.stabileo.com` continue working unaffected.
+- **Post-incident review** — document root cause, impact, and permanent preventive guards after every security or operational incident.
 
-### AI-Specific Threat Model
-
-Assume attackers will attempt:
+### Threat Model Summary
 
 | Attack | Mitigation |
 |--------|------------|
-| Prompt injection (manipulate AI behavior via crafted input) | Input length limits, structured prompts with clear boundaries, never embed raw user input in system prompts without framing |
-| Giant payloads for cost exhaustion | Request body size limits, per-capability token ceilings, rate limiting |
-| Malicious model JSON generation | Validate `build-model` output against ModelSnapshot schema before import, reject unknown fields |
-| Repeated expensive calls | Per-key and per-capability rate limits, backpressure via 429 |
-| System prompt exfiltration | System prompts are not secret (they're in the codebase), but do not echo them in responses. AI responses are parsed into structured fields, not returned raw |
-| Internal data exfiltration via AI | AI capabilities receive only the data explicitly passed in the request. No ambient access to other users' data, server state, or provider credentials |
+| Prompt injection via crafted model/text | Input length limits, structured prompts with explicit boundaries, curated action/tool registry instead of raw model synthesis |
+| Giant payloads / zip bombs / cost exhaustion | Caddy & `Plug.Parsers` body limits, bounded gzip inflation (`StabileoProjects.Content`), per-capability token ceilings, per-account rate limits |
+| Malicious AI-generated model JSON | Strict schema validation backend + frontend, reject unknown fields, pre-solve sanity/mechanism gate before apply |
+| Forged or silently edited `Memoria` / proof bundle | `certcheck` WASM re-verifies mathematical bounds directly from the embedded proof bundle; per-firm PKI or authenticated Ed25519 attestation binding `(signer_id, server_timestamp, key_id, canonical_digest)` + mandatory append-only transparency log detects post-issuance edits and re-signing |
+| Stored XSS via shared model (`stabileo.com/m/<id>`) or AI text | Strict output escaping, CSP, isolated origins (`snapshots.stabileo.com`, `verify.stabileo.com`), URL validation (`model_link` allowlist) |
+| Cross-app privilege escalation (product → admin) | Separate `app: "app"` / `app: "admin"` JWT claims, Google Workspace `hd` + `admin_allowed_emails` re-checked on every request |
+| Multi-tenant data leak / ID enumeration | Owner-scoped queries returning 404 (never 403) on foreign IDs, tenant-isolated remote MCP/worker sandboxes, private-by-default shares |
+| Repeated expensive API / AI calls | Per-IP, per-account, and per-capability rate limits returning `429` + `Retry-After`, runtime kill switches in `system_settings` |
 
-### Implementation Priority
+### Hardening Priority
 
-These should land roughly in this order:
-
-1. **Request body size limit** — tower middleware, single line of config. Blocks the cheapest attack.
-2. **Per-capability input field limits** — validate before calling the provider. Prevents cost exhaustion.
-3. **Request IDs** — needed for all abuse detection and logging.
-4. **Rate limiting** — per-key, per-capability. Use `tower-governor` or equivalent.
-5. **AI output validation for `build-model`** — validate generated model JSON before frontend import.
-6. **Structured logging** — provider/model/tokens/latency/error-class per request.
-7. **Startup config validation** — fail fast on missing keys, invalid provider names.
-8. **Scoped tokens and key rotation** — replace single global bearer.
-9. **Provider disable toggles** — feature flags for incident response.
-10. **Abuse pattern detection** — alerting on anomalous traffic.
+1. **Port `ai-backend/` routes into `backend/` (Elixir umbrella)** with strict per-route body limits, per-capability field bounds, and `system_settings` kill switches — eliminating the legacy single-key Axum surface.
+2. **Request IDs and structured JSON logging** across Caddy and Phoenix (`backend/`), redacting secrets and raw payloads.
+3. **Per-account & per-capability rate limiting** (moving beyond single-node in-memory IP buckets as traffic grows).
+4. **AI output validation for `build-model`** on both backend and frontend before canvas import.
+5. **Authenticated timestamped digest attestation, transparency log & key-revocation feeds** + isolated `verify.stabileo.com` static origin for Wave 2 (keeping `verify.stabileo.com` out of the authenticated-API CORS allowlist).
+6. **Object storage (S3/R2) migration** for `stabileo_projects` and `stabileo.com/m/<id>` with inflation caps and revocation deletion.
+7. **Staging environment + PromEx/Sentry alerting + tested deploy/rollback & DB backup restore** (`#385`).
+8. **Scoped API tokens & tenant isolation** for opt-in remote `stabileo-mcp` and later server compute workers.
 
 ## Ownership and Operations
 
 Infrastructure work should have explicit ownership, even in a small team.
 
 At minimum, define who owns:
-- deploys and rollback execution
-- provider outage response
-- artifact retention policy
-- contract/schema migrations
-- support replay flows
+- deploys, staging promotion (`#385`), and rollback execution
+- Caddy / TLS / DNS (`stabileo.com`, admin, `verify.stabileo.com`, `snapshots.stabileo.com`)
+- PostgreSQL and object-storage backups and restore drills
+- provider outage response and `system_settings` kill switches
+- signing key rotation and revocation publication
+- artifact and telemetry retention policies
+- contract/schema migrations and support replay flows
 - production secret rotation
 
 If ownership is shared, write down the handoff rules instead of assuming them.
 
 ## Production Readiness Checklist
 
-Before calling a hosted infrastructure surface production-ready, it should have:
+Before calling any hosted infrastructure surface production-ready, it should have:
 
-- health checks
-- request IDs
-- structured logs
-- timeout and retry policy
-- rate limiting
-- startup config validation
-- secret-management story
-- replay/artifact round-trip verification
-- rollback tested at least once
-- basic backup/restore story for persisted hosted state
+- `/api/v1/health` checks and external uptime monitoring
+- propagated request IDs and structured logs (secrets/payloads redacted)
+- timeout, retry, and cost-ceiling policy for external providers
+- per-IP, per-account, and per-capability rate limiting
+- fail-fast startup config validation (`config/runtime.exs`)
+- secret-management and rotation runbook (including signing keys)
+- automated replay/artifact and offline `certcheck` round-trip verification
+- staging promotion and rollback tested at least once (`#385`)
+- verified backup and restore drill for PostgreSQL and object storage
 
 ## Environment Matrix
 
-Infrastructure should be designed explicitly for these environments:
+Infrastructure is designed explicitly for these environments:
 
-- `local dev`
-  Fast iteration, mocked providers where useful, low ceremony.
-
-- `preview / PR`
-  Smoke-test deployments for API, auth, and capability contract checks.
-
-- `staging`
-  Production-shaped config and routing with safe data boundaries.
-
-- `production`
-  Strict secrets, logging, alerting, retention, and rollback discipline.
-
-- `desktop / local-only`
-  Same contracts, different persistence/runtime assumptions.
-
-- `private / on-prem` later
-  Provider substitution, local persistence, and enterprise controls without forking contracts.
+- **`local dev`** — Nix + `Makefile`, `StabileoAuth.DevGoogle`, mocked AI providers, low ceremony.
+- **`preview / PR`** — smoke-test builds for API, auth, Caddy routing, and contract checks.
+- **`staging`** — production-shaped Elixir/Phoenix + PostgreSQL + Caddy + object storage with safe data boundaries (`#385`).
+- **`production`** — strict secrets, CORS/origin isolation, structured logging, alerting, retention, backups, and rollback discipline.
+- **`desktop / local-only` (Tauri, CLI, local stdio MCP)** — identical engine/artifact contracts, zero backend dependency for core engineering workflows.
+- **`private / on-prem` (later)** — per-firm PKI signing, provider substitution, local persistence, and enterprise controls without forking contracts.
 
 ## What Infrastructure Must Not Do Yet
 
-- do not split into premature microservices
-- do not fork desktop into a separate product
-- do not bake provider-specific logic into product-facing capability contracts
-- do not add heavy workflow engines before real batch demand exists
-- do not make hosted/private persistence a hidden requirement for core OSS contracts
+- do not split the Elixir umbrella into premature microservices
+- do not fork Tauri desktop into a separate product or duplicate engine code
+- do not bake provider-specific logic into product-facing AI capability contracts
+- do not add separate queue/workflow platforms before PostgreSQL + Oban reaches real limits
+- do not make hosted persistence, accounts, or remote MCP a hidden requirement for core OSS local solving or offline verification
 
 ## Stages
 
-### Stage 1 — Service Foundations
+### Stage 1 — Core Backend & Edge Foundations
 
-Goal: establish a minimal but production-shaped backend surface.
+Goal: run a clean, production-shaped Elixir/Phoenix umbrella + PostgreSQL + Caddy edge supporting accounts, admin controls, cloud projects, insights, and marketing behind runtime switches.
 
-Current status: MOSTLY DONE. Backend workspace, provider abstraction, auth, health, timeout guard, all 4 capability endpoints, and provider-agnostic tool-calling exist and are locally verified. Remaining work is startup validation, stronger structured logging, and broader capability/contract hardening.
+Current status: **MOSTLY DONE.** `backend/` umbrella (`stabileo_auth`, `stabileo_projects`, `stabileo_insights`, `stabileo_marketing`, `stabileo_web`), `infra/caddy/Caddyfile` (zstd/gzip + precompressed br, immutable asset caching, 8 locales), Oban, and transactional admin audit logging are implemented and tested. Remaining: staging environment promotion (`#385`), PromEx/Sentry observability, and migrating/deleting legacy `ai-backend/`.
 
-**What:**
-- backend workspace layout and shared contracts with `engine/`
-- configuration via env
-- auth middleware
-- health endpoint
-- provider abstraction for AI capabilities
-- stable capability endpoints for `review-model`, `explain-diagnostic`, `build-model`, and `interpret-results`
-- clean error mapping and HTTP boundaries
+### Stage 2 — Reproducibility, Proof Bundles & Offline Verification (`verify.stabileo.com`)
 
-**Done when:**
-- service boots locally with one command
-- auth works consistently
-- provider selection is env-driven
-- all current AI capabilities are live behind stable request/response contracts
+Goal: make solver runs and certified reports reproducible, tamper-evident, and verifiable offline without uploading confidential models.
 
-### Stage 2 — Reproducibility and Supportability
+Current status: **IN PROGRESS.** Engine-level provenance, results-change registry (`testing/docs/PROVENANCE.md`), and certificate checkers exist. Remaining: product-side artifact capture/export/replay flows, <150 KB `certcheck` WASM hosted on `verify.stabileo.com`, authenticated timestamped Ed25519 digest attestation + append-only transparency log + key-revocation publication in `backend/` (plus per-firm PKI), and separate unauthenticated public advisory/revocation JSON feeds.
 
-Goal: make solver runs attachable, replayable, and debuggable across product and support workflows.
+### Stage 3 — Security, Observability & Abuse Hardening
 
-Current status: PARTIALLY DONE. The engine-level artifact contract exists, but product capture/export/import/replay flows and request-linked support tooling do not.
+Goal: make hosted routes diagnosable, bounded against cost/payload abuse, and safe to roll out widely.
 
-**What:**
-- stable solver-run artifact contract
-- build/version metadata in artifacts
-- output fingerprints for replay verification
-- artifact capture on solve
-- export/import flow for bug reports
-- support/reviewer replay flow
-- request IDs and traceable logs
+Current status: **PARTIALLY DONE.** `config/runtime.exs` fail-fast env checks, token separation, `StabileoProjects.Content` inflation bounds, `system_settings` switches, and basic IP rate limiting exist. Remaining: propagated request IDs, structured JSON logging, PromEx/Sentry metrics and alerts, distributed/per-account/per-capability rate limits, and AI route hardening during the `ai-backend/` → `backend/` port.
 
-**Done when:**
-- a user can attach a solver run to a bug report
-- support can replay the same artifact deterministically
-- backend logs can correlate request ID, provider, model, and artifact metadata
+### Stage 4 — Object Storage, Shared Models & Desktop Packaging
 
-### Stage 3 — Trust and Observability
+Goal: scale persisted project/snapshot storage beyond Postgres `bytea` and support offline desktop workflows without forking contracts.
 
-Goal: make backend and solver-powered workflows observable enough for real use.
+Current status: **EARLY.** Cloud projects currently store gzipped `.ded` in Postgres `bytea` (`specs/services/projects.md`); desktop plan exists (`#728`). Remaining: S3/R2 object storage migration, `stabileo.com/m/<id>` (`model_revisions`, `shares`, `forks`) with private-by-default permissions, `snapshots.stabileo.com` DNS (`#777`), IndexedDB/local artifact persistence, and signed Tauri desktop packaging.
 
-Current status: EARLY. Basic health/error mapping exists, but request IDs, structured logs, metrics, rate limiting, retry policy, and startup validation are still missing.
+### Stage 5 — Native / Server Solve Path & Ecosystem Runtime
 
-**What:**
-- structured request logging
-- per-capability latency/error metrics
-- provider failure classification
-- rate limiting
-- timeouts and retry policy by provider
-- startup validation for config/provider/API keys
-- audit-safe logging policy
+Goal: share one versioned Rust engine contract (`#731`) across browser WASM, local CLI / stdio `stabileo-mcp` / PyO3, and sandboxed native server workers.
 
-**Done when:**
-- failures are diagnosable without guessing
-- provider outages degrade clearly
-- abusive traffic is bounded
-- config mistakes fail fast at startup
-
-### Stage 4 — Local Persistence and Desktop Packaging
-
-Goal: support offline-heavy and desktop-heavy workflows without forking the product.
-
-Current status: NOT STARTED. Some local/container setup exists, but artifact persistence and desktop packaging are not yet integrated as user workflows.
-
-**What:**
-- IndexedDB/local artifact persistence
-- artifact export/import from the UI
-- Tauri desktop packaging
-- local file integration
-- shared contracts between browser and desktop
-- native settings / update flow
-
-**Done when:**
-- a user can capture and reopen artifacts locally
-- desktop uses the same product surface and contracts as web
-- offline review/debug flows are practical
-
-### Stage 5 — Native / Server Solve Path
-
-Goal: establish a first maintained non-browser execution path for heavy or long-running work.
-
-Current status: NOT STARTED. The contracts point in this direction, but there is no named maintained path yet.
-
-**What:**
-- named native/server execution path
-- shared input/output contracts with WASM/browser
-- backend solve endpoint or worker path for long-running jobs
-- runtime parity checks between browser and native/server
-- documented solve routing rules
-
-**Done when:**
-- at least one native/server path is maintained and tested
-- heavy models have a documented recommended runtime
-- browser/native results match on representative workflows
+Current status: **NOT STARTED.** Remaining: versioned engine interface (`#731`), local stdio `stabileo-mcp` + `pip install stabileo` packaging, opt-in authenticated remote MCP tier (scoped tokens, quotas, tenant isolation), sandboxed native/server solve worker for >100k-DOF models, and browser/native parity smoke coverage.
 
 ### Stage 6 — Batch and Job Orchestration
 
-Goal: enable workloads that are too large or too numerous for interactive-only execution.
+Goal: enable long-running or multi-variant workloads (optimization sweeps, portfolio runs, public challenges) without keeping a browser tab open.
 
-Current status: NOT STARTED.
+Current status: **FOUNDATION ONLY.** Oban runs in `backend/` for marketing conversions. Remaining: artifact-backed batch jobs, resource-capped worker pool, progress/cancellation APIs, idempotency keys, and dead-letter handling.
 
-**What:**
-- job queue
-- worker execution model
-- artifact-backed batch runs
-- retryable long-running jobs
-- progress reporting
-- cancellation
-- scenario sweeps / comparison jobs
-- idempotency and replay semantics
-- dead-letter / failed-job handling
+### Stage 7 — AI Service Runtime Migration & Governance
 
-**Done when:**
-- batch runs do not depend on a browser tab staying open
-- long-running jobs are observable and cancellable
-- product can request comparison/batch workflows through stable APIs
+Goal: consolidate hosted AI capabilities inside `backend/`, keeping them safe, provider-agnostic, observable, and cost-bounded.
 
-### Stage 7 — AI Service Runtime
-
-Goal: keep the AI service safe, observable, provider-agnostic, and product-ready as capabilities expand.
-
-Current status: PARTIALLY DONE. The backend AI service is real and tested, but rollout controls, observability, request governance, and frontend/product integration are still incomplete.
-
-**What:**
-- separate capability endpoints with stable contracts
-- provider-agnostic routing and model selection
-- timeout guards, retry policy, and cost ceilings
-- per-capability feature flags and rollout controls
-- request IDs, structured logs, metrics, and traces
-- provider outage handling and kill switches
-- artifact-aware request validation and schema/version checks
-- frontend/product wiring on top of the same stable APIs
-- capability-level evals and traces
-
-AI capability order, build-model scope, and capability-specific product behavior live in:
-- [`AI_ROADMAP.md`](AI_ROADMAP.md)
-
-**Done when:**
-- capabilities remain distinct contracts, not prompt modes hidden behind one endpoint
-- provider swaps do not change product-layer APIs
-- rollout/kill-switch controls exist per capability and provider
-- eval/tracing exists per capability
-- the AI service can degrade safely under provider outages, abuse, or budget pressure
+Current status: **IN MIGRATION.** Legacy `ai-backend/` (Rust/Axum) implements 4 capabilities (`review-model`, `explain-diagnostic`, `build-model`, `interpret-results`) with 75 tests and 90s timeout guards. Remaining: port capability routes into an Elixir app in `backend/`, delete `ai-backend/`, wire remaining Query/Explain tabs where needed, add per-capability budgets/evals/kill switches, and maintain strict input/output validation. Capability order lives in [`AI_ROADMAP.md`](AI_ROADMAP.md).
 
 ### Stage 8 — Firm and Team Infrastructure
 
-Goal: support office workflows, review flows, and hosted/private value layers.
+Goal: support engineering office workflows, review records, and hosted/private enterprise value layers without distorting OSS contracts.
 
-Current status: NOT STARTED.
-
-**What:**
-- artifact/history retention policies
-- project-scoped review records
-- office templates and standards storage
-- permissions and tenancy
-- admin controls
-- usage tracking and quotas
-
-**Done when:**
-- teams can use shared workflows safely
-- private/hosted features sit on explicit infrastructure boundaries
-- enterprise controls do not distort the core product architecture
+Current status: **NOT STARTED.** Remaining (per `specs/backend.md`): organizations, roles/permissions, team review records, office templates/standards storage, per-firm PKI signing, transactional email (verification, advisories `#727`), usage quotas/billing, and private/on-prem deployment packaging.
 
 ### Stage 9 — Deployment Discipline and Resilience
 
-Goal: stop infrastructure quality from depending on luck and local setup.
+Goal: make releases, migrations, backups, and rollbacks repeatable and tested rather than manual.
 
-Current status: EARLY. Local container/Nix/dev bootstrap exists, but promotion rules, migration/rollback discipline, and production-ready health gates are still open.
-
-**What:**
-- environment matrix: local, preview, staging, production, desktop/local-only, and later private/on-prem
-- environment promotion rules
-- migration/version discipline
-- secret management
-- rollback playbooks
-- deployment health gates
-- backup/restore for persisted hosted state
-
-**Done when:**
-- deployments are repeatable
-- rollbacks are predictable
-- production changes are traceable and reversible
+Current status: **EARLY.** Caddyfile, Nix/Makefile, and Ecto migration safety checks exist. Remaining: staging environment promotion (`#385`), Ansible/Caddy deploy automation, CDN/edge cache purge rules, tested rollback playbooks, and scheduled PostgreSQL + object-storage backup/restore drills.
 
 ## Near-Term Priority
 
-The next infrastructure sequence should be:
+Ordered to align with Wave 0–2 product execution:
 
-1. ~~add `explain-diagnostic`, `build-model`, `interpret-results` backend capabilities~~ — DONE. All 4 AI capabilities are live with 75 backend tests.
-2. ~~frontend integration: review-model~~ — DONE. Stabileo AI drawer with Review tab, tested end-to-end with GPT-4o.
-3. ~~frontend integration: wire Build tab to backend~~ — DONE. Conversational build/edit flow is wired end-to-end.
-4. frontend integration: wire remaining drawer tabs (Query, Explain) to existing backend endpoints
-5. add input validation, request size limits, and per-capability field bounds — blocks cheapest attacks before broadening usage
-6. add rate limiting (per-key, per-capability) and request IDs — required before any production traffic
-7. add AI output validation for `build-model` — generated model JSON must be validated before frontend import
-8. finish `Stage 2` product-side flows for solver-run artifacts
-8. harden `Stage 3` observability/startup validation/structured logging
-9. define storage boundary and API/artifact versioning policy
-10. only then broaden into desktop persistence and native/server solve packaging
+1. **Staging promotion, deploy/rollback playbook, and DB backup/restore drill (`#385`)** — operational safety baseline for production releases.
+2. **WASM delivery hygiene (`#1072`, `#1466`)** — release profile for app WASM, determinism-gated `wasm-opt`, streaming compile, and CI size gate; resolve CDN / edge-cache purge policy.
+3. **Request IDs, structured logs, and Sentry/PromEx observability** across Caddy and `backend/`.
+4. **Port `ai-backend/` into `backend/` (Elixir umbrella) and delete `ai-backend/`** — with strict body/field limits, per-account/per-capability rate limits, token ceilings, `build-model` schema validation, and `system_settings` provider kill switches.
+5. **Wave 2 `verify.stabileo.com` static origin + authenticated timestamped Ed25519 attestation, transparency log & separate unauthenticated advisory/revocation feeds (`#499`, `#346`)** — zero-upload proof-carrying `Memoria` verification.
+6. **Object storage (S3/R2) migration** — move `.ded` blobs out of Postgres `bytea` for `stabileo_projects` and back `stabileo.com/m/<id>` immutable revisions + `snapshots.stabileo.com` DNS (`#777`).
+7. **Product-side solver-run artifact capture, export/import, and support replay flows** (Stage 2).
+8. **Conditional COOP/COEP header rollout** in `infra/caddy/Caddyfile` if WASM `SharedArrayBuffer` threads are adopted (after OAuth popup and embed audit).
+9. **Scoped API tokens, quotas, and tenant isolation** for the opt-in remote `stabileo-mcp` tier (after local stdio `stabileo-mcp` + `#731`).
+10. **Desktop persistence & signed Tauri packaging (`#728`)** on the shared web/WASM contracts.
+11. **Sandboxed native/server solve workers, Oban batch jobs, and firm tenancy (organizations/roles/email `#727`)** for Wave 3.
 
 ## What This Unblocks
 
-- reproducible bug reports
-- support and reviewer replay workflows
-- provider-agnostic AI services
-- safer hosted/private product layers
-- desktop and native/server parity
-- future batch, optimization, and cloud comparison workflows
+- zero-upload offline verification of signed calculation reports (`verify.stabileo.com`)
+- scalable cloud projects and immutable shared models (`stabileo.com/m/<id>`)
+- a single hardened Elixir/Phoenix backend with unified auth, kill switches, rate limits, and observability
+- reproducible bug reports and deterministic support/reviewer replay
+- safe opt-in remote MCP, desktop parity, and future batch/cloud compute workflows

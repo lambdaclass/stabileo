@@ -6,6 +6,7 @@ const SETTING_LABEL: Record<string, string> = {
   usage_telemetry_enabled: 'admin.settings.usageTelemetry',
   cloud_projects_enabled: 'admin.settings.cloudProjects',
   save_requires_account: 'admin.settings.saveRequiresAccount',
+  editor_requires_account: 'admin.settings.editorRequiresAccount',
   cloud_projects_limit: 'admin.settings.projectLimit',
 };
 

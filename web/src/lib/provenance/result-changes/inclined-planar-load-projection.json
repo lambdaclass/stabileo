@@ -1,0 +1,38 @@
+{
+  "id": "inclined-planar-load-projection",
+  "date": "2026-11-24",
+  "prs": [2539],
+  "area": "analysis",
+  "when": {
+    "all": ["plane2D", "analysis:nonlinear", "inclinedSupports"]
+  },
+  "quantities": [
+    "solve.ok", "displacements", "reactions", "elementForces", "constraintForces",
+    "steps", "finalLoadFactor", "loadFactor", "converged", "iterations",
+    "totalIterations", "rejectedIterations", "maxDisplacement"
+  ],
+  "title": {
+    "en": "Preserve planar nonlinear loads at inclined rollers",
+    "es": "Conservar las cargas del análisis no lineal plano en rodillos inclinados",
+    "pt": "Preservar as cargas da análise não linear plana em apoios móveis inclinados",
+    "de": "Lasten an geneigten Rollenlagern bei ebener nichtlinearer Analyse erhalten",
+    "fr": "Préserver les charges aux appuis roulants inclinés en analyse non linéaire plane",
+    "hu": "A terhek megőrzése ferde görgős támaszoknál síkbeli nemlineáris számításban",
+    "tr": "Düzlemsel doğrusal olmayan analizde eğik makaralı mesnetlerde yükleri koru",
+    "zh": "保留平面非线性分析中倾斜滚动支座处的荷载"
+  },
+  "explanation": {
+    "en": "Planar arc-length and co-rotational analyses project assembled load patterns onto the inclined support axes before rounding. Small tangential loads are preserved alongside large normal loads.",
+    "es": "Los análisis de longitud de arco y corrotacional planos proyectan los patrones de carga ensamblados sobre los ejes del apoyo inclinado antes de redondear. Así se conservan las cargas tangenciales pequeñas junto a las cargas normales grandes.",
+    "pt": "As análises planas de comprimento de arco e corrotacional projetam os padrões de carga montados nos eixos do apoio inclinado antes do arredondamento. Assim, preservam pequenas cargas tangenciais na presença de grandes cargas normais.",
+    "de": "Ebene Bogenlängenverfahren und korotationale Analysen projizieren die assemblierten Lastmuster vor dem Runden auf die Achsen des geneigten Lagers. Kleine Tangentiallasten bleiben neben großen Normallasten erhalten.",
+    "fr": "Les analyses planes par longueur d’arc et corotation projettent les chargements assemblés sur les axes de l’appui incliné avant l’arrondi. Les faibles charges tangentielles sont ainsi conservées en présence de fortes charges normales.",
+    "hu": "A síkbeli ívhossz- és korotációs számítás az összeállított terhelési mintákat kerekítés előtt vetíti a ferde támasz tengelyeire. Így nagy normálirányú terhek mellett is megmaradnak a kis érintőirányú terhek.",
+    "tr": "Düzlemsel yay uzunluğu ve eş dönel analizler, birleştirilmiş yük düzenlerini yuvarlamadan önce eğik mesnet eksenlerine izdüşürür. Büyük normal yüklerin yanında küçük teğetsel yükler de korunur.",
+    "zh": "平面弧长法和共旋分析在舍入前将组装的荷载模式投影到倾斜支座的轴线上，从而在法向荷载很大时保留较小的切向荷载。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-inclined-planar-load-projection.md",
+    "heading": "Preserve planar nonlinear loads at inclined rollers (2026-11-24)"
+  }
+}

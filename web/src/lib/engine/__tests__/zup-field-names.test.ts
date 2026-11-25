@@ -99,7 +99,8 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     const selectedEntityPanel = readFileSync(new URL('../../../components/floating-tools/SelectedEntityPanel.svelte', import.meta.url), 'utf8');
     const nodeDetails = readFileSync(new URL('../../../components/property/NodeDetails.svelte', import.meta.url), 'utf8');
     const loadsTable = readFileSync(new URL('../../../components/tables/LoadsTable.svelte', import.meta.url), 'utf8');
-    const whatIfPanel = readFileSync(new URL('../../../components/WhatIfPanel.svelte', import.meta.url), 'utf8');
+    // Explore delegates load formatting to this shared module.
+    const whatIfLoadLabel = readFileSync(new URL('../../whatif/load-label.ts', import.meta.url), 'utf8');
     // The PRO report's load table. F5 moved `serializeLoads` out of `ProPanel.svelte` and into
     // `pro-report-inputs.ts`; the requirement — a report never prints a raw `fy`/`mz` alias —
     // follows the code rather than the filename.
@@ -111,7 +112,7 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
       ['SelectedEntityPanel.svelte', selectedEntityPanel],
       ['NodeDetails.svelte', nodeDetails],
       ['LoadsTable.svelte', loadsTable],
-      ['WhatIfPanel.svelte', whatIfPanel],
+      ['whatif/load-label.ts', whatIfLoadLabel],
       ['pro-report-inputs.ts', proReportInputs],
       ['scene-sync.ts', sceneSync],
     ] as const) {

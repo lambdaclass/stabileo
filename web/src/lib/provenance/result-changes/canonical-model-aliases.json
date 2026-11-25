@@ -1,0 +1,32 @@
+{
+  "id": "canonical-model-aliases",
+  "date": "2026-11-23",
+  "prs": [2532],
+  "area": "analysis",
+  "when": { "all": ["conflictingModelAliases"] },
+  "quantities": ["solve.ok"],
+  "title": {
+    "en": "Conflicting model aliases",
+    "es": "Campos equivalentes en conflicto",
+    "pt": "Campos equivalentes em conflito",
+    "de": "Widersprüchliche Modellfelder",
+    "fr": "Champs équivalents contradictoires",
+    "hu": "Ellentmondó modellmezők",
+    "tr": "Çelişkili model alanları",
+    "zh": "模型字段别名冲突"
+  },
+  "explanation": {
+    "en": "Opening or importing a model now refuses differing values for the same quantity, including a zero paired with a nonzero planar moment. Check the source values for affected loads, supports and releases, correct the conflict and rerun the analysis.",
+    "es": "Al abrir o importar un modelo se rechazan valores distintos para la misma magnitud, incluso un momento plano con un valor cero y otro distinto de cero. Revisá los valores de origen de las cargas, apoyos y liberaciones afectados, corregí el conflicto y volvé a ejecutar el análisis.",
+    "pt": "Ao abrir ou importar um modelo, valores diferentes para a mesma grandeza são recusados, inclusive num momento plano com um valor nulo e outro diferente de zero. Verifique os valores de origem das cargas, apoios e libertações afetados, corrija o conflito e repita a análise.",
+    "de": "Beim Öffnen oder Importieren eines Modells werden unterschiedliche Werte für dieselbe Größe abgelehnt, auch wenn ein ebenes Moment einmal null und einmal ungleich null ist. Prüfen Sie die Ursprungswerte betroffener Lasten, Lager und Gelenkfreigaben, beheben Sie den Widerspruch und wiederholen Sie die Berechnung.",
+    "fr": "À l’ouverture ou à l’importation d’un modèle, les valeurs différentes pour une même grandeur sont refusées, y compris un moment plan donné avec une valeur nulle et une valeur non nulle. Vérifiez les valeurs sources des charges, appuis et relâchements concernés, corrigez le conflit et relancez le calcul.",
+    "hu": "A modell megnyitásakor vagy importálásakor a program elutasítja az azonos mennyiség eltérő értékeit, akkor is, ha egy síkbeli nyomaték egyik értéke nulla, a másik pedig nem. Ellenőrizze az érintett terhek, támaszok és csuklók forrásértékeit, javítsa az eltérést, és futtassa újra a számítást.",
+    "tr": "Model açılırken veya içe aktarılırken aynı büyüklüğe ait farklı değerler reddedilir. Bu kural, bir düzlemsel moment için biri sıfır olan iki farklı değer girildiğinde de geçerlidir. Etkilenen yük, mesnet ve uç serbestliği değerlerini kaynakta doğrulayın, çelişkiyi giderin ve analizi yeniden çalıştırın.",
+    "zh": "打开或导入模型时，同一物理量有不同数值会被拒绝，包括平面力矩的两个字段分别为零和非零的情况。请核对受影响的荷载、支座和杆端释放在原始模型中的值，解决冲突后重新分析。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-canonical-model-aliases.md",
+    "heading": "Conflicting model aliases"
+  }
+}

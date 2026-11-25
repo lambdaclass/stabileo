@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use super::bundle::{reason, to_dyadic, CscJson, Dyadic, KIND_LINEAR};
 use super::combinations::{
-    certify_multi_case_results_2d, certify_multi_case_results_3d, factor_list, fb2_arr, fb3_arr, forces2, forces3,
+    certify_multi_case_2d, certify_multi_case_3d, factor_list, fb2_arr, fb3_arr, forces2, forces3,
 };
 use super::exact::*;
 use super::interval::Interval;
@@ -26,7 +26,7 @@ use super::provenance::Provenance;
 use super::solver::{reduced_sparse_2d, reduced_sparse_3d};
 use super::sparse::{certify_lambda_min_lower_with_factor, finish};
 use crate::linalg::sparse::CscMatrix;
-use crate::solver::load_cases::{solve_multi_case_2d, solve_multi_case_3d, MultiCaseInput, MultiCaseInput3D};
+use crate::solver::load_cases::{MultiCaseInput, MultiCaseInput3D};
 
 pub const COMBINATION_BUNDLE_FORMAT: &str = "stabileo.combination-certificate.v1";
 pub const KIND_COMBINATION: &str = "load-combination";
@@ -283,10 +283,8 @@ fn end_force_quantities<const K: usize>(
 
 /// Solve and certify a 2D multi-case model and export its combination bundle.
 pub fn export_combination_bundle_2d(input: &MultiCaseInput) -> Result<CombinationBundle, String> {
-    super::finite::check_input(input)?;
-    let results = solve_multi_case_2d(input)?;
-    super::finite::check_results(&results)?;
-    let cert = certify_multi_case_results_2d(input, results.clone());
+    let cert = certify_multi_case_2d(input)?;
+    let results = &cert.results;
     if !cert.envelope.certified {
         return Err(format!("envelope not certified: {}", cert.envelope.reason.unwrap_or_default()));
     }
@@ -333,10 +331,8 @@ pub fn export_combination_bundle_2d(input: &MultiCaseInput) -> Result<Combinatio
 
 /// Solve and certify a 3D multi-case model and export its combination bundle.
 pub fn export_combination_bundle_3d(input: &MultiCaseInput3D) -> Result<CombinationBundle, String> {
-    super::finite::check_input(input)?;
-    let results = solve_multi_case_3d(input)?;
-    super::finite::check_results(&results)?;
-    let cert = certify_multi_case_results_3d(input, results.clone());
+    let cert = certify_multi_case_3d(input)?;
+    let results = &cert.results;
     if !cert.envelope.certified {
         return Err(format!("envelope not certified: {}", cert.envelope.reason.unwrap_or_default()));
     }

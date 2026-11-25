@@ -65,45 +65,56 @@ test('missing or malformed P-Delta convergence flags cannot count as completion'
   }
 });
 
-const nanWithholding='{"message":"The result was withheld: it contains NaN at results.reactions[0].fx","structuredDiagnostics":[{"code":"non_finite_result","message":"The result was withheld: it contains NaN at results.reactions[0].fx","phase":"results.reactions[0].fx","severity":"error"}]}';
+const physicalEquilibriumMessage='P-Delta results were withheld because the physical free-DOF residual did not meet the requested tolerance.';
+const physicalResidualRefusal=JSON.stringify({
+  message:physicalEquilibriumMessage,structuredDiagnostics:[{
+    code:'result_quantity_unavailable',message:physicalEquilibriumMessage,phase:'equilibrium',
+    severity:'error',threshold:1e-12,value:1.1e-12
+  }]
+});
 
 test('#2074: a proven P-Delta non-convergence identity retains its exact category',()=>{
   assert.equal(allowsUnresolved({ok:{converged:false}},{converged:false},undefined,'cases/15/pdelta'),true);
 });
 
-test('#2074: a proven P-Delta NaN withholding identity retains its exact category',()=>{
-  assert.equal(allowsUnresolved({ok:{converged:false}},undefined,nanWithholding,'cases/12/pdelta'),true);
+test('#2074: a pinned P-Delta equilibrium refusal requires both runtimes to refuse',()=>{
+  assert.equal(allowsUnresolved({error:physicalResidualRefusal},undefined,physicalResidualRefusal,'cases/12/pdelta'),true);
+  assert.equal(allowsUnresolved({ok:{converged:false}},undefined,physicalResidualRefusal,'cases/12/pdelta'),false);
+  assert.equal(allowsUnresolved({error:physicalResidualRefusal},{converged:false},undefined,'cases/12/pdelta'),false);
 });
 
 test('P-Delta categories cannot accept each other or a different numerical refusal',()=>{
-  assert.equal(allowsUnresolved({ok:{converged:false}},undefined,nanWithholding,'cases/15/pdelta'),false);
+  assert.equal(allowsUnresolved({error:physicalResidualRefusal},undefined,physicalResidualRefusal,'cases/15/pdelta'),false);
   assert.equal(allowsUnresolved({ok:{converged:false}},{converged:false},undefined,'cases/12/pdelta'),false);
   for(const key of ['cases/12/pdelta','cases/15/pdelta']) {
     for(const error of ['Singular stiffness matrix','Singular tangent stiffness matrix','wrong answer']) {
+      assert.equal(allowsUnresolved({error:physicalResidualRefusal},undefined,error,key),false);
       assert.equal(allowsUnresolved({ok:{converged:false}},undefined,error,key),false);
     }
-    assert.equal(allowsUnresolved({error:'Singular stiffness matrix'},undefined,nanWithholding,key),false);
-    assert.equal(allowsUnresolved({ok:{converged:false}},{converged:false},nanWithholding,key),false);
+    assert.equal(allowsUnresolved({error:'Singular stiffness matrix'},undefined,physicalResidualRefusal,key),false);
+    assert.equal(allowsUnresolved({error:physicalResidualRefusal},{converged:false},physicalResidualRefusal,key),false);
   }
 });
 
-test('P-Delta withholding requires the observed structured NaN refusal and reaction path',()=>{
-  const payload=JSON.parse(nanWithholding);
+test('P-Delta physical refusal requires the structured diagnostic and exceeded threshold',()=>{
+  const payload=JSON.parse(physicalResidualRefusal);
+  const diagnostic=payload.structuredDiagnostics[0];
   const mutations=[{}, {message:payload.message}, {...payload,structuredDiagnostics:[]},
-    {...payload,structuredDiagnostics:[{...payload.structuredDiagnostics[0],code:'known_issue'}]},
-    {...payload,structuredDiagnostics:[{...payload.structuredDiagnostics[0],severity:'warning'}]},
-    {...payload,structuredDiagnostics:[{...payload.structuredDiagnostics[0],phase:'results.reactions[1].fx'}]},
-    {...payload,message:payload.message.replace('NaN','inf')},
-    {...payload,structuredDiagnostics:[{...payload.structuredDiagnostics[0],message:payload.message.replace('NaN','inf')}]}];
+    ...[
+      {code:'non_finite_result'}, {severity:'warning'}, {phase:'reactions'}, {message:'wrong answer'},
+      {value:undefined}, {value:1e-12}, {value:0.9e-12}, {threshold:1e-10},
+    ].map(fields=>({...payload,structuredDiagnostics:[{...diagnostic,...fields}]})),
+    {...payload,message:'wrong answer'}];
   for(const error of ['NaN','The result was withheld',...mutations.map(x=>JSON.stringify(x))]) {
-    assert.equal(allowsUnresolved({ok:{converged:false}},undefined,error,'cases/12/pdelta'),false);
+    assert.equal(allowsUnresolved({error:physicalResidualRefusal},undefined,error,'cases/12/pdelta'),false);
+    assert.equal(allowsUnresolved({error},undefined,physicalResidualRefusal,'cases/12/pdelta'),false);
   }
 });
 
 test('new P-Delta unresolved cases outside the pins still break verification',()=>{
   for(const key of ['cases/0/pdelta','cases/11/pdelta','cases/16/pdelta','cases/234/pdelta','assemblyCases/15/pdelta','cases/15/linear']) {
     assert.equal(allowsUnresolved({ok:{converged:false}},{converged:false},undefined,key),false);
-    assert.equal(allowsUnresolved({ok:{converged:false}},undefined,nanWithholding,key),false);
+    assert.equal(allowsUnresolved({error:physicalResidualRefusal},undefined,physicalResidualRefusal,key),false);
     assert.throws(()=>assertAdmittedPdeltaConverged({ok:{converged:false}},{converged:false}));
   }
 });
@@ -111,7 +122,7 @@ test('new P-Delta unresolved cases outside the pins still break verification',()
 test('pinned P-Delta identities still reject native success and malformed convergence flags',()=>{
   for(const converged of [true,undefined,null,0,1,'false']) for(const key of ['cases/12/pdelta','cases/15/pdelta']) {
     assert.equal(allowsUnresolved({ok:{converged}},{converged:false},undefined,key),false);
-    assert.equal(allowsUnresolved({ok:{converged}},undefined,nanWithholding,key),false);
+    assert.equal(allowsUnresolved({ok:{converged}},undefined,physicalResidualRefusal,key),false);
     assert.equal(allowsUnresolved({ok:{converged:false}},{converged},undefined,key),false);
   }
   for(const key of ['cases/0/pdelta','cases/12/pdelta','cases/15/pdelta']) {
@@ -130,7 +141,7 @@ const categoryIndices={
     188,189,190,191,192,193,194,195,196,197,203,205,207,208,209,
     210,211,213,214,222,223,224,226,227,228,229,230,231,232,233
   ],
-  'nan-withholding':[
+  'physical-equilibrium-refusal':[
     12,13,14,17,42,43,53,57,58,84,85,87,89,95,129,
     130,131,134,159,160,170,174,175,201,202,204,206,212
   ],
@@ -157,19 +168,19 @@ test('the 122 P-Delta identities retain all three coordinator-approved categorie
 
 for(const [key,{category,mainRefusal}] of Object.entries(pdeltaPinned)) {
   test(`${key}: ${category} requires its exact native and WASM outcome`,()=>{
-    const withholding=category==='nan-withholding';
-    const reference={ok:{converged:false}};
-    assert.equal(allowsUnresolved(reference,withholding?undefined:{converged:false},withholding?nanWithholding:undefined,key),true);
-    assert.equal(allowsUnresolved(reference,withholding?{converged:false}:undefined,withholding?undefined:nanWithholding,key),false);
+    const withholding=category==='physical-equilibrium-refusal';
+    const reference=withholding?{error:physicalResidualRefusal}:{ok:{converged:false}};
+    assert.equal(allowsUnresolved(reference,withholding?undefined:{converged:false},withholding?physicalResidualRefusal:undefined,key),true);
+    assert.equal(allowsUnresolved(reference,withholding?{converged:false}:undefined,withholding?undefined:physicalResidualRefusal,key),false);
     for(const error of ['Singular stiffness matrix','wrong answer',mainRefusal].filter(Boolean)) {
       assert.equal(allowsUnresolved(reference,undefined,error,key),false);
       assert.equal(allowsUnresolved(reference,{converged:false},error,key),false);
     }
     for(const converged of [true,undefined,null,0,1,'false']) {
-      assert.equal(allowsUnresolved({ok:{converged}},withholding?undefined:{converged:false},withholding?nanWithholding:undefined,key),false);
+      assert.equal(allowsUnresolved({ok:{converged}},withholding?undefined:{converged:false},withholding?physicalResidualRefusal:undefined,key),false);
       assert.equal(allowsUnresolved(reference,{converged},undefined,key),false);
     }
-    assert.equal(allowsUnresolved({...reference,error:'unexpected native refusal'},withholding?undefined:{converged:false},withholding?nanWithholding:undefined,key),false);
+    assert.equal(allowsUnresolved({...reference,error:'unexpected native refusal'},withholding?undefined:{converged:false},withholding?physicalResidualRefusal:undefined,key),false);
     assertAdmittedPdeltaConverged({ok:{converged:true}},{converged:true});
   });
 }

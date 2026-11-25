@@ -757,10 +757,10 @@ pub fn recover_member(json: &str) -> Result<String, JsValue> {
 // ==================== Combinations + Envelope ====================
 
 #[wasm_bindgen]
-pub fn net_combination_factors(input: JsValue) -> Result<JsValue, JsValue> {
+pub fn net_combination_factors(input: JsValue, allow_cancellation: Option<bool>) -> Result<JsValue, JsValue> {
     use postprocess::combinations::{net_combination_factors, CombinationFactor};
     let factors: Vec<CombinationFactor> = from_js_value(input)?;
-    let net = net_combination_factors(&factors).map_err(|e| JsValue::from_str(&e))?;
+    let net = net_combination_factors(&factors, allow_cancellation.unwrap_or(false)).map_err(|e| JsValue::from_str(&e))?;
     to_js_value(&net)
 }
 

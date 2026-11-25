@@ -1,3 +1,4 @@
+import { tp } from '../i18n';
 import { assembleDrawn, areaOf, type DrawnSection } from './drawn';
 import { catalogueOutline } from './canonical';
 
@@ -22,16 +23,26 @@ export function drawnMaterialAreas(drawn: DrawnSection, memberMaterialId: number
   return assembled.regions.map((r) => ({ materialId: r.materialId ?? reference, area: areaOf(r.region) }));
 }
 
-export function createSectionWeight(materials: ReadonlyMap<number, { rho: number }>) {
+export class InvalidMaterialDensity extends Error {
+  constructor(readonly materialId: number, readonly value: unknown) {
+    super(tp('svc.engine.invalidDensity', { id: String(materialId), value: String(value) }));
+  }
+}
+
+export function isMaterialDensity(rho: unknown): rho is number {
+  return typeof rho === 'number' && Number.isFinite(rho) && rho >= 0;
+}
+
+export function requireMaterialDensity(materialId: number, material: { rho?: number } | undefined): number {
+  const rho = material?.rho;
+  if (!isMaterialDensity(rho)) throw new InvalidMaterialDensity(materialId, rho);
+  return rho;
+}
+
+export function createSectionWeight(materials: ReadonlyMap<number, { rho?: number }>) {
   const areas = new Map<DrawnSection, Array<{ materialId: number | null; area: number }>>();
   return (section: WeightSection, memberMaterialId: number): number => {
-    const density = (id: number) => {
-      const rho = materials.get(id)?.rho;
-      if (rho == null || !Number.isFinite(rho) || rho < 0) {
-        throw new Error(`Section weight: missing or invalid density for material ${id}`);
-      }
-      return rho;
-    };
+    const density = (id: number) => requireMaterialDensity(id, materials.get(id));
     if (!section.drawn) return section.a * density(memberMaterialId);
     const drawn = section.drawn;
     let regions = areas.get(drawn);

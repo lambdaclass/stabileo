@@ -798,6 +798,67 @@ fn issue_1949_guyan_springs_3d() {
 }
 
 #[test]
+fn issue_1949_planar_wire_refuses_a_second_coordinate_in_every_solver() {
+    for z in [0.0, 1.0, -1.0] {
+        let mut m = model(2, false);
+        m["nodes"]["1"]["z"] = json!(z);
+        let parses = |model: &Value| {
+            let path = json!({"solver": model, "controlNode": 1, "controlDof": 1, "targetDisplacement": -0.005});
+            let mut staged = model.clone();
+            staged["stages"] = json!([]);
+            [
+                serde_json::from_value::<SolverInput>(model.clone()).map(|_| ()),
+                serde_json::from_value::<units::ElasticInput2D>(model.clone()).map(|_| ()),
+                serde_json::from_value::<arc_length::ArcLengthInput>(path.clone()).map(|_| ()),
+                serde_json::from_value::<arc_length::DisplacementControlInput>(path).map(|_| ()),
+                serde_json::from_value::<StagedInput>(staged).map(|_| ()),
+            ]
+        };
+
+        assert!(parses(&m).into_iter().all(|result| result.is_ok()));
+        let mut legacy = m.clone();
+        let node = legacy["nodes"]["1"].as_object_mut().unwrap();
+        let transverse = node.remove("z").unwrap();
+        node.insert("y".into(), transverse);
+        assert!(parses(&legacy).into_iter().all(|result| result.is_ok()));
+
+        for y in [z, z + 1.0] {
+            m["nodes"]["1"]["y"] = json!(y);
+            for (entry, result) in ["native", "typed", "arc", "displacement", "staged"]
+                .into_iter()
+                .zip(parses(&m))
+            {
+                assert!(
+                    result.unwrap_err().to_string().contains("duplicate field `z`"),
+                    "{entry}: y={y}, z={z}"
+                );
+            }
+        }
+    }
+
+    let mut legacy = model(2, false);
+    let node = legacy["nodes"]["1"].as_object_mut().unwrap();
+    let transverse = node.remove("z").unwrap();
+    node.insert("y".into(), transverse);
+    for kind in ["linear", "pdelta", "arc", "displacement"] {
+        let (reference, reference_factor) = run(kind, 2, &model(2, false));
+        let (actual, actual_factor) = run(kind, 2, &legacy);
+        assert_eq!(actual_factor, reference_factor, "{kind}");
+        for field in ["displacements", "reactions", "elementForces"] {
+            assert_eq!(actual[field], reference[field], "{kind} {field}");
+        }
+    }
+
+    let mut spatial = model(3, false);
+    spatial["nodes"]["1"]["y"] = json!(1.0);
+    spatial["nodes"]["1"]["z"] = json!(1.0);
+    for kind in ["linear", "pdelta"] {
+        let (results, _) = run(kind, 3, &spatial);
+        assert_eq!(results["displacements"].as_array().unwrap().len(), 2);
+    }
+}
+
+#[test]
 fn arc_spatial_fields_are_refused_before_projection() {
     for y in [0.0, 1.0, -1.0] {
         let mut m = model(2, false);
@@ -2520,6 +2581,19 @@ fn issue_1952_r18_dynamic_withholding_2d() { r18_dynamic_withholding(2); }
 #[test]
 fn issue_1952_r18_dynamic_withholding_3d() { r18_dynamic_withholding(3); }
 
+fn r18_pdelta_refusal(error: &str, tolerance: f64) -> f64 {
+    let refusal: Value = serde_json::from_str(error).unwrap();
+    let diagnostic = &refusal["structuredDiagnostics"][0];
+    assert_eq!(diagnostic["code"], "result_quantity_unavailable");
+    assert_eq!(diagnostic["severity"], "error");
+    assert_eq!(diagnostic["phase"], "equilibrium");
+    assert_eq!(diagnostic["threshold"].as_f64(), Some(tolerance));
+    assert_eq!(refusal["message"], diagnostic["message"]);
+    let residual = diagnostic["value"].as_f64().unwrap();
+    assert!(residual > tolerance);
+    residual
+}
+
 fn r18_pdelta_withholding(dim: usize) {
     let mut replay = Vec::new();
     for tied in [false, true] {
@@ -2532,27 +2606,40 @@ fn r18_pdelta_withholding(dim: usize) {
                 } else {
                     pdelta::solve_pdelta_3d(&serde_json::from_value(m.clone()).unwrap(), iterations, tolerance).map(|r| json!(r))
                 };
-                let initial = solve(1e-9).unwrap();
-                let relative = initial["results"]["equilibrium"]["relativeResidual"].as_f64().unwrap();
-                for tolerance in if iterations == 0 && sign != 0.0 { vec![1e-9, relative / 2.0, relative * 2.0] } else { vec![1e-9] } {
-                    let output = solve(tolerance).unwrap();
-                    let r = &output["results"];
-                    let failed = relative > tolerance;
+                let initial = solve(1e-9);
+                let upper_and_lower = iterations == 0 && sign != 0.0;
+                let relative = if upper_and_lower {
+                    r18_pdelta_refusal(initial.as_ref().unwrap_err(), 1e-9)
+                } else {
+                    initial.as_ref().unwrap()["results"]["equilibrium"]["relativeResidual"].as_f64().unwrap()
+                };
+                for tolerance in if upper_and_lower { vec![1e-9, relative / 2.0, relative * 2.0] } else { vec![1e-9] } {
+                    let outcome = solve(tolerance);
                     let certified = if dim == 2 {
                         dedaliano_engine::certify::pdelta::certify_pdelta_2d(&serde_json::from_value(m.clone()).unwrap(), iterations, tolerance).map(|r| json!(r.results))
                     } else {
                         dedaliano_engine::certify::pdelta::certify_pdelta_3d(&serde_json::from_value(m.clone()).unwrap(), iterations, tolerance).map(|r| json!(r.results))
                     };
-                    if failed { assert!(certified.as_ref().unwrap_err().contains("non-finite")); }
-                    else { assert_eq!(certified.unwrap(), output); }
                     let linear = run("linear", dim, &m).0;
+                    assert!(!linear["reactions"].as_array().unwrap().is_empty());
+                    if relative > tolerance {
+                        let error = outcome.unwrap_err();
+                        assert_eq!(r18_pdelta_refusal(&error, tolerance), relative);
+                        assert_eq!(certified.unwrap_err(), error);
+                        replay.push(json!({"model":m,"iterations":iterations,"tolerance":tolerance,"error":error}));
+                        continue;
+                    }
+                    let output = outcome.unwrap();
+                    assert_eq!(certified.unwrap(), output);
+                    let r = &output["results"];
+                    assert_eq!(r["equilibrium"]["residualOk"], true);
                     assert_eq!(output["linearResults"], linear);
                     println!("r18 public {dim}D tied={tied} sign={sign} iterations={iterations} tolerance={tolerance}: {}", r["equilibrium"]);
                     for (field, key) in [("reactions", if dim == 2 {"rz"} else {"fz"}), ("elementForces", "nStart"), ("constraintForces", "force")] {
                         let rows: Vec<_> = r[field].as_array().into_iter().flatten().collect();
                         if field != "constraintForces" || tied { assert!(!rows.is_empty(), "{field}: {r}"); }
                         for row in rows {
-                            assert_eq!(row[key].is_null(), failed, "{field}: {r}");
+                            assert!(row[key].as_f64().unwrap().is_finite(), "{field}: {r}");
                             let keys: &[&str] = match (field, dim) {
                                 ("reactions", 2) => &["rx", "rz", "my"],
                                 ("reactions", _) => &["fx", "fy", "fz", "mx", "my", "mz"],
@@ -2560,15 +2647,10 @@ fn r18_pdelta_withholding(dim: usize) {
                                 ("elementForces", _) => &["nStart", "nEnd", "vyStart", "vyEnd", "vzStart", "vzEnd", "mxStart", "mxEnd", "myStart", "myEnd", "mzStart", "mzEnd"],
                                 _ => &["force"],
                             };
-                            for key in keys { assert_eq!(row[key].is_null(), failed, "{field}.{key}: {r}"); }
+                            for key in keys { assert!(row[key].as_f64().unwrap().is_finite(), "{field}.{key}: {r}"); }
                         }
                         let warned = r["structuredDiagnostics"].as_array().into_iter().flatten().any(|d| d["code"] == "result_quantity_unavailable" && d["phase"] == field);
-                        assert_eq!(warned, failed, "{field}: {r}");
-                    }
-                    if !failed {
-                        let linear = run("linear", dim, &m).0;
-                        assert!(!linear["reactions"].as_array().unwrap().is_empty());
-                        assert!(r["reactions"].as_array().unwrap().iter().all(|r| r[if dim == 2 {"rz"} else {"fz"}].as_f64().unwrap().is_finite()));
+                        assert!(!warned, "{field}: {r}");
                     }
                     replay.push(json!({"model":m,"iterations":iterations,"tolerance":tolerance,"output":output}));
                 }
@@ -2600,16 +2682,24 @@ fn issue_1952_r18_spatial_stresses() {
     m["quads"] = json!({"20":{"id":20,"nodes":[10,11,12,13],"materialId":1,"thickness":0.1}});
     let mut replay = Vec::new();
     for iterations in [0, 40] {
-        let r = pdelta::solve_pdelta_3d(&serde_json::from_value(m.clone()).unwrap(), iterations, 1e-9).unwrap();
-        assert_eq!(r.results.equilibrium.as_ref().unwrap().residual_ok, iterations != 0);
+        let input = serde_json::from_value(m.clone()).unwrap();
+        let outcome = pdelta::solve_pdelta_3d(&input, iterations, 1e-9);
+        if iterations == 0 {
+            let error = outcome.unwrap_err();
+            r18_pdelta_refusal(&error, 1e-9);
+            assert_eq!(dedaliano_engine::certify::pdelta::certify_pdelta_3d(&input, iterations, 1e-9).unwrap_err(), error);
+            replay.push(json!({"model":m,"iterations":iterations,"tolerance":1e-9,"error":error}));
+            continue;
+        }
+        let r = outcome.unwrap();
+        assert!(r.results.equilibrium.as_ref().unwrap().residual_ok);
         let output = json!(r);
         for field in ["plateStresses", "quadStresses"] {
             let rows = output["results"][field].as_array().unwrap();
             assert_eq!(rows.len(), 1);
             for row in rows {
                 for key in ["sigmaXx", "sigmaYy", "tauXy", "mx", "my", "mxy", "vonMises"] {
-                    assert_eq!(row[key].is_null(), iterations == 0, "{field}.{key}: {output}");
-                    if iterations != 0 { assert_eq!(row[key].as_f64().unwrap(), 0.0); }
+                    assert_eq!(row[key].as_f64().unwrap(), 0.0, "{field}.{key}: {output}");
                 }
             }
         }

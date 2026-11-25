@@ -80,14 +80,8 @@
  "solverOptions": null,
  "supports": {
   "1": {
-   "angle": null,
-   "dry": null,
-   "dx": null,
    "dz": -0.0024170009213965796,
    "id": 1,
-   "kx": null,
-   "ky": null,
-   "kz": null,
    "nodeId": 1,
    "type": "fixed"
   }
