@@ -92,3 +92,38 @@ it('#2330 a brace joint needs floor evidence', () => {
     expect(load.qX).toBeCloseTo(2 * (lowerWeight + upperWeight) * (i + 1) / (lowerWeight + 2 * upperWeight), 10);
   }
 });
+
+const crossingResult = process.env.RUN_KNOWN_WRONG === '2330' ? it : it.skip;
+
+crossingResult('known wrong result: #2330 a connected X transfers inertia on each upper brace span', () => {
+  const leg = Math.hypot(2, 2);
+  for (const angle of [0, Math.PI / 7]) for (const shift of [0, 1_000_000]) {
+    const model = bracedFrame();
+    for (const n of model.nodes.values()) {
+      n.y = shift + n.x * Math.sin(angle);
+      n.x = shift + n.x * Math.cos(angle);
+    }
+    const { plan, sink } = seismicPlan(model);
+    expect(plan.outcome).toBe('READY');
+    expect(plan.seismicModel!.levels.map(l => l.elevation)).toEqual([0, 4]);
+    expect(plan.factors.baseShear!.value).toBeCloseTo(16 + 4 * leg, 8);
+    const braces = plan.distributed.filter(l => l.caseType === 'E' && l.elementId >= 4)
+      .sort((a, b) => a.elementId - b.elementId);
+    expect(braces.map(l => l.elementId)).toEqual([6, 7]);
+    for (const load of braces) {
+      expect(load.a).toBe(0);
+      expect(load.b).toBeCloseTo(leg, 8);
+      expect(load.qX).toBeCloseTo(2, 10);
+      expect(load.qXJ).toBeCloseTo(2, 10);
+    }
+    expect(sink.distributed).toEqual(plan.distributed.filter(l => l.caseType === 'E'));
+    expect(sink.nodal).toEqual(plan.nodal.filter(l => l.caseType === 'E'));
+    const moment = sink.nodal.reduce((sum, l) => sum + l.fx * model.nodes.get(l.nodeId)!.z!, 0)
+      + sink.distributed.reduce((sum, l) => {
+        const member = model.elements.get(l.elementId)!;
+        const zI = model.nodes.get(member.nodeI)!.z!, zJ = model.nodes.get(member.nodeJ)!.z!;
+        return sum + (l.b! - l.a!) * l.qX! * (zI + zJ) / 2;
+      }, 0);
+    expect(moment).toBeCloseTo(64 + 12 * leg, 7);
+  }
+});

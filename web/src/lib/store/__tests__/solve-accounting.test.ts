@@ -1497,3 +1497,98 @@ it('#2471 detects a lost self-equilibrated line load before a planar projection 
   };
   for (const [path, solve] of Object.entries(paths)) expect.soft(await outcome(solve), path).toEqual(diagnostic);
 });
+
+const sourceLedgerResult = process.env.RUN_KNOWN_WRONG === '2470-sources' ? it : it.skip;
+
+sourceLedgerResult('known wrong result: #2470 equal and opposite generated rows cannot hide lost planar loads', async () => {
+  const elementId = cantilever('2d');
+  const model = modelStore.model;
+  const cases = [{ id: 1, name: 'D', type: 'D' }, { id: 2, name: 'L', type: 'L' }];
+  const combos = [{ id: 1, name: 'D only', factors: [{ caseId: 1, factor: 1 }] }];
+  const generated = (q: number): ModelData => ({
+    ...model, loadCases: cases, loads: [q, -q].map((p, index) => ({
+      type: 'distributed', data: {
+        id: index + 1, caseId: 1, elementId, qI: p, qJ: p, isGlobal: true, generatedBy: 'generator',
+      },
+    })),
+  });
+  const below = generated(2 ** -34);
+  const paths = {
+    linear: () => validateAndSolve2D(below),
+    async: () => validateAndSolve2DAsync(below),
+    advanced: () => buildSolverInput2D(below),
+    batch: () => solveCombinations2D(below, cases, combos),
+    fallback: () => solveCombinations2D(below, cases.map(c => ({ ...c, name: 'Same' })), combos),
+  };
+  for (const [path, solve] of Object.entries(paths)) {
+    expect.soft(await outcome(solve), path).toMatch(/case.*#1.*Fy/i);
+  }
+  const above = 2 ** -33;
+  expect(buildSolverInput2D(generated(above))?.loads).toEqual([above, -above].map(q => ({
+    type: 'distributed', data: { elementId, qI: q, qJ: q },
+  })));
+});
+
+sourceLedgerResult('known wrong result: #2470 a generated planar self-weight source cannot disappear below the conversion cutoff', async () => {
+  const elementId = cantilever('2d');
+  const model = modelStore.model;
+  const member = model.elements.get(elementId)!;
+  const withWeight = (q: number): ModelData => ({
+    ...model,
+    materials: new Map([[member.materialId, { ...model.materials.get(member.materialId)!, rho: q }]]),
+    sections: new Map([[member.sectionId, { ...model.sections.get(member.sectionId)!, a: 1 }]]),
+    analysis: { ...model.analysis, selfWeight: [{ caseId: 1, direction: 'Z', factor: -1 }] },
+  });
+  const below = withWeight(2 ** -34);
+  for (const solve of [() => buildSolverInput2D(below), () => validateAndSolve2D(below), () => validateAndSolve2DAsync(below)]) {
+    expect.soft(await outcome(solve)).toMatch(/case.*self-weight.*member.*Fy/i);
+  }
+  const q = 2 ** -33;
+  expect(buildSolverInput2D(withWeight(q))?.loads).toEqual([
+    { type: 'distributed', data: { elementId, qI: -q, qJ: -q } },
+  ]);
+});
+
+sourceLedgerResult('known wrong result: #2470 two shell pressures cannot cancel a lost assembly moment', async () => {
+  const { id } = floor();
+  expect(applyPlateMeshes([planPlateMesh(id)!]).plates).toBe(1);
+  const quadId = plateEntry(id)!.group.members.quads![0]!;
+  const caseId = 1;
+  const model: ModelData = {
+    ...modelStore.model,
+    loads: [1, -1].map((q, index) => ({
+      type: 'surface3d', data: { id: index + 1, caseId, quadId, q },
+    })),
+  };
+  const paths = [
+    () => buildSolverInput3D(model),
+    () => runDirectAnalysis(model, model.loadCases, model.combinations, { includeSelfWeight: false }),
+    () => caseSolverLoads3D(model, model.loadCases, false, false),
+    () => solvePDelta3D(buildSolverInput3D(model)!),
+  ];
+  const control = buildSolverInput3D(model)?.loads;
+  expect(control).toHaveLength(8);
+  fault.assemblyDrift = { shell: quadId, relative: 0.125 };
+  for (const solve of paths) expect.soft(await outcome(solve)).toMatch(/case.*#1.*M[xy]/i);
+});
+
+sourceLedgerResult('known wrong result: #2470 a spatial truss self-weight source cannot disappear below the nodal transfer cutoff', async () => {
+  const elementId = cantilever('3d');
+  const member = modelStore.model.elements.get(elementId)!;
+  modelStore.updateElement(elementId, { type: 'truss' });
+  const model = modelStore.model;
+  const withWeight = (q: number): ModelData => ({
+    ...model,
+    materials: new Map([[member.materialId, { ...model.materials.get(member.materialId)!, rho: q }]]),
+    sections: new Map([[member.sectionId, { ...model.sections.get(member.sectionId)!, a: 1 }]]),
+    analysis: { ...model.analysis, selfWeight: [{ caseId: 1, direction: 'X', factor: 1 }] },
+  });
+  const below = withWeight(2 ** -40);
+  for (const solve of [
+    () => buildSolverInput3D(below, true),
+    () => caseSolverLoads3D(below, below.loadCases, true, false),
+  ]) expect.soft(await outcome(solve)).toMatch(/case.*self-weight.*member.*Fx/i);
+  const q = 2 ** -39;
+  const control = buildSolverInput3D(withWeight(q), true)?.loads;
+  expect(control?.map(row => row.type === 'nodal' && row.data.fx)).toEqual([q, q]);
+});
