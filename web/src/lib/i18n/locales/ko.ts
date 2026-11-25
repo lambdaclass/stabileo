@@ -3769,6 +3769,7 @@ const ko: Translations = {
   "svc.engine.missingSelfWeightTarget": "자중 적용 대상 {kind} {id}이(가) 없습니다. 대상을 복원하거나 자중 적용 대상을 변경하세요.",
   "svc.engine.invalidDensity": "재료 {id}의 밀도 (rho)에 유한한 음이 아닌 값을 입력하세요(받은 값: {value}).",
   "svc.engine.nonnegativeMassDensity": "질량 밀도는 유한한 음이 아닌 값이어야 합니다",
+  "svc.engine.invalidInputField": "{path} 필드가 없거나 지원되지 않는 값이 들어 있습니다.",
   "svc.engine.nonFiniteNumber": "{path}에 유한한 수를 입력하세요(받은 값: {value}).",
 } as const satisfies Record<string, string>;
 

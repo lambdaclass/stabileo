@@ -1,4 +1,4 @@
-import { invalidPlanarPointTorsion, isFiniteInputNumber } from '../engine/model-input-numbers';
+import { hasMalformedAuthoredLoad, invalidPlanarPointTorsion, isFiniteInputNumber } from '../engine/model-input-numbers';
 import { POINT_END_TOL } from '../engine/member-point-loads';
 import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
 import { resolveCombinationAction, usesLegacyFlatRoofSnow } from '../engine/loads/combination-rules';
@@ -61,6 +61,7 @@ export const FEATURE_IDS = [
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'invalidSelfWeightTarget', 'scopedMemberSelfWeight', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
+  'malformedAuthoredLoad',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase', 'loadPlanCombinationSupplements', 'flatRoofSnowCombinations',
   'occupiedGeneratedLoadCases', 'repeatedUngroupedRuleTerms', 'emptyManualLoadAlternatives', 'retiredAutoLoadsCases',
@@ -96,6 +97,7 @@ interface Sup {
 
 /** What `modelFeatures` reads: the snapshot shape, loosely, so a file from any version is read. */
 type ShellSnapshot = { id?: number; materialId?: number; nodes?: number[]; curved?: boolean; offset?: Offset3 };
+type FeatureLoad = { type?: unknown; data?: Record<string, unknown> };
 
 interface FeatureSnapshotFields {
   analysisMode?: string;
@@ -108,7 +110,7 @@ interface FeatureSnapshotFields {
   sections?: Entries<{ id: number; shearAreas?: unknown }>;
   fiberSections?: Record<string, { materials?: Array<{ type?: string }> }>;
   supports?: Entries<Sup>;
-  loads?: Array<{ type: string; data?: Record<string, unknown> }>;
+  loads?: FeatureLoad[];
   loadCases?: Array<{
     id: number; name?: string; type?: string; spectral?: unknown; alternatives?: string; axisNamed?: boolean;
     group?: string; snowBasis?: 'flatRoof'; generated?: boolean; autoLoadsRetired?: true;
@@ -186,6 +188,16 @@ function slaveNodes(c: Record<string, unknown>): number[] {
 
 export const fromLoadPlan = (by: unknown): boolean => typeof by === 'string' && !!by && !/^(stair|arch):/.test(by);
 
+function hasLoadType(load: FeatureLoad): load is FeatureLoad & { type: string } {
+  return typeof load.type === 'string';
+}
+
+function featureLoads(loads: FeatureSnapshot['loads']): FeatureLoad[] {
+  if (!Array.isArray(loads)) return [];
+  return loads.filter(load => load != null && (hasLoadType(load) ||
+    (load.data != null && typeof load.data === 'object' && !Array.isArray(load.data))));
+}
+
 export function unverifiedSeismicLoads(s: FeatureSnapshot) {
   const cases = new Set((Array.isArray(s.loadCases) ? s.loadCases : []).filter(c => c.type === 'E' && !c.spectral).map(c => c.id));
   if (cases.size === 0) return [];
@@ -194,17 +206,17 @@ export function unverifiedSeismicLoads(s: FeatureSnapshot) {
   const modalBasis = hasModalSeismicDerivation(s.designData?.loadBasis?.derivation) || dialog?.seismicMethod?.method === 'modal';
   const earlyGenerator = typeof settings?.periodSystem === 'string' && typeof settings?.regularity === 'string' &&
     typeof settings?.occupancy === 'string';
-  return (Array.isArray(s.loads) ? s.loads : []).filter(l =>
+  return featureLoads(s.loads).filter(l =>
     cases.has((l.data?.caseId ?? 1) as number) && l.data?.seismicGeneration !== 'static' &&
     (l.data?.seismicGeneration === 'unverified' || fromLoadPlan(l.data?.generatedBy) || modalBasis ||
-      (earlyGenerator && /^nodal/.test(l.type))));
+      (earlyGenerator && hasLoadType(l) && /^nodal/.test(l.type))));
 }
 
 export function loadsGeneratedWith(s: FeatureSnapshot): number {
   const basis = s.designData?.loadBasis;
   if (basis) return Number.isInteger(basis.resultsVersion) ? (basis.resultsVersion as number) : 0;
   const snow = (Array.isArray(s.loadCases) ? s.loadCases : []).some(c => c.type === 'S');
-  return snow || (Array.isArray(s.loads) ? s.loads : []).some(l => fromLoadPlan(l.data?.generatedBy)) ? 0 : Infinity;
+  return snow || featureLoads(s.loads).some(l => fromLoadPlan(l.data?.generatedBy)) ? 0 : Infinity;
 }
 
 export const UNVERIFIED_SEISMIC_FEATURE = 'unverifiedGeneratedSeismicLoads';
@@ -482,29 +494,35 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   })) {
     f.add('duplicateFixtureEndRelease');
   }
-  const storedLoads = ctx.storedLoads ?? s.loads;
+  const rawStoredLoads = ctx.storedLoads === undefined ? s.loads : ctx.storedLoads;
+  const basicProjection = f.has('plane2D');
+  if (hasMalformedAuthoredLoad(s.loads, basicProjection) ||
+      (rawStoredLoads !== s.loads && hasMalformedAuthoredLoad(rawStoredLoads, basicProjection))) {
+    f.add('malformedAuthoredLoad');
+  }
+  const loads = featureLoads(s.loads);
+  const storedLoads = rawStoredLoads === s.loads ? loads : featureLoads(rawStoredLoads);
   const refusal = modelAliasRefusalFeature({
     nodes: values(s.nodes),
     elements,
     supports,
-    loads: Array.isArray(storedLoads) ? storedLoads : undefined,
+    loads: storedLoads.filter(hasLoadType),
     plates: s.plates,
     quads: s.quads,
   }, ctx.analysisMode ?? s.analysisMode);
   if (refusal) f.add(refusal);
-  if (Array.isArray(storedLoads) && storedLoads.some(l => l.type === 'pointOnElement' && l.data &&
+  if (storedLoads.some(l => l.type === 'pointOnElement' && l.data &&
       (nonZero(l.data.mz) || planarPointMoment(l.data) === null))) {
     f.add('legacyPlanarPointCoupleAliases');
   }
-  const planarLoadInputs = [...(Array.isArray(storedLoads) ? storedLoads : [])];
-  if (storedLoads !== s.loads && Array.isArray(s.loads)) planarLoadInputs.push(...s.loads);
+  const planarLoadInputs = storedLoads === loads ? loads : [...storedLoads, ...loads];
   for (const { type, data } of planarLoadInputs) {
     if (type !== 'pointOnElement' && type !== 'nodal') continue;
     if (data?.my === null || data?.mz === null) f.add('nullPlanarMomentAliases');
     if (type === 'pointOnElement' && invalidPlanarPointTorsion(data?.mx)) f.add('invalidPlanarMemberTorsion');
   }
-  for (const l of Array.isArray(s.loads) ? s.loads : []) {
-    const t = l.type ?? '';
+  for (const l of loads) {
+    const t = hasLoadType(l) ? l.type : '';
     const d = l.data ?? {};
     if ((t === 'pointOnElement3d' || (t === 'pointOnElement' && f.has('space3D')))
       && typeof d.a === 'number' && d.a > 0) {

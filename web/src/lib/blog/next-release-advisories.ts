@@ -16,6 +16,10 @@ const nextReleaseAdvisories = [
   'SA-2026-120-gravity-deck-load-placement.md',
   'SA-2026-121-planar-nonlinear-member-loads.md',
   'SA-2026-122-generated-load-combinations.md',
+  'SA-2026-123-gravity-headroom-and-cover.md',
+  'SA-2026-124-scoped-self-weight.md',
+  'SA-2026-125-shared-rigid-support-degree.md',
+  'SA-2026-126-repeated-load-combination-terms.md',
 ];
 
 export function nextReleaseAdvisoryBlocks(status: string, linkText: string): Block[] {

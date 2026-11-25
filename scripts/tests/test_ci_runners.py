@@ -34,6 +34,20 @@ def jobs(name):
     return parse((WORKFLOWS / name).read_text())
 
 
+def runner_jobs(workflow, prefix='', visited=()):
+    if workflow in visited:
+        raise AssertionError(f'reusable workflow cycle at {workflow}')
+    for name, job in jobs(workflow).items():
+        qualified = prefix + name
+        if 'runs-on' in job:
+            yield qualified, job
+            continue
+        target = re.fullmatch(r'\./\.github/workflows/([\w-]+\.ya?ml)', job.get('uses', ''))
+        if target is None:
+            raise AssertionError(f'unresolved runner for {workflow}: {qualified}')
+        yield from runner_jobs(target[1], qualified + '/', (*visited, workflow))
+
+
 def concurrency(name):
     text = (WORKFLOWS / name).read_text()
     block = text.split('\nconcurrency:\n', 1)[1].split('\n\n', 1)[0]
@@ -243,7 +257,7 @@ class CiRunners(unittest.TestCase):
             self.assertIn(path, command)
 
     def test_nightly_self_hosted_jobs_take_only_the_nightly_pool(self):
-        for name, job in jobs('nightly.yml').items():
+        for name, job in runner_jobs('nightly.yml'):
             runs_on = job['runs-on']
             if runs_on not in ('ubuntu-24.04', HEAVY):
                 self.assertEqual(labels(runs_on), {'stabileo-nightly'}, name)
@@ -252,7 +266,7 @@ class CiRunners(unittest.TestCase):
     def test_the_nightly_pool_is_taken_only_at_night(self):
         text = (WORKFLOWS / 'nightly.yml').read_text()
         self.assertIn('    - cron: "0 0 * * *"', text)
-        pooled = {name: job for name, job in jobs('nightly.yml').items() if 'stabileo-nightly' in job['runs-on']}
+        pooled = {name: job for name, job in runner_jobs('nightly.yml') if 'stabileo-nightly' in job['runs-on']}
         self.assertGreaterEqual(len(pooled), 9)
         for name, job in pooled.items():
             self.assertTrue(job['runs-on'].startswith("${{ (needs.plan.outputs.night == 'true' && vars.STABILEO_SELF_HOSTED == 'true' && "), name)
@@ -288,8 +302,8 @@ class CiRunners(unittest.TestCase):
         for path in sorted(WORKFLOWS.glob('*.yml')):
             text = path.read_text()
             for event in scheduled_events(text):
-                for name, job in parse(text).items():
-                    runs_on = job.get('runs-on', '')
+                for name, job in runner_jobs(path.name):
+                    runs_on = job['runs-on']
                     if not runs_on.startswith('${{') or runs_on == HEAVY:
                         continue
                     variables = sorted(set(re.findall(r'vars\.\w+', runs_on)))
