@@ -360,7 +360,7 @@ def parse_reproducers(issue):
             if error:
                 specs.append({**parse_issue(sighting), "replayable": False, "not_replayable_reason": error})
             for record in records:
-                if "model" not in record:
+                if record.get("model") is None:
                     record = {**record, **resolved.get(_artifact_selector(record), {})}
                 specs.append(parse_issue(sighting, record))
     return specs
@@ -912,9 +912,9 @@ def _resolve_issue_reproducers(repo, issue, run_gh, archives, downloaded):
         for _, records, _ in _body_reproducers(body, manifests):
             for record in records:
                 selector = _artifact_selector(record)
-                if "model" in models.get(selector, {}):
+                if models.get(selector, {}).get("model") is not None:
                     continue
-                if "model" in record:
+                if record.get("model") is not None:
                     models[selector] = {"model": record["model"]}
                     continue
                 location = (record["runId"], record["path"], selector)
