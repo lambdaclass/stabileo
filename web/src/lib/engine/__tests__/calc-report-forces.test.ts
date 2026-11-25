@@ -215,7 +215,7 @@ it('known wrong result: #2226 identifies both governing cut faces in planar and 
   }
 });
 
-it.fails('known wrong result: #2226 refuses envelope cuts that share a rounded parent station', () => {
+it('known wrong result: #2226 refuses envelope cuts that share a rounded parent station', () => {
   const boundary = { ux: 0, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 };
   const [dI, dM, dJ] = [1, 2, 3].map(nodeId => ({ ...boundary, nodeId }));
   const build = (a: number) => r3D(ef3D({
@@ -233,4 +233,6 @@ it.fails('known wrong result: #2226 refuses envelope cuts that share a rounded p
     is3D: true, analysisMode: '3D', results3D: clear, envelope3D, provenance: { kind: 'envelope' },
   })).toContain('1.25⁺');
   expect(() => computeEnvelope3D([build(0.25 - 2 ** -55)])).toThrow('solver.diagramExtremaUnavailable');
+  const coincident = computeEnvelope3D([build(0.25)])!;
+  expect(coincident.shearZ.elements[0]?.jumpCuts).toEqual([expect.objectContaining({ distance: 1.25 })]);
 });

@@ -43,7 +43,7 @@ const NUM_POINTS: usize = 21;
 
 fn planar_curve<'a>(
     ef: &'a ElementForces, kind: &str, sorted_pl: &'a [PointLoadInfo],
-) -> Curve<impl Iterator<Item = DistributedLoadInfo> + Clone + 'a, impl Iterator<Item = PointAction> + Clone + 'a> {
+) -> Curve<impl Iterator<Item = PointAction> + Clone + 'a> {
     let (start, slope, response, loads, qi, qj, kind) = match kind {
         "moment" => (ef.m_start, -ef.v_start, Response::Moment(-1.0), ef.distributed_loads.as_slice(), ef.q_i, ef.q_j, 0),
         "shear" => (ef.v_start, 0.0, Response::Force(1.0), ef.distributed_loads.as_slice(), ef.q_i, ef.q_j, 1),
@@ -52,7 +52,7 @@ fn planar_curve<'a>(
     };
     Curve {
         length: ef.length, start, change: 0.0, slope, response,
-        distributed: distributed_actions(ef.length, loads, qi, qj),
+        distributed: distributed_actions(ef.length, loads, qi, qj).collect(),
         points: sorted_pl.iter().filter_map(move |p| {
             let (jump, slope) = match kind {
                 0 => (p.my.into_iter().sum(), -p.p),

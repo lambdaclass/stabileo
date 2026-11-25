@@ -1,3 +1,5 @@
+import { envelopeJumpCuts, sameCutLocation, type DiagramCutLocation } from './diagram-cut';
+import { unavailableDiagramExtrema } from './member-diagram';
 import type { AnalysisResults3D, Displacement3D, ElementForces3D, EnvelopeDiagramData3D, FullEnvelope3D } from './types-3d';
 import type { ResultPiece, VariableExpansion, VariableMember, VariablePiece } from './variable-members';
 
@@ -95,6 +97,15 @@ function collapseDiagram(d: EnvelopeDiagramData3D, exp: VariableExpansion): Enve
   for (const m of exp.members.values()) {
     const tPositions: number[] = [], posValues: number[] = [], negValues: number[] = [];
     const jumpCuts: NonNullable<EnvelopeDiagramData3D['elements'][number]['jumpCuts']> = [];
+    const publishedJumps = new Map<number, { index: number; location: DiagramCutLocation }>();
+    let previousStation: { piece: VariablePiece; local: number; parent: number; jump: boolean } | undefined;
+    const addJump = (index: number, location: DiagramCutLocation) => {
+      const t = location.x / m.length;
+      const previous = publishedJumps.get(t);
+      if (previous && (previous.index !== index || !sameCutLocation(previous.location, location))) throw unavailableDiagramExtrema();
+      publishedJumps.set(t, { index, location });
+      jumpCuts.push({ index, distance: location.x });
+    };
     let complete = true;
     for (const p of m.pieces) {
       pieceIds.add(p.id);
@@ -103,18 +114,26 @@ function collapseDiagram(d: EnvelopeDiagramData3D, exp: VariableExpansion): Enve
       const start = tPositions.length;
       if (start > 0 && tPositions[start - 1] === p.x0 / m.length && e.tPositions[0] === 0
         && (posValues[start - 1] !== e.posValues[0] || negValues[start - 1] !== e.negValues[0])) {
-        jumpCuts.push({ index: start - 1, distance: p.x0 });
+        addJump(start - 1, { x: p.x0 });
       }
       const distances = new Map<number, number>();
-      for (const cut of e.jumpCuts ?? []) {
-        const distance = p.x0 + cut.distance;
-        jumpCuts.push({ index: start + cut.index, distance });
-        distances.set(cut.index, distance);
-        distances.set(cut.index + 1, distance);
+      for (const cut of envelopeJumpCuts(e, p.x1 - p.x0)) {
+        const x = p.x0 + cut.distance;
+        addJump(start + cut.index, { x, rebased: { offset: p.x0, local: { x: cut.distance } } });
+        distances.set(cut.index, x);
+        distances.set(cut.index + 1, x);
       }
       e.tPositions.forEach((t, i) => {
         const x = distances.get(i) ?? (t === 0 ? p.x0 : t === 1 ? p.x1 : p.x0 + t * (p.x1 - p.x0));
-        tPositions.push(x / m.length);
+        const parent = x / m.length;
+        const jump = distances.has(i);
+        if (previousStation?.parent === parent && (jump || previousStation.jump || publishedJumps.has(parent))) {
+          const samePieceCut = previousStation.piece === p && previousStation.local === t;
+          const sharedBoundary = previousStation.local === 1 && t === 0 && previousStation.piece.x1 === p.x0;
+          if (!samePieceCut && !sharedBoundary) throw unavailableDiagramExtrema();
+        }
+        previousStation = { piece: p, local: t, parent, jump };
+        tPositions.push(parent);
         posValues.push(e.posValues[i]!); negValues.push(e.negValues[i]!);
       });
     }

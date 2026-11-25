@@ -89,7 +89,7 @@ function withResultants(kind: TableKind, v: number[]): number[] {
 export interface Source { id: number; name: string; results: AnalysisResults3D }
 
 /** One row of one result set: a node, or a member end or station (`x`, m from end i). */
-export interface Row { entity: number; end?: 'i' | 'j'; x?: number; values: number[] }
+export interface Row { entity: number; end?: 'i' | 'j'; x?: number; side?: Extreme['side']; values: number[] }
 
 /**
  * Each row of one result set, in the order the tables list them, handed to `visit` without
@@ -100,7 +100,7 @@ export interface Row { entity: number; end?: 'i' | 'j'; x?: number; values: numb
  * combinations allocated a quarter of a million rows, each copied once more for its resultants,
  * and the report spent nearly nine tenths of its time there (`scale-budget.test.ts`).
  */
-function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visit: (entity: number, end: 'i' | 'j' | undefined, x: number | undefined, values: number[]) => void): void {
+function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visit: (entity: number, end: 'i' | 'j' | undefined, x: number | undefined, values: number[], side?: Extreme['side']) => void): void {
   const keep = (id: number) => !opts.entities || opts.entities.has(id);
   const fin = (v: number[]) => (opts.resultant ? withResultants(kind, v) : v);
   const { vec, rot } = resultComponents(makeFrame(opts.axes), r);
@@ -121,7 +121,7 @@ function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visi
       visit(f.elementId, 'j', f.length, fin([f.nEnd, f.vyEnd, f.vzEnd, f.mxEnd, f.myEnd, f.mzEnd]));
       continue;
     }
-    const stations: DiagramStation[] = spec === 'critical' ? criticalForceStations(f).filter(cut => !cut.right)
+    const stations: DiagramStation[] = spec === 'critical' ? criticalForceStations(f)
       : stationTs(f, spec).map(t => ({ t }));
     if (!stations.length) continue;
     const axial = prepareDiagramEvaluator3D(f, 'axial');
@@ -130,19 +130,20 @@ function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visi
     const torsion = prepareDiagramEvaluator3D(f, 'torsion');
     const momentY = prepareDiagramEvaluator3D(f, 'momentY');
     const momentZ = prepareDiagramEvaluator3D(f, 'momentZ');
-    for (const station of stations) {
-      const { t, distance } = station;
+    stations.forEach((station, i) => {
+      const { t, distance, right } = station;
+      const side = right ? 'right' : stations[i + 1]?.t === t ? 'left' : undefined;
       const v = [axial(station), shearY(station), shearZ(station), torsion(station), momentY(station), momentZ(station)];
-      visit(f.elementId, t === 0 ? 'i' : t === 1 ? 'j' : undefined, distance ?? t * f.length, fin(v));
-    }
+      visit(f.elementId, t === 0 ? 'i' : t === 1 ? 'j' : undefined, distance ?? t * f.length, fin(v), side);
+    });
   }
 }
 
 /** The rows of one result set, in the order the tables list them. */
 export function rowsOf(kind: TableKind, r: AnalysisResults3D, opts: TableOptions): Row[] {
   const out: Row[] = [];
-  eachRow(kind, r, opts, (entity, end, x, values) => {
-    out.push(kind === 'forces' ? { entity, ...(end ? { end } : {}), x, values } : { entity, values });
+  eachRow(kind, r, opts, (entity, end, x, values, side) => {
+    out.push(kind === 'forces' ? { entity, ...(end ? { end } : {}), x, ...(side && { side }), values } : { entity, values });
   });
   return out;
 }
@@ -225,25 +226,27 @@ export function summaryRows(kind: TableKind, sources: readonly Source[], opts: T
 }
 
 /** One node or member end or station, enveloped: per column the largest and smallest value and their source. */
-export interface EnvelopeRow { entity: number; end?: 'i' | 'j'; x?: number; max: Array<{ value: number; source: Source }>; min: Array<{ value: number; source: Source }> }
+export interface EnvelopeRow { entity: number; end?: 'i' | 'j'; x?: number; side?: Extreme['side']; max: Array<{ value: number; source: Source }>; min: Array<{ value: number; source: Source }> }
 
 /** For each node or member end (or station), the largest and smallest value of each column over the sources. */
 export function envelopeRows(kind: TableKind, sources: readonly Source[], opts: TableOptions): EnvelopeRow[] {
   const byKey = new Map<string, EnvelopeRow>();
   for (const s of sources) {
     for (const row of rowsOf(kind, s.results, opts)) {
-      const key = `${row.entity}:${row.end ?? ''}:${row.x?.toFixed(6) ?? ''}`;
+      const distance = opts.stations === 'critical' ? row.x : row.x?.toFixed(6);
+      const key = `${row.entity}:${row.end ?? ''}:${distance ?? ''}:${row.side ?? ''}`;
       let e = byKey.get(key);
       if (!e) {
-        e = { entity: row.entity, end: row.end, x: row.x, max: row.values.map((v) => ({ value: v, source: s })), min: row.values.map((v) => ({ value: v, source: s })) };
+        e = { entity: row.entity, end: row.end, x: row.x, ...(row.side && { side: row.side }), max: row.values.map((v) => ({ value: v, source: s })), min: row.values.map((v) => ({ value: v, source: s })) };
         byKey.set(key, e);
         continue;
       }
       row.values.forEach((v, c) => {
         // A tie within round-off keeps the earlier source: the sources' order is stable, the last digit is not.
         const tol = (a: number) => 1e-9 * Math.max(Math.abs(v), Math.abs(a), 1e-12);
-        if (v - e!.max[c]!.value > tol(e!.max[c]!.value)) e!.max[c] = { value: v, source: s };
-        if (e!.min[c]!.value - v > tol(e!.min[c]!.value)) e!.min[c] = { value: v, source: s };
+        const max = e!.max[c]!.value, min = e!.min[c]!.value;
+        if (v - max > (opts.stations === 'critical' ? 0 : tol(max))) e!.max[c] = { value: v, source: s };
+        if (min - v > (opts.stations === 'critical' ? 0 : tol(min))) e!.min[c] = { value: v, source: s };
       });
     }
   }
@@ -281,14 +284,15 @@ export function maxByType(demands: ReadonlyMap<number, ElementDesignDemands>, en
     .sort((a, b) => a.elementId - b.elementId);
 }
 
+export function stationLabel(x: number, side?: Extreme['side']): string {
+  const rounded = x.toFixed(2);
+  const distance = side && Number(rounded) !== x ? String(x) : rounded;
+  return distance + (side === 'right' ? '⁺' : side === 'left' ? '⁻' : '');
+}
+
 /** Where a row is, as the tables write it: a node, a member end (12·i) or a station (12 @ 1,50). */
 export function whereOf(r: Pick<Extreme, 'entity' | 'end' | 'x' | 'side'>, stations = false): string {
-  if ((stations || r.side) && r.x !== undefined) {
-    const rounded = r.x.toFixed(2);
-    const distance = r.side && Number(rounded) !== r.x ? String(r.x) : rounded;
-    const side = r.side === 'right' ? '⁺' : r.side === 'left' ? '⁻' : '';
-    return `${r.entity} @ ${distance}${side}`;
-  }
+  if ((stations || r.side) && r.x !== undefined) return `${r.entity} @ ${stationLabel(r.x, r.side)}`;
   return r.end ? `${r.entity}·${r.end}` : String(r.entity);
 }
 

@@ -87,16 +87,19 @@ const stationRows = (sources: readonly WorkbookSource[], stations: StationSpec, 
 };
 
 function stationsSheet(sources: readonly WorkbookSource[], stations: StationSpec, opts: TableOptions): StreamedSheet {
+  const critical = stations === 'critical';
+  const options = { ...opts, stations };
   return {
-    name: 'Stations', header: [...SOURCE, 'member', 'station', 'x [m]', ...head('forces')],
-    count: () => stationRows(sources, stations),
+    name: 'Stations', header: [...SOURCE, 'member', 'station', 'x [m]', ...(critical ? ['cut side'] : []), ...head('forces')],
+    count: () => critical ? sources.reduce((n, s) => n + rowsOf('forces', s.results, options).length, 0)
+      : stationRows(sources, stations),
     *body() {
       for (const s of sources) {
         let last = -1, k = 0;
-        for (const r of rowsOf('forces', s.results, { ...opts, stations })) {
+        for (const r of rowsOf('forces', s.results, options)) {
           k = r.entity === last ? k + 1 : 1;
           last = r.entity;
-          yield [...src(s), r.entity, k, r.x ?? 0, ...r.values];
+          yield [...src(s), r.entity, k, r.x ?? 0, ...(critical ? [cutSide(r.side)] : []), ...r.values];
         }
       }
     },
@@ -277,6 +280,10 @@ function governing(sources: readonly WorkbookSource[]): WorkbookSource[] {
 }
 const asSource = (s: WorkbookSource): Source & { kind: string } => ({ id: s.id, name: s.name, results: s.results, kind: s.kind });
 
+function cutSide(side?: 'left' | 'right'): string {
+  return side === 'right' ? '+' : side === 'left' ? '−' : '';
+}
+
 function maximaSheet(input: ResultSheetsInput, opts: TableOptions): WorkbookSheet {
   const rows: WorkbookSheet['rows'] = [['table', 'component', 'unit', 'extreme', 'value', 'entity', 'end', 'x [m]', 'source', 'sourceId', 'sourceName']];
   const withSide = input.stations === 'critical';
@@ -288,7 +295,7 @@ function maximaSheet(input: ResultSheetsInput, opts: TableOptions): WorkbookShee
         if (!e) continue;
         const s = e.source as Source & { kind: string };
         const row = [kind, head(kind)[c]!.replace(/ \[.*$/, ''), UNITS[kind][c]!, extreme, e.value, e.entity, e.end ?? '', e.x ?? '', s.kind, s.id, safeText(s.name)];
-        if (withSide) row.push(e.side === 'right' ? '+' : e.side === 'left' ? '−' : '');
+        if (withSide) row.push(cutSide(e.side));
         rows.push(row);
       }
     });
@@ -301,17 +308,21 @@ function maximaSheet(input: ResultSheetsInput, opts: TableOptions): WorkbookShee
 
 function envelopeSheet(input: ResultSheetsInput, opts: TableOptions): WorkbookSheet {
   const rows: WorkbookSheet['rows'] = [['table', 'entity', 'end', 'x [m]', 'component', 'unit', 'max', 'maxSourceId', 'maxSourceName', 'min', 'minSourceId', 'minSourceName']];
+  const withSide = input.stations === 'critical';
+  if (withSide) rows[0]!.push('cut side');
   const sources = governing(input.sources).map(asSource);
   for (const kind of ['reactions', 'displacements', 'forces'] as const) {
     // At the same stations as Maxima, so the two sheets read the same members the same way.
     for (const e of envelopeRows(kind, sources, { ...opts, stations: input.stations })) {
       head(kind).forEach((h, c) => {
         const mx = e.max[c]!, mn = e.min[c]!;
-        rows.push([kind, e.entity, e.end ?? '', e.x ?? '', h.replace(/ \[.*$/, ''), UNITS[kind][c]!, mx.value, mx.source.id, safeText(mx.source.name), mn.value, mn.source.id, safeText(mn.source.name)]);
+        rows.push([kind, e.entity, e.end ?? '', e.x ?? '', h.replace(/ \[.*$/, ''), UNITS[kind][c]!, mx.value, mx.source.id, safeText(mx.source.name), mn.value, mn.source.id, safeText(mn.source.name), ...(withSide ? [cutSide(e.side)] : [])]);
       });
     }
   }
-  if (input.shells && hasShells(input)) rows.push(...shellEnvelopeRows(governing(input.sources), input.sources));
+  if (input.shells && hasShells(input)) {
+    for (const row of shellEnvelopeRows(governing(input.sources), input.sources)) rows.push(withSide ? [...row, ''] : row);
+  }
   return { name: 'Envelope', rows };
 }
 

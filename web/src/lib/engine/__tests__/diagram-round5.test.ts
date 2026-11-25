@@ -542,7 +542,9 @@ it('known wrong result: #2226 emits only the two faces of a jump shared with a b
     const signed = { ...leaf, distributedLoadsZ: [{ a: 0, b: 1, qI: 4, qJ: -4 }] };
     const abs = { ...leaf, combined: { method: 'abs' as const, parts: [signed, leaf] } };
     const jump = { ...leaf, pointLoadsZ: [{ a: 0.5, p: 3 }] };
-    const member = { ...leaf, combined: { method: 'srss' as const, parts: [abs, jump] } };
+    const srss = { ...leaf, combined: { method: 'srss' as const, parts: [signed, leaf] } };
+    const bounded = { ...leaf, combined: { method: 'abs' as const, parts: [srss, leaf] } };
+    const member = { ...leaf, combined: { method: 'srss' as const, parts: [bounded, jump] } };
     const diagram = computeDiagram3D(member, 'shearZ');
     expect.soft(diagram.extrema).toBe('bounded');
     expect.soft(diagram.points.filter(p => p.t === 0.5).map(p => p.value)).toEqual([1, Math.hypot(1, 3)]);
@@ -584,7 +586,7 @@ it('known wrong result: #1782 keeps a reversed axle just inside a path endpoint'
     expect.objectContaining({ x: d, position: interior }));
 });
 
-it.fails('known wrong result: #2437 keeps a small ramp peak when overlapping triangular loads cancel', () => {
+it('known wrong result: #2437 keeps a small ramp peak when overlapping triangular loads cancel', () => {
   const [plane, space] = cantilevers(1);
   const high = 2 ** 54, start = 1 / high;
   const loads = [
@@ -595,7 +597,7 @@ it.fails('known wrong result: #2437 keeps a small ramp peak when overlapping tri
   ];
   const peak = (1 - start) / 4;
   for (const result of [solve(plane), solvePDelta(plane).results]) {
-    const ef = Object.assign(result.elementForces[0]!, { distributedLoads: loads });
+    const ef = Object.assign(result.elementForces[0]!, { vStart: 0, vEnd: 0, distributedLoads: loads });
     expect.soft(computeElementDiagram('shear', ef, 0, 0, 1, 0).maxValue).toBe(peak);
     expect.soft(computeDiagrams2D(plane, result).shear[0]!.maxValue).toBe(peak);
     expect.soft(computeEnvelope([result])!.shear.globalMax).toBe(peak);
@@ -604,7 +606,7 @@ it.fails('known wrong result: #2437 keeps a small ramp peak when overlapping tri
     expect.soft(computeDiagramValueAtWasm('shear', 0.5, ef)).toBe(peak);
   }
   for (const result of [solve3D(space), solvePDelta3D(space).results]) {
-    const ef = Object.assign(result.elementForces[0]!, { distributedLoadsZ: loads });
+    const ef = Object.assign(result.elementForces[0]!, { vzStart: 0, vzEnd: 0, distributedLoadsZ: loads });
     expect.soft(computeDiagram3D(ef, 'shearZ').maxValue).toBe(peak);
     expect.soft(computeDiagrams3D(space, result).shearZ[0]!.maxValue).toBe(peak);
     expect.soft(computeEnvelope3D([result])!.shearZ.globalMax).toBe(peak);

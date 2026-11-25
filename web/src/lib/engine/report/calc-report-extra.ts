@@ -1,3 +1,4 @@
+import { envelopeJumpCuts } from '../diagram-cut';
 /**
  * The calculation report's chosen parts: what goes in, the figures, the kinematic analysis and a
  * table per internal force.
@@ -174,14 +175,7 @@ function envelopeValues(d: ElementEnvelopeDiagram, length: number, sign = 1): Ex
     faces.set(index, { x, side: 'left' });
     faces.set(index + 1, { x, side: 'right' });
   };
-  if (d.jumpCuts) {
-    for (const { index, distance } of d.jumpCuts) addFaces(index, distance);
-  } else {
-    d.tPositions.forEach((station, i, stations) => {
-      if (stations[i - 1] === station || stations[i + 1] !== station || stations[i + 2] === station) return;
-      if (d.posValues[i] !== d.posValues[i + 1] || d.negValues[i] !== d.negValues[i + 1]) addFaces(i, station * length);
-    });
-  }
+  for (const { index, distance } of envelopeJumpCuts(d, length)) addFaces(index, distance);
   return d.tPositions.map((t, i) => {
     const p = d.posValues[i] ?? 0, n = d.negValues[i] ?? 0;
     return { value: sign * (Math.abs(n) > Math.abs(p) ? n : p), x: t * length, ...faces.get(i) };

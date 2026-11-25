@@ -1,5 +1,6 @@
 use crate::element::distributed_load_terms_at_distance;
 use crate::types::DistributedLoadInfo;
+use std::collections::BTreeMap;
 
 const ALIASED_CUTS: &str = "distinct member diagram cuts share a normalized station";
 
@@ -33,7 +34,9 @@ impl Cut {
     fn interior(length: f64, start: f64, end: f64, u: f64) -> Self {
         let lo = (start + 0.0) / length;
         let hi = (end + 0.0) / length;
-        Self { t: lo + (hi - lo) * u, right: false, location: Location::Interior { start, end, u } }
+        let t = lo + (hi - lo) * u;
+        let t = if t == hi { hi - (hi - lo) * (1.0 - u) } else { t };
+        Self { t, right: false, location: Location::Interior { start, end, u } }
     }
 
     pub fn station_x(self, length: f64) -> f64 {
@@ -116,13 +119,13 @@ pub(crate) enum Response {
     Moment(f64),
 }
 
-pub(crate) struct Curve<D, P> {
+pub(crate) struct Curve<P> {
     pub length: f64,
     pub start: f64,
     pub change: f64,
     pub slope: f64,
     pub response: Response,
-    pub distributed: D,
+    pub distributed: DiagramLoads,
     pub points: P,
 }
 
@@ -179,10 +182,62 @@ impl DiagramSum {
         sum
     }
 
+    fn scaled(&self, scale: f64) -> Self {
+        let mut product = Self::default();
+        for &term in &self.partials {
+            let high = term * scale;
+            product.add(high);
+            if high.is_finite() {
+                product.add(term.mul_add(scale, -high));
+            }
+        }
+        product
+    }
+
     fn add_scaled(&mut self, other: &Self, scale: f64) {
         for &term in &other.partials {
             self.add(term * scale);
         }
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct DiagramLoads(Vec<DistributedLoadInfo>);
+
+impl FromIterator<DistributedLoadInfo> for DiagramLoads {
+    fn from_iter<T: IntoIterator<Item = DistributedLoadInfo>>(loads: T) -> Self {
+        let mut loads = loads.into_iter();
+        let Some(first) = loads.next() else { return Self::default() };
+        let Some(second) = loads.next() else { return Self(vec![first]) };
+        let mut groups = BTreeMap::<_, Vec<DistributedLoadInfo>>::new();
+        for load in [first, second].into_iter().chain(loads) {
+            groups.entry(((load.a + 0.0).to_bits(), (load.b + 0.0).to_bits())).or_default().push(load);
+        }
+        let mut terms = Vec::new();
+        for group in groups.into_values() {
+            let opposes = |intensity: fn(&DistributedLoadInfo) -> f64| {
+                group.iter().any(|load| intensity(load) < 0.0) && group.iter().any(|load| intensity(load) > 0.0)
+            };
+            if !(opposes(|load| load.q_i) || opposes(|load| load.q_j)) {
+                terms.extend(group);
+                continue;
+            }
+            let (mut left, mut right) = (DiagramSum::default(), DiagramSum::default());
+            let (a, b) = (group[0].a, group[0].b);
+            for load in group {
+                left.add(load.q_i);
+                right.add(load.q_j);
+            }
+            for i in 0..left.partials.len().max(right.partials.len()).max(1) {
+                terms.push(DistributedLoadInfo {
+                    a,
+                    b,
+                    q_i: left.partials.get(i).copied().unwrap_or(0.0),
+                    q_j: right.partials.get(i).copied().unwrap_or(0.0),
+                });
+            }
+        }
+        Self(terms)
     }
 }
 
@@ -228,9 +283,8 @@ pub(crate) fn distributed_actions(
     loads.iter().cloned().chain(legacy)
 }
 
-impl<D, P> Curve<D, P>
+impl<P> Curve<P>
 where
-    D: Iterator<Item = DistributedLoadInfo> + Clone,
     P: Iterator<Item = PointAction> + Clone,
 {
     pub fn checked_value(&self, cut: Cut) -> Result<f64, &'static str> {
@@ -269,8 +323,8 @@ where
             value.add(self.slope * offset);
             value.add(self.change * (offset / self.length));
         }
-        for d in self.distributed.clone() {
-            add_load_ordinate(&mut value, &d, distance(d.a), self.response, 1.0);
+        for d in &self.distributed.0 {
+            add_load_ordinate(&mut value, d, distance(d.a), self.response, 1.0);
         }
         for p in self.points.clone() {
             let dx = distance(p.a);
@@ -292,7 +346,7 @@ where
 
     pub fn checked_station_value(&self, t: f64, right: bool) -> Result<f64, &'static str> {
         let value = self.checked_value(Cut::at(t, right))?;
-        if !(0.0..=1.0).contains(&t) || self.distributed.clone().next().is_none() {
+        if !(0.0..=1.0).contains(&t) || self.distributed.0.is_empty() {
             return Ok(value);
         }
         let mut start = 0.0_f64;
@@ -335,7 +389,7 @@ where
     }
 
     fn action_distances(&self) -> impl Iterator<Item = f64> + '_ {
-        self.distributed.clone().flat_map(|d| [d.a, d.b]).chain(self.points.clone().map(|p| p.a))
+        self.distributed.0.iter().flat_map(|d| [d.a, d.b]).chain(self.points.clone().map(|p| p.a))
     }
 
     fn boundaries(&self) -> Result<Vec<f64>, &'static str> {
@@ -408,12 +462,11 @@ where
     }
 
     pub fn interior_range(&self, end: f64) -> Result<(f64, f64), &'static str> {
-        let mut end_limit = DiagramSum::default();
-        end_limit.add(end);
-        for point in self.points.clone().filter(|p| p.a == self.length) {
-            end_limit.add(-point.jump);
-        }
-        let end_limit = end_limit.value();
+        let end_limit = if self.points.clone().any(|p| p.a == self.length && p.jump != 0.0) {
+            self.checked_value(Cut::boundary(1.0, self.length, false))?
+        } else {
+            end
+        };
         if !end_limit.is_finite() {
             return Err("non-finite moving load member diagram");
         }
@@ -445,11 +498,11 @@ where
                 linear.add(p.slope * width);
             }
         }
-        for d in self.distributed.clone() {
+        for d in &self.distributed.0 {
             let sign = match self.response {
                 Response::Force(sign) => sign,
                 Response::Moment(sign) => {
-                    add_load_ordinate(&mut linear, &d, x - d.a, Response::Force(sign), width);
+                    add_load_ordinate(&mut linear, d, x - d.a, Response::Force(sign), width);
                     sign
                 }
             };
@@ -466,7 +519,8 @@ where
             if d.q_i == d.q_j {
                 initial.add(signed_width * d.q_i * integral);
             } else {
-                initial.add(signed_width * (d.q_i * (1.0 - u)) * integral);
+                initial.add(signed_width * d.q_i * integral);
+                initial.add(-signed_width * (d.q_i * u) * integral);
                 initial.add(signed_width * (d.q_j * u) * integral);
                 let fraction = width / span;
                 gradient.add(signed_width * (d.q_j * fraction) * gradient_integral);
@@ -478,11 +532,18 @@ where
 }
 
 fn add_change(value: &mut DiagramSum, [linear, quadratic, cubic]: &[DiagramSum; 3], from: f64, to: f64) {
-    let mut difference = DiagramSum::default();
-    difference.add_scaled(linear, 1.0);
-    difference.add_scaled(quadratic, to + from);
-    difference.add_scaled(cubic, to * to + to * from + from * from);
-    value.add_scaled(&difference, to - from);
+    let step = to - from;
+    let cubic_at_from = cubic.scaled(from);
+    let mut derivative = DiagramSum::default();
+    derivative.add_scaled(linear, 1.0);
+    derivative.add_scaled(&quadratic.scaled(from), 2.0);
+    derivative.add_scaled(&cubic_at_from.scaled(from).scaled(3.0), 1.0);
+    let mut curvature = DiagramSum::default();
+    curvature.add_scaled(quadratic, 1.0);
+    curvature.add_scaled(&cubic_at_from.scaled(3.0), 1.0);
+    curvature.add_scaled(&cubic.scaled(step), 1.0);
+    value.add_scaled(&derivative.scaled(step), 1.0);
+    value.add_scaled(&curvature.scaled(step).scaled(step), 1.0);
 }
 
 fn interior_roots([linear, quadratic, cubic]: [f64; 3]) -> Result<impl Iterator<Item = f64>, &'static str> {
@@ -514,7 +575,6 @@ mod round3_tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #2437"]
     fn issue_2437_interval_intensity_survives_overlapping_ramps() {
         let high = 2.0_f64.powi(54);
         let start = 1.0 / high;
@@ -526,28 +586,32 @@ mod round3_tests {
         ];
         let curve = Curve {
             length: 1.0, start: 0.0, change: 0.0, slope: 0.0,
-            response: Response::Force(1.0), distributed: loads.into_iter(), points: std::iter::empty(),
+            response: Response::Force(1.0), distributed: loads.into_iter().collect(), points: std::iter::empty(),
         };
         assert_eq!(curve.interior_range(0.0), Ok((0.0, 0.25)));
         assert_eq!(curve.checked_station_value(0.5, false), Ok(0.25));
     }
 
     #[test]
-    #[ignore = "known wrong result: #2437"]
     fn issue_2437_moving_range_uses_the_physical_j_left_cut() {
         let jump = 2.0_f64.powi(54);
         for (action, stored) in [(jump, jump), (-jump, 1.0 - jump), (0.0, 1.0)] {
             let curve = Curve {
                 length: 1.0, start: 2.0, change: 0.0, slope: -1.0,
-                response: Response::Force(1.0), distributed: std::iter::empty(),
+                response: Response::Force(1.0), distributed: DiagramLoads::default(),
                 points: std::iter::once(PointAction { a: 1.0, jump: action, slope: 0.0 }),
             };
             assert_eq!(curve.interior_range(stored), Ok((1.0, 2.0)));
         }
+        let curve = Curve {
+            length: 1.0, start: 1.0, change: 0.0, slope: -1.0,
+            response: Response::Force(1.0), distributed: DiagramLoads::default(),
+            points: [jump, 1.0].into_iter().map(|jump| PointAction { a: 1.0, jump, slope: 0.0 }),
+        };
+        assert_eq!(curve.interior_range(jump), Ok((0.0, 1.0)));
     }
 
     #[test]
-    #[ignore = "known wrong result: #2437"]
     fn issue_2437_transfer_preserves_the_small_change_near_j() {
         let high = 2.0_f64.powi(54);
         let u = 1.0 - 2.0_f64.powi(-53);
@@ -574,9 +638,9 @@ mod round3_tests {
             let curve = Curve {
                 length: 1.0, start: high, change: 0.0, slope: 0.0,
                 response: Response::Force(1.0),
-                distributed: std::iter::once(DistributedLoadInfo {
+                distributed: [DistributedLoadInfo {
                     a: 0.5, b: 0.5 + 8.0 * d, q_i: 7.0 * k, q_j: -9.0 * k,
-                }),
+                }].into_iter().collect(),
                 points: std::iter::empty(),
             };
             let cut = curve.critical_cuts().unwrap().into_iter().find(|cut| cut.t == station).unwrap();
@@ -600,7 +664,7 @@ mod round3_tests {
         let curve = |jumps: [f64; 5]| Curve {
             length: 1.0, start: 0.0, change: 0.0, slope: 0.0,
             response: Response::Force(1.0),
-            distributed: loads.clone().into_iter(),
+            distributed: loads.clone().into_iter().collect(),
             points: jumps.into_iter().map(|jump| PointAction { a: 1.0, jump, slope: 0.0 }),
         };
         let without_jump = curve([0.0; 5]);
@@ -618,9 +682,9 @@ mod round3_tests {
             let curve = Curve {
                 length: 3.0, start: 0.0, change: 0.0, slope: 0.0,
                 response: Response::Force(1.0),
-                distributed: std::iter::once(DistributedLoadInfo {
+                distributed: [DistributedLoadInfo {
                     a, b: a + f64::from(steps) * ulp, q_i: 1.0 / ulp, q_j: -1.0 / ulp,
-                }),
+                }].into_iter().collect(),
                 points: std::iter::empty(),
             };
             let cuts = curve.diagram_cuts(21);
@@ -642,9 +706,9 @@ mod round3_tests {
             let curve = Curve {
                 length: 3.0, start: 0.0, change: 0.0, slope: 0.0,
                 response: Response::Force(1.0),
-                distributed: std::iter::once(DistributedLoadInfo {
+                distributed: [DistributedLoadInfo {
                     a, b: a + f64::from(steps) * ulp, q_i: 1.0 / ulp, q_j: -1.0 / ulp,
-                }),
+                }].into_iter().collect(),
                 points: std::iter::empty(),
             };
             assert_eq!(curve.checked_station_value(0.5, false).is_err(), steps == 2);
@@ -662,7 +726,7 @@ mod round3_tests {
         let curve = Curve {
             length: 1.0, start: 0.0, change: 0.0, slope: 0.0,
             response: Response::Force(1.0),
-            distributed: loads.into_iter(),
+            distributed: loads.into_iter().collect(),
             points: std::iter::empty(),
         };
         let cuts = curve.critical_cuts().unwrap();
@@ -683,9 +747,9 @@ mod round3_tests {
             let curve = Curve {
                 length: 3.0, start, change: 0.0, slope: 0.0,
                 response: Response::Force(1.0),
-                distributed: std::iter::once(DistributedLoadInfo {
+                distributed: [DistributedLoadInfo {
                     a, b: a + f64::from(steps) * ulp, q_i: q, q_j: -q,
-                }),
+                }].into_iter().collect(),
                 points: std::iter::once(PointAction { a: 1.0, jump: 1.0, slope: 0.0 }),
             };
             let at = a / curve.length;
@@ -709,9 +773,9 @@ mod round3_tests {
         let curve = Curve {
             length: 8.0, start: 0.0, change: 0.0, slope: 0.0,
             response: Response::Moment(1.0),
-            distributed: std::iter::once(DistributedLoadInfo {
+            distributed: [DistributedLoadInfo {
                 a: 0.0, b: 1.0, q_i: -q, q_j: q,
-            }),
+            }].into_iter().collect(),
             points: std::iter::empty(),
         };
         assert!(curve.critical_cuts().is_ok());
@@ -735,7 +799,7 @@ mod round3_tests {
             change: 0.0,
             slope: 0.0,
             response: Response::Force(1.0),
-            distributed: loads.into_iter(),
+            distributed: loads.into_iter().collect(),
             points: std::iter::empty(),
         };
         let cuts = curve.critical_cuts().unwrap();

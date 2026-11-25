@@ -25,7 +25,7 @@
     import { exportToExcel } from '../../lib/export/excel';
   import { computeStationDemands } from '../../lib/engine/verification-service';
   import {
-    columnsOf, allRows, summaryRows, envelopeRows, maxByType, toCsv, whereOf, MAX_TYPES,
+    columnsOf, allRows, summaryRows, envelopeRows, maxByType, toCsv, whereOf, stationLabel, MAX_TYPES,
     type TableKind, type Source, type TableOptions,
   } from '../../lib/engine/result-tables';
   import type { AnalysisResults3D } from '../../lib/engine/types-3d';
@@ -119,7 +119,8 @@
     const head = (c: { label: string; qty: import('../../lib/utils/units').Quantity }) => `${c.label} (${unitQ(c.qty)})`;
     const q = (v: number, c: number) => toQ(v, cols[c]!.qty);
     const at = isNode ? [] : withStations ? ['x (m)'] : [t('tables.end')];
-    const atOf = (r: { end?: 'i' | 'j'; x?: number }) => (isNode ? [] : withStations ? [r.x ?? ''] : [r.end ?? '']);
+    const atOf = (r: { end?: 'i' | 'j'; x?: number; side?: 'left' | 'right' }) =>
+      isNode ? [] : withStations ? [r.side && r.x !== undefined ? stationLabel(r.x, r.side) : r.x ?? ''] : [r.end ?? ''];
     if (mode === 'all') {
       return { header: [t('tables.source'), id, ...at, ...cols.map(head)], rows: all.map((r) => [r.source.name, r.entity, ...atOf(r), ...r.values.map(q)]) };
     }
@@ -213,7 +214,7 @@
       <tbody>
         {#each all.slice(0, ROW_CAP) as r, i (i)}
           <tr onclick={() => pick(r.entity)} style="cursor:pointer" class:tm-first={byEntity && (i === 0 || all[i - 1]!.entity !== r.entity)}>
-            <td class="tm-src">{r.source.name}</td><td class="col-id">{r.entity}</td>{#if !isNode}<td class="col-end">{withStations ? fmt(r.x ?? 0) : r.end}</td>{/if}
+            <td class="tm-src">{r.source.name}</td><td class="col-id">{r.entity}</td>{#if !isNode}<td class="col-end">{withStations ? (r.side ? stationLabel(r.x ?? 0, r.side) : fmt(r.x ?? 0)) : r.end}</td>{/if}
             {#each r.values as v, c (c)}<td class="col-num">{fmtQ(v, cols[c]!.qty)}</td>{/each}
           </tr>
         {/each}
@@ -243,7 +244,7 @@
       <tbody>
         {#each envelope.slice(0, ROW_CAP) as r, i (i)}
           <tr onclick={() => pick(r.entity)} style="cursor:pointer">
-            <td class="col-id" rowspan="2">{r.entity}</td>{#if !isNode}<td class="col-end" rowspan="2">{withStations ? fmt(r.x ?? 0) : r.end}</td>{/if}
+            <td class="col-id" rowspan="2">{r.entity}</td>{#if !isNode}<td class="col-end" rowspan="2">{withStations ? (r.side ? stationLabel(r.x ?? 0, r.side) : fmt(r.x ?? 0)) : r.end}</td>{/if}
             <td class="tm-mm">{t('tables.max')}</td>
             {#each r.max as m, c (c)}<td class="col-num" title={m.source.name}>{fmtQ(m.value, cols[c]!.qty)}</td>{/each}
           </tr>

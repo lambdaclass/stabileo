@@ -1,0 +1,50 @@
+{
+  "id": "member-section-extrema",
+  "date": "2026-11-25",
+  "prs": [
+    2581
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "members"
+    ],
+    "any": [
+      "memberLoads",
+      "selfWeight",
+      "movingLoads",
+      "combinations",
+      "magnitudeCombinations"
+    ]
+  },
+  "quantities": [
+    "diagrams",
+    "envelope",
+    "movingLoads",
+    "beamStations"
+  ],
+  "title": {
+    "en": "Preserve extrema at member section cuts",
+    "es": "Conservar los extremos en las secciones de las barras",
+    "pt": "Preservar os extremos nas seções das barras",
+    "de": "Extremwerte an Stabschnitten erhalten",
+    "fr": "Préserver les extrema aux sections des barres",
+    "tr": "Eleman kesitlerindeki uç değerleri koruma",
+    "zh": "保留杆件截面处的极值",
+    "hu": "Szélsőértékek megőrzése a rúd metszeteiben"
+  },
+  "explanation": {
+    "en": "Member diagrams preserve cancelling load contributions and jump faces. Spatial resultants account for piece-local cuts and ABS sign intervals. Recompute the affected results and regenerate reports.",
+    "es": "Los diagramas conservan las contribuciones de cargas que se cancelan y ambos lados de los saltos. Las resultantes espaciales tienen en cuenta las secciones locales y los intervalos de signo ABS. Recalcule los resultados afectados y regenere los informes.",
+    "pt": "Os diagramas preservam as contribuições de cargas que se cancelam e os dois lados dos saltos. As resultantes espaciais consideram os cortes locais e os intervalos de sinal ABS. Recalcule os resultados afetados e gere novamente os relatórios.",
+    "de": "Stabdiagramme erhalten Beiträge sich aufhebender Lasten und beide Seiten von Sprüngen. Räumliche Resultierende berücksichtigen lokale Schnitte und ABS-Vorzeichenintervalle. Berechnen Sie die betroffenen Ergebnisse und Berichte neu.",
+    "fr": "Les diagrammes conservent les contributions des charges qui se compensent et les deux faces des sauts. Les résultantes spatiales tiennent compte des sections locales et des intervalles de signe ABS. Recalculez les résultats concernés et régénérez les rapports.",
+    "tr": "Eleman diyagramları birbirini götüren yük katkılarını ve sıçramaların iki tarafını korur. Uzaysal bileşkeler parça içindeki kesitleri ve ABS işaret aralıklarını kullanır. Etkilenen sonuçları yeniden hesaplayın ve raporları yeniden oluşturun.",
+    "zh": "杆件内力图保留相消荷载的贡献及跳变两侧的值。空间合力考虑分段局部截面和 ABS 符号区间。请重新计算受影响的结果并重新生成报告。",
+    "hu": "A rúddiagram már megőrzi a kioltó terhek hozzájárulásait és az ugrások mindkét oldalát. A térbeli eredők figyelembe veszik a helyi metszeteket és az ABS előjelintervallumait. Számítsa újra az érintett eredményeket és jelentéseket."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-member-section-extrema.md",
+    "heading": "Preserve extrema at member section cuts"
+  }
+}

@@ -102,7 +102,7 @@ pub(crate) fn member_diagram_range_3d(ef: &ElementForces3D, kind: &str) -> Resul
 
 fn spatial_curve<'a>(
     ef: &'a ElementForces3D, kind: &str,
-) -> Curve<impl Iterator<Item = DistributedLoadInfo> + Clone + 'a, impl Iterator<Item = PointAction> + Clone + 'a> {
+) -> Curve<impl Iterator<Item = PointAction> + Clone + 'a> {
     let (start, slope, change, response, loads, qi, qj, points) = match kind {
         "momentZ" => (ef.mz_start, -ef.vy_start, 0.0, Response::Moment(-1.0),
             ef.distributed_loads_y.as_slice(), ef.q_yi, ef.q_yj, ef.point_loads_y.as_slice()),
@@ -124,7 +124,7 @@ fn spatial_curve<'a>(
     };
     Curve {
         length: ef.length, start, change, slope, response,
-        distributed: distributed_actions(ef.length, loads, qi, qj),
+        distributed: distributed_actions(ef.length, loads, qi, qj).collect(),
         points: points.iter().filter(|p| p.p != 0.0).map(move |p| {
             let (jump, slope) = match response {
                 Response::Force(sign) => (sign * p.p, 0.0),

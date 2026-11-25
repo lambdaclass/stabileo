@@ -198,7 +198,8 @@ it('#2226 withholds a project summary whose nested magnitude has only a bound', 
   const makeSources = (forces: ElementForces3D) => [{ ...A, results: { ...A.results, elementForces: [forces] } }];
   const tr = (key: string) => key === DIAGRAM_EXTREMA_UNAVAILABLE ? 'Extrema withheld' : key;
   expect(envelopeSectionHtml(makeSources(f), tr, 'Envelope').join('')).toContain('V (kN)</td><td class="num">5.000</td>');
-  const combined: ElementForces3D = { ...f, combined: { method: 'abs', parts: [f, { ...f, vyStart: -1 }] } };
+  const srss: ElementForces3D = { ...f, combined: { method: 'srss', parts: [f, { ...f, vyStart: -1 }] } };
+  const combined: ElementForces3D = { ...f, combined: { method: 'abs', parts: [f, srss] } };
   expect(() => envelopeSectionHtml(makeSources(combined), tr, 'Envelope')).toThrow('Extrema withheld');
 });
 
@@ -258,7 +259,9 @@ it('known wrong result: #2226 finds the transverse extrema of an ordinary SRSS c
     .toMatchObject({ value: Math.hypot(2, -2, 4), x: 5 / 8 });
   expect(envelopeSectionHtml(sources, k => k, 'Envelope').join('')).toContain('4.899');
   const abs = magnitudeCombination('abs', factors, cases)!;
-  expect(() => summaryRows('forces', [{ ...A, results: abs }], options)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+  const absV = summaryRows('forces', [{ ...A, results: abs }], options).find(row => row.column.key === 'v');
+  expect(absV?.min).toMatchObject({ value: Math.hypot(4, 4), x: 3 / 8 });
+  expect(absV?.max).toMatchObject({ value: Math.hypot(7, 7), x: 0 });
 });
 
 const reviewForces: ElementForces3D = {
@@ -352,7 +355,7 @@ it('known wrong result: #2226 keeps the strict critical force extremes at nearly
   expect.soft(tiedRows.find(row => row.column.key === 'vy')?.max).toMatchObject({ value: 1, x: 0, end: 'i' });
 });
 
-it.fails('known wrong result: #2226 evaluates a rebased cut in both piece-local components', () => {
+it('known wrong result: #2226 evaluates a rebased cut in both piece-local components', () => {
   const a = 0.25 - 2 ** -55;
   const first = { ...reviewForces, vyStart: -(2 ** 53), vyEnd: -(2 ** 53), vzStart: 0 };
   const next = {
@@ -368,9 +371,12 @@ it.fails('known wrong result: #2226 evaluates a rebased cut in both piece-local 
   expect.soft(v?.min).toMatchObject({ value: 1, x: 1.25, side: 'left' });
   expect.soft(memberCriticalOrdinates3D(forces, ['shearY', 'shearZ']).filter(p => p.x === 1.25)
     .map(p => p.value)).toEqual([1, Math.hypot(1, 4)]);
+  const after = { ...next, vzStart: 4, vzEnd: 0, pointLoadsZ: [{ a, p: -4 }] };
+  const unavailable = { ...forces, pieces: [forces.pieces[0]!, { ...forces.pieces[1]!, forces: after }] };
+  expect(() => summaryRows('forces', reviewSources(unavailable), criticalOptions)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
 });
 
-it.fails('known wrong result: #2226 keeps both faces in critical rows and row envelopes', () => {
+it('known wrong result: #2226 keeps both faces in critical rows and row envelopes', () => {
   const a = 0.5;
   const f = {
     ...reviewForces, vzStart: -5, vzEnd: 6, pointLoadsZ: [{ a, p: 11 }],
@@ -380,9 +386,18 @@ it.fails('known wrong result: #2226 keeps both faces in critical rows and row en
   expect.soft(rows.map(row => [whereOf(row, true), row.values[2]])).toEqual([['7 @ 0.50⁻', -5], ['7 @ 0.50⁺', 6]]);
   const envelope = envelopeRows('forces', [source!], criticalOptions).filter(row => row.x === a);
   expect.soft(envelope.map(row => [whereOf(row, true), row.max[2]!.value])).toEqual([['7 @ 0.50⁻', -5], ['7 @ 0.50⁺', 6]]);
+  const sheets = resultSheets({
+    sources: [{ ...source!, kind: 'combination' }], stations: 'critical', statics: null,
+  }, name => name === 'Stations' || name === 'Envelope');
+  const stationSheet = sheets.find(sheet => sheet.name === 'Stations')!;
+  const side = stationSheet.rows[0]!.indexOf('cut side');
+  const distance = stationSheet.rows[0]!.indexOf('x [m]');
+  expect.soft(stationSheet.rows.filter(row => row[distance] === a).map(row => row[side])).toEqual(['−', '+']);
+  const envelopeSheet = sheets.find(sheet => sheet.name === 'Envelope')!;
+  expect.soft(envelopeSheet.rows.filter(row => row[3] === a && row[4] === 'Vz').map(row => row.at(-1))).toEqual(['−', '+']);
 });
 
-it.fails('known wrong result: #2226 summarizes a two-case ABS resultant through the project report', () => {
+it('known wrong result: #2226 summarizes a two-case ABS resultant through the project report', () => {
   const a = { ...reviewForces, vyStart: -3, vyEnd: -3, vzStart: 0 };
   const b = { ...reviewForces, vyStart: 0, vzStart: 4, vzEnd: 4 };
   const cases = new Map([[1, reviewSources(a)[0]!.results], [2, reviewSources(b)[0]!.results]]);
