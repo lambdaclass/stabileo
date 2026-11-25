@@ -4157,7 +4157,7 @@
       ]
     },
     "src/lib/data/pro-examples.ts": {
-      "source": "5a6f31ac34842c5a761558e6255985d623be3cc566c7f8a9380afb7664de9896",
+      "source": "13d73520abb2da9a706f80e95e97aa1845f837633b8f1dc0adf7bc54fb9e75a2",
       "original": "3cf070d6b00c33f840b2813f6b8ceaeb24071def5db135129be8885102ee1eaa",
       "changes": [
         [
@@ -4179,50 +4179,55 @@
           ]
         ],
         [
-          42,
+          30,
+          2,
+          []
+        ],
+        [
+          44,
           3,
           []
         ],
         [
-          47,
+          49,
           1,
           [
             "  | 'firstSteps' | 'buildings' | 'cad' | 'industrial' | 'towers' | 'longspan' | 'foundations' | 'showcase';"
           ]
         ],
         [
-          49,
+          51,
           1,
           [
             "/** The order the groups are shown in: from the first model to the ones that stress the app. */"
           ]
         ],
         [
-          51,
+          53,
           1,
           [
             "  ['firstSteps', 'buildings', 'cad', 'industrial', 'towers', 'longspan', 'foundations', 'showcase'] as const;"
           ]
         ],
         [
-          65,
+          67,
           3,
           []
         ],
         [
-          78,
+          80,
           2,
           [
             "  stats: { nodes: number; members: number; shells?: number };"
           ]
         ],
         [
-          82,
+          84,
           1,
           []
         ],
         [
-          94,
+          96,
           2,
           [
             "  firstSteps: 'pro.examples.groupFirstSteps',",
@@ -4230,8 +4235,20 @@
           ]
         ],
         [
-          144,
-          31,
+          108,
+          2,
+          [
+            "  const loaded = new Set(modelStore.loads.map((l) => (l.data as { caseId?: number }).caseId ?? 1));"
+          ]
+        ],
+        [
+          121,
+          6,
+          []
+        ],
+        [
+          153,
+          32,
           [
             "  // The regulation's combinations come from the engine: an example opened while it is still",
             "  // loading waits for it rather than fail.",
@@ -4254,26 +4271,26 @@
           ]
         ],
         [
-          177,
+          187,
           1,
           [
             "type Entry = Omit<ProExample, 'nameKey' | 'descKey' | 'purposeKey' | 'lookKey' | 'groupKey' | 'load'>;"
           ]
         ],
         [
-          179,
+          189,
           2,
           [
             "const entry = (e: Entry): ProExample => {"
           ]
         ],
         [
-          182,
+          192,
           1,
           []
         ],
         [
-          192,
+          202,
           7,
           [
             "  // ── First steps ──",
@@ -4283,7 +4300,7 @@
           ]
         ],
         [
-          200,
+          210,
           4,
           [
             "  // ── Buildings ──",
@@ -4295,7 +4312,7 @@
           ]
         ],
         [
-          207,
+          217,
           2,
           [
             "  entry({ id: 'cad-arch-structure-dxf', source: 'fixture', group: 'cad', tags: ['pro.tagRC', 'pro.tagCad'], stats: { nodes: 1681, members: 840, shells: 870 }, selfWeight: 'none', combinations: 'own' }),",
@@ -4303,7 +4320,7 @@
           ]
         ],
         [
-          211,
+          221,
           5,
           [
             "  entry({ id: 'pro-simple-shed', source: 'code', group: 'industrial', tags: ['pro.tagSteel', 'pro.tagWind'], stats: { nodes: 80, members: 197 }, selfWeight: 'all', combinations: 'regulation' }),",
@@ -4314,14 +4331,14 @@
           ]
         ],
         [
-          218,
+          228,
           1,
           [
             "  entry({ id: 'pro-guyed-tower', source: 'code', group: 'towers', tags: ['pro.tagCables', 'pro.tagTensionOnly'], stats: { nodes: 90, members: 261 }, selfWeight: 'all', combinations: 'regulation' }),"
           ]
         ],
         [
-          220,
+          230,
           2,
           [
             "  entry({ id: 'offshore-platform', source: 'fixture', group: 'towers', tags: ['pro.tagSteel', 'pro.tagOffshore'], stats: { nodes: 203, members: 780 }, selfWeight: 'all', combinations: 'own' }),",
@@ -4329,7 +4346,7 @@
           ]
         ],
         [
-          224,
+          234,
           4,
           [
             "  entry({ id: 'cable-stayed-bridge', source: 'fixture', group: 'longspan', tags: ['pro.tagCables', 'pro.tagBridge'], stats: { nodes: 66, members: 113 }, selfWeight: 'all', combinations: 'regulation' }),",
@@ -4339,21 +4356,21 @@
           ]
         ],
         [
-          230,
+          240,
           1,
           [
             "  entry({ id: 'mat-foundation', source: 'fixture', group: 'foundations', tags: ['pro.tagFoundation', 'pro.tagSoil'], stats: { nodes: 72, members: 127, shells: 56 }, selfWeight: 'shells', combinations: 'regulation' }),"
           ]
         ],
         [
-          233,
+          243,
           1,
           [
             "  entry({ id: 'la-bombonera', source: 'fixture', group: 'showcase', tags: ['pro.tagBowl', 'pro.tagScale'], stats: { nodes: 1005, members: 2476, shells: 120 }, selfWeight: 'all', combinations: 'regulation' }),"
           ]
         ],
         [
-          237,
+          247,
           2,
           [
             " * The catalogue grouped for display, in `PRO_EXAMPLE_GROUP_ORDER`, each group from its smallest",
@@ -4361,7 +4378,7 @@
           ]
         ],
         [
-          244,
+          254,
           1,
           [
             "    // Small to large within a group; `sort` is stable, so equal sizes keep the listed order.",
@@ -15880,23 +15897,69 @@
       ]
     },
     "src/lib/three/load-arrows-batched.ts": {
-      "source": "6845d4f25b20b1b26c21ae7cf7edf2a17e8452dca2df59ed821fcb67f9b408e3",
+      "source": "19cc8c1b73be7d95e97e621402e246905f44a8055c1bc537fdf0a36876e56c94",
       "original": "cae43d4cbef80c38b9634dfeedf84e6fb697423349d88f8a5169001060a27a14",
       "changes": [
+        [
+          23,
+          3,
+          [
+            "// screen. Batched objects are overlay",
+            "// visuals: depthTest/depthWrite off, renderOrder 3, frustumCulled off — the",
+            "// same flags syncLoads used to stamp onto every child via traverse()."
+          ]
+        ],
         [
           409,
           55,
           []
         ],
         [
-          613,
+          544,
           1,
           [
-            "    for (const l of this.labels) {"
+            "        vertexColors: true, toneMapped: false, depthTest: false, depthWrite: false,"
           ]
         ],
         [
-          621,
+          553,
+          1,
+          [
+            "        vertexColors: true, toneMapped: false, transparent: true, opacity: 0.5,",
+            "        depthTest: false, depthWrite: false,"
+          ]
+        ],
+        [
+          562,
+          1,
+          [
+            "      const mat = shared('cone', () => new THREE.MeshBasicMaterial({ toneMapped: false, depthTest: false, depthWrite: false }));"
+          ]
+        ],
+        [
+          585,
+          1,
+          [
+            "      const mat = shared('torus', () => new THREE.MeshBasicMaterial({ toneMapped: false, depthTest: false, depthWrite: false }));"
+          ]
+        ],
+        [
+          608,
+          1,
+          [
+            "        side: THREE.DoubleSide, depthTest: false, depthWrite: false,"
+          ]
+        ],
+        [
+          612,
+          2,
+          [
+            "    for (const l of this.labels) {",
+            "      const sprite = createTextSpriteCached(l.text, l.colorHex, l.fontSize);"
+          ]
+        ],
+        [
+          620,
           20,
           []
         ]
@@ -15904,6 +15967,38 @@
     },
     "src/lib/three/rebar-3d-layer.ts": null,
     "src/lib/three/rebar-ghost-layer.ts": null,
+    "src/lib/three/selection-helpers.ts": {
+      "source": "a85e7fe4916e3f5eefc8bd31299f4529b5e8a93bf755c4e1afa70eb159df74cc",
+      "original": "f8358e0496686c761b1596ac018fd7c4ddabfea6712d99a8019a57deb9ff971d",
+      "changes": [
+        [
+          251,
+          1,
+          [
+            "      for (const sizing of ['s', 'w']) {"
+          ]
+        ],
+        [
+          283,
+          2,
+          []
+        ],
+        [
+          290,
+          1,
+          [
+            "  const key = `${texture.uuid}|${screenSized ? 's' : 'w'}`;"
+          ]
+        ],
+        [
+          294,
+          1,
+          [
+            "      map: texture, depthTest: false, transparent: true, sizeAttenuation: !screenSized,"
+          ]
+        ]
+      ]
+    },
     "src/lib/three/shell-batch.ts": null,
     "src/lib/three/stair-steps.ts": null,
     "src/lib/three/use-zone-map-3d.ts": {
