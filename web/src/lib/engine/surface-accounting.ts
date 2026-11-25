@@ -1,5 +1,6 @@
+import polygonClipping, { type Ring } from 'polygon-clipping';
 import type { ShellLoadSpec } from './shell-load-integration';
-import { add, cross, dot, LoadScalar, LoadVector, mul, norm, roundoff, sub, unit, type Vector, type Wrench } from './accounting-math';
+import { add, cross, dot, LoadScalar, LoadVector, mul, norm, roundoff, sub, Sum, unit, zero, type Vector, type Wrench } from './accounting-math';
 
 function clip(points: Vector[], distance: (p: Vector) => number): Vector[] {
   const result: Vector[] = [];
@@ -91,4 +92,148 @@ export function accountSurface(out: Wrench, points: Vector[], spec: ShellLoadSpe
     integratePolygon(out, polygon, normal, index === 0 ? force : force.scale(-1), field);
   }
   return true;
+}
+
+const quadCorners = [[0, 0], [1, 0], [1, 1], [0, 1]] as const;
+const linearMass = (a: number, b: number) => a === b ? 1 / 3 : 1 / 6;
+const linearMoment = (a: number, b: number) => a === 1 && b === 1 ? 1 / 4 : 1 / 12;
+
+class NodalPressureIntegral {
+  private readonly total = new Sum();
+  private readonly magnitude = new Sum();
+  private readonly underflow = new Sum();
+
+  add(pressure: number, weight: number): void {
+    const term = new LoadScalar(pressure).scale(weight);
+    this.total.add(term.value);
+    this.magnitude.add(Math.abs(term.value));
+    this.underflow.add(term.underflow);
+  }
+
+  force(direction: LoadVector): LoadVector {
+    return direction.scale(new LoadScalar(this.total.value, this.underflow.value), this.magnitude.value);
+  }
+}
+
+function wholeQuadForces(q: number[], jac: number, along: number, across: number): NodalPressureIntegral[] {
+  const constant = q.every(value => value === q[0]);
+  return quadCorners.map(([s, t]) => {
+    const force = new NodalPressureIntegral();
+    if (constant) {
+      force.add(q[0]!, (jac + along * (1 + s) / 3 + across * (1 + t) / 3) / 4);
+      return force;
+    }
+    for (const [i, [u, v]] of quadCorners.entries()) {
+      const sx = linearMass(s, u), ty = linearMass(t, v);
+      force.add(q[i]!, jac * sx * ty + along * linearMoment(s, u) * ty + across * sx * linearMoment(t, v));
+    }
+    return force;
+  });
+}
+
+type VertexValues = [number, number, number];
+
+function affinePressureWeights(area: number, shape: VertexValues, other?: VertexValues): number[] {
+  const total = ([x, y, z]: VertexValues) => x + y + z;
+  const sum = total(shape);
+  if (!other) return shape.map(s => area * (sum + s) / 12);
+  const otherSum = total(other);
+  const common = sum * otherSum + dot(shape, other);
+  return shape.map((s, i) => {
+    const t = other[i]!;
+    return area * (common + s * otherSum + t * sum + 2 * s * t) / 60;
+  });
+}
+
+function clippedAffineForces(
+  triangle: boolean, jac: number, rings: Ring[][], coordinate: (p: Vector) => number, spec: ShellLoadSpec,
+): NodalPressureIntegral[] {
+  const result = Array.from({ length: triangle ? 3 : 4 }, () => new NodalPressureIntegral());
+  const vary = spec.vary;
+  const field = (p: Vector) => vary
+    ? vary.q1 + (vary.q2 - vary.q1) * (coordinate(p) - vary.c1) / (vary.c2 - vary.c1)
+    : spec.q;
+  for (const polygon of rings) {
+    for (const [index, ring] of polygon.entries()) {
+      let loop = ring.map(([s, t]): Vector => [s, t, 0]);
+      if (vary) {
+        const lo = Math.min(vary.c1, vary.c2), hi = Math.max(vary.c1, vary.c2);
+        loop = clip(clip(loop, p => coordinate(p) - lo), p => hi - coordinate(p));
+      }
+      const first = loop[0];
+      if (!first) continue;
+      const signedArea = loop.reduce((sum, p, i) => sum + cross(sub(p, first), sub(loop[(i + 1) % loop.length]!, first))[2], 0);
+      const orientation = Math.sign(signedArea) * (index === 0 ? 1 : -1);
+      for (let i = 1; i + 1 < loop.length; i++) {
+        const vertices = [first, loop[i]!, loop[i + 1]!] as const;
+        const area = jac * orientation * cross(sub(vertices[1], first), sub(vertices[2], first))[2] / 2;
+        const atVertices = (f: (p: Vector) => number): VertexValues => [f(vertices[0]), f(vertices[1]), f(vertices[2])];
+        const q = atVertices(field);
+        const weights = triangle
+          ? [atVertices(([s, t]) => 1 - s - t), atVertices(([s]) => s), atVertices(([, t]) => t)]
+            .map(shape => affinePressureWeights(area, shape))
+          : quadCorners.map(([s, t]) => affinePressureWeights(area,
+            atVertices(([x]) => s === 1 ? x : 1 - x), atVertices(([, y]) => t === 1 ? y : 1 - y)));
+        weights.forEach((row, node) => row.forEach((weight, k) => result[node]!.add(q[k]!, weight)));
+      }
+    }
+  }
+  return result;
+}
+
+export function expectedSurfaceNodeForces(points: Vector[], spec: ShellLoadSpec): LoadVector[] | null {
+  const triangle = points.length === 3;
+  if (!triangle && points.length !== 4) return null;
+  const [origin, second, third] = points as [Vector, Vector, Vector, ...Vector[]];
+  const u = sub(second, origin), v = sub(points.at(-1)!, origin);
+  const normal = unit(triangle ? cross(u, v) : cross(sub(third, origin), sub(points[3]!, second)));
+  const jac = dot(cross(u, v), normal);
+  if (!(jac > 0) || !Number.isFinite(jac)) return null;
+  const w = triangle ? zero() : sub(sub(sub(third, origin), u), v);
+  const along = dot(cross(u, w), normal), across = dot(cross(w, v), normal);
+  if (quadCorners.some(([s, t]) => !(jac + along * s + across * t > 0))) return null;
+
+  const normalized = (direction: Vector) => norm(direction) === 0 ? zero() : unit(direction);
+  const direction = spec.frame === 'local' ? normal : normalized(spec.frame ? spec.dir ?? [0, 0, -1] : [0, 0, -1]);
+  const force = LoadVector.from(direction).scale(spec.frame === 'projected' ? Math.abs(dot(direction, normal)) : 1);
+  const vary = spec.vary;
+  if (vary && vary.c1 === vary.c2) return points.map(() => LoadVector.from(zero()));
+  const axis = vary ? normalized(vary.dir) : zero();
+  const coords = points.map(p => dot(axis, p));
+  const whole = !vary || coords.every(c => c >= Math.min(vary.c1, vary.c2) && c <= Math.max(vary.c1, vary.c2));
+  if (!spec.region && whole) {
+    const q = spec.qNodes ?? coords.map(c => vary
+      ? vary.q1 + (vary.q2 - vary.q1) * (c - vary.c1) / (vary.c2 - vary.c1) : spec.q);
+    const integrals = triangle
+      ? q.map((_, i) => {
+        const integral = new NodalPressureIntegral();
+        q.forEach((qi, j) => integral.add(qi, jac / (i === j ? 12 : 24)));
+        return integral;
+      })
+      : wholeQuadForces(q, jac, along, across);
+    return integrals.map(integral => integral.force(force));
+  }
+
+  if (spec.qNodes || norm(w) > roundoff * Math.max(norm(u), norm(v))) return null;
+  const shell: Ring = triangle ? [[0, 0], [1, 0], [0, 1]] : quadCorners.map(([s, t]) => [s, t]);
+  let rings = [[shell]];
+  if (spec.region) {
+    const projection = normalized(spec.region.normal);
+    const den = dot(projection, normal);
+    if (den === 0) return points.map(() => LoadVector.from(zero()));
+    if (!Number.isFinite(den)) return null;
+    const toNatural = (point: Vector): [number, number] => {
+      const delta = sub(point, origin);
+      const plane = sub(delta, mul(projection, dot(delta, normal) / den));
+      return [dot(cross(plane, v), normal) / jac, dot(cross(u, plane), normal) / jac];
+    };
+    const region = [spec.region.points, ...(spec.region.holes ?? [])].map(ring => ring.map(toNatural));
+    try {
+      rings = polygonClipping.intersection([shell], region);
+    } catch {
+      return null;
+    }
+  }
+  const coordinate = ([s, t]: Vector) => coords[0]! + s * dot(axis, u) + t * dot(axis, v);
+  return clippedAffineForces(triangle, jac, rings, coordinate, spec).map(integral => integral.force(force));
 }
