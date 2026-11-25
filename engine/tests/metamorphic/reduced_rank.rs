@@ -786,3 +786,88 @@ fn weak_parallel_trusses_keep_independently_supported_results() {
         assert_eq!([spatial_tip.ux, spatial_tip.uz].map(f64::to_bits), spatial_bits);
     }
 }
+
+fn assert_terminal_swing(label: &str, result: Result<impl std::fmt::Debug, String>, failures: &mut Vec<String>) {
+    match result {
+        Err(error) if error.contains(RANK_REFUSAL) && error.contains("a frame can swing about a released end") => {}
+        Err(error) => failures.push(format!("{label}: {error}")),
+        Ok(_) => failures.push(format!("{label}: returned a result")),
+    }
+}
+
+fn check_planar_terminal_swing(issue: &str, entry: &str) {
+    let base = model(issue);
+    let row = crate::ana2::rows().into_iter().find(|row| row.name == entry).unwrap();
+    let frames = [
+        ("original", base.clone()),
+        ("rotated", base.iso(&Iso2::rotation(0.4)).unwrap()),
+        ("translated", base.iso(&Iso2::rotation(0.0).translated(3.0, -5.0)).unwrap()),
+        ("mirrored", base.iso(&Iso2::mirror_x()).unwrap()),
+        ("scaled", base.units(&Units::froude(25.0, 1e-2))),
+    ];
+    let mut failures = Vec::new();
+    for (label, case) in frames {
+        assert_terminal_swing(label, classification_2d(&case), &mut failures);
+        assert_terminal_swing(label, (row.run)(&case), &mut failures);
+        for plane in Plane::ALL {
+            let spatial = embed_2d(&case.s, plane).unwrap();
+            assert_terminal_swing(label, linear::solve_3d(&spatial), &mut failures);
+        }
+    }
+    assert!(failures.is_empty(), "#{} {entry}:\n{}", issue, failures.join("\n"));
+}
+
+fn check_spatial_terminal_swing(issue: &str, entry: &str) {
+    let base = space_model(issue);
+    let row = crate::ana3::rows().into_iter().find(|row| row.name == entry).unwrap();
+    let mut rng = Rng::new(2026111404217 ^ hash(entry));
+    let frames = [
+        ("original", base.clone()),
+        ("rotated", base.iso(&crate::checks3::rotation_for(&row, &mut rng)).unwrap()),
+        ("translated", base.iso(&dedaliano_engine::metamorphic::transform::Iso3::axis_permutation(0).translated([3.0, -5.0, 7.0])).unwrap()),
+        ("scaled", base.units(&Units::froude(25.0, 1e-2))),
+    ];
+    let mut failures = Vec::new();
+    for (label, case) in frames {
+        assert_terminal_swing(label, (row.run)(&case), &mut failures);
+        let classification = stability::of_3d(&case.s).and_then(|stability| stability.refusal().map_or(Ok(()), Err));
+        assert_terminal_swing(label, classification, &mut failures);
+    }
+    assert!(failures.is_empty(), "#{} {entry}:\n{}", issue, failures.join("\n"));
+}
+
+#[test]
+#[ignore = "known wrong result: #2266"]
+fn issue_2266_terminal_swing_has_a_structural_witness() {
+    check_planar_terminal_swing("2266", "linear (dense reference)");
+}
+
+#[test]
+#[ignore = "known wrong result: #2380"]
+fn issue_2380_terminal_swing_has_a_structural_witness() {
+    check_planar_terminal_swing("2380", "constrained");
+}
+
+#[test]
+#[ignore = "known wrong result: #2190"]
+fn issue_2190_terminal_swing_has_a_structural_witness() {
+    check_planar_terminal_swing("2190", "linear (WASM typed path)");
+}
+
+#[test]
+#[ignore = "known wrong result: #2119"]
+fn issue_2119_terminal_swing_has_a_structural_witness() {
+    check_spatial_terminal_swing("2119", "contact (no gaps)");
+}
+
+#[test]
+#[ignore = "known wrong result: #2134"]
+fn issue_2134_terminal_swing_has_a_structural_witness() {
+    check_spatial_terminal_swing("2134", "Winkler (no foundation)");
+}
+
+#[test]
+#[ignore = "known wrong result: #2139"]
+fn issue_2139_terminal_swing_has_a_structural_witness() {
+    check_spatial_terminal_swing("2139", "plastic collapse");
+}
