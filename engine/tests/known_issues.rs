@@ -1391,14 +1391,23 @@ fn transverse_loaded_bar() -> SolverInput {
 }
 
 #[test]
-fn contact_ssi_and_corotational_solves_of_a_mechanism_are_flagged() {
+fn contact_and_corotational_flag_the_mechanism_while_ssi_refuses_it() {
     let check = |input: &SolverInput, flagged: bool| {
         let contact: dedaliano_engine::solver::contact::ContactInput = serde_json::from_value(serde_json::json!({ "solver": input })).unwrap();
         let contact = dedaliano_engine::solver::contact::solve_contact_2d(&contact).unwrap();
-        let ssi = solve_ssi_2d(&SSIInput { solver: input.clone(), soil_springs: vec![], max_iter: 50, tolerance: 1e-10 }).unwrap();
+        let ssi = solve_ssi_2d(&SSIInput { solver: input.clone(), soil_springs: vec![], max_iter: 50, tolerance: 1e-10 });
         let corotational = dedaliano_engine::solver::corotational::solve_corotational_2d(input, 100, 1e-10, 4, false).unwrap();
-        for (name, d) in [("contact", &contact.results.structured_diagnostics), ("SSI", &ssi.results.structured_diagnostics), ("corotational", &corotational.results.structured_diagnostics)] {
+        for (name, d) in [("contact", &contact.results.structured_diagnostics), ("corotational", &corotational.results.structured_diagnostics)] {
             assert_eq!(ids(d).contains(&"NUM-INVARIANCE".to_string()), flagged, "{name}: {:?}", ids(d));
+        }
+        if flagged {
+            let error = ssi.unwrap_err();
+            let refusal: serde_json::Value = serde_json::from_str(&error).unwrap_or_else(|_| panic!("{error}"));
+            assert_eq!(refusal["structuredDiagnostics"][0]["code"], "reduced_stiffness_rank");
+            assert_eq!(refusal["structuredDiagnostics"][0]["severity"], "error");
+        } else {
+            let diagnostics = ssi.unwrap().results.structured_diagnostics;
+            assert!(!ids(&diagnostics).contains(&"NUM-INVARIANCE".to_string()), "{:?}", ids(&diagnostics));
         }
     };
     check(&transverse_loaded_bar(), true);
