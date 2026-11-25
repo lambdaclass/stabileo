@@ -7,7 +7,8 @@ import { dsmInFrame } from '../../../lib/axes/dsm-frame';
 import { solveDetailed } from '../../../lib/engine/solver-detailed';
 import { afterEach, beforeAll, expect, it, vi } from 'vitest';
 import { render } from 'svelte/server';
-import WhatIf from '../../WhatIfPanel.svelte';
+import WhatIfLoads from '../../whatif/WhatIfLoads.svelte';
+import WhatIfSupports from '../../whatif/WhatIfSupports.svelte';
 import LoadSketch from '../../pro/loads/LoadSketch.svelte';
 import SupportsTable from '../../tables/SupportsTable.svelte';
 import ProCaseDetails from '../../pro/loads/ProCaseDetails.svelte';
@@ -30,7 +31,7 @@ it('known wrong result: #1986 Explore displays the global plane point load in th
   modelStore.addPointLoadOnElement([...modelStore.elements.keys()][0]!, 1, 7, { isGlobal: true });
   axesStore.choice = { up: '-Y', right: '+X', hand: 'right' };
   whatIf.open();
-  expect(render(WhatIf).body).toContain('P=-7');
+  expect(render(WhatIfLoads).body).toContain('P=-7');
 });
 
 it('known wrong result: #1986 custom curve directions are printed in user component order', () => {
@@ -70,7 +71,7 @@ it('known wrong result: #2259 Explore maps every spatial roller option to its se
   for (const c of allChoices()) {
     axesStore.choice = c;
     const f = makeFrame(c);
-    const html = render(WhatIf).body;
+    const html = render(WhatIfSupports).body;
     for (const [index, axis] of ['X', 'Y', 'Z'].entries()) {
       const shown = 'XYZ'[f.rows.findIndex(row => row[index] !== 0)];
       expect(html).toMatch(new RegExp(`<option value="roller${axis}"[^>]*>Roller ${shown}</option>`));
