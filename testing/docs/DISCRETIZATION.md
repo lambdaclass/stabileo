@@ -147,8 +147,8 @@ shows a warning.
 In the app it is optional: a section of the discretization panel, folded until opened, with
 the target as its one setting. It runs in the worker, one at a time with the convergence
 check, and reports each pass, the estimate reached and the governing quantities of section 2
-on the model as drawn and on the refined mesh. It does not replace the model: the refined
-mesh, with its hanging-node constraints, is not something the app's model can hold yet.
+on the model as drawn and on the refined mesh. It changes the model only when asked to apply
+the mesh (below).
 
 * **Loop.** Solve, estimate (section 1), stop when the relative error is at or under `target`
   (default 5 %), otherwise mark, refine the marked elements and solve again. It also stops at
