@@ -1,6 +1,6 @@
 import { beforeAll, expect, it } from 'vitest';
 import { initSolver } from '../wasm-solver';
-import { LoadSession3D, certify_time_history_2d, certify_time_history_3d, solve_time_history_2d, solve_time_history_3d, engine_reproduce_hashes, certify_linear_2d, certify_linear_3d, solve_multi_case_2d, solve_multi_case_3d, certify_multi_case_2d, certify_multi_case_3d, estimate_discretization_3d, convergence_study_3d, solve_2d, solve_3d, solve_arc_length, solve_displacement_control, solve_pdelta_2d, solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
+import { LoadSession2D, LoadSession3D, certify_time_history_2d, certify_time_history_3d, solve_time_history_2d, solve_time_history_3d, engine_reproduce_hashes, certify_linear_2d, certify_linear_3d, solve_multi_case_2d, solve_multi_case_3d, certify_multi_case_2d, certify_multi_case_3d, estimate_discretization_3d, convergence_study_3d, solve_2d, solve_3d, solve_arc_length, solve_displacement_control, solve_pdelta_2d, solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
 
 beforeAll(async () => { await initSolver(); });
 
@@ -332,4 +332,94 @@ it('rejects trailing WASM shell connectivity rather than solving with a truncate
   const extraNode = { ...model, quads: indexed({ ...model.quads[1]!, nodes: [1, 2, 3, 4, 99] }) };
   expect(() => engine_reproduce_hashes(JSON.stringify(extraNode), true)).toThrow(/trailing characters|invalid length/i);
   expect(() => solve_pdelta_3d(JSON.stringify(extraNode), 20, 1e-9)).toThrow(/trailing characters|invalid length/i);
+});
+
+const reviewReproducer = process.env.STABILEO_REVIEW_REPRO === '1' ? it : it.skip;
+
+reviewReproducer.each([false, true])('keeps connectors in iterable WASM tables (space = %s)', (is3D) => {
+  const base = is3D ? space : planar;
+  const loads = [{ type: 'nodal', data: { nodeId: 2, fx: 10, fz: 0, my: 0,
+    ...(is3D ? { fy: 0, mx: 0, mz: 0 } : {}),
+  } }];
+  const model = {
+    ...base, loads,
+    ...(is3D ? {
+      nodes: { ...space.nodes, 3: { id: 3, x: 2, y: 1, z: 0 }, 4: { id: 4, x: 0, y: 1, z: 0 } },
+      quads: indexed({ id: 1, nodes: [1, 2, 3, 4], materialId: 1, thickness: 0.1 }),
+    } : {}),
+  };
+  const wrap = (solver: object) => ({
+    solver,
+    loadCases: [{ name: 'D', loads }],
+    combinations: [{ name: 'D', factors: { D: 1 } }],
+  });
+  const Session = is3D ? LoadSession3D : LoadSession2D;
+  const linear = is3D ? solve_3d : solve_2d;
+  const solveCases = is3D ? solve_multi_case_3d : solve_multi_case_2d;
+  const certifyCases = is3D ? certify_multi_case_3d : certify_multi_case_2d;
+  const entries = {
+    linear,
+    reused: (input: object) => {
+      const session = new Session(input);
+      try {
+        return session.solve(loads);
+      } finally {
+        session.free();
+      }
+    },
+    certificate: is3D ? certify_linear_3d : certify_linear_2d,
+    combinations: (input: object) => solveCases(wrap(input)),
+    combinationCertificate: (input: object) => certifyCases(wrap(input)),
+    ...(is3D ? {
+      discretization: estimate_discretization_3d,
+      convergence: (input: object) => {
+        try {
+          return convergence_study_3d(input, null);
+        } catch (error) {
+          if (error === 'connectors') return error;
+          throw error;
+        }
+      },
+    } : {}),
+  };
+  const connector = { id: 17, nodeI: 1, nodeJ: 2, kAxial: 1e6 };
+  const pair = ['17', connector] as const;
+  const withConnectors = (connectors: unknown) => ({ ...model, connectors });
+  const record = Object.fromEntries([pair]);
+  const tipUx = (result: ReturnType<typeof solve_2d>) =>
+    result.displacements.find((node: { nodeId: number }) => node.nodeId === 2)?.ux;
+  expect(tipUx(linear(withConnectors(record)))).toBeGreaterThan(0);
+  expect(tipUx(linear(withConnectors(record)))).toBeLessThan(tipUx(linear(model)));
+
+  for (const [entry, run] of Object.entries(entries)) {
+    const reference = run(withConnectors(record));
+    if (entry === 'convergence') {
+      expect(reference).toBe('connectors');
+      expect(run(model)).not.toBe('connectors');
+    }
+    for (const [shape, table] of [
+      ['Set', new Set([pair])],
+      ['Map', new Map([pair])],
+      ['null-prototype record', Object.assign(Object.create(null), record)],
+      ['array', [pair]],
+      ['iterator', [pair].values()],
+      ['empty Set', new Set()],
+    ] as const) {
+      expect.soft(run(withConnectors(table)), entry + ' ' + shape)
+        .toEqual(shape === 'empty Set' ? run(model) : reference);
+    }
+    for (const [shape, table] of [
+      ['bare entry', new Set([connector])],
+      ['missing value', new Set([['17']])],
+      ['extra value', new Set([['17', connector, 0]])],
+      ['duplicate key', new Set([pair, ['17', connector]])],
+      ['unknown field', new Set([['17', { ...connector, kAxiall: 1 }]])],
+      ['unsupported object', new Date(0)],
+      ['unsupported scalar', '17'],
+      ['invalid iterator', { [Symbol.iterator]: 1 }],
+    ] as const) {
+      expect.soft(() => run(withConnectors(table)), entry + ' ' + shape)
+        .toThrow(/Parse error:.*(?:map entr|duplicate|expected .*map|unknown field .*kAxiall)/i);
+    }
+  }
 });

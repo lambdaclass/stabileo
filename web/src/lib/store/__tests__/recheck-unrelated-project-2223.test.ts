@@ -9,6 +9,7 @@ import { compressSnapshot, loadFromShareLink, loadFromURLHash } from '../../util
 import { RESULT_CHANGES } from '../../provenance/full-registry';
 import { RESULTS_VERSION } from '../../provenance/registry';
 import { stampSolve } from '../../provenance/solve-stamp';
+import { initSolver } from '../../engine/wasm-solver';
 import { deflateSync, inflateSync } from 'fflate';
 import '../index';
 
@@ -112,3 +113,33 @@ for (const [analysis, latest, issue] of [
     });
   }
 }
+
+const reviewReproducer = process.env.STABILEO_REVIEW_REPRO === '1' ? it : it.skip;
+
+reviewReproducer.each(entries)('opens a legacy XY project with its X load after opening a YZ project via %s', async entry => {
+  await initSolver();
+  uiStore.analysisMode = '2d';
+  uiStore.drawPlane2D = 'xy';
+  try {
+    const root = modelStore.addNode(0, 0);
+    const tip = modelStore.addNode(5, 3);
+    modelStore.addElement(root, tip, 'frame');
+    modelStore.addSupport(root, 'fixed');
+    const fx = 10;
+    modelStore.addNodalLoad(tip, fx, 0);
+    const project = buildProjectFile();
+    const legacy = { ...project, snapshot: { ...project.snapshot, drawPlane2D: undefined } };
+    const yz = { ...project, snapshot: { ...project.snapshot, drawPlane2D: 'yz' } };
+    const reference = modelStore.solve(false, uiStore.drawPlane2D);
+    expect(reference).toMatchObject({ reactions: [{ nodeId: root, rx: expect.any(Number) }] });
+    expect(reference && typeof reference !== 'string' && reference.reactions[0]?.rx).toBeCloseTo(-fx);
+    expect(deserializeProject(JSON.stringify(yz))).toBe(true);
+    open(entry, legacy);
+    expect.soft(uiStore.drawPlane2D).toBe('xy');
+    const restored = modelStore.solve(false, uiStore.drawPlane2D);
+    expect(restored && typeof restored !== 'string' && restored.reactions[0]?.rx).toBeCloseTo(-fx);
+    expect(restored).toEqual(reference);
+  } finally {
+    uiStore.drawPlane2D = 'xy';
+  }
+});
