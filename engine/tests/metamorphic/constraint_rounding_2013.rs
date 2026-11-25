@@ -309,3 +309,26 @@ fn issue_2017_exact_zero_answer() {
 fn issue_2018_exact_zero_answer() {
     exact_zero("2018", "certified linear");
 }
+
+#[test]
+#[ignore = "known wrong result: #2013"]
+fn material_nonlinear_zero_residual_requires_resolved_constraint_rank() {
+    let mut failures = Vec::new();
+    for (model, expected, refused) in cancellation_boundaries(false) {
+        let planar = Case2::new("2013 material", model.clone());
+        let spatial = Case3::new("2013 material", embed(&model, Plane::XZ));
+        let row2 = crate::ana2::rows().into_iter().find(|a| a.name == "material nonlinear").unwrap();
+        let row3 = crate::ana3::rows().into_iter().find(|a| a.name == "material nonlinear").unwrap();
+        for (dim, result) in [(2, (row2.run)(&planar)), (3, (row3.run)(&spatial))] {
+            match result {
+                Err(e) if refused && e.contains("constraint reduction cancels stiffness contributions") => {}
+                Ok(r) if !refused => verify(&r, &expected.iter().map(|v| {
+                    if dim == 2 { v.to_vec() } else { Plane::XZ.point(v[0], v[1]).to_vec() }
+                }).collect::<Vec<_>>(), dim == 3),
+                Ok(_) => failures.push(format!("{dim}D: returned an answer at the refusal boundary")),
+                Err(e) => failures.push(format!("{dim}D: {e}, expected refusal {refused}")),
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}

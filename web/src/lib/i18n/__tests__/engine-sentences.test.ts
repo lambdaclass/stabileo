@@ -64,6 +64,13 @@ describe('engine sentences', () => {
       .toBe('El rango de la rigidez reducida no se puede determinar con la precisión del ensamblaje. Revisá las liberaciones, los apoyos, los resortes y las restricciones para detectar un mecanismo.');
   });
 
+  it('translates the plain reduced stiffness rank sentence', async () => {
+    await setLocale('es');
+    const message = 'The reduced stiffness rank cannot be resolved at assembly precision. Check member releases, supports, springs and constraints for a mechanism.';
+    expect(localizeEngineText(message))
+      .toBe('El rango de la rigidez reducida no se puede determinar con la precisión del ensamblaje. Revisá las liberaciones, los apoyos, los resortes y las restricciones para detectar un mecanismo.');
+  });
+
   it('leaves a sentence it does not know as it is', () => {
     setLocale('es');
     expect(localizeEngineText('Residual 1.2e-3 exceeds tolerance')).toBe('Residual 1.2e-3 exceeds tolerance');
