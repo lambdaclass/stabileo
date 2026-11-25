@@ -725,6 +725,7 @@ const de: Translations = {
   'advanced.noFreeDofsModal': 'Alle Freiheitsgrade sind gehalten: Nichts kann schwingen. Teilen Sie den Stab in Abschnitte, um seine Eigenformen zu erhalten.',
   'advanced.mechanismOnlyModes': 'Alle gefundenen Eigenformen haben einen Eigenwert null: Das Tragwerk ist ein Mechanismus. Prüfen Sie die Auflager und die Freigaben.',
   'advanced.modalMechanism': 'Das Tragwerk ist ein Mechanismus: {count} Eigenform(en) mit Frequenzquadrat null oder negativ, von denen eine Knoten {node} in Richtung {dof} ohne positive Steifigkeit bewegt; eine Freigabe, ein Gelenk, ein fehlendes Lager oder eine negative Steifigkeit lässt einen Teil der Masse sich frei bewegen. Es werden keine Eigenformen angezeigt. Prüfen Sie die Auflager, die Freigaben und negative Federn.',
+  'advanced.modalTranslationMechanism': 'Am Knoten {node} wurde ein Mechanismus mit translatorischer Trägheit erkannt (dominante Verschiebungskomponente: {dof}). Es werden keine Eigenformen angezeigt.',
   'advanced.nullModesDiscarded': '{n} Eigenform(en) mit Eigenwert null verworfen: Das Tragwerk ist in dieser Richtung ein Mechanismus ({where}). Prüfen Sie die Auflager und die Freigaben.',
   'advanced.plasticNoLoads': 'Keine Last beansprucht das Tragwerk (das Modell hat keine Lasten, oder sie wirken alle auf die Auflager): Es gibt nichts, unter dem es versagen könnte.',
   'advanced.runDynamicFirst': 'Führen Sie zuerst die dynamische Analyse (Modalanalyse) aus',

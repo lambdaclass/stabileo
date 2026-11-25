@@ -13,7 +13,7 @@ for (const [index, { api, count, input, expected }] of cases.entries()) {
         const diagnostic = String(error);
         return diagnostic.includes(expected.refusal)
           && (expected.detail === undefined || diagnostic.includes(expected.detail))
-          && (expected.node === undefined || diagnostic.includes(`moves node ${expected.node} along u`));
+          && (expected.node === undefined || diagnostic.includes(`has a mechanism at node ${expected.node} (dominant component: u`));
       });
       return;
     }

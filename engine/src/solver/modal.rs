@@ -5,6 +5,7 @@ use super::dof::DofNumbering;
 use super::assembly::*;
 use super::linear::SPARSE_THRESHOLD;
 use super::mass_matrix::*;
+use super::load_work::{gamma, mul_up, Work};
 use super::modal_mass::MassRange;
 use super::constraints::{FreeConstraintSystem, MasterMotion};
 
@@ -147,7 +148,7 @@ pub fn solve_modal_2d(
             (k_ff, m_csc)
         };
         let ns = k_solve.n;
-        ModalStiffness::Sparse(&k_solve).reject_massive_null_translation(&mass_range, &dof_num, cs.as_ref(), &["ux", "uz"])?;
+        ModalStiffness::Sparse(&k_solve).reject_massive_null_translation(&mass_range, &dof_num, cs.as_ref(), &its, &["ux", "uz"])?;
         let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(&k_solve, |observe| {
             mass_range.solve_sparse(&k_solve, &m_solve, num_modes, observe)
         });
@@ -182,7 +183,7 @@ pub fn solve_modal_2d(
         } else {
             (k_ff.clone(), m_ff.clone(), nf)
         };
-        ModalStiffness::Dense(&k_solve, ns).reject_massive_null_translation(&mass_range, &dof_num, cs.as_ref(), &["ux", "uz"])?;
+        ModalStiffness::Dense(&k_solve, ns).reject_massive_null_translation(&mass_range, &dof_num, cs.as_ref(), &its, &["ux", "uz"])?;
         let result = mass_range.solve_dense(&k_solve, &m_solve, num_modes)
             .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(ns))?;
         crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::dense_stiffness_conditioning(&k_solve, ns).into_iter().collect());
@@ -399,6 +400,7 @@ impl ModalStiffness<'_> {
         mass: &MassRange,
         dof: &DofNumbering,
         constraints: Option<&FreeConstraintSystem>,
+        inclined: &[impl InclinedFrame],
         names: &[&str],
     ) -> Result<(), String> {
         let size = match self {
@@ -406,7 +408,7 @@ impl ModalStiffness<'_> {
             Self::Sparse(k) => k.n,
         };
         let full = dof.entries_by_dof();
-        let mut translations = BTreeMap::<usize, Vec<(usize, usize)>>::new();
+        let mut translations = BTreeMap::<usize, Vec<usize>>::new();
         for reduced in 0..size {
             let physical = constraints.map_or(reduced, |c| c.independent_dofs()[reduced]);
             let ((node, local), _) = full[physical];
@@ -420,11 +422,11 @@ impl ModalStiffness<'_> {
             }) {
                 continue;
             }
-            translations.entry(node).or_default().push((reduced, local));
+            translations.entry(node).or_default().push(reduced);
         }
 
-        for (node, axes) in translations {
-            let coordinates: Vec<_> = axes.iter().map(|&(coordinate, _)| coordinate).collect();
+        let entry_round_off = gamma(8);
+        for (node, coordinates) in translations {
             let n = coordinates.len();
             let block: Vec<_> = coordinates.iter().flat_map(|&row| {
                 coordinates.iter().map(move |&col| self.value(row, col))
@@ -432,48 +434,35 @@ impl ModalStiffness<'_> {
             let (_, vectors) = super::stability::sym_eigen_small(&block, n);
             for column in 0..n {
                 let direction: Vec<_> = (0..n).map(|row| vectors[row * n + column]).collect();
-                let mut work = 0.0;
-                let mut magnitude = 0.0;
-                for (row, &u) in block.chunks_exact(n).zip(&direction) {
-                    for (&k, &v) in row.iter().zip(&direction) {
-                        let contribution = (u * v) * k;
-                        work += contribution;
-                        magnitude += contribution.abs();
+                let force_is_zero = |coefficients: &mut dyn Iterator<Item = f64>| {
+                    let mut force = Work::default();
+                    for (coefficient, &displacement) in coefficients.zip(&direction) {
+                        force.product(coefficient, mul_up(entry_round_off, coefficient.abs()), displacement, 0.0);
                     }
-                }
-                if !magnitude.is_finite() || work.abs() > ZERO_CANCELLATION * magnitude
+                    force.contains_zero()
+                };
+                if !block.chunks_exact(n).all(|row| force_is_zero(&mut row.iter().copied()))
                     || !mass.has_mass_in(&coordinates, &direction, ZERO_CANCELLATION)
+                    || !(0..size).filter(|row| !coordinates.contains(row)).all(|row| {
+                        force_is_zero(&mut coordinates.iter().map(|&col| self.value(row, col)))
+                    })
                 {
                     continue;
                 }
                 let mut displacement = vec![0.0; size];
-                let mut envelope = vec![0.0; size];
                 for (&i, &value) in coordinates.iter().zip(&direction) {
                     displacement[i] = value;
-                    envelope[i] = 1.0;
                 }
-                let (force, force_scale) = match self {
-                    Self::Dense(k, n) => (
-                        mat_vec_sub(k, &displacement, *n),
-                        abs_mat_vec_dense(k, &envelope, *n),
-                    ),
-                    Self::Sparse(k) => (
-                        k.sym_mat_vec(&displacement),
-                        abs_mat_vec_sparse(k, &envelope),
-                    ),
+                let free = match constraints {
+                    Some(cs) => cs.expand_solution(&displacement, MasterMotion::Homogeneous),
+                    None => displacement,
                 };
-                if !force.iter().zip(&force_scale).all(|(force, scale)| {
-                    scale.is_finite() && force.abs() <= ZERO_CANCELLATION * scale
-                }) {
-                    continue;
-                }
-                let dominant = direction.iter().enumerate()
-                    .max_by(|(_, a), (_, b)| a.abs().total_cmp(&b.abs()))
-                    .unwrap().0;
-                let local = axes[dominant].1;
-                let dof = names[local];
+                let global = to_global(&free, dof.n_total, inclined);
+                let dominant = names.iter().enumerate().filter_map(|(local, &name)| {
+                    dof.global_dof(node, local).map(|i| (name, global[i].abs()))
+                }).max_by(|a, b| a.1.total_cmp(&b.1)).unwrap().0;
                 return Err(format!(
-                    "{MODAL_MECHANISM}: Modal analysis: the constrained physical stiffness has 1 mode(s) with stiffness zero to round-off; one moves node {node} along {dof} with inertia and no resolvable restoring stiffness. No modes are returned."
+                    "{MODAL_MECHANISM}: Modal analysis: the constrained physical stiffness has a mechanism at node {node} (dominant component: {dominant}) with inertia and no resolvable restoring stiffness. No modes are returned."
                 ));
             }
         }
@@ -687,7 +676,7 @@ pub fn solve_modal_3d(
     } else {
         (&sasm.k_ff, &m_sparse_ff)
     };
-    ModalStiffness::Sparse(k_solve).reject_massive_null_translation(&mass_range, &dof_num, cs.as_ref(), &["ux", "uy", "uz"])?;
+    ModalStiffness::Sparse(k_solve).reject_massive_null_translation(&mass_range, &dof_num, cs.as_ref(), its, &["ux", "uy", "uz"])?;
     let mut structured_diagnostics = known_model;
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Modal));
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_conditioning(&sasm.k_ff).into_iter().collect());

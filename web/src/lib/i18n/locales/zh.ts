@@ -1082,6 +1082,7 @@ const zh: Translations = {
   "advanced.noFreeDofsModal": "所有自由度均被约束：没有可振动的自由度。请将杆件分段以获得其自振振型。",
   "advanced.mechanismOnlyModes": "找到的每个振型特征值均为零：结构是机构。请检查支座和杆端释放。",
   "advanced.modalMechanism": "结构是机构：有 {count} 个振型的频率平方为零或为负，其中一个使节点 {node} 沿 {dof} 移动，而该方向没有正刚度，因此释放、铰、缺失的支座或负刚度使部分质量可以自由运动。不显示任何振型。请检查支座、杆端释放和所有负弹簧。",
+  "advanced.modalTranslationMechanism": "在节点 {node} 检测到具有平动惯性的机构（主导位移分量：{dof}）。不显示振型。",
   "advanced.nullModesDiscarded": "已舍弃 {n} 个零特征值振型：结构在该方向（{where}）上是机构。请检查支座和杆端释放。",
   "advanced.plasticNoLoads": "没有荷载使结构受力（模型没有荷载，或荷载全部作用在支座上）：没有可使其倒塌的作用。",
   "advanced.runDynamicFirst": "请先运行动力分析（模态）",

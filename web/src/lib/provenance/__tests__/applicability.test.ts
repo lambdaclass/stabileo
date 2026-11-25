@@ -94,7 +94,7 @@ describe('which registered changes concern a model', () => {
     expect(ids(curved)).toContain(entry.id);
   });
 
-  it.fails('covers saved modal and dependent results of pin-ended frames', () => {
+  it('covers saved modal and dependent results of pin-ended frames', () => {
     const entry = RESULT_CHANGES.changes.find(change => change.id === 'modal-massive-translation')!;
     for (const analysisMode of ['2d', '3d', 'pro']) {
       const frame = model({

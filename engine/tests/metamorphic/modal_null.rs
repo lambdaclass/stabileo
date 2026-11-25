@@ -46,7 +46,7 @@ fn assert_null(result: Result<Value, String>, node: usize) {
         }
         Err(error) => assert!(
             error.starts_with(PHYSICAL_NULL)
-                && error.contains(&format!("moves node {node} along u")),
+                && error.contains(&format!("has a mechanism at node {node} (dominant component: u")),
             "{error}"
         ),
     }
@@ -351,7 +351,6 @@ fn check_review_case(result: Result<Value, String>, expected: &Value) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2585"]
 fn review_skewed_weak_spring_is_distinct_from_a_null_translation() {
     for padding in [0, 32] {
         for stiffness in [1.0, 4.0, 0.0] {
@@ -375,7 +374,6 @@ fn review_skewed_weak_spring_is_distinct_from_a_null_translation() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2585"]
 fn review_one_detected_mechanism_reports_its_dominant_component() {
     let expected =
         json!({"refusal":PHYSICAL_NULL,"detail":"has a mechanism at node 2 (dominant component: ux)"});
