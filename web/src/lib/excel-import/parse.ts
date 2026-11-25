@@ -174,6 +174,17 @@ function str(v: unknown): string {
   return v == null ? '' : String(v).trim();
 }
 
+function readSelfWeightMemberIds(text: string): number[] | { invalidMemberId: string } {
+  const ids: number[] = [];
+  for (const token of text.split(/\s+/)) {
+    if (!/^\d+$/.test(token)) return { invalidMemberId: token };
+    const id = Number(token);
+    if (!Number.isSafeInteger(id)) return { invalidMemberId: token };
+    ids.push(id);
+  }
+  return ids;
+}
+
 const MOMENT_COLUMNS = ['mx', 'my', 'mz'] as const;
 const NODAL_COLUMNS = ['fx', 'fy', 'fz', ...MOMENT_COLUMNS] as const;
 
@@ -1095,9 +1106,19 @@ export function parseWorkbookSheets(
       const dir = str(row.cells.direction);
       if (!['X', 'Y', 'Z'].includes(dir)) { invalid('direction'); continue; }
       if (!['all', 'members'].includes(scope) || str(row.cells.group) !== '') { invalid('scope'); continue; }
+      const refuseMembers = (message: string) => problems.push({
+        sheet: 'SelfWeight', row: row.n, column: 'members', message, blocking: true,
+      });
       const membersText = str(row.cells.members);
-      const elements = membersText === '' ? [] : membersText.split(/\s+/).map(Number);
-      if (scope === 'members' ? !elements.length : elements.length > 0) { invalid('members'); continue; }
+      if (scope === 'members' ? membersText === '' : membersText !== '') {
+        refuseMembers(tp('xls.err.selfWeightRule', { field: 'members' }));
+        continue;
+      }
+      const elements = scope === 'members' ? readSelfWeightMemberIds(membersText) : [];
+      if (!Array.isArray(elements)) {
+        refuseMembers(selfWeightScopeRefusal(elements));
+        continue;
+      }
       const userIndex = 'XYZ'.indexOf(dir);
       const mapped = quantityTransform(frame, 'toModel').component(userIndex, factor, 'vector');
       if (source === 'single') {
@@ -1108,7 +1129,7 @@ export function parseWorkbookSheets(
       const rule = { caseId, direction: mapped.name, factor: mapped.value, ...(scope === 'members' ? { elements } : {}) };
       const selected = resolveSelfWeightScope({ elements: memberIds }, rule);
       if (!('members' in selected)) {
-        problems.push({ sheet: 'SelfWeight', row: row.n, column: 'members', message: selfWeightScopeRefusal(selected) });
+        refuseMembers(selfWeightScopeRefusal(selected));
         continue;
       }
       selfWeight.push(rule);

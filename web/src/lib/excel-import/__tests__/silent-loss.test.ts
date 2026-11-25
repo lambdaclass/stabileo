@@ -349,7 +349,6 @@ it('#2565 refuses explicit workbook self-weight ID 1.5 before replay can make it
   }
 });
 
-const reviewSelectorRegression = process.env.RUN_KNOWN_WRONG === '2565' ? it : it.skip;
 const maxWorkbookMemberId = Number.MAX_SAFE_INTEGER;
 const workbookSelectors = [
   ['a fractional ID', 1.5, '1.5'],
@@ -378,7 +377,7 @@ for (const [label, selector, token] of workbookSelectors) {
     sheet: 'SelfWeight', row: 2, column: 'members', blocking: true, message: expect.stringContaining(token),
   });
 
-  reviewSelectorRegression(`known wrong result: #2565 workbook selector review: parsing blocks ${label}`, () => {
+  it(`#2565 workbook selector review: parsing blocks ${label}`, () => {
     vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('development'));
     const parsed = parseWorkbook(selectorWorkbook(plane, selector));
     expect.soft(parsed.model.analysis?.selfWeight).toEqual([]);
@@ -387,7 +386,7 @@ for (const [label, selector, token] of workbookSelectors) {
 
   for (const [entry, install] of [['arrays', applyWorkbook], ['XLSX', importFile]] as const) {
     for (const [mode, geometry] of [['2d', plane], ['3d', space], ['pro', space]] as const) {
-      reviewSelectorRegression(`known wrong result: #2565 workbook selector review: ${entry} ${mode} blocks ${label}`, async () => {
+      it(`#2565 workbook selector review: ${entry} ${mode} blocks ${label}`, async () => {
         vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('development'));
         const before = priorModel(mode);
         const outcome = await install(selectorWorkbook(geometry, selector));
