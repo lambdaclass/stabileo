@@ -124,9 +124,7 @@ export function loadFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLo
 }
 
 export function prepareFixture(json: JSONModel, opts: FixtureLoadOptions = {}): (api: FixtureLoader) => void {
-  requireLoadCollection(json.loads);
-  const canonical = canonicalizeModelAliases(json);
-  validateFixtureReferences(canonical);
+  const canonical = validatedFixture(json);
   return (api) => {
     const load = () => replayFixture(canonical, api, opts);
     if (api.replay) api.replay(load);
@@ -143,10 +141,17 @@ function fixtureSupportElement(support: JSONModel['supports'][number], elementId
 }
 
 export function validateFixtureReferences(json: JSONModel): void {
+  validatedFixture(json);
+}
+
+function validatedFixture(json: JSONModel): JSONModel {
+  requireLoadCollection(json.loads);
+  json = canonicalizeModelAliases(json);
   requireLoadInput(json.loads);
+  const ids = new Set(json.elements.map(e => e.id));
   const targets = {
     node: { field: 'nodeId', ids: new Set(json.nodes.map(node => node.id)) },
-    member: { field: 'elementId', ids: new Set(json.elements.map(element => element.id)) },
+    member: { field: 'elementId', ids },
     shell: { field: 'quadId', ids: new Set(json.quads.map(quad => quad.id)) },
     plate: { field: 'quadId', ids: new Set(json.plates.map(plate => plate.id)) },
   };
@@ -157,8 +162,9 @@ export function validateFixtureReferences(json: JSONModel): void {
       throw new ModelInputError(tp('svc.engine.invalidInputField', { path: `loads[${index}].data.${field}` }));
     }
   }
-  for (const support of json.supports) fixtureSupportElement(support, id => targets.member.ids.has(id) ? id : undefined);
-  for (const rule of json.analysis?.selfWeight ?? []) selfWeightScope({ elements: targets.member.ids }, rule);
+  for (const support of json.supports) fixtureSupportElement(support, id => ids.has(id) ? id : undefined);
+  for (const rule of json.analysis?.selfWeight ?? []) selfWeightScope({ elements: ids }, rule);
+  return json;
 }
 
 function replayFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOptions): void {

@@ -60,7 +60,7 @@ import { findCoincidentNode } from '../engine/mesh-weld';
 import { NodeIndex } from '../model/edit/node-index';
 import { weldTolerance } from '../model/weld-tolerance';
 import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
-import { prepareFixture, type JSONModel } from '../templates/load-fixture';
+import { loadFixture, validateFixtureReferences, type JSONModel } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
 import { constraintsAcrossDepth, constraintsCoupledAcrossPlane, constraintsInXZ } from '../engine/constraint-2d-remap';
 import { addsLoop, singleSolveModel } from '../engine/case-effects';
@@ -4796,14 +4796,15 @@ function createModelStore() {
       // first, the PRO panel's self-weight effect ran during this await, found an empty model
       // without a rule and stated `selfWeight: []` for it, and the check below then took that
       // [] for the example's own rule: the example solved without its self-weight.
-      const replay = prepareFixture(await loader() as JSONModel, opts);
+      const json = await loader() as JSONModel;
+      validateFixtureReferences(json);
       this.batch(() => {
         this.clear();
         if (opts.defaults) {
           model.materials.set(1, structuredClone(opts.defaults.material));
           model.sections.set(1, resolveDefaultSection(structuredClone(opts.defaults.section)));
         }
-        replay(this.fixtureApi() as any);
+        loadFixture(json, this.fixtureApi() as any, opts);
 
         // Settle canonical state once the whole model is in place. Sections the
         // fixture added are already resolved (addSection resolves per add, and
