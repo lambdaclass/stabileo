@@ -163,8 +163,8 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   const addSides = (id: number, sides: SideStretch[] | undefined) => {
     if (sides) (sidesOf.get(id) ?? sidesOf.set(id, []).get(id)!).push(...sides);
   };
-  const width = (id: number, length: number, horizontalLength: number) => {
-    out.widthMembers.push({ elementId: id, length, horizontalLength });
+  const width = (id: number, length: number, horizontalLength: number, spans?: WidthSpan[]) => {
+    out.widthMembers.push({ elementId: id, length, horizontalLength, ...(spans ? { spans } : {}) });
   };
   const addArea = (map: Map<number, number>, id: number, a: number) => map.set(id, (map.get(id) ?? 0) + a);
 
@@ -245,7 +245,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     if (original === 'partial' || (original !== 'full' && attached === 'partial')) {
       refuseGravityGeometry(msg('loadPlan.gravity.unresolvedMember', { id: e.id }));
     }
-    const covered = original === 'full' || attached === 'full';
+    const covered = original === 'full' || attached === 'full' || (typeof attached === 'object' && !attached.gaps.length);
     shellMembership.set(e.id, covered);
     return covered;
   };
@@ -260,7 +260,13 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     const horizontal = Math.abs((nI.z ?? 0) - (nJ.z ?? 0)) <= TOL;
     // By width every member takes the width; its floor's panels still say what it covers. A
     // sloped member in a shell's surface is a rafter under the roof the shell carries.
-    if (opts.mode === 'width' || (!horizontal && !inShell(e))) width(e.id, b.length, b.horizontalLength);
+    if (opts.mode === 'width' || (!horizontal && !inShell(e))) {
+      const attached = attachedCoverage.get(e.id);
+      const spans = typeof attached === 'object'
+        ? attached.gaps.map(([t0, t1]) => ({ t0, t1, width: opts.tributaryWidth }))
+        : undefined;
+      width(e.id, b.length, b.horizontalLength, spans);
+    }
     if (!horizontal) continue;
     const key = levelKey(out.zOf.get(e.id)!);
     const list = beamsAt.get(key) ?? [];
@@ -584,9 +590,18 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
 
   for (const m of out.widthMembers) {
     const fringe = memberFringes.get(m.elementId);
-    const roof = fringe && opts.mode === 'panels'
+    const attached = attachedCoverage.get(m.elementId);
+    const trace = segment(m.elementId);
+    const point = (t: number): Segment[0] => trace[0].map((p, i) => p + t * (trace[1][i]! - p)) as Segment[0];
+    const gapExposure = typeof attached === 'object'
+      ? new Set(attached.gaps.map(([t0, t1]) => !coverAbove.memberCovered([point(t0), point(t1)])))
+      : undefined;
+    if (gapExposure && gapExposure.size > 1 && !opts.uniformPressure) {
+      refuseGravityGeometry(msg('loadPlan.gravity.mixedExposure'));
+    }
+    const roof = gapExposure ? gapExposure.has(true) : fringe && opts.mode === 'panels'
       ? !coverAbove.areaCovered(fringe, opts.uniformPressure === true)
-      : !!fringe || !coverAbove.memberCovered(segment(m.elementId));
+      : !!fringe || !coverAbove.memberCovered(trace);
     addArea(roof ? out.roofAreaOf : out.areaOf, m.elementId, widthSpans(m, opts.tributaryWidth).reduce((s, w) => s + w.width * (w.t1 - w.t0), 0) * m.horizontalLength);
     if (roof) out.roof.add(m.elementId);
   }
@@ -619,7 +634,8 @@ const FRINGE_BINS = 200;
 export const MAX_DECK_SPAN = 12;
 
 type ShellCoverage = 'none' | 'partial' | 'full';
-type AttachmentCoverage = ShellCoverage | 'unresolvedOffset';
+type RunInterval = [number, number];
+type AttachmentCoverage = ShellCoverage | 'unresolvedOffset' | { gaps: RunInterval[] };
 type ShellOffset = { offset: Segment[0]; error: number; shellNode: number };
 type ShellAttachment = { offset: Segment[0]; anchors: Set<number>; shellNodes: Set<number>; error: number };
 
@@ -722,7 +738,8 @@ function rigidShellCoverage(
     const shells = [...shellsAtNode.get(nodeI) ?? [], ...shellsAtNode.get(nodeJ) ?? []];
     return shells.length > 0 && shellCoverage(trace(id, [0, 0, 0]), shells, false) !== 'none';
   };
-  for (const { members: ids } of runs) {
+  for (const run of runs) {
+    const { members: ids } = run;
     const nodes = new Set([...ids].flatMap(id => {
       const { nodeI, nodeJ } = model.elements.get(id)!;
       return [nodeI, nodeJ];
@@ -737,7 +754,8 @@ function rigidShellCoverage(
         attachments.push({ offset, error, anchors: new Set([nodeId]), shellNodes: new Set([shellNode]) });
       }
     }
-    let coverage: AttachmentCoverage = 'none';
+    let coverage: ShellCoverage | 'unresolvedOffset' = 'none';
+    let gapIntervals: RunInterval[] | undefined;
     const unresolvedVerticalAnchors = new Set<number>();
     for (const { offset, anchors, shellNodes, error } of attachments) {
       if (Math.abs(offset[2]) >= MIN_STOREY_HEADROOM) continue;
@@ -756,7 +774,15 @@ function rigidShellCoverage(
         coverage = 'unresolvedOffset';
         break;
       }
-      if (anchors.size > 1 && covered.every(state => state === 'full')) {
+      const anchored = [run.a, run.b].every(end => [...anchors].some(id => model.nodes.get(id) === end));
+      const runTrace: Segment = [attachmentPoint(run.a, offset), attachmentPoint(run.b, offset)];
+      const gaps = anchored && Math.hypot(offset[0], offset[1]) <= error && Math.abs(runTrace[1][2] - runTrace[0][2]) > TOL
+        ? shellTrace(runTrace, carriers).gaps : [];
+      if (gaps.length && gaps.every(([t0, t1]) => t0 > 0 && t1 < 1)) {
+        if (gapIntervals || coverage !== 'none') { coverage = 'partial'; break; }
+        gapIntervals = gaps;
+      } else if (anchors.size > 1 && covered.every(state => state === 'full')) {
+        if (gapIntervals) { coverage = 'partial'; break; }
         coverage = 'full';
       } else if (covered.some(state => state !== 'none') || traces.some(trace => shellCoverage(trace, carriers, false) !== 'none')) {
         coverage = 'partial';
@@ -767,12 +793,42 @@ function rigidShellCoverage(
       (unresolvedVerticalAnchors.size === 1 && [...ids].some(sharesShellTrace)))) {
       coverage = 'unresolvedOffset';
     }
-    if (coverage !== 'none') for (const id of ids) byMember.set(id, coverage);
+    if (gapIntervals && coverage === 'none' && !unresolvedVerticalAnchors.size) {
+      const station = (point: { x: number; y: number }) =>
+        ((point.x - run.a.x) * run.direction[0] + (point.y - run.a.y) * run.direction[1]) / run.length;
+      const parts = [...ids].map(id => {
+        const axis = axesById.get(id)!;
+        const a = station(axis.a), b = station(axis.b);
+        return { id, a, b, start: Math.min(a, b), end: Math.max(a, b) };
+      }).sort((a, b) => a.start - b.start);
+      if (parts.some((part, i) => i > 0 && part.start !== parts[i - 1]!.end)) {
+        for (const id of ids) byMember.set(id, 'partial');
+        continue;
+      }
+      for (const { id, a, b, start, end } of parts) {
+        const tolerance = 64 * Number.EPSILON * Math.max(1, Math.abs(a), Math.abs(b));
+        const gaps: RunInterval[] = [];
+        for (const [t0, t1] of gapIntervals) {
+          const lo = Math.max(t0, start), hi = Math.min(t1, end);
+          if (hi - lo <= tolerance) continue;
+          const first = ((a < b ? lo : hi) - a) / (b - a);
+          const last = ((a < b ? hi : lo) - a) / (b - a);
+          gaps.push([Math.max(0, first), Math.min(1, last)]);
+        }
+        byMember.set(id, { gaps: gaps.sort((a, b) => a[0] - b[0]) });
+      }
+    } else if (coverage !== 'none' || gapIntervals) {
+      for (const id of ids) byMember.set(id, coverage === 'none' ? 'partial' : coverage);
+    }
   }
   return byMember;
 }
 
-function shellCoverage([p, q]: Segment, carriers: ShellCarrier[], requireCoplanar = true): ShellCoverage {
+function shellCoverage(trace: Segment, carriers: ShellCarrier[], requireCoplanar = true): ShellCoverage {
+  return shellTrace(trace, carriers, requireCoplanar).coverage;
+}
+
+function shellTrace([p, q]: Segment, carriers: ShellCarrier[], requireCoplanar = true): { coverage: ShellCoverage; gaps: RunInterval[] } {
   const dx = q[0] - p[0], dy = q[1] - p[1];
   const length = Math.hypot(dx, dy);
   const error = 64 * Number.EPSILON * Math.max(length, ...p.map(Math.abs), ...q.map(Math.abs));
@@ -781,7 +837,7 @@ function shellCoverage([p, q]: Segment, carriers: ShellCarrier[], requireCoplana
     return Math.max(p[0], q[0]) >= left - error && Math.min(p[0], q[0]) <= right + error
       && Math.max(p[1], q[1]) >= bottom - error && Math.min(p[1], q[1]) <= top + error;
   });
-  if (!eligible.length) return 'none';
+  if (!eligible.length) return { coverage: 'none', gaps: [[0, 1]] };
   const pointAt = (t: number): [number, number] => [p[0] + t * dx, p[1] + t * dy];
   const cuts = [0, 1];
   const add = (t: number) => { if (t > error / length && t < 1 - error / length) cuts.push(t); };
@@ -816,9 +872,8 @@ function shellCoverage([p, q]: Segment, carriers: ShellCarrier[], requireCoplana
     }
     for (const index of overlaps) covered.add(index);
   }
-  const classes = new Set(intervals.map((_, i) => covered.has(i)));
-  if (classes.size > 1) return 'partial';
-  return classes.has(true) ? 'full' : 'none';
+  const gaps = intervals.flatMap(({ start, end }, i): RunInterval[] => covered.has(i) ? [] : [[start, end]]);
+  return { coverage: !covered.size ? 'none' : gaps.length ? 'partial' : 'full', gaps };
 }
 
 class NodeComponents {

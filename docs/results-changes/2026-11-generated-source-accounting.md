@@ -19,3 +19,9 @@ The #2330 witness has two columns, one floor beam and two connected subdivided d
 Two straight rafters meeting at the highest ridge of a frame establish a gable when their run ends are at the same elevation and each eave has its own vertical column to the supported datum. The eaves establish the story and each rafter retains a distributed load. Independently evidenced ridge floors retain their separate story. The generator still refuses a roof path that cannot establish both supports.
 
 The #2332 witness has 2 m of horizontal run and 1 m of rise on each rafter. At 2 kN/m of member weight and a specified seismic coefficient of 1, the rafter inertia is `4√5` kN and its overturning moment about the model’s horizontal transverse axis is `10√5` kN·m. The generator now returns the same force and moment when the rafters are subdivided or the frame changes global orientation.
+
+## Transfer gravity over a bounded gap in an attached roof run
+
+Two rigid end ties can establish one vertical translation between an inclined rafter and the surrounding shells. The gravity planner clips the translated run against those shells. It assigns the complementary intervals to the rafter at the configured tributary width. The same intervals are used when the run is subdivided. Partial attachments without independent end ties or with unresolved horizontal eccentricity still refuse.
+
+In the #2295 model, the two shell regions cover 32 m² of horizontal projection. The unloaded part of the rafter runs from 4 m to 6 m of horizontal station, with a configured width of 3 m. At the fixture's uniform 1 kN/m² dead pressure the physical shell and rafter loads total `38√1.04` kN. The linear and P-Delta support reactions recover this total in the original and subdivided models.

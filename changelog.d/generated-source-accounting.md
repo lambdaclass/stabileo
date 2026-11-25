@@ -11,3 +11,7 @@ The seismic planner follows each straight-through brace independently and puts t
 #### Transfer inertia on a gable supported at both eaves
 
 A supported gable uses its eave story and carries distributed seismic inertia along each rafter. An independent ridge floor keeps its own story. (#2332)
+
+#### Transfer gravity over a bounded gap in an attached roof run
+
+The shell-covered portions retain their pressure and a rafter with two rigid end ties receives the configured tributary load only over the uncovered intervals. (#2295)

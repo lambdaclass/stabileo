@@ -38,13 +38,13 @@ it('#2282 an offset rafter tied to a loaded roof shell receives no duplicate mem
 
 it('#2282 ambiguous rigid shell attachment refuses gravity transfer', () => {
   const gap = offsetRoof(0.02, 0, 1, false, true).model;
-  const subdividedGap = offsetRoof(0.02, 0.53, -1, true, true).model;
+  gap.constraints.pop();
   const unequal = offsetRoof(0.02).model;
   unequal.nodes.get(unequal.constraints[1]!.slaveNode)!.z! += 0.005;
   const singleEnd = offsetRoof(0.02).model;
   singleEnd.constraints.pop();
   const reason = { key: 'loadPlan.gravity.unresolvedMember', params: { id: 1 } };
-  for (const model of [gap, subdividedGap, unequal, singleEnd]) {
+  for (const model of [gap, unequal, singleEnd]) {
     for (const loadEveryPanel of [false, true]) {
       const plan = buildLoadPlan(input(model, { gravity: { mode: 'panels', loadEveryPanel } }));
       expect(plan.outcome).toBe('BLOCKED');
@@ -80,9 +80,7 @@ it('keeps the tributary-width profile for an independent rafter and for explicit
   }
 });
 
-const gapResult = process.env.RUN_KNOWN_WRONG === '2295' ? it : it.skip;
-
-gapResult('known wrong result: #2295 the rafter receives the uncovered part of a rigidly attached roof run', () => {
+it('#2295 the rafter receives the uncovered part of a rigidly attached roof run', () => {
   const developed = Math.hypot(10, 2) / 10;
   for (const [start, end] of [[4, 6], [2, 4]] as const) {
     for (const [angle, mirror, subdivided] of [[0, 1, false], [0.53, -1, true]] as const) {
