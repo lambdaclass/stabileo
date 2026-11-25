@@ -71,7 +71,7 @@ test('@smoke the adaptive refinement is folded away until asked for, runs in the
   await expect(page.getByTestId('discretization-apply-refused')).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => window.__stabileo.quadIds().length)).toBeGreaterThan(quads);
   await solveModel(page);
-  await expect.poll(() => page.evaluate(() => window.__stabileo.discretizationState().estimate), { timeout: 60_000 })
+  await expect.poll(() => page.evaluate(() => window.__stabileo.discretizationState().estimate), { timeout: 30_000 })
     .toBe('done');
   expect((await page.evaluate(() => window.__stabileo.discretizationState())).reason).toBeNull();
 });
