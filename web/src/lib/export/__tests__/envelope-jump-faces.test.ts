@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, expect, it } from 'vitest';
+import { beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { strFromU8, unzipSync } from 'fflate';
 import { DEFAULT_AXES } from '../../axes/frame';
 import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../../engine/member-diagram';
@@ -87,8 +87,9 @@ it('known wrong result: #2226 keeps the two moment faces at a member split', () 
   const memberCurve = solved.envelope.momentZ.elements.find(curve => curve.elementId === member)!;
   const cuts = memberCurve.tPositions.flatMap((t, i) => t === at / 4 ? [i] : []);
   expect(cuts).toHaveLength(2);
-  expect(cuts.map(i => Math.max(Math.abs(memberCurve.posValues[i]!), Math.abs(memberCurve.negValues[i]!)))).toEqual([
-    expect.closeTo(moment, 10), expect.closeTo(moment / 2, 10),
+  expect(cuts.map(i => [memberCurve.negValues[i], memberCurve.posValues[i]])).toEqual([
+    [expect.closeTo(-moment, 10), 0],
+    [expect.closeTo(-moment / 2, 10), 0],
   ]);
 });
 
@@ -164,7 +165,7 @@ it.each([false, true])('known wrong result: #2226 compares every source at the u
   );
 });
 
-it('known wrong result: #2226 refuses an aliased cross-case jump and accepts the adjacent representable layout', () => {
+it('known wrong result: #2226 refuses an aliased cross-case jump and accepts the adjacent representable layout', async () => {
   const length = 9, a = 7 + 12 * Number.EPSILON;
   const first = solvedMember(length), second = structuredClone(first);
   let b = a + 4 * Number.EPSILON;
@@ -172,14 +173,22 @@ it('known wrong result: #2226 refuses an aliased cross-case jump and accepts the
   second.elementForces[0]!.pointLoadsZ = [{ a: b, p: 4 }];
   const sources = [first, second].map((results, i) => ({ id: i + 1, name: String(i + 1), results }));
   const options = { axes: DEFAULT_AXES, stations: 'critical' } as const;
+  const input = { sources: sources.map(source => ({ ...source, kind: 'combination' as const })), stations: 'critical', statics: null } as const;
+  const want = (name: string) => name === 'Envelope';
   expect(a / length).toBe(b / length);
   expect(() => envelopeRows('forces', sources, options)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
   expect(engineGuarded(() => envelopeRows('forces', sources, options))).toEqual({
     value: null, error: t(DIAGRAM_EXTREMA_UNAVAILABLE),
   });
+  expect(() => resultSheets(input, want)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+  const completed = vi.fn();
+  await expect(streamWorkbookZip(resultSheetParts(input, want), completed)).rejects.toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+  expect(completed).not.toHaveBeenCalled();
   b += 4 * Number.EPSILON;
   second.elementForces[0]!.pointLoadsZ[0]!.a = b;
   expect(envelopeRows('forces', sources, options).filter(row => row.x === b)).toHaveLength(2);
+  expect(records(resultSheets(input, want)[0]!).filter(row => row['x [m]'] === b && row.component === 'Vz')).toHaveLength(2);
+  await expect(streamWorkbookZip(resultSheetParts(input, want))).resolves.toBeInstanceOf(Blob);
 });
 
 it('known wrong result: #2226 rebased WASM envelopes refuse a jump that aliases a split face', () => {
@@ -213,4 +222,72 @@ it('known wrong result: #2226 includes a resultant extremum between component st
   const rows = envelopeRows('forces', [source], { axes: DEFAULT_AXES, stations: 'critical', resultant: true });
   const row = rows.find(row => row.x === 5 / 8);
   expect(row?.min[6]).toEqual({ value: Math.hypot(2, -2), source });
+});
+
+
+it.skip('known wrong result: #2226 evaluates competing sources at the physical stationary point', async () => {
+  const peak = solvedMember(3);
+  const other = structuredClone(peak);
+  const first = peak.elementForces[0]!;
+  const second = other.elementForces[0]!;
+  first.vzStart = first.vzEnd = 17 / 8;
+  first.distributedLoadsZ = [{ a: 1, b: 2, qI: 3, qJ: -1 }];
+  const slope = 2 ** 52;
+  second.vzStart = 4 - slope / 4;
+  second.vzEnd = 4 + 3 * slope / 4;
+  second.distributedLoadsZ = [{ a: 1.5, b: 2.5, qI: slope, qJ: slope }];
+  const sources: WorkbookSource[] = [peak, other].map((results, i) => ({
+    id: i + 1, name: String(i + 1), kind: 'combination', results,
+  }));
+  const input = { sources, stations: 'critical', statics: null } as const;
+  const want = (name: string) => name === 'Envelope';
+  const at = 1.75;
+  const table = envelopeRows('forces', sources, { axes: DEFAULT_AXES, stations: 'critical' });
+  const row = table.find(row => row.x === at);
+  expect.soft(row?.min[2]).toEqual({ value: 13 / 4, source: sources[0] });
+  expect.soft(row?.max[2]).toEqual({ value: 4, source: sources[1] });
+  const sheet = resultSheets(input, want)[0]!;
+  const workbookRow = records(sheet).find(row => row.component === 'Vz' && row['x [m]'] === at);
+  expect.soft(workbookRow).toMatchObject({ min: 13 / 4, minSourceId: 1, max: 4, maxSourceId: 2 });
+  const zip = unzipSync(new Uint8Array(await (await streamWorkbookZip(resultSheetParts(input, want))).arrayBuffer()));
+  const csv = strFromU8(zip[Object.keys(zip).find(name => name.endsWith('-Envelope.csv'))!]!);
+  const prefix = ['forces', first.elementId, '', at, 'Vz', ''].join(',');
+  expect(csv.split('\n').filter(line => line.startsWith(prefix))).toEqual([
+    ['forces', first.elementId, '', at, 'Vz', 'kN', 4, 2, '2', 13 / 4, 1, '1', ''].join(','),
+  ]);
+});
+
+it.skip.each(['linear', 'pdelta'] as const)('known wrong result: #2226 rebasing keeps adjacent normalized cuts (%s)', async method => {
+  const member = cantilever(3);
+  const { first, ids } = twoCombinations();
+  if (method === 'pdelta') modelStore.adoptAnalysis({ perCombination: 'pdelta' });
+  for (const at of [1, 2]) modelStore.addPointLoadOnElement(member, at, 0, { my: 8, caseId: first });
+  const solved = await modelStore.solveCombinations3DParallel(false, false, true);
+  if (!solved || typeof solved === 'string') throw new Error(String(solved));
+  const data = structuredClone(solved.perCombo.get(ids[0]!)!);
+  if (method === 'pdelta') expect(data.secondOrder?.converged).toBe(true);
+  const force = data.elementForces[0]!;
+  const piece = force.pieces!.find(piece => piece.x0 === 1)!;
+  const tA = 0.41666666666666663, tB = 1.25 / 3;
+  piece.forces.pointLoadsZ = [{ a: 0.24999999999999992, p: 8 }, { a: 0.25, p: 4 }];
+  const raw = computeEnvelope3D([reexpandVariableResults(data).results])!;
+  const rawPiece = raw.shearZ.elements.find(element => element.elementId === piece.forces.elementId)!;
+  expect(rawPiece.criticalStations?.filter(station => station.x === 0.24999999999999992 || station.x === 0.25)).toHaveLength(4);
+  const rebased = computeEnvelope3D([data])!.shearZ.elements.find(element => element.elementId === member)!;
+  expect(rebased.tPositions.flatMap((t, i) => t === tA || t === tB ? [[t, rebased.negValues[i], rebased.posValues[i]]] : [])).toEqual([
+    [tA, 0, 0], [tA, 0, 8], [tB, 0, 8], [tB, 0, 12],
+  ]);
+  const sources: WorkbookSource[] = [{ id: 1, name: '1', kind: 'combination', results: data }];
+  const input = { sources, stations: 'critical', statics: null } as const;
+  const want = (name: string) => name === 'Envelope';
+  const sheet = resultSheets(input, want)[0]!;
+  const rows = records(sheet).filter(row => row.component === 'Vz' && row['x [m]'] === 1.25);
+  expect(rows.map(row => [row.face, row.min, row.max])).toEqual([
+    ['left', 0, 0], ['right', 8, 8], ['left', 8, 8], ['right', 12, 12],
+  ]);
+  const zip = unzipSync(new Uint8Array(await (await streamWorkbookZip(resultSheetParts(input, want))).arrayBuffer()));
+  const csv = strFromU8(zip[Object.keys(zip).find(name => name.endsWith('-Envelope.csv'))!]!);
+  expect(csv.split('\n').filter(line => line.startsWith('forces,' + member + ',,1.25,Vz,'))).toEqual(
+    rows.map(row => sheet.rows[0]!.map(key => row[key]).join(',')),
+  );
 });

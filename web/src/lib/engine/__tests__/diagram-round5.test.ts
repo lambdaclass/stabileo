@@ -311,3 +311,39 @@ it('#1782 browser and WASM moving analyses apply a rounded path endpoint at the 
     expect.soft(result.elements['2']).toMatchObject({ nMaxPos: 0, nMaxNeg: 0 });
   }
 });
+
+
+it.skip('known wrong result: #2437 preserves nested cancellation in signed diagram ordinates', () => {
+  const [plane, space, planar, spatial] = forceRecords();
+  const large = 2 ** 108, small = 2 ** 54;
+  for (const [fifth, expected] of [[-1, 0], [1, 2]] as const) {
+    const terms = [large, small, 1, -small, fifth, -large];
+    for (const result of planar) {
+      const ef = result.elementForces[0]!;
+      ef.pointLoads = terms.map((my, i) => ({ a: (i + 1) / 8, p: 0, my }));
+      expect.soft(computeDiagramValueAt('moment', 0.5, ef)).toBe(expected);
+      expect.soft(prepareDiagramValueAt('moment', ef)(0.5)).toBe(expected);
+      expect.soft(computeElementDiagram('moment', ef, 0, 0, 3, 0).points.find(p => p.t === 0.5)?.value).toBe(expected);
+      expect.soft(computeDiagramValueAtWasm('moment', 0.5, ef)).toBe(expected);
+      expect.soft(computeDiagrams2D(plane, result).moment[0]!.points.find(p => p.t === 0.5)?.value).toBe(expected);
+      const envelope = computeEnvelope([result])!.moment.elements[0]!;
+      const i = envelope.tPositions.indexOf(0.5);
+      expect.soft([envelope.negValues[i], envelope.posValues[i]]).toEqual([0, expected]);
+    }
+    for (const result of spatial) {
+      const ef = result.elementForces[0]!;
+      ef.pointLoadsZ = terms.map((moment, i) => {
+        const arm = 2 ** -i;
+        return { a: 1.5 - arm, p: moment / arm };
+      });
+      expect.soft(evaluateDiagramAt(ef, 'momentY', 0.5)).toBe(expected);
+      expect.soft(prepareDiagramEvaluator3D(ef, 'momentY')(0.5)).toBe(expected);
+      expect.soft(computeDiagram3D(ef, 'momentY').points.find(p => p.t === 0.5)?.value).toBe(expected);
+      expect.soft(computeDiagramValueAt3DWasm('momentY', 0.5, ef)).toBe(expected);
+      expect.soft(computeDiagrams3D(space, result).momentY[0]!.points.find(p => p.t === 0.5)?.value).toBe(expected);
+      const envelope = computeEnvelope3D([result])!.momentY.elements[0]!;
+      const i = envelope.tPositions.indexOf(0.5);
+      expect.soft([envelope.negValues[i], envelope.posValues[i]]).toEqual([0, expected]);
+    }
+  }
+});

@@ -741,6 +741,45 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "known wrong result: #2437"]
+    fn issue_2437_nested_moment_cancellation() {
+        use crate::postprocess::{combinations, diagrams_3d};
+        let (input, results) = round5_diagram_results();
+        let large = 2.0_f64.powi(108);
+        let small = 2.0_f64.powi(54);
+        let mut observed = Vec::new();
+        let mut expected = Vec::new();
+        for (fifth, moment) in [(-1.0, 0.0), (1.0, 2.0)] {
+            let terms = [large, small, 1.0, -small, fifth, -large];
+            for (mut plane, mut space) in results.clone() {
+                plane.element_forces[0].point_loads = terms.into_iter().enumerate().map(|(i, my)| {
+                    PointLoadInfo { a: (i + 1) as f64 / 8.0, p: 0.0, px: None, my: Some(my) }
+                }).collect();
+                space.element_forces[0].point_loads_z = terms.into_iter().enumerate().map(|(i, moment)| {
+                    let arm = 2.0_f64.powi(-(i as i32));
+                    PointLoadInfo3D { a: 1.5 - arm, p: moment / arm }
+                }).collect();
+                observed.extend([
+                    checked_diagram_value_2d("moment", 0.5, &plane.element_forces[0]).unwrap(),
+                    diagrams_3d::checked_diagram_value_3d(&space.element_forces[0], "momentY", 0.5).unwrap(),
+                    compute_diagrams_2d(&input, &plane).moment[0].points.iter().find(|p| p.t == 0.5).unwrap().value,
+                    diagrams_3d::compute_diagrams_3d(&space).moment_y[0].points.iter().find(|p| p.t == 0.5).unwrap().value,
+                ]);
+                expected.extend([moment; 4]);
+                let plane_env = combinations::compute_envelope(&[plane]).unwrap().moment;
+                let space_env = combinations::compute_envelope_3d(&[space]).unwrap().moment_y;
+                for envelope in [plane_env, space_env] {
+                    let element = &envelope.elements[0];
+                    let i = element.t_positions.iter().position(|&t| t == 0.5).unwrap();
+                    observed.extend([element.neg_values[i], element.pos_values[i]]);
+                    expected.extend([0.0, moment]);
+                }
+            }
+        }
+        assert_eq!(observed, expected);
+    }
+
+    #[test]
     fn issue_2250_diagram_extrema_partial_load() {
         use crate::postprocess::{combinations, diagrams_3d};
         let (plane, space) = diagram_issue_models(
