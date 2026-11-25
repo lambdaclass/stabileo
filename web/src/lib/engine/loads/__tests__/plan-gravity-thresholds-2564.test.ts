@@ -35,7 +35,7 @@ function checkMemberActions(model: LoadModelData, mode: Mode, roof: boolean) {
   if (mode === 'width') expect(roofMembers(model).some(member => member.id === 1)).toBe(roof);
 }
 
-function ring(z: number, side = 6) {
+function ring(z: number, side = 6): [number, number, number][] {
   return [[0, 0, z], [side, 0, z], [side, side, z], [0, side, z]];
 }
 
@@ -100,6 +100,55 @@ it('#2564 clips low headroom beyond the last strip probe', () => {
   const result = plan(model, 'panels', false);
   expect(result.outcome).toBe('READY');
   expect(deadResultant(result, model, 1)).toBeCloseTo(Math.hypot(6, 3.0004 - 2.9996) * keptLength / 6, 10);
+});
+
+function cornerUnderBay(lower: readonly number[], upper: number, upperStart = 0) {
+  return mesh([
+    ring(0).map(([x, y], i) => [x, y, lower[i]!]),
+    ring(upper).map(([x, y, z]) => [x === 0 ? upperStart : x, y, z]),
+  ]);
+}
+
+const bayClipping2564 = process.env.RUN_KNOWN_WRONG === '2564' ? it : it.skip;
+
+bayClipping2564.each([
+  { lower: [2.9996, 3, 3.0004, 3], upper: 5.20035, upperStart: 0 },
+  { lower: [-500, -240, 20, -240].map(offset => 3 + offset / 2 ** 20), upper: 5.2 - 20 / 2 ** 20, upperStart: 3 },
+])('known wrong result: #2564 clips a bay beyond the last headroom probe ($upper, $upperStart)', ({ lower, upper, upperStart }) => {
+  const model = cornerUnderBay(lower, upper, upperStart);
+  const corner = lower[2]!;
+  const cut = 6 * ((corner - (upper - MIN_STOREY_HEADROOM)) / (corner - lower[1]!));
+  const kept = 36 - cut ** 2 / 2;
+  const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1, uniformPressure: true });
+  expect.soft(layout.areaByLevel.get(3)).toBeCloseTo(kept, 9);
+  expect.soft(layout.notes).toContainEqual(expect.objectContaining({ key: 'loadPlan.gravity.roofFringe' }));
+  expect(layout.areaByLevel.get(5.2)).toBeCloseTo(6 * (6 - upperStart), 12);
+
+  const result = plan(model, 'panels', false);
+  expect(result.outcome).toBe('READY');
+  const distributed = [1, 2, 3, 4].reduce((sum, id) => sum + deadResultant(result, model, id), 0);
+  const nodal = result.nodal.filter(load => load.caseType === 'D' && load.nodeId <= 4).reduce((sum, load) => sum - load.fz, 0);
+  expect(distributed + nodal).toBeCloseTo(kept, 9);
+});
+
+it('#2564 keeps a full bay when the physical headroom band has no area', () => {
+  const lower = [2.9996, 3, 3.0004, 3];
+  const clear = cornerUnderBay(lower, 5.2005);
+  const touching = cornerUnderBay([0, 2 ** -12, 2 ** -11, 2 ** -12], MIN_STOREY_HEADROOM + 2 ** -11);
+  for (const [model, level] of [[clear, 3], [touching, 0]] as const) {
+    const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
+    expect(layout.areaByLevel.get(level)).toBeCloseTo(36, 12);
+    expect(plan(model, 'panels', false).outcome).toBe('READY');
+  }
+});
+
+it('#2564 keeps the full load when all bays are explicitly selected', () => {
+  const model = cornerUnderBay([2.9996, 3, 3.0004, 3], 5.20035);
+  const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1, loadEveryPanel: true });
+  expect(layout.areaByLevel.get(3)).toBeCloseTo(36, 12);
+  const result = plan(model, 'panels', true);
+  expect(result.outcome).toBe('READY');
+  expect([1, 2, 3, 4].reduce((sum, id) => sum + deadResultant(result, model, id), 0)).toBeCloseTo(36, 12);
 });
 
 it('#2564 refuses indeterminate clearance at the strict headroom limit', () => {
