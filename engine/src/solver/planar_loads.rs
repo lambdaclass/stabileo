@@ -58,15 +58,185 @@ impl ExactSum {
         }
     }
 
-    fn projected(row: [f64; 2], components: [Option<&Self>; 2]) -> Self {
+    fn projected(row: [&BigRational; 2], components: [Option<&Self>; 2]) -> Self {
         let mut result = Self::default();
         for (coefficient, component) in row.into_iter().zip(components) {
-            if let Some(component) = component {
-                result.add_scaled(component, coefficient);
+            if let Some(component) = component.filter(|_| !coefficient.is_zero()) {
+                result.nonfinite |= component.nonfinite;
+                result.value += coefficient * &component.value;
             }
         }
         result
     }
+}
+
+pub(super) struct MemberActionProjection {
+    chord: [BigRational; 2],
+    length: BigRational,
+}
+
+impl MemberActionProjection {
+    fn dot_cross([x, z]: &[BigRational; 2], components: [&ExactSum; 2]) -> [ExactSum; 2] {
+        [[x, z], [&-z, x]].map(|row| ExactSum::projected(row, components.map(Some)))
+    }
+
+    fn reference_to_global(chord: ReferenceChord) -> Option<Self> {
+        let [x, z] = chord.components;
+        Some(Self {
+            chord: [BigRational::from_float(x)?, BigRational::from_float(-z)?],
+            length: BigRational::from_float(chord.length).filter(|length| !length.is_zero())?,
+        })
+    }
+
+    fn reference_to_current(reference: ReferenceChord, chord: &[ExactSum; 2]) -> Option<Self> {
+        let [x, z] = reference.components;
+        let reference = [BigRational::from_float(x)?, BigRational::from_float(z)?];
+        let [parallel, transverse] = Self::dot_cross(&reference, chord.each_ref());
+        if parallel.nonfinite || transverse.nonfinite {
+            return None;
+        }
+        let chord = [parallel.value, transverse.value];
+        let scale = chord[0].abs().max(chord[1].abs());
+        if scale.is_zero() {
+            return None;
+        }
+        let [x, z] = chord.each_ref().map(|component| component / &scale);
+        let square = &x * &x + &z * &z;
+        let length = scale * BigRational::from_float(square.to_f64()?.sqrt())?;
+        Some(Self { chord, length })
+    }
+
+    fn apply(projection: Option<&Self>, components: [&ExactSum; 2]) -> [ExactSum; 2] {
+        match projection {
+            Some(projection) => Self::dot_cross(&projection.chord, components).map(|mut action| {
+                action.value /= &projection.length;
+                action
+            }),
+            None => std::array::from_fn(|_| ExactSum {
+                value: BigRational::zero(),
+                nonfinite: true,
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct ReferenceChord {
+    components: [f64; 2],
+    length: f64,
+}
+
+impl ReferenceChord {
+    fn between(i: &SolverNode, j: &SolverNode) -> Self {
+        let (components, length) = assembly::member_chord_2d(i, j);
+        Self { components, length }
+    }
+
+    fn aligned_support(self, support: [[f64; 2]; 2]) -> Option<[[BigRational; 2]; 2]> {
+        let [x, z] = self.components;
+        let axes = [[x, z], [-x, -z], [-z, x], [z, -x]]
+            .map(|[x, z]| [[x, z], [z, -x]])
+            .into_iter()
+            .find(|axes| axes.map(|row| row.map(|value| value / self.length)) == support)?;
+        let length = BigRational::from_float(self.length).filter(|length| !length.is_zero())?;
+        Some(axes.map(|row| row.map(|value| BigRational::from_float(value).unwrap() / &length)))
+    }
+}
+
+fn reference_chords(input: &SolverInput) -> HashMap<usize, ReferenceChord> {
+    let nodes: HashMap<_, _> = crate::ordered::values(&input.nodes)
+        .map(|node| (node.id, node))
+        .collect();
+    crate::ordered::values(&input.elements)
+        .filter_map(|element| {
+            let i = nodes.get(&element.node_i)?;
+            let j = nodes.get(&element.node_j)?;
+            Some((element.id, ReferenceChord::between(i, j)))
+        })
+        .collect()
+}
+
+struct PlanarSupportProjection {
+    dofs: [usize; 2],
+    axes: [[BigRational; 2]; 2],
+}
+
+type PlanarSupportProjections = HashMap<usize, Vec<PlanarSupportProjection>>;
+
+fn support_projections(
+    input: &SolverInput,
+    base: Option<&SolverInput>,
+    chords: &HashMap<usize, ReferenceChord>,
+    transforms: &[InclinedTransformData2D],
+) -> PlanarSupportProjections {
+    if transforms.is_empty() {
+        return HashMap::new();
+    }
+    let mut by_node = HashMap::<_, Vec<_>>::new();
+    for transform in transforms {
+        by_node
+            .entry(transform.node_id)
+            .or_default()
+            .push(transform);
+    }
+    let has_member_loads = std::iter::once(input)
+        .chain(base)
+        .flat_map(|input| &input.loads)
+        .any(|load| {
+            matches!(
+                load,
+                SolverLoad::Distributed(_)
+                    | SolverLoad::AxialDistributed(_)
+                    | SolverLoad::PointOnElement(_)
+                    | SolverLoad::Thermal(_)
+            )
+        });
+    let mut incident = HashMap::<_, Vec<_>>::new();
+    if has_member_loads {
+        for element in input.elements.values() {
+            if let Some(&chord) = chords.get(&element.id) {
+                for node in [element.node_i, element.node_j] {
+                    if by_node.contains_key(&node) {
+                        incident.entry(node).or_default().push(chord);
+                    }
+                }
+            }
+        }
+    }
+
+    by_node
+        .into_iter()
+        .map(|(node, rotations)| {
+            let last = rotations.len() - 1;
+            let projections = rotations
+                .into_iter()
+                .enumerate()
+                .map(|(index, rotation)| {
+                    let mut aligned = incident
+                        .get(&node)
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|chord| chord.aligned_support(rotation.r));
+                    let axes = if index == last {
+                        aligned
+                            .next()
+                            .filter(|first| aligned.all(|candidate| candidate == *first))
+                    } else {
+                        None
+                    };
+                    PlanarSupportProjection {
+                        dofs: rotation.dofs,
+                        axes: axes.unwrap_or_else(|| {
+                            rotation
+                                .r
+                                .map(|row| row.map(|value| BigRational::from_float(value).unwrap()))
+                        }),
+                    }
+                })
+                .collect();
+            (node, projections)
+        })
+        .collect()
 }
 
 struct Weight {
@@ -163,14 +333,14 @@ fn position_bits(value: f64) -> u64 {
 
 fn member_load_components(
     load: &SolverLoad,
-    lengths: &HashMap<usize, f64>,
+    chords: &HashMap<usize, ReferenceChord>,
 ) -> Option<(LoadPosition, [f64; 3])> {
     match load {
         SolverLoad::Distributed(d) => Some((
             LoadPosition::Transverse(
                 d.element_id,
                 position_bits(d.a.unwrap_or(0.0)),
-                position_bits(d.b.unwrap_or(lengths[&d.element_id])),
+                position_bits(d.b.unwrap_or(chords[&d.element_id].length)),
             ),
             [d.q_i, d.q_j, 0.0],
         )),
@@ -178,7 +348,7 @@ fn member_load_components(
             LoadPosition::Axial(
                 d.element_id,
                 position_bits(d.a.unwrap_or(0.0)),
-                position_bits(d.b.unwrap_or(lengths[&d.element_id])),
+                position_bits(d.b.unwrap_or(chords[&d.element_id].length)),
             ),
             [d.q_i, d.q_j, 0.0],
         )),
@@ -215,22 +385,14 @@ struct MemberComponents {
     components: [ExactSum; 3],
 }
 
-fn sum_member_components(input: &SolverInput) -> Vec<MemberComponents> {
-    let nodes: HashMap<_, _> = input.nodes.values().map(|node| (node.id, node)).collect();
-    let lengths = input
-        .elements
-        .values()
-        .filter_map(|element| {
-            let i = nodes.get(&element.node_i)?;
-            let j = nodes.get(&element.node_j)?;
-            let (dx, dz) = (j.x - i.x, j.z - i.z);
-            Some((element.id, (dx * dx + dz * dz).sqrt()))
-        })
-        .collect();
+fn sum_member_components(
+    input: &SolverInput,
+    chords: &HashMap<usize, ReferenceChord>,
+) -> Vec<MemberComponents> {
     let mut positions = HashMap::<LoadPosition, usize>::new();
     let mut members = Vec::<MemberComponents>::new();
     for load in &input.loads {
-        let Some((position, components)) = member_load_components(load, &lengths) else {
+        let Some((position, components)) = member_load_components(load, chords) else {
             continue;
         };
         let index = *positions.entry(position).or_insert_with(|| {
@@ -258,9 +420,10 @@ impl PlanarLoadPattern {
     fn assemble(
         input: &SolverInput,
         dofs: &DofNumbering,
-        transforms: &[InclinedTransformData2D],
+        chords: &HashMap<usize, ReferenceChord>,
+        supports: &PlanarSupportProjections,
     ) -> Self {
-        let members = sum_member_components(input);
+        let members = sum_member_components(input, chords);
         let mut loads: Vec<_> = input
             .loads
             .iter()
@@ -315,15 +478,18 @@ impl PlanarLoadPattern {
                     for (sum, action) in sums.iter_mut().zip(&local_actions) {
                         sum.add_scaled(action, 1.0);
                     }
-                    let [c, s] = local.direction;
+                    let projection =
+                        MemberActionProjection::reference_to_global(chords[&local.element_id]);
                     for offset in [0, 3] {
                         let [axial, transverse, moment] =
                             std::array::from_fn(|i| &local_actions[offset + i]);
-                        for (i, row) in [[c, -s], [s, c]].into_iter().enumerate() {
+                        let global =
+                            MemberActionProjection::apply(projection.as_ref(), [axial, transverse]);
+                        for (i, action) in global.iter().enumerate() {
                             if let Some(dof) = local.dofs[offset + i] {
-                                let force = forces[dof].get_or_insert_with(ExactSum::default);
-                                force.add_scaled(axial, row[0]);
-                                force.add_scaled(transverse, row[1]);
+                                forces[dof]
+                                    .get_or_insert_with(ExactSum::default)
+                                    .add_scaled(action, 1.0);
                             }
                         }
                         if let Some(dof) = local.dofs[offset + 2] {
@@ -335,10 +501,11 @@ impl PlanarLoadPattern {
                 }
             }),
         );
-        for transform in transforms {
+        for transform in supports.values().flatten() {
             let components = transform.dofs.map(|i| forces[i].take());
-            for (dof, row) in transform.dofs.into_iter().zip(transform.r) {
-                let force = ExactSum::projected(row, components.each_ref().map(Option::as_ref));
+            for (dof, row) in transform.dofs.into_iter().zip(&transform.axes) {
+                let force =
+                    ExactSum::projected(row.each_ref(), components.each_ref().map(Option::as_ref));
                 forces[dof] = (!force.is_zero()).then_some(force);
             }
         }
@@ -354,6 +521,7 @@ pub(super) struct PlanarLoadPath {
     target: PlanarLoadPattern,
     base: Option<PlanarLoadPattern>,
     interpolate_base: bool,
+    supports: PlanarSupportProjections,
 }
 
 impl PlanarLoadPath {
@@ -382,15 +550,21 @@ impl PlanarLoadPath {
         transforms: &[InclinedTransformData2D],
         interpolate_base: bool,
     ) -> Self {
+        let chords = reference_chords(input);
+        let supports = support_projections(input, base, &chords, transforms);
         Self {
-            target: PlanarLoadPattern::assemble(input, dofs, transforms),
-            base: base.map(|input| PlanarLoadPattern::assemble(input, dofs, transforms)),
+            target: PlanarLoadPattern::assemble(input, dofs, &chords, &supports),
+            base: base.map(|input| {
+                PlanarLoadPattern::assemble(input, dofs, &reference_chords(input), &supports)
+            }),
             interpolate_base,
+            supports,
         }
     }
 
     fn weighted(&self, target: f64, base: f64) -> PlanarLoadState<'_> {
         PlanarLoadState {
+            supports: &self.supports,
             target: (&self.target, Weight::new(target)),
             base: self
                 .base
@@ -422,92 +596,62 @@ impl PlanarLoadPath {
 
 pub(super) struct PlanarDisplacements<'a> {
     solver: &'a [f64],
-    axes: HashMap<usize, Vec<[[f64; 2]; 2]>>,
+    supports: &'a PlanarSupportProjections,
 }
 
-impl<'a> PlanarDisplacements<'a> {
-    pub(super) fn new(solver: &'a [f64], transforms: &[InclinedTransformData2D]) -> Self {
-        let mut axes = HashMap::<_, Vec<_>>::new();
-        for transform in transforms {
-            axes.entry(transform.node_id).or_default().push(transform.r);
-        }
-        Self { solver, axes }
-    }
-
-    fn global_member_motion(
-        &self,
-        node: usize,
-        dofs: &[usize; 2],
-        [dx, dz]: [f64; 2],
-    ) -> [ExactSum; 2] {
+impl PlanarDisplacements<'_> {
+    fn global_member_motion(&self, node: usize, dofs: &[usize; 2]) -> [ExactSum; 2] {
         let mut motion = dofs.map(|dof| {
             let mut sum = ExactSum::default();
             sum.add(self.solver[dof]);
             sum
         });
-        let Some((last, earlier)) = self.axes.get(&node).and_then(|axes| axes.split_last()) else {
-            return motion;
-        };
-        let reverse = |axes: [[f64; 2]; 2], motion: &[ExactSum; 2]| {
-            let [[a, b], [c, d]] = axes;
-            [[a, c], [b, d]].map(|row| ExactSum::projected(row, motion.each_ref().map(Some)))
-        };
-        for &rotation in earlier {
-            motion = reverse(rotation, &motion);
+        if let Some(projections) = self.supports.get(&node) {
+            for projection in projections {
+                let [[a, b], [c, d]] = &projection.axes;
+                motion = [[a, c], [b, d]]
+                    .map(|row| ExactSum::projected(row, motion.each_ref().map(Some)));
+            }
         }
-
-        let length = (dx * dx + dz * dz).sqrt();
-        let chord_axes = [[dx, dz], [-dx, -dz], [-dz, dx], [dz, -dx]]
-            .map(|[x, z]| [[x, z], [z, -x]])
-            .into_iter()
-            .find(|axes| axes.map(|row| row.map(|value| value / length)) == *last);
-        if let (Some(axes), Some(length)) = (chord_axes, BigRational::from_float(length)) {
-            reverse(axes, &motion).map(|mut component| {
-                component.value /= &length;
-                component
-            })
-        } else {
-            reverse(*last, &motion)
-        }
+        motion
     }
 
-    pub(super) fn member_rotation(
+    pub(super) fn member_action_projection(
         &self,
         nodes: [&SolverNode; 2],
         dofs: &[[usize; 2]; 2],
-    ) -> [f64; 2] {
+    ) -> Option<MemberActionProjection> {
         let [i, j] = nodes;
-        let [dx, dz] = [j.x - i.x, j.z - i.z];
-        let mut chord = [dx, dz].map(|component| {
+        let reference = ReferenceChord::between(i, j);
+        let mut chord = reference.components.map(|component| {
             let mut sum = ExactSum::default();
             sum.add(component);
             sum
         });
         for ((node, dofs), sign) in nodes.into_iter().zip(dofs).zip([-1.0, 1.0]) {
-            let global = self.global_member_motion(node.id, dofs, [dx, dz]);
+            let global = self.global_member_motion(node.id, dofs);
             for (component, displacement) in chord.iter_mut().zip(&global) {
                 component.add_scaled(displacement, sign);
             }
         }
-        let [parallel, transverse] =
-            [[dx, dz], [-dz, dx]].map(|row| ExactSum::projected(row, chord.each_ref().map(Some)));
-        let scale = parallel.value.abs().max(transverse.value.abs());
-        if parallel.nonfinite || transverse.nonfinite || scale.is_zero() {
-            return [f64::NAN; 2];
-        }
-        let [parallel, transverse] = [parallel, transverse]
-            .map(|component| (component.value / &scale).to_f64().unwrap_or(f64::NAN));
-        let length = parallel.hypot(transverse);
-        [parallel / length, transverse / length]
+        MemberActionProjection::reference_to_current(reference, &chord)
     }
 }
 
 pub(super) struct PlanarLoadState<'a> {
+    supports: &'a PlanarSupportProjections,
     target: (&'a PlanarLoadPattern, Weight),
     base: Option<(&'a PlanarLoadPattern, Weight)>,
 }
 
 impl PlanarLoadState<'_> {
+    pub(super) fn displacements<'a>(&'a self, solver: &'a [f64]) -> PlanarDisplacements<'a> {
+        PlanarDisplacements {
+            solver,
+            supports: self.supports,
+        }
+    }
+
     fn patterns(&self) -> impl Iterator<Item = (&PlanarLoadPattern, &Weight)> {
         std::iter::once((self.target.0, &self.target.1))
             .chain(self.base.iter().map(|(pattern, weight)| (*pattern, weight)))
@@ -535,13 +679,19 @@ impl PlanarLoadState<'_> {
         self.exact_actions(id, false).map(ExactSum::rounded)
     }
 
-    pub(super) fn frame_actions(&self, id: usize, rotation: impl FnOnce() -> [f64; 2]) -> [f64; 6] {
+    pub(super) fn frame_actions(
+        &self,
+        id: usize,
+        projection: impl FnOnce() -> Option<MemberActionProjection>,
+    ) -> [f64; 6] {
         let mut dead = self.exact_actions(id, false);
         if [0, 1, 3, 4].into_iter().any(|i| !dead[i].is_zero()) {
-            let [c, s] = rotation();
+            let projection = projection();
             for offset in [0, 3] {
-                let local = [Some(&dead[offset]), Some(&dead[offset + 1])];
-                let [axial, shear] = [[c, s], [-s, c]].map(|row| ExactSum::projected(row, local));
+                let [axial, shear] = MemberActionProjection::apply(
+                    projection.as_ref(),
+                    [&dead[offset], &dead[offset + 1]],
+                );
                 dead[offset] = axial;
                 dead[offset + 1] = shear;
             }

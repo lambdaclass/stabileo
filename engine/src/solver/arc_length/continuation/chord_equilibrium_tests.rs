@@ -134,7 +134,6 @@ fn run_drivers(
 }
 
 #[test]
-#[ignore = "known wrong result: #2560"]
 fn issue_2560_chord_assembly_equilibrium() {
     let mut failures = Vec::new();
     for member_type in ["frame", "truss"] {
@@ -163,7 +162,6 @@ fn issue_2560_chord_assembly_equilibrium() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2560"]
 fn issue_2560_chord_recovery_equilibrium() {
     let Fixture {
         mut solver,

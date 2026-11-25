@@ -1315,7 +1315,7 @@ fn finish_planar_results(
     let mut element_forces = if let Some(loads) = loads {
         member_forces_2d(
             input, dof_num, &u_geom, &loads.descriptions(),
-            Some((loads, &PlanarDisplacements::new(u_full, its))),
+            Some((loads, &loads.displacements(u_full))),
         )
     } else {
         compute_corotational_forces(input, dof_num, &u_geom)
@@ -1484,7 +1484,7 @@ fn member_forces_2d(
             // Subtract FEF for output (element forces = K*u - FEF)
             if let Some((applied, solver_displacements)) = applied {
                 let actions = applied.frame_actions(elem.id, || {
-                    solver_displacements.member_rotation(
+                    solver_displacements.member_action_projection(
                         [node_i, node_j],
                         &[[elem_dofs[0], elem_dofs[1]], [elem_dofs[3], elem_dofs[4]]],
                     )

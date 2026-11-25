@@ -911,7 +911,6 @@ fn assemble_truss_load_contributions_2d<'a>(
             add(PlanarLoadContribution::Member(LocalMemberLoad2D {
                 index,
                 element_id: elem_id,
-                direction: [cos, sin],
                 dofs: [dofs[0][0], dofs[0][1], None, dofs[1][0], dofs[1][1], None],
                 actions,
             }));
@@ -988,7 +987,6 @@ pub(crate) fn assemble_load_vector_2d_with_rounding(
 pub(super) struct LocalMemberLoad2D {
     pub index: usize,
     pub element_id: usize,
-    pub direction: [f64; 2],
     pub dofs: [Option<usize>; 6],
     pub actions: LocalMemberActions2D,
 }
@@ -1026,6 +1024,11 @@ impl<'a> PlanarLoadVisitor<'a> {
             Self::Local(add) => add(PlanarLoadContribution::Nodal(dof, value)),
         }
     }
+}
+
+pub(super) fn member_chord_2d(i: &SolverNode, j: &SolverNode) -> ([f64; 2], f64) {
+    let [x, z] = [j.x - i.x, j.z - i.z];
+    ([x, z], (x * x + z * z).sqrt())
 }
 
 pub(super) fn visit_load_vector_2d(
@@ -1067,11 +1070,9 @@ pub(super) fn visit_load_vector_2d(
         let mat = mat_map[&elem.material_id];
         let sec = sec_map[&elem.section_id];
 
-        let dx = node_j.x - node_i.x;
-        let dy = node_j.z - node_i.z;
-        let l = (dx * dx + dy * dy).sqrt();
+        let ([dx, dz], l) = member_chord_2d(node_i, node_j);
         let cos = dx / l;
-        let sin = dy / l;
+        let sin = dz / l;
         let e = mat.e * 1000.0; // MPa → kN/m²
 
         if elem.elem_type == "truss" || elem.elem_type == "cable" {
@@ -1202,7 +1203,6 @@ fn assemble_frame_load_contributions_2d<'a>(
             add(PlanarLoadContribution::Member(LocalMemberLoad2D {
                 index,
                 element_id: elem.id,
-                direction: [t[0], t[1]],
                 dofs: std::array::from_fn(|i| Some(elem_dofs[i])),
                 actions,
             }));

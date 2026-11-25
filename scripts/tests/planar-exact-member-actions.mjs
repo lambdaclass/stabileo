@@ -108,7 +108,6 @@ export function registerChordEquilibriumTests({ arc, displacement, corotational 
     JSON.parse(readFileSync(new URL('./fixtures/planar-chord-equilibrium.json', import.meta.url)));
   const tolerance = 1e-8;
   const radius = Math.SQRT2;
-  const knownWrong = { skip: 'known wrong result: #2560' };
   for (const [driver, solve] of [
     ['arc length', (solver) => [arc({ solver, maxSteps: 1, maxIter: 20, tolerance,
       initialDs: radius, minDs: radius, maxDs: radius })]],
@@ -117,7 +116,7 @@ export function registerChordEquilibriumTests({ arc, displacement, corotational 
     ['co-rotation', (solver) => corotational(solver, 1)],
   ]) {
     for (const memberType of ['frame', 'truss']) {
-      test(`#2560 chord assembly equilibrium: ${driver}, ${memberType}`, knownWrong, () => {
+      test(`#2560 chord assembly equilibrium: ${driver}, ${memberType}`, () => {
         const solver = structuredClone(base);
         solver.elements[1].type = memberType;
         solver.loads.push(...assemblyLoads);
@@ -131,7 +130,7 @@ export function registerChordEquilibriumTests({ arc, displacement, corotational 
       });
     }
 
-    test(`#2560 chord recovery equilibrium: ${driver}`, knownWrong, () => {
+    test(`#2560 chord recovery equilibrium: ${driver}`, () => {
       const solver = structuredClone(base);
       Object.assign(solver.nodes[2], { x: 5, z: 0 });
       solver.loads.push(...recoveryLoads);
