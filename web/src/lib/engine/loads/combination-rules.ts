@@ -38,12 +38,15 @@ export function isCombinationGroup(group: unknown): group is string {
   return typeof group === 'string' && group.trim().length > 0;
 }
 
+export function ruleTermSymbol(symbol: LoadSymbol, snowBasis: CombinationTerm['snowBasis']): string {
+  return snowBasis === 'flatRoof' ? `${symbol} (pf)` : symbol;
+}
+
 export function ruleLabel(rule: CombinationRule): string {
-  return termsLabel(rule.terms.map(({ symbol, group, factor }) => ({
-    label: group === undefined ? symbol : `${symbol}(${group})`,
-    factor,
-    includeZero: group !== undefined,
-  })));
+  return termsLabel(rule.terms.map(({ symbol, snowBasis, group, factor }) => {
+    const action = ruleTermSymbol(symbol, snowBasis);
+    return { label: group === undefined ? action : `${action}(${group})`, factor, includeZero: group !== undefined };
+  }));
 }
 
 export function ruleToSpec(rule: CombinationRule): LoadCombinationSpec {

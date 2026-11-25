@@ -11982,6 +11982,8 @@ const es: Record<string, string> = {
   "snow.refused.legacyCombination": "Esta combinación sísmica guardada tiene una base de nieve ambigua. Regenere las combinaciones antes de usarla; regenerar solo las cargas de nieve no es suficiente.",
   "snow.refused.flatRoofCase": "Esta combinación requiere un caso separado de nieve de cubierta plana. Regenere las cargas de nieve antes de generar combinaciones.",
   "combos.refused.unresolvedGroup": "Ningún caso de carga coincide con el símbolo {symbol} y el grupo «{group}». Revisá la regla de combinación guardada y sus casos de carga.",
+  "combos.refused.alternativeSet": "La regla «{rule}» no puede representar todos los casos del conjunto de alternativas «{set}» sin combinar casos del mismo símbolo de carga direccional. Revisá la regla y los conjuntos de alternativas.",
+  "combos.refused.directionalCase": "La regla «{rule}» deja el estado de carga direccional «{case}» fuera de todas las combinaciones. Revisá la regla y los conjuntos de alternativas.",
   "snow.refused.physicalCase": "Esta combinación requiere un caso separado de nieve física. Regenere las cargas de nieve antes de generar combinaciones.",
   'snow.case.balanced': 'Nieve balanceada (ps = {ps} kN/m²)',
   'snow.derivation.multipleUnbalanced': "No balanceada (§6.3, Figura 6): de 0,5 pf en las cumbreras a {valley} kN/m² en los valles, sin que la nieve del valle supere la de la cumbrera.",
