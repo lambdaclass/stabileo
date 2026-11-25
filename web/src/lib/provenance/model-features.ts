@@ -1,8 +1,7 @@
 import { POINT_END_TOL } from '../engine/member-point-loads';
 import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
 import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
-import { isCompositeCase } from '../engine/loads/combination-cases';
-import { symbolOfType, symbolsByAlternativeSet } from '../engine/loads/combination-cases';
+import { isCompositeCase, symbolOfCase, symbolOfType, symbolsByAlternativeSet } from '../engine/loads/combination-cases';
 /**
  * Which features a saved model has, for deciding which registered result changes concern it.
  *
@@ -59,7 +58,7 @@ export const FEATURE_IDS = [
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
-  'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase',
+  'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase', 'loadPlanCombinationSupplements', 'flatRoofSnowCombinations',
   'superposedCombinations', 'repeatedCombinationCases', 'zeroOrOpposingCombinationFactors', 'explicitNotionalCombinationCases',
   'prototypeNamedLoadCase', 'staticCaseEffects', 'projectedSpatialLoads', 'offsetMemberLoadFrame', 'inactiveSpatialMembers',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
@@ -107,7 +106,7 @@ interface FeatureSnapshotFields {
   loads?: Array<{ type: string; data?: Record<string, unknown> }>;
   loadCases?: Array<{
     id: number; name?: string; type?: string; spectral?: unknown; alternatives?: string; axisNamed?: boolean;
-    group?: string;
+    group?: string; snowBasis?: 'flatRoof';
     includes?: ReadonlyArray<{ caseId?: number; factor: number }>; reduction?: { ratio: number }; notional?: unknown;
   }>;
   combinations?: unknown[];
@@ -536,8 +535,13 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (types.has('W') || types.has('Wa')) f.add('wind');
   const combos = (Array.isArray(s.combinations) && s.combinations.length > 0) || (Array.isArray(s.combinationRules) && s.combinationRules.length > 0);
   if (loadPlanInCompositeCase) f.add('loadPlanInCompositeCase');
-  if ((combos || cases.some(isCompositeCase)) && [...symbolsByAlternativeSet(cases).values()].some(symbols => symbols.size > 1)) {
-    f.add('crossSymbolCombinationAlternatives');
+  if (combos || cases.some(isCompositeCase)) {
+    if ([...symbolsByAlternativeSet(cases).values()].some(symbols => symbols.size > 1)) f.add('crossSymbolCombinationAlternatives');
+    if (cases.some(c => c.snowBasis === 'flatRoof' && symbolOfCase(c) === 'S')) f.add('flatRoofSnowCombinations');
+    if (f.has('generatedLoads') && (cases.filter(c => symbolOfCase(c) === 'Lr').length > 1 ||
+        cases.some(c => c.alternatives && ['L', 'T'].includes(symbolOfCase(c) ?? '')))) {
+      f.add('loadPlanCombinationSupplements');
+    }
   }
   if (combos) {
     f.add('combinations');

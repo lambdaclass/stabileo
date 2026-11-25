@@ -11446,6 +11446,7 @@ const fr: Translations = {
   "snow.refused.legacyCombination": "Cette combinaison sismique enregistrée a une base de neige ambiguë. Régénérez les combinaisons avant de l’utiliser ; régénérer uniquement les charges de neige ne suffit pas.",
   "snow.refused.flatRoofCase": "Cette combinaison exige un cas distinct de neige de toiture plate. Régénérez les charges de neige avant les combinaisons.",
   "combos.refused.unresolvedGroup": "Aucun cas de charge ne correspond au symbole {symbol} et au groupe « {group} ». Vérifiez la règle de combinaison enregistrée et ses cas de charge.",
+  "combos.refused.alternativeSet": "La règle « {rule} » ne peut pas représenter tous les cas de l’ensemble de variantes « {set} » sans combiner des cas du même symbole de charge directionnelle. Vérifiez la règle et les ensembles de variantes.",
   "snow.refused.physicalCase": "Cette combinaison exige un cas distinct de neige physique. Régénérez les charges de neige avant les combinaisons.",
   'snow.case.balanced': 'Neige équilibrée (ps = {ps} kN/m²)',
   'snow.derivation.multipleUnbalanced': 'Dissymétrique (§6.3, figure 6) : de 0.5 pf aux faîtages à {valley} kN/m² dans les noues, la neige au-dessus d\'une noue restant inférieure à celle au-dessus du faîtage.',
