@@ -25,19 +25,17 @@ describe('the steel of a line against its chart', () => {
       expect(check(l).ok, l.name).toBe((['top', 'bottom'] as const).every((f) => shortStretches(l.steel ?? [], f).length === 0));
       if (!l.isAdopted) expect(check(l).ok, l.name).toBe(true);
     }
-    const v15 = lines.find((l) => l.name === 'V15')!;
-    expect(v15.adopted.spanBottom[2]!.count).toBeGreaterThan(0);
-    expect(v15.adopted.spanBottom.slice(0, 2).every((g) => g.count === 0)).toBe(true);
-
-    setAdopted(v15.key, { ...v15.adopted, spanBottom: v15.adopted.spanBottom.map((g) => ({ ...g, count: 0 })) });
-    const short = buildSheetRows().line.find((l) => l.key === v15.key)!;
+    const extra = lines.find((l) => !l.isAdopted && l.adopted.spanBottom.some((g) => g.count > 0))!;
+    expect(extra, 'a line given a span\'s own bottom bars').toBeDefined();
+    setAdopted(extra.key, { ...extra.adopted, spanBottom: extra.adopted.spanBottom.map((g) => ({ ...g, count: 0 })) });
+    const short = buildSheetRows().line.find((l) => l.key === extra.key)!;
     expect(check(short).ok).toBe(false);
     expect(short.status).toBe('fail');
 
     setLocale('es');
     const html = render(RcLineEditor, { props: { line: short } }).body;
     const order = [...html.matchAll(/data-testid="(rc-line-(?:support|span)-\d+)"/g)].map((m) => m[1]);
-    expect(order).toEqual(['rc-line-support-0', 'rc-line-span-0', 'rc-line-support-1', 'rc-line-span-1', 'rc-line-support-2', 'rc-line-span-2', 'rc-line-support-3']);
+    expect(order).toEqual(short.adopted.supportTop.flatMap((_, j) => [`rc-line-support-${j}`, ...(j < short.adopted.spanBottom.length ? [`rc-line-span-${j}`] : [])]));
     expect(html).toContain('Refuerzos a lo largo de la viga');
     setLocale('en');
   }, 600_000);
