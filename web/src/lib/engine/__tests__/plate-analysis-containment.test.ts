@@ -456,3 +456,33 @@ it('#2430 transfers the entire slab load into the wall when both share the inter
   expect(result.reactions.map(r => r.nodeId).sort((a, b) => a - b)).toEqual([i, j]);
   for (const support of result.reactions) expect(support.fz).toBeCloseTo(4 * 4 / 2, 8);
 });
+
+
+function throughSlab(y: number, bottom = -1) {
+  const [corner] = loadedSlab();
+  const points: [number, number, number][] = [[1, y, bottom], [3, y, bottom], [3, y, 1], [1, y, 1]];
+  const [a, b, c, d] = points.map(([x, py, z]) => modelStore.addNode(x, py, z)) as [number, number, number, number];
+  modelStore.addSupport(a, 'fixed3d');
+  modelStore.addSupport(b, 'fixed3d');
+  modelStore.addQuad([a, b, c, d], 1, 0.15);
+  modelStore.addElement(corner!, a);
+}
+
+it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586').each(directEntries)(
+  'known wrong result: #2586 the %s entry refuses a wall passing through a slab',
+  async (entry, solve) => {
+    throughSlab(2);
+    expect(await solve()).toEqual(entry === 'reproducible input' ? null : expect.stringMatching(/wall.*slab/i));
+  },
+);
+
+it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586')('known wrong result: #2586 global analysis refuses a wall passing through a slab', async () => {
+  throughSlab(2);
+  expect(await runGlobalSolve({ directBase: true })).toEqual({ ok: false, error: expect.stringMatching(/wall.*slab/i) });
+  expect(resultsStore.results3D).toBeNull();
+});
+
+it.each([[2, 0.01], [-0.01, -1]])('solves the loaded slab and a wall clear of its face at y=%s, bottom=%s', (y, bottom) => {
+  throughSlab(y, bottom);
+  expectLoadedSlab(modelStore.solve3D(false, false, true));
+});

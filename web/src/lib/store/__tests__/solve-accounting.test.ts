@@ -1,9 +1,10 @@
+import { modelFeatures } from '../../provenance/model-features';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { POINT_END_TOL } from '../../engine/member-point-loads';
 import { plateRemeshMessage } from '../../engine/plate-analysis-refusal';
 import { accountingCaseSources, accountingProjection, scenarioSurfaceExpectations, withScenarioSurfaceIntent } from '../../engine/accounting-source';
 import {
-  buildSolverInput2D, buildSolverInput3D, notionalSourceLoads3D, prepareSolverInput3D, caseSolverLoads3D, comboSolverLoads3D, solveCombinations2D, validateAndSolve2D, validateAndSolve2DAsync, type ModelData,
+  buildSolverInput2D, buildSolverInput3D, notionalSourceLoads3D, prepareSolverInput3D, caseSolverLoads3D, comboSolverLoads3D, solveCombinations2D, validateAndSolve2D, validateAndSolve2DAsync, validateAndSolve3D, validateAndSolve3DAsync, type ModelData,
 } from '../../engine/solver-service';
 import type { ShellLoadSpec } from '../../engine/shell-load-integration';
 import type { SolverLoad3D } from '../../engine/types-3d';
@@ -1621,5 +1622,113 @@ it('#2470 cancelling slab definitions must each reach their assigned cells once'
       () => solvePDelta3D(buildSolverInput3D(incorrect)!),
     ];
     for (const solve of paths) expect.soft(await outcome(solve)).toMatch(/case.*Test floor.*load/i);
+  }
+});
+
+function stripSlab(strips: number) {
+  const outline = [[0, 0], [strips, 0], [strips, 1], [0, 1]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+  for (const node of outline) modelStore.addSupport(node, 'fixed3d');
+  const slab = createPlate({
+    name: 'Strip slab', outline, materialId: 1, thickness: 0.2,
+    mesh: { size: 1, element: 'quad', followMembers: false },
+  });
+  if (!('id' in slab)) throw new Error(slab.problem);
+  expect(applyPlateMeshes([planPlateMesh(slab.id)!]).plates).toBe(1);
+  expect(plateEntry(slab.id)!.group.members.quads).toHaveLength(strips);
+  modelStore.addCombination('Factored D', [{ caseId: 1, factor: 2 }]);
+  return slab.id;
+}
+
+async function expectSlabCellRefusal(model: ModelData) {
+  const cases = modelStore.loadCases;
+  const combos = modelStore.combinations;
+  const paths = {
+    linear: () => validateAndSolve3D(model),
+    async: () => validateAndSolve3DAsync(model),
+    advanced: () => buildSolverInput3D(model),
+    cases: () => caseSolverLoads3D(model, cases, false, false),
+    pdelta: () => solvePDelta3D(buildSolverInput3D(model)!),
+    direct: () => runDirectAnalysis(model, cases, combos, { includeSelfWeight: false }),
+  };
+  for (const [path, solve] of Object.entries(paths)) expect.soft(await outcome(solve), path).toMatch(/case.*Strip slab.*quad #/i);
+}
+
+it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586')('known wrong result: #2586 four wrong slab pressures can preserve counts and the definition wrench', async () => {
+  const id = stripSlab(4);
+  addPlateLoad(id, 1, 3);
+  syncDefinedLoadsForAnalysis();
+  const model = modelStore.model;
+  const loads = model.loads.filter(load => load.type === 'surface3d').sort((a, b) => {
+    const centroidX = (id: number) => model.quads!.get(id)!.nodes.reduce((sum, n) => sum + model.nodes.get(n)!.x / 4, 0);
+    return centroidX(a.data.quadId) - centroidX(b.data.quadId);
+  });
+  expect(loads).toHaveLength(4);
+  expect(buildSolverInput3D(model)?.loads).toHaveLength(16);
+  await expectSlabCellRefusal({
+    ...model,
+    loads: loads.map((load, i) => ({ ...load, data: { ...load.data, q: i === 0 || i === 3 ? 6 : 0 } })),
+  });
+});
+
+it('rejects relocating both opposing pressures to the same cell while retaining each definition count', async () => {
+  const id = stripSlab(2);
+  addPlateLoad(id, 1, 3);
+  addPlateLoad(id, 1, -3);
+  syncDefinedLoadsForAnalysis();
+  const model = modelStore.model;
+  const loads = model.loads.filter(load => load.type === 'surface3d');
+  const cell = loads[0]!.data.quadId;
+  expect(loads.map(l => l.data.q).sort((a, b) => a - b)).toEqual([-3, -3, 3, 3]);
+  expect(buildSolverInput3D(model)?.loads).toHaveLength(16);
+  await expectSlabCellRefusal({ ...model, loads: loads.map(load => ({ ...load, data: { ...load.data, quadId: cell } })) });
+});
+
+it('balances trapezoidal quad self-weight about its area centroid', async () => {
+  const corners = [[0, 0], [4, 0], [2, 3], [0, 3]].map(([x, y]) => modelStore.addNode(x!, y!, 0)) as [number, number, number, number];
+  for (const node of corners.slice(0, 3)) modelStore.addSupport(node, 'fixed3d');
+  modelStore.addQuad(corners, 1, 0.2);
+  const model = modelStore.model;
+  const intensity = model.materials.get(1)!.rho * 0.2;
+  const input = buildSolverInput3D(model, true)!;
+  const pdelta = solvePDelta3D(input);
+  for (const result of [validateAndSolve3D(model, true), await validateAndSolve3DAsync(model, true), pdelta.results]) {
+    expect(result).toEqual(expect.objectContaining({ reactions: expect.any(Array) }));
+    if (!result || typeof result === 'string') throw new Error(String(result));
+    let force = 0, mx = 0, my = 0;
+    for (const reaction of result.reactions) {
+      const point = model.nodes.get(reaction.nodeId)!;
+      force += reaction.fz;
+      mx += reaction.mx + point.y * reaction.fz;
+      my += reaction.my - point.x * reaction.fz;
+    }
+    expect(force).toBeCloseTo(9 * intensity, 8);
+    expect(mx).toBeCloseTo(12 * intensity, 8);
+    expect(my).toBeCloseTo(-14 * intensity, 8);
+  }
+});
+
+it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586')('known wrong result: #2586 self-weight provenance uses the same two projected components as the planar solve', async () => {
+  const memberId = cantilever('2d');
+  const base = modelStore.model;
+  const member = base.elements.get(memberId)!;
+  const tip = base.nodes.get(member.nodeJ)!;
+  const weights = [{ caseId: 1, direction: 'Z' as const, factor: -1 }];
+  for (const [y, q, refused] of [[1, 1.2e-10, false], [2, 1.2e-10, true], [2, 1.5e-10, false]] as const) {
+    const model: ModelData = {
+      ...base, nodes: new Map(base.nodes).set(tip.id, { ...tip, y }),
+      sections: new Map([[member.sectionId, { ...base.sections.get(member.sectionId)!, a: 1 }]]),
+      materials: new Map([[member.materialId, { ...base.materials.get(member.materialId)!, rho: q }]]),
+      analysis: { ...base.analysis, selfWeight: weights },
+    };
+    const features = modelFeatures({
+      nodes: [...model.nodes], elements: [...model.elements], materials: [...model.materials], sections: [...model.sections],
+      analysis: model.analysis, includeSelfWeight: true,
+    }, { analysisMode: '2d' });
+    expect.soft(features.has('smallMemberSelfWeight')).toBe(refused);
+    for (const solve of [
+      () => buildSolverInput2D(model), () => validateAndSolve2D(model), () => validateAndSolve2DAsync(model),
+      () => solvePDelta(buildSolverInput2D(model)!),
+      () => solveCombinations2D(model, modelStore.loadCases, modelStore.combinations),
+    ]) expect.soft(await outcome(solve)).toEqual(refused ? expect.stringMatching(/self-weight/i) : 'returned a result');
   }
 });

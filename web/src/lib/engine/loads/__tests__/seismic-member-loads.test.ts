@@ -1773,3 +1773,37 @@ it('#2332 a longitudinal ridge beam needs independent floor evidence at both end
     }
   }
 });
+
+
+it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586').each([0, 1])(
+  'known wrong result: #2586 a rotation-only support at gable base %s cannot establish its story',
+  base => {
+    for (const rotated of [false, true]) {
+      const { model } = gablePlan(false, rotated, false, 0);
+      const supports = new Map(model.supports);
+      const id = [...supports.keys()][base]!;
+      for (const nodeId of supports.keys()) {
+        supports.set(nodeId, {
+          type: 'custom3d', nodeId,
+          dofRestraints: { tx: true, ty: true, tz: true, rx: false, ry: false, rz: false },
+        });
+      }
+      const planFor = () => {
+        const options = request({ ...model, supports }, { directions: { x: rotated, y: !rotated } }, { generateCombinations: true });
+        const plan = buildLoadPlan(options);
+        const sink = seismicSink();
+        INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
+        return { plan, sink };
+      };
+      expect(planFor().plan.outcome).toBe('READY');
+      supports.set(id, {
+        type: 'custom3d', nodeId: id,
+        dofRestraints: { tx: false, ty: false, tz: false, rx: true, ry: true, rz: true },
+      });
+      const { plan, sink } = planFor();
+      expect(plan.outcome).toBe('BLOCKED');
+      expect(sink.blockedKeys.map(key => key.key)).toContain('loadPlan.blocked.seismicAmbiguousStory');
+      expect(sink.distributed).toEqual([]);
+    }
+  },
+);

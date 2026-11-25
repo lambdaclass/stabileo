@@ -111,3 +111,45 @@ it('#2295 the rafter receives the uncovered part of a rigidly attached roof run'
     }
   }
 });
+
+
+function roofWithTwoGaps(split: boolean, shelter: boolean) {
+  const { model, rafter } = offsetRoof(0.02, 0, 1, false, [2, 8]);
+  const addNode = (x: number, y: number, z: number) => {
+    const id = model.nodes.size + 1;
+    model.nodes.set(id, { id, x, y, z });
+    return id;
+  };
+  const shell = (a: number, b: number, y0: number, y1: number, za: number, zb: number) => {
+    const id = model.quads.size + 1;
+    const nodes = [addNode(a, y0, za), addNode(b, y0, zb), addNode(b, y1, zb), addNode(a, y1, za)];
+    model.quads.set(id, { id, nodes, materialId: 1, thickness: 0.1 });
+  };
+  shell(4, 6, 0, 4, 3.8, 4.2);
+  if (shelter) shell(2, 4, -1, 1, 8, 8);
+  if (split) {
+    const middle = addNode(5, 0, 3.98);
+    const member = model.elements.get(1)!;
+    model.elements.set(1, { ...member, nodeJ: middle });
+    model.elements.set(2, { ...member, id: 2, nodeI: middle, nodeJ: rafter[1]! });
+  }
+  return model;
+}
+
+it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586')('known wrong result: #2586 mixed gap exposure refuses the physical run under subdivision', () => {
+  const reason = { key: 'loadPlan.gravity.mixedExposure' };
+  for (const split of [false, true]) {
+    const model = roofWithTwoGaps(split, true);
+    expect.soft(() => gravityLayout(model, options)).toThrow(expect.objectContaining(reason));
+    expect.soft(buildLoadPlan(input(model, {
+      gravity: { mode: 'panels' }, roof: { use: 'maintenance', weight: 'heavy', dead: 1, slopeDeg: Math.atan(0.2) * 180 / Math.PI },
+    }))).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [reason] });
+    expect.soft(() => roofWeightFor(model, options, options.tributaryWidth, 1)).toThrow(expect.objectContaining(reason));
+    expect.soft(() => gravityLayout(model, { ...options, uniformPressure: true })).not.toThrow();
+    const exposed = roofWithTwoGaps(split, false);
+    const expected = roofPlan(exposed);
+    expect(expected.outcome).toBe('READY');
+    const layout = gravityLayout(exposed, options);
+    expect([...layout.roofAreaOf.values()].reduce((a, b) => a + b, 0)).toBeCloseTo(12, 10);
+  }
+});
