@@ -1,0 +1,35 @@
+{
+  "id": "invalid-self-weight-target",
+  "date": "2026-11-25",
+  "prs": [2565],
+  "area": "analysis",
+  "when": {
+    "all": ["invalidSelfWeightTarget"],
+    "any": ["analysis:linear", "analysis:pdelta", "analysis:buckling", "analysis:plastic", "analysis:nonlinear", "analysis:ssi", "analysis:modal", "analysis:spectral", "analysis:timeHistory", "analysis:harmonic"]
+  },
+  "quantities": ["solve.ok"],
+  "title": {
+    "en": "Refuse invalid self-weight targets",
+    "es": "Rechazo de destinos inválidos del peso propio",
+    "pt": "Rejeição de alvos inválidos do peso próprio",
+    "de": "Ungültige Ziele für das Eigengewicht werden abgelehnt",
+    "fr": "Refus des cibles invalides du poids propre",
+    "hu": "Érvénytelen önsúlycélok elutasítása",
+    "tr": "Geçersiz öz ağırlık hedefleri reddedilir",
+    "zh": "拒绝无效的自重作用对象"
+  },
+  "explanation": {
+    "en": "A self-weight rule refers to a missing member, plate or quad, or contains an invalid member ID. Earlier results could omit weight. Restore the target or correct the rule, then rerun the analysis.",
+    "es": "Una regla de peso propio hace referencia a una barra, placa o cuadrilátero ausente, o contiene un ID de barra inválido. Los resultados anteriores podían omitir peso. Restaurá el destino o corregí la regla y repetí el análisis.",
+    "pt": "Uma regra de peso próprio referencia um elemento, uma placa ou um quadrilátero ausente, ou contém um ID de elemento inválido. Resultados anteriores podiam omitir peso. Restaure o alvo ou corrija a regra e repita a análise.",
+    "de": "Eine Eigengewichtsregel verweist auf einen fehlenden Stab, ein fehlendes Dreiecks- oder Viereckselement oder enthält eine ungültige Stab-ID. Frühere Ergebnisse konnten Eigengewicht auslassen. Stellen Sie das Ziel wieder her oder korrigieren Sie die Regel und berechnen Sie das Modell erneut.",
+    "fr": "Une règle de poids propre vise une barre, une plaque triangulaire ou un quadrilatère absent, ou contient un identifiant de barre invalide. Les résultats antérieurs pouvaient omettre du poids. Rétablissez la cible ou corrigez la règle, puis relancez le calcul.",
+    "hu": "Az önsúlyszabály hiányzó rúdra, háromszög- vagy négyszögelemre hivatkozik, vagy érvénytelen rúdazonosítót tartalmaz. A korábbi eredményekből kimaradhatott súly. Állítsa vissza a célt vagy javítsa a szabályt, majd futtassa újra a számítást.",
+    "tr": "Bir öz ağırlık kuralı eksik bir çubuğa, üçgen veya dörtgen elemana başvuruyor ya da geçersiz bir çubuk kimliği içeriyor. Önceki sonuçlarda ağırlık eksik kalmış olabilir. Hedefi geri yükleyin veya kuralı düzeltip analizi yeniden çalıştırın.",
+    "zh": "自重规则引用了缺失的杆件、三角板或四边形单元，或包含无效的杆件 ID。早期结果可能漏算重量。请恢复作用对象或更正规则，然后重新运行分析。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-self-weight-selectors.md",
+    "heading": "Refuse invalid self-weight targets"
+  }
+}

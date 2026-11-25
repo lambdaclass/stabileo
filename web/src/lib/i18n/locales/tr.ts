@@ -3936,6 +3936,8 @@ const tr: Translations = {
   "svc.engine.unsupportedPointLoadMoment": "Çubuk noktasal yükünde desteklenmeyen moment bileşeni",
   "svc.engine.applyPointLoadMomentAtNode": "momenti yükün özgün konumundaki bir 3B düğüme uygulayın",
   "svc.engine.invalidSelfWeightGroup": "Öz ağırlık grubu {id} eksik veya üye listesi geçersiz. Grubu ve üye listesini geri yükleyin ya da öz ağırlığın hedefini değiştirin.",
+  "svc.engine.invalidSelfWeightMemberId": "Öz ağırlık için eleman kimliği {id}, negatif olmayan ve tam olarak temsil edilebilen bir tam sayı olmalıdır. Öz ağırlığın hedefini değiştirin.",
+  "svc.engine.missingSelfWeightTarget": "Öz ağırlık hedefi {kind} {id} eksik. Hedefi geri yükleyin veya öz ağırlığın hedefini değiştirin.",
   "svc.engine.invalidDensity": "{id} numaralı malzeme için sonlu ve negatif olmayan bir yoğunluk (rho) girin (alınan değer: {value}).",
   "svc.engine.nonnegativeMassDensity": "Kütle yoğunluğu sonlu ve negatif olmayan bir değer olmalıdır",
   "svc.engine.nonFiniteNumber": "{path} alanına sonlu bir sayı girin (alınan değer: {value}).",

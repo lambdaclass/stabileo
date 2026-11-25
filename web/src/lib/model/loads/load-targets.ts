@@ -12,6 +12,8 @@
  * Pure: the caller passes the model and the selection, and writes the loads in one undo step.
  */
 import type { ModelGroup } from '../../store/model.svelte';
+import type { SelfWeightLoad } from '../../engine/analysis-settings';
+import { resolveSelfWeightScope, selfWeightScopeRefusal } from '../../engine/self-weight';
 
 export type TargetEntity = 'nodes' | 'members' | 'quads' | 'plates';
 export type MemberKindFilter = 'column' | 'beam' | 'inclined' | 'truss';
@@ -40,16 +42,17 @@ export interface TargetSelection { nodes: Iterable<number>; elements: Iterable<n
  * dash) is read with the spaces around it first: split on spaces before, `7 - 12` was 7 and 12 and
  * `7 -12` was 7 alone. A dash with no id before it is not a negative id.
  */
-export function parseIdList(text: string): number[] {
+export function parseIdList(text: string, invalid?: (part: string) => void): number[] {
   const out: number[] = [];
   for (const part of text.replace(/\s*[-–]\s*/g, '-').split(/[,;\s]+/).filter(Boolean)) {
     const m = part.match(/^(\d+)\s*[-–]\s*(\d+)$/);
     if (m) {
       const a = Number(m[1]), b = Number(m[2]);
       const [lo, hi] = a <= b ? [a, b] : [b, a];
-      if (hi - lo > 100000) continue;
+      if (!Number.isSafeInteger(hi) || hi - lo > 100000) { invalid?.(part); continue; }
       for (let k = lo; k <= hi; k++) out.push(k);
     } else if (/^\d+$/.test(part)) out.push(Number(part));
+    else invalid?.(part);
   }
   return [...new Set(out)];
 }
@@ -144,4 +147,18 @@ export function selfWeightReach(spec: TargetSpec, m: TargetModel, sel: TargetSel
   const members = resolveTargets('members', spec, m, sel).length;
   if (spec.by !== 'all' && spec.by !== 'group') return { members, slabs: 0 };
   return { members, slabs: resolveTargets('quads', spec, m, sel).length + resolveTargets('plates', spec, m, sel).length };
+}
+
+export function selfWeightTarget(
+  spec: TargetSpec, model: TargetModel, selection: TargetSelection,
+): Pick<SelfWeightLoad, 'elements' | 'groupId'> | { error: string } {
+  let invalidPart: string | undefined;
+  const target = spec.by === 'all' ? {}
+    : spec.by === 'group' ? { groupId: spec.groupId }
+    : { elements: spec.by === 'ids' ? parseIdList(spec.text, part => { invalidPart ??= part; })
+      : spec.by === 'selection' ? [...new Set(selection.elements)]
+      : resolveTargets('members', spec, model, selection) };
+  if (invalidPart !== undefined) return { error: selfWeightScopeRefusal({ invalidMemberId: invalidPart }) };
+  const scope = resolveSelfWeightScope(model, target);
+  return 'members' in scope ? target : { error: selfWeightScopeRefusal(scope) };
 }

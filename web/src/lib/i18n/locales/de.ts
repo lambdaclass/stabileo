@@ -3927,6 +3927,8 @@ const de: Translations = {
   "svc.engine.unsupportedPointLoadMoment": "Nicht unterstütztes Moment einer Stabpunktlast in",
   "svc.engine.applyPointLoadMomentAtNode": "bringen Sie das Moment an einem 3D-Knoten an der ursprünglichen Lastposition auf",
   "svc.engine.invalidSelfWeightGroup": "Die Eigengewichtsgruppe {id} fehlt oder hat eine ungültige Mitgliederliste. Stellen Sie die Gruppe und ihre Mitglieder wieder her oder ändern Sie das Ziel des Eigengewichts.",
+  "svc.engine.invalidSelfWeightMemberId": "Die Stab-ID {id} für das Eigengewicht muss eine nichtnegative, exakt darstellbare Ganzzahl sein. Ändern Sie das Ziel des Eigengewichts.",
+  "svc.engine.missingSelfWeightTarget": "Das Eigengewichtsziel {kind} {id} fehlt. Stellen Sie es wieder her oder ändern Sie das Ziel des Eigengewichts.",
   "svc.engine.invalidDensity": "Geben Sie für Material {id} eine endliche, nichtnegative Dichte (rho) ein (erhaltener Wert: {value}).",
   "svc.engine.nonnegativeMassDensity": "Die Massendichte muss endlich und nichtnegativ sein",
   "svc.engine.nonFiniteNumber": "Geben Sie für {path} eine endliche Zahl ein (erhaltener Wert: {value}).",

@@ -8378,6 +8378,8 @@ const pt: Translations = {
   "svc.engine.unsupportedPointLoadMoment": "Momento incompatível com uma carga pontual na barra em",
   "svc.engine.applyPointLoadMomentAtNode": "aplique o momento num nó 3D na posição original da carga",
   "svc.engine.invalidSelfWeightGroup": "O grupo de peso próprio {id} não existe ou tem uma lista de elementos inválida. Restaure o grupo e os seus elementos ou altere o alvo do peso próprio.",
+  "svc.engine.invalidSelfWeightMemberId": "O ID de elemento {id} do peso próprio deve ser um inteiro seguro não negativo. Altere o alvo do peso próprio.",
+  "svc.engine.missingSelfWeightTarget": "O alvo do peso próprio {kind} {id} não existe. Restaure-o ou altere o alvo do peso próprio.",
   "svc.engine.invalidDensity": "Insira uma densidade (rho) finita e não negativa para o material {id} (valor recebido: {value}).",
   "svc.engine.nonnegativeMassDensity": "A massa específica deve ser finita e não negativa",
   "svc.engine.nonFiniteNumber": "Insira um número finito em {path} (valor recebido: {value}).",

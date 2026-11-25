@@ -3778,6 +3778,8 @@ const it: Translations = {
   "svc.engine.unsupportedPointLoadMoment": "Componente del momento incompatibile con un carico puntuale sull’asta",
   "svc.engine.applyPointLoadMomentAtNode": "applicare il momento a un nodo 3D nella posizione originaria del carico",
   "svc.engine.invalidSelfWeightGroup": "Il gruppo del peso proprio {id} è assente o il suo elenco di elementi non è valido. Ripristina il gruppo e i suoi elementi o modifica la destinazione del peso proprio.",
+  "svc.engine.invalidSelfWeightMemberId": "L’ID di asta {id} per il peso proprio deve essere un intero non negativo rappresentabile esattamente. Modifica la destinazione del peso proprio.",
+  "svc.engine.missingSelfWeightTarget": "La destinazione del peso proprio {kind} {id} è assente. Ripristinala o modifica la destinazione del peso proprio.",
   "svc.engine.invalidDensity": "Inserisci una densità (rho) finita e non negativa per il materiale {id} (valore ricevuto: {value}).",
   "svc.engine.nonnegativeMassDensity": "La densità di massa deve essere finita e non negativa",
   "svc.engine.nonFiniteNumber": "Inserisci un numero finito per {path} (valore ricevuto: {value}).",

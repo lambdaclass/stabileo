@@ -32,6 +32,7 @@
  * deleted support's settlement on another support, a deleted member's tendon on another member.
  */
 
+import { resolveSelfWeightScope, selfWeightScopeRefusal } from '../../engine/self-weight';
 import { modelStore, LOAD_TARGET, type Load } from '../../store/model.svelte';
 
 export type AxisOrder = 'zyx' | 'zxy' | 'xyz' | 'yxz';
@@ -48,7 +49,8 @@ export type RenumberResult =
   | { nodes: number; members: number; shells: number; changedNodes: number; changedMembers: number; changedShells: number }
   | { refused: 'hasDesignDocuments'; fields: string[] }
   | { refused: 'collision'; kind: 'nodes' | 'members' | 'plates' | 'quads'; ids: number[] }
-  | { refused: 'orphanLoads'; ids: number[] };
+  | { refused: 'orphanLoads'; ids: number[] }
+  | { refused: 'selfWeight'; message: string };
 
 const DERIVED = ['detailing', 'exports', 'manualEdits', 'jointDesigns', 'revisions'] as const;
 
@@ -117,6 +119,13 @@ export function renumber(opts: RenumberOptions): RenumberResult {
   const snap = JSON.parse(JSON.stringify(modelStore.snapshot())) as Record<string, any>;
   const orphans = orphanLoads(snap.loads ?? [], opts);
   if (orphans.length > 0) return { refused: 'orphanLoads', ids: orphans };
+
+  if (opts.members || opts.shells) {
+    for (const rule of modelStore.model.analysis?.selfWeight ?? []) {
+      const scope = resolveSelfWeightScope(modelStore.model, rule);
+      if (!('members' in scope)) return { refused: 'selfWeight', message: selfWeightScopeRefusal(scope) };
+    }
+  }
 
   const nodes = new Map<number, P>(snap.nodes);
   let nodeMap = new Map<number, number>([...nodes.keys()].map((id) => [id, id]));

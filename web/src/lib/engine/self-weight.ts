@@ -11,7 +11,7 @@
  * gets its wL²/8 at midspan, which weight lumped at the ends did not give it. On a shell it is
  * ρ·t over the area, split equally between the corners as before.
  */
-import { tp } from '../i18n';
+import { t, tp } from '../i18n';
 import { createSectionWeight } from '../section/weight';
 import type { ModelData } from './solver-service';
 import type { SolverLoad3D } from './types-3d';
@@ -39,19 +39,32 @@ export function selfWeightFor(
 
 const UNIT: Record<SelfWeightLoad['direction'], Vec3> = { X: [1, 0, 0], Y: [0, 1, 0], Z: [0, 0, 1] };
 
-export class InvalidSelfWeightGroup extends Error {
-  constructor(groupId: number) {
-    super(tp('svc.engine.invalidSelfWeightGroup', { id: groupId }));
-  }
-}
+export const selfWeightMemberProjection = Symbol('selfWeightMemberProjection');
 
-type SelfWeightGroups = {
+type IdLookup = { has(id: number): boolean };
+type TargetFamily = 'elements' | 'plates' | 'quads';
+type SelfWeightTargets = {
+  elements: IdLookup;
+  plates?: IdLookup;
+  quads?: IdLookup;
   groups?: ReadonlyMap<number, { members?: unknown }>;
+  [selfWeightMemberProjection]?: SelfWeightMemberProjection;
 };
 
-type SelfWeightScope = { members: Set<number> | null; plates: Set<number> | null; quads: Set<number> | null };
+export type SelfWeightMemberProjection = {
+  source: SelfWeightTargets;
+  replacements: ReadonlyMap<number, readonly number[]>;
+};
+
+type SelfWeightScope = { members: ReadonlySet<number> | null; plates: ReadonlySet<number> | null; quads: ReadonlySet<number> | null };
+type ScopeFailure = { invalidGroup: number } | { invalidMemberId: unknown } | { missingTarget: { family: TargetFamily; id: number } };
 
 const groupMemberLists = { nodes: true, elements: true, plates: true, quads: true } satisfies Record<keyof GroupMembers, true>;
+const targetLabels = { elements: 'table.elemLabel', plates: 'quickEdit.plate', quads: 'quickEdit.quad' } as const;
+
+function isSelectorId(id: unknown): id is number {
+  return typeof id === 'number' && Number.isSafeInteger(id) && id >= 0;
+}
 
 function isGroupMembership(value: unknown): value is GroupMembers {
   if (value === null || typeof value !== 'object') return false;
@@ -62,30 +75,73 @@ function isGroupMembership(value: unknown): value is GroupMembers {
     if (ids === undefined) continue;
     if (!Array.isArray(ids)) return false;
     for (const id of ids) {
-      if (!Number.isSafeInteger(id) || id < 0) return false;
+      if (!isSelectorId(id)) return false;
     }
   }
   return true;
 }
 
-export function resolveSelfWeightScope(model: SelfWeightGroups, s: SelfWeightLoad): SelfWeightScope | { invalidGroup: number } {
+function missingTarget(model: SelfWeightTargets, family: TargetFamily, ids: readonly number[]): ScopeFailure | null {
+  for (const id of ids) {
+    if (!model[family]?.has(id)) return { missingTarget: { family, id } };
+  }
+  return null;
+}
+
+export function resolveSelfWeightScope(model: SelfWeightTargets, s: Pick<SelfWeightLoad, 'elements' | 'groupId'>): SelfWeightScope | ScopeFailure {
+  const projection = model[selfWeightMemberProjection];
+  if (projection) {
+    const scope = resolveSelfWeightScope(projection.source, s);
+    if (!('members' in scope) || scope.members === null) return scope;
+    const members = new Set<number>();
+    for (const id of scope.members) {
+      for (const target of projection.replacements.get(id) ?? [id]) members.add(target);
+    }
+    return { ...scope, members };
+  }
+
+  if (s.elements !== undefined) {
+    if (!Array.isArray(s.elements)) return { invalidMemberId: s.elements };
+    for (const id of s.elements) {
+      if (!isSelectorId(id)) return { invalidMemberId: id };
+    }
+    const missing = missingTarget(model, 'elements', s.elements);
+    if (missing) return missing;
+  }
   if (s.groupId !== undefined) {
     const members = model.groups?.get(s.groupId)?.members;
     if (!isGroupMembership(members)) return { invalidGroup: s.groupId };
-    return {
-      members: new Set(members.elements),
-      plates: new Set(members.plates),
-      quads: new Set(members.quads),
-    };
+    return missingTarget(model, 'elements', members.elements ?? [])
+      ?? missingTarget(model, 'plates', members.plates ?? [])
+      ?? missingTarget(model, 'quads', members.quads ?? [])
+      ?? { members: new Set(members.elements), plates: new Set(members.plates), quads: new Set(members.quads) };
   }
-  if (s.elements) return { members: new Set(s.elements), plates: new Set(), quads: new Set() };
+  if (s.elements !== undefined) return { members: new Set(s.elements), plates: new Set(), quads: new Set() };
   return { members: null, plates: null, quads: null };
 }
 
-export function selfWeightScope(model: SelfWeightGroups, s: SelfWeightLoad): SelfWeightScope {
+export function selfWeightScopeRefusal(issue: ScopeFailure): string {
+  if ('invalidGroup' in issue) return tp('svc.engine.invalidSelfWeightGroup', { id: issue.invalidGroup });
+  if ('invalidMemberId' in issue) return tp('svc.engine.invalidSelfWeightMemberId', { id: String(issue.invalidMemberId) });
+  const { family, id } = issue.missingTarget;
+  return tp('svc.engine.missingSelfWeightTarget', { kind: t(targetLabels[family]), id });
+}
+
+export class InvalidSelfWeightScope extends Error {
+  constructor(issue: ScopeFailure) {
+    super(selfWeightScopeRefusal(issue));
+  }
+}
+
+export function selfWeightScope(model: SelfWeightTargets, s: SelfWeightLoad): SelfWeightScope {
   const scope = resolveSelfWeightScope(model, s);
-  if ('invalidGroup' in scope) throw new InvalidSelfWeightGroup(scope.invalidGroup);
+  if (!('members' in scope)) throw new InvalidSelfWeightScope(scope);
   return scope;
+}
+
+export function projectSelfWeightMembers(model: SelfWeightTargets, replacements: ReadonlyMap<number, readonly number[]>): SelfWeightMemberProjection {
+  const { elements, plates, quads, groups, [selfWeightMemberProjection]: previous } = model;
+  return { source: { elements, plates, quads, groups, [selfWeightMemberProjection]: previous }, replacements };
 }
 
 /**
@@ -141,7 +197,7 @@ export function selfWeightSolverLoads(
  * shells' weight is not here: the despiece draws members only.
  */
 export function selfWeightMemberLoads(
-  model: Pick<ModelData, 'elements' | 'materials' | 'sections' | 'groups'>,
+  model: Pick<ModelData, 'elements' | 'materials' | 'sections' | 'groups' | 'plates' | 'quads' | typeof selfWeightMemberProjection>,
   entries: readonly SelfWeightLoad[],
   opts: { plane: boolean; firstId: number },
 ): Load[] {

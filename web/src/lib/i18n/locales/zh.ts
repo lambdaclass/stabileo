@@ -4126,6 +4126,8 @@ const zh: Translations = {
   "svc.engine.unsupportedPointLoadMoment": "杆件集中荷载不支持的力矩分量",
   "svc.engine.applyPointLoadMomentAtNode": "请在荷载原位置的三维节点上施加该力矩",
   "svc.engine.invalidSelfWeightGroup": "自重组 {id} 不存在，或其成员列表无效。请恢复该组及其成员列表，或更改自重的作用对象。",
+  "svc.engine.invalidSelfWeightMemberId": "自重规则中的杆件 ID {id} 必须是非负安全整数。请更改自重的作用对象。",
+  "svc.engine.missingSelfWeightTarget": "自重作用对象 {kind} {id} 不存在。请恢复该对象或更改自重的作用对象。",
   "svc.engine.invalidDensity": "请为材料 {id} 输入有限且非负的密度 (rho)（收到的值为 {value}）。",
   "svc.engine.nonnegativeMassDensity": "质量密度必须有限且非负",
   "svc.engine.nonFiniteNumber": "请为 {path} 输入有限数值（收到的值为 {value}）。",

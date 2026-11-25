@@ -4331,6 +4331,8 @@ const en: Record<string, string> = {
   "svc.engine.unsupportedPointLoadMoment": "Unsupported member point load moment in",
   "svc.engine.applyPointLoadMomentAtNode": "apply the moment at a 3D node at the original load position",
   "svc.engine.invalidSelfWeightGroup": "Self-weight group {id} is missing or has invalid membership. Restore the group and its membership or change the self-weight target.",
+  "svc.engine.invalidSelfWeightMemberId": "Self-weight member ID {id} must be a nonnegative safe integer. Change the self-weight target.",
+  "svc.engine.missingSelfWeightTarget": "Self-weight target {kind} {id} is missing. Restore it or change the self-weight target.",
   "svc.engine.invalidDensity": "Enter a finite, nonnegative density (rho) for material {id} (received {value}).",
   "svc.engine.nonnegativeMassDensity": "Mass density must be finite and nonnegative",
   "svc.engine.nonFiniteNumber": "Enter a finite number for {path} (received {value}).",

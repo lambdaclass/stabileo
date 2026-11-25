@@ -17,6 +17,7 @@
   import LazySelect from '../../tables/LazySelect.svelte';
   import { progressiveLimit } from '../../../lib/utils/progressive-rows.svelte';
   import { appliedResultant } from '../../../lib/engine/statics-check';
+  import { InvalidSelfWeightScope } from '../../../lib/engine/self-weight';
   import { withCaseEffects } from '../../../lib/engine/case-effects';
   import { copyLoadsToCase, moveLoadsToCase, scaleLoads, removeLoads } from '../../../lib/store/load-ops';
   import { loadedLength } from '../../../lib/model/loads/load-stretch';
@@ -162,8 +163,13 @@
     const ids = scope === 'all' ? cases.map((c) => c.id) : [uiStore.activeLoadCaseId];
     const types = new Map(cases.map((c) => [c.id, c.type]));
     // A composite case's totals are those of what it takes in (`case-effects.ts`).
-    const m = withCaseEffects(modelStore.model as never, modelStore.model.loadCases, { includeSelfWeight: uiStore.includeSelfWeight, leftHand: uiStore.axisConvention3D === 'leftHand' });
-    return ids.map((id) => ({ id, ...appliedResultant(m as never, id, { includeSelfWeight: uiStore.includeSelfWeight, caseTypes: types, leftHand: uiStore.axisConvention3D === 'leftHand' }) }));
+    try {
+      const m = withCaseEffects(modelStore.model as never, modelStore.model.loadCases, { includeSelfWeight: uiStore.includeSelfWeight, leftHand: uiStore.axisConvention3D === 'leftHand' });
+      return { rows: ids.map(id => ({ id, ...appliedResultant(m, id, { includeSelfWeight: uiStore.includeSelfWeight, caseTypes: types, leftHand: uiStore.axisConvention3D === 'leftHand' }) })) };
+    } catch (error) {
+      if (!(error instanceof InvalidSelfWeightScope)) throw error;
+      return { error: error.message, rows: [] };
+    }
   });
   // In the project's units and the reader's decimals, with the unit said: the cells are typed in SI
   // and their headers say so, and a total in tf with no unit beside them read as kN.
@@ -388,7 +394,8 @@
   <!-- What each case applies, about the origin, before solving: the statics check's own reading. -->
   <div class="lt-totals" data-testid="lt-totals">
     <div class="pro-load-section-title">{t('loadTables.totals')}</div>
-    {#each totals as r (r.id)}
+    {#if totals.error}<div class="lt-warn" role="alert">{totals.error}</div>{/if}
+    {#each totals.rows as r (r.id)}
       <div class="lt-total-row" data-testid="lt-total-{r.id}">
         <span class="lt-total-case">{caseName(r.id)}</span>
         {#each userVec(r.applied.fx, r.applied.fy, r.applied.fz) as c, i (i)}<span>ΣF{'xyz'[i]} {F(c)}</span>{/each}

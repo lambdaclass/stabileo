@@ -3767,6 +3767,8 @@ const id: Translations = {
   "svc.engine.unsupportedPointLoadMoment": "Komponen momen yang tidak didukung untuk beban titik pada batang",
   "svc.engine.applyPointLoadMomentAtNode": "terapkan momen pada simpul 3D di posisi beban semula",
   "svc.engine.invalidSelfWeightGroup": "Grup berat sendiri {id} tidak ditemukan atau daftar anggotanya tidak valid. Pulihkan grup dan daftar anggotanya atau ubah sasaran berat sendiri.",
+  "svc.engine.invalidSelfWeightMemberId": "ID batang {id} untuk berat sendiri harus berupa bilangan bulat tak negatif yang dapat direpresentasikan secara tepat. Ubah sasaran berat sendiri.",
+  "svc.engine.missingSelfWeightTarget": "Sasaran berat sendiri {kind} {id} tidak ditemukan. Pulihkan atau ubah sasaran berat sendiri.",
   "svc.engine.invalidDensity": "Masukkan massa jenis (rho) yang berhingga dan tidak negatif untuk material {id} (nilai yang diterima: {value}).",
   "svc.engine.nonnegativeMassDensity": "Massa jenis harus berhingga dan tidak negatif",
   "svc.engine.nonFiniteNumber": "Masukkan bilangan berhingga untuk {path} (nilai yang diterima: {value}).",

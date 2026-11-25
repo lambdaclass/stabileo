@@ -323,3 +323,28 @@ for (const [sheet, rows] of Object.entries({ ...template, ...axes, SelfWeight: w
       .toEqual([expect.objectContaining({ sheet, row: 1, blocking: true })]);
   });
 }
+
+it('#2565 refuses explicit workbook self-weight ID 1.5 before replay can make it integral', async () => {
+  vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('development'));
+  const workbook = (id: number) => ({
+    ...plane, ...member,
+    Members: [member.Members[0]!, [id, 'frame', 1, 2, 1, 1]],
+    SelfWeight: [
+      ['source', 'case', 'direction', 'factor', 'scope', 'members'],
+      ['case', 1, 'Z', -1, 'members', String(id)],
+    ],
+  });
+  for (const install of [applyWorkbook, importFile]) {
+    const before = priorModel('2d');
+    const denied = await install(workbook(1.5));
+    expect(denied?.problems).toContainEqual(expect.objectContaining({
+      sheet: 'SelfWeight', column: 'members', message: expect.stringContaining('1.5'),
+    }));
+    expect(denied?.loaded).toEqual({ nodes: 0, elements: 0, sections: 0 });
+    expect(modelStore.snapshot()).toEqual(before);
+
+    const accepted = await install(workbook(9));
+    expect(accepted?.problems).toEqual([]);
+    expect(modelStore.analysis?.selfWeight?.[0]?.elements).toEqual([...modelStore.elements.keys()]);
+  }
+});

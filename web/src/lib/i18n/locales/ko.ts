@@ -3764,6 +3764,8 @@ const ko: Translations = {
   "svc.engine.unsupportedPointLoadMoment": "부재 집중하중에서 지원하지 않는 모멘트 성분",
   "svc.engine.applyPointLoadMomentAtNode": "원래 하중 위치에 있는 3D 절점에 모멘트를 적용하세요",
   "svc.engine.invalidSelfWeightGroup": "자중 그룹 {id}이(가) 없거나 구성 요소 목록이 유효하지 않습니다. 그룹과 구성 요소를 복원하거나 자중 적용 대상을 변경하세요.",
+  "svc.engine.invalidSelfWeightMemberId": "자중 부재 ID {id}은(는) 정확히 표현할 수 있는 음이 아닌 정수여야 합니다. 자중 적용 대상을 변경하세요.",
+  "svc.engine.missingSelfWeightTarget": "자중 적용 대상 {kind} {id}이(가) 없습니다. 대상을 복원하거나 자중 적용 대상을 변경하세요.",
   "svc.engine.invalidDensity": "재료 {id}의 밀도 (rho)에 유한한 음이 아닌 값을 입력하세요(받은 값: {value}).",
   "svc.engine.nonnegativeMassDensity": "질량 밀도는 유한한 음이 아닌 값이어야 합니다",
   "svc.engine.nonFiniteNumber": "{path}에 유한한 수를 입력하세요(받은 값: {value}).",

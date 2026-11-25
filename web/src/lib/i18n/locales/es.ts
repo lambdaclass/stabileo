@@ -4324,6 +4324,8 @@ const es: Record<string, string> = {
   "svc.engine.unsupportedPointLoadMoment": "Momento no compatible con una carga puntual de barra en",
   "svc.engine.applyPointLoadMomentAtNode": "aplicá el momento en un nodo 3D en la posición original de la carga",
   "svc.engine.invalidSelfWeightGroup": "El grupo de peso propio {id} no existe o tiene una lista de integrantes inválida. Restaurá el grupo y sus integrantes o cambiá el destino del peso propio.",
+  "svc.engine.invalidSelfWeightMemberId": "El ID de miembro {id} del peso propio debe ser un entero seguro no negativo. Cambiá el destino del peso propio.",
+  "svc.engine.missingSelfWeightTarget": "Falta el destino del peso propio {kind} {id}. Restauralo o cambiá el destino del peso propio.",
   "svc.engine.invalidDensity": "Ingresá un valor de densidad (rho) finito y no negativo para el material {id} (valor recibido: {value}).",
   "svc.engine.nonnegativeMassDensity": "La densidad de masa debe ser finita y no negativa",
   "svc.engine.nonFiniteNumber": "Ingresá un número finito en {path} (valor recibido: {value}).",

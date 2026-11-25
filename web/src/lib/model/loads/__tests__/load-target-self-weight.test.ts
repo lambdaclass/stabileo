@@ -4,7 +4,7 @@
  * slabs alone is offered. Other loads count, and offer groups by, what they go on.
  */
 import { describe, it, expect } from 'vitest';
-import { groupOffered, resolveTargets, selfWeightReach, type TargetModel } from '../load-targets';
+import { groupOffered, resolveTargets, selfWeightReach, selfWeightTarget, type TargetModel } from '../load-targets';
 import { selfWeightScope } from '../../../engine/self-weight';
 import type { ModelGroup } from '../../../store/model.svelte';
 
@@ -51,4 +51,15 @@ describe('the groups offered', () => {
     expect(groupOffered(g.get(3)!, 'members', true)).toBe(false);
     expect(groupOffered(g.get(3)!, 'quads')).toBe(false);
   });
+});
+
+it('#2565 rejects a partial typed self-weight selection and stale group membership', () => {
+  expect(selfWeightTarget({ by: 'ids', text: '1-2' }, model, noSel)).toEqual({ elements: [1, 2] });
+  expect(selfWeightTarget({ by: 'ids', text: '1, 1.5' }, model, noSel)).toEqual({ error: expect.stringContaining('1.5') });
+  expect(selfWeightTarget({ by: 'ids', text: '1, 3' }, model, noSel)).toEqual({ error: expect.stringContaining('3') });
+  expect(selfWeightTarget({ by: 'ids', text: '9007199254740992-9007199254740992' }, model, noSel))
+    .toEqual({ error: expect.stringContaining('9007199254740992') });
+  const stale = { ...model, quads: new Map([[1, sq(1)]]) };
+  expect(selfWeightTarget({ by: 'group', groupId: 1 }, stale, noSel)).toEqual({ error: expect.stringContaining('2') });
+  expect(selfWeightTarget({ by: 'group', groupId: 1 }, model, noSel)).toEqual({ groupId: 1 });
 });
