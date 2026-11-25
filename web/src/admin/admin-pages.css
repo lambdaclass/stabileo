@@ -28,6 +28,9 @@
 .ins-btn.on { border-color: var(--st-accent); color: var(--st-text); }
 .ins-banner { padding: 8px 10px; background: var(--st-danger-bg); border-left: 2px solid var(--st-danger); font-size: 0.8rem; color: var(--st-text); }
 .ins-muted { margin: 0; font-size: 0.78rem; color: var(--st-text-2); }
+.ins-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 10px; background: color-mix(in srgb, var(--st-warn, #e0a030) 12%, transparent); border-left: 2px solid var(--st-warn, #e0a030); font-size: 0.8rem; color: var(--st-text); }
+.ins-notice p { margin: 0; flex: 1 1 22rem; }
+.ins-notice-link { background: none; border: none; padding: 0; color: var(--st-interactive); font: inherit; text-decoration: underline; cursor: pointer; }
 .ins-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
 .ins-card {
   display: flex;
