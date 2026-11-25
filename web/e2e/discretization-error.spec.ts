@@ -11,10 +11,9 @@
 import { test, expect, loadModel, solveModel } from './fixtures';
 
 test('@smoke a frame-and-shell model shows its estimated discretization error and runs the convergence check', async ({ pro: page }) => {
-  test.setTimeout(300_000);
   await loadModel(page, 'rc-qa-diagnostic-shells');
   await solveModel(page);
-  await expect.poll(() => page.evaluate(() => window.__stabileo.discretizationState().estimate), { timeout: 60_000 })
+  await expect.poll(() => page.evaluate(() => window.__stabileo.discretizationState().estimate), { timeout: 30_000 })
     .toBe('done');
   const state = await page.evaluate(() => window.__stabileo.discretizationState());
   expect(state.reason, 'the estimate must not fail in the worker').toBeNull();
@@ -32,7 +31,7 @@ test('@smoke a frame-and-shell model shows its estimated discretization error an
   await expect(status).not.toContainText(/not available/i);
 
   await page.getByTestId('discretization-run-study').first().click();
-  await expect.poll(() => page.evaluate(() => window.__stabileo.discretizationState().study), { timeout: 240_000 })
+  await expect.poll(() => page.evaluate(() => window.__stabileo.discretizationState().study), { timeout: 30_000 })
     .not.toBe('running');
   expect((await page.evaluate(() => window.__stabileo.discretizationState())).reason).toBeNull();
   const table = page.getByTestId('discretization-study').first();
@@ -41,10 +40,9 @@ test('@smoke a frame-and-shell model shows its estimated discretization error an
 });
 
 test('@smoke the adaptive refinement is folded away until asked for, runs in the worker and reports its passes', async ({ pro: page }) => {
-  test.setTimeout(300_000);
   await loadModel(page, 'rc-qa-diagnostic-shells');
   await solveModel(page);
-  await expect.poll(() => page.evaluate(() => window.__stabileo.discretizationState().estimate), { timeout: 60_000 })
+  await expect.poll(() => page.evaluate(() => window.__stabileo.discretizationState().estimate), { timeout: 30_000 })
     .toBe('done');
   await page.evaluate(() => window.__stabileoActions.openProTab('results'));
   const section = page.getByTestId('discretization-adaptive').first();
@@ -59,7 +57,7 @@ test('@smoke the adaptive refinement is folded away until asked for, runs in the
   await expect(run).toBeDisabled();
   await page.getByTestId('discretization-adaptive-target').first().fill('20');
   await run.click();
-  await expect.poll(() => page.evaluate(() => window.__stabileo.discretizationState().adaptive), { timeout: 240_000 })
+  await expect.poll(() => page.evaluate(() => window.__stabileo.discretizationState().adaptive), { timeout: 30_000 })
     .toBe('done');
   expect((await page.evaluate(() => window.__stabileo.discretizationState())).reason).toBeNull();
   await expect(page.getByTestId('discretization-adaptive-status').first()).toContainText('%');
