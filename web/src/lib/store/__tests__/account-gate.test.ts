@@ -99,6 +99,32 @@ describe('account gate', () => {
     expect(run).toHaveBeenCalledOnce();
   });
 
+  it('the editor asks until there is an account, never goes on without one, and a refusal leaves', () => {
+    const leave = vi.fn();
+    accountGate.requireForEditor(leave);
+    expect(accountGate.open).toBe(true);
+    expect(accountGate.action).toBe('editor');
+    accountGate.requireForEditor(leave);
+    expect(tracked.filter((e) => e.name === 'gate.shown')).toHaveLength(1);
+    expect(accountGate.proceedWithoutAccount()).toBe(false);
+    expect(accountGate.open).toBe(true);
+    accountGate.open = false;
+    expect(leave).toHaveBeenCalledOnce();
+
+    leave.mockClear();
+    accountGate.requireForEditor(leave);
+    auth.isAuthenticated = true;
+    accountGate.open = false;
+    expect(leave).not.toHaveBeenCalled();
+    expect(tracked.at(-1)).toEqual({ name: 'gate.passed', props: { action: 'editor' } });
+  });
+
+  it('a signed-in reader is never asked for the editor', () => {
+    auth.isAuthenticated = true;
+    accountGate.requireForEditor(vi.fn());
+    expect(accountGate.open).toBe(false);
+  });
+
   it('a comment goes straight through while sign-in is closed', () => {
     const run = vi.fn();
     accountGate.requireSignIn('feedback', run);

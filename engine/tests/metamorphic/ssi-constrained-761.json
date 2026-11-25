@@ -753,38 +753,18 @@
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       },
       "4": {
         "id": 4,
         "nodeId": 4,
         "type": "inclinedRoller",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
         "angle": 0.5
       },
       "8": {
         "id": 8,
         "nodeId": 8,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       }
     },
     "loads": [

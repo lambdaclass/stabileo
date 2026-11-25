@@ -77,26 +77,14 @@
   "solverOptions": null,
   "supports": {
     "1": {
-      "angle": null,
-      "dry": null,
-      "dx": null,
       "dz": -0.0082927429930818,
       "id": 1,
-      "kx": null,
-      "ky": null,
-      "kz": null,
       "nodeId": 1,
       "type": "fixed"
     },
     "2": {
-      "angle": null,
-      "dry": null,
-      "dx": null,
-      "dz": null,
       "id": 2,
       "kx": 9393.243969749723,
-      "ky": null,
-      "kz": null,
       "nodeId": 2,
       "type": "pinned"
     }

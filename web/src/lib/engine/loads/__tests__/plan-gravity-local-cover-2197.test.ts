@@ -65,10 +65,10 @@ for (const mode of ['panels', 'width'] as const) for (const z of [5.949, 5.951])
   });
 }
 
-for (const mode of ['panels', 'width'] as const) for (const offset of [0.049, 0.051]) {
+for (const mode of ['panels', 'width'] as const) for (const offset of [-0.049, -Number.EPSILON, 0, Number.EPSILON, 0.049, 0.051]) {
   regression(`#2197 local plan coverage boundary ${mode} ${offset}`, () => {
     const { model, targets, area } = witness(mode, 4, 0, 2, false, offset);
-    checkLoads(model, targets, mode, area, offset > 0.05);
+    checkLoads(model, targets, mode, area, offset !== 0);
   });
 }
 

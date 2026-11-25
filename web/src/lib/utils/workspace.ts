@@ -1,3 +1,10 @@
+export type AnalysisMode = '2d' | '3d' | 'pro' | 'edu';
+export const ANALYSIS_MODES: readonly AnalysisMode[] = ['2d', '3d', 'pro', 'edu'];
+
+export function isAnalysisMode(mode: unknown): mode is AnalysisMode {
+  return (ANALYSIS_MODES as readonly unknown[]).includes(mode);
+}
+
 /**
  * Whether a mode works in space: Basic 3D and PRO. PRO is always a space workspace, so a check for
  * '3d' alone treats it as a plane one: #245's kinematic panel counted PRO frames as their XY

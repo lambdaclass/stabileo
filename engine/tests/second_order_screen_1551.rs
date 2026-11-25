@@ -465,3 +465,68 @@ fn issue_2223_nonfinite_combination_keeps_a_refusal_and_the_unbounded_screen() {
         assert!(!combined.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::NonFiniteResult));
     }
 }
+
+#[test]
+fn planar_screen_uses_magnitude_and_preserves_the_reversal_diagnostic() {
+    use dedaliano_engine::postprocess::combinations::{
+        combine_results, combine_results_checked, CaseEntry, CombinationInput,
+    };
+    use dedaliano_engine::solver::load_cases::{
+        solve_multi_case_2d, CombinationDef, LoadCase, MultiCaseInput,
+    };
+    use dedaliano_engine::solver::pdelta::solve_pdelta_2d;
+
+    let input = cantilever_2d(1, -10.0, E, 1.0);
+    let linear = solve_2d(&input).unwrap();
+    let pdelta = solve_pdelta_2d(&input, 30, 1e-6).unwrap();
+    let ratio = |r: &AnalysisResults| r.result_summary.as_ref().and_then(|s| s.second_order_ratio);
+    let check = |combined: &AnalysisResults, case: &AnalysisResults, factor: f64| {
+        let expected = ratio(case).map(|r| factor.abs() * r);
+        assert_eq!(ratio(combined), expected);
+        assert_eq!(combined.reactions[0].rx, factor * case.reactions[0].rx);
+        let mut diagnostics = if expected.is_some_and(|r| r > SECOND_ORDER_RATIO) {
+            warned(vec![])
+        } else {
+            vec![]
+        };
+        if factor < 0.0 || expected.is_none() {
+            diagnostics.extend(unbounded());
+        }
+        assert_eq!(second_order(&combined.structured_diagnostics), diagnostics);
+    };
+    let base_ratio = ratio(&linear).unwrap();
+    assert!(base_ratio > 0.0 && base_ratio < SECOND_ORDER_RATIO);
+    let over = 2.0 * SECOND_ORDER_RATIO / base_ratio;
+    let factors = [1.0, -1.0, over, -over];
+
+    for case in [&linear, &pdelta.linear_results, &pdelta.results] {
+        for factor in factors {
+            let factors = vec![CombinationFactor { case_id: 1, factor }];
+            let owned = CombinationInput {
+                factors: factors.clone(),
+                cases: vec![CaseEntry { case_id: 1, results: case.clone() }],
+            };
+            for result in [
+                combine_results(&owned).unwrap(),
+                combine_results_checked(&owned).unwrap().unwrap(),
+                combine_results_refs(&factors, &[(1, case)]).unwrap(),
+            ] {
+                check(&result, case, factor);
+            }
+        }
+    }
+
+    let loads = input.loads.clone();
+    let batch = solve_multi_case_2d(&MultiCaseInput {
+        solver: input,
+        load_cases: vec![LoadCase { name: "Axial".into(), loads }],
+        combinations: factors.iter().map(|&factor| CombinationDef {
+            name: factor.to_string(),
+            factors: [("Axial".into(), factor)].into(),
+        }).collect(),
+    }).unwrap();
+    for (combined, factor) in batch.combination_results.iter().zip(factors) {
+        check(&combined.results, &batch.case_results[0].results, factor);
+    }
+    assert_eq!(batch.combination_results.len(), factors.len());
+}

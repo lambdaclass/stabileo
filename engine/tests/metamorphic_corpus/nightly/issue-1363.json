@@ -87,23 +87,7 @@
       "rrx": true,
       "rry": true,
       "rrz": true,
-      "kx": null,
-      "ky": null,
-      "kz": null,
-      "krx": null,
-      "kry": null,
-      "krz": null,
-      "dx": null,
-      "dy": null,
-      "dz": null,
-      "drx": null,
-      "dry": null,
-      "drz": null,
       "rw": null,
-      "kw": null,
-      "normalX": null,
-      "normalY": null,
-      "normalZ": null,
       "isInclined": null
     },
     "2": {
@@ -114,23 +98,7 @@
       "rrx": true,
       "rry": true,
       "rrz": true,
-      "kx": null,
-      "ky": null,
-      "kz": null,
-      "krx": null,
-      "kry": null,
-      "krz": null,
-      "dx": null,
-      "dy": null,
-      "dz": null,
-      "drx": null,
-      "dry": null,
-      "drz": null,
       "rw": null,
-      "kw": null,
-      "normalX": null,
-      "normalY": null,
-      "normalZ": null,
       "isInclined": null
     }
   },
@@ -144,8 +112,7 @@
         "fz": -68.1027063985029,
         "mx": -99.27732524186635,
         "my": 80.78934211344188,
-        "mz": 122.54056507282377,
-        "bw": null
+        "mz": 122.54056507282377
       }
     },
     {
@@ -157,8 +124,7 @@
         "fz": -492.57052388695286,
         "mx": 141.48828686511933,
         "my": -116.42369051592843,
-        "mz": 122.5836467285065,
-        "bw": null
+        "mz": 122.5836467285065
       }
     }
   ],

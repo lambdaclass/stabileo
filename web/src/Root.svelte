@@ -1,18 +1,6 @@
 <script lang="ts">
-  /**
-   * The public pages without the application.
-   *
-   * The landing, the blog and the standing pages used to be rendered by App.svelte, so every
-   * visit to them downloaded and ran the whole application (about 3 MB of JavaScript) and the
-   * engine (3 MB of WASM) before the page could settle: Lighthouse measured 6 s of blocked main
-   * thread and, on the blog, 19 s to the largest paint. They need none of it.
-   *
-   * Here they render on their own. An address that is the application's on arrival never gets
-   * here: main.ts mounts App.svelte directly, as it always did. From a public page, the
-   * application is loaded on the first route that needs it (the landing's "enter the app", a
-   * link to /app); from then on App.svelte owns every route, public ones included, as before.
-   */
   import SiteHeader from './components/site/SiteHeader.svelte';
+  import EditorPending from './components/site/EditorPending.svelte';
   import PublicPending from './components/site/PublicPending.svelte';
   import { loadPublicPage, idlePrefetchPublicPages, resetPublicScroll, manualPublicScrollRestoration } from './lib/public-navigation';
   import { tick } from 'svelte';
@@ -26,34 +14,30 @@
     const { locale } = parsePublicPath(location.pathname);
     if (locale && locale !== publicI18n.locale) setLocale(locale);
   }
-  adoptLocaleFromPath();
+  if (routeKind().kind !== 'app') adoptLocaleFromPath();
 
   let current = $state(routeKind());
   // A page served by the fallback carries the landing's head, whose structured data would describe the landing until this page's chunk states its own.
   if (!document.querySelector(`link[hreflang][href*="${location.pathname}"]`)) document.querySelector('[type$=json]')?.remove();
   /** Once loaded, the application owns the page. */
   let app = $state<typeof import('./App.svelte').default | null>(null);
-  let loading: Promise<void> | null = null;
 
   let pages = $state<Partial<Record<'research' | 'tools' | 'examples' | 'game' | 'paper' | 'blog' | 'register' | 'landing', import('svelte').Component<{ path: string }>>>>({});
   let revision = 0;
   let failed = $state(false);
-  $effect(() => { if (current.kind !== 'landing') return idlePrefetchPublicPages(); });
-  $effect(() => { if (!app) return manualPublicScrollRestoration(); });
+  $effect(() => { if (!app && current.kind !== 'landing' && current.kind !== 'app') return idlePrefetchPublicPages(); });
+  $effect(() => { if (!app && current.kind !== 'app') return manualPublicScrollRestoration(); });
 
-  function loadApp() {
-    // A lazily loaded language must be registered before the application's modules run: some name things as they load.
-    loading ??= ensureLocale(i18n.locale).then(() => import('./load-app').then(m => m.loadApplication())).then(async (m) => {
-      app = m.default;
-      // Tell main.ts the application is up: it installs the browser-test hooks then (in an
-      // e2e build only), so that "the hooks are there" still means "the application is up".
-      await tick();
-      window.dispatchEvent(new CustomEvent('stabileo-app-ready'));
-    });
-    return loading;
+  async function loadApp() {
+    const [, loader] = await Promise.all([ensureLocale(i18n.locale), import('./load-app')]);
+    return loader.loadApplication();
   }
 
-  async function sync() {
+  function onEditorIntent() {
+    if (!app) void loadApp().catch(() => {});
+  }
+
+  async function sync(afterActivation = false) {
     const token = ++revision;
     if (__PUBLIC_FEATURES__.tools) restoreMovedRoute();
     if (location.pathname.startsWith('/hu/')) {
@@ -64,23 +48,37 @@
     const next = routeKind();
     const hash = location.hash;
     try {
-      if (next.kind === 'app') { await loadApp(); return; }
+      if (next.kind === 'app') {
+        if (afterActivation) {
+          await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+          if (token !== revision) return;
+        }
+        current = next;
+        failed = false;
+        await tick();
+        const application = await loadApp();
+        if (token !== revision) return;
+        app = application.default;
+        await tick();
+        window.dispatchEvent(new CustomEvent('stabileo-app-ready'));
+        return;
+      }
       const [page] = await Promise.all([loadPublicPage(location.href), ensurePublicLocale(parsePublicPath(location.pathname).locale ?? publicI18n.locale).catch((err) => { if (token > 1) throw err; })]);
       if (token !== revision) return;
       failed = false;
-      if (page && next.kind !== 'app') pages[next.kind] = page;
+      if (page) pages[next.kind] = page;
       adoptLocaleFromPath();
       current = next;
       await tick();
       if (token === revision) resetPublicScroll(hash);
     } catch (error) {
-      console.error('Public navigation failed', error);
+      console.error('Navigation failed', error);
       if (token !== revision) return;
-      if (token > 1) { location.reload(); return; }
+      if (next.kind !== 'app' && token > 1) { location.reload(); return; }
       current = next;
       failed = true;
       document.getElementById('prerender')?.remove();
-      window.addEventListener('online', () => void sync(), { once: true });
+      if (next.kind !== 'app') window.addEventListener('online', () => void sync(), { once: true });
     }
   }
   $effect(() => { void sync(); });
@@ -102,7 +100,7 @@
       const e2e = new URLSearchParams(location.search).get('e2e') === '1' ? '?e2e=1' : '';
       history.pushState(null, '', modeToPath('basico') + e2e);
     }
-    sync();
+    void sync(true);
   }
   function onPopState() {
     if (!app) sync();
@@ -110,10 +108,12 @@
   $effect(() => {
     window.addEventListener('stabileo-navigate', onNavigate);
     window.addEventListener('stabileo-enter-app', onEnterApp);
+    window.addEventListener('stabileo-prefetch-app', onEditorIntent);
     window.addEventListener('popstate', onPopState);
     return () => {
       window.removeEventListener('stabileo-navigate', onNavigate);
       window.removeEventListener('stabileo-enter-app', onEnterApp);
+      window.removeEventListener('stabileo-prefetch-app', onEditorIntent);
       window.removeEventListener('popstate', onPopState);
     };
   });
@@ -126,6 +126,8 @@
 {#if app}
   {@const App = app}
   <App />
+{:else if current.kind === 'app'}
+  <EditorPending {failed} />
 {:else if current.kind === 'research' || current.kind === 'tools' || current.kind === 'examples' || (__PUBLIC_FEATURES__.diagramGame && current.kind === 'game') || current.kind === 'paper' || current.kind === 'blog' || (__PUBLIC_FEATURES__.accounts && current.kind === 'register')}
   {@const Page = pages[current.kind]}
   {#if Page}<Page path={current.path} />{:else}<PublicPending kind={current.kind} {failed} />{/if}
