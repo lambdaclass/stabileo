@@ -34,9 +34,10 @@
  *       XZ (the model's plane)  → the rigid body, rotation tied (as the space solve ties it)
  */
 
-import { t } from '../i18n';
-import { ModelInputError } from './model-input-numbers';
-import type { Constraint3D, EccentricConnectionConstraint } from './types-3d';
+import { t, tp } from '../i18n';
+import { dyadicInteger } from './accounting-math';
+import { ModelInputError, requireEccentricReleaseMask } from './model-input-numbers';
+import type { Constraint3D, EccentricConnectionConstraint, LinearMpcConstraint } from './types-3d';
 import type { DrawPlane } from '../geometry/plane-projection';
 
 /**
@@ -51,6 +52,9 @@ const AXES_IN_XZ: Record<Exclude<DrawPlane, 'xz'>, [number, number, number]> = {
  * `constraintsTo2D` reads them in (#466).
  */
 export function constraintsInXZ(plane: DrawPlane, constraints: readonly Constraint3D[]): Constraint3D[] {
+  for (const [index, c] of constraints.entries()) {
+    if (c.type === 'eccentricConnection') requireEccentricReleaseMask(`constraints[${index}].releases`, c.releases);
+  }
   if (plane === 'xz') return [...constraints];
   const axis = AXES_IN_XZ[plane];
   const dof = (d: number) => (d < 3 ? axis[d] : 3 + axis[d - 3]);
@@ -94,12 +98,60 @@ export function constraintsCoupledAcrossPlane(constraints: readonly Constraint3D
   return constraints.filter(couplesAcrossPlane);
 }
 
-function couplesAcrossPlane(c: Constraint3D): boolean {
-  if (c.type === 'linearMPC') {
-    const live = c.terms.filter((t) => t.coefficient !== 0);
-    return live.some((t) => DOF_3D_TO_2D[t.dof] !== undefined) && live.some((t) => DOF_3D_TO_2D[t.dof] === undefined);
+type MpcTerm = LinearMpcConstraint['terms'][number];
+type MpcProjection = MpcTerm[] | 'coupled' | 'unrepresentable';
+
+function roundedCoefficient(exact: bigint): number {
+  const magnitude = exact < 0n ? -exact : exact;
+  const shift = BigInt(Math.max(0, magnitude.toString(2).length - 53));
+  let significand = magnitude >> shift;
+  if (shift > 0n) {
+    const remainder = magnitude - (significand << shift);
+    const half = 1n << (shift - 1n);
+    if (remainder > half || (remainder === half && (significand & 1n) === 1n)) significand += 1n;
   }
+  return (exact < 0n ? -1 : 1) * Number(significand) * 2 ** (Number(shift) - 1074);
+}
+
+function projectMpc(terms: readonly MpcTerm[]): MpcProjection {
+  const groups = new Map<string, { term: MpcTerm; total?: bigint }>();
+  for (const term of terms) {
+    if (!Number.isFinite(term.coefficient)) return 'unrepresentable';
+    const key = `${term.nodeId}:${term.dof}`;
+    const group = groups.get(key);
+    if (group) group.total = (group.total ?? dyadicInteger(group.term.coefficient)) + dyadicInteger(term.coefficient);
+    else groups.set(key, { term });
+  }
+  const inPlane: MpcTerm[] = [];
+  let outOfPlane = false;
+  for (const { term, total } of groups.values()) {
+    if (total === 0n || (total === undefined && term.coefficient === 0)) continue;
+    const dof = DOF_3D_TO_2D[term.dof];
+    if (dof === undefined) {
+      outOfPlane = true;
+      continue;
+    }
+    const coefficient = total === undefined ? term.coefficient : roundedCoefficient(total);
+    if (!Number.isFinite(coefficient)) return 'unrepresentable';
+    inPlane.push({ ...term, dof, coefficient: term.dof === 4 ? -coefficient : coefficient });
+  }
+  return outOfPlane && inPlane.length > 0 ? 'coupled' : inPlane;
+}
+
+export function hasReducedPlanarMpc(c: Constraint3D): boolean {
+  if (c.type !== 'linearMPC' || !c.terms.some(term => DOF_3D_TO_2D[term.dof] !== undefined)) return false;
+  const terms = projectMpc(c.terms);
+  return terms === 'unrepresentable' || (Array.isArray(terms) && terms.length < c.terms.length);
+}
+
+function couplesAcrossPlane(c: Constraint3D): boolean {
+  if (c.type === 'linearMPC') return typeof projectMpc(c.terms) === 'string';
   return c.type === 'eccentricConnection' && classifyEccentricNormalOffset(c) === 'coupled';
+}
+
+function mpcRefusal(projection: Exclude<MpcProjection, MpcTerm[]>, index: number): string {
+  const path = `constraints[${index}].terms`;
+  return projection === 'coupled' ? `${t('svc.constraintsCoupled')} ${path}` : tp('svc.engine.invalidInputField', { path });
 }
 
 export function classifyEccentricNormalOffset(c: EccentricConnectionConstraint): 'none' | 'separated' | 'coupled' {
@@ -108,10 +160,15 @@ export function classifyEccentricNormalOffset(c: EccentricConnectionConstraint):
 }
 
 export function planeConstraintRefusal(constraints: readonly Constraint3D[] = [], offsetField: 'offsetX' | 'offsetY' = 'offsetY'): string | null {
-  const index = constraints.findIndex(couplesAcrossPlane);
-  if (index === -1) return null;
-  const field = constraints[index]!.type === 'linearMPC' ? 'terms' : offsetField;
-  return `${t('svc.constraintsCoupled')} constraints[${index}].${field}`;
+  for (const [index, c] of constraints.entries()) {
+    if (c.type === 'linearMPC') {
+      const terms = projectMpc(c.terms);
+      if (typeof terms === 'string') return mpcRefusal(terms, index);
+    } else if (c.type === 'eccentricConnection' && classifyEccentricNormalOffset(c) === 'coupled') {
+      return `${t('svc.constraintsCoupled')} constraints[${index}].${offsetField}`;
+    }
+  }
+  return null;
 }
 
 const NORMAL: Record<DrawPlane, 'x' | 'y' | 'z'> = { xz: 'y', yz: 'x', xy: 'z' };
@@ -152,10 +209,8 @@ function mapDofs(dofs: number[] | undefined): number[] | undefined {
  */
 export function constraintsTo2D(constraints: Constraint3D[] | undefined): Constraint3D[] {
   if (!constraints || constraints.length === 0) return [];
-  const refusal = planeConstraintRefusal(constraints);
-  if (refusal) throw new ModelInputError(refusal);
   const out: Constraint3D[] = [];
-  for (const c of constraints) {
+  for (const [index, c] of constraints.entries()) {
     switch (c.type) {
       case 'rigidLink': {
         // No DOFs listed: all translational, as the space solve reads it; listed for the plane
@@ -173,13 +228,16 @@ export function constraintsTo2D(constraints: Constraint3D[] | undefined): Constr
         break;
       }
       case 'linearMPC': {
-        // An equation involving an out-of-plane DOF has no 2D meaning — drop whole.
-        if (c.terms.some(t => DOF_3D_TO_2D[t.dof] === undefined)) break;
-        // θ = −ry: an ry term keeps its meaning with its coefficient negated.
-        out.push({ ...c, terms: c.terms.map(t => ({ ...t, dof: DOF_3D_TO_2D[t.dof], coefficient: t.dof === 4 ? -t.coefficient : t.coefficient })) });
+        const terms = projectMpc(c.terms);
+        if (typeof terms === 'string') throw new ModelInputError(mpcRefusal(terms, index));
+        if (terms.length > 0) out.push({ ...c, terms });
         break;
       }
       case 'eccentricConnection': {
+        requireEccentricReleaseMask(`constraints[${index}].releases`, c.releases);
+        if (classifyEccentricNormalOffset(c) === 'coupled') {
+          throw new ModelInputError(`${t('svc.constraintsCoupled')} constraints[${index}].offsetY`);
+        }
         // 2D solver kinematics read offset_x (horizontal) and offset_y
         // (VERTICAL — its dy slot); the stored 3D shape keeps vertical in
         // offsetZ. The out-of-plane offsetY is dropped, like uy loads.

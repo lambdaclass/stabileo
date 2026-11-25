@@ -1,12 +1,19 @@
 {
   "id": "separated-planar-eccentric-connection",
   "date": "2026-11-25",
-  "prs": [2588],
+  "prs": [
+    2588
+  ],
   "area": "analysis",
   "when": {
-    "all": ["plane2D", "separatedPlanarEccentricConnection"]
+    "all": [
+      "plane2D",
+      "separatedPlanarEccentricConnection"
+    ]
   },
-  "quantities": ["solve.ok"],
+  "quantities": [
+    "solve.ok"
+  ],
   "title": {
     "en": "Planar analysis of eccentric connections with released translations",
     "es": "Análisis plano de conexiones excéntricas con traslaciones liberadas",
@@ -14,7 +21,15 @@
     "de": "Ebene Berechnung exzentrischer Anschlüsse mit freigegebenen Verschiebungen",
     "fr": "Analyse plane des liaisons excentrées à translations libérées",
     "tr": "Ötelemeleri serbest bırakılan eksantrik bağlantıların düzlemsel analizi",
-    "zh": "平动释放的偏心连接平面分析"
+    "zh": "平动释放的偏心连接平面分析",
+    "ar": "التحليل المستوي للوصلات اللامركزية ذات الإزاحات الانتقالية المحررة",
+    "hi": "मुक्त स्थानांतरण वाली उत्केन्द्री कड़ियों का समतलीय विश्लेषण",
+    "hu": "Feloldott eltolódású excentrikus kapcsolatok síkbeli vizsgálata",
+    "id": "Analisis bidang sambungan eksentris dengan translasi yang dilepas",
+    "it": "Analisi piana dei collegamenti eccentrici con traslazioni svincolate",
+    "ja": "並進を解放した偏心接合の平面解析",
+    "ko": "병진 자유도가 해제된 편심 연결의 평면 해석",
+    "ru": "Плоский расчёт эксцентричных соединений с освобождёнными перемещениями"
   },
   "explanation": {
     "en": "A planar solve accepts an eccentric connection with an offset normal to the plane when both in-plane translations are released. If a translation equation couples the plane to out-of-plane motion, the planar solve refuses it.",
@@ -23,7 +38,15 @@
     "de": "Die ebene Berechnung akzeptiert einen Anschluss mit Exzentrizität senkrecht zur Ebene, wenn beide Verschiebungen in der Ebene freigegeben sind. Koppelt eine Verschiebungsgleichung Bewegungen in und aus der Ebene, wird die Berechnung abgelehnt.",
     "fr": "Le calcul plan accepte une liaison dont l’excentrement est normal au plan si les deux translations dans le plan sont libérées. Il refuse toute équation de translation qui couple des mouvements dans le plan et hors du plan.",
     "tr": "Düzlem içindeki iki öteleme de serbest bırakıldığında, düzlemsel analiz düzleme dik eksantrisiteli bağlantıyı kabul eder. Bir öteleme denklemi düzlem içi ve düzlem dışı hareketleri bağlıyorsa analiz bağlantıyı reddeder.",
-    "zh": "当两个面内平动自由度均已释放时，平面分析允许带有面外偏移的偏心连接。如果平动约束方程耦合了面内与面外运动，平面分析会拒绝该连接。"
+    "zh": "当两个面内平动自由度均已释放时，平面分析允许带有面外偏移的偏心连接。如果平动约束方程耦合了面内与面外运动，平面分析会拒绝该连接。",
+    "ar": "يقبل التحليل المستوي وصلة ذات إزاحة لا مركزية عمودية على المستوى عند تحرير درجتي حرية الانتقال داخل المستوى. إذا ربطت معادلة انتقال بين حركة داخل المستوى وحركة خارجه، يرفض التحليل المستوي الوصلة.",
+    "hi": "समतलीय विश्लेषण तल के लंबवत उत्केन्द्रता वाली कड़ी को स्वीकार करता है जब तल के भीतर स्थानांतरण की दोनों स्वतंत्रताएँ मुक्त हों। यदि कोई स्थानांतरण समीकरण समतल के भीतर और बाहर की गतियों को जोड़ता है, तो समतलीय विश्लेषण कड़ी को अस्वीकार करता है।",
+    "hu": "A síkbeli számítás elfogadja a síkra merőleges külpontosságú kapcsolatot, ha mindkét síkbeli eltolódási szabadságfok fel van oldva. Ha egy eltolódási egyenlet összekapcsolja a síkbeli és a síkon kívüli mozgást, a síkbeli számítás elutasítja a kapcsolatot.",
+    "id": "Analisis bidang menerima sambungan eksentris dengan offset tegak lurus bidang apabila kedua derajat kebebasan translasi dalam bidang dilepas. Jika suatu persamaan translasi mengaitkan gerakan dalam dan luar bidang, analisis bidang menolak sambungan tersebut.",
+    "it": "L’analisi piana ammette un collegamento con eccentricità normale al piano quando entrambe le traslazioni nel piano sono svincolate. Se un’equazione di traslazione accoppia il moto nel piano e quello fuori piano, l’analisi piana rifiuta il collegamento.",
+    "ja": "面内の2つの並進自由度がともに解放されている場合、平面解析では面外方向に偏心した接合を扱えます。並進の拘束式が面内と面外の変位を連成させる場合、平面解析はその接合を拒否します。",
+    "ko": "평면 내 두 병진 자유도가 모두 해제되어 있으면 평면 해석에서 평면에 수직한 편심을 가진 연결을 허용합니다. 병진 구속식이 평면 내 운동과 평면 외 운동을 결합하면 평면 해석은 해당 연결을 거부합니다.",
+    "ru": "Плоский расчёт допускает соединение со смещением по нормали к плоскости, если освобождены обе поступательные степени свободы в плоскости. Если уравнение поступательных перемещений связывает движение в плоскости с движением из неё, плоский расчёт отклоняет соединение."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-malformed-structural-input.md",

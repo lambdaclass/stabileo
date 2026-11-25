@@ -10,6 +10,12 @@ Plane analysis refuses equations that couple its degrees of freedom to those out
 
 The authored settings and constraint checks reject unknown keys before applying defaults. For example, a misspelling of `analysis.selfWeight` can omit gravity, and `dof` in place of `dofs` can tie every translation instead of the one intended. The diagnostic names the invalid field in analysis, snapshot restore and fixture apply.
 
+WASM object analysis requires maps for named solver records, including materials. A positional array can no longer bypass named-field validation. Authored members refuse unknown keys before release defaults, including misspelled hinge fields. Eccentric release masks with more than six entries are refused before any plane rotation. Short masks retain the implicit unreleased entries. Malformed structural fixture rows are reported by collection and index before replay.
+
 ## Planar analysis of eccentric connections with released translations
 
 A connection whose offset has a component normal to the plane can be solved in plane when both in-plane translations are released. Those two releases remove the only equations with normal-offset terms that couple in-plane and out-of-plane motion. The remaining in-plane rotation equation ties only rotations about the plane normal. A connection with either affected translation equation active still receives the plane-coupling refusal. The spatial equations are the same.
+
+## Planar projection of multipoint constraints
+
+Planar analysis combines coefficients for each node and degree of freedom before projecting a multipoint constraint. For example, the two terms on the same out-of-plane displacement in `ux + uy − uy = 0` cancel, leaving the in-plane equation `ux = 0`. Earlier plane entry points could refuse or drop the entire equation. Projection retains the reduced in-plane equation and still refuses any equation that couples in-plane and out-of-plane motion after reduction. Linear, combination and nonlinear plane solves use this same projection.

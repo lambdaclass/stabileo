@@ -205,7 +205,7 @@ it.each([false, true])(
   },
 );
 
-it.runIf(process.env.STABILEO_REVIEW_REPRO === '1').each([false, true])('requires named material records in WASM object analysis (space = %s)', (is3D) => {
+it.each([false, true])('requires named material records in WASM object analysis (space = %s)', (is3D) => {
   const model = is3D ? space : planar;
   const wrap = (solver: object) => ({
     solver,

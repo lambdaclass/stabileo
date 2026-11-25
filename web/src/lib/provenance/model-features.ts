@@ -1,4 +1,4 @@
-import { classifyEccentricNormalOffset, constraintsInXZ } from '../engine/constraint-2d-remap';
+import { classifyEccentricNormalOffset, constraintsInXZ, hasReducedPlanarMpc } from '../engine/constraint-2d-remap';
 import { hasMalformedAuthoredLoad, invalidPlanarPointTorsion, isFiniteInputNumber, ModelInputError, migrateModelConstraints, requireCombinationInput, requireStructureInput } from '../engine/model-input-numbers';
 import { POINT_END_TOL } from '../engine/member-point-loads';
 import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
@@ -60,7 +60,7 @@ export const FEATURE_IDS = [
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
-  'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'malformedAuthoredLoad', 'malformedAuthoredStructure', 'separatedPlanarEccentricConnection', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
+  'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'malformedAuthoredLoad', 'malformedAuthoredStructure', 'separatedPlanarEccentricConnection', 'reducedPlanarMpc', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase', 'loadPlanCombinationSupplements', 'flatRoofSnowCombinations',
   'occupiedGeneratedLoadCases', 'repeatedUngroupedRuleTerms', 'emptyManualLoadAlternatives', 'retiredAutoLoadsCases',
@@ -186,6 +186,11 @@ function slaveNodes(c: Record<string, unknown>): number[] {
 
 export const fromLoadPlan = (by: unknown): boolean => typeof by === 'string' && !!by && !/^(stair|arch):/.test(by);
 
+function loadRecords(loads: FeatureSnapshot['loads']): NonNullable<FeatureSnapshot['loads']> {
+  if (!Array.isArray(loads)) return [];
+  return loads.filter(load => load !== null && typeof load === 'object' && !Array.isArray(load) && typeof load.type === 'string');
+}
+
 export function unverifiedSeismicLoads(s: FeatureSnapshot) {
   const cases = new Set((Array.isArray(s.loadCases) ? s.loadCases : []).filter(c => c.type === 'E' && !c.spectral).map(c => c.id));
   if (cases.size === 0) return [];
@@ -194,7 +199,7 @@ export function unverifiedSeismicLoads(s: FeatureSnapshot) {
   const modalBasis = hasModalSeismicDerivation(s.designData?.loadBasis?.derivation) || dialog?.seismicMethod?.method === 'modal';
   const earlyGenerator = typeof settings?.periodSystem === 'string' && typeof settings?.regularity === 'string' &&
     typeof settings?.occupancy === 'string';
-  return (Array.isArray(s.loads) ? s.loads : []).filter(l =>
+  return loadRecords(s.loads).filter(l =>
     cases.has((l.data?.caseId ?? 1) as number) && l.data?.seismicGeneration !== 'static' &&
     (l.data?.seismicGeneration === 'unverified' || fromLoadPlan(l.data?.generatedBy) || modalBasis ||
       (earlyGenerator && /^nodal/.test(l.type))));
@@ -204,7 +209,7 @@ export function loadsGeneratedWith(s: FeatureSnapshot): number {
   const basis = s.designData?.loadBasis;
   if (basis) return Number.isInteger(basis.resultsVersion) ? (basis.resultsVersion as number) : 0;
   const snow = (Array.isArray(s.loadCases) ? s.loadCases : []).some(c => c.type === 'S');
-  return snow || (Array.isArray(s.loads) ? s.loads : []).some(l => fromLoadPlan(l.data?.generatedBy)) ? 0 : Infinity;
+  return snow || loadRecords(s.loads).some(l => fromLoadPlan(l.data?.generatedBy)) ? 0 : Infinity;
 }
 
 export const UNVERIFIED_SEISMIC_FEATURE = 'unverifiedGeneratedSeismicLoads';
@@ -320,10 +325,14 @@ function addAuthoredStructureFeatures(s: FeatureSnapshot, features: Set<FeatureI
     requireStructureInput({ nodes, elements, supports, materials, sections, connectors: s.connectors, analysis: s.analysis });
     const constraints = migrateModelConstraints(s.constraints);
     if (s.combinations !== undefined) requireCombinationInput(s.combinations);
-    if (features.has('plane2D') && (['xz', 'yz', 'xy'] as const).some(plane =>
-      constraintsInXZ(plane, constraints).some(c => c.type === 'eccentricConnection' && classifyEccentricNormalOffset(c) === 'separated'),
-    )) {
-      features.add('separatedPlanarEccentricConnection');
+    if (features.has('plane2D')) {
+      for (const plane of ['xz', 'yz', 'xy'] as const) {
+        const remapped = constraintsInXZ(plane, constraints);
+        if (remapped.some(c => c.type === 'eccentricConnection' && classifyEccentricNormalOffset(c) === 'separated')) {
+          features.add('separatedPlanarEccentricConnection');
+        }
+        if (remapped.some(hasReducedPlanarMpc)) features.add('reducedPlanarMpc');
+      }
     }
   } catch (error) {
     if (!(error instanceof ModelInputError)) throw error;
@@ -494,30 +503,34 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   })) {
     f.add('duplicateFixtureEndRelease');
   }
-  const storedLoads = ctx.storedLoads ?? s.loads;
+  const rawStoredLoads = ctx.storedLoads ?? s.loads;
+  const storedLoads = loadRecords(rawStoredLoads);
+  const currentLoadRecords = rawStoredLoads === s.loads ? storedLoads : loadRecords(s.loads);
+  if ((Array.isArray(rawStoredLoads) && hasMalformedAuthoredLoad(rawStoredLoads))
+    || (rawStoredLoads !== s.loads && Array.isArray(s.loads) && hasMalformedAuthoredLoad(s.loads))) {
+    f.add('malformedAuthoredLoad');
+  }
   const refusal = modelAliasRefusalFeature({
     nodes: values(s.nodes),
     elements,
     supports,
-    loads: Array.isArray(storedLoads) ? storedLoads : undefined,
+    loads: storedLoads,
     plates: s.plates,
     quads: s.quads,
   }, ctx.analysisMode ?? s.analysisMode);
   if (refusal) f.add(refusal);
-  if (Array.isArray(storedLoads) && storedLoads.some(l => l.type === 'pointOnElement' && l.data &&
+  if (storedLoads.some(l => l.type === 'pointOnElement' && l.data &&
       (nonZero(l.data.mz) || planarPointMoment(l.data) === null))) {
     f.add('legacyPlanarPointCoupleAliases');
   }
-  const planarLoadInputs = [...(Array.isArray(storedLoads) ? storedLoads : [])];
-  if (storedLoads !== s.loads && Array.isArray(s.loads)) planarLoadInputs.push(...s.loads);
+  const planarLoadInputs = rawStoredLoads === s.loads ? storedLoads : [...storedLoads, ...currentLoadRecords];
   addAuthoredStructureFeatures(s, f);
-  if (hasMalformedAuthoredLoad(planarLoadInputs)) f.add('malformedAuthoredLoad');
   for (const { type, data } of planarLoadInputs) {
     if (type !== 'pointOnElement' && type !== 'nodal') continue;
     if (data?.my === null || data?.mz === null) f.add('nullPlanarMomentAliases');
     if (type === 'pointOnElement' && invalidPlanarPointTorsion(data?.mx)) f.add('invalidPlanarMemberTorsion');
   }
-  for (const l of Array.isArray(s.loads) ? s.loads : []) {
+  for (const l of currentLoadRecords) {
     const t = l.type ?? '';
     const d = l.data ?? {};
     if ((t === 'pointOnElement3d' || (t === 'pointOnElement' && f.has('space3D')))

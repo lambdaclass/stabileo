@@ -7,3 +7,5 @@ The Basic XZ path previously filled a missing spatial force with zero or discard
 Review any result saved from a malformed load record. Restore the missing component or select a supported load type, frame, and target before rerunning analysis.
 
 The saved-model notice also covers missing and nonfinite numeric load inputs that analysis refuses before projection, including a missing spatial `fz` or a nonfinite spatial `fy`.
+
+Frame and target selectors must belong to the stated load schema. For example, an inclined member carrying a spatial distributed load with `isGlobal` now reports that field as invalid. Specify a spatial `frame` to state whether the load components follow the global or member axes.

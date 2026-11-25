@@ -36,7 +36,7 @@ import polygonClipping, { type Polygon } from 'polygon-clipping';
 import { orient2d } from 'robust-predicates';
 import { SupportMappingError, supportDofs3D } from '../support-dofs-3d';
 import type { Support } from '../../store/model.svelte';
-import { agrees, roundoff, Sum } from '../accounting-math';
+import { agrees, dyadicInteger as finiteDyadicInteger, roundoff, Sum } from '../accounting-math';
 import { deckOverlapsInBand, deckSurface, physicalDeck, type Deck, type DeckFootprint, type DeckSurface } from './gravity-deck-geometry';
 import { partitionGravityFloors } from './gravity-floor-ownership';
 import { preparePhysicalFloorLoad, type FloorBay, type FloorBeam, type FloorPanel, type FloorLoadResult, type SideStretch } from './floor-loads';
@@ -1527,16 +1527,9 @@ type CoverQuery = {
 };
 type RingLocation = 'boundary' | 'inside' | 'outside';
 
-const coordinateBits = new DataView(new ArrayBuffer(Float64Array.BYTES_PER_ELEMENT));
-
 function dyadicInteger(value: number): bigint {
   if (!Number.isFinite(value)) refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
-  coordinateBits.setFloat64(0, value);
-  const bits = coordinateBits.getBigUint64(0);
-  const exponent = (bits >> 52n) & 0x7ffn;
-  const fraction = bits & 0xfffffffffffffn;
-  const magnitude = exponent === 0n ? fraction : ((1n << 52n) | fraction) << (exponent - 1n);
-  return bits >> 63n ? -magnitude : magnitude;
+  return finiteDyadicInteger(value);
 }
 
 const sign = (value: bigint) => value < 0n ? -1 : value > 0n ? 1 : 0;

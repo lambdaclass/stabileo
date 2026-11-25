@@ -12,7 +12,7 @@ import { withOrigin } from '../codes/families';
 import { CIRSOC101_BASIS } from '../codes/families/cirsoc';
 import { expandCombinations, modelCombinationCases, presentSymbols, type CombinationCase } from '../engine/loads/combination-cases';
 import { tp } from '../i18n';
-import { migrateModelConstraints, requireCombinationInput, requireLoadInput, requireStructureInput } from '../engine/model-input-numbers';
+import { fixtureRows, migrateModelConstraints, requireCombinationInput, requireLoadInput, requireStructureInput } from '../engine/model-input-numbers';
 import { remapSupportElement } from '../model/support-types';
 
 export interface JSONModel {
@@ -118,11 +118,27 @@ interface FixtureLoadOptions {
  * materials → sections → nodes → elements → supports → loads → shells → constraints
  */
 export function loadFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOptions = {}): void {
+  prepareFixture(json, opts)(api);
+}
+
+export function prepareFixture(json: JSONModel, opts: FixtureLoadOptions = {}): (api: FixtureLoader) => void {
+  requireStructureInput({
+    nodes: fixtureRows('nodes', json.nodes), elements: fixtureRows('elements', json.elements),
+    supports: fixtureRows('supports', json.supports), materials: fixtureRows('materials', json.materials),
+    sections: fixtureRows('sections', json.sections), analysis: json.analysis,
+  });
   const canonical = canonicalizeModelAliases(json);
-  const constraints = validateFixtureInput(canonical);
-  const load = () => replayFixture({ ...canonical, constraints }, api, opts);
-  if (api.replay) api.replay(load);
-  else load();
+  requireLoadInput(canonical.loads);
+  requireCombinationInput(canonical.combinations);
+  const constraints = migrateModelConstraints(canonical.constraints);
+  const ids = new Set(canonical.elements.map(e => e.id));
+  for (const support of canonical.supports) fixtureSupportElement(support, id => ids.has(id) ? id : undefined);
+  const prepared = { ...canonical, constraints: constraints.map(constraint => ({ ...constraint })) };
+  return api => {
+    const load = () => replayFixture(prepared, api, opts);
+    if (api.replay) api.replay(load);
+    else load();
+  };
 }
 
 function fixtureSupportElement(support: JSONModel['supports'][number], elementId: (id: number) => number | undefined): number | undefined {
@@ -131,20 +147,6 @@ function fixtureSupportElement(support: JSONModel['supports'][number], elementId
     throw new Error(`Fixture support ${support.id} has an unresolved local element reference (${String(support.dofLocalElementId)}).`);
   }
   return reference;
-}
-
-export function validateFixtureInput(json: JSONModel) {
-  requireLoadInput(json.loads);
-  const rows = (values: readonly { id: number }[]) => values.map(row => [row.id, row] as const);
-  requireStructureInput({
-    nodes: rows(json.nodes), elements: rows(json.elements), supports: rows(json.supports),
-    materials: rows(json.materials), sections: rows(json.sections), analysis: json.analysis,
-  });
-  requireCombinationInput(json.combinations);
-  const constraints = migrateModelConstraints(json.constraints);
-  const ids = new Set(json.elements.map(e => e.id));
-  for (const support of json.supports) fixtureSupportElement(support, id => ids.has(id) ? id : undefined);
-  return constraints.map(constraint => ({ ...constraint }));
 }
 
 function replayFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOptions): void {

@@ -1,3 +1,4 @@
+import { ModelInputError } from '../engine/model-input-numbers';
 import { resultComponents } from '../axes/result-components';
 import { exportMessages, warningImage, warningCanvas } from '../export/containment';
 // File operations: save/load projects, export results, autosave
@@ -309,7 +310,7 @@ function deserializeProjectWithNotice(text: string): boolean {
   try {
     return deserializeProject(text);
   } catch (error) {
-    if (!(error instanceof ModelAliasConflict)) throw error;
+    if (!(error instanceof ModelAliasConflict || error instanceof ModelInputError)) throw error;
     uiStore.toast(error.message, 'error');
     return false;
   }
@@ -560,7 +561,7 @@ export function acceptSessionTabs(rawTabs: unknown): SessionTabsVerdict {
         verdict.dropped.push({ index, name: tabName });
       }
     } catch (error) {
-      if (!(error instanceof ModelAliasConflict)) throw error;
+      if (!(error instanceof ModelAliasConflict || error instanceof ModelInputError)) throw error;
       verdict.dropped.push({ index, name: tabName, reason: error.message });
     }
   });
@@ -591,14 +592,14 @@ function acceptSessionTab(raw: unknown): { tab: TabState; discardedHistory?: { r
       tab.redoStack = [];
       tab.undoKinds = [];
       tab.redoKinds = [];
-      discardedHistory = error instanceof ModelAliasConflict ? { reason: error.message } : {};
+      discardedHistory = error instanceof ModelAliasConflict || error instanceof ModelInputError ? { reason: error.message } : {};
     }
     for (const snap of [tab.modelSnapshot, ...tab.undoStack, ...tab.redoStack]) {
       forgetSessionDemandRevisions(snap);
     }
     return { tab, discardedHistory };
   } catch (error) {
-    if (error instanceof ModelAliasConflict) throw error;
+    if (error instanceof ModelAliasConflict || error instanceof ModelInputError) throw error;
     return null;
   }
 }
@@ -954,7 +955,7 @@ export function acceptAutosavePayload(raw: unknown, onRefusal?: (reason: string)
     data.snapshot = canonicalizeModelAliases(storedProjectSnapshot(data.snapshot, data.analysisMode));
     data.analysisMode = data.snapshot.analysisMode;
   } catch (error) {
-    if (!(error instanceof ModelAliasConflict)) throw error;
+    if (!(error instanceof ModelAliasConflict || error instanceof ModelInputError)) throw error;
     onRefusal?.(error.message);
     return null;
   }

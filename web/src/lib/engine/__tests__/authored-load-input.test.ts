@@ -237,7 +237,7 @@ it.each([
   expect.soft(modelFeatures(current, { storedLoads: saved.loads }).has('malformedAuthoredLoad')).toBe(true);
 });
 
-it.runIf(process.env.STABILEO_REVIEW_REPRO === '1').each([
+it.each([
   ['distributed3d', 'isGlobal', { qYI: 0, qYJ: 0, qZI: -force, qZJ: -force, isGlobal: true }],
   ['pointOnElement3d', 'isGlobal', { a: 1, py: 0, pz: -force, frame: 'local', isGlobal: false }],
   ['distributed', 'frame', { qI: -force, qJ: -force, frame: 'global' }],
@@ -263,10 +263,9 @@ it.runIf(process.env.STABILEO_REVIEW_REPRO === '1').each([
   expect(modelStore.snapshot()).toEqual(before);
 });
 
-it.runIf(process.env.STABILEO_REVIEW_REPRO === '1')('shows the saved-model notice for a null load without losing valid load features', () => {
+it('shows the saved-model notice for a null load without losing valid load features', () => {
   cantilever();
-  setLoad(null);
-  const saved: ReturnType<typeof modelStore.snapshot> = JSON.parse(JSON.stringify(modelStore.snapshot()));
+  const saved = { ...modelStore.snapshot(), loads: JSON.parse('[null]') as ReturnType<typeof modelStore.snapshot>['loads'] };
   expect.soft(assessProject(saved, null, 'basic').changes.map(change => change.id)).toContain('malformed-authored-loads');
   setLoad({ type: 'distributed', data: { elementId: 1, qI: -force, qJ: -force } });
   const features = modelFeatures(modelStore.snapshot(), { storedLoads: saved.loads });

@@ -42,9 +42,12 @@ impl<'de> Deserializer<'de> for AnalysisJs {
     }
 
     fn deserialize_struct<V: Visitor<'de>>(
-        self, _name: &'static str, _fields: &'static [&'static str], visitor: V,
+        self, name: &'static str, _fields: &'static [&'static str], visitor: V,
     ) -> Result<V::Value, Error> {
-        self.deserialize_any(visitor)
+        if !self.0.is_object() || Array::is_array(&self.0) {
+            return Err(de::Error::custom(format_args!("expected named record `{name}` as a map")));
+        }
+        self.deserialize_map(visitor)
     }
 
     fn deserialize_seq<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Error> {

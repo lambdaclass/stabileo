@@ -1,3 +1,4 @@
+import { ModelInputError, requireAuthoredMemberKeys } from '../engine/model-input-numbers';
 import { shouldProjectModelToXZ, type CoordinateNode, type TypedSupportLike } from '../geometry/coordinate-system';
 import { t, tp } from '../i18n';
 import type { Release } from '../store/model.svelte';
@@ -65,6 +66,8 @@ function mapRecords<T>(
 export const NO_RELEASE: Readonly<Release> = Object.freeze({ my: false, mz: false, t: false });
 
 function member(record: object): Fields {
+  const id = (record as Fields | null)?.id;
+  requireAuthoredMemberKeys(`elements.${String(id ?? '?')}`, record);
   return normalizeRecord(record, 'member', (copy, conflict) => {
     for (const [field, alias] of [['releaseI', 'hingeStart'], ['releaseJ', 'hingeEnd']]) {
       const value = copy[field];
@@ -147,6 +150,7 @@ export function modelAliasRefusalFeature(
     return undefined;
   } catch (error) {
     if (error instanceof ModelAliasConflict) return error.feature;
+    if (error instanceof ModelInputError) return undefined;
     throw error;
   }
 }

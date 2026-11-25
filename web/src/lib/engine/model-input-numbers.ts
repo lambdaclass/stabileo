@@ -1,5 +1,5 @@
 import { t, tp } from '../i18n';
-import type { Load, Material, Support } from '../store/model.svelte';
+import type { Element, Load, Material, Support } from '../store/model.svelte';
 import { isSupportType } from '../model/support-types';
 import type { Constraint3D, LinearMpcConstraint } from './types-3d';
 import type { AnalysisSettings, SelfWeightLoad } from './analysis-settings';
@@ -92,18 +92,14 @@ function isLoadType(type: unknown): type is Load['type'] {
 }
 
 function requireLoadSelectors(path: string, type: Load['type'], data: Record<string, unknown>): void {
-  if (type === 'distributed' || type === 'pointOnElement') {
-    const { isGlobal } = data;
-    requireInputField(`${path}.isGlobal`, isGlobal === undefined || typeof isGlobal === 'boolean');
-  }
-  if (type === 'distributed3d' || type === 'pointOnElement3d' || type === 'surface3d') {
-    const { frame } = data;
-    requireInputField(`${path}.frame`, frame === undefined || frame === 'local' || frame === 'global'
-      || (frame === 'projected' && type !== 'pointOnElement3d'));
-  }
-  if (type === 'surface3d' || type === 'thermalQuad3d') {
-    requireInputField(`${path}.on`, data.on === undefined || data.on === 'plate');
-  }
+  const { isGlobal, frame, on } = data;
+  const planarMember = type === 'distributed' || type === 'pointOnElement';
+  const spatialFrame = type === 'distributed3d' || type === 'pointOnElement3d' || type === 'surface3d';
+  const shellTarget = type === 'surface3d' || type === 'thermalQuad3d';
+  requireInputField(`${path}.isGlobal`, isGlobal === undefined || (planarMember && typeof isGlobal === 'boolean'));
+  requireInputField(`${path}.frame`, frame === undefined || (spatialFrame && (frame === 'local' || frame === 'global'
+    || (frame === 'projected' && type !== 'pointOnElement3d'))));
+  requireInputField(`${path}.on`, on === undefined || (shellTarget && on === 'plate'));
 }
 
 export function requireLoadInput(loads: readonly unknown[]): void {
@@ -204,8 +200,23 @@ function validateSupport(path: string, value: unknown): void {
   }
 }
 
-function validateElement(path: string, value: unknown): void {
+const elementFields = {
+  id: true, name: true, type: true, nodeI: true, nodeJ: true, materialId: true, sectionId: true,
+  releaseI: true, releaseJ: true, jointI: true, jointJ: true, hingeStart: true, hingeEnd: true,
+  localYx: true, localYy: true, localYz: true, rollAngle: true, offset: true, variableSection: true,
+  behaviour: true, cablePretension: true, stiffness: true, semiRigid: true, arc: true, keptOver: true,
+  reinforcement: true, unbracedLength: true, kStrong: true, kWeak: true, tensionConnection: true,
+  angleCompression: true, bracing: true, steelLoadHeight: true, composite: true,
+} satisfies Record<keyof Element | 'hingeStart' | 'hingeEnd', true>;
+
+export function requireAuthoredMemberKeys(path: string, value: unknown): Record<string, unknown> {
   const row = recordAt(path, value);
+  requireKnownFields(path, row, elementFields);
+  return row;
+}
+
+function validateElement(path: string, value: unknown): void {
+  const row = requireAuthoredMemberKeys(path, value);
   recordNumbers(path, row, {
     required: ['id', 'nodeI', 'nodeJ', 'materialId', 'sectionId'],
     optional: ['rollAngle', 'cablePretension'],
@@ -283,6 +294,12 @@ const mpcTermFields = {
 
 const legacyDofNames = ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'];
 
+export function requireEccentricReleaseMask(path: string, value: unknown): void {
+  if (value === undefined) return;
+  requireInputField(path, Array.isArray(value) && value.length <= legacyDofNames.length);
+  arrayOf(path, value, booleanAt);
+}
+
 function constraintDof(path: string, value: unknown, migrate: boolean): number {
   const index = migrate && typeof value === 'string' ? legacyDofNames.indexOf(value) : value;
   requireInputField(path, typeof index === 'number' && Number.isInteger(index) && index >= 0 && index < legacyDofNames.length);
@@ -318,7 +335,7 @@ function readConstraint(path: string, input: unknown, migrate: boolean): Constra
   }
   if (type === 'eccentricConnection') {
     recordNumbers(path, row, { required: [], optional: ['offsetX', 'offsetY', 'offsetZ'] });
-    if (row.releases !== undefined) arrayOf(`${path}.releases`, row.releases, booleanAt);
+    requireEccentricReleaseMask(`${path}.releases`, row.releases);
   }
   if (type === 'equalDOF' || (type === 'rigidLink' && row.dofs !== undefined)) {
     requireInputField(`${path}.dofs`, Array.isArray(row.dofs));
@@ -378,6 +395,17 @@ function requireAnalysisInput(value: unknown): void {
 }
 
 type ModelRows = Iterable<readonly [number, unknown]>;
+
+export function fixtureRows(path: string, value: unknown): ModelRows {
+  requireInputField(path, Array.isArray(value));
+  return Array.from(value, (entry: unknown, index) => {
+    const at = `${path}[${index}]`;
+    const row = recordAt(at, entry);
+    const { id } = row;
+    if (!isFiniteInputNumber(id)) throw new InvalidModelNumber(`${at}.id`, id);
+    return [id, row] as const;
+  });
+}
 
 export function requireStructureInput(model: {
   nodes: ModelRows;

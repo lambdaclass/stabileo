@@ -25,6 +25,17 @@ export function agrees(a: number, b: number, scale: number): boolean {
   return Number.isFinite(scale) && agreesAtScale(a, b, Math.max(Math.abs(a), Math.abs(b), scale));
 }
 
+const dyadicBits = new DataView(new ArrayBuffer(Float64Array.BYTES_PER_ELEMENT));
+
+export function dyadicInteger(value: number): bigint {
+  dyadicBits.setFloat64(0, value);
+  const bits = dyadicBits.getBigUint64(0);
+  const exponent = (bits >> 52n) & 0x7ffn;
+  const fraction = bits & 0xfffffffffffffn;
+  const magnitude = exponent === 0n ? fraction : ((1n << 52n) | fraction) << (exponent - 1n);
+  return bits >> 63n ? -magnitude : magnitude;
+}
+
 export class Sum {
   private sum = 0;
   private correction = 0;
