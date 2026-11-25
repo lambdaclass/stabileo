@@ -387,7 +387,7 @@ class ReplayAndClassificationTest(unittest.TestCase):
         false_reject_spec = rf.parse_issue(
             make_issue(50, check="codeaster", kind="false_reject", test="codeaster/false_reject", model={"nodes": {}})
         )
-        self.assertEqual(rf.classify_diff(false_reject_spec, {"status": "refused", "why": ["agreed"]})[0], "passes-now")
+        self.assertEqual(rf.classify_diff(false_reject_spec, {"status": "refused", "why": ["agreed"]})[0], "not-replayable")
         self.assertEqual(rf.classify_diff(false_reject_spec, {"status": "ok", "max_err": {}})[0], "passes-now")
         self.assertEqual(rf.classify_diff(false_reject_spec, {"status": "false_reject", "why": ["bad"]})[0], "still-fails")
         self.assertEqual(rf.classify_diff(false_reject_spec, {"status": "unsupported", "why": ["mpc"]})[0], "not-replayable")
@@ -750,7 +750,6 @@ class ReplayClosureReviewTest(unittest.TestCase):
         self.assertEqual([entry["status"] for entry in report], expected)
         return report, calls
 
-    @unittest.skipUnless(os.environ.get("RUN_NIGHTLY_FOURTH_REVIEW"), "known wrong result: #2578")
     def test_missing_primary_inventory_prevents_manual_and_scheduled_closure(self):
         original = make_issue(1, model={"nodes": {}})
         run = "<!-- nightly-run:41275933376:1 -->"
@@ -765,6 +764,7 @@ class ReplayClosureReviewTest(unittest.TestCase):
         for seed in (42, 43):
             marker = self.record(seed, {"nodes": {str(seed): {}}})
             recovered_records.extend(json.loads(gzip.decompress(base64.b64decode(marker.split()[2]))))
+
         def recovered(records):
             payload = base64.b64encode(gzip.compress(json.dumps(records).encode())).decode()
             return legacy.replace(run, f"<!-- nightly-reproducer:v1 {payload} -->\n{run}")
@@ -789,7 +789,7 @@ class ReplayClosureReviewTest(unittest.TestCase):
                 with self.subTest(name=name, scheduled=scheduled):
                     snapshot = issue
                     if scheduled:
-                        fingerprint = rf._replay_fingerprint(rf.parse_reproducers(issue)) if hasattr(rf, "_replay_fingerprint") else "0" * 64
+                        fingerprint = rf._replay_fingerprint(rf.parse_reproducers(issue))
                         state = json.dumps({"night": "2026-11-24", "fingerprint": fingerprint, "streak": 2})
                         snapshot = {**issue, "body": f"<!-- nightly-replay:v1 {state} -->\n{body}"}
                     partials = self.replay_cli([snapshot], lambda *_: (verdict, None))
@@ -800,7 +800,6 @@ class ReplayClosureReviewTest(unittest.TestCase):
                                  for args, data in calls)
                     self.assertEqual(closed, closes)
 
-    @unittest.skipUnless(os.environ.get("RUN_NIGHTLY_FOURTH_REVIEW"), "known wrong result: #2578")
     def test_false_reject_requires_acceptance_in_both_differential_adapters(self):
         sources = {"opensees": "testing/opensees/compare.py", "codeaster": "testing/differential/codeaster/run.py"}
         issues = [make_issue(number, check=source, kind="false_reject", test=f"{source}/false_reject",
@@ -818,7 +817,6 @@ class ReplayClosureReviewTest(unittest.TestCase):
                     closes = [args[2] for args, _ in calls if args[:2] == ("issue", "close")]
                     self.assertEqual(closes, ["1", "2"] if status == "ok" else [])
 
-    @unittest.skipUnless(os.environ.get("RUN_NIGHTLY_FOURTH_REVIEW"), "known wrong result: #2578")
     def test_verified_artifact_copy_survives_expired_reference_in_either_order(self):
         issue = make_issue(1, model={"nodes": {}})
         marker = self.record(42, {"nodes": {"exact": {}}})
@@ -866,7 +864,6 @@ class ReplayClosureReviewTest(unittest.TestCase):
                 report = rf.merge_reports(fetched, [partials], REPLAY_COMMIT)
                 self.assertEqual([row["status"] for row in report], [expected])
 
-    @unittest.skipUnless(os.environ.get("RUN_NIGHTLY_FOURTH_REVIEW"), "known wrong result: #2578")
     def test_manifest_and_original_bytes_must_both_verify_before_closure(self):
         issue = make_issue(1, model={"nodes": {}})
         record, = json.loads(gzip.decompress(base64.b64decode(self.record(42, {"nodes": {"exact": {}}}).split()[2])))
@@ -1093,7 +1090,7 @@ class ReplayClosureReviewTest(unittest.TestCase):
 
     def test_report_requires_the_commit_actually_checked_out_by_the_worker(self):
         commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-        other = subprocess.check_output(["git", "rev-parse", "HEAD^"], cwd=ROOT, text=True).strip()
+        other = ("1" if commit[0] == "0" else "0") + commit[1:]
         issue = make_issue(1, model={"nodes": {}})
         verdict = {"verdicts": [{"analysis": "linear", "invariant": "rotation", "pass": 1}]}
         with patch.dict(os.environ, {"GITHUB_SHA": other}):

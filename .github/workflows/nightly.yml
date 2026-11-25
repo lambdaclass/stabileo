@@ -1061,12 +1061,30 @@ jobs:
         with:
           pattern: nightly-findings-*
           path: nightly-findings
+      - name: Prepare nightly replay manifests
+        id: prepare-manifests
+        if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || !inputs.findings_dry_run)
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        with:
+          script: |
+            const prepare = require('./.github/scripts/nightly-findings.cjs');
+            core.setOutput('needed', await prepare({ github, context, core, prepareManifests: true }));
+      - name: Store nightly replay manifests
+        id: upload-manifests
+        if: steps.prepare-manifests.outputs.needed == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: nightly-replay-manifests-${{ github.run_attempt }}
+          path: nightly-replay-manifests/*.json
+          if-no-files-found: error
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           FINDINGS_DRY_RUN: ${{ github.ref != 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.findings_dry_run) }}
+          MANIFEST_ARTIFACT_ID: ${{ steps.upload-manifests.outputs.artifact-id }}
         with:
           script: |
-            await require('./.github/scripts/nightly-findings.cjs')({ github, context, core });
+            const manifestArtifactId = process.env.MANIFEST_ARTIFACT_ID;
+            await require('./.github/scripts/nightly-findings.cjs')({ github, context, core, manifestArtifactId });
 
   replay-open-findings:
     needs: [plan, findings]

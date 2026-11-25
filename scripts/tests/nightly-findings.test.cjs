@@ -803,7 +803,6 @@ Test: **fuzz/json_plastic**` +
 });
 
 test('oversized exact inventories use a verified manifest and publication continues',
-  {skip: !process.env.RUN_NIGHTLY_FOURTH_REVIEW && 'known wrong result: #2578'},
   () => fixture(async ({args, calls, comments, issues, save, logs}) => {
     const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
     const count = 900;
@@ -863,10 +862,22 @@ test('oversized exact inventories use a verified manifest and publication contin
     verify(issues[0].body, 130, 1);
     assert.match(issues[0].body, /nightly-reproducer:v2 123 1 /);
 
-    args.context.runId = 131;
+    const fullBody = issues[0].body;
+    const oldBody = fullBody + ' '.repeat(64_000 - Buffer.byteLength(fullBody));
+    issues[0].body = oldBody;
+    args.context.runId = 10000;
+    await report({...args, prepareManifests: true});
+    await report({...args, manifestArtifactId: '10000'});
+    assert.equal(issues[0].body, oldBody);
+    const shortSighting = calls.filter(call => call.name === 'createComment').at(-1).args.body;
+    verify(shortSighting, 10000, 1);
+    assert.match(shortSighting, /<!-- nightly-run:10000:1 -->/);
+    assert.doesNotMatch(shortSighting, /Save as model.json/);
+
+    args.context.runId = 132;
     process.env.FINDINGS_DRY_RUN = 'true';
     const previousCalls = calls.length;
     await report(args);
     assert.equal(calls.length, previousCalls);
-    assert.match(logs.at(-2), /nightly-reproducer:v2 131 1 /);
+    assert.match(logs.at(-2), /nightly-reproducer:v2 132 1 /);
   }));

@@ -138,19 +138,27 @@ up to five sighting comments include a machine-readable
 reproducer block. After five comments, the issue body keeps a cumulative count
 and the latest overflow batch. The first overflow remains eligible for closure
 when every retained input passes. Replacing that batch or encountering a legacy
-overflow of uncertain completeness blocks automatic closure. Oversized records
-point to the original run artifact and include a digest of the exact finding
-file. Closed findings can reopen when they recur.
+overflow of uncertain completeness blocks automatic closure. If a legacy body
+has no room for the overflow batch, a bounded sighting comment preserves the new
+evidence alongside the old body. Large finding files are referenced by digest.
+When the inventory of references also exceeds the inline limit, the workflow
+uploads a replay manifest before publishing the sighting. Replay verifies the
+manifest digest and each referenced finding's digest and selector. A verified
+copy of an exact input is sufficient when another copy has expired. Closed
+findings can reopen when they recur.
 
 On scheduled runs, the nightly workflow uses `replay-findings.yml` to replay
 the saved inputs against that night's main commit. Closure requires three
 consecutive UTC nights of explicit passes for every stored reproducer.
 Each worker binds its result to the exact replay input and checked-out commit.
 The report accepts only partials that match its replay snapshot and expected
-commit. Refused wrong-result inputs, missing or expired artifacts, unsupported
-legacy records, and failed replay jobs leave the issue open. A new sighting
-in the same nightly run also prevents counting a pass. Older issue bodies
-and bot sighting comments with inline models remain replay candidates.
+commit. Refused wrong-result inputs, unresolved artifacts, unsupported legacy
+records, and failed replay jobs leave the issue open. A false-rejection finding
+requires explicit acceptance by the differential check. A new sighting in the
+same nightly run also prevents counting a pass. Current-format sightings require
+their primary machine-readable inventory. A legacy sighting can use its inline
+model if the report did not list other models. Multi-model legacy sightings need
+the recovered exact inventory before closure.
 The manual replay workflow defaults to reporting and also has an explicit
 maintainer close option. Both closure modes recheck the live issue body and
 bot sightings against their replay snapshot. The publishing and closure jobs

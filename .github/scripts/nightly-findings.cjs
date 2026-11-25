@@ -6,27 +6,59 @@ const {canonical, causes, hash, legacySignatures, previousSignature, readDefect,
 
 const ADOPTED = '<!-- nightly-finding-adopted -->';
 const MAX_SIGHTING_COMMENTS = 5;
+const MAX_BODY_BYTES = 64_000;
+const MAX_PAYLOAD_LENGTH = 16_000;
+const MAX_INLINE_BYTES = 3_000_000;
+const MANIFEST_DIRECTORY = 'nightly-replay-manifests';
 const OVERFLOW_COMPLETE = '<!-- nightly-overflow-complete -->';
-const OVERFLOW = /^<!-- nightly-sightings:(\d+):(\d+):(\d+) -->\n[^\n]*\n(?:<!-- nightly-overflow-complete -->\n)?(?:<!-- nightly-reproducer:v1 [A-Za-z0-9+/=]+ -->\n)?/m;
+const OVERFLOW = /^<!-- nightly-sightings:(\d+):(\d+):(\d+) -->\n[^\n]*\n(?:<!-- nightly-overflow-complete -->\n)?(?:<!-- nightly-reproducer:(?:v1 [A-Za-z0-9+/=]+|v2 \d+ \d+ [0-9a-f]{64}) -->\n)?/m;
 const REPLAY_STATE = /^<!-- nightly-replay:v1 \{[^\n]*\} -->\n?/m;
 const DUPLICATE = /^<!-- nightly-duplicate:\d+ -->$/m;
 const LEGACY_KEY = /^<!-- nightly-finding:([0-9a-f]{64}) -->$/m;
 const CURRENT_KEY = /^<!-- nightly-defect:([0-9a-f]{64}) -->$/m;
 const OCCURRENCE = /^<!-- nightly-run:\d+:\d+ -->$/m;
 
-function encodeReproducers(examples, cause, runId, referencesOnly = false) {
-  const entries = [...examples.values()].map(f => {
-    const {test, artifact, reduction, modelHash, file, artifactHash} = f;
-    const entry = {test, seed: String(f.seed), kind: cause.kind, message: cause.message, reduction,
-      modelHash, path: file, runId: String(runId), artifactHash};
-    return !referencesOnly && artifact.length <= 2_000_000 ? {...entry, artifact} : entry;
-  });
-  const encode = data => gzipSync(JSON.stringify(data)).toString('base64');
-  let payload = encode(entries);
-  if (payload.length > 16_000 || entries.reduce((size, entry) => size + JSON.stringify(entry).length, 0) > 3_000_000) {
-    payload = encode(entries.map(({artifact, ...ref}) => ref));
+function encodeReproducers(group, runId, attempt) {
+  const examples = [...group.examples.values()];
+  const references = examples.map(f => ({
+    test: f.test, seed: String(f.seed), kind: group.cause.kind, message: group.cause.message, reduction: f.reduction,
+    modelHash: f.modelHash, path: f.file, runId, artifactHash: f.artifactHash
+  }));
+  const compact = JSON.stringify(references);
+  const artifacts = examples.map(({artifact}) => Buffer.byteLength(artifact) <= 2_000_000 ? artifact : null);
+  const compactBytes = Buffer.byteLength(compact);
+  const embeddedBytes = artifacts.reduce((size, artifact) => size + (artifact ? Buffer.byteLength(artifact) : 0), compactBytes);
+  const contents = embeddedBytes <= MAX_INLINE_BYTES ?
+    [JSON.stringify(references.map((reference, index) => artifacts[index] ? {...reference, artifact: artifacts[index]} : reference)), compact] :
+    [compact];
+  for (const content of contents) {
+    if (Buffer.byteLength(content) > MAX_INLINE_BYTES) continue;
+    const payload = gzipSync(content).toString('base64');
+    if (payload.length <= MAX_PAYLOAD_LENGTH) return {marker: '<!-- nightly-reproducer:v1 ' + payload + ' -->'};
   }
-  return "<!-- nightly-reproducer:v1 " + payload + " -->";
+  const digest = hash(compact);
+  return {marker: '<!-- nightly-reproducer:v2 ' + [runId, attempt, digest].join(' ') + ' -->',
+    file: path.join(MANIFEST_DIRECTORY, digest + '.json'), content: compact};
+}
+
+function persistManifests(batches, {prepareManifests, manifestArtifactId, dry}) {
+  const oversized = [...batches.values()].filter(batch => batch.file);
+  if (prepareManifests && oversized.length) {
+    fs.mkdirSync(MANIFEST_DIRECTORY, {recursive: true});
+    for (const {file, content} of oversized) fs.writeFileSync(file, content);
+  } else if (!prepareManifests && !dry) {
+    for (const {file, content} of oversized) {
+      if (!/^\d+$/.test(manifestArtifactId || '') || !fs.existsSync(file) || fs.readFileSync(file, 'utf8') !== content) {
+        throw Error('Nightly replay manifest upload is required for ' + file);
+      }
+    }
+  }
+  return oversized.length > 0;
+}
+
+function display(value, limit) {
+  const text = String(value);
+  return text.length <= limit ? text : text.slice(0, limit) + '…';
 }
 
 function matchingIssue(issues, key, group, reserved) {
@@ -54,7 +86,7 @@ function size(f) {
   const m = f.model.solver || f.model;
   return ['nodes', 'elements', 'loads', 'supports'].reduce((n, field) => n + Object.keys(m[field] || {}).length, 0);
 }
-module.exports = async ({github, context, core}) => {
+module.exports = async ({github, context, core, prepareManifests = false, manifestArtifactId}) => {
   const {owner, repo} = context.repo;
   const dry = process.env.FINDINGS_DRY_RUN !== 'false';
   const findings = new Map();
@@ -105,6 +137,11 @@ module.exports = async ({github, context, core}) => {
       if (smallerThan(group.examples.get(selector))) group.examples.set(selector, example);
     }
   }
+  const runId = String(context.runId);
+  const attempt = process.env.GITHUB_RUN_ATTEMPT || '1';
+  const batches = new Map([...findings].map(([key, group]) => [key, encodeReproducers(group, runId, attempt)]));
+  const manifestNeeded = persistManifests(batches, {prepareManifests, manifestArtifactId, dry});
+  if (prepareManifests) return manifestNeeded;
   if (!findings.size) { core.info('No structured numerical findings; see job logs for infrastructure failures.'); return; }
   if (!dry) for (const name of new Set(['safety', 'nightly-finding', ...[...findings.values()].map(g => g.cause.kind).filter(k => ['invariance-refusal', 'wrong-result-candidate'].includes(k))])) {
     try { await github.rest.issues.getLabel({owner, repo, name}); }
@@ -122,22 +159,23 @@ module.exports = async ({github, context, core}) => {
   for (const i of issues) {
     if (findings.has(i.defect) || (!i.currentKey && exactKeys.has(i.oldKey))) claimedIssues.add(i.number);
   }
-  const runId = String(context.runId);
-  const attempt = process.env.GITHUB_RUN_ATTEMPT || '1';
   const run = `${context.serverUrl}/${owner}/${repo}/actions/runs/${runId}`;
   for (const [key, group] of findings) {
     const f = group.example;
     const {cause} = group;
     const labels = ['safety', 'nightly-finding', ...(['invariance-refusal', 'wrong-result-candidate'].includes(cause.kind) ? [cause.kind] : [])];
-    const counts = values => [...values].sort().map(([name, count]) => `${name}: ${count}`).join(', ');
-    const diagnostic = cause.code === 'unspecified' ? '' : ` · diagnostic: **${cause.code}**`;
-    const summary = `Check: **${cause.check}** · kind: **${cause.kind}**${diagnostic}\n\nRoot cause: ${cause.message.slice(0, 200)}\n\nThis run: **${group.hits} findings**, **${group.analyses.size} analyses**, **${group.relations.size} relations**, **${group.models.size} models**.\n\nAnalyses (hits): ${counts(group.analyses)}\n\nRelations (hits): ${counts(group.relations)}\n\nOne smallest available reproducer (reduction status below):`;
+    const counts = values => display([...values].sort().map(([name, count]) => `${name}: ${count}`).join(', '), 1_000);
+    const diagnostic = cause.code === 'unspecified' ? '' : ` · diagnostic: **${display(cause.code, 200)}**`;
+    const summary = `Check: **${display(cause.check, 200)}** · kind: **${display(cause.kind, 200)}**${diagnostic}\n\nRoot cause: ${cause.message.slice(0, 200)}\n\nThis run: **${group.hits} findings**, **${group.analyses.size} analyses**, **${group.relations.size} relations**, **${group.models.size} models**.\n\nAnalyses (hits): ${counts(group.analyses)}\n\nRelations (hits): ${counts(group.relations)}\n\nOne smallest available reproducer (reduction status below):`;
     const marker = `<!-- nightly-defect:${key} -->`;
-    const records = encodeReproducers(group.examples, cause, context.runId);
+    const records = batches.get(key).marker;
     const occurrence = `<!-- nightly-run:${runId}:${attempt} -->`;
     const model = JSON.stringify(f.model, null, 2);
     const inline = !f.hasLargeInteger && Buffer.byteLength(model) < 23000 ? `Save as model.json:\n\n\`\`\`json\n${model}\n\`\`\`` : `Download the exact finding JSON from the [run artifacts](${run}) and save its model field as model.json.`;
-    const body = `${marker}\n<!-- nightly-finding:${key} -->\n${records}\n${occurrence}\n${summary}\n\nTest: **${f.test}**\n\nSeed: \`${f.seed}\` · model SHA-256: \`${f.modelHash}\`\n\nReproducer path: \`${f.file}\`\n\n[Run and artifacts](${run}) · commit \`${context.sha}\`\n\nReduction: ${f.reduction}\n\nBuild/replay setup: [NIGHTLY.md](${context.serverUrl}/${owner}/${repo}/blob/${context.sha}/testing/docs/NIGHTLY.md).\n\n\`\`\`sh\n${f.command}\n\`\`\`\n\n${inline}\n\nDetails:\n\n\`\`\`text\n${JSON.stringify(f.details).slice(0, 4000)}\n\`\`\``;
+    const recordHeader = `${marker}\n<!-- nightly-finding:${key} -->\n${records}\n${occurrence}\n`;
+    const detailedBody = `${recordHeader}${summary}\n\nTest: **${display(f.test, 500)}**\n\nSeed: \`${f.seed}\` · model SHA-256: \`${f.modelHash}\`\n\nReproducer path: \`${f.file}\`\n\n[Run and artifacts](${run}) · commit \`${context.sha}\`\n\nReduction: ${display(f.reduction, 1_000)}\n\nBuild/replay setup: [NIGHTLY.md](${context.serverUrl}/${owner}/${repo}/blob/${context.sha}/testing/docs/NIGHTLY.md).\n\n\`\`\`sh\n${display(f.command, 1_000)}\n\`\`\`\n\n${inline}\n\nDetails:\n\n\`\`\`text\n${display(JSON.stringify(f.details), 4_000)}\n\`\`\``;
+    const body = Buffer.byteLength(detailedBody) <= MAX_BODY_BYTES ? detailedBody :
+      recordHeader + `${summary}\n\n[Exact findings and reproducer commands](${run})`;
     const existing = matchingIssue(issues, key, group, claimedIssues);
     if (existing) claimedIssues.add(existing.number);
     if (dry) { core.info("[dry run] " + (existing ? "update #" + existing.number : "create") + " " + f.test + "\n" + body); continue; }
@@ -160,16 +198,21 @@ module.exports = async ({github, context, core}) => {
             `${total} additional sighting${total === 1 ? '' : 's'} after the detailed comment limit. [Latest run](${run}). ` +
             (overflow ? 'Automatic closure is blocked because overflow reproducers are outstanding.\n' :
               'The first overflow batch is retained for replay.\n' + OVERFLOW_COMPLETE + '\n');
-          const replaceSummary = records => overflow ? oldBody.replace(OVERFLOW, () => header + records + '\n') :
-            header + records + '\n\n' + oldBody;
-          nextBody = replaceSummary(records);
-          if (Buffer.byteLength(nextBody) > 64_000) {
-            nextBody = replaceSummary(encodeReproducers(group.examples, cause, context.runId, true));
+          const saved = header + records + '\n';
+          const candidate = overflow ? oldBody.replace(OVERFLOW, () => saved) : saved + '\n' + oldBody;
+          if (Buffer.byteLength(candidate) <= MAX_BODY_BYTES) {
+            nextBody = candidate;
+          } else {
+            const evidence = recordHeader + `[Overflow replay inputs](${run})`;
+            await github.rest.issues.createComment({owner, repo, issue_number, body: evidence});
           }
         }
       }
       if (existing.state === 'closed') nextBody = nextBody.replace(REPLAY_STATE, '');
-      if (!existing.currentKey) nextBody = marker + "\n" + ADOPTED + "\n" + nextBody;
+      if (!existing.currentKey) {
+        const adopted = marker + "\n" + ADOPTED + "\n" + nextBody;
+        if (Buffer.byteLength(adopted) <= MAX_BODY_BYTES) nextBody = adopted;
+      }
       if (nextBody !== oldBody) {
         await github.rest.issues.update({owner, repo, issue_number, body: nextBody});
         Object.assign(existing, readIssue({...existing, body: nextBody}));

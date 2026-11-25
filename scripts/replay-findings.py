@@ -1,6 +1,5 @@
 import argparse
 import base64
-import binascii
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 import gzip
@@ -85,8 +84,17 @@ MODEL_RE = re.compile(r"Save as model\.json:\s+```json\n([\s\S]*?)\n```")
 DETAILS_RE = re.compile(r"Details:\s+```text\n([\s\S]*?)\n```")
 
 REPRODUCER_PREFIX = "<!-- nightly-reproducer:"
-REPRODUCER_LINE = r"<!-- nightly-reproducer:v1 ([A-Za-z0-9+/=]+) -->"
-REPRODUCER_RE = re.compile(rf"^{REPRODUCER_LINE}$", re.M)
+REPRODUCER_LINE = (
+    r"<!-- nightly-reproducer:(?:v1 (?P<payload>[A-Za-z0-9+/=]+)"
+    r"|v2 (?P<run_id>\d+) (?P<attempt>\d+) (?P<digest>[0-9a-f]{64})) -->"
+)
+REPRODUCER_RE = re.compile(rf"^{REPRODUCER_LINE}$", re.M | re.ASCII)
+CURRENT_FINDING_RE = re.compile(r"^(?:<!-- nightly-defect:[0-9a-f]{64} -->|Reproducer path: [^\n]+)$", re.M)
+LEGACY_ADOPTED_RE = re.compile(r"^<!-- nightly-finding-adopted -->$", re.M)
+LEGACY_MODELS_RE = re.compile(
+    r"^This run:[^\n]*?\*\*(\d+) models?\*\*",
+    re.M | re.ASCII,
+)
 RUN_RE = re.compile(r"^<!-- nightly-run:(\d+):\d+ -->$", re.M)
 SIGHTINGS_RE = re.compile(r"^<!-- nightly-sightings:\d+:(\d+):\d+ -->$", re.M)
 OVERFLOW_COMPLETE_RE = re.compile(rf"\n[^\n]*\n<!-- nightly-overflow-complete -->\n{REPRODUCER_LINE}$", re.M)
@@ -264,58 +272,98 @@ def finding_bodies(issue):
     return [issue.get("body") or "", *(issue.get("sightings") or [])]
 
 
-def _decode_reproducers(body):
-    markers = list(REPRODUCER_RE.finditer(body))
-    if not markers and REPRODUCER_PREFIX not in body:
-        return None
-    records = []
-    for marker in markers:
-        with gzip.GzipFile(fileobj=io.BytesIO(base64.b64decode(marker[1], validate=True))) as compressed:
+def _manifest_location(block):
+    run_id, attempt, digest = block.group("run_id", "attempt", "digest")
+    return run_id, f"nightly-replay-manifests-{attempt}", f"{digest}.json", digest
+
+
+def _verified_json(raw, digest, label):
+    if len(raw) > MAX_RECORD_BYTES or hashlib.sha256(raw).hexdigest() != digest:
+        raise ValueError(f"{label} size or digest differs")
+    return json.loads(raw)
+
+
+def _decode_reproducer(block, manifests):
+    if block["payload"]:
+        with gzip.GzipFile(fileobj=io.BytesIO(base64.b64decode(block["payload"], validate=True))) as compressed:
             content = compressed.read(MAX_RECORD_BYTES + 1)
         if len(content) > MAX_RECORD_BYTES:
             raise ValueError("reproducer block exceeds replay size limit")
         batch = json.loads(content)
-        keys = ("test", "seed", "kind", "message", "reduction", "path", "runId", "artifactHash")
-        if not isinstance(batch, list) or not batch or not all(
-            isinstance(record, dict) and all(isinstance(record.get(key), str) for key in keys)
-            for record in batch
-        ):
-            raise ValueError("invalid reproducer records")
-        for record in batch:
-            if "artifact" in record:
-                try:
-                    record.update(_model_from_artifact(record, record.pop("artifact").encode()))
-                except (AttributeError, ValueError, KeyError) as error:
-                    record["error"] = str(error)
-        records.extend(batch)
-    if len(markers) != body.count(REPRODUCER_PREFIX):
-        raise ValueError("invalid or unsupported reproducer block")
+    else:
+        manifest = manifests.get(" ".join(_manifest_location(block)), {})
+        if "content" not in manifest:
+            raise ValueError(manifest.get("error", "nightly replay manifest unavailable"))
+        batch = _verified_json(manifest["content"].encode(), block["digest"], "nightly replay manifest")
+
+    keys = ("test", "seed", "kind", "message", "reduction", "path", "runId", "artifactHash")
+    if not isinstance(batch, list) or not batch or not all(
+        isinstance(record, dict) and all(isinstance(record.get(key), str) for key in keys)
+        for record in batch
+    ):
+        raise ValueError("invalid reproducer records")
+    records = []
+    for entry in batch:
+        record = {key: entry[key] for key in keys}
+        if "artifact" in entry:
+            try:
+                record.update(_model_from_artifact(record, entry["artifact"].encode()))
+            except (AttributeError, ValueError, KeyError) as error:
+                record["error"] = str(error)
+        records.append(record)
     return records
+
+
+def _artifact_selector(record):
+    return json.dumps([record["artifactHash"], record["test"], record["seed"]])
+
+
+def _body_reproducers(body, manifests):
+    blocks = list(REPRODUCER_RE.finditer(body))
+    for block in blocks:
+        primary = body[block.end():block.end() + 1] == "\n" and bool(RUN_RE.match(body, block.end() + 1))
+        try:
+            yield primary, _decode_reproducer(block, manifests), None
+        except (ValueError, EOFError, OSError, zlib.error) as error:
+            yield primary, [], str(error)
+    if len(blocks) != body.count(REPRODUCER_PREFIX):
+        yield False, [], "invalid or unsupported reproducer block"
 
 
 def parse_reproducers(issue):
     specs = []
     resolved = issue.get("resolved_models", {})
-    for index, body in enumerate(finding_bodies(issue)):
-        try:
-            records = _decode_reproducers(body)
-        except (ValueError, EOFError, OSError, binascii.Error, zlib.error) as error:
-            spec = parse_issue({**issue, "body": body})
-            specs.append({**spec, "replayable": False, "not_replayable_reason": str(error)})
-            continue
-        if records is None or (index == 0 and not _body_has_primary_record(body)):
-            specs.append(parse_issue({**issue, "body": body}))
-        for record in records or []:
-            if "model" not in record and record["artifactHash"] in resolved:
-                record = {**record, **resolved[record["artifactHash"]]}
-            specs.append(parse_issue({**issue, "body": body}, record))
-    return specs or [parse_issue(issue)]
+    manifests = issue.get("resolved_manifests", {})
+    for body in finding_bodies(issue):
+        sighting = {**issue, "body": body}
+        batches = list(_body_reproducers(body, manifests))
+        primary = [records for is_primary, records, _ in batches if is_primary]
+        current = CURRENT_FINDING_RE.search(body) and not LEGACY_ADOPTED_RE.search(body)
+        known_models = max((int(count) for count in LEGACY_MODELS_RE.findall(body)), default=1)
+        if len(primary) > 1:
+            missing = "ambiguous primary nightly reproducer inventory"
+        elif current and not primary:
+            missing = "missing primary nightly reproducer inventory"
+        elif not current and known_models > 1 and (
+            not primary or len({_artifact_selector(record) for record in primary[0]}) < known_models
+        ):
+            missing = "legacy nightly report lists multiple models; original reproducer inventory required"
+        else:
+            missing = None
 
-
-def _body_has_primary_record(body):
-    lines = body.splitlines()
-    return any(REPRODUCER_RE.fullmatch(line) and RUN_RE.fullmatch(following)
-               for line, following in zip(lines, lines[1:]))
+        if missing or (not primary and not any(error for _, _, error in batches)):
+            spec = parse_issue(sighting)
+            if missing:
+                spec.update(replayable=False, not_replayable_reason=missing)
+            specs.append(spec)
+        for _, records, error in batches:
+            if error:
+                specs.append({**parse_issue(sighting), "replayable": False, "not_replayable_reason": error})
+            for record in records:
+                if "model" not in record:
+                    record = {**record, **resolved.get(_artifact_selector(record), {})}
+                specs.append(parse_issue(sighting, record))
+    return specs
 
 
 def _replay_fingerprint(specs):
@@ -386,9 +434,7 @@ def classify_diff(spec, row):
     if row_status == "refused" and spec.get("kind") in {"wrong-result-candidate", "silent_singular", "silent_unimposed"}:
         return "not-replayable", f"{test}: main refused the wrong-result reproducer ({serialized})"
 
-    if check_kind == "false_reject":
-        passing = {"ok", "refused"}
-    elif check_kind == "silent_singular":
+    if check_kind == "silent_singular":
         passing = {"ok", "near_singular", "warned_singular"}
     else:
         passing = {"ok"}
@@ -814,6 +860,10 @@ def _resolve_artifact(repo, record, run_gh, archives):
     if not path or not re.fullmatch(r"[0-9]+", run_id) or ".." in path[2].split("/"):
         raise ValueError("invalid nightly run or artifact path")
     name, member = path.groups()
+    return _model_from_artifact(record, _read_artifact_member(repo, run_id, name, member, run_gh, archives))
+
+
+def _read_artifact_member(repo, run_id, name, member, run_gh, archives):
     key = (run_id, name)
     if key not in archives:
         reply = json.loads(run_gh("api", f"repos/{repo}/actions/runs/{run_id}/artifacts?name={name}"))
@@ -827,17 +877,57 @@ def _resolve_artifact(repo, record, run_gh, archives):
         if len(archives) > 4:
             archives.pop(next(iter(archives))).close()
     with archives[key].open(member) as entry:
-        raw = entry.read(MAX_RECORD_BYTES + 1)
-    return _model_from_artifact(record, raw)
+        return entry.read(MAX_RECORD_BYTES + 1)
 
 
 def _model_from_artifact(record, raw):
-    if len(raw) > MAX_RECORD_BYTES or hashlib.sha256(raw).hexdigest() != record["artifactHash"]:
-        raise ValueError("nightly finding file size or digest differs")
-    finding = json.loads(raw)
-    if finding.get("test") != record["test"] or str(finding.get("seed")) != record["seed"]:
+    finding = _verified_json(raw, record["artifactHash"], "nightly finding file")
+    if not isinstance(finding, dict) or finding.get("test") != record["test"] or str(finding.get("seed")) != record["seed"]:
         raise ValueError("nightly finding selector differs")
+    if not isinstance(finding.get("model"), dict):
+        raise ValueError("nightly finding model is not a JSON object")
     return {"model": finding["model"]}
+
+
+ARTIFACT_ERRORS = (ValueError, KeyError, OSError, EOFError, RuntimeError, zipfile.BadZipFile,
+                   zlib.error, subprocess.SubprocessError)
+
+
+def _resolve_issue_reproducers(repo, issue, run_gh, archives, downloaded):
+    manifests = {}
+    models = {}
+    for body in finding_bodies(issue):
+        for block in REPRODUCER_RE.finditer(body):
+            if not block["digest"]:
+                continue
+            run_id, name, member, digest = _manifest_location(block)
+            location = " ".join((run_id, name, member, digest))
+            if location not in manifests:
+                try:
+                    raw = _read_artifact_member(repo, run_id, name, member, run_gh, archives)
+                    _verified_json(raw, digest, "nightly replay manifest")
+                    manifests[location] = {"content": raw.decode()}
+                except ARTIFACT_ERRORS as error:
+                    manifests[location] = {"error": f"nightly replay manifest {digest}: {error}"}
+        for _, records, _ in _body_reproducers(body, manifests):
+            for record in records:
+                selector = _artifact_selector(record)
+                if "model" in models.get(selector, {}):
+                    continue
+                if "model" in record:
+                    models[selector] = {"model": record["model"]}
+                    continue
+                location = (record["runId"], record["path"], selector)
+                if location not in downloaded:
+                    try:
+                        downloaded[location] = _resolve_artifact(repo, record, run_gh, archives)
+                    except ARTIFACT_ERRORS as error:
+                        downloaded[location] = {"error": f"{record['path']}: {error}"}
+                models[selector] = downloaded[location]
+    if manifests:
+        issue["resolved_manifests"] = manifests
+    if models:
+        issue["resolved_models"] = models
 
 
 def fetch_open_issues(repo, gh_runner=None):
@@ -852,29 +942,13 @@ def fetch_open_issues(repo, gh_runner=None):
         for page in pages for i in page if "pull_request" not in i
     ]
     archives = {}
-    resolved = {}
-    for issue in issues:
-        models = {}
-        for body in finding_bodies(issue):
-            try:
-                records = _decode_reproducers(body) or []
-            except (ValueError, EOFError, OSError, binascii.Error, zlib.error):
-                continue
-            for record in records:
-                if "model" in record or "error" in record:
-                    continue
-                digest = record["artifactHash"]
-                key = (record["runId"], record["path"], digest)
-                if key not in resolved:
-                    try:
-                        resolved[key] = _resolve_artifact(repo, record, run_gh, archives)
-                    except (ValueError, KeyError, OSError, RuntimeError, zipfile.BadZipFile, subprocess.SubprocessError) as error:
-                        resolved[key] = {"error": f"{record['path']}: {error}"}
-                models[digest] = resolved[key]
-        if models:
-            issue["resolved_models"] = models
-    for archive in archives.values():
-        archive.close()
+    downloaded = {}
+    try:
+        for issue in issues:
+            _resolve_issue_reproducers(repo, issue, run_gh, archives, downloaded)
+    finally:
+        for archive in archives.values():
+            archive.close()
     return sorted(issues, key=lambda i: i["number"])
 
 
