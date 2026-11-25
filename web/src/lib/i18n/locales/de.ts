@@ -11453,6 +11453,8 @@ const de: Translations = {
   "snow.refused.legacyCombination": "Die gespeicherte Erdbebenkombination hat eine mehrdeutige Schneelastbasis. Kombinationen vor der Verwendung neu erzeugen; allein die Schneelasten neu zu erzeugen reicht nicht aus.",
   "snow.refused.flatRoofCase": "Diese Kombination benötigt einen eigenen Flachdach-Schneelastfall. Schneelasten vor den Kombinationen neu erzeugen.",
   "combos.refused.unresolvedGroup": "Kein Lastfall entspricht dem Symbol {symbol} und der Gruppe „{group}“. Prüfen Sie die gespeicherte Kombinationsregel und ihre Lastfälle.",
+  "combos.refused.alternativeSet": "Die Regel „{rule}“ kann nicht alle Fälle der Alternativgruppe „{set}“ abbilden, ohne Fälle mit demselben Richtungslastsymbol zu kombinieren. Prüfen Sie die Regel und die Alternativgruppen.",
+  "combos.refused.directionalCase": "Die Regel „{rule}“ lässt den Richtungslastfall „{case}“ in allen Kombinationen aus. Prüfen Sie die Regel und die Alternativgruppen.",
   "snow.refused.physicalCase": "Diese Kombination benötigt einen eigenen physikalischen Schneelastfall. Schneelasten vor den Kombinationen neu erzeugen.",
   'snow.case.balanced': 'Gleichmäßige Schneelast (ps = {ps} kN/m²)',
   'snow.derivation.multipleUnbalanced': 'Ungleichmäßig (§6.3, Abbildung 6): von 0,5 pf an den Firsten bis {valley} kN/m² in den Kehlen, wobei der Schnee über einer Kehle unter dem über dem First bleibt.',
