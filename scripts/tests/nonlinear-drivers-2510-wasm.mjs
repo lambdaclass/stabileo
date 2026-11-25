@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { registerArcReviewTests, registerDisplacementFixture, registerRoundTwoTests, registerRounding2560Tests } from './arc-review-wasm.mjs';
+import { registerExactMemberActionTests } from './planar-exact-member-actions.mjs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 
 engine.initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
@@ -113,3 +114,4 @@ const reviewDrivers = {
 };
 registerRoundTwoTests(reviewDrivers);
 registerRounding2560Tests(reviewDrivers);
+registerExactMemberActionTests(reviewDrivers);
