@@ -1,6 +1,6 @@
 import { beforeAll, expect, it } from 'vitest';
 import { initSolver } from '../wasm-solver';
-import { engine_reproduce_hashes, solve_2d, solve_3d, solve_arc_length, solve_displacement_control, solve_pdelta_2d, solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
+import { certify_time_history_2d, certify_time_history_3d, solve_time_history_2d, solve_time_history_3d, engine_reproduce_hashes, solve_2d, solve_3d, solve_arc_length, solve_displacement_control, solve_pdelta_2d, solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
 
 beforeAll(async () => { await initSolver(); });
 
@@ -187,3 +187,20 @@ it('accepts documented empty planar shell collections, aliases and linear option
   expect(() => solve_2d(loadedShell)).toThrow(/Shell elements require 3D analysis/);
   expect(() => solve_pdelta_2d(JSON.stringify(loadedShell), 20, 1e-9)).toThrow(/Shell elements require 3D analysis/);
 });
+
+it.skipIf(process.env.STABILEO_REPRODUCE_STRUCTURE_DISPATCH !== '1').each([false, true])(
+  'refuses an excitation field used by the other dimension (space = %s)', (is3D) => {
+    const solver = is3D ? space : planar;
+    const solve = is3D ? solve_time_history_3d : solve_time_history_2d;
+    const certify = is3D ? certify_time_history_3d : certify_time_history_2d;
+    const base = { solver, densities: { 1: 1 }, timeStep: 1, nSteps: 3 };
+    const [accepted, wrong] = is3D ? ['groundAccelX', 'groundAccel'] : ['groundAccel', 'groundAccelX'];
+    const acceleration = [0, 1, 0];
+    for (const run of [solve, certify]) {
+      expect.soft(() => run(JSON.stringify(base))).not.toThrow();
+      expect.soft(() => run(JSON.stringify({ ...base, [accepted]: acceleration }))).not.toThrow();
+      expect.soft(() => run(JSON.stringify({ ...base, [wrong]: acceleration }))).toThrow(wrong);
+      expect.soft(() => run(JSON.stringify({ ...base, methdo: 'hht' }))).toThrow('methdo');
+    }
+  },
+);

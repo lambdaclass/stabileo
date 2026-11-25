@@ -183,3 +183,38 @@ it('keeps omitted legacy fields and a supported constraint alias solvable', asyn
   expect(modelStore.model.constraints).toEqual([{ type: 'equalDOF', masterNode: root, slaveNode: tip, dofs: [1] }]);
   expect(validateAndSolve2D(modelStore.model)).toEqual(plane);
 });
+
+describe.skipIf(process.env.STABILEO_REPRODUCE_STRUCTURE_DISPATCH !== '1')('known wrong result: cause:A', () => {
+  it.each([null, false, 1])('refuses a supplied release container %s before canonicalisation can erase it', async (releaseI) => {
+    const before = modelStore.snapshot();
+    const badSnapshot = {
+      ...before,
+      elements: before.elements.map(([id, element]) => [id, { ...element, releaseI }]),
+    };
+    const badFixture = fixture();
+    Object.assign(badFixture.elements[0]!, { releaseI });
+    await refuses('releaseI', {
+      restore: () => modelStore.restore(badSnapshot as never),
+      replay: () => loadFixture(badFixture, modelStore.fixtureApi() as never),
+      apply: () => modelStore.loadExample(badFixture.name, async () => badFixture),
+    });
+    expect(modelStore.snapshot()).toEqual(before);
+  });
+
+  it('refuses a coupled constraint before either plane adapter drops the equation', async () => {
+    const model = modelStore.model;
+    model.constraints = [{ type: 'linearMPC', terms: [
+      { nodeId: tip, dof: 0, coefficient: 1 }, { nodeId: tip, dof: 1, coefficient: -1 },
+    ] }];
+    await refuses('constraints[0].terms', {
+      builder: () => buildSolverInput2D(model),
+      sync: () => validateAndSolve2D(model),
+      async: () => validateAndSolve2DAsync(model),
+      combination: () => solveCombinations2D(model, [loadCase], [combo]),
+      'store XY': () => modelStore.solve(false, 'xy'),
+      'store XZ': () => modelStore.solveAsync(false, 'xz'),
+      'store advanced': () => modelStore.buildSolverInput(false, 'xz'),
+    });
+    expect(buildSolverInput3D(model)?.constraints).toEqual(model.constraints);
+  });
+});

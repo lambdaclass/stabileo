@@ -120,6 +120,35 @@ mod tests {
         assert!(failures.is_empty(), "{}", failures.join("\n"));
     }
 
+    #[test]
+    #[ignore = "known wrong result: cause:A"]
+    fn time_history_rejects_cross_dimension_excitation() {
+        use crate::solver::time_integration::{solve_time_history_2d, solve_time_history_3d};
+        use crate::types::{TimeHistoryInput, TimeHistoryInput3D};
+
+        let run = |text: &str, space| {
+            if space {
+                let input = serde_json::from_str::<TimeHistoryInput3D>(text).map_err(|e| e.to_string())?;
+                solve_time_history_3d(&input).map(|_| ())
+            } else {
+                let input = serde_json::from_str::<TimeHistoryInput>(text).map_err(|e| e.to_string())?;
+                solve_time_history_2d(&input).map(|_| ())
+            }
+        };
+
+        let mut failures = Vec::new();
+        for (space, field) in [(false, "groundAccelX"), (true, "groundAccel")] {
+            let mut input = json!({"solver": cantilever(space), "densities": {"1": 1}, "timeStep": 1, "nSteps": 3});
+            assert!(run(&input.to_string(), space).is_ok());
+            input[field] = json!([0, 1, 0]);
+            let result = run(&input.to_string(), space);
+            if !matches!(&result, Err(error) if error.contains(field)) {
+                failures.push(format!("space={space}, {field}: {result:?}"));
+            }
+        }
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+
     fn cantilever(space: bool) -> Value {
         let mut input = json!({
             "nodes": {"1": {"id": 1, "x": 0, "z": 0}, "2": {"id": 2, "x": 5, "z": 0}},
