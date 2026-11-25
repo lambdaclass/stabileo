@@ -1696,3 +1696,47 @@ fn no_hanging_node_is_left_on_a_fold() {
     let total = total_reaction(&solve(&refined));
     assert!((total[0] + 3.0).abs() < 1e-9, "{total:?}");
 }
+
+#[test]
+fn a_constraint_that_only_looks_like_a_hanging_node_is_refused() {
+    let m = bent_square(3, false).input;
+    let once = refine_marked(&m, GeometryMode::Faceted, &only(&[element_at(&m, false, 0.5, 0.5)])).unwrap().input;
+    let hung = hanging_nodes(&once).unwrap();
+    assert_eq!(hung.len(), 4);
+    let refused = Err("constraints".to_string());
+    let bent = once
+        .constraints
+        .iter()
+        .position(|c| matches!(c, Constraint::LinearMPC(mpc) if mpc.terms.len() > 3))
+        .expect("a plate's hanging node is tied with the bending term");
+
+    let mut other_bending = once.clone();
+    let Constraint::LinearMPC(mpc) = &mut other_bending.constraints[bent] else { panic!() };
+    mpc.terms[3].coefficient *= 2.0;
+    assert_eq!(hanging_nodes(&other_bending), refused);
+
+    let mut plain_mean = once.clone();
+    let Constraint::LinearMPC(mpc) = &mut plain_mean.constraints[bent] else { panic!() };
+    mpc.terms.truncate(3);
+    assert_eq!(hanging_nodes(&plain_mean), refused);
+
+    let mut off_the_middle = once.clone();
+    let node = *hung.keys().min().unwrap();
+    off_the_middle.nodes.values_mut().find(|n| n.id == node).unwrap().x += 1e-3;
+    assert_eq!(hanging_nodes(&off_the_middle), refused);
+
+    let mut elsewhere = m.clone();
+    let (tied, a, b) = (m.quads["5"].nodes[0], m.quads["1"].nodes[0], m.quads["9"].nodes[2]);
+    for dof in 0..6 {
+        elsewhere.constraints.push(Constraint::LinearMPC(LinearMPCConstraint {
+            terms: vec![
+                MPCTerm { node_id: tied, dof, coefficient: 1.0 },
+                MPCTerm { node_id: a, dof, coefficient: -0.5 },
+                MPCTerm { node_id: b, dof, coefficient: -0.5 },
+            ],
+        }));
+    }
+    assert_eq!(hanging_nodes(&elsewhere), refused, "the mean of two nodes that are not the ends of an edge");
+    assert_eq!(refine_marked(&elsewhere, GeometryMode::Faceted, &only(&[element_at(&m, false, 0.5, 0.5)])).err(), Some("constraints".to_string()));
+    assert_eq!(adapt_3d(&elsewhere, &AdaptOptions { target: 1e-6, ..AdaptOptions::default() }).err(), Some("constraints".to_string()));
+}
