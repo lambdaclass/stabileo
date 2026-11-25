@@ -19,6 +19,17 @@ import { describe, it, expect } from 'vitest';
 import { validateAndSolve2D, validateAndSolve3D, validateAndSolve3DAsync, type ModelData } from '../solver-service';
 import type { Constraint3D } from '../types-3d';
 
+function frameProperties(): Pick<ModelData, 'materials' | 'sections'> {
+  return {
+    materials: new Map([
+      [1, { id: 1, name: 'steel', e: 210000, nu: 0.3, rho: 78.5, fy: 250 }],
+    ]),
+    sections: new Map([
+      [1, { id: 1, name: 'IPE200', shape: 'I', a: 0.0029, iz: 1.94e-5, iy: 1.42e-6, j: 6.98e-8, h: 0.2, b: 0.1, tw: 0.0056, tf: 0.0085 }],
+    ]),
+  };
+}
+
 // Build a minimal 2D model: two valid nodes connected by one frame element,
 // with a fixed support at node 1, plus an extra "constraint-only" node 3.
 function baseModel2D(extraNodeId: number): ModelData {
@@ -28,12 +39,7 @@ function baseModel2D(extraNodeId: number): ModelData {
       [2, { id: 2, x: 5, y: 0 }],
       [extraNodeId, { id: extraNodeId, x: 5, y: 1 }],
     ]),
-    materials: new Map([
-      [1, { id: 1, name: 'steel', E: 210e9, nu: 0.3, density: 7850, fy: 250e6 }],
-    ]),
-    sections: new Map([
-      [1, { id: 1, name: 's', shape: 'IPE', label: 'IPE200', A: 0.0029, Iz: 1.94e-5, Iy: 1.42e-6, J: 6.98e-8, h: 0.2, b: 0.1, tw: 0.0056, tf: 0.0085 }],
-    ]),
+    ...frameProperties(),
     elements: new Map([
       [1, {
         id: 1, type: 'frame', nodeI: 1, nodeJ: 2,
@@ -57,12 +63,7 @@ function baseModel3D(extraNodeId: number): ModelData {
       [2, { id: 2, x: 5, y: 0, z: 0 }],
       [extraNodeId, { id: extraNodeId, x: 5, y: 0, z: 1 }],
     ]),
-    materials: new Map([
-      [1, { id: 1, name: 'steel', E: 210e9, nu: 0.3, density: 7850, fy: 250e6 }],
-    ]),
-    sections: new Map([
-      [1, { id: 1, name: 's', shape: 'IPE', label: 'IPE200', A: 0.0029, Iz: 1.94e-5, Iy: 1.42e-6, J: 6.98e-8, h: 0.2, b: 0.1, tw: 0.0056, tf: 0.0085 }],
-    ]),
+    ...frameProperties(),
     elements: new Map([
       [1, {
         id: 1, type: 'frame', nodeI: 1, nodeJ: 2,
