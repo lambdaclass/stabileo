@@ -75,7 +75,7 @@ function enteredMoment(d: PointLoadOnElement): number {
   return d.my || d.mz || 0;
 }
 
-function enteredLoads(model: ModelData, loads: readonly Load[], frame: Frame, leftHand: boolean, caseId: number, definitions: ReadonlySet<number>): Wrench {
+function enteredLoads(model: ModelData, loads: readonly Load[], frame: Frame, leftHand: boolean, caseId: number, definitions: ReadonlySet<number>, onNodes: (id: number) => boolean = () => false): Wrench {
   const out = new Wrench();
   const at = (id: number): Vector => {
     const node = model.nodes.get(id);
@@ -127,7 +127,7 @@ function enteredLoads(model: ModelData, loads: readonly Load[], frame: Frame, le
     const originalI = model.nodes.get(member.nodeI), originalJ = model.nodes.get(member.nodeJ);
     if (!originalI || !originalJ) unsupported(model, caseId, load.type, d.id);
     const drawnChord = sub(xyz(originalJ), xyz(originalI));
-    const spatial = frame === 'space' ? memberFrame3D(model, member) : null;
+    const spatial = frame === 'space' ? memberFrame3D(model, onNodes(member.id) ? { ...member, offset: undefined } : member) : null;
     if (frame === 'space' && !spatial) unsupported(model, caseId, load.type, d.id);
     const start = spatial?.ni ?? at(member.nodeI), end = spatial?.nj ?? at(member.nodeJ);
     const axis = unit(sub(end, start)), length = norm(sub(end, start));
@@ -323,20 +323,22 @@ export function loadAccounting3D(
   }
 
   const frame = embedded ? 'xz' : 'space';
+  // An input built without expanding the offsets carries each member, and its loads, on its nodes.
+  const onNodes = (id: number) => { const w = input.elements.get(id), m = source.elements.get(id); return !!w && !!m && !!m.offset && w.nodeI === m.nodeI && w.nodeJ === m.nodeJ; };
   const cache = new Map<number, { totals: Wrench; names: Set<string> }>();
   const expected = (caseId: number): { totals: Wrench; names: Set<string> } => {
     const cached = cache.get(caseId);
     if (cached) return cached;
     const batch = pressures.get(caseId) ?? [];
     const definitions = new Set(batch.map(({ id }) => id));
-    const totals = enteredLoads(source, authored.get(caseId) ?? [], frame, leftHand, caseId, definitions);
+    const totals = enteredLoads(source, authored.get(caseId) ?? [], frame, leftHand, caseId, definitions, onNodes);
     const names = new Set(batch.map(({ plate }) => plate.name));
     for (const { plate, pressure } of batch) totals.apply(plate.centroid, pressure.scale(plate.area));
     const rule = effects?.cases.get(caseId);
     const result = new Wrench();
     result.addScaled(totals, rule?.ratio ?? 1);
     const generated = effects?.generated.get(caseId);
-    if (generated) result.addScaled(enteredLoads(source, generated, frame, leftHand, caseId, definitions), 1);
+    if (generated) result.addScaled(enteredLoads(source, generated, frame, leftHand, caseId, definitions, onNodes), 1);
     for (const { caseId: from, factor } of rule?.includes ?? []) {
       const part = expected(from);
       result.addScaled(part.totals, factor);
