@@ -13,6 +13,7 @@ import { CIRSOC101_BASIS } from '../codes/families/cirsoc';
 import { expandCombinations, modelCombinationCases, presentSymbols, type CombinationCase } from '../engine/loads/combination-cases';
 import { tp } from '../i18n';
 import { remapSupportElement } from '../model/support-types';
+import { selfWeightScope } from '../engine/self-weight';
 
 export interface JSONModel {
   name: string;
@@ -118,7 +119,7 @@ interface FixtureLoadOptions {
  */
 export function loadFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOptions = {}): void {
   const canonical = canonicalizeModelAliases(json);
-  validateFixtureSupportFrames(canonical);
+  validateFixtureReferences(canonical);
   const load = () => replayFixture(canonical, api, opts);
   if (api.replay) api.replay(load);
   else load();
@@ -132,9 +133,10 @@ function fixtureSupportElement(support: JSONModel['supports'][number], elementId
   return reference;
 }
 
-export function validateFixtureSupportFrames(json: JSONModel): void {
+export function validateFixtureReferences(json: JSONModel): void {
   const ids = new Set(json.elements.map(e => e.id));
   for (const support of json.supports) fixtureSupportElement(support, id => ids.has(id) ? id : undefined);
+  for (const rule of json.analysis?.selfWeight ?? []) selfWeightScope({ elements: ids }, rule);
 }
 
 function replayFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOptions): void {

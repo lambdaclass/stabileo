@@ -1,4 +1,5 @@
 use crate::types::*;
+use std::collections::{BTreeMap, HashMap};
 
 pub(crate) const MAX_SUPPORT_ANGLE: f64 = 1_000_000.0;
 
@@ -32,15 +33,30 @@ fn support_dof(restrained: bool, spring: Option<f64>, same_frame: bool) -> Suppo
     }
 }
 
+const PLAIN_RIGID_TYPES_2D: [(&str, [bool; 3]); 8] = [
+    ("fixed", [true, true, true]),
+    ("pinned", [true, true, false]),
+    ("rollerX", [false, true, false]),
+    ("rollerZ", [true, false, false]),
+    ("rollerY", [true, false, false]),
+    ("guidedX", [false, true, true]),
+    ("guidedZ", [true, false, true]),
+    ("guidedY", [true, false, true]),
+];
+
+fn plain_rigid_type_dofs_2d(name: &str) -> Option<[bool; 3]> {
+    PLAIN_RIGID_TYPES_2D.iter().find_map(|&(kind, dofs)| (kind == name).then_some(dofs))
+}
+
+pub(crate) fn plain_rigid_support_type_2d(dofs: [bool; 3]) -> Option<&'static str> {
+    PLAIN_RIGID_TYPES_2D.iter().find_map(|&(kind, held)| (held == dofs).then_some(kind))
+}
+
 pub(crate) fn support_dofs_2d(s: &SolverSupport) -> [SupportDof; 3] {
-    let restrained = match s.support_type.as_str() {
-        "fixed" => [true, true, true],
-        "pinned" => [true, true, false],
-        "rollerX" | "inclinedRoller" => [false, true, false],
-        "rollerY" | "rollerZ" => [true, false, false],
-        "guidedX" => [false, true, true],
-        "guidedY" | "guidedZ" => [true, false, true],
-        _ => [false; 3],
+    let restrained = if s.support_type == "inclinedRoller" {
+        [false, true, false]
+    } else {
+        plain_rigid_type_dofs_2d(&s.support_type).unwrap_or([false; 3])
     };
     let springs = [s.kx, s.ky, s.kz];
     let inclined = s.support_type == "inclinedRoller";
@@ -56,6 +72,48 @@ pub(crate) fn support_dofs_3d(s: &SolverSupport3D) -> [SupportDof; 7] {
     };
     let springs = [s.kx, s.ky, s.kz, s.krx, s.kry, s.krz, s.kw];
     std::array::from_fn(|i| support_dof(restrained[i], springs[i], !inclined || i >= 3))
+}
+
+pub(crate) fn supports_by_node<S>(
+    supports: &HashMap<String, S>,
+    node_id: impl Fn(&S) -> usize,
+) -> BTreeMap<usize, Vec<(&String, &S)>> {
+    let mut groups = BTreeMap::<usize, Vec<(&String, &S)>>::new();
+    for (key, support) in crate::ordered::entries(supports) {
+        groups.entry(node_id(support)).or_default().push((key, support));
+    }
+    groups
+}
+
+pub(crate) fn rigid_support_union<'a, S: 'a, const N: usize>(
+    supports: impl IntoIterator<Item = &'a S>,
+    rigid_dofs: impl Fn(&S) -> Option<[bool; N]>,
+) -> Option<[bool; N]> {
+    let mut union = [false; N];
+    for support in supports {
+        for (held, add) in union.iter_mut().zip(rigid_dofs(support)?) {
+            *held |= add;
+        }
+    }
+    Some(union)
+}
+
+pub(crate) fn plain_rigid_dofs_2d(s: &SolverSupport) -> Option<[bool; 3]> {
+    let dofs = support_dofs_2d(s);
+    let has_action = dofs.iter().filter_map(|d| d.spring)
+        .chain([s.dx, s.dz, s.dry, s.angle].into_iter().flatten())
+        .any(|value| value != 0.0);
+    if has_action { None } else { plain_rigid_type_dofs_2d(&s.support_type) }
+}
+
+pub(crate) fn plain_rigid_dofs_3d(s: &SolverSupport3D) -> Option<[bool; 7]> {
+    let dofs = support_dofs_3d(s);
+    let inclined = s.is_inclined.unwrap_or(false)
+        || [s.normal_x, s.normal_y, s.normal_z].iter().any(Option::is_some);
+    let has_action = dofs.iter().filter_map(|d| d.spring)
+        .chain([s.dx, s.dy, s.dz, s.drx, s.dry, s.drz].into_iter().flatten())
+        .any(|value| value != 0.0);
+    (!inclined && !has_action).then(|| dofs.map(|d| d.restrained))
 }
 
 fn validate<const N: usize>(key: &str, node: usize, dofs: [SupportDof; N], names: [&str; N], restraints: [&str; N]) -> Result<(), String> {

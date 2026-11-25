@@ -188,7 +188,7 @@ fn issue_1095_modal_refuses_the_free_translation_without_dropping_its_mode() {
             .expect_err("a modal result omitted the mechanism mode");
         assert!(error.starts_with("MODAL-MECHANISM:"), "{analysis}: {error}");
         assert!(
-            error.contains("moves node 3 along ux") && error.contains("No modes are returned"),
+            error.contains("mechanism at node 3 (dominant component: ux)") && error.contains("No modes are returned"),
             "{analysis}: {error}"
         );
     }

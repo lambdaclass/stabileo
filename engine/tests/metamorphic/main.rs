@@ -34,6 +34,7 @@ mod checks3;
 mod corpus;
 mod modal_checks;
 mod modal_mass_range;
+mod modal_null;
 mod parity;
 mod nightly_tolerances;
 mod dynamic_accuracy;
@@ -289,3 +290,5 @@ fn inclined_support_moving_shear_is_invariant_under_ci_rotation() {
     assert!(tally.failures().is_empty(), "{}", tally.failures().join("\n"));
     assert_eq!(tally.cells.lock().unwrap()[&("moving loads".into(), "rotation".into())].pass, 1);
 }
+
+mod support_invariance;

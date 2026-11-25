@@ -170,3 +170,28 @@ fn a_helix_beyond_the_increments_reach_is_reported_unconverged_not_wrong() {
     assert!(r.load_factor < 1.0, "{}", r.load_factor);
     assert!(known(&r.results.structured_diagnostics).contains(&"NL-3".to_string()));
 }
+
+#[test]
+fn issue_458_loaded_skew_rotation_refuses_in_equivalent_spatial_frames() {
+    use dedaliano_engine::metamorphic::transform::{Iso3, transform_3d};
+    use dedaliano_engine::metamorphic::units::{Units, scale_3d};
+
+    for released in [true, false] {
+        let model = skew_mechanism([-1.3, 2.0, 0.0], released);
+        for units in [Units::froude(1.0, 1.0), Units::froude(0.001, 1000.0), Units::froude(25.0, 0.01)] {
+            let scaled = scale_3d(&model, &units);
+            for iso in [Iso3::about_z(0.0), Iso3::from_euler(0.37, -0.41, 0.59).translated([3.0, -4.0, 2.0])] {
+                let transformed = transform_3d(&scaled, &iso).unwrap();
+                if released {
+                    let error = solve_3d(&transformed).unwrap_err();
+                    assert!(error.contains("Nodal moment at node 2 is not supported"), "{error}");
+                    let error = certify_linear_3d_full(&transformed).unwrap_err();
+                    assert!(error.contains("Nodal moment at node 2 is not supported"), "{error}");
+                } else {
+                    solve_3d(&transformed).unwrap();
+                    assert!(certify_linear_3d_full(&transformed).unwrap().certificate.is_certified());
+                }
+            }
+        }
+    }
+}

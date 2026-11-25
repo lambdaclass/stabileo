@@ -9,6 +9,10 @@ import { buildSolverInput3D, solveCombinations3D, solveCombinations3DParallel, v
 import { modelStore, uiStore } from '../../store';
 import { t } from '../../i18n';
 import { solveNonlinear3DAsync, type NonlinearStep } from '../member-behaviour';
+import { subdivideForAnalysis } from '../../model/edit/analysis-subdivision';
+import { createSectionWeight } from '../../section/weight';
+import * as solveCounter from '../../utils/solve-counter';
+import { GRAVITY_SELF_WEIGHT } from '../analysis-settings';
 
 let steps: string[], freed: number;
 class FakeWorker implements WorkerLike {
@@ -200,6 +204,110 @@ it('captures model and combinations before yielding, including proxy-backed nest
   model.nodes.get(c)!.x += 3;
   combos[0]!.factors[0]!.factor = 2;
   expect(output(await pending)).toBe(output(expected));
+});
+
+const snapshotModes = ['single', 'solveEach', 'superpose', 'pdelta'] as const;
+
+function projectedGravity(mode: (typeof snapshotModes)[number], shell?: 'plates' | 'quads') {
+  const { a, b } = beam();
+  const [dead] = modelStore.model.loadCases;
+  const member = [...modelStore.elements.values()].find(e => e.nodeI === a)!;
+  const support = [...modelStore.supports.values()].find(s => s.nodeId === b)!;
+  if (mode === 'pdelta') modelStore.updateSupport(support.id, { uplift: false });
+  const material = modelStore.materials.get(member.materialId)!;
+  const thickness = 1 / 8;
+  const shellNodes = shell ? [a, ...[[0, 1], [1, 1], [1, 0]].slice(0, shell === 'plates' ? 2 : 3).map(([x, y]) => {
+    const node = modelStore.addNode(x!, y!, 0);
+    modelStore.addSupport(node, 'fixed3d');
+    return node;
+  })] : [];
+  const shellId = shell === 'plates' ? modelStore.addPlate(shellNodes as [number, number, number], material.id, thickness)
+    : shell === 'quads' ? modelStore.addQuad(shellNodes as [number, number, number, number], material.id, thickness) : undefined;
+  const groupId = modelStore.addGroup('Gravity', 'user', { elements: [member.id], ...(shell && shellId !== undefined && { [shell]: [shellId] }) });
+  const { groups, plates, quads } = modelStore.model;
+  const source = { ...md(), groups, plates, quads, loads: modelStore.loads.filter(l => l.data.caseId === dead!.id) };
+  source.analysis = {
+    selfWeight: [{ caseId: dead!.id, ...GRAVITY_SELF_WEIGHT, groupId }],
+    ...(mode === 'pdelta' ? { perCombination: mode } : mode === 'single' ? {} : { combinationMethod: mode }),
+  };
+  const first = subdivideForAnalysis(source, 2);
+  const second = subdivideForAnalysis(first.model, 2);
+  const length = source.nodes.get(b)!.x - source.nodes.get(a)!.x;
+  const memberWeight = length * createSectionWeight(source.materials)(source.sections.get(member.sectionId)!, member.materialId);
+  const shellWeight = shell ? (shell === 'plates' ? 1 / 2 : 1) * thickness * material.rho! : 0;
+  const tipLoad = source.loads.reduce((sum, load) => load.type === 'nodal3d' ? sum - load.data.fz : sum, 0);
+  const combo = { id: 1, name: dead!.name, factors: [{ caseId: dead!.id, factor: 1 }] };
+  async function solveGravity() {
+    const answer = mode === 'single' ? await validateAndSolve3DAsync(second.model)
+      : await solveCombinations3DParallel(second.model, [dead!], [combo]);
+    if (!answer || typeof answer === 'string') return answer;
+    const results = 'perCombo' in answer ? answer.perCombo.get(combo.id) : answer;
+    return results?.reactions.reduce((sum, row) => sum + row.fz, 0);
+  }
+  return { source, first, second, member: member.id, groupId, shellId, memberWeight, shellWeight, tipLoad, solveGravity };
+}
+
+for (const mode of snapshotModes) {
+  it.each(['worker', 'fallback'] as const)(`#2565 — ${mode} %s captures projected group membership before assembly`, async runtime => {
+    if (runtime === 'fallback') setWorkerFactoryForTests(null);
+    const { groupId, solveGravity, tipLoad, memberWeight } = projectedGravity(mode);
+    const edit = vi.spyOn(solveCounter, 'noteStructuralSolve').mockImplementationOnce(() => {
+      modelStore.setGroupMembers(groupId, { elements: [] });
+    });
+    const answer = await solveGravity();
+    expect(edit).toHaveBeenCalled();
+    expect(modelStore.model.groups.get(groupId)?.members.elements).toEqual([]);
+    expect(answer).toBeCloseTo(tipLoad + memberWeight, 10);
+    expect(await solveGravity()).toBeCloseTo(tipLoad, 10);
+  });
+}
+
+type GravityFixture = ReturnType<typeof projectedGravity>;
+const projectionEdits: Record<string, (fixture: GravityFixture) => void> = {
+  'group map': ({ source, groupId }) => { source.groups.delete(groupId); },
+  'membership array': ({ source, groupId }) => { source.groups.get(groupId)!.members.elements!.length = 0; },
+  'source member map': ({ source, member }) => { source.elements.delete(member); },
+  'first replacement array': ({ first, member }) => { first.segments.get(member)!.splice(1); },
+  'last replacement map': ({ second, member }) => { second.segments.delete(member); },
+};
+
+for (const [target, edit] of Object.entries(projectionEdits)) {
+  it(`#2565 — captures the projection's ${target} before assembly`, async () => {
+    const fixture = projectedGravity('single');
+    const called = vi.spyOn(solveCounter, 'noteStructuralSolve').mockImplementationOnce(() => edit(fixture));
+    const answer = await fixture.solveGravity();
+    expect(called).toHaveBeenCalledOnce();
+    expect(answer).toBeCloseTo(fixture.tipLoad + fixture.memberWeight, 10);
+  });
+}
+
+it.each(['plates', 'quads'] as const)('#2565 — captures the projection source for %s before assembly', async shell => {
+  const { source, shellId, solveGravity, tipLoad, memberWeight, shellWeight } = projectedGravity('single', shell);
+  const edit = vi.spyOn(solveCounter, 'noteStructuralSolve').mockImplementationOnce(() => { source[shell]!.delete(shellId!); });
+  const answer = await solveGravity();
+  expect(edit).toHaveBeenCalledOnce();
+  expect(answer).toBeCloseTo(tipLoad + memberWeight + shellWeight, 10);
+});
+
+it('#2565 — refuses a missing target even if it reappears before assembly', async () => {
+  const { source, member, solveGravity } = projectedGravity('single');
+  const original = source.elements.get(member)!;
+  source.elements.delete(member);
+  const edit = vi.spyOn(solveCounter, 'noteStructuralSolve').mockImplementationOnce(() => { source.elements.set(member, original); });
+  const answer = await solveGravity();
+  expect(edit).toHaveBeenCalledOnce();
+  expect(String(answer)).toMatch(/Self-weight target Member .* is missing/i);
+});
+
+it('#2565 solves projected gravity with no edit', async () => {
+  const { solveGravity, tipLoad, memberWeight } = projectedGravity('single');
+  expect(await solveGravity()).toBeCloseTo(tipLoad + memberWeight, 10);
+});
+
+it('#2565 preserves the refusal for malformed projected group membership', async () => {
+  const { source, groupId, solveGravity } = projectedGravity('single');
+  Object.assign(source.groups.get(groupId)!, { members: new Map() });
+  expect(String(await solveGravity())).toMatch(/Self-weight group .* has invalid membership/i);
 });
 
 it('rejects a single nonlinear result when the model changes during worker cleanup (#2283)', async () => {
