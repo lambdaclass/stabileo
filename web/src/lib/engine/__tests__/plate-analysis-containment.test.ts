@@ -397,3 +397,46 @@ it('#2409 accepts complete direct MPC ties at coincident shell endpoints', () =>
   }
   expectLoadedSlab(modelStore.solve3D(false, false, true));
 });
+
+function wallUnderSlab(clearance = 0) {
+  const [corner] = loadedSlab();
+  const a = modelStore.addNode(1, 1, -clearance);
+  const b = modelStore.addNode(3, 2, -clearance);
+  const i = modelStore.addNode(1, 1, -3);
+  const j = modelStore.addNode(3, 2, -3);
+  const wall = modelStore.addQuad([a, b, j, i], 1, 0.15);
+  modelStore.addSupport(i, 'fixed3d');
+  modelStore.addSupport(j, 'fixed3d');
+  modelStore.addElement(corner!, i);
+  return { wall, base: [i, j] };
+}
+
+const interiorWallWitness = process.env.RUN_KNOWN_WRONG === '2430' ? it : it.skip;
+
+interiorWallWitness('known wrong result: #2430 refuses a supported wall ending inside a loaded slab face', async () => {
+  for (const [entry, solve] of directEntries) {
+    modelStore.clear();
+    const { wall } = wallUnderSlab();
+    const result = await solve();
+    expect.soft(result && typeof result === 'object' ? 'returned a result' : result, entry).toEqual(entry === 'reproducible input' ? null : expect.stringMatching(new RegExp('wall q' + wall + '.*slab q1', 'i')));
+  }
+  modelStore.clear();
+  wallUnderSlab();
+  const outcome = await runGlobalSolve({ directBase: true });
+  expect(outcome.ok ? 'returned a result' : outcome.error).toEqual(expect.stringMatching(/wall.*slab/i));
+  expect(resultsStore.results3D).toBeNull();
+});
+
+it('#2430 a separately supported wall beyond the contact limit keeps the loaded slab result', () => {
+  const { base } = wallUnderSlab(PLATE_EDGE_TOL * 2);
+  const result = modelStore.solve3D(false, false, true);
+  expectLoadedSlab(result);
+  if (!result || typeof result === 'string') throw new Error(String(result));
+  expect(result.reactions.filter(r => base.includes(r.nodeId)).map(r => r.fz)).toEqual([0, 0]);
+});
+
+interiorWallWitness('known wrong result: #2430 refuses a wall inside the contact limit', () => {
+  wallUnderSlab(PLATE_EDGE_TOL / 2);
+  const result = modelStore.solve3D(false, false, true);
+  expect(result && typeof result === 'object' ? 'returned a result' : result).toEqual(expect.stringMatching(/wall.*slab/i));
+});

@@ -1409,3 +1409,66 @@ it('#2543 refuses an incorrect pressure in a reference case used only for modal 
     }
   }
 });
+
+const memberAccountingWitness = process.env.RUN_KNOWN_WRONG === '2471' ? it : it.skip;
+
+memberAccountingWitness('known wrong result: #2471 detects a lost self-equilibrated line load in spatial analysis', async () => {
+  const member = cantilever('3d');
+  const model = modelStore.model;
+  model.loads.push({ type: 'distributed3d', data: {
+    id: 1, elementId: member, qXI: 2, qXJ: -2, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, frame: 'global', caseId: 1,
+  } });
+  const paths = {
+    linear: () => modelStore.solve3D(false, false, true),
+    async: () => modelStore.solve3DAsync(false, false, true),
+    advanced: () => buildSolverInput3D(model),
+    combinations: () => modelStore.solveCombinations3D(false, false, true),
+    parallel: () => modelStore.solveCombinations3DParallel(false, false, true),
+    direct: () => runDirectAnalysis(model, model.loadCases, model.combinations, { includeSelfWeight: false }),
+  };
+  expect(paths.advanced()?.loads).toEqual([expect.objectContaining({
+    type: 'distributed', data: expect.objectContaining({ elementId: member, qXI: 2, qXJ: -2 }),
+  })]);
+  expect(paths.linear()).toMatchObject({ elementForces: [expect.objectContaining({
+    distributedLoadsX: [{ qI: 2, qJ: -2, a: 0, b: 2 }],
+  })] });
+  fault.dropMemberLoad = true;
+  const diagnostic = expect.stringMatching(new RegExp('case.*member.*' + member + '.*Fx', 'i'));
+  for (const [path, solve] of Object.entries(paths)) expect.soft(await outcome(solve), path).toEqual(diagnostic);
+  expect.soft(modelStore.singleSolveInput3D(false, false, true)).toBeNull();
+  modelStore.setAnalysis({ perCombination: 'pdelta' });
+  expect.soft(await outcome(paths.combinations), 'P-Delta').toEqual(diagnostic);
+  expect.soft(await outcome(paths.parallel), 'parallel P-Delta').toEqual(diagnostic);
+});
+
+memberAccountingWitness('known wrong result: #2471 detects a lost self-equilibrated line load before a planar projection solve', async () => {
+  const elementId = cantilever('2d');
+  const model = modelStore.model;
+  const cases = [{ id: 1, name: 'Dead', type: 'D' }, { id: 2, name: 'Live', type: 'L' }];
+  const combos = [{ id: 1, name: 'Dead only', factors: [{ caseId: 1, factor: 1 }] }];
+  const source: ModelData = {
+    ...model, loadCases: cases,
+    loads: [{ type: 'distributed3d', data: {
+      id: 1, elementId, qXI: 2, qXJ: -2, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, frame: 'global', caseId: 1,
+    } }],
+  };
+  const projected: ModelData = { ...model, loads: [], loadCases: cases, [accountingProjection]: { plane: 'xz', source } };
+  const complete: ModelData = { ...projected, loads: [{
+    type: 'distributed', data: { id: 1, elementId, qI: 2, qJ: -2, angle: 90, isGlobal: true, caseId: 1 },
+  }] };
+  expect(buildSolverInput2D(complete)?.loads).toEqual([expect.objectContaining({
+    type: 'axialDistributed', data: expect.objectContaining({ elementId, qI: 2, qJ: -2 }),
+  })]);
+  expect(validateAndSolve2D(complete)).toMatchObject({ elementForces: [expect.objectContaining({
+    distributedLoadsX: [{ qI: 2, qJ: -2, a: 0, b: 2 }],
+  })] });
+  const diagnostic = expect.stringMatching(new RegExp('case.*member.*' + elementId + '.*Fx', 'i'));
+  const paths = {
+    linear: () => validateAndSolve2D(projected),
+    async: () => validateAndSolve2DAsync(projected),
+    pdelta: () => solvePDelta(buildSolverInput2D(projected)!),
+    batch: () => solveCombinations2D(projected, cases, combos),
+    fallback: () => solveCombinations2D(projected, cases.map(c => ({ ...c, name: 'Same' })), combos),
+  };
+  for (const [path, solve] of Object.entries(paths)) expect.soft(await outcome(solve), path).toEqual(diagnostic);
+});

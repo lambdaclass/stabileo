@@ -372,3 +372,32 @@ it.each([
   expect(input).not.toBeNull();
   expect(solve3D(input!).reactions.reduce((sum, support) => sum + support.fz, 0)).toBeCloseTo((6 * 5 - 1) * 2 * (3 + 2), 8);
 });
+
+const obliqueWallWitness = process.env.RUN_KNOWN_WRONG === '2429' ? it : it.skip;
+
+obliqueWallWitness('known wrong result: #2429 refuses an oblique CAD wall supported by isolated shared nodes', () => {
+  const outline = [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }, { x: 0, y: 4 }];
+  const plan: ArchPlan = {
+    ...fixturePlan(), columns: outline.map(at => ({ at, sizeSource: 'default' })), openings: [],
+    beams: [{ a: outline[0]!, b: outline[1]! }],
+    walls: [{ a: outline[0]!, b: outline[2]!, thicknessSource: 'default' }],
+    slabs: [{ outline, isQuad: true, isRectilinear: true }],
+  };
+  for (const meshMode of ['fixedDivisions', 'targetSize'] as const) {
+    const draft = generateRcDraft(plan, assumptions({
+      nFloors: 1, storyHeights: [3], meshMode, meshTargetSize: 2, deadLoad: 1, liveLoad: 0, roofLiveLoad: 0,
+    }), SOURCE);
+    expect(draft.counts.slabQuads).toBe(4);
+    let refusal: string | undefined;
+    try {
+      const input = buildSolverInput3D(snapshotToModelShape(draft.snapshot) as never);
+      expect(input).not.toBeNull();
+      const result = solve3D(input!);
+      expect(result.reactions.reduce((sum, support) => sum + support.fz, 0)).toBeCloseTo(4 * 4, 8);
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+      refusal = error.message;
+    }
+    expect.soft(refusal ?? 'returned a result', meshMode).toMatch(/wall.*slab/i);
+  }
+});
