@@ -12809,7 +12809,7 @@ const zh: Translations = {
   "discretization.adaptiveRefused.nothing": "网格未被细化：没有可应用的内容。",
   "discretization.adaptiveRefused.stale": "模型已不是求解时的模型。请重新求解并再次细化。",
   "discretization.adaptiveRefused.physicalPlate": "要细分的壳单元属于由轮廓划分网格的板。请改为修改该板的网格尺寸。",
-  "discretization.adaptiveRefused.member": "被细分边上的杆件是曲线或变截面的，无法在此切分。",
+  "discretization.adaptiveRefused.member": "被细分边上的杆件无法在此切分：它是曲线的、变截面的，或同一条边上还有另一根杆件。",
   "discretization.adaptiveRefused.support": "新节点落在两端约束方式不同、且带有强制位移或斜支座的支承边上。请为该边设置同一种支座。",
   "discretization.col.pass": "遍数",
   "discretization.col.elements": "单元",

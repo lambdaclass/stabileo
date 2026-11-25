@@ -1985,6 +1985,12 @@ fn triangles_and_quads_meet_without_a_crack_whichever_is_split() {
     assert!(hung.keys().all(|node| x_of(&triangle_side, *node) == 0.5));
 
     let both = refine_marked(&quad_side, GeometryMode::Faceted, &only(&[plate_at(&quad_side, 0.45, 0.4), quad_at(&quad_side, 0.55, 0.45)])).unwrap().input;
+
+    let mut spanned_by_a_triangle = triangle_side.clone();
+    let (&node, &(a, b)) = hung.iter().next().unwrap();
+    let apex = m.quads.values().flat_map(|q| q.nodes).find(|n| ![a, b, node].contains(n)).unwrap();
+    spanned_by_a_triangle.plates.insert("9000".into(), SolverPlateElement { id: 9000, nodes: [a, b, apex], material_id: 1, thickness: 0.01 });
+    assert_eq!(hanging_nodes(&spanned_by_a_triangle), Err("constraints".to_string()), "a triangle cannot span an edge with a node hanging on it");
     for model in [&quad_side, &triangle_side, &both] {
         assert_eq!(open_edges(model, &on_unit_square), vec![]);
         assert_eq!(cracks(model), vec![]);
@@ -2010,6 +2016,7 @@ fn adaptive_refinement_of_triangles_reaches_the_target_with_fewer_elements_than_
         }
         uniform = refine_uniform(&uniform, GeometryMode::Faceted).unwrap().input;
     }
+    assert_eq!(uniform.plates.len(), uniform_elements, "the uniform sequence reached the target");
     let reference = energy_norm_sq(&uniform, &solve(&uniform));
     let out = adapt_3d(&coarse, &AdaptOptions { target, max_passes: 20, geometry: GeometryMode::Faceted, ..AdaptOptions::default() }).unwrap();
     assert_eq!(out.status, "converged");
@@ -2020,4 +2027,48 @@ fn adaptive_refinement_of_triangles_reaches_the_target_with_fewer_elements_than_
     let energy = energy_norm_sq(&out.input, &solve(&out.input));
     assert!((energy - reference).abs() < 0.05 * reference, "{energy} vs {reference}");
     assert!(out.mesh.shells.iter().all(|s| s.family == "plate" && s.weights.len() == 3) && !out.mesh.shells.is_empty());
+}
+
+#[test]
+fn a_constraint_that_only_looks_like_a_hanging_node_is_refused() {
+    let m = bent_square(3, false).input;
+    let once = refine_marked(&m, GeometryMode::Faceted, &only(&[element_at(&m, false, 0.5, 0.5)])).unwrap().input;
+    let hung = hanging_nodes(&once).unwrap();
+    assert_eq!(hung.len(), 4);
+    let refused = Err("constraints".to_string());
+    let bent = once
+        .constraints
+        .iter()
+        .position(|c| matches!(c, Constraint::LinearMPC(mpc) if mpc.terms.len() > 3))
+        .expect("a plate's hanging node is tied with the bending term");
+
+    let mut other_bending = once.clone();
+    let Constraint::LinearMPC(mpc) = &mut other_bending.constraints[bent] else { panic!() };
+    mpc.terms[3].coefficient *= 2.0;
+    assert_eq!(hanging_nodes(&other_bending), refused);
+
+    let mut plain_mean = once.clone();
+    let Constraint::LinearMPC(mpc) = &mut plain_mean.constraints[bent] else { panic!() };
+    mpc.terms.truncate(3);
+    assert_eq!(hanging_nodes(&plain_mean), refused);
+
+    let mut off_the_middle = once.clone();
+    let node = *hung.keys().min().unwrap();
+    off_the_middle.nodes.values_mut().find(|n| n.id == node).unwrap().x += 1e-3;
+    assert_eq!(hanging_nodes(&off_the_middle), refused);
+
+    let mut elsewhere = m.clone();
+    let (tied, a, b) = (m.quads["5"].nodes[0], m.quads["1"].nodes[0], m.quads["9"].nodes[2]);
+    for dof in 0..6 {
+        elsewhere.constraints.push(Constraint::LinearMPC(LinearMPCConstraint {
+            terms: vec![
+                MPCTerm { node_id: tied, dof, coefficient: 1.0 },
+                MPCTerm { node_id: a, dof, coefficient: -0.5 },
+                MPCTerm { node_id: b, dof, coefficient: -0.5 },
+            ],
+        }));
+    }
+    assert_eq!(hanging_nodes(&elsewhere), refused, "the mean of two nodes that are not the ends of an edge");
+    assert_eq!(refine_marked(&elsewhere, GeometryMode::Faceted, &only(&[element_at(&m, false, 0.5, 0.5)])).err(), Some("constraints".to_string()));
+    assert_eq!(adapt_3d(&elsewhere, &AdaptOptions { target: 1e-6, ..AdaptOptions::default() }).err(), Some("constraints".to_string()));
 }
