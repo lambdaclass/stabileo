@@ -4,6 +4,7 @@
    * how the bars are drawn. PRO draws the bars from its View panel, which the menu opens, so a
    * choice is made in one place.
    */
+  import { tick } from 'svelte';
   import Icon from './ribbon/Icon.svelte';
   import { t } from '../lib/i18n';
   import { uiStore } from '../lib/store/ui.svelte';
@@ -20,6 +21,14 @@
   } = $props();
 
   const VIEWS = [['top', '⊤', 'viewport3d.topView'], ['front', '⊡', 'viewport3d.frontView'], ['side', '⊟', 'viewport3d.sideView']] as const;
+  /** Opens the View panel at the bar style, which sits below the views and the categories. */
+  async function openViewPanel() {
+    uiStore.proActiveTab = 'view';
+    onclose();
+    await tick();
+    document.querySelector('[data-testid="view-style"]')?.scrollIntoView({ block: 'center' });
+  }
+
   const PROJECTIONS = [['perspective', 'viewMenu.perspective'], ['orthographic', 'viewMenu.orthographic']] as const;
 </script>
 
@@ -60,7 +69,7 @@
   </button>
   <div class="cam-sep"></div>
   {#if pro}
-    <button class="cam-item" onclick={() => { uiStore.proActiveTab = 'view'; onclose(); }} title={t('viewMenu.moreHint')} data-testid="cam-more-view">
+    <button class="cam-item" onclick={openViewPanel} title={t('viewMenu.moreHint')} data-testid="cam-more-view">
       <span class="cam-glyph">⋯</span><span>{t('viewMenu.more')}</span>
     </button>
   {:else}

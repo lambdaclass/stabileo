@@ -26,7 +26,7 @@ test('@smoke the View panel turns the physical geometry on and back to the lines
   await page.getByTestId('cam-more-view').click();
   await expect(page.getByTestId('cam-menu-pop')).toHaveCount(0);
   const style = page.getByTestId('view-style');
-  await expect(style).toBeVisible();
+  await expect(style).toBeInViewport();
   await style.selectOption('physical');
   await expect.poll(() => page.evaluate(() => window.__stabileo.renderMode3D())).toBe('physical');
   await expect(page.getByTestId('view-style-hint')).not.toBeEmpty();
