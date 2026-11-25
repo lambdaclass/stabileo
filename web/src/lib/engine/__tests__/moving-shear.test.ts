@@ -328,6 +328,54 @@ it('#2101 — endpoint-only spatial sweeps recover axial face limits', async () 
   }
 });
 
+it.skip('known wrong result: #2101 — truss faces retain the signed axle projection without shear', async () => {
+  const length = 5, weight = 10;
+  const train = { name: 'one axle', axles: [{ offset: 0, weight }] };
+  const config = { train, step: length, pathElementIds: [1] };
+  for (const [x, z] of [[3, 4], [3, -4], [5, 0]]) {
+    const { plane, space } = reviewSpan(x, z, true);
+    plane.elements.get(1)!.type = 'truss';
+    space.elements.get(1)!.type = 'truss';
+    const axial = -weight * z / length;
+
+    for (const result of [
+      solveNative2D({ ...config, solver: plane }),
+      solveMovingLoads3D({ ...config, solver: space }),
+    ]) {
+      const member = result.elements['1'];
+      expect.soft(member.nMaxNeg).toBeCloseTo(-Math.abs(axial), 9);
+      expect.soft(member.nMaxPos).toBeCloseTo(Math.abs(axial), 9);
+    }
+    for (const run of [solveMovingLoads, solveMovingLoadsAsync]) {
+      const result = await run(plane, config);
+      if (typeof result === 'string') throw new Error(result);
+      expect(result.positions).toHaveLength(2);
+      const member = result.elements.get(1)!;
+      expect.soft(member.nMaxNeg).toBeCloseTo(-Math.abs(axial), 9);
+      expect.soft(member.nMaxPos).toBeCloseTo(Math.abs(axial), 9);
+      expect.soft(member.vMaxNeg).toBeCloseTo(0, 9);
+      expect.soft(member.vMaxPos).toBeCloseTo(0, 9);
+      const face = result.fullEnvelope!.axial.elements[0];
+      expect.soft(face.negValues[0]).toBeCloseTo(Math.min(0, axial), 9);
+      expect.soft(face.posValues[0]).toBeCloseTo(Math.max(0, axial), 9);
+      expect.soft(face.negValues.at(-1)).toBeCloseTo(Math.min(0, -axial), 9);
+      expect.soft(face.posValues.at(-1)).toBeCloseTo(Math.max(0, -axial), 9);
+    }
+    const path = buildPath3D(space, [1])!;
+    for (const result of [
+      await sweepMovingLoad3D(space, path, train, config),
+      await sweepTrains3D(space, path, [train], config),
+    ]) {
+      expect(result.failed).toBe(0);
+      const member = result.elements.get(1)!;
+      expect.soft(member.n.min.value).toBeCloseTo(-Math.abs(axial), 9);
+      expect.soft(member.n.max.value).toBeCloseTo(Math.abs(axial), 9);
+      expect.soft(member.vz.min.value).toBeCloseTo(0, 9);
+      expect.soft(member.vz.max.value).toBeCloseTo(0, 9);
+    }
+  }
+});
+
 function reviewSpan(x: number, z: number, fixedBoth: boolean) {
   const plane = mirroredSpring();
   const space = rotatedInclined();
