@@ -387,7 +387,13 @@ fn rank_springs_3d(input: &SolverInput3D) -> Option<SolverInput3D> {
 }
 
 fn mechanism_pivots(k: &[f64], n: usize, stability: &super::stability::Stability) -> Vec<usize> {
-    let (_, mut pivots) = lu_rank(k, n, 1e-10);
+    let (_, pivots) = lu_rank(k, n, RANK_TOLERANCE);
+    with_mechanism_directions(pivots, stability)
+}
+
+const RANK_TOLERANCE: f64 = 1e-10;
+
+fn with_mechanism_directions(mut pivots: Vec<usize>, stability: &super::stability::Stability) -> Vec<usize> {
     for direction in stability.mechanism_directions() {
         if direction.dofs.iter().zip(&direction.direction).any(|(d, v)| *v != 0.0 && pivots.contains(d)) { continue; }
         if let Some((i, _)) = direction.direction.iter().enumerate().max_by(|(_, a), (_, b)| a.abs().total_cmp(&b.abs())) {
@@ -537,6 +543,23 @@ fn compute_static_degree_3d(input: &SolverInput3D) -> (i32, HashMap<usize, i32>)
 
 /// Full 3D kinematic analysis.
 pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
+    kinematics_3d(input, Route3D::Auto)
+}
+
+/// `analyze_kinematics_3d` by the dense elimination alone, whatever the size: what the sparse
+/// analysis is compared with.
+#[doc(hidden)]
+pub fn analyze_kinematics_3d_dense(input: &SolverInput3D) -> KinematicResult {
+    kinematics_3d(input, Route3D::Dense)
+}
+
+/// `analyze_kinematics_3d` naming a mechanism's DOFs by the sparse elimination whatever the size.
+#[doc(hidden)]
+pub fn analyze_kinematics_3d_sparse(input: &SolverInput3D) -> KinematicResult {
+    kinematics_3d(input, Route3D::Sparse)
+}
+
+fn kinematics_3d(input: &SolverInput3D, route: Route3D) -> KinematicResult {
     // Expand curved beams before DOF numbering and assembly.
     let input = &super::linear::expand_curved_beams_3d(input);
     let (degree, _) = compute_static_degree_3d(input);
@@ -578,6 +601,12 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
         };
     }
 
+    if nf >= KINEMATIC_SPARSE_THRESHOLD && route != Route3D::Dense {
+        if let Some(result) = sparse_kinematics_3d(input, &dof_num, degree, route == Route3D::Sparse) {
+            return result;
+        }
+    }
+
     let asm = super::assembly::without_artificial_stiffness(|| assemble_3d(input, &dof_num));
     let n = dof_num.n_total;
 
@@ -612,9 +641,125 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
     // absolute floor) a model's mechanism count changed with its units.
     let k_s = jacobi_scaled(k_s, ns);
     let zero_pivot_dofs_reduced = mechanism_pivots(&k_s, ns, &rank_stability);
+    kinematic_result_3d(degree, &dof_num, cs.as_ref(), zero_pivot_dofs_reduced, &rank_stability)
+}
 
+/// The free DOFs over which the dense analysis names a mechanism's DOFs: under it the dense
+/// elimination takes about a second, and which DOF of a mechanism is named depends on the
+/// order of the elimination, so models that size keep the names they had.
+const KINEMATIC_DENSE_NAMES: usize = 1500;
+
+#[derive(Clone, Copy, PartialEq)]
+enum Route3D {
+    /// Sparse where it is certain or the model is too large for the dense elimination.
+    Auto,
+    Dense,
+    Sparse,
+}
+
+/// The 3D analysis on the sparse free stiffness: the stability analysis, then the modes of the
+/// pinned matrix under the rank tolerance (`null_rows`). None for a mechanism in a model small
+/// enough for the dense analysis to name (unless `name` asks for it here), and for whatever
+/// `null_rows` cannot decide.
+fn sparse_kinematics_3d(input: &SolverInput3D, dof_num: &DofNumbering, degree: i32, name: bool) -> Option<KinematicResult> {
+    let sasm = super::assembly::without_artificial_stiffness(|| assemble_sparse_3d(input, dof_num, false));
+    let cs = FreeConstraintSystem::build_3d(input, dof_num).ok()?;
+    let (k_s, stability) = super::stability::analyze_free_stiffness(
+        &sasm.k_ff, dof_num, false, cs.as_ref(), &super::stability::coupling_3d(input, dof_num), &super::stability::released_rotations_3d(input, dof_num),
+    );
+    let zero = null_rows(&stability.pin_sparse(&k_s))?;
+    let zero = with_mechanism_directions(zero, &stability);
+    let mechanism = !zero.is_empty() || stability.verdict == super::stability::Verdict::Mechanism;
+    if mechanism && !name && dof_num.n_free <= KINEMATIC_DENSE_NAMES { return None; }
+    Some(kinematic_result_3d(degree, dof_num, cs.as_ref(), zero, &stability))
+}
+
+/// The most modes whose DOFs the sparse analysis names: each costs a vector of the size of
+/// the model and a few solves.
+const MOST_NULL_MODES: usize = 64;
+/// The shifts, in units of `RANK_TOLERANCE`, at which the modes under it are counted: a shift
+/// the elimination cannot take is followed by the next.
+const NULL_SHIFTS: [f64; 3] = [1.0, 3.0, 10.0];
+const NULL_ITERATIONS: usize = 4;
+
+/// As many rows of the symmetric positive semidefinite `k`, scaled to a unit diagonal, as it
+/// has eigenvalues under `RANK_TOLERANCE`, chosen so that holding them leaves it definite:
+/// the modes are counted by the inertia of the shifted matrix, found by inverse iteration, and
+/// a row is taken from each by elimination with complete pivoting. None when the count cannot
+/// be taken, is over `MOST_NULL_MODES`, or the vectors found are not null vectors.
+fn null_rows(k: &CscMatrix) -> Option<Vec<usize>> {
+    use crate::linalg::sparse_chol::{numeric_cholesky, sparse_cholesky_solve, sparse_negative_inertia, symbolic_cholesky};
+    let n = k.n;
+    let scale: Vec<f64> = k.diagonal().into_iter().map(|d| if d.abs() > 0.0 { d.abs().sqrt() } else { 1.0 }).collect();
+    let mut scaled = k.clone();
+    let mut diagonal = vec![usize::MAX; n];
+    for j in 0..n {
+        for p in scaled.col_ptr[j]..scaled.col_ptr[j + 1] {
+            let i = scaled.row_idx[p];
+            scaled.values[p] /= scale[i] * scale[j];
+            if i == j { diagonal[j] = p; }
+        }
+    }
+    if diagonal.contains(&usize::MAX) || scaled.values.iter().any(|v| !v.is_finite()) { return None; }
+    let shifted = |by: f64| {
+        let mut out = scaled.clone();
+        for &p in &diagonal { out.values[p] += by; }
+        out
+    };
+    let symbolic = std::rc::Rc::new(symbolic_cholesky(&scaled));
+    let modes = NULL_SHIFTS.iter().find_map(|shift| sparse_negative_inertia(&symbolic, &shifted(-shift * RANK_TOLERANCE)))?;
+    if modes == 0 { return Some(Vec::new()); }
+    if modes > MOST_NULL_MODES { return None; }
+
+    let factor = numeric_cholesky(&symbolic, &shifted(RANK_TOLERANCE))?;
+    let mut seed = 0x9E37_79B9_7F4A_7C15u64;
+    let mut vectors: Vec<Vec<f64>> = (0..modes).map(|_| (0..n).map(|_| {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        (seed >> 11) as f64 / (1u64 << 53) as f64 - 0.5
+    }).collect()).collect();
+    let dot = |a: &[f64], b: &[f64]| a.iter().zip(b).map(|(x, y)| x * y).sum::<f64>();
+    for _ in 0..NULL_ITERATIONS {
+        for c in 0..modes {
+            let mut v = sparse_cholesky_solve(&factor, &vectors[c]);
+            for _ in 0..2 {
+                for earlier in &vectors[..c] {
+                    let along = dot(&v, earlier);
+                    v.iter_mut().zip(earlier).for_each(|(x, e)| *x -= along * e);
+                }
+            }
+            let length = dot(&v, &v).sqrt();
+            if !(length.is_finite() && length > 0.0) { return None; }
+            v.iter_mut().for_each(|x| *x /= length);
+            vectors[c] = v;
+        }
+    }
+    if vectors.iter().any(|v| scaled.sym_mat_vec(v).iter().fold(0.0f64, |m, x| m.max(x.abs())) > NULL_SHIFTS[2] * RANK_TOLERANCE) { return None; }
+
+    let mut rows = Vec::with_capacity(modes);
+    for c in 0..modes {
+        let (at, row) = (c..modes)
+            .flat_map(|col| (0..n).map(move |row| (col, row)))
+            .max_by(|a, b| vectors[a.0][a.1].abs().total_cmp(&vectors[b.0][b.1].abs()).then(b.cmp(a)))?;
+        vectors.swap(c, at);
+        let pivot = vectors[c][row];
+        if !(pivot.abs() > 0.0) { return None; }
+        let (head, tail) = vectors.split_at_mut(c + 1);
+        for other in tail {
+            let ratio = other[row] / pivot;
+            other.iter_mut().zip(&head[c]).for_each(|(x, p)| *x -= ratio * p);
+        }
+        rows.push(row);
+    }
+    rows.sort_unstable();
+    Some(rows)
+}
+
+fn kinematic_result_3d(degree: i32, dof_num: &DofNumbering, cs: Option<&FreeConstraintSystem>, zero_pivot_dofs_reduced: Vec<usize>, rank_stability: &super::stability::Stability) -> KinematicResult {
+    let nf = dof_num.n_free;
     // Map zero-pivot DOFs back to physical free DOFs
-    let zero_pivot_dofs = if let Some(ref cs) = cs {
+    let zero_pivot_dofs = if let Some(cs) = cs {
         map_reduced_dofs_to_physical(&zero_pivot_dofs_reduced, cs)
     } else {
         zero_pivot_dofs_reduced

@@ -12,6 +12,8 @@ mod common;
 mod constrained_shell_stress;
 #[path = "../discretization_error.rs"]
 mod discretization_error;
+#[path = "../kinematics_sparse.rs"]
+mod kinematics_sparse;
 #[path = "../shell_degeneracy_validation.rs"]
 mod shell_degeneracy_validation;
 #[path = "../shell_mesh_quality_gates.rs"]
