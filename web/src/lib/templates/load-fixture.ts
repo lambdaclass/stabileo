@@ -124,7 +124,9 @@ export function loadFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLo
 }
 
 export function prepareFixture(json: JSONModel, opts: FixtureLoadOptions = {}): (api: FixtureLoader) => void {
-  const canonical = validatedFixture(json);
+  requireLoadCollection(json.loads);
+  const canonical = canonicalizeModelAliases(json);
+  validateFixtureReferences(canonical);
   return (api) => {
     const load = () => replayFixture(canonical, api, opts);
     if (api.replay) api.replay(load);
@@ -141,10 +143,6 @@ function fixtureSupportElement(support: JSONModel['supports'][number], elementId
 }
 
 export function validateFixtureReferences(json: JSONModel): void {
-  validatedFixture(json);
-}
-
-function validatedFixture(json: JSONModel): JSONModel {
   requireLoadCollection(json.loads);
   json = canonicalizeModelAliases(json);
   requireLoadInput(json.loads);
@@ -164,7 +162,6 @@ function validatedFixture(json: JSONModel): JSONModel {
   }
   for (const support of json.supports) fixtureSupportElement(support, id => ids.has(id) ? id : undefined);
   for (const rule of json.analysis?.selfWeight ?? []) selfWeightScope({ elements: ids }, rule);
-  return json;
 }
 
 function replayFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOptions): void {
