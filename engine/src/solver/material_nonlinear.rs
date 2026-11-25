@@ -194,28 +194,34 @@ fn solve_nonlinear_material_2d_inner(
             // of "restrain normal to the incline." The sparse path applies
             // the same rotation to the triplets + f_int (triplet K rotation
             // + f rotation == dense apply_inclined_transform_2d).
-            if sparse_tangent {
+            let support_magnitude = if sparse_tangent {
                 assemble_tangent_stiffness_triplets(
                     solver, &dof_num, &states, &art,
                     &mut trip_rows, &mut trip_cols, &mut trip_vals,
                 );
+                let magnitude = (!asm.inclined_transforms_2d.is_empty()).then(|| {
+                    assembly::triplet_magnitude(&trip_rows, &trip_cols, &trip_vals, &dof_num, &asm.inclined_transforms_2d)
+                });
                 for it in &asm.inclined_transforms_2d {
                     assembly::apply_inclined_transform_triplets_2d(
                         &mut trip_rows, &mut trip_cols, &mut trip_vals, &it.dofs, &it.r,
                     );
                     assembly::rotate_inclined_f_2d(&mut f_int, &it.dofs, &it.r);
                 }
+                magnitude
             } else {
                 k_t = assemble_tangent_stiffness(solver, &dof_num, &states, &art);
+                let magnitude = assembly::dense_support_magnitude(&k_t, &dof_num, &asm.inclined_transforms_2d);
                 for it in &asm.inclined_transforms_2d {
                     assembly::apply_inclined_transform_2d(&mut k_t, &mut f_int, n, &it.dofs, &it.r);
                 }
-            }
+                magnitude
+            };
 
             // Residual: R = F_ext - f_int
             let tangent = MaterialTangent::prepare(
                 &k_t, sparse_tangent.then_some((&trip_rows, &trip_cols, &trip_vals)),
-                n, &free_idx, cs.as_ref(), &rank,
+                n, &free_idx, cs.as_ref(), &rank, support_magnitude.as_ref(),
             )?;
             let mut residual = vec![0.0; n];
             for i in 0..n {
@@ -797,12 +803,13 @@ impl MaterialTangent {
         free: &[usize],
         constraints: Option<&FreeConstraintSystem>,
         rank: &super::stability::OperatorRank<'_>,
+        support_magnitude: Option<&CscMatrix>,
     ) -> Result<Self, String> {
         let nf = free.len();
         if let Some((rows, cols, values)) = triplets {
             let original = tangent_free_sparse_triplets(rows, cols, values, nf, &None);
             let reduced = constraints.map(|cs| cs.reduce_matrix_sparse(&original));
-            rank.check(&original, reduced.as_ref())?;
+            rank.check(&original, reduced.as_ref(), support_magnitude)?;
             return Ok(Self::Sparse(reduced.unwrap_or(original)));
         }
         let original = extract_submatrix(dense, n, free, free);
@@ -811,7 +818,7 @@ impl MaterialTangent {
         let reduced_operator = reduced.as_ref().zip(constraints).map(|(k, cs)| {
             CscMatrix::from_dense_symmetric_exact(k, cs.n_free_indep)
         });
-        rank.check(&physical, reduced_operator.as_ref())?;
+        rank.check(&physical, reduced_operator.as_ref(), support_magnitude)?;
         Ok(Self::Dense(reduced.unwrap_or(original)))
     }
 
@@ -1101,29 +1108,35 @@ fn solve_nonlinear_material_3d_inner(
                 f_int[d] += k * u_geom[d];
             }
 
-            if sparse_tangent {
+            let support_magnitude = if sparse_tangent {
                 assemble_tangent_stiffness_3d_triplets(
                     solver, &dof_num, &states, &art,
                     &mut trip_rows, &mut trip_cols, &mut trip_vals,
                 );
                 // Triplet K rotation + f rotation == dense
                 // apply_inclined_transform below.
+                let magnitude = (!asm.inclined_transforms.is_empty()).then(|| {
+                    assembly::triplet_magnitude(&trip_rows, &trip_cols, &trip_vals, &dof_num, &asm.inclined_transforms)
+                });
                 for it in &asm.inclined_transforms {
                     assembly::apply_inclined_transform_triplets(
                         &mut trip_rows, &mut trip_cols, &mut trip_vals,
                         &mut f_int, &it.dofs, &it.r,
                     );
                 }
+                magnitude
             } else {
                 k_t = assemble_tangent_stiffness_3d(solver, &dof_num, &states, &art);
+                let magnitude = assembly::dense_support_magnitude(&k_t, &dof_num, &asm.inclined_transforms);
                 for it in &asm.inclined_transforms {
                     assembly::apply_inclined_transform(&mut k_t, &mut f_int, n, &it.dofs, &it.r);
                 }
-            }
+                magnitude
+            };
 
             let tangent = MaterialTangent::prepare(
                 &k_t, sparse_tangent.then_some((&trip_rows, &trip_cols, &trip_vals)),
-                n, &free_idx, cs.as_ref(), &rank,
+                n, &free_idx, cs.as_ref(), &rank, support_magnitude.as_ref(),
             )?;
             let mut residual = vec![0.0; n];
             for i in 0..n {

@@ -47,7 +47,15 @@ fn refused(issue: u64, analysis: &str, prefix: &str, diagnostic: Option<Value>) 
             assert_eq!(&actual[0][key], expected_value, "#{issue}: {key}");
         }
     } else {
-        assert!(error.starts_with(prefix), "#{issue}: {error}");
+        let envelope = serde_json::from_str::<Value>(&error).ok();
+        let message = envelope.as_ref().map_or(error.as_str(), |value| {
+            let diagnostics = value["structuredDiagnostics"].as_array().unwrap();
+            assert_eq!(diagnostics.len(), 1, "#{issue}: {error}");
+            assert_eq!(diagnostics[0]["code"], "reduced_stiffness_rank", "#{issue}: {error}");
+            assert_eq!(diagnostics[0]["severity"], "error", "#{issue}: {error}");
+            value["message"].as_str().unwrap()
+        });
+        assert!(message.starts_with(prefix), "#{issue}: {error}");
     }
 }
 

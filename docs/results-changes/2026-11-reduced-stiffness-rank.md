@@ -19,3 +19,13 @@ Recheck saved results that relied on an unresolved stiffness direction.
 Affected models now return a rank diagnostic in the covered analyses.
 A frame with an independent restraint, or with sufficient spring or
 connector stiffness against the free motion, can still be solved.
+
+The PR #2584 review extends the same entry to support-coordinate rounding,
+unresolved constraint rank in material, modal and SSI preparations, and
+corotational equilibrium. The support transformation carries the scale of
+stiffness terms before cancellation, including terms involving a restrained
+normal. Kinematic checks report the same refusal for an unresolved rank.
+Corotational equilibrium is checked on the current reduced tangent,
+including on native planar continuation. Tangents whose signed stiffness
+cannot be resolved can now refuse even when the equilibrium residual is zero.
+The checks do not change the assembled stiffness, loads, or residual tolerances.

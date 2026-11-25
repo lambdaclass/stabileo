@@ -137,6 +137,8 @@ registerFeatureDictionaries(Object.fromEntries(
  * they appear in a message; anything else is left as it is.
  */
 const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
+  ['the structure is a mechanism or so close to one that its stability cannot be decided in double precision: the reduced stiffness rank cannot be resolved at assembly precision. Check member releases, supports, springs and constraints for a mechanism.', REDUCED_STIFFNESS_RANK],
+  [reducedStiffnessRank.en, REDUCED_STIFFNESS_RANK],
   [DIAGRAM_EXTREMA_UNAVAILABLE, DIAGRAM_EXTREMA_UNAVAILABLE],
   ['distinct member diagram cuts share a normalized station', DIAGRAM_EXTREMA_UNAVAILABLE],
   ['interior member diagram extremum has no distinct normalized station', DIAGRAM_EXTREMA_UNAVAILABLE],

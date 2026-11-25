@@ -311,7 +311,6 @@ fn issue_2018_exact_zero_answer() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2013"]
 fn material_nonlinear_zero_residual_requires_resolved_constraint_rank() {
     let mut failures = Vec::new();
     for (model, expected, refused) in cancellation_boundaries(false) {

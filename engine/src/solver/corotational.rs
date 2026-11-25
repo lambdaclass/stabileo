@@ -121,6 +121,64 @@ impl IncrementTargets2D {
     }
 }
 
+struct ActiveStiffness {
+    dense: Vec<f64>,
+    rows: Vec<usize>,
+    cols: Vec<usize>,
+    values: Vec<f64>,
+    magnitude: CscMatrix,
+}
+
+impl ActiveStiffness {
+    fn assemble<T: assembly::InclinedFrame>(
+        dof: &DofNumbering, sparse: bool, frames: &[T], internal: &mut [f64],
+        assemble: impl FnOnce(&mut [f64], &mut dyn FnMut(usize, usize, f64, f64)),
+    ) -> Self {
+        let n = dof.n_total;
+        let mut dense = if sparse { Vec::new() } else { vec![0.0; n * n] };
+        let (mut rows, mut cols, mut values) = (Vec::new(), Vec::new(), Vec::new());
+        let (mut mr, mut mc, mut mv) = (Vec::new(), Vec::new(), Vec::new());
+        assemble(internal, &mut |i, j, value, magnitude| {
+            if !sparse {
+                dense[i * n + j] += value;
+            }
+            if i >= j {
+                if sparse {
+                    rows.push(i);
+                    cols.push(j);
+                    values.push(value);
+                }
+                if magnitude != 0.0 {
+                    mr.push(i);
+                    mc.push(j);
+                    mv.push(magnitude);
+                }
+            }
+        });
+        let magnitude = assembly::triplet_magnitude(&mr, &mc, &mv, dof, frames);
+        if sparse {
+            for frame in frames {
+                frame.rotate_triplets(&mut rows, &mut cols, &mut values);
+            }
+        } else {
+            assembly::rotate_inclined_dense(&mut dense, n, frames);
+        }
+        for frame in frames {
+            frame.rotate(internal);
+        }
+        Self { dense, rows, cols, values, magnitude }
+    }
+
+    fn check(&self, rank: &super::stability::OperatorRank<'_>, dof: &DofNumbering) -> Result<(), String> {
+        let free = if self.dense.is_empty() {
+            tangent_free_sparse_triplets(&self.rows, &self.cols, &self.values, dof.n_free, &None)
+        } else {
+            super::stability::dense_free_block(&self.dense, dof)
+        };
+        rank.check_tangent(&free, &self.magnitude)
+    }
+}
+
 struct Corotational2D<'a> {
     input: &'a SolverInput,
     dof_num: &'a DofNumbering,
@@ -128,6 +186,7 @@ struct Corotational2D<'a> {
     asm: &'a assembly::StiffnessAssembly2D,
     art: &'a [(usize, f64)],
     metric: &'a super::convergence::EquilibriumMetric,
+    rank: super::stability::OperatorRank<'a>,
     ns: usize,
     loads: &'a PlanarLoadPath,
     f_base: &'a [f64],
@@ -141,10 +200,7 @@ struct Corotational2D<'a> {
     targets: IncrementTargets2D,
     cached_factor: Option<CachedTangentFactor>,
     r_f: Vec<f64>,
-    k_t: Vec<f64>,
-    trip_rows: Vec<usize>,
-    trip_cols: Vec<usize>,
-    trip_vals: Vec<f64>,
+    stiffness: Option<ActiveStiffness>,
 }
 
 impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
@@ -164,68 +220,15 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
         let (input, dof_num, asm, art, metric, cs) = (self.input, self.dof_num, self.asm, self.art, self.metric, self.cs);
         let (f_base, start_internal) = (self.f_base, self.start_internal);
         let (n, nf, ns) = (dof_num.n_total, dof_num.n_free, self.ns);
-        // Compute internal forces and tangent stiffness from co-rotational formulation.
-        // Below SPARSE_THRESHOLD the tangent is assembled dense (n×n); at
-        // or above it, as lower-triangle COO triplets that feed the CSC
-        // sparse solve directly — no O(n²) dense matrix is ever built.
         let mut f_int = vec![0.0; n];
-        let sparse_tangent = ns >= SPARSE_THRESHOLD;
-        let mut k_t: Vec<f64> = Vec::new();
-        let mut trip_rows: Vec<usize> = Vec::new();
-        let mut trip_cols: Vec<usize> = Vec::new();
-        let mut trip_vals: Vec<f64> = Vec::new();
-
-        // Elements need TRUE global nodal displacements to compute correct
-        // co-rotational geometry — self.u_full stores inclined-support DOFs in
-        // the rotated (tangent, normal) basis (same "mixed" convention
-        // assemble_2d's solved system produces), so reverse that rotation
-        // on a scratch copy before handing displacements to elements.
-        let mut u_geom = self.u_full.clone();
-        for it in &asm.inclined_transforms_2d {
-            assembly::reverse_inclined_transform_2d(&mut u_geom, &it.dofs, &it.r);
-        }
-
-        if sparse_tangent {
-            assemble_corotational_triplets_2d(
-                input, &dof_num, &u_geom, &mut f_int,
-                &mut trip_rows, &mut trip_cols, &mut trip_vals,
-            );
-            add_spring_contributions(
-                input, &dof_num, &u_geom, &mut f_int, &art,
-                &mut |gi, gj, v| {
-                    if gi >= gj {
-                        trip_rows.push(gi);
-                        trip_cols.push(gj);
-                        trip_vals.push(v);
-                    }
-                },
-            );
-            // Triplet K rotation + f rotation == dense
-            // apply_inclined_transform_2d (see comment below).
-            for it in &asm.inclined_transforms_2d {
-                assembly::apply_inclined_transform_triplets_2d(
-                    &mut trip_rows, &mut trip_cols, &mut trip_vals, &it.dofs, &it.r,
-                );
-                assembly::rotate_inclined_f_2d(&mut f_int, &it.dofs, &it.r);
-            }
-        } else {
-            k_t = vec![0.0; n * n];
-            assemble_corotational(input, &dof_num, &u_geom, &mut f_int, &mut k_t);
-            add_spring_contributions(
-                input, &dof_num, &u_geom, &mut f_int, &art,
-                &mut |gi, gj, v| k_t[gi * n + gj] += v,
-            );
-
-            // Rotate K_T/f_int back into the rotated (tangent, normal) basis
-            // at inclined-support DOFs so they stay consistent with self.targets.forces
-            // (already rotated by assemble_2d above) for the residual/solve
-            // below — without this, the tangent-stiffness system enforces
-            // "restrain literal global Z" instead of "restrain normal to
-            // the incline," silently solving the wrong physical problem.
-            for it in &asm.inclined_transforms_2d {
-                assembly::apply_inclined_transform_2d(&mut k_t, &mut f_int, n, &it.dofs, &it.r);
-            }
-        }
+        let u_geom = assembly::to_global(&self.u_full, n, &asm.inclined_transforms_2d);
+        self.stiffness = Some(ActiveStiffness::assemble(
+            dof_num, ns >= SPARSE_THRESHOLD, &asm.inclined_transforms_2d, &mut f_int,
+            |internal, mut scatter| {
+                assemble_corotational_impl_with_magnitude(input, dof_num, &u_geom, internal, &mut scatter);
+                add_spring_contributions(input, dof_num, &u_geom, internal, art, &mut |i, j, k| scatter(i, j, k, k.abs()));
+            },
+        ));
 
         // Residual R = F_ext - f_int
         let mut residual = vec![0.0; n];
@@ -245,20 +248,17 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
         );
 
         self.r_f = r_f;
-        self.k_t = k_t;
-        self.trip_rows = trip_rows;
-        self.trip_cols = trip_cols;
-        self.trip_vals = trip_vals;
         Ok(super::nonlinear::Linearization { measure: rel_error, forced: self.targets.support_step.is_some() })
     }
 
     fn correct(&mut self, modified_nr: bool) -> Result<(), String> {
+        let mut stiffness = self.stiffness.take().unwrap();
         let (dof_num, cs) = (self.dof_num, self.cs);
         let (n, nf, ns) = (dof_num.n_total, dof_num.n_free, self.ns);
         let sparse_tangent = ns >= SPARSE_THRESHOLD;
         let r_f = std::mem::take(&mut self.r_f);
-        let k_t = std::mem::take(&mut self.k_t);
-        let (trip_rows, trip_cols, trip_vals) = (std::mem::take(&mut self.trip_rows), std::mem::take(&mut self.trip_cols), std::mem::take(&mut self.trip_vals));
+        let k_t = std::mem::take(&mut stiffness.dense);
+        let (trip_rows, trip_cols, trip_vals) = (std::mem::take(&mut stiffness.rows), std::mem::take(&mut stiffness.cols), std::mem::take(&mut stiffness.values));
         // The supports' step enters the first iteration as the tangent
         // predictor's load −K_fr·Δu_r: moving only the support nodes
         // would crush the elements next to them.
@@ -362,8 +362,10 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
         Ok(())
     }
 
-    fn commit(&mut self) {
+    fn commit(&mut self) -> Result<(), String> {
+        self.stiffness.as_ref().unwrap().check(&self.rank, self.dof_num)?;
         self.u_converged.copy_from_slice(&self.u_full);
+        Ok(())
     }
 
     fn rollback(&mut self) {
@@ -486,9 +488,9 @@ pub fn solve_corotational_2d_from(
 
     // Get the full external load vector from linear assembly (reference load)
     let asm = assembly::assemble_stiffness_2d(input, &dof_num);
+    let rank = super::stability::OperatorRank::for_2d(input, &dof_num, cs.as_ref());
     if start.is_none() {
-        super::stability::OperatorRank::for_2d(input, &dof_num, cs.as_ref())
-        .check(&super::stability::dense_free_block(&asm.k, &dof_num), None)?;
+        rank.check(&super::stability::dense_free_block(&asm.k, &dof_num), None, asm.support_magnitude.as_ref())?;
     }
     let art = asm.artificial_stiffness_entries();
 
@@ -527,6 +529,7 @@ pub fn solve_corotational_2d_from(
         asm: &asm,
         art: &art,
         metric: &metric,
+        rank,
         ns,
         loads: &loads,
         f_base: &f_base,
@@ -540,10 +543,7 @@ pub fn solve_corotational_2d_from(
         targets: IncrementTargets2D::default(),
         cached_factor: None,
         r_f: Vec::new(),
-        k_t: Vec::new(),
-        trip_rows: Vec::new(),
-        trip_cols: Vec::new(),
-        trip_vals: Vec::new(),
+        stiffness: None,
     };
     let outcome = super::nonlinear::solve_by_load_increments(&mut problem, &super::nonlinear::Newton { lag_tangent: modified_nr }, n_increments, tolerance, max_iter)?;
     let Corotational2D { u_full, conditioning, .. } = problem;
@@ -713,6 +713,12 @@ fn assemble_corotational(
 pub(super) fn assemble_corotational_impl(
     input: &SolverInput, dof_num: &DofNumbering, u_full: &[f64], f_int: &mut [f64], scatter: &mut impl FnMut(usize, usize, f64),
 ) {
+    assemble_corotational_impl_with_magnitude(input, dof_num, u_full, f_int, &mut |i, j, k, _| scatter(i, j, k));
+}
+
+fn assemble_corotational_impl_with_magnitude(
+    input: &SolverInput, dof_num: &DofNumbering, u_full: &[f64], f_int: &mut [f64], scatter: &mut impl FnMut(usize, usize, f64, f64),
+) {
     let node_by_id: std::collections::HashMap<usize, &SolverNode> =
         crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
     let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> =
@@ -779,7 +785,7 @@ fn assemble_truss_corotational(
     a: f64,
     u_full: &[f64],
     f_int: &mut [f64],
-    scatter: &mut impl FnMut(usize, usize, f64),
+    scatter: &mut impl FnMut(usize, usize, f64, f64),
 ) {
     let dx0 = node_j.x - node_i.x;
     let dy0 = node_j.z - node_i.z;
@@ -834,7 +840,7 @@ fn assemble_truss_corotational(
             let z_ij = sign_i * sign_j * delta;
             let k_geo = n_over_l * (z_ij - r[i] * r[j]);
 
-            scatter(truss_dofs[i], truss_dofs[j], k_mat + k_geo);
+            scatter(truss_dofs[i], truss_dofs[j], k_mat + k_geo, k_mat.abs() + k_geo.abs());
         }
     }
 }
@@ -856,7 +862,7 @@ fn assemble_frame_corotational(
     g_as: Option<f64>,
     u_full: &[f64],
     f_int: &mut [f64],
-    scatter: &mut impl FnMut(usize, usize, f64),
+    scatter: &mut impl FnMut(usize, usize, f64, f64),
 ) {
     let dx0 = node_j.x - node_i.x;
     let dy0 = node_j.z - node_i.z;
@@ -997,7 +1003,8 @@ fn assemble_frame_corotational(
     // Assemble: K_mat + K_geo
     for i in 0..ndof {
         for j in 0..ndof {
-            scatter(elem_dofs[i], elem_dofs[j], k_mat[i][j] + k_geo[i][j]);
+            let (material, geometric) = (k_mat[i][j], k_geo[i][j]);
+            scatter(elem_dofs[i], elem_dofs[j], material + geometric, material.abs() + geometric.abs());
         }
     }
 }
@@ -1668,9 +1675,9 @@ pub fn solve_corotational_3d(
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Reference load vector from linear assembly
-    let asm = assembly::assemble_3d(input, &dof_num);
-    super::stability::OperatorRank::for_3d(input, &dof_num, cs.as_ref())
-        .check(&super::stability::dense_free_block(&asm.k, &dof_num), None)?;
+    let (asm, support_magnitude) = assembly::assemble_3d_with_magnitude(input, &dof_num);
+    let rank = super::stability::OperatorRank::for_3d(input, &dof_num, cs.as_ref());
+    rank.check(&super::stability::dense_free_block(&asm.k, &dof_num), None, support_magnitude.as_ref())?;
     let f_total = asm.f.clone();
 
     let mut u_full = vec![0.0; n];
@@ -1696,61 +1703,16 @@ pub fn solve_corotational_3d(
             total_iterations += 1;
 
             let mut f_int = vec![0.0; n];
-            // See solve_corotational_2d: dense tangent below
-            // SPARSE_THRESHOLD, lower-triangle triplets at or above it.
             let sparse_tangent = ns >= SPARSE_THRESHOLD;
-            let mut k_t: Vec<f64> = Vec::new();
-            let mut trip_rows: Vec<usize> = Vec::new();
-            let mut trip_cols: Vec<usize> = Vec::new();
-            let mut trip_vals: Vec<f64> = Vec::new();
-
-            // See the 2D solver's identical comment: elements need TRUE
-            // global nodal displacements; u_full keeps inclined-support
-            // DOFs in the rotated (normal, tangent, tangent) basis.
-            let mut u_geom = u_full.clone();
-            for it in &asm.inclined_transforms {
-                assembly::reverse_inclined_transform(&mut u_geom, &it.dofs, &it.r);
-            }
-
-            if sparse_tangent {
-                assemble_corotational_triplets_3d(
-                    input, &dof_num, &u_geom, &mut f_int,
-                    &mut trip_rows, &mut trip_cols, &mut trip_vals,
-                    left_hand,
-                );
-                add_spring_contributions_3d(
-                    input, &dof_num, &u_geom, &mut f_int,
-                    &mut |gi, gj, v| {
-                        if gi >= gj {
-                            trip_rows.push(gi);
-                            trip_cols.push(gj);
-                            trip_vals.push(v);
-                        }
-                    },
-                );
-                // Triplet K rotation + f rotation == dense
-                // apply_inclined_transform (see comment below).
-                for it in &asm.inclined_transforms {
-                    assembly::apply_inclined_transform_triplets(
-                        &mut trip_rows, &mut trip_cols, &mut trip_vals,
-                        &mut f_int, &it.dofs, &it.r,
-                    );
-                }
-            } else {
-                k_t = vec![0.0; n * n];
-                assemble_corotational_3d(input, &dof_num, &u_geom, &mut f_int, &mut k_t, left_hand);
-                add_spring_contributions_3d(
-                    input, &dof_num, &u_geom, &mut f_int,
-                    &mut |gi, gj, v| k_t[gi * n + gj] += v,
-                );
-
-                // Rotate back into the rotated frame so K_T/f_int stay
-                // consistent with f_ext (rotated by assemble_3d) for the
-                // residual/solve below.
-                for it in &asm.inclined_transforms {
-                    assembly::apply_inclined_transform(&mut k_t, &mut f_int, n, &it.dofs, &it.r);
-                }
-            }
+            let u_geom = assembly::to_global(&u_full, n, &asm.inclined_transforms);
+            let stiffness = ActiveStiffness::assemble(
+                &dof_num, sparse_tangent, &asm.inclined_transforms, &mut f_int,
+                |internal, mut scatter| {
+                    assemble_corotational_3d_impl_with_magnitude(input, &dof_num, &u_geom, internal, &mut scatter, left_hand);
+                    add_spring_contributions_3d(input, &dof_num, &u_geom, internal, &mut |i, j, k| scatter(i, j, k, k.abs()));
+                },
+            );
+            let ActiveStiffness { dense: k_t, rows: trip_rows, cols: trip_cols, values: trip_vals, .. } = &stiffness;
 
             // Residual R = F_ext - f_int
             let mut residual = vec![0.0; n];
@@ -1763,6 +1725,7 @@ pub fn solve_corotational_3d(
             let rel_error = metric.relative_residual(&residual, &f_ext, None, cs.as_ref());
 
             if rel_error < tolerance {
+                stiffness.check(&rank, &dof_num)?;
                 nr_converged = true;
                 break;
             }
@@ -1880,51 +1843,23 @@ pub fn solve_corotational_3d(
     })
 }
 
-/// Assemble co-rotational internal forces and tangent stiffness for all 3D elements.
-fn assemble_corotational_3d(
-    input: &SolverInput3D,
-    dof_num: &DofNumbering,
-    u_full: &[f64],
-    f_int: &mut [f64],
-    k_t: &mut [f64],
-    left_hand: bool,
-) {
-    let n = dof_num.n_total;
-    let mut scatter = |gi: usize, gj: usize, v: f64| k_t[gi * n + gj] += v;
-    assemble_corotational_3d_impl(input, dof_num, u_full, f_int, &mut scatter, left_hand);
-}
-
-/// Triplet variant of `assemble_corotational_3d` for the sparse large-model
-/// path (ns >= SPARSE_THRESHOLD): identical co-rotational math, tangent
-/// accumulated as lower-triangle (gi >= gj) COO triplets. See the 2D twin
-/// `assemble_corotational_triplets_2d` for the full rationale.
-#[allow(clippy::too_many_arguments)]
-fn assemble_corotational_triplets_3d(
-    input: &SolverInput3D,
-    dof_num: &DofNumbering,
-    u_full: &[f64],
-    f_int: &mut [f64],
-    trip_rows: &mut Vec<usize>,
-    trip_cols: &mut Vec<usize>,
-    trip_vals: &mut Vec<f64>,
-    left_hand: bool,
-) {
-    let mut scatter = |gi: usize, gj: usize, v: f64| {
-        if gi >= gj {
-            trip_rows.push(gi);
-            trip_cols.push(gj);
-            trip_vals.push(v);
-        }
-    };
-    assemble_corotational_3d_impl(input, dof_num, u_full, f_int, &mut scatter, left_hand);
-}
-
 pub(super) fn assemble_corotational_3d_impl(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     u_full: &[f64],
     f_int: &mut [f64],
     scatter: &mut impl FnMut(usize, usize, f64),
+    left_hand: bool,
+) {
+    assemble_corotational_3d_impl_with_magnitude(input, dof_num, u_full, f_int, &mut |i, j, k, _| scatter(i, j, k), left_hand);
+}
+
+fn assemble_corotational_3d_impl_with_magnitude(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    u_full: &[f64],
+    f_int: &mut [f64],
+    scatter: &mut impl FnMut(usize, usize, f64, f64),
     left_hand: bool,
 ) {
     let node_by_id: std::collections::HashMap<usize, &SolverNode3D> =
@@ -1988,7 +1923,7 @@ fn assemble_truss_corotational_3d(
     a: f64,
     u_full: &[f64],
     f_int: &mut [f64],
-    scatter: &mut impl FnMut(usize, usize, f64),
+    scatter: &mut impl FnMut(usize, usize, f64, f64),
 ) {
     let dx0 = node_j.x - node_i.x;
     let dy0 = node_j.y - node_i.y;
@@ -2041,7 +1976,9 @@ fn assemble_truss_corotational_3d(
             let delta = if i % 3 == j % 3 { 1.0 } else { 0.0 };
             let z_ij = signs[i] * signs[j] * delta;
 
-            scatter(truss_dofs[i], truss_dofs[j], ea_l0 * ri * rj + n_over_l * (z_ij - ri * rj));
+            let material = ea_l0 * ri * rj;
+            let geometric = n_over_l * (z_ij - ri * rj);
+            scatter(truss_dofs[i], truss_dofs[j], material + geometric, material.abs() + geometric.abs());
         }
     }
 }
@@ -2069,7 +2006,7 @@ fn assemble_frame_corotational_3d(
     phi_z: f64,
     u_full: &[f64],
     f_int: &mut [f64],
-    scatter: &mut impl FnMut(usize, usize, f64),
+    scatter: &mut impl FnMut(usize, usize, f64, f64),
     left_hand: bool,
 ) {
     let dx0 = node_j.x - node_i.x;
@@ -2183,14 +2120,16 @@ fn assemble_frame_corotational_3d(
     if ndof_elem == 12 {
         for i in 0..12 {
             for jj in 0..12 {
-                scatter(elem_dofs[i], elem_dofs[jj], k_glob[i * 12 + jj] + k_geo_global[i * 12 + jj]);
+                let (material, geometric) = (k_glob[i * 12 + jj], k_geo_global[i * 12 + jj]);
+                scatter(elem_dofs[i], elem_dofs[jj], material + geometric, material.abs() + geometric.abs());
             }
         }
     } else if ndof_elem == 14 {
         let map = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12];
         for (i12, &i14) in map.iter().enumerate() {
             for (j12, &j14) in map.iter().enumerate() {
-                scatter(elem_dofs[i14], elem_dofs[j14], k_glob[i12 * 12 + j12] + k_geo_global[i12 * 12 + j12]);
+                let (material, geometric) = (k_glob[i12 * 12 + j12], k_geo_global[i12 * 12 + j12]);
+                scatter(elem_dofs[i14], elem_dofs[j14], material + geometric, material.abs() + geometric.abs());
             }
         }
     }

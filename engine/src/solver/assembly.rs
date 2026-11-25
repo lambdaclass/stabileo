@@ -631,6 +631,7 @@ pub fn reverse_inclined_transform(u: &mut [f64], dofs: &[usize; 3], r: &[[f64; 3
 
 /// Stiffness-only assembly result for 2D (K with inclined support transforms applied).
 pub struct StiffnessAssembly2D {
+    pub(crate) support_magnitude: Option<CscMatrix>,
     pub k: Vec<f64>,
     pub max_diag_k: f64,
     pub artificial_dofs: Vec<usize>,
@@ -818,7 +819,6 @@ pub(crate) fn assemble_stiffness_2d_typed(
                 dof_num.map.get(&(sup.node_id, 1)),
             ) {
                 let dofs = [d0, d1];
-                rotate_inclined_k_2d(&mut k_global, n, &dofs, &r);
                 inclined_transforms_2d.push(InclinedTransformData2D {
                     node_id: sup.node_id,
                     dofs,
@@ -828,7 +828,10 @@ pub(crate) fn assemble_stiffness_2d_typed(
         }
     }
 
+    let support_magnitude = dense_support_magnitude(&k_global, dof_num, &inclined_transforms_2d);
+    rotate_inclined_dense(&mut k_global, n, &inclined_transforms_2d);
     StiffnessAssembly2D {
+        support_magnitude,
         k: k_global,
         max_diag_k: max_diag,
         artificial_dofs,
@@ -1127,9 +1130,15 @@ pub(super) fn visit_load_vector_2d(
 
 /// Assemble global stiffness matrix and force vector for 2D.
 pub fn assemble_2d(input: &SolverInput, dof_num: &DofNumbering) -> AssemblyResult {
+    assemble_2d_with_magnitude(input, dof_num).0
+}
+
+pub(super) fn assemble_2d_with_magnitude(
+    input: &SolverInput, dof_num: &DofNumbering,
+) -> (AssemblyResult, Option<CscMatrix>) {
     let stiff = assemble_stiffness_2d(input, dof_num);
     let f = assemble_load_vector_2d(input, &input.loads, dof_num, &stiff.inclined_transforms_2d);
-    AssemblyResult {
+    (AssemblyResult {
         k: stiff.k,
         f,
         max_diag_k: stiff.max_diag_k,
@@ -1137,7 +1146,7 @@ pub fn assemble_2d(input: &SolverInput, dof_num: &DofNumbering) -> AssemblyResul
         inclined_transforms: Vec::new(),
         inclined_transforms_2d: stiff.inclined_transforms_2d,
         diagnostics: Vec::new(),
-    }
+    }, stiff.support_magnitude)
 }
 
 pub fn assemble_element_loads_2d(
@@ -1250,6 +1259,7 @@ fn assemble_frame_load_contributions_2d<'a>(
 
 /// Stiffness-only assembly result for 3D (K with inclined support transforms applied).
 pub struct StiffnessAssembly3D {
+    pub(crate) support_magnitude: Option<CscMatrix>,
     pub k: Vec<f64>,
     pub max_diag_k: f64,
     pub artificial_dofs: Vec<usize>,
@@ -1550,7 +1560,6 @@ pub fn assemble_stiffness_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> S
                         dof_num.map.get(&(sup.node_id, 2)),
                     ) {
                         let dofs = [d0, d1, d2];
-                        rotate_inclined_k_3d(&mut k_global, n, &dofs, &r);
                         inclined_transforms.push(InclinedTransformData {
                             node_id: sup.node_id,
                             dofs,
@@ -1561,6 +1570,9 @@ pub fn assemble_stiffness_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> S
             }
         }
     }
+
+    let support_magnitude = dense_support_magnitude(&k_global, dof_num, &inclined_transforms);
+    rotate_inclined_dense(&mut k_global, n, &inclined_transforms);
 
     // Element quality diagnostics
     let mut diagnostics = Vec::new();
@@ -1676,6 +1688,7 @@ pub fn assemble_stiffness_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> S
     }
 
     StiffnessAssembly3D {
+        support_magnitude,
         k: k_global,
         max_diag_k: max_diag,
         artificial_dofs: artificial_dofs_3d,
@@ -2180,9 +2193,15 @@ pub(crate) fn assemble_load_vector_3d_with_rounding(
 
 /// Assemble global stiffness matrix and force vector for 3D.
 pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyResult {
+    assemble_3d_with_magnitude(input, dof_num).0
+}
+
+pub(super) fn assemble_3d_with_magnitude(
+    input: &SolverInput3D, dof_num: &DofNumbering,
+) -> (AssemblyResult, Option<CscMatrix>) {
     let stiff = assemble_stiffness_3d(input, dof_num);
     let f = assemble_load_vector_3d_dense(input, &input.loads, dof_num, &stiff.inclined_transforms);
-    AssemblyResult {
+    (AssemblyResult {
         k: stiff.k,
         f,
         max_diag_k: stiff.max_diag_k,
@@ -2190,7 +2209,7 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
         inclined_transforms: stiff.inclined_transforms,
         inclined_transforms_2d: Vec::new(),
         diagnostics: stiff.diagnostics,
-    }
+    }, stiff.support_magnitude)
 }
 
 
@@ -2402,6 +2421,7 @@ fn assemble_element_loads_3d_mapped(
 
 /// Sparse assembly result: CSC lower-triangle Kff + dense force vector.
 pub struct SparseAssemblyResult {
+    pub(crate) support_magnitude: Option<CscMatrix>,
     pub k_ff: CscMatrix,
     /// Full n×n K (all DOFs), only when requested — for reactions and
     /// prescribed-DOF corrections without a dense assembly.
@@ -2415,6 +2435,7 @@ pub struct SparseAssemblyResult {
 
 /// Sparse 3D assembly result with full-K for reactions and inclined support data.
 pub struct SparseAssemblyResult3D {
+    pub(crate) support_magnitude: Option<CscMatrix>,
     pub k_ff: CscMatrix,
     pub k_full: Option<CscMatrix>,
     pub f: Vec<f64>,
@@ -2443,6 +2464,7 @@ pub fn assemble_sparse_2d_ex(input: &SolverInput, dof_num: &DofNumbering, build_
     let stiff = super::sparse_assembly::assemble_stiffness_sparse_2d(input, dof_num);
     let f = assemble_load_vector_2d(input, &input.loads, dof_num, &stiff.inclined_transforms_2d);
     SparseAssemblyResult {
+        support_magnitude: stiff.support_magnitude,
         k_ff: stiff.k_ff,
         k_full: if build_k_full { Some(stiff.k_full) } else { None },
         f,
@@ -2481,6 +2503,7 @@ pub(crate) trait InclinedFrame {
     fn rotate_triplets(&self, rows: &mut Vec<usize>, cols: &mut Vec<usize>, vals: &mut Vec<f64>);
     /// `R·K·Rᵀ` on the support DOFs of a dense row-major n×n matrix.
     fn rotate_dense(&self, k: &mut [f64], n: usize);
+    fn abs_rows(&self, columns: &mut [Vec<(usize, f64)>]);
 }
 
 impl InclinedFrame for InclinedTransformData2D {
@@ -2490,6 +2513,9 @@ impl InclinedFrame for InclinedTransformData2D {
         apply_inclined_transform_triplets_2d(rows, cols, vals, &self.dofs, &self.r)
     }
     fn rotate_dense(&self, k: &mut [f64], n: usize) { rotate_inclined_k_2d(k, n, &self.dofs, &self.r) }
+    fn abs_rows(&self, columns: &mut [Vec<(usize, f64)>]) {
+        support_abs_rows(columns, &self.dofs, &self.r);
+    }
 }
 
 impl InclinedFrame for InclinedTransformData {
@@ -2499,6 +2525,68 @@ impl InclinedFrame for InclinedTransformData {
         apply_inclined_transform_triplets_k(rows, cols, vals, &self.dofs, &self.r)
     }
     fn rotate_dense(&self, k: &mut [f64], n: usize) { rotate_inclined_k_3d(k, n, &self.dofs, &self.r) }
+    fn abs_rows(&self, columns: &mut [Vec<(usize, f64)>]) {
+        support_abs_rows(columns, &self.dofs, &self.r);
+    }
+}
+
+fn support_abs_rows<const D: usize>(
+    columns: &mut [Vec<(usize, f64)>], dofs: &[usize; D], rotation: &[[f64; D]; D],
+) {
+    let previous = dofs.map(|d| std::mem::take(&mut columns[d]));
+    for (j, &rotated) in dofs.iter().enumerate() {
+        columns[rotated] = previous.iter().zip(&rotation[j]).filter(|(_, weight)| **weight != 0.0)
+            .flat_map(|(row, weight)| row.iter().map(move |&(i, value)| (i, weight.abs() * value)))
+            .collect();
+    }
+}
+
+pub(crate) fn free_magnitude<T: InclinedFrame>(
+    magnitude: CscMatrix, nf: usize, frames: &[T],
+) -> CscMatrix {
+    let n = magnitude.n;
+    let mut rotated: Vec<_> = (0..n).map(|i| vec![(i, 1.0)]).collect();
+    for frame in frames {
+        frame.abs_rows(&mut rotated);
+    }
+    let mut columns: Vec<Vec<(usize, f64)>> = vec![Vec::new(); n];
+    for (j, row) in rotated.into_iter().take(nf).enumerate() {
+        for (i, weight) in row {
+            if let Some((_, coefficient)) = columns[i].last_mut().filter(|entry| entry.0 == j) {
+                *coefficient += weight;
+            } else {
+                columns[i].push((j, weight));
+            }
+        }
+    }
+    super::constraints::SparseTransform::from_rows(n, nf, columns).reduce_sparse(&magnitude)
+}
+
+pub(crate) fn triplet_magnitude<T: InclinedFrame>(
+    rows: &[usize], cols: &[usize], values: &[f64], dof: &DofNumbering, frames: &[T],
+) -> CscMatrix {
+    if frames.is_empty() {
+        let (mut fr, mut fc, mut fv) = (Vec::new(), Vec::new(), Vec::new());
+        for ((&row, &col), &value) in rows.iter().zip(cols).zip(values) {
+            if row < dof.n_free && col < dof.n_free {
+                fr.push(row);
+                fc.push(col);
+                fv.push(value.abs());
+            }
+        }
+        return CscMatrix::from_triplets(dof.n_free, &fr, &fc, &fv);
+    }
+    let values: Vec<_> = values.iter().map(|v| v.abs()).collect();
+    free_magnitude(CscMatrix::from_triplets(dof.n_total, rows, cols, &values), dof.n_free, frames)
+}
+
+pub(crate) fn dense_support_magnitude<T: InclinedFrame>(
+    k: &[f64], dof: &DofNumbering, frames: &[T],
+) -> Option<CscMatrix> {
+    if frames.is_empty() { return None; }
+    let mut magnitude = CscMatrix::from_dense_symmetric_exact(k, dof.n_total);
+    magnitude.values.iter_mut().for_each(|value| *value = value.abs());
+    Some(free_magnitude(magnitude, dof.n_free, frames))
 }
 
 /// Rotate a symmetric matrix given as triplets over all DOFs (each unordered
@@ -2703,6 +2791,7 @@ pub(crate) fn apply_inclined_transform_triplets_k(
 
 /// Stiffness-only sparse 3D assembly result (triplet transforms applied, CSC built).
 pub struct StiffnessSparseAssembly3D {
+    pub(crate) support_magnitude: Option<CscMatrix>,
     pub k_ff: CscMatrix,
     pub k_full: Option<CscMatrix>,
     pub max_diag_k: f64,
@@ -2998,15 +3087,18 @@ pub fn assemble_stiffness_sparse_3d(input: &SolverInput3D, dof_num: &DofNumberin
                         dof_num.map.get(&(sup.node_id, 2)),
                     ) {
                         let dofs = [d0, d1, d2];
-                        apply_inclined_transform_triplets_k(
-                            &mut trip_rows, &mut trip_cols, &mut trip_vals,
-                            &dofs, &r,
-                        );
                         inclined_transforms.push(InclinedTransformData { node_id: sup.node_id, dofs, r });
                     }
                 }
             }
         }
+    }
+
+    let support_magnitude = (!inclined_transforms.is_empty()).then(|| {
+        triplet_magnitude(&trip_rows, &trip_cols, &trip_vals, dof_num, &inclined_transforms)
+    });
+    for frame in &inclined_transforms {
+        InclinedFrame::rotate_triplets(frame, &mut trip_rows, &mut trip_cols, &mut trip_vals);
     }
 
     // Compact zeroed-out triplets left by inclined support transforms
@@ -3128,6 +3220,7 @@ pub fn assemble_stiffness_sparse_3d(input: &SolverInput3D, dof_num: &DofNumberin
     k_ff.drop_below_threshold(1e-30);
 
     StiffnessSparseAssembly3D {
+        support_magnitude,
         k_ff, k_full, max_diag_k: max_diag,
         artificial_dofs: artificial_dofs_3d, inclined_transforms, diagnostics,
     }
@@ -3152,6 +3245,7 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering, build_k
     let stiff = assemble_stiffness_sparse_3d(input, dof_num, build_k_full);
     let f = assemble_load_vector_3d_sparse(input, &input.loads, dof_num, &stiff.inclined_transforms);
     SparseAssemblyResult3D {
+        support_magnitude: stiff.support_magnitude,
         k_ff: stiff.k_ff,
         k_full: stiff.k_full,
         f,

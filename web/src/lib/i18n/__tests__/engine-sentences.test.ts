@@ -67,8 +67,11 @@ describe('engine sentences', () => {
   it('translates the plain reduced stiffness rank sentence', async () => {
     await setLocale('es');
     const message = 'The reduced stiffness rank cannot be resolved at assembly precision. Check member releases, supports, springs and constraints for a mechanism.';
-    expect(localizeEngineText(message))
-      .toBe('El rango de la rigidez reducida no se puede determinar con la precisión del ensamblaje. Revisá las liberaciones, los apoyos, los resortes y las restricciones para detectar un mecanismo.');
+    const reason = 'the structure is a mechanism or so close to one that its stability cannot be decided in double precision: ';
+    for (const text of [message, reason + message[0].toLowerCase() + message.slice(1)]) {
+      expect(localizeEngineText(text))
+        .toBe('El rango de la rigidez reducida no se puede determinar con la precisión del ensamblaje. Revisá las liberaciones, los apoyos, los resortes y las restricciones para detectar un mecanismo.');
+    }
   });
 
   it('leaves a sentence it does not know as it is', () => {

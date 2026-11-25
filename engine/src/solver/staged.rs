@@ -10,7 +10,9 @@ use crate::element::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::reaction_recovery::SolverDisplacements;
-use super::assembly::{AssemblyResult, assemble_2d, assemble_3d};
+use super::assembly::AssemblyResult;
+#[cfg(test)]
+use super::assembly::{assemble_2d, assemble_3d};
 use super::linear::{
     build_displacements_2d,
     build_displacements_3d,
@@ -174,12 +176,12 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         recovery_history.advance(
             StageStiffnessFingerprint::from_assembly(
                 stage_stiffness_contributors_2d(&stage_solver_input),
-                n, asm_dense.as_ref(),
+                n, asm_dense.as_ref().map(|a| &a.0),
                 asm_trips.as_ref().map(|a| (a.rows.as_slice(), a.cols.as_slice(), a.vals.as_slice())),
             ),
             &cumulative_u,
             stage_results.last().is_some_and(|r| r.results.element_forces.iter().any(|f| [f.n_start, f.n_end, f.v_start, f.v_end, f.m_start, f.m_end].iter().any(|v| *v != 0.0))),
-            asm_dense.as_ref().map_or_else(|| &asm_trips.as_ref().unwrap().f, |a| &a.f),
+            asm_dense.as_ref().map_or_else(|| &asm_trips.as_ref().unwrap().f, |a| &a.0.f),
             unloaded_removal_only,
         );
         // Build prescribed displacement vector
@@ -219,7 +221,7 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
             }
             f_f = ff;
         } else {
-            let asm = asm_dense.as_ref().unwrap();
+            let asm = &asm_dense.as_ref().unwrap().0;
             let free_idx: Vec<usize> = (0..nf).collect();
             let rest_idx: Vec<usize> = (nf..n).collect();
             let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
@@ -250,7 +252,7 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         let inclined_transforms = if let Some(ref t) = asm_trips {
             &t.inclined_transforms_2d
         } else {
-            &asm_dense.as_ref().unwrap().inclined_transforms_2d
+            &asm_dense.as_ref().unwrap().0.inclined_transforms_2d
         };
         let applied = super::assembly::assemble_load_vector_2d(
             &cumulative_solver_input, &cumulative_stage_loads, &dof_num, inclined_transforms,
@@ -259,10 +261,12 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         let incremental_rounding = super::load_work::assembly_rounding_2d(&stage_solver_input,&stage_loads_2d(&stage_solver_input,stage),&dof_num,inclined_transforms);
         let mut conditioning = None;
         let u_s_inc = solve_stage_free(
-            &k_physical, &dof_num, cs.as_ref(), true, &connected_nodes_2d(&stage_solver_input),
+            &k_physical, asm_trips.as_ref().and_then(|t| t.support_magnitude.as_ref())
+                .or_else(|| asm_dense.as_ref().and_then(|a| a.1.as_ref())),
+            &dof_num, cs.as_ref(), true, &connected_nodes_2d(&stage_solver_input),
             &super::stability::coupling_2d(&stage_solver_input, &dof_num),
             &super::stability::ReleasedRotations::default(), &f_f,
-            &asm_trips.as_ref().map_or_else(|| &asm_dense.as_ref().unwrap().f, |t| &t.f)[..nf],
+            &asm_trips.as_ref().map_or_else(|| &asm_dense.as_ref().unwrap().0.f, |t| &t.f)[..nf],
             &applied[..nf], &cumulative_rounding, &incremental_rounding, use_sparse,
             &mut sparse_sym_cache, &mut conditioning,
         )?;
@@ -369,6 +373,7 @@ fn build_stage_solver_input(
 
 fn solve_stage_free(
     k: &CscMatrix,
+    support_magnitude: Option<&CscMatrix>,
     dof: &DofNumbering,
     constraints: Option<&FreeConstraintSystem>,
     two_d: bool,
@@ -393,7 +398,7 @@ fn solve_stage_free(
     let stiff = stiffness_columns(&reduced);
     let inactive = inactive_dofs(&stiff, dof, two_d, constraints, connected, &cumulative_applied);
     for &j in &inactive { f[j] = 0.0; }
-    let (reduced, stability) = super::stability::analyze_free_stiffness_excluding(k, dof, two_d, constraints, coupling, releases, &inactive);
+    let (reduced, stability) = super::stability::analyze_free_stiffness_excluding(k, dof, two_d, constraints, coupling, releases, &inactive, support_magnitude);
     if let Some(refusal) = stability.refusal() { return Err(refusal); }
     if let Some(node) = stability.load_on_free_rotation_with_rounding(&cumulative_applied,&cumulative_rounding) {
         return Err(format!("Nodal moment at node {node} is not supported: a free rotation would carry load"));
@@ -532,12 +537,13 @@ fn assemble_staged_2d(
     stage_input: &SolverInput,
     dof_num: &DofNumbering,
     stage: &ConstructionStage,
-) -> AssemblyResult {
+) -> (AssemblyResult, Option<CscMatrix>) {
     let loaded_input = SolverInput { loads: stage_loads_2d(stage_input, stage), ..stage_input.clone() };
-    super::assembly::without_artificial_stiffness(|| assemble_2d(&loaded_input, dof_num))
+    super::assembly::without_artificial_stiffness(|| super::assembly::assemble_2d_with_magnitude(&loaded_input, dof_num))
 }
 
 struct StagedTriplets2D {
+    support_magnitude: Option<CscMatrix>,
     inclined_transforms_2d: Vec<super::assembly::InclinedTransformData2D>,
     k_ff: CscMatrix,
     rows: Vec<usize>,
@@ -569,7 +575,7 @@ fn assemble_staged_2d_triplets(
     let loads = stage_loads_2d(stage_input, stage);
     let f = super::assembly::assemble_load_vector_2d(stage_input, &loads, dof_num, &stiff.inclined_transforms_2d);
     let (rows, cols, vals) = full_triplets(&stiff.k_full);
-    StagedTriplets2D { inclined_transforms_2d: stiff.inclined_transforms_2d, k_ff: stiff.k_ff, rows, cols, vals, f }
+    StagedTriplets2D { support_magnitude: stiff.support_magnitude, inclined_transforms_2d: stiff.inclined_transforms_2d, k_ff: stiff.k_ff, rows, cols, vals, f }
 }
 
 #[path = "staged_physical.rs"]
@@ -933,7 +939,7 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         let asm_dense = if use_sparse {
             None
         } else {
-            let asm = super::assembly::without_artificial_stiffness(|| assemble_3d(&stage_input, &dof_num));
+            let asm = super::assembly::without_artificial_stiffness(|| super::assembly::assemble_3d_with_magnitude(&stage_input, &dof_num));
             Some(asm)
         };
         let asm_trips = if use_sparse {
@@ -945,12 +951,12 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         recovery_history.advance(
             StageStiffnessFingerprint::from_assembly(
                 stage_stiffness_contributors_3d(&stage_input),
-                n, asm_dense.as_ref(),
+                n, asm_dense.as_ref().map(|a| &a.0),
                 asm_trips.as_ref().map(|a| (a.rows.as_slice(), a.cols.as_slice(), a.vals.as_slice())),
             ),
             &cumulative_u,
             stage_results.last().is_some_and(|r| r.results.element_forces.iter().any(|f| [f.n_start, f.n_end, f.vy_start, f.vy_end, f.vz_start, f.vz_end, f.mx_start, f.mx_end, f.my_start, f.my_end, f.mz_start, f.mz_end].iter().any(|v| *v != 0.0))),
-            asm_dense.as_ref().map_or_else(|| &asm_trips.as_ref().unwrap().f, |a| &a.f),
+            asm_dense.as_ref().map_or_else(|| &asm_trips.as_ref().unwrap().f, |a| &a.0.f),
             unloaded_removal_only,
         );
         // Build prescribed displacement vector
@@ -990,7 +996,7 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
             }
             f_f = ff;
         } else {
-            let asm = asm_dense.as_ref().unwrap();
+            let asm = &asm_dense.as_ref().unwrap().0;
             let free_idx: Vec<usize> = (0..nf).collect();
             let rest_idx: Vec<usize> = (nf..n).collect();
             let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
@@ -1020,10 +1026,12 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         let incremental_rounding = super::load_work::assembly_rounding_3d(&stage_input,&stage_input.loads,&dof_num,&[]);
         let mut conditioning = None;
         let u_s_inc = solve_stage_free(
-            &k_physical, &dof_num, cs.as_ref(), false, &connected_nodes_3d(&stage_input),
+            &k_physical, asm_trips.as_ref().and_then(|t| t.support_magnitude.as_ref())
+                .or_else(|| asm_dense.as_ref().and_then(|a| a.1.as_ref())),
+            &dof_num, cs.as_ref(), false, &connected_nodes_3d(&stage_input),
             &super::stability::coupling_3d(&stage_input, &dof_num),
             &super::stability::released_rotations_3d(&stage_input, &dof_num), &f_f,
-            &asm_trips.as_ref().map_or_else(|| &asm_dense.as_ref().unwrap().f, |t| &t.f)[..nf],
+            &asm_trips.as_ref().map_or_else(|| &asm_dense.as_ref().unwrap().0.f, |t| &t.f)[..nf],
             &applied[..nf], &cumulative_rounding, &incremental_rounding, use_sparse,
             &mut sparse_sym_cache, &mut conditioning,
         )?;
@@ -1193,6 +1201,7 @@ fn build_stage_solver_input_3d(
 }
 
 struct StagedTriplets3D {
+    support_magnitude: Option<CscMatrix>,
     k_ff: CscMatrix,
     rows: Vec<usize>,
     cols: Vec<usize>,
@@ -1212,7 +1221,7 @@ fn assemble_staged_3d_triplets(
 
     let (rows, cols, vals) = full_triplets(&k_full);
 
-    StagedTriplets3D { k_ff: stiff.k_ff, rows, cols, vals, f: f_global }
+    StagedTriplets3D { support_magnitude: stiff.support_magnitude, k_ff: stiff.k_ff, rows, cols, vals, f: f_global }
 }
 
 /// Results of a 3D stage from the cumulative displacements, by the linear

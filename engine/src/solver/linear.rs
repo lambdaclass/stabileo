@@ -683,7 +683,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
     // ── Triplet sparse path: large models (nf >= 64) ──
     if !force_dense && nf >= SPARSE_THRESHOLD {
         let stiff = super::assembly::without_artificial_stiffness(|| super::sparse_assembly::assemble_stiffness_sparse_2d_typed(input, &dof_num, &properties));
-        let (k_ff, stability) = super::stability::prepare_free_stiffness(&stiff.k_ff, &dof_num, true, None, &super::stability::coupling_2d(input, &dof_num), &super::stability::ReleasedRotations::default())?;
+        let (k_ff, stability) = super::stability::prepare_free_stiffness(&stiff.k_ff, &dof_num, true, None, &super::stability::coupling_2d(input, &dof_num), &super::stability::ReleasedRotations::default(), stiff.support_magnitude.as_ref())?;
 
         let mut pcg_diags_base: Vec<SolverDiagnostic> = Vec::new();
         let solver_opts = resolve_solver_options(&input.solver_options, nf, &mut pcg_diags_base);
@@ -748,7 +748,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
     let k_rr = extract_submatrix(&stiff.k, n, &rest_idx, &rest_idx);
     let k_rr_ur = u_r.dense_action(&k_rr, nr);
 
-    let (pinned, stability) = super::stability::prepare_free_stiffness(&CscMatrix::from_dense_symmetric_exact(&k_ff, nf), &dof_num, true, None, &super::stability::coupling_2d(input, &dof_num), &super::stability::ReleasedRotations::default())?;
+    let (pinned, stability) = super::stability::prepare_free_stiffness(&CscMatrix::from_dense_symmetric_exact(&k_ff, nf), &dof_num, true, None, &super::stability::coupling_2d(input, &dof_num), &super::stability::ReleasedRotations::default(), stiff.support_magnitude.as_ref())?;
     k_ff = pinned.to_dense_symmetric();
 
     let (factor, used_sparse) = if nf >= SPARSE_THRESHOLD {
@@ -1783,7 +1783,7 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
         let mut solver_diags_base: Vec<SolverDiagnostic> = Vec::new();
 
         let t0 = now_micros();
-        let (k_ff, stability) = super::stability::prepare_free_stiffness(&stiff.k_ff, &dof_num, false, None, &super::stability::coupling_3d(&input, &dof_num), &super::stability::released_rotations_3d(&input, &dof_num))?;
+        let (k_ff, stability) = super::stability::prepare_free_stiffness(&stiff.k_ff, &dof_num, false, None, &super::stability::coupling_3d(&input, &dof_num), &super::stability::released_rotations_3d(&input, &dof_num), stiff.support_magnitude.as_ref())?;
         stiff.k_ff = k_ff;
         let conditioning = super::conditioning::check_sparse_conditioning(&stiff.k_ff);
         pre_solve_diags.extend(conditioning.structured_diagnostics());
@@ -1866,7 +1866,7 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
         let free_idx: Vec<usize> = (0..nf).collect();
         let rest_idx: Vec<usize> = (nf..n).collect();
         let mut k_ff = extract_submatrix(&stiff.k, n, &free_idx, &free_idx);
-        let (pinned, stability) = super::stability::prepare_free_stiffness(&CscMatrix::from_dense_symmetric_exact(&k_ff, nf), &dof_num, false, None, &super::stability::coupling_3d(&input, &dof_num), &super::stability::released_rotations_3d(&input, &dof_num))?;
+        let (pinned, stability) = super::stability::prepare_free_stiffness(&CscMatrix::from_dense_symmetric_exact(&k_ff, nf), &dof_num, false, None, &super::stability::coupling_3d(&input, &dof_num), &super::stability::released_rotations_3d(&input, &dof_num), stiff.support_magnitude.as_ref())?;
         k_ff = pinned.to_dense_symmetric();
         let conditioning = super::conditioning::check_conditioning(&k_ff, nf);
         pre_solve_diags.extend(conditioning.structured_diagnostics());
@@ -5557,7 +5557,7 @@ fn checked_initial_released_loads_3d(input: &SolverInput3D) -> Result<ReleasedLo
     let assembled = super::assembly::without_artificial_stiffness(|| super::assembly::assemble_stiffness_sparse_3d(input,&dof,false));
     let constraints = super::constraints::FreeConstraintSystem::build_3d(input,&dof)?;
     let releases = super::stability::released_rotations_3d(input,&dof);
-    let (_,mut stability) = super::stability::analyze_free_stiffness(&assembled.k_ff,&dof,false,constraints.as_ref(),&super::stability::coupling_3d(input,&dof),&releases);
+    let (_,mut stability) = super::stability::analyze_free_stiffness(&assembled.k_ff,&dof,false,constraints.as_ref(),&super::stability::coupling_3d(input,&dof),&releases, assembled.support_magnitude.as_ref());
     let projected_releases = constraints.as_ref().map(|c| releases.project(&c.c_ff));
     let releases = projected_releases.as_ref().unwrap_or(&releases);
     let mut certificate=ReleasedLoadCertificate3D::default();

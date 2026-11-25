@@ -70,3 +70,92 @@ for (const issue of ['2266', '2380']) {
   }
 }
 assert.deepEqual(failures, []);
+
+const truss = {
+  nodes: { 1: { id: 1, x: 0, z: 0 }, 2: { id: 2, x: 1, z: 0 } },
+  elements: { 1: { id: 1, nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, type: 'truss', hingeStart: false, hingeEnd: false } },
+  materials: { 1: { id: 1, e: 0.001, nu: 0.3 } },
+  sections: { 1: { id: 1, a: 1, iz: 1 } },
+  supports: { 1: { id: 1, nodeId: 1, type: 'fixed' }, 2: { id: 2, nodeId: 2, type: 'spring', ky: 1 } },
+  constraints: [],
+  loads: [],
+};
+const codedRankError = error => {
+  try {
+    const [diagnostic] = JSON.parse(String(error)).structuredDiagnostics;
+    return diagnostic.code === 'reduced_stiffness_rank' && diagnostic.severity === 'error';
+  } catch { return false; }
+};
+const nonlinear = (analysis, dim, model) => JSON.parse(engine[`solve_${analysis}_${dim}`](JSON.stringify(model), 8, 1e-12, 1));
+
+for (const dim of ['2d', '3d']) {
+  const model = dim === '2d' ? structuredClone(truss) : spatial(truss);
+  if (dim === '3d') {
+    Object.assign(model.supports[2], { kz: 1, rry: true });
+  }
+  for (const force of [-0.25, -0.5, -0.75]) {
+    const load = { nodeId: 2, fx: force, fz: 0, my: 0 };
+    if (dim === '3d') Object.assign(load, { fy: 0, mx: 0, mz: 0 });
+    const run = () => nonlinear('corotational', dim, { ...model, loads: [{ type: 'nodal', data: load }] });
+    if (force === -0.5) {
+      assert.throws(run, codedRankError, `${dim} current rank`);
+    } else {
+      const result = run();
+      assert.equal(result.converged, true);
+      assert.equal(result.results.displacements.find(d => d.nodeId === 2).ux, force);
+    }
+  }
+
+  const angle = 0.4;
+  const [x, z] = [Math.sin(angle), Math.cos(angle)];
+  const inclined = structuredClone(model);
+  Object.assign(inclined.nodes[2], { x, z });
+  if (dim === '2d') {
+    inclined.supports[2] = { id: 2, nodeId: 2, type: 'inclinedRoller', angle };
+  } else {
+    inclined.supports[2] = { nodeId: 2, isInclined: true, normalX: x, normalY: 0, normalZ: z, rx: false, ry: false, rz: false, ky: 1, rrx: true, rry: true, rrz: true };
+  }
+  const kinematics = JSON.parse(engine[`analyze_kinematics_${dim}`](JSON.stringify(inclined)));
+  assert.equal(kinematics.isSolvable, false);
+  assert.ok(codedRankError(kinematics.diagnosis), `${dim} inclined kinematics: ${kinematics.diagnosis}`);
+  for (const [name, run] of [
+    ['linear', s => engine[`solve_${dim}`](s)],
+    ['constrained', s => engine[`solve_constrained_${dim}`](JSON.stringify({ solver: s, constraints: s.constraints }))],
+    ['corotational', s => nonlinear('corotational', dim, s)],
+    ['material nonlinear', s => nonlinear('nonlinear_material', dim, {
+      solver: s, materialModels: {}, sectionCapacities: {}, maxIter: 8, tolerance: 1e-12, nIncrements: 1,
+    })],
+  ]) {
+    assert.throws(() => run(inclined), codedRankError, `${dim} inclined ${name}`);
+    const control = structuredClone(inclined);
+    control.nodes[2].x += 0.25;
+    const solved = run(control);
+    if (typeof solved === 'object' && 'converged' in solved) assert.equal(solved.converged, true);
+  }
+}
+
+for (const dim of ['2d', '3d']) {
+  for (const [stiffness, refused] of [[1e8, false], [(1e12 - 2) / 4, false], [1e12 / 4, true]]) {
+    const model = dim === '2d' ? structuredClone(truss) : spatial(truss);
+    model.materials[1].e = stiffness / 1000;
+    for (const nodeId of [1, 2]) {
+      model.supports[nodeId] = dim === '2d'
+        ? { id: nodeId, nodeId, type: 'rollerX', kx: 0.5 }
+        : { nodeId, rx: false, ry: true, rz: true, rrx: true, rry: true, rrz: true, kx: 0.5 };
+    }
+    model.constraints = [{ type: 'linearMPC', terms: [
+      { nodeId: 2, dof: 0, coefficient: 1 },
+      { nodeId: 1, dof: 0, coefficient: -1 },
+    ] }];
+    const run = () => nonlinear('nonlinear_material', dim, {
+      solver: model, materialModels: {}, sectionCapacities: {}, maxIter: 8, tolerance: 1e-12, nIncrements: 1,
+    });
+    if (refused) {
+      assert.throws(run, error => codedRankError(error) && String(error).includes('constraint reduction cancels stiffness contributions'));
+    } else {
+      const result = run();
+      assert.equal(result.converged, true);
+      for (const displacement of result.results.displacements) assert.equal(displacement.ux, 0);
+    }
+  }
+}

@@ -2,6 +2,8 @@
 // computeStaticDegree is pure counting math (no solver dependency).
 // analyzeKinematics delegates to the WASM engine for the heavy LU rank analysis.
 
+import { localizeEngineText } from '../i18n/engine-text';
+import { refusedWithCode } from './containment-error';
 import { shownDof } from '../axes/user-names';
 import type { SolverInput } from './types';
 import { analyzeKinematics as wasmAnalyzeKinematics, isWasmReady } from './wasm-solver';
@@ -270,6 +272,7 @@ export function localizeKinematicDiagnosis(r: {
   rawDiagnosis: string;
 }): string {
   if (r.invalidInput) return t('kin.diagInvalidData');
+  if (refusedWithCode(r.rawDiagnosis, 'reduced_stiffness_rank')) return localizeEngineText(r.rawDiagnosis);
   if (r.mechanismModes === 0) {
     // The engine's "every DOF is restrained" case carries no structured flag of its own.
     if (/^Todos los GDL/.test(r.rawDiagnosis ?? '')) return t('kin.allDofConstrained');

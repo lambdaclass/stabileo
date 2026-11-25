@@ -97,12 +97,12 @@ pub fn solve_modal_2d(
     // K is assembled in the inclined-roller frames (the same rotations by
     // either assembler); M, the influence vectors and the mode shapes follow.
     let sparse = nf >= SPARSE_THRESHOLD;
-    let (k_sparse, k_dense, its) = if sparse {
+    let (k_sparse, k_dense, its, support_magnitude) = if sparse {
         let s = super::sparse_assembly::assemble_stiffness_sparse_2d(input, &dof_num);
-        (Some(s.k_ff), None, s.inclined_transforms_2d)
+        (Some(s.k_ff), None, s.inclined_transforms_2d, s.support_magnitude)
     } else {
         let s = assemble_stiffness_2d(input, &dof_num);
-        (None, Some(extract_submatrix(&s.k, n, &free_idx, &free_idx)), s.inclined_transforms_2d)
+        (None, Some(extract_submatrix(&s.k, n, &free_idx, &free_idx)), s.inclined_transforms_2d, s.support_magnitude)
     };
 
     // The ground-motion load of a unit rigid translation along X and along Y
@@ -143,7 +143,7 @@ pub fn solve_modal_2d(
         m_r_y = ground_influence(&dof_num, 1, &its, &m_csc, m_full_sparse);
         if let Some(ref cs) = cs {
             let k_solve = cs.reduce_matrix_sparse(&k_ff);
-            rank.check(&k_ff, Some(&k_solve))?;
+            rank.check(&k_ff, Some(&k_solve), support_magnitude.as_ref())?;
             let m_solve = cs.reduce_matrix_sparse(&m_csc);
             let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(&k_solve, |observe| {
                 mass_range.solve_sparse(&k_solve, &m_solve, num_modes, observe)
@@ -154,7 +154,7 @@ pub fn solve_modal_2d(
             m_csc_opt = Some(m_solve);
             (result, cs.n_free_indep, Vec::new())
         } else {
-            rank.check(&k_ff, None)?;
+            rank.check(&k_ff, None, support_magnitude.as_ref())?;
             let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(&k_ff, |observe| {
                 mass_range.solve_sparse(&k_ff, &m_csc, num_modes, observe)
             });
@@ -192,7 +192,7 @@ pub fn solve_modal_2d(
         };
         let operator = CscMatrix::from_dense_symmetric_exact(&k_ff, nf);
         let reduced = cs.as_ref().map(|_| CscMatrix::from_dense_symmetric_exact(&k_solve, ns));
-        rank.check(&operator, reduced.as_ref())?;
+        rank.check(&operator, reduced.as_ref(), support_magnitude.as_ref())?;
         let result = mass_range.solve_dense(&k_solve, &m_solve, num_modes)
             .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(ns))?;
         crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::dense_stiffness_conditioning(&k_solve, ns).into_iter().collect());
@@ -592,7 +592,7 @@ pub fn solve_modal_3d(
         (&sasm.k_ff, &m_sparse_ff)
     };
     super::stability::OperatorRank::for_3d(input, &dof_num, cs.as_ref())
-        .check(&sasm.k_ff, cs.as_ref().map(|_| k_solve))?;
+        .check(&sasm.k_ff, cs.as_ref().map(|_| k_solve), sasm.support_magnitude.as_ref())?;
     let mut structured_diagnostics = known_model;
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Modal));
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_conditioning(&sasm.k_ff).into_iter().collect());

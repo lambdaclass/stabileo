@@ -112,13 +112,25 @@ fn issue_2380_through_native_operator_entries() {
         "material nonlinear",
         "modal",
     ];
+    let rows2 = crate::ana2::rows();
+    let rows3 = crate::ana3::rows();
+    let selected2: Vec<_> = entries.into_iter().chain(["linear (WASM typed path)"]).map(|name| {
+        let mut matching = rows2.iter().filter(|row| row.name == name);
+        let row = matching.next().unwrap_or_else(|| panic!("missing 2D entry {name}"));
+        assert!(matching.next().is_none(), "duplicate 2D entry {name}");
+        row
+    }).collect();
+    let selected3: Vec<_> = entries.into_iter().map(|name| {
+        let mut matching = rows3.iter().filter(|row| row.name == name);
+        let row = matching.next().unwrap_or_else(|| panic!("missing 3D entry {name}"));
+        assert!(matching.next().is_none(), "duplicate 3D entry {name}");
+        row
+    }).collect();
     let mut failures = Vec::new();
-    for row in crate::ana2::rows().into_iter().filter(|a| {
-        entries.contains(&a.name) || a.name == "linear (WASM typed path)"
-    }) {
+    for row in selected2 {
         report(&format!("2D {}", row.name), (row.run)(&case), &mut failures);
     }
-    for row in crate::ana3::rows().into_iter().filter(|a| entries.contains(&a.name)) {
+    for row in selected3 {
         report(&format!("3D {}", row.name), (row.run)(&spatial), &mut failures);
     }
     report(
@@ -264,41 +276,49 @@ fn inclined_truss() -> (SolverInput, dedaliano_engine::types::SolverInput3D) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2584"]
 fn inclined_truss_transverse_motion_is_not_supported() {
     let (planar, spatial) = inclined_truss();
     let mut failures = Vec::new();
     report("2D classification", classification_2d(&Case2::new("inclined", planar.clone())), &mut failures);
     report("3D classification", stability::of_3d(&spatial).and_then(|s| s.refusal().map_or(Ok(()), Err)), &mut failures);
-    for (dimension, control) in [(2, false), (2, true), (3, false), (3, true)] {
-        if dimension == 2 {
-            let mut model = planar.clone();
-            if control { model.nodes.get_mut("2").unwrap().x += 0.25; }
-            let case = Case2::new("inclined", model);
-            for row in crate::ana2::rows().into_iter().filter(|r| [
-                "linear", "linear (dense reference)", "linear (WASM typed path)", "linear (sparse path)",
-                "linear (PCG)", "linear (load session)", "constrained", "corotational", "material nonlinear",
-            ].contains(&r.name)) {
-                let result = (row.run)(&case);
-                if control {
-                    assert!(result.is_ok(), "{}: {result:?}", row.name);
-                } else {
-                    report(&format!("2D {}", row.name), result, &mut failures);
+    let kin2 = dedaliano_engine::solver::kinematic::analyze_kinematics_2d(&planar);
+    let kin3 = dedaliano_engine::solver::kinematic::analyze_kinematics_3d(&spatial);
+    for (dimension, kinematics) in [(2, kin2), (3, kin3)] {
+        assert!(!kinematics.is_solvable, "{dimension}D kinematics accepted transverse motion");
+        report(&format!("{dimension}D kinematics"), Err::<(), _>(kinematics.diagnosis), &mut failures);
+    }
+    for dimension in [2, 3] {
+        for delta in [0.0, 2.0_f64.powi(-25), 2.0_f64.powi(-20), 0.25] {
+            let control = delta >= 2.0_f64.powi(-20);
+            if dimension == 2 {
+                let mut model = planar.clone();
+                model.nodes.get_mut("2").unwrap().x += delta;
+                let case = Case2::new("inclined", model);
+                for row in crate::ana2::rows().into_iter().filter(|r| [
+                    "linear", "linear (dense reference)", "linear (WASM typed path)", "linear (sparse path)",
+                    "linear (PCG)", "linear (load session)", "constrained", "corotational", "material nonlinear",
+                ].contains(&r.name)) {
+                    let result = (row.run)(&case);
+                    if control {
+                        assert!(result.is_ok(), "{}: {result:?}", row.name);
+                    } else {
+                        report(&format!("2D {} at offset {delta}", row.name), result, &mut failures);
+                    }
                 }
-            }
-        } else {
-            let mut model = spatial.clone();
-            if control { model.nodes.get_mut("2").unwrap().x += 0.25; }
-            let case = Case3::new("inclined", model);
-            for row in crate::ana3::rows().into_iter().filter(|r| [
-                "linear", "linear (sparse path)", "linear (PCG)", "linear (load session)", "constrained",
-                "corotational", "material nonlinear",
-            ].contains(&r.name)) {
-                let result = (row.run)(&case);
-                if control {
-                    assert!(result.is_ok(), "{}: {result:?}", row.name);
-                } else {
-                    report(&format!("3D {}", row.name), result, &mut failures);
+            } else {
+                let mut model = spatial.clone();
+                model.nodes.get_mut("2").unwrap().x += delta;
+                let case = Case3::new("inclined", model);
+                for row in crate::ana3::rows().into_iter().filter(|r| [
+                    "linear", "linear (sparse path)", "linear (PCG)", "linear (load session)", "constrained",
+                    "corotational", "material nonlinear",
+                ].contains(&r.name)) {
+                    let result = (row.run)(&case);
+                    if control {
+                        assert!(result.is_ok(), "{}: {result:?}", row.name);
+                    } else {
+                        report(&format!("3D {} at offset {delta}", row.name), result, &mut failures);
+                    }
                 }
             }
         }
@@ -307,30 +327,46 @@ fn inclined_truss_transverse_motion_is_not_supported() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2584"]
 fn corotational_equilibrium_requires_current_tangent_rank() {
     use dedaliano_engine::{
         solver::corotational::{solve_corotational_2d, solve_corotational_2d_from, solve_corotational_3d, CorotationalStart2D},
         types::Displacement,
     };
     let mut failures = Vec::new();
-    for (force, refused) in [(-0.25, false), (-0.5, true), (-0.75, false)] {
+    let epsilon = f64::EPSILON;
+    for (force, refused) in [
+        (-0.25, false),
+        (-0.5 + 64.0 * epsilon, false),
+        (-0.5 + 16.0 * epsilon, true),
+        (-0.5, true),
+        (-0.5 - 16.0 * epsilon, true),
+        (-0.5 - 64.0 * epsilon, false),
+        (-0.75, false),
+    ] {
         let mut model = truss();
         model.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: force, fz: 0.0, my: 0.0 })];
-        let spatial = embed_2d(&model, Plane::XZ).unwrap();
-        let state = [Displacement { node_id: 1, ux: 0.0, uz: 0.0, ry: 0.0 },
-                     Displacement { node_id: 2, ux: force, uz: 0.0, ry: 0.0 }];
-        let start = CorotationalStart2D { input: &model, displacements: &state };
-        for modified in [false, true] {
-            for (label, result) in [
-                ("2D", solve_corotational_2d(&model, 8, 1e-12, 1, modified).map(|r| (r.converged, r.results.displacements[1].ux))),
-                ("2D start", solve_corotational_2d_from(&model, Some(&start), 8, 1e-12, 1, modified).map(|r| (r.converged, r.results.displacements[1].ux))),
-                ("3D", solve_corotational_3d(&spatial, 8, 1e-12, 1, modified).map(|r| (r.converged, r.results.displacements[1].ux))),
-            ] {
-                if refused {
-                    report(label, result, &mut failures);
-                } else {
-                    assert_eq!(result.unwrap(), (true, force), "{label}");
+        let mut sparse = crate::case::pad_2d(&model).0;
+        sparse.supports.get_mut("2").unwrap().kz = Some(1.0);
+        for model in [model, sparse] {
+            let spatial = embed_2d(&model, Plane::XZ).unwrap();
+            let state: Vec<_> = model.nodes.values().map(|node| Displacement {
+                node_id: node.id,
+                ux: if node.id == 2 { force } else { 0.0 },
+                uz: 0.0,
+                ry: 0.0,
+            }).collect();
+            let start = CorotationalStart2D { input: &model, displacements: &state };
+            for modified in [false, true] {
+                for (label, result) in [
+                    ("2D", solve_corotational_2d(&model, 8, 1e-12, 1, modified).map(|r| (r.converged, r.results.displacements.iter().find(|d| d.node_id == 2).unwrap().ux))),
+                    ("2D start", solve_corotational_2d_from(&model, Some(&start), 8, 1e-12, 1, modified).map(|r| (r.converged, r.results.displacements.iter().find(|d| d.node_id == 2).unwrap().ux))),
+                    ("3D", solve_corotational_3d(&spatial, 8, 1e-12, 1, modified).map(|r| (r.converged, r.results.displacements.iter().find(|d| d.node_id == 2).unwrap().ux))),
+                ] {
+                    if refused {
+                        report(&format!("{label} at {force:.17}"), result, &mut failures);
+                    } else {
+                        assert_eq!(result.unwrap(), (true, force), "{label}");
+                    }
                 }
             }
         }
