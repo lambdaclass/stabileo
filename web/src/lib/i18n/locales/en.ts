@@ -11992,6 +11992,8 @@ const en: Record<string, string> = {
   "snow.refused.legacyCombination": "This saved seismic combination has an ambiguous snow basis. Regenerate combinations before using it; regenerating snow loads alone is insufficient.",
   "snow.refused.flatRoofCase": "This combination requires a separate flat-roof snow case. Regenerate snow loads before generating combinations.",
   "combos.refused.unresolvedGroup": "No load case matches symbol {symbol} and group “{group}”. Review the saved combination rule and its load cases.",
+  "combos.refused.alternativeSet": "The rule “{rule}” cannot represent every case in alternative set “{set}” without combining cases of the same directional load symbol. Review the rule and alternative sets.",
+  "combos.refused.directionalCase": "The rule “{rule}” leaves directional load case “{case}” out of every combination. Review the rule and alternative sets.",
   "snow.refused.physicalCase": "This combination requires a separate physical snow case. Regenerate snow loads before generating combinations.",
   'snow.case.balanced': 'Balanced snow (ps = {ps} kN/m²)',
   'snow.derivation.multipleUnbalanced': "Unbalanced (§6.3, Figure 6): from 0.5 pf at the ridges to {valley} kN/m² in the valleys, the snow over a valley kept below the snow over the ridge.",

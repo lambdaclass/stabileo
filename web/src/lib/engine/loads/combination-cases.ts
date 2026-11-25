@@ -45,6 +45,7 @@
  * and a statement about any case loaded by hand, which the option says where it is offered.
  */
 import { isCombinationGroup } from './combination-rules';
+import type { AnalysisSettings } from '../analysis-settings';
 import { EngineMessageError, msg } from '../../codes/message';
 import type { LoadCombinationSpec, LoadSymbol, CombinationInputs } from '../../codes/cirsoc101/combinations';
 
@@ -99,8 +100,8 @@ export interface CaseCombination {
 }
 
 /** Which load symbols the model has cases for. */
-export function presentSymbols(cases: ReadonlyArray<{ type?: string; includes?: ReadonlyArray<unknown> }>): CombinationInputs['present'] {
-  const has = (s: LoadSymbol) => cases.some((c) => symbolOfCase(c) === s);
+export function presentSymbols(cases: readonly CombinationSymbolCase[]): CombinationInputs['present'] {
+  const has = (s: LoadSymbol) => cases.some((c) => combinationSymbol(c) === s);
   return { L: has('L'), Lr: has('Lr'), S: has('S'), R: has('R'), W: has('W'), E: has('E'), F: has('F'), H: has('H'), Wa: has('Wa'), T: has('T') };
 }
 
@@ -141,12 +142,57 @@ export interface CombinationCase {
   pattern?: boolean;
   includes?: ReadonlyArray<unknown>;
   snowBasis?: 'flatRoof';
+  autoLoadsRetired?: true;
+}
+
+type CombinationSymbolCase = Pick<CombinationCase, 'type' | 'includes' | 'autoLoadsRetired'>;
+
+type DirectEffectsModel<C> = {
+  loadCases: readonly C[];
+  loads: ReadonlyArray<{ data: { caseId?: unknown } & Record<string, unknown> }>;
+  analysis?: Pick<AnalysisSettings, 'selfWeight'>;
+};
+
+export function loadCasesWithDirectEffects({
+  loadCases, loads, analysis,
+}: DirectEffectsModel<{ id: number; spectral?: unknown; notional?: unknown }>): Set<number> {
+  const ids = new Set([
+    ...(analysis?.selfWeight ?? []).map(row => row.caseId),
+    ...loadCases.filter(c => c.spectral !== undefined || c.notional !== undefined).map(c => c.id),
+  ]);
+  for (const { data } of loads) {
+    if (data.caseId == null) ids.add(1);
+    else if (typeof data.caseId === 'number') ids.add(data.caseId);
+  }
+  return ids;
+}
+
+export function eligibleCombinationCase<C extends { autoLoadsRetired?: true }>(c: C, hasDirectEffects = false): Omit<C, 'autoLoadsRetired'> | undefined {
+  if (c.autoLoadsRetired !== true) return c;
+  if (hasDirectEffects) return { ...c, autoLoadsRetired: undefined };
+  return undefined;
+}
+
+export function modelCombinationCases<C extends CombinationCase & { spectral?: unknown; notional?: unknown }>(
+  model: DirectEffectsModel<C>,
+): readonly Omit<C, 'autoLoadsRetired'>[] {
+  if (!model.loadCases.some(c => c.autoLoadsRetired === true)) return model.loadCases;
+  const occupied = loadCasesWithDirectEffects(model);
+  return model.loadCases.flatMap(c => {
+    const eligible = eligibleCombinationCase(c, occupied.has(c.id));
+    return eligible ? [eligible] : [];
+  });
+}
+
+function combinationSymbol(c: CombinationSymbolCase): LoadSymbol | null {
+  const eligible = eligibleCombinationCase(c);
+  return eligible ? symbolOfCase(eligible) : null;
 }
 
 function casesBySymbol(cases: readonly CombinationCase[]): Map<LoadSymbol, CombinationCase[]> {
   const bySymbol = new Map<LoadSymbol, CombinationCase[]>();
   for (const c of cases) {
-    const symbol = symbolOfCase(c);
+    const symbol = combinationSymbol(c);
     if (!symbol) continue;
     const matching = bySymbol.get(symbol);
     if (matching) matching.push(c);
@@ -171,9 +217,11 @@ export function symbolsByAlternativeSet(
 
 type CasePick = { factors: CaseCombination['factors']; label: string; direction?: DirectionalSymbol };
 type CaseChoice = { loadCase: CombinationCase; symbol: LoadSymbol; factors: number[]; allowPattern: boolean };
-type ChoiceSlot = { choices: Map<number, CaseChoice>; directional: boolean };
+type ChoiceKind = { kind: 'direction'; direction: DirectionalSymbol } | { kind: 'alternatives'; set: string };
+type ChoiceSlot = ChoiceKind & { choices: Map<number, CaseChoice> };
+type PickSlot = (ChoiceKind | { kind: 'plain' }) & { picks: CasePick[] };
 
-function choicePicks({ choices, directional }: ChoiceSlot, opts: ExpandOptions): CasePick[] {
+function choicePicks({ choices, kind }: ChoiceSlot, opts: ExpandOptions): CasePick[] {
   const candidates = [...choices.values()];
   const wholeSymbols = new Set(candidates.filter(({ loadCase }) => !loadCase.pattern).map(({ symbol }) => symbol));
   const eligible = candidates.filter(({ loadCase, symbol, allowPattern }) =>
@@ -189,33 +237,40 @@ function choicePicks({ choices, directional }: ChoiceSlot, opts: ExpandOptions):
       direction,
     }));
   });
-  return picks.length === 1 && (directional || eligible[0]?.loadCase.snowBasis !== 'flatRoof')
+  return picks.length === 1 && (kind === 'direction' || eligible[0]?.loadCase.snowBasis !== 'flatRoof')
     ? [{ ...picks[0]!, label: '' }]
     : picks;
 }
 
-function combineChoiceSlots(slots: readonly CasePick[][]): CasePick[][] {
-  const directionsBySlot = slots.map(slot => new Set(slot.map(pick => pick.direction)));
+function combineChoiceSlots(slots: readonly PickSlot[], rule: string): CasePick[][] {
   const directionSlots = new Map<DirectionalSymbol, number>();
-  for (const directions of directionsBySlot) {
-    for (const direction of directions) {
+  for (const slot of slots) {
+    for (const direction of new Set(slot.picks.map(pick => pick.direction))) {
       if (direction) directionSlots.set(direction, (directionSlots.get(direction) ?? 0) + 1);
     }
   }
   let selections: { picks: CasePick[]; omitted: DirectionalSymbol[] }[] = [{ picks: [], omitted: [] }];
-  for (const [i, slot] of slots.entries()) {
-    const directions = [...directionsBySlot[i]!];
-    const omittable = directions.every(direction => direction !== undefined)
-      && directions.every(direction => (directionSlots.get(direction) ?? 0) > 1)
-      ? directions : undefined;
+  for (const slot of slots) {
+    const substitute = slot.kind === 'direction' && (directionSlots.get(slot.direction) ?? 0) > 1
+      ? slot.direction : undefined;
     selections = selections.flatMap(({ picks, omitted }) => {
-      const choices = slot.filter(pick => !pick.direction || !picks.some(p => p.direction === pick.direction))
+      const choices = slot.picks.filter(pick => !pick.direction || !picks.some(p => p.direction === pick.direction))
         .map(pick => ({ picks: [...picks, pick], omitted }));
-      return omittable ? [...choices, { picks, omitted: [...omitted, ...omittable] }] : choices;
+      return substitute ? [...choices, { picks, omitted: [...omitted, substitute] }] : choices;
     });
   }
-  return selections.filter(({ picks, omitted }) => omitted.every(direction => picks.some(pick => pick.direction === direction)))
+  const complete = selections.filter(({ picks, omitted }) => omitted.every(direction => picks.some(pick => pick.direction === direction)))
     .map(({ picks }) => picks);
+  const required = slots.filter(slot => slot.kind === 'alternatives');
+  if (required.length === 0) return complete;
+  const covered = new Set<CasePick>();
+  for (const picks of complete) for (const pick of picks) covered.add(pick);
+  for (const slot of required) {
+    if (complete.length === 0 || slot.picks.some(pick => !covered.has(pick))) {
+      throw new EngineMessageError(msg('combos.refused.alternativeSet', { rule, set: slot.set }));
+    }
+  }
+  return complete;
 }
 
 export function expandCombinations(
@@ -276,21 +331,26 @@ export function expandCombinations(
     const arranged = (t: (typeof terms)[number]) => !isDirectional(t.symbol) && casesFor(t).some((c) => c.pattern);
     const tied = terms.flatMap((t, i) => (VARIABLE.has(t.symbol) && Math.abs(t.factor) >= principal - 1e-9 && arranged(t) ? [i] : []));
     const alternativeSymbols = symbolsByAlternativeSet(terms.flatMap(casesFor));
-    const slotsFor = (varying: number | null): CasePick[][] => {
-      const slots: Array<CasePick | ChoiceSlot> = [];
+    const slotsFor = (varying: number | null): PickSlot[] => {
+      const slots: Array<PickSlot | ChoiceSlot> = [];
       const slotsByAction = new Map<string, ChoiceSlot>();
       terms.forEach((t, i) => {
         const direction = isDirectional(t.symbol) ? t.symbol : undefined;
         const all = casesFor(t);
         const plain = direction ? [] : all.filter(c => !c.alternatives);
-        if (plain.length > 0) slots.push({ factors: plain.map(c => ({ caseId: c.id, factor: t.factor })), label: '' });
+        if (plain.length > 0) {
+          slots.push({ kind: 'plain', picks: [{ factors: plain.map(c => ({ caseId: c.id, factor: t.factor })), label: '' }] });
+        }
         for (const c of all) {
-          if (!direction && !c.alternatives) continue;
-          const directional = !!direction && (!c.alternatives || alternativeSymbols.get(c.alternatives)?.size === 1);
-          const key = directional ? `direction:${direction}` : `alternatives:${c.alternatives}`;
+          const set = c.alternatives || undefined;
+          const kind: ChoiceKind | undefined = direction && (!set || alternativeSymbols.get(set)?.size === 1)
+            ? { kind: 'direction', direction }
+            : set ? { kind: 'alternatives', set } : undefined;
+          if (!kind) continue;
+          const key = kind.kind === 'direction' ? `direction:${kind.direction}` : `alternatives:${kind.set}`;
           let slot = slotsByAction.get(key);
           if (!slot) {
-            slot = { choices: new Map(), directional };
+            slot = { ...kind, choices: new Map() };
             slotsByAction.set(key, slot);
             slots.push(slot);
           }
@@ -303,18 +363,25 @@ export function expandCombinations(
           choice.allowPattern ||= opts.patternsInCompanions === true || i === varying;
         }
       });
-      return slots.map(slot => 'choices' in slot ? choicePicks(slot, opts) : [slot]);
+      return slots.map(slot => 'choices' in slot ? { ...slot, picks: choicePicks(slot, opts) } : slot);
     };
+    const missingDirections = new Map(terms.filter(t => isDirectional(t.symbol))
+      .flatMap(t => casesFor(t).map(c => [c.id, c.name] as const)));
     const seen = new Set<string>();
     for (const varying of opts.patternsInCompanions || tied.length === 0 ? [null] : tied) {
-      for (const chosen of combineChoiceSlots(slotsFor(varying))) {
+      for (const chosen of combineChoiceSlots(slotsFor(varying), spec.label)) {
         const factors = chosen.flatMap(p => p.factors);
         const key = factors.map((f) => `${f.caseId}:${f.factor}`).sort().join(' ');
         if (seen.has(key)) continue;
         seen.add(key);
+        for (const { caseId } of factors) missingDirections.delete(caseId);
         const which = chosen.map((p) => p.label).filter(Boolean).join(', ');
         out.push({ name: which ? `${spec.label} (${which})` : spec.label, factors, purpose: spec.purpose ?? 'strength', specId: spec.id, ...(spec.origin ? { origin: spec.origin } : {}) });
       }
+    }
+    const omittedCase = missingDirections.values().next().value;
+    if (omittedCase !== undefined) {
+      throw new EngineMessageError(msg('combos.refused.directionalCase', { rule: spec.label, case: omittedCase }));
     }
   }
   return out;
