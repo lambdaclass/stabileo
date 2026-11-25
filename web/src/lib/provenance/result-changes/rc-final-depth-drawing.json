@@ -13,6 +13,7 @@
     "de": "Nachweis geänderter Balkenbewehrungspläne mit endgültiger Nutzhöhe",
     "fr": "Vérification des plans de poutres révisés avec la hauteur utile finale",
     "tr": "Güncellenen kiriş çizimlerinin nihai faydalı yükseklikle doğrulanması",
+    "it": "Verifica a altezza finale dei disegni sostitutivi delle travi",
     "zh": "采用最终有效高度验算修订后的梁详图"
   },
   "explanation": {
@@ -22,6 +23,7 @@
     "de": "Der Nachweis mit endgültiger Nutzhöhe verwendet die Stabverläufe des geänderten Bewehrungsplans, sofern dieser vorliegt. Bei Änderungen nur an der bereichsweisen Bewehrung gilt der gespeicherte Plan.",
     "fr": "La vérification avec la hauteur utile finale utilise les longueurs des barres du plan révisé s’il est fourni. Une modification limitée au ferraillage par zone utilise le plan enregistré.",
     "tr": "Nihai faydalı yükseklik kontrolü, varsa güncellenen kiriş çizimindeki donatı çubuğu sınırlarını kullanır. Yalnızca bölgesel donatı değişikliklerinde kayıtlı çizim kullanılır.",
+    "it": "La verifica a altezza finale usa le estensioni delle barre nel disegno sostitutivo della trave quando fornito. Le sostituzioni solo regionali usano il disegno salvato.",
     "zh": "如提供修订后的梁详图，最终有效高度验算采用该图中的钢筋覆盖范围。仅修改分区配筋时，验算采用已保存的详图。"
   },
   "changelog": {

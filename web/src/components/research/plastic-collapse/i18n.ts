@@ -39,7 +39,7 @@ const en = {
 };
 export type PlasticStrings = typeof en;
 
-export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh', PlasticStrings> = {
+export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'it' | 'zh', PlasticStrings> = {
   en,
   es: {
     publisher: 'Elsevier',
@@ -263,6 +263,43 @@ export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'z
     places: { leftBase: 'Bal oszloptalp', leftCorner: 'Bal felső sarok', midspan: 'Fesztávközép', rightCorner: 'Jobb felső sarok', rightBase: 'Jobb oszloptalp' },
     nodalHeading: 'Csomóponti elmozdulások a(z) {event}. eseménynél · m', node: 'Csomópont',
   },
+  it: {
+  publisher: 'Elsevier',
+  title: 'Collasso plastico classico',
+  metaTitle: 'Collasso plastico classico — Stabileo Research',
+  metaDescription: 'Un telaio a portale confrontato con calcoli a mano dei meccanismi di trave, di piano e combinato.',
+  thumbnailAlt: 'Telaio a portale deformato al collasso, da un’esecuzione del solutore di produzione',
+  lead: 'Un portale incastrato alla base, tre meccanismi calcolati a mano e il solutore di collasso plastico 3D di produzione.',
+  citation: '”, esempio svolto del metodo dei meccanismi in ',
+  model: 'Luce L = {span} m, altezza h = {height} m, Mp uniforme = {mp} kN·m. Entrambe le basi sono incastrate. La copertura porta λH = λ × {horizontal} kN verso destra nell’angolo sinistro e λV = λ × {vertical} kN verso il basso a metà luce. La trave è divisa in corrispondenza del carico. Il telaio giace nel piano XZ; non si applica alcun carico fuori dal piano.',
+  method: 'Il lavoro virtuale con aste rigide e piccole rotazioni dà le tre limitazioni superiori qui sotto. Il meccanismo combinato annulla la cerniera sinistra di copertura: il lavoro interno è 6Mpθ, il lavoro esterno è λ(Hh + VL/2)θ. Governa il minimo. La deformazione assiale è elastica; lo snervamento assiale e a taglio, l’incrudimento e l’instabilità geometrica sono fuori da questo calcolo a mano.',
+  provenance: 'Le tre limitazioni sono derivazioni a mano nostre con il metodo dei lavori virtuali dei meccanismi, il metodo di Horne, Plastic Theory of Structures (1979), che citiamo come lettura di sfondo: non abbiamo verificato un numero di pagina o di equazione del libro. Le dimensioni sono nostre; non si riproduce alcuna figura o esempio svolto del libro. Crossref dà il titolo e l’anno senza autori; l’editore ',
+  provenanceEnd: 'identifica M. R. Horne.',
+  referenceLabel: 'Rispetto al calcolo a mano',
+  publishedNote: 'Non si usa alcuna figura o tabella del libro: l’esempio e le sue dimensioni sono nostri, quindi il riferimento è il calcolo a mano.',
+  checksHeading: 'Verifiche',
+  checks: {
+    collapse: 'Il moltiplicatore di collasso è uguale alla limitazione combinata 6Mp / (Hh + VL/2) entro 1 × 10⁻⁶.',
+    mechanism: 'Il solutore riporta un meccanismo completo e nessun avviso.',
+    hinges: 'Si formano cerniere a entrambe le basi, a metà luce e nell’angolo destro di copertura; l’angolo sinistro di copertura non snerva mai.',
+    yield: 'Al collasso |My| ≤ Mp a ogni estremo di asta.',
+    equilibrium: 'Le reazioni equilibrano i carichi applicati: ΣFx, ΣFz e ΣMy entro 1 × 10⁻⁹.',
+    corner: 'Per la statica l’angolo sinistro di copertura porta 3Mp − λHh = {corner} kN·m, e vale l’equazione della trave 3Mp + M = λVL/2.',
+  },
+  passed: 'superata', failed: 'non superata',
+  comparison: 'Calcolo a mano e Stabileo', mechanism: 'Meccanismo', reference: 'λ a mano', difference: 'Δ (Stabileo − a mano)',
+  beam: 'Trave', sway: 'Di piano', combined: 'Combinato',
+  explanation: 'Solo il minimo è il moltiplicatore di collasso previsto. Le differenze rispetto alle altre due limitazioni superiori sono attese, non errori del solutore. La tolleranza di 1 × 10⁻⁶ in λ è un limite di regressione, non un obiettivo di accuratezza: questo problema piccolo e ben condizionato coincide con la limitazione combinata fino a 1.4 × 10⁻¹¹ nell’esecuzione nativa.',
+  scope: 'Ambito', limits: ['Non è una verifica di progetto.', 'Un solo rapporto di carico e una sola sezione uniforme; nessuna interazione sforzo normale–momento, instabilità o grandi spostamenti.', 'Il solutore plastico 2D non è usato qui; questa pagina esegue il solutore 3D (vedi la segnalazione #758).', 'Il visualizzatore unisce i nodi spostati con linee rette e non disegna simboli di cerniera.'],
+  run: 'Ricalcola in diretta', stop: 'Ferma', restart: 'Riavvia', running: 'Calcolo in diretta…', replay: 'Riproduzione precalcolata (stesso solutore)', live: 'Calcolo in diretta',
+  error: 'Il calcolo in diretta non è riuscito; viene mostrata la riproduzione precalcolata', errorDetail: 'Messaggio del solutore',
+  step: 'Evento di cerniera', displacement: 'Spostamento nodale',
+  pending: 'Nessuna esecuzione precalcolata disponibile', warning: 'Avviso del solutore / meccanismo incompleto',
+  amplified: 'Spostamenti ×{scale}', planeNote: 'Il piano XZ è disegnato piatto: X verso destra, Z verso l’alto.',
+  eventsHeading: 'Eventi di cerniera', event: 'Evento', location: 'Cerniera in', moment: 'My · kN·m',
+  places: { leftBase: 'Base sinistra', leftCorner: 'Angolo sinistro di copertura', midspan: 'Metà luce', rightCorner: 'Angolo destro di copertura', rightBase: 'Base destra' },
+  nodalHeading: 'Spostamenti nodali all’evento {event} · m', node: 'Nodo',
+},
   zh: {
     publisher: 'Elsevier',
     title: '经典塑性倒塌',

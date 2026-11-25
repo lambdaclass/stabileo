@@ -23,6 +23,7 @@
     "de": "Schwerkraftlasten auf getrennten ebenen Trägerfeldern wiederherstellen",
     "fr": "Rétablir les charges gravitaires sur les travées planes indépendantes",
     "tr": "Ayrı düz kiriş panellerinde yerçekimi yüklerini geri yükle",
+    "it": "Ripristina la gravità su campi di travi piani separati",
     "zh": "恢复独立水平梁格的重力荷载",
     "hu": "Különálló sík gerendamezők gravitációs terheinek helyreállítása"
   },
@@ -33,6 +34,7 @@
     "de": "Erzeugen Sie die Schwerkraftlasten für Felder neu. Sind alle Felder ausgewählt, behalten ebene Felder in getrennten Tragwerken auf unterschiedlichen Höhen ihre Lasten in Modellen ohne Schalen oder Mehrpunktkopplungen.",
     "fr": "Régénérez les charges gravitaires par travée. Quand toutes les travées sont sélectionnées, les travées planes d’ossatures séparées à des niveaux distincts conservent leurs charges dans les modèles sans coques ni liaisons multipoints.",
     "tr": "Panel yerçekimi yüklerini yeniden üretin. Tüm paneller seçildiğinde, kabuk veya çok noktalı kısıt bulunmayan modellerde farklı kotlardaki bağlantısız çerçevelerin düz panelleri kendi yüklerini korur.",
+    "it": "Rigenera la gravità dei pannelli. Con ogni pannello selezionato, i campi piani in telai di travi non connessi a quote distinte conservano ciascuno i propri carichi nei modelli senza gusci né vincoli interni.",
     "zh": "请重新生成梁格重力荷载。在没有壳单元或多点约束的模型中，选择所有梁格后，处于不同标高且互不相连的水平梁格各自保留荷载。",
     "hu": "Generálja újra a mezőnkénti gravitációs terheket. Az összes mező kijelölésekor a különálló vázak eltérő szintű sík mezői megtartják a terheiket a héjak és többpontos kényszerek nélküli modellekben."
   },

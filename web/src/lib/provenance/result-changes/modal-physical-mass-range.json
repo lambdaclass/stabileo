@@ -23,6 +23,7 @@
     "fr": "L’analyse modale préserve l’espace physique de la masse",
     "hu": "A modális vizsgálat megőrzi a fizikai tömegtartományt",
     "tr": "Modal analiz fiziksel kütle uzayını korur",
+    "it": "L’analisi modale conserva l’intervallo fisico della massa",
     "zh": "模态分析保留物理质量子空间"
   },
   "explanation": {
@@ -33,6 +34,7 @@
     "fr": "Les rotations d’appuis et la réduction MPC pouvaient créer une inertie artificielle dans une direction physiquement sans masse et empêcher le retour de modes valides. L’assemblage modal conserve désormais les lignes massiques et condense les coordonnées sans masse avant la résolution. Les contrôles d’équation, d’orthogonalité et de certification restent applicables. Relancer les analyses concernées et les réponses dynamiques dépendantes.",
     "hu": "A támaszforgatások és az MPC-redukció téves tehetetlenséget hozhattak létre fizikailag tömeg nélküli irányokban, így érvényes módusokat tarthatott vissza a számítás. Az összeállítás most megőrzi a tömeggel rendelkező sorokat, és a megoldás előtt kondenzálja a tömeg nélküli koordinátákat. Az egyenlet-, ortogonalitási és tanúsítási ellenőrzések változatlanok. Futtassa újra az érintett modális vizsgálatokat és a kapcsolódó dinamikai válaszokat.",
     "tr": "Mesnet dönüşleri ve MPC indirgemesi, fiziksel olarak kütlesiz bir yönde yapay atalet oluşturarak geçerli modların döndürülmesini engelleyebiliyordu. Modal birleştirme artık kütleli satırları korur ve çözümden önce kütlesiz koordinatları yoğunlaştırır. Denklem, ortogonallik ve sertifika kontrolleri geçerlidir. Etkilenen modal analizleri ve bağlı dinamik tepkileri yeniden hesaplayın.",
+    "it": "Le rotazioni dei vincoli e la riduzione MPC potevano creare inerzia spuria in una direzione fisicamente priva di massa, facendo trattenere all’analisi modale modi validi. L’assemblaggio modale ora conserva le righe con massa e condensa le coordinate senza massa prima di risolvere. I controlli esistenti di equazione, ortogonalità e certificato restano validi. Riesegui le analisi modali interessate e le risposte dinamiche che ne dipendono.",
     "zh": "支座转动和 MPC 消元可能在物理上无质量的方向上产生虚假惯性，导致模态分析不提供有效振型。模态装配现在保留有质量的行，并在求解之前凝聚无质量的坐标。现有的方程、正交性和证书检查仍然适用。请重新运行受影响的模态分析及相关的动力响应。"
   },
   "changelog": {

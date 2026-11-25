@@ -23,6 +23,7 @@
     "fr": "Relâchements d’extrémité concordants au chargement des modèles",
     "hu": "Egyező rúdvég-felengedések a modellek betöltésekor",
     "tr": "Model yüklemede aynı uç serbestliğini belirten alanlar",
+    "it": "Svincoli d’asta concordanti nella riproduzione dei fixture",
     "zh": "载入算例时一致的杆端释放字段"
   },
   "explanation": {
@@ -33,6 +34,7 @@
     "fr": "Lorsque le modèle source déclare le même relâchement d’extrémité dans les deux champs, celui-ci est appliqué une fois. Auparavant, le chargement pouvait laisser l’extrémité rigide. Rechargez le modèle source et recalculez les résultats concernés.",
     "hu": "Ha a forrásmodell ugyanazt a rúdvég-felengedést mindkét mezőben megadja, a program egyszer alkalmazza. Korábban a betöltés után a rúdvég merev maradhatott. Töltse be újra a forrásmodellt, és számítsa újra az érintett eredményeket.",
     "tr": "Kaynak model aynı uç serbestliğini iki alanda da belirtiyorsa serbestlik bir kez uygulanır. Önceki yükleme ucu rijit bırakabiliyordu. Kaynak modeli yeniden yükleyin ve etkilenen sonuçları yeniden hesaplayın.",
+    "it": "Un fixture sorgente che dichiara lo stesso svincolo di estremità con entrambi i campi ora applica lo svincolo una sola volta. La riproduzione precedente poteva lasciare l’estremo rigido. Ricarica il fixture originale e ricalcola i risultati interessati.",
     "zh": "如果源算例的两个字段声明了同一杆端释放，现在只应用一次。旧版载入时可能将该杆端保留为刚接。请重新载入原始算例并重新计算受影响的结果。"
   },
   "changelog": {

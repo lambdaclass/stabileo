@@ -22,6 +22,7 @@
     "de": "Statische Erdbebenlasten erhalten das Kippmoment jedes Geschosses",
     "fr": "Les charges sismiques statiques préservent le renversement à chaque étage",
     "tr": "Statik deprem yükleri kat devrilme momentini korur",
+    "it": "I carichi sismici statici conservano il ribaltamento di piano",
     "zh": "等效静力地震荷载保持楼层倾覆力矩",
     "hu": "A statikus szeizmikus terhek megőrzik a szintek billentőnyomatékát"
   },
@@ -32,6 +33,7 @@
     "de": "Lastbereiche an geneigten und vertikalen Bauteilen erhalten die Geschosskraft und ihr Kippmoment auf Geschosshöhe. Erzeugen Sie betroffene E-Lasten neu und wiederholen Sie die Analysen und Nachweise (#2316).",
     "fr": "Les bandes chargées des éléments inclinés et verticaux préservent la force et le moment de renversement à la cote de chaque étage. Régénérez les charges E concernées et répétez les analyses et les vérifications (#2316).",
     "tr": "Eğimli ve düşey elemanların yük bantları kat kuvvetini ve devrilme momentini kat kotunda korur. Etkilenen E yüklerini yeniden oluşturun ve analizleri ve tasarım kontrollerini tekrarlayın (#2316).",
+    "it": "Le fasce portanti inclinate e verticali ora conservano la forza di ogni piano e il suo momento ribaltante alla quota del piano. Rigenera i carichi E interessati e ripeti le analisi e le verifiche di progetto (#2316).",
     "zh": "倾斜和竖直的承载带现在保持各楼层标高处的地震力及其倾覆力矩。请重新生成受影响的 E 荷载并重做分析和设计验算（#2316）。",
     "hu": "A ferde és függőleges tartóelemek terhelt sávjai megőrzik az egyes szintek erőit és billentőnyomatékát a szintmagasságban. Generálja újra az érintett E terheket, és ismételje meg az elemzéseket és ellenőrzéseket (#2316)."
   },

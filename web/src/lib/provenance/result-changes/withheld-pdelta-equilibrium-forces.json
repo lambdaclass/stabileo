@@ -29,6 +29,7 @@
     "fr": "Les réactions P-Delta exigent un résidu physique satisfaisant le contrôle",
     "hu": "A P-Delta reakciókhoz sikeres fizikai maradékellenőrzés szükséges",
     "tr": "P-Delta tepkileri için fiziksel artık denetimi başarılı olmalıdır",
+    "it": "Le reazioni P-Delta richiedono un residuo fisico superato",
     "zh": "P-Delta 反力要求物理残差通过"
   },
   "explanation": {
@@ -39,6 +40,7 @@
     "fr": "Revérifiez les efforts P-Delta enregistrés. Dans les résultats natifs, un résidu physique en échec conserve les identités des enregistrements de réactions, efforts de barres, forces de liaison et contraintes, mais marque leurs grandeurs numériques comme indisponibles avec des diagnostics propres à chaque champ. WASM et les exports certifiés refusent ces états. Si le résidu satisfait le contrôle, la réponse aux petits déplacements reste disponible, avec un avertissement si le contrôle d’équilibre dans la géométrie déplacée échoue (#1952).",
     "hu": "Ellenőrizze újra a mentett P-Delta erőket. Sikertelen fizikai maradékellenőrzésnél a natív eredmény megőrzi a reakció-, rúderő-, kényszererő- és feszültségrekordok azonosítóit, de számaikat nem elérhetőnek jelöli, mezőspecifikus diagnosztikával. A WASM és a tanúsított export elutasítja ezeket az állapotokat. Sikeres maradékellenőrzésnél a kis elmozdulásos válasz megmarad; az elmozdult geometria egyensúlyhibája figyelmeztetést ad (#1952).",
     "tr": "Kayıtlı P-Delta kuvvetlerini yeniden denetleyin. Yerel sonuçlarda fiziksel artık denetimi başarısız olduğunda tepki, eleman kuvveti, kısıt kuvveti ve gerilme kayıtlarının kimlikleri korunur; sayısal büyüklükleri, her alana özgü tanılarla kullanılamaz olarak işaretlenir. WASM ve sertifikalı dışa aktarımlar bu durumları reddeder. Artık denetimi başarılıysa küçük yer değiştirme sonucu korunur; yer değiştirmiş geometrideki denge denetimi başarısızsa uyarı eklenir (#1952).",
+    "it": "Riverifica le forze P-Delta salvate. Nei risultati nativi, un residuo fisico fallito conserva le identità dei record di reazioni, forze nelle aste, forze di vincolo e tensioni, contrassegnando le loro grandezze numeriche come non disponibili con diagnostiche specifiche per campo. WASM e le esportazioni certificate rifiutano questi stati. Un residuo superato conserva la risposta a piccoli spostamenti, con un avviso se la verifica del bilancio sulla geometria spostata fallisce (#1952).",
     "zh": "请重新核对已保存的 P-Delta 内力。在原生结果中，物理残差失败时会保留反力、杆件内力、约束力和应力记录的标识，同时将其数值量标记为不可用，并给出针对各字段的诊断。WASM 和经认证的导出会拒绝这些状态。残差通过时保留小位移的结果；若变形几何的平衡检查失败，则附带一条警告（#1952）。"
   },
   "changelog": {

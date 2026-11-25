@@ -34,6 +34,7 @@
     "de": "Ebene plastische Lasten folgen den geometrischen Stabenden",
     "fr": "Les charges plastiques planes suivent les extrémités géométriques",
     "hu": "A síkbeli képlékeny terhek a geometriai rúdvégeket követik",
+    "it": "I carichi plastici piani seguono gli estremi geometrici delle aste",
     "zh": "平面塑性荷载跟随杆件的几何端点",
     "tr": "Düzlemsel plastik yükler geometrik çubuk uçlarını izler"
   },
@@ -44,6 +45,7 @@
     "de": "Ebene plastische Analysen erneut rechnen. Verteilte Lasten an Gelenkschnitten verwenden die tatsächliche Teilstabgeometrie. Ungültige oder nicht verfügbare Kinematikprüfungen führen zu Fehlern. Mechanismen, Lastfaktoren und Verläufe können sich ändern; Grenzwerte bleiben unverändert.",
     "fr": "Relancer les analyses plastiques planes. Les charges réparties divisées aux rotules utilisent la géométrie réelle des tronçons. Les contrôles cinématiques invalides ou indisponibles produisent des erreurs. Mécanismes, facteurs et historiques peuvent changer ; les limites restent identiques.",
     "hu": "Futtassa újra a síkbeli képlékeny elemzéseket. A csuklóknál osztott megoszló terhek a tényleges részrúd-geometriát használják. Az érvénytelen vagy elérhetetlen kinematikai ellenőrzések hibát adnak. A mechanizmusok, tényezők és előzmények változhatnak; a határértékek változatlanok.",
+    "it": "Rieseguisci le analisi plastiche piane. I carichi distribuiti alle divisioni delle cerniere usano ora l’effettiva geometria dei figli. Le verifiche cinematiche non valide o non disponibili generano errori invece di produrre candidati al collasso. Meccanismi, fattori di collasso e storie possono cambiare; nessun limite di accettazione è cambiato.",
     "zh": "请重新运行平面塑性分析。塑性铰分割处的分布荷载现在使用实际的子杆件几何。无效或不可用的运动学检查会报错，而不是产生倒塌候选机构。机构、倒塌系数和加载历程可能会变化；验收限值均未改变。",
     "tr": "Düzlemsel plastik analizleri yeniden çalıştırın. Mafsallarda bölünen yayılı yükler gerçek parça geometrisini kullanır. Geçersiz veya kullanılamayan kinematik denetimleri hata üretir. Mekanizmalar, yük çarpanları ve geçmişler değişebilir; kabul sınırları değişmemiştir."
   },

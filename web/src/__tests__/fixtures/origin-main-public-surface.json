@@ -129,6 +129,7 @@
       "en",
       "es",
       "pt",
+      "it",
       "zh"
     ],
     "/research/optimization/andreassen-2011": [
@@ -138,6 +139,7 @@
       "de",
       "fr",
       "tr",
+      "it",
       "zh"
     ],
     "/research/mechanics/biggins-2026": [
@@ -147,6 +149,7 @@
       "de",
       "fr",
       "tr",
+      "it",
       "zh"
     ],
     "/research/mechanics/heyman-1966": [
@@ -156,6 +159,7 @@
       "de",
       "fr",
       "tr",
+      "it",
       "zh"
     ],
     "/research/mechanics/gay-neto-2014": [
@@ -165,6 +169,7 @@
       "de",
       "fr",
       "tr",
+      "it",
       "zh"
     ],
     "/research/benchmarks/cqc-1981": [
@@ -174,6 +179,7 @@
       "de",
       "fr",
       "tr",
+      "it",
       "zh"
     ],
     "/research/benchmarks/dadeppo-arch-1975": [
@@ -183,6 +189,7 @@
       "de",
       "fr",
       "tr",
+      "it",
       "zh"
     ],
     "/research/optimisation/fairclough-2026": [
@@ -192,18 +199,21 @@
       "de",
       "fr",
       "tr",
+      "it",
       "zh"
     ],
     "/research/stability/feher-sipos-varkonyi-2026": [
       "en",
       "es",
       "pt",
+      "it",
       "zh"
     ],
     "/research/stability/ferrari-sigmund-2025": [
       "en",
       "es",
       "pt",
+      "it",
       "zh"
     ],
     "/research/metamaterials/grossman-2026": [
@@ -213,6 +223,7 @@
       "de",
       "fr",
       "tr",
+      "it",
       "zh"
     ],
     "/research/benchmarks/lee-frame-1968": [
@@ -222,6 +233,7 @@
       "de",
       "fr",
       "tr",
+      "it",
       "zh"
     ],
     "/research/benchmarks/macneal-harder-1985": [
@@ -231,6 +243,7 @@
       "de",
       "fr",
       "tr",
+      "it",
       "zh"
     ],
     "/research/benchmarks/mattiasson-elastica": [
@@ -240,6 +253,7 @@
       "de",
       "fr",
       "tr",
+      "it",
       "zh"
     ],
     "/research/benchmarks/navier-plate": [
@@ -249,18 +263,21 @@
       "de",
       "fr",
       "tr",
+      "it",
       "zh"
     ],
     "/research/benchmarks/newmark-1959": [
       "en",
       "es",
       "pt",
+      "it",
       "zh"
     ],
     "/research/form-finding/pastrana-2026": [
       "en",
       "es",
       "pt",
+      "it",
       "zh"
     ],
     "/research/benchmarks/plastic-collapse": [
@@ -270,6 +287,7 @@
       "de",
       "fr",
       "tr",
+      "it",
       "zh"
     ],
     "/research/benchmarks/riks-crisfield": [
@@ -279,6 +297,7 @@
       "de",
       "fr",
       "tr",
+      "it",
       "zh"
     ],
     "/research/fracture/shauer-2025": [
@@ -288,6 +307,7 @@
       "de",
       "fr",
       "tr",
+      "it",
       "zh"
     ],
     "/research/benchmarks/shell-obstacle-course": [

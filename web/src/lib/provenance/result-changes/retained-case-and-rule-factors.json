@@ -15,6 +15,7 @@
     "de": "Belegte Lastfälle erhalten und Gesamtfaktoren bearbeiten",
     "fr": "Conserver les cas chargés et modifier les coefficients totaux",
     "tr": "Yük içeren durumları koru ve toplam katsayıları düzenle",
+    "it": "Conserva i casi di carico occupati e modifica i coefficienti totali delle regole",
     "zh": "保留有荷载的工况并编辑规则总系数",
     "hu": "A terhelt esetek megőrzése és az összesített tényezők szerkesztése"
   },
@@ -25,6 +26,7 @@
     "de": "Automatische Lasten konnten manuelle Lasten in einem als erzeugt markierten Lastfall auslassen. Ein Feld konnte bei mehreren passenden Termen einen unvollständigen Faktor anzeigen. Prüfen Sie die Lasten und Faktoren, erzeugen Sie die betroffenen Kombinationen neu und berechnen Sie Analysen und Einhüllende erneut.",
     "fr": "Les charges automatiques pouvaient omettre les charges manuelles dans un cas marqué comme généré. Un champ pouvait afficher un coefficient incomplet si plusieurs termes lui correspondaient. Vérifiez les charges et les coefficients, régénérez les combinaisons affectées et relancez les analyses et les enveloppes.",
     "tr": "Otomatik Yükler, oluşturulmuş olarak işaretlenen bir durumdaki elle girilen yükleri atlayabiliyordu. Birden çok terim eşleştiğinde kural alanı eksik bir katsayı gösterebiliyordu. Yükleri ve katsayıları doğrulayın, etkilenen birleşimleri yeniden oluşturun ve analizleri ve zarfları yeniden hesaplayın.",
+    "it": "Carichi automatici poteva omettere i carichi manuali in un caso marcato come generato. Un campo di una regola poteva mostrare un coefficiente incompleto quando più termini vi corrispondevano. Verifica i carichi e i coefficienti delle regole, rigenera le combinazioni interessate e riesegui le analisi e gli inviluppi.",
     "zh": "自动荷载可能遗漏标记为已生成的工况中的手动荷载。多个项匹配时，规则字段可能显示不完整的系数。请检查荷载和系数，重新生成受影响的组合，并重新运行分析和计算包络。",
     "hu": "Az automatikus terhelés kihagyhatta a kézzel megadott terheket egy generáltként megjelölt teheresetből. Ha több tag is megfelelt egy mezőnek, a mező hiányos tényezőt mutathatott. Ellenőrizze a terheket és a tényezőket, hozza létre újra az érintett kombinációkat, majd számítsa újra az elemzéseket és a burkológörbéket."
   },

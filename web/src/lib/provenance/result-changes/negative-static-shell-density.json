@@ -16,6 +16,7 @@
     "fr": "Refus d’une masse volumique négative pour le poids propre des coques",
     "hu": "Negatív sűrűség elutasítása a héjak önsúlyánál",
     "tr": "Kabuk öz ağırlığında negatif yoğunluk reddedilir",
+    "it": "Rifiuta la densità negativa nel peso proprio dei gusci",
     "zh": "拒绝使用负密度计算壳单元自重"
   },
   "explanation": {
@@ -26,6 +27,7 @@
     "fr": "Une masse volumique négative pouvait inverser le poids propre d’une plaque ou d’une coque en analyse statique. Le calcul refuse désormais cette valeur. Saisissez une masse volumique finie et positive ou nulle, puis relancez le calcul.",
     "hu": "A negatív anyagsűrűség a statikai számításban megfordíthatta a lemez vagy héj önsúlyának irányát. A számítás most elutasítja ezt az adatot. Adjon meg véges, nemnegatív anyagsűrűséget, majd futtassa újra a számítást.",
     "tr": "Negatif malzeme yoğunluğu, statik analizde bir plak veya kabuğun öz ağırlığının yönünü tersine çevirebiliyordu. Analiz artık bu girdiyi reddediyor. Sonlu ve negatif olmayan bir malzeme yoğunluğu girip analizi yeniden çalıştırın.",
+    "it": "Una densità negativa del materiale poteva invertire il peso proprio di una piastra o di un guscio in un’analisi statica. Ora la soluzione rifiuta questo dato. Inserisci la densità finita e non negativa del materiale e riesegui l’analisi.",
     "zh": "在静力分析中，负的材料密度可能使板或壳单元的自重方向反转。求解器现在会拒绝该输入。请输入有限且非负的材料密度，然后重新运行分析。"
   },
   "changelog": {

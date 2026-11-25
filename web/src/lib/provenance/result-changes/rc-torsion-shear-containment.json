@@ -11,6 +11,7 @@
     "de": "Verweigerter Nachweis für Querkraft, Torsion und Erdbebenbügel in Betonbauteilen",
     "fr": "Refus de vérification du cisaillement, de la torsion et des cadres sismiques en béton",
     "tr": "Betonda kesme, burulma ve deprem etriyelerinin doğrulama retleri",
+    "it": "Rifiuti di verifica di taglio, torsione e staffe sismiche del calcestruzzo",
     "zh": "混凝土构件的受剪、受扭及抗震箍筋验算限制"
   },
   "explanation": {
@@ -20,6 +21,7 @@
     "de": "Einige Nachweise für Querkraft, Torsion und Erdbebenbügel nach CIRSOC 201 verhindern nun eine Freigabe. Der Längsbewehrungsnachweis für Torsion erfasst auch Stabenden zwischen den ausgewerteten Schnitten. Die automatische Bemessung erteilt kein Zertifikat, wenn die gewählte Bewehrung keinen Nachweis der statischen Nutzhöhe für Querkraft erlaubt. Prüfen Sie die betroffenen Betonbauteile erneut und beachten Sie die angegebenen Gründe.",
     "fr": "Certains contrôles du cisaillement, de la torsion et des cadres sismiques selon le CIRSOC 201 bloquent désormais la vérification. Le contrôle des armatures longitudinales de torsion couvre aussi les arrêts de barres entre les sections échantillonnées. Le dimensionnement automatique retient le certificat si les armatures sélectionnées ne permettent pas de vérifier la hauteur utile au cisaillement. Recalculez les éléments en béton concernés et consultez les motifs de refus.",
     "tr": "CIRSOC 201 kapsamındaki bazı kesme, burulma ve deprem etriyesi kontrolleri artık doğrulamayı engelliyor. Boyuna burulma donatısı kontrolü, örneklenen kesitler arasındaki donatı sonlanmalarını da kapsar. Seçilen donatı kafesi kesme için etkin derinliğin doğrulanmasına izin vermediğinde otomatik tasarım sertifika vermez. Etkilenen beton eleman kontrollerini yeniden çalıştırın ve ret gerekçelerini inceleyin.",
+    "it": "Alcune verifiche CIRSOC 201 di taglio, torsione e staffe sismiche bloccano ora la verifica. La verifica a torsione longitudinale copre anche i tagli di barre tra le sezioni campionate. Il progetto automatico trattiene il certificato quando la gabbia scelta ha un’altezza a taglio non supportata. Rieseguisci le verifiche delle aste in calcestruzzo interessate e rivedi i messaggi di rifiuto.",
     "zh": "CIRSOC 201 的部分受剪、受扭及抗震箍筋验算现在会明确中止。纵向抗扭验算也会检查采样截面之间的钢筋截断处。所选钢筋笼的受剪有效高度超出验算适用范围时，自动设计不会签发验算证书。请重新运行受影响的混凝土构件验算并查看拒绝原因。"
   },
   "changelog": {

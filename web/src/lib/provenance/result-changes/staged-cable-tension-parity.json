@@ -21,6 +21,7 @@
     "fr": "L’exception pour les câbles par phases est retirée",
     "hu": "Az építési fázisos kábelkivétel visszavonva",
     "tr": "Aşamalı kablo istisnası kaldırılmıştır",
+    "it": "L’eccezione dei cavi per fasi è ritirata",
     "zh": "分阶段索的例外已撤销"
   },
   "explanation": {
@@ -31,6 +32,7 @@
     "fr": "Les deux solveurs par phases refusent tous les câbles avec cable_analysis_required, même en traction ou sans charge. Des efforts positifs aux extrémités et la convergence d’Ernst ne prouvent pas l’équilibre avec flèche. La parité des câbles exige des refus structurés identiques ; la parité numérique utilise des barres explicites. Utilisez l’analyse dédiée aux câbles (#417 ; PR #1921).",
     "hu": "Mindkét építési fázisos megoldó minden kábelt elutasít cable_analysis_required kóddal, a húzott és a terheletlen bemeneteket is. A pozitív rúdvégi erők és egy Ernst-féle merevségi iteráció konvergenciája nem bizonyítja a kábel egyensúlyát, ha a belógás számít. A kábelek egyezőségéhez most azonos strukturált elutasítások kellenek; a numerikus fázisos egyezőség kifejezett rácsrudakat használ. Használjon külön kábelanalízist (#417; #1921-es PR).",
     "tr": "Her iki aşamalı çözücü, çekmedeki ve yüksüz girdiler dahil tüm kabloları cable_analysis_required ile reddeder. Pozitif uç kuvvetleri ve Ernst iterasyonunun yakınsaması sehimli dengeyi kanıtlamaz. Kablo karşılaştırması aynı yapılandırılmış retleri gerektirir; sayısal karşılaştırma açıkça tanımlanmış kafes çubukları kullanır. Özel kablo analizini kullanın (#417; PR #1921).",
+    "it": "Entrambi i solutori a fasi rifiutano ogni cavo con cable_analysis_required, compresi gli ingressi tesi e scarichi. Forze di estremità positive e la convergenza di un’iterazione di rigidezza di Ernst non dimostrano l’equilibrio del cavo quando la freccia conta. La parità sui cavi ora richiede rifiuti strutturati identici; la parità numerica a fasi usa travature esplicite. Usa l’analisi dedicata ai cavi (#417; PR #1921).",
     "zh": "两个分阶段求解器都以 cable_analysis_required 拒绝每一根索，包括受拉的和未加载的输入。端力为正和 Ernst 刚度迭代收敛，并不能在垂度起作用时证明索处于平衡。索的一致性现在要求完全相同的结构化拒绝；分阶段的数值一致性使用显式的桁架。请使用专门的索分析（#417；PR #1921）。"
   },
   "changelog": {

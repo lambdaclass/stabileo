@@ -24,6 +24,7 @@
     "fr": "Le retrait d’un élément chargé refuse la séquence de phases",
     "hu": "A terhelt elem eltávolítása elutasítja a fázistörténetet",
     "tr": "Yüklü elemanın kaldırılması aşama geçmişini reddeder",
+    "it": "La rimozione di un’asta caricata rifiuta la storia a fasi",
     "zh": "移除带荷载的杆件会使分阶段历程被拒绝"
   },
   "explanation": {
@@ -34,6 +35,7 @@
     "fr": "Le retrait d’un élément avec des efforts internes non nuls refuse désormais la séquence avec le diagnostic explicite #1996. Les déplacements précédents ne redistribuaient pas les efforts libérés. Les éléments déchargés et le retrait avant chargement conservent leurs résultats. Recalculez les séquences enregistrées avec retrait d’éléments.",
     "hu": "A nem nulla belső erőt viselő elem eltávolítása most kifejezett #1996 diagnosztikával elutasítja a fázistörténetet. A korábbi elmozdulások nem osztották újra a felszabaduló erőket. A terheletlen elemek és a terhelés előtti eltávolítás válaszai megmaradnak. Futtassa újra a mentett elemeltávolítási fázistörténeteket.",
     "tr": "Sıfır olmayan iç kuvvet taşıyan elemanın kaldırılması artık aşama geçmişini açık #1996 tanısıyla reddeder. Önceki yer değiştirmeler serbest kalan kuvvetleri yeniden dağıtmıyordu. Yüksüz elemanlar ve yüklemeden önce kaldırma sonuçlarını korur. Kayıtlı eleman kaldırma geçmişlerini yeniden çözün.",
+    "it": "Rimuovere un’asta che porta una sollecitazione interna diversa da zero ora rifiuta la storia a fasi con una diagnostica esplicita #1996. In precedenza gli spostamenti non ridistribuivano le forze rilasciate. Le aste scariche e la rimozione prima del carico conservano le loro risposte. Riesegui le storie salvate di rimozione di aste a fasi.",
     "zh": "移除带非零内力的杆件，现在会拒绝该分阶段历程，并给出明确的 #1996 诊断。以前的位移没有重新分配被释放的力。未加载的杆件和加载前的移除保留其结果。请重新运行已保存的分阶段杆件移除历程。"
   },
   "changelog": {

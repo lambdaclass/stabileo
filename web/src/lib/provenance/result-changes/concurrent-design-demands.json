@@ -16,6 +16,7 @@
     "de": "Interaktionsnachweise verwenden gleichzeitige Schnittgrößen",
     "fr": "Les interactions utilisent les efforts simultanés par section",
     "tr": "Etkileşim kontrolleri eşzamanlı istasyon kuvvetlerini kullanır",
+    "it": "Le verifiche di interazione usano le sollecitazioni concomitanti nelle stazioni",
     "zh": "相互作用验算采用同时作用的站点内力"
   },
   "explanation": {
@@ -25,6 +26,7 @@
     "de": "Die Nachweise werten jede Kombination an jeder Stelle mit ihrer eigenen Normalkraft, ihren Momenten, Querkräften und ihrer Torsion aus und nennen die maßgebende Kombination. Umhüllende ohne gleichzeitige Daten werden abgelehnt. Gespeicherte Beton- und Stahlbemessungen erneut ausführen; Ausnutzung, Bewehrung, Status und Kombination können sich ändern (#1316). Stahl-Tragfähigkeitsfaktoren für Momentengradienten verwenden das Diagramm der eigenen Kombination; zuvor konnten Ausnutzungen ohne Warnung unterschätzt werden.",
     "fr": "Les vérifications évaluent chaque combinaison à chaque section avec ses propres efforts normal, moments, cisaillement et torsion et indiquent la combinaison déterminante. Les enveloppes sans données simultanées sont refusées. Recalculer les projets enregistrés en béton et acier ; taux, armatures, états et combinaisons peuvent changer (#1316). Les facteurs de résistance liés au gradient de moment de l’acier utilisent le diagramme de leur propre combinaison ; des taux pouvaient auparavant être sous-estimés sans avertissement.",
     "tr": "Kontroller her kombinasyonu her istasyonda kendi eksenel kuvveti, momentleri, kesmesi ve burulmasıyla değerlendirir ve belirleyici kombinasyonu bildirir. Eşzamanlı verisi olmayan zarflar reddedilir. Kayıtlı betonarme ve çelik tasarımlarını yeniden çalıştırın; kullanım oranı, donatı, durumlar ve kombinasyonlar değişebilir (#1316). Çelik moment gradyanı kapasite katsayıları artık kendi kombinasyon diyagramlarını kullanır; önceden oranlar uyarı verilmeden düşük hesaplanabiliyordu.",
+    "it": "Le verifiche delle aste ora valutano ogni combinazione in ogni stazione con il proprio sforzo normale, i propri momenti, taglio e torsione, e riportano la combinazione dominante. Gli inviluppi senza dati concomitanti vengono rifiutati. Riesegui i progetti salvati di calcestruzzo e acciaio; coefficienti di utilizzo, armatura, stati ed etichette delle combinazioni possono cambiare (#1316). I fattori di capacità del gradiente di momento dell’acciaio ora usano i propri diagrammi di combinazione; in precedenza i rapporti potevano essere sottostimati in silenzio.",
     "zh": "杆件验算现在对每个组合在每个站点上，以其自身的轴力、弯矩、剪力和扭矩进行评估，并报告控制组合。没有同时作用数据的包络会被拒绝求解。请重新运行已保存的混凝土和钢结构设计；利用率、配筋、状态和组合标签可能发生变化（#1316）。钢材的弯矩梯度承载力系数现在使用其自身组合的内力图；此前比值可能被悄悄低估。"
   },
   "changelog": {

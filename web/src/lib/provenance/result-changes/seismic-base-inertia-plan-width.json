@@ -15,6 +15,7 @@
     "de": "Die zufällige Exzentrizität verwendet die Tragwerksbreite im Grundriss",
     "fr": "L’excentricité accidentelle utilise la largeur de la structure en plan",
     "tr": "Tesadüfi dışmerkezlik taşıyıcı sistemin plan genişliğini kullanır",
+    "it": "L’eccentricità accidentale usa la larghezza strutturale in pianta",
     "zh": "偶然偏心距按结构平面宽度确定",
     "hu": "A véletlen külpontosság a szerkezeti alaprajz szélességét használja"
   },
@@ -25,6 +26,7 @@
     "de": "Die zufällige Exzentrizität verwendet die Tragwerksbreite einschließlich masseloser Stäbe. Erzeugen Sie die E-Lasten neu und wiederholen Sie Analysen und Nachweise (#2316).",
     "fr": "L'excentricité accidentelle utilise la largeur structurale, y compris les éléments sans masse. Régénérez les charges E, puis relancez les analyses et les vérifications (#2316).",
     "tr": "Tesadüfi dışmerkezlik, kütlesiz elemanlar da dahil olmak üzere yapısal genişliği kullanır. E yüklerini yeniden üretin, analizleri ve kontrolleri tekrarlayın (#2316).",
+    "it": "L’eccentricità accidentale usa la larghezza strutturale, compresi i telai senza massa. Rigenera i carichi E e ripeti analisi e verifiche di progetto (#2316).",
     "zh": "偶然偏心距按结构宽度计算，其中计入无质量的框架构件。请重新生成 E 荷载并重做分析和设计验算（#2316）。",
     "hu": "A véletlen külpontosság a szerkezeti szélességet használja, a tömeg nélküli elemekkel együtt. Generálja újra az E terheket, és ismételje meg az elemzéseket és ellenőrzéseket (#2316)."
   },

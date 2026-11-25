@@ -13,6 +13,7 @@
     "de": "Zugewiesene Flächen für automatische Schwerkraftlasten verwenden",
     "fr": "Utiliser les emprises attribuées pour les charges gravitaires automatiques",
     "tr": "Otomatik yerçekimi yüklerinde atanmış alanları kullanma",
+    "it": "Usa le impronte attribuite per la gravità automatica",
     "zh": "自动重力荷载采用已分配的承载范围",
     "hu": "A hozzárendelt területek használata az automatikus gravitációs terhekhez"
   },
@@ -23,6 +24,7 @@
     "de": "Erzeugen Sie die automatischen Schwerkraft- und Dachlasten neu. Die Generierung erhält Öffnungen, setzt Randlinienlasten an den tatsächlichen Stabpositionen an und bricht bei unklarer Deckenzuordnung ab. Die lichte Höhe unter geneigten Schalen wird örtlich geprüft. Wenn ein oberes Trägerfeld das untere nur teilweise überdeckt und sich die Dach- und Deckenlasten unterscheiden, müssen die Lasten ausdrücklich zugewiesen werden.",
     "fr": "Régénérez les charges gravitaires et de toiture automatiques. La génération conserve les ouvertures, applique les charges linéaires de rive aux positions physiques sur les barres et s’arrête si l’attribution du plancher est ambiguë. La hauteur libre sous les coques inclinées est vérifiée localement. Si une travée supérieure de poutres ne couvre qu’une partie de la travée inférieure et que les charges de toiture et de plancher diffèrent, attribuez les charges explicitement.",
     "tr": "Otomatik yerçekimi ve çatı yüklerini yeniden üretin. Üretim açıklıkları korur, kenar çizgisel yüklerini eleman üzerindeki fiziksel konumlara yerleştirir ve döşeme yük alanı belirsizse durur. Eğimli kabukların altındaki net yükseklik yerel olarak denetlenir. Üst kiriş açıklığı alt açıklığı kısmen örtüyorsa ve çatı ile döşeme yükleri farklıysa yükleri açıkça atayın.",
+    "it": "Rigenera i carichi gravitazionali e di copertura automatici. La generazione conserva le aperture, colloca i carichi lineari di frangia nelle stazioni fisiche delle aste e si ferma quando l’attribuzione dell’impalcato è ambigua. L’altezza libera sotto i gusci inclinati è verificata localmente, e la copertura parziale da parte di un campo di travi superiore richiede un’assegnazione esplicita quando i carichi di copertura e di piano differiscono.",
     "zh": "请重新生成自动重力荷载和屋面荷载。生成时保留开口，将边缘线荷载施加在构件的实际位置，并在楼板承载范围不明确时停止。 倾斜壳单元下方的净高按局部位置检查。如果上层梁格仅覆盖下层梁格的一部分，且屋面与楼面荷载不同，请显式分配荷载。",
     "hu": "Generálja újra az automatikus gravitációs és tetőterheket. A generálás megőrzi a nyílásokat, a peremvonalterheket a rúd tényleges helyeire teszi, és kétes födém-hozzárendelés esetén leáll. A ferde héjak alatti szabad magasságot helyileg ellenőrzi. Ha egy felső gerendamező csak részben fedi az alsót, és a tető- és födémterhek eltérnek, a terheket külön kell hozzárendelni."
   },

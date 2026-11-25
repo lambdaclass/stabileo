@@ -33,6 +33,7 @@
     "fr": "Les tassements imposés et sommes de forces inclinées conservent les petites valeurs",
     "hu": "Az előírt süllyedések és ferde erőösszegek megőrzik a kis értékeket",
     "tr": "Verilen oturmalar ve eğik kuvvet toplamları küçük değerleri korur",
+    "it": "Cedimenti imposti e somme di forze inclinate mantengono i valori piccoli",
     "zh": "给定的沉降和斜向力求和保留较小的值"
   },
   "explanation": {
@@ -43,6 +44,7 @@
     "fr": "Relancer les analyses avec tassements imposés ou appuis inclinés. Les mouvements non nuls ne sont plus supprimés par un seuil absolu. Les bilans transforment chaque nœud incliné avant la somme et conservent les charges des autres nœuds (#761, PR #1940).",
     "hu": "Futtassa újra az előírt süllyedésekkel vagy ferde támaszokkal végzett vizsgálatokat. A nem nulla előírt mozgás többé nem vész el egy abszolút küszöb alatt. Az egyensúlyösszegzés minden ferde csomópontot külön transzformál az összegzés előtt, megőrizve a többi csomópont terheit (#761, PR #1940).",
     "tr": "Verilen oturmalar veya eğik mesnetler içeren analizleri yeniden çalıştırın. Sıfır olmayan hareketler mutlak eşik nedeniyle silinmez. Denge toplamları, her eğik düğümü toplamadan önce dönüştürerek diğer düğümlerin yüklerini korur (#761, PR #1940).",
+    "it": "Rieseguisci le analisi con cedimenti imposti o vincoli inclinati. Un moto imposto non nullo non viene più scartato sotto una soglia assoluta. I riepiloghi di equilibrio trasformano ogni nodo inclinato prima di sommare, conservando i carichi sugli altri nodi (#761, PR #1940).",
     "zh": "请重新运行带给定沉降或斜支座的分析。非零的给定运动不再因低于某个绝对截断值而被丢弃。平衡汇总在求和之前先变换每个斜向节点，从而保留其他节点上的荷载（#761，PR #1940）。"
   },
   "changelog": {

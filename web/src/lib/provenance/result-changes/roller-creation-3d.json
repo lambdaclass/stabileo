@@ -19,6 +19,7 @@
     "pt": "Novos apoios móveis 3D mantêm as restrições indicadas",
     "de": "Neue 3D-Rollenlager behalten ihre angegebenen Bindungen",
     "fr": "Les nouveaux appuis à rouleaux 3D conservent les blocages indiqués",
+    "it": "I nuovi carrelli 3D mantengono i vincoli dichiarati",
     "zh": "新建的 3D 滚动支座保留其规定的约束",
     "tr": "Yeni 3D kayıcı mesnetler belirtilen kısıtları koruyor"
   },
@@ -28,6 +29,7 @@
     "pt": "Criar ou alterar um apoio móvel 3D com direção definida grava restrições explícitas. Y permanece Y. Os tipos de plano mantêm os planos indicados. Alterar o tipo substitui a máscara anterior, salvo quando são fornecidas restrições explícitas. Modelos salvos com rollerZ ambíguo ainda exigem uma escolha explícita. Revise os apoios e repita análise, combinações e dimensionamento após editá-los.",
     "de": "Beim Erstellen oder Ändern eines 3D-Rollenlagers mit definierter Richtung werden explizite Bindungen gespeichert. Y bleibt Y. Gleitebenen behalten ihre Beschriftung. Ein Typwechsel ersetzt eine veraltete Maske, sofern keine expliziten Bindungen angegeben werden. Gespeicherte mehrdeutige rollerZ-Modelle erfordern weiterhin eine explizite Auswahl. Prüfen Sie die Lager und wiederholen Sie Analyse, Kombinationen und Bemessung nach der Bearbeitung.",
     "fr": "Créer ou modifier un appui à rouleaux 3D avec une direction définie enregistre des blocages explicites. Y reste Y. Les types de plan conservent les plans indiqués. Changer le type remplace le masque précédent sauf si des blocages explicites sont fournis. Les modèles enregistrés avec rollerZ ambigu exigent toujours un choix explicite. Vérifiez les appuis et relancez analyse, combinaisons et dimensionnement après modification.",
+    "it": "Creare o cambiare un carrello 3D con una direzione definita memorizza vincoli espliciti. Y resta Y. I tipi a piano di scorrimento mantengono i loro piani etichettati. Cambiare il tipo di carrello sostituisce una maschera obsoleta, a meno che non siano forniti vincoli espliciti. I modelli rollerZ ambigui salvati richiedono ancora una scelta esplicita. Rivedi i vincoli dei carrelli e rieseguisci analisi, combinazioni e progetto dopo averli modificati.",
     "zh": "创建或修改具有指定方向的 3D 滚动支座时，会存储明确的约束。Y 仍为 Y。滑动平面类型保留其所标注的平面。更改滚动支座类型会替换过时的掩码，除非提供了明确的约束。已保存的含义不明确的 rollerZ 模型仍需要明确选择。编辑滚动支座约束后，请复核这些约束，并重新运行分析、组合和设计。",
     "tr": "Yönü tanımlı bir 3D kayıcı mesnet oluşturmak veya değiştirmek açık kısıtları kaydeder. Y, Y olarak kalır. Düzlem türleri etiketli düzlemlerini korur. Açık kısıtlar verilmediğinde tür değişikliği eski maskeyi değiştirir. Kaydedilmiş belirsiz rollerZ modelleri hâlâ açık bir seçim gerektirir. Mesnetleri inceleyin ve düzenlemeden sonra analiz, kombinasyon ve tasarımı yeniden çalıştırın."
   },

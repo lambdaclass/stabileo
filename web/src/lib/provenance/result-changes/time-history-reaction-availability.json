@@ -30,6 +30,7 @@
     "fr": "Les réactions temporelles signalent les forces totales indisponibles",
     "hu": "Az időtörténet jelzi a nem elérhető teljes erőket",
     "tr": "Zaman tanım alanı tepkileri mevcut olmayan toplam kuvvetleri bildirir",
+    "it": "Le reazioni della time-history segnalano esplicitamente forze totali non disponibili",
     "zh": "时程分析的反力明确报告总力不可用"
   },
   "explanation": {
@@ -40,6 +41,7 @@
     "fr": "Revérifiez les résultats temporels configurés ou enregistrés. L’estimation peakReactions omet inertie, amortissement et charges d’appui variables ; ce n’est ni une réaction totale ni une enveloppe. Les réactions dynamiques totales et efforts de barre indisponibles sont signalés et peakReactions: [] est renvoyé, y compris pour les appuis à ressort seuls. Les historiques et pics de déplacement restent disponibles (#1952 ; SA-2026-061).",
     "hu": "Ellenőrizze újra a beállított vagy rögzített időtörténeti eredményeket. A korábbi peakReactions becslés nem tartalmazza a tehetetlenséget, csillapítást és időfüggő támaszterhelést; nem teljes reakció és nem reakcióburkoló. Az eredmény külön jelzi a nem elérhető teljes dinamikai reakciókat és rúderőket, és peakReactions: [] értéket ad, csak rugós támaszok esetén is. Az elmozdulástörténetek és csúcsértékek elérhetők maradnak (#1952; SA-2026-061).",
     "tr": "Yapılandırılmış veya kaydedilmiş zaman tanım alanı sonuçlarını yeniden denetleyin. Eski peakReactions tahmini atalet, sönüm ve zamana bağlı mesnet yüklerini içermez; toplam tepki veya tepki zarfı değildir. Mevcut olmayan toplam dinamik tepkiler ve eleman kuvvetleri açıkça bildirilir ve yalnız yay içeren mesnetler için de peakReactions: [] döndürülür. Yer değiştirme geçmişleri ve tepe değerleri kullanılabilir kalır (#1952; SA-2026-061).",
+    "it": "Riverifica i risultati di time-history configurati o registrati. La precedente stima peakReactions omette inerzia, smorzamento e carico di appoggio dipendente dal tempo; non è una reazione totale né un inviluppo di reazioni. I risultati diagnosticano esplicitamente reazioni dinamiche totali e forze nelle aste non disponibili e restituiscono peakReactions: [], anche per appoggi a sole molle. Storie e picchi degli spostamenti restano disponibili (#1952; SA-2026-061).",
     "zh": "请重新核对已配置或已记录的时程分析结果。旧有的 peakReactions 估计值遗漏了惯性力、阻尼力和随时间变化的支座荷载；它不是总反力，也不是反力包络。结果会明确诊断总的动力反力和杆件内力不可用，并返回 peakReactions: []，包括仅有弹簧的支座。位移历程和峰值仍然可用（#1952；SA-2026-061）。"
   },
   "changelog": {

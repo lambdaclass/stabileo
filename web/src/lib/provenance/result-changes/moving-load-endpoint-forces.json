@@ -19,6 +19,7 @@
     "fr": "Les enveloppes de charges mobiles utilisent les limites intérieures aux extrémités",
     "hu": "A mozgóteher-burkolók a rúdvégeken a belső erőhatárértékeket használják",
     "tr": "Hareketli yük zarfları çubuk uçlarında iç kuvvet sınırlarını kullanır",
+    "it": "Gli inviluppi dei carichi mobili usano i limiti interni delle sollecitazioni alle estremità delle aste",
     "zh": "移动荷载包络在杆端采用内侧的内力极限"
   },
   "explanation": {
@@ -29,6 +30,7 @@
     "fr": "Une charge ponctuelle à une extrémité pouvait ajouter une limite extérieure aux enveloppes axiales et de cisaillement de charges mobiles 2D/3D, même si un appui porte toute la force (#1782, SA-2026-053). Seule la limite intérieure compte désormais. Recalculez les enveloppes concernées et vérifiez les dimensionnements fondés sur leurs extrêmes. Cet avis identifie les positions enregistrées ; les balayages transitoires ne laissent aucune marque enregistrée.",
     "hu": "Egy pontosan valamelyik rúdvégen álló koncentrált erő külső erőhatárértéket vihetett a 2D/3D mozgóteher normálerő- és nyíróerő-burkolóiba, akár teljes egészében támasz által felvett erőt is (#1782, SA-2026-053). Rúdvégen most csak a belső határérték számít. Futtassa újra az érintett burkolókat, és vizsgálja felül az erő-szélsőértékeikre alapozott keresztmetszet-felvételeket. Ez az értesítés a mentett mozgóteher-pozíció teheresetek alapján azonosít; az átmeneti végigfuttatások nem hagynak mentett jelölést.",
     "tr": "Çubuk ucundaki tekil yük, yükün tamamı mesnet tarafından taşınsa bile 2B/3B hareketli yük eksenel ve kesme zarflarına dış kuvvet sınırı ekleyebiliyordu (#1782, SA-2026-053). Artık uçta yalnızca iç sınır sayılır. Etkilenen zarfları yeniden hesaplayın ve uç değerlere dayanan boyutlandırmaları inceleyin. Bildirim kayıtlı hareketli yük konumlarını tanır; geçici taramalar kayıtlı işaret bırakmaz.",
+    "it": "Un carico concentrato esattamente a una delle estremità di un’asta poteva inserire un limite esterno della sollecitazione negli inviluppi assiali e di taglio dei carichi mobili 2D/3D, compresa una forza portata interamente da un vincolo (#1782, SA-2026-053). Ora a un’estremità conta solo il limite interno. Riesegui gli inviluppi interessati e rivedi i dimensionamenti basati sui loro estremi di sollecitazione. Questo avviso identifica i casi salvati di posizione dei carichi mobili; le scansioni transitorie non lasciano alcun segno salvato.",
     "zh": "恰好位于杆件任一端的集中荷载，可能把外侧的内力极限带入 2D/3D 移动荷载的轴力/剪力包络，包括完全由支座承担的力（#1782，SA-2026-053）。现在在端部只计内侧极限。请重新运行受影响的包络，并复核基于其内力极值的选型。本通知可识别已保存的移动荷载位置工况；瞬态扫描不会留下已保存的标记。"
   },
   "changelog": {

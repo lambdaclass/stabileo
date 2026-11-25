@@ -21,6 +21,7 @@
     "de": "Winddruck an physischen Trägerspitzen",
     "fr": "Pression du vent aux sommets physiques des porteurs",
     "tr": "Fiziksel taşıyıcı tepelerinde rüzgâr basıncı",
+    "it": "Pressione del vento agli apici degli elementi portanti fisici",
     "zh": "实际承载构件顶点处的风压",
     "hu": "Szélnyomás a teherhordók fizikai csúcsainál"
   },
@@ -31,6 +32,7 @@
     "de": "Nicht zusammengeführte Builds von PR #2220 konnten gültige, an einer Spitze zusammentreffende Träger bei höhenabhängigem Druck ablehnen. Physische Endpunkte mit Breite null haben nun Lastdichte null; deklarierte Breiten müssen positiv bleiben. W/Wa neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen (#2220).",
     "fr": "Les versions non fusionnées de la PR #2220 pouvaient refuser des porteurs valides se rejoignant en un sommet sous une pression variant avec la hauteur. Les extrémités physiques de largeur nulle ont une densité nulle ; les largeurs déclarées doivent rester positives. Régénérez W/Wa et relancez analyses, combinaisons et vérifications (#2220).",
     "tr": "Birleştirilmemiş PR #2220 sürümleri, yüksekliğe göre değişen basınç altında bir tepede birleşen geçerli taşıyıcıları reddedebiliyordu. Sıfır genişlikli fiziksel uçlarda yük yoğunluğu artık sıfırdır; beyan edilen genişlikler pozitif olmalıdır. W/Wa yüklerini yeniden üretip analiz, birleşim ve kontrolleri tekrarlayın (#2220).",
+    "it": "Le build di PR #2220 non integrate potevano rifiutare elementi portanti divaricati validi che si incontrano in un apice sotto una pressione variabile con l’altezza. Gli estremi fisici di larghezza zero ora hanno densità zero; le larghezze dichiarate devono comunque essere positive. Rigenera W/Wa e riesegui analisi, combinazioni e verifiche di progetto (#2220).",
     "zh": "尚未合并的 PR #2220 构建，在随高度变化的风压下，可能拒绝交汇于一个顶点的有效张开式承载构件。宽度为零的实际端点现在密度为零；声明的宽度仍必须为正。请重新生成 W 和 Wa，然后重新运行分析、组合和设计验算。（#2220）",
     "hu": "A még nem egyesített #2220 PR a magassággal változó nyomás alatt elutasíthatta a csúcsban találkozó érvényes, széttartó teherhordókat. A nulla szélességű fizikai végpontok terhelési sűrűsége most nulla; a megadott szélességnek továbbra is pozitívnak kell lennie. Állítsa elő újra a W/Wa terheket, és ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket (#2220)."
   },

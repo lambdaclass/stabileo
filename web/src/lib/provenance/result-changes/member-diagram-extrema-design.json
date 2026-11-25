@@ -25,6 +25,7 @@
     "de": "Extremwerte und Querschnittsseiten bei der Bemessung",
     "fr": "Extrema et faces des travées dans le dimensionnement",
     "tr": "Tasarımda eleman uç değerleri ve açıklık yüzleri",
+    "it": "Estremi delle aste e facce di campata nel progetto",
     "zh": "设计采用杆件极值和跨段截面各侧内力",
     "hu": "Rúdszélsőértékek és keresztmetszeti oldalak a méretezésben"
   },
@@ -35,6 +36,7 @@
     "de": "Die Nachweise berücksichtigen gleichzeitige Schnittgrößen an den Lastgrenzen und bei veränderlichen Lasten an den Diagrammextrema. Umgekehrt gerichtete Trägersegmente behalten die Biegebeanspruchung der oberen und unteren Seite. Bemessung erneut ausführen und maßgebende Nachweise prüfen.",
     "fr": "Les vérifications incluent les efforts concomitants aux limites des charges et aux extrema des diagrammes pour les charges variables. Les tronçons inversés conservent la flexion des faces supérieure et inférieure. Relancez le dimensionnement et vérifiez les contrôles déterminants.",
     "tr": "Eleman kontrolleri, yük sınırlarındaki ve değişken yükler için diyagram uç değerlerindeki eşzamanlı kuvvetleri içerir. Ters yönlü kiriş parçaları üst ve alt yüzlerdeki eğilme taleplerini korur. Tasarımı yineleyin ve belirleyici kontrolleri inceleyin.",
+    "it": "Le verifiche delle aste includono le sollecitazioni concomitanti ai limiti dei carichi e agli estremi dei diagrammi per carichi variabili. I pezzi di trave invertiti mantengono le sollecitazioni flettenti superiori e inferiori. Riesegui il progetto e rivedi le sollecitazioni e le verifiche dominanti.",
     "zh": "杆件验算计入荷载边界处及变化荷载产生的内力图极值处的同步内力。梁段反向后仍保留顶部和底部的弯矩需求。请重新设计并复核控制内力和验算结果。",
     "hu": "A rúdellenőrzések a terhek határain, változó terhek esetén pedig az ábrák szélsőértékeinél fellépő egyidejű igénybevételeket veszik figyelembe. A fordított gerendaszakaszok megtartják a felső és alsó oldal hajlítási igénybevételeit. Futtassa újra a méretezést, és ellenőrizze a mértékadó eredményeket."
   },

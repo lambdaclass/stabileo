@@ -154,6 +154,23 @@ export const CHANGELOG: ChangelogEntry[] = [
           'A termék ütemterve előre sorolja a terhek és lemezterületek független ellenőrzését, az egzakt igénybevételi függvényeket, a teljes méretezési bizonyítékot és az egységes kanonikus modellt az átalakítások ellenőrzésével. (#2469)',
         ],
       },
+      it: {
+        title: 'Stabileo 0.6.4: risultati delle aste, analisi delle piastre e verifica del calcestruzzo corretti',
+        items: [
+          'I diagrammi delle aste e gli inviluppi dei carichi mobili recuperano i picchi tra le stazioni, ai due lati delle azioni concentrate e le forze appena all’interno degli estremi delle aste. I diagrammi combinati possono mostrare limiti cautelativi etichettati quando gli estremi esatti non sono disponibili. Stazioni ambigue, picchi dimensionanti non risolti e griglie di stazioni di progetto incomplete bloccano il risultato interessato. I tratti di campata in calcestruzzo invertiti mantengono la faccia tesa fisica. Le verifiche dell’acciaio usano i momenti di picco e dei quarti di campata dall’equilibrio e negano il credito del gradiente di momento quando le informazioni richieste sul diagramma sono incomplete. I rapporti con molte stazioni riutilizzano i diagrammi già preparati. (#2403)',
+          'Entrambi i comandi di inversione dell’asta conservano la direzione, l’intervallo caricato e le intensità agli estremi dei carichi distribuiti. L’analisi usa il valore non nullo non ambiguo nei vecchi campi di coppia piana e rifiuta i valori in conflitto. Nei modelli spaziali, una coppia pura iniziale può essere applicata al nodo in cui è stata definita anche senza una proiezione utilizzabile sull’asta. Altre azioni vecchie che richiedono ancora la proiezione possono bloccare il calcolo. (#2456)',
+          'Una modifica finita a una coppia concentrata piana o a un momento nodale ripristinati sostituisce il momento memorizzato, anche se impostata a zero. Momenti in conflitto o non validi bloccano l’analisi anche dopo il salvataggio e la riapertura. Controlla il momento previsto, reinseriscilo e riesegui l’analisi e il dimensionamento. (#2467, SA-2026-105)',
+          'PRO rifiuta l’analisi se resta una mesh di piastra non valida o non aggiornata oppure se un nodo parete–solaio è incompatibile. Il mallador richiede contorni e fori completi e validi prima di Applica. La galleria aggiornata dell’edificio di sette piani e l’esempio DXF architettonico hanno mesh di giunzione compatibili. Le nuove bozze CAD discretizzate allineano le stazioni di solaio e parete. Le esportazioni della cartella di lavoro solo modello possono includere piastre non discretizzate. (#2409)',
+          'La rimesh segue il contorno curvo passando per il punto intermedio specificato della piastra. Un tracciato ambiguo blocca la rimesh e l’analisi. Controlla il contorno, ricostruisci le mesh non aggiornate e riesegui l’analisi e il dimensionamento. (#2466, SA-2026-106)',
+          'La rimesh trasferisce gli offset dei gusci e le modifiche di curvatura solo a celle univoche e perfettamente corrispondenti. Se un guscio modificato non può essere abbinato, la rimesh si ferma e conserva la mesh esistente. Controlla le proprietà dei gusci rispetto al modello previsto, ripristina le modifiche perse in precedenza e riesegui l’analisi e il dimensionamento. (#2466, SA-2026-107)',
+          'CIRSOC 201-2025 verifica l’armatura trasversale minima per la torsione nelle due direzioni e usa il limite del calcestruzzo valutato per la torsione pura dove è disponibile una gabbia. Le verifiche a torsione e a taglio possono essere rifiutate quando la gabbia disegnata non ha prove per le barre perimetrali, l’altezza utile secondaria o lo sviluppo delle barre attraverso un nodo. Le verifiche a taglio usano le barre tese distinte presenti nel taglio, anche tra le stazioni campionate. L’esempio dell’edificio di sette piani può ora mostrare rifiuti per verifiche che prima passavano. (#2433)',
+          'Lo spazio di lavoro 3D dell’armatura si apre più in fretta, e il salvataggio, il ripristino e il cambio di scheda nei modelli dettagliati riutilizzano la geometria dell’armatura immutabile. Annulla e ripeti ripristinano un dettaglio coerente con la geometria del calcestruzzo. (#2438, #2444, #2458)',
+          'Base mostra i momenti di reazione vincolare 3D con i segni globali del solutore. Le letture del corpo libero usano gli assi selezionati e coincidono con le frecce sul lato del nodo in 2D. Base e PRO riportano le componenti di forza concentrata e di coppia nel piano e negli assi del solutore. Riesegui le ispezioni interessate e rigenera i rapporti. (#2396)',
+          'Le impostazioni della chiave AI danno ai pulsanti dei fornitori, al campo della chiave e alle azioni sulla chiave una dimensione minima di 44 pixel CSS in entrambe le direzioni. (#2440)',
+          'Le pagine di ricerca pubblicate sull’elastica di Mattiasson, su MacNeal–Harder e sul percorso a ostacoli dei gusci mostrano il risultato completato della prima esecuzione del benchmark o il suo rifiuto segnalato. (#2445)',
+          'La roadmap del prodotto dà priorità a verifiche indipendenti dei carichi e delle aree di piastra, a funzioni esatte delle sollecitazioni interne, a evidenze di progetto complete e a un unico modello canonico con verifiche attraverso le trasformazioni. (#2469)',
+        ],
+      },
       zh: {
         title: 'Stabileo 0.6.4：修正杆件结果、板分析和混凝土验算',
         items: [
@@ -345,6 +362,29 @@ export const CHANGELOG: ChangelogEntry[] = [
           'A Research új kísérlete Heyman munkája alapján vizsgálja a falazott ívek legkisebb vastagságát és összeomlását.',
         ],
       },
+      it: {
+        title: 'Verifica del calcestruzzo, tensioni di sezione e carichi mobili',
+        items: [
+          'Le tensioni di sezione dettagliate trattengono i risultati combinati dove coesistono torsione e taglio trasversale. I tagli ora includono entrambe le componenti trasversali nel taglio totale e in von Mises. Ricalcola le tensioni interessate e rivedi le relazioni (SA-2026-092). L’esempio svolto del bollettino fornisce le coordinate delle fibre sia negli assi locali dell’asta sia in quelli del disegno della sezione.',
+          'I carichi mobili piani mantengono il salto dello sforzo normale in corrispondenza degli assi concentrati. Ricalcola i diagrammi, gli inviluppi e le linee d’influenza dello sforzo normale interessati (SA-2026-093).',
+          'Le combinazioni 2D e 3D mantengono il fattore netto per i casi ripetuti e rifiutano l’annullamento completo. Le analisi di cavi e di interazione suolo–struttura rifiutano rigidezze di molla non finite. Riesegui le combinazioni interessate.',
+          'Telai e travi superano più rapidamente la verifica di stabilità certificata. Il recupero delle combinazioni 3D è più rapido e il precondizionatore iterativo per le piastre è stato corretto.',
+          'L’analisi corotazionale 2D usa un driver non lineare condiviso e mantiene i suoi risultati esistenti di Newton e Newton modificato. (#2394)',
+          'La verifica del calcestruzzo armato blocca le verifiche di taglio, torsione e staffe sismiche con evidenze insufficienti e ne spiega il motivo. Riesegui i progetti certificati e rivedi i tagli governanti e i disegni delle armature (SA-2026-091).',
+          'I carichi sismici statici seguono la massa fisica e la sua altezza di applicazione. La generazione dei carichi modali è bloccata. Rigenera i carichi interessati con il metodo statico dove applicabile, poi riesegui analisi e progetto (SA-2026-086 e SA-2026-087).',
+          'La generazione dei carichi gravitazionali blocca i pannelli sovrapposti che potrebbero caricare la stessa area due volte. Rigenera i carichi interessati prima di rieseguire analisi e verifiche di progetto.',
+          'Le trasformazioni bloccano spostamenti o copie che potrebbero cambiare le direzioni vincolate di un carrello ambiguo. Gli snapshot conservano il tipo di vincolo registrato.',
+          'La generazione sismica statica verifica le evidenze di piano agli incroci dei controventi e ai nodi di copertura. Una trave di colmo da sola non può stabilire un piano. Le suddivisioni rettilinee delle aste sono identificate in modo coerente dopo la traslazione, e la generazione si blocca se la precisione delle coordinate è insufficiente o l’interpiano è ambiguo. Dove entrambi gli estremi hanno evidenza di piano, i puntoni sopraelevati ricevono inerzia distribuita lungo le campate partecipanti. Un piano stabilito divide inoltre un tratto inclinato continuo al nodo di piano. Questo può cambiare le forze d’interpiano, il taglio alla base e la flessione e la deformazione dei puntoni. Rigenera i casi sismici statici interessati e rivedi il taglio alla base e le azioni sui puntoni. (#2404)',
+          'La generazione gravitazionale dei pannelli blocca un percorso di carico duplicato dove una campata di trave sovrapposta e un impalcato a guscio verrebbero entrambi caricati e la giunzione dell’impalcato è completamente collegata tramite nodi master fuori giunzione. Anche i Carichi automatici bloccano prima dell’anteprima se l’arrotondamento delle coordinate rende indeterminata la classificazione della pendenza di un elemento portante dei carichi gravitazionali. Quella classificazione poteva prima cambiare dopo una rotazione in pianta o una suddivisione di asta. Su coperture piane e a falde, la generazione della neve blocca quando un accumulo a gradino in sito richiede il trasferimento alle aste o se la sua applicabilità non può essere stabilita. Il trasferimento precedente poteva perdere forza e momento eccentrico. Rigenera i carichi gravitazionali e di neve interessati e risolvi le condizioni di blocco prima di usare i risultati. (#2406)',
+          'La verifica CIRSOC 201 usa lo sforzo normale concomitante per l’interasse delle staffe, verifica l’ancoraggio negli esatti zeri del momento e verifica gli intervalli locali delle staffe. I limiti delle staffe sismiche tengono conto di tutti gli strati di barre di estremità. La capacità e il coefficiente di utilizzo a torsione riflettono il limite inferiore valutato. La verifica può bloccarsi quando l’estremo disegnato di una barra non raggiunge la sezione verificata o quando lo sviluppo delle barre perimetrali non è verificato. La verifica secondaria a taglio del solo calcestruzzo richiede barre longitudinali alloggiate in entrambe le piegature superiori delle staffe. Le riverifiche a profondità finale usano il disegno della trave sostitutiva quando fornito. Le distinte dei pilastri conservano i diametri di barra misti e trattengono i dettagli costruttivi fisici quando la gabbia specificata non può essere riprodotta. Riesegui la verifica rispetto ai disegni attuali delle armature e rivedi le combinazioni governanti e i verdetti. (#2398)',
+          'Il cinese semplificato è l’ottava lingua di Stabileo ed è disponibile nell’app, nel sito e negli avvisi sui risultati.',
+          'L’importazione del foglio di lavoro rifiuta nomi di foglio che si risolvono nello stesso nome, intestazioni duplicate, intestazioni obbligatorie mancanti, unità non valide, errori del foglio di calcolo, indicatori di vincolo in conflitto e campi di carico non supportati compilati. Per i carichi planari, rifiuta componenti di momento diverse da zero attorno a uno dei due assi dichiarati del foglio che giacciono nel piano del modello. Un’importazione rifiutata lascia al suo posto il modello attuale. I vincoli espliciti completi sono conservati negli assi dichiarati del foglio, anche nelle esportazioni prima della risoluzione. Le molle rotazionali planari si esportano come kr [kN·m/rad], e l’intestazione precedente resta leggibile. Reimporta i fogli interessati e verifica coordinate, carichi, gravità e vincoli prima di risolvere di nuovo. (#2395)',
+          'Cancellare una mesh di piastra è più rapido, anche quando si ricostruiscono le mesh dei solai. (#2394)',
+          'Stabileo 0.6.2 è uscito con correzioni ai carichi sulle aste, ai vincoli 3D, all’armatura secondaria delle staffe e ai carichi generati. Le note di rilascio indicano cosa ricalcolare e quali carichi rigenerare.',
+          'Le figure della pagina iniziale continuano a muoversi sotto il puntatore. Il pannello del progetto spiega quali azioni richiedono un account, e la pagina di registrazione usa le figure della pagina iniziale.',
+          'Ricerca aggiunge un esperimento sullo spessore minimo degli archi in muratura e sul collasso basato sul lavoro di Heyman.',
+        ],
+      },
       zh: {
         title: '混凝土验算、截面应力与移动荷载',
         items: [
@@ -526,6 +566,26 @@ export const CHANGELOG: ChangelogEntry[] = [
           'A 3D analízis elutasítja az ismeretlen támasztípusokat. A többértelmű görgős és az egyedi támaszoknál meg kell adni a gátolt mozgásokat. A vasbeton gerenda példája a tervezett egyszerű támaszokat használja. Ellenőrizze az érintett támaszok gátolt mozgásait, majd ismételje meg az analíziseket, kombinációkat és méretezési ellenőrzéseket (SA-2026-089).',
           'A 0.6.0 és 0.6.1 verziójegyzetei és cikkei ismertetik, mely projekteket kell újraszámítani és mely terheket újragenerálni. Az itt felsorolt későbbi javítások a 0.6.2-es verzióban jelentek meg. A nyitott auditmegállapítások továbbra is követhetők.',
           'A Research új kísérlete Heyman falazatokról szóló munkája alapján vizsgálja a boltívek legkisebb vastagságát és teher alatti összeomlását.',
+        ],
+      },
+      it: {
+        title: 'Carichi sulle aste, carichi gravitazionali e vincoli 3D corretti',
+        items: [
+          'Le letture al passaggio del puntatore sulle aste e le deformate includono coppie concentrate e carichi distribuiti parziali tramite un recupero condiviso in 2D e 3D. Il recupero con carico senza sufficiente rigidezza flessionale rifiuta in modo esplicito. Riesegui le analisi interessate e rivedi le deformazioni interne e le verifiche di esercizio (SA-2026-070).',
+          'I carichi compatibili con rotazioni svincolate mantengono le loro risposte dopo rotazione o conversione di unità. I momenti nodali che si annullano sono conservati; i momenti residui realmente non supportati sono ancora rifiutati. Riesegui le analisi interessate.',
+          'I carichi distribuiti su campate troppo corte sono rifiutati con un messaggio che identifica l’asta e l’intervallo. La verifica dell’equilibrio delle forze conta il carico applicato in modo indipendente. Rivedi gli intervalli rifiutati e riesegui le analisi interessate.',
+          'I diagrammi 3D delle aste in ABS e SRSS includono i picchi tra i punti del grafico e i valori su entrambi i lati dei salti. Ricalcola i diagrammi interessati e rivedi le verifiche che ne usavano i picchi.',
+          'Le verifiche di interazione per calcestruzzo e acciaio mantengono le forze della stessa combinazione e stazione. I fattori di gradiente del momento per l’acciaio, l’amplificazione dei momenti nel calcestruzzo e le staffe a torsione fornite sono corretti. Riesegui i progetti delle aste interessate e rivedi le combinazioni governanti e le armature (SA-2026-064, SA-2026-066, SA-2026-068).',
+          'I limiti di sezione a taglio–torsione della CIRSOC 201 includono entrambe le direzioni concomitanti del taglio in travi, pilastri e pareti. Sezioni prima accettate possono non essere verificate; staffe aggiuntive non possono riparare un limite di sezione superato. Riesegui i progetti in calcestruzzo interessati (SA-2026-069).',
+          'Il progetto e la certificazione delle aste rifiutano combinazioni, aste o stazioni dichiarate mancanti invece di verificare solo le sollecitazioni disponibili. Le griglie di stazioni disuguali mantengono ogni combinazione negli inviluppi della linea di trave. Riesegui i progetti salvati in calcestruzzo e acciaio e rivedi i rifiuti e i certificati (SA-2026-071).',
+          'L’accumulo di neve a gradino di copertura su coperture riceventi a falde e le larghezze di copertura seguono i piani fisici della copertura, indipendentemente dalla rotazione in pianta. Le regioni di copertura collegate mantengono accumulo, scivolamento e disposizioni non bilanciate. Rigenera i carichi di neve interessati prima di rieseguire analisi, combinazioni e verifiche di progetto (SA-2026-065, SA-2026-067).',
+          'Aggiungere nodi non sposta più i colmi di neve né trasforma i pannelli di cupola raffinati in solai. I carichi sulle aste che attraversano un colmo conservano forza e momento, compresi i sottoinsiemi di elementi portanti selezionati. Rigenera tutti i carichi di superficie generati interessati, compresi quelli di copertura e di piano, poi riesegui analisi, combinazioni e verifiche di progetto; risolvere i soli carichi salvati non basta (SA-2026-072, SA-2026-073, SA-2026-074).',
+          'Nelle campate con gusci, le travi portano il carico sulle strisce scoperte che possono sostenere. La generazione dei carichi si ferma quando la copertura non è chiara. In modalità di larghezza di influenza, l’area di livello e la massa sismica seguono le aste caricate. Le zone di piano sono rifiutate quando il loro carico eccentrico non può essere rappresentato. Rigenera i carichi gravitazionali e sismici interessati prima di rieseguire analisi e verifiche.',
+          'Le traduzioni in ungherese includono le indicazioni di rilascio e gli avvisi sui progetti salvati. I controlli di ricerca Fehér ampliati, gli Strumenti consolidati, i nuovi punti di ingresso a Mohr e il gioco dei diagrammi restano opzionali e disattivati per impostazione predefinita. Gli account e la misurazione della pubblicità restano disattivati per impostazione predefinita.',
+          'Gli strumenti per le tensioni conservano piccole tensioni principali e tagli diversi da zero, e i link condivisi di Mohr conservano lo stato di tensione inserito. I calcolatori mantengono le risposte legate agli ingressi attuali. Aprire lo spazio di lavoro dell’armatura richiede meno lavoro ripetuto sulla geometria, con geometria e risultati di analisi invariati.',
+          'L’analisi 3D rifiuta i tipi di vincolo sconosciuti. I carrelli ambigui e i vincoli personalizzati richiedono vincoli espliciti. L’esempio della trave in calcestruzzo usa gli appoggi semplici previsti. Conferma quali movimenti impediscono i vincoli interessati, poi riesegui analisi, combinazioni e verifiche di progetto (SA-2026-089).',
+          'Le note di rilascio e gli articoli del blog per 0.6.0 e 0.6.1 spiegano quali progetti richiedono un nuovo calcolo e quali carichi vanno rigenerati. Le correzioni successive elencate qui sono uscite in 0.6.2. I rilievi di audit aperti restano tracciati.',
+          'Un nuovo esperimento di Ricerca basato sul lavoro di Heyman sulla muratura esplora lo spessore minimo degli archi e come collassano sotto carico.',
         ],
       },
       zh: {
@@ -756,6 +816,34 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A német, a francia és a török nyelv ismét elérhető. A Research egy tengerfenékkel érintkező offshore riserrel és egy hajlított szalag alakszabályozásával bővül, az oldalaikon bemutatott összehasonlításokkal és korlátokkal. A munkaterület mentése megőrzi a méretezett épületeket, és jelzi, ha a böngésző nem tud menteni."
         ]
       },
+      it: {
+        title: 'Stabilità verificata prima di risolvere, carichi mobili e P-Delta corretti, limiti più chiari',
+        items: [
+          'Le analisi lineari 2D e 3D verificano la stabilità della rigidezza prima di risolvere. Meccanismi, rigidezza negativa e rigidezza troppo incerta per essere risolta vengono rifiutati con un motivo, invece di essere risolti con molle o traslazioni artificiali. Riesegui le analisi lineari interessate e le loro verifiche di progetto.',
+          'Una molla su un grado di libertà vincolato rigidamente è rifiutata sia in 2D sia in 3D. I carichi mobili 3D catturano i picchi sotto un asse all’interno della campata, compreso il suo sforzo normale sulle aste inclinate e le sue forze di estremità. Riesegui gli inviluppi dei carichi mobili interessati.',
+          'P-Delta integra lo sforzo normale variabile lungo ogni asta in 2D e 3D, correggendo l’amplificazione sottostimata sotto carichi di campata. L’analisi armonica risolve le frequenze senza un troncamento modale limitato in modo completo, compresi i modelli oltre il limite di dimensione densa. Riesegui queste analisi e le verifiche derivate.',
+          'Il collasso plastico 3D verificato riporta il suo limite inferiore certificato e rifiuta un certificato non valido. L’analisi plastica controlla le proprie esigenze di lavoro e di memoria prima di allocare. Il controllo di carico a fibre racchiude il suo limite di carico invece di riportarne uno che cambia con il passo.',
+          'Le analisi di contatto rifiutano uno stato congelato che non supera le condizioni finali di contatto. Gli elementi cavo sono rifiutati fuori dall’analisi dedicata ai cavi, dove il loro allentamento non può essere rappresentato. Questi limiti valgono per le analisi native e del browser.',
+          'Le combinazioni di gusci conservano le tensioni dei casi di spostamento imposto e includono le tensioni nodali dei quadrilateri; la SSI restituisce le reazioni vincolari in 2D e 3D. L’instabilità e le analisi a più casi rifiutano risultati non finiti. I progetti salvati identificano le analisi di versioni con risultati errati noti e chiedono di rieseguire l’analisi interessata.',
+          'L’instabilità 2D e 3D mantiene i limiti di arrotondamento dello sforzo normale entro le parti effettivamente accoppiate. Un vincolo in una struttura indipendente non impedisce più di risolvere un altro pilastro; una compressione incerta all’interno di una parte accoppiata è ancora rifiutata. Riesegui le analisi di instabilità e P-Delta salvate per aggiornare i fattori B2 e la stabilità.',
+          'Le verifiche di regressione coprono 28 modelli segnalati ora rifiutati con un motivo; la revisione delle evidenze ha consentito di chiudere 25 segnalazioni candidate. Sette vecchi modelli di gusci hanno una rotazione rigida libera nel piano: i test nativi e del browser ne confermano il rifiuto e verificano le risposte dopo aver aggiunto il vincolo mancante.',
+          'Le analisi 2D e 3D a fasi condividono la gestione delle rotazioni libere dell’analisi lineare. Gli svincoli di estremità e i cambi di unità non aggiungono più rigidezza rotazionale artificiale, e i cedimenti vincolari conservano il loro moto previsto. Riesegui le analisi a fasi interessate e le verifiche di progetto derivate (SA-2026-060). I rifiuti elastici iniziali nell’analisi plastica 3D ora restano rifiuti invece di diventare moltiplicatori di collasso nulli silenziosi (SA-2026-062).',
+          'Le verifiche di bilancio plastico non vanno più in crash su modelli importati le cui etichette di record differiscono dagli ID di aste e nodi. I certificati plastici contano la memoria effettivamente necessaria e conservano gli ultimi limiti validi quando un raffinamento opzionale supera il limite. Telai prima rifiutati ora possono certificare entro gli stessi limiti.',
+          'La certificazione plastica gira più velocemente con risposte e limiti di risorse invariati. Anche l’esempio con outrigger si risolve più velocemente, mantenendo il suo intervallo verificato del cursore.',
+          'Le analisi non lineari 2D e 3D verificano l’equilibrio fisico in modo coerente dopo rotazione, riflessione e cambi di unità. P-Delta, cedimenti vincolari prescritti e molle del terreno conservano piccole risposte risolte senza allentare i limiti di convergenza. Riesegui le analisi non lineari, P-Delta e di interazione suolo–struttura interessate.',
+          'I moltiplicatori di instabilità sono recuperati dalle matrici di rigidezza originali in 2D e 3D, correggendo piccole sovrastime e falsi rifiuti di modelli vincolati o con aste curve. I modi didattici validi sono conservati attraverso unità diverse. Riesegui le analisi di instabilità interessate; i limiti dei certificati sono invariati.',
+          'I carichi sulle aste delle travature reticolari ora entrano nella verifica dell’equilibrio in 2D e 3D, quindi i modelli validi con carichi sulle aste non vengono più rifiutati quando i carichi nodali equivalenti si risolvono. Riesegui le analisi di travature reticolari interessate.',
+          'L’analisi modale conserva il rango fisico della massa attraverso vincoli e appoggi inclinati. I modelli con direzioni senza massa possono restituire i loro modi finiti validi senza che un modo extra spurio causi un rifiuto. Riesegui le analisi modali interessate e le risposte dinamiche che ne dipendono.',
+          'I cedimenti e le rotazioni prescritti ai master di vincolo trattenuti ora raggiungono i nodi dipendenti nelle analisi a fasi, Winkler, di contatto, non lineari di materiale, corotazionali 2D e a lunghezza d’arco. Le analisi con elementi cavo e di time-history lineare rifiutano il moto di appoggio prescritto diverso da zero che non possono rappresentare. Riesegui le analisi interessate e le verifiche derivate (SA-2026-063).',
+          'Il controllo a lunghezza d’arco e a spostamento recupera le reazioni vincolari e le forze nelle aste al moltiplicatore di carico finale. Il recupero non lineare e a fasi include le forze trasferite attraverso i vincoli, esclude la rigidezza artificiale e usa lo stato fisico finale e il riferimento dell’asta. Riesegui le analisi interessate e le verifiche derivate (SA-2026-061).',
+          'P-Delta distingue un residuo fisico fallito da una limitazione di bilancio dei momenti sulla geometria spostata. Un equilibrio fisico fallito trattiene forze e tensioni; la seconda limitazione mantiene le risposte valide a piccoli spostamenti con un avviso. La time-history trattiene le reazioni vincolari totali e di picco non disponibili mantenendo storie e picchi degli spostamenti. Riverifica le forze salvate (SA-2026-061).',
+          'Le storie a fasi che rimuovono un’asta che porta sollecitazioni interne sono rifiutate in 2D e 3D. Cambi di rigidezza o di molle di vincolo dopo il carico o il moto possono lasciare forze e tensioni non disponibili con una diagnostica. Le rimozioni esattamente scariche e le fasi di soli vincoli completamente determinate conservano le loro risposte; la ridistribuzione delle forze nelle aste caricate resta non supportata (SA-2026-061).',
+          'L’interazione suolo–struttura corregge l’equilibrio elastico senza riavviare una risoluzione invariata. I modelli ruotati e con unità scalate senza terreno o con terreno nel suo intervallo lineare iniziale possono convergere entro la tolleranza e il limite di iterazioni esistenti. Riesegui le analisi SSI interessate.',
+          'Telai e travature reticolari vincolati, ruotati o specchiati non ricevono più falsi rifiuti dal limite di arrotondamento. Le risoluzioni iniziali lineari, a fasi, di viscosità e P-Delta conservano rigidezza fisica risolvibile in 2D e 3D; i limiti di meccanismo e accuratezza restano invariati. Riesegui le analisi interessate.',
+          'Il progetto in acciaio CIRSOC 301 legge il gradiente del momento e le caratteristiche della sezione dal motore. Il fattore di gradiente del momento include un cambio di segno agli estremi di un tratto non controventato; l’area netta a trazione verifica ogni catena di bulloni sfalsati e rifiuta un collegamento a tutti gli elementi privo di bulloni nell’anima o nella seconda ala. Riverifica le aste in acciaio interessate.',
+          'Tedesco, francese e turco sono di nuovo offerti. Ricerca aggiunge un riser offshore con contatto sul fondale marino e il controllo di forma di una lamina piegata, con i confronti e i limiti mostrati nelle loro pagine. I salvataggi dello spazio di lavoro conservano gli edifici progettati e segnalano quando il browser non può salvare.',
+        ],
+      },
       zh: {
         "title": "求解前先检查稳定性，移动荷载与 P-Δ 已更正，限制更清晰",
         "items": [
@@ -874,6 +962,18 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Visszatért az Alap mód tananyaga statikával, hatásábrákkal, másodrendű analízissel, kihajlással, képlékenységgel és dinamikával. Elérhetők paraméteres példák és egy saját Anthropic- vagy OpenAI-kulccsal működő asszisztens. A Research és a Tools oldalak gyorsabban nyílnak meg telefonon."
         ]
       },
+      it: {
+        title: 'Carichi, progetto e analisi corretti; più modi di calcolare e imparare',
+        items: [
+          'I carichi generati mantengono i carichi di piano sotto copertura parziale e su impalcati ruotati, e includono i gusci nel peso sismico. La verifica dell’equilibrio nomina i carichi che non può sommare. Genera di nuovo i carichi interessati.',
+          'Le verifiche su acciaio e calcestruzzo correggono le aree di taglio, la flessione sovrarmata, i pilastri rettangolari e la compressione dei tubi. I collegamenti e le aste con torsione non verificata dichiarano cosa non è valutato. Ogni componente dell’inviluppo dei gusci mantiene i propri estremi. Riesegui i progetti interessati.',
+          'L’instabilità 2D integra lo sforzo normale lungo l’asta; i meccanismi dietro vincoli rigidi sono rifiutati, e l’analisi corotazionale 3D compone le grandi rotazioni. La dinamica conserva i carichi iniziali sui nodi senza massa e rifiuta i meccanismi. I risultati non finiti sono rifiutati con un motivo.',
+          'Si aggiunge l’analisi limite plastica 2D, ma il collasso plastico resta trattenuto finché non sarà completa la validazione per #758. L’instabilità 3D distingue la compressione dall’arrotondamento; l’analisi armonica sceglie il proprio metodo per modello e frequenza senza cambiarlo con il carico. L’analisi lineare avvisa di grandi rotazioni e possibili effetti del secondo ordine.',
+          "I gusci MITC4 e MITC9 restano troppo flessibili su geometria svergolata: nel benchmark con 90° di torsione, gli spostamenti erano circa il 30% sopra il riferimento per MITC4 e fino a 2,4 volte il riferimento per MITC9. L’errore cresce con la torsione ed è assente sugli elementi piani. La formulazione non è ancora corretta (#1057). PR #1074 ha aggiunto avvisi e rifiuti ai limiti misurati; quel contenimento non corregge la formulazione.",
+          'Le relazioni di PRO stampano l’insieme di risultati scelto e verificano le tabelle esportate. Ci sono viste salvate, viste combinate in pianta e 3D, riferimenti IFC, link in sola lettura e più risultati delle piastre. Le importazioni da Excel e IFC conservano il corretto asse d’inerzia delle sezioni rettangolari.',
+          'Il corso di Base torna con statica, linee d’influenza, secondo ordine, instabilità, plasticità e dinamica. Sono disponibili esempi parametrici e un assistente che usa la tua chiave Anthropic o OpenAI. Le pagine di Ricerca e Strumenti si aprono più velocemente sui telefoni.',
+        ],
+      },
       zh: {
         "title": "荷载、设计与分析的更正；更多的计算与学习方式",
         "items": [
@@ -990,6 +1090,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A JAIE 2026 cikk teljes terjedelmében a /paper oldalon, valamint ez a változásnapló."
         ]
       },
+      it: {
+        title: 'Stabileo Research, Strumenti e l’app in tedesco, francese e turco',
+        items: [
+          'Le tensioni dei gusci solidi di gusci fuori dal piano X–Y ora sono corrette; l’app ti chiede di rieseguire i progetti interessati.',
+          'Il motore è testato con verifiche di invarianza a ogni modifica e con modelli casuali ogni notte; tre presunti errori del motore si sono rivelati modelli di prova sbagliati, e ogni benchmark ora richiede due riferimenti indipendenti, verifiche del modello e uno studio di convergenza.',
+          'Piastre come oggetti fisici discretizzate quando risolvi, aste curve come pezzi unici, modelli DXF su più livelli e zone d’uso per piano con i loro carichi variabili.',
+          'Esportazioni scelte in base a ciò che ne esce (risultati, relazione di calcolo, disegni e IFC), e la relazione di calcolo anche in Word, con le sue figure.',
+          'Copia e incolla in Base come in PRO, con un’anteprima di dove atterra; Ctrl+S non sposta più la vista 3D, l’annullamento non appiattisce più un modello 2D in 3D, e gli spostamenti sulla deformata si mostrano su richiesta.',
+          'L’app e il sito sono ora disponibili anche in tedesco, francese e turco.',
+          'Stabileo Research: 17 articoli pubblicati e benchmark classici di meccanica computazionale che girano nel browser sul motore di Stabileo, ciascuno con indicato a che cosa è confrontato e come viene verificato.',
+          'Strumenti: otto calcolatori gratuiti (travi, mensole, colonne di Eulero e altro) che risolvono sul motore reale, mostrano la formula classica accanto al risultato e aprono il modello in Stabileo.',
+          'L’articolo JAIE 2026 per intero su /paper, e questo registro delle modifiche.',
+        ],
+      },
       zh: {
         "title": "Stabileo Research、Tools，以及德语、法语和土耳其语版本的应用",
         "items": [
@@ -1080,6 +1194,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Két új blogbejegyzés, megújult tartalomjegyzék, és egy oldal, amely felsorolja, mit ellenőriz a Stabileo az egyes CIRSOC szabványokból."
         ]
       },
+      it: {
+        title: 'Verifiche di progetto nel motore, e le versioni 0.2.0 e 0.3.0',
+        items: [
+          'Le verifiche normative di calcestruzzo armato (CIRSOC 201) e acciaio (CIRSOC 301) ora girano dentro il motore, con suite di validazione su modelli di riferimento pubblicati.',
+          'Per i risultati che lo consentono, il motore calcola un limite d’errore con l’aritmetica degli intervalli.',
+          'Sono state rilasciate le versioni 0.2.0 e 0.3.0, con note in spagnolo, inglese e portoghese. Quando una modifica influisce sui risultati, l’app ti chiede di rieseguire i progetti salvati.',
+          'La landing page aggiunge una sezione sulla verifica e ora carica 152 KB invece di 6,4 MB.',
+          'Due nuovi articoli del blog, un indice ridisegnato e una pagina che elenca che cosa Stabileo verifica di ciascuna norma CIRSOC.',
+        ],
+      },
       zh: {
         "title": "引擎中的设计验算，以及 0.2.0 和 0.3.0 版本",
         "items": [
@@ -1107,6 +1231,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'La boîte de dialogue de la note de calcul du mode Basique, avec la liste des contenus où l\'on choisit ce qu\'elle inclut',
         tr: 'Temel modundaki hesap raporu iletişim kutusu; neyin dahil edileceğini seçmek için içerik listesiyle',
         hu: 'Az Alap mód számítási jelentésének párbeszédablaka a tartalomlistával, amelyből kiválasztható, mi kerüljön bele',
+        it: 'La finestra della relazione di calcolo in modalità Base, con l’elenco dei contenuti per scegliere che cosa includere',
         zh: '基础模式的计算书对话框，列出可选择包含哪些内容的目录',
       },
     },
@@ -1188,6 +1313,17 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Mértékegységek a teljes PRO-ban, valamint exportálás Excelbe, CSV-be, PDF-jelentésbe, DXF-be és képekbe, mindegyik egy párbeszédablakkal, amely megmutatja, mi készül."
         ]
       },
+      it: {
+        title: 'Una relazione che componi in Base, e carichi dinamici in PRO',
+        items: [
+          'Zoom da chilometri a millimetri, selezione di aste sovrapposte, nascondere parti del modello ed etichette più leggibili.',
+          'La relazione di calcolo in PDF si compone scegliendo che cosa includere, compresi l’analisi cinematica e i diagrammi di corpo libero equilibrati, e le figure si esportano pronte per la stampa.',
+          'Un video della struttura che sale piano dopo piano.',
+          'Casi di carico composti e di riferimento, carichi nozionali e combinazioni SRSS e ABS.',
+          'Carichi dinamici e mobili: spettri di risposta specifici del progetto e veicoli da catalogo.',
+          'Unità in tutto PRO, ed esportazioni in Excel, CSV, relazione PDF, DXF e immagini, ciascuna con una finestra che mostra che cosa viene prodotto.',
+        ],
+      },
       zh: {
         "title": "在基础模式中自行组合的报告，以及 PRO 中的动力荷载",
         "items": [
@@ -1268,6 +1404,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Egy teljes épület vasbeton méretezése kevesebb mint feleannyi ideig tart, mint korábban."
         ]
       },
+      it: {
+        title: 'Carichi normativi in PRO',
+        items: [
+          'Il generatore di carichi normativi copre coperture, accumuli di neve e carichi alternati, e calcola il fattore di raffica del vento secondo CIRSOC 102.',
+          'I carichi su aste, nodi e piastre si possono digitare con la loro direzione, la loro variazione e l’area che coprono.',
+          'Unità di visualizzazione, aste rastremate e miglioramenti all’editor delle sezioni.',
+          'Il progetto in calcestruzzo armato di un intero edificio richiede meno della metà del tempo di prima.',
+        ],
+      },
       zh: {
         "title": "PRO 中基于规范的荷载",
         "items": [
@@ -1294,6 +1439,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un bâtiment de plusieurs étages modélisé dans le mode PRO, avec grilles et niveaux',
         tr: 'PRO modunda aks ızgaraları ve katlarla modellenmiş çok katlı bir bina',
         hu: 'Többszintes épület a PRO módban modellezve, raszterrel és szintekkel',
+        it: 'Un edificio multipiano modellato in modalità PRO, con griglie e livelli',
         zh: '在 PRO 模式中建模的多层建筑，带轴网和标高',
       },
     },
@@ -1396,6 +1542,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Megoldó, amely sokkal gyorsabbá teszi a nagy modelleket, és javítás a lemezelemekben."
         ]
       },
+      it: {
+        title: 'Dagli esercizi ai progetti reali in PRO',
+        items: [
+          'Le aste si disegnano da punto a punto, agganciandosi a nodi, punti medi e incroci, e l’app chiede se collegare ciò che si incrocia.',
+          'Soluzioni spiegate passo dopo passo che coprono quindici metodi di analisi.',
+          'L’analisi dinamica disegna le forme modali.',
+          'Griglie e livelli, generatori di strutture che si inseriscono nel modello, e copia e incolla.',
+          'Carichi di piano per area d’influenza, discretizzazione delle piastre, vincoli elastici e fondazioni.',
+          'Tabelle dei risultati, limiti di freccia, contorni delle piastre, una cartella Excel del progetto e una relazione.',
+          'Un editor per disegnare sezioni composte, e una ricerca della sezione più leggera che soddisfa le verifiche.',
+          'Sette strutture di riferimento pubblicate, modellate per confrontarvi i risultati, e una galleria di 24 esempi.',
+          'Un solutore che rende molto più veloci i modelli grandi, e una correzione agli elementi di piastra.',
+        ],
+      },
       zh: {
         "title": "在 PRO 中从练习走向真实项目",
         "items": [
@@ -1427,6 +1587,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Les armatures dimensionnées d\'une structure en béton armé, vues en 3D dans le mode PRO',
         tr: 'Betonarme bir yapının boyutlandırılmış donatıları, PRO modunda 3B olarak',
         hu: 'Vasbeton szerkezet méretezett vasalása 3D-ben, a PRO módban',
+        it: 'L’armatura progettata di una struttura in calcestruzzo armato, mostrata in 3D in modalità PRO',
         zh: '在 PRO 模式中以 3D 显示的钢筋混凝土结构设计配筋',
       },
     },
@@ -1529,6 +1690,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A hibásan felépített modellt az alkalmazás most üzenettel elutasítja ahelyett, hogy nullákat adna vissza."
         ]
       },
+      it: {
+        title: 'Progetto in calcestruzzo armato in PRO',
+        items: [
+          'Una landing page più breve, con la proposta di prezzi e un pannello di contatto che si vede anche dentro l’app.',
+          'Un nuovo articolo del blog su quando modellare con aste e quando con elementi finiti, e una guida per l’utente.',
+          'Il calcolatore di calcestruzzo armato CIRSOC Flex ora propone le barre, ed è stato verificato rispetto al foglio di calcolo originale.',
+          'Soluzioni passo dopo passo con i metodi della rigidezza e della flessibilità, in 2D e 3D.',
+          'Carichi termici in ogni analisi.',
+          'La modalità Didattica è diventata un pannello dentro Base.',
+          'Progetto in calcestruzzo armato, e un’interfaccia PRO riorganizzata.',
+          'Una verifica di equilibrio del modello, e analisi dinamiche: modale, a spettro di risposta e time-history.',
+          'Un modello costruito male ora viene rifiutato con un messaggio invece di restituire zeri.',
+        ],
+      },
       zh: {
         "title": "PRO 中的钢筋混凝土设计",
         "items": [
@@ -1560,6 +1735,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Le mode Basique sur un téléphone, avec le diagramme des moments d\'un portique',
         tr: 'Telefonda Temel modu; bir çerçevenin eğilme momenti diyagramıyla',
         hu: 'Az Alap mód telefonon, egy keret hajlítónyomatéki ábrájával',
+        it: 'La modalità Base su un telefono, con il diagramma del momento flettente di un telaio',
         zh: '手机上的基础模式，显示框架的弯矩图',
       },
     },
@@ -1627,6 +1803,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Acélszerkezetek: keresztmetszet- és anyagválasztók, generátorok, acél munkafolyamat és kapcsolatok méretezése."
         ]
       },
+      it: {
+        title: 'Stabileo sul tuo telefono',
+        items: [
+          'Un’interfaccia per telefono, con lo stesso layout per Base e PRO.',
+          'Importazione di modelli da Excel, e i link condivisi aprono di nuovo il modello completo.',
+          'Progetto dell’armatura delle sezioni secondo CIRSOC Flex, il foglio di calcolo che usa la maggior parte degli ingegneri civili in Argentina.',
+          'Strutture in acciaio: selettori di sezioni e materiali, generatori, il flusso di lavoro per l’acciaio e il progetto delle unioni.',
+        ],
+      },
       zh: {
         "title": "手机上的 Stabileo",
         "items": [
@@ -1653,6 +1838,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Une halle industrielle métallique générée à partir de paramètres modifiables',
         tr: 'Düzenlenebilir parametrelerle oluşturulmuş çelik bir endüstriyel yapı',
         hu: 'Szerkeszthető paraméterekből felépített acél ipari csarnok',
+        it: 'Un capannone industriale in acciaio costruito da parametri modificabili',
         zh: '由可编辑参数构建的钢结构工业厂房',
       },
     },
@@ -1720,6 +1906,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Három számítási hiba javítva: a kör keresztmetszetű cső nyírása, a csúcs-nyíróerő, és egy építési fázisokra bontott analízis, amely kihagyta a födémeket és a falakat."
         ]
       },
+      it: {
+        title: 'Strutture in acciaio, e il sito in tre lingue',
+        items: [
+          'Generatori di travature reticolari, pilastri a traliccio e capannoni industriali da parametri modificabili, con un selettore di sezioni dotato di catalogo e filtri.',
+          'La landing page e il blog in spagnolo, inglese e portoghese. Il sito è diventato indicizzabile dai motori di ricerca, con diciotto pagine e quattro articoli.',
+          'Sette brevi tutorial, al posto del tour guidato.',
+          'Corretti tre errori di calcolo: il taglio di un tubo circolare, il taglio massimo e un’analisi per fasi che trascurava solai e pareti.',
+        ],
+      },
       zh: {
         "title": "钢结构，以及三种语言的网站",
         "items": [
@@ -1746,6 +1941,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'L\'analyse de section du mode Basique, avec l\'état de contrainte sur le contour réel du profilé',
         tr: 'Temel modunda kesit analizi; profilin gerçek konturu üzerindeki gerilme durumuyla',
         hu: 'Keresztmetszet-vizsgálat az Alap módban, a feszültségi állapottal a keresztmetszet valós kontúrján',
+        it: 'Analisi della sezione in modalità Base, con lo stato tensionale sul contorno reale della sezione',
         zh: '基础模式的截面分析，应力状态绘制在截面的真实轮廓上',
       },
     },
@@ -1813,6 +2009,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A PRO-t újratervezték, az Alap móddal azonos arculattal."
         ]
       },
+      it: {
+        title: 'Analisi della sezione, e una nuova interfaccia PRO',
+        items: [
+          'Cliccando un punto qualsiasi della struttura si ottiene lo stato tensionale sulla sezione reale, con tensioni principali, cerchio di Mohr, nocciolo centrale d’inerzia e un punto di carico da trascinare per vedere l’effetto dell’eccentricità.',
+          'Un database di materiali e sezioni per Argentina, Europa, Stati Uniti e Brasile, con più di 700 sezioni verificate rispetto alle loro norme.',
+          'Strumenti di selezione e spostamento più semplici, e mappe di tensione con scala di colori.',
+          'PRO è stato ridisegnato con la stessa identità visiva di Base.',
+        ],
+      },
       zh: {
         "title": "截面分析，以及全新的 PRO 界面",
         "items": [
@@ -1839,6 +2044,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un exercice du mode Enseignement, avec les diagrammes tracés par l\'étudiant corrigés par rapport au calcul',
         tr: 'Eğitim modunda bir alıştırma; öğrencinin çizdiği diyagramlar hesaba göre değerlendiriliyor',
         hu: 'Feladat az Oktatási módban, a hallgató által rajzolt ábrákkal, amelyeket az alkalmazás az analízis alapján értékel',
+        it: 'Un esercizio in modalità Didattica, con i diagrammi disegnati dallo studente valutati rispetto all’analisi',
         zh: '教学模式中的练习，学生绘制的图形会对照分析结果评分',
       },
     },
@@ -1913,6 +2119,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Javítások a méretezési ellenőrzésekben: a biztonság kárára tévedő alapértékek, hiányzó határállapotok és figyelmen kívül hagyott bemenetek."
         ]
       },
+      it: {
+        title: 'Una nuova identità visiva, e la modalità Didattica',
+        items: [
+          'L’intera interfaccia Base con l’identità visiva della nuova landing page.',
+          'Ogni sezione si risolve nel suo contorno esatto. Quando non ne ha uno, l’app rifiuta di calcolare le tensioni invece di inventare gli spessori mancanti.',
+          'L’insegnante costruisce l’esercizio dentro l’app e lo studente lo risolve; i diagrammi disegnati dallo studente vengono valutati rispetto all’analisi.',
+          'Plinti in calcestruzzo armato: dal progetto dell’armatura a un file CAD, con la distinta delle barre in 3D.',
+          'Correzioni alle verifiche di progetto: valori predefiniti non conservativi, stati limite mancanti e input che venivano ignorati.',
+        ],
+      },
       zh: {
         "title": "全新的视觉标识，以及教学模式",
         "items": [
@@ -1985,6 +2201,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Gyorsabb utófeldolgozás és 3D megjelenítő nagy modelleken."
         ]
       },
+      it: {
+        title: 'Una nuova landing page, e le norme CIRSOC 2025',
+        items: [
+          'La landing page è stata ricostruita: spiega che cos’è Stabileo, che cosa funziona oggi e che cosa è in sviluppo, con sezioni per Base, Didattica e PRO.',
+          'Carichi e verifiche di progetto secondo le norme CIRSOC 2025, con l’edizione di ogni norma registrata nel progetto.',
+          'Post-elaborazione e visualizzatore 3D più veloci sui modelli grandi.',
+        ],
+      },
       zh: {
         "title": "全新的落地页，以及 2025 版 CIRSOC 规范",
         "items": [
@@ -2055,6 +2279,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Javítások a kényszerekben és a ferde támaszokban."
         ]
       },
+      it: {
+        title: 'Risultati che corrispondono sempre al modello',
+        items: [
+          'Modificare il modello invalida i risultati e le verifiche di progetto che ha reso obsoleti, così non si mostrano mai risultati che non sono più validi.',
+          'Analisi più veloce: i casi di carico riusano la fattorizzazione, le combinazioni si risolvono a lotti e l’analisi gira in background.',
+          'Correzioni a vincoli e appoggi inclinati.',
+        ],
+      },
       zh: {
         "title": "结果始终与模型一致",
         "items": [
@@ -2111,6 +2343,12 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A DXF-rajzimportáló előnézettel és diagnosztikával, mértékegység-kezeléssel, több szinttel és gerendafelismeréssel bővült, áttekinthetőbb varázslóval."
         ]
       },
+      it: {
+        title: 'Importatore di disegni DXF',
+        items: [
+          'L’importatore di disegni DXF aggiunge anteprima e diagnostica, controllo delle unità, più piani e interpretazione delle travi, con una procedura guidata più chiara.',
+        ],
+      },
       zh: {
         "title": "DXF 图纸导入器",
         "items": [
@@ -2164,6 +2402,12 @@ export const CHANGELOG: ChangelogEntry[] = [
         "items": [
           "Rudak szabadtest-ábrái 2D-ben és 3D-ben, 2D-ben csúszó csuklókkal, 3D-ben hat szabadságfokú kioldásokkal, és az erővektorokkal minden rúdvégen."
         ]
+      },
+      it: {
+        title: 'Diagrammi di corpo libero delle aste in Base',
+        items: [
+          'Diagrammi di corpo libero delle aste in 2D e 3D, con cerniere scorrevoli in 2D e svincoli a sei gradi di libertà in 3D, e i vettori delle forze a ciascuna estremità.',
+        ],
       },
       zh: {
         "title": "基础模式中的杆件隔离体图",
@@ -2233,6 +2477,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Egységes tengelyek és keresztmetszetek az Alap mód 2D és 3D nézetében."
         ]
       },
+      it: {
+        title: 'Da un disegno CAD a un modello in calcestruzzo',
+        items: [
+          'Da un disegno DXF a una bozza strutturale in calcestruzzo armato: una procedura guidata che classifica i layer, un modello scaricabile ed esempi.',
+          'La convenzione degli assi locali 3D corretta nell’interfaccia e nel motore, con i modelli esistenti migrati.',
+          'Assi e sezioni unificati in Base 2D e 3D.',
+        ],
+      },
       zh: {
         "title": "从 CAD 图纸到混凝土模型",
         "items": [
@@ -2258,6 +2510,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Les efforts normaux d\'un bâtiment dans le mode PRO, avec les formes réelles des sections dans la vue 3D',
         tr: 'PRO modunda bir binanın normal kuvvetleri; 3B görüntüleyicide gerçek kesit şekilleriyle',
         hu: 'Normálerők egy épületben a PRO módban, valós keresztmetszet-alakokkal a 3D megjelenítőben',
+        it: 'Sforzi normali in un edificio in modalità PRO, con le forme reali delle sezioni nel visualizzatore 3D',
         zh: 'PRO 模式中某建筑的轴力，3D 查看器中显示真实的截面形状',
       },
     },
@@ -2331,6 +2584,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Födémek és falak megjelenítéssel, tengelyekkel, főfeszültségekkel és jelentéssel.",
           "Az Alap módot újraírták, világosabb határvonallal közte és a PRO között."
         ]
+      },
+      it: {
+        title: 'Un flusso di lavoro professionale in PRO',
+        items: [
+          'Progetto, carichi e relazione di calcolo che lavorano insieme in PRO, con verifiche di progetto unificate.',
+          'Risultati per caso di carico, combinazione e inviluppo.',
+          'Un visualizzatore 3D con le forme reali delle sezioni e gli assi locali, ed eccentricità delle aste per modellare travi che si innestano sulla faccia del pilastro.',
+          'Solai e pareti con visualizzazione, assi, tensioni principali e relazione.',
+          'La modalità Base è stata riscritta, con una distinzione più netta rispetto a PRO.',
+        ],
       },
       zh: {
         "title": "PRO 中的专业工作流程",
@@ -2426,6 +2689,17 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Javítások a mentésben, a megosztott hivatkozásokban és az exportálásban."
         ]
       },
+      it: {
+        title: 'Un visualizzatore 3D più fluido e un motore più robusto',
+        items: [
+          'Una landing page ridisegnata.',
+          'Quasi mille nuovi test di robustezza, con correzioni di precisione nel motore, negli elementi e nei vincoli, e avvisi di instabilità prima dell’esecuzione dell’analisi.',
+          'Cerniere in 3D svincolate asse per asse a ogni estremità dell’asta.',
+          'Il visualizzatore 3D si muove con fluidità su modelli con oltre mille nodi: i nodi si disegnano in un solo passaggio e la selezione delle aste è più veloce.',
+          'Gli assi sono stati unificati con Z verso l’alto in tutta l’app, e i momenti My e Mz sono stati corretti nelle tensioni e nelle verifiche di progetto.',
+          'Correzioni a salvataggio, link condivisi ed esportazioni.',
+        ],
+      },
       zh: {
         "title": "更流畅的 3D 查看器和更稳固的引擎",
         "items": [
@@ -2455,6 +2729,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un portique spatial avec son diagramme des moments en 3D',
         tr: '3B eğilme momenti diyagramıyla bir uzay çerçeve',
         hu: 'Térbeli keret a hajlítónyomatéki ábrájával 3D-ben',
+        it: 'Un telaio spaziale con il suo diagramma del momento flettente in 3D',
         zh: '带 3D 弯矩图的空间框架',
       },
     },
@@ -2564,6 +2839,21 @@ export const CHANGELOG: ChangelogEntry[] = [
           "MI-asszisztens, amely beszélgetés alapján épít és szerkeszt modelleket."
         ]
       },
+      it: {
+        title: 'Il motore in Rust, la modalità PRO e il nome Stabileo',
+        items: [
+          'Il motore di analisi è stato riscritto in Rust e gira nel browser tramite WebAssembly. Prima di sostituire il vecchio, i due sono stati confrontati su 90 modelli.',
+          'Oltre duemila test di validazione rispetto a soluzioni di manuale e a casi di riferimento pubblicati.',
+          'Analisi non lineare geometrica e del materiale, dinamica modale, spettrale e time-history, piastre e gusci, cavi, costruzione per fasi e fondazioni su molle.',
+          'Un solutore per matrici sparse che accelera i modelli grandi: l’analisi modale 3D è diventata 11,8 volte più veloce.',
+          'Il progetto è stato rinominato Stabileo, con un proprio dominio, una landing page e l’interfaccia in 14 lingue.',
+          'Modalità PRO, con verifiche del calcestruzzo armato secondo CIRSOC 201, carichi automatici, diagnostica e relazione di calcolo.',
+          'Un flusso di lavoro per il calcestruzzo armato con la combinazione governante per ogni asta, verifiche automatiche, dettagli costruttivi e nodi, ed esempi grandi come uno stadio da 1005 nodi.',
+          'Modalità Didattica, con esercizi guidati verificati passo dopo passo.',
+          'La modalità Base aggiunge la vista 3D e la trasformazione di modelli 3D in 2D.',
+          'Un assistente AI che costruisce e modifica modelli a partire da una conversazione.',
+        ],
+      },
       zh: {
         "title": "Rust 引擎、PRO 模式和 Stabileo 之名",
         "items": [
@@ -2597,6 +2887,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un portique plan avec son diagramme des moments fléchissants dans le mode Basique',
         tr: 'Temel modunda eğilme momenti diyagramıyla bir düzlem çerçeve',
         hu: 'Síkbeli keret a hajlítónyomatéki ábrájával az Alap módban',
+        it: 'Un telaio piano con il suo diagramma del momento flettente in modalità Base',
         zh: '基础模式中带弯矩图的平面框架',
       },
     },
@@ -2685,6 +2976,18 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Mobil felület, a modellt magukban hordozó megosztott hivatkozások, bemutató túra és billentyűparancsok."
         ]
       },
+      it: {
+        title: 'L’inizio: un editor strutturale nel browser',
+        items: [
+          'La prima versione, il 10 febbraio: aste, vincoli e carichi in 2D, con reazioni vincolari, diagrammi e deformata, senza nulla da installare.',
+          'Carichi concentrati, distribuiti parziali e mobili, casi di carico, combinazioni e inviluppi con entrambe le curve.',
+          'Sezioni in acciaio e calcestruzzo con un costruttore di sezioni, e tensioni nella sezione secondo Navier, Jourawski e Von Mises.',
+          'Vincoli inclinati, molle e cedimenti, e peso proprio delle aste.',
+          'Un motore 3D con sei gradi di libertà per nodo e il suo visualizzatore, più P-Delta, instabilità e linee d’influenza in 2D.',
+          'Un’analisi cinematica didattica che spiega, asta per asta, perché una struttura è o non è un meccanismo.',
+          'Un’interfaccia mobile, link condivisi che portano il modello, un tour guidato e scorciatoie da tastiera.',
+        ],
+      },
       zh: {
         "title": "开端：浏览器中的结构编辑器",
         "items": [
@@ -2709,6 +3012,7 @@ export const AREA_LABELS: Record<PublicLocale, Record<ChangelogArea, string>> = 
   fr: { basic: 'Basique', pro: 'PRO', edu: 'Enseignement', app: 'Application', engine: 'Moteur', site: 'Site' },
   tr: { basic: 'Temel', pro: 'PRO', edu: 'Eğitim', app: 'Uygulama', engine: 'Motor', site: 'Site' },
   hu: { basic: 'Alap', pro: 'PRO', edu: 'Oktatás', app: 'Alkalmazás', engine: 'Számítómag', site: 'Weboldal' },
+  it: { basic: 'Base', pro: 'PRO', edu: 'Didattica', app: 'App', engine: 'Motore', site: 'Sito web' },
   zh: { basic: '基础', pro: 'PRO', edu: '教学', app: '应用', engine: '计算引擎', site: '网站' },
 };
 

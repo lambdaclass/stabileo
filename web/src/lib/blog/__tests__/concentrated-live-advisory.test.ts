@@ -17,6 +17,7 @@ const locales: [PublicLocale, string, string][] = [
   ['fr', 'Élevée', 'Corrigé dans 0.6.2'],
   ['tr', 'Yüksek', '0.6.2 sürümünde düzeltildi'],
   ['hu', 'Magas', 'Javítva a 0.6.2 verzióban'],
+  ['it', 'Alta', 'Risolto nella 0.6.2'],
   ['zh', '高', '已在 0.6.2 中修复'],
 ];
 

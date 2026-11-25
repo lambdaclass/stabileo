@@ -30,6 +30,7 @@
     "fr": "Les estimations purement élastiques des réactions temporelles sont retirées",
     "hu": "Az időtörténet visszatartja a csak rugalmas reakcióbecsléseket",
     "tr": "Zaman tanım alanının yalnız elastik tepki tahminleri döndürülmez",
+    "it": "Le stime di reazione solo elastiche della time-history sono trattenute",
     "zh": "时程分析中仅含弹性的反力估计值暂不提供"
   },
   "explanation": {
@@ -40,6 +41,7 @@
     "fr": "Revérifiez les réactions temporelles enregistrées. peakReactions est désormais vide avec un diagnostic d’indisponibilité ; l’estimation purement élastique est retirée. Les historiques et pics de déplacement restent disponibles (#1952 ; SA-2026-061).",
     "hu": "Ellenőrizze újra a mentett időtörténeti reakciókat. A peakReactions most üres, nem elérhető diagnosztikával; a korábbi, csak rugalmas becslés nem tér vissza. Az elmozdulástörténetek és csúcsértékek elérhetők maradnak (#1952; SA-2026-061).",
     "tr": "Kayıtlı zaman tanım alanı tepkilerini yeniden denetleyin. peakReactions artık kullanılamaz tanısıyla boştur; yalnız elastik tahmin döndürülmez. Yer değiştirme geçmişleri ve tepe değerleri korunur (#1952; SA-2026-061).",
+    "it": "Riverifica le reazioni di time-history salvate. peakReactions ora è vuoto con una diagnostica di non disponibilità; la precedente stima solo elastica non viene più restituita. Storie e picchi degli spostamenti restano disponibili (#1952; SA-2026-061).",
     "zh": "请重新核对已保存的时程分析反力。peakReactions 现在为空，并附带不可用诊断；不再返回旧有的仅含弹性的估计值。位移历程和峰值仍然可用（#1952；SA-2026-061）。"
   },
   "changelog": {

@@ -23,6 +23,7 @@
     "fr": "Les appuis figés acceptent la compression ; AL de surface repousse",
     "hu": "A befagyasztott támaszkontaktok nyomást engednek; a felületi AL széttolja a felületeket",
     "tr": "Sabitlenmiş temas basınca izin verir; yüzey AL ayırır",
+    "it": "Gli appoggi congelati ammettono compressione; l’AL di superficie spinge le superfici a distanziarsi",
     "zh": "冻结支承允许受压；面 AL 使两个面相互推开"
   },
   "explanation": {
@@ -33,6 +34,7 @@
     "fr": "Les contacts actifs figés acceptent désormais la pénétration de pénalité en compression. Les contacts ouverts ne doivent ni pénétrer ni transmettre de force ; les contacts fermés en traction et séparés conservant une compression restent refusés. Les multiplicateurs de Lagrange augmentés de surface repoussent désormais les surfaces, avec le même signe pour la validation et l’assemblage. Revérifiez les résultats avec AL de surface. Les tolérances invalides renvoient un refus structuré traduit. Correction de la revue de PR #1921 pour #432.",
     "hu": "A befagyasztott aktív kontaktok mostantól megengedik a nyomásból eredő büntetőtagos behatolást. A nyitott kontaktok nem hatolhatnak be és nem vihetnek át erőt; a húzott zárt kontaktokat és a nyomást megtartó szétvált kontaktokat továbbra is elutasítja. A felületi kiterjesztett Lagrange-szorzók most taszítják a felületeket, és az ellenőrzés és az összeállítás ugyanazt az előjeles erőt használja. Ellenőrizze újra a felületi AL-t használó kontakteredményeket. Az érvénytelen tűrések lefordított, strukturált elutasítást adnak. Ez a #1921-es PR #432-re vonatkozó felülvizsgálati megállapításait javítja.",
     "tr": "Sabitlenmiş aktif temaslar artık basınçtan doğan ceza nüfuzuna izin verir. Açık temaslar nüfuz etmemeli veya kuvvet taşımamalıdır; çekmedeki kapalı temaslar ve basıncı koruyan ayrılmış temaslar reddedilmeye devam eder. Yüzey artırılmış Lagrange çarpanları artık yüzeyleri ayırır; doğrulama ve montaj aynı kuvvet işaretini kullanır. Yüzey AL temas sonuçlarını yeniden kontrol edin. Geçersiz toleranslar çevrilmiş yapılandırılmış ret döndürür. PR #1921 incelemesindeki #432 bulgularını düzeltir.",
+    "it": "I contatti attivi congelati ora ammettono penetrazione di penalità in compressione. I contatti aperti non devono penetrare né portare forza; i contatti chiusi in trazione e i contatti separati che mantengono compressione sono ancora rifiutati. I moltiplicatori lagrangiani aumentati di superficie ora respingono le superfici, con la stessa forza con segno usata per la validazione e l’assemblaggio. Ricontrolla i risultati di contatto con AL di superficie. Le tolleranze non valide restituiscono un rifiuto strutturato tradotto. Corregge i rilievi di revisione della PR #1921 per #432.",
     "zh": "处于激活状态的冻结接触现在允许受压罚函数穿透。断开的接触不得穿透，也不得承受力；受拉的闭合接触以及仍保留压力的分离接触仍会被拒绝求解。面增广 Lagrange 乘子现在使两个面相互排斥，验证和装配使用同一个带符号的力。请重新检查使用面 AL 的接触结果。无效的容差会返回已翻译的结构化拒绝信息。这纠正了针对 #432 的 PR #1921 审查发现的问题。"
   },
   "changelog": {

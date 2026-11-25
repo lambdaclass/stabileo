@@ -28,6 +28,7 @@
     "de": "Schnittgrenzen und maßgebende Diagrammwerte",
     "fr": "Limites de section et valeurs déterminantes du diagramme",
     "tr": "Diyagram kesit sınırları ve belirleyici değerler",
+    "it": "Limiti di sezione dei diagrammi e affermazioni sui valori dominanti",
     "zh": "内力图的截面极限与控制值",
     "hu": "A rúdábrák szelvényhatárértékei és mértékadó értékei"
   },
@@ -38,6 +39,7 @@
     "de": "Einhüllende wandernder Lasten enthalten die ermittelten Schnittgrenzwerte an den Stabenden. Axialkraftsprünge in der Ebene folgen dem Gleichgewichtsvorzeichen. Nicht darstellbare Extremwerte und mehrdeutige Schnitte werden abgelehnt. Obere Schranken verschachtelter Betragskombinationen gelten nicht als erreichte Spitzenwerte. Bei unvereinbaren Profilorientierungen werden Bemessungsspannweiten getrennt. Betroffene Berechnungen und Nachweise erneut ausführen.",
     "fr": "Les enveloppes de charges mobiles incluent les limites de section aux extrémités des barres. Les sauts axiaux en plan suivent le signe de l’équilibre. Les extrema non représentables et les coupes ambiguës sont refusés. Les bornes des combinaisons de magnitudes imbriquées ne sont pas présentées comme des pics atteints. Les travées sont séparées si les orientations des sections sont incompatibles. Relancez les analyses et vérifications concernées.",
     "tr": "Hareketli yük zarfları, eleman uçlarındaki kesit sınır değerlerini içerir. Düzlemsel eksenel kuvvet sıçramaları denge işaretine uyar. Temsil edilemeyen uç değerler ve belirsiz kesitler reddedilir. İç içe büyüklük birleşimlerinin sınırları erişilen tepe değerleri olarak gösterilmez. Uyumsuz kesit yönleri tasarım açıklıklarını ayırır. Etkilenen analizleri ve kontrolleri yineleyin.",
+    "it": "Gli inviluppi dei carichi mobili includono i limiti recuperati agli estremi delle aste. I salti dello sforzo normale piano usano il segno di equilibrio. Le interrogazioni dei diagrammi rifiutano estremi non rappresentabili o tagli ambigui. I limiti annidati di modulo non possono essere riportati come picchi dominanti raggiunti. Le campate di progetto si dividono dove l’orientamento delle sezioni è incompatibile. Riesegui le analisi e le verifiche delle aste interessate.",
     "zh": "移动荷载包络计入杆端恢复的截面极限值。平面轴力跳跃遵循平衡符号。无法表示的极值和有歧义的截面将被拒绝。嵌套幅值组合的上界不会被标为实际达到的控制峰值。截面方向不兼容时拆分设计跨。请重新运行受影响的分析和验算。",
     "hu": "A mozgó teher burkolói a rúdvégek számított szelvényhatárértékeit is tartalmazzák. A síkbeli tengelyerőugrások előjele az egyensúlyt követi. Az ábrázolhatatlan szélsőértékeket és a többértelmű metszeteket a számítás elutasítja. A beágyazott magnitúdókombinációk korlátai nem jelennek meg elért csúcsértékként. Az össze nem illő szelvényirányok elválasztják a méretezési szakaszokat. Futtassa újra az érintett elemzéseket és ellenőrzéseket."
   },

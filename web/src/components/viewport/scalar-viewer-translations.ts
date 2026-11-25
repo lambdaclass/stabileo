@@ -140,6 +140,26 @@ export const hu = {
   "scalarViewer.keyboard": "Billentyűzet: a nyilak mozgatják a nézetet, a Shift+nyilak 3D-ben forgatnak, a + és a - nagyít, a 0 vagy a Home a nézethez igazít",
 } satisfies ViewerStrings;
 
+export const it = {
+  "scalarViewer.view": "Vista",
+  "scalarViewer.viewOptions": "Opzioni di vista",
+  "scalarViewer.close": "Chiudi",
+  "scalarViewer.fit": "Adatta alla vista",
+  "scalarViewer.plan": "2D (pianta, orbita bloccata)",
+  "scalarViewer.orbit": "3D (orbita)",
+  "scalarViewer.switchProjection": "Passa tra la vista in pianta e l’orbita in 3D",
+  "scalarViewer.viewer": "Visualizzatore di Stabileo",
+  "scalarViewer.position": "pos.:",
+  "scalarViewer.zoom": "zoom:",
+  "scalarViewer.model": "modello:",
+  "scalarViewer.bars": "{nodes} nodi, {cells} aste",
+  "scalarViewer.elements": "{nodes} nodi, {cells} elementi",
+  "scalarViewer.openEditor": "Apri nell’editor",
+  "scalarViewer.soon": " (a breve)",
+  "scalarViewer.editorNote": "L’apertura degli esperimenti nell’editor arriva con la modalità ricerca",
+  "scalarViewer.keyboard": "Tastiera: i tasti freccia spostano la vista, Maiusc+frecce orbitano in 3D, + e - zoom, 0 o Home adatta la vista",
+};
+
 export const zh = {
   "scalarViewer.view": "视图",
   "scalarViewer.viewOptions": "视图选项",

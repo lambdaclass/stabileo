@@ -13,6 +13,7 @@
     "de": "Einheitliche Nachweise für Balkenzüge und Stahlbetonbauteile",
     "fr": "Vérifications cohérentes des files de poutres et des éléments en béton armé",
     "tr": "Betonarme kiriş hatları ve elemanları için tutarlı kontroller",
+    "it": "Verifiche coerenti di linea di trave e asta in c.a.",
     "zh": "钢筋混凝土梁线与杆件采用一致的验算"
   },
   "explanation": {
@@ -22,6 +23,7 @@
     "de": "Der CIRSOC-Querkraftnachweis in Hauptrichtung verwendet im Balkenzug und im Bauteil den tatsächlichen Bügeldurchmesser. Die Einbindelänge am Auflager wird als Verhältnis der erforderlichen zur verfügbaren Länge angegeben. Kollisionsfreie Anordnungen am Knoten weisen keine Überschneidung auf. Prüfen Sie die betroffenen Balken erneut.",
     "fr": "La vérification CIRSOC de l’effort tranchant principal utilise le diamètre réel du cadre dans la file de poutres et dans l’élément. La pénétration de la barre dans l’appui est indiquée par le rapport entre la longueur requise et la longueur disponible. Les dispositions qui franchissent le nœud affichent une interférence nulle. Vérifiez à nouveau les poutres concernées.",
     "tr": "CIRSOC ana kesme kontrolü, kiriş hattında ve elemanda gerçek etriye çapını kullanır. Mesnede giren donatı için gerekli uzunluğun mevcut uzunluğa oranı verilir. Birleşimden çakışmadan geçen donatı düzenlerinde çakışma sıfır olarak gösterilir. Etkilenen kirişleri yeniden doğrulayın.",
+    "it": "Le verifiche CIRSOC a taglio primario usano l’effettivo diametro delle staffe sia nella linea di trave sia nell’asta. L’ancoraggio sul vincolo riporta il rapporto tra lunghezza richiesta e disponibile, e le disposizioni che liberano il nodo riportano interferenza zero. Riesegui la verifica sulle travi interessate.",
     "zh": "CIRSOC 主方向抗剪验算在梁线和单根杆件中均采用实际箍筋直径。支座内埋入长度验算显示所需长度与可用长度之比。可无干涉通过节点的布筋方案显示干涉量为零。请重新验算受影响的梁。"
   },
   "changelog": {

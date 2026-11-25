@@ -22,6 +22,7 @@
     "fr": "Anciens champs des couples ponctuels plans",
     "hu": "Síkbeli pontnyomatékok régi mezői",
     "tr": "Düzlemsel noktasal momentlerin eski alanları",
+    "it": "Alias legacy delle coppie concentrate piane",
     "zh": "旧版平面集中力偶的别名字段"
   },
   "explanation": {
@@ -32,6 +33,7 @@
     "fr": "Un couple ponctuel plan utilise le champ de moment non nul lorsque l’autre est nul. Les valeurs incompatibles ou invalides arrêtent le calcul. Relancez les analyses concernées.",
     "hu": "A síkbeli pontnyomaték a nem nulla mező értékét használja, ha a másik nulla. Az ütköző vagy érvénytelen értékek leállítják a számítást. Futtassa újra az érintett elemzéseket.",
     "tr": "Düzlemsel noktasal moment, alanlardan biri sıfırsa sıfır olmayan değeri kullanır. Çelişkili veya geçersiz değerler çözümü durdurur. Etkilenen analizleri yeniden çalıştırın.",
+    "it": "Una coppia concentrata piana usa ora il campo del momento non nullo quando l’altro alias è zero. Valori in conflitto o non validi fermano il calcolo. Rieseguisci le analisi interessate.",
     "zh": "平面集中力偶的一个力矩字段为零时，采用另一个字段的非零值。字段值冲突或无效时停止求解。请重新运行受影响的分析。"
   },
   "changelog": {

@@ -104,7 +104,7 @@ describe('two prerenders of one build are byte-identical (#875)', () => {
 
   it('known wrong result: #2365 — captures completed Mattiasson results when the solver starts late', async () => {
     await withDelayedSolver([MATTIASSON], html => {
-      for (const locale of ['en', 'tr', 'zh']) {
+      for (const locale of ['en', 'it', 'tr', 'zh']) {
         expect(html(locale, MATTIASSON), locale).toMatch(/data-testid="mattiasson-summary"[^>]*>[^<]*5\/5/);
       }
     });
@@ -158,7 +158,7 @@ it('Ferrari prerenders omit live WebGL diagnostics (#2483)', async () => {
   try {
     await prepareBuild(out);
     await prerender(out, '4', [path]);
-    for (const locale of ['es', 'en', 'pt', 'zh', 'hu']) {
+    for (const locale of ['es', 'en', 'pt', 'it', 'zh', 'hu']) {
       const html = readFileSync(join(out, locale + path, 'index.html'), 'utf8');
       const canvas = html.match(/<canvas data-engine="three\.js [^"]+"[^>]*>/)?.[0];
       expect(canvas, locale).toBeDefined();

@@ -30,6 +30,7 @@
     "fr": "Les trajectoires intègrent les corrections de convergence",
     "hu": "Az útállapotok tartalmazzák az egyesített konvergenciakorrekciókat",
     "tr": "Yol durumları yakınsama düzeltmelerini içerir",
+    "it": "Gli stati del percorso includono le correzioni di convergenza integrate",
     "zh": "路径状态包含已合并的收敛修正"
   },
   "explanation": {
@@ -40,6 +41,7 @@
     "fr": "L’arithmétique de la corde et les contrôles de convergence modifient déplacements et historique à la précision flottante. Relancer les analyses enregistrées de longueur d’arc et de contrôle en déplacement (#1952, #1940).",
     "hu": "Az egyesített nemlineáris húraritmetika és konvergenciaellenőrzések lebegőpontos pontosságban módosítják az út elmozdulásait és köztes történetét. Futtassa újra a mentett ívhossz- és elmozdulásvezérelt vizsgálatokat (#1952, #1940).",
     "tr": "Kiriş aritmetiği ve yakınsama denetimleri yer değiştirmeleri ve geçmişi kayan nokta hassasiyetinde değiştirir. Kaydedilmiş yay uzunluğu ve yer değiştirme kontrollü analizleri yeniden çalıştırın (#1952, #1940).",
+    "it": "L’aritmetica delle corde non lineari e i controlli di convergenza integrati cambiano gli spostamenti del percorso e la storia intermedia alla precisione in virgola mobile. Riesegui le analisi salvate a lunghezza d’arco e a controllo di spostamento (#1952, #1940).",
     "zh": "已合并的非线性弦运算和收敛检查，会在浮点精度上改变路径位移和中间历程。请重新运行已保存的弧长法和位移控制分析（#1952，#1940）。"
   },
   "changelog": {

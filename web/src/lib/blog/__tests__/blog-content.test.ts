@@ -430,6 +430,7 @@ describe('the safety-advisories post quotes the advisories', () => {
       fr: 'Corrigé dans 0.6.2',
       tr: '0.6.2 sürümünde düzeltildi',
       hu: 'Javítva a 0.6.2 verzióban',
+      it: 'Risolto nella 0.6.2',
       zh: '已在 0.6.2 中修复',
     };
     const fixedIds = fixed.map(({ id }) => id).sort();

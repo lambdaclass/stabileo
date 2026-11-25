@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { findPost, type Block } from '..';
 
-const locales = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh'] as const;
+const locales = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'it', 'zh'] as const;
 const repo = 'https://github.com/lambdaclass/stabileo/blob/main';
 const selectedVersions = ['50', '52', '53', '54', '56', '58', '59', '61', '63', '65', '66', '67', '68', '69', '71', '72', '73', '75', '76', '78'];
 

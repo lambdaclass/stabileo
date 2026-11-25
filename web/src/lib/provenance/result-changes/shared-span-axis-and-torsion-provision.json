@@ -21,6 +21,7 @@
     "de": "Gemeinsame Balken behalten ihre Achsen; Torsionsbewehrung muss angegeben werden",
     "fr": "Les poutres conservent leurs axes ; les armatures de torsion doivent être déclarées",
     "tr": "Ortak kirişler eksenlerini korur; burulma donatısı belirtilmelidir",
+    "it": "Le travi condivise mantengono i loro assi; l’armatura a torsione va dichiarata",
     "zh": "共用的梁保留其轴，必须说明扭转配筋"
   },
   "explanation": {
@@ -30,6 +31,7 @@
     "de": "Die Wiederverwendung berücksichtigt die vollständige Schnittgrößenkombination und die gewählte Achse. Erforderliche Torsionslängsbewehrung gilt nicht als vorhanden. Ohne Angabe bleiben Nachweis und Zertifikat offen. Gespeicherte Betonbemessungen erneut ausführen und Schnittgrößen, Bewehrung und Warnungen prüfen (PR #2080).",
     "fr": "La réutilisation inclut les efforts complets et l’axe choisi. Les armatures longitudinales requises en torsion ne sont pas considérées comme fournies : sans déclaration, le contrôle reste incomplet et le membre et son certificat sont retenus. Relancer les calculs et examiner efforts, armatures et avertissements (PR #2080).",
     "tr": "Yeniden kullanım tüm kesit taleplerini ve seçilen ekseni içerir. Gerekli boyuna burulma donatısı mevcut sayılmaz: miktar belirtilmezse kontrol tamamlanmaz, eleman ve sertifika bekletilir. Kayıtlı betonarme tasarımlarını yeniden çalıştırıp talepleri, donatıyı ve uyarıları inceleyin (PR #2080).",
+    "it": "Il riuso di campate condivise comprende la sollecitazione completa della sezione e l’asse scelto. L’acciaio longitudinale richiesto per la torsione non è considerato fornito: l’assenza di armatura è esplicitamente non verificata e blocca l’asta e il certificato. Riesegui i progetti salvati in calcestruzzo e rivedi sollecitazioni, armatura e avvisi (PR #2080).",
     "zh": "复用共用跨度时包含完整的截面内力需求和所选的轴。所需的纵向抗扭钢筋不被视为已提供：缺失的配筋明确标为未检查，并使杆件验算保持未完成，暂不出具证书。请重新运行已保存的混凝土设计，并复核内力需求、配筋和警告（PR #2080）。"
   },
   "changelog": {

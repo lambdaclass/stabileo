@@ -21,6 +21,7 @@
     "de": "Wandernde Achsen an gerundeten Stabenden",
     "fr": "Essieux mobiles aux extrémités affectées par l’arrondi",
     "tr": "Yuvarlamadan etkilenen eleman uçlarındaki hareketli akslar",
+    "it": "Assi mobili alle estremità arrotondate delle aste",
     "zh": "杆端舍入处的移动轴载",
     "hu": "Mozgó tengelyek a kerekítéssel érintett rúdvégeken"
   },
@@ -31,6 +32,7 @@
     "de": "Bei der Wanderlastberechnung werden Achspositionen innerhalb der Rundungsgrenze dem Stabende zugeordnet. Dadurch kann sich die maßgebende Schnittkraft nahe einem Knoten ändern. Berechnen Sie betroffene Umhüllende erneut und prüfen Sie die maßgebenden Schnittkräfte.",
     "fr": "Le balayage des charges mobiles ramène à l’extrémité les essieux situés dans la marge d’arrondi. Cela peut changer l’effort déterminant près d’un nœud. Recalculez les enveloppes concernées et vérifiez les efforts déterminants.",
     "tr": "Hareketli yük taraması, uçtaki yuvarlama payı içindeki aks konumlarını eleman ucuna yerleştirir. Bu, bir düğüm yakınındaki belirleyici kuvveti değiştirebilir. Etkilenen zarfları yeniden hesaplayın ve belirleyici kuvvetleri inceleyin.",
+    "it": "Le scansioni dei carichi mobili risolvono le posizioni degli assi entro l’arrotondamento dell’estremità fino all’estremità dell’asta. Questo può cambiare la sollecitazione dominante vicino a un nodo. Riesegui gli inviluppi interessati e rivedi le sollecitazioni dominanti.",
     "zh": "移动荷载扫描将处于杆端舍入范围内的轴载归到杆端。这可能改变节点附近的控制内力。请重新计算受影响的包络并复核控制内力。",
     "hu": "A mozgóteher-vizsgálat a végponti kerekítési határon belüli tengelyeket a rúd végéhez rendeli. Emiatt változhat a csomópont közelében a mértékadó erő. Számítsa újra az érintett burkolókat, és ellenőrizze a mértékadó erőket."
   },

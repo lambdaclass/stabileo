@@ -20,6 +20,7 @@
     "de": "Rechteckige Plattennetze behalten ihre Vierecke an gemeinsamen Knoten",
     "fr": "Les maillages rectangulaires des dalles conservent leurs quadrilatères aux nœuds communs",
     "tr": "Dikdörtgen plak ağları ortak düğümlerde dörtgenlerini korur",
+    "it": "Le mesh rettangolari delle piastre mantengono i loro quadrilateri alle stazioni condivise",
     "zh": "板的矩形网格在共用节点处保留四边形单元"
   },
   "explanation": {
@@ -29,6 +30,7 @@
     "de": "Wenn das rechteckige Netz um eine Öffnung neue gemeinsame Knoten benötigt, fügt das vereinheitlichte PRO nach Möglichkeit Netzlinien hinzu. Die Neuvernetzung kann Verschiebungen, Auflagerreaktionen, Stabkräfte und Schalenspannungen ändern.",
     "fr": "Si le maillage rectangulaire autour d’une ouverture nécessite de nouveaux nœuds communs, PRO unifié ajoute des lignes de maillage lorsque ces nœuds peuvent y être intégrés. Le remaillage peut modifier les déplacements, les réactions, les efforts dans les barres et les contraintes dans les coques.",
     "tr": "Bir açıklığın çevresindeki dikdörtgen ağ yeni ortak düğümler gerektirdiğinde, Birleşik PRO düğümlerin yerleştirilebildiği yerlerde ağ çizgileri ekler. Yeniden ağ oluşturma deplasmanları, mesnet tepkilerini, çubuk iç kuvvetlerini ve kabuk gerilmelerini değiştirebilir.",
+    "it": "Quando la griglia rettangolare attorno a un’apertura richiede nuovi nodi condivisi, PRO unificato aggiunge linee di griglia dove i nodi si adattano. La rigenerazione della mesh può cambiare spostamenti, reazioni vincolari, sollecitazioni delle aste e tensioni nei gusci.",
     "zh": "当开孔周围的矩形网格需要新的共用节点时，统一版 PRO 会在能够容纳这些节点的位置添加网格线。重新划分网格可能改变位移、反力、杆件内力和壳单元应力。"
   },
   "changelog": {
