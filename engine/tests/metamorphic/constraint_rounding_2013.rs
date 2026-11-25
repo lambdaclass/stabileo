@@ -387,3 +387,16 @@ fn modal_reports_constraint_rounding_before_the_eigensolve() {
             .map(|result| result.results.modes.iter().map(|mode| mode.omega).collect()), refused);
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2584"]
+fn unresolved_elastic_rank_has_an_indeterminate_kinematic_classification() {
+    use dedaliano_engine::solver::kinematic::{analyze_kinematics_2d, analyze_kinematics_3d};
+    for (model, _, refused) in cancellation_boundaries(false) {
+        let spatial = embed(&model, Plane::XZ);
+        for result in [analyze_kinematics_2d(&model), analyze_kinematics_3d(&spatial)] {
+            assert_eq!(result.classification == "indeterminate", refused, "{result:?}");
+            assert_eq!(result.mechanism_modes, 0);
+        }
+    }
+}

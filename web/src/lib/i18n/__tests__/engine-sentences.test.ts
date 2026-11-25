@@ -64,6 +64,19 @@ describe('engine sentences', () => {
       .toBe('El rango de la rigidez reducida no se puede determinar con la precisión del ensamblaje. Revisá las liberaciones, los apoyos, los resortes y las restricciones para detectar un mecanismo.');
   });
 
+  it('requires the rank code to localize unfamiliar rank causes', async () => {
+    await setLocale('es');
+    const message = 'Independent motion at node 42 needs verification.';
+    const envelope = (code: string) => JSON.stringify({
+      message,
+      structuredDiagnostics: [{ code, severity: 'error' }],
+    });
+    expect(localizeEngineText(errorText(envelope('reduced_stiffness_rank'), 'Unknown error')))
+      .toBe('El rango de la rigidez reducida no se puede determinar con la precisión del ensamblaje. Revisá las liberaciones, los apoyos, los resortes y las restricciones para detectar un mecanismo. ' + message);
+    expect(localizeEngineText(errorText(envelope('result_quantity_unavailable'), 'Unknown error'))).toBe(message);
+    expect(localizeEngineText(message)).toBe(message);
+  });
+
   it('translates a coded rank refusal and retains an unrecognized cause', async () => {
     await setLocale('es');
     const cause = 'Check node 42 before continuing.';

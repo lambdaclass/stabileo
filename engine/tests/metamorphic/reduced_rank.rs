@@ -493,3 +493,183 @@ fn ssi_requires_resolved_secant_rank_under_restrained_load() {
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
+
+#[test]
+#[ignore = "known wrong result: #2584"]
+fn collinear_truss_scatter_cannot_create_transverse_stiffness() {
+    use dedaliano_engine::solver::corotational::{
+        solve_corotational_2d, solve_corotational_2d_from, solve_corotational_3d, CorotationalStart2D,
+    };
+    use dedaliano_engine::types::Displacement;
+
+    let mut failures = Vec::new();
+    for weak_members in [16, 1024] {
+        let mut model = truss();
+        let chord = 41.0_f64.sqrt();
+        let direction = 4.0 / chord;
+        let area = chord / (direction * direction);
+        model.sections.get_mut("1").unwrap().a = area;
+        let mut weak = model.sections["1"].clone();
+        weak.id = 2;
+        weak.a *= 0.36 * f64::EPSILON;
+        model.sections.insert("2".into(), weak);
+        let tip = model.nodes.get_mut("2").unwrap();
+        (tip.x, tip.z) = (4.0, 5.0);
+        model.supports.remove("2");
+        model.loads = vec![SolverLoad::Nodal(SolverNodalLoad {
+            node_id: 1, fx: 1.0, fz: 0.0, my: 0.0,
+        })];
+        for id in 2..=weak_members + 1 {
+            let mut element = model.elements["1"].clone();
+            element.id = id;
+            element.section_id = 2;
+            model.elements.insert(id.to_string(), element);
+        }
+        let padded = crate::case::pad_2d(&model).0;
+        for (sparse, input) in [(false, model), (true, padded)] {
+            for restrained in [false, true] {
+                let mut input = input.clone();
+                let mut spatial = embed_2d(&input, Plane::XZ).unwrap();
+                if restrained {
+                    input.constraints.push(Constraint::LinearMPC(LinearMPCConstraint {
+                        terms: vec![MPCTerm { node_id: 2, dof: 1, coefficient: 1.0 }],
+                    }));
+                    spatial.constraints.push(Constraint::LinearMPC(LinearMPCConstraint {
+                        terms: vec![MPCTerm { node_id: 2, dof: 2, coefficient: 1.0 }],
+                    }));
+                }
+                let displacements: Vec<_> = input.nodes.values().map(|node| Displacement {
+                    node_id: node.id, ux: 0.0, uz: 0.0, ry: 0.0,
+                }).collect();
+                let start = CorotationalStart2D { input: &input, displacements: &displacements };
+                for modified in [false, true] {
+                    for (label, result) in [
+                        ("2D", solve_corotational_2d(&input, 8, 1e-12, 1, modified).map(|r| (r.converged, r.results.displacements.iter().all(|d| d.ux == 0.0 && d.uz == 0.0 && d.ry == 0.0)))),
+                        ("2D start", solve_corotational_2d_from(&input, Some(&start), 8, 1e-12, 1, modified).map(|r| (r.converged, r.results.displacements.iter().all(|d| d.ux == 0.0 && d.uz == 0.0 && d.ry == 0.0)))),
+                        ("3D", solve_corotational_3d(&spatial, 8, 1e-12, 1, modified).map(|r| (r.converged, r.results.displacements.iter().all(|d| d.ux == 0.0 && d.uy == 0.0 && d.uz == 0.0 && d.rx == 0.0 && d.ry == 0.0 && d.rz == 0.0)))),
+                    ] {
+                        if restrained {
+                            assert_eq!(result.unwrap(), (true, true), "{label}");
+                        } else {
+                            report(&format!("{label} weak={weak_members} sparse={sparse} modified={modified}"), result, &mut failures);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+#[ignore = "known wrong result: #2584"]
+fn ssi_requires_resolved_secant_rank_after_loaded_update() {
+    use dedaliano_engine::solver::{soil_curves::SoilCurve, ssi::*};
+
+    let stiffness = 1024.0;
+    let rounded = stiffness * 4.0 * f64::EPSILON;
+    let mut planar = truss();
+    planar.materials.get_mut("1").unwrap().e = stiffness / 1000.0;
+    let mut roller = planar.supports["1"].clone();
+    roller.support_type = "rollerX".into();
+    roller.kz = Some(1.0);
+    let mut tip = roller.clone();
+    tip.id = 2;
+    tip.node_id = 2;
+    planar.supports.insert("1".into(), roller);
+    planar.supports.insert("2".into(), tip);
+    planar.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: 1.0, fz: 0.0, my: 0.0 })];
+    let mut failures = Vec::new();
+    let padded = crate::case::pad_2d(&planar).0;
+    for (sparse, input) in [(false, planar), (true, padded)] {
+        for constrained in [false, true] {
+            let mut input = input.clone();
+            let mut spatial = embed_2d(&input, Plane::XZ).unwrap();
+            if constrained {
+                let root = input.nodes.values().map(|node| node.id).max().unwrap() + 1;
+                let end = root + 1;
+                for (id, x) in [(root, 0.0), (end, 1.0)] {
+                    input.nodes.insert(id.to_string(), dedaliano_engine::types::SolverNode { id, x, z: 1.0 });
+                    let mut support = input.supports["1"].clone();
+                    support.id = id;
+                    support.node_id = id;
+                    if id == root {
+                        support.support_type = "fixed".into();
+                    support.kz = None;
+                    }
+                    input.supports.insert(id.to_string(), support);
+                }
+                let mut bar = input.elements["1"].clone();
+                bar.id = input.elements.values().map(|element| element.id).max().unwrap() + 1;
+                bar.node_i = root;
+                bar.node_j = end;
+                input.elements.insert(bar.id.to_string(), bar);
+                spatial = embed_2d(&input, Plane::XZ).unwrap();
+                let constraint = Constraint::LinearMPC(LinearMPCConstraint {
+                    terms: vec![MPCTerm { node_id: end, dof: 0, coefficient: 1.0 }],
+                });
+                input.constraints.push(constraint.clone());
+                spatial.constraints.push(constraint);
+            }
+            for (end, refused) in [(2.0, false), (rounded, true)] {
+                for max_iter in [1, 2] {
+                    let spring = SoilSpring {
+                        node_id: 1, direction: 0, tributary_length: 1.0,
+                        curve: SoilCurve::Custom { points: vec![[0.0, 0.0], [end, end]] },
+                    };
+                    let plane = solve_ssi_2d(&SSIInput {
+                        solver: input.clone(), soil_springs: vec![spring.clone()], max_iter, tolerance: 1e-4,
+                    });
+                    let space = solve_ssi_3d(&SSIInput3D {
+                        solver: spatial.clone(), soil_springs: vec![spring], max_iter, tolerance: 1e-4,
+                    });
+                    if refused {
+                        report(&format!("2D SSI sparse={sparse} constrained={constrained} max_iter={max_iter}"), plane, &mut failures);
+                        report(&format!("3D SSI sparse={sparse} constrained={constrained} max_iter={max_iter}"), space, &mut failures);
+                    } else {
+                        let plane = plane.unwrap_or_else(|e| panic!("2D sparse={sparse} constrained={constrained}: {e}"));
+                        let space = space.unwrap_or_else(|e| panic!("3D sparse={sparse} constrained={constrained}: {e}"));
+                        assert_eq!(plane.converged, max_iter == 2);
+                        assert_eq!(space.converged, max_iter == 2);
+                        for u in [plane.spring_results[0].displacement, space.spring_results[0].displacement] {
+                            assert!((u - 1.0).abs() <= 1e-12, "{u}");
+                        }
+                    }
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+#[ignore = "known wrong result: #2584"]
+fn ssi_released_tip_torque_respects_supported_springs_and_soil_direction_validation() {
+    use dedaliano_engine::solver::{soil_curves::SoilCurve, ssi::*};
+    let model = serde_json::json!({
+        "nodes": {"1":{"id":1,"x":0,"y":0,"z":0},"2":{"id":2,"x":1,"y":0,"z":0}},
+        "elements":{"1":{"id":1,"nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1,"type":"frame","releaseTEnd":true}},
+        "materials":{"1":{"id":1,"e":0.001,"nu":0.25}},
+        "sections":{"1":{"id":1,"a":1,"iy":1,"iz":1,"j":1}},
+        "supports":{"1":{"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}},
+        "loads":[{"type":"nodal","data":{"nodeId":2,"fx":0,"fy":0,"fz":0,"mx":1,"my":0,"mz":0}}]
+    });
+    let mut input = SSIInput3D {
+        solver: serde_json::from_value(model.clone()).unwrap(),
+        soil_springs: vec![], max_iter: 2, tolerance: 1e-4,
+    };
+    assert!(solve_ssi_3d(&input).unwrap_err().contains("a free rotation would carry load"));
+    input.soil_springs.push(SoilSpring {
+        node_id: 2, direction: 3, tributary_length: 1.0,
+        curve: SoilCurve::Custom { points: vec![[0.0, 0.0], [1.0, 1.0]] },
+    });
+    let invalid = solve_ssi_3d(&input).unwrap_err();
+    assert!(invalid.contains("direction 3 is not a translation"), "{invalid}");
+    input.soil_springs.clear();
+    let mut held = model;
+    held["supports"]["2"] = serde_json::json!({"nodeId":2,"rx":false,"ry":false,"rz":false,"rrx":false,"rry":false,"rrz":false,"krx":1.0});
+    input.solver = serde_json::from_value(held).unwrap();
+    let answer = solve_ssi_3d(&input).unwrap();
+    assert!(answer.converged);
+    assert_eq!(answer.results.displacements.iter().find(|d| d.node_id == 2).unwrap().rx, 1.0);
+}
