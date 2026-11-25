@@ -635,3 +635,35 @@ fn simultaneous_entrance_and_exit_use_the_same_travel_direction() {
     assert_force(planar.elements["1"].v_max_neg, -weight);
     assert_force(spatial.elements["1"].vz_max_neg, -weight);
 }
+
+#[test]
+#[ignore = "known wrong result: #2101"]
+fn distant_axle_does_not_snap_an_exact_interior_sample() {
+    use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
+
+    let mut solver = review_beam(1.0);
+    let mut support = solver.supports.remove("2").unwrap();
+    support.id = 1;
+    support.node_id = 1;
+    solver.supports.insert("1".into(), support);
+    let spatial = embed_2d(&solver, Plane::XZ).unwrap();
+    let offset = 2.0f64.powi(42);
+    let weight = 100.0;
+    let train = LoadTrain {
+        name: "widely spaced axles".into(),
+        axles: vec![Axle { offset: 0.0, weight }, Axle { offset, weight }],
+    };
+    for (station, moment) in [(1.0 / 256.0, weight / 256.0), (0.0, 0.0), (1.0 + 1.0 / 256.0, 0.0)] {
+        let step = Some(offset + station);
+        let planar = solve_moving_loads_2d(&MovingLoadInput {
+            solver: solver.clone(), train: train.clone(), step, path_element_ids: Some(vec![1]),
+        }).unwrap();
+        let spatial = solve_moving_loads_3d(&MovingLoadInput3D {
+            solver: spatial.clone(), train: train.clone(), step, path_element_ids: Some(vec![1]), gravity_direction: None,
+        }).unwrap();
+        let p = &planar.elements["1"];
+        let s = &spatial.elements["1"];
+        assert_force(p.m_max_pos - p.m_max_neg, moment);
+        assert_force(s.my_max_pos - s.my_max_neg, moment);
+    }
+}

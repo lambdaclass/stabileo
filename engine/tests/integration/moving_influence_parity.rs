@@ -992,3 +992,26 @@ fn moving_loads_with_constraints_uses_legacy_fallback() {
         max_diff
     );
 }
+
+#[test]
+#[ignore = "known wrong result: #2101"]
+fn moving_parity_reference_leaves_permanent_endpoint_load_at_its_support() {
+    let mut solver = make_beam_2d_inclined();
+    let weight = 50.0;
+    solver.loads = vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
+        element_id: 2, a: 0.0, p: -weight, px: None, my: None,
+    })];
+    solver.supports = (1..=4).map(|id| (id.to_string(), sup_2d(id, id, "fixed"))).collect();
+    let spatial = dedaliano_engine::metamorphic::planes::embed_2d(
+        &solver, dedaliano_engine::metamorphic::planes::Plane::XZ,
+    ).unwrap();
+    let train = LoadTrain { name: "one axle".into(), axles: vec![Axle { offset: 0.0, weight }] };
+    let p = legacy_moving_2d(&MovingLoadInput {
+        solver, train: train.clone(), step: Some(4.0), path_element_ids: Some(vec![1]),
+    });
+    let s = legacy_moving_3d(&MovingLoadInput3D {
+        solver: spatial, train, step: Some(4.0), path_element_ids: Some(vec![1]), gravity_direction: None,
+    });
+    assert_f64_eq(p.elements["2"].v_max_pos - p.elements["2"].v_max_neg, 0.0, "planar unloaded member");
+    assert_f64_eq(s.elements["2"].vz_max_pos - s.elements["2"].vz_max_neg, 0.0, "spatial unloaded member");
+}

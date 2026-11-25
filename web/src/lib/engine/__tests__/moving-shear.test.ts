@@ -350,3 +350,81 @@ it('#2101 — endpoint-only spatial sweeps recover axial face limits', async () 
     }
   }
 });
+
+function reviewSpan(x: number, z: number, fixedBoth: boolean) {
+  const plane = mirroredSpring();
+  const space = rotatedInclined();
+  plane.nodes = new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x, z }]]);
+  space.nodes = new Map([...plane.nodes].map(([id, node]) => [id, { ...node, y: 0 }]));
+  plane.elements = new Map([[1, plane.elements.get(1)!]]);
+  space.elements = new Map([[1, space.elements.get(1)!]]);
+  const supports = fixedBoth ? [1, 2] : [1];
+  plane.supports = new Map(supports.map(id => [id, { id, nodeId: id, type: 'fixed' as const }]));
+  space.supports = new Map(supports.map(id => [id, { ...inclinedFixture.supports['1'], id, nodeId: id }]));
+  plane.loads = [];
+  space.loads = [];
+  return { plane, space };
+}
+
+it.skipIf(process.env.RUN_MOVING_REVIEW !== '1')('known wrong result: #2101 — a distant axle preserves an exact interior sample', async () => {
+  const { plane, space } = reviewSpan(1, 0, false);
+  const offset = 2 ** 42, weight = 100;
+  const train = { name: 'widely spaced', axles: [{ offset: 0, weight }, { offset, weight }] };
+  const path = buildPath3D(space, [1])!;
+  for (const [station, moment] of [[1 / 256, weight / 256], [0, 0], [1 + 1 / 256, 0]]) {
+    const config = { train, step: offset + station, pathElementIds: [1] };
+    const planar = solveNative2D({ ...config, solver: plane }).elements['1'];
+    const spatial = solveMovingLoads3D({ ...config, solver: space }).elements['1'];
+    expect.soft(planar.mMaxPos - planar.mMaxNeg).toBeCloseTo(moment, 9);
+    expect.soft(spatial.myMaxPos - spatial.myMaxNeg).toBeCloseTo(moment, 9);
+    for (const run of [solveMovingLoads, solveMovingLoadsAsync]) {
+      const result = await run(plane, config);
+      if (typeof result === 'string') throw new Error(result);
+      const e = result.elements.get(1)!;
+      expect.soft(e.mMaxPos - e.mMaxNeg).toBeCloseTo(moment, 9);
+    }
+    for (const env of [
+      await sweepMovingLoad3D(space, path, train, config),
+      await sweepTrains3D(space, path, [train], config),
+    ]) {
+      const { my } = env.elements.get(1)!;
+      expect.soft(my.max.value - my.min.value).toBeCloseTo(moment, 9);
+    }
+  }
+});
+
+it.skipIf(process.env.RUN_MOVING_REVIEW !== '1')('known wrong result: #2101 — a spatial interior axle recovers both axial cuts', async () => {
+  const weight = 100;
+  const train = { name: 'one axle', axles: [{ offset: 0, weight }] };
+  const config = { train, step: 4, pathElementIds: [1] };
+  for (const z of [8, -8, 0]) {
+    const { plane, space } = reviewSpan(z === 0 ? 10 : 6, z, true);
+    const axial = weight * Math.abs(z) / 10;
+    const max = z > 0 ? 0.8 * axial : axial;
+    const min = -(z < 0 ? 0.8 * axial : axial);
+    const planar = solveNative2D({ ...config, solver: plane }).elements['1'];
+    const spatial = solveMovingLoads3D({ ...config, solver: space }).elements['1'];
+    for (const e of [planar, spatial]) {
+      expect.soft(e.nMaxPos).toBeCloseTo(max, 9);
+      expect.soft(e.nMaxNeg).toBeCloseTo(min, 9);
+    }
+    for (const run of [solveMovingLoads, solveMovingLoadsAsync]) {
+      const result = await run(plane, config);
+      if (typeof result === 'string') throw new Error(result);
+      const e = result.elements.get(1)!;
+      expect.soft(e.nMaxPos).toBeCloseTo(max, 9);
+      expect.soft(e.nMaxNeg).toBeCloseTo(min, 9);
+    }
+    const path = buildPath3D(space, [1])!;
+    for (const env of [
+      await sweepMovingLoad3D(space, path, train, config),
+      await sweepTrains3D(space, path, [train], config),
+    ]) {
+      const { n } = env.elements.get(1)!;
+      expect.soft(n.max.value).toBeCloseTo(max, 9);
+      expect.soft(n.min.value).toBeCloseTo(min, 9);
+      if (z > 0) expect.soft(n.max.position).toBe(8);
+      if (z < 0) expect.soft(n.min.position).toBe(8);
+    }
+  }
+});
