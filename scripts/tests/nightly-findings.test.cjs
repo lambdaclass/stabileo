@@ -6,7 +6,6 @@ const {test} = require('node:test');
 const report = require('../../.github/scripts/nightly-findings.cjs');
 const {gunzipSync} = require('node:zlib');
 
-const reviewRegression = {skip: process.env.RUN_NIGHTLY_REVIEW_REGRESSIONS !== '1' && 'known wrong result: #2578'};
 const botComment = body => ({body, user: {login: 'github-actions[bot]'}});
 
 const finding = {test: 'opensees/mismatch', seed: 42, model: {loads: [1], elements: {a: {}}},
@@ -562,7 +561,7 @@ test('machine reproducers preserve an exact u64 seed and every replay selector i
   assert.equal(records[1].artifact, fs.readFileSync(file, 'utf8'));
 }));
 
-test('a copied run marker by a non-reporter cannot suppress a sighting', reviewRegression, () => fixture(async ({args, calls, issues, comments, save}) => {
+test('a copied run marker by a non-reporter cannot suppress a sighting', () => fixture(async ({args, calls, issues, comments, save}) => {
   save('original');
   await report(args);
   issues.push({number: 6, state: 'open', body: calls.find(c => c.name === 'create').args.body});
@@ -580,7 +579,7 @@ test('a copied run marker by a non-reporter cannot suppress a sighting', reviewR
   assert.equal(calls.filter(c => c.name === 'createComment').length, 0);
 }));
 
-test('only reporter sightings count toward the detailed comment cap', reviewRegression, () => fixture(async ({args, calls, issues, comments, save}) => {
+test('only reporter sightings count toward the detailed comment cap', () => fixture(async ({args, calls, issues, comments, save}) => {
   save('original');
   await report(args);
   issues.push({number: 6, state: 'open', body: calls.find(c => c.name === 'create').args.body});
@@ -599,7 +598,7 @@ test('only reporter sightings count toward the detailed comment cap', reviewRegr
   assert.match(issues[0].body, /<!-- nightly-sightings:1:125:1 -->/);
 }));
 
-test('a legacy alias cannot adopt an issue with a different inferred analysis or diagnostic', reviewRegression, () => fixture(async ({args, calls, issues, save}) => {
+test('a legacy alias cannot adopt an issue with a different inferred analysis or diagnostic', () => fixture(async ({args, calls, issues, save}) => {
   const alias = require('node:crypto').createHash('sha256').update(JSON.stringify(['opensees', 'wrong-result-candidate', 'solver residual #'])).digest('hex');
   issues.push(
     {number: 31, state: 'open', body: `<!-- nightly-finding:${alias} -->
@@ -618,7 +617,7 @@ Analyses (hits): pdelta: 1`}
   assert.deepEqual(calls.filter(c => c.name === 'update').map(c => c.args.issue_number), [32, 32]);
 }));
 
-test('a later run attempt updates overflow with its own exact reproducer', reviewRegression, () => fixture(async ({args, calls, issues, comments, save}) => {
+test('a later run attempt updates overflow with its own exact reproducer', () => fixture(async ({args, calls, issues, comments, save}) => {
   save('model');
   await report(args);
   issues.push({number: 6, state: 'open', body: calls.find(c => c.name === 'create').args.body});

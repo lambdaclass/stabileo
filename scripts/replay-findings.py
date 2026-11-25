@@ -69,6 +69,7 @@ NON_PASS_METAMORPHIC_KEYS = (
     "not_applicable",
 )
 MAX_U64 = (1 << 64) - 1
+MAX_JS_SAFE_INTEGER = (1 << 53) - 1
 DEFAULT_TRIPLE = "x86_64-unknown-linux-gnu"
 REPLAY_TIMEOUT_SECONDS = 90
 FUZZ_TIMEOUT_SECONDS = 180
@@ -208,6 +209,9 @@ def parse_issue(issue, record=None):
         if seed is None:
             reason = seed_error or "missing metamorphic seed in issue body"
             spec["not_replayable_reason"] = f"{label}: {reason}"
+            return spec
+        if record is None and seed > MAX_JS_SAFE_INTEGER:
+            spec["not_replayable_reason"] = f"{label}: legacy seed exceeds JavaScript's safe integer range; exact artifact required"
             return spec
         spec["analysis"] = parts[1]
         spec["invariant"] = parts[2]
@@ -666,14 +670,19 @@ def merge_reports(issues, partial_lists):
                 reason = spec.get("not_replayable_reason") or f"{spec['test'] or spec['source']}: no replay result recorded"
                 entries.append(_report_entry(spec, "not-replayable", reason))
         if len(entries) == 1:
-            merged.append(entries[0])
-            continue
-        statuses = {entry["status"] for entry in entries}
-        status = "still-fails" if "still-fails" in statuses else (
-            "passes-now" if statuses == {"passes-now"} else "not-replayable"
-        )
-        evidence = "\n".join(f"{entry['status']}: {entry['evidence']}" for entry in entries)
-        merged.append(_report_entry(specs[0], status, evidence))
+            result = entries[0]
+        else:
+            statuses = {entry["status"] for entry in entries}
+            status = "still-fails" if "still-fails" in statuses else (
+                "passes-now" if statuses == {"passes-now"} else "not-replayable"
+            )
+            evidence = "\n".join(f"{entry['status']}: {entry['evidence']}" for entry in entries)
+            result = _report_entry(specs[0], status, evidence)
+        if SIGHTINGS_RE.search(issue.get("body") or ""):
+            result = {**result, "evidence": result["evidence"] + "\nAutomatic closure blocked: overflow reproducers are outstanding."}
+            if result["status"] == "passes-now":
+                result["status"] = "not-replayable"
+        merged.append(result)
     return merged
 
 

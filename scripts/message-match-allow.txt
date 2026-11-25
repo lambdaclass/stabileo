@@ -191,4 +191,4 @@ scripts/replay-findings.py: artifact.startswith("oom-") and "tmin" not in reduct
 .github/scripts/nightly-findings.cjs: return {...issue, defect: readDefect(issue), oldKey: LEGACY_KEY.exec(body)?.[1],
 .github/scripts/nightly-findings.cjs: currentKey: CURRENT_KEY.exec(body)?.[1], adopted: new Set(body.split('\n')).has(ADOPTED)};
 .github/scripts/nightly-findings.cjs: .filter(i => !i.pull_request && !DUPLICATE.exec(i.body || ''))
-.github/scripts/nightly-findings.cjs: const priorSightings = [oldBody, ...comments.map(c => c.body || '')].map(body => OCCURRENCE.exec(body)?.[0]);
+.github/scripts/nightly-findings.cjs: const priorSightings = [oldBody, ...reporterComments.map(c => c.body || '')].map(body => OCCURRENCE.exec(body)?.[0]);

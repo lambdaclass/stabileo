@@ -5,7 +5,6 @@ import hashlib
 import importlib.util
 import io
 import json
-import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -679,7 +678,6 @@ class ReplayAndClassificationTest(unittest.TestCase):
 
 
 
-@unittest.skipUnless(os.environ.get("RUN_NIGHTLY_REVIEW_REGRESSIONS") == "1", "known wrong result: #2578")
 class ReplayClosureReviewTest(unittest.TestCase):
     def record(self, seed, model):
         artifact = json.dumps({"test": "metamorphic/linear/rotation", "seed": seed, "model": model})

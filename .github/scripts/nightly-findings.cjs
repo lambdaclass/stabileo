@@ -33,7 +33,7 @@ function matchingIssue(issues, key, group, reserved) {
     const matching = issues.filter(i => i.state === state);
     const exact = matching.find(i => i.currentKey === key || (!i.currentKey && group.previousKeys.has(i.oldKey)));
     const inferred = matching.find(i => i.defect === key);
-    const legacy = matching.find(i => !i.currentKey && !i.adopted && !reserved.has(i.number) && group.legacyKeys.has(i.oldKey));
+    const legacy = matching.find(i => i.defect === null && !i.adopted && !reserved.has(i.number) && group.legacyKeys.has(i.oldKey));
     if (exact || inferred || legacy) return exact || inferred || legacy;
   }
 }
@@ -111,7 +111,9 @@ module.exports = async ({github, context, core}) => {
   for (const i of issues) {
     if (findings.has(i.defect) || (!i.currentKey && exactKeys.has(i.oldKey))) claimedIssues.add(i.number);
   }
-  const run = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+  const runId = String(context.runId);
+  const attempt = process.env.GITHUB_RUN_ATTEMPT || '1';
+  const run = `${context.serverUrl}/${owner}/${repo}/actions/runs/${runId}`;
   for (const [key, group] of findings) {
     const f = group.example;
     const {cause} = group;
@@ -121,7 +123,7 @@ module.exports = async ({github, context, core}) => {
     const summary = `Check: **${cause.check}** · kind: **${cause.kind}**${diagnostic}\n\nRoot cause: ${cause.message.slice(0, 200)}\n\nThis run: **${group.hits} findings**, **${group.analyses.size} analyses**, **${group.relations.size} relations**, **${group.models.size} models**.\n\nAnalyses (hits): ${counts(group.analyses)}\n\nRelations (hits): ${counts(group.relations)}\n\nOne smallest available reproducer (reduction status below):`;
     const marker = `<!-- nightly-defect:${key} -->`;
     const records = encodeReproducers(group.examples, cause, context.runId);
-    const occurrence = `<!-- nightly-run:${context.runId}:${process.env.GITHUB_RUN_ATTEMPT || '1'} -->`;
+    const occurrence = `<!-- nightly-run:${runId}:${attempt} -->`;
     const model = JSON.stringify(f.model, null, 2);
     const inline = !f.hasLargeInteger && Buffer.byteLength(model) < 23000 ? `Save as model.json:\n\n\`\`\`json\n${model}\n\`\`\`` : `Download the exact finding JSON from the [run artifacts](${run}) and save its model field as model.json.`;
     const body = `${marker}\n<!-- nightly-finding:${key} -->\n${records}\n${occurrence}\n${summary}\n\nTest: **${f.test}**\n\nSeed: \`${f.seed}\` · model SHA-256: \`${f.modelHash}\`\n\nReproducer path: \`${f.file}\`\n\n[Run and artifacts](${run}) · commit \`${context.sha}\`\n\nReduction: ${f.reduction}\n\nBuild/replay setup: [NIGHTLY.md](${context.serverUrl}/${owner}/${repo}/blob/${context.sha}/testing/docs/NIGHTLY.md).\n\n\`\`\`sh\n${f.command}\n\`\`\`\n\n${inline}\n\nDetails:\n\n\`\`\`text\n${JSON.stringify(f.details).slice(0, 4000)}\n\`\`\``;
@@ -133,18 +135,19 @@ module.exports = async ({github, context, core}) => {
       const comments = await github.paginate(github.rest.issues.listComments, {owner, repo, issue_number, per_page: 100});
       const oldBody = existing.body || '';
       const overflow = OVERFLOW.exec(oldBody);
-      const alreadyCounted = overflow && BigInt(context.runId) <= BigInt(overflow[2]);
+      const alreadyCounted = overflow?.[2] === runId && overflow[3] === attempt;
+      const reporterComments = comments.filter(c => c.user?.login === 'github-actions[bot]');
       let nextBody = oldBody;
-      const priorSightings = [oldBody, ...comments.map(c => c.body || '')].map(body => OCCURRENCE.exec(body)?.[0]);
+      const priorSightings = [oldBody, ...reporterComments.map(c => c.body || '')].map(body => OCCURRENCE.exec(body)?.[0]);
       if (!alreadyCounted && !new Set(priorSightings).has(occurrence)) {
         const sightings = priorSightings.slice(1).filter(Boolean);
         if (sightings.length < MAX_SIGHTING_COMMENTS) {
           await github.rest.issues.createComment({owner, repo, issue_number, body});
         } else {
           const total = Number(overflow?.[1] || 0) + group.hits;
-          const attempt = process.env.GITHUB_RUN_ATTEMPT || '1';
-          const header = `<!-- nightly-sightings:${total}:${context.runId}:${attempt} -->\n` +
-            `${total} additional sighting${total === 1 ? '' : 's'} after the detailed comment limit. [Latest run](${run}).\n`;
+          const header = `<!-- nightly-sightings:${total}:${runId}:${attempt} -->\n` +
+            `${total} additional sighting${total === 1 ? '' : 's'} after the detailed comment limit. [Latest run](${run}). ` +
+            'Automatic closure is blocked because overflow reproducers are outstanding.\n';
           const replaceSummary = records => overflow ? oldBody.replace(OVERFLOW, () => header + records + '\n') :
             header + records + '\n\n' + oldBody;
           nextBody = replaceSummary(records);
