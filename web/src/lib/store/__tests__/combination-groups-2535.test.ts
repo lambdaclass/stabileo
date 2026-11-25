@@ -1009,6 +1009,131 @@ async function solveCombinationReactions(route: typeof combinationRoutes[number]
   return reactions;
 }
 
+const cancellationRoof = { symbol: 'Lr', factor: 1.5 } as const;
+const physicalSnow = { ...physicalTerm, factor: 4 };
+const canceledSnow = { ...physicalTerm, factor: -physicalSnow.factor };
+const singleZeroSnow = { ...physicalTerm, factor: 0 };
+const cancellationCases = [
+  { ...snowCases[0]!, type: 'S', alternatives: 'snow' },
+  { ...snowCases[1]!, type: 'S', alternatives: 'snow' },
+  { id: 3, type: 'Lr', name: 'Whole roof live', alternatives: 'roof' },
+  { id: 4, type: 'Lr', name: 'Partial roof live', alternatives: 'roof', pattern: true },
+] as const;
+const cancellationTerms = [flatRoofTerm, physicalSnow, canceledSnow, cancellationRoof] as const;
+const zeroSnowTerms = [flatRoofTerm, singleZeroSnow, cancellationRoof] as const;
+const admissibleSnowFactors = [3, 4].map(caseId => [
+  { caseId: 2, factor: flatRoofTerm.factor }, { caseId, factor: cancellationRoof.factor },
+]);
+const knownWrongCanceledChoice = process.env.RUN_KNOWN_WRONG === '2569' ? it : it.skip;
+
+knownWrongCanceledChoice('known wrong result: #2569 split snow cancellation has the same shared-set choices as one zero term', () => {
+  for (const patternsInCompanions of [false, true]) {
+    const options = { patternsInCompanions };
+    const zero = expandCombinations([spec(...zeroSnowTerms)], cancellationCases, options);
+    expect.soft(zero.map(c => c.factors)).toEqual(admissibleSnowFactors);
+    expect.soft(expandCombinations([spec(...cancellationTerms)], cancellationCases, options)).toEqual(zero);
+  }
+});
+
+it('#2569 either sign of a nonzero snow total still supplies an alternative', () => {
+  for (const remainder of [-4 * Number.EPSILON, 4 * Number.EPSILON]) {
+    const second = { ...canceledSnow, factor: canceledSnow.factor + remainder };
+    const selections = expandCombinations(
+      [spec(flatRoofTerm, physicalSnow, second, cancellationRoof)], cancellationCases, { patternsInCompanions: true },
+    );
+    expect.soft(selections.map(c => c.factors)).toEqual([
+      ...admissibleSnowFactors,
+      ...[3, 4].map(caseId => [
+        { caseId: 1, factor: physicalSnow.factor }, { caseId: 1, factor: second.factor },
+        { caseId, factor: cancellationRoof.factor },
+      ]),
+    ]);
+  }
+});
+
+knownWrongCanceledChoice('known wrong result: #2569 canceled actions cannot turn a wind direction into a required shared set', () => {
+  const cases = [
+    { id: 1, type: 'W', name: 'Wind X', alternatives: 'wind' },
+    { id: 2, type: 'L', name: 'Live', alternatives: 'wind' },
+    { id: 3, type: 'W', name: 'Wind Y' },
+  ];
+  const oppositeLive = { ...floorTerm, factor: -floorTerm.factor };
+  const options = { bothSenses: { W: true } };
+  const whole = expandCombinations([spec(windTerm)], cases, options);
+  expect(whole.map(c => c.factors)).toEqual([1, 3].flatMap(caseId =>
+    [windTerm.factor, -windTerm.factor].map(factor => [{ caseId, factor }]),
+  ));
+  expect(expandCombinations([spec(windTerm, floorTerm, oppositeLive)], cases, options)).toEqual(whole);
+});
+
+it('#2569 split cancellation still validates paired snow cases and named groups', () => {
+  const casesWithoutPhysicalSnow = cancellationCases.slice(1);
+  expect.soft(expandCombinations([spec(...zeroSnowTerms)], cancellationCases).map(c => c.factors)).toEqual(admissibleSnowFactors);
+  expect.soft(() => expandCombinations([spec(...cancellationTerms)], casesWithoutPhysicalSnow)).toThrow('snow.refused.physicalCase');
+  const group = 'missing';
+  expect(() => expandCombinations(
+    [spec(flatRoofTerm, { ...physicalSnow, group }, { ...canceledSnow, group }, cancellationRoof)], cancellationCases,
+  )).toThrow('combos.refused.unresolvedGroup');
+});
+
+const cancellationForces = [2, 11, 5, 3] as const;
+const cancellationReactions = [cancellationForces[3], cancellationForces[2]].map(force =>
+  flatRoofTerm.factor * cancellationForces[1] + cancellationRoof.factor * force,
+);
+
+function cancellationProject(dim: '2d' | '3d', terms: readonly CombinationTerm[]) {
+  const rule = restoreGroupedProject(...terms);
+  const snapshot = modelStore.snapshot();
+  modelStore.restore({
+    ...snapshot, loadCases: [...cancellationCases], nextId: { ...snapshot.nextId!, loadCase: cancellationCases.length + 1 },
+  });
+  return { ...loadedCantilever(dim, cancellationCases.map(({ id }, i) => [id, cancellationForces[i]!])), rule };
+}
+
+function expectCancellationReactions(reactions: number[]) {
+  expect.soft(reactions).toHaveLength(cancellationReactions.length);
+  const sorted = [...reactions].sort((a, b) => a - b);
+  for (const [i, expected] of cancellationReactions.entries()) expect.soft(sorted[i]).toBeCloseTo(expected, 8);
+}
+
+for (const route of combinationRoutes) {
+  knownWrongCanceledChoice(`known wrong result: #2569 ${route} includes flat-roof snow in every generated combination`, async () => {
+    const { base, tip } = cancellationProject(route === '2D linear' ? '2d' : '3d', cancellationTerms);
+    expect(deserializeProject(serializeProject())).toBe(true);
+    addGeneratedCombinations(projectCombinations());
+    expectCancellationReactions(await solveCombinationReactions(route, base, tip));
+  });
+}
+
+for (const writer of ['composite cases', 'Auto Loads'] as const) {
+  knownWrongCanceledChoice(`known wrong result: #2569 ${writer} keeps flat-roof snow after rule-template import`, async () => {
+    const { base, tip, rule } = cancellationProject('3d', cancellationTerms);
+    const template = rulesToTemplate([rule], 'Snow cancellation');
+    modelStore.setCombinationRules([]);
+    await combinationRuleEditor().importTemplate({ currentTarget: {
+      files: [{ text: async () => template }], value: 'cancellation.json',
+    } });
+
+    if (writer === 'composite cases') {
+      addCompositeCases(projectCombinations());
+      expect.soft(modelStore.loadCases.flatMap(c => c.generated && c.includes ? [c.includes] : [])).toEqual(admissibleSnowFactors);
+    } else {
+      const input = projectPlan(modelStore.combinationRules[0]!.terms, cancellationCases);
+      expect.soft(expandPlannedCombinations(input, {}).map(c => c.factors)).toEqual(admissibleSnowFactors);
+      expect.soft(describePlanDelta(input, empty, { replaceExisting: true }).after.combinations).toBe(2);
+      expect.soft(previewLoadPlan(input, applyOptions.nameOf, { replaceExisting: true }).after.combinations).toBe(2);
+      expect(applyLoadPlan(input, applyOptions)).toBeUndefined();
+    }
+    expectCancellationReactions(await solveCombinationReactions('3D sync linear', base, tip));
+  });
+}
+
+it('#2569 a rule with one zero snow factor keeps both admissible roof-live reactions', async () => {
+  const { base, tip } = cancellationProject('3d', zeroSnowTerms);
+  addGeneratedCombinations(projectCombinations());
+  expectCancellationReactions(await solveCombinationReactions('3D sync linear', base, tip));
+});
+
 const combinationRegressions = ['alternatives', 'snow', 'roof live', 'generated roof live', 'duplicate factors'] as const;
 
 for (const route of combinationRoutes) for (const failure of combinationRegressions) {
