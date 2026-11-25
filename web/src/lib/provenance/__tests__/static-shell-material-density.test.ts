@@ -8,7 +8,6 @@ import { assessProject } from '../applicability';
 import type { FeatureSnapshot } from '../model-features';
 import { stampSolve } from '../solve-stamp';
 
-const issue2472 = process.env.RUN_KNOWN_WRONG === '2472' ? it : it.skip;
 const notice = 'negative-static-shell-density';
 const thickness = 1 / 8;
 const gravity = { caseId: 1, ...GRAVITY_SELF_WEIGHT };
@@ -46,7 +45,7 @@ function oldStamp(kind: 'linear' | 'pdelta') {
   };
 }
 
-issue2472.each(['plate', 'quad'] as const)('#2472 applies the static density notice to a pre-change %s result', kind => {
+it.each(['plate', 'quad'] as const)('#2472 applies the static density notice to a pre-change %s result', kind => {
   const { id } = shell(kind, -1);
   const saved = { ...modelStore.snapshot(), analysisMode: 'pro', includeSelfWeight: true };
   const group = { members: kind === 'plate' ? { plates: [id] } : { quads: [id] } };
@@ -60,6 +59,9 @@ issue2472.each(['plate', 'quad'] as const)('#2472 applies the static density not
     }), analysis).toContain(notice);
     expect.soft(notices({
       ...saved, analysis: { standaloneSelfWeight: 'gravity', selfWeight: [] },
+    }), analysis).toContain(notice);
+    expect.soft(notices({
+      ...saved, includeSelfWeight: false, analysis: { standaloneSelfWeight: 'gravity', selfWeight: [gravity] },
     }), analysis).toContain(notice);
     expect.soft(notices({ ...saved, analysis: { selfWeight: [{ ...gravity, factor: 0 }] } }), analysis).toContain(notice);
     const unaffected: Partial<FeatureSnapshot>[] = [
@@ -76,7 +78,7 @@ issue2472.each(['plate', 'quad'] as const)('#2472 applies the static density not
   }
 });
 
-issue2472.each(['plate', 'quad'] as const)('#2472 refuses negative %s self-weight on the saved solve paths', async kind => {
+it.each(['plate', 'quad'] as const)('#2472 refuses negative %s self-weight on the saved solve paths', async kind => {
   const { area, material, model } = shell(kind, -1);
   const paths = {
     single: () => modelStore.solve3D(true, false, true),

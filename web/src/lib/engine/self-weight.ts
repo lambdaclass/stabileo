@@ -39,13 +39,16 @@ export function selfWeightFor(
 const UNIT: Record<SelfWeightLoad['direction'], Vec3> = { X: [1, 0, 0], Y: [0, 1, 0], Z: [0, 0, 1] };
 
 /** What a self-weight load covers: member ids, and the shells, or everything. */
-export function selfWeightScope(model: Pick<ModelData, 'groups'>, s: SelfWeightLoad): { members: Set<number> | null; plates: Set<number> | null; quads: Set<number> | null } {
+export function selfWeightScope(
+  model: { groups?: ReadonlyMap<number, { members?: { elements?: readonly number[]; plates?: readonly number[]; quads?: readonly number[] } }> },
+  s: SelfWeightLoad,
+): { members: Set<number> | null; plates: Set<number> | null; quads: Set<number> | null } {
   if (s.groupId !== undefined) {
-    const g = model.groups?.get(s.groupId);
+    const members = model.groups?.get(s.groupId)?.members;
     return {
-      members: new Set(g?.members.elements ?? []),
-      plates: new Set(g?.members.plates ?? []),
-      quads: new Set(g?.members.quads ?? []),
+      members: new Set(members?.elements ?? []),
+      plates: new Set(members?.plates ?? []),
+      quads: new Set(members?.quads ?? []),
     };
   }
   if (s.elements) return { members: new Set(s.elements), plates: new Set(), quads: new Set() };

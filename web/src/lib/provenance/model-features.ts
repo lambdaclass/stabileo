@@ -27,7 +27,8 @@ import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { is3DWorkspace } from '../utils/workspace';
 import { globalAxes } from '../features';
-import { GRAVITY_SELF_WEIGHT, type SelfWeightLoad } from '../engine/analysis-settings';
+import { GRAVITY_SELF_WEIGHT, type AnalysisSettings, type SelfWeightLoad } from '../engine/analysis-settings';
+import { selfWeightFor, selfWeightScope } from '../engine/self-weight';
 import { isBareCustom3D, isBareRollerZ, isPlaneRoller, isSupportType } from '../model/support-types';
 
 export const ANALYSIS_KINDS = [
@@ -56,7 +57,7 @@ export const FEATURE_IDS = [
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
-  'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
+  'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase',
   'superposedCombinations', 'repeatedCombinationCases', 'zeroOrOpposingCombinationFactors', 'explicitNotionalCombinationCases',
@@ -119,7 +120,7 @@ interface FeatureSnapshotFields {
   connectors?: Entries<{ kShear?: number; kShearZ?: number }>;
   footings?: Entries<unknown>;
   jointDesigns?: unknown;
-  groups?: Entries<{ name?: string; kind?: string; data?: unknown; members?: { nodes?: number[]; quads?: number[]; plates?: number[] } }>;
+  groups?: Entries<{ name?: string; kind?: string; data?: unknown; members?: { nodes?: number[]; elements?: number[]; quads?: number[]; plates?: number[] } }>;
   regulations?: { roles?: Record<string, { adapterId?: string | null; settings?: Record<string, unknown> } | undefined> };
   dynamics?: { timeHistory?: unknown; spectra?: unknown[] };
   massSource?: unknown;
@@ -261,6 +262,37 @@ function takesExplicitNotionalCase(
   return false;
 }
 
+function hasNegativeShellSelfWeight(
+  snapshot: FeatureSnapshot,
+  materials: ReadonlyMap<number, Mat>,
+  cases: NonNullable<FeatureSnapshot['loadCases']>,
+): boolean {
+  const negativeShells = (shells: Entries<ShellSnapshot>) => (Array.isArray(shells) ? shells : []).flatMap(entry => {
+    const materialId = entry?.[1]?.materialId;
+    const rho = materialId === undefined ? undefined : materials.get(materialId)?.rho;
+    return isFiniteInputNumber(rho) && rho < 0 ? [entry[0]] : [];
+  });
+  const plates = negativeShells(snapshot.plates);
+  const quads = negativeShells(snapshot.quads);
+  if (!plates.length && !quads.length) return false;
+
+  const rules = snapshot.analysis?.selfWeight;
+  const analysis: AnalysisSettings = {
+    selfWeight: Array.isArray(rules) ? rules.filter((rule): rule is SelfWeightLoad => !!rule && typeof rule === 'object') : undefined,
+    standaloneSelfWeight: snapshot.analysis?.standaloneSelfWeight === 'gravity' ? 'gravity' : undefined,
+  };
+  const groups = new Map(Array.isArray(snapshot.groups) ? snapshot.groups.filter(entry => entry?.[1]) : []);
+  const model = { analysis, groups };
+  const includeSelfWeight = snapshot.includeSelfWeight === true;
+  const coversNegativeShell = (weight: SelfWeightLoad) => {
+    const scope = selfWeightScope(model, weight);
+    return plates.some(id => scope.plates?.has(id) ?? true) || quads.some(id => scope.quads?.has(id) ?? true);
+  };
+  if (selfWeightFor(model, null, includeSelfWeight).some(coversNegativeShell)) return true;
+  return analysis.standaloneSelfWeight === 'gravity' &&
+    cases.some(loadCase => selfWeightFor(model, loadCase, includeSelfWeight).some(coversNegativeShell));
+}
+
 /** The features of one saved model. */
 export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set<FeatureId> {
   const f = new Set<FeatureId>();
@@ -394,6 +426,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (globalAxes() && cases.some(c => c.axisNamed === true)) f.add(GLOBAL_AXES_EVIDENCE);
   if (cases.some((c) => c.alternatives?.startsWith('move:'))) f.add('movingLoads');
   if (s.includeSelfWeight || s.analysis?.selfWeight?.length) f.add('selfWeight');
+  if (f.has('space3D') && hasNegativeShellSelfWeight(s, materials, cases)) f.add('negativeShellSelfWeightDensity');
   if (s.analysis?.standaloneSelfWeight === 'gravity' && s.includeSelfWeight !== true &&
       (elements.length || quads.length || values(s.plates).length)) {
     f.add('standaloneGravityToggleOff');

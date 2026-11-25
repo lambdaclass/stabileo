@@ -15,3 +15,7 @@ The same check runs before a stored planar member load projects into either solv
 Dynamic mass preparation requires a finite, nonnegative density for every material used by a solved frame member or shell. This includes members added during input expansion, nine-node quads and solid shells. Previously, an omitted density could contribute zero mass. An explicit zero density still contributes zero mass. A density refusal identifies the material field in the app's active language.
 
 A static cable solve without self-weight treats omitted density as weightless, which matches explicit zero density. Present invalid densities are refused. The native and WASM wire decoders also refuse negative density in raw quad, nine-node quad, curved-shell and solid-shell self-weight loads. Positive densities and zero retain their existing load and reaction behavior.
+
+## Refuse negative density in shell self-weight
+
+During static analysis, a negative material density could reverse the direction of a plate or shell’s self-weight, making downward gravity act upward. The solve now refuses the input and identifies the material. Enter a finite, nonnegative density and rerun the analysis. The recheck notice applies to saved spatial models with a self-weight rule that covers a plate or shell made from a negative-density material.
