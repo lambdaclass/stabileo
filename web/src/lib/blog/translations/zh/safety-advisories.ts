@@ -549,6 +549,46 @@ const body: PostBody = {
       "t": "受影响的输入和应采取的措施。"
     },
     {
+      "k": "note",
+      "t": "SA-2026-117 — 0.6.4 之后的下一个版本。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-117-static-shell-self-weight-density.md",
+      "label": "SA-2026-117",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-118 — 0.6.4 之后的下一个版本。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-118-self-weight-group-targets.md",
+      "label": "SA-2026-118",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-119 — 0.6.4 之后的下一个版本。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-119-modal-mass-missing-density.md",
+      "label": "SA-2026-119",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-120 — 0.6.4 之后的下一个版本。"
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-120-gravity-deck-load-placement.md",
+      "label": "SA-2026-120",
+      "t": "受影响的输入和应采取的措施。"
+    },
+    {
       "k": "img",
       "base": "blog/recheck-stale",
       "w": 1600,
@@ -1257,6 +1297,30 @@ const body: PostBody = {
         [
           "SA-2026-116",
           "非线性求解器可能接受错误的弧长路径，或遗漏倾斜滚动支座处的切向力。请重新进行受影响的平面非线性分析和空间共旋分析，包括剪切中心偏移的曲杆模型。",
+          "高",
+          "0.6.4 之后的下一个版本"
+        ],
+        [
+          "SA-2026-117",
+          "负值或保存为 null 的壳单元材料密度可能使自重方向反转或使自重被遗漏。请恢复预期密度，重新计算受影响的静力工况和组合，并重新进行相关验算。",
+          "高",
+          "0.6.4 之后的下一个版本"
+        ],
+        [
+          "SA-2026-118",
+          "无效的自重目标组可能导致该组的自重被遗漏。请修正目标组，重新计算受影响的工况和组合，并重新生成包络。",
+          "高",
+          "0.6.4 之后的下一个版本"
+        ],
+        [
+          "SA-2026-119",
+          "遗漏材料密度可能导致模态频率错误。请恢复密度，重建质量源，并重新进行受影响的动力分析。",
+          "高",
+          "0.6.4 之后的下一个版本"
+        ],
+        [
+          "SA-2026-120",
+          "自动生成荷载时，重力荷载可能被重复施加、传递到超出自动方法跨度上限的板格，或因屋面与楼面区域分类错误而施加到错误位置。请重新生成受影响的重力、雪和风荷载方案，核对荷载，并重新进行相关分析。",
           "高",
           "0.6.4 之后的下一个版本"
         ]
