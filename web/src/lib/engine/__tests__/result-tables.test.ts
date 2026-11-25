@@ -175,11 +175,12 @@ it.skip('known wrong result: #2226 finds a narrow one-sided shear peak in the pr
 
 it.skip('known wrong result: #2226 finds a shear resultant minimum between component stations', () => {
   const f = {
-    elementId: 7, length: 1, nStart: 0, nEnd: 0, vyStart: -3, vyEnd: 5, vzStart: 1, vzEnd: 1,
+    elementId: 7, length: 1, nStart: 0, nEnd: 0, vyStart: -3, vyEnd: 5, vzStart: -7, vzEnd: 1,
     mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0,
     distributedLoadsY: [{ a: 0, b: 1, qI: 8, qJ: 8 }],
+    distributedLoadsZ: [{ a: 0, b: 1, qI: 8, qJ: 8 }],
   } as ElementForces3D;
   const sources = [{ ...A, results: { ...A.results, elementForces: [f] } }];
   const critical = summaryRows('forces', sources, { ...canonical, stations: 'critical', resultant: true });
-  expect(critical.find(r => r.column.key === 'v')?.min).toMatchObject({ value: 1, x: 3 / 8 });
+  expect(critical.find(r => r.column.key === 'v')?.min).toMatchObject({ value: Math.hypot(2, -2), x: 5 / 8 });
 });
