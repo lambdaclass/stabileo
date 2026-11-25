@@ -1462,7 +1462,12 @@ it('#2471 detects a lost self-equilibrated line load in spatial analysis', async
   expect(() => paths.advanced()).toThrow(/case.*member.*s·Fx/i);
 });
 
-it.each([false, true])('#2471 refuses a line lost during combination scaling (cut member: %s)', async cut => {
+it.each([
+  { method: 'P-Delta', cut: false },
+  { method: 'P-Delta', cut: true },
+  { method: 'active set', cut: false },
+  { method: 'active set', cut: true },
+])('#2471 refuses a line lost during combination scaling ($method, cut member: $cut)', async ({ method, cut }) => {
   const member = cantilever('3d');
   modelStore.model.loads.push({ type: 'distributed3d', data: {
     id: 1, elementId: member, qXI: 2, qXJ: -2, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, frame: 'global', caseId: 1,
@@ -1472,7 +1477,12 @@ it.each([false, true])('#2471 refuses a line lost during combination scaling (cu
   } });
   for (const { id } of [...modelStore.combinations]) modelStore.removeCombination(id);
   const comboId = modelStore.addCombination('Two dead loads', [{ caseId: 1, factor: 2 }]);
-  modelStore.setAnalysis({ perCombination: 'pdelta' });
+  modelStore.setAnalysis({ perCombination: method === 'P-Delta' ? 'pdelta' : 'linear' });
+  if (method === 'active set') {
+    const { nodeI, nodeJ } = modelStore.elements.get(member)!;
+    modelStore.addNodalLoad3D(nodeJ, 0, 0, -1, 0, 0, 0, 1);
+    modelStore.updateSupport(nodeI, { uplift: true });
+  }
   const model = modelStore.model;
   const combo = model.combinations.find(c => c.id === comboId)!;
   const cases = caseSolverLoads3D(model, model.loadCases, false, false);
@@ -1481,15 +1491,16 @@ it.each([false, true])('#2471 refuses a line lost during combination scaling (cu
   expect(original).toEqual(cut ? [[2, 1], [1, -2]] : [[2, -2]]);
   expect(axialLines(comboSolverLoads3D(combo, cases))).toEqual(original.map(pair => pair.map(q => 2 * q!)));
 
+  const expectedReport = method === 'P-Delta' ? { secondOrder: expect.any(Object) } : { nonlinear: expect.any(Object) };
   expect(modelStore.solveCombinations3D(false, false, true)).toMatchObject({
-    perCombo: new Map([[comboId, expect.objectContaining({ elementForces: expect.any(Array) })]]),
+    perCombo: new Map([[comboId, expect.objectContaining({ ...expectedReport, elementForces: expect.any(Array) })]]),
   });
   fault.dropFactoredAxialLine = true;
   expect(axialLines(caseSolverLoads3D(model, model.loadCases, false, false).get(1)!)).toEqual(original);
   const diagnostic = new RegExp('Two dead loads.*member.*' + member + '.*s·Fx.*assembled 0', 'i');
   const paths = {
     factored: () => comboSolverLoads3D(combo, cases),
-    pdelta: () => modelStore.solveCombinations3D(false, false, true),
+    sync: () => modelStore.solveCombinations3D(false, false, true),
     parallel: () => modelStore.solveCombinations3DParallel(false, false, true),
     direct: () => runDirectAnalysis(model, model.loadCases, [combo], { includeSelfWeight: false }),
   };
