@@ -11,7 +11,7 @@
   import { modelStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
   import {
-    addPlateLoad, arcEdgeBetween, clearPlateMesh, deletePlate, plateEntry, plateLoadDefs, plateShellKeys, plateSides, plateStatus, setPlateHoles,
+    addPlateLoad, arcEdgeBetween, clearPlateMesh, deletePlate, forgetPlateRefinement, plateEntry, plateLoadDefs, plateShellKeys, plateSides, plateStatus, setPlateHoles,
     setPlateProperties, setPlateSideArc, type PlateStatus,
   } from '../../../lib/store/physical-plates';
   import { plateArea, plateGeometry, plateLoops } from '../../../lib/model/physical/plate';
@@ -69,7 +69,10 @@
   }
   function clearMeshes() {
     let kept = 0;
-    modelStore.batch(() => { for (const e of entries) kept += clearPlateMesh(e.id).keptNodes; });
+    modelStore.batch(() => {
+      for (const e of entries) kept += clearPlateMesh(e.id).keptNodes;
+      forgetPlateRefinement(entries.map((e) => e.id));
+    });
     message = kept ? tp('plates.meshClearedKept', { n: kept }) : t('plates.meshCleared');
     uiStore.selectPlates(ids);
   }

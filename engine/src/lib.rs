@@ -161,6 +161,17 @@ pub fn adapt_mesh_3d(input: JsValue, options: JsValue) -> Result<JsValue, JsValu
     to_js_value(&out)
 }
 
+/// Refine the shell mesh to the element sizes wanted at the samples of `options`, solving
+/// nothing: the refined model and how it was made from the one given (`adapt::resize_3d`).
+#[wasm_bindgen]
+pub fn resize_mesh_3d(input: JsValue, options: JsValue) -> Result<JsValue, JsValue> {
+    let input = from_js_value::<types::units::ElasticInput3D>(input)?.into_legacy();
+    let opts: postprocess::discretization::adapt::ResizeOptions =
+        if options.is_null() || options.is_undefined() { Default::default() } else { from_js_value(options)? };
+    let out = postprocess::discretization::adapt::resize_3d(&input, &opts).map_err(|e| JsValue::from_str(&e))?;
+    to_js_value(&out)
+}
+
 /// Solve 2D linear static analysis and certify the displacements
 /// (testing/docs/CERTIFY.md). JsValue in → `{ results, certificate }`.
 #[wasm_bindgen]

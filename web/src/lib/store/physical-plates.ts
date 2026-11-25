@@ -34,6 +34,7 @@ import { mergeCollinear } from '../model/edit/merge-collinear';
 import { addFloorLoadDef } from './defined-loads';
 import { constraintNodes } from '../engine/steel/unbraced-length';
 import { hangingEdgeNodes } from '../model/edit/refined-mesh';
+import { restoreRefinements } from './refined-mesh';
 import { meshBeforeAnalysis } from './mesh-policy.svelte';
 export { meshBeforeAnalysis };
 import type { FloorLoadDef } from '../model/loads/floor-definitions';
@@ -188,7 +189,16 @@ export function setShellProperties(keys: readonly string[], patch: { materialId?
 
 /** Change how a plate is to be meshed. Its mesh, if any, is then out of date. */
 export function setPlateMeshSpec(ids: readonly number[], spec: Partial<PlateMeshSpec>): void {
-  modelStore.batch(() => { for (const id of ids) writeSurface(id, (s) => ({ ...s, mesh: { ...s.mesh, ...spec } })); });
+  modelStore.batch(() => {
+    for (const id of ids) writeSurface(id, (s) => { const { refinement: _sizes, ...rest } = s; return { ...rest, mesh: { ...s.mesh, ...spec } }; });
+  });
+}
+
+/** Drop the sizes an adaptive refinement left on these plates: their next mesh is their settings' alone. */
+export function forgetPlateRefinement(ids: readonly number[]): void {
+  modelStore.batch(() => {
+    for (const id of ids) if (plateEntry(id)?.surface.refinement) writeSurface(id, (s) => { const { refinement: _sizes, ...rest } = s; return rest; });
+  });
 }
 
 /** Replace a plate's holes (node loops); one undo step. The problem when they do not fit. */
@@ -576,9 +586,18 @@ function applyPlans(plans: readonly PlateMeshPlan[]): PlateMeshReport {
  * without the nodes, a plate beside it reads as out of date and is meshed again at the next
  * analysis, which takes the refinement away.
  */
-export function recordPlateRefinement(id: number, nodes: readonly number[]): void {
+export function recordPlateRefinement(id: number, nodes: readonly number[], made?: { quads: readonly number[]; plates: readonly number[] }): void {
   const e = plateEntry(id);
   if (!e?.surface.meshed) return;
+  const sizes: number[] = [];
+  const round = (v: number) => Math.round(v * 1e6) / 1e6;
+  for (const shell of made ? [...made.quads.map((q) => modelStore.quads.get(q)), ...made.plates.map((p) => modelStore.plates.get(p))] : []) {
+    if (!shell) continue;
+    const at = shell.nodes.map((n) => modelStore.nodes.get(n)!);
+    const centre = (axis: 'x' | 'y' | 'z') => at.reduce((sum, p) => sum + (p[axis] ?? 0), 0) / at.length;
+    const longest = Math.max(...at.map((p, k) => { const q = at[(k + 1) % at.length]!; return Math.hypot(q.x - p.x, q.y - p.y, (q.z ?? 0) - (p.z ?? 0)); }));
+    sizes.push(round(centre('x')), round(centre('y')), round(centre('z')), round(longest));
+  }
   const members = e.group.members;
   const have = new Set(members.nodes ?? []);
   const gained = [...new Set(nodes)].filter((n) => !have.has(n) && modelStore.nodes.has(n));
@@ -593,7 +612,16 @@ export function recordPlateRefinement(id: number, nodes: readonly number[]): voi
       return index.get(n)!;
     }));
   }
-  writeSurface(id, (s) => (s.meshed ? { ...s, meshed: { ...s.meshed, cells: cells.length, quality: meshQuality({ points, cells }), refined: true } } : s));
+  writeSurface(id, (s) => (s.meshed ? {
+    ...s,
+    ...(sizes.length ? { refinement: { samples: [...(s.refinement?.samples ?? []), ...sizes] } } : {}),
+    meshed: { ...s.meshed, cells: cells.length, quality: meshQuality({ points, cells }), refined: true },
+  } : s));
+}
+
+/** The plates whose mesh was made again since a refinement: its sizes are still to be put back. */
+export function platesToRefineAgain(): PlateEntry[] {
+  return physicalPlates().filter((p) => p.surface.refinement && p.surface.meshed && !p.surface.meshed.refined && plateStatus(p.id) === 'current');
 }
 
 /** Remove a plate with its mesh and its area loads; one undo step. */
@@ -637,7 +665,9 @@ export function preparePlatesForAnalysis(): PlatePreparation {
       if (needsMesh.length) return { ok: false, reason: 'needsMesh', plates: needsMesh.map(p => p.name) };
     }
     const error = wallSlabRefusal(modelStore.model);
-    return error ? { ok: false, reason: 'wallSlab', error } : { ok: true, meshed, cells };
+    if (error) return { ok: false, reason: 'wallSlab', error };
+    restoreRefinements();
+    return { ok: true, meshed, cells };
   };
   const need = needsMesh.map(p => p.id);
   if (!need.length) return checked(0, 0);

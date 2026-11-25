@@ -64,6 +64,13 @@ export interface PlateSurface {
    * so the plate keeps its curved side whatever its mesh does with it (`arcSampler`).
    */
   arcMids?: number[];
+  /**
+   * Where an adaptive refinement left this plate's mesh finer, as x, y, z and the longest edge of
+   * each cell it made, one after another. Kept when the mesh is made again, so the sizes are put
+   * back on the new one without solving anything (`restoreRefinements`); dropped when the plate's
+   * mesh settings change or its mesh is cleared by hand.
+   */
+  refinement?: { samples: number[] };
   /** Set when the current mesh was made: what it was made from, and what it is. */
   meshed?: {
     signature: string; cells: number; quality: MeshQuality;

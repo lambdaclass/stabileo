@@ -44,6 +44,20 @@ describe('discretization error', () => {
     expect(hasCertify('estimate_discretization_3d')).toBe(true);
     expect(hasCertify('convergence_study_3d')).toBe(true);
     expect(hasCertify('adapt_mesh_3d')).toBe(true);
+    expect(hasCertify('resize_mesh_3d')).toBe(true);
+  });
+
+  it('a mesh is refined to the sizes wanted where they are wanted, and nowhere without them', () => {
+    const out = callCertify('resize_mesh_3d', [plateWire(4), { samples: [[0.1, 0.1, 0, 0.06]], geometry: 'faceted' }]);
+    expect(out.status).toBe('done');
+    expect(out.passes).toBe(2);
+    expect(Object.keys(out.input.quads).length).toBeGreaterThan(16);
+    expect(Object.keys(out.input.quads).length).toBeLessThan(64);
+    expect(out.mesh.shells.length).toBeGreaterThan(0);
+    expect(out.mesh.nodes).toHaveLength(Object.keys(out.input.nodes).length - 25);
+    const none = callCertify('resize_mesh_3d', [plateWire(4), null]);
+    expect([none.status, none.passes, Object.keys(none.input.quads).length, none.mesh.shells.length]).toEqual(['done', 0, 16, 0]);
+    expect(() => callCertify('resize_mesh_3d', [plateWire(4), { samples: [[0.1, 0.1, 0, 0]] }])).toThrow(/positive size/);
   });
 
   it('adaptive refinement lowers the estimate and gives back a model that solves to it', () => {

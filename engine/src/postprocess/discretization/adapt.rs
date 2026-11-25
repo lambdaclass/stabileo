@@ -430,3 +430,139 @@ pub fn adapt_3d(input: &SolverInput3D, options: &AdaptOptions) -> Result<Adapted
         model = refined.input;
     }
 }
+
+/// What `resize_3d` is asked for.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ResizeOptions {
+    /// Points of the mesh with the element size wanted there: x, y, z and the longest edge.
+    pub samples: Vec<[f64; 4]>,
+    /// A pass that would leave more shell-type elements than this is not made. At most
+    /// `MOST_ELEMENTS`.
+    pub max_elements: usize,
+    /// As `AdaptOptions::max_levels`.
+    pub max_levels: usize,
+    pub geometry: GeometryMode,
+}
+
+impl Default for ResizeOptions {
+    fn default() -> Self {
+        ResizeOptions { samples: Vec::new(), max_elements: 20_000, max_levels: 10, geometry: GeometryMode::default() }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Resized {
+    pub input: SolverInput3D,
+    /// As `Adapted::mesh`.
+    pub mesh: AdaptedMesh,
+    /// The refinements made.
+    pub passes: usize,
+    /// `done` (no element is larger than wanted where a sample lies in it) or `elementLimit`.
+    pub status: String,
+    pub caveats: Vec<String>,
+    pub supports_inferred: usize,
+}
+
+/// An element is split while it is this much longer than the size wanted in it: a split halves
+/// it, so anything closer is nearer the size wanted as it is than split.
+const TOO_LARGE: f64 = 1.5;
+
+/// The corners of the flat-sided elements a sample can be found in, with their longest edge.
+fn cells(model: &SolverInput3D) -> Vec<(ElementKey, Vec<[f64; 3]>, f64)> {
+    let at: HashMap<usize, [f64; 3]> = model.nodes.values().map(|n| (n.id, [n.x, n.y, n.z])).collect();
+    let size = sizes(model);
+    let mut out = Vec::new();
+    let mut take = |key: ElementKey, nodes: &[usize]| {
+        if let (Some(corners), Some(longest)) = (nodes.iter().map(|n| at.get(n).copied()).collect::<Option<Vec<_>>>(), size.get(&key)) {
+            out.push((key, corners, *longest));
+        }
+    };
+    model.plates.values().for_each(|e| take(("plate", e.id), &e.nodes));
+    model.quads.values().for_each(|e| take(("quad", e.id), &e.nodes));
+    model.curved_shells.values().for_each(|e| take(("curvedShell", e.id), &e.nodes));
+    out.sort_by_key(|(key, _, _)| *key);
+    out
+}
+
+/// Whether `p` lies in the element of `corners` (within a quarter of its size of its plane, so a
+/// sample taken on a mesh of the same surface is found on another).
+fn holds(corners: &[[f64; 3]], longest: f64, p: &[f64; 3]) -> bool {
+    let sub = |a: &[f64; 3], b: &[f64; 3]| [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    let cross = |a: &[f64; 3], b: &[f64; 3]| [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    let dot = |a: &[f64; 3], b: &[f64; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    let n = corners.len();
+    let normal = cross(&sub(&corners[1], &corners[0]), &sub(&corners[n - 1], &corners[0]));
+    let length = dot(&normal, &normal).sqrt();
+    if !(length > 0.0) {
+        return false;
+    }
+    let normal = [normal[0] / length, normal[1] / length, normal[2] / length];
+    if dot(&sub(p, &corners[0]), &normal).abs() > 0.25 * longest {
+        return false;
+    }
+    (0..n).all(|k| dot(&cross(&sub(&corners[(k + 1) % n], &corners[k]), &sub(p, &corners[k])), &normal) >= -1e-9 * longest * longest)
+}
+
+/// Refine the shell mesh of `input` until no element is larger than the size wanted where a
+/// sample lies in it, as `refine::refine_marked` refines. Nothing is solved: this puts back on
+/// a mesh made again the sizes an adaptive refinement reached on the one before.
+pub fn resize_3d(input: &SolverInput3D, options: &ResizeOptions) -> Result<Resized, String> {
+    if options.max_elements > MOST_ELEMENTS {
+        return Err(format!("At most {MOST_ELEMENTS} shell elements"));
+    }
+    if options.max_levels > MOST_LEVELS {
+        return Err(format!("At most {MOST_LEVELS} levels"));
+    }
+    if options.samples.iter().flatten().any(|v| !v.is_finite()) || options.samples.iter().any(|s| s[3] <= 0.0) {
+        return Err("A sample needs finite coordinates and a positive size".into());
+    }
+    let finest = sizes(input).into_values().fold(f64::INFINITY, f64::min) / 2f64.powi(options.max_levels as i32);
+    let mut samples = options.samples.clone();
+    samples.sort_by(|a, b| a[0].total_cmp(&b[0]));
+    let Some(original_max_node) = input.nodes.values().map(|n| n.id).max() else { return Err("noShellElements".into()) };
+    let mut model = input.clone();
+    let mut lineage = Lineage::default();
+    let mut caveats: Vec<String> = Vec::new();
+    let (mut passes, mut supports_inferred) = (0, 0);
+    let mut status = "done";
+    for _ in 0..=MOST_LEVELS {
+        let mut to_split: HashSet<ElementKey> = HashSet::new();
+        for (key, corners, longest) in cells(&model) {
+            if longest <= TOO_LARGE * finest {
+                continue;
+            }
+            let (low, high) = corners.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(low, high), c| (low.min(c[0]), high.max(c[0])));
+            let from = samples.partition_point(|s| s[0] < low - 0.25 * longest);
+            let wanted = samples[from..]
+                .iter()
+                .take_while(|s| s[0] <= high + 0.25 * longest)
+                .filter(|s| holds(&corners, longest, &[s[0], s[1], s[2]]))
+                .map(|s| s[3])
+                .fold(f64::INFINITY, f64::min);
+            if longest > TOO_LARGE * wanted {
+                to_split.insert(key);
+            }
+        }
+        if to_split.is_empty() {
+            break;
+        }
+        let refined = refine_marked(&model, options.geometry, &to_split)?;
+        if shell_elements(&refined.input) > options.max_elements {
+            status = "elementLimit";
+            break;
+        }
+        lineage.record(&refined);
+        for caveat in refined.caveats {
+            if !caveats.contains(&caveat) {
+                caveats.push(caveat);
+            }
+        }
+        supports_inferred += refined.supports_inferred;
+        model = refined.input;
+        passes += 1;
+    }
+    let mesh = lineage.mesh(&model, original_max_node);
+    Ok(Resized { input: model, mesh, passes, status: status.into(), caveats, supports_inferred })
+}

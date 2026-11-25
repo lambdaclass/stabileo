@@ -1,6 +1,7 @@
 import { modelStore } from './model.svelte';
 import { historyStore } from './history.svelte';
-import { physicalPlates, recordPlateRefinement } from './physical-plates';
+import { forgetPlateRefinement, physicalPlates, platesToRefineAgain, recordPlateRefinement } from './physical-plates';
+import { callCertify, hasCertify } from '../engine/wasm-solver';
 import { syncDefinedLoads } from './defined-loads';
 import { discretizationStore } from './discretization.svelte';
 import type { Load, Plate, Quad } from './model.svelte';
@@ -14,7 +15,7 @@ type ShellLoad = Extract<Load, { type: 'surface3d' | 'thermalQuad3d' }>;
  * cannot be cut where the mesh needs it undoes the step: its shells would be split around nodes
  * the member does not reach.
  */
-export function applyRefinedMeshPlan(plan: RefinedMeshPlan): { nodes: number; shells: number } | { refused: RefinedMeshRefusal } {
+export function applyRefinedMeshPlan(plan: RefinedMeshPlan, opts: { keepSizes?: boolean } = {}): { nodes: number; shells: number } | { refused: RefinedMeshRefusal } {
   const idOf = new Map<number, number>();
   const node = (id: number) => idOf.get(id) ?? id;
   const placed = new Map(plan.nodes.map((n) => [n.id, n]));
@@ -88,7 +89,9 @@ export function applyRefinedMeshPlan(plan: RefinedMeshPlan): { nodes: number; sh
         .map((n) => node(n.id));
       const before = grouped.get(plate.id);
       const split = before?.quads?.some((id) => parts.quad.has(id)) || before?.plates?.some((id) => parts.plate.has(id));
-      if (gained.length || split) recordPlateRefinement(plate.id, gained);
+      if (!gained.length && !split) continue;
+      const made = (list: number[] | undefined, split: Map<number, number[]>) => (list ?? []).flatMap((id) => split.get(id) ?? []);
+      recordPlateRefinement(plate.id, gained, opts.keepSizes ? undefined : { quads: made(before?.quads, parts.quad), plates: made(before?.plates, parts.plate) });
     }
     syncDefinedLoads();
   });
@@ -99,9 +102,51 @@ export function applyRefinedMeshPlan(plan: RefinedMeshPlan): { nodes: number; sh
   return { nodes: plan.nodes.length, shells };
 }
 
-export function applyRefinedMesh(wire: Record<string, any>, mesh: RefinedMesh): { refused: RefinedMeshRefusal } | { nodes: number; shells: number } {
+export function applyRefinedMesh(wire: Record<string, any>, mesh: RefinedMesh, opts: { keepSizes?: boolean } = {}): { refused: RefinedMeshRefusal } | { nodes: number; shells: number } {
   const plan = planRefinedMesh({ ...modelStore.model, constraints: modelStore.constraints }, wire, mesh);
-  return 'refused' in plan ? plan : applyRefinedMeshPlan(plan);
+  return 'refused' in plan ? plan : applyRefinedMeshPlan(plan, opts);
+}
+
+const RESIZE_EXPORT = 'resize_mesh_3d';
+
+/**
+ * Put back, on plates meshed again since, the element sizes an adaptive refinement left them
+ * (`PlateSurface.refinement`): the engine refines the new mesh to those sizes and solves nothing.
+ * Sizes that cannot be put back are dropped, so they are not tried again at every analysis.
+ * Returns the shells it added.
+ */
+export function restoreRefinements(): number {
+  const pending = platesToRefineAgain();
+  if (!pending.length || !hasCertify(RESIZE_EXPORT)) return 0;
+  // The loads of the plates' definitions belong to the mesh just made: without them the solver
+  // input is refused for loads that add up to nothing.
+  syncDefinedLoads();
+  const input = modelStore.singleSolveInput3D(false, false, true);
+  if (!input) return 0;
+  const ids = pending.map((p) => p.id);
+  const samples: number[][] = [];
+  for (const p of pending) {
+    const flat = p.surface.refinement!.samples;
+    for (let k = 0; k + 3 < flat.length; k += 4) samples.push([flat[k]!, flat[k + 1]!, flat[k + 2]!, flat[k + 3]!]);
+  }
+  const wire = input.wire();
+  let mesh: RefinedMesh;
+  try {
+    mesh = callCertify(RESIZE_EXPORT, [wire, { samples }]).mesh;
+  } catch {
+    forgetPlateRefinement(ids);
+    return 0;
+  }
+  if (!mesh.shells.length) {
+    modelStore.batch(() => { for (const id of ids) recordPlateRefinement(id, []); });
+    return 0;
+  }
+  const applied = applyRefinedMesh(wire, mesh, { keepSizes: true });
+  if ('refused' in applied) {
+    forgetPlateRefinement(ids);
+    return 0;
+  }
+  return applied.shells;
 }
 
 /** Apply the adaptive refinement on screen to the model. */
