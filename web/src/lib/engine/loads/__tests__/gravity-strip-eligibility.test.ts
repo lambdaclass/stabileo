@@ -3,7 +3,7 @@ import { teAt } from '../../../i18n/engine-text';
 import { floorLoad, physicalFloorLoad } from '../floor-loads';
 import { buildLoadPlan, roofWeightFor } from '../load-plan';
 import { gravityLayout, MAX_DECK_SPAN, MIN_STOREY_HEADROOM, type GravityOptions } from '../plan-gravity';
-import { bay } from './gravity-regions-fixture';
+import { bay, explicitStripFloor } from './gravity-regions-fixture';
 import { input } from './gravity-width-mass-fixture';
 
 type Model = ReturnType<typeof bay>['model'];
@@ -60,27 +60,26 @@ it('#2200 refuses partial strips oblique to the requested one-way span', () => {
       })]),
     };
     const key = 'loadPlan.gravity.stripDirection';
-    expectBlocked(model, gravity, key, /one-way span.*align/i);
+    expectBlocked(model, gravity, 'loadPlan.gravity.differentDeck', /same deck/i);
     expect(() => floorLoad(floor)).toThrow(expect.objectContaining({ key }));
     expect(() => physicalFloorLoad(floor)).toThrow(expect.objectContaining({ key }));
   }
 });
 
 it('#2200 refuses uncovered strips whose carrier span exceeds the deck limit', () => {
-  expectBlocked(wideBay(100, 100, 1), panels, 'loadPlan.gravity.stripSpan', /deck span/i);
-  expectBlocked(wideBay(10, MAX_DECK_SPAN + 0.125, 9), panels, 'loadPlan.gravity.stripSpan', /deck span/i);
+  expectBlocked(wideBay(100, 100, 1), panels, 'loadPlan.gravity.differentDeck', /same deck/i);
+  expectBlocked(wideBay(10, MAX_DECK_SPAN + 0.125, 9), panels, 'loadPlan.gravity.differentDeck', /same deck/i);
 });
 
 it('#2200 refuses uncovered strips without storey headroom', () => {
-  expectBlocked(overheadBay(MIN_STOREY_HEADROOM - 0.125), panels, 'loadPlan.gravity.stripHeadroom', /headroom/i);
+  expectBlocked(overheadBay(MIN_STOREY_HEADROOM - 0.125), panels, 'loadPlan.gravity.differentDeck', /same deck/i);
 });
 
-it('keeps valid shell strips at and below the span limit', () => {
+it('checks explicit strip transfer at and below the span limit', () => {
   for (const span of [MAX_DECK_SPAN, MAX_DECK_SPAN - 0.125]) {
     const model = wideBay(10, span, 4);
-    const plan = buildLoadPlan(input(model, { gravity: panels }));
-    expect(plan.outcome).toBe('READY');
-    const dead = plan.distributed.filter(l => l.caseType === 'D');
+    expectBlocked(model, panels, 'loadPlan.gravity.differentDeck', /same deck/i);
+    const dead = explicitStripFloor(model).loads.map(load => ({ ...load, q: load.qZI, qJ: load.qZJ }));
     expect(dead.map(l => l.elementId).sort()).toEqual([1, 2]);
     for (const load of dead) {
       expect(load.a).toBeCloseTo(4, 10);
@@ -91,22 +90,10 @@ it('keeps valid shell strips at and below the span limit', () => {
   }
 });
 
-it('keeps the strip clearances at and above the storey limit and ignores low cover over the shell alone', () => {
-  const examples = [
-    { model: overheadBay(MIN_STOREY_HEADROOM), start: 0.1 },
-    { model: overheadBay(MIN_STOREY_HEADROOM + 0.125), start: 0.1 },
-    { model: overheadBay(MIN_STOREY_HEADROOM - 0.125, 4, 2), start: 4 },
-  ];
-  for (const { model, start } of examples) {
-    const plan = buildLoadPlan(input(model, { gravity: panels }));
-    expect(plan.outcome).toBe('READY');
-    const dead = plan.distributed.filter(l => l.caseType === 'D');
-    expect(dead.map(l => l.elementId).sort()).toEqual([1, 2]);
-    for (const load of dead) {
-      expect(load.a).toBeCloseTo(start, 10);
-      expect(load.b ?? 10).toBeCloseTo(10, 10);
-      expect(load.q).toBeCloseTo(-3, 10);
-      expect(load.qJ ?? load.q).toBeCloseTo(-3, 10);
-    }
-  }
+it('storey clearance cannot resolve partial shell ownership', () => {
+  for (const model of [
+    overheadBay(MIN_STOREY_HEADROOM),
+    overheadBay(MIN_STOREY_HEADROOM + 0.125),
+    overheadBay(MIN_STOREY_HEADROOM - 0.125, 4, 2),
+  ]) expectBlocked(model, panels, 'loadPlan.gravity.differentDeck', /same deck/i);
 });

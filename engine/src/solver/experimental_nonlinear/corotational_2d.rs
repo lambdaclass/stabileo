@@ -5,11 +5,11 @@ struct Corotational2D<'a> {
     input: &'a SolverInput,
     dof_num: &'a DofNumbering,
     cs: &'a Option<FreeConstraintSystem>,
-    asm: &'a assembly::AssemblyResult,
+    asm: &'a assembly::StiffnessAssembly2D,
     art: &'a [(usize, f64)],
     metric: &'a crate::solver::convergence::EquilibriumMetric,
     ns: usize,
-    f_total: &'a [f64],
+    loads: &'a PlanarLoadPath,
     f_base: &'a [f64],
     u_r_base: &'a [f64],
     u_r_target: &'a [f64],
@@ -18,9 +18,7 @@ struct Corotational2D<'a> {
     u_converged: Vec<f64>,
     sparse_sym_cache: Option<SparseSymbolicCache>,
     conditioning: Option<StructuredDiagnostic>,
-    f_ext: Vec<f64>,
-    active_supports: Vec<f64>,
-    support_step: Option<Vec<f64>>,
+    targets: IncrementTargets2D,
     cached_factor: Option<CachedTangentFactor>,
     r_f: Vec<f64>,
     unbalance: Vec<f64>,
@@ -127,28 +125,14 @@ pub(super) fn damp(
 
 impl incremental::IncrementalProblem for Corotational2D<'_> {
     fn begin_increment(&mut self, load_factor: f64) {
-        let (n, nf) = (self.dof_num.n_total, self.dof_num.n_free);
-        let (f_base, f_total, u_r_base, u_r_target) =
-            (self.f_base, self.f_total, self.u_r_base, self.u_r_target);
-        self.f_ext = (0..n)
-            .map(|i| f_base[i] + load_factor * (f_total[i] - f_base[i]))
-            .collect();
-        self.active_supports = u_r_base
-            .iter()
-            .zip(u_r_target)
-            .map(|(base, target)| base + load_factor * (target - base))
-            .collect();
-        self.support_step = Some(
-            u_r_base
-                .iter()
-                .zip(u_r_target)
-                .enumerate()
-                .map(|(i, (base, target))| {
-                    base + load_factor * (target - base) - self.u_full[nf + i]
-                })
-                .collect::<Vec<f64>>(),
-        )
-        .filter(|du| du.iter().any(|&v| v != 0.0));
+        let nf = self.dof_num.n_free;
+        self.targets = IncrementTargets2D::new(
+            self.loads.at(load_factor).forces(),
+            self.u_r_base,
+            self.u_r_target,
+            &self.u_full[nf..],
+            load_factor,
+        );
         self.cached_factor = None;
     }
 
@@ -228,14 +212,14 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
 
         let mut residual = vec![0.0; n];
         for i in 0..n {
-            residual[i] = self.f_ext[i] - f_int[i];
+            residual[i] = self.targets.forces[i] - f_int[i];
         }
 
         let r_f: Vec<f64> = residual[..nf].to_vec();
         let rel_error = metric.continuation_residual(
             &residual,
-            &self.f_ext,
-            &self.active_supports,
+            &self.targets.forces,
+            &self.targets.supports,
             &f_base,
             &start_internal,
             cs.as_ref(),
@@ -249,7 +233,7 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
         self.trip_vals = trip_vals;
         Ok(incremental::Linearization {
             measure: rel_error,
-            forced: self.support_step.is_some(),
+            forced: self.targets.support_step.is_some(),
         })
     }
 
@@ -265,7 +249,7 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
             std::mem::take(&mut self.trip_vals),
         );
         let mut r_f = r_f;
-        if let Some(ref du_r) = self.support_step {
+        if let Some(ref du_r) = self.targets.support_step {
             let mut known = vec![0.0; n];
             known[nf..].copy_from_slice(du_r);
             if let Some(ref cs) = *cs {
@@ -366,7 +350,8 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
         let delta_u_f = if let Some(ref cs) = *cs {
             cs.expand_solution(
                 &delta_u_indep,
-                self.support_step
+                self.targets
+                    .support_step
                     .as_deref()
                     .map_or(MasterMotion::Homogeneous, MasterMotion::Prescribed),
             )
@@ -390,15 +375,8 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
     }
 
     fn advance(&mut self, delta_u_f: &[f64]) {
-        let nf = self.dof_num.n_free;
-        for i in 0..nf {
-            self.u_full[i] += delta_u_f[i];
-        }
-        if let Some(du_r) = self.support_step.take() {
-            for (r, du) in du_r.iter().enumerate() {
-                self.u_full[nf + r] += du;
-            }
-        }
+        self.targets
+            .advance(&mut self.u_full, delta_u_f, self.cs.as_ref());
     }
 
     fn state(&self) -> Vec<f64> {
@@ -415,6 +393,9 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
 
     fn set_state(&mut self, state: &[f64]) {
         self.u_full[..self.dof_num.n_free].copy_from_slice(state);
+        if let Some(cs) = self.cs {
+            cs.impose_motion(&mut self.u_full);
+        }
     }
 
     fn residual(&self) -> Vec<f64> {
@@ -497,8 +478,10 @@ fn corotational_2d(
     method: IterationMethod,
     stepping: LoadStepping,
 ) -> Result<CorotationalResult, String> {
-    let canonical_input = crate::solver::member_loads::plane_input(input);
-    let input = canonical_input.as_ref();
+    let plane = PlaneInputs::new(input, start);
+    let input = plane.target.as_ref();
+    let start = plane.start();
+    let start = start.as_ref();
 
     if n_increments == 0 {
         return Err("Number of load increments must be at least 1".into());
@@ -532,14 +515,23 @@ fn corotational_2d(
     let cs = FreeConstraintSystem::build_2d(&input, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
-    let asm = assembly::assemble_2d(input, &dof_num);
-    let f_total = asm.f.clone();
-    let art = assembly::artificial_stiffness_entries(&asm);
+    let asm = assembly::assemble_stiffness_2d(input, &dof_num);
+    let art = asm.artificial_stiffness_entries();
 
-    let (u_full, f_base) = match start {
-        Some(start) => start_state_2d(input, start, &dof_num)?,
-        None => (vec![0.0; n], vec![0.0; n]),
+    let mut u_full = match start {
+        Some(start) => start_displacements_2d(input, start, &dof_num)?,
+        None => vec![0.0; n],
     };
+    let loads = PlanarLoadPath::increments(
+        input,
+        start.map(|start| start.input),
+        &dof_num,
+        &asm.inclined_transforms_2d,
+    );
+    let f_base = loads.base().forces();
+    if let Some(cs) = &cs {
+        cs.impose_motion(&mut u_full);
+    }
     let u_r_base: Vec<f64> = u_full[nf..].to_vec();
     let u_r_target = crate::solver::linear::prescribed_displacements_2d(input, &dof_num);
     let support_extent: Vec<_> = u_r_base
@@ -569,7 +561,7 @@ fn corotational_2d(
         art: &art,
         metric: &metric,
         ns,
-        f_total: &f_total,
+        loads: &loads,
         f_base: &f_base,
         u_r_base: &u_r_base,
         u_r_target: &u_r_target,
@@ -578,9 +570,7 @@ fn corotational_2d(
         u_full,
         sparse_sym_cache: None,
         conditioning: None,
-        f_ext: Vec::new(),
-        active_supports: Vec::new(),
-        support_step: None,
+        targets: IncrementTargets2D::default(),
         cached_factor: None,
         r_f: Vec::new(),
         unbalance: Vec::new(),
@@ -607,22 +597,13 @@ fn corotational_2d(
 
     let max_displacement = compute_max_displacement(&dof_num, &u_full);
 
-    let scaled;
-    let at_state = if let Some(start) = start {
-        scaled = blended_loads_2d(start.input, input, converged_factor);
-        &scaled
-    } else if converged_factor < 1.0 {
-        scaled = scaled_loads_2d(input, converged_factor);
-        &scaled
-    } else {
-        input
-    };
-    let mut results = build_final_results(
-        at_state,
+    let mut results = build_planar_results(
+        input,
         &dof_num,
         &u_full,
         &cs,
         &asm.inclined_transforms_2d,
+        &loads.at(converged_factor),
     )?;
     crate::known_issues::attach(
         &mut results.structured_diagnostics,
@@ -651,6 +632,144 @@ fn corotational_2d(
 mod shared_driver_equivalence {
     use super::*;
     use std::collections::HashMap;
+
+    fn axial_spring(force: f64) -> SolverInput {
+        serde_json::from_value(serde_json::json!({
+            "nodes": {"1": {"id": 1, "x": 0, "z": 0}},
+            "elements": {}, "materials": {}, "sections": {},
+            "supports": {
+                "1": {"id": 1, "nodeId": 1, "type": "spring", "kx": 1, "ky": 1}
+            },
+            "loads": [{"type": "nodal", "data": {"nodeId": 1, "fx": force, "fz": 0, "my": 0}}]
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn review_round_two_warm_corotation_preserves_the_absolute_tie() {
+        let mut first: SolverInput = serde_json::from_str(include_str!(
+            "../../../../scripts/tests/fixtures/arc-tied-springs.json"
+        )).unwrap();
+        first.supports.get_mut("1").unwrap().dx = Some(1.0);
+        let initial =
+            solve_corotational_2d_by(&first, None, 20, 1e-8, 1, IterationMethod::Newton).unwrap();
+        assert!(initial.converged);
+        assert_eq!(initial.results.displacements[1].ux, 1.0);
+        let start = CorotationalStart2D {
+            input: &first,
+            displacements: &initial.results.displacements,
+        };
+        for target in [0.25, 0.0, 1e-20, -1e-20] {
+            let mut input = first.clone();
+            input.supports.get_mut("1").unwrap().dx = Some(target);
+            for method in [
+                IterationMethod::Newton,
+                IterationMethod::ModifiedNewton,
+                IterationMethod::NewtonLineSearch,
+                IterationMethod::Anderson { depth: 2 },
+            ] {
+                for result in [
+                    solve_corotational_2d_by(&input, Some(&start), 20, 1e-8, 1, method),
+                    solve_corotational_2d_stepped(
+                        &input, Some(&start), 20, 1e-8, 1, method, LoadStepping::Adaptive,
+                    ),
+                ] {
+                    let result = result.unwrap();
+                    assert!(result.converged);
+                    let displacements = &result.results.displacements;
+                    assert_eq!((displacements[0].ux, displacements[1].ux), (target, target));
+                    assert_eq!(displacements[2].ux, 1.0);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn review_round_two_warm_corotation_keeps_a_constant_resultant_at_every_increment() {
+        let mut input = axial_spring(1.0);
+        let initial =
+            solve_corotational_2d_by(&input, None, 20, 1e-8, 1, IterationMethod::Newton).unwrap();
+        assert!(initial.converged);
+        assert_eq!(initial.results.displacements[0].ux, 1.0);
+        let b = 3.0 * 2f64.powi(51);
+        input.loads = [b + 3.0, -(b + 2.0)].map(|fx| {
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx, fz: 0.0, my: 0.0 })
+        }).to_vec();
+        let start = CorotationalStart2D {
+            input: &input,
+            displacements: &initial.results.displacements,
+        };
+        for modified in [IterationMethod::Newton, IterationMethod::ModifiedNewton] {
+            let result =
+                solve_corotational_2d_by(&input, Some(&start), 1, 1e-8, 4, modified).unwrap();
+            assert!(result.converged, "stopped at {}", result.load_factor);
+            assert_eq!(result.load_factor, 1.0);
+            assert_eq!(result.results.displacements[0].ux, 1.0);
+        }
+    }
+
+    #[test]
+    fn issue_2484_warm_start_reaches_the_exact_target_force() {
+        for (base, target) in [(2f64.powi(54), 1.0), (1.0, 1e-20), (1.0, -1e-20), (1.0, 0.25), (1.0, 0.0)] {
+            let first = axial_spring(base);
+            let target_input = axial_spring(target);
+            let initial = solve_corotational_2d_by(&first, None, 20, 1e-8, 1, IterationMethod::Newton)
+                .unwrap();
+            assert!(initial.converged);
+            assert_eq!(initial.results.displacements[0].ux, base);
+            let start = CorotationalStart2D {
+                input: &first,
+                displacements: &initial.results.displacements,
+            };
+            for result in [
+                solve_corotational_2d_by(
+                    &target_input, Some(&start), 20, 1e-8, 1, IterationMethod::Newton,
+                ),
+                solve_corotational_2d_stepped(
+                    &target_input, Some(&start), 20, 1e-8, 1,
+                    IterationMethod::Newton, LoadStepping::Adaptive,
+                ),
+            ] {
+                let result = result.unwrap();
+                assert!(result.converged);
+                assert_eq!(result.load_factor, 1.0);
+                assert_eq!(result.results.displacements[0].ux, target);
+            }
+        }
+    }
+
+    #[test]
+    fn issue_2484_warm_start_assigns_the_exact_prescribed_position() {
+        let mut first = frame(1, 0.0, Some("pinned"));
+        first.loads.clear();
+        first.supports.get_mut("2").unwrap().dx = Some(1.0);
+        let initial =
+            solve_corotational_2d_by(&first, None, 20, 1e-8, 1, IterationMethod::Newton).unwrap();
+        assert!(initial.converged);
+        assert_eq!(initial.results.displacements[1].ux, 1.0);
+        let start = CorotationalStart2D {
+            input: &first,
+            displacements: &initial.results.displacements,
+        };
+        for target in [1e-20, 0.0, -1e-20, 0.25] {
+            let mut input = first.clone();
+            input.supports.get_mut("2").unwrap().dx = Some(target);
+            for result in [
+                solve_corotational_2d_by(
+                    &input, Some(&start), 20, 1e-8, 1, IterationMethod::Newton,
+                ),
+                solve_corotational_2d_stepped(
+                    &input, Some(&start), 20, 1e-8, 1,
+                    IterationMethod::Newton, LoadStepping::Adaptive,
+                ),
+            ] {
+                let result = result.unwrap();
+                assert!(result.converged);
+                assert_eq!(result.load_factor, 1.0);
+                assert_eq!(result.results.displacements[1].ux, target);
+            }
+        }
+    }
 
     fn frame(n: usize, rise: f64, far_support: Option<&str>) -> SolverInput {
         let (mut nodes, mut elements, mut supports) =

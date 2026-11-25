@@ -9,6 +9,7 @@
  *
  * Pure.
  */
+import { sumCombinationFactors } from '../wasm-solver';
 import type { CaseCombination } from './combination-cases';
 import type { LoadCase } from '../../store/model.svelte';
 
@@ -34,10 +35,11 @@ export function withNotionalVariants(combos: readonly CaseCombination[], cases: 
   for (const c of combos) {
     out.push(c);
     if (c.purpose === 'service') continue;
-    if (c.factors.some((f) => f.factor !== 0 && lateral(f.caseId))) continue;
+    const factors = sumCombinationFactors(c.factors);
+    if (factors.some((f) => f.factor !== 0 && lateral(f.caseId))) continue;
     for (const dir of dirs) {
       const extra = notional.filter((n) => n.notional!.dir === dir).flatMap((n) => {
-        const f = c.factors.find((x) => x.caseId === n.notional!.sourceCaseId)?.factor ?? 0;
+        const f = factors.find((x) => x.caseId === n.notional!.sourceCaseId)?.factor ?? 0;
         return f !== 0 ? [{ caseId: n.id, factor: f }] : [];
       });
       if (!extra.length) continue;

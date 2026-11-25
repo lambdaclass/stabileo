@@ -1,0 +1,32 @@
+{
+  "id": "warped-quad-containment",
+  "date": "2026-11-24",
+  "prs": [2535],
+  "area": "analysis",
+  "when": { "all": ["shellsInBasic"] },
+  "quantities": ["*", "solve.ok"],
+  "title": {
+    "en": "Basic analysis refuses models with shells",
+    "es": "El análisis Básico rechaza modelos con láminas",
+    "pt": "A análise Básica recusa modelos com cascas",
+    "de": "Die Basic-Analyse lehnt Modelle mit Schalen ab",
+    "fr": "L’analyse Basic refuse les modèles avec coques",
+    "tr": "Basic analiz kabuk içeren modelleri reddeder",
+    "zh": "基本分析会拒绝含壳单元的模型",
+    "hu": "A Basic elemzés elutasítja a héjelemeket tartalmazó modelleket"
+  },
+  "explanation": {
+    "en": "Basic analysis could omit shell stiffness and return a frame result. Open the model in PRO and run it again with its shells included. The engine applies the existing MITC4 and MITC9 twist limits.",
+    "es": "El análisis Básico podía omitir la rigidez de las láminas y devolver un resultado del pórtico. Abrí el modelo en PRO y volvé a analizarlo con las láminas incluidas. El motor aplica los límites de alabeo vigentes para MITC4 y MITC9.",
+    "pt": "A análise Básica podia omitir a rigidez das cascas e retornar um resultado do pórtico. Abra o modelo no PRO e execute a análise novamente com as cascas incluídas. O motor aplica os limites de torção existentes para MITC4 e MITC9.",
+    "de": "Die Basic-Analyse konnte die Steifigkeit der Schalen weglassen und ein Ergebnis für den Rahmen liefern. Öffnen Sie das Modell in PRO und berechnen Sie es erneut mit den Schalen. Der Solver wendet die bestehenden Verwindungsgrenzen für MITC4 und MITC9 an.",
+    "fr": "L’analyse Basic pouvait omettre la rigidité des coques et produire un résultat pour l’ossature seule. Ouvrez le modèle dans PRO et relancez l’analyse avec ses coques. Le moteur applique les limites de vrillage existantes pour MITC4 et MITC9.",
+    "tr": "Basic analiz kabuk rijitliğini atlayıp yalnızca çerçeve sonucunu verebiliyordu. Modeli PRO modunda açın ve kabukları dahil ederek yeniden analiz edin. Çözücü, MITC4 ve MITC9 için mevcut burulma sınırlarını uygular.",
+    "zh": "基本分析可能会忽略壳单元的刚度，仅返回框架结果。请在 PRO 中打开模型，纳入壳单元后重新分析。求解器会应用 MITC4 和 MITC9 的现有扭曲限值。",
+    "hu": "A Basic elemzés kihagyhatta a héjak merevségét, és csak a váz eredményét adhatta vissza. Nyissa meg a modellt PRO módban, és futtassa újra az elemzést a héjakkal együtt. A megoldó az MITC4 és MITC9 meglévő csavarodási határértékeit alkalmazza."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-warped-quad-containment.md",
+    "heading": "Warp containment for flat quads"
+  }
+}

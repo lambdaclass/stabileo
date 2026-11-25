@@ -127,8 +127,7 @@ describe('each entry point, with the engine down', () => {
     const tab = read('components/pro/ProLoadsTab.svelte');
     expect(tab).toMatch(/runEngineAction\(\(\) => buildCandidates\(template\)\)/);
     expect(tab.match(/candidateCombos = buildCandidates\(/g)).toBeNull();
-    // The seed runs the bound basis code's combinations, CIRSOC 101's among them, inside it.
-    expect(read('components/pro/ProCombinationRules.svelte')).toMatch(/runEngineAction\(\(\) => \(b\s*\?\s*\[\.\.\.b\.strength[\s\S]*?\[\.\.\.generateCombinations/);
+    expect(read('components/pro/ProCombinationRules.svelte')).toMatch(/runEngineAction\(\(\) => \[\.\.\.generateCombinations/);
   });
 
   it('opening a PRO example while the engine failed to load: a toast, nothing half-loaded', async () => {

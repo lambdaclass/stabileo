@@ -99,7 +99,7 @@ function segCross(a: P2, b: P2, c: P2, d: P2): P2 | null {
 }
 
 /** One side's share from the cells of its region (plane coordinates). */
-function shareOf(e: Side, cells: P2[][], q: number, zone?: Zone2D): SideShare {
+function shareOf(e: Side, cells: P2[][], q: number, zone: Zone2D | undefined, physical: boolean): SideShare {
   const local = (p: P2): P2 => [along(e, p), dist(e, p)];
   const cs = cells.map((c) => c.map(local));
   const zl = zone ? [zone.outer, ...zone.holes].map((l) => l.map(local)) : null;
@@ -128,7 +128,11 @@ function shareOf(e: Side, cells: P2[][], q: number, zone?: Zone2D): SideShare {
       if (x) bp.add(x[0]);
     }
   }
-  const ss = [...bp].map((s) => Math.round(s * 1e9) / 1e9).sort((a, b) => a - b).filter((s, i, a) => i === 0 || s - a[i - 1]! > 1e-9);
+  const stations = [...bp];
+  const scale = Math.max(e.len, ...stations.map(Math.abs));
+  const error = physical ? 32 * Number.EPSILON * scale : 1e-9;
+  const ss = (physical ? stations : stations.map(s => Math.round(s * 1e9) / 1e9))
+    .sort((a, b) => a - b).filter((s, i, a) => i === 0 || s - a[i - 1]! > error);
   const out: SideShare = { pieces: [], atA: 0, atB: 0 };
   for (let i = 0; i + 1 < ss.length; i++) {
     const s0 = ss[i]!, s1 = ss[i + 1]!;
@@ -151,7 +155,7 @@ function shareOf(e: Side, cells: P2[][], q: number, zone?: Zone2D): SideShare {
 }
 
 /** Two way: each side's share. Convex panels without openings by nearest side; others by the skeleton. */
-export function twoWayShares(sides: Side[], holes: Side[][], q: number, zone?: Zone2D): SideShare[] | null {
+export function twoWayShares(sides: Side[], holes: Side[][], q: number, zone?: Zone2D, physical = false): SideShare[] | null {
   const all = [...sides, ...holes.flat()];
   let cells: P2[][][];
   if (!holes.length && isConvex(sides.map((s) => s.a))) {
@@ -168,11 +172,11 @@ export function twoWayShares(sides: Side[], holes: Side[][], q: number, zone?: Z
     if (!c) return null;
     cells = c;
   }
-  return all.map((e, k) => shareOf(e, cells[k]!, q, zone));
+  return all.map((e, k) => shareOf(e, cells[k]!, q, zone, physical));
 }
 
 /** One way along d: strips resting on the sides they reach. Null when a zone cuts a strip. */
-export function oneWayShares(sides: Side[], holes: Side[][], d: P2, q: number, zone?: Zone2D): SideShare[] | null {
+export function oneWayShares(sides: Side[], holes: Side[][], d: P2, q: number, zone?: Zone2D, physical = false): SideShare[] | null {
   const all = [...sides, ...holes.flat()];
   const out: SideShare[] = all.map(() => ({ pieces: [], atA: 0, atB: 0 }));
   const n: P2 = [-d[1], d[0]];
@@ -185,7 +189,8 @@ export function oneWayShares(sides: Side[], holes: Side[][], d: P2, q: number, z
       if (cross) ts0.push(dot(n, cross));
     }
   }
-  const ts = [...new Set(ts0.map((t) => Math.round(t * 1e9) / 1e9))].sort((a, b) => a - b);
+  const ts = [...new Set(physical ? ts0 : ts0.map(t => Math.round(t * 1e9) / 1e9))].sort((a, b) => a - b);
+  const error = physical ? 32 * Number.EPSILON * Math.max(...ts.map(Math.abs), ...all.map(side => side.len)) : 1e-9;
   const sAt = (s: Side, t: number) => (t - dot(n, s.a)) / dot(s.u, n);
   const point = (s: Side, t: number): P2 => { const sa = sAt(s, t); return [s.a[0] + s.u[0] * sa, s.a[1] + s.u[1] * sa]; };
   const zoneLocal = loops.map(loop => loop.map((p): P2 => [dot(n, p), dot(d, p)]));
@@ -205,7 +210,7 @@ export function oneWayShares(sides: Side[], holes: Side[][], d: P2, q: number, z
   };
   for (let i = 0; i + 1 < ts.length; i++) {
     const t0 = ts[i]!, t1 = ts[i + 1]!;
-    if (t1 - t0 < 1e-9) continue;
+    if (t1 - t0 < error) continue;
     const at = (t: number) => {
       const hits: Array<{ k: number; r: number }> = [];
       all.forEach((s, k) => {

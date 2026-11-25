@@ -345,23 +345,6 @@ fn corotational_3d(
             Use the linear solver for models with plates, quads, or shells."
             .into());
     }
-    let frame_sections: std::collections::HashSet<usize> = crate::ordered::values(&input.elements)
-        .filter(|e| e.elem_type == "frame")
-        .map(|e| e.section_id)
-        .collect();
-    if let Some(sec) = crate::ordered::values(&input.sections)
-        .filter(|s| frame_sections.contains(&s.id))
-        .find(|s| {
-            s.shear_center_y.is_some_and(|v| v != 0.0) || s.shear_center_z.is_some_and(|v| v != 0.0)
-        })
-    {
-        return Err(format!(
-            "Corotational 3D solver does not model a shear-centre offset (section {}): \
-             flexural-torsional coupling is not included. Use linear buckling or P-Delta.",
-            sec.id
-        ));
-    }
-
     crate::solver::feature_gates::refuse_3d(
         input,
         "Corotational analysis",
@@ -372,7 +355,7 @@ fn corotational_3d(
         ],
     )?;
     crate::element::connector::refuse_for_corotational_3d(input, "Corotational analysis")?;
-    let input = &crate::solver::linear::expand_curved_beams_3d(input);
+    let input = &checked_corotational_frames_3d(input)?;
     let dof_num = DofNumbering::build_3d(input);
 
     if dof_num.n_free == 0 {
@@ -493,6 +476,42 @@ fn corotational_3d(
 #[cfg(test)]
 mod shared_driver_equivalence_3d {
     use super::*;
+
+    #[test]
+    fn issue_2484_curved_frame_sections_get_the_shear_centre_refusal() {
+        let mut model: SolverInput3D = serde_json::from_str(include_str!(
+            "../../../tests/metamorphic_corpus/feature_matrix/3d-curved-beam-arch-with.json"
+        ))
+        .unwrap();
+        assert!(model.elements.is_empty());
+        model.curved_beams[0].num_segments = 4;
+        for load in &mut model.loads {
+            if let SolverLoad3D::Nodal(load) = load {
+                load.fx *= 0.01;
+                load.fy *= 0.01;
+                load.fz *= 0.01;
+            }
+        }
+        model.sections.get_mut("6").unwrap().shear_center_y = Some(0.01);
+        for (y, z) in [(None, None), (Some(0.0), Some(-0.0)), (Some(-0.01), None), (None, Some(0.01))] {
+            let section = model.sections.get_mut("1").unwrap();
+            section.shear_center_y = y;
+            section.shear_center_z = z;
+            assert!(crate::solver::linear::solve_3d(&model).is_ok());
+            for result in [
+                solve_corotational_3d_by(&model, 30, 1e-8, 2, IterationMethod::Newton),
+                solve_corotational_3d_stepped(
+                    &model, 30, 1e-8, 2, IterationMethod::Newton, LoadStepping::Adaptive,
+                ),
+            ] {
+                if y.unwrap_or(0.0) != 0.0 || z.unwrap_or(0.0) != 0.0 {
+                    assert!(result.unwrap_err().contains("shear-centre offset (section 1)"));
+                } else {
+                    assert!(result.unwrap().converged);
+                }
+            }
+        }
+    }
 
     fn frame(n: usize, rise: f64, propped: bool, scale: f64) -> SolverInput3D {
         let mut nodes = serde_json::Map::new();

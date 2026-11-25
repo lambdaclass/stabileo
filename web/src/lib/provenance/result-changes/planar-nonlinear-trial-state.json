@@ -1,0 +1,42 @@
+{
+  "id": "planar-nonlinear-trial-state",
+  "date": "2026-11-24",
+  "prs": [2539],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      ["plane2D"],
+      ["analysis:nonlinear"],
+      ["members", "springs", "constraints", "pathAnalysis"]
+    ]
+  },
+  "quantities": [
+    "solve.ok", "displacements", "reactions", "elementForces", "constraintForces",
+    "steps", "finalLoadFactor", "loadFactor", "converged", "iterations",
+    "totalIterations", "rejectedIterations", "maxDisplacement"
+  ],
+  "title": {
+    "en": "Planar nonlinear trial and recovery states agree",
+    "es": "Coinciden los estados de ensayo y de recuperación no lineales planos",
+    "pt": "Os estados de tentativa e de recuperação não lineares planos coincidem",
+    "de": "Ebene nichtlineare Versuchs- und Ergebniszustände stimmen überein",
+    "fr": "Les états d’essai et de récupération non linéaires plans concordent",
+    "hu": "A síkbeli nemlineáris próba és az eredményszámítás állapota egyezik",
+    "tr": "Düzlemsel doğrusal olmayan deneme ve sonuç durumları uyuşur",
+    "zh": "平面非线性试算状态与结果恢复状态一致"
+  },
+  "explanation": {
+    "en": "Arc-length trials enforce displacement ties and can retry at a smaller radius after a singular tangent. Planar co-rotation uses the same applied loads for the solve and for force recovery at partial increments.",
+    "es": "Los ensayos de longitud de arco respetan las ligaduras de desplazamiento y pueden repetirse con un radio menor si la tangente es singular. El cálculo corrotacional plano resuelve y recupera los esfuerzos con las mismas cargas en incrementos parciales.",
+    "pt": "As tentativas por comprimento de arco respeitam os vínculos de deslocamento e podem ser repetidas com um raio menor quando a tangente é singular. A análise corrotacional plana resolve e recupera forças com as mesmas cargas em incrementos parciais.",
+    "de": "Bogenlängenversuche erfüllen die Verschiebungskopplungen und können bei singulärer Tangente mit kleinerem Radius wiederholt werden. Die ebene korotationale Analyse verwendet bei Teilinkrementen dieselben Lasten zur Lösung und Schnittkraftermittlung.",
+    "fr": "Les essais par longueur d’arc respectent les liaisons de déplacement et peuvent être repris avec un rayon plus petit si la tangente est singulière. Le calcul corotationnel plan utilise les mêmes charges pour la résolution et la récupération des efforts aux incréments partiels.",
+    "hu": "Az ívhosszpróbák betartják az elmozdulási kényszereket, és szinguláris tangens esetén kisebb sugárral megismételhetők. A síkbeli korotációs számítás részleges lépéseknél ugyanazokat a terheket használja a megoldáshoz és az erők számításához.",
+    "tr": "Yay uzunluğu denemeleri yer değiştirme bağlarını sağlar ve teğet tekil olduğunda daha küçük bir yarıçapla tekrarlanabilir. Düzlemsel eş dönel analiz, kısmi artımlarda çözüm ve kuvvet hesabı için aynı yükleri kullanır.",
+    "zh": "弧长试算满足位移约束，并可在切线刚度奇异时缩小半径重试。平面共旋分析在部分荷载增量下采用相同的荷载求解和恢复内力。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-planar-nonlinear-trials.md",
+    "heading": "Certify planar nonlinear trial and recovery states (2026-11-24)"
+  }
+}

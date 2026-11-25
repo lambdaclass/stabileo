@@ -1,4 +1,3 @@
-import { BUILD_FEATURES } from './build-features';
 /**
  * PRO 8/10 from the panels: member behaviour and stiffness modifiers, shear areas, foundation
  * springs, the mesher and the surface generator, the time history kept with the project, modes
@@ -61,71 +60,33 @@ test.describe('@smoke PRO plates and dynamics', () => {
     expect(s1.kz).toBeGreaterThan(0);
   });
 
-  if (BUILD_FEATURES.proPlatesUnified) {
-    test('a circular plate with a hole is drawn, meshed from the card its selection shows, and a cylinder is placed with the ghost', async ({ pro: page }) => {
-      await page.getByTestId('pr-stage-model').click();
-      await page.getByTestId('pr-cmd-shells').click();
-      await page.getByTestId('write-plate').click();
-      await page.getByTestId('write-corners-circle').click();
-      await page.getByTestId('plate-circle-center').fill('0; 0; 0');
-      await page.getByTestId('plate-circle-radius').fill('3');
-      await page.getByTestId('plate-circle-hole').check();
-      await page.getByTestId('plate-circle-hole-center').fill('1; 0; 0');
-      await page.getByTestId('plate-circle-hole-radius').fill('0.5');
-      await page.getByTestId('write-plate-card-submit').click();
-      await expect(page.getByTestId('plate-selection-card')).toBeVisible();
-      await page.getByTestId('plate-selection-mesh').click();
-      await expect(page.getByTestId('plate-mesh-plan')).toBeVisible();
-      await page.getByTestId('plate-mesh-size').fill('0.5');
-      await page.getByTestId('plate-mesh-size').press('Tab');
-      await expect(page.getByTestId('plate-mesh-apply')).toBeEnabled();
-      await page.getByTestId('plate-mesh-apply').click();
-      await expect.poll(() => page.evaluate(() => window.__stabileo.quadIds().length)).toBeGreaterThan(20);
-      const plate = await page.evaluate(() => window.__stabileo.quadIds().length);
+  test('the mesher meshes a circular plate with a hole, and a cylinder is placed with the ghost', async ({ pro: page }) => {
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-shells').click();
+    await page.getByRole('button', { name: /Generador de malla|Mesh generator|Gerador de malha/ }).click();
+    await page.getByTestId('ms-circle').check();
+    await page.getByTestId('ms-center').fill('0; 0; 0');
+    await page.getByTestId('ms-radius').fill('3');
+    await page.getByTestId('ms-add-hole').click();
+    await page.getByTestId('ms-hole-center-0').fill('1; 0; 0');
+    await page.getByTestId('ms-hole-r-0').fill('0.5');
+    await expect(page.getByTestId('ms-summary')).toBeVisible();
+    await page.getByTestId('ms-apply').click();
+    await expect(page.getByTestId('ms-done')).toBeVisible();
+    const plate = await page.evaluate(() => window.__stabileo.quadIds().length);
+    expect(plate).toBeGreaterThan(20);
 
-      await page.getByTestId('pr-more-moreTools').click();
-      await page.getByTestId('pr-cmd-generators').click();
-      await page.getByTestId('gen-sec-surfaces').locator('summary').click();
-      await page.getByTestId('sf-kind').selectOption('cylinder');
-      await expect(page.getByTestId('sf-summary')).toBeVisible();
-      await page.getByTestId('sf-place').click();
-      await expect(page.getByTestId('placement-hud')).toBeVisible();
-      const box = (await page.locator('canvas:not(.axis-gizmo)').first().boundingBox())!;
-      await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.4, { steps: 3 });
-      await page.mouse.down();
-      await page.mouse.up();
-      await expect(page.getByTestId('placement-hud')).toBeHidden();
-      expect(await page.evaluate(() => window.__stabileo.quadIds().length)).toBeGreaterThan(plate);
-    });
-  } else {
-    test('the mesher meshes a circular plate with a hole, and a cylinder is placed with the ghost', async ({ pro: page }) => {
-      await page.getByTestId('pr-stage-model').click();
-      await page.getByTestId('pr-cmd-shells').click();
-      await page.getByRole('button', { name: /Generador de malla|Mesh generator|Gerador de malha/ }).click();
-      await page.getByTestId('ms-circle').check();
-      await page.getByTestId('ms-center').fill('0; 0; 0');
-      await page.getByTestId('ms-radius').fill('3');
-      await page.getByTestId('ms-add-hole').click();
-      await page.getByTestId('ms-hole-center-0').fill('1; 0; 0');
-      await page.getByTestId('ms-hole-r-0').fill('0.5');
-      await expect(page.getByTestId('ms-summary')).toBeVisible();
-      await page.getByTestId('ms-apply').click();
-      await expect(page.getByTestId('ms-done')).toBeVisible();
-      const plate = await page.evaluate(() => window.__stabileo.quadIds().length);
-      expect(plate).toBeGreaterThan(20);
-
-      await page.getByTestId('sf-kind').selectOption('cylinder');
-      await expect(page.getByTestId('sf-summary')).toBeVisible();
-      await page.getByTestId('sf-place').click();
-      await expect(page.getByTestId('placement-hud')).toBeVisible();
-      const box = (await page.locator('canvas:not(.axis-gizmo)').first().boundingBox())!;
-      await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.4, { steps: 3 });
-      await page.mouse.down();
-      await page.mouse.up();
-      await expect(page.getByTestId('placement-hud')).toBeHidden();
-      expect(await page.evaluate(() => window.__stabileo.quadIds().length)).toBeGreaterThan(plate);
-    });
-  }
+    await page.getByTestId('sf-kind').selectOption('cylinder');
+    await expect(page.getByTestId('sf-summary')).toBeVisible();
+    await page.getByTestId('sf-place').click();
+    await expect(page.getByTestId('placement-hud')).toBeVisible();
+    const box = (await page.locator('canvas:not(.axis-gizmo)').first().boundingBox())!;
+    await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.4, { steps: 3 });
+    await page.mouse.down();
+    await page.mouse.up();
+    await expect(page.getByTestId('placement-hud')).toBeHidden();
+    expect(await page.evaluate(() => window.__stabileo.quadIds().length)).toBeGreaterThan(plate);
+  });
 
   test('the time history is kept with the project: two directions, a scale and a nodal force', async ({ pro: page }) => {
     await loadModel(page, '3d-portal-frame');

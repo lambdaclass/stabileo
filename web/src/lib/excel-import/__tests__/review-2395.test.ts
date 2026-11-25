@@ -115,6 +115,51 @@ const entries = [
   ['XLSX', importFile],
   ['XLS', (book: Record<string, unknown[][]>) => importFile(book, 'biff8')],
 ] as const;
+it('#2395 workbook nodal loads store one transverse component', async () => {
+  for (const [entry, install] of entries) {
+    for (const [mode, nodes] of geometries) {
+      for (const framed of [false, true]) {
+        vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode(framed ? 'development' : 'production'));
+        const book = (fy: number | string, fz: number | string) => ({
+          ...nodes, ...member,
+          ...(framed ? { Axes: [['up', 'right', 'hand'], ['+Z', '+X', 'right']] } : {}),
+          Supports: [['node', 'type'], [1, mode === '2d' ? 'fixed' : 'fixed3d']],
+          Loads: [['type', 'case', 'node', 'fy', 'fz'], ['nodal', 1, 2, fy, fz]],
+        });
+
+        const before = priorModel(mode);
+        expectRefusal(await install(book(2, -3)), before, { sheet: 'Loads', row: 2, column: 'fy' });
+        const valid: Array<[number | string, number | string, number]> = [['', -3, -3], [0, -3, -3], ['', 0, 0]];
+        if (!framed) valid.push([-3, '', -3]);
+        const solveInstalled = () => mode === '2d'
+          ? planeResponses(buildSolverInput2D(modelStore.model, false)!)
+          : responses(buildSolverInput3D(modelStore.model, false)!);
+        let nonzeroAnswer: ReturnType<typeof solveInstalled> | undefined;
+        for (const [fy, fz, expected] of valid) {
+          const workbook = book(fy, fz);
+          const parsed = parseWorkbook(workbook);
+          expect(parsed.problems, entry).toEqual([]);
+          expect(parsed.model.loads[0]?.data).toEqual({ id: 1, nodeId: 2, caseId: 1, fx: 0, fz: expected, my: 0 });
+          const outcome = await install(workbook);
+          expect(outcome?.loaded, entry).toEqual({ nodes: 2, elements: 1, sections: 2 });
+          expect(modelStore.loads[0]?.data).toMatchObject({ fz: expected });
+          const answer = solveInstalled();
+          for (const { reactions } of answer) {
+            expect(reactions).toHaveLength(1);
+            const reaction = reactions[0]!;
+            const vertical = 'rz' in reaction ? reaction.rz : reaction.fz;
+            expect(Math.sign(vertical) + 0).toBe(Math.sign(-expected) + 0);
+          }
+          if (expected !== 0) {
+            nonzeroAnswer ??= answer;
+            expect(answer).toEqual(nonzeroAnswer);
+          }
+        }
+      }
+    }
+  }
+});
+
 for (const [entry, install] of entries) {
   it(`#2395 ${entry} refuses restraint flags inconsistent with the support type`, async () => {
     vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));

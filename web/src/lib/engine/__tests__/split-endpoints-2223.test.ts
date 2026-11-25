@@ -5,7 +5,7 @@ import { subdivideForAnalysis } from '../../model/edit/analysis-subdivision';
 import { expandVariableMembers } from '../variable-members';
 import { refineInput } from '../second-order/refine';
 import { buildSolverInput2D, buildSolverInput3D, type ModelData } from '../solver-service';
-import { initSolver, input2DToWireObject, input3DToWireObject } from '../wasm-solver';
+import { finiteObjectWire, initSolver, input2DToWireObject, input3DToWireObject } from '../wasm-solver';
 import { splitSpanLoad } from '../member-span-loads';
 import { targetDisplacement } from '../influence/maxwell';
 import { plasticCollapse2D } from '../plastic-collapse';
@@ -61,7 +61,8 @@ describe('known wrong result: #2223 — split paths accept certified wind endpoi
         const model = cut(entry, id);
         expect(model.elements.size).toBe(2);
         expect(model.loads).toHaveLength(2);
-        const input = dim === 2 ? input2DToWireObject(buildSolverInput2D(model, false)!) : input3DToWireObject(buildSolverInput3D(model, false)!);
+        const wire = dim === 2 ? input2DToWireObject(buildSolverInput2D(model, false)!) : input3DToWireObject(buildSolverInput3D(model, false)!);
+        const input = finiteObjectWire(wire);
         const session = new wasm[`LoadSession${dim}D`]({ ...input, loads: [] });
         try {
           for (const mode of ['linear', 'session', 'pdelta', 'corotational', 'fiber']) {

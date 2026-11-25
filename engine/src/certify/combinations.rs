@@ -36,7 +36,7 @@ use super::reactions::{
     reaction_bounds_2d_with, reaction_bounds_3d_with, restrained_rows_2d, restrained_rows_3d, ReactionBound2D,
     ReactionBound3D,
 };
-use super::solver::{certify_load_cases_2d, certify_load_cases_3d, ShownBounds};
+use super::solver::{certify_load_cases_2d, certify_load_cases_3d, certify_solved_cases_2d, certify_solved_cases_3d, ShownBounds};
 pub use super::stations::{StationBound2D, StationBound3D};
 use super::stations::{
     station_from_rows_2d, station_from_rows_3d, station_rows_2d, station_rows_3d, with_gaps_2d, with_gaps_3d,
@@ -448,11 +448,19 @@ pub fn certify_multi_case_2d(input: &MultiCaseInput) -> Result<CertifiedMultiCas
     super::finite::check_input(input)?;
     let results = solve_multi_case_2d(input)?;
     super::finite::check_results(&results)?;
-    Ok(certify_multi_case_results_2d(input, results))
+    Ok(certify_multi_case_with_2d(input, results, certify_solved_cases_2d))
 }
 
 /// Certify given results of `solve_multi_case_2d(input)`.
 pub fn certify_multi_case_results_2d(input: &MultiCaseInput, results: MultiCaseResult) -> CertifiedMultiCase2D {
+    certify_multi_case_with_2d(input, results, certify_load_cases_2d)
+}
+
+fn certify_multi_case_with_2d(
+    input: &MultiCaseInput,
+    results: MultiCaseResult,
+    certify_cases: impl FnOnce(&SolverInput, &[(&[SolverLoad], &AnalysisResults)]) -> Vec<Certificate>,
+) -> CertifiedMultiCase2D {
     let n_cases = input.load_cases.len();
     let structural = || -> Result<(), String> {
         if results.case_results.len() != n_cases
@@ -482,7 +490,7 @@ pub fn certify_multi_case_results_2d(input: &MultiCaseInput, results: MultiCaseR
         .map(|(lc, cr)| (lc.loads.as_slice(), &cr.results))
         .collect();
     let certs = match &structural {
-        Ok(()) => certify_load_cases_2d(&input.solver, &case_pairs),
+        Ok(()) => certify_cases(&input.solver, &case_pairs),
         Err(r) => vec![Certificate::uncertified(r.clone()); case_pairs.len()],
     };
     // Shared by every case: the stiffness rows behind the diagram bounds, the
@@ -751,11 +759,19 @@ pub fn certify_multi_case_3d(input: &MultiCaseInput3D) -> Result<CertifiedMultiC
     super::finite::check_input(input)?;
     let results = solve_multi_case_3d(input)?;
     super::finite::check_results(&results)?;
-    Ok(certify_multi_case_results_3d(input, results))
+    Ok(certify_multi_case_with_3d(input, results, certify_solved_cases_3d))
 }
 
 /// Certify given results of `solve_multi_case_3d(input)`.
 pub fn certify_multi_case_results_3d(input: &MultiCaseInput3D, results: MultiCaseResult3D) -> CertifiedMultiCase3D {
+    certify_multi_case_with_3d(input, results, certify_load_cases_3d)
+}
+
+fn certify_multi_case_with_3d(
+    input: &MultiCaseInput3D,
+    results: MultiCaseResult3D,
+    certify_cases: impl FnOnce(&SolverInput3D, &[(&[SolverLoad3D], &AnalysisResults3D)]) -> Vec<Certificate>,
+) -> CertifiedMultiCase3D {
     let n_cases = input.load_cases.len();
     let structural = || -> Result<(), String> {
         if results.case_results.len() != n_cases
@@ -785,7 +801,7 @@ pub fn certify_multi_case_results_3d(input: &MultiCaseInput3D, results: MultiCas
         .map(|(lc, cr)| (lc.loads.as_slice(), &cr.results))
         .collect();
     let certs = match &structural {
-        Ok(()) => certify_load_cases_3d(&input.solver, &case_pairs),
+        Ok(()) => certify_cases(&input.solver, &case_pairs),
         Err(r) => vec![Certificate::uncertified(r.clone()); case_pairs.len()],
     };
     let expanded = expand_curved_beams_3d(&input.solver);
