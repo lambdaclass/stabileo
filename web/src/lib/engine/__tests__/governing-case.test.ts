@@ -59,6 +59,33 @@ describe('governing combination over the whole member', () => {
   });
 });
 
+describe('governing shear uses the section inside each member end', () => {
+  const length = 3;
+  const pointLoads = [{ a: 0, p: -10 }, { a: 1, p: -5 }, { a: 2, p: 7 }, { a: length, p: 28 }];
+
+  it.skip('known wrong result: #2226 ranks planar combinations by inward shear', () => {
+    const jumped = ef2d({ length, vStart: 10, vEnd: 30, pointLoads });
+    const select = (shear: number) => computeGoverning2D(new Map([
+      [1, results2D([jumped])],
+      [2, results2D([ef2d({ length, vStart: shear, vEnd: shear })])],
+    ]), new Map()).get(1)?.shear;
+    expect.soft(governingMagnitude2D(jumped, 'shear')).toBe(5);
+    expect.soft(select(4)).toMatchObject({ comboId: 1, value: 5 });
+    expect(select(6)).toMatchObject({ comboId: 2, value: 6 });
+  });
+
+  it.skip('known wrong result: #2226 ranks spatial combinations by inward shear', () => {
+    const jumped = ef3d({ length, vzStart: 10, vzEnd: 30, pointLoadsZ: pointLoads });
+    const select = (shear: number) => computeGoverning3D(new Map([
+      [1, results3D([jumped])],
+      [2, results3D([ef3d({ length, vzStart: shear, vzEnd: shear })])],
+    ]), new Map()).get(1)?.shearZ;
+    expect.soft(governingMagnitude3D(jumped, 'shearZ')).toEqual({ value: 5 });
+    expect.soft(select(4)).toMatchObject({ comboId: 1, value: 5 });
+    expect(select(6)).toMatchObject({ comboId: 2, value: 6 });
+  });
+});
+
 it('#2273 withholds an exact governing claim if a possible winner has only a bound', () => {
   const pulse = (a: number, b: number) => ef3d({ pointLoadsX: [{ a, p: -10 }, { a: b, p: 10 }] });
   const magnitude = (parts: ElementForces3D[]) => ef3d({ combined: { method: 'abs', parts } });
