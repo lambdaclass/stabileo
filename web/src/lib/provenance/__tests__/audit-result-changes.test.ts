@@ -168,3 +168,34 @@ it('#2565 — registers the self-weight recheck notice in every shipped locale',
     }
   }
 });
+
+const lastReview = process.env.RUN_KNOWN_WRONG === '2565' ? it : it.skip;
+
+lastReview.each([
+  ['2d', 'linear'],
+  ['3d', 'nonlinear'],
+  ['pro', 'pdelta'],
+] as const)('known wrong result: #2565 — rechecks older %s %s results for valid scoped member self-weight', (mode, analysis) => {
+  const id = 'invalid-self-weight-target';
+  const change = RESULT_CHANGES.changes.find(c => c.id === id)!;
+  const stamp = { ...unknownStamp(), resultsVersion: change.resultsVersion - 1, analyses: [analysis], recorded: [...ANALYSIS_KINDS] };
+  const snapshot: FeatureSnapshot = {
+    ...model,
+    nodes: [[1, { x: 0, y: 0 }], [2, { x: 1, y: 0 }]],
+    groups: [[1, { members: { elements: [1] } }], [2, { members: { quads: [1] } }]],
+    quads: [[1, { id: 1 }]],
+  };
+  const rule = { caseId: 1, direction: 'Z', factor: -1 };
+  const notices = (selector = {}, saved: typeof stamp | undefined = stamp) =>
+    assessProject({ ...snapshot, analysis: { selfWeight: [{ ...rule, ...selector }] } }, saved, mode).changes.map(c => c.id);
+
+  expect.soft(notices({ groupId: 1 })).toContain(id);
+  expect.soft(notices({ elements: [1] })).toContain(id);
+  expect.soft(notices({ elements: [20] })).toContain(id);
+  expect.soft(notices({ groupId: 1 }, { ...stamp, resultsVersion: change.resultsVersion })).not.toContain(id);
+  expect.soft(notices({ groupId: 1 }, { ...stamp, analyses: [] })).not.toContain(id);
+  expect.soft(notices({ groupId: 1, factor: 0 })).not.toContain(id);
+  expect.soft(notices({ groupId: 2 })).not.toContain(id);
+  expect.soft(notices({ elements: [] })).not.toContain(id);
+  expect(notices()).not.toContain(id);
+});
