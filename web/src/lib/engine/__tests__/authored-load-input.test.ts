@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { assessProject } from '../../provenance/applicability';
 import { modelFeatures } from '../../provenance/model-features';
 import { modelStore, uiStore } from '../../store';
 import type { Load } from '../../store/model.svelte';
@@ -215,3 +216,20 @@ it.each([undefined, 'local', 'global', 'projected'] as const)(
     });
   },
 );
+
+
+const reviewTest = process.env.STABILEO_REVIEW_2588 === '1' ? it : it.skip;
+
+reviewTest.each([
+  ['fz', undefined],
+  ['fy', NaN],
+] as const)('review 2588 shows the saved-model notice for a malformed spatial %s', (field, value) => {
+  const { tip } = cantilever();
+  setLoad({ type: 'nodal3d', data: {
+    id: 1, nodeId: tip, fx: 0, fy: 0, fz: -force, mx: 0, my: 0, mz: 0, [field]: value,
+  } });
+  const saved = modelStore.snapshot();
+  expect.soft(assessProject(saved, null, 'basic').changes.map(change => change.id)).toContain('malformed-authored-loads');
+  const current = { ...saved, loads: [] };
+  expect.soft(modelFeatures(current, { storedLoads: saved.loads }).has('malformedAuthoredLoad')).toBe(true);
+});

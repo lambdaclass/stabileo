@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { modelFeatures } from '../../provenance/model-features';
 import { modelStore, uiStore } from '../../store';
 import { loadFixture, type JSONModel } from '../../templates/load-fixture';
 import { runDirectAnalysis } from '../direct-analysis';
@@ -217,4 +218,81 @@ describe('lossy structural dispatch', () => {
     });
     expect(buildSolverInput3D(model)?.constraints).toEqual(model.constraints);
   });
+});
+
+
+const reviewTest = process.env.STABILEO_REVIEW_2588 === '1' ? it : it.skip;
+
+reviewTest.each([
+  ['analysis.selfWieght', () => ({ analysis: { selfWieght: [{ caseId: loadCase.id, direction: 'Z', factor: -1 }] } })],
+  ['constraints[0].dof', () => ({ constraints: [{ type: 'rigidLink', masterNode: root, slaveNode: tip, dof: [0] }] })],
+  ['analysis.selfWeight[0].element', () => ({ analysis: { selfWeight: [{ caseId: loadCase.id, direction: 'Z', factor: -1, element: member }] } })],
+  ['constraints[0].terms[0].coefficent', () => ({ constraints: [{
+    type: 'linearMPC', terms: [{ nodeId: tip, dof: 0, coefficent: 1 }],
+  }] })],
+] as const)('review 2588 refuses %s through solve, restore and fixture apply', async (field, patch) => {
+  const before = modelStore.snapshot();
+  const input = { ...fixture(), ...patch() } as JSONModel;
+  const incoming = { ...before, ...patch() } as typeof before;
+  await refuses(field, {
+    restore: () => modelStore.restore(incoming),
+    replay: () => loadFixture(input, modelStore.fixtureApi() as never),
+    apply: () => modelStore.loadExample(input.name, async () => input),
+  });
+  expect.soft(modelStore.snapshot()).toEqual(before);
+  expect.soft(modelFeatures(incoming).has('malformedAuthoredStructure')).toBe(true);
+  modelStore.restore(before);
+  Object.assign(modelStore.model, patch());
+  await refuses(field, analysisEntries());
+});
+
+reviewTest('review 2588 preserves explicit self-weight and a one-DOF rigid link', async () => {
+  const model = modelStore.model;
+  model.constraints = [{ type: 'rigidLink', masterNode: root, slaveNode: tip, dofs: [4] }];
+  model.analysis = { selfWeight: [{ caseId: loadCase.id, direction: 'Z', factor: -1, elements: [member] }] };
+  const before = modelStore.snapshot();
+  modelStore.restore(before);
+  expect(modelFeatures(modelStore.snapshot()).has('malformedAuthoredStructure')).toBe(false);
+  expect(buildSolverInput2D(model)?.constraints).toEqual([{ ...model.constraints[0], dofs: [2] }]);
+  expect(buildSolverInput3D(model)?.constraints).toEqual(model.constraints);
+  expect(await validateAndSolve2DAsync(model)).toMatchObject({ reactions: expect.any(Array) });
+  expect(await validateAndSolve3DAsync(model)).toMatchObject({ reactions: expect.any(Array) });
+});
+
+reviewTest('review 2588 solves a separated eccentric connection in plane', async () => {
+  const model = modelStore.model;
+  model.loads[0] = { type: 'nodal', data: { id: 1, nodeId: tip, fx: 0, fz: -1, my: 0, caseId: 1 } };
+  model.constraints = [{ type: 'equalDOF', masterNode: root, slaveNode: tip, dofs: [4] }];
+  const control = validateAndSolve2D(model);
+  const advancedControl = solvePDelta(buildSolverInput2D(model)!);
+  const combinationControl = solveCombinations2D(model, [loadCase], [combo]);
+  expect(control).toMatchObject({ reactions: expect.any(Array), displacements: expect.any(Array) });
+  expect(advancedControl.converged).toBe(true);
+  expect(typeof combinationControl).toBe('object');
+  const constraint = {
+    type: 'eccentricConnection', masterNode: root, slaveNode: tip,
+    offsetY: 1, releases: [true, false, true, false, false, false],
+  } as const;
+  model.constraints = [{ ...constraint, releases: [...constraint.releases] }];
+  expect.soft(await validateAndSolve2DAsync(model)).toEqual(control);
+  expect.soft(validateAndSolve2D(model)).toEqual(control);
+  expect.soft(modelStore.solve(false, 'xy')).toEqual(control);
+  expect.soft(solveCombinations2D(model, [loadCase], [combo])).toEqual(combinationControl);
+  expect.soft(solvePDelta(modelStore.buildSolverInput(false, 'xy')!)).toEqual(advancedControl);
+  expect.soft(buildSolverInput3D(model)?.constraints).toEqual(model.constraints);
+});
+
+reviewTest.each([0, 2] as const)('review 2588 still refuses a live eccentric equation on DOF %s', async (dof) => {
+  const model = modelStore.model;
+  const releases = [true, false, true, false, false, false];
+  releases[dof] = false;
+  model.constraints = [{ type: 'eccentricConnection', masterNode: root, slaveNode: tip, offsetY: 1, releases }];
+  await refuses('constraints[0].offsetY', {
+    builder: () => buildSolverInput2D(model),
+    sync: () => validateAndSolve2D(model),
+    async: () => validateAndSolve2DAsync(model),
+    combination: () => solveCombinations2D(model, [loadCase], [combo]),
+    'store plane': () => modelStore.solveAsync(false, 'xz'),
+  });
+  expect(buildSolverInput3D(model)?.constraints).toEqual(model.constraints);
 });
