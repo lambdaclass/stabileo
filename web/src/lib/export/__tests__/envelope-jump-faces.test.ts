@@ -345,3 +345,49 @@ it.each(['linear', 'pdelta'] as const)('known wrong result: #2226 identifies the
     expected.map(row => row.map(String)),
   );
 });
+
+it.skip('known wrong result: #2226 carries both words of local and rebased WASM envelope stations', () => {
+  const member = cantilever(3);
+  const { first, ids } = twoCombinations();
+  for (const x of [1, 2]) modelStore.addPointLoadOnElement(member, x, 0, { my: 8, caseId: first });
+  const solved = modelStore.solveCombinations3D(false, false, true);
+  if (!solved || typeof solved === 'string') throw new Error(String(solved));
+  const data = structuredClone(solved.perCombo.get(ids[0]!)!);
+  const piece = data.elementForces[0]!.pieces!.find(piece => piece.x0 === 1)!;
+  const a = 0.25 + 2 ** -53;
+  piece.forces.distributedLoadsZ = [{ a: a - 0.125, b: a + 0.375, qI: 1, qJ: -3 + 2 ** -50 }];
+  piece.forces.pointLoadsZ = [{ a: 0.75, p: 8 }];
+  const raw = computeEnvelope3D([reexpandVariableResults(data).results])!.shearZ.elements.find(e => e.elementId === piece.forces.elementId)!;
+  const rawStations = raw.criticalStations as (NonNullable<typeof raw.criticalStations>[number] & { xResidual?: number })[];
+  expect.soft(rawStations.find(s => s.x === a && s.xResidual !== 0)?.xResidual).toBe(2 ** -55);
+  const rebased = computeEnvelope3D([data])!.shearZ.elements.find(e => e.elementId === member)!;
+  const rebasedStations = rebased.criticalStations as (NonNullable<typeof rebased.criticalStations>[number] & { xResidual?: number })[];
+  expect.soft(rebasedStations.find(s => s.x === 1.25 + 2 ** -52)?.xResidual).toBe(-3 * 2 ** -55);
+  expect.soft(rebasedStations.filter(s => s.x === 1.75).map(s => [s.right, s.xResidual])).toEqual([[false, 0], [true, 0]]);
+});
+
+it.skip('known wrong result: #2226 exports two physical events that share one normalized coordinate', async () => {
+  const length = 9, a = 7 + 12 * Number.EPSILON, b = a + 4 * Number.EPSILON;
+  const left = solvedMember(length), right = structuredClone(left);
+  left.elementForces[0]!.pointLoadsZ = [{ a, p: 8 }];
+  right.elementForces[0]!.pointLoadsZ = [{ a: b, p: 4 }];
+  const sources: WorkbookSource[] = [left, right].map((results, i) => ({
+    id: i + 1, name: String(i + 1), kind: 'combination', results,
+  }));
+  const input = { sources, stations: 'critical', statics: null } as const;
+  const want = (name: string) => name === 'Envelope';
+  expect(a / length).toBe(b / length);
+  const rows = [[a, 'left', 0, 0], [a, 'right', 0, 8], [b, 'left', 0, 8], [b, 'right', 4, 8]];
+  const table = envelopeRows('forces', sources, { axes: DEFAULT_AXES, stations: 'critical' });
+  expect.soft(table.filter(row => row.x === a || row.x === b).map(row =>
+    [row.x, row.face, row.min[2]!.value, row.max[2]!.value])).toEqual(rows);
+  const workbook = await buildExcelWorkbook({ onlyExtras: true, extraSheets: resultSheets(input, want), provenance: false });
+  const file = read(write(workbook!, { bookType: 'xlsx', type: 'array' }), { type: 'array' });
+  const exported = utils.sheet_to_json<Record<string, string | number>>(file.Sheets.Envelope!);
+  expect.soft(exported.filter(row => row.component === 'Vz' && (row['x [m]'] === a || row['x [m]'] === b))
+    .map(row => [row['x [m]'], row.face, row.min, row.max])).toEqual(rows);
+  const zip = unzipSync(new Uint8Array(await (await streamWorkbookZip(resultSheetParts(input, want))).arrayBuffer()));
+  const csv = strFromU8(zip[Object.keys(zip).find(name => name.endsWith('-Envelope.csv'))!]!);
+  expect(csv.split('\n').map(line => line.split(',')).filter(c => c[4] === 'Vz' && (Number(c[3]) === a || Number(c[3]) === b))
+    .map(c => [Number(c[3]), c[12], Number(c[9]), Number(c[6])])).toEqual(rows);
+});

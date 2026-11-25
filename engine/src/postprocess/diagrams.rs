@@ -824,6 +824,96 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "known wrong result: #2437"]
+    fn pr2587_native_queries_keep_point_force_products() {
+        use crate::postprocess::{combinations, diagrams_3d};
+        let (_, records) = round5_diagram_results_at(3.0);
+        let t = 1.0_f64 / 3.0;
+        let p = 2.0_f64.powi(54);
+        let mut measured = Vec::new();
+        for (mut plane, mut space) in records {
+            plane.element_forces[0].point_loads = vec![PointLoadInfo { a: 1.0, p: -p, px: None, my: None }];
+            space.element_forces[0].point_loads_z = vec![PointLoadInfo3D { a: 1.0, p }];
+            for at in [t.next_down(), t, t.next_up()] {
+                measured.push(checked_diagram_value_2d("moment", at, &plane.element_forces[0]).unwrap());
+                measured.push(diagrams_3d::checked_diagram_value_3d(&space.element_forces[0], "momentY", at).unwrap());
+            }
+        }
+        let (_, records) = round5_diagram_results_at(2.0);
+        let p = p + 4.0;
+        let baseline = -(3.0 * 2.0_f64.powi(52) + 4.0);
+        for (mut plane, mut space) in records {
+            plane.element_forces[0].m_start = baseline;
+            plane.element_forces[0].point_loads = vec![PointLoadInfo { a: 0.25, p: -p, px: None, my: None }];
+            space.element_forces[0].my_start = baseline;
+            space.element_forces[0].point_loads_z = vec![PointLoadInfo3D { a: 0.25, p }];
+            let envelopes = [combinations::compute_envelope(&[plane]).unwrap().moment,
+                combinations::compute_envelope_3d(&[space]).unwrap().moment_y];
+            for envelope in envelopes {
+                let element = &envelope.elements[0];
+                let i = element.t_positions.iter().position(|&t| t == 0.5).unwrap();
+                measured.push(element.neg_values[i]);
+            }
+        }
+        assert_eq!(measured, [0.0, 0.0, 0.0, 0.0, 2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 2.0, -1.0, -1.0, -1.0, -1.0]);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2437"]
+    fn pr2587_native_envelopes_integrate_the_cut_residual() {
+        use crate::postprocess::combinations::{compute_envelope, compute_envelope_3d};
+        let (_, records) = round5_diagram_results_at(2.0);
+        let q = 2.0_f64.powi(54);
+        let x = 1.25;
+        let uniform = DistributedLoadInfo { a: 0.0, b: 2.0, q_i: q, q_j: q };
+        let mut measured = Vec::new();
+        for (plane, space) in records {
+            for sign in [-1.0, 1.0] {
+                let ramp = DistributedLoadInfo { a: 1.0, b: 1.5, q_i: 1.0, q_j: -1.0 + sign * 2.0_f64.powi(-51) };
+                let mut peak_plane = plane.clone();
+                peak_plane.element_forces[0].distributed_loads = vec![ramp.clone()];
+                let mut peak_space = space.clone();
+                peak_space.element_forces[0].distributed_loads_z = vec![ramp];
+                let mut base_plane = plane.clone();
+                base_plane.element_forces[0].v_start = -x * q;
+                base_plane.element_forces[0].distributed_loads = vec![uniform.clone()];
+                let mut base_space = space.clone();
+                base_space.element_forces[0].vz_start = -x * q;
+                base_space.element_forces[0].distributed_loads_z = vec![uniform.clone()];
+                for envelope in [compute_envelope(&[peak_plane, base_plane]).unwrap().shear,
+                    compute_envelope_3d(&[peak_space, base_space]).unwrap().shear_z] {
+                    let member = &envelope.elements[0];
+                    let i = member.t_positions.iter().position(|&t| t == x / 2.0).unwrap();
+                    measured.push(if sign < 0.0 { member.neg_values[i] } else { member.pos_values[i] });
+                }
+            }
+        }
+        assert_eq!(measured, [-1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0]);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2226"]
+    fn pr2587_native_envelopes_serialize_station_residual() {
+        use crate::postprocess::combinations::{compute_envelope, compute_envelope_3d};
+        let (_, records) = round5_diagram_results_at(1.0);
+        let x = 0.25 + 2.0_f64.powi(-53);
+        let load = DistributedLoadInfo { a: x - 0.125, b: x + 0.375, q_i: 1.0, q_j: -3.0 + 2.0_f64.powi(-50) };
+        for (mut plane, mut space) in records {
+            plane.element_forces[0].distributed_loads = vec![load.clone()];
+            space.element_forces[0].distributed_loads_z = vec![load.clone()];
+            for envelope in [compute_envelope(&[plane]).unwrap().shear, compute_envelope_3d(&[space]).unwrap().shear_z] {
+                let member = &envelope.elements[0];
+                let index = member.t_positions.iter().position(|&t| t == x).unwrap();
+                let wire = serde_json::to_value(member).unwrap();
+                let station = wire["criticalStations"].as_array().unwrap().iter()
+                    .find(|s| s["index"].as_u64() == Some(index as u64)).unwrap();
+                assert_eq!(station["x"].as_f64(), Some(x));
+                assert_eq!(station["xResidual"].as_f64(), Some(2.0_f64.powi(-55)));
+            }
+        }
+    }
+
+    #[test]
     fn issue_2250_diagram_extrema_partial_load() {
         use crate::postprocess::{combinations, diagrams_3d};
         let (plane, space) = diagram_issue_models(
