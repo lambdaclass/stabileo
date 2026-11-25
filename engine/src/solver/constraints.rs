@@ -1690,7 +1690,7 @@ fn solve_constrained_2d_dense_validated(
     let load_rounding = super::load_work::assembly_rounding_2d(&input.solver,&input.solver.loads,dof_num,&asm.inclined_transforms_2d);
     let load_rounding = fcs.reduce_load_rounding(&f_f,&load_rounding);
     let f_reduced = fcs.reduce_vector(&f_f);
-    let stability = fcs.stability(&crate::linalg::sparse::CscMatrix::from_dense_symmetric(&k_reduced, n_free_indep), dof_num, &CscMatrix::from_dense_symmetric(&k_ff, nf), &super::stability::coupling_2d(&input.solver, dof_num), &super::stability::ReleasedRotations::default());
+    let stability = fcs.stability(&crate::linalg::sparse::CscMatrix::from_dense_symmetric(&k_reduced, n_free_indep), dof_num, &CscMatrix::from_dense_symmetric(&k_ff, nf), &super::stability::coupling_2d(&input.solver, dof_num), &super::stability::elastic_releases_2d(&input.solver, dof_num));
     refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let u_indep = {
         let mut k_work = k_reduced.clone();
@@ -1908,7 +1908,7 @@ pub(super) fn solve_constrained_2d_sparse(
     let load_rounding = super::load_work::assembly_rounding_2d(&input.solver,&input.solver.loads,dof_num,&stiff.inclined_transforms_2d);
     let load_rounding = fcs.reduce_load_rounding(&f_f,&load_rounding);
     let f_reduced = fcs.reduce_vector(&f_f);
-    let stability = fcs.stability(&k_reduced, dof_num, k_ff, &super::stability::coupling_2d(&input.solver, dof_num), &super::stability::ReleasedRotations::default());
+    let stability = fcs.stability(&k_reduced, dof_num, k_ff, &super::stability::coupling_2d(&input.solver, dof_num), &super::stability::elastic_releases_2d(&input.solver, dof_num));
     refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let k_pinned = stability.pin_sparse(&k_reduced);
     let num = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_pinned)), &k_pinned).ok_or_else(linear::not_positive_definite)?;
@@ -2148,7 +2148,7 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
     let f_reduced = fcs.reduce_vector(&f_f);
     let containment_conditioning = crate::known_issues::sparse_conditioning(k_ff)
         .or_else(|| crate::known_issues::sparse_conditioning(&k_reduced));
-    let stability = fcs.stability(&k_reduced, &dof_num, k_ff, &super::stability::coupling_3d(&input.solver, &dof_num), &super::stability::released_rotations_3d(&input.solver, &dof_num));
+    let stability = fcs.stability(&k_reduced, &dof_num, k_ff, &super::stability::coupling_3d(&input.solver, &dof_num), &super::stability::elastic_releases_3d(&input.solver, &dof_num));
     refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let k_pinned = stability.pin_sparse(&k_reduced);
     let num = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_pinned)), &k_pinned).ok_or_else(linear::not_positive_definite)?;

@@ -261,7 +261,7 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
         let u_s_inc = solve_stage_free(
             &k_physical, &dof_num, cs.as_ref(), true, &connected_nodes_2d(&stage_solver_input),
             &super::stability::coupling_2d(&stage_solver_input, &dof_num),
-            &super::stability::ReleasedRotations::default(), &f_f,
+            &super::stability::elastic_releases_2d(&stage_solver_input, &dof_num), &f_f,
             &asm_trips.as_ref().map_or_else(|| &asm_dense.as_ref().unwrap().f, |t| &t.f)[..nf],
             &applied[..nf], &cumulative_rounding, &incremental_rounding, use_sparse,
             &mut sparse_sym_cache, &mut conditioning,
@@ -1022,7 +1022,7 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         let u_s_inc = solve_stage_free(
             &k_physical, &dof_num, cs.as_ref(), false, &connected_nodes_3d(&stage_input),
             &super::stability::coupling_3d(&stage_input, &dof_num),
-            &super::stability::released_rotations_3d(&stage_input, &dof_num), &f_f,
+            &super::stability::elastic_releases_3d(&stage_input, &dof_num), &f_f,
             &asm_trips.as_ref().map_or_else(|| &asm_dense.as_ref().unwrap().f, |t| &t.f)[..nf],
             &applied[..nf], &cumulative_rounding, &incremental_rounding, use_sparse,
             &mut sparse_sym_cache, &mut conditioning,

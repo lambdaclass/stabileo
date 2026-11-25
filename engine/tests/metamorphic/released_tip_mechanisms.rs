@@ -94,67 +94,164 @@ fn replay_3d(issue: &str, analysis: &str, seed: u64) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2266"]
 fn issue_2266_dense_reference_refuses_the_hinged_cantilever() {
     replay_2d("2266", "linear (dense reference)", 2026111702194);
 }
 
 #[test]
-#[ignore = "known wrong result: #2380"]
 fn issue_2380_constrained_entry_refuses_the_hinged_cantilever() {
     replay_2d("2380", "constrained", 2026112003058);
 }
 
 #[test]
-#[ignore = "known wrong result: #2190"]
 fn issue_2190_typed_solve_refuses_the_hinged_branch() {
     replay_2d("2190", "linear (WASM typed path)", 2026111607522);
 }
 
 #[test]
-#[ignore = "known wrong result: #2021"]
 fn issue_2021_multiple_stages_refuse_the_hinged_cantilever() {
     replay_3d("2021", "staged (loads in two stages)", 2026111300767);
 }
 
 #[test]
-#[ignore = "known wrong result: #2022"]
 fn issue_2022_one_stage_refuses_the_hinged_cantilever() {
     replay_3d("2022", "staged (one stage)", 2026111300767);
 }
 
 #[test]
-#[ignore = "known wrong result: #2043"]
 fn issue_2043_pdelta_refuses_the_hinged_cantilever() {
     replay_3d("2043", "P-Delta", 2026111300767);
 }
 
 #[test]
-#[ignore = "known wrong result: #2052"]
 fn issue_2052_linear_certification_refuses_the_hinged_cantilever() {
     replay_3d("2052", "certified linear", 2026111300767);
 }
 
 #[test]
-#[ignore = "known wrong result: #2038"]
 fn issue_2038_cable_entry_refuses_the_hinged_branch() {
     replay_3d("2038", "cable solver", 2026111301189);
 }
 
 #[test]
-#[ignore = "known wrong result: #2060"]
 fn issue_2060_load_combinations_refuse_the_hinged_branch() {
     replay_3d("2060", "load combinations", 2026111301189);
 }
 
 #[test]
-#[ignore = "known wrong result: #2119"]
 fn issue_2119_gapless_contact_refuses_the_hinged_branch() {
     replay_3d("2119", "contact (no gaps)", 2026111404217);
 }
 
 #[test]
-#[ignore = "known wrong result: #2139"]
 fn issue_2139_initial_plastic_elastic_solve_refuses_the_hinged_branch() {
     replay_3d("2139", "plastic collapse", 2026111404217);
+}
+
+#[test]
+fn mechanisms_refuse_across_factorization_entry_points() {
+    for name in [
+        "linear", "linear (WASM typed path)", "linear (load session)", "linear (sparse path)",
+        "linear (PCG)", "certified linear", "load combinations", "staged (one stage)",
+        "staged (loads in two stages)", "P-Delta", "cable solver", "contact (no gaps)",
+        "Winkler (no foundation)", "creep & shrinkage (t = t0)",
+    ] {
+        replay_2d("2266", name, 2026111702194);
+    }
+    for name in [
+        "linear", "linear (load session)", "linear (sparse path)", "linear (PCG)",
+        "constrained", "load combinations", "contact (no gaps)",
+        "Winkler (no foundation)", "creep & shrinkage (t = t0)",
+    ] {
+        replay_3d("2052", name, 2026111300767);
+    }
+}
+
+fn unhinged_2d() -> Case2 {
+    let mut case = case_2d("2266");
+    case.s.elements.get_mut("1").unwrap().hinge_end = false;
+    for load in &mut case.s.loads {
+        if let dedaliano_engine::types::SolverLoad::Nodal(load) = load {
+            load.node_id = 2;
+        }
+    }
+    case
+}
+
+fn unhinged_3d() -> Case3 {
+    let mut case = case_3d("2052");
+    case.s.elements.get_mut("1").unwrap().release_mz_end = false;
+    for load in &mut case.s.loads {
+        if let dedaliano_engine::types::SolverLoad3D::Nodal(load) = load {
+            load.node_id = 2;
+        }
+    }
+    case
+}
+
+#[test]
+fn stable_controls_accept_an_end_release_with_independent_restraints() {
+    use dedaliano_engine::solver::{constraints, linear};
+    use serde_json::json;
+
+    let mut planar = case_2d("2266").s;
+    let mut spatial = case_3d("2052").s;
+    let mut constrained = json!([{"type":"equalDOF","masterNode":1,"slaveNode":2,"dofs":[0]}]);
+    let p = constraints::ConstrainedInput { solver: planar.clone(), constraints: serde_json::from_value(constrained.clone()).unwrap() };
+    assert!(constraints::solve_constrained_2d(&p).is_ok());
+    constrained[0]["dofs"] = json!([0, 1, 2]);
+    let p = constraints::ConstrainedInput3D { solver: spatial.clone(), constraints: serde_json::from_value(constrained).unwrap() };
+    assert!(constraints::solve_constrained_3d(&p).is_ok());
+
+    let section = &planar.sections["2"];
+    let length = (planar.nodes["2"].x - planar.nodes["1"].x).hypot(planar.nodes["2"].z - planar.nodes["1"].z);
+    let spring = planar.materials["1"].e * section.a / length;
+    let support = json!({"id":2,"nodeId":2,"type":"spring","kx":spring,"ky":spring,"kz":0.0});
+    planar.supports.insert("2".into(), serde_json::from_value(support).unwrap());
+    assert!(linear::solve_2d(&planar).is_ok());
+
+    let section = &spatial.sections["1"];
+    let a = &spatial.nodes["1"];
+    let b = &spatial.nodes["2"];
+    let length = (b.x - a.x).hypot(b.y - a.y).hypot(b.z - a.z);
+    let spring = spatial.materials["2"].e * section.a / length;
+    let support = json!({"nodeId":2,"rx":false,"ry":false,"rz":false,"rrx":false,"rry":false,"rrz":false,
+        "kx":spring,"ky":spring,"kz":spring});
+    spatial.supports.insert("2".into(), serde_json::from_value(support).unwrap());
+    assert!(linear::solve_3d(&spatial).is_ok());
+
+    let control = linear::solve_2d(&unhinged_2d().s).unwrap();
+    assert!(control.displacements.iter().any(|d| d.ux != 0.0 || d.uz != 0.0));
+    let control = linear::solve_3d(&unhinged_3d().s).unwrap();
+    assert!(control.displacements.iter().any(|d| d.ux != 0.0 || d.uy != 0.0 || d.uz != 0.0));
+}
+
+#[test]
+fn released_tip_wasm_cases() {
+    let Ok(path) = std::env::var("RELEASED_TIP_WASM_CASES") else { return };
+    use serde_json::json;
+
+    let planar = case_2d("2380");
+    let spatial = case_3d("2021");
+    let staged = ana3::rows().into_iter().find(|row| row.name == "staged (loads in two stages)").unwrap();
+    let planar_cases = images_2d(&planar, "constrained", 2026112003058);
+    let spatial_cases = images_3d(&spatial, &staged, 2026111300767);
+    let mut cases: Vec<Value> = planar_cases.iter().chain(&[unhinged_2d()]).enumerate().map(|(i, case)| {
+        json!({
+            "dimension": 2, "input": case.s, "refuses": i < planar_cases.len(),
+            "stage": {
+                "name": "all",
+                "elementsAdded": case.s.elements.values().map(|e| e.id).collect::<Vec<_>>(),
+                "supportsAdded": case.s.supports.values().map(|s| s.id).collect::<Vec<_>>(),
+                "loadIndices": (0..case.s.loads.len()).collect::<Vec<_>>()
+            }
+        })
+    }).collect();
+    cases.extend(spatial_cases.iter().chain(&[unhinged_3d()]).enumerate().map(|(i, case)| {
+        json!({
+            "dimension": 3, "input": case.s, "refuses": i < spatial_cases.len(),
+            "stage": ana3::stage_all(&case.s, (0..case.s.loads.len()).collect()),
+        })
+    }));
+    std::fs::write(path, serde_json::to_vec(&cases).unwrap()).unwrap();
 }

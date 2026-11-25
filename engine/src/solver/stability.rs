@@ -2,7 +2,7 @@ use crate::linalg::sparse::CscMatrix;
 use crate::linalg::sparse_chol::{numeric_cholesky, sparse_cholesky_solve, symbolic_cholesky, SymbolicCholesky};
 use crate::solver::dof::DofNumbering;
 use crate::types::*;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
 pub(crate) fn has_member_releases_2d(input: &SolverInput) -> bool {
@@ -451,6 +451,100 @@ pub(crate) struct ReleasedRotations {
     pub rows: Vec<Vec<(usize, f64)>>,
     nodes: std::collections::BTreeSet<usize>,
     directions: Vec<(usize, Vec<(usize, f64, f64)>)>,
+    tip_swings: Vec<TipSwing>,
+}
+
+struct TipSwing {
+    node: usize,
+    dofs: Vec<usize>,
+}
+
+impl TipSwing {
+    fn project(&self, transform: &super::constraints::SparseTransform) -> Option<Self> {
+        let dofs = self.dofs.iter().map(|&row| {
+            let span = transform.row_ptr[row]..transform.row_ptr[row + 1];
+            if span.len() != 1 || transform.vals[span.start] != 1.0 {
+                return None;
+            }
+            let col = transform.col_idx[span.start];
+            (transform.col_ptr[col + 1] - transform.col_ptr[col] == 1).then_some(col)
+        }).collect::<Option<Vec<_>>>()?;
+        Some(Self { node: self.node, dofs })
+    }
+}
+
+fn unrestrained_tip_swings(
+    dof: &DofNumbering,
+    members: impl Iterator<Item = (usize, usize, bool, bool)>,
+    mut attached: BTreeSet<usize>,
+) -> Vec<TipSwing> {
+    let mut seen = BTreeSet::new();
+    let mut candidates = BTreeSet::new();
+    for (i, j, release_i, release_j) in members {
+        for (node, opposite_released) in [(i, release_j), (j, release_i)] {
+            if !seen.insert(node) {
+                attached.insert(node);
+            }
+            if opposite_released {
+                candidates.insert(node);
+            }
+        }
+    }
+    candidates.difference(&attached).filter_map(|&node| {
+        let dofs = (0..dof.dofs_per_node)
+            .map(|local| dof.global_dof(node, local).filter(|&index| index < dof.n_free))
+            .collect::<Option<Vec<_>>>()?;
+        Some(TipSwing { node, dofs })
+    }).collect()
+}
+
+fn has_spring<const N: usize>(dofs: [super::support::SupportDof; N]) -> bool {
+    dofs.iter().any(|d| d.spring.is_some_and(|value| value != 0.0))
+}
+
+pub(crate) fn elastic_releases_2d(input: &SolverInput, dof: &DofNumbering) -> ReleasedRotations {
+    if !has_member_releases_2d(input) {
+        return ReleasedRotations::default();
+    }
+    let attached = input.connectors.values().flat_map(|e| [e.node_i, e.node_j])
+        .chain(input.supports.values().filter_map(|support| {
+            has_spring(super::support::support_dofs_2d(support)).then_some(support.node_id)
+        })).collect();
+    let members = input.elements.values().map(|e| {
+        let frame = e.elem_type == "frame";
+        (e.node_i, e.node_j, frame && e.hinge_start, frame && e.hinge_end)
+    });
+    ReleasedRotations {
+        tip_swings: unrestrained_tip_swings(dof, members, attached),
+        ..ReleasedRotations::default()
+    }
+}
+
+fn non_member_attachments_3d(input: &SolverInput3D) -> impl Iterator<Item = usize> + '_ {
+    input.curved_beams.iter().flat_map(|e| [e.node_start, e.node_mid, e.node_end])
+        .chain(input.connectors.values().flat_map(|e| [e.node_i, e.node_j]))
+        .chain(input.plates.values().flat_map(|e| e.nodes))
+        .chain(input.quads.values().flat_map(|e| e.nodes))
+        .chain(input.quad9s.values().flat_map(|e| e.nodes))
+        .chain(input.curved_shells.values().flat_map(|e| e.nodes))
+        .chain(input.solid_shells.values().flat_map(|e| e.nodes))
+}
+
+pub(crate) fn elastic_releases_3d(input: &SolverInput3D, dof: &DofNumbering) -> ReleasedRotations {
+    let mut releases = released_rotations_3d(input, dof);
+    if dof.dofs_per_node == 6 && has_member_releases_3d(input) {
+        let attached = non_member_attachments_3d(input)
+            .chain(input.supports.values().filter_map(|support| {
+                has_spring(super::support::support_dofs_3d(support)).then_some(support.node_id)
+            })).collect();
+        let members = input.elements.values().map(|e| {
+            let frame = e.elem_type == "frame";
+            (e.node_i, e.node_j, frame && (e.release_my_start || e.release_mz_start),
+                frame && (e.release_my_end || e.release_mz_end))
+        });
+        releases.tip_swings = unrestrained_tip_swings(dof, members, attached);
+    }
+    releases
 }
 
 struct ReleasedVector {
@@ -581,7 +675,8 @@ impl ReleasedRotations {
             }
             Some((*node, projected))
         }).collect();
-        Self { rows, nodes: self.nodes.clone(), directions }
+        let tip_swings = self.tip_swings.iter().filter_map(|swing| swing.project(c)).collect();
+        Self { rows, nodes: self.nodes.clone(), directions, tip_swings }
     }
 }
 
@@ -607,17 +702,7 @@ pub(crate) fn released_rotations_3d(input: &SolverInput3D, dof: &DofNumbering) -
             }
         }
     }
-    for e in &input.curved_beams {
-        for node in [e.node_start, e.node_mid, e.node_end] { released.remove(&node); }
-    }
-    for e in input.connectors.values() { released.remove(&e.node_i); released.remove(&e.node_j); }
-    for ids in input.plates.values().map(|e| e.nodes.to_vec())
-        .chain(input.quads.values().map(|e| e.nodes.to_vec()))
-        .chain(input.quad9s.values().map(|e| e.nodes.to_vec()))
-        .chain(input.curved_shells.values().map(|e| e.nodes.to_vec()))
-        .chain(input.solid_shells.values().map(|e| e.nodes.to_vec())) {
-        for node in ids { released.remove(&node); }
-    }
+    for node in non_member_attachments_3d(input) { released.remove(&node); }
     for support in input.supports.values() {
         for (i, spring) in [support.krx, support.kry, support.krz].into_iter().enumerate() {
             if spring.is_some_and(|k| k != 0.0) {
@@ -636,7 +721,7 @@ pub(crate) fn released_rotations_3d(input: &SolverInput3D, dof: &DofNumbering) -
             rows.push(row);
         }
     }
-    ReleasedRotations { rows, nodes: released, directions }
+    ReleasedRotations { rows, nodes: released, directions, ..ReleasedRotations::default() }
 }
 
 pub(super) fn isolated_released_rotations_3d(
@@ -770,6 +855,16 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
     let n = k.n;
     if k.values.iter().any(|v| !v.is_finite()) {
         return non_finite();
+    }
+    if !releases.tip_swings.is_empty() {
+        return Stability {
+            verdict: Verdict::Mechanism,
+            reason: Reason::FreeTranslation,
+            kappa: f64::INFINITY,
+            anisotropy: 1.0,
+            free: Vec::new(),
+            mode_nodes: releases.tip_swings.iter().map(|swing| swing.node).collect(),
+        };
     }
     let diagonal_rounding = rounding.map(CscMatrix::diagonal);
     for (i, value) in k.diagonal().into_iter().enumerate() {
@@ -1352,6 +1447,7 @@ pub(crate) fn analyze_excluding(
     let coupling: Vec<_> = coupling.iter().filter_map(|&(i, j)| Some((map.get(i).copied().flatten()?, map.get(j).copied().flatten()?))).collect();
     let remap = |row: &Vec<(usize, f64)>| row.iter().filter_map(|&(i, v)| map.get(i).copied().flatten().map(|j| (j, v))).collect();
     let releases = ReleasedRotations {
+        tip_swings: releases.tip_swings.iter().filter_map(|swing| swing.project(&selection)).collect(),
         rows: releases.rows.iter().map(remap).collect(), nodes: releases.nodes.clone(),
         directions: releases.directions.iter().map(|(node,row)| (*node,row.iter().filter_map(|&(i,v,e)|map.get(i).copied().flatten().map(|j|(j,v,e))).collect())).collect(),
     };
@@ -1422,7 +1518,7 @@ pub fn of_2d(input: &SolverInput) -> Result<Stability, String> {
     let dof = DofNumbering::build_2d(input);
     let asm = crate::solver::assembly::without_artificial_stiffness(|| crate::solver::assembly::assemble_2d(input, &dof));
     let fcs = crate::solver::constraints::FreeConstraintSystem::build_2d(input, &dof)?;
-    Ok(of_assembled(&asm.k, &dof, true, fcs, &coupling_2d(input, &dof), &ReleasedRotations::default()))
+    Ok(of_assembled(&asm.k, &dof, true, fcs, &coupling_2d(input, &dof), &elastic_releases_2d(input, &dof)))
 }
 
 pub fn of_3d(input: &SolverInput3D) -> Result<Stability, String> {
@@ -1430,7 +1526,7 @@ pub fn of_3d(input: &SolverInput3D) -> Result<Stability, String> {
     let dof = DofNumbering::build_3d(input);
     let asm = crate::solver::assembly::without_artificial_stiffness(|| crate::solver::assembly::assemble_3d(input, &dof));
     let fcs = crate::solver::constraints::FreeConstraintSystem::build_3d(input, &dof)?;
-    Ok(of_assembled(&asm.k, &dof, false, fcs, &coupling_3d(input, &dof), &released_rotations_3d(input, &dof)))
+    Ok(of_assembled(&asm.k, &dof, false, fcs, &coupling_3d(input, &dof), &elastic_releases_3d(input, &dof)))
 }
 
 #[cfg(test)]
@@ -1450,7 +1546,7 @@ mod tests {
         let c = crate::solver::constraints::SparseTransform::from_rows(n, n, (0..n).map(|i| vec![(i, 1.0)]).collect());
         for count in [0, 1, 64] {
             let directions: Vec<_> = (0..count).map(|node| (node, vec![(3*node, 0.6, f64::EPSILON), (3*node+1, 0.8, f64::EPSILON), (3*node+2, 0.0, 0.0)])).collect();
-            let releases = ReleasedRotations { rows: vec![], nodes: (0..count).collect(), directions: directions.clone() };
+            let releases = ReleasedRotations { rows: vec![], nodes: (0..count).collect(), directions: directions.clone(), ..ReleasedRotations::default() };
             PROJECT_ROWS.with(|visits| visits.set(0));
             let result = releases.project(&c);
             for (actual, expected) in result.directions.iter().zip(&directions) {
@@ -1502,7 +1598,7 @@ mod tests {
                     Some(projected.into_iter().filter_map(|(j, (x, e))| (x != 0.0 || e != 0.0).then_some((j, x, e))).collect::<Vec<_>>())
                 };
                 let expected = dense();
-                let releases = ReleasedRotations { rows: vec![vec![(0, 1.0)]], nodes: [1].into(), directions: vec![(1, source)] };
+                let releases = ReleasedRotations { rows: vec![vec![(0, 1.0)]], nodes: [1].into(), directions: vec![(1, source)], ..ReleasedRotations::default() };
                 let actual = releases.project(&c);
                 assert_eq!(actual.directions.first().map(|(_, v)| v.clone()), expected);
                 assert_eq!(actual.nodes, releases.nodes);
@@ -1528,6 +1624,7 @@ mod tests {
                 rows: vec![ex.into_iter().enumerate().collect()],
                 nodes: [1].into_iter().collect(),
                 directions: [(ey,bounds[1]),(y,other[1]),(ez,bounds[2]),(z,other[2])].into_iter().map(|(v,e)|(1,(0..3).map(|i|(i,v[i],e[i])).collect())).collect(),
+                ..ReleasedRotations::default()
             };
             let v: Vec<_> = (0..3).map(|i|0.8*ey[i]+0.6*ez[i]).collect();
             let direction = releases.canonical(1,&[0,1,2],&v,2,ROUNDING*3.0*f64::EPSILON).unwrap_or_else(||panic!("angle {angle}"));
@@ -1616,6 +1713,7 @@ mod tests {
             rows: (1..n).map(|i| vec![(i, 1.0)]).collect(),
             nodes: [7].into_iter().collect(),
             directions: vec![(7, vec![(0, 1.0, 0.0)])],
+            ..ReleasedRotations::default()
         };
         assert!(releases.permits(7, &(0..n).collect::<Vec<_>>(), &{
             let mut axis = vec![0.0; n];
@@ -1652,6 +1750,7 @@ mod tests {
                 rows: (1..n).map(|i| vec![(i, 1.0)]).collect(),
                 nodes: [7].into_iter().collect(),
                 directions: vec![(7, vec![(0, 1.0, 0.0)])],
+                ..ReleasedRotations::default()
             };
             let tags = vec![DofTag { node: 7, kind: DofKind::Rotation }; n];
             let result = analyze_dense_with_coupling(&k, n, &tags, &[], &releases);
@@ -1721,6 +1820,7 @@ mod tests {
             rows: vec![vec![(0, 1.0), (1, 1.0)], vec![(2, 1.0)]],
             nodes: [1].into_iter().collect(),
             directions: vec![(1, vec![(0, 1.0, 0.0), (1, -1.0, 0.0)])],
+            ..ReleasedRotations::default()
         };
         let result = analyze_dense_with_coupling(&k, 3, &tags, &[], &releases);
         assert_eq!(result.verdict, Verdict::Stable, "{result:?}");
