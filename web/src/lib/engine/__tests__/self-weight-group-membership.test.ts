@@ -183,3 +183,51 @@ it.each(['empty', 'emptyLists', 'member'] as const)('#2472 solves with explicitl
   const stamp = { ...stampSolve('linear', null), resultsVersion: 120 };
   expect(assessProject(modelStore.snapshot(), stamp).changes.map(change => change.id)).not.toContain('missing-self-weight-group-membership');
 });
+
+const regression2565 = process.env.RUN_KNOWN_WRONG === '2565' ? it : it.skip;
+
+regression2565('known wrong result: #2565 refuses a stored group that still names a deleted quad', async () => {
+  const model = cantilever('member');
+  const mat = model.materials.values().next().value!;
+  const a = modelStore.addNode(0, 0, 0);
+  const b = modelStore.addNode(1, 0, 0);
+  const c = modelStore.addNode(1, 1, 0);
+  const d = modelStore.addNode(0, 1, 0);
+  const deleted = modelStore.addQuad([a, b, c, d], mat.id, 1 / 8);
+  modelStore.removeQuad(deleted);
+  const snapshot = modelStore.snapshot();
+  snapshot.groups![0]![1].members.quads = [deleted];
+  modelStore.restore(snapshot);
+
+  const saved = modelStore.model;
+  const diagnostic = new RegExp(`self-weight.*quad.*\\b${deleted}\\b`, 'i');
+  for (const [name, solve] of Object.entries(paths3D)) {
+    expect.soft(String(reaction3D(await solve(saved))), name).toMatch(diagnostic);
+  }
+  expect.soft(String(await runDirectAnalysis(saved, [dead], [combo], { includeSelfWeight: false }))).toMatch(diagnostic);
+  expect.soft(() => buildSolverInput3D(saved)).toThrow(diagnostic);
+  expect(() => appliedResultant(saved, dead.id, { includeSelfWeight: false })).toThrow(diagnostic);
+});
+
+regression2565('known wrong result: #2565 refuses a fractional ID in a stored explicit self-weight list', async () => {
+  cantilever('member', true);
+  const snapshot = modelStore.snapshot();
+  snapshot.analysis = { selfWeight: [{ caseId: dead.id, ...GRAVITY_SELF_WEIGHT, elements: [1.5] }] };
+  modelStore.restore(snapshot);
+
+  const saved = modelStore.model;
+  const diagnostic = /self-weight.*member.*1\.5/i;
+  for (const [name, solve] of Object.entries(paths2D)) {
+    expect.soft(String(reaction2D(await solve(saved))), `2D ${name}`).toMatch(diagnostic);
+  }
+  for (const [name, solve] of Object.entries(paths3D)) {
+    expect.soft(String(reaction3D(await solve(saved))), `3D ${name} with uplift`).toMatch(diagnostic);
+  }
+  expect.soft(String(await runDirectAnalysis(saved, [dead], [combo], { includeSelfWeight: false }))).toMatch(diagnostic);
+  expect.soft(() => buildSolverInput2D(saved)).toThrow(diagnostic);
+  expect.soft(() => buildSolverInput3D(saved)).toThrow(diagnostic);
+  expect.soft(() => appliedResultant(saved, dead.id, { includeSelfWeight: false })).toThrow(diagnostic);
+  for (const plane of [true, false]) {
+    expect.soft(() => selfWeightMemberLoads(saved, snapshot.analysis!.selfWeight!, { plane, firstId: 1 })).toThrow(diagnostic);
+  }
+});
