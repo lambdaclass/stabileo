@@ -21,10 +21,10 @@ if (BUILD_FEATURES.proPlatesUnified) {
 
     await gallery.locator('[data-example="pro-rc-party-wall"] .pp-ex').click();
     await expect(page.getByTestId('example-progress')).toBeVisible();
-    await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 90_000 }).toBe(508);
+    await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 90_000 }).toBe(410);
     await expect(page.getByTestId('example-progress')).toHaveCount(0);
     const plates = await page.evaluate(() => window.__stabileo.physicalMembers().filter((m) => m.kind === 'slab' || m.kind === 'wall').length);
-    expect(plates, 'slabs, walls, flights and landings as plates').toBe(378);
+    expect(plates, 'slabs, walls, flights and landings as plates').toBe(287);
     await page.screenshot({ path: test.info().outputPath('party-wall.png') });
     const cases = await page.evaluate(() => window.__stabileo.loadCaseNames());
     expect(cases.filter((n) => /^Wind \+Y/.test(n)).length).toBeGreaterThan(0);

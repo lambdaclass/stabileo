@@ -196,7 +196,7 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
   exampleEntry({ id: 'pro-rc-four-storey', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagWind'], stats: { nodes: 60, members: 116, plates: 24 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
   exampleEntry({ id: 'pro-rc-steel-columns', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagSteel'], stats: { nodes: 48, members: 87, plates: 18 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
   exampleEntry({ id: 'pro-rc-lift-core', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagCore'], stats: { nodes: 164, members: 238, plates: 107 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
-  exampleEntry({ id: 'pro-rc-party-wall', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagStair'], stats: { nodes: 559, members: 508, plates: 378 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
+  exampleEntry({ id: 'pro-rc-party-wall', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagStair'], stats: { nodes: 416, members: 410, plates: 287 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
 
   // ── Steel buildings ──
   exampleEntry({ id: 'pro-plane-frame-seismic', source: 'code', group: 'steelBuildings', tags: ['pro.tagSteel', 'pro.tagSeismic'], stats: { nodes: 20, members: 28 }, selfWeight: 'all', combinations: 'regulation' }),

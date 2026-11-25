@@ -2,7 +2,7 @@
  * The gallery's buildings, loaded as their cards load them: their slabs, walls and stairs plates
  * not meshed yet, their loads and combinations written by the load generator from the settings they
  * save, the slabs' as definitions on the plates. Meshed as an analysis meshes them, every cell a
- * rectangle, solved with every combination, their statics closed in force and their results held
+ * rectangle and none a sliver (the plates share one set of grid lines, `tartan.ts`), solved with every combination, their statics closed in force and their results held
  * to `baselines/generated/<id>.json`. The wind reaches each member as a few loads, not the
  * thousands of slivers a power-law pressure took to match to the last digit.
  */
@@ -54,6 +54,11 @@ describe.each(BUILDINGS.map((e) => [e.id, e] as const))('%s', (id, ex) => {
     syncDefinedLoadsForAnalysis();
     for (const p of physicalPlates()) {
       expect(p.surface.meshed?.quality.minAngle, `${p.name}: its cells are rectangles`).toBeCloseTo(90, 6);
+      for (const q of p.group.members.quads ?? []) {
+        const ns = modelStore.quads.get(q)!.nodes.map((n) => modelStore.nodes.get(n)!);
+        const side = Math.min(...ns.map((a, i) => { const b = ns[(i + 1) % ns.length]!; return Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)); }));
+        expect(side, `${p.name}: no cell narrower than a column's face from its axis`).toBeGreaterThanOrEqual(0.1 - 1e-6);
+      }
     }
     const r = modelStore.solveCombinations3D(true, false, true);
     if (!r || typeof r === 'string') throw new Error(`${id}: ${String(r)}`);

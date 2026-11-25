@@ -233,9 +233,10 @@ function liftCore(): string {
     'the slab that closes it; a lintel beam at its door on every floor.',
   ], { x: axes([0, 5.5, 11, 16.5], '1'), y: axes([0, 5.5, 11], 'A') }, levels, { x: [shaft.x0, shaft.x1], y: [shaft.y0] }, 1.5);
   const hc = b.m.material('Hormigón H-25', H25);
-  const low = b.m.rect('Col 40×40', 0.4, 0.4), up = b.m.rect('Col 35×35', 0.35, 0.35), beam = b.m.rect('Viga 25×50', 0.25, 0.5);
+  const col = b.m.rect('Col 40×40', 0.4, 0.4), beam = b.m.rect('Viga 25×50', 0.25, 0.5);
   const small = b.m.declared('Jamba 15×15', { a: 0.0225, iy: 4.22e-5, iz: 4.22e-5, j: 7.13e-5 });
-  for (const x of [0, 5.5, 11, 16.5]) for (const y of [0, 5.5, 11]) b.column(x, y, 0, top, (k) => (k < 3 ? low : up), hc);
+  // One section up the whole building: a column narrower above puts the faces of both on the walls between, a strip a few centimetres wide in every mesh they reach.
+  for (const x of [0, 5.5, 11, 16.5]) for (const y of [0, 5.5, 11]) b.column(x, y, 0, top, () => col, hc);
   liftShaft(b, shaft, 'y0', top, 0.15, hc, small, [
     ['caja 1', [shaft.x0, shaft.y0], [shaft.x0, shaft.y1]],
     ['caja 2', [shaft.x0, shaft.y1], [shaft.x1, shaft.y1]],
@@ -254,21 +255,23 @@ function liftCore(): string {
 // ─── Seven storeys between party walls, with the lift and the stair ──────────────────────────
 function partyWall(): string {
   const levels = storeys([['PB', 0], ['1º piso', 3], ['2º piso', 5.8], ['3º piso', 8.6], ['4º piso', 11.4], ['5º piso', 14.2], ['6º piso', 17], ['Azotea', 19.8], ['Sobre-recorrido', 19.8 + OVERRUN]]);
-  const floorLanding = 1.2, run = 2.64, landingDepth = 1.2, mid = 3.05, gap = 0.1, top = 7, steps = 9, ts = 0.23;
-  const shaft = { x0: 0, x1: 1.9, y0: 8.5, y1: 10.46 }, stair = { x0: 1.9, x1: 4.2, y0: 8.5, y1: 8.5 + floorLanding + run + landingDepth };
-  const foot = stair.y0 + floorLanding, head = foot + run;
+  const run = 2.64, landingDepth = 1.2, mid = 3.05, gap = 0.1, top = 7, steps = 9, ts = 0.26;
+  const shaft = { x0: 0, x1: 1.9, y0: 8.5, y1: 10.46 }, foot = shaft.y1, head = foot + run;
+  const stair = { x0: 1.9, x1: 4.2, y0: 8.5, y1: head + landingDepth };
   const b = new Building('Edificio entre medianeras de PB y 6 pisos', [
     'A seven-storey concrete block of flats on an 8.6 m city lot, columns against both party walls',
     'and at the ends of the core walls: a lift shaft open through every floor to its overrun over the',
     'roof and the slab that closes it, and a stairwell of 15 cm walls entered by a door from the hall',
     'onto the floor\'s landing, with a U stair of two flights of nine risers and a landing a storey up',
-    'to the last floor, 23 cm thick for the 5 m it spans between its walls. The wind blows on the front',
-    'and the back only.',
-  ], { x: axes([0, 4.2, 8.4], '1'), y: axes([0, 4.5, 8.5, 11.7, 16.2, 20.7], 'A') }, levels, { x: [shaft.x1, stair.x0 + gap, mid, stair.x1 - gap], y: [shaft.y1, foot, head, stair.y1] }, 1.2);
+    'to the last floor, 26 cm thick for the 5.8 m it spans between its walls. The floor\'s',
+    'landing reaches the back of the lift shaft, so the floors are cut on the lines the core already has',
+    'and their meshes stay even. The wind blows on the front and the back only.',
+  ], { x: axes([0, 4.2, 8.4], '1'), y: axes([0, 4.5, 8.5, 11.7, 16.2, 20.7], 'A') }, levels, { x: [shaft.x1, mid], y: [shaft.y1, stair.y1] }, 1.2);
   const hc = b.m.material('Hormigón H-25', H25);
-  const edge = b.m.rect('Col 20×50', 0.2, 0.5), centre = b.m.rect('Col 30×50', 0.3, 0.5), beam = b.m.rect('Viga 20×45', 0.2, 0.45);
+  // One section for every column: columns of other sizes on one axis put their faces a few centimetres apart, a strip that crosses every mesh of the floor.
+  const col = b.m.rect('Col 20×60', 0.2, 0.6), beam = b.m.rect('Viga 20×45', 0.2, 0.45);
   const small = b.m.declared('Jamba 15×15', { a: 0.0225, iy: 4.22e-5, iz: 4.22e-5, j: 7.13e-5 });
-  for (const x of [0, 4.2, 8.4]) for (const y of [0, 4.5, 8.5, 11.7, 16.2, 20.7]) b.column(x, y, 0, top, () => (x === 4.2 ? centre : edge), hc, { rollAngle: 90 });
+  for (const x of [0, 4.2, 8.4]) for (const y of [0, 4.5, 8.5, 11.7, 16.2, 20.7]) b.column(x, y, 0, top, () => col, hc, { rollAngle: 90 });
   // The landing meets the stairwell's walls at mid storey: they are cut there, so its edges are theirs.
   liftShaft(b, shaft, 'y0', top, 0.15, hc, small, [
     ['ascensor 1', [shaft.x0, shaft.y0], [shaft.x0, shaft.y1]],
@@ -291,8 +294,9 @@ function partyWall(): string {
   // A U stair a storey up to the last floor, from the floor's landing inside the door: up along +Y,
   // a landing against the back wall at mid height, and back along −Y onto the landing of the floor
   // above; nine risers of 15,5 to 16,7 cm on treads of 33, under 30°, the slope the load generator
-  // still loads as a floor; the flights clear of the side walls, held at their ends, as an inclined
-  // side a wall's grid of rectangles cannot follow.
+  // still loads as a floor; the flights clear of the side walls, held at their ends: an inclined side
+  // in a wall's plane is one its grid of rectangles cannot follow, the flight against the column the
+  // width of the column's face away.
   for (const x of [stair.x0 + gap, mid, stair.x1 - gap]) b.m.support(b.m.node(x, foot, 0), 'pinned3d');
   for (let k = 0; k < top - 1; k++) {
     const z0 = b.z(k), z1 = b.z(k + 1), zm = (z0 + z1) / 2, at = levels[k]!.name;
