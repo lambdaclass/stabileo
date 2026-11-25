@@ -536,7 +536,7 @@ const missingTargetCases = [
   ['thermalQuad3d', 'quadId', 41, 1, { on: 'plate', dtUniform: 1, dtGradient: 0 }],
 ] as const;
 
-describe.skipIf(process.env.STABILEO_REPRODUCE_FIXTURE_TARGETS !== '1')('known wrong result: #2583', () => {
+describe('fixture load target preflight (#2583)', () => {
   it.each(missingTargetCases)(
     'refuses fixture %s with %s %i outside its target collection',
     async (type, field, missing, existing, data) => {
@@ -549,7 +549,8 @@ describe.skipIf(process.env.STABILEO_REPRODUCE_FIXTURE_TARGETS !== '1')('known w
       expect.soft(() => prepareFixture(fixture), 'fixture preflight').toThrow(refusal);
       expect.soft(() => loadFixture(fixture, modelStore.fixtureApi() as never), 'direct replay').toThrow(refusal);
       expect.soft(modelStore.snapshot(), 'after direct replay').toEqual(before);
-      await expect.soft(modelStore.loadExample(fixture.name, async () => fixture), 'example apply').rejects.toThrow(refusal);
+      const exampleError = await modelStore.loadExample(fixture.name, async () => fixture).catch((error: unknown) => error);
+      expect.soft(exampleError, 'example apply').toMatchObject({ message: refusal });
       expect.soft(modelStore.snapshot(), 'after example apply').toEqual(before);
       expect.soft(() => applyGeneratedFixture(fixture), 'generator apply').toThrow(refusal);
       expect.soft(modelStore.snapshot(), 'after generator apply').toEqual(before);

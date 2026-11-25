@@ -12,7 +12,8 @@ import { withOrigin } from '../codes/families';
 import { CIRSOC101_BASIS } from '../codes/families/cirsoc';
 import { expandCombinations, modelCombinationCases, presentSymbols, type CombinationCase } from '../engine/loads/combination-cases';
 import { tp } from '../i18n';
-import { requireLoadCollection, requireLoadInput } from '../engine/model-input-numbers';
+import { ModelInputError, requireLoadCollection, requireLoadInput } from '../engine/model-input-numbers';
+import { LOAD_TARGET, type Load } from '../store/model.svelte';
 import { remapSupportElement } from '../model/support-types';
 
 export interface JSONModel {
@@ -142,8 +143,20 @@ function fixtureSupportElement(support: JSONModel['supports'][number], elementId
 
 function validateFixtureInput(json: JSONModel): void {
   requireLoadInput(json.loads);
-  const ids = new Set(json.elements.map(e => e.id));
-  for (const support of json.supports) fixtureSupportElement(support, id => ids.has(id) ? id : undefined);
+  const targets = {
+    node: { field: 'nodeId', ids: new Set(json.nodes.map(node => node.id)) },
+    member: { field: 'elementId', ids: new Set(json.elements.map(element => element.id)) },
+    shell: { field: 'quadId', ids: new Set(json.quads.map(quad => quad.id)) },
+    plate: { field: 'quadId', ids: new Set(json.plates.map(plate => plate.id)) },
+  };
+  for (const [index, { type, data }] of json.loads.entries()) {
+    const target = LOAD_TARGET[type as Load['type']];
+    const { field, ids } = targets[target === 'shell' && data.on === 'plate' ? 'plate' : target];
+    if (!ids.has(data[field] as number)) {
+      throw new ModelInputError(tp('svc.engine.invalidInputField', { path: `loads[${index}].data.${field}` }));
+    }
+  }
+  for (const support of json.supports) fixtureSupportElement(support, id => targets.member.ids.has(id) ? id : undefined);
 }
 
 function replayFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOptions): void {
