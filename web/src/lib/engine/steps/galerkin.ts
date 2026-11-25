@@ -77,7 +77,7 @@ function structure(data: GalerkinData, ctx: MethodContext, withDofs = false): Bl
     const x = data.x0 + (data.L * (2 * k + 1)) / 16;
     forces.push({ x, z: data.z, fx: data.q, fz: 0, ...(k === 0 ? { label: `q = ${numText(data.q)} kN/m` } : {}), color: 'load' });
   }
-  const dofs = withDofs ? data.nodes.map((node, k) => ({ node, kind: 'ux' as const, label: `u_${data.names[k]}` })) : [];
+  const dofs = withDofs ? data.nodes.map((node, k) => ({ node, kind: 'ux' as const, label: `u_{${data.names[k]}}` })) : [];
   const members = base.members.map((m) => ({ ...m, label: m.id === data.members[0].id ? 'e1' : 'e2' }));
   return { kind: 'fig', sketch: { ...base, members, forces, dofs, dims: 'auto' }, caption: tx(withDofs ? 'steps.m.galerkin.meshCaption' : 'steps.m.galerkin.figureCaption') };
 }
@@ -204,7 +204,7 @@ export function buildGalerkin(ctx: MethodContext): StepDoc {
       { kind: 'eq', tex: `\\mathbf{K}=${symbolicK},\\qquad \\mathbf{F}=${symbolicF}` },
       { kind: 'matrix', name: '\\mathbf{K}', rows: globalK, scale: k, caption: tx('steps.m.galerkin.s7.kCaption') },
       { kind: 'matrix', name: '\\mathbf{F}', rows: globalF, caption: tx('steps.m.galerkin.s7.fCaption') },
-      { kind: 'eq', tex: `\\mathbf{K}\\begin{Bmatrix}u_${A}\\\\u_${B}\\\\u_${C}\\end{Bmatrix}=\\mathbf{F}` },
+      { kind: 'eq', tex: `\\mathbf{K}\\begin{Bmatrix}u_{${A}}\\\\u_{${B}}\\\\u_{${C}}\\end{Bmatrix}=\\mathbf{F}` },
       p('steps.m.galerkin.s7.why', true),
     ],
   });
@@ -213,8 +213,8 @@ export function buildGalerkin(ctx: MethodContext): StepDoc {
     title: tx('steps.m.galerkin.s8.title'),
     blocks: [
       p('steps.m.galerkin.s8.lead'),
-      { kind: 'eq', tex: `u_${A}=u_${C}=0\\ \\Longrightarrow\\ \\frac{2EA}{h}u_${B}=qh` },
-      { kind: 'calc', formula: `u_${B}=\\frac{q h^2}{2EA}=\\frac{qL^2}{8EA}`, subst: `u_${B}=\\frac{${num(d.q)}\\,(${num(d.L)})^2}{8(${num(d.EA)})}`, result: `\\boxed{u_${B}=${num(uB)}\\ \\mathrm{m}=${num(1000 * uB)}\\ \\mathrm{mm}}`, check: `2(${num(k)})(${num(uB)})=${num(2 * k * uB)}\\ \\mathrm{kN}=qh\\ \\checkmark` },
+      { kind: 'eq', tex: `u_{${A}}=u_{${C}}=0\\ \\Longrightarrow\\ \\frac{2EA}{h}u_{${B}}=qh` },
+      { kind: 'calc', formula: `u_{${B}}=\\frac{q h^2}{2EA}=\\frac{qL^2}{8EA}`, subst: `u_{${B}}=\\frac{${num(d.q)}\\,(${num(d.L)})^2}{8(${num(d.EA)})}`, result: `\\boxed{u_{${B}}=${num(uB)}\\ \\mathrm{m}=${num(1000 * uB)}\\ \\mathrm{mm}}`, check: `2(${num(k)})(${num(uB)})=${num(2 * k * uB)}\\ \\mathrm{kN}=qh\\ \\checkmark` },
       { kind: 'matrix', name: '\\mathbf{u}', rows: [[0], [1000 * uB], [0]], caption: tx('steps.m.galerkin.s8.caption') },
     ],
   });
@@ -229,9 +229,9 @@ export function buildGalerkin(ctx: MethodContext): StepDoc {
     title: tx('steps.m.galerkin.s9.title'),
     blocks: [
       p('steps.m.galerkin.s9.lead'),
-      { kind: 'eq', tex: `u_h(x)=\\begin{cases}\\dfrac{u_${B}}{h}x,&0\\le x\\le h\\\\\\dfrac{u_${B}}{h}(L-x),&h\\le x\\le L\\end{cases}` },
+      { kind: 'eq', tex: `u_h(x)=\\begin{cases}\\dfrac{u_{${B}}}{h}x,&0\\le x\\le h\\\\\\dfrac{u_{${B}}}{h}(L-x),&h\\le x\\le L\\end{cases}` },
       displacementPlot(d, uB),
-      { kind: 'calc', label: tx('steps.m.galerkin.s9.reactionLabel'), formula: '\\mathbf{R}=\\mathbf{K}\\mathbf{u}-\\mathbf{F}', subst: `R_{x,${A}}=R_{x,${C}}=-\\frac{EA}{h}u_${B}-\\frac{qh}{2}`, result: `\\boxed{R_{x,${A}}=R_{x,${C}}=${num(reaction)}\\ \\mathrm{kN}}`, check: `R_{x,${A}}+R_{x,${C}}+qL=${num(2 * reaction + d.q * d.L)}\\ \\mathrm{kN}\\ \\checkmark` },
+      { kind: 'calc', label: tx('steps.m.galerkin.s9.reactionLabel'), formula: '\\mathbf{R}=\\mathbf{K}\\mathbf{u}-\\mathbf{F}', subst: `R_{x,${A}}=R_{x,${C}}=-\\frac{EA}{h}u_{${B}}-\\frac{qh}{2}`, result: `\\boxed{R_{x,${A}}=R_{x,${C}}=${num(reaction)}\\ \\mathrm{kN}}`, check: `R_{x,${A}}+R_{x,${C}}+qL=${num(2 * reaction + d.q * d.L)}\\ \\mathrm{kN}\\ \\checkmark` },
       p('steps.m.galerkin.s9.why', true),
       { kind: 'compare', rows: comparisons, caption: compareNoteFor(comparisons) },
     ],
@@ -245,7 +245,7 @@ export function buildGalerkin(ctx: MethodContext): StepDoc {
       { kind: 'eq', tex: 'u_{\\mathrm{ex}}(x)=\\frac{q}{2EA}x(L-x),\\qquad N_{\\mathrm{ex}}(x)=q\\left(\\frac{L}{2}-x\\right)' },
       forcePlot(d),
       { kind: 'table', head: [{ tex: 'n' }, { tex: 'h\\ [\\mathrm{m}]' }, { tex: 'e_n=\\max|u-u_h|\\ [\\mathrm{mm}]' }, { tex: 'e_{n/2}/e_n' }], rows: refinement.map((r, k) => [r.n, { tex: num(r.h) }, { tex: num(r.error) }, k === 0 ? '—' : { tex: num(refinement[k - 1].error / r.error) }]), caption: tx('steps.m.galerkin.refineCaption') },
-      { kind: 'calc', formula: '\\max_{x\\in[0,L]}|u(x)-u_h(x)|=\\frac{|q|h^2}{8EA}', subst: `\\max|u-u_h|=\\frac{${num(Math.abs(d.q))}(${num(d.h)})^2}{8(${num(d.EA)})}`, result: `\\boxed{\\max|u-u_h|=${num(refinement[0].error)}\\ \\mathrm{mm}}` },
+      { kind: 'calc', formula: '\\max_{x\\in[0,L]}|u(x)-u_h(x)|=\\frac{|q|h^2}{8EA}', subst: `\\max|u-u_h|=\\frac{${num(Math.abs(d.q))}(${num(d.h)})^2}{8(${num(d.EA)})}`, result: `\\boxed{\\max|u-u_h|=${num(refinement[0].error / 1000)}\\ \\mathrm{m}=${num(refinement[0].error)}\\ \\mathrm{mm}}` },
       { kind: 'note', tone: 'info', text: tx('steps.m.galerkin.superconvergence') },
       p('steps.m.galerkin.s10.why', true),
     ],
