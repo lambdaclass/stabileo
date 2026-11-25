@@ -1,0 +1,48 @@
+{
+  "id": "repeated-case-factor-consumers",
+  "date": "2026-11-23",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "repeatedCombinationCases",
+      "staticCaseEffects"
+    ]
+  },
+  "quantities": [
+    "displacements",
+    "reactions",
+    "elementForces",
+    "plateStresses",
+    "quadStresses",
+    "constraintForces",
+    "equilibrium",
+    "nonlinear",
+    "secondOrder",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Repeated case factors use exact sums in all combination calculations",
+    "es": "Los factores repetidos se suman exactamente en los cálculos de combinaciones",
+    "pt": "Os fatores repetidos são somados exatamente nos cálculos de combinações",
+    "de": "Wiederholte Lastfallfaktoren werden in Kombinationen exakt summiert",
+    "fr": "Les coefficients répétés sont additionnés exactement dans les combinaisons",
+    "zh": "组合计算对同一工况的重复系数求精确和",
+    "hu": "A kombinációk pontosan összeadják az ismétlődő tehereset-tényezőket",
+    "tr": "Birleşimlerde yinelenen yük durumu katsayıları tam olarak toplanır"
+  },
+  "explanation": {
+    "en": "Shell stress recovery, applied-load checks, and generated cases now resolve each case's repeated factors before applying them. Re-run affected combinations and review the results.",
+    "es": "La recuperación de tensiones de placa, las comprobaciones de cargas aplicadas y los casos generados resuelven los factores repetidos de cada caso antes de aplicarlos. Volvé a calcular las combinaciones afectadas y revisá los resultados.",
+    "pt": "A recuperação de tensões em placas, as verificações de cargas aplicadas e os casos gerados calculam primeiro o total dos fatores repetidos de cada caso. Recalcule as combinações afetadas e reveja os resultados.",
+    "de": "Die Berechnung der Schalenspannungen, die Prüfung der aufgebrachten Lasten und die erzeugten Lastfälle verwenden die Summe der wiederholten Faktoren je Lastfall. Berechnen Sie betroffene Kombinationen neu und prüfen Sie die Ergebnisse.",
+    "fr": "La récupération des contraintes de coque, la vérification des charges appliquées et les cas générés regroupent les coefficients répétés de chaque cas avant leur application. Recalculez les combinaisons concernées et vérifiez les résultats.",
+    "zh": "壳应力恢复、施加载荷校核和生成工况现在先求出每个工况的重复系数之和，再施加该工况。请重新计算受影响的组合并检查结果。",
+    "hu": "A héjfeszültségek számítása, a terhek ellenőrzése és a generált teheresetek alkalmazás előtt összevonják az adott tehereset ismétlődő tényezőit. Számítsa újra az érintett kombinációkat, és ellenőrizze az eredményeket.",
+    "tr": "Kabuk gerilmelerinin hesaplanmasında, uygulanan yük kontrollerinde ve oluşturulan durumlarda her yük durumunun yinelenen katsayıları uygulanmadan önce toplanır. Etkilenen birleşimleri yeniden hesaplayıp sonuçları inceleyin."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-2297-repeated-case-factor-consumers.md",
+    "heading": "Use exact repeated case factors throughout combinations (2026-11-23)"
+  }
+}

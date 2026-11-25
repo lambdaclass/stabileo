@@ -334,6 +334,7 @@ for (const mode of ['basic', 'pro']) test(`@smoke research navigation preserves 
   for (const destination of ['/research/', '/blog/', '/']) {
     await page.evaluate(path => window.dispatchEvent(new CustomEvent('stabileo-navigate', { detail: path })), destination);
     await expect(page.locator('.app-container')).toHaveClass(/hidden-behind-landing/);
+    await expect(page.locator('.app-container')).toHaveCSS('pointer-events', 'none');
     for (const key of ['Delete', 'Backspace', 'Control+z', 'Control+v', 'ControlOrMeta+z', 'ControlOrMeta+v', 'ControlOrMeta+x', 'ControlOrMeta+y']) await page.keyboard.press(key);
     await page.waitForTimeout(200);
   }
@@ -349,36 +350,49 @@ for (const mode of ['basic', 'pro']) test(`@smoke research navigation preserves 
   await expect.poll(() => page.evaluate((id) => (window as unknown as { __stabileo: StabileoTestHooks }).__stabileo.nodePos(id), before.id)).toEqual(before.position);
 });
 
-test('@smoke research survives navigation while the App chunk is delayed', async ({ page }) => {
-  let release!: () => void;
-  const blocked = new Promise<void>((resolve) => { release = resolve; });
-  let requested!: () => void;
-  const request = new Promise<void>((resolve) => { requested = resolve; });
+test('@smoke research navigation cancels a delayed editor mount', async ({ page }) => {
+  const requested = Promise.withResolvers<string>();
+  const release = Promise.withResolvers<void>();
   await page.route(/\/assets\/App-[^/]+\.js$/, async (route) => {
-    requested();
-    await blocked;
+    requested.resolve(route.request().url());
+    await release.promise;
     await route.continue();
   });
-  await page.goto('/en/');
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent('stabileo-enter-app')));
-  await request;
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent('stabileo-navigate', { detail: '/research/' })));
-  await expect(page.getByRole('heading', { name: 'Research in structural engineering' })).toBeVisible();
-  await page.evaluate(() => {
-    (window as unknown as { appReady: boolean }).appReady = false;
-    window.addEventListener('stabileo-app-ready', () => { (window as unknown as { appReady: boolean }).appReady = true; });
+  await page.addInitScript(() => {
+    window.addEventListener('stabileo-app-ready', () => {
+      document.documentElement.dataset.appReady = 'true';
+    }, { once: true });
   });
-  release();
-  await page.waitForFunction(() => (window as unknown as { appReady: boolean }).appReady);
-  await expect(page.getByRole('heading', { name: 'Research in structural engineering' })).toBeVisible();
-  await expect(page).toHaveURL(/\/en\/research\/$/);
-  await expect(page.locator('.app-container')).toHaveClass(/hidden-behind-landing/);
-  await expect(page.locator('.app-container')).toHaveCSS('pointer-events', 'none');
+  await page.goto('/en/');
+  const timeOrigin = await page.evaluate(() => performance.timeOrigin);
   const heading = page.getByRole('heading', { name: 'Research in structural engineering' });
+  try {
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('stabileo-enter-app')));
+    await requested.promise;
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('stabileo-navigate', { detail: '/research/' })));
+    await expect(heading).toBeVisible();
+  } finally {
+    release.resolve();
+  }
+
+  await page.evaluate(async (url) => {
+    await import(url);
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  }, await requested.promise);
+  await expect(heading).toBeVisible();
+  await expect(page).toHaveURL(/\/en\/research\/$/);
+  await expect(page.locator('.app-container')).toHaveCount(0);
+  await expect(page.locator('html')).not.toHaveAttribute('data-app-ready');
   await expect.poll(() => heading.evaluate((el) => {
     const box = el.getBoundingClientRect();
     return el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
   })).toBe(true);
+
+  await page.locator('.nav-actions > button.btn-primary').click();
+  await expect(page).toHaveURL(/\/app\/basic$/);
+  await expect(page.getByTestId('ribbon')).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('data-app-ready', 'true');
+  expect(await page.evaluate(() => performance.timeOrigin)).toBe(timeOrigin);
 });
 
 for (const failure of ['constructor', 'unavailable', 'error']) {

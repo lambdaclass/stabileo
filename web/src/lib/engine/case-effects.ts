@@ -29,6 +29,7 @@ import { isCompositeCase } from './loads/combination-cases';
 import { variableExpansionFor } from './variable-members';
 import { caseReductionRefusal } from './loads/case-reduction';
 import { listed } from './combination-methods';
+import { sumCombinationFactors } from './wasm-solver';
 
 function scaleCaseLoad(load: Load, factor: number): Load {
   const scaled = scaledLoad(load, factor);
@@ -121,26 +122,10 @@ export function withCaseEffects<M extends ModelData>(
   const inScope = (id: number) => !scope || scope.has(id) || !byId.has(id);
   const { order, looped } = caseOrder(cases);
   const own = loadCaseBatches(model.loads);
-  const sources = caseSources(own, cases, looped, inScope);
+  const sources = caseSources(own, byId, looped, inScope, { generateNotionals: true });
   if (!hasEffects) {
     return { ...model, [accountingCaseSources]: sources, loads: model.loads.filter(l => inScope(l.data.caseId ?? 1)) };
   }
-  const required = scope && new Set(scope);
-  if (required) {
-    const pending = [...required];
-    for (const id of pending) {
-      const c = byId.get(id);
-      if (!c || looped.has(id)) continue;
-      const deps = sources.cases.get(id)!.includes.map(inc => inc.caseId);
-      if (c.notional) deps.push(c.notional.sourceCaseId);
-      for (const dep of deps) {
-        if (required.has(dep)) continue;
-        required.add(dep);
-        pending.push(dep);
-      }
-    }
-  }
-
   // The self-weight rows, written out: the older switch puts gravity on every dead-load case,
   // not on a composite one typed D, which has it through the cases it takes in.
   const stated: SelfWeightLoad[] = model.analysis?.selfWeight
@@ -158,9 +143,10 @@ export function withCaseEffects<M extends ModelData>(
   };
 
   for (const id of order) {
-    if (required && !required.has(id)) continue;
+    const rule = sources.cases.get(id);
+    if (!rule) continue;
     const c = byId.get(id)!;
-    const { ratio: k, includes } = sources.cases.get(id)!;
+    const { ratio: k, includes } = rule;
     const list = (own.get(id) ?? []).map((l) => (k === 1 ? l : fresh(l, id, k)));
     const swRows = [...(rows.get(id) ?? [])];
     if (c.notional && !looped.has(id)) {
@@ -235,24 +221,39 @@ function sourceGravity(
   return out;
 }
 
+export function includedCases(
+  c: CaseLike,
+  cases: ReadonlySet<number> | ReadonlyMap<number, CaseLike>,
+  accepts: (id: number) => boolean = () => true,
+): NonNullable<LoadCase['includes']> {
+  return sumCombinationFactors((c.includes ?? []).filter(({ caseId }) => cases.has(caseId) && accepts(caseId)))
+    .filter(({ factor }) => factor !== 0);
+}
+
 function caseSources(
   authored: ReadonlyMap<number, readonly Load[]>,
-  cases: readonly CaseLike[],
+  byId: ReadonlyMap<number, CaseLike>,
   looped: ReadonlySet<number>,
   inScope: (id: number) => boolean,
-  include: (id: number) => boolean = () => true,
+  opts: { include?: (id: number) => boolean; generateNotionals?: boolean },
 ): AccountingCaseSources {
-  const ids = new Set(cases.map(c => c.id));
+  const targets = new Set([...byId.keys(), ...authored.keys()].filter(inScope));
+  const required = new Set(targets);
+  const cases = new Map<number, { ratio: number; includes: ReturnType<typeof includedCases> }>();
+  for (const id of required) {
+    const c = byId.get(id);
+    if (!c) continue;
+    const active = !looped.has(id);
+    const includes = active ? includedCases(c, byId, opts.include) : [];
+    cases.set(id, { ratio: ratioOf(c), includes });
+    for (const inc of includes) required.add(inc.caseId);
+    if (active && opts.generateNotionals && c.notional) required.add(c.notional.sourceCaseId);
+  }
   return {
     authored: new Map([...authored].map(([id, loads]) => [id, loads.map(copyAccountingLoad)])),
     generated: new Map(),
-    cases: new Map(cases.map(c => [c.id, {
-      ratio: ratioOf(c),
-      includes: looped.has(c.id) ? [] : (c.includes ?? []).filter(
-        inc => inc.factor !== 0 && ids.has(inc.caseId) && include(inc.caseId),
-      ).map(({ caseId, factor }) => ({ caseId, factor })),
-    }])),
-    targets: new Set([...ids, ...authored.keys()].filter(inScope)),
+    cases,
+    targets,
   };
 }
 
@@ -302,7 +303,7 @@ export function singleSolveModel<M extends ModelData>(model: M, cases: readonly 
   const byId = new Map(cases.map((c) => [c.id, c]));
   const own = loadCaseBatches(model.loads);
   const isListed = (id: number) => !byId.has(id) || listed(byId.get(id)!);
-  const sources = caseSources(own, cases, caseOrder(cases).looped, isListed, id => !isListed(id));
+  const sources = caseSources(own, byId, caseOrder(cases).looped, isListed, { include: id => !isListed(id) });
   const stated = model.analysis?.selfWeight;
   let nextId = Math.max(0, ...model.loads.map((l) => l.data.id)) + 1;
   // Loads, and rows, of a case id the model has no case for are kept as they are.
@@ -339,19 +340,25 @@ export function singleSolveFactors(cases: readonly SingleCase[], opts: { legacyS
   const byId = new Map(cases.map((c) => [c.id, c]));
   const { looped } = caseOrder(cases);
   if (cases.some((c) => c.notional && !looped.has(c.id) && byId.has(c.notional.sourceCaseId))) return null;
-  const factors = new Map<number, number>();
-  for (const c of cases) if (listed(c)) factors.set(c.id, 1);
+  const terms = cases.filter(listed).map(({ id }) => ({ caseId: id, factor: 1 }));
+  const includes = new Map<number, ReturnType<typeof includedCases>>();
+  const includesOf = (id: number) => {
+    const cached = includes.get(id);
+    if (cached) return cached;
+    const resolved = looped.has(id) ? [] : includedCases(byId.get(id)!, byId);
+    includes.set(id, resolved);
+    return resolved;
+  };
   // What a case's result holds besides what it brings to the single solve, on listed results.
   const lessOf = (id: number, k: number) => {
-    if (looped.has(id)) return;
-    for (const inc of byId.get(id)!.includes ?? []) {
-      const part = byId.get(inc.caseId);
-      if (!part || inc.factor === 0) continue;
-      if (listed(part)) factors.set(part.id, factors.get(part.id)! - k * inc.factor);
+    for (const inc of includesOf(id)) {
+      const part = byId.get(inc.caseId)!;
+      if (listed(part)) terms.push({ caseId: part.id, factor: -k * inc.factor });
       else lessOf(part.id, k * inc.factor);
     }
   };
   for (const c of cases) if (listed(c)) lessOf(c.id, 1);
+  const factors = new Map(sumCombinationFactors(terms).map(({ caseId, factor }) => [caseId, factor]));
   if (opts.legacySelfWeight) {
     // The weight each result holds: a dead-load case's own, and what a composite takes in.
     const weight = new Map<number, number>();
@@ -359,7 +366,7 @@ export function singleSolveFactors(cases: readonly SingleCase[], opts: { legacyS
       if (weight.has(id)) return weight.get(id)!;
       const c = byId.get(id)!;
       let w = c.type === 'D' && !isCompositeCase(c) ? 1 : 0;
-      if (!looped.has(id)) for (const inc of c.includes ?? []) if (byId.has(inc.caseId)) w += inc.factor * weightOf(inc.caseId);
+      for (const inc of includesOf(id)) w += inc.factor * weightOf(inc.caseId);
       weight.set(id, w);
       return w;
     };
