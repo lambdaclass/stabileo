@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { assessProject } from '../../provenance/applicability';
 import { modelFeatures } from '../../provenance/model-features';
 import { modelStore, uiStore } from '../../store';
 import { loadFixture, type JSONModel } from '../../templates/load-fixture';
@@ -139,12 +140,12 @@ describe('malformed structural model input', () => {
   });
 
   it.each([
-    ['unknown constraint type', { type: 'future' }, 'constraints[0].type'],
-    ['unknown legacy DOF', { type: 'rigidLink', dofs: ['ux', 'future'] }, 'constraints[0].dofs[1]'],
-    ['missing MPC terms', { type: 'linearMpc' }, 'constraints[0].terms'],
-  ])('refuses %s before restoring a snapshot', async (_, patch, field) => {
+    ['unknown constraint type', () => ({ type: 'future' }), 'constraints[0].type'],
+    ['unknown legacy DOF', () => ({ type: 'rigidLink', masterNode: root, slaveNode: tip, dofs: ['ux', 'future'] }), 'constraints[0].dofs[1]'],
+    ['missing MPC terms', () => ({ type: 'linearMpc' }), 'constraints[0].terms'],
+  ] as const)('refuses %s before restoring a snapshot', async (_, constraint, field) => {
     const before = modelStore.snapshot();
-    const incoming = { ...before, constraints: [{ masterNode: root, slaveNode: tip, ...patch }] };
+    const incoming = { ...before, constraints: [constraint()] };
     await refuses(field, { restore: () => modelStore.restore(incoming as never) });
     expect(modelStore.snapshot()).toEqual(before);
   });
@@ -221,16 +222,14 @@ describe('lossy structural dispatch', () => {
 });
 
 
-const reviewTest = process.env.STABILEO_REVIEW_2588 === '1' ? it : it.skip;
-
-reviewTest.each([
+it.each([
   ['analysis.selfWieght', () => ({ analysis: { selfWieght: [{ caseId: loadCase.id, direction: 'Z', factor: -1 }] } })],
   ['constraints[0].dof', () => ({ constraints: [{ type: 'rigidLink', masterNode: root, slaveNode: tip, dof: [0] }] })],
   ['analysis.selfWeight[0].element', () => ({ analysis: { selfWeight: [{ caseId: loadCase.id, direction: 'Z', factor: -1, element: member }] } })],
   ['constraints[0].terms[0].coefficent', () => ({ constraints: [{
     type: 'linearMPC', terms: [{ nodeId: tip, dof: 0, coefficent: 1 }],
   }] })],
-] as const)('review 2588 refuses %s through solve, restore and fixture apply', async (field, patch) => {
+] as const)('refuses %s through solve, restore and fixture apply', async (field, patch) => {
   const before = modelStore.snapshot();
   const input = { ...fixture(), ...patch() } as JSONModel;
   const incoming = { ...before, ...patch() } as typeof before;
@@ -246,7 +245,7 @@ reviewTest.each([
   await refuses(field, analysisEntries());
 });
 
-reviewTest('review 2588 preserves explicit self-weight and a one-DOF rigid link', async () => {
+it('preserves explicit self-weight and a one-DOF rigid link', async () => {
   const model = modelStore.model;
   model.constraints = [{ type: 'rigidLink', masterNode: root, slaveNode: tip, dofs: [4] }];
   model.analysis = { selfWeight: [{ caseId: loadCase.id, direction: 'Z', factor: -1, elements: [member] }] };
@@ -259,7 +258,7 @@ reviewTest('review 2588 preserves explicit self-weight and a one-DOF rigid link'
   expect(await validateAndSolve3DAsync(model)).toMatchObject({ reactions: expect.any(Array) });
 });
 
-reviewTest('review 2588 solves a separated eccentric connection in plane', async () => {
+it('solves a separated eccentric connection in plane', async () => {
   const model = modelStore.model;
   model.loads[0] = { type: 'nodal', data: { id: 1, nodeId: tip, fx: 0, fz: -1, my: 0, caseId: 1 } };
   model.constraints = [{ type: 'equalDOF', masterNode: root, slaveNode: tip, dofs: [4] }];
@@ -280,9 +279,27 @@ reviewTest('review 2588 solves a separated eccentric connection in plane', async
   expect.soft(solveCombinations2D(model, [loadCase], [combo])).toEqual(combinationControl);
   expect.soft(solvePDelta(modelStore.buildSolverInput(false, 'xy')!)).toEqual(advancedControl);
   expect.soft(buildSolverInput3D(model)?.constraints).toEqual(model.constraints);
+  expect(assessProject(modelStore.snapshot(), null, 'basic').changes.map(change => change.id))
+    .toContain('separated-planar-eccentric-connection');
 });
 
-reviewTest.each([0, 2] as const)('review 2588 still refuses a live eccentric equation on DOF %s', async (dof) => {
+it('rotates a short authored release mask before checking a YZ solve', async () => {
+  const model = modelStore.model;
+  const node = model.nodes.get(tip)!;
+  node.y = node.x;
+  node.x = 0;
+  model.loads = [{ type: 'nodal3d', data: { id: 1, nodeId: tip, fx: 0, fy: 0, fz: -1, mx: 0, my: 0, mz: 0 } }];
+  model.constraints = [{ type: 'equalDOF', masterNode: root, slaveNode: tip, dofs: [3] }];
+  const control = modelStore.solve(false, 'yz');
+  expect(control).toMatchObject({ reactions: expect.any(Array), displacements: expect.any(Array) });
+  const connection = { type: 'eccentricConnection', masterNode: root, slaveNode: tip, offsetX: 1 } as const;
+  model.constraints = [{ ...connection, releases: [false, true, true] }];
+  expect(await modelStore.solveAsync(false, 'yz')).toEqual(control);
+  model.constraints = [{ ...connection, releases: [true, false, true] }];
+  await refuses('constraints[0].offsetX', { 'still coupled': () => modelStore.solveAsync(false, 'yz') });
+});
+
+it.each([0, 2] as const)('still refuses a live eccentric equation on DOF %s', async (dof) => {
   const model = modelStore.model;
   const releases = [true, false, true, false, false, false];
   releases[dof] = false;

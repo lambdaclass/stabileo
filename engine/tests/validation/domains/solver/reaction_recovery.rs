@@ -2326,12 +2326,13 @@ fn r14_staged_physical(dim: usize) {
                         .unwrap()
                         .push(json!(id));
                 }
+                let mut static_model = m.clone();
+                static_model.as_object_mut().unwrap().remove("stages");
                 let result = if dim == 2 {
-                    let dof = dedaliano_engine::solver::dof::DofNumbering::build_2d(
-                        &serde_json::from_value(m.clone()).unwrap(),
-                    );
+                    let input = serde_json::from_value(static_model).unwrap();
+                    let dof = dedaliano_engine::solver::dof::DofNumbering::build_2d(&input);
                     let cs = dedaliano_engine::solver::constraints::FreeConstraintSystem::build_2d(
-                        &serde_json::from_value(m.clone()).unwrap(),
+                        &input,
                         &dof,
                     )
                     .unwrap()
@@ -2342,11 +2343,10 @@ fn r14_staged_physical(dim: usize) {
                             .unwrap()
                     )
                 } else {
-                    let dof = dedaliano_engine::solver::dof::DofNumbering::build_3d(
-                        &serde_json::from_value(m.clone()).unwrap(),
-                    );
+                    let input = serde_json::from_value(static_model).unwrap();
+                    let dof = dedaliano_engine::solver::dof::DofNumbering::build_3d(&input);
                     let cs = dedaliano_engine::solver::constraints::FreeConstraintSystem::build_3d(
-                        &serde_json::from_value(m.clone()).unwrap(),
+                        &input,
                         &dof,
                     )
                     .unwrap()

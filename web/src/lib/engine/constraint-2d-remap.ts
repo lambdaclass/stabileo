@@ -36,7 +36,7 @@
 
 import { t } from '../i18n';
 import { ModelInputError } from './model-input-numbers';
-import type { Constraint3D } from './types-3d';
+import type { Constraint3D, EccentricConnectionConstraint } from './types-3d';
 import type { DrawPlane } from '../geometry/plane-projection';
 
 /**
@@ -69,11 +69,11 @@ export function constraintsInXZ(plane: DrawPlane, constraints: readonly Constrai
         const offsets = [c.offsetX ?? 0, c.offsetY ?? 0, c.offsetZ ?? 0];
         const moved = [0, 0, 0];
         offsets.forEach((v, i) => { moved[axis[i]] = v; });
-        let releases = c.releases;
-        if (releases && releases.length === 6) {
-          const out = new Array<boolean>(6).fill(false);
-          releases.forEach((r, i) => { out[dof(i)] = r; });
-          releases = out;
+        const authoredReleases = c.releases;
+        let releases: boolean[] | undefined;
+        if (authoredReleases) {
+          releases = new Array<boolean>(6).fill(false);
+          for (let i = 0; i < releases.length; i++) releases[dof(i)] = authoredReleases[i] ?? false;
         }
         return { ...c, offsetX: moved[0], offsetY: moved[1], offsetZ: moved[2], releases };
       }
@@ -81,6 +81,8 @@ export function constraintsInXZ(plane: DrawPlane, constraints: readonly Constrai
   });
 }
 
+const PLANAR_TRANSLATIONS = [0, 2] as const;
+const PLANAR_DOFS = [...PLANAR_TRANSLATIONS, 4];
 const DOF_3D_TO_2D: Record<number, number> = { 0: 0, 2: 1, 4: 2 };
 
 /**
@@ -97,7 +99,12 @@ function couplesAcrossPlane(c: Constraint3D): boolean {
     const live = c.terms.filter((t) => t.coefficient !== 0);
     return live.some((t) => DOF_3D_TO_2D[t.dof] !== undefined) && live.some((t) => DOF_3D_TO_2D[t.dof] === undefined);
   }
-  return c.type === 'eccentricConnection' && (c.offsetY ?? 0) !== 0;
+  return c.type === 'eccentricConnection' && classifyEccentricNormalOffset(c) === 'coupled';
+}
+
+export function classifyEccentricNormalOffset(c: EccentricConnectionConstraint): 'none' | 'separated' | 'coupled' {
+  if ((c.offsetY ?? 0) === 0) return 'none';
+  return PLANAR_TRANSLATIONS.every(dof => c.releases?.[dof] === true) ? 'separated' : 'coupled';
 }
 
 export function planeConstraintRefusal(constraints: readonly Constraint3D[] = [], offsetField: 'offsetX' | 'offsetY' = 'offsetY'): string | null {
@@ -181,11 +188,7 @@ export function constraintsTo2D(constraints: Constraint3D[] | undefined): Constr
           offsetX: c.offsetX,
           offsetY: c.offsetZ,
           offsetZ: 0,
-          releases: [
-            c.releases?.[0] ?? false, // ux
-            c.releases?.[2] ?? false, // uz → 2D slot 1
-            c.releases?.[4] ?? false, // ry → 2D slot 2
-          ],
+          releases: PLANAR_DOFS.map(dof => c.releases?.[dof] ?? false),
         });
         break;
       }

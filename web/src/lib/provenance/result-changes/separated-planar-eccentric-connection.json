@@ -1,0 +1,32 @@
+{
+  "id": "separated-planar-eccentric-connection",
+  "date": "2026-11-25",
+  "prs": [2588],
+  "area": "analysis",
+  "when": {
+    "all": ["plane2D", "separatedPlanarEccentricConnection"]
+  },
+  "quantities": ["solve.ok"],
+  "title": {
+    "en": "Planar analysis of eccentric connections with released translations",
+    "es": "Análisis plano de conexiones excéntricas con traslaciones liberadas",
+    "pt": "Análise plana de ligações excêntricas com translações liberadas",
+    "de": "Ebene Berechnung exzentrischer Anschlüsse mit freigegebenen Verschiebungen",
+    "fr": "Analyse plane des liaisons excentrées à translations libérées",
+    "tr": "Ötelemeleri serbest bırakılan eksantrik bağlantıların düzlemsel analizi",
+    "zh": "平动释放的偏心连接平面分析"
+  },
+  "explanation": {
+    "en": "A planar solve accepts an eccentric connection with an offset normal to the plane when both in-plane translations are released. If a translation equation couples the plane to out-of-plane motion, the planar solve refuses it.",
+    "es": "El análisis plano admite una conexión con excentricidad normal al plano si se liberan ambas traslaciones del plano. Si alguna ecuación de traslación acopla movimientos dentro y fuera del plano, el análisis la rechaza.",
+    "pt": "A análise plana aceita uma ligação com excentricidade normal ao plano quando ambas as translações no plano são liberadas. Se uma equação de translação acoplar movimentos dentro e fora do plano, a análise a rejeita.",
+    "de": "Die ebene Berechnung akzeptiert einen Anschluss mit Exzentrizität senkrecht zur Ebene, wenn beide Verschiebungen in der Ebene freigegeben sind. Koppelt eine Verschiebungsgleichung Bewegungen in und aus der Ebene, wird die Berechnung abgelehnt.",
+    "fr": "Le calcul plan accepte une liaison dont l’excentrement est normal au plan si les deux translations dans le plan sont libérées. Il refuse toute équation de translation qui couple des mouvements dans le plan et hors du plan.",
+    "tr": "Düzlem içindeki iki öteleme de serbest bırakıldığında, düzlemsel analiz düzleme dik eksantrisiteli bağlantıyı kabul eder. Bir öteleme denklemi düzlem içi ve düzlem dışı hareketleri bağlıyorsa analiz bağlantıyı reddeder.",
+    "zh": "当两个面内平动自由度均已释放时，平面分析允许带有面外偏移的偏心连接。如果平动约束方程耦合了面内与面外运动，平面分析会拒绝该连接。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-malformed-structural-input.md",
+    "heading": "Planar analysis of eccentric connections with released translations"
+  }
+}

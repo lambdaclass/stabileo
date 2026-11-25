@@ -1,7 +1,8 @@
 import { t, tp } from '../i18n';
 import type { Load, Material, Support } from '../store/model.svelte';
 import { isSupportType } from '../model/support-types';
-import type { Constraint3D } from './types-3d';
+import type { Constraint3D, LinearMpcConstraint } from './types-3d';
+import type { AnalysisSettings, SelfWeightLoad } from './analysis-settings';
 import type { ModelData } from './solver-service';
 
 type NumberKeys<T> = { [K in keyof T]-?: Exclude<T[K], undefined> extends number ? K : never }[keyof T] & string;
@@ -158,12 +159,17 @@ export function loadInputRefusal(loads: readonly unknown[]): string | null {
 }
 
 export function hasMalformedAuthoredLoad(loads: readonly unknown[]): boolean {
-  return loadInputError(loads) instanceof InvalidModelInputField;
+  const error = loadInputError(loads);
+  return error instanceof InvalidModelInputField || error instanceof InvalidModelNumber;
 }
 
 function recordAt(path: string, value: unknown): Record<string, unknown> {
   requireInputField(path, isRecord(value));
   return value;
+}
+
+function requireKnownFields(path: string, row: Record<string, unknown>, allowed: object): void {
+  for (const key of Object.keys(row)) requireInputField(`${path}.${key}`, Object.hasOwn(allowed, key));
 }
 
 function optionalValue(path: string, value: unknown, allowed: readonly unknown[]): void {
@@ -261,6 +267,20 @@ function validateSection(path: string, value: unknown): void {
   }
 }
 
+const constraintFields = {
+  rigidLink: { type: true, masterNode: true, slaveNode: true, dofs: true },
+  equalDOF: { type: true, masterNode: true, slaveNode: true, dofs: true },
+  diaphragm: { type: true, masterNode: true, slaveNodes: true, plane: true },
+  eccentricConnection: {
+    type: true, masterNode: true, slaveNode: true, offsetX: true, offsetY: true, offsetZ: true, releases: true,
+  },
+  linearMPC: { type: true, terms: true },
+} satisfies { [K in Constraint3D['type']]: Record<keyof Extract<Constraint3D, { type: K }>, true> };
+
+const mpcTermFields = {
+  nodeId: true, dof: true, coefficient: true,
+} satisfies Record<keyof LinearMpcConstraint['terms'][number], true>;
+
 const legacyDofNames = ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'];
 
 function constraintDof(path: string, value: unknown, migrate: boolean): number {
@@ -273,20 +293,21 @@ function readConstraint(path: string, input: unknown, migrate: boolean): Constra
   const row = recordAt(path, input);
   const type = migrate && row.type === 'equalDof' ? 'equalDOF'
     : migrate && row.type === 'linearMpc' ? 'linearMPC' : row.type;
+  requireInputField(`${path}.type`, type === 'rigidLink' || type === 'equalDOF'
+    || type === 'diaphragm' || type === 'eccentricConnection' || type === 'linearMPC');
+  requireKnownFields(path, row, constraintFields[type]);
   if (type === 'linearMPC') {
-    requireInputField(`${path}.rhs`, row.rhs === undefined);
     requireInputField(`${path}.terms`, Array.isArray(row.terms) && row.terms.length > 0);
     const terms = row.terms.map((value: unknown, index: number) => {
       const at = `${path}.terms[${index}]`;
       const term = recordAt(at, value);
+      requireKnownFields(at, term, mpcTermFields);
       recordNumbers(at, term, { required: ['nodeId', 'coefficient'], optional: [] });
       const dof = constraintDof(`${at}.dof`, term.dof, migrate);
       return { ...term, dof };
     });
     return { ...row, type, terms } as Constraint3D;
   }
-  requireInputField(`${path}.type`, type === 'rigidLink' || type === 'equalDOF'
-    || type === 'diaphragm' || type === 'eccentricConnection');
   numberAt(`${path}.masterNode`, row.masterNode);
   if (type === 'diaphragm') {
     arrayOf(`${path}.slaveNodes`, row.slaveNodes, numberAt);
@@ -328,9 +349,19 @@ export function requireCombinationInput(combinations: unknown): void {
   });
 }
 
+const analysisFields = {
+  selfWeight: true, standaloneSelfWeight: true, combinationMethod: true, perCombination: true,
+  shearDeformation: true, beamTorsion: true,
+} satisfies Record<keyof AnalysisSettings, true>;
+
+const selfWeightFields = {
+  caseId: true, direction: true, factor: true, elements: true, groupId: true,
+} satisfies Record<keyof SelfWeightLoad, true>;
+
 function requireAnalysisInput(value: unknown): void {
   if (value === undefined) return;
   const analysis = recordAt('analysis', value);
+  requireKnownFields('analysis', analysis, analysisFields);
   optionalValue('analysis.combinationMethod', analysis.combinationMethod, ['solveEach', 'superpose']);
   optionalValue('analysis.perCombination', analysis.perCombination, ['linear', 'pdelta']);
   optionalValue('analysis.shearDeformation', analysis.shearDeformation, ['none']);
@@ -339,6 +370,7 @@ function requireAnalysisInput(value: unknown): void {
   if (analysis.selfWeight === undefined) return;
   arrayOf('analysis.selfWeight', analysis.selfWeight, (path, value) => {
     const weight = recordAt(path, value);
+    requireKnownFields(path, weight, selfWeightFields);
     recordNumbers(path, weight, { required: ['caseId', 'factor'], optional: ['groupId'] });
     requireInputField(`${path}.direction`, weight.direction === 'X' || weight.direction === 'Y' || weight.direction === 'Z');
     if (weight.elements !== undefined) arrayOf(`${path}.elements`, weight.elements, numberAt);

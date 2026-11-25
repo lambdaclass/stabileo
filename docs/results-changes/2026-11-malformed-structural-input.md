@@ -7,3 +7,9 @@ The shared 2D and 3D solver wires, their options, and the audited material, sect
 Previous versions could return a result after treating an unknown combination method as linear, a string-valued release flag as rigid, or an unsupported constraint field as absent. Correct the reported field before relying on a result from an affected model. The changes leave the equations and solver tolerances in place.
 
 Plane analysis refuses equations that couple its degrees of freedom to those outside the plane. Time-history solves and certificates refuse unknown request fields, including ground acceleration fields for the other dimension. Sending a 2D ground-motion record to the previous 3D decoder could produce a result with the excitation omitted.
+
+The authored settings and constraint checks reject unknown keys before applying defaults. For example, a misspelling of `analysis.selfWeight` can omit gravity, and `dof` in place of `dofs` can tie every translation instead of the one intended. The diagnostic names the invalid field in analysis, snapshot restore and fixture apply.
+
+## Planar analysis of eccentric connections with released translations
+
+A connection whose offset has a component normal to the plane can be solved in plane when both in-plane translations are released. Those two releases remove the only equations with normal-offset terms that couple in-plane and out-of-plane motion. The remaining in-plane rotation equation ties only rotations about the plane normal. A connection with either affected translation equation active still receives the plane-coupling refusal. The spatial equations are the same.

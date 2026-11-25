@@ -25,9 +25,9 @@ beforeEach(() => {
   modelStore.model.combinations = [combo];
 });
 
-function cantilever(space = false) {
+function cantilever(space = false, rise = 0) {
   const root = modelStore.addNode(0, 0, 0);
-  const tip = modelStore.addNode(length, 0, 0);
+  const tip = modelStore.addNode(length, 0, rise);
   const member = modelStore.addElement(root, tip);
   modelStore.addSupportEntry({ nodeId: root, type: space ? 'fixed3d' : 'fixed' });
   return { root, tip, member };
@@ -205,30 +205,33 @@ it('preserves a complete spatial force through Basic XZ projection and P-Delta',
 it.each([undefined, 'local', 'global', 'projected'] as const)(
   'preserves a supported distributed frame (%s) in spatial linear and P-Delta solves',
   (frame) => {
-    const { member } = cantilever(true);
+    const rise = length;
+    const { member } = cantilever(true, rise);
     setLoad({ type: 'distributed3d', data: {
       id: 1, elementId: member, qYI: 0, qYJ: 0, qZI: -force, qZJ: -force, frame,
     } });
-    const result = modelStore.solve3D(false, false, true);
-    expect(result).toMatchObject({ reactions: [{ fz: expect.closeTo(force * length, 12) }] });
-    expect(solvePDelta3D(modelStore.buildSolverInput3D()!)).toMatchObject({
-      converged: true, results: { reactions: [{ fz: expect.closeTo(force * length, 12) }] },
+    const local = frame === undefined || frame === 'local';
+    const reactions = [{
+      fx: expect.closeTo(local ? -force * rise : 0, 12),
+      fz: expect.closeTo(force * (frame === 'global' ? Math.hypot(length, rise) : length), 12),
+    }];
+    expect.soft(modelStore.solve3D(false, false, true)).toMatchObject({ reactions });
+    expect.soft(solvePDelta3D(modelStore.buildSolverInput3D()!)).toMatchObject({
+      converged: true, results: { reactions },
     });
   },
 );
 
 
-const reviewTest = process.env.STABILEO_REVIEW_2588 === '1' ? it : it.skip;
-
-reviewTest.each([
+it.each([
   ['fz', undefined],
   ['fy', NaN],
-] as const)('review 2588 shows the saved-model notice for a malformed spatial %s', (field, value) => {
+] as const)('shows the saved-model notice for a malformed spatial %s', (field, value) => {
   const { tip } = cantilever();
   setLoad({ type: 'nodal3d', data: {
     id: 1, nodeId: tip, fx: 0, fy: 0, fz: -force, mx: 0, my: 0, mz: 0, [field]: value,
   } });
-  const saved = modelStore.snapshot();
+  const saved: ReturnType<typeof modelStore.snapshot> = JSON.parse(JSON.stringify(modelStore.snapshot()));
   expect.soft(assessProject(saved, null, 'basic').changes.map(change => change.id)).toContain('malformed-authored-loads');
   const current = { ...saved, loads: [] };
   expect.soft(modelFeatures(current, { storedLoads: saved.loads }).has('malformedAuthoredLoad')).toBe(true);

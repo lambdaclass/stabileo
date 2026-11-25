@@ -1,3 +1,4 @@
+import { classifyEccentricNormalOffset, constraintsInXZ } from '../engine/constraint-2d-remap';
 import { hasMalformedAuthoredLoad, invalidPlanarPointTorsion, isFiniteInputNumber, ModelInputError, migrateModelConstraints, requireCombinationInput, requireStructureInput } from '../engine/model-input-numbers';
 import { POINT_END_TOL } from '../engine/member-point-loads';
 import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
@@ -59,7 +60,7 @@ export const FEATURE_IDS = [
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
-  'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'malformedAuthoredLoad', 'malformedAuthoredStructure', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
+  'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'malformedAuthoredLoad', 'malformedAuthoredStructure', 'separatedPlanarEccentricConnection', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase', 'loadPlanCombinationSupplements', 'flatRoofSnowCombinations',
   'occupiedGeneratedLoadCases', 'repeatedUngroupedRuleTerms', 'emptyManualLoadAlternatives', 'retiredAutoLoadsCases',
@@ -312,17 +313,21 @@ function addSelfWeightFeatures(
   }
 }
 
-function hasMalformedAuthoredStructure(s: FeatureSnapshot): boolean {
+function addAuthoredStructureFeatures(s: FeatureSnapshot, features: Set<FeatureId>): void {
   const { nodes, elements, supports, materials, sections } = s;
-  if (!nodes || !elements || !supports || !materials || !sections) return false;
+  if (!nodes || !elements || !supports || !materials || !sections) return;
   try {
     requireStructureInput({ nodes, elements, supports, materials, sections, connectors: s.connectors, analysis: s.analysis });
-    migrateModelConstraints(s.constraints);
+    const constraints = migrateModelConstraints(s.constraints);
     if (s.combinations !== undefined) requireCombinationInput(s.combinations);
-    return false;
+    if (features.has('plane2D') && (['xz', 'yz', 'xy'] as const).some(plane =>
+      constraintsInXZ(plane, constraints).some(c => c.type === 'eccentricConnection' && classifyEccentricNormalOffset(c) === 'separated'),
+    )) {
+      features.add('separatedPlanarEccentricConnection');
+    }
   } catch (error) {
-    if (error instanceof ModelInputError) return true;
-    throw error;
+    if (!(error instanceof ModelInputError)) throw error;
+    features.add('malformedAuthoredStructure');
   }
 }
 
@@ -505,8 +510,8 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   }
   const planarLoadInputs = [...(Array.isArray(storedLoads) ? storedLoads : [])];
   if (storedLoads !== s.loads && Array.isArray(s.loads)) planarLoadInputs.push(...s.loads);
-  if (hasMalformedAuthoredStructure(s)) f.add('malformedAuthoredStructure');
-  if (Array.isArray(s.loads) && hasMalformedAuthoredLoad(s.loads)) f.add('malformedAuthoredLoad');
+  addAuthoredStructureFeatures(s, f);
+  if (hasMalformedAuthoredLoad(planarLoadInputs)) f.add('malformedAuthoredLoad');
   for (const { type, data } of planarLoadInputs) {
     if (type !== 'pointOnElement' && type !== 'nodal') continue;
     if (data?.my === null || data?.mz === null) f.add('nullPlanarMomentAliases');
