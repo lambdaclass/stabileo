@@ -185,6 +185,10 @@ function slaveNodes(c: Record<string, unknown>): number[] {
 
 export const fromLoadPlan = (by: unknown): boolean => typeof by === 'string' && !!by && !/^(stair|arch):/.test(by);
 
+function featureLoads(loads: FeatureSnapshot['loads']): NonNullable<FeatureSnapshot['loads']> {
+  return Array.isArray(loads) ? loads.filter(load => typeof load?.type === 'string') : [];
+}
+
 export function unverifiedSeismicLoads(s: FeatureSnapshot) {
   const cases = new Set((Array.isArray(s.loadCases) ? s.loadCases : []).filter(c => c.type === 'E' && !c.spectral).map(c => c.id));
   if (cases.size === 0) return [];
@@ -193,7 +197,7 @@ export function unverifiedSeismicLoads(s: FeatureSnapshot) {
   const modalBasis = hasModalSeismicDerivation(s.designData?.loadBasis?.derivation) || dialog?.seismicMethod?.method === 'modal';
   const earlyGenerator = typeof settings?.periodSystem === 'string' && typeof settings?.regularity === 'string' &&
     typeof settings?.occupancy === 'string';
-  return (Array.isArray(s.loads) ? s.loads : []).filter(l =>
+  return featureLoads(s.loads).filter(l =>
     cases.has((l.data?.caseId ?? 1) as number) && l.data?.seismicGeneration !== 'static' &&
     (l.data?.seismicGeneration === 'unverified' || fromLoadPlan(l.data?.generatedBy) || modalBasis ||
       (earlyGenerator && /^nodal/.test(l.type))));
@@ -203,7 +207,7 @@ export function loadsGeneratedWith(s: FeatureSnapshot): number {
   const basis = s.designData?.loadBasis;
   if (basis) return Number.isInteger(basis.resultsVersion) ? (basis.resultsVersion as number) : 0;
   const snow = (Array.isArray(s.loadCases) ? s.loadCases : []).some(c => c.type === 'S');
-  return snow || (Array.isArray(s.loads) ? s.loads : []).some(l => fromLoadPlan(l.data?.generatedBy)) ? 0 : Infinity;
+  return snow || featureLoads(s.loads).some(l => fromLoadPlan(l.data?.generatedBy)) ? 0 : Infinity;
 }
 
 export const UNVERIFIED_SEISMIC_FEATURE = 'unverifiedGeneratedSeismicLoads';
@@ -475,30 +479,36 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   })) {
     f.add('duplicateFixtureEndRelease');
   }
-  const storedLoads = ctx.storedLoads ?? s.loads;
+  const rawStoredLoads = ctx.storedLoads ?? s.loads;
+  const basicProjection = f.has('plane2D');
+  if ((Array.isArray(s.loads) && hasMalformedAuthoredLoad(s.loads, basicProjection)) ||
+      (rawStoredLoads !== s.loads && Array.isArray(rawStoredLoads) &&
+        hasMalformedAuthoredLoad(rawStoredLoads, basicProjection))) {
+    f.add('malformedAuthoredLoad');
+  }
+  const loads = featureLoads(s.loads);
+  const storedLoads = rawStoredLoads === s.loads ? loads : featureLoads(rawStoredLoads);
   const refusal = modelAliasRefusalFeature({
     nodes: values(s.nodes),
     elements,
     supports,
-    loads: Array.isArray(storedLoads) ? storedLoads : undefined,
+    loads: storedLoads,
     plates: s.plates,
     quads: s.quads,
   }, ctx.analysisMode ?? s.analysisMode);
   if (refusal) f.add(refusal);
-  if (Array.isArray(storedLoads) && storedLoads.some(l => l.type === 'pointOnElement' && l.data &&
+  if (storedLoads.some(l => l.type === 'pointOnElement' && l.data &&
       (nonZero(l.data.mz) || planarPointMoment(l.data) === null))) {
     f.add('legacyPlanarPointCoupleAliases');
   }
-  const planarLoadInputs = [...(Array.isArray(storedLoads) ? storedLoads : [])];
-  if (storedLoads !== s.loads && Array.isArray(s.loads)) planarLoadInputs.push(...s.loads);
-  if (Array.isArray(s.loads) && hasMalformedAuthoredLoad(s.loads)) f.add('malformedAuthoredLoad');
+  const planarLoadInputs = storedLoads === loads ? loads : [...storedLoads, ...loads];
   for (const { type, data } of planarLoadInputs) {
     if (type !== 'pointOnElement' && type !== 'nodal') continue;
     if (data?.my === null || data?.mz === null) f.add('nullPlanarMomentAliases');
     if (type === 'pointOnElement' && invalidPlanarPointTorsion(data?.mx)) f.add('invalidPlanarMemberTorsion');
   }
-  for (const l of Array.isArray(s.loads) ? s.loads : []) {
-    const t = l.type ?? '';
+  for (const l of loads) {
+    const t = l.type;
     const d = l.data ?? {};
     if ((t === 'pointOnElement3d' || (t === 'pointOnElement' && f.has('space3D')))
       && typeof d.a === 'number' && d.a > 0) {
@@ -612,7 +622,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   }
   if (combos) {
     f.add('combinations');
-    const occupiedCaseIds = new Set((Array.isArray(storedLoads) ? storedLoads : []).map(l => l.data?.caseId ?? 1));
+    const occupiedCaseIds = new Set(storedLoads.map(l => l.data?.caseId ?? 1));
     if (cases.some(c => c.generated && symbolOfCase(c) && occupiedCaseIds.has(c.id))) f.add('occupiedGeneratedLoadCases');
     if (f.has('generatedLoads')) {
       const weightedCaseIds = new Set((Array.isArray(weightRules) ? weightRules : [])

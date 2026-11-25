@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { assessProject } from '../../provenance/applicability';
 import {
   loadsGeneratedWith, modelFeatures, unverifiedSeismicLoads, type FeatureSnapshot,
 } from '../../provenance/model-features';
@@ -155,7 +156,7 @@ describe('malformed authored loads', () => {
     ['missing projected force', 'nodal3d', 'fz', undefined],
     ['non-finite force on the discarded axis', 'nodal3d', 'fy', NaN],
     ['missing distributed ordinate', 'distributed3d', 'qZI', undefined],
-  ] as const)('checks the authored load for %s before XZ projection', async (_, type, key, invalid) => {
+  ] as const)('checks the authored load for %s before XZ and YZ projection', async (_, type, key, invalid) => {
     const { tip, member } = cantilever();
     const data = type === 'nodal3d'
       ? { nodeId: tip, fx: 0, fy: 0, fz: -force, mx: 0, my: 0, mz: 0 }
@@ -225,19 +226,36 @@ const localReaction = { fx: -force * rise, fz: force * length, my: -force * span
 const globalReaction = { fx: 0, fz: force * span, my: -force * span * length / 2 };
 const projectedReaction = { fx: 0, fz: force * length, my: -force * length ** 2 / 2 };
 
+const globalAxial = -force * rise / span;
+const globalTransverse = -force * length / span;
+
 it.each([
-  [undefined, localReaction], ['local', localReaction], ['global', globalReaction], ['projected', projectedReaction],
+  [undefined, localReaction, 0, -force],
+  ['local', localReaction, 0, -force],
+  ['global', globalReaction, globalAxial, globalTransverse],
+  ['projected', projectedReaction, globalAxial * length / span, globalTransverse * length / span],
 ] as const)(
   'preserves a supported distributed frame (%s) in spatial linear and P-Delta solves',
-  (frame, { fx, fz, my }) => {
+  (frame, { fx, fz, my }, axial, transverse) => {
     const { member } = cantilever(true, rise);
     setLoad({ type: 'distributed3d', data: {
       id: 1, elementId: member, qYI: 0, qYJ: 0, qZI: -force, qZJ: -force, frame,
     } });
     const reaction = { fx: expect.closeTo(fx, 12), fz: expect.closeTo(fz, 12), my: expect.closeTo(my, 12) };
-    expect(modelStore.solve3D(false, false, true)).toMatchObject({ reactions: [reaction] });
-    expect(solvePDelta3D(modelStore.buildSolverInput3D()!)).toMatchObject({
-      converged: true, results: { reactions: [reaction] },
+    expect.soft(modelStore.solve3D(false, false, true)).toMatchObject({ reactions: [reaction] });
+    const input = modelStore.buildSolverInput3D()!;
+    const control = solvePDelta3D({
+      ...input,
+      loads: [{ type: 'distributed', data: {
+        elementId: member, qXI: axial, qXJ: axial, qYI: 0, qYJ: 0,
+        qZI: transverse, qZJ: transverse, a: 0, b: span,
+      } }],
+    });
+    const forces = { fx: reaction.fx, fz: reaction.fz };
+    expect(control).toMatchObject({ converged: true, results: { reactions: [forces] } });
+    expect(solvePDelta3D(input)).toMatchObject({
+      converged: true,
+      results: { reactions: [{ ...forces, my: expect.closeTo(control.results.reactions[0]!.my, 12) }] },
     });
   },
 );
@@ -249,7 +267,7 @@ const unknownFrame = {
   type: 'distributed3d', data: { elementId: 1, qYI: 0, qYJ: 0, qZI: -force, qZJ: -force, frame: 'futureFrame' },
 };
 
-describe.skipIf(process.env.STABILEO_REPRODUCE_AUTHORED_LOADS !== '1')('known wrong result: #2583', () => {
+describe('malformed authored load provenance', () => {
   it('flags numeric data masked by Basic projection in current and stored rows', () => {
     cantilever();
     const snapshot = { ...modelStore.snapshot(), analysisMode: '2d', loads: [incompleteForce] };
@@ -275,6 +293,7 @@ describe.skipIf(process.env.STABILEO_REPRODUCE_AUTHORED_LOADS !== '1')('known wr
     const loads = [seismicForce, null] as unknown as NonNullable<FeatureSnapshot['loads']>;
     const snapshot = { ...modelStore.snapshot(), loads, loadCases: [{ ...loadCase, type: 'E' }] };
     const features = modelFeatures(snapshot);
+    expect.soft(assessProject(snapshot, null).changes.map(({ id }) => id)).toContain('malformed-authored-loads');
     expect.soft(features).toContain('malformedAuthoredLoad');
     expect.soft(features).toContain('nodalForces');
     expect.soft(modelFeatures({ ...snapshot, loads: [seismicForce] }, { storedLoads: loads }))

@@ -8,13 +8,24 @@ type Fields<T> = {
   optional: readonly NumberKeys<T>[];
 };
 
-const loadFields: { [K in Load['type']]: Fields<Extract<Load, { type: K }>['data']> } = {
-  nodal: { required: ['nodeId', 'fx'], optional: ['fz', 'fy'] },
+type LoadFields<T> = Fields<T> & { basicProjection?: Fields<T> };
+
+const loadFields: { [K in Load['type']]: LoadFields<Extract<Load, { type: K }>['data']> } = {
+  nodal: {
+    required: ['nodeId'], optional: [],
+    basicProjection: { required: ['fx'], optional: ['fz', 'fy'] },
+  },
   distributed: { required: ['elementId', 'qI', 'qJ'], optional: ['a', 'b', 'angle'] },
   pointOnElement: { required: ['elementId', 'a', 'p'], optional: ['px', 'angle'] },
   thermal: { required: ['elementId', 'dtUniform', 'dtGradient'], optional: ['dtGradientY', 'strain'] },
-  nodal3d: { required: ['nodeId', 'fx', 'fy', 'fz', 'mx', 'my', 'mz'], optional: ['fromDef', 'carrier'] },
-  distributed3d: { required: ['elementId', 'qYI', 'qYJ', 'qZI', 'qZJ'], optional: ['qXI', 'qXJ', 'a', 'b', 'fromDef'] },
+  nodal3d: {
+    required: ['nodeId'], optional: [],
+    basicProjection: { required: ['fx', 'fy', 'fz', 'mx', 'my', 'mz'], optional: ['fromDef', 'carrier'] },
+  },
+  distributed3d: {
+    required: ['elementId'], optional: [],
+    basicProjection: { required: ['qYI', 'qYJ', 'qZI', 'qZJ'], optional: ['qXI', 'qXJ', 'a', 'b', 'fromDef'] },
+  },
   pointOnElement3d: { required: ['elementId', 'a', 'py', 'pz'], optional: ['px', 'mx', 'my', 'mz'] },
   surface3d: { required: ['quadId', 'q'], optional: ['fromDef'] },
   thermalQuad3d: { required: ['quadId', 'dtUniform', 'dtGradient'], optional: [] },
@@ -70,14 +81,8 @@ export function invalidPlanarPointTorsion(mx: unknown): boolean {
   return mx !== undefined && mx !== 0;
 }
 
-class InvalidAuthoredLoadField extends ModelInputError {
-  constructor(path: string) {
-    super(tp('svc.engine.invalidInputField', { path }));
-  }
-}
-
 function requireInputField(path: string, valid: boolean): asserts valid {
-  if (!valid) throw new InvalidAuthoredLoadField(path);
+  if (!valid) throw new ModelInputError(tp('svc.engine.invalidInputField', { path }));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -103,15 +108,22 @@ function requireLoadSelectors(path: string, type: Load['type'], data: Record<str
   }
 }
 
+function requireLoadRecord(load: unknown, i: number) {
+  const row = `loads[${i}]`;
+  requireInputField(`${row}.type`, isRecord(load) && isLoadType(load.type));
+  const path = `${row}.data`;
+  const { type, data } = load;
+  requireInputField(path, isRecord(data));
+  requireLoadSelectors(path, type, data);
+  return { path, type, data };
+}
+
 export function requireLoadInput(loads: readonly unknown[]): void {
   for (const [i, load] of loads.entries()) {
-    const row = `loads[${i}]`;
-    requireInputField(`${row}.type`, isRecord(load) && isLoadType(load.type));
-    const path = `${row}.data`;
-    const { type, data } = load;
-    requireInputField(path, isRecord(data));
-    requireLoadSelectors(path, type, data);
-    recordNumbers(path, data, loadFields[type]);
+    const { path, type, data } = requireLoadRecord(load, i);
+    const fields = loadFields[type];
+    recordNumbers(path, data, fields);
+    if (fields.basicProjection) recordNumbers(path, data, fields.basicProjection);
     recordNumbers(path, data, { required: [], optional: ['id', 'caseId'] });
     if (type === 'pointOnElement') {
       const { mx } = data;
@@ -141,9 +153,9 @@ export function requireLoadInput(loads: readonly unknown[]): void {
   }
 }
 
-function loadInputError(loads: readonly unknown[]): ModelInputError | null {
+function modelInputError(check: () => void): ModelInputError | null {
   try {
-    requireLoadInput(loads);
+    check();
     return null;
   } catch (error) {
     if (error instanceof ModelInputError) return error;
@@ -152,11 +164,19 @@ function loadInputError(loads: readonly unknown[]): ModelInputError | null {
 }
 
 export function loadInputRefusal(loads: readonly unknown[]): string | null {
-  return loadInputError(loads)?.message ?? null;
+  return modelInputError(() => requireLoadInput(loads))?.message ?? null;
 }
 
-export function hasMalformedAuthoredLoad(loads: readonly unknown[]): boolean {
-  return loadInputError(loads) instanceof InvalidAuthoredLoadField;
+export function hasMalformedAuthoredLoad(loads: readonly unknown[], basicProjection: boolean): boolean {
+  for (const [i, load] of loads.entries()) {
+    const error = modelInputError(() => {
+      const { path, type, data } = requireLoadRecord(load, i);
+      const projected = loadFields[type].basicProjection;
+      if (basicProjection && projected) recordNumbers(path, data, projected);
+    });
+    if (error) return true;
+  }
+  return false;
 }
 
 export function requireModelNumbers(model: ModelData): void {
@@ -180,11 +200,5 @@ export function requireModelNumbers(model: ModelData): void {
 }
 
 export function modelNumberRefusal(model: ModelData): string | null {
-  try {
-    requireModelNumbers(model);
-    return null;
-  } catch (error) {
-    if (error instanceof ModelInputError) return error.message;
-    throw error;
-  }
+  return modelInputError(() => requireModelNumbers(model))?.message ?? null;
 }
