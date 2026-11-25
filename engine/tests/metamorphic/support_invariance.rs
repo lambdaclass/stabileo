@@ -1,6 +1,7 @@
 use crate::{ana2, ana3, case::{Case2, Case3}, checks2, checks3, tally::Tally};
-use dedaliano_engine::metamorphic::transform::Iso2;
-use dedaliano_engine::solver::linear::solve_2d;
+use dedaliano_engine::metamorphic::transform::{Iso2, Iso3};
+use dedaliano_engine::solver::kinematic::{analyze_kinematics_2d, analyze_kinematics_3d};
+use dedaliano_engine::solver::linear::{solve_2d, solve_3d};
 use dedaliano_engine::types::SolverInput3D;
 
 fn replay_spatial_rotation(model: &str, analysis: &str, seed: u64) {
@@ -26,16 +27,24 @@ fn replay_spatial_rotation(model: &str, analysis: &str, seed: u64) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1192"]
 fn issue_1192_pinned_and_roller_supports_rotate_as_one_restraint() {
     let model = include_str!("../metamorphic_corpus/nightly/issue-1192.json");
     let case = Case2::new("issue-1192", serde_json::from_str(model).unwrap());
-    solve_2d(&case.s).unwrap();
+    let mut canonical = case.clone();
+    canonical.s.supports.remove("3").unwrap();
+    assert_eq!(analyze_kinematics_2d(&case.s).degree, analyze_kinematics_2d(&canonical.s).degree);
+    let results = |case: &Case2| {
+        let r = solve_2d(&case.s).unwrap();
+        serde_json::to_value((r.displacements, r.reactions, r.element_forces)).unwrap()
+    };
+    assert_eq!(results(&case), results(&canonical));
 
-    for iso in [Iso2::mirror_line(0.4), Iso2::rotation(0.3)] {
+    for iso in [Iso2::mirror_line(0.4), Iso2::rotation(0.3).translated(2.0, -3.0)] {
         let transformed = case.iso(&iso).unwrap();
         assert_eq!(transformed.s.supports.values().filter(|s| s.node_id == 2).count(), 1);
-        solve_2d(&transformed.s).unwrap();
+        let expected = canonical.iso(&iso).unwrap();
+        assert_eq!(results(&transformed), results(&expected));
+        assert_eq!(analyze_kinematics_2d(&transformed.s).degree, analyze_kinematics_2d(&expected.s).degree);
     }
 
     let tally = Tally::default();
@@ -44,106 +53,133 @@ fn issue_1192_pinned_and_roller_supports_rotate_as_one_restraint() {
         &checks2::Ctx { tally: &tally, rng_seed: 2026110204434 },
         &case,
         &analyses,
-        &["mirror", "rotation", "units", "relabel"],
+        &["units", "relabel"],
     );
     assert!(tally.failures().is_empty(), "{:?}", tally.failures());
-    for relation in ["mirror", "rotation", "units", "relabel"] {
+    for relation in ["units", "relabel"] {
         assert_eq!(tally.symbol("linear", relation), "✓", "{}", tally.report());
     }
 }
 
 #[test]
-#[ignore = "known wrong result: #1827"]
 fn issue_1827_rotation_preserves_the_shared_rigid_restraint() {
     replay_spatial_rotation("1827", "constrained", 2026110905303);
 }
 
 #[test]
-#[ignore = "known wrong result: #1832"]
 fn issue_1832_rotation_preserves_the_shared_rigid_restraint() {
     replay_spatial_rotation("1827", "creep & shrinkage (t = t0)", 2026110905303);
 }
 
 #[test]
-#[ignore = "known wrong result: #1835"]
 fn issue_1835_rotation_preserves_the_shared_rigid_restraint() {
     replay_spatial_rotation("1827", "cable solver", 2026110905303);
 }
 
 #[test]
-#[ignore = "known wrong result: #1836"]
 fn issue_1836_rotation_preserves_the_shared_rigid_restraint() {
     replay_spatial_rotation("1827", "certified linear", 2026110905303);
 }
 
 #[test]
-#[ignore = "known wrong result: #1839"]
 fn issue_1839_rotation_preserves_the_shared_rigid_restraint() {
     replay_spatial_rotation("1827", "harmonic", 2026110905303);
 }
 
 #[test]
-#[ignore = "known wrong result: #1840"]
 fn issue_1840_rotation_preserves_the_shared_rigid_restraint() {
     replay_spatial_rotation("1827", "material nonlinear", 2026110905303);
 }
 
 #[test]
-#[ignore = "known wrong result: #1841"]
 fn issue_1841_rotation_preserves_the_shared_rigid_restraint() {
     replay_spatial_rotation("1827", "modal", 2026110905303);
 }
 
 #[test]
-#[ignore = "known wrong result: #1843"]
 fn issue_1843_rotation_preserves_the_shared_rigid_restraint() {
     replay_spatial_rotation("1827", "load combinations", 2026110905303);
 }
 
 #[test]
-#[ignore = "known wrong result: #1845"]
 fn issue_1845_rotation_preserves_the_shared_rigid_restraint() {
     replay_spatial_rotation("1827", "linear", 2026110905303);
 }
 
 #[test]
-#[ignore = "known wrong result: #1848"]
 fn issue_1848_rotation_preserves_the_shared_rigid_restraint() {
     replay_spatial_rotation("1827", "kinematic check", 2026110905303);
 }
 
 #[test]
-#[ignore = "known wrong result: #1860"]
 fn issue_1860_rotation_preserves_the_shared_rigid_restraint() {
     replay_spatial_rotation("1827", "corotational", 2026110905303);
 }
 
 #[test]
-#[ignore = "known wrong result: #1829"]
 fn issue_1829_rotation_preserves_the_shared_rigid_restraint() {
     replay_spatial_rotation("1829", "Winkler (no foundation)", 2026110900251);
 }
 
 #[test]
-#[ignore = "known wrong result: #1849"]
 fn issue_1849_rotation_preserves_the_shared_rigid_restraint() {
     replay_spatial_rotation("1829", "linear (load session)", 2026110900251);
 }
 
 #[test]
-#[ignore = "known wrong result: #1853"]
 fn issue_1853_rotation_preserves_the_shared_rigid_restraint() {
     replay_spatial_rotation("1829", "contact (no gaps)", 2026110900251);
 }
 
 #[test]
-#[ignore = "known wrong result: #1863"]
 fn issue_1863_rotation_preserves_the_shared_rigid_restraint() {
     replay_spatial_rotation("1829", "SSI (no soil springs)", 2026110900251);
 }
 
 #[test]
-#[ignore = "known wrong result: #2195"]
 fn issue_2195_rotation_preserves_the_shared_rigid_restraint() {
     replay_spatial_rotation("2195", "P-Delta", 2026111606393);
+}
+
+#[test]
+fn shared_spatial_plane_requires_a_representable_normal() {
+    let data = include_str!("../fixtures/support-invariance.json");
+    let fixtures: serde_json::Value = serde_json::from_str(data).unwrap();
+    let mut input: SolverInput3D = serde_json::from_value(fixtures["1829"].clone()).unwrap();
+    let extra = input.supports.get_mut("3").unwrap();
+    assert!(extra.rz);
+    input.supports.get_mut("2").unwrap().rz = false;
+    input.supports.get_mut("2").unwrap().ry = false;
+    let case = Case3::new("two restrained translations", input);
+
+    let canonical = case.iso(&Iso3::from_euler(0.0, 0.37, 0.0)).unwrap();
+    let supports: Vec<_> = canonical.s.supports.values().filter(|s| s.node_id == 3).collect();
+    assert_eq!(supports.len(), 1);
+    assert_eq!([supports[0].rx, supports[0].ry, supports[0].rz], [true, false, true]);
+    assert_eq!(analyze_kinematics_3d(&case.s).degree, analyze_kinematics_3d(&canonical.s).degree);
+
+    let refusal = case.iso(&Iso3::about_z(0.37)).unwrap_err();
+    assert!(refusal.contains("support restraining two translations, rotated off the axes"), "{refusal}");
+}
+
+#[test]
+fn shared_supports_with_settlements_still_refuse_in_both_dimensions() {
+    let data = include_str!("../fixtures/support-invariance.json");
+    let fixtures: serde_json::Value = serde_json::from_str(data).unwrap();
+    let mut input: SolverInput3D = serde_json::from_value(fixtures["1829"].clone()).unwrap();
+    input.supports.get_mut("3").unwrap().dz = Some(0.0);
+    let case = Case3::new("zero settlement", input);
+    solve_3d(&case.iso(&Iso3::about_z(0.37)).unwrap().s).unwrap();
+    let mut settled = case;
+    settled.s.supports.get_mut("3").unwrap().dz = Some(0.01);
+    assert!(solve_3d(&settled.s).unwrap_err().contains("has several supports"));
+    assert!(settled.iso(&Iso3::about_z(0.37)).unwrap_err().contains("cannot be merged as plain rigid restraints"));
+
+    let data = include_str!("../metamorphic_corpus/nightly/issue-1192.json");
+    let mut case = Case2::new("zero settlement", serde_json::from_str(data).unwrap());
+    case.s.supports.get_mut("3").unwrap().dz = Some(-0.0);
+    solve_2d(&case.iso(&Iso2::rotation(0.37)).unwrap().s).unwrap();
+    case.s.supports.get_mut("3").unwrap().dz = Some(0.01);
+    assert!(solve_2d(&case.s).unwrap_err().contains("has several supports"));
+    assert!(case.iso(&Iso2::rotation(0.37)).unwrap_err().contains("cannot be merged as plain rigid restraints"));
 }
