@@ -438,6 +438,8 @@
     "moving_axle_station": {"scope": "utility"},
     "moving_face_force": {"scope": "utility"},
     "moving_reference_sample_count": {"scope": "utility"},
+    "moving_sample_station": {"scope": "utility"},
+    "moving_segment_roundoff": {"scope": "utility"},
     "net_combination_factors": {"scope": "utility"},
     "recover_member": {"scope": "postprocess"},
     "review_model_sanity": {"scope": "utility"},
