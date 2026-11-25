@@ -1,6 +1,7 @@
 /** The solver writes its errors in English; the app shows them in its own language. */
 import { describe, it, expect, afterAll } from 'vitest';
 import { localizeEngineText } from '../engine-text';
+import { errorText } from '../../utils/error-text';
 import { setLocale } from '../index';
 
 afterAll(() => setLocale('en'));
@@ -24,6 +25,14 @@ describe('engine sentences', () => {
         .toBe(invalid);
       expect(localizeEngineText('Repeated load case factors cancel to zero in this combination.')).toBe(cancelled);
     }
+  });
+
+  it('#2100 explains a failed P-Delta equilibrium check in the active language', async () => {
+    await setLocale('es');
+    const message = 'P-Delta results were withheld because the physical free-DOF residual did not meet the requested tolerance.';
+    const refusal = JSON.stringify({ message, structuredDiagnostics: [{ code: 'result_quantity_unavailable', severity: 'error' }] });
+    expect(localizeEngineText(errorText(refusal, 'Unknown error')))
+      .toBe('Se retuvieron los resultados de P-Delta porque el residuo físico en los grados de libertad libres no cumplió la tolerancia solicitada.');
   });
 
   it('leaves a sentence it does not know as it is', () => {

@@ -55,6 +55,7 @@ const hi: Translations = {
   'landing.heroTitle2': 'तुरंत।',
   'landing.heroSub': 'आपके ब्राउज़र में पेशेवर स्तर का 2D और 3D संरचनात्मक विश्लेषण। कोई इंस्टॉलेशन नहीं, कोई समझौता नहीं।',
   'landing.tryApp': 'ऐप आज़माएं',
+  'landing.openingEditor': 'संपादक खुल रहा है…',
   'landing.tryTour': 'गाइडेड टूर आज़माएं',
   'landing.metricLanguages': 'भाषाएँ',
   'landing.metricAnalysis': 'पूर्ण विश्लेषण',
@@ -2751,8 +2752,10 @@ const hi: Translations = {
   'pro.unknown': 'अज्ञात',
 
   // ─── PRO: Shell ───
+  'pro.nPlatesQuads': '{plates} प्लेट, {quads} क्वाड',
   'pro.plateTriDKT': 'त्रिभुज प्लेट (DKT)',
   'pro.quadMITC4': 'क्वाड MITC4',
+  'pro.meshGenerator': 'जाल जनरेटर',
   'pro.meshHint': '4 कोने नोड (वामावर्त) और NxM उपविभाजन परिभाषित करें। मध्यवर्ती नोड और क्वाड स्वतः बनते हैं।',
   'pro.corners': 'कोने',
   'pro.subdivisions': 'उपविभाजन',

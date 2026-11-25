@@ -1,8 +1,11 @@
 use crate::types::{DiagnosticCode, Severity, StructuredDiagnostic};
 
 pub fn coded(code: DiagnosticCode, message: &str) -> String {
-    let d = StructuredDiagnostic::global(code, Severity::Error, message);
-    serde_json::json!({ "message": message, "structuredDiagnostics": [d] }).to_string()
+    from_diagnostic(StructuredDiagnostic::global(code, Severity::Error, message))
+}
+
+pub(crate) fn from_diagnostic(diagnostic: StructuredDiagnostic) -> String {
+    serde_json::json!({ "message": diagnostic.message, "structuredDiagnostics": [diagnostic] }).to_string()
 }
 
 pub fn no_free_dofs() -> String {

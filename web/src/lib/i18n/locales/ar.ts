@@ -58,6 +58,7 @@ const ar: Translations = {
   'landing.heroTitle2': 'فوري.',
   'landing.heroSub': 'تحليل إنشائي احترافي ثنائي وثلاثي الأبعاد في متصفحك. بدون تثبيت، بدون تنازلات.',
   'landing.tryApp': 'جرّب التطبيق',
+  'landing.openingEditor': 'جارٍ فتح المحرر…',
   'landing.tryTour': 'جرّب الجولة الإرشادية',
   'landing.metricLanguages': 'اللغات',
   'landing.metricAnalysis': 'تحليل كامل',
@@ -2652,8 +2653,10 @@ const ar: Translations = {
   'pro.unknown': 'غير معروف',
 
   // ─── PRO: Shell ───
+  'pro.nPlatesQuads': '{plates} لوحة، {quads} رباعي',
   'pro.plateTriDKT': 'لوحة مثلثية (DKT)',
   'pro.quadMITC4': 'رباعي MITC4',
+  'pro.meshGenerator': 'مولد الشبكة',
   'pro.meshHint': 'حدد 4 عقد زاوية (عكس عقارب الساعة) وتقسيمات N×M. العقد الوسيطة والعناصر الرباعية تُنشأ تلقائياً.',
   'pro.corners': 'الزوايا',
   'pro.subdivisions': 'التقسيمات',

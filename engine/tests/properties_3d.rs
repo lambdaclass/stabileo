@@ -1268,7 +1268,6 @@ proptest! {
 }
 
 #[test]
-#[ignore = "known wrong result: #2227"]
 fn issue_2227_prescribed_translation_recovers_the_support_reaction() {
     let mut input = equilibrium_oracle_input();
     input.loads.clear();

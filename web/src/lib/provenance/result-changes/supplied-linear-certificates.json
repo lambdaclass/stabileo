@@ -1,0 +1,34 @@
+{
+  "id": "supplied-linear-certificates",
+  "date": "2026-11-23",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": ["analysis:linear", "native:supplied-linear-certificate"]
+  },
+  "quantities": ["certificate.status", "certificate.absBound", "certificate.relBound"],
+  "title": {
+    "en": "Supplied linear results require a stable load case",
+    "es": "Los resultados lineales aportados requieren un caso de carga estable",
+    "pt": "Resultados lineares fornecidos exigem um caso de carga estável",
+    "de": "Übergebene lineare Ergebnisse erfordern einen stabilen Lastfall",
+    "fr": "Les résultats linéaires fournis exigent un cas de charge stable",
+    "hu": "A megadott lineáris eredményekhez stabil tehereset szükséges",
+    "tr": "Sağlanan doğrusal sonuçlar kararlı bir yük durumu gerektirir",
+    "zh": "提交的线性分析结果必须对应稳定的荷载工况"
+  },
+  "explanation": {
+    "en": "The native 2D and 3D certificate APIs check supplied load cases with the linear solver before certifying their responses. A refused case has no certificate bound and prevents dependent combinations and envelopes from receiving one.",
+    "es": "Las API nativas de certificación 2D y 3D comprueban los casos de carga aportados con el solver lineal antes de certificar su respuesta. Un caso rechazado queda sin cota certificada, al igual que sus combinaciones y envolventes dependientes.",
+    "pt": "As APIs nativas de certificação 2D e 3D verificam os casos de carga fornecidos com o solver linear antes de certificar as respostas. Um caso recusado fica sem limite certificado, assim como as combinações e envoltórias que dele dependem.",
+    "de": "Die nativen 2D- und 3D-Zertifizierungs-APIs prüfen übergebene Lastfälle mit dem linearen Solver, bevor sie deren Ergebnisse zertifizieren. Ein abgelehnter Lastfall und davon abhängige Kombinationen und Einhüllende erhalten keine zertifizierte Schranke.",
+    "fr": "Les API natives de certification 2D et 3D vérifient les cas de charge fournis avec le solveur linéaire avant de certifier leurs réponses. Un cas refusé ne reçoit aucune borne certifiée, tout comme les combinaisons et enveloppes qui en dépendent.",
+    "hu": "A natív 2D és 3D tanúsítási API-k a lineáris megoldóval ellenőrzik a megadott tehereseteket az eredmények tanúsítása előtt. Elutasított teheresethez és az attól függő kombinációkhoz és burkolókhoz nem tartozik tanúsított korlát.",
+    "tr": "Yerel 2B ve 3B sertifikasyon API’leri, yanıtları sertifikalandırmadan önce sağlanan yük durumlarını doğrusal çözücüyle denetler. Reddedilen yük durumu ve ona bağlı kombinasyonlar ile zarflar sertifikalı bir hata sınırı almaz.",
+    "zh": "原生二维和三维认证 API 在认证响应前，使用线性求解器检查提交的荷载工况。被拒绝的工况及其相关组合与包络均不提供认证误差界。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-supplied-linear-certificates.md",
+    "heading": "Supplied linear results require a stable load case"
+  }
+}

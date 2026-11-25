@@ -58,6 +58,7 @@ const ru: Translations = {
   'landing.heroTitle2': 'Мгновенно.',
   'landing.heroSub': 'Профессиональный 2D и 3D расчёт конструкций в браузере. Без установки, без компромиссов.',
   'landing.tryApp': 'Попробовать приложение',
+  'landing.openingEditor': 'Открывается редактор…',
   'landing.tryTour': 'Попробовать экскурсию',
   'landing.metricLanguages': 'Языки',
   'landing.metricAnalysis': 'Полный расчёт',
@@ -2795,8 +2796,10 @@ const ru: Translations = {
   'pro.unknown': 'Неизвестно',
 
   // ─── PRO: Shell ───
+  'pro.nPlatesQuads': '{plates} пластин, {quads} четырёхугольников',
   'pro.plateTriDKT': 'Треугольная пластина (DKT)',
   'pro.quadMITC4': 'Четырёхугольник MITC4',
+  'pro.meshGenerator': 'Генератор сетки',
   'pro.meshHint': 'Задайте 4 угловых узла (против часовой стрелки) и NxM разбиений. Промежуточные узлы и четырёхугольники создаются автоматически.',
   'pro.corners': 'Углы',
   'pro.subdivisions': 'Разбиения',

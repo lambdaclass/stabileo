@@ -1,18 +1,18 @@
 {
   "cases/12/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/13/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/14/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/15/pdelta": {
     "category": "matching-non-convergence"
   },
   "cases/17/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/18/pdelta": {
     "category": "matching-non-convergence"
@@ -35,16 +35,16 @@
     "mainRefusal": "Nodal moment at node 1 is not supported: a loaded released rotation or unstiffened rotational/warping direction is present; free directions [rx=-2.228344e-1, ry=-2.971125e-1, rz=9.284767e-1] have no resolvable stiffness, so the moment would not reach the structure. Apply it as a force couple, or connect the node to a frame or shell"
   },
   "cases/42/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/43/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/51/pdelta": {
     "category": "matching-non-convergence"
   },
   "cases/53/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/54/pdelta": {
     "category": "matching-non-convergence"
@@ -56,10 +56,10 @@
     "category": "matching-non-convergence"
   },
   "cases/57/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/58/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/62/pdelta": {
     "category": "matching-non-convergence"
@@ -110,22 +110,22 @@
     "category": "matching-non-convergence"
   },
   "cases/84/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/85/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/86/pdelta": {
     "category": "matching-non-convergence"
   },
   "cases/87/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/88/pdelta": {
     "category": "matching-non-convergence"
   },
   "cases/89/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/90/pdelta": {
     "category": "matching-non-convergence"
@@ -143,7 +143,7 @@
     "category": "matching-non-convergence"
   },
   "cases/95/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/96/pdelta": {
     "category": "matching-non-convergence"
@@ -185,19 +185,19 @@
     "category": "matching-non-convergence"
   },
   "cases/129/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/130/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/131/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/132/pdelta": {
     "category": "matching-non-convergence"
   },
   "cases/134/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/135/pdelta": {
     "category": "matching-non-convergence"
@@ -220,16 +220,16 @@
     "mainRefusal": "Nodal moment at node 2 is not supported: a loaded released rotation or unstiffened rotational/warping direction is present; free directions [rx=-2.228344e-1, ry=-2.971125e-1, rz=9.284767e-1] have no resolvable stiffness, so the moment would not reach the structure. Apply it as a force couple, or connect the node to a frame or shell"
   },
   "cases/159/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/160/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/168/pdelta": {
     "category": "matching-non-convergence"
   },
   "cases/170/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/171/pdelta": {
     "category": "matching-non-convergence"
@@ -241,10 +241,10 @@
     "category": "matching-non-convergence"
   },
   "cases/174/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/175/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/179/pdelta": {
     "category": "matching-non-convergence"
@@ -295,22 +295,22 @@
     "category": "matching-non-convergence"
   },
   "cases/201/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/202/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/203/pdelta": {
     "category": "matching-non-convergence"
   },
   "cases/204/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/205/pdelta": {
     "category": "matching-non-convergence"
   },
   "cases/206/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/207/pdelta": {
     "category": "matching-non-convergence"
@@ -328,7 +328,7 @@
     "category": "matching-non-convergence"
   },
   "cases/212/pdelta": {
-    "category": "nan-withholding"
+    "category": "physical-equilibrium-refusal"
   },
   "cases/213/pdelta": {
     "category": "matching-non-convergence"

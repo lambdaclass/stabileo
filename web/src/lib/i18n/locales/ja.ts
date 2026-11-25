@@ -58,6 +58,7 @@ const ja: Translations = {
   'landing.heroTitle2': '瞬時に。',
   'landing.heroSub': 'ブラウザで行うプロ仕様の 2D & 3D 構造解析。インストール不要、妥協なし。',
   'landing.tryApp': 'アプリを試す',
+  'landing.openingEditor': 'エディターを開いています…',
   'landing.tryTour': 'ガイドツアーを試す',
   'landing.metricLanguages': '言語',
   'landing.metricAnalysis': '完全な解析',
@@ -2650,8 +2651,10 @@ const ja: Translations = {
   'pro.unknown': '不明',
 
   // ─── PRO: Shell ───
+  'pro.nPlatesQuads': '{plates} プレート、{quads} クワッド',
   'pro.plateTriDKT': '三角プレート (DKT)',
   'pro.quadMITC4': 'クワッド MITC4',
+  'pro.meshGenerator': 'メッシュジェネレーター',
   'pro.meshHint': '4つのコーナー節点（反時計回り）とNxM分割を定義します。中間節点とクワッドが自動生成されます。',
   'pro.corners': 'コーナー',
   'pro.subdivisions': '分割数',
