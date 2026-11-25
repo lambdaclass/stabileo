@@ -111,3 +111,91 @@ fn issue_1090_material_tangent_preserves_the_released_tip() {
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
+
+#[test]
+#[ignore = "known wrong result: #1635"]
+fn issue_1635_modal_reversal_recovers_the_massless_released_tip() {
+    use dedaliano_engine::{
+        certify::modal::certify_modal_3d,
+        solver::modal::solve_modal_3d,
+        types::{Constraint, LinearMPCConstraint, MPCTerm},
+    };
+    let model = crate::corpus::parse(include_str!(
+        "../metamorphic_corpus/stability/issue-1635.json"
+    ));
+    let crate::corpus::Model::D3(input) = model.unwrap() else {
+        panic!("expected a spatial model")
+    };
+    let case = crate::case::Case3::new("replay", input);
+    let reversed = reverse_3d(&case.s, &|_| true).unwrap();
+    let e = &case.s.elements["1"];
+    let a = &case.s.nodes[&e.node_i.to_string()];
+    let b = &case.s.nodes[&e.node_j.to_string()];
+    let (_, _, released_axis) = dedaliano_engine::element::compute_local_axes_3d(
+        a.x,
+        a.y,
+        a.z,
+        b.x,
+        b.y,
+        b.z,
+        e.local_yx,
+        e.local_yy,
+        e.local_yz,
+        e.roll_angle,
+        false,
+    );
+    let axis = (0..3)
+        .max_by(|&i, &j| released_axis[i].abs().total_cmp(&released_axis[j].abs()))
+        .unwrap();
+    let mut reference = case.s.clone();
+    reference
+        .constraints
+        .push(Constraint::LinearMPC(LinearMPCConstraint {
+            terms: vec![MPCTerm {
+                node_id: 2,
+                dof: axis + 3,
+                coefficient: 1.0,
+            }],
+        }));
+
+    let expected = solve_modal_3d(&reference, &case.dens, 6).unwrap();
+    assert_eq!(expected.modes.len(), 3);
+    let expected: Vec<_> = expected.modes.iter().map(|mode| mode.omega).collect();
+    let mut failures = Vec::new();
+    let mut cases = Vec::new();
+    for (label, model) in [
+        ("original", case.s),
+        ("reversed", reversed),
+        ("reference", reference),
+    ] {
+        for (entry, result) in [
+            ("modal", solve_modal_3d(&model, &case.dens, 6)),
+            (
+                "certified modal",
+                certify_modal_3d(&model, &case.dens, 6).map(|value| value.results),
+            ),
+        ] {
+            match result {
+                Ok(result) => {
+                    assert_eq!(result.modes.len(), expected.len(), "{label} {entry}");
+                    for (mode, &reference) in result.modes.iter().zip(&expected) {
+                        let relative_error = ((mode.omega - reference) / reference).abs();
+                        assert!(
+                            relative_error <= 1e-12,
+                            "{label} {entry}: {} vs {reference}",
+                            mode.omega
+                        );
+                    }
+                }
+                Err(error) => failures.push(format!("{label} {entry}: {error}")),
+            }
+        }
+        cases.push(serde_json::json!({
+            "label": label, "input": {"solver": model, "densities": case.dens}, "expected": expected,
+        }));
+    }
+    if let Some(path) = std::env::var_os("MODAL_RELEASE_WASM_CASES") {
+        std::fs::write(path, serde_json::to_vec(&cases).unwrap()).unwrap();
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
