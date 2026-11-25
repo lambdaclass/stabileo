@@ -113,12 +113,11 @@ fn issue_1090_material_tangent_preserves_the_released_tip() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1635"]
 fn issue_1635_modal_reversal_recovers_the_massless_released_tip() {
     use dedaliano_engine::{
         certify::modal::certify_modal_3d,
         solver::modal::solve_modal_3d,
-        types::{Constraint, LinearMPCConstraint, MPCTerm},
+        types::{Constraint, LinearMPCConstraint, MPCTerm, NodalMass3D},
     };
     let model = crate::corpus::parse(include_str!(
         "../metamorphic_corpus/stability/issue-1635.json"
@@ -164,8 +163,8 @@ fn issue_1635_modal_reversal_recovers_the_massless_released_tip() {
     let mut failures = Vec::new();
     let mut cases = Vec::new();
     for (label, model) in [
-        ("original", case.s),
-        ("reversed", reversed),
+        ("original", case.s.clone()),
+        ("reversed", reversed.clone()),
         ("reference", reference),
     ] {
         for (entry, result) in [
@@ -192,6 +191,42 @@ fn issue_1635_modal_reversal_recovers_the_massless_released_tip() {
         }
         cases.push(serde_json::json!({
             "label": label, "input": {"solver": model, "densities": case.dens}, "expected": expected,
+        }));
+    }
+    for inertia in [1e-20, 1.0] {
+        let mut original = case.s.clone();
+        let mut reversed = reversed.clone();
+        for model in [&mut original, &mut reversed] {
+            model.masses.nodal.push(NodalMass3D {
+                node_id: 2,
+                mass: 0.0,
+                mass_x: None,
+                mass_y: None,
+                mass_z: None,
+                ixx: inertia,
+                iyy: inertia,
+                izz: inertia,
+            });
+        }
+        let original = solve_modal_3d(&original, &case.dens, 6).unwrap();
+        assert_eq!(original.null_modes.len(), 1);
+        assert_eq!(original.modes.len(), 5);
+        let expected: Vec<_> = original.modes.iter().map(|mode| mode.omega).collect();
+        let actual = solve_modal_3d(&reversed, &case.dens, 6).unwrap();
+        assert_eq!(actual.null_modes.len(), 1);
+        assert_eq!(actual.modes.len(), expected.len());
+        for (mode, &reference) in actual.modes.iter().zip(&expected) {
+            let relative_error = ((mode.omega - reference) / reference).abs();
+            assert!(
+                relative_error <= 1e-12,
+                "inertia {inertia}: {} vs {reference}",
+                mode.omega
+            );
+        }
+        cases.push(serde_json::json!({
+            "label": format!("reversed with rotary inertia {inertia}"),
+            "input": {"solver": reversed, "densities": case.dens}, "expected": expected,
+            "nullModesExpected": 1,
         }));
     }
     if let Some(path) = std::env::var_os("MODAL_RELEASE_WASM_CASES") {

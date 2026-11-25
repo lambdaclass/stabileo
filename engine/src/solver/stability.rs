@@ -1619,6 +1619,19 @@ pub(crate) fn analyze_free_stiffness_excluding(
     (reduced, stability)
 }
 
+fn structural_mechanism(
+    kinematics: &ElasticKinematics,
+    constraints: Option<&super::constraints::FreeConstraintSystem>,
+    inactive: &[usize],
+    supplemental_dofs: &[bool],
+) -> Option<Stability> {
+    let node = kinematics.axial.mechanism_node(constraints, inactive, supplemental_dofs)?;
+    Some(Stability {
+        verdict: Verdict::Mechanism, reason: Reason::AxialMechanism,
+        kappa: f64::INFINITY, anisotropy: 1.0, free: Vec::new(), mode_nodes: vec![node],
+    })
+}
+
 pub(super) fn classify_free_stiffness(
     physical: &CscMatrix,
     reduced: &CscMatrix,
@@ -1634,11 +1647,8 @@ pub(super) fn classify_free_stiffness(
     if assumed() {
         return Stability::stable();
     }
-    if let Some(node) = kinematics.axial.mechanism_node(constraints, inactive, supplemental_dofs) {
-        return Stability {
-            verdict: Verdict::Mechanism, reason: Reason::AxialMechanism,
-            kappa: f64::INFINITY, anisotropy: 1.0, free: Vec::new(), mode_nodes: vec![node],
-        };
+    if let Some(proof) = structural_mechanism(kinematics, constraints, inactive, supplemental_dofs) {
+        return proof;
     }
     if let Some(c) = constraints {
         c.stability_excluding(reduced, dof, physical, &kinematics.coupling, releases, inactive, support_magnitude)
@@ -1791,6 +1801,37 @@ impl<'a> OperatorRank<'a> {
             })
         }).collect();
         ReleaseGauges(directions)
+    }
+
+    pub(super) fn massless_release_gauges(
+        &self,
+        physical: &CscMatrix,
+        mass_range: &super::modal_mass::MassRange,
+    ) -> ReleaseGauges {
+        let ReleaseGauges(mut gauges) = self.isolated_release_gauges(physical);
+        gauges.retain_mut(|direction| {
+            if let Some(cs) = self.constraints {
+                for dof in &mut direction.dofs {
+                    let Ok(index) = cs.independent_dofs().binary_search(dof) else {
+                        return false;
+                    };
+                    *dof = index;
+                }
+            }
+            mass_range.coordinates_are_massless(&direction.dofs)
+        });
+        ReleaseGauges(gauges)
+    }
+
+    pub(super) fn check_structure(&self) -> Result<(), String> {
+        if !assumed() {
+            if let Some(refusal) = structural_mechanism(&self.kinematics, self.constraints, &[], &[])
+                .and_then(|proof| proof.refusal())
+            {
+                return Err(refusal);
+            }
+        }
+        Ok(())
     }
 
     pub(super) fn check_rounding(&self, free: &CscMatrix, reduced: Option<&CscMatrix>, support_magnitude: Option<&CscMatrix>) -> Result<(), String> {

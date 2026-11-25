@@ -153,7 +153,7 @@ pub fn solve_modal_2d(
         let k_solve = k_reduced.as_ref().unwrap_or(&k_ff);
         let ns = k_solve.n;
         ModalStiffness::sparse(k_solve, &stiffness_roundoff).check_before_eigensolve(
-            &mass_range, &dof_num, cs.as_ref(), &its, &[0, 2],
+            &mass_range, &dof_num, cs.as_ref(), &its, &[0, 2], &rank,
             || rank.check_rounding(&k_ff, k_reduced.as_ref(), support_magnitude.as_ref()),
         )?;
         let m_solve = match &cs {
@@ -197,7 +197,7 @@ pub fn solve_modal_2d(
         let operator = CscMatrix::from_dense_symmetric_exact(&k_ff, nf);
         let reduced = cs.as_ref().map(|_| CscMatrix::from_dense_symmetric_exact(&k_solve, ns));
         ModalStiffness::dense(&k_solve, ns, &stiffness_roundoff).check_before_eigensolve(
-            &mass_range, &dof_num, cs.as_ref(), &its, &[0, 2],
+            &mass_range, &dof_num, cs.as_ref(), &its, &[0, 2], &rank,
             || rank.check_rounding(&operator, reduced.as_ref(), support_magnitude.as_ref()),
         )?;
         let result = mass_range.solve_dense(&k_solve, &m_solve, num_modes)
@@ -457,8 +457,10 @@ impl<'a> ModalStiffness<'a> {
         constraints: Option<&FreeConstraintSystem>,
         inclined: &[impl InclinedFrame],
         axes: &[usize],
+        rank: &super::stability::OperatorRank<'_>,
         check_rounding: impl FnOnce() -> Result<(), String>,
     ) -> Result<(), String> {
+        rank.check_structure()?;
         self.reject_massive_null_translation(mass, dof, constraints, inclined, axes)?;
         check_rounding()
     }
@@ -758,14 +760,17 @@ pub fn solve_modal_3d(
     let rank = super::stability::OperatorRank::for_3d(input, &dof_num, cs.as_ref());
     let stiffness = ModalStiffness::sparse(k_solve, &stiffness_roundoff);
     stiffness.check_before_eigensolve(
-        &mass_range, &dof_num, cs.as_ref(), its, &[0, 1, 2],
+        &mass_range, &dof_num, cs.as_ref(), its, &[0, 1, 2], &rank,
         || rank.check_rounding(&sasm.k_ff, cs.as_ref().map(|_| k_solve), sasm.support_magnitude.as_ref()),
     )?;
+    let release_gauges = rank.massless_release_gauges(&sasm.k_ff, &mass_range);
+    let prepared = (!release_gauges.is_empty()).then(|| release_gauges.pin_sparse(k_solve));
+    let k_eigen = prepared.as_ref().unwrap_or(k_solve);
     let mut structured_diagnostics = known_model;
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Modal));
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_conditioning(&sasm.k_ff).into_iter().collect());
-    let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(k_solve, |observe| {
-        mass_range.solve_sparse(k_solve, m_solve, num_modes, observe)
+    let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(k_eigen, |observe| {
+        mass_range.solve_sparse(k_eigen, m_solve, num_modes, observe)
     });
     crate::known_issues::attach(&mut structured_diagnostics, conditioning.into_iter().collect());
     let result = result.ok_or_else(|| crate::refusal::eigen_decomposition_failed(&crate::linalg::lanczos::eigen_failure_message(k_solve.n)))?;
@@ -793,7 +798,7 @@ pub fn solve_modal_3d(
         let m_mul = |x: &[f64]| m_solve.sym_mat_vec(x);
         let free = |phi: &[f64]| cs.as_ref().map_or_else(|| phi.to_vec(), |cs| cs.expand_solution(phi, MasterMotion::Homogeneous))[..nf].to_vec();
         let shape = |phi: &[f64]| to_global(&free(phi), n, its);
-        let eigen = |k: usize| mass_range.solve_sparse(k_solve, m_solve, k, &mut |_| {});
+        let eigen = |k: usize| mass_range.solve_sparse(k_eigen, m_solve, k, &mut |_| {});
         let classify = |r: &EigenResult| null_modes_or_mechanism(r, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_y), (&l_z, mass_z)], &[&rigid[0], &rigid[1], &rigid[2]], &free, &shape, &dof_num, &["ux", "uy", "uz", "rx", "ry", "rz", "warping"], &k_abs, &stiffness);
         with_replacements(&result, num_modes, ns, &classify, &eigen)?
     };

@@ -148,6 +148,7 @@ impl MassAssembly {
                 }
             }
             let n = constraints.map_or(nf, |c| c.n_free_indep);
+            let mut massive_coordinates = vec![false; n];
             let mut range = BTreeMap::<usize, Row>::new();
             let mut columns = BTreeMap::<usize, BTreeSet<usize>>::new();
             let mut weighted = Vec::new();
@@ -164,6 +165,9 @@ impl MassAssembly {
                         }
                         reduced.retain(|_, v| !v.is_zero());
                         *row = reduced;
+                    }
+                    for &coordinate in row.keys() {
+                        massive_coordinates[coordinate] = true;
                     }
                     let mut residual = row.clone();
                     let existing_pivots: Vec<_> = residual
@@ -264,6 +268,7 @@ impl MassAssembly {
             let weights = SparseTransform::from_rows(weight_rows.len(), n, weight_rows);
             Some(MassRange {
                 rank,
+                massive_coordinates,
                 pivots: range.keys().copied().collect(),
                 transform,
                 weights,
@@ -275,12 +280,17 @@ impl MassAssembly {
 
 pub(super) struct MassRange {
     rank: usize,
+    massive_coordinates: Vec<bool>,
     pivots: Vec<usize>,
     transform: SparseTransform,
     weights: SparseTransform,
 }
 
 impl MassRange {
+    pub(super) fn coordinates_are_massless(&self, coordinates: &[usize]) -> bool {
+        coordinates.iter().all(|&i| self.massive_coordinates.get(i) == Some(&false))
+    }
+
     pub(super) fn has_mass_in(&self, coordinates: &[usize], direction: &[f64], round_off: f64) -> bool {
         if self.rank == self.transform.n_rows {
             return true;

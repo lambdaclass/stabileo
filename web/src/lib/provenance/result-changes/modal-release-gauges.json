@@ -1,0 +1,32 @@
+{
+  "id": "modal-release-gauges",
+  "date": "2026-11-25",
+  "prs": [],
+  "area": "analysis",
+  "when": { "allOf": [["space3D"], ["hinges"], ["analysis:modal", "analysis:spectral"]] },
+  "quantities": ["solve.ok", "modes", "nullModes", "structuredDiagnostics", "certificate"],
+  "title": {
+    "en": "Modal analysis of massless released frame ends",
+    "es": "Análisis modal de extremos articulados sin masa",
+    "pt": "Análise modal de extremidades articuladas sem massa",
+    "de": "Modalanalyse bei masselosen gelenkigen Stabenden",
+    "fr": "Analyse modale des extrémités articulées sans masse",
+    "hu": "Tömeg nélküli csuklós rúdvégek modális vizsgálata",
+    "tr": "Kütlesiz mafsallı çubuk uçlarının modal analizi",
+    "zh": "无质量释放杆端的模态分析"
+  },
+  "explanation": {
+    "en": "Modal analysis now sets a reference for a released end rotation when the physical mass rows establish that it carries no inertia. Recheck affected modal and dependent spectral results.",
+    "es": "El análisis modal ahora fija una referencia para el giro liberado de un extremo cuando las filas de masa física prueban que no tiene inercia. Volvé a verificar los resultados modales y espectrales afectados.",
+    "pt": "A análise modal agora define uma referência para a rotação liberada de uma extremidade quando as linhas de massa física provam que ela não tem inércia. Confira novamente os resultados modais e espectrais afetados.",
+    "de": "Die Modalanalyse setzt einen Bezugswert für eine freigegebene Enddrehung, wenn die physikalischen Massenzeilen zeigen, dass sie keine Trägheit besitzt. Prüfen Sie betroffene Modal- und Spektralergebnisse erneut.",
+    "fr": "L’analyse modale fixe une référence pour la rotation libérée en bout de barre lorsque les lignes de masse physique établissent qu’elle ne porte aucune inertie. Vérifiez les résultats modaux et spectraux concernés.",
+    "hu": "A modális vizsgálat referenciaértéket rendel a felszabadított rúdvégi elforduláshoz, ha a fizikai tömegsorok igazolják, hogy nincs tehetetlensége. Ellenőrizze újra az érintett modális és spektrális eredményeket.",
+    "tr": "Modal analiz, fiziksel kütle satırları atalet taşımadığını kanıtladığında serbest uç dönmesi için bir referans belirler. Etkilenen modal ve spektral sonuçları yeniden kontrol edin.",
+    "zh": "当物理质量行证明释放端转动不携带惯性时，模态分析为其设置参考值。请复核受影响的模态和相关反应谱结果。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-modal-release-gauges.md",
+    "heading": "Modal analysis of massless released frame ends (2026-11-25)"
+  }
+}
