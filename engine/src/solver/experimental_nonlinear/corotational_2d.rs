@@ -80,6 +80,53 @@ pub(super) fn kept_solve(factor: &Option<CachedTangentFactor>, rhs: &[f64]) -> O
     factor.as_ref().map(|factor| solve_with_cached_factor(factor, rhs))
 }
 
+pub(super) fn solve_sparse_refreshing(
+    k_s: &CscMatrix,
+    r_s: &[f64],
+    symbolic: &mut Option<SparseSymbolicCache>,
+    conditioning: &mut Option<StructuredDiagnostic>,
+    cached: &mut Option<CachedTangentFactor>,
+) -> Result<Vec<f64>, String> {
+    let sym = cached_symbolic(symbolic, k_s);
+    let factor = numeric_cholesky(sym, k_s);
+    if let Some(found) = crate::known_issues::sparse_factor_conditioning(k_s, factor.as_ref()) {
+        *conditioning = Some(found);
+    }
+    match factor {
+        Some(num) => {
+            let result = sparse_cholesky_solve(&num, r_s);
+            *cached = Some(CachedTangentFactor::Sparse(num));
+            Ok(result)
+        }
+        None => solve_tangent_sparse_diagnosed(k_s, r_s, symbolic, conditioning),
+    }
+}
+
+pub(super) fn solve_dense_refreshing(
+    k_s: &[f64],
+    r_s: &[f64],
+    ns: usize,
+    conditioning: &mut Option<StructuredDiagnostic>,
+    cached: &mut Option<CachedTangentFactor>,
+) -> Result<Vec<f64>, String> {
+    let factor = try_cholesky_factor(k_s, ns);
+    if let Some(found) = crate::known_issues::dense_factor_conditioning(
+        k_s,
+        ns,
+        factor.as_ref().map(|f| f.l.as_slice()),
+    ) {
+        *conditioning = Some(found);
+    }
+    match factor {
+        Some(factor) => {
+            let result = solve_with_cholesky_factor(&factor.l, r_s, factor.n);
+            *cached = Some(CachedTangentFactor::Dense(factor));
+            Ok(result)
+        }
+        None => solve_free_dofs(k_s, r_s, ns, conditioning),
+    }
+}
+
 impl incremental::IncrementalProblem for Corotational2D<'_> {
     fn begin_increment(&mut self, load_factor: f64) {
         let (n, nf) = (self.dof_num.n_total, self.dof_num.n_free);
@@ -301,11 +348,12 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
             }
         } else if ns >= SPARSE_THRESHOLD {
             let k_s_csc = tangent_free_sparse_triplets(&trip_rows, &trip_cols, &trip_vals, nf, cs);
-            solve_tangent_sparse_diagnosed(
+            solve_sparse_refreshing(
                 &k_s_csc,
                 &r_s,
                 &mut self.sparse_sym_cache,
                 &mut self.conditioning,
+                &mut self.cached_factor,
             )?
         } else {
             let free_idx: Vec<usize> = (0..nf).collect();
@@ -315,7 +363,13 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
             } else {
                 k_ff
             };
-            solve_free_dofs(&k_s, &r_s, ns, &mut self.conditioning)?
+            solve_dense_refreshing(
+                &k_s,
+                &r_s,
+                ns,
+                &mut self.conditioning,
+                &mut self.cached_factor,
+            )?
         };
 
         let delta_u_f = if let Some(ref cs) = *cs {
@@ -594,6 +648,31 @@ fn corotational_2d(
 mod shared_driver_equivalence {
     use super::*;
     use std::collections::HashMap;
+
+    #[test]
+    fn exact_solves_refresh_the_preconditioner() {
+        let dense_a = [4.0, 1.0, 1.0, 3.0];
+        let dense_b = [8.0, 2.0, 2.0, 5.0];
+        let rhs = [1.0, 2.0];
+        let mut conditioning = None;
+        let mut cached = None;
+        let first = solve_dense_refreshing(&dense_a, &rhs, 2, &mut conditioning, &mut cached).unwrap();
+        assert_eq!(first, solve_free_dofs(&dense_a, &rhs, 2, &mut None).unwrap());
+        let second = solve_dense_refreshing(&dense_b, &rhs, 2, &mut conditioning, &mut cached).unwrap();
+        assert_eq!(second, solve_free_dofs(&dense_b, &rhs, 2, &mut None).unwrap());
+        assert_eq!(kept_solve(&cached, &rhs).unwrap(), second);
+        assert_ne!(kept_solve(&cached, &rhs).unwrap(), first);
+
+        let sparse_a = CscMatrix::from_dense_symmetric(&dense_a, 2);
+        let sparse_b = CscMatrix::from_dense_symmetric(&dense_b, 2);
+        let mut symbolic = None;
+        let first = solve_sparse_refreshing(&sparse_a, &rhs, &mut symbolic, &mut conditioning, &mut cached).unwrap();
+        assert_eq!(first, solve_tangent_sparse_diagnosed(&sparse_a, &rhs, &mut None, &mut None).unwrap());
+        let second = solve_sparse_refreshing(&sparse_b, &rhs, &mut symbolic, &mut conditioning, &mut cached).unwrap();
+        assert_eq!(second, solve_tangent_sparse_diagnosed(&sparse_b, &rhs, &mut None, &mut None).unwrap());
+        assert_eq!(kept_solve(&cached, &rhs).unwrap(), second);
+        assert_ne!(kept_solve(&cached, &rhs).unwrap(), first);
+    }
 
     fn frame(n: usize, rise: f64, far_support: Option<&str>) -> SolverInput {
         let (mut nodes, mut elements, mut supports) =

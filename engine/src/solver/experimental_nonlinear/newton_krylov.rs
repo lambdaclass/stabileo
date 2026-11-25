@@ -5,9 +5,8 @@ const MAX_FORCING: f64 = 0.5;
 const MAX_INNER: usize = 50;
 
 /// Inexact Newton: the Newton equation of every iteration is solved by conjugate gradients on
-/// the current tangent, preconditioned by the tangent the increment factorized first. The
-/// tangent is applied, never factorized again, so an increment costs one factorization and
-/// converges at close to Newton's rate.
+/// the current tangent, preconditioned by the latest factorized tangent. While those solves
+/// succeed, the current tangent is applied without being factorized again.
 ///
 /// The exact solve takes over for an iteration when there is no factor to precondition with,
 /// when a correction is forced, and when conjugate gradients break down, which is what an

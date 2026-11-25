@@ -182,11 +182,12 @@ impl incremental::IncrementalProblem for Corotational3D<'_> {
             }
         } else if ns >= SPARSE_THRESHOLD {
             let k_s_csc = tangent_free_sparse_triplets(&trip_rows, &trip_cols, &trip_vals, nf, cs);
-            solve_tangent_sparse_diagnosed(
+            super::experimental_nonlinear_2d::solve_sparse_refreshing(
                 &k_s_csc,
                 &r_s,
                 &mut self.sparse_sym_cache,
                 &mut self.conditioning,
+                &mut self.cached_factor,
             )?
         } else {
             let free_idx: Vec<usize> = (0..nf).collect();
@@ -196,7 +197,13 @@ impl incremental::IncrementalProblem for Corotational3D<'_> {
             } else {
                 k_ff
             };
-            solve_free_dofs(&k_s, &r_s, ns, &mut self.conditioning)?
+            super::experimental_nonlinear_2d::solve_dense_refreshing(
+                &k_s,
+                &r_s,
+                ns,
+                &mut self.conditioning,
+                &mut self.cached_factor,
+            )?
         };
 
         let delta_u = if let Some(ref cs) = *cs {
