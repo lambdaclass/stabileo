@@ -89,6 +89,8 @@ class Workflow(unittest.TestCase):
         self.assertFalse(allows('web/scripts/research-route-allowancesXjson'))
         self.assertFalse(allows('web/scripts/research-route-allowances.json.bak'))
         self.assertFalse(allows('web/src/x.ts'))
+        strict = subprocess.run(['bash', '-c', f'set -euo pipefail; {cond}'], env={**os.environ, 'CHANGED': 'web/scripts/research-route-allowances.json\n' + 'web/src/x.ts\n' * 9000})
+        self.assertEqual(strict.returncode, 0)
 
 
 if __name__ == '__main__':
