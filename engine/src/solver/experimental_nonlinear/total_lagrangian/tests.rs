@@ -1,3 +1,5 @@
+use super::super::discrete_problem::Problem;
+use super::super::incremental::IncrementalProblem;
 use super::*;
 use crate::element::total_lagrangian_truss::{TotalLagrangianTruss, MAX_GREEN_STRAIN};
 
@@ -303,7 +305,7 @@ fn rejected_steps_leave_only_accepted_states() {
     assert!(result.steps.is_empty());
     close(result.last_equilibrium.energy, 0.0, 0.0);
     let model = axial();
-    let mut problem = TrussProblem::new(&model).unwrap();
+    let mut problem = Problem::new(PreparedTruss::new(&model).unwrap()).unwrap();
     IncrementalProblem::begin_increment(&mut problem, 0.5);
     IncrementalProblem::set_state(&mut problem, &[0.001]);
     problem.assemble().unwrap();
@@ -491,13 +493,15 @@ fn branch_with_negative_tangent_is_an_equilibrium_not_a_stability_certificate() 
     )
     .unwrap();
     assert!(path.completed);
-    let mut problem = TrussProblem::new(&model).unwrap();
-    for (j, &i) in problem.free.iter().enumerate() {
+    let mut problem = Problem::new(PreparedTruss::new(&model).unwrap()).unwrap();
+    for (j, &i) in problem.model.free.iter().enumerate() {
         problem.u[j] = path.last_equilibrium.displacements[i / 3][i % 3];
     }
     problem.lambda = path.last_equilibrium.load_factor;
     problem.assemble().unwrap();
-    assert!(problem.equilibrium.relative_residual < 1e-9);
-    assert!(problem.tangent[3] < 0.0); // Negative vertical stiffness beyond the peak.
-    assert!(problem.solve(&problem.reference.clone(), false).is_ok());
+    assert!(problem.at.equilibrium.relative_residual < 1e-9);
+    assert!(problem.at.tangent[3] < 0.0); // Negative vertical stiffness beyond the peak.
+    assert!(problem
+        .solve(&problem.model.reference.clone(), false)
+        .is_ok());
 }
