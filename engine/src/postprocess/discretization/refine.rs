@@ -156,10 +156,34 @@ fn takes_hanging_nodes(family: &str) -> bool {
     family == "quad"
 }
 
+/// How far a hanging node may be from the middle of its edge, and a coefficient of its
+/// constraints from the one `hanging_constraints` gives, relative to the edge's length.
+const HANGING_TOLERANCE: f64 = 1e-9;
+
+/// The normal of the MITC4 quad on each edge of one (the lowest id where two share it): the
+/// normal the constraints of a node hanging on that edge are written with.
+fn spanning_normals(input: &SolverInput3D) -> HashMap<(usize, usize), [f64; 3]> {
+    let at: HashMap<usize, [f64; 3]> = input.nodes.values().map(|n| (n.id, [n.x, n.y, n.z])).collect();
+    let mut quads: Vec<&SolverQuadElement> = input.quads.values().collect();
+    quads.sort_by_key(|q| std::cmp::Reverse(q.id));
+    let mut normals = HashMap::new();
+    for q in quads {
+        let Some(corners) = q.nodes.iter().map(|n| at.get(n).copied()).collect::<Option<Vec<_>>>() else { continue };
+        let normal = quad_normal(&corners);
+        for k in 0..4 {
+            normals.insert(key(q.nodes[k], q.nodes[(k + 1) % 4]), normal);
+        }
+    }
+    normals
+}
+
 /// The hanging nodes of a model `refine_marked` made: node → the ends of the edge it is on.
-/// Any constraint that is not one of theirs is refused.
+/// Any constraint that is not one of theirs is refused: each must sit at the middle of an edge
+/// of a MITC4 quad and be tied as `hanging_constraints` ties it there, so that a constraint of
+/// the user's that only looks like one is never taken for one and rewritten.
 pub fn hanging_nodes(input: &SolverInput3D) -> Result<HashMap<usize, (usize, usize)>, String> {
     let mut tied: HashMap<usize, ((usize, usize), [bool; HANGING_DOFS])> = HashMap::new();
+    let mut given: HashMap<(usize, usize), &[MPCTerm]> = HashMap::new();
     for constraint in &input.constraints {
         let Constraint::LinearMPC(mpc) = constraint else { return Err("constraints".into()) };
         let [node, a, b, bending @ ..] = mpc.terms.as_slice() else { return Err("constraints".into()) };
@@ -175,10 +199,43 @@ pub fn hanging_nodes(input: &SolverInput3D) -> Result<HashMap<usize, (usize, usi
         if entry.0 != ends || std::mem::replace(&mut entry.1[node.dof], true) {
             return Err("constraints".into());
         }
+        given.insert((node.node_id, node.dof), &mpc.terms);
     }
-    tied.into_iter()
-        .map(|(node, (ends, dofs))| dofs.iter().all(|d| *d).then_some((node, ends)).ok_or_else(|| "constraints".to_string()))
-        .collect()
+    if tied.is_empty() {
+        return Ok(HashMap::new());
+    }
+    let at: HashMap<usize, [f64; 3]> = input.nodes.values().map(|n| (n.id, [n.x, n.y, n.z])).collect();
+    let normals = spanning_normals(input);
+    let refused = || "constraints".to_string();
+    let mut hanging = HashMap::new();
+    for (node, (ends, dofs)) in tied {
+        if !dofs.iter().all(|d| *d) {
+            return Err(refused());
+        }
+        let (Some(here), Some(a), Some(b), Some(normal)) = (at.get(&node), at.get(&ends.0), at.get(&ends.1), normals.get(&ends)) else {
+            return Err(refused());
+        };
+        let chord = sub(b, a);
+        let allowed = HANGING_TOLERANCE * norm3(&chord);
+        if norm3(&sub(here, &scale(&add(a, b), 0.5))) > allowed {
+            return Err(refused());
+        }
+        for (dof, expected) in hanging_constraints(node, ends, chord, *normal).into_iter().enumerate() {
+            let Constraint::LinearMPC(expected) = expected else { return Err(refused()) };
+            let mut left: HashMap<(usize, usize), f64> = expected.terms.iter().map(|t| ((t.node_id, t.dof), t.coefficient)).collect();
+            for term in given[&(node, dof)] {
+                let Some(wanted) = left.remove(&(term.node_id, term.dof)) else { return Err(refused()) };
+                if (term.coefficient - wanted).abs() > allowed.max(HANGING_TOLERANCE) {
+                    return Err(refused());
+                }
+            }
+            if !left.is_empty() {
+                return Err(refused());
+            }
+        }
+        hanging.insert(node, ends);
+    }
+    Ok(hanging)
 }
 
 /// The six constraints of a hanging node on the edge from `a` to `b`, of chord `chord` and
@@ -978,13 +1035,12 @@ fn refine(
     let mut left_hanging: Vec<(usize, (usize, usize))> =
         b.mids.iter().filter(|(ends, _)| spanned.contains(ends)).map(|(ends, node)| (*node, *ends)).collect();
     left_hanging.sort_unstable();
-    out.constraints = left_hanging
-        .into_iter()
-        .flat_map(|(node, (a, c))| {
-            let normal = b.edge_facets.get(&(a, c)).and_then(|facets| facets.first()).map_or([0.0; 3], |f| b.facet_normal(*f));
-            hanging_constraints(node, (a, c), sub(&b.c(c), &b.c(a)), normal)
-        })
-        .collect();
+    let normals = spanning_normals(&out);
+    out.constraints.clear();
+    for (node, (a, c)) in left_hanging {
+        let normal = normals.get(&(a, c)).ok_or_else(|| format!("node {node} hangs on an edge no MITC4 quad has"))?;
+        out.constraints.extend(hanging_constraints(node, (a, c), sub(&b.c(c), &b.c(a)), *normal));
+    }
     Ok(Refined { input: out, caveats, supports_inferred, splits: split_record, frame_splits, created: b.parents })
 }
 
