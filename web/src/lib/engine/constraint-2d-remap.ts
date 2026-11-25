@@ -85,6 +85,10 @@ export function constraintsInXZ(plane: DrawPlane, constraints: readonly Constrai
   });
 }
 
+export function constraintsForPlanarSolve(plane: DrawPlane, constraints: readonly Constraint3D[]): Constraint3D[] {
+  return constraintsInXZ(plane === 'xy' ? 'xz' : plane, constraints);
+}
+
 const PLANAR_TRANSLATIONS = [0, 2] as const;
 const PLANAR_DOFS = [...PLANAR_TRANSLATIONS, 4];
 const DOF_3D_TO_2D: Record<number, number> = { 0: 0, 2: 1, 4: 2 };
@@ -113,29 +117,44 @@ function roundedCoefficient(exact: bigint): number {
   return (exact < 0n ? -1 : 1) * Number(significand) * 2 ** (Number(shift) - 1074);
 }
 
+function fitMpcCoefficients(totals: readonly bigint[]): number[] | null {
+  const coefficients = totals.map(roundedCoefficient);
+  if (coefficients.every(Number.isFinite)) return coefficients;
+
+  const maxBits = totals.reduce((bits, total) => Math.max(bits, (total < 0n ? -total : total).toString(2).length), 0);
+  const maxFiniteBits = dyadicInteger(Number.MAX_VALUE).toString(2).length;
+  const shift = BigInt(Math.max(1, maxBits - maxFiniteBits));
+  const scaled = totals.map(total => total >> shift);
+  const fitted = scaled.map(roundedCoefficient);
+  if (scaled.some((value, index) =>
+    !Number.isFinite(fitted[index]!) || (value << shift) !== totals[index] || dyadicInteger(fitted[index]!) !== value,
+  )) return null;
+  const largest = fitted.reduce((max, value) => Math.max(max, Math.abs(value)), 0);
+  return fitted.some(value => value / largest === 0) ? null : fitted;
+}
+
 function projectMpc(terms: readonly MpcTerm[]): MpcProjection {
-  const groups = new Map<string, { term: MpcTerm; total?: bigint }>();
+  const groups = new Map<string, { term: MpcTerm; total: bigint }>();
   for (const term of terms) {
     if (!Number.isFinite(term.coefficient)) return 'unrepresentable';
     const key = `${term.nodeId}:${term.dof}`;
+    const coefficient = dyadicInteger(term.coefficient);
     const group = groups.get(key);
-    if (group) group.total = (group.total ?? dyadicInteger(group.term.coefficient)) + dyadicInteger(term.coefficient);
-    else groups.set(key, { term });
+    if (group) group.total += coefficient;
+    else groups.set(key, { term, total: coefficient });
   }
-  const inPlane: MpcTerm[] = [];
+  const inPlane: Array<{ nodeId: number; dof: number; total: bigint }> = [];
   let outOfPlane = false;
   for (const { term, total } of groups.values()) {
-    if (total === 0n || (total === undefined && term.coefficient === 0)) continue;
+    if (total === 0n) continue;
     const dof = DOF_3D_TO_2D[term.dof];
-    if (dof === undefined) {
-      outOfPlane = true;
-      continue;
-    }
-    const coefficient = total === undefined ? term.coefficient : roundedCoefficient(total);
-    if (!Number.isFinite(coefficient)) return 'unrepresentable';
-    inPlane.push({ ...term, dof, coefficient: term.dof === 4 ? -coefficient : coefficient });
+    if (dof === undefined) outOfPlane = true;
+    else inPlane.push({ nodeId: term.nodeId, dof, total: term.dof === 4 ? -total : total });
   }
-  return outOfPlane && inPlane.length > 0 ? 'coupled' : inPlane;
+  if (outOfPlane && inPlane.length > 0) return 'coupled';
+  const coefficients = fitMpcCoefficients(inPlane.map(({ total }) => total));
+  if (!coefficients) return 'unrepresentable';
+  return inPlane.map(({ nodeId, dof }, index) => ({ nodeId, dof, coefficient: coefficients[index]! }));
 }
 
 export function hasReducedPlanarMpc(c: Constraint3D): boolean {

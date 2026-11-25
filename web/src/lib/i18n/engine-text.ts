@@ -145,7 +145,14 @@ export function localizeEngineText(message: string): string {
   for (const [en, key] of ENGINE_SENTENCES) if (out.includes(en)) out = out.split(en).join(tAt(key, i18n.locale));
   out = out.replace(/Non-finite number \((NaN|Infinity|-Infinity)\) at (\S+)/g, (_, value: string, path: string) =>
     fill('svc.engine.nonFiniteNumber', { value, path }));
-  out = out.replace(/(?:unknown|missing|unsupported) field [`']([^`']+)[`']/g, (_, path: string) =>
+  out = out.replace(UNKNOWN_FIELD, (_, path: string, allowed: string | undefined, empty: string | undefined, line: string | undefined, column: string | undefined) => {
+    const field = fill('svc.engine.unknownInputField', { path });
+    const expected = allowed ? ' ' + fill('svc.engine.allowedInputFields', { fields: allowed.replace(' or ', ', ') })
+      : empty ? ' ' + active('svc.engine.noInputFields') : '';
+    const location = line && column ? ' ' + fill('svc.engine.inputLocation', { line, column }) : '';
+    return field + expected + location;
+  });
+  out = out.replace(/(?:missing|unsupported) field [`']([^`']+)[`']/g, (_, path: string) =>
     fill('svc.engine.invalidInputField', { path }));
   return out.replace(SELF_CHECK_REFUSAL, (whole, check: string, mode: string | undefined, rest: string) => {
     const name = selfCheckName(check, mode);
@@ -157,6 +164,8 @@ export function localizeEngineText(message: string): string {
     return fill('selfCheck.refusedInvalid', { check: name, reason: selfCheckReason(rest) });
   });
 }
+
+const UNKNOWN_FIELD = /unknown field [`']([^`'\n]+)[`'](?:, expected (?:one of )?(`[^`\n]+`(?:(?:, | or )`[^`\n]+`)*)|, (there are no fields))?(?: at line (\d+) column (\d+))?/g;
 
 const SELF_CHECKS = new Set(['static_residual', 'static_balance', 'modal_residual', 'modal_orthogonality', 'modal_mass']);
 const SELF_CHECK_REFUSAL = /REFUSE: self-check ([a-z_]+)(?::(\d+))?: ([^\n]*)/g;

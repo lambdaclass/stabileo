@@ -3771,6 +3771,10 @@ const ru: Translations = {
   "svc.engine.invalidSelfWeightGroup": "Группа собственного веса {id} отсутствует или содержит недопустимый список элементов. Восстановите группу и её состав или измените область приложения собственного веса.",
   "svc.engine.invalidDensity": "Введите конечную неотрицательную плотность (rho) для материала {id} (получено: {value}).",
   "svc.engine.nonnegativeMassDensity": "Плотность массы должна быть конечной и неотрицательной",
+  "svc.engine.unknownInputField": "Неизвестное поле {path}.",
+  "svc.engine.allowedInputFields": "Допустимые поля: {fields}.",
+  "svc.engine.noInputFields": "Поля не допускаются.",
+  "svc.engine.inputLocation": "(строка {line}, столбец {column})",
   "svc.engine.invalidInputField": "Поле {path} отсутствует или содержит неподдерживаемое значение.",
   "svc.engine.nonFiniteNumber": "Введите конечное число для {path} (получено: {value}).",
 } as const satisfies Record<string, string>;

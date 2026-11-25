@@ -273,7 +273,7 @@ it('shows the saved-model notice for a null load without losing valid load featu
   expect(features.has('distributedMemberLoads')).toBe(true);
 });
 
-it.runIf(process.env.STABILEO_REVIEW_REPRO === '1')('refuses a misspelled load frame on an inclined member', async () => {
+it('refuses a misspelled load frame on an inclined member', async () => {
   const rise = length;
   const { member } = cantilever(true, rise);
   const load = { type: 'distributed3d', data: {
@@ -305,29 +305,38 @@ it.runIf(process.env.STABILEO_REVIEW_REPRO === '1')('refuses a misspelled load f
   expect(assessProject(modelStore.snapshot(), null, 'pro').changes.map(change => change.id)).toContain('malformed-authored-loads');
 });
 
-it.runIf(process.env.STABILEO_REVIEW_REPRO === '1').each([null, {}])('refuses and flags a non-array loads collection (%j)', async (loads) => {
+it.each([null, {}])('refuses and flags a non-array loads collection (%j)', async (loads) => {
   cantilever();
   const snapshot = modelStore.snapshot();
   const saved = { ...snapshot, loads } as typeof snapshot;
   expect.soft(assessProject(saved, null, 'basic').changes.map(change => change.id)).toContain('malformed-authored-loads');
   expect.soft(modelFeatures(snapshot, { storedLoads: saved.loads }).has('malformedAuthoredLoad')).toBe(true);
   expect.soft(modelFeatures({ ...snapshot, loads: undefined }).has('malformedAuthoredLoad')).toBe(false);
-  expect.soft(() => modelStore.restore(saved)).toThrow(/Field loads /);
+  const previousLoads = modelStore.model.loads;
+  try {
+    expect.soft(() => modelStore.restore(saved)).toThrow(/Field loads /);
+  } finally {
+    modelStore.model.loads = previousLoads;
+  }
   const fixture: JSONModel = {
     name: 'Malformed load collection', nodes: [], elements: [], supports: [], materials: [], sections: [],
     loads: loads as JSONModel['loads'], plates: [], quads: [], constraints: [], loadCases: [loadCase], combinations: [combo],
   };
   modelStore.model.loads = loads as Load[];
-  await refuses('Field loads ', {
-    ...planeEntries(), ...spaceEntries(),
-    'plane store sync': () => modelStore.solve(false, 'xz'),
-    'plane store async': () => modelStore.solveAsync(false, 'xz'),
-    'fixture replay': () => loadFixture(fixture, modelStore.fixtureApi() as never),
-    'example apply': () => modelStore.loadExample(fixture.name, async () => fixture),
-  });
+  try {
+    await refuses('Field loads ', {
+      ...planeEntries(), ...spaceEntries(),
+      'plane store sync': () => modelStore.solve(false, 'xz'),
+      'plane store async': () => modelStore.solveAsync(false, 'xz'),
+      'fixture replay': () => loadFixture(fixture, modelStore.fixtureApi() as never),
+      'example apply': () => modelStore.loadExample(fixture.name, async () => fixture),
+    });
+  } finally {
+    modelStore.model.loads = previousLoads;
+  }
 });
 
-it.runIf(process.env.STABILEO_REVIEW_REPRO === '1').each([false, true])('finds a malformed row independently of planar torsion (torsion first = %s)', (torsionFirst) => {
+it.each([false, true])('finds a malformed row independently of planar torsion (torsion first = %s)', (torsionFirst) => {
   const { member } = cantilever();
   const snapshot = modelStore.snapshot();
   const torsion = { type: 'pointOnElement', data: { id: 1, elementId: member, a: 1, p: -force, mx: force } };

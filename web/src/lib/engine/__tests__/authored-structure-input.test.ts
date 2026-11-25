@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { assessProject } from '../../provenance/applicability';
 import { modelFeatures } from '../../provenance/model-features';
-import { readStamp, stampSolve } from '../../provenance/solve-stamp';
+import { readStamp } from '../../provenance/solve-stamp';
 import { fragmentFromJSONModel } from '../../model/edit/fragment-code';
-import { modelStore, uiStore } from '../../store';
+import { modelStore, resultsStore, uiStore } from '../../store';
 import { acceptAutosavePayload, deserializeProjectOrThrow, serializeProject } from '../../store/file';
 import { projectOnto } from '../../store/switch-2d';
 import { loadFixture, type JSONModel } from '../../templates/load-fixture';
@@ -459,7 +459,7 @@ it('projects the reduced MPC equation in every plane analysis path', async () =>
   model.constraints = mpc([halfMax, halfMax]);
   expect.soft(buildSolverInput2D(model)?.constraints).toEqual(mpc([{ ...axial, coefficient: Number.MAX_VALUE }]));
   const max = { ...axial, coefficient: Number.MAX_VALUE };
-  model.constraints = mpc([max, max]);
+  model.constraints = mpc([max, max, { ...axial, dof: 4, coefficient: Number.MIN_VALUE }]);
   await refuses('constraints[0].terms', {
     builder: () => buildSolverInput2D(model), sync: () => validateAndSolve2D(model),
     async: () => validateAndSolve2DAsync(model), combination: () => solveCombinations2D(model, [loadCase], [combo]),
@@ -489,19 +489,19 @@ it('reduces MPC terms after rotating a YZ plane', async () => {
   expect(modelStore.solve(false, 'xy')).toEqual(control);
 });
 
-it.runIf(process.env.STABILEO_REVIEW_REPRO === '1')('refuses an unknown combination method key before combining opposing cases', async () => {
+it('refuses an unknown combination method key before combining opposing cases', async () => {
   const model = modelStore.model;
   const cases = [loadCase, { ...loadCase, id: 2, name: 'Opposing case' }];
   model.loadCases = cases;
   model.loads.push({ type: 'nodal', data: { id: 2, nodeId: tip, fx: -1, fz: 0, my: 0, caseId: 2 } });
   const factors = [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 1 }];
   const correct = { ...combo, method: 'srss' as const, factors };
-  const linear = solveCombinations2D(model, cases, [{ ...combo, factors }]);
-  const srss = solveCombinations2D(model, cases, [correct]);
+  const linear = solveCombinations3D(model, cases, [{ ...combo, factors }]);
+  const srss = solveCombinations3D(model, cases, [correct]);
   expect(linear && typeof linear !== 'string' ? linear.perCombo.get(combo.id) : linear)
-    .toMatchObject({ reactions: [{ rx: 0 }] });
+    .toMatchObject({ reactions: expect.arrayContaining([{ nodeId: root, fx: 0, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 }]) });
   expect(srss && typeof srss !== 'string' ? srss.perCombo.get(combo.id) : srss)
-    .toMatchObject({ reactions: [{ rx: expect.closeTo(Math.SQRT2, 12) }] });
+    .toMatchObject({ reactions: expect.arrayContaining([expect.objectContaining({ nodeId: root, fx: expect.closeTo(Math.SQRT2, 12) })]) });
 
   const misspelled = { ...combo, methdo: 'srss', factors };
   const before = modelStore.snapshot();
@@ -527,7 +527,7 @@ it.runIf(process.env.STABILEO_REVIEW_REPRO === '1')('refuses an unknown combinat
   await refuses('combinations[0].methdo', runs);
 });
 
-it.runIf(process.env.STABILEO_REVIEW_REPRO === '1')('preserves solved displacements when reducing overflowing homogeneous MPC terms', async () => {
+it('preserves solved displacements when reducing overflowing homogeneous MPC terms', async () => {
   const model = modelStore.model;
   const axial = { nodeId: tip, dof: 0, coefficient: 1 };
   model.constraints = [{ type: 'linearMPC', terms: [axial] }];
@@ -546,33 +546,45 @@ it.runIf(process.env.STABILEO_REVIEW_REPRO === '1')('preserves solved displaceme
   expect.soft(solveCombinations2D(model, [loadCase], [combo])).toEqual(combination);
   const input = modelStore.buildSolverInput(false, 'xz');
   expect.soft(input && solvePDelta(input)).toEqual(advanced);
-  const rotation = { ...max, dof: 4, coefficient: Number.MIN_VALUE };
-  model.constraints = [{ type: 'linearMPC', terms: [max, max, rotation, rotation] }];
+  const rotation = { ...max, dof: 4, coefficient: 1 };
+  model.constraints = [{ type: 'linearMPC', terms: [max, max, rotation] }];
   expect.soft(buildSolverInput2D(model)?.constraints).toEqual([{
-    type: 'linearMPC', terms: [max, { ...rotation, dof: 2, coefficient: -Number.MIN_VALUE }],
+    type: 'linearMPC', terms: [max, { ...rotation, dof: 2, coefficient: -0.5 }],
   }]);
 });
 
-it.runIf(process.env.STABILEO_REVIEW_REPRO === '1')('scopes both constraint notices to the saved solve plane', () => {
+it('scopes both constraint notices to the saved solve plane', () => {
   const model = modelStore.model;
   const offset = { type: 'eccentricConnection' as const, masterNode: root, slaveNode: tip, offsetX: 1, releases: [false, true, true] };
   const term = { nodeId: root, dof: 1, coefficient: 1 };
   const mpc = { type: 'linearMPC' as const, terms: [term, { ...term, coefficient: -1 }] };
   model.constraints = [offset, mpc];
-  expect(modelStore.solve(false, 'xz')).toMatchObject({ reactions: expect.any(Array) });
+  const previousPlane = uiStore.drawPlane2D;
+  uiStore.analysisMode = '2d';
+  uiStore.drawPlane2D = 'xz';
+  try {
+    const result = modelStore.solve(false, uiStore.drawPlane2D);
+    if (!result || typeof result === 'string') throw new Error(String(result));
+    expect(result.reactions).not.toHaveLength(0);
+    resultsStore.setResults(result);
+  } finally {
+    uiStore.drawPlane2D = previousPlane;
+  }
   const saved = modelStore.snapshot();
-  const notices = (plane: string) => {
-    const stamp = readStamp({ ...stampSolve('linear', null), resultsVersion: 1, drawPlane2D: plane });
+  const original = readStamp(saved.solvedWith);
+  expect.soft(original?.drawPlane2D).toBe('xz');
+  const notices = (plane = original?.drawPlane2D) => {
+    const stamp = readStamp({ ...original, resultsVersion: 1, drawPlane2D: plane });
     return assessProject(saved, stamp, 'basic').changes.map(change => change.id);
   };
   for (const change of ['separated-planar-eccentric-connection', 'reduced-planar-mpc']) {
-    expect.soft(notices('xz')).not.toContain(change);
+    expect.soft(notices()).not.toContain(change);
     expect.soft(notices('yz')).toContain(change);
     expect.soft(notices('xy')).not.toContain(change);
   }
 });
 
-it.runIf(process.env.STABILEO_REVIEW_REPRO === '1').each([null, undefined])('checks saved constraints and combinations independently of supports (%j)', (supports) => {
+it.each([null, undefined])('checks saved constraints and combinations independently of supports (%j)', (supports) => {
   const snapshot = { ...modelStore.snapshot(), supports };
   const changes = (saved: typeof snapshot) =>
     assessProject(saved as never, null, 'basic').changes.map(change => change.id);

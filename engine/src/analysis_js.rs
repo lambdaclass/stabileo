@@ -1,4 +1,4 @@
-use web_sys::js_sys::{Array, Map, Object};
+use web_sys::js_sys::{Array, Map, Object, Set};
 use serde::de::value::{MapDeserializer, SeqDeserializer};
 use serde::de::{self, Deserializer, IntoDeserializer, Visitor};
 use serde_wasm_bindgen::Error;
@@ -28,6 +28,26 @@ impl<'de> Deserializer<'de> for AnalysisJs {
     }
 
     fn deserialize_map<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Error> {
+        if let Some(array) = self.0.dyn_ref::<Array>() {
+            let seen = Set::new(&JsValue::UNDEFINED);
+            let mut entries = Vec::with_capacity(array.length() as usize);
+            for entry in array.iter() {
+                let Some(pair) = entry.dyn_ref::<Array>() else {
+                    return Err(de::Error::custom("expected a map entry pair"));
+                };
+                if pair.length() != 2 {
+                    return Err(de::Error::custom("expected a map entry pair with exactly two values"));
+                }
+                let key = pair.get(0);
+                if seen.has(&key) {
+                    return Err(de::Error::custom("duplicate map entry key"));
+                }
+                seen.add(&key);
+                entries.push((AnalysisJs(key), AnalysisJs(pair.get(1))));
+            }
+            return visitor.visit_map(MapDeserializer::new(entries.into_iter()));
+        }
+
         let entries = if self.0.has_type::<Map>() {
             Array::from(&self.0)
         } else if let Some(object) = self.0.dyn_ref::<Object>() {

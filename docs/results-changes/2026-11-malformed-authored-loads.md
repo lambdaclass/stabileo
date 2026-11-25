@@ -9,3 +9,5 @@ Review any result saved from a malformed load record. Restore the missing compon
 The saved-model notice also covers missing and nonfinite numeric load inputs that analysis refuses before projection, including a missing spatial `fz` or a nonfinite spatial `fy`.
 
 Frame and target selectors must belong to the stated load schema. For example, an inclined member carrying a spatial distributed load with `isGlobal` now reports that field as invalid. Specify a spatial `frame` to state whether the load components follow the global or member axes.
+
+Each load kind now rejects unrecognized fields before the solver can apply a default. A spatial distributed load on an inclined member that spells `frame` as `fram` is refused. Previously it was resolved in the member's local axes, changing the support reactions. A present load collection must be an array. A malformed row triggers the saved-model notice even when another row carries unsupported planar torsion.

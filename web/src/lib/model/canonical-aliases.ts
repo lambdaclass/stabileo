@@ -1,4 +1,4 @@
-import { ModelInputError, requireAuthoredMemberKeys } from '../engine/model-input-numbers';
+import { ModelInputError, requireAuthoredMemberKeys, requireLoadCollection } from '../engine/model-input-numbers';
 import { shouldProjectModelToXZ, type CoordinateNode, type TypedSupportLike } from '../geometry/coordinate-system';
 import { t, tp } from '../i18n';
 import type { Release } from '../store/model.svelte';
@@ -126,6 +126,7 @@ export function canonicalizeLoadAliases<T extends LoadRecord>(record: T): T {
 }
 
 export function canonicalizeModelAliases<T extends Input>(model: T, analysisMode = model.analysisMode): T {
+  if (model.loads !== undefined) requireLoadCollection(model.loads);
   const explicitlyPlanar = isAnalysisMode(analysisMode) && analysisMode !== 'edu' && !is3DWorkspace(analysisMode);
   const plane = explicitlyPlanar || shouldProjectModelToXZ({
     nodes: values(model.nodes),

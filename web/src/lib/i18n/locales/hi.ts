@@ -3777,6 +3777,10 @@ const hi: Translations = {
   "svc.engine.invalidSelfWeightGroup": "स्व-भार समूह {id} अनुपलब्ध है या उसकी सदस्य सूची अमान्य है। समूह और उसके सदस्यों को पुनर्स्थापित करें या स्व-भार का लक्ष्य बदलें।",
   "svc.engine.invalidDensity": "सामग्री {id} के लिए परिमित और गैर-ऋणात्मक घनत्व (rho) दर्ज करें (प्राप्त मान: {value})।",
   "svc.engine.nonnegativeMassDensity": "द्रव्यमान घनत्व परिमित और गैर-ऋणात्मक होना चाहिए",
+  "svc.engine.unknownInputField": "अज्ञात फ़ील्ड {path}।",
+  "svc.engine.allowedInputFields": "अनुमत फ़ील्ड: {fields}।",
+  "svc.engine.noInputFields": "किसी भी फ़ील्ड की अनुमति नहीं है।",
+  "svc.engine.inputLocation": "(पंक्ति {line}, स्तंभ {column})",
   "svc.engine.invalidInputField": "फ़ील्ड {path} मौजूद नहीं है या उसका मान समर्थित नहीं है।",
   "svc.engine.nonFiniteNumber": "{path} में एक परिमित संख्या दर्ज करें (प्राप्त मान: {value})।",
 };

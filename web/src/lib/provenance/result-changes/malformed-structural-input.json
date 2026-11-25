@@ -1,7 +1,9 @@
 {
   "id": "malformed-structural-input",
   "date": "2026-11-25",
-  "prs": [],
+  "prs": [
+    2588
+  ],
   "area": "analysis",
   "when": {
     "any": [

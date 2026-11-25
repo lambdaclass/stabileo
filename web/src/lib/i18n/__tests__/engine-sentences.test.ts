@@ -60,7 +60,7 @@ describe('engine sentences', () => {
   });
 });
 
-it.runIf(process.env.STABILEO_REVIEW_REPRO === '1')('translates the whole unknown-field diagnostic in Spanish', async () => {
+it('translates the whole unknown-field diagnostic in Spanish', async () => {
   await setLocale('es');
   expect(localizeEngineText('Parse error: unknown field `methdo`, expected one of `id`, `method`, `factors` at line 4 column 8'))
     .toBe('Parse error: Campo desconocido methdo. Campos permitidos: `id`, `method`, `factors`. (línea 4, columna 8)');

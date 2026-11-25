@@ -15,6 +15,10 @@
 
 export type DrawPlane = 'xy' | 'xz' | 'yz';
 
+export function isDrawPlane(value: unknown): value is DrawPlane {
+  return value === 'xy' || value === 'xz' || value === 'yz';
+}
+
 /** Project a 3D point to 2D coordinates in the selected plane. */
 export function to2D(plane: DrawPlane, x: number, y: number, z: number): { x: number; y: number } {
   switch (plane) {

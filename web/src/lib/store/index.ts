@@ -19,6 +19,7 @@ import { designRunStore } from './design-run.svelte';
 import { deflectionChecks } from './serviceability';
 import { seismicState } from './seismic-design.svelte';
 import { seismicMemberCheckRows } from '../engine/design/check-rows-families';
+import { is3DWorkspace } from '../utils/workspace';
 import { shouldProjectModelToXZ } from '../geometry/coordinate-system';
 // Registering the design-code adapters at store-wiring time guarantees the registry
 // is populated before any component queries it. Importing for side effects only.
@@ -196,13 +197,13 @@ resultsStore._setOnStaticPublish((r, dim) => {
   certificateStore.track(r, dim);
   discretizationStore.track(r, dim);
   noteBaseSolve(r);
-  if (r) recheckStore.noteSolved('linear');
+  if (r) recheckStore.noteSolved('linear', dim === '2d' ? uiStore.drawPlane2D : undefined);
 });
 resultsStore._setOnComboPublish((pc, pco, dim) => {
   certificateStore.trackCombinations(pc, pco, dim);
-  recheckStore.noteSolved('linear');
+  recheckStore.noteSolved('linear', dim === '2d' ? uiStore.drawPlane2D : undefined);
 });
-resultsStore._setOnAnalysisPublish((kind) => recheckStore.noteSolved(kind));
+resultsStore._setOnAnalysisPublish((kind) => recheckStore.noteSolved(kind, is3DWorkspace(uiStore.analysisMode) ? undefined : uiStore.drawPlane2D));
 
 resultsStore._setOnResultsPublish(() => {
   verificationStore.bumpSolveGeneration();

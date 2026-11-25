@@ -3766,6 +3766,10 @@ const ko: Translations = {
   "svc.engine.invalidSelfWeightGroup": "자중 그룹 {id}이(가) 없거나 구성 요소 목록이 유효하지 않습니다. 그룹과 구성 요소를 복원하거나 자중 적용 대상을 변경하세요.",
   "svc.engine.invalidDensity": "재료 {id}의 밀도 (rho)에 유한한 음이 아닌 값을 입력하세요(받은 값: {value}).",
   "svc.engine.nonnegativeMassDensity": "질량 밀도는 유한한 음이 아닌 값이어야 합니다",
+  "svc.engine.unknownInputField": "알 수 없는 필드 {path}.",
+  "svc.engine.allowedInputFields": "허용되는 필드: {fields}.",
+  "svc.engine.noInputFields": "허용되는 필드가 없습니다.",
+  "svc.engine.inputLocation": "({line}행, {column}열)",
   "svc.engine.invalidInputField": "{path} 필드가 없거나 지원되지 않는 값이 들어 있습니다.",
   "svc.engine.nonFiniteNumber": "{path}에 유한한 수를 입력하세요(받은 값: {value}).",
 } as const satisfies Record<string, string>;

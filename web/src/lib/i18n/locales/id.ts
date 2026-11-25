@@ -3769,6 +3769,10 @@ const id: Translations = {
   "svc.engine.invalidSelfWeightGroup": "Grup berat sendiri {id} tidak ditemukan atau daftar anggotanya tidak valid. Pulihkan grup dan daftar anggotanya atau ubah sasaran berat sendiri.",
   "svc.engine.invalidDensity": "Masukkan massa jenis (rho) yang berhingga dan tidak negatif untuk material {id} (nilai yang diterima: {value}).",
   "svc.engine.nonnegativeMassDensity": "Massa jenis harus berhingga dan tidak negatif",
+  "svc.engine.unknownInputField": "Kolom tidak dikenal {path}.",
+  "svc.engine.allowedInputFields": "Kolom yang diizinkan: {fields}.",
+  "svc.engine.noInputFields": "Tidak ada kolom yang diizinkan.",
+  "svc.engine.inputLocation": "(baris {line}, kolom {column})",
   "svc.engine.invalidInputField": "Kolom {path} tidak ada atau berisi nilai yang tidak didukung.",
   "svc.engine.nonFiniteNumber": "Masukkan bilangan berhingga untuk {path} (nilai yang diterima: {value}).",
 } as const satisfies Record<string, string>;

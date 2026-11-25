@@ -1,6 +1,7 @@
 use super::numeric;
 use serde::{de, Deserialize, Serialize};
 use std::collections::HashMap;
+use std::marker::PhantomData;
 
 // ==================== 2D Input Types ====================
 
@@ -194,12 +195,8 @@ pub struct SolverOptions {
     pub max_iterations: Option<usize>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(
-    rename_all = "camelCase",
-    from = "SolverInputWire2D<M, S, N, L, P>",
-    bound(deserialize = "M: Deserialize<'de>, S: Deserialize<'de>, N: Deserialize<'de>, L: Deserialize<'de>, P: Deserialize<'de>")
-)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SolverInput<M = SolverMaterial, S = SolverSection, N = SolverNode, L = SolverLoad, P = SolverSupport> {
     pub nodes: HashMap<String, N>,
     pub materials: HashMap<String, M>,
@@ -298,16 +295,39 @@ struct SolverInputWire2D<M, S, N, L, P> {
     _solid_shells: (),
 }
 
-impl<M, S, N, L, P> From<SolverInputWire2D<M, S, N, L, P>> for SolverInput<M, S, N, L, P> {
-    fn from(wire: SolverInputWire2D<M, S, N, L, P>) -> Self {
+struct NamedPlanarModel<T>(PhantomData<T>);
+
+impl<'de, T: Deserialize<'de>> de::Visitor<'de> for NamedPlanarModel<T> {
+    type Value = T;
+
+    fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("a named 2D solver model as a map")
+    }
+
+    fn visit_map<A: de::MapAccess<'de>>(self, map: A) -> Result<T, A::Error> {
+        T::deserialize(de::value::MapAccessDeserializer::new(map))
+    }
+}
+
+impl<'de, M, S, N, L, P> Deserialize<'de> for SolverInput<M, S, N, L, P>
+where
+    M: Deserialize<'de>,
+    S: Deserialize<'de>,
+    N: Deserialize<'de>,
+    L: Deserialize<'de>,
+    P: Deserialize<'de>,
+{
+    fn deserialize<D: de::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let wire: SolverInputWire2D<M, S, N, L, P> =
+            d.deserialize_any(NamedPlanarModel(PhantomData))?;
         let SolverInputWire2D {
             nodes, materials, sections, elements, supports, loads, constraints, connectors,
             solver_options, masses, ..
         } = wire;
-        Self {
+        Ok(Self {
             nodes, materials, sections, elements, supports, loads, constraints, connectors,
             solver_options, masses,
-        }
+        })
     }
 }
 

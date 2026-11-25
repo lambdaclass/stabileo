@@ -180,7 +180,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2588"]
     fn planar_json_requires_a_named_model() {
         let model = cantilever(false);
         let positional = json!([
