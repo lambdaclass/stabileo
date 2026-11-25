@@ -52,16 +52,21 @@ describe('the gallery', () => {
 });
 
 describe.each(PRO_EXAMPLES.filter((e) => e.loads === 'generator').map((e) => [e.id, e] as const))('%s', (_id, ex) => {
-  it('is the size its card says, its plates not meshed, and arrives with the generator\'s loads, wind and no earthquake, its dialog on its settings', async () => {
+  it('is the size its card says, its plates not meshed, and arrives with the generator\'s loads, the live load on every slab, wind and no earthquake, the gravity cases shown, its dialog on its settings', async () => {
     await ex.load();
     expect([modelStore.nodes.size, modelStore.elements.size, modelStore.quads.size + modelStore.plates.size]).toEqual([ex.stats.nodes, ex.stats.members, ex.stats.shells ?? 0]);
     expect(physicalPlates().length, 'plates, none meshed').toBe(ex.stats.plates ?? 0);
     const slabs = physicalPlates().filter((pl) => pl.physical.kind === 'slab').map((pl) => pl.id);
-    const loaded = new Set([...modelStore.model.groups.values()].filter((g) => g.kind === 'floorLoad').map((g) => (g.data as { target: { groupId: number } }).target.groupId));
-    expect(slabs.filter((id) => !loaded.has(id)), 'every slab loaded through a definition on it').toEqual([]);
+    const typeOf = new Map(modelStore.model.loadCases.map((c) => [c.id, c.type]));
+    const defs = [...modelStore.model.groups.values()].filter((g) => g.kind === 'floorLoad').map((g) => g.data as { target: { groupId: number }; caseId: number });
+    for (const type of ['D', 'L']) {
+      const loaded = new Set(defs.filter((d) => typeOf.get(d.caseId) === type).map((d) => d.target.groupId));
+      expect(slabs.filter((id) => !loaded.has(id)), `every slab given its ${type} through a definition on it`).toEqual([]);
+    }
     expect(modelStore.loads.every((l) => (l.data as { generatedBy?: string }).generatedBy)).toBe(true);
     expect(modelStore.model.loadCases.some((c) => c.type === 'W')).toBe(true);
     expect(modelStore.model.loadCases.some((c) => c.type === 'E')).toBe(false);
+    expect(uiStore.visibleLoadCases3D, 'the gravity cases shown, the wind ones hidden').toEqual(modelStore.model.loadCases.filter((c) => c.type === 'D' || c.type === 'L').map((c) => c.id));
     const memory = autoLoadsMemory(regulationsStore.roles, { wind: regulationsStore.bound('wind'), seismic: regulationsStore.bound('seismic') });
     expect([memory.selectedOccupancy, memory.enableWind, memory.enableSeismic, memory.roofCfg.enabled]).toEqual(['vivienda', true, false, false]);
     const dead = modelStore.model.loadCases.find((c) => c.type === 'D')!;

@@ -28,6 +28,8 @@
  */
 
 import { modelStore } from '../store/model.svelte';
+import { uiStore } from '../store/ui.svelte';
+import { LATERAL_CASES } from '../engine/detailing/service-reaction';
 import { t } from '../i18n';
 import { windCaseReversible } from '../store/wind-reversal';
 import { generateCombinations } from '../codes/cirsoc101/combinations';
@@ -104,7 +106,8 @@ const GROUP_KEYS: Record<ExampleGroup, string> = {
 
 /** Cases that carry nothing, dropped so no combination is built over an empty action. */
 function dropEmptyCases(keep: number | undefined): void {
-  const loaded = new Set(modelStore.loads.map((l) => (l.data as { caseId?: number }).caseId ?? 1));
+  const defined = [...modelStore.model.groups.values()].filter((g) => g.kind === 'floorLoad' || g.kind === 'curveLoad').map((g) => (g.data as { caseId?: number } | undefined)?.caseId);
+  const loaded = new Set([...modelStore.loads.map((l) => (l.data as { caseId?: number }).caseId ?? 1), ...defined]);
   const before = new Map(modelStore.combinations.map((c) => [c.id, c.factors.length]));
   for (const c of [...modelStore.model.loadCases]) if (!loaded.has(c.id) && c.id !== keep) modelStore.removeLoadCase(c.id);
   // A combination that lost a term to a dropped case is named from what it now adds up: the
@@ -116,6 +119,12 @@ function dropEmptyCases(keep: number | undefined): void {
     const terms = c.factors.map((f) => `${+f.factor.toFixed(3)}${typeOf.get(f.caseId) ?? '?'}`).join(' + ');
     modelStore.updateCombination(c.id, { name: `${label}: ${terms}` });
   }
+}
+
+/** The gravity cases shown and the wind and earthquake ones hidden, each a case to show from the list: drawn together, a building's every direction and sense crowd every member. */
+function showGravityCases(): void {
+  const cases = modelStore.model.loadCases;
+  uiStore.visibleLoadCases3D = cases.some((c) => LATERAL_CASES.has(c.type)) ? cases.filter((c) => !LATERAL_CASES.has(c.type)).map((c) => c.id) : null;
 }
 
 function stateSelfWeight(rule: ExampleSelfWeight, deadCase: number | undefined): void {
@@ -167,6 +176,7 @@ async function loadExample(ex: ProExample): Promise<void> {
       dropEmptyCases(ex.selfWeight === 'none' ? undefined : dead);
       if (!stated) stateSelfWeight(ex.selfWeight, dead);
       if (ex.combinations !== 'own') regulationCombinations(ex.combinations === 'regulation');
+      if (ex.loads === 'generator') showGravityCases();
     });
     exampleProgress.step('draw');
     await nextFrame();
