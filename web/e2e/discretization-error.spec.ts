@@ -10,7 +10,7 @@
  */
 import { test, expect, loadModel, solveModel } from './fixtures';
 
-test('a frame-and-shell model shows its estimated discretization error and runs the convergence check', async ({ pro: page }) => {
+test('@smoke a frame-and-shell model shows its estimated discretization error and runs the convergence check', async ({ pro: page }) => {
   test.setTimeout(300_000);
   await loadModel(page, 'rc-qa-diagnostic-shells');
   await solveModel(page);
@@ -40,7 +40,7 @@ test('a frame-and-shell model shows its estimated discretization error and runs 
   await expect(table.locator('tbody tr').first()).toBeVisible();
 });
 
-test('the adaptive refinement is folded away until asked for, runs in the worker and reports its passes', async ({ pro: page }) => {
+test('@smoke the adaptive refinement is folded away until asked for, runs in the worker and reports its passes', async ({ pro: page }) => {
   test.setTimeout(300_000);
   await loadModel(page, 'rc-qa-diagnostic-shells');
   await solveModel(page);
