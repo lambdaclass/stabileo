@@ -181,8 +181,8 @@ fn spanning_normals(input: &SolverInput3D) -> HashMap<(usize, usize), [f64; 3]> 
 /// The hanging nodes of a model `refine_marked` made: node → the ends of the edge it is on.
 /// Any constraint that is not one of theirs is refused: each must sit at the middle of an edge
 /// of a MITC4 quad and be tied as `hanging_constraints` ties it there, so that a constraint of
-/// the user's that only looks like one is never taken for one and rewritten. The edge must not
-/// be a triangle's too: a triangle on it is cut there, never left spanning it.
+/// the user's that only looks like one is never taken for one and rewritten.
+/// The edge must not be a triangle's too: a triangle on it is cut there, never left spanning it.
 pub fn hanging_nodes(input: &SolverInput3D) -> Result<HashMap<usize, (usize, usize)>, String> {
     let mut tied: HashMap<usize, ((usize, usize), [bool; HANGING_DOFS])> = HashMap::new();
     let mut given: HashMap<(usize, usize), &[MPCTerm]> = HashMap::new();
