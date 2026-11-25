@@ -64,3 +64,10 @@ pub fn solve_experimental_displacement_control(json: &str) -> Result<String, JsV
         .map_err(|error| JsValue::from_str(&error))?;
     crate::to_json(&result)
 }
+
+#[wasm_bindgen]
+pub fn solve_experimental_arc_length_3d(json: &str) -> Result<String, JsValue> {
+    let result =
+        super::solve_arc_length_3d(&parse(json)?).map_err(|error| JsValue::from_str(&error))?;
+    crate::to_json(&result)
+}
