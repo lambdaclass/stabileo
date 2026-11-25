@@ -10826,7 +10826,7 @@ const es: Record<string, string> = {
 
   'codes.placement.legalAtCodeMinimum': 'La separación libre de {achieved} mm cumple los {required} mm que exige el reglamento. No hay margen adicional definido por el proyecto.',
   'material.spacingMarginShort': 'Margen (mm)',
-  'materials.spacingMarginInvalid': 'Ingrese un margen entre 0 y {max} mm',
+  'materials.spacingMarginInvalid': 'Ingresá un margen entre 0 y {max} mm',
   'material.spacingMargin': 'Margen adicional entre barras',
   'material.spacingMarginHelp': 'Margen adicional definido por el proyecto por encima del mínimo reglamentario. CIRSOC no prescribe este valor.',
 
