@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { gravityLayout, type GravityModel } from '../plan-gravity';
+import { gravityLayout, MAX_DECK_SPAN, type GravityModel } from '../plan-gravity';
 import { planAreaLoads } from '../plan-area-loads';
 
 type Node = { id: number; x: number; y: number; z: number };
@@ -497,7 +497,7 @@ describe('three concentric roof-structure rings', () => {
 });
 
 describe('a roof-structure ring around a ring too wide for a slab', () => {
-  it('keeps the wide ring\'s area, which no panel of its own loads', () => {
+  it('refuses when reclaiming the wide ring would transfer an oversized retained area', () => {
     const b = builder();
     for (const [x0, x1] of [[0, 30], [15, 28]] as const) {
       const corners: Array<[number, number]> = [[x0, x0], [x1, x0], [x1, x1], [x0, x1]];
@@ -508,13 +508,11 @@ describe('a roof-structure ring around a ring too wide for a slab', () => {
     for (let y = 0; y <= 30; y++) b.bar(b.node(0, y, 4), b.node(30, y, 4), 'truss');
     const deck = ([[14.6, 14.6], [15.5, 14.6], [15.5, 15.5], [14.6, 15.5]] as Array<[number, number]>).map(([x, y]) => b.node(x, y, 4));
     deck.forEach((id, i) => b.bar(id, deck[(i + 1) % 4]!));
-    const layout = gravityLayout(b.model(), { mode: 'panels', tributaryWidth: 3 });
-    expect(keys(layout)).toContain('loadPlan.gravity.widePanels');
-    expect(keys(layout)).toContain('loadPlan.gravity.roofFringe');
-    expect(layout.areaByLevel.get(3)).toBeCloseTo(900 - 0.9 * 0.9, 6);
+    expect(() => gravityLayout(b.model(), { mode: 'panels', tributaryWidth: 3 }))
+      .toThrow(expect.objectContaining({ key: 'loadPlan.gravity.widePanels', params: { n: 1, span: MAX_DECK_SPAN } }));
   });
 
-  it('still leaves out a ring inside the wide one that loads its own area', () => {
+  it('refuses the oversized retained area even with a smaller nested deck', () => {
     const b = builder();
     for (const [x0, x1] of [[0, 30], [15, 28], [20, 24]] as const) {
       const corners: Array<[number, number]> = [[x0, x0], [x1, x0], [x1, x1], [x0, x1]];
@@ -525,9 +523,8 @@ describe('a roof-structure ring around a ring too wide for a slab', () => {
     for (let y = 0; y <= 30; y++) b.bar(b.node(0, y, 4), b.node(30, y, 4), 'truss');
     const deck = ([[14.6, 14.6], [15.5, 14.6], [15.5, 15.5], [14.6, 15.5]] as Array<[number, number]>).map(([x, y]) => b.node(x, y, 4));
     deck.forEach((id, i) => b.bar(id, deck[(i + 1) % 4]!));
-    const layout = gravityLayout(b.model(), { mode: 'panels', tributaryWidth: 3 });
-    expect(keys(layout)).toContain('loadPlan.gravity.widePanels');
-    expect(layout.areaByLevel.get(3)).toBeCloseTo(900 - 0.9 * 0.9, 6);
+    expect(() => gravityLayout(b.model(), { mode: 'panels', tributaryWidth: 3 }))
+      .toThrow(expect.objectContaining({ key: 'loadPlan.gravity.widePanels', params: { n: 1, span: MAX_DECK_SPAN } }));
   });
 });
 

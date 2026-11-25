@@ -423,6 +423,9 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         }
         const kept = deck.uncarried({ footprint: unassigned, geometry }, z, why === 'lowHeadroom' ? held : undefined);
         if (!kept.length) { dropped.add(panel); continue; }
+        if (kept.some(([exterior]) => isWideDeck(exterior!))) {
+          refuseGravityGeometry(msg('loadPlan.gravity.widePanels', { n: 1, span: MAX_DECK_SPAN }));
+        }
         fringeKept.set(panel, kept);
         held.regions.push({ region: kept, z });
         continue;
@@ -447,7 +450,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         refuseGravityGeometry(msg('loadPlan.gravity.unresolvedMember', { id: e.id }));
       }
       if (why === 'headroomUnclear' || (low && floorBeside)) {
-        if (preliminaryCover.memberCovered([a, b], z)) unclear++; else unclearRoof++;
+        if (preliminaryCover.memberCovered([a, b])) unclear++; else unclearRoof++;
       }
       if (low && !floorBeside) {
         const axis = { p: start, u, L };
@@ -1517,6 +1520,11 @@ type PlanQuery = {
   compare: (axis: 0 | 1, limit: number) => number;
   side: (a: PlanPoint, b: PlanPoint) => number;
 };
+type CoverQuery = {
+  plan: PlanQuery;
+  elevation: number;
+  clears: (upper: number) => boolean;
+};
 type RingLocation = 'boundary' | 'inside' | 'outside';
 
 const coordinateBits = new DataView(new ArrayBuffer(Float64Array.BYTES_PER_ELEMENT));
@@ -1541,12 +1549,26 @@ function pointQuery(point: PlanPoint): PlanQuery {
   };
 }
 
-function midpointQuery(a: PlanPoint, b: PlanPoint): PlanQuery {
+function pointCoverQuery(point: PlanPoint, elevation: number): CoverQuery {
+  return { plan: pointQuery(point), elevation, clears: upper => upper > elevation + MIN_COVER_RISE };
+}
+
+function memberMidpointQuery([start, end]: Segment): CoverQuery {
+  const a: PlanPoint = [start[0], start[1]], b: PlanPoint = [end[0], end[1]];
+  const low = Math.min(start[2], end[2]) + MIN_COVER_RISE;
+  const high = Math.max(start[2], end[2]) + MIN_COVER_RISE;
+  let threshold: bigint | undefined;
+  const clears = (upper: number) => {
+    if (upper > high) return true;
+    if (upper < low || !Number.isFinite(upper)) return false;
+    threshold ??= dyadicInteger(start[2]) + dyadicInteger(end[2]) + 2n * dyadicInteger(MIN_COVER_RISE);
+    return 2n * dyadicInteger(upper) > threshold;
+  };
   const average = (x: number, y: number) => Number.isFinite(x + y) ? (x + y) / 2 : x / 2 + y / 2;
   const point: PlanPoint = [average(a[0], b[0]), average(a[1], b[1])];
   let sums: [bigint, bigint] | undefined;
   const exact = () => sums ??= [dyadicInteger(a[0]) + dyadicInteger(b[0]), dyadicInteger(a[1]) + dyadicInteger(b[1])];
-  return {
+  const plan: PlanQuery = {
     point,
     compare: (axis, limit) => point[axis] === limit
       ? sign(exact()[axis] - 2n * dyadicInteger(limit))
@@ -1560,6 +1582,7 @@ function midpointQuery(a: PlanPoint, b: PlanPoint): PlanQuery {
       return sign((qy - py) * (x - 2n * px) - (qx - px) * (y - 2n * py));
     },
   };
+  return { plan, elevation: average(start[2], end[2]), clears };
 }
 
 function withinSegmentBounds(query: PlanQuery, a: PlanPoint, b: PlanPoint): boolean {
@@ -1638,17 +1661,17 @@ function coverage(
     return { segments, ownPanels };
   });
   const coveredWithin = (
-    query: PlanQuery, zTop: number, limit: number, ownMembers?: ReadonlySet<number>, ownShell?: number, includeAreaCover = true,
+    { plan: query, elevation: zTop, clears }: CoverQuery, limit: number, ownMembers?: ReadonlySet<number>, ownShell?: number, includeAreaCover = true,
   ): boolean => {
     const pt = query.point;
-    const qualifies = (z: number) => z > zTop + MIN_COVER_RISE && z - zTop < limit;
+    const qualifies = (z: number) => clears(z) && z - zTop < limit;
     if (includeAreaCover) {
       for (const panel of panels) {
-        if (panel.geometry.range[1] > zTop + MIN_COVER_RISE && panel.footprint.some(poly => footprintContains(query, poly))
+        if (clears(panel.geometry.range[1]) && panel.footprint.some(poly => footprintContains(query, poly))
           && qualifies(panel.geometry.heights(pt)[0])) return true;
       }
       for (const shell of shells) {
-        if (shell.id !== ownShell && shell.high > zTop + MIN_COVER_RISE &&
+        if (shell.id !== ownShell && clears(shell.high) &&
           footprintContains(query, [shell.poly]) && qualifies(shell.height(pt))) return true;
       }
     }
@@ -1664,17 +1687,16 @@ function coverage(
       }
     }
     for (const panel of rejectedPanels) {
-      if (panel.geometry.range[1] > zTop + MIN_COVER_RISE && panel.footprint.some(poly => footprintContains(query, poly))
+      if (clears(panel.geometry.range[1]) && panel.footprint.some(poly => footprintContains(query, poly))
         && qualifies(panel.geometry.heights(pt)[1])) {
         refuseGravityGeometry(msg('loadPlan.gravity.widePanels', { n: 1, span: MAX_DECK_SPAN }));
       }
     }
     return false;
   };
-  const memberCovered = ([a, b]: Segment, zTop = Math.max(a[2], b[2])) =>
-    coveredWithin(midpointQuery([a[0], a[1]], [b[0], b[1]]), zTop, Infinity);
+  const memberCovered = (segment: Segment) => coveredWithin(memberMidpointQuery(segment), Infinity);
   const pointCovered = (pt: PlanPoint, zTop: number, ownMembers?: ReadonlySet<number>, limit = Infinity, ownShell?: number) =>
-    coveredWithin(pointQuery(pt), zTop, limit, ownMembers, ownShell);
+    coveredWithin(pointCoverQuery(pt, zTop), limit, ownMembers, ownShell);
   const areaCovered = (
     lower: DeckFootprint, uniformPressure: boolean,
     bareRun?: { point: PlanPoint; z: number; ownMembers?: ReadonlySet<number> }, ownShell?: number,
@@ -1697,9 +1719,9 @@ function coverage(
       return true;
     }
     if (!bareRun) return false;
-    const center = pointQuery(bareRun.point);
-    return lower.footprint.some(part => footprintContains(center, part))
-      && coveredWithin(center, bareRun.z, Infinity, bareRun.ownMembers, ownShell, false);
+    const center = pointCoverQuery(bareRun.point, bareRun.z);
+    return lower.footprint.some(part => footprintContains(center.plan, part))
+      && coveredWithin(center, Infinity, bareRun.ownMembers, ownShell, false);
   };
   return { pointCovered, memberCovered, areaCovered };
 }

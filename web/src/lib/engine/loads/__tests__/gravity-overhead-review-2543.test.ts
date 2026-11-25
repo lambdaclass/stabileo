@@ -281,7 +281,6 @@ it('#2543 complete upper shell cover and edge contact give a single exposure', (
   }
 });
 
-const roundThree = process.env.RUN_KNOWN_WRONG === '2543' ? it : it.skip;
 const wideRefusal = { key: 'loadPlan.gravity.widePanels', params: { n: 1, span: MAX_DECK_SPAN } };
 const autoLayout = { ...panels, tributaryWidth: 3 };
 
@@ -303,7 +302,7 @@ function expectWideBlock(result: ReturnType<typeof plan>) {
     .toEqual({ outcome: 'BLOCKED', blockedKeys: [wideRefusal], cases: 0, distributed: 0, nodal: 0, surface: 0 });
 }
 
-roundThree('known wrong result: #2543 round 3 a corner shell cannot license an oversized retained bay', () => {
+it('#2543 round 3 a corner shell cannot license an oversized retained bay', () => {
   const model = coveredRing(MAX_DECK_SPAN + 1, square(0, 0, 1, 1));
   for (const options of [{}, { snow: enabledSnow }]) expectWideBlock(plan(model, options));
   expect.soft(() => gravityLayout(model, autoLayout)).toThrow(expect.objectContaining(wideRefusal));
@@ -323,7 +322,7 @@ function restoreModel(model: LoadModelData) {
   modelStore.restore(JSON.parse(JSON.stringify(modelStore.snapshot())));
 }
 
-roundThree('known wrong result: #2543 round 3 an oversized retained bay cannot be applied after restore', () => {
+it('#2543 round 3 an oversized retained bay cannot be applied after restore', () => {
   modelStore.clear();
   try {
     restoreModel(coveredRing(MAX_DECK_SPAN + 1, square(0, 0, 1, 1)));
@@ -337,7 +336,7 @@ roundThree('known wrong result: #2543 round 3 an oversized retained bay cannot b
   }
 });
 
-roundThree('known wrong result: #2543 round 3 span is checked on each retained region after clipping', () => {
+it('#2543 round 3 span is checked on each retained region after clipping', () => {
   const span = MAX_DECK_SPAN + 2;
   const strip = (left: number, right: number) => coveredRing(span, square(left, 0, right, span));
   const below = MAX_DECK_SPAN - 0.125;
@@ -381,7 +380,7 @@ function expectMemberActions(layout: ReturnType<typeof gravityLayout>, floor: bo
     .toBe(-(floor ? 1 : roof.dead) * 3);
 }
 
-roundThree('known wrong result: #2543 round 3 cover above the member midpoint assigns floor actions', () => {
+it('#2543 round 3 cover above the member midpoint assigns floor actions', () => {
   for (const stations of [[3, 3.0004], [3.0004, 3]]) {
     const model = midpointCover(3.0503, stations);
     for (const gravity of [widthMode, everyPanel]) {
@@ -393,19 +392,20 @@ roundThree('known wrong result: #2543 round 3 cover above the member midpoint as
     }
     expect.soft(roofWeightFor(model, widthMode, 3, 0)).toBe('light');
     const result = plan(model, { gravity: widthMode, roof: distinctRoof });
-    expect.soft(result.outcome).toBe('READY');
+    expect.soft(result.blockedKeys).toEqual([{ key: 'loadPlan.blocked.concentratedRoof' }]);
     expect.soft(result.distributed.find(load => load.elementId === 1 && load.caseType === 'D')?.q).toBe(-3);
   }
 });
 
-roundThree('known wrong result: #2543 round 3 wind and selected-roof snow exclude the covered midpoint', () => {
+it('#2543 round 3 wind and selected-roof snow exclude the covered midpoint', () => {
   const model = midpointCover(3.0503);
   expect.soft(roofMembers(model)).toEqual([]);
   expect.soft(roofMembers(model, new Set([1]))).toEqual([]);
   expect(selectedSnowOnMember(model)).toBe(false);
+  expect(selectedSnowPlanOnMember(model)).toBe(false);
 });
 
-roundThree('known wrong result: #2543 round 3 rounded headroom levels cannot cover a member midpoint', () => {
+it('#2543 round 3 rounded headroom levels cannot cover a member midpoint', () => {
   const model = midpointCover(3.0501);
   const layout = gravityLayout(model, { ...widthMode, tributaryWidth: 3 });
   expect(layout.notes.map(note => note.key)).toContain('loadPlan.gravity.headroomUnclearRoof');
@@ -416,22 +416,29 @@ function selectedSnowOnMember(model: LoadModelData) {
   return out?.cases.some(load => load.distributed.some(force => force.elementId === 1)) ?? false;
 }
 
+function selectedSnowPlanOnMember(model: LoadModelData) {
+  const result = plan(model, { gravity: widthMode, snow: { ...enabledSnow, roof: [1] } });
+  expect(result.outcome, JSON.stringify(result.blockedKeys)).toBe('READY');
+  return result.distributed.some(load => load.caseType === 'S' && load.elementId === 1);
+}
+
 it('#2543 round 3 shells at or below the midpoint cover rise leave the roof actions', () => {
   const model = midpointCover(3.0501);
   expect(roofMembers(model).map(member => member.id)).toEqual([1]);
   for (const gravity of [widthMode, everyPanel]) expectMemberActions(gravityLayout(model, { ...gravity, tributaryWidth: 3 }), false);
   expect(roofWeightFor(model, widthMode, 3, 0)).toBe('heavy');
   expect(selectedSnowOnMember(model)).toBe(true);
+  expect(selectedSnowPlanOnMember(model)).toBe(true);
   const atLimit = midpointCover(0.096875, [0.03125, 0.0625]);
   expect(gravityLayout(atLimit, { ...widthMode, tributaryWidth: 3 }).roof.has(1)).toBe(true);
 });
 
-roundThree('known wrong result: #2543 round 3 the cover limit is compared to the unrounded midpoint', () => {
+it('#2543 round 3 the cover limit is compared to the unrounded midpoint', () => {
   const model = midpointCover(3.050001, [3, 3.000002]);
   expect(gravityLayout(model, { ...widthMode, tributaryWidth: 3 }).roof.has(1)).toBe(false);
 });
 
-roundThree('known wrong result: #2543 round 3 low framing cannot transfer an oversized retained bay', () => {
+it('#2543 round 3 low framing cannot transfer an oversized retained bay', () => {
   const { model, beams } = fixture();
   const span = 30;
   beams(square(0, 0, span, span), 3);
