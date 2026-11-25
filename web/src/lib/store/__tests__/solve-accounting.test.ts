@@ -1372,3 +1372,26 @@ it('#2470 solves a planar beam with a subnormal global line load', async () => {
     .toEqual(expect.stringMatching(/case.*2.*Fy.*assembled 0/i));
   expect(validateAndSolve2D(makeInput(-1e-300))).toEqual(expect.stringMatching(/case.*2.*Fy.*-3e-300.*0/i));
 });
+
+const issue2543 = process.env.RUN_KNOWN_WRONG === '2543' ? it : it.skip;
+
+issue2543('known wrong result: #2543 refuses an incorrect pressure in a reference case used only for modal mass', async () => {
+  const source = modelStore.addLoadCase('Modal mass reference', 'D');
+  expect(modelStore.updateLoadCaseFields(source, { reference: true })).toBe(true);
+  const nodes = [[0, 0], [4, 0], [4, 5], [0, 5]].map(([x, y]) => modelStore.addNode(x!, y!, 3)) as [number, number, number, number];
+  const quadId = modelStore.addQuad(nodes, 1, 0.2);
+  const model = modelStore.model;
+  const baseline = { id: 1, quadId, q: 1, caseId: source };
+  const factors = [{ caseId: source, name: 'Modal mass reference', type: 'D', factor: 1, basis: 'stated' as const }];
+  const masses = (q: number, scoped: boolean) => {
+    const load = withScenarioSurfaceIntent({ type: 'surface3d', data: { ...baseline, q } }, { baseline, factor: 0.5 });
+    const withPressure = { ...model, loads: [load] };
+    const selected = scoped ? withCaseEffects(withPressure, model.loadCases,
+      { includeSelfWeight: false, leftHand: false }, new Set([source])) : withPressure;
+    return caseMassLoads(selected, factors, false)[0]?.surface;
+  };
+  for (const scoped of [false, true]) {
+    expect(masses(0.5, scoped)).toEqual([{ quadId, q: 0.5 }]);
+    expect.soft(() => masses(0.75, scoped)).toThrow(/case.*Modal mass reference.*q\[1\]/i);
+  }
+});
