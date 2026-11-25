@@ -2,12 +2,12 @@
 
 import type { SolverInput, SolverLoad, AnalysisResults, FullEnvelope, ElementEnvelopeDiagram, EnvelopeDiagramData } from './types';
 import { errorText as baseErrorText } from '../utils/error-text';
-import { prepareLoadSession2D, isWasmReady, movingFaceForce } from './wasm-solver';
+import { prepareLoadSession2D, isWasmReady, movingFaceForce, movingSegmentRoundoff } from './wasm-solver';
 import { analyzeKinematics, type KinematicResult } from './kinematic-2d';
 import { computeDiagramValueAt } from './diagrams';
 import { t } from '../i18n';
 import { withoutSettlement } from './settlement-case';
-import { axleOffsetScale, locateAxle, locateAxlePlacement, checkAxlePath, referenceGrid } from './moving-axle-station';
+import { locateAxle, locateAxlePlacement, checkAxlePath, referenceGrid, referenceStation, type ReferencePosition, type RouteSegment } from './moving-axle-station';
 import { localizeEngineText } from '../i18n/engine-text';
 import { MovingSample, type AxleFace, type FaceLoads } from './moving-sample';
 
@@ -99,12 +99,10 @@ export interface MovingLoadEnvelope {
   path: PathSegment[];
 }
 
-export interface PathSegment {
+export interface PathSegment extends RouteSegment {
   elementId: number;
   nodeI: number;
   nodeJ: number;
-  length: number;
-  cumStart: number; // cumulative distance at start of segment
   dx: number;
   dy: number;
 }
@@ -116,6 +114,7 @@ export interface PathSegment {
  */
 function buildPath(input: SolverInput, pathElementIds?: number[]): PathSegment[] {
   const segments: PathSegment[] = [];
+  let roundoff = 0;
 
   if (pathElementIds && pathElementIds.length > 0) {
     // Each segment runs in the direction of travel: from the node it shares with
@@ -138,7 +137,13 @@ function buildPath(input: SolverInput, pathElementIds?: number[]): PathSegment[]
       const dx = nj.x - ni.x;
       const dy = nj.z - ni.z;
       const L = Math.sqrt(dx * dx + dy * dy);
-      segments.push({ elementId: elem.id, nodeI: from, nodeJ: to, length: L, cumStart: cumDist, dx, dy });
+      const lengthRoundoff = movingSegmentRoundoff(ni, nj);
+      const startRoundoff = roundoff;
+      roundoff += lengthRoundoff;
+      segments.push({
+        elementId: elem.id, nodeI: from, nodeJ: to, length: L, cumStart: cumDist, dx, dy,
+        lengthRoundoff, startRoundoff, endRoundoff: roundoff,
+      });
       cumDist += L;
       prevEnd = to;
     }
@@ -191,7 +196,11 @@ function buildPath(input: SolverInput, pathElementIds?: number[]): PathSegment[]
     const dy = nj.z - ni.z;
     const L = Math.sqrt(dx * dx + dy * dy);
 
+    const lengthRoundoff = movingSegmentRoundoff(ni, nj);
+    const startRoundoff = roundoff;
+    roundoff += lengthRoundoff;
     segments.push({
+      lengthRoundoff, startRoundoff, endRoundoff: roundoff,
       elementId: best.elemId,
       nodeI: current,
       nodeJ: best.otherNode,
@@ -298,14 +307,13 @@ export function loadOnMember(
 function buildTrainLoads(
   input: SolverInput,
   train: LoadTrain,
-  refPos: number,
-  scale: number,
+  refPos: ReferencePosition,
   path: PathSegment[],
 ): MovingSample<SolverLoad> {
   const sample = new MovingSample<SolverLoad>();
 
   for (const axle of train.axles) {
-    const at = locateAxlePlacement(path, refPos, axle.offset, scale, (seg) => input.elements.get(seg.elementId)!.nodeI !== seg.nodeI);
+    const at = locateAxlePlacement(path, refPos, axle.offset, (seg) => input.elements.get(seg.elementId)!.nodeI !== seg.nodeI);
     if (!at) continue;
     if (at.kind === 'interior') {
       sample.loads.push(...verticalLoadOnMember(input, at.segment.elementId, at.a, axle.weight));
@@ -413,15 +421,14 @@ class PlanarSweepResults {
 function solvePosition(
   baseInput: SolverInput,
   train: LoadTrain,
-  refPos: number,
-  scale: number,
+  refPos: ReferencePosition,
   path: PathSegment[],
   envelope: Map<number, ElementEnvelope>,
   sweep: PlanarSweepResults,
   session: ReturnType<typeof prepareLoadSession2D>,
 ): string | null {
   try {
-    const sample = buildTrainLoads(baseInput, train, refPos, scale, path);
+    const sample = buildTrainLoads(baseInput, train, refPos, path);
     const results = sample.fold((loads) => {
       const result = session.solve(loads);
       if (result.structuredDiagnostics?.some(d => d.code === 'known_issue' && d.severity === 'error')) {
@@ -435,7 +442,7 @@ function solvePosition(
       }
       if (faces) sweep.foldFaces(result, faces);
     });
-    sweep.positions.push({ refPosition: refPos, results });
+    sweep.positions.push({ refPosition: referenceStation(refPos), results });
     return null;
   } catch (e) {
     return t('svc.solverError').replace('{n}', localizeEngineText(errorText(e)));
@@ -468,15 +475,12 @@ function planarPositionPasses(train: LoadTrain, path: PathSegment[], step: numbe
   const last = path[path.length - 1];
   const total = last.cumStart + last.length;
   const maxOffset = Math.max(...train.axles.map((axle) => axle.offset));
-  const scale = axleOffsetScale(train);
-  checkAxlePath(path, scale);
-  const grid = referenceGrid(-maxOffset, total, step);
-  const forward = { train, refs: grid.positions(), scale };
+  checkAxlePath(path);
+  const grid = referenceGrid(-maxOffset, total, step, last.endRoundoff);
+  const forward = { train, refs: grid.positions() };
   if (isTrainSymmetric(train)) return [forward];
   const reverse = reverseTrain(train);
-  const reverseScale = Math.max(total, scale, axleOffsetScale(reverse));
-  checkAxlePath(path, reverseScale);
-  return [forward, { train: reverse, refs: grid.positions(true), scale: reverseScale }];
+  return [forward, { train: reverse, refs: grid.positions(true) }];
 }
 
 /**
@@ -548,9 +552,9 @@ export function solveMovingLoads(
   const session = prepareLoadSession2D(baseInput);
   try {
     const sweep = new PlanarSweepResults();
-    for (const { train, refs, scale } of passes) {
+    for (const { train, refs } of passes) {
       for (const refPos of refs) {
-        const err = solvePosition(baseInput, train, refPos, scale, path, envelope, sweep, session);
+        const err = solvePosition(baseInput, train, refPos, path, envelope, sweep, session);
         if (err) return err;
       }
     }
@@ -605,7 +609,7 @@ export async function solveMovingLoadsAsync(
   const refused = mechanismRefusal(baseInput);
   if (refused) return refused;
 
-  const allRefPositions = passes.flatMap(({ train, refs, scale }) => refs.map((refPos) => ({ train, refPos, scale })));
+  const allRefPositions = passes.flatMap(({ train, refs }) => refs.map((refPos) => ({ train, refPos })));
   const total = allRefPositions.length;
 
   const session = prepareLoadSession2D(baseInput);
@@ -615,11 +619,11 @@ export async function solveMovingLoadsAsync(
     for (let idx = 0; idx < total; idx++) {
       if (signal?.aborted) return t('train.analysisCancelled');
 
-      const { train, refPos, scale } = allRefPositions[idx];
-      const err = solvePosition(baseInput, train, refPos, scale, path, envelope, sweep, session);
+      const { train, refPos } = allRefPositions[idx];
+      const err = solvePosition(baseInput, train, refPos, path, envelope, sweep, session);
       if (err) return err;
 
-      onProgress?.({ current: idx + 1, total, refPosition: refPos });
+      onProgress?.({ current: idx + 1, total, refPosition: referenceStation(refPos) });
       await new Promise(r => setTimeout(r, 0));
     }
 
@@ -752,9 +756,8 @@ export function computeAxleWorldPositions(
 ): AxleWorldPosition[] {
   if (path.length === 0) return [];
   const result: AxleWorldPosition[] = [];
-  const scale = axleOffsetScale(train);
   for (const axle of train.axles) {
-    const at = locateAxle(path, refPos, axle.offset, scale, () => false);
+    const at = locateAxle(path, refPos, axle.offset, () => false);
     if (!at) continue;
     const { segment: seg, a } = at;
     const t = a / seg.length;

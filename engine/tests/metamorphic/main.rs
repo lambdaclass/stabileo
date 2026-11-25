@@ -277,7 +277,6 @@ fn issue_2125_ground_motion_preserves_half_turn_symmetry() {
 mod moving_shear;
 
 #[test]
-#[ignore = "known wrong result: #2101"]
 fn inclined_support_moving_shear_is_invariant_under_ci_rotation() {
     let seed = 20261018;
     let model = corpus::cases_3d(corpus::Tier::Pr, seed).into_iter()
@@ -288,4 +287,5 @@ fn inclined_support_moving_shear_is_invariant_under_ci_rotation() {
     let ctx = checks3::Ctx { tally: &tally, rng_seed: seed };
     checks3::check_case(&ctx, &model, &analysis, &["rotation"]);
     assert!(tally.failures().is_empty(), "{}", tally.failures().join("\n"));
+    assert_eq!(tally.cells.lock().unwrap()[&("moving loads".into(), "rotation".into())].pass, 1);
 }

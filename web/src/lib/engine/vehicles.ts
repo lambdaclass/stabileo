@@ -22,7 +22,7 @@
 import type { LoadTrain } from './moving-loads';
 import type { Load } from '../store/model.svelte';
 import type { PathSegment3D } from './moving-loads-3d';
-import { axleOffsetScale, checkAxlePath, locateAxle, referenceGrid } from './moving-axle-station';
+import { checkAxlePath, locateAxle, referenceGrid, referenceStation, type ReferencePosition } from './moving-axle-station';
 
 export interface Vehicle extends LoadTrain {
   /** The gap before axle `axle` (its offset minus the previous one's) ranging over [min, max]. */
@@ -120,9 +120,9 @@ export function vehicleFromJson(text: string): Vehicle | null {
 }
 
 /** Where an arc length along a path falls: the member and the distance from its node I. */
-export function pathPoint(path: readonly PathSegment3D[], reference: number, offset = 0, scale = Math.abs(offset)):
+export function pathPoint(path: readonly PathSegment3D[], reference: ReferencePosition, offset = 0):
   { nodeId: number } | { elementId: number; a: number } | null {
-  const at = locateAxle(path, reference, offset, scale, (seg) => seg.reversed);
+  const at = locateAxle(path, reference, offset, (seg) => seg.reversed);
   if (!at) return null;
   const { segment: seg, a } = at;
   if (a === 0) return { nodeId: seg.reversed ? seg.to : seg.from };
@@ -134,18 +134,15 @@ export function pathPoint(path: readonly PathSegment3D[], reference: number, off
  * The model loads of a train with its reference axle at `ref` along the path (vertical, global),
  * half on each path when there are two wheel lines. An axle of no weight writes nothing.
  */
-export function trainModelLoads(train: LoadTrain, ref: number, path: readonly PathSegment3D[], path2: readonly PathSegment3D[] | null, caseId: number, scale?: number): Load[] {
+export function trainModelLoads(train: LoadTrain, ref: ReferencePosition, path: readonly PathSegment3D[], path2: readonly PathSegment3D[] | null, caseId: number): Load[] {
   const paths = path2 ? [path, path2] : [path];
-  if (scale === undefined) {
-    scale = axleOffsetScale(train);
-    for (const line of paths) checkAxlePath(line, scale);
-  }
+  for (const line of paths) checkAxlePath(line);
   const out: Load[] = [];
   const share = path2 ? 0.5 : 1;
   for (const axle of train.axles) {
     if (axle.weight === 0) continue;
     for (const p of paths) {
-      const at = pathPoint(p, ref, axle.offset, scale);
+      const at = pathPoint(p, ref, axle.offset);
       if (!at) continue;
       const fz = -axle.weight * share;
       if ('nodeId' in at) {
@@ -160,7 +157,7 @@ export function trainModelLoads(train: LoadTrain, ref: number, path: readonly Pa
 
 /** The reference positions a vehicle takes along a path of `total` length, a step apart, from entering to leaving. */
 export function positionsAlong(train: LoadTrain, total: number, step: number): number[] {
-  return vehiclePositionGrid(train, total, step).positions();
+  return vehiclePositionGrid(train, total, step).positions().map(ref => referenceStation(ref));
 }
 
 /** How many positions `positionsAlong` gives, without building them. */
@@ -168,9 +165,9 @@ export function positionCount(train: LoadTrain, total: number, step: number): nu
   return vehiclePositionGrid(train, total, step).count;
 }
 
-function vehiclePositionGrid(train: LoadTrain, total: number, step: number) {
+function vehiclePositionGrid(train: LoadTrain, total: number, step: number, endRoundoff = 0) {
   const maxOffset = Math.max(0, ...train.axles.map((a) => a.offset));
-  return referenceGrid(-maxOffset, total, usableStep(step, 1));
+  return referenceGrid(-maxOffset, total, usableStep(step, 1), endRoundoff);
 }
 
 /** Symmetric: the same axles read from the other end. */
@@ -190,18 +187,17 @@ export function reversedTrain(train: LoadTrain): LoadTrain {
  * mirrored positions, as the sweep runs it (`moving-loads-3d.ts`). The position cases took the
  * forward pass alone: an HL-93 over spans of 8 and 16 m read 661,8 kN·m for the sweep's 681,3.
  */
-export function positionPasses(train: LoadTrain, total: number, step: number) {
-  const grid = vehiclePositionGrid(train, total, step);
-  const scale = axleOffsetScale(train);
-  const forward = { train, refs: grid.positions(), reversed: false, scale };
+export function positionPasses(train: LoadTrain, total: number, step: number, endRoundoff = 0) {
+  const grid = vehiclePositionGrid(train, total, step, endRoundoff);
+  const forward = { train, refs: grid.positions(), reversed: false };
   if (isSymmetric(train)) return [forward];
   const reverse = reversedTrain(train);
-  return [forward, { train: reverse, refs: grid.positions(true), reversed: true, scale: Math.max(scale, total, axleOffsetScale(reverse)) }];
+  return [forward, { train: reverse, refs: grid.positions(true), reversed: true }];
 }
 
 /** How many positions `positionPasses` gives, without building them. */
-export function passCount(train: LoadTrain, total: number, step: number): number {
-  return positionCount(train, total, step) * (isSymmetric(train) ? 1 : 2);
+export function passCount(train: LoadTrain, total: number, step: number, endRoundoff = 0): number {
+  return vehiclePositionGrid(train, total, step, endRoundoff).count * (isSymmetric(train) ? 1 : 2);
 }
 
 /** The run of a path: its first node and its last. */
@@ -213,10 +209,14 @@ function pathEnds(nodes: ReadonlyMap<number, { x: number; y: number; z: number }
 /** A path run from its other end. */
 export function reversePath(path: readonly PathSegment3D[]): PathSegment3D[] {
   const out: PathSegment3D[] = [];
-  let cum = 0;
+  let cum = 0, roundoff = 0;
   for (let i = path.length - 1; i >= 0; i--) {
     const p = path[i]!;
-    out.push({ elementId: p.elementId, from: p.to, to: p.from, length: p.length, cumStart: cum, reversed: !p.reversed });
+    const startRoundoff = roundoff;
+    roundoff += p.lengthRoundoff;
+    out.push({
+      ...p, from: p.to, to: p.from, cumStart: cum, reversed: !p.reversed, startRoundoff, endRoundoff: roundoff,
+    });
     cum += p.length;
   }
   return out;

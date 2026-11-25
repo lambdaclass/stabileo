@@ -1,5 +1,4 @@
 import { expect, it } from 'vitest';
-import { localizeEngineText } from '../../i18n/engine-text';
 import inclinedFixture from '../../../../../engine/tests/fixtures/moving-shear-2101.json';
 import springFixture from '../../../../../engine/tests/fixtures/moving-shear-2104.json';
 import { solveMovingLoads as solveNative2D, solveMovingLoads3D } from '../wasm-solver';
@@ -205,28 +204,18 @@ it('#2101 — a sampled entrance axle governs planar and spatial shear', async (
     expect.soft(Math.max(shear.max.value, -shear.min.value)).toBeCloseTo(expected, 9);
   }
   const limit = 0.01 / (8 * Number.EPSILON);
-  for (const [offset, accepted] of [[limit * (1 - Number.EPSILON), true], [limit, false]] as const) {
+  for (const offset of [limit * (1 - Number.EPSILON), limit]) {
     const train = { name: 'resolution', axles: [{ offset: 0, weight: 100 }, { offset, weight: 1 }] };
     const config = { train, step: offset, pathElementIds: [1] };
-    const message = 'Moving loads: axle position cannot be resolved at a path joint';
-    if (accepted) {
-      expect(solveNative2D({ ...config, solver: plane }).numPositions).toBe(2);
-      expect(solveMovingLoads3D({ ...config, solver: space }).numPositions).toBe(2);
-      for (const run of [solveMovingLoads, solveMovingLoadsAsync]) {
-        const result = await run(plane, config);
-        if (typeof result === 'string') throw new Error(result);
-        expect(result.positions).toHaveLength(4);
-      }
-      const result = await sweepMovingLoad3D(space, path, train, { step: offset });
-      expect(result.positions).toBe(4);
-    } else {
-      expect(() => solveNative2D({ ...config, solver: plane })).toThrow(message);
-      expect(() => solveMovingLoads3D({ ...config, solver: space })).toThrow(message);
-      for (const run of [solveMovingLoads, solveMovingLoadsAsync]) {
-        expect(await run(plane, config)).toBe(localizeEngineText(message));
-      }
-      await expect(sweepMovingLoad3D(space, path, train, { step: offset })).rejects.toBe(message);
+    expect(solveNative2D({ ...config, solver: plane }).numPositions).toBe(2);
+    expect(solveMovingLoads3D({ ...config, solver: space }).numPositions).toBe(2);
+    for (const run of [solveMovingLoads, solveMovingLoadsAsync]) {
+      const result = await run(plane, config);
+      if (typeof result === 'string') throw new Error(result);
+      expect(result.positions).toHaveLength(4);
     }
+    const result = await sweepMovingLoad3D(space, path, train, { step: offset });
+    expect(result.positions).toBe(4);
   }
 });
 
@@ -303,19 +292,7 @@ it('#2101 — endpoint-only spatial sweeps recover axial face limits', async () 
   const weight = 100;
   const train = { name: 'one axle', axles: [{ offset: 0, weight }] };
   for (const vertical of [true, false]) {
-    const plane = mirroredSpring();
-    const space = rotatedInclined();
-    plane.nodes = new Map([
-      [1, { id: 1, x: 0, z: 0 }],
-      [2, { id: 2, x: vertical ? 0 : length, z: vertical ? length : 0 }],
-    ]);
-    space.nodes = new Map([...plane.nodes].map(([id, node]) => [id, { ...node, y: 0 }]));
-    plane.elements = new Map([[1, plane.elements.get(1)!]]);
-    space.elements = new Map([[1, space.elements.get(1)!]]);
-    plane.supports = new Map([1, 2].map(id => [id, { id, nodeId: id, type: 'fixed' as const }]));
-    space.supports = new Map([1, 2].map(id => [id, { ...inclinedFixture.supports['1'], id, nodeId: id }]));
-    plane.loads = [];
-    space.loads = [];
+    const { plane, space } = reviewSpan(vertical ? 0 : length, vertical ? length : 0, true);
     const config = { train, step: length, pathElementIds: [1] };
     const axial = vertical ? weight : 0;
     const nativePlane = solveNative2D({ ...config, solver: plane }).elements['1'];
@@ -366,7 +343,7 @@ function reviewSpan(x: number, z: number, fixedBoth: boolean) {
   return { plane, space };
 }
 
-it.skipIf(process.env.RUN_MOVING_REVIEW !== '1')('known wrong result: #2101 — a distant axle preserves an exact interior sample', async () => {
+it('#2101 — a distant axle preserves an exact interior sample', async () => {
   const { plane, space } = reviewSpan(1, 0, false);
   const offset = 2 ** 42, weight = 100;
   const train = { name: 'widely spaced', axles: [{ offset: 0, weight }, { offset, weight }] };
@@ -393,7 +370,7 @@ it.skipIf(process.env.RUN_MOVING_REVIEW !== '1')('known wrong result: #2101 — 
   }
 });
 
-it.skipIf(process.env.RUN_MOVING_REVIEW !== '1')('known wrong result: #2101 — a spatial interior axle recovers both axial cuts', async () => {
+it('#2101 — a spatial interior axle recovers both axial cuts', async () => {
   const weight = 100;
   const train = { name: 'one axle', axles: [{ offset: 0, weight }] };
   const config = { train, step: 4, pathElementIds: [1] };

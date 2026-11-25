@@ -697,7 +697,7 @@ pub fn moving_2d(
     let mut bounds = [0.0f64; 2];
     let mut s = c.s.clone();
     let end = env.path.last().ok_or("missing moving-load path")?.end_pos;
-    for pos in moving_loads::reference_positions(&env.train, end, c.p.step)? {
+    for pos in moving_loads::reference_positions(&env.train, end, c.p.step, env.path.last().unwrap().station_roundoff[1])? {
         s.loads = moving_loads::moving_loads_at_position_2d(&c.s, &env.train, &env.path, pos)?;
         let raw = crate::response::static_2d(&linear::solve_2d(&s)?);
         let asm = assembly::assemble_2d(&s, &dof);
@@ -755,7 +755,7 @@ pub fn moving_3d(
     let mut bounds = [0.0f64; 2];
     let mut s = c.s.clone();
     let end = env.path.last().ok_or("missing moving-load path")?.end_pos;
-    for pos in moving_loads::reference_positions(&env.train, end, c.p.step)? {
+    for pos in moving_loads::reference_positions(&env.train, end, c.p.step, env.path.last().unwrap().station_roundoff[1])? {
         s.loads =
             moving_loads::moving_loads_at_position_3d(&c.s, &env.train, "z", &env.path, pos)?;
         let raw = crate::response::static_3d(&linear::solve_3d(&s)?);

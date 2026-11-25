@@ -1346,7 +1346,7 @@ fn bench_moving_influence_reuse(c: &mut Criterion) {
         // Legacy: clone + full solve per position
         group.bench_with_input(BenchmarkId::new("moving_2d_legacy", n), &solver, |b, solver| {
             b.iter(|| {
-                for pos in reference_positions(&train, total_length, step).unwrap() {
+                for pos in reference_positions(&train, total_length, step, path.last().unwrap().station_roundoff[1]).unwrap() {
                     let loads = moving_loads_at_position_2d(solver, &train, &path, pos).unwrap();
                     let mut mi = solver.clone();
                     mi.loads = loads;

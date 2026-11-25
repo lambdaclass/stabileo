@@ -33,6 +33,8 @@ pub struct PathSegment {
     pub start_pos: f64,
     pub end_pos: f64,
     pub length: f64,
+    #[serde(default)]
+    pub station_roundoff: [f64; 2],
     pub cos: f64,
     pub sin: f64,
     /// The train crosses this member from node_j to node_i (the member was
@@ -81,7 +83,7 @@ fn check_step(step: f64, travel: f64) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn reference_sample_count(start: f64, end: f64, step: f64) -> Result<f64, &'static str> {
+pub(crate) fn reference_sample_count(start: f64, end: f64, step: f64, end_roundoff: f64) -> Result<f64, &'static str> {
     if !(step.is_finite() && step > 0.0 && start.is_finite() && end.is_finite()) {
         return Err(UNRESOLVED_AXLE_STATION);
     }
@@ -92,8 +94,11 @@ pub(crate) fn reference_sample_count(start: f64, end: f64, step: f64) -> Result<
     if !last.is_finite() || last >= (1_u64 << 52) as f64 {
         return Err(UNRESOLVED_AXLE_STATION);
     }
-    let bound = joint_roundoff(end, end, start.abs());
-    let reaches = |index: f64| (start + index * step) - end <= bound;
+    let bound = joint_roundoff(end, end).max(end_roundoff);
+    let reaches = |index: f64| {
+        let [station, arithmetic] = ReferencePosition::new(start, step, index).axle_station(0.0);
+        station - end <= bound.max(arithmetic)
+    };
     if reaches(last + 1.0) {
         Ok(last + 2.0)
     } else if reaches(last) {
@@ -103,13 +108,51 @@ pub(crate) fn reference_sample_count(start: f64, end: f64, step: f64) -> Result<
     }
 }
 
+#[derive(Clone, Copy)]
+pub struct ReferencePosition {
+    base: f64,
+    step: f64,
+    index: f64,
+}
+
+impl ReferencePosition {
+    pub(crate) fn new(base: f64, step: f64, index: f64) -> Self {
+        Self { base, step, index }
+    }
+
+    pub(crate) fn axle_station(self, offset: f64) -> [f64; 2] {
+        let travel = self.index * self.step;
+        let travel_error = self.index.mul_add(self.step, -travel);
+        let (reference, reference_error) = sum_with_error(self.base, travel);
+        let (station, station_error) = sum_with_error(reference, offset);
+        let arithmetic = if travel_error == 0.0 {
+            0.0
+        } else {
+            self.index * rounding_radius(self.step) + rounding_radius(self.base) + rounding_radius(travel)
+        };
+        [station + (travel_error + reference_error + station_error), arithmetic]
+    }
+}
+
+impl From<f64> for ReferencePosition {
+    fn from(position: f64) -> Self {
+        Self::new(position, 0.0, 0.0)
+    }
+}
+
+fn sum_with_error(a: f64, b: f64) -> (f64, f64) {
+    let sum = a + b;
+    let b_in_sum = sum - a;
+    (sum, (a - (sum - b_in_sum)) + (b - b_in_sum))
+}
+
 pub fn reference_positions(
-    train: &LoadTrain, end: f64, step: f64,
-) -> Result<impl Iterator<Item = f64> + use<>, String> {
+    train: &LoadTrain, end: f64, step: f64, end_roundoff: f64,
+) -> Result<impl Iterator<Item = ReferencePosition> + use<>, String> {
     let start = -train.axles.iter().map(|axle| axle.offset).fold(0.0, f64::max);
     check_step(step, end - start)?;
-    let count = reference_sample_count(start, end, step)? as usize;
-    Ok((0..count).map(move |index| start + index as f64 * step))
+    let count = reference_sample_count(start, end, step, end_roundoff)? as usize;
+    Ok((0..count).map(move |index| ReferencePosition::new(start, step, index as f64)))
 }
 
 #[derive(Clone, Copy)]
@@ -118,6 +161,7 @@ struct RouteSegment {
     end: f64,
     length: f64,
     reversed: bool,
+    roundoff: [f64; 2],
 }
 
 enum RouteStation {
@@ -128,8 +172,7 @@ enum RouteStation {
 fn route_station(
     count: usize,
     segment: impl Fn(usize) -> RouteSegment,
-    position: f64,
-    scale: f64,
+    [position, arithmetic]: [f64; 2],
 ) -> Result<Option<RouteStation>, &'static str> {
     if count == 0 {
         return Ok(None);
@@ -145,7 +188,7 @@ fn route_station(
     }
     let index = range.start.min(count - 1);
     let part = segment(index);
-    let a = sampled_axle_station(part.start, part.end, part.length, part.reversed, position, scale)?;
+    let a = sampled_axle_station(part.start, part.end, part.length, part.reversed, position, part.roundoff, arithmetic)?;
     Ok(a.map(|a| {
         if a == 0.0 {
             RouteStation::Joint(index + usize::from(part.reversed))
@@ -244,10 +287,6 @@ impl<L: Clone> MovingSample<L> {
     }
 }
 
-fn axle_offset_scale(train: &LoadTrain) -> f64 {
-    train.axles.iter().map(|axle| axle.offset.abs()).fold(0.0, f64::max)
-}
-
 /// Solve 2D moving loads analysis (envelope computation).
 pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelope, String> {
     let solver_input = &input.solver;
@@ -267,7 +306,7 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
     }
 
     let total_length = path.last().unwrap().end_pos;
-    let positions = reference_positions(train, total_length, step)?;
+    let positions = reference_positions(train, total_length, step, path.last().unwrap().station_roundoff[1])?;
 
     // Initialize envelopes
     let mut envelopes: HashMap<String, ElementEnvelope> = HashMap::new();
@@ -353,29 +392,25 @@ pub fn moving_loads_at_position_2d(
     solver_input: &SolverInput,
     train: &LoadTrain,
     path: &[PathSegment],
-    pos: f64,
+    pos: impl Into<ReferencePosition>,
 ) -> Result<Vec<SolverLoad>, String> {
     let elements = crate::ordered::values(&solver_input.elements).map(|elem| (elem.id, elem)).collect();
-    Ok(sample_2d(solver_input, train, path, pos, &elements)?.loads)
+    Ok(sample_2d(solver_input, train, path, pos.into(), &elements)?.loads)
 }
 
 fn sample_2d(
     input: &SolverInput,
     train: &LoadTrain,
     path: &[PathSegment],
-    pos: f64,
+    pos: ReferencePosition,
     elements: &HashMap<usize, &SolverElement>,
 ) -> Result<MovingSample<SolverLoad>, String> {
     let mut sample = MovingSample::new(input.loads.clone());
-    let scale = axle_offset_scale(train);
-    for seg in path {
-        check_path_segment(seg.start_pos, seg.end_pos, seg.length, scale)?;
-    }
     for axle in &train.axles {
         let station = route_station(path.len(), |index| {
             let part = &path[index];
-            RouteSegment { start: part.start_pos, end: part.end_pos, length: part.length, reversed: part.reversed }
-        }, pos + axle.offset, scale)?;
+            RouteSegment { start: part.start_pos, end: part.end_pos, length: part.length, reversed: part.reversed, roundoff: part.station_roundoff }
+        }, pos.axle_station(axle.offset))?;
         match station {
             Some(RouteStation::Interior { segment, a }) => {
                 let part = &path[segment];
@@ -419,6 +454,7 @@ pub fn build_load_path(
 ) -> Result<Vec<PathSegment>, String> {
     let mut path = Vec::new();
     let mut cum_pos = 0.0;
+    let mut cum_roundoff = 0.0;
 
     // Build lookup maps to avoid O(n) linear scans per element
     let node_by_id: HashMap<usize, &SolverNode> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
@@ -448,17 +484,20 @@ pub fn build_load_path(
         let cos = dx / l;
         let sin = dy / l;
 
-        check_path_segment(cum_pos, cum_pos + l, l, 0.0)?;
+        let station_roundoff = [cum_roundoff, cum_roundoff + segment_coordinate_roundoff([ni.x, 0.0, ni.z], [nj.x, 0.0, nj.z])];
+        check_path_segment(cum_pos, cum_pos + l, l, station_roundoff)?;
         path.push(PathSegment {
             element_id: *eid,
             start_pos: cum_pos,
             end_pos: cum_pos + l,
             length: l,
+            station_roundoff,
             cos,
             sin,
             reversed: reversed[k],
         });
         cum_pos += l;
+        cum_roundoff = station_roundoff[1];
     }
 
     Ok(path)
@@ -480,18 +519,36 @@ fn auto_detect_path(input: &SolverInput) -> Result<Vec<usize>, String> {
 
 const UNRESOLVED_AXLE_STATION: &str = "Moving loads: axle position cannot be resolved at a path joint";
 
-fn joint_roundoff(station: f64, length: f64, arithmetic_scale: f64) -> f64 {
+fn joint_roundoff(station: f64, length: f64) -> f64 {
     let geometry_scale = if station == 0.0 { length } else { station.abs() };
-    ((8.0 * f64::EPSILON) * geometry_scale).max((4.0 * f64::EPSILON) * arithmetic_scale)
+    (8.0 * f64::EPSILON) * geometry_scale
+}
+
+fn rounding_radius(value: f64) -> f64 {
+    let magnitude = value.abs();
+    (magnitude.next_up() - magnitude) / 2.0
+}
+
+pub(crate) fn segment_coordinate_roundoff(start: [f64; 3], end: [f64; 3]) -> f64 {
+    let mut nominal = 0.0_f64;
+    let mut lower = 0.0_f64;
+    let mut upper = 0.0_f64;
+    for (a, b) in start.into_iter().zip(end) {
+        let distance = (b - a).abs();
+        let uncertainty = rounding_radius(a) + rounding_radius(b);
+        nominal = nominal.hypot(distance);
+        lower = lower.hypot((distance - uncertainty).max(0.0));
+        upper = upper.hypot(distance + uncertainty);
+    }
+    (nominal - lower).max(upper - nominal)
 }
 
 pub(crate) fn check_path_segment(
-    start: f64, end: f64, length: f64, arithmetic_scale: f64,
+    start: f64, end: f64, length: f64, [start_roundoff, end_roundoff]: [f64; 2],
 ) -> Result<(), &'static str> {
-    if length.is_finite() && length > 0.0 && end.is_finite() && arithmetic_scale.is_finite()
-        && end - start > joint_roundoff(start, length, arithmetic_scale)
-            + joint_roundoff(end, length, arithmetic_scale)
-    {
+    let start_bound = joint_roundoff(start, length).max(start_roundoff);
+    let end_bound = joint_roundoff(end, length).max(end_roundoff);
+    if length.is_finite() && length > 0.0 && end.is_finite() && end - start > start_bound + end_bound {
         Ok(())
     } else {
         Err(UNRESOLVED_AXLE_STATION)
@@ -499,19 +556,22 @@ pub(crate) fn check_path_segment(
 }
 
 pub(crate) fn sampled_axle_station(
-    start: f64, end: f64, length: f64, reversed: bool, position: f64, arithmetic_scale: f64,
+    start: f64, end: f64, length: f64, reversed: bool, position: f64,
+    roundoff: [f64; 2], arithmetic: f64,
 ) -> Result<Option<f64>, &'static str> {
-    check_path_segment(start, end, length, arithmetic_scale)?;
-    if !position.is_finite() {
+    check_path_segment(start, end, length, roundoff)?;
+    if !position.is_finite() || !arithmetic.is_finite() {
         return Err(UNRESOLVED_AXLE_STATION);
     }
     let from_start = position - start;
     let to_end = end - position;
-    if from_start.abs() <= joint_roundoff(start, length, arithmetic_scale) {
-        return Ok(Some(if reversed { length } else { 0.0 }));
-    }
-    if to_end.abs() <= joint_roundoff(end, length, arithmetic_scale) {
-        return Ok(Some(if reversed { 0.0 } else { length }));
+    let at_start = from_start.abs() <= joint_roundoff(start, length).max(roundoff[0]).max(arithmetic);
+    let at_end = to_end.abs() <= joint_roundoff(end, length).max(roundoff[1]).max(arithmetic);
+    match (at_start, at_end) {
+        (true, true) => return Err(UNRESOLVED_AXLE_STATION),
+        (true, false) => return Ok(Some(if reversed { length } else { 0.0 })),
+        (false, true) => return Ok(Some(if reversed { 0.0 } else { length })),
+        (false, false) => {}
     }
     if from_start < 0.0 || to_end < 0.0 {
         return Ok(None);
@@ -562,6 +622,8 @@ pub struct PathSegment3D {
     pub start_pos: f64,
     pub end_pos: f64,
     pub length: f64,
+    #[serde(default)]
+    pub station_roundoff: [f64; 2],
     /// Unit direction vector of the element in global coordinates
     pub dir_x: f64,
     pub dir_y: f64,
@@ -597,7 +659,7 @@ pub fn solve_moving_loads_3d(input: &MovingLoadInput3D) -> Result<MovingLoadEnve
     }
 
     let total_length = path.last().unwrap().end_pos;
-    let positions = reference_positions(train, total_length, step)?;
+    let positions = reference_positions(train, total_length, step, path.last().unwrap().station_roundoff[1])?;
 
     // Initialize envelopes
     let mut envelopes: HashMap<String, ElementEnvelope3D> = HashMap::new();
@@ -716,7 +778,7 @@ pub fn moving_loads_at_position_3d(
     train: &LoadTrain,
     gravity: &str,
     path: &[PathSegment3D],
-    pos: f64,
+    pos: impl Into<ReferencePosition>,
 ) -> Result<Vec<SolverLoad3D>, String> {
     let maps = MovingLoadMaps3d::new(solver_input);
     moving_loads_at_position_3d_with_maps(solver_input, train, gravity, path, pos, &maps)
@@ -730,10 +792,10 @@ pub fn moving_loads_at_position_3d_with_maps(
     train: &LoadTrain,
     gravity: &str,
     path: &[PathSegment3D],
-    pos: f64,
+    pos: impl Into<ReferencePosition>,
     maps: &MovingLoadMaps3d,
 ) -> Result<Vec<SolverLoad3D>, String> {
-    Ok(sample_3d(solver_input, train, gravity, path, pos, maps)?.loads)
+    Ok(sample_3d(solver_input, train, gravity, path, pos.into(), maps)?.loads)
 }
 
 fn sample_3d(
@@ -741,20 +803,16 @@ fn sample_3d(
     train: &LoadTrain,
     gravity: &str,
     path: &[PathSegment3D],
-    pos: f64,
+    pos: ReferencePosition,
     maps: &MovingLoadMaps3d,
 ) -> Result<MovingSample<SolverLoad3D>, String> {
     let mut sample = MovingSample::new(input.loads.clone());
-    let scale = axle_offset_scale(train);
-    for seg in path {
-        check_path_segment(seg.start_pos, seg.end_pos, seg.length, scale)?;
-    }
     let gravity_axis = if gravity == "y" { 1 } else { 2 };
     for axle in &train.axles {
         let station = route_station(path.len(), |index| {
             let part = &path[index];
-            RouteSegment { start: part.start_pos, end: part.end_pos, length: part.length, reversed: part.reversed }
-        }, pos + axle.offset, scale)?;
+            RouteSegment { start: part.start_pos, end: part.end_pos, length: part.length, reversed: part.reversed, roundoff: part.station_roundoff }
+        }, pos.axle_station(axle.offset))?;
         let local_force = |elem: &SolverElement3D| {
             let ni = maps.node_by_id[&elem.node_i];
             let nj = maps.node_by_id[&elem.node_j];
@@ -809,6 +867,7 @@ pub fn build_load_path_3d(
 ) -> Result<Vec<PathSegment3D>, String> {
     let mut path = Vec::new();
     let mut cum_pos = 0.0;
+    let mut cum_roundoff = 0.0;
 
     // Build lookup maps to avoid O(n) linear scans per element
     let node_by_id: HashMap<usize, &SolverNode3D> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
@@ -836,18 +895,21 @@ pub fn build_load_path_3d(
         let dz = nj.z - ni.z;
         let l = (dx * dx + dy * dy + dz * dz).sqrt();
 
-        check_path_segment(cum_pos, cum_pos + l, l, 0.0)?;
+        let station_roundoff = [cum_roundoff, cum_roundoff + segment_coordinate_roundoff([ni.x, ni.y, ni.z], [nj.x, nj.y, nj.z])];
+        check_path_segment(cum_pos, cum_pos + l, l, station_roundoff)?;
         path.push(PathSegment3D {
             element_id: *eid,
             start_pos: cum_pos,
             end_pos: cum_pos + l,
             length: l,
+            station_roundoff,
             dir_x: dx / l,
             dir_y: dy / l,
             dir_z: dz / l,
             reversed: reversed[k],
         });
         cum_pos += l;
+        cum_roundoff = station_roundoff[1];
     }
 
     Ok(path)
@@ -882,5 +944,56 @@ mod diagram_limit_tests {
         ef.point_loads_z[0].a = f64::from_bits(10.0_f64.to_bits() - 1);
         let range = member_diagram_range_3d(&ef, "shearZ", [0.0; 2]).unwrap();
         assert!(range.0 > -10.0 && range.0 < -9.0, "{range:?}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::metamorphic::planes::{embed_2d, Plane};
+
+    #[test]
+    fn simultaneous_entrance_and_exit_stage_only_the_axle_on_the_route() {
+        let mut planar: SolverInput =
+            serde_json::from_str(include_str!("../../tests/fixtures/moving-shear-2104.json")).unwrap();
+        planar.loads.clear();
+        let path = build_load_path(&planar, Some(&[1])).unwrap();
+        let spatial = embed_2d(&planar, Plane::XZ).unwrap();
+        let path_3d = build_load_path_3d(&spatial, Some(&[1])).unwrap();
+        let train = LoadTrain {
+            name: "simultaneous entry and exit".into(),
+            axles: vec![
+                Axle { offset: 0.0, weight: 100.0 },
+                Axle { offset: path[0].length, weight: 50.0 },
+            ],
+        };
+        let expected = [
+            vec![(1, -100.0), (2, -50.0)],
+            vec![(2, -50.0)],
+            vec![(1, -100.0)],
+        ];
+        let elements = planar.elements.values().map(|element| (element.id, element)).collect();
+        let sample = sample_2d(&planar, &train, &path, 0.0.into(), &elements).unwrap();
+        let mut load_sets = Vec::new();
+        sample.fold(|loads| {
+            load_sets.push(loads.iter().map(|load| match load {
+                SolverLoad::Nodal(load) => (load.node_id, load.fz),
+                _ => panic!("expected a nodal axle"),
+            }).collect::<Vec<_>>());
+            Ok(())
+        }, |_, _, _| Ok(())).unwrap();
+        assert_eq!(load_sets, expected);
+
+        let maps = MovingLoadMaps3d::new(&spatial);
+        let sample = sample_3d(&spatial, &train, "z", &path_3d, 0.0.into(), &maps).unwrap();
+        let mut load_sets = Vec::new();
+        sample.fold(|loads| {
+            load_sets.push(loads.iter().map(|load| match load {
+                SolverLoad3D::Nodal(load) => (load.node_id, load.fz),
+                _ => panic!("expected a nodal axle"),
+            }).collect::<Vec<_>>());
+            Ok(())
+        }, |_, _, _| Ok(())).unwrap();
+        assert_eq!(load_sets, expected);
     }
 }

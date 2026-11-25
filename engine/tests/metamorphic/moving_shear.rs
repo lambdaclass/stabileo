@@ -448,7 +448,7 @@ fn review_2101_sampled_entrance_axle_governs_shear() {
         );
     }
     let limit = 0.01 / (8.0 * f64::EPSILON);
-    for (offset, accepted) in [(limit.next_down(), true), (limit, false)] {
+    for offset in [limit.next_down(), limit] {
         let train = LoadTrain {
             name: "resolution".into(),
             axles: vec![
@@ -475,14 +475,8 @@ fn review_2101_sampled_entrance_axle_governs_shear() {
             path_element_ids: Some(vec![1]),
             gravity_direction: None,
         });
-        if accepted {
-            assert_eq!(planar.unwrap().num_positions, 2);
-            assert_eq!(spatial.unwrap().num_positions, 2);
-        } else {
-            let error = "Moving loads: axle position cannot be resolved at a path joint";
-            assert_eq!(planar.unwrap_err(), error);
-            assert_eq!(spatial.unwrap_err(), error);
-        }
+        assert_eq!(planar.unwrap().num_positions, 2);
+        assert_eq!(spatial.unwrap().num_positions, 2);
     }
 }
 
@@ -637,7 +631,6 @@ fn simultaneous_entrance_and_exit_use_the_same_travel_direction() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2101"]
 fn distant_axle_does_not_snap_an_exact_interior_sample() {
     use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
 
