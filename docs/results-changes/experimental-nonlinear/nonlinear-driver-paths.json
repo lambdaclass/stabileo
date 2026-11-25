@@ -1,0 +1,18 @@
+{
+  "id": "nonlinear-driver-paths",
+  "date": "2026-11-23",
+  "issues": [2484],
+  "area": "analysis",
+  "when": {
+    "cargoFeature": "experimental-nonlinear",
+    "analyses": ["corotational2d", "corotational3d", "arcLength", "displacementControl"]
+  },
+  "quantities": [
+    "solve.ok", "converged", "iterations", "loadFactor", "finalLoadFactor", "steps",
+    "maxDisplacement", "displacements", "reactions", "elementForces"
+  ],
+  "changelog": {
+    "file": "docs/results-changes/2026-11-experimental-nonlinear-drivers.md",
+    "heading": "Preserve load targets and accepted paths in experimental nonlinear analysis (2026-11-23)"
+  }
+}

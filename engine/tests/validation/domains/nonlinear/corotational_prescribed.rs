@@ -144,6 +144,47 @@ fn validation_corotational_continuing_an_unchanged_model_keeps_its_state() {
 }
 
 #[test]
+fn issue_2510_unchanged_prescribed_motion_needs_no_warm_start_correction() {
+    let flat = strip(16, 1.0, 1e-3);
+    let bent = clamp(&flat, 0.3, 0.3f64.sin() / 0.3, 1.0);
+    let solved = solve_corotational_2d(&bent, 50, 1e-10, 6, false).unwrap();
+    assert!(solved.converged);
+    let unchanged = bent.clone();
+    let start = CorotationalStart2D {
+        input: &bent,
+        displacements: &solved.results.displacements,
+    };
+    let check = |result: CorotationalResult| {
+        assert!(result.converged, "stopped at load factor {}", result.load_factor);
+        assert_eq!(result.load_factor, 1.0);
+        assert_eq!(result.results.displacements.len(), start.displacements.len());
+        for (actual, expected) in result.results.displacements.iter().zip(start.displacements) {
+            assert_eq!(actual.node_id, expected.node_id);
+            assert_eq!([actual.ux, actual.uz, actual.ry], [expected.ux, expected.uz, expected.ry]);
+        }
+    };
+
+    for modified in [false, true] {
+        check(solve_corotational_2d_from(&unchanged, Some(&start), 1, 1e-10, 3, modified).unwrap());
+    }
+    #[cfg(feature = "experimental-nonlinear")]
+    {
+        use dedaliano_engine::solver::experimental_nonlinear::{
+            solve_corotational_2d_by, solve_corotational_2d_stepped, IterationMethod, LoadStepping,
+        };
+        for method in [IterationMethod::Newton, IterationMethod::ModifiedNewton] {
+            check(solve_corotational_2d_by(&unchanged, Some(&start), 1, 1e-10, 3, method).unwrap());
+            check(
+                solve_corotational_2d_stepped(
+                    &unchanged, Some(&start), 1, 1e-10, 3, method, LoadStepping::Equal,
+                )
+                .unwrap(),
+            );
+        }
+    }
+}
+
+#[test]
 fn validation_corotational_start_from_another_model_is_refused() {
     let flat = strip(16, 1.0, 1e-3);
     let r = solve_corotational_2d(&clamp(&flat, 0.1, 0.1f64.sin() / 0.1, 1.0), 50, 1e-10, 2, false).unwrap();

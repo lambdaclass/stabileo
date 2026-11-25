@@ -100,23 +100,7 @@
       "rrx": true,
       "rry": true,
       "rrz": true,
-      "kx": null,
-      "ky": null,
-      "kz": null,
-      "krx": null,
-      "kry": null,
-      "krz": null,
-      "dx": null,
-      "dy": null,
-      "dz": null,
-      "drx": null,
-      "dry": null,
-      "drz": null,
       "rw": null,
-      "kw": null,
-      "normalX": null,
-      "normalY": null,
-      "normalZ": null,
       "isInclined": null
     }
   },
@@ -130,9 +114,7 @@
         "qYI": 62.15076156597772,
         "qYJ": -76.59785028039235,
         "qZI": 63.37344670876445,
-        "qZJ": 83.45431529555981,
-        "a": null,
-        "b": null
+        "qZJ": 83.45431529555981
       }
     },
     {
@@ -144,9 +126,7 @@
         "qYI": 53.97452132303437,
         "qYJ": 55.56866707874201,
         "qZI": -92.07351187373027,
-        "qZJ": 19.794524920618173,
-        "a": null,
-        "b": null
+        "qZJ": 19.794524920618173
       }
     }
   ],

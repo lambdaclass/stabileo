@@ -1,0 +1,38 @@
+{
+  "id": "exact-planar-member-actions",
+  "date": "2026-11-25",
+  "prs": [2567],
+  "area": "analysis",
+  "when": {
+    "all": ["plane2D", "analysis:nonlinear", "memberLoads"]
+  },
+  "quantities": [
+    "solve.ok", "displacements", "reactions", "elementForces", "constraintForces",
+    "steps", "finalLoadFactor", "loadFactor", "converged", "iterations",
+    "totalIterations", "rejectedIterations", "maxDisplacement", "loadIncrements"
+  ],
+  "title": {
+    "en": "Accumulate planar nonlinear member actions exactly",
+    "es": "Acumular exactamente las acciones de barra en el análisis no lineal plano",
+    "pt": "Acumular exatamente as ações nas barras na análise não linear plana",
+    "de": "Stablasten in der ebenen nichtlinearen Analyse exakt summieren",
+    "fr": "Cumuler exactement les actions de barre en analyse non linéaire plane",
+    "hu": "Rúdterhek pontos összegzése síkbeli nemlineáris számításban",
+    "tr": "Düzlemsel doğrusal olmayan analizde eleman yüklerini tam olarak topla",
+    "zh": "精确累加平面非线性分析中的杆件作用"
+  },
+  "explanation": {
+    "en": "Planar nonlinear analysis rounds equivalent nodal actions after accumulating them from point forces, couples and distributed member loads. This preserves cancellation in reactions and member end forces.",
+    "es": "El análisis no lineal plano redondea las acciones nodales equivalentes tras acumular las contribuciones de las fuerzas puntuales, los pares y las cargas distribuidas de barra. Así conserva su cancelación en las reacciones y los esfuerzos de extremo.",
+    "pt": "A análise não linear plana arredonda as ações nodais equivalentes após acumular as contribuições das forças pontuais, dos binários e das cargas distribuídas nas barras. Isso preserva o cancelamento nas reações e nos esforços de extremidade.",
+    "de": "Die ebene nichtlineare Analyse rundet äquivalente Knotenlasten erst nach der Summation der Beiträge aus Einzelkräften, Einzelmomenten und Streckenlasten. Dadurch bleibt die Aufhebung in Auflagerreaktionen und Stabendkräften erhalten.",
+    "fr": "L’analyse non linéaire plane arrondit les actions nodales équivalentes après avoir cumulé les contributions des forces ponctuelles, des couples et des charges réparties sur les barres. Cela préserve leur annulation dans les réactions et les efforts d’extrémité.",
+    "hu": "A síkbeli nemlineáris számítás a pontszerű erők, nyomatékok és megoszló rúdterhek hozzájárulásainak összege után kerekíti az egyenértékű csomóponti terheket. Így megmarad a reakciók és a rúdvégi erők kioltása.",
+    "tr": "Düzlemsel doğrusal olmayan analiz, tekil kuvvetlerin, momentlerin ve yayılı eleman yüklerinin katkılarını topladıktan sonra eşdeğer düğüm yüklerini yuvarlar. Böylece mesnet tepkilerinde ve eleman uç kuvvetlerinde yüklerin birbirini götürmesi korunur.",
+    "zh": "平面非线性分析在累加集中力、力偶和杆件分布荷载的贡献后，才对等效节点作用进行舍入。这保留了支座反力和杆端内力中的抵消。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-exact-planar-member-actions.md",
+    "heading": "Accumulate planar nonlinear member actions exactly (2026-11-25)"
+  }
+}

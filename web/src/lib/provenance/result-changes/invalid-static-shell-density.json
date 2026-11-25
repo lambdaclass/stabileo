@@ -1,0 +1,35 @@
+{
+  "id": "invalid-static-shell-density",
+  "date": "2026-11-25",
+  "prs": [2540],
+  "area": "analysis",
+  "when": {
+    "all": ["invalidShellSelfWeightDensity"],
+    "any": ["analysis:linear", "analysis:pdelta", "analysis:buckling", "analysis:plastic", "analysis:nonlinear", "analysis:ssi"]
+  },
+  "quantities": ["solve.ok"],
+  "title": {
+    "en": "Flag invalid density in static shell self-weight",
+    "es": "Aviso por densidad inválida en el peso propio estático de láminas",
+    "pt": "Aviso de densidade inválida no peso próprio estático de cascas",
+    "de": "Hinweis auf ungültige Dichte beim statischen Eigengewicht von Schalen",
+    "fr": "Signalement d’une masse volumique invalide pour le poids propre des coques en statique",
+    "hu": "Figyelmeztetés érvénytelen sűrűségre a héjak statikai önsúlyszámításában",
+    "tr": "Statik kabuk öz ağırlığında geçersiz yoğunluk uyarısı",
+    "zh": "标记壳单元静力自重计算中的无效密度"
+  },
+  "explanation": {
+    "en": "A plate or shell covered by a self-weight rule has invalid material density. Earlier static results could omit its self-weight when the density was saved as null. Enter a finite, nonnegative density and rerun the analysis.",
+    "es": "Una placa o lámina incluida en una regla de peso propio tiene una densidad de material inválida. Los resultados estáticos anteriores podían omitir su peso propio si la densidad estaba guardada como null. Ingresá un valor de densidad finito y no negativo y repetí el análisis.",
+    "pt": "Uma placa ou casca abrangida por uma regra de peso próprio tem uma densidade de material inválida. Os resultados estáticos anteriores podiam omitir o seu peso próprio se a densidade estivesse guardada como null. Introduza uma densidade finita e não negativa e repita a análise.",
+    "de": "Eine Platte oder Schale im Geltungsbereich einer Eigengewichtsregel hat eine ungültige Materialdichte. Frühere statische Ergebnisse konnten ihr Eigengewicht auslassen, wenn die Dichte als null gespeichert war. Geben Sie eine endliche, nichtnegative Dichte ein und berechnen Sie das Modell erneut.",
+    "fr": "Une plaque ou une coque visée par une règle de poids propre présente une masse volumique invalide. Les résultats statiques antérieurs pouvaient omettre son poids propre si la masse volumique était enregistrée avec la valeur null. Saisissez une masse volumique finie, positive ou nulle, puis relancez le calcul.",
+    "hu": "Egy önsúlyszabály által érintett lemez vagy héj anyagsűrűsége érvénytelen. A korábbi statikai eredményekből kimaradhatott az önsúlya, ha a sűrűséget null értékként mentették. Adjon meg véges, nemnegatív sűrűséget, majd futtassa újra a számítást.",
+    "tr": "Bir öz ağırlık kuralı kapsamındaki plak veya kabuğun malzeme yoğunluğu geçersiz. Yoğunluk null olarak kaydedildiyse önceki statik sonuçlar öz ağırlığı atlamış olabilir. Sonlu ve negatif olmayan bir yoğunluk girip analizi yeniden çalıştırın.",
+    "zh": "自重规则覆盖的板或壳单元的材料密度无效。密度保存为 null 时，早期静力分析结果可能漏算该单元的自重。请输入有限且非负的密度，然后重新运行分析。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-invalid-solver-numbers.md",
+    "heading": "Flag invalid density in static shell self-weight"
+  }
+}

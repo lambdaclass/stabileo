@@ -12,7 +12,7 @@ import '../../store';
 import { initSolver } from '../wasm-solver';
 import { solveCombinations2D, solveCombinations3D, type ModelData } from '../solver-service';
 import { evaluateDiagramAt } from '../diagrams-3d';
-import { withCaseEffects, caseOrder } from '../case-effects';
+import { withCaseEffects, caseOrder, singleSolveFactors, singleSolveModel } from '../case-effects';
 import { withNotionalVariants } from '../loads/notional-combinations';
 import type { AnalysisResults3D } from '../types-3d';
 
@@ -171,4 +171,24 @@ it('preserves a 2D multi-case containment refusal', () => {
     expect(multi).toHaveBeenCalled();
     expect(single).not.toHaveBeenCalled();
   } finally { multi.mockRestore(); single.mockRestore(); }
+});
+
+it.each([false, true])('#2297 ignores missing inclusions in single-solve recovery with legacy self-weight %s', legacySelfWeight => {
+  const { D, W } = portal();
+  const c = modelStore.addLoadCase('Composite', '');
+  const model = md();
+  const control = modelStore.loadCases.filter(lc => [D, W, c].includes(lc.id)).map(lc => lc.id === c ? { ...lc, includes: [{ caseId: W, factor: 0.5 }] } : lc);
+  const withExtra = (caseId: number, factor: number) => control.map(lc => lc.id === c ? {
+    ...lc, includes: [...lc.includes!, { caseId, factor }, { caseId, factor }],
+  } : lc);
+  const missing = withExtra(999, Number.MAX_VALUE);
+  const factors = (cases: typeof control) => singleSolveFactors(cases, { legacySelfWeight });
+  const assembled = (cases: typeof control) => withCaseEffects(model, cases, { includeSelfWeight: legacySelfWeight, leftHand: false });
+
+  expect(singleSolveModel(model, missing)).toEqual(singleSolveModel(model, control));
+  expect(assembled(missing)).toEqual(assembled(control));
+  expect(factors(control)?.get(W)).toBe(0.5);
+  expect(factors(missing)).toEqual(factors(control));
+  expect(factors(withExtra(W, Number.MAX_VALUE / 2))?.get(W)).toBe(-Number.MAX_VALUE);
+  expect(() => factors(withExtra(W, Number.MAX_VALUE))).toThrow(/net factor/);
 });

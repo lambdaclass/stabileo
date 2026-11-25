@@ -17,8 +17,7 @@ beforeEach(() => {
   vi.spyOn(pool, 'isPoolReady').mockReturnValue(true);
   vi.spyOn(pool, 'solveParallel').mockImplementation(async inputs => new Map(inputs.map(({ id, input }) => {
     const wire = structuredClone(input);
-    solver.assertFiniteWire(wire);
-    return [id, finishSolve3D(solve_3d(wire), wire as Parameters<typeof finishSolve3D>[1])];
+    return [id, finishSolve3D(solve_3d(solver.finiteObjectWire(wire)), wire as Parameters<typeof finishSolve3D>[1])];
   })));
 });
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });

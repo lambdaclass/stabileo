@@ -642,7 +642,7 @@ fn buckling_without_compression_refuses_in_every_orientation() {
 #[test]
 fn restrained_thermal_compression_buckles_under_a_common_translation() {
     let column = |shift: f64| -> SolverInput {
-        let support = |id: usize| json!({"id": id, "nodeId": id, "type": "fixed", "kx": null, "ky": null, "kz": null, "dx": shift, "dz": shift, "dry": null, "angle": null});
+        let support = |id: usize| json!({"id": id, "nodeId": id, "type": "fixed", "dx": shift, "dz": shift});
         serde_json::from_value(json!({
             "nodes": (1..=5).map(|i| (i.to_string(), json!({"id": i, "x": (i - 1) as f64, "z": 0.0}))).collect::<serde_json::Map<_, _>>(),
             "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},

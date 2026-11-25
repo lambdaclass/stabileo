@@ -69,23 +69,7 @@
    "rrx": true,
    "rry": true,
    "rrz": true,
-   "kx": null,
-   "ky": null,
-   "kz": null,
-   "krx": null,
-   "kry": null,
-   "krz": null,
-   "dx": null,
-   "dy": null,
-   "dz": null,
-   "drx": null,
-   "dry": null,
-   "drz": null,
    "rw": null,
-   "kw": null,
-   "normalX": null,
-   "normalY": null,
-   "normalZ": null,
    "isInclined": null
   }
  },
@@ -99,8 +83,7 @@
     "fz": 478.0698450155329,
     "mx": -176.68263789195188,
     "my": 1.880241333984145,
-    "mz": -6.248345044667417,
-    "bw": null
+    "mz": -6.248345044667417
    }
   }
  ],

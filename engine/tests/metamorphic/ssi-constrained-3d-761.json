@@ -623,23 +623,7 @@
         "rrx": true,
         "rry": true,
         "rrz": true,
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "krx": null,
-        "kry": null,
-        "krz": null,
-        "dx": null,
-        "dy": null,
-        "dz": null,
-        "drx": null,
-        "dry": null,
-        "drz": null,
         "rw": null,
-        "kw": null,
-        "normalX": null,
-        "normalY": null,
-        "normalZ": null,
         "isInclined": null
       },
       "8": {
@@ -650,23 +634,7 @@
         "rrx": true,
         "rry": true,
         "rrz": true,
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "krx": null,
-        "kry": null,
-        "krz": null,
-        "dx": null,
-        "dy": null,
-        "dz": null,
-        "drx": null,
-        "dry": null,
-        "drz": null,
         "rw": null,
-        "kw": null,
-        "normalX": null,
-        "normalY": null,
-        "normalZ": null,
         "isInclined": null
       },
       "4": {
@@ -677,20 +645,7 @@
         "rrx": false,
         "rry": false,
         "rrz": false,
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "krx": null,
-        "kry": null,
-        "krz": null,
-        "dx": null,
-        "dy": null,
-        "dz": null,
-        "drx": null,
-        "dry": null,
-        "drz": null,
         "rw": null,
-        "kw": null,
         "normalX": 0.48,
         "normalY": 0.36,
         "normalZ": 0.8,
@@ -707,8 +662,7 @@
           "fz": -20.0,
           "mx": 0.0,
           "my": 1.0,
-          "mz": 0.0,
-          "bw": null
+          "mz": 0.0
         }
       },
       {
@@ -720,8 +674,7 @@
           "fz": -30.0,
           "mx": 2.0,
           "my": 0.0,
-          "mz": -1.0,
-          "bw": null
+          "mz": -1.0
         }
       },
       {
@@ -733,8 +686,7 @@
           "fz": 0.0,
           "mx": 0.0,
           "my": 0.0,
-          "mz": 1.5,
-          "bw": null
+          "mz": 1.5
         }
       }
     ],
