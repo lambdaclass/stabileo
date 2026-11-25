@@ -45,6 +45,9 @@ impl Direction {
         match self {
             Direction::Newton => problem.correction(false),
             Direction::ModifiedNewton => problem.correction(true),
+            // The planar driver forces prescribed motion at the start of an increment,
+            // after clearing its cached factor. This solves the current tangent exactly
+            // and keeps that factor for the subsequent inexact corrections.
             Direction::NewtonKrylov if forced => problem.correction(true),
             Direction::NewtonKrylov => match inexact(problem) {
                 Inexact::Step(step) => Ok(step),

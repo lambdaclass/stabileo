@@ -215,7 +215,7 @@ impl incremental::IncrementalProblem for Corotational3D<'_> {
                 &mut self.k_t,
                 (&mut self.trip_rows, &mut self.trip_cols, &mut self.trip_vals),
                 damping,
-            );
+            )?;
         }
         incremental::IncrementalProblem::correction(self, false)
     }
@@ -719,6 +719,15 @@ mod shared_driver_equivalence_3d {
             assert_eq!(inexact.load_factor, 1.0);
             assert!(apart(&inexact, &newton) <= 1e-7, "{}", apart(&inexact, &newton));
             assert!(inexact.iterations <= newton.iterations + 4, "{} against {}", inexact.iterations, newton.iterations);
+        }
+    }
+
+    #[test]
+    fn overflowing_damping_is_refused_by_the_spatial_solver() {
+        for input in [frame(4, 0.0, false, 0.05), building(3, 4, 20.0)] {
+            let error = solve_corotational_3d_by(&input, 50, 1e-8, 1,
+                IterationMethod::PseudoTransient { damping: f64::MAX }).unwrap_err();
+            assert_eq!(error, "Pseudo-transient damping exceeds the finite tangent range");
         }
     }
 
