@@ -119,6 +119,7 @@ export function* selfWeightSources(
   const weight = createSectionWeight(model.materials);
   for (const entry of entries) {
     const { caseId, direction, factor } = entry;
+    if (!includeShells && factor === 0) continue;
     const scope = selfWeightScope(model, entry);
     for (const el of model.elements.values()) {
       if (scope.members && !scope.members.has(el.id)) continue;

@@ -616,7 +616,7 @@ it('#2479 refuses a missing reference case with cancelling pressures on two floo
   })) expect.soft(await outcome(run), name).toEqual(diagnostic);
   const missing = expanded();
   expect.soft(() => caseMassLoads(missing, massFactors, false), 'mass source').toThrow(/case.*surface3d/i);
-  expect.soft(() => notionalSourceLoads3D(missing, false, 1, scenarioSurfaceExpectations(missing[accountingCaseSources]!)(1)), 'notional source')
+  expect.soft(() => notionalSourceLoads3D(missing, false, 1, scenarioSurfaceExpectations(missing[accountingCaseSources]!)(1), prepareSolverInput3D(missing, false).build([])!), 'notional source')
     .toThrow(/case.*surface3d/i);
   expect.soft(modelStore.singleSolveInput3D(false, false, true), 'input').toBeNull();
   expect.soft(await runGlobalSolve({ directBase: true }), 'global').toMatchObject({ ok: false, error: diagnostic });
@@ -685,7 +685,7 @@ it('#2479 accepts signed pressures with zero equivalent force at two corners', a
     }
   };
   const factored = () => comboSolverLoads3D(combo, caseSolverLoads3D(model, model.loadCases, false, false));
-  const notional = () => notionalSourceLoads3D(model, false, 1, [{ baseline, factor: 0.5 }]);
+  const notional = () => notionalSourceLoads3D(model, false, 1, [{ baseline, factor: 0.5 }], prepareSolverInput3D(model, false).build([])!);
   checkWires(buildSolverInput3D(model)?.loads);
   checkWires(factored(), 2);
   checkWires(notional());
@@ -1887,7 +1887,7 @@ it.each(['split', 'case'] as const)('#2586 retains opposing generated sources ac
   }
 });
 
-it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586')('#2586 checks truss weight before deriving a notional reference action', async () => {
+it('#2586 checks truss weight before deriving a notional reference action', async () => {
   const id = cantilever('3d');
   const member = modelStore.model.elements.get(id)!;
   modelStore.updateElement(id, { type: 'truss' });
@@ -1928,7 +1928,7 @@ it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586')('#2586 checks truss weight bef
   }
 });
 
-it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586').each([false, true])(
+it.each([false, true])(
   '#2586 checks each derived notional nodal action when included=%s',
   async included => {
     const id = cantilever('3d');
@@ -1975,7 +1975,7 @@ it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586').each([false, true])(
   },
 );
 
-it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586')('#2586 skips a disabled planar self-weight rule before reading its scope or density', async () => {
+it('#2586 skips a disabled planar self-weight rule before reading its scope or density', async () => {
   const id = cantilever('2d');
   const base = modelStore.model;
   const member = base.elements.get(id)!;
@@ -1984,15 +1984,16 @@ it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586')('#2586 skips a disabled planar
     const make = (factor: number): ModelData => ({
       ...base,
       materials: stale ? base.materials : new Map(base.materials).set(member.materialId, { ...material, rho: -1 }),
-      loads: [{ type: 'nodal', data: { id: 1, caseId: 1, nodeId: member.nodeJ, fx: 0, fy: -3, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { id: 1, caseId: 1, nodeId: member.nodeJ, fx: 0, fz: -3, my: 0 } }],
       analysis: { ...base.analysis, selfWeight: [{ caseId: 1, direction: 'Z', factor, ...(stale ? { groupId: 9000 } : {}) }] },
     });
     const off = make(0);
     expect.soft(await outcome(() => buildSolverInput2D(off))).toBe('returned a result');
-    for (const solve of [() => validateAndSolve2D(off), () => validateAndSolve2DAsync(off),
-      () => solvePDelta(buildSolverInput2D(off)!)]) {
-      expect.soft(await refusal(solve)).toMatchObject({ reactions: [expect.objectContaining({ fy: expect.closeTo(3, 10) })] });
+    const reactions = [expect.objectContaining({ rz: expect.closeTo(3, 10) })];
+    for (const solve of [() => validateAndSolve2D(off), () => validateAndSolve2DAsync(off)]) {
+      expect.soft(await refusal(solve)).toMatchObject({ reactions });
     }
+    expect.soft(await refusal(() => solvePDelta(buildSolverInput2D(off)!))).toMatchObject({ results: { reactions } });
     expect.soft(await outcome(() => solveCombinations2D(off, modelStore.loadCases, modelStore.combinations))).toBe('returned a result');
     for (const factor of [-1, 1]) {
       const on = make(factor);

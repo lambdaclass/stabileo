@@ -539,17 +539,27 @@ function skewWallSlab() {
   return { area, bases: [i, j] };
 }
 
-function cornerWall(y: number) {
+function cornerWall(offset: number) {
   const [corner] = loadedSlab();
-  const a = modelStore.addNode(0, y, -1), b = modelStore.addNode(-2, y + 2, -1);
-  const c = modelStore.addNode(-2, y + 2, 1), d = modelStore.addNode(0, y, 1);
+  const a = modelStore.addNode(offset, offset, -1), b = modelStore.addNode(offset - 2, offset + 2, -1);
+  const c = modelStore.addNode(offset - 2, offset + 2, 1), d = modelStore.addNode(offset, offset, 1);
   modelStore.addSupport(a, 'fixed3d');
   modelStore.addSupport(b, 'fixed3d');
   modelStore.addQuad([a, b, c, d], 1, 0.15);
   modelStore.addElement(corner!, a);
+  if (offset !== 0) return;
+  const support = [...modelStore.supports.values()].find(entry => entry.nodeId === corner)!;
+  modelStore.removeSupport(support.id);
+  for (const dof of [0, 1, 2, 3, 4, 5]) {
+    modelStore.addConstraint({
+      type: 'linearMPC', terms: [
+        { nodeId: corner!, dof, coefficient: 2 }, { nodeId: a, dof, coefficient: -1 }, { nodeId: d, dof, coefficient: -1 },
+      ],
+    });
+  }
 }
 
-it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586').each([['skew shared edge', skewWallSlab], ['slab corner', () => { cornerWall(0); }]] as const)(
+it.each([['skew shared edge', skewWallSlab], ['slab corner', () => { cornerWall(0); }]] as const)(
   '#2586 accepts wall contact at a %s',
   async (_, setup) => {
     for (const [entry, solve] of entries) {

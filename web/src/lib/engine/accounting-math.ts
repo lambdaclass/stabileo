@@ -40,6 +40,17 @@ export class Sum {
   get value(): number { return this.sum + this.correction; }
 }
 
+const coordinateBits = new DataView(new ArrayBuffer(Float64Array.BYTES_PER_ELEMENT));
+
+export function dyadicInteger(value: number): bigint {
+  coordinateBits.setFloat64(0, value);
+  const bits = coordinateBits.getBigUint64(0);
+  const exponent = (bits >> 52n) & 0x7ffn;
+  const fraction = bits & 0xfffffffffffffn;
+  const magnitude = exponent === 0n ? fraction : ((1n << 52n) | fraction) << (exponent - 1n);
+  return bits >> 63n ? -magnitude : magnitude;
+}
+
 const absolute = ([x, y, z]: Vector): Vector => [Math.abs(x), Math.abs(y), Math.abs(z)];
 
 function crossMagnitude([x, y, z]: Vector, [fx, fy, fz]: Vector): Vector {

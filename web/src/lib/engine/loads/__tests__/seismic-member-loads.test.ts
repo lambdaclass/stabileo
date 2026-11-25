@@ -1844,7 +1844,7 @@ it('#2586 continues a supported gable post through subdivision', () => {
   }
 });
 
-it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586')('#2586 recognizes a supported gable with a horizontal eave tie', () => {
+it('#2586 recognizes a supported gable with a horizontal eave tie', () => {
   for (const rotated of [false, true]) {
     const { model } = gablePlan(false, rotated, false, 0);
     const [left, right] = [...model.nodes.values()].filter(node => node.z === 2);

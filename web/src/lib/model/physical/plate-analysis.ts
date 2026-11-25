@@ -272,16 +272,21 @@ function unmatchedVertex(cell: Cell, stations: Station[][], equations: EdgeEquat
   return undefined;
 }
 
+function planeDistance(point: Vec3, { o, n }: PlateFrame): number {
+  const distance = dot(sub(point, o), n);
+  return Math.abs(distance) <= PLATE_EDGE_TOL ? 0 : distance;
+}
+
 function faceSection(cell: Cell, plane: PlateFrame, direction: Vec3, origin: Vec3) {
-  const distances = cell.vertices.map(vertex => dot(sub(vertex.point, plane.o), plane.n));
+  const distances = cell.vertices.map(vertex => planeDistance(vertex.point, plane));
   const stations = cell.vertices.map(vertex => dot(sub(vertex.point, origin), direction));
   const cuts: number[] = [];
   const edges: Array<readonly [number, number]> = [];
   for (const [i, a] of distances.entries()) {
     const j = (i + 1) % distances.length;
     const b = distances[j]!, first = stations[i]!, last = stations[j]!;
-    if (Math.abs(a) <= PLATE_EDGE_TOL) cuts.push(first);
-    if (Math.abs(a) <= PLATE_EDGE_TOL && Math.abs(b) <= PLATE_EDGE_TOL) {
+    if (a === 0) cuts.push(first);
+    if (a === 0 && b === 0) {
       edges.push([Math.min(first, last), Math.max(first, last)]);
     }
     if ((a < 0 && b > 0) || (a > 0 && b < 0)) cuts.push(first + a / (a - b) * (last - first));
@@ -302,10 +307,11 @@ function throughFaces(wall: Cell, slab: Cell): boolean {
   return [wallSection, slabSection].some(section => {
     let end = lo;
     for (const [a, b] of section.edges.sort(([a], [b]) => a - b)) {
-      if (a > end) break;
+      if (a - end > PLATE_EDGE_TOL) break;
+      if (hi - b <= PLATE_EDGE_TOL) return false;
       end = Math.max(end, b);
     }
-    return end < hi;
+    return true;
   });
 }
 
@@ -344,15 +350,13 @@ function interiorContact(walls: readonly Cell[], slabs: readonly Cell[]) {
         if (bounds[0]!.lo > right) break;
         if (axes.some(axis => Math.min(a[axis], b[axis]) > bounds[axis]!.hi
           || Math.max(a[axis], b[axis]) < bounds[axis]!.lo)) continue;
-        const { o, n } = cell.frame;
-        const fromPlane = dot(sub(a, o), n), toPlane = dot(sub(b, o), n);
+        const fromPlane = planeDistance(a, cell.frame), toPlane = planeDistance(b, cell.frame);
         const contact = { wall: wall.key, slab: cell.key, edge: [first.id, last.id] as const };
-        if (Math.max(Math.abs(fromPlane), Math.abs(toPlane)) > PLATE_EDGE_TOL) {
-          if ((fromPlane < -PLATE_EDGE_TOL && toPlane > PLATE_EDGE_TOL)
-            || (toPlane < -PLATE_EDGE_TOL && fromPlane > PLATE_EDGE_TOL)) {
+        if (fromPlane !== 0 || toPlane !== 0) {
+          if ((fromPlane < 0 && toPlane > 0) || (toPlane < 0 && fromPlane > 0)) {
             const t = fromPlane / (fromPlane - toPlane);
             if (sides.every(({ point, inward }) =>
-              (1 - t) * dot(sub(a, point), inward) + t * dot(sub(b, point), inward) >= -PLATE_EDGE_TOL)) return contact;
+              (1 - t) * dot(sub(a, point), inward) + t * dot(sub(b, point), inward) > PLATE_EDGE_TOL)) return contact;
           }
           continue;
         }

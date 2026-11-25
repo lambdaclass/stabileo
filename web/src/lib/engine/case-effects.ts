@@ -27,7 +27,8 @@ import { prepareSolverInput3D, notionalSourceLoads3D, type ModelData } from './s
 import { nodeGravity, notionalLoads } from './direct-analysis';
 import { isCompositeCase } from './loads/combination-cases';
 import { variableExpansionFor } from './variable-members';
-import { caseReductionRefusal } from './loads/case-reduction';
+import { caseOrder, caseReductionRatio, reductionApplies } from './case-rules';
+export { caseOrder, reductionApplies } from './case-rules';
 import { listed } from './combination-methods';
 import { sumCombinationFactors } from './wasm-solver';
 
@@ -44,55 +45,9 @@ type CaseLike = Pick<LoadCase, 'id' | 'type' | 'includes' | 'notional' | 'reduct
 
 const DIRS: Record<'+X' | '-X' | '+Y' | '-Y', [number, number]> = { '+X': [1, 0], '-X': [-1, 0], '+Y': [0, 1], '-Y': [0, -1] };
 
-/**
- * Whether a case's stated reduction is applied: by the rule the case details offer it by
- * (`caseReductionRefusal`), a floor imposed load (L). Retyping a case keeps what it states, so an
- * L case reduced at 0,6 and retyped Lr held its ratio, and its 50 kN were solved as 30.
- */
-export function reductionApplies(c: Pick<LoadCase, 'type' | 'reduction'>): boolean {
-  return !!c.reduction && c.reduction.ratio !== 1 && caseReductionRefusal(c.type, false) !== 'notImposed';
-}
-
-/** The ratio a case's own loads are solved with. */
-const ratioOf = (c: Pick<LoadCase, 'type' | 'reduction'>) => (reductionApplies(c) ? c.reduction!.ratio : 1);
-
 /** Whether any case says something that changes the loads it is solved with. */
 export function hasCaseEffects(cases: readonly CaseLike[]): boolean {
   return cases.some((c) => (c.includes?.length ?? 0) > 0 || !!c.notional || reductionApplies(c));
-}
-
-/** The cases in an order where each comes after those it reads; those in a loop are named. */
-export function caseOrder(cases: readonly CaseLike[]): { order: number[]; looped: Set<number> } {
-  const byId = new Map(cases.map((c) => [c.id, c]));
-  const deps = (c: CaseLike) => [...(c.includes ?? []).map((x) => x.caseId), ...(c.notional ? [c.notional.sourceCaseId] : [])].filter((id) => byId.has(id));
-  const state = new Map<number, 0 | 1 | 2>();
-  const order: number[] = [];
-  const looped = new Set<number>();
-  const visit = (id: number, path: number[]) => {
-    const s = state.get(id) ?? 0;
-    if (s === 2) return;
-    if (s === 1) { for (const p of path.slice(path.indexOf(id))) looped.add(p); return; }
-    state.set(id, 1);
-    for (const d of deps(byId.get(id)!)) visit(d, [...path, id]);
-    state.set(id, 2);
-    order.push(id);
-  };
-  for (const c of cases) visit(c.id, []);
-  // The walk names the cases on the path it closes a loop along; a case that comes back to itself
-  // only through one the walk had finished (A → B → C → A, then B → D → C) is in a loop too.
-  const readsItself = (id: number) => {
-    const seen = new Set<number>(), stack = deps(byId.get(id)!);
-    while (stack.length) {
-      const d = stack.pop()!;
-      if (d === id) return true;
-      if (seen.has(d)) continue;
-      seen.add(d);
-      stack.push(...deps(byId.get(d)!));
-    }
-    return false;
-  };
-  for (const c of cases) if (!looped.has(c.id) && readsItself(c.id)) looped.add(c.id);
-  return { order, looped };
 }
 
 /**
@@ -249,7 +204,7 @@ function caseSources(
     if (!c) continue;
     const active = !looped.has(id);
     const includes = active ? includedCases(c, byId, opts.include) : [];
-    cases.set(id, { ratio: ratioOf(c), includes });
+    cases.set(id, { ratio: caseReductionRatio(c), includes });
     for (const inc of includes) required.add(inc.caseId);
     if (active && opts.generateNotionals && c.notional) required.add(c.notional.sourceCaseId);
   }

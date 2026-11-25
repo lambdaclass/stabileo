@@ -155,7 +155,7 @@ it('#2297 shell notices require a zero or possibly cancelling factor', () => {
   expect.soft(notice([dead, { caseId: 2, factor: Number.MIN_VALUE }])).toBe(false);
 });
 
-it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586')('#2586 compares generated member loads within each effective case', () => {
+it('#2586 compares generated member loads within each effective case', () => {
   const model: FeatureSnapshot = {
     analysisMode: 'pro',
     loadCases: [{ id: 1, type: 'E', alternatives: 'E' }, { id: 2, type: 'E', alternatives: 'E' }],

@@ -74,7 +74,7 @@ it('#2512 explicit width gravity does not qualify for panel gravity regeneration
   expect(features.has('generatedPanelGravity')).toBe(false);
 });
 
-it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586')('#2586 requires an actual paired roof attachment with a bounded gap', () => {
+it('#2586 requires an actual paired roof attachment with a bounded gap', () => {
   const id = 'gravity-attached-rafter-gaps';
   const check = (gap: false | readonly [number, number], paired: boolean, mode: 'width' | 'panels') => {
     const { model } = offsetRoof(0.02, 0.53, 1, true, gap);
@@ -82,7 +82,7 @@ it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586')('#2586 requires an actual pair
     const first = remote.id + 1, second = remote.id + 2;
     model.nodes.set(first, { ...remote, id: first, x: remote.x + 20 });
     model.nodes.set(second, { ...remote, id: second, x: remote.x + 20, z: remote.z! + 1 });
-    const constraints = paired ? model.constraints : [{ type: 'rigidLink', masterNode: first, slaveNode: second }];
+    const constraints = paired ? model.constraints.map(link => ({ ...link })) : [{ type: 'rigidLink', masterNode: first, slaveNode: second }];
     return changes({
       ...legacyPanel, analysisMode: 'pro', nodes: [...model.nodes], elements: [...model.elements],
       quads: [...model.quads], constraints,

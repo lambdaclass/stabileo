@@ -305,10 +305,9 @@ function seismicTopology(model: SeismicGeometry) {
       members.push(elementId);
       const nextId = continuations.get(node.id)?.get(elementId);
       if (nextId === undefined) {
-        const adjacent = neighbours.get(node.id)!;
-        if (adjacent.length !== 2) return undefined;
-        const post = adjacent.find(other => other.elementId !== elementId)!;
-        return post.node.z < node.z && verticalSupport(node, post) ? { eave: node, members } : undefined;
+        const columns = neighbours.get(node.id)!.filter(other =>
+          other.elementId !== elementId && other.node.z < node.z && verticalSupport(node, other));
+        return columns.length === 1 ? { eave: node, members } : undefined;
       }
       const next = neighbours.get(node.id)!.find(other => other.elementId === nextId)!;
       if (crossings.has(node.id) || next.node.z >= node.z) return undefined;

@@ -1937,12 +1937,26 @@ function recordedSolverLoads3D(model: ModelData, loads: Load[], weights: boolean
     buildSolverLoads3D(model, loads, weights, leftHand, { record, recordWeight }));
 }
 
+function verifySelfWeightLoads3D(
+  model: ModelData, input: SolverInput3D,
+  weights: ReturnType<typeof recordedSolverLoads3D>['selfWeights'],
+  checkedSource?: (source: CheckedSource3D) => void,
+) {
+  const embedded = shouldEmbedFlat2DModelIn3D(model);
+  for (const { source, rows } of weights) {
+    const receipt = weightSource3D(model, embedded, source, rows);
+    accountSource3D(model, input, source.caseId, receipt);
+    checkedSource?.(receipt);
+  }
+}
+
 export function notionalSourceLoads3D(
-  model: ModelData, leftHand: boolean, caseId: number, expectedPressures: readonly ScenarioSurfaceIntent[], input?: SolverInput3D,
+  model: ModelData, leftHand: boolean, caseId: number, expectedPressures: readonly ScenarioSurfaceIntent[], input: SolverInput3D,
 ): SolverLoad3D[] {
-  const { loads, sources } = recordedSolverLoads3D(model, model.loads, model.analysis?.selfWeight ?? [], leftHand);
+  const { loads, sources, selfWeights } = recordedSolverLoads3D(model, model.loads, model.analysis?.selfWeight ?? [], leftHand);
+  verifySelfWeightLoads3D(model, input, selfWeights);
   verifyScenarioSurfaceLoads(model, caseId, model.loads, sources, undefined, expectedPressures);
-  if (input) loadAccounting3D(model, input, shouldEmbedFlat2DModelIn3D(model), leftHand, new Map(), true)
+  loadAccounting3D(model, input, shouldEmbedFlat2DModelIn3D(model), leftHand, new Map(), true)
     .verifyGenerated(caseId, model.loads, sources);
   return loads;
 }
@@ -1963,18 +1977,13 @@ function checkedSolverLoads3D(
   checkedSource?: (source: CheckedSource3D) => void,
 ): SolverLoad3D[] {
   const { loads: checked, cases: assembledByCase, sources, selfWeights } = recordedSolverLoads3D(model, loads, weights, leftHand);
-  const embedded = shouldEmbedFlat2DModelIn3D(model);
-  const verifySource = (caseId: number, source: CheckedSource3D) => {
-    accountSource3D(model, input, caseId, source);
-    checkedSource?.(source);
-  };
   const selected = plateCases === true ? [...accounting.cases] : plateCases || [];
   for (const [caseId, entered] of loadCaseBatches(loads, selected)) {
     const assembled = assembledByCase.get(caseId) ?? [];
     const totals = accounting.verify(caseId, entered, assembled, sources, checkedSource);
     checkedCase?.(caseId, assembled, totals);
   }
-  for (const { source, rows } of selfWeights) verifySource(source.caseId, weightSource3D(model, embedded, source, rows));
+  verifySelfWeightLoads3D(model, input, selfWeights, checkedSource);
   return checked;
 }
 

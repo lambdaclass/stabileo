@@ -29,14 +29,14 @@
     "zh": "求解前校核生成荷载来源"
   },
   "explanation": {
-    "en": "Analysis stops if an individual generated load, shell pressure or self-weight source loses force or moment during solver preparation.",
-    "es": "El análisis se detiene si una carga generada, una presión sobre una superficie o una fuente de peso propio pierde fuerza o momento al preparar el cálculo.",
-    "pt": "A análise é interrompida se uma carga gerada, uma pressão de superfície ou uma fonte de peso próprio perder força ou momento na preparação do cálculo.",
-    "de": "Die Berechnung stoppt, wenn bei der Vorbereitung eine erzeugte Last, eine Flächenlast oder eine Eigengewichtsquelle Kraft oder Moment verliert.",
-    "fr": "Le calcul s’arrête si une charge générée, une pression sur une coque ou une source de poids propre perd une force ou un moment pendant la préparation.",
-    "hu": "A számítás leáll, ha az előkészítés során egy generált terhelés, felületi nyomás vagy önsúlyforrás erőt vagy nyomatékot veszít.",
-    "tr": "Hazırlık sırasında üretilen bir yük, kabuk basıncı veya öz ağırlık kaynağı kuvvet ya da moment kaybederse analiz durur.",
-    "zh": "若准备求解时单个生成荷载、壳面压力或自重来源的力或力矩丢失，分析将停止。"
+    "en": "Analysis stops if an individual generated load, shell pressure or self-weight source loses force or moment during solver preparation. This includes self-weight used to derive notional loads and the resulting nodal actions.",
+    "es": "El análisis se detiene si una carga generada, una presión sobre una superficie o una fuente de peso propio pierde fuerza o momento al preparar el cálculo. Esto incluye el peso propio usado para generar cargas nocionales y las acciones nodales resultantes.",
+    "pt": "A análise é interrompida se uma carga gerada, uma pressão de superfície ou uma fonte de peso próprio perder força ou momento na preparação do cálculo. Isso inclui o peso próprio usado para gerar cargas nocionais e as ações nodais resultantes.",
+    "de": "Die Berechnung stoppt, wenn bei der Vorbereitung eine erzeugte Last, eine Flächenlast oder eine Eigengewichtsquelle Kraft oder Moment verliert. Die Prüfung umfasst das Eigengewicht für Ersatzhorizontallasten und die daraus abgeleiteten Knotenlasten.",
+    "fr": "Le calcul s’arrête si une charge générée, une pression sur une coque ou une source de poids propre perd une force ou un moment pendant la préparation. La vérification couvre le poids propre utilisé pour les charges notionnelles et les actions nodales qui en résultent.",
+    "hu": "A számítás leáll, ha az előkészítés során egy generált terhelés, felületi nyomás vagy önsúlyforrás erőt vagy nyomatékot veszít. Az ellenőrzés kiterjed a helyettesítő vízszintes terhekhez használt önsúlyra és az ebből származó csomóponti terhekre.",
+    "tr": "Hazırlık sırasında üretilen bir yük, kabuk basıncı veya öz ağırlık kaynağı kuvvet ya da moment kaybederse analiz durur. Denetim, fiktif yükleri türetmek için kullanılan öz ağırlığı ve oluşan düğüm yüklerini de kapsar.",
+    "zh": "若准备求解时单个生成荷载、壳面压力或自重来源的力或力矩丢失，分析将停止。校核也涵盖用于推导名义荷载的自重及由此得到的节点作用。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-generated-source-accounting.md",

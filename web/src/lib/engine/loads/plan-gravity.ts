@@ -36,11 +36,11 @@ import polygonClipping, { type Polygon } from 'polygon-clipping';
 import { orient2d } from 'robust-predicates';
 import { SupportMappingError, supportDofs3D } from '../support-dofs-3d';
 import type { Support } from '../../store/model.svelte';
-import { agrees, roundoff, Sum } from '../accounting-math';
+import { agrees, dyadicInteger as finiteDyadicInteger, roundoff, Sum } from '../accounting-math';
 import { deckOverlapsInBand, deckSurface, physicalDeck, type Deck, type DeckFootprint, type DeckSurface } from './gravity-deck-geometry';
 import { partitionGravityFloors } from './gravity-floor-ownership';
 import { preparePhysicalFloorLoad, type FloorBay, type FloorBeam, type FloorPanel, type FloorLoadResult, type SideStretch } from './floor-loads';
-import { msg, round, type EngineMessage } from '../../codes/message';
+import { EngineMessageError, msg, round, type EngineMessage } from '../../codes/message';
 import type { Constraint3D } from '../types-3d';
 
 export interface GravityModel {
@@ -153,6 +153,84 @@ export function beamLike(model: GravityModel, el: { id: number; nodeI: number; n
   return { ok: rise / L <= BEAM_SLOPE_LIMIT, length: L, horizontalLength: Math.hypot(dx, dy) };
 }
 
+function gravityShells(model: GravityModel, mode: GravityOptions['mode']) {
+  const quadsAt = new Map<number, Array<Omit<GravityShell, 'z'>>>();
+  const slopedQuads: GravityShell[] = [];
+  const levelCarriers: ShellCarrier[] = [];
+  const slopedCarriers: ShellCarrier[] = [];
+  const coverShells: ShellCarrier[] = [];
+  const steep: number[] = [];
+  for (const q of model.quads?.values() ?? []) {
+    const pts = q.nodes.map((id) => model.nodes.get(id));
+    if (pts.some((p) => !p)) continue;
+    const xyz = pts.map((p) => [p!.x, p!.y, p!.z ?? 0] as [number, number, number]);
+    const zs = xyz.map((p) => p[2]);
+    const poly = xyz.map((p) => [p[0], p[1]] as [number, number]);
+    const plan = ringArea(poly);
+    const plane = mode === 'panels' && plan > 0 ? planarShell(q.id, xyz) : undefined;
+    const low = Math.min(...zs), high = Math.max(...zs);
+    const pitched = high - low > TOL;
+    const height: ShellPlane = plane ?? (low === high ? () => low : ([x, y]) => heightIn(xyz, [x, y, 0]));
+    const carrier: ShellCarrier = {
+      id: q.id, poly, pts: xyz, nodes: q.nodes, plane, pitched, height, low, high,
+      footprint: [[plan > 0 ? canonicalFootprint(poly) : poly]], geometry: physicalDeck(xyz, plane),
+    };
+    if (plan > 0) coverShells.push(carrier);
+    const surface = surfaceArea(xyz);
+    const cos = surface > 0 ? plan / surface : 0;
+    if (!pitched) {
+      const key = levelKey(low + (high - low) / 2);
+      const list = quadsAt.get(key) ?? [];
+      list.push({ quadId: q.id, area: plan, surface, cos });
+      quadsAt.set(key, list);
+      if (plan > 0) {
+        levelCarriers.push(carrier);
+      }
+      continue;
+    }
+    if (cos >= Math.sqrt(0.75) - 1e-9) {
+      slopedQuads.push({ quadId: q.id, area: plan, surface, z: low + zs.sort((a, b) => a - b).reduce((sum, z) => sum + (z - low), 0) / zs.length, cos });
+      slopedCarriers.push(carrier);
+    } else if (cos > Math.cos((80 * Math.PI) / 180)) steep.push(q.id);
+  }
+  const carriers = [...levelCarriers, ...slopedCarriers];
+  return { quadsAt, slopedQuads, carriers, coverShells, steep };
+}
+
+function attachedShellCoverage(
+  model: GravityModel, candidates: readonly { nodeI: number; nodeJ: number }[], members: Iterable<number>,
+  carriers: ShellCarrier[], links: readonly VerticalShellLink[], terminals: ReadonlySet<number>,
+): Map<number, AttachmentCoverage> {
+  const offsetLinks = links.filter(link => link.geometry);
+  if (!offsetLinks.length || !carriers.length) return new Map();
+  const shellNodes = new Set(carriers.flatMap(carrier => carrier.nodes));
+  const frameNodes = new Set(candidates.flatMap(({ nodeI, nodeJ }) => [nodeI, nodeJ]).filter(id => model.nodes.has(id)));
+  const offsets = shellOffsets(model, shellNodes, frameNodes, new AttachmentComponents(offsetLinks, terminals));
+  return rigidShellCoverage(model, offsets, carriers, members);
+}
+
+export function hasBoundedRafterGap(model: GravityModel): boolean {
+  const links = verticalShellLinks(model);
+  if (!links.some(link => link.geometry) || !model.quads?.size) return false;
+  try {
+    const { carriers } = gravityShells(model, 'panels');
+    const candidates = [...model.elements.values()].filter(e => e.type !== 'truss');
+    const members = candidates.filter(e => beamLike(model, e).ok).map(e => e.id);
+    const coverage = attachedShellCoverage(model, candidates, members, carriers, links, groundedStations(model));
+    for (const [id, attached] of coverage) {
+      if (typeof attached !== 'object' || !attached.gaps.length) continue;
+      const { nodeI, nodeJ } = model.elements.get(id)!;
+      const a = model.nodes.get(nodeI)!, b = model.nodes.get(nodeJ)!;
+      const trace: Segment = [[a.x, a.y, a.z ?? 0], [b.x, b.y, b.z ?? 0]];
+      if (shellCoverage(trace, carriers) === 'none') return true;
+    }
+    return false;
+  } catch (error) {
+    if (error instanceof EngineMessageError) return false;
+    throw error;
+  }
+}
+
 export function gravityLayout(model: GravityModel, opts: GravityOptions): GravityLayout {
   const eligibility = new Map<number, ReturnType<typeof beamLike>>();
   const out: GravityLayout = {
@@ -178,59 +256,12 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     eligibility.set(e.id, member);
   }
 
-  const quadsAt = new Map<number, Array<Omit<GravityShell, 'z'>>>();
-  const slopedQuads: GravityShell[] = [];
-  const levelCarriers: ShellCarrier[] = [];
-  const slopedCarriers: ShellCarrier[] = [];
-  const coverShells: ShellCarrier[] = [];
-  const steep: number[] = [];
-  const shellNodes = new Set<number>();
-  for (const q of model.quads?.values() ?? []) {
-    const pts = q.nodes.map((id) => model.nodes.get(id));
-    if (pts.some((p) => !p)) continue;
-    const xyz = pts.map((p) => [p!.x, p!.y, p!.z ?? 0] as [number, number, number]);
-    const zs = xyz.map((p) => p[2]);
-    const poly = xyz.map((p) => [p[0], p[1]] as [number, number]);
-    const plan = ringArea(poly);
-    const plane = opts.mode === 'panels' && plan > 0 ? planarShell(q.id, xyz) : undefined;
-    const low = Math.min(...zs), high = Math.max(...zs);
-    const pitched = high - low > TOL;
-    const height: ShellPlane = plane ?? (low === high ? () => low : ([x, y]) => heightIn(xyz, [x, y, 0]));
-    const carrier: ShellCarrier = {
-      id: q.id, poly, pts: xyz, nodes: q.nodes, plane, pitched, height, low, high,
-      footprint: [[plan > 0 ? canonicalFootprint(poly) : poly]], geometry: physicalDeck(xyz, plane),
-    };
-    if (plan > 0) coverShells.push(carrier);
-    const surface = surfaceArea(xyz);
-    const cos = surface > 0 ? plan / surface : 0;
-    if (!pitched) {
-      const key = levelKey(low + (high - low) / 2);
-      const list = quadsAt.get(key) ?? [];
-      list.push({ quadId: q.id, area: plan, surface, cos });
-      quadsAt.set(key, list);
-      if (plan > 0) {
-        levelCarriers.push(carrier);
-        for (const id of q.nodes) shellNodes.add(id);
-      }
-      continue;
-    }
-    // |sin| ≤ 0,5, the members' rule: a roof; past 80° a wall; between, named.
-    if (cos >= Math.sqrt(0.75) - 1e-9) {
-      slopedQuads.push({ quadId: q.id, area: plan, surface, z: low + zs.sort((a, b) => a - b).reduce((sum, z) => sum + (z - low), 0) / zs.length, cos });
-      slopedCarriers.push(carrier);
-      for (const id of q.nodes) shellNodes.add(id);
-    } else if (cos > Math.cos((80 * Math.PI) / 180)) steep.push(q.id);
-  }
-  const carriers = [...levelCarriers, ...slopedCarriers];
+  const { quadsAt, slopedQuads, carriers, coverShells, steep } = gravityShells(model, opts.mode);
   const links = opts.mode === 'panels' ? verticalShellLinks(model) : [];
   const terminals = links.length ? groundedStations(model) : new Set<number>();
-  const offsetLinks = links.filter(link => link.geometry);
-  const offsets = offsetLinks.length && shellNodes.size
-    ? shellOffsets(model, shellNodes, new Set(candidates.flatMap(({ nodeI, nodeJ }) => [nodeI, nodeJ])),
-      new AttachmentComponents(offsetLinks, terminals))
-    : new Map<number, ShellOffset[]>();
   const attachedCoverage = opts.mode === 'panels'
-    ? rigidShellCoverage(model, offsets, carriers, out.zOf.keys()) : new Map<number, AttachmentCoverage>();
+    ? attachedShellCoverage(model, candidates, out.zOf.keys(), carriers, links, terminals)
+    : new Map<number, AttachmentCoverage>();
   const shellMembership = new Map<number, boolean>();
   const inShell = (e: { id: number; nodeI: number; nodeJ: number }): boolean => {
     if (opts.mode !== 'panels' || !carriers.length) return false;
@@ -1595,16 +1626,9 @@ type CoverQuery = {
 };
 type RingLocation = 'boundary' | 'inside' | 'outside';
 
-const coordinateBits = new DataView(new ArrayBuffer(Float64Array.BYTES_PER_ELEMENT));
-
 function dyadicInteger(value: number): bigint {
   if (!Number.isFinite(value)) refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
-  coordinateBits.setFloat64(0, value);
-  const bits = coordinateBits.getBigUint64(0);
-  const exponent = (bits >> 52n) & 0x7ffn;
-  const fraction = bits & 0xfffffffffffffn;
-  const magnitude = exponent === 0n ? fraction : ((1n << 52n) | fraction) << (exponent - 1n);
-  return bits >> 63n ? -magnitude : magnitude;
+  return finiteDyadicInteger(value);
 }
 
 const sign = (value: bigint) => value < 0n ? -1 : value > 0n ? 1 : 0;
