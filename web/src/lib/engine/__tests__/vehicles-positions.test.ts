@@ -33,13 +33,13 @@ function beam(spans: number[], y = 0, free = false) {
   return ids;
 }
 /** My over the cases written, at each member's critical stations, as the sweep reads them. */
-function casesMy() {
+function casesExtrema(component: 'my' | 'vz' = 'my') {
   let max = -Infinity, min = Infinity;
   for (const lc of modelStore.model.loadCases.filter((c) => c.alternatives?.startsWith('move:'))) {
     const loads = modelStore.model.loads.filter((l) => (l.data as { caseId: number }).caseId === lc.id);
     const res = validateAndSolve3D({ ...modelStore.model, loads } as never, false, false);
     if (!res || typeof res === 'string') throw new Error(`${lc.name}: ${String(res)}`);
-    for (const ef of res.elementForces) for (const t of buildCriticalStations(ef)) { const v = extractForcesAtStation(ef, t).my; max = Math.max(max, v); min = Math.min(min, v); }
+    for (const ef of res.elementForces) for (const t of buildCriticalStations(ef)) { const v = extractForcesAtStation(ef, t)[component]; max = Math.max(max, v); min = Math.min(min, v); }
   }
   return { max, min };
 }
@@ -68,7 +68,7 @@ describe('position cases: every spacing, both ways', () => {
       const tr = modelStore.model.loadCases.filter((c) => c.type === 'Tr');
       expect(tr).toHaveLength(r.cases);
       expect(new Set(tr.map((c) => c.alternatives))).toEqual(new Set(['move:AASHTO HS20-44']));
-      const cases = casesMy(), sweep = await sweepMy(ids, trains, 2);
+      const cases = casesExtrema(), sweep = await sweepMy(ids, trains, 2);
       expect(cases.min / sweep.min).toBeCloseTo(1, 6);
     });
   }
@@ -81,7 +81,7 @@ describe('position cases: every spacing, both ways', () => {
     // Forward and back: the truck is not symmetric.
     expect(r.cases).toBe(2 * positionsAlong(trains[0]!, 24, 1).length);
     expect(modelStore.model.loadCases.some((c) => /reversed|invers/i.test(c.name))).toBe(true);
-    const cases = casesMy(), sweep = await sweepMy(ids, trains, 1);
+    const cases = casesExtrema(), sweep = await sweepMy(ids, trains, 1);
     expect(cases.max / sweep.max).toBeCloseTo(1, 6);
   });
 
@@ -207,4 +207,24 @@ it('#2101 — an imported vehicle keeps an indexed tip sample on both wheel line
   const tips = [ids, other].map((line) => modelStore.model.elements.get(line[1])!.nodeJ);
   expect(loads.map((load) => [load.type, 'nodeId' in load.data ? load.data.nodeId : undefined, 'fz' in load.data ? load.data.fz : undefined]))
     .toEqual(tips.map((node) => ['nodal3d', node, -50]));
+});
+
+it.runIf(process.env.RUN_MOVING_REVIEW === '1')('#2101 — saved endpoint positions include the swept shear limits', async () => {
+  const weight = 100;
+  const train = { name: 'one axle', axles: [{ offset: 0, weight }] };
+  const a = modelStore.addNode(0, 0, 0);
+  const b = modelStore.addNode(1, 0, 0);
+  hold(a, true);
+  hold(b, false);
+  const ids = [modelStore.addElement(a, b)];
+  const saved = addPositionCases(train.name, [train], ids, [], 1);
+  if (!('cases' in saved)) throw new Error(saved.error);
+  const base = buildSolverInput3D({ ...modelStore.model, loads: [] } as never, false, false)!;
+  const sweep = await sweepTrains3D(base, buildPath3D(base, ids)!, [train], { step: 1 });
+  const shear = sweep.elements.get(ids[0])!.vz;
+  const cases = casesExtrema('vz');
+  expect.soft(shear.max.value).toBeCloseTo(weight, 9);
+  expect.soft(shear.min.value).toBeCloseTo(-weight, 9);
+  expect.soft(cases.max).toBeCloseTo(weight, 9);
+  expect.soft(cases.min).toBeCloseTo(-weight, 9);
 });

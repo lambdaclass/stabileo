@@ -297,3 +297,56 @@ it('#2104 spatial wheel lines retain both member faces at a joint', async () => 
   checkFaces(split, 1, 2, weight / 2);
   checkFaces(split, 3, 4, weight / 2);
 });
+
+it.runIf(process.env.RUN_MOVING_REVIEW === '1')('#2101 — endpoint-only spatial sweeps recover axial face limits', async () => {
+  const length = 1;
+  const weight = 100;
+  const train = { name: 'one axle', axles: [{ offset: 0, weight }] };
+  for (const vertical of [true, false]) {
+    const plane = mirroredSpring();
+    const space = rotatedInclined();
+    plane.nodes = new Map([
+      [1, { id: 1, x: 0, z: 0 }],
+      [2, { id: 2, x: vertical ? 0 : length, z: vertical ? length : 0 }],
+    ]);
+    space.nodes = new Map([...plane.nodes].map(([id, node]) => [id, { ...node, y: 0 }]));
+    plane.elements = new Map([[1, plane.elements.get(1)!]]);
+    space.elements = new Map([[1, space.elements.get(1)!]]);
+    plane.supports = new Map([1, 2].map(id => [id, { id, nodeId: id, type: 'fixed' as const }]));
+    space.supports = new Map([1, 2].map(id => [id, { ...inclinedFixture.supports['1'], id, nodeId: id }]));
+    plane.loads = [];
+    space.loads = [];
+    const config = { train, step: length, pathElementIds: [1] };
+    const axial = vertical ? weight : 0;
+    const nativePlane = solveNative2D({ ...config, solver: plane }).elements['1'];
+    const nativeSpace = solveMovingLoads3D({ ...config, solver: space }).elements['1'];
+    for (const e of [nativePlane, nativeSpace]) {
+      expect.soft(e.nMaxPos).toBeCloseTo(axial, 9);
+      expect.soft(e.nMaxNeg).toBeCloseTo(-axial, 9);
+    }
+    for (const run of [solveMovingLoads, solveMovingLoadsAsync]) {
+      const result = await run(plane, config);
+      if (typeof result === 'string') throw new Error(result);
+      const e = result.elements.get(1)!;
+      expect.soft(e.nMaxPos).toBeCloseTo(axial, 9);
+      expect.soft(e.nMaxNeg).toBeCloseTo(-axial, 9);
+      expect(result.positions).toHaveLength(2);
+    }
+    const path = buildPath3D(space, [1])!;
+    const env = await sweepMovingLoad3D(space, path, train, { step: length });
+    const aggregate = await sweepTrains3D(space, path, [train, train], { step: length });
+    for (const sweep of [env, aggregate]) {
+      const e = sweep.elements.get(1)!;
+      expect.soft(e.n.max.value).toBeCloseTo(axial, 9);
+      expect.soft(e.n.min.value).toBeCloseTo(-axial, 9);
+      expect.soft(e.vy.max.value).toBeCloseTo(0, 9);
+      expect.soft(e.vy.min.value).toBeCloseTo(0, 9);
+      expect.soft(e.vz.max.value).toBeCloseTo(weight - axial, 9);
+      expect.soft(e.vz.min.value).toBeCloseTo(axial - weight, 9);
+      if (vertical) {
+        expect.soft(e.n.max).toMatchObject({ x: length, position: length });
+        expect.soft(e.n.min).toMatchObject({ x: 0, position: 0 });
+      }
+    }
+  }
+});

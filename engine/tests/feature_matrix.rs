@@ -3401,3 +3401,26 @@ fn issue_1782_planar_thermal_moving_limits_match_position_solves() {
         cell.note, (analysis.run)(&case.with, &case), moving_reference_2d(analysis.name, &case),
     );
 }
+
+#[test]
+#[ignore = "known wrong result: #2101"]
+fn review_2101_reference_includes_sampled_support_faces() {
+    let weight = 50.0;
+    for length in [1.0, 1.1] {
+        let mut plane = beam(1, length);
+        plane.sup(1, 1, "fixed").sup(2, 2, "fixed");
+        let mut space = beam3(1, length, 1);
+        space.sup(1, FIXED).sup(2, FIXED);
+        let mut c2 = Case2::base("baseline frame", "fixed span", &[], plane.clone(), plane, vec![1, 2]);
+        let mut c3 = Case3::base("baseline frame", "fixed span", &[], space.clone(), space, vec![1, 2]);
+        c2.path = Some(vec![1]);
+        c3.path = Some(vec![1]);
+        let t = 1.0 / length;
+        let last_shear = -weight * t * t * (3.0 - 2.0 * t);
+        for result in [moving_reference_2d("moving loads", &c2), moving_reference_3d("moving loads", &c3)] {
+            let Out::S(values, _) = result.unwrap() else { panic!("scalar envelope required") };
+            assert!((values[2] - weight).abs() < 1e-9, "entrance face: {} vs {weight}", values[2]);
+            assert!((values[3] - last_shear).abs() < 1e-9, "exit face: {} vs {last_shear}", values[3]);
+        }
+    }
+}
