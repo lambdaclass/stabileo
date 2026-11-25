@@ -12792,7 +12792,7 @@ const zh: Translations = {
   "discretization.studyFinishing": "正在完成上一次收敛性检查…",
   "discretization.studyFailed": "未运行收敛性检查：{reason}",
   "discretization.adaptiveTitle": "高级：自适应网格细化",
-  "discretization.adaptiveExplain": "仅在估计误差最大的地方细化网格并重新求解，直至达到目标。只报告会发生的变化；只有在您应用该网格时，模型才会改变。只有 MITC4 壳单元会局部细化；其他单元族整体细化。",
+  "discretization.adaptiveExplain": "仅在估计误差最大的地方细化网格并重新求解，直至达到目标。只报告会发生的变化；只有在您应用该网格时，模型才会改变。MITC4 四边形和 DKT 三角形单元会局部细化；其他单元族整体细化。",
   "discretization.adaptiveTarget": "目标误差 (%)",
   "discretization.adaptiveRun": "自适应细化（多次重新求解）",
   "discretization.adaptiveRunning": "正在细化并重新求解…",

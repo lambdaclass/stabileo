@@ -171,11 +171,23 @@ mesh, with its hanging-node constraints, is not something the app's model can ho
   one more element: no hanging node on half of an edge that already has one; none on two edges
   of one element; none on an edge where the shell folds or branches (elements more than the
   crease angle apart, or three or more), where no one normal says which way the edge bends;
-  none on an edge of **another family**. So a mesh of DKT triangles, MITC9
+  none on an edge of **another family**. So a mesh of MITC9
   quads, curved shells or solid-shells is refined as far as it is connected, which for a mesh
   of one family is the uniform refinement: for them this loop gains nothing over section 2. I
   tried hanging nodes on curved shells and a roof with them was no better than the coarse
   mesh, so they are not offered.
+* **Triangles.** A **DKT** triangle needs no hanging node. It is split by the edges that get
+  a node: a marked one by all three, into four triangles like it, as in section 2; one beside
+  it by the edges it shares with what was split. Whenever an edge of a triangle is cut its
+  longest edge is cut too (ties by node ids), and the triangle is bisected there first, into
+  two or three. A node is therefore never put on a short edge alone, and the smallest angle
+  stays at or above half the coarse mesh's however often an element is refined (the bound of
+  longest-edge bisection; measured, not proved, for this mix with the four-way split). The
+  cuts spread only to longer edges, so they stop. Where a triangle meets a MITC4 quad, a node
+  the quad's split puts on their edge cuts the triangle, and one the triangle's cut puts
+  there hangs on the quad. On the L-shaped plate below as 24 triangles, halving the estimate
+  takes 246 elements against 384 uniform, and quartering it 936 against 1 536; one marked
+  triangle of a 32-triangle square gives 39, where it gave 128.
 * **What a hanging node changes elsewhere.** It sits at the middle of the chord of its edge in
   both geometry modes, where the element that spans the edge has it, and moves to the smooth
   surface when it stops hanging; on the surface from the start, a curved roof came out a fifth

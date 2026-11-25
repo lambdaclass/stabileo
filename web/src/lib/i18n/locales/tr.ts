@@ -12708,7 +12708,7 @@ const tr: Translations = {
   'discretization.studyFinishing': 'Önceki yakınsama kontrolü bitiriliyor…',
   'discretization.studyFailed': 'Yakınsama kontrolü yapılmadı: {reason}',
   'discretization.adaptiveTitle': "Gelişmiş: uyarlamalı ağ sıklaştırma",
-  'discretization.adaptiveExplain': "Ağı yalnızca tahmini hatanın en büyük olduğu yerde sıklaştırır ve hedefe ulaşana kadar yeniden çözer. Neyin değişeceğini bildirir; modeliniz yalnızca ağı uygularsanız değişir. Yalnızca MITC4 kabuklar yerel olarak sıklaştırılır; diğer aileler bütün olarak sıklaştırılır.",
+  'discretization.adaptiveExplain': "Ağı yalnızca tahmini hatanın en büyük olduğu yerde sıklaştırır ve hedefe ulaşana kadar yeniden çözer. Neyin değişeceğini bildirir; modeliniz yalnızca ağı uygularsanız değişir. MITC4 dörtgenler ve DKT üçgenler yerel olarak sıklaştırılır; diğer aileler bütün olarak sıklaştırılır.",
   'discretization.adaptiveTarget': "Hedef hata (%)",
   'discretization.adaptiveRun': "Uyarlamalı sıklaştır (birkaç kez yeniden çözer)",
   'discretization.adaptiveRunning': "Sıklaştırılıyor ve yeniden çözülüyor…",

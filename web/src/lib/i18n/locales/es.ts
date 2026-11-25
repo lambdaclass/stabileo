@@ -13221,7 +13221,7 @@ const es: Record<string, string> = {
   'discretization.studyFinishing': "Terminando la verificación de convergencia anterior…",
   'discretization.studyFailed': "Verificación de convergencia no realizada: {reason}",
   'discretization.adaptiveTitle': "Avanzado: refinamiento adaptativo de la malla",
-  'discretization.adaptiveExplain': "Refina la malla solo donde el error estimado es mayor y vuelve a resolver, hasta el objetivo. Informa qué cambiaría; tu modelo cambia solo si aplicás la malla. Solo las cáscaras MITC4 se refinan localmente; las demás familias se refinan enteras.",
+  'discretization.adaptiveExplain': "Refina la malla solo donde el error estimado es mayor y vuelve a resolver, hasta el objetivo. Informa qué cambiaría; tu modelo cambia solo si aplicás la malla. Los cuadriláteros MITC4 y los triángulos DKT se refinan localmente; las demás familias se refinan enteras.",
   'discretization.adaptiveTarget': "Error objetivo (%)",
   'discretization.adaptiveRun': "Refinar adaptativamente (resuelve varias veces)",
   'discretization.adaptiveRunning': "Refinando y resolviendo…",

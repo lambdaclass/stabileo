@@ -12341,7 +12341,7 @@ const hu: Translations = {
   "discretization.studyFinishing": "Az előző konvergenciaellenőrzés befejezése…",
   "discretization.studyFailed": "A konvergenciaellenőrzés nem futott le: {reason}",
   "discretization.adaptiveTitle": "Haladó: adaptív hálófinomítás",
-  "discretization.adaptiveExplain": "Csak ott finomítja a hálót, ahol a becsült hiba a legnagyobb, és újraszámol, a célértékig. Azt közli, mi változna; a modell csak akkor változik, ha a hálót alkalmazza. Csak az MITC4 héjak finomodnak helyileg; a többi család egészében.",
+  "discretization.adaptiveExplain": "Csak ott finomítja a hálót, ahol a becsült hiba a legnagyobb, és újraszámol, a célértékig. Azt közli, mi változna; a modell csak akkor változik, ha a hálót alkalmazza. Az MITC4 négyszögek és a DKT háromszögek helyileg finomodnak; a többi család egészében.",
   "discretization.adaptiveTarget": "Célhiba (%)",
   "discretization.adaptiveRun": "Adaptív finomítás (többszöri újraszámítás)",
   "discretization.adaptiveRunning": "Finomítás és újraszámítás…",

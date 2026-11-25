@@ -111,6 +111,47 @@ describe('applying an adaptively refined mesh to the model', () => {
     expect(modelStore.loads.filter((l) => l.type === 'surface3d')).toHaveLength(12);
   });
 
+  it('refines a slab of triangles where the error is, with no constraints, and carries its loads', () => {
+    const at = new Map<string, number>();
+    const node = (i: number, j: number) => {
+      const key = `${i},${j}`;
+      if (!at.has(key)) at.set(key, modelStore.addNode(i, j, 3));
+      return at.get(key)!;
+    };
+    for (let i = 0; i < 4; i++) {
+      for (let j = 0; j < 4; j++) {
+        if (i >= 2 && j >= 2) continue;
+        const [a, b, c, d] = [node(i, j), node(i + 1, j), node(i + 1, j + 1), node(i, j + 1)];
+        for (const nodes of [[a, b, c], [a, c, d]] as Array<[number, number, number]>) {
+          modelStore.addSurfaceLoad3D(modelStore.addPlate(nodes, 1, 0.2), 5, 1, { on: 'plate' });
+        }
+      }
+    }
+    for (const [key, id] of at) {
+      const [i, j] = key.split(',').map(Number);
+      if (i === 0 || j === 0) modelStore.addSupport(id, 'pinned3d');
+    }
+    const wire = wireOf();
+    expect(Object.keys(wire.plates)).toHaveLength(24);
+    const out = adapt(wire);
+    expect(out.status).toBe('converged');
+    expect(out.input.constraints).toHaveLength(0);
+    const uniform = 24 * 4 ** (out.passes.length - 1);
+    expect(Object.keys(out.input.plates).length).toBeLessThan(uniform);
+
+    const applied = applyRefinedMesh(wire, out.mesh);
+    if ('refused' in applied) throw new Error(applied.refused);
+    expect(modelStore.model.plates.size).toBe(Object.keys(out.input.plates).length);
+    expect(modelStore.nodes.size).toBe(Object.keys(out.input.nodes).length);
+    expect(modelStore.supports.size).toBe(Object.keys(out.input.supports).length);
+    expect(modelStore.constraints).toHaveLength(0);
+    const loads = modelStore.loads.filter((l) => l.type === 'surface3d');
+    expect(loads).toHaveLength(modelStore.model.plates.size);
+    expect(loads.every((l) => l.type === 'surface3d' && l.data.on === 'plate' && l.data.q === 5 && modelStore.model.plates.has(l.data.quadId))).toBe(true);
+    expect(estimateWithLoadsOf(out.input)).toBeCloseTo(out.estimate.relativeError, 9);
+    expect(totalFz(wireOf())).toBeCloseTo(totalFz(wire), 9);
+  });
+
   it('can be refined again from the model it made', () => {
     lSlab();
     const first = wireOf();

@@ -1302,9 +1302,9 @@ fn splitting_every_element_is_the_uniform_refinement() {
 
 #[test]
 fn a_family_that_cannot_carry_a_hanging_node_is_split_as_far_as_it_reaches() {
-    for (fam, tag) in [(Fam::Dkt, "plate"), (Fam::Mitc9, "quad9"), (Fam::Curved, "curvedShell"), (Fam::Solid, "solidShell")] {
+    for (fam, tag) in [(Fam::Mitc9, "quad9"), (Fam::Curved, "curvedShell"), (Fam::Solid, "solidShell")] {
         let m = square_plate(fam, 3, false).input;
-        let first = m.plates.values().map(|e| e.id).chain(m.quad9s.values().map(|e| e.id))
+        let first = m.quad9s.values().map(|e| e.id)
             .chain(m.curved_shells.values().map(|e| e.id)).chain(m.solid_shells.values().map(|e| e.id)).min().unwrap();
         let one = refine_marked(&m, GeometryMode::Faceted, &only(&[(tag, first)])).unwrap();
         let uniform = refine_uniform(&m, GeometryMode::Faceted).unwrap();
@@ -1783,4 +1783,241 @@ fn the_adapted_mesh_is_told_as_changes_to_the_model_given() {
 
     let untouched = adapt_3d(&coarse, &AdaptOptions { target: 0.9, ..options }).unwrap().mesh;
     assert!(untouched.nodes.is_empty() && untouched.shells.is_empty() && untouched.frames.is_empty() && untouched.constraints.is_empty());
+}
+
+/// The quads of `input` that `which` picks, each as two DKT triangles with its loads.
+fn as_triangles(input: &mut SolverInput3D, which: &dyn Fn([f64; 2]) -> bool) {
+    let xy: HashMap<usize, (f64, f64)> = input.nodes.values().map(|n| (n.id, (n.x, n.y))).collect();
+    let mut quads: Vec<SolverQuadElement> = input.quads.values().cloned().collect();
+    quads.sort_by_key(|q| q.id);
+    let mut next = quads.iter().map(|q| q.id).max().unwrap_or(0) + 1;
+    for q in quads {
+        let centre = q.nodes.iter().fold([0.0; 2], |a, n| [a[0] + xy[n].0 / 4.0, a[1] + xy[n].1 / 4.0]);
+        if !which(centre) {
+            continue;
+        }
+        input.quads.remove(&q.id.to_string());
+        let [a, b, c, d] = q.nodes;
+        let mut made = Vec::new();
+        for nodes in [[a, b, c], [a, c, d]] {
+            input.plates.insert(next.to_string(), SolverPlateElement { id: next, nodes, material_id: q.material_id, thickness: q.thickness });
+            made.push(next);
+            next += 1;
+        }
+        let mut loads = Vec::new();
+        for load in input.loads.drain(..) {
+            match &load {
+                SolverLoad3D::QuadPressure(p) if p.element_id == q.id => {
+                    loads.extend(made.iter().map(|&element_id| SolverLoad3D::Pressure(SolverPressureLoad { element_id, pressure: p.pressure })));
+                }
+                _ => loads.push(load),
+            }
+        }
+        input.loads = loads;
+    }
+}
+
+/// Edges of the shell elements of a flat mesh that only one element has and that are not on
+/// the outline `outside` tells: a node left hanging, or a hole.
+fn open_edges(input: &SolverInput3D, outside: &dyn Fn([f64; 2], [f64; 2]) -> bool) -> Vec<(usize, usize)> {
+    let hanging = hanging_nodes(input).expect("only hanging-node constraints");
+    let xy: HashMap<usize, [f64; 2]> = input.nodes.values().map(|n| (n.id, [n.x, n.y])).collect();
+    let mut count: HashMap<(usize, usize), usize> = HashMap::new();
+    let mut ring = |nodes: &[usize]| {
+        for k in 0..nodes.len() {
+            let (a, b) = (nodes[k], nodes[(k + 1) % nodes.len()]);
+            *count.entry((a.min(b), a.max(b))).or_default() += 1;
+        }
+    };
+    input.plates.values().for_each(|e| ring(&e.nodes));
+    input.quads.values().for_each(|e| ring(&e.nodes));
+    let halves: std::collections::HashSet<(usize, usize)> =
+        hanging.iter().flat_map(|(&node, &(a, b))| [(a.min(node), a.max(node)), (b.min(node), b.max(node)), (a, b)]).collect();
+    let mut open: Vec<(usize, usize)> =
+        count.into_iter().filter(|(edge, n)| *n == 1 && !outside(xy[&edge.0], xy[&edge.1]) && !halves.contains(edge)).map(|(edge, _)| edge).collect();
+    open.sort_unstable();
+    open
+}
+
+fn on_unit_square(a: [f64; 2], b: [f64; 2]) -> bool {
+    (0..2).any(|k| (a[k] == b[k]) && (a[k] == 0.0 || a[k] == 1.0))
+}
+
+/// Twice the signed area of each triangle and its smallest angle in degrees.
+fn triangle_shapes(input: &SolverInput3D) -> Vec<(f64, f64)> {
+    let xy: HashMap<usize, [f64; 2]> = input.nodes.values().map(|n| (n.id, [n.x, n.y])).collect();
+    input
+        .plates
+        .values()
+        .map(|p| {
+            let c = p.nodes.map(|n| xy[&n]);
+            let twice = (c[1][0] - c[0][0]) * (c[2][1] - c[0][1]) - (c[1][1] - c[0][1]) * (c[2][0] - c[0][0]);
+            let angle = (0..3)
+                .map(|k| {
+                    let (u, v) = ([c[(k + 1) % 3][0] - c[k][0], c[(k + 1) % 3][1] - c[k][1]], [c[(k + 2) % 3][0] - c[k][0], c[(k + 2) % 3][1] - c[k][1]]);
+                    ((u[0] * v[0] + u[1] * v[1]) / (u[0].hypot(u[1]) * v[0].hypot(v[1]))).clamp(-1.0, 1.0).acos().to_degrees()
+                })
+                .fold(f64::MAX, f64::min);
+            (twice, angle)
+        })
+        .collect()
+}
+
+fn plate_at(input: &SolverInput3D, x: f64, y: f64) -> ElementKey {
+    let xy: HashMap<usize, [f64; 2]> = input.nodes.values().map(|n| (n.id, [n.x, n.y])).collect();
+    let far = |p: &SolverPlateElement| {
+        let mid = p.nodes.iter().fold([0.0; 2], |a, n| [a[0] + xy[n][0] / 3.0, a[1] + xy[n][1] / 3.0]);
+        (mid[0] - x).powi(2) + (mid[1] - y).powi(2)
+    };
+    ("plate", input.plates.values().min_by(|a, b| far(a).total_cmp(&far(b)).then(a.id.cmp(&b.id))).unwrap().id)
+}
+
+#[test]
+fn a_triangle_mesh_is_refined_where_it_is_marked_with_no_node_left_hanging() {
+    let coarse = square_plate(Fam::Dkt, 4, false).input;
+    let load = total_reaction(&solve(&coarse));
+    let uniform = refine_uniform(&coarse, GeometryMode::Faceted).unwrap().input;
+    let refined = refine_marked(&coarse, GeometryMode::Faceted, &only(&[plate_at(&coarse, 0.1, 0.05)])).unwrap();
+    let one = &refined.input;
+    assert!(one.plates.len() > coarse.plates.len() && 2 * one.plates.len() < uniform.plates.len(), "{} of {}", one.plates.len(), uniform.plates.len());
+    assert!(one.constraints.is_empty());
+
+    let place = |id: usize| one.nodes.values().find(|n| n.id == id).map(|n| [n.x, n.y, n.z]).unwrap();
+    let mut parts = std::collections::HashSet::new();
+    for split in &refined.splits {
+        let parent = coarse.plates.values().find(|p| p.id == split.parent).unwrap().nodes;
+        assert!((2..=4).contains(&split.children.len()));
+        parts.insert(split.children.len());
+        for (child, weights) in &split.children {
+            let nodes = one.plates.values().find(|p| p.id == *child).unwrap().nodes;
+            for (corner, row) in nodes.iter().zip(weights) {
+                for k in 0..3 {
+                    let there: f64 = row.iter().zip(parent).map(|(w, n)| w * place(n)[k]).sum();
+                    assert!((there - place(*corner)[k]).abs() < 1e-12);
+                }
+            }
+        }
+    }
+    assert!(parts.contains(&4) && (parts.contains(&2) || parts.contains(&3)), "{parts:?}");
+
+    let mut model = one.clone();
+    let mut seed: u64 = 2024;
+    let mut next = move || { seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407); (seed >> 33) as usize };
+    let coarsest_angle = triangle_shapes(&coarse).iter().map(|s| s.1).fold(f64::MAX, f64::min);
+    for round in 0..8 {
+        assert_eq!(open_edges(&model, &on_unit_square), vec![], "round {round}");
+        assert!(model.constraints.is_empty());
+        let shapes = triangle_shapes(&model);
+        assert!(shapes.iter().all(|s| s.0 > 0.0), "round {round}: a triangle turned over");
+        assert!((shapes.iter().map(|s| s.0).sum::<f64>() - 2.0).abs() < 1e-12, "round {round}: the area changed");
+        let sharpest = shapes.iter().map(|s| s.1).fold(f64::MAX, f64::min);
+        assert!(sharpest >= 0.5 * coarsest_angle - 1e-9, "round {round}: {sharpest}° from {coarsest_angle}°");
+        let total = total_reaction(&solve(&model));
+        assert!((total[2] - load[2]).abs() < 1e-9 * load[2].abs(), "round {round}: {total:?} vs {load:?}");
+        let mut ids: Vec<usize> = model.plates.values().map(|p| p.id).collect();
+        ids.sort_unstable();
+        let marks: Vec<ElementKey> = (0..3).map(|_| ("plate", ids[next() % ids.len()])).collect();
+        model = refine_marked(&model, GeometryMode::Faceted, &only(&marks)).unwrap().input;
+    }
+    assert!(model.plates.len() < 4 * uniform.plates.len());
+}
+
+#[test]
+fn a_locally_refined_triangle_mesh_reproduces_a_constant_curvature_in_any_plane() {
+    for tilt in [false, true] {
+        let map = move |u: f64, v: f64| (rotated(tilt, [u, v, 0.0]), rotated(tilt, [0.0, 0.0, 1.0]));
+        let bc = |i: usize, _j: usize, _mx: usize, _my: usize| -> Option<[bool; 6]> { (i == 0).then_some([true; 6]) };
+        let mut built = surface(Fam::Dkt, 4, 4, 0.01, 200_000.0, 0.0, &map, &bc, Load::None);
+        let axis = rotated(tilt, [0.0, 1.0, 0.0]);
+        for j in 0..=4 {
+            let share = if j == 0 || j == 4 { 0.5 } else { 1.0 } / 4.0;
+            built.input.loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
+                node_id: built.grid[4][j].0, fx: 0.0, fy: 0.0, fz: 0.0, mx: share * axis[0], my: share * axis[1], mz: share * axis[2], bw: None,
+            }));
+        }
+        let m = built.input;
+        let (normal, along) = (rotated(tilt, [0.0, 0.0, 1.0]), rotated(tilt, [1.0, 0.0, 0.0]));
+        let nearest = |input: &SolverInput3D, u: f64, v: f64| -> ElementKey {
+            let target = rotated(tilt, [u, v, 0.0]);
+            let c: HashMap<usize, [f64; 3]> = input.nodes.values().map(|n| (n.id, [n.x, n.y, n.z])).collect();
+            let far = |p: &SolverPlateElement| {
+                let mid = p.nodes.iter().fold([0.0; 3], |a, n| [a[0] + c[n][0] / 3.0, a[1] + c[n][1] / 3.0, a[2] + c[n][2] / 3.0]);
+                (0..3).map(|k| (mid[k] - target[k]).powi(2)).sum::<f64>()
+            };
+            ("plate", input.plates.values().min_by(|a, b| far(a).total_cmp(&far(b)).then(a.id.cmp(&b.id))).unwrap().id)
+        };
+        let once = refine_marked(&m, GeometryMode::Faceted, &only(&[nearest(&m, 0.4, 0.35)])).unwrap().input;
+        let twice = refine_marked(&once, GeometryMode::Faceted, &only(&[nearest(&once, 0.3, 0.3)])).unwrap().input;
+        let thrice = refine_marked(&twice, GeometryMode::Faceted, &only(&[nearest(&twice, 0.27, 0.27)])).unwrap().input;
+        assert!(thrice.constraints.is_empty() && thrice.plates.len() > twice.plates.len() && twice.plates.len() > once.plates.len());
+        let tip = { let r = solve(&m); dot3(disp(&r, built.grid[4][0].0), normal) };
+        assert!(tip.abs() > 1e-9);
+        for model in [&m, &once, &twice, &thrice] {
+            let r = solve(model);
+            for n in model.nodes.values() {
+                let u = dot3([n.x, n.y, n.z], along);
+                let w = dot3(disp(&r, n.id), normal);
+                assert!((w - tip * u * u).abs() <= 1e-8 * tip.abs(), "tilt {tilt}, node {} at {u}: {w} vs {}", n.id, tip * u * u);
+            }
+        }
+    }
+}
+
+#[test]
+fn triangles_and_quads_meet_without_a_crack_whichever_is_split() {
+    let mut m = bent_square(4, false).input;
+    as_triangles(&mut m, &|centre| centre[0] < 0.5);
+    assert_eq!((m.plates.len(), m.quads.len()), (16, 8));
+    let tip = { let r = solve(&m); disp(&r, m.nodes.values().find(|n| n.x == 1.0 && n.y == 0.0).unwrap().id)[2] };
+
+    let quad_side = refine_marked(&m, GeometryMode::Faceted, &only(&[quad_at(&m, 0.6, 0.4)])).unwrap().input;
+    assert_eq!(quad_side.quads.len(), 8 + 3);
+    assert!(quad_side.plates.len() > 16 && quad_side.plates.len() < 24, "{}", quad_side.plates.len());
+    let hung = hanging_nodes(&quad_side).unwrap();
+    assert_eq!(hung.len(), 3);
+    let x_of = |input: &SolverInput3D, id: usize| input.nodes.values().find(|n| n.id == id).unwrap().x;
+    assert!(hung.keys().all(|node| x_of(&quad_side, *node) > 0.5), "no node hangs on the edge a triangle has");
+
+    let triangle_side = refine_marked(&m, GeometryMode::Faceted, &only(&[plate_at(&m, 0.45, 0.4)])).unwrap().input;
+    assert_eq!(triangle_side.quads.len(), 8);
+    let hung = hanging_nodes(&triangle_side).unwrap();
+    assert_eq!(hung.len(), 1, "the quad across carries the node the triangle put on their edge");
+    assert!(hung.keys().all(|node| x_of(&triangle_side, *node) == 0.5));
+
+    let both = refine_marked(&quad_side, GeometryMode::Faceted, &only(&[plate_at(&quad_side, 0.45, 0.4), quad_at(&quad_side, 0.55, 0.45)])).unwrap().input;
+    for model in [&quad_side, &triangle_side, &both] {
+        assert_eq!(open_edges(model, &on_unit_square), vec![]);
+        assert_eq!(cracks(model), vec![]);
+        let r = solve(model);
+        for n in model.nodes.values() {
+            let w = disp(&r, n.id)[2];
+            assert!((w - tip * n.x * n.x).abs() <= 1e-8 * tip.abs(), "node {} at {}: {w} vs {}", n.id, n.x, tip * n.x * n.x);
+        }
+    }
+}
+
+#[test]
+fn adaptive_refinement_of_triangles_reaches_the_target_with_fewer_elements_than_uniform() {
+    let mut coarse = l_plate(4);
+    as_triangles(&mut coarse, &|_| true);
+    let target = 0.5 * estimate(&coarse, &solve(&coarse)).relative_error.unwrap();
+    let mut uniform = coarse.clone();
+    let mut uniform_elements = 0;
+    for _ in 0..6 {
+        uniform_elements = uniform.plates.len();
+        if estimate(&uniform, &solve(&uniform)).relative_error.unwrap() <= target {
+            break;
+        }
+        uniform = refine_uniform(&uniform, GeometryMode::Faceted).unwrap().input;
+    }
+    let reference = energy_norm_sq(&uniform, &solve(&uniform));
+    let out = adapt_3d(&coarse, &AdaptOptions { target, max_passes: 20, geometry: GeometryMode::Faceted, ..AdaptOptions::default() }).unwrap();
+    assert_eq!(out.status, "converged");
+    assert!(out.input.constraints.is_empty() && out.passes.iter().all(|p| p.hanging_nodes == 0));
+    assert!(out.input.plates.len() < uniform_elements, "{} adaptive, {uniform_elements} uniform", out.input.plates.len());
+    let l_outline = |a: [f64; 2], b: [f64; 2]| on_unit_square(a, b) || (0..2).any(|k| a[k] == 0.5 && b[k] == 0.5 && a[1 - k] >= 0.5 && b[1 - k] >= 0.5);
+    assert_eq!(open_edges(&out.input, &l_outline), vec![]);
+    let energy = energy_norm_sq(&out.input, &solve(&out.input));
+    assert!((energy - reference).abs() < 0.05 * reference, "{energy} vs {reference}");
+    assert!(out.mesh.shells.iter().all(|s| s.family == "plate" && s.weights.len() == 3) && !out.mesh.shells.is_empty());
 }

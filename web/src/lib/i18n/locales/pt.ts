@@ -12874,7 +12874,7 @@ const pt: Translations = {
   'discretization.studyFinishing': "Concluindo a verificação de convergência anterior…",
   'discretization.studyFailed': "Verificação de convergência não executada: {reason}",
   'discretization.adaptiveTitle': "Avançado: refinamento adaptativo da malha",
-  'discretization.adaptiveExplain': "Refina a malha apenas onde o erro estimado é maior e resolve de novo, até o objetivo. Informa o que mudaria; o seu modelo só muda se você aplicar a malha. Apenas as cascas MITC4 são refinadas localmente; as demais famílias são refinadas por inteiro.",
+  'discretization.adaptiveExplain': "Refina a malha apenas onde o erro estimado é maior e resolve de novo, até o objetivo. Informa o que mudaria; o seu modelo só muda se você aplicar a malha. Os quadriláteros MITC4 e os triângulos DKT são refinados localmente; as demais famílias são refinadas por inteiro.",
   'discretization.adaptiveTarget': "Erro objetivo (%)",
   'discretization.adaptiveRun': "Refinar adaptativamente (resolve várias vezes)",
   'discretization.adaptiveRunning': "Refinando e resolvendo…",

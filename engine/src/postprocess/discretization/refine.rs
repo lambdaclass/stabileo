@@ -39,10 +39,13 @@
 //! rotations, and a thin plate would lock along every such edge. Those constraints, and no
 //! others, are accepted in the model `refine_marked` is given, so it can be applied again to
 //! its own output. A hanging node is never left on an edge of another family (the element
-//! across is split instead, so a mesh of DKT triangles, MITC9 quads, curved shells or
-//! solid-shells is refined as far as it is connected), nor on half of an edge that already
+//! across is split instead, so a mesh of MITC9 quads, curved shells or solid-shells is refined
+//! as far as it is connected), nor on half of an edge that already
 //! has one, nor on two edges of one element, nor on an edge where the shell folds or branches,
-//! where no one normal says which way an edge bends. A frame member
+//! where no one normal says which way an edge bends. A DKT triangle needs none: it is split by
+//! the edges that get a node, into two, three or four triangles, and an edge is only ever cut
+//! together with the triangle's longest (see `closed` and `triangle_parts`), so the mesh stays
+//! conforming and its angles bounded. A frame member
 //! along an edge with a hanging node is left whole. A hanging node sits at the middle of the
 //! chord in both geometry modes, and moves to the smooth surface when it stops hanging.
 
@@ -105,8 +108,6 @@ fn quad_child_weights(k: usize) -> Vec<Vec<f64>> {
     corner_weights(4, &[&[k], &[k, (k + 1) % 4], &[0, 1, 2, 3], &[(k + 3) % 4, k]])
 }
 
-const PLATE_CHILD_CORNERS: [[&[usize]; 3]; 4] =
-    [[&[0], &[0, 1], &[2, 0]], [&[0, 1], &[1], &[1, 2]], [&[2, 0], &[1, 2], &[2]], [&[0, 1], &[1, 2], &[2, 0]]];
 
 /// Why a model cannot be refined automatically, or Ok. Node references are checked here:
 /// refinement indexes node coordinates before any solver validation runs.
@@ -228,17 +229,33 @@ fn element_edges(input: &SolverInput3D) -> Vec<(ElementKey, Vec<(usize, usize)>)
     out
 }
 
-/// `marked` and every element splitting them forces to be split too: a neighbour across an edge
-/// that cannot carry a hanging node (its family, or the edge is `creased`), the element across
-/// an edge that already has one when
-/// half of that edge is to be split, and an element that would be left with hanging nodes on
-/// more than `MOST_HANGING_EDGES` of its edges.
+/// What a refinement splits: the elements split whole, and the edges given a node at their
+/// middle, which is all a DKT triangle is split by.
+#[derive(Default)]
+struct Closure {
+    whole: HashSet<ElementKey>,
+    cut: HashSet<(usize, usize)>,
+}
+
+fn is_triangle(family: &str) -> bool {
+    family == "plate"
+}
+
+/// `marked` and everything splitting them forces. A quadrilateral is split whole; a triangle is
+/// split by the edges cut, all three of a marked one. A cut edge cuts, of each element on it:
+/// the longest edge of a triangle (so its angles stay bounded however often it is refined: a
+/// node is only ever put on an edge together with one on the longest); the whole of an element
+/// that cannot carry a hanging node (its family, or the edge is `creased`). The element across
+/// an edge that already has a hanging node is split when half of that edge is cut, and so is an
+/// element left with hanging nodes on more than `MOST_HANGING_EDGES` of its edges. `longer`
+/// orders the edges by length, ties by their nodes.
 fn closed(
     edges: &[(ElementKey, Vec<(usize, usize)>)],
     marked: &HashSet<ElementKey>,
     hanging: &HashMap<usize, (usize, usize)>,
     creased: &HashSet<(usize, usize)>,
-) -> Result<HashSet<ElementKey>, String> {
+    longer: &dyn Fn((usize, usize), (usize, usize)) -> bool,
+) -> Result<Closure, String> {
     let index: HashMap<ElementKey, usize> = edges.iter().enumerate().map(|(i, (element, _))| (*element, i)).collect();
     let mut sharing: HashMap<(usize, usize), Vec<usize>> = HashMap::new();
     for (i, (_, own)) in edges.iter().enumerate() {
@@ -246,46 +263,93 @@ fn closed(
             sharing.entry(*edge).or_default().push(i);
         }
     }
+    let triangle = |i: usize| is_triangle(edges[i].0 .0);
+    let longest = |i: usize| edges[i].1.iter().copied().reduce(|a, b| if longer(b, a) { b } else { a });
     let mut split = vec![false; edges.len()];
-    let mut pending = Vec::new();
+    let mut cut: HashSet<(usize, usize)> = HashSet::new();
+    let mut pending: Vec<(usize, usize)> = Vec::new();
+    let whole = |i: usize, split: &mut Vec<bool>, cut: &mut HashSet<(usize, usize)>, pending: &mut Vec<(usize, usize)>| {
+        if !triangle(i) && std::mem::replace(&mut split[i], true) {
+            return;
+        }
+        for edge in &edges[i].1 {
+            if cut.insert(*edge) {
+                pending.push(*edge);
+            }
+        }
+    };
     for element in marked {
         let i = *index.get(element).ok_or_else(|| format!("{} {} not found", element.0, element.1))?;
-        if !std::mem::replace(&mut split[i], true) {
-            pending.push(i);
-        }
+        whole(i, &mut split, &mut cut, &mut pending);
     }
     let hung: HashSet<(usize, usize)> = hanging.values().copied().collect();
     loop {
-        while let Some(i) = pending.pop() {
-            for &(p, q) in &edges[i].1 {
-                let folded = creased.contains(&(p, q));
-                let mut forced: Vec<usize> = sharing[&(p, q)].iter().copied().filter(|&o| folded || !takes_hanging_nodes(edges[o].0 .0)).collect();
-                for (node, other) in [(p, q), (q, p)] {
-                    if let Some(&(a, b)) = hanging.get(&node) {
-                        if a == other || b == other {
-                            forced.extend(sharing.get(&(a, b)).into_iter().flatten());
+        while let Some((p, q)) = pending.pop() {
+            let folded = creased.contains(&(p, q));
+            for &o in &sharing[&(p, q)] {
+                if triangle(o) {
+                    if let Some(edge) = longest(o) {
+                        if cut.insert(edge) {
+                            pending.push(edge);
                         }
                     }
+                } else if folded || !takes_hanging_nodes(edges[o].0 .0) {
+                    whole(o, &mut split, &mut cut, &mut pending);
                 }
-                for o in forced {
-                    if !std::mem::replace(&mut split[o], true) {
-                        pending.push(o);
+            }
+            for (node, other) in [(p, q), (q, p)] {
+                if let Some(&(a, b)) = hanging.get(&node) {
+                    if a == other || b == other {
+                        for &o in sharing.get(&(a, b)).into_iter().flatten() {
+                            whole(o, &mut split, &mut cut, &mut pending);
+                        }
                     }
                 }
             }
         }
         for (i, (_, own)) in edges.iter().enumerate() {
-            let hangs = |edge: &&(usize, usize)| hung.contains(*edge) || sharing[*edge].iter().any(|&o| split[o]);
-            if !split[i] && own.iter().filter(hangs).count() > MOST_HANGING_EDGES {
-                split[i] = true;
-                pending.push(i);
+            let hangs = |edge: &&(usize, usize)| hung.contains(*edge) || cut.contains(*edge);
+            if !triangle(i) && !split[i] && own.iter().filter(hangs).count() > MOST_HANGING_EDGES {
+                whole(i, &mut split, &mut cut, &mut pending);
             }
         }
         if pending.is_empty() {
             break;
         }
     }
-    Ok(edges.iter().zip(&split).filter(|(_, s)| **s).map(|((element, _), _)| *element).collect())
+    let whole = edges.iter().zip(&split).filter(|(_, s)| **s).map(|((element, _), _)| *element).collect();
+    Ok(Closure { whole, cut })
+}
+
+/// The parts of a triangle with nodes at the middle of the edges `cut` (edge k from corner k to
+/// the next), each corner of a part as the parent's corners it lies between. All three: four
+/// triangles like it. Otherwise the edge `longest`, which is always among them, is bisected,
+/// and the half that holds a second cut edge again from that same node.
+fn triangle_parts(cut: [bool; 3], longest: usize) -> Vec<[Vec<usize>; 3]> {
+    let (a, b, c) = (longest, (longest + 1) % 3, (longest + 2) % 3);
+    let (corner, mid) = (|k: usize| vec![k], |k: usize| vec![k, (k + 1) % 3]);
+    if cut == [true; 3] {
+        return vec![
+            [corner(0), mid(0), mid(2)],
+            [mid(0), corner(1), mid(1)],
+            [mid(2), mid(1), corner(2)],
+            [mid(0), mid(1), mid(2)],
+        ];
+    }
+    let mut parts = Vec::new();
+    if cut[c] {
+        parts.push([corner(a), mid(a), mid(c)]);
+        parts.push([mid(c), mid(a), corner(c)]);
+    } else {
+        parts.push([corner(a), mid(a), corner(c)]);
+    }
+    if cut[b] {
+        parts.push([mid(a), corner(b), mid(b)]);
+        parts.push([mid(a), mid(b), corner(c)]);
+    } else {
+        parts.push([mid(a), corner(b), corner(c)]);
+    }
+    parts
 }
 
 struct Builder<'a> {
@@ -486,6 +550,12 @@ impl<'a> Builder<'a> {
         m
     }
 
+    /// Whether edge `e` is longer than edge `f` (keys sorted), ties by their nodes.
+    fn longer(&self, e: (usize, usize), f: (usize, usize)) -> bool {
+        let length = |(a, c): (usize, usize)| norm3(&sub(&self.c(c), &self.c(a)));
+        length(e).total_cmp(&length(f)).then(e.cmp(&f)).is_gt()
+    }
+
     /// Edges where the shell folds or branches: three or more elements, or two whose normals
     /// are more than `CREASE_ANGLE_DEG` apart.
     fn creases(&self) -> HashSet<(usize, usize)> {
@@ -558,23 +628,25 @@ pub fn refine_uniform(input: &SolverInput3D, mode: GeometryMode) -> Result<Refin
 pub fn refine_marked(input: &SolverInput3D, mode: GeometryMode, marked: &HashSet<ElementKey>) -> Result<Refined, String> {
     check_unconstrained(input)?;
     let hanging = hanging_nodes(input)?;
-    let split = closed(&element_edges(input), marked, &hanging, &Builder::new(input, mode).creases())?;
+    let b = Builder::new(input, mode);
+    let split = closed(&element_edges(input), marked, &hanging, &b.creases(), &|e, f| b.longer(e, f))?;
     refine(input, mode, Some(&split), &hanging)
 }
 
 fn refine(
     input: &SolverInput3D,
     mode: GeometryMode,
-    only: Option<&HashSet<ElementKey>>,
+    only: Option<&Closure>,
     hanging: &HashMap<usize, (usize, usize)>,
 ) -> Result<Refined, String> {
-    let splits = |family: &'static str, id: usize| only.is_none_or(|set| set.contains(&(family, id)));
+    let splits = |family: &'static str, id: usize| only.is_none_or(|closure| closure.whole.contains(&(family, id)));
+    let cuts = |a: usize, c: usize| only.is_none_or(|closure| closure.cut.contains(&key(a, c)));
     let mut b = Builder::new(input, mode);
     for (&node, &ends) in hanging {
         b.mids.insert(ends, node);
     }
     let mut out = input.clone();
-    out.plates.retain(|_, e| !splits("plate", e.id));
+    out.plates.retain(|_, e| !(0..3).any(|k| cuts(e.nodes[k], e.nodes[(k + 1) % 3])));
     out.quads.retain(|_, e| !splits("quad", e.id));
     out.quad9s.retain(|_, e| !splits("quad9", e.id));
     out.curved_shells.retain(|_, e| !splits("curvedShell", e.id));
@@ -587,24 +659,34 @@ fn refine(
     let mut plates: Vec<_> = input.plates.values().cloned().collect();
     plates.sort_by_key(|e| e.id);
     for p in plates {
-        if !splits("plate", p.id) {
+        let ends = [0, 1, 2].map(|k| (p.nodes[k], p.nodes[(k + 1) % 3]));
+        let cut = ends.map(|(a, c)| cuts(a, c));
+        if cut == [false; 3] {
             children.insert(("plate", p.id), vec![p.id]);
             continue;
         }
-        let [a, bb, c] = p.nodes;
-        let (m0, m1, m2) = (b.edge_mid(a, bb), b.edge_mid(bb, c), b.edge_mid(c, a));
-        let mut ids = Vec::new();
-        for nodes in [[a, m0, m2], [m0, bb, m1], [m2, m1, c], [m0, m1, m2]] {
+        let longest = (1..3).fold(0, |best, k| if b.longer(key(ends[k].0, ends[k].1), key(ends[best].0, ends[best].1)) { k } else { best });
+        if !cut[longest] {
+            return Err(format!("plate {} is cut on an edge that is not its longest", p.id));
+        }
+        for k in 0..3 {
+            if cut[k] {
+                b.edge_mid(ends[k].0, ends[k].1);
+            }
+        }
+        let mut parts = Vec::new();
+        for part in triangle_parts(cut, longest) {
+            let nodes = [0, 1, 2].map(|corner| match part[corner].as_slice() {
+                [k] => p.nodes[*k],
+                between => b.edge_mid(p.nodes[between[0]], p.nodes[between[1]]),
+            });
             let id = b.elem_id();
             out.plates.insert(id.to_string(), SolverPlateElement { id, nodes, ..p.clone() });
-            ids.push(id);
+            let rows: Vec<&[usize]> = part.iter().map(|of| of.as_slice()).collect();
+            parts.push((id, corner_weights(3, &rows)));
         }
-        split_record.push(Split {
-            family: "plate",
-            parent: p.id,
-            children: ids.iter().zip(PLATE_CHILD_CORNERS).map(|(&id, rows)| (id, corner_weights(3, &rows))).collect(),
-        });
-        children.insert(("plate", p.id), ids);
+        children.insert(("plate", p.id), parts.iter().map(|(id, _)| *id).collect());
+        split_record.push(Split { family: "plate", parent: p.id, children: parts });
     }
 
     let mut quads: Vec<_> = input.quads.values().cloned().collect();
