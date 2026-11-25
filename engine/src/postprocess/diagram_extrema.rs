@@ -128,30 +128,61 @@ pub(crate) struct Curve<D, P> {
 
 #[derive(Default)]
 struct DiagramSum {
-    sum: f64,
-    correction: f64,
+    partials: Vec<f64>,
 }
 
 impl DiagramSum {
-    fn add(&mut self, term: f64) {
-        let next = self.sum + term;
-        if next.is_finite() {
-            self.correction += if self.sum.abs() >= term.abs() {
-                (self.sum - next) + term
-            } else {
-                (term - next) + self.sum
-            };
+    fn add(&mut self, mut term: f64) {
+        let mut kept = 0;
+        for i in 0..self.partials.len() {
+            let mut other = self.partials[i];
+            if term.abs() < other.abs() {
+                std::mem::swap(&mut term, &mut other);
+            }
+            let next = term + other;
+            if !next.is_finite() {
+                self.partials.clear();
+                self.partials.push(next);
+                return;
+            }
+            let residual = other - (next - term);
+            if residual != 0.0 {
+                self.partials[kept] = residual;
+                kept += 1;
+            }
+            term = next;
         }
-        self.sum = next;
+        self.partials.truncate(kept);
+        if term != 0.0 {
+            self.partials.push(term);
+        }
     }
 
-    fn value(self) -> f64 {
-        self.sum + self.correction
+    fn value(&self) -> f64 {
+        let mut terms = self.partials.iter().rev();
+        let mut sum = terms.next().copied().unwrap_or_default();
+        for &term in terms.by_ref() {
+            let next = sum + term;
+            let residual = term - (next - sum);
+            sum = next;
+            if residual != 0.0 {
+                if terms.next().is_some_and(|low| low.is_sign_positive() == residual.is_sign_positive()) {
+                    let twice = 2.0 * residual;
+                    let adjusted = sum + twice;
+                    if adjusted - sum == twice {
+                        sum = adjusted;
+                    }
+                }
+                break;
+            }
+        }
+        sum
     }
 
     fn add_scaled(&mut self, other: &Self, scale: f64) {
-        self.add(other.sum * scale);
-        self.add(other.correction * scale);
+        for &term in &other.partials {
+            self.add(term * scale);
+        }
     }
 }
 
@@ -203,14 +234,15 @@ where
     P: Iterator<Item = PointAction> + Clone,
 {
     pub fn checked_value(&self, cut: Cut) -> Result<f64, &'static str> {
-        if let Location::Interior { start, end, u } = cut.location {
-            if let Some((boundary, from)) = cut.aliased_boundary(self.length) {
+        let value = match (cut.location, cut.aliased_boundary(self.length)) {
+            (Location::Interior { start, end, u }, Some((boundary, from))) => {
                 let mut value = self.accumulate_cut(boundary)?;
-                value.add(change_between(self.segment_change(start, end), from, u));
-                return Ok(value.value());
+                add_change(&mut value, &self.segment_change(start, end), from, u);
+                value.value()
             }
-        }
-        self.accumulate_cut(cut).map(DiagramSum::value)
+            _ => self.accumulate_cut(cut)?.value(),
+        };
+        if value.is_finite() { Ok(value) } else { Err("non-finite member diagram ordinate") }
     }
 
     fn accumulate_cut(&self, cut: Cut) -> Result<DiagramSum, &'static str> {
@@ -280,9 +312,11 @@ where
         let mut validate = |start, end| {
             self.visit_extrema(start, end, Some(t), |cut, change, u| {
                 let actual = (t * self.length - start) / (end - start);
-                let peak = self.checked_value(cut)?;
+                let mut moved = self.accumulate_cut(cut)?;
+                let peak = moved.value();
+                add_change(&mut moved, change, u, actual);
                 if !(0.0 < actual && actual < 1.0 && peak.is_finite())
-                    || peak + change_between(change, u, actual) != peak
+                    || moved.value() != peak
                     || ordinate.is_some_and(|value| value != peak)
                 {
                     return Err("member diagram extrema cannot be evaluated at the requested station");
@@ -342,13 +376,13 @@ where
         x0: f64,
         x1: f64,
         at: Option<f64>,
-        mut visit: impl FnMut(Cut, [f64; 3], f64) -> Result<(), &'static str>,
+        mut visit: impl FnMut(Cut, &[DiagramSum; 3], f64) -> Result<(), &'static str>,
     ) -> Result<(), &'static str> {
         if x0 == x1 {
             return Ok(());
         }
         let change = self.segment_change(x0, x1);
-        for u in interior_roots(change)? {
+        for u in interior_roots(change.each_ref().map(DiagramSum::value))? {
             let cut = Cut::interior(self.length, x0, x1, u);
             if at.is_some_and(|t| t != cut.t) {
                 continue;
@@ -360,7 +394,7 @@ where
                     return Err("interior member diagram extremum has no distinct normalized station");
                 }
             } else {
-                visit(cut, change, u)?;
+                visit(cut, &change, u)?;
             }
         }
         Ok(())
@@ -374,8 +408,12 @@ where
     }
 
     pub fn interior_range(&self, end: f64) -> Result<(f64, f64), &'static str> {
-        let end_jump = self.points.clone().filter(|p| p.a == self.length).map(|p| p.jump).sum::<f64>();
-        let end_limit = end - end_jump;
+        let mut end_limit = DiagramSum::default();
+        end_limit.add(end);
+        for point in self.points.clone().filter(|p| p.a == self.length) {
+            end_limit.add(-point.jump);
+        }
+        let end_limit = end_limit.value();
         if !end_limit.is_finite() {
             return Err("non-finite moving load member diagram");
         }
@@ -395,7 +433,7 @@ where
         Ok((lo, hi))
     }
 
-    fn segment_change(&self, x: f64, end: f64) -> [f64; 3] {
+    fn segment_change(&self, x: f64, end: f64) -> [DiagramSum; 3] {
         let width = end - x;
         let mut linear = DiagramSum::default();
         linear.add(self.slope * width);
@@ -435,12 +473,16 @@ where
                 gradient.add(-signed_width * (d.q_i * fraction) * gradient_integral);
             }
         }
-        [linear.value(), quadratic.value(), cubic.value()]
+        [linear, quadratic, cubic]
     }
 }
 
-fn change_between([linear, quadratic, cubic]: [f64; 3], from: f64, to: f64) -> f64 {
-    (to - from) * (linear + quadratic * (to + from) + cubic * (to * to + to * from + from * from))
+fn add_change(value: &mut DiagramSum, [linear, quadratic, cubic]: &[DiagramSum; 3], from: f64, to: f64) {
+    let mut difference = DiagramSum::default();
+    difference.add_scaled(linear, 1.0);
+    difference.add_scaled(quadratic, to + from);
+    difference.add_scaled(cubic, to * to + to * from + from * from);
+    value.add_scaled(&difference, to - from);
 }
 
 fn interior_roots([linear, quadratic, cubic]: [f64; 3]) -> Result<impl Iterator<Item = f64>, &'static str> {
@@ -472,7 +514,6 @@ mod round3_tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #2437"]
     fn issue_2437_station_transfer_uses_the_unrounded_peak() {
         let d = 2.0_f64.powi(-53);
         let high = 2.0_f64.powi(54);
@@ -500,20 +541,22 @@ mod round3_tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2437"]
     fn issue_2437_small_terms_survive_nested_cancellation() {
         let high = 2.0_f64.powi(110);
         let medium = 2.0_f64.powi(54);
-        let loads = [high, medium, 1.0, -medium, -high].map(|q| {
-            DistributedLoadInfo { a: 0.0, b: 1.0, q_i: q, q_j: q }
-        });
-        let curve = Curve {
-            length: 1.0, start: 0.0, change: 0.0, slope: 0.0, response: Response::Force(1.0),
-            distributed: loads.into_iter(), points: std::iter::empty(),
+        let terms = [high, medium, 1.0, -medium, -high];
+        let loads = terms.map(|q| DistributedLoadInfo { a: 0.0, b: 1.0, q_i: q, q_j: q });
+        let curve = |jumps: [f64; 5]| Curve {
+            length: 1.0, start: 0.0, change: 0.0, slope: 0.0,
+            response: Response::Force(1.0),
+            distributed: loads.clone().into_iter(),
+            points: jumps.into_iter().map(|jump| PointAction { a: 1.0, jump, slope: 0.0 }),
         };
-        assert_eq!(curve.checked_station_value(0.5, false), Ok(0.5));
-        assert_eq!(curve.segment_change(0.0, 1.0), [1.0, 0.0, 0.0]);
-        assert_eq!(curve.interior_range(1.0), Ok((0.0, 1.0)));
+        let without_jump = curve([0.0; 5]);
+        assert_eq!(without_jump.checked_station_value(0.5, false), Ok(0.5));
+        assert_eq!(without_jump.segment_change(0.0, 1.0).each_ref().map(DiagramSum::value), [1.0, 0.0, 0.0]);
+        assert_eq!(without_jump.interior_range(1.0), Ok((0.0, 1.0)));
+        assert_eq!(curve(terms).interior_range(2.0), Ok((0.0, 1.0)));
     }
 
     #[test]

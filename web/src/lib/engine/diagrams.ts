@@ -2,7 +2,7 @@
 // Given end forces and distributed load, compute intermediate values
 
 import { computeDeformedShape as wasmComputeDeformedShape } from './wasm-solver';
-import { checkedCurveValue, curveExtrema, diagramCriticalPoints, diagramCurvePoints, diagramLineValue, distributedActionTerms, fullSpanFallback, indexDiagramExtrema, memberDiagram, unavailableDiagramExtrema, type DiagramStation } from './member-diagram';
+import { checkedCurveValue, curveExtrema, diagramCriticalPoints, diagramCurvePoints, diagramLineValue, distributedActionTerms, fullSpanFallback, indexDiagramExtrema, maxAbsDiagramOrdinate, memberDiagram, unavailableDiagramExtrema, type DiagramOrdinate, type DiagramStation } from './member-diagram';
 
 export interface DiagramPoint extends DiagramStation {
   /** World coordinates */
@@ -65,24 +65,20 @@ function buildDiagram(
   return { elementId: 0, points, ...planarExtrema(critical) };
 }
 
-function planarExtrema(critical: readonly (DiagramStation & { value: number })[]) {
-  let maxVal = -Infinity, minVal = Infinity;
-  let maxAbsT = 0, maxAbsValue = 0;
-  for (const { t, value } of critical) {
-    if (value > maxVal) maxVal = value;
-    if (value < minVal) minVal = value;
-    if (Math.abs(value) > Math.abs(maxAbsValue)) {
-      maxAbsT = t;
-      maxAbsValue = value;
-    }
+function planarExtrema(critical: readonly DiagramOrdinate[]) {
+  let maxValue = -Infinity, minValue = Infinity;
+  for (const { value } of critical) {
+    if (value > maxValue) maxValue = value;
+    if (value < minValue) minValue = value;
   }
-
-  return { maxValue: maxVal, minValue: minVal, maxAbsT, maxAbsValue };
+  const { t: maxAbsT, value: maxAbsValue, side: maxAbsSide } = maxAbsDiagramOrdinate(critical);
+  return { maxValue, minValue, maxAbsT, maxAbsValue, maxAbsSide };
 }
 
 export function computePlanarDiagramExtrema(kind: PlanarKind, ef: PlanarForces) {
   const curve = planarCurve(kind, ef);
-  return planarExtrema(diagramCriticalPoints(curve, curveExtrema(curve, ef.length)));
+  const extrema = planarExtrema(diagramCriticalPoints(curve, curveExtrema(curve, ef.length)));
+  return { ...extrema, maxAbsX: curve.cutDistances.get(extrema.maxAbsT) ?? extrema.maxAbsT * ef.length };
 }
 
 export function computeElementDiagram(

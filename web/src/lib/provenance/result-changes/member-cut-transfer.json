@@ -1,0 +1,50 @@
+{
+  "id": "member-cut-transfer",
+  "date": "2026-11-25",
+  "prs": [
+    2581
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "members"
+    ],
+    "any": [
+      "memberLoads",
+      "selfWeight",
+      "movingLoads",
+      "combinations",
+      "magnitudeCombinations"
+    ]
+  },
+  "quantities": [
+    "diagrams",
+    "envelope",
+    "movingLoads",
+    "beamStations"
+  ],
+  "title": {
+    "en": "Preserve member ordinates through cancellation and cut transfer",
+    "es": "Conservar los valores de barra tras la cancelación y el traslado de sección",
+    "pt": "Preservar os valores das barras após cancelamento e mudança de seção",
+    "de": "Stabordinaten bei Aufhebung und Schnittübertragung erhalten",
+    "fr": "Préserver les ordonnées des barres lors des compensations et des transferts de section",
+    "tr": "İptal ve kesit aktarımı sırasında eleman ordinatlarını koruma",
+    "zh": "在数值抵消和截面转换时保留杆件内力值",
+    "hu": "Rúdordináták megőrzése kioltás és metszetátvitel esetén"
+  },
+  "explanation": {
+    "en": "Member diagrams preserve small cancelling contributions. Peak queries refuse stations with different ordinates, and critical summaries and force reports identify the governing sides. Recompute affected analyses and regenerate the reports.",
+    "es": "Los diagramas de barras conservan las contribuciones pequeñas al cancelar cargas. Las consultas de extremos rechazan secciones con valores distintos y los informes identifican el lado determinante. Repita los análisis afectados y regenere los informes.",
+    "pt": "Os diagramas das barras preservam pequenas contribuições ao cancelar cargas. As consultas de extremos recusam seções com valores diferentes, e os relatórios identificam o lado determinante. Recalcule as análises afetadas e gere novamente os relatórios.",
+    "de": "Stabdiagramme erhalten kleine Beiträge bei der Aufhebung von Lasten. Extremwertabfragen lehnen Schnitte mit abweichenden Ordinaten ab, und Berichte kennzeichnen die maßgebende Seite. Wiederholen Sie betroffene Berechnungen und erstellen Sie die Berichte neu.",
+    "fr": "Les diagrammes conservent les petites contributions lorsque les charges se compensent. Les requêtes d’extrema refusent les sections dont les ordonnées diffèrent et les rapports indiquent la face déterminante. Relancez les analyses concernées et régénérez les rapports.",
+    "tr": "Eleman diyagramları yükler birbirini götürürken küçük katkıları korur. Uç değer sorguları ordinatı farklı kesitleri reddeder, raporlar belirleyici tarafı gösterir. Etkilenen analizleri yeniden çalıştırın ve raporları yeniden oluşturun.",
+    "zh": "杆件内力图在荷载抵消时保留微小贡献。极值查询会拒绝内力值不同的截面，报告会标明控制侧。请重新运行受影响的分析并重新生成报告。",
+    "hu": "A rúddiagramok megőrzik a kis hozzájárulásokat a terhek kioltásakor. A szélsőérték-lekérdezések elutasítják az eltérő ordinátájú metszeteket, a jelentések pedig jelölik a mértékadó oldalt. Futtassa újra az érintett elemzéseket, és készítse el újra a jelentéseket."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-member-cut-transfer.md",
+    "heading": "Preserve member ordinates through cancellation and cut transfer"
+  }
+}

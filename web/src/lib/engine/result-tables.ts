@@ -177,7 +177,16 @@ export function beatsExtreme(sign: 1 | -1, v: number, entity: number, x: number 
   const d = sign * (v - e.value);
   if (d > tol) return true;
   if (d < -tol) return false;
-  return entity < e.entity || (entity === e.entity && (x ?? 0) < (e.x ?? 0));
+  return earlierLocation(entity, x, e);
+}
+
+function earlierLocation(entity: number, x: number | undefined, current: { entity: number; x?: number }): boolean {
+  return entity < current.entity || (entity === current.entity && (x ?? 0) < (current.x ?? 0));
+}
+
+function beatsCriticalExtreme(sign: 1 | -1, value: number, entity: number, x: number | undefined, current: Extreme | null): boolean {
+  return !current || (value === current.value ? earlierLocation(entity, x, current)
+    : sign === 1 ? value > current.value : value < current.value);
 }
 
 const forceDiagrams: readonly Diagram3DKind[] = ['axial', 'shearY', 'shearZ', 'torsion', 'momentY', 'momentZ'];
@@ -188,24 +197,24 @@ export function summaryRows(kind: TableKind, sources: readonly Source[], opts: T
   const cols = columnsOf(kind, opts);
   const max: Array<Extreme | null> = cols.map(() => null);
   const min: Array<Extreme | null> = cols.map(() => null);
+  const critical = kind === 'forces' && opts.stations === 'critical';
+  const beats = critical ? beatsCriticalExtreme : beatsExtreme;
   for (const source of sources) {
     const visit = (c: number, value: number, entity: number, end: Extreme['end'], x: number | undefined, side?: Extreme['side']) => {
       if (!Number.isFinite(value)) return;
       const where = { value, entity, end, x, source, ...(side && { side }) };
-      if (beatsExtreme(1, value, entity, x, max[c]!)) max[c] = where;
-      if (beatsExtreme(-1, value, entity, x, min[c]!)) min[c] = where;
+      if (beats(1, value, entity, x, max[c]!)) max[c] = where;
+      if (beats(-1, value, entity, x, min[c]!)) min[c] = where;
     };
-    if (kind === 'forces' && opts.stations === 'critical') {
+    if (critical) {
       const diagrams = opts.resultant ? [...forceDiagrams, ...resultantDiagrams] : forceDiagrams;
       for (const ef of source.results.elementForces) {
         if (opts.entities && !opts.entities.has(ef.elementId)) continue;
         diagrams.forEach((diagram, c) => {
           const ordinates = memberCriticalOrdinates3D(ef, diagram);
-          ordinates.forEach(({ t, value, x, right }, i) => {
-            const next = ordinates[i + 1];
-            const side = right ? 'right' : next?.right && next.t === t ? 'left' : undefined;
+          for (const { t, value, x, side } of ordinates) {
             visit(c, value, ef.elementId, t === 0 ? 'i' : t === 1 ? 'j' : undefined, x, side);
-          });
+          }
         });
       }
     } else {

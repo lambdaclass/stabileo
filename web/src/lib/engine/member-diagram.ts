@@ -1,3 +1,5 @@
+import { roundDiagramSum, sumDiagramTerms, type DiagramSum } from './diagram-sum';
+
 export const DIAGRAM_EXTREMA_UNAVAILABLE = 'solver.diagramExtremaUnavailable';
 
 export interface DiagramStation {
@@ -10,10 +12,10 @@ export interface DiagramExtremum {
   t: number;
   value: number;
   canTransfer: (t: number, distance?: number) => boolean;
+  fallback?: true;
 }
 
-type Compensated = readonly [sum: number, correction: number];
-type DiagramPolynomial = readonly Compensated[];
+type DiagramPolynomial = readonly DiagramSum[];
 
 export interface DiagramCurve {
   hasDistributedActions: boolean;
@@ -70,11 +72,10 @@ function addActionTerms(
     return;
   }
   const inside = Math.min(distance, span);
-  const left = qI === 0 ? zero : integratedActionTerms(qI, 0, span, inside);
-  const right = qJ === 0 ? zero : integratedActionTerms(0, qJ, span, inside);
+  const left = qI === 0 ? zeroAction : integratedActionTerms(qI, 0, span, inside);
+  const right = qJ === 0 ? zeroAction : integratedActionTerms(0, qJ, span, inside);
   const add = (index: 0 | 1, factor: number) => {
-    const [sum, correction] = compensatedDiagramTerms([left[index], right[index]]);
-    terms.push(factor * sum, factor * correction);
+    for (const term of sumDiagramTerms([left[index], right[index]])) terms.push(factor * term);
   };
   add(component, scale);
   if (component === 1 && distance > span) add(0, scale * (distance - span));
@@ -111,7 +112,7 @@ export function memberDiagram(
         contributions.push(point.jump);
       }
     }
-    return compensatedDiagramTerms(contributions);
+    return sumDiagramTerms(contributions);
   };
 
   const polynomial: DiagramCurve['polynomial'] = (
@@ -141,7 +142,7 @@ export function memberDiagram(
         gradient.push(signedWidth * (load.qJ * fraction) * gradientIntegral, -signedWidth * (load.qI * fraction) * gradientIntegral);
       }
     }
-    return [boundaryValue(x0, lo, true), compensatedDiagramTerms(linear), compensatedDiagramTerms(quadratic), compensatedDiagramTerms(cubic)];
+    return [boundaryValue(x0, lo, true), sumDiagramTerms(linear), sumDiagramTerms(quadratic), sumDiagramTerms(cubic)];
   };
 
   const intervals = new Map<number, DiagramPolynomial>();
@@ -156,7 +157,7 @@ export function memberDiagram(
       const cut = distances().get(station);
       const x = distance ?? cut ?? t * length;
       if (x === cut || x < 0 || x > length || !Number.isFinite(x)) {
-        return roundedSum(boundaryValue(x, station, right === true));
+        return roundDiagramSum(boundaryValue(x, station, right === true));
       }
       cuts ??= [...distances()];
       const upper = cuts.findIndex(([station, physical]) => distance === undefined ? station > t : physical > distance);
@@ -171,24 +172,21 @@ export function memberDiagram(
       const u = distance !== undefined ? (x - x0) / width
         : x <= x0 ? (t - lo) * length / width
           : x >= x1 ? 1 - (hi - t) * length / width : (x - x0) / width;
-      return roundedSum(polynomialValue(coefficients, u));
+      return roundDiagramSum(polynomialValue(coefficients, u));
     },
     polynomial,
   };
 }
 
-function compensatedDiagramTerms(terms: readonly number[]): Compensated {
-  let sum = 0, correction = 0;
-  for (const term of terms) {
-    const next = sum + term;
-    correction += Math.abs(sum) >= Math.abs(term) ? (sum - next) + term : (term - next) + sum;
-    sum = next;
-  }
-  return [sum, correction];
-}
-
-function roundedSum([sum, correction]: Compensated): number {
-  return sum + correction;
+function moveOrdinate(ordinate: DiagramSum, p: DiagramPolynomial, u: number, step: number, sign = 1): DiagramSum {
+  const [, linear = [], quadratic = [], cubic = []] = p;
+  const slope = sumDiagramTerms([
+    ...linear, ...quadratic.map(term => term * (2 * u)), ...cubic.map(term => 3 * (u * (u * term))),
+  ]);
+  const curvature = sumDiagramTerms([...quadratic, ...cubic.map(term => term * (3 * u + step))]);
+  return sumDiagramTerms([
+    ...ordinate, ...slope.map(term => sign * step * term), ...curvature.map(term => sign * step * (step * term)),
+  ]);
 }
 
 function diagramExtremum(
@@ -200,26 +198,20 @@ function diagramExtremum(
   const t = lo + (hi - lo) * u;
   if (at !== undefined && t !== at) return undefined;
   const ordinates = polynomials.map(p => polynomialValue(p, u));
-  const value = combine(ordinates.map(roundedSum));
+  const value = combine(ordinates.map(roundDiagramSum));
   if (!Number.isFinite(value)) throw unavailableDiagramExtrema();
   if (!(t > lo && t < hi)) {
-    if (value !== combine(polynomials.map(p => roundedSum(polynomialValue(p, t === lo ? 0 : 1))))) throw unavailableDiagramExtrema();
+    const edge = t === lo ? 0 : 1;
+    const limits = polynomials.map(p => polynomialValue(p, edge));
+    const boundary = combine(limits.map(roundDiagramSum));
+    const interior = combine(polynomials.map((p, i) => roundDiagramSum(moveOrdinate(limits[i]!, p, u, edge - u, -1))));
+    if (!Number.isFinite(interior) || interior !== boundary) throw unavailableDiagramExtrema();
     return undefined;
   }
   const canTransfer = (station: number, distance?: number) => {
     const local = ((distance ?? station * length) - x0) / (x1 - x0);
     if (!(local > 0 && local < 1)) return false;
-    const step = local - u;
-    return combine(polynomials.map((p, i) => {
-      const change = (linear: number, quadratic: number, cubic: number) => {
-        const slope = linear + u * (2 * quadratic + u * 3 * cubic);
-        return step * (slope + step * (quadratic + 3 * u * cubic + step * cubic));
-      };
-      const [, linear = zero, quadratic = zero, cubic = zero] = p;
-      return roundedSum(compensatedDiagramTerms([
-        ...ordinates[i]!, change(linear[0], quadratic[0], cubic[0]), change(linear[1], quadratic[1], cubic[1]),
-      ]));
-    })) === value;
+    return combine(polynomials.map((p, i) => roundDiagramSum(moveOrdinate(ordinates[i]!, p, u, local - u)))) === value;
   };
   return { t, value, canTransfer };
 }
@@ -290,14 +282,14 @@ export function checkedCurveValue(curve: Pick<DiagramCurve, 'value'>, station: D
   return value;
 }
 
-type DiagramOrdinate = DiagramStation & { value: number };
+export type DiagramOrdinate = DiagramStation & { value: number; side?: 'left' | 'right' };
 type DiagramValues = Pick<DiagramCurve, 'cuts' | 'value'>;
 
 export function diagramCriticalPoints(
   curve: DiagramValues, critical: readonly DiagramExtremum[], inwardAtI = false,
 ): DiagramOrdinate[] {
-  const extrema = indexDiagramExtrema(critical);
   const boundaries = new Set(curve.cuts);
+  const extrema = indexDiagramExtrema(critical.filter(peak => !peak.fallback || !boundaries.has(peak.t)));
   return sortedStations([...boundaries, ...extrema.keys()]).flatMap(t => {
     const peak = extrema.get(t);
     const points: DiagramOrdinate[] = [];
@@ -306,13 +298,22 @@ export function diagramCriticalPoints(
       if (t < 1) {
         const right = { t, right: true };
         const value = curve.value(right);
-        if (value !== points[0]?.value) points.push({ ...right, value });
+        const left = points[0];
+        if (value !== left?.value) {
+          if (left) left.side = 'left';
+          points.push({ ...right, value, side: 'right' });
+        }
       }
     }
     if (peak) points.push({ t, value: peak.value });
     if (points.some(point => !Number.isFinite(point.value))) throw unavailableDiagramExtrema();
     return points;
   });
+}
+
+export function maxAbsDiagramOrdinate(critical: readonly DiagramOrdinate[]): DiagramOrdinate {
+  return critical.reduce((best, point) => Math.abs(point.value) > Math.abs(best.value) ? point : best,
+    { t: 0, value: 0 });
 }
 
 export function diagramCurvePoints(curve: DiagramValues, critical: readonly DiagramOrdinate[]): DiagramOrdinate[] {
@@ -340,34 +341,34 @@ export function addMagnitudeBounds(a: number, b: number): number {
   return floatBits.getFloat64(0);
 }
 
-const zero: Compensated = [0, 0];
+const zeroAction: readonly [number, number] = [0, 0];
 
-function polynomialValue(coefficients: DiagramPolynomial, x: number): Compensated {
-  return coefficients.reduceRight<Compensated>(([value, residual], [coefficient, correction]) =>
-    compensatedDiagramTerms([coefficient, value * x, correction, residual * x]), zero);
+function polynomialValue(coefficients: DiagramPolynomial, x: number): DiagramSum {
+  return coefficients.reduceRight<DiagramSum>((value, coefficient) =>
+    sumDiagramTerms([...coefficient, ...value.map(term => term * x)]), []);
 }
 
 function polynomialDerivative(coefficients: DiagramPolynomial): DiagramPolynomial {
-  return coefficients.slice(1).map(([value, residual], i) => [value * (i + 1), residual * (i + 1)]);
+  return coefficients.slice(1).map((coefficient, i) => coefficient.map(term => term * (i + 1)));
 }
 
 function polynomialScale(coefficients: DiagramPolynomial): number {
-  return Math.max(...coefficients.flatMap(terms => terms.map(Math.abs)));
+  return Math.max(0, ...coefficients.flatMap(terms => terms.map(Math.abs)));
 }
 
 function normalizedPolynomial(coefficients: DiagramPolynomial, scale: number): DiagramPolynomial {
-  return coefficients.map(([value, residual]) => [value / scale, residual / scale]);
+  return coefficients.map(coefficient => coefficient.map(term => term / scale));
 }
 
 function polynomialRootCandidates(coefficients: DiagramPolynomial, lo = 0, hi = 1): number[] {
   const c = [...coefficients];
-  while (c.length && roundedSum(c.at(-1)!) === 0) c.pop();
+  while (c.length && roundDiagramSum(c.at(-1)!) === 0) c.pop();
   if (c.length < 2) return [];
   const scale = polynomialScale(c);
   if (!Number.isFinite(scale)) throw unavailableDiagramExtrema();
   const normalized = normalizedPolynomial(c, scale);
   if (c.length === 2) {
-    const root = -roundedSum(normalized[0]!) / roundedSum(normalized[1]!);
+    const root = -roundDiagramSum(normalized[0]!) / roundDiagramSum(normalized[1]!);
     return root >= lo && root <= hi ? [root] : [];
   }
   const critical = polynomialRootCandidates(polynomialDerivative(normalized), lo, hi);
@@ -375,15 +376,15 @@ function polynomialRootCandidates(coefficients: DiagramPolynomial, lo = 0, hi = 
   const roots = [...critical];
   for (let k = 0; k + 1 < cuts.length; k++) {
     let a = cuts[k]!, b = cuts[k + 1]!;
-    let fa = roundedSum(polynomialValue(normalized, a));
-    const fb = roundedSum(polynomialValue(normalized, b));
+    let fa = roundDiagramSum(polynomialValue(normalized, a));
+    const fb = roundDiagramSum(polynomialValue(normalized, b));
     if (fa === 0) roots.push(a);
     if (fb === 0) roots.push(b);
     if (fa === 0 || fb === 0 || (fa < 0) === (fb < 0)) continue;
     while (true) {
       const mid = a + (b - a) / 2;
       if (mid === a || mid === b) { roots.push(mid); break; }
-      const fm = roundedSum(polynomialValue(normalized, mid));
+      const fm = roundDiagramSum(polynomialValue(normalized, mid));
       if (fm === 0) { roots.push(mid); break; }
       if ((fm < 0) === (fa < 0)) { a = mid; fa = fm; } else b = mid;
     }
@@ -406,10 +407,10 @@ export function prepareMagnitudeExtrema(
     const roots: number[] = [];
     if (method === 'srss') {
       const squared = Array.from({ length: 7 }, () => [] as number[]);
-      for (const p of normalized) p.forEach(([a, da], i) => p.forEach(([b, db], j) => {
-        squared[i + j]!.push(a * b, a * db, da * b, da * db);
+      for (const p of normalized) p.forEach((a, i) => p.forEach((b, j) => {
+        for (const left of a) for (const right of b) squared[i + j]!.push(left * right);
       }));
-      roots.push(...polynomialRootCandidates(polynomialDerivative(squared.map(compensatedDiagramTerms))));
+      roots.push(...polynomialRootCandidates(polynomialDerivative(squared.map(sumDiagramTerms))));
     } else {
       const zeros = [...new Set([0, 1, ...normalized.flatMap(p => polynomialRootCandidates(p))])].sort((a, b) => a - b);
       for (const u of zeros) roots.push(u);
@@ -417,10 +418,10 @@ export function prepareMagnitudeExtrema(
         const a = zeros[j]!, b = zeros[j + 1]!;
         const sum = Array.from({ length: 4 }, () => [] as number[]);
         for (const p of normalized) {
-          const sign = roundedSum(polynomialValue(p, a + (b - a) / 2)) < 0 ? -1 : 1;
-          p.forEach(([value, residual], i) => sum[i]!.push(sign * value, sign * residual));
+          const sign = roundDiagramSum(polynomialValue(p, a + (b - a) / 2)) < 0 ? -1 : 1;
+          p.forEach((coefficient, i) => sum[i]!.push(...coefficient.map(term => sign * term)));
         }
-        roots.push(...polynomialRootCandidates(polynomialDerivative(sum.map(compensatedDiagramTerms)), a, b));
+        roots.push(...polynomialRootCandidates(polynomialDerivative(sum.map(sumDiagramTerms)), a, b));
       }
     }
     return { polynomials, roots: roots.filter(u => u !== 0 && u !== 1) };

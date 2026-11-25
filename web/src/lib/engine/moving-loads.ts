@@ -7,6 +7,8 @@ import { analyzeKinematics, type KinematicResult } from './kinematic-2d';
 import { t } from '../i18n';
 import { localizeEngineText } from '../i18n/engine-text';
 import { withoutSettlement } from './settlement-case';
+import { roundDiagramSum, sumDiagramTerms } from './diagram-sum';
+import { unavailableDiagramExtrema } from './member-diagram';
 
 /** A single axle in a load train */
 export interface Axle {
@@ -263,7 +265,8 @@ export function loadOnMember(
   const dz = nj.z - ni.z;
   const L = Math.hypot(dx, dz);
   if (L < 1e-12) return [];
-  const t = Math.min(1, Math.max(0, a / L));
+  const station = Math.min(L, Math.max(0, a));
+  const t = station / L;
   const c = dx / L;
   const s = dz / L;
   const Fx = weight * dir.x, Fz = weight * dir.z;
@@ -280,13 +283,15 @@ export function loadOnMember(
   const transverse = Math.abs(p) > 1e-10 ? p : 0;
   const axial = Math.abs(px) > 1e-10 ? px : 0;
   if (transverse === 0 && axial === 0) return [];
-  return [{ type: 'pointOnElement', data: { elementId, a: t * L, p: transverse, ...(axial === 0 ? {} : { px: axial }) } }];
+  return [{ type: 'pointOnElement', data: { elementId, a: station, p: transverse, ...(axial === 0 ? {} : { px: axial }) } }];
 }
 
 export function axleMemberStation(position: number, start: number, length: number, reversed: boolean): number {
-  const end = start + length;
-  const along = position === end ? length : Math.min(Math.max(position - start, 0), length);
-  return reversed ? length - along : along;
+  if (position <= start) return reversed ? length : 0;
+  if (position >= start + length) return reversed ? 0 : length;
+  const station = reversed ? roundDiagramSum(sumDiagramTerms([length, start, -position])) : position - start;
+  if (!(station > 0 && station < length)) throw unavailableDiagramExtrema();
+  return station;
 }
 
 /**

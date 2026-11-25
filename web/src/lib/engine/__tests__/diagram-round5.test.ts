@@ -434,7 +434,7 @@ it('known wrong result: #2437 keeps the sampled concrete policy for the seven-st
   expect(diagram.maxValue).toBeGreaterThan(f.myEnd);
 });
 
-it.skip('known wrong result: #2437 transfers a stationary shear only when the rounded cut agrees', () => {
+it('known wrong result: #2437 transfers a stationary shear only when the rounded cut agrees', () => {
   const [plane, space] = cantilevers(1);
   const d = 2 ** -53;
   const high = 2 ** 54;
@@ -442,7 +442,7 @@ it.skip('known wrong result: #2437 transfers a stationary shear only when the ro
   for (const [numerator, transfers] of [[21, false], [22, true]] as const) {
     const k = numerator / (128 * d);
     const distributedLoads = [{ a: 0.5, b: 1, qI: 7 * k, qJ: 7 * k - k / d }];
-    const check = (read: () => number) => {
+    const check = (read: () => number | null) => {
       if (transfers) expect.soft(read()).toBe(high + 4);
       else expect.soft(read).toThrow(/extrema/i);
     };
@@ -465,11 +465,17 @@ it.skip('known wrong result: #2437 transfers a stationary shear only when the ro
       check(() => prepareDiagramEvaluator3D(ef, 'shearZ')(station));
     }
   }
+  const distributedLoads = [{ a: 0.5, b: 1, qI: 2 ** 451, qJ: 2 ** 451 }, { a: 0.5, b: 1, qI: 0, qJ: -(2 ** 1001) }];
+  const planar = { ...solve(plane).elementForces[0]!, distributedLoads };
+  const spatial = { ...solve3D(space).elementForces[0]!, distributedLoadsZ: distributedLoads };
+  expect.soft(() => computeDiagramValueAt('shear', 0.5, planar)).toThrow(/extrema/i);
+  expect.soft(() => evaluateDiagramAt(spatial, 'shearZ', 0.5)).toThrow(/extrema/i);
 });
 
-it.skip('known wrong result: #2437 retains a small force through two levels of cancellation', () => {
+it('known wrong result: #2437 retains a small force through two levels of cancellation', () => {
   const [plane, space] = cantilevers(1);
   const high = 2 ** 110, medium = 2 ** 54;
+  const members = [{ elementId: 1, length: 1, sectionId: 1, materialId: 1 }];
   const loads = [high, medium, 1, -medium, -high].map(q => ({ a: 0, b: 1, qI: q, qJ: q }));
   for (const result of [solve(plane), solvePDelta(plane).results]) {
     const ef = Object.assign(result.elementForces[0]!, { distributedLoads: loads });
@@ -477,6 +483,10 @@ it.skip('known wrong result: #2437 retains a small force through two levels of c
       expect.soft(diagram.maxValue).toBe(1);
     }
     expect.soft(computeEnvelope([result])!.shear.globalMax).toBe(1);
+    const input = { members, combinations: [{ comboId: 1, results: result }], numStations: 3 };
+    for (const stations of [extractBeamStations(input).stations, extractBeamStationsGrouped(input).members[0]!.stations]) {
+      expect.soft(stations.find(s => s.t === 0.5)?.comboForces[0]?.v).toBe(0.5);
+    }
     for (const t of [0, 0.25, 0.5, 1]) {
       expect.soft(computeDiagramValueAt('shear', t, ef)).toBe(t);
       expect.soft(prepareDiagramValueAt('shear', ef)(t)).toBe(t);
@@ -489,6 +499,10 @@ it.skip('known wrong result: #2437 retains a small force through two levels of c
       expect.soft(diagram.maxValue).toBe(1);
     }
     expect.soft(computeEnvelope3D([result])!.shearZ.globalMax).toBe(1);
+    const input = { members, combinations: [{ comboId: 1, results: result }], numStations: 3 };
+    for (const stations of [extractBeamStations3D(input).stations, extractBeamStationsGrouped3D(input).members[0]!.stations]) {
+      expect.soft(stations.find(s => s.t === 0.5)?.comboForces[0]?.vz).toBe(0.5);
+    }
     for (const t of [0, 0.25, 0.5, 1]) {
       expect.soft(evaluateDiagramAt(ef, 'shearZ', t)).toBe(t);
       expect.soft(prepareDiagramEvaluator3D(ef, 'shearZ')(t)).toBe(t);
@@ -497,7 +511,7 @@ it.skip('known wrong result: #2437 retains a small force through two levels of c
   }
 });
 
-it.skip('known wrong result: #2437 keeps the physical approach side when a rebased query rounds onto a jump', () => {
+it('known wrong result: #2437 keeps the physical approach side when a rebased query rounds onto a jump', () => {
   const [, space] = cantilevers(2);
   const offset = 0.25 + 2 ** -53;
   const localCut = 1.25;
@@ -521,7 +535,7 @@ it.skip('known wrong result: #2437 keeps the physical approach side when a rebas
   }
 });
 
-it.skip('known wrong result: #2226 emits only the two faces of a jump shared with a bounded candidate', () => {
+it('known wrong result: #2226 emits only the two faces of a jump shared with a bounded candidate', () => {
   const [, space] = cantilevers(1);
   for (const result of [solve3D(space), solvePDelta3D(space).results]) {
     const leaf = result.elementForces[0]!;
@@ -537,7 +551,7 @@ it.skip('known wrong result: #2226 emits only the two faces of a jump shared wit
   }
 });
 
-it.skip('known wrong result: #1782 keeps a reversed axle just inside a path endpoint', async () => {
+it('known wrong result: #1782 keeps a reversed axle just inside a path endpoint', async () => {
   const d = 2 ** -53;
   const start = 0.25 + 3 * d;
   const end = start + 1.5;
@@ -560,6 +574,12 @@ it.skip('known wrong result: #1782 keeps a reversed axle just inside a path endp
   const path = buildPath3D(space, [1, 2])!;
   expect.soft(trainLoads(space, path, train, interior)).toContainEqual(
     expect.objectContaining({ type: 'pointOnElement', data: expect.objectContaining({ elementId: 2, a: d }) }));
+  expect.soft(() => trainLoads(space, path, train, start + d / 2)).toThrow('solver.diagramExtremaUnavailable');
   expect.soft(trainLoads(space, path, train, end)).toContainEqual(
     expect.objectContaining({ type: 'pointOnElement', data: expect.objectContaining({ elementId: 2, a: 0 }) }));
+  const sweep = await sweepMovingLoad3D(space, path, train, { step: interior });
+  expect.soft(sweep.positions).toBe(2);
+  const forces = sweep.elements.get(2)!;
+  expect.soft([forces.vy.max, forces.vy.min, forces.vz.max, forces.vz.min]).toContainEqual(
+    expect.objectContaining({ x: d, position: interior }));
 });

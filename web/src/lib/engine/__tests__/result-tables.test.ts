@@ -220,8 +220,8 @@ it('known wrong result: #2226 evaluates both transverse components at the physic
     const summary = summaryRows('forces', sources, options);
     expect.soft(summary.find(r => r.column.key === 'v')?.min).toMatchObject({ value: 1, x });
     expect.soft(memberCriticalOrdinates3D(forces, ['shearY', 'shearZ']).filter(p => p.x === x)).toEqual([
-      { t: x / forces.length, x, value: Math.hypot(1, 4) },
-      { t: x / forces.length, x, value: 1, right: true },
+      { t: x / forces.length, x, value: Math.hypot(1, 4), side: 'left' },
+      { t: x / forces.length, x, value: 1, right: true, side: 'right' },
     ]);
     const cuts = criticalForceStations(forces).filter(cut => cut.t === x / forces.length);
     expect.soft(cuts.map(cut => {
@@ -333,7 +333,7 @@ it('known wrong result: #2226 labels the governing jump face in critical summari
   expect.soft(sheet!.rows.find(row => row[1] === 'Vz' && row[3] === 'min')?.[side]).toBe('−');
 });
 
-it.skip('known wrong result: #2226 keeps the strict critical force extremes at nearly equal jump faces', () => {
+it('known wrong result: #2226 keeps the strict critical force extremes at nearly equal jump faces', () => {
   const a = 0.5, step = 2 ** -32;
   const f = {
     ...reviewForces, vzStart: -1, vzEnd: 1, vyStart: 1, vyEnd: -1,
@@ -346,7 +346,7 @@ it.skip('known wrong result: #2226 keeps the strict critical force extremes at n
   expect.soft(rows.find(row => row.column.key === 'vy')?.max).toMatchObject({ value: 1 + step, x: a, side: 'right' });
   expect.soft(rows.find(row => row.column.key === 'vz')?.min).toMatchObject({ value: -1 - step, x: a, side: 'right' });
   const html = envelopeSectionHtml(sources, k => k, 'Envelope').join('');
-  expect.soft(html.match(/7 @ 0\.50⁺/g)).toHaveLength(2);
+  expect.soft(html.match(/7 @ 0\.50⁺/g)).toHaveLength(3);
   const tied = reviewSources({ ...reviewForces, vyStart: 1, vyEnd: 1 });
   const tiedRows = summaryRows('forces', tied, criticalOptions);
   expect.soft(tiedRows.find(row => row.column.key === 'vy')?.max).toMatchObject({ value: 1, x: 0, end: 'i' });

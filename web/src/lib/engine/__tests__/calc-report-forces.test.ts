@@ -188,20 +188,29 @@ it('known wrong result: #2226 reports a shear peak inside a short partial-load i
   expect.soft(spatial.find(row => row.includes('Max |value|'))?.[2]).toBe('1.00 (x = 0.50 m)');
 });
 
-it.skip('known wrong result: #2226 identifies both governing cut faces in planar and spatial force tables', () => {
-  const a = 0.5, length = 1;
-  for (const [jump, value, side] of [[11, 6, '⁺'], [1, -5, '⁻']] as const) {
-    const distributed = [{ a: 0, b: a, qI: -2, qJ: -2 }, { a, b: length, qI: -2 * (jump - 5), qJ: -2 * (jump - 5) }];
-    const planar = r2D(ef2D({ length, vStart: -4, pointLoads: [{ a, p: jump }], distributedLoads: distributed }));
-    const spatial = r3D(ef3D({ length, vzStart: -4, pointLoadsZ: [{ a, p: jump }], distributedLoadsZ: distributed }));
-    for (const envelope2D of [undefined, computeEnvelope([planar]) ?? undefined]) {
-      const [row] = rows(report('shear', { results2D: planar, envelope2D }));
-      expect.soft(num(row![3]!)).toBe(value);
-      expect.soft(row![4]).toBe('0.50' + side);
-    }
-    for (const envelope3D of [undefined, computeEnvelope3D([spatial]) ?? undefined]) {
-      const html = report('shear', { is3D: true, analysisMode: '3D', results3D: spatial, envelope3D });
-      expect.soft(rows(html).at(-1)?.at(-1)).toBe(value.toFixed(2) + ' (x = 0.50' + side + ' m)');
+it('known wrong result: #2226 identifies both governing cut faces in planar and spatial force tables', () => {
+  for (const [length, a, label] of [[1, 0.5, '0.50'], [3, 1.72, '1.72']] as const) {
+    for (const [jump, value, side] of [[11, 6, '⁺'], [1, -5, '⁻']] as const) {
+      const before = -1 / a, after = (5 - jump) / (length - a);
+      const distributed = [{ a: 0, b: a, qI: before, qJ: before }, { a, b: length, qI: after, qJ: after }];
+      const planar = r2D(ef2D({ length, vStart: -4, pointLoads: [{ a, p: jump }], distributedLoads: distributed }));
+      const spatial = r3D(ef3D({ length, vzStart: -4, pointLoadsZ: [{ a, p: jump }], distributedLoadsZ: distributed }));
+      const env2D = computeEnvelope([planar])!;
+      const env3D = computeEnvelope3D([spatial])!;
+      const old2D = structuredClone(env2D), old3D = structuredClone(env3D);
+      delete old2D.shear.elements[0]!.jumpCuts;
+      delete old3D.shearZ.elements[0]!.jumpCuts;
+      for (const envelope2D of [undefined, env2D, ...(length === 1 ? [old2D] : [])]) {
+        const [row] = rows(report('shear', { provenance: { kind: envelope2D ? 'envelope' : 'single' }, results2D: planar, envelope2D }));
+        expect.soft(num(row![3]!)).toBe(value);
+        expect.soft(row![4]).toBe(label + side);
+      }
+      for (const envelope3D of [undefined, env3D, ...(length === 1 ? [old3D] : [])]) {
+        const html = report('shear', {
+          provenance: { kind: envelope3D ? 'envelope' : 'single' }, is3D: true, analysisMode: '3D', results3D: spatial, envelope3D,
+        });
+        expect.soft(rows(html).at(-1)?.at(-1)).toBe(value.toFixed(2) + ' (x = ' + label + side + ' m)');
+      }
     }
   }
 });

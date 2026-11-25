@@ -17,6 +17,7 @@ import { prepareLoadSession3D } from './wasm-solver';
 import { computeLocalAxes3D } from './local-axes-3d';
 import { memberCriticalOrdinates3D, type Diagram3DKind } from './diagrams-3d';
 import { axleMemberStation } from './moving-loads';
+import { DIAGRAM_EXTREMA_UNAVAILABLE } from './member-diagram';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D } from './types-3d';
 import type { LoadTrain } from './moving-loads';
 import { buildSolverInput3D, type ModelData } from './solver-service';
@@ -89,7 +90,7 @@ export function trainLoads(input: SolverInput3D, path: PathSegment3D[], train: L
   for (const axle of train.axles) {
     const s = refPos + axle.offset;
     if (s < 0 || s > total) continue;
-    const seg = path.find((p) => s >= p.cumStart - 1e-12 && s <= p.cumStart + p.length + 1e-12);
+    const seg = path.find(p => s >= p.cumStart && s <= p.cumStart + p.length);
     if (!seg) continue;
     const e = input.elements.get(seg.elementId)!;
     const ni = input.nodes.get(e.nodeI)!, nj = input.nodes.get(e.nodeJ)!;
@@ -220,7 +221,7 @@ export async function sweepMovingLoad3D(
           }
           result = solved;
         } catch (error) {
-          if (isContainmentRefusal(error)) throw error;
+          if (isContainmentRefusal(error) || (error instanceof Error && error.message === DIAGRAM_EXTREMA_UNAVAILABLE)) throw error;
           failed++;
         }
         if (result) foldPosition(env, result, r);

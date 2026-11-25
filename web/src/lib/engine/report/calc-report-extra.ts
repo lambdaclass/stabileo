@@ -9,10 +9,11 @@
  */
 import { t, tp } from '../../i18n';
 import type { KinematicReport } from '../kinematic-report';
-import type { AnalysisResults, FullEnvelope } from '../types';
+import type { AnalysisResults, ElementEnvelopeDiagram, FullEnvelope } from '../types';
 import type { AnalysisResults3D, FullEnvelope3D } from '../types-3d';
 import { computeDiagramValueAt, computePlanarDiagramExtrema } from '../diagrams';
 import { computeSpatialDiagramExtrema, type Diagram3DKind } from '../diagrams-3d';
+import type { DiagramOrdinate } from '../member-diagram';
 import type { FigureContent } from '../../export/view-figure';
 
 /** A result the reader can have as a table, a diagram, or both. */
@@ -159,23 +160,37 @@ export function kinematicsSectionHtml(num: string, k: KinematicReport | null | u
 type Fmt = (v: number) => string;
 
 /** The largest value in magnitude along a member, and where it is (x from end I). */
-export interface Extreme { value: number; x: number }
+export interface Extreme { value: number; x: number; side?: DiagramOrdinate['side'] }
 
-/**
- * The envelope's value at each of its stations: the larger in magnitude of the most positive and
- * the most negative over the combinations.
- */
-function envelopeValues(d: { tPositions: number[]; posValues: number[]; negValues: number[] }): Array<{ t: number; v: number }> {
-  return d.tPositions.map((t, j) => {
-    const p = d.posValues[j] ?? 0, n = d.negValues[j] ?? 0;
-    return { t, v: Math.abs(n) > Math.abs(p) ? n : p };
+type LengthFmt = (v: number, atJump?: boolean) => string;
+
+function cutLabel({ x, side }: Extreme, format: LengthFmt): string {
+  return format(x, side !== undefined) + (side === 'left' ? '⁻' : side === 'right' ? '⁺' : '');
+}
+
+function envelopeValues(d: ElementEnvelopeDiagram, length: number, sign = 1): Extreme[] {
+  const faces = new Map<number, Pick<Extreme, 'x' | 'side'>>();
+  const addFaces = (index: number, x: number) => {
+    faces.set(index, { x, side: 'left' });
+    faces.set(index + 1, { x, side: 'right' });
+  };
+  if (d.jumpCuts) {
+    for (const { index, distance } of d.jumpCuts) addFaces(index, distance);
+  } else {
+    d.tPositions.forEach((station, i, stations) => {
+      if (stations[i - 1] === station || stations[i + 1] !== station || stations[i + 2] === station) return;
+      if (d.posValues[i] !== d.posValues[i + 1] || d.negValues[i] !== d.negValues[i + 1]) addFaces(i, station * length);
+    });
+  }
+  return d.tPositions.map((t, i) => {
+    const p = d.posValues[i] ?? 0, n = d.negValues[i] ?? 0;
+    return { value: sign * (Math.abs(n) > Math.abs(p) ? n : p), x: t * length, ...faces.get(i) };
   });
 }
 
-/** The largest of an envelope along its member: the first station where it is reached. */
-function envelopeExtreme(vals: Array<{ t: number; v: number }>, L: number): Extreme {
+function envelopeExtreme(values: readonly Extreme[]): Extreme {
   let best: Extreme = { value: 0, x: 0 };
-  for (const { t, v } of vals) if (Math.abs(v) > Math.abs(best.value) * (1 + 1e-9) + 1e-12) best = { value: v, x: t * L };
+  for (const cut of values) if (Math.abs(cut.value) > Math.abs(best.value)) best = cut;
   return best;
 }
 
@@ -196,7 +211,7 @@ function envelopeNote(): string {
  * own diagram gives, station by station.
  */
 export function forceTable2D(
-  kind: 'moment' | 'shear' | 'axial', r: AnalysisResults, F: Fmt, unit: string, lenFmt: Fmt, lenUnit: string,
+  kind: 'moment' | 'shear' | 'axial', r: AnalysisResults, F: Fmt, unit: string, lenFmt: LengthFmt, lenUnit: string,
   envelope?: FullEnvelope,
 ): string {
   const sym = kind === 'moment' ? 'M' : kind === 'shear' ? 'V' : 'N';
@@ -208,16 +223,16 @@ export function forceTable2D(
     if (env) {
       const e = env.get(ef.elementId);
       if (!e?.tPositions.length) { h.push(`<tr><td>${ef.elementId}</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>`); continue; }
-      const vals = envelopeValues(e).map(({ t: u, v }) => ({ t: u, v: sign * v }));
-      vI = vals[0]!.v; vJ = vals[vals.length - 1]!.v; best = envelopeExtreme(vals, ef.length);
+      const vals = envelopeValues(e, ef.length, sign);
+      vI = vals[0]!.value; vJ = vals[vals.length - 1]!.value; best = envelopeExtreme(vals);
     } else {
       const at = (x: number) => sign * computeDiagramValueAt(kind, x / ef.length, ef);
       const extrema = computePlanarDiagramExtrema(kind, ef);
       vI = at(0);
       vJ = at(ef.length);
-      best = { value: sign * extrema.maxAbsValue, x: extrema.maxAbsT * ef.length };
+      best = { value: sign * extrema.maxAbsValue, x: extrema.maxAbsX, side: extrema.maxAbsSide };
     }
-    h.push(`<tr><td>${ef.elementId}</td><td class="num">${F(vI)}</td><td class="num">${F(vJ)}</td><td class="num">${F(best.value)}</td><td class="num">${lenFmt(best.x)}</td></tr>`);
+    h.push(`<tr><td>${ef.elementId}</td><td class="num">${F(vI)}</td><td class="num">${F(vJ)}</td><td class="num">${F(best.value)}</td><td class="num">${cutLabel(best, lenFmt)}</td></tr>`);
   }
   h.push('</table>');
   if (env) h.push(envelopeNote());
@@ -237,7 +252,7 @@ type Col3 = [string, Diagram3DKind, (e: Ef3, end: 'I' | 'J') => number];
  * from the envelope diagram, for the reason `forceTable2D` gives.
  */
 export function forceTable3D(
-  kind: 'moment' | 'shear' | 'axial', r: AnalysisResults3D, F: Fmt, unit: string, lenFmt: Fmt, lenUnit: string,
+  kind: 'moment' | 'shear' | 'axial', r: AnalysisResults3D, F: Fmt, unit: string, lenFmt: LengthFmt, lenUnit: string,
   envelope?: FullEnvelope3D,
 ): string {
   const cols: Col3[] =
@@ -256,13 +271,15 @@ export function forceTable3D(
       const env = envOf.get(k);
       if (env) {
         const e = env.get(ef.elementId);
-        return e?.tPositions.length ? envelopeExtreme(envelopeValues(e), ef.length) : null;
+        return e?.tPositions.length ? envelopeExtreme(envelopeValues(e, ef.length)) : null;
       }
       const result = computeSpatialDiagramExtrema(ef, k);
-      return { value: result.maxAbsValue, x: result.maxAbsX };
+      return result.extrema ? { value: result.maxAbsValue, x: undefined } : {
+        value: result.maxAbsValue, x: result.maxAbsX, side: result.maxAbsSide,
+      };
     });
     h.push(`<tr><td>${esc(t('calcReport.maxAbs'))}</td>${largest.map((b) => {
-      const value = !b ? '—' : b.x === undefined ? `${esc(t('figures.diagramMagnitudeBound'))} ${F(b.value)}` : `${F(b.value)} (x = ${lenFmt(b.x)} ${lenUnit})`;
+      const value = !b ? '—' : b.x === undefined ? `${esc(t('figures.diagramMagnitudeBound'))} ${F(b.value)}` : `${F(b.value)} (x = ${cutLabel({ ...b, x: b.x }, lenFmt)} ${lenUnit})`;
       return `<td class="num">${value}</td>`;
     }).join('')}</tr>`);
   }

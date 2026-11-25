@@ -94,17 +94,31 @@ function collapseDiagram(d: EnvelopeDiagramData3D, exp: VariableExpansion): Enve
   const parents = [];
   for (const m of exp.members.values()) {
     const tPositions: number[] = [], posValues: number[] = [], negValues: number[] = [];
+    const jumpCuts: NonNullable<EnvelopeDiagramData3D['elements'][number]['jumpCuts']> = [];
     let complete = true;
     for (const p of m.pieces) {
       pieceIds.add(p.id);
       const e = byId.get(p.id);
       if (!e) { complete = false; continue; }
+      const start = tPositions.length;
+      if (start > 0 && tPositions[start - 1] === p.x0 / m.length && e.tPositions[0] === 0
+        && (posValues[start - 1] !== e.posValues[0] || negValues[start - 1] !== e.negValues[0])) {
+        jumpCuts.push({ index: start - 1, distance: p.x0 });
+      }
+      const distances = new Map<number, number>();
+      for (const cut of e.jumpCuts ?? []) {
+        const distance = p.x0 + cut.distance;
+        jumpCuts.push({ index: start + cut.index, distance });
+        distances.set(cut.index, distance);
+        distances.set(cut.index + 1, distance);
+      }
       e.tPositions.forEach((t, i) => {
-        tPositions.push((p.x0 + t * (p.x1 - p.x0)) / m.length);
+        const x = distances.get(i) ?? (t === 0 ? p.x0 : t === 1 ? p.x1 : p.x0 + t * (p.x1 - p.x0));
+        tPositions.push(x / m.length);
         posValues.push(e.posValues[i]!); negValues.push(e.negValues[i]!);
       });
     }
-    if (complete) parents.push({ elementId: m.parentId, tPositions, posValues, negValues });
+    if (complete) parents.push({ elementId: m.parentId, tPositions, posValues, negValues, ...(jumpCuts.length && { jumpCuts }) });
   }
   return { ...d, elements: [...d.elements.filter((e) => !pieceIds.has(e.elementId)), ...parents] };
 }

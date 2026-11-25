@@ -653,7 +653,11 @@ function buildChosenForces(data: CalcReportData, num: string, kinds: Array<'mome
     const unit = k === 'moment' ? um : uf;
     const fmt = k === 'moment' ? M : F;
     const env = data.provenance.kind === 'envelope';
-    const len = (v: number) => U.q(v, 'length', 2);
+    const len = (v: number, atJump = false) => {
+      const label = U.q(v, 'length', 2);
+      const distance = toDisplay(v, 'length', data.unitSystem ?? 'SI');
+      return atJump && Number(label) !== distance ? String(distance) : label;
+    };
     if (data.is3D && data.results3D) h.push(forceTable3D(k, data.results3D, fmt, unit, len, U.u('length'), env ? data.envelope3D : undefined));
     else if (data.results2D) h.push(forceTable2D(k, data.results2D, fmt, unit, len, U.u('length'), env ? data.envelope2D : undefined));
   });
