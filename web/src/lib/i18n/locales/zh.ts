@@ -11541,6 +11541,7 @@ const zh: Translations = {
   "snow.case.flatRoof": "平屋面伴随雪荷载（pf）",
   "snow.refused.legacyCombination": "该已保存的地震组合的雪荷载基准不明确。使用前请重新生成组合；仅重新生成雪荷载是不够的。",
   "snow.refused.flatRoofCase": "该组合需要单独的平屋面雪荷载工况。请先重新生成雪荷载，再生成组合。",
+  "combos.refused.unresolvedGroup": "没有荷载工况与符号 {symbol} 和组“{group}”匹配。请检查已保存的组合规则及其荷载工况。",
   "snow.refused.physicalCase": "该组合需要单独的实际雪荷载工况。请先重新生成雪荷载，再生成组合。",
   "snow.case.balanced": "均衡雪荷载（ps = {ps} kN/m²）",
   "snow.derivation.multipleUnbalanced": "不均衡（§6.3，图 6）：从屋脊处的 0.5 pf 到谷底的 {valley} kN/m²，谷上的雪保持低于屋脊上的雪。",

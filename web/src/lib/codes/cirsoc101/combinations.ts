@@ -60,6 +60,7 @@ export interface CombinationTerm {
   symbol: LoadSymbol;
   factor: number;
   snowBasis?: 'flatRoof';
+  group?: string;
 }
 
 export interface LoadCombinationSpec {

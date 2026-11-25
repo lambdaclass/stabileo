@@ -11339,6 +11339,7 @@ const pt: Translations = {
   "snow.case.flatRoof": "Neve acompanhante de cobertura plana (pf)",
   "snow.refused.legacyCombination": "Esta combinação sísmica salva tem uma base de neve ambígua. Gere novamente as combinações antes de usá-la; gerar apenas as cargas de neve não é suficiente.",
   "snow.refused.flatRoofCase": "Esta combinação exige um caso separado de neve de cobertura plana. Gere novamente as cargas de neve antes das combinações.",
+  "combos.refused.unresolvedGroup": "Nenhum caso de carga corresponde ao símbolo {symbol} e ao grupo “{group}”. Revise a regra de combinação salva e seus casos de carga.",
   "snow.refused.physicalCase": "Esta combinação exige um caso separado de neve física. Gere novamente as cargas de neve antes das combinações.",
   'snow.case.balanced': 'Neve balanceada (ps = {ps} kN/m²)',
   'snow.derivation.multipleUnbalanced': "Não balanceada (§6.3, Figura 6): de 0,5 pf nas cumeeiras a {valley} kN/m² nos vales, sem que a neve do vale supere a da cumeeira.",

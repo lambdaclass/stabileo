@@ -200,10 +200,10 @@ export function mapDefinitions(frag: Fragment): { material: Map<number, number>;
     added.sections++;
   }
   for (const c of frag.loadCases) {
-    const hit = modelStore.model.loadCases.find((x) => x.type === c.type && x.name === c.name);
+    const hit = modelStore.model.loadCases.find((x) => x.type === c.type && x.name === c.name && x.group === c.group);
     if (hit) { loadCase.set(c.id, hit.id); continue; }
     // With its alternatives group: pasted snow patterns stay alternatives, not a sum.
-    loadCase.set(c.id, modelStore.addLoadCase(c.name, c.type, c.alternatives ? { alternatives: c.alternatives } : {}));
+    loadCase.set(c.id, modelStore.addLoadCase(c.name, c.type, { alternatives: c.alternatives, group: c.group }));
     added.loadCases++;
   }
   return { material, section, loadCase, added };

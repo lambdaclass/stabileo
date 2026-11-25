@@ -15,9 +15,9 @@
  * Inputs/outputs are plain JS objects — structured-cloned both ways, no JSON text.
  */
 
-import { finiteObjectWire, finiteWireJson, certificateOnly, isCertifyExport, readCertifyAnswer } from './wasm-solver';
+import { finiteObjectWire, certificateOnly, isCertifyExport, readCertifyAnswer, solvePDelta3DWire } from './wasm-solver';
 import { nonlinearWorkerReply, nonlinearWorkerSession } from './nonlinear-worker-session';
-import { finishSolve3D, finishPDelta3D } from './solve-finish';
+import { finishSolve3D } from './solve-finish';
 
 let solve_2d: ((input: any) => any) | null = null;
 let solve_3d: ((input: any) => any) | null = null;
@@ -132,9 +132,7 @@ self.onmessage = async (e: MessageEvent) => {
     }
     try {
       const { maxIter, tol: tolerance } = msg;
-      const json = finiteWireJson(msg.input, { maxIter, tolerance });
-      const result = JSON.parse(solve_pdelta_3d(json, maxIter, tolerance));
-      finishPDelta3D(result, msg.input);
+      const result = solvePDelta3DWire(msg.input, maxIter, tolerance, solve_pdelta_3d);
       self.postMessage({ type: 'result', id: msg.id, result });
     } catch (err: any) {
       self.postMessage({ type: 'result', id: msg.id, error: err?.message ?? String(err) });
