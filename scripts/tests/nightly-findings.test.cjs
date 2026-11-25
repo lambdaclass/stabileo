@@ -4,6 +4,10 @@ const os = require('node:os');
 const path = require('node:path');
 const {test} = require('node:test');
 const report = require('../../.github/scripts/nightly-findings.cjs');
+const {gunzipSync} = require('node:zlib');
+
+const reviewRegression = {skip: process.env.RUN_NIGHTLY_REVIEW_REGRESSIONS !== '1' && 'known wrong result: #2578'};
+const botComment = body => ({body, user: {login: 'github-actions[bot]'}});
 
 const finding = {test: 'opensees/mismatch', seed: 42, model: {loads: [1], elements: {a: {}}},
   command: 'python3 testing/scripts/nightly-models.py --model model.json', reduction: '1-minimal', details: {status: 'mismatch'}};
@@ -11,6 +15,7 @@ const finding = {test: 'opensees/mismatch', seed: 42, model: {loads: [1], elemen
 async function fixture(fn) {
   const previous = process.cwd();
   const dry = process.env.FINDINGS_DRY_RUN;
+  const attempt = process.env.GITHUB_RUN_ATTEMPT;
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nightly-reporter-'));
   process.chdir(tmp);
   fs.mkdirSync('nightly-findings');
@@ -32,11 +37,14 @@ async function fixture(fn) {
   const save = (name, value = finding) => fs.writeFileSync(`nightly-findings/${name}.finding.json`, JSON.stringify(value));
   try {
     process.env.FINDINGS_DRY_RUN = 'false';
+    process.env.GITHUB_RUN_ATTEMPT = '1';
     await fn({args, calls, issues, comments, logs, save});
   } finally {
     process.chdir(previous);
     if (dry === undefined) delete process.env.FINDINGS_DRY_RUN;
     else process.env.FINDINGS_DRY_RUN = dry;
+    if (attempt === undefined) delete process.env.GITHUB_RUN_ATTEMPT;
+    else process.env.GITHUB_RUN_ATTEMPT = attempt;
     fs.rmSync(tmp, {recursive: true, force: true});
   }
 }
@@ -81,7 +89,7 @@ test('existing closed issue gets occurrence comment and reopens; repeated run is
   assert.ok(comment.args.body.includes(finding.command));
   assert.equal(calls.find(c => c.name === 'update').args.state, 'open');
   assert.equal(calls.filter(c => c.name === 'create').length, 0);
-  comments.push({body: comment.args.body});
+  comments.push(botComment(comment.args.body));
   issues[0].state = 'open';
   calls.length = 0;
   await report(args);
@@ -501,7 +509,7 @@ test('sighting comments stop at the cap and overflow updates the total once', ()
     const comment = calls.find(c => c.name === 'createComment');
     if (i <= 5) {
       assert.ok(comment);
-      comments.push({body: comment.args.body});
+      comments.push(botComment(comment.args.body));
       continue;
     }
     assert.equal(comment, undefined);
@@ -547,10 +555,95 @@ test('machine reproducers preserve an exact u64 seed and every replay selector i
   const created = calls.filter(c => c.name === 'create');
   assert.equal(created.length, 1);
   const payload = created[0].args.body.match(/<!-- nightly-reproducer:v1 (\S+) -->/)[1];
-  const {gunzipSync} = require('node:zlib');
   const records = JSON.parse(gunzipSync(Buffer.from(payload, 'base64')));
   assert.deepEqual(records.map(({test, seed, path}) => [test, seed, path]),
     [['metamorphic/linear/mirror', '42', 'nightly-findings/mirror.finding.json'],
      ['metamorphic/linear/rotation', '18446744073709551615', file]]);
   assert.equal(records[1].artifact, fs.readFileSync(file, 'utf8'));
+}));
+
+test('a copied run marker by a non-reporter cannot suppress a sighting', reviewRegression, () => fixture(async ({args, calls, issues, comments, save}) => {
+  save('original');
+  await report(args);
+  issues.push({number: 6, state: 'open', body: calls.find(c => c.name === 'create').args.body});
+  args.context.runId++;
+  const marker = '<!-- nightly-run:124:1 -->';
+  comments.push({body: marker, user: {login: 'maintainer'}}, {body: marker, user: {login: 'other[bot]'}});
+  await report(args);
+  const posted = calls.filter(c => c.name === 'createComment');
+  assert.equal(posted.length, 1);
+  assert.ok(posted[0].args.body.includes(marker));
+
+  comments.push(botComment(posted[0].args.body));
+  calls.length = 0;
+  await report(args);
+  assert.equal(calls.filter(c => c.name === 'createComment').length, 0);
+}));
+
+test('only reporter sightings count toward the detailed comment cap', reviewRegression, () => fixture(async ({args, calls, issues, comments, save}) => {
+  save('original');
+  await report(args);
+  issues.push({number: 6, state: 'open', body: calls.find(c => c.name === 'create').args.body});
+  args.context.runId++;
+  for (let run = 1; run <= 4; run++) comments.push(botComment(`<!-- nightly-run:${run}:1 -->`));
+  comments.push({body: '<!-- nightly-run:5:1 -->', user: {login: 'maintainer'}});
+  await report(args);
+  const fifth = calls.find(c => c.name === 'createComment');
+  assert.ok(fifth);
+  comments.push(botComment(fifth.args.body));
+
+  args.context.runId++;
+  calls.length = 0;
+  await report(args);
+  assert.equal(calls.filter(c => c.name === 'createComment').length, 0);
+  assert.match(issues[0].body, /<!-- nightly-sightings:1:125:1 -->/);
+}));
+
+test('a legacy alias cannot adopt an issue with a different inferred analysis or diagnostic', reviewRegression, () => fixture(async ({args, calls, issues, save}) => {
+  const alias = require('node:crypto').createHash('sha256').update(JSON.stringify(['opensees', 'wrong-result-candidate', 'solver residual #'])).digest('hex');
+  issues.push(
+    {number: 31, state: 'open', body: `<!-- nightly-finding:${alias} -->
+Check: **opensees** · kind: **wrong-result-candidate** · diagnostic: **residual_high**
+Root cause: solver residual #
+Analyses (hits): static: 1`},
+    {number: 32, state: 'closed', body: `<!-- nightly-finding:${alias} -->
+Check: **opensees** · kind: **wrong-result-candidate** · diagnostic: **iteration_limit**
+Root cause: solver residual #
+Analyses (hits): pdelta: 1`}
+  );
+  save('new', {...finding, details: {status: 'mismatch', analysis: 'pdelta', code: 'iteration_limit', message: 'solver residual 2'}});
+  await report(args);
+  assert.deepEqual(calls.filter(c => c.name === 'createComment').map(c => c.args.issue_number), [32]);
+  assert.equal(calls.filter(c => c.name === 'create').length, 0);
+  assert.deepEqual(calls.filter(c => c.name === 'update').map(c => c.args.issue_number), [32, 32]);
+}));
+
+test('a later run attempt updates overflow with its own exact reproducer', reviewRegression, () => fixture(async ({args, calls, issues, comments, save}) => {
+  save('model');
+  await report(args);
+  issues.push({number: 6, state: 'open', body: calls.find(c => c.name === 'create').args.body});
+  for (let run = 1; run <= 5; run++) comments.push(botComment(`<!-- nightly-run:${run}:1 -->`));
+  args.context.runId++;
+  await report(args);
+  assert.match(issues[0].body, /<!-- nightly-sightings:1:124:1 -->/);
+
+  process.env.GITHUB_RUN_ATTEMPT = '2';
+  save('model', {...finding, seed: 78, model: {nodes: {b: {}}}});
+  calls.length = 0;
+  await report(args);
+  assert.match(issues[0].body, /<!-- nightly-sightings:2:124:2 -->/);
+  const overflowPayload = issues[0].body.match(/<!-- nightly-reproducer:v1 (\S+) -->/)[1];
+  const [record] = JSON.parse(gunzipSync(Buffer.from(overflowPayload, 'base64')));
+  assert.equal(record.seed, '78');
+  assert.deepEqual(JSON.parse(record.artifact).model, {nodes: {b: {}}});
+  assert.equal(calls.filter(c => c.name === 'createComment').length, 0);
+
+  calls.length = 0;
+  await report(args);
+  assert.equal(calls.filter(c => ['createComment', 'update'].includes(c.name)).length, 0);
+
+  args.context.runId--;
+  save('model', {...finding, seed: 79});
+  await report(args);
+  assert.match(issues[0].body, /<!-- nightly-sightings:3:123:2 -->/);
 }));

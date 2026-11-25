@@ -1,11 +1,15 @@
+import base64
 import contextlib
+import gzip
 import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location("replay_findings", ROOT / "scripts" / "replay-findings.py")
@@ -672,6 +676,107 @@ class ReplayAndClassificationTest(unittest.TestCase):
         self.assertIn("if: always() && needs.issues.result == 'success'", workflow)
         self.assertIn("name: replay-findings-report", workflow)
         self.assertIn("path: replay-findings.json", workflow)
+
+
+
+@unittest.skipUnless(os.environ.get("RUN_NIGHTLY_REVIEW_REGRESSIONS") == "1", "known wrong result: #2578")
+class ReplayClosureReviewTest(unittest.TestCase):
+    def record(self, seed, model):
+        artifact = json.dumps({"test": "metamorphic/linear/rotation", "seed": seed, "model": model})
+        record = {
+            "test": "metamorphic/linear/rotation", "seed": str(seed), "kind": "wrong-result-candidate",
+            "message": "displacement mismatch", "reduction": "ddmin", "runId": "41275933376",
+            "path": "nightly-findings/nightly-findings-metamorphic/reproducer.finding.json",
+            "artifactHash": hashlib.sha256(artifact.encode()).hexdigest(), "artifact": artifact,
+        }
+        payload = base64.b64encode(gzip.compress(json.dumps([record]).encode())).decode()
+        return f"<!-- nightly-reproducer:v1 {payload} -->"
+
+    def assert_report_actions(self, issues, partials, expected, scheduled=False):
+        calls = []
+
+        def fake_gh(*args, data=None):
+            calls.append((args, data))
+            if len(args) == 2 and args[0] == "api":
+                number = int(args[1].rsplit("/", 1)[-1])
+                return json.dumps({**next(issue for issue in issues if issue["number"] == number), "state": "open"})
+            return ""
+
+        with tempfile.TemporaryDirectory() as tmp, patch.object(rf, "gh", side_effect=fake_gh):
+            root = Path(tmp)
+            issues_file = root / "issues.json"
+            partial_file = root / "partial.json"
+            output = root / "report.json"
+            issues_file.write_text(json.dumps(issues))
+            partial_file.write_text(json.dumps(partials))
+            args = ["--night", "2026-11-25", "--run-id", "99"] if scheduled else ["--close-passing"]
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(rf.main(["report", "--issues", str(issues_file), "--partials", str(partial_file),
+                                          "--output", str(output), "--repo", "owner/repo", *args]), 0)
+            report = json.loads(output.read_text())
+        self.assertEqual([entry["status"] for entry in report], expected)
+        return report, calls
+
+    def test_rounded_legacy_seed_cannot_close_but_safe_and_exact_seeds_are_replayed(self):
+        model = {"nodes": {}}
+        safe_seed = (1 << 53) - 1
+        unsafe_seed = int(float((1 << 53) + 1))
+        issues = [
+            make_issue(1, seed=str(safe_seed), model=model),
+            make_issue(2, seed=str(unsafe_seed), model=model),
+        ]
+        for number, seed in [(3, unsafe_seed), (4, (1 << 64) - 1)]:
+            issue = make_issue(number, seed=str(seed), model=model)
+            issue["body"] = issue["body"].replace("<!-- nightly-run:", self.record(seed, model) + "\n<!-- nightly-run:", 1)
+            issues.append(issue)
+
+        seen = []
+
+        def runner(cmd, env=None, cwd=None, timeout=None):
+            seen.append(env["METAMORPHIC_SEED"])
+            verdict = {"analysis": "linear", "invariant": "rotation", "pass": 1}
+            Path(env["NIGHTLY_RESULTS"]).write_text(json.dumps({"failures": [], "verdicts": [verdict]}))
+            return type("Process", (), {"returncode": 0, "stderr": ""})()
+
+        partials = rf.replay_issues(issues, metamorphic_bin="/bin/metamorphic", runner=runner)
+        self.assertEqual([entry["status"] for entry in partials], ["passes-now", "not-replayable", "passes-now", "passes-now"])
+        self.assertEqual(seen, [str(safe_seed), str(unsafe_seed), str((1 << 64) - 1)])
+
+        partials[1] = {**partials[0], "issue": 2}
+        report, calls = self.assert_report_actions(issues, partials, ["passes-now", "not-replayable", "passes-now", "passes-now"])
+        self.assertIn("legacy seed exceeds JavaScript's safe integer range", report[1]["evidence"])
+        self.assertEqual([args[2] for args, _ in calls], ["1", "3", "4"])
+
+    def test_replaced_overflow_reproducer_prevents_closure_of_passing_subset(self):
+        original = make_issue(1, model={"nodes": {}})
+        passing = {"issue": 1, "source": "metamorphic", "status": "passes-now", "evidence": "retained input passed"}
+        report, calls = self.assert_report_actions([original], [passing], ["passes-now"])
+        self.assertEqual(calls[0][0][:3], ("issue", "close", "1"))
+
+        latest = self.record(12, {"nodes": {"retained": {}}})
+        issue = {**original, "body": (
+            "<!-- nightly-sightings:2:41275933377:1 -->\n"
+            "2 additional sightings after the detailed comment limit.\n"
+            f"{latest}\n\n{original['body']}"
+        )}
+        partials = [{**passing, "reproducer": index} for index in range(2)]
+        report, calls = self.assert_report_actions([issue], partials, ["not-replayable"])
+        self.assertIn("overflow reproducers are outstanding", report[0]["evidence"])
+        self.assertEqual(calls, [])
+
+        fingerprint = rf._replay_fingerprint(rf.parse_reproducers(issue))
+        state = json.dumps({"night": "2026-11-24", "fingerprint": fingerprint, "streak": 2})
+        issue["body"] = f"<!-- nightly-replay:v1 {state} -->\n{issue['body']}"
+        _, calls = self.assert_report_actions([issue], partials, ["not-replayable"], scheduled=True)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[1][0][:3], ("api", "--method", "PATCH"))
+        patch_body = json.loads(calls[1][1])
+        self.assertEqual(rf._replay_state(patch_body["body"])["streak"], 0)
+        self.assertNotIn("state", patch_body)
+
+        partials[1] = {**partials[1], "status": "still-fails", "evidence": "retained input still fails"}
+        report, calls = self.assert_report_actions([issue], partials, ["still-fails"])
+        self.assertEqual(calls[0][0][:3], ("issue", "comment", "1"))
 
 
 if __name__ == "__main__":
