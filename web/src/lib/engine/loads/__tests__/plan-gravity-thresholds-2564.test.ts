@@ -109,12 +109,10 @@ function cornerUnderBay(lower: readonly number[], upper: number, upperStart = 0)
   ]);
 }
 
-const bayClipping2564 = process.env.RUN_KNOWN_WRONG === '2564' ? it : it.skip;
-
-bayClipping2564.each([
+it.each([
   { lower: [2.9996, 3, 3.0004, 3], upper: 5.20035, upperStart: 0 },
   { lower: [-500, -240, 20, -240].map(offset => 3 + offset / 2 ** 20), upper: 5.2 - 20 / 2 ** 20, upperStart: 3 },
-])('known wrong result: #2564 clips a bay beyond the last headroom probe ($upper, $upperStart)', ({ lower, upper, upperStart }) => {
+])('#2564 clips a bay beyond the last headroom probe ($upper, $upperStart)', ({ lower, upper, upperStart }) => {
   const model = cornerUnderBay(lower, upper, upperStart);
   const corner = lower[2]!;
   const cut = 6 * ((corner - (upper - MIN_STOREY_HEADROOM)) / (corner - lower[1]!));

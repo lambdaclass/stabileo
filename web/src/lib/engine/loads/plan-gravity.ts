@@ -414,29 +414,28 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         ? deck.why(panel.polygon, { footprint, geometry }, retainedBays) : preliminaryReason;
       if (why !== preliminaryReason) deckReasons.set(panel, why ?? null);
       if (why === 'wide') continue;
-      if (why === 'lowHeadroom' || why === 'shellHeadroom') {
-        let unassigned = footprint;
-        if (why === 'lowHeadroom') {
-          const vacant = (levels.get(z)?.owned ?? []).filter(({ panel }) => deckReasons.get(panel) === 'wide');
-          const regions: Region = [...footprint];
-          for (const [, ...holes] of footprint) for (const hole of holes) {
-            const match = vacant.find(({ footprint: [[outline]] }) =>
-              subtractFootprints([hole], [[outline!]]).length === 0 && subtractFootprints([outline!], [[hole]]).length === 0);
-            if (match) regions.push(...match.footprint);
-          }
-          unassigned = unionFootprints(regions);
+      let unassigned = footprint;
+      if (why === 'lowHeadroom') {
+        const vacant = (levels.get(z)?.owned ?? []).filter(({ panel }) => deckReasons.get(panel) === 'wide');
+        const regions: Region = [...footprint];
+        for (const [, ...holes] of footprint) for (const hole of holes) {
+          const match = vacant.find(({ footprint: [[outline]] }) =>
+            subtractFootprints([hole], [[outline!]]).length === 0 && subtractFootprints([outline!], [[hole]]).length === 0);
+          if (match) regions.push(...match.footprint);
         }
-        const lower = { footprint: unassigned, geometry };
-        const kept = deck.uncarried(lower, why === 'lowHeadroom' ? [...retainedBays, ...retainedStrips] : []);
-        if (!kept.length) { dropped.add(panel); continue; }
+        unassigned = unionFootprints(regions);
+      }
+      const kept = deck.uncarried(
+        { footprint: unassigned, geometry }, retainedBays, why === 'lowHeadroom' ? retainedStrips : [],
+      );
+      if (!kept.length) { dropped.add(panel); continue; }
+      if (kept !== footprint) {
         if (kept.some(([exterior]) => isWideDeck(exterior!))) {
           refuseGravityGeometry(msg('loadPlan.gravity.widePanels', { n: 1, span: MAX_DECK_SPAN }));
         }
-        if (kept !== footprint) fringeKept.set(panel, kept);
-        retainedBays.push({ footprint: kept, geometry });
-        continue;
+        fringeKept.set(panel, kept);
       }
-      retainedBays.push({ footprint, geometry });
+      retainedBays.push({ footprint: kept, geometry });
     }
     for (const e of flatAt.get(z) ?? []) {
       const [a, b] = segment(e.id);
@@ -445,13 +444,11 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       const u: PlanPoint = [(b[0] - a[0]) / L, (b[1] - a[1]) / L];
       const strip = memberStrip([a, b], opts.tributaryWidth);
       const why = deck.why([start, end], strip, retainedBays);
-      const framing = why === 'lowHeadroom' ? [...retainedBays, ...retainedStrips]
-        : retainedBays.filter(bay => headroomOverlaps(strip, [bay]).length > 0);
       const panels = panelsAt.get(z) ?? [];
       const beside = panels.flatMap(panel => panel.footprint.filter(([exterior]) => onBoundary(model, e, exterior!))
         .map(footprint => deck.why(footprint[0]!, { ...panel, footprint: [footprint] })));
       const floorBeside = beside.some((w) => w === null || w === 'headroomUnclear');
-      const low = framing.length > 0 || why === 'lowHeadroom' || why === 'shellHeadroom';
+      const low = why === 'lowHeadroom' || why === 'shellHeadroom' || headroomOverlaps(strip, retainedBays).length > 0;
       if (low && !floorBeside &&
         panels.some(panel => panel.footprint.some(([, ...holes]) => holes.some(hole => onBoundary(model, e, hole))))) {
         refuseGravityGeometry(msg('loadPlan.gravity.unresolvedMember', { id: e.id }));
@@ -461,7 +458,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       }
       if (low && !floorBeside) {
         const axis = { p: start, u, L };
-        const kept = deck.uncarried(strip, framing);
+        const kept = deck.uncarried(strip, retainedBays, why === 'lowHeadroom' ? retainedStrips : []);
         if (kept === strip.footprint) { retainedStrips.push(strip); continue; }
         const bins = kept.length ? areaAlong(kept, axis, FRINGE_BINS) : [];
         const spans: WidthSpan[] = [];
@@ -957,7 +954,7 @@ function notADeck(
   panelMode: boolean,
 ): {
   why: (poly: PlanPoint[], deck: DeckFootprint, retainedBays?: readonly DeckFootprint[]) => 'lowHeadroom' | 'shellHeadroom' | 'wide' | 'headroomUnclear' | null;
-  uncarried: (deck: DeckFootprint, framing: readonly DeckFootprint[]) => Region;
+  uncarried: (deck: DeckFootprint, bays: readonly DeckFootprint[], strips: readonly DeckFootprint[]) => Region;
 } {
   const headroomMembers = new Map<number, Segment>();
   const roofStatus = new Map<number, boolean>();
@@ -1015,14 +1012,15 @@ function notADeck(
     }
     return h;
   };
-  const uncarried = (lower: DeckFootprint, framing: readonly DeckFootprint[]): Region => {
+  const uncarried = (lower: DeckFootprint, bays: readonly DeckFootprint[], strips: readonly DeckFootprint[]): Region => {
     const { footprint, geometry } = lower;
-    const cover = framing.flatMap(upper => {
+    const flat = (deck: DeckSurface) => deck.range[0] === deck.range[1];
+    const stripCover = strips.flatMap(upper => {
       const band = deckRangeBand(geometry, upper.geometry, TOL, MIN_STOREY_HEADROOM);
-      const flat = (deck: DeckSurface) => deck.range[0] === deck.range[1];
       return band === 'full' && flat(geometry) && flat(upper.geometry)
         ? upper.footprint : headroomCover(headroomOverlaps(lower, [upper]));
     });
+    const cover = [...headroomCover(headroomOverlaps(lower, bays)), ...stripCover];
     const retained = cover.length ? footprint.flatMap(polygon => {
       const [x, y] = polygon[0]![0]!;
       const local = (p: Polygon) => shift([p], -x, -y)[0]!;
