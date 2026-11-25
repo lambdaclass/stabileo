@@ -1,7 +1,7 @@
 {
   "id": "repeated-combination-pattern-ranking",
   "date": "2026-11-25",
-  "prs": [2569],
+  "prs": [2569, 2590],
   "area": "loads",
   "when": { "all": ["repeatedCombinationRuleActions"] },
   "quantities": ["*", "solve.ok"],

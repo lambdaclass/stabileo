@@ -1,7 +1,7 @@
 import { invalidPlanarPointTorsion, isFiniteInputNumber } from '../engine/model-input-numbers';
 import { POINT_END_TOL } from '../engine/member-point-loads';
 import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
-import { combinationActionKey } from '../engine/loads/combination-rules';
+import { resolveCombinationAction, usesLegacyFlatRoofSnow } from '../engine/loads/combination-rules';
 import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
 import { isCompositeCase, symbolOfCase, symbolOfType, symbolsByAlternativeSet } from '../engine/loads/combination-cases';
 /**
@@ -643,14 +643,15 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     });
     if (repeatedTerms) f.add('repeatedUngroupedRuleTerms');
     const repeatedActions = Array.isArray(s.combinationRules) && s.combinationRules.some(rule => {
-      const terms = (rule as { terms?: unknown } | null)?.terms;
+      const { terms, notes } = (rule as { terms?: unknown; notes?: unknown } | null) ?? {};
       if (!Array.isArray(terms)) return false;
+      const legacyFlatRoof = usesLegacyFlatRoofSnow(notes);
       const seen = new Set<string>();
       for (const term of terms) {
         if (typeof term?.symbol !== 'string' || !nonZero(term.factor)) continue;
         if (term.group !== undefined && typeof term.group !== 'string') continue;
         if (term.snowBasis !== undefined && term.snowBasis !== 'flatRoof') continue;
-        const key = combinationActionKey(term);
+        const { key } = resolveCombinationAction(term, legacyFlatRoof);
         if (seen.has(key)) return true;
         seen.add(key);
       }

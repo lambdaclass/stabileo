@@ -44,7 +44,7 @@
  * cases the regulation generator makes (the same forces on every node of a level, mirrored),
  * and a statement about any case loaded by hand, which the option says where it is offered.
  */
-import { combinationActionKey, isCombinationGroup } from './combination-rules';
+import { isCombinationGroup, resolveCombinationAction, usesLegacyFlatRoofSnow } from './combination-rules';
 import { EngineCheckError } from '../engine-unavailable';
 import { sumCombinationFactors } from '../wasm-solver';
 import type { AnalysisSettings } from '../analysis-settings';
@@ -322,15 +322,14 @@ export function expandCombinations(
       if (retained) availableBySymbol.set(symbol, [...(bySymbol.get(symbol) ?? []), ...retained]);
     }
     const activeTerms = spec.terms.filter((t) => t.factor !== 0);
-    const legacyFlatRoof = spec.notes?.some(n => n.key === 'loads.cirsoc101.note.snowAsFlatRoof');
+    const legacyFlatRoof = usesLegacyFlatRoofSnow(spec.notes);
     const seismic = hasSeismicProvenance(spec);
     const actions: ResolvedAction[] = [];
     const actionsByKey = new Map<string, ResolvedAction>();
     const terms = activeTerms.map(t => {
       if (t.snowBasis && t.symbol !== 'S') throw new EngineMessageError(msg('snow.refused.flatRoofCase'));
       if (t.symbol === 'S' && !t.snowBasis && legacyFlatRoof && seismic) throw new EngineMessageError(msg('snow.refused.legacyCombination'));
-      const basis = t.snowBasis ?? (t.symbol === 'S' && legacyFlatRoof ? 'flatRoof' : undefined);
-      const key = combinationActionKey({ ...t, snowBasis: basis });
+      const { key, snowBasis: basis } = resolveCombinationAction(t, legacyFlatRoof);
       const known = actionsByKey.get(key);
       if (known) return { action: known, factor: t.factor };
       const available = availableBySymbol.get(t.symbol) ?? [];

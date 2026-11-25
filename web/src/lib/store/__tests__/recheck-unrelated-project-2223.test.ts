@@ -4,6 +4,7 @@ import { modelStore } from '../model.svelte';
 import { uiStore } from '../ui.svelte';
 import { recheckStore } from '../recheck.svelte';
 import { tabManager } from '../tabs.svelte';
+import type { CombinationCase } from '../../engine/loads/combination-cases';
 import { migrateSelfWeightIfNeeded } from '../self-weight-migration';
 import { compressSnapshot, loadFromShareLink, loadFromURLHash } from '../../utils/url-sharing';
 import { assessProject } from '../../provenance/applicability';
@@ -124,20 +125,20 @@ const mixedSnowRule = {
   terms: [implicitSnow, explicitSnow, roofLive],
 };
 
-const knownWrongMixedSnow = process.env.RUN_KNOWN_WRONG === '2569' ? it : it.skip;
+const mixedSnowCases: CombinationCase[] = [
+  { id: 1, type: 'S', name: 'Physical snow', alternatives: 'snow' },
+  { id: 2, type: 'S', name: 'Flat-roof snow', alternatives: 'snow', snowBasis: 'flatRoof' },
+  { id: 3, type: 'S', name: 'Partial flat-roof snow', alternatives: 'snow', snowBasis: 'flatRoof', pattern: true },
+  { id: 4, type: 'Lr', name: 'Roof live', alternatives: 'roof' },
+  { id: 5, type: 'Lr', name: 'Partial roof live', alternatives: 'roof', pattern: true },
+];
 
 for (const entry of ['file', 'autosave', 'session'] as const) {
   for (const [mode, analysis] of [['2d', 'linear'], ['3d', 'linear'], ['pro', 'nonlinear']] as const) {
-    knownWrongMixedSnow(`known wrong result: #2569 ${entry} recheck requests regeneration for the mixed legacy snow rule in ${mode} after ${analysis}`, async () => {
+    it(`#2569 ${entry} recheck requests regeneration for the mixed legacy snow rule in ${mode} after ${analysis}`, async () => {
       const file = project(mode, analysis, RESULTS_VERSION - 1);
       file.snapshot.combinationRules = [mixedSnowRule];
-      file.snapshot.loadCases = [
-        { id: 1, type: 'S', name: 'Physical snow', alternatives: 'snow' },
-        { id: 2, type: 'S', name: 'Flat-roof snow', alternatives: 'snow', snowBasis: 'flatRoof' },
-        { id: 3, type: 'S', name: 'Partial flat-roof snow', alternatives: 'snow', snowBasis: 'flatRoof', pattern: true },
-        { id: 4, type: 'Lr', name: 'Roof live', alternatives: 'roof' },
-        { id: 5, type: 'Lr', name: 'Partial roof live', alternatives: 'roof', pattern: true },
-      ];
+      file.snapshot.loadCases = mixedSnowCases;
       open(entry, file);
       await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
       expect.soft(recheckStore.captureNotice()?.features).toContain('repeatedCombinationRuleActions');
