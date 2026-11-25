@@ -1144,6 +1144,13 @@ mod tests {
         assert!(norm(&left) <= 1e-3 * norm(&chain.residual), "{} of {}", norm(&left), norm(&chain.residual));
         assert!((linear_residual - norm(&left)).abs() <= 1e-12 * norm(&left));
         assert!(norm(&step) > 0.0);
+
+        // An underflowed, overflowed or invalid target must not consume CG's work budget.
+        let products = chain.products.get();
+        for target in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            assert!(matches!(inexact(&chain, target), Inexact::BrokeDown));
+        }
+        assert_eq!(chain.products.get(), products);
     }
 
     #[test]

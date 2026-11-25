@@ -1,6 +1,8 @@
 use super::incremental::{IncrementalProblem, Iteration, IterationBudget, IterationError};
 
 const INITIAL_FORCING: f64 = 0.1;
+// Keep the former fixed inner tolerance as a floor. The outer convergence test is unchanged.
+const MIN_FORCING: f64 = 1e-3;
 const MAX_FORCING: f64 = 0.5;
 const MAX_INNER: usize = 50;
 
@@ -28,9 +30,18 @@ fn forcing(previous: Option<ResidualHistory>, current: f64) -> f64 {
     let Some(previous) = previous else {
         return INITIAL_FORCING;
     };
+    if !(previous.nonlinear.is_finite()
+        && previous.nonlinear > 0.0
+        && previous.linear.is_finite()
+        && previous.linear >= 0.0
+        && current.is_finite()
+        && current >= 0.0)
+    {
+        return INITIAL_FORCING;
+    }
     let eta = (current - previous.linear).abs() / previous.nonlinear;
     if eta.is_finite() {
-        eta.min(MAX_FORCING)
+        eta.clamp(MIN_FORCING, MAX_FORCING)
     } else {
         INITIAL_FORCING
     }
@@ -49,11 +60,12 @@ impl Iteration for NewtonKrylov {
             if at.measure < tolerance && !at.forced {
                 return Ok(true);
             }
-            let nonlinear = norm(&problem.residual());
             let (step, next) = if at.forced {
                 (problem.correction(true)?, None)
             } else {
-                match inexact(problem, forcing(previous, nonlinear)) {
+                let residual = problem.residual();
+                let nonlinear = norm(&residual);
+                match inexact_with_residual(problem, forcing(previous, nonlinear), residual) {
                     Inexact::Step {
                         step,
                         linear_residual,
@@ -64,20 +76,9 @@ impl Iteration for NewtonKrylov {
                             linear: linear_residual,
                         }),
                     ),
-                    Inexact::NoFactor => (
-                        problem.correction(true)?,
-                        Some(ResidualHistory {
-                            nonlinear,
-                            linear: 0.0,
-                        }),
-                    ),
-                    Inexact::BrokeDown => (
-                        problem.correction(false)?,
-                        Some(ResidualHistory {
-                            nonlinear,
-                            linear: 0.0,
-                        }),
-                    ),
+                    // Direct corrections do not report a measured linear residual.
+                    Inexact::NoFactor => (problem.correction(true)?, None),
+                    Inexact::BrokeDown => (problem.correction(false)?, None),
                 }
             };
             problem.advance(&step);
@@ -98,13 +99,24 @@ pub(super) enum Inexact {
 
 /// Preconditioned conjugate gradients on K·x = r from x = 0, until the residual of that
 /// equation is `forcing` of r.
+#[cfg(test)]
 pub(super) fn inexact<P: IncrementalProblem + ?Sized>(problem: &P, forcing: f64) -> Inexact {
+    inexact_with_residual(problem, forcing, problem.residual())
+}
+
+fn inexact_with_residual<P: IncrementalProblem + ?Sized>(
+    problem: &P,
+    forcing: f64,
+    mut r: Vec<f64>,
+) -> Inexact {
     let dot = |a: &[f64], b: &[f64]| a.iter().zip(b).map(|(x, y)| x * y).sum::<f64>();
-    let mut r = problem.residual();
     let Some(mut z) = problem.lagged_solve(&r) else {
         return Inexact::NoFactor;
     };
     let target = forcing * dot(&r, &r).sqrt();
+    if !(target.is_finite() && target > 0.0) {
+        return Inexact::BrokeDown;
+    }
     let mut rz = dot(&r, &z);
     if !(rz.is_finite() && rz > 0.0) {
         return Inexact::BrokeDown;
@@ -166,7 +178,7 @@ mod tests {
             linear: 0.0,
         };
         assert!((forcing(Some(exact), 0.1) - 0.01).abs() < 1e-12);
-        assert!((forcing(Some(exact), 0.001) - 0.0001).abs() < 1e-12);
+        assert_eq!(forcing(Some(exact), 0.001), MIN_FORCING);
     }
 
     #[test]
@@ -184,5 +196,45 @@ mod tests {
             linear: 0.0,
         };
         assert_eq!(forcing(Some(zero), 0.0), INITIAL_FORCING);
+        for nonlinear in [f64::NAN, f64::INFINITY, -1.0] {
+            assert_eq!(
+                forcing(
+                    Some(ResidualHistory {
+                        nonlinear,
+                        linear: 0.0
+                    }),
+                    1.0
+                ),
+                INITIAL_FORCING
+            );
+        }
+        for linear in [f64::NAN, f64::INFINITY, -1.0] {
+            assert_eq!(
+                forcing(
+                    Some(ResidualHistory {
+                        nonlinear: 1.0,
+                        linear
+                    }),
+                    1.0
+                ),
+                INITIAL_FORCING
+            );
+        }
+    }
+
+    #[test]
+    fn agreement_with_the_linear_model_does_not_request_an_exact_inner_solve() {
+        let previous = ResidualHistory {
+            nonlinear: 1.0,
+            linear: 0.1,
+        };
+        for current in [0.1, 0.1 + f64::EPSILON, 0.1 - f64::EPSILON] {
+            assert_eq!(forcing(Some(previous), current), 1e-3);
+        }
+        let previous = ResidualHistory {
+            nonlinear: 1.0,
+            linear: 0.0,
+        };
+        assert_eq!(forcing(Some(previous), f64::MIN_POSITIVE), 1e-3);
     }
 }

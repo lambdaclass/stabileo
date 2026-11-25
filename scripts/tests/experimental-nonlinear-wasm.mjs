@@ -29,9 +29,32 @@ const space = {
   }],
 };
 
+function sameFiniteResults(actual, expected, path = 'results') {
+  if (typeof expected === 'number') {
+    assert.ok(Number.isFinite(actual) && Number.isFinite(expected), path);
+    assert.ok(Math.abs(actual - expected) <= 1e-7 * Math.max(1, Math.abs(expected)), `${path}: ${actual} vs ${expected}`);
+  } else if (expected !== null && typeof expected === 'object') {
+    assert.deepEqual(Object.keys(actual).sort(), Object.keys(expected).sort(), path);
+    for (const key of Object.keys(expected)) sameFiniteResults(actual[key], expected[key], `${path}.${key}`);
+  } else {
+    assert.deepEqual(actual, expected, path);
+  }
+}
+
 for (const [dimension, input] of [[2, plane], [3, space]]) {
   const solve = engine[`solve_experimental_corotational_${dimension}d`];
   for (const stepping of ['equal', 'adaptive']) {
+    test(`${dimension}D ${stepping} bounded Krylov forcing retains Newton's finite results`, () => {
+      const run = (method) => JSON.parse(solve(JSON.stringify(input), JSON.stringify({
+        method, stepping, nIncrements: 4, maxIter: 200, tolerance: 1e-10,
+      })));
+      const expected = run('newton');
+      const actual = run('newtonKrylov');
+      assert.equal(expected.converged, true);
+      assert.equal(actual.converged, true);
+      assert.equal(actual.loadFactor, 1);
+      sameFiniteResults(actual.results, expected.results);
+    });
     test(`${dimension}D ${stepping} line search uses a fresh budget on each step`, () => {
       const run = (maxIter) => JSON.parse(solve(JSON.stringify(input), JSON.stringify({
         method: 'newtonLineSearch', stepping, nIncrements: 2, maxIter, tolerance: 1e-8,
