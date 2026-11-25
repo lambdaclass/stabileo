@@ -639,6 +639,35 @@ pub(crate) fn released_rotations_3d(input: &SolverInput3D, dof: &DofNumbering) -
     ReleasedRotations { rows, nodes: released, directions }
 }
 
+pub(super) fn isolated_released_rotations_3d(
+    input: &SolverInput3D,
+    dof: &DofNumbering,
+) -> Vec<Vec<(usize, f64, f64)>> {
+    if dof.dofs_per_node != 6 || !has_member_releases_3d(input) {
+        return Vec::new();
+    }
+    let releases = released_rotations_3d(input, dof);
+    let mut incidence = BTreeMap::<usize, usize>::new();
+    for element in input.elements.values() {
+        for node in [element.node_i, element.node_j] {
+            *incidence.entry(node).or_default() += 1;
+        }
+    }
+    let mut blocked = super::assembly::constraint_nodes(&input.constraints);
+    for support in input.supports.values() {
+        if super::support::support_dofs_3d(support)[3..6]
+            .iter()
+            .any(|d| d.spring.is_some_and(|k| k != 0.0))
+        {
+            blocked.insert(support.node_id);
+        }
+    }
+    releases.directions.into_iter().filter_map(|(node, axis)| {
+        (releases.nodes.contains(&node) && incidence.get(&node) == Some(&1)
+            && !blocked.contains(&node) && axis.len() == 3).then_some(axis)
+    }).collect()
+}
+
 struct Column { group: usize, w: Vec<f64> }
 
 pub fn analyze_dense(k: &[f64], n: usize, tags: &[DofTag]) -> Stability {

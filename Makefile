@@ -1171,6 +1171,11 @@ test.engine.staged-springs-r12-wasm: wasm
 test.engine.modal-null-wasm: wasm
 	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.modal-null.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; MODAL_NULL_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=modal_null::; node scripts/tests/modal-null-wasm.mjs "$$cases"'
 
+.PHONY: test.engine.modal-released-axis-wasm
+
+test.engine.modal-released-axis-wasm: wasm scripts/tests/modal-released-axis-wasm.mjs
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.modal-released-axis.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; RELEASED_AXIS_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=modal_released_axis::released_axis_wasm_cases; node scripts/tests/modal-released-axis-wasm.mjs "$$cases"'
+
 .PHONY: test.engine.modal-mass-range-wasm
 test.engine.modal-mass-range-wasm: wasm
 	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.modal-mass-range.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; MODAL_MASS_RANGE_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER="modal_mass_range:: --release"; node scripts/tests/modal-mass-range-wasm.mjs "$$cases"'

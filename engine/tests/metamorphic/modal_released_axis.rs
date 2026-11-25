@@ -40,12 +40,12 @@ fn assert_replay(model: &str, rng_seed: u64, relation: &str) {
         &checks3::Ctx { tally: &tally, rng_seed },
         &case,
         std::slice::from_ref(&modal),
-        &[relation],
+        &["rotation", "mirror", "relabel", "reversal", "units", "modal orthogonality"],
     );
     let cells = tally.cells.lock().unwrap();
     let cell = &cells[&(modal.name.to_owned(), relation.to_owned())];
-    assert!(cell.fails.is_empty(), "{cell:?}");
     assert_eq!(cell.pass, 1, "{cell:?}");
+    assert!(cells.values().all(|cell| cell.fails.is_empty()), "{cells:?}");
     for image in images(&case, rng_seed) {
         let direct = solve_modal_3d(&image.s, &image.dens, 6).unwrap();
         let certified = certify_modal_3d(&image.s, &image.dens, 6).unwrap();
@@ -55,13 +55,11 @@ fn assert_replay(model: &str, rng_seed: u64, relation: &str) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1351"]
 fn issue_1351_rotated_massless_release_has_a_complete_finite_spectrum() {
     assert_replay(ROTATION, 2026110405909, "rotation");
 }
 
 #[test]
-#[ignore = "known wrong result: #1635"]
 fn issue_1635_reversed_massless_release_has_a_complete_finite_spectrum() {
     assert_replay(REVERSAL, 2026110706825, "reversal");
 }
