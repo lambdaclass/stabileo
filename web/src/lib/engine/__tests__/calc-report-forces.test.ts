@@ -177,7 +177,7 @@ describe('figure numbers', () => {
   });
 });
 
-it.skip('known wrong result: #2226 reports a shear peak inside a short partial-load interval in both dimensions', () => {
+it('known wrong result: #2226 reports a shear peak inside a short partial-load interval in both dimensions', () => {
   const a = 0.5, b = a + 2 ** -27, q = 2 ** 29;
   const loads = [{ a, b, qI: q, qJ: -q }];
   const [planar] = rows(report('shear', { results2D: r2D(ef2D({ distributedLoads: loads })) }));

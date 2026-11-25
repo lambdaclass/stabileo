@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { localizeEngineText } from '../../lib/i18n/engine-text';
   import { gravityNameIn } from '../../lib/axes/typed-frame';
   import { knownIssueResultDisposition } from "../../lib/engine/known-issues";
   import Hint from './Hint.svelte';
@@ -156,7 +157,8 @@
       else if (disposition) notes = [...notes, ...disposition.messages];
       if (result) resultProvenance = provenance(result);
     } catch (e) {
-      error = e instanceof DOMException && e.name === 'AbortError' ? t('train.analysisCancelled') : errorText(e, t('pro.unknownError'));
+      error = e instanceof DOMException && e.name === 'AbortError'
+        ? t('train.analysisCancelled') : localizeEngineText(errorText(e, t('pro.unknownError')));
     } finally {
       running = false; controller = null;
     }

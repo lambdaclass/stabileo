@@ -76,18 +76,49 @@ export function memberDiagram(
     return cutDistances = mapped;
   };
   const component = order === 'force' ? 0 : 1;
-  const physicalValue = (x: number, t: number, right: boolean) => {
-    let result = diagramLineValue(start, change, rate, x, t);
-    for (const load of distributed) result += sign * distributedActionTerms(load, x)[component];
+  const boundaryValue = (x: number, t: number, right: boolean) => {
+    const contributions = [diagramLineValue(start, change, rate, x, t)];
+    for (const load of distributed) contributions.push(sign * distributedActionTerms(load, x)[component]);
     for (const point of points) {
       if (point.a < x || (right && point.a === x)) {
-        if (point.slope) result += point.slope * (x - point.a);
-        result += point.jump;
+        if (point.slope) contributions.push(point.slope * (x - point.a));
+        contributions.push(point.jump);
       }
     }
-    return result;
+    return sumDiagramTerms(contributions);
   };
 
+  const polynomial: DiagramCurve['polynomial'] = (
+    lo, hi, x0 = distances().get(lo) ?? lo * length, x1 = distances().get(hi) ?? hi * length,
+  ) => {
+    const width = x1 - x0;
+    const linear = [rate * width, change * (width / length)];
+    const quadratic: number[] = [];
+    const cubic: number[] = [];
+    for (const point of points) {
+      if (point.slope && point.a <= x0) linear.push(point.slope * width);
+    }
+    for (const load of distributed) {
+      if (component === 1) linear.push(sign * distributedActionTerms(load, x0)[0] * width);
+      if (x0 < load.a || x0 >= load.b) continue;
+      const span = load.b - load.a;
+      const u = (x0 - load.a) / span;
+      const initial = (sign * width) * (load.qI * (1 - u) + load.qJ * u);
+      const fraction = width / span;
+      const delta = (sign * width) * (load.qJ * fraction) - (sign * width) * (load.qI * fraction);
+      if (component === 0) {
+        linear.push(initial);
+        quadratic.push(delta / 2);
+      } else {
+        quadratic.push(initial * (width / 2));
+        cubic.push(delta * (width / 6));
+      }
+    }
+    return [boundaryValue(x0, lo, true), sumDiagramTerms(linear), sumDiagramTerms(quadratic), sumDiagramTerms(cubic)];
+  };
+
+  const intervals = new Map<number, number[]>();
+  let cuts: [number, number][] | undefined;
   return {
     hasDistributedActions,
     get cuts() { return [...distances().keys()]; },
@@ -95,38 +126,34 @@ export function memberDiagram(
     value({ t, right }) {
       if (!hasActions) return diagramLineValue(start, change, rate, t * length, t);
       const cut = distances().get(t);
-      if (cut !== undefined) return physicalValue(cut, t, right === true);
+      if (cut !== undefined || t < 0 || t > 1 || !Number.isFinite(t)) {
+        return boundaryValue(cut ?? t * length, t, right === true);
+      }
+      cuts ??= [...distances()];
+      const upper = cuts.findIndex(([station]) => station > t);
+      const [lo, x0] = cuts[upper - 1]!, [hi, x1] = cuts[upper]!;
+      let coefficients = intervals.get(lo);
+      if (!coefficients) {
+        coefficients = polynomial(lo, hi, x0, x1);
+        intervals.set(lo, coefficients);
+      }
       const x = t * length;
-      const rounded = distances().get(at(x));
-      return physicalValue(x, t, rounded === x ? at(x) < t : right === true);
+      const u = x <= x0 ? (t - lo) * length / (x1 - x0)
+        : x >= x1 ? 1 - (hi - t) * length / (x1 - x0) : (x - x0) / (x1 - x0);
+      return polynomialValue(coefficients, u);
     },
-    polynomial(lo, hi, x0 = distances().get(lo) ?? lo * length, x1 = distances().get(hi) ?? hi * length) {
-      const width = x1 - x0;
-      let linear = rate * width + change * (width / length);
-      let quadratic = 0;
-      let cubic = 0;
-      for (const point of points) {
-        if (point.slope && point.a <= x0) linear += point.slope * width;
-      }
-      for (const load of distributed) {
-        if (component === 1) linear += sign * distributedActionTerms(load, x0)[0] * width;
-        if (x0 < load.a || x0 >= load.b) continue;
-        const span = load.b - load.a;
-        const u = (x0 - load.a) / span;
-        const initial = (sign * width) * (load.qI * (1 - u) + load.qJ * u);
-        const fraction = width / span;
-        const delta = (sign * width) * (load.qJ * fraction) - (sign * width) * (load.qI * fraction);
-        if (component === 0) {
-          linear += initial;
-          quadratic += delta / 2;
-        } else {
-          quadratic += initial * (width / 2);
-          cubic += delta * (width / 6);
-        }
-      }
-      return [physicalValue(x0, lo, true), linear, quadratic, cubic];
-    },
+    polynomial,
   };
+}
+
+function sumDiagramTerms(terms: readonly number[]): number {
+  let sum = 0, correction = 0;
+  for (const term of terms) {
+    const next = sum + term;
+    correction += Math.abs(sum) >= Math.abs(term) ? (sum - next) + term : (term - next) + sum;
+    sum = next;
+  }
+  return sum + correction;
 }
 
 function diagramExtremum(
@@ -174,7 +201,7 @@ function prepareIntervalExtrema(
     const extrema: DiagramExtremum[] = [];
     for (let k = 1; k < cuts.length; k++) {
       const [lo, x0] = cuts[k - 1]!, [hi, x1] = cuts[k]!;
-      if (!(hi > lo) || (at !== undefined && !(lo < at && at < hi))) continue;
+      if (!(hi > lo) || (at !== undefined && !(lo <= at && at <= hi))) continue;
       const { polynomials, roots } = intervals[k] ??= prepare(lo, hi, x0, x1);
       for (const u of roots) {
         const point = diagramExtremum(lo, hi, u, x0, x1, length, polynomials, combine, at);
@@ -215,30 +242,49 @@ export function indexDiagramExtrema(critical: readonly DiagramExtremum[]): Map<n
 
 export function checkedCurveValue(curve: Pick<DiagramCurve, 'value'>, station: DiagramStation, critical: ReadonlyMap<number, DiagramExtremum>): number {
   const peak = critical.get(station.t);
-  if (peak && !peak.canTransfer(station.t)) throw unavailableDiagramExtrema();
-  return curve.value(station);
+  if (peak) {
+    if (!peak.canTransfer(station.t)) throw unavailableDiagramExtrema();
+    return peak.value;
+  }
+  const value = curve.value(station);
+  if (!Number.isFinite(value)) throw unavailableDiagramExtrema();
+  return value;
 }
 
-export function diagramCurvePoints(curve: Pick<DiagramCurve, 'cuts' | 'value'>, critical: readonly DiagramExtremum[]): (DiagramStation & { value: number })[] {
-  const jumps = new Map<number, number>();
-  for (const t of curve.cuts) {
-    if (t === 1) continue;
-    const right = curve.value({ t, right: true });
-    if (right !== curve.value({ t })) jumps.set(t, right);
-  }
+type DiagramOrdinate = DiagramStation & { value: number };
+type DiagramValues = Pick<DiagramCurve, 'cuts' | 'value'>;
+
+export function diagramCriticalPoints(
+  curve: DiagramValues, critical: readonly DiagramExtremum[], inwardAtI = false,
+): DiagramOrdinate[] {
   const extrema = indexDiagramExtrema(critical);
-  const displayNeighbors = [...jumps.keys()].flatMap(t => [t - 1e-6, t + 1e-6].filter(u => u > 0 && u < 1));
   const boundaries = new Set(curve.cuts);
-  return sortedStations([...regularStations, ...boundaries, ...extrema.keys(), ...displayNeighbors]).flatMap(t => {
+  return sortedStations([...boundaries, ...extrema.keys()]).flatMap(t => {
     const peak = extrema.get(t);
-    const right = jumps.get(t);
-    const points: (DiagramStation & { value: number })[] = [];
-    if (!peak || boundaries.has(t)) points.push({ t, value: curve.value({ t }) });
+    const points: DiagramOrdinate[] = [];
+    if (boundaries.has(t)) {
+      if (t > 0 || !inwardAtI) points.push({ t, value: curve.value({ t }) });
+      if (t < 1) {
+        const right = { t, right: true };
+        const value = curve.value(right);
+        if (value !== points[0]?.value) points.push({ ...right, value });
+      }
+    }
     if (peak) points.push({ t, value: peak.value });
-    if (right !== undefined) points.push({ t, right: true, value: right });
     if (points.some(point => !Number.isFinite(point.value))) throw unavailableDiagramExtrema();
     return points;
   });
+}
+
+export function diagramCurvePoints(curve: DiagramValues, critical: readonly DiagramOrdinate[]): DiagramOrdinate[] {
+  const occupied = new Set(critical.map(p => p.t));
+  const neighbors = critical.filter(p => p.right).flatMap(({ t }) => [t - 1e-6, t + 1e-6].filter(u => u > 0 && u < 1));
+  const display = sortedStations([...regularStations, ...neighbors]).filter(t => !occupied.has(t)).map(t => {
+    const value = curve.value({ t });
+    if (!Number.isFinite(value)) throw unavailableDiagramExtrema();
+    return { t, value };
+  });
+  return [...critical, ...display].sort((a, b) => a.t - b.t);
 }
 
 export function unavailableDiagramExtrema(): Error {

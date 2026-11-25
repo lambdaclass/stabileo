@@ -1,0 +1,32 @@
+{
+  "id": "member-diagram-pieces",
+  "date": "2026-11-25",
+  "prs": [1782, 2226, 2437],
+  "area": "analysis",
+  "when": { "all": ["members"], "any": ["memberLoads", "selfWeight", "movingLoads", "combinations", "magnitudeCombinations"] },
+  "quantities": ["diagrams", "envelope", "movingLoads", "beamStations"],
+  "title": {
+    "en": "Member extrema from load intervals",
+    "es": "Extremos de barras por intervalos de carga",
+    "pt": "Extremos de barras por intervalos de carga",
+    "de": "Stabextremwerte aus Lastintervallen",
+    "fr": "Extrema des barres par intervalles de charge",
+    "tr": "Yük aralıklarından eleman uç değerleri",
+    "zh": "按荷载区间计算杆件内力极值",
+    "hu": "A rudak szélsőértékei a terhelési szakaszokból"
+  },
+  "explanation": {
+    "en": "Moving-load envelopes and calculation reports use extrema from the loaded member intervals. A point query refuses an ambiguous peak, and a moving axle at a path endpoint is applied at the member end. Rerun affected analyses and review member extrema.",
+    "es": "Las envolventes de cargas móviles y las memorias de cálculo usan los extremos de los intervalos de carga de las barras. Se rechazan las consultas puntuales con picos ambiguos y se aplica un eje al extremo de la barra cuando coincide con el final del recorrido. Repita los análisis afectados y revise los extremos de las barras.",
+    "pt": "As envoltórias de cargas móveis e os memoriais de cálculo usam os extremos dos intervalos de carga das barras. Consultas pontuais com picos ambíguos são recusadas e o eixo na extremidade do percurso é aplicado na extremidade da barra. Refaça as análises afetadas e revise os extremos das barras.",
+    "de": "Wanderlastumhüllende und Berechnungsberichte verwenden Extremwerte aus den Lastintervallen der Stäbe. Punktabfragen mit mehrdeutigen Spitzen werden abgelehnt. Eine Achse am Ende des Lastpfads wird am Stabende angesetzt. Führen Sie betroffene Berechnungen erneut aus und prüfen Sie die Stabextremwerte.",
+    "fr": "Les enveloppes de charges mobiles et les notes de calcul utilisent les extrema des intervalles de charge des barres. Une interrogation ponctuelle refuse un pic ambigu. Un essieu en fin de parcours est appliqué à l’extrémité de la barre. Relancez les analyses concernées et vérifiez les extrema.",
+    "tr": "Hareketli yük zarfları ve hesap raporları, elemanların yük aralıklarındaki uç değerleri kullanır. Nokta sorguları belirsiz zirveleri reddeder ve yolun sonundaki aks elemanın ucuna uygulanır. Etkilenen analizleri yeniden çalıştırın ve uç değerleri inceleyin.",
+    "zh": "移动荷载包络和计算报告采用杆件荷载区间的内力极值。点查询将拒绝有歧义的峰值，位于路径端点的车轴荷载将施加于杆端。请重算受影响的模型并复核杆件内力极值。",
+    "hu": "A mozgóteher-burkolók és a számítási jelentések a rudak terhelési szakaszainak szélsőértékeit használják. A pontlekérdezés elutasítja a kétértelmű csúcsot, és a pálya végén álló tengely terhe a rúd végére kerül. Futtassa újra az érintett elemzéseket, és ellenőrizze a rudak szélsőértékeit."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-member-diagram-pieces.md",
+    "heading": "Member extrema from load intervals"
+  }
+}

@@ -5,10 +5,11 @@ import {
   computeDiagrams2D, computeDiagrams3D, computeDiagramValueAtWasm, computeDiagramValueAt3DWasm,
   computeEnvelope, computeEnvelope3D, extractBeamStations, extractBeamStations3D,
   extractBeamStationsGrouped, extractBeamStationsGrouped3D, solve, solve3D, solvePDelta, solvePDelta3D,
+  solveMovingLoads as solveMovingLoadsWasm, solveMovingLoads3D as solveMovingLoads3DWasm,
 } from '../wasm-solver';
 import { computeDiagramGlobalMax } from '../../canvas/draw-diagrams';
-import { computePointwiseEnvelope } from '../moving-loads';
-import { buildPath3D, foldPosition, trainLoads } from '../moving-loads-3d';
+import { computePointwiseEnvelope, solveMovingLoads, solveMovingLoadsAsync } from '../moving-loads';
+import { buildPath3D, foldPosition, sweepMovingLoad3D, trainLoads } from '../moving-loads-3d';
 import type { SolverInput } from '../types';
 import type { SolverInput3D } from '../types-3d';
 
@@ -143,7 +144,7 @@ it('#2250 refuses distinct extrema aliased within one normalized station', () =>
   }
 });
 
-it.skip('known wrong result: #2226 uses the partial-load shear peak for the overlay and pointwise envelope', () => {
+it('known wrong result: #2226 uses the partial-load shear peak for the overlay and pointwise envelope', () => {
   const [, , planar] = forceRecords();
   for (const result of planar) {
     const start = 1 / 32, end = 1 / 16, q = 128;
@@ -154,7 +155,7 @@ it.skip('known wrong result: #2226 uses the partial-load shear peak for the over
   }
 });
 
-it.skip('known wrong result: #2226 folds only inward endpoint faces into spatial moving-load envelopes', () => {
+it('known wrong result: #2226 folds only inward endpoint faces into spatial moving-load envelopes', () => {
   const [, , , spatial] = forceRecords();
   for (const result of spatial) {
     const ef = result.elementForces[0]!;
@@ -169,13 +170,13 @@ it.skip('known wrong result: #2226 folds only inward endpoint faces into spatial
   }
 });
 
-it.skip('known wrong result: #2437 checks a point query for an extremum aliased onto its boundary', () => {
+it('known wrong result: #2437 checks a point query for an extremum aliased onto its boundary', () => {
   const [, , planar, spatial] = forceRecords();
   const at = a / length;
   const loads = [{ a, b: 2.25, qI: 1, qJ: -(2 ** 54) }];
   for (const result of planar) {
     const ef = { ...result.elementForces[0]!, distributedLoads: loads };
-    expect.soft(() => computeDiagramValueAtWasm('shear', at, ef)).toThrow(/extrema/i);
+    expect.soft(() => computeDiagramValueAtWasm('shear', at, ef)).toThrow('interior member diagram extremum has no distinct normalized station');
     expect.soft(() => computeDiagramValueAt('shear', at, ef)).toThrow(/extrema/i);
     expect.soft(() => prepareDiagramValueAt('shear', ef)(at)).toThrow(/extrema/i);
     expect.soft(computeDiagramValueAtWasm('shear', at - Number.EPSILON, ef)).toBe(0);
@@ -183,7 +184,7 @@ it.skip('known wrong result: #2437 checks a point query for an extremum aliased 
   }
   for (const result of spatial) {
     const ef = { ...result.elementForces[0]!, distributedLoadsZ: loads };
-    expect.soft(() => computeDiagramValueAt3DWasm('shearZ', at, ef)).toThrow(/extrema/i);
+    expect.soft(() => computeDiagramValueAt3DWasm('shearZ', at, ef)).toThrow('interior member diagram extremum has no distinct normalized station');
     expect.soft(() => evaluateDiagramAt(ef, 'shearZ', at)).toThrow(/extrema/i);
     expect.soft(() => prepareDiagramEvaluator3D(ef, 'shearZ')(at)).toThrow(/extrema/i);
     expect.soft(computeDiagramValueAt3DWasm('shearZ', at - Number.EPSILON, ef)).toBe(0);
@@ -191,24 +192,28 @@ it.skip('known wrong result: #2437 checks a point query for an extremum aliased 
   }
 });
 
-it.skip('known wrong result: #2437 reads the plotted polynomial extremum through prepared and direct queries', () => {
-  const [, , planar, spatial] = forceRecords();
+it('known wrong result: #2437 reads the plotted polynomial extremum through prepared and direct queries', () => {
+  const [plane, space, planar, spatial] = forceRecords();
   const distributed = [-(2 ** 54), 2 ** 54, 1].map(q => ({ a: 0, b: 1, qI: q, qJ: q }));
   for (const result of planar) {
     const ef = { ...result.elementForces[0]!, length: 1, vStart: -0.5, distributedLoads: distributed };
     expect.soft(computeElementDiagram('moment', ef, 0, 0, 1, 0).maxValue).toBe(0.125);
     expect.soft(computeDiagramValueAt('moment', 0.5, ef)).toBe(0.125);
+    expect.soft(computeDiagramValueAtWasm('moment', 0.5, ef)).toBe(0.125);
+    expect.soft(computeDiagrams2D(plane, { ...result, elementForces: [ef] }).moment[0]!.maxValue).toBe(0.125);
     expect.soft(prepareDiagramValueAt('moment', ef)(0.5)).toBe(0.125);
   }
   for (const result of spatial) {
     const ef = { ...result.elementForces[0]!, length: 1, vyStart: -0.5, distributedLoadsY: distributed };
     expect.soft(computeDiagram3D(ef, 'momentZ').maxValue).toBe(0.125);
     expect.soft(evaluateDiagramAt(ef, 'momentZ', 0.5)).toBe(0.125);
+    expect.soft(computeDiagramValueAt3DWasm('momentZ', 0.5, ef)).toBe(0.125);
+    expect.soft(computeDiagrams3D(space, { ...result, elementForces: [ef] }).momentZ[0]!.maxValue).toBe(0.125);
     expect.soft(prepareDiagramEvaluator3D(ef, 'momentZ')(0.5)).toBe(0.125);
   }
 });
 
-it.skip('known wrong result: #2437 retains both faces of a physically rebased piece cut', () => {
+it('known wrong result: #2437 retains both faces of a physically rebased piece cut', () => {
   const [, , , spatial] = forceRecords();
   for (const result of spatial) {
     const ef = result.elementForces[0]!;
@@ -232,7 +237,7 @@ it.skip('known wrong result: #2437 retains both faces of a physically rebased pi
   }
 });
 
-it.skip('known wrong result: #1782 assigns the last axle to the exact spatial path endpoint', () => {
+it('known wrong result: #1782 assigns the last axle to the exact spatial path endpoint', () => {
   const [, input] = cantilevers(256);
   input.nodes.set(3, { id: 3, x: 257, y: 0, z: 2 ** -22 });
   input.elements.set(2, { ...input.elements.get(1)!, id: 2, nodeI: 2, nodeJ: 3 });
@@ -244,4 +249,32 @@ it.skip('known wrong result: #1782 assigns the last axle to the exact spatial pa
   const loadsAt = (x: number) => trainLoads(input, path, train, x);
   expect.soft(loadsAt(end).find(l => l.type === 'pointOnElement')?.data).toMatchObject({ elementId: 2, a: last.length });
   expect.soft(loadsAt(last.cumStart + 0.5).find(l => l.type === 'pointOnElement')?.data).toMatchObject({ elementId: 2, a: 0.5 });
+});
+
+it('#1782 browser and WASM moving analyses apply a rounded path endpoint at the fixed node', async () => {
+  const [planar, spatial] = cantilevers(256);
+  const length = 1 + 2 ** -45;
+  planar.nodes.set(3, { id: 3, x: 256, z: length });
+  spatial.nodes.set(3, { id: 3, x: 256, y: 0, z: length });
+  planar.elements.set(2, { ...planar.elements.get(1)!, id: 2, nodeI: 2, nodeJ: 3 });
+  spatial.elements.set(2, { ...spatial.elements.get(1)!, id: 2, nodeI: 2, nodeJ: 3 });
+  for (const nodeId of [2, 3]) {
+    planar.supports.set(nodeId, { id: nodeId, type: 'fixed', nodeId });
+    spatial.supports.set(nodeId, { ...spatial.supports.get(1)!, nodeId });
+  }
+  const weight = 100;
+  const config = { train: { name: 'P', axles: [{ offset: 0, weight }] }, step: 256 + length, pathElementIds: [1, 2] };
+  expect(config.step - 256).toBe(1);
+  for (const result of [solveMovingLoads(planar, config), await solveMovingLoadsAsync(planar, config)]) {
+    if (typeof result === 'string') throw new Error(result);
+    expect(result.positions.map(position => position.refPosition)).toEqual([-0, config.step]);
+    expect.soft(result.elements.get(2)).toMatchObject({ nMaxPos: 0, nMaxNeg: 0 });
+  }
+  const spatialSweep = await sweepMovingLoad3D(spatial, buildPath3D(spatial, [1, 2])!, config.train, { step: config.step });
+  expect.soft(spatialSweep.positions).toBe(2);
+  expect.soft(spatialSweep.elements.get(2)?.n).toMatchObject({ max: { value: 0 }, min: { value: 0 } });
+  for (const result of [solveMovingLoadsWasm({ ...config, solver: planar }), solveMovingLoads3DWasm({ ...config, solver: spatial })]) {
+    expect.soft(result.numPositions).toBe(2);
+    expect.soft(result.elements['2']).toMatchObject({ nMaxPos: 0, nMaxNeg: 0 });
+  }
 });

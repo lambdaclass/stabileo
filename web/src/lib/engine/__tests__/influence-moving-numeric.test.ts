@@ -124,10 +124,17 @@ describe('moving loads', () => {
     expect(worst).toBeCloseTo(250, 0);
   });
 
-  it('shear envelopes to the axle weight at the supports', () => {
-    const env = solveMovingLoads(solverBeam(10), { train: single, step: 0.25 }) as MovingLoadEnvelope;
+  it('the supports carry endpoint axles and the closest interior axle governs member shear', () => {
+    const length = 10, step = 0.25;
+    const env = solveMovingLoads(solverBeam(length), { train: single, step }) as MovingLoadEnvelope;
     const e = env.elements.get(1)!;
-    expect(Math.max(Math.abs(e.vMaxPos), Math.abs(e.vMaxNeg))).toBeCloseTo(100, 0);
+    const weight = single.axles[0]!.weight;
+    for (const endpoint of [env.positions[0]!, env.positions[env.positions.length - 1]!]) {
+      expect(Math.max(...endpoint.results.reactions.map(r => Math.abs(r.rz)))).toBeCloseTo(weight, 0);
+      const forces = endpoint.results.elementForces[0]!;
+      expect(Math.max(Math.abs(forces.vStart), Math.abs(forces.vEnd))).toBe(0);
+    }
+    expect(Math.max(Math.abs(e.vMaxPos), Math.abs(e.vMaxNeg))).toBeCloseTo(weight * (length - step) / length, 0);
   });
 
   it('a heavier train envelopes proportionally', () => {

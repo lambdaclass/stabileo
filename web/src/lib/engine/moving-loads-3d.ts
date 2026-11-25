@@ -5,16 +5,6 @@ import type { StructuredDiagnostic } from './types';
  * Moving loads on a 3D model: a train of axles along a path of members, the envelope of every
  * member's forces over all positions.
  *
- * ── Why the app sweeps the positions itself ───────────────────────
- *
- * The engine has a 3D moving-load routine, and it takes each member's envelope from the forces
- * at its two ends. The largest moment under a moving axle is under the axle, inside the member,
- * so on a simply supported span modelled as one member it reports zero for a beam whose real
- * envelope is P·L/4. The 2D path met the same thing and reads its pointwise envelope instead
- * (`moving-loads.ts`). Here each position reuses a prepared 3D factorization and is read at the
- * member's critical stations (`station-forces.ts`), which include every point-load position, so
- * the maximum under each axle is read where it occurs.
- *
  * ── The loads ────────────────────────────────────────────────────
  *
  * Each axle weighs downward (−Z in the solver's frame, which is also the frame a flat model is
@@ -25,7 +15,8 @@ import type { StructuredDiagnostic } from './types';
  */
 import { prepareLoadSession3D } from './wasm-solver';
 import { computeLocalAxes3D } from './local-axes-3d';
-import { criticalForceStations, extractForcesAtStation } from './station-forces';
+import { memberInteriorExtrema3D, type Diagram3DKind } from './diagrams-3d';
+import { axleMemberStation } from './moving-loads';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D } from './types-3d';
 import type { LoadTrain } from './moving-loads';
 import { buildSolverInput3D, type ModelData } from './solver-service';
@@ -105,8 +96,7 @@ export function trainLoads(input: SolverInput3D, path: PathSegment3D[], train: L
     const localY = e.localYx !== undefined && e.localYy !== undefined && e.localYz !== undefined
       ? { x: e.localYx, y: e.localYy, z: e.localYz } : undefined;
     const axes = computeLocalAxes3D(ni, nj, localY, e.rollAngle ?? 0, false);
-    const along = Math.min(Math.max(s - seg.cumStart, 0), seg.length);
-    const a = seg.reversed ? seg.length - along : along;
+    const a = axleMemberStation(s, seg.cumStart, seg.length, seg.reversed);
     const F: [number, number, number] = [0, 0, -axle.weight];
     const dot = (v: readonly number[]) => v[0]! * F[0] + v[1]! * F[1] + v[2]! * F[2];
     const py = dot(axes.ey), pz = dot(axes.ez), px = dot(axes.ex);
@@ -129,16 +119,18 @@ function blank(): Record<EnvelopeComponent, { max: Extreme; min: Extreme }> {
 }
 
 /** Fold one position's results into the envelope, at each member's critical stations. */
+const componentDiagrams: Record<EnvelopeComponent, Diagram3DKind> = {
+  n: 'axial', vy: 'shearY', vz: 'shearZ', my: 'momentY', mz: 'momentZ', torsion: 'torsion',
+};
+
 export function foldPosition(env: MovingEnvelope3D['elements'], results: AnalysisResults3D, position: number): void {
   for (const ef of results.elementForces) {
     let rec = env.get(ef.elementId);
     if (!rec) { rec = blank(); env.set(ef.elementId, rec); }
-    for (const t of criticalForceStations(ef)) {
-      const f = extractForcesAtStation(ef, t);
-      for (const c of ENVELOPE_COMPONENTS) {
-        const v = f[c];
-        if (v > rec[c].max.value) rec[c].max = { value: v, x: f.x, position };
-        if (v < rec[c].min.value) rec[c].min = { value: v, x: f.x, position };
+    for (const c of ENVELOPE_COMPONENTS) {
+      for (const { value, x } of memberInteriorExtrema3D(ef, componentDiagrams[c])) {
+        if (value > rec[c].max.value) rec[c].max = { value, x, position };
+        if (value < rec[c].min.value) rec[c].min = { value, x, position };
       }
     }
   }
@@ -211,13 +203,14 @@ export async function sweepMovingLoad3D(
     for (const p of passes) {
       for (const r of p.refs) {
         if (opts.signal?.aborted) throw new DOMException('aborted', 'AbortError');
+        let result: AnalysisResults3D | undefined;
         try {
           // Two wheel lines: half the train on each path (`MovingLoad3DOptions.path2`).
           const loads = opts.path2
             ? [...trainLoads(base, path, half(p.train), r), ...trainLoads(base, opts.path2, half(p.train), r)]
             : trainLoads(base, path, p.train, r);
-          const result = session.solve(loads);
-          const diagnostics = result.structuredDiagnostics ?? [];
+          const solved = session.solve(loads);
+          const diagnostics = solved.structuredDiagnostics ?? [];
           if (diagnostics.some(d => d.code === 'known_issue' && d.severity === 'error')) {
             throw new Error(JSON.stringify({ structuredDiagnostics: diagnostics }));
           }
@@ -225,11 +218,12 @@ export async function sweepMovingLoad3D(
             const key = JSON.stringify(d);
             if (!seen.has(key)) { seen.add(key); structuredDiagnostics.push(d); }
           }
-          foldPosition(env, result, r);
+          result = solved;
         } catch (error) {
           if (isContainmentRefusal(error)) throw error;
           failed++;
         }
+        if (result) foldPosition(env, result, r);
         done++;
         opts.onProgress?.(done, count);
         if (done % 8 === 0) await new Promise((res) => setTimeout(res, 0));

@@ -295,7 +295,9 @@ fn sampled_axle_station(start: f64, end: f64, length: f64, reversed: bool, posit
     }
     let local = (position - start).max(0.0).min(length);
     let endpoint_roundoff = 8.0 * f64::EPSILON * length;
-    let station = if local <= endpoint_roundoff {
+    let station = if position == end {
+        length
+    } else if local <= endpoint_roundoff {
         0.0
     } else if length - local <= endpoint_roundoff {
         length
@@ -648,7 +650,6 @@ mod diagram_limit_tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #1782"]
     fn issue_1782_path_endpoint_identity_survives_cumulative_rounding() {
         let start = 1024.0;
         let length = 1.0 + 2.0_f64.powi(-45);

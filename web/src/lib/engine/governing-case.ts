@@ -1,7 +1,7 @@
 import type { AnalysisResults, ElementForces } from './types';
 import type { AnalysisResults3D, ElementForces3D } from './types-3d';
-import { computeDiagram3D } from './diagrams-3d';
-import { computeElementDiagram } from './diagrams';
+import { computeSpatialDiagramExtrema } from './diagrams-3d';
+import { computePlanarDiagramExtrema } from './diagrams';
 
 export interface GoverningComboRef {
   comboId: number;
@@ -49,13 +49,13 @@ const peak = (...values: number[]): number => Math.max(...values.map(Math.abs));
 /** The largest magnitude of the component anywhere along the member, its interior included. */
 export function governingMagnitude3D(ef: ElementForces3D, component: Component3D): Magnitude {
   const [s, e] = ENDS_3D[component];
-  const d = computeDiagram3D(ef, component);
+  const d = computeSpatialDiagramExtrema(ef, component);
   const value = peak(ef[s] as number, ef[e] as number, d.maxValue, d.minValue);
   return d.extrema === 'bounded' ? { value, bounded: true } : { value };
 }
 
 export function peakAlong(kind: Component2D, ef: ElementForces): number {
-  return Math.abs(computeElementDiagram(kind, ef, 0, 0, ef.length, 0).maxAbsValue);
+  return Math.abs(computePlanarDiagramExtrema(kind, ef).maxAbsValue);
 }
 
 /** The largest magnitude of the component anywhere along the member, its interior included. */

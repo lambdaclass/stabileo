@@ -113,6 +113,30 @@ pub(crate) struct Curve<D, P> {
     pub points: P,
 }
 
+#[derive(Default)]
+struct DiagramSum {
+    sum: f64,
+    correction: f64,
+}
+
+impl DiagramSum {
+    fn add(&mut self, term: f64) {
+        let next = self.sum + term;
+        if next.is_finite() {
+            self.correction += if self.sum.abs() >= term.abs() {
+                (self.sum - next) + term
+            } else {
+                (term - next) + self.sum
+            };
+        }
+        self.sum = next;
+    }
+
+    fn value(self) -> f64 {
+        self.sum + self.correction
+    }
+}
+
 pub(crate) fn distributed_actions(
     length: f64,
     loads: &[DistributedLoadInfo],
@@ -145,16 +169,20 @@ where
             Location::Interior { start, end, u } => (start, (end - start) * u, start / self.length),
         };
         let distance = |a| (x - a) + offset;
-        let mut value = self.start + self.slope * x + self.change * t;
+        let mut value = DiagramSum::default();
+        value.add(self.start);
+        value.add(self.slope * x);
+        value.add(self.change * t);
         if offset != 0.0 {
-            value += self.slope * offset + self.change * (offset / self.length);
+            value.add(self.slope * offset);
+            value.add(self.change * (offset / self.length));
         }
         for d in self.distributed.clone() {
             let (force, moment) = distributed_load_terms_at_distance(d.q_i, d.q_j, d.b - d.a, distance(d.a));
-            value += match self.response {
+            value.add(match self.response {
                 Response::Force(sign) => sign * force,
                 Response::Moment(sign) => sign * moment,
-            };
+            });
         }
         for p in self.points.clone() {
             let dx = distance(p.a);
@@ -166,47 +194,54 @@ where
             };
             if included {
                 if p.slope != 0.0 && (cut.location != Location::Grid || cut.t != point_t) {
-                    value += p.slope * dx;
+                    value.add(p.slope * dx);
                 }
-                value += p.jump;
+                value.add(p.jump);
             }
         }
-        Ok(value)
+        Ok(value.value())
     }
 
     pub fn checked_station_value(&self, t: f64, right: bool) -> Result<f64, &'static str> {
         let value = self.checked_value(Cut::at(t, right))?;
-        if !(0.0 < t && t < 1.0) || self.distributed.clone().next().is_none() {
+        if !(0.0..=1.0).contains(&t) || self.distributed.clone().next().is_none() {
             return Ok(value);
         }
         let mut start = 0.0_f64;
         let mut end = self.length;
+        let mut boundary = if t == 0.0 { Some(0.0) } else if t == 1.0 { Some(self.length) } else { None };
         for x in self.action_distances().filter(|x| (0.0..=self.length).contains(x)) {
-            let boundary = x / self.length;
-            if boundary == t {
-                return Ok(value);
-            }
-            if boundary < t {
+            let station = x / self.length;
+            if station < t {
                 start = start.max(x);
-            } else {
+            } else if station > t {
                 end = end.min(x);
+            } else {
+                boundary = Some(x);
             }
         }
-        let change = self.segment_change(start, end);
-        for u in interior_roots(change)? {
-            let cut = Cut::interior(self.length, start, end, u);
-            if cut.t != t {
-                continue;
-            }
-            let actual = (t * self.length - start) / (end - start);
-            let peak = self.checked_value(cut)?;
-            if !(0.0 < actual && actual < 1.0 && peak.is_finite())
-                || peak + change_between(change, u, actual) != peak
-            {
-                return Err("member diagram extrema cannot be evaluated at the requested station");
-            }
+        let mut ordinate = None;
+        let mut validate = |start, end| {
+            self.visit_extrema(start, end, Some(t), |cut, change, u| {
+                let actual = (t * self.length - start) / (end - start);
+                let peak = self.checked_value(cut)?;
+                if !(0.0 < actual && actual < 1.0 && peak.is_finite())
+                    || peak + change_between(change, u, actual) != peak
+                    || ordinate.is_some_and(|value| value != peak)
+                {
+                    return Err("member diagram extrema cannot be evaluated at the requested station");
+                }
+                ordinate = Some(peak);
+                Ok(())
+            })
+        };
+        if let Some(x) = boundary {
+            validate(start, x)?;
+            validate(x, end)?;
+        } else {
+            validate(start, end)?;
         }
-        Ok(value)
+        Ok(ordinate.unwrap_or(value))
     }
 
     fn action_distances(&self) -> impl Iterator<Item = f64> + '_ {
@@ -237,29 +272,49 @@ where
         cuts.extend(self.points.clone().filter(|p| p.jump != 0.0 && (0.0..self.length).contains(&p.a))
             .map(|p| Cut::boundary(at(p.a), p.a, true)));
         for segment in boundaries.windows(2) {
-            let [x0, x1] = [segment[0], segment[1]];
-            let [lo, hi] = [at(x0), at(x1)];
-            let change = self.segment_change(x0, x1);
-            for u in interior_roots(change)? {
-                let cut = Cut::interior(self.length, x0, x1, u);
-                if !(lo < cut.t && cut.t < hi) {
-                    let (boundary, v) = if cut.t == lo {
-                        (Cut::boundary(lo, x0, true), 0.0)
-                    } else {
-                        (Cut::boundary(hi, x1, false), 1.0)
-                    };
-                    let boundary_value = self.checked_value(boundary)?;
-                    let peak = boundary_value + change_between(change, v, u);
-                    if !peak.is_finite() || peak != boundary_value {
-                        return Err("interior member diagram extremum has no distinct normalized station");
-                    }
-                    continue;
-                }
+            self.visit_extrema(segment[0], segment[1], None, |cut, _, _| {
                 cuts.push(cut);
-            }
+                Ok(())
+            })?;
         }
         sort_cuts(&mut cuts)?;
         Ok(cuts)
+    }
+
+    fn visit_extrema(
+        &self,
+        x0: f64,
+        x1: f64,
+        at: Option<f64>,
+        mut visit: impl FnMut(Cut, [f64; 3], f64) -> Result<(), &'static str>,
+    ) -> Result<(), &'static str> {
+        if x0 == x1 {
+            return Ok(());
+        }
+        let lo = (x0 + 0.0) / self.length;
+        let hi = (x1 + 0.0) / self.length;
+        let change = self.segment_change(x0, x1);
+        for u in interior_roots(change)? {
+            let cut = Cut::interior(self.length, x0, x1, u);
+            if at.is_some_and(|t| t != cut.t) {
+                continue;
+            }
+            if lo < cut.t && cut.t < hi {
+                visit(cut, change, u)?;
+                continue;
+            }
+            let (boundary, v) = if cut.t == lo {
+                (Cut::boundary(lo, x0, true), 0.0)
+            } else {
+                (Cut::boundary(hi, x1, false), 1.0)
+            };
+            let boundary_value = self.checked_value(boundary)?;
+            let peak = boundary_value + change_between(change, v, u);
+            if !peak.is_finite() || peak != boundary_value {
+                return Err("interior member diagram extremum has no distinct normalized station");
+            }
+        }
+        Ok(())
     }
 
     pub fn diagram_cuts(&self, count: usize) -> Result<Vec<Cut>, &'static str> {
@@ -293,19 +348,21 @@ where
 
     fn segment_change(&self, x: f64, end: f64) -> [f64; 3] {
         let width = end - x;
-        let mut linear = self.slope * width + self.change * (width / self.length);
-        let mut quadratic = 0.0;
-        let mut cubic = 0.0;
+        let mut linear = DiagramSum::default();
+        linear.add(self.slope * width);
+        linear.add(self.change * (width / self.length));
+        let mut quadratic = DiagramSum::default();
+        let mut cubic = DiagramSum::default();
         for p in self.points.clone() {
             if p.slope != 0.0 && p.a <= x {
-                linear += p.slope * width;
+                linear.add(p.slope * width);
             }
         }
         for d in self.distributed.clone() {
             let sign = match self.response {
                 Response::Force(sign) => sign,
                 Response::Moment(sign) => {
-                    linear += (sign * width) * distributed_load_terms(d.q_i, d.q_j, d.a, d.b, x).0;
+                    linear.add((sign * width) * distributed_load_terms(d.q_i, d.q_j, d.a, d.b, x).0);
                     sign
                 }
             };
@@ -319,16 +376,16 @@ where
             let delta = (sign * width) * (d.q_j * fraction) - (sign * width) * (d.q_i * fraction);
             match self.response {
                 Response::Force(_) => {
-                    linear += initial;
-                    quadratic += delta / 2.0;
+                    linear.add(initial);
+                    quadratic.add(delta / 2.0);
                 }
                 Response::Moment(_) => {
-                    quadratic += initial * (width / 2.0);
-                    cubic += delta * (width / 6.0);
+                    quadratic.add(initial * (width / 2.0));
+                    cubic.add(delta * (width / 6.0));
                 }
             }
         }
-        [linear, quadratic, cubic]
+        [linear.value(), quadratic.value(), cubic.value()]
     }
 }
 
@@ -389,7 +446,6 @@ mod round3_tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2437"]
     fn issue_2437_checked_station_validates_the_adjoining_interval() {
         let a = 1.5_f64;
         let ulp = f64::from_bits(a.to_bits() + 1) - a;

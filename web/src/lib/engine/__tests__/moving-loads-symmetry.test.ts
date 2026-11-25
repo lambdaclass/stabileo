@@ -65,12 +65,10 @@ describe('Moving loads symmetry', () => {
     expect(env.fullEnvelope).toBeDefined();
 
     const mData = env.fullEnvelope!.moment.elements[0];
-    const n = mData.negValues.length;
-    const mid = Math.floor(n / 2);
-
-    // With mirrored reverse pass, envelope must be perfectly symmetric
-    for (let i = 0; i <= mid; i++) {
-      expect(mData.negValues[i]).toBeCloseTo(mData.negValues[n - 1 - i], 1);
+    for (const [i, station] of mData.tPositions.entries()) {
+      const mirror = mData.tPositions.findIndex(t => Math.abs(t - (1 - station)) <= 4 * Number.EPSILON);
+      expect(mirror).toBeGreaterThanOrEqual(0);
+      expect(mData.negValues[i]).toBeCloseTo(mData.negValues[mirror], 1);
     }
   });
 
@@ -114,7 +112,7 @@ describe('Moving loads symmetry', () => {
   });
 });
 
-it.skip('known wrong result: #2226 sync and async planar sweeps capture an axle between display stations', async () => {
+it('known wrong result: #2226 sync and async planar sweeps capture an axle between display stations', async () => {
   const length = 6, weight = 100, step = 2.9;
   const input = makeSimpleBeam(length);
   const config = { train: { name: 'P', axles: [{ offset: 0, weight }] }, step };
@@ -123,7 +121,8 @@ it.skip('known wrong result: #2226 sync and async planar sweeps capture an axle 
     expect(typeof result).not.toBe('string');
     const env = result as MovingLoadEnvelope;
     expect.soft(env.fullEnvelope!.moment.globalMax).toBeCloseTo(exact, 10);
-    expect.soft(Math.abs(env.elements.get(1)!.mMaxPos || env.elements.get(1)!.mMaxNeg)).toBeCloseTo(exact, 10);
+    const { mMaxPos, mMaxNeg } = env.elements.get(1)!;
+    expect.soft(Math.max(Math.abs(mMaxPos), Math.abs(mMaxNeg))).toBeCloseTo(exact, 10);
     expect.soft(env.fullEnvelope!.moment.elements[0]!.tPositions).toContain(step / length);
   }
 });

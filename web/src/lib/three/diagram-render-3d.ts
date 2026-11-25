@@ -249,21 +249,9 @@ export function createDiagramGroup3D(
       group.add(new THREE.Line(endLine, closeMat.clone()));
 
       // ── Max/min markers and labels ─────────────────────────────
-      // Find indices of max and min values
-      let maxIdx = 0;
-      let minIdx = 0;
-      let maxVal = -Infinity;
-      let minVal = Infinity;
-      for (let i = 0; i < diagram.points.length; i++) {
-        if (diagram.points[i].value > maxVal) {
-          maxVal = diagram.points[i].value;
-          maxIdx = i;
-        }
-        if (diagram.points[i].value < minVal) {
-          minVal = diagram.points[i].value;
-          minIdx = i;
-        }
-      }
+      const maxVal = diagram.maxValue, minVal = diagram.minValue;
+      const maxIdx = diagram.points.findIndex(p => p.value === maxVal);
+      const minIdx = diagram.points.findIndex(p => p.value === minVal);
 
       const sphereRadius = modelSize * 0.008;
       const spriteScale = modelSize * 0.04;

@@ -3,7 +3,7 @@
 import { transverseSign } from '../engine/transverse-sign-2d';
 import type { AnalysisResults, EnvelopeDiagramData } from '../engine/types';
 import { createLabelCollector, type LabelCollector } from './label-layout';
-import { computeElementDiagram, prepareDiagramValueAt, type ElementDiagram } from '../engine/diagrams';
+import { computeElementDiagram, computePlanarDiagramExtrema, type ElementDiagram } from '../engine/diagrams';
 import { type UnitSystem, formatDiagramValue, toDisplay } from '../utils/units';
 import { formatBound } from '../utils/certificate-format';
 
@@ -47,26 +47,7 @@ const DIAGRAM_COLORS: Record<DiagramKind, { fill: string; stroke: string; text: 
  * Used to establish a consistent scale when overlaying multiple diagrams.
  */
 export function computeDiagramGlobalMax(results: AnalysisResults, kind: DiagramKind): number {
-  let globalMax = 0;
-  const N = 20;
-  for (const ef of results.elementForces) {
-    // Sample the full diagram (including point load effects) at N+1 points,
-    // plus extra points around each point load to capture discontinuities.
-    const sampleTs: number[] = [];
-    for (let i = 0; i <= N; i++) sampleTs.push(i / N);
-    for (const pl of ef.pointLoads ?? []) {
-      const tPl = pl.a / ef.length;
-      if (tPl > 1e-6) sampleTs.push(tPl - 1e-6);
-      sampleTs.push(tPl);
-      if (tPl < 1 - 1e-6) sampleTs.push(tPl + 1e-6);
-    }
-    const valueAt = prepareDiagramValueAt(kind, ef);
-    for (const t of sampleTs) {
-      const val = Math.abs(valueAt(t));
-      if (val > globalMax) globalMax = val;
-    }
-  }
-  return globalMax;
+  return results.elementForces.reduce((max, ef) => Math.max(max, Math.abs(computePlanarDiagramExtrema(kind, ef).maxAbsValue)), 0);
 }
 
 /**
@@ -214,7 +195,7 @@ function drawSingleDiagram(
 
     // Label at max absolute value (if not at endpoints)
     if (diagram.maxAbsT > 0.05 && diagram.maxAbsT < 0.95 && Math.abs(diagram.maxAbsValue) > 1e-3) {
-      const idx = Math.round(diagram.maxAbsT * (pts.length - 1));
+      const idx = pts.findIndex(p => p.t === diagram.maxAbsT && p.value === diagram.maxAbsValue);
       const b = dc.extremeBound?.(diagram.elementId, kind) ?? null;
       const pm = b === null ? '' : ` ±${formatBound(toDisplay(b, kind === 'moment' ? 'moment' : 'force', _unitSystem))}`;
       drawValueLabel(labels, colors.text, screenDiagram[idx], screenBaseline[idx], formatValue(diagram.maxAbsValue, kind) + pm);
@@ -232,12 +213,10 @@ function drawSingleDiagram(
    * lands on the first character of its own number.
    */
   const threshold = globalMax * 0.05;
-  let maxPosIdx = -1, maxPosVal = 0;
-  let minNegIdx = -1, minNegVal = 0;
-  for (let i = 0; i < pts.length; i++) {
-    if (pts[i].value > maxPosVal) { maxPosVal = pts[i].value; maxPosIdx = i; }
-    if (pts[i].value < minNegVal) { minNegVal = pts[i].value; minNegIdx = i; }
-  }
+  const maxPosVal = Math.max(0, diagram.maxValue);
+  const minNegVal = Math.min(0, diagram.minValue);
+  const maxPosIdx = pts.findIndex(p => p.value === maxPosVal);
+  const minNegIdx = pts.findIndex(p => p.value === minNegVal);
 
   // Draw max positive marker (if significant and not at endpoints)
   if (maxPosIdx > 0 && maxPosIdx < pts.length - 1 && maxPosVal > threshold) {

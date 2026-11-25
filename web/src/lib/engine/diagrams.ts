@@ -2,7 +2,7 @@
 // Given end forces and distributed load, compute intermediate values
 
 import { computeDeformedShape as wasmComputeDeformedShape } from './wasm-solver';
-import { checkedCurveValue, curveExtrema, diagramCurvePoints, diagramLineValue, distributedActionTerms, fullSpanFallback, indexDiagramExtrema, memberDiagram, unavailableDiagramExtrema, type DiagramStation } from './member-diagram';
+import { checkedCurveValue, curveExtrema, diagramCriticalPoints, diagramCurvePoints, diagramLineValue, distributedActionTerms, fullSpanFallback, indexDiagramExtrema, memberDiagram, unavailableDiagramExtrema, type DiagramStation } from './member-diagram';
 
 export interface DiagramPoint extends DiagramStation {
   /** World coordinates */
@@ -56,17 +56,19 @@ function buildDiagram(
   nodeJx: number, nodeJy: number,
 ): ElementDiagram {
   const curve = planarCurve(kind, ef);
-  const points: DiagramPoint[] = [];
+  const critical = diagramCriticalPoints(curve, curveExtrema(curve, ef.length));
+  const points = diagramCurvePoints(curve, critical).map(point => ({
+    ...point,
+    x: nodeIx + point.t * (nodeJx - nodeIx),
+    y: nodeIy + point.t * (nodeJy - nodeIy),
+  }));
+  return { elementId: 0, points, ...planarExtrema(critical) };
+}
+
+function planarExtrema(critical: readonly (DiagramStation & { value: number })[]) {
   let maxVal = -Infinity, minVal = Infinity;
   let maxAbsT = 0, maxAbsValue = 0;
-
-  for (const point of diagramCurvePoints(curve, curveExtrema(curve, ef.length))) {
-    const { t, value } = point;
-    const x = nodeIx + t * (nodeJx - nodeIx);
-    const y = nodeIy + t * (nodeJy - nodeIy);
-
-    points.push({ ...point, x, y });
-
+  for (const { t, value } of critical) {
     if (value > maxVal) maxVal = value;
     if (value < minVal) minVal = value;
     if (Math.abs(value) > Math.abs(maxAbsValue)) {
@@ -75,7 +77,12 @@ function buildDiagram(
     }
   }
 
-  return { elementId: 0, points, maxValue: maxVal, minValue: minVal, maxAbsT, maxAbsValue };
+  return { maxValue: maxVal, minValue: minVal, maxAbsT, maxAbsValue };
+}
+
+export function computePlanarDiagramExtrema(kind: PlanarKind, ef: PlanarForces) {
+  const curve = planarCurve(kind, ef);
+  return planarExtrema(diagramCriticalPoints(curve, curveExtrema(curve, ef.length)));
 }
 
 export function computeElementDiagram(
