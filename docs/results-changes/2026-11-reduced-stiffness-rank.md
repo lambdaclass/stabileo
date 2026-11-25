@@ -50,8 +50,12 @@ refusal. Resolved negative corotational stiffness can coexist with a verified
 release gauge. The rank check in that case assesses the remaining physical
 directions.
 
-Modal analysis reports unresolved constraint rank after validating mass and
-before computing modes. Kinematics reports the same diagnosis and marks the
+Modal analysis checks for a massive null translation and for unresolved
+stiffness rank after validating mass and before computing modes. When the
+mass and stiffness checks identify a specific null translation, the modal
+refusal reports its node and dominant displacement component. Otherwise the
+rank check can still refuse when assembly or constraint rounding leaves the
+stiffness unresolved. Kinematics reports the unresolved rank and marks the
 model unsolvable even if the rounded mode count is zero.
 
 A restrained load on parallel trusses can leave the transverse displacement

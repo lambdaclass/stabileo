@@ -7,7 +7,7 @@
     "allOf": [
       ["plane2D", "space3D"],
       ["members", "shells", "springs", "connectors", "contactElements"],
-      ["analysis:linear", "analysis:pdelta", "analysis:modal", "analysis:spectral", "analysis:plastic", "analysis:nonlinear", "analysis:ssi", "stagedConstruction"]
+      ["analysis:linear", "analysis:pdelta", "analysis:modal", "analysis:buckling", "analysis:spectral", "analysis:plastic", "analysis:nonlinear", "analysis:ssi", "stagedConstruction"]
     ]
   },
   "quantities": ["solve.ok", "isSolvable", "kinematicIsSolvable", "classification", "diagnosis"],

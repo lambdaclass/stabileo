@@ -655,8 +655,23 @@ pub(crate) fn assemble_stiffness_2d_typed(
     input: &SolverInput, dof_num: &DofNumbering,
     properties: &crate::types::units::ElasticProperties2D,
 ) -> StiffnessAssembly2D {
+    assemble_stiffness_2d_recording(input, dof_num, properties, None)
+}
+
+pub(super) fn assemble_stiffness_2d_recording(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    properties: &crate::types::units::ElasticProperties2D,
+    mut roundoff: Option<&mut super::stiffness_roundoff::StiffnessRoundoff>,
+) -> StiffnessAssembly2D {
     let n = dof_num.n_total;
     let mut k_global = vec![0.0; n * n];
+    let mut scatter = |row, col, value| {
+        k_global[row * n + col] += value;
+        if let Some(roundoff) = roundoff.as_deref_mut() {
+            roundoff.record(row, col, value);
+        }
+    };
 
     // Pre-build O(1) lookup maps
     let node_map: std::collections::HashMap<usize, &SolverNode> =
@@ -694,7 +709,7 @@ pub(crate) fn assemble_stiffness_2d_typed(
             ];
             for i in 0..ndof {
                 for j in 0..ndof {
-                    k_global[truss_dofs[i] * n + truss_dofs[j]] += k_elem[i * ndof + j];
+                    scatter(truss_dofs[i], truss_dofs[j], k_elem[i * ndof + j]);
                 }
             }
         } else {
@@ -712,7 +727,7 @@ pub(crate) fn assemble_stiffness_2d_typed(
             let ndof = elem_dofs.len();
             for i in 0..ndof {
                 for j in 0..ndof {
-                    k_global[elem_dofs[i] * n + elem_dofs[j]] += k_glob[i * ndof + j];
+                    scatter(elem_dofs[i], elem_dofs[j], k_glob[i * ndof + j]);
                 }
             }
         }
@@ -720,7 +735,9 @@ pub(crate) fn assemble_stiffness_2d_typed(
 
     // Assemble connector elements
     if !input.connectors.is_empty() {
-        crate::element::connector::assemble_connectors_2d(input, dof_num, &mut k_global, n);
+        for (row, col, value) in crate::element::connector::connector_entries_2d(input, dof_num) {
+            scatter(row, col, value);
+        }
     }
 
     // Add spring stiffness (with rotation support for springs with angle)
@@ -743,21 +760,21 @@ pub(crate) fn assemble_stiffness_2d_typed(
                         dof_num.map.get(&(sup.node_id, 0)),
                         dof_num.map.get(&(sup.node_id, 1)),
                     ) {
-                        k_global[dx * n + dx] += k_xx;
-                        k_global[dz * n + dz] += k_zz;
-                        k_global[dx * n + dz] += k_xz;
-                        k_global[dz * n + dx] += k_xz;
+                        scatter(dx, dx, k_xx);
+                        scatter(dz, dz, k_zz);
+                        scatter(dx, dz, k_xz);
+                        scatter(dz, dx, k_xz);
                     }
                 } else {
                     // No rotation or zero angle: standard diagonal assembly
                     if kx_val > 0.0 {
                         if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
-                            k_global[d * n + d] += kx_val;
+                            scatter(d, d, kx_val);
                         }
                     }
                     if ky_val > 0.0 {
                         if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
-                            k_global[d * n + d] += ky_val;
+                            scatter(d, d, ky_val);
                         }
                     }
                 }
@@ -765,12 +782,12 @@ pub(crate) fn assemble_stiffness_2d_typed(
                 // No angle: standard diagonal assembly
                 if kx_val > 0.0 {
                     if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
-                        k_global[d * n + d] += kx_val;
+                        scatter(d, d, kx_val);
                     }
                 }
                 if ky_val > 0.0 {
                     if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
-                        k_global[d * n + d] += ky_val;
+                        scatter(d, d, ky_val);
                     }
                 }
             }
@@ -778,19 +795,19 @@ pub(crate) fn assemble_stiffness_2d_typed(
             // Non-spring supports: standard diagonal assembly
             if kx_val > 0.0 {
                 if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
-                    k_global[d * n + d] += kx_val;
+                    scatter(d, d, kx_val);
                 }
             }
             if ky_val > 0.0 {
                 if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
-                    k_global[d * n + d] += ky_val;
+                    scatter(d, d, ky_val);
                 }
             }
         }
         // Rotational spring stiffness (kz in 2D SolverSupport = rotational ry stiffness)
         if kz_val > 0.0 && dof_num.dofs_per_node >= 3 {
             if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
-                k_global[d * n + d] += kz_val;
+                scatter(d, d, kz_val);
             }
         }
     }
@@ -805,6 +822,9 @@ pub(crate) fn assemble_stiffness_2d_typed(
     let artificial_k = artificial_stiffness(max_diag);
     for &d in &artificial_dofs {
         k_global[d * n + d] += artificial_k;
+        if let Some(roundoff) = roundoff.as_deref_mut() {
+            roundoff.record(d, d, artificial_k);
+        }
     }
 
     // Apply 2D inclined support transformations (stiffness only; the force
@@ -829,7 +849,12 @@ pub(crate) fn assemble_stiffness_2d_typed(
     }
 
     let support_magnitude = dense_support_magnitude(&k_global, dof_num, &inclined_transforms_2d);
-    rotate_inclined_dense(&mut k_global, n, &inclined_transforms_2d);
+    for frame in &inclined_transforms_2d {
+        frame.rotate_dense(&mut k_global, n);
+        if let Some(roundoff) = roundoff.as_deref_mut() {
+            roundoff.rotate(frame.dofs, &frame.r);
+        }
+    }
     StiffnessAssembly2D {
         support_magnitude,
         k: k_global,
@@ -2821,6 +2846,15 @@ pub struct StiffnessSparseAssembly3D {
 /// full K (if `build_k_full` is true). The force vector is assembled separately
 /// by `assemble_load_vector_3d_sparse`.
 pub fn assemble_stiffness_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering, build_k_full: bool) -> StiffnessSparseAssembly3D {
+    assemble_stiffness_sparse_3d_recording(input, dof_num, build_k_full, None)
+}
+
+pub(super) fn assemble_stiffness_sparse_3d_recording(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    build_k_full: bool,
+    mut roundoff: Option<&mut super::stiffness_roundoff::StiffnessRoundoff>,
+) -> StiffnessSparseAssembly3D {
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
     let left_hand = input.left_hand.unwrap_or(false);
@@ -3091,6 +3125,9 @@ pub fn assemble_stiffness_sparse_3d(input: &SolverInput3D, dof_num: &DofNumberin
 
     // Inclined support transforms (applied to triplets before CSC conversion;
     // the force vector rotation happens in `assemble_load_vector_3d_sparse`)
+    if let Some(roundoff) = roundoff.as_deref_mut() {
+        roundoff.record_symmetric(&trip_rows, &trip_cols, &trip_vals);
+    }
     let mut inclined_transforms = Vec::new();
     for sup in crate::ordered::values(&input.supports) {
         if sup.is_inclined.unwrap_or(false) {
@@ -3116,6 +3153,9 @@ pub fn assemble_stiffness_sparse_3d(input: &SolverInput3D, dof_num: &DofNumberin
     });
     for frame in &inclined_transforms {
         InclinedFrame::rotate_triplets(frame, &mut trip_rows, &mut trip_cols, &mut trip_vals);
+        if let Some(roundoff) = roundoff.as_deref_mut() {
+            roundoff.rotate(frame.dofs, &frame.r);
+        }
     }
 
     // Compact zeroed-out triplets left by inclined support transforms
