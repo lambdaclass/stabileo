@@ -660,3 +660,61 @@ fn distant_axle_does_not_snap_an_exact_interior_sample() {
         assert_force(s.my_max_pos - s.my_max_neg, moment);
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2101"]
+fn issue_2101_coincident_interior_axle_has_two_one_sided_shear_limits() {
+    use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
+
+    let length = 3.0;
+    let station = 2.0;
+    let weight = 100.0;
+    let train = LoadTrain {
+        name: "coincident interior axle".into(),
+        axles: vec![
+            Axle { offset: 0.0, weight: 1.0 },
+            Axle { offset: station, weight },
+        ],
+    };
+    let mut solver = review_beam(length);
+    let mut fixed = solver.supports["2"].clone();
+    fixed.id = 1;
+    fixed.node_id = 1;
+    solver.supports.insert("1".into(), fixed);
+    solver.loads = vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
+        element_id: 1,
+        a: station,
+        p: weight,
+        px: None,
+        my: None,
+    })];
+    let spatial = embed_2d(&solver, Plane::XZ).unwrap();
+    let planar = solve_moving_loads_2d(&MovingLoadInput {
+        solver,
+        train: train.clone(),
+        step: Some(station),
+        path_element_ids: Some(vec![1]),
+    })
+    .unwrap();
+    let spatial = solve_moving_loads_3d(&MovingLoadInput3D {
+        solver: spatial,
+        train,
+        step: Some(station),
+        path_element_ids: Some(vec![1]),
+        gravity_direction: None,
+    })
+    .unwrap();
+    let p = &planar.elements["1"];
+    let s = &spatial.elements["1"];
+    assert_eq!(planar.num_positions, 3);
+    assert_eq!(spatial.num_positions, 3);
+    assert_force(p.v_max_pos, weight);
+    assert_force(s.vz_max_pos, weight);
+    assert!(
+        (p.v_max_neg + weight).abs() < 1e-9 && (s.vz_max_neg + weight).abs() < 1e-9,
+        "expected {0} in 2D and 3D, got {1} and {2}",
+        -weight,
+        p.v_max_neg,
+        s.vz_max_neg,
+    );
+}

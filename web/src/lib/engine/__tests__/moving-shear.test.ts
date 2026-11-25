@@ -1,7 +1,8 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import inclinedFixture from '../../../../../engine/tests/fixtures/moving-shear-2101.json';
 import springFixture from '../../../../../engine/tests/fixtures/moving-shear-2104.json';
 import { solveMovingLoads as solveNative2D, solveMovingLoads3D } from '../wasm-solver';
+import * as wasm from '../wasm-solver';
 import { solveMovingLoads, solveMovingLoadsAsync } from '../moving-loads';
 import { buildPath3D, sweepMovingLoad3D, sweepTrains3D, trainLoads } from '../moving-loads-3d';
 import { trainModelLoads, vehicleFromJson } from '../vehicles';
@@ -451,5 +452,73 @@ it('#2101 — a spatial interior axle recovers both axial cuts', async () => {
       if (z > 0) expect.soft(n.max.position).toBe(8);
       if (z < 0) expect.soft(n.min.position).toBe(8);
     }
+  }
+});
+
+it.skip('known wrong result: #2101 — native WASM retains the shear between coincident moving and static loads', () => {
+  const length = 3, station = 2, weight = 100;
+  const { plane, space } = reviewSpan(length, 0, true);
+  const train = { name: 'coincident interior axle', axles: [{ offset: 0, weight: 1 }, { offset: station, weight }] };
+  const config = { train, step: station, pathElementIds: [1] };
+  plane.loads = [{ type: 'pointOnElement', data: { elementId: 1, a: station, p: weight } }];
+  space.loads = [{ type: 'pointOnElement', data: { elementId: 1, a: station, px: 0, py: 0, pz: weight } }];
+  const p = solveNative2D({ ...config, solver: plane }).elements['1'];
+  const s = solveMovingLoads3D({ ...config, solver: space }).elements['1'];
+  expect.soft(p.vMaxPos).toBeCloseTo(weight, 9);
+  expect.soft(s.vzMaxPos).toBeCloseTo(weight, 9);
+  expect.soft(p.vMaxNeg).toBeCloseTo(-weight, 9);
+  expect.soft(s.vzMaxNeg).toBeCloseTo(-weight, 9);
+});
+
+it.skip('known wrong result: #2101 — browser axle-face shear excludes opposing endpoint point loads', async () => {
+  const length = 3, weight = 100, opposing = 40;
+  const { plane, space } = reviewSpan(length, 0, true);
+  const train = { name: 'one axle', axles: [{ offset: 0, weight }] };
+  const config = { train, step: length, pathElementIds: [1] };
+  const prepare2D = wasm.prepareLoadSession2D, prepare3D = wasm.prepareLoadSession3D;
+  const mock2D = vi.spyOn(wasm, 'prepareLoadSession2D').mockImplementation(input => {
+    const session = prepare2D(input);
+    return {
+      ...session,
+      solve: loads => session.solve([
+        ...loads,
+        ...[0, length].map(a => ({ type: 'pointOnElement' as const, data: { elementId: 1, a, p: opposing } })),
+      ]),
+    };
+  });
+  const mock3D = vi.spyOn(wasm, 'prepareLoadSession3D').mockImplementation(input => {
+    const session = prepare3D(input);
+    return {
+      ...session,
+      solve: loads => session.solve([
+        ...loads,
+        ...[0, length].map(a => ({ type: 'pointOnElement' as const, data: { elementId: 1, a, px: 0, py: 0, pz: opposing } })),
+      ]),
+    };
+  });
+  try {
+    for (const run of [solveMovingLoads, solveMovingLoadsAsync]) {
+      const result = await run(plane, config);
+      if (typeof result === 'string') throw new Error(result);
+      const forces = result.positions[0].results.elementForces[0];
+      expect.soft(forces.vStart).toBeCloseTo(-opposing, 9);
+      expect.soft(forces.vEnd).toBeCloseTo(opposing, 9);
+      const component = result.fullEnvelope!.shear.elements[0];
+      expect.soft(component.posValues[0]).toBeCloseTo(weight, 9);
+      expect.soft(component.negValues.at(-1)).toBeCloseTo(-weight, 9);
+    }
+    const path = buildPath3D(space, [1])!;
+    for (const result of [
+      await sweepMovingLoad3D(space, path, train, config),
+      await sweepTrains3D(space, path, [train, train], config),
+    ]) {
+      expect(result.failed).toBe(0);
+      const member = result.elements.get(1)!;
+      expect.soft(member.vz.max).toEqual({ value: weight, x: 0, position: 0 });
+      expect.soft(member.vz.min).toEqual({ value: -weight, x: length, position: length });
+    }
+  } finally {
+    mock2D.mockRestore();
+    mock3D.mockRestore();
   }
 });
