@@ -809,7 +809,7 @@ impl MaterialTangent {
         if let Some((rows, cols, values)) = triplets {
             let original = tangent_free_sparse_triplets(rows, cols, values, nf, &None);
             let reduced = constraints.map(|cs| cs.reduce_matrix_sparse(&original));
-            rank.check(&original, reduced.as_ref(), support_magnitude)?;
+            rank.require_resolved(&original, reduced.as_ref(), support_magnitude)?;
             return Ok(Self::Sparse(reduced.unwrap_or(original)));
         }
         let original = extract_submatrix(dense, n, free, free);
@@ -818,7 +818,7 @@ impl MaterialTangent {
         let reduced_operator = reduced.as_ref().zip(constraints).map(|(k, cs)| {
             CscMatrix::from_dense_symmetric_exact(k, cs.n_free_indep)
         });
-        rank.check(&physical, reduced_operator.as_ref(), support_magnitude)?;
+        rank.require_resolved(&physical, reduced_operator.as_ref(), support_magnitude)?;
         Ok(Self::Dense(reduced.unwrap_or(original)))
     }
 

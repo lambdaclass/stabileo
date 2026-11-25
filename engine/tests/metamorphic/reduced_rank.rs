@@ -176,7 +176,7 @@ fn check_spatial_issue(issue: &str, entry: &str, seed: u64, rotation: bool) {
     };
     let mut failures = Vec::new();
     report("original", (row.run)(&base), &mut failures);
-    assert!((row.run)(&transformed).is_err(), "#{issue} transformed model solved");
+    report(&format!("#{issue} transformed"), (row.run)(&transformed), &mut failures);
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
@@ -208,7 +208,13 @@ fn issue_2190_typed_planar_refuses_unresolved_operator() {
     let mirrored = base.iso(&iso).unwrap();
     let mut failures = Vec::new();
     report("original", (row.run)(&base), &mut failures);
-    assert!((row.run)(&mirrored).is_err(), "#2190 mirrored model solved");
+    let transformed = (row.run)(&mirrored);
+    let conditioning_refusal = matches!(&transformed, Err(error)
+        if error.starts_with("the structure is a mechanism or so close to one that its stability cannot be decided in double precision")
+            && error.contains("the matrix exceeds a conditioning limit or the recovered response fails its accuracy check"));
+    if !conditioning_refusal {
+        report("#2190 mirrored", transformed, &mut failures);
+    }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
@@ -376,7 +382,6 @@ fn corotational_equilibrium_requires_current_tangent_rank() {
 
 
 #[test]
-#[ignore = "known wrong result: #2584"]
 fn restrained_load_does_not_resolve_a_material_mechanism() {
     let rows2 = crate::ana2::rows();
     let rows3 = crate::ana3::rows();
@@ -396,8 +401,14 @@ fn restrained_load_does_not_resolve_a_material_mechanism() {
                 report("2D material nonlinear", result2, &mut failures);
                 report("3D material nonlinear", result3, &mut failures);
             } else {
-                assert!(result2.is_ok(), "{result2:?}");
-                assert!(result3.is_ok(), "{result3:?}");
+                let plane = result2.unwrap();
+                let space = result3.unwrap();
+                for node in [1, 2] {
+                    assert_eq!(plane.node_vec(node, "u").unwrap(), [0.0; 2]);
+                    assert_eq!(plane.node_vec(node, "ry").unwrap(), [0.0; 1]);
+                    assert_eq!(space.node_vec(node, "u").unwrap(), [0.0; 3]);
+                    assert_eq!(space.node_vec(node, "r").unwrap(), [0.0; 3]);
+                }
             }
         }
     }

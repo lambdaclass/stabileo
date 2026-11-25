@@ -160,7 +160,7 @@ fn secant_system(
     let physical = add_stiffness(base, &soil);
     let reduced = cs.zip(reduced_base).map(|(cs, base)| add_stiffness(base, &cs.reduce_matrix_sparse(&soil)));
     let magnitude = support_magnitude.zip(magnitude.as_ref()).map(|(base, soil)| add_stiffness(base, soil));
-    rank.check(&physical, reduced.as_ref(), magnitude.as_ref())?;
+    rank.check_rounding(&physical, reduced.as_ref(), magnitude.as_ref())?;
     Ok(reduced.unwrap_or(physical))
 }
 

@@ -29,3 +29,16 @@ Corotational equilibrium is checked on the current reduced tangent,
 including on native planar continuation. Tangents whose signed stiffness
 cannot be resolved can now refuse even when the equilibrium residual is zero.
 The checks do not change the assembled stiffness, loads, or residual tolerances.
+
+The material nonlinear solver now requires a resolved physical tangent
+before it accepts a zero-residual load increment. For example, a
+horizontal truss with an unrestrained transverse tip previously reported
+convergence under a load applied at the fixed end, although the transverse
+displacement was undetermined. Adding independent transverse stiffness
+restores the zero-displacement solution. Harmless released rotations are
+still allowed.
+
+The current corotational rank check uses both diagonal and off-diagonal
+terms when scaling signed tangents. It checks the physical directions
+after excluding verified rotation gauges in the current member frames.
+An unresolved physical tangent still blocks convergence.

@@ -64,12 +64,20 @@ describe('engine sentences', () => {
       .toBe('El rango de la rigidez reducida no se puede determinar con la precisión del ensamblaje. Revisá las liberaciones, los apoyos, los resortes y las restricciones para detectar un mecanismo.');
   });
 
-  it.fails('translates a coded rank refusal and retains the constraint-specific cause', async () => {
+  it('translates a coded rank refusal and retains the constraint-specific cause', async () => {
     await setLocale('es');
     const cause = 'constraint reduction cancels stiffness contributions at nodes [2, 3]';
     const message = 'The reduced stiffness rank cannot be resolved at assembly precision. ' + cause;
     const refusal = JSON.stringify({ message, structuredDiagnostics: [{ code: 'reduced_stiffness_rank', severity: 'error' }] });
     expect(localizeEngineText(errorText(refusal, 'Unknown error')))
+      .toBe('El rango de la rigidez reducida no se puede determinar con la precisión del ensamblaje. Revisá las liberaciones, los apoyos, los resortes y las restricciones para detectar un mecanismo. ' + cause);
+  });
+
+  it('keeps the engine cause when its coded rank refusal uses a different sentence', async () => {
+    await setLocale('es');
+    const cause = 'the structure is a mechanism or so close to one that its stability cannot be decided in double precision at nodes [2, 3]: constraint reduction cancels stiffness contributions whose rounding is too large to resolve the remaining stiffness; reduce extreme stiffness contrasts or revise the constraints';
+    const refusal = JSON.stringify({ message: cause, structuredDiagnostics: [{ code: 'reduced_stiffness_rank', severity: 'error' }] });
+    expect(localizeEngineText(refusal))
       .toBe('El rango de la rigidez reducida no se puede determinar con la precisión del ensamblaje. Revisá las liberaciones, los apoyos, los resortes y las restricciones para detectar un mecanismo. ' + cause);
   });
 
@@ -81,6 +89,13 @@ describe('engine sentences', () => {
       expect(localizeEngineText(text))
         .toBe('El rango de la rigidez reducida no se puede determinar con la precisión del ensamblaje. Revisá las liberaciones, los apoyos, los resortes y las restricciones para detectar un mecanismo.');
     }
+  });
+
+  it('renders the English rank sentence once', async () => {
+    await setLocale('en');
+    const message = 'The reduced stiffness rank cannot be resolved at assembly precision. Check member releases, supports, springs and constraints for a mechanism.';
+    const refusal = JSON.stringify({ message, structuredDiagnostics: [{ code: 'reduced_stiffness_rank', severity: 'error' }] });
+    expect(localizeEngineText(refusal)).toBe(message);
   });
 
   it('leaves a sentence it does not know as it is', () => {

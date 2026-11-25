@@ -135,6 +135,7 @@ pub fn solve_modal_2d(
     crate::known_issues::attach(&mut structured_diagnostics, assembled_conditioning.into_iter().collect());
     let rank = super::stability::OperatorRank::for_2d(input, &dof_num, cs.as_ref());
     let (modal_mass, mass_range) = assemble_modal_mass_2d(input, &dof_num, densities, &its, cs.as_ref())?;
+    let modal_rank_refusal;
     let (result, ns, m_solve) = if let Some(k_ff) = k_sparse {
         // Assembled once: the branch below differs in whether the matrices are
         // reduced, not in how they are built.
@@ -143,7 +144,7 @@ pub fn solve_modal_2d(
         m_r_y = ground_influence(&dof_num, 1, &its, &m_csc, m_full_sparse);
         if let Some(ref cs) = cs {
             let k_solve = cs.reduce_matrix_sparse(&k_ff);
-            rank.check(&k_ff, Some(&k_solve), support_magnitude.as_ref())?;
+            modal_rank_refusal = rank.modal_rounding_refusal(&k_ff, Some(&k_solve), support_magnitude.as_ref())?;
             let m_solve = cs.reduce_matrix_sparse(&m_csc);
             let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(&k_solve, |observe| {
                 mass_range.solve_sparse(&k_solve, &m_solve, num_modes, observe)
@@ -154,7 +155,7 @@ pub fn solve_modal_2d(
             m_csc_opt = Some(m_solve);
             (result, cs.n_free_indep, Vec::new())
         } else {
-            rank.check(&k_ff, None, support_magnitude.as_ref())?;
+            modal_rank_refusal = rank.modal_rounding_refusal(&k_ff, None, support_magnitude.as_ref())?;
             let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(&k_ff, |observe| {
                 mass_range.solve_sparse(&k_ff, &m_csc, num_modes, observe)
             });
@@ -192,7 +193,7 @@ pub fn solve_modal_2d(
         };
         let operator = CscMatrix::from_dense_symmetric_exact(&k_ff, nf);
         let reduced = cs.as_ref().map(|_| CscMatrix::from_dense_symmetric_exact(&k_solve, ns));
-        rank.check(&operator, reduced.as_ref(), support_magnitude.as_ref())?;
+        modal_rank_refusal = rank.modal_rounding_refusal(&operator, reduced.as_ref(), support_magnitude.as_ref())?;
         let result = mass_range.solve_dense(&k_solve, &m_solve, num_modes)
             .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(ns))?;
         crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::dense_stiffness_conditioning(&k_solve, ns).into_iter().collect());
@@ -366,6 +367,7 @@ pub fn solve_modal_2d(
     };
 
     structured_diagnostics.extend(checks.diagnostics);
+    if let Some(refusal) = modal_rank_refusal { return Err(refusal); }
     Ok(ModalResult {
         finite_spectrum_diagnostic: finite_spectrum_diagnostic(requested, modes.len()),
         modes,
@@ -591,8 +593,8 @@ pub fn solve_modal_3d(
     } else {
         (&sasm.k_ff, &m_sparse_ff)
     };
-    super::stability::OperatorRank::for_3d(input, &dof_num, cs.as_ref())
-        .check(&sasm.k_ff, cs.as_ref().map(|_| k_solve), sasm.support_magnitude.as_ref())?;
+    let modal_rank_refusal = super::stability::OperatorRank::for_3d(input, &dof_num, cs.as_ref())
+        .modal_rounding_refusal(&sasm.k_ff, cs.as_ref().map(|_| k_solve), sasm.support_magnitude.as_ref())?;
     let mut structured_diagnostics = known_model;
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Modal));
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_conditioning(&sasm.k_ff).into_iter().collect());
@@ -731,6 +733,7 @@ pub fn solve_modal_3d(
     } else { None };
 
     structured_diagnostics.extend(checks.diagnostics);
+    if let Some(refusal) = modal_rank_refusal { return Err(refusal); }
     Ok(ModalResult3D {
         finite_spectrum_diagnostic: finite_spectrum_diagnostic(requested, modes.len()),
         modes, n_dof: nf, total_mass,

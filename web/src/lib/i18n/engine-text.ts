@@ -14,7 +14,7 @@ import { isMessage, type EngineMessage } from '../codes/message';
 import { AMBIGUOUS_ROLLER_Z } from '../engine/support-dofs-3d';
 import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../engine/member-diagram';
 import type { StructuredDiagnostic } from '../engine/types';
-import { refusedWithCode } from '../engine/containment-error';
+import { asCodedRefusal, CodedRefusal } from '../engine/containment-error';
 import { i18n, registerFeatureDictionaries, tAt } from './store.svelte';
 import type { Locale } from './offered';
 import { axesStore } from '../axes/axes.svelte';
@@ -139,6 +139,7 @@ registerFeatureDictionaries(Object.fromEntries(
 const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
   ['the structure is a mechanism or so close to one that its stability cannot be decided in double precision: the reduced stiffness rank cannot be resolved at assembly precision. Check member releases, supports, springs and constraints for a mechanism.', REDUCED_STIFFNESS_RANK],
   [reducedStiffnessRank.en, REDUCED_STIFFNESS_RANK],
+  ['The reduced stiffness rank cannot be resolved at assembly precision.', REDUCED_STIFFNESS_RANK],
   [DIAGRAM_EXTREMA_UNAVAILABLE, DIAGRAM_EXTREMA_UNAVAILABLE],
   ['distinct member diagram cuts share a normalized station', DIAGRAM_EXTREMA_UNAVAILABLE],
   ['interior member diagram extremum has no distinct normalized station', DIAGRAM_EXTREMA_UNAVAILABLE],
@@ -159,9 +160,18 @@ const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
 ];
 
 export function localizeEngineText(message: string): string {
-  if (refusedWithCode(message, 'reduced_stiffness_rank')) return tAt(REDUCED_STIFFNESS_RANK, i18n.locale);
-  let out = message;
-  for (const [en, key] of ENGINE_SENTENCES) if (out.includes(en)) out = out.split(en).join(tAt(key, i18n.locale));
+  const rankRefusal = asCodedRefusal(message, 'reduced_stiffness_rank');
+  const original = rankRefusal instanceof CodedRefusal ? rankRefusal.message : message;
+  let out = original;
+  let translatedRank = false;
+  for (const [en, key] of ENGINE_SENTENCES) {
+    if ((key === REDUCED_STIFFNESS_RANK && translatedRank) || !out.includes(en)) continue;
+    out = out.split(en).join(tAt(key, i18n.locale));
+    translatedRank ||= key === REDUCED_STIFFNESS_RANK;
+  }
+  if (rankRefusal instanceof CodedRefusal && !translatedRank) {
+    out = `${tAt(REDUCED_STIFFNESS_RANK, i18n.locale)} ${out}`;
+  }
   out = out.replace(/Non-finite number \((NaN|Infinity|-Infinity)\) at (\S+)/g, (_, value: string, path: string) =>
     fill('svc.engine.nonFiniteNumber', { value, path }));
   return out.replace(SELF_CHECK_REFUSAL, (whole, check: string, mode: string | undefined, rest: string) => {

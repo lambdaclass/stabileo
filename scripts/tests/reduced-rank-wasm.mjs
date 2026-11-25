@@ -7,6 +7,17 @@ engine.initSync({
 });
 const fixtures = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/reduced-rank.json', import.meta.url)));
 const failures = [];
+function assertDisplacements(results, dim, nodeIds, axial = 0) {
+  const fields = dim === '2d' ? ['ux', 'uz', 'ry'] : ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'];
+  assert.deepEqual(results.displacements.map(d => d.nodeId).sort((a, b) => a - b), nodeIds);
+  for (const displacement of results.displacements) {
+    for (const field of fields) {
+      const expected = field === 'ux' && displacement.nodeId === 2 ? axial : 0;
+      assert.ok(displacement[field] === expected, `${dim} node ${displacement.nodeId} ${field}: ${displacement[field]} !== ${expected}`);
+    }
+  }
+}
+
 function spatial(solver) {
   const held = nodeId => ({ nodeId, rx: nodeId === 1, ry: true, rz: nodeId === 1, rrx: true, rry: nodeId === 1, rrz: true });
   return {
@@ -62,11 +73,7 @@ for (const issue of ['2266', '2380']) {
   const restrained = structuredClone(solver);
   restrained.constraints.push({ type: 'linearMPC', terms: [{ nodeId: 2, dof: 2, coefficient: 1 }] });
   for (const input of [unhinged, restrained]) {
-    const { displacements } = engine.solve_2d(input);
-    assert.ok(displacements.length > 0);
-    for (const { ux, uz, ry } of displacements) {
-      assert.ok(ux === 0 && uz === 0 && ry === 0);
-    }
+    assertDisplacements(engine.solve_2d(input), '2d', Object.keys(input.nodes).map(Number).sort((a, b) => a - b));
   }
 }
 assert.deepEqual(failures, []);
@@ -102,7 +109,7 @@ for (const dim of ['2d', '3d']) {
     } else {
       const result = run();
       assert.equal(result.converged, true);
-      assert.equal(result.results.displacements.find(d => d.nodeId === 2).ux, force);
+      assertDisplacements(result.results, dim, [1, 2], force);
     }
   }
 
@@ -120,7 +127,7 @@ for (const dim of ['2d', '3d']) {
   assert.ok(codedRankError(kinematics.diagnosis), `${dim} inclined kinematics: ${kinematics.diagnosis}`);
   for (const [name, run] of [
     ['linear', s => engine[`solve_${dim}`](s)],
-    ['constrained', s => engine[`solve_constrained_${dim}`](JSON.stringify({ solver: s, constraints: s.constraints }))],
+    ['constrained', s => JSON.parse(engine[`solve_constrained_${dim}`](JSON.stringify({ solver: s, constraints: s.constraints })))],
     ['corotational', s => nonlinear('corotational', dim, s)],
     ['material nonlinear', s => nonlinear('nonlinear_material', dim, {
       solver: s, materialModels: {}, sectionCapacities: {}, maxIter: 8, tolerance: 1e-12, nIncrements: 1,
@@ -130,7 +137,12 @@ for (const dim of ['2d', '3d']) {
     const control = structuredClone(inclined);
     control.nodes[2].x += 0.25;
     const solved = run(control);
-    if (typeof solved === 'object' && 'converged' in solved) assert.equal(solved.converged, true);
+    if (name === 'corotational' || name === 'material nonlinear') {
+      assert.equal(solved.converged, true, `${dim} inclined ${name}`);
+      assertDisplacements(solved.results, dim, [1, 2]);
+    } else {
+      assertDisplacements(solved, dim, [1, 2]);
+    }
   }
 }
 
@@ -155,7 +167,24 @@ for (const dim of ['2d', '3d']) {
     } else {
       const result = run();
       assert.equal(result.converged, true);
-      for (const displacement of result.results.displacements) assert.equal(displacement.ux, 0);
+      assertDisplacements(result.results, dim, [1, 2]);
     }
   }
+}
+
+
+for (const dim of ['2d', '3d']) {
+  const model = dim === '2d' ? structuredClone(truss) : spatial(truss);
+  const load = { nodeId: 1, fx: 1, fz: 0, my: 0 };
+  if (dim === '3d') Object.assign(load, { fy: 0, mx: 0, mz: 0 });
+  model.loads = [{ type: 'nodal', data: load }];
+  const run = () => nonlinear('nonlinear_material', dim, {
+    solver: model, materialModels: {}, sectionCapacities: {}, maxIter: 8, tolerance: 1e-12, nIncrements: 1,
+  });
+  delete model.supports[2].ky;
+  assert.throws(run, codedRankError, `${dim} restrained load and free transverse motion`);
+  model.supports[2][dim === '2d' ? 'ky' : 'kz'] = 1;
+  const result = run();
+  assert.equal(result.converged, true);
+  assertDisplacements(result.results, dim, [1, 2]);
 }

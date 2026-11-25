@@ -121,22 +121,7 @@ impl Stability {
     }
 
     pub fn pin_sparse(&self, k: &CscMatrix) -> CscMatrix {
-        let pins = self.pins();
-        if pins.is_empty() { return k.clone(); }
-        let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
-        for j in 0..k.n {
-            for p in k.col_ptr[j]..k.col_ptr[j + 1] {
-                rows.push(k.row_idx[p]);
-                cols.push(j);
-                vals.push(k.values[p]);
-            }
-        }
-        for (i, j, x) in pins {
-            rows.push(i);
-            cols.push(j);
-            vals.push(x);
-        }
-        CscMatrix::from_triplets(k.n, &rows, &cols, &vals)
+        with_stiffness_entries(k, self.pins())
     }
 
     pub fn load_on_free_rotation(&self, f: &[f64]) -> Option<usize> {
@@ -216,6 +201,25 @@ impl Stability {
             )),
         }
     }
+}
+
+fn with_stiffness_entries(k: &CscMatrix, entries: impl IntoIterator<Item = (usize, usize, f64)>) -> CscMatrix {
+    let mut entries = entries.into_iter().peekable();
+    if entries.peek().is_none() { return k.clone(); }
+    let (mut rows, mut cols, mut values) = (Vec::new(), Vec::new(), Vec::new());
+    for j in 0..k.n {
+        for p in k.col_ptr[j]..k.col_ptr[j + 1] {
+            rows.push(k.row_idx[p]);
+            cols.push(j);
+            values.push(k.values[p]);
+        }
+    }
+    for (i, j, value) in entries {
+        rows.push(i);
+        cols.push(j);
+        values.push(value);
+    }
+    CscMatrix::from_triplets(k.n, &rows, &cols, &values)
 }
 
 fn operator_rounding_refusal() -> String {
@@ -595,12 +599,21 @@ impl ReleasedRotations {
 
 pub(crate) fn released_rotations_3d(input: &SolverInput3D, dof: &DofNumbering) -> ReleasedRotations {
     let nodes: BTreeMap<_, _> = input.nodes.values().map(|n| (n.id, n)).collect();
+    released_rotations_in_frames(input, dof, |e| {
+        let (a, b) = (nodes[&e.node_i], nodes[&e.node_j]);
+        let (ex, ey, ez) = crate::element::compute_local_axes_3d(a.x, a.y, a.z, b.x, b.y, b.z, e.local_yx, e.local_yy, e.local_yz, e.roll_angle, input.left_hand.unwrap_or(false));
+        Some([ex, ey, ez])
+    }).unwrap_or_default()
+}
+
+pub(super) fn released_rotations_in_frames(
+    input: &SolverInput3D, dof: &DofNumbering, frame: impl Fn(&SolverElement3D) -> Option<[[f64; 3]; 3]>,
+) -> Option<ReleasedRotations> {
     let mut axes: BTreeMap<usize, Vec<[f64; 3]>> = BTreeMap::new();
     let mut released = std::collections::BTreeSet::new();
     let mut directions = Vec::new();
     for e in crate::ordered::values(&input.elements).filter(|e| e.elem_type == "frame") {
-        let (a, b) = (nodes[&e.node_i], nodes[&e.node_j]);
-        let (ex, ey, ez) = crate::element::compute_local_axes_3d(a.x, a.y, a.z, b.x, b.y, b.z, e.local_yx, e.local_yy, e.local_yz, e.roll_angle, input.left_hand.unwrap_or(false));
+        let [ex, ey, ez] = frame(e)?;
         let frame_rounding = super::load_work::frame_rounding(&[ex,ey,ez]);
         for (node, ry, rz, own_rt) in [(e.node_i, e.release_my_start, e.release_mz_start, e.release_t_start), (e.node_j, e.release_my_end, e.release_mz_end, e.release_t_end)] {
             let warping = input.sections.values().find(|s| s.id == e.section_id).is_some_and(|s| s.cw.is_some_and(|cw| cw > 0.0));
@@ -644,7 +657,7 @@ pub(crate) fn released_rotations_3d(input: &SolverInput3D, dof: &DofNumbering) -
             rows.push(row);
         }
     }
-    ReleasedRotations { rows, nodes: released, directions }
+    Some(ReleasedRotations { rows, nodes: released, directions })
 }
 
 struct Column { group: usize, w: Vec<f64> }
@@ -758,18 +771,40 @@ fn analyze_with_magnitudes(
     if k.values.iter().any(|v| !v.is_finite()) {
         return non_finite();
     }
-    if let Some(magnitude) = support_magnitude {
-        for (i, (value, scale)) in k.diagonal().into_iter().zip(magnitude.diagonal()).enumerate() {
-            if tags[i].kind == DofKind::Translation && scale > 0.0 && value.abs() <= ROUNDING * f64::EPSILON * scale {
-                return Stability { verdict: Verdict::Singular, reason: Reason::OperatorRounding, kappa: f64::INFINITY, anisotropy: 1.0, free: Vec::new(), mode_nodes: vec![tags[i].node] };
-            }
+    let diagonal = k.diagonal();
+    let diagonal_rounding = rounding.map(CscMatrix::diagonal);
+    let support_diagonal = support_magnitude.map(CscMatrix::diagonal);
+    let radius = ROUNDING * f64::EPSILON;
+    let uncertain = |i: usize| {
+        let scale = support_diagonal.as_ref().map_or(0.0, |d| d[i]);
+        tags[i].kind == DofKind::Translation && scale > 0.0 && diagonal[i].abs() <= radius * scale
+    };
+    for (i, &value) in diagonal.iter().enumerate() {
+        let magnitude = diagonal_rounding.as_ref().map_or(value.abs(), |d| d[i]);
+        if value < -ROUNDING * n as f64 * f64::EPSILON * magnitude && !uncertain(i) {
+            return Stability { verdict: Verdict::Singular, reason: Reason::Indefinite, kappa: f64::NAN, anisotropy: 1.0, free: Vec::new(), mode_nodes: vec![tags[i].node] };
         }
     }
-    let diagonal_rounding = rounding.map(CscMatrix::diagonal);
-    for (i, value) in k.diagonal().into_iter().enumerate() {
-        let magnitude = diagonal_rounding.as_ref().map_or(value.abs(), |d| d[i]);
-        if value < -ROUNDING * n as f64 * f64::EPSILON * magnitude {
-            return Stability { verdict: Verdict::Singular, reason: Reason::Indefinite, kappa: f64::NAN, anisotropy: 1.0, free: Vec::new(), mode_nodes: vec![tags[i].node] };
+    if let Some((magnitude, support_diagonal)) = support_magnitude.zip(support_diagonal.as_ref()) {
+        if let Some(index) = (0..n).find(|&i| uncertain(i)) {
+            let upper: Vec<_> = diagonal.iter().zip(support_diagonal)
+                .map(|(&value, &size)| super::load_work::add_up(value.max(0.0), super::load_work::mul_up(radius, size)))
+                .collect();
+            for j in 0..n {
+                for p in k.col_ptr[j]..k.col_ptr[j + 1] {
+                    let i = k.row_idx[p];
+                    if i == j || (!uncertain(i) && !uncertain(j)) { continue; }
+                    let span = magnitude.col_ptr[j]..magnitude.col_ptr[j + 1];
+                    let size = magnitude.row_idx[span.clone()].binary_search(&i)
+                        .map_or(k.values[p].abs(), |offset| magnitude.values[span.start + offset]);
+                    let positive_bound = super::load_work::mul_up(upper[i].sqrt().next_up(), upper[j].sqrt().next_up());
+                    let error_bound = super::load_work::mul_up(radius, size);
+                    if positive_bound.is_finite() && k.values[p].abs() > super::load_work::add_up(positive_bound, error_bound) {
+                        return Stability { verdict: Verdict::Singular, reason: Reason::Indefinite, kappa: f64::NAN, anisotropy: 1.0, free: Vec::new(), mode_nodes: vec![tags[j].node, tags[i].node] };
+                    }
+                }
+            }
+            return Stability { verdict: Verdict::Singular, reason: Reason::OperatorRounding, kappa: f64::INFINITY, anisotropy: 1.0, free: Vec::new(), mode_nodes: vec![tags[index].node] };
         }
     }
     let mut groups: BTreeMap<(usize, DofKind), Vec<usize>> = BTreeMap::new();
@@ -988,8 +1023,7 @@ fn tangent_has_resolved_rank(k: &CscMatrix, magnitude: &CscMatrix) -> bool {
     if k.values.iter().chain(&magnitude.values).any(|v| !v.is_finite()) {
         return false;
     }
-    let diagonal_scale = magnitude.diagonal();
-    let mut row_scale = diagonal_scale.clone();
+    let mut row_scale = vec![0.0_f64; magnitude.n];
     for j in 0..magnitude.n {
         for p in magnitude.col_ptr[j]..magnitude.col_ptr[j + 1] {
             let i = magnitude.row_idx[p];
@@ -998,8 +1032,7 @@ fn tangent_has_resolved_rank(k: &CscMatrix, magnitude: &CscMatrix) -> bool {
             row_scale[j] = row_scale[j].max(value);
         }
     }
-    let weights: Vec<_> = diagonal_scale.into_iter().zip(row_scale).map(|(diagonal, row)| {
-        let scale = if diagonal > 0.0 { diagonal } else { row };
+    let weights: Vec<_> = row_scale.into_iter().map(|scale| {
         if scale > 0.0 { 1.0 / scale.sqrt() } else { 1.0 }
     }).collect();
     let scale = |i: usize, j: usize, value: f64| (value * weights[i]) * weights[j];
@@ -1542,12 +1575,41 @@ impl<'a> OperatorRank<'a> {
         Self { dof, two_d: false, constraints, coupling: coupling_3d(input, dof), releases: released_rotations_3d(input, dof) }
     }
 
-    pub(super) fn check(&self, free: &CscMatrix, reduced: Option<&CscMatrix>, support_magnitude: Option<&CscMatrix>) -> Result<(), String> {
-        let result = if let (Some(constraints), Some(reduced)) = (self.constraints, reduced) {
-            constraints.stability(reduced, self.dof, free, &self.coupling, &self.releases, support_magnitude)
+    fn classify(
+        &self, free: &CscMatrix, reduced: Option<&CscMatrix>, support_magnitude: Option<&CscMatrix>,
+        releases: &ReleasedRotations,
+    ) -> Stability {
+        if let (Some(constraints), Some(reduced)) = (self.constraints, reduced) {
+            constraints.stability(reduced, self.dof, free, &self.coupling, releases, support_magnitude)
         } else {
-            analyze_free_stiffness(free, self.dof, self.two_d, self.constraints, &self.coupling, &self.releases, support_magnitude).1
-        };
+            analyze_free_stiffness(free, self.dof, self.two_d, self.constraints, &self.coupling, releases, support_magnitude).1
+        }
+    }
+
+    pub(super) fn require_resolved(&self, free: &CscMatrix, reduced: Option<&CscMatrix>, support_magnitude: Option<&CscMatrix>) -> Result<(), String> {
+        let result = self.classify(free, reduced, support_magnitude, &self.releases);
+        match result.refusal() {
+            Some(error) if result.reason != Reason::OperatorRounding => Err(crate::refusal::coded(DiagnosticCode::ReducedStiffnessRank, &error)),
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
+    }
+
+    pub(super) fn check_rounding(&self, free: &CscMatrix, reduced: Option<&CscMatrix>, support_magnitude: Option<&CscMatrix>) -> Result<(), String> {
+        let result = self.classify(free, reduced, support_magnitude, &self.releases);
+        Self::rounding_refusal(&result)
+    }
+
+    pub(super) fn modal_rounding_refusal(
+        &self, free: &CscMatrix, reduced: Option<&CscMatrix>, support_magnitude: Option<&CscMatrix>,
+    ) -> Result<Option<String>, String> {
+        let result = self.classify(free, reduced, support_magnitude, &self.releases);
+        let refusal = Self::rounding_refusal(&result);
+        if result.reason == Reason::ConstraintRounding { return Ok(refusal.err()); }
+        refusal.map(|()| None)
+    }
+
+    fn rounding_refusal(result: &Stability) -> Result<(), String> {
         match result.reason {
             Reason::OperatorRounding => Err(operator_rounding_refusal()),
             Reason::ConstraintRounding => Err(crate::refusal::coded(
@@ -1558,15 +1620,36 @@ impl<'a> OperatorRank<'a> {
         }
     }
 
-    pub(super) fn check_tangent(&self, free: &CscMatrix, magnitude: &CscMatrix) -> Result<(), String> {
-        let resolved = match self.constraints {
-            Some(cs) => tangent_has_resolved_rank(&cs.reduce_matrix_sparse(free), &cs.reduce_stiffness_magnitude(magnitude)),
-            None => tangent_has_resolved_rank(free, magnitude),
-        };
-        if !resolved {
-            return Err(operator_rounding_refusal());
+    pub(super) fn check_tangent(
+        &self, free: &CscMatrix, magnitude: &CscMatrix, active_releases: Option<&ReleasedRotations>,
+    ) -> Result<(), String> {
+        let reduced = self.constraints.map(|cs| cs.reduce_matrix_sparse(free));
+        let reduced_magnitude = self.constraints.map(|cs| cs.reduce_stiffness_magnitude(magnitude));
+        let k = reduced.as_ref().unwrap_or(free);
+        let magnitude = reduced_magnitude.as_ref().unwrap_or(magnitude);
+        if tangent_has_resolved_rank(k, magnitude) { return Ok(()); }
+
+        let releases = active_releases.unwrap_or(&self.releases);
+        let mut stability = self.classify(free, reduced.as_ref(), None, releases);
+        if stability.is_stable() {
+            let projected = self.constraints.map(|cs| releases.project(&cs.c_ff));
+            let releases = projected.as_ref().unwrap_or(releases);
+            let row_magnitude = magnitude.sym_mat_vec(&vec![1.0; k.n]);
+            stability.free.retain(|direction| {
+                !direction.moves_translation && direction.coupling.is_empty()
+                    && (releases.permits(direction.node, &direction.dofs, &direction.direction)
+                        || direction.dofs.iter().zip(&direction.direction).all(|(&dof, &component)| {
+                            component == 0.0 || row_magnitude[dof] == 0.0
+                        }))
+            });
+            let pins = stability.pins();
+            if !pins.is_empty() {
+                let pinned = with_stiffness_entries(k, pins.iter().copied());
+                let envelope = with_stiffness_entries(magnitude, pins.into_iter().map(|(i, j, value)| (i, j, value.abs())));
+                if tangent_has_resolved_rank(&pinned, &envelope) { return Ok(()); }
+            }
         }
-        Ok(())
+        Err(operator_rounding_refusal())
     }
 
 }
@@ -1598,7 +1681,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #2584"]
     fn signed_tangent_rank_survives_a_small_positive_diagonal() {
         for (last, resolved) in [(1.0, true), (0.0, false)] {
             let k = CscMatrix::from_dense_symmetric_exact(&[

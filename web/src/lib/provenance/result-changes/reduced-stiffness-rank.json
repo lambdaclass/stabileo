@@ -1,7 +1,7 @@
 {
   "id": "reduced-stiffness-rank",
   "date": "2026-11-25",
-  "prs": [2119, 2134, 2139, 2190, 2266, 2380],
+  "prs": [2584],
   "area": "analysis",
   "when": {
     "allOf": [

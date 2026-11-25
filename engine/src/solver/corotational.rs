@@ -169,13 +169,16 @@ impl ActiveStiffness {
         Self { dense, rows, cols, values, magnitude }
     }
 
-    fn check(&self, rank: &super::stability::OperatorRank<'_>, dof: &DofNumbering) -> Result<(), String> {
+    fn check(
+        &self, rank: &super::stability::OperatorRank<'_>, dof: &DofNumbering,
+        active_releases: Option<&super::stability::ReleasedRotations>,
+    ) -> Result<(), String> {
         let free = if self.dense.is_empty() {
             tangent_free_sparse_triplets(&self.rows, &self.cols, &self.values, dof.n_free, &None)
         } else {
             super::stability::dense_free_block(&self.dense, dof)
         };
-        rank.check_tangent(&free, &self.magnitude)
+        rank.check_tangent(&free, &self.magnitude, active_releases)
     }
 }
 
@@ -363,7 +366,7 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
     }
 
     fn commit(&mut self) -> Result<(), String> {
-        self.stiffness.as_ref().unwrap().check(&self.rank, self.dof_num)?;
+        self.stiffness.as_ref().unwrap().check(&self.rank, self.dof_num, None)?;
         self.u_converged.copy_from_slice(&self.u_full);
         Ok(())
     }
@@ -490,7 +493,7 @@ pub fn solve_corotational_2d_from(
     let asm = assembly::assemble_stiffness_2d(input, &dof_num);
     let rank = super::stability::OperatorRank::for_2d(input, &dof_num, cs.as_ref());
     if start.is_none() {
-        rank.check(&super::stability::dense_free_block(&asm.k, &dof_num), None, asm.support_magnitude.as_ref())?;
+        rank.check_rounding(&super::stability::dense_free_block(&asm.k, &dof_num), None, asm.support_magnitude.as_ref())?;
     }
     let art = asm.artificial_stiffness_entries();
 
@@ -1677,8 +1680,9 @@ pub fn solve_corotational_3d(
     // Reference load vector from linear assembly
     let (asm, support_magnitude) = assembly::assemble_3d_with_magnitude(input, &dof_num);
     let rank = super::stability::OperatorRank::for_3d(input, &dof_num, cs.as_ref());
-    rank.check(&super::stability::dense_free_block(&asm.k, &dof_num), None, support_magnitude.as_ref())?;
+    rank.check_rounding(&super::stability::dense_free_block(&asm.k, &dof_num), None, support_magnitude.as_ref())?;
     let f_total = asm.f.clone();
+    let has_releases = super::stability::has_member_releases_3d(input);
 
     let mut u_full = vec![0.0; n];
     let mut total_iterations = 0;
@@ -1705,10 +1709,16 @@ pub fn solve_corotational_3d(
             let mut f_int = vec![0.0; n];
             let sparse_tangent = ns >= SPARSE_THRESHOLD;
             let u_geom = assembly::to_global(&u_full, n, &asm.inclined_transforms);
+            let mut current_frames = std::collections::BTreeMap::new();
             let stiffness = ActiveStiffness::assemble(
                 &dof_num, sparse_tangent, &asm.inclined_transforms, &mut f_int,
                 |internal, mut scatter| {
-                    assemble_corotational_3d_impl_with_magnitude(input, &dof_num, &u_geom, internal, &mut scatter, left_hand);
+                    assemble_corotational_3d_impl_with_magnitude(
+                        input, &dof_num, &u_geom, internal, &mut scatter, left_hand,
+                        |element, axes| {
+                            if has_releases { current_frames.insert(element, axes); }
+                        },
+                    );
                     add_spring_contributions_3d(input, &dof_num, &u_geom, internal, &mut |i, j, k| scatter(i, j, k, k.abs()));
                 },
             );
@@ -1725,7 +1735,13 @@ pub fn solve_corotational_3d(
             let rel_error = metric.relative_residual(&residual, &f_ext, None, cs.as_ref());
 
             if rel_error < tolerance {
-                stiffness.check(&rank, &dof_num)?;
+                let active_releases = if has_releases {
+                    super::stability::released_rotations_in_frames(input, &dof_num, |e| current_frames.get(&e.id).copied())
+                        .unwrap_or_default()
+                } else {
+                    super::stability::ReleasedRotations::default()
+                };
+                stiffness.check(&rank, &dof_num, Some(&active_releases))?;
                 nr_converged = true;
                 break;
             }
@@ -1851,7 +1867,7 @@ pub(super) fn assemble_corotational_3d_impl(
     scatter: &mut impl FnMut(usize, usize, f64),
     left_hand: bool,
 ) {
-    assemble_corotational_3d_impl_with_magnitude(input, dof_num, u_full, f_int, &mut |i, j, k, _| scatter(i, j, k), left_hand);
+    assemble_corotational_3d_impl_with_magnitude(input, dof_num, u_full, f_int, &mut |i, j, k, _| scatter(i, j, k), left_hand, |_, _| {});
 }
 
 fn assemble_corotational_3d_impl_with_magnitude(
@@ -1861,6 +1877,7 @@ fn assemble_corotational_3d_impl_with_magnitude(
     f_int: &mut [f64],
     scatter: &mut impl FnMut(usize, usize, f64, f64),
     left_hand: bool,
+    mut record_frame: impl FnMut(usize, [[f64; 3]; 3]),
 ) {
     let node_by_id: std::collections::HashMap<usize, &SolverNode3D> =
         crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
@@ -1899,11 +1916,13 @@ fn assemble_corotational_3d_impl_with_magnitude(
                 (0.0, 0.0)
             };
 
-            assemble_frame_corotational_3d(
+            if let Some(axes) = assemble_frame_corotational_3d(
                 dof_num, elem, node_i, node_j,
                 e, sec.a, sec.iy, sec.iz, sec.j, g, phi_y, phi_z,
                 u_full, f_int, scatter, left_hand,
-            );
+            ) {
+                record_frame(elem.id, axes);
+            }
         }
     }
 }
@@ -2008,7 +2027,7 @@ fn assemble_frame_corotational_3d(
     f_int: &mut [f64],
     scatter: &mut impl FnMut(usize, usize, f64, f64),
     left_hand: bool,
-) {
+) -> Option<[[f64; 3]; 3]> {
     let dx0 = node_j.x - node_i.x;
     let dy0 = node_j.y - node_i.y;
     let dz0 = node_j.z - node_i.z;
@@ -2016,7 +2035,7 @@ fn assemble_frame_corotational_3d(
 
     let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
     if elem_dofs.len() < 12 {
-        return; // Need at least 6 DOFs per node
+        return None; // Need at least 6 DOFs per node
     }
     let u_elem: Vec<f64> = elem_dofs.iter().map(|&d| u_full[d]).collect();
 
@@ -2034,7 +2053,7 @@ fn assemble_frame_corotational_3d(
     let elong = elongation(&[dx0, dy0, dz0], &[u_elem[6] - u_elem[0], u_elem[7] - u_elem[1], u_elem[8] - u_elem[2]], l0, l_n);
 
     if l_n < 1e-15 {
-        return;
+        return None;
     }
 
     // Resolve the local-Y reference once from the initial geometry so both
@@ -2133,6 +2152,7 @@ fn assemble_frame_corotational_3d(
             }
         }
     }
+    Some([ex_n, ey_n, ez_n])
 }
 
 /// Elongation L − L0 of a chord `d0` displaced by `du` (end j minus end i),
