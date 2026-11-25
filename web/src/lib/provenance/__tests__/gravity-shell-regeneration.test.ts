@@ -61,3 +61,14 @@ it('requires saved panel mode, shell geometry, generated member gravity and an o
     expect(changes({ ...legacyPanel, analysisMode: 'pro', ...overrides })).not.toContain(change.id);
   }
 });
+
+it('#2512 explicit width gravity does not qualify for panel gravity regeneration', () => {
+  const snapshot: FeatureSnapshot = {
+    ...legacyPanel, analysisMode: 'pro',
+    regulations: { roles: { loads: { adapterId: 'cirsoc-101', settings: { dialog: { gravityMode: 'width' } } } } },
+    designData: { loadBasis: { derivation: [{ key: 'loadPlan.gravity.width' }] } },
+  };
+  const features = modelFeatures(snapshot);
+  expect(features.has('generatedWidthGravity')).toBe(true);
+  expect(features.has('generatedPanelGravity')).toBe(false);
+});
