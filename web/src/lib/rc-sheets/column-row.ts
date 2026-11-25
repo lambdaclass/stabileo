@@ -66,6 +66,8 @@ export interface ColumnDemand {
   cases: ColumnCase[];
   nodes?: { bottom: number; top: number };
   /** Depth of the deepest beam framing in at each end, m; 0 where none does. */
+  /** How far the section's centre stands off the column's axis, m, along b and along h: where its stack's fixed point moves it. */
+  shift?: [number, number];
   /** Depth of the floor's concrete at the bottom and top nodes, m, and how far its top stands above each (absent: half its depth). */
   joints?: { bottom: number; top: number; bottomRise?: number; topRise?: number };
   /** The combinations whose results lack a force of this storey: its demand is incomplete. */

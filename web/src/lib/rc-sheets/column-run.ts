@@ -43,7 +43,14 @@ export const above = <T extends { key: string }>(rows: readonly T[], row: T): T 
 
 export const below = <T extends { key: string }>(rows: readonly T[], row: T): T | undefined => stepOf(rows, row, -1);
 
-const offsetTo = (r: ColumnRow, up: ColumnRow) => Math.max(0, (r.b - up.b) / 2, (r.h - up.h) / 2);
+/** How far each face of the storey above stands in from this storey's, m, along +b, −b, +h, −h: equal halves for concentric storeys, one face flush and the other the whole step where a fixed point holds a face. */
+export function faceSteps(r: ColumnRow, up: ColumnRow): { pb: number; nb: number; ph: number; nh: number } {
+  const [rb, rh] = r.demand.shift ?? [0, 0], [ub, uh] = up.demand.shift ?? [0, 0];
+  const f = (v: number) => Math.round(v * 1e6) / 1e6 + 0;
+  return { pb: f(r.b / 2 + rb - (up.b / 2 + ub)), nb: f(r.b / 2 - rb - (up.b / 2 - ub)), ph: f(r.h / 2 + rh - (up.h / 2 + uh)), nh: f(r.h / 2 - rh - (up.h / 2 - uh)) };
+}
+
+const offsetTo = (r: ColumnRow, up: ColumnRow) => { const s = faceSteps(r, up); return Math.max(0, s.pb, s.nb, s.ph, s.nh); };
 
 export interface ColumnStorey {
   up?: ColumnRow;
@@ -105,10 +112,11 @@ export function storeyBars(r: ColumnRow, s: ColumnStorey): BarRun[] {
   if (!s.cranked || !s.up) return bars.map((bar) => ({ bar, e: 0, toward: inwardOf(bar, r) }));
   const up = s.up, ua = up.adopted;
   const upBars = columnLayout(up, ua, up.cover, up.aggregate).bars, upMax = Math.max(...layoutDias(ua));
-  const ex = Math.max(0, (r.b - up.b) / 2), ey = Math.max(0, (r.h - up.h) / 2), a = r.adopted;
+  const st = faceSteps(r, up), a = r.adopted;
   const xc = r.b / 2 - r.cover - a.tieDia / 1000 - a.corner / 2000, yc = r.h / 2 - r.cover - a.tieDia / 1000 - a.corner / 2000;
   return bars.map((bar, i) => {
     const n = inwardOf(bar, r), c = lapOffset(bar.dia, upBars.length === bars.length ? upBars[i]!.dia : upMax);
+    const ex = Math.max(0, bar.x >= 0 ? st.pb : st.nb), ey = Math.max(0, bar.y >= 0 ? st.ph : st.nh);
     const dx = -(bar.x / Math.max(xc, 1e-9)) * ex + c * n[0], dy = -(bar.y / Math.max(yc, 1e-9)) * ey + c * n[1], l = Math.hypot(dx, dy);
     return { bar, e: Math.round(l * 1000) / 1000, toward: l > 1e-12 ? [dx / l, dy / l] : n };
   });

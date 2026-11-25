@@ -15,7 +15,7 @@ import type { SlabJointForce } from './slab-punching';
 import type { Signed } from './types';
 import type { LevelGeometry, PlanBeam, PlanColumn } from './slab-plan';
 import type { CutForces } from './piers';
-import { computeLocalAxes3D } from '../engine/local-axes-3d';
+import { computeLocalAxes3D, memberRoll } from '../engine/local-axes-3d';
 import { memberReferenceLine } from '../engine/member-offsets';
 import { resolveShellOffsetGlobal } from '../engine/shell-offsets';
 
@@ -379,6 +379,17 @@ function slabsAlong(m: DemandInput, span: ReadonlyArray<{ e: El; forward: boolea
 }
 
 /** Nodes a horizontal shell takes: a flat slab cuts a column into storeys as a beam does. */
+/** How far a column storey's section centre stands off its axis at its bottom node, m, along its b and its h; none where it stands on it. */
+function columnShiftOf(m: DemandInput, e: El, node: number): [number, number] | undefined {
+  const a = m.nodes.get(e.nodeI), b = m.nodes.get(e.nodeJ), p = m.nodes.get(node);
+  if (!a || !b || !p || !e.offset) return undefined;
+  const line = memberReferenceLine(e as never, a, b, m.sections as never), q = e.nodeI === node ? line.i : line.j;
+  const dx = q.x - p.x, dy = q.y - p.y;
+  if (Math.hypot(dx, dy) < 1e-9) return undefined;
+  const r = (memberRoll(e as never, m.sections as never) * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r);
+  return [Math.round((dx * c + dy * s) * 1e9) / 1e9 + 0, Math.round((-dx * s + dy * c) * 1e9) / 1e9 + 0];
+}
+
 /**
  * The concrete of the floor a column meets at a node, m from the node: how deep it is and how far
  * its top stands above the node. The beams and level slabs framing in, each where its offset puts
@@ -503,7 +514,7 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
       } : undefined;
       out.push({
         key: `column:${g.id}:${k}`, name: g.name, level: m.levelAt ? m.levelAt(zOf(m.nodes.get(nBot))) : g.level,
-        b: sec.b, h: sec.h, length: L, lu, psiTop, psiBot, cases, nodes: { bottom: nBot, top: nTop }, joints: { bottom: jb.depth, top: jt.depth, bottomRise: jb.rise, topRise: jt.rise },
+        b: sec.b, h: sec.h, length: L, lu, psiTop, psiBot, cases, nodes: { bottom: nBot, top: nTop }, joints: { bottom: jb.depth, top: jt.depth, bottomRise: jb.rise, topRise: jt.rise }, ...((sh) => (sh ? { shift: sh } : {}))(columnShiftOf(m, bottom.e, nBot)),
         ...(axes && pBot ? { plan: { x: pBot.x, y: pBot.y, z: zOf(pBot), ey: [axes.ey[0], axes.ey[1]] as [number, number], ez: [axes.ez[0], axes.ez[1]] as [number, number] } } : {}),
         ...(sway ? { sway } : {}),
         ...(missing.length ? { missing } : {}),
@@ -697,8 +708,9 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
     }
     const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
     const bounds = { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys), z: pts.reduce((a, p) => a + zOf(p), 0) / pts.length };
+    const moved = g.quads.map((id) => (m.shells.quads?.get(id) as { offset?: import('../model/element-3d-metadata').ShellOffset } | undefined)?.offset).find((o) => o?.frame === 'global' && o.z);
     out.push({
-      key: `slab:${g.id}`, name: g.name, level: g.level,
+      key: `slab:${g.id}`, name: g.name, level: g.level, ...(moved ? { mid: moved.z } : {}),
       lx: bounds.x1 - bounds.x0, ly: bounds.y1 - bounds.y0, bounds, h, m: best, q, combos,
       ...(field.size ? { topField: [...field.values()] } : {}),
       ...(missing.length ? { missing } : {}),

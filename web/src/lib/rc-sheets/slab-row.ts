@@ -20,6 +20,8 @@ export interface SlabDemand {
   lx: number; ly: number; h: number;
   /** The panel's extent in plan and its elevation, m, where the level plan places it. */
   bounds?: { x0: number; x1: number; y0: number; y1: number; z: number };
+  /** How far its mid-plane stands off its nodes' plane, m (`bounds.z`); absent: on it. */
+  mid?: number;
   /** Wood–Armer design moments, kN·m/m, positive where the face needs steel. */
   m: Record<SlabFace, Signed>;
   /** Largest transverse shear per metre on faces normal to X and to Y, kN/m. */

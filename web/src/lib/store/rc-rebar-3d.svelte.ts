@@ -118,7 +118,7 @@ export function modelFrames(rows: SheetRows): Rebar3dFrames {
       return { o: [at.x, at.y, under + r.adopted.h - hMax / 2], x, y: [-x[1], x[0], 0], z: [0, 0, 1] };
     },
     slabSoffit(r) {
-      return r.demand.bounds ? r.demand.bounds.z - r.h / 2 : null;
+      return r.demand.bounds ? r.demand.bounds.z + (r.demand.mid ?? 0) - r.h / 2 : null;
     },
     punching(r) {
       const n = modelStore.nodes.get(r.demand.joint.nodeId);

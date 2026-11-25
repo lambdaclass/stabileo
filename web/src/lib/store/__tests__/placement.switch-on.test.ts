@@ -19,7 +19,7 @@ import { buildSheetRows } from '../rc-sheets.svelte';
 import { migrateDesignData } from '../../model/design-data';
 import { beamDrop, columnShift } from '../../model/placement';
 import { stackKey } from '../../rc-sheets/fixed-points';
-import { storeyRun, columnStorey } from '../../rc-sheets/column-run';
+import { storeyRun, columnStorey, faceSteps, storeyBars } from '../../rc-sheets/column-run';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => { uiStore.analysisMode = 'pro'; modelStore.clear(); historyStore.clear(); resultsStore.clear(); });
@@ -98,6 +98,9 @@ describe('the level reference', () => {
     expect(flush.demand.joints).toMatchObject({ top: expect.closeTo(0.5, 9), topRise: expect.closeTo(0, 9) });
     const rows = buildSheetRows().column;
     expect(storeyRun(flush, columnStorey(rows, flush), 'cirsoc201-2025').top).toBeCloseTo(3 - flush.cover, 6);
+    expect(buildSheetRows().slab[0]!.demand.mid, 'the slab\'s bars where its concrete hangs').toBeCloseTo(-0.075, 9);
+    expect(() => modelStore.buildSolverInput3D(true, false, { expandMemberOffsets: false })).not.toThrow();
+    expect(modelStore.buildSolverInput3D(true, false, { expandMemberOffsets: false })!.quads!.size).toBeGreaterThan(0);
   }, 120_000);
 });
 
@@ -122,4 +125,37 @@ describe('the column fixed points', () => {
     expect(migrateDesignData({ rcSheets: { adopted: {}, fixedPoints: { '1,2': 'px' } } }).placement).toEqual({ columns: { '1,2': 'px' } });
     expect(migrateDesignData({ placement: { reference: 'slabTop', columns: { '1,2': 'ny', '3,4': 'up' } } }).placement).toEqual({ reference: 'slabTop', columns: { '1,2': 'ny' } });
   });
+
+  it('step the storey above face by face: flush on the fixed face, its bars cranked by a bar only there and by the whole step on the other', async () => {
+    const conc = modelStore.addMaterial({ name: 'H-25', e: 23500, nu: 0.2, rho: 25, fy: 25, fc: 25 });
+    const big = modelStore.addSection({ name: '40×40', a: 0.16, iy: 0.4 ** 4 / 12, iz: 0.4 ** 4 / 12, j: 0.1406 * 0.4 ** 4, b: 0.4, h: 0.4, shape: 'rect' } as never);
+    const small = modelStore.addSection({ name: '30×30', a: 0.09, iy: 0.3 ** 4 / 12, iz: 0.3 ** 4 / 12, j: 0.1406 * 0.3 ** 4, b: 0.3, h: 0.3, shape: 'rect' } as never);
+    const bm = modelStore.addSection({ name: '20×50', a: 0.1, iy: 0.2 * 0.5 ** 3 / 12, iz: 0.5 * 0.2 ** 3 / 12, j: 0.002, b: 0.2, h: 0.5, shape: 'rect' } as never);
+    const cols: number[][] = [];
+    for (const x of [0, 5]) {
+      const n = [0, 3, 6].map((z) => modelStore.addNode(x, 0, z));
+      modelStore.addSupport(n[0]!, 'fixed3d');
+      cols.push(n);
+      [[0, big], [1, small]].forEach(([k, sec]) => { const e = modelStore.addElement(n[k]!, n[k + 1]!, 'frame'); modelStore.updateElementSection(e, sec); modelStore.updateElementMaterial(e, conc); });
+    }
+    for (const k of [1, 2]) { const e = modelStore.addElement(cols[0]![k]!, cols[1]![k]!, 'frame'); modelStore.updateElementSection(e, bm); modelStore.updateElementMaterial(e, conc); modelStore.addDistributedLoad3D(e, 0, 0, -40, -40, undefined, undefined, modelStore.model.loadCases[0]!.id); }
+    modelStore.addCombination('1.4D', [{ caseId: modelStore.model.loadCases[0]!.id, factor: 1.4 }]);
+    setColumnFixedPoint(null, 'nx');
+    recognizePhysicalElements();
+    resultsStore.setResults3D(modelStore.solve3D(false, false, true) as never);
+    publishCombinations3D(modelStore.solveCombinations3D(false, false, true) as never);
+    const rows = buildSheetRows().column, low = rows.find((r) => r.b === 0.4)!;
+    expect(low.demand.shift ?? [0, 0]).toEqual([0, 0]);
+    const up = rows.find((r) => r.b === 0.3 && Math.abs((modelStore.nodes.get(r.demand.nodes!.bottom)!.x) - modelStore.nodes.get(low.demand.nodes!.bottom)!.x) < 1e-9)!;
+    expect(up.demand.shift).toEqual([-0.05, 0]);
+    expect(faceSteps(low, up)).toEqual({ pb: 0.1, nb: 0, ph: 0.05, nh: 0.05 });
+    const st = columnStorey(rows, low);
+    expect(st.e).toBeCloseTo(0.1, 9);
+    expect(st.hooked).toBe(true);
+    const flush = storeyBars(low, { ...st, cranked: true, hooked: false, up });
+    const negFace = flush.filter((b) => b.bar.x < -0.1), posFace = flush.filter((b) => b.bar.x > 0.1);
+    expect(Math.max(...negFace.map((b) => Math.abs(b.e * b.toward[0])))).toBeLessThan(0.03);
+    expect(Math.min(...posFace.map((b) => Math.abs(b.e * b.toward[0])))).toBeGreaterThan(0.1);
+  }, 120_000);
 });
+
