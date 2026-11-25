@@ -52,13 +52,22 @@ export function separatedDeckRanges(a: DeckSurface, b: DeckSurface, limit: numbe
   return above(a.range[0], b.range[1], limit) > 0 || above(b.range[0], a.range[1], limit) > 0;
 }
 
+function hasHeight(deck: DeckSurface): boolean {
+  return deck.range[0] === deck.range[1] || deck.exactHeight !== undefined;
+}
+
+function coversBand(minOrder: number, maxOrder: number, determinate: boolean): boolean {
+  return determinate ? minOrder >= 0 && maxOrder <= 0 : minOrder > 0 && maxOrder < 0;
+}
+
 export function deckRangeBand(lower: DeckSurface, upper: DeckSurface, min: number, max: number): Band {
   const gap = (top: number, base: number, limit: number) => {
     const threshold = base + limit;
     return top === threshold ? compareClearance(exactElevation(top), exactElevation(base), limit) : Math.sign(top - threshold);
   };
   if (gap(upper.range[1], lower.range[0], min) <= 0 || gap(upper.range[0], lower.range[1], max) >= 0) return 'none';
-  return gap(upper.range[0], lower.range[1], min) >= 0 && gap(upper.range[1], lower.range[0], max) <= 0 ? 'full' : 'partial';
+  return coversBand(gap(upper.range[0], lower.range[1], min), gap(upper.range[1], lower.range[0], max),
+    hasHeight(lower) && hasHeight(upper)) ? 'full' : 'partial';
 }
 
 function clearanceOver(part: Polygon, lower: DeckSurface, upper: DeckSurface) {
@@ -81,15 +90,15 @@ function clearanceOver(part: Polygon, lower: DeckSurface, upper: DeckSurface) {
     const plan = doubledPlanPoint(point);
     return { base: elevationRange(lower, plan), top: elevationRange(upper, plan) };
   };
+  const determinate = hasHeight(lower) && hasHeight(upper);
   const band = (min: number, max: number): Band => {
     if (lower.range[0] === lower.range[1] && upper.range[0] === upper.range[1]) return deckRangeBand(lower, upper, min, max);
     const bounds = part.flat().map(elevationPair);
     const smallest = ({ base, top }: typeof bounds[number], limit: number) => compareClearance(top[0], base[1], limit);
     const largest = ({ base, top }: typeof bounds[number], limit: number) => compareClearance(top[1], base[0], limit);
     if (bounds.every(pair => largest(pair, min) <= 0) || bounds.every(pair => smallest(pair, max) >= 0)) return 'none';
-    return bounds.every(pair => smallest(pair, min) >= 0 && largest(pair, max) <= 0) ? 'full' : 'partial';
+    return bounds.every(pair => coversBand(smallest(pair, min), largest(pair, max), determinate)) ? 'full' : 'partial';
   };
-  const hasHeight = (deck: DeckSurface) => deck.range[0] === deck.range[1] || !!deck.exactHeight;
   return {
     part, band,
     separated: (limit: number) => {
@@ -97,7 +106,7 @@ function clearanceOver(part: Polygon, lower: DeckSurface, upper: DeckSurface) {
       return samples.every(p => above(p.topLow, p.baseHigh, limit) > 0)
         || samples.every(p => above(p.baseLow, p.topHigh, limit) > 0);
     },
-    margin: hasHeight(lower) && hasHeight(upper)
+    margin: determinate
       ? (point: Point, limit: number) => {
         const { base, top } = elevationPair(point);
         return clearanceMargin(top[0], base[0], limit);

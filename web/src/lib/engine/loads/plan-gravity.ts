@@ -445,21 +445,23 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       const u: PlanPoint = [(b[0] - a[0]) / L, (b[1] - a[1]) / L];
       const strip = memberStrip([a, b], opts.tributaryWidth);
       const why = deck.why([start, end], strip, retainedBays);
+      const framing = why === 'lowHeadroom' ? [...retainedBays, ...retainedStrips]
+        : retainedBays.filter(bay => headroomOverlaps(strip, [bay]).length > 0);
       const panels = panelsAt.get(z) ?? [];
       const beside = panels.flatMap(panel => panel.footprint.filter(([exterior]) => onBoundary(model, e, exterior!))
         .map(footprint => deck.why(footprint[0]!, { ...panel, footprint: [footprint] })));
       const floorBeside = beside.some((w) => w === null || w === 'headroomUnclear');
-      const low = why === 'lowHeadroom' || why === 'shellHeadroom';
+      const low = framing.length > 0 || why === 'lowHeadroom' || why === 'shellHeadroom';
       if (low && !floorBeside &&
         panels.some(panel => panel.footprint.some(([, ...holes]) => holes.some(hole => onBoundary(model, e, hole))))) {
         refuseGravityGeometry(msg('loadPlan.gravity.unresolvedMember', { id: e.id }));
       }
-      if (why === 'headroomUnclear' || (low && floorBeside)) {
+      if ((!low && why === 'headroomUnclear') || (low && floorBeside)) {
         if (preliminaryCover.memberCovered([a, b])) unclear++; else unclearRoof++;
       }
       if (low && !floorBeside) {
         const axis = { p: start, u, L };
-        const kept = deck.uncarried(strip, why === 'lowHeadroom' ? [...retainedBays, ...retainedStrips] : []);
+        const kept = deck.uncarried(strip, framing);
         if (kept === strip.footprint) { retainedStrips.push(strip); continue; }
         const bins = kept.length ? areaAlong(kept, axis, FRINGE_BINS) : [];
         const spans: WidthSpan[] = [];

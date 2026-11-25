@@ -88,9 +88,7 @@ function bayUnderShell(upper: number, corner = 0.0004) {
   return model;
 }
 
-const review2564 = process.env.RUN_KNOWN_WRONG === '2564' ? it : it.skip;
-
-review2564('known wrong result: #2564 clips low headroom beyond the last strip probe', () => {
+it('#2564 clips low headroom beyond the last strip probe', () => {
   const model = stripUnderBay(5.2003);
   const keptLength = 5.25;
   const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1, uniformPressure: true });
@@ -104,7 +102,7 @@ review2564('known wrong result: #2564 clips low headroom beyond the last strip p
   expect(deadResultant(result, model, 1)).toBeCloseTo(Math.hypot(6, 3.0004 - 2.9996) * keptLength / 6, 10);
 });
 
-review2564('known wrong result: #2564 refuses indeterminate clearance at the strict headroom limit', () => {
+it('#2564 refuses indeterminate clearance at the strict headroom limit', () => {
   const model = bayUnderShell(MIN_STOREY_HEADROOM);
   const refusal = { key: 'loadPlan.gravity.uncertainDeckCover' };
   const result = plan(model, 'panels', false);
