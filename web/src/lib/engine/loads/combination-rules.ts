@@ -38,6 +38,16 @@ export function isCombinationGroup(group: unknown): group is string {
   return typeof group === 'string' && group.trim().length > 0;
 }
 
+export function usesLegacyFlatRoofSnow(notes: unknown): boolean {
+  return Array.isArray(notes) && notes.some(note => note?.key === 'loads.cirsoc101.note.snowAsFlatRoof');
+}
+
+export function resolveCombinationAction(term: Pick<CombinationTerm, 'symbol' | 'group' | 'snowBasis'>, legacyFlatRoof: boolean) {
+  const { symbol, group } = term;
+  const snowBasis = term.snowBasis ?? (symbol === 'S' && legacyFlatRoof ? 'flatRoof' : undefined);
+  return { key: JSON.stringify([symbol, group, snowBasis]), snowBasis };
+}
+
 export function ruleTermSymbol(symbol: LoadSymbol, snowBasis: CombinationTerm['snowBasis']): string {
   return snowBasis === 'flatRoof' ? `${symbol} (pf)` : symbol;
 }

@@ -15,6 +15,7 @@ import { tp } from '../i18n';
 import { ModelInputError, requireLoadCollection, requireLoadInput } from '../engine/model-input-numbers';
 import { LOAD_TARGET, type Load } from '../store/model.svelte';
 import { remapSupportElement } from '../model/support-types';
+import { selfWeightScope } from '../engine/self-weight';
 
 export interface JSONModel {
   name: string;
@@ -125,7 +126,7 @@ export function loadFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLo
 export function prepareFixture(json: JSONModel, opts: FixtureLoadOptions = {}): (api: FixtureLoader) => void {
   requireLoadCollection(json.loads);
   const canonical = canonicalizeModelAliases(json);
-  validateFixtureInput(canonical);
+  validateFixtureReferences(canonical);
   return (api) => {
     const load = () => replayFixture(canonical, api, opts);
     if (api.replay) api.replay(load);
@@ -141,7 +142,7 @@ function fixtureSupportElement(support: JSONModel['supports'][number], elementId
   return reference;
 }
 
-function validateFixtureInput(json: JSONModel): void {
+export function validateFixtureReferences(json: JSONModel): void {
   requireLoadInput(json.loads);
   const targets = {
     node: { field: 'nodeId', ids: new Set(json.nodes.map(node => node.id)) },
@@ -157,6 +158,7 @@ function validateFixtureInput(json: JSONModel): void {
     }
   }
   for (const support of json.supports) fixtureSupportElement(support, id => targets.member.ids.has(id) ? id : undefined);
+  for (const rule of json.analysis?.selfWeight ?? []) selfWeightScope({ elements: targets.member.ids }, rule);
 }
 
 function replayFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOptions): void {

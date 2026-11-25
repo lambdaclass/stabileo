@@ -34,6 +34,7 @@ mod checks3;
 mod corpus;
 mod modal_checks;
 mod modal_mass_range;
+mod modal_null;
 mod parity;
 mod nightly_tolerances;
 mod dynamic_accuracy;
@@ -273,3 +274,5 @@ fn issue_2125_ground_motion_preserves_half_turn_symmetry() {
     let failures = tally.failures();
     assert!(failures.is_empty(), "{failures:?}");
 }
+
+mod support_invariance;

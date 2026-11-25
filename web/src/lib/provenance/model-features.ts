@@ -1,6 +1,7 @@
 import { hasMalformedAuthoredLoad, invalidPlanarPointTorsion, isFiniteInputNumber } from '../engine/model-input-numbers';
 import { POINT_END_TOL } from '../engine/member-point-loads';
 import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
+import { resolveCombinationAction, usesLegacyFlatRoofSnow } from '../engine/loads/combination-rules';
 import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
 import { isCompositeCase, symbolOfCase, symbolOfType, symbolsByAlternativeSet } from '../engine/loads/combination-cases';
 /**
@@ -59,11 +60,11 @@ export const FEATURE_IDS = [
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
-  'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'malformedAuthoredLoad', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
+  'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'malformedAuthoredLoad', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'invalidSelfWeightTarget', 'scopedMemberSelfWeight', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase', 'loadPlanCombinationSupplements', 'flatRoofSnowCombinations',
   'occupiedGeneratedLoadCases', 'repeatedUngroupedRuleTerms', 'emptyManualLoadAlternatives', 'retiredAutoLoadsCases',
-  'superposedCombinations', 'repeatedCombinationCases', 'zeroOrOpposingCombinationFactors', 'explicitNotionalCombinationCases',
+  'repeatedCombinationRuleActions', 'superposedCombinations', 'repeatedCombinationCases', 'zeroOrOpposingCombinationFactors', 'explicitNotionalCombinationCases',
   'prototypeNamedLoadCase', 'staticCaseEffects', 'projectedSpatialLoads', 'offsetMemberLoadFrame', 'inactiveSpatialMembers',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
@@ -306,14 +307,20 @@ function addSelfWeightFeatures(
   });
   const plates = invalidShells(snapshot.plates);
   const quads = invalidShells(snapshot.quads);
-  const groups = new Map(Array.isArray(snapshot.groups) ? snapshot.groups.filter(entry => entry?.[1]) : []);
+  const targetEntries = <E>(entries: Entries<E>) => new Map(Array.isArray(entries) ? entries.filter(entry => entry?.[1]) : []);
+  const targets = {
+    elements: targetEntries(snapshot.elements),
+    plates: targetEntries(snapshot.plates),
+    quads: targetEntries(snapshot.quads),
+    groups: targetEntries(snapshot.groups),
+  };
   for (const weight of weights) {
-    if (!space && weight.factor === 0) continue;
-    const scope = resolveSelfWeightScope({ groups }, weight);
-    if ('invalidGroup' in scope) {
-      features.add('invalidSelfWeightGroup');
+    const scope = resolveSelfWeightScope(targets, weight);
+    if (!('members' in scope)) {
+      features.add('invalidGroup' in scope ? 'invalidSelfWeightGroup' : 'invalidSelfWeightTarget');
       continue;
     }
+    if (scope.members?.size && weight.factor !== 0) features.add('scopedMemberSelfWeight');
     for (const [id, feature] of plates) {
       if (scope.plates?.has(id) ?? true) features.add(feature);
     }
@@ -658,6 +665,22 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       return false;
     });
     if (repeatedTerms) f.add('repeatedUngroupedRuleTerms');
+    const repeatedActions = Array.isArray(s.combinationRules) && s.combinationRules.some(rule => {
+      const { terms, notes } = (rule as { terms?: unknown; notes?: unknown } | null) ?? {};
+      if (!Array.isArray(terms)) return false;
+      const legacyFlatRoof = usesLegacyFlatRoofSnow(notes);
+      const seen = new Set<string>();
+      for (const term of terms) {
+        if (typeof term?.symbol !== 'string' || !nonZero(term.factor)) continue;
+        if (term.group !== undefined && typeof term.group !== 'string') continue;
+        if (term.snowBasis !== undefined && term.snowBasis !== 'flatRoof') continue;
+        const { key } = resolveCombinationAction(term, legacyFlatRoof);
+        if (seen.has(key)) return true;
+        seen.add(key);
+      }
+      return false;
+    });
+    if (repeatedActions) f.add('repeatedCombinationRuleActions');
     const groupedRule = Array.isArray(s.combinationRules) && s.combinationRules.some(rule => {
       const terms = (rule as { terms?: unknown } | null)?.terms;
       return Array.isArray(terms) && terms.some(term => term?.group !== undefined);
