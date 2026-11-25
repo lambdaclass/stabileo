@@ -1,0 +1,193 @@
+use dedaliano_engine::solver::modal::{solve_modal_3d, uncondensed_solves, with_condensed_mass_range, ModalResult3D};
+use dedaliano_engine::types::*;
+use std::collections::HashMap;
+
+fn empty() -> SolverInput3D {
+    let mut input = SolverInput3D {
+        solver_options: None, masses: Default::default(), nodes: HashMap::new(), materials: HashMap::new(), sections: HashMap::new(),
+        elements: HashMap::new(), supports: HashMap::new(), loads: vec![], constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(),
+        curved_shells: HashMap::new(), curved_beams: vec![], connectors: HashMap::new(),
+    };
+    input.materials.insert("1".into(), SolverMaterial { id: 1, e: 30_000.0, nu: 0.2 });
+    input
+}
+
+fn held(node_id: usize, f: [bool; 6]) -> SolverSupport3D {
+    SolverSupport3D {
+        node_id, rx: f[0], ry: f[1], rz: f[2], rrx: f[3], rry: f[4], rrz: f[5],
+        kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
+        dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
+        normal_x: None, normal_y: None, normal_z: None, is_inclined: None, rw: None, kw: None,
+    }
+}
+
+const PINNED: [bool; 6] = [true, true, true, false, false, false];
+const FIXED: [bool; 6] = [true; 6];
+
+/// An n × n mesh of MITC4 quads on the surface `at` gives for (i, j), with no supports. The
+/// rotation of each node about the shell's normal has no mass.
+fn shell(n: usize, at: &dyn Fn(f64, f64) -> [f64; 3]) -> SolverInput3D {
+    let mut input = empty();
+    let node = |i: usize, j: usize| i * (n + 1) + j + 1;
+    for i in 0..=n {
+        for j in 0..=n {
+            let [x, y, z] = at(i as f64, j as f64);
+            input.nodes.insert(node(i, j).to_string(), SolverNode3D { id: node(i, j), x, y, z });
+        }
+    }
+    let mut id = 1;
+    for i in 0..n {
+        for j in 0..n {
+            input.quads.insert(id.to_string(), SolverQuadElement { id, nodes: [node(i, j), node(i + 1, j), node(i + 1, j + 1), node(i, j + 1)], material_id: 1, thickness: 0.2 });
+            id += 1;
+        }
+    }
+    input
+}
+
+fn hold(input: &mut SolverInput3D, n: usize, which: &dyn Fn(usize, usize) -> Option<[bool; 6]>) {
+    for i in 0..=n {
+        for j in 0..=n {
+            let id = i * (n + 1) + j + 1;
+            if let Some(f) = which(i, j) {
+                input.supports.insert(id.to_string(), held(id, f));
+            }
+        }
+    }
+}
+
+fn densities() -> HashMap<String, f64> {
+    HashMap::from([("1".to_string(), 2500.0)])
+}
+
+/// Both ways of solving `model`, and that they agree: the frequencies to 1e-9, the mass and its
+/// cumulative ratios, and with `shapes` each mode's shape up to sign.
+fn agree(name: &str, model: &SolverInput3D, modes: usize, shapes: bool) -> ModalResult3D {
+    let before = uncondensed_solves();
+    let condensed = with_condensed_mass_range(|| solve_modal_3d(model, &densities(), modes)).unwrap_or_else(|e| panic!("{name}, condensed: {e}"));
+    assert_eq!(uncondensed_solves(), before, "{name}: the comparison condenses");
+    let found = solve_modal_3d(model, &densities(), modes).unwrap_or_else(|e| panic!("{name}: {e}"));
+    assert!(uncondensed_solves() > before, "{name}: the model has massless coordinates and is solved without condensing them");
+    assert_eq!(found.modes.len(), modes, "{name}");
+    assert_eq!((found.modes.len(), found.n_dof), (condensed.modes.len(), condensed.n_dof), "{name}");
+    assert!((found.total_mass - condensed.total_mass).abs() <= 1e-12 * condensed.total_mass, "{name}");
+    for (ratio, expected) in [
+        (found.cumulative_mass_ratio_x, condensed.cumulative_mass_ratio_x),
+        (found.cumulative_mass_ratio_y, condensed.cumulative_mass_ratio_y),
+        (found.cumulative_mass_ratio_z, condensed.cumulative_mass_ratio_z),
+    ] {
+        assert!((ratio - expected).abs() <= 1e-8, "{name}: mass ratio {ratio} against {expected}");
+    }
+    for (k, (a, b)) in found.modes.iter().zip(&condensed.modes).enumerate() {
+        assert!((a.frequency - b.frequency).abs() <= 1e-9 * b.frequency, "{name}, mode {k}: {} against {}", a.frequency, b.frequency);
+        if !shapes {
+            continue;
+        }
+        let all = |d: &Displacement3D| [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz];
+        let scale = b.displacements.iter().flat_map(all).fold(0.0f64, |m, v| m.max(v.abs()));
+        let sign = a.displacements.iter().zip(&b.displacements).map(|(x, y)| all(x).iter().zip(all(y)).map(|(p, q)| p * q).sum::<f64>()).sum::<f64>().signum();
+        for (x, y) in a.displacements.iter().zip(&b.displacements) {
+            assert_eq!(x.node_id, y.node_id);
+            for (p, q) in all(x).into_iter().zip(all(y)) {
+                assert!((sign * p - q).abs() <= 1e-6 * scale, "{name}, mode {k}, node {}: {p} against {q} (scale {scale})", x.node_id);
+            }
+        }
+    }
+    found
+}
+
+#[test]
+fn a_slab_with_no_repeated_frequency_has_the_same_modes_and_shapes() {
+    for n in [8, 16, 24] {
+        let mut model = shell(n, &|i, j| [i, 0.7 * j, 3.0]);
+        hold(&mut model, n, &|i, j| (i % 4 == 0 && j % 4 == 0).then_some(PINNED));
+        agree(&format!("slab {n}"), &model, 6, true);
+    }
+}
+
+#[test]
+fn a_square_slab_has_its_repeated_frequencies() {
+    let n = 16;
+    let mut model = shell(n, &|i, j| [i, j, 3.0]);
+    hold(&mut model, n, &|i, j| (i % 4 == 0 && j % 4 == 0).then_some(PINNED));
+    let found = agree("square slab", &model, 8, false);
+    let twins = found.modes.windows(2).filter(|w| (w[1].frequency - w[0].frequency).abs() <= 1e-9 * w[0].frequency).count();
+    assert!(twins >= 2, "{twins} pairs of equal frequencies in {:?}", found.modes.iter().map(|m| m.frequency).collect::<Vec<_>>());
+}
+
+#[test]
+fn a_curved_roof_whose_massless_rotations_are_along_no_axis_has_the_same_modes() {
+    let n = 16;
+    let radius = 25.0;
+    let mut model = shell(n, &|i, j| {
+        let angle = (i / n as f64 - 0.5) * 80f64.to_radians();
+        [radius * angle.sin(), 3.1 * j, radius * angle.cos()]
+    });
+    hold(&mut model, n, &|_, j| (j == 0 || j == n).then_some(PINNED));
+    agree("curved roof", &model, 6, true);
+}
+
+#[test]
+fn a_slab_on_columns_has_the_same_modes() {
+    let n = 12;
+    let mut model = shell(n, &|i, j| [i, 0.7 * j, 3.0]);
+    model.sections.insert("1".into(), SolverSection3D {
+        id: 1, name: None, a: 0.09, iy: 6.75e-4, iz: 6.75e-4, j: 1.1e-3, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None,
+    });
+    let mut next = (n + 1) * (n + 1) + 1;
+    let mut element = n * n + 1;
+    for i in (0..=n).step_by(4) {
+        for j in (0..=n).step_by(4) {
+            let top = i * (n + 1) + j + 1;
+            model.nodes.insert(next.to_string(), SolverNode3D { id: next, x: i as f64, y: 0.7 * j as f64, z: 0.0 });
+            model.supports.insert(next.to_string(), held(next, FIXED));
+            model.elements.insert(element.to_string(), SolverElement3D {
+                id: element, elem_type: "frame".into(), node_i: next, node_j: top, material_id: 1, section_id: 1,
+                release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false,
+                release_t_start: false, release_t_end: false, local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
+            });
+            next += 1;
+            element += 1;
+        }
+    }
+    agree("slab on columns", &model, 6, true);
+}
+
+#[test]
+fn a_slab_with_an_inclined_support_and_a_tie_has_the_same_modes() {
+    let n = 12;
+    let mut model = shell(n, &|i, j| [i, 0.7 * j, 3.0]);
+    hold(&mut model, n, &|i, j| (i % 4 == 0 && j % 4 == 0).then_some(PINNED));
+    let corner = (n + 1) * (n + 1);
+    let mut inclined = held(corner, [true, false, false, false, false, false]);
+    inclined.is_inclined = Some(true);
+    (inclined.normal_x, inclined.normal_y, inclined.normal_z) = (Some(0.6), Some(0.0), Some(0.8));
+    model.supports.insert(corner.to_string(), inclined);
+    let (a, b) = (2 * (n + 1) + 3, 6 * (n + 1) + 7);
+    model.constraints.push(Constraint::EqualDOF(EqualDOFConstraint { master_node: a, slave_node: b, dofs: vec![2] }));
+    agree("inclined support and tie", &model, 6, true);
+}
+
+#[test]
+fn asking_for_half_the_finite_modes_or_more_takes_the_condensed_way() {
+    let n = 6;
+    let mut model = shell(n, &|i, j| [i, 0.7 * j, 3.0]);
+    hold(&mut model, n, &|i, j| (i % 3 == 0 && j % 3 == 0).then_some(PINNED));
+    let rank = 5 * (n + 1) * (n + 1) - 3 * 9;
+    assert!(rank > 200);
+    for modes in [rank / 2 - 1, rank / 2 + 1] {
+        let condensed = with_condensed_mass_range(|| solve_modal_3d(&model, &densities(), modes)).unwrap();
+        let before = uncondensed_solves();
+        let found = solve_modal_3d(&model, &densities(), modes).unwrap();
+        assert_eq!(uncondensed_solves() > before, 2 * modes < rank, "{modes} of {rank} modes");
+        assert_eq!(found.modes.len(), modes);
+        let same_bits = found.modes.iter().zip(&condensed.modes).all(|(a, b)| a.frequency.to_bits() == b.frequency.to_bits());
+        if 2 * modes >= rank {
+            assert!(same_bits, "{modes} of {rank} modes are found on the condensed pencil");
+        }
+        for (a, b) in found.modes.iter().zip(&condensed.modes) {
+            assert!((a.frequency - b.frequency).abs() <= 1e-8 * b.frequency, "{modes} modes: {} against {}", a.frequency, b.frequency);
+        }
+    }
+}

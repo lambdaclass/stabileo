@@ -400,7 +400,7 @@ impl MassRange {
             let factor = numeric_cholesky(&symbolic, stiffness);
             observe(factor.as_ref());
         }
-        if IMPLICIT.with(|on| on.get()) {
+        if self.rank > CONDENSED_RANK && 2 * count < self.rank && !CONDENSED.with(|on| on.get()) {
             return self.solve_sparse_implicit(stiffness, count);
         }
         let condensed = self.condensed(stiffness)?;
@@ -418,16 +418,27 @@ impl MassRange {
     }
 }
 
+/// The mass rank up to which the massless coordinates are condensed whatever is asked for: the
+/// condensed pencil is then small enough for the dense eigen solve, which also gives every
+/// mode of it. Over it they are condensed only when half the finite modes or more are asked
+/// for, which the Krylov space of the uncondensed pencil does not give.
+const CONDENSED_RANK: usize = 200;
+
 thread_local! {
-    static IMPLICIT: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    static CONDENSED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    static UNCONDENSED_SOLVES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
-/// Proof of concept: run `f` with the sparse modal solve on the uncondensed pencil
-/// (`solve_sparse_implicit`) where it would condense the massless coordinates.
-pub(super) fn with_implicit_mass_range<T>(f: impl FnOnce() -> T) -> T {
-    let before = IMPLICIT.with(|on| on.replace(true));
+pub(super) fn uncondensed_solves() -> usize {
+    UNCONDENSED_SOLVES.with(|count| count.get())
+}
+
+/// Run `f` with the sparse modal solve condensing the massless coordinates, as it did before
+/// `solve_sparse_implicit`: what that is compared with.
+pub(super) fn with_condensed_mass_range<T>(f: impl FnOnce() -> T) -> T {
+    let before = CONDENSED.with(|on| on.replace(true));
     let out = f();
-    IMPLICIT.with(|on| on.set(before));
+    CONDENSED.with(|on| on.set(before));
     out
 }
 
@@ -436,6 +447,7 @@ impl MassRange {
     /// massless coordinates stay in the stiffness and have no mass, so the finite eigenvalues
     /// of (K, M) are those of the condensed pencil and each vector already carries them.
     fn solve_sparse_implicit(&self, stiffness: &CscMatrix, count: usize) -> Option<EigenResult> {
+        UNCONDENSED_SOLVES.with(|solves| solves.set(solves.get() + 1));
         let n = self.transform.n_rows;
         let stiffness = self.transform.reduce_sparse(stiffness);
         let mass = self.mass_on_range();
