@@ -63,7 +63,7 @@ import { constraintsAcrossDepth, constraintsCoupledAcrossPlane, constraintsInXZ 
 import { addsLoop, singleSolveModel } from '../engine/case-effects';
 import { t } from '../i18n';
 import { GRAVITY_SELF_WEIGHT, planSelfWeight, type SelfWeightLoad } from '../engine/analysis-settings';
-import { type ModelData, validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, linearSolveInput3D, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
+import { type ModelData, shellsRequirePro3D, validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, linearSolveInput3D, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
 import { checkStretch, checkPosition, editKeepsPlace, loadedLength } from '../model/loads/load-stretch';
 import { to2D, remapNodalLoad2D, remapMoment2D, type DrawPlane } from '../geometry/plane-projection';
@@ -1319,11 +1319,13 @@ function createModelStore() {
    * The returned object is a shallow copy safe for passing to solver functions.
    */
   function remapModelForPlane(plane: DrawPlane, includeSelfWeight = false): ModelData | string {
+    const shellRefusal = shellsRequirePro3D(model);
+    if (shellRefusal) return shellRefusal;
     // Only Basic's self-weight rule rides along: which case carries it.
     const sw = basicSelfWeight(includeSelfWeight);
     const analysis = sw ? { selfWeight: sw } : undefined;
     const { nodes, elements, supports, loads, loadCases, materials, sections, connectors } = model;
-    const source = { nodes, elements, supports, loads, loadCases, materials, sections, connectors, analysis, plates: model.plates, quads: model.quads };
+    const source = { nodes, elements, supports, loads, loadCases, materials, sections, connectors, analysis };
     const constraints = plane === 'xy' ? model.constraints : constraintsInXZ(plane, model.constraints);
     if (constraintsCoupledAcrossPlane(constraints).length > 0) return t('svc.constraintsCoupled');
     if (plane !== 'xy' && constraintsAcrossDepth(plane, model.constraints, (id) => model.nodes.get(id)).length > 0) return t('svc.constraintsCoupled');
@@ -1722,6 +1724,19 @@ function createModelStore() {
     const supportDry = opts?.dry ?? opts?.drz;
     if (supportDry !== undefined && supportDry !== 0) sup.dry = supportDry;
     return { ...sup, ...supportConfiguration(opts ?? {}, uiStore.is3DWorkspace ? sup.type : undefined) };
+  }
+
+  function analysisModel3D(isPro: boolean, includeSelfWeight: boolean): ModelData | string {
+    const refusal = !isPro && shellsRequirePro3D(model);
+    if (refusal) return refusal;
+    return {
+      nodes: model.nodes, elements: model.elements, supports: model.supports,
+      loads: model.loads, loadCases: model.loadCases, materials: model.materials, sections: model.sections,
+      analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
+      plates: model.plates, quads: model.quads,
+      constraints: isPro ? model.constraints : undefined,
+      connectors: isPro ? model.connectors : undefined,
+    };
   }
 
   /**
@@ -4621,20 +4636,15 @@ function createModelStore() {
       );
     },
 
-    /** Solve the current model using the 3D solver. Returns results or error string.
-     *  Shell elements (plates/quads) are only included when isPro=true to keep Basic 3D clean. */
     solve3D(includeSelfWeight = false, leftHand = false, isPro = false): AnalysisResults3D | string | null {
       // Sliding joints are a Basic 2D feature; the 3D solve path does not expand
       // them, so it would silently treat slider ends as rigid. Block instead.
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
+      const analysisModel = analysisModel3D(isPro, includeSelfWeight);
+      if (typeof analysisModel === 'string') return analysisModel;
       // Every load once, as the cases say they are solved (`case-effects.ts` `singleSolveModel`).
       return validateAndSolve3D(
-        singleSolveModel({ nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, loadCases: model.loadCases, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
-          plates: isPro ? model.plates : undefined,
-          quads: isPro ? model.quads : undefined,
-          constraints: isPro ? model.constraints : undefined,
-          connectors: isPro ? model.connectors : undefined }, model.loadCases),
+        singleSolveModel(analysisModel, model.loadCases),
         includeSelfWeight, leftHand,
       );
     },
@@ -4644,27 +4654,21 @@ function createModelStore() {
     /** The engine input of a direct single solve of the model, without solving (`linearSolveInput3D`). */
     singleSolveInput3D(includeSelfWeight = false, leftHand = false, isPro = false) {
       if (this.hasSlidingJoints()) return null;
+      const analysisModel = analysisModel3D(isPro, includeSelfWeight);
+      if (typeof analysisModel === 'string') return null;
       return linearSolveInput3D(
-        singleSolveModel({ nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, loadCases: model.loadCases, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
-          plates: isPro ? model.plates : undefined,
-          quads: isPro ? model.quads : undefined,
-          constraints: isPro ? model.constraints : undefined,
-          connectors: isPro ? model.connectors : undefined }, model.loadCases),
+        singleSolveModel(analysisModel, model.loadCases),
         includeSelfWeight, leftHand,
       );
     },
 
     async solve3DAsync(includeSelfWeight = false, leftHand = false, isPro = false, options: NonlinearSolveOptions = {}): Promise<AnalysisResults3D | string | null> {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
+      const analysisModel = analysisModel3D(isPro, includeSelfWeight);
+      if (typeof analysisModel === 'string') return analysisModel;
       try {
         return await validateAndSolve3DAsync(
-          singleSolveModel({ nodes: model.nodes, elements: model.elements, supports: model.supports,
-            loads: model.loads, loadCases: model.loadCases, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
-            plates: isPro ? model.plates : undefined,
-            quads: isPro ? model.quads : undefined,
-            constraints: isPro ? model.constraints : undefined,
-            connectors: isPro ? model.connectors : undefined }, model.loadCases),
+          singleSolveModel(analysisModel, model.loadCases),
           includeSelfWeight, leftHand, options,
         );
       } catch (err) {
@@ -4673,21 +4677,16 @@ function createModelStore() {
       }
     },
 
-    /** Solve load combinations for 3D analysis (mirrors 2D solveCombinations).
-     *  Shell elements are only included when isPro=true. */
     solveCombinations3D(includeSelfWeight = false, leftHand = false, isPro = false, spectral?: Map<number, AnalysisResults3D>): { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D; unstable?: number[] } | string | null {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
+      const analysisModel = analysisModel3D(isPro, includeSelfWeight);
+      if (typeof analysisModel === 'string') return analysisModel;
       // Shell recombination is the engine's kernel: its absence or refusal is the solve's
       // error message, as every other solve failure is, never an exception past the button.
       let r;
       try {
         r = solveCombinations3DFn(
-          { nodes: model.nodes, elements: model.elements, supports: model.supports,
-            loads: model.loads, loadCases: model.loadCases, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
-            plates: isPro ? model.plates : undefined,
-            quads: isPro ? model.quads : undefined,
-            constraints: isPro ? model.constraints : undefined,
-            connectors: isPro ? model.connectors : undefined },
+          analysisModel,
           model.loadCases, model.combinations, includeSelfWeight, leftHand, spectral,
         );
       } catch (err) {
@@ -4702,17 +4701,14 @@ function createModelStore() {
     /** Async parallel version of solveCombinations3D — uses Web Workers for parallel solving. */
     async solveCombinations3DParallel(includeSelfWeight = false, leftHand = false, isPro = false, spectral?: Map<number, AnalysisResults3D>, options: NonlinearSolveOptions = {}): Promise<{ perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D; unstable?: number[] } | string | null> {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
+      const analysisModel = analysisModel3D(isPro, includeSelfWeight);
+      if (typeof analysisModel === 'string') return analysisModel;
       // Shell recombination is the engine's kernel: its absence or refusal is the solve's
       // error message, as every other solve failure is, never an exception past the button.
       let r;
       try {
         r = await solveCombinations3DParallelFn(
-          { nodes: model.nodes, elements: model.elements, supports: model.supports,
-            loads: model.loads, loadCases: model.loadCases, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
-            plates: isPro ? model.plates : undefined,
-            quads: isPro ? model.quads : undefined,
-            constraints: isPro ? model.constraints : undefined,
-            connectors: isPro ? model.connectors : undefined },
+          analysisModel,
           model.loadCases, model.combinations, includeSelfWeight, leftHand, spectral, options,
         );
       } catch (err) {

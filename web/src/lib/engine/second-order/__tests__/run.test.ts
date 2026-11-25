@@ -6,6 +6,8 @@ import { runBuckling2D, bucklingConvergence, memberBucklingData } from '../run-b
 import { refineInput } from '../refine';
 import { DEFAULT_SETTINGS, firstModeB2, type SoSettings } from '../settings';
 import { generate } from '../../__tests__/helpers/random-models-2d';
+import { expectPDeltaEquilibriumRefusal } from '../../__tests__/helpers/pdelta-refusal';
+import { PDELTA_TOL } from '../pdelta';
 import { column, clampedColumn, portal, EI } from './fixtures';
 
 beforeAll(async () => { await new Promise((r) => setTimeout(r, 0)); expect(wasm.isSolverReady()).toBe(true); });
@@ -31,8 +33,18 @@ describe('B₂ = 1/(1 − 1/λ₁)', () => {
       generate(fam, seed);
       const input = modelStore.buildSolverInput(false)!;
       if (fam === 'mixed') {
-        expect(() => runPDelta2D(input, S())).toThrow(/"code":"non_finite_result"/);
-        expect(() => wasm.solvePDelta(refineInput(input, S().n).input)).toThrow(/"phase":"results.reactions\[0\].rx"/);
+        for (const [solve, tolerance] of [
+          [() => runPDelta2D(input, S()), PDELTA_TOL],
+          [() => wasm.solvePDelta(refineInput(input, S().n).input), 1e-4],
+        ] as const) {
+          try {
+            solve();
+          } catch (error) {
+            expectPDeltaEquilibriumRefusal(error instanceof Error ? error.message : String(error), tolerance);
+            continue;
+          }
+          throw new Error('mixed#50 must refuse the P-Delta result');
+        }
         const bk = runBuckling2D(input, S());
         expect(bk.ok).toBe(true);
         return;

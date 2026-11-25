@@ -1,11 +1,16 @@
 import { ensurePublicLocale, setPublicLocale, type PublicLocale } from '../../lib/i18n/store.svelte';
 import { parsePublicPath } from '../../lib/i18n/public-routes';
+import { saveData } from '../../lib/public-navigation';
 
 export const REPO_URL = 'https://github.com/lambdaclass/stabileo';
 export const DOCS_HUB_URL = `${REPO_URL}/blob/main/docs/README.md`;
 export const QUICK_START_URL = `${REPO_URL}/blob/main/docs/QUICKSTART.md`;
 export const AI_WORKFLOW_URL = `${REPO_URL}/blob/main/docs/AI_MODELING_WORKFLOW.md`;
 export const SOLVER_REF_URL = `${REPO_URL}/blob/main/docs/SOLVER_REFERENCE.md`;
+
+export function prefetchApp() {
+  if (!saveData()) window.dispatchEvent(new Event('stabileo-prefetch-app'));
+}
 
 export function enterApp() {
   window.dispatchEvent(new CustomEvent('stabileo-enter-app'));
