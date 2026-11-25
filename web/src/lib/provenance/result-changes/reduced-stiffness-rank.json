@@ -10,7 +10,7 @@
       ["analysis:linear", "analysis:pdelta", "analysis:modal", "analysis:spectral", "analysis:plastic", "analysis:nonlinear", "analysis:ssi", "stagedConstruction"]
     ]
   },
-  "quantities": ["solve.ok", "isSolvable", "classification", "diagnosis"],
+  "quantities": ["solve.ok", "isSolvable", "kinematicIsSolvable", "classification", "diagnosis"],
   "title": {
     "en": "Refuse unresolved reduced stiffness rank",
     "es": "Rechazar la rigidez reducida de rango indeterminado",

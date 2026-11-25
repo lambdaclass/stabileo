@@ -152,7 +152,17 @@ fn expected_refusal(name: &str, e: &str) -> bool {
         && e.contains("a node can move freely in a direction no member, support or spring stiffens");
     let factorization_accuracy = e == "the structure cannot be solved reliably: stiffness factorization accuracy is unresolved after the stability check; no result is returned";
     match name {
-        "issue-1029" | "issue-973" => conditioning || factorization_accuracy,
+        "issue-1029" | "issue-973" => conditioning || factorization_accuracy
+            || serde_json::from_str::<serde_json::Value>(e).is_ok_and(|refusal| {
+                let message = "the structure is a mechanism or so close to one that its stability cannot be decided in double precision: the reduced stiffness rank cannot be resolved at assembly precision. Check member releases, supports, springs and constraints for a mechanism.";
+                refusal["message"] == message
+                    && refusal["structuredDiagnostics"].as_array().is_some_and(|diagnostics| {
+                        diagnostics.len() == 1
+                            && diagnostics[0]["code"] == "reduced_stiffness_rank"
+                            && diagnostics[0]["severity"] == "error"
+                            && diagnostics[0]["message"] == message
+                    })
+            }),
         "issue-1083" | "issue-1091" | "issue-1353" | "issue-1355" | "issue-1362" => conditioning,
         "issue-1008" | "issue-1095" | "issue-1103" | "issue-1112" | "issue-1359" | "issue-1648" | "issue-1651" | "issue-964" | "issue-966" | "issue-967" => mechanism,
         "issue-1028" => serde_json::from_str::<serde_json::Value>(e).ok().is_some_and(|v| {

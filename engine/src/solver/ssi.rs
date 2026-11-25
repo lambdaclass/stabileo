@@ -600,14 +600,15 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
     // symbolic if an entry ever crosses exactly zero).
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
 
+    let assemble_secant = |spring_k: &[f64]| secant_system(
+        &base, reduced_base.as_ref(), spring_stiffness(&input.soil_springs, spring_k, &dof_num, its),
+        cs.as_ref(), &rank, support_magnitude,
+    );
     let mut secant_state = None;
     for iter in 0..input.max_iter {
         total_iters = iter + 1;
 
-        let k = secant_system(
-            &base, reduced_base.as_ref(), spring_stiffness(&input.soil_springs, &spring_k, &dof_num, its),
-            cs.as_ref(), &rank, support_magnitude,
-        )?;
+        let k = assemble_secant(&spring_k)?;
         SecantState::update(&mut secant_state, k, &force, use_sparse, &mut sparse_sym_cache, &mut conditioning)?;
         let state = secant_state.as_mut().unwrap();
         let u_indep = state.u.clone();
@@ -667,6 +668,7 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
     }
 
     // Build final results
+    assemble_secant(&spring_k)?;
     let displacements = linear::build_displacements_2d(&dof_num, &u_full);
     let element_forces = linear::compute_internal_forces_2d(&input.solver, &dof_num, &u_full);
 
@@ -732,7 +734,6 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
 
 fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     super::linear::validate_input_3d(&input.solver)?;
-    super::linear::refuse_initial_free_rotation_loads_3d(&input.solver)?;
     validate_springs(&input.soil_springs)?;
     super::feature_gates::refuse_3d(&input.solver, "Soil-structure interaction analysis", &[super::feature_gates::Feature::PrescribedDisplacements])?;
 
@@ -740,6 +741,7 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     let expanded_solver = super::linear::expand_curved_beams_3d(&input.solver);
     let dof_num = DofNumbering::build_3d(&expanded_solver);
     check_spring_dofs(&input.soil_springs, &dof_num, 3)?;
+    super::linear::refuse_initial_free_rotation_loads_3d(&input.solver)?;
     if dof_num.n_free == 0 {
         return Err("No free DOFs".into());
     }
@@ -818,14 +820,15 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     // symbolic if an entry ever crosses exactly zero).
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
 
+    let assemble_secant = |spring_k: &[f64]| secant_system(
+        &base, reduced_base.as_ref(), spring_stiffness(&input.soil_springs, spring_k, &dof_num, its),
+        cs.as_ref(), &rank, support_magnitude,
+    );
     let mut secant_state = None;
     for iter in 0..input.max_iter {
         total_iters = iter + 1;
 
-        let k = secant_system(
-            &base, reduced_base.as_ref(), spring_stiffness(&input.soil_springs, &spring_k, &dof_num, its),
-            cs.as_ref(), &rank, support_magnitude,
-        )?;
+        let k = assemble_secant(&spring_k)?;
         SecantState::update(&mut secant_state, k, &force, use_sparse, &mut sparse_sym_cache, &mut conditioning)?;
         let state = secant_state.as_mut().unwrap();
         let u_indep = state.u.clone();
@@ -883,6 +886,7 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
         }
     }
 
+    assemble_secant(&spring_k)?;
     let displacements = linear::build_displacements_3d(&dof_num, &u_full);
     let element_forces = linear::compute_internal_forces_3d(&expanded_solver, &dof_num, &u_full);
 

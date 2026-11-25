@@ -19,6 +19,8 @@ pub struct KinematicResult {
     pub unconstrained_dofs: Vec<UnconstrainedDof>,
     pub diagnosis: String,
     pub is_solvable: bool,
+    #[serde(default)]
+    pub kinematic_is_solvable: bool,
     /// Set when the model failed input validation and was not analysed: the
     /// validator's own message. `mechanism_modes` is then 0 because nothing
     /// was checked, not because nothing was found, and a reader has to be
@@ -180,6 +182,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
             unconstrained_dofs: Vec::new(),
             diagnosis: "El modelo no puede analizarse porque tiene datos inválidos.".into(),
             is_solvable: false,
+            kinematic_is_solvable: false,
             invalid_input: Some(reason),
             invalid_input_kind: unsupported_nodal_moment(input).then_some(KinematicInputError::UnsupportedNodalMoment),
         };
@@ -200,6 +203,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
             unconstrained_dofs: Vec::new(),
             diagnosis: "Todos los GDL están restringidos.".into(),
             is_solvable: true,
+            kinematic_is_solvable: true,
             invalid_input: None,
             invalid_input_kind: None,
         };
@@ -242,6 +246,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
             unconstrained_dofs: Vec::new(),
             diagnosis: "El modelo no puede analizarse: una restricción no puede imponerse.".into(),
             is_solvable: false,
+            kinematic_is_solvable: false,
             invalid_input: Some(reason),
             invalid_input_kind: None,
         },
@@ -296,15 +301,9 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     mechanism_nodes.sort();
 
     let rank_refusal = physical_refusal.or_else(|| rank_stability.rounding_refusal());
-    let is_solvable = mechanism_modes == 0
-        && rank_stability.verdict != super::stability::Verdict::Mechanism && rank_refusal.is_none();
-    let classification = if degree > 0 && is_solvable {
-        "hyperstatic"
-    } else if degree == 0 && is_solvable {
-        "isostatic"
-    } else {
-        "hypostatic"
-    }.to_string();
+    let kinematic_is_solvable = mechanism_modes == 0
+        && rank_stability.verdict != super::stability::Verdict::Mechanism;
+    let (classification, is_solvable) = classify_rank(degree, kinematic_is_solvable, rank_refusal.is_some());
 
     let diagnosis = rank_refusal.unwrap_or_else(|| {
         build_diagnosis_2d(degree, mechanism_modes, &mechanism_nodes, &unconstrained_dofs)
@@ -318,6 +317,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
         unconstrained_dofs,
         diagnosis,
         is_solvable,
+        kinematic_is_solvable,
         invalid_input: None,
         invalid_input_kind: None,
     }
@@ -397,6 +397,17 @@ fn rank_springs_3d(input: &SolverInput3D) -> Option<SolverInput3D> {
     Some(rank)
 }
 
+fn classify_rank(degree: i32, kinematic_is_solvable: bool, rank_refused: bool) -> (String, bool) {
+    let is_solvable = kinematic_is_solvable && !rank_refused;
+    let classification = match (rank_refused, is_solvable, degree.cmp(&0)) {
+        (true, _, _) => "indeterminate",
+        (_, true, std::cmp::Ordering::Greater) => "hyperstatic",
+        (_, true, std::cmp::Ordering::Equal) => "isostatic",
+        _ => "hypostatic",
+    };
+    (classification.into(), is_solvable)
+}
+
 fn mechanism_pivots(k: &[f64], n: usize, stability: &super::stability::Stability) -> Vec<usize> {
     let (_, mut pivots) = lu_rank(k, n, 1e-10);
     for direction in stability.mechanism_directions() {
@@ -451,6 +462,7 @@ fn fast_solvable_2d(
             unconstrained_dofs: Vec::new(),
             diagnosis: build_diagnosis_2d(degree, 0, &[], &[]),
             is_solvable: true,
+            kinematic_is_solvable: true,
             invalid_input: None,
             invalid_input_kind: None,
         }
@@ -565,6 +577,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
             unconstrained_dofs: Vec::new(),
             diagnosis: "El modelo no puede analizarse porque tiene datos inválidos.".into(),
             is_solvable: false,
+            kinematic_is_solvable: false,
             invalid_input: Some(reason),
             invalid_input_kind: None,
         };
@@ -585,6 +598,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
             unconstrained_dofs: Vec::new(),
             diagnosis: "Todos los GDL están restringidos.".into(),
             is_solvable: true,
+            kinematic_is_solvable: true,
             invalid_input: None,
             invalid_input_kind: None,
         };
@@ -607,6 +621,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
             unconstrained_dofs: Vec::new(),
             diagnosis: "El modelo no puede analizarse: una restricción no puede imponerse.".into(),
             is_solvable: false,
+            kinematic_is_solvable: false,
             invalid_input: Some(reason),
             invalid_input_kind: None,
         },
@@ -666,15 +681,9 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
     mechanism_nodes.sort();
 
     let rank_refusal = physical_refusal.or_else(|| rank_stability.rounding_refusal());
-    let is_solvable = mechanism_modes == 0
-        && rank_stability.verdict != super::stability::Verdict::Mechanism && rank_refusal.is_none();
-    let classification = if degree > 0 && is_solvable {
-        "hyperstatic"
-    } else if degree == 0 && is_solvable {
-        "isostatic"
-    } else {
-        "hypostatic"
-    }.to_string();
+    let kinematic_is_solvable = mechanism_modes == 0
+        && rank_stability.verdict != super::stability::Verdict::Mechanism;
+    let (classification, is_solvable) = classify_rank(degree, kinematic_is_solvable, rank_refusal.is_some());
 
     let diagnosis = rank_refusal.unwrap_or_else(|| {
         build_diagnosis_2d(degree, mechanism_modes, &mechanism_nodes, &unconstrained_dofs)
@@ -688,6 +697,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
         unconstrained_dofs,
         diagnosis,
         is_solvable,
+        kinematic_is_solvable,
         invalid_input: None,
         invalid_input_kind: None,
     }

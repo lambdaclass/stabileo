@@ -14,7 +14,7 @@ import { addConstraintConnectivity } from './constraint-connectivity';
 export interface KinematicResult3D {
   /** Global degree of static indeterminacy (>0 hyperstatic, =0 isostatic, <0 hypostatic) */
   degree: number;
-  classification: 'hyperstatic' | 'isostatic' | 'hypostatic';
+  classification: 'hyperstatic' | 'isostatic' | 'hypostatic' | 'indeterminate';
   /** Number of mechanism modes (dimension of Kff null space) */
   mechanismModes: number;
   /** Nodes participating in mechanism (from rank analysis) */
@@ -32,7 +32,7 @@ export interface KinematicResult3D {
    * only the count is known) and `'invalid'` (the engine refused the data)
    * both mean `mechanismModes: 0` is not a finding. As in 2D.
    */
-  rankAnalysis?: 'available' | 'unavailable' | 'invalid';
+  rankAnalysis?: 'available' | 'unavailable' | 'invalid' | 'indeterminate';
 }
 
 // ─── Static Degree ───────────────────────────────────────────────
@@ -300,8 +300,8 @@ export function analyzeKinematics3D(input: SolverInput3D): KinematicResult3D {
   return {
     ...raw,
     degree,
-    classification: classifyKinematic(degree, raw.mechanismModes ?? 0, raw.isSolvable),
-    rankAnalysis: raw.invalidInput ? 'invalid' : 'available',
+    classification: classifyKinematic(degree, raw.mechanismModes ?? 0, raw.isSolvable, raw.classification),
+    rankAnalysis: raw.invalidInput ? 'invalid' : raw.classification === 'indeterminate' ? 'indeterminate' : 'available',
     // The engine writes `diagnosis` in Spanish only; rebuild it in the active language.
     diagnosis: localizeKinematicDiagnosis({
       degree,

@@ -1029,7 +1029,9 @@ pub(super) fn absolute_stiffness(k: &CscMatrix) -> CscMatrix {
     magnitude
 }
 
-fn tangent_has_resolved_rank(k: &CscMatrix, magnitude: &CscMatrix) -> bool {
+fn tangent_has_resolved_rank(
+    k: &CscMatrix, magnitude: &CscMatrix, accumulation_error: Option<&CscMatrix>,
+) -> bool {
     if k.values.iter().chain(&magnitude.values).any(|v| !v.is_finite()) {
         return false;
     }
@@ -1047,13 +1049,25 @@ fn tangent_has_resolved_rank(k: &CscMatrix, magnitude: &CscMatrix) -> bool {
     }).collect();
     let scale = |i: usize, j: usize, value: f64| (value * weights[i]) * weights[j];
 
+    use super::load_work::{add_up, mul_up};
     let mut margin = vec![0.0; k.n];
     for j in 0..magnitude.n {
         for p in magnitude.col_ptr[j]..magnitude.col_ptr[j + 1] {
             let i = magnitude.row_idx[p];
-            let radius = ROUNDING * f64::EPSILON * scale(i, j, magnitude.values[p]);
-            margin[i] += radius;
-            if i != j { margin[j] += radius; }
+            let scaled = mul_up(mul_up(magnitude.values[p], weights[i]), weights[j]);
+            let radius = mul_up(ROUNDING * f64::EPSILON, scaled);
+            margin[i] = add_up(margin[i], radius);
+            if i != j { margin[j] = add_up(margin[j], radius); }
+        }
+    }
+    if let Some(error) = accumulation_error {
+        for j in 0..error.n {
+            for p in error.col_ptr[j]..error.col_ptr[j + 1] {
+                let i = error.row_idx[p];
+                let radius = mul_up(mul_up(error.values[p], weights[i]), weights[j]);
+                margin[i] = add_up(margin[i], radius);
+                if i != j { margin[j] = add_up(margin[j], radius); }
+            }
         }
     }
     if margin.iter().any(|radius| !radius.is_finite()) { return false; }
@@ -1629,23 +1643,27 @@ impl<'a> OperatorRank<'a> {
         let reduced_magnitude = self.constraints.map(|cs| cs.reduce_stiffness_magnitude(magnitude));
         let physical = reduced.unwrap_or(free);
         let envelope = reduced_magnitude.as_ref().unwrap_or(magnitude);
-        self.check_physical_tangent(physical, envelope, &self.releases)
+        self.check_physical_tangent(physical, envelope, None, &self.releases)
     }
 
     pub(super) fn check_tangent(
-        &self, free: &CscMatrix, magnitude: &CscMatrix, active_releases: Option<&ReleasedRotations>,
+        &self, free: &CscMatrix, magnitude: &CscMatrix, accumulation_error: &CscMatrix,
+        active_releases: Option<&ReleasedRotations>,
     ) -> Result<(), String> {
         let reduced = self.constraints.map(|cs| cs.reduce_matrix_sparse(free));
         let reduced_magnitude = self.constraints.map(|cs| cs.reduce_stiffness_magnitude(magnitude));
         let k = reduced.as_ref().unwrap_or(free);
         let magnitude = reduced_magnitude.as_ref().unwrap_or(magnitude);
-        self.check_physical_tangent(k, magnitude, active_releases.unwrap_or(&self.releases))
+        let reduced_error = self.constraints.map(|cs| cs.reduce_stiffness_roundoff(accumulation_error));
+        let error = reduced_error.as_ref().unwrap_or(accumulation_error);
+        self.check_physical_tangent(k, magnitude, Some(error), active_releases.unwrap_or(&self.releases))
     }
 
     fn check_physical_tangent(
-        &self, k: &CscMatrix, magnitude: &CscMatrix, releases: &ReleasedRotations,
+        &self, k: &CscMatrix, magnitude: &CscMatrix, accumulation_error: Option<&CscMatrix>,
+        releases: &ReleasedRotations,
     ) -> Result<(), String> {
-        if tangent_has_resolved_rank(k, magnitude) { return Ok(()); }
+        if tangent_has_resolved_rank(k, magnitude, accumulation_error) { return Ok(()); }
         if k.values.iter().chain(&magnitude.values).any(|value| !value.is_finite()) {
             return Err(operator_rounding_refusal());
         }
@@ -1655,6 +1673,7 @@ impl<'a> OperatorRank<'a> {
             && tangent_has_resolved_rank(
                 &k.extract_principal_submatrix(&kept),
                 &magnitude.extract_principal_submatrix(&kept),
+                accumulation_error.map(|bound| bound.extract_principal_submatrix(&kept)).as_ref(),
             )
         {
             return Ok(());
@@ -1785,8 +1804,9 @@ mod tests {
                     directions: vec![(1, vec![(0, 1.0, 0.0), (1, 1.0, 0.0)])],
                 },
             };
-            assert!(rank.check_tangent(&k, &absolute_stiffness(&k), Some(&ReleasedRotations::default())).is_err());
-            assert_eq!(rank.check_tangent(&k, &absolute_stiffness(&k), None).is_ok(), resolved, "{signed}");
+            let error = CscMatrix::from_triplets(k.n, &[], &[], &[]);
+            assert!(rank.check_tangent(&k, &absolute_stiffness(&k), &error, Some(&ReleasedRotations::default())).is_err());
+            assert_eq!(rank.check_tangent(&k, &absolute_stiffness(&k), &error, None).is_ok(), resolved, "{signed}");
         }
     }
 
@@ -1798,7 +1818,7 @@ mod tests {
                 1.0, last, 0.0,
                 1.0, 0.0, last,
             ], 3);
-            assert_eq!(tangent_has_resolved_rank(&k, &absolute_stiffness(&k)), resolved);
+            assert_eq!(tangent_has_resolved_rank(&k, &absolute_stiffness(&k), None), resolved);
         }
     }
 

@@ -495,7 +495,6 @@ fn ssi_requires_resolved_secant_rank_under_restrained_load() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2584"]
 fn collinear_truss_scatter_cannot_create_transverse_stiffness() {
     use dedaliano_engine::solver::corotational::{
         solve_corotational_2d, solve_corotational_2d_from, solve_corotational_3d, CorotationalStart2D,
@@ -562,7 +561,6 @@ fn collinear_truss_scatter_cannot_create_transverse_stiffness() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2584"]
 fn ssi_requires_resolved_secant_rank_after_loaded_update() {
     use dedaliano_engine::solver::{soil_curves::SoilCurve, ssi::*};
 
@@ -643,7 +641,6 @@ fn ssi_requires_resolved_secant_rank_after_loaded_update() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2584"]
 fn ssi_released_tip_torque_respects_supported_springs_and_soil_direction_validation() {
     use dedaliano_engine::solver::{soil_curves::SoilCurve, ssi::*};
     let model = serde_json::json!({

@@ -2544,6 +2544,18 @@ fn support_abs_rows<const D: usize>(
 pub(crate) fn free_magnitude<T: InclinedFrame>(
     magnitude: CscMatrix, nf: usize, frames: &[T],
 ) -> CscMatrix {
+    free_magnitude_with(&magnitude, nf, frames, false)
+}
+
+pub(super) fn free_roundoff<T: InclinedFrame>(
+    roundoff: &CscMatrix, nf: usize, frames: &[T],
+) -> CscMatrix {
+    free_magnitude_with(roundoff, nf, frames, true)
+}
+
+fn free_magnitude_with<T: InclinedFrame>(
+    magnitude: &CscMatrix, nf: usize, frames: &[T], outward: bool,
+) -> CscMatrix {
     let n = magnitude.n;
     let mut rotated: Vec<_> = (0..n).map(|i| vec![(i, 1.0)]).collect();
     for frame in frames {
@@ -2559,7 +2571,12 @@ pub(crate) fn free_magnitude<T: InclinedFrame>(
             }
         }
     }
-    super::constraints::SparseTransform::from_rows(n, nf, columns).reduce_sparse(&magnitude)
+    let transform = super::constraints::SparseTransform::from_rows(n, nf, columns);
+    if outward {
+        transform.reduce_sparse_upper_bound(magnitude)
+    } else {
+        transform.reduce_sparse(magnitude)
+    }
 }
 
 pub(crate) fn triplet_magnitude<T: InclinedFrame>(

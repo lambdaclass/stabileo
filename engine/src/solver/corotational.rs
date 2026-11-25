@@ -127,6 +127,7 @@ struct ActiveStiffness {
     cols: Vec<usize>,
     values: Vec<f64>,
     magnitude: CscMatrix,
+    accumulation_error: CscMatrix,
 }
 
 impl ActiveStiffness {
@@ -138,6 +139,7 @@ impl ActiveStiffness {
         let mut dense = if sparse { Vec::new() } else { vec![0.0; n * n] };
         let (mut rows, mut cols, mut values) = (Vec::new(), Vec::new(), Vec::new());
         let (mut mr, mut mc, mut mv) = (Vec::new(), Vec::new(), Vec::new());
+        let bound_order = if frames.is_empty() { dof.n_free } else { n };
         assemble(internal, &mut |i, j, value, magnitude| {
             if !sparse {
                 dense[i * n + j] += value;
@@ -148,14 +150,32 @@ impl ActiveStiffness {
                     cols.push(j);
                     values.push(value);
                 }
-                if magnitude != 0.0 {
+                if magnitude != 0.0 && i < bound_order && j < bound_order {
                     mr.push(i);
                     mc.push(j);
                     mv.push(magnitude);
                 }
             }
         });
-        let magnitude = assembly::triplet_magnitude(&mr, &mc, &mv, dof, frames);
+        let magnitude = CscMatrix::from_triplets(bound_order, &mr, &mc, &mv);
+        let mut accumulation_error = CscMatrix::from_triplets(bound_order, &mr, &mc, &vec![1.0; mv.len()]);
+        for (count, &size) in accumulation_error.values.iter_mut().zip(&magnitude.values) {
+            let relative = super::load_work::gamma(*count as usize - 1);
+            *count = if relative < 1.0 {
+                let upper_size = (size / (1.0 - relative).next_down()).next_up();
+                super::load_work::mul_up(relative, upper_size)
+            } else {
+                f64::INFINITY
+            };
+        }
+        let (magnitude, accumulation_error) = if frames.is_empty() {
+            (magnitude, accumulation_error)
+        } else {
+            (
+                assembly::free_magnitude(magnitude, dof.n_free, frames),
+                assembly::free_roundoff(&accumulation_error, dof.n_free, frames),
+            )
+        };
         if sparse {
             for frame in frames {
                 frame.rotate_triplets(&mut rows, &mut cols, &mut values);
@@ -166,7 +186,7 @@ impl ActiveStiffness {
         for frame in frames {
             frame.rotate(internal);
         }
-        Self { dense, rows, cols, values, magnitude }
+        Self { dense, rows, cols, values, magnitude, accumulation_error }
     }
 
     fn check(
@@ -178,7 +198,7 @@ impl ActiveStiffness {
         } else {
             super::stability::dense_free_block(&self.dense, dof)
         };
-        rank.check_tangent(&free, &self.magnitude, active_releases)
+        rank.check_tangent(&free, &self.magnitude, &self.accumulation_error, active_releases)
     }
 }
 

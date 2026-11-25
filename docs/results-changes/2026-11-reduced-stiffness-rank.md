@@ -53,3 +53,24 @@ directions.
 Modal analysis reports unresolved constraint rank after validating mass and
 before computing modes. Kinematics reports the same diagnosis and marks the
 model unsolvable even if the rounded mode count is zero.
+
+A restrained load on parallel trusses can leave the transverse displacement
+undetermined. Repeated weak member contributions can bias a diagonal of the
+assembled tangent and give the transverse mode an apparent stiffness. The
+corotational check now includes a summation bound for each tangent entry and
+carries that bound through inclined support and constraint transformations.
+The solver refuses the unresolved equilibrium. Restraining the independent
+transverse motion gives a resolved result.
+
+SSI checks both the secant used for each solve and the secant evaluated at the
+returned displacement. A loaded spring can begin with a resolved tangent and
+enter a plateau where the remaining secant stiffness cannot be distinguished
+from assembly roundoff. This can now give a refusal when the iteration budget
+ends after that update.
+
+Kinematics labels an unresolved elastic rank as indeterminate. The response
+still blocks the elastic solve and retains the localized rank diagnosis.
+The kinematic calculation reports its own solvability flag alongside the
+mode count. Plastic limit analysis checks its existing uniform-stiffness
+model for mechanisms and uses the same model to compute the equilibrium
+fields for its collapse calculation.

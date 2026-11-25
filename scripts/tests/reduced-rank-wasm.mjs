@@ -167,7 +167,7 @@ for (const dim of ['2d', '3d']) {
     assert.equal(kinematic.mechanismModes, 0);
     assert.equal(kinematic.isSolvable, !refused, `${dim} kinematics at stiffness ${stiffness}`);
     if (refused) {
-      assert.equal(kinematic.classification, 'hypostatic');
+      assert.equal(kinematic.classification, 'indeterminate');
       assert.ok(constraintRankError(kinematic.diagnosis));
     }
     const modal = JSON.stringify({ solver: model, densities: { 1: 1 } });
@@ -237,4 +237,70 @@ for (const dim of ['2d', '3d']) {
   assert.equal(result.converged, true);
   assertDisplacements(result.results, dim, [1, 2, 3]);
   assert.throws(() => solve(stiffness * 4 * Number.EPSILON), codedRankError);
+}
+
+for (const dim of ['2d', '3d']) {
+  const model = dim === '2d' ? structuredClone(truss) : spatial(truss);
+  const chord = Math.sqrt(41);
+  const direction = 4 / chord;
+  model.sections[1].a = chord / (direction * direction);
+  model.sections[2] = { ...model.sections[1], id: 2, a: model.sections[1].a * 0.36 * Number.EPSILON };
+  Object.assign(model.nodes[2], { x: 4, z: 5 });
+  delete model.supports[2].ky;
+  const load = { nodeId: 1, fx: 1, fz: 0, my: 0 };
+  if (dim === '3d') Object.assign(load, { fy: 0, mx: 0, mz: 0 });
+  model.loads = [{ type: 'nodal', data: load }];
+  for (let id = 2; id <= 1025; id++) {
+    model.elements[id] = { ...model.elements[1], id, sectionId: 2 };
+  }
+  for (const modified of [false, true]) {
+    const solve = () => JSON.parse(engine[`solve_corotational_${dim}`](JSON.stringify(model), 8, 1e-12, 1, modified));
+    model.constraints = [];
+    assert.throws(solve, codedRankError, `${dim} collinear truss assembly`);
+    model.constraints = [{ type: 'linearMPC', terms: [{ nodeId: 2, dof: dim === '2d' ? 1 : 2, coefficient: 1 }] }];
+    const result = solve();
+    assert.equal(result.converged, true);
+    assertDisplacements(result.results, dim, [1, 2]);
+  }
+}
+
+for (const dim of ['2d', '3d']) {
+  const model = dim === '2d' ? structuredClone(truss) : spatial(truss);
+  const stiffness = 1024;
+  model.materials[1].e = stiffness / 1000;
+  for (const nodeId of [1, 2]) {
+    model.supports[nodeId] = dim === '2d'
+      ? { id: nodeId, nodeId, type: 'rollerX', kz: 1 }
+      : { nodeId, rx: false, ry: true, rz: true, rrx: true, rry: true, rrz: true };
+  }
+  const load = { nodeId: 1, fx: 1, fz: 0, my: 0 };
+  if (dim === '3d') Object.assign(load, { fy: 0, mx: 0, mz: 0 });
+  model.loads = [{ type: 'nodal', data: load }];
+  for (const maxIter of [1, 2]) {
+    const solve = end => JSON.parse(engine[`solve_ssi_${dim}`](JSON.stringify({
+      solver: model,
+      soilSprings: [{ nodeId: 1, direction: 0, curve: { type: 'custom', points: [[0, 0], [end, end]] }, tributaryLength: 1 }],
+      maxIter,
+    })));
+    assert.throws(() => solve(stiffness * 4 * Number.EPSILON), codedRankError, `${dim} loaded SSI update ${maxIter}`);
+    const result = solve(2);
+    assert.equal(result.converged, maxIter === 2);
+    assert.ok(Math.abs(result.springResults[0].displacement - 1) <= 1e-12);
+  }
+}
+
+{
+  const model = spatial(truss);
+  model.elements[1].type = 'frame';
+  model.elements[1].releaseTEnd = true;
+  model.supports[2].rrx = false;
+  model.loads = [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: 0, mx: 1, my: 0, mz: 0 } }];
+  const solve = soilSprings => JSON.parse(engine.solve_ssi_3d(JSON.stringify({ solver: model, soilSprings, maxIter: 2 })));
+  assert.throws(() => solve([]), /a free rotation would carry load/);
+  const unsupported = { nodeId: 2, direction: 3, curve: { type: 'custom', points: [[0, 0], [1, 1]] }, tributaryLength: 1 };
+  assert.throws(() => solve([unsupported]), /direction 3 is not a translation/);
+  model.supports[2].krx = 1;
+  const result = solve([]);
+  assert.equal(result.converged, true);
+  assert.equal(result.results.displacements.find(({ nodeId }) => nodeId === 2).rx, 1);
 }

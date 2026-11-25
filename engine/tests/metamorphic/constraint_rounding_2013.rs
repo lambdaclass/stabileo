@@ -343,7 +343,7 @@ fn kinematics_reports_constraint_rounding_despite_zero_rounded_mechanisms() {
             assert_eq!(result.is_solvable, !refused, "{}", result.diagnosis);
             if refused {
                 assert!(result.diagnosis.contains("constraint reduction cancels stiffness contributions"), "{}", result.diagnosis);
-                assert_eq!(result.classification, "hypostatic");
+                assert_eq!(result.classification, "indeterminate");
             }
         }
     }
@@ -389,7 +389,6 @@ fn modal_reports_constraint_rounding_before_the_eigensolve() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2584"]
 fn unresolved_elastic_rank_has_an_indeterminate_kinematic_classification() {
     use dedaliano_engine::solver::kinematic::{analyze_kinematics_2d, analyze_kinematics_3d};
     for (model, _, refused) in cancellation_boundaries(false) {
