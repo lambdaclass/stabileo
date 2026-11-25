@@ -103,16 +103,7 @@ impl Stability {
     }
 
     pub fn pins(&self) -> Vec<(usize, usize, f64)> {
-        let mut out = Vec::new();
-        for f in self.free_rotations() {
-            for (a, (&i, &vi)) in f.dofs.iter().zip(&f.direction).enumerate() {
-                for (&j, &vj) in f.dofs.iter().zip(&f.direction).take(a + 1) {
-                    let x = f.scale * vi * vj;
-                    if x != 0.0 { out.push((i.max(j), i.min(j), x)); }
-                }
-            }
-        }
-        out
+        rotation_pins(self.free_rotations())
     }
 
     pub fn pin_dense(&self, k: &mut [f64], n: usize) {
@@ -219,6 +210,53 @@ impl Stability {
                 self.kappa, self.anisotropy
             )),
         }
+    }
+}
+
+fn rotation_pins<'a>(directions: impl Iterator<Item = &'a FreeDirection>) -> Vec<(usize, usize, f64)> {
+    let mut pins = Vec::new();
+    for direction in directions {
+        for (a, (&i, &vi)) in direction.dofs.iter().zip(&direction.direction).enumerate() {
+            for (&j, &vj) in direction.dofs.iter().zip(&direction.direction).take(a + 1) {
+                let value = direction.scale * vi * vj;
+                if value != 0.0 {
+                    pins.push((i.max(j), i.min(j), value));
+                }
+            }
+        }
+    }
+    pins
+}
+
+pub(super) struct ReleaseGauges(Vec<FreeDirection>);
+
+impl ReleaseGauges {
+    pub(super) fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub(super) fn check_load(&self, load: &[f64], rounding: &[f64]) -> Result<(), String> {
+        if let Some(direction) = self.0.iter().find(|direction| !direction.load_work(load, rounding).contains_zero()) {
+            return Err(super::linear::moment_lost_3d(direction.node, "a free rotation would carry load"));
+        }
+        Ok(())
+    }
+
+    pub(super) fn pin_dense(&self, k: &mut [f64], n: usize) {
+        for (i, j, value) in rotation_pins(self.0.iter()) {
+            k[i * n + j] += value;
+            if i != j {
+                k[j * n + i] += value;
+            }
+        }
+    }
+
+    pub(super) fn pin_sparse(&self, k: &CscMatrix) -> CscMatrix {
+        with_stiffness_entries(k, rotation_pins(self.0.iter()))
+    }
+
+    pub(super) fn add_pin_magnitudes(&self, magnitude: &CscMatrix) -> CscMatrix {
+        with_stiffness_entries(magnitude, rotation_pins(self.0.iter()).into_iter().map(|(i, j, value)| (i, j, value.abs())))
     }
 }
 
@@ -1637,12 +1675,35 @@ pub(super) fn dense_free_block(k: &[f64], dof: &DofNumbering) -> CscMatrix {
     CscMatrix::from_triplets(nf, &rows, &cols, &values)
 }
 
+fn isolated_release_nodes(input: &SolverInput3D, dof: &DofNumbering, releases: &ReleasedRotations) -> std::collections::BTreeSet<usize> {
+    if releases.nodes.is_empty() {
+        return Default::default();
+    }
+    let mut ends = BTreeMap::<_, usize>::new();
+    for member in input.elements.values().filter(|e| !matches!(e.elem_type.as_str(), "truss" | "cable")) {
+        for node in [member.node_i, member.node_j] {
+            *ends.entry(node).or_default() += 1;
+        }
+    }
+    let rotational_springs: std::collections::BTreeSet<_> = input.supports.values()
+        .filter(|support| super::support::support_dofs_3d(support)[3..6].iter()
+            .any(|setting| setting.spring.is_some_and(|value| value != 0.0)))
+        .map(|support| support.node_id)
+        .collect();
+    releases.nodes.iter().copied().filter(|node| {
+        ends.get(node) == Some(&1)
+            && !rotational_springs.contains(node)
+            && (3..6).all(|axis| dof.global_dof(*node, axis).is_some_and(|g| g < dof.n_free))
+    }).collect()
+}
+
 pub(super) struct OperatorRank<'a> {
     dof: &'a DofNumbering,
     two_d: bool,
     constraints: Option<&'a super::constraints::FreeConstraintSystem>,
     kinematics: ElasticKinematics,
     releases: ReleasedRotations,
+    isolated_release_nodes: std::collections::BTreeSet<usize>,
 }
 
 impl<'a> OperatorRank<'a> {
@@ -1650,14 +1711,16 @@ impl<'a> OperatorRank<'a> {
         input: &SolverInput, dof: &'a DofNumbering,
         constraints: Option<&'a super::constraints::FreeConstraintSystem>,
     ) -> Self {
-        Self { dof, two_d: true, constraints, kinematics: elastic_kinematics_2d(input, dof), releases: ReleasedRotations::default() }
+        Self { dof, two_d: true, constraints, kinematics: elastic_kinematics_2d(input, dof), releases: ReleasedRotations::default(), isolated_release_nodes: Default::default() }
     }
 
     pub(super) fn for_3d(
         input: &SolverInput3D, dof: &'a DofNumbering,
         constraints: Option<&'a super::constraints::FreeConstraintSystem>,
     ) -> Self {
-        Self { dof, two_d: false, constraints, kinematics: elastic_kinematics_3d(input, dof), releases: released_rotations_3d(input, dof) }
+        let releases = released_rotations_3d(input, dof);
+        let isolated_release_nodes = isolated_release_nodes(input, dof, &releases);
+        Self { dof, two_d: false, constraints, kinematics: elastic_kinematics_3d(input, dof), releases, isolated_release_nodes }
     }
 
     fn classify(
@@ -1689,6 +1752,45 @@ impl<'a> OperatorRank<'a> {
             Some(error) => Err(error),
             None => Ok(()),
         }
+    }
+
+    pub(super) fn isolated_release_gauges(&self, physical: &CscMatrix) -> ReleaseGauges {
+        if self.isolated_release_nodes.is_empty() {
+            return ReleaseGauges(Vec::new());
+        }
+        let diagonal = physical.diagonal();
+        let directions = self.releases.directions.iter().filter_map(|(node, axis)| {
+            if !self.isolated_release_nodes.contains(node)
+                || axis.iter().any(|&(_, value, error)| !value.is_finite() || !error.is_finite())
+            {
+                return None;
+            }
+            let scale = axis.iter().fold(0.0_f64, |scale, &(i, _, _)| scale.max(diagonal[i].abs()));
+            let scale = if scale > 0.0 { scale } else { 1.0 };
+            let dofs = axis.iter().map(|&(i, _, _)| i).collect::<Vec<_>>();
+            if let Some(cs) = self.constraints {
+                for &row in &dofs {
+                    let col = cs.independent_dofs().binary_search(&row).ok()?;
+                    let start = cs.c_ff.col_ptr[col];
+                    if cs.c_ff.col_ptr[col + 1] != start + 1
+                        || cs.c_ff.row_idx[start] != row || cs.c_ff.csc_vals[start] != 1.0
+                    {
+                        return None;
+                    }
+                }
+            }
+            Some(FreeDirection {
+                node: *node,
+                kind: DofKind::Rotation,
+                moves_translation: false,
+                dofs,
+                direction: axis.iter().map(|&(_, value, _)| value).collect(),
+                direction_rounding: axis.iter().map(|&(_, _, error)| error).collect(),
+                scale,
+                coupling: Vec::new(),
+            })
+        }).collect();
+        ReleaseGauges(directions)
     }
 
     pub(super) fn check_rounding(&self, free: &CscMatrix, reduced: Option<&CscMatrix>, support_magnitude: Option<&CscMatrix>) -> Result<(), String> {
@@ -1867,6 +1969,7 @@ mod tests {
                 two_d: false,
                 constraints: None,
                 kinematics: ElasticKinematics { coupling: vec![(0, 1)], ..Default::default() },
+                isolated_release_nodes: Default::default(),
                 releases: ReleasedRotations {
                     rows: vec![vec![(0, 1.0), (1, -1.0)], vec![(2, 1.0)]],
                     nodes: [1].into(),

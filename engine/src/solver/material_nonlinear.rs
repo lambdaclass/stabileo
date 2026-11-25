@@ -221,7 +221,8 @@ fn solve_nonlinear_material_2d_inner(
             // Residual: R = F_ext - f_int
             let tangent = MaterialTangent::prepare(
                 &k_t, sparse_tangent.then_some((&trip_rows, &trip_cols, &trip_vals)),
-                n, &free_idx, cs.as_ref(), &rank, support_magnitude.as_ref(),
+                n, &free_idx, cs.as_ref(), &rank, support_magnitude.as_ref(), &f_total,
+                || super::load_work::assembly_rounding_2d(solver, &solver.loads, &dof_num, &asm.inclined_transforms_2d),
             )?;
             let mut residual = vec![0.0; n];
             for i in 0..n {
@@ -804,22 +805,44 @@ impl MaterialTangent {
         constraints: Option<&FreeConstraintSystem>,
         rank: &super::stability::OperatorRank<'_>,
         support_magnitude: Option<&CscMatrix>,
+        load: &[f64],
+        load_rounding: impl FnOnce() -> Vec<f64>,
     ) -> Result<Self, String> {
         let nf = free.len();
-        if let Some((rows, cols, values)) = triplets {
-            let original = tangent_free_sparse_triplets(rows, cols, values, nf, &None);
-            let reduced = constraints.map(|cs| cs.reduce_matrix_sparse(&original));
-            rank.require_resolved(&original, reduced.as_ref(), support_magnitude)?;
-            return Ok(Self::Sparse(reduced.unwrap_or(original)));
+        let mut dense = triplets.is_none().then(|| extract_submatrix(dense, n, free, free));
+        let mut physical = match (triplets, &dense) {
+            (Some((rows, cols, values)), _) => tangent_free_sparse_triplets(rows, cols, values, nf, &None),
+            (_, Some(k)) => CscMatrix::from_dense_symmetric_exact(k, nf),
+            _ => unreachable!(),
+        };
+        let gauges = rank.isolated_release_gauges(&physical);
+        let pinned_magnitude;
+        let support_magnitude = if gauges.is_empty() {
+            support_magnitude
+        } else {
+            gauges.check_load(load, &load_rounding())?;
+            pinned_magnitude = support_magnitude.map(|magnitude| gauges.add_pin_magnitudes(magnitude));
+            physical = if let Some(k) = &mut dense {
+                gauges.pin_dense(k, nf);
+                CscMatrix::from_dense_symmetric_exact(k, nf)
+            } else {
+                gauges.pin_sparse(&physical)
+            };
+            pinned_magnitude.as_ref()
+        };
+
+        if let Some(k) = dense {
+            let reduced = constraints.map(|cs| cs.reduce_matrix(&k));
+            let reduced_operator = reduced.as_ref().zip(constraints).map(|(k, cs)| {
+                CscMatrix::from_dense_symmetric_exact(k, cs.n_free_indep)
+            });
+            rank.require_resolved(&physical, reduced_operator.as_ref(), support_magnitude)?;
+            Ok(Self::Dense(reduced.unwrap_or(k)))
+        } else {
+            let reduced = constraints.map(|cs| cs.reduce_matrix_sparse(&physical));
+            rank.require_resolved(&physical, reduced.as_ref(), support_magnitude)?;
+            Ok(Self::Sparse(reduced.unwrap_or(physical)))
         }
-        let original = extract_submatrix(dense, n, free, free);
-        let reduced = constraints.map(|cs| cs.reduce_matrix(&original));
-        let physical = CscMatrix::from_dense_symmetric_exact(&original, nf);
-        let reduced_operator = reduced.as_ref().zip(constraints).map(|(k, cs)| {
-            CscMatrix::from_dense_symmetric_exact(k, cs.n_free_indep)
-        });
-        rank.require_resolved(&physical, reduced_operator.as_ref(), support_magnitude)?;
-        Ok(Self::Dense(reduced.unwrap_or(original)))
     }
 
     fn solve(self, rhs: Vec<f64>, cache: &mut Option<SparseSymbolicCache>) -> Result<Vec<f64>, String> {
@@ -1136,7 +1159,8 @@ fn solve_nonlinear_material_3d_inner(
 
             let tangent = MaterialTangent::prepare(
                 &k_t, sparse_tangent.then_some((&trip_rows, &trip_cols, &trip_vals)),
-                n, &free_idx, cs.as_ref(), &rank, support_magnitude.as_ref(),
+                n, &free_idx, cs.as_ref(), &rank, support_magnitude.as_ref(), &f_total,
+                || super::load_work::assembly_rounding_3d(solver, &solver.loads, &dof_num, &asm.inclined_transforms),
             )?;
             let mut residual = vec![0.0; n];
             for i in 0..n {

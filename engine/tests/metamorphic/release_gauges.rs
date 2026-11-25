@@ -1,14 +1,13 @@
 use dedaliano_engine::{
     metamorphic::reversal::reverse_3d,
-    solver::{
-        linear::SPARSE_THRESHOLD,
-        material_nonlinear::solve_nonlinear_material_3d,
-    },
+    solver::{linear::SPARSE_THRESHOLD, material_nonlinear::solve_nonlinear_material_3d},
     types::{NonlinearMaterialInput3D, SolverInput3D},
 };
 
 fn archived_1090() -> SolverInput3D {
-    let model = crate::corpus::parse(include_str!("../metamorphic_corpus/stability/issue-1090.json"));
+    let model = crate::corpus::parse(include_str!(
+        "../metamorphic_corpus/stability/issue-1090.json"
+    ));
     let crate::corpus::Model::D3(input) = model.unwrap() else {
         panic!("expected a spatial model")
     };
@@ -50,7 +49,6 @@ fn separate_cantilevers(source: &SolverInput3D, count: usize) -> SolverInput3D {
 }
 
 #[test]
-#[ignore = "known wrong result: #1090"]
 fn issue_1090_material_tangent_preserves_the_released_tip() {
     use dedaliano_engine::solver::dof::DofNumbering;
     let source = archived_1090();
@@ -60,6 +58,18 @@ fn issue_1090_material_tangent_preserves_the_released_tip() {
     assert!(dense_count < SPARSE_THRESHOLD);
     assert!(DofNumbering::build_3d(&sparse).n_free >= SPARSE_THRESHOLD);
 
+    let mut constrained = reversed.clone();
+    constrained
+        .constraints
+        .push(dedaliano_engine::types::Constraint::LinearMPC(
+            dedaliano_engine::types::LinearMPCConstraint {
+                terms: vec![dedaliano_engine::types::MPCTerm {
+                    node_id: 2,
+                    dof: 0,
+                    coefficient: 1.0,
+                }],
+            },
+        ));
     let mut unhinged = reversed.clone();
     unhinged.elements.get_mut("1").unwrap().release_my_start = false;
     let mut cases = Vec::new();
@@ -68,6 +78,7 @@ fn issue_1090_material_tangent_preserves_the_released_tip() {
         ("original", source),
         ("reversed", reversed),
         ("reversed sparse", sparse),
+        ("reversed with translation constraint", constrained),
         ("unhinged", unhinged),
     ] {
         let expected = model.supports["1"].dz.unwrap();
@@ -75,9 +86,18 @@ fn issue_1090_material_tangent_preserves_the_released_tip() {
         assert_ne!(expected, 0.0);
         match solve_nonlinear_material_3d(&input) {
             Ok(result) if result.converged => {
-                let actual = result.results.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
+                let actual = result
+                    .results
+                    .displacements
+                    .iter()
+                    .find(|d| d.node_id == 2)
+                    .unwrap()
+                    .uz;
                 let relative_error = ((actual - expected) / expected).abs();
-                assert!(relative_error <= crate::common::tolerance::parity::REL_TOL_DISP, "{label}: {actual} vs {expected}");
+                assert!(
+                    relative_error <= crate::common::tolerance::parity::REL_TOL_DISP,
+                    "{label}: {actual} vs {expected}"
+                );
             }
             other => failures.push(format!("{label}: {other:?}")),
         }
