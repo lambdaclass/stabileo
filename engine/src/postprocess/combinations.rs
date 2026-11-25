@@ -94,6 +94,8 @@ pub struct ElementEnvelopeDiagram {
 pub struct EnvelopeStation {
     pub index: usize,
     pub x: f64,
+    #[serde(default)]
+    pub x_residual: f64,
     pub right: bool,
 }
 
@@ -306,8 +308,10 @@ fn member_envelope<C>(
                 }
             }
         }
-        if let Some(x) = physical_envelope_station(cuts, length) {
-            critical_stations.push(EnvelopeStation { index: t_positions.len(), x, right: cuts[0].right });
+        if let Some(distance) = physical_envelope_station(cuts, length).map_err(|error| format!("{}: {error}", context()))? {
+            critical_stations.push(EnvelopeStation {
+                index: t_positions.len(), x: distance.x, x_residual: distance.residual, right: cuts[0].right,
+            });
         }
         t_positions.push(t);
         pos_values.push(max_pos);

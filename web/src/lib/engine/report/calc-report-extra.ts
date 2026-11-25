@@ -9,7 +9,7 @@
  */
 import { t, tp } from '../../i18n';
 import type { KinematicReport } from '../kinematic-report';
-import type { AnalysisResults, FullEnvelope } from '../types';
+import type { AnalysisResults, ElementEnvelopeDiagram, FullEnvelope } from '../types';
 import type { AnalysisResults3D, FullEnvelope3D } from '../types-3d';
 import { computeDiagramValueAt, computePlanarDiagramExtrema } from '../diagrams';
 import { computeSpatialDiagramExtrema, type Diagram3DKind } from '../diagrams-3d';
@@ -165,17 +165,18 @@ export interface Extreme { value: number; x: number }
  * The envelope's value at each of its stations: the larger in magnitude of the most positive and
  * the most negative over the combinations.
  */
-function envelopeValues(d: { tPositions: number[]; posValues: number[]; negValues: number[] }): Array<{ t: number; v: number }> {
+function envelopeValues(d: ElementEnvelopeDiagram, length: number): Array<{ x: number; v: number }> {
+  const stations = new Map(d.criticalStations?.map(station => [station.index, station.x]));
   return d.tPositions.map((t, j) => {
     const p = d.posValues[j] ?? 0, n = d.negValues[j] ?? 0;
-    return { t, v: Math.abs(n) > Math.abs(p) ? n : p };
+    return { x: stations.get(j) ?? t * length, v: Math.abs(n) > Math.abs(p) ? n : p };
   });
 }
 
 /** The largest of an envelope along its member: the first station where it is reached. */
-function envelopeExtreme(vals: Array<{ t: number; v: number }>, L: number): Extreme {
+function envelopeExtreme(vals: Array<{ x: number; v: number }>): Extreme {
   let best: Extreme = { value: 0, x: 0 };
-  for (const { t, v } of vals) if (Math.abs(v) > Math.abs(best.value) * (1 + 1e-9) + 1e-12) best = { value: v, x: t * L };
+  for (const { x, v } of vals) if (Math.abs(v) > Math.abs(best.value) * (1 + 1e-9) + 1e-12) best = { value: v, x };
   return best;
 }
 
@@ -208,8 +209,8 @@ export function forceTable2D(
     if (env) {
       const e = env.get(ef.elementId);
       if (!e?.tPositions.length) { h.push(`<tr><td>${ef.elementId}</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>`); continue; }
-      const vals = envelopeValues(e).map(({ t: u, v }) => ({ t: u, v: sign * v }));
-      vI = vals[0]!.v; vJ = vals[vals.length - 1]!.v; best = envelopeExtreme(vals, ef.length);
+      const vals = envelopeValues(e, ef.length).map(({ x, v }) => ({ x, v: sign * v }));
+      vI = vals[0]!.v; vJ = vals[vals.length - 1]!.v; best = envelopeExtreme(vals);
     } else {
       const at = (x: number) => sign * computeDiagramValueAt(kind, x / ef.length, ef);
       const extrema = computePlanarDiagramExtrema(kind, ef);
@@ -256,7 +257,7 @@ export function forceTable3D(
       const env = envOf.get(k);
       if (env) {
         const e = env.get(ef.elementId);
-        return e?.tPositions.length ? envelopeExtreme(envelopeValues(e), ef.length) : null;
+        return e?.tPositions.length ? envelopeExtreme(envelopeValues(e, ef.length)) : null;
       }
       const result = computeSpatialDiagramExtrema(ef, k);
       return { value: result.maxAbsValue, x: result.maxAbsX };

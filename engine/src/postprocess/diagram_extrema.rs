@@ -7,7 +7,34 @@ const ALIASED_CUTS: &str = "distinct member diagram cuts share a normalized stat
 enum Location {
     Grid,
     Boundary(f64),
-    Interior { start: f64, end: f64, u: f64 },
+    Interior(Distance),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct Distance {
+    pub x: f64,
+    pub residual: f64,
+}
+
+impl Distance {
+    fn exact(x: f64) -> Self {
+        Self { x, residual: 0.0 }
+    }
+
+    fn product(a: f64, b: f64) -> Self {
+        let x = a * b;
+        Self { x, residual: a.mul_add(b, -x) }
+    }
+
+    fn shifted(self, offset: f64) -> Self {
+        let (x, error) = add_distance(self.x, offset);
+        let (x, residual) = add_distance(x, error + self.residual);
+        Self { x, residual }
+    }
+
+    fn signed_part(self) -> f64 {
+        if self.x == 0.0 { self.residual } else { self.x }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -33,19 +60,21 @@ impl Cut {
     fn interior(length: f64, start: f64, end: f64, u: f64) -> Self {
         let lo = (start + 0.0) / length;
         let hi = (end + 0.0) / length;
-        Self { t: lo + (hi - lo) * u, right: false, location: Location::Interior { start, end, u } }
+        let width = Distance::exact(end).shifted(-start);
+        let distance = Distance::product(width.x, u).shifted(width.residual * u).shifted(start);
+        Self { t: lo + (hi - lo) * u, right: false, location: Location::Interior(distance) }
     }
 
-    pub fn station_x(self, length: f64) -> f64 {
+    fn distance(self, length: f64) -> Distance {
         match self.location {
-            Location::Grid => self.t * length,
-            Location::Boundary(x) => x,
-            Location::Interior { start, end, u } => start + (end - start) * u,
+            Location::Grid => Distance::product(self.t, length),
+            Location::Boundary(x) => Distance::exact(x),
+            Location::Interior(distance) => distance,
         }
     }
 
-    fn includes(self, t: f64) -> bool {
-        t < self.t || (self.right && t == self.t)
+    pub fn station_x(self, length: f64) -> f64 {
+        self.distance(length).x
     }
 }
 
@@ -63,7 +92,7 @@ pub(crate) fn sort_cuts(cuts: &mut Vec<Cut>) -> Result<(), &'static str> {
             }
             if station.iter().any(|cut| cut.right && cut.location == Location::Boundary(x))
                 && station.iter().any(|cut| match cut.location {
-                    Location::Interior { start, end, u } => x - start != (end - start) * u,
+                    Location::Interior(distance) => distance != Distance::exact(x),
                     _ => false,
                 })
             {
@@ -86,11 +115,13 @@ pub(crate) fn sort_cuts(cuts: &mut Vec<Cut>) -> Result<(), &'static str> {
     Ok(())
 }
 
-pub(crate) fn physical_envelope_station(cuts: &[Cut], length: f64) -> Option<f64> {
-    cuts.iter().find_map(|cut| match cut.location {
-        Location::Boundary(x) => Some(x),
-        _ => None,
-    }).or_else(|| cuts.iter().find(|cut| cut.location != Location::Grid).map(|cut| cut.station_x(length)))
+pub(crate) fn physical_envelope_station(cuts: &[Cut], length: f64) -> Result<Option<Distance>, &'static str> {
+    let mut distances = cuts.iter().filter(|cut| cut.location != Location::Grid).map(|cut| cut.distance(length));
+    let first = distances.next();
+    if first.is_some_and(|distance| distances.any(|other| other != distance)) {
+        return Err(ALIASED_CUTS);
+    }
+    Ok(first)
 }
 
 pub(crate) fn uniform_cuts(count: usize) -> impl Iterator<Item = Cut> {
@@ -161,6 +192,12 @@ impl DiagramSum {
         self.high = high;
     }
 
+    fn add_product(&mut self, a: f64, b: f64) {
+        let product = Distance::product(a, b);
+        self.add(product.x);
+        self.add(product.residual);
+    }
+
     fn value(mut self) -> f64 {
         let mut high = self.high;
         while let Some(low) = self.partials.pop() {
@@ -194,58 +231,104 @@ pub(crate) fn distributed_actions(
     loads.iter().cloned().chain(legacy)
 }
 
+fn loaded_distance(arm: Distance, span: Distance) -> Distance {
+    if arm.x < span.x || (arm.x == span.x && arm.residual <= span.residual) { arm } else { span }
+}
+
+fn uniform_moment_area(arm: Distance, loaded: Distance) -> Distance {
+    let lever = arm.shifted(-loaded.x / 2.0).shifted(-loaded.residual / 2.0);
+    Distance::product(loaded.x, lever.x)
+        .shifted(loaded.x * lever.residual)
+        .shifted(loaded.residual * lever.x)
+        .shifted(loaded.residual * lever.residual)
+}
+
+fn distributed_term_residual(load: &DistributedLoadInfo, arm: Distance, span: Distance, force: f64) -> (f64, f64) {
+    let Distance { x, residual } = arm;
+    if span.x <= 0.0 || (residual == 0.0 && span.residual == 0.0) || arm.signed_part() <= 0.0 {
+        return (0.0, 0.0);
+    }
+    let loaded = loaded_distance(arm, span);
+    let u = loaded.x / span.x;
+    let q = if load.q_i == load.q_j { load.q_i } else { load.q_i * (1.0 - u) + load.q_j * u };
+    let du = loaded.residual / span.x;
+    let dq = load.q_j * du - load.q_i * du;
+    let span_correction = (u + du) * (span.residual / span.x);
+    let span_load = load.q_i * span_correction - load.q_j * span_correction;
+    let loaded_force = loaded.residual * (q + dq / 2.0);
+    let span_force = (span_load / 2.0) * loaded.x;
+    let tail = (x - loaded.x) + (residual - loaded.residual);
+    let moment = residual * force + loaded.residual * (loaded.residual * (q / 2.0 + dq / 6.0))
+        + ((span_load / 6.0) * loaded.x) * loaded.x + (loaded_force + span_force) * tail;
+    (loaded_force + span_force, moment)
+}
+
 impl<D, P> Curve<D, P>
 where
     D: Iterator<Item = DistributedLoadInfo> + Clone,
     P: Iterator<Item = PointAction> + Clone,
 {
     pub fn checked_value(&self, cut: Cut) -> Result<f64, &'static str> {
-        let (x, offset, t) = match cut.location {
-            Location::Grid => {
-                let mut hits = self.action_distances().filter(|a| a / self.length == cut.t);
-                let exact = hits.next();
-                if let Some(x) = exact {
-                    if hits.any(|a| a != x) || (cut.t == 0.0 && x != 0.0) || (cut.t == 1.0 && x != self.length) {
-                        return Err(ALIASED_CUTS);
-                    }
+        let distance = if cut.location == Location::Grid {
+            let mut hits = self.action_distances().filter(|a| a / self.length == cut.t);
+            if let Some(x) = hits.next() {
+                if hits.any(|a| a != x) || (cut.t == 0.0 && x != 0.0) || (cut.t == 1.0 && x != self.length) {
+                    return Err(ALIASED_CUTS);
                 }
-                (exact.unwrap_or(cut.t * self.length), 0.0, cut.t)
+                Distance::exact(x)
+            } else {
+                cut.distance(self.length)
             }
-            Location::Boundary(x) => (x, 0.0, cut.t),
-            Location::Interior { start, end, u } => (start, (end - start) * u, start / self.length),
+        } else {
+            cut.distance(self.length)
         };
-        let distance = |a| (x - a) + offset;
         let mut value = DiagramSum::default();
         value.add(self.start);
-        value.add(self.slope * x);
-        value.add(self.change * t);
-        if offset != 0.0 {
-            value.add(self.slope * offset);
-            value.add(self.change * (offset / self.length));
+        value.add(self.slope * distance.x);
+        value.add(self.slope * distance.residual);
+        if matches!(cut.location, Location::Interior(_)) {
+            value.add(self.change * (distance.x / self.length));
+            value.add(self.change * (distance.residual / self.length));
+        } else {
+            value.add(self.change * cut.t);
         }
         for d in self.distributed.clone() {
-            let (force, moment) = distributed_load_terms_at_distance(d.q_i, d.q_j, d.b - d.a, distance(d.a));
-            value.add(match self.response {
-                Response::Force(sign) => sign * force,
-                Response::Moment(sign) => sign * moment,
-            });
+            let arm = distance.shifted(-d.a);
+            let span = Distance::exact(d.b).shifted(-d.a);
+            if d.q_i == d.q_j && span.x > 0.0 && arm.signed_part() > 0.0 {
+                let loaded = loaded_distance(arm, span);
+                let (factor, geometry, usable) = match self.response {
+                    Response::Force(sign) => (sign * d.q_i, loaded, true),
+                    Response::Moment(sign) => {
+                        let area = uniform_moment_area(arm, loaded);
+                        (sign * d.q_i, area, area.x.is_normal() && (area.x * d.q_i).is_finite())
+                    }
+                };
+                if usable {
+                    value.add_product(factor, geometry.x);
+                    if geometry.residual != 0.0 {
+                        value.add_product(factor, geometry.residual);
+                    }
+                    continue;
+                }
+            }
+            let (force, moment) = distributed_load_terms_at_distance(d.q_i, d.q_j, span.x, arm.x);
+            let (force_residual, moment_residual) = distributed_term_residual(&d, arm, span, force);
+            let (high, low) = match self.response {
+                Response::Force(sign) => (sign * force, sign * force_residual),
+                Response::Moment(sign) => (sign * moment, sign * moment_residual),
+            };
+            value.add(high);
+            value.add(low);
         }
         for p in self.points.clone() {
-            let (base, subtraction_error) = add_distance(x, -p.a);
-            let (dx, offset_error) = add_distance(base, offset);
-            let (dx, residual) = add_distance(dx, subtraction_error + offset_error);
-            let side = if dx == 0.0 { residual } else { dx };
-            let point_t = p.a / self.length;
-            let included = if cut.location == Location::Grid {
-                cut.includes(point_t)
-            } else {
-                side > 0.0 || (cut.right && side == 0.0)
-            };
-            if included {
-                if p.slope != 0.0 && (cut.location != Location::Grid || cut.t != point_t) {
-                    value.add(p.slope * dx);
-                    if residual != 0.0 {
-                        value.add(p.slope * residual);
+            let arm = distance.shifted(-p.a);
+            let side = arm.signed_part();
+            if side > 0.0 || (cut.right && side == 0.0) {
+                if p.slope != 0.0 {
+                    value.add_product(p.slope, arm.x);
+                    if arm.residual != 0.0 {
+                        value.add_product(p.slope, arm.residual);
                     }
                 }
                 value.add(p.jump);
@@ -280,7 +363,9 @@ where
         let mut ordinate = None;
         let mut validate = |start, end| {
             self.visit_extrema(start, end, Some(t), |cut, change, u| {
-                let actual = (t * self.length - start) / (end - start);
+                let distance = Cut::left(t).distance(self.length).shifted(-start);
+                let width = end - start;
+                let actual = distance.x / width + distance.residual / width;
                 let peak = self.checked_value(cut)?;
                 if !(0.0 < actual && actual < 1.0 && peak.is_finite())
                     || peak + change_between(change, u, actual) != peak

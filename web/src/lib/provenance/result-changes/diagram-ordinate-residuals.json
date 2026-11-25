@@ -1,0 +1,32 @@
+{
+  "id": "diagram-ordinate-residuals",
+  "date": "2026-11-25",
+  "prs": [2587],
+  "area": "analysis",
+  "when": { "all": ["members"], "any": ["memberLoads", "selfWeight", "combinations", "movingLoads", "magnitudeCombinations"] },
+  "quantities": ["diagrams", "envelope", "beamStations", "movingLoads", "solve.ok"],
+  "title": {
+    "en": "Physical ordinates and stations in member envelopes",
+    "es": "Valores y posiciones físicas en las envolventes de barras",
+    "pt": "Valores e posições físicas nas envoltórias de barras",
+    "de": "Physische Ordinaten und Positionen in Stabhüllkurven",
+    "fr": "Ordonnées et positions physiques dans les enveloppes de barres",
+    "tr": "Eleman zarflarında fiziksel ordinatlar ve konumlar",
+    "zh": "杆件包络中的纵坐标和实际位置",
+    "hu": "Fizikai ordináták és helyek a rúdburkolókban"
+  },
+  "explanation": {
+    "en": "Diagrams retain the physical integration distance and the rounding error of point-force moment products. Envelopes and reports carry the physical position of their extrema. Critical envelope exports distinguish physical cuts with the same normalized coordinate. Recompute and re-export affected results.",
+    "es": "Los diagramas conservan la distancia física de integración y el error de redondeo del producto que da el momento de una fuerza puntual. Las envolventes y los informes conservan la posición física de sus extremos. Las exportaciones críticas de envolventes distinguen cortes físicos con la misma coordenada normalizada. Recalcule y vuelva a exportar los resultados afectados.",
+    "pt": "Os diagramas preservam a distância física de integração e o erro de arredondamento do produto que calcula o momento de uma força pontual. Envoltórias e relatórios preservam a posição física dos extremos. As exportações críticas de envoltórias distinguem cortes físicos com a mesma coordenada normalizada. Recalcule e exporte novamente os resultados afetados.",
+    "de": "Diagramme berücksichtigen den physischen Integrationsabstand und den Rundungsfehler des Produkts für Momente aus Einzelkräften. Hüllkurven und Berichte geben die physische Position der Extremwerte an. Exporte kritischer Hüllkurvenstationen unterscheiden physische Schnitte mit derselben normierten Koordinate. Berechnen und exportieren Sie betroffene Ergebnisse erneut.",
+    "fr": "Les diagrammes conservent la distance physique d’intégration et l’erreur d’arrondi du produit donnant le moment d’une force ponctuelle. Les enveloppes et rapports conservent la position physique de leurs extrema. Les exports d’enveloppes aux stations critiques distinguent les coupes physiques qui ont la même coordonnée normalisée. Recalculez et réexportez les résultats concernés.",
+    "tr": "Diyagramlar fiziksel entegrasyon mesafesini ve noktasal kuvvet momenti çarpımının yuvarlama hatasını korur. Zarflar ve raporlar ekstremumların fiziksel konumunu taşır. Kritik zarf dışa aktarımları aynı normalize koordinata sahip fiziksel kesitleri ayırt eder. Etkilenen sonuçları yeniden hesaplayın ve dışa aktarın.",
+    "zh": "内力图保留积分的实际距离，以及计算集中力产生的弯矩时乘积的舍入误差。包络和报告保留极值的实际位置。临界包络导出可区分归一化坐标相同的实际截面。请重新计算并导出受影响的结果。",
+    "hu": "A diagramok megőrzik az integrálás fizikai távolságát és a pontszerű erő nyomatékát adó szorzat kerekítési hibáját. A burkolók és a jelentések megőrzik a szélsőértékek fizikai helyét. A kritikus burkológörbe-exportok megkülönböztetik az azonos normalizált koordinátájú fizikai metszeteket. Számítsa újra és exportálja ismét az érintett eredményeket."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-diagram-ordinate-residuals.md",
+    "heading": "Physical ordinates and stations in member envelopes"
+  }
+}

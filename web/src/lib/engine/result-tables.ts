@@ -261,8 +261,7 @@ export function countCriticalForceEnvelopeRows(sources: readonly Source[], opts:
 }
 
 export function* criticalForceEnvelopeRows(sources: readonly Source[], opts: TableOptions): IterableIterator<EnvelopeRow> {
-  for (const { entity, t, x, xResidual, face, values } of criticalEnvelopeStations(sources, opts)) {
-    const end = t === 0 ? 'i' : t === 1 ? 'j' : undefined;
+  for (const { entity, end, x, xResidual, face, values } of criticalEnvelopeStations(sources, opts)) {
     const [first, ...rest] = values();
     const envelope = firstEnvelopeRow({ entity, end, x, xResidual, face }, first!, sources[0]!);
     rest.forEach((row, i) => foldEnvelopeRow(envelope, row, sources[i + 1]!));

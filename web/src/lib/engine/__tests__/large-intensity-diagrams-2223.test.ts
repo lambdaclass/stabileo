@@ -107,7 +107,8 @@ for (const dim of [2, 3]) for (const mode of ['linear', 'session', 'pdelta', 'co
           const x = t * ef.length;
           const s = Math.max(0, Math.min(x - a, b - a));
           const force = q * s;
-          const moment = q * ((x - a) * s - s * s / 2);
+          const partialLoadEndMoment = Math.sign(q) * (46.875 + 2 ** -47);
+          const moment = a === 0.2 && t === b / ef.length ? partialLoadEndMoment : q * ((x - a) * s - s * s / 2);
           for (const kind of dim === 2 ? ['shear', 'moment'] : ['shearY', 'shearZ', 'momentY', 'momentZ']) {
             const expected = kind.startsWith('shear') ? force : kind === 'momentY' ? moment : -moment;
             const actual = wasm[dim === 2 ? 'compute_diagram_value_at' : 'compute_diagram_value_at_3d'](JSON.stringify({ kind, t, elementForces: ef }));

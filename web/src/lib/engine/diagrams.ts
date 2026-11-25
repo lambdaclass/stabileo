@@ -2,7 +2,7 @@
 // Given end forces and distributed load, compute intermediate values
 
 import { computeDeformedShape as wasmComputeDeformedShape } from './wasm-solver';
-import { checkedCurveValue, curveExtrema, diagramCriticalPoints, diagramCurvePoints, diagramLineValue, distributedActionTerms, fullSpanFallback, indexDiagramExtrema, memberDiagram, unavailableDiagramExtrema, type DiagramStation } from './member-diagram';
+import { checkedCurveValue, curveExtrema, diagramCriticalPoints, diagramCurvePoints, diagramLineValue, distributedActionTerms, fullSpanFallback, indexDiagramExtrema, memberDiagram, multiplyDiagramDistance, unavailableDiagramExtrema, type DiagramStation } from './member-diagram';
 
 export interface DiagramPoint extends DiagramStation {
   /** World coordinates */
@@ -145,11 +145,11 @@ export function computeDiagramValueAt(kind: PlanarKind, t: number, ef: PlanarFor
   if (!(length > 0 && Number.isFinite(length))) throw unavailableDiagramExtrema();
   if (kind === 'axial') {
     if (!ef.distributedLoadsX?.length && !ef.pointLoads?.some(p => p.px)) {
-      return diagramLineValue(ef.nStart, ef.nEnd - ef.nStart, 0, t * length, t);
+      return diagramLineValue(ef.nStart, ef.nEnd - ef.nStart, 0, { x: t * length, residual: 0 }, t);
     }
   } else if (!ef.distributedLoads?.length && !ef.pointLoads?.length && !ef.qI && !ef.qJ) {
     const moment = kind === 'moment';
-    return diagramLineValue(moment ? ef.mStart : ef.vStart, 0, moment ? -ef.vStart : 0, t * length, t);
+    return diagramLineValue(moment ? ef.mStart : ef.vStart, 0, moment ? -ef.vStart : 0, multiplyDiagramDistance(t, length), t);
   }
   const curve = planarCurve(kind, ef);
   if (!curve.hasDistributedActions) return curve.value({ t });

@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, expect, it } from 'vitest';
 import { strFromU8, unzipSync } from 'fflate';
 import { read, utils, write } from 'xlsx';
 import { buildExcelWorkbook } from '../excel';
@@ -11,8 +11,6 @@ import { reexpandVariableResults } from '../../engine/variable-member-results';
 import { computeEnvelope3D, initSolver } from '../../engine/wasm-solver';
 import { modelStore, uiStore } from '../../store';
 import { publishCombinations3D } from '../../store/active-results';
-import { t } from '../../i18n';
-import { engineGuarded } from '../../store/engine-action';
 import { currentWorkbookParts, currentWorkbookSheets, streamWorkbookZip } from '../../store/project-workbook';
 import { resultSheetParts, resultSheets, type WorkbookSource } from '../workbook-results';
 import { partSize, type WorkbookSheet } from '../workbook-cells';
@@ -168,7 +166,7 @@ it.each([false, true])('known wrong result: #2226 compares every source at the u
   );
 });
 
-it('known wrong result: #2226 refuses an aliased cross-case jump and accepts the adjacent representable layout', async () => {
+it('known wrong result: #2226 refuses an aliased cross-case jump in normalized envelopes and accepts the adjacent representable layout', async () => {
   const length = 9, a = 7 + 12 * Number.EPSILON;
   const first = solvedMember(length), second = structuredClone(first);
   let b = a + 4 * Number.EPSILON;
@@ -179,16 +177,10 @@ it('known wrong result: #2226 refuses an aliased cross-case jump and accepts the
   const input = { sources: sources.map(source => ({ ...source, kind: 'combination' as const })), stations: 'critical', statics: null } as const;
   const want = (name: string) => name === 'Envelope';
   expect(a / length).toBe(b / length);
-  expect(() => envelopeRows('forces', sources, options)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
-  expect(engineGuarded(() => envelopeRows('forces', sources, options))).toEqual({
-    value: null, error: t(DIAGRAM_EXTREMA_UNAVAILABLE),
-  });
-  expect(() => resultSheets(input, want)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
-  const completed = vi.fn();
-  await expect(streamWorkbookZip(resultSheetParts(input, want), completed)).rejects.toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
-  expect(completed).not.toHaveBeenCalled();
+  expect(() => computeEnvelope3D([first, second])).toThrow(/normalized station/i);
   b += 4 * Number.EPSILON;
   second.elementForces[0]!.pointLoadsZ[0]!.a = b;
+  expect(computeEnvelope3D([first, second])!.shearZ.globalMax).toBe(8);
   expect(envelopeRows('forces', sources, options).filter(row => row.x === b)).toHaveLength(2);
   expect(records(resultSheets(input, want)[0]!).filter(row => row['x [m]'] === b && row.component === 'Vz')).toHaveLength(2);
   await expect(streamWorkbookZip(resultSheetParts(input, want))).resolves.toBeInstanceOf(Blob);
@@ -281,6 +273,8 @@ it.each(['linear', 'pdelta'] as const)('known wrong result: #2226 rebasing keeps
     expect(rebased.tPositions.flatMap((t, i) => t === tA || t === tB ? [[t, rebased.negValues[i], rebased.posValues[i]]] : [])).toEqual([
       [tA, 0, 0], [tA, 0, 8], [tB, 0, 8], [tB, 0, 12],
     ]);
+    expect(rebased.criticalStations!.filter(station => station.right && station.x === 1.25)
+      .map(station => station.xResidual)).toEqual([-3 * 2 ** -55, 0]);
   }).not.toThrow();
   expect.soft(() => {
     const at = prepareDiagramEvaluator3D(force, 'shearZ');
@@ -308,8 +302,18 @@ it.each(['linear', 'pdelta'] as const)('known wrong result: #2226 rebasing keeps
   );
   piece.forces.pointLoadsZ[1]!.a = 0.25 - 2 ** -55;
   expect(() => computeEnvelope3D([data])).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
-  expect(() => resultSheets(input, want)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
-  await expect(streamWorkbookZip(resultSheetParts(input, want))).rejects.toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+  const aliased = resultSheets(input, want)[0]!;
+  const expected = [
+    [-3 * 2 ** -55, 'left', 0, 0], [-3 * 2 ** -55, 'right', 8, 8],
+    [-(2 ** -55), 'left', 8, 8], [-(2 ** -55), 'right', 12, 12],
+  ];
+  const atAlias = records(aliased).filter(row => row.component === 'Vz' && row['x [m]'] === 1.25);
+  expect(atAlias.map(row => [row['x residual [m]'], row.face, row.min, row.max])).toEqual(expected);
+  const aliasedZip = unzipSync(new Uint8Array(await (await streamWorkbookZip(resultSheetParts(input, want))).arrayBuffer()));
+  const aliasedCsv = strFromU8(aliasedZip[Object.keys(aliasedZip).find(name => name.endsWith('-Envelope.csv'))!]!);
+  expect(aliasedCsv.split('\n').filter(line => line.startsWith('forces,' + member + ',,1.25,Vz,'))).toEqual(
+    atAlias.map(row => aliased.rows[0]!.map(key => row[key]).join(',')),
+  );
 });
 
 it.each(['linear', 'pdelta'] as const)('known wrong result: #2226 identifies the same-metre cuts in tables, XLSX and CSV (%s)', async method => {
@@ -346,7 +350,7 @@ it.each(['linear', 'pdelta'] as const)('known wrong result: #2226 identifies the
   );
 });
 
-it.skip('known wrong result: #2226 carries both words of local and rebased WASM envelope stations', () => {
+it('known wrong result: #2226 carries both words of local and rebased WASM envelope stations', () => {
   const member = cantilever(3);
   const { first, ids } = twoCombinations();
   for (const x of [1, 2]) modelStore.addPointLoadOnElement(member, x, 0, { my: 8, caseId: first });
@@ -358,15 +362,15 @@ it.skip('known wrong result: #2226 carries both words of local and rebased WASM 
   piece.forces.distributedLoadsZ = [{ a: a - 0.125, b: a + 0.375, qI: 1, qJ: -3 + 2 ** -50 }];
   piece.forces.pointLoadsZ = [{ a: 0.75, p: 8 }];
   const raw = computeEnvelope3D([reexpandVariableResults(data).results])!.shearZ.elements.find(e => e.elementId === piece.forces.elementId)!;
-  const rawStations = raw.criticalStations as (NonNullable<typeof raw.criticalStations>[number] & { xResidual?: number })[];
+  const rawStations = raw.criticalStations!;
   expect.soft(rawStations.find(s => s.x === a && s.xResidual !== 0)?.xResidual).toBe(2 ** -55);
   const rebased = computeEnvelope3D([data])!.shearZ.elements.find(e => e.elementId === member)!;
-  const rebasedStations = rebased.criticalStations as (NonNullable<typeof rebased.criticalStations>[number] & { xResidual?: number })[];
+  const rebasedStations = rebased.criticalStations!;
   expect.soft(rebasedStations.find(s => s.x === 1.25 + 2 ** -52)?.xResidual).toBe(-3 * 2 ** -55);
   expect.soft(rebasedStations.filter(s => s.x === 1.75).map(s => [s.right, s.xResidual])).toEqual([[false, 0], [true, 0]]);
 });
 
-it.skip('known wrong result: #2226 exports two physical events that share one normalized coordinate', async () => {
+it('known wrong result: #2226 exports two physical events that share one normalized coordinate', async () => {
   const length = 9, a = 7 + 12 * Number.EPSILON, b = a + 4 * Number.EPSILON;
   const left = solvedMember(length), right = structuredClone(left);
   left.elementForces[0]!.pointLoadsZ = [{ a, p: 8 }];

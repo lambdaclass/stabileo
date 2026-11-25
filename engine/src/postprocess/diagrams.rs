@@ -824,7 +824,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2437"]
     fn pr2587_native_queries_keep_point_force_products() {
         use crate::postprocess::{combinations, diagrams_3d};
         let (_, records) = round5_diagram_results_at(3.0);
@@ -859,7 +858,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2437"]
     fn pr2587_native_envelopes_integrate_the_cut_residual() {
         use crate::postprocess::combinations::{compute_envelope, compute_envelope_3d};
         let (_, records) = round5_diagram_results_at(2.0);
@@ -892,7 +890,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2226"]
     fn pr2587_native_envelopes_serialize_station_residual() {
         use crate::postprocess::combinations::{compute_envelope, compute_envelope_3d};
         let (_, records) = round5_diagram_results_at(1.0);

@@ -8,7 +8,7 @@ import {
   solveMovingLoads as solveMovingLoadsWasm, solveMovingLoads3D as solveMovingLoads3DWasm,
 } from '../wasm-solver';
 import { decodeStationBuffer } from '../station-buffer';
-import { forceTable3D } from "../report/calc-report-extra";
+import { forceTable3D } from '../report/calc-report-extra';
 import { computeDiagramGlobalMax } from '../../canvas/draw-diagrams';
 import { computePointwiseEnvelope, solveMovingLoads, solveMovingLoadsAsync } from '../moving-loads';
 import { buildPath3D, foldPosition, sweepMovingLoad3D, trainLoads } from '../moving-loads-3d';
@@ -460,17 +460,20 @@ it('known wrong result: #2437 preserves the point-force lever residual in browse
   }
 });
 
-it.skip('known wrong result: #2437 evaluates the adjacent point force at the product distance', () => {
+it('known wrong result: #2437 evaluates the adjacent point force at the product distance', () => {
   const [, , planar, spatial] = forceRecords(3);
   const p = 2 ** 54;
   const boundary = 1 / 3;
-  for (const [t, expected] of [[boundary - 2 ** -54, 0], [boundary, 0], [boundary + 2 ** -54, 2]] as const) {
+  for (const [t, expected, linearMoment] of [[boundary - 2 ** -54, 0, -4], [boundary, 0, -1], [boundary + 2 ** -54, 2, 2]] as const) {
     for (const result of planar) {
       const ef = result.elementForces[0]!;
       ef.pointLoads = [{ a: 1, p: -p }];
       expect.soft(computeDiagramValueAt('moment', t, ef)).toBe(expected);
-      expect.soft(prepareDiagramValueAt('moment', ef)(t, true)).toBe(expected);
+      expect.soft(prepareDiagramValueAt('moment', ef)(t)).toBe(expected);
       expect.soft(computeDiagramValueAtWasm('moment', t, ef)).toBe(expected);
+      const affine = { ...ef, pointLoads: [], mStart: -p, vStart: -p };
+      expect.soft(computeDiagramValueAt('moment', t, affine)).toBe(linearMoment);
+      expect.soft(computeDiagramValueAtWasm('moment', t, affine)).toBe(linearMoment);
     }
     for (const result of spatial) {
       const ef = result.elementForces[0]!;
@@ -478,14 +481,19 @@ it.skip('known wrong result: #2437 evaluates the adjacent point force at the pro
       expect.soft(evaluateDiagramAt(ef, 'momentY', t)).toBe(expected);
       expect.soft(prepareDiagramEvaluator3D(ef, 'momentY')(t, true)).toBe(expected);
       expect.soft(computeDiagramValueAt3DWasm('momentY', t, ef)).toBe(expected);
+      const affine = { ...ef, pointLoadsZ: [], myStart: -p, vzStart: p };
+      expect.soft(evaluateDiagramAt(affine, 'momentY', t)).toBe(linearMoment);
+      expect.soft(computeDiagramValueAt3DWasm('momentY', t, affine)).toBe(linearMoment);
     }
   }
 });
 
-it.skip('known wrong result: #2437 accumulates the non-power-of-two point-force product error', () => {
+it('known wrong result: #2437 accumulates the non-power-of-two point-force product error', () => {
   const [plane, space, planar, spatial] = forceRecords(2);
   const p = 2 ** 54 + 4;
   const m = 3 * 2 ** 52 + 4;
+  const members = [{ elementId: 1, length: 2, sectionId: 1, materialId: 1 }];
+  const numStations = 3;
   for (const [a, expected] of [[0.25, -1], [0.5, p / 2 - m]] as const) {
     for (const result of planar) {
       const ef = result.elementForces[0]!;
@@ -497,6 +505,9 @@ it.skip('known wrong result: #2437 accumulates the non-power-of-two point-force 
       expect.soft(computeDiagramValueAtWasm('moment', 0.5, ef)).toBe(expected);
       expect.soft(computeDiagrams2D(plane, result).moment[0]!.points.find((point: { t: number }) => point.t === 0.5)?.value).toBe(expected);
       const diagram = computeEnvelope([result])!.moment.elements[0]!;
+      const request = { members, numStations, combinations: [{ comboId: 1, results: result }] };
+      expect.soft(extractBeamStations(request).stations.find(s => s.t === 0.5)?.comboForces[0]?.m).toBe(expected);
+      expect.soft(extractBeamStationsGrouped(request).members[0]?.stations.find(s => s.t === 0.5)?.comboForces[0]?.m).toBe(expected);
       expect.soft(diagram.negValues[diagram.tPositions.indexOf(0.5)]).toBe(expected);
     }
     for (const result of spatial) {
@@ -509,17 +520,26 @@ it.skip('known wrong result: #2437 accumulates the non-power-of-two point-force 
       expect.soft(computeDiagramValueAt3DWasm('momentY', 0.5, ef)).toBe(expected);
       expect.soft(computeDiagrams3D(space, result).momentY[0]!.points.find((point: { t: number }) => point.t === 0.5)?.value).toBe(expected);
       const diagram = computeEnvelope3D([result])!.momentY.elements[0]!;
+      const request = { members, numStations, combinations: [{ comboId: 1, results: result }] };
+      expect.soft(extractBeamStations3D(request).stations.find(s => s.t === 0.5)?.comboForces[0]?.my).toBe(expected);
+      expect.soft(extractBeamStationsGrouped3D(request).members[0]?.stations.find(s => s.t === 0.5)?.comboForces[0]?.my).toBe(expected);
+      const packed = extractBeamStationBuffer3D({
+        members, numStations, combinations: [{ comboId: 1, elementForces: result.elementForces }],
+      });
+      expect.soft(decodeStationBuffer(packed!, new Map())[0]?.comboResults[0]?.stations.find(s => s.t === 0.5)?.my).toBe(expected);
       expect.soft(diagram.negValues[diagram.tPositions.indexOf(0.5)]).toBe(expected);
     }
   }
 });
 
-it.skip('known wrong result: #2437 integrates distributed actions at the physical WASM envelope cut', () => {
+it('known wrong result: #2437 integrates distributed actions at the physical WASM envelope cut', () => {
   const [, , planar, spatial] = forceRecords(2);
   const q = 2 ** 54;
   const uniform = { a: 0, b: 2, qI: q, qJ: q };
   const t = 1.25 / 2;
   for (const sign of [-1, 1]) {
+    const momentLoad = { a: 1, b: 1.5, qI: 1, qJ: 1 };
+    const startShear = -0.25 - sign / q;
     const ramp = { a: 1, b: 1.5, qI: 1, qJ: -1 + sign * 2 ** -51 };
     for (const result of planar) {
       const peak = structuredClone(result);
@@ -529,6 +549,14 @@ it.skip('known wrong result: #2437 integrates distributed actions at the physica
       const diagram = computeEnvelope([peak, result])!.shear.elements[0]!;
       const i = diagram.tPositions.indexOf(t);
       expect.soft(sign < 0 ? diagram.negValues[i] : diagram.posValues[i]).toBe(sign);
+      peak.elementForces[0]!.distributedLoads = [momentLoad];
+      peak.elementForces[0]!.vStart = startShear;
+      peak.elementForces[0]!.mStart = 0;
+      result.elementForces[0]!.vStart = 0;
+      result.elementForces[0]!.mStart = (25 / 32) * q;
+      const moment = computeEnvelope([peak, result])!.moment.elements[0]!;
+      const at = moment.tPositions.indexOf(t);
+      expect.soft(sign < 0 ? moment.posValues[at] : moment.negValues[at]).toBe(-sign * 1.25);
     }
     for (const result of spatial) {
       const peak = structuredClone(result);
@@ -538,11 +566,21 @@ it.skip('known wrong result: #2437 integrates distributed actions at the physica
       const diagram = computeEnvelope3D([peak, result])!.shearZ.elements[0]!;
       const i = diagram.tPositions.indexOf(t);
       expect.soft(sign < 0 ? diagram.negValues[i] : diagram.posValues[i]).toBe(sign);
+      peak.elementForces[0]!.distributedLoadsZ = [momentLoad];
+      peak.elementForces[0]!.vzStart = startShear;
+      peak.elementForces[0]!.myStart = 0;
+      result.elementForces[0]!.vzStart = 0;
+      result.elementForces[0]!.myStart = -(25 / 32) * q;
+      const moment = computeEnvelope3D([peak, result])!.momentY.elements[0]!;
+      const at = moment.tPositions.indexOf(t);
+      expect.soft(sign < 0 ? moment.negValues[at] : moment.posValues[at]).toBe(sign * 1.25);
+      const physical = { t, distance: { x: 1.25, residual: sign / q } };
+      expect.soft(evaluateDiagramAt(result.elementForces[0]!, 'momentY', physical)).toBe(sign * 1.25);
     }
   }
 });
 
-it.skip('known wrong result: #2226 reports the physical location of a spatial stationary shear', () => {
+it('known wrong result: #2226 reports the physical location of a spatial stationary shear', () => {
   const [, , , spatial] = forceRecords(7);
   const x = 29 / 16;
   const value = 25 / 32;
@@ -556,5 +594,7 @@ it.skip('known wrong result: #2226 reports the physical location of a spatial st
     foldPosition(envelope, result, 4);
     expect.soft(envelope.get(ef.elementId)?.vz.max).toEqual({ value, x, position: 4 });
     expect.soft(forceTable3D('shear', result, String, 'kN', String, 'm')).toContain('0.78125 (x = 1.8125 m)');
+    const wasm = computeEnvelope3D([result])!;
+    expect.soft(forceTable3D('shear', result, String, 'kN', String, 'm', wasm)).toContain('0.78125 (x = 1.8125 m)');
   }
 });

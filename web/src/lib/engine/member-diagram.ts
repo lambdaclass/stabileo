@@ -14,6 +14,8 @@ export interface DiagramStation {
   distance?: DiagramDistance;
 }
 
+export type PhysicalDiagramStation = DiagramStation & { distance: DiagramDistance };
+
 export interface DiagramExtremum {
   t: number;
   distance: DiagramDistance;
@@ -25,6 +27,7 @@ export interface DiagramCurve {
   hasDistributedActions: boolean;
   cuts: number[];
   cutDistances: ReadonlyMap<number, DiagramDistance>;
+  physicalCuts: readonly DiagramDistance[];
   value: (station: DiagramStation) => number;
   polynomial: (lo: DiagramStation, hi: DiagramStation) => number[];
 }
@@ -54,21 +57,24 @@ export function rebaseDiagramDistance(origin: number, local: number) {
   return { x, residual: (origin - (x - offset)) + (local - offset) };
 }
 
-export function multiplyDiagramDistance(fraction: number, length: number): DiagramDistance {
-  const x = fraction * length;
-  const splitter = 2 ** 27 + 1;
-  const scale = Math.abs(length) > Number.MAX_VALUE / splitter ? 2 ** 28 : 1;
-  const scaledLength = length / scale;
-  const split = (value: number) => {
-    const expanded = splitter * value;
-    return expanded - (expanded - value);
-  };
-  const highFraction = split(fraction);
-  const highLength = split(scaledLength);
-  const lowFraction = fraction - highFraction;
-  const lowLength = scaledLength - highLength;
-  const residual = ((highFraction * highLength - x / scale) + highFraction * lowLength
-    + lowFraction * highLength) + lowFraction * lowLength;
+const productSplitter = 2 ** 27 + 1;
+
+function highProductWord(value: number): number {
+  const expanded = productSplitter * value;
+  return expanded - (expanded - value);
+}
+
+export function multiplyDiagramDistance(a: number, b: number): DiagramDistance {
+  const x = a * b;
+  if (!Number.isFinite(x) || a === 0 || b === 0) return { x, residual: 0 };
+  const limit = Number.MAX_VALUE / productSplitter;
+  const aScale = Math.abs(a) >= limit || Math.abs(x) > Number.MAX_VALUE / 2 ? 2 ** 28 : 1;
+  const bScale = Math.abs(b) >= limit ? 2 ** 28 : 1;
+  const scale = aScale * bScale;
+  const scaledA = a / aScale, scaledB = b / bScale;
+  const highA = highProductWord(scaledA), highB = highProductWord(scaledB);
+  const lowA = scaledA - highA, lowB = scaledB - highB;
+  const residual = ((highA * highB - x / scale) + highA * lowB + lowA * highB) + lowA * lowB;
   return { x, residual: residual * scale };
 }
 
@@ -103,9 +109,27 @@ export function compareDiagramDistance(a: DiagramDistance, b: DiagramDistance): 
   return a.x === b.x ? a.residual - b.residual : a.x - b.x;
 }
 
+function diagramDistanceDifference(to: DiagramDistance, from: DiagramDistance): DiagramDistance {
+  return shiftDiagramDistance(shiftDiagramDistance(to, -from.x), -from.residual);
+}
+
 function diagramDistanceBetween(to: DiagramDistance, from: DiagramDistance): number {
-  const shifted = shiftDiagramDistance(to, -from.x);
-  return sumDiagramTerms([shifted.x, shifted.residual, -from.residual]);
+  return diagramDistanceDifference(to, from).x;
+}
+
+export function diagramDistanceKey({ x, residual }: DiagramDistance): string {
+  return `${x}:${residual}`;
+}
+
+export function orderedDiagramDistances(distances: Iterable<DiagramDistance>): DiagramDistance[] {
+  return [...new Map(Array.from(distances, distance => [diagramDistanceKey(distance), distance])).values()]
+    .sort(compareDiagramDistance);
+}
+
+export function normalizedDiagramCuts(distances: readonly DiagramDistance[], length: number): ReadonlyMap<number, DiagramDistance> {
+  const cuts = new Map(distances.map(distance => [normalizeDiagramDistance(distance, length), distance]));
+  if (cuts.size !== distances.length) throw unavailableDiagramExtrema();
+  return cuts;
 }
 
 export function fullSpanFallback(length: number, loads: DistributedAction[] | undefined, qI: number, qJ: number): DistributedAction[] {
@@ -127,20 +151,44 @@ function distributedTermsAtDistance(load: DistributedAction, distance: number): 
   return [force, (left * (0.5 - u / 6) + right * (u / 6)) * s + force * (distance - s)];
 }
 
-function distributedTermResidual(load: DistributedAction, { x, residual }: DiagramDistance, force: number, component: number): number {
-  if (residual === 0 || x < 0 || (x === 0 && residual < 0)) return 0;
-  const span = load.b - load.a;
-  if (x > span || (x === span && residual > 0)) return component === 0 ? 0 : force * residual;
-  const u = x / span;
-  const q = load.qI * (1 - u) + load.qJ * u;
-  const du = residual / span;
-  const dq = load.qJ * du - load.qI * du;
-  return component === 0 ? residual * (q + dq / 2)
-    : residual * (force + residual * (q / 2 + dq / 6));
+function uniformMomentArea(arm: DiagramDistance, loaded: DiagramDistance): DiagramDistance {
+  const lever = shiftDiagramDistance(shiftDiagramDistance(arm, -loaded.x / 2), -loaded.residual / 2);
+  const product = multiplyDiagramDistance(loaded.x, lever.x);
+  return [loaded.x * lever.residual, loaded.residual * lever.x, loaded.residual * lever.residual].reduce(shiftDiagramDistance, product);
 }
 
-export function diagramLineValue(start: number, change: number, rate: number, x: number, t: number): number {
-  return start + rate * x + change * t;
+function appendDiagramProduct(terms: number[], factor: number, distance: DiagramDistance): void {
+  const high = multiplyDiagramDistance(factor, distance.x);
+  terms.push(high.x, high.residual);
+  if (distance.residual !== 0) {
+    const low = multiplyDiagramDistance(factor, distance.residual);
+    terms.push(low.x, low.residual);
+  }
+}
+
+function distributedTermResidual(load: DistributedAction, arm: DiagramDistance, span: DiagramDistance, force: number): [number, number] {
+  const { x, residual } = arm;
+  if (span.x <= 0 || (residual === 0 && span.residual === 0) || (x || residual) <= 0) return [0, 0];
+  const loaded = compareDiagramDistance(arm, span) <= 0 ? arm : span;
+  const u = loaded.x / span.x;
+  const q = load.qI === load.qJ ? load.qI : load.qI * (1 - u) + load.qJ * u;
+  const du = loaded.residual / span.x;
+  const dq = load.qJ * du - load.qI * du;
+  const spanCorrection = (u + du) * (span.residual / span.x);
+  const spanLoad = load.qI * spanCorrection - load.qJ * spanCorrection;
+  const loadedForce = loaded.residual * (q + dq / 2);
+  const spanForce = (spanLoad / 2) * loaded.x;
+  const tail = (x - loaded.x) + (residual - loaded.residual);
+  const moment = residual * force + loaded.residual * (loaded.residual * (q / 2 + dq / 6))
+    + ((spanLoad / 6) * loaded.x) * loaded.x + (loadedForce + spanForce) * tail;
+  return [loadedForce + spanForce, moment];
+}
+
+export function diagramLineValue(start: number, change: number, rate: number, { x, residual }: DiagramDistance, t: number): number {
+  const scaledRate = rate * x;
+  const scaledChange = change * t;
+  if (residual === 0 || rate === 0) return start + scaledRate + scaledChange;
+  return sumDiagramTerms([start, scaledRate, scaledChange, rate * residual]);
 }
 
 export function memberDiagram(
@@ -150,34 +198,41 @@ export function memberDiagram(
   if (!(length > 0 && Number.isFinite(length))) throw unavailableDiagramExtrema();
   const hasDistributedActions = distributed.length > 0;
   const hasActions = hasDistributedActions || points.length > 0;
-  const at = (x: number) => x / length;
-  let cutDistances: ReadonlyMap<number, DiagramDistance> | undefined;
-  const distances = () => {
-    if (cutDistances) return cutDistances;
-    const xs = sortedStations([0, length, ...distributed.flatMap(d => [d.a, d.b]), ...points.map(p => p.a)]
-      .filter(x => x >= 0 && x <= length));
-    const mapped = new Map(xs.map(x => [at(x), { x, residual: 0 }]));
-    if (mapped.size !== xs.length) throw unavailableDiagramExtrema();
-    return cutDistances = mapped;
-  };
+  let physicalCuts: DiagramDistance[] | undefined;
+  const cuts = () => physicalCuts ??= sortedStations([0, length, ...distributed.flatMap(d => [d.a, d.b]), ...points.map(p => p.a)]
+    .filter(x => x >= 0 && x <= length)).map(x => ({ x, residual: 0 }));
+  let normalizedCuts: ReadonlyMap<number, DiagramDistance> | undefined;
+  const distances = () => normalizedCuts ??= normalizedDiagramCuts(cuts(), length);
   const component = order === 'force' ? 0 : 1;
   const stationDistance = ({ t, distance }: DiagramStation): DiagramDistance =>
-    distance ?? distances().get(t) ?? { x: t * length, residual: 0 };
-  const valueAt = (distance: DiagramDistance, t: number, right: boolean) => {
+    distance ?? (hasActions ? distances().get(t) : undefined) ?? multiplyDiagramDistance(t, length);
+  const valueAt = (distance: DiagramDistance, station: DiagramStation, right: boolean) => {
     const { x, residual } = distance;
-    if (!hasActions && residual === 0) return diagramLineValue(start, change, rate, x, t);
-    const contributions = [start, rate * x, change * t, rate * residual, change * (residual / length)];
+    const t = station.distance ? x / length : station.t;
+    if (!hasActions && (!station.distance || residual === 0)) return diagramLineValue(start, change, rate, distance, t);
+    const contributions = [start, rate * x, change * t, rate * residual];
+    if (station.distance && change !== 0) contributions.push(change * (residual / length));
     for (const load of distributed) {
       if (!(load.b > load.a)) continue;
       const shifted = shiftDiagramDistance(distance, -load.a);
+      const span = rebaseDiagramDistance(load.b, -load.a);
+      if (load.qI === load.qJ && (shifted.x || shifted.residual) > 0) {
+        const loaded = compareDiagramDistance(shifted, span) <= 0 ? shifted : span;
+        const geometry = component === 0 ? loaded : uniformMomentArea(shifted, loaded);
+        if (component === 0 || (Math.abs(geometry.x) >= 2 ** -1022 && Number.isFinite(geometry.x * load.qI))) {
+          appendDiagramProduct(contributions, sign * load.qI, geometry);
+          continue;
+        }
+      }
       const terms = distributedTermsAtDistance(load, shifted.x);
-      contributions.push(sign * terms[component], sign * distributedTermResidual(load, shifted, terms[0], component));
+      const correction = distributedTermResidual(load, shifted, span, terms[0]);
+      contributions.push(sign * terms[component], sign * correction[component]);
     }
     for (const point of points) {
       const dx = shiftDiagramDistance(distance, -point.a);
       const side = dx.x || dx.residual;
       if (side > 0 || (right && side === 0)) {
-        if (point.slope) contributions.push(point.slope * dx.x, point.slope * dx.residual);
+        if (point.slope) appendDiagramProduct(contributions, point.slope, dx);
         contributions.push(point.jump);
       }
     }
@@ -196,12 +251,13 @@ export function memberDiagram(
     for (const load of distributed) {
       if (!(load.b > load.a)) continue;
       const shifted = shiftDiagramDistance(x0, -load.a);
-      const span = load.b - load.a;
+      const spanDistance = rebaseDiagramDistance(load.b, -load.a);
+      const span = spanDistance.x;
       if (component === 1) {
         const force = distributedTermsAtDistance(load, shifted.x)[0];
-        linear.push(sign * force * width, sign * distributedTermResidual(load, shifted, force, 0) * width);
+        linear.push(sign * force * width, sign * distributedTermResidual(load, shifted, spanDistance, force)[0] * width);
       }
-      if ((shifted.x || shifted.residual) < 0 || compareDiagramDistance(shifted, { x: span, residual: 0 }) >= 0) continue;
+      if ((shifted.x || shifted.residual) < 0 || compareDiagramDistance(shifted, spanDistance) >= 0) continue;
       const u = (shifted.x + shifted.residual) / span;
       const initial = (sign * width) * (load.qI * (1 - u) + load.qJ * u);
       const fraction = width / span;
@@ -214,7 +270,7 @@ export function memberDiagram(
         cubic.push(delta * (width / 6));
       }
     }
-    return [valueAt(x0, lo.distance ? x0.x / length : lo.t, true),
+    return [valueAt(x0, lo, true),
       sumDiagramTerms(linear), sumDiagramTerms(quadratic), sumDiagramTerms(cubic)];
   };
 
@@ -222,16 +278,9 @@ export function memberDiagram(
     hasDistributedActions,
     get cuts() { return [...distances().keys()]; },
     get cutDistances() { return distances(); },
+    get physicalCuts() { return cuts(); },
     value(station) {
-      const { t, right } = station;
-      let distance = !hasActions && !station.distance ? { x: t * length, residual: 0 } : stationDistance(station);
-      if (!station.distance && hasActions && !distances().has(t)) {
-        const rounded = distance.x / length;
-        if (distances().get(rounded)?.x === distance.x && rounded !== t) {
-          distance = rebaseDiagramDistance(distance.x, (t - rounded) * length);
-        }
-      }
-      return valueAt(distance, station.distance ? distance.x / length : t, right === true);
+      return valueAt(stationDistance(station), station, station.right === true);
     },
     polynomial,
   };
@@ -276,18 +325,21 @@ function intervalChange([, linear = 0, quadratic = 0, cubic = 0]: readonly numbe
 }
 
 function diagramExtremum(
-  lo: DiagramStation & { distance: DiagramDistance }, hi: DiagramStation & { distance: DiagramDistance },
+  lo: PhysicalDiagramStation, hi: PhysicalDiagramStation,
   u: number, length: number, polynomials: readonly number[][], curves: readonly Pick<DiagramCurve, 'value'>[],
-  combine: (values: number[]) => number, at?: number,
+  combine: (values: number[]) => number, physical: boolean, at?: number,
 ): DiagramExtremum | undefined {
   const x0 = lo.distance;
-  const width = diagramDistanceBetween(hi.distance, x0);
-  const offset = multiplyDiagramDistance(u, width);
-  const distance = shiftDiagramDistance(shiftDiagramDistance(x0, offset.x), offset.residual);
+  const span = diagramDistanceDifference(hi.distance, x0);
+  const width = span.x;
+  const offset = shiftDiagramDistance(multiplyDiagramDistance(u, width), u * span.residual);
+  const distance = shiftDiagramDistance(shiftDiagramDistance(offset, x0.x), x0.residual);
   const t = normalizeDiagramDistance(distance, length);
   if (at !== undefined && t !== at) return undefined;
-  if (!(t > lo.t && t < hi.t)) {
-    const atStart = t === lo.t;
+  const afterLo = physical ? compareDiagramDistance(distance, lo.distance) > 0 : t > lo.t;
+  const beforeHi = physical ? compareDiagramDistance(distance, hi.distance) < 0 : t < hi.t;
+  if (!afterLo || !beforeHi) {
+    const atStart = !afterLo;
     const boundary = atStart ? { ...lo, right: true } : hi;
     const ordinates = curves.map(curve => curve.value(boundary));
     const value = combine(ordinates);
@@ -298,12 +350,15 @@ function diagramExtremum(
   const ordinates = curves.map(curve => curve.value({ t, distance }));
   const value = combine(ordinates);
   if (!Number.isFinite(value)) throw unavailableDiagramExtrema();
-  const localOffset = (position: DiagramDistance) => diagramDistanceBetween(position, x0);
-  const canTransfer = (station: DiagramStation) => {
-    if (station.distance && compareDiagramDistance(station.distance, distance) === 0) return true;
-    const local = localOffset(station.distance ?? { x: station.t * length, residual: 0 }) / width;
+  const sameOrdinate = (position: DiagramDistance) => {
+    const local = diagramDistanceBetween(position, x0) / width;
     if (!(local > 0 && local < 1)) return false;
     return combine(ordinates.map((ordinate, i) => ordinate + intervalChange(polynomials[i]!, u, local))) === value;
+  };
+  const canTransfer = (station: DiagramStation) => {
+    if (station.distance) return compareDiagramDistance(station.distance, distance) === 0 || sameOrdinate(station.distance);
+    const query = multiplyDiagramDistance(station.t, length);
+    return sameOrdinate(query) && (query.residual === 0 || sameOrdinate({ x: query.x, residual: 0 }));
   };
   return { t, distance, value, canTransfer };
 }
@@ -314,7 +369,7 @@ interface ExtremaInterval {
 }
 
 function prepareIntervalExtrema(
-  getCuts: () => (DiagramStation & { distance: DiagramDistance })[], length: number,
+  getCuts: () => PhysicalDiagramStation[], length: number, physical: boolean,
   curves: readonly Pick<DiagramCurve, 'value'>[], combine: (values: number[]) => number,
   prepare: (lo: DiagramStation, hi: DiagramStation) => ExtremaInterval,
 ): (at?: number) => DiagramExtremum[] {
@@ -325,10 +380,10 @@ function prepareIntervalExtrema(
     const extrema: DiagramExtremum[] = [];
     for (let k = 1; k < cuts.length; k++) {
       const lo = cuts[k - 1]!, hi = cuts[k]!;
-      if (!(hi.t > lo.t) || (at !== undefined && !(lo.t <= at && at <= hi.t))) continue;
+      if (at !== undefined && !(lo.t <= at && at <= hi.t)) continue;
       const { polynomials, roots } = intervals[k] ??= prepare(lo, hi);
       for (const u of roots) {
-        const point = diagramExtremum(lo, hi, u, length, polynomials, curves, combine, at);
+        const point = diagramExtremum(lo, hi, u, length, polynomials, curves, combine, physical, at);
         if (point) extrema.push(point);
       }
     }
@@ -336,10 +391,11 @@ function prepareIntervalExtrema(
   };
 }
 
-export function prepareCurveExtrema(curve: DiagramCurve, length: number): (at?: number) => DiagramExtremum[] {
+export function prepareCurveExtrema(curve: DiagramCurve, length: number, physical = false): (at?: number) => DiagramExtremum[] {
   if (!curve.hasDistributedActions) return () => [];
-  const cuts = () => [...curve.cutDistances].map(([t, distance]) => ({ t, distance }));
-  return prepareIntervalExtrema(cuts, length, [curve], ([value]) => value!, (lo, hi) => {
+  const cuts = () => physical ? curve.physicalCuts.map(distance => ({ t: normalizeDiagramDistance(distance, length), distance }))
+    : [...curve.cutDistances].map(([t, distance]) => ({ t, distance }));
+  return prepareIntervalExtrema(cuts, length, physical, [curve], ([value]) => value!, (lo, hi) => {
     const polynomial = curve.polynomial(lo, hi);
     const roots = scalarStationaryPoints(polynomial).filter(u => u > 0 && u < 1);
     return { polynomials: [polynomial], roots };
@@ -377,25 +433,28 @@ export function checkedCurveValue(curve: Pick<DiagramCurve, 'value'>, station: D
 }
 
 type DiagramOrdinate = DiagramStation & { value: number };
-type DiagramValues = Pick<DiagramCurve, 'cuts' | 'value'>;
+type DiagramValues = Pick<DiagramCurve, 'cuts' | 'cutDistances' | 'value'>;
+type CriticalDiagramOrdinate = PhysicalDiagramStation & { value: number };
 
 export function diagramCriticalPoints(
   curve: DiagramValues, critical: readonly DiagramExtremum[], inwardAtI = false,
-): DiagramOrdinate[] {
+): CriticalDiagramOrdinate[] {
   const extrema = indexDiagramExtrema(critical);
-  const boundaries = new Set(curve.cuts);
-  return sortedStations([...boundaries, ...extrema.keys()]).flatMap(t => {
+  const boundaries = curve.cutDistances;
+  return sortedStations([...boundaries.keys(), ...extrema.keys()]).flatMap(t => {
     const peak = extrema.get(t);
-    const points: DiagramOrdinate[] = [];
-    if (boundaries.has(t)) {
-      if (t > 0 || !inwardAtI) points.push({ t, value: curve.value({ t }) });
+    const points: CriticalDiagramOrdinate[] = [];
+    const distance = boundaries.get(t);
+    if (distance) {
+      const left = { t, distance };
+      if (t > 0 || !inwardAtI) points.push({ ...left, value: curve.value(left) });
       if (t < 1) {
-        const right = { t, right: true };
+        const right = { ...left, right: true };
         const value = curve.value(right);
         if (value !== points[0]?.value) points.push({ ...right, value });
       }
     }
-    if (peak) points.push({ t, value: peak.value });
+    if (peak) points.push({ t, distance: peak.distance, value: peak.value });
     if (points.some(point => !Number.isFinite(point.value))) throw unavailableDiagramExtrema();
     return points;
   });
@@ -492,11 +551,10 @@ function polynomialRootCandidates(coefficients: readonly number[], lo = 0, hi = 
 
 export function prepareMagnitudeExtrema(
   parts: readonly Pick<DiagramCurve, 'polynomial' | 'value'>[], method: 'abs' | 'srss',
-  distances: () => ReadonlyMap<number, DiagramDistance>, length: number,
+  cuts: () => PhysicalDiagramStation[], length: number, physical: boolean,
 ): (at?: number) => DiagramExtremum[] {
   const combine = (values: number[]) => method === 'srss' ? Math.hypot(...values) : values.reduce((sum, v) => sum + Math.abs(v), 0);
-  const cuts = () => [...distances()].sort(([a], [b]) => a - b).map(([t, distance]) => ({ t, distance }));
-  return prepareIntervalExtrema(cuts, length, parts, combine, (lo, hi) => {
+  return prepareIntervalExtrema(cuts, length, physical, parts, combine, (lo, hi) => {
     const polynomials = parts.map(part => part.polynomial(lo, hi));
     const scale = polynomials.reduce((max, p) => Math.max(max, ...p.map(Math.abs)), 0);
     if (!Number.isFinite(scale)) throw unavailableDiagramExtrema();

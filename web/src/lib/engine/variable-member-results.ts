@@ -1,4 +1,4 @@
-import { compareDiagramDistance, normalizeDiagramDistance, rebaseDiagramDistance, unavailableDiagramExtrema } from './member-diagram';
+import { compareDiagramDistance, normalizeDiagramDistance, shiftDiagramDistance, multiplyDiagramDistance, unavailableDiagramExtrema } from './member-diagram';
 import type { AnalysisResults3D, Displacement3D, ElementForces3D, ElementEnvelopeDiagram3D, EnvelopeDiagramData3D, FullEnvelope3D } from './types-3d';
 import type { ResultPiece, VariableExpansion, VariableMember, VariablePiece } from './variable-members';
 
@@ -108,7 +108,9 @@ function rebaseEnvelopeMember(m: VariableMember, elements: ReadonlyMap<number, E
       const station = stations.get(i);
       if (internalStart && local === 0 && hasStartJump && !station?.right) continue;
       const distance = local === 0 || local === 1 ? { x: local === 0 ? p.x0 : p.x1, residual: 0 }
-        : rebaseDiagramDistance(p.x0, station?.x ?? local * (p.x1 - p.x0));
+        : shiftDiagramDistance(station
+          ? { x: station.x, residual: station.xResidual ?? 0 }
+          : multiplyDiagramDistance(local, p.x1 - p.x0), p.x0);
       const t = normalizeDiagramDistance(distance, m.length);
       if (station) {
         if ((local > 0 && local < 1 && !(start < t && t < end))
@@ -134,7 +136,7 @@ function rebaseEnvelopeMember(m: VariableMember, elements: ReadonlyMap<number, E
       throw unavailableDiagramExtrema();
     }
     for (const cut of cuts.length ? cuts : [first]) {
-      if (cut.critical) parent.criticalStations.push({ index: parent.tPositions.length, x: cut.distance.x, right: cut.right });
+      if (cut.critical) parent.criticalStations.push({ index: parent.tPositions.length, x: cut.distance.x, xResidual: cut.distance.residual, right: cut.right });
       parent.tPositions.push(cut.t);
       parent.posValues.push(cut.pos);
       parent.negValues.push(cut.neg);

@@ -246,6 +246,7 @@ export interface AnalysisResults {
 export interface EnvelopeStation {
   index: number;
   x: number;
+  xResidual?: number;
   right: boolean;
 }
 
