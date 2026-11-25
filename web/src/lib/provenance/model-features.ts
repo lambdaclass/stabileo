@@ -3,8 +3,7 @@ import { PLANAR_LINE_COMPONENT_CUTOFF, TRUSS_LOAD_COMPONENT_CUTOFF } from '../en
 import { POINT_END_TOL } from '../engine/member-point-loads';
 import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
 import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
-import { isCompositeCase } from '../engine/loads/combination-cases';
-import { symbolOfType, symbolsByAlternativeSet } from '../engine/loads/combination-cases';
+import { isCompositeCase, symbolOfCase, symbolOfType, symbolsByAlternativeSet } from '../engine/loads/combination-cases';
 /**
  * Which features a saved model has, for deciding which registered result changes concern it.
  *
@@ -63,7 +62,8 @@ export const FEATURE_IDS = [
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
-  'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase',
+  'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase', 'loadPlanCombinationSupplements', 'flatRoofSnowCombinations',
+  'occupiedGeneratedLoadCases', 'repeatedUngroupedRuleTerms', 'emptyManualLoadAlternatives', 'retiredAutoLoadsCases',
   'superposedCombinations', 'repeatedCombinationCases', 'zeroOrOpposingCombinationFactors', 'explicitNotionalCombinationCases',
   'prototypeNamedLoadCase', 'staticCaseEffects', 'projectedSpatialLoads', 'offsetMemberLoadFrame', 'inactiveSpatialMembers',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
@@ -111,7 +111,7 @@ interface FeatureSnapshotFields {
   loads?: Array<{ type: string; data?: Record<string, unknown> }>;
   loadCases?: Array<{
     id: number; name?: string; type?: string; spectral?: unknown; alternatives?: string; axisNamed?: boolean;
-    group?: string;
+    group?: string; snowBasis?: 'flatRoof'; generated?: boolean; autoLoadsRetired?: true;
     includes?: ReadonlyArray<{ caseId?: number; factor: number }>; reduction?: { ratio: number }; notional?: unknown;
   }>;
   combinations?: unknown[];
@@ -644,11 +644,47 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (types.has('W') || types.has('Wa')) f.add('wind');
   const combos = (Array.isArray(s.combinations) && s.combinations.length > 0) || (Array.isArray(s.combinationRules) && s.combinationRules.length > 0);
   if (loadPlanInCompositeCase) f.add('loadPlanInCompositeCase');
-  if ((combos || cases.some(isCompositeCase)) && [...symbolsByAlternativeSet(cases).values()].some(symbols => symbols.size > 1)) {
-    f.add('crossSymbolCombinationAlternatives');
+  if (cases.some(c => c.autoLoadsRetired === true)) f.add('retiredAutoLoadsCases');
+  if (combos || cases.some(isCompositeCase)) {
+    if ([...symbolsByAlternativeSet(cases).values()].some(symbols => symbols.size > 1)) f.add('crossSymbolCombinationAlternatives');
+    if (cases.some(c => c.snowBasis === 'flatRoof' && symbolOfCase(c) === 'S')) f.add('flatRoofSnowCombinations');
+    if (f.has('generatedLoads') && (cases.filter(c => symbolOfCase(c) === 'Lr').length > 1 ||
+        cases.some(c => c.alternatives && ['L', 'T'].includes(symbolOfCase(c) ?? '')))) {
+      f.add('loadPlanCombinationSupplements');
+    }
   }
   if (combos) {
     f.add('combinations');
+    const occupiedCaseIds = new Set((Array.isArray(storedLoads) ? storedLoads : []).map(l => l.data?.caseId ?? 1));
+    if (cases.some(c => c.generated && symbolOfCase(c) && occupiedCaseIds.has(c.id))) f.add('occupiedGeneratedLoadCases');
+    if (f.has('generatedLoads')) {
+      const weightedCaseIds = new Set((Array.isArray(weightRules) ? weightRules : [])
+        .map(row => (row as Partial<SelfWeightLoad> | null)?.caseId));
+      const ordinary = cases.flatMap(c => {
+        const symbol = symbolOfCase(c);
+        return symbol ? [{ c, symbol }] : [];
+      });
+      if (ordinary.some(({ c, symbol }) =>
+        !c.generated && c.autoLoadsRetired !== true && !occupiedCaseIds.has(c.id) && !weightedCaseIds.has(c.id) &&
+        c.spectral === undefined && c.notional === undefined &&
+        (c.group !== undefined || ordinary.some(other => other.c.id !== c.id &&
+          (other.symbol === symbol || (c.alternatives && c.alternatives === other.c.alternatives)))))) {
+        f.add('emptyManualLoadAlternatives');
+      }
+    }
+    const repeatedTerms = Array.isArray(s.combinationRules) && s.combinationRules.some(rule => {
+      const terms = (rule as { terms?: unknown } | null)?.terms;
+      if (!Array.isArray(terms)) return false;
+      const seen = new Set<string>();
+      for (const term of terms) {
+        if (typeof term?.symbol !== 'string' || term.group !== undefined) continue;
+        const key = `${term.symbol}:${term.snowBasis ?? ''}`;
+        if (seen.has(key)) return true;
+        seen.add(key);
+      }
+      return false;
+    });
+    if (repeatedTerms) f.add('repeatedUngroupedRuleTerms');
     const groupedRule = Array.isArray(s.combinationRules) && s.combinationRules.some(rule => {
       const terms = (rule as { terms?: unknown } | null)?.terms;
       return Array.isArray(terms) && terms.some(term => term?.group !== undefined);

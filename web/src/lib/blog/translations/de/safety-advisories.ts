@@ -140,6 +140,8 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-119-modal-mass-missing-density.md", "label": "SA-2026-119", "t": "Betroffene Eingaben und erforderliche Schritte."},
     {"k": "note", "t": "SA-2026-120 — Nächste Version nach 0.6.4."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-120-gravity-deck-load-placement.md", "label": "SA-2026-120", "t": "Betroffene Eingaben und erforderliche Schritte."},
+    {"k": "note", "t": "SA-2026-121 — Nächste Version nach 0.6.4."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-121-planar-nonlinear-member-loads.md", "label": "SA-2026-121", "t": "Betroffene Eingaben und erforderliche Schritte."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO mit einem Stahlbetonrahmen, gespeichert, bevor Ergebnisse versioniert wurden. Ein Hinweis unten meldet veraltete Ergebnisse: Das Projekt wurde mit einer älteren Version gelöst, und 19 registrierte Änderungen betreffen es; daneben die Schaltflächen, um die Änderungen zu sehen und neu zu rechnen.", "caption": "Wie eine Korrektur ein gespeichertes Projekt erreicht: Bis es neu gelöst ist, bleiben seine Ergebnisse als veraltet markiert, und die Änderungen, die es betreffen, sind einen Klick entfernt."},
     {
       "k": "h",
@@ -568,7 +570,8 @@ const body: PostBody = {
         ["SA-2026-117", "Eine negative oder als null gespeicherte Schalendichte konnte das Eigengewicht umkehren oder entfallen lassen. Stellen Sie die vorgesehenen Dichten wieder her und wiederholen Sie die betroffenen statischen Lastfälle, Kombinationen und Nachweise.", "Hoch", "Nächste Version nach 0.6.4"],
         ["SA-2026-118", "Bei einer ungültigen Gruppenzuordnung konnte das Eigengewicht der Gruppe entfallen. Korrigieren Sie die Zuordnung, berechnen Sie die betroffenen Lastfälle und Kombinationen neu und erstellen Sie deren Einhüllende erneut.", "Hoch", "Nächste Version nach 0.6.4"],
         ["SA-2026-119", "Eine fehlende Materialdichte konnte zu falschen Eigenfrequenzen führen. Stellen Sie die Dichte wieder her, erstellen Sie die Massenquelle neu und wiederholen Sie die betroffenen dynamischen Berechnungen.", "Hoch", "Nächste Version nach 0.6.4"],
-        ["SA-2026-120", "Die automatische Lasterzeugung konnte Schwerelasten doppelt ansetzen, auf Felder oberhalb der Spannweitengrenze des automatischen Verfahrens übertragen oder Dach- und Deckenbereiche falsch zuordnen. Erzeugen Sie betroffene Schwerelast-, Schnee- und Windlastpläne neu, prüfen Sie die Lasten und wiederholen Sie die zugehörigen Berechnungen.", "Hoch", "Nächste Version nach 0.6.4"]
+        ["SA-2026-120", "Die automatische Lasterzeugung konnte Schwerelasten doppelt ansetzen, auf Felder oberhalb der Spannweitengrenze des automatischen Verfahrens übertragen oder Dach- und Deckenbereiche falsch zuordnen. Erzeugen Sie betroffene Schwerelast-, Schnee- und Windlastpläne neu, prüfen Sie die Lasten und wiederholen Sie die zugehörigen Berechnungen.", "Hoch", "Nächste Version nach 0.6.4"],
+        ["SA-2026-121", "Bei ebenen nichtlinearen Berechnungen konnten Stablasten zu falschen Ergebnissen führen. Wiederholen Sie die betroffenen Berechnungen, einschließlich der Berechnungen für die Anfangszustände einer Fortsetzung, und prüfen Sie Verschiebungen, Auflagerreaktionen und Stabendkräfte.", "Mittel", "Nächste Version nach 0.6.4"]
       ]
     },
     {

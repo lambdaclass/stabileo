@@ -140,6 +140,8 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-119-modal-mass-missing-density.md", "label": "SA-2026-119", "t": "Entrées concernées et mesures à prendre."},
     {"k": "note", "t": "SA-2026-120 — Prochaine version après la 0.6.4."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-120-gravity-deck-load-placement.md", "label": "SA-2026-120", "t": "Entrées concernées et mesures à prendre."},
+    {"k": "note", "t": "SA-2026-121 — Prochaine version après la 0.6.4."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-121-planar-nonlinear-member-loads.md", "label": "SA-2026-121", "t": "Entrées concernées et mesures à prendre."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO avec un portique en béton enregistré avant que les résultats soient versionnés. Un bandeau en bas indique des résultats périmés : le projet a été résolu avec une version antérieure et 19 changements enregistrés le concernent, avec les boutons pour voir ce qui a changé et relancer le calcul.", "caption": "Comment une correction atteint un projet enregistré : tant qu’il n’est pas recalculé, ses résultats restent marqués périmés, et les changements qui le concernent sont à un clic."},
     {
       "k": "h",
@@ -568,7 +570,8 @@ const body: PostBody = {
         ["SA-2026-117", "Une masse volumique négative ou enregistrée comme null pouvait inverser ou supprimer le poids propre d’une coque. Rétablissez les masses volumiques prévues et recalculez les cas de charge statiques, les combinaisons et les vérifications concernés.", "Élevée", "Prochaine version après la 0.6.4"],
         ["SA-2026-118", "Un groupe cible invalide pouvait entraîner l’omission du poids propre de ce groupe. Corrigez le groupe cible, relancez les cas de charge et les combinaisons concernés, puis recalculez leurs enveloppes.", "Élevée", "Prochaine version après la 0.6.4"],
         ["SA-2026-119", "L’absence de masse volumique d’un matériau pouvait fausser les fréquences propres. Rétablissez la masse volumique, reconstruisez la source de masse et relancez les analyses dynamiques concernées.", "Élevée", "Prochaine version après la 0.6.4"],
-        ["SA-2026-120", "La génération automatique pouvait doubler les charges gravitaires, les transférer à des panneaux dont la portée dépassait la limite du calcul automatique ou mal distinguer les zones de plancher et de toiture. Régénérez les plans de charges gravitaires, de neige et de vent concernés, vérifiez les charges et relancez les analyses correspondantes.", "Élevée", "Prochaine version après la 0.6.4"]
+        ["SA-2026-120", "La génération automatique pouvait doubler les charges gravitaires, les transférer à des panneaux dont la portée dépassait la limite du calcul automatique ou mal distinguer les zones de plancher et de toiture. Régénérez les plans de charges gravitaires, de neige et de vent concernés, vérifiez les charges et relancez les analyses correspondantes.", "Élevée", "Prochaine version après la 0.6.4"],
+        ["SA-2026-121", "L’analyse non linéaire plane pouvait donner des résultats erronés pour les charges sur les barres. Relancez les analyses concernées, y compris celles qui ont fourni l’état initial d’une continuation, et vérifiez les déplacements, les réactions et les efforts aux extrémités des barres.", "Moyenne", "Prochaine version après la 0.6.4"]
       ]
     },
     {
