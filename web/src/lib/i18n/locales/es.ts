@@ -13240,6 +13240,8 @@ const es: Record<string, string> = {
   'discretization.adaptiveRefused.physicalPlate': "Una cáscara a dividir pertenece a una losa mallada desde su contorno. Cambiá el tamaño de malla de esa losa.",
   'discretization.adaptiveRefused.member': "Una barra sobre un borde dividido no se puede cortar acá: es curva, de sección variable, o hay otra barra sobre el mismo borde.",
   'discretization.adaptiveRefused.support': "Un nodo nuevo cae sobre un borde apoyado cuyos extremos están sujetos de distinta forma, con un desplazamiento impuesto o un apoyo inclinado. Dale a ese borde un solo tipo de apoyo.",
+  'discretization.adaptiveStatus.depthLimit': "El error deja de bajar: está donde la malla ya es lo más fina posible, como bajo una carga puntual, en un apoyo puntual o en una esquina. {pct} estimado con {n} elementos",
+  'discretization.adaptiveStatus.refused': "La malla siguiente no se pudo resolver, así que esta es la última que sí: {pct} estimado con {n} elementos",
   'discretization.col.pass': "Pasada",
   'discretization.col.elements': "Elementos",
   'discretization.col.hanging': "Nodos colgantes",

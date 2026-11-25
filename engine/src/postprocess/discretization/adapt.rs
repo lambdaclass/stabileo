@@ -28,15 +28,19 @@ pub struct AdaptOptions {
     /// A pass that would leave more shell-type elements than this is not made. At most
     /// `MOST_ELEMENTS`.
     pub max_elements: usize,
+    /// An element this many halvings finer than the smallest of the model given is not split
+    /// again. At most `MOST_LEVELS`.
+    pub max_levels: usize,
     pub geometry: GeometryMode,
 }
 
 pub const MOST_PASSES: usize = 50;
 pub const MOST_ELEMENTS: usize = 200_000;
+pub const MOST_LEVELS: usize = 16;
 
 impl Default for AdaptOptions {
     fn default() -> Self {
-        AdaptOptions { target: DEFAULT_THRESHOLD, fraction: 0.5, max_passes: 8, max_elements: 20_000, geometry: GeometryMode::default() }
+        AdaptOptions { target: DEFAULT_THRESHOLD, fraction: 0.5, max_passes: 8, max_elements: 20_000, max_levels: 10, geometry: GeometryMode::default() }
     }
 }
 
@@ -78,9 +82,14 @@ pub struct Adapted {
     pub passes: Vec<AdaptPass>,
     pub quantities: Vec<AdaptedQuantity>,
     /// `converged` (the estimate is at or under the target), `passLimit`, `elementLimit`,
-    /// `unestimable` (see the estimate's `unestimableReason`) or `nothingToRefine` (over the
-    /// target with no element the estimator can point at).
+    /// `unestimable` (see the estimate's `unestimableReason`), `nothingToRefine` (over the
+    /// target with no element the estimator can point at), `depthLimit` (the error sits in
+    /// elements already `max_levels` finer than the model's: a point load, a point support or
+    /// a corner whose error refinement does not bring down) or `refused` (the next mesh could
+    /// not be made, solved or estimated: this is the last that was, and `refused` says why).
     pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refused: Option<String>,
     /// The refinement caveats of every pass (see `refine::Refined`).
     pub caveats: Vec<String>,
     pub supports_inferred: usize,
@@ -268,6 +277,12 @@ fn family(kind: &str) -> Option<&'static str> {
 /// The fewest estimated elements whose squared indicators reach `fraction` of the total, largest
 /// first (ties by family and id).
 pub fn marked(estimate: &DiscretizationEstimate, fraction: f64) -> HashSet<ElementKey> {
+    marked_among(estimate, fraction, &|_| true).unwrap_or_default()
+}
+
+/// `marked`, taking only elements that are `splittable`; None when those cannot carry
+/// `fraction` of the squared error between them.
+fn marked_among(estimate: &DiscretizationEstimate, fraction: f64, splittable: &dyn Fn(&ElementKey) -> bool) -> Option<HashSet<ElementKey>> {
     let mut ranked: Vec<(f64, ElementKey)> = estimate
         .elements
         .iter()
@@ -282,9 +297,30 @@ pub fn marked(estimate: &DiscretizationEstimate, fraction: f64) -> HashSet<Eleme
         if reached >= fraction * total {
             break;
         }
+        if !splittable(&element) {
+            continue;
+        }
         reached += eta2;
         out.insert(element);
     }
+    (reached >= fraction * total).then_some(out)
+}
+
+/// The longest edge of every shell-type element.
+fn sizes(model: &SolverInput3D) -> HashMap<ElementKey, f64> {
+    let at: HashMap<usize, [f64; 3]> = model.nodes.values().map(|n| (n.id, [n.x, n.y, n.z])).collect();
+    let longest = |corners: &[usize]| -> f64 {
+        (0..corners.len())
+            .filter_map(|k| Some((at.get(&corners[k])?, at.get(&corners[(k + 1) % corners.len()])?)))
+            .map(|(a, b)| (0..3).map(|i| (a[i] - b[i]).powi(2)).sum::<f64>().sqrt())
+            .fold(0.0, f64::max)
+    };
+    let mut out: HashMap<ElementKey, f64> = HashMap::new();
+    out.extend(model.plates.values().map(|e| (("plate", e.id), longest(&e.nodes))));
+    out.extend(model.quads.values().map(|e| (("quad", e.id), longest(&e.nodes))));
+    out.extend(model.quad9s.values().map(|e| (("quad9", e.id), longest(&e.nodes[..4]))));
+    out.extend(model.curved_shells.values().map(|e| (("curvedShell", e.id), longest(&e.nodes))));
+    out.extend(model.solid_shells.values().map(|e| (("solidShell", e.id), longest(&e.nodes[..4]))));
     out
 }
 
@@ -301,6 +337,10 @@ pub fn adapt_3d(input: &SolverInput3D, options: &AdaptOptions) -> Result<Adapted
     if options.max_elements > MOST_ELEMENTS {
         return Err(format!("At most {MOST_ELEMENTS} shell elements"));
     }
+    if options.max_levels > MOST_LEVELS {
+        return Err(format!("At most {MOST_LEVELS} levels"));
+    }
+    let finest = sizes(input).into_values().fold(f64::INFINITY, f64::min) / 2f64.powi(options.max_levels as i32);
     let mut model = input.clone();
     let mut passes = Vec::new();
     let mut caveats: Vec<String> = Vec::new();
@@ -308,9 +348,17 @@ pub fn adapt_3d(input: &SolverInput3D, options: &AdaptOptions) -> Result<Adapted
     let original_max_node = input.nodes.values().map(|n| n.id).max().unwrap_or(0);
     let mut as_given = None;
     let mut lineage = Lineage::default();
+    let mut last: Option<Adapted> = None;
+    let or_last = |reason: String, last: Option<Adapted>| match last {
+        Some(kept) => Ok(Adapted { status: "refused".into(), refused: Some(reason), ..kept }),
+        None => Err(reason),
+    };
     loop {
-        let results = crate::solver::linear::solve_3d(&model)?;
-        let estimate = estimate_3d(&model, &results)?;
+        let solved = crate::solver::linear::solve_3d(&model).and_then(|results| Ok((estimate_3d(&model, &results)?, results)));
+        let (estimate, results) = match solved {
+            Ok(solved) => solved,
+            Err(reason) => return or_last(reason, last),
+        };
         let now = governing(&model, &results, original_max_node);
         let quantities: Vec<AdaptedQuantity> = as_given
             .get_or_insert_with(|| now.clone())
@@ -332,7 +380,18 @@ pub fn adapt_3d(input: &SolverInput3D, options: &AdaptOptions) -> Result<Adapted
         let done = |status: &str, pass: AdaptPass, mut passes: Vec<AdaptPass>, model: SolverInput3D, caveats: Vec<String>| {
             passes.push(pass);
             let mesh = lineage.mesh(&model, original_max_node);
-            Ok(Adapted { certified: false, input: model, estimate: estimate.clone(), passes, quantities: quantities.clone(), status: status.into(), caveats, supports_inferred, mesh })
+            Ok(Adapted {
+                certified: false,
+                input: model,
+                estimate: estimate.clone(),
+                passes,
+                quantities: quantities.clone(),
+                status: status.into(),
+                refused: None,
+                caveats,
+                supports_inferred,
+                mesh,
+            })
         };
         let Some(relative_error) = estimate.relative_error else {
             return done("unestimable", pass, passes, model, caveats);
@@ -343,14 +402,22 @@ pub fn adapt_3d(input: &SolverInput3D, options: &AdaptOptions) -> Result<Adapted
         if passes.len() >= options.max_passes {
             return done("passLimit", pass, passes, model, caveats);
         }
-        let to_split = marked(&estimate, options.fraction);
+        let size = sizes(&model);
+        let Some(to_split) = marked_among(&estimate, options.fraction, &|element| size.get(element).is_some_and(|s| *s > 1.5 * finest)) else {
+            return done("depthLimit", pass, passes, model, caveats);
+        };
         if to_split.is_empty() {
             return done("nothingToRefine", pass, passes, model, caveats);
         }
-        let refined = refine_marked(&model, options.geometry, &to_split)?;
+        let refined = match refine_marked(&model, options.geometry, &to_split) {
+            Ok(refined) => refined,
+            Err(reason) if passes.is_empty() => return Err(reason),
+            Err(reason) => return or_last(reason, Some(done("", pass, passes, model, caveats)?)),
+        };
         if shell_elements(&refined.input) > options.max_elements {
             return done("elementLimit", pass, passes, model, caveats);
         }
+        last = Some(done("", pass.clone(), passes.clone(), model.clone(), caveats.clone())?);
         pass.marked = to_split.len();
         passes.push(pass);
         lineage.record(&refined);

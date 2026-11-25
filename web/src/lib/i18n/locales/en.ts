@@ -13251,6 +13251,8 @@ const en: Record<string, string> = {
   'discretization.adaptiveRefused.physicalPlate': "A shell to split belongs to a plate meshed from its outline. Change that plate's mesh size instead.",
   'discretization.adaptiveRefused.member': "A member along a split edge cannot be cut here: it is curved, of variable section, or another member lies on the same edge.",
   'discretization.adaptiveRefused.support': "A new node falls on a supported edge whose ends are held differently with an imposed displacement or an inclined support. Give that edge one kind of support.",
+  'discretization.adaptiveStatus.depthLimit': "The error stops coming down: it sits where the mesh is already at its finest, as under a point load, at a point support or in a corner. {pct} estimated with {n} elements",
+  'discretization.adaptiveStatus.refused': "The next mesh could not be solved, so this is the last one that was: {pct} estimated with {n} elements",
   'discretization.col.pass': "Pass",
   'discretization.col.elements': "Elements",
   'discretization.col.hanging': "Hanging nodes",
