@@ -110,31 +110,26 @@ fn issue_case(seed: u64, certified: bool, relabel: bool) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2146"]
 fn issue_2146_certified_modal_rotation() {
     issue_case(20772, true, false);
 }
 
 #[test]
-#[ignore = "known wrong result: #2147"]
 fn issue_2147_modal_relabel() {
     issue_case(20772, false, true);
 }
 
 #[test]
-#[ignore = "known wrong result: #2148"]
 fn issue_2148_modal_rotation() {
     issue_case(20772, false, false);
 }
 
 #[test]
-#[ignore = "known wrong result: #2416"]
 fn issue_2416_certified_modal_rotation() {
     issue_case(20778, true, false);
 }
 
 #[test]
-#[ignore = "known wrong result: #2517"]
 fn issue_2517_certified_modal_rotation() {
     issue_case(20781, true, false);
 }
@@ -155,7 +150,7 @@ fn planar(
         "sections": {"1":{"id":1,"a":1.0,"iz":1.0}},
         "supports": {
             "1":{"id":1,"nodeId":1,"type":"fixed"},
-            "2":{"id":2,"nodeId":2,"type":"spring","kz":transverse_stiffness}
+            "2":{"id":2,"nodeId":2,"type":"spring","ky":transverse_stiffness}
         },
         "loads": [],
         "masses": {"nodal":[{"nodeId":2,"massX":1.0,"massZ":transverse_mass}]}
@@ -171,9 +166,8 @@ fn planar(
 }
 
 #[test]
-#[ignore = "known wrong result: #2148"]
 fn planar_dense_and_sparse_modal_refuse_a_massive_null() {
-    for padding in [0, 22] {
+    for padding in [0, 32] {
         let input = planar(padding, 1.0, 0.0, true);
         let densities = HashMap::new();
         for api in ["solve_modal_2d", "certify_modal_2d"] {
@@ -198,7 +192,7 @@ fn planar_dense_and_sparse_modal_refuse_a_massive_null() {
 
 #[test]
 fn planar_massless_null_preserves_the_existing_singular_refusal() {
-    for padding in [0, 22] {
+    for padding in [0, 32] {
         let input = planar(padding, 0.0, 0.0, false);
         let densities = HashMap::new();
         for api in ["solve_modal_2d", "certify_modal_2d"] {
@@ -221,7 +215,7 @@ fn planar_massless_null_preserves_the_existing_singular_refusal() {
 
 #[test]
 fn planar_positive_transverse_stiffness_keeps_the_finite_modes() {
-    for padding in [0, 22] {
+    for padding in [0, 32] {
         let stiffness = 0.125;
         let input = planar(padding, 1.0, stiffness, false);
         let densities = HashMap::new();
@@ -267,6 +261,52 @@ fn spatial_released_rotation_keeps_the_reported_null_and_replaces_its_mode() {
     assert_eq!(raw.null_modes.len(), 1);
     assert_eq!(raw.null_modes[0].node_id, 2);
     assert!(raw.null_modes[0].dof.starts_with('r'));
+    assert_eq!(
+        serde_json::to_value(raw).unwrap(),
+        serde_json::to_value(certified.results).unwrap()
+    );
+}
+
+#[test]
+fn planar_constraint_that_blocks_the_null_translation_keeps_the_axial_mode() {
+    let mut input = planar(0, 1.0, 0.0, false);
+    input.constraints = serde_json::from_value(json!([
+        {"type":"equalDOF","masterNode":1,"slaveNode":2,"dofs":[1]}
+    ]))
+    .unwrap();
+    let densities = HashMap::new();
+    let omega_squared = 1000.0 / 3.0;
+    for api in ["solve_modal_2d", "certify_modal_2d"] {
+        record_case(
+            api,
+            1,
+            &input,
+            &densities,
+            json!({"modes":1,"nulls":0,"omegaSquared":omega_squared}),
+        );
+    }
+    let raw = solve_modal_2d(&input, &densities, 1).unwrap();
+    let certified = certify_modal_2d(&input, &densities, 1).unwrap();
+    assert_eq!(raw.modes.len(), 1);
+    assert!(raw.null_modes.is_empty());
+    assert!((raw.modes[0].omega.powi(2) / omega_squared - 1.0).abs() < 1e-12);
+    assert_eq!(raw.modes[0].omega, certified.results.modes[0].omega);
+}
+
+#[test]
+fn spatial_independent_spring_restores_modes_on_the_issue_model() {
+    let mut model: Value = serde_json::from_str(FIXTURE).unwrap();
+    let densities = serde_json::from_value(model["_nightly_dens"].clone()).unwrap();
+    model["supports"]["4"]["ky"] = model["supports"]["4"]["kx"].clone();
+    let input: SolverInput3D = serde_json::from_value(model).unwrap();
+    for api in ["solve_modal_3d", "certify_modal_3d"] {
+        record_case(api, 6, &input, &densities, json!({"modes":6,"nulls":0}));
+    }
+    let raw = solve_modal_3d(&input, &densities, 6).unwrap();
+    let certified = certify_modal_3d(&input, &densities, 6).unwrap();
+    assert_eq!(raw.modes.len(), 6);
+    assert!(raw.null_modes.is_empty());
+    assert!(raw.modes.iter().all(|mode| mode.omega > 0.0));
     assert_eq!(
         serde_json::to_value(raw).unwrap(),
         serde_json::to_value(certified.results).unwrap()

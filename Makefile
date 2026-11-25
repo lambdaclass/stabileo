@@ -1167,6 +1167,10 @@ test.engine.pdelta-rotation-wasm: wasm
 test.engine.staged-springs-r12-wasm: wasm
 	$(NIX_RUN) node scripts/tests/staged-springs-r12.mjs
 
+.PHONY: test.engine.modal-null-wasm
+test.engine.modal-null-wasm: wasm
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.modal-null.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; MODAL_NULL_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=modal_null::; node scripts/tests/modal-null-wasm.mjs "$$cases"'
+
 .PHONY: test.engine.modal-mass-range-wasm
 test.engine.modal-mass-range-wasm: wasm
 	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.modal-mass-range.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; MODAL_MASS_RANGE_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER="modal_mass_range:: --release"; node scripts/tests/modal-mass-range-wasm.mjs "$$cases"'
