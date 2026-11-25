@@ -113,6 +113,47 @@ describe('applying an adaptively refined mesh to the model', () => {
     expect(modelStore.loads.filter((l) => l.type === 'surface3d')).toHaveLength(12);
   });
 
+  it('refines a slab of triangles where the error is, with no constraints, and carries its loads', () => {
+    const at = new Map<string, number>();
+    const node = (i: number, j: number) => {
+      const key = `${i},${j}`;
+      if (!at.has(key)) at.set(key, modelStore.addNode(i, j, 3));
+      return at.get(key)!;
+    };
+    for (let i = 0; i < 4; i++) {
+      for (let j = 0; j < 4; j++) {
+        if (i >= 2 && j >= 2) continue;
+        const [a, b, c, d] = [node(i, j), node(i + 1, j), node(i + 1, j + 1), node(i, j + 1)];
+        for (const nodes of [[a, b, c], [a, c, d]] as Array<[number, number, number]>) {
+          modelStore.addSurfaceLoad3D(modelStore.addPlate(nodes, 1, 0.2), 5, 1, { on: 'plate' });
+        }
+      }
+    }
+    for (const [key, id] of at) {
+      const [i, j] = key.split(',').map(Number);
+      if (i === 0 || j === 0) modelStore.addSupport(id, 'pinned3d');
+    }
+    const wire = wireOf();
+    expect(Object.keys(wire.plates)).toHaveLength(24);
+    const out = adapt(wire);
+    expect(out.status).toBe('converged');
+    expect(out.input.constraints).toHaveLength(0);
+    const uniform = 24 * 4 ** (out.passes.length - 1);
+    expect(Object.keys(out.input.plates).length).toBeLessThan(uniform);
+
+    const applied = applyRefinedMesh(wire, out.mesh);
+    if ('refused' in applied) throw new Error(applied.refused);
+    expect(modelStore.model.plates.size).toBe(Object.keys(out.input.plates).length);
+    expect(modelStore.nodes.size).toBe(Object.keys(out.input.nodes).length);
+    expect(modelStore.supports.size).toBe(Object.keys(out.input.supports).length);
+    expect(modelStore.constraints).toHaveLength(0);
+    const loads = modelStore.loads.filter((l) => l.type === 'surface3d');
+    expect(loads).toHaveLength(modelStore.model.plates.size);
+    expect(loads.every((l) => l.type === 'surface3d' && l.data.on === 'plate' && l.data.q === 5 && modelStore.model.plates.has(l.data.quadId))).toBe(true);
+    expect(estimateWithLoadsOf(out.input)).toBeCloseTo(out.estimate.relativeError, 9);
+    expect(totalFz(wireOf())).toBeCloseTo(totalFz(wire), 9);
+  });
+
   it('undoes everything and refuses when a member cannot be cut where the mesh needs it', () => {
     const { node } = lSlab();
     const beam = modelStore.addElement(node(1, 2), node(2, 2), 'frame');
@@ -365,6 +406,34 @@ describe('applying it to the plates there are', () => {
     const hung = out.mesh.constraints.map((terms: Array<{ nodeId: number }>) => terms[0]!.nodeId);
     expect(hung.length).toBeGreaterThan(0);
     expect(modelStore.constraints.filter((c) => c.type === 'linearMPC' && joint.has(c.terms[0]!.nodeId))).toEqual([]);
+  });
+
+  it('a slab meshed with triangles, refined where the error is and tied nowhere', () => {
+    const c = [[0, 0], [4, 0], [4, 4], [0, 4]].map(([x, y]) => modelStore.addNode(x!, y!, 3));
+    for (const n of c) modelStore.addSupport(n, 'pinned3d');
+    const id = plate(c);
+    meshed(id, 1, 'tri');
+    expect(modelStore.model.plates.size).toBeGreaterThan(0);
+    expect(modelStore.quads.size).toBe(0);
+    addPlateLoad(id, 1, 5);
+    const coarse = modelStore.model.plates.size;
+    const out = refineAndApply([id]);
+    expect(modelStore.constraints).toHaveLength(0);
+    expect(modelStore.model.plates.size).toBeLessThan(coarse * 4 ** (out.passes.length - 1));
+  });
+
+  it('a slab of triangles beside one of quads', () => {
+    const at = (x: number, y: number) => modelStore.addNode(x, y, 3);
+    const [a0, a1, a2, a3, b1, b2] = [at(0, 0), at(4, 0), at(4, 4), at(0, 4), at(8, 0), at(8, 4)];
+    for (const n of [a0, a1, a2, a3, b1, b2]) modelStore.addSupport(n, 'pinned3d');
+    const quads = plate([a0, a1, a2, a3]);
+    const triangles = plate([a1, b1, b2, a2]);
+    meshed(quads, 1);
+    meshed(triangles, 1, 'tri');
+    expect(modelStore.quads.size).toBeGreaterThan(0);
+    expect(modelStore.model.plates.size).toBeGreaterThan(0);
+    for (const id of [quads, triangles]) addPlateLoad(id, 1, 5);
+    refineAndApply([quads, triangles]);
   });
 
   it('a slab with a curved side', () => {

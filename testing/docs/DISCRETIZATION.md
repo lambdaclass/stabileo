@@ -179,11 +179,23 @@ the mesh (below).
   one more element: no hanging node on half of an edge that already has one; none on two edges
   of one element; none on an edge where the shell folds or branches (elements more than the
   crease angle apart, or three or more), where no one normal says which way the edge bends;
-  none on an edge of **another family**. So a mesh of DKT triangles, MITC9
+  none on an edge of **another family**. So a mesh of MITC9
   quads, curved shells or solid-shells is refined as far as it is connected, which for a mesh
   of one family is the uniform refinement: for them this loop gains nothing over section 2. I
   tried hanging nodes on curved shells and a roof with them was no better than the coarse
   mesh, so they are not offered.
+* **Triangles.** A **DKT** triangle needs no hanging node. It is split by the edges that get
+  a node: a marked one by all three, into four triangles like it, as in section 2; one beside
+  it by the edges it shares with what was split. Whenever an edge of a triangle is cut its
+  longest edge is cut too (ties by node ids), and the triangle is bisected there first, into
+  two or three. A node is therefore never put on a short edge alone, and the smallest angle
+  stays at or above half the coarse mesh's however often an element is refined (the bound of
+  longest-edge bisection; measured, not proved, for this mix with the four-way split). The
+  cuts spread only to longer edges, so they stop. Where a triangle meets a MITC4 quad, a node
+  the quad's split puts on their edge cuts the triangle, and one the triangle's cut puts
+  there hangs on the quad. On the L-shaped plate below as 24 triangles, halving the estimate
+  takes 246 elements against 384 uniform, and quartering it 936 against 1 536; one marked
+  triangle of a 32-triangle square gives 39, where it gave 128.
 * **What a hanging node changes elsewhere.** It sits at the middle of the chord of its edge in
   both geometry modes, where the element that spans the edge has it, and moves to the smooth
   surface when it stops hanging; on the surface from the start, a curved roof came out a fifth
@@ -228,6 +240,20 @@ Measured on an L-shaped domain (the unit square without a quarter), MITC4, from 
 | Membrane, held on one edge, sheared on the opposite one | 10 % | 456 elements, 6 passes | 3 072 elements |
 | The same | 5.5 % | 1 572 elements | 12 288 elements |
 | Plate, clamped on two edges, uniform pressure | 4 % | 1 374 elements | between 768 (5.8 %) and 3 072 (3.0 %) |
+
+A square slab on a 3 × 3 grid of point supports under uniform pressure (8 × 8 MITC4, or the
+same as 128 DKT triangles), the error concentrated at the supports:
+
+| | To an estimate of | Adaptive | Uniform |
+|---|---|---|---|
+| MITC4 | half the coarse one (20 %) | 364 elements, 4 passes | 1 024 elements |
+| MITC4 | a quarter (10 %) | 1 312 elements, 6 passes | 4 096 elements |
+| DKT | half (22 %) | 416 elements, 3 passes | 2 048 elements |
+| DKT | a quarter (11 %) | 1 600 elements, 5 passes | 8 192 elements |
+
+The L membrane sheared by forces at the nodes of its edge, instead of a traction, does not
+converge: its estimate settles near 15 % however fine the mesh, and the loop ends with
+`depthLimit` (765 quads after 13 passes, where uniform refinement is at 12.5 % with 49 152).
 
 The membrane has a stress singularity at the re-entrant corner and gains most. The plate's
 error is spread over the domain, so there is less to gain. On the Scordelis-Lo roof (curved,

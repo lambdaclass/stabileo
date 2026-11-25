@@ -13232,7 +13232,7 @@ const en: Record<string, string> = {
   'discretization.studyFinishing': "Finishing the previous convergence check…",
   'discretization.studyFailed': "Convergence check not run: {reason}",
   'discretization.adaptiveTitle': "Advanced: adaptive mesh refinement",
-  'discretization.adaptiveExplain': "Refines the mesh only where the estimated error is largest and re-solves, down to the target. It reports what would change; your model changes only if you apply the mesh. Only MITC4 shells are refined locally; the other families are refined as a whole.",
+  'discretization.adaptiveExplain': "Refines the mesh only where the estimated error is largest and re-solves, down to the target. It reports what would change; your model changes only if you apply the mesh. MITC4 quads and DKT triangles are refined locally; the other families are refined as a whole.",
   'discretization.adaptiveTarget': "Target error (%)",
   'discretization.adaptiveRun': "Refine adaptively (re-solves several times)",
   'discretization.adaptiveRunning': "Refining and re-solving…",

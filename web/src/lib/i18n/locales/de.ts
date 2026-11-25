@@ -12699,7 +12699,7 @@ const de: Translations = {
   'discretization.studyFinishing': 'Vorherige Konvergenzprüfung wird abgeschlossen…',
   'discretization.studyFailed': 'Konvergenzprüfung nicht durchgeführt: {reason}',
   'discretization.adaptiveTitle': "Erweitert: adaptive Netzverfeinerung",
-  'discretization.adaptiveExplain': "Verfeinert das Netz nur dort, wo der geschätzte Fehler am größten ist, und berechnet neu, bis zum Zielwert. Es wird berichtet, was sich ändern würde; Ihr Modell ändert sich nur, wenn Sie das Netz übernehmen. Nur MITC4-Schalen werden lokal verfeinert; die anderen Familien als Ganzes.",
+  'discretization.adaptiveExplain': "Verfeinert das Netz nur dort, wo der geschätzte Fehler am größten ist, und berechnet neu, bis zum Zielwert. Es wird berichtet, was sich ändern würde; Ihr Modell ändert sich nur, wenn Sie das Netz übernehmen. MITC4-Vierecke und DKT-Dreiecke werden lokal verfeinert; die anderen Familien als Ganzes.",
   'discretization.adaptiveTarget': "Zielfehler (%)",
   'discretization.adaptiveRun': "Adaptiv verfeinern (mehrfache Neuberechnung)",
   'discretization.adaptiveRunning': "Verfeinerung und Neuberechnung…",

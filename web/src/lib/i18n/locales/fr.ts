@@ -12699,7 +12699,7 @@ const fr: Translations = {
   'discretization.studyFinishing': 'Fin de la vérification de convergence précédente…',
   'discretization.studyFailed': 'Vérification de convergence non effectuée : {reason}',
   'discretization.adaptiveTitle': "Avancé : raffinement adaptatif du maillage",
-  'discretization.adaptiveExplain': "Raffine le maillage uniquement là où l'erreur estimée est la plus grande et recalcule, jusqu'à l'objectif. On indique ce qui changerait ; votre modèle ne change que si vous appliquez le maillage. Seules les coques MITC4 sont raffinées localement ; les autres familles le sont en entier.",
+  'discretization.adaptiveExplain': "Raffine le maillage uniquement là où l'erreur estimée est la plus grande et recalcule, jusqu'à l'objectif. On indique ce qui changerait ; votre modèle ne change que si vous appliquez le maillage. Les quadrilatères MITC4 et les triangles DKT sont raffinés localement ; les autres familles le sont en entier.",
   'discretization.adaptiveTarget': "Erreur cible (%)",
   'discretization.adaptiveRun': "Raffiner de façon adaptative (plusieurs recalculs)",
   'discretization.adaptiveRunning': "Raffinement et recalcul…",
