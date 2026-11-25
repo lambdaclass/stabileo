@@ -1,0 +1,43 @@
+{
+  "model": {
+    "positions": [
+      [0.0, 0.0],
+      [0.16666666666666666, 0.025881904510252074],
+      [0.3333333333333333, 0.049999999999999996],
+      [0.5, 0.07071067811865475],
+      [0.6666666666666666, 0.08660254037844387],
+      [0.8333333333333334, 0.09659258262890684],
+      [1.0, 0.1]
+    ],
+    "fixed": [
+      [true, true, false],
+      [false, false, false],
+      [false, false, false],
+      [false, false, false],
+      [false, false, false],
+      [false, false, false],
+      [true, false, true]
+    ],
+    "loads": [
+      [0, 0, 0],
+      [0, 0, 0],
+      [0, 0, 0],
+      [0, 0, 0],
+      [0, 0, 0],
+      [0, 0, 0],
+      [0, -0.5, 0]
+    ],
+    "members": [
+      {"nodes": [0, 1], "young": 1000000.0, "area": 0.001, "inertia": 1e-08, "shearRigidity": 320, "halfDepth": 0.01},
+      {"nodes": [1, 2], "young": 1000000.0, "area": 0.001, "inertia": 1e-08, "shearRigidity": 320, "halfDepth": 0.01},
+      {"nodes": [2, 3], "young": 1000000.0, "area": 0.001, "inertia": 1e-08, "shearRigidity": 320, "halfDepth": 0.01},
+      {"nodes": [3, 4], "young": 1000000.0, "area": 0.001, "inertia": 1e-08, "shearRigidity": 320, "halfDepth": 0.01},
+      {"nodes": [4, 5], "young": 1000000.0, "area": 0.001, "inertia": 1e-08, "shearRigidity": 320, "halfDepth": 0.01},
+      {"nodes": [5, 6], "young": 1000000.0, "area": 0.001, "inertia": 1e-08, "shearRigidity": 320, "halfDepth": 0.01}
+    ]
+  },
+  "control": {"kind": "arc", "steps": 80, "maxIterations": 40, "tolerance": 1e-07, "initialRadius": 0.005, "minRadius": 0.0001, "maxRadius": 0.005, "loadWeight": 0.05},
+  "equilibriumTolerance": 1e-07,
+  "refinement": {"equilibriumTolerance": 1e-07, "intervalTolerance": 0.001, "maxRefinements": 32, "maxCorrectorIterations": 24},
+  "imperfection": null
+}

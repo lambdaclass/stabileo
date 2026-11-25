@@ -14,7 +14,8 @@ use crate::solver::stability::{DofKind, DofTag};
 
 pub mod stability;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BeamMember2D {
     pub nodes: [usize; 2],
     pub young: f64,
@@ -24,7 +25,8 @@ pub struct BeamMember2D {
     pub half_depth: f64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BeamModel2D {
     pub positions: Vec<[f64; 2]>,
     /// ux, uy, theta at each node. Rotations are radians, counterclockwise positive.
@@ -34,7 +36,8 @@ pub struct BeamModel2D {
     pub members: Vec<BeamMember2D>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BeamEquilibrium2D {
     pub load_factor: f64,
     pub displacements: Vec<[f64; 3]>,

@@ -64,6 +64,7 @@ help:
 	@echo "  make web.run        - Build the WASM engine and start the web app (port 4000 + INST*10)"
 	@echo "  make admin.run      - Start the admin site (port 4001 + INST*10), no WASM build"
 	@echo "  make admin.build    - Build the admin site into web/dist-admin"
+	@echo "  make experimental.beams - Local beam study at 127.0.0.1:5175/experimental-beams.html"
 	@echo "  make console        - IEx console on the backend"
 	@echo "  make routes         - Show backend routes"
 	@echo "  make ai-backend.run - Start the legacy Rust AI backend (port 3001)"
@@ -73,6 +74,8 @@ help:
 	@echo "  make test.engine    - Rust engine tests"
 	@echo "  make test.engine.experimental-nonlinear - Feature-enabled nonlinear driver tests (FILTER=...)"
 	@echo "  make test.engine.experimental-nonlinear-wasm - Feature-enabled nonlinear WASM tests (FILTER=...)"
+	@echo "  make test.engine.beam-study - Native/WASM beam study parity and boundary tests"
+	@echo "  make test.web.beam-study - Local beam viewer checks and browser tests"
 	@echo "  make test.backend   - Elixir backend tests"
 	@echo "  make test.backend.file FILE=apps/... - One backend test file or dir"
 	@echo "  make test.web       - Web (Vitest) tests"
@@ -253,6 +256,20 @@ test.engine.experimental-nonlinear:
 test.engine.experimental-nonlinear-wasm: scripts/tests/arc-review-wasm.mjs scripts/tests/planar-exact-member-actions.mjs scripts/tests/fixtures/planar-exact-member-actions.json scripts/tests/fixtures/planar-member-rotation.json scripts/tests/fixtures/planar-chord-equilibrium.json
 	$(NIX_RUN) wasm-pack build engine --target nodejs --out-dir ../target/experimental-nonlinear-wasm --no-opt -- --features experimental-nonlinear
 	$(NIX_RUN) node --test $(if $(FILTER),--test-name-pattern="$(FILTER)") scripts/tests/experimental-nonlinear-wasm.mjs
+
+.PHONY: experimental.beams.wasm experimental.beams test.engine.beam-study test.web.beam-study
+experimental.beams.wasm:
+	$(NIX_RUN) wasm-pack build engine --target web --out-dir ../web/src/experimental-beams/engine --no-opt -- --features experimental-nonlinear
+
+experimental.beams: experimental.beams.wasm
+	$(NIX_RUN) bash -c 'cd web && npx vite --config vite.experimental-beams.config.ts'
+
+test.engine.beam-study:
+	BEAM_STUDY_NATIVE_OUTPUT=$(CURDIR)/target/beam-study-native.json $(MAKE) test.engine.lib ENGINE_FEATURES=experimental-nonlinear FILTER=beam_study
+	BEAM_STUDY_NATIVE_OUTPUT=$(CURDIR)/target/beam-study-native.json $(MAKE) test.engine.experimental-nonlinear-wasm
+
+test.web.beam-study: experimental.beams.wasm
+	$(NIX_RUN) bash -c 'cd web && npx svelte-check --tsconfig tsconfig.experimental-beams.json && npx vitest run --config vitest.experimental-beams.config.ts && npx playwright test --config playwright.experimental-beams.config.ts'
 
 test.backend: services
 	$(NIX_RUN) bash -c "cd backend && MIX_ENV=test mix ecto.create --quiet && MIX_ENV=test mix ecto.migrate --quiet && mix test"

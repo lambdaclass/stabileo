@@ -19,6 +19,13 @@ fn parse<T: DeserializeOwned>(json: &str) -> Result<T, JsValue> {
 }
 
 #[wasm_bindgen]
+pub fn solve_experimental_beam_study_2d(json: &str) -> Result<String, JsValue> {
+    let result = super::beam_study::from_json(json)
+        .map_err(|error| JsValue::from_str(&error))?;
+    crate::to_json(&result)
+}
+
+#[wasm_bindgen]
 pub fn solve_experimental_corotational_2d(json: &str, options: &str) -> Result<String, JsValue> {
     let input: SolverInput = parse(json)?;
     let options: Options = parse(options)?;

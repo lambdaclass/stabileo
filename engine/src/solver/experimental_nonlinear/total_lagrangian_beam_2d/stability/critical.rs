@@ -1,7 +1,8 @@
 use super::*;
 use crate::linalg::{lu_apply, lu_factor};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Refinement {
     pub equilibrium_tolerance: f64,
     /// Distance in [q/D, lambda], not a load-factor error bound.
@@ -20,21 +21,24 @@ impl Default for Refinement {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum Localization {
     Bracketed,
     SpectralUncertainty,
     CorrectionFailed,
     BudgetExhausted,
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum CriticalKind {
     LimitPointCandidate,
     BifurcationCandidate,
     Unresolved,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CriticalBracket {
     /// These endpoints bracket a sign change along the sampled equilibrium branch.
     /// At a fold their load factors do NOT bound the peak load.

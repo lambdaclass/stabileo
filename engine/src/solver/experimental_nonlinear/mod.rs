@@ -4,6 +4,7 @@ pub(super) mod incremental;
 mod line_search;
 pub mod total_lagrangian;
 mod discrete_problem;
+pub mod beam_study;
 pub mod total_lagrangian_beam_2d;
 
 pub use super::arc_length::{

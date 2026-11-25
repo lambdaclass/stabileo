@@ -10,14 +10,16 @@ use crate::linalg::jacobi_eigen;
 mod critical;
 pub use critical::{locate_first_loss, CriticalBracket, CriticalKind, Localization, Refinement};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum Verdict {
     Stable,
     Unstable,
     Undetermined,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum Reason {
     PositiveTangent,
     NegativeDirection,
@@ -28,7 +30,8 @@ pub enum Reason {
     UnverifiedSpectrum,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Mode2D {
     /// Maximum nodal translation magnitude is one. Sign is arbitrary; test both
     /// signs when studying sensitivity to geometric imperfections.
@@ -37,7 +40,8 @@ pub struct Mode2D {
     pub rotations: Vec<f64>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TangentStability {
     pub verdict: Verdict,
     pub reason: Reason,
@@ -54,7 +58,8 @@ pub struct TangentStability {
     pub load_coupling: Option<f64>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CheckedState {
     /// Recomputed from the supplied geometry, displacement and load factor.
     pub equilibrium: BeamEquilibrium2D,
@@ -310,7 +315,8 @@ fn spectrum(k: &[f64], n: usize, sweeps: usize) -> (TangentStability, Option<Vec
     )
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ImperfectModel2D {
     pub model: BeamModel2D,
     /// Actual coordinate changes after rounding, in physical length units.
