@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const {execFileSync} = require('node:child_process');
 const os = require('node:os');
 const path = require('node:path');
 const {test} = require('node:test');
@@ -725,3 +726,79 @@ test('overflow stays complete until the reporter replaces a saved batch', () => 
     assert.ok(issues[0].body.includes('nightly-sightings:' + count + ':'));
   }
 }));
+
+const thirdReview = {skip: process.env.RUN_NIGHTLY_THIRD_REVIEW !== '1' && 'known wrong result: #2578'};
+
+test('replay keeps a structural finding open when only the smallest model passes', thirdReview, () => fixture(async ({args, calls, save}) => {
+  const check = {...finding, test: 'metamorphic/linear/rotation', details: ['seeded: displacement mismatch']};
+  save('small', {...check, model: {nodes: {}}});
+  save('large', {...check, model: {nodes: {n1: {}}}});
+  await report(args);
+  const [issue] = calls.filter(c => c.name === 'create').map(c => ({...c.args, number: 1}));
+
+  const dir = process.cwd();
+  fs.writeFileSync('issues.json', JSON.stringify([issue]));
+  const binary = path.join(dir, 'replay-model');
+  fs.writeFileSync(binary, `#!/usr/bin/env python3
+import json
+import os
+from pathlib import Path
+
+model = json.loads(Path(os.environ["NIGHTLY_MODEL"]).read_text())
+verdict = {"analysis": "linear", "invariant": "rotation"}
+verdict["fail" if model["nodes"] else "pass"] = 1
+Path(os.environ["NIGHTLY_RESULTS"]).write_text(json.dumps({"verdicts": [verdict]}))
+`, {mode: 0o700});
+  const root = path.resolve(__dirname, '../..');
+  const replay = (command, ...args) => execFileSync('python3', ['-B', '-I', 'scripts/replay-findings.py',
+    command, '--issues', path.join(dir, 'issues.json'), ...args], {cwd: root});
+  const partial = path.join(dir, 'partial.json');
+  const merged = path.join(dir, 'report.json');
+  replay('replay', '--source', 'metamorphic', '--jobs', '2', '--metamorphic-bin', binary, '--output', partial);
+  replay('report', '--partials', partial, '--output', merged);
+  assert.equal(JSON.parse(fs.readFileSync(merged, 'utf8'))[0].status, 'still-fails');
+  assert.deepEqual(JSON.parse(fs.readFileSync(partial, 'utf8')).map(row => row.status).sort(), ['passes-now', 'still-fails']);
+}));
+
+test('structural replay selectors distinguish seeds and exact model numbers', thirdReview, () => fixture(async ({args, logs, save}) => {
+  const check = {...finding, test: 'metamorphic/linear/rotation', details: ['seeded: displacement mismatch']};
+  save('a', {...check, model: {nodes: {}, selector: 9007199254740992}});
+  save('b', {...check, model: {selector: 9007199254740992, nodes: {}}});
+  save('c', {...check, model: {nodes: {}, selector: 9007199254740992}});
+  save('d', {...check, seed: 43, model: {nodes: {}, selector: 9007199254740992}});
+  const file = 'nightly-findings/c.finding.json';
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('9007199254740992', '9007199254740993'));
+  process.env.FINDINGS_DRY_RUN = 'true';
+  await report(args);
+  assert.equal(logs.length, 1);
+  const payload = logs[0].match(/<!-- nightly-reproducer:v1 (\S+) -->/);
+  assert.ok(payload);
+  const records = JSON.parse(gunzipSync(Buffer.from(payload[1], 'base64')));
+  assert.deepEqual(records.map(({path, seed}) => [path, seed]), [
+    ['nightly-findings/a.finding.json', '42'],
+    [file, '42'],
+    ['nightly-findings/d.finding.json', '43']
+  ]);
+}));
+
+test('migration requires exact bytes before grouping legacy bare crashes', thirdReview, () => {
+  const {planMigration} = require('../../scripts/migrate-nightly-findings.cjs');
+  const crash = (number, name, raw_hex, root = name) => ({
+    number, state: 'open', title: `Nightly finding: fuzz/json_plastic: ${name}`,
+    body: `Check: **fuzz** · kind: **json_plastic**
+
+Root cause: ${root}
+
+Test: **fuzz/json_plastic**` +
+      (raw_hex === undefined ? '' : '\n\nSave as model.json:\n\n```json\n' + JSON.stringify({raw_hex}) + '\n```') +
+      '\n\nDetails:\n\n```text\n' + JSON.stringify(name) + '\n```'
+  });
+  const a = 'crash-' + 'a'.repeat(40);
+  const b = 'crash-' + 'b'.repeat(40);
+  const plan = planMigration([
+    crash(1, a), crash(2, b, undefined, 'crash-#'), crash(3, a, 'invalid'),
+    crash(4, a, '01'), crash(5, b, '01', 'crash-#'), crash(6, a, '02')
+  ]);
+  assert.deepEqual(plan.unresolved, [1, 2, 3]);
+  assert.deepEqual(plan.duplicates.map(({keep, close}) => [keep, close]), [[4, [5]]]);
+});

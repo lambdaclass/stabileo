@@ -5,8 +5,10 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import tempfile
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -697,6 +699,11 @@ class ReplayAndClassificationTest(unittest.TestCase):
 
 
 
+third_review = unittest.skipUnless(
+    os.environ.get("RUN_NIGHTLY_THIRD_REVIEW") == "1", "known wrong result: #2578"
+)
+
+
 class ReplayClosureReviewTest(unittest.TestCase):
     def record(self, seed, model):
         artifact = json.dumps({"test": "metamorphic/linear/rotation", "seed": seed, "model": model})
@@ -709,7 +716,7 @@ class ReplayClosureReviewTest(unittest.TestCase):
         payload = base64.b64encode(gzip.compress(json.dumps([record]).encode())).decode()
         return f"<!-- nightly-reproducer:v1 {payload} -->"
 
-    def assert_report_actions(self, issues, partials, expected, scheduled=False, live_issue=None, live_comments=None):
+    def assert_report_actions(self, issues, partials, expected, scheduled=False, live_issue=None, live_comments=None, commit=None):
         calls = []
 
         def fake_gh(*args, data=None):
@@ -733,6 +740,8 @@ class ReplayClosureReviewTest(unittest.TestCase):
             issues_file.write_text(json.dumps(issues))
             partial_file.write_text(json.dumps(partials))
             args = ["--night", "2026-11-25", "--run-id", "99"] if scheduled else ["--close-passing"]
+            if commit is not None:
+                args.extend(["--commit", commit])
             with contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(rf.main(["report", "--issues", str(issues_file), "--partials", str(partial_file),
                                           "--output", str(output), "--repo", "owner/repo", *args]), 0)
@@ -872,6 +881,66 @@ class ReplayClosureReviewTest(unittest.TestCase):
                 self.assertEqual(bool(closes), should_close)
                 if should_close:
                     self.assertEqual([args[0] for args, _ in calls], ["api", "api", "issue"])
+
+
+    def replay_cli(self, issues, verdict):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(rf, "_run_metamorphic_model", side_effect=verdict):
+            root = Path(tmp)
+            issues_file = root / "issues.json"
+            partial_file = root / "partial.json"
+            issues_file.write_text(json.dumps(issues))
+            self.assertEqual(rf.main(["replay", "--issues", str(issues_file), "--source", "metamorphic",
+                                      "--metamorphic-bin", "/bin/metamorphic", "--output", str(partial_file)]), 0)
+            return json.loads(partial_file.read_text())
+
+    @third_review
+    def test_changed_model_or_seed_cannot_inherit_a_partial_at_the_same_position(self):
+        commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+
+        def verdict(model, seed, *_):
+            counts = {"fail": 1} if model["nodes"] or seed != 42 else {"pass": 1}
+            return {"verdicts": [{"analysis": "linear", "invariant": "rotation", **counts}]}, None
+
+        original = make_issue(1, seed="42", model={"nodes": {}})
+        partial = self.replay_cli([original], verdict)
+        self.assertEqual(partial[0]["status"], "passes-now")
+        for changed in (make_issue(1, seed="43", model={"nodes": {}}),
+                        make_issue(1, seed="42", model={"nodes": {"n1": {}}})):
+            with self.subTest(body=changed["body"]):
+                _, calls = self.assert_report_actions([changed], partial, ["not-replayable"], commit=commit)
+                self.assertEqual(calls, [])
+                current = self.replay_cli([changed], verdict)
+                self.assertEqual(current[0]["status"], "still-fails")
+                _, calls = self.assert_report_actions([changed], current, ["still-fails"], commit=commit)
+                self.assertEqual([args[:3] for args, _ in calls], [("issue", "comment", "1")])
+
+        _, calls = self.assert_report_actions([original], partial, ["passes-now"], commit=commit)
+        self.assertEqual([args[:3] for args, _ in calls if args[:2] == ("issue", "close")], [("issue", "close", "1")])
+
+    @third_review
+    def test_report_requires_the_commit_actually_checked_out_by_the_worker(self):
+        commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+        other = subprocess.check_output(["git", "rev-parse", "HEAD^"], cwd=ROOT, text=True).strip()
+        issue = make_issue(1, model={"nodes": {}})
+        verdict = {"verdicts": [{"analysis": "linear", "invariant": "rotation", "pass": 1}]}
+        with patch.dict(os.environ, {"GITHUB_SHA": other}):
+            partial = self.replay_cli([issue], lambda *_: (verdict, None))
+        _, calls = self.assert_report_actions([issue], partial, ["not-replayable"], commit=other)
+        self.assertEqual(calls, [])
+
+        fingerprint = rf._replay_fingerprint(rf.parse_reproducers(issue))
+        state = json.dumps({"night": "2026-11-24", "fingerprint": fingerprint, "streak": 2})
+        issue["body"] = f"<!-- nightly-replay:v1 {state} -->\n{issue['body']}"
+        _, calls = self.assert_report_actions([issue], partial, ["not-replayable"], scheduled=True, commit=other)
+        self.assertEqual([rf._replay_state(json.loads(data)["body"])["streak"]
+                          for args, data in calls if args[:3] == ("api", "--method", "PATCH")], [0])
+        self.assertFalse(any(args[:3] == ("api", "--method", "POST") for args, _ in calls))
+
+        legacy = [{key: partial[0][key] for key in ("issue", "source", "status", "evidence")}]
+        _, calls = self.assert_report_actions([issue], legacy, ["not-replayable"], commit=commit)
+        self.assertEqual(calls, [])
+        _, calls = self.assert_report_actions([issue], partial, ["passes-now"], commit=commit)
+        self.assertEqual([args[:3] for args, _ in calls if args[:2] == ("issue", "close")], [("issue", "close", "1")])
 
 
 if __name__ == "__main__":
