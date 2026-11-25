@@ -1381,10 +1381,8 @@ for (const end of [10, 6]) it(`#2512 shell-owned bay area cannot mask a lower ro
   }
 });
 
-const reviewReproducer = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
-
 for (const offset of [0.051, 0.2, MIN_STOREY_HEADROOM - 0.125]) {
-  reviewReproducer(`known wrong result: #2512 a vertically attached upper shell at offset ${offset} cannot bypass bay ownership`, () => {
+  it(`#2512 a vertically attached upper shell at offset ${offset} cannot bypass bay ownership`, () => {
     checkBlockedGravity(linkedShellBay(3 + offset), {
       key: 'loadPlan.gravity.offsetShellDeck', params: { id: 1, members: '1, 2, 3, 4' },
     });
@@ -1441,7 +1439,7 @@ for (const offset of [0.051, 0.2, -0.2, MIN_STOREY_HEADROOM - 0.125]) {
 }
 
 for (const subdivide of [false, true]) {
-  reviewReproducer(`known wrong result: #2512 a rafter with unequal vertical attachments refuses with subdivision=${subdivide}`, () => {
+  it(`#2512 a rafter with unequal vertical attachments refuses with subdivision=${subdivide}`, () => {
     const model = translationLinkedRafter(0.2, [2], subdivide);
     const rafterNodes = new Set([...model.elements.values()].flatMap(({ nodeI, nodeJ }) => [nodeI, nodeJ]));
     for (const id of rafterNodes) {

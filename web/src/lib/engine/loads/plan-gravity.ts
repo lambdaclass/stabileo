@@ -307,7 +307,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   }
   const ownership = opts.mode === 'panels' ? partitionGravityFloors(
     carriers, prepared.flatMap(({ floor }) => floor.bays), {
-      deck: MIN_COVER_RISE,
+      deck: MIN_COVER_RISE, storeyHeadroom: MIN_STOREY_HEADROOM,
       explicitBeamBays: frameComponents && { tolerance: TOL, componentOf: node => frameComponents.root(node) },
     }, coordinates, shellBoundaryAttachments(model, beamsAt, links, terminals),
     (first, second) => fixedShellStations.get(first)?.some(node => fixedShellStations.get(second)?.includes(node))
@@ -589,8 +589,8 @@ export const MAX_DECK_SPAN = 12;
 
 type ShellCoverage = 'none' | 'partial' | 'full';
 type AttachmentCoverage = ShellCoverage | 'unresolvedOffset';
-type ShellOffset = { offset: Segment[0]; error: number };
-type ShellAttachment = { offset: Segment[0]; anchors: Set<number>; error: number };
+type ShellOffset = { offset: Segment[0]; error: number; shellNode: number };
+type ShellAttachment = { offset: Segment[0]; anchors: Set<number>; shellNodes: Set<number>; error: number };
 
 function attachmentPoint(point: { x: number; y: number; z?: number }, [dx, dy, dz]: Segment[0]): Segment[0] {
   return [point.x + dx, point.y + dy, (point.z ?? 0) + dz];
@@ -599,7 +599,7 @@ function attachmentPoint(point: { x: number; y: number; z?: number }, [dx, dy, d
 type VerticalShellLink = {
   masterNode: number;
   slaveNode: number;
-  geometry?: { fullMotion: boolean; offset: boolean };
+  geometry?: 'fullMotion' | 'verticalMotion';
 };
 
 function verticalShellLinks(model: GravityModel): VerticalShellLink[] {
@@ -614,13 +614,14 @@ function verticalShellLinks(model: GravityModel): VerticalShellLink[] {
     if (constraint.type === 'rigidLink') {
       const dofs = constraint.dofs?.length ? constraint.dofs : [0, 1, 2];
       const fullMotion = dofIndices.every(dof => dofs.includes(dof));
-      if (dofs.includes(2)) add(constraint.masterNode, constraint.slaveNode, { fullMotion, offset: fullMotion });
+      if (dofs.includes(2)) add(constraint.masterNode, constraint.slaveNode, fullMotion ? 'fullMotion' : 'verticalMotion');
     } else if (constraint.type === 'eccentricConnection') {
       const { masterNode, slaveNode, releases } = constraint;
       const master = model.nodes.get(masterNode), slave = model.nodes.get(slaveNode);
       if (!master || !slave || releases?.[2]) continue;
       const [x, y, z] = attachmentPoint(master, [constraint.offsetX ?? 0, constraint.offsetY ?? 0, constraint.offsetZ ?? 0]);
-      const geometry = samePhysicalPoint({ x, y, z }, slave) ? { fullMotion: dofIndices.every(dof => !releases?.[dof]), offset: true } : undefined;
+      const fullMotion = dofIndices.every(dof => !releases?.[dof]);
+      const geometry = samePhysicalPoint({ x, y, z }, slave) ? (fullMotion ? 'fullMotion' : 'verticalMotion') : undefined;
       add(masterNode, slaveNode, geometry);
     } else if (constraint.type === 'equalDOF' && constraint.dofs.includes(2)) {
       add(constraint.masterNode, constraint.slaveNode);
@@ -664,7 +665,7 @@ function shellOffsets(
       const offset: Segment[0] = [shell.x - member.x, shell.y - member.y, sz - mz];
       const error = 64 * Number.EPSILON * Math.max(Math.abs(member.x), Math.abs(member.y), Math.abs(mz), Math.abs(shell.x), Math.abs(shell.y), Math.abs(sz));
       if (Math.hypot(...offset) <= error) continue;
-      (offsets.get(frameNode) ?? offsets.set(frameNode, []).get(frameNode)!).push({ offset, error });
+      (offsets.get(frameNode) ?? offsets.set(frameNode, []).get(frameNode)!).push({ offset, error, shellNode });
     }
   }
   return offsets;
@@ -675,6 +676,10 @@ function rigidShellCoverage(
 ): Map<number, AttachmentCoverage> {
   const byMember = new Map<number, AttachmentCoverage>();
   if (!offsets.size) return byMember;
+  const shellsAtNode = new Map<number, ShellCarrier[]>();
+  for (const carrier of carriers) for (const node of carrier.nodes) {
+    (shellsAtNode.get(node) ?? shellsAtNode.set(node, []).get(node)!).push(carrier);
+  }
   const axes = memberGeometry(model, members);
   const axesById = new Map(axes.map(axis => [axis.id, axis]));
   const runs = physicalRoofRuns(axes, (a, b) => a === b);
@@ -684,13 +689,18 @@ function rigidShellCoverage(
       return [nodeI, nodeJ];
     }));
     const attachments: ShellAttachment[] = [];
-    for (const nodeId of nodes) for (const { offset, error } of offsets.get(nodeId) ?? []) {
+    for (const nodeId of nodes) for (const { offset, error, shellNode } of offsets.get(nodeId) ?? []) {
       const matching = attachments.find(a => Math.hypot(offset[0] - a.offset[0], offset[1] - a.offset[1], offset[2] - a.offset[2]) <= Math.max(error, a.error));
-      if (matching) matching.anchors.add(nodeId);
-      else attachments.push({ offset, error, anchors: new Set([nodeId]) });
+      if (matching) {
+        matching.anchors.add(nodeId);
+        matching.shellNodes.add(shellNode);
+      } else {
+        attachments.push({ offset, error, anchors: new Set([nodeId]), shellNodes: new Set([shellNode]) });
+      }
     }
     let coverage: AttachmentCoverage = 'none';
-    for (const { offset, anchors } of attachments) {
+    const unresolvedVerticalAnchors = new Set<number>();
+    for (const { offset, anchors, shellNodes, error } of attachments) {
       if (Math.abs(offset[2]) >= MIN_STOREY_HEADROOM) continue;
       const traces: Segment[] = [...ids].map(id => {
         const { a, b } = axesById.get(id)!;
@@ -698,7 +708,15 @@ function rigidShellCoverage(
       });
       const covered = traces.map(trace => shellCoverage(trace, carriers));
       if (!samePhysicalDeck([[offset[2], 0]], MIN_COVER_RISE)) {
-        if (covered.every(state => state === 'none')) continue;
+        if (covered.every(state => state === 'none')) {
+          if (Math.hypot(offset[0], offset[1]) <= error) {
+            const linkedShells = [...new Set([...shellNodes].flatMap(node => shellsAtNode.get(node) ?? []))];
+            if (traces.some(trace => shellCoverage(trace, linkedShells, false) !== 'none')) {
+              for (const anchor of anchors) unresolvedVerticalAnchors.add(anchor);
+            }
+          }
+          continue;
+        }
         coverage = 'unresolvedOffset';
         break;
       }
@@ -709,6 +727,7 @@ function rigidShellCoverage(
         break;
       }
     }
+    if (coverage === 'none' && unresolvedVerticalAnchors.size > 1) coverage = 'unresolvedOffset';
     if (coverage !== 'none') for (const id of ids) byMember.set(id, coverage);
   }
   return byMember;
@@ -852,7 +871,7 @@ function shellBoundaryAttachments(
   links: readonly VerticalShellLink[], terminals: ReadonlySet<number>,
 ) {
   const frames = new NodeComponents();
-  const rigidLinks = links.filter(link => link.geometry?.fullMotion);
+  const rigidLinks = links.filter(link => link.geometry === 'fullMotion');
   if (!rigidLinks.length) return () => false;
   const motion = new AttachmentComponents(rigidLinks, terminals);
   const flatNodes = new Set<number>();

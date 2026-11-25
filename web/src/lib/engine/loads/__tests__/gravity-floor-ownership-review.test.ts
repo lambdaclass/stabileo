@@ -830,8 +830,6 @@ it('#2512 restored apply blocks the matched 200 mm offset rafter', () => {
   expect(modelStore.snapshot()).toEqual(before);
 });
 
-const offsetOwnershipReproducer = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
-
 for (const [name, fixture, reason] of [
   ['an attached upper shell', () => subdividedShellBay(false, 3.2), { key: 'loadPlan.gravity.offsetShellDeck' }],
   ['unequal vertical rafter ties', () => {
@@ -841,7 +839,7 @@ for (const [name, fixture, reason] of [
     return model;
   }, offsetRafterRefusal],
 ] as const) {
-  offsetOwnershipReproducer(`known wrong result: #2512 restored apply refuses ${name}`, () => {
+  it(`#2512 restored apply refuses ${name}`, () => {
     const { plan } = restoreAndPlan(fixture(), false, { mode: 'panels', loadEveryPanel: true });
     const before = modelStore.snapshot();
     expect(plan.outcome, JSON.stringify({ blocked: plan.blockedKeys, levels: plan.levels })).toBe('BLOCKED');

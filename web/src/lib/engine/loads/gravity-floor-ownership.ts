@@ -120,7 +120,7 @@ type BayLevelSeparation = { tolerance: number; componentOf: (node: number) => nu
 export function partitionGravityFloors<S extends Shell>(
   shells: readonly S[],
   bays: readonly FloorBay[],
-  { deck: tolerance, explicitBeamBays }: { deck: number; explicitBeamBays?: BayLevelSeparation },
+  { deck: tolerance, storeyHeadroom, explicitBeamBays }: { deck: number; storeyHeadroom: number; explicitBeamBays?: BayLevelSeparation },
   coordinates: (node: number) => Point3,
   hasBoundaryAttachment: (shell: S, bay: FloorBay) => boolean,
   shellSeparation: (first: S, second: S) => number,
@@ -169,9 +169,17 @@ export function partitionGravityFloors<S extends Shell>(
     const bay = a.kind === 'bay' ? a : b.kind === 'bay' ? b : undefined;
     const shell = a.kind === 'shell' ? a : b.kind === 'shell' ? b : undefined;
     if (!bay || !shell) continue;
-    if (separatedByHeightRange(bay.deck, shell.deck, tolerance)) continue;
+    const rangesSeparated = separatedByHeightRange(bay.deck, shell.deck, tolerance);
+    const rise = shell.deck.range[0] - bay.deck.range[1];
+    const attachedOverhead = rangesSeparated && rise > 0 && rise < storeyHeadroom &&
+      hasBoundaryAttachment(shell.shell, bay.bay);
+    if (rangesSeparated && !attachedOverhead) continue;
     const overlap = positiveOverlap(bay.footprint, shell.footprint);
-    if (!overlap || separated(bay.deck, shell.deck, overlap, tolerance)) continue;
+    if (!overlap) continue;
+    if (attachedOverhead) {
+      refuseGravityGeometry(msg('loadPlan.gravity.offsetShellDeck', { id: shell.shell.id, members: bayMembers(bay.bay) }));
+    }
+    if (separated(bay.deck, shell.deck, overlap, tolerance)) continue;
     const basis = bay.deck.basis;
     if (!basis || !shell.deck.basis) refuseGravityGeometry(msg('loadPlan.gravity.differentDeck'));
     const [p, q, r] = basis;
