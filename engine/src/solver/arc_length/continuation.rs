@@ -1173,3 +1173,6 @@ mod shared_driver_equivalence {
         );
     }
 }
+
+#[cfg(test)]
+mod nonlinear_rounding_tests;
