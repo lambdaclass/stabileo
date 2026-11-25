@@ -1,10 +1,11 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { assessProject } from '../../provenance/applicability';
 import {
   loadsGeneratedWith, modelFeatures, unverifiedSeismicLoads, type FeatureSnapshot,
 } from '../../provenance/model-features';
 import { modelStore, uiStore } from '../../store';
 import type { Load } from '../../store/model.svelte';
+import { createRecheckStore } from '../../store/recheck.svelte';
 import { loadFixture, type JSONModel } from '../../templates/load-fixture';
 import { runDirectAnalysis } from '../direct-analysis';
 import {
@@ -153,9 +154,10 @@ describe('malformed authored loads', () => {
   });
 
   describe.each(['xz', 'yz'] as const)('Basic %s projection', (plane) => {
+    const discardedField = plane === 'xz' ? 'fy' : 'fx';
     it.each([
       ['missing projected force', 'nodal3d', 'fz', undefined],
-      ['non-finite spatial force', 'nodal3d', 'fy', NaN],
+      ['non-finite discarded force', 'nodal3d', discardedField, NaN],
       ['missing distributed ordinate', 'distributed3d', 'qZI', undefined],
     ] as const)('checks the authored load for %s before projection', async (_, type, key, invalid) => {
       const { tip, member } = cantilever(false, 0, plane);
@@ -300,5 +302,65 @@ describe('malformed authored load provenance', () => {
       .toContain('malformedAuthoredLoad');
     expect.soft(unverifiedSeismicLoads(snapshot)).toEqual([seismicForce]);
     expect.soft(loadsGeneratedWith({ ...snapshot, loads: [...loads].reverse() })).toBe(0);
+  });
+});
+
+describe.skipIf(process.env.STABILEO_REPRODUCE_AUTHORED_LOADS !== '1')('known wrong result: #2583', () => {
+  it.each([
+    ['xz', 'sync', 'fy'],
+    ['xz', 'async', 'fy'],
+    ['yz', 'sync', 'fx'],
+    ['yz', 'async', 'fx'],
+  ] as const)('Basic %s %s clears the previous kinematic result on a refused solve', async (plane, entry, field) => {
+    const { tip } = cantilever(false, 0, plane);
+    const load = { ...completeForce, data: { ...completeForce.data, nodeId: tip } };
+    const solve = () => entry === 'sync' ? modelStore.solve(false, plane) : modelStore.solveAsync(false, plane);
+    setLoad(load);
+    expect(await solve()).toMatchObject({ reactions: [{ rz: force }] });
+    expect(modelStore.kinematicResult).toMatchObject({ isSolvable: true });
+
+    setLoad({ ...load, data: { ...load.data, [field]: NaN } });
+    expect.soft(await solve()).toEqual(expect.stringContaining('loads[0].data.' + field));
+    expect.soft(modelStore.kinematicResult).toBeNull();
+
+    setLoad(load);
+    expect(await solve()).toMatchObject({ reactions: [{ rz: force }] });
+    expect(modelStore.kinematicResult).toMatchObject({ isSolvable: true });
+  });
+
+  it.each(['2d', '3d', 'pro'].flatMap(mode => [
+    [mode, undefined], [mode, 7],
+  ] as const))('rechecks generated seismic payloads in %s with type %s', async (analysisMode, type) => {
+    const generated = { ...(type === undefined ? {} : { type }), data: { caseId: 1, generatedBy: 'auto' } };
+    const generatedLoads = [generated] as unknown as NonNullable<FeatureSnapshot['loads']>;
+    const staticLoad = { type: 'nodal3d', data: {
+      ...completeForce.data, caseId: 1, generatedBy: 'auto', seismicGeneration: 'static',
+    } };
+    const snapshot: FeatureSnapshot = {
+      analysisMode,
+      loads: [...generatedLoads, staticLoad],
+      loadCases: [{ id: 1, type: 'E', generated: true }],
+      combinations: [combo],
+    };
+    const features = modelFeatures(snapshot);
+    expect.soft(modelFeatures({ ...snapshot, loads: generatedLoads })).toContain('generatedLoads');
+    expect.soft(features).toContain('malformedAuthoredLoad');
+    expect.soft(features).toContain('nodalForces');
+    expect.soft(unverifiedSeismicLoads(snapshot)).toEqual([generated]);
+    expect.soft(loadsGeneratedWith({ ...snapshot, loads: generatedLoads })).toBe(0);
+
+    expect.soft(modelFeatures({ ...snapshot, loads: [] }, { storedLoads: generatedLoads }))
+      .toContain('occupiedGeneratedLoadCases');
+    expect.soft(modelFeatures({ ...snapshot, loads: [] })).not.toContain('occupiedGeneratedLoadCases');
+
+    const recheck = createRecheckStore();
+    recheck.openProject(snapshot, analysisMode);
+    await vi.waitFor(() => expect(recheck.pending).toBe(false));
+    expect.soft(recheck.assessment?.changes.map(({ id }) => id)).toEqual(expect.arrayContaining([
+      'malformed-authored-loads', 'seismic-modal-generation-unavailable',
+    ]));
+    recheck.openProject({ ...snapshot, loads: [staticLoad] }, analysisMode);
+    await vi.waitFor(() => expect(recheck.pending).toBe(false));
+    expect(recheck.assessment?.changes.map(({ id }) => id)).not.toContain('seismic-modal-generation-unavailable');
   });
 });
