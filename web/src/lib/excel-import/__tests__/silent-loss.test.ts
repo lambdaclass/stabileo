@@ -348,3 +348,67 @@ it('#2565 refuses explicit workbook self-weight ID 1.5 before replay can make it
     expect(modelStore.analysis?.selfWeight?.[0]?.elements).toEqual([...modelStore.elements.keys()]);
   }
 });
+
+const reviewSelectorRegression = process.env.RUN_KNOWN_WRONG === '2565' ? it : it.skip;
+const maxWorkbookMemberId = Number.MAX_SAFE_INTEGER;
+const workbookSelectors = [
+  ['a fractional ID', 1.5, '1.5'],
+  ['a missing integer ID', 2, '2'],
+  ['a missing ID mixed with a live ID', '1 2', '2'],
+  ['a fractional token that rounds to a live ID', '1.00000000000000001', '1.00000000000000001'],
+  ['a negative ID', '-1', '-1'],
+  ['an ID just above the safe integer limit', '9007199254740992', '9007199254740992'],
+  ['an unsafe integer that loses precision', '9007199254740993', '9007199254740993'],
+] as const;
+
+function selectorWorkbook(geometry: typeof plane | typeof space, selector: string | number) {
+  const memberFields = member.Members[1]!.slice(1);
+  return {
+    ...geometry, ...member,
+    Members: [member.Members[0]!, [0, ...memberFields], member.Members[1]!, [maxWorkbookMemberId, ...memberFields]],
+    SelfWeight: [
+      ['source', 'case', 'direction', 'factor', 'scope', 'members'],
+      ['case', 1, 'Z', -1, 'members', selector],
+    ],
+  };
+}
+
+for (const [label, selector, token] of workbookSelectors) {
+  const problem = expect.objectContaining({
+    sheet: 'SelfWeight', row: 2, column: 'members', blocking: true, message: expect.stringContaining(token),
+  });
+
+  reviewSelectorRegression(`known wrong result: #2565 workbook selector review: parsing blocks ${label}`, () => {
+    vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('development'));
+    const parsed = parseWorkbook(selectorWorkbook(plane, selector));
+    expect.soft(parsed.model.analysis?.selfWeight).toEqual([]);
+    expect(parsed.problems).toEqual([problem]);
+  });
+
+  for (const [entry, install] of [['arrays', applyWorkbook], ['XLSX', importFile]] as const) {
+    for (const [mode, geometry] of [['2d', plane], ['3d', space], ['pro', space]] as const) {
+      reviewSelectorRegression(`known wrong result: #2565 workbook selector review: ${entry} ${mode} blocks ${label}`, async () => {
+        vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('development'));
+        const before = priorModel(mode);
+        const outcome = await install(selectorWorkbook(geometry, selector));
+        expect.soft(outcome?.loaded).toEqual({ nodes: 0, elements: 0, sections: 0 });
+        expect(outcome?.problems).toEqual([problem]);
+        expect(modelStore.snapshot()).toEqual(before);
+      });
+    }
+  }
+}
+
+for (const [entry, install] of [['arrays', applyWorkbook], ['XLSX', importFile]] as const) {
+  for (const [mode, geometry] of [['2d', plane], ['3d', space], ['pro', space]] as const) {
+    it(`#2565 workbook selector review: ${entry} ${mode} installs live IDs from zero through the safe integer limit`, async () => {
+      vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('development'));
+      priorModel(mode);
+      const outcome = await install(selectorWorkbook(geometry, ` 0\t01  ${maxWorkbookMemberId} `));
+      expect(outcome?.problems).toEqual([]);
+      expect(outcome?.loaded).toMatchObject({ nodes: 2, elements: 3 });
+      expect(outcome?.model.analysis?.selfWeight?.[0]?.elements).toEqual([0, 1, maxWorkbookMemberId]);
+      expect(modelStore.analysis?.selfWeight?.[0]?.elements).toEqual([...modelStore.elements.keys()]);
+    });
+  }
+}
