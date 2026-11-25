@@ -2,11 +2,11 @@ import { beforeEach, expect, it } from 'vitest';
 import { buildLoadPlan, type LoadPlan } from '../../engine/loads/load-plan';
 import { mesh } from '../../engine/loads/__tests__/snow-surface-round2-fixture';
 import { regulations } from '../../engine/loads/__tests__/snow-roof-plane-fixture';
+import { modelFeatures } from '../../provenance/model-features';
 import { applyLoadPlan, previewLoadPlan } from '../apply-load-plan';
 import { deserializeProject, serializeProject } from '../file';
 import { modelStore, uiStore } from '../index';
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2566' ? it : it.skip;
 const nameOf = (key: string) => key;
 
 beforeEach(() => {
@@ -55,7 +55,7 @@ function previewAndApply(
 
 for (const mode of ['append', 'replace', 'replace including unmarked'] as const) {
   for (const source of ['new', 'saved'] as const) {
-    knownWrong(`known wrong result: #2566 ${mode} keeps a ${source} empty manual wind alternative in Preview and Apply`, () => {
+    it(`#2566 ${mode} keeps a ${source} empty manual wind alternative in Preview and Apply`, () => {
       const { plan, dead, wind } = windPlan();
       const noWind = modelStore.addLoadCase('No wind', 'W');
       if (source === 'saved') expect(deserializeProject(serializeProject())).toBe(true);
@@ -76,4 +76,14 @@ it('#2566 Preview and Apply keep a loaded manual wind choice', () => {
   const manual = modelStore.addLoadCase('Manual wind', 'W');
   modelStore.addNodalLoad3D(node, 1, 0, 0, 0, 0, 0, manual);
   previewAndApply(plan, [[dead, wind], [dead, manual]], true, false);
+});
+
+it('#2566 saved Auto Loads evidence distinguishes an empty manual choice from a generated shell', () => {
+  const { plan } = windPlan();
+  modelStore.addLoadCase('Old wind', 'W', { generated: true });
+  expect(applyLoadPlan(plan, { nameOf, clearExisting: false, bothSenses: false })).toBeUndefined();
+  const hasEvidence = () => modelFeatures(modelStore.snapshot()).has('emptyManualLoadAlternatives');
+  expect(hasEvidence()).toBe(false);
+  modelStore.addLoadCase('No wind', 'W');
+  expect(hasEvidence()).toBe(true);
 });

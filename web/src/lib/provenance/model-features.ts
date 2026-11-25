@@ -62,7 +62,7 @@ export const FEATURE_IDS = [
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase', 'loadPlanCombinationSupplements', 'flatRoofSnowCombinations',
-  'occupiedGeneratedLoadCases', 'repeatedUngroupedRuleTerms',
+  'occupiedGeneratedLoadCases', 'repeatedUngroupedRuleTerms', 'emptyManualLoadAlternatives',
   'superposedCombinations', 'repeatedCombinationCases', 'zeroOrOpposingCombinationFactors', 'explicitNotionalCombinationCases',
   'prototypeNamedLoadCase', 'staticCaseEffects', 'projectedSpatialLoads', 'offsetMemberLoadFrame', 'inactiveSpatialMembers',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
@@ -612,6 +612,21 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     f.add('combinations');
     const occupiedCaseIds = new Set((Array.isArray(storedLoads) ? storedLoads : []).map(l => l.data?.caseId ?? 1));
     if (cases.some(c => c.generated && symbolOfCase(c) && occupiedCaseIds.has(c.id))) f.add('occupiedGeneratedLoadCases');
+    if (f.has('generatedLoads')) {
+      const weightedCaseIds = new Set((Array.isArray(weightRules) ? weightRules : [])
+        .map(row => (row as Partial<SelfWeightLoad> | null)?.caseId));
+      const ordinary = cases.flatMap(c => {
+        const symbol = symbolOfCase(c);
+        return symbol ? [{ c, symbol }] : [];
+      });
+      if (ordinary.some(({ c, symbol }) =>
+        !c.generated && !occupiedCaseIds.has(c.id) && !weightedCaseIds.has(c.id) &&
+        c.spectral === undefined && c.notional === undefined &&
+        (c.group !== undefined || ordinary.some(other => other.c.id !== c.id &&
+          (other.symbol === symbol || (c.alternatives && c.alternatives === other.c.alternatives)))))) {
+        f.add('emptyManualLoadAlternatives');
+      }
+    }
     const repeatedTerms = Array.isArray(s.combinationRules) && s.combinationRules.some(rule => {
       const terms = (rule as { terms?: unknown } | null)?.terms;
       if (!Array.isArray(terms)) return false;

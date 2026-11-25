@@ -189,6 +189,7 @@ function prepareCombinationCases(
   });
   const planIds = new Set(bindings.map(b => b.projectedId));
   const removedLoads = new Set(replaced?.loads);
+  const replacedCaseIds = new Set(modelStore.loads.filter(l => removedLoads.has(l.data.id)).map(l => l.data.caseId ?? 1));
   const occupied = loadCasesWithDirectEffects({
     loadCases: retained,
     loads: modelStore.loads.filter(l => !removedLoads.has(l.data.id)),
@@ -199,10 +200,9 @@ function prepareCombinationCases(
   const retainedCases: LoadCase[] = [];
   for (const c of retained) {
     if (isCompositeCase(c) || planIds.has(c.id)) continue;
-    const hasEffects = occupied.has(c.id);
-    if (c.generated && !hasEffects) continue;
-    if (hasEffects && supplementedTypes.has((c.type ?? '').toUpperCase())) cases.push(c);
-    else if (hasEffects || c.group !== undefined) retainedCases.push(c);
+    if ((c.generated || replacedCaseIds.has(c.id)) && !occupied.has(c.id)) continue;
+    if (supplementedTypes.has((c.type ?? '').toUpperCase())) cases.push(c);
+    else retainedCases.push(c);
   }
   return { bindings, cases, retainedCases };
 }
