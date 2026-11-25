@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { localizeEngineText } from '../../i18n/engine-text';
 import inclinedFixture from '../../../../../engine/tests/fixtures/moving-shear-2101.json';
 import springFixture from '../../../../../engine/tests/fixtures/moving-shear-2104.json';
 import { solveMovingLoads as solveNative2D, solveMovingLoads3D } from '../wasm-solver';
@@ -95,6 +96,13 @@ it('#2101 the browser spatial sweep resolves an axle at the inclined tip', async
   const support = nz ** 2 * freeTip
     / (nx ** 2 * axial + nz ** 2 * length ** 3 / (3 * e * section.iy));
   expect(result.elements.get(6)?.vz.min.value).toBeCloseTo(-support, 9);
+  const tipFlexibility = length ** 3 / (3 * e * section.iy);
+  const tipAxial = Math.abs(nx * nz) * single.axles[0].weight * tipFlexibility
+    / (nx ** 2 * axial + nz ** 2 * tipFlexibility);
+  const { min, max } = result.elements.get(6)!.n;
+  const governing = Math.abs(min.value) > Math.abs(max.value) ? min : max;
+  expect(governing.position).toBe(6);
+  expect(Math.abs(governing.value)).toBeCloseTo(tipAxial, 9);
 });
 
 it('#2101 an imported vehicle applied at the inclined tip uses the endpoint', () => {
@@ -105,10 +113,7 @@ it('#2101 an imported vehicle applied at the inclined tip uses the endpoint', ()
   expect(load).toMatchObject({ type: 'nodal3d', data: { nodeId: 7, fz: -50, caseId: 1 } });
 });
 
-const review2101 = process.env.RUN_KNOWN_WRONG === '2101' ? it : it.skip;
-const review2104 = process.env.RUN_KNOWN_WRONG === '2104' ? it : it.skip;
-
-review2101('known wrong result: #2101 — a sampled entrance axle governs planar and spatial shear', async () => {
+it('#2101 — a sampled entrance axle governs planar and spatial shear', async () => {
   const plane = mirroredSpring();
   plane.nodes = new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 0.01, z: 0 }]]);
   plane.elements = new Map([[1, plane.elements.get(1)!]]);
@@ -140,9 +145,33 @@ review2101('known wrong result: #2101 — a sampled entrance axle governs planar
     const shear = env.elements.get(1)!.vz;
     expect.soft(Math.max(shear.max.value, -shear.min.value)).toBeCloseTo(expected, 9);
   }
+  const limit = 0.01 / (8 * Number.EPSILON);
+  for (const [offset, accepted] of [[limit * (1 - Number.EPSILON), true], [limit, false]] as const) {
+    const train = { name: 'resolution', axles: [{ offset: 0, weight: 100 }, { offset, weight: 1 }] };
+    const config = { train, step: offset, pathElementIds: [1] };
+    const message = 'Moving loads: axle position cannot be resolved at a path joint';
+    if (accepted) {
+      expect(solveNative2D({ ...config, solver: plane }).numPositions).toBe(2);
+      expect(solveMovingLoads3D({ ...config, solver: space }).numPositions).toBe(2);
+      for (const run of [solveMovingLoads, solveMovingLoadsAsync]) {
+        const result = await run(plane, config);
+        if (typeof result === 'string') throw new Error(result);
+        expect(result.positions).toHaveLength(4);
+      }
+      const result = await sweepMovingLoad3D(space, path, train, { step: offset });
+      expect(result.positions).toBe(4);
+    } else {
+      expect(() => solveNative2D({ ...config, solver: plane })).toThrow(message);
+      expect(() => solveMovingLoads3D({ ...config, solver: space })).toThrow(message);
+      for (const run of [solveMovingLoads, solveMovingLoadsAsync]) {
+        expect(await run(plane, config)).toBe(localizeEngineText(message));
+      }
+      await expect(sweepMovingLoad3D(space, path, train, { step: offset })).rejects.toBe(message);
+    }
+  }
 });
 
-review2104('known wrong result: #2104 — browser loads preserve the reversed member station', () => {
+it('#2104 — browser loads preserve the reversed member station', async () => {
   const solver = rotatedInclined();
   solver.nodes = new Map([
     [1, { id: 1, x: 0, y: 0, z: 0 }],
@@ -153,10 +182,24 @@ review2104('known wrong result: #2104 — browser loads preserve the reversed me
   const path = buildPath3D(solver, [1, 2])!;
   const single = { name: 'one axle', axles: [{ offset: 0, weight: 100 }] };
   const station = 0.1 - 0.0625;
-  expect(trainLoads(solver, path, single, 64.0625)[0]).toMatchObject({
+  const plane = mirroredSpring();
+  plane.nodes = new Map([...solver.nodes].map(([id, { x, z }]) => [id, { id, x, z }]));
+  plane.elements = new Map([
+    [1, plane.elements.get(1)!],
+    [2, { ...plane.elements.get(2)!, nodeI: 3, nodeJ: 2 }],
+  ]);
+  plane.supports = new Map([2, 3].map((id) => [id, { id, nodeId: id, type: 'fixed' as const }]));
+  plane.loads = [];
+  for (const run of [solveMovingLoads, solveMovingLoadsAsync]) {
+    const result = await run(plane, { train: single, step: 64.0625, pathElementIds: [1, 2] });
+    if (typeof result === 'string') throw new Error(result);
+    const member = result.positions[1].results.elementForces.find((force) => force.elementId === 2)!;
+    expect.soft(member.pointLoads[0].a).toBe(station);
+  }
+  expect.soft(trainLoads(solver, path, single, 64.0625)[0]).toMatchObject({
     type: 'pointOnElement', data: { elementId: 2, a: station },
   });
-  expect(trainModelLoads(single, 64.0625, path, null, 1)[0]).toMatchObject({
+  expect.soft(trainModelLoads(single, 64.0625, path, null, 1)[0]).toMatchObject({
     type: 'pointOnElement3d', data: { elementId: 2, a: station },
   });
 });

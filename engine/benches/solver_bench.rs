@@ -1322,7 +1322,7 @@ fn bench_moving_influence_reuse(c: &mut Criterion) {
     use dedaliano_engine::postprocess::influence::{
         compute_influence_line, influence_unit_loads_2d, InfluenceLineInput,
     };
-    use dedaliano_engine::solver::moving_loads::{build_load_path, moving_loads_at_position_2d};
+    use dedaliano_engine::solver::moving_loads::{build_load_path, moving_loads_at_position_2d, reference_positions};
 
     let mut group = c.benchmark_group("moving_influence_reuse");
     group.sample_size(20);
@@ -1341,19 +1341,16 @@ fn bench_moving_influence_reuse(c: &mut Criterion) {
     for n in [16usize, 64] {
         let solver = make_ss_beam(n);
         let path = build_load_path(&solver, None).unwrap();
-        let total_length: f64 = path.iter().map(|s| s.length).sum();
-        let max_offset: f64 = train.axles.iter().map(|a| a.offset).fold(0.0, f64::max);
+        let total_length = path.last().unwrap().end_pos;
 
         // Legacy: clone + full solve per position
         group.bench_with_input(BenchmarkId::new("moving_2d_legacy", n), &solver, |b, solver| {
             b.iter(|| {
-                let mut pos = -max_offset;
-                while pos <= total_length + 1e-10 {
+                for pos in reference_positions(&train, total_length, step).unwrap() {
                     let loads = moving_loads_at_position_2d(solver, &train, &path, pos).unwrap();
                     let mut mi = solver.clone();
                     mi.loads = loads;
                     criterion::black_box(linear::solve_2d(&mi).unwrap());
-                    pos += step;
                 }
             });
         });

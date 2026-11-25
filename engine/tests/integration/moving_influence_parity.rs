@@ -570,10 +570,9 @@ fn legacy_moving_2d(input: &MovingLoadInput) -> MovingLoadEnvelope {
         });
     }
 
-    let mut pos = -max_offset;
-    let mut num_positions = 0;
-    while pos <= total_length + 1e-10 {
-        num_positions += 1;
+    let num_positions = ((total_length + max_offset) / step).floor() as usize + 1;
+    for index in 0..num_positions {
+        let pos = index as f64 * step - max_offset;
         let loads = legacy_loads_at_position_2d(solver_input, train, &path, pos, total_length);
         let mut modified_input = solver_input.clone();
         modified_input.loads = loads;
@@ -592,7 +591,6 @@ fn legacy_moving_2d(input: &MovingLoadInput) -> MovingLoadEnvelope {
                 }
             }
         }
-        pos += step;
     }
 
     MovingLoadEnvelope { structured_diagnostics: vec![], elements: envelopes, train: train.clone(), path, num_positions }
@@ -641,10 +639,9 @@ fn legacy_moving_3d(input: &MovingLoadInput3D) -> MovingLoadEnvelope3D {
         });
     }
 
-    let mut pos = -max_offset;
-    let mut num_positions = 0;
-    while pos <= total_length + 1e-10 {
-        num_positions += 1;
+    let num_positions = ((total_length + max_offset) / step).floor() as usize + 1;
+    for index in 0..num_positions {
+        let pos = index as f64 * step - max_offset;
         let loads = legacy_loads_at_position_3d(solver_input, train, gravity, &path, pos, total_length);
         let mut modified_input = solver_input.clone();
         modified_input.loads = loads;
@@ -672,7 +669,6 @@ fn legacy_moving_3d(input: &MovingLoadInput3D) -> MovingLoadEnvelope3D {
                 }
             }
         }
-        pos += step;
     }
 
     MovingLoadEnvelope3D { structured_diagnostics: vec![], elements: envelopes, train: train.clone(), path, num_positions }

@@ -493,15 +493,22 @@ pub fn solve_moving_loads_3d(json: &str) -> Result<String, JsValue> {
 
 #[wasm_bindgen]
 pub fn moving_axle_station(
-    start: f64, end: f64, length: f64, reversed: bool, position: f64,
+    start: f64, end: f64, length: f64, reversed: bool, position: f64, arithmetic_scale: f64,
 ) -> Result<Option<f64>, JsValue> {
-    solver::moving_loads::sampled_axle_station(start, end, length, reversed, position)
+    solver::moving_loads::sampled_axle_station(start, end, length, reversed, position, arithmetic_scale)
         .map_err(JsValue::from_str)
 }
 
 #[wasm_bindgen]
-pub fn check_moving_path_segment(start: f64, end: f64, length: f64) -> Result<(), JsValue> {
-    solver::moving_loads::check_path_segment(start, end, length).map_err(JsValue::from_str)
+pub fn check_moving_path_segment(
+    start: f64, end: f64, length: f64, arithmetic_scale: f64,
+) -> Result<(), JsValue> {
+    solver::moving_loads::check_path_segment(start, end, length, arithmetic_scale).map_err(JsValue::from_str)
+}
+
+#[wasm_bindgen]
+pub fn moving_reference_sample_count(start: f64, end: f64, step: f64) -> Result<f64, JsValue> {
+    solver::moving_loads::reference_sample_count(start, end, step).map_err(JsValue::from_str)
 }
 
 // ==================== Co-rotational Analysis ====================

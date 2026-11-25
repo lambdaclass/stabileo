@@ -81,6 +81,41 @@ fn check_step(step: f64, travel: f64) -> Result<(), String> {
     Ok(())
 }
 
+pub(crate) fn reference_sample_count(start: f64, end: f64, step: f64) -> Result<f64, &'static str> {
+    if !(step.is_finite() && step > 0.0 && start.is_finite() && end.is_finite()) {
+        return Err(UNRESOLVED_AXLE_STATION);
+    }
+    let last = ((end - start) / step).floor();
+    if last < 0.0 {
+        return Ok(0.0);
+    }
+    if !last.is_finite() || last >= (1_u64 << 52) as f64 {
+        return Err(UNRESOLVED_AXLE_STATION);
+    }
+    let bound = joint_roundoff(end, end, start.abs());
+    let reaches = |index: f64| (start + index * step) - end <= bound;
+    if reaches(last + 1.0) {
+        Ok(last + 2.0)
+    } else if reaches(last) {
+        Ok(last + 1.0)
+    } else {
+        Ok(last)
+    }
+}
+
+pub fn reference_positions(
+    train: &LoadTrain, end: f64, step: f64,
+) -> Result<impl Iterator<Item = f64> + use<>, String> {
+    let start = -train.axles.iter().map(|axle| axle.offset).fold(0.0, f64::max);
+    check_step(step, end - start)?;
+    let count = reference_sample_count(start, end, step)? as usize;
+    Ok((0..count).map(move |index| start + index as f64 * step))
+}
+
+fn axle_offset_scale(train: &LoadTrain) -> f64 {
+    train.axles.iter().map(|axle| axle.offset.abs()).fold(0.0, f64::max)
+}
+
 /// Solve 2D moving loads analysis (envelope computation).
 pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelope, String> {
     let solver_input = &input.solver;
@@ -99,9 +134,8 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
         return Err("No load path found".into());
     }
 
-    let total_length: f64 = path.iter().map(|s| s.length).sum();
-    let max_offset: f64 = train.axles.iter().map(|a| a.offset).fold(0.0, f64::max);
-    check_step(step, total_length + max_offset)?;
+    let total_length = path.last().unwrap().end_pos;
+    let positions = reference_positions(train, total_length, step)?;
 
     // Initialize envelopes
     let mut envelopes: HashMap<String, ElementEnvelope> = HashMap::new();
@@ -114,9 +148,6 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
     }
 
     // Step through positions
-    let start_pos = -max_offset;
-    let end_pos = total_length;
-    let mut pos = start_pos;
     let mut num_positions = 0;
 
     // Prepare the structure once (assembly + factorization of K); each
@@ -136,7 +167,7 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
     let prepared = prep_input.as_ref().map(|pi| prepare_static_2d(pi)).transpose()?;
 
     let mut structured_diagnostics = Vec::new();
-    while pos <= end_pos + 1e-10 {
+    for pos in positions {
         num_positions += 1;
 
         // Build loads for this position
@@ -171,8 +202,6 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
                 env.n_max_neg = env.n_max_neg.min(n_min);
             }
         }
-
-        pos += step;
     }
 
     Ok(MovingLoadEnvelope {
@@ -195,11 +224,15 @@ pub fn moving_loads_at_position_2d(
 ) -> Result<Vec<SolverLoad>, String> {
     let mut loads = base_loads(solver_input);
 
+    let arithmetic_scale = axle_offset_scale(train);
+    for seg in path {
+        check_path_segment(seg.start_pos, seg.end_pos, seg.length, arithmetic_scale)?;
+    }
     for axle in &train.axles {
         let axle_pos = pos + axle.offset;
 
         if let Some((seg, a)) = path.iter().find_map(|seg| {
-            sampled_axle_station(seg.start_pos, seg.end_pos, seg.length, seg.reversed, axle_pos)
+            sampled_axle_station(seg.start_pos, seg.end_pos, seg.length, seg.reversed, axle_pos, arithmetic_scale)
                 .map(|station| station.map(|a| (seg, a))).transpose()
         }).transpose()? {
             // The axle weight acts straight down (−Z). In member axes (local
@@ -256,7 +289,7 @@ pub fn build_load_path(
         let cos = dx / l;
         let sin = dy / l;
 
-        check_path_segment(cum_pos, cum_pos + l, l)?;
+        check_path_segment(cum_pos, cum_pos + l, l, 0.0)?;
         path.push(PathSegment {
             element_id: *eid,
             start_pos: cum_pos,
@@ -288,14 +321,17 @@ fn auto_detect_path(input: &SolverInput) -> Result<Vec<usize>, String> {
 
 const UNRESOLVED_AXLE_STATION: &str = "Moving loads: axle position cannot be resolved at a path joint";
 
-fn joint_roundoff(station: f64, length: f64) -> f64 {
-    let scale = if station == 0.0 { length } else { station.abs() };
-    (8.0 * f64::EPSILON) * scale
+fn joint_roundoff(station: f64, length: f64, arithmetic_scale: f64) -> f64 {
+    let geometry_scale = if station == 0.0 { length } else { station.abs() };
+    ((8.0 * f64::EPSILON) * geometry_scale).max((4.0 * f64::EPSILON) * arithmetic_scale)
 }
 
-pub(crate) fn check_path_segment(start: f64, end: f64, length: f64) -> Result<(), &'static str> {
-    if length.is_finite() && length > 0.0 && end.is_finite()
-        && end - start > joint_roundoff(start, length) + joint_roundoff(end, length)
+pub(crate) fn check_path_segment(
+    start: f64, end: f64, length: f64, arithmetic_scale: f64,
+) -> Result<(), &'static str> {
+    if length.is_finite() && length > 0.0 && end.is_finite() && arithmetic_scale.is_finite()
+        && end - start > joint_roundoff(start, length, arithmetic_scale)
+            + joint_roundoff(end, length, arithmetic_scale)
     {
         Ok(())
     } else {
@@ -304,24 +340,24 @@ pub(crate) fn check_path_segment(start: f64, end: f64, length: f64) -> Result<()
 }
 
 pub(crate) fn sampled_axle_station(
-    start: f64, end: f64, length: f64, reversed: bool, position: f64,
+    start: f64, end: f64, length: f64, reversed: bool, position: f64, arithmetic_scale: f64,
 ) -> Result<Option<f64>, &'static str> {
-    check_path_segment(start, end, length)?;
+    check_path_segment(start, end, length, arithmetic_scale)?;
     if !position.is_finite() {
         return Err(UNRESOLVED_AXLE_STATION);
     }
     let from_start = position - start;
     let to_end = end - position;
-    if from_start.abs() <= joint_roundoff(start, length) {
+    if from_start.abs() <= joint_roundoff(start, length, arithmetic_scale) {
         return Ok(Some(if reversed { length } else { 0.0 }));
     }
-    if to_end.abs() <= joint_roundoff(end, length) {
+    if to_end.abs() <= joint_roundoff(end, length, arithmetic_scale) {
         return Ok(Some(if reversed { 0.0 } else { length }));
     }
     if from_start < 0.0 || to_end < 0.0 {
         return Ok(None);
     }
-    let a = if reversed { to_end } else { from_start };
+    let a = if reversed { length - from_start } else { from_start };
     if 0.0 < a && a < length {
         Ok(Some(a))
     } else {
@@ -409,9 +445,8 @@ pub fn solve_moving_loads_3d(input: &MovingLoadInput3D) -> Result<MovingLoadEnve
         return Err("No load path found".into());
     }
 
-    let total_length: f64 = path.iter().map(|s| s.length).sum();
-    let max_offset: f64 = train.axles.iter().map(|a| a.offset).fold(0.0, f64::max);
-    check_step(step, total_length + max_offset)?;
+    let total_length = path.last().unwrap().end_pos;
+    let positions = reference_positions(train, total_length, step)?;
 
     // Initialize envelopes
     let mut envelopes: HashMap<String, ElementEnvelope3D> = HashMap::new();
@@ -426,9 +461,6 @@ pub fn solve_moving_loads_3d(input: &MovingLoadInput3D) -> Result<MovingLoadEnve
         });
     }
 
-    let start_pos = -max_offset;
-    let end_pos = total_length;
-    let mut pos = start_pos;
     let mut num_positions = 0;
 
     // Prepare the structure once (assembly + factorization of K); each
@@ -450,7 +482,7 @@ pub fn solve_moving_loads_3d(input: &MovingLoadInput3D) -> Result<MovingLoadEnve
     let maps = MovingLoadMaps3d::new(solver_input);
 
     let mut structured_diagnostics = Vec::new();
-    while pos <= end_pos + 1e-10 {
+    for pos in positions {
         num_positions += 1;
 
         // Build loads for this position
@@ -492,8 +524,6 @@ pub fn solve_moving_loads_3d(input: &MovingLoadInput3D) -> Result<MovingLoadEnve
                 env.mx_max_neg = env.mx_max_neg.min(lo);
             }
         }
-
-        pos += step;
     }
 
     Ok(MovingLoadEnvelope3D {
@@ -553,11 +583,15 @@ pub fn moving_loads_at_position_3d_with_maps(
     let elem_by_id = &maps.elem_by_id;
     let mut loads = base_loads_3d(solver_input);
 
+    let arithmetic_scale = axle_offset_scale(train);
+    for seg in path {
+        check_path_segment(seg.start_pos, seg.end_pos, seg.length, arithmetic_scale)?;
+    }
     for axle in &train.axles {
         let axle_pos = pos + axle.offset;
 
         if let Some((seg, a)) = path.iter().find_map(|seg| {
-            sampled_axle_station(seg.start_pos, seg.end_pos, seg.length, seg.reversed, axle_pos)
+            sampled_axle_station(seg.start_pos, seg.end_pos, seg.length, seg.reversed, axle_pos, arithmetic_scale)
                 .map(|station| station.map(|a| (seg, a))).transpose()
         }).transpose()? {
             // Gravity vector in global coordinates
@@ -630,7 +664,7 @@ pub fn build_load_path_3d(
         let dz = nj.z - ni.z;
         let l = (dx * dx + dy * dy + dz * dz).sqrt();
 
-        check_path_segment(cum_pos, cum_pos + l, l)?;
+        check_path_segment(cum_pos, cum_pos + l, l, 0.0)?;
         path.push(PathSegment3D {
             element_id: *eid,
             start_pos: cum_pos,

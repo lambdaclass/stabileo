@@ -7,7 +7,7 @@ import { analyzeKinematics, type KinematicResult } from './kinematic-2d';
 import { computeDiagramValueAt } from './diagrams';
 import { t } from '../i18n';
 import { withoutSettlement } from './settlement-case';
-import { locateAxle, checkAxlePath } from './moving-axle-station';
+import { axleOffsetScale, locateAxle, checkAxlePath, referenceGrid } from './moving-axle-station';
 import { localizeEngineText } from '../i18n/engine-text';
 
 /** A single axle in a load train */
@@ -298,12 +298,13 @@ function buildTrainLoads(
   input: SolverInput,
   train: LoadTrain,
   refPos: number,
+  scale: number,
   path: PathSegment[],
 ): SolverInput['loads'] {
   const loads: SolverInput['loads'] = [];
 
   for (const axle of train.axles) {
-    const at = locateAxle(path, refPos + axle.offset, (seg) => input.elements.get(seg.elementId)!.nodeI !== seg.nodeI);
+    const at = locateAxle(path, refPos, axle.offset, scale, (seg) => input.elements.get(seg.elementId)!.nodeI !== seg.nodeI);
     if (!at) continue;
     const elem = input.elements.get(at.segment.elementId)!;
     if (at.a === 0 || at.a === at.segment.length) {
@@ -363,13 +364,14 @@ function solvePosition(
   baseInput: SolverInput,
   train: LoadTrain,
   refPos: number,
+  scale: number,
   path: PathSegment[],
   envelope: Map<number, ElementEnvelope>,
   positions: MovingLoadEnvelope['positions'],
   session: ReturnType<typeof prepareLoadSession2D>,
 ): string | null {
   try {
-    const loads = buildTrainLoads(baseInput, train, refPos, path);
+    const loads = buildTrainLoads(baseInput, train, refPos, scale, path);
     const results = session.solve(loads);
     if (results.structuredDiagnostics?.some(d => d.code === 'known_issue' && d.severity === 'error')) {
       throw new Error(JSON.stringify({ structuredDiagnostics: results.structuredDiagnostics }));
@@ -403,29 +405,21 @@ function mechanismRefusal(input: SolverInput): string | null {
   return k.invalidInput ? t('svc.solverError').replace('{n}', k.invalidInput) : k.diagnosis;
 }
 
-/**
- * Compute forward reference positions for a train on a path.
- */
-function computeRefPositions(train: LoadTrain, path: PathSegment[], totalLength: number, step: number): number[] {
-  const maxAxleOffset = Math.max(...train.axles.map(a => a.offset));
-  const positions: number[] = [];
-  for (let refPos = -maxAxleOffset; Number.isFinite(refPos); refPos += step) {
-    if (refPos > totalLength && !locateAxle(path, refPos, () => false)) break;
-    positions.push(refPos);
-  }
-  return positions;
+function planarPositionPasses(train: LoadTrain, path: PathSegment[], step: number) {
+  if (train.axles.length === 0) return [];
+  const last = path[path.length - 1];
+  const total = last.cumStart + last.length;
+  const maxOffset = Math.max(...train.axles.map((axle) => axle.offset));
+  const scale = axleOffsetScale(train);
+  checkAxlePath(path, scale);
+  const grid = referenceGrid(-maxOffset, total, step);
+  const forward = { train, refs: grid.positions(), scale };
+  if (isTrainSymmetric(train)) return [forward];
+  const reverse = reverseTrain(train);
+  const reverseScale = Math.max(total, scale, axleOffsetScale(reverse));
+  checkAxlePath(path, reverseScale);
+  return [forward, { train: reverse, refs: grid.positions(true), scale: reverseScale }];
 }
-
-/**
- * For each forward refPos, compute the mirror reverse refPos so that
- * the reversed train produces the exact mirror loading on the structure.
- * Forward train at r places axles at [r+o₁, r+o₂, ...].
- * Mirror: reversed train at (L - r - maxOffset) places axles at [L-r-o₁, L-r-o₂, ...].
- */
-function mirrorRefPositions(forwardPositions: number[], totalLength: number, maxAxleOffset: number): number[] {
-  return forwardPositions.map(r => totalLength - r - maxAxleOffset);
-}
-
 
 /**
  * Per-element extremes, taken from the POINTWISE envelope rather than from
@@ -477,10 +471,9 @@ export function solveMovingLoads(
   const path = buildPath(baseInput, config.pathElementIds);
 
   if (path.length === 0) return t('train.noPathFound');
-  try { checkAxlePath(path); }
+  let passes: ReturnType<typeof planarPositionPasses>;
+  try { passes = planarPositionPasses(config.train, path, step); }
   catch (error) { return localizeEngineText(errorText(error)); }
-
-  const totalLength = path[path.length - 1].cumStart + path[path.length - 1].length;
 
   const envelope = new Map<number, ElementEnvelope>();
   for (const seg of path) {
@@ -497,22 +490,9 @@ export function solveMovingLoads(
   const session = prepareLoadSession2D(baseInput);
   try {
     const positions: MovingLoadEnvelope['positions'] = [];
-    const forwardTrain = config.train;
-    const maxAxleOffset = Math.max(...forwardTrain.axles.map(a => a.offset));
-    const forwardRefPositions = computeRefPositions(forwardTrain, path, totalLength, step);
-
-    // Forward pass
-    for (const refPos of forwardRefPositions) {
-      const err = solvePosition(baseInput, forwardTrain, refPos, path, envelope, positions, session);
-      if (err) return err;
-    }
-
-    // Reverse pass for asymmetric trains — use mirror positions for exact symmetry
-    if (!isTrainSymmetric(forwardTrain)) {
-      const revTrain = reverseTrain(forwardTrain);
-      const reverseRefPositions = mirrorRefPositions(forwardRefPositions, totalLength, maxAxleOffset);
-      for (const refPos of reverseRefPositions) {
-        const err = solvePosition(baseInput, revTrain, refPos, path, envelope, positions, session);
+    for (const { train, refs, scale } of passes) {
+      for (const refPos of refs) {
+        const err = solvePosition(baseInput, train, refPos, scale, path, envelope, positions, session);
         if (err) return err;
       }
     }
@@ -551,10 +531,9 @@ export async function solveMovingLoadsAsync(
   const path = buildPath(baseInput, config.pathElementIds);
 
   if (path.length === 0) return t('train.noPathFound');
-  try { checkAxlePath(path); }
+  let passes: ReturnType<typeof planarPositionPasses>;
+  try { passes = planarPositionPasses(config.train, path, step); }
   catch (error) { return localizeEngineText(errorText(error)); }
-
-  const totalLength = path[path.length - 1].cumStart + path[path.length - 1].length;
 
   const envelope = new Map<number, ElementEnvelope>();
   for (const seg of path) {
@@ -568,22 +547,7 @@ export async function solveMovingLoadsAsync(
   const refused = mechanismRefusal(baseInput);
   if (refused) return refused;
 
-  // Pre-compute all positions: forward + mirrored reverse for asymmetric trains
-  const forwardTrain = config.train;
-  const maxAxleOffset = Math.max(...forwardTrain.axles.map(a => a.offset));
-  const forwardRefPositions = computeRefPositions(forwardTrain, path, totalLength, step);
-
-  const allRefPositions: Array<{ train: LoadTrain; refPos: number }> = [];
-  for (const refPos of forwardRefPositions) {
-    allRefPositions.push({ train: forwardTrain, refPos });
-  }
-  if (!isTrainSymmetric(forwardTrain)) {
-    const revTrain = reverseTrain(forwardTrain);
-    const reverseRefPositions = mirrorRefPositions(forwardRefPositions, totalLength, maxAxleOffset);
-    for (const refPos of reverseRefPositions) {
-      allRefPositions.push({ train: revTrain, refPos });
-    }
-  }
+  const allRefPositions = passes.flatMap(({ train, refs, scale }) => refs.map((refPos) => ({ train, refPos, scale })));
   const total = allRefPositions.length;
 
   const session = prepareLoadSession2D(baseInput);
@@ -593,8 +557,8 @@ export async function solveMovingLoadsAsync(
     for (let idx = 0; idx < total; idx++) {
       if (signal?.aborted) return t('train.analysisCancelled');
 
-      const { train, refPos } = allRefPositions[idx];
-      const err = solvePosition(baseInput, train, refPos, path, envelope, positions, session);
+      const { train, refPos, scale } = allRefPositions[idx];
+      const err = solvePosition(baseInput, train, refPos, scale, path, envelope, positions, session);
       if (err) return err;
 
       onProgress?.({ current: idx + 1, total, refPosition: refPos });
@@ -719,8 +683,9 @@ export function computeAxleWorldPositions(
 ): AxleWorldPosition[] {
   if (path.length === 0) return [];
   const result: AxleWorldPosition[] = [];
+  const scale = axleOffsetScale(train);
   for (const axle of train.axles) {
-    const at = locateAxle(path, refPos + axle.offset, () => false);
+    const at = locateAxle(path, refPos, axle.offset, scale, () => false);
     if (!at) continue;
     const { segment: seg, a } = at;
     const t = a / seg.length;

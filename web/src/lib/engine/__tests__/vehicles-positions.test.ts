@@ -194,9 +194,7 @@ describe('the second wheel line', () => {
   });
 });
 
-const review2101 = process.env.RUN_KNOWN_WRONG === '2101' ? it : it.skip;
-
-review2101('known wrong result: #2101 — an imported vehicle keeps an indexed tip sample on both wheel lines', () => {
+it('#2101 — an imported vehicle keeps an indexed tip sample on both wheel lines', () => {
   const length = 0.1234567894;
   const ids = beam([2 * length]);
   const other = beam([2 * length], 1);

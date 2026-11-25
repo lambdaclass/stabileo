@@ -56,8 +56,9 @@ let wasmSolveModal2d: ((json: string, numModes: number) => string) | null = null
 let wasmSolveSpectral2d: ((json: string) => string) | null = null;
 let wasmSolvePlastic2d: ((json: string) => string) | null = null;
 let wasmSolveMovingLoads2d: ((json: string) => string) | null = null;
-let wasmMovingAxleStation: ((start: number, end: number, length: number, reversed: boolean, position: number) => number | undefined) | null = null;
-let wasmCheckMovingPathSegment: ((start: number, end: number, length: number) => void) | null = null;
+let wasmMovingAxleStation: ((start: number, end: number, length: number, reversed: boolean, position: number, scale: number) => number | undefined) | null = null;
+let wasmCheckMovingPathSegment: ((start: number, end: number, length: number, scale: number) => void) | null = null;
+let wasmMovingReferenceSampleCount: ((start: number, end: number, step: number) => number) | null = null;
 
 // 2D advanced analysis WASM functions
 let wasmSolveCorotational2d: ((json: string, maxIter: number, tolerance: number, nIncrements: number) => string) | null = null;
@@ -269,6 +270,7 @@ export async function initSolver(): Promise<void> {
     wasmSolveMovingLoads2d = wasm.solve_moving_loads_2d;
     wasmMovingAxleStation = wasm.moving_axle_station;
     wasmCheckMovingPathSegment = wasm.check_moving_path_segment;
+    wasmMovingReferenceSampleCount = wasm.moving_reference_sample_count;
     // 2D advanced
     wasmSolveCorotational2d = wasm.solve_corotational_2d;
     wasmSolveNonlinearMaterial2d = wasm.solve_nonlinear_material_2d;
@@ -1295,14 +1297,19 @@ export function solvePlastic(config: {
   return JSON.parse(resultJson);
 }
 
-export function movingAxleStation(start: number, end: number, length: number, reversed: boolean, position: number): number | undefined {
+export function movingAxleStation(start: number, end: number, length: number, reversed: boolean, position: number, scale: number): number | undefined {
   if (!wasmReady || !wasmMovingAxleStation) throw new EngineUnavailableError('moving axle station');
-  return wasmMovingAxleStation(start, end, length, reversed, position);
+  return wasmMovingAxleStation(start, end, length, reversed, position, scale);
 }
 
-export function checkMovingPathSegment(start: number, end: number, length: number): void {
+export function checkMovingPathSegment(start: number, end: number, length: number, scale: number): void {
   if (!wasmReady || !wasmCheckMovingPathSegment) throw new EngineUnavailableError('moving axle station');
-  wasmCheckMovingPathSegment(start, end, length);
+  wasmCheckMovingPathSegment(start, end, length, scale);
+}
+
+export function movingReferenceSampleCount(start: number, end: number, step: number): number {
+  if (!wasmReady || !wasmMovingReferenceSampleCount) throw new EngineUnavailableError('moving reference grid');
+  return wasmMovingReferenceSampleCount(start, end, step);
 }
 
 /** Solve 2D moving loads analysis via WASM. */

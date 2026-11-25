@@ -53,7 +53,9 @@ export function addPositionCases(
   if (path2Ids.length && !raw2) return { error: t('moving.notAChain') };
   const line2 = raw2 ? alignSecondLine(base.nodes, path, raw2, gauge) : null;
   const total = path.reduce((s, p) => s + p.length, 0);
-  const n = trains.reduce((s, tr) => s + passCount(tr, total, step), 0);
+  let n: number;
+  try { n = trains.reduce((s, tr) => s + passCount(tr, total, step), 0); }
+  catch (error) { return { error: localizeEngineText(errorText(error, 'Error')) }; }
   if (n > MAX_POSITION_CASES) return { error: tp('moving.tooManyPositions', { n, max: MAX_POSITION_CASES, spacings: trains.length }) };
   const group = movingGroup(vehicle);
   // Raw (an i18n key and its values in SI): the panel words them in the display units.
@@ -69,14 +71,14 @@ export function addPositionCases(
   }
   const cases: Array<{ title: string; loads: ReturnType<typeof trainModelLoads> }> = [];
   try {
-    checkAxlePath(path);
-    if (line2?.path2) checkAxlePath(line2.path2);
     for (const train of trains) {
       for (const pass of positionPasses(train, total, step)) {
+        checkAxlePath(path, pass.scale);
+        if (line2?.path2) checkAxlePath(line2.path2, pass.scale);
         for (const r of pass.refs) {
           cases.push({
             title: tp(pass.reversed ? 'moving.positionCaseBack' : 'moving.positionCase', { name: train.name, x: r.toFixed(2) }),
-            loads: trainModelLoads(pass.train, r, path, line2?.path2 ?? null, 0),
+            loads: trainModelLoads(pass.train, r, path, line2?.path2 ?? null, 0, pass.scale),
           });
         }
       }

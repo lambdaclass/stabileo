@@ -1,7 +1,9 @@
 {
   "id": "moving-axle-joints",
   "date": "2026-11-25",
-  "prs": [],
+  "prs": [
+    2582
+  ],
   "area": "analysis",
   "when": {
     "all": [

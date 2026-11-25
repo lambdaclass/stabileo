@@ -30,9 +30,9 @@ import type { SolverInput3D, SolverLoad3D, AnalysisResults3D } from './types-3d'
 import type { LoadTrain } from './moving-loads';
 import { buildSolverInput3D, type ModelData } from './solver-service';
 import { withoutSettlement } from './settlement-case';
-import { checkAxlePath, locateAxle } from './moving-axle-station';
+import { axleOffsetScale, checkAxlePath, locateAxle } from './moving-axle-station';
 // The position cases read the same symmetry and the same reversed train (`vehicles.ts`).
-import { isSymmetric, reversedTrain, usableStep } from './vehicles';
+import { positionPasses, usableStep } from './vehicles';
 
 export interface PathSegment3D {
   elementId: number;
@@ -93,10 +93,14 @@ export function buildPath3D(input: SolverInput3D, ids: number[]): PathSegment3D[
 }
 
 /** The solver loads of `train` with its reference axle at `refPos` along the path. */
-export function trainLoads(input: SolverInput3D, path: PathSegment3D[], train: LoadTrain, refPos: number): SolverLoad3D[] {
+export function trainLoads(input: SolverInput3D, path: PathSegment3D[], train: LoadTrain, refPos: number, scale?: number): SolverLoad3D[] {
+  if (scale === undefined) {
+    scale = axleOffsetScale(train);
+    checkAxlePath(path, scale);
+  }
   const loads: SolverLoad3D[] = [];
   for (const axle of train.axles) {
-    const at = locateAxle(path, refPos + axle.offset, (seg) => seg.reversed);
+    const at = locateAxle(path, refPos, axle.offset, scale, (seg) => seg.reversed);
     if (!at) continue;
     const { segment: seg, a } = at;
     const e = input.elements.get(seg.elementId)!;
@@ -195,16 +199,14 @@ export async function sweepMovingLoad3D(
   base: SolverInput3D, path: PathSegment3D[], train: LoadTrain, opts: MovingLoad3DOptions = {},
 ): Promise<MovingEnvelope3D> {
   requireCableAnalysis(base.elements.values());
-  checkAxlePath(path);
-  if (opts.path2) checkAxlePath(opts.path2);
   // At least `MIN_STEP`: a step of a few micrometres ran for ever.
   const step = usableStep(opts.step ?? 0, 0.25);
   const total = path.reduce((s, p) => s + p.length, 0);
-  const maxOff = Math.max(0, ...train.axles.map((a) => a.offset));
-  const forward: number[] = [];
-  for (let r = -maxOff; r <= total + 1e-9; r += step) forward.push(r);
-  const passes: Array<{ train: LoadTrain; refs: number[] }> = [{ train, refs: forward }];
-  if (!isSymmetric(train)) passes.push({ train: reversedTrain(train), refs: forward.map((r) => total - r - maxOff) });
+  const passes = positionPasses(train, total, step);
+  for (const { scale } of passes) {
+    checkAxlePath(path, scale);
+    if (opts.path2) checkAxlePath(opts.path2, scale);
+  }
   const count = passes.reduce((n, p) => n + p.refs.length, 0);
   const env: MovingEnvelope3D['elements'] = new Map();
   const structuredDiagnostics: StructuredDiagnostic[] = [];
@@ -216,8 +218,8 @@ export async function sweepMovingLoad3D(
       for (const r of p.refs) {
         if (opts.signal?.aborted) throw new DOMException('aborted', 'AbortError');
         const loads = opts.path2
-          ? [...trainLoads(base, path, half(p.train), r), ...trainLoads(base, opts.path2, half(p.train), r)]
-          : trainLoads(base, path, p.train, r);
+          ? [...trainLoads(base, path, half(p.train), r, p.scale), ...trainLoads(base, opts.path2, half(p.train), r, p.scale)]
+          : trainLoads(base, path, p.train, r, p.scale);
         try {
           const result = session.solve(loads);
           const diagnostics = result.structuredDiagnostics ?? [];

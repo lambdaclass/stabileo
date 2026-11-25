@@ -303,7 +303,6 @@ fn review_beam(length: f64) -> SolverInput {
 }
 
 #[test]
-#[ignore = "known wrong result: #2101"]
 fn review_2101_sampled_entrance_axle_governs_shear() {
     use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
 
@@ -316,36 +315,96 @@ fn review_2101_sampled_entrance_axle_governs_shear() {
     ] {
         let train = LoadTrain {
             name: "entrance".into(),
-            axles: vec![Axle { offset: 0.0, weight: 100.0 }, Axle { offset, weight: 1.0 }],
+            axles: vec![
+                Axle {
+                    offset: 0.0,
+                    weight: 100.0,
+                },
+                Axle {
+                    offset,
+                    weight: 1.0,
+                },
+            ],
         };
         let planar = solve_moving_loads_2d(&MovingLoadInput {
             solver: solver.clone(),
             train: train.clone(),
             step: Some(step),
             path_element_ids: Some(vec![1]),
-        }).unwrap();
+        })
+        .unwrap();
         let spatial = solve_moving_loads_3d(&MovingLoadInput3D {
             solver: spatial.clone(),
             train,
             step: Some(step),
             path_element_ids: Some(vec![1]),
             gravity_direction: None,
-        }).unwrap();
+        })
+        .unwrap();
         let p = &planar.elements["1"];
         assert_force(p.v_max_pos.max(-p.v_max_neg), expected);
         let s = &spatial.elements["1"];
-        assert_force(s.vy_max_pos.max(-s.vy_max_neg).max(s.vz_max_pos).max(-s.vz_max_neg), expected);
+        assert_force(
+            s.vy_max_pos
+                .max(-s.vy_max_neg)
+                .max(s.vz_max_pos)
+                .max(-s.vz_max_neg),
+            expected,
+        );
+    }
+    let limit = 0.01 / (8.0 * f64::EPSILON);
+    for (offset, accepted) in [(limit.next_down(), true), (limit, false)] {
+        let train = LoadTrain {
+            name: "resolution".into(),
+            axles: vec![
+                Axle {
+                    offset: 0.0,
+                    weight: 100.0,
+                },
+                Axle {
+                    offset,
+                    weight: 1.0,
+                },
+            ],
+        };
+        let planar = solve_moving_loads_2d(&MovingLoadInput {
+            solver: solver.clone(),
+            train: train.clone(),
+            step: Some(offset),
+            path_element_ids: Some(vec![1]),
+        });
+        let spatial = solve_moving_loads_3d(&MovingLoadInput3D {
+            solver: spatial.clone(),
+            train,
+            step: Some(offset),
+            path_element_ids: Some(vec![1]),
+            gravity_direction: None,
+        });
+        if accepted {
+            assert_eq!(planar.unwrap().num_positions, 2);
+            assert_eq!(spatial.unwrap().num_positions, 2);
+        } else {
+            let error = "Moving loads: axle position cannot be resolved at a path joint";
+            assert_eq!(planar.unwrap_err(), error);
+            assert_eq!(spatial.unwrap_err(), error);
+        }
     }
 }
 
 #[test]
-#[ignore = "known wrong result: #2104"]
 fn review_2104_reversed_interior_axle_cancels_coincident_load() {
     use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
 
     let mut solver = review_beam(0.0);
     solver.nodes.get_mut("2").unwrap().z = 64.0;
-    solver.nodes.insert("3".into(), SolverNode { id: 3, x: 0.1, z: 64.0 });
+    solver.nodes.insert(
+        "3".into(),
+        SolverNode {
+            id: 3,
+            x: 0.1,
+            z: 64.0,
+        },
+    );
     let mut reverse = solver.elements["1"].clone();
     reverse.id = 2;
     reverse.node_i = 3;
@@ -356,23 +415,47 @@ fn review_2104_reversed_interior_axle_cancels_coincident_load() {
     fixed.node_id = 3;
     solver.supports.insert("3".into(), fixed);
     let weight = 100.0;
-    solver.loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement {
-        element_id: 2, a: 0.1 - 0.0625, p: -weight, px: None, my: None,
-    }));
+    solver
+        .loads
+        .push(SolverLoad::PointOnElement(SolverPointLoadOnElement {
+            element_id: 2,
+            a: 0.1 - 0.0625,
+            p: -weight,
+            px: None,
+            my: None,
+        }));
     let spatial = embed_2d(&solver, Plane::XZ).unwrap();
-    let planar = |weight| solve_moving_loads_2d(&MovingLoadInput {
-        solver: solver.clone(),
-        train: LoadTrain { name: "coincident".into(), axles: vec![Axle { offset: 0.0, weight }] },
-        step: Some(64.0625),
-        path_element_ids: Some(vec![1, 2]),
-    }).unwrap();
-    let spatial = |weight| solve_moving_loads_3d(&MovingLoadInput3D {
-        solver: spatial.clone(),
-        train: LoadTrain { name: "coincident".into(), axles: vec![Axle { offset: 0.0, weight }] },
-        step: Some(64.0625),
-        path_element_ids: Some(vec![1, 2]),
-        gravity_direction: None,
-    }).unwrap();
+    let planar = |weight| {
+        solve_moving_loads_2d(&MovingLoadInput {
+            solver: solver.clone(),
+            train: LoadTrain {
+                name: "coincident".into(),
+                axles: vec![Axle {
+                    offset: 0.0,
+                    weight,
+                }],
+            },
+            step: Some(64.0625),
+            path_element_ids: Some(vec![1, 2]),
+        })
+        .unwrap()
+    };
+    let spatial = |weight| {
+        solve_moving_loads_3d(&MovingLoadInput3D {
+            solver: spatial.clone(),
+            train: LoadTrain {
+                name: "coincident".into(),
+                axles: vec![Axle {
+                    offset: 0.0,
+                    weight,
+                }],
+            },
+            step: Some(64.0625),
+            path_element_ids: Some(vec![1, 2]),
+            gravity_direction: None,
+        })
+        .unwrap()
+    };
     let reference = &planar(0.0).elements["2"];
     let actual = &planar(weight).elements["2"];
     assert_force(actual.v_max_neg, reference.v_max_neg);
