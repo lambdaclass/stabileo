@@ -4490,7 +4490,7 @@
       ]
     },
     "src/lib/engine/design/beam-flange.ts": {
-      "source": "6dbb8ecfac80c0497c93c12e642e251426e45a4ad9c0e603cca485eb2a552dee",
+      "source": "a73104d79ba16e7cd15771ea336cf59e698a570ec52ba1c2e8192a53822cf6dd",
       "original": "2d479cad29e0ed695cdcffe7b942ee7ca410199d48c15d3d526f22c44bb4e40a",
       "changes": [
         [
@@ -4514,6 +4514,11 @@
             "    const f = effectiveFlange(bw, ln, [...sides.values()]);",
             "    if (f && f.bf > bw + 1e-6) out.set(e.id, { ...f, datum });"
           ]
+        ],
+        [
+          179,
+          37,
+          []
         ]
       ]
     },
@@ -10666,16 +10671,16 @@
       ]
     },
     "src/lib/sheets/layers.ts": {
-      "source": "9fdcb2f4c033424e121eaf6c8907a5017235604180d67068597330df8dda8565",
+      "source": "2f6509aa6a2261f462bf5330f04f6d0540d90e919f00100af24e52f040588c95",
       "original": "4aa3f93a125d7ece1fa0a6cd5fe8c51e2bd53226ad0ffb61249a61e9542d6696",
       "changes": [
         [
           43,
-          5,
+          6,
           []
         ],
         [
-          62,
+          63,
           2,
           []
         ]
