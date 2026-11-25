@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { modelStore } from '../model.svelte';
 import { historyStore } from '../history.svelte';
 import '../index';
-import { addGeneratedCombinations, SERVICE_ENVELOPE_NAME, templateCombinationSpecs } from '../generated-combinations';
+import { addCompositeCases, addGeneratedCombinations, combinationExists, SERVICE_ENVELOPE_NAME, templateCombinationSpecs } from '../generated-combinations';
 import { expandCombinations, presentSymbols } from '../../engine/loads/combination-cases';
 import { generateCombinations } from '../../codes/cirsoc101/combinations';
 import { generateServiceCombinations } from '../../codes/cirsoc101/service-combinations';
@@ -165,3 +165,94 @@ describe("the loads tab's templates say who wrote them", () => {
     expect(activeComboIds(undefined, modelStore.combinations).some((id) => serviceIds.includes(id))).toBe(false);
   });
 });
+
+it('#2297 applied project rules preserve the net case in composite and notional variants', async () => {
+  const { issue2297Factors } = await import('../../engine/__tests__/combination-factor-fixture');
+  const { withNotionalVariants } = await import('../../engine/loads/notional-combinations');
+  const { initSolver } = await import('../../engine/wasm-solver');
+  await initSolver();
+  const cases = model();
+  const dead = cases.find(c => c.type === 'D')!;
+  const notional = modelStore.addLoadCase('Notional X', '');
+  modelStore.updateLoadCaseFields(notional, { notional: { sourceCaseId: dead.id, ratio: 0.5, dir: '+X' } });
+  const specs = templateCombinationSpecs('project', presentSymbols(cases), [{
+    id: 'test', purpose: 'strength', terms: issue2297Factors.map(factor => ({ symbol: 'D', factor })),
+  }]);
+  const expanded = expandCombinations(specs, cases);
+  expect(expanded).toHaveLength(1);
+  const unit = [{ caseId: dead.id, factor: 1 }];
+  expect.soft(combinationExists(unit, [{ factors: expanded[0]!.factors }])).toBe(true);
+  const variants = withNotionalVariants(expanded, modelStore.loadCases);
+  expect.soft(variants).toHaveLength(2);
+  expect.soft(variants[1]?.factors.find(f => f.caseId === notional)?.factor).toBe(1);
+  const [composite] = addCompositeCases(expanded);
+  expect.soft(modelStore.loadCases.find(c => c.id === composite)?.includes).toStrictEqual(unit);
+});
+
+it('#2297 a unit candidate differs from large cancelling composite paths', async () => {
+  const { initSolver, combineResults, combineResults3D } = await import('../../engine/wasm-solver');
+  await initSolver();
+  const unit = [{ caseId: 1, factor: 1 }];
+  const cases = [1, 2, 3, 4].map(id => ({ id, includes: id === 1 ? [] : unit }));
+  const large = 2 ** 54;
+  const factors = [large, 1, -large].map((factor, i) => ({ caseId: i + 2, factor }));
+  const empty = { displacements: [], elementForces: [] };
+  const planar = { ...empty, reactions: [{ nodeId: 1, rx: -1, rz: 0, my: 0 }] };
+  const spatial = { ...empty, reactions: [{ nodeId: 1, fx: -1, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 }] };
+  const planarCases = new Map(cases.map(({ id }) => [id, planar]));
+  const spatialCases = new Map(cases.map(({ id }) => [id, spatial]));
+  expect(combineResults(unit, planarCases)?.reactions[0]?.rx).toBe(-1);
+  expect(combineResults(factors, planarCases)?.reactions[0]?.rx).toBe(0);
+  expect(combineResults3D(unit, spatialCases, new Map())?.reactions[0]?.fx).toBe(-1);
+  expect(combineResults3D(factors, spatialCases, new Map())?.reactions[0]?.fx).toBe(0);
+  expect(combinationExists(unit, [{ factors }])).toBe(false);
+});
+
+it('#2297 duplicate detection preserves factor values, term order and combination method', () => {
+  const cases = [{ id: 1 }, { id: 2 }, { id: 3 }];
+  const factors = cases.map(({ id: caseId }, i) => ({ caseId, factor: [2 ** 54, 1, -(2 ** 54)][i]! }));
+  const unit = [{ caseId: 2, factor: 1 }];
+  const nearlyUnit = [{ caseId: 2, factor: 1 + Number.EPSILON }];
+  const zero = { caseId: 1, factor: 0 };
+  const tiny = { caseId: 1, factor: Number.MIN_VALUE };
+  const magnitude = { factors: unit, method: 'abs' } as const;
+  expect(combinationExists(unit, [{ factors: [zero, ...unit] }])).toBe(true);
+  expect(combinationExists(factors, [{ factors }])).toBe(true);
+  expect.soft(combinationExists(unit, [{ factors: nearlyUnit }])).toBe(false);
+  expect.soft(combinationExists(unit, [{ factors: [tiny, ...unit] }])).toBe(false);
+  expect.soft(combinationExists(factors, [{ factors: [factors[0]!, factors[2]!, factors[1]!] }])).toBe(false);
+  expect.soft(combinationExists(unit, [magnitude])).toBe(false);
+});
+
+it.each(['direct', 'composite roots', 'composite inclusions'] as const)(
+  '#2297 reports overflowing existing %s without blocking duplicate matching',
+  async mode => {
+    const { initSolver } = await import('../../engine/wasm-solver');
+    await initSolver();
+    const dead = model().find(c => c.type === 'D')!.id;
+    const terms = (caseId: number, ...weights: number[]) => weights.map(factor => ({ caseId, factor }));
+    const unit = terms(dead, 1);
+    const max = Number.MAX_VALUE;
+    const invalid = terms(dead, max, max);
+    const representable = terms(dead, max / 2, max / 2);
+    const candidate = terms(dead, max);
+    const wrapper = (name: string, includes: typeof unit) => {
+      const id = modelStore.addLoadCase(name, '', { generated: true });
+      expect(modelStore.updateLoadCaseFields(id, { includes })).toBe(true);
+      return terms(id, 1);
+    };
+    const bad = { name: 'Overflowing combination', factors: mode === 'composite inclusions' ? wrapper('Overflowing wrapper', invalid) : invalid };
+    const good = { name: 'Representable combination', factors: mode === 'direct' ? representable : wrapper('Representable wrapper', representable) };
+    const compositeModel = mode === 'direct' ? undefined : modelStore.model;
+    const reported: Array<[string, string]> = [];
+    const report = (combo: { name?: string }, error: Error) => reported.push([combo.name ?? '', error.message]);
+    const exists = (factors: typeof unit, combinations: Array<typeof bad>) =>
+      combinationExists(factors, combinations, compositeModel, report);
+
+    expect.soft(exists(candidate, [bad, good])).toBe(true);
+    expect.soft(exists(candidate, [good, bad])).toBe(true);
+    expect(exists(unit, [bad])).toBe(false);
+    expect(reported).toEqual(Array.from({ length: 3 }, () => [bad.name, expect.stringMatching(/net factor/)]));
+    expect(() => exists(invalid, [])).toThrow(/net factor/);
+  },
+);

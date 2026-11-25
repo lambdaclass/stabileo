@@ -14,6 +14,7 @@
  *
  * The result is matched by identity against the solve's, never read off the selection alone.
  */
+import { sumCombinationFactors } from '../engine/wasm-solver';
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { uiStore } from './ui.svelte';
@@ -56,9 +57,9 @@ export function displayedLoads2D(r: AnalysisResults | null | undefined = results
 
   // Basic's rule for which case carries the weight, as the plane solve is given it (`remapModelForPlane`).
   const analysis = modelStore.solveAnalysis(false, include);
-  const factors = new Map<number, number>();
   const combo = w.kind === 'combo' ? model.combinations.find((c) => c.id === w.id) : undefined;
-  for (const f of combo?.factors ?? [{ caseId: w.id, factor: 1 }]) factors.set(f.caseId, (factors.get(f.caseId) ?? 0) + f.factor);
+  const factors = new Map(sumCombinationFactors(combo?.factors ?? [{ caseId: w.id, factor: 1 }])
+    .map(({ caseId, factor }) => [caseId, factor]));
   const out: Load[] = [];
   for (const l of model.loads) {
     const k = factors.get(l.data.caseId ?? 1) ?? 0;

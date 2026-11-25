@@ -1,0 +1,32 @@
+{
+  "id": "planar-nodal-wire-components",
+  "date": "2026-11-25",
+  "prs": [2532],
+  "area": "analysis",
+  "when": { "all": ["native:planar-nodal-vector"] },
+  "quantities": ["solve.ok"],
+  "title": {
+    "en": "Planar nodal components at the solver boundary",
+    "es": "Componentes nodales planos en la entrada del solver",
+    "pt": "Componentes nodais planos na entrada do solver",
+    "de": "Ebene Knotenlastkomponenten an der Solver-Schnittstelle",
+    "fr": "Composantes des charges nodales planes à l’entrée du solveur",
+    "hu": "Síkbeli csomóponti teherösszetevők a megoldó bemenetén",
+    "tr": "Çözücü girişinde düzlemsel düğüm yükü bileşenleri",
+    "zh": "求解器输入中的平面节点荷载分量"
+  },
+  "explanation": {
+    "en": "A planar nodal record with all six components is accepted when the out-of-plane components are zero. An unsupported component causes a refusal before analysis. Saved load metadata is accepted.",
+    "es": "Se acepta un registro nodal plano con las seis componentes cuando las componentes fuera del plano son cero. Si una componente no es compatible, se rechaza el registro antes del análisis. Se aceptan los metadatos de las cargas guardadas.",
+    "pt": "Um registro nodal plano com seis componentes é aceito quando os componentes fora do plano são zero. Um componente incompatível causa a recusa antes da análise. Os metadados das cargas salvas são aceitos.",
+    "de": "Ein ebener Knotenlastdatensatz mit allen sechs Komponenten wird akzeptiert, wenn die Komponenten senkrecht zur Ebene null sind. Eine nicht unterstützte Komponente führt vor der Analyse zur Ablehnung. Metadaten gespeicherter Lasten werden akzeptiert.",
+    "fr": "Une charge nodale plane à six composantes est acceptée si les composantes hors plan sont nulles. Une composante non prise en charge entraîne un refus avant l’analyse. Les métadonnées des charges enregistrées sont acceptées.",
+    "hu": "A megoldó elfogadja a hat összetevős síkbeli csomóponti terhet, ha a síkra merőleges összetevők nullák. A nem támogatott összetevő miatt a számítás el sem indul. A mentett terhek metaadatai elfogadottak.",
+    "tr": "Altı bileşenli düzlemsel düğüm yükü, düzlem dışı bileşenler sıfırsa kabul edilir. Desteklenmeyen bir bileşen, analizden önce girdinin reddedilmesine yol açar. Kayıtlı yük meta verileri kabul edilir.",
+    "zh": "六分量平面节点荷载的面外分量均为零时，求解器接受该输入。若存在不支持的分量，求解器会在分析前拒绝该输入。求解器接受已保存荷载的元数据。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-planar-nodal-wire-components.md",
+    "heading": "Planar nodal components at the solver boundary"
+  }
+}

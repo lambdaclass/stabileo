@@ -20,7 +20,7 @@ export function defaultCombinations(): DefaultCombination[] {
   ];
 }
 
-type CaseLike = { id: number; type: string; name: string };
+type CaseLike = { id: number; type: string; name: string; group?: string };
 type ComboLike = { id: number; name?: string; origin?: unknown; factors?: ReadonlyArray<{ caseId: number; factor: number }> };
 type LoadLike = { data: { caseId?: number } };
 
@@ -39,7 +39,7 @@ export function untouchedDefaults(
   const usedElsewhere = new Set(combinations.filter((c) => !comboIds.has(c.id))
     .flatMap((c) => (c.factors ?? []).filter((f) => f.factor !== 0).map((f) => f.caseId)));
   const named = (d: DefaultCase, name: string) => name === d.name || name === nameOf?.(d.type);
-  const caseIds = defaultLoadCases().filter((d) => cases.some((c) => c.id === d.id && c.type === d.type && named(d, c.name))
+  const caseIds = defaultLoadCases().filter((d) => cases.some((c) => c.id === d.id && c.type === d.type && c.group === undefined && named(d, c.name))
     && !loaded.has(d.id) && !usedElsewhere.has(d.id)).map((d) => d.id);
   return { cases: caseIds, combinations: [...comboIds] };
 }

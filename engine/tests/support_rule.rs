@@ -787,7 +787,7 @@ fn every_3d_restraint_and_warping_conflict_is_named_and_stays_restrained_in_numb
     let clean = embed_2d(&s, Plane::XZ).unwrap();
     for (i, name) in ["kx", "ky", "kz", "krx", "kry", "krz", "kw"].iter().enumerate() {
         let mut value = serde_json::to_value(&clean).unwrap();
-        value["supports"]["2"]["kx"] = Value::Null;
+        assert!(value["supports"]["2"].as_object_mut().unwrap().remove("kx").is_some());
         value["supports"]["1"][name] = serde_json::json!(1.0);
         value["supports"]["1"]["rw"] = serde_json::json!(true);
         value["sections"]["1"]["cw"] = serde_json::json!(1e-6);

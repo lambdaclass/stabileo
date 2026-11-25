@@ -6,10 +6,11 @@
  * consume the same JSON files, eliminating mock divergence.
  */
 
+import { canonicalizeModelAliases } from '../model/canonical-aliases';
 import { generateCombinations } from '../codes/cirsoc101/combinations';
 import { withOrigin } from '../codes/families';
 import { CIRSOC101_BASIS } from '../codes/families/cirsoc';
-import { expandCombinations, presentSymbols } from '../engine/loads/combination-cases';
+import { expandCombinations, modelCombinationCases, presentSymbols, type CombinationCase } from '../engine/loads/combination-cases';
 import { tp } from '../i18n';
 import { remapSupportElement } from '../model/support-types';
 
@@ -116,8 +117,9 @@ interface FixtureLoadOptions {
  * materials → sections → nodes → elements → supports → loads → shells → constraints
  */
 export function loadFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOptions = {}): void {
-  validateFixtureSupportFrames(json);
-  const load = () => replayFixture(json, api, opts);
+  const canonical = canonicalizeModelAliases(json);
+  validateFixtureSupportFrames(canonical);
+  const load = () => replayFixture(canonical, api, opts);
   if (api.replay) api.replay(load);
   else load();
 }
@@ -222,12 +224,13 @@ function replayFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOpt
       }
     }
 
-    // Hinges
-    if (e.hingeStart && api.toggleHinge) api.toggleHinge(newId, 'start');
-    if (e.hingeEnd && api.toggleHinge) api.toggleHinge(newId, 'end');
     for (const [end, rel] of [['i', e.releaseI], ['j', e.releaseJ]] as const) {
-      if (!rel || !api.toggleRelease) continue;
-      for (const axis of ['my', 'mz', 't'] as const) if (rel[axis]) api.toggleRelease(newId, end, axis);
+      if (!rel) continue;
+      if (api.toggleRelease) {
+        for (const axis of ['my', 'mz', 't'] as const) if (rel[axis]) api.toggleRelease(newId, end, axis);
+      } else if (rel.mz) {
+        api.toggleHinge?.(newId, end === 'i' ? 'start' : 'end');
+      }
     }
   }
 
@@ -367,7 +370,7 @@ function replayFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOpt
 }
 
 type FixtureCombination = { factors?: ReadonlyArray<{ caseId: number }> };
-type FixtureCase = { id: number; type?: string; name: string };
+type FixtureCase = CombinationCase & { spectral?: unknown; notional?: unknown };
 type CodeCombination = { id: number; name: string; factors: Array<{ caseId: number; factor: number }>; origin?: unknown };
 
 /** CIRSOC 101-2025 §2.3.2's strength combinations over `cases`, as signed. Needs the engine. */
@@ -400,10 +403,10 @@ function keptLoadCases<C extends FixtureCombination>(
  * that is not a number, is refused.
  */
 export function fixtureLoadCases<C extends FixtureCombination>(
-  json: Pick<JSONModel, 'name' | 'loadCases' | 'combinations' | 'loads'>,
+  json: Pick<JSONModel, 'name' | 'loadCases' | 'combinations' | 'loads' | 'analysis'>,
   current: { loadCases: ReadonlyArray<FixtureCase>; combinations: readonly C[] },
 ): { loadCases: ReadonlyArray<FixtureCase>; combinations: ReadonlyArray<C | CodeCombination>; rebuilt: boolean } {
-  const loadCases = json.loadCases.length > 0 ? json.loadCases : current.loadCases;
+  const loadCases: readonly FixtureCase[] = json.loadCases.length > 0 ? json.loadCases : current.loadCases;
   const typeOf = (cases: ReadonlyArray<FixtureCase>) => new Map(cases.map((c) => [c.id, c.type ?? '']));
   const now = typeOf(loadCases), before = typeOf(current.loadCases);
   const loaded = new Set<unknown>(json.loads.map((l) => (l.data?.caseId === undefined ? 1 : l.data.caseId)));
@@ -416,7 +419,7 @@ export function fixtureLoadCases<C extends FixtureCombination>(
     const combined = new Set(current.combinations.flatMap((c) => (c.factors ?? []).filter((f) => (f as { factor?: number }).factor !== 0).map((f) => f.caseId)));
     const everyLoadedCombined = [...loaded].every((id) => combined.has(id as number));
     if (current.combinations.every(fits) && everyLoadedCombined) return { loadCases, combinations: current.combinations, rebuilt: false };
-    const rebuilt = codeCombinations(loadCases);
+    const rebuilt = codeCombinations(modelCombinationCases({ loadCases, loads: json.loads, analysis: json.analysis }));
     const taken = new Set(rebuilt.flatMap((c) => c.factors.filter((f) => f.factor !== 0).map((f) => f.caseId)));
     const left = [...loaded].filter((id) => !taken.has(id as number));
     if (left.length > 0) throw new Error(tp('fixture.err.caseUncombined', { model: json.name, ids: left.join(', ') }));

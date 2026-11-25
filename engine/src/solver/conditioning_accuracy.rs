@@ -282,7 +282,11 @@ mod tests {
         v["sections"]["1"]["iy"] = 2e-4.into();
         v["sections"]["1"]["j"] = 1e-5.into();
         for sup in v["supports"].as_object_mut().unwrap().values_mut() {
-            *sup = serde_json::json!({"nodeId":sup["nodeId"],"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true,"dx":sup["dx"]});
+            let dx = sup.as_object_mut().unwrap().remove("dx");
+            *sup = serde_json::json!({"nodeId":sup["nodeId"],"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true});
+            if let Some(dx) = dx {
+                sup["dx"] = dx;
+            }
         }
         serde_json::from_value(v).unwrap()
     }
@@ -709,8 +713,26 @@ mod tests {
         let expected = super::super::plastic::solve_plastic_2d_unrefused(&canonical).unwrap();
         let actual = super::super::plastic::solve_plastic_2d_unrefused(&rekeyed).unwrap();
         assert_eq!(actual.collapse_factor, expected.collapse_factor);
-        let mut expected = super::super::pdelta::solve_pdelta_2d(&plane, 4, CONDITIONAL_ACCURACY).unwrap();
-        let mut actual = super::super::pdelta::solve_pdelta_2d(&rekeyed_plane, 4, CONDITIONAL_ACCURACY).unwrap();
+        let expected = super::super::pdelta::solve_pdelta_2d(&plane, 4, CONDITIONAL_ACCURACY).err().expect("canonical model must refuse");
+        let actual = super::super::pdelta::solve_pdelta_2d(&rekeyed_plane, 4, CONDITIONAL_ACCURACY).err().expect("rekeyed model must refuse");
+        assert_eq!(actual, expected);
+        let refusal: serde_json::Value = serde_json::from_str(&actual).unwrap();
+        let diagnostic = &refusal["structuredDiagnostics"][0];
+        assert_eq!(diagnostic["code"], "result_quantity_unavailable");
+        assert_eq!(diagnostic["severity"], "error");
+        assert_eq!(diagnostic["phase"], "equilibrium");
+        assert_eq!(diagnostic["threshold"].as_f64(), Some(CONDITIONAL_ACCURACY));
+        let residual = diagnostic["value"].as_f64().unwrap();
+        assert!(residual.is_finite() && residual > CONDITIONAL_ACCURACY);
+
+        let balanced_plane = beam(true);
+        let mut rekeyed = balanced_plane.clone();
+        rekeyed.elements = rekeyed.elements.into_values().map(|e| (format!("member-{}", e.id), e)).collect();
+        let mut expected = super::super::pdelta::solve_pdelta_2d(&balanced_plane, 4, CONDITIONAL_ACCURACY).unwrap();
+        let mut actual = super::super::pdelta::solve_pdelta_2d(&rekeyed, 4, CONDITIONAL_ACCURACY).unwrap();
+        assert!(expected.converged && actual.converged);
+        assert!(crate::certify::finite::non_finite_paths(&actual.results.element_forces).is_empty());
+        assert!(crate::certify::finite::non_finite_paths(&expected.results.element_forces).is_empty());
         actual.results.element_forces.sort_by_key(|f| f.element_id);
         expected.results.element_forces.sort_by_key(|f| f.element_id);
         assert_eq!(serde_json::to_value(&actual.results.element_forces).unwrap(), serde_json::to_value(&expected.results.element_forces).unwrap());

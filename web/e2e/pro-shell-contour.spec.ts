@@ -67,7 +67,7 @@ test.describe('@smoke PRO — the shell contour opens on something worth looking
 
 test.describe('@smoke PRO — the shells\' faces and criteria', () => {
   test('a raft lists its faces\' Von Mises and Tresca, and exports every column', async ({ pro: page }) => {
-    await loadModel(page, 'mat-foundation', { meshBeforeAnalysis: false });
+    await loadModel(page, 'mat-foundation');
     await solveModel(page);
     await page.getByTestId('pr-stage-analyse').click();
     await page.getByTestId('res-tab-shells').click();

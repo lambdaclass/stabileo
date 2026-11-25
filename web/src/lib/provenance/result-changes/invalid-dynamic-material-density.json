@@ -1,0 +1,44 @@
+{
+  "id": "invalid-dynamic-material-density",
+  "date": "2026-11-23",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "invalidDynamicMaterialDensity"
+    ],
+    "any": [
+      "analysis:modal",
+      "analysis:spectral",
+      "analysis:timeHistory",
+      "analysis:harmonic"
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Require material density for dynamic mass",
+    "es": "Densidad de material obligatoria para la masa dinámica",
+    "pt": "Densidade do material obrigatória para a massa dinâmica",
+    "de": "Materialdichte für die dynamische Masse erforderlich",
+    "fr": "Masse volumique requise pour la masse dynamique",
+    "hu": "A dinamikai tömeghez szükséges az anyagsűrűség",
+    "tr": "Dinamik kütle için malzeme yoğunluğu gerekli",
+    "zh": "计算动力分析质量时必须提供材料密度"
+  },
+  "explanation": {
+    "en": "Dynamic analysis now refuses a member or shell whose material density is missing or invalid. Enter the material’s finite, nonnegative density and rerun the analysis.",
+    "es": "El análisis dinámico ahora rechaza una barra o lámina si falta la densidad de su material o el valor es inválido. Ingresá un valor de densidad finito y no negativo y repetí el análisis.",
+    "pt": "A análise dinâmica agora rejeita uma barra ou casca se a densidade do material estiver ausente ou for inválida. Introduza a densidade finita e não negativa e repita a análise.",
+    "de": "Die dynamische Berechnung lehnt Stäbe oder Schalenelemente mit fehlender oder ungültiger Materialdichte ab. Geben Sie eine endliche, nichtnegative Dichte ein und berechnen Sie das Modell erneut.",
+    "fr": "Le calcul dynamique refuse désormais une barre ou une coque dont la masse volumique est absente ou invalide. Saisissez une masse volumique finie et positive ou nulle, puis relancez le calcul.",
+    "hu": "A dinamikai elemzés elutasítja a rudat vagy héjat, ha az anyagsűrűsége hiányzik vagy érvénytelen. Adjon meg véges, nemnegatív sűrűséget, majd futtassa újra az elemzést.",
+    "tr": "Dinamik analiz artık malzeme yoğunluğu eksik veya geçersiz olan çubukları veya kabukları reddeder. Sonlu ve negatif olmayan malzeme yoğunluğunu girip analizi yeniden çalıştırın.",
+    "zh": "如果杆件或壳单元的材料密度缺失或无效，动力分析现在会拒绝该输入。请输入有限且非负的材料密度，然后重新运行分析。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-invalid-solver-numbers.md",
+    "heading": "Require material density for dynamic mass"
+  }
+}

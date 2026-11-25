@@ -53,14 +53,21 @@ rayon = { version = "1.10", optional = true }
 [dev-dependencies]
 tempfile = "3"
 wasm-bindgen-test = "0.3"
-criterion = { version = "0.5", features = ["html_reports"] }
 rand = "0.8"
-proptest = "1"
 # CBOR values hold NaN and ±∞, which JSON cannot: the certificate property
 # tests inject them into typed inputs (tests/certify_nonfinite.rs).
 ciborium = "0.2"
 syn = { version = "2", features = ["full", "parsing", "printing"] }
 quote = "1"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1"
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+proptest = { version = "1", default-features = false, features = ["std", "bit-set"] }
+getrandom = { version = "0.4", features = ["wasm_js"] }
+getrandom_legacy = { package = "getrandom", version = "0.2", features = ["js"] }
 
 [[test]]
 name = "core"

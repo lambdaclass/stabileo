@@ -6,9 +6,8 @@ mod line_search;
 mod newton_krylov;
 mod pseudo_transient;
 mod trust_region;
-pub(super) mod path_following;
 
-pub use super::arc_length::experimental_nonlinear_continuation::{
+pub use super::arc_length::{
     solve_arc_length, solve_arc_length_from, solve_displacement_control,
 };
 pub use super::corotational::experimental_nonlinear_2d::{

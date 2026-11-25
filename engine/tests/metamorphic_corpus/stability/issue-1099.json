@@ -55,7 +55,6 @@
    "data": {
     "a": 5.998634513803783,
     "elementId": 1,
-    "my": null,
     "p": 48.69175036660593,
     "px": 0.0040540374072008944
    },
@@ -117,26 +116,12 @@
  "solverOptions": null,
  "supports": {
   "1": {
-   "angle": null,
-   "dry": null,
-   "dx": null,
-   "dz": null,
    "id": 1,
-   "kx": null,
-   "ky": null,
-   "kz": null,
    "nodeId": 1,
    "type": "pinned"
   },
   "2": {
-   "angle": null,
-   "dry": null,
-   "dx": null,
-   "dz": null,
    "id": 2,
-   "kx": null,
-   "ky": null,
-   "kz": null,
    "nodeId": 4,
    "type": "pinned"
   }

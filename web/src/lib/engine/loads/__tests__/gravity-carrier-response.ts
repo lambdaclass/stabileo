@@ -1,6 +1,7 @@
 import { expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { solve_2d, solve_3d, solve_pdelta_2d, solve_pdelta_3d } from '../../../wasm/dedaliano_engine.js';
+import { finiteObjectWire } from '../../wasm-solver';
 import { computeDiagramValueAt } from '../../diagrams';
 import type { AnalysisResults } from '../../types';
 import { evaluateDiagramAt } from '../../diagrams-3d';
@@ -61,7 +62,7 @@ export function checkLinearResponse(fixture: ReturnType<typeof bay>, loads: Carr
   };
   const nonlinear = JSON.parse(solve_pdelta_3d(JSON.stringify(input), 100, 1e-10));
   expect(nonlinear.converged).toBe(true);
-  const space = [solve_3d(input), nonlinear.results] as AnalysisResults3D[];
+  const space = [solve_3d(finiteObjectWire(input)), nonlinear.results] as AnalysisResults3D[];
   for (const result of space) {
     expect(result.elementForces).toHaveLength(elements.length);
     for (const forces of result.elementForces) {
@@ -83,7 +84,7 @@ export function checkLinearResponse(fixture: ReturnType<typeof bay>, loads: Carr
   };
   const advanced = JSON.parse(solve_pdelta_2d(JSON.stringify(plane), 100, 1e-10));
   expect(advanced.converged).toBe(true);
-  const results = [solve_2d(plane), advanced.results] as AnalysisResults[];
+  const results = [solve_2d(finiteObjectWire(plane)), advanced.results] as AnalysisResults[];
   for (const result of results) {
     expect(result.elementForces).toHaveLength(elements.length);
     for (const forces of result.elementForces) {
