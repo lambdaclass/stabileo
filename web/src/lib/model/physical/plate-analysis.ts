@@ -272,13 +272,54 @@ function unmatchedVertex(cell: Cell, stations: Station[][], equations: EdgeEquat
   return undefined;
 }
 
+function faceSection(cell: Cell, plane: PlateFrame, direction: Vec3, origin: Vec3) {
+  const distances = cell.vertices.map(vertex => dot(sub(vertex.point, plane.o), plane.n));
+  const stations = cell.vertices.map(vertex => dot(sub(vertex.point, origin), direction));
+  const cuts: number[] = [];
+  const edges: Array<readonly [number, number]> = [];
+  for (const [i, a] of distances.entries()) {
+    const j = (i + 1) % distances.length;
+    const b = distances[j]!, first = stations[i]!, last = stations[j]!;
+    if (Math.abs(a) <= PLATE_EDGE_TOL) cuts.push(first);
+    if (Math.abs(a) <= PLATE_EDGE_TOL && Math.abs(b) <= PLATE_EDGE_TOL) {
+      edges.push([Math.min(first, last), Math.max(first, last)]);
+    }
+    if ((a < 0 && b > 0) || (a > 0 && b < 0)) cuts.push(first + a / (a - b) * (last - first));
+  }
+  return { lo: Math.min(...cuts), hi: Math.max(...cuts), edges };
+}
+
+function throughFaces(wall: Cell, slab: Cell): boolean {
+  const chord = cross(wall.frame.n, slab.frame.n);
+  const length = norm(chord);
+  if (!(length > 0)) return false;
+  const direction = chord.map(v => v / length) as Vec3;
+  const origin = slab.vertices[0]!.point;
+  const wallSection = faceSection(wall, slab.frame, direction, origin);
+  const slabSection = faceSection(slab, wall.frame, direction, origin);
+  const lo = Math.max(wallSection.lo, slabSection.lo), hi = Math.min(wallSection.hi, slabSection.hi);
+  if (!(hi > lo)) return false;
+  return [wallSection, slabSection].some(section => {
+    let end = lo;
+    for (const [a, b] of section.edges.sort(([a], [b]) => a - b)) {
+      if (a > end) break;
+      end = Math.max(end, b);
+    }
+    return end < hi;
+  });
+}
+
+function faceBounds(cell: Cell) {
+  return axes.map(axis => {
+    const coordinates = cell.vertices.map(vertex => vertex.point[axis]);
+    return { lo: Math.min(...coordinates), hi: Math.max(...coordinates) };
+  });
+}
+
 function interiorContact(walls: readonly Cell[], slabs: readonly Cell[]) {
   const faces = slabs.map(cell => {
     const { vertices, frame } = cell;
-    const bounds = axes.map(axis => {
-      const coordinates = vertices.map(vertex => vertex.point[axis]);
-      return { lo: Math.min(...coordinates) - PLATE_EDGE_TOL, hi: Math.max(...coordinates) + PLATE_EDGE_TOL };
-    });
+    const bounds = faceBounds(cell).map(({ lo, hi }) => ({ lo: lo - PLATE_EDGE_TOL, hi: hi + PLATE_EDGE_TOL }));
     const sides = vertices.map(({ point }, index) => {
       const edge = sub(vertices[(index + 1) % vertices.length]!.point, point);
       const length = norm(edge);
@@ -288,6 +329,12 @@ function interiorContact(walls: readonly Cell[], slabs: readonly Cell[]) {
   }).sort((a, b) => a.bounds[0]!.lo - b.bounds[0]!.lo);
 
   for (const wall of walls) {
+    const extents = faceBounds(wall);
+    for (const { cell, bounds } of faces) {
+      if (bounds[0]!.lo > extents[0]!.hi) break;
+      if (axes.some(axis => extents[axis]!.lo > bounds[axis]!.hi || extents[axis]!.hi < bounds[axis]!.lo)) continue;
+      if (throughFaces(wall, cell)) return { wall: wall.key, slab: cell.key, trace: true as const };
+    }
     for (const [index, first] of wall.vertices.entries()) {
       const last = wall.vertices[(index + 1) % wall.vertices.length]!;
       const a = first.point, b = last.point;
@@ -328,7 +375,7 @@ function interiorContact(walls: readonly Cell[], slabs: readonly Cell[]) {
   return null;
 }
 
-type WallSlabJoint = { wall: string; slab: string } & ({ node: number } | { edge: readonly [number, number] });
+type WallSlabJoint = { wall: string; slab: string } & ({ node: number } | { edge: readonly [number, number] } | { trace: true });
 
 export function nonconformingWallSlab(model: PlateAnalysisModel): WallSlabJoint | null {
   const cells: Record<'slab' | 'wall', Cell[]> = { slab: [], wall: [] };

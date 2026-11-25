@@ -10,6 +10,7 @@
     "any": [
       "smallGeneratedLineLoads",
       "opposedShellPressures",
+      "opposedGeneratedLineLoads",
       "smallMemberSelfWeight",
       "wholeSlabLoadDefinitions"
     ]

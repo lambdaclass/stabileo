@@ -229,7 +229,8 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     ? shellOffsets(model, shellNodes, new Set(candidates.flatMap(({ nodeI, nodeJ }) => [nodeI, nodeJ])),
       new AttachmentComponents(offsetLinks, terminals))
     : new Map<number, ShellOffset[]>();
-  const attachedCoverage = rigidShellCoverage(model, offsets, carriers, out.zOf.keys());
+  const attachedCoverage = opts.mode === 'panels'
+    ? rigidShellCoverage(model, offsets, carriers, out.zOf.keys()) : new Map<number, AttachmentCoverage>();
   const shellMembership = new Map<number, boolean>();
   const inShell = (e: { id: number; nodeI: number; nodeJ: number }): boolean => {
     if (opts.mode !== 'panels' || !carriers.length) return false;
@@ -597,7 +598,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     if (typeof attached === 'object') {
       exposed = runExposure.get(attached.runGaps);
       if (exposed === undefined) {
-        const exposure = new Set(attached.runGaps.map(gap => !coverAbove.memberCovered(gap)));
+        const exposure = new Set(attached.runGaps.flatMap(gap => coverAbove.memberExposure(gap)));
         if (exposure.size > 1 && !opts.uniformPressure) refuseGravityGeometry(msg('loadPlan.gravity.mixedExposure'));
         exposed = exposure.has(true);
         runExposure.set(attached.runGaps, exposed);
@@ -835,6 +836,21 @@ function shellCoverage(trace: Segment, carriers: ShellCarrier[], requireCoplanar
   return shellTrace(trace, carriers, requireCoplanar).coverage;
 }
 
+function cutPlanTrace(p: Segment[0], q: Segment[1], a: PlanPoint, b: PlanPoint, add: (t: number) => void, error: number) {
+  const dx = q[0] - p[0], dy = q[1] - p[1];
+  const ex = b[0] - a[0], ey = b[1] - a[1];
+  const px = a[0] - p[0], py = a[1] - p[1];
+  const length = Math.hypot(dx, dy);
+  const det = dx * ey - dy * ex;
+  if (Math.abs(det) > error * Math.hypot(ex, ey)) {
+    const u = (px * dy - py * dx) / det;
+    if (u >= 0 && u <= 1) add((px * ey - py * ex) / det);
+  } else if (Math.abs(px * dy - py * dx) <= error * length) {
+    add((px * dx + py * dy) / length ** 2);
+    add(((b[0] - p[0]) * dx + (b[1] - p[1]) * dy) / length ** 2);
+  }
+}
+
 function shellTrace([p, q]: Segment, carriers: ShellCarrier[], requireCoplanar = true): { coverage: ShellCoverage; gaps: RunInterval[] } {
   const dx = q[0] - p[0], dy = q[1] - p[1];
   const length = Math.hypot(dx, dy);
@@ -848,18 +864,8 @@ function shellTrace([p, q]: Segment, carriers: ShellCarrier[], requireCoplanar =
   const pointAt = (t: number): [number, number] => [p[0] + t * dx, p[1] + t * dy];
   const cuts = [0, 1];
   const add = (t: number) => { if (t > error / length && t < 1 - error / length) cuts.push(t); };
-  for (const { poly } of eligible) for (let i = 0; i < poly.length; i++) {
-    const [x, y] = poly[i]!, [xx, yy] = poly[(i + 1) % poly.length]!;
-    const ex = xx - x, ey = yy - y;
-    const det = dx * ey - dy * ex;
-    const px = x - p[0], py = y - p[1];
-    if (Math.abs(det) > error * Math.hypot(ex, ey)) {
-      const u = (px * dy - py * dx) / det;
-      if (u >= 0 && u <= 1) add((px * ey - py * ex) / det);
-    } else if (Math.abs(px * dy - py * dx) <= error * length) {
-      add((px * dx + py * dy) / length ** 2);
-      add(((xx - p[0]) * dx + (yy - p[1]) * dy) / length ** 2);
-    }
+  for (const { poly } of eligible) {
+    poly.forEach((a, i) => cutPlanTrace(p, q, a, poly[(i + 1) % poly.length]!, add, error));
   }
   cuts.sort((x, y) => x - y);
   const intervals = cuts.slice(1).flatMap((end, i) => {
@@ -1757,6 +1763,51 @@ function coverage(
     return false;
   };
   const memberCovered = (segment: Segment) => coveredWithin(memberMidpointQuery(segment), Infinity);
+  const memberExposure = ([start, end]: Segment) => {
+    const dx = end[0] - start[0], dy = end[1] - start[1];
+    const length = Math.hypot(dx, dy);
+    const error = 64 * Number.EPSILON * Math.max(length, ...start.map(Math.abs), ...end.map(Math.abs));
+    const tolerance = error / length;
+    const at = (t: number): Segment[0] => [
+      start[0] + t * dx, start[1] + t * dy, start[2] + t * (end[2] - start[2]),
+    ];
+    const cuts = [0, 1];
+    const add = (t: number) => { if (t > tolerance && t < 1 - tolerance) cuts.push(t); };
+    const pointAt = (point: Segment[0]): PlanPoint => [point[0], point[1]];
+    const cutClearance = (from: number, to: number, clearance: number) => {
+      const a = from - start[2] - clearance, b = to - end[2] - clearance;
+      if (a !== b) add(a / (a - b));
+    };
+    const cutRing = (ring: Polygon[number]) =>
+      ring.forEach((p, i) => cutPlanTrace(start, end, p, ring[(i + 1) % ring.length]!, add, error));
+    for (const panel of [...panels, ...rejectedPanels]) {
+      panel.footprint.forEach(polygon => polygon.forEach(cutRing));
+      const from = panel.geometry.heights(pointAt(start)), to = panel.geometry.heights(pointAt(end));
+      cutClearance(from[0], to[0], MIN_COVER_RISE);
+      cutClearance(from[1], to[1], MIN_COVER_RISE);
+    }
+    for (const shell of shells) {
+      cutRing(shell.poly);
+      cutClearance(shell.height(pointAt(start)), shell.height(pointAt(end)), MIN_COVER_RISE);
+    }
+    for (const { segments, ownPanels } of runs) {
+      for (const { z, rings } of ownPanels) {
+        rings.forEach(cutRing);
+        cutClearance(z, z, TOL);
+        cutClearance(z, z, -TOL);
+      }
+      for (const { a, b, dx: x, dy: y, dz, lh } of segments) {
+        cutPlanTrace(start, end, [a.x, a.y], [b.x, b.y], add, error);
+        const elevation = (p: Segment[0]) => (a.z ?? 0) + ((p[0] - a.x) * x + (p[1] - a.y) * y) / lh ** 2 * dz;
+        cutClearance(elevation(start), elevation(end), MIN_COVER_RISE);
+      }
+    }
+    cuts.sort((a, b) => a - b);
+    return cuts.slice(1).flatMap((end, i) => {
+      const start = cuts[i]!;
+      return end - start <= tolerance ? [] : [!memberCovered([at(start), at(end)])];
+    });
+  };
   const pointCovered = (pt: PlanPoint, zTop: number, ownMembers?: ReadonlySet<number>, limit = Infinity, ownShell?: number) =>
     coveredWithin(pointCoverQuery(pt, zTop), limit, ownMembers, ownShell);
   const areaCovered = (
@@ -1785,7 +1836,7 @@ function coverage(
     return lower.footprint.some(part => footprintContains(center.plan, part))
       && coveredWithin(center, Infinity, bareRun.ownMembers, ownShell, false);
   };
-  return { pointCovered, memberCovered, areaCovered };
+  return { pointCovered, memberCovered, memberExposure, areaCovered };
 }
 
 /**

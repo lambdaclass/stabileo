@@ -5,6 +5,7 @@ import { hasShellOffset } from '../shell-offsets';
 import { hasMemberOffset } from '../member-offsets';
 import { pressureQuadrature } from './wind-pressure-field';
 import { createSectionWeight } from '../../section/weight';
+import type { MemberOffset, ShellOffset } from '../../model/element-3d-metadata';
 import { SupportMappingError, supportDofs3D } from '../support-dofs-3d';
 
 export type MassNode = { id: number; x: number; y: number; z: number };
@@ -58,6 +59,13 @@ export function massSamples(mass: SeismicMass, sample: MassSample) {
 }
 
 type StructuralSegment = [MassNode, MassNode];
+type SeismicSurface = { id: number; nodes: readonly number[]; materialId?: number; thickness?: number; curved?: boolean; offset?: ShellOffset };
+type SeismicMember = { id: number; nodeI: number; nodeJ: number; type?: string; offset?: MemberOffset };
+type SeismicGeometry = Pick<LoadModelData, 'nodes' | 'supports' | 'constraints'> & {
+  elements: ReadonlyMap<number, SeismicMember>;
+  quads?: ReadonlyMap<number, SeismicSurface>;
+  plates?: ReadonlyMap<number, SeismicSurface>;
+};
 
 function setStructuralPlanWidths(levels: SeismicLevel[], segments: StructuralSegment[]) {
   const bounds = new Map(levels.map(l => [l.elevation, { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }]));
@@ -95,7 +103,7 @@ type SupportedSeismicComponent = {
 };
 
 function supportedSeismicComponent(
-  model: LoadModelData, nodes: ReadonlyMap<number, MassNode>, segments: StructuralSegment[],
+  model: SeismicGeometry, nodes: ReadonlyMap<number, MassNode>, segments: StructuralSegment[],
 ): SupportedSeismicComponent | { refusal: SeismicGeometryRefusal } {
   const first = segments[0]?.[0];
   if (!first) return { refusal: 'seismicBase' };
@@ -179,10 +187,7 @@ function lineJoint(a: MassNode, p: MassNode, b: MassNode): 'straight' | 'corner'
   return Math.hypot(...bounds) <= localPrecision ? 'straight' : 'unresolved';
 }
 
-export function buildSeismicModel(
-  model: LoadModelData, layout: GravityLayout, area: AreaLoadsResult, width: number, liveFactor: number,
-  snow: { distributed: PlannedDistributed[]; nodal: PlannedNodal[]; index: number; factor: number; panels: boolean } | undefined,
-): SeismicModel {
+function seismicTopology(model: SeismicGeometry) {
   const nodes = new Map([...model.nodes].map(([id, n]) => [id, { ...n, z: n.z ?? 0 }]));
   const geometry = new Map<number, LineGeometry>();
   const neighbours = new Map<number, Array<{ node: MassNode; elementId: number }>>();
@@ -211,7 +216,7 @@ export function buildSeismicModel(
     for (const [k, corner] of corners.entries()) segments.push([corner, corners[(k + 1) % corners.length]!]);
   }
   const component = supportedSeismicComponent(model, nodes, segments);
-  if ('refusal' in component) return { levels: [], datum: component };
+  if ('refusal' in component) return { refusal: component.refusal };
 
   const evidenced = new Set(component.storyNodes);
   for (const { corners } of surfaces) {
@@ -245,7 +250,7 @@ export function buildSeismicModel(
       const pairs = new Map<number, number[]>();
       for (const [i, from] of adjacent.entries()) for (const to of adjacent.slice(i + 1)) {
         const joint = lineJoint(from.node, node, to.node);
-        if (joint === 'unresolved') return { levels: [], datum: { refusal: 'seismicStoryPrecision' } };
+        if (joint === 'unresolved') return { refusal: 'seismicStoryPrecision' as const };
         if (joint === 'straight') {
           pairs.set(from.elementId, [...(pairs.get(from.elementId) ?? []), to.elementId]);
           pairs.set(to.elementId, [...(pairs.get(to.elementId) ?? []), from.elementId]);
@@ -277,22 +282,33 @@ export function buildSeismicModel(
   }
   const highest = [...component.nodes].reduce((z, id) => Math.max(z, nodes.get(id)!.z), component.elevation);
   type Edge = { node: MassNode; elementId: number };
+  const frameMember = ({ type, offset }: SeismicMember) => (type === undefined || type === 'frame') && !hasMemberOffset({ offset });
+  const verticalSupport = (eave: MassNode, edge: Edge): boolean => {
+    for (;;) {
+      const { node, elementId } = edge;
+      const member = model.elements.get(elementId)!;
+      if (node.x !== eave.x || node.y !== eave.y || !frameMember(member)) return false;
+      if (node.z === component.elevation) return supported.has(node.id);
+      if (node.z < component.elevation || crossings.has(node.id)) return false;
+      const nextId = continuations.get(node.id)?.get(elementId);
+      const next = neighbours.get(node.id)?.find(other => other.elementId === nextId);
+      if (!next || next.node.z >= node.z) return false;
+      edge = next;
+    }
+  };
   const rafter = (edge: Edge) => {
     const members: number[] = [];
     for (;;) {
       const { elementId, node } = edge;
       const el = model.elements.get(elementId)!;
-      if (el.type === 'truss' || hasMemberOffset(el)) return undefined;
+      if (!frameMember(el)) return undefined;
       members.push(elementId);
       const nextId = continuations.get(node.id)?.get(elementId);
       if (nextId === undefined) {
         const adjacent = neighbours.get(node.id)!;
         if (adjacent.length !== 2) return undefined;
         const post = adjacent.find(other => other.elementId !== elementId)!;
-        const base = post.node;
-        const column = model.elements.get(post.elementId)!;
-        return base.z === component.elevation && supported.has(base.id) && base.x === node.x && base.y === node.y
-          && column.type !== 'truss' && !hasMemberOffset(column) ? { eave: node, members } : undefined;
+        return post.node.z < node.z && verticalSupport(node, post) ? { eave: node, members } : undefined;
       }
       const next = neighbours.get(node.id)!.find(other => other.elementId === nextId)!;
       if (crossings.has(node.id) || next.node.z >= node.z) return undefined;
@@ -316,12 +332,13 @@ export function buildSeismicModel(
       for (const member of members) gableMembers.add(member);
     }
   }
-  if (ambiguous.size) return { levels: [], datum: { refusal: 'seismicAmbiguousStory' } };
+  if (ambiguous.size) return { refusal: 'seismicAmbiguousStory' as const };
 
   for (const id of surfaceNodes) if (component.nodes.has(id)) storyNodes.add(id);
 
   type Run = { atStory: Map<number, MassNode>; loading: 'story' | 'member' | 'unresolvedSlope' };
   const runs = new Map<number, Run>();
+  let connectedBraceCrossing = false;
   for (const [id, line] of geometry) {
     if (line.nodeI.z === line.nodeJ.z || runs.has(id)) continue;
     const run: Run = { atStory: new Map(), loading: 'story' };
@@ -349,8 +366,27 @@ export function buildSeismicModel(
     if (gableMembers.has(id)) run.loading = 'member';
     else if (crossesBrace || (low.z > component.elevation && (low.x !== high.x || low.y !== high.y))) {
       run.loading = evidenced.has(low.id) && evidenced.has(high.id) ? 'member' : 'unresolvedSlope';
+      connectedBraceCrossing ||= crossesBrace && run.loading === 'member';
     }
   }
+  return {
+    nodes, geometry, surfaces, component, storyNodes, runs,
+    connectedBraceCrossing, supportedGable: gableMembers.size > 0,
+  };
+}
+
+export function seismicRegenerationGeometry(model: SeismicGeometry) {
+  const topology = seismicTopology(model);
+  return { connectedBraceCrossing: topology.connectedBraceCrossing === true, supportedGable: topology.supportedGable === true };
+}
+
+export function buildSeismicModel(
+  model: LoadModelData, layout: GravityLayout, area: AreaLoadsResult, width: number, liveFactor: number,
+  snow: { distributed: PlannedDistributed[]; nodal: PlannedNodal[]; index: number; factor: number; panels: boolean } | undefined,
+): SeismicModel {
+  const topology = seismicTopology(model);
+  if (topology.refusal) return { levels: [], datum: { refusal: topology.refusal } };
+  const { nodes, geometry, surfaces, component, storyNodes, runs } = topology;
   const byElevation = new Map<number, SeismicLevel>();
   const level = (elevation: number) => {
     if (!byElevation.has(elevation)) byElevation.set(elevation, {

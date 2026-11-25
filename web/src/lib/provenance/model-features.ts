@@ -2,6 +2,9 @@ import { invalidPlanarPointTorsion, isFiniteInputNumber } from '../engine/model-
 import { PLANAR_LINE_COMPONENT_CUTOFF, TRUSS_LOAD_COMPONENT_CUTOFF } from '../engine/member-loads';
 import { POINT_END_TOL } from '../engine/member-point-loads';
 import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
+import { seismicRegenerationGeometry } from '../engine/loads/seismic-mass';
+import type { Support } from '../store/model.svelte';
+import type { MemberOffset } from '../model/element-3d-metadata';
 import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
 import { isCompositeCase, symbolOfCase, symbolOfType, symbolsByAlternativeSet } from '../engine/loads/combination-cases';
 /**
@@ -58,7 +61,7 @@ export const FEATURE_IDS = [
   'physicalPlateDefinitions', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
-  'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
+  'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
@@ -437,7 +440,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     }
     const issue = plateAnalysisIssue(plates);
     if (issue && issue.kind !== 'unmeshed') f.add('plateAnalysisIssue');
-    if (issue?.kind === 'wallSlab' && 'edge' in issue.joint) f.add('wallSlabInteriorContact');
+    if (issue?.kind === 'wallSlab' && !('node' in issue.joint)) f.add('wallSlabInteriorContact');
   }
   if (quads.some((q) => q?.curved)) f.add('curvedShells');
   if ([...quads, ...values(s.plates)].some((q) => offsetMoves(q?.offset))) f.add('eccentricities');
@@ -530,10 +533,10 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (type === 'pointOnElement' && invalidPlanarPointTorsion(data?.mx)) f.add('invalidPlanarMemberTorsion');
   }
   const pressureSigns = new Map<string, number>();
-  const notePressure = (source: string, q: number) => {
+  const noteLoadSign = (source: string, q: number, feature: 'opposedShellPressures' | 'opposedGeneratedLineLoads') => {
     const sign = Math.sign(q);
     if (!sign) return;
-    if (pressureSigns.get(source) === -sign) f.add('opposedShellPressures');
+    if (pressureSigns.get(source) === -sign) f.add(feature);
     pressureSigns.set(source, sign);
   };
   for (const l of Array.isArray(s.loads) ? s.loads : []) {
@@ -581,6 +584,12 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       if ([d.qI, d.qJ, d.qXI, d.qXJ, d.qYI, d.qYJ, d.qZI, d.qZJ]
         .some(q => typeof q === 'number' && q !== 0 && Math.abs(q) < 1e-12)) f.add('tinyDistributedLoads');
     }
+    if (t === 'distributed3d' && (d.generatedBy || d.fromDef !== undefined)) {
+      for (const key of ['qXI', 'qXJ', 'qYI', 'qYJ', 'qZI', 'qZJ']) {
+        const q = d[key];
+        if (typeof q === 'number') noteLoadSign(`member:${d.elementId}:${d.frame ?? 'local'}:${key}`, q, 'opposedGeneratedLineLoads');
+      }
+    }
     const fixedLoadFrame = d.frame === 'global' || d.frame === 'projected';
     if (t === 'distributed3d' && (nonZero(d.qXI) || nonZero(d.qXJ)
         || (fixedLoadFrame && [d.qYI, d.qYJ, d.qZI, d.qZJ].some(nonZero)))) {
@@ -607,7 +616,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     const dead = caseType.get(d.caseId as number) === 'D' || d.caseId === undefined;
     if ((t === 'surface3d' || d.fromDef !== undefined) && dead) f.add('areaDeadLoads');
     if (t === 'surface3d' && typeof d.q === 'number') {
-      notePressure(`cell:${d.caseId ?? 1}:${d.on ?? 'quad'}:${d.quadId}`, d.q);
+      noteLoadSign(`cell:${d.caseId ?? 1}:${d.on ?? 'quad'}:${d.quadId}`, d.q, 'opposedShellPressures');
     }
     if (fromLoadPlan(d.generatedBy)) {
       f.add('generatedLoads');
@@ -626,7 +635,35 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     f.add('pathAnalysis');
   }
   if (loadBasis) f.add('generatedLoads');
-  if (generatedSeismic) f.add('generatedSeismicLoads');
+  if (generatedSeismic) {
+    f.add('generatedSeismicLoads');
+    if (f.has('space3D') && elements.length) {
+      const geometry = plateAnalysisModel(s);
+      const seismic = seismicRegenerationGeometry({
+        nodes: new Map([...geometry.nodes].map(([id, node]) => [id, { id, ...node }])),
+        elements: new Map(elements.map(element => [element.id, {
+          id: element.id, nodeI: element.nodeI, nodeJ: element.nodeJ, type: element.type,
+          offset: offsetMoves(element.offset?.i) || offsetMoves(element.offset?.j)
+            ? element.offset as MemberOffset
+            : undefined,
+        }])),
+        supports: new Map((s.supports ?? []).flatMap(([id, support]) => support ? [[id, {
+          nodeId: support.nodeId, type: isSupportType(support.type) ? support.type : undefined,
+          dofRestraints: support.dofRestraints as Support['dofRestraints'], dofFrame: support.dofFrame === 'local' ? 'local' : undefined,
+          isInclined: support.isInclined, uplift: support.uplift, curves: support.curves as Support['curves'],
+        }]] as const : [])),
+        quads: geometry.quads,
+        plates: geometry.plates,
+        constraints: (s.constraints ?? []).flatMap(constraint => constraint?.type === 'diaphragm'
+          && typeof constraint.masterNode === 'number' && Array.isArray(constraint.slaveNodes)
+          ? [{ type: 'diaphragm', masterNode: constraint.masterNode, slaveNodes: constraint.slaveNodes,
+            plane: typeof constraint.plane === 'string' ? constraint.plane : undefined }]
+          : []),
+      });
+      if (seismic.connectedBraceCrossing) f.add('connectedSeismicBraceCrossing');
+      if (seismic.supportedGable) f.add('supportedSeismicGable');
+    }
+  }
   if (unverifiedSeismicLoads(s).length > 0) f.add(UNVERIFIED_SEISMIC_FEATURE);
   const hasShellGravity = shellGravity || ['shellLevel', 'slopedShells', 'partlyUnderShells'].some(kind => loadNoteKeys.has(`loadPlan.gravity.${kind}`));
   if (quads.length && Array.isArray(s.constraints) && s.constraints.some(c => c?.type === 'rigidLink' || c?.type === 'eccentricConnection')) {
@@ -644,7 +681,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (!data) continue;
     if (data.target?.by === 'zone' && data.distribution !== 'slab') f.add('memberFloorZones');
     if (data.distribution === 'slab' && data.target?.by === 'group' && typeof data.q === 'number') {
-      notePressure(`group:${data.caseId}:${data.target.groupId}`, data.q);
+      noteLoadSign(`group:${data.caseId}:${data.target.groupId}`, data.q, 'opposedShellPressures');
     }
   }
   if (values(s.groups).some((g) => g?.kind === 'generated')) f.add('generatedStructures');

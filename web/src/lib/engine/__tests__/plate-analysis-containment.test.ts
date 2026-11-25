@@ -487,14 +487,12 @@ it.each([[2, 0.01], [-0.01, -1]])('solves the loaded slab and a wall clear of it
   expectLoadedSlab(modelStore.solve3D(false, false, true));
 });
 
-const review = it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586');
-
-review.each(directEntries)('known wrong result: #2586 — the %s entry refuses a wall spanning the slab face', async (entry, solve) => {
+it.each(directEntries)('#2586 the %s entry refuses a wall spanning the slab face', async (entry, solve) => {
   throughSlab(2, -1, -1, 5);
   expect(await solve()).toEqual(entry === 'reproducible input' ? null : expect.stringMatching(/wall.*slab/i));
 });
 
-review('known wrong result: #2586 — global solve refuses a face intersection with no wall-edge crossings', async () => {
+it('#2586 global solve refuses a face intersection with no wall-edge crossings', async () => {
   throughSlab(2, -1, -1, 5);
   expect(await runGlobalSolve({ directBase: true })).toEqual({ ok: false, error: expect.stringMatching(/wall.*slab/i) });
   expect(resultsStore.results3D).toBeNull();
@@ -503,4 +501,23 @@ review('known wrong result: #2586 — global solve refuses a face intersection w
 it('solves when the wide wall crosses the slab plane beyond its face', () => {
   throughSlab(-2 * PLATE_EDGE_TOL, -1, -1, 5);
   expectLoadedSlab(modelStore.solve3D(false, false, true));
+});
+
+it('transfers the slab load across a shared wall trace with wall cells above and below', () => {
+  const at = (x: number, y: number, z: number) => modelStore.addNode(x, y, z);
+  const a = at(0, 0, 0), b = at(4, 0, 0), c = at(0, 4, 0), d = at(4, 4, 0);
+  const left = at(0, 2, 0), right = at(4, 2, 0);
+  const i = at(0, 2, -1), j = at(4, 2, -1);
+  for (const cells of [[a, b, right, left], [left, right, d, c]] as const) {
+    modelStore.addSurfaceLoad3D(modelStore.addQuad([...cells], 1, 0.15), 1);
+  }
+  modelStore.addQuad([i, j, right, left], 1, 0.15);
+  modelStore.addQuad([left, right, at(4, 2, 1), at(0, 2, 1)], 1, 0.15);
+  modelStore.addSupport(i, 'fixed3d');
+  modelStore.addSupport(j, 'fixed3d');
+  const result = modelStore.solve3D(false, false, true);
+  expectLoadedSlab(result);
+  if (!result || typeof result === 'string') throw new Error(String(result));
+  expect(result.reactions.map(reaction => reaction.nodeId).sort((a, b) => a - b)).toEqual([i, j]);
+  for (const reaction of result.reactions) expect(reaction.fz).toBeCloseTo(8, 8);
 });

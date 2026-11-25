@@ -2,7 +2,7 @@
 
 ## Verify generated load sources before solving
 
-Prepared analyses now compare the force and moment of each materialized generated load and shell pressure with its own solver rows. The self-weight check starts with the density, section or shell thickness, direction and scope of each rule. It verifies each member or shell independently. For a factored spatial combination the corresponding solver rows are checked again after scaling. A discrepancy stops the analysis and names its source.
+Prepared spatial analyses compare the force and moment measures of each original generated load and shell pressure with its descendant solver rows. Case factors and member splits carry source identity, and a split line load is checked at its original member stations. Two independently generated opposing loads can no longer conceal a missing delivery during expansion. The self-weight check starts with the density, section or shell thickness, direction and scope of each rule. It verifies each member or shell independently. For a factored spatial combination the corresponding solver rows are checked again after scaling. A discrepancy stops the analysis and names its source.
 
 Opposite loads on a member can disappear in planar conversion while leaving both the case wrench and the member totals at zero. A pair of opposite shell pressures can also mask a changed moment when the case totals are compared. A sufficiently small self-weight can disappear at the existing planar component or spatial truss transfer cutoff. The new comparisons detect these losses individually.
 
@@ -16,13 +16,13 @@ The #2330 witness has two columns, one floor beam and two connected subdivided d
 
 ## Transfer inertia on a gable supported at both eaves
 
-Two straight rafters meeting at the highest ridge of a frame establish a gable when their run ends are at the same elevation and each eave has its own vertical column to the supported datum. The eaves establish the story and each rafter retains a distributed load. Independently evidenced ridge floors retain their separate story. Both column bases must restrain all three translations. The generator stops when only one base qualifies, including when the other support restrains rotations alone.
+Two straight rafters meeting at the highest ridge of a frame establish a gable when their run ends are at the same elevation and each eave has a continuous vertical column to the supported datum. A straight subdivision of either column preserves this support path. The eaves establish the story and each rafter retains a distributed load. Independently evidenced ridge floors retain their separate story. Both column bases must restrain all three translations. The generator stops when only one base qualifies, including when the other support restrains rotations alone.
 
 The #2332 witness has 2 m of horizontal run and 1 m of rise on each rafter. At 2 kN/m of member weight and a specified seismic coefficient of 1, the rafter inertia is `4√5` kN and its overturning moment about the model’s horizontal transverse axis is `10√5` kN·m. The generator now returns the same force and moment when the rafters are subdivided or the frame changes global orientation.
 
 ## Transfer gravity over a bounded gap in an attached roof run
 
-Two rigid end ties can establish one vertical translation between an inclined rafter and the surrounding shells. The gravity planner clips the translated run against those shells. It assigns the complementary intervals to the rafter at the configured tributary width. The same intervals and exposure classifications are used when the run is subdivided. If one gap is sheltered and another is exposed, the planner stops when the specified floor and roof pressure assumptions differ. Partial attachments without independent end ties or with unresolved horizontal eccentricity still refuse.
+Two rigid end ties can establish one vertical translation between an inclined rafter and the surrounding shells. The gravity planner clips the translated run against those shells. It assigns the complementary intervals to the rafter at the configured tributary width. The same intervals and exposure classifications are used when the run is subdivided. The gap trace is partitioned at cover boundaries and clearance changes. The planner stops when any sheltered and exposed intervals coexist and pressure depends on exposure. In explicit width mode the specified line load continues over the full member span. Partial attachments without independent end ties or with unresolved horizontal eccentricity still refuse.
 
 In the #2295 model, the two shell regions cover 32 m² of horizontal projection. The unloaded part of the rafter runs from 4 m to 6 m of horizontal station, with a configured width of 3 m. At the fixture's uniform 1 kN/m² dead pressure the physical shell and rafter loads total `38√1.04` kN. The linear and P-Delta support reactions recover this total in the original and subdivided models.
 

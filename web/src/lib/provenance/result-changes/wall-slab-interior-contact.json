@@ -26,14 +26,14 @@
     "zh": "楼板单元内部的墙边"
   },
   "explanation": {
-    "en": "Spatial analysis stops when a wall edge meets the interior of a slab cell. Remesh the junction so that the wall and slab share edges.",
-    "es": "El análisis espacial se detiene cuando el borde de un muro entra en el interior de un elemento de losa. Volvé a mallar la unión para que el muro y la losa compartan bordes.",
-    "pt": "A análise espacial é interrompida quando a borda de uma parede encontra o interior de um elemento de laje. Remalhe a junção para que a parede e a laje compartilhem bordas.",
-    "de": "Die räumliche Berechnung stoppt, wenn eine Wandkante auf das Innere eines Deckenelements trifft. Vernetzen Sie den Anschluss so, dass Wand und Decke gemeinsame Kanten haben.",
-    "fr": "Le calcul spatial s’arrête lorsqu’un bord de voile rencontre l’intérieur d’un élément de dalle. Remaillez la jonction pour que le voile et la dalle partagent leurs bords.",
-    "hu": "A térbeli számítás leáll, ha egy fal éle egy födémelem belsejében fekszik. Hálózza újra a csatlakozást, hogy a falnak és a födémnek közös élei legyenek.",
-    "tr": "Bir duvar kenarı döşeme elemanının iç kısmına temas ederse üç boyutlu analiz durur. Birleşimi duvar ve döşeme ortak kenarlara sahip olacak şekilde yeniden ağlayın.",
-    "zh": "当墙边与楼板单元内部相接时，空间分析会停止。请重新划分连接处的网格，使墙与楼板共用边。"
+    "en": "Spatial analysis stops when a wall and slab intersect along a line without compatible mesh edges. Join the meshes along the intersection before solving.",
+    "es": "El análisis espacial se detiene cuando un muro y una losa se intersectan a lo largo de una línea sin bordes de malla compatibles. Uní las mallas a lo largo de la intersección antes de calcular.",
+    "pt": "A análise espacial é interrompida quando uma parede e uma laje se interceptam ao longo de uma linha sem arestas de malha compatíveis. Una as malhas ao longo da interseção antes de calcular.",
+    "de": "Die räumliche Berechnung stoppt, wenn Wand und Decke sich entlang einer Linie ohne kompatible Netzkanten schneiden. Verbinden Sie die Netze vor der Berechnung entlang der Schnittlinie.",
+    "fr": "Le calcul spatial s’arrête lorsqu’un voile et une dalle se coupent le long d’une ligne sans arêtes de maillage compatibles. Reliez les maillages le long de l’intersection avant le calcul.",
+    "hu": "A térbeli számítás leáll, ha egy fal és egy födém olyan vonal mentén metszi egymást, ahol nincsenek kompatibilis hálóélek. A számítás előtt illessze össze a hálókat a metszésvonal mentén.",
+    "tr": "Duvar ile döşeme uyumlu ağ kenarları olmayan bir çizgi boyunca kesiştiğinde üç boyutlu analiz durur. Çözümden önce ağları kesişim çizgisi boyunca birleştirin.",
+    "zh": "当墙与楼板沿一条没有兼容网格边的线相交时，空间分析会停止。求解前请沿交线连接两侧网格。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-load-accounting-and-wall-contact.md",

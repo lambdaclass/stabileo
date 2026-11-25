@@ -1,4 +1,4 @@
-import { accountingCaseSources, accountingMemberStations, type AuthoredStation, accountingProjection, accountingSource, scenarioIntents, scenarioSurfaceExpectations, scenarioSurfaceIntentOf, type ScenarioSurfaceIntent } from './accounting-source';
+import { accountingOrigin, accountingCaseSources, accountingMemberStations, type AuthoredStation, accountingProjection, accountingSource, scenarioIntents, scenarioSurfaceExpectations, scenarioSurfaceIntentOf, type ScenarioSurfaceIntent } from './accounting-source';
 import { tp } from '../i18n';
 import type { Load, PointLoadOnElement } from '../store/model.svelte';
 import type { FloorLoadDef } from '../model/loads/floor-definitions';
@@ -500,7 +500,7 @@ export function accountWeight2D(model: ModelData, input: SolverInput, source: Se
   compare(weightLabel(model, source), expected, assembled2D(model, input, rows, source.caseId));
 }
 
-export type CheckedSource3D = { label: string; expected: Wrench; rows: readonly SolverLoad3D[] };
+export type CheckedSource3D = { label: string; expected: Wrench; rows: readonly SolverLoad3D[]; stations?: ReadonlyMap<number, AuthoredStation> };
 
 export function accountSource3D(
   model: ModelData, input: SolverInput3D, caseId: number, source: CheckedSource3D, factor = 1, rows = source.rows,
@@ -512,7 +512,7 @@ export function accountSource3D(
   }
   const expected = new Wrench();
   expected.addScaled(source.expected, factor);
-  compare(source.label, expected, assembled3D(model, input, rows, caseId));
+  compare(source.label, expected, assembled3D(model, input, rows, caseId, source.stations));
 }
 
 export function weightSource3D(model: ModelData, embedded: boolean, source: SelfWeightSource, rows: readonly SolverLoad3D[]): CheckedSource3D {
@@ -549,13 +549,19 @@ export function weightSource3D(model: ModelData, embedded: boolean, source: Self
   return { label: weightLabel(model, source), expected, rows };
 }
 
-export function generatedSource3D(
-  model: ModelData, embedded: boolean, leftHand: boolean, caseId: number, load: Load, rows: readonly SolverLoad3D[],
-): CheckedSource3D {
-  return {
-    label: sourceLabel(model, caseId, load), rows,
-    expected: enteredLoads(model, [load], embedded ? 'xz' : 'space', leftHand, caseId, new Set()),
-  };
+function generatedExpected(
+  model: ModelData, loads: readonly Load[], frame: 'xz' | 'space', leftHand: boolean, caseId: number, factor: number,
+) {
+  const expected = new Map<Load, Wrench>();
+  for (const load of loads) {
+    if (!hasGeneratedSource(load)) continue;
+    const measure = new Wrench();
+    measure.addScaled(enteredLoads(model, [load], frame, leftHand, caseId, new Set()), factor);
+    const original = accountingOrigin(load);
+    if (!expected.has(original)) expected.set(original, measure);
+    else expected.get(original)!.addScaled(measure, 1);
+  }
+  return expected;
 }
 
 export function accountLoads2D(
@@ -640,7 +646,9 @@ export function loadAccounting3D(
   }
 
   const frame = embedded ? 'xz' : 'space';
-  type CaseMeasure = { totals: Wrench; names: Set<string>; slabs: Map<number, Map<string, SlabCell>> };
+  type CaseMeasure = {
+    totals: Wrench; names: Set<string>; slabs: Map<number, Map<string, SlabCell>>; generated: Map<Load, Wrench>;
+  };
   const cache = new Map<number, CaseMeasure>();
   const expected = (caseId: number): CaseMeasure => {
     const cached = cache.get(caseId);
@@ -653,6 +661,7 @@ export function loadAccounting3D(
     const rule = effects?.cases.get(caseId);
     const ratio = rule?.ratio ?? 1;
     const slabs = new Map<number, Map<string, SlabCell>>();
+    const receipts = generatedExpected(source, authoredLoads, frame, leftHand, caseId, ratio);
     for (const [id, slab] of batch) {
       totals.addScaled(slab.expected, 1);
       addSlabSource(slabs, id, slab.cells, ratio);
@@ -674,14 +683,49 @@ export function loadAccounting3D(
       result.addScaled(part.totals, factor);
       for (const name of part.names) names.add(name);
       for (const [id, cells] of part.slabs) addSlabSource(slabs, id, cells, factor);
+      for (const [load, measure] of part.generated) {
+        const copied = receipts.get(load) ?? new Wrench();
+        copied.addScaled(measure, factor);
+        receipts.set(load, copied);
+      }
     }
-    const entry = { totals: result, names, slabs };
+    const entry = { totals: result, names, slabs, generated: receipts };
     cache.set(caseId, entry);
     return entry;
   };
 
+  const verifyGenerated = (
+    caseId: number, loads: readonly Load[], sources?: ReadonlyMap<Load, readonly SolverLoad3D[]>,
+    checkedSource?: (source: CheckedSource3D) => void,
+    select: (load: Load) => boolean = () => true,
+  ) => {
+    const receipts = !checkAuthored
+      ? generatedExpected(model, loads, frame, leftHand, caseId, 1)
+      : effects && !effects.targets.has(caseId) ? new Map<Load, Wrench>() : expected(caseId).generated;
+    const delivered = new Map<Load, SolverLoad3D[]>();
+    for (const load of loads) {
+      const original = accountingOrigin(load);
+      if (!select(original)) continue;
+      if (!receipts.has(original) && !hasGeneratedSource(load)) continue;
+      const rows = delivered.get(original) ?? [];
+      for (const row of sources?.get(load) ?? []) rows.push(row);
+      delivered.set(original, rows);
+    }
+    for (const original of new Set([...receipts.keys(), ...delivered.keys()])) {
+      if (!select(original)) continue;
+      const receipt: CheckedSource3D = {
+        label: sourceLabel(model, caseId, original), expected: receipts.get(original) ?? new Wrench(),
+        rows: delivered.get(original) ?? [],
+        stations: source !== model ? model[accountingMemberStations] : undefined,
+      };
+      accountSource3D(model, input, caseId, receipt);
+      checkedSource?.(receipt);
+    }
+  };
+
   return {
     cases: effects?.targets ?? new Set([...authored.keys(), ...pressures.keys()]),
+    verifyGenerated,
     verify(
       caseId: number, loads: readonly Load[], assembled: readonly SolverLoad3D[],
       sources?: ReadonlyMap<Load, readonly SolverLoad3D[]>,
@@ -722,6 +766,7 @@ export function loadAccounting3D(
           }
         }
       }
+      if (sources) verifyGenerated(caseId, loads, sources, checkedSource);
       return totals;
     },
   };

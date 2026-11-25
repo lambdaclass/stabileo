@@ -8,7 +8,8 @@
   "area": "loads",
   "when": {
     "all": [
-      "generatedSeismicLoads"
+      "generatedSeismicLoads",
+      "supportedSeismicGable"
     ]
   },
   "quantities": [

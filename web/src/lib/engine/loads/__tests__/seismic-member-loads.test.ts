@@ -1809,9 +1809,7 @@ it.each([0, 1])(
   },
 );
 
-const review = it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586');
-
-review('known wrong result: #2586 — continues a supported gable post through subdivision', () => {
+it('#2586 continues a supported gable post through subdivision', () => {
   for (const rotated of [false, true]) for (const subdivision of [0, 1, 2]) {
     const { model } = gablePlan(false, rotated, false, 0);
     const post = model.elements.get(1)!;

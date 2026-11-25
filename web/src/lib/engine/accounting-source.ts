@@ -39,8 +39,19 @@ export function withScenarioSurfaceIntent(load: SurfaceLoad, intent: ScenarioSur
   return scenario;
 }
 
+const loadOrigin = Symbol();
+type LoadWithOrigin = Load & { [loadOrigin]?: Load };
+
+export function accountingOrigin(load: LoadWithOrigin): Load {
+  return load[loadOrigin] ?? load;
+}
+
+export function withAccountingOrigin<T extends Load>(load: T, source: Load): T {
+  return { ...load, [loadOrigin]: accountingOrigin(source) };
+}
+
 export function copyAccountingLoad(load: Load): Load {
-  const copy = plainDeepCopy(load);
+  const copy = withAccountingOrigin(plainDeepCopy(load), load);
   if (load.type !== 'surface3d' || copy.type !== 'surface3d') return copy;
   const intent = scenarioSurfaceIntentOf(load);
   return intent ? withScenarioSurfaceIntent(copy, plainDeepCopy(intent)) : copy;

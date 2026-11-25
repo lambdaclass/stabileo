@@ -1,7 +1,7 @@
 import { accountingCaseSources, accountingMemberStations, type AuthoredStation, accountingProjection, accountingSource, copyAccountingLoad, type AccountingCaseSources, type ScenarioSurfaceIntent } from './accounting-source';
 import { EngineCheckError, EngineUnavailableError } from './engine-unavailable';
 import { scaleAssembledMagnitudes3D, type Wrench } from './accounting-math';
-import { accountCombination, accountLoads2D, accountSource3D, accountWeight2D, generatedSource3D, hasGeneratedSource, weightSource3D, type CheckedSource3D, loadAccounting3D, loadCaseBatches, redistributedLineLoads, verifyFactoredScenarioNode, verifyScenarioSurfaceLoads } from './load-accounting';
+import { accountCombination, accountLoads2D, accountSource3D, accountWeight2D, hasGeneratedSource, weightSource3D, type CheckedSource3D, loadAccounting3D, loadCaseBatches, redistributedLineLoads, verifyFactoredScenarioNode, verifyScenarioSurfaceLoads } from './load-accounting';
 import { accountPlateGeometry, SolveAccountingError } from './plate-accounting';
 import { shouldEmbedFlat2DModelIn3D } from './model-embedding';
 export { shouldEmbedFlat2DModelIn3D } from './model-embedding';
@@ -1938,11 +1938,20 @@ function recordedSolverLoads3D(model: ModelData, loads: Load[], weights: boolean
 }
 
 export function notionalSourceLoads3D(
-  model: ModelData, leftHand: boolean, caseId: number, expectedPressures: readonly ScenarioSurfaceIntent[],
+  model: ModelData, leftHand: boolean, caseId: number, expectedPressures: readonly ScenarioSurfaceIntent[], input?: SolverInput3D,
 ): SolverLoad3D[] {
   const { loads, sources } = recordedSolverLoads3D(model, model.loads, model.analysis?.selfWeight ?? [], leftHand);
   verifyScenarioSurfaceLoads(model, caseId, model.loads, sources, undefined, expectedPressures);
+  if (input) loadAccounting3D(model, input, shouldEmbedFlat2DModelIn3D(model), leftHand, new Map(), true)
+    .verifyGenerated(caseId, model.loads, sources);
   return loads;
+}
+
+export function massSourceWireLoads3D(model: ModelData, input: SolverInput3D, loads: Load[], leftHand: boolean, caseId: number): SolverLoad3D[] {
+  const { loads: rows, sources } = recordedSolverLoads3D(model, loads, [], leftHand);
+  loadAccounting3D(model, input, shouldEmbedFlat2DModelIn3D(model), leftHand, new Map(), true)
+    .verifyGenerated(caseId, loads, sources, undefined, load => load.type === 'distributed' || load.type === 'distributed3d');
+  return rows;
 }
 
 function checkedSolverLoads3D(
@@ -1964,11 +1973,6 @@ function checkedSolverLoads3D(
     const assembled = assembledByCase.get(caseId) ?? [];
     const totals = accounting.verify(caseId, entered, assembled, sources, checkedSource);
     checkedCase?.(caseId, assembled, totals);
-    for (const load of entered) {
-      if (hasGeneratedSource(load)) {
-        verifySource(caseId, generatedSource3D(model, embedded, leftHand, caseId, load, sources.get(load) ?? []));
-      }
-    }
   }
   for (const { source, rows } of selfWeights) verifySource(source.caseId, weightSource3D(model, embedded, source, rows));
   return checked;

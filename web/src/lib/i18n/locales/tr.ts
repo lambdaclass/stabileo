@@ -14239,6 +14239,7 @@ const tr: Translations = {
   "plates.analysisInvalid": "Analiz durduruldu. Geçersiz plakaların geometrisini veya özelliklerini düzeltin: {names}.",
   "plates.analysisWallSlab": "Analiz durduruldu. {wall} duvarı ve {slab} döşemesi, {node} düğümünde ortak bir ağ köşesine sahip değil. Birleşimi ortak düğümlerle yeniden ağlayın.",
   "plates.analysisWallSlabFace": "Analiz durduruldu. {wall} duvarının {edge} kenarı, {slab} döşemesiyle bir kabuk elemanın içinde birleşiyor. Birleşimi ortak kenarlarla yeniden ağlayın.",
+  "plates.analysisWallSlabTrace": "{wall} duvarı, {slab} döşemesini uyumlu bir ağ kenarı bulunmayan bir çizgi boyunca kesiyor. Çözümden önce ağları kesişim çizgisi boyunca birleştirin.",
   'plates.meshedAtAnalysis': 'Analizden önce {n} plağın ağı oluşturuldu ({cells} eleman)',
   'plates.liveNeedsMesh': 'Güncel ağı olmayan {n} plak: canlı hesap, ağları oluşturan tam analizi bekliyor.',
   'plates.problem.needNodes': 'En az üç mevcut düğüm gerekir.',

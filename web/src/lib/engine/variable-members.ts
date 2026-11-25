@@ -53,7 +53,7 @@
  * Pure: no store.
  */
 import type { ModelData } from './solver-service';
-import { accountingMemberStations } from './accounting-source';
+import { accountingMemberStations, withAccountingOrigin } from './accounting-source';
 import type { AnalysisResults3D, ElementForces3D, Displacement3D, Constraint3D, ConnectorElement } from './types-3d';
 import type { ElementBucklingData3D } from './result-types';
 import type { Element, Section } from '../store/model.svelte';
@@ -328,7 +328,7 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
       a: l.data.a, nodeI: e.nodeI, loadId: l.data.id, elementId: e.id,
       shortProjection: planarPointProjectionTooShort(j.x - i.x, j.y - i.y),
     };
-    return { ...l, data: { ...l.data, [planarPointOrigin]: origin } };
+    return withAccountingOrigin({ ...l, data: { ...l.data, [planarPointOrigin]: origin } }, l);
   });
   for (const nd of planned.nodes) nodes.set(nd.id, nd as never);
   for (const m of exp.members.values()) elements.delete(m.parentId);
@@ -380,7 +380,7 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
         scale: (p.x1 - p.x0) / lengths[k]! * (parent?.scale ?? 1),
       });
     });
-    const split = splitElementLoads(loads, m.parentId, bounds, ids, () => nextLoad++, lengths, partition.points);
+    const split = splitElementLoads(loads, m.parentId, bounds, ids, () => nextLoad++, lengths, partition.points, withAccountingOrigin);
     loads = [...split.kept, ...split.added];
     renamed.set(m.parentId, ids);
   }

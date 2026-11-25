@@ -21,9 +21,7 @@ function notices(points: number[][], members: number[][], generatedBy?: string) 
   return assessProject(snapshot, stamp).changes.map(change => change.id).filter(id => id === brace || id === gable);
 }
 
-const review = it.skipIf(process.env.RUN_KNOWN_WRONG !== '2586');
-
-review('known wrong result: #2586 — restricts seismic regeneration notices to their geometry', () => {
+it('#2586 restricts seismic regeneration notices to their geometry', () => {
   const portal = [[0, 0], [4, 0], [0, 4], [4, 4]];
   const frame = [[1, 3], [2, 4]];
   const generated = 'inpres103-2018';

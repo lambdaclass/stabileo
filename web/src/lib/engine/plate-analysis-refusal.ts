@@ -17,6 +17,7 @@ export function plateAnalysisRefusal(model: PlateAnalysisModel): string | null {
 
 function wallSlabMessage(joint: NonNullable<ReturnType<typeof nonconformingWallSlab>>): string {
   if ('node' in joint) return tp('plates.analysisWallSlab', joint);
+  if ('trace' in joint) return tp('plates.analysisWallSlabTrace', { wall: joint.wall, slab: joint.slab });
   const { wall, slab, edge } = joint;
   return tp('plates.analysisWallSlabFace', { wall, slab, edge: edge.join('–') });
 }

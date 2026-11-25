@@ -1218,9 +1218,10 @@ it('keeps the authored local components on a skew frame', () => {
   for (const seed of [1, 2, 3]) {
     buildRandom('skew-frame', seed);
     const input = input3D()!;
-    for (const load of modelStore.loads) {
-      if (load.type !== 'distributed3d' || (load.data.frame && load.data.frame !== 'local')) continue;
-      const d = load.data;
+    const local = modelStore.loads.filter(load => load.type === 'distributed3d')
+      .filter(load => !load.data.frame || load.data.frame === 'local');
+    expect(local.length, 'local distributed loads for seed ' + seed).toBeGreaterThan(0);
+    for (const { data: d } of local) {
       expect(input.loads, 'seed ' + seed + ', member ' + d.elementId).toContainEqual({
         type: 'distributed',
         data: {
