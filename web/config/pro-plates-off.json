@@ -6228,7 +6228,7 @@
       ]
     },
     "src/lib/i18n/locales/de.ts": {
-      "source": "1d0e333181c3ac5ff7b23b5198ed9f3f79d1f69f163a4663d009ed1ce69c7111",
+      "source": "45564100a6e55837c0443fdab00f0b0651fa1e866fd4cc648f3d59fa9ca077c9",
       "original": "0b1cffc73c321c88dd80b93e39f81e925705babc0f2e91df63e10c19111fe052",
       "changes": [
         [
@@ -6610,13 +6610,13 @@
         ],
         [
           16188,
-          1035,
+          1039,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/en.ts": {
-      "source": "845670fadaaad16eb8945c12dc521f67c6de225396a115e2289333edb04c5ea2",
+      "source": "f512f04263e6019a724646d50db1d4ed1ffd59158ae6e77f9a417c5ca05e49e3",
       "original": "99343e2eeb7cf4140cbbcb69424c37461d3ec4e5c925d64439f6b56ee0e9e6b3",
       "changes": [
         [
@@ -6970,13 +6970,13 @@
         ],
         [
           16350,
-          1035,
+          1039,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/es.ts": {
-      "source": "bb05238e092ee34275d01cac2bc70d11e8df53bdde122ca6890f87518ddb9ca6",
+      "source": "71d612fb1be2af1f2142e56923ed8cc6f1ec43e28c2bf5cd6b6c32656877158d",
       "original": "df939d2beed0420d6833617b3561c95098e34704ee1a3b4f15f21dda24fa4e09",
       "changes": [
         [
@@ -7330,13 +7330,13 @@
         ],
         [
           16339,
-          1035,
+          1039,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/fr.ts": {
-      "source": "24fd50bc033df18f63635c74d3fdf2b0b46f1349003fd23d2aeb2b194b77b32c",
+      "source": "2b11807d77f7277eaba141f6ebf27055a229ed63882cca9b246164bce806d2be",
       "original": "26693801514fc282fbb8a5a4ad627431cbfce3c6e3f0720639c8cb5cef4e4b20",
       "changes": [
         [
@@ -7718,7 +7718,7 @@
         ],
         [
           16188,
-          1035,
+          1039,
           []
         ]
       ]
@@ -7744,7 +7744,7 @@
       ]
     },
     "src/lib/i18n/locales/hu.ts": {
-      "source": "01c56b7c8fcc872fcbdbe077e8a868905e26d5d958f3d8c8f3794d1b39113694",
+      "source": "21406ef613b223a3dfa3323eb9fbe3fa1dd9227a627e64592f1e9a2f05500a7a",
       "original": "050bb2fb50b6d61761b6836086403490f8b3deedc1ac4af88de298aa3fd3966e",
       "changes": [
         [
@@ -8055,7 +8055,7 @@
         ],
         [
           14787,
-          2149,
+          2153,
           [
             "  \"edu.game.hint\": \"Játék: egy szerkezet, három ábra, és csak az egyik helyes.\"",
             ""
@@ -8144,7 +8144,7 @@
       ]
     },
     "src/lib/i18n/locales/pt.ts": {
-      "source": "878fd9bf8c6e98364aa8dcbea123b5e0d857fcfc273c13f528f7ce069e5d0f06",
+      "source": "a1d373603348b93d913e57fe7cda7e77274453b20a18576f3bcbf9e3034894a0",
       "original": "f013a27bd1465964fefdc7d531a470bc4855e8593daa03ed54ed7453509bdd37",
       "changes": [
         [
@@ -8498,7 +8498,7 @@
         ],
         [
           15992,
-          1035,
+          1039,
           []
         ]
       ]
@@ -8826,7 +8826,7 @@
       ]
     },
     "src/lib/i18n/locales/tr.ts": {
-      "source": "f7d2d7975528c128a0630568dd6b6c5990b34787855aa1d05691ebde6fed6be9",
+      "source": "30959e16a5980730e6c0e1ab2ed175fc7eac4215db6620ff743b149f168c5edd",
       "original": "dfae3be5cd45792b6b2c9720f3433a60bace6b76a70d785cd4f6cc88d7ef096f",
       "changes": [
         [
@@ -9187,13 +9187,13 @@
         ],
         [
           16188,
-          1035,
+          1039,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/zh.ts": {
-      "source": "638a7e30e07351d874f8610b33c9a0960c661b9b8778e1c8dae5ec73a9286724",
+      "source": "288c8422bb275b11fe6f5d138190eb4484ca180ae071985dac76785b43046c78",
       "original": "187ecdf53aa596a80d7c584c8c8fc84768c7dd6c4d6540750c3a9cdcf2caee26",
       "changes": [
         [
@@ -9493,7 +9493,7 @@
         ],
         [
           14809,
-          2151,
+          2155,
           []
         ]
       ]
@@ -9817,7 +9817,7 @@
       ]
     },
     "src/lib/model/design-data.ts": {
-      "source": "be220cf371d1489ff5db4f8e12e8e3efac1dafcbef9dac93efed7ee3681a9808",
+      "source": "d83c01b96c0216665320adfaa0ea8d14e3d304d3c1a7dd4e292ae1bf2ecd80b2",
       "original": "e45f0506b5654ec576bb879d9d847d071b49538897c20af3680b2e2f6c1c74f8",
       "changes": [
         [
@@ -9874,21 +9874,21 @@
         ],
         [
           151,
-          71,
+          82,
           []
         ],
         [
-          225,
+          236,
           4,
           []
         ],
         [
-          230,
+          241,
           1,
           []
         ],
         [
-          234,
+          245,
           2,
           [
             "    stirrupDiaMm: 8,",
@@ -9896,7 +9896,7 @@
           ]
         ],
         [
-          238,
+          249,
           7,
           [
             "    stirrupDiametersMm: BAR_DIAMETERS_MM.filter((d) => d <= 12),",
@@ -9904,7 +9904,7 @@
           ]
         ],
         [
-          249,
+          260,
           3,
           [
             " * The minimum clear cover, m, of CIRSOC 201-2025 Table 20.5.1.3.1 for cast-in-place concrete",
@@ -9912,7 +9912,7 @@
           ]
         ],
         [
-          253,
+          264,
           2,
           [
             "export function minimumCover(kind: DesignKind, exposure: Exposure, largestBarMm: number): number {",
@@ -9924,7 +9924,7 @@
           ]
         ],
         [
-          257,
+          268,
           12,
           [
             "/** The largest bar a kind of element may take under these data, mm. */",
@@ -9933,45 +9933,45 @@
           ]
         ],
         [
-          272,
+          283,
           1,
           [
             "  return DESIGN_KINDS.map((kind) => ({ kind, cover: d.covers[kind], minimum: minimumCover(kind, d.exposure[kind], largestBar(d, kind)) }))"
           ]
         ],
         [
-          276,
+          287,
           1,
           [
             "/** Every cover set to the table's minimum for its exposure: the CIRSOC preset. */"
           ]
         ],
         [
-          279,
+          290,
           1,
           [
             "  for (const k of DESIGN_KINDS) covers[k] = minimumCover(k, d.exposure[k], largestBar(d, k));"
           ]
         ],
         [
-          284,
+          295,
           16,
           []
         ],
         [
-          313,
+          324,
           2,
           []
         ],
         [
-          319,
+          330,
           1,
           [
             "    stirrupDiaMm: BAR_DIAMETERS_MM.includes(e.stirrupDiaMm as number) ? (e.stirrupDiaMm as number) : def.stirrupDiaMm,"
           ]
         ],
         [
-          323,
+          334,
           10,
           [
             "    stirrupDiametersMm: known(e.stirrupDiametersMm, def.stirrupDiametersMm),",
@@ -9979,12 +9979,12 @@
           ]
         ],
         [
-          334,
+          345,
           2,
           []
         ],
         [
-          338,
+          349,
           1,
           []
         ]
