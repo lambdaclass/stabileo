@@ -5,7 +5,9 @@ import { historyStore } from '../history.svelte';
 import '../index';
 import { initSolver, callCertify } from '../../engine/wasm-solver';
 import { applyRefinedMesh } from '../refined-mesh';
-import { planRefinedMesh, cornerValues, type RefinedMesh } from '../../model/edit/refined-mesh';
+import { planRefinedMesh, cornerValues, hangingEdgeNodes, type RefinedMesh } from '../../model/edit/refined-mesh';
+import { addPlateLoad, applyPlateMeshes, createPlate, meshBeforeAnalysis, planPlateMesh, plateEntry, plateStatus, preparePlatesForAnalysis } from '../physical-plates';
+import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => { uiStore.analysisMode = 'pro'; modelStore.clear(); historyStore.clear(); });
@@ -251,6 +253,92 @@ describe('applying an adaptively refined mesh to the model', () => {
   });
 });
 
+describe('applying it to plates meshed from their outlines', () => {
+  /** Two 4 × 4 m slabs side by side at z = 3, meshed at 1 m, held at their six corners, each with its own area load. */
+  function twoSlabs() {
+    meshBeforeAnalysis.value = true;
+    const at = (x: number, y: number) => modelStore.addNode(x, y, 3);
+    const [a0, a1, a2, a3, b1, b2] = [at(0, 0), at(4, 0), at(4, 4), at(0, 4), at(8, 0), at(8, 4)];
+    for (const n of [a0, a1, a2, a3, b1, b2]) modelStore.addSupport(n, 'pinned3d');
+    const made = [createPlate({ outline: [a0, a1, a2, a3], materialId: 1, thickness: 0.2 }), createPlate({ outline: [a1, b1, b2, a2], materialId: 1, thickness: 0.2 })];
+    const ids = made.map((r) => { if (!('id' in r)) throw new Error(JSON.stringify(r)); return r.id; });
+    for (const id of ids) {
+      meshPlate(id, 1);
+      addPlateLoad(id, 1, 5);
+    }
+    syncDefinedLoadsForAnalysis();
+    return ids as [number, number];
+  }
+  const meshPlate = (id: number, size: number) => {
+    const plan = planPlateMesh(id, { size, followMembers: true, element: 'quad' })!;
+    expect(plan.mesh, String(plan.refused)).not.toBeNull();
+    const report = applyPlateMeshes([plan]);
+    expect(report.refused).toEqual([]);
+  };
+  const cellsOf = (id: number) => plateEntry(id)!.group.members.quads ?? [];
+
+  it('leaves each plate with its mesh current, its cells counted and its load on every part', () => {
+    const [a, b] = twoSlabs();
+    expect([plateStatus(a), plateStatus(b)]).toEqual(['current', 'current']);
+    expect(modelStore.quads.size).toBe(32);
+    const wire = wireOf();
+    const out = adapt(wire);
+    expect(out.mesh.shells.length).toBeGreaterThan(0);
+    expect(out.mesh.constraints.length).toBeGreaterThan(0);
+
+    const applied = applyRefinedMesh(wire, out.mesh);
+    if ('refused' in applied) throw new Error(applied.refused);
+    expect(modelStore.quads.size).toBe(Object.keys(out.input.quads).length);
+    expect([plateStatus(a), plateStatus(b)]).toEqual(['current', 'current']);
+    expect(preparePlatesForAnalysis()).toEqual({ ok: true, meshed: 0, cells: 0 });
+    expect(modelStore.quads.size).toBe(Object.keys(out.input.quads).length);
+    expect([...cellsOf(a), ...cellsOf(b)].sort((x, y) => x - y)).toEqual([...modelStore.quads.keys()].sort((x, y) => x - y));
+    for (const id of [a, b]) {
+      const entry = plateEntry(id)!;
+      expect(entry.surface.meshed!.cells).toBe(cellsOf(id).length);
+    }
+    syncDefinedLoadsForAnalysis();
+    const solved = modelStore.solve3D(false, false, true);
+    expect(typeof solved, String(solved)).not.toBe('string');
+    const loaded = new Set(modelStore.loads.flatMap((l) => (l.type === 'surface3d' && l.data.fromDef !== undefined ? [l.data.quadId] : [])));
+    expect([...loaded].sort((x, y) => x - y)).toEqual([...modelStore.quads.keys()].sort((x, y) => x - y));
+    expect(modelStore.loads.filter((l) => l.type === 'surface3d')).toHaveLength(modelStore.quads.size);
+    expect(estimateWithLoadsOf(out.input)).toBeCloseTo(out.estimate.relativeError, 9);
+    expect(totalFz(wireOf())).toBeCloseTo(totalFz(wire), 9);
+
+    historyStore.undo();
+    expect(modelStore.quads.size).toBe(32);
+    expect(modelStore.constraints).toHaveLength(0);
+    expect([plateStatus(a), plateStatus(b)]).toEqual(['current', 'current']);
+    expect([plateEntry(a)!.surface.meshed!.cells, plateEntry(b)!.surface.meshed!.cells]).toEqual([16, 16]);
+  });
+
+  it('is taken away with the mesh when a plate is meshed again, leaving a model that solves', () => {
+    const [a, b] = twoSlabs();
+    const wire = wireOf();
+    const applied = applyRefinedMesh(wire, adapt(wire).mesh);
+    if ('refused' in applied) throw new Error(applied.refused);
+    const refined = cellsOf(b).length;
+
+    meshPlate(a, 2);
+    expect(cellsOf(a)).toHaveLength(4);
+    expect(modelStore.constraints).toHaveLength(0);
+    expect(plateEntry(b)!.surface.meshed, 'the refinement of the plate beside it goes too').toBeUndefined();
+    let prepared = preparePlatesForAnalysis();
+    for (let round = 0; round < 2 && !prepared.ok; round++) prepared = preparePlatesForAnalysis();
+    expect(prepared.ok, JSON.stringify(prepared)).toBe(true);
+    expect([plateStatus(a), plateStatus(b)]).toEqual(['current', 'current']);
+    syncDefinedLoadsForAnalysis();
+    expect(preparePlatesForAnalysis()).toEqual({ ok: true, meshed: 0, cells: 0 });
+    expect(cellsOf(a).length + cellsOf(b).length).toBeLessThanOrEqual(32);
+    expect(refined).toBeGreaterThan(16);
+    expect(modelStore.nodes.size).toBeLessThan(50);
+    const solved = modelStore.solve3D(false, false, true);
+    expect(typeof solved, String(solved)).not.toBe('string');
+    expect(callCertify('estimate_discretization_3d', [wireOf()]).relativeError).toBeGreaterThan(0);
+  });
+});
+
 describe('planning the edit', () => {
   const mesh = (over: Partial<RefinedMesh> = {}): RefinedMesh => ({
     nodes: [{ id: 5, x: 0.5, y: 0, z: 0, between: [1, 2] }, { id: 6, x: 0.5, y: 0.5, z: 0 }],
@@ -261,7 +349,7 @@ describe('planning the edit', () => {
     nodes: new Map([[1, { x: 0, y: 0 }], [2, { x: 1, y: 0 }], [3, { x: 1, y: 1 }], [4, { x: 0, y: 1 }]]),
     elements: new Map([[7, { id: 7, nodeI: 1, nodeJ: 2 }]]),
     quads: new Map([[1, { id: 1, nodes: [1, 2, 3, 4] }]]),
-    plates: new Map(), supports: new Map(), groups: new Map(), constraints: [], ...over,
+    plates: new Map(), supports: new Map(), constraints: [], ...over,
   }) as Parameters<typeof planRefinedMesh>[0];
   const wire = (over: Record<string, unknown> = {}) => ({
     nodes: { 1: { x: 0, y: 0, z: 0 }, 2: { x: 1, y: 0, z: 0 }, 3: { x: 1, y: 1, z: 0 }, 4: { x: 0, y: 1, z: 0 } },
@@ -288,11 +376,6 @@ describe('planning the edit', () => {
     expect(planRefinedMesh(model(), wire(), mesh({ shells: [{ ...mesh().shells[0]!, nodes: [1, 5, 99, 4] }] }))).toEqual({ refused: 'stale' });
     expect(planRefinedMesh(model(), wire(), mesh({ shells: [{ ...mesh().shells[0]!, family: 'quad9' }] }))).toEqual({ refused: 'stale' });
     expect(planRefinedMesh(model({ elements: new Map() }), wire(), mesh({ frames: [{ parent: 7, nodes: [5], at: [0.5] }] }))).toEqual({ refused: 'stale' });
-  });
-
-  it('refuses to split a plate meshed from its outline', () => {
-    const groups = new Map([[1, { members: { quads: [1] }, data: { surface: {} } }]]);
-    expect(planRefinedMesh(model({ groups }), wire(), mesh())).toEqual({ refused: 'physicalPlate' });
   });
 
   it('refuses two members along the same split edge', () => {
@@ -335,6 +418,22 @@ describe('planning the edit', () => {
     const plan = planRefinedMesh(model({ supports }), wire(), given);
     if ('refused' in plan) throw new Error(plan.refused);
     expect(plan.supports).toEqual([{ nodeId: 5, fields: { type: 'custom3d', dofRestraints: { tx: false, ty: false, tz: true, rx: false, ry: false, rz: false } } }]);
+  });
+
+  it('knows a hanging node by its six ties and its place, and nothing less', () => {
+    const nodes = new Map([[1, { x: 0, y: 0, z: 3 }], [2, { x: 2, y: 0, z: 3 }], [3, { x: 1, y: 0, z: 3 }]]);
+    const tie = (dof: number, over: Partial<{ coefficient: number; extra: boolean }> = {}) => ({
+      type: 'linearMPC',
+      terms: [{ nodeId: 3, dof, coefficient: 1 }, { nodeId: 2, dof, coefficient: -0.5 }, { nodeId: 1, dof, coefficient: over.coefficient ?? -0.5 },
+        ...(over.extra ? [{ nodeId: 1, dof: 4, coefficient: 0.25 }, { nodeId: 2, dof: 4, coefficient: -0.25 }] : [])],
+    });
+    const all = [0, 1, 2, 3, 4, 5].map((dof) => tie(dof, { extra: dof === 2 }));
+    expect([...hangingEdgeNodes(all, nodes)]).toEqual([['1:2', 3]]);
+    expect(hangingEdgeNodes(all.slice(1), nodes).size).toBe(0);
+    expect(hangingEdgeNodes([...all.slice(0, 5), tie(5, { coefficient: -0.4 })], nodes).size).toBe(0);
+    expect(hangingEdgeNodes(all, new Map([...nodes, [3, { x: 1.2, y: 0, z: 3 }]])).size).toBe(0);
+    expect(hangingEdgeNodes([{ type: 'equalDOF' }, ...all], nodes).size).toBe(1);
+    expect(hangingEdgeNodes(undefined, nodes).size).toBe(0);
   });
 
   it('reads a value given at the corners of a shell at the corners of a part of it', () => {

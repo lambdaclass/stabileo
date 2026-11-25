@@ -65,7 +65,14 @@ export interface PlateSurface {
    */
   arcMids?: number[];
   /** Set when the current mesh was made: what it was made from, and what it is. */
-  meshed?: { signature: string; cells: number; quality: MeshQuality };
+  meshed?: {
+    signature: string; cells: number; quality: MeshQuality;
+    /**
+     * The mesh was refined in place after it was made (`recordPlateRefinement`): its sides carry
+     * nodes no mesh size gives, so when any plate is meshed again every refined one starts over.
+     */
+    refined?: true;
+  };
 }
 
 export interface MeshQuality {

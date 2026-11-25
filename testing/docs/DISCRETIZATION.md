@@ -216,9 +216,20 @@ step: each split shell is replaced by its parts, which keep its material, thickn
 of every case and groups; members along split edges are cut; a new node between two supports
 takes the support they share, or their common restraints when they differ; the hanging-node
 constraints become constraints of the model. It refuses a model that is no longer the one
-solved, a shell of a plate meshed from its outline (that mesh is remade from the outline, and
-would be lost), a curved or variable-section member to cut, and a support it cannot say on
-one node. The model applied spreads its surface loads over the new nodes; the engine's own
+solved, a curved or variable-section member to cut, and a support it cannot say on
+one node.
+
+A plate meshed from its outline (`store/physical-plates.ts`) keeps what it needs to stay
+current with the refined mesh (`recordPlateRefinement`): the nodes the refinement put on it
+are its mesh's, on every plate they touch, and its cell count and quality are the refined
+ones; otherwise the plate would read as invalid and the one beside it as out of date. The
+check that the cells of a plate cover its outline takes an edge with a hanging node at its
+middle as its two halves. The refinement lasts as long as the meshes do: when any plate is
+meshed again, every refined plate is cleared first and meshed from its outline, with the
+hanging nodes and their constraints gone. A refined side carries nodes no mesh size gives, and
+two plates meshed against such a side keep each other's nodes alive and grow at every pass.
+
+The model applied spreads its surface loads over the new nodes; the engine's own
 refinement of the solver input leaves the nodal forces the app gave it where they were, so the
 estimate after solving again is close to the one reported, not equal to it.
 

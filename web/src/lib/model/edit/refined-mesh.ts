@@ -15,13 +15,12 @@ export interface RefinedMesh {
 }
 
 /**
- * `nothing`: the mesh was not refined. `stale`: the model is not the one solved. `physicalPlate`:
- * a shell to split belongs to a plate meshed from its outline, whose mesh is its own to make.
+ * `nothing`: the mesh was not refined. `stale`: the model is not the one solved.
  * `member`: a member to split is curved, of variable section, or shares its edge with another
  * member. `support`: a new node on a
  * supported edge whose ends are held differently, in a way one support cannot say.
  */
-export type RefinedMeshRefusal = 'nothing' | 'stale' | 'physicalPlate' | 'member' | 'support';
+export type RefinedMeshRefusal = 'nothing' | 'stale' | 'member' | 'support';
 
 type Shell = { id: number; nodes: readonly number[]; curved?: boolean };
 type Point = { x: number; y: number; z?: number };
@@ -32,7 +31,6 @@ export interface RefinableModel {
   quads: ReadonlyMap<number, Shell>;
   plates: ReadonlyMap<number, Shell>;
   supports: ReadonlyMap<number, Support>;
-  groups: ReadonlyMap<number, { members: { quads?: number[]; plates?: number[] }; data?: Record<string, unknown> }>;
   constraints: readonly unknown[];
 }
 
@@ -82,13 +80,6 @@ export function planRefinedMesh(model: RefinableModel, wire: Record<string, any>
     return !!here && !!there && here.x === there.x && here.y === there.y && (here.z ?? 0) === there.z;
   };
 
-  const physical = { quads: new Set<number>(), plates: new Set<number>() };
-  for (const g of model.groups.values()) {
-    if (g.data?.surface === undefined) continue;
-    for (const id of g.members.quads ?? []) physical.quads.add(id);
-    for (const id of g.members.plates ?? []) physical.plates.add(id);
-  }
-
   const shells = new Map<string, RefinedMeshPlan['shells'][number]>();
   for (const s of mesh.shells) {
     const kind = s.family === 'plate' ? 'plate' : s.family === 'quad' || s.family === 'curvedShell' ? 'quad' : null;
@@ -100,7 +91,6 @@ export function planRefinedMesh(model: RefinableModel, wire: Record<string, any>
       const solved = (s.family === 'plate' ? wire.plates : s.family === 'quad' ? wire.quads : wire.curvedShells)?.[s.parent];
       if (!declared || !sameNodes(declared.nodes, solved?.nodes) || !declared.nodes.every(asSolved)
         || (kind === 'quad' && !!declared.curved !== (s.family === 'curvedShell'))) return { refused: 'stale' };
-      if ((kind === 'plate' ? physical.plates : physical.quads).has(s.parent)) return { refused: 'physicalPlate' };
       entry = { kind, id: s.parent, children: [] };
       shells.set(key, entry);
     }
@@ -140,4 +130,35 @@ export function planRefinedMesh(model: RefinableModel, wire: Record<string, any>
 /** A load's value at each corner of a part of the shell it was given on. */
 export function cornerValues(weights: readonly (readonly number[])[], values: readonly number[]): number[] {
   return weights.map((row) => row.reduce((sum, w, i) => sum + w * (values[i] ?? 0), 0));
+}
+
+/**
+ * The nodes tied to the middle of an edge the way the engine ties a hanging node (all six
+ * displacements, each the mean of the two ends' before any bending term), by the ends of the
+ * edge as `a:b` with a < b. A node off the middle, or tied in fewer, is not one.
+ */
+export function hangingEdgeNodes(constraints: readonly unknown[] | undefined, nodes: ReadonlyMap<number, Point>): Map<string, number> {
+  const tied = new Map<number, { ends: string; dofs: Set<number> } | null>();
+  for (const c of (constraints ?? []) as Array<{ type?: string; terms?: Array<{ nodeId: number; dof: number; coefficient: number }> }>) {
+    if (c?.type !== 'linearMPC' || !Array.isArray(c.terms) || c.terms.length < 3) continue;
+    const [node, a, b] = c.terms as [typeof c.terms[number], typeof c.terms[number], typeof c.terms[number]];
+    if (node.coefficient !== 1 || a.coefficient !== -0.5 || b.coefficient !== -0.5 || a.dof !== node.dof || b.dof !== node.dof
+      || node.nodeId === a.nodeId || node.nodeId === b.nodeId || a.nodeId === b.nodeId) continue;
+    const ends = a.nodeId < b.nodeId ? `${a.nodeId}:${b.nodeId}` : `${b.nodeId}:${a.nodeId}`;
+    const entry = tied.get(node.nodeId);
+    if (entry === undefined) tied.set(node.nodeId, { ends, dofs: new Set([node.dof]) });
+    else if (entry !== null && entry.ends === ends) entry.dofs.add(node.dof);
+    else tied.set(node.nodeId, null);
+  }
+  const out = new Map<string, number>();
+  for (const [id, entry] of tied) {
+    if (!entry || entry.dofs.size !== 6 || ![0, 1, 2, 3, 4, 5].every((dof) => entry.dofs.has(dof))) continue;
+    const [a, b] = entry.ends.split(':').map((end) => nodes.get(Number(end)));
+    const here = nodes.get(id);
+    if (!a || !b || !here) continue;
+    const chord = Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0));
+    const off = Math.hypot(here.x - (a.x + b.x) / 2, here.y - (a.y + b.y) / 2, (here.z ?? 0) - ((a.z ?? 0) + (b.z ?? 0)) / 2);
+    if (off <= 1e-9 * chord) out.set(entry.ends, id);
+  }
+  return out;
 }

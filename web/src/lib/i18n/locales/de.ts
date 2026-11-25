@@ -12717,7 +12717,6 @@ const de: Translations = {
   'discretization.adaptiveApplied': "Netz übernommen: {shells} Schalen anstelle der geteilten, {nodes} Knoten hinzugefügt. Neu berechnen.",
   'discretization.adaptiveRefused.nothing': "Das Netz wurde nicht verfeinert: Es gibt nichts zu übernehmen.",
   'discretization.adaptiveRefused.stale': "Das Modell ist nicht mehr das berechnete. Neu berechnen und erneut verfeinern.",
-  'discretization.adaptiveRefused.physicalPlate': "Eine zu teilende Schale gehört zu einer aus ihrem Umriss vernetzten Platte. Ändern Sie stattdessen deren Netzgröße.",
   'discretization.adaptiveRefused.member': "Ein Stab an einer geteilten Kante kann hier nicht geteilt werden: Er ist gekrümmt, hat veränderlichen Querschnitt, oder ein weiterer Stab liegt auf derselben Kante.",
   'discretization.adaptiveRefused.support': "Ein neuer Knoten liegt auf einer gelagerten Kante, deren Enden unterschiedlich gehalten sind, mit einer eingeprägten Verschiebung oder einem geneigten Lager. Geben Sie dieser Kante eine einheitliche Lagerung.",
   'discretization.col.pass': "Durchlauf",

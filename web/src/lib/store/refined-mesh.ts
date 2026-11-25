@@ -1,5 +1,7 @@
 import { modelStore } from './model.svelte';
 import { historyStore } from './history.svelte';
+import { physicalPlates, recordPlateRefinement } from './physical-plates';
+import { syncDefinedLoads } from './defined-loads';
 import { discretizationStore } from './discretization.svelte';
 import type { Load, Plate, Quad } from './model.svelte';
 import type { Constraint3D } from '../engine/types-3d';
@@ -77,6 +79,18 @@ export function applyRefinedMeshPlan(plan: RefinedMeshPlan): { nodes: number; sh
         ...(before.plates ? { plates: into(before.plates, parts.plate) } : {}),
       });
     }
+    for (const plate of physicalPlates()) {
+      const own = new Set<number>();
+      for (const q of plate.group.members.quads ?? []) for (const n of modelStore.quads.get(q)?.nodes ?? []) own.add(n);
+      for (const p of plate.group.members.plates ?? []) for (const n of modelStore.model.plates.get(p)?.nodes ?? []) own.add(n);
+      const gained = plan.nodes
+        .filter((n) => own.has(node(n.id)) || (n.between !== undefined && n.between.every((end) => own.has(node(end)))))
+        .map((n) => node(n.id));
+      const before = grouped.get(plate.id);
+      const split = before?.quads?.some((id) => parts.quad.has(id)) || before?.plates?.some((id) => parts.plate.has(id));
+      if (gained.length || split) recordPlateRefinement(plate.id, gained);
+    }
+    syncDefinedLoads();
   });
   if (uncut) {
     historyStore.undo();
