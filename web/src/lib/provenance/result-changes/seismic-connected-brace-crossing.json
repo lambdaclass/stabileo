@@ -1,0 +1,42 @@
+{
+  "id": "seismic-connected-brace-crossing",
+  "date": "2026-11-25",
+  "prs": [
+    2330
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "generatedSeismicLoads"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Transfer connected X-brace inertia on the brace spans",
+    "es": "Transferencia de la inercia a lo largo de las diagonales en X conectadas",
+    "pt": "Transferência da inércia ao longo das diagonais em X conectadas",
+    "de": "Trägheitskräfte verbundener Kreuzverbände entlang der Diagonalen übertragen",
+    "fr": "Transfert de l’inertie sur les diagonales en X connectées",
+    "hu": "A kapcsolt X-merevítők tehetetlenségi terhei a rudakon hatnak",
+    "tr": "Bağlı X çaprazlarda ataletin çapraz açıklıklarına aktarılması",
+    "zh": "沿连接式 X 形支撑传递惯性力"
+  },
+  "explanation": {
+    "en": "At a uniquely paired crossing with evidenced endpoints, static seismic inertia acts along each brace span assigned to the active story. Regenerate affected seismic loads.",
+    "es": "En un cruce con pares únicos y extremos comprobados, la inercia sísmica estática actúa a lo largo de cada tramo asignado al piso activo. Regenerá las cargas sísmicas afectadas.",
+    "pt": "Em um cruzamento com pares únicos e extremidades comprovadas, a inércia sísmica estática atua ao longo de cada trecho atribuído ao pavimento ativo. Regenere as cargas sísmicas afetadas.",
+    "de": "Bei eindeutiger Zuordnung der Diagonalen und nachgewiesenen Endpunkten wirkt die statische Erdbebenträgheit entlang der dem aktiven Geschoss zugeordneten Stababschnitte. Erzeugen Sie betroffene Erdbebenlasten neu.",
+    "fr": "Lorsque les diagonales sont appariées sans ambiguïté et leurs extrémités établies, l’inertie sismique statique agit le long des tronçons affectés à l’étage actif. Régénérez les charges sismiques concernées.",
+    "hu": "Egyértelmű párosítás és igazolt végpontok esetén a statikus szeizmikus tehetetlenség az aktív szinthez rendelt rúdszakaszokon hat. Generálja újra az érintett szeizmikus terheket.",
+    "tr": "Benzersiz eşleştirilmiş ve uçları doğrulanmış kesişimde statik deprem ataleti, etkin kata atanan çapraz parçaları boyunca etkir. Etkilenen deprem yüklerini yeniden oluşturun.",
+    "zh": "交叉支撑可唯一配对且端点有楼层依据时，等效静力地震惯性力沿分配给有效楼层的支撑区段作用。请重新生成受影响的地震荷载。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-generated-source-accounting.md",
+    "heading": "Transfer connected X-brace inertia on the brace spans"
+  }
+}

@@ -9,9 +9,10 @@ import { computeLocalAxes3D, memberRoll, type LocalAxes3D } from './local-axes-3
 import { memberFrame3D } from './member-loads';
 import { planarLoadDirection } from './planar-load-direction';
 import { transverseSign } from './transverse-sign-2d';
-import { agreesAtScale, assembledMagnitudes3D, LoadScalar, LoadVector, norm, positionAt, sub, unit, xyz, zero, Wrench, type Vector } from './accounting-math';
+import { add, cross, mul, agreesAtScale, assembledMagnitudes3D, LoadScalar, LoadVector, norm, positionAt, sub, unit, xyz, zero, Wrench, type Vector } from './accounting-math';
 import { accountSurface, expectedSurfaceNodeForces } from './surface-accounting';
 import type { ShellLoadSpec } from './shell-load-integration';
+import { selfWeightDirection, type SelfWeightSource } from './self-weight';
 import { SolveAccountingError, type PlateMeasure } from './plate-accounting';
 
 type Frame = 'xy' | 'xz' | 'space';
@@ -453,14 +454,104 @@ export function loadCaseBatches(loads: readonly Load[], caseIds: readonly number
   return cases;
 }
 
+export function hasGeneratedSource(load: Load): boolean {
+  return 'generatedBy' in load.data || 'fromDef' in load.data || load.type === 'surface3d';
+}
+
+function sourceLabel(model: ModelData, caseId: number, load: Load): string {
+  const definition = 'fromDef' in load.data && load.data.fromDef !== undefined ? model.groups?.get(load.data.fromDef) : undefined;
+  const name = tp('whatif.loadFallback', { n: `#${load.data.id}` });
+  const carrier = load.type === 'surface3d' ? ` · #${load.data.quadId}` : '';
+  return [caseLabel(model, caseId), definition?.name, name + carrier].filter(Boolean).join(' · ');
+}
+
+function weightLabel(model: ModelData, source: SelfWeightSource): string {
+  const carrier = source.kind === 'member' ? tp('whatif.member', { n: source.id }) : `#${source.id}`;
+  return `${caseLabel(model, source.caseId)} · ${tp('selfWeight.title')} · ${carrier}`;
+}
+
+function memberWeight(out: Wrench, source: SelfWeightSource, a: Vector, b: Vector, dir: Vector) {
+  const chord = sub(b, a), length = norm(chord);
+  const q = LoadVector.from(dir).scale(source.intensity);
+  out.line(a, unit(chord), 0, length, q, q, source.id);
+}
+
+export function accountWeight2D(model: ModelData, input: SolverInput, source: SelfWeightSource, rows: readonly SolverLoad[]) {
+  const el = model.elements.get(source.id)!;
+  const a = model.nodes.get(el.nodeI)!, b = model.nodes.get(el.nodeJ)!;
+  const [x, , z] = selfWeightDirection(source);
+  const expected = new Wrench();
+  memberWeight(expected, source, [a.x, a.y, 0], [b.x, b.y, 0], [x, z, 0]);
+  compare(weightLabel(model, source), expected, assembled2D(model, input, rows, source.caseId));
+}
+
+export type CheckedSource3D = { label: string; expected: Wrench; rows: readonly SolverLoad3D[] };
+
+export function accountSource3D(
+  model: ModelData, input: SolverInput3D, caseId: number, source: CheckedSource3D, factor = 1, rows = source.rows,
+) {
+  if (rows.length !== source.rows.length) {
+    throw new SolveAccountingError(tp('svc.accountingMismatch', {
+      case: source.label, component: tp('whatif.loads'), entered: source.rows.length, assembled: rows.length,
+    }));
+  }
+  const expected = new Wrench();
+  expected.addScaled(source.expected, factor);
+  compare(source.label, expected, assembled3D(model, input, rows, caseId));
+}
+
+export function weightSource3D(model: ModelData, embedded: boolean, source: SelfWeightSource, rows: readonly SolverLoad3D[]): CheckedSource3D {
+  const expected = new Wrench();
+  const dir = selfWeightDirection(source);
+  if (source.kind === 'member') {
+    const member = model.elements.get(source.id)!;
+    const frame = embedded ? null : memberFrame3D(model, member);
+    if (!embedded && !frame) unsupported(model, source.caseId, source.kind, source.id);
+    const at = (id: number): Vector => {
+      const { x, y } = model.nodes.get(id)!;
+      return [x, 0, y];
+    };
+    memberWeight(expected, source, frame ? frame.ni : at(member.nodeI), frame ? frame.nj : at(member.nodeJ), dir);
+  } else {
+    const shell = (source.kind === 'plate' ? model.plates : model.quads)?.get(source.id);
+    if (!shell) unsupported(model, source.caseId, source.kind, source.id);
+    const [a, b, c, d] = shell.nodes.map(id => xyz(model.nodes.get(id) ?? unsupported(model, source.caseId, 'node', id)));
+    const u = sub(b!, a!), v = sub(d ?? c!, a!);
+    const weight = LoadVector.from(dir).scale(source.intensity);
+    if (!d) {
+      const area = norm(cross(u, v)) / 2;
+      expected.apply(add(a!, mul(add(u, v), 1 / 3)), weight.scale(area));
+    } else {
+      const w = sub(sub(sub(c!, a!), u), v);
+      const g = 1 / (2 * Math.sqrt(3));
+      for (const s of [0.5 - g, 0.5 + g]) for (const t of [0.5 - g, 0.5 + g]) {
+        const point = add(a!, add(mul(u, s), add(mul(v, t), mul(w, s * t))));
+        const area = norm(cross(add(u, mul(w, t)), add(v, mul(w, s)))) / 4;
+        expected.apply(point, weight.scale(area));
+      }
+    }
+  }
+  return { label: weightLabel(model, source), expected, rows };
+}
+
+export function generatedSource3D(
+  model: ModelData, embedded: boolean, leftHand: boolean, caseId: number, load: Load, rows: readonly SolverLoad3D[],
+): CheckedSource3D {
+  return {
+    label: sourceLabel(model, caseId, load), rows,
+    expected: enteredLoads(model, [load], embedded ? 'xz' : 'space', leftHand, caseId, new Set()),
+  };
+}
+
 export function accountLoads2D(
   model: ModelData, input: SolverInput, loads: readonly Load[], assembled: readonly SolverLoad[],
-  caseId: number, originals: readonly Load[],
+  caseId: number, originals: readonly Load[], source?: Load,
 ): void {
+  const label = source ? sourceLabel(model, caseId, source) : caseLabel(model, caseId);
   const wire = assembled2D(model, input, assembled, caseId);
   const projection = model[accountingProjection];
   if (!projection || !originals.length) {
-    compare(caseLabel(model, caseId), enteredLoads(model, loads, 'xy', false, caseId, new Set()), wire);
+    compare(label, enteredLoads(model, loads, 'xy', false, caseId, new Set()), wire);
     return;
   }
   const spatialIds = new Set(originals.map(l => l.data.id));
@@ -470,7 +561,7 @@ export function accountLoads2D(
   const origin: Vector = projection.plane === 'xz' ? [0, location?.y ?? 0, 0] : [location?.x ?? 0, 0, 0];
   const expected = planar.toWorld(projection.plane, origin);
   expected.addScaled(spatial, 1);
-  compare(caseLabel(model, caseId), expected, wire.toWorld(projection.plane, origin));
+  compare(label, expected, wire.toWorld(projection.plane, origin));
 }
 
 export function loadAccounting3D(

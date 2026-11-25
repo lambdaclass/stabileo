@@ -223,7 +223,8 @@ export function buildSeismicModel(
     horizontalJoints.add(a.id);
     horizontalJoints.add(b.id);
   }
-  const subdivisions = new Set<number>();
+  const continuations = new Map<number, Map<number, number>>();
+  const crossings = new Set<number>();
   const storyNodes = new Set(evidenced);
   for (const [id, adjacent] of neighbours) {
     if (evidenced.has(id)) continue;
@@ -237,11 +238,21 @@ export function buildSeismicModel(
       storyNodes.add(id);
       continue;
     }
-    const joint = connected.length === 2 ? lineJoint(connected[0]!, node, connected[1]!) : 'corner';
-    if (joint === 'unresolved') return { levels: [], datum: { refusal: 'seismicStoryPrecision' } };
-    if (joint === 'straight') {
-      subdivisions.add(id);
-      continue;
+    if (adjacent.length === 2 || adjacent.length === 4) {
+      const pairs = new Map<number, number[]>();
+      for (const [i, from] of adjacent.entries()) for (const to of adjacent.slice(i + 1)) {
+        const joint = lineJoint(from.node, node, to.node);
+        if (joint === 'unresolved') return { levels: [], datum: { refusal: 'seismicStoryPrecision' } };
+        if (joint === 'straight') {
+          pairs.set(from.elementId, [...(pairs.get(from.elementId) ?? []), to.elementId]);
+          pairs.set(to.elementId, [...(pairs.get(to.elementId) ?? []), from.elementId]);
+        }
+      }
+      if (pairs.size === adjacent.length && [...pairs.values()].every(matches => matches.length === 1)) {
+        continuations.set(id, new Map([...pairs].map(([from, [to]]) => [from, to!])));
+        if (adjacent.length === 4) crossings.add(id);
+        continue;
+      }
     }
     if (ridge || (node.z > component.elevation && below.length && connected.some(n => n.z > node.z))) {
       return { levels: [], datum: { refusal: 'seismicAmbiguousStory' } };
@@ -257,6 +268,7 @@ export function buildSeismicModel(
     const run: Run = { atStory: new Map(), loading: 'story' };
     const pending = [line];
     let low = line.nodeI, high = line.nodeI;
+    let crossesBrace = false;
     while (pending.length) {
       const member = pending.pop()!;
       if (runs.has(member.elementId)) continue;
@@ -268,14 +280,14 @@ export function buildSeismicModel(
           run.atStory.set(node.z, node);
           continue;
         }
-        if (!subdivisions.has(node.id)) continue;
-        for (const { elementId } of neighbours.get(node.id)!) {
-          const adjacent = geometry.get(elementId)!;
-          if (!runs.has(elementId) && adjacent.nodeI.z !== adjacent.nodeJ.z) pending.push(adjacent);
-        }
+        const nextId = continuations.get(node.id)?.get(member.elementId);
+        if (nextId === undefined) continue;
+        crossesBrace ||= crossings.has(node.id);
+        const adjacent = geometry.get(nextId)!;
+        if (!runs.has(nextId) && adjacent.nodeI.z !== adjacent.nodeJ.z) pending.push(adjacent);
       }
     }
-    if (low.z > component.elevation && (low.x !== high.x || low.y !== high.y)) {
+    if (crossesBrace || (low.z > component.elevation && (low.x !== high.x || low.y !== high.y))) {
       run.loading = evidenced.has(low.id) && evidenced.has(high.id) ? 'member' : 'unresolvedSlope';
     }
   }

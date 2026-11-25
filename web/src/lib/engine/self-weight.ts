@@ -12,7 +12,7 @@
  * ρ·t over the area, split equally between the corners as before.
  */
 import { tp } from '../i18n';
-import { createSectionWeight } from '../section/weight';
+import { createSectionWeight, requireMaterialDensity } from '../section/weight';
 import type { ModelData } from './solver-service';
 import type { SolverLoad3D } from './types-3d';
 import type { GroupMembers, Load } from '../store/model.svelte';
@@ -88,49 +88,74 @@ export function selfWeightScope(model: SelfWeightGroups, s: SelfWeightLoad): Sel
   return scope;
 }
 
-/**
- * The engine's loads for `entries`. `memberRef` gives a member's end nodes and axes as the solve
- * builds them; `axialOnly` names the members that take no bending, whose weight goes to the end
- * nodes.
- */
+export type SelfWeightSource = {
+  caseId: number;
+  kind: 'member' | 'plate' | 'quad';
+  id: number;
+  direction: SelfWeightLoad['direction'];
+  intensity: number;
+  factor: number;
+};
+
+export type RecordSelfWeight<T> = (source: SelfWeightSource, rows: readonly T[]) => void;
+
+export function selfWeightDirection(source: SelfWeightSource): Vec3 {
+  return UNIT[source.direction];
+}
+
+export function* selfWeightSources(
+  model: ModelData, entries: readonly SelfWeightLoad[], includeShells: boolean,
+): Iterable<SelfWeightSource> {
+  const weight = createSectionWeight(model.materials);
+  for (const entry of entries) {
+    const { caseId, direction, factor } = entry;
+    const scope = selfWeightScope(model, entry);
+    for (const el of model.elements.values()) {
+      if (scope.members && !scope.members.has(el.id)) continue;
+      const sec = model.sections.get(el.sectionId);
+      if (!sec || !model.materials.get(el.materialId)) continue;
+      const intensity = weight(sec, el.materialId) * factor;
+      if (intensity !== 0) yield { caseId, id: el.id, direction, kind: 'member', intensity, factor };
+    }
+    if (!includeShells || factor === 0) continue;
+    for (const kind of ['plate', 'quad'] as const) {
+      const shells = kind === 'plate' ? model.plates : model.quads;
+      const include = kind === 'plate' ? scope.plates : scope.quads;
+      for (const shell of shells?.values() ?? []) {
+        if (include && !include.has(shell.id)) continue;
+        const material = model.materials.get(shell.materialId);
+        if (!material) continue;
+        const intensity = requireMaterialDensity(shell.materialId, material) * shell.thickness * factor;
+        if (intensity !== 0) yield { caseId, id: shell.id, direction, kind, intensity, factor };
+      }
+    }
+  }
+}
+
 export function selfWeightSolverLoads(
-  model: ModelData,
-  entries: SelfWeightLoad[],
+  model: ModelData, source: SelfWeightSource,
   memberRef: (elementId: number) => MemberRef | null,
   axialOnly: (elementId: number) => boolean,
 ): SolverLoad3D[] {
-  const out: SolverLoad3D[] = [];
-  const weight = createSectionWeight(model.materials);
-  for (const s of entries) {
-    const dir = UNIT[s.direction];
-    const scope = selfWeightScope(model, s);
-    for (const el of model.elements.values()) {
-      if (scope.members && !scope.members.has(el.id)) continue;
-      const mat = model.materials.get(el.materialId);
-      const sec = model.sections.get(el.sectionId);
-      const m = memberRef(el.id);
-      if (!mat || !sec || !m || !(m.axes.L > 1e-10)) continue;
-      const w = weight(sec, el.materialId) * s.factor;
-      if (w === 0) continue;
-      const g: Vec3 = [dir[0] * w, dir[1] * w, dir[2] * w];
-      out.push(...globalDistributedToSolver(m, g, g, 0, m.axes.L, axialOnly(el.id)));
-    }
-    // Shells: the corners' shares of ρ·t·A, which the helpers give downward.
-    const along = (loads: SolverLoad3D[]) => loads.map((l) => {
-      if (l.type !== 'nodal') return l;
-      const W = -l.data.fz * s.factor;
-      return { ...l, data: { ...l.data, fx: dir[0] * W, fy: dir[1] * W, fz: dir[2] * W } };
-    });
-    if (model.plates?.size) {
-      const plates = scope.plates ? new Map([...model.plates].filter(([id]) => scope.plates!.has(id))) : model.plates;
-      if (plates.size) out.push(...along(plateSelfWeightLoads(plates as never, model.nodes, model.materials)));
-    }
-    if (model.quads?.size) {
-      const quads = scope.quads ? new Map([...model.quads].filter(([id]) => scope.quads!.has(id))) : model.quads;
-      if (quads.size) out.push(...along(quadSelfWeightLoads(quads as never, model.nodes, model.materials)));
-    }
+  const dir = selfWeightDirection(source);
+  if (source.kind === 'member') {
+    const m = memberRef(source.id);
+    if (!m || !(m.axes.L > 1e-10)) return [];
+    const g: Vec3 = [dir[0] * source.intensity, dir[1] * source.intensity, dir[2] * source.intensity];
+    return globalDistributedToSolver(m, g, g, 0, m.axes.L, axialOnly(source.id));
   }
-  return out;
+  const plate = source.kind === 'plate' ? model.plates?.get(source.id) : undefined;
+  const quad = source.kind === 'quad' ? model.quads?.get(source.id) : undefined;
+  const loads = plate
+    ? plateSelfWeightLoads(new Map([[plate.id, plate]]), model.nodes, model.materials)
+    : quad
+      ? quadSelfWeightLoads(new Map([[quad.id, quad]]), model.nodes, model.materials)
+      : [];
+  return loads.map(load => {
+    if (load.type !== 'nodal') return load;
+    const w = -load.data.fz * source.factor;
+    return { ...load, data: { ...load.data, fx: dir[0] * w, fy: dir[1] * w, fz: dir[2] * w } };
+  });
 }
 
 /**

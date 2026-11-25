@@ -22,7 +22,7 @@ import {
   addPlateLoad, applyPlateMeshes, createPlate, meshBeforeAnalysis, planPlateMesh, plateEntry, plateStatus, setPlateMeshSpec, setPlateSideArc,
 } from '../physical-plates';
 
-const fault = vi.hoisted(() => ({ dropSceneCase: 0, integrateDrift: 0, signedForceDelta: 0, dropMemberLoad: false, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, assemblyDrift: null as { shell: number; relative: number } | null, combinationDrift: null as { shell: number; relative: number } | null, dropNodalFy: false }));
+const fault = vi.hoisted(() => ({ dropSceneCase: 0, integrateDrift: 0, signedForceDelta: 0, dropMemberLoad: false, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, assemblyDrift: null as { shell: number; relative: number; strip?: boolean } | null, combinationDrift: null as { shell: number; relative: number } | null, dropNodalFy: false }));
 
 vi.mock('../../engine/case-effects', async importOriginal => {
   const original = await importOriginal<typeof import('../../engine/case-effects')>();
@@ -108,7 +108,7 @@ vi.mock('../../engine/solver-shells', async importOriginal => {
       const drift = fault.assemblyDrift;
       if (!drift || args[0].quadId !== drift.shell) return assembled;
       return assembled.map((row, i) => row.type === 'nodal'
-        ? { ...row, data: { ...row.data, fz: row.data.fz * (1 + (i % 2 ? -drift.relative : drift.relative)) } }
+        ? { ...row, data: { ...row.data, fz: row.data.fz * (1 + ((drift.strip ? i === 1 || i === 2 : i % 2) ? -drift.relative : drift.relative)) } }
         : row);
     },
   };
@@ -1498,9 +1498,7 @@ it('#2471 detects a lost self-equilibrated line load before a planar projection 
   for (const [path, solve] of Object.entries(paths)) expect.soft(await outcome(solve), path).toEqual(diagnostic);
 });
 
-const sourceLedgerResult = process.env.RUN_KNOWN_WRONG === '2470-sources' ? it : it.skip;
-
-sourceLedgerResult('known wrong result: #2470 equal and opposite generated rows cannot hide lost planar loads', async () => {
+it('#2470 equal and opposite generated rows cannot hide lost planar loads', async () => {
   const elementId = cantilever('2d');
   const model = modelStore.model;
   const cases = [{ id: 1, name: 'D', type: 'D' }, { id: 2, name: 'L', type: 'L' }];
@@ -1529,7 +1527,7 @@ sourceLedgerResult('known wrong result: #2470 equal and opposite generated rows 
   })));
 });
 
-sourceLedgerResult('known wrong result: #2470 a generated planar self-weight source cannot disappear below the conversion cutoff', async () => {
+it('#2470 a generated planar self-weight source cannot disappear below the conversion cutoff', async () => {
   const elementId = cantilever('2d');
   const model = modelStore.model;
   const member = model.elements.get(elementId)!;
@@ -1549,10 +1547,13 @@ sourceLedgerResult('known wrong result: #2470 a generated planar self-weight sou
   ]);
 });
 
-sourceLedgerResult('known wrong result: #2470 two shell pressures cannot cancel a lost assembly moment', async () => {
-  const { id } = floor();
-  expect(applyPlateMeshes([planPlateMesh(id)!]).plates).toBe(1);
-  const quadId = plateEntry(id)!.group.members.quads![0]!;
+it('#2470 two shell pressures cannot cancel a lost assembly moment', async () => {
+  const nodes = [[0, 0], [4, 0], [4, 5], [0, 5]].map(([x, y]) => {
+    const node = modelStore.addNode(x!, y!, 0);
+    modelStore.addSupport(node, 'fixed3d');
+    return node;
+  }) as [number, number, number, number];
+  const quadId = modelStore.addQuad(nodes, 1, 0.2);
   const caseId = 1;
   const model: ModelData = {
     ...modelStore.model,
@@ -1562,17 +1563,17 @@ sourceLedgerResult('known wrong result: #2470 two shell pressures cannot cancel 
   };
   const paths = [
     () => buildSolverInput3D(model),
-    () => runDirectAnalysis(model, model.loadCases, model.combinations, { includeSelfWeight: false }),
-    () => caseSolverLoads3D(model, model.loadCases, false, false),
+    () => runDirectAnalysis(model, modelStore.loadCases, modelStore.combinations, { includeSelfWeight: false }),
+    () => caseSolverLoads3D(model, modelStore.loadCases, false, false),
     () => solvePDelta3D(buildSolverInput3D(model)!),
   ];
   const control = buildSolverInput3D(model)?.loads;
   expect(control).toHaveLength(8);
-  fault.assemblyDrift = { shell: quadId, relative: 0.125 };
+  fault.assemblyDrift = { shell: quadId, relative: 0.125, strip: true };
   for (const solve of paths) expect.soft(await outcome(solve)).toMatch(/case.*#1.*M[xy]/i);
 });
 
-sourceLedgerResult('known wrong result: #2470 a spatial truss self-weight source cannot disappear below the nodal transfer cutoff', async () => {
+it('#2470 a spatial truss self-weight source cannot disappear below the nodal transfer cutoff', async () => {
   const elementId = cantilever('3d');
   const member = modelStore.model.elements.get(elementId)!;
   modelStore.updateElement(elementId, { type: 'truss' });
@@ -1586,7 +1587,7 @@ sourceLedgerResult('known wrong result: #2470 a spatial truss self-weight source
   const below = withWeight(2 ** -40);
   for (const solve of [
     () => buildSolverInput3D(below, true),
-    () => caseSolverLoads3D(below, below.loadCases, true, false),
+    () => caseSolverLoads3D(below, modelStore.loadCases, true, false),
   ]) expect.soft(await outcome(solve)).toMatch(/case.*self-weight.*member.*Fx/i);
   const q = 2 ** -39;
   const control = buildSolverInput3D(withWeight(q), true)?.loads;

@@ -1,7 +1,7 @@
-import { accountingCaseSources, accountingProjection, accountingSource, copyAccountingLoad, scenarioSurfaceIntentOf, type AccountingCaseSources, type ScenarioSurfaceIntent } from './accounting-source';
+import { accountingCaseSources, accountingProjection, accountingSource, copyAccountingLoad, type AccountingCaseSources, type ScenarioSurfaceIntent } from './accounting-source';
 import { EngineCheckError, EngineUnavailableError } from './engine-unavailable';
 import { scaleAssembledMagnitudes3D, type Wrench } from './accounting-math';
-import { accountCombination, accountLoads2D, loadAccounting3D, loadCaseBatches, redistributedLineLoads, verifyFactoredScenarioNode, verifyScenarioSurfaceLoads } from './load-accounting';
+import { accountCombination, accountLoads2D, accountSource3D, accountWeight2D, generatedSource3D, hasGeneratedSource, weightSource3D, type CheckedSource3D, loadAccounting3D, loadCaseBatches, redistributedLineLoads, verifyFactoredScenarioNode, verifyScenarioSurfaceLoads } from './load-accounting';
 import { accountPlateGeometry, SolveAccountingError } from './plate-accounting';
 import { shouldEmbedFlat2DModelIn3D } from './model-embedding';
 export { shouldEmbedFlat2DModelIn3D } from './model-embedding';
@@ -20,7 +20,7 @@ import { collapseVariableResults, collapseVariableEnvelope, variableExpansionFor
 import { nodesOnMembers } from './nodes-on-members';
 import { localizeEngineText } from '../i18n/engine-text';
 import { errorText } from '../utils/error-text';
-import { createSectionWeight, InvalidMaterialDensity } from '../section/weight';
+import { InvalidMaterialDensity } from '../section/weight';
 import { expandSemiRigid3D, SemiRigidError } from './expand-semi-rigid-3d';
 import { solvableModel, applyStiffnessModifiers, hasNonlinearBehaviour, solveNonlinear3D, solveNonlinear3DAsync, withZeroRows } from './member-behaviour';
 import { amplification } from './pdelta-amplification';
@@ -36,7 +36,7 @@ import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D
 import { unheldNodalMoment2D } from './orphan-rotations-2d';
 import { computeLocalAxes3D, memberRoll } from './local-axes-3d';
 import { distributedGlobalEnds, globalDistributedToSolver, transverseToNodes, memberFrame3D, takesNoBending as memberTakesNoBending, type MemberRef } from './member-loads';
-import { InvalidSelfWeightGroup, selfWeightFor, selfWeightScope, selfWeightSolverLoads } from './self-weight';
+import { InvalidSelfWeightGroup, selfWeightFor, selfWeightSources, selfWeightSolverLoads, type RecordSelfWeight } from './self-weight';
 import type { SelfWeightLoad } from './analysis-settings';
 import type { SolverInput3D, SolverSection3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, NonlinearReport } from './types-3d';
 import { analyzeKinematics, type KinematicResult } from './kinematic-2d';
@@ -289,29 +289,52 @@ function buildSolverLoads2D(
   const projection = model[accountingProjection];
   const originals = loadCaseBatches(projection?.source.loads.filter(load => load.type.endsWith('3d')) ?? []);
   const batches = loadCaseBatches(loads, caseIds ?? [...originals.keys()]);
-  const { loads: checked, cases } = accountAssembly<SolverInput['loads'][number]>(record => convertSolverLoads2D(model, loads, weights, record));
+  const { loads: checked, cases, sources, selfWeights } = accountAssembly<SolverInput['loads'][number]>((record, recordWeight) =>
+    convertSolverLoads2D(model, loads, weights, record, recordWeight));
   for (const [caseId, entered] of batches) {
-    accountLoads2D(model, input, entered, cases.get(caseId) ?? [], caseId, originals.get(caseId) ?? []);
+    const spatial = originals.get(caseId) ?? [];
+    accountLoads2D(model, input, entered, cases.get(caseId) ?? [], caseId, spatial);
+    const spatialById = new Map(spatial.map(load => [load.data.id, load]));
+    for (const load of entered) {
+      const original = spatialById.get(load.data.id);
+      if (hasGeneratedSource(original ?? load)) {
+        accountLoads2D(model, input, [load], sources.get(load) ?? [], caseId, original ? [original] : [], original ?? load);
+      }
+      spatialById.delete(load.data.id);
+    }
+    for (const load of spatialById.values()) {
+      if (hasGeneratedSource(load)) accountLoads2D(model, input, [], [], caseId, [load], load);
+    }
   }
+  for (const { source, rows } of selfWeights) accountWeight2D(model, input, source, rows);
   return checked;
 }
 
-type RecordLoadCase<T> = (caseId: number | null, loads: readonly T[], scenario?: Load) => void;
+type RecordLoadCase<T> = (caseId: number, loads: readonly T[], source: Load) => void;
 
-function accountAssembly<T extends object>(assemble: (record: RecordLoadCase<T>) => T[]) {
-  const caseOf = new WeakMap<T, number | null>();
+function accountAssembly<T extends object>(assemble: (record: RecordLoadCase<T>, recordWeight: RecordSelfWeight<T>) => T[]) {
+  const caseOf = new WeakMap<T, number>();
   const sourceOf = new WeakMap<T, Load>();
+  const weightOf = new Map<T, Parameters<RecordSelfWeight<T>>[0]>();
+  const weights = new Map<Parameters<RecordSelfWeight<T>>[0], T[]>();
   const loads = assemble((caseId, batch, source) => {
     for (const load of batch) {
       caseOf.set(load, caseId);
-      if (source) sourceOf.set(load, source);
+      sourceOf.set(load, source);
     }
+  }, (source, batch) => {
+    weights.set(source, []);
+    for (const load of batch) weightOf.set(load, source);
   });
   const cases = new Map<number, T[]>();
   const sources = new Map<Load, T[]>();
   for (const [i, load] of loads.entries()) {
     const id = caseOf.get(load);
-    if (id === null) continue;
+    const weight = weightOf.get(load);
+    if (weight) {
+      weights.get(weight)!.push(load);
+      continue;
+    }
     if (id === undefined) throw new SolveAccountingError(tp('svc.accountingUnsupported', { case: '—', kind: 'wire', id: i + 1 }));
     const batch = cases.get(id);
     if (batch) batch.push(load);
@@ -323,7 +346,7 @@ function accountAssembly<T extends object>(assemble: (record: RecordLoadCase<T>)
       else sources.set(source, [load]);
     }
   }
-  return { loads, cases, sources };
+  return { loads, cases, sources, selfWeights: [...weights].map(([source, rows]) => ({ source, rows })) };
 }
 
 function retainedPlanarProjections(globalAxis: boolean, axial: number[], transverse: number[]) {
@@ -339,6 +362,7 @@ function retainedPlanarProjections(globalAxis: boolean, axial: number[], transve
 function convertSolverLoads2D(
   model: ModelData, loads: Load[], weights: readonly SelfWeightLoad[],
   record: RecordLoadCase<SolverInput['loads'][number]>,
+  recordWeight: RecordSelfWeight<SolverInput['loads'][number]>,
 ): SolverInput['loads'] {
   /*
    * One builder for every 2D path. The linear solve and the combinations had
@@ -369,7 +393,7 @@ function convertSolverLoads2D(
 
   for (const l of loads) {
     const emit = (...batch: SolverInput['loads']) => {
-      record(l.data.caseId ?? 1, batch);
+      record(l.data.caseId ?? 1, batch, l);
       for (const load of batch) solverLoads.push(load);
     };
     if (l.type === 'nodal') {
@@ -497,37 +521,30 @@ function convertSolverLoads2D(
     }
   }
 
-  const firstGeneratedLoad = solverLoads.length;
-  const sectionWeight = createSectionWeight(model.materials);
   for (const weight of weights) {
     if (!Number.isFinite(weight.factor)) throw new PlaneSelfWeightError(t('svc.selfWeightNonFinite'));
-    if (weight.factor === 0) continue;
-    if (weight.direction === 'Y') throw new PlaneSelfWeightError(t('svc.selfWeightOutsidePlane'));
-    const { members } = selfWeightScope(model, weight);
-    for (const elem of model.elements.values()) {
-      if (members && !members.has(elem.id)) continue;
-      const mat = model.materials.get(elem.materialId);
-      const sec = model.sections.get(elem.sectionId);
-      const ni = model.nodes.get(elem.nodeI);
-      const nj = model.nodes.get(elem.nodeJ);
-      if (!mat || !sec || !ni || !nj) continue;
+    if (weight.factor !== 0 && weight.direction === 'Y') throw new PlaneSelfWeightError(t('svc.selfWeightOutsidePlane'));
+  }
+  for (const source of selfWeightSources(model, weights, false)) {
+    const before = solverLoads.length;
+    const elem = model.elements.get(source.id)!;
+    const ni = model.nodes.get(elem.nodeI);
+    const nj = model.nodes.get(elem.nodeJ);
+    if (ni && nj) {
       const dx = nj.x - ni.x, dy = nj.y - ni.y;
-      const L = Math.sqrt(dx * dx + dy * dy);
-      if (L < 1e-10) continue;
-      const sinTheta = dy / L, cosTheta = dx / L;
-      const w = sectionWeight(sec, elem.materialId) * weight.factor;
-      const qPerp = weight.direction === 'X' ? w * -sinTheta : w * cosTheta;
-      if (Math.abs(qPerp) > 1e-10) {
-        solverLoads.push({ type: 'distributed' as const, data: { elementId: elem.id, qI: qPerp, qJ: qPerp } });
-      }
-      const qTangent = weight.direction === 'X' ? w * cosTheta : w * sinTheta;
-      if (Math.abs(qTangent) > 1e-10) {
-        solverLoads.push({ type: 'axialDistributed' as const, data: { elementId: elem.id, qI: qTangent, qJ: qTangent } });
+      const L = Math.hypot(dx, dy);
+      if (L >= 1e-10) {
+        const s = dy / L, c = dx / L;
+        const w = source.intensity;
+        const qPerp = source.direction === 'X' ? -w * s : w * c;
+        const qTangent = source.direction === 'X' ? w * c : w * s;
+        const keep = retainedPlanarProjections(true, [qTangent], [qPerp]);
+        if (keep.transverse) solverLoads.push({ type: 'distributed', data: { elementId: elem.id, qI: qPerp, qJ: qPerp } });
+        if (keep.axial) solverLoads.push({ type: 'axialDistributed', data: { elementId: elem.id, qI: qTangent, qJ: qTangent } });
       }
     }
+    recordWeight(source, solverLoads.slice(before));
   }
-
-  record(null, solverLoads.slice(firstGeneratedLoad));
   return solverLoads;
 }
 
@@ -1578,7 +1595,7 @@ class PlanarPointLoadProjectionError extends Error {}
 export function buildSolverLoads3D(
   model: ModelData, loads: Load[], selfWeight: boolean | SelfWeightLoad[], userLeftHand: boolean,
   /** A reader of where forces are (a mass source): an interior moment or axial force with no cut is lumped, not refused. */
-  opts: { forcesOnly?: boolean; record?: RecordLoadCase<SolverLoad3D> } = {},
+  opts: { forcesOnly?: boolean; record?: RecordLoadCase<SolverLoad3D>; recordWeight?: RecordSelfWeight<SolverLoad3D> } = {},
 ): SolverLoad3D[] {
   const leftHand = false;
   requireLoadNumbers(loads);
@@ -1602,7 +1619,7 @@ export function buildSolverLoads3D(
           redistributedLineLoads.set(row, { member: member.elementId, station });
         }
       }
-      opts.record?.(l.data.caseId ?? 1, assembled, l.type === 'surface3d' && scenarioSurfaceIntentOf(l) ? l : undefined);
+      opts.record?.(l.data.caseId ?? 1, assembled, l);
       for (const load of assembled) solverLoads.push(load);
     };
     if (l.type === 'nodal') {
@@ -1788,10 +1805,18 @@ export function buildSolverLoads3D(
 
   // Self-weight: a member load along the member, and the corners' shares on a shell.
   const selfWeightLoads = Array.isArray(selfWeight) ? selfWeight : selfWeightFor(model, null, selfWeight);
-  if (selfWeightLoads.length) {
-    const generated = transverseToNodes(selfWeightSolverLoads(model, selfWeightLoads, refOf, takesNoBending), truss);
-    opts.record?.(null, generated);
-    for (const load of generated) solverLoads.push(load);
+  for (const source of selfWeightSources(model, selfWeightLoads, true)) {
+    const rows = selfWeightSolverLoads(model, source, refOf, takesNoBending);
+    if (opts.recordWeight && source.kind === 'member' && takesNoBending(source.id)) {
+      const member = refOf(source.id);
+      if (member) for (const row of rows) {
+        if (row.type !== 'nodal') continue;
+        const station = row.data.nodeId === member.nodeI ? 0 : row.data.nodeId === member.nodeJ ? member.axes.L : NaN;
+        redistributedLineLoads.set(row, { member: source.id, station });
+      }
+    }
+    opts.recordWeight?.(source, rows);
+    solverLoads.push(...rows);
   }
 
   // A truss takes no bending, and the engine drops a transverse load on one: its end nodes take
@@ -1902,7 +1927,8 @@ export function withoutSpringsOnRestrained<T extends Record<string, unknown>>(su
 }
 
 function recordedSolverLoads3D(model: ModelData, loads: Load[], weights: boolean | SelfWeightLoad[], leftHand: boolean) {
-  return accountAssembly<SolverLoad3D>(record => buildSolverLoads3D(model, loads, weights, leftHand, { record }));
+  return accountAssembly<SolverLoad3D>((record, recordWeight) =>
+    buildSolverLoads3D(model, loads, weights, leftHand, { record, recordWeight }));
 }
 
 export function notionalSourceLoads3D(
@@ -1919,14 +1945,26 @@ function checkedSolverLoads3D(
   accounting = loadAccounting3D(model, input, shouldEmbedFlat2DModelIn3D(model), leftHand,
     accountPlateGeometry(model[accountingSource] ?? model, input), plateCases !== false),
   checkedCase?: (caseId: number, loads: readonly SolverLoad3D[], totals: Wrench) => void,
+  checkedSource?: (source: CheckedSource3D) => void,
 ): SolverLoad3D[] {
-  const { loads: checked, cases: assembledByCase, sources } = recordedSolverLoads3D(model, loads, weights, leftHand);
+  const { loads: checked, cases: assembledByCase, sources, selfWeights } = recordedSolverLoads3D(model, loads, weights, leftHand);
+  const embedded = shouldEmbedFlat2DModelIn3D(model);
+  const verifySource = (caseId: number, source: CheckedSource3D) => {
+    accountSource3D(model, input, caseId, source);
+    checkedSource?.(source);
+  };
   const selected = plateCases === true ? [...accounting.cases] : plateCases || [];
   for (const [caseId, entered] of loadCaseBatches(loads, selected)) {
     const assembled = assembledByCase.get(caseId) ?? [];
     const totals = accounting.verify(caseId, entered, assembled, sources);
     checkedCase?.(caseId, assembled, totals);
+    for (const load of entered) {
+      if (hasGeneratedSource(load)) {
+        verifySource(caseId, generatedSource3D(model, embedded, leftHand, caseId, load, sources.get(load) ?? []));
+      }
+    }
   }
+  for (const { source, rows } of selfWeights) verifySource(source.caseId, weightSource3D(model, embedded, source, rows));
   return checked;
 }
 
@@ -3243,6 +3281,7 @@ const combinationAccounting = new WeakMap<ReadonlyMap<number, SolverLoad3D[]>, {
   input: SolverInput3D;
   entered: Map<number, Wrench>;
   authored: WeakSet<SolverLoad3D>;
+  sources: Map<number, CheckedSource3D[]>;
 }>();
 
 /** Each case's solver loads, self-weight in the dead-load cases when asked for. */
@@ -3260,15 +3299,18 @@ export function caseSolverLoads3D(
   const enteredByCase = loadCaseBatches(model.loads);
   const entered = new Map<number, Wrench>();
   const authored = new WeakSet<SolverLoad3D>();
+  const sources = new Map<number, CheckedSource3D[]>();
   for (const lc of loadCases) {
     const loads = enteredByCase.get(lc.id) ?? [];
+    const verified: CheckedSource3D[] = [];
+    sources.set(lc.id, verified);
     caseLoads.set(lc.id, checkedSolverLoads3D(model, input, loads, selfWeightFor(model, lc, includeSelfWeight), leftHand, [lc.id], accounting,
       (id, assembled, totals) => {
         entered.set(id, totals);
         for (const load of assembled) authored.add(load);
-      }));
+      }, source => verified.push(source)));
   }
-  combinationAccounting.set(caseLoads, { model, input, entered, authored });
+  combinationAccounting.set(caseLoads, { model, input, entered, authored, sources });
   return caseLoads;
 }
 
@@ -3281,14 +3323,23 @@ export function comboSolverLoads3D(combo: LoadCombination, caseLoads: Map<number
   const loads = factors.flatMap(({ caseId, factor }) => {
     const totals = audit?.entered.get(caseId);
     if (totals) terms.push({ factor, totals });
-    return (caseLoads.get(caseId) ?? []).map(load => {
+    const byOriginal = new Map<SolverLoad3D, SolverLoad3D[]>();
+    const scaledRows = (caseLoads.get(caseId) ?? []).map(load => {
       const scaled = scaleSolverLoad(load, factor);
+      const rows = byOriginal.get(load);
+      if (rows) rows.push(scaled);
+      else byOriginal.set(load, [scaled]);
       if (audit?.authored.has(load)) {
         verifyFactoredScenarioNode(audit.model, combo.id, combo.name, load, scaled, factor);
         assembled.push(scaled);
       }
       return scaled;
     });
+    if (audit) for (const source of audit.sources.get(caseId) ?? []) {
+      const rows = source.rows.flatMap(row => byOriginal.get(row) ?? []);
+      accountSource3D(audit.model, audit.input, combo.id, source, factor, rows);
+    }
+    return scaledRows;
   });
   if (audit) accountCombination(audit.model, audit.input, combo.id, combo.name, assembled, terms);
   return loads;

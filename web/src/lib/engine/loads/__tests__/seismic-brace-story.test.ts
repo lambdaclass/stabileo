@@ -49,15 +49,10 @@ function expectAmbiguousStory(model: LoadModelData) {
   expect(plan.factors.baseShear).toBeUndefined();
 }
 
-it('#2330 a connected X brace intersection is not a seismic story', () => {
-  for (const angle of [0, Math.PI / 7]) for (const shift of [0, 1_000_000]) {
-    const model = bracedFrame();
-    for (const n of model.nodes.values()) {
-      n.y = shift + n.x * Math.sin(angle);
-      n.x = shift + n.x * Math.cos(angle);
-    }
-    expectAmbiguousStory(model);
-  }
+it('#2330 a kinked crossing without independent story evidence still refuses', () => {
+  const model = bracedFrame();
+  model.nodes.get(5)!.x += 0.001;
+  expectAmbiguousStory(model);
 });
 
 it('#2330 a brace joint needs floor evidence', () => {
@@ -93,9 +88,7 @@ it('#2330 a brace joint needs floor evidence', () => {
   }
 });
 
-const crossingResult = process.env.RUN_KNOWN_WRONG === '2330' ? it : it.skip;
-
-crossingResult('known wrong result: #2330 a connected X transfers inertia on each upper brace span', () => {
+it('#2330 a connected X transfers inertia on each upper brace span', () => {
   const leg = Math.hypot(2, 2);
   for (const angle of [0, Math.PI / 7]) for (const shift of [0, 1_000_000]) {
     const model = bracedFrame();
@@ -116,8 +109,8 @@ crossingResult('known wrong result: #2330 a connected X transfers inertia on eac
       expect(load.qX).toBeCloseTo(2, 10);
       expect(load.qXJ).toBeCloseTo(2, 10);
     }
-    expect(sink.distributed).toEqual(plan.distributed.filter(l => l.caseType === 'E'));
-    expect(sink.nodal).toEqual(plan.nodal.filter(l => l.caseType === 'E'));
+    expect(sink.distributed).toEqual(plan.distributed.filter(l => l.caseType === 'E').map(l => ({ ...l, caseIndex: 0 })));
+    expect(sink.nodal).toEqual(plan.nodal.filter(l => l.caseType === 'E').map(l => ({ ...l, caseIndex: 0 })));
     const moment = sink.nodal.reduce((sum, l) => sum + l.fx * model.nodes.get(l.nodeId)!.z!, 0)
       + sink.distributed.reduce((sum, l) => {
         const member = model.elements.get(l.elementId)!;
