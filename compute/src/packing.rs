@@ -19,6 +19,44 @@ pub(crate) fn checked_f32(value: f64) -> Result<f32, ComputeError> {
     Ok(narrow)
 }
 
+/// Repack values for the *same* CSC pattern used to create these offsets.
+/// ResidentPcg only exposes value replacement, so callers cannot change indices.
+pub(crate) fn repack_values(
+    matrix: &CscMatrix,
+    offsets: &[u32],
+    entries: usize,
+    interleaved: bool,
+) -> Result<(Vec<f32>, f64), ComputeError> {
+    let n = matrix.n;
+    let mut cursor = offsets[..n].to_vec();
+    let mut values = vec![0.; entries];
+    let mut norms = vec![0.0f64; n];
+    // Same insertion and summation order as initial packing, including zeros.
+    for col in 0..n {
+        for k in matrix.col_ptr[col]..matrix.col_ptr[col + 1] {
+            let row = matrix.row_idx[k];
+            let value = checked_f32(matrix.values[k])?;
+            let mut insert = |r: usize| {
+                let slot = if interleaved {
+                    offsets[n + 1 + r / 32] as usize
+                        + r % 32
+                        + (cursor[r] - offsets[r]) as usize * 32
+                } else {
+                    cursor[r] as usize
+                };
+                values[slot] = value;
+                norms[r] += f64::from(value).abs();
+                cursor[r] += 1;
+            };
+            insert(row);
+            if row != col {
+                insert(col);
+            }
+        }
+    }
+    Ok((values, norms.into_iter().fold(0., f64::max)))
+}
+
 impl PackedMatrix {
     /// Repack CSR in stripes of 32 rows without reordering entries within a row.
     /// Padding is never evaluated. Keep CSR if padding or device limits would
@@ -126,6 +164,50 @@ impl PackedMatrix {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn value_updates_match_fresh_packing_and_row_bounds_bit_for_bit() {
+        for n in [3, 33, 257] {
+            for striped in [false, true] {
+                let mut matrix = crate::fixtures::grid(n, 1, 4.);
+                let mut original = PackedMatrix::new(&matrix, usize::MAX).unwrap();
+                let interleaved = striped && original.interleave_rows(u64::MAX, u64::MAX);
+                for scale in [0., 1.125, -3.7] {
+                    for (i, v) in matrix.values.iter_mut().enumerate() {
+                        *v = (i as f64 + 0.1) * scale;
+                    }
+                    let mut fresh = PackedMatrix::new(&matrix, usize::MAX).unwrap();
+                    if interleaved {
+                        assert!(fresh.interleave_rows(u64::MAX, u64::MAX));
+                    }
+                    let (values, norm) = repack_values(
+                        &matrix,
+                        &original.offsets,
+                        original.values.len(),
+                        interleaved,
+                    )
+                    .unwrap();
+                    assert_eq!(
+                        values.iter().map(|v| v.to_bits()).collect::<Vec<_>>(),
+                        fresh.values.iter().map(|v| v.to_bits()).collect::<Vec<_>>()
+                    );
+                    assert_eq!(norm.to_bits(), fresh.row_norm.to_bits());
+                    assert_eq!(original.offsets, fresh.offsets);
+                    assert_eq!(original.columns, fresh.columns);
+                }
+                matrix.values[0] = 1e-300;
+                assert!(matches!(
+                    repack_values(
+                        &matrix,
+                        &original.offsets,
+                        original.values.len(),
+                        interleaved
+                    ),
+                    Err(ComputeError::NumericRange)
+                ));
+            }
+        }
+    }
 
     #[test]
     fn stripes_preserve_each_row_including_value_bits_and_entry_order() {

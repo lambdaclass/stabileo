@@ -1412,3 +1412,7 @@ bench.compute.webgpu: build.compute.webgpu
 .PHONY: bench.compute.pcg
 bench.compute.pcg:
 	$(NIX_RUN) cargo run --locked --release -p stabileo-compute --example pcg_cost
+
+.PHONY: bench.compute.reuse
+bench.compute.reuse: build.compute.webgpu
+	$(NIX_RUN) node compute/browser-smoke.mjs --reuse

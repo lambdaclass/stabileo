@@ -106,8 +106,3 @@ fn update(@builtin(global_invocation_id) id: vec3<u32>, @builtin(local_invocatio
     }
     reduce(lane, group.x, s, m);
 }
-
-@compute @workgroup_size(256)
-fn finish(@builtin(global_invocation_id) id: vec3<u32>) {
-    if id.x < params.dimensions.x { ap[id.x] = state[id.x]; }
-}

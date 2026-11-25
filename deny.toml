@@ -32,6 +32,13 @@ allow = [
 ]
 confidence-threshold = 0.9
 
+# Naga uses hexf-parse to parse WGSL hexadecimal floating-point literals.
+# Scope its declared CC0 licence to this exact dependency/version.
+[[licenses.exceptions]]
+name = "hexf-parse"
+version = "=0.2.1"
+allow = ["CC0-1.0"]
+
 [licenses.private]
 # The workspace crates are `publish = false`; their licence is the repo's.
 ignore = true

@@ -64,6 +64,25 @@ impl<O: PreparedOperator> PreparedPcg<O> {
 }
 
 impl PcgProblem {
+    #[cfg(any(feature = "metal", feature = "webgpu"))]
+    pub(crate) fn matrix(&self) -> &CscMatrix {
+        &self.matrix
+    }
+
+    #[cfg(any(feature = "metal", feature = "webgpu"))]
+    pub(crate) fn with_values(&self, values: Vec<f64>) -> Result<Self, ComputeError> {
+        if values.len() != self.matrix.values.len() {
+            return Err(ComputeError::InvalidMatrix);
+        }
+        // Keep the candidate separate until every CPU/GPU validation succeeds.
+        Self::new(CscMatrix {
+            n: self.matrix.n,
+            col_ptr: self.matrix.col_ptr.clone(),
+            row_idx: self.matrix.row_idx.clone(),
+            values,
+        })
+    }
+
     pub fn new(matrix: CscMatrix) -> Result<Self, ComputeError> {
         validate_matrix(&matrix)?;
         if matrix.diagonal().iter().any(|v| *v <= 0.) {

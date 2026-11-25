@@ -110,6 +110,14 @@ enum PcgBackend {
 pub struct ExperimentalPcgSolver(PcgBackend);
 #[wasm_bindgen]
 impl ExperimentalPcgSolver {
+    pub async fn update_values(&mut self, values: Vec<f64>) -> Result<JsValue, JsValue> {
+        let PcgBackend::Resident(solver) = &mut self.0 else {
+            return Err(js_error(crate::ComputeError::InvalidOptions));
+        };
+        let transfers = solver.update_values(values).await.map_err(js_error)?;
+        report_value(&transfers).map_err(|e| js_sys::Error::new(&e.to_string()).into())
+    }
+
     pub async fn cpu(
         n: u32,
         offsets: Vec<u32>,

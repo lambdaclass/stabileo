@@ -23,6 +23,8 @@ are subsequent work.
 - `make bench.compute.metal`: release comparison against CPU PCG and sparse Cholesky.
 - `make bench.compute.webgpu`: the same matrices in Chromium, recording its adapter.
 - `make bench.compute.pcg`: compare CPU core cost with the original PCG implementation.
+- `make bench.compute.reuse COMPUTE_BENCH_PROFILE=large`: compare fresh preparation
+  with value updates, including solve time and exact result comparisons in WebGPU.
 - `make lint.compute`: check the crate with both optional backends enabled.
 
 Use `NIX_RUN=` with installed native toolchains. Hardware tests fail when no
@@ -71,3 +73,10 @@ backends; WebGPU and Metal use the same WGSL kernels. Production CPU code is unc
 Resident vectors are contiguous, and sparse rows are interleaved in groups of 32
 when padding stays within 25% and existing memory limits. Each row retains its
 original summation order; other matrices keep CSR and padding is never evaluated.
+
+Resident solvers expose `update_values(values)` in the original CSC order. The
+pattern stays fixed; GPU indices, buffers and device-local pipelines are reused.
+Every update revalidates the original f64 matrix and rebuilds Jacobi and range
+bounds. Invalid inputs preserve the previous solver; an interrupted GPU update
+blocks solving until another update completes. Update payloads are reported
+separately from solve payloads. A changed sparsity pattern requires preparation.

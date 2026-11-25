@@ -8,3 +8,5 @@ Add a hybrid PCG experiment that shares the CPU iteration loop, checks the origi
 Add an experimental resident-vector PCG variant for WebGPU/Metal, with guarded scaled reductions, per-solve transfer counters, and comparison against the existing hybrid solver.
 
 Improve resident GPU memory access with contiguous vectors and bounded row interleaving, preserving accumulation order and falling back to CSR when padding or memory limits would be exceeded.
+
+Reuse resident pipelines and GPU structure for validated value updates, remove intermediate readback copies, and benchmark update-plus-solve against fresh preparation. Upgrade wgpu to remove the unmaintained Metal dependency and scope the hexf-parse licence allowance to its exact version.

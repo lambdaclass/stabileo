@@ -3,18 +3,19 @@ import { createServer } from 'node:http';
 import { readFile, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 const { chromium } = createRequire(new URL('../web/package.json', import.meta.url))('@playwright/test');
-const allowed = new Set(['stabileo_compute.js', 'stabileo_compute_bg.wasm', 'solver-comparison.mjs']);
+const allowed = new Set(['stabileo_compute.js', 'stabileo_compute_bg.wasm', 'solver-comparison.mjs', 'reuse-comparison.mjs']);
 const server = createServer(async (request, response) => {
   const file = request.url.slice(1);
   if (!file) { response.setHeader('Content-Type', 'text/html'); response.end('<!doctype html><title>Compute validation</title>'); return; }
   if (!allowed.has(file)) { response.writeHead(404).end(); return; }
   try {
     response.setHeader('Content-Type', file.endsWith('.wasm') ? 'application/wasm' : 'text/javascript');
-    response.end(await readFile(new URL(file === 'solver-comparison.mjs' ? './solver-comparison.mjs' : `../target/compute-webgpu/${file}`, import.meta.url)));
+    response.end(await readFile(new URL(file.endsWith('-comparison.mjs') ? `./${file}` : `../target/compute-webgpu/${file}`, import.meta.url)));
   } catch { response.writeHead(500).end(); }
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-const solve = process.argv.includes('--solve');
+const reuse = process.argv.includes('--reuse');
+const solve = reuse || process.argv.includes('--solve');
 const large = process.env.COMPUTE_BENCH_PROFILE === 'large';
 let browser;
 try {
@@ -24,13 +25,17 @@ try {
   page.setDefaultTimeout(60_000);
   await page.goto(`http://127.0.0.1:${server.address().port}`);
   const report = await Promise.race([
-    page.evaluate(async ({ solve, large }) => {
+    page.evaluate(async ({ solve, reuse, large }) => {
       const wasm = await import('/stabileo_compute.js');
       const { default: init, ExperimentalSparseOperator } = wasm;
       await init();
       const adapter = await navigator.gpu?.requestAdapter({ powerPreference: 'high-performance' });
       if (!adapter) throw new Error('WebGPU adapter required; this test must not silently skip');
       const info = { vendor: adapter.info.vendor, architecture: adapter.info.architecture, device: adapter.info.device };
+      if (reuse) {
+        const { compareReuse } = await import('/reuse-comparison.mjs');
+        return { info, ...await compareReuse(wasm, large) };
+      }
       if (solve) {
         const { compareSolvers } = await import('/solver-comparison.mjs');
         return { info, ...await compareSolvers(wasm, large) };
@@ -70,12 +75,12 @@ try {
         }
         return { info, batches, maxRelativeError, authoritativeSolver: 'unchanged CPU' };
       } finally { for (const op of operators) op.free(); }
-    }, { solve, large }),
+    }, { solve, reuse, large }),
     new Promise((_, reject) => { const timeout = setTimeout(() => reject(new Error('WebGPU smoke timed out')), large ? 900_000 : solve ? 180_000 : 60_000); timeout.unref(); }),
   ]);
   if (solve) {
     assert.equal(report.rows.length, 6);
-    if (!large) assert.ok(report.rows.every(r => r.cpu_runs.every(run => run.converged)));
+    if (!reuse && !large) assert.ok(report.rows.every(r => r.cpu_runs.every(run => run.converged)));
     await writeFile(process.env.COMPUTE_BENCH_OUT ?? 'target/compute-comparison-webgpu.json', JSON.stringify(report, null, 2));
   } else assert.equal(report.batches, 16);
   console.log(JSON.stringify(report, null, 2));

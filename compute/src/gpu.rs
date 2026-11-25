@@ -18,6 +18,7 @@ pub struct WgpuBackend {
     device: wgpu::Device,
     queue: wgpu::Queue,
     pipeline: wgpu::ComputePipeline,
+    resident_pipelines: Option<resident::ResidentPipelines>,
     failed: Arc<AtomicBool>,
 }
 
@@ -31,9 +32,9 @@ impl WgpuBackend {
     }
 
     pub async fn new() -> Result<Self, ComputeError> {
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::BROWSER_WEBGPU | wgpu::Backends::METAL,
-            ..Default::default()
+            ..wgpu::InstanceDescriptor::new_without_display_handle()
         });
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -58,7 +59,7 @@ impl WgpuBackend {
         device.set_device_lost_callback(move |_, _| {
             lost.store(true, Ordering::Release);
         });
-        device.push_error_scope(wgpu::ErrorFilter::Validation);
+        let errors = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("batched sparse product"),
             source: wgpu::ShaderSource::Wgsl(include_str!("spmv.wgsl").into()),
@@ -71,7 +72,7 @@ impl WgpuBackend {
             compilation_options: Default::default(),
             cache: None,
         });
-        if let Some(error) = device.pop_error_scope().await {
+        if let Some(error) = errors.pop().await {
             return Err(ComputeError::Device(error.to_string()));
         }
         Ok(Self {
@@ -79,6 +80,7 @@ impl WgpuBackend {
             device,
             queue,
             pipeline,
+            resident_pipelines: None,
             failed,
         })
     }
@@ -134,8 +136,9 @@ impl SparseBackend for WgpuBackend {
             .ok()
             .and_then(|v| v.checked_mul(4))
             .ok_or(ComputeError::ResourceLimit)?;
-        let binding_limit =
-            u64::from(limits.max_storage_buffer_binding_size).min(limits.max_buffer_size);
+        let binding_limit = limits
+            .max_storage_buffer_binding_size
+            .min(limits.max_buffer_size);
         if items > u32::MAX as usize || bytes > binding_limit {
             return Err(ComputeError::ResourceLimit);
         }
