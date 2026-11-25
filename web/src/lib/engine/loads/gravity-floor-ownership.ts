@@ -170,13 +170,12 @@ export function partitionGravityFloors<S extends Shell>(
     const shell = a.kind === 'shell' ? a : b.kind === 'shell' ? b : undefined;
     if (!bay || !shell) continue;
     const rangesSeparated = separatedByHeightRange(bay.deck, shell.deck, tolerance);
-    const rise = shell.deck.range[0] - bay.deck.range[1];
-    const attachedOverhead = rangesSeparated && rise > 0 && rise < storeyHeadroom &&
-      hasBoundaryAttachment(shell.shell, bay.bay);
-    if (rangesSeparated && !attachedOverhead) continue;
+    const gap = Math.max(shell.deck.range[0] - bay.deck.range[1], bay.deck.range[0] - shell.deck.range[1]);
+    const nearbyAttachment = rangesSeparated && gap < storeyHeadroom && hasBoundaryAttachment(shell.shell, bay.bay);
+    if (rangesSeparated && !nearbyAttachment) continue;
     const overlap = positiveOverlap(bay.footprint, shell.footprint);
     if (!overlap) continue;
-    if (attachedOverhead) {
+    if (nearbyAttachment) {
       refuseGravityGeometry(msg('loadPlan.gravity.offsetShellDeck', { id: shell.shell.id, members: bayMembers(bay.bay) }));
     }
     if (separated(bay.deck, shell.deck, overlap, tolerance)) continue;

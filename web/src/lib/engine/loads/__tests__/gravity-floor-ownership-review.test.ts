@@ -138,6 +138,7 @@ it('#2512 the centre beam in a subdivided bay leaves its own shell exposed', () 
     expect(gravityLayout(covered, { ...gravity, tributaryWidth: 3 }).roofQuads.has(1)).toBe(false);
     expect(buildLoadPlan(input(covered, { gravity, roof })).surface.filter(load => load.caseType === 'Lr')).toEqual([]);
     const separate = subdividedShellBay(false, 2.8);
+    separate.constraints.length = 0;
     expect(gravityLayout(separate, { ...gravity, tributaryWidth: 3 }).roofQuads.has(1)).toBe(false);
     expect(buildLoadPlan(input(separate, { gravity, roof })).surface.filter(load => load.caseType === 'Lr')).toEqual([]);
     deadResultant(separate, loadEveryPanel, [1], 2 * area);
@@ -866,15 +867,13 @@ function sharedEndRafter(offset: number, subdivide = false, dofs = [0, 1, 2, 3, 
   return model;
 }
 
-const finalReviewReproducer = process.env.RUN_KNOWN_WRONG === '2512' ? it : it.skip;
-
 for (const [offset, subdivide, dofs] of [
   [0.2, false, [0, 1, 2, 3, 4, 5]],
   [0.2, true, [2]],
   [0.051, false, [2]],
   [MIN_STOREY_HEADROOM - 0.125, false, [2]],
 ] as const) {
-  finalReviewReproducer(`known wrong result: #2512 a rafter with a shared node and an offset tie refuses (offset=${offset}, subdivide=${subdivide})`, () => {
+  it(`#2512 a rafter with a shared node and an offset tie refuses (offset=${offset}, subdivide=${subdivide})`, () => {
     const model = sharedEndRafter(offset, subdivide, [...dofs]);
     for (const loadEveryPanel of [false, true]) expectPanelRefusal(model, offsetRafterRefusal, loadEveryPanel, 1);
   });
@@ -885,8 +884,9 @@ for (const loadEveryPanel of [false, true]) {
     ['a fully tied lower shell', () => subdividedShellBay(false, 2.8), 'loadPlan.gravity.offsetShellDeck'],
     ['a rafter attached by a shared node and an offset tie', () => sharedEndRafter(0.2), 'loadPlan.gravity.offsetRafter'],
   ] as const) {
-    finalReviewReproducer(`known wrong result: #2512 restored apply refuses ${name} with loadEveryPanel=${loadEveryPanel}`, () => {
+    it(`#2512 restored apply refuses ${name} with loadEveryPanel=${loadEveryPanel}`, () => {
       const { plan } = restoreAndPlan(fixture(), false, { mode: 'panels', loadEveryPanel });
+      modelStore.addNodalLoad3D(modelStore.model.nodes.keys().next().value!, 0, 0, -pressure, 0, 0, 0, 1);
       const before = modelStore.snapshot();
       expect(plan.outcome, JSON.stringify({ blocked: plan.blockedKeys, levels: plan.levels })).toBe('BLOCKED');
       expect(plan.blockedKeys).toEqual([expect.objectContaining({ key })]);
@@ -895,6 +895,14 @@ for (const loadEveryPanel of [false, true]) {
     });
   }
 }
+
+it('#2512 a shared rafter node and a small nonuniform offset still require explicit ownership', () => {
+  const reason = { key: 'loadPlan.gravity.unresolvedMember', params: { id: 1 } };
+  for (const offset of [0.049, 0.05]) {
+    const model = sharedEndRafter(offset);
+    for (const loadEveryPanel of [false, true]) expectPanelRefusal(model, reason, loadEveryPanel, 1);
+  }
+});
 
 it('#2512 a coplanar rafter sharing the shell edge remains shell-owned', () => {
   const model = sharedEndRafter(0);
@@ -932,7 +940,9 @@ it('#2512 a shared rafter node alone allows the independent member load', () => 
 });
 
 it('#2512 linear and P-Delta reactions preserve the separated lower shell and bay loads', () => {
-  checkPlanReactions(subdividedShellBay(false, 2.8), 'D', 2 * area * pressure);
+  const model = subdividedShellBay(false, 2.8);
+  model.constraints.length = 0;
+  checkPlanReactions(model, 'D', 2 * area * pressure);
 });
 
 it('#2512 linear and P-Delta reactions count a translation-linked roof once', () => {

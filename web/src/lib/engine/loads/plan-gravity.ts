@@ -683,6 +683,15 @@ function rigidShellCoverage(
   const axes = memberGeometry(model, members);
   const axesById = new Map(axes.map(axis => [axis.id, axis]));
   const runs = physicalRoofRuns(axes, (a, b) => a === b);
+  const trace = (id: number, offset: Segment[0]): Segment => {
+    const { a, b } = axesById.get(id)!;
+    return [attachmentPoint(a, offset), attachmentPoint(b, offset)];
+  };
+  const sharesShellTrace = (id: number): boolean => {
+    const { nodeI, nodeJ } = model.elements.get(id)!;
+    const shells = [...shellsAtNode.get(nodeI) ?? [], ...shellsAtNode.get(nodeJ) ?? []];
+    return shells.length > 0 && shellCoverage(trace(id, [0, 0, 0]), shells, false) !== 'none';
+  };
   for (const { members: ids } of runs) {
     const nodes = new Set([...ids].flatMap(id => {
       const { nodeI, nodeJ } = model.elements.get(id)!;
@@ -702,10 +711,7 @@ function rigidShellCoverage(
     const unresolvedVerticalAnchors = new Set<number>();
     for (const { offset, anchors, shellNodes, error } of attachments) {
       if (Math.abs(offset[2]) >= MIN_STOREY_HEADROOM) continue;
-      const traces: Segment[] = [...ids].map(id => {
-        const { a, b } = axesById.get(id)!;
-        return [attachmentPoint(a, offset), attachmentPoint(b, offset)];
-      });
+      const traces = [...ids].map(id => trace(id, offset));
       const covered = traces.map(trace => shellCoverage(trace, carriers));
       if (!samePhysicalDeck([[offset[2], 0]], MIN_COVER_RISE)) {
         if (covered.every(state => state === 'none')) {
@@ -727,7 +733,10 @@ function rigidShellCoverage(
         break;
       }
     }
-    if (coverage === 'none' && unresolvedVerticalAnchors.size > 1) coverage = 'unresolvedOffset';
+    if (coverage === 'none' && (unresolvedVerticalAnchors.size > 1 ||
+      (unresolvedVerticalAnchors.size === 1 && [...ids].some(sharesShellTrace)))) {
+      coverage = 'unresolvedOffset';
+    }
     if (coverage !== 'none') for (const id of ids) byMember.set(id, coverage);
   }
   return byMember;
