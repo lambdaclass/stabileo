@@ -11,3 +11,6 @@ The sections view and the physical geometry drew the same bars. They differed on
 walls, which the physical geometry cut where the frame passes through them. They are now one view,
 «Sections», which draws the slabs and walls cut. A saved project that showed the physical geometry
 opens with the sections.
+
+In the plan view a drag slides the floor with the pointer and stops when the pointer stops, without
+the glide the 3D view keeps after a drag, and it slides over the level without rising or sinking.

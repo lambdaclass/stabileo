@@ -280,6 +280,30 @@ test.describe('@smoke the two controls over a 3D model', () => {
     expect(plan!.polarDeg, 'but not from the pole itself').toBeGreaterThan(0.2);
   });
 
+  test('in the plan view the floor follows the drag and stops with it', async ({ page }) => {
+    await go3D(page);
+    await page.getByTestId('cam-menu').click();
+    await page.getByTestId('nav-plan-view').click();
+    const box = (await page.locator('canvas').first().boundingBox())!;
+    await page.mouse.click(box.x + 30, box.y + box.height - 30);
+    await expect(page.getByTestId('cam-menu-pop')).toHaveCount(0);
+    await page.waitForTimeout(600);
+
+    const start = await page.evaluate(() => window.__stabileo.cameraState());
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 180, box.y + box.height / 2 + 40, { steps: 6 });
+    await page.mouse.up();
+    const released = await page.evaluate(() => window.__stabileo.cameraState());
+    await page.waitForTimeout(600);
+    const later = await page.evaluate(() => window.__stabileo.cameraState());
+
+    expect(Math.hypot(released!.target[0] - start!.target[0], released!.target[1] - start!.target[1]), 'the drag slid the view').toBeGreaterThan(0.1);
+    expect(released!.target[2], 'over the floor, not up or down').toBeCloseTo(start!.target[2], 6);
+    expect(later!.target, 'and it stopped where the pointer stopped').toEqual(released!.target);
+    expect(later!.polarDeg, 'still from above').toBeLessThan(5);
+  });
+
   test('orbiting from a plan view rotates about the same axis as anywhere else',
     async ({ page }) => {
       await go3D(page);
