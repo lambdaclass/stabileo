@@ -12,7 +12,8 @@ import { initSolver } from '../wasm-solver';
 import { publishCombinations3D, activePerCombo3D, activeCombinations } from '../../store/active-results';
 import { computeStationDemands } from '../verification-service';
 import { combinationPeakRows } from '../../export/excel';
-import type { AnalysisResults3D } from '../types-3d';
+import { envelopeSectionHtml } from '../report/project-sections';
+import type { AnalysisResults3D, ElementForces3D } from '../types-3d';
 
 const disp = (nodeId: number, ux: number, uz: number) => ({ nodeId, ux, uy: 0, uz, rx: 0, ry: 0, rz: 0 });
 const set = (d: ReturnType<typeof disp>[]) => ({ displacements: d, reactions: [], elementForces: [] }) as unknown as AnalysisResults3D;
@@ -156,4 +157,29 @@ describe('ties within round-off', () => {
     expect(beatsExtreme(1, 12.6, 11007, 0, b)).toBe(true);
     expect(beatsExtreme(-1, -3, 5, 0, { value: -2, entity: 1 })).toBe(true);
   });
+});
+
+it.skip('known wrong result: #2226 finds a narrow one-sided shear peak in the project and critical table summaries', () => {
+  const a = 33 / 64, b = 34 / 64, jump = 11;
+  const f = {
+    elementId: 7, length: 1, nStart: 0, nEnd: 0, vyStart: 0, vyEnd: 0, vzStart: 0, vzEnd: 0,
+    mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0,
+    pointLoadsZ: [{ a, p: jump }], distributedLoadsZ: [{ a, b, qI: -jump / (b - a), qJ: -jump / (b - a) }],
+  } as ElementForces3D;
+  const sources = [{ ...A, results: { ...A.results, elementForces: [f] } }];
+  const critical = summaryRows('forces', sources, { ...canonical, stations: 'critical' });
+  expect.soft(critical.find(r => r.column.key === 'vz')?.max).toMatchObject({ value: jump, x: a });
+  const html = envelopeSectionHtml(sources, key => key, 'Envelope').join('');
+  expect.soft(html).toContain('Vz (kN)</td><td class="num">11.000</td>');
+});
+
+it.skip('known wrong result: #2226 finds a shear resultant minimum between component stations', () => {
+  const f = {
+    elementId: 7, length: 1, nStart: 0, nEnd: 0, vyStart: -3, vyEnd: 5, vzStart: 1, vzEnd: 1,
+    mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0,
+    distributedLoadsY: [{ a: 0, b: 1, qI: 8, qJ: 8 }],
+  } as ElementForces3D;
+  const sources = [{ ...A, results: { ...A.results, elementForces: [f] } }];
+  const critical = summaryRows('forces', sources, { ...canonical, stations: 'critical', resultant: true });
+  expect(critical.find(r => r.column.key === 'v')?.min).toMatchObject({ value: 1, x: 3 / 8 });
 });
