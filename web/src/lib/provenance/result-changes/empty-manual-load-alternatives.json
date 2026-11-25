@@ -1,0 +1,35 @@
+{
+  "id": "empty-manual-load-alternatives",
+  "date": "2026-11-25",
+  "prs": [2566],
+  "area": "loads",
+  "when": {
+    "all": ["generatedLoads", "emptyManualLoadAlternatives"]
+  },
+  "quantities": ["*"],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Preserve empty manual load alternatives",
+    "es": "Conservar alternativas manuales de carga vacías",
+    "pt": "Preservar alternativas manuais de carga vazias",
+    "de": "Leere manuelle Lastalternativen erhalten",
+    "fr": "Conserver les variantes de charge manuelles vides",
+    "tr": "Boş elle tanımlanmış yük alternatiflerini koru",
+    "zh": "保留手动定义的空荷载备选工况",
+    "hu": "Az üres kézi teheralternatívák megőrzése"
+  },
+  "explanation": {
+    "en": "Auto Loads in a review build could omit an intentionally empty manual load case from the combinations. If you used that build, regenerate the combinations and rerun the analyses and envelopes.",
+    "es": "En una versión de revisión, las cargas automáticas podían omitir de las combinaciones un estado manual dejado vacío a propósito. Si usaste esa versión, regenerá las combinaciones y volvé a calcular los análisis y las envolventes.",
+    "pt": "Em uma versão de revisão, as cargas automáticas podiam omitir das combinações um caso manual deixado vazio de propósito. Se você usou essa versão, gere novamente as combinações e refaça as análises e envoltórias.",
+    "de": "In einer Prüffassung konnten automatische Lasten einen absichtlich leeren manuellen Lastfall aus den Kombinationen auslassen. Wenn Sie diese Fassung verwendet haben, erzeugen Sie die Kombinationen neu und berechnen Sie Analysen und Einhüllende erneut.",
+    "fr": "Dans une version de révision, les charges automatiques pouvaient omettre des combinaisons un cas manuel volontairement vide. Si vous avez utilisé cette version, régénérez les combinaisons et recalculez les analyses et les enveloppes.",
+    "tr": "Bir inceleme sürümünde Otomatik Yükler, bilerek boş bırakılan elle tanımlanmış bir yük durumunu birleşimlerden çıkarabiliyordu. Bu sürümü kullandıysanız birleşimleri yeniden oluşturun ve analizleri ve zarfları yeniden hesaplayın.",
+    "zh": "审查版本的自动荷载功能可能会在组合中遗漏有意留空的手动荷载工况。如果使用过该版本，请重新生成组合并重新计算分析和包络。",
+    "hu": "Egy felülvizsgálati verzióban az automatikus terhelés kihagyhatott a kombinációkból egy szándékosan üres kézi teheresetet. Ha ezt a verziót használta, hozza létre újra a kombinációkat, majd számítsa újra az elemzéseket és a burkológörbéket."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-empty-manual-load-alternatives.md",
+    "heading": "Preserve empty manual load alternatives"
+  }
+}
