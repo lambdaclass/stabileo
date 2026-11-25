@@ -1,0 +1,42 @@
+{
+  "id": "gravity-eave-ring-and-offset-rafters",
+  "date": "2026-11-24",
+  "prs": [
+    2512
+  ],
+  "area": "loads",
+  "when": {
+    "any": [
+      "generatedPanelGravityShells"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Restore shell roof loads at attached eaves",
+    "es": "Restaurar cargas de cubierta de láminas en aleros vinculados",
+    "pt": "Restaurar cargas de cobertura em cascas ligadas aos beirais",
+    "de": "Dachschalenlasten an angeschlossenen Traufen wiederherstellen",
+    "fr": "Rétablir les charges des coques de toiture aux rives liées",
+    "tr": "Bağlı saçaklarda kabuk çatı yüklerini geri getir",
+    "zh": "恢复相连檐口处的壳屋面荷载",
+    "hu": "A tetőhéjterhek helyreállítása a csatlakozó ereszeknél"
+  },
+  "explanation": {
+    "en": "Regenerate panel gravity. A connected shell roof can carry the area inside its attached eave ring. The plan blocks unresolved rafter offsets that could duplicate the load.",
+    "es": "Regenerá la carga gravitatoria por paños. Una cubierta continua de láminas puede cargar el área dentro del anillo de alero vinculado. Si el desfase de una barra puede duplicar la carga y no se puede resolver, el plan se bloquea.",
+    "pt": "Gere novamente a gravidade por painéis. Uma cobertura de cascas conectadas pode receber a carga da área dentro do anel de beiral ligado. O plano bloqueia desníveis de barras sem solução que possam duplicar a carga.",
+    "de": "Erzeugen Sie die Schwerkraftlasten für Felder neu. Ein zusammenhängendes Schalendach kann die Fläche im angeschlossenen Traufring tragen. Bei ungeklärten Sparrenversätzen, die die Last verdoppeln könnten, wird der Lastplan gesperrt.",
+    "fr": "Régénérez les charges gravitaires par travée. Une toiture de coques connectées peut porter la surface à l’intérieur de la ceinture de rive liée. Le plan bloque les décalages de chevrons non résolus qui pourraient doubler la charge.",
+    "tr": "Panel yerçekimi yüklerini yeniden üretin. Bağlantılı bir kabuk çatı, bağlı saçak halkasının içindeki alanı taşıyabilir. Plan, yükü iki kez uygulayabilecek çözümlenmemiş mertek ötelenmelerinde durur.",
+    "zh": "请重新生成板区重力荷载。相连的屋面壳可承受与之连接的檐口环梁内的面荷载。若椽条偏移无法确定归属并可能造成重复加荷，系统会阻止生成。",
+    "hu": "Generálja újra a mezők gravitációs terheit. Az összefüggő tetőhéj viselheti a hozzá csatlakozó ereszgyűrűn belüli felület terhét. A terv leáll, ha a szarufa feloldatlan eltolása megkettőzheti a terhet."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-eave-ring-and-offset-rafters.md",
+    "heading": "Preserve shell loads at framed eaves and refuse ambiguous rafter offsets"
+  }
+}
