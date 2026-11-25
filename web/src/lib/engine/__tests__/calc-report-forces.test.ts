@@ -176,3 +176,14 @@ describe('figure numbers', () => {
     expect(html).toContain('Figure 1. Bending moment M');
   });
 });
+
+it.skip('known wrong result: #2226 reports a shear peak inside a short partial-load interval in both dimensions', () => {
+  const a = 0.5, b = a + 2 ** -27, q = 2 ** 29;
+  const loads = [{ a, b, qI: q, qJ: -q }];
+  const [planar] = rows(report('shear', { results2D: r2D(ef2D({ distributedLoads: loads })) }));
+  expect.soft(planar?.slice(3)).toEqual(['1.00', '0.50']);
+  const spatial = rows(report('shear', {
+    is3D: true, analysisMode: '3D', results3D: r3D(ef3D({ distributedLoadsZ: loads })),
+  }));
+  expect.soft(spatial.find(row => row.includes('Max |value|'))?.[2]).toBe('1.00 (x = 0.50 m)');
+});
