@@ -3935,7 +3935,7 @@ const tr: Translations = {
   'svc.engine.cancelledCombination': "Bu birleşimde yinelenen yük durumlarının katsayıları birbirini götürerek sıfır olur.",
   "svc.engine.unsupportedPointLoadMoment": "Çubuk noktasal yükünde desteklenmeyen moment bileşeni",
   "svc.engine.applyPointLoadMomentAtNode": "momenti yükün özgün konumundaki bir 3B düğüme uygulayın",
-  "svc.engine.missingSelfWeightGroupMembership": "Öz ağırlığın başvurduğu {id} numaralı grubun üye listesi eksik. Grup üyelerini geri yükleyin veya öz ağırlığın hedefini değiştirin.",
+  "svc.engine.invalidSelfWeightGroup": "Öz ağırlık grubu {id} eksik veya üye listesi geçersiz. Grubu ve üye listesini geri yükleyin ya da öz ağırlığın hedefini değiştirin.",
   "svc.engine.invalidDensity": "{id} numaralı malzeme için sonlu ve negatif olmayan bir yoğunluk (rho) girin (alınan değer: {value}).",
   "svc.engine.nonnegativeMassDensity": "Kütle yoğunluğu sonlu ve negatif olmayan bir değer olmalıdır",
   "svc.engine.nonFiniteNumber": "{path} alanına sonlu bir sayı girin (alınan değer: {value}).",

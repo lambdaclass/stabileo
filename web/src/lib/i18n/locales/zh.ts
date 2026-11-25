@@ -4120,7 +4120,7 @@ const zh: Translations = {
   "svc.engine.cancelledCombination": "此组合中重复荷载工况的系数相互抵消，合计为零。",
   "svc.engine.unsupportedPointLoadMoment": "杆件集中荷载不支持的力矩分量",
   "svc.engine.applyPointLoadMomentAtNode": "请在荷载原位置的三维节点上施加该力矩",
-  "svc.engine.missingSelfWeightGroupMembership": "自重引用的组 {id} 缺少成员列表。请恢复组成员列表或更改自重的作用对象。",
+  "svc.engine.invalidSelfWeightGroup": "自重组 {id} 不存在，或其成员列表无效。请恢复该组及其成员列表，或更改自重的作用对象。",
   "svc.engine.invalidDensity": "请为材料 {id} 输入有限且非负的密度 (rho)（收到的值为 {value}）。",
   "svc.engine.nonnegativeMassDensity": "质量密度必须有限且非负",
   "svc.engine.nonFiniteNumber": "请为 {path} 输入有限数值（收到的值为 {value}）。",

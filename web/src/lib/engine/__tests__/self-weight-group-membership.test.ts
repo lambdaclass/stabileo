@@ -16,9 +16,7 @@ import {
 const dead = { id: 1, name: 'Gravity', type: 'D' as const };
 const combo = { id: 1, name: dead.name, factors: [{ caseId: dead.id, factor: 1 }] };
 const groupId = 7;
-const refusal = 'Self-weight references group 7, whose membership is missing. Restore the group membership or change the self-weight target.';
-const invalidGroupRefusal = 'Self-weight group 7 is missing or has invalid membership. Restore the group and its membership or change the self-weight target.';
-const regression = process.env.RUN_KNOWN_WRONG === '2472' ? it : it.skip;
+const refusal = 'Self-weight group 7 is missing or has invalid membership. Restore the group and its membership or change the self-weight target.';
 const malformedMembership = {
   text: 'bad',
   array: [],
@@ -129,38 +127,38 @@ it('known wrong result: #2472 flags saved results from a self-weight group with 
   expect(assessProject(modelStore.snapshot(), stamp).changes.map(change => change.id)).toContain('missing-self-weight-group-membership');
 });
 
-regression('known wrong result: #2472 refuses a dangling self-weight group and non-object membership in all solve paths', async () => {
+it('#2472 refuses a dangling self-weight group and non-object membership in all solve paths', async () => {
   for (const membership of ['dangling', 'text'] as const) {
     const model = cantilever(membership);
     for (const [name, solve] of Object.entries(paths2D)) {
-      expect.soft(String(reaction2D(await solve(model))), membership + ' 2D ' + name).toContain(invalidGroupRefusal);
+      expect.soft(String(reaction2D(await solve(model))), membership + ' 2D ' + name).toContain(refusal);
     }
-    expect.soft(() => buildSolverInput2D(model), membership).toThrow(invalidGroupRefusal);
+    expect.soft(() => buildSolverInput2D(model), membership).toThrow(refusal);
 
     for (const activeSet of [false, true]) {
       const spatial = cantilever(membership, activeSet);
       for (const [name, solve] of Object.entries(paths3D)) {
-        expect.soft(String(reaction3D(await solve(spatial))), membership + ' 3D ' + name + ' active set ' + activeSet).toContain(invalidGroupRefusal);
+        expect.soft(String(reaction3D(await solve(spatial))), membership + ' 3D ' + name + ' active set ' + activeSet).toContain(refusal);
       }
-      expect.soft(await runDirectAnalysis(spatial, [dead], [combo], { includeSelfWeight: false }), membership).toBe(invalidGroupRefusal);
-      expect.soft(() => buildSolverInput3D(spatial, false, false), membership).toThrow(invalidGroupRefusal);
+      expect.soft(await runDirectAnalysis(spatial, [dead], [combo], { includeSelfWeight: false }), membership).toBe(refusal);
+      expect.soft(() => buildSolverInput3D(spatial, false, false), membership).toThrow(refusal);
     }
   }
 });
 
-regression('known wrong result: #2472 refuses malformed membership in input, statics and drawing load assembly', () => {
+it('#2472 refuses malformed membership in input, statics and drawing load assembly', () => {
   for (const membership of invalidMemberships) {
     const model = cantilever(membership);
-    expect.soft(() => buildSolverInput2D(model), membership).toThrow(invalidGroupRefusal);
-    expect.soft(() => buildSolverInput3D(model, false, false), membership).toThrow(invalidGroupRefusal);
-    expect.soft(() => appliedResultant(model, dead.id, { includeSelfWeight: false }), membership).toThrow(invalidGroupRefusal);
+    expect.soft(() => buildSolverInput2D(model), membership).toThrow(refusal);
+    expect.soft(() => buildSolverInput3D(model, false, false), membership).toThrow(refusal);
+    expect.soft(() => appliedResultant(model, dead.id, { includeSelfWeight: false }), membership).toThrow(refusal);
     for (const plane of [true, false]) {
-      expect.soft(() => selfWeightMemberLoads(model, model.analysis!.selfWeight!, { plane, firstId: 1 }), membership).toThrow(invalidGroupRefusal);
+      expect.soft(() => selfWeightMemberLoads(model, model.analysis!.selfWeight!, { plane, firstId: 1 }), membership).toThrow(refusal);
     }
   }
 });
 
-regression('known wrong result: #2472 flags saved results for dangling groups and malformed self-weight membership', () => {
+it('#2472 flags saved results for dangling groups and malformed self-weight membership', () => {
   const stamp = { ...stampSolve('linear', null), resultsVersion: 120 };
   for (const membership of invalidMemberships) {
     cantilever(membership);

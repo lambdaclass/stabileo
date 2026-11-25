@@ -15,7 +15,7 @@ import { tp } from '../i18n';
 import { createSectionWeight } from '../section/weight';
 import type { ModelData } from './solver-service';
 import type { SolverLoad3D } from './types-3d';
-import type { Load } from '../store/model.svelte';
+import type { GroupMembers, Load } from '../store/model.svelte';
 import type { SelfWeightLoad } from './analysis-settings';
 import { GRAVITY_SELF_WEIGHT } from './analysis-settings';
 import { isCompositeCase } from './loads/combination-cases';
@@ -39,27 +39,43 @@ export function selfWeightFor(
 
 const UNIT: Record<SelfWeightLoad['direction'], Vec3> = { X: [1, 0, 0], Y: [0, 1, 0], Z: [0, 0, 1] };
 
-export class MissingSelfWeightGroupMembership extends Error {
+export class InvalidSelfWeightGroup extends Error {
   constructor(groupId: number) {
-    super(tp('svc.engine.missingSelfWeightGroupMembership', { id: groupId }));
+    super(tp('svc.engine.invalidSelfWeightGroup', { id: groupId }));
   }
 }
 
 type SelfWeightGroups = {
-  groups?: ReadonlyMap<number, { members?: { elements?: readonly number[]; plates?: readonly number[]; quads?: readonly number[] } | null }>;
+  groups?: ReadonlyMap<number, { members?: unknown }>;
 };
 
 type SelfWeightScope = { members: Set<number> | null; plates: Set<number> | null; quads: Set<number> | null };
 
-export function resolveSelfWeightScope(model: SelfWeightGroups, s: SelfWeightLoad): SelfWeightScope | { missingMembership: number } {
+const groupMemberLists = { nodes: true, elements: true, plates: true, quads: true } satisfies Record<keyof GroupMembers, true>;
+
+function isGroupMembership(value: unknown): value is GroupMembers {
+  if (value === null || typeof value !== 'object') return false;
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) return false;
+  for (const [key, ids] of Object.entries(value)) {
+    if (!Object.hasOwn(groupMemberLists, key)) return false;
+    if (ids === undefined) continue;
+    if (!Array.isArray(ids)) return false;
+    for (const id of ids) {
+      if (!Number.isSafeInteger(id) || id < 0) return false;
+    }
+  }
+  return true;
+}
+
+export function resolveSelfWeightScope(model: SelfWeightGroups, s: SelfWeightLoad): SelfWeightScope | { invalidGroup: number } {
   if (s.groupId !== undefined) {
-    const group = model.groups?.get(s.groupId);
-    const members = group?.members;
-    if (group && members == null) return { missingMembership: s.groupId };
+    const members = model.groups?.get(s.groupId)?.members;
+    if (!isGroupMembership(members)) return { invalidGroup: s.groupId };
     return {
-      members: new Set(members?.elements ?? []),
-      plates: new Set(members?.plates ?? []),
-      quads: new Set(members?.quads ?? []),
+      members: new Set(members.elements),
+      plates: new Set(members.plates),
+      quads: new Set(members.quads),
     };
   }
   if (s.elements) return { members: new Set(s.elements), plates: new Set(), quads: new Set() };
@@ -68,7 +84,7 @@ export function resolveSelfWeightScope(model: SelfWeightGroups, s: SelfWeightLoa
 
 export function selfWeightScope(model: SelfWeightGroups, s: SelfWeightLoad): SelfWeightScope {
   const scope = resolveSelfWeightScope(model, s);
-  if ('missingMembership' in scope) throw new MissingSelfWeightGroupMembership(scope.missingMembership);
+  if ('invalidGroup' in scope) throw new InvalidSelfWeightGroup(scope.invalidGroup);
   return scope;
 }
 

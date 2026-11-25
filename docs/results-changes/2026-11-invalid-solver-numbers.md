@@ -20,9 +20,9 @@ A static cable solve without self-weight treats omitted density as weightless, w
 
 During static analysis, a negative material density could reverse the direction of a plate or shell’s self-weight, making downward gravity act upward. The solve now refuses the input and identifies the material. Enter a finite, nonnegative density and rerun the analysis. The recheck notice applies to saved spatial models with a self-weight rule that covers a plate or shell made from a negative-density material.
 
-## Refuse self-weight with missing group membership
+## Refuse self-weight with a missing group or invalid membership
 
-A self-weight rule that referenced a stored group with no membership record could omit that group’s weight. Analysis now refuses the rule and identifies the group. Restore the membership or change the self-weight target before rerunning the analysis. An explicitly empty membership is valid and contributes zero weight.
+A self-weight rule with a missing group or invalid membership could silently omit the group’s weight. Analysis now refuses the rule and identifies the group. The saved-result check flags affected earlier results. Restore the group and its membership or change the self-weight target before rerunning the analysis. An explicitly empty membership is valid and contributes zero weight.
 
 ## Flag invalid density in static shell self-weight
 

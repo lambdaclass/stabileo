@@ -3926,7 +3926,7 @@ const fr: Translations = {
   'svc.engine.cancelledCombination': "Les coefficients des cas de charge répétés s’annulent dans cette combinaison.",
   "svc.engine.unsupportedPointLoadMoment": "Moment incompatible avec une charge ponctuelle sur une barre selon",
   "svc.engine.applyPointLoadMomentAtNode": "appliquez le moment à un nœud 3D à la position initiale de la charge",
-  "svc.engine.missingSelfWeightGroupMembership": "Le poids propre référence le groupe {id}, dont la liste des éléments est absente. Rétablissez la liste des éléments du groupe ou modifiez la cible du poids propre.",
+  "svc.engine.invalidSelfWeightGroup": "Le groupe de poids propre {id} est absent ou sa liste d’éléments est invalide. Rétablissez le groupe et ses éléments ou modifiez la cible du poids propre.",
   "svc.engine.invalidDensity": "Saisissez une masse volumique (rho) finie et positive ou nulle pour le matériau {id} (valeur reçue : {value}).",
   "svc.engine.nonnegativeMassDensity": "La masse volumique doit être finie et positive ou nulle",
   "svc.engine.nonFiniteNumber": "Saisissez un nombre fini pour {path} (valeur reçue : {value}).",

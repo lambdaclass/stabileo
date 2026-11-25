@@ -4318,7 +4318,7 @@ const es: Record<string, string> = {
   'svc.engine.cancelledCombination': "Los factores de los casos de carga repetidos se cancelan y dan cero en esta combinación.",
   "svc.engine.unsupportedPointLoadMoment": "Momento no compatible con una carga puntual de barra en",
   "svc.engine.applyPointLoadMomentAtNode": "aplicá el momento en un nodo 3D en la posición original de la carga",
-  "svc.engine.missingSelfWeightGroupMembership": "El peso propio hace referencia al grupo {id}, al que le falta la lista de integrantes. Restaurá los integrantes del grupo o cambiá el destino del peso propio.",
+  "svc.engine.invalidSelfWeightGroup": "El grupo de peso propio {id} no existe o tiene una lista de integrantes inválida. Restaurá el grupo y sus integrantes o cambiá el destino del peso propio.",
   "svc.engine.invalidDensity": "Ingresá un valor de densidad (rho) finito y no negativo para el material {id} (valor recibido: {value}).",
   "svc.engine.nonnegativeMassDensity": "La densidad de masa debe ser finita y no negativa",
   "svc.engine.nonFiniteNumber": "Ingresá un número finito en {path} (valor recibido: {value}).",

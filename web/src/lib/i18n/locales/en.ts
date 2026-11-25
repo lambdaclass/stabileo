@@ -4325,7 +4325,7 @@ const en: Record<string, string> = {
   'svc.engine.cancelledCombination': "Repeated load case factors cancel to zero in this combination.",
   "svc.engine.unsupportedPointLoadMoment": "Unsupported member point load moment in",
   "svc.engine.applyPointLoadMomentAtNode": "apply the moment at a 3D node at the original load position",
-  "svc.engine.missingSelfWeightGroupMembership": "Self-weight references group {id}, whose membership is missing. Restore the group membership or change the self-weight target.",
+  "svc.engine.invalidSelfWeightGroup": "Self-weight group {id} is missing or has invalid membership. Restore the group and its membership or change the self-weight target.",
   "svc.engine.invalidDensity": "Enter a finite, nonnegative density (rho) for material {id} (received {value}).",
   "svc.engine.nonnegativeMassDensity": "Mass density must be finite and nonnegative",
   "svc.engine.nonFiniteNumber": "Enter a finite number for {path} (received {value}).",
