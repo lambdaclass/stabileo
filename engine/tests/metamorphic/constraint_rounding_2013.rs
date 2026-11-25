@@ -331,3 +331,39 @@ fn material_nonlinear_zero_residual_requires_resolved_constraint_rank() {
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
+
+#[test]
+#[ignore = "known wrong result: #2584"]
+fn kinematics_reports_constraint_rounding_despite_zero_rounded_mechanisms() {
+    use dedaliano_engine::solver::kinematic::{analyze_kinematics_2d, analyze_kinematics_3d};
+
+    for (model, _, refused) in cancellation_boundaries(false) {
+        let spatial = embed(&model, Plane::XZ);
+        for result in [analyze_kinematics_2d(&model), analyze_kinematics_3d(&spatial)] {
+            assert_eq!(result.mechanism_modes, 0, "{}", result.diagnosis);
+            assert_eq!(result.is_solvable, !refused, "{}", result.diagnosis);
+            if refused {
+                assert!(result.diagnosis.contains("constraint reduction cancels stiffness contributions"), "{}", result.diagnosis);
+                assert_eq!(result.classification, "hypostatic");
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2584"]
+fn modal_reports_constraint_rounding_before_the_eigensolve() {
+    use dedaliano_engine::{certify, solver::modal};
+    let mut case = crate::corpus::fuzz_case_2d(20754, 20795 - 20754);
+    case.s = crate::common::explicit_rigid_support_control(&case.s);
+    let densities = case.s.materials.keys().map(|id| (id.clone(), 1.0)).collect();
+    for error in [
+        modal::solve_modal_2d(&case.s, &densities, 2).unwrap_err(),
+        certify::modal::certify_modal_2d(&case.s, &densities, 2).unwrap_err(),
+    ] {
+        let value: Value = serde_json::from_str(&error).unwrap_or_else(|_| panic!("{error}"));
+        assert_eq!(value["structuredDiagnostics"][0]["code"], "reduced_stiffness_rank");
+        assert_eq!(value["structuredDiagnostics"][0]["severity"], "error");
+        assert!(value["message"].as_str().unwrap().contains("constraint reduction cancels stiffness contributions"));
+    }
+}

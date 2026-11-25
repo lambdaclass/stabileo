@@ -1681,6 +1681,38 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "known wrong result: #2584"]
+    fn signed_tangent_excludes_a_verified_release_gauge_before_testing_inertia() {
+        let dof = DofNumbering {
+            map: [((1, 3), 0), ((1, 4), 1), ((2, 0), 2)].into(),
+            n_free: 3,
+            n_total: 3,
+            dofs_per_node: 6,
+            node_order: vec![1, 2],
+        };
+        for (signed, resolved) in [(-1.0, true), (1.0, true), (0.0, false)] {
+            let k = CscMatrix::from_dense_symmetric_exact(&[
+                1.0, -1.0, 0.0,
+                -1.0, 1.0, 0.0,
+                0.0, 0.0, signed,
+            ], 3);
+            let rank = OperatorRank {
+                dof: &dof,
+                two_d: false,
+                constraints: None,
+                coupling: vec![(0, 1)],
+                releases: ReleasedRotations {
+                    rows: vec![vec![(0, 1.0), (1, -1.0)], vec![(2, 1.0)]],
+                    nodes: [1].into(),
+                    directions: vec![(1, vec![(0, 1.0, 0.0), (1, 1.0, 0.0)])],
+                },
+            };
+            assert!(rank.check_tangent(&k, &absolute_stiffness(&k), Some(&ReleasedRotations::default())).is_err());
+            assert_eq!(rank.check_tangent(&k, &absolute_stiffness(&k), None).is_ok(), resolved, "{signed}");
+        }
+    }
+
+    #[test]
     fn signed_tangent_rank_survives_a_small_positive_diagonal() {
         for (last, resolved) in [(1.0, true), (0.0, false)] {
             let k = CscMatrix::from_dense_symmetric_exact(&[

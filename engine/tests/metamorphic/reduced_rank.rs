@@ -414,3 +414,53 @@ fn restrained_load_does_not_resolve_a_material_mechanism() {
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
+
+#[test]
+#[ignore = "known wrong result: #2584"]
+fn ssi_requires_resolved_secant_rank_under_restrained_load() {
+    use dedaliano_engine::solver::{soil_curves::SoilCurve, ssi::*};
+
+    let stiffness = 1024.0;
+    let rounded = stiffness * 4.0 * f64::EPSILON;
+    let mut cholesky = [stiffness + rounded, -stiffness, -stiffness, stiffness];
+    assert!(dedaliano_engine::linalg::cholesky_decompose(&mut cholesky, 2));
+    let mut planar = serde_json::to_value(truss()).unwrap();
+    planar["materials"]["1"]["e"] = serde_json::json!(stiffness / 1000.0);
+    planar["nodes"]["3"] = serde_json::json!({"id":3,"x":0,"z":1});
+    planar["supports"] = serde_json::json!({
+        "1":{"id":1,"nodeId":1,"type":"rollerX"},
+        "2":{"id":2,"nodeId":2,"type":"rollerX"},
+        "3":{"id":3,"nodeId":3,"type":"fixed"}
+    });
+    planar["loads"] = serde_json::json!([{"type":"nodal","data":{"nodeId":3,"fx":1,"fz":0,"my":0}}]);
+    let planar: SolverInput = serde_json::from_value(planar).unwrap();
+    let spatial = embed_2d(&planar, Plane::XZ).unwrap();
+    let mut failures = Vec::new();
+    for secant in [1.0, rounded] {
+        let soil = SoilSpring {
+            node_id: 1,
+            direction: 0,
+            curve: SoilCurve::Custom { points: vec![[0.0, 0.0], [1.0, secant]] },
+            tributary_length: 1.0,
+        };
+        let result2 = solve_ssi_2d(&SSIInput {
+            solver: planar.clone(), soil_springs: vec![soil.clone()], max_iter: 2, tolerance: 1e-4,
+        });
+        let result3 = solve_ssi_3d(&SSIInput3D {
+            solver: spatial.clone(), soil_springs: vec![soil], max_iter: 2, tolerance: 1e-4,
+        });
+        if secant == rounded {
+            report("planar SSI", result2, &mut failures);
+            report("spatial SSI", result3, &mut failures);
+        } else {
+            let planar_result = result2.unwrap();
+            let spatial_result = result3.unwrap();
+            assert!(planar_result.converged && spatial_result.converged);
+            assert_eq!(planar_result.results.displacements.len(), planar.nodes.len());
+            assert_eq!(spatial_result.results.displacements.len(), spatial.nodes.len());
+            assert!(planar_result.results.displacements.iter().all(|u| u.ux == 0.0 && u.uz == 0.0 && u.ry == 0.0));
+            assert!(spatial_result.results.displacements.iter().all(|u| u.ux == 0.0 && u.uy == 0.0 && u.uz == 0.0 && u.rx == 0.0 && u.ry == 0.0 && u.rz == 0.0));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
