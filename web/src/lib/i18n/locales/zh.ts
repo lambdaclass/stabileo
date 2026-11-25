@@ -14331,7 +14331,7 @@ const zh: Translations = {
   "plates.analysisMeshRefused": "无法划分网格：{names}。请检查其单元尺寸或轮廓。",
   "plates.analysisInvalid": "分析已停止。请修正以下无效板的几何形状或属性：{names}。",
   "plates.analysisWallSlab": "分析已停止。墙体 {wall} 和楼板 {slab} 在节点 {node} 处没有共用网格顶点。请重新划分连接处的网格，使两者共用节点。",
-  "plates.analysisWallSlabFace": "分析已停止。墙体 {wall} 的边 {edge} 在楼板网格内部与楼板 {slab} 相接。请重新划分连接处的网格，使两者共用边。",
+  "plates.analysisWallSlabFace": "分析已停止。墙体 {wall} 与楼板 {slab} 在墙体节点 {nodes} 附近相接，但没有共用网格边。请重新划分连接处的网格，使两者共用边。",
   "plates.meshedAtAnalysis": "分析前已为 {n} 块板划分网格（{cells} 个单元）",
   "plates.liveNeedsMesh": "{n} 块板没有当前的网格：实时计算等待完整分析，完整分析会为其划分网格。",
   "plates.problem.needNodes": "至少需要三个已有节点。",

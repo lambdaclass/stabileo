@@ -14764,7 +14764,7 @@ const es: Record<string, string> = {
   "plates.analysisMeshRefused": "No se pudo mallar: {names}. Revisá su tamaño de elemento o su contorno.",
   "plates.analysisInvalid": "Se detuvo el análisis. Corregí la geometría o las propiedades de las placas no válidas: {names}.",
   "plates.analysisWallSlab": "Se detuvo el análisis. El muro {wall} y la losa {slab} no comparten un vértice de malla en el nodo {node}. Volvé a mallar la unión con nodos compartidos.",
-  "plates.analysisWallSlabFace": "Se detuvo el análisis. El borde {edge} del muro {wall} encuentra la losa {slab} en el interior de la malla de la losa. Volvé a mallar la unión con bordes compartidos.",
+  "plates.analysisWallSlabFace": "Se detuvo el análisis. El muro {wall} encuentra la losa {slab} sin un borde de malla compartido cerca de los nodos del muro {nodes}. Volvé a mallar la unión con bordes compartidos.",
   "plates.meshedAtAnalysis": "Se mallaron {n} placas antes del cálculo ({cells} elementos)",
   "plates.liveNeedsMesh": "{n} placas sin malla vigente: el cálculo en vivo espera al cálculo completo, que las malla.",
   "plates.problem.needNodes": "Hacen falta al menos tres nodos existentes.",

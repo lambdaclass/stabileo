@@ -14775,7 +14775,7 @@ const en: Record<string, string> = {
   "plates.analysisMeshRefused": "Could not mesh: {names}. Check their element size or their outline.",
   "plates.analysisInvalid": "Analysis stopped. Correct the invalid plate geometry or properties for {names}.",
   "plates.analysisWallSlab": "Analysis stopped. Wall {wall} and slab {slab} do not share a mesh vertex at node {node}. Remesh the joint with shared nodes.",
-  "plates.analysisWallSlabFace": "Analysis stopped. Wall {wall}, edge {edge}, meets slab {slab} within the slab mesh. Remesh the joint with shared edges.",
+  "plates.analysisWallSlabFace": "Analysis stopped. Wall {wall} meets slab {slab} without a shared mesh edge near wall nodes {nodes}. Remesh the joint with shared edges.",
   "plates.meshedAtAnalysis": "{n} plates meshed before the analysis ({cells} elements)",
   "plates.liveNeedsMesh": "{n} plates without a current mesh: live calculation waits for the full analysis, which meshes them.",
   "plates.problem.needNodes": "At least three existing nodes are needed.",

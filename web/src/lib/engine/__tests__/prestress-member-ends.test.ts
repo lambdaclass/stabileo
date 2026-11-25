@@ -297,9 +297,7 @@ describe('a joined end the solve cannot give a node of its own', () => {
 });
 
 
-const redistributedTendonRegression = process.env.RUN_KNOWN_WRONG === '2580' ? it : it.skip;
-
-redistributedTendonRegression('known wrong result: #2580 — audits redistributed curved tendon forces in the case wrench', () => {
+it('known wrong result: #2580 — audits redistributed curved tendon forces in the case wrench', () => {
   const { member } = simplySupportedTendon(0, e0);
   const q = 10;
   modelStore.addDistributedLoad3D(member, 0, 0, -q, -q);

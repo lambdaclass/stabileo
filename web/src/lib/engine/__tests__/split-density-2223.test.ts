@@ -131,9 +131,7 @@ it('known wrong result: #2223 — member-defined density is distinct from an exp
 });
 
 
-const planarVariableRegression = process.env.RUN_KNOWN_WRONG === '2223' ? it : it.skip;
-
-planarVariableRegression('known wrong result: #2223 — planar variable loads reach single and factored solves', async () => {
+it('known wrong result: #2223 — planar variable loads reach single and factored solves', async () => {
   const unit = 0.0015, q = 10;
   const i = modelStore.addNode(0, 0), j = modelStore.addNode(unit, unit);
   const member = modelStore.addElement(i, j, 'frame');

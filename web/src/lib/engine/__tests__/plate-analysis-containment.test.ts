@@ -579,9 +579,7 @@ function diamondWall(conforming = false) {
   return null;
 }
 
-const wallContactRegression = process.env.RUN_KNOWN_WRONG === '2430' ? it : it.skip;
-
-wallContactRegression.each([
+it.each([
   ['both crossing points inside the perimeter band', () => wallAtSlabPerimeter(PLATE_EDGE_TOL / 2).wall],
   ['a sloping edge inside the contact band', () => wallWithSlopingTop(PLATE_EDGE_TOL / 4, PLATE_EDGE_TOL / 2).wall],
   ['only part of a sloping edge inside the contact band', () => wallWithSlopingTop(PLATE_EDGE_TOL / 2, PLATE_EDGE_TOL * 2).wall],

@@ -13864,7 +13864,7 @@ const hu: Translations = {
   "plates.analysisMeshRefused": "Nem sikerült hálózni: {names}. Ellenőrizze az elemméretüket vagy a körvonalukat.",
   "plates.analysisInvalid": "A számítás leállt. Javítsa az érvénytelen lemezek geometriáját vagy tulajdonságait: {names}.",
   "plates.analysisWallSlab": "A számítás leállt. A(z) {wall} fal és a(z) {slab} födém hálójának nincs közös csúcsa a(z) {node} csomópontnál. Hálózza újra a csatlakozást közös csomópontokkal.",
-  "plates.analysisWallSlabFace": "A számítás leállt. A(z) {wall} fal {edge} éle a födémháló belsejében találkozik a(z) {slab} födémmel. Hálózza újra a csatlakozást közös élekkel.",
+  "plates.analysisWallSlabFace": "A számítás leállt. A(z) {wall} fal a(z) {nodes} falcsomópontok közelében közös hálóél nélkül találkozik a(z) {slab} födémmel. Hálózza újra a csatlakozást közös élekkel.",
   "plates.meshedAtAnalysis": "{n} lemez hálózva az analízis előtt ({cells} elem)",
   "plates.liveNeedsMesh": "{n} lemeznek nincs aktuális hálója: az élő számítás megvárja a teljes analízist, amely hálózza őket.",
   "plates.problem.needNodes": "Legalább három meglévő csomópont szükséges.",

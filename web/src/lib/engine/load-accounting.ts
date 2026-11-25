@@ -230,8 +230,12 @@ function enteredMoment(d: PointLoadOnElement): number {
   return d.my || d.mz || 0;
 }
 
+function wrenchForModel(model: ModelData): Wrench {
+  return new Wrench(model[accountingMemberPieces]);
+}
+
 function enteredLoads(model: ModelData, loads: readonly Load[], frame: Frame, leftHand: boolean, caseId: number, definitions: ReadonlySet<number>): Wrench {
-  const out = new Wrench(model[accountingMemberPieces]);
+  const out = wrenchForModel(model);
   const at = (id: number): Vector => {
     const node = model.nodes.get(id);
     if (!node) return unsupported(model, caseId, 'node', id);
@@ -347,7 +351,7 @@ function enteredLoads(model: ModelData, loads: readonly Load[], frame: Frame, le
 }
 
 function assembled2D(model: ModelData, input: SolverInput, loads: readonly SolverLoad[], caseId: number): Wrench {
-  const result = new Wrench();
+  const result = wrenchForModel(model);
   const at = (id: number): Vector => {
     const node = input.nodes.get(id);
     if (!node) return unsupported(model, caseId, 'node', id);
@@ -386,7 +390,7 @@ function assembled2D(model: ModelData, input: SolverInput, loads: readonly Solve
 function assembled3D(
   model: ModelData, input: SolverInput3D, loads: readonly SolverLoad3D[], caseId: number, label: string,
 ): Wrench {
-  const result = new Wrench(model[accountingMemberPieces]);
+  const result = wrenchForModel(model);
   const at = (id: number): Vector => {
     const node = input.nodes.get(id);
     if (!node) return unsupported(model, caseId, 'node', id);
@@ -406,7 +410,7 @@ function assembled3D(
       result.apply(at(nodeId), force, LoadVector.from([mx, my, mz], nodal?.couple.magnitude, nodal?.couple.underflow));
       const redistributed = nodal?.memberLine;
       if (redistributed) {
-        const { member, end } = redistributed;
+        const { member, end, source } = redistributed;
         let ref = members.get(member);
         if (!ref) {
           ref = memberRef3D(model, member, embedded ??= shouldEmbedFlat2DModelIn3D(model)) ?? undefined;
@@ -419,7 +423,9 @@ function assembled3D(
             case: label, member, end: end.toUpperCase(), actual: nodeId, expected,
           }));
         }
-        result.memberLineForce(member, new LoadScalar(end === 'i' ? 0 : ref.axes.L), force);
+        if (source === 'external') {
+          result.memberLineForce(member, new LoadScalar(end === 'i' ? 0 : ref.axes.L), force);
+        }
       }
       continue;
     }

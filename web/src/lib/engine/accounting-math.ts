@@ -145,9 +145,11 @@ export class LoadVector {
   }
 }
 
+export type MemberLineSource = 'external' | 'prestress';
+
 type AssembledMagnitudes3D =
-  | { force: LoadVector; couple: LoadVector; memberLine?: { member: number; end: 'i' | 'j' } }
-  | { qI: LoadVector; qJ: LoadVector; source?: 'prestress' };
+  | { force: LoadVector; couple: LoadVector; memberLine?: { member: number; end: 'i' | 'j'; source: MemberLineSource } }
+  | { qI: LoadVector; qJ: LoadVector; source: MemberLineSource };
 
 export const assembledMagnitudes3D = new WeakMap<SolverLoad3D, AssembledMagnitudes3D>();
 

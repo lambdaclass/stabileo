@@ -1514,6 +1514,8 @@ function solveCombinations2DFallback(
 
 // ─── 3D: buildSolverInput3D ──────────────────────────────────────
 
+class PlanarPointLoadProjectionError extends Error {}
+
 /** Build a SolverInput3D from model data. Returns null if model is empty. */
 /** Build only the loads array for a 3D solver input (avoids rebuilding all structural Maps per case). */
 /*
@@ -1538,12 +1540,6 @@ function solveCombinations2DFallback(
  * reaches it, and as a statement about input, not about the stiffness. The
  * load arrows are drawn along the same displayed axis (`scene-sync`).
  */
-/**
- * A member's end nodes and local axes as the 3D solve builds them: nodes mapped as for the
- * input, the member's own local-Y vector, and its roll plus the section's rotation.
- */
-class PlanarPointLoadProjectionError extends Error {}
-
 /**
  * The engine's loads for `loads`, plus self-weight.
  *

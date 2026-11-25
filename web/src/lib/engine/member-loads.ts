@@ -24,7 +24,7 @@
  * the member never sees that part, and would otherwise carry its average along its length.
  */
 import type { SolverLoad3D } from './types-3d';
-import { assembledMagnitudes3D, LoadVector, zero } from './accounting-math';
+import { assembledMagnitudes3D, LoadVector, zero, type MemberLineSource } from './accounting-math';
 import type { ModelData } from './solver-service';
 import { mapModelNodeToSolver3D, shouldEmbedFlat2DModelIn3D } from './model-embedding';
 import { computeLocalAxes3D } from './local-axes-3d';
@@ -119,10 +119,10 @@ export interface MemberRef {
   points?: readonly [Vec3, Vec3];
 }
 
-export function distributedSolverRow3D(elementId: number, qI: LoadVector, qJ: LoadVector, a?: number, b?: number): SolverLoad3D {
+export function distributedSolverRow3D(elementId: number, qI: LoadVector, qJ: LoadVector, a?: number, b?: number, source: MemberLineSource = 'external'): SolverLoad3D {
   const [qXI, qYI, qZI] = qI.value, [qXJ, qYJ, qZJ] = qJ.value;
   const row: SolverLoad3D = { type: 'distributed', data: { elementId, qXI, qXJ, qYI, qYJ, qZI, qZJ, a, b } };
-  assembledMagnitudes3D.set(row, { qI, qJ });
+  assembledMagnitudes3D.set(row, { qI, qJ, source });
   return row;
 }
 
@@ -131,14 +131,16 @@ export function distributedSolverRow3D(elementId: number, qI: LoadVector, qJ: Lo
  * `axialOnly` transfers the load to end nodes for members that carry no bending.
  */
 export function globalDistributedToSolver(m: MemberRef, gI: Vec3, gJ: Vec3, a: number, b: number, axialOnly = false): SolverLoad3D[] {
-  return distributedVectorsToSolver(m, LoadVector.from(gI), LoadVector.from(gJ), a, b, axialOnly);
+  return distributedVectorsToSolver(m, LoadVector.from(gI), LoadVector.from(gJ), a, b, axialOnly, 'external');
 }
 
-function distributedVectorsToSolver(m: MemberRef, gI: LoadVector, gJ: LoadVector, a: number, b: number, axialOnly: boolean): SolverLoad3D[] {
+function distributedVectorsToSolver(
+  m: MemberRef, gI: LoadVector, gJ: LoadVector, a: number, b: number, axialOnly: boolean, source: MemberLineSource,
+): SolverLoad3D[] {
   const { ex, ey, ez, L } = m.axes;
   const qI = gI.projectOnto(m.axes), qJ = gJ.projectOnto(m.axes);
   if (!axialOnly) {
-    return [...qI.value, ...qJ.value].some(v => v !== 0) ? [distributedSolverRow3D(m.elementId, qI, qJ, a, b)] : [];
+    return [...qI.value, ...qJ.value].some(v => v !== 0) ? [distributedSolverRow3D(m.elementId, qI, qJ, a, b, source)] : [];
   }
 
   const span = trapezoidSpan(a, b);
@@ -161,7 +163,7 @@ function distributedVectorsToSolver(m: MemberRef, gI: LoadVector, gJ: LoadVector
       if (axial) row.data.axialOf = { elementId: m.elementId, end, p: dot(force.value, ex) };
       assembledMagnitudes3D.set(row, {
         force, couple: arm ? force.momentAt(arm) : LoadVector.from(zero()),
-        memberLine: { member: m.elementId, end },
+        memberLine: { member: m.elementId, end, source },
       });
       out.push(row);
     }
@@ -205,7 +207,7 @@ export function transverseToNodes(loads: SolverLoad3D[], axialOnly: (elementId: 
       };
       const qI = globalEnd(l.data.qXI ?? 0, l.data.qYI, l.data.qZI, line?.qI);
       const qJ = globalEnd(l.data.qXJ ?? 0, l.data.qYJ, l.data.qZJ, line?.qJ);
-      out.push(...distributedVectorsToSolver(m, qI, qJ, l.data.a ?? 0, l.data.b ?? m.axes.L, true));
+      out.push(...distributedVectorsToSolver(m, qI, qJ, l.data.a ?? 0, l.data.b ?? m.axes.L, true, line?.source ?? 'external'));
     } else if (l.type === 'pointOnElement') {
       const m = axialOnly(l.data.elementId);
       if (!m) { out.push(l); continue; }
@@ -258,6 +260,10 @@ export function memberFrame3D(
   };
 }
 
+/**
+ * A member's end nodes and local axes as the 3D solve builds them: nodes mapped as for the
+ * input, the member's own local-Y vector, and its roll plus the section's rotation.
+ */
 export function memberRef3D(model: ModelData, elementId: number, project2DToXZ = shouldEmbedFlat2DModelIn3D(model)): MemberRef | null {
   const elem = model.elements.get(elementId);
   if (!elem) return null;
