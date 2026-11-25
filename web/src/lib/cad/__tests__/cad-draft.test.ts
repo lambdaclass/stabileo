@@ -373,7 +373,7 @@ it.each([
   expect(solve3D(input!).reactions.reduce((sum, support) => sum + support.fz, 0)).toBeCloseTo((6 * 5 - 1) * 2 * (3 + 2), 8);
 });
 
-it('#2429 refuses an oblique CAD wall supported by isolated shared nodes', () => {
+it('#2429 refuses an oblique CAD wall when slab meshing is disabled', () => {
   const outline = [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }, { x: 0, y: 4 }];
   const plan: ArchPlan = {
     ...fixturePlan(), columns: outline.map(at => ({ at, sizeSource: 'default' })), openings: [],
@@ -383,11 +383,11 @@ it('#2429 refuses an oblique CAD wall supported by isolated shared nodes', () =>
   };
   for (const meshMode of ['fixedDivisions', 'targetSize'] as const) {
     const draft = generateRcDraft(plan, assumptions({
-      nFloors: 1, storyHeights: [3], meshMode, meshTargetSize: 2, deadLoad: 1, liveLoad: 0, roofLiveLoad: 0,
+      nFloors: 1, storyHeights: [3], meshMode, meshTargetSize: 2, meshSlabs: false, deadLoad: 1, liveLoad: 0, roofLiveLoad: 0,
     }), SOURCE);
-    expect(draft.counts.slabQuads).toBe(4);
+    expect(draft.counts.slabQuads).toBe(1);
     const quads = draft.snapshot.quads!;
-    const slabs = quads.slice(0, 4), walls = quads.slice(4);
+    const slabs = quads.slice(0, 1), walls = quads.slice(1);
     const slabNodes = new Set(slabs.flatMap(([, q]) => q.nodes));
     const wallNodes = new Set(walls.flatMap(([, q]) => q.nodes));
     const edges = (cells: typeof quads) => cells.flatMap(([, { nodes }]) => nodes.map((a, i) => {
@@ -411,14 +411,12 @@ it('#2429 refuses an oblique CAD wall supported by isolated shared nodes', () =>
   }
 });
 
-const wallTraceOracle = process.env.RUN_KNOWN_WRONG === '2429' ? it : it.skip;
-
-wallTraceOracle.each([
+it.each([
   ['fixedDivisions', 'diagonal'],
   ['targetSize', 'diagonal'],
   ['fixedDivisions', 'interior'],
   ['targetSize', 'interior'],
-] as const)('known wrong result: #2429 %s meshes the full %s wall trace before transferring pressure', (meshMode, trace) => {
+] as const)('#2429 %s meshes the full %s wall trace before transferring pressure', (meshMode, trace) => {
   const outline = [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }, { x: 0, y: 4 }];
   const start = trace === 'diagonal' ? outline[0]! : { x: 1, y: 1 };
   const end = trace === 'diagonal' ? outline[2]! : { x: 3, y: 2 };
@@ -436,9 +434,11 @@ wallTraceOracle.each([
   const model = snapshotToModelShape(draft.snapshot);
   const quads = draft.snapshot.quads!;
   const key = (a: number, b: number) => a < b ? `${a}:${b}` : `${b}:${a}`;
-  const slabEdges = new Set(quads.slice(0, draft.counts.slabQuads).flatMap(([, { nodes }]) =>
+  const slabCells = [...quads.slice(0, draft.counts.slabQuads), ...(draft.snapshot.plates ?? [])];
+  const slabEdges = new Set(slabCells.flatMap(([, { nodes }]) =>
     nodes.map((a, i) => key(a, nodes[(i + 1) % nodes.length]!))));
-  const topEdges = quads.slice(draft.counts.slabQuads).map(([, { nodes }]) => nodes.slice(2));
+  const wallCells = quads.slice(draft.counts.slabQuads);
+  const topEdges = wallCells.map(([, { nodes }]) => nodes.slice(2));
   for (const [a, b] of topEdges) expect.soft(slabEdges.has(key(a!, b!))).toBe(true);
   expect(topEdges.reduce((sum, [a, b]) => {
     const p = model.nodes.get(a!)!, q = model.nodes.get(b!)!;
@@ -455,7 +455,7 @@ wallTraceOracle.each([
   expect(mx).toBeCloseTo(4 * 4 * 2, 8);
   expect(my).toBeCloseTo(-4 * 4 * 2, 8);
   if (trace === 'interior') {
-    const base = new Set(quads.slice(draft.counts.slabQuads).flatMap(([, { nodes }]) => nodes.slice(0, 2)));
+    const base = new Set(wallCells.flatMap(([, { nodes }]) => nodes.slice(0, 2)));
     expect(new Set(reactions.map(r => r.nodeId))).toEqual(base);
     expect(reactions.reduce((sum, r) => sum + (base.has(r.nodeId) ? r.fz : 0), 0)).toBeCloseTo(4 * 4, 8);
   }

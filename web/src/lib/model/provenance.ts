@@ -67,6 +67,7 @@ export interface ModelProvenance {
    * not to reverse-engineer it from the node coordinates.
    */
   generatorParams?: Record<string, unknown>;
+  cadWallSlabMesh?: boolean;
 }
 
 /** True when this model was produced by a generator rather than imported or hand-built. */

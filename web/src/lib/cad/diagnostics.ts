@@ -17,6 +17,7 @@
 
 import type { RcDraftResult } from './types';
 import type { ModelSnapshot } from '../store/history.svelte';
+import { wallSlabRefusal } from '../engine/plate-analysis-refusal';
 
 export type DiagnosticLevel = 'ok' | 'warn' | 'error';
 
@@ -24,6 +25,7 @@ export interface DiagnosticCheck {
   /** Stable id → i18n key `cad.diag.<id>` in the wizard. */
   id: string;
   level: DiagnosticLevel;
+  message?: string;
   /** Numeric substitutions for the localized message ({n}, {a}, {b}). */
   values?: Record<string, number>;
 }
@@ -49,8 +51,8 @@ function connectedComponents(snap: ModelSnapshot): { count: number; largest: num
     (adj.get(b) ?? adj.set(b, []).get(b)!).push(a);
   };
   for (const [, e] of snap.elements) link(e.nodeI, e.nodeJ);
-  for (const [, q] of snap.quads ?? []) {
-    for (let i = 0; i < 4; i++) link(q.nodes[i], q.nodes[(i + 1) % 4]);
+  for (const [, q] of [...(snap.quads ?? []), ...(snap.plates ?? [])]) {
+    for (const [i, node] of q.nodes.entries()) link(node, q.nodes[(i + 1) % q.nodes.length]!);
   }
   const seen = new Set<number>();
   let count = 0, largest = 0;
@@ -99,14 +101,15 @@ export function diagnoseDraft(result: RcDraftResult): DraftDiagnostics {
 
   // 3) Slabs / area loads — a gravity model that carries nothing.
   const areaLoads = snap.loads.filter((l) => (l.data as { quadId?: number }).quadId !== undefined).length;
-  if (c.slabQuads === 0) {
+  const slabCells = c.slabQuads + (c.slabTriangles ?? 0);
+  if (slabCells === 0) {
     add('noSlabs', c.beams > 0 || c.wallQuads > 0 ? 'warn' : 'error');
   }
-  if (areaLoads === 0 && c.slabQuads === 0) {
+  if (areaLoads === 0 && slabCells === 0) {
     add('noAreaLoads', 'warn');
-  } else if (areaLoads === 0 && c.slabQuads > 0) {
+  } else if (areaLoads === 0 && slabCells > 0) {
     // Shells exist but nothing loads them — usually D=L=0 by mistake.
-    add('slabsNoLoad', 'warn', { n: c.slabQuads });
+    add('slabsNoLoad', 'warn', { n: slabCells });
   }
 
   // 4) Supports.
@@ -123,7 +126,7 @@ export function diagnoseDraft(result: RcDraftResult): DraftDiagnostics {
   // 6) Orphan nodes — referenced by no element, quad, or support.
   const used = new Set<number>();
   for (const [, e] of snap.elements) { used.add(e.nodeI); used.add(e.nodeJ); }
-  for (const [, q] of snap.quads ?? []) for (const n of q.nodes) used.add(n);
+  for (const [, q] of [...(snap.quads ?? []), ...(snap.plates ?? [])]) for (const n of q.nodes) used.add(n);
   for (const [, s] of snap.supports) used.add(s.nodeId);
   const orphans = snap.nodes.filter(([, n]) => !used.has(n.id)).length;
   if (orphans > 0) add('orphanNodes', 'warn', { n: orphans });
@@ -141,6 +144,14 @@ export function diagnoseDraft(result: RcDraftResult): DraftDiagnostics {
   // 8) Skipped / isolated slabs.
   if (c.slabsIsolated > 0) add('isolatedSlabs', 'warn', { n: c.slabsIsolated });
   if (c.slabsSkipped > 0) add('skippedSlabs', 'warn', { n: c.slabsSkipped });
+
+  if (c.wallQuads > 0 && slabCells > 0) {
+    const message = wallSlabRefusal({
+      nodes: new Map(snap.nodes), elements: new Map(snap.elements),
+      quads: new Map(snap.quads), plates: new Map(snap.plates),
+    });
+    if (message) checks.push({ id: 'wallSlab', level: 'error', message });
+  }
 
   const level = checks.reduce((acc, ck) => worst(acc, ck.level), 'ok' as DiagnosticLevel);
   const solvableShape =

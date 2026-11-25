@@ -307,6 +307,7 @@ export interface FloatingPruneResult {
   nodes: number;
   elements: number;
   quads: number;
+  plates: number;
   supports: number;
 }
 
@@ -319,15 +320,15 @@ export interface FloatingPruneResult {
  * model.
  */
 export function pruneFloating(snap: ModelSnapshot): FloatingPruneResult {
-  if (snap.nodes.length === 0) return { nodes: 0, elements: 0, quads: 0, supports: 0 };
+  if (snap.nodes.length === 0) return { nodes: 0, elements: 0, quads: 0, plates: 0, supports: 0 };
   const adj = new Map<number, number[]>();
   const link = (a: number, b: number) => {
     (adj.get(a) ?? adj.set(a, []).get(a)!).push(b);
     (adj.get(b) ?? adj.set(b, []).get(b)!).push(a);
   };
   for (const [, e] of snap.elements) link(e.nodeI, e.nodeJ);
-  for (const [, q] of snap.quads ?? []) {
-    for (let i = 0; i < 4; i++) link(q.nodes[i], q.nodes[(i + 1) % 4]);
+  for (const [, q] of [...(snap.quads ?? []), ...(snap.plates ?? [])]) {
+    for (const [i, node] of q.nodes.entries()) link(node, q.nodes[(i + 1) % q.nodes.length]!);
   }
   const compOf = new Map<number, number>();
   let comp = 0;
@@ -363,20 +364,23 @@ export function pruneFloating(snap: ModelSnapshot): FloatingPruneResult {
   const reachable = new Set<number>([...compOf.entries()].filter(([, c]) => c === keep).map(([n]) => n));
 
   const beforeN = snap.nodes.length, beforeE = snap.elements.length;
-  const beforeQ = (snap.quads ?? []).length, beforeS = snap.supports.length;
+  const beforeQ = (snap.quads ?? []).length, beforeP = (snap.plates ?? []).length, beforeS = snap.supports.length;
   snap.nodes = snap.nodes.filter(([, n]) => reachable.has(n.id));
   snap.elements = snap.elements.filter(([, e]) => reachable.has(e.nodeI) && reachable.has(e.nodeJ));
   snap.supports = snap.supports.filter(([, sup]) => reachable.has(sup.nodeId));
   snap.quads = (snap.quads ?? []).filter(([, q]) => q.nodes.every((n) => reachable.has(n)));
-  const quadIds = new Set((snap.quads ?? []).map(([id]) => id));
+  snap.plates = (snap.plates ?? []).filter(([, p]) => p.nodes.every(n => reachable.has(n)));
+  const plateIds = new Set(snap.plates.map(([id]) => id));
+  const quadIds = new Set(snap.quads.map(([id]) => id));
   snap.loads = snap.loads.filter((l) => {
-    const d = l.data as { quadId?: number };
-    return d.quadId === undefined || quadIds.has(d.quadId);
+    const d = l.data as { quadId?: number; on?: 'plate' };
+    return d.quadId === undefined || (d.on === 'plate' ? plateIds : quadIds).has(d.quadId);
   });
   return {
     nodes: beforeN - snap.nodes.length,
     elements: beforeE - snap.elements.length,
     quads: beforeQ - (snap.quads ?? []).length,
+    plates: beforeP - snap.plates.length,
     supports: beforeS - snap.supports.length,
   };
 }

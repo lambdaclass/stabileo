@@ -697,7 +697,7 @@
       t('cad.applied')
         .replace('{nodes}', String(draft.counts.nodes))
         .replace('{elems}', String(draft.counts.columns + draft.counts.beams))
-        .replace('{shells}', String(draft.counts.slabQuads + draft.counts.wallQuads)),
+        .replace('{shells}', String(draft.counts.slabQuads + draft.counts.slabTriangles + draft.counts.wallQuads)),
       'success',
     );
     onclose();
@@ -990,7 +990,7 @@
                   {:else if livePreviewDiag && livePreviewDraft}
                     <div class="preview-status" class:err={livePreviewDiag.level === 'error'} class:warnc={livePreviewDiag.level === 'warn'}>
                       {livePreviewDiag.level === 'ok' ? '✓' : livePreviewDiag.level === 'warn' ? '⚠' : '✕'}
-                      {livePreviewDraft.counts.columns}🟥 · {livePreviewDraft.counts.beams}🟦 · {livePreviewDraft.counts.slabQuads}🔷 · {livePreviewDraft.counts.nodes} {t('cad.cNodes')}
+                      {livePreviewDraft.counts.columns}🟥 · {livePreviewDraft.counts.beams}🟦 · {livePreviewDraft.counts.slabQuads + livePreviewDraft.counts.slabTriangles}🔷 · {livePreviewDraft.counts.nodes} {t('cad.cNodes')}
                     </div>
                     <div class="preview-status muted">{t('cad.previewDraftNote')}</div>
                   {/if}
@@ -1215,7 +1215,7 @@
                   <ul class="diag-list">
                     {#each diagnostics.checks as ck}
                       <li class="diag-{ck.level}">
-                        {t(`cad.diag.${ck.id}`)
+                        {ck.message ?? t(`cad.diag.${ck.id}`)
                           .replace('{n}', String(ck.values?.n ?? ''))
                           .replace('{orphans}', String(ck.values?.orphans ?? ''))}
                       </li>
@@ -1232,7 +1232,7 @@
                     <tr><td>{t('cad.cNodes')}</td><td class="num">{draft.counts.nodes}</td></tr>
                     <tr><td>{t('cad.cColumns')}</td><td class="num">{draft.counts.columns}</td></tr>
                     <tr><td>{t('cad.cBeams')}</td><td class="num">{draft.counts.beams}</td></tr>
-                    <tr><td>{t('cad.cSlabQuads')}</td><td class="num">{draft.counts.slabQuads}</td></tr>
+                    <tr><td>{t('cad.cSlabCells')}</td><td class="num">{draft.counts.slabQuads + draft.counts.slabTriangles}</td></tr>
                     <tr><td>{t('cad.cWallQuads')}</td><td class="num">{draft.counts.wallQuads}</td></tr>
                     <tr><td>{t('cad.cSupports')}</td><td class="num">{draft.counts.supports}</td></tr>
                     <tr><td>{t('cad.cLoads')}</td><td class="num">{draft.counts.loads}</td></tr>

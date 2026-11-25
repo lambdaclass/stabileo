@@ -1,6 +1,7 @@
 import { caseOrder, caseReductionRatio } from '../engine/case-rules';
 import { dyadicInteger } from '../engine/accounting-math';
 import { hasBoundedRafterGap, type GravityModel } from '../engine/loads/plan-gravity';
+import { triangularGravityFootprint } from '../engine/loads/gravity-shell-partition';
 import type { Constraint3D } from '../engine/types-3d';
 import { invalidPlanarPointTorsion, isFiniteInputNumber } from '../engine/model-input-numbers';
 import { PLANAR_LINE_COMPONENT_CUTOFF, TRUSS_LOAD_COMPONENT_CUTOFF } from '../engine/member-loads';
@@ -61,7 +62,7 @@ export const FEATURE_IDS = [
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
-  'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
+  'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'cadWallSlabMesh', 'triangularGravityFootprint', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
   'physicalPlateDefinitions', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
@@ -105,6 +106,7 @@ interface Sup {
 type ShellSnapshot = { id?: number; materialId?: number; nodes?: number[]; curved?: boolean; offset?: Offset3 };
 
 interface FeatureSnapshotFields {
+  provenance?: { source?: string; cadWallSlabMesh?: boolean };
   analysisMode?: string;
   gapElements?: unknown[];
   nodeToSurfacePairs?: unknown[];
@@ -508,6 +510,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   }
   if (f.has('space3D') && (f.has('shells') || s.groups?.length)) {
     const plates = plateAnalysisModel(s);
+    if (triangularGravityFootprint(plates) !== undefined) f.add('triangularGravityFootprint');
     const editedQuads = new Set((s.quads ?? []).filter(([, shell]) => shell?.curved || shell?.offset !== undefined).map(([id]) => id));
     const editedTriangles = new Set((s.plates ?? []).filter(([, shell]) => shell?.offset !== undefined).map(([id]) => id));
     for (const group of plates.groups?.values() ?? []) {
@@ -522,6 +525,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (issue && issue.kind !== 'unmeshed') f.add('plateAnalysisIssue');
     if (issue?.kind === 'wallSlab' && !('node' in issue.joint)) f.add('wallSlabInteriorContact');
   }
+  if (s.provenance?.source === 'cad-dxf' && (s.provenance.cadWallSlabMesh || f.has('wallSlabInteriorContact'))) f.add('cadWallSlabMesh');
   if (quads.some((q) => q?.curved)) f.add('curvedShells');
   if ([...quads, ...values(s.plates)].some((q) => offsetMoves(q?.offset))) f.add('eccentricities');
 

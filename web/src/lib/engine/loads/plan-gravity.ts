@@ -30,7 +30,10 @@
  *
  * Pure: no store.
  */
-import { canonicalFootprint, footprintArea, footprintBounds, footprintIntersection, planarShell, refuseGravityGeometry, ringArea, samePhysicalDeck, subtractFootprints, unionFootprints, type ShellPlane } from './gravity-shell-partition';
+import {
+  canonicalFootprint, footprintArea, footprintBounds, footprintIntersection, planarShell, refuseGravityGeometry,
+  ringArea, samePhysicalDeck, subtractFootprints, triangularGravityFootprint, unionFootprints, type ShellPlane,
+} from './gravity-shell-partition';
 import { physicalRoofRuns, samePhysicalPoint, snowCoordinate } from './physical-roof-geometry';
 import polygonClipping, { type Polygon } from 'polygon-clipping';
 import { orient2d } from 'robust-predicates';
@@ -234,6 +237,9 @@ export function hasBoundedRafterGap(model: GravityModel): boolean {
 }
 
 export function gravityLayout(model: GravityModel, opts: GravityOptions): GravityLayout {
+  const triangularPlate = triangularGravityFootprint(model);
+  if (triangularPlate !== undefined) refuseGravityGeometry(msg('loadPlan.gravity.triangularPlate', { id: triangularPlate }));
+
   const eligibility = new Map<number, ReturnType<typeof beamLike>>();
   const out: GravityLayout = {
     pieces: [], points: [], panelAreas: [], memberMeasures: eligibility, areaOf: new Map(), roofAreaOf: new Map(), widthMembers: [], shellQuads: [], areaByLevel: new Map(),

@@ -33,6 +33,18 @@ export function ringArea(ring: Point[]): number {
   return Math.abs(twiceArea.value / 2);
 }
 
+export function triangularGravityFootprint(model: {
+  nodes: ReadonlyMap<number, { x: number; y: number }>;
+  plates?: ReadonlyMap<number, { id: number; nodes: readonly number[] }>;
+}): number | undefined {
+  for (const plate of model.plates?.values() ?? []) {
+    const nodes = plate.nodes.map(id => model.nodes.get(id));
+    if (nodes.length !== 3 || nodes.some(node => !node)) continue;
+    if (ringArea(nodes.map(node => [node!.x, node!.y])) > 0) return plate.id;
+  }
+  return undefined;
+}
+
 export function footprintArea(region: MultiPolygon): number {
   const area = new Sum();
   for (const poly of region) {

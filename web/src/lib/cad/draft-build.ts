@@ -26,6 +26,7 @@ import {
 } from './infer';
 import { pointInPolygon } from './geometry';
 import type { ModelSnapshot } from '../store/history.svelte';
+import { PLATE_EDGE_TOL } from '../model/physical/plate-analysis';
 
 export interface InferenceOptions {
   /** Drop beam-layer fragments not connected to any column (leaders/annotation). */
@@ -170,6 +171,7 @@ function recountAfterPrune(result: RcDraftResult): void {
   c.columns = s.columns;
   c.beams = s.beams;
   c.slabQuads = s.slabQuads;
+  c.slabTriangles = s.slabTriangles;
   c.wallQuads = s.wallQuads;
   c.supports = result.snapshot.supports.length;
   c.loads = result.snapshot.loads.length;
@@ -202,10 +204,11 @@ function buildSinglePlan(input: BuildDraftInput): RcDraftResult {
   if (inf) pushInferenceProvenance(result, report, inf);
   if (inf?.pruneFloatingMembers) {
     const removed = pruneFloating(result.snapshot);
-    if (removed.elements > 0 || removed.nodes > 0 || removed.quads > 0) {
+    const removedShells = removed.quads + removed.plates;
+    if (removed.elements > 0 || removed.nodes > 0 || removedShells > 0) {
       recountAfterPrune(result);
-      result.provenance.assumptions.push(tp('cad.assume.prunedFloating', { members: removed.elements, shells: removed.quads, nodes: removed.nodes }));
-      result.warnings.push({ severity: 'warning', message: `prunedFloatingMembers:${removed.elements + removed.quads}` });
+      result.provenance.assumptions.push(tp('cad.assume.prunedFloating', { members: removed.elements, shells: removedShells, nodes: removed.nodes }));
+      result.warnings.push({ severity: 'warning', message: `prunedFloatingMembers:${removed.elements + removedShells}` });
     }
   }
   return result;
@@ -264,7 +267,7 @@ function buildMultiFloor(input: BuildDraftInput, gapWarnings: FloorRangeIssue[] 
     builds.push({ result, zShift: cum[spec.fromFloor - 1], spec });
   }
 
-  const { result: merged, rangeElemIds, rangeQuadIds } = mergeRanges(builds, input.assumptions);
+  const { result: merged, rangeElemIds, rangeQuadIds, rangePlateIds } = mergeRanges(builds, input.assumptions);
   // Hanging members (columns that don't continue between adjacent plans) →
   // prune to keep a connected model, always for multi-floor (reported).
   const removed = pruneFloating(merged.snapshot);
@@ -275,10 +278,12 @@ function buildMultiFloor(input: BuildDraftInput, gapWarnings: FloorRangeIssue[] 
   // yet none survive — surface it as an error rather than a lone provenance line.
   const survElem = new Set(merged.snapshot.elements.map(([id]) => id));
   const survQuad = new Set((merged.snapshot.quads ?? []).map(([id]) => id));
+  const survPlate = new Set((merged.snapshot.plates ?? []).map(([id]) => id));
   const prunedAway = builds.filter((_, i) => {
     const els = rangeElemIds[i] ?? [], qs = rangeQuadIds[i] ?? [];
-    if (els.length + qs.length === 0) return false; // 0-member range → emptyFloorRange already
-    return !els.some((id) => survElem.has(id)) && !qs.some((id) => survQuad.has(id));
+    const ps = rangePlateIds[i] ?? [];
+    if (els.length + qs.length + ps.length === 0) return false; // 0-member range → emptyFloorRange already
+    return !els.some((id) => survElem.has(id)) && !qs.some((id) => survQuad.has(id)) && !ps.some(id => survPlate.has(id));
   });
   if (prunedAway.length > 0) {
     rangeIssues.push({ severity: 'error', message: `floorRangePruned:${prunedAway.map((b) => b.spec.label ?? t('cad.range.planFallback')).join(', ')}` });
@@ -290,7 +295,7 @@ function buildMultiFloor(input: BuildDraftInput, gapWarnings: FloorRangeIssue[] 
     .join('; ');
   const assumptions = merged.snapshot.provenance!.assumptions
     .filter((line) => !isReplicatedPlanAssumption(line));
-  assumptions.unshift(tp('cad.assume.perFloorPlans', { map: planMap, members: removed.elements, shells: removed.quads, nodes: removed.nodes }));
+  assumptions.unshift(tp('cad.assume.perFloorPlans', { map: planMap, members: removed.elements, shells: removed.quads + removed.plates, nodes: removed.nodes }));
   merged.snapshot.provenance!.assumptions = assumptions;
   merged.provenance.assumptions = assumptions;
   merged.warnings.push({ severity: 'info', message: `perFloorPlans:${specs.length}` });
@@ -308,14 +313,16 @@ function buildMultiFloor(input: BuildDraftInput, gapWarnings: FloorRangeIssue[] 
  *  range (aligned with `builds`), the global element/quad ids it contributed —
  *  so the caller can tell whether a range's structure survived the prune. */
 function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions):
-  { result: RcDraftResult; rangeElemIds: number[][]; rangeQuadIds: number[][] } {
-  const tol = assumptions.snapTolerance;
+  { result: RcDraftResult; rangeElemIds: number[][]; rangeQuadIds: number[][]; rangePlateIds: number[][] } {
+  const cadWallSlabMesh = builds.some(({ result }) => result.provenance.cadWallSlabMesh);
+  const tol = cadWallSlabMesh ? PLATE_EDGE_TOL : assumptions.snapTolerance;
   const nodes: ModelSnapshot['nodes'] = [];
   const elements: ModelSnapshot['elements'] = [];
   const quads: NonNullable<ModelSnapshot['quads']> = [];
+  const plates: NonNullable<ModelSnapshot['plates']> = [];
   const sections: ModelSnapshot['sections'] = [];
   const loads: ModelSnapshot['loads'] = [];
-  let nextNode = 1, nextElem = 1, nextQuad = 1, nextLoad = 1;
+  let nextNode = 1, nextElem = 1, nextQuad = 1, nextPlate = 1, nextLoad = 1;
 
   // Global node weld by rounded coordinate.
   const nodeKey = (x: number, y: number, z: number) =>
@@ -336,7 +343,7 @@ function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions):
   // Section dedup by name.
   const sectionByName = new Map<string, number>();
   const aggCounts: RcDraftResult['counts'] = {
-    nodes: 0, columns: 0, beams: 0, slabQuads: 0, wallQuads: 0, supports: 0, loads: 0,
+    nodes: 0, columns: 0, beams: 0, slabQuads: 0, slabTriangles: 0, wallQuads: 0, supports: 0, loads: 0,
     combinations: 0, beamsSplit: 0, slabsSkipped: 0, beamsWithOffsets: 0, offsetsAmbiguous: 0,
     specSections: { schedule: 0, label: 0, geometry: 0, default: 0 },
     scheduleAssignments: 0, openingsDetected: 0, openingsCutFromSlabs: 0, openingsNotCut: 0,
@@ -351,11 +358,13 @@ function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions):
   // a range whose whole structure was pruned during composition.
   const rangeElemIds: number[][] = [];
   const rangeQuadIds: number[][] = [];
+  const rangePlateIds: number[][] = [];
 
   for (const { result, zShift, spec } of builds) {
     const snap = result.snapshot;
     const myElems: number[] = [];
     const myQuads: number[] = [];
+    const myPlates: number[] = [];
     const localToGlobalNode = new Map<number, number>();
     for (const [, n] of snap.nodes) {
       const gid = weldNode(n.x, n.y, (n.z ?? 0) + zShift);
@@ -388,10 +397,20 @@ function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions):
       localToGlobalQuad.set(q.id, id);
       quads.push([id, { ...q, id, nodes: q.nodes.map((n) => localToGlobalNode.get(n)!) as [number, number, number, number] }]);
     }
+    const localToGlobalPlate = new Map<number, number>();
+    for (const [, p] of snap.plates ?? []) {
+      const id = nextPlate++;
+      myPlates.push(id);
+      localToGlobalPlate.set(p.id, id);
+      plates.push([id, { ...p, id, nodes: p.nodes.map(n => localToGlobalNode.get(n)!) as [number, number, number] }]);
+    }
     for (const l of snap.loads) {
-      const d = { ...l.data } as { id?: number; quadId?: number };
+      const d = { ...l.data } as { id?: number; quadId?: number; on?: 'plate' };
       d.id = nextLoad++;
-      if (d.quadId !== undefined) d.quadId = localToGlobalQuad.get(d.quadId) ?? d.quadId;
+      if (d.quadId !== undefined) {
+        const shells = d.on === 'plate' ? localToGlobalPlate : localToGlobalQuad;
+        d.quadId = shells.get(d.quadId) ?? d.quadId;
+      }
       loads.push({ type: l.type, data: d });
     }
     // Aggregate informational counts.
@@ -418,6 +437,7 @@ function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions):
     }
     rangeElemIds.push(myElems);
     rangeQuadIds.push(myQuads);
+    rangePlateIds.push(myPlates);
   }
 
   // Regenerate base supports from welded ground nodes (z ≈ 0).
@@ -431,6 +451,7 @@ function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions):
   const provenance = {
     ...(builds[0]?.result.provenance ?? {}),
     assumptions: topProvenanceAssumptions,
+    ...(cadWallSlabMesh && { cadWallSlabMesh }),
   } as RcDraftResult['provenance'];
 
   const snapshot: ModelSnapshot = {
@@ -438,17 +459,17 @@ function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions):
     analysisMode: 'pro',
     nodes, materials: material, sections, elements, supports, loads,
     loadCases: topLoadCases, combinations: topCombinations,
-    plates: [], quads, constraints: [], connectors: [],
+    plates, quads, constraints: [], connectors: [],
     provenance,
     nextId: {
       node: nextNode, material: 2, section: sections.length + 1, element: nextElem,
       support: supId, load: nextLoad, loadCase: (topLoadCases?.length ?? 0) + 1,
-      combination: (topCombinations?.length ?? 0) + 1, plate: 1, quad: nextQuad, connector: 1,
+      combination: (topCombinations?.length ?? 0) + 1, plate: nextPlate, quad: nextQuad, connector: 1,
     },
   };
   aggCounts.combinations = topCombinations?.length ?? 0;
 
-  return { result: { snapshot, provenance, warnings, counts: aggCounts }, rangeElemIds, rangeQuadIds };
+  return { result: { snapshot, provenance, warnings, counts: aggCounts }, rangeElemIds, rangeQuadIds, rangePlateIds };
 }
 
 /**

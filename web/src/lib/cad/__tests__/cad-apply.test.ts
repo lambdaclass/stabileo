@@ -6,6 +6,16 @@
 //   - provenance round-trips through snapshot/restore,
 //   - markProvenanceReviewed is the only way to clear the draft tag.
 import { describe, it, expect, beforeEach } from 'vitest';
+import { buildDraft } from '../draft-build';
+import { diagnoseDraft } from '../diagnostics';
+import { fragmentFromSnapshot } from '../../model/edit/fragment-code';
+import { organizeImported } from '../../model/building/organize-import';
+import { modelFeatures } from '../../provenance/model-features';
+import { uiStore } from '../../store';
+import { placementStore } from '../../store/placement.svelte';
+import { runDirectAnalysis } from '../../engine/direct-analysis';
+import { runGlobalSolve } from '../../engine/live-calc';
+import type { AnalysisResults3D } from '../../engine/types-3d';
 import { modelStore } from '../../store/model.svelte';
 import { historyStore } from '../../store/history.svelte';
 import { serializeProject, deserializeProject } from '../../store/file';
@@ -17,7 +27,7 @@ import { simplePlanDxf } from './dxf-fixture';
 
 const SOURCE = { fileName: 'plan.dxf', importedAtIso: '2026-06-09T12:00:00.000Z' };
 
-function makeDraft() {
+function makeDraft(mode?: 'replace' | 'insert' | 'per-floor plans') {
   const doc = parseCadDxf(simplePlanDxf(), 'plan.dxf');
   const plan = extractArchPlan(doc, suggestLayerMappings(doc, 'm'), 'm');
   const a: RcDraftAssumptions = {
@@ -27,7 +37,19 @@ function makeDraft() {
     deadLoad: 3, liveLoad: 2, generateCombos: true,
     meshSlabs: true, meshMode: 'fixedDivisions', meshDivisions: 2, splitBeams: true, snapTolerance: 0.01,
   };
-  return generateRcDraft(plan, a, SOURCE);
+  if (!mode) return generateRcDraft(plan, a, SOURCE);
+  const outline = [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }, { x: 0, y: 4 }];
+  plan.columns = [];
+  plan.openings = [];
+  plan.slabs = [{ outline, isQuad: true, isRectilinear: true }];
+  plan.beams = [{ a: outline[0]!, b: outline[1]! }];
+  plan.walls = [{ a: { x: 1, y: 1 }, b: { x: 3, y: 2 }, thicknessSource: 'default' }];
+  const nFloors = mode === 'per-floor plans' ? 2 : 1;
+  const settings = { ...a, nFloors, storyHeights: Array.from({ length: nFloors }, () => 3), generateCombos: false, deadLoad: 1, liveLoad: 0 };
+  const floorPlans = mode === 'per-floor plans'
+    ? [{ plan, fromFloor: 1, toFloor: 1 }, { plan, fromFloor: 2, toFloor: 2 }]
+    : undefined;
+  return buildDraft({ plan, floorPlans, assumptions: settings, source: SOURCE, inference: { pruneFloatingMembers: true } });
 }
 
 /** A small but non-empty starting model so "restores exactly" means something. */
@@ -144,4 +166,63 @@ describe('CAD draft apply contract', () => {
     expect(modelStore.model.provenance?.assumptions.length)
       .toBe(draft.provenance.assumptions.length);
   });
+});
+
+
+it.each(['replace', 'insert', 'per-floor plans'] as const)('#2429 CAD %s preserves the applied triangle loads and wall reactions', async mode => {
+  const draft = makeDraft(mode);
+  expect(diagnoseDraft(draft).solvableShape).toBe(true);
+  expect(draft.counts.slabTriangles).toBeGreaterThan(0);
+  expect(draft.counts.slabQuads).toBe(0);
+  expect(modelFeatures(draft.snapshot as never)).toContain('cadWallSlabMesh');
+
+  uiStore.analysisMode = 'pro';
+  uiStore.includeSelfWeight = false;
+  try {
+    if (mode === 'insert') {
+      modelStore.clear();
+      const fragment = fragmentFromSnapshot(draft.snapshot);
+      placementStore.start({ fragment, label: SOURCE.fileName, onCommit: report => {
+        if (report) modelStore.batch(() => organizeImported());
+      } });
+      expect(placementStore.commit()).toBeTruthy();
+    } else {
+      modelStore.batch(() => {
+        modelStore.restore(draft.snapshot);
+        organizeImported();
+      });
+      expect(deserializeProject(serializeProject())).toBe(true);
+    }
+    expect(modelStore.plates.size).toBe(draft.counts.slabTriangles);
+    const expected = (mode === 'per-floor plans' ? 2 : 1) * 4 * 4;
+    const check = (result: AnalysisResults3D | string | null | undefined) => {
+      if (!result || typeof result === 'string') throw new Error(String(result));
+      expect(result.reactions.reduce((force, row) => force + row.fz, 0)).toBeCloseTo(expected, 8);
+    };
+    check(modelStore.solve3D(false, false, true));
+    check(await modelStore.solve3DAsync(false, false, true));
+    expect(modelStore.buildSolverInput3D()).toBeTruthy();
+    expect(modelStore.singleSolveInput3D(false, false, true)).toBeTruthy();
+    expect(await runGlobalSolve({ directBase: true })).toMatchObject({ ok: true });
+    const model = modelStore.model;
+    const deadCases = new Set(model.loads.flatMap(load => load.type === 'surface3d' ? [load.data.caseId!] : []));
+    expect(deadCases.size).toBe(1);
+    const caseId = [...deadCases][0]!;
+    expect(model.loadCases.find(c => c.id === caseId)?.type).toBe('D');
+    const combo = modelStore.addCombination('Wall reactions', [{ caseId, factor: 1 }]);
+    for (const perCombination of ['linear', 'pdelta'] as const) {
+      modelStore.setAnalysis({ perCombination });
+      for (const bundle of [modelStore.solveCombinations3D(false, false, true), await modelStore.solveCombinations3DParallel(false, false, true)]) {
+        if (!bundle || typeof bundle === 'string') throw new Error(String(bundle));
+        check(bundle.perCombo.get(combo));
+      }
+    }
+    const direct = await runDirectAnalysis(model, model.loadCases, model.combinations, { includeSelfWeight: false });
+    if (typeof direct === 'string') throw new Error(direct);
+    check(direct.perCombo.get(combo));
+  } finally {
+    uiStore.analysisMode = '2d';
+    uiStore.includeSelfWeight = true;
+    placementStore.cancel();
+  }
 });
