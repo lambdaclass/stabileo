@@ -1382,3 +1382,7 @@ test.web.pro-plates-switch:
 .PHONY: test.web.production-mesher
 test.web.production-mesher:
 	nix develop .\#e2e --command node --test web/scripts/tests/pro-mesher-inputs.test.mjs
+
+.PHONY: bench.engine.krylov-work
+bench.engine.krylov-work:
+	$(NIX_RUN) cargo run --release -p dedaliano-engine --features experimental-nonlinear --example krylov_work -- $(or $(REPEATS),7)

@@ -151,3 +151,7 @@ opt-level = 1
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }
+
+[[example]]
+name = "krylov_work"
+required-features = ["experimental-nonlinear"]

@@ -55,6 +55,26 @@ for (const [dimension, input] of [[2, plane], [3, space]]) {
       assert.equal(actual.loadFactor, 1);
       sameFiniteResults(actual.results, expected.results);
     });
+    test(`${dimension}D ${stepping} profiling observes work without changing results or rollback`, () => {
+      for (const maxIter of [1, 200]) {
+        const options = { method: 'newtonKrylov', stepping, nIncrements: 4, maxIter, tolerance: 1e-10 };
+        const plain = JSON.parse(solve(JSON.stringify(input), JSON.stringify(options)));
+        const { result, work } = JSON.parse(solve(JSON.stringify(input), JSON.stringify({ ...options, profile: true })));
+        assert.deepEqual(result, plain);
+        assert.equal(work.linearizations, result.iterations);
+        assert.ok(work.factorizationRequests > 0);
+        const k = work.krylov;
+        assert.equal(k.iterations, k.tangentProducts);
+        assert.equal(k.attempts, k.acceptedSteps + k.noFactor + k.invalidTarget + k.invalidPreconditionedResidual + k.invalidCurvature + k.nonfiniteResidual + k.lostPreconditioner + k.iterationLimit);
+        if (maxIter === 1) {
+          assert.equal(result.converged, false);
+          assert.equal(result.loadFactor, 0);
+        } else {
+          assert.equal(result.converged, true);
+          assert.ok(k.acceptedSteps > 0);
+        }
+      }
+    });
     test(`${dimension}D ${stepping} line search uses a fresh budget on each step`, () => {
       const run = (maxIter) => JSON.parse(solve(JSON.stringify(input), JSON.stringify({
         method: 'newtonLineSearch', stepping, nIncrements: 2, maxIter, tolerance: 1e-8,
@@ -79,4 +99,25 @@ test('experimental WASM continuation agrees with production on the same input', 
     assert.equal(production.converged, true);
     assert.deepEqual(JSON.parse(engine[`solve_experimental_${method}`](input)), production);
   }
+});
+
+test('Krylov profiling retains finite results near the Euler load of a cantilever', () => {
+  const n = 30, length = 6, eMPa = 200, iz = 1e-4;
+  const input = { nodes: {}, elements: {}, supports: { 1: { id: 1, nodeId: 1, type: 'fixed' } },
+    materials: { 1: { id: 1, e: eMPa, nu: 0.3 } }, sections: { 1: { id: 1, a: 0.01, iz } }, loads: [] };
+  for (let i = 0; i <= n; i++) input.nodes[i + 1] = { id: i + 1, x: length * i / n, z: 0 };
+  for (let i = 0; i < n; i++) input.elements[i + 1] = { id: i + 1, type: 'frame', nodeI: i + 1, nodeJ: i + 2, materialId: 1, sectionId: 1 };
+  const critical = Math.PI ** 2 * eMPa * 1000 * iz / (4 * length ** 2);
+  input.loads.push({ type: 'nodal', data: { nodeId: n + 1, fx: -0.9 * critical, fz: -0.0002, my: 0 } });
+  const options = { method: 'newtonKrylov', stepping: 'adaptive', nIncrements: 4, maxIter: 80, tolerance: 1e-8 };
+  const solve = (over) => JSON.parse(engine.solve_experimental_corotational_2d(JSON.stringify(input), JSON.stringify({ ...options, ...over })));
+  const plain = solve({});
+  const profiled = solve({ profile: true });
+  assert.equal(plain.converged, true);
+  assert.equal(plain.loadFactor, 1);
+  assert.deepEqual(profiled.result, plain);
+  const direct = solve({ method: 'newton', nIncrements: 40 });
+  assert.equal(direct.converged, true);
+  sameFiniteResults(plain.results, direct.results);
+  assert.ok(profiled.work.krylov.tangentProducts > 0);
 });

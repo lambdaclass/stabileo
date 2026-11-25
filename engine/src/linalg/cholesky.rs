@@ -31,25 +31,33 @@ pub fn cholesky_decompose(a: &mut [f64], n: usize) -> bool {
 /// Forward substitution: solve L*y = b
 pub fn forward_solve(l: &[f64], b: &[f64], n: usize) -> Vec<f64> {
     let mut y = b.to_vec();
+    forward_solve_in_place(l, &mut y, n);
+    y
+}
+
+pub(crate) fn forward_solve_in_place(l: &[f64], y: &mut [f64], n: usize) {
     for i in 0..n {
         for j in 0..i {
             y[i] -= l[i * n + j] * y[j];
         }
         y[i] /= l[i * n + i];
     }
-    y
 }
 
 /// Back substitution: solve L^T * x = y
 pub fn back_solve(l: &[f64], y: &[f64], n: usize) -> Vec<f64> {
     let mut x = y.to_vec();
+    back_solve_in_place(l, &mut x, n);
+    x
+}
+
+pub(crate) fn back_solve_in_place(l: &[f64], x: &mut [f64], n: usize) {
     for i in (0..n).rev() {
         for j in (i + 1)..n {
             x[i] -= l[j * n + i] * x[j]; // L^T[i,j] = L[j,i]
         }
         x[i] /= l[i * n + i];
     }
-    x
 }
 
 /// Solve A*x = b using Cholesky decomposition.

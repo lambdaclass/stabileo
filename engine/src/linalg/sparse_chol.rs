@@ -585,51 +585,54 @@ pub fn numeric_cholesky(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<Num
 /// Solve L*L^T * x = b using sparse Cholesky factor, with permutation.
 pub fn sparse_cholesky_solve(factor: &NumericCholesky, b: &[f64]) -> Vec<f64> {
     let n = factor.symbolic.n;
+    let mut scratch = vec![0.0; n];
+    sparse_cholesky_permuted_solve(factor, b, &mut scratch);
+    // Preserve the allocating path's order: allocate the result after substitution.
+    let mut result = vec![0.0; n];
+    sparse_cholesky_unpermute(factor, &scratch, &mut result);
+    result
+}
+
+/// Same permutation and substitution order, with caller-owned storage.
+pub(crate) fn sparse_cholesky_solve_into(factor: &NumericCholesky, b: &[f64], result: &mut [f64], scratch: &mut [f64]) {
+    let n = factor.symbolic.n;
+    assert_eq!(result.len(), n);
+    assert_eq!(scratch.len(), n);
+    sparse_cholesky_permuted_solve(factor, b, scratch);
+    sparse_cholesky_unpermute(factor, scratch, result);
+}
+
+fn sparse_cholesky_permuted_solve(factor: &NumericCholesky, b: &[f64], scratch: &mut [f64]) {
+    let n = factor.symbolic.n;
     let sym = &factor.symbolic;
-
-    // Apply permutation to b: b_perm[new] = b[old]
-    let mut bp = vec![0.0; n];
-    for new in 0..n {
-        bp[new] = b[sym.perm[new]];
-    }
-
-    // Forward solve: L * y = bp
-    let mut y = bp;
+    let bp = scratch;
+    for new in 0..n { bp[new] = b[sym.perm[new]]; }
+    let y = bp;
     for j in 0..n {
         let start = sym.l_col_ptr[j];
         let end = sym.l_col_ptr[j + 1];
-
-        // L[j,j] is at position start (first entry in column j)
         let ljj = factor.l_values[start];
         y[j] /= ljj;
-
         for k in (start + 1)..end {
             let i = sym.l_row_idx[k];
             y[i] -= factor.l_values[k] * y[j];
         }
     }
-
-    // Backward solve: L^T * x = y
-    let mut x = y;
+    let x = y;
     for j in (0..n).rev() {
         let start = sym.l_col_ptr[j];
         let end = sym.l_col_ptr[j + 1];
-
         for k in (start + 1)..end {
             let i = sym.l_row_idx[k];
             x[j] -= factor.l_values[k] * x[i];
         }
-
         let ljj = factor.l_values[start];
         x[j] /= ljj;
     }
+}
 
-    // Apply inverse permutation: result[old] = x[new]
-    let mut result = vec![0.0; n];
-    for new in 0..n {
-        result[sym.perm[new]] = x[new];
-    }
-    result
+fn sparse_cholesky_unpermute(factor: &NumericCholesky, x: &[f64], result: &mut [f64]) {
+    for new in 0..factor.symbolic.n { result[factor.symbolic.perm[new]] = x[new]; }
 }
 
 /// Convenience: full sparse solve A*x = b. Returns None if not SPD.

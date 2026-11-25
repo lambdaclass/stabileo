@@ -147,6 +147,13 @@ impl SparseTransform {
     pub fn mul_transpose_vec(&self, x: &[f64]) -> Vec<f64> {
         assert_eq!(x.len(), self.n_rows);
         let mut y = vec![0.0; self.n_cols];
+        self.mul_transpose_add_into(x, &mut y);
+        y
+    }
+
+    fn mul_transpose_add_into(&self, x: &[f64], y: &mut [f64]) {
+        assert_eq!(x.len(), self.n_rows);
+        assert_eq!(y.len(), self.n_cols);
         for i in 0..self.n_rows {
             let xi = x[i];
             if xi == 0.0 {
@@ -156,7 +163,6 @@ impl SparseTransform {
                 y[self.col_idx[p]] += self.vals[p] * xi;
             }
         }
-        y
     }
 
     /// Reduced matrix K_red = C^T · K · C with K dense (n_rows × n_rows,
@@ -2502,6 +2508,21 @@ impl FreeConstraintSystem {
     /// Reduce a force vector: F_reduced = C_ff^T * F_f
     pub fn reduce_vector(&self, f_f: &[f64]) -> Vec<f64> {
         self.c_ff.mul_transpose_vec(f_f)
+    }
+
+    #[cfg(feature = "experimental-nonlinear")]
+    pub(super) fn reduce_vector_into(&self, free: &[f64], out: &mut Vec<f64>) {
+        out.resize(self.n_free_indep, 0.0);
+        out.fill(0.0);
+        self.c_ff.mul_transpose_add_into(free, out);
+    }
+
+    #[cfg(feature = "experimental-nonlinear")]
+    pub(super) fn expand_homogeneous_into(&self, independent: &[f64], out: &mut Vec<f64>) {
+        assert_eq!(independent.len(), self.n_free_indep);
+        out.resize(self.nf, 0.0);
+        out.fill(0.0);
+        self.c_ff.mul_vec_into(independent, out);
     }
 
     pub fn expand_solution(&self, u_indep: &[f64], motion: MasterMotion<'_>) -> Vec<f64> {

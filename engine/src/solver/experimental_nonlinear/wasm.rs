@@ -12,6 +12,8 @@ struct Options {
     n_increments: usize,
     method: IterationMethod,
     stepping: LoadStepping,
+    #[serde(default)]
+    profile: bool,
 }
 
 fn parse<T: DeserializeOwned>(json: &str) -> Result<T, JsValue> {
@@ -22,7 +24,8 @@ fn parse<T: DeserializeOwned>(json: &str) -> Result<T, JsValue> {
 pub fn solve_experimental_corotational_2d(json: &str, options: &str) -> Result<String, JsValue> {
     let input: SolverInput = parse(json)?;
     let options: Options = parse(options)?;
-    let result = super::solve_corotational_2d_stepped(
+    let mut work = super::NonlinearWork::default();
+    let result = super::solve_corotational_2d_profiled(
         &input,
         None,
         options.max_iter,
@@ -30,25 +33,36 @@ pub fn solve_experimental_corotational_2d(json: &str, options: &str) -> Result<S
         options.n_increments,
         options.method,
         options.stepping,
+        &mut work,
     )
     .map_err(|error| JsValue::from_str(&error))?;
-    crate::to_json(&result)
+    if options.profile {
+        crate::to_json(&serde_json::json!({ "result": result, "work": work }))
+    } else {
+        crate::to_json(&result)
+    }
 }
 
 #[wasm_bindgen]
 pub fn solve_experimental_corotational_3d(json: &str, options: &str) -> Result<String, JsValue> {
     let input = parse::<ElasticInput3D>(json)?.into_legacy();
     let options: Options = parse(options)?;
-    let result = super::solve_corotational_3d_stepped(
+    let mut work = super::NonlinearWork::default();
+    let result = super::solve_corotational_3d_profiled(
         &input,
         options.max_iter,
         options.tolerance,
         options.n_increments,
         options.method,
         options.stepping,
+        &mut work,
     )
     .map_err(|error| JsValue::from_str(&error))?;
-    crate::to_json(&result)
+    if options.profile {
+        crate::to_json(&serde_json::json!({ "result": result, "work": work }))
+    } else {
+        crate::to_json(&result)
+    }
 }
 
 #[wasm_bindgen]

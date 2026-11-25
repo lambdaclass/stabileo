@@ -28,6 +28,14 @@ pub(crate) trait IncrementalProblem {
     fn lagged_solve(&self, rhs: &[f64]) -> Option<Vec<f64>>;
     /// A vector over those unknowns as a step `advance` takes.
     fn expand(&self, reduced: &[f64]) -> Vec<f64>;
+    fn residual_into(&self, out: &mut Vec<f64>) { *out = self.residual(); }
+    fn tangent_times_into(&self, v: &[f64], out: &mut Vec<f64>, _scratch: &mut super::newton_krylov::TangentWorkspace) {
+        *out = self.tangent_times(v);
+    }
+    fn lagged_solve_into(&self, rhs: &[f64], out: &mut Vec<f64>, _scratch: &mut Vec<f64>) -> bool {
+        match self.lagged_solve(rhs) { Some(z) => { *out = z; true }, None => false }
+    }
+    fn record_krylov(&mut self, _work: &super::KrylovWork) {}
     fn commit(&mut self) -> Result<(), String>;
     fn rollback(&mut self);
 }
@@ -322,6 +330,7 @@ mod tests {
         trace: Vec<f64>,
         corrected_from: Vec<f64>,
         products: std::cell::Cell<usize>,
+        krylov_work: super::super::KrylovWork,
     }
 
     fn stiffening(u: f64) -> (f64, f64) {
@@ -359,6 +368,7 @@ mod tests {
                 linearizations: 0,
                 tangents: 0,
                 products: std::cell::Cell::new(0),
+                krylov_work: Default::default(),
                 trace: Vec::new(),
                 corrected_from: Vec::new(),
             }
@@ -397,6 +407,7 @@ mod tests {
     }
 
     impl IncrementalProblem for Chain {
+        fn record_krylov(&mut self, work: &super::super::KrylovWork) { self.krylov_work.add(work); }
         fn begin_increment(&mut self, load_factor: f64) {
             self.target = self.load.iter().map(|p| load_factor * p).collect();
             self.lagged = None;
@@ -1170,6 +1181,8 @@ mod tests {
         assert!(converged);
         assert!((spring.u[0] - 2.2).abs() <= 1e-8, "{}", spring.u[0]);
         assert!(spring.tangents > 1, "the exact solve was never asked");
+        assert!(spring.krylov_work.invalid_curvature > 0);
+        assert_eq!(spring.krylov_work.tangent_products as usize, spring.products.get());
     }
 
     #[test]
@@ -1179,6 +1192,7 @@ mod tests {
         let outcome = solve_by_load_increments(&mut owed, &NewtonKrylov, 1, 1e-10, 50).unwrap();
         assert_eq!((outcome.iterations, outcome.converged, outcome.load_factor), (2, true, 1.0));
 
+        assert_eq!(owed.krylov_work.forced_steps, 1);
         let mut short = Chain::spring(stiffening, 30.0);
         let outcome = solve_by_load_increments(&mut short, &NewtonKrylov, 1, 1e-10, 2).unwrap();
         assert_eq!((outcome.converged, outcome.load_factor), (false, 0.0));

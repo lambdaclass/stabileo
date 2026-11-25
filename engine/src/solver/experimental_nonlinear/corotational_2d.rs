@@ -1,4 +1,5 @@
 use super::*;
+use crate::solver::experimental_nonlinear::{NonlinearWork, KrylovWork};
 use crate::solver::experimental_nonlinear::incremental::{self, IterationMethod, LoadStepping};
 
 struct Corotational2D<'a> {
@@ -22,6 +23,7 @@ struct Corotational2D<'a> {
     active_supports: Vec<f64>,
     support_step: Option<Vec<f64>>,
     cached_factor: Option<CachedTangentFactor>,
+    work: NonlinearWork,
     r_f: Vec<f64>,
     unbalance: Vec<f64>,
     k_t: Vec<f64>,
@@ -57,15 +59,36 @@ pub(super) fn tangent_product(
     (trip_rows, trip_cols, trip_vals): (&[usize], &[usize], &[f64]),
     v: &[f64],
 ) -> Vec<f64> {
-    let u = expanded(cs, v);
-    let mut w = vec![0.0; nf];
+    let mut out = Vec::new();
+    tangent_product_into(cs, (n, nf), k_t, (trip_rows, trip_cols, trip_vals), v, &mut out, &mut Default::default());
+    out
+}
+
+pub(super) fn tangent_product_into(
+    cs: &Option<FreeConstraintSystem>, (n, nf): (usize, usize), k_t: &[f64],
+    (trip_rows, trip_cols, trip_vals): (&[usize], &[usize], &[f64]), v: &[f64],
+    out: &mut Vec<f64>, scratch: &mut crate::solver::experimental_nonlinear::newton_krylov::TangentWorkspace,
+) {
+    if let Some(cs) = cs {
+        cs.expand_homogeneous_into(v, &mut scratch.expanded);
+        tangent_free_product_into((n, nf), k_t, (trip_rows, trip_cols, trip_vals), &scratch.expanded, &mut scratch.product);
+        cs.reduce_vector_into(&scratch.product, out);
+    } else {
+        tangent_free_product_into((n, nf), k_t, (trip_rows, trip_cols, trip_vals), v, out);
+    }
+}
+
+fn tangent_free_product_into(
+    (n, nf): (usize, usize), k_t: &[f64],
+    (trip_rows, trip_cols, trip_vals): (&[usize], &[usize], &[f64]), u: &[f64], w: &mut Vec<f64>,
+) {
+    w.resize(nf, 0.0);
+    w.fill(0.0);
     if k_t.is_empty() {
         for ((&i, &j), &value) in trip_rows.iter().zip(trip_cols).zip(trip_vals) {
             if i < nf && j < nf {
                 w[i] += value * u[j];
-                if i != j {
-                    w[j] += value * u[i];
-                }
+                if i != j { w[j] += value * u[i]; }
             }
         }
     } else {
@@ -73,7 +96,28 @@ pub(super) fn tangent_product(
             *wi = (0..nf).map(|j| k_t[i * n + j] * u[j]).sum();
         }
     }
-    reduced(cs, &w)
+}
+
+pub(super) fn reduced_into(cs: &Option<FreeConstraintSystem>, free: &[f64], out: &mut Vec<f64>) {
+    if let Some(cs) = cs { cs.reduce_vector_into(free, out); }
+    else { out.clear(); out.extend_from_slice(free); }
+}
+
+pub(super) fn kept_solve_into(factor: &Option<CachedTangentFactor>, rhs: &[f64], out: &mut Vec<f64>, scratch: &mut Vec<f64>) -> bool {
+    let Some(factor) = factor else { return false };
+    out.resize(rhs.len(), 0.0);
+    match factor {
+        CachedTangentFactor::Dense(f) => {
+            out.copy_from_slice(rhs);
+            crate::linalg::cholesky::forward_solve_in_place(&f.l, out, f.n);
+            crate::linalg::cholesky::back_solve_in_place(&f.l, out, f.n);
+        },
+        CachedTangentFactor::Sparse(f) => {
+            scratch.resize(rhs.len(), 0.0);
+            crate::linalg::sparse_chol::sparse_cholesky_solve_into(f, rhs, out, scratch);
+        }
+    }
+    true
 }
 
 pub(super) fn kept_solve(factor: &Option<CachedTangentFactor>, rhs: &[f64]) -> Option<Vec<f64>> {
@@ -108,6 +152,7 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
     }
 
     fn linearize(&mut self) -> Result<incremental::Linearization, String> {
+        self.work.linearizations = self.work.linearizations.saturating_add(1);
         let (input, dof_num, asm, art, metric, cs) = (
             self.input,
             self.dof_num,
@@ -255,6 +300,7 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
                 let k_s_csc =
                     tangent_free_sparse_triplets(&trip_rows, &trip_cols, &trip_vals, nf, cs);
                 let sym = cached_symbolic(&mut self.sparse_sym_cache, &k_s_csc);
+                self.work.factorization_requests = self.work.factorization_requests.saturating_add(1);
                 let factor = numeric_cholesky(sym, &k_s_csc);
                 if let Some(found) =
                     crate::known_issues::sparse_factor_conditioning(&k_s_csc, factor.as_ref())
@@ -267,12 +313,15 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
                         self.cached_factor = Some(CachedTangentFactor::Sparse(num));
                         result
                     }
-                    None => solve_tangent_sparse_diagnosed(
-                        &k_s_csc,
-                        &r_s,
-                        &mut self.sparse_sym_cache,
-                        &mut self.conditioning,
-                    )?,
+                    None => {
+                        self.work.factorization_requests = self.work.factorization_requests.saturating_add(1);
+                        solve_tangent_sparse_diagnosed(
+                            &k_s_csc,
+                            &r_s,
+                            &mut self.sparse_sym_cache,
+                            &mut self.conditioning,
+                        )?
+                    },
                 }
             } else {
                 let free_idx: Vec<usize> = (0..nf).collect();
@@ -282,6 +331,7 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
                 } else {
                     k_ff
                 };
+                self.work.factorization_requests = self.work.factorization_requests.saturating_add(1);
                 let factor = try_cholesky_factor(&k_s, ns);
                 if let Some(found) = crate::known_issues::dense_factor_conditioning(
                     &k_s,
@@ -296,10 +346,14 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
                         self.cached_factor = Some(CachedTangentFactor::Dense(factor));
                         result
                     }
-                    None => solve_free_dofs(&k_s, &r_s, ns, &mut self.conditioning)?,
+                    None => {
+                        self.work.factorization_requests = self.work.factorization_requests.saturating_add(1);
+                        solve_free_dofs(&k_s, &r_s, ns, &mut self.conditioning)?
+                    },
                 }
             }
         } else if ns >= SPARSE_THRESHOLD {
+            self.work.factorization_requests = self.work.factorization_requests.saturating_add(1);
             let k_s_csc = tangent_free_sparse_triplets(&trip_rows, &trip_cols, &trip_vals, nf, cs);
             solve_tangent_sparse_diagnosed(
                 &k_s_csc,
@@ -315,6 +369,7 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
             } else {
                 k_ff
             };
+            self.work.factorization_requests = self.work.factorization_requests.saturating_add(1);
             solve_free_dofs(&k_s, &r_s, ns, &mut self.conditioning)?
         };
 
@@ -378,6 +433,21 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
         kept_solve(&self.cached_factor, rhs)
     }
 
+    fn residual_into(&self, out: &mut Vec<f64>) {
+        reduced_into(self.cs, &self.unbalance, out);
+    }
+
+    fn tangent_times_into(&self, v: &[f64], out: &mut Vec<f64>, scratch: &mut crate::solver::experimental_nonlinear::newton_krylov::TangentWorkspace) {
+        tangent_product_into(self.cs, (self.dof_num.n_total, self.dof_num.n_free), &self.k_t,
+            (&self.trip_rows, &self.trip_cols, &self.trip_vals), v, out, scratch);
+    }
+
+    fn lagged_solve_into(&self, rhs: &[f64], out: &mut Vec<f64>, scratch: &mut Vec<f64>) -> bool {
+        kept_solve_into(&self.cached_factor, rhs, out, scratch)
+    }
+
+    fn record_krylov(&mut self, work: &KrylovWork) { self.work.krylov.add(work); }
+
     fn expand(&self, reduced: &[f64]) -> Vec<f64> {
         expanded(self.cs, reduced)
     }
@@ -409,6 +479,7 @@ pub fn solve_corotational_2d_stepped(
         n_increments,
         method,
         stepping,
+        &mut NonlinearWork::default(),
     )
 }
 
@@ -428,7 +499,17 @@ pub fn solve_corotational_2d_by(
         n_increments,
         method,
         LoadStepping::Equal,
+        &mut NonlinearWork::default(),
     )
+}
+
+/// The same solve with observational work counts, including rolled-back attempts.
+pub fn solve_corotational_2d_profiled(
+    input: &SolverInput, start: Option<&CorotationalStart2D>, max_iter: usize, tolerance: f64, n_increments: usize,
+    method: IterationMethod, stepping: LoadStepping, work: &mut NonlinearWork,
+) -> Result<CorotationalResult, String> {
+    *work = NonlinearWork::default();
+    corotational_2d(input, start, max_iter, tolerance, n_increments, method, stepping, work)
 }
 
 fn corotational_2d(
@@ -439,6 +520,7 @@ fn corotational_2d(
     n_increments: usize,
     method: IterationMethod,
     stepping: LoadStepping,
+    work: &mut NonlinearWork,
 ) -> Result<CorotationalResult, String> {
     let canonical_input = crate::solver::member_loads::plane_input(input);
     let input = canonical_input.as_ref();
@@ -525,6 +607,7 @@ fn corotational_2d(
         active_supports: Vec::new(),
         support_step: None,
         cached_factor: None,
+        work: NonlinearWork::default(),
         r_f: Vec::new(),
         unbalance: Vec::new(),
         k_t: Vec::new(),
@@ -539,7 +622,9 @@ fn corotational_2d(
         n_increments,
         tolerance,
         max_iter,
-    )?;
+    );
+    *work = problem.work;
+    let outcome = outcome?;
     let Corotational2D {
         u_full,
         conditioning,
@@ -594,6 +679,75 @@ fn corotational_2d(
 mod shared_driver_equivalence {
     use super::*;
     use std::collections::HashMap;
+
+    #[test]
+    fn krylov_product_reuses_storage_without_stale_values_or_changed_constraints() {
+        use crate::solver::experimental_nonlinear::newton_krylov::TangentWorkspace;
+        for constrained in [false, true] {
+            let mut input = frame(4, 0.3, None);
+            if constrained {
+                input.constraints.push(serde_json::from_value(serde_json::json!({"type":"linearMPC", "terms":[
+                    {"nodeId":2,"dof":0,"coefficient":1.0}, {"nodeId":3,"dof":0,"coefficient":-0.5}
+                ]})).unwrap());
+            }
+            let dofs = DofNumbering::build_2d(&input);
+            let cs = FreeConstraintSystem::build_2d(&input, &dofs).unwrap();
+            let (n, nf) = (dofs.n_total, dofs.n_free);
+            let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
+            let mut matrix = vec![0.0; n * n];
+            let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+            for i in 0..nf {
+                for j in 0..=i {
+                    let value = if i == j { 4.0 } else if i == j + 1 { -0.5 } else { 0.0 };
+                    matrix[i * n + j] = value;
+                    matrix[j * n + i] = value;
+                    rows.push(i); cols.push(j); vals.push(value);
+                }
+            }
+            for sparse in [false, true] {
+                let mut out = Vec::new();
+                let mut scratch = TangentWorkspace::default();
+                let mut capacities = None;
+                for sign in [1.0, -1.0, 0.0, 2.0] {
+                    let v: Vec<_> = (0..ns).map(|i| sign * (i + 1) as f64).collect();
+                    let full = expanded(&cs, &v);
+                    let expected: Vec<_> = (0..nf).map(|i| (0..nf).map(|j| matrix[i * n + j] * full[j]).sum()).collect();
+                    let expected = reduced(&cs, &expected);
+                    out.fill(f64::NAN); scratch.expanded.fill(f64::NAN); scratch.product.fill(f64::NAN);
+                    tangent_product_into(&cs, (n, nf), if sparse { &[] } else { &matrix },
+                        (&rows, &cols, &vals), &v, &mut out, &mut scratch);
+                    assert_eq!(out.iter().map(|x| x.to_bits()).collect::<Vec<_>>(), expected.iter().map(|x| x.to_bits()).collect::<Vec<_>>());
+                    let now = (out.as_ptr(), out.capacity(), scratch.expanded.as_ptr(), scratch.expanded.capacity(), scratch.product.as_ptr(), scratch.product.capacity());
+                    if let Some(before) = capacities { assert_eq!(now, before); }
+                    capacities = Some(now);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn krylov_cached_solves_reuse_storage_for_dense_and_permuted_sparse_factors() {
+        use crate::linalg::CscMatrix;
+        use crate::linalg::sparse_chol::symbolic_cholesky_with_perm;
+        let matrix = [4.0, -1.0, 0.0, -1.0, 4.0, -1.0, 0.0, -1.0, 4.0];
+        let sparse = CscMatrix::from_triplets(3, &[0, 1, 1, 2, 2], &[0, 0, 1, 1, 2], &[4.0, -1.0, 4.0, -1.0, 4.0]);
+        let sym = std::rc::Rc::new(symbolic_cholesky_with_perm(&sparse, &[2, 0, 1]));
+        let factors = [CachedTangentFactor::Dense(try_cholesky_factor(&matrix, 3).unwrap()), CachedTangentFactor::Sparse(numeric_cholesky(&sym, &sparse).unwrap())];
+        for factor in factors {
+            let factor = Some(factor);
+            let (mut out, mut scratch) = (Vec::new(), Vec::new());
+            let mut capacities = None;
+            for rhs in [[1.0, 2.0, 3.0], [-4.0, 1.0, 2.0], [0.0; 3]] {
+                let expected = kept_solve(&factor, &rhs).unwrap();
+                out.fill(f64::NAN); scratch.fill(f64::NAN);
+                assert!(kept_solve_into(&factor, &rhs, &mut out, &mut scratch));
+                assert_eq!(out.iter().map(|x| x.to_bits()).collect::<Vec<_>>(), expected.iter().map(|x| x.to_bits()).collect::<Vec<_>>());
+                let now = (out.as_ptr(), out.capacity(), scratch.as_ptr(), scratch.capacity());
+                if let Some(before) = capacities { assert_eq!(now, before); }
+                capacities = Some(now);
+            }
+        }
+    }
 
     fn frame(n: usize, rise: f64, far_support: Option<&str>) -> SolverInput {
         let (mut nodes, mut elements, mut supports) =

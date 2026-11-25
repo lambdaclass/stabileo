@@ -1,4 +1,5 @@
 use super::*;
+use crate::solver::experimental_nonlinear::{NonlinearWork, KrylovWork};
 use crate::solver::experimental_nonlinear::incremental::{self, IterationMethod, LoadStepping};
 
 struct Corotational3D<'a> {
@@ -17,6 +18,7 @@ struct Corotational3D<'a> {
     conditioning: Option<StructuredDiagnostic>,
     f_ext: Vec<f64>,
     cached_factor: Option<CachedTangentFactor>,
+    work: NonlinearWork,
     r_f: Vec<f64>,
     unbalance: Vec<f64>,
     k_t: Vec<f64>,
@@ -32,6 +34,7 @@ impl incremental::IncrementalProblem for Corotational3D<'_> {
     }
 
     fn linearize(&mut self) -> Result<incremental::Linearization, String> {
+        self.work.linearizations = self.work.linearizations.saturating_add(1);
         let (input, dof_num, asm, metric, cs, left_hand) = (
             self.input,
             self.dof_num,
@@ -136,6 +139,7 @@ impl incremental::IncrementalProblem for Corotational3D<'_> {
                 let k_s_csc =
                     tangent_free_sparse_triplets(&trip_rows, &trip_cols, &trip_vals, nf, cs);
                 let sym = cached_symbolic(&mut self.sparse_sym_cache, &k_s_csc);
+                self.work.factorization_requests = self.work.factorization_requests.saturating_add(1);
                 let factor = numeric_cholesky(sym, &k_s_csc);
                 if let Some(found) =
                     crate::known_issues::sparse_factor_conditioning(&k_s_csc, factor.as_ref())
@@ -148,12 +152,15 @@ impl incremental::IncrementalProblem for Corotational3D<'_> {
                         self.cached_factor = Some(CachedTangentFactor::Sparse(num));
                         result
                     }
-                    None => solve_tangent_sparse_diagnosed(
-                        &k_s_csc,
-                        &r_s,
-                        &mut self.sparse_sym_cache,
-                        &mut self.conditioning,
-                    )?,
+                    None => {
+                        self.work.factorization_requests = self.work.factorization_requests.saturating_add(1);
+                        solve_tangent_sparse_diagnosed(
+                            &k_s_csc,
+                            &r_s,
+                            &mut self.sparse_sym_cache,
+                            &mut self.conditioning,
+                        )?
+                    },
                 }
             } else {
                 let free_idx: Vec<usize> = (0..nf).collect();
@@ -163,6 +170,7 @@ impl incremental::IncrementalProblem for Corotational3D<'_> {
                 } else {
                     k_ff
                 };
+                self.work.factorization_requests = self.work.factorization_requests.saturating_add(1);
                 let factor = try_cholesky_factor(&k_s, ns);
                 if let Some(found) = crate::known_issues::dense_factor_conditioning(
                     &k_s,
@@ -177,10 +185,14 @@ impl incremental::IncrementalProblem for Corotational3D<'_> {
                         self.cached_factor = Some(CachedTangentFactor::Dense(factor));
                         result
                     }
-                    None => solve_free_dofs(&k_s, &r_s, ns, &mut self.conditioning)?,
+                    None => {
+                        self.work.factorization_requests = self.work.factorization_requests.saturating_add(1);
+                        solve_free_dofs(&k_s, &r_s, ns, &mut self.conditioning)?
+                    },
                 }
             }
         } else if ns >= SPARSE_THRESHOLD {
+            self.work.factorization_requests = self.work.factorization_requests.saturating_add(1);
             let k_s_csc = tangent_free_sparse_triplets(&trip_rows, &trip_cols, &trip_vals, nf, cs);
             solve_tangent_sparse_diagnosed(
                 &k_s_csc,
@@ -196,6 +208,7 @@ impl incremental::IncrementalProblem for Corotational3D<'_> {
             } else {
                 k_ff
             };
+            self.work.factorization_requests = self.work.factorization_requests.saturating_add(1);
             solve_free_dofs(&k_s, &r_s, ns, &mut self.conditioning)?
         };
 
@@ -248,6 +261,21 @@ impl incremental::IncrementalProblem for Corotational3D<'_> {
         super::experimental_nonlinear_2d::kept_solve(&self.cached_factor, rhs)
     }
 
+    fn residual_into(&self, out: &mut Vec<f64>) {
+        super::experimental_nonlinear_2d::reduced_into(self.cs, &self.unbalance, out);
+    }
+
+    fn tangent_times_into(&self, v: &[f64], out: &mut Vec<f64>, scratch: &mut crate::solver::experimental_nonlinear::newton_krylov::TangentWorkspace) {
+        super::experimental_nonlinear_2d::tangent_product_into(self.cs, (self.dof_num.n_total, self.dof_num.n_free), &self.k_t,
+            (&self.trip_rows, &self.trip_cols, &self.trip_vals), v, out, scratch);
+    }
+
+    fn lagged_solve_into(&self, rhs: &[f64], out: &mut Vec<f64>, scratch: &mut Vec<f64>) -> bool {
+        super::experimental_nonlinear_2d::kept_solve_into(&self.cached_factor, rhs, out, scratch)
+    }
+
+    fn record_krylov(&mut self, work: &KrylovWork) { self.work.krylov.add(work); }
+
     fn expand(&self, reduced: &[f64]) -> Vec<f64> {
         super::experimental_nonlinear_2d::expanded(self.cs, reduced)
     }
@@ -277,7 +305,7 @@ pub fn solve_corotational_3d_stepped(
     method: IterationMethod,
     stepping: LoadStepping,
 ) -> Result<CorotationalResult3D, String> {
-    corotational_3d(input, max_iter, tolerance, n_increments, method, stepping)
+    corotational_3d(input, max_iter, tolerance, n_increments, method, stepping, &mut NonlinearWork::default())
 }
 
 pub fn solve_corotational_3d_by(
@@ -294,7 +322,17 @@ pub fn solve_corotational_3d_by(
         n_increments,
         method,
         LoadStepping::Equal,
+        &mut NonlinearWork::default(),
     )
+}
+
+/// The same solve with observational work counts, including rolled-back attempts.
+pub fn solve_corotational_3d_profiled(
+    input: &SolverInput3D, max_iter: usize, tolerance: f64, n_increments: usize,
+    method: IterationMethod, stepping: LoadStepping, work: &mut NonlinearWork,
+) -> Result<CorotationalResult3D, String> {
+    *work = NonlinearWork::default();
+    corotational_3d(input, max_iter, tolerance, n_increments, method, stepping, work)
 }
 
 fn corotational_3d(
@@ -304,6 +342,7 @@ fn corotational_3d(
     n_increments: usize,
     method: IterationMethod,
     stepping: LoadStepping,
+    work: &mut NonlinearWork,
 ) -> Result<CorotationalResult3D, String> {
     let canonical_input = crate::solver::member_loads::space_input(input);
     let input = canonical_input.as_ref();
@@ -396,6 +435,7 @@ fn corotational_3d(
         conditioning: None,
         f_ext: Vec::new(),
         cached_factor: None,
+        work: NonlinearWork::default(),
         r_f: Vec::new(),
         unbalance: Vec::new(),
         k_t: Vec::new(),
@@ -410,7 +450,9 @@ fn corotational_3d(
         n_increments,
         tolerance,
         max_iter,
-    )?;
+    );
+    *work = problem.work;
+    let outcome = outcome?;
     let Corotational3D {
         u_full,
         u_converged,
@@ -538,6 +580,27 @@ mod shared_driver_equivalence_3d {
                 now.map(|r| r.converged)
             ),
         }
+    }
+
+    #[test]
+    fn profiling_counts_factorizations_without_changing_results_or_resetting_rolled_back_work() {
+        let input = building(2, 3, 20.0);
+        let mut work = NonlinearWork::default();
+        for max_iter in [1, 80] {
+            let expected = solve_corotational_3d_stepped(&input, max_iter, 1e-8, 4, IterationMethod::NewtonKrylov, LoadStepping::Equal).unwrap();
+            let got = solve_corotational_3d_profiled(&input, max_iter, 1e-8, 4, IterationMethod::NewtonKrylov, LoadStepping::Equal, &mut work).unwrap();
+            assert_eq!(serde_json::to_value(&got).unwrap().to_string(), serde_json::to_value(&expected).unwrap().to_string());
+            assert_eq!(work.linearizations, got.iterations as u64);
+            assert_eq!(work.factorization_requests, if max_iter == 1 { 1 } else { 4 });
+            assert_eq!(work.krylov.no_factor, work.factorization_requests);
+            if max_iter == 1 {
+                assert!(!got.converged);
+                assert_eq!(got.load_factor, 0.0);
+                assert_eq!(work.krylov.attempts, 1);
+            } else { assert!(got.converged && work.krylov.accepted_steps > 0); }
+        }
+        assert!(solve_corotational_3d_profiled(&input, 0, 1e-8, 4, IterationMethod::NewtonKrylov, LoadStepping::Equal, &mut work).is_err());
+        assert_eq!(work, NonlinearWork::default(), "a refused input cannot expose a previous solve's counters");
     }
 
     #[test]
