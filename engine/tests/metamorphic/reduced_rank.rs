@@ -670,3 +670,101 @@ fn ssi_released_tip_torque_respects_supported_springs_and_soil_direction_validat
     assert!(answer.converged);
     assert_eq!(answer.results.displacements.iter().find(|d| d.node_id == 2).unwrap().rx, 1.0);
 }
+
+fn weak_parallel_trusses(weak_members: usize) -> SolverInput {
+    let mut input = truss();
+    let length = 41.0_f64.sqrt();
+    let direction = 4.0 / length;
+    let area = length / (direction * direction);
+    input.sections.get_mut("1").unwrap().a = area;
+    let mut weak = input.sections["1"].clone();
+    weak.id = 2;
+    weak.a *= 0.36 * f64::EPSILON;
+    input.sections.insert("2".into(), weak);
+    let tip = input.nodes.get_mut("2").unwrap();
+    (tip.x, tip.z) = (4.0, 5.0);
+    input.supports.remove("2");
+    input.loads = vec![SolverLoad::Nodal(SolverNodalLoad {
+        node_id: 1, fx: 1.0, fz: 0.0, my: 0.0,
+    })];
+    for id in 2..=weak_members + 1 {
+        let mut element = input.elements["1"].clone();
+        element.id = id;
+        element.section_id = 2;
+        input.elements.insert(id.to_string(), element);
+    }
+    input
+}
+
+fn sparse_drop_trusses(factor: f64) -> dedaliano_engine::types::SolverInput3D {
+    let first = [2.0_f64, 2.0, -0.5];
+    let second = [0.0_f64, 1.0, 1.0];
+    let length = |xyz: [f64; 3]| xyz.iter().map(|value| value.powi(2)).sum::<f64>().sqrt();
+    serde_json::from_value(serde_json::json!({
+        "nodes": {
+            "1": {"id": 1, "x": first[0], "y": first[1], "z": first[2]},
+            "2": {"id": 2, "x": 0, "y": 0, "z": 0},
+            "3": {"id": 3, "x": second[0], "y": second[1], "z": second[2]}
+        },
+        "elements": {
+            "1": {"id": 1, "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1, "type": "truss"},
+            "2": {"id": 2, "nodeI": 3, "nodeJ": 2, "materialId": 1, "sectionId": 2, "type": "truss"}
+        },
+        "materials": {"1": {"id": 1, "e": 0.001, "nu": 0.3}},
+        "sections": {
+            "1": {"id": 1, "a": factor * 5e-31 * length(first).powi(3), "iy": 1, "iz": 1, "j": 1},
+            "2": {"id": 2, "a": factor * 4e-30 * length(second).powi(3), "iy": 1, "iz": 1, "j": 1}
+        },
+        "supports": {
+            "1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true},
+            "3": {"nodeId": 3, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}
+        },
+        "masses": {"nodal": [{"nodeId": 2, "mass": 1}]},
+        "loads": [{"type": "nodal", "data": {"nodeId": 1, "fx": 1, "fy": 0, "fz": 0, "mx": 0, "my": 0, "mz": 0}}]
+    })).unwrap()
+}
+
+#[test]
+#[ignore = "known wrong result: #2584"]
+fn axial_joint_rank_does_not_depend_on_parallel_scatter() {
+    let input = weak_parallel_trusses(1024);
+    let base = Case2::new("parallel axial rows", input);
+    let angle = 0.4_f64;
+    let rotated = base.iso(&Iso2::rotation(angle)).unwrap();
+    let translated = base.iso(&Iso2::rotation(0.0).translated(16.0, -8.0)).unwrap();
+    let scaled = base.units(&Units::froude(0.3048, 4.448));
+    let mut failures = Vec::new();
+    for (frame, case) in [("original", base), ("rotated", rotated), ("translated", translated), ("scaled", scaled)] {
+        let spatial = Case3::new("parallel axial rows", embed_2d(&case.s, Plane::XZ).unwrap());
+        for row in crate::ana2::rows().into_iter().filter(|row| [
+            "linear", "linear (dense reference)", "linear (WASM typed path)", "linear (sparse path)",
+            "linear (PCG)", "linear (load session)", "constrained", "staged (one stage)",
+            "modal", "material nonlinear",
+        ].contains(&row.name)) {
+            report(&format!("{frame} 2D {}", row.name), (row.run)(&case), &mut failures);
+        }
+        for row in crate::ana3::rows().into_iter().filter(|row| [
+            "linear", "linear (sparse path)", "linear (PCG)", "linear (load session)", "constrained",
+            "staged (one stage)", "modal", "material nonlinear",
+        ].contains(&row.name)) {
+            report(&format!("{frame} 3D {}", row.name), (row.run)(&spatial), &mut failures);
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+#[ignore = "known wrong result: #2584"]
+fn sparse_drop_cannot_restrain_the_third_translation() {
+    let mut failures = Vec::new();
+    for factor in [1.0, 4.0] {
+        let case = Case3::new("two axial rows", sparse_drop_trusses(factor));
+        for row in crate::ana3::rows().into_iter().filter(|row| [
+            "linear", "linear (sparse path)", "linear (PCG)", "linear (load session)", "constrained",
+            "staged (one stage)", "modal", "material nonlinear",
+        ].contains(&row.name)) {
+            report(&format!("stiffness factor {factor} {}", row.name), (row.run)(&case), &mut failures);
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
