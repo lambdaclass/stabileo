@@ -14811,6 +14811,7 @@ const tr: Translations = {
   "admin.metrics.v.export.view-jpg": "JPG görsel",
   "admin.metrics.v.gate.save": "Dosyayı kaydet",
   "admin.metrics.v.gate.open": "Dosya aç",
+  "admin.metrics.v.gate.editor": "Düzenleyiciyi aç",
   "admin.metrics.v.gate.import": "İçe aktar",
   "admin.metrics.v.gate.share": "Bağlantıyı paylaş",
   "admin.metrics.v.gate.code": "Model kodu",

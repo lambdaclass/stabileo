@@ -247,6 +247,7 @@ const es: Record<string, string> = {
   'admin.metrics.v.export.view-jpg': 'Imagen JPG',
   'admin.metrics.v.gate.save': 'Guardar archivo',
   'admin.metrics.v.gate.open': 'Abrir archivo',
+  'admin.metrics.v.gate.editor': 'Abrir el editor',
   'admin.metrics.v.gate.import': 'Importar',
   'admin.metrics.v.gate.share': 'Compartir enlace',
   'admin.metrics.v.gate.code': 'Código del modelo',

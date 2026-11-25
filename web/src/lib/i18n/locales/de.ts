@@ -14811,6 +14811,7 @@ const de: Translations = {
   "admin.metrics.v.export.view-jpg": "JPG-Bild",
   "admin.metrics.v.gate.save": "Datei speichern",
   "admin.metrics.v.gate.open": "Datei öffnen",
+  "admin.metrics.v.gate.editor": "Editor öffnen",
   "admin.metrics.v.gate.import": "Importieren",
   "admin.metrics.v.gate.share": "Link teilen",
   "admin.metrics.v.gate.code": "Modellcode",

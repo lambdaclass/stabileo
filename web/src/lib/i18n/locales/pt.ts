@@ -247,6 +247,7 @@ const pt: Translations = {
   'admin.metrics.v.export.view-jpg': 'Imagem JPG',
   'admin.metrics.v.gate.save': 'Salvar arquivo',
   'admin.metrics.v.gate.open': 'Abrir arquivo',
+  'admin.metrics.v.gate.editor': 'Abrir o editor',
   'admin.metrics.v.gate.import': 'Importar',
   'admin.metrics.v.gate.share': 'Compartilhar link',
   'admin.metrics.v.gate.code': 'Código do modelo',

@@ -272,6 +272,7 @@ const zh: Translations = {
   "admin.metrics.v.export.view-jpg": "JPG 图像",
   "admin.metrics.v.gate.save": "保存文件",
   "admin.metrics.v.gate.open": "打开文件",
+  "admin.metrics.v.gate.editor": "打开编辑器",
   "admin.metrics.v.gate.import": "导入",
   "admin.metrics.v.gate.share": "分享链接",
   "admin.metrics.v.gate.code": "模型代码",

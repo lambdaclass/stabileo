@@ -14538,6 +14538,7 @@ const hu: Translations = {
   "admin.metrics.v.export.view-jpg": "JPG-kép",
   "admin.metrics.v.gate.save": "Fájl mentése",
   "admin.metrics.v.gate.open": "Fájl megnyitása",
+  "admin.metrics.v.gate.editor": "A szerkesztő megnyitása",
   "admin.metrics.v.gate.import": "Importálás",
   "admin.metrics.v.gate.share": "Hivatkozás megosztása",
   "admin.metrics.v.gate.code": "Modellkód",
