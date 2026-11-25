@@ -1450,9 +1450,9 @@ it('#2331 refuses a real kink and a subdivision beyond the coordinate precision 
   }
 });
 
-it('#2332 refuses rafter inertia when its story assignment is ambiguous', () => {
+it('#2332 refuses a ridge without two independently supported eaves', () => {
   for (const rotated of [false, true]) for (const subdivided of [false, true]) for (const shift of [0, 1_000_000]) {
-    const { plan, sink } = gablePlan(false, rotated, subdivided, shift);
+    const { plan, sink } = gablePlan(false, rotated, subdivided, shift, false, true);
     const reason = [{ key: 'loadPlan.blocked.seismicAmbiguousStory' }];
     expect(plan).toMatchObject({
       outcome: 'BLOCKED', blockedKeys: reason, cases: [], nodal: [], distributed: [], surface: [], combinations: [],
@@ -1487,9 +1487,7 @@ function gablePlan(evidenced: boolean, rotated: boolean, subdivided: boolean, sh
   return { model, plan, sink };
 }
 
-const gableResult = process.env.RUN_KNOWN_WRONG === '2332' ? it : it.skip;
-
-gableResult('known wrong result: #2332 a supported gable loads the rafter spans without a phantom ridge story', () => {
+it('#2332 a supported gable loads the rafter spans without a phantom ridge story', () => {
   const length = Math.hypot(2, 1);
   for (const rotated of [false, true]) for (const subdivided of [false, true]) for (const shift of [0, 1_000_000]) {
     const { model, plan, sink } = gablePlan(false, rotated, subdivided, shift);

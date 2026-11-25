@@ -1,0 +1,42 @@
+{
+  "id": "seismic-supported-gable",
+  "date": "2026-11-25",
+  "prs": [
+    2332
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "generatedSeismicLoads"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Transfer inertia on a gable supported at both eaves",
+    "es": "Transferencia de inercia en un techo a dos aguas apoyado en ambos aleros",
+    "pt": "Transferência de inércia em um telhado de duas águas apoiado nos dois beirais",
+    "de": "Trägheitskräfte eines an beiden Traufen gestützten Satteldachs übertragen",
+    "fr": "Transfert de l’inertie d’un toit à deux versants appuyé aux deux égouts",
+    "hu": "A két eresznél alátámasztott nyeregtető tehetetlenségi terheinek átadása",
+    "tr": "Her iki saçaktan desteklenen beşik çatıda atalet aktarımı",
+    "zh": "沿双檐支承的双坡屋面传递惯性力"
+  },
+  "explanation": {
+    "en": "A gable with both eaves supported uses the eave story and applies static inertia along the rafters. Regenerate affected seismic loads.",
+    "es": "Un techo a dos aguas apoyado en ambos aleros usa el piso de los aleros y aplica la inercia estática a lo largo de las vigas inclinadas. Regenerá las cargas sísmicas afectadas.",
+    "pt": "Um telhado de duas águas apoiado nos dois beirais usa o pavimento dos beirais e aplica a inércia estática ao longo dos caibros. Regenere as cargas sísmicas afetadas.",
+    "de": "Ein an beiden Traufen gestütztes Satteldach wird dem Traufgeschoss zugeordnet. Die statische Trägheitslast wirkt entlang der Sparren. Erzeugen Sie betroffene Erdbebenlasten neu.",
+    "fr": "Un toit à deux versants appuyé aux deux égouts est rattaché à leur étage. L’inertie statique agit le long des chevrons. Régénérez les charges sismiques concernées.",
+    "hu": "A két eresznél alátámasztott nyeregtető az eresz szintjéhez tartozik. A statikus tehetetlenségi erő a szarufák mentén hat. Generálja újra az érintett szeizmikus terheket.",
+    "tr": "Her iki saçaktan desteklenen beşik çatı saçak katına bağlanır ve statik atalet mertekler boyunca uygulanır. Etkilenen deprem yüklerini yeniden oluşturun.",
+    "zh": "双檐支承的双坡屋面采用檐口层，并沿椽条施加静力惯性荷载。请重新生成受影响的地震荷载。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-generated-source-accounting.md",
+    "heading": "Transfer inertia on a gable supported at both eaves"
+  }
+}

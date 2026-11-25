@@ -225,6 +225,8 @@ export function buildSeismicModel(
   }
   const continuations = new Map<number, Map<number, number>>();
   const crossings = new Set<number>();
+  const ambiguous = new Set<number>();
+  const ridgeCandidates = new Set<number>();
   const storyNodes = new Set(evidenced);
   for (const [id, adjacent] of neighbours) {
     if (evidenced.has(id)) continue;
@@ -255,10 +257,57 @@ export function buildSeismicModel(
       }
     }
     if (ridge || (node.z > component.elevation && below.length && connected.some(n => n.z > node.z))) {
-      return { levels: [], datum: { refusal: 'seismicAmbiguousStory' } };
+      ambiguous.add(id);
+      if (ridge && adjacent.length === 2 && descendingSlopes.length === 2) ridgeCandidates.add(id);
+      continue;
     }
     storyNodes.add(id);
   }
+
+  const supported = new Set([...model.supports?.values() ?? []].map(s => s.nodeId));
+  const highest = [...component.nodes].reduce((z, id) => Math.max(z, nodes.get(id)!.z), component.elevation);
+  type Edge = { node: MassNode; elementId: number };
+  const rafter = (edge: Edge) => {
+    const members: number[] = [];
+    for (;;) {
+      const { elementId, node } = edge;
+      const el = model.elements.get(elementId)!;
+      if (el.type === 'truss' || hasMemberOffset(el)) return undefined;
+      members.push(elementId);
+      const nextId = continuations.get(node.id)?.get(elementId);
+      if (nextId === undefined) {
+        const adjacent = neighbours.get(node.id)!;
+        if (adjacent.length !== 2) return undefined;
+        const post = adjacent.find(other => other.elementId !== elementId)!;
+        const base = post.node;
+        const column = model.elements.get(post.elementId)!;
+        return base.z === component.elevation && supported.has(base.id) && base.x === node.x && base.y === node.y
+          && column.type !== 'truss' && !hasMemberOffset(column) ? { eave: node, members } : undefined;
+      }
+      const next = neighbours.get(node.id)!.find(other => other.elementId === nextId)!;
+      if (crossings.has(node.id) || next.node.z >= node.z) return undefined;
+      edge = next;
+    }
+  };
+
+  const gableMembers = new Set<number>();
+  const planPoint = (node: MassNode) => ({ ...node, z: 0 });
+  for (const id of ridgeCandidates) {
+    const ridge = nodes.get(id)!;
+    if (ridge.z !== highest || surfaceNodes.has(id)) continue;
+    const [first, second] = neighbours.get(id)!.map(rafter);
+    if (!first || !second || first.eave.id === second.eave.id || first.eave.z !== second.eave.z) continue;
+    if (lineJoint(planPoint(first.eave), planPoint(ridge), planPoint(second.eave)) !== 'straight') continue;
+    ambiguous.delete(id);
+    for (const { eave, members } of [first, second]) {
+      ambiguous.delete(eave.id);
+      evidenced.add(eave.id);
+      storyNodes.add(eave.id);
+      for (const member of members) gableMembers.add(member);
+    }
+  }
+  if (ambiguous.size) return { levels: [], datum: { refusal: 'seismicAmbiguousStory' } };
+
   for (const id of surfaceNodes) if (component.nodes.has(id)) storyNodes.add(id);
 
   type Run = { atStory: Map<number, MassNode>; loading: 'story' | 'member' | 'unresolvedSlope' };
@@ -287,7 +336,8 @@ export function buildSeismicModel(
         if (!runs.has(nextId) && adjacent.nodeI.z !== adjacent.nodeJ.z) pending.push(adjacent);
       }
     }
-    if (crossesBrace || (low.z > component.elevation && (low.x !== high.x || low.y !== high.y))) {
+    if (gableMembers.has(id)) run.loading = 'member';
+    else if (crossesBrace || (low.z > component.elevation && (low.x !== high.x || low.y !== high.y))) {
       run.loading = evidenced.has(low.id) && evidenced.has(high.id) ? 'member' : 'unresolvedSlope';
     }
   }
