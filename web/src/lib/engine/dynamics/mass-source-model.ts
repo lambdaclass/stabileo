@@ -17,6 +17,8 @@ import { solvableModel } from '../member-behaviour';
 import type { Load, SurfaceLoad3D } from '../../store/model.svelte';
 import { surfaceDownwardPressure } from '../solver-shells';
 import { withCaseEffects } from '../case-effects';
+import { accountingCaseSources, scenarioSurfaceExpectations } from '../accounting-source';
+import { matchScenarioSurfaces } from '../load-accounting';
 import { massWeightLoads, WEIGHT_CASE } from './mass-weights';
 import type { SolverInput3D } from '../types-3d';
 import {
@@ -35,10 +37,13 @@ export function caseMassLoads(
 ): CaseMassLoads[] {
   // On the members the analysis input has: a variable member's loads are its pieces' (idempotent).
   model = solvableModel(model);
+  const effects = model[accountingCaseSources];
+  const expected = effects && scenarioSurfaceExpectations(effects);
   const out: CaseMassLoads[] = [];
   for (const f of factors) {
     if (!(f.factor > 0)) continue;
     const own = model.loads.filter((l) => (l.data.caseId ?? 1) === f.caseId);
+    if (expected) matchScenarioSurfaces(model, f.caseId, own, expected(f.caseId));
     // A surface load's weight is its downward resultant, whatever its direction or field
     // (`shell-load-integration.ts`), spread over the shell: a suction or a wall pressure weighs nothing.
     const surface = own.filter((l) => l.type === 'surface3d').flatMap((l) => {

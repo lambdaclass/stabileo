@@ -52,6 +52,7 @@ import type { ModelSnapshot, SnapshotKind } from './history.svelte';
 import { normalizeMassSource, type MassSource } from '../engine/dynamics/mass-source';
 import { pruneScopes, scopeBundle3D, type ResultScopes } from '../engine/result-scopes';
 import type { CombinationRule } from '../engine/loads/combination-rules';
+import { isCompositeCase } from '../engine/loads/combination-cases';
 import { splitElementLoads, segmentFields, memberLoadGeometry } from '../model/edit/member-split';
 import { variableCutSection, variableRefusal } from '../section/variable';
 import { findCoincidentNode } from '../engine/mesh-weld';
@@ -760,6 +761,7 @@ export const loadMemberId = (l: Load): number | undefined =>
 export type LoadCaseType = string;
 
 export interface LoadCase {
+  group?: string;
   snowBasis?: 'flatRoof';
   id: number;
   type: LoadCaseType;
@@ -4237,10 +4239,10 @@ function createModelStore() {
     },
 
     // ─── Load Case / Combination CRUD ───
-    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string; pattern?: boolean; category?: LoadCase['category']; generated?: boolean; snowBasis?: 'flatRoof' } = {}): number {
+    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string; pattern?: boolean; category?: LoadCase['category']; generated?: boolean; snowBasis?: 'flatRoof'; group?: string } = {}): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.loadCase++;
-      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}), ...(opts.pattern ? { pattern: true } : {}), ...(opts.category ? { category: opts.category } : {}), ...(opts.generated ? { generated: true } : {}), ...(opts.snowBasis ? { snowBasis: opts.snowBasis } : {}) });
+      model.loadCases.push({ id, type, name, ...(opts.group !== undefined ? { group: opts.group } : {}), ...(opts.alternatives ? { alternatives: opts.alternatives } : {}), ...(opts.pattern ? { pattern: true } : {}), ...(opts.category ? { category: opts.category } : {}), ...(opts.generated ? { generated: true } : {}), ...(opts.snowBasis ? { snowBasis: opts.snowBasis } : {}) });
       return id;
     },
 
@@ -4428,12 +4430,10 @@ function createModelStore() {
      * `reduced`: the loads come reduced already (the generator's live load), and a case reduced by
      * hand (`LoadCase.reduction`) is never the one they go into, whatever its name.
      */
-    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string; pattern?: boolean; own?: boolean; reduced?: boolean; category?: LoadCase['category']; snowBasis?: 'flatRoof' } = {}): number {
+    ensureLoadCase(name: string, type: LoadCaseType, opts: PlannedCaseMatch & Pick<LoadCase, 'pattern' | 'category'> = {}): number {
       const found = findPlannedCase(model.loadCases, name, type, opts);
       if (!found) {
-        let fresh = name;
-        for (let k = 2; opts.own && model.loadCases.some((c) => c.type === type && c.name === fresh); k++) fresh = `${name} (${k})`;
-        return this.addLoadCase(fresh, type, { alternatives: opts.alternatives, pattern: opts.pattern, category: opts.category, snowBasis: opts.snowBasis });
+        return this.addLoadCase(plannedCaseName(model.loadCases, name, type, opts), type, opts);
       }
       if (opts.category && found.category !== opts.category) {
         if (!_undoBatching) _pushUndo?.();
@@ -5114,15 +5114,35 @@ function createModelStore() {
  * finds the same cases apply will write into (`apply-load-plan.ts`). Loads reduced already
  * (`reduced`) are never found a case reduced by hand, by name: they would be reduced twice.
  */
-export function findPlannedCase<C extends Pick<LoadCase, 'id' | 'type' | 'name' | 'alternatives' | 'snowBasis'> & { reduction?: unknown }>(
-  cases: readonly C[], name: string, type: string, opts: { existingId?: number | null; alternatives?: string; own?: boolean; reduced?: boolean; snowBasis?: 'flatRoof' } = {},
+export type PlannedCaseMatch = Pick<LoadCase, 'alternatives' | 'snowBasis' | 'group'> & {
+  existingId?: number | null;
+  own?: boolean;
+  reduced?: boolean;
+};
+
+export function plannedCaseName(
+  cases: ReadonlyArray<Pick<LoadCase, 'name' | 'type'>>, name: string, type: string, opts: PlannedCaseMatch,
+): string {
+  let fresh = name;
+  for (let k = 2; (opts.own || opts.group !== undefined) && cases.some(c => c.type === type && c.name === fresh); k++) {
+    fresh = `${name} (${k})`;
+  }
+  return fresh;
+}
+
+export function findPlannedCase<C extends Pick<LoadCase, 'id' | 'type' | 'name' | 'alternatives' | 'snowBasis' | 'group' | 'includes' | 'generated'> & { reduction?: unknown }>(
+  cases: readonly C[], name: string | undefined, type: string, opts: PlannedCaseMatch = {},
 ): C | undefined {
+  const open = (c: C) => c.type === type && c.snowBasis === opts.snowBasis
+    && !c.generated && !(opts.reduced && c.reduction !== undefined) && !isCompositeCase(c);
+  const explicit = opts.existingId != null
+    ? cases.find(c => c.id === opts.existingId && open(c) && (opts.group === undefined || c.group === opts.group))
+    : undefined;
+  if (explicit || name === undefined) return explicit;
   const numbered = (n: string) => n === name || (n.startsWith(`${name} (`) && /^\(\d+\)$/.test(n.slice(name.length + 1)));
-  const open = (c: C) => c.snowBasis === opts.snowBasis && !(opts.reduced && c.reduction !== undefined);
-  return (opts.existingId != null ? cases.find((c) => c.id === opts.existingId && open(c)) : undefined)
-    ?? (opts.own
-      ? cases.find((c) => c.type === type && c.alternatives === opts.alternatives && numbered(c.name) && open(c))
-      : cases.find((c) => c.type === type && c.name === name && open(c)));
+  return cases.find(c => open(c) && c.group === opts.group && (opts.own || opts.group !== undefined
+    ? c.alternatives === opts.alternatives && numbered(c.name)
+    : c.name === name));
 }
 
 function withAxisNamedCases(store: ReturnType<typeof createModelStore>) {

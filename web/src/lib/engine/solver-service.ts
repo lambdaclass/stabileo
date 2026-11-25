@@ -1,7 +1,7 @@
-import { accountingCaseSources, accountingProjection, accountingSource, copyAccountingLoad, type AccountingCaseSources } from './accounting-source';
+import { accountingCaseSources, accountingProjection, accountingSource, copyAccountingLoad, scenarioSurfaceIntentOf, type AccountingCaseSources, type ScenarioSurfaceIntent } from './accounting-source';
 import { EngineCheckError, EngineUnavailableError } from './engine-unavailable';
 import { scaleAssembledMagnitudes3D, type Wrench } from './accounting-math';
-import { accountCombination, accountLoads2D, loadAccounting3D, loadCaseBatches } from './load-accounting';
+import { accountCombination, accountLoads2D, loadAccounting3D, loadCaseBatches, verifyFactoredScenarioNode, verifyScenarioSurfaceLoads } from './load-accounting';
 import { accountPlateGeometry, SolveAccountingError } from './plate-accounting';
 import { shouldEmbedFlat2DModelIn3D } from './model-embedding';
 export { shouldEmbedFlat2DModelIn3D } from './model-embedding';
@@ -29,7 +29,7 @@ import { sectionShearAreas } from '../section/shear-areas';
 import { transverseSign } from './transverse-sign-2d';
 import { SupportMappingError, supportDofs3D } from './support-dofs-3d';
 import { isPlaneRoller, isPlaneSupportType, planeMemberAngle, resolvePlaneSupportSettlement } from '../model/support-types';
-import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, assertFiniteWire, finiteWireJson, netCombinationFactors, combineResults, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D } from './wasm-solver';
+import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, assertFiniteWire, finiteWireJson, netCombinationFactors, combineResults, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D, solvePDelta3DAsync } from './wasm-solver';
 import { solverProperties } from '../section/state';
 import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from './types';
 import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D } from './orphan-rotations-3d';
@@ -60,7 +60,7 @@ import { planarLoadDirection } from './planar-load-direction';
 import { prestressToSolver } from './prestress';
 import { hasCaseDisplacements, imposedOf, imposedUnsupported, supportsWithImposed, casesWithDisplacements } from './case-displacements';
 import { constraintsTo2D } from './constraint-2d-remap';
-import { initPool, isPoolReady, solveParallel, solve2DInWorker, solve3DInWorker, PoolUnavailableError, nonlinearSessionInWorker, checkSolveCancelled, type NonlinearSolveOptions } from './solver-pool';
+import { initPool, isPoolReady, solveParallel, solve2DInWorker, solve3DInWorker, pdelta3DInWorker, PoolUnavailableError, nonlinearSessionInWorker, checkSolveCancelled, type NonlinearSolveOptions } from './solver-pool';
 import { i18n, t, tp } from '../i18n';
 // Counts app-side structural-solve dispatches so browser tests can assert that a
 // reinforcement-only edit triggers none. Not part of the solver.
@@ -148,6 +148,7 @@ function snapshotNonlinearModel(model: ModelData): ModelData {
     generated: new Map([...cases.generated].map(([id, loads]) => [id, loads.map(copyAccountingLoad)])),
     cases: snapshotMap(cases.cases),
     targets: new Set(cases.targets),
+    single: cases.single,
   };
   const source = model[accountingSource];
   if (source) snapshot[accountingSource] = snapshotNonlinearModel(source);
@@ -293,12 +294,19 @@ function buildSolverLoads2D(
   return checked;
 }
 
-type RecordLoadCase<T> = (caseId: number | null, loads: readonly T[]) => void;
+type RecordLoadCase<T> = (caseId: number | null, loads: readonly T[], scenario?: Load) => void;
 
 function accountAssembly<T extends object>(assemble: (record: RecordLoadCase<T>) => T[]) {
   const caseOf = new WeakMap<T, number | null>();
-  const loads = assemble((caseId, batch) => { for (const load of batch) caseOf.set(load, caseId); });
+  const sourceOf = new WeakMap<T, Load>();
+  const loads = assemble((caseId, batch, source) => {
+    for (const load of batch) {
+      caseOf.set(load, caseId);
+      if (source) sourceOf.set(load, source);
+    }
+  });
   const cases = new Map<number, T[]>();
+  const sources = new Map<Load, T[]>();
   for (const [i, load] of loads.entries()) {
     const id = caseOf.get(load);
     if (id === null) continue;
@@ -306,8 +314,14 @@ function accountAssembly<T extends object>(assemble: (record: RecordLoadCase<T>)
     const batch = cases.get(id);
     if (batch) batch.push(load);
     else cases.set(id, [load]);
+    const source = sourceOf.get(load);
+    if (source) {
+      const rows = sources.get(source);
+      if (rows) rows.push(load);
+      else sources.set(source, [load]);
+    }
   }
-  return { loads, cases };
+  return { loads, cases, sources };
 }
 
 function retainedPlanarProjections(globalAxis: boolean, axial: number[], transverse: number[]) {
@@ -1575,7 +1589,7 @@ export function buildSolverLoads3D(
   for (const l of loads) {
     const emit = (...batch: SolverLoad3D[]) => {
       const assembled = transverseToNodes(batch, truss);
-      opts.record?.(l.data.caseId ?? 1, assembled);
+      opts.record?.(l.data.caseId ?? 1, assembled, l.type === 'surface3d' && scenarioSurfaceIntentOf(l) ? l : undefined);
       for (const load of assembled) solverLoads.push(load);
     };
     if (l.type === 'nodal') {
@@ -1874,6 +1888,18 @@ export function withoutSpringsOnRestrained<T extends Record<string, unknown>>(su
   return out as T;
 }
 
+function recordedSolverLoads3D(model: ModelData, loads: Load[], weights: boolean | SelfWeightLoad[], leftHand: boolean) {
+  return accountAssembly<SolverLoad3D>(record => buildSolverLoads3D(model, loads, weights, leftHand, { record }));
+}
+
+export function notionalSourceLoads3D(
+  model: ModelData, leftHand: boolean, caseId: number, expectedPressures: readonly ScenarioSurfaceIntent[],
+): SolverLoad3D[] {
+  const { loads, sources } = recordedSolverLoads3D(model, model.loads, model.analysis?.selfWeight ?? [], leftHand);
+  verifyScenarioSurfaceLoads(model, caseId, model.loads, sources, undefined, expectedPressures);
+  return loads;
+}
+
 function checkedSolverLoads3D(
   model: ModelData, input: SolverInput3D, loads: Load[], weights: boolean | SelfWeightLoad[], leftHand: boolean,
   plateCases: boolean | readonly number[],
@@ -1881,12 +1907,11 @@ function checkedSolverLoads3D(
     accountPlateGeometry(model[accountingSource] ?? model, input), plateCases !== false),
   checkedCase?: (caseId: number, loads: readonly SolverLoad3D[], totals: Wrench) => void,
 ): SolverLoad3D[] {
-  const { loads: checked, cases: assembledByCase } = accountAssembly<SolverLoad3D>(record =>
-    buildSolverLoads3D(model, loads, weights, leftHand, { record }));
+  const { loads: checked, cases: assembledByCase, sources } = recordedSolverLoads3D(model, loads, weights, leftHand);
   const selected = plateCases === true ? [...accounting.cases] : plateCases || [];
   for (const [caseId, entered] of loadCaseBatches(loads, selected)) {
     const assembled = assembledByCase.get(caseId) ?? [];
-    const totals = accounting.verify(caseId, entered, assembled);
+    const totals = accounting.verify(caseId, entered, assembled, sources);
     checkedCase?.(caseId, assembled, totals);
   }
   return checked;
@@ -2675,7 +2700,9 @@ export function solveCombinations3D(
     const { solving, resolved } = prepared;
     model = prepared.model;
     const plan = combinationsPlan3D(solvableModel(model), solving, resolved, includeSelfWeight, leftHand);
-    const solved = 'done' in plan ? plan.done : plan.finish(solveCombinations3DCore(plan.forces, solving, resolved, includeSelfWeight, leftHand));
+    const solved = 'done' in plan ? plan.done
+      : 'pdelta' in plan ? runPDeltaCombinationSteps(plan.pdelta)
+      : plan.finish(solveCombinations3DCore(plan.forces, solving, resolved, includeSelfWeight, leftHand));
     return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, resolved, magnitudeOptions(model), spectral);
   } catch (err) {
     if (err instanceof SupportMappingError) return localizeEngineText(err.message);
@@ -2691,11 +2718,6 @@ export function solveCombinations3D(
  * workers' (`solveCombinations3DParallel`), which PRO's Solve takes. They differ in the core only,
  * so a rule one honours the other cannot skip; the workers' entry once skipped P-Delta per
  * combination, and then the cases' imposed displacements.
- *
- * A model that is not linear, or P-Delta per combination, is solved here (`done`). Otherwise the
- * core solves `forces`, the model without its settlement and without the cases' imposed
- * displacements, and `finish` adds the settlement once and each case's displacements to its case
- * (`case-displacements.ts`).
  */
 function combinationsPlan3D(
   model: ModelData,
@@ -2703,10 +2725,11 @@ function combinationsPlan3D(
   combinations: LoadCombination[],
   includeSelfWeight: boolean,
   leftHand: boolean,
-): { done: Bundle3D | string | null } | { forces: ModelData; finish: (solved: Bundle3D | string | null) => Bundle3D | string | null } {
+): { done: Bundle3D | string | null } | { pdelta: ReturnType<typeof pdeltaCombinationSteps> }
+  | { forces: ModelData; finish: (solved: Bundle3D | string | null) => Bundle3D | string | null } {
   if (hasNonlinearBehaviour(model)) return { done: solveCombinations3DNonlinear(model, loadCases, combinations, includeSelfWeight, leftHand) };
   if (model.analysis?.perCombination === 'pdelta') {
-    return { done: solveCombinations3DPDelta(model, loadCases, combinations, includeSelfWeight, leftHand) };
+    return { pdelta: pdeltaCombinationSteps(model, loadCases, combinations, includeSelfWeight, leftHand) };
   }
   const imposed = casesWithDisplacements(model.loads);
   const loaded = imposed.size ? { ...model, loads: model.loads.filter((l) => l.type !== 'displacement3d') } : model;
@@ -3057,6 +3080,43 @@ function* nonlinearCombinationSteps(
   }
 }
 
+const COMBINATION_PDELTA_ITERATIONS = 30;
+const COMBINATION_PDELTA_TOLERANCE = 1e-6;
+
+function runPDeltaCombinationSteps(steps: ReturnType<typeof pdeltaCombinationSteps>): Bundle3D | string | null {
+  let next = steps.next();
+  while (!next.done) {
+    let response;
+    try {
+      response = solvePDelta3D(next.value, COMBINATION_PDELTA_ITERATIONS, COMBINATION_PDELTA_TOLERANCE);
+    } catch (error) {
+      next = steps.throw(error);
+      continue;
+    }
+    next = steps.next(response);
+  }
+  return next.value;
+}
+
+async function runPDeltaCombinationStepsAsync(
+  steps: ReturnType<typeof pdeltaCombinationSteps>, options: NonlinearSolveOptions,
+): Promise<Bundle3D | string | null> {
+  let next = steps.next();
+  while (!next.done) {
+    checkSolveCancelled(options);
+    let response;
+    try {
+      response = await solvePDelta3DAsync(next.value, COMBINATION_PDELTA_ITERATIONS, COMBINATION_PDELTA_TOLERANCE, pdelta3DInWorker);
+    } catch (error) {
+      next = steps.throw(error);
+      continue;
+    }
+    checkSolveCancelled(options);
+    next = steps.next(response);
+  }
+  return next.value;
+}
+
 /**
  * Combinations solved with P-Delta, each on its own factored loads (`analysis.perCombination`).
  *
@@ -3065,13 +3125,13 @@ function* nonlinearCombinationSteps(
  * forces carry the geometric part, (K + Kg)·u, and whether a second-order equilibrium exists
  * is read from the displacements rather than from the engine's flag (`direct-analysis.ts`).
  */
-function solveCombinations3DPDelta(
+function* pdeltaCombinationSteps(
   model: ModelData,
   loadCases: LoadCase[],
   combinations: LoadCombination[],
   includeSelfWeight: boolean,
   leftHand: boolean,
-): Bundle3D | string | null {
+): Generator<SolverInput3D, Bundle3D | string | null, ReturnType<typeof solvePDelta3D>> {
   const settled = hasSettlement(model.supports.values());
   const free = settled ? { ...model, supports: withoutSettlement(model.supports) } : model;
   const base = buildSolveInput3D({ ...model, loads: [] }, [], leftHand, { plateCases: false });
@@ -3111,8 +3171,7 @@ function solveCombinations3DPDelta(
       const on = imposedHere ? buildSolveInput3D({ ...model, loads: imposedOf(model.loads, factorOf) }, [], leftHand, { plateCases: false }) : base;
       if (!on) return t('svc.emptyModel');
       if (typeof on === 'string') return on;
-      const full = { ...on, loads };
-      const r = solvePDelta3D(full, 30, 1e-6);
+      const r = yield { ...on, loads };
       const amp = amplification(r);
       if (!amp.stable) { unstable.push(combo.id); continue; }
       const results: AnalysisResults3D = { ...r.results, secondOrder: { converged: !!r.converged, iterations: r.iterations ?? 0, stable: amp.stable, b2: amp.b2 } };
@@ -3208,7 +3267,10 @@ export function comboSolverLoads3D(combo: LoadCombination, caseLoads: Map<number
     if (totals) terms.push({ factor, totals });
     return (caseLoads.get(caseId) ?? []).map(load => {
       const scaled = scaleSolverLoad(load, factor);
-      if (audit?.authored.has(load)) assembled.push(scaled);
+      if (audit?.authored.has(load)) {
+        verifyFactoredScenarioNode(audit.model, combo.id, combo.name, load, scaled, factor);
+        assembled.push(scaled);
+      }
       return scaled;
     });
   });
@@ -3254,7 +3316,7 @@ export async function solveCombinations3DParallel(
 ): Promise<Bundle3D | string | null> {
   // Share refusals and finishing with the synchronous entry; native solves yield to workers.
   checkSolveCancelled(options);
-  if (hasNonlinearBehaviour(model)) {
+  if (hasNonlinearBehaviour(model) || model.analysis?.perCombination === 'pdelta') {
     model = snapshotNonlinearModel(model);
     loadCases = plainDeepCopy(loadCases);
     combinations = plainDeepCopy(combinations);
@@ -3273,7 +3335,9 @@ export async function solveCombinations3DParallel(
       solved = await solveCombinations3DNonlinearAsync([active, solving, resolved, includeSelfWeight, leftHand], options);
     } else {
       const plan = combinationsPlan3D(active, solving, resolved, includeSelfWeight, leftHand);
-      solved = 'done' in plan ? plan.done : plan.finish(await solveCombinations3DParallelCore(plan.forces, solving, resolved, includeSelfWeight, leftHand));
+      solved = 'done' in plan ? plan.done
+        : 'pdelta' in plan ? await runPDeltaCombinationStepsAsync(plan.pdelta, options)
+        : plan.finish(await solveCombinations3DParallelCore(plan.forces, solving, resolved, includeSelfWeight, leftHand));
     }
     checkSolveCancelled(options);
     return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, resolved, magnitudeOptions(model), spectral);

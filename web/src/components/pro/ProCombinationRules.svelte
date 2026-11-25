@@ -27,7 +27,7 @@
   let fileInput = $state<HTMLInputElement | null>(null);
 
   const nextId = () => freshRuleIds(rules, 1)[0]!;
-  const factorOf = (r: CombinationRule, s: LoadSymbol) => r.terms.find((x) => x.symbol === s)?.factor ?? 0;
+  const factorOf = (r: CombinationRule, s: LoadSymbol) => r.terms.find((x) => x.symbol === s && x.group === undefined)?.factor ?? 0;
 
   function write(next: CombinationRule[]) { modelStore.setCombinationRules(next); }
 
@@ -39,7 +39,7 @@
     const f = raw.trim() === '' ? 0 : Number(raw.replace(',', '.'));
     if (!Number.isFinite(f)) return;
     write(rules.map((r) => r.id !== id ? r : {
-      ...r, terms: [...r.terms.filter((x) => x.symbol !== s), ...(f !== 0 ? [{ symbol: s, factor: f }] : [])]
+      ...r, terms: [...r.terms.filter((x) => x.symbol !== s || x.group !== undefined), ...(f !== 0 ? [{ symbol: s, factor: f }] : [])]
         .sort((a, b) => RULE_SYMBOLS.indexOf(a.symbol) - RULE_SYMBOLS.indexOf(b.symbol)),
     }));
   }

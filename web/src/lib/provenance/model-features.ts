@@ -2,6 +2,7 @@ import { POINT_END_TOL } from '../engine/member-point-loads';
 import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
 import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
 import { isCompositeCase } from '../engine/loads/combination-cases';
+import { symbolOfType, symbolsByAlternativeSet } from '../engine/loads/combination-cases';
 /**
  * Which features a saved model has, for deciding which registered result changes concern it.
  *
@@ -58,6 +59,7 @@ export const FEATURE_IDS = [
   'generatedWidthGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
+  'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase',
   'superposedCombinations', 'repeatedCombinationCases', 'zeroOrOpposingCombinationFactors', 'explicitNotionalCombinationCases',
   'prototypeNamedLoadCase', 'staticCaseEffects', 'projectedSpatialLoads', 'offsetMemberLoadFrame', 'inactiveSpatialMembers',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
@@ -105,6 +107,7 @@ interface FeatureSnapshotFields {
   loads?: Array<{ type: string; data?: Record<string, unknown> }>;
   loadCases?: Array<{
     id: number; name?: string; type?: string; spectral?: unknown; alternatives?: string; axisNamed?: boolean;
+    group?: string;
     includes?: ReadonlyArray<{ caseId?: number; factor: number }>; reduction?: { ratio: number }; notional?: unknown;
   }>;
   combinations?: unknown[];
@@ -404,6 +407,8 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const gravityMode = (roles.loads?.settings?.dialog as { gravityMode?: unknown } | undefined)?.gravityMode;
   let memberGravity = false;
   let shellGravity = false;
+  const typedCompositeCaseIds = new Set(cases.filter(c => symbolOfType(c.type) && isCompositeCase(c)).map(c => c.id));
+  let loadPlanInCompositeCase = false;
   let generatedSeismic = !!loadBasis?.seismic || loadNoteKeys.has('loadPlan.derivation.seismic');
   if (values(ctx.storedElements ?? s.elements).some(member => {
     if (member.type !== 'frame') return false;
@@ -494,6 +499,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if ((t === 'surface3d' || d.fromDef !== undefined) && dead) f.add('areaDeadLoads');
     if (fromLoadPlan(d.generatedBy)) {
       f.add('generatedLoads');
+      if (typedCompositeCaseIds.has(d.caseId as number)) loadPlanInCompositeCase = true;
       const type = caseType.get(d.caseId as number) ?? '';
       if (['W', 'Wa'].includes(type)) f.add('generatedWindLoads');
       if (type === 'E') generatedSeismic = true;
@@ -528,8 +534,17 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (types.has('S')) f.add('snow');
   if (types.has('W') || types.has('Wa')) f.add('wind');
   const combos = (Array.isArray(s.combinations) && s.combinations.length > 0) || (Array.isArray(s.combinationRules) && s.combinationRules.length > 0);
+  if (loadPlanInCompositeCase) f.add('loadPlanInCompositeCase');
+  if ((combos || cases.some(isCompositeCase)) && [...symbolsByAlternativeSet(cases).values()].some(symbols => symbols.size > 1)) {
+    f.add('crossSymbolCombinationAlternatives');
+  }
   if (combos) {
     f.add('combinations');
+    const groupedRule = Array.isArray(s.combinationRules) && s.combinationRules.some(rule => {
+      const terms = (rule as { terms?: unknown } | null)?.terms;
+      return Array.isArray(terms) && terms.some(term => term?.group !== undefined);
+    });
+    if (groupedRule || cases.some(c => c.group !== undefined)) f.add('groupedCombinationRules');
     if (cases.some(c => c.name === '__proto__')) f.add('prototypeNamedLoadCase');
     if (Array.isArray(s.combinations) && s.combinations.some(c => {
       const method = (c as { method?: string } | null)?.method;

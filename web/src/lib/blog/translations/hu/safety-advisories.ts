@@ -266,6 +266,10 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-110-solver-json-boundary.md", "label": "SA-2026-110", "t": "Érintett bemenetek és szükséges teendők."},
     {"k": "note", "t": "SA-2026-111 — A 0.6.4 utáni következő kiadás."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-111-gravity-shared-deck-coverage.md", "label": "SA-2026-111", "t": "Érintett bemenetek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-112 — A 0.6.4 utáni következő kiadás."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-112-basic-3d-shell-omission.md", "label": "SA-2026-112", "t": "Érintett bemenetek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-113 — A 0.6.4 utáni következő kiadás."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-113-native-supplied-linear-certificates.md", "label": "SA-2026-113", "t": "Érintett bemenetek és szükséges teendők."},
     {
       "k": "img",
       "base": "blog/recheck-stale",
@@ -802,7 +806,9 @@ const body: PostBody = {
         ["SA-2026-108", "Az XZ vagy YZ síkra vetítés figyelmeztetés nélkül elhagyhatta a csomóponti erő számítási síkra merőleges komponensét. Ellenőrizze a csomóponti erőket minden teheresetben, és ismételje meg az érintett számításokat és méretezési ellenőrzéseket a térbeli modellen.", "Magas", "A 0.6.4 utáni következő kiadás"],
         ["SA-2026-109", "A síkbeli DXF ismeretlen támaszfeliratai figyelmeztetés nélkül csuklós támaszként kerülhettek a modellbe. Hasonlítsa össze az importált támaszokat az eredeti rajzzal, javítsa az eltéréseket, és ismételje meg az érintett számításokat.", "Magas", "A 0.6.4 utáni következő kiadás"],
         ["SA-2026-110", "A webes számítás figyelmeztetés nélkül kihagyhatott egy nem véges merevségű rugót vagy egy teheresetet a teherkombinációból. Ellenőrizze a rugómerevségeket, a teheresetek nevét és a nettó tényezőket, majd számítsa újra az érintett eseteket és kombinációkat.", "Magas", "A 0.6.4 utáni következő kiadás"],
-        ["SA-2026-111", "A gravitációs terhek panelenkénti automatikus előállítása kétszer vehette figyelembe ugyanazt a födémterhet. Ellenőrizze az átfedő héjelemeket és a hozzájuk kapcsolt gerendamezőket, generálja újra az érintett mentett gravitációs teherterveket, majd ismételje meg az érintett számításokat.", "Magas", "A 0.6.4 utáni következő kiadás"]
+        ["SA-2026-111", "A gravitációs terhek panelenkénti automatikus előállítása kétszer vehette figyelembe ugyanazt a födémterhet. Ellenőrizze az átfedő héjelemeket és a hozzájuk kapcsolt gerendamezőket, generálja újra az érintett mentett gravitációs teherterveket, majd ismételje meg az érintett számításokat.", "Magas", "A 0.6.4 utáni következő kiadás"],
+        ["SA-2026-112", "A Basic 3D számítás figyelmeztetés nélkül kihagyhatta az összes héjelemet. Számítsa újra az érintett tehereseteket és teherkombinációkat a PRO 3D-ben a teljes héjelemhálóval, majd ismételje meg az ezekre épülő méretezési ellenőrzéseket.", "Magas", "A 0.6.4 utáni következő kiadás"],
+        ["SA-2026-113", "A natív Rust API olyan teheresethez is tanúsíthatta a megadott lineáris eredményeket, amelyet a megoldó elutasított. Ismételje meg az érintett számításokat és a tanúsítást, beleértve a kapcsolódó teherkombinációkat és burkolókat is.", "Közepes", "A 0.6.4 utáni következő kiadás"]
       ]
     },
     {

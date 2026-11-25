@@ -181,6 +181,7 @@ async function liveCalc3D(axisConvention: string, isStale: () => boolean): Promi
   const r = await modelStore.solve3DAsync(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro, { isCancelled: isStale });
   if (isStale()) return;
   if (typeof r === 'string') {
+    resultsStore.clear3D();
     uiStore.liveCalcError = r;
     return;
   }
