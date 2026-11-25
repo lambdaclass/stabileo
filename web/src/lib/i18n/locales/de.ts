@@ -7812,7 +7812,7 @@ const de: Translations = {
   'loadPlan.gravity.differentSlopedDeck': "Die geneigte abdeckende Schale muss zur selben Decke wie das Trägerfeld gehören.",
   'loadPlan.gravity.deckCheckFailed': "Die Prüfung der Schalenabdeckung der Decke ist fehlgeschlagen: {detail}",
   'loadPlan.gravity.exposureCheckFailed': "Die Prüfung der Überdeckung der freien Streifen ist fehlgeschlagen: {detail}",
-  'loadPlan.gravity.mixedExposure': "Die freien Streifen umfassen Dach- und Geschossbereiche.",
+  'loadPlan.gravity.mixedExposure': "Eine zugewiesene Fläche umfasst Dach- und Geschossbereiche. Weisen Sie die Dach- und Geschosslasten ausdrücklich zu.",
   'loadPlan.gravity.stripSpan': "Der freie Streifen überschreitet die maximale Deckenspannweite.",
   'loadPlan.gravity.headroomCheckFailed': "Die Prüfung der lichten Höhe des freien Streifens ist fehlgeschlagen: {detail}",
   'loadPlan.gravity.stripHeadroom': "Die lichte Geschosshöhe des freien Streifens ist unzureichend oder nicht bestimmbar.",

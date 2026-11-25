@@ -27,7 +27,7 @@ const ja: Translations = {
   'loadPlan.gravity.differentSlopedDeck': "梁パネルを覆う傾斜シェルは、梁パネルと同じデッキに属する必要があります。",
   'loadPlan.gravity.deckCheckFailed': "シェルによるデッキの被覆を確認できませんでした：{detail}",
   'loadPlan.gravity.exposureCheckFailed': "被覆されていない帯の上部の覆いを確認できませんでした：{detail}",
-  'loadPlan.gravity.mixedExposure': "被覆されていない帯には屋根と床の両方の領域があります。",
+  'loadPlan.gravity.mixedExposure': "割り当てた領域に屋根と床の両方が含まれます。各領域の荷重を明示的に指定してください。",
   'loadPlan.gravity.stripSpan': "被覆されていない帯がデッキの最大スパンを超えています。",
   'loadPlan.gravity.headroomCheckFailed': "被覆されていない帯の有効高さを確認できませんでした：{detail}",
   'loadPlan.gravity.stripHeadroom': "被覆されていない帯の階の有効高さが不足しているか、特定できません。",

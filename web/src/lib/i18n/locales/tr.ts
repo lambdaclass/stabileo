@@ -7821,7 +7821,7 @@ const tr: Translations = {
   'loadPlan.gravity.differentSlopedDeck': "Örten eğimli kabuk, kiriş paneliyle aynı döşemeye ait olmalıdır.",
   'loadPlan.gravity.deckCheckFailed': "Döşemenin kabuk örtüsü denetlenemedi: {detail}",
   'loadPlan.gravity.exposureCheckFailed': "Açıkta kalan şeritlerin örtüsü denetlenemedi: {detail}",
-  'loadPlan.gravity.mixedExposure': "Açıkta kalan şeritlerde hem çatı hem kat döşemesi bölgeleri var.",
+  'loadPlan.gravity.mixedExposure': "Atanan bir alan hem çatı hem kat döşemesi bölgeleri içeriyor. Her bölgenin yüklerini açıkça tanımlayın.",
   'loadPlan.gravity.stripSpan': "Açıkta kalan şerit azami döşeme açıklığını aşıyor.",
   'loadPlan.gravity.headroomCheckFailed': "Açıkta kalan şeridin net yüksekliği denetlenemedi: {detail}",
   'loadPlan.gravity.stripHeadroom': "Açıkta kalan şeridin net kat yüksekliği yetersiz veya belirlenemedi.",

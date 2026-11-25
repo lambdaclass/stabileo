@@ -27,7 +27,7 @@ const ru: Translations = {
   'loadPlan.gravity.differentSlopedDeck': "Перекрывающая наклонная оболочка должна относиться к тому же перекрытию, что и ячейка из балок.",
   'loadPlan.gravity.deckCheckFailed': "Не удалось проверить покрытие перекрытия оболочками: {detail}",
   'loadPlan.gravity.exposureCheckFailed': "Не удалось проверить открытость полос: {detail}",
-  'loadPlan.gravity.mixedExposure': "Открытые полосы включают участки кровли и междуэтажного перекрытия.",
+  'loadPlan.gravity.mixedExposure': "Назначенная область включает участки кровли и перекрытия. Явно задайте нагрузки для каждого участка.",
   'loadPlan.gravity.stripSpan': "Открытая полоса превышает максимальный пролёт перекрытия.",
   'loadPlan.gravity.headroomCheckFailed': "Не удалось проверить высоту в свету над открытой полосой: {detail}",
   'loadPlan.gravity.stripHeadroom': "Высота этажа в свету над открытой полосой недостаточна или не определена.",

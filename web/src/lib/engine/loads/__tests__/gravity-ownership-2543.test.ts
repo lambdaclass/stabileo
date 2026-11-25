@@ -1,9 +1,12 @@
 import { expect, it } from 'vitest';
 import type { Constraint3D } from '../../types-3d';
-import { buildLoadPlan, type LoadModelData } from '../load-plan';
-import { gravityLayout } from '../plan-gravity';
+import { buildLoadPlan, roofWeightFor, type LoadModelData } from '../load-plan';
+import { gravityLayout, MIN_STOREY_HEADROOM } from '../plan-gravity';
 import { planAreaLoads } from '../plan-area-loads';
+import { solve, solve3D, solvePDelta, solvePDelta3D } from '../../wasm-solver';
 import { input } from './gravity-width-mass-fixture';
+import { snowDriftRefusal } from '../snow-drift-loads';
+import { teAt } from '../../../i18n/engine-text';
 import { applyLoadPlan } from '../../../store/apply-load-plan';
 import { modelStore } from '../../../store/index';
 
@@ -89,8 +92,6 @@ function openingWithLowHeadroom(withShell = true) {
   return model;
 }
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2543' ? it : it.skip;
-
 function planFor(model: LoadModelData, loadEveryPanel = false, tributaryWidth = 3) {
   return buildLoadPlan(input(model, { gravity: { mode: 'panels', loadEveryPanel }, tributaryWidth }));
 }
@@ -112,7 +113,7 @@ it.each([false, true])('#2543 coincident shell overlap cannot be loaded twice (%
   expectRefusal(planFor(shadowedBay(), every), 'loadPlan.gravity.overlappingShells');
 });
 
-knownWrong('known wrong result: #2543 clips the owned annulus without restoring a shell-filled hole', () => {
+it('#2543 clips the owned annulus without restoring a shell-filled hole', () => {
   const plan = planFor(openingWithLowHeadroom());
   expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
   expect(plan.levels.find(level => level.elevation === 3)?.superimposedKN).toBeCloseTo(4 * 1.5 ** 2, 10);
@@ -120,7 +121,7 @@ knownWrong('known wrong result: #2543 clips the owned annulus without restoring 
   expect(planFor(openingWithLowHeadroom(), true).levels.find(level => level.elevation === 3)?.superimposedKN).toBeCloseTo(36, 10);
 });
 
-knownWrong('known wrong result: #2543 clips a strip across a larger shell-filled opening', () => {
+it('#2543 clips a strip across a larger shell-filled opening', () => {
   const { model, node, member, ring, quad } = fixture();
   const outline = rectangle(0, 0, 10, 6);
   ring(outline, 3);
@@ -132,7 +133,7 @@ knownWrong('known wrong result: #2543 clips a strip across a larger shell-filled
   expect(plan.levels.find(level => level.elevation === 3)?.superimposedKN).toBeCloseTo(52, 10);
 });
 
-knownWrong('known wrong result: #2543 inclined fringe member preserves transferred plan first moments', () => {
+it('#2543 inclined fringe member preserves transferred plan first moments', () => {
   const model = openingWithLowHeadroom(false);
   model.nodes.get(2)!.z = 3.0004;
   const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 3 });
@@ -157,7 +158,7 @@ knownWrong('known wrong result: #2543 inclined fringe member preserves transferr
   expect(yMoment).toBeCloseTo(27, 10);
 });
 
-knownWrong('known wrong result: #2543 cover entirely in a hole leaves the annulus exposed', () => {
+it('#2543 cover entirely in a hole leaves the annulus exposed', () => {
   const { model, ring, shell, quad } = fixture();
   ring(rectangle(0, 0, 10, 10), 3);
   quad(ring(rectangle(3, 3, 7, 7), 3));
@@ -167,7 +168,7 @@ knownWrong('known wrong result: #2543 cover entirely in a hole leaves the annulu
   expect(layout.panels.find(panel => panel.z === 3)?.roof).toBe(true);
 });
 
-for (const mode of ['panels', 'width'] as const) knownWrong(`known wrong result: #2543 pitched shell covers the lower roof at its high end in ${mode}`, () => {
+for (const mode of ['panels', 'width'] as const) it(`#2543 pitched shell covers the lower roof at its high end in ${mode}`, () => {
   const { model, shell, quad, node } = fixture();
   shell(rectangle(6, 1, 8, 3), 3.3);
   quad(rectangle(0, 0, 10, 4).map(p => node(p, 3 + p[0] / 5)));
@@ -177,15 +178,20 @@ for (const mode of ['panels', 'width'] as const) knownWrong(`known wrong result:
   expect([...layout.roofQuads]).toEqual([2]);
 });
 
-for (const mode of ['panels', 'width'] as const) knownWrong(`known wrong result: #2543 exact midpoint outside the cover receives roof dead pressure in ${mode}`, () => {
+for (const mode of ['panels', 'width'] as const) it(`#2543 exact midpoint outside the cover receives roof dead pressure in ${mode}`, () => {
   const { model, shell, member, node } = fixture();
-  member(node([1, 0], 3), node([1 + Number.EPSILON, 2], 3));
+  const end = node([1 + Number.EPSILON, 2], 3);
+  member(node([1, 0], 3), end);
   shell(rectangle(-1, -1, 1, 3), 6);
   const roof = { use: 'occupancy', weight: 'heavy', dead: 2, slopePercent: 0 } as const;
-  const layout = gravityLayout(model, { mode, tributaryWidth: 1 });
-  const actions = planAreaLoads({ layout, tributaryWidth: 1, floor: { dead: 1, lo: 2, liveOf: () => 2 }, roof });
-  expect(actions.distributed.filter(load => load.elementId === 1 && load.caseType === 'D')).toMatchObject([{ q: -2 }]);
-  expect(layout.roofAreaOf.get(1)).toBe(2);
+  for (const [x, expected] of [[1 + Number.EPSILON, -2], [1, -1], [1 - Number.EPSILON, -1], [1.125, -2]] as const) {
+    model.nodes.get(end)!.x = x;
+    const layout = gravityLayout(model, { mode, tributaryWidth: 1 });
+    const actions = planAreaLoads({ layout, tributaryWidth: 1, floor: { dead: 1, lo: 2, liveOf: () => 2 }, roof });
+    expect(actions.distributed.filter(load => load.elementId === 1 && load.caseType === 'D'))
+      .toMatchObject([{ q: expected }]);
+    expect((expected === -2 ? layout.roofAreaOf : layout.areaOf).get(1)).toBeCloseTo(Math.hypot(x - 1, 2), 10);
+  }
 });
 
 function inclinedParallelDeck(gap: number, ties: number, dof: number) {
@@ -201,9 +207,17 @@ function inclinedParallelDeck(gap: number, ties: number, dof: number) {
   return model;
 }
 
-for (const every of [false, true]) knownWrong(`known wrong result: #2543 inclined overlapping decks with vertical equality need ownership (${every})`, () => {
+for (const every of [false, true]) it(`#2543 inclined overlapping decks with vertical equality need ownership (${every})`, () => {
   for (const ties of [1, 4]) {
-    expectRefusal(planFor(inclinedParallelDeck(0.0502, ties, 2), every), 'loadPlan.gravity.offsetShellDeck');
+    const model = inclinedParallelDeck(0.0502, ties, 2);
+    const key = 'loadPlan.gravity.offsetShellDeck';
+    const gravity = { mode: 'panels', loadEveryPanel: every } as const;
+    const plan = planFor(model, every);
+    expectRefusal(plan, key);
+    expect(teAt(plan.blockedKeys[0]!, 'en')).toContain('assign the area load once by hand');
+    expect(() => gravityLayout(model, { ...gravity, tributaryWidth: 3 })).toThrow(expect.objectContaining({ key }));
+    expect(() => roofWeightFor(model, gravity, 3, 1)).toThrow(expect.objectContaining({ key }));
+    expect(() => snowDriftRefusal(model)).toThrow(expect.objectContaining({ key }));
   }
 });
 
@@ -215,14 +229,16 @@ it.each([false, true])('#2543 inclined parallel decks can load independently wit
   }
 });
 
-knownWrong('known wrong result: #2543 a partly covered beam bay needs an explicit roof and floor assignment', () => {
+it('#2543 a partly covered beam bay needs an explicit roof and floor assignment', () => {
   const { model, ring, shell } = fixture();
   ring(rectangle(0, 0, 10, 6), 3);
   shell(rectangle(0, 0, 7, 6), 6);
-  expectRefusal(planFor(model), 'loadPlan.gravity.mixedExposure');
+  const roof = { use: 'maintenance', weight: 'heavy', dead: 1, slopeDeg: 0 } as const;
+  const gravity = { mode: 'panels' } as const;
+  expectRefusal(buildLoadPlan(input(model, { gravity, roof })), 'loadPlan.gravity.mixedExposure');
 });
 
-knownWrong('known wrong result: #2543 inclined fringe line loads use physical member station and intensity', () => {
+it('#2543 inclined fringe line loads use physical member station and intensity', () => {
   const model = openingWithLowHeadroom(false);
   const flat = planFor(model, false, 2);
   model.nodes.get(2)!.z = 3.0004;
@@ -242,7 +258,7 @@ knownWrong('known wrong result: #2543 inclined fringe line loads use physical me
   }
 });
 
-knownWrong('known wrong result: #2543 restored preview refuses the overlapping tied bay before apply', () => {
+it('#2543 restored preview refuses the overlapping tied bay before apply', () => {
   const model = inclinedParallelDeck(0.0502, 4, 2);
   modelStore.clear();
   try {
@@ -250,11 +266,12 @@ knownWrong('known wrong result: #2543 restored preview refuses the overlapping t
     for (const { nodeI, nodeJ } of model.elements.values()) modelStore.addElement(ids.get(nodeI)!, ids.get(nodeJ)!);
     for (const quad of model.quads.values()) {
       const [a, b, c, d] = quad.nodes.map(id => ids.get(id)!);
-      modelStore.addQuad([a!, b!, c!, d!], modelStore.materials.keys().next().value!, quad.thickness);
+      modelStore.addQuad([a!, b!, c!, d!], modelStore.materials.keys().next().value!, quad.thickness!);
     }
     for (const tie of model.constraints) if (tie.type === 'equalDOF') {
       modelStore.addConstraint({ ...tie, masterNode: ids.get(tie.masterNode)!, slaveNode: ids.get(tie.slaveNode)! });
     }
+    modelStore.addNodalLoad3D(ids.get(1)!, 0, 0, -1, 0, 0, 0);
     modelStore.restore(JSON.parse(JSON.stringify(modelStore.snapshot())));
     const plan = planFor(modelStore.model, true);
     expectRefusal(plan, 'loadPlan.gravity.offsetShellDeck');
@@ -263,5 +280,103 @@ knownWrong('known wrong result: #2543 restored preview refuses the overlapping t
     expect(modelStore.snapshot()).toEqual(prior);
   } finally {
     modelStore.clear();
+  }
+});
+
+
+it('#2543 independently grounded bay and shell ties retain both load carriers', () => {
+  const model = inclinedParallelDeck(0.0502, 0, 2);
+  const master = 9;
+  model.nodes.set(master, { id: master, x: 0, y: 0, z: 0 });
+  for (const slaveNode of [1, 5]) model.constraints.push({ type: 'equalDOF', masterNode: master, slaveNode, dofs: [2] });
+  const supported: LoadModelData = { ...model, supports: new Map([[1, { id: 1, nodeId: master, type: 'fixed3d' }]]) };
+  expectRefusal(planFor(model, true), 'loadPlan.gravity.offsetShellDeck');
+  const plan = planFor(supported, true);
+  expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+  expect(plan.levels.reduce((sum, level) => sum + level.superimposedKN, 0)).toBeCloseTo(60 * (1 + Math.hypot(10, 0.0008) / 10), 10);
+});
+
+it('#2543 a vertically tied, separated storey retains its independent load', () => {
+  const gap = MIN_STOREY_HEADROOM + 0.125;
+  const model = inclinedParallelDeck(gap, 4, 2);
+  for (const every of [false, true]) {
+    const plan = planFor(model, every);
+    expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+    expect(plan.levels.reduce((sum, level) => sum + level.superimposedKN, 0)).toBeCloseTo(60 * (1 + Math.hypot(10, 0.0008) / 10), 10);
+  }
+});
+
+it('#2543 a subdivided rigid attachment keeps the shifted member load on the shell', () => {
+  const { model, member, node, quad } = fixture();
+  const start = node([0, 0], 3), end = node([10, 0], 3);
+  member(start, end);
+  const anchors = [node([0, 0], 3.01), node([10, 0], 3.01)];
+  const corners = [node([0, 0], 3.02), node([10, 0], 3.02)];
+  quad([...corners, node([10, 6], 3.02), node([0, 6], 3.02)]);
+  for (const [i, frame] of [start, end].entries()) {
+    model.constraints.push({ type: 'rigidLink', masterNode: frame, slaveNode: anchors[i]!, dofs: [2] },
+      { type: 'rigidLink', masterNode: anchors[i]!, slaveNode: corners[i]!, dofs: [2] });
+  }
+  for (const every of [false, true]) {
+    const plan = planFor(model, every);
+    expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+    expect(plan.distributed).toEqual([]);
+    expect(plan.surface.filter(load => load.caseType === 'D')).toEqual([{ quadId: 1, q: 1, caseType: 'D' }]);
+    expect(plan.levels.reduce((sum, level) => sum + level.superimposedKN, 0)).toBeCloseTo(60, 10);
+  }
+});
+
+it('#2543 solves the generated inclined fringe force and moment in both WASM dimensions', () => {
+  const model = openingWithLowHeadroom(false);
+  const deadOnCarrier = (plan: ReturnType<typeof planFor>) =>
+    plan.distributed.filter(load => load.caseType === 'D' && load.elementId === 1);
+  const flat = deadOnCarrier(planFor(model));
+  expect(flat.length).toBeGreaterThan(0);
+  const force = flat.reduce((sum, load) => sum - load.q * (load.b! - load.a!), 0);
+  const moment = flat.reduce((sum, load) => sum - load.q * (load.b! ** 2 - load.a! ** 2) / 2, 0);
+  const rise = 0.0004;
+  model.nodes.get(2)!.z = 3 + rise;
+  const inclined = deadOnCarrier(planFor(model));
+  expect(inclined).toHaveLength(flat.length);
+  for (const load of inclined) expect(load.qJ ?? load.q).toBe(load.q);
+
+  const cosine = 6 / Math.hypot(6, rise);
+  const reference = flat.map(load => ({ ...load, a: load.a! / cosine, b: load.b! / cosine,
+    q: load.q * cosine, qJ: (load.qJ ?? load.q) * cosine }));
+  const reactions = (space: boolean, loads: typeof inclined) => {
+    modelStore.clear();
+    try {
+      const a = modelStore.addNode(0, 0, 3);
+      const b = modelStore.addNode(6, 0, 3 + rise);
+      const el = modelStore.addElement(a, b);
+      modelStore.addSupport(a, space ? 'fixed3d' : 'fixed');
+      for (const load of loads) {
+        if (space) modelStore.addDistributedLoad3D(el, 0, 0, load.q, load.qJ ?? load.q, load.a, load.b, undefined, { frame: 'global' });
+        else modelStore.addDistributedLoad(el, load.q, load.qJ, 0, true, undefined, load.a, load.b);
+      }
+      if (space) {
+        const wire = modelStore.buildSolverInput3D()!;
+        const nonlinear = solvePDelta3D(wire);
+        expect(nonlinear.converged).toBe(true);
+        const linear = solve3D(wire).reactions[0]!;
+        return [linear, nonlinear.results.reactions[0]!] as const;
+      }
+      const wire = modelStore.buildSolverInput(false, 'xz')!;
+      const nonlinear = solvePDelta(wire);
+      expect(nonlinear.converged).toBe(true);
+      const linear = solve(wire).reactions[0]!;
+      const secondOrder = nonlinear.results.reactions[0]!;
+      return [{ fz: linear.rz, my: linear.my }, { fz: secondOrder.rz, my: secondOrder.my }] as const;
+    } finally {
+      modelStore.clear();
+    }
+  };
+  for (const space of [false, true]) {
+    const [linear, secondOrder] = reactions(space, inclined);
+    const [, expected] = reactions(space, reference);
+    expect(linear.fz).toBeCloseTo(force, 9);
+    expect(Math.abs(linear.my)).toBeCloseTo(moment, 9);
+    expect(secondOrder.fz).toBeCloseTo(expected.fz, 9);
+    expect(secondOrder.my).toBeCloseTo(expected.my, 9);
   }
 });

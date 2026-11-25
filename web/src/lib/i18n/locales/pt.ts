@@ -4479,7 +4479,7 @@ const pt: Translations = {
   'loadPlan.gravity.differentSlopedDeck': "A casca inclinada que cobre o painel de vigas deve pertencer ao mesmo tabuleiro.",
   'loadPlan.gravity.deckCheckFailed': "Falha na verificação da cobertura do tabuleiro por cascas: {detail}",
   'loadPlan.gravity.exposureCheckFailed': "Falha na verificação da exposição das faixas descobertas: {detail}",
-  'loadPlan.gravity.mixedExposure': "As faixas descobertas incluem zonas de cobertura e de piso.",
+  'loadPlan.gravity.mixedExposure': "Uma área atribuída inclui zonas de cobertura e de piso. Atribua explicitamente as cargas de cada zona.",
   'loadPlan.gravity.stripSpan': "A faixa descoberta excede o vão máximo do tabuleiro.",
   'loadPlan.gravity.headroomCheckFailed': "Falha na verificação da altura livre da faixa descoberta: {detail}",
   'loadPlan.gravity.stripHeadroom': "O pé-direito da faixa descoberta é insuficiente ou indeterminado.",

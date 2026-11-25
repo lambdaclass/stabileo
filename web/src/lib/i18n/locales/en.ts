@@ -8270,7 +8270,7 @@ const en: Record<string, string> = {
   'loadPlan.gravity.differentSlopedDeck': "A sloped covering shell must represent the same deck as the beam panel.",
   'loadPlan.gravity.deckCheckFailed': "Shell deck coverage check failed: {detail}",
   'loadPlan.gravity.exposureCheckFailed': "Uncovered shell strip exposure check failed: {detail}",
-  'loadPlan.gravity.mixedExposure': "The uncovered shell strips have mixed roof and floor exposure.",
+  'loadPlan.gravity.mixedExposure': "An assigned area has mixed roof and floor exposure. Assign the roof and floor loads explicitly.",
   'loadPlan.gravity.stripSpan': "The uncovered shell strip exceeds the maximum deck span.",
   'loadPlan.gravity.headroomCheckFailed': "Uncovered shell strip headroom check failed: {detail}",
   'loadPlan.gravity.stripHeadroom': "The uncovered shell strip has insufficient or unresolved story headroom.",

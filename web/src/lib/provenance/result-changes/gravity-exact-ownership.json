@@ -1,0 +1,33 @@
+{
+  "id": "gravity-exact-ownership",
+  "date": "2026-11-25",
+  "prs": [2543],
+  "area": "loads",
+  "when": { "any": ["generatedPanelGravity", "generatedWidthGravity"] },
+  "quantities": ["*", "solve.ok"],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Use owned footprints for automatic gravity",
+    "es": "Usar las áreas asignadas para las cargas gravitatorias automáticas",
+    "pt": "Usar as áreas atribuídas para cargas gravitacionais automáticas",
+    "de": "Zugewiesene Flächen für automatische Schwerkraftlasten verwenden",
+    "fr": "Utiliser les emprises attribuées pour les charges gravitaires automatiques",
+    "tr": "Otomatik yerçekimi yüklerinde atanmış alanları kullanma",
+    "zh": "自动重力荷载采用已分配的承载范围",
+    "hu": "A hozzárendelt területek használata az automatikus gravitációs terhekhez"
+  },
+  "explanation": {
+    "en": "Regenerate automatic gravity and roof loads. Generation preserves openings, places fringe line loads at physical member stations and stops when deck ownership is ambiguous.",
+    "es": "Regenerá las cargas gravitatorias y de cubierta automáticas. La generación conserva las aberturas, aplica las cargas lineales de borde en las posiciones físicas de las barras y se detiene si la asignación del entrepiso es ambigua.",
+    "pt": "Gere novamente as cargas gravitacionais e de cobertura automáticas. A geração preserva as aberturas, aplica as cargas lineares de borda nas posições físicas das barras e para quando a atribuição do piso é ambígua.",
+    "de": "Erzeugen Sie die automatischen Schwerkraft- und Dachlasten neu. Die Generierung erhält Öffnungen, setzt Randlinienlasten an den tatsächlichen Stabpositionen an und bricht bei unklarer Deckenzuordnung ab.",
+    "fr": "Régénérez les charges gravitaires et de toiture automatiques. La génération conserve les ouvertures, applique les charges linéaires de rive aux positions physiques sur les barres et s’arrête si l’attribution du plancher est ambiguë.",
+    "tr": "Otomatik yerçekimi ve çatı yüklerini yeniden üretin. Üretim açıklıkları korur, kenar çizgisel yüklerini eleman üzerindeki fiziksel konumlara yerleştirir ve döşeme yük alanı belirsizse durur.",
+    "zh": "请重新生成自动重力荷载和屋面荷载。生成时保留开口，将边缘线荷载施加在构件的实际位置，并在楼板承载范围不明确时停止。",
+    "hu": "Generálja újra az automatikus gravitációs és tetőterheket. A generálás megőrzi a nyílásokat, a peremvonalterheket a rúd tényleges helyeire teszi, és kétes födém-hozzárendelés esetén leáll."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-exact-ownership.md",
+    "heading": "Use owned footprints for automatic gravity"
+  }
+}

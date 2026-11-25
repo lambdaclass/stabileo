@@ -92,15 +92,16 @@ function subdividedShellBay(withIndependentOverhead = false, shellZ = 2.96) {
   return model;
 }
 
-function deadResultant(model: LoadModelData, loadEveryPanel: boolean, shellOwners: number[], expectedArea: number, planArea = expectedArea) {
+function deadResultant(model: LoadModelData, loadEveryPanel: boolean, shellOwners: number[], expectedArea: number, planArea = expectedArea, exposureResolved = true) {
   const gravity = { mode: 'panels', loadEveryPanel } as const;
   const plan = buildLoadPlan(input(model, { gravity }));
   expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
   expect(plan.surface.filter(load => load.caseType === 'D').map(load => load.quadId).sort()).toEqual(shellOwners);
   expect(plan.levels.reduce((total, level) => total + level.superimposedKN, 0)).toBeCloseTo(expectedArea * pressure, 10);
-  const layout = gravityLayout(model, { ...gravity, tributaryWidth: 3 });
+  const layout = gravityLayout(model, { ...gravity, tributaryWidth: 3, uniformPressure: !exposureResolved });
   expect([...layout.areaByLevel.values()].reduce((total, level) => total + level, 0)).toBeCloseTo(planArea, 10);
-  expect(() => snowDriftRefusal(model)).not.toThrow();
+  if (exposureResolved) expect(() => snowDriftRefusal(model)).not.toThrow();
+  else expect(() => snowDriftRefusal(model)).toThrow(expect.objectContaining({ key: 'loadPlan.gravity.mixedExposure' }));
 }
 
 it('#2512 two direct vertical ties preserve loads on separate storeys', () => {
@@ -705,9 +706,10 @@ for (const loadEveryPanel of [false, true]) {
 
   it(`#2512 separation is independent across disconnected bay overlaps (${loadEveryPanel})`, () => {
     const model = shellAcrossBayGap();
-    deadResultant(model, loadEveryPanel, [1], 36 + 2 * Math.hypot(10, 0.5), 56);
+    deadResultant(model, loadEveryPanel, [1], 36 + 2 * Math.hypot(10, 0.5), 56, false);
     expectPanelRefusal(shellAcrossBayGap(true), separateBayRefusal, loadEveryPanel);
-    expect(() => roofWeightFor(model, { mode: 'panels', loadEveryPanel }, 3, pressure)).not.toThrow();
+    expect(() => roofWeightFor(model, { mode: 'panels', loadEveryPanel }, 3, pressure))
+      .toThrow(expect.objectContaining({ key: 'loadPlan.gravity.mixedExposure' }));
   });
 }
 
@@ -738,7 +740,10 @@ it('#2512 a low roof fringe cannot reclaim a shell-filled opening', () => {
     beam(one, top[(i + 1) % 4]!, 'truss');
   }
   beam(node(0, 3, 4), node(10, 3, 4));
-  expectPanelRefusal(model, { key: 'loadPlan.gravity.areaResultant', params: { z: 3 } }, false, 1);
+  const fringe = buildLoadPlan(input(model, { gravity: { mode: 'panels' }, tributaryWidth: 1 }));
+  expect(fringe.outcome, JSON.stringify(fringe.blockedKeys)).toBe('READY');
+  expect(fringe.levels.find(level => level.elevation === 3)?.planAreaM2).toBeCloseTo(area - 10 - 2 + 4, 10);
+  expect(fringe.surface.filter(load => load.caseType === 'D')).toEqual([expect.objectContaining({ quadId: 1, q: pressure })]);
   const gravity = { mode: 'panels', loadEveryPanel: true } as const;
   const plan = buildLoadPlan(input(model, { gravity, tributaryWidth: 1 }));
   expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');

@@ -27,7 +27,7 @@ const id: Translations = {
   'loadPlan.gravity.differentSlopedDeck': "Cangkang miring yang menutupi panel balok harus berada pada pelat yang sama.",
   'loadPlan.gravity.deckCheckFailed': "Pemeriksaan cakupan cangkang pada pelat gagal: {detail}",
   'loadPlan.gravity.exposureCheckFailed': "Pemeriksaan keterbukaan jalur yang tidak tertutup gagal: {detail}",
-  'loadPlan.gravity.mixedExposure': "Jalur yang tidak tertutup mencakup area atap dan lantai.",
+  'loadPlan.gravity.mixedExposure': "Area yang ditetapkan mencakup bagian atap dan lantai. Tetapkan beban setiap bagian secara eksplisit.",
   'loadPlan.gravity.stripSpan': "Jalur yang tidak tertutup melampaui bentang maksimum pelat.",
   'loadPlan.gravity.headroomCheckFailed': "Pemeriksaan tinggi bebas jalur yang tidak tertutup gagal: {detail}",
   'loadPlan.gravity.stripHeadroom': "Tinggi bebas lantai pada jalur yang tidak tertutup tidak mencukupi atau belum dapat ditentukan.",

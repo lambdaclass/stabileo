@@ -7812,7 +7812,7 @@ const fr: Translations = {
   'loadPlan.gravity.differentSlopedDeck': "La coque inclinée qui recouvre le panneau de poutres doit appartenir au même plancher.",
   'loadPlan.gravity.deckCheckFailed': "Échec de la vérification du recouvrement du plancher par les coques : {detail}",
   'loadPlan.gravity.exposureCheckFailed': "Échec de la vérification de l’exposition des bandes libres : {detail}",
-  'loadPlan.gravity.mixedExposure': "Les bandes libres comprennent des zones de toiture et de plancher.",
+  'loadPlan.gravity.mixedExposure': "Une emprise attribuée comprend des zones de toiture et de plancher. Affectez explicitement les charges de chaque zone.",
   'loadPlan.gravity.stripSpan': "La bande libre dépasse la portée maximale du plancher.",
   'loadPlan.gravity.headroomCheckFailed': "Échec de la vérification de la hauteur libre de la bande : {detail}",
   'loadPlan.gravity.stripHeadroom': "La hauteur libre d’étage de la bande est insuffisante ou indéterminée.",

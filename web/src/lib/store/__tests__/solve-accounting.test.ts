@@ -8,7 +8,8 @@ import {
 import type { ShellLoadSpec } from '../../engine/shell-load-integration';
 import type { SolverLoad3D } from '../../engine/types-3d';
 import { withCaseEffects } from '../../engine/case-effects';
-import { caseMassLoads } from '../../engine/dynamics/mass-source-model';
+import { G } from '../../engine/dynamics/requests';
+import { caseMassLoads, withMassSource } from '../../engine/dynamics/mass-source-model';
 import { runDirectAnalysis } from '../../engine/direct-analysis';
 import { agrees, roundoff } from '../../engine/accounting-math';
 import { runGlobalSolve, runLiveCalc } from '../../engine/live-calc';
@@ -1373,25 +1374,38 @@ it('#2470 solves a planar beam with a subnormal global line load', async () => {
   expect(validateAndSolve2D(makeInput(-1e-300))).toEqual(expect.stringMatching(/case.*2.*Fy.*-3e-300.*0/i));
 });
 
-const issue2543 = process.env.RUN_KNOWN_WRONG === '2543' ? it : it.skip;
-
-issue2543('known wrong result: #2543 refuses an incorrect pressure in a reference case used only for modal mass', async () => {
+it('#2543 refuses an incorrect pressure in a reference case used only for modal mass', () => {
   const source = modelStore.addLoadCase('Modal mass reference', 'D');
   expect(modelStore.updateLoadCaseFields(source, { reference: true })).toBe(true);
   const nodes = [[0, 0], [4, 0], [4, 5], [0, 5]].map(([x, y]) => modelStore.addNode(x!, y!, 3)) as [number, number, number, number];
   const quadId = modelStore.addQuad(nodes, 1, 0.2);
+  for (const node of nodes.slice(0, 3)) modelStore.addSupport(node, 'fixed3d');
   const model = modelStore.model;
+  const solverInput = buildSolverInput3D(model, false, false)!;
+  expect(solverInput).not.toBeNull();
   const baseline = { id: 1, quadId, q: 1, caseId: source };
   const factors = [{ caseId: source, name: 'Modal mass reference', type: 'D', factor: 1, basis: 'stated' as const }];
+  const pressurized = (q: number) => ({
+    ...model,
+    loads: [withScenarioSurfaceIntent({ type: 'surface3d', data: { ...baseline, q } }, { baseline, factor: 0.5 })],
+  });
   const masses = (q: number, scoped: boolean) => {
-    const load = withScenarioSurfaceIntent({ type: 'surface3d', data: { ...baseline, q } }, { baseline, factor: 0.5 });
-    const withPressure = { ...model, loads: [load] };
+    const withPressure = pressurized(q);
     const selected = scoped ? withCaseEffects(withPressure, model.loadCases,
       { includeSelfWeight: false, leftHand: false }, new Set([source])) : withPressure;
     return caseMassLoads(selected, factors, false)[0]?.surface;
   };
+  const modalMass = (q: number) => withMassSource(pressurized(q), model.loadCases,
+    { kind: 'custom', factors: [{ caseId: source, factor: 1 }] }, solverInput);
+  expect(modalMass(0.5).report.addedT.get(source)).toBeCloseTo(0.5 * 4 * 5 / G, 10);
+  expect(() => modalMass(0.75)).toThrow(/case.*Modal mass reference.*q\[1\]/i);
   for (const scoped of [false, true]) {
     expect(masses(0.5, scoped)).toEqual([{ quadId, q: 0.5 }]);
-    expect.soft(() => masses(0.75, scoped)).toThrow(/case.*Modal mass reference.*q\[1\]/i);
+    const within = 0.5 * (roundoff - Number.EPSILON);
+    const beyond = 0.5 * (roundoff + Number.EPSILON);
+    expect(masses(0.5 + within, scoped)).toEqual([{ quadId, q: 0.5 }]);
+    for (const q of [0.5 + beyond, 0.75]) {
+      expect.soft(() => masses(q, scoped)).toThrow(/case.*Modal mass reference.*q\[1\]/i);
+    }
   }
 });
