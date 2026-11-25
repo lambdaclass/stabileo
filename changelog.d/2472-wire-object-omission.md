@@ -1,5 +1,5 @@
 ### Fixed
 
-#### Omit unset support fields from assembled solver inputs
+#### Omit unset support fields when encoding solver inputs
 
-Planar and spatial model assembly omit unset support properties so their wire objects reach the structural checks in direct WASM calls.
+Planar and spatial inputs preserve their assembled support records. The object and JSON dispatch adapters omit unset properties before the input reaches the strict WASM decoder.
