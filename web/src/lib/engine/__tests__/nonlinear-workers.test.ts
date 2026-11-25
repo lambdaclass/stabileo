@@ -206,7 +206,6 @@ it('captures model and combinations before yielding, including proxy-backed nest
   expect(output(await pending)).toBe(output(expected));
 });
 
-const issue2565 = process.env.RUN_KNOWN_WRONG === '2565' ? it : it.skip;
 const snapshotModes = ['single', 'solveEach', 'superpose', 'pdelta'] as const;
 
 function projectedGravity(mode: (typeof snapshotModes)[number], shell?: 'plates' | 'quads') {
@@ -249,7 +248,7 @@ function projectedGravity(mode: (typeof snapshotModes)[number], shell?: 'plates'
 }
 
 for (const mode of snapshotModes) {
-  issue2565.each(['worker', 'fallback'] as const)(`known wrong result: #2565 — ${mode} %s captures projected group membership before assembly`, async runtime => {
+  it.each(['worker', 'fallback'] as const)(`#2565 — ${mode} %s captures projected group membership before assembly`, async runtime => {
     if (runtime === 'fallback') setWorkerFactoryForTests(null);
     const { groupId, solveGravity, tipLoad, memberWeight } = projectedGravity(mode);
     const edit = vi.spyOn(solveCounter, 'noteStructuralSolve').mockImplementationOnce(() => {
@@ -273,7 +272,7 @@ const projectionEdits: Record<string, (fixture: GravityFixture) => void> = {
 };
 
 for (const [target, edit] of Object.entries(projectionEdits)) {
-  issue2565(`known wrong result: #2565 — captures the projection's ${target} before assembly`, async () => {
+  it(`#2565 — captures the projection's ${target} before assembly`, async () => {
     const fixture = projectedGravity('single');
     const called = vi.spyOn(solveCounter, 'noteStructuralSolve').mockImplementationOnce(() => edit(fixture));
     const answer = await fixture.solveGravity();
@@ -282,7 +281,7 @@ for (const [target, edit] of Object.entries(projectionEdits)) {
   });
 }
 
-issue2565.each(['plates', 'quads'] as const)('known wrong result: #2565 — captures the projection source for %s before assembly', async shell => {
+it.each(['plates', 'quads'] as const)('#2565 — captures the projection source for %s before assembly', async shell => {
   const { source, shellId, solveGravity, tipLoad, memberWeight, shellWeight } = projectedGravity('single', shell);
   const edit = vi.spyOn(solveCounter, 'noteStructuralSolve').mockImplementationOnce(() => { source[shell]!.delete(shellId!); });
   const answer = await solveGravity();
@@ -290,7 +289,7 @@ issue2565.each(['plates', 'quads'] as const)('known wrong result: #2565 — capt
   expect(answer).toBeCloseTo(tipLoad + memberWeight + shellWeight, 10);
 });
 
-issue2565('known wrong result: #2565 — refuses a missing target even if it reappears before assembly', async () => {
+it('#2565 — refuses a missing target even if it reappears before assembly', async () => {
   const { source, member, solveGravity } = projectedGravity('single');
   const original = source.elements.get(member)!;
   source.elements.delete(member);
@@ -303,6 +302,12 @@ issue2565('known wrong result: #2565 — refuses a missing target even if it rea
 it('#2565 solves projected gravity with no edit', async () => {
   const { solveGravity, tipLoad, memberWeight } = projectedGravity('single');
   expect(await solveGravity()).toBeCloseTo(tipLoad + memberWeight, 10);
+});
+
+it('#2565 preserves the refusal for malformed projected group membership', async () => {
+  const { source, groupId, solveGravity } = projectedGravity('single');
+  Object.assign(source.groups.get(groupId)!, { members: new Map() });
+  expect(String(await solveGravity())).toMatch(/Self-weight group .* has invalid membership/i);
 });
 
 it('rejects a single nonlinear result when the model changes during worker cleanup (#2283)', async () => {

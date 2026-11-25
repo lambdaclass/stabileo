@@ -13,6 +13,7 @@
  */
 import { t, tp } from '../i18n';
 import { createSectionWeight } from '../section/weight';
+import { plainDeepCopy } from '../utils/plain-deep-copy';
 import type { ModelData } from './solver-service';
 import type { SolverLoad3D } from './types-3d';
 import type { GroupMembers, Load } from '../store/model.svelte';
@@ -41,7 +42,7 @@ const UNIT: Record<SelfWeightLoad['direction'], Vec3> = { X: [1, 0, 0], Y: [0, 1
 
 export const selfWeightMemberProjection = Symbol('selfWeightMemberProjection');
 
-type IdLookup = { has(id: number): boolean };
+type IdLookup = Pick<ReadonlySet<number>, 'has' | 'keys'>;
 type TargetFamily = 'elements' | 'plates' | 'quads';
 type SelfWeightTargets = {
   elements: IdLookup;
@@ -142,6 +143,23 @@ export function selfWeightScope(model: SelfWeightTargets, s: SelfWeightLoad): Se
 export function projectSelfWeightMembers(model: SelfWeightTargets, replacements: ReadonlyMap<number, readonly number[]>): SelfWeightMemberProjection {
   const { elements, plates, quads, groups, [selfWeightMemberProjection]: previous } = model;
   return { source: { elements, plates, quads, groups, [selfWeightMemberProjection]: previous }, replacements };
+}
+
+export function snapshotSelfWeightProjection(projection: SelfWeightMemberProjection): SelfWeightMemberProjection {
+  const { elements, plates, quads, groups, [selfWeightMemberProjection]: previous } = projection.source;
+  return {
+    source: {
+      elements: new Set(elements.keys()),
+      plates: plates && new Set(plates.keys()),
+      quads: quads && new Set(quads.keys()),
+      groups: groups && new Map([...groups].map(([id, group]) => {
+        const members = group?.members;
+        return [id, { members: isGroupMembership(members) ? plainDeepCopy(members) : undefined }];
+      })),
+      [selfWeightMemberProjection]: previous && snapshotSelfWeightProjection(previous),
+    },
+    replacements: new Map([...projection.replacements].map(([id, targets]) => [id, [...targets]])),
+  };
 }
 
 /**

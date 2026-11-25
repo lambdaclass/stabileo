@@ -36,7 +36,7 @@ import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D
 import { unheldNodalMoment2D } from './orphan-rotations-2d';
 import { computeLocalAxes3D, memberRoll } from './local-axes-3d';
 import { distributedGlobalEnds, globalDistributedToSolver, transverseToNodes, memberFrame3D, takesNoBending as memberTakesNoBending, type MemberRef } from './member-loads';
-import { InvalidSelfWeightScope, selfWeightFor, selfWeightMemberProjection, selfWeightScope, selfWeightSolverLoads, type SelfWeightMemberProjection } from './self-weight';
+import { InvalidSelfWeightScope, selfWeightFor, selfWeightMemberProjection, selfWeightScope, selfWeightSolverLoads, snapshotSelfWeightProjection, type SelfWeightMemberProjection } from './self-weight';
 import type { SelfWeightLoad } from './analysis-settings';
 import type { SolverInput3D, SolverSection3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, NonlinearReport } from './types-3d';
 import { analyzeKinematics, type KinematicResult } from './kinematic-2d';
@@ -154,7 +154,8 @@ function snapshotNonlinearModel(model: ModelData): ModelData {
   };
   const source = model[accountingSource];
   if (source) snapshot[accountingSource] = snapshotNonlinearModel(source);
-  snapshot[selfWeightMemberProjection] = model[selfWeightMemberProjection];
+  const projection = model[selfWeightMemberProjection];
+  if (projection) snapshot[selfWeightMemberProjection] = snapshotSelfWeightProjection(projection);
   return snapshot;
 }
 
