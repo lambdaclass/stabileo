@@ -28,8 +28,12 @@ pub struct AssemblyResult {
 /// co-rotational, arc-length, displacement-control, material- and
 /// fiber-nonlinear analyses refused a model the linear solver answers.
 pub fn artificial_stiffness_entries(asm: &AssemblyResult) -> Vec<(usize, f64)> {
-    let k = artificial_stiffness(asm.max_diag_k);
-    asm.artificial_dofs.iter().map(|&d| (d, k)).collect()
+    artificial_entries(asm.max_diag_k, &asm.artificial_dofs)
+}
+
+fn artificial_entries(max_diag_k: f64, dofs: &[usize]) -> Vec<(usize, f64)> {
+    let k = artificial_stiffness(max_diag_k);
+    dofs.iter().map(|&d| (d, k)).collect()
 }
 
 thread_local! {
@@ -633,6 +637,12 @@ pub struct StiffnessAssembly2D {
     pub inclined_transforms_2d: Vec<InclinedTransformData2D>,
 }
 
+impl StiffnessAssembly2D {
+    pub(super) fn artificial_stiffness_entries(&self) -> Vec<(usize, f64)> {
+        artificial_entries(self.max_diag_k, &self.artificial_dofs)
+    }
+}
+
 /// Assemble the global stiffness matrix for 2D (load-independent).
 /// The force vector is assembled separately by `assemble_load_vector_2d`.
 pub fn assemble_stiffness_2d(input: &SolverInput, dof_num: &DofNumbering) -> StiffnessAssembly2D {
@@ -836,7 +846,11 @@ pub(crate) fn assemble_truss_loads_2d(
     loads: &[&SolverLoad], elem_id: usize, l: f64, cos: f64, sin: f64, e: f64, area: f64,
     truss_dofs: &[usize; 4], f_global: &mut [f64],
 ) {
-    assemble_truss_loads_2d_with_rounding(loads,elem_id,l,cos,sin,e,area,truss_dofs,f_global,&mut None);
+    assemble_truss_load_contributions_2d(
+        loads, elem_id, l, cos, sin, e, area, truss_dofs, false,
+        &mut |d, value, _| f_global[d] += value,
+        &mut |_, _, _| {},
+    );
 }
 
 fn accumulate_truss_components<const D: usize>(
@@ -847,7 +861,24 @@ fn accumulate_truss_components<const D: usize>(
     global: &mut [f64],
     rounding: &mut Option<super::load_work::AssemblyRoundoff>,
 ) {
-    let frame_error = if rounding.is_some() { super::load_work::frame_rounding(&axes) } else { [[0.0; 3]; 3] };
+    visit_truss_components(local, local_error, axes, dofs, rounding.is_some(), &mut |d, v, e| {
+        accumulate_load(global, rounding, d, v, e);
+    });
+}
+
+fn visit_truss_components<const D: usize>(
+    local: [[f64; 3]; 2],
+    local_error: [[f64; 3]; 2],
+    axes: [[f64; 3]; 3],
+    dofs: [[Option<usize>; D]; 2],
+    track_rounding: bool,
+    add: &mut impl FnMut(usize, f64, f64),
+) {
+    let frame_error = if track_rounding {
+        super::load_work::frame_rounding(&axes)
+    } else {
+        [[0.0; 3]; 3]
+    };
     for end in 0..2 {
         for k in 0..D {
             if let Some(d) = dofs[end][k] {
@@ -855,16 +886,18 @@ fn accumulate_truss_components<const D: usize>(
                 for j in 0..3 {
                     work.product(local[end][j], local_error[end][j], axes[j][k], frame_error[j][k]);
                 }
-                accumulate_load(global, rounding, d, work.value, work.bound());
+                add(d, work.value, work.bound());
             }
         }
     }
 }
 
-fn assemble_truss_loads_2d_with_rounding(
+fn assemble_truss_load_contributions_2d(
     loads: &[&SolverLoad], elem_id: usize, l: f64, cos: f64, sin: f64, e: f64, area: f64,
-    truss_dofs: &[usize; 4], f_global: &mut [f64],
-    rounding: &mut Option<super::load_work::AssemblyRoundoff>,
+    truss_dofs: &[usize; 4],
+    track_rounding: bool,
+    add: &mut impl FnMut(usize, f64, f64),
+    member: &mut impl FnMut(usize, bool, [f64; 6]),
 ) {
     let axes = [[cos,sin,0.0],[-sin,cos,0.0],[0.0,0.0,1.0]];
     let dofs = [[Some(truss_dofs[0]),Some(truss_dofs[1])],[Some(truss_dofs[2]),Some(truss_dofs[3])]];
@@ -898,7 +931,10 @@ fn assemble_truss_loads_2d_with_rounding(
             }
             _ => continue,
         }
-        accumulate_truss_components(local,error,axes,dofs,f_global,rounding);
+        visit_truss_components(local, error, axes, dofs, track_rounding, add);
+        member(elem_id, matches!(load, SolverLoad::Thermal(_)), [
+            local[0][0], local[0][1], 0.0, local[1][0], local[1][1], 0.0,
+        ]);
     }
 }
 
@@ -921,12 +957,30 @@ pub(crate) fn assemble_load_vector_2d_with_rounding(
     inclined_transforms_2d: &[InclinedTransformData2D],
     track_rounding: bool,
 ) -> (Vec<f64>, Vec<f64>) {
-    let canonical_loads = super::member_loads::plane(input, loads);
-    let loads = canonical_loads.as_ref();
-
     let n = dof_num.n_total;
     let mut f_global = vec![0.0; n];
     let mut rounding = track_rounding.then(|| super::load_work::AssemblyRoundoff::new(n));
+    visit_load_vector_2d(input, loads, dof_num, track_rounding, false, &mut |d, v, e| {
+        accumulate_load(&mut f_global, &mut rounding, d, v, e)
+    }, &mut |_, _, _| {});
+
+    for it in inclined_transforms_2d {
+        rotate_inclined_vector_with_rounding(&mut f_global, &it.dofs, &it.r, &mut rounding);
+    }
+    (f_global, rounding.map_or_else(Vec::new, |r| r.finish()))
+}
+
+pub(super) fn visit_load_vector_2d(
+    input: &SolverInput,
+    loads: &[SolverLoad],
+    dof_num: &DofNumbering,
+    track_rounding: bool,
+    exact: bool,
+    add: &mut impl FnMut(usize, f64, f64),
+    member: &mut impl FnMut(usize, bool, [f64; 6]),
+) {
+    let canonical_loads = super::member_loads::plane(input, loads);
+    let loads = canonical_loads.as_ref();
 
     // Pre-build O(1) lookup maps
     let node_map: std::collections::HashMap<usize, &SolverNode> =
@@ -978,43 +1032,44 @@ pub(crate) fn assemble_load_vector_2d_with_rounding(
                 dof_num.global_dof(elem.node_j, 0).unwrap(),
                 dof_num.global_dof(elem.node_j, 1).unwrap(),
             ];
-            assemble_truss_loads_2d_with_rounding(elem_loads, elem.id, l, cos, sin, e, sec.a, &truss_dofs, &mut f_global, &mut rounding);
+            assemble_truss_load_contributions_2d(
+                elem_loads, elem.id, l, cos, sin, e, sec.a, &truss_dofs, track_rounding, add, member,
+            );
         } else {
             let t = frame_transform_2d(cos, sin);
             let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
-            assemble_element_loads_2d_with_rounding(elem_loads, elem, &t, l, e, mat.nu, sec, &elem_dofs, &mut f_global, &mut rounding);
+            assemble_frame_load_contributions_2d(
+                elem_loads, elem, &t, l, e, mat.nu, sec, &elem_dofs, track_rounding, add, member,
+            );
         }
     }
 
-    // Assemble nodal loads
     for load in loads {
         if let SolverLoad::Nodal(nl) = load {
-            if let Some(&d) = dof_num.map.get(&(nl.node_id, 0)) {
-                accumulate_load(&mut f_global, &mut rounding, d, nl.fx, 0.0);
+            for (local, value) in [nl.fx, nl.fz].into_iter().enumerate() {
+                if let Some(d) = dof_num.global_dof(nl.node_id, local) {
+                    add(d, value, 0.0);
+                }
             }
-            if let Some(&d) = dof_num.map.get(&(nl.node_id, 1)) {
-                accumulate_load(&mut f_global, &mut rounding, d, nl.fz, 0.0);
+            if exact {
+                if let Some(d) = dof_num.global_dof(nl.node_id, 2) {
+                    add(d, nl.my, 0.0);
+                }
             }
-
         }
     }
 
-    let moments = super::load_work::NodalMoments::new(loads.iter().filter_map(|load| match load {
-        SolverLoad::Nodal(n) => Some((n.node_id, [n.my])),
-        _ => None,
-    }));
-    for (node, [(value, error)]) in moments.assembled() {
-        if let Some(&d) = dof_num.map.get(&(node, 2)) {
-            accumulate_load(&mut f_global, &mut rounding, d, value, error);
+    if !exact {
+        let moments = super::load_work::NodalMoments::new(loads.iter().filter_map(|load| match load {
+            SolverLoad::Nodal(n) => Some((n.node_id, [n.my])),
+            _ => None,
+        }));
+        for (node, [(value, error)]) in moments.assembled() {
+            if let Some(d) = dof_num.global_dof(node, 2) {
+                add(d, value, error);
+            }
         }
     }
-
-    // Apply 2D inclined support rotations to the force vector
-    for it in inclined_transforms_2d {
-        rotate_inclined_vector_with_rounding(&mut f_global, &it.dofs, &it.r, &mut rounding);
-    }
-
-    (f_global, rounding.map_or_else(Vec::new, |r| r.finish()))
 }
 
 /// Assemble global stiffness matrix and force vector for 2D.
@@ -1043,10 +1098,14 @@ pub fn assemble_element_loads_2d(
     elem_dofs: &[usize],
     f_global: &mut [f64],
 ) {
-    assemble_element_loads_2d_with_rounding(loads,elem,t,l,e,nu,sec,elem_dofs,f_global,&mut None);
+    assemble_frame_load_contributions_2d(
+        loads, elem, t, l, e, nu, sec, elem_dofs, false,
+        &mut |d, value, _| f_global[d] += value,
+        &mut |_, _, _| {},
+    );
 }
 
-fn assemble_element_loads_2d_with_rounding(
+fn assemble_frame_load_contributions_2d(
     loads: &[&SolverLoad],
     elem: &SolverElement,
     t: &[f64],
@@ -1055,8 +1114,9 @@ fn assemble_element_loads_2d_with_rounding(
     nu: f64,
     sec: &SolverSection,
     elem_dofs: &[usize],
-    f_global: &mut [f64],
-    rounding: &mut Option<super::load_work::AssemblyRoundoff>,
+    track_rounding: bool,
+    add: &mut impl FnMut(usize, f64, f64),
+    member: &mut impl FnMut(usize, bool, [f64; 6]),
 ) {
     // Timoshenko shear parameter, matching the one used for the stiffness
     // matrix in assemble_stiffness_2d. The hinge FEF condensation uses the same
@@ -1070,7 +1130,7 @@ fn assemble_element_loads_2d_with_rounding(
     };
 
     for load in loads {
-        match load {
+        let fef = match load {
             SolverLoad::Distributed(dl) if dl.element_id == elem.id => {
                 let a = dl.a.unwrap_or(0.0);
                 let b = dl.b.unwrap_or(l);
@@ -1086,8 +1146,7 @@ fn assemble_element_loads_2d_with_rounding(
                 // Adjust for hinges
                 adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
 
-                // Transform to global and add
-                accumulate_frame_load(&fef,t,6,elem_dofs,None,f_global,rounding);
+                fef
             }
             SolverLoad::PointOnElement(pl) if pl.element_id == elem.id => {
                 let px = pl.px.unwrap_or(0.0);
@@ -1096,7 +1155,7 @@ fn assemble_element_loads_2d_with_rounding(
 
                 adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
 
-                accumulate_frame_load(&fef,t,6,elem_dofs,None,f_global,rounding);
+                fef
             }
             SolverLoad::Thermal(tl) if tl.element_id == elem.id => {
                 let alpha = tl.alpha();
@@ -1108,14 +1167,16 @@ fn assemble_element_loads_2d_with_rounding(
 
                 adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, phi);
 
-                accumulate_frame_load(&fef,t,6,elem_dofs,None,f_global,rounding);
+                fef
             }
             SolverLoad::AxialDistributed(al) if al.element_id == elem.id => {
                 let fef = crate::element::fef_axial_distributed_2d(al.q_i, al.q_j, al.a.unwrap_or(0.0), al.b.unwrap_or(l), l);
-                accumulate_frame_load(&fef,t,6,elem_dofs,None,f_global,rounding);
+                fef
             }
-            _ => {}
-        }
+            _ => continue,
+        };
+        visit_frame_load(&fef, t, 6, elem_dofs, None, track_rounding, add);
+        member(elem.id, matches!(load, SolverLoad::Thermal(_)), fef);
     }
 }
 
@@ -2067,14 +2128,24 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
 
 
 fn accumulate_frame_load(local: &[f64], t: &[f64], n: usize, dofs: &[usize], mapping: Option<&[usize;12]>, global: &mut [f64], rounding: &mut Option<super::load_work::AssemblyRoundoff>) {
+    visit_frame_load(local, t, n, dofs, mapping, rounding.is_some(), &mut |d, v, e| {
+        accumulate_load(global, rounding, d, v, e);
+    });
+}
+
+fn visit_frame_load(
+    local: &[f64], t: &[f64], n: usize, dofs: &[usize], mapping: Option<&[usize; 12]>,
+    track_rounding: bool,
+    add: &mut impl FnMut(usize, f64, f64),
+) {
     let force = transform_force(local,t,n);
     let axes = if n == 6 { [[t[0],t[1],0.0],[t[n],t[n+1],0.0],[0.0,0.0,1.0]] } else { [[t[0],t[1],t[2]],[t[n],t[n+1],t[n+2]],[t[2*n],t[2*n+1],t[2*n+2]]] };
-    let frame_rounding = if rounding.is_none() {[[0.0;3];3]} else {super::load_work::frame_rounding(&axes)};
+    let frame_rounding = if !track_rounding {[[0.0;3];3]} else {super::load_work::frame_rounding(&axes)};
     for (i, &value) in force.iter().enumerate() {
         let dof = dofs[mapping.map_or(i, |map| map[i])];
-        if let Some(rounding) = rounding.as_mut() {
+        let mut error = 0.0;
+        if track_rounding {
             let mut sum = 0.0;
-            let mut error = 0.0;
             for j in 0..n {
                 let product = t[j*n+i] * local[j];
                 error = super::load_work::add_up(error,super::load_work::product_rounding(t[j*n+i],local[j],product));
@@ -2091,9 +2162,8 @@ fn accumulate_frame_load(local: &[f64], t: &[f64], n: usize, dofs: &[usize], map
                     error = super::load_work::add_up(error,super::load_work::mul_up(frame_rounding[j][component%3],local[offset+j].abs()));
                 }
             }
-            rounding.accumulate(dof,value,error,global[dof]);
         }
-        global[dof] += value;
+        add(dof, value, error);
     }
 }
 
