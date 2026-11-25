@@ -2192,6 +2192,7 @@ function createModelStore() {
       const snapId = $state.snapshot(nextId);
       const result: ModelSnapshot = {
         name: snap.name,
+        ...(uiStore.analysisMode === '2d' ? { drawPlane2D: uiStore.drawPlane2D } : {}),
         nodes: Array.from(snap.nodes.entries()) as ModelSnapshot['nodes'],
         materials: Array.from(snap.materials.entries()) as ModelSnapshot['materials'],
         // `canonical` is a DERIVED cache keyed by the section's own dimensions,

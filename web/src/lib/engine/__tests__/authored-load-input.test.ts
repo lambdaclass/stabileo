@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { assessProject } from '../../provenance/applicability';
 import { modelFeatures } from '../../provenance/model-features';
 import { modelStore, uiStore } from '../../store';
+import { deserializeProjectOrThrow, serializeProject } from '../../store/file';
 import type { Load } from '../../store/model.svelte';
 import { loadFixture, type JSONModel } from '../../templates/load-fixture';
 import { runDirectAnalysis } from '../direct-analysis';
@@ -347,7 +348,7 @@ it.each([false, true])('finds a malformed row independently of planar torsion (t
   expect(modelFeatures({ ...snapshot, loads: [torsion] }).has('malformedAuthoredLoad')).toBe(false);
 });
 
-it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1').each([
+it.each([
   ['my', '5'], ['mz', '5'], ['my', null], ['mz', null],
 ] as const)('flags a malformed saved planar %s of %j before resolving moment aliases', async (field, value) => {
   const { root, tip } = cantilever();
@@ -360,7 +361,15 @@ it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1').each([
   const part = `loads[0].data.${field}`;
   expect.soft(assessProject(saved, null, 'basic').changes.map(entry => entry.id)).toContain('malformed-authored-loads');
   expect.soft(modelFeatures({ ...saved, loads: [] }, { storedLoads: saved.loads })).toContain('malformedAuthoredLoad');
+  expect(deserializeProjectOrThrow(JSON.stringify({ ...JSON.parse(serializeProject()), snapshot: saved }))).toBe(true);
+  expect.soft(modelStore.model.loads[0]).toMatchObject({ type: 'nodal', data: { [field]: value } });
+  const fixture: JSONModel = {
+    name: 'Malformed nodal moment', nodes: [], elements: [], supports: [], materials: [], sections: [],
+    loads: saved.loads, plates: [], quads: [], constraints: [], loadCases: [loadCase], combinations: [combo],
+  };
   await refuses(part, {
+    'fixture replay': () => loadFixture(fixture, modelStore.fixtureApi() as never),
+    'example apply': () => modelStore.loadExample(fixture.name, async () => fixture),
     ...planeEntries(), ...spaceEntries(),
     'plane store sync': () => modelStore.solve(false, 'xz'),
     'plane store async': () => modelStore.solveAsync(false, 'xz'),

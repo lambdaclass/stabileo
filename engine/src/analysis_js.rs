@@ -1,4 +1,4 @@
-use web_sys::js_sys::{Array, Map, Object, Set};
+use web_sys::js_sys::{try_iter, Array, Map, Object, Set};
 use serde::de::value::{MapDeserializer, SeqDeserializer};
 use serde::de::{self, Deserializer, IntoDeserializer, Visitor};
 use serde_wasm_bindgen::Error;
@@ -72,20 +72,28 @@ impl<'de> Deserializer<'de> for AnalysisJs {
 
     fn deserialize_seq<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Error> {
         if let Some(array) = self.0.dyn_ref::<Array>() {
-            visitor.visit_seq(SeqDeserializer::new(array.iter().map(AnalysisJs)))
+            SeqDeserializer::new(array.iter().map(AnalysisJs)).deserialize_seq(visitor)
         } else {
             serde_wasm_bindgen::Deserializer::from(self.0).deserialize_seq(visitor)
         }
     }
 
-    fn deserialize_tuple<V: Visitor<'de>>(self, _len: usize, visitor: V) -> Result<V::Value, Error> {
-        self.deserialize_seq(visitor)
+    fn deserialize_tuple<V: Visitor<'de>>(self, len: usize, visitor: V) -> Result<V::Value, Error> {
+        if Array::is_array(&self.0) || !self.0.is_object() {
+            return self.deserialize_seq(visitor);
+        }
+        let Some(iter) = try_iter(&self.0)? else {
+            return self.deserialize_seq(visitor);
+        };
+        let items = iter.take(len.saturating_add(1)).map(|item| item.map(AnalysisJs))
+            .collect::<Result<Vec<_>, _>>()?;
+        SeqDeserializer::new(items.into_iter()).deserialize_seq(visitor)
     }
 
     fn deserialize_tuple_struct<V: Visitor<'de>>(
-        self, _name: &'static str, _len: usize, visitor: V,
+        self, _name: &'static str, len: usize, visitor: V,
     ) -> Result<V::Value, Error> {
-        self.deserialize_seq(visitor)
+        self.deserialize_tuple(len, visitor)
     }
 
     fn deserialize_option<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Error> {

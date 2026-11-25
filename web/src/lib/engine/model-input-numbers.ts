@@ -12,7 +12,7 @@ type Fields<T> = {
 };
 
 const commonLoadFields = { id: 'optional', caseId: 'optional', generatedBy: 'field', seismicGeneration: 'field' } as const;
-type LoadField = 'required' | 'optional' | 'field';
+type InputField = 'required' | 'optional' | 'field';
 type LoadKeys<K extends Load['type']> =
   Exclude<Extract<keyof Extract<Load, { type: K }>['data'], string>, keyof typeof commonLoadFields>;
 
@@ -50,14 +50,17 @@ const loadFields = {
   displacement3d: {
     nodeId: 'required', dx: 'optional', dy: 'optional', dz: 'optional', drx: 'optional', dry: 'optional', drz: 'optional',
   },
-} satisfies { [K in Load['type']]: Record<LoadKeys<K> | (K extends 'pointOnElement' ? 'mx' : never), LoadField> };
+} satisfies { [K in Load['type']]: Record<LoadKeys<K> | (K extends 'pointOnElement' ? 'mx' : never), InputField> };
 
 const loadRecordFields = { type: true, data: true } satisfies Record<keyof Load, true>;
 
-const supportFields: Fields<Support> = {
-  required: ['id', 'nodeId'],
-  optional: ['kx', 'ky', 'kz', 'krx', 'kry', 'krz', 'dx', 'dy', 'dz', 'drx', 'dry', 'drz', 'angle', 'normalX', 'normalY', 'normalZ', 'dofLocalElementId'],
-};
+const supportFields = {
+  id: 'required', nodeId: 'required', type: 'field', uplift: 'field', curves: 'field',
+  kx: 'optional', ky: 'optional', kz: 'optional', krx: 'optional', kry: 'optional', krz: 'optional',
+  dx: 'optional', dy: 'optional', dz: 'optional', drx: 'optional', dry: 'optional', drz: 'optional',
+  angle: 'optional', normalX: 'optional', normalY: 'optional', normalZ: 'optional',
+  isGlobal: 'field', isInclined: 'field', dofRestraints: 'field', dofFrame: 'field', dofLocalElementId: 'optional',
+} satisfies Record<keyof Support, InputField>;
 
 const materialFields: Fields<Material> = {
   required: ['id', 'e', 'nu'],
@@ -88,6 +91,18 @@ function recordNumbers(
   for (const field of optional) {
     if (record[field] !== undefined) numberAt(`${path}.${field}`, record[field]);
   }
+}
+
+function requireNumericFields(path: string, row: Record<string, unknown>, fields: Record<string, InputField>): void {
+  for (const [field, rule] of Object.entries(fields)) {
+    if (rule === 'required' || (rule === 'optional' && row[field] !== undefined)) {
+      numberAt(`${path}.${field}`, row[field]);
+    }
+  }
+}
+
+export function invalidPlanarNodalMomentField(data: Readonly<Record<string, unknown>>): 'my' | 'mz' | undefined {
+  return (['my', 'mz'] as const).find(field => data[field] !== undefined && !isFiniteInputNumber(data[field]));
 }
 
 function arrayOf<T>(path: string, value: unknown, check: (path: string, value: T) => void, size?: number): void {
@@ -147,14 +162,8 @@ function requireLoadRow(load: unknown, index: number): void {
   requireLoadSelectors(path, type, data);
   const fields = loadFields[type];
   requireKnownFields(path, data, fields, commonLoadFields);
-  for (const field of ['id', 'caseId'] as const) {
-    if (data[field] !== undefined) numberAt(`${path}.${field}`, data[field]);
-  }
-  for (const [field, rule] of Object.entries(fields)) {
-    if (rule === 'required' || (rule === 'optional' && data[field] !== undefined)) {
-      numberAt(`${path}.${field}`, data[field]);
-    }
-  }
+  requireNumericFields(path, data, commonLoadFields);
+  requireNumericFields(path, data, fields);
   if (type === 'pointOnElement') {
     const { mx } = data;
     if (invalidPlanarPointTorsion(mx)) {
@@ -163,7 +172,11 @@ function requireLoadRow(load: unknown, index: number): void {
       throw new UnsupportedPlanarPointTorsion(`${t('svc.engine.unsupportedPointLoadMoment')} ${field}: ${t('svc.engine.applyPointLoadMomentAtNode')}`);
     }
   }
-  if (type === 'nodal') numberAt(`${path}.fz/fy`, data.fz ?? data.fy);
+  if (type === 'nodal') {
+    const invalidMoment = invalidPlanarNodalMomentField(data);
+    if (invalidMoment !== undefined) throw new InvalidModelNumber(`${path}.${invalidMoment}`, data[invalidMoment]);
+    numberAt(`${path}.fz/fy`, data.fz ?? data.fy);
+  }
   if (type === 'surface3d') {
     const { dir, qNodes, vary, region } = data as Partial<Extract<Load, { type: 'surface3d' }>['data']>;
     if (dir !== undefined) vector(`${path}.dir`, dir);
@@ -233,7 +246,8 @@ function booleanAt(path: string, value: unknown): void {
 
 function validateSupport(path: string, value: unknown): void {
   const row = recordAt(path, value);
-  recordNumbers(path, row, supportFields);
+  requireKnownFields(path, row, supportFields);
+  requireNumericFields(path, row, supportFields);
   if (!isSupportType(row.type)) throw new InvalidModelInputField(`${path}.type (${String(row.type)})`);
   optionalValue(`${path}.dofFrame`, row.dofFrame, ['global', 'local']);
   for (const field of ['isGlobal', 'isInclined', 'uplift']) {

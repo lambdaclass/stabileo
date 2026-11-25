@@ -3781,6 +3781,7 @@ const hi: Translations = {
   "svc.engine.unknownInputField": "अज्ञात फ़ील्ड {path}।",
   "svc.engine.allowedInputFields": "अनुमत फ़ील्ड: {fields}।",
   "svc.engine.noInputFields": "किसी भी फ़ील्ड की अनुमति नहीं है।",
+  "svc.engine.inputParseError": "इनपुट पढ़ने में त्रुटि: {detail}",
   "svc.engine.inputLocation": "(पंक्ति {line}, स्तंभ {column})",
   "svc.engine.invalidInputField": "फ़ील्ड {path} मौजूद नहीं है या उसका मान समर्थित नहीं है।",
   "svc.engine.nonFiniteNumber": "{path} में एक परिमित संख्या दर्ज करें (प्राप्त मान: {value})।",

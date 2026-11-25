@@ -4,7 +4,8 @@ import { modelFeatures } from '../../provenance/model-features';
 import { readStamp } from '../../provenance/solve-stamp';
 import { fragmentFromJSONModel } from '../../model/edit/fragment-code';
 import { modelStore, resultsStore, uiStore } from '../../store';
-import { createRecheckStore } from '../../store/recheck.svelte';
+import { compressSnapshot, decompressSnapshot } from '../../utils/url-sharing';
+import { createRecheckStore, recheckStore } from '../../store/recheck.svelte';
 import { acceptAutosavePayload, deserializeProjectOrThrow, serializeProject } from '../../store/file';
 import { projectOnto } from '../../store/switch-2d';
 import { loadFixture, type JSONModel } from '../../templates/load-fixture';
@@ -15,8 +16,6 @@ import {
   validateAndSolve2D, validateAndSolve2DAsync, validateAndSolve3D, validateAndSolve3DAsync,
 } from '../solver-service';
 import { solvePDelta, solvePDelta3D } from '../wasm-solver';
-
-const review = it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1');
 
 const loadCase = { id: 1, name: 'Test case', type: 'D' };
 const combo = { id: 1, name: 'Test combination', factors: [{ caseId: 1, factor: 1 }] };
@@ -591,18 +590,18 @@ it('scopes both constraint notices to the saved solve plane', () => {
   }
 });
 
-it.each([undefined])('checks saved constraints and combinations independently of supports (%j)', (supports) => {
+it.each([null, undefined])('checks saved constraints and combinations independently of supports (%j)', (supports) => {
   const snapshot = { ...modelStore.snapshot(), supports };
   const changes = (saved: typeof snapshot) =>
     assessProject(saved as never, null, 'basic').changes.map(change => change.id);
-  expect.soft(changes(snapshot)).not.toContain('malformed-structural-input');
+  expect.soft(changes(snapshot).includes('malformed-structural-input')).toBe(supports === null);
   expect.soft(changes({ ...snapshot, constraints: [{ type: 'unknownKind' }] as never })).toContain('malformed-structural-input');
   expect.soft(changes({ ...snapshot, combinations: [{ ...combo, method: 'unsupported' }] as never })).toContain('malformed-structural-input');
   expect(() => modelStore.restore({ ...snapshot, constraints: [{ type: 'unknownKind' }] } as never))
     .toThrow(/constraints\[0\]\.type/);
 });
 
-review('refuses a misspelled restraint mask whose authored DOFs override the support type', async () => {
+it('refuses a misspelled restraint mask whose authored DOFs override the support type', async () => {
   const model = modelStore.model;
   const mask = { tx: false, ty: false, tz: true, rx: false, ry: false, rz: false };
   const tipSupport = modelStore.addSupportEntry({ nodeId: tip, type: 'fixed3d', dofRestraints: mask });
@@ -619,7 +618,7 @@ review('refuses a misspelled restraint mask whose authored DOFs override the sup
   });
   const before = modelStore.snapshot();
   const invalid = { ...row, dofRestaints: mask };
-  const saved = { ...before, supports: before.supports.map(([id, entry]) => [id, id === tipSupport ? invalid : entry] as const) };
+  const saved: typeof before = { ...before, supports: before.supports.map(([id, entry]) => [id, id === tipSupport ? invalid : entry]) };
   const input = fixture();
   Object.assign(input.supports.find(entry => entry.id === tipSupport)!, { dofRestaints: mask });
   const field = `supports.${tipSupport}.dofRestaints`;
@@ -635,7 +634,7 @@ review('refuses a misspelled restraint mask whose authored DOFs override the sup
   await refuses(field, analysisEntries());
 });
 
-review.each(['xz', 'yz'] as const)('solves an unscalable singleton MPC in %s', async (plane) => {
+it.each(['xz', 'yz'] as const)('solves an unscalable singleton MPC in %s', async (plane) => {
   const model = modelStore.model;
   if (plane === 'yz') {
     Object.assign(model.nodes.get(tip)!, { x: 0, y: 2 });
@@ -667,7 +666,7 @@ review.each(['xz', 'yz'] as const)('solves an unscalable singleton MPC in %s', a
   expect.soft(projectOnto(plane)).toMatchObject({ ok: true });
 });
 
-review('uses the saved project plane for older stamps and checks plausible planes when it is absent', async () => {
+it('uses the saved project plane for older stamps and checks plausible planes when it is absent', async () => {
   const model = modelStore.model;
   Object.assign(model.nodes.get(tip)!, { x: 0, y: 2 });
   model.constraints = [{
@@ -687,11 +686,30 @@ review('uses the saved project plane for older stamps and checks plausible plane
     expect.soft(recheck.assessment?.changes.some(entry => entry.id === change), String(drawPlane2D)).toBe(applies);
   }
   const stampedXZ = { ...stamp!, drawPlane2D: 'xz' as const };
-  expect(assessProject({ ...saved, drawPlane2D: 'yz' } as never, stampedXZ, 'basic').changes.map(entry => entry.id))
+  expect(assessProject({ ...saved, drawPlane2D: 'yz' }, stampedXZ, 'basic').changes.map(entry => entry.id))
     .not.toContain(change);
+
+  const previousPlane = uiStore.drawPlane2D;
+  uiStore.analysisMode = '2d';
+  try {
+    uiStore.drawPlane2D = 'yz';
+    const project = JSON.parse(serializeProject());
+    expect(project.snapshot.drawPlane2D).toBe('yz');
+    project.snapshot.solvedWith = stamp;
+    const shared = decompressSnapshot(compressSnapshot(project.snapshot));
+    expect(shared?.drawPlane2D).toBe('yz');
+    uiStore.drawPlane2D = 'xz';
+    expect(deserializeProjectOrThrow(JSON.stringify(project))).toBe(true);
+    expect(uiStore.drawPlane2D).toBe('yz');
+    await recheckStore.retry();
+    expect(recheckStore.assessment?.changes.map(entry => entry.id)).toContain(change);
+  } finally {
+    uiStore.drawPlane2D = previousPlane;
+    recheckStore.reset();
+  }
 });
 
-review.each(['nodes', 'elements', 'supports', 'materials', 'sections', 'connectors'] as const)(
+it.each(['nodes', 'elements', 'supports', 'materials', 'sections', 'connectors'] as const)(
   'flags a malformed supplied %s collection in a partial snapshot', (collection) => {
     const notices = (raw: unknown) => assessProject(raw as never, null, 'basic').changes.map(entry => entry.id);
     for (const value of [null, {}, [null]]) {

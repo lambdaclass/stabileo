@@ -120,6 +120,7 @@ function roundedCoefficient(exact: bigint): number {
 function fitMpcCoefficients(totals: readonly bigint[]): number[] | null {
   const coefficients = totals.map(roundedCoefficient);
   if (coefficients.every(Number.isFinite)) return coefficients;
+  if (totals.length === 1) return [1];
 
   const maxBits = totals.reduce((bits, total) => Math.max(bits, (total < 0n ? -total : total).toString(2).length), 0);
   const maxFiniteBits = dyadicInteger(Number.MAX_VALUE).toString(2).length;

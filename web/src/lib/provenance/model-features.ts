@@ -1,6 +1,6 @@
 import { classifyEccentricNormalOffset, constraintsForPlanarSolve, hasReducedPlanarMpc } from '../engine/constraint-2d-remap';
 import { hasMalformedAuthoredLoad, invalidPlanarPointTorsion, isFiniteInputNumber, ModelInputError, migrateModelConstraints, requireCombinationInput, requireStructureInput } from '../engine/model-input-numbers';
-import type { DrawPlane } from '../geometry/plane-projection';
+import { DRAW_PLANES, isDrawPlane, type DrawPlane } from '../geometry/plane-projection';
 import { POINT_END_TOL } from '../engine/member-point-loads';
 import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
 import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
@@ -100,6 +100,7 @@ type ShellSnapshot = { id?: number; materialId?: number; nodes?: number[]; curve
 
 interface FeatureSnapshotFields {
   analysisMode?: string;
+  drawPlane2D?: DrawPlane;
   gapElements?: unknown[];
   nodeToSurfacePairs?: unknown[];
   upliftSupports?: unknown[];
@@ -320,21 +321,38 @@ function addSelfWeightFeatures(
   }
 }
 
-function addAuthoredStructureFeatures(s: FeatureSnapshot, features: Set<FeatureId>, drawPlane: DrawPlane): void {
+function structureFeatureRows<T>(rows: Entries<T>, features: Set<FeatureId>): Entries<T> {
+  if (rows === undefined) return undefined;
+  if (!Array.isArray(rows)) {
+    features.add('malformedAuthoredStructure');
+    return [];
+  }
+  return rows.filter(entry => {
+    const valid = Array.isArray(entry) && entry.length === 2 && isFiniteInputNumber(entry[0])
+      && entry[1] !== null && typeof entry[1] === 'object' && !Array.isArray(entry[1]);
+    if (!valid) features.add('malformedAuthoredStructure');
+    return valid;
+  });
+}
+
+function addAuthoredStructureFeatures(s: FeatureSnapshot, features: Set<FeatureId>, stampPlane?: DrawPlane): void {
   try {
     const constraints = migrateModelConstraints(s.constraints);
     if (s.combinations !== undefined) requireCombinationInput(s.combinations);
     if (features.has('plane2D')) {
-      const remapped = constraintsForPlanarSolve(drawPlane, constraints);
-      if (remapped.some(c => c.type === 'eccentricConnection' && classifyEccentricNormalOffset(c) === 'separated')) {
-        features.add('separatedPlanarEccentricConnection');
+      const plane = stampPlane ?? s.drawPlane2D;
+      for (const plausible of isDrawPlane(plane) ? [plane] : DRAW_PLANES) {
+        const remapped = constraintsForPlanarSolve(plausible, constraints);
+        if (remapped.some(c => c.type === 'eccentricConnection' && classifyEccentricNormalOffset(c) === 'separated')) {
+          features.add('separatedPlanarEccentricConnection');
+        }
+        if (remapped.some(hasReducedPlanarMpc)) features.add('reducedPlanarMpc');
       }
-      if (remapped.some(hasReducedPlanarMpc)) features.add('reducedPlanarMpc');
     }
-    const { nodes, elements, supports, materials, sections } = s;
-    if (Array.isArray(nodes) && Array.isArray(elements) && Array.isArray(supports) && Array.isArray(materials) && Array.isArray(sections)) {
-      requireStructureInput({ nodes, elements, supports, materials, sections, connectors: s.connectors, analysis: s.analysis });
-    }
+    requireStructureInput({
+      nodes: s.nodes ?? [], elements: s.elements ?? [], supports: s.supports ?? [],
+      materials: s.materials ?? [], sections: s.sections ?? [], connectors: s.connectors, analysis: s.analysis,
+    });
   } catch (error) {
     if (!(error instanceof ModelInputError)) throw error;
     features.add('malformedAuthoredStructure');
@@ -344,6 +362,15 @@ function addAuthoredStructureFeatures(s: FeatureSnapshot, features: Set<FeatureI
 /** The features of one saved model. */
 export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set<FeatureId> {
   const f = new Set<FeatureId>();
+  s = {
+    ...s,
+    nodes: structureFeatureRows(s.nodes, f),
+    elements: structureFeatureRows(s.elements, f),
+    supports: structureFeatureRows(s.supports, f),
+    materials: structureFeatureRows(s.materials, f),
+    sections: structureFeatureRows(s.sections, f),
+    connectors: structureFeatureRows(s.connectors, f),
+  };
   const mode = ctx.analysisMode ?? s.analysisMode ?? '2d';
   if (ctx.analysesRun == null || ctx.analysesRun.some(k => k !== 'modal' && k !== 'buckling')) f.add('forceSummaryResults');
   f.add(is3DWorkspace(mode) ? 'space3D' : 'plane2D');
@@ -525,7 +552,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     f.add('legacyPlanarPointCoupleAliases');
   }
   const planarLoadInputs = rawStoredLoads === s.loads ? storedLoads : [...storedLoads, ...currentLoadRecords];
-  addAuthoredStructureFeatures(s, f, ctx.drawPlane2D ?? 'xy');
+  addAuthoredStructureFeatures(s, f, ctx.drawPlane2D);
   for (const { type, data } of planarLoadInputs) {
     if (type !== 'pointOnElement' && type !== 'nodal') continue;
     if (data?.my === null || data?.mz === null) f.add('nullPlanarMomentAliases');

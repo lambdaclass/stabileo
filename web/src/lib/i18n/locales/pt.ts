@@ -8384,6 +8384,7 @@ const pt: Translations = {
   "svc.engine.unknownInputField": "Campo desconhecido {path}.",
   "svc.engine.allowedInputFields": "Campos permitidos: {fields}.",
   "svc.engine.noInputFields": "Nenhum campo é permitido.",
+  "svc.engine.inputParseError": "Erro de leitura dos dados: {detail}",
   "svc.engine.inputLocation": "(linha {line}, coluna {column})",
   "svc.engine.invalidInputField": "O campo {path} está ausente ou contém um valor não aceito.",
   "svc.engine.nonFiniteNumber": "Insira um número finito em {path} (valor recebido: {value}).",

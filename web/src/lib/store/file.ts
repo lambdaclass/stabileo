@@ -1,4 +1,5 @@
 import { ModelInputError } from '../engine/model-input-numbers';
+import { isDrawPlane } from '../geometry/plane-projection';
 import { resultComponents } from '../axes/result-components';
 import { exportMessages, warningImage, warningCanvas } from '../export/containment';
 // File operations: save/load projects, export results, autosave
@@ -385,6 +386,7 @@ function storedProjectSnapshot(snapshot: ModelSnapshot, mode: ModelSnapshot['ana
 export function onProjectOpened(snap: ModelSnapshot | undefined, analysisMode: string | undefined): void {
   noteAxisConventionMigrationIfNeeded(snap, analysisMode);
   if (snap) {
+    if (!is3DWorkspace(analysisMode ?? snap.analysisMode ?? '2d') && isDrawPlane(snap.drawPlane2D)) uiStore.drawPlane2D = snap.drawPlane2D;
     // Assess the model that restore actually installed (including legacy defaults,
     // such as Wind/Earthquake load cases), which is also what the next save writes.
     // Otherwise reloading that save adds applicability to the unread notice and
@@ -396,6 +398,7 @@ export function onProjectOpened(snap: ModelSnapshot | undefined, analysisMode: s
     recheckStore.openProject({
       ...current,
       includeSelfWeight: usesSelfWeightToggle && uiStore.includeSelfWeight,
+      drawPlane2D: snap.drawPlane2D,
       solvedWith: snap.solvedWith,
       pendingRecheckNotice: snap.pendingRecheckNotice,
     } as never, analysisMode, snap.loads);

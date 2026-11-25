@@ -3775,6 +3775,7 @@ const ru: Translations = {
   "svc.engine.unknownInputField": "Неизвестное поле {path}.",
   "svc.engine.allowedInputFields": "Допустимые поля: {fields}.",
   "svc.engine.noInputFields": "Поля не допускаются.",
+  "svc.engine.inputParseError": "Ошибка разбора входных данных: {detail}",
   "svc.engine.inputLocation": "(строка {line}, столбец {column})",
   "svc.engine.invalidInputField": "Поле {path} отсутствует или содержит неподдерживаемое значение.",
   "svc.engine.nonFiniteNumber": "Введите конечное число для {path} (получено: {value}).",

@@ -23,3 +23,11 @@ Planar analysis combines coefficients for each node and degree of freedom before
 Named planar models require a JSON object. WASM object interfaces preserve the supplied keys of solver tables written as key/value pairs, and reject malformed pairs, duplicate keys, and unsupported fields in their records. Combinations reject unknown keys before resolving factors. An intended spatial SRSS combination with opposing case responses could otherwise report a linear sum of zero after silently ignoring a misspelled `method`.
 
 An overflowing reduced multipoint constraint can be sent to the planar solver when a common power-of-two scale preserves every active coefficient. For example, two maximum finite coefficients on the same displacement give the homogeneous constraint `ux = 0`. The solver now returns that constrained displacement. It still refuses when scaling would lose an active term. The eccentric-connection and multipoint-constraint notices use the projection of the recorded solve plane.
+
+An authored support with `dofRestaints` is refused before its support type can supply default restraints. A fixed support whose intended mask leaves axial translation free otherwise restrains that translation and changes the displacement and reactions. Saved-result recheck validates each supplied structural collection and allows omitted collections in partial records.
+
+WASM object analysis requires fixed-size sequences to be consumed in full. For example, a quadrilateral sent with a fifth node ID used to solve using the first four IDs. The analysis now reports a parse error for the invalid length.
+
+A single surviving nonzero planar MPC coefficient can be represented by one even when the exact sum is too large and no exact common scale fits. For finite binary64 maximum `M` and minimum positive value `m`, the grouped equation `(M + M + m) ux = 0` is equivalent to `ux = 0`, since the coefficient is strictly positive. The dimensional coupling and multicomponent representation checks still apply.
+
+The result notice uses the recorded solve plane when available and otherwise uses the saved project plane. For projects with neither, it checks all supported planar projections.

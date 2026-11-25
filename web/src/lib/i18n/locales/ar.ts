@@ -3771,6 +3771,7 @@ const ar: Translations = {
   "svc.engine.unknownInputField": "حقل غير معروف {path}.",
   "svc.engine.allowedInputFields": "الحقول المسموح بها: {fields}.",
   "svc.engine.noInputFields": "لا يُسمح بأي حقول.",
+  "svc.engine.inputParseError": "خطأ في قراءة المدخلات: {detail}",
   "svc.engine.inputLocation": "(السطر {line}، العمود {column})",
   "svc.engine.invalidInputField": "الحقل {path} مفقود أو يحتوي على قيمة غير مدعومة.",
   "svc.engine.nonFiniteNumber": "أدخل عددًا منتهيًا في الحقل {path} (القيمة الواردة: {value}).",

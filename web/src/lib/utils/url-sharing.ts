@@ -1,3 +1,4 @@
+import { isDrawPlane } from '../geometry/plane-projection';
 // URL sharing: compress/decompress model snapshots for sharing via URL hash
 // v1: LZ-String (legacy, still decoded for old links)
 // v2: compact JSON + fflate deflate + base64url (new default)
@@ -245,6 +246,7 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
 
   // Analysis mode
   if (snapshot.analysisMode) c.m = snapshot.analysisMode;
+  if (snapshot.drawPlane2D) c.dp = snapshot.drawPlane2D;
   if (snapshot.name) c.nm = snapshot.name;
   // Local-axis convention tag — carry it so a shared NEW (post-fix) model stays
   // self-describing and the migration note (see noteAxisConventionMigrationIfNeeded)
@@ -477,6 +479,7 @@ type DecodedCompactSnapshot = Omit<ModelSnapshot, 'elements'> & {
 function fromCompact(c: Record<string, unknown>): DecodedCompactSnapshot {
   const snapshot: DecodedCompactSnapshot = {
     analysisMode: c.m as '2d' | '3d' | 'pro' | 'edu' | undefined,
+    ...(isDrawPlane(c.dp) ? { drawPlane2D: c.dp } : {}),
     name: c.nm as string | undefined,
     localAxisConvention: c.lx as ModelSnapshot['localAxisConvention'],
     ...(c.sw && typeof c.sw === 'object' ? { solvedWith: c.sw as ModelSnapshot['solvedWith'] } : {}),

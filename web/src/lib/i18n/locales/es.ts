@@ -4329,6 +4329,7 @@ const es: Record<string, string> = {
   "svc.engine.unknownInputField": "Campo desconocido {path}.",
   "svc.engine.allowedInputFields": "Campos permitidos: {fields}.",
   "svc.engine.noInputFields": "No se admite ningún campo.",
+  "svc.engine.inputParseError": "Error de análisis: {detail}",
   "svc.engine.inputLocation": "(línea {line}, columna {column})",
   "svc.engine.invalidInputField": "Falta el campo {path} o su valor no es compatible.",
   "svc.engine.nonFiniteNumber": "Ingresá un número finito en {path} (valor recibido: {value}).",

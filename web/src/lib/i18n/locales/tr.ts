@@ -3941,6 +3941,7 @@ const tr: Translations = {
   "svc.engine.unknownInputField": "Bilinmeyen alan: {path}.",
   "svc.engine.allowedInputFields": "İzin verilen alanlar: {fields}.",
   "svc.engine.noInputFields": "Hiçbir alana izin verilmez.",
+  "svc.engine.inputParseError": "Girdi okuma hatası: {detail}",
   "svc.engine.inputLocation": "({line}. satır, {column}. sütun)",
   "svc.engine.invalidInputField": "{path} alanı eksik veya desteklenmeyen bir değer içeriyor.",
   "svc.engine.nonFiniteNumber": "{path} alanına sonlu bir sayı girin (alınan değer: {value}).",

@@ -4132,6 +4132,7 @@ const zh: Translations = {
   "svc.engine.unknownInputField": "未知字段 {path}。",
   "svc.engine.allowedInputFields": "允许的字段：{fields}。",
   "svc.engine.noInputFields": "不允许任何字段。",
+  "svc.engine.inputParseError": "输入解析错误：{detail}",
   "svc.engine.inputLocation": "（第 {line} 行，第 {column} 列）",
   "svc.engine.invalidInputField": "字段 {path} 缺失或包含不受支持的值。",
   "svc.engine.nonFiniteNumber": "请为 {path} 输入有限数值（收到的值为 {value}）。",

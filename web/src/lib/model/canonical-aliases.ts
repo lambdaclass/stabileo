@@ -1,4 +1,4 @@
-import { ModelInputError, requireAuthoredMemberKeys, requireLoadCollection } from '../engine/model-input-numbers';
+import { invalidPlanarNodalMomentField, ModelInputError, requireAuthoredMemberKeys, requireLoadCollection } from '../engine/model-input-numbers';
 import { shouldProjectModelToXZ, type CoordinateNode, type TypedSupportLike } from '../geometry/coordinate-system';
 import { t, tp } from '../i18n';
 import type { Release } from '../store/model.svelte';
@@ -111,15 +111,21 @@ export function canonicalizeLoadAliases<T extends LoadRecord>(record: T): T {
       return;
     }
     if (type === 'nodal') removePlanarNodalPadding(copy);
-    reconcile(copy, 'my', copy.mz, 'mz', conflict);
-    delete copy.mz;
-    if (copy.enteredZeroMoment === true) reconcile(copy, 'my', 0, 'enteredZeroMoment', conflict);
+    const invalidMoment = type === 'nodal' && invalidPlanarNodalMomentField(copy);
+    if (invalidMoment) {
+      if (copy.my !== undefined && copy.mz !== undefined && copy.my !== copy.mz) conflict('my', 'mz');
+      if (copy.enteredZeroMoment === true) conflict('my', 'enteredZeroMoment');
+    } else {
+      reconcile(copy, 'my', copy.mz, 'mz', conflict);
+      delete copy.mz;
+      if (copy.enteredZeroMoment === true) reconcile(copy, 'my', 0, 'enteredZeroMoment', conflict);
+      if (copy.my === null || (typeof copy.my === 'number' && !Number.isFinite(copy.my))) copy.my = 'NaN';
+    }
     delete copy.enteredZeroMoment;
-    if (copy.my === null || (typeof copy.my === 'number' && !Number.isFinite(copy.my))) copy.my = 'NaN';
     if (type === 'nodal') {
       reconcile(copy, 'fz', copy.fy, 'fy', conflict);
       delete copy.fy;
-      if (copy.my === undefined) copy.my = 0;
+      if (!invalidMoment && copy.my === undefined) copy.my = 0;
       if (copy.fz === undefined) copy.fz = 0;
     }
   }) };

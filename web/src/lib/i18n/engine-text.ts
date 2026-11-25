@@ -145,15 +145,14 @@ export function localizeEngineText(message: string): string {
   for (const [en, key] of ENGINE_SENTENCES) if (out.includes(en)) out = out.split(en).join(tAt(key, i18n.locale));
   out = out.replace(/Non-finite number \((NaN|Infinity|-Infinity)\) at (\S+)/g, (_, value: string, path: string) =>
     fill('svc.engine.nonFiniteNumber', { value, path }));
-  out = out.replace(UNKNOWN_FIELD, (_, path: string, allowed: string | undefined, empty: string | undefined, line: string | undefined, column: string | undefined) => {
+  out = out.replace(UNKNOWN_FIELD, (_, prefix: string | undefined, path: string, allowed: string | undefined, empty: string | undefined, line: string | undefined, column: string | undefined) => {
     const field = fill('svc.engine.unknownInputField', { path });
     const expected = allowed ? ' ' + fill('svc.engine.allowedInputFields', { fields: allowed.replace(' or ', ', ') })
       : empty ? ' ' + active('svc.engine.noInputFields') : '';
-    const location = line && column ? ' ' + fill('svc.engine.inputLocation', { line, column }) : '';
-    return field + expected + location;
+    return inputDiagnostic(field + expected, prefix, line, column);
   });
-  out = out.replace(/(?:missing|unsupported) field [`']([^`']+)[`']/g, (_, path: string) =>
-    fill('svc.engine.invalidInputField', { path }));
+  out = out.replace(INVALID_FIELD, (_, prefix: string | undefined, path: string, line: string | undefined, column: string | undefined) =>
+    inputDiagnostic(fill('svc.engine.invalidInputField', { path }), prefix, line, column));
   return out.replace(SELF_CHECK_REFUSAL, (whole, check: string, mode: string | undefined, rest: string) => {
     const name = selfCheckName(check, mode);
     if (!name) return whole;
@@ -165,7 +164,15 @@ export function localizeEngineText(message: string): string {
   });
 }
 
-const UNKNOWN_FIELD = /unknown field [`']([^`'\n]+)[`'](?:, expected (?:one of )?(`[^`\n]+`(?:(?:, | or )`[^`\n]+`)*)|, (there are no fields))?(?: at line (\d+) column (\d+))?/g;
+const UNKNOWN_FIELD = /(Parse error: (?:Error: )?)?unknown field [`']([^`'\n]+)[`'](?:, expected (?:one of )?(`[^`\n]+`(?:(?:, | or )`[^`\n]+`)*)|, (there are no fields))?(?: at line (\d+) column (\d+))?/g;
+
+const INVALID_FIELD = /(Parse error: (?:Error: )?)?(?:missing|unsupported) field [`']([^`'\n]+)[`'](?: at line (\d+) column (\d+))?/g;
+
+function inputDiagnostic(detail: string, prefix?: string, line?: string, column?: string): string {
+  const message = prefix ? fill('svc.engine.inputParseError', { detail }) : detail;
+  const location = line && column ? ' ' + fill('svc.engine.inputLocation', { line, column }) : '';
+  return message + location;
+}
 
 const SELF_CHECKS = new Set(['static_residual', 'static_balance', 'modal_residual', 'modal_orthogonality', 'modal_mass']);
 const SELF_CHECK_REFUSAL = /REFUSE: self-check ([a-z_]+)(?::(\d+))?: ([^\n]*)/g;

@@ -289,7 +289,7 @@ it.each([false, true])('validates solver table entry arrays (space = %s)', (is3D
   expect(linear({ ...model, materials: [['1', material]] })).toEqual(linear(model));
 });
 
-it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1')('rejects trailing WASM shell connectivity rather than solving with a truncated array', () => {
+it('rejects trailing WASM shell connectivity rather than solving with a truncated array', () => {
   const model = {
     ...space,
     nodes: { ...space.nodes, ...Object.fromEntries([
@@ -323,9 +323,13 @@ it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1')('rejects trailing WASM shel
     expect.soft(() => run(model), entry).not.toThrow();
     for (const nodes of [[1, 2, 3], [1, 2, 3, 4, 99], new Set([1, 2, 3, 4, 99])]) {
       const quads = indexed({ ...model.quads[1]!, nodes });
-      expect.soft(() => run({ ...model, quads }), entry).toThrow(/Parse error: invalid length/i);
+      expect.soft(() => run({ ...model, quads }), entry).toThrow(/Parse error:.*invalid length/i);
     }
   }
   expect(solve_3d({ ...model, quads: indexed({ ...model.quads[1]!, nodes: new Set([1, 2, 3, 4]) }) }))
     .toEqual(solve_3d(model));
+  expect(() => engine_reproduce_hashes(JSON.stringify(model), true)).not.toThrow();
+  const extraNode = { ...model, quads: indexed({ ...model.quads[1]!, nodes: [1, 2, 3, 4, 99] }) };
+  expect(() => engine_reproduce_hashes(JSON.stringify(extraNode), true)).toThrow(/trailing characters|invalid length/i);
+  expect(() => solve_pdelta_3d(JSON.stringify(extraNode), 20, 1e-9)).toThrow(/trailing characters|invalid length/i);
 });

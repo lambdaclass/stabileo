@@ -3763,6 +3763,7 @@ const ja: Translations = {
   "svc.engine.unknownInputField": "不明なフィールド {path}。",
   "svc.engine.allowedInputFields": "使用できるフィールド: {fields}。",
   "svc.engine.noInputFields": "フィールドは指定できません。",
+  "svc.engine.inputParseError": "入力の解析エラー：{detail}",
   "svc.engine.inputLocation": "（{line} 行、{column} 列）",
   "svc.engine.invalidInputField": "フィールド {path} が指定されていないか、サポートされていない値が指定されています。",
   "svc.engine.nonFiniteNumber": "{path} に有限の数値を入力してください（受け取った値: {value}）。",

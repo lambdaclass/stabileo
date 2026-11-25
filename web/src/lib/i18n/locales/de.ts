@@ -3932,6 +3932,7 @@ const de: Translations = {
   "svc.engine.unknownInputField": "Unbekanntes Feld {path}.",
   "svc.engine.allowedInputFields": "Zulässige Felder: {fields}.",
   "svc.engine.noInputFields": "Es sind keine Felder zulässig.",
+  "svc.engine.inputParseError": "Fehler beim Lesen der Eingabe: {detail}",
   "svc.engine.inputLocation": "(Zeile {line}, Spalte {column})",
   "svc.engine.invalidInputField": "Das Feld {path} fehlt oder enthält einen nicht unterstützten Wert.",
   "svc.engine.nonFiniteNumber": "Geben Sie für {path} eine endliche Zahl ein (erhaltener Wert: {value}).",
