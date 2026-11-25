@@ -469,6 +469,7 @@ describe('consents and server switches', () => {
     expect(authStore.usageTelemetryEnabled).toBe(false);
     expect(authStore.cloudProjectsEnabled).toBe(false);
     expect(authStore.saveRequiresAccount).toBe(false);
+    expect(authStore.editorRequiresAccount).toBe(false);
     expect(authStore.termsVersion).toBeNull();
   });
 
@@ -484,6 +485,22 @@ describe('consents and server switches', () => {
       on('GET /config', () => json(200, config));
       await authStore.init();
       expect(authStore.saveRequiresAccount).toBe(asks);
+    }
+  });
+
+  it('asks for an account to open the editor only while sign-in is open and Google can be used for it', async () => {
+    const answers = [
+      [{ user_login_enabled: false, google_login: true, editor_requires_account: true }, false],
+      [{ user_login_enabled: true, google_login: false, editor_requires_account: true }, false],
+      [{ user_login_enabled: true, editor_requires_account: true }, false],
+      [{ user_login_enabled: true, google_login: true, save_requires_account: true }, false],
+      [{ user_login_enabled: true, google_login: true, editor_requires_account: true }, true],
+    ] as const;
+    for (const [config, asks] of answers) {
+      const { authStore } = await load();
+      on('GET /config', () => json(200, config));
+      await authStore.init();
+      expect(authStore.editorRequiresAccount).toBe(asks);
     }
   });
 
