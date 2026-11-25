@@ -410,3 +410,53 @@ it('#2429 refuses an oblique CAD wall supported by isolated shared nodes', () =>
     expect.soft(refusal ?? 'returned a result', meshMode).toMatch(/wall.*slab/i);
   }
 });
+
+const wallTraceOracle = process.env.RUN_KNOWN_WRONG === '2429' ? it : it.skip;
+
+wallTraceOracle.each([
+  ['fixedDivisions', 'diagonal'],
+  ['targetSize', 'diagonal'],
+  ['fixedDivisions', 'interior'],
+  ['targetSize', 'interior'],
+] as const)('known wrong result: #2429 %s meshes the full %s wall trace before transferring pressure', (meshMode, trace) => {
+  const outline = [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }, { x: 0, y: 4 }];
+  const start = trace === 'diagonal' ? outline[0]! : { x: 1, y: 1 };
+  const end = trace === 'diagonal' ? outline[2]! : { x: 3, y: 2 };
+  const plan: ArchPlan = {
+    ...fixturePlan(),
+    columns: trace === 'diagonal' ? outline.map(at => ({ at, sizeSource: 'default' })) : [],
+    openings: [],
+    beams: [{ a: outline[0]!, b: outline[1]! }],
+    walls: [{ a: start, b: end, thicknessSource: 'default' }],
+    slabs: [{ outline, isQuad: true, isRectilinear: true }],
+  };
+  const draft = generateRcDraft(plan, assumptions({
+    nFloors: 1, storyHeights: [3], meshMode, meshTargetSize: 2, deadLoad: 1, liveLoad: 0, roofLiveLoad: 0,
+  }), SOURCE);
+  const model = snapshotToModelShape(draft.snapshot);
+  const quads = draft.snapshot.quads!;
+  const key = (a: number, b: number) => a < b ? `${a}:${b}` : `${b}:${a}`;
+  const slabEdges = new Set(quads.slice(0, draft.counts.slabQuads).flatMap(([, { nodes }]) =>
+    nodes.map((a, i) => key(a, nodes[(i + 1) % nodes.length]!))));
+  const topEdges = quads.slice(draft.counts.slabQuads).map(([, { nodes }]) => nodes.slice(2));
+  for (const [a, b] of topEdges) expect.soft(slabEdges.has(key(a!, b!))).toBe(true);
+  expect(topEdges.reduce((sum, [a, b]) => {
+    const p = model.nodes.get(a!)!, q = model.nodes.get(b!)!;
+    return sum + Math.hypot(p.x - q.x, p.y - q.y);
+  }, 0)).toBeCloseTo(Math.hypot(end.x - start.x, end.y - start.y), 8);
+
+  const input = buildSolverInput3D(model as never);
+  expect(input).not.toBeNull();
+  const { reactions } = solve3D(input!);
+  const total = reactions.reduce((sum, r) => sum + r.fz, 0);
+  const mx = reactions.reduce((sum, r) => sum + r.mx + model.nodes.get(r.nodeId)!.y * r.fz, 0);
+  const my = reactions.reduce((sum, r) => sum + r.my - model.nodes.get(r.nodeId)!.x * r.fz, 0);
+  expect(total).toBeCloseTo(4 * 4, 8);
+  expect(mx).toBeCloseTo(4 * 4 * 2, 8);
+  expect(my).toBeCloseTo(-4 * 4 * 2, 8);
+  if (trace === 'interior') {
+    const base = new Set(quads.slice(draft.counts.slabQuads).flatMap(([, { nodes }]) => nodes.slice(0, 2)));
+    expect(new Set(reactions.map(r => r.nodeId))).toEqual(base);
+    expect(reactions.reduce((sum, r) => sum + (base.has(r.nodeId) ? r.fz : 0), 0)).toBeCloseTo(4 * 4, 8);
+  }
+});
