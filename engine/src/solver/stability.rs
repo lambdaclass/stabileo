@@ -1598,6 +1598,19 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "known wrong result: #2584"]
+    fn signed_tangent_rank_survives_a_small_positive_diagonal() {
+        for (last, resolved) in [(1.0, true), (0.0, false)] {
+            let k = CscMatrix::from_dense_symmetric_exact(&[
+                1e-40, 1.0, 1.0,
+                1.0, last, 0.0,
+                1.0, 0.0, last,
+            ], 3);
+            assert_eq!(tangent_has_resolved_rank(&k, &absolute_stiffness(&k)), resolved);
+        }
+    }
+
+    #[test]
     fn sparse_release_projection_visits_only_touched_columns() {
         let n = 512;
         let c = crate::solver::constraints::SparseTransform::from_rows(n, n, (0..n).map(|i| vec![(i, 1.0)]).collect());

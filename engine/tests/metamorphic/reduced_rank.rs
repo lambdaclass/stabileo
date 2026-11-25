@@ -373,3 +373,33 @@ fn corotational_equilibrium_requires_current_tangent_rank() {
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
+
+
+#[test]
+#[ignore = "known wrong result: #2584"]
+fn restrained_load_does_not_resolve_a_material_mechanism() {
+    let rows2 = crate::ana2::rows();
+    let rows3 = crate::ana3::rows();
+    let planar = rows2.iter().find(|row| row.name == "material nonlinear").unwrap();
+    let spatial = rows3.iter().find(|row| row.name == "material nonlinear").unwrap();
+    let mut failures = Vec::new();
+    for stiffness in [None, Some(1.0)] {
+        let mut input = truss();
+        input.supports.get_mut("2").unwrap().ky = stiffness;
+        input.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: 1.0, fz: 0.0, my: 0.0 })];
+        let padded = crate::case::pad_2d(&input).0;
+        for input in [input, padded] {
+            let space = embed_2d(&input, Plane::XZ).unwrap();
+            let result2 = (planar.run)(&Case2::new("restrained truss load", input));
+            let result3 = (spatial.run)(&Case3::new("restrained truss load", space));
+            if stiffness.is_none() {
+                report("2D material nonlinear", result2, &mut failures);
+                report("3D material nonlinear", result3, &mut failures);
+            } else {
+                assert!(result2.is_ok(), "{result2:?}");
+                assert!(result3.is_ok(), "{result3:?}");
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
