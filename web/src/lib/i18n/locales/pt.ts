@@ -12893,6 +12893,8 @@ const pt: Translations = {
   'discretization.adaptiveRefused.physicalPlate': "Uma casca a dividir pertence a uma laje malhada a partir do seu contorno. Altere o tamanho de malha dessa laje.",
   'discretization.adaptiveRefused.member': "Uma barra sobre uma borda dividida não pode ser cortada aqui: é curva, de seção variável, ou há outra barra sobre a mesma borda.",
   'discretization.adaptiveRefused.support': "Um nó novo cai sobre uma borda apoiada cujas extremidades estão presas de formas diferentes, com um deslocamento imposto ou um apoio inclinado. Dê a essa borda um único tipo de apoio.",
+  'discretization.adaptiveStatus.depthLimit': "O erro deixa de diminuir: está onde a malha já é a mais fina possível, como sob uma carga pontual, em um apoio pontual ou em um canto. {pct} estimado com {n} elementos",
+  'discretization.adaptiveStatus.refused': "A malha seguinte não pôde ser resolvida, portanto esta é a última que foi: {pct} estimado com {n} elementos",
   'discretization.col.pass': "Passada",
   'discretization.col.elements': "Elementos",
   'discretization.col.hanging': "Nós pendentes",

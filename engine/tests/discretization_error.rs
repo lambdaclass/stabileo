@@ -1828,3 +1828,67 @@ fn a_constraint_that_only_looks_like_a_hanging_node_is_refused() {
     assert_eq!(refine_marked(&elsewhere, GeometryMode::Faceted, &only(&[element_at(&m, false, 0.5, 0.5)])).err(), Some("constraints".to_string()));
     assert_eq!(adapt_3d(&elsewhere, &AdaptOptions { target: 1e-6, ..AdaptOptions::default() }).err(), Some("constraints".to_string()));
 }
+
+/// `l_membrane`'s domain held along x = 0 and sheared by forces at the nodes of its x = 1 edge:
+/// under each force the strain energy of a membrane is unbounded, and no mesh resolves it.
+fn l_membrane_under_point_forces(scale: f64) -> SolverInput3D {
+    let mut input = l_membrane(4);
+    input.loads.clear();
+    let loaded: Vec<(usize, f64)> = input.nodes.values().filter(|n| n.x == 1.0).map(|n| (n.id, n.y)).collect();
+    for (node_id, y) in loaded {
+        let share = if y == 0.0 || y == 0.5 { 0.5 } else { 1.0 } * 25.0;
+        input.loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D { node_id, fx: 0.0, fy: share, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None }));
+    }
+    for n in input.nodes.values_mut() {
+        (n.x, n.y) = (scale * n.x, scale * n.y);
+    }
+    input
+}
+
+fn smallest_edge(input: &SolverInput3D) -> f64 {
+    let at: HashMap<usize, [f64; 2]> = input.nodes.values().map(|n| (n.id, [n.x, n.y])).collect();
+    input
+        .quads
+        .values()
+        .flat_map(|q| (0..4).map(|k| (at[&q.nodes[k]], at[&q.nodes[(k + 1) % 4]])).collect::<Vec<_>>())
+        .map(|(a, b)| (a[0] - b[0]).hypot(a[1] - b[1]))
+        .fold(f64::MAX, f64::min)
+}
+
+#[test]
+fn adaptive_refinement_stops_where_refining_no_longer_brings_the_error_down() {
+    let coarse = l_membrane_under_point_forces(1.0);
+    let options = AdaptOptions { target: 0.01, max_passes: 40, max_levels: 4, geometry: GeometryMode::Faceted, ..AdaptOptions::default() };
+    let out = adapt_3d(&coarse, &options).unwrap();
+    assert_eq!(out.status, "depthLimit");
+    assert!(out.refused.is_none());
+    assert!(out.passes.len() > 4 && out.passes.len() < 40, "{} passes", out.passes.len());
+    assert!(out.estimate.relative_error.unwrap() > options.target);
+    assert_eq!(out.passes.last().unwrap().shell_elements, out.input.quads.len());
+    let floor = smallest_edge(&coarse) / 16.0;
+    assert!(smallest_edge(&out.input) >= 0.5 * floor, "{} under {floor}", smallest_edge(&out.input));
+    assert!((smallest_edge(&out.input) - floor).abs() < 1e-12 || smallest_edge(&out.input) < floor, "the limit was reached");
+    assert_eq!(cracks(&out.input), vec![]);
+
+    let deeper = adapt_3d(&coarse, &AdaptOptions { max_levels: 6, ..options.clone() }).unwrap();
+    assert_eq!(deeper.status, "depthLimit");
+    assert!(deeper.input.quads.len() > out.input.quads.len());
+
+    let none = adapt_3d(&coarse, &AdaptOptions { max_levels: 0, ..options.clone() }).unwrap();
+    assert_eq!((none.status.as_str(), none.passes.len(), none.input.quads.len()), ("depthLimit", 1, coarse.quads.len()));
+    assert_eq!(adapt_3d(&coarse, &AdaptOptions { max_levels: 17, ..options }).unwrap_err(), "At most 16 levels");
+}
+
+#[test]
+fn a_mesh_the_solver_refuses_ends_the_refinement_at_the_last_one_it_solved() {
+    let coarse = l_membrane_under_point_forces(2e-6);
+    let options = AdaptOptions { target: 0.01, max_passes: 40, max_levels: 16, geometry: GeometryMode::Faceted, ..AdaptOptions::default() };
+    let out = adapt_3d(&coarse, &options).unwrap();
+    assert_eq!(out.status, "refused");
+    assert!(out.refused.as_deref().is_some_and(|reason| reason.contains("MITC4")), "{:?}", out.refused);
+    assert!(out.passes.len() > 1, "{} passes", out.passes.len());
+    let last = out.passes.last().unwrap();
+    assert_eq!((last.shell_elements, last.marked), (out.input.quads.len(), 0));
+    assert_eq!(last.relative_error, out.estimate.relative_error);
+    assert_eq!(estimate(&out.input, &solve(&out.input)).relative_error, out.estimate.relative_error);
+}

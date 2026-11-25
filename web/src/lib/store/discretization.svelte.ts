@@ -73,7 +73,9 @@ export interface ConvergenceStudy {
 /** The adaptive refinement's report (the refined model is kept apart, as changes to the one solved). */
 export interface AdaptiveRefinement {
   certified: false;
-  status: 'converged' | 'passLimit' | 'elementLimit' | 'unestimable' | 'nothingToRefine';
+  status: 'converged' | 'passLimit' | 'elementLimit' | 'unestimable' | 'nothingToRefine' | 'depthLimit' | 'refused';
+  /** Why the next mesh could not be made, solved or estimated (status `refused`). */
+  refused?: string;
   estimate: DiscretizationEstimate;
   passes: Array<{ shellElements: number; nodes: number; hangingNodes: number; relativeError?: number | null; marked: number }>;
   quantities: Array<{ quantity: QuantityConvergence['quantity']; nodeId?: number; model: number; adapted?: number | null }>;

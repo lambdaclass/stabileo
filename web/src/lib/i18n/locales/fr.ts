@@ -12709,6 +12709,8 @@ const fr: Translations = {
   'discretization.adaptiveStatus.elementLimit': "Limite d'éléments atteinte avant l'objectif : {pct} estimé avec {n} éléments",
   'discretization.adaptiveStatus.unestimable': "L'erreur de ce maillage ne peut pas être estimée : il n'y a donc nulle part où raffiner",
   'discretization.adaptiveStatus.nothingToRefine': "Au-dessus de l'objectif, mais l'estimateur ne désigne aucun élément : {pct} estimé avec {n} éléments",
+  'discretization.adaptiveStatus.depthLimit': "L'erreur ne diminue plus : elle se trouve là où le maillage est déjà le plus fin, comme sous une charge ponctuelle, à un appui ponctuel ou dans un angle. {pct} estimé avec {n} éléments",
+  'discretization.adaptiveStatus.refused': "Le maillage suivant n'a pas pu être calculé ; celui-ci est le dernier qui l'a été : {pct} estimé avec {n} éléments",
   'discretization.adaptiveNote': "Estimation, pas un certificat. Le maillage raffiné ne remplace celui de votre modèle que si vous l'appliquez.",
   'discretization.adaptiveApply': "Appliquer ce maillage au modèle",
   'discretization.adaptiveApplyNote': "Met les parties à la place des coques divisées et lie par des contraintes les nœuds restés au milieu d'un bord. Les charges, les groupes et les appuis sont conservés. Une seule étape d'annulation. Il faut ensuite recalculer.",
