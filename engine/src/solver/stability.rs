@@ -879,15 +879,44 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
         }
         return Stability { verdict: Verdict::Stable, reason: Reason::Resolved, kappa: 1.0, anisotropy, free, mode_nodes: Vec::new() };
     }
-    let s = scaled(k, &groups, &group_of, &columns);
+    // The fast bound is taken on the scaled matrix without its zeros, which is cheaper to factorize
+    // and has the same values. What follows a bound it cannot certify is given the matrix with
+    // them: the elimination order moves the fifth digit of the condition number Lanczos finds on
+    // a matrix near the limit, and with it a verdict there.
+    let mut without_zeros = m > FULL_SPECTRUM && projected_rounding.is_none() && !stored_zeros_asked();
+    let mut fast = None;
+    let mut kept = None;
+    if without_zeros {
+        match scaled(k, &groups, &group_of, &columns) {
+            Scaled::Sparse(sparse, full) => {
+                fast = fast_sparse_bound(&sparse, &Rc::new(symbolic_cholesky(&sparse)), anisotropy, amplification);
+                kept = full;
+            }
+            Scaled::AsItWas(full) => {
+                without_zeros = false;
+                kept = Some(full);
+            }
+        }
+    }
+    let certified = |kappa: f64, free: &mut Vec<FreeDirection>| {
+        let coupled = coupled_free(k, free, &own, &columns, &groups, &group_of, kappa, releases);
+        coupled.is_empty() && free.iter().all(|direction| direction.coupling.is_empty())
+    };
+    if let Some(kappa) = fast {
+        if certified(kappa, &mut free) {
+            return Stability { verdict: Verdict::Stable, reason: Reason::Resolved, kappa, anisotropy, free, mode_nodes: Vec::new() };
+        }
+    }
+    let s = kept.unwrap_or_else(|| scaled_with_zeros(k, &groups, &group_of, &columns));
     let symbolic = (m > FULL_SPECTRUM || projected_rounding.is_some()).then(|| Rc::new(symbolic_cholesky(&s)));
     if projected_rounding.as_ref().is_some_and(|bound| !bound.resolved(&s, symbolic.as_ref().unwrap())) {
         return Stability { verdict: Verdict::Singular, reason: Reason::ConstraintRounding, kappa: f64::INFINITY, anisotropy, free, mode_nodes: tags.iter().map(|t| t.node).collect() };
     }
-    if let Some(kappa) = symbolic.as_ref().filter(|_| m > FULL_SPECTRUM).and_then(|sym| fast_sparse_bound(&s, sym, anisotropy, amplification)) {
-        let coupled = coupled_free(k, &mut free, &own, &columns, &groups, &group_of, kappa, releases);
-        if coupled.is_empty() && free.iter().all(|direction| direction.coupling.is_empty()) {
-            return Stability { verdict: Verdict::Stable, reason: Reason::Resolved, kappa, anisotropy, free, mode_nodes: Vec::new() };
+    if !without_zeros {
+        if let Some(kappa) = symbolic.as_ref().filter(|_| m > FULL_SPECTRUM).and_then(|sym| fast_sparse_bound(&s, sym, anisotropy, amplification)) {
+            if certified(kappa, &mut free) {
+                return Stability { verdict: Verdict::Stable, reason: Reason::Resolved, kappa, anisotropy, free, mode_nodes: Vec::new() };
+            }
         }
     }
     let (kappa, mode, indefinite) = spectrum(&s, anisotropy, amplification, symbolic.as_ref());
@@ -1085,7 +1114,104 @@ fn swinging(free: &mut [FreeDirection], moves_translation: &[Vec<(usize, f64)>])
     (moving, undecided)
 }
 
-fn scaled(k: &CscMatrix, groups: &[((usize, DofKind), Vec<usize>)], group_of: &[(usize, usize)], columns: &[Column]) -> CscMatrix {
+fn stored_zeros_asked() -> bool {
+    #[cfg(test)]
+    return tests::STORED_ZEROS.with(|keep| keep.get());
+    #[cfg(not(test))]
+    false
+}
+
+/// The share of the stored entries of the scaled matrix that must be zeros for it to be
+/// factorized without them: under it the factorization gains nothing and a bound it cannot
+/// certify costs a second symbolic analysis.
+const ZEROS_WORTH_DROPPING: usize = 4;
+
+enum Scaled {
+    /// Without its zeros, and with them where that is how it was built.
+    Sparse(CscMatrix, Option<CscMatrix>),
+    AsItWas(CscMatrix),
+}
+
+/// The scaled matrix `S = Wᵀ K W`, `W` the columns kept, with no entry stored that is exactly
+/// zero off the diagonal when at least one in `ZEROS_WORTH_DROPPING` is. Where every column is
+/// along one degree of freedom, each entry is one product and is built as such; otherwise the
+/// terms of an entry are summed as `scaled_with_zeros` sums them and the zeros dropped. Either
+/// way the values are its values.
+fn scaled(k: &CscMatrix, groups: &[((usize, DofKind), Vec<usize>)], group_of: &[(usize, usize)], columns: &[Column]) -> Scaled {
+    #[cfg(test)]
+    tests::ALONG_AXES.with(|count| count.set(count.get() + usize::from(along_axes(k, groups, columns).is_some())));
+    if let Some(out) = along_axes(k, groups, columns) {
+        debug_assert!(same_values(&out, &scaled_with_zeros(k, groups, group_of, columns)), "the scaled matrix changed with its zeros");
+        return Scaled::Sparse(out, None);
+    }
+    let full = scaled_with_zeros(k, groups, group_of, columns);
+    let out = without_zeros(&full);
+    if ZEROS_WORTH_DROPPING * (full.values.len() - out.values.len()) < full.values.len() {
+        return Scaled::AsItWas(full);
+    }
+    debug_assert!(same_values(&out, &full), "the scaled matrix changed with its zeros");
+    Scaled::Sparse(out, Some(full))
+}
+
+/// Every entry of `sparse` equal to the one `full` has there, and every other entry of `full`
+/// zero.
+fn same_values(sparse: &CscMatrix, full: &CscMatrix) -> bool {
+    sparse.n == full.n && (0..full.n).all(|j| {
+        let mut mine = (sparse.col_ptr[j]..sparse.col_ptr[j + 1]).peekable();
+        (full.col_ptr[j]..full.col_ptr[j + 1]).all(|p| match mine.peek() {
+            Some(&q) if sparse.row_idx[q] == full.row_idx[p] => {
+                mine.next();
+                sparse.values[q] == full.values[p]
+            }
+            _ => full.values[p] == 0.0,
+        }) && mine.peek().is_none()
+    })
+}
+
+fn without_zeros(full: &CscMatrix) -> CscMatrix {
+    let (mut col_ptr, mut row_idx, mut values) = (vec![0usize; full.n + 1], Vec::new(), Vec::new());
+    for j in 0..full.n {
+        for p in full.col_ptr[j]..full.col_ptr[j + 1] {
+            if full.values[p] != 0.0 || full.row_idx[p] == j {
+                row_idx.push(full.row_idx[p]);
+                values.push(full.values[p]);
+            }
+        }
+        col_ptr[j + 1] = row_idx.len();
+    }
+    CscMatrix { n: full.n, col_ptr, row_idx, values }
+}
+
+/// `scaled` when each column has one weight that is not zero, and no two share a degree of
+/// freedom; None otherwise. An entry of S is then the product of one entry of K with the
+/// weights of its two columns, written as `scaled_with_zeros` writes that term: the column of
+/// the higher index first.
+fn along_axes(k: &CscMatrix, groups: &[((usize, DofKind), Vec<usize>)], columns: &[Column]) -> Option<CscMatrix> {
+    let mut column_of: Vec<Option<(usize, f64)>> = vec![None; k.n];
+    for (c, column) in columns.iter().enumerate() {
+        let mut weights = column.w.iter().enumerate().filter(|(_, w)| **w != 0.0);
+        let (local, weight) = weights.next()?;
+        if weights.next().is_some() { return None; }
+        let dof = groups[column.group].1[local];
+        if column_of[dof].replace((c, *weight)).is_some() { return None; }
+    }
+    let (mut rows, mut cols, mut vals) = (Vec::with_capacity(k.values.len()), Vec::with_capacity(k.values.len()), Vec::with_capacity(k.values.len()));
+    for j in 0..k.n {
+        for p in k.col_ptr[j]..k.col_ptr[j + 1] {
+            let i = k.row_idx[p];
+            let (Some((ci, wi)), Some((cj, wj))) = (column_of[i], column_of[j]) else { continue };
+            let (r, c, value) = if ci >= cj { (ci, cj, wi * k.values[p] * wj) } else { (cj, ci, wj * k.values[p] * wi) };
+            if value != 0.0 || r == c {
+                rows.push(r);
+                cols.push(c);
+                vals.push(value);
+            }
+        }
+    }
+    Some(CscMatrix::from_triplets(columns.len(), &rows, &cols, &vals))
+}
+
+fn scaled_with_zeros(k: &CscMatrix, groups: &[((usize, DofKind), Vec<usize>)], group_of: &[(usize, usize)], columns: &[Column]) -> CscMatrix {
     let mut by_group: Vec<Vec<usize>> = vec![Vec::new(); groups.len()];
     for (c, col) in columns.iter().enumerate() { by_group[col.group].push(c); }
     let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
@@ -1303,7 +1429,7 @@ impl ProjectedRounding {
                 weights.push(Column { group: group_of[f.dofs[0]].0, w: f.direction.iter().map(|v| v.abs() / top.sqrt()).collect() });
             }
         }
-        let projected = scaled(bound, groups, group_of, &weights);
+        let projected = scaled_with_zeros(bound, groups, group_of, &weights);
         if projected.values.iter().any(|x| !x.is_finite()) { return None; }
         let mut terms = vec![0usize; weights.len()];
         for j in 0..projected.n {
@@ -1437,6 +1563,8 @@ mod tests {
         pub(super) static PROJECT_ROWS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static LANCZOS_RUNS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static DEFINITENESS_FACTORIZATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+        pub(super) static STORED_ZEROS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+        pub(super) static ALONG_AXES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static IDENTITY_ROTATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static EIGENVALUE_DECOMPOSITIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static EIGENVECTOR_ROTATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
@@ -2333,6 +2461,128 @@ mod tests {
         let (before, before_count) = counted(|| fast_sparse_bound_factorizing_the_top(&poisoned, &symbolic, 1.0, 1.0));
         assert_eq!((now, now_count), (before, before_count), "a value that is not a number");
         assert_eq!(now, None);
+    }
+
+    /// The stiffness of a `side` x `side` grid of nodes with three translations each: a spring
+    /// to each neighbour along x and y of stiffness 1 in the line of the spring and `shear`
+    /// across it, a spring to the ground of `ground` in each direction, and with `skew` a
+    /// spring along the diagonal of each cell, which couples the directions at a node.
+    fn spring_grid(side: usize, ground: f64, shear: f64, skew: f64) -> (CscMatrix, Vec<DofTag>) {
+        let n = 3 * side * side;
+        let mut dense: std::collections::BTreeMap<(usize, usize), f64> = std::collections::BTreeMap::new();
+        let mut add = |a: usize, b: usize, block: [[f64; 3]; 3]| {
+            for (x, row) in block.iter().enumerate() {
+                for (y, value) in row.iter().enumerate() {
+                    if *value == 0.0 { continue; }
+                    for (i, j, sign) in [(3 * a + x, 3 * a + y, 1.0), (3 * b + x, 3 * b + y, 1.0), (3 * a + x, 3 * b + y, -1.0), (3 * b + x, 3 * a + y, -1.0)] {
+                        if i >= j { *dense.entry((j, i)).or_default() += sign * value; }
+                    }
+                }
+            }
+        };
+        let node = |i: usize, j: usize| i * side + j;
+        for i in 0..side {
+            for j in 0..side {
+                if i + 1 < side { add(node(i, j), node(i + 1, j), [[1.0, 0.0, 0.0], [0.0, shear, 0.0], [0.0, 0.0, shear]]); }
+                if j + 1 < side { add(node(i, j), node(i, j + 1), [[shear, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, shear]]); }
+                if skew != 0.0 && i + 1 < side && j + 1 < side {
+                    add(node(i, j), node(i + 1, j + 1), [[skew, skew, 0.0], [skew, skew, 0.0], [0.0, 0.0, 0.0]]);
+                }
+            }
+        }
+        for a in 0..side * side {
+            for x in 0..3 { *dense.entry((3 * a + x, 3 * a + x)).or_default() += ground; }
+        }
+        let (mut rows, mut cols, mut values) = (Vec::new(), Vec::new(), Vec::new());
+        for ((j, i), value) in dense {
+            rows.push(i);
+            cols.push(j);
+            values.push(value);
+        }
+        let tags = (0..n).map(|d| DofTag { node: d / 3, kind: DofKind::Translation }).collect();
+        (CscMatrix::from_triplets(n, &rows, &cols, &values), tags)
+    }
+
+    fn with_stored_zeros<T>(run: impl FnOnce() -> T) -> T {
+        STORED_ZEROS.with(|keep| keep.set(true));
+        let out = run();
+        STORED_ZEROS.with(|keep| keep.set(false));
+        out
+    }
+
+    fn scaled_of(k: &CscMatrix, tags: &[DofTag]) -> (CscMatrix, CscMatrix, bool) {
+        let mut groups: BTreeMap<(usize, DofKind), Vec<usize>> = BTreeMap::new();
+        for (i, t) in tags.iter().enumerate() { groups.entry((t.node, t.kind)).or_default().push(i); }
+        let groups: Vec<((usize, DofKind), Vec<usize>)> = groups.into_iter().collect();
+        let mut group_of = vec![(0usize, 0usize); k.n];
+        let mut columns = Vec::new();
+        for (g, (_, dofs)) in groups.iter().enumerate() {
+            for (l, &d) in dofs.iter().enumerate() { group_of[d] = (g, l); }
+            let b = dofs.len();
+            let dense = k.to_dense_symmetric();
+            let block: Vec<f64> = dofs.iter().flat_map(|&i| dofs.iter().map(move |&j| (i, j))).map(|(i, j)| dense[i * k.n + j]).collect();
+            let (mu, vecs) = sym_eigen_small(&block, b);
+            for c in 0..b {
+                columns.push(Column { group: g, w: (0..b).map(|r| vecs[r * b + c] / mu[c].sqrt()).collect() });
+            }
+        }
+        let full = scaled_with_zeros(k, &groups, &group_of, &columns);
+        match scaled(k, &groups, &group_of, &columns) {
+            Scaled::Sparse(sparse, kept) => (sparse, full, kept.is_none()),
+            Scaled::AsItWas(kept) => (without_zeros(&kept), full, false),
+        }
+    }
+
+    #[test]
+    fn the_scaled_matrix_stores_no_zero_and_keeps_every_value() {
+        for (skew, along) in [(0.0, true), (0.3, false)] {
+            let (k, tags) = spring_grid(6, 0.01, 0.25, skew);
+            let (sparse, full, axes) = scaled_of(&k, &tags);
+            assert_eq!(axes, along, "skew {skew}");
+            assert!(same_values(&sparse, &full));
+            let zeros = |m: &CscMatrix| (0..m.n).flat_map(|j| (m.col_ptr[j]..m.col_ptr[j + 1]).map(move |p| (j, p))).filter(|&(j, p)| m.values[p] == 0.0 && m.row_idx[p] != j).count();
+            assert_eq!(zeros(&sparse), 0, "skew {skew}");
+            if along {
+                assert!(2 * zeros(&full) > full.values.len(), "{} of {} stored entries were zeros", zeros(&full), full.values.len());
+                assert_eq!(sparse.values.len(), k.values.len());
+            }
+            let mut other = sparse.clone();
+            other.values[sparse.col_ptr[5]] = other.values[sparse.col_ptr[5]].next_up();
+            assert!(!same_values(&other, &full));
+            let mut fewer = sparse.clone();
+            fewer.row_idx.pop();
+            fewer.values.pop();
+            *fewer.col_ptr.last_mut().unwrap() -= 1;
+            assert!(!same_values(&fewer, &full));
+        }
+    }
+
+    #[test]
+    fn the_verdict_is_the_one_reached_with_the_zeros_stored() {
+        let (mut along, mut certified, mut refused, mut by_lanczos) = (0, 0, 0, 0);
+        for side in [6, 9, 14] {
+            for skew in [0.0, 0.05, 0.4] {
+                for shear in [1.0, 0.3, 1e-3] {
+                    for ground in [1.0, 1e-2, 1e-5, 1e-7, 1e-9, 1e-11, 1e-13] {
+                        let (k, tags) = spring_grid(side, ground, shear, skew);
+                        ALONG_AXES.with(|count| count.set(0));
+                        LANCZOS_RUNS.with(|count| count.set(0));
+                        let now = analyze(&k, &tags);
+                        along += ALONG_AXES.with(|count| count.get());
+                        by_lanczos += usize::from(LANCZOS_RUNS.with(|count| count.get()) > 0);
+                        let before = with_stored_zeros(|| analyze(&k, &tags));
+                        let case = format!("side {side}, skew {skew}, shear {shear}, ground {ground}");
+                        assert_eq!((now.verdict, now.reason), (before.verdict, before.reason), "{case}");
+                        assert_eq!(now.anisotropy.to_bits(), before.anisotropy.to_bits(), "{case}");
+                        assert_eq!(now.mode_nodes, before.mode_nodes, "{case}");
+                        assert_eq!(now.free.len(), before.free.len(), "{case}");
+                        assert_eq!(now.kappa.to_bits(), before.kappa.to_bits(), "{case}: {} against {}", now.kappa, before.kappa);
+                        if now.verdict == Verdict::Stable { certified += 1 } else { refused += 1 }
+                    }
+                }
+            }
+        }
+        assert!(along >= 60 && certified >= 100 && refused >= 20 && by_lanczos >= 20, "{along} along the axes, {certified} certified, {refused} refused, {by_lanczos} by Lanczos");
     }
 
 }
