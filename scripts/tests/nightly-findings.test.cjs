@@ -727,9 +727,7 @@ test('overflow stays complete until the reporter replaces a saved batch', () => 
   }
 }));
 
-const thirdReview = {skip: process.env.RUN_NIGHTLY_THIRD_REVIEW !== '1' && 'known wrong result: #2578'};
-
-test('replay keeps a structural finding open when only the smallest model passes', thirdReview, () => fixture(async ({args, calls, save}) => {
+test('replay keeps a structural finding open when only the smallest model passes', () => fixture(async ({args, calls, save}) => {
   const check = {...finding, test: 'metamorphic/linear/rotation', details: ['seeded: displacement mismatch']};
   save('small', {...check, model: {nodes: {}}});
   save('large', {...check, model: {nodes: {n1: {}}}});
@@ -760,7 +758,7 @@ Path(os.environ["NIGHTLY_RESULTS"]).write_text(json.dumps({"verdicts": [verdict]
   assert.deepEqual(JSON.parse(fs.readFileSync(partial, 'utf8')).map(row => row.status).sort(), ['passes-now', 'still-fails']);
 }));
 
-test('structural replay selectors distinguish seeds and exact model numbers', thirdReview, () => fixture(async ({args, logs, save}) => {
+test('structural replay selectors distinguish seeds and exact model numbers', () => fixture(async ({args, logs, save}) => {
   const check = {...finding, test: 'metamorphic/linear/rotation', details: ['seeded: displacement mismatch']};
   save('a', {...check, model: {nodes: {}, selector: 9007199254740992}});
   save('b', {...check, model: {selector: 9007199254740992, nodes: {}}});
@@ -781,7 +779,7 @@ test('structural replay selectors distinguish seeds and exact model numbers', th
   ]);
 }));
 
-test('migration requires exact bytes before grouping legacy bare crashes', thirdReview, () => {
+test('migration requires exact bytes before grouping legacy bare crashes', () => {
   const {planMigration} = require('../../scripts/migrate-nightly-findings.cjs');
   const crash = (number, name, raw_hex, root = name) => ({
     number, state: 'open', title: `Nightly finding: fuzz/json_plastic: ${name}`,

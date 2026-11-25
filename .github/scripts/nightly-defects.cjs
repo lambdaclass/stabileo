@@ -2,8 +2,14 @@ const crypto = require('node:crypto');
 
 const FUZZ_ARTIFACT = /^(crash|timeout|oom|leak|slow-unit)-[0-9a-f]{12,64}(?:\.min)?$/i;
 const hash = x => crypto.createHash('sha256').update(x).digest('hex');
-const canonical = x => Array.isArray(x) ? `[${x.map(canonical).join(',')}]` :
-  x !== null && typeof x === 'object' ? `{${Object.keys(x).sort().map(k => `${JSON.stringify(k)}:${canonical(x[k])}`).join(',')}}` : JSON.stringify(x);
+function canonical(x, numberSources) {
+  const value = key => numberSources?.get(x)?.get(String(key)) ?? canonical(x[key], numberSources);
+  if (Array.isArray(x)) return `[${x.map((_, index) => value(index)).join(',')}]`;
+  if (x !== null && typeof x === 'object') {
+    return `{${Object.keys(x).sort().map(key => `${JSON.stringify(key)}:${value(key)}`).join(',')}}`;
+  }
+  return JSON.stringify(x);
+}
 function stripWrappers(message) {
   return String(message)
     .replace(/^.*?original solved but transformed model failed:\s*/i, '')
@@ -44,12 +50,18 @@ function fuzzInputHash(model) {
   return hash(Buffer.from(chunks.join(''), 'hex'));
 }
 
+function isBareFuzzCrash(check, code, message) {
+  return check === 'fuzz' && code === 'unspecified' && message === 'crash-#';
+}
+
 function signature(cause) {
-  if (cause.inputHash === null) return null;
   const check = [cause.check, cause.analysis || 'unspecified'];
   const message = [cause.code || 'unspecified', normalize(cause.message)];
   const identity = [check, cause.kind, message];
-  if (cause.inputHash !== undefined) identity.push(cause.inputHash);
+  if (isBareFuzzCrash(cause.check, ...message)) {
+    if (!cause.replayInput) return null;
+    identity.push(cause.replayInput);
+  }
   return hash(canonical(identity));
 }
 
@@ -85,10 +97,9 @@ function causes(f) {
     const kind = refusal ? 'invariance-refusal' : check === 'metamorphic' || analysis === 'mismatch' ? 'wrong-result-candidate' : d?.status || analysis || 'failure';
     const input = check === 'metamorphic' && !/^original solved but transformed model failed:/i.test(raw) ? String(raw).replace(/^[^:]+:\s*/, '') : raw;
     const artifact = fuzz ? FUZZ_ARTIFACT.exec(String(input).trim()) : null;
-    const bareCrash = artifact?.[1].toLowerCase() === 'crash' && code === 'unspecified';
-    const scopedFuzz = fuzz && (bareCrash || !artifact || code !== 'unspecified');
-    return {check, kind, code, message: normalize(input), legacyInputs: scopedFuzz ? [] : [input], replayInput,
-      inputHash: bareCrash ? replayInput : undefined,
+    const message = normalize(input);
+    const scopedFuzz = fuzz && (!artifact || isBareFuzzCrash(check, code, message) || code !== 'unspecified');
+    return {check, kind, code, message, legacyInputs: scopedFuzz ? [] : [input], replayInput,
       analysis: scopedFuzz || relation ? analysis : d?.analysis || f.model.analysis || 'unspecified',
       relation: relation || d?.relation || 'unspecified'};
   });

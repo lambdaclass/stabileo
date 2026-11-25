@@ -131,9 +131,10 @@ numeric mismatches are labeled `wrong-result-candidate`. Fuzz crash
 diagnostics are grouped within a target. When a crash is described only by
 its artifact filename, the exact input bytes identify the finding.
 
-The reporter records the smallest available reproducer per replay selector for
-each reported defect and retains each distinct fuzz input in a batch. The
-issue body and up to five sighting comments include a machine-readable
+The reporter shows the smallest available reproducer for each reported defect.
+The replay inventory retains every distinct structural test, exact model and
+seed combination, and every distinct fuzz input per target. The issue body and
+up to five sighting comments include a machine-readable
 reproducer block. After five comments, the issue body keeps a cumulative count
 and the latest overflow batch. The first overflow remains eligible for closure
 when every retained input passes. Replacing that batch or encountering a legacy
@@ -144,7 +145,9 @@ file. Closed findings can reopen when they recur.
 On scheduled runs, the nightly workflow uses `replay-findings.yml` to replay
 the saved inputs against that night's main commit. Closure requires three
 consecutive UTC nights of explicit passes for every stored reproducer.
-Refused wrong-result inputs, missing or expired artifacts, unsupported
+Each worker binds its result to the exact replay input and checked-out commit.
+The report accepts only partials that match its replay snapshot and expected
+commit. Refused wrong-result inputs, missing or expired artifacts, unsupported
 legacy records, and failed replay jobs leave the issue open. A new sighting
 in the same nightly run also prevents counting a pass. Older issue bodies
 and bot sighting comments with inline models remain replay candidates.
@@ -157,8 +160,9 @@ The offline migration planner takes a JSON issue export with the `number`,
 `title`, `body`, `createdAt` or `created_at`, `state`, and `labels` fields.
 Run `node scripts/migrate-nightly-findings.cjs open-issues.json` to print the
 oldest issue to keep and the proposed duplicates for each signature. The
-plan includes issues with insufficient information as `unresolved`. Preserve
-any distinct reproducer from a duplicate before closing it.
+plan includes issues with insufficient information as `unresolved`, including
+bare fuzz crashes whose exact bytes are unavailable. Preserve any distinct
+reproducer from a duplicate before closing it.
 
 The reducer repeatedly deletes loads or members while preserving solvability
 and the **same** failing test and stable failure signature. Candidates must still

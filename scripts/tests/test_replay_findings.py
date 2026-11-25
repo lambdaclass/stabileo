@@ -7,8 +7,8 @@ import io
 import json
 import os
 from pathlib import Path
-import tempfile
 import subprocess
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location("replay_findings", ROOT / "scripts" / "replay-findings.py")
 rf = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(rf)
+REPLAY_COMMIT = "1" * 40
 
 
 def make_issue(
@@ -81,6 +82,17 @@ def make_issue(
         "title": f"Nightly finding: {check}/{kind}: {root_cause} [{key[:12]}]",
         "body": "\n".join(lines),
     }
+
+
+def bind_partial_fixtures(issues, rows):
+    specs = {
+        (spec["issue"], spec.get("reproducer")): spec
+        for issue in issues for spec in rf._indexed_reproducers(issue)
+    }
+    return [
+        {**row, **rf._partial_binding(specs[row["issue"], row.get("reproducer")], REPLAY_COMMIT)}
+        for row in rows
+    ]
 
 
 def issue_action_runner(issues, calls):
@@ -226,6 +238,7 @@ class MappingTest(unittest.TestCase):
 
         report = rf.replay_issues(
             [missing_seed, malformed],
+            commit=REPLAY_COMMIT,
             metamorphic_bin="/bin/metamorphic",
             runner=fail_if_called,
         )
@@ -319,17 +332,16 @@ class ReplayAndClassificationTest(unittest.TestCase):
                 return subprocess.CompletedProcess(cmd, 1, "", "")
             raise AssertionError(f"unexpected command: {cmd}")
 
-        import subprocess
-
         report = rf.replay_issues(
             [passing_issue, failing_issue, placeholder_issue, refused_metamorphic_issue],
+            commit=REPLAY_COMMIT,
             metamorphic_bin="/bin/metamorphic",
             solve_bin="/bin/solve_json",
             opensees_python="/bin/python3",
             runner=fake_runner,
         )
         by_issue = {r["issue"]: r for r in report}
-        self.assertEqual(set(by_issue[10].keys()), {"issue", "source", "status", "evidence"})
+        self.assertEqual(set(by_issue[10]), {"issue", "source", "status", "evidence", "commit", "input_sha256"})
         self.assertEqual(by_issue[10]["status"], "passes-now")
         self.assertEqual(by_issue[10]["source"], "metamorphic")
         self.assertIn("metamorphic/linear/rotation: pass=1 fail=0", by_issue[10]["evidence"])
@@ -473,8 +485,6 @@ class ReplayAndClassificationTest(unittest.TestCase):
         )
 
     def test_fuzz_infrastructure_and_build_errors_are_not_classified_as_still_fails(self):
-        import subprocess
-
         crash_issue = make_issue(
             70,
             check="fuzz",
@@ -506,7 +516,7 @@ class ReplayAndClassificationTest(unittest.TestCase):
                 "error: could not compile `dedaliano-engine-fuzz` due to 1 previous error",
             )
 
-        report = rf.replay_issues([crash_issue], source="fuzz", runner=infra_error_runner)
+        report = rf.replay_issues([crash_issue], commit=REPLAY_COMMIT, source="fuzz", runner=infra_error_runner)
         self.assertEqual(len(report), 1)
         self.assertEqual(report[0]["status"], "not-replayable")
         self.assertEqual(
@@ -524,8 +534,6 @@ class ReplayAndClassificationTest(unittest.TestCase):
         )
 
     def test_empty_fuzz_input_writes_an_empty_crash_file(self):
-        import subprocess
-
         issue = make_issue(
             71,
             check="fuzz",
@@ -542,12 +550,10 @@ class ReplayAndClassificationTest(unittest.TestCase):
             self.assertEqual(crash_path.read_bytes(), b"")
             return subprocess.CompletedProcess(cmd, 0, "", "")
 
-        report = rf.replay_issues([issue], source="fuzz", runner=empty_input_runner)
+        report = rf.replay_issues([issue], commit=REPLAY_COMMIT, source="fuzz", runner=empty_input_runner)
         self.assertEqual(report[0]["status"], "passes-now")
 
     def test_fuzz_runner_timeout_before_execution_is_not_replayable(self):
-        import subprocess
-
         issue = make_issue(
             72,
             check="fuzz",
@@ -561,7 +567,7 @@ class ReplayAndClassificationTest(unittest.TestCase):
         def timeout_runner(cmd, env=None, cwd=None, timeout=None):
             raise subprocess.TimeoutExpired(cmd, timeout)
 
-        report = rf.replay_issues([issue], source="fuzz", runner=timeout_runner)
+        report = rf.replay_issues([issue], commit=REPLAY_COMMIT, source="fuzz", runner=timeout_runner)
         self.assertEqual(report[0]["status"], "not-replayable")
         self.assertIn("fuzz runner timed out", report[0]["evidence"])
         self.assertEqual(
@@ -600,7 +606,7 @@ class ReplayAndClassificationTest(unittest.TestCase):
             out_file = tmp_path / "report.json"
             summary_file = tmp_path / "summary.md"
             issues_file.write_text(json.dumps(issues))
-            partial_file.write_text(json.dumps(partial))
+            partial_file.write_text(json.dumps(bind_partial_fixtures(issues, partial)))
 
             calls = []
             orig_gh = rf.gh
@@ -615,7 +621,7 @@ class ReplayAndClassificationTest(unittest.TestCase):
                         "--summary", str(summary_file),
                         "--repo", "o/r",
                         "--run-url", "https://github.com/o/r/actions/runs/1",
-                        "--commit", "1234567",
+                        "--commit", REPLAY_COMMIT,
                     ])
                     self.assertEqual(rc, 0)
                     self.assertEqual(calls, [])
@@ -629,7 +635,7 @@ class ReplayAndClassificationTest(unittest.TestCase):
                         "--output", str(out_file),
                         "--repo", "o/r",
                         "--run-url", "https://github.com/o/r/actions/runs/1",
-                        "--commit", "1234567",
+                        "--commit", REPLAY_COMMIT,
                         "--close-passing",
                     ])
                     self.assertEqual(rc, 0)
@@ -655,7 +661,7 @@ class ReplayAndClassificationTest(unittest.TestCase):
             missing_opensees_file = tmp_path / "partial-opensees.json"
             out_file = tmp_path / "report.json"
             issues_file.write_text(json.dumps(issues))
-            metamorphic_file.write_text(json.dumps(metamorphic_partial))
+            metamorphic_file.write_text(json.dumps(bind_partial_fixtures(issues, metamorphic_partial)))
 
             calls = []
             orig_gh = rf.gh
@@ -669,7 +675,7 @@ class ReplayAndClassificationTest(unittest.TestCase):
                         "--output", str(out_file),
                         "--repo", "o/r",
                         "--run-url", "https://github.com/o/r/actions/runs/1",
-                        "--commit", "1234567",
+                        "--commit", REPLAY_COMMIT,
                         "--close-passing",
                     ])
                     self.assertEqual(rc, 0)
@@ -699,11 +705,6 @@ class ReplayAndClassificationTest(unittest.TestCase):
 
 
 
-third_review = unittest.skipUnless(
-    os.environ.get("RUN_NIGHTLY_THIRD_REVIEW") == "1", "known wrong result: #2578"
-)
-
-
 class ReplayClosureReviewTest(unittest.TestCase):
     def record(self, seed, model):
         artifact = json.dumps({"test": "metamorphic/linear/rotation", "seed": seed, "model": model})
@@ -716,7 +717,7 @@ class ReplayClosureReviewTest(unittest.TestCase):
         payload = base64.b64encode(gzip.compress(json.dumps([record]).encode())).decode()
         return f"<!-- nightly-reproducer:v1 {payload} -->"
 
-    def assert_report_actions(self, issues, partials, expected, scheduled=False, live_issue=None, live_comments=None, commit=None):
+    def assert_report_actions(self, issues, partials, expected, scheduled=False, live_issue=None, live_comments=None, commit=REPLAY_COMMIT):
         calls = []
 
         def fake_gh(*args, data=None):
@@ -740,8 +741,7 @@ class ReplayClosureReviewTest(unittest.TestCase):
             issues_file.write_text(json.dumps(issues))
             partial_file.write_text(json.dumps(partials))
             args = ["--night", "2026-11-25", "--run-id", "99"] if scheduled else ["--close-passing"]
-            if commit is not None:
-                args.extend(["--commit", commit])
+            args.extend(["--commit", commit])
             with contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(rf.main(["report", "--issues", str(issues_file), "--partials", str(partial_file),
                                           "--output", str(output), "--repo", "owner/repo", *args]), 0)
@@ -770,7 +770,7 @@ class ReplayClosureReviewTest(unittest.TestCase):
             Path(env["NIGHTLY_RESULTS"]).write_text(json.dumps({"failures": [], "verdicts": [verdict]}))
             return type("Process", (), {"returncode": 0, "stderr": ""})()
 
-        partials = rf.replay_issues(issues, metamorphic_bin="/bin/metamorphic", runner=runner)
+        partials = rf.replay_issues(issues, commit=REPLAY_COMMIT, metamorphic_bin="/bin/metamorphic", runner=runner)
         self.assertEqual([entry["status"] for entry in partials], ["passes-now", "not-replayable", "passes-now", "passes-now"])
         self.assertEqual(seen, [str(safe_seed), str(unsafe_seed), str((1 << 64) - 1)])
 
@@ -782,7 +782,7 @@ class ReplayClosureReviewTest(unittest.TestCase):
     def test_replaced_overflow_reproducer_prevents_closure_of_passing_subset(self):
         original = make_issue(1, model={"nodes": {}})
         passing = {"issue": 1, "source": "metamorphic", "status": "passes-now", "evidence": "retained input passed"}
-        report, calls = self.assert_report_actions([original], [passing], ["passes-now"])
+        report, calls = self.assert_report_actions([original], bind_partial_fixtures([original], [passing]), ["passes-now"])
         self.assertEqual([args[:3] for args, _ in calls if args[0] == "issue"], [("issue", "close", "1")])
 
         latest = self.record(12, {"nodes": {"retained": {}}})
@@ -791,7 +791,7 @@ class ReplayClosureReviewTest(unittest.TestCase):
             "2 additional sightings after the detailed comment limit.\n"
             f"{latest}\n\n{original['body']}"
         )}
-        partials = [{**passing, "reproducer": index} for index in range(2)]
+        partials = bind_partial_fixtures([issue], [{**passing, "reproducer": index} for index in range(2)])
         report, calls = self.assert_report_actions([issue], partials, ["not-replayable"])
         self.assertIn("overflow reproducers are outstanding", report[0]["evidence"])
         self.assertEqual(calls, [])
@@ -827,7 +827,7 @@ class ReplayClosureReviewTest(unittest.TestCase):
             Path(env["NIGHTLY_RESULTS"]).write_text(json.dumps({"failures": [], "verdicts": [verdict]}))
             return type("Process", (), {"returncode": 0, "stderr": ""})()
 
-        partials = rf.replay_issues([issue], metamorphic_bin="/bin/metamorphic", runner=runner)
+        partials = rf.replay_issues([issue], commit=REPLAY_COMMIT, metamorphic_bin="/bin/metamorphic", runner=runner)
         self.assertEqual(len(partials), 7)
         self.assertEqual([entry["status"] for entry in partials], ["passes-now"] * 7)
         _, calls = self.assert_report_actions([issue], partials, ["passes-now"])
@@ -861,6 +861,7 @@ class ReplayClosureReviewTest(unittest.TestCase):
             {"issue": 1, "source": "metamorphic", "status": "passes-now", "evidence": "input passed", "reproducer": index}
             for index in range(2)
         ]
+        partials = bind_partial_fixtures([issue], partials)
         cases = [
             ("new bot sighting", issue["body"], "open", [new_sighting], False),
             ("changed body", issue["body"] + "\nupdated", "open", [], False),
@@ -893,7 +894,6 @@ class ReplayClosureReviewTest(unittest.TestCase):
                                       "--metamorphic-bin", "/bin/metamorphic", "--output", str(partial_file)]), 0)
             return json.loads(partial_file.read_text())
 
-    @third_review
     def test_changed_model_or_seed_cannot_inherit_a_partial_at_the_same_position(self):
         commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
 
@@ -902,22 +902,28 @@ class ReplayClosureReviewTest(unittest.TestCase):
             return {"verdicts": [{"analysis": "linear", "invariant": "rotation", **counts}]}, None
 
         original = make_issue(1, seed="42", model={"nodes": {}})
-        partial = self.replay_cli([original], verdict)
-        self.assertEqual(partial[0]["status"], "passes-now")
-        for changed in (make_issue(1, seed="43", model={"nodes": {}}),
-                        make_issue(1, seed="42", model={"nodes": {"n1": {}}})):
-            with self.subTest(body=changed["body"]):
-                _, calls = self.assert_report_actions([changed], partial, ["not-replayable"], commit=commit)
-                self.assertEqual(calls, [])
-                current = self.replay_cli([changed], verdict)
-                self.assertEqual(current[0]["status"], "still-fails")
-                _, calls = self.assert_report_actions([changed], current, ["still-fails"], commit=commit)
-                self.assertEqual([args[:3] for args, _ in calls], [("issue", "comment", "1")])
+        variants = {
+            "seed": make_issue(1, seed="43", model={"nodes": {}}),
+            "model": make_issue(1, seed="42", model={"nodes": {"n1": {}}}),
+        }
+        sighting = self.record(42, {"nodes": {}, "unchanged": True}) + "\n<!-- nightly-run:2:1 -->"
+        for sightings in ([], [sighting]):
+            snapshot = {**original, "sightings": sightings}
+            partial = self.replay_cli([snapshot], verdict)
+            self.assertEqual([row["status"] for row in partial], ["passes-now"] * (1 + len(sightings)))
+            for name, variant in variants.items():
+                with self.subTest(change=name, sightings=len(sightings)):
+                    changed = {**variant, "sightings": sightings}
+                    _, calls = self.assert_report_actions([changed], partial, ["not-replayable"], commit=commit)
+                    self.assertEqual(calls, [])
+                    current = self.replay_cli([changed], verdict)
+                    self.assertEqual([row["status"] for row in current], ["still-fails"] + ["passes-now"] * len(sightings))
+                    _, calls = self.assert_report_actions([changed], current, ["still-fails"], commit=commit)
+                    self.assertEqual([args[:3] for args, _ in calls], [("issue", "comment", "1")])
 
-        _, calls = self.assert_report_actions([original], partial, ["passes-now"], commit=commit)
-        self.assertEqual([args[:3] for args, _ in calls if args[:2] == ("issue", "close")], [("issue", "close", "1")])
+            _, calls = self.assert_report_actions([snapshot], partial, ["passes-now"], commit=commit)
+            self.assertEqual([args[:3] for args, _ in calls if args[:2] == ("issue", "close")], [("issue", "close", "1")])
 
-    @third_review
     def test_report_requires_the_commit_actually_checked_out_by_the_worker(self):
         commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
         other = subprocess.check_output(["git", "rev-parse", "HEAD^"], cwd=ROOT, text=True).strip()
@@ -936,9 +942,11 @@ class ReplayClosureReviewTest(unittest.TestCase):
                           for args, data in calls if args[:3] == ("api", "--method", "PATCH")], [0])
         self.assertFalse(any(args[:3] == ("api", "--method", "POST") for args, _ in calls))
 
-        legacy = [{key: partial[0][key] for key in ("issue", "source", "status", "evidence")}]
-        _, calls = self.assert_report_actions([issue], legacy, ["not-replayable"], commit=commit)
-        self.assertEqual(calls, [])
+        for missing in ({"commit"}, {"input_sha256"}, {"commit", "input_sha256"}):
+            with self.subTest(missing=missing):
+                incomplete = [{key: value for key, value in partial[0].items() if key not in missing}]
+                _, calls = self.assert_report_actions([issue], incomplete, ["not-replayable"], commit=commit)
+                self.assertEqual(calls, [])
         _, calls = self.assert_report_actions([issue], partial, ["passes-now"], commit=commit)
         self.assertEqual([args[:3] for args, _ in calls if args[:2] == ("issue", "close")], [("issue", "close", "1")])
 

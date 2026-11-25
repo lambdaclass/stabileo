@@ -79,12 +79,13 @@ class NightlyReplayLifecycle(unittest.TestCase):
                 {'verdicts': [{'analysis': 'linear', 'invariant': source, **count}]}))
             return subprocess.CompletedProcess(cmd, 0, '', '')
 
-        partial = self.replay.replay_issues([issue], runner=runner, metamorphic_bin='metamorphic')
+        commit = '1' * 40
+        partial = self.replay.replay_issues([issue], commit=commit, runner=runner, metamorphic_bin='metamorphic')
         self.assertEqual([result['status'] for result in partial], ['passes-now', 'not-replayable'])
-        self.assertEqual(self.replay.merge_reports([issue], [partial])[0]['status'], 'not-replayable')
-        self.assertEqual(self.replay.merge_reports([issue], [partial[:1]])[0]['status'], 'not-replayable')
+        self.assertEqual(self.replay.merge_reports([issue], [partial], commit)[0]['status'], 'not-replayable')
+        self.assertEqual(self.replay.merge_reports([issue], [partial[:1]], commit)[0]['status'], 'not-replayable')
         partial[1]['status'] = 'passes-now'
-        self.assertEqual(self.replay.merge_reports([issue], [partial])[0]['status'], 'passes-now')
+        self.assertEqual(self.replay.merge_reports([issue], [partial], commit)[0]['status'], 'passes-now')
 
     def test_new_sighting_resets_passes_and_closure_rechecks_the_issue(self):
         issue = {'number': 8, 'body': '<!-- nightly-run:10:1 -->'}

@@ -610,8 +610,26 @@ def filter_specs_for_source(specs, source):
     return [s for s in specs if s["source"] == source]
 
 
+def _indexed_reproducers(issue):
+    specs = parse_reproducers(issue)
+    if len(specs) > 1:
+        for index, spec in enumerate(specs):
+            spec["reproducer"] = index
+    return specs
+
+
+def _partial_binding(spec, commit):
+    return {
+        "source": spec["source"],
+        "commit": commit,
+        "input_sha256": hashlib.sha256(json.dumps(spec).encode()).hexdigest(),
+    }
+
+
 def replay_issues(
     issues,
+    *,
+    commit,
     source="all",
     jobs=1,
     metamorphic_bin=None,
@@ -621,13 +639,7 @@ def replay_issues(
     fuzz_triple=DEFAULT_TRIPLE,
     runner=default_runner,
 ):
-    specs = []
-    for issue in sorted(issues, key=lambda x: int(x["number"])):
-        reproducers = parse_reproducers(issue)
-        for index, spec in enumerate(reproducers):
-            if len(reproducers) > 1:
-                spec["reproducer"] = index
-            specs.append(spec)
+    specs = [spec for issue in sorted(issues, key=lambda x: int(x["number"])) for spec in _indexed_reproducers(issue)]
     selected = filter_specs_for_source(specs, source)
     cache = {} if jobs == 1 else None
 
@@ -644,7 +656,7 @@ def replay_issues(
         )
         if "reproducer" in spec:
             result["reproducer"] = spec["reproducer"]
-        return result
+        return {**result, **_partial_binding(spec, commit)}
 
     if jobs <= 1 or len(selected) <= 1:
         results = [one(s) for s in selected]
@@ -654,22 +666,24 @@ def replay_issues(
     return sorted(results, key=lambda r: r["issue"])
 
 
-def merge_reports(issues, partial_lists):
+def merge_reports(issues, partial_lists, commit):
     reports = {}
     for entries in partial_lists:
         for entry in entries:
             reports.setdefault((int(entry["issue"]), entry.get("reproducer")), []).append(entry)
     merged = []
     for issue in sorted(issues, key=lambda x: int(x["number"])):
-        specs = parse_reproducers(issue)
+        specs = _indexed_reproducers(issue)
         entries = []
-        for index, spec in enumerate(specs):
-            matches = reports.get((spec["issue"], index if len(specs) > 1 else None), [])
-            if (len(matches) == 1 and matches[0]["source"] == spec["source"]
+        for spec in specs:
+            matches = reports.get((spec["issue"], spec.get("reproducer")), [])
+            binding = _partial_binding(spec, commit)
+            if (commit and len(matches) == 1 and all(matches[0].get(key) == value for key, value in binding.items())
                     and (spec["replayable"] or matches[0]["status"] != "passes-now")):
                 entries.append(matches[0])
             else:
-                reason = spec.get("not_replayable_reason") or f"{spec['test'] or spec['source']}: no replay result recorded"
+                problem = "no unique replay result matches the expected input and commit" if matches else "no replay result recorded"
+                reason = spec["not_replayable_reason"] or f"{spec['test'] or spec['source']}: {problem}"
                 entries.append(_report_entry(spec, "not-replayable", reason))
         if len(entries) == 1:
             result = entries[0]
@@ -931,6 +945,10 @@ def format_summary(report):
     return "\n".join(lines) + "\n"
 
 
+def _checkout_commit():
+    return subprocess.check_output(["git", "rev-parse", "--verify", "HEAD"], text=True).strip()
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -972,6 +990,7 @@ def main(argv=None):
         issues = json.loads(Path(args.issues).read_text())
         report = replay_issues(
             issues,
+            commit=_checkout_commit(),
             source=args.source,
             jobs=args.jobs,
             metamorphic_bin=args.metamorphic_bin,
@@ -985,7 +1004,8 @@ def main(argv=None):
 
     issues = json.loads(Path(args.issues).read_text())
     partial_lists = [json.loads(Path(p).read_text()) for p in args.partials if Path(p).exists()]
-    report = merge_reports(issues, partial_lists)
+    commit = args.commit or _checkout_commit()
+    report = merge_reports(issues, partial_lists, commit)
     Path(args.output).write_text(json.dumps(report, indent=2) + "\n")
     summary = format_summary(report)
     print(summary, end="")
@@ -993,10 +1013,10 @@ def main(argv=None):
         with open(args.summary, "a") as fh:
             fh.write(summary)
     if args.night:
-        actions = plan_nightly_actions(issues, report, args.night, args.run_id, args.run_url, args.commit)
+        actions = plan_nightly_actions(issues, report, args.night, args.run_id, args.run_url, commit)
         apply_nightly_actions(args.repo, actions)
     else:
-        actions = plan_issue_actions(report, args.close_passing, args.run_url, args.commit)
+        actions = plan_issue_actions(report, args.close_passing, args.run_url, commit)
         if actions:
             apply_issue_actions(args.repo, actions, issues)
     return 0

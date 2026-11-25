@@ -61,18 +61,25 @@ module.exports = async ({github, context, core}) => {
   for (const file of files('nightly-findings').sort()) {
     const artifact = fs.readFileSync(file, 'utf8');
     const exactSeeds = new WeakMap();
+    const numberSources = new WeakMap();
     let hasLargeInteger = false;
     const data = JSON.parse(artifact, function (key, value, context) {
-      if (typeof value === 'number' && !Number.isSafeInteger(value) && /^-?\d+$/.test(context.source)) {
-        hasLargeInteger = true;
-        if (key === 'seed') exactSeeds.set(this, context.source);
+      if (typeof value === 'number') {
+        if (context.source !== JSON.stringify(value)) {
+          if (!numberSources.has(this)) numberSources.set(this, new Map());
+          numberSources.get(this).set(key, context.source);
+        }
+        if (!Number.isSafeInteger(value) && /^-?\d+$/.test(context.source)) {
+          hasLargeInteger = true;
+          if (key === 'seed') exactSeeds.set(this, context.source);
+        }
       }
       return value;
     });
     const f = {...data, seed: exactSeeds.get(data) ?? data?.seed, file, artifact, artifactHash: hash(artifact), hasLargeInteger};
     if (typeof f.test !== 'string' || typeof f.command !== 'string' || f.seed === undefined || !f.model) throw Error(`Invalid finding: ${file}`);
     if (f.test.endsWith('/dumped_failure')) continue;
-    const modelHash = hash(canonical(f.model));
+    const modelHash = hash(canonical(f.model, numberSources));
     const fileSignatures = new Set();
     for (const cause of causes(f)) {
       const key = signature(cause);
@@ -93,7 +100,8 @@ module.exports = async ({github, context, core}) => {
         (size(f) === size(example) && canonical(f.model).length < canonical(example.model).length);
       const example = {...f, modelHash};
       if (smallerThan(group.example)) group.example = example;
-      const selector = cause.replayInput ? canonical([f.test, cause.replayInput]) : f.test;
+      const selector = cause.replayInput ? canonical([f.test, cause.replayInput]) :
+        canonical([f.test, modelHash, String(f.seed)]);
       if (smallerThan(group.examples.get(selector))) group.examples.set(selector, example);
     }
   }
