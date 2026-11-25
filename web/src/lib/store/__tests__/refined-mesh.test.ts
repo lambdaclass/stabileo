@@ -298,6 +298,86 @@ describe('applying it to plates meshed from their outlines', () => {
   });
 });
 
+describe('applying it to the plates there are', () => {
+  const plate = (outline: number[], over: Partial<Parameters<typeof createPlate>[0]> = {}) => {
+    const made = createPlate({ outline, materialId: 1, thickness: 0.2, ...over });
+    if (!('id' in made)) throw new Error(JSON.stringify(made));
+    return made.id;
+  };
+  const meshed = (id: number, size: number, element: 'quad' | 'tri' = 'quad') => {
+    const plan = planPlateMesh(id, { size, followMembers: true, element })!;
+    expect(plan.mesh, String(plan.refused)).not.toBeNull();
+    expect(applyPlateMeshes([plan]).refused).toEqual([]);
+  };
+  const shells = () => modelStore.quads.size + modelStore.model.plates.size;
+
+  /** Refine, apply, and hold the model to what a plate must still be afterwards. */
+  function refineAndApply(plates: number[], target = 0.6) {
+    meshBeforeAnalysis.value = true;
+    syncDefinedLoadsForAnalysis();
+    expect(plates.map(plateStatus)).toEqual(plates.map(() => 'current'));
+    const before = shells();
+    const wire = wireOf();
+    const out = adapt(wire, target);
+    expect(out.status, out.refused).toBe('converged');
+    expect(out.mesh.shells.length).toBeGreaterThan(0);
+    const applied = applyRefinedMesh(wire, out.mesh);
+    if ('refused' in applied) throw new Error(applied.refused);
+    expect(shells()).toBeGreaterThan(before);
+    expect(shells()).toBe(Object.keys(out.input.quads).length + Object.keys(out.input.plates).length);
+    expect(plates.map(plateStatus)).toEqual(plates.map(() => 'current'));
+    expect(preparePlatesForAnalysis()).toEqual({ ok: true, meshed: 0, cells: 0 });
+    for (const id of plates) {
+      const members = plateEntry(id)!.group.members;
+      expect(plateEntry(id)!.surface.meshed!.cells).toBe((members.quads?.length ?? 0) + (members.plates?.length ?? 0));
+    }
+    syncDefinedLoadsForAnalysis();
+    const solved = modelStore.solve3D(false, false, true);
+    expect(typeof solved, String(solved)).not.toBe('string');
+    expect(estimateWithLoadsOf(out.input)).toBeCloseTo(out.estimate.relativeError, 9);
+    expect(totalFz(wireOf())).toBeCloseTo(totalFz(wire), 9);
+    return out;
+  }
+
+  it('a slab with a hole', () => {
+    const c = [[0, 0], [6, 0], [6, 4], [0, 4]].map(([x, y]) => modelStore.addNode(x!, y!, 3));
+    const h = [[2, 1.5], [3, 1.5], [3, 2.5], [2, 2.5]].map(([x, y]) => modelStore.addNode(x!, y!, 3));
+    for (const n of c) modelStore.addSupport(n, 'pinned3d');
+    const id = plate(c, { holes: [h] });
+    meshed(id, 0.5);
+    addPlateLoad(id, 1, 5);
+    refineAndApply([id]);
+  });
+
+  it('a slab on a wall, with no node left hanging where they meet', () => {
+    const at = (x: number, y: number, z: number) => modelStore.addNode(x, y, z);
+    const [s0, s1, s2, s3] = [at(0, 0, 3), at(4, 0, 3), at(4, 4, 3), at(0, 4, 3)];
+    const [w0, w1] = [at(0, 0, 0), at(4, 0, 0)];
+    for (const n of [w0, w1]) modelStore.addSupport(n, 'fixed3d');
+    for (const n of [s2, s3]) modelStore.addSupport(n, 'pinned3d');
+    const slab = plate([s0, s1, s2, s3]);
+    const wall = plate([w0, w1, s1, s0]);
+    meshed(slab, 1);
+    meshed(wall, 1);
+    addPlateLoad(slab, 1, 5);
+    const out = refineAndApply([slab, wall], 0.35);
+    const joint = new Set([...modelStore.nodes.values()].filter((n) => n.y === 0 && (n.z ?? 0) === 3).map((n) => n.id));
+    const hung = out.mesh.constraints.map((terms: Array<{ nodeId: number }>) => terms[0]!.nodeId);
+    expect(hung.length).toBeGreaterThan(0);
+    expect(modelStore.constraints.filter((c) => c.type === 'linearMPC' && joint.has(c.terms[0]!.nodeId))).toEqual([]);
+  });
+
+  it('a slab with a curved side', () => {
+    const R = 4, s = Math.SQRT1_2 * R;
+    const [o, a, b, m] = [modelStore.addNode(0, 0, 3), modelStore.addNode(R, 0, 3), modelStore.addNode(0, R, 3), modelStore.addNode(s, s, 3)];
+    for (const n of [o, a, b]) modelStore.addSupport(n, 'pinned3d');
+    const id = plate([o, a, m, b], { arcMids: [2], followArcs: false });
+    meshed(id, 0.5);
+    addPlateLoad(id, 1, 5);
+    refineAndApply([id]);
+  });
+});
+
 describe('planning the edit', () => {
   const mesh = (over: Partial<RefinedMesh> = {}): RefinedMesh => ({
     nodes: [{ id: 5, x: 0.5, y: 0, z: 0, between: [1, 2] }, { id: 6, x: 0.5, y: 0.5, z: 0 }],
