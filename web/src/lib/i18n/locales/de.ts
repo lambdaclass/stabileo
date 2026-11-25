@@ -7825,6 +7825,7 @@ const de: Translations = {
   'loadPlan.gravity.deckCheckFailed': "Die Prüfung der Schalenabdeckung der Decke ist fehlgeschlagen: {detail}",
   'loadPlan.gravity.exposureCheckFailed': "Die Prüfung der Überdeckung der freien Streifen ist fehlgeschlagen: {detail}",
   'loadPlan.gravity.mixedExposure': "Eine zugewiesene Fläche umfasst Dach- und Geschossbereiche. Weisen Sie die Dach- und Geschosslasten ausdrücklich zu.",
+  'loadPlan.gravity.uncertainDeckCover': "Die Deckenhöhe liegt beiderseits eines Grenzwerts für die Überdeckung oder lichte Höhe und lässt sich aus dem Tragwerk nicht bestimmen. Definieren Sie eine ebene Decke oder weisen Sie die Lasten ausdrücklich zu.",
   'loadPlan.gravity.stripSpan': "Der freie Streifen überschreitet die maximale Deckenspannweite.",
   'loadPlan.gravity.headroomCheckFailed': "Die Prüfung der lichten Höhe des freien Streifens ist fehlgeschlagen: {detail}",
   'loadPlan.gravity.stripHeadroom': "Die lichte Geschosshöhe des freien Streifens ist unzureichend oder nicht bestimmbar.",

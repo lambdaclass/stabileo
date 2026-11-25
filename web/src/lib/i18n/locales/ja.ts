@@ -28,6 +28,7 @@ const ja: Translations = {
   'loadPlan.gravity.deckCheckFailed': "シェルによるデッキの被覆を確認できませんでした：{detail}",
   'loadPlan.gravity.exposureCheckFailed': "被覆されていない帯の上部の覆いを確認できませんでした：{detail}",
   'loadPlan.gravity.mixedExposure': "割り当てた領域に屋根と床の両方が含まれます。各領域の荷重を明示的に指定してください。",
+  'loadPlan.gravity.uncertainDeckCover': "デッキの高さの範囲が被覆または有効高さの限界をまたいでおり、架構から高さを確定できません。平面のデッキを定義するか、荷重を明示的に指定してください。",
   'loadPlan.gravity.stripSpan': "被覆されていない帯がデッキの最大スパンを超えています。",
   'loadPlan.gravity.headroomCheckFailed': "被覆されていない帯の有効高さを確認できませんでした：{detail}",
   'loadPlan.gravity.stripHeadroom': "被覆されていない帯の階の有効高さが不足しているか、特定できません。",

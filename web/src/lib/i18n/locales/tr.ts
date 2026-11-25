@@ -7834,6 +7834,7 @@ const tr: Translations = {
   'loadPlan.gravity.deckCheckFailed': "Döşemenin kabuk örtüsü denetlenemedi: {detail}",
   'loadPlan.gravity.exposureCheckFailed': "Açıkta kalan şeritlerin örtüsü denetlenemedi: {detail}",
   'loadPlan.gravity.mixedExposure': "Atanan bir alan hem çatı hem kat döşemesi bölgeleri içeriyor. Her bölgenin yüklerini açıkça tanımlayın.",
+  'loadPlan.gravity.uncertainDeckCover': "Döşeme yüksekliği aralığı bir örtü veya net yükseklik sınırını aşıyor ve yükseklik çerçeveden belirlenemiyor. Düzlemsel bir döşeme tanımlayın veya yükleri açıkça atayın.",
   'loadPlan.gravity.stripSpan': "Açıkta kalan şerit azami döşeme açıklığını aşıyor.",
   'loadPlan.gravity.headroomCheckFailed': "Açıkta kalan şeridin net yüksekliği denetlenemedi: {detail}",
   'loadPlan.gravity.stripHeadroom': "Açıkta kalan şeridin net kat yüksekliği yetersiz veya belirlenemedi.",

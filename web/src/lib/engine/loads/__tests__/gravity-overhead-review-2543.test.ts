@@ -201,14 +201,18 @@ it('#2543 shell headroom over the first 4 m removes that area from a 10 m bay', 
 });
 
 it('#2543 a beam deck just above the cover rise covers the entire lower bay', () => {
-  for (const gravity of [panels, everyPanel]) {
-    const { model, beams } = fixture();
-    beams(rectangle(0, 10), 4);
-    beams([[-1, -1], [11, -1], [11, 7], [-1, 7]], 4.0502);
-    const layout = gravityLayout(model, { ...gravity, tributaryWidth: 3 });
-    expect.soft(layout.panels.find(panel => panel.z === 4)?.roof).toBe(false);
-    expect.soft(layout.pieces.filter(piece => piece.elementId <= 4).every(piece => !piece.roof)).toBe(true);
-  }
+  const { model, beams } = fixture();
+  beams(rectangle(0, 10), 4);
+  beams([[-1, -1], [11, -1], [11, 7], [-1, 7]], 4.0502);
+  const explicit = gravityLayout(model, { ...everyPanel, tributaryWidth: 3 });
+  expect.soft(explicit.panels.find(panel => panel.z === 4)?.roof).toBe(false);
+  expect.soft(explicit.pieces.filter(piece => piece.elementId <= 4).every(piece => !piece.roof)).toBe(true);
+  expect.soft(explicit.areaByLevel.get(4)).toBeCloseTo(60, 12);
+
+  const automatic = gravityLayout(model, { ...panels, tributaryWidth: 3 });
+  expect.soft(automatic.panels.some(panel => panel.z === 4)).toBe(false);
+  expect.soft(automatic.pieces.some(piece => piece.elementId <= 4)).toBe(false);
+  expect(deadAt(plan(model), 4)).toBe(0);
 });
 
 it('#2543 the retained triangular tip under the pitched shell receives floor actions', () => {

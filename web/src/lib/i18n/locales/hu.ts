@@ -7521,6 +7521,7 @@ const hu: Translations = {
   'loadPlan.gravity.deckCheckFailed': "A födém héjfedésének ellenőrzése sikertelen: {detail}",
   'loadPlan.gravity.exposureCheckFailed': "A fedetlen sávok fedettségének ellenőrzése sikertelen: {detail}",
   'loadPlan.gravity.mixedExposure': "A hozzárendelt terület tető- és födémrészeket is tartalmaz. Adja meg külön a tető- és födémterheket.",
+  'loadPlan.gravity.uncertainDeckCover': "A födém magasságtartománya átlépi a takarási vagy a szabad belmagassági határt, és a tartóvázból nem határozható meg pontosan. Adjon meg sík födémet vagy rendelje hozzá közvetlenül a terheket.",
   'loadPlan.gravity.stripSpan': "A fedetlen sáv meghaladja a födém megengedett legnagyobb fesztávját.",
   'loadPlan.gravity.headroomCheckFailed': "A fedetlen sáv szabad magasságának ellenőrzése sikertelen: {detail}",
   'loadPlan.gravity.stripHeadroom': "A fedetlen sáv szabad belmagassága elégtelen vagy nem határozható meg.",

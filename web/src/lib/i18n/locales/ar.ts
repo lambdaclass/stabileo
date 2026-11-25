@@ -28,6 +28,7 @@ const ar: Translations = {
   'loadPlan.gravity.deckCheckFailed': "تعذر التحقق من تغطية البلاطة بالقشريات: {detail}",
   'loadPlan.gravity.exposureCheckFailed': "تعذر التحقق من انكشاف الشرائط غير المغطاة: {detail}",
   'loadPlan.gravity.mixedExposure': "تضم المساحة المخصصة مناطق سقف وأرضية. عيّن أحمال كل منطقة صراحةً.",
+  'loadPlan.gravity.uncertainDeckCover': "يتجاوز ارتفاع السطح أحد حدود التغطية أو الخلوص الرأسي، ولا يمكن تحديده من الإطار الإنشائي. عرّف سطحًا مستويًا أو عيّن الأحمال صراحةً.",
   'loadPlan.gravity.stripSpan': "يتجاوز الشريط غير المغطى البحر الأقصى للبلاطة.",
   'loadPlan.gravity.headroomCheckFailed': "تعذر التحقق من الارتفاع الصافي للشريط غير المغطى: {detail}",
   'loadPlan.gravity.stripHeadroom': "الارتفاع الصافي للطابق عند الشريط غير المغطى غير كافٍ أو غير محدد.",
