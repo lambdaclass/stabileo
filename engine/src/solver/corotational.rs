@@ -8,7 +8,7 @@ use super::dof::DofNumbering;
 use super::assembly;
 use super::constraints::{FreeConstraintSystem, MasterMotion};
 use super::linear::SPARSE_THRESHOLD;
-use super::planar_loads::{PlanarLoadPath, PlanarLoadState};
+use super::planar_loads::{PlanarDisplacements, PlanarLoadPath, PlanarLoadState};
 use super::sparse_tangent::{
     cached_symbolic, solve_tangent_sparse_diagnosed, tangent_free_sparse_triplets, SparseSymbolicCache,
 };
@@ -70,24 +70,6 @@ pub(crate) fn chord_rotation(dx0: f64, dz0: f64, dux: f64, duz: f64) -> f64 {
     )
 }
 
-fn interpolate_supports(base: &[f64], target: &[f64], factor: f64) -> Vec<f64> {
-    match factor {
-        0.0 => base.to_vec(),
-        1.0 => target.to_vec(),
-        _ => base
-            .iter()
-            .zip(target)
-            .map(|(&base, &target)| {
-                if base == target {
-                    target
-                } else {
-                    (1.0 - factor) * base + factor * target
-                }
-            })
-            .collect(),
-    }
-}
-
 #[derive(Default)]
 struct IncrementTargets2D {
     forces: Vec<f64>,
@@ -103,7 +85,7 @@ impl IncrementTargets2D {
         current_supports: &[f64],
         factor: f64,
     ) -> Self {
-        let supports = interpolate_supports(base_supports, target_supports, factor);
+        let supports = super::planar_loads::affine_positions(base_supports, target_supports, factor);
         let step: Vec<_> = supports
             .iter()
             .zip(current_supports)
@@ -124,9 +106,7 @@ impl IncrementTargets2D {
         constraints: Option<&FreeConstraintSystem>,
     ) {
         if let Some(cs) = constraints {
-            for &i in cs.independent_dofs() {
-                full[i] += correction[i];
-            }
+            cs.advance_independent(full, correction);
         } else {
             for (u, delta) in full.iter_mut().zip(correction) {
                 *u += delta;
@@ -1333,10 +1313,16 @@ fn finish_planar_results(
     let reactions = recovered.reactions_2d(dof_num, &crate::solver::reaction_recovery::GlobalDisplacements::from_global(&u_geom), its)?;
     let constraint_forces = recovered.constraint_forces;
     let mut element_forces = if let Some(loads) = loads {
-        member_forces_2d(input, dof_num, &u_geom, &loads.descriptions(), Some(loads))
+        member_forces_2d(
+            input, dof_num, &u_geom, &loads.descriptions(),
+            Some((loads, &loads.displacements(u_full))),
+        )
     } else {
         compute_corotational_forces(input, dof_num, &u_geom)
     };
+    if loads.is_some() {
+        crate::boundary::require_finite(&element_forces)?;
+    }
     element_forces.sort_by_key(|ef| ef.element_id);
 
     Ok(AnalysisResults {
@@ -1375,7 +1361,7 @@ fn member_forces_2d(
     dof_num: &DofNumbering,
     u_full: &[f64],
     descriptions: &[SolverLoad],
-    applied: Option<&PlanarLoadState<'_>>,
+    applied: Option<(&PlanarLoadState<'_>, &PlanarDisplacements<'_>)>,
 ) -> Vec<ElementForces> {
     let mut forces = Vec::new();
 
@@ -1445,8 +1431,8 @@ fn member_forces_2d(
                 }
             }
 
-            if let Some(applied) = applied {
-                let actions = applied.actions(elem.id, false);
+            if let Some((applied, _)) = applied {
+                let actions = applied.actions(elem.id);
                 f_i = actions[0];
                 f_j = actions[3];
             }
@@ -1496,14 +1482,18 @@ fn member_forces_2d(
             let mut f_local = corotational_frame_end_forces(&k_local, &d_local, l_n);
 
             // Subtract FEF for output (element forces = K*u - FEF)
-            let chords = ([dx0 / l0, dy0 / l0], [dx_n / l_n, dy_n / l_n]);
-            if let Some(applied) = applied {
-                let actions = MemberFixedEndActions {
-                    dead_reference: applied.actions(elem.id, false),
-                    eigenstrain_current: applied.actions(elem.id, true),
-                };
-                subtract_planar_end_actions(actions, chords, &mut f_local);
+            if let Some((applied, solver_displacements)) = applied {
+                let actions = applied.frame_actions(elem.id, || {
+                    solver_displacements.member_action_projection(
+                        [node_i, node_j],
+                        &[[elem_dofs[0], elem_dofs[1]], [elem_dofs[3], elem_dofs[4]]],
+                    )
+                });
+                for (force, action) in f_local.iter_mut().zip(actions) {
+                    *force -= action;
+                }
             } else {
+                let chords = ([dx0 / l0, dy0 / l0], [dx_n / l_n, dy_n / l_n]);
                 subtract_element_fef(input, elem, l0, e, mat.nu, chords, &mut f_local, sec);
             }
 

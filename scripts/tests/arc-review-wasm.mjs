@@ -168,3 +168,73 @@ export function registerRoundTwoTests({ arc, displacement, corotational }) {
     assert.ok(Math.abs(Math.hypot(du, dl) / minDs - 1) <= controls.tolerance);
   });
 }
+
+export function registerRounding2560Tests({ arc, displacement, corotational }) {
+  const fixture = (name) => JSON.parse(readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url)));
+  const tolerance = 1e-8;
+  const radius = 0.75 * Math.SQRT2;
+  const arcAt = (solver) => arc({ solver, maxSteps: 1, maxIter: 20, tolerance,
+    initialDs: radius, minDs: radius, maxDs: radius });
+  const control = (solver, controlNode, targetDisplacement, nSteps) => displacement({
+    solver, controlNode, controlDof: 0, targetDisplacement, nSteps, maxIter: 20, tolerance,
+  });
+
+  for (const [name, solve] of [
+    ['arc length', (solver) => [arcAt(solver)]],
+    ['co-rotation', (solver) => corotational(solver, 4)],
+  ]) {
+    test(`#2560 ${name} preserves axial action at an inclined support`, () => {
+      const split = fixture('nonlinear-rounding-2560-inclined');
+      const axial = structuredClone(split);
+      axial.loads[0].data.p = 0;
+      const expected = solve(axial);
+      for (const [i, actual] of solve(split).entries()) {
+        const reference = expected[i];
+        assert.equal(actual.converged, true);
+        assert.equal(reference.converged, true);
+        assert.notEqual(reference.results.displacements[1].ux, 0);
+        assert.deepEqual(actual.results.displacements, reference.results.displacements);
+        assert.equal(actual.results.reactions[0].rx, reference.results.reactions[0].rx);
+        assert.equal(actual.results.elementForces[0].nStart, reference.results.elementForces[0].nStart);
+        assert.equal(actual.results.elementForces[0].nEnd, reference.results.elementForces[0].nEnd);
+      }
+    });
+  }
+
+  test('#2560 displacement control reconstructs the 3:1 tie at each final state', () => {
+    const solver = fixture('arc-tied-springs');
+    solver.constraints = [{ type: 'linearMPC', terms: [
+      { nodeId: 2, dof: 0, coefficient: 1 },
+      { nodeId: 3, dof: 0, coefficient: -3 },
+    ] }];
+    for (const nSteps of [1, 7]) {
+      const result = control(solver, 3, 0.1, nSteps);
+      assert.equal(result.converged, true);
+      const [, slave, master] = result.results.displacements;
+      assert.notEqual(master.ux, 0);
+      assert.equal(slave.ux, 3 * master.ux);
+    }
+  });
+
+  for (const [name, solve] of [
+    ['arc length', (solver) => [arcAt(solver)]],
+    ['displacement control', (solver) => [control(solver, 4, 0.75, 1)]],
+    ['co-rotation', (solver) => corotational(solver, 4)],
+  ]) {
+    test(`#2560 ${name} recovers the resultant of coincident member loads`, () => {
+      const split = fixture('nonlinear-rounding-2560-coincident');
+      const single = structuredClone(split);
+      single.loads.splice(1, 1);
+      single.loads[0].data.px = 2;
+      const expected = solve(single);
+      for (const [i, actual] of solve(split).entries()) {
+        const reference = expected[i];
+        assert.equal(actual.converged, true);
+        assert.equal(reference.converged, true);
+        assert.equal(Math.abs(reference.results.elementForces[0].nEnd), 1.5 * (reference.finalLoadFactor ?? reference.loadFactor));
+        assert.deepEqual(actual.results.elementForces, reference.results.elementForces);
+        assert.deepEqual(actual.results.reactions, reference.results.reactions);
+      }
+    });
+  }
+}

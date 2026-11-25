@@ -132,6 +132,14 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-115-gravity-floor-region-ownership.md", "label": "SA-2026-115", "t": "Etkilenen girdiler ve yapılması gerekenler."},
     {"k": "note", "t": "SA-2026-116 — 0.6.4’ten sonraki ilk sürüm."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-116-nonlinear-continuation-and-inclined-loads.md", "label": "SA-2026-116", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    {"k": "note", "t": "SA-2026-117 — 0.6.4’ten sonraki ilk sürüm."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-117-static-shell-self-weight-density.md", "label": "SA-2026-117", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    {"k": "note", "t": "SA-2026-118 — 0.6.4’ten sonraki ilk sürüm."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-118-self-weight-group-targets.md", "label": "SA-2026-118", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    {"k": "note", "t": "SA-2026-119 — 0.6.4’ten sonraki ilk sürüm."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-119-modal-mass-missing-density.md", "label": "SA-2026-119", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    {"k": "note", "t": "SA-2026-120 — 0.6.4’ten sonraki ilk sürüm."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-120-gravity-deck-load-placement.md", "label": "SA-2026-120", "t": "Etkilenen girdiler ve yapılması gerekenler."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
       "k": "h",
@@ -556,7 +564,11 @@ const body: PostBody = {
         ["SA-2026-113", "Yerel Rust API’si, çözücünün reddettiği bir yük durumu için sağlanan doğrusal analiz sonuçlarını sertifikalandırabiliyordu. Etkilenen analizleri ve sertifikasyon işlemlerini, bunlara bağlı birleşimler ve zarflar dahil, tekrarlayın.", "Orta", "0.6.4’ten sonraki ilk sürüm"],
         ["SA-2026-114", "Kayıtlı birleşim kuralları, katsayıları uyarı vermeden yanlış yük grubuna uygulayabiliyordu. Amaçlanan grupları geri yükleyin, etkilenen yük birleşimlerini ve bileşik yük durumlarını yeniden oluşturun, ardından ilgili analizleri ve zarfları yeniden hesaplayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
         ["SA-2026-115", "Panel yöntemiyle yerçekimi yükü oluşturma, aynı döşeme bölgesini birden fazla taşıyıcı üzerinden yükleyebiliyordu. Etkilenen yük planlarını yeniden oluşturun, yük veya geometri çakışmalarını giderin ve ilgili analizleri tekrarlayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
-        ["SA-2026-116", "Doğrusal olmayan çözücüler hatalı bir yay uzunluğu yolu kabul edebiliyor veya eğik makaralı mesnetteki teğetsel kuvveti atlayabiliyordu. Kayma merkezi eksantrik eğri elemanlar dahil, etkilenen düzlemsel doğrusal olmayan ve uzamsal eş dönel analizleri tekrarlayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"]
+        ["SA-2026-116", "Doğrusal olmayan çözücüler hatalı bir yay uzunluğu yolu kabul edebiliyor veya eğik makaralı mesnetteki teğetsel kuvveti atlayabiliyordu. Kayma merkezi eksantrik eğri elemanlar dahil, etkilenen düzlemsel doğrusal olmayan ve uzamsal eş dönel analizleri tekrarlayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
+        ["SA-2026-117", "Negatif veya null olarak kaydedilmiş kabuk yoğunluğu, öz ağırlığın yönünü tersine çevirebiliyor veya öz ağırlığı atlayabiliyordu. Öngörülen yoğunlukları geri yükleyin ve etkilenen statik yük durumlarını, birleşimleri ve kontrolleri yeniden hesaplayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
+        ["SA-2026-118", "Geçersiz bir öz ağırlık grubu hedefi grubun ağırlığının atlanmasına yol açabiliyordu. Grup hedefini düzeltin, etkilenen yük durumlarını ve birleşimleri yeniden hesaplayın, ardından zarflarını yeniden oluşturun.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
+        ["SA-2026-119", "Girilmeyen malzeme yoğunluğu hatalı doğal frekanslara yol açabiliyordu. Yoğunluğu geri yükleyin, kütle kaynağını yeniden oluşturun ve etkilenen dinamik analizleri tekrarlayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
+        ["SA-2026-120", "Otomatik yük oluşturma, yerçekimi yüklerini iki kez uygulayabiliyor, otomatik yöntemin açıklık sınırını aşan panellere aktarabiliyor veya çatı ve döşeme bölgelerini yanlış sınıflandırabiliyordu. Etkilenen yerçekimi, kar ve rüzgâr yükü planlarını yeniden oluşturun, yükleri doğrulayın ve ilgili analizleri tekrarlayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"]
       ]
     },
     {
