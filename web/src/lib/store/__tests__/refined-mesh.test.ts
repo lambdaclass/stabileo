@@ -408,6 +408,34 @@ describe('applying it to the plates there are', () => {
     expect(modelStore.constraints.filter((c) => c.type === 'linearMPC' && joint.has(c.terms[0]!.nodeId))).toEqual([]);
   });
 
+  it('a slab meshed with triangles, refined where the error is and tied nowhere', () => {
+    const c = [[0, 0], [4, 0], [4, 4], [0, 4]].map(([x, y]) => modelStore.addNode(x!, y!, 3));
+    for (const n of c) modelStore.addSupport(n, 'pinned3d');
+    const id = plate(c);
+    meshed(id, 1, 'tri');
+    expect(modelStore.model.plates.size).toBeGreaterThan(0);
+    expect(modelStore.quads.size).toBe(0);
+    addPlateLoad(id, 1, 5);
+    const coarse = modelStore.model.plates.size;
+    const out = refineAndApply([id]);
+    expect(modelStore.constraints).toHaveLength(0);
+    expect(modelStore.model.plates.size).toBeLessThan(coarse * 4 ** (out.passes.length - 1));
+  });
+
+  it('a slab of triangles beside one of quads', () => {
+    const at = (x: number, y: number) => modelStore.addNode(x, y, 3);
+    const [a0, a1, a2, a3, b1, b2] = [at(0, 0), at(4, 0), at(4, 4), at(0, 4), at(8, 0), at(8, 4)];
+    for (const n of [a0, a1, a2, a3, b1, b2]) modelStore.addSupport(n, 'pinned3d');
+    const quads = plate([a0, a1, a2, a3]);
+    const triangles = plate([a1, b1, b2, a2]);
+    meshed(quads, 1);
+    meshed(triangles, 1, 'tri');
+    expect(modelStore.quads.size).toBeGreaterThan(0);
+    expect(modelStore.model.plates.size).toBeGreaterThan(0);
+    for (const id of [quads, triangles]) addPlateLoad(id, 1, 5);
+    refineAndApply([quads, triangles]);
+  });
+
   it('a slab with a curved side', () => {
     const R = 4, s = Math.SQRT1_2 * R;
     const [o, a, b, m] = [modelStore.addNode(0, 0, 3), modelStore.addNode(R, 0, 3), modelStore.addNode(0, R, 3), modelStore.addNode(s, s, 3)];
