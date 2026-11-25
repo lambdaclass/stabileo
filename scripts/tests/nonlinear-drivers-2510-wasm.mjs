@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { registerArcReviewTests, registerDisplacementFixture, registerRoundTwoTests } from './arc-review-wasm.mjs';
+import { registerArcReviewTests, registerDisplacementFixture, registerRoundTwoTests, registerRounding2560Tests } from './arc-review-wasm.mjs';
+import { registerChordEquilibriumTests, registerExactMemberActionTests, registerMemberRotationTests } from './planar-exact-member-actions.mjs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 
 engine.initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
@@ -104,10 +105,15 @@ for (const [method, settings] of [
 registerArcReviewTests(engine.solve_arc_length);
 registerDisplacementFixture(engine.solve_displacement_control);
 
-registerRoundTwoTests({
+const reviewDrivers = {
   arc,
   displacement: (input) => JSON.parse(engine.solve_displacement_control(JSON.stringify(input))),
   corotational: (solver, increments) => [
     JSON.parse(engine.solve_corotational_2d(JSON.stringify(solver), 20, 1e-8, increments)),
   ],
-});
+};
+registerRoundTwoTests(reviewDrivers);
+registerRounding2560Tests(reviewDrivers);
+registerExactMemberActionTests(reviewDrivers);
+registerMemberRotationTests(reviewDrivers);
+registerChordEquilibriumTests(reviewDrivers);

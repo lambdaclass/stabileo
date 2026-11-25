@@ -183,9 +183,7 @@ impl PathProblem for ArcLength2D<'_> {
 
     fn advance(&mut self, step: &[f64]) {
         if let Some(cs) = self.cs {
-            for &i in cs.independent_dofs() {
-                self.u_full[i] += step[i];
-            }
+            cs.advance_independent(&mut self.u_full, step);
         } else {
             for (displacement, increment) in self.u_full.iter_mut().zip(step) {
                 *displacement += increment;
@@ -471,8 +469,13 @@ impl PathProblem for DisplacementControl2D<'_> {
     }
 
     fn advance(&mut self, step: &[f64]) {
-        for i in 0..self.dof_num.n_free {
-            self.u_full[i] += step[i];
+        if let Some(cs) = self.cs {
+            cs.advance_independent(&mut self.u_full, step);
+            cs.impose_motion(&mut self.u_full);
+        } else {
+            for (displacement, increment) in self.u_full.iter_mut().zip(step) {
+                *displacement += increment;
+            }
         }
     }
 
@@ -522,7 +525,7 @@ fn solve_displacement_control_contained(
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
 
-    let cs_dc = FreeConstraintSystem::build_2d(solver, &dof_num)?;
+    let cs_dc = FreeConstraintSystem::for_displacement_control(solver, &dof_num)?;
     let metric =
         crate::solver::convergence::EquilibriumMetric::for_2d(solver, &dof_num, cs_dc.as_ref())?;
     let ns_dc = cs_dc.as_ref().map_or(nf, |c| c.n_free_indep);
@@ -1173,3 +1176,12 @@ mod shared_driver_equivalence {
         );
     }
 }
+
+#[cfg(test)]
+mod nonlinear_rounding_tests;
+
+#[cfg(test)]
+mod exact_member_action_tests;
+
+#[cfg(test)]
+mod chord_equilibrium_tests;
