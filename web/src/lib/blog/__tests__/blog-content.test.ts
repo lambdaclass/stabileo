@@ -364,22 +364,25 @@ describe('the safety-advisories post quotes the advisories', () => {
   }
 
   function expectNextReleaseAdvisories(blocks: Block[], locale: PublicLocale): void {
-    const filenames = readdirSync(advisoryDirectory);
+    const index = readFileSync(new URL('README.md', advisoryDirectory), 'utf8');
+    const advisories = [...index.matchAll(/^\| \[(SA-\d{4}-\d{3})\]\(([^)]+)\) \| .* \| the next release after 0\.6\.4 \|/gm)];
+    expect(advisories.length).toBeGreaterThan(0);
+    const [, firstId] = advisories[0]!;
     const summary = blocks.find((block) => block.k === 'table')!;
-    const firstRow = summary.rows.findIndex(([id]) => id === 'SA-2026-108');
+    const firstRow = summary.rows.findIndex(([id]) => id === firstId);
     expect(firstRow, locale).toBeGreaterThanOrEqual(0);
     const nextRelease = summary.rows[firstRow]![3];
-    const expected = summary.rows.slice(firstRow)
-      .filter((row) => row[3] === nextRelease)
-      .flatMap(([id]) => {
-        const filename = filenames.find((name) => name.startsWith(id + '-'));
-        expect(filename, id).toBeDefined();
-        return [
-          { k: 'note', t: id + ' — ' + nextRelease + (locale === 'zh' ? '。' : '.') },
-          { k: 'ext', label: id, href: 'https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/' + filename },
-        ];
-      });
-    const start = blocks.findIndex((block) => block.k === 'note' && block.t.startsWith('SA-2026-108 — '));
+    const rows = summary.rows.slice(firstRow).filter((row) => row[3] === nextRelease);
+    const expected = advisories.flatMap(([, id, filename], i) => {
+      expect(rows[i]?.[0], `${locale}: ${id} summary row`).toBe(id);
+      expect(existsSync(new URL(filename!, advisoryDirectory)), id).toBe(true);
+      return [
+        { k: 'note', t: id + ' — ' + nextRelease + (locale === 'zh' ? '。' : '.') },
+        { k: 'ext', label: id, href: 'https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/' + filename },
+      ];
+    });
+    expect(rows, locale).toHaveLength(advisories.length);
+    const start = blocks.findIndex((block) => block.k === 'note' && block.t.startsWith(firstId + ' — '));
     expect(start, locale).toBeGreaterThanOrEqual(0);
     expect(blocks.slice(start, start + expected.length), locale).toMatchObject(expected);
   }
@@ -392,7 +395,7 @@ describe('the safety-advisories post quotes the advisories', () => {
   const omittedAdvisories = advisoryLocales.flatMap((locale) =>
     ['SA-2026-121', 'SA-2026-122'].map((id) => ({ locale, id })));
 
-  it.fails.each(omittedAdvisories)('known wrong result: #2589 — $locale rejects omission of $id from both the summary and evidence blocks', ({ locale, id }) => {
+  it.each(omittedAdvisories)('known wrong result: #2589 — $locale rejects omission of $id from both the summary and evidence blocks', ({ locale, id }) => {
     const blocks = advisoryBlocks(locale);
     const summary = blocks.find((block) => block.k === 'table')!;
     expect(summary.rows.some(([rowId]) => rowId === id), id).toBe(true);
@@ -416,7 +419,7 @@ describe('the safety-advisories post quotes the advisories', () => {
     zh: '从模型中删除经确认已失效的空荷载工况，包括在 0.6.4 版中已经为空的工况。重新生成组合，并在重新进行受影响的分析前，核实新组合不含这些工况的编号。',
   };
 
-  it.fails.each(advisoryLocales)('known wrong result: #2589 — %s summarizes how to exclude obsolete empty cases from regenerated combinations', (locale) => {
+  it.each(advisoryLocales)('known wrong result: #2589 — %s summarizes how to exclude obsolete empty cases from regenerated combinations', (locale) => {
     const release = locale === 'en' ? 'v0.6.4.md' : `v0.6.4.${locale}.md`;
     const notes = readFileSync(new URL(`../releases/${release}`, advisoryDirectory), 'utf8');
     const releaseRow = notes.split('\n').find((line) => line.startsWith('| [SA-2026-122]('));
