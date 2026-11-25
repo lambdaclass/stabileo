@@ -13,6 +13,7 @@ import { publishCombinations3D, activePerCombo3D, activeCombinations } from '../
 import { computeStationDemands } from '../verification-service';
 import { combinationPeakRows } from '../../export/excel';
 import { envelopeSectionHtml } from '../report/project-sections';
+import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../member-diagram';
 import type { AnalysisResults3D, ElementForces3D } from '../types-3d';
 
 const disp = (nodeId: number, ux: number, uz: number) => ({ nodeId, ux, uy: 0, uz, rx: 0, ry: 0, rz: 0 });
@@ -159,7 +160,7 @@ describe('ties within round-off', () => {
   });
 });
 
-it.skip('known wrong result: #2226 finds a narrow one-sided shear peak in the project and critical table summaries', () => {
+it('known wrong result: #2226 finds a narrow one-sided shear peak in the project and critical table summaries', () => {
   const a = 33 / 64, b = 34 / 64, jump = 11;
   const f = {
     elementId: 7, length: 1, nStart: 0, nEnd: 0, vyStart: 0, vyEnd: 0, vzStart: 0, vzEnd: 0,
@@ -173,7 +174,7 @@ it.skip('known wrong result: #2226 finds a narrow one-sided shear peak in the pr
   expect.soft(html).toContain('Vz (kN)</td><td class="num">11.000</td>');
 });
 
-it.skip('known wrong result: #2226 finds a shear resultant minimum between component stations', () => {
+it('known wrong result: #2226 finds a shear resultant minimum between component stations', () => {
   const f = {
     elementId: 7, length: 1, nStart: 0, nEnd: 0, vyStart: -3, vyEnd: 5, vzStart: -7, vzEnd: 1,
     mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0,
@@ -183,4 +184,16 @@ it.skip('known wrong result: #2226 finds a shear resultant minimum between compo
   const sources = [{ ...A, results: { ...A.results, elementForces: [f] } }];
   const critical = summaryRows('forces', sources, { ...canonical, stations: 'critical', resultant: true });
   expect(critical.find(r => r.column.key === 'v')?.min).toMatchObject({ value: Math.hypot(2, -2), x: 5 / 8 });
+});
+
+it('#2226 withholds a project summary whose nested magnitude has only a bound', () => {
+  const f = {
+    elementId: 7, length: 1, nStart: 0, nEnd: 0, vyStart: 3, vyEnd: 3, vzStart: 4, vzEnd: 4,
+    mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 4, mzStart: 0, mzEnd: -3,
+  } as ElementForces3D;
+  const makeSources = (forces: ElementForces3D) => [{ ...A, results: { ...A.results, elementForces: [forces] } }];
+  const tr = (key: string) => key === DIAGRAM_EXTREMA_UNAVAILABLE ? 'Extrema withheld' : key;
+  expect(envelopeSectionHtml(makeSources(f), tr, 'Envelope').join('')).toContain('V (kN)</td><td class="num">5.000</td>');
+  const combined: ElementForces3D = { ...f, combined: { method: 'abs', parts: [f] } };
+  expect(() => envelopeSectionHtml(makeSources(combined), tr, 'Envelope')).toThrow('Extrema withheld');
 });

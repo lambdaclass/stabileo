@@ -27,7 +27,7 @@ import type { Quantity } from '../utils/units';
 import { csvCell } from './result-query';
 import type { ElementDesignDemands, GoverningDemand } from './station-design-forces';
 import { stationTs, type StationSpec } from './station-forces';
-import { prepareDiagramEvaluator3D } from './diagrams-3d';
+import { memberCriticalOrdinates3D, prepareDiagramEvaluator3D, type Diagram3DKind } from './diagrams-3d';
 import { resultComponents } from '../axes/result-components';
 import { makeFrame, type AxesChoice } from '../axes/frame';
 
@@ -178,20 +178,33 @@ export function beatsExtreme(sign: 1 | -1, v: number, entity: number, x: number 
   return entity < e.entity || (entity === e.entity && (x ?? 0) < (e.x ?? 0));
 }
 
+const forceDiagrams: readonly Diagram3DKind[] = ['axial', 'shearY', 'shearZ', 'torsion', 'momentY', 'momentZ'];
+const resultantDiagrams: readonly (readonly [Diagram3DKind, Diagram3DKind])[] = [['shearY', 'shearZ'], ['momentY', 'momentZ']];
+
 /** For each column, the largest and the smallest value over every row of every source. */
 export function summaryRows(kind: TableKind, sources: readonly Source[], opts: TableOptions): Array<{ column: Column; max: Extreme | null; min: Extreme | null }> {
   const cols = columnsOf(kind, opts);
   const max: Array<Extreme | null> = cols.map(() => null);
   const min: Array<Extreme | null> = cols.map(() => null);
-  for (const s of sources) {
-    eachRow(kind, s.results, opts, (entity, end, x, values) => {
-      for (let c = 0; c < values.length; c++) {
-        const v = values[c]!;
-        if (!Number.isFinite(v)) continue;
-        if (beatsExtreme(1, v, entity, x, max[c]!)) max[c] = { value: v, entity, end, x, source: s };
-        if (beatsExtreme(-1, v, entity, x, min[c]!)) min[c] = { value: v, entity, end, x, source: s };
+  for (const source of sources) {
+    const visit = (c: number, value: number, entity: number, end: 'i' | 'j' | undefined, x: number | undefined) => {
+      if (!Number.isFinite(value)) return;
+      if (beatsExtreme(1, value, entity, x, max[c]!)) max[c] = { value, entity, end, x, source };
+      if (beatsExtreme(-1, value, entity, x, min[c]!)) min[c] = { value, entity, end, x, source };
+    };
+    if (kind === 'forces' && opts.stations === 'critical') {
+      const diagrams = opts.resultant ? [...forceDiagrams, ...resultantDiagrams] : forceDiagrams;
+      for (const ef of source.results.elementForces) {
+        if (opts.entities && !opts.entities.has(ef.elementId)) continue;
+        diagrams.forEach((diagram, c) => {
+          for (const { t, value, x } of memberCriticalOrdinates3D(ef, diagram)) {
+            visit(c, value, ef.elementId, t === 0 ? 'i' : t === 1 ? 'j' : undefined, x);
+          }
+        });
       }
-    });
+    } else {
+      eachRow(kind, source.results, opts, (entity, end, x, values) => values.forEach((value, c) => visit(c, value, entity, end, x)));
+    }
   }
   return cols.map((column, c) => ({ column, max: max[c]!, min: min[c]! }));
 }

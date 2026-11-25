@@ -15,7 +15,7 @@ import type { StructuredDiagnostic } from './types';
  */
 import { prepareLoadSession3D } from './wasm-solver';
 import { computeLocalAxes3D } from './local-axes-3d';
-import { memberInteriorExtrema3D, type Diagram3DKind } from './diagrams-3d';
+import { memberCriticalOrdinates3D, type Diagram3DKind } from './diagrams-3d';
 import { axleMemberStation } from './moving-loads';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D } from './types-3d';
 import type { LoadTrain } from './moving-loads';
@@ -128,7 +128,7 @@ export function foldPosition(env: MovingEnvelope3D['elements'], results: Analysi
     let rec = env.get(ef.elementId);
     if (!rec) { rec = blank(); env.set(ef.elementId, rec); }
     for (const c of ENVELOPE_COMPONENTS) {
-      for (const { value, x } of memberInteriorExtrema3D(ef, componentDiagrams[c])) {
+      for (const { value, x } of memberCriticalOrdinates3D(ef, componentDiagrams[c], true)) {
         if (value > rec[c].max.value) rec[c].max = { value, x, position };
         if (value < rec[c].min.value) rec[c].min = { value, x, position };
       }

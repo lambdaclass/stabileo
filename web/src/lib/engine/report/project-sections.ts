@@ -7,6 +7,8 @@ const toUser = (f: import('../../axes/frame').AxesFrame, values: import('../../a
  * the figures the user chose. Each reads the same function its on-screen table does, so the
  * document and the panels print one set of numbers.
  */
+import { ContainmentExportError } from '../containment-error';
+import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../member-diagram';
 import { summaryRows, envelopeRows, columnsOf, whereOf, type Source, type TableKind } from '../result-tables';
 import type { StaticsRows } from '../../store/statics-rows';
 import { staticsVerdict } from '../statics-check';
@@ -54,9 +56,15 @@ export function envelopeSectionHtml(sources: readonly Source[], tr: Tr, heading:
   const kinds: Array<[TableKind, string]> = [['reactions', tr('report.reactions')], ['forces', tr('report.forces')], ['displacements', tr('report.displacements')]];
   for (const [kind, title] of kinds) {
     const cols = columnsOf(kind, { resultant: true });
-    // The extremes along the members, at 13 stations: at the ends alone a simply supported
-    // beam's largest moment read 0. The envelope table below stays per member end.
-    const summ = summaryRows(kind, sources, { resultant: true, axes, ...(kind === 'forces' ? { stations: 13 } : {}) });
+    let summ: ReturnType<typeof summaryRows>;
+    try {
+      summ = summaryRows(kind, sources, { resultant: true, axes, ...(kind === 'forces' ? { stations: 'critical' } : {}) });
+    } catch (error) {
+      if (error instanceof Error && error.message === DIAGRAM_EXTREMA_UNAVAILABLE) {
+        throw new ContainmentExportError(tr(DIAGRAM_EXTREMA_UNAVAILABLE));
+      }
+      throw error;
+    }
     out.push(`<h3>${esc(title)}: ${esc(tr('report.env.summary'))}</h3>`);
     out.push(`<table data-printed="summary"><thead><tr><th></th><th>${esc(tr('tables.max'))}</th><th>${esc(tr('report.env.where'))}</th><th>${esc(tr('tables.source'))}</th><th>${esc(tr('tables.min'))}</th><th>${esc(tr('report.env.where'))}</th><th>${esc(tr('tables.source'))}</th></tr></thead><tbody>`);
     for (const s of summ) {
