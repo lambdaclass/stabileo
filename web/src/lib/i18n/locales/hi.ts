@@ -25,6 +25,7 @@ const hi: Translations = {
   'loadPlan.gravity.deckCheckFailed': "डेक पर शेल आवरण की जाँच विफल रही: {detail}",
   'loadPlan.gravity.exposureCheckFailed': "खुली शेल पट्टियों के ऊपर आवरण की जाँच विफल रही: {detail}",
   'loadPlan.gravity.mixedExposure': "निर्धारित क्षेत्र में छत और फर्श दोनों के हिस्से हैं। हर हिस्से के भार स्पष्ट रूप से निर्धारित करें।",
+  'loadPlan.gravity.uncertainDeckCover': "डेक की ऊँचाई आवरण या खाली ऊँचाई की सीमा के दोनों ओर है और फ्रेम से तय नहीं की जा सकती। समतल डेक परिभाषित करें या भार स्पष्ट रूप से निर्दिष्ट करें।",
   'loadPlan.gravity.stripSpan': "खुली पट्टी डेक के अधिकतम स्पैन से लंबी है।",
   'loadPlan.gravity.headroomCheckFailed': "खुली पट्टी की मुक्त ऊँचाई की जाँच विफल रही: {detail}",
   'loadPlan.gravity.stripHeadroom': "खुली पट्टी में मंज़िल की मुक्त ऊँचाई अपर्याप्त है या निर्धारित नहीं हो सकी।",

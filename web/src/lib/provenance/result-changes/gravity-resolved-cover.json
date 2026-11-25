@@ -1,0 +1,39 @@
+{
+  "id": "gravity-resolved-cover",
+  "date": "2026-11-25",
+  "prs": [2576],
+  "area": "loads",
+  "when": {
+    "allOf": [
+      ["space3D"],
+      ["generatedLoads"],
+      ["generatedPanelGravity", "generatedWidthGravity", "generatedWindLoads", "snow"]
+    ]
+  },
+  "quantities": ["*", "solve.ok"],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Resolve definite headroom and preserve rotated beam cover",
+    "es": "Resolver la altura libre y conservar la cobertura de vigas rotadas",
+    "pt": "Resolver a altura livre e preservar a cobertura de vigas rotacionadas",
+    "de": "Lichte Höhe klären und Überdeckung bei gedrehten Trägern erhalten",
+    "fr": "Résoudre la hauteur libre et préserver le recouvrement des poutres tournées",
+    "tr": "Net yüksekliği çözümle ve döndürülmüş kirişlerin örtüsünü koru",
+    "zh": "判定净高并保留旋转后梁的覆盖关系",
+    "hu": "A szabad magasság meghatározása és az elforgatott gerendák fedésének megőrzése"
+  },
+  "explanation": {
+    "en": "Automatic gravity checks unresolved headroom after clipping the areas with definite low clearance. Aligned beams retain their cover after plan rotation. Regenerate affected gravity, roof wind and snow loads, then rerun analyses and combinations.",
+    "es": "La generación gravitatoria automática comprueba la altura libre indeterminada después de recortar las áreas con altura libre insuficiente confirmada. Las vigas alineadas conservan su cobertura al girar en planta. Regenerá las cargas gravitatorias, de viento sobre cubierta y de nieve afectadas y repetí los análisis y las combinaciones.",
+    "pt": "A geração automática de cargas gravitacionais verifica a altura livre indeterminada após recortar as áreas com altura livre comprovadamente insuficiente. Vigas alinhadas mantêm a cobertura após a rotação em planta. Gere novamente as cargas gravitacionais, de vento na cobertura e de neve afetadas e refaça as análises e combinações.",
+    "de": "Die automatische Schwerkraftlasterzeugung prüft unbestimmte lichte Höhen nach dem Kürzen der Flächen mit nachweislich zu geringer lichter Höhe. Fluchtende Träger behalten ihre Überdeckung bei einer Drehung im Grundriss. Erzeugen Sie betroffene Schwerkraft-, Dachwind- und Schneelasten neu und wiederholen Sie Analysen und Kombinationen.",
+    "fr": "La génération automatique des charges gravitaires vérifie les hauteurs libres indéterminées après découpe des zones où la hauteur libre est assurément insuffisante. Les poutres alignées conservent leur recouvrement après rotation en plan. Régénérez les charges gravitaires, de vent en toiture et de neige concernées, puis relancez les analyses et les combinaisons.",
+    "tr": "Otomatik yerçekimi yükü üretimi, net yüksekliği kesin olarak yetersiz alanları kırptıktan sonra belirsiz net yüksekliği denetler. Hizalı kirişler planda döndürüldükten sonra örtülerini korur. Etkilenen yerçekimi, çatı rüzgârı ve kar yüklerini yeniden üretip analizleri ve birleşimleri tekrarlayın.",
+    "zh": "自动重力荷载生成先剪裁已确定净高不足的区域，再检查净高不确定的剩余区域。对齐的梁在平面旋转后保留覆盖关系。请重新生成受影响的重力、屋面风和雪荷载，并重新运行分析和组合计算。",
+    "hu": "Az automatikus gravitációs tehergenerálás a bizonyosan elégtelen szabad magasságú területek levágása után vizsgálja a bizonytalan magasságot. Az egy vonalban álló gerendák alaprajzi elforgatás után is megőrzik a fedésüket. Generálja újra az érintett gravitációs, tetőszél- és hóterheket, majd ismételje meg az elemzéseket és a kombinációkat."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-resolved-cover.md",
+    "heading": "Resolve definite headroom and preserve rotated beam cover"
+  }
+}

@@ -7821,6 +7821,7 @@ const fr: Translations = {
   'loadPlan.gravity.deckCheckFailed': "Échec de la vérification du recouvrement du plancher par les coques : {detail}",
   'loadPlan.gravity.exposureCheckFailed': "Échec de la vérification de l’exposition des bandes libres : {detail}",
   'loadPlan.gravity.mixedExposure': "Une emprise attribuée comprend des zones de toiture et de plancher. Affectez explicitement les charges de chaque zone.",
+  'loadPlan.gravity.uncertainDeckCover': "La hauteur du plancher se situe de part et d’autre d’une limite de recouvrement ou de hauteur libre et ne peut être déterminée à partir de l’ossature. Définissez un plancher plan ou affectez les charges explicitement.",
   'loadPlan.gravity.stripSpan': "La bande libre dépasse la portée maximale du plancher.",
   'loadPlan.gravity.headroomCheckFailed': "Échec de la vérification de la hauteur libre de la bande : {detail}",
   'loadPlan.gravity.stripHeadroom': "La hauteur libre d’étage de la bande est insuffisante ou indéterminée.",
