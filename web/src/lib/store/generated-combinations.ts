@@ -99,6 +99,14 @@ export function addCompositeCases(list: readonly CaseCombination[], prefix: (c: 
   return ids;
 }
 
+export function loadCasesWithDirectEffects({ loadCases, loads, analysis }: CompositeModel): Set<number> {
+  return new Set([
+    ...loads.map(l => l.data.caseId ?? 1),
+    ...(analysis?.selfWeight ?? []).map(row => row.caseId),
+    ...loadCases.filter(c => c.spectral !== undefined || c.notional !== undefined).map(c => c.id),
+  ]);
+}
+
 /**
  * The generator's composite cases that nothing takes any more, removed: what "replace generated
  * loads" leaves of them once their combinations are gone. They stayed, solved and listed as
@@ -107,11 +115,12 @@ export function addCompositeCases(list: readonly CaseCombination[], prefix: (c: 
  */
 export function takeBackCompositeCases(): number[] {
   const gone: number[] = [];
+  const occupied = loadCasesWithDirectEffects(modelStore.model);
   // One removed can leave another unused (a generated case taken in only by a generated one).
   for (let changed = true; changed;) {
     changed = false;
     const cases = modelStore.model.loadCases;
-    const used = new Set<number>();
+    const used = new Set(occupied);
     for (const c of modelStore.combinations) for (const f of c.factors) if (f.factor !== 0) used.add(f.caseId);
     for (const c of cases) {
       for (const i of c.includes ?? []) if (i.caseId !== c.id) used.add(i.caseId);
@@ -145,14 +154,11 @@ export function combinationExists(
   return generatedCombinationMatcher(combinations, compositeModel, reportInvalid)(factors);
 }
 
-function generatedWrappers({ loadCases, loads, analysis }: CompositeModel): Map<number, Factors> {
-  const occupied = new Set([
-    ...loads.map(load => load.data.caseId ?? 1),
-    ...(analysis?.selfWeight ?? []).map(row => row.caseId),
-    ...caseOrder(loadCases).looped,
-  ]);
-  return new Map(loadCases
-    .filter(c => c.generated && c.includes?.length && c.type === '' && !c.notional && !c.spectral && !occupied.has(c.id))
+function generatedWrappers(model: CompositeModel): Map<number, Factors> {
+  const occupied = loadCasesWithDirectEffects(model);
+  for (const id of caseOrder(model.loadCases).looped) occupied.add(id);
+  return new Map(model.loadCases
+    .filter(c => c.generated && c.includes?.length && c.type === '' && !occupied.has(c.id))
     .map(c => [c.id, c.includes!]));
 }
 

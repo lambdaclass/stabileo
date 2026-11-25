@@ -30,12 +30,11 @@
     symbol === 'S' ? [{ symbol }, { symbol, snowBasis: 'flatRoof' }] : [{ symbol }]);
   const nextId = () => freshRuleIds(rules, 1)[0]!;
 
-  function factorIndex(rule: CombinationRule, symbol: LoadSymbol, snowBasis: CombinationTerm['snowBasis']): number {
-    return rule.terms.findIndex(term => term.symbol === symbol && term.group === undefined && term.snowBasis === snowBasis);
-  }
+  const matchesFactor = (symbol: LoadSymbol, snowBasis: CombinationTerm['snowBasis']) =>
+    (term: CombinationTerm) => term.symbol === symbol && term.group === undefined && term.snowBasis === snowBasis;
 
   const factorOf = (rule: CombinationRule, symbol: LoadSymbol, snowBasis: CombinationTerm['snowBasis']) =>
-    rule.terms[factorIndex(rule, symbol, snowBasis)]?.factor ?? 0;
+    rule.terms.filter(matchesFactor(symbol, snowBasis)).reduce((sum, term) => sum + term.factor, 0);
 
   function write(next: CombinationRule[]) { modelStore.setCombinationRules(next); }
 
@@ -46,17 +45,18 @@
   function setFactor(id: string, symbol: LoadSymbol, raw: string, snowBasis?: CombinationTerm['snowBasis']) {
     const factor = raw.trim() === '' ? 0 : Number(raw.replace(',', '.'));
     if (!Number.isFinite(factor)) return;
+    const matches = matchesFactor(symbol, snowBasis);
     write(rules.map(rule => {
       if (rule.id !== id) return rule;
-      const terms = [...rule.terms];
-      const index = factorIndex(rule, symbol, snowBasis);
-      const existing = terms[index];
-      if (existing) {
-        if (factor === 0) terms.splice(index, 1);
-        else terms[index] = { ...existing, factor };
-      } else if (factor !== 0) {
-        terms.push({ symbol, factor, ...(snowBasis ? { snowBasis } : {}) });
-        terms.sort((a, b) => RULE_SYMBOLS.indexOf(a.symbol) - RULE_SYMBOLS.indexOf(b.symbol));
+      const index = rule.terms.findIndex(matches);
+      const terms = rule.terms.filter(term => !matches(term));
+      if (factor !== 0) {
+        const replacement = { ...rule.terms[index], symbol, factor, ...(snowBasis ? { snowBasis } : {}) };
+        if (index >= 0) terms.splice(index, 0, replacement);
+        else {
+          terms.push(replacement);
+          terms.sort((a, b) => RULE_SYMBOLS.indexOf(a.symbol) - RULE_SYMBOLS.indexOf(b.symbol));
+        }
       }
       return { ...rule, terms };
     }));

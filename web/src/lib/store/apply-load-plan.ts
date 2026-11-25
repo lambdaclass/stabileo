@@ -6,7 +6,7 @@
  * times.
  */
 import { modelStore } from './index';
-import { addGeneratedCombinations, takeBackCompositeCases } from './generated-combinations';
+import { addGeneratedCombinations, loadCasesWithDirectEffects, takeBackCompositeCases } from './generated-combinations';
 import type { LoadPlan } from '../engine/loads/load-plan';
 import { isCompositeCase } from '../engine/loads/combination-cases';
 import { describePlanDelta, expandPlannedCombinations, type CurrentLoadState } from '../engine/loads/load-plan-delta';
@@ -189,14 +189,18 @@ function prepareCombinationCases(
   });
   const planIds = new Set(bindings.map(b => b.projectedId));
   const removedLoads = new Set(replaced?.loads);
-  const casesWithLoads = new Set(modelStore.loads.filter(l => !removedLoads.has(l.data.id)).map(l => l.data.caseId ?? 1));
-  for (const row of modelStore.model.analysis?.selfWeight ?? []) casesWithLoads.add(row.caseId);
+  const occupied = loadCasesWithDirectEffects({
+    loadCases: retained,
+    loads: modelStore.loads.filter(l => !removedLoads.has(l.data.id)),
+    analysis: modelStore.model.analysis,
+  });
   const supplementedTypes = new Set(p.cases.filter(c => c.own || c.type === 'Lr').map(c => c.type.toUpperCase()));
   const cases = [...planIds].map(id => projected.get(id)!);
   const retainedCases: LoadCase[] = [];
   for (const c of retained) {
-    if (c.generated || isCompositeCase(c) || planIds.has(c.id)) continue;
-    const hasEffects = casesWithLoads.has(c.id) || c.spectral !== undefined || c.notional !== undefined;
+    if (isCompositeCase(c) || planIds.has(c.id)) continue;
+    const hasEffects = occupied.has(c.id);
+    if (c.generated && !hasEffects) continue;
     if (hasEffects && supplementedTypes.has((c.type ?? '').toUpperCase())) cases.push(c);
     else if (hasEffects || c.group !== undefined) retainedCases.push(c);
   }

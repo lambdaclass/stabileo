@@ -59,6 +59,7 @@ export const FEATURE_IDS = [
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase', 'loadPlanCombinationSupplements', 'flatRoofSnowCombinations',
+  'occupiedGeneratedLoadCases', 'repeatedUngroupedRuleTerms',
   'superposedCombinations', 'repeatedCombinationCases', 'zeroOrOpposingCombinationFactors', 'explicitNotionalCombinationCases',
   'prototypeNamedLoadCase', 'staticCaseEffects', 'projectedSpatialLoads', 'offsetMemberLoadFrame', 'inactiveSpatialMembers',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
@@ -106,7 +107,7 @@ interface FeatureSnapshotFields {
   loads?: Array<{ type: string; data?: Record<string, unknown> }>;
   loadCases?: Array<{
     id: number; name?: string; type?: string; spectral?: unknown; alternatives?: string; axisNamed?: boolean;
-    group?: string; snowBasis?: 'flatRoof';
+    group?: string; snowBasis?: 'flatRoof'; generated?: boolean;
     includes?: ReadonlyArray<{ caseId?: number; factor: number }>; reduction?: { ratio: number }; notional?: unknown;
   }>;
   combinations?: unknown[];
@@ -545,6 +546,21 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   }
   if (combos) {
     f.add('combinations');
+    const occupiedCaseIds = new Set((Array.isArray(storedLoads) ? storedLoads : []).map(l => l.data?.caseId ?? 1));
+    if (cases.some(c => c.generated && symbolOfCase(c) && occupiedCaseIds.has(c.id))) f.add('occupiedGeneratedLoadCases');
+    const repeatedTerms = Array.isArray(s.combinationRules) && s.combinationRules.some(rule => {
+      const terms = (rule as { terms?: unknown } | null)?.terms;
+      if (!Array.isArray(terms)) return false;
+      const seen = new Set<string>();
+      for (const term of terms) {
+        if (typeof term?.symbol !== 'string' || term.group !== undefined) continue;
+        const key = `${term.symbol}:${term.snowBasis ?? ''}`;
+        if (seen.has(key)) return true;
+        seen.add(key);
+      }
+      return false;
+    });
+    if (repeatedTerms) f.add('repeatedUngroupedRuleTerms');
     const groupedRule = Array.isArray(s.combinationRules) && s.combinationRules.some(rule => {
       const terms = (rule as { terms?: unknown } | null)?.terms;
       return Array.isArray(terms) && terms.some(term => term?.group !== undefined);

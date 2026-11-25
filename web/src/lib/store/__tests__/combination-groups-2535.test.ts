@@ -807,9 +807,7 @@ it('#2558 Auto Loads includes retained manual roof live with a shared key', () =
   }
 });
 
-const issue2566 = process.env.RUN_KNOWN_WRONG === '2566' ? it : it.skip;
-
-issue2566.each([true, false])('known wrong result: #2566 Preview and Apply include a marked case with a surviving manual load, replace=%s', clearExisting => {
+it.each([true, false])('#2566 Preview and Apply include a marked case with a surviving manual load, replace=%s', clearExisting => {
   const { input } = roofLiveFixture('roof-pattern', false, true, 'roof-pattern');
   expect.soft(previewLoadPlan(input, applyOptions.nameOf, { replaceExisting: clearExisting, alsoUnmarked: true })
     .after.combinations).toBe(2);
@@ -820,7 +818,8 @@ issue2566.each([true, false])('known wrong result: #2566 Preview and Apply inclu
 
 it('#2566 a marked obsolete roof case with no surviving load is excluded after replacement', () => {
   const { input } = roofLiveFixture('roof-pattern', true, true, 'roof-pattern');
-  modelStore.replaceLoads(modelStore.loads.map(l => ({ ...l, data: { ...l.data, generatedBy: 'load-plan' } })));
+  modelStore.replaceLoads(modelStore.loads.map(l => l.type === 'nodal3d'
+    ? { ...l, data: { ...l.data, generatedBy: 'load-plan' } } : l));
   expect(previewLoadPlan(input, applyOptions.nameOf, { replaceExisting: true }).after.combinations).toBe(1);
   expect(applyLoadPlan(input, applyOptions)).toBeUndefined();
   expect(modelStore.loads.map(l => l.data.caseId)).toEqual([plannedRoof.id]);
@@ -876,7 +875,7 @@ function combinationRuleEditor() {
   const svelte = readFileSync('src/components/pro/ProCombinationRules.svelte', 'utf8');
   const script = svelte.slice(svelte.indexOf('>') + 1, svelte.indexOf('</script>'));
   const ast = ts.createSourceFile('ProCombinationRules.ts', script, ts.ScriptTarget.ESNext, true);
-  const names = ['factorIndex', 'factorOf', 'write', 'setFactor', 'importTemplate'];
+  const names = ['matchesFactor', 'factorOf', 'write', 'setFactor', 'importTemplate'];
   const declarations = ast.statements.filter(statement =>
     ts.isFunctionDeclaration(statement) ? names.includes(statement.name?.text ?? '') :
       ts.isVariableStatement(statement) && statement.declarationList.declarations.some(d => names.includes(d.name.getText(ast))));
@@ -938,7 +937,7 @@ function displayedFactor(id: string, symbol: string) {
   return render(ProCombinationRules).body.match(new RegExp(`<input[^>]+data-testid="combo-rule-${id}-${symbol}"[^>]*>`))?.[0];
 }
 
-issue2566.each(['saved', 'imported'])('known wrong result: #2566 the editor displays, replaces and clears the total factor of %s duplicate terms', async source => {
+it.each(['saved', 'imported'])('#2566 the editor displays, replaces and clears the total factor of %s duplicate terms', async source => {
   const grouped = { ...deadTerm, group: 'permanent' };
   const terms = [deadTerm, physicalTerm, duplicateDeadTerm, grouped];
   if (source === 'imported') {
@@ -957,7 +956,7 @@ issue2566.each(['saved', 'imported'])('known wrong result: #2566 the editor disp
   expect(modelStore.combinationRules[0]?.terms).toEqual([physicalTerm, grouped]);
 });
 
-issue2566('known wrong result: #2566 cancelling flat-roof terms display as empty and clear independently', () => {
+it('#2566 cancelling flat-roof terms display as empty and clear independently', () => {
   const grouped = { ...flatRoofTerm, group: 'roof' };
   const rule = restoreGroupedProject(physicalTerm, flatRoofTerm, { ...flatRoofTerm, factor: -1 }, grouped);
   expect.soft(displayedFactor(rule.id, 'S-flatRoof')).toContain('value=""');
@@ -970,12 +969,12 @@ const combinationRoutes = [
   '3D sync uplift', '3D async uplift', '3D direct', '3D worker direct',
 ] as const;
 
-for (const route of combinationRoutes)
-  for (const failure of ['alternatives', 'snow', 'roof live', 'generated roof live', 'duplicate factors'] as const) {
+const combinationRegressions = ['alternatives', 'snow', 'roof live', 'generated roof live', 'duplicate factors'] as const;
+
+for (const route of combinationRoutes) for (const failure of combinationRegressions) {
   if (route === '2D linear' && (failure === 'roof live' || failure === 'generated roof live')) continue;
   const review = failure === 'generated roof live' || failure === 'duplicate factors';
-  const test = review ? issue2566 : it;
-  test(`${review ? 'known wrong result: #2566' : '#2558'} ${route} solves the corrected ${failure} combinations`, async () => {
+  it(`${review ? '#2566' : '#2558'} ${route} solves the corrected ${failure} combinations`, async () => {
     const dim = route === '2D linear' ? '2d' : '3d';
     let expected: number[];
     let base: number;
@@ -1069,4 +1068,17 @@ it('#2558 the recheck notice follows the saved combination and load evidence', (
   const combinations = [{ id: 1, factors: [{ caseId: 1, factor: 2 }] }];
   expect(changes({ loadCases: snowCases, combinations })).toContain(id);
   expect(changes({ loadCases: snowCases.slice(0, 1), combinations })).not.toContain(id);
+});
+
+it('#2566 recheck identifies occupied generated cases and repeated editable terms', () => {
+  const notice = 'retained-case-and-rule-factors';
+  const changes = () => assessProject(modelStore.snapshot(), null, 'pro').changes.map(change => change.id);
+  const rule = restoreGroupedProject(deadTerm, duplicateDeadTerm);
+  expect(changes()).toContain(notice);
+  modelStore.setCombinationRules([{ ...rule, terms: [deadTerm, { ...duplicateDeadTerm, group: 'permanent' }] }]);
+  expect(changes()).not.toContain(notice);
+  roofLiveFixture('independent', false, true);
+  expect(changes()).toContain(notice);
+  modelStore.replaceLoads([]);
+  expect(changes()).not.toContain(notice);
 });
