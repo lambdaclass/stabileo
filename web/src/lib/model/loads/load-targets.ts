@@ -44,14 +44,19 @@ export interface TargetSelection { nodes: Iterable<number>; elements: Iterable<n
  */
 export function parseIdList(text: string, invalid?: (part: string) => void): number[] {
   const out: number[] = [];
-  for (const part of text.replace(/\s*[-–]\s*/g, '-').split(/[,;\s]+/).filter(Boolean)) {
+  for (const token of text.split(/[,;]|(?<![-–\s])\s+(?![-–\s])/)) {
+    const part = token.trim();
+    if (!part) continue;
     const m = part.match(/^(\d+)\s*[-–]\s*(\d+)$/);
     if (m) {
       const a = Number(m[1]), b = Number(m[2]);
       const [lo, hi] = a <= b ? [a, b] : [b, a];
       if (!Number.isSafeInteger(hi) || hi - lo > 100000) { invalid?.(part); continue; }
       for (let k = lo; k <= hi; k++) out.push(k);
-    } else if (/^\d+$/.test(part)) out.push(Number(part));
+      continue;
+    }
+    const id = /^\d+$/.test(part) ? Number(part) : NaN;
+    if (Number.isSafeInteger(id)) out.push(id);
     else invalid?.(part);
   }
   return [...new Set(out)];

@@ -156,15 +156,15 @@ it('#2297 shell notices require a zero or possibly cancelling factor', () => {
   expect.soft(notice([dead, { caseId: 2, factor: Number.MIN_VALUE }])).toBe(false);
 });
 
-const finalReview = process.env.RUN_KNOWN_WRONG === '2565' ? it : it.skip;
-
-finalReview('known wrong result: #2565 — registers the self-weight recheck notice in every shipped locale', () => {
+it('#2565 — registers the self-weight recheck notice in every shipped locale', () => {
   const change = RESULT_CHANGES.changes.find(c => c.id === 'invalid-self-weight-target');
   expect(change).toBeDefined();
   for (const [label, texts] of Object.entries({ title: change!.title, explanation: change!.explanation })) {
+    const registered = new Map(Object.entries(texts));
     for (const locale of allShippedLocales()) {
-      expect.soft(texts[locale], `${label} in ${locale}`).toBeTruthy();
-      if (locale !== 'en') expect.soft(texts[locale], `${label} in ${locale}`).not.toBe(texts.en);
+      const text = registered.get(locale);
+      expect.soft(text, `${label} in ${locale}`).toBeTruthy();
+      if (locale !== 'en') expect.soft(text, `${label} in ${locale}`).not.toBe(texts.en);
     }
   }
 });

@@ -2,8 +2,7 @@ import { test, expect, loadModel } from './fixtures';
 import type { DedalFile } from '../src/lib/store/file';
 
 for (const mode of ['direct', 'notional'] as const) {
-  test(`@smoke known wrong result: #2565 — PRO isolates ${mode} self-weight totals by case`, async ({ pro: page }) => {
-    test.skip(process.env.RUN_KNOWN_WRONG !== '2565', 'known wrong result: #2565');
+  test(`@smoke #2565 — PRO isolates ${mode} self-weight totals by case`, async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     const { loaded, missing } = await page.evaluate(mode => {
       const file = JSON.parse(window.__stabileo.serializeProject()) as DedalFile;

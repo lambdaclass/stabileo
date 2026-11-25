@@ -64,13 +64,11 @@ it('#2565 rejects a partial typed self-weight selection and stale group membersh
   expect(selfWeightTarget({ by: 'group', groupId: 1 }, model, noSel)).toEqual({ groupId: 1 });
 });
 
-const finalReview = process.env.RUN_KNOWN_WRONG === '2565' ? it : it.skip;
-
-finalReview.each([
+it.each([
   '9007199254740993',
   '09007199254740992',
   '9007199254740991 – 9007199254740993',
-])('known wrong result: #2565 — reports typed self-weight token %s verbatim', token => {
+])('#2565 — reports typed self-weight token %s verbatim', token => {
   const result = selfWeightTarget({ by: 'ids', text: `1, ${token}` }, model, noSel);
   expect(result).toEqual({ error: expect.stringContaining(token) });
 });

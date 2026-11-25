@@ -88,15 +88,13 @@ describe('renumber', () => {
   });
 });
 
-const finalReview = process.env.RUN_KNOWN_WRONG === '2565' ? it : it.skip;
-
-finalReview.each(['explicit', 'group'] as const)(
-  'known wrong result: #2565 — checks the actual ID claims for a missing %s member selector',
+it.each(['explicit', 'group'] as const)(
+  '#2565 — checks the actual ID claims for a missing %s member selector',
   kind => {
     const { beam, top1, top2, base1, base2 } = scrambled();
     const shell = modelStore.addQuad([base1, base2, top2, top1], 1, 0.2);
     const missing = 20;
-    const ids = [missing + 2, missing];
+    const ids = [missing + 3, missing];
     const group = modelStore.addGroup('Stale members', 'selection', { elements: ids });
     modelStore.setAnalysis({ selfWeight: [{
       caseId: 1, direction: 'Z', factor: -1,
@@ -117,8 +115,8 @@ finalReview.each(['explicit', 'group'] as const)(
   },
 );
 
-finalReview.each(['plates', 'quads'] as const)(
-  'known wrong result: #2565 — a shell remap only claims IDs in its own %s namespace',
+it.each(['plates', 'quads'] as const)(
+  '#2565 — a shell remap only claims IDs in its own %s namespace',
   family => {
     const { top1, top2, base1, base2 } = scrambled();
     const p = modelStore.addPlate([base1, base2, top1], 1, 0.2);

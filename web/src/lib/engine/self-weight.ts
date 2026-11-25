@@ -44,6 +44,7 @@ export const selfWeightMemberProjection = Symbol('selfWeightMemberProjection');
 
 type IdLookup = Pick<ReadonlySet<number>, 'has' | 'keys'>;
 type TargetFamily = 'elements' | 'plates' | 'quads';
+type HasTarget = (family: TargetFamily, id: number) => boolean;
 type SelfWeightTargets = {
   elements: IdLookup;
   plates?: IdLookup;
@@ -82,9 +83,9 @@ function isGroupMembership(value: unknown): value is GroupMembers {
   return true;
 }
 
-function missingTarget(model: SelfWeightTargets, family: TargetFamily, ids: readonly number[]): ScopeFailure | null {
+function missingTarget(hasTarget: HasTarget, family: TargetFamily, ids: readonly number[]): ScopeFailure | null {
   for (const id of ids) {
-    if (!model[family]?.has(id)) return { missingTarget: { family, id } };
+    if (!hasTarget(family, id)) return { missingTarget: { family, id } };
   }
   return null;
 }
@@ -101,24 +102,38 @@ export function resolveSelfWeightScope(model: SelfWeightTargets, s: Pick<SelfWei
     return { ...scope, members };
   }
 
+  return authoredSelfWeightScope(model.groups, s, (family, id) => model[family]?.has(id) ?? false);
+}
+
+function authoredSelfWeightScope(
+  groups: SelfWeightTargets['groups'], s: Pick<SelfWeightLoad, 'elements' | 'groupId'>, hasTarget: HasTarget,
+): SelfWeightScope | ScopeFailure {
   if (s.elements !== undefined) {
     if (!Array.isArray(s.elements)) return { invalidMemberId: s.elements };
     for (const id of s.elements) {
       if (!isSelectorId(id)) return { invalidMemberId: id };
     }
-    const missing = missingTarget(model, 'elements', s.elements);
+    const missing = missingTarget(hasTarget, 'elements', s.elements);
     if (missing) return missing;
   }
   if (s.groupId !== undefined) {
-    const members = model.groups?.get(s.groupId)?.members;
+    const members = groups?.get(s.groupId)?.members;
     if (!isGroupMembership(members)) return { invalidGroup: s.groupId };
-    return missingTarget(model, 'elements', members.elements ?? [])
-      ?? missingTarget(model, 'plates', members.plates ?? [])
-      ?? missingTarget(model, 'quads', members.quads ?? [])
+    return missingTarget(hasTarget, 'elements', members.elements ?? [])
+      ?? missingTarget(hasTarget, 'plates', members.plates ?? [])
+      ?? missingTarget(hasTarget, 'quads', members.quads ?? [])
       ?? { members: new Set(members.elements), plates: new Set(members.plates), quads: new Set(members.quads) };
   }
   if (s.elements !== undefined) return { members: new Set(s.elements), plates: new Set(), quads: new Set() };
   return { members: null, plates: null, quads: null };
+}
+
+export function selfWeightTargetClaimedByRemap(
+  model: Pick<SelfWeightTargets, 'groups'>, rule: Pick<SelfWeightLoad, 'elements' | 'groupId'>,
+  claimed: Record<TargetFamily, ReadonlySet<number>>,
+): ScopeFailure | null {
+  const scope = authoredSelfWeightScope(model.groups, rule, (family, id) => !claimed[family].has(id));
+  return 'missingTarget' in scope ? scope : null;
 }
 
 export function selfWeightScopeRefusal(issue: ScopeFailure): string {
