@@ -800,6 +800,125 @@ class ReplayClosureReviewTest(unittest.TestCase):
                                  for args, data in calls)
                     self.assertEqual(closed, closes)
 
+    @unittest.expectedFailure
+    def test_legacy_sample_and_counts_do_not_prove_the_original_inventory(self):
+        model = {"nodes": {}}
+        issue = make_issue(1, seed="42", model=model)
+        run = "<!-- nightly-run:41275933376:1 -->"
+        summary = "This run: **2 findings**, **1 analyses**, **2 relations**, **1 model**.\n"
+        multi = issue["body"].replace("Test:", summary + "Test:", 1)
+        displayed = self.records(self.record(42, model))
+        unrelated = self.records(self.record(99, {"nodes": {"unrelated": {}}}))
+        wrong_seed = self.records(self.record(43, model))
+        restored = (
+            ("one model, multiple findings", multi),
+            ("aggregate with no count", multi.replace(summary, "One smallest available reproducer\n")),
+            ("enough records omit displayed input", multi.replace(run, self.batch(wrong_seed + unrelated) + "\n" + run)),
+            ("one display and an unrelated record", multi.replace(run, self.batch(displayed + unrelated) + "\n" + run)),
+        )
+        verdict = {"verdicts": [{"analysis": "linear", "invariant": "rotation", "pass": 1}]}
+        commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+        for name, body in restored:
+            for scheduled in (False, True):
+                with self.subTest(name=name, scheduled=scheduled):
+                    snapshot = {**issue, "body": body}
+                    if scheduled:
+                        fingerprint = rf._replay_fingerprint(rf.parse_reproducers(snapshot))
+                        state = json.dumps({"night": "2026-11-24", "fingerprint": fingerprint, "streak": 2})
+                        snapshot["body"] = f"<!-- nightly-replay:v1 {state} -->\n{body}"
+                    partials = self.replay_cli([snapshot], lambda *_: (verdict, None))
+                    report, calls = self.assert_report_actions(
+                        [snapshot], partials, ["not-replayable"], scheduled=scheduled, commit=commit)
+                    self.assertIn("original", report[0]["evidence"])
+                    self.assertFalse(any(args[:2] == ("issue", "close") or
+                                         (args[:3] == ("api", "--method", "PATCH") and
+                                          json.loads(data).get("state") == "closed") for args, data in calls))
+
+    def records(self, marker):
+        return json.loads(gzip.decompress(base64.b64decode(marker.split()[2])))
+
+    def batch(self, records):
+        payload = base64.b64encode(gzip.compress(json.dumps(records).encode())).decode()
+        return f"<!-- nightly-reproducer:v1 {payload} -->"
+
+    @unittest.expectedFailure
+    def test_rounded_legacy_inline_model_needs_original_bytes_even_with_a_safe_seed(self):
+        safe = (1 << 53) - 1
+        exact = (1 << 53) + 1
+        rounded = int(float(exact))
+        cases = [
+            ({"value": [safe, -safe]}, None, "passes-now"),
+            ({"value": [{"id": rounded}]}, None, "not-replayable"),
+            ({"value": [{"id": -rounded}]}, None, "not-replayable"),
+            ({"value": [float(rounded)]}, None, "not-replayable"),
+            ({"value": [{"id": rounded}]}, {"value": [{"id": exact}]}, "passes-now"),
+        ]
+        for number, (displayed, original, expected) in enumerate(cases, 1):
+            with self.subTest(number=number):
+                issue = make_issue(number, seed="42", model=displayed)
+                if original is not None:
+                    issue["body"] = issue["body"].replace(
+                        "<!-- nightly-run:", self.record(42, original) + "\n<!-- nightly-run:", 1)
+                seen = []
+
+                def runner(cmd, *, env, timeout):
+                    seen.append(json.loads(Path(env["NIGHTLY_MODEL"]).read_text()))
+                    Path(env["NIGHTLY_RESULTS"]).write_text(json.dumps(
+                        {"verdicts": [{"analysis": "linear", "invariant": "rotation", "pass": 1}]}))
+                    return subprocess.CompletedProcess(cmd, 0, "", "")
+
+                partials = rf.replay_issues([issue], commit=REPLAY_COMMIT, runner=runner, metamorphic_bin="metamorphic")
+                _, calls = self.assert_report_actions([issue], partials, [expected])
+                self.assertEqual(seen, [] if expected == "not-replayable" else [original or displayed])
+                self.assertEqual(any(args[:2] == ("issue", "close") for args, _ in calls), expected == "passes-now")
+
+    @unittest.expectedFailure
+    def test_live_closure_detects_a_new_bot_comment_with_missing_run_marker(self):
+        issue = make_issue(1, model={"nodes": {}})
+        new_sighting = {"user": {"login": "github-actions[bot]"}, "body": self.record(42, {"nodes": {"new": {}}})}
+        for scheduled in (False, True):
+            with self.subTest(scheduled=scheduled):
+                snapshot = issue
+                if scheduled:
+                    fingerprint = rf._replay_fingerprint(rf.parse_reproducers(issue))
+                    state = json.dumps({"night": "2026-11-24", "fingerprint": fingerprint, "streak": 2})
+                    snapshot = {**issue, "body": f"<!-- nightly-replay:v1 {state} -->\n" + issue["body"]}
+                partials = bind_partial_fixtures([snapshot], [
+                    {"issue": 1, "status": "passes-now", "evidence": "snapshot input passed"}
+                ])
+                _, calls = self.assert_report_actions(
+                    [snapshot], partials, ["passes-now"], scheduled=scheduled,
+                    live_comments=[new_sighting], live_issue={"comments": 1})
+                self.assertEqual(len(calls), 2)
+                self.assertIn("/comments?", calls[-1][0][-1])
+
+    @unittest.expectedFailure
+    def test_fetch_retains_bot_reproducer_comments_with_broken_occurrence_markers(self):
+        issue = make_issue(1, model={"nodes": {}})
+        record = self.record(42, {"nodes": {"comment": {}}})
+        bot = {"login": "github-actions[bot]"}
+        finding = "<!-- nightly-defect:" + "a" * 64 + " -->"
+        intact = f"{finding}\n{record}\n<!-- nightly-run:12:1 -->"
+        for body, expected in (
+            (intact, "passes-now"),
+            (intact.rsplit("\n", 1)[0], "not-replayable"),
+            (intact.replace("12:1", "12:bad"), "not-replayable"),
+            (finding, "not-replayable"),
+        ):
+            with self.subTest(body=body[:100]):
+                def gh(*args, data=None):
+                    if "/comments?" in args[-1]:
+                        return json.dumps([[{"user": bot, "body": body},
+                                            {"user": bot, "body": "Objective replay completed."}]])
+                    return json.dumps([[{**issue, "comments": 2}]])
+
+                fetched = rf.fetch_open_issues("owner/repo", gh)
+                self.assertEqual(fetched[0]["sightings"], [body])
+                commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+                verdict = {"verdicts": [{"analysis": "linear", "invariant": "rotation", "pass": 1}]}
+                partials = self.replay_cli(fetched, lambda *_: (verdict, None))
+                self.assert_report_actions(fetched, partials, [expected], commit=commit)
+
     def test_false_reject_requires_acceptance_in_both_differential_adapters(self):
         sources = {"opensees": "testing/opensees/compare.py", "codeaster": "testing/differential/codeaster/run.py"}
         issues = [make_issue(number, check=source, kind="false_reject", test=f"{source}/false_reject",
@@ -863,6 +982,98 @@ class ReplayClosureReviewTest(unittest.TestCase):
                 self.assertEqual([row["status"] for row in partials], [expected, expected])
                 report = rf.merge_reports(fetched, [partials], REPLAY_COMMIT)
                 self.assertEqual([row["status"] for row in report], [expected])
+
+    @unittest.expectedFailure
+    def test_verified_copy_matches_exact_input_across_diagnostic_changes(self):
+        issue = make_issue(1, model={"nodes": {}})
+        model = {"nodes": {"exact": {"id": (1 << 53) + 1}}}
+        compact = json.dumps(model, sort_keys=True, separators=(",", ":"))
+        model_hash = hashlib.sha256(compact.encode()).hexdigest()
+        original, = self.records(self.record(42, model))
+        original.update(runId="1", modelHash=model_hash)
+        original.pop("artifact")
+
+        for reverse in (False, True):
+            for change, expected in (
+                ("diagnostics", "passes-now"), ("model", "not-replayable"), ("seed", "not-replayable"),
+                ("test", "not-replayable"), ("wrong model hash", "not-replayable"),
+                ("bad file digest", "not-replayable"),
+            ):
+                with self.subTest(reverse=reverse, change=change):
+                    copy = {**original, "runId": "2"}
+                    artifact = {"test": copy["test"], "seed": 42, "model": model, "details": "new diagnostics"}
+                    if change == "model" or change == "wrong model hash":
+                        artifact["model"] = {"nodes": {"different": {}}}
+                    if change == "model":
+                        copy["modelHash"] = hashlib.sha256(b'{"nodes":{"different":{}}}').hexdigest()
+                    if change == "seed":
+                        copy["seed"], artifact["seed"] = "43", 43
+                    if change == "test":
+                        copy["test"] = artifact["test"] = "metamorphic/linear/mirror"
+                    raw = json.dumps(artifact).encode()
+                    copy["artifactHash"] = hashlib.sha256(raw).hexdigest()
+                    ordered = [copy, original] if reverse else [original, copy]
+                    body = issue["body"].replace("<!-- nightly-run:", self.batch(ordered) + "\n<!-- nightly-run:", 1)
+
+                    def gh(*args, data=None):
+                        return json.dumps([[{**issue, "body": body}]])
+
+                    def read(repo, run_id, name, member, *_):
+                        if run_id == "1":
+                            raise ValueError("expired")
+                        return raw + (b" " if change == "bad file digest" else b"")
+
+                    with patch.object(rf, "_read_artifact_member", side_effect=read):
+                        fetched = rf.fetch_open_issues("owner/repo", gh)
+                    verdict = {"verdicts": [{"analysis": "linear", "invariant": name, "pass": 1}
+                                            for name in ("rotation", "mirror")]}
+                    partials = self.replay_cli(fetched, lambda *_: (verdict, None))
+                    commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+                    self.assert_report_actions(fetched, partials, [expected], commit=commit)
+
+    @unittest.expectedFailure
+    def test_chunked_manifests_require_every_committed_chunk_and_finding(self):
+        issue = make_issue(1, model={"nodes": {}})
+        files = {}
+        chunks = []
+        for seed in (42, 43):
+            record, = self.records(self.record(seed, {"nodes": {str(seed): {}}}))
+            artifact = record.pop("artifact").encode()
+            member = f"{seed}.finding.json"
+            record["path"] = f"nightly-findings/nightly-findings-metamorphic/{member}"
+            files[member] = artifact
+            chunk = json.dumps([record]).encode()
+            digest = hashlib.sha256(chunk).hexdigest()
+            chunks.append(digest)
+            files[digest + ".json"] = chunk
+
+        variants = ("valid", "missing chunk", "corrupt chunk", "corrupt index", "duplicate chunk", "bad finding")
+        for variant in variants:
+            with self.subTest(variant=variant):
+                members = files.copy()
+                index = json.dumps({"chunks": [chunks[0], chunks[0]] if variant == "duplicate chunk" else chunks}).encode()
+                digest = hashlib.sha256(index).hexdigest()
+                members[digest + ".json"] = index
+                pointer = f"<!-- nightly-reproducer:v3 41275933376 1 {digest} -->"
+                body = issue["body"].replace("<!-- nightly-run:", pointer + "\n<!-- nightly-run:", 1)
+                if variant == "missing chunk":
+                    del members[chunks[1] + ".json"]
+                if variant == "corrupt chunk":
+                    members[chunks[1] + ".json"] += b" "
+                if variant == "corrupt index":
+                    members[digest + ".json"] += b" "
+                if variant == "bad finding":
+                    members["43.finding.json"] += b" "
+
+                with patch.object(rf, "_read_artifact_member", side_effect=lambda repo, run, name, member, *_: members[member]):
+                    fetched = rf.fetch_open_issues("owner/repo", lambda *_: json.dumps([[{**issue, "body": body}]]))
+                verdict = {"verdicts": [{"analysis": "linear", "invariant": "rotation", "pass": 1}]}
+                partials = self.replay_cli(fetched, lambda *_: (verdict, None))
+                commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+                expected = "passes-now" if variant == "valid" else "not-replayable"
+                self.assert_report_actions(fetched, partials, [expected], commit=commit)
+                if variant == "valid":
+                    self.assertEqual(len(partials), 2)
 
     def test_manifest_and_original_bytes_must_both_verify_before_closure(self):
         issue = make_issue(1, model={"nodes": {}})

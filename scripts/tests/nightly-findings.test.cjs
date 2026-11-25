@@ -881,3 +881,38 @@ test('oversized exact inventories use a verified manifest and publication contin
     assert.equal(calls.length, previousCalls);
     assert.match(logs.at(-2), /nightly-reproducer:v2 132 1 /);
   }));
+
+test('inventories above the replay size limit are published as bounded verified chunks', {todo: 'known wrong result: #2578'},
+  () => fixture(async ({args, calls, save}) => {
+    const count = 450;
+    const reduction = 'a'.repeat(9_000);
+    fs.mkdirSync('nightly-findings/nightly-findings-opensees');
+    for (let seed = 0; seed < count; seed++) {
+      save('nightly-findings-opensees/case-' + seed, {...finding, seed, reduction});
+    }
+    const manifestDir = 'nightly-replay-manifests';
+    await report({...args, prepareManifests: true});
+    assert.equal(calls.length, 0);
+    await report({...args, manifestArtifactId: '123'});
+    const published = calls.find(call => call.name === 'create').args.body;
+    const pointer = published.match(/<!-- nightly-reproducer:v3 123 1 ([0-9a-f]{64}) -->/);
+    assert.ok(pointer, 'inventories beyond 4 MB need a chunk index');
+    const read = digest => {
+      const bytes = fs.readFileSync(path.join(manifestDir, digest + '.json'));
+      assert.ok(bytes.length <= 4_000_000);
+      assert.equal(createHash('sha256').update(bytes).digest('hex'), digest);
+      return JSON.parse(bytes);
+    };
+    const {chunks} = read(pointer[1]);
+    assert.ok(chunks.length > 1);
+    const records = chunks.flatMap(read);
+    assert.equal(records.length, count);
+    assert.equal(new Set(records.map(({seed}) => seed)).size, count);
+    for (const record of records) {
+      assert.equal(createHash('sha256').update(fs.readFileSync(record.path)).digest('hex'), record.artifactHash);
+    }
+    fs.unlinkSync(path.join(manifestDir, chunks.at(-1) + '.json'));
+    calls.length = 0;
+    await assert.rejects(report({...args, manifestArtifactId: '123'}), /manifest.*upload/i);
+    assert.equal(calls.length, 0);
+  }));

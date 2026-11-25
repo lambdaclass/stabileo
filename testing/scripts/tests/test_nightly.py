@@ -54,7 +54,6 @@ class NightlyReplayLifecycle(unittest.TestCase):
         self.assertNotEqual(self.replay.classify_diff(spec, {'status': 'refused'})[0], 'passes-now')
         self.assertEqual(self.replay.classify_diff(spec, {'status': 'ok'})[0], 'passes-now')
 
-
     def test_every_stored_reproducer_must_have_an_explicit_pass(self):
         replays = []
         for relation, seed in (('mirror', 42), ('rotation', (1 << 64) - 1)):
@@ -84,6 +83,7 @@ class NightlyReplayLifecycle(unittest.TestCase):
         self.assertEqual([result['status'] for result in partial], ['passes-now', 'not-replayable'])
         self.assertEqual(self.replay.merge_reports([issue], [partial], commit)[0]['status'], 'not-replayable')
         self.assertEqual(self.replay.merge_reports([issue], [partial[:1]], commit)[0]['status'], 'not-replayable')
+        self.assertEqual(self.replay.merge_reports([issue], [[partial[0], partial[0]]], commit)[0]['status'], 'not-replayable')
         partial[1]['status'] = 'passes-now'
         self.assertEqual(self.replay.merge_reports([issue], [partial], commit)[0]['status'], 'passes-now')
 
@@ -117,6 +117,22 @@ class NightlyReplayLifecycle(unittest.TestCase):
         with patch('builtins.print'):
             self.replay.apply_nightly_actions('owner/repo', [action], gh_runner=updated)
         updated.assert_called_once_with('api', 'repos/owner/repo/issues/8')
+
+        artifact = json.dumps({'test': 'metamorphic/linear/mirror', 'seed': 42, 'model': {'tag': 'new'}})
+        record = {'test': 'metamorphic/linear/mirror', 'seed': '42', 'kind': 'wrong-result-candidate',
+                  'message': 'stress mismatch', 'reduction': '1-minimal', 'artifact': artifact,
+                  'artifactHash': hashlib.sha256(artifact.encode()).hexdigest(),
+                  'path': 'nightly-findings/mirror.finding.json', 'runId': '12'}
+        payload = base64.b64encode(gzip.compress(json.dumps([record]).encode())).decode()
+        new_sighting = {'user': {'login': 'github-actions[bot]'},
+                        'body': f'<!-- nightly-reproducer:v1 {payload} -->\n<!-- nightly-run:12:1 -->'}
+        changed_comments = Mock(side_effect=[
+            json.dumps({"state": "open", "body": old_body, "comments": 1}), json.dumps([[new_sighting]]),
+        ])
+        with patch('builtins.print'):
+            self.replay.apply_nightly_actions('owner/repo', [action], gh_runner=changed_comments)
+        self.assertEqual(changed_comments.call_count, 2)
+        self.assertIn('/issues/8/comments?', changed_comments.call_args.args[-1])
 
 
 class Models(unittest.TestCase):
@@ -520,6 +536,14 @@ class Artifacts(unittest.TestCase):
 
 
 class Workflow(unittest.TestCase):
+
+    @unittest.expectedFailure
+    def test_issue_writer_queue_preserves_pending_publication(self):
+        for workflow, job in (("nightly", "findings"), ("replay-findings", "report")):
+            source = (ROOT / f".github/workflows/{workflow}.yml").read_text()
+            body = re.split(r"^  [\w-]+:$", source.split(f"\n  {job}:\n", 1)[1], maxsplit=1, flags=re.M)[0]
+            with self.subTest(workflow=workflow):
+                self.assertRegex(body, r"\n      queue: max\n")
 
     def test_reporter_and_replay_writers_share_one_concurrency_group(self):
         nightly = (ROOT / '.github/workflows/nightly.yml').read_text()
