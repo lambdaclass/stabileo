@@ -1,7 +1,11 @@
 use super::{
     adaptive::solve_by_adaptive_increments,
     anderson::{Anderson, MAX_ANDERSON_DEPTH},
-    line_search::NewtonLineSearch,
+    broyden::{Broyden, MAX_BROYDEN_MEMORY},
+    line_search::{LineSearch, NewtonLineSearch},
+    newton_krylov::NewtonKrylov,
+    pseudo_transient::PseudoTransient,
+    trust_region::TrustRegion,
 };
 
 pub(crate) struct Linearization {
@@ -13,10 +17,22 @@ pub(crate) trait IncrementalProblem {
     fn begin_increment(&mut self, load_factor: f64);
     fn linearize(&mut self) -> Result<Linearization, String>;
     fn correction(&mut self, lag_tangent: bool) -> Result<Vec<f64>, String>;
+    /// The correction of the last linearization with `damping` times the absolute diagonal of
+    /// the tangent added to it; with zero, `correction(false)`. Asked once, like `correction`.
+    fn damped_correction(&mut self, damping: f64) -> Result<Vec<f64>, String>;
     fn advance(&mut self, step: &[f64]);
     fn state(&self) -> Vec<f64>;
     fn work(&self, step: &[f64]) -> f64;
     fn set_state(&mut self, state: &[f64]);
+    /// The residual of the last linearization, over the unknowns the next three methods share
+    /// (the independent ones, where constraints tie some to others).
+    fn residual(&self) -> Vec<f64>;
+    /// The tangent of the last linearization times `v`. It is gone once `correction` is asked.
+    fn tangent_times(&self, v: &[f64]) -> Vec<f64>;
+    /// K₀⁻¹·rhs with the tangent this increment factorized and kept; `None` when it kept none.
+    fn lagged_solve(&self, rhs: &[f64]) -> Option<Vec<f64>>;
+    /// A vector over those unknowns as a step `advance` takes.
+    fn expand(&self, reduced: &[f64]) -> Vec<f64>;
     fn commit(&mut self) -> Result<(), String>;
     fn rollback(&mut self);
 }
@@ -127,6 +143,12 @@ pub(crate) fn validate(method: IterationMethod) -> Result<(), String> {
         IterationMethod::Anderson { depth } if depth == 0 || depth > MAX_ANDERSON_DEPTH => Err(
             format!("Anderson acceleration needs a depth from 1 to {MAX_ANDERSON_DEPTH}"),
         ),
+        IterationMethod::Broyden { memory } if memory == 0 || memory > MAX_BROYDEN_MEMORY => Err(
+            format!("Broyden's method needs a memory from 1 to {MAX_BROYDEN_MEMORY}"),
+        ),
+        IterationMethod::PseudoTransient { damping } if !(damping.is_finite() && damping > 0.0) => {
+            Err("Pseudo-transient continuation needs a finite, positive first damping".into())
+        }
         _ => Ok(()),
     }
 }
@@ -139,6 +161,26 @@ pub enum IterationMethod {
     ModifiedNewton,
     NewtonLineSearch,
     Anderson { depth: usize },
+    Broyden { memory: usize },
+    NewtonKrylov,
+    /// The line search on the step of the direction named.
+    LineSearch { direction: Direction },
+    /// Pseudo-transient continuation from a first damping of this share of the tangent's
+    /// diagonal, finite and positive.
+    PseudoTransient { damping: f64 },
+    /// Newton inside a trust region, by the dogleg.
+    TrustRegion,
+}
+
+/// Where a step comes from: a new tangent factorized, the increment's first one kept, or the
+/// current tangent applied in conjugate gradients preconditioned by that first one.
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(target_arch = "wasm32", derive(serde::Deserialize))]
+#[cfg_attr(target_arch = "wasm32", serde(rename_all = "camelCase"))]
+pub enum Direction {
+    Newton,
+    ModifiedNewton,
+    NewtonKrylov,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -264,6 +306,46 @@ pub(crate) fn solve_stepped<P: IncrementalProblem + ?Sized>(
             tolerance,
             max_iter,
         ),
+        IterationMethod::Broyden { memory } => run(
+            problem,
+            &Broyden { memory },
+            stepping,
+            n_increments,
+            tolerance,
+            max_iter,
+        ),
+        IterationMethod::NewtonKrylov => run(
+            problem,
+            &NewtonKrylov,
+            stepping,
+            n_increments,
+            tolerance,
+            max_iter,
+        ),
+        IterationMethod::LineSearch { direction } => run(
+            problem,
+            &LineSearch { direction },
+            stepping,
+            n_increments,
+            tolerance,
+            max_iter,
+        ),
+        IterationMethod::PseudoTransient { damping } => run(
+            problem,
+            &PseudoTransient { damping },
+            stepping,
+            n_increments,
+            tolerance,
+            max_iter,
+        ),
+        IterationMethod::TrustRegion => run(
+            problem,
+            &TrustRegion,
+            stepping,
+            n_increments,
+            tolerance,
+            max_iter,
+        ),
     }
 }
 
@@ -289,6 +371,7 @@ mod tests {
         tangents: usize,
         trace: Vec<f64>,
         corrected_from: Vec<f64>,
+        products: std::cell::Cell<usize>,
     }
 
     fn stiffening(u: f64) -> (f64, f64) {
@@ -325,6 +408,7 @@ mod tests {
                 fail_at: None,
                 linearizations: 0,
                 tangents: 0,
+                products: std::cell::Cell::new(0),
                 trace: Vec::new(),
                 corrected_from: Vec::new(),
             }
@@ -401,10 +485,21 @@ mod tests {
                 Some(kept) if lag_tangent => kept.clone(),
                 _ => {
                     self.tangents += 1;
-                    self.lagged = Some(self.tangent.clone());
+                    if lag_tangent {
+                        self.lagged = Some(self.tangent.clone());
+                    }
                     self.tangent.clone()
                 }
             };
+            solve_dense(&tangent, &self.residual)
+        }
+        fn damped_correction(&mut self, damping: f64) -> Result<Vec<f64>, String> {
+            self.corrected_from.push(self.u[0]);
+            self.tangents += 1;
+            let mut tangent = self.tangent.clone();
+            for (i, row) in tangent.iter_mut().enumerate() {
+                row[i] += damping * row[i].abs();
+            }
             solve_dense(&tangent, &self.residual)
         }
         fn advance(&mut self, step: &[f64]) {
@@ -418,6 +513,22 @@ mod tests {
         }
         fn set_state(&mut self, state: &[f64]) {
             self.u.copy_from_slice(state);
+        }
+        fn residual(&self) -> Vec<f64> {
+            self.residual.clone()
+        }
+        fn tangent_times(&self, v: &[f64]) -> Vec<f64> {
+            self.products.set(self.products.get() + 1);
+            self.tangent
+                .iter()
+                .map(|row| row.iter().zip(v).map(|(k, x)| k * x).sum())
+                .collect()
+        }
+        fn lagged_solve(&self, rhs: &[f64]) -> Option<Vec<f64>> {
+            solve_dense(self.lagged.as_ref()?, rhs).ok()
+        }
+        fn expand(&self, reduced: &[f64]) -> Vec<f64> {
+            reduced.to_vec()
         }
         fn commit(&mut self) -> Result<(), String> {
             self.committed = self.u.clone();
@@ -972,6 +1083,325 @@ mod tests {
         assert_eq!(mixed(&state, &correction, &dependent), None);
         let poisoned = vec![(vec![f64::INFINITY, 0.1], vec![-0.05, 0.02])];
         assert_eq!(mixed(&state, &correction, &poisoned), None);
+    }
+
+    #[test]
+    fn broyden_needs_one_tangent_per_increment_and_reaches_newtons_solution() {
+        let load = [4.0, -1.0, 2.5, 0.5, 3.0];
+        for n_increments in [1, 3] {
+            let mut newton = Chain::new(mild, 0.7, &load);
+            solve_by_load_increments(&mut newton, &Newton { lag_tangent: false }, n_increments, 1e-12, 200).unwrap();
+            let mut modified = Chain::new(mild, 0.7, &load);
+            let plain = solve_by_load_increments(&mut modified, &Newton { lag_tangent: true }, n_increments, 1e-10, 2000).unwrap();
+            assert!(plain.converged);
+            for memory in [1, 3, 10] {
+                let mut updated = Chain::new(mild, 0.7, &load);
+                let outcome = solve_by_load_increments(&mut updated, &Broyden { memory }, n_increments, 1e-10, 2000).unwrap();
+                assert!(outcome.converged, "memory {memory}");
+                assert_eq!(updated.tangents, n_increments);
+                assert!(updated.unbalance(1.0) <= 1e-9);
+                for (got, want) in updated.u.iter().zip(&newton.u) {
+                    assert!((got - want).abs() <= 1e-8, "memory {memory}: {got} vs {want}");
+                }
+                assert!(outcome.iterations < plain.iterations, "memory {memory}: {} against {}", outcome.iterations, plain.iterations);
+            }
+        }
+    }
+
+    #[test]
+    fn broyden_with_one_unknown_is_the_secant_method() {
+        let mut spring = Chain::spring(mild, 4.0);
+        let outcome = solve_by_load_increments(&mut spring, &Broyden { memory: 10 }, 1, 1e-12, 200).unwrap();
+        assert!(outcome.converged);
+        let tail: Vec<f64> = spring.trace.iter().copied().filter(|r| *r < 1e-2 && *r > 1e-13).collect();
+        assert!(tail.len() >= 2 && tail.windows(2).all(|pair| pair[1] <= 0.1 * pair[0]), "{:?}", spring.trace);
+        assert!(outcome.iterations <= 14, "{}", outcome.iterations);
+        assert_eq!(spring.tangents, 1);
+    }
+
+    #[test]
+    fn broyden_keeps_the_rules_every_iteration_keeps() {
+        let mut owed = Chain::spring(stiffening, 0.0);
+        owed.owed = true;
+        let outcome = solve_by_load_increments(&mut owed, &Broyden { memory: 5 }, 1, 1e-10, 50).unwrap();
+        assert_eq!((outcome.iterations, outcome.converged, outcome.load_factor), (2, true, 1.0));
+
+        let mut short = Chain::spring(stiffening, 30.0);
+        let outcome = solve_by_load_increments(&mut short, &Broyden { memory: 5 }, 1, 1e-10, 2).unwrap();
+        assert_eq!((outcome.converged, outcome.load_factor), (false, 0.0));
+        assert_eq!(short.u, vec![0.0]);
+        assert_eq!(short.linearizations, 2);
+
+        let mut failing = Chain::spring(stiffening, 30.0);
+        failing.fail_at = Some(3);
+        let error = solve_by_load_increments(&mut failing, &Broyden { memory: 5 }, 2, 1e-10, 50).unwrap_err();
+        assert_eq!(error, "the tangent is singular");
+        assert_eq!(failing.linearizations, 3);
+
+        for memory in [0, MAX_BROYDEN_MEMORY + 1, usize::MAX] {
+            assert_eq!(validate(IterationMethod::Broyden { memory }).unwrap_err(), "Broyden's method needs a memory from 1 to 50");
+        }
+        assert_eq!(validate(IterationMethod::Broyden { memory: 1 }), Ok(()));
+        assert_eq!(validate(IterationMethod::Broyden { memory: MAX_BROYDEN_MEMORY }), Ok(()));
+    }
+
+    #[test]
+    fn the_broyden_step_is_the_secant_update_and_is_dropped_when_it_cannot_be_trusted() {
+        use crate::solver::experimental_nonlinear::broyden::updated;
+        let correction = [0.2, -0.1];
+        assert_eq!(updated(&correction, &[]), Some(vec![0.2, -0.1]));
+
+        let taken = vec![vec![1.0, 0.0]];
+        let step = updated(&correction, &taken).unwrap();
+        assert!((step[0] - 0.25).abs() <= 1e-15 && (step[1] + 0.125).abs() <= 1e-15, "{step:?}");
+
+        let two = vec![vec![1.0, 0.0], vec![0.0, 2.0]];
+        let z = [0.2, -0.1 + 0.2 * 2.0];
+        let expected: Vec<f64> = z.iter().map(|v| v / (1.0 - (2.0 * z[1]) / 4.0)).collect();
+        let step = updated(&correction, &two).unwrap();
+        assert!((step[0] - expected[0]).abs() <= 1e-15 && (step[1] - expected[1]).abs() <= 1e-15, "{step:?} vs {expected:?}");
+
+        assert_eq!(updated(&[1.0, 0.0], &[vec![1.0, 0.0]]), None);
+        assert_eq!(updated(&[1.0 - 1e-9, 0.0], &[vec![1.0, 0.0]]), None);
+        assert_eq!(updated(&[1e-300 * (1.0 - 1e-9), 0.0], &[vec![1e-300, 0.0]]), None);
+        assert!(updated(&[0.999, 0.0], &[vec![1.0, 0.0]]).is_some());
+        assert_eq!(updated(&correction, &[vec![0.0, 0.0]]), None);
+        assert_eq!(updated(&[1.0, 0.0], &[vec![1e-200, 0.0]]), None);
+        assert_eq!(updated(&correction, &[vec![f64::NAN, 1.0]]), None);
+    }
+
+    #[test]
+    fn newton_krylov_takes_newtons_iterations_from_one_tangent_per_increment() {
+        let load = [4.0, -1.0, 2.5, 0.5, 3.0];
+        for n_increments in [1, 3] {
+            let mut newton = Chain::new(mild, 0.7, &load);
+            let exact = solve_by_load_increments(&mut newton, &Newton { lag_tangent: false }, n_increments, 1e-10, 200).unwrap();
+            let mut krylov = Chain::new(mild, 0.7, &load);
+            let outcome = solve_stepped(&mut krylov, IterationMethod::NewtonKrylov, LoadStepping::Equal, n_increments, 1e-10, 200).unwrap();
+            assert!(exact.converged && outcome.converged);
+            assert_eq!(krylov.tangents, n_increments);
+            assert!(krylov.products.get() > 0);
+            assert!(outcome.iterations <= exact.iterations + n_increments, "{} against {}", outcome.iterations, exact.iterations);
+            for (got, want) in krylov.u.iter().zip(&newton.u) {
+                assert!((got - want).abs() <= 1e-8, "{got} vs {want}");
+            }
+        }
+    }
+
+    #[test]
+    fn the_inexact_step_solves_the_newton_equation_to_its_forcing_term() {
+        use crate::solver::experimental_nonlinear::newton_krylov::{inexact, Inexact};
+        let mut chain = Chain::new(mild, 0.7, &[4.0, -1.0, 2.5, 0.5, 3.0]);
+        chain.begin_increment(1.0);
+        chain.linearize().unwrap();
+        assert!(matches!(inexact(&chain), Inexact::NoFactor));
+
+        let first = chain.correction(true).unwrap();
+        chain.advance(&first);
+        chain.linearize().unwrap();
+        let Inexact::Step(step) = inexact(&chain) else { panic!("no step from a positive definite tangent") };
+        let left: Vec<f64> = chain.tangent_times(&step).iter().zip(&chain.residual).map(|(k, r)| r - k).collect();
+        let norm = |v: &[f64]| v.iter().map(|x| x * x).sum::<f64>().sqrt();
+        assert!(norm(&left) <= 1e-3 * norm(&chain.residual), "{} of {}", norm(&left), norm(&chain.residual));
+        assert!(norm(&step) > 0.0);
+    }
+
+    #[test]
+    fn newton_krylov_hands_an_indefinite_tangent_to_the_exact_solve() {
+        fn snapping(u: f64) -> (f64, f64) {
+            (u * u * u - 3.0 * u * u + 2.5 * u, 3.0 * u * u - 6.0 * u + 2.5)
+        }
+        let target = snapping(2.2).0;
+        let mut spring = Chain::spring(snapping, target).starting_at(&[0.3]);
+        spring.begin_increment(1.0);
+        spring.linearize().unwrap();
+        let first = spring.correction(true).unwrap();
+        spring.advance(&first);
+        spring.set_state(&[1.0]);
+        let mut spent = 0;
+        let converged = NewtonKrylov.converge(&mut spring, 1e-10, 60, &mut spent).unwrap();
+        assert!(converged);
+        assert!((spring.u[0] - 2.2).abs() <= 1e-8, "{}", spring.u[0]);
+        assert!(spring.tangents > 1, "the exact solve was never asked");
+    }
+
+    #[test]
+    fn newton_krylov_keeps_the_rules_every_iteration_keeps() {
+        let mut owed = Chain::spring(stiffening, 0.0);
+        owed.owed = true;
+        let outcome = solve_by_load_increments(&mut owed, &NewtonKrylov, 1, 1e-10, 50).unwrap();
+        assert_eq!((outcome.iterations, outcome.converged, outcome.load_factor), (2, true, 1.0));
+
+        let mut short = Chain::spring(stiffening, 30.0);
+        let outcome = solve_by_load_increments(&mut short, &NewtonKrylov, 1, 1e-10, 2).unwrap();
+        assert_eq!((outcome.converged, outcome.load_factor), (false, 0.0));
+        assert_eq!(short.u, vec![0.0]);
+
+        let mut failing = Chain::spring(stiffening, 30.0);
+        failing.fail_at = Some(3);
+        let error = solve_by_load_increments(&mut failing, &NewtonKrylov, 2, 1e-10, 50).unwrap_err();
+        assert_eq!(error, "the tangent is singular");
+        assert_eq!(failing.linearizations, 3);
+        assert_eq!(validate(IterationMethod::NewtonKrylov), Ok(()));
+    }
+
+    #[test]
+    fn a_line_search_on_newtons_direction_is_the_newton_line_search() {
+        for (load, start) in [(0.0, 3.0), (0.0, -2.5), (1.2, 0.0)] {
+            let mut before = Chain::spring(softening, load).starting_at(&[start]);
+            let mut composed = Chain::spring(softening, load).starting_at(&[start]);
+            let old = solve_by_load_increments(&mut before, &NewtonLineSearch, 1, 1e-10, 60).unwrap();
+            let new = solve_by_load_increments(&mut composed, &LineSearch { direction: Direction::Newton }, 1, 1e-10, 60).unwrap();
+            assert_eq!(old, new);
+            assert_eq!(before.u, composed.u);
+            assert_eq!(before.trace, composed.trace);
+        }
+    }
+
+    #[test]
+    fn a_line_search_on_the_krylov_direction_converges_from_one_tangent_per_increment() {
+        let load = [4.0, -1.0, 2.5, 0.5, 3.0];
+        let mut newton = Chain::new(mild, 0.7, &load);
+        solve_by_load_increments(&mut newton, &Newton { lag_tangent: false }, 3, 1e-12, 200).unwrap();
+        for direction in [Direction::NewtonKrylov, Direction::ModifiedNewton] {
+            let mut searched = Chain::new(mild, 0.7, &load);
+            let outcome = solve_stepped(&mut searched, IterationMethod::LineSearch { direction }, LoadStepping::Equal, 3, 1e-10, 400).unwrap();
+            assert!(outcome.converged, "{direction:?}");
+            assert_eq!(searched.tangents, 3, "{direction:?}");
+            assert_eq!(outcome.iterations, searched.linearizations);
+            for (got, want) in searched.u.iter().zip(&newton.u) {
+                assert!((got - want).abs() <= 1e-8, "{direction:?}: {got} vs {want}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_line_search_holds_the_krylov_step_that_would_run_away() {
+        let mut plain = Chain::spring(softening, 0.0).starting_at(&[3.0]);
+        let ran_away = solve_by_load_increments(&mut plain, &NewtonKrylov, 1, 1e-10, 30);
+        assert!(!ran_away.is_ok_and(|outcome| outcome.converged));
+
+        let mut searched = Chain::spring(softening, 0.0).starting_at(&[3.0]);
+        let outcome = solve_by_load_increments(&mut searched, &LineSearch { direction: Direction::NewtonKrylov }, 1, 1e-10, 80).unwrap();
+        assert!(outcome.converged);
+        assert!(searched.u[0].abs() <= 1e-9, "{}", searched.u[0]);
+        assert_eq!(outcome.iterations, searched.linearizations);
+    }
+
+    #[test]
+    fn a_line_search_on_any_direction_keeps_the_rules_every_iteration_keeps() {
+        for direction in [Direction::Newton, Direction::ModifiedNewton, Direction::NewtonKrylov] {
+            let mut owed = Chain::spring(stiffening, 0.0);
+            owed.owed = true;
+            let outcome = solve_by_load_increments(&mut owed, &LineSearch { direction }, 1, 1e-10, 50).unwrap();
+            assert_eq!((outcome.iterations, outcome.converged, outcome.load_factor), (2, true, 1.0), "{direction:?}");
+
+            let mut short = Chain::spring(stiffening, 30.0);
+            let outcome = solve_by_load_increments(&mut short, &LineSearch { direction }, 1, 1e-10, 2).unwrap();
+            assert_eq!((outcome.converged, outcome.load_factor), (false, 0.0), "{direction:?}");
+            assert_eq!(short.u, vec![0.0], "{direction:?}");
+            assert!(short.linearizations <= 2, "{direction:?}");
+
+            let mut failing = Chain::spring(stiffening, 30.0);
+            failing.fail_at = Some(1);
+            let error = solve_by_load_increments(&mut failing, &LineSearch { direction }, 2, 1e-10, 50).unwrap_err();
+            assert_eq!(error, "the tangent is singular", "{direction:?}");
+            assert_eq!(validate(IterationMethod::LineSearch { direction }), Ok(()));
+        }
+    }
+
+    #[test]
+    fn pseudo_transient_continuation_reaches_the_solution_from_any_first_damping() {
+        for damping in [1e-6, 1e-3, 0.1, 1.0, 10.0] {
+            let iteration = PseudoTransient { damping };
+            let mut soft = Chain::spring(softening, 1.3);
+            let outcome = solve_by_load_increments(&mut soft, &iteration, 1, 1e-10, 500).unwrap();
+            assert!(outcome.converged, "{damping}");
+            assert!((soft.u[0] - 1.3_f64.tan()).abs() < 1e-8, "{damping}: {}", soft.u[0]);
+
+            let mut stiff = Chain::spring(stiffening, 30.0);
+            let outcome = solve_by_load_increments(&mut stiff, &iteration, 2, 1e-10, 500).unwrap();
+            assert!(outcome.converged, "{damping}");
+            let (force, _) = stiffening(stiff.u[0]);
+            assert!((force - 30.0).abs() < 1e-8, "{damping}: {force}");
+        }
+    }
+
+    #[test]
+    fn pseudo_transient_continuation_keeps_the_rules_every_iteration_keeps() {
+        let iteration = PseudoTransient { damping: 1e-3 };
+        let mut owed = Chain::spring(stiffening, 0.0);
+        owed.owed = true;
+        let outcome = solve_by_load_increments(&mut owed, &iteration, 1, 1e-10, 50).unwrap();
+        assert_eq!((outcome.iterations, outcome.converged, outcome.load_factor), (2, true, 1.0));
+
+        let mut short = Chain::spring(stiffening, 30.0);
+        let outcome = solve_by_load_increments(&mut short, &iteration, 1, 1e-10, 2).unwrap();
+        assert_eq!((outcome.converged, outcome.load_factor), (false, 0.0));
+        assert_eq!(short.u, vec![0.0]);
+        assert!(short.linearizations <= 2);
+
+        let mut failing = Chain::spring(stiffening, 30.0);
+        failing.fail_at = Some(1);
+        let error = solve_by_load_increments(&mut failing, &iteration, 2, 1e-10, 50).unwrap_err();
+        assert_eq!(error, "the tangent is singular");
+    }
+
+    #[test]
+    fn a_first_damping_the_driver_cannot_run_is_refused() {
+        for damping in [0.0, -1.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert_eq!(
+                validate(IterationMethod::PseudoTransient { damping }).unwrap_err(),
+                "Pseudo-transient continuation needs a finite, positive first damping"
+            );
+        }
+        for damping in [f64::MIN_POSITIVE, 1e-3, 1.0, f64::MAX] {
+            assert_eq!(validate(IterationMethod::PseudoTransient { damping }), Ok(()));
+        }
+    }
+
+    #[test]
+    fn the_trust_region_reaches_the_solution_of_a_softening_and_of_a_stiffening_spring() {
+        let mut soft = Chain::spring(softening, 1.3);
+        let outcome = solve_by_load_increments(&mut soft, &TrustRegion, 1, 1e-10, 200).unwrap();
+        assert!(outcome.converged);
+        assert!((soft.u[0] - 1.3_f64.tan()).abs() < 1e-8, "{}", soft.u[0]);
+
+        for increments in [1, 3] {
+            let mut stiff = Chain::spring(stiffening, 30.0);
+            let outcome = solve_by_load_increments(&mut stiff, &TrustRegion, increments, 1e-10, 200).unwrap();
+            assert!(outcome.converged, "{increments}");
+            let (force, _) = stiffening(stiff.u[0]);
+            assert!((force - 30.0).abs() < 1e-8, "{increments}: {force}");
+        }
+    }
+
+    #[test]
+    fn the_trust_region_keeps_the_rules_every_iteration_keeps() {
+        let mut owed = Chain::spring(stiffening, 0.0);
+        owed.owed = true;
+        let outcome = solve_by_load_increments(&mut owed, &TrustRegion, 1, 1e-10, 50).unwrap();
+        assert_eq!((outcome.iterations, outcome.converged, outcome.load_factor), (2, true, 1.0));
+
+        let mut short = Chain::spring(stiffening, 30.0);
+        let outcome = solve_by_load_increments(&mut short, &TrustRegion, 1, 1e-10, 2).unwrap();
+        assert_eq!((outcome.converged, outcome.load_factor), (false, 0.0));
+        assert_eq!(short.u, vec![0.0]);
+        assert!(short.linearizations <= 2);
+
+        let mut failing = Chain::spring(stiffening, 30.0);
+        failing.fail_at = Some(1);
+        let error = solve_by_load_increments(&mut failing, &TrustRegion, 2, 1e-10, 50).unwrap_err();
+        assert_eq!(error, "the tangent is singular");
+        assert_eq!(validate(IterationMethod::TrustRegion), Ok(()));
+    }
+
+    #[test]
+    fn the_trust_region_keeps_the_factor_its_second_direction_comes_from() {
+        let mut chain = Chain::spring(stiffening, 30.0);
+        let outcome = solve_by_load_increments(&mut chain, &TrustRegion, 1, 1e-10, 200).unwrap();
+        assert!(outcome.converged);
+        assert!(chain.lagged.is_some());
     }
 
     #[test]

@@ -28,6 +28,101 @@ struct Corotational2D<'a> {
     trip_vals: Vec<f64>,
 }
 
+/// The free residual over the independent unknowns.
+pub(super) fn reduced(cs: &Option<FreeConstraintSystem>, free: &[f64]) -> Vec<f64> {
+    if let Some(ref cs) = *cs {
+        cs.reduce_vector(free)
+    } else {
+        free.to_vec()
+    }
+}
+
+/// A vector over the independent unknowns as one over the free DOFs.
+pub(super) fn expanded(cs: &Option<FreeConstraintSystem>, independent: &[f64]) -> Vec<f64> {
+    if let Some(ref cs) = *cs {
+        cs.expand_solution(independent, MasterMotion::Homogeneous)
+    } else {
+        independent.to_vec()
+    }
+}
+
+/// The assembled tangent (dense when `trip_rows` is empty and `k_t` is not) times a vector over
+/// the independent unknowns, reduced again.
+pub(super) fn tangent_product(
+    cs: &Option<FreeConstraintSystem>,
+    (n, nf): (usize, usize),
+    k_t: &[f64],
+    (trip_rows, trip_cols, trip_vals): (&[usize], &[usize], &[f64]),
+    v: &[f64],
+) -> Vec<f64> {
+    let u = expanded(cs, v);
+    let mut w = vec![0.0; nf];
+    if k_t.is_empty() {
+        for ((&i, &j), &value) in trip_rows.iter().zip(trip_cols).zip(trip_vals) {
+            if i < nf && j < nf {
+                w[i] += value * u[j];
+                if i != j {
+                    w[j] += value * u[i];
+                }
+            }
+        }
+    } else {
+        for (i, wi) in w.iter_mut().enumerate() {
+            *wi = (0..nf).map(|j| k_t[i * n + j] * u[j]).sum();
+        }
+    }
+    reduced(cs, &w)
+}
+
+pub(super) fn kept_solve(factor: &Option<CachedTangentFactor>, rhs: &[f64]) -> Option<Vec<f64>> {
+    factor.as_ref().map(|factor| solve_with_cached_factor(factor, rhs))
+}
+
+/// Add `damping` times the absolute diagonal of the free tangent to it, in whichever form it is
+/// assembled. Refuse an unrepresentable diagonal before changing either storage form.
+pub(super) fn damp(
+    (n, nf): (usize, usize),
+    k_t: &mut [f64],
+    (trip_rows, trip_cols, trip_vals): (&mut Vec<usize>, &mut Vec<usize>, &mut Vec<f64>),
+    damping: f64,
+) -> Result<(), String> {
+    let overflow = || "Pseudo-transient damping exceeds the finite tangent range".to_string();
+    if !(damping.is_finite() && damping >= 0.0) {
+        return Err(overflow());
+    }
+    let check = |value: f64| {
+        let shifted = value + damping * value.abs();
+        if value.is_finite() && shifted.is_finite() { Ok(()) } else { Err(overflow()) }
+    };
+    if k_t.is_empty() {
+        let mut diagonal = vec![0.0; nf];
+        for ((&i, &j), &value) in trip_rows.iter().zip(trip_cols.iter()).zip(trip_vals.iter()) {
+            if i == j && i < nf {
+                diagonal[i] += value;
+                if !diagonal[i].is_finite() {
+                    return Err(overflow());
+                }
+            }
+        }
+        for &value in &diagonal {
+            check(value)?;
+        }
+        for (i, value) in diagonal.into_iter().enumerate() {
+            trip_rows.push(i);
+            trip_cols.push(i);
+            trip_vals.push(damping * value.abs());
+        }
+    } else {
+        for i in 0..nf {
+            check(k_t[i * n + i])?;
+        }
+        for i in 0..nf {
+            k_t[i * n + i] += damping * k_t[i * n + i].abs();
+        }
+    }
+    Ok(())
+}
+
 impl incremental::IncrementalProblem for Corotational2D<'_> {
     fn begin_increment(&mut self, load_factor: f64) {
         let nf = self.dof_num.n_free;
@@ -267,6 +362,18 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
         Ok(delta_u_f)
     }
 
+    fn damped_correction(&mut self, damping: f64) -> Result<Vec<f64>, String> {
+        if damping != 0.0 {
+            damp(
+                (self.dof_num.n_total, self.dof_num.n_free),
+                &mut self.k_t,
+                (&mut self.trip_rows, &mut self.trip_cols, &mut self.trip_vals),
+                damping,
+            )?;
+        }
+        incremental::IncrementalProblem::correction(self, false)
+    }
+
     fn advance(&mut self, delta_u_f: &[f64]) {
         self.targets
             .advance(&mut self.u_full, delta_u_f, self.cs.as_ref());
@@ -289,6 +396,28 @@ impl incremental::IncrementalProblem for Corotational2D<'_> {
         if let Some(cs) = self.cs {
             cs.impose_motion(&mut self.u_full);
         }
+    }
+
+    fn residual(&self) -> Vec<f64> {
+        reduced(self.cs, &self.unbalance)
+    }
+
+    fn tangent_times(&self, v: &[f64]) -> Vec<f64> {
+        tangent_product(
+            self.cs,
+            (self.dof_num.n_total, self.dof_num.n_free),
+            &self.k_t,
+            (&self.trip_rows, &self.trip_cols, &self.trip_vals),
+            v,
+        )
+    }
+
+    fn lagged_solve(&self, rhs: &[f64]) -> Option<Vec<f64>> {
+        kept_solve(&self.cached_factor, rhs)
+    }
+
+    fn expand(&self, reduced: &[f64]) -> Vec<f64> {
+        expanded(self.cs, reduced)
     }
 
     fn commit(&mut self) -> Result<(), String> {
@@ -1112,6 +1241,293 @@ mod shared_driver_equivalence {
                 "n {n}: {}",
                 apart(&accelerated, &reference)
             );
+        }
+    }
+
+    #[test]
+    fn broyden_with_adaptive_steps_reaches_the_solution_of_many_small_increments() {
+        let (mut reached, mut cases) = (0, 0);
+        for n in [4, 12, 30] {
+            for (rise, far_support) in [(0.0, None), (0.4, None), (0.4, Some("pinned"))] {
+                let input = frame(n, rise, far_support);
+                let reference = solve_corotational_2d_by(&input, None, 200, 1e-8, 40, IterationMethod::NewtonLineSearch).unwrap();
+                assert!(reference.converged);
+                let stepped = solve_corotational_2d_stepped(&input, None, 100, 1e-8, 4, IterationMethod::Broyden { memory: 10 }, LoadStepping::Adaptive).unwrap();
+                cases += 1;
+                if stepped.converged {
+                    reached += 1;
+                    assert_eq!(stepped.load_factor, 1.0);
+                    assert!(apart(&stepped, &reference) <= 1e-7, "n {n}, rise {rise}: {}", apart(&stepped, &reference));
+                }
+                if far_support.is_some() {
+                    assert!(stepped.converged, "the propped arch of {n} members");
+                }
+            }
+        }
+        assert!(reached + 2 >= cases, "{reached} of {cases}");
+        let refused = solve_corotational_2d_by(&frame(4, 0.0, None), None, 50, 1e-8, 4, IterationMethod::Broyden { memory: 0 });
+        assert_eq!(refused.err().as_deref(), Some("Broyden's method needs a memory from 1 to 50"));
+    }
+
+    #[test]
+    fn newton_krylov_with_adaptive_steps_reaches_the_solution_of_many_small_increments() {
+        let (mut reached, mut cases) = (0, 0);
+        for n in [4, 12, 30] {
+            for (rise, far_support) in [(0.0, None), (0.4, None), (0.4, Some("pinned"))] {
+                let input = frame(n, rise, far_support);
+                let reference = solve_corotational_2d_by(&input, None, 200, 1e-8, 40, IterationMethod::NewtonLineSearch).unwrap();
+                assert!(reference.converged);
+                let stepped = solve_corotational_2d_stepped(&input, None, 30, 1e-8, 4, IterationMethod::NewtonKrylov, LoadStepping::Adaptive).unwrap();
+                cases += 1;
+                if stepped.converged {
+                    reached += 1;
+                    assert_eq!(stepped.load_factor, 1.0);
+                    assert!(apart(&stepped, &reference) <= 1e-7, "n {n}, rise {rise}: {}", apart(&stepped, &reference));
+                }
+                if far_support.is_some() {
+                    assert!(stepped.converged, "the propped arch of {n} members");
+                }
+            }
+        }
+        assert!(reached + 2 >= cases, "{reached} of {cases}");
+    }
+
+    #[test]
+    fn the_line_search_on_newton_krylov_reaches_the_solution_of_many_small_increments() {
+        use crate::solver::experimental_nonlinear::Direction;
+        let searched = IterationMethod::LineSearch { direction: Direction::NewtonKrylov };
+        let (mut reached, mut cases) = (0, 0);
+        for n in [4, 12, 30] {
+            for (rise, far_support) in [(0.0, None), (0.4, None), (0.4, Some("pinned"))] {
+                let input = frame(n, rise, far_support);
+                let reference = solve_corotational_2d_by(&input, None, 200, 1e-8, 40, IterationMethod::NewtonLineSearch).unwrap();
+                assert!(reference.converged);
+                for n_increments in [1, 4] {
+                    let result = solve_corotational_2d_by(&input, None, 200, 1e-8, n_increments, searched).unwrap();
+                    cases += 1;
+                    if result.converged {
+                        reached += 1;
+                        assert_eq!(result.load_factor, 1.0);
+                        assert!(apart(&result, &reference) <= 1e-7, "n {n}, rise {rise}, {n_increments} increments: {}", apart(&result, &reference));
+                    }
+                    if far_support.is_some() {
+                        assert!(result.converged, "the propped arch of {n} members, {n_increments} increments");
+                    }
+                }
+            }
+        }
+        assert!(reached + 2 >= cases, "{reached} of {cases}");
+    }
+
+    #[test]
+    fn the_line_search_on_newton_is_the_line_search_there_was() {
+        use crate::solver::experimental_nonlinear::Direction;
+        for (n, rise, far_support) in [(4, 0.0, None), (12, 0.4, Some("pinned")), (30, 0.4, None)] {
+            let input = frame(n, rise, far_support);
+            let before = solve_corotational_2d_by(&input, None, 200, 1e-8, 4, IterationMethod::NewtonLineSearch).unwrap();
+            let composed = solve_corotational_2d_by(&input, None, 200, 1e-8, 4, IterationMethod::LineSearch { direction: Direction::Newton }).unwrap();
+            assert_eq!(serde_json::to_string(&before).unwrap(), serde_json::to_string(&composed).unwrap());
+        }
+    }
+
+    #[test]
+    fn the_tangent_product_is_the_free_block_times_the_vector_however_the_tangent_is_stored() {
+        let (n, nf) = (4, 3);
+        let full = [
+            [4.0, -1.0, 0.5, 9.0],
+            [-1.0, 3.0, -2.0, 8.0],
+            [0.5, -2.0, 5.0, 7.0],
+            [9.0, 8.0, 7.0, 6.0],
+        ];
+        let dense: Vec<f64> = full.iter().flatten().copied().collect();
+        let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+        for i in 0..n {
+            for j in 0..=i {
+                rows.push(i);
+                cols.push(j);
+                vals.push(full[i][j]);
+            }
+        }
+        for v in [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.3, -2.0, 1.5]] {
+            let expected: Vec<f64> = (0..nf).map(|i| (0..nf).map(|j| full[i][j] * v[j]).sum()).collect();
+            let from_dense = tangent_product(&None, (n, nf), &dense, (&[], &[], &[]), &v);
+            let from_triplets = tangent_product(&None, (n, nf), &[], (&rows, &cols, &vals), &v);
+            for i in 0..nf {
+                assert!((from_dense[i] - expected[i]).abs() <= 1e-14, "dense, row {i}: {} vs {}", from_dense[i], expected[i]);
+                assert!((from_triplets[i] - expected[i]).abs() <= 1e-14, "triplets, row {i}: {} vs {}", from_triplets[i], expected[i]);
+            }
+        }
+    }
+
+    #[test]
+    fn the_tangent_a_frame_assembles_times_its_newton_step_is_its_residual() {
+        for n in [4, 30] {
+            let mut input = frame(n, 0.4, Some("pinned"));
+            for load in input.loads.iter_mut() {
+                if let SolverLoad::Nodal(nodal) = load { nodal.fx *= 0.01; nodal.fz *= 0.01; nodal.my *= 0.01; }
+            }
+            let dof_num = DofNumbering::build_2d(&input);
+            let cs = FreeConstraintSystem::build_2d(&input, &dof_num).unwrap();
+            let asm = assembly::assemble_stiffness_2d(&input, &dof_num);
+            let art = asm.artificial_stiffness_entries();
+            let metric = crate::solver::convergence::EquilibriumMetric::for_2d(&input, &dof_num, cs.as_ref()).unwrap();
+            let zero = vec![0.0; dof_num.n_total];
+            let loads = PlanarLoadPath::increments(&input, None, &dof_num, &asm.inclined_transforms_2d);
+            let supports = vec![0.0; dof_num.n_total - dof_num.n_free];
+            let mut problem = Corotational2D {
+                input: &input, dof_num: &dof_num, cs: &cs, asm: &asm, art: &art, metric: &metric,
+                ns: dof_num.n_free, loads: &loads, f_base: &zero, u_r_base: &supports, u_r_target: &supports,
+                start_internal: &zero, u_full: zero.clone(), u_converged: zero.clone(),
+                sparse_sym_cache: None, conditioning: None, targets: IncrementTargets2D::default(),
+                cached_factor: None, r_f: Vec::new(), unbalance: Vec::new(),
+                k_t: Vec::new(), trip_rows: Vec::new(), trip_cols: Vec::new(), trip_vals: Vec::new(),
+            };
+            use incremental::IncrementalProblem;
+            problem.begin_increment(1.0);
+            problem.linearize().unwrap();
+            let residual = problem.residual();
+            let (k_t, rows, cols, vals) = (problem.k_t.clone(), problem.trip_rows.clone(), problem.trip_cols.clone(), problem.trip_vals.clone());
+            assert_eq!(k_t.is_empty(), dof_num.n_free >= SPARSE_THRESHOLD);
+            let step = problem.correction(false).unwrap();
+            let product = tangent_product(&cs, (dof_num.n_total, dof_num.n_free), &k_t, (&rows, &cols, &vals), &step[..dof_num.n_free]);
+            let scale = residual.iter().fold(0.0f64, |m, r| m.max(r.abs()));
+            assert!(scale > 0.0);
+            for (k, r) in product.iter().zip(&residual) {
+                assert!((k - r).abs() <= 1e-8 * scale, "{n} members: {k} vs {r}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_forced_krylov_step_uses_the_current_tangent_and_keeps_its_factor() {
+        for n in [4, 30] {
+            let mut input = frame(n, 0.4, Some("pinned"));
+            for load in input.loads.iter_mut() {
+                if let SolverLoad::Nodal(nodal) = load { nodal.fx *= 0.01; nodal.fz *= 0.01; nodal.my *= 0.01; }
+            }
+            input.supports.get_mut("2").unwrap().dx = Some(1e-5);
+            let dof_num = DofNumbering::build_2d(&input);
+            let cs = FreeConstraintSystem::build_2d(&input, &dof_num).unwrap();
+            let asm = assembly::assemble_stiffness_2d(&input, &dof_num);
+            let art = asm.artificial_stiffness_entries();
+            let metric = crate::solver::convergence::EquilibriumMetric::for_2d(&input, &dof_num, cs.as_ref()).unwrap();
+            let zero = vec![0.0; dof_num.n_total];
+            let loads = PlanarLoadPath::increments(&input, None, &dof_num, &asm.inclined_transforms_2d);
+            let supports = vec![0.0; dof_num.n_total - dof_num.n_free];
+            let target_supports = crate::solver::linear::prescribed_displacements_2d(&input, &dof_num);
+            let mut problem = Corotational2D {
+                input: &input, dof_num: &dof_num, cs: &cs, asm: &asm, art: &art, metric: &metric,
+                ns: dof_num.n_free, loads: &loads, f_base: &zero, u_r_base: &supports, u_r_target: &target_supports,
+                start_internal: &zero, u_full: zero.clone(), u_converged: zero.clone(),
+                sparse_sym_cache: None, conditioning: None, targets: IncrementTargets2D::default(),
+                cached_factor: None, r_f: Vec::new(), unbalance: Vec::new(),
+                k_t: Vec::new(), trip_rows: Vec::new(), trip_cols: Vec::new(), trip_vals: Vec::new(),
+            };
+            use incremental::{Direction, IncrementalProblem};
+            for target in [0.5, 1.0] {
+                problem.begin_increment(target);
+                assert!(problem.cached_factor.is_none());
+                assert!(problem.linearize().unwrap().forced);
+                assert_eq!(problem.k_t.is_empty(), dof_num.n_free >= SPARSE_THRESHOLD);
+                let exact = problem.correction(false).unwrap();
+                assert!(problem.cached_factor.is_none());
+                let at = problem.linearize().unwrap();
+                assert!(at.forced);
+                let step = Direction::NewtonKrylov.step(&mut problem, at.forced).unwrap();
+                assert!(problem.cached_factor.is_some());
+                assert_eq!(step.len(), exact.len());
+                for (actual, expected) in step.iter().zip(&exact) {
+                    assert!((actual - expected).abs() <= 1e-12 * (1.0 + expected.abs()));
+                }
+                problem.advance(&step);
+                assert!(!problem.linearize().unwrap().forced);
+            }
+        }
+    }
+
+    #[test]
+    fn pseudo_transient_continuation_reaches_the_solution_of_many_small_increments() {
+        for n in [4, 12, 30] {
+            for (rise, far_support) in [(0.0, None), (0.4, None), (0.4, Some("pinned"))] {
+                let input = frame(n, rise, far_support);
+                let reference = solve_corotational_2d_by(&input, None, 200, 1e-8, 40, IterationMethod::NewtonLineSearch).unwrap();
+                assert!(reference.converged);
+                let damped = solve_corotational_2d_by(&input, None, 2000, 1e-8, 4, IterationMethod::PseudoTransient { damping: 1e-3 }).unwrap();
+                assert!(damped.converged, "n {n}, rise {rise}, {far_support:?}");
+                assert!(apart(&damped, &reference) <= 1e-6, "n {n}, rise {rise}, {far_support:?}: {}", apart(&damped, &reference));
+            }
+        }
+        let refused = solve_corotational_2d_by(&frame(4, 0.0, None), None, 50, 1e-8, 4, IterationMethod::PseudoTransient { damping: 0.0 });
+        assert_eq!(refused.unwrap_err(), "Pseudo-transient continuation needs a finite, positive first damping");
+    }
+
+    #[test]
+    fn damping_adds_a_share_of_the_absolute_diagonal_however_the_tangent_is_stored() {
+        let (n, nf) = (3, 2);
+        let mut dense = vec![4.0, 1.0, 9.0, 1.0, -2.0, 9.0, 9.0, 9.0, 7.0];
+        damp((n, nf), &mut dense, (&mut Vec::new(), &mut Vec::new(), &mut Vec::new()), 0.5).unwrap();
+        assert_eq!(dense, vec![6.0, 1.0, 9.0, 1.0, -1.0, 9.0, 9.0, 9.0, 7.0]);
+
+        let (mut rows, mut cols, mut vals) = (vec![0, 0, 1, 0, 1, 2], vec![0, 0, 0, 1, 1, 2], vec![3.0, 1.0, 1.0, 1.0, -2.0, 7.0]);
+        damp((n, nf), &mut [], (&mut rows, &mut cols, &mut vals), 0.5).unwrap();
+        let mut assembled = vec![0.0; n * n];
+        for ((i, j), value) in rows.iter().zip(&cols).zip(&vals) {
+            assembled[i * n + j] += value;
+        }
+        assert_eq!(assembled, vec![6.0, 1.0, 0.0, 1.0, -1.0, 0.0, 0.0, 0.0, 7.0]);
+    }
+
+    #[test]
+    fn overflowing_damping_does_not_modify_the_tangent() {
+        for (diagonal, damping) in [(2.0, f64::MAX), (f64::MAX, 1.0)] {
+            let mut dense = vec![diagonal];
+            assert!(damp((1, 1), &mut dense, (&mut Vec::new(), &mut Vec::new(), &mut Vec::new()), damping).is_err());
+            assert_eq!(dense, vec![diagonal]);
+            let (mut rows, mut cols, mut vals) = (vec![0], vec![0], vec![diagonal]);
+            assert!(damp((1, 1), &mut [], (&mut rows, &mut cols, &mut vals), damping).is_err());
+            assert_eq!((rows, cols, vals), (vec![0], vec![0], vec![diagonal]));
+        }
+    }
+
+    #[test]
+    fn damping_refusal_is_atomic_even_after_finite_diagonal_entries() {
+        let original = vec![1.0, 0.0, 0.0, f64::MAX];
+        let mut dense = original.clone();
+        assert!(damp((2, 2), &mut dense, (&mut Vec::new(), &mut Vec::new(), &mut Vec::new()), 1.0).is_err());
+        assert_eq!(dense, original);
+        // Overflow while accumulating duplicate sparse diagonal entries also refuses unchanged.
+        let (mut rows, mut cols, mut vals) = (vec![0, 1, 1], vec![0, 1, 1], vec![1.0, f64::MAX, f64::MAX]);
+        let original = (rows.clone(), cols.clone(), vals.clone());
+        assert!(damp((2, 2), &mut [], (&mut rows, &mut cols, &mut vals), 1.0).is_err());
+        assert_eq!((rows, cols, vals), original);
+        for damping in [f64::NAN, f64::INFINITY, -1.0] {
+            let mut dense = vec![1.0];
+            assert!(damp((1, 1), &mut dense, (&mut Vec::new(), &mut Vec::new(), &mut Vec::new()), damping).is_err());
+            assert_eq!(dense, vec![1.0]);
+        }
+    }
+
+    #[test]
+    fn overflowing_damping_is_refused_by_the_planar_solver() {
+        for n in [4, 30] {
+            let input = frame(n, 0.0, None);
+            let error = solve_corotational_2d_by(&input, None, 50, 1e-8, 1,
+                IterationMethod::PseudoTransient { damping: f64::MAX }).unwrap_err();
+            assert_eq!(error, "Pseudo-transient damping exceeds the finite tangent range");
+        }
+    }
+
+    #[test]
+    fn the_trust_region_reaches_the_solution_of_many_small_increments() {
+        for n in [4, 12, 30] {
+            for (rise, far_support) in [(0.0, None), (0.4, None), (0.4, Some("pinned"))] {
+                let input = frame(n, rise, far_support);
+                let reference = solve_corotational_2d_by(&input, None, 200, 1e-8, 40, IterationMethod::NewtonLineSearch).unwrap();
+                assert!(reference.converged);
+                let bounded = solve_corotational_2d_by(&input, None, 1000, 1e-8, 4, IterationMethod::TrustRegion).unwrap();
+                assert!(bounded.converged, "n {n}, rise {rise}, {far_support:?}");
+                assert!(apart(&bounded, &reference) <= 1e-6, "n {n}, rise {rise}, {far_support:?}: {}", apart(&bounded, &reference));
+            }
         }
     }
 
