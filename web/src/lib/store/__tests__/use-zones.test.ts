@@ -21,6 +21,7 @@ import { addLoadZone, syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { serializeProject, deserializeProject } from '../file';
 import { zoneOverlap, zoneStatus, zoneUnsupported, zoneUseOf } from '../../model/use-zones';
 import { findOccupancy } from '../../codes/cirsoc101/live-loads';
+import { tp } from '../../i18n';
 import type { AnalysisResults3D } from '../../engine/types-3d';
 import type { DefinitionModel } from '../../model/loads/floor-definitions';
 
@@ -257,6 +258,83 @@ describe('use zones over two floors', () => {
     const fz = (res as AnalysisResults3D).reactions.reduce((s, x) => s + x.fz, 0);
     // The zone covers plate A less its hole: 2.5 × 29.
     expect(fz).toBeCloseTo(2.5 * 29, 5);
+  });
+
+  const replayCornerAudit = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
+  const reviewedTrapezoids = [
+    { width: 4, topWidth: 3, height: 2, clippedWidth: 3, shares: [-3, 3, -4, 4] },
+    { width: 2, topWidth: 1, height: 1, clippedWidth: 1, shares: [1, -1, 2, -2] },
+  ];
+  const cornerAuditRoutes = ['case', 'case async', 'linear', 'linear async', 'pdelta', 'pdelta async', 'uplift', 'uplift async', 'notional'];
+  replayCornerAudit.each([
+    ...reviewedTrapezoids.flatMap(geometry => cornerAuditRoutes.map(route => ({ ...geometry, route, perturb: true }))),
+    ...reviewedTrapezoids.map(geometry => ({ ...geometry, route: 'case', perturb: false })),
+    { ...reviewedTrapezoids[0]!, route: 'restored project', perturb: true },
+  ])('known wrong result: #2607 rejects clipped $width-to-$topWidth quad on $route (perturbed $perturb)', async ({
+    width, topWidth, height, clippedWidth, shares, route, perturb,
+  }) => {
+    const corners = [[0, 0], [width, 0], [topWidth, height], [0, height]] as const;
+    const nodes = corners.map(([x, y]) => modelStore.addNode(x, y, 3));
+    for (const id of nodes) modelStore.addSupport(id, 'pinned3d');
+    const quadId = modelStore.addQuad(nodes as [number, number, number, number], 1, 0.15);
+    const zoneId = zone([[0, 0], [clippedWidth, 0], [clippedWidth, height], [0, height]], 3, 'Oficina');
+    setZoneUse([zoneId], { occupancy: 'oficina', provenance: 'confirmed' });
+    applyZoneLoadPlan(zoneLoadPlan()!);
+    if (route === 'restored project') {
+      const saved = serializeProject();
+      modelStore.clear();
+      expect(deserializeProject(saved)).toBe(true);
+    }
+    syncDefinedLoadsForAnalysis();
+    const load = modelStore.loads.find(l => l.type === 'surface3d' && l.data.fromDef !== undefined);
+    if (load?.type !== 'surface3d') throw new Error('Expected a zone surface load');
+    const caseId = load.data.caseId!;
+    const loadCase = modelStore.model.loadCases.find(c => c.id === caseId)!;
+    for (const combo of modelStore.model.combinations) modelStore.removeCombination(combo.id);
+    if (route === 'notional') {
+      expect(modelStore.updateLoadCaseFields(caseId, { reference: true })).toBe(true);
+      const id = modelStore.addLoadCase('Notional from the zone', 'L');
+      expect(modelStore.updateLoadCaseFields(id, { notional: { sourceCaseId: caseId, ratio: 0.002, dir: '+X' } })).toBe(true);
+      modelStore.addCombination('Notional from the zone', [{ caseId: id, factor: 1 }]);
+    } else {
+      modelStore.addCombination('Zone live load', [{ caseId, factor: 2 }]);
+    }
+    if (route.startsWith('uplift')) modelStore.updateSupport(nodes[0]!, { uplift: true });
+    modelStore.setAnalysis({ perCombination: route.startsWith('pdelta') ? 'pdelta' : 'linear' });
+
+    const delta = shares.map(share => share / 16);
+    expect(delta.reduce((sum, fz) => sum + fz, 0)).toBe(0);
+    for (const axis of [0, 1] as const) {
+      expect(delta.reduce((sum, fz, i) => sum + fz * corners[i]![axis], 0)).toBe(0);
+    }
+    const original = shellIntegration.shellLoadForces;
+    let observed = false;
+    const integration = vi.spyOn(shellIntegration, 'shellLoadForces').mockImplementation((kind, points, spec) => {
+      const result = original(kind, points, spec);
+      if (result && kind === 'quad' && spec.region) {
+        observed = true;
+        if (perturb) {
+          result.forces.forEach((force, i) => {
+            const changed = force[2] + delta[i]!;
+            expect(Math.sign(changed)).toBe(Math.sign(force[2]));
+            force[2] = changed;
+          });
+        }
+      }
+      return result;
+    });
+    try {
+      const result = route === 'case' || route === 'restored project' ? modelStore.solve3D(false, false, true)
+        : route === 'case async' ? await modelStore.solve3DAsync(false, false, true)
+        : route.endsWith('async') ? await modelStore.solveCombinations3DParallel(false, false, true)
+        : modelStore.solveCombinations3D(false, false, true);
+      expect(observed).toBe(true);
+      expect(result).toBe(tp('svc.accountingUnsupported', {
+        case: `#${caseId} (${loadCase.name})`, kind: 'surface3d', id: quadId,
+      }));
+    } finally {
+      integration.mockRestore();
+    }
   });
 
   it.each([
