@@ -8,6 +8,7 @@ import { t } from '../i18n';
 import { localizeEngineText } from '../i18n/engine-text';
 import { withoutSettlement } from './settlement-case';
 import { computeDiagramValueAt } from './diagrams';
+import { inwardEnvelopeEndIndices } from './member-diagram';
 import { locateAxle, locateAxlePlacement, checkAxlePath, referenceGrid, referenceStation, type ReferencePosition, type RouteSegment } from './moving-axle-station';
 import { axleFaceForce, MovingSample, recoverAxleFace, type AxleFace, type FaceLoads } from './moving-sample';
 
@@ -508,8 +509,9 @@ function includeAxleFaces(full: FullEnvelope, faces: PlanarSweepResults['faces']
       const ranges = faces.get(element.elementId)?.[kind];
       if (!ranges) continue;
       const forces = byId.get(element.elementId)!;
+      const indices = inwardEnvelopeEndIndices(element, forces.length);
       for (const end of [0, 1] as const) {
-        const index = end === 0 ? 0 : element.tPositions.length - 1;
+        const index = indices[end];
         const { min, max } = ranges[end];
         element.posValues[index] = Math.max(element.posValues[index], max);
         element.negValues[index] = Math.min(element.negValues[index], min);

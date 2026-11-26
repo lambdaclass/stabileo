@@ -503,10 +503,11 @@ export function envelopeMemberEndValues(member: MemberEndRecord, kind: string): 
   if (!byKind) return undefined;
   const curve = byKind.get(kind)?.get(member.elementId);
   if (!curve) throw unavailableDiagramExtrema();
-  const values = memberEnvelopeOrdinates(curve, member.length);
-  const i = values[0], j = values.at(-1);
-  if (i?.t !== 0 || j?.t !== 1) throw unavailableDiagramExtrema();
-  return [i.value, j.value];
+  const [i, j] = inwardEnvelopeEndIndices(curve, member.length);
+  return [
+    absoluteEnvelopeBound(curve.posValues[i] ?? 0, curve.negValues[i] ?? 0),
+    absoluteEnvelopeBound(curve.posValues[j] ?? 0, curve.negValues[j] ?? 0),
+  ];
 }
 
 export function inwardMemberEndValues(
@@ -527,6 +528,22 @@ function isInwardEndpointFace(t: number, right?: boolean): boolean {
   return face === undefined || right === undefined || face === right;
 }
 
+export function inwardEnvelopeEndIndices(diagram: ElementEnvelopeDiagram, length: number): [number, number] {
+  const last = diagram.tPositions.length - 1;
+  const jumps = envelopeJumpCuts(diagram, length);
+  const inwardIndex = (end: 0 | 1, edge: number, left: number) => {
+    const hasJump = jumps.some(({ index }) => index === left);
+    const index = hasJump ? left + Number(memberEndFace(end)) : edge;
+    if (diagram.tPositions[index] !== end) throw unavailableDiagramExtrema();
+    return index;
+  };
+  return [inwardIndex(0, 0, 0), inwardIndex(1, last, last - 1)];
+}
+
+function absoluteEnvelopeBound(pos: number, neg: number): number {
+  return Math.abs(neg) > Math.abs(pos) ? neg : pos;
+}
+
 function memberEnvelopeBounds(diagram: ElementEnvelopeDiagram, length: number) {
   const faces = new Map<number, { x: number; side: 'left' | 'right' }>();
   for (const { index, distance: x } of envelopeJumpCuts(diagram, length)) {
@@ -543,7 +560,7 @@ function memberEnvelopeBounds(diagram: ElementEnvelopeDiagram, length: number) {
 
 export function memberEnvelopeOrdinates(diagram: ElementEnvelopeDiagram, length: number) {
   return memberEnvelopeBounds(diagram, length).map(({ pos, neg, ...station }) => ({
-    ...station, value: Math.abs(neg) > Math.abs(pos) ? neg : pos,
+    ...station, value: absoluteEnvelopeBound(pos, neg),
   }));
 }
 

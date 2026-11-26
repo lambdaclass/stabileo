@@ -524,10 +524,9 @@ it('#2101 — browser axle-face shear excludes opposing endpoint point loads', a
   }
 });
 
-const inwardAxleRegression = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
 for (const [mode, run] of [['sync', solveMovingLoads], ['async', solveMovingLoadsAsync]] as const) {
   for (const withJumpCuts of [true, false]) {
-    inwardAxleRegression(`known wrong result: #2581 ${mode} moving axle limits reach both inward rows (jump metadata: ${withJumpCuts})`, async () => {
+    it(`#2581 ${mode} moving axle limits reach both inward rows (jump metadata: ${withJumpCuts})`, async () => {
       const x = 4, z = 3, length = Math.hypot(x, z), weight = 100;
       const p = 20, px = 30;
       const { plane } = reviewSpan(x, z, true);
