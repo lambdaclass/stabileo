@@ -30,6 +30,7 @@
  *
  * Pure of stores: the model and its combinations come in, results go out.
  */
+import { memberEndForces3D } from './diagrams-3d';
 import { pointGlobal } from './member-point-loads';
 import { modelNumberRefusal } from './model-input-numbers';
 import { plateAnalysisRefusal } from './plate-analysis-refusal';
@@ -216,7 +217,8 @@ export function tauBOf(pr: number, pns: number): number {
 function compression(results: AnalysisResults3D): Map<number, number> {
   const out = new Map<number, number>();
   for (const f of results.elementForces ?? []) {
-    const c = Math.max(-(f.nStart ?? 0), -(f.nEnd ?? 0), 0);
+    const [i, j] = memberEndForces3D(f, 'axial');
+    const c = Math.max(-(i ?? 0), -(j ?? 0), 0);
     out.set(f.elementId, c);
   }
   return out;

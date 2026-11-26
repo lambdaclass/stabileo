@@ -26,7 +26,7 @@ import { verificationStore } from '../store/verification.svelte';
 import { discretizationStore } from '../store/discretization.svelte';
 import { createReactionArrow, createConstraintForceArrow } from '../three/create-load-arrow';
 import { dofQuantity } from '../utils/units';
-import type { Diagram3DKind } from '../engine/diagrams-3d';
+import { memberEndForces3D, type Diagram3DKind } from '../engine/diagrams-3d';
 import type { Displacement3D } from '../engine/types-3d';
 import { timeHistoryView } from '../store/time-history-view.svelte';
 import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellNodalColors, displaceShellFace, type HeatmapVariable } from '../three/stress-heatmap';
@@ -532,7 +532,8 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
       if (group) showOriginalMeshes(group, true);
       const ef = forcesMap.get(id);
       if (!ef) return;
-      const nAvg = (ef.nStart + ef.nEnd) / 2;
+      const [ni, nj] = memberEndForces3D(ef, 'axial');
+      const nAvg = (ni + nj) / 2;
       const c = axialForceColor(nAvg);
       if (group) setGroupColor(group, c);
       // The batched wireframe primary is where a plain member's colour lives:

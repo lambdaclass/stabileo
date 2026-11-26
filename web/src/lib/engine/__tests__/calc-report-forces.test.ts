@@ -340,10 +340,7 @@ it.each([
   expect(row?.slice(1).map(num)).toEqual([4, 8, 8, length]);
 });
 
-
-const inwardEndRegression = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
-
-inwardEndRegression('known wrong result: #2581 reads both planar ends inside a point-load jump in the full report', async () => {
+it('known wrong result: #2581 reads both planar ends inside a point-load jump in the full report', async () => {
   await initSolver();
   const length = 4, tip = 24, point = 15;
   const input: SolverInput = {

@@ -1,3 +1,5 @@
+import { memberEndForces2D, memberEndSections2D } from '../engine/diagrams';
+import { memberEndSections3D } from '../engine/diagrams-3d';
 import { resultComponents } from '../axes/result-components';
 /**
  * Excel Export Module
@@ -174,12 +176,13 @@ function createSummarySheet(): Xlsx.WorkSheet {
       maxDisp = Math.max(maxDisp, mag);
     }
     for (const ef of r3d.elementForces) {
-      maxN = Math.max(maxN, Math.abs(ef.nStart), Math.abs(ef.nEnd));
-      maxVy = Math.max(maxVy, Math.abs(ef.vyStart), Math.abs(ef.vyEnd));
-      maxVz = Math.max(maxVz, Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
-      maxMx = Math.max(maxMx, Math.abs(ef.mxStart), Math.abs(ef.mxEnd));
-      maxMy = Math.max(maxMy, Math.abs(ef.myStart), Math.abs(ef.myEnd));
-      maxMz = Math.max(maxMz, Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
+      const [i, j] = memberEndSections3D(ef);
+      maxN = Math.max(maxN, Math.abs(i.n), Math.abs(j.n));
+      maxVy = Math.max(maxVy, Math.abs(i.vy), Math.abs(j.vy));
+      maxVz = Math.max(maxVz, Math.abs(i.vz), Math.abs(j.vz));
+      maxMx = Math.max(maxMx, Math.abs(i.mx), Math.abs(j.mx));
+      maxMy = Math.max(maxMy, Math.abs(i.my), Math.abs(j.my));
+      maxMz = Math.max(maxMz, Math.abs(i.mz), Math.abs(j.mz));
     }
     data.push([t('excel.maxDisplacement'), (maxDisp * 1000).toFixed(4), 'mm']);
     data.push([t('excel.maxN'), maxN.toFixed(2), 'kN']);
@@ -211,7 +214,8 @@ function createSummarySheet(): Xlsx.WorkSheet {
 
     let maxAxial = 0;
     for (const ef of r2d.elementForces) {
-      maxAxial = Math.max(maxAxial, Math.abs(ef.nStart), Math.abs(ef.nEnd));
+      const [ni, nj] = memberEndForces2D(ef, 'axial');
+      maxAxial = Math.max(maxAxial, Math.abs(ni), Math.abs(nj));
     }
     data.push([t('excel.maxAxial'), maxAxial.toFixed(2), 'kN']);
     data.push([]);
@@ -296,13 +300,14 @@ function createElementsSheet(): Xlsx.WorkSheet {
     if (hasResults && is3D && r3d) {
       const f = r3d.elementForces.find(f => f.elementId === elem.id);
       if (f) {
+        const [i, j] = memberEndSections3D(f);
         row.push(
-          Number(f.nStart.toFixed(4)), Number(f.nEnd.toFixed(4)),
-          Number(f.vyStart.toFixed(4)), Number(f.vyEnd.toFixed(4)),
-          Number(f.vzStart.toFixed(4)), Number(f.vzEnd.toFixed(4)),
-          Number(f.mxStart.toFixed(4)), Number(f.mxEnd.toFixed(4)),
-          Number(f.myStart.toFixed(4)), Number(f.myEnd.toFixed(4)),
-          Number(f.mzStart.toFixed(4)), Number(f.mzEnd.toFixed(4)),
+          Number(i.n.toFixed(4)), Number(j.n.toFixed(4)),
+          Number(i.vy.toFixed(4)), Number(j.vy.toFixed(4)),
+          Number(i.vz.toFixed(4)), Number(j.vz.toFixed(4)),
+          Number(i.mx.toFixed(4)), Number(j.mx.toFixed(4)),
+          Number(i.my.toFixed(4)), Number(j.my.toFixed(4)),
+          Number(i.mz.toFixed(4)), Number(j.mz.toFixed(4)),
         );
       } else {
         for (let i = 0; i < 12; i++) row.push('-');
@@ -310,13 +315,14 @@ function createElementsSheet(): Xlsx.WorkSheet {
     } else if (hasResults && r2d) {
       const forces = r2d.elementForces.find(f => f.elementId === elem.id);
       if (forces) {
+        const [i, j] = memberEndSections2D(forces);
         row.push(
-          Number(forces.nStart.toFixed(4)), Number(forces.nEnd.toFixed(4)),
-          Number(forces.vStart.toFixed(4)), Number(forces.vEnd.toFixed(4)),
-          Number(forces.mStart.toFixed(4)), Number(forces.mEnd.toFixed(4)),
-          Number(Math.max(Math.abs(forces.nStart), Math.abs(forces.nEnd)).toFixed(4)),
-          Number(Math.max(Math.abs(forces.vStart), Math.abs(forces.vEnd)).toFixed(4)),
-          Number(Math.max(Math.abs(forces.mStart), Math.abs(forces.mEnd)).toFixed(4)),
+          Number(i.n.toFixed(4)), Number(j.n.toFixed(4)),
+          Number(i.v.toFixed(4)), Number(j.v.toFixed(4)),
+          Number(i.m.toFixed(4)), Number(j.m.toFixed(4)),
+          Number(Math.max(Math.abs(i.n), Math.abs(j.n)).toFixed(4)),
+          Number(Math.max(Math.abs(i.v), Math.abs(j.v)).toFixed(4)),
+          Number(Math.max(Math.abs(i.m), Math.abs(j.m)).toFixed(4)),
         );
       } else {
         row.push('-', '-', '-', '-', '-', '-', '-', '-', '-');
@@ -567,9 +573,9 @@ export function combinationPeakRows(): Array<[string, number, number, number, nu
   const absMax = (vals: number[]) => vals.reduce((m, v) => (Number.isFinite(v) ? Math.max(m, Math.abs(v)) : m), 0);
   const peaks2D = (r: AnalysisResults): Peaks => ({
     disp: r.displacements.reduce((m, d) => Math.max(m, Math.hypot(d.ux, d.uz)), 0),
-    moment: absMax(r.elementForces.flatMap((f) => [f.mStart, f.mEnd])),
-    shear: absMax(r.elementForces.flatMap((f) => [f.vStart, f.vEnd])),
-    axial: absMax(r.elementForces.flatMap((f) => [f.nStart, f.nEnd])),
+    moment: absMax(r.elementForces.flatMap(f => memberEndForces2D(f, 'moment'))),
+    shear: absMax(r.elementForces.flatMap(f => memberEndForces2D(f, 'shear'))),
+    axial: absMax(r.elementForces.flatMap(f => memberEndForces2D(f, 'axial'))),
   });
 
   let rows: Array<[number, Peaks]>;

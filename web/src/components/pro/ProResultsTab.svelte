@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { memberEndSections3D } from '../../lib/engine/diagrams-3d';
   import { resultComponents } from '../../lib/axes/result-components';
   import { axesStore } from '../../lib/axes/axes.svelte';
   import { userDof } from '../../lib/axes/typed-frame';
@@ -835,24 +836,25 @@
             </thead>
             <tbody>
               {#each results.elementForces as ef}
+                {@const [i, j] = memberEndSections3D(ef)}
                 <tr onclick={() => { uiStore.selectMode = 'elements'; uiStore.selectElement(ef.elementId, false); }} style="cursor:pointer">
                   <td class="col-id" rowspan="2">{ef.elementId}</td>
                   <td class="col-end">i</td>
-                  <td class="col-num">{fmtQ(ef.nStart, 'force')}</td>
-                  <td class="col-num">{fmtQ(ef.vyStart, 'force')}</td>
-                  <td class="col-num">{fmtQ(ef.vzStart, 'force')}</td>
-                  <td class="col-num">{fmtQ(ef.mxStart, 'moment')}</td>
-                  <td class="col-num">{fmtQ(ef.myStart, 'moment')}</td>
-                  <td class="col-num">{fmtQ(ef.mzStart, 'moment')}</td>
+                  <td class="col-num">{fmtQ(i.n, 'force')}</td>
+                  <td class="col-num">{fmtQ(i.vy, 'force')}</td>
+                  <td class="col-num">{fmtQ(i.vz, 'force')}</td>
+                  <td class="col-num">{fmtQ(i.mx, 'moment')}</td>
+                  <td class="col-num">{fmtQ(i.my, 'moment')}</td>
+                  <td class="col-num">{fmtQ(i.mz, 'moment')}</td>
                 </tr>
                 <tr>
                   <td class="col-end">j</td>
-                  <td class="col-num">{fmtQ(ef.nEnd, 'force')}</td>
-                  <td class="col-num">{fmtQ(ef.vyEnd, 'force')}</td>
-                  <td class="col-num">{fmtQ(ef.vzEnd, 'force')}</td>
-                  <td class="col-num">{fmtQ(ef.mxEnd, 'moment')}</td>
-                  <td class="col-num">{fmtQ(ef.myEnd, 'moment')}</td>
-                  <td class="col-num">{fmtQ(ef.mzEnd, 'moment')}</td>
+                  <td class="col-num">{fmtQ(j.n, 'force')}</td>
+                  <td class="col-num">{fmtQ(j.vy, 'force')}</td>
+                  <td class="col-num">{fmtQ(j.vz, 'force')}</td>
+                  <td class="col-num">{fmtQ(j.mx, 'moment')}</td>
+                  <td class="col-num">{fmtQ(j.my, 'moment')}</td>
+                  <td class="col-num">{fmtQ(j.mz, 'moment')}</td>
                 </tr>
               {/each}
             </tbody>

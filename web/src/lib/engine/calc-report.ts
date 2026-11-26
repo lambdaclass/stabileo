@@ -1,3 +1,5 @@
+import { memberEndSections2D } from './diagrams';
+import { memberEndSections3D } from './diagrams-3d';
 import { resultComponents } from '../axes/result-components';
 /**
  * Basic Structural Calc-Book Report Generator
@@ -512,12 +514,13 @@ function buildForcesSection(data: CalcReportData, num = '5'): string {
     // Summary
     let maxN = 0, maxVy = 0, maxVz = 0, maxMy = 0, maxMz = 0, maxMx = 0;
     for (const ef of forces) {
-      maxN = Math.max(maxN, Math.abs(ef.nStart), Math.abs(ef.nEnd));
-      maxVy = Math.max(maxVy, Math.abs(ef.vyStart), Math.abs(ef.vyEnd));
-      maxVz = Math.max(maxVz, Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
-      maxMx = Math.max(maxMx, Math.abs(ef.mxStart), Math.abs(ef.mxEnd));
-      maxMy = Math.max(maxMy, Math.abs(ef.myStart), Math.abs(ef.myEnd));
-      maxMz = Math.max(maxMz, Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
+      const [i, j] = memberEndSections3D(ef);
+      maxN = Math.max(maxN, Math.abs(i.n), Math.abs(j.n));
+      maxVy = Math.max(maxVy, Math.abs(i.vy), Math.abs(j.vy));
+      maxVz = Math.max(maxVz, Math.abs(i.vz), Math.abs(j.vz));
+      maxMx = Math.max(maxMx, Math.abs(i.mx), Math.abs(j.mx));
+      maxMy = Math.max(maxMy, Math.abs(i.my), Math.abs(j.my));
+      maxMz = Math.max(maxMz, Math.abs(i.mz), Math.abs(j.mz));
     }
 
     h.push(`<h2>${num}.1 ${t('calcReport.forceSummary')}</h2>`);
@@ -536,8 +539,9 @@ function buildForcesSection(data: CalcReportData, num = '5'): string {
     h.push(`<table style="font-size:7.5pt"><tr><th>${t('table.elemLabel')}</th><th>${t('tables.end')}</th><th>N (${uf})</th><th>Vy (${uf})</th><th>Vz (${uf})</th><th>Mx (${um})</th><th>My (${um})</th><th>Mz (${um})</th></tr>`);
     const showForces = condensed ? forces.slice(0, 30) : forces;
     for (const ef of showForces) {
-      h.push(`<tr><td rowspan="2">${ef.elementId}</td><td>I</td><td class="num">${F(ef.nStart)}</td><td class="num">${F(ef.vyStart)}</td><td class="num">${F(ef.vzStart)}</td><td class="num">${M(ef.mxStart)}</td><td class="num">${M(ef.myStart)}</td><td class="num">${M(ef.mzStart)}</td></tr>`);
-      h.push(`<tr><td>J</td><td class="num">${F(ef.nEnd)}</td><td class="num">${F(ef.vyEnd)}</td><td class="num">${F(ef.vzEnd)}</td><td class="num">${M(ef.mxEnd)}</td><td class="num">${M(ef.myEnd)}</td><td class="num">${M(ef.mzEnd)}</td></tr>`);
+      const [i, j] = memberEndSections3D(ef);
+      h.push(`<tr><td rowspan="2">${ef.elementId}</td><td>I</td><td class="num">${F(i.n)}</td><td class="num">${F(i.vy)}</td><td class="num">${F(i.vz)}</td><td class="num">${M(i.mx)}</td><td class="num">${M(i.my)}</td><td class="num">${M(i.mz)}</td></tr>`);
+      h.push(`<tr><td>J</td><td class="num">${F(j.n)}</td><td class="num">${F(j.vy)}</td><td class="num">${F(j.vz)}</td><td class="num">${M(j.mx)}</td><td class="num">${M(j.my)}</td><td class="num">${M(j.mz)}</td></tr>`);
     }
     h.push('</table>');
     if (condensed) h.push(`<p class="table-note">${esc(tp('calcReport.showingForces', { n: forces.length }))}</p>`);
@@ -545,9 +549,10 @@ function buildForcesSection(data: CalcReportData, num = '5'): string {
     const forces = data.results2D.elementForces;
     let maxN = 0, maxV = 0, maxM = 0;
     for (const ef of forces) {
-      maxN = Math.max(maxN, Math.abs(ef.nStart), Math.abs(ef.nEnd));
-      maxV = Math.max(maxV, Math.abs(ef.vStart), Math.abs(ef.vEnd));
-      maxM = Math.max(maxM, Math.abs(ef.mStart), Math.abs(ef.mEnd));
+      const [i, j] = memberEndSections2D(ef);
+      maxN = Math.max(maxN, Math.abs(i.n), Math.abs(j.n));
+      maxV = Math.max(maxV, Math.abs(i.v), Math.abs(j.v));
+      maxM = Math.max(maxM, Math.abs(i.m), Math.abs(j.m));
     }
 
     h.push(`<h2>${num}.1 ${t('calcReport.forceSummary')}</h2>`);
@@ -560,8 +565,9 @@ function buildForcesSection(data: CalcReportData, num = '5'): string {
     h.push(`<h2>${num}.2 ${t('calcReport.endForces')}</h2>`);
     h.push(`<table><tr><th>${t('table.elemLabel')}</th><th>${t('tables.end')}</th><th>N (${uf})</th><th>V (${uf})</th><th>M (${um})</th></tr>`);
     for (const ef of forces) {
-      h.push(`<tr><td rowspan="2">${ef.elementId}</td><td>I</td><td class="num">${F(ef.nStart)}</td><td class="num">${F(ef.vStart)}</td><td class="num">${M(ef.mStart)}</td></tr>`);
-      h.push(`<tr><td>J</td><td class="num">${F(ef.nEnd)}</td><td class="num">${F(ef.vEnd)}</td><td class="num">${M(ef.mEnd)}</td></tr>`);
+      const [i, j] = memberEndSections2D(ef);
+      h.push(`<tr><td rowspan="2">${ef.elementId}</td><td>I</td><td class="num">${F(i.n)}</td><td class="num">${F(i.v)}</td><td class="num">${M(i.m)}</td></tr>`);
+      h.push(`<tr><td>J</td><td class="num">${F(j.n)}</td><td class="num">${F(j.v)}</td><td class="num">${M(j.m)}</td></tr>`);
     }
     h.push('</table>');
   }

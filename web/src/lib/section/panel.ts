@@ -28,7 +28,7 @@ import type { TorsionProvenance } from './state';
 import type { ElementForces } from '../engine/types';
 import { analyzeSectionBending, type BendingResponse } from '../engine/wasm-solver';
 import { computeDiagramValueAt } from '../engine/diagrams';
-import { evaluateDiagramAt } from '../engine/diagrams-3d';
+import { evaluateDiagramAt, memberEndSections3D } from '../engine/diagrams-3d';
 import type { ElementForces3D } from '../engine/types-3d';
 import { resolveDrawingGeometry, assertSameGeometry, type DrawingGeometry, type DrawingRefusal } from './drawing';
 
@@ -149,6 +149,10 @@ export function stationForces3D(
       distributedLoadsY: ef.distributedLoadsY ?? [], pointLoadsY: ef.pointLoadsY ?? [],
       distributedLoadsZ: ef.distributedLoadsZ ?? [], pointLoadsZ: ef.pointLoadsZ ?? [],
     } as ElementForces3D;
+    if (t === 0 || t === 1) {
+      const { mx: tx, ...forces } = memberEndSections3D(full)[t];
+      return { ...forces, tx };
+    }
     return {
       n,
       my: evaluateDiagramAt(full, 'momentY', t),

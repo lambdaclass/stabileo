@@ -11,6 +11,7 @@
 // Torsion: τ_T (Bredt for closed, Saint-Venant for open sections)
 // Von Mises: σ_vm = √(σ² + 3·(τ_xy² + τ_xz²))
 
+import { memberEndForces3D, memberEndSections3D } from './diagrams-3d';
 import type { ElementForces3D } from './types-3d';
 import type { Section } from '../store/model.svelte';
 import { computeSectionStress3D, computeSectionStress3DFromForces, isWasmReady } from './wasm-solver';
@@ -64,8 +65,9 @@ export function computeElementStress3D(
   h: number = 0, b: number = 0,
   fy: number = 355_000,
 ): { start: SectionStress3D; end: SectionStress3D; max: SectionStress3D } {
-  const start = computeSectionStress(ef.nStart, ef.vyStart, ef.vzStart, ef.mxStart, ef.myStart, ef.mzStart, A, Iz, Iy, h, b, fy);
-  const end = computeSectionStress(ef.nEnd, ef.vyEnd, ef.vzEnd, ef.mxEnd, ef.myEnd, ef.mzEnd, A, Iz, Iy, h, b, fy);
+  const [i, j] = memberEndSections3D(ef);
+  const start = computeSectionStress(i.n, i.vy, i.vz, i.mx, i.my, i.mz, A, Iz, Iy, h, b, fy);
+  const end = computeSectionStress(j.n, j.vy, j.vz, j.mx, j.my, j.mz, A, Iz, Iy, h, b, fy);
   const max = start.vonMises >= end.vonMises ? start : end;
   return { start, end, max };
 }
@@ -287,6 +289,10 @@ export function computePerpNADistribution(
 export function interpolateForces3D(
   ef: ElementForces3D, t: number,
 ): { N: number; Vy: number; Vz: number; Mx: number; My: number; Mz: number } {
+  if (t === 0 || t === 1) {
+    const { n: N, vy: Vy, vz: Vz, mx: Mx, my: My, mz: Mz } = memberEndSections3D(ef)[t];
+    return { N, Vy, Vz, Mx, My, Mz };
+  }
   const x = t * ef.length;
 
   // N: linear (no distributed axial loads assumed)
@@ -505,16 +511,18 @@ export function suggestCriticalSections3D(ef: ElementForces3D): Array<{ t: numbe
   sections.push({ t: 0.5, reason: t('stress.midspan') });
 
   // Where Vy = 0 (max Mz)
-  if (Math.abs(ef.vyStart) > 1e-6 && Math.abs(ef.vyEnd) > 1e-6 && ef.vyStart * ef.vyEnd < 0) {
-    const tVy0 = ef.vyStart / (ef.vyStart - ef.vyEnd);
+  const [vyi, vyj] = memberEndForces3D(ef, 'shearY');
+  if (Math.abs(vyi) > 1e-6 && Math.abs(vyj) > 1e-6 && vyi * vyj < 0) {
+    const tVy0 = vyi / (vyi - vyj);
     if (tVy0 > 0.01 && tVy0 < 0.99) {
       sections.push({ t: tVy0, reason: 'Vy=0 (Mz max)' });
     }
   }
 
   // Where Vz = 0 (max My)
-  if (Math.abs(ef.vzStart) > 1e-6 && Math.abs(ef.vzEnd) > 1e-6 && ef.vzStart * ef.vzEnd < 0) {
-    const tVz0 = ef.vzStart / (ef.vzStart - ef.vzEnd);
+  const [vzi, vzj] = memberEndForces3D(ef, 'shearZ');
+  if (Math.abs(vzi) > 1e-6 && Math.abs(vzj) > 1e-6 && vzi * vzj < 0) {
+    const tVz0 = vzi / (vzi - vzj);
     if (tVz0 > 0.01 && tVz0 < 0.99) {
       sections.push({ t: tVz0, reason: 'Vz=0 (My max)' });
     }

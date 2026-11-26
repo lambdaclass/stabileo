@@ -4,7 +4,7 @@
   "prs": [1782, 2226, 2437, 2581],
   "area": "analysis",
   "when": { "all": ["members"], "any": ["memberLoads", "selfWeight", "movingLoads", "combinations", "magnitudeCombinations"] },
-  "quantities": ["diagrams", "envelope", "movingLoads", "beamStations"],
+  "quantities": ["diagrams", "envelope", "movingLoads", "beamStations", "memberEndForces", "sectionStress", "steelDemand"],
   "title": {
     "en": "Member extrema from load intervals",
     "es": "Extremos de barras por intervalos de carga",

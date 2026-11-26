@@ -3,7 +3,7 @@
 // using equilibrium equations with distributed and point loads.
 
 import { type UnitSystem, formatDiagramValue } from '../utils/units';
-import { absolutePolynomialBranches, addMagnitudeBounds, checkedCurveValue, diagramCriticalPoints, diagramCurvePoints, fullSpanFallback, indexDiagramExtrema, maxAbsDiagramOrdinate, memberEndFace, memberSectionStation, memberDiagram, curveExtrema, prepareCurveExtrema, prepareMagnitudeExtrema, sortedStations, spanCuts, spanResultantExtrema, unavailableDiagramExtrema, visitContinuousSpanCriticalPoints, visitMemberCriticalPoints, type DiagramCurve, type DiagramExtremum, type DiagramOrdinate, type DiagramStation, type PolynomialBranch } from './member-diagram';
+import { absolutePolynomialBranches, addMagnitudeBounds, checkedCurveValue, diagramCriticalPoints, diagramCurvePoints, fullSpanFallback, indexDiagramExtrema, inwardMemberEndValues, maxAbsDiagramOrdinate, memberEndFace, memberSectionStation, memberDiagram, curveExtrema, prepareCurveExtrema, prepareMagnitudeExtrema, sortedStations, spanCuts, spanResultantExtrema, unavailableDiagramExtrema, visitContinuousSpanCriticalPoints, visitMemberCriticalPoints, type DiagramCurve, type DiagramExtremum, type DiagramOrdinate, type DiagramStation, type PolynomialBranch } from './member-diagram';
 import { distanceUnits, exactCutUnits, sameCutLocation, type DiagramCutLocation } from './diagram-cut';
 import type { ElementForces3D, EnvelopeDiagramData3D } from './types-3d';
 
@@ -436,10 +436,22 @@ export function memberEndForces3D(ef: ElementForces3D, kind: Diagram3DKind): [nu
   }
   const [start, end, points] = kind === 'axial' ? [ef.nStart, ef.nEnd, ef.pointLoadsX]
     : kind === 'shearY' ? [ef.vyStart, ef.vyEnd, ef.pointLoadsY] : [ef.vzStart, ef.vzEnd, ef.pointLoadsZ];
-  const inward = points?.some(p => p.a === 0 && p.p !== 0)
-    ? prepareDiagramEvaluator3D(ef, kind)(spanStart)
-    : start;
-  return [inward, end];
+  return inwardMemberEndValues(ef.length, [start, end],
+    x => points?.some(p => p.a === x && p.p !== 0) ?? false,
+    () => prepareDiagramEvaluator3D(ef, kind));
+}
+
+export function memberEndSections3D(ef: ElementForces3D) {
+  const [ni, nj] = memberEndForces3D(ef, 'axial');
+  const [vyi, vyj] = memberEndForces3D(ef, 'shearY');
+  const [vzi, vzj] = memberEndForces3D(ef, 'shearZ');
+  const [mxi, mxj] = memberEndForces3D(ef, 'torsion');
+  const [myi, myj] = memberEndForces3D(ef, 'momentY');
+  const [mzi, mzj] = memberEndForces3D(ef, 'momentZ');
+  return [
+    { n: ni, vy: vyi, vz: vzi, mx: mxi, my: myi, mz: mzi },
+    { n: nj, vy: vyj, vz: vzj, mx: mxj, my: myj, mz: mzj },
+  ] as const;
 }
 
 export function computeSpatialDiagramExtrema(ef: ElementForces3D, kind: Diagram3DKind) {

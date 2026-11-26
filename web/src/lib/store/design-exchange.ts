@@ -7,6 +7,7 @@
  * belongs to none is its own member. Its elements are ordered along it and each carries its
  * distance from the member's start, so a spreadsheet can plot the member's diagrams whole.
  */
+import { memberEndSections3D } from '../engine/diagrams-3d';
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { physicalGroups } from './physical';
@@ -88,8 +89,9 @@ export function physicalForceRows(): WorkbookSheet['rows'] {
     for (const pm of members) for (const el of pm.elements) {
       const f = by.get(el.id);
       if (!f) continue;
+      const [i, j] = memberEndSections3D(f);
       rows.push([safeText(pm.name), pm.kind, el.id, el.at, el.length, src.kind, safeText(src.name),
-        r4(f.nStart), r4(f.vyStart), r4(f.vzStart), r4(f.mxStart), r4(f.myStart), r4(f.mzStart), r4(f.nEnd), r4(f.vyEnd), r4(f.vzEnd), r4(f.mxEnd), r4(f.myEnd), r4(f.mzEnd)]);
+        ...[i.n, i.vy, i.vz, i.mx, i.my, i.mz, j.n, j.vy, j.vz, j.mx, j.my, j.mz].map(r4)]);
     }
   }
   return rows;

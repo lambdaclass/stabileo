@@ -13,6 +13,7 @@
  *
  * Ig is the column's smaller inertia, which gives the smaller Pc and the larger δs.
  */
+import { memberEndSections3D } from '../diagrams-3d';
 import { computeLocalAxes3D } from '../local-axes-3d';
 import type { AnalysisResults3D } from '../types-3d';
 
@@ -74,10 +75,11 @@ export function storeyStability(input: {
       for (const c of st.cols) {
         const f = forces.get(c.id);
         if (!f) continue;
-        P += Math.max(0, -Math.min(f.nStart, f.nEnd));
+        const [i, j] = memberEndSections3D(f);
+        P += Math.max(0, -Math.min(i.n, j.n));
         // The column's shear as a global vector: Vy along local y, Vz along local z.
-        Vx += f.vyStart * c.ey[0] + f.vzStart * c.ez[0];
-        Vy += f.vyStart * c.ey[1] + f.vzStart * c.ez[1];
+        Vx += i.vy * c.ey[0] + i.vz * c.ez[0];
+        Vy += i.vy * c.ey[1] + i.vz * c.ez[1];
         const u = disp.get(c.hi), l = disp.get(c.lo);
         if (u && l) { dx += u.ux - l.ux; dy += u.uy - l.uy; n++; }
         lc += c.lc;

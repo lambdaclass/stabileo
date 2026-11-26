@@ -479,6 +479,19 @@ export function memberSectionStation(station: DiagramStation): DiagramStation {
   return face === undefined || face === (station.right ?? false) ? station : { ...station, right: face };
 }
 
+export function inwardMemberEndValues(
+  length: number, stored: [number, number], jumpsAt: (x: number) => boolean,
+  prepare: () => (station: DiagramStation) => number,
+): [number, number] {
+  const atI = jumpsAt(0), atJ = jumpsAt(length);
+  if (!atI && !atJ) return stored;
+  const value = prepare();
+  return [
+    atI ? value(memberSectionStation({ t: 0 })) : stored[0],
+    atJ ? value(memberSectionStation({ t: 1 })) : stored[1],
+  ];
+}
+
 function isInwardEndpointFace(t: number, right?: boolean): boolean {
   const face = memberEndFace(t);
   return face === undefined || right === undefined || face === right;

@@ -28,7 +28,7 @@
   import { placementStore } from '../lib/store/placement.svelte';
   import { drawPlacementGhost } from '../lib/canvas/draw-placement';
   import { drawDiagrams, drawEnvelopeDiagrams, computeDiagramGlobalMax, setDiagramUnitSystem, type DiagramKind } from '../lib/canvas/draw-diagrams';
-  import { computeDiagramValueAt, computeDisplacementAt } from '../lib/engine/diagrams';
+  import { computeDiagramValueAt, computeDisplacementAt, memberEndForces2D, memberEndSections2D } from '../lib/engine/diagrams';
   import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../lib/engine/member-diagram';
   import { solverBendingForces2D } from '../lib/engine/transverse-sign-2d';
   import { effectiveBendingInertia } from '../lib/engine/solver-service';
@@ -642,7 +642,8 @@
       // Axial color: blue = compression, red = tension, intensity by magnitude
       let globalMaxN = 0;
       for (const ef of resultsStore.results.elementForces) {
-        const absN = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
+        const [ni, nj] = memberEndForces2D(ef, 'axial');
+        const absN = Math.max(Math.abs(ni), Math.abs(nj));
         if (absN > globalMaxN) globalMaxN = absN;
       }
       if (globalMaxN > 1e-10) {
@@ -669,7 +670,8 @@
           return `rgb(${g(0, 143)},${g(1, 163)},${g(2, 179)})`;
         };
         for (const ef of resultsStore.results.elementForces) {
-          const avgN = (ef.nStart + ef.nEnd) / 2;
+          const [ni, nj] = memberEndForces2D(ef, 'axial');
+          const avgN = (ni + nj) / 2;
           const intensity = Math.min(Math.abs(avgN) / globalMaxN, 1.0);
           if (avgN > 0.001) {
             colorMapOverrides.set(ef.elementId, mix(tensionRgb, intensity));
@@ -718,14 +720,10 @@
            * without this, switching a 2D moment diagram to a colour map fell
            * through to the axial branch and painted N.
            */
-          let val: number;
-          if (kind === 'moment' || kind === 'momentY' || kind === 'momentZ') {
-            val = Math.max(Math.abs(ef.mStart), Math.abs(ef.mEnd));
-          } else if (kind === 'shear' || kind === 'shearY' || kind === 'shearZ') {
-            val = Math.max(Math.abs(ef.vStart), Math.abs(ef.vEnd));
-          } else {
-            val = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
-          }
+          const component = kind === 'moment' || kind === 'momentY' || kind === 'momentZ' ? 'moment'
+            : kind === 'shear' || kind === 'shearY' || kind === 'shearZ' ? 'shear' : 'axial';
+          const [i, j] = memberEndForces2D(ef, component);
+          const val = Math.max(Math.abs(i), Math.abs(j));
           elemMaxes.set(ef.elementId, val);
           if (val > globalMax) globalMax = val;
         }
@@ -776,7 +774,8 @@
     // Draw axial value labels when axialColor mode is active
     if (resultsStore.results && dtNow() === 'axialColor') {
       for (const ef of resultsStore.results.elementForces) {
-        const avgN = (ef.nStart + ef.nEnd) / 2;
+        const [ni, nj] = memberEndForces2D(ef, 'axial');
+        const avgN = (ni + nj) / 2;
         if (Math.abs(avgN) < 0.001) continue;
         const sign = avgN > 0 ? '+' : '';
         // High-contrast text: bright red for tension, bright cyan for compression
@@ -1643,9 +1642,10 @@
           if (resultsStore.results) {
             const f = resultsStore.getElementForces(hoverElem.id);
             if (f) {
-              lines.push(`M: ${fmtQ(f.mStart, 'moment')}/${fmtQ(f.mEnd, 'moment')} ${unitQ('moment')}`);
-              lines.push(`V: ${fmtQ(f.vStart, 'force')}/${fmtQ(f.vEnd, 'force')} ${unitQ('force')}`);
-              lines.push(`N: ${fmtQ(f.nStart, 'force')}/${fmtQ(f.nEnd, 'force')} ${unitQ('force')}`);
+              const [i, j] = memberEndSections2D(f);
+              lines.push(`M: ${fmtQ(i.m, 'moment')}/${fmtQ(j.m, 'moment')} ${unitQ('moment')}`);
+              lines.push(`V: ${fmtQ(i.v, 'force')}/${fmtQ(j.v, 'force')} ${unitQ('force')}`);
+              lines.push(`N: ${fmtQ(i.n, 'force')}/${fmtQ(j.n, 'force')} ${unitQ('force')}`);
             }
           }
           drawTooltip(uiStore.mouseX + 15, uiStore.mouseY - 10, lines);

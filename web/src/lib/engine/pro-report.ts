@@ -1,3 +1,4 @@
+import { memberEndSections3D } from './diagrams-3d';
 import { modalPresentation } from '../axes/modal-presentation';
 import { quantityTransform } from '../axes/quantity-transform';
 import { resultComponents } from '../axes/result-components';
@@ -616,8 +617,9 @@ export function generateReportHtml(data: ReportData): string {
   if (showTable('forces')) {
     html.push(`<table data-printed="forces"><thead><tr><th>${escHtml(tr('pro.elemLabel'))}</th><th>${escHtml(tr('report.ext'))}</th><th>${km('N')} (kN)</th><th>${km('V_y')} (kN)</th><th>${km('V_z')} (kN)</th><th>${km('M_x')} (kN·m)</th><th>${km('M_y')} (kN·m)</th><th>${km('M_z')} (kN·m)</th></tr></thead><tbody>`);
     for (const ef of results.elementForces) {
-      html.push(`<tr><td rowspan="2">${ef.elementId}</td><td>i</td><td class="num">${fmtNum(ef.nStart)}</td><td class="num">${fmtNum(ef.vyStart)}</td><td class="num">${fmtNum(ef.vzStart)}</td><td class="num">${fmtNum(ef.mxStart)}</td><td class="num">${fmtNum(ef.myStart)}</td><td class="num">${fmtNum(ef.mzStart)}</td></tr>`);
-      html.push(`<tr><td>j</td><td class="num">${fmtNum(ef.nEnd)}</td><td class="num">${fmtNum(ef.vyEnd)}</td><td class="num">${fmtNum(ef.vzEnd)}</td><td class="num">${fmtNum(ef.mxEnd)}</td><td class="num">${fmtNum(ef.myEnd)}</td><td class="num">${fmtNum(ef.mzEnd)}</td></tr>`);
+      const [i, j] = memberEndSections3D(ef);
+      html.push(`<tr><td rowspan="2">${ef.elementId}</td><td>i</td><td class="num">${fmtNum(i.n)}</td><td class="num">${fmtNum(i.vy)}</td><td class="num">${fmtNum(i.vz)}</td><td class="num">${fmtNum(i.mx)}</td><td class="num">${fmtNum(i.my)}</td><td class="num">${fmtNum(i.mz)}</td></tr>`);
+      html.push(`<tr><td>j</td><td class="num">${fmtNum(j.n)}</td><td class="num">${fmtNum(j.vy)}</td><td class="num">${fmtNum(j.vz)}</td><td class="num">${fmtNum(j.mx)}</td><td class="num">${fmtNum(j.my)}</td><td class="num">${fmtNum(j.mz)}</td></tr>`);
     }
     html.push(`</tbody></table>`);
   }

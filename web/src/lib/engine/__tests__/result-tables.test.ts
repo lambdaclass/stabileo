@@ -553,9 +553,7 @@ it('known wrong result: #2581 exports only inward ends and both interior jump fa
   expect(rowsOf('forces', control.results, criticalOptions).map(row => row.x)).toEqual([0, 1, 2, 3, 4]);
 });
 
-const inwardEndRegression = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
-
-inwardEndRegression('known wrong result: #2581 reads the J cell inside the point-load jump', async () => {
+it('known wrong result: #2581 reads the J cell inside the point-load jump', async () => {
   await initSolver();
   const length = 4;
   const tip = 24, point = 15;
@@ -618,7 +616,7 @@ inwardEndRegression('known wrong result: #2581 reads the J cell inside the point
   }
 });
 
-inwardEndRegression('known wrong result: #2581 excludes the exterior axial value at J', () => {
+it('known wrong result: #2581 excludes the exterior axial value at J', () => {
   const length = 4, tip = 24, point = 15;
   const force = { ...reviewForces, length, nStart: tip - point, nEnd: tip, pointLoadsX: [{ a: length, p: -point }] };
   const { results } = reviewSources(force)[0]!;
