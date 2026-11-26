@@ -482,7 +482,10 @@ export function memberSectionStation(station: DiagramStation): DiagramStation {
 }
 
 type MemberEndRecord = { length: number; elementId: number };
-const envelopeMemberDiagrams = new WeakMap<MemberEndRecord, ReadonlyMap<string, ReadonlyMap<number, ElementEnvelopeDiagram>>>();
+const envelopeMemberDiagrams = new WeakMap<MemberEndRecord, {
+  byKind: ReadonlyMap<string, ReadonlyMap<number, ElementEnvelopeDiagram>>;
+  spatialEnvelope?: FullEnvelope3D;
+}>();
 
 export function bindMemberEnvelopeEnds<E extends FullEnvelope | FullEnvelope3D | null | undefined>(envelope: E): E {
   if (!envelope) return envelope;
@@ -495,22 +498,32 @@ export function bindMemberEnvelopeEnds<E extends FullEnvelope | FullEnvelope3D |
   for (const curve of curves) {
     if (curve?.elements) byKind.set(curve.kind, new Map(curve.elements.map(element => [element.elementId, element])));
   }
-  for (const member of members) envelopeMemberDiagrams.set(member, byKind);
+  const spatialEnvelope: FullEnvelope3D | undefined = 'maxAbsResults' in envelope ? undefined : envelope;
+  const binding = { byKind, spatialEnvelope };
+  for (const member of members) envelopeMemberDiagrams.set(member, binding);
   return envelope;
 }
 
 export function boundMemberEnvelopeDiagram(member: MemberEndRecord, kind: string): ElementEnvelopeDiagram | undefined {
-  const byKind = envelopeMemberDiagrams.get(member);
+  const byKind = envelopeMemberDiagrams.get(member)?.byKind;
   if (!byKind) return undefined;
   const curve = byKind.get(kind)?.get(member.elementId);
   if (!curve) throw unavailableDiagramExtrema();
   return curve;
 }
 
+export function boundSpatialEnvelope(member: MemberEndRecord): FullEnvelope3D | undefined {
+  return envelopeMemberDiagrams.get(member)?.spatialEnvelope;
+}
+
 export function envelopeMemberEndValues(member: MemberEndRecord, kind: string): [number, number] | undefined {
   const curve = boundMemberEnvelopeDiagram(member, kind);
   if (!curve) return undefined;
-  const values = memberEnvelopeOrdinates(curve, member.length);
+  return envelopeDiagramEndValues(curve, member.length);
+}
+
+export function envelopeDiagramEndValues(curve: ElementEnvelopeDiagram, length: number): [number, number] {
+  const values = memberEnvelopeOrdinates(curve, length);
   const i = values[0], j = values.at(-1);
   if (i?.t !== 0 || j?.t !== 1) throw unavailableDiagramExtrema();
   return [i.value, j.value];

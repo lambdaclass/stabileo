@@ -9,7 +9,7 @@
  * ProResultsTab wires these to UI state and handles the CSV download.
  */
 
-import type { ElementForces3D, EnvelopeDiagramData3D } from './types-3d';
+import type { AnalysisResults3D, ElementForces3D, EnvelopeDiagramData3D, FullEnvelope3D } from './types-3d';
 import { memberEndForces3D, type Diagram3DKind } from './diagrams-3d';
 import { memberEnvelopeBounds } from './member-diagram';
 
@@ -72,6 +72,19 @@ export interface QueryRowsOptions {
   /** If provided, only these element ids are included (in iteration order). */
   elementIds?: Iterable<number>;
   envelope?: EnvelopeDiagramData3D;
+}
+
+const envelopeCases = new WeakMap<FullEnvelope3D, readonly AnalysisResults3D[]>();
+
+export function bindEnvelopeQuerySources<E extends FullEnvelope3D | null>(
+  envelope: E, sources: readonly AnalysisResults3D[],
+): E {
+  if (envelope && sources.length) envelopeCases.set(envelope, [...sources]);
+  return envelope;
+}
+
+export function envelopeQuerySources(envelope: FullEnvelope3D): readonly AnalysisResults3D[] | undefined {
+  return envelopeCases.get(envelope);
 }
 
 /**

@@ -28,9 +28,9 @@
   import { placementStore } from '../lib/store/placement.svelte';
   import { drawPlacementGhost } from '../lib/canvas/draw-placement';
   import { drawDiagrams, drawEnvelopeDiagrams, computeDiagramGlobalMax, setDiagramUnitSystem, type DiagramKind } from '../lib/canvas/draw-diagrams';
-  import { forcePeakScale, memberForceExtrema } from '../lib/engine/member-force-extrema';
-  import { computeDiagramValueAt, computeDisplacementAt, memberEndForces2D, memberEndSections2D } from '../lib/engine/diagrams';
-  import { DIAGRAM_EXTREMA_UNAVAILABLE, unavailableDiagramExtrema } from '../lib/engine/member-diagram';
+  import { forcePeakScale } from '../lib/engine/member-force-extrema';
+  import { computeDiagramValueAt, computeDisplacementAt, memberEndSections2D } from '../lib/engine/diagrams';
+  import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../lib/engine/member-diagram';
   import { solverBendingForces2D } from '../lib/engine/transverse-sign-2d';
   import { effectiveBendingInertia } from '../lib/engine/solver-service';
   import { computeLocalAxes3D } from '../lib/engine/local-axes-3d';
@@ -639,17 +639,14 @@
     const colorMapOverrides = new Map<number, string>();
     // The value behind each member's colour, for its label when values are shown.
     let colorMapValues: { values: Map<number, number>; kind: string } | null = null;
+    let axial: ReadonlyMap<number, number> = new Map();
     if (resultsStore.results && dtNow() === 'axialColor') {
       // Axial color: blue = compression, red = tension, intensity by magnitude
-      const axial = new Map<number, number>();
       let globalMaxN = 0;
       try {
-        for (const ef of resultsStore.results.elementForces) {
-          const range = memberForceExtrema(ef, 'axial');
-          if (range.kind === 'bounded') throw unavailableDiagramExtrema();
-          axial.set(ef.elementId, range.absolute.value);
-          globalMaxN = Math.max(globalMaxN, Math.abs(range.absolute.value));
-        }
+        const scale = forcePeakScale(resultsStore.results.elementForces, 'axial', 'signed');
+        axial = scale.values;
+        globalMaxN = scale.max;
       } catch (error) {
         if (!(error instanceof Error) || error.message !== DIAGRAM_EXTREMA_UNAVAILABLE) throw error;
         if (exportFrame) throw error;
@@ -777,15 +774,10 @@
     if (!exportFrame) drawLocalAxes2D();
 
     // Draw axial value labels when axialColor mode is active
-    if (resultsStore.results && dtNow() === 'axialColor') {
-      for (const ef of resultsStore.results.elementForces) {
-        const [ni, nj] = memberEndForces2D(ef, 'axial');
-        const avgN = (ni + nj) / 2;
-        if (Math.abs(avgN) < 0.001) continue;
-        const sign = avgN > 0 ? '+' : '';
-        // High-contrast text: bright red for tension, bright cyan for compression
-        drawMemberValueLabel(ef.elementId, `${sign}${fixedQuantity(avgN, 'force', 1, uiStore.unitSystem)}`, avgN > 0 ? '#ff6b6b' : '#6bc5ff');
-      }
+    for (const [id, n] of axial) {
+      if (Math.abs(n) < 0.001) continue;
+      const sign = n > 0 ? '+' : '';
+      drawMemberValueLabel(id, `${sign}${fixedQuantity(n, 'force', 1, uiStore.unitSystem)}`, n > 0 ? '#ff6b6b' : '#6bc5ff');
     }
 
     /*

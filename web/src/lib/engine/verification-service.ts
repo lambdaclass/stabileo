@@ -1,4 +1,5 @@
-import { criticalDiagramStations3D, evaluateDiagramAt, memberEndSections3D } from './diagrams-3d';
+import { criticalDiagramStations3D, evaluateDiagramAt, requireConcurrentSectionForces } from './diagrams-3d';
+import { exactForcePeak, exactMemberForceRange } from './member-force-extrema';
 import { memberEndFace } from './member-diagram';
 import { extractForcesAtStation } from './station-forces';
 import type { DiagramStation } from './member-diagram';
@@ -620,19 +621,24 @@ export function steelDemandOf(
     VuStrong = abs('Vz');
     VuWeak = abs('Vy');
   } else {
-    // Endpoint fallback. Solver axial force is + tension.
-    const [i, j] = memberEndSections3D(ef);
-    Nc = Math.max(0, -i.n, -j.n);
-    Nt = Math.max(0, i.n, j.n);
-    MuStrong = Math.max(Math.abs(i.my), Math.abs(j.my));
-    MuWeak = Math.max(Math.abs(i.mz), Math.abs(j.mz));
-    VuStrong = Math.max(Math.abs(i.vz), Math.abs(j.vz));
-    VuWeak = Math.max(Math.abs(i.vy), Math.abs(j.vy));
+    requireConcurrentSectionForces(ef);
+    const axial = exactMemberForceRange(ef, 'axial');
+    Nc = Math.max(0, -axial.min.value);
+    Nt = Math.max(0, axial.max.value);
+    MuStrong = exactForcePeak(ef, 'momentY');
+    MuWeak = exactForcePeak(ef, 'momentZ');
+    VuStrong = exactForcePeak(ef, 'shearZ');
+    VuWeak = exactForcePeak(ef, 'shearY');
   }
   const diagram: StationMoment[] = stations ? stationMomentEnvelope(stations) : [];
   // Solver axial is + tension; the checker's is + compression. `my` is the strong axis.
   if (sd && !sd.concurrent?.length && !stations) throw new Error('Concurrent steel demands are required; an envelope cannot be verified');
-  const concurrent = stations ? ConcurrentDemand.fromStations(stations) : sd?.concurrent ?? ConcurrentDemand.endpoints(ef);
+  const concurrent = stations ? ConcurrentDemand.fromStations(stations) : sd?.concurrent ?? ConcurrentDemand.fromStations({
+    elementId: ef.elementId, length: ef.length, stationTs: [0, 1], comboResults: [{
+      comboId: 0, comboName: '', transverseLoading: ConcurrentDemand.loadingOf(ef),
+      stations: stationsWithExtrema(ef, [], 'diagram'),
+    }],
+  });
   const tuples = concurrent.map(d => ({ N: 0 - d.forces.n, MStrong: d.forces.my, MWeak: d.forces.mz,
     VStrong: d.forces.vz, VWeak: d.forces.vy, comboId: d.comboId, comboName: d.comboName, t: d.stationT, concurrent: d }));
   const from = (cats: string[]) => {

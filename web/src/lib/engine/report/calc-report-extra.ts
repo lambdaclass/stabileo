@@ -13,7 +13,7 @@ import type { AnalysisResults, FullEnvelope } from '../types';
 import type { AnalysisResults3D, FullEnvelope3D } from '../types-3d';
 import { memberEndForces2D } from '../diagrams';
 import { memberEndForces3D, type Diagram3DKind } from '../diagrams-3d';
-import { bindMemberEnvelopeEnds, unavailableDiagramExtrema, type DiagramOrdinate } from '../member-diagram';
+import { envelopeDiagramEndValues, envelopeForceExtrema, unavailableDiagramExtrema, type DiagramOrdinate } from '../member-diagram';
 import { memberForceExtrema } from '../member-force-extrema';
 import type { FigureContent } from '../../export/view-figure';
 
@@ -192,19 +192,21 @@ export function forceTable2D(
   const sym = kind === 'moment' ? 'M' : kind === 'shear' ? 'V' : 'N';
   const sign = kind === 'moment' ? -1 : 1;
   const h: string[] = [`<table><tr><th>${t('table.elemLabel')}</th><th>${sym}<sub>I</sub> (${unit})</th><th>${sym}<sub>J</sub> (${unit})</th><th>${esc(t('calcReport.maxAbs'))} (${unit})</th><th>x (${lenUnit})</th></tr>`];
-  bindMemberEnvelopeEnds(envelope);
   const env = envelope ? new Map(envelope[kind].elements.map(e => [e.elementId, e])) : null;
+  const lengths = new Map(envelope?.maxAbsResults.elementForces.map(e => [e.elementId, e.length]));
   for (const ef of r.elementForces) {
-    if (env && !env.get(ef.elementId)?.tPositions.length) {
+    const curve = env?.get(ef.elementId);
+    if (env && !curve?.tPositions.length) {
       h.push(`<tr><td>${ef.elementId}</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>`);
       continue;
     }
-    const [vI, vJ] = memberEndForces2D(ef, kind).map(value => sign * value) as [number, number];
-    const extrema = memberForceExtrema(ef, kind);
+    const length = lengths.get(ef.elementId) ?? NaN;
+    const extrema = curve ? envelopeForceExtrema(curve, length) : memberForceExtrema(ef, kind);
+    const [vI, vJ] = curve ? envelopeDiagramEndValues(curve, length) : memberEndForces2D(ef, kind);
     if (extrema.kind === 'bounded') throw unavailableDiagramExtrema();
     const { absolute } = extrema;
     const best = { ...absolute, value: sign * absolute.value, side: absolute.t > 0 && absolute.t < 1 ? absolute.side : undefined };
-    h.push(`<tr><td>${ef.elementId}</td><td class="num">${F(vI)}</td><td class="num">${F(vJ)}</td><td class="num">${F(best.value)}</td><td class="num">${cutLabel(best, lenFmt)}</td></tr>`);
+    h.push(`<tr><td>${ef.elementId}</td><td class="num">${F(sign * vI)}</td><td class="num">${F(sign * vJ)}</td><td class="num">${F(best.value)}</td><td class="num">${cutLabel(best, lenFmt)}</td></tr>`);
   }
   h.push('</table>');
   if (env) h.push(envelopeNote());
@@ -228,15 +230,17 @@ export function forceTable3D(
 ): string {
   const cols: Col3[] = kind === 'moment' ? [['My', 'momentY'], ['Mz', 'momentZ'], ['Mx', 'torsion']]
     : kind === 'shear' ? [['Vy', 'shearY'], ['Vz', 'shearZ']] : [['N', 'axial']];
-  bindMemberEnvelopeEnds(envelope);
+  const lengths = new Map(envelope?.maxAbsResults3D.elementForces.map(e => [e.elementId, e.length]));
   const envOf = new Map(cols.map(([, k]) => [k, envelope ? new Map(envelope[k].elements.map((e) => [e.elementId, e])) : null]));
   const h: string[] = [`<table><tr><th>${t('table.elemLabel')}</th><th>${t('tables.end')}</th>${cols.map(([c]) => `<th>${c} (${unit})</th>`).join('')}</tr>`];
   for (const ef of r.elementForces) {
     const results = cols.map(([, k]) => {
       const env = envOf.get(k);
-      if (env && !env.get(ef.elementId)?.tPositions.length) return null;
-      const [startValue, endValue] = memberEndForces3D(ef, k);
-      const extrema = memberForceExtrema(ef, k);
+      const curve = env?.get(ef.elementId);
+      if (env && !curve?.tPositions.length) return null;
+      const length = lengths.get(ef.elementId) ?? NaN;
+      const extrema = curve ? envelopeForceExtrema(curve, length) : memberForceExtrema(ef, k);
+      const [startValue, endValue] = curve ? envelopeDiagramEndValues(curve, length) : memberEndForces3D(ef, k);
       if (extrema.kind === 'bounded') return { startValue, endValue, best: { value: extrema.bound, x: undefined, side: undefined } };
       const { absolute } = extrema;
       const best = { ...absolute, side: absolute.t > 0 && absolute.t < 1 ? absolute.side : undefined };

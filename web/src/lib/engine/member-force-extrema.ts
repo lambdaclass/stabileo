@@ -56,19 +56,28 @@ export function criticalMemberForceExtrema3D(member: ElementForces3D, components
   });
 }
 
-export function exactForcePeak(member: Member, component: Component): number {
+export function exactMemberForceRange(member: Member, component: Component) {
   const extrema = memberForceExtrema(member, component);
   if (extrema.kind === 'bounded') throw unavailableDiagramExtrema();
-  return Math.abs(extrema.absolute.value);
+  return extrema;
 }
 
-export function forcePeakScale(members: readonly Member[], component: Component) {
+export function exactForcePeak(member: Member, component: Component): number {
+  return Math.abs(exactMemberForceRange(member, component).absolute.value);
+}
+
+export function memberCompression(member: Member): number {
+  return Math.max(0, -exactMemberForceRange(member, 'axial').min.value);
+}
+
+export function forcePeakScale(members: readonly Member[], component: Component, sign?: 'signed') {
   const values = new Map<number, number>();
   let max = 0;
   for (const member of members) {
-    const peak = exactForcePeak(member, component);
-    max = Math.max(max, peak);
-    values.set(member.elementId, peak);
+    const peak = exactMemberForceRange(member, component).absolute.value;
+    const magnitude = Math.abs(peak);
+    max = Math.max(max, magnitude);
+    values.set(member.elementId, sign === 'signed' ? peak : magnitude);
   }
   return { max, values };
 }

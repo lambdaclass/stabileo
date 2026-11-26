@@ -1,0 +1,35 @@
+{
+  "id": "force-consumer-sweep",
+  "date": "2026-11-26",
+  "prs": [2615],
+  "area": "analysis",
+  "when": {
+    "all": ["members"],
+    "any": ["memberLoads", "selfWeight", "combinations", "magnitudeCombinations"]
+  },
+  "quantities": ["member", "diagrams", "sectionStress", "steel", "rc", "directAnalysis"],
+  "title": {
+    "en": "Whole-member demands and concurrent heatmap forces",
+    "es": "Demandas en toda la barra y fuerzas simultáneas en mapas de color",
+    "pt": "Solicitações ao longo da barra e forças simultâneas nos mapas de cores",
+    "de": "Schnittgrößen entlang des Stabs und gleichzeitig wirkende Kräfte in Farbkarten",
+    "fr": "Sollicitations sur toute la barre et efforts concomitants sur les cartes",
+    "tr": "Eleman boyunca talepler ve renk haritalarında eşzamanlı kuvvetler",
+    "zh": "整根构件的内力需求与色彩图中同时作用的内力",
+    "hu": "A teljes rúd igénybevételei és az egyidejű erők a színtérképen"
+  },
+  "explanation": {
+    "en": "Axial labels, storey sway, direct-analysis stiffness and fallback steel demands use whole-member extrema. Report tables use the selected envelope. Spatial stress maps require concurrent forces.",
+    "es": "Las etiquetas axiales, la traslación de piso, la rigidez del análisis directo y las demandas alternativas de acero usan los extremos de toda la barra. Las tablas usan la envolvente elegida. Los mapas de tensiones 3D exigen fuerzas simultáneas.",
+    "pt": "Os rótulos axiais, a translação do pavimento, a rigidez da análise direta e as solicitações alternativas do aço usam os extremos de toda a barra. As tabelas usam a envoltória escolhida. Mapas de tensões 3D exigem forças simultâneas.",
+    "de": "Axialbeschriftung, Geschossverschieblichkeit, Steifigkeit der direkten Analyse und ersatzweise ermittelte Stahlbeanspruchungen nutzen die Extremwerte des gesamten Stabs. Berichtstabellen verwenden die ausgewählte Hüllkurve. Räumliche Spannungskarten setzen gleichzeitig wirkende Kräfte voraus.",
+    "fr": "Les étiquettes d’effort normal, la stabilité d’étage, la rigidité de l’analyse directe et les sollicitations de repli de l’acier exploitent les extrema sur toute la barre. Les tableaux utilisent l’enveloppe sélectionnée. Les cartes de contraintes 3D exigent des efforts concomitants.",
+    "tr": "Eksenel etiketler, kat ötelenmesi, doğrudan analiz rijitliği ve alternatif çelik talepleri tüm elemanın uç değerlerini kullanır. Rapor tabloları seçili zarfı kullanır. 3B gerilme haritaları eşzamanlı kuvvetler gerektirir.",
+    "zh": "轴力标签、楼层侧移、直接分析刚度和钢构件后备验算均采用整根构件的极值。报告表格采用所选包络。三维应力图要求内力同时作用。",
+    "hu": "A tengelyerő feliratai, a szinti kilengés, a közvetlen analízis merevsége és az acél tartalék igénybevételei a teljes rúd szélsőértékeit használják. A jelentés táblázatai a kiválasztott burkolót használják. A térbeli feszültségtérképek egyidejű erőket igényelnek."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-force-consumer-sweep.md",
+    "heading": "Whole-member demands and concurrent heatmap forces"
+  }
+}

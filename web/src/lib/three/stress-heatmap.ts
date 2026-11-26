@@ -2,11 +2,12 @@
 // Creates per-vertex colored geometries that show stress/force variation along each member.
 
 import * as THREE from 'three';
-import { prepareDiagramEvaluator3D } from '../engine/diagrams-3d';
+import { prepareDiagramEvaluator3D, requireConcurrentSectionForces, sampleMemberResultant3D } from '../engine/diagrams-3d';
 import { memberForceExtrema } from '../engine/member-force-extrema';
-import { boundMemberEnvelopeDiagram, memberEnvelopeOrdinates, memberSectionStation, unavailableDiagramExtrema } from '../engine/member-diagram';
+import { boundMemberEnvelopeDiagram, boundSpatialEnvelope, memberEnvelopeOrdinates, memberSectionStation, unavailableDiagramExtrema } from '../engine/member-diagram';
+import { envelopeQuerySources } from '../engine/result-query';
 import { computeSectionStress } from '../engine/section-stress-3d';
-import type { ElementForces3D } from '../engine/types-3d';
+import type { AnalysisResults3D, ElementForces3D } from '../engine/types-3d';
 import { heatmapColor } from './selection-helpers';
 import { ensureOwnShellMaterial } from './create-shell-mesh';
 import { bandValue } from '../engine/contour-scale';
@@ -51,9 +52,28 @@ type HeatmapStation = { t: number; value: number };
 
 const heatmapStations = Array.from({ length: HEATMAP_SEGMENTS + 1 }, (_, index) => index / HEATMAP_SEGMENTS);
 
+const envelopeMembers = new WeakMap<readonly AnalysisResults3D[], readonly ReadonlyMap<number, ElementForces3D>[]>();
+
+function resultantSources(ef: ElementForces3D): readonly ElementForces3D[] {
+  const envelope = boundSpatialEnvelope(ef);
+  if (!envelope) return [ef];
+  const sources = envelopeQuerySources(envelope);
+  if (!sources?.length) throw unavailableDiagramExtrema();
+  let members = envelopeMembers.get(sources);
+  if (!members) {
+    members = sources.map(source => new Map(source.elementForces.map(member => [member.elementId, member])));
+    envelopeMembers.set(sources, members);
+  }
+  return members.map(source => {
+    const member = source.get(ef.elementId);
+    if (!member || member.length !== ef.length) throw unavailableDiagramExtrema();
+    return member;
+  });
+}
+
 export function sampleElementValues(ef: ElementForces3D, variable: HeatmapVariable, sec: SectionProps) {
   if (variable === 'stressRatio' || variable === 'vonMises' || variable === 'sigmaMax' || variable === 'tauMax') {
-    if (boundMemberEnvelopeDiagram(ef, 'axial')) throw unavailableDiagramExtrema();
+    requireConcurrentSectionForces(ef);
     const evaluate = (kind: Parameters<typeof prepareDiagramEvaluator3D>[1]) => prepareDiagramEvaluator3D(ef, kind);
     const n = evaluate('axial'), vy = evaluate('shearY'), vz = evaluate('shearZ');
     const mx = evaluate('torsion'), my = evaluate('momentY'), mz = evaluate('momentZ');
@@ -66,35 +86,26 @@ export function sampleElementValues(ef: ElementForces3D, variable: HeatmapVariab
     return { stations, peak: Math.max(...stations.map(p => p.value)) };
   }
 
-  const kinds = variable === 'moment' ? ['momentY', 'momentZ'] as const : variable === 'shear' ? ['shearY', 'shearZ'] as const : [variable] as const;
-  const extrema = variable === 'shear' ? [memberForceExtrema(ef, ['shearY', 'shearZ'])]
-    : kinds.map(kind => memberForceExtrema(ef, kind));
-  const points = extrema.flatMap(range => {
-    if (range.kind === 'bounded') throw unavailableDiagramExtrema();
-    return [range.min, range.max];
-  });
-  const peak = Math.max(...points.map(p => Math.abs(p.value)));
-  const envelope = boundMemberEnvelopeDiagram(ef, kinds[0]);
+  if (variable === 'moment' || variable === 'shear') {
+    const kinds = variable === 'moment' ? ['momentY', 'momentZ'] as const : ['shearY', 'shearZ'] as const;
+    return sampleMemberResultant3D(resultantSources(ef), kinds, heatmapStations);
+  }
+
+  const extrema = memberForceExtrema(ef, variable);
+  if (extrema.kind === 'bounded') throw unavailableDiagramExtrema();
+  const peak = Math.abs(extrema.absolute.value);
+  const envelope = boundMemberEnvelopeDiagram(ef, variable);
   if (envelope) {
     const stations = memberEnvelopeOrdinates(envelope, ef.length).map(({ t, value }) => ({ t, value: Math.abs(value) }));
-    if (variable === 'moment') {
-      const other = boundMemberEnvelopeDiagram(ef, 'momentZ')!;
-      stations.push(...memberEnvelopeOrdinates(other, ef.length).map(({ t, value }) => ({ t, value: Math.abs(value) })));
-      stations.sort((a, b) => a.t - b.t);
-    }
     return { stations, peak };
   }
 
-  const evaluators = kinds.map(kind => prepareDiagramEvaluator3D(ef, kind));
+  const points = [extrema.min, extrema.max];
+  const read = prepareDiagramEvaluator3D(ef, variable);
   const stations = [...new Set([...heatmapStations, ...points.map(p => p.t)])].sort((a, b) => a - b).flatMap(t => {
-    const left = memberSectionStation({ t });
-    const at = (station: typeof left) => {
-      const values = evaluators.map(read => Math.abs(read(station)));
-      return variable === 'shear' ? Math.hypot(...values) : Math.max(...values);
-    };
     const value = (right: boolean) => {
-      const exact = points.filter(p => p.t === t && !!p.right === right);
-      return exact.length && variable !== 'moment' ? Math.max(...exact.map(p => Math.abs(p.value))) : at({ t, right });
+      const exact = points.find(p => p.t === t && (p.side === 'right' || !!p.right) === right);
+      return Math.abs(exact?.value ?? read({ t, right }));
     };
     if (t === 0 || t === 1) return [{ t, value: value(t === 0) }];
     const before = value(false), after = value(true);

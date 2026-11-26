@@ -1,4 +1,5 @@
 import { computeDiagram3D } from './diagrams-3d';
+import { bindEnvelopeQuerySources } from './result-query';
 import { bindMemberEnvelopeEnds, unavailableDiagramExtrema } from './member-diagram';
 import { collapseVariableEnvelope, reexpandVariableResults, sameVariableLayout } from './variable-member-results';
 import { registerMemberIntervalKernel } from './member-interval-kernel';
@@ -1665,7 +1666,11 @@ export function combineResultsEnvelope3D(
   const [results, envelope]: [Array<unknown | null>, FullEnvelope3D | null] = wasmCombineResultsEnvelope3d({
     combinations, cases, plateThicknesses: [...plates].map(([id, p]) => [id, p.thickness]),
   });
-  return { combinations: results.map(result => result == null ? null : results3DFromWasm(result)), envelope: bindMemberEnvelopeEnds(envelope) };
+  const combinations3D = results.map(result => result == null ? null : results3DFromWasm(result));
+  return {
+    combinations: combinations3D,
+    envelope: bindEnvelopeQuerySources(bindMemberEnvelopeEnds(envelope), combinations3D.filter(result => result !== null)),
+  };
 }
 
 /** Compute 2D envelope via WASM. JsValue in/out — no JSON round trip. */
@@ -1682,7 +1687,9 @@ export function computeEnvelope3D(results: AnalysisResults3D[]): FullEnvelope3D 
   if (results.length === 0) return null;
   // Solver output — no guard (see combineResults).
   if (results.some(r => r.magnitude || r.elementForces.some(f => f.combined))) throw unavailableDiagramExtrema();
-  if (!results.some(r => r.elementForces.some(f => f.pieces?.length))) return bindMemberEnvelopeEnds(wasmComputeEnvelope3d(results));
+  if (!results.some(r => r.elementForces.some(f => f.pieces?.length))) {
+    return bindEnvelopeQuerySources(bindMemberEnvelopeEnds(wasmComputeEnvelope3d(results)), results);
+  }
   const expanded = results.map(reexpandVariableResults);
   if (expanded.some(r => r.results.elementForces.some(f => f.pieces?.length))) throw unavailableDiagramExtrema();
   const reference = expanded[0]!;
@@ -1692,7 +1699,7 @@ export function computeEnvelope3D(results: AnalysisResults3D[]): FullEnvelope3D 
   if (expanded.some(({ results, exp }) => !sameVariableLayout(layout, exp) ||
     results.elementForces.some(ef => lengths.get(ef.elementId) !== ef.length))) throw unavailableDiagramExtrema();
   const raw = wasmComputeEnvelope3d(expanded.map(r => r.results));
-  return raw && collapseVariableEnvelope(raw, layout);
+  return bindEnvelopeQuerySources(raw && collapseVariableEnvelope(raw, layout), results);
 }
 
 // ─── Influence Lines ─────────────────────────────────────────────
@@ -2276,7 +2283,8 @@ export function solveMultiCase3D(config: any): any {
       for (const cr of result.combinationResults ?? []) stripStabilisedReactions(cr.results, input);
       if (result.envelope?.maxAbsResults3D) stripStabilisedReactions(result.envelope.maxAbsResults3D, input);
     }
-    bindMemberEnvelopeEnds(result?.envelope);
+    bindEnvelopeQuerySources(bindMemberEnvelopeEnds(result?.envelope),
+      (result?.combinationResults ?? []).map(({ results }: { results: AnalysisResults3D }) => results));
     return result;
   } catch (e: any) {
     const panicMsg = captured.length > 0 ? captured.join('\n') : '';

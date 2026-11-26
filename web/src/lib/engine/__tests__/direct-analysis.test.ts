@@ -344,7 +344,7 @@ it('#2292 direct analysis scales a load once by its net case factor', async () =
   }
 });
 
-it.skip('known wrong result: #2581 direct analysis reduces stiffness when compression peaks between zero ends', async () => {
+it('known wrong result: #2581 direct analysis reduces stiffness when compression peaks between zero ends', async () => {
   const length = 4;
   const pns = 150;
   const i = modelStore.addNode(0, 0, 0), j = modelStore.addNode(length, 0, 0);

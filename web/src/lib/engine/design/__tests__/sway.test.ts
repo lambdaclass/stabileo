@@ -8,6 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import { storeyStability, swayK } from '../sway';
 import { computeLocalAxes3D } from '../../local-axes-3d';
+import type { AnalysisResults3D } from '../../types-3d';
 
 const nodes = new Map([
   [1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0, y: 0, z: 3 }],
@@ -65,10 +66,10 @@ describe('sway storeys', () => {
   });
 });
 
-it.skip('known wrong result: #2581 storey stability uses the compression between two opposing axial loads', () => {
+it('known wrong result: #2581 storey stability uses the compression between two opposing axial loads', () => {
   for (const drift of [0.06, 0.09]) {
-    const perCombo = results(drift);
-    const result = perCombo.get(1) as import('../../types-3d').AnalysisResults3D;
+    const perCombo: Map<number, AnalysisResults3D> = results(drift);
+    const result = perCombo.get(1)!;
     result.elementForces = result.elementForces.map(force => ({
       ...force, nStart: 0, nEnd: 0, pointLoadsX: [{ a: 1, p: 100 }, { a: 2, p: -100 }],
     }));

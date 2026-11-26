@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
+import { forcePeakScale } from '../member-force-extrema';
+import type { ElementForces } from '../types';
 
 it('known wrong result: #2581 force peak consumers do not reduce member ends', () => {
   const files = [
@@ -29,12 +31,21 @@ it('the planar viewport uses the shared member scale for paint and legend', () =
   expect(colourMap).toContain('{ max: globalMax, unit: colourMapUnit(kind)');
 });
 
-it.skip('known wrong result: #2581 the axial label and colour share the signed peak for a member with axial force 0 to 10', () => {
+it('known wrong result: #2581 the axial label and colour share the signed peak for a member with axial force 0 to 10', () => {
+  const member: ElementForces = {
+    elementId: 1, length: 2, nStart: 0, nEnd: 10, vStart: 0, vEnd: 0, mStart: 0, mEnd: 0,
+    qI: 0, qJ: 0, hingeStart: false, hingeEnd: false, pointLoads: [], distributedLoads: [],
+  };
+  const scale = forcePeakScale([member, { ...member, elementId: 2, nEnd: -10 }], 'axial', 'signed');
+  expect(scale).toEqual({ max: 10, values: new Map([[1, 10], [2, -10]]) });
+
   const source = readFileSync(new URL('../../../components/Viewport.svelte', import.meta.url), 'utf8');
-  expect(source).toMatch(/for \(const \[(\w+), (\w+)\] of (\w+)\)[\s\S]*?colorMapOverrides\.set\(\1, mix\([\s\S]*?for \(const \[(\w+), (\w+)\] of \3\)[\s\S]*?drawMemberValueLabel\(\4, [^\n]*fixedQuantity\(\5,/);
+  const paintAndLabels = source.slice(source.indexOf('let axial:'), source.indexOf('// Draw supports, unless'));
+  expect(paintAndLabels).toMatch(/const scale = forcePeakScale\([^\n]*'axial', 'signed'\);\s*axial = scale\.values;/);
+  expect(paintAndLabels).toMatch(/for \(const \[(\w+), (\w+)\] of (\w+)\)[\s\S]*?colorMapOverrides\.set\(\1, mix\([\s\S]*?for \(const \[(\w+), (\w+)\] of \3\)[\s\S]*?drawMemberValueLabel\(\4, [^\n]*fixedQuantity\(\5,/);
 });
 
-it.skip('known wrong result: #2581 remaining force consumers use the shared extrema and concurrency paths', () => {
+it('known wrong result: #2581 remaining force consumers use the shared extrema and concurrency paths', () => {
   const sourceOf = (file: string) => readFileSync(new URL(file, import.meta.url), 'utf8');
   for (const file of ['../design/sway.ts', '../direct-analysis.ts', '../verification-service.ts']) {
     expect.soft(sourceOf(file), file).not.toMatch(/Math\.(?:max|min)\([^;\n]*(?:\b[ij]\.(?:n|m[yz]|v[yz])\b|\b[ij] \?\? 0)/);
@@ -43,5 +54,5 @@ it.skip('known wrong result: #2581 remaining force consumers use the shared extr
   expect.soft(tables).not.toContain('bindMemberEnvelopeEnds');
   const heatmap = sourceOf('../../three/stress-heatmap.ts');
   expect.soft(heatmap).toContain('requireConcurrentSectionForces');
-  expect.soft(heatmap).not.toMatch(/stations.push\(\.\.\.memberEnvelopeOrdinates/);
+  expect.soft(heatmap).toContain('sampleMemberResultant3D(resultantSources(ef), kinds, heatmapStations)');
 });

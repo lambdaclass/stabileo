@@ -3,7 +3,7 @@
 // using equilibrium equations with distributed and point loads.
 
 import { type UnitSystem, formatDiagramValue } from '../utils/units';
-import { absolutePolynomialBranches, addMagnitudeBounds, checkedCurveValue, diagramCriticalPoints, diagramCurvePoints, envelopeMemberEndValues, fullSpanFallback, indexDiagramExtrema, inwardMemberEndValues, diagramOrdinateExtrema, memberEndFace, memberSectionStation, memberDiagram, curveExtrema, prepareCurveExtrema, prepareMagnitudeExtrema, sortedStations, spanCuts, spanResultantExtrema, unavailableDiagramExtrema, visitContinuousSpanCriticalPoints, visitMemberCriticalPoints, type DiagramCurve, type DiagramExtremum, type DiagramOrdinate, type DiagramStation, type PolynomialBranch } from './member-diagram';
+import { absolutePolynomialBranches, addMagnitudeBounds, checkedCurveValue, boundMemberEnvelopeDiagram, diagramCriticalPoints, diagramCurvePoints, envelopeMemberEndValues, fullSpanFallback, indexDiagramExtrema, inwardMemberEndValues, diagramOrdinateExtrema, memberEndFace, memberSectionStation, memberDiagram, curveExtrema, prepareCurveExtrema, prepareMagnitudeExtrema, sortedStations, spanCuts, spanResultantExtrema, unavailableDiagramExtrema, visitContinuousSpanCriticalPoints, visitMemberCriticalPoints, type DiagramCurve, type DiagramExtremum, type DiagramOrdinate, type DiagramStation, type PolynomialBranch } from './member-diagram';
 import { distanceUnits, exactCutUnits, sameCutLocation, type DiagramCutLocation } from './diagram-cut';
 import type { ElementForces3D, EnvelopeDiagramData3D } from './types-3d';
 
@@ -302,6 +302,35 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
   return new SpatialLeafCurve(length, leafCurve(ef, kind));
 }
 
+export function sampleMemberResultant3D(
+  members: readonly ElementForces3D[], kinds: readonly [Diagram3DKind, Diagram3DKind], displayStations: readonly number[],
+) {
+  const length = members[0]?.length;
+  if (length === undefined || members.some(member => member.length !== length)) throw unavailableDiagramExtrema();
+  const sources = members.map(member => {
+    requireConcurrentSectionForces(member);
+    const curve = magnitudeCurve(kinds.map(kind => spatialCurve(member, kind)), 'srss', length, true);
+    if (curve.magnitudeBound) throw unavailableDiagramExtrema();
+    const extrema = curve.extrema();
+    const points = spatialCriticalPoints(curve, undefined, extrema);
+    return { curve, points, critical: indexDiagramExtrema(extrema.filter(point => !point.aliased)) };
+  });
+  const cuts = joinedCutLocations(sources.map(({ curve }) => curve.cutLocations));
+  const ts = sortedStations([...displayStations, ...cuts.keys(), ...sources.flatMap(({ points }) => points.map(point => point.t))]);
+  const valueAt = (at: DiagramStation) => sources.reduce(
+    (max, { curve, critical }) => Math.max(max, checkedCurveValue(curve, at, critical)), 0);
+  const stations = ts.flatMap(t => {
+    const location = cuts.get(t);
+    const cut = memberSectionStation(location ? { t, distance: location.x, location } : { t });
+    const value = valueAt(cut);
+    if (!location || memberEndFace(t) !== undefined) return [{ t, value }];
+    const right = valueAt({ ...cut, right: true });
+    return value === right ? [{ t, value }] : [{ t, value }, { t, value: right }];
+  });
+  const peak = sources.reduce((max, { points }) => Math.max(max, diagramOrdinateExtrema(points).max.value), 0);
+  return { stations, peak };
+}
+
 export function stationaryBendingStations3D(ef: ElementForces3D, kind: 'momentY' | 'momentZ'): number[] {
   const curve = spatialCurve(ef, kind);
   if (!curve.polynomials?.signed) return [];
@@ -454,6 +483,10 @@ export function memberEndForces3D(ef: ElementForces3D, kind: Diagram3DKind): [nu
   return inwardMemberEndValues(ef.length, [ef[start], ef[end]],
     x => jumpLoads !== undefined && (ef[jumpLoads]?.some(p => p.a === x && p.p !== 0) ?? false),
     () => prepareDiagramEvaluator3D(ef, kind));
+}
+
+export function requireConcurrentSectionForces(ef: ElementForces3D): void {
+  if (ef.combined || boundMemberEnvelopeDiagram(ef, 'axial')) throw unavailableDiagramExtrema();
 }
 
 export function memberEndSections3D(ef: ElementForces3D) {
