@@ -167,13 +167,14 @@ class DraftBuilder {
 
   /** Split a frame element at parameter t, sharing node `nodeId` there.
    *  Draft beams carry no element loads, so the split is pure topology. */
-  splitElement(elementId: number, nodeId: number): void {
+  splitElement(elementId: number, nodeId: number): [DraftElement, DraftElement] | undefined {
     const idx = this.elements.findIndex((e) => e.id === elementId);
     if (idx < 0) return;
     const el = this.elements[idx];
     const a: DraftElement = { ...el, id: this.nextElement++, nodeJ: nodeId, releaseI: { ...el.releaseI }, releaseJ: { ...NO_RELEASE } };
     const b: DraftElement = { ...el, id: this.nextElement++, nodeI: nodeId, releaseI: { ...NO_RELEASE }, releaseJ: { ...el.releaseJ } };
     this.elements.splice(idx, 1, a, b);
+    return [a, b];
   }
 }
 
@@ -622,15 +623,17 @@ export function generateRcDraft(
   let cantileverSlabs = 0;
   let isolatedSlabs = 0;
   const conformingNodes = new Set<number>();
+  const beamEdgeKey = (a: number, b: number) => a < b ? `${a}:${b}` : `${b}:${a}`;
+  const certifiedBeams = new Map<number, { a: CadPt; b: CadPt; edges: Set<string> }>();
   const slabBounds = new Map(plan.slabs.map(slab => [slab, polygonBBox(slab.outline)]));
   const frameAtFloor = new Map(floorLevels.map(z => [z, {
     points: [] as CadPt[],
-    beams: [] as Array<{ a: CadPt; b: CadPt }>,
+    beams: [] as Array<{ id: number; a: CadPt; b: CadPt }>,
   }]));
   for (const node of b.nodes) frameAtFloor.get(node.z ?? 0)?.points.push(node);
   for (const beam of b.elements.slice(columnElementCount)) {
     const start = b.nodes[beam.nodeI - 1]!, end = b.nodes[beam.nodeJ - 1]!;
-    frameAtFloor.get(start.z ?? 0)?.beams.push({ a: start, b: end });
+    frameAtFloor.get(start.z ?? 0)?.beams.push({ id: beam.id, a: start, b: end });
   }
 
   for (const slab of plan.slabs) {
@@ -666,6 +669,13 @@ export function generateRcDraft(
           const thickness = slabThicknessAt(slab, z);
           const ids = mesh.points.map(({ x, y }) => b.node(x, y, z, PLATE_EDGE_TOL));
           ids.forEach(id => conformingNodes.add(id));
+          for (const beam of frameAtFloor.get(z)!.beams) {
+            const edges = mesh.beamEdges.get(beam.id);
+            if (!edges) continue;
+            const trace = certifiedBeams.get(beam.id) ?? { ...beam, edges: new Set<string>() };
+            for (const [i, j] of edges) trace.edges.add(beamEdgeKey(ids[i]!, ids[j]!));
+            certifiedBeams.set(beam.id, trace);
+          }
           for (const cell of mesh.cells) {
             const nodes = cell.map(i => ids[i]!) as DraftPlate['nodes'];
             slabCells.push({ id: b.plate(nodes, thickness), z, on: 'plate' });
@@ -832,7 +842,8 @@ export function generateRcDraft(
   // ── Split beams at shell nodes (PR [8] mesh logic) ────────
   let beamsSplit = 0;
   if (a.splitBeams) {
-    const nodeById = (id: number) => b.nodes.find((nn) => nn.id === id);
+    const nodeById = (id: number) => b.nodes[id - 1];
+    const beamTraces = new Map(certifiedBeams);
     const shellNodeIds = new Set([...b.quads, ...b.plates].flatMap(q => q.nodes));
     // Split beams to a FIXED POINT: a split creates new shorter sub-beams, and
     // another shell node may lie on a newly-created sub-beam (common where
@@ -844,17 +855,35 @@ export function generateRcDraft(
         const nn = nodeById(nid);
         if (!nn) continue;
         for (let guard = 0; guard < 4; guard++) {
+          const eligible = beamTraces.size === 0 ? b.elements : b.elements.filter(element => {
+            const trace = beamTraces.get(element.id);
+            return !trace || (
+              !trace.edges.has(beamEdgeKey(element.nodeI, element.nodeJ))
+              && pointOnSegment(nn, trace.a, trace.b, PLATE_EDGE_TOL, 0) !== null
+            );
+          });
           const hit = conformingNodes.has(nid)
-            ? beamThrough(nodeById, b.elements, nn.x, nn.y, nn.z ?? 0, PLATE_EDGE_TOL, 0)
-            : beamThrough(nodeById, b.elements, nn.x, nn.y, nn.z ?? 0, tol);
+            ? beamThrough(nodeById, eligible, nn.x, nn.y, nn.z ?? 0, PLATE_EDGE_TOL, 0)
+            : beamThrough(nodeById, eligible, nn.x, nn.y, nn.z ?? 0, tol);
           if (!hit) break;
-          b.splitElement(hit.id, nid);
+          const children = b.splitElement(hit.id, nid);
+          const trace = beamTraces.get(hit.id);
+          if (trace && children) {
+            beamTraces.delete(hit.id);
+            for (const child of children) beamTraces.set(child.id, trace);
+          }
           beamsSplit++;
           splitThisRound++;
         }
       }
       if (splitThisRound === 0) break;
     }
+    const remaining = new Map([...certifiedBeams.values()].map(trace => [trace, new Set(trace.edges)]));
+    for (const element of b.elements) {
+      const trace = beamTraces.get(element.id);
+      if (trace) remaining.get(trace)!.delete(beamEdgeKey(element.nodeI, element.nodeJ));
+    }
+    if ([...remaining.values()].some(edges => edges.size > 0)) throw new Error(t('cad.generateFailed'));
   }
 
   // Final offset-element count (splits at shell nodes copy the parallel

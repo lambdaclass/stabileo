@@ -722,10 +722,8 @@ it('#2607 nearby authored wall ends retain their joint at a column', () => {
   }
 });
 
-const replayCertifiedBeam = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
-
-replayCertifiedBeam.each(['fixedDivisions', 'targetSize'] as const)(
-  'known wrong result: #2607 %s preserves the certified beam edges beside an off-line wall end', meshMode => {
+it.each(['fixedDivisions', 'targetSize'] as const)(
+  '#2607 %s preserves the certified beam edges beside an off-line wall end', meshMode => {
     for (const offset of [0, 0.005, 0.011]) {
       const plan = reviewPlan();
       const x = offset === 0 ? 2 : 1.7;

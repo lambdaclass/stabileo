@@ -577,37 +577,19 @@ it.each([[0.004, 0.004, true], [-0.004, -0.009, true], [-0.004, -0.011, false]] 
     const layout = gravityLayout(model, { ...gravity, tributaryWidth: 1 });
     expect.soft(snowRoofSteps(model, layout)).toHaveLength(matches ? 1 : 0);
     const inputs = { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1 };
-    if (matches) {
-      expect.soft(() => driftAndSlidingLoads(model, layout, inputs)).toThrow('snow.refused.stepDriftTransfer');
-    } else {
-      expect(driftAndSlidingLoads(model, layout, inputs).distributed).toEqual([]);
-    }
+    expect.soft(() => driftAndSlidingLoads(model, layout, inputs)).toThrow('snow.refused.stepDriftTransfer');
     const config = { ...snow, roofKind: 'mono', slippery: false } as const;
     const direct = snowLoadCases({ model, layout, snow: config, tributaryWidth: 1 })!;
-    expect.soft(direct.result.refused).toBe(matches ? 'snow.refused.stepDriftTransfer' : undefined);
+    expect.soft(direct.result.refused).toBe('snow.refused.stepDriftTransfer');
     const plan = buildLoadPlan({
       model, gravity, regulations: regulations(), dead: [], occupancyKey: 'vivienda', tributaryWidth: 1,
       reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true,
       snow: { ...config, enabled: true, source: 'site' },
     });
-    expect.soft(plan.outcome).toBe(matches ? 'BLOCKED' : 'READY');
-    if (matches) expect(plan.blockedKeys).toContainEqual({ key: 'snow.refused.stepDriftTransfer' });
+    expect.soft(plan.outcome).toBe('BLOCKED');
+    expect(plan.blockedKeys).toContainEqual({ key: 'snow.refused.stepDriftTransfer' });
   },
 );
-
-it.each([0.009, 0.011])('#2607 same-level roof fetch across a %s m seam', gap => {
-  const model = mesh([
-    [[0, 0, 3], [7.5, 0, 3], [7.5, 4, 3], [0, 4, 3]],
-    [[-7.5, 0, 5], [0, 0, 5], [0, 4, 5], [-7.5, 4, 5]],
-    [[-35, 0, 5], [-7.5 - gap, 0, 5], [-7.5 - gap, 4, 5], [-35, 4, 5]],
-  ]);
-  const inputs = { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1 };
-  const layout = gravityLayout(model, { mode: 'panels', slab: 'oneWay', spanAxis: 'x', tributaryWidth: 1 });
-  const rows = driftAndSlidingLoads(model, layout, inputs).distributed;
-  const { pd, w } = stepDrift({ ...inputs, stepHeight: 2, luUpper: gap < 0.01 ? 35 : 7.5, luLower: 7.5 });
-  expect(rows).toHaveLength(2);
-  expect(rows.reduce((sum, row) => sum - row.q * (row.b! - row.a!), 0)).toBeCloseTo(4 * pd * w / 2, 10);
-});
 
 it('#2607 refuses an intervening canopy that crosses the receiving edge elevation', () => {
   const roofs = [
@@ -631,7 +613,6 @@ it('#2607 refuses an intervening canopy that crosses the receiving edge elevatio
     .toMatchObject({ result: { refused: 'snow.refused.stepDriftTransfer' }, cases: [] });
 });
 
-const replayAdjacentEdge = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
 const adjacentGravity = { mode: 'panels', slab: 'oneWay', spanAxis: 'x' } as const;
 const adjacentInputs = { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1 };
 const adjacentConfig = { ...snow, roofKind: 'mono', slippery: false } as const;
@@ -644,8 +625,8 @@ function adjacentPlan(model: ReturnType<typeof mesh>) {
   });
 }
 
-replayAdjacentEdge.each([[1, 1.5, true], [5.75, 6.25, true], [6, 6.5, false], [1, 1, false]] as const)(
-  'known wrong result: #2607 a skew adjacent edge from %s to %s m is checked', (near, far, refuse) => {
+it.each([[1, 1.5, true], [0, 1.5, true], [5.75, 6.25, true], [6, 6.5, false], [1, 1, false]] as const)(
+  '#2607 a skew adjacent edge from %s to %s m is checked', (near, far, refuse) => {
     const model = mesh([
       [[0, 0, 3], [7.5, 0, 3], [7.5, 4, 3], [0, 4, 3]],
       [[-9, 0, 5], [-near, 0, 5], [-far, 4, 5], [-9, 4, 5]],
@@ -668,8 +649,8 @@ replayAdjacentEdge.each([[1, 1.5, true], [5.75, 6.25, true], [6, 6.5, false], [1
   },
 );
 
-replayAdjacentEdge.each([0, 0.08, 0.12])(
-  'known wrong result: #2607 obstruction leaves a %s m clear drift span', clear => {
+it.each([0, 0.08, 0.12])(
+  '#2607 obstruction leaves a %s m clear drift span', clear => {
     const model = mesh([
       [[0, 0, 3], [7.5, 0, 3], [7.5, 4, 3], [0, 4, 3]],
       [[-8.5, 0, 5], [-1, 0, 5], [-1, 4, 5], [-8.5, 4, 5]],
@@ -701,7 +682,7 @@ replayAdjacentEdge.each([0, 0.08, 0.12])(
   },
 );
 
-replayAdjacentEdge.each([0, 0.005, 0.009, 0.011])('known wrong result: #2607 physical roof fetch across a %s m seam', gap => {
+it.each([0, 0.005, 0.009, 0.011])('#2607 physical roof fetch across a %s m seam', gap => {
   const model = mesh([
     [[0, 0, 3], [7.5, 0, 3], [7.5, 4, 3], [0, 4, 3]],
     [[-7.5, 0, 5], [0, 0, 5], [0, 4, 5], [-7.5, 4, 5]],

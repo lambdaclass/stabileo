@@ -1,0 +1,42 @@
+{
+  "id": "cad-certified-beam-edges",
+  "date": "2026-11-26",
+  "prs": [
+    2607
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "cadWallSlabMesh"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Preserve the certified beam edges in CAD drafts",
+    "es": "Conservar los bordes certificados de las vigas en borradores CAD",
+    "pt": "Preservar as arestas certificadas das vigas em rascunhos CAD",
+    "de": "Zertifizierte Trägerkanten in CAD-Entwürfen erhalten",
+    "fr": "Conserver les arêtes de poutre certifiées dans les ébauches CAO",
+    "hu": "A tanúsított gerendaélek megőrzése a CAD-vázlatokban",
+    "tr": "CAD taslaklarında doğrulanmış kiriş kenarlarını koru",
+    "zh": "保留 CAD 草稿中已验证的梁边"
+  },
+  "explanation": {
+    "en": "Regenerate affected CAD drafts and rerun analysis. Beam splitting preserves the bearing edges shared with a conforming slab mesh.",
+    "es": "Volvé a generar los borradores CAD afectados y repetí el análisis. Al dividir las vigas se conservan los bordes de apoyo compartidos con la malla compatible de la losa.",
+    "pt": "Gere novamente os rascunhos CAD afetados e refaça a análise. A divisão das vigas preserva as arestas de apoio compartilhadas com a malha compatível da laje.",
+    "de": "Erzeugen Sie die betroffenen CAD-Entwürfe neu und wiederholen Sie die Berechnung. Beim Teilen der Träger bleiben die gemeinsamen Auflagerkanten des konformen Deckennetzes erhalten.",
+    "fr": "Régénérez les ébauches CAO concernées et relancez le calcul. La subdivision des poutres conserve les arêtes d’appui communes au maillage conforme de la dalle.",
+    "hu": "Generálja újra az érintett CAD-vázlatokat, és ismételje meg az elemzést. A gerenda felosztása megőrzi a födémhálóval közös alátámasztási éleket.",
+    "tr": "Etkilenen CAD taslaklarını yeniden oluşturup analizi tekrarlayın. Kirişler bölünürken uyumlu döşeme ağıyla paylaşılan mesnet kenarları korunur.",
+    "zh": "请重新生成受影响的 CAD 草稿并重新分析。拆分梁时会保留与协调楼板网格共用的支承边。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-certified-bearings-and-snow-gaps.md",
+    "heading": "Preserve the certified beam edges in CAD drafts"
+  }
+}

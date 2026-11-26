@@ -97,13 +97,14 @@ function verifySurfaceRows(
   model: ModelData, caseId: number, label: string, shellId: number, carrier: string, nodeIds: readonly number[],
   forces: readonly LoadVector[], rows: readonly SolverLoad3D[],
 ): void {
-  if (rows.length !== nodeIds.length) unsupported(model, caseId, 'surface3d', shellId);
+  const carrierLabel = `${label} · ${carrier}`;
+  compareComponent(carrierLabel, tp('whatif.loads'), nodeIds.length, rows.length, 0, 0);
   const byNode = new Map(rows.map(wire => {
-    if (wire.type !== 'nodal') unsupported(model, caseId, 'surface3d', shellId);
+    if (wire.type !== 'nodal') mismatch(carrierLabel, tp('whatif.loads'), 1, 0);
     return [wire.data.nodeId, wire] as const;
   }));
   for (const [i, nodeId] of nodeIds.entries()) {
-    const wire = byNode.get(nodeId) ?? unsupported(model, caseId, 'surface3d', shellId);
+    const wire = byNode.get(nodeId) ?? mismatch(carrierLabel, tp('whatif.node', { n: nodeId }), 1, 0);
     const expected = { shellId, carrier, nodeId, force: forces[i]! };
     verifySurfaceNode(model, caseId, label, wire, expected);
     const checked = surfaceNodeForces.get(wire);

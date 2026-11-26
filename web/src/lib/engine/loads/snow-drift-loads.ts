@@ -60,8 +60,9 @@ function joined(A: P2[], B: P2[], continuous: (a: P2, b: P2) => boolean): boolea
     const point = (t: number): P2 => [a[0] + t * delta[0] / len, a[1] + t * delta[1] / len];
     return B.some((c, f) => {
       const d = B[(f + 1) % B.length]!;
-      const interval = edgeInterval(a, b, c, d);
-      return interval && interval[1] - interval[0] > 0.1
+      const error = snowEdgeRoundoff(a, b, c, d);
+      const interval = edgeInterval(a, b, c, d, error);
+      return interval && interval[1] - interval[0] > error
         && continuous(point(interval[0]), point(interval[1]));
     });
   });

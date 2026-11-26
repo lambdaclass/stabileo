@@ -677,12 +677,13 @@ type CorridorCoordinates = {
 };
 
 function clearRoofGap(
-  roofs: SnowRoofComponent[], lo: number, hi: number, width: number, error: number,
+  roofs: SnowRoofComponent[], lo: number, hi: number, gapAt: (station: number) => number, error: number,
   coordinates: CorridorCoordinates,
   obstructs: (roof: SnowRoofComponent, part: Polygon, from: number, to: number, coordinates: CorridorCoordinates) => boolean,
 ): [number, number][] {
-  const inset = Math.min(error, width / 4);
-  const corridor: Polygon = [[[lo, inset], [hi, inset], [hi, width - inset], [lo, width - inset]]];
+  const startWidth = Math.max(0, gapAt(lo)), endWidth = Math.max(0, gapAt(hi));
+  const startInset = Math.min(error, startWidth / 4), endInset = Math.min(error, endWidth / 4);
+  const corridor: Polygon = [[[lo, startInset], [hi, endInset], [hi, endWidth - endInset], [lo, startWidth - startInset]]];
   const project = (point: P2): P2 => {
     const [t, d] = coordinates.project(point);
     return [Math.abs(t - lo) <= error ? lo : Math.abs(t - hi) <= error ? hi : t, d];
@@ -792,18 +793,32 @@ export function snowRoofEdgePairs(
         const error = snowEdgeRoundoff(a, b, c, d);
         const nc = normal(c), nd = normal(d);
         const tc = along(c), td = along(d);
-        const lo = Math.max(0, Math.min(tc, td)), hi = Math.min(len, Math.max(tc, td));
-        if (hi - lo <= 0.1) continue;
+        let lo = Math.max(0, Math.min(tc, td)), hi = Math.min(len, Math.max(tc, td));
+        if (hi - lo <= error) continue;
         const opposed = inward[0] * upperInward[0] + inward[1] * upperInward[1] < 0;
         const parallel = Math.abs(nc - nd) <= error;
         const gap = -(nc + nd) / 2;
         const open = opposed && parallel && gap > error;
         const exact = Math.abs(nc) <= error && Math.abs(nd) <= error;
         const coincident = exact || (opposed && !open && Math.max(Math.abs(nc), Math.abs(nd)) <= SNOW_EDGE_COINCIDENCE);
-        if (!coincident && !(includeAdjacent && open && gap < MAX_ADJACENT_ROOF_SEPARATION)) continue;
-        const separation = coincident ? 0 : gap;
+        const offset = (t: number) => open ? -gap : exact ? 0 : nc + (nd - nc) * (t - tc) / (td - tc);
+        const gapAt = (t: number) => -offset(t);
+        const skew = !coincident && !parallel;
+        if (coincident) {
+          if (hi - lo <= 0.1) continue;
+        } else {
+          if (!includeAdjacent || !opposed) continue;
+          const from = gapAt(lo), to = gapAt(hi);
+          const least = Math.min(from, to), greatest = Math.max(from, to);
+          if (least < -error || greatest <= error || least >= MAX_ADJACENT_ROOF_SEPARATION) continue;
+          if (greatest > MAX_ADJACENT_ROOF_SEPARATION) {
+            const limit = lo + (hi - lo) * (MAX_ADJACENT_ROOF_SEPARATION - from) / (to - from);
+            if (to > from) hi = limit;
+            else lo = limit;
+          }
+          if (hi - lo <= error) continue;
+        }
         const displaced = !exact;
-        const offset = (t: number) => open ? -gap : displaced ? nc + (nd - nc) * (t - tc) / (td - tc) : 0;
         const move = ([x, y]: P2, sign: number): P2 => {
           const distance = sign * offset(along([x, y]));
           return [x + distance * inward[0], y + distance * inward[1]];
@@ -814,8 +829,8 @@ export function snowRoofEdgePairs(
         const fullElevations = elevationsFor(lo, hi);
         const rises = (values: EdgeElevation[]) => values.some(({ lowerZ, upperZ }) => upperZ - lowerZ > 1e-8);
         if (!rises(fullElevations)) continue;
-        const spans = separation === 0 ? [[lo, hi] as const] : clearRoofGap(
-          roofs, lo, hi, separation, error, {
+        const spans = coincident ? [[lo, hi] as const] : clearRoofGap(
+          roofs, lo, hi, gapAt, error, {
             project: p => [along(p), -normal(p)],
             world: ([t, d]) => [a[0] + t * u[0] - d * inward[0], a[1] + t * u[1] - d * inward[1]],
           },
@@ -823,12 +838,12 @@ export function snowRoofEdgePairs(
             roofObstructs(part, coordinates, layout, roof.k, surfaces(roof.k), elevationsFor(from, to)),
         );
         for (const [from, to] of spans) {
-          if (to - from <= 0.1) continue;
           const start = point(from), end = point(to);
           const elevations = from === lo && to === hi ? fullElevations : elevationsFor(from, to);
           if (!rises(elevations)) continue;
+          if (skew) throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL));
           pairs.push({
-            lower, upper, a: start, b: end, separation, above, below, displaced, inward,
+            lower, upper, a: start, b: end, separation: coincident ? 0 : gap, above, below, displaced, inward,
             lowerOutline, elevations, lowerComponent: L, upperComponent: U,
           });
         }

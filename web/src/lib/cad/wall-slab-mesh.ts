@@ -22,7 +22,7 @@ function clipTrace({ a, b }: Segment, outline: CadPt[], inset: number): Segment 
   return { a: at(start), b: at(end) };
 }
 
-function hasTraceEdges(points: CadPt[], cells: number[][], { a, b }: Segment): boolean {
+function traceEdges(points: CadPt[], cells: number[][], { a, b }: Segment): Array<[number, number]> | null {
   const length = dist(a, b);
   const ux = (b.x - a.x) / length, uy = (b.y - a.y) / length;
   const stations = points.map(p => {
@@ -45,10 +45,10 @@ function hasTraceEdges(points: CadPt[], cells: number[][], { a, b }: Segment): b
   }
   const ordered = stations.flatMap((station, i) => station == null ? [] : [{ station, i }])
     .sort((u, v) => u.station - v.station);
-  return ordered.length >= 2
-    && ordered[0]!.station <= PLATE_EDGE_TOL
-    && ordered[ordered.length - 1]!.station >= length - PLATE_EDGE_TOL
-    && ordered.slice(1).every(({ i }, k) => forward.get(ordered[k]!.i)?.includes(i));
+  if (ordered.length < 2 || ordered[0]!.station > PLATE_EDGE_TOL
+    || ordered[ordered.length - 1]!.station < length - PLATE_EDGE_TOL) return null;
+  const edges = ordered.slice(1).map(({ i }, k): [number, number] => [ordered[k]!.i, i]);
+  return edges.every(([i, j]) => forward.get(i)?.includes(j)) ? edges : null;
 }
 
 function crossing({ a, b }: Segment, { a: c, b: d }: Segment): CadPt | null {
@@ -64,8 +64,8 @@ function crossing({ a, b }: Segment, { a: c, b: d }: Segment): CadPt | null {
 }
 
 export function meshSlabAlongWalls(
-  corners: CadPt[], walls: Segment[], beams: Segment[], fixed: CadPt[], size: number, divisions?: number,
-): { points: CadPt[]; cells: number[][] } | null {
+  corners: CadPt[], walls: Segment[], beams: Array<Segment & { id: number }>, fixed: CadPt[], size: number, divisions?: number,
+): { points: CadPt[]; cells: number[][]; beamEdges: Map<number, Array<[number, number]>> } | null {
   if (corners.length !== 4) return null;
   const origin = corners[0]!;
   const signed = signedArea(corners.map(p => ({ x: p.x - origin.x, y: p.y - origin.y })));
@@ -77,9 +77,9 @@ export function meshSlabAlongWalls(
   })) return null;
 
   if (!walls.some(run => clipTrace(run, outline, PLATE_EDGE_TOL))) return null;
-  const traces = [...walls, ...beams].flatMap(run => {
+  const traces = [...walls, ...beams].flatMap((run: Segment & { id?: number }) => {
     const clipped = clipTrace(run, outline, 0);
-    return clipped && dist(clipped.a, clipped.b) > PLATE_EDGE_TOL ? [clipped] : [];
+    return clipped && dist(clipped.a, clipped.b) > PLATE_EDGE_TOL ? [{ ...clipped, id: run.id }] : [];
   });
   const stations = traces.flatMap(({ a, b }) => [a, b]);
   for (const [i, trace] of traces.entries()) {
@@ -104,7 +104,12 @@ export function meshSlabAlongWalls(
     const b = outline[(i + 1) % outline.length]!;
     return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x) >= 0;
   }));
-  if (!required.every(p => points.some(q => dist(p, q) <= PLATE_EDGE_TOL))
-    || !traces.every(trace => hasTraceEdges(points, mesh.cells, trace))) return null;
-  return { points, cells: mesh.cells };
+  if (!required.every(p => points.some(q => dist(p, q) <= PLATE_EDGE_TOL))) return null;
+  const beamEdges = new Map<number, Array<[number, number]>>();
+  for (const trace of traces) {
+    const edges = traceEdges(points, mesh.cells, trace);
+    if (!edges) return null;
+    if (trace.id !== undefined) beamEdges.set(trace.id, edges);
+  }
+  return { points, cells: mesh.cells, beamEdges };
 }
