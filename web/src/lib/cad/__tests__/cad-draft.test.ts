@@ -789,9 +789,7 @@ it.each(['fixedDivisions', 'targetSize'] as const)(
   },
 );
 
-const replayInterface = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
-
-replayInterface('known wrong result: #2607 alternating floor matches minimize the total distance', () => {
+it('#2607 alternating floor matches minimize the total distance', () => {
   const A = { x: 0, y: -0.004 }, B = { x: 0.002, y: 0.006 };
   const L = { x: 0.008, y: 0 }, M = { x: -0.006, y: 0.003 };
   const remote = { x: 0, y: 4 };
@@ -817,4 +815,24 @@ replayInterface('known wrong result: #2607 alternating floor matches minimize th
   };
   expect(upperBase(A)).toBe(joint(L, 3));
   expect(upperBase(B)).toBe(joint(M, 3));
+});
+
+it('#2607 an alternating path keeps the only physical floor joint', () => {
+  const L = { x: 0, y: 0 }, M = { x: 0.018, y: 0 };
+  const A = { x: -0.008, y: 0 }, B = { x: 0.009, y: 0 };
+  const remote = { x: 0, y: 4 };
+  const plan = (physical: typeof L, station: typeof M): ArchPlan => ({
+    ...reviewPlan(), slabs: [], walls: [],
+    columns: [physical, remote].map(at => ({ at, sizeSource: 'default' })),
+    beams: [physical, station].map(a => ({ a, b: remote })),
+  });
+  const draft = buildDraft({
+    floorPlans: [{ plan: plan(L, M), fromFloor: 1, toFloor: 1 }, { plan: plan(B, A), fromFloor: 2, toFloor: 2 }],
+    assumptions: { ...reviewSettings, nFloors: 2, storyHeights: [3, 3] }, source: SOURCE,
+  });
+  const model = snapshotToModelShape(draft.snapshot);
+  const node = (x: number, z: number) => [...model.nodes.values()].find(p => p.x === x && p.y === 0 && p.z === z)!.id;
+  const upper = [...model.elements.values()].find(e => e.nodeJ === node(B.x, 6))!;
+  expect(upper.nodeI).toBe(node(L.x, 3));
+  expect(upper.nodeI).not.toBe(node(M.x, 3));
 });

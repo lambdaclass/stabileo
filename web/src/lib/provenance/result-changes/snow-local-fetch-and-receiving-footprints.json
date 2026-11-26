@@ -1,0 +1,45 @@
+{
+  "id": "snow-local-fetch-and-receiving-footprints",
+  "date": "2026-11-26",
+  "prs": [
+    2607
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "space3D",
+      "snow",
+      "generatedLoads",
+      "frameMembers"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Use the continuous fetch at each roof step interval",
+    "es": "Usar la longitud continua de cubierta en cada tramo del desnivel",
+    "pt": "Usar o comprimento contínuo da cobertura em cada trecho do desnível",
+    "de": "Die durchgehende Dachlänge je Abschnitt einer Dachstufe verwenden",
+    "fr": "Utiliser la longueur continue de toiture sur chaque tronçon du décrochement",
+    "hu": "A folytonos tetőhossz használata a tetőlépcső egyes szakaszain",
+    "tr": "Her çatı basamağı kesiminde kesintisiz çatı uzunluğunu kullan",
+    "zh": "按屋面高差边缘的各区段采用连续屋面长度"
+  },
+  "explanation": {
+    "en": "Regenerate snow loads. Step drift uses the continuous fetch on each interval and can refuse varying positive profiles. Parapet and sliding loads stay within their receiving footprints.",
+    "es": "Regenerá las cargas de nieve. La acumulación usa la longitud continua en cada tramo del desnivel y puede rechazar perfiles positivos variables. Las cargas de parapetos y de deslizamiento quedan dentro de las cubiertas receptoras.",
+    "pt": "Regenere as cargas de neve. A acumulação usa o comprimento contínuo em cada trecho do desnível e pode recusar perfis positivos variáveis. As cargas de parapeitos e de deslizamento ficam dentro das coberturas receptoras.",
+    "de": "Erzeugen Sie die Schneelasten neu. Die Verwehung verwendet je Abschnitt die durchgehende Dachlänge. Veränderliche positive Profile können abgelehnt werden. Attika- und Rutschlasten bleiben auf den aufnehmenden Dachflächen.",
+    "fr": "Régénérez les charges de neige. Les congères utilisent la longueur continue de chaque tronçon et peuvent être refusées si leur profil positif varie. Les charges aux acrotères et de glissement restent sur les surfaces réceptrices.",
+    "hu": "Hozza létre újra a hóterheket. A hótorlasz szakaszonként a folytonos tetőhosszt használja, és a változó pozitív profil elutasítható. A mellvéd és a lecsúszó hó terhei a fogadó tetőfelületeken maradnak.",
+    "tr": "Kar yüklerini yeniden oluşturun. Kar birikimi her kesimdeki kesintisiz çatı uzunluğunu kullanır. Değişken pozitif profiller reddedilebilir. Parapet ve kayan kar yükleri alıcı çatı alanlarında kalır.",
+    "zh": "请重新生成雪荷载。高差处的漂移积雪按各区段的连续屋面长度计算，变化的正荷载分布可能被拒绝。女儿墙积雪与滑落雪荷载限制在承载屋面的范围内。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-local-snow-fetch-and-cad-floor-matches.md",
+    "heading": "Use the continuous fetch at each roof step interval"
+  }
+}

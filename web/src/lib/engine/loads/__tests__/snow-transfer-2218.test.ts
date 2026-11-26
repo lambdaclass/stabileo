@@ -773,9 +773,7 @@ it.each([[0.04, 4], [1, 4], [2, 4], [1, 3]] as const)(
   },
 );
 
-const replayRoof = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
-
-replayRoof.each([0, 1])('known wrong result: #2607 each half of the step uses its own fetch at separation %s', separation => {
+it.each([0, 1])('#2607 each half of the step uses its own fetch at separation %s', separation => {
   const model = mesh([
     [[0, 0, 3], [7.5, 0, 3], [7.5, 4, 3], [0, 4, 3]],
     [[-2 - separation, 0, 5], [-separation, 0, 5], [-separation, 4, 5], [-2 - separation, 4, 5], [-2 - separation, 2, 5]],
@@ -813,7 +811,7 @@ replayRoof.each([0, 1])('known wrong result: #2607 each half of the step uses it
   expect.soft(receivingSnowForce(model, plan.distributed.filter(row => row.caseType === 'S' && row.caseIndex === snowCase))).toBeCloseTo(force, 10);
 });
 
-replayRoof.each(['parapet', 'sliding'] as const)('known wrong result: #2607 %s stays inside its receiving roof component', kind => {
+it.each(['parapet', 'sliding'] as const)('#2607 %s stays inside its receiving roof component', kind => {
   const sliding = kind === 'sliding';
   const rectangle = (lo: number, hi: number): [number, number][] => [[lo, 0], [hi, 0], [hi, 8], [lo, 8]];
   const panel = rectangle(0, 12);
@@ -852,7 +850,7 @@ replayRoof.each(['parapet', 'sliding'] as const)('known wrong result: #2607 %s s
   }
 });
 
-replayRoof('known wrong result: #2607 a varying positive fetch refuses when bearing pressure cannot be resolved', () => {
+it('#2607 a varying positive fetch refuses when bearing pressure cannot be resolved', () => {
   const model = mesh([
     [[0, 0, 3], [7.5, 0, 3], [7.5, 4, 3], [0, 4, 3]],
     [[-2, 0, 5], [0, 0, 5], [0, 4, 5], [-8, 4, 5]],

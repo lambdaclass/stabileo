@@ -344,6 +344,10 @@ function interfaceNodes(snapshot: ModelSnapshot, z: number): InterfaceNode[] {
 function matchInterfaceComponent(fromIds: readonly number[], pairs: ReadonlyMap<number, InterfacePair[]>): Map<number, InterfacePair> {
   const matches = new Map<number, InterfacePair>(), reverse = new Map<number, InterfacePair>();
   type Route = { physical: number; distance: bigint; pair?: InterfacePair };
+  const extend = (route: Route, pair: InterfacePair, direction: 1 | -1): Route => ({
+    physical: route.physical + direction * pair.physical,
+    distance: route.distance + BigInt(direction) * pair.distance,
+  });
   const better = (a: Route, b?: Route) => !b || a.physical < b.physical || (a.physical === b.physical && a.distance < b.distance);
   while (matches.size < fromIds.length) {
     const routes = new Map<number, Route>(), arrivals = new Map<number, Route>();
@@ -358,12 +362,12 @@ function matchInterfaceComponent(fromIds: readonly number[], pairs: ReadonlyMap<
       queued.delete(from);
       for (const pair of pairs.get(from) ?? []) {
         if (matches.get(from) === pair) continue;
-        const next = { physical: route.physical - pair.physical, distance: route.distance + pair.distance, pair };
+        const next = { ...extend(route, pair, 1), pair };
         if (!better(next, arrivals.get(pair.to))) continue;
         arrivals.set(pair.to, next);
         const taken = reverse.get(pair.to);
         if (!taken) continue;
-        const swap = { physical: next.physical + taken.physical, distance: next.distance + taken.distance };
+        const swap = extend(next, taken, -1);
         if (!better(swap, routes.get(taken.from))) continue;
         routes.set(taken.from, swap);
         if (!queued.has(taken.from)) {
@@ -404,7 +408,7 @@ function rangeInterfaceMatches(
       for (const target of index.get(key(x + dx, y + dy)) ?? []) {
         const distance = Math.hypot(target.x - node.x, target.y - node.y);
         if (distance < tolerance) {
-          const pair = { from: node.id, to: target.id, distance: dyadicInteger(distance), physical: Number(node.physical && target.physical) };
+          const pair = { from: node.id, to: target.id, distance: dyadicInteger(distance), physical: -Number(node.physical && target.physical) };
           (pairs.get(node.id) ?? pairs.set(node.id, []).get(node.id)!).push(pair);
           (sources.get(target.id) ?? sources.set(target.id, []).get(target.id)!).push(node.id);
         }
