@@ -366,3 +366,18 @@ it('known wrong result: #2581 reads both planar ends inside a point-load jump in
     }
   }
 });
+
+const envelopeEndRegression = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
+
+envelopeEndRegression('known wrong result: #2581 reads the aggregate planar J cell from its case envelope', async () => {
+  await initSolver();
+  const length = 4, inward = 9, exterior = 24, start = 30, end = 18;
+  const point = ef2D({ length, vStart: inward, vEnd: exterior, pointLoads: [{ a: length, p: exterior - inward }] });
+  const q = (end - start) / length;
+  const uniform = ef2D({ length, vStart: start, vEnd: end, qI: q, qJ: q });
+  for (const cases of [[point, uniform], [uniform, point]]) {
+    const envelope2D = computeEnvelope(cases.map(r2D))!;
+    const table = rows(report('shear', { results2D: envelope2D.maxAbsResults, envelope2D, provenance: { kind: 'envelope' }, content: undefined }));
+    expect.soft(table.find(row => row[0] === 'J')?.[2]).toBe(end.toFixed(2));
+  }
+});

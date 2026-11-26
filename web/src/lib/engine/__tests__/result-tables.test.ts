@@ -11,7 +11,7 @@ import { DEFAULT_AXES } from '../../axes/frame';
 import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';
 import '../../store/index';
-import { initSolver, solve3D, solvePDelta3D } from '../wasm-solver';
+import { computeEnvelope3D, initSolver, solve3D, solvePDelta3D } from '../wasm-solver';
 import { publishCombinations3D, activePerCombo3D, activeCombinations } from '../../store/active-results';
 import { computeStationDemands, steelDemandOf } from '../verification-service';
 import { combinationPeakRows } from '../../export/excel';
@@ -626,4 +626,21 @@ it('known wrong result: #2581 excludes the exterior axial value at J', () => {
   expect.soft(ConcurrentDemand.endpoints(force).find(demand => demand.stationT === 1)?.forces.n).toBe(tip - point);
   expect.soft(steelDemandOf(force).Nt).toBe(tip - point);
   expect.soft(stationForces3D(force, 1).n).toBe(tip - point);
+});
+
+const envelopeEndRegression = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
+
+envelopeEndRegression('known wrong result: #2581 reads the aggregate spatial J cell from its case envelope', async () => {
+  await initSolver();
+  const length = 4, inward = 9, exterior = 24, start = 30, end = 18;
+  const point = { ...reviewForces, length, vyStart: inward, vyEnd: exterior, pointLoadsY: [{ a: length, p: exterior - inward }] };
+  const uniform = { ...reviewForces, length, vyStart: start, vyEnd: end, distributedLoadsY: [
+    { a: 0, b: length, qI: (end - start) / length, qJ: (end - start) / length },
+  ] };
+  for (const cases of [[point, uniform], [uniform, point]]) {
+    const envelope = computeEnvelope3D(cases.map(force => reviewSources(force)[0]!.results))!;
+    const results = envelope.maxAbsResults3D;
+    expect.soft(rowsOf('forces', results, canonical).find(row => row.end === 'j')?.values[1]).toBe(end);
+    expect.soft(buildQueryRows(results.elementForces, 'Vy').find(row => row.end === 'j')?.value).toBe(end);
+  }
 });
