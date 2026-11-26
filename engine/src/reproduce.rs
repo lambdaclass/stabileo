@@ -409,6 +409,30 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "known wrong result: #2588"]
+    fn json_analysis_refuses_duplicate_section_ratio_keys() {
+        use crate::section::{SectionInput, analyze_section};
+
+        let section = r#"{"polygons":[{"materialId":1,"vertices":[[0,0],[2,0],[2,1],[0,1]]}],"modularRatios":{}}"#;
+        let encode = |rows: &str| section.replace(r#""modularRatios":{}"#, &format!(r#""modularRatios":{{{rows}}}"#));
+        let area = |rows: &str| {
+            let input = serde_json::from_str::<SectionInput>(&encode(rows)).unwrap();
+            analyze_section(&input).unwrap().a
+        };
+
+        assert_eq!(area(""), area(r#""1":1"#));
+        assert_eq!(area(r#""1":2,"2":3"#), 2.0 * area(r#""1":1"#));
+        let mut accepted = Vec::new();
+        for rows in [r#""1":1,"1":2"#, r#""1":1,"1":null"#] {
+            let input = serde_json::from_str::<SectionInput>(&encode(rows));
+            if !matches!(input, Err(error) if error.to_string().contains("duplicate key in field `modularRatios`")) {
+                accepted.push(rows);
+            }
+        }
+        assert!(accepted.is_empty(), "{accepted:?}");
+    }
+
+    #[test]
     fn planar_json_requires_a_named_model() {
         let model = cantilever(false);
         let positional = json!([
