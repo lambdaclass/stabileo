@@ -16,14 +16,19 @@
   const cutAbove = $derived((uiStore.planCutZ ?? uiStore.nodeCreateZ) - uiStore.nodeCreateZ);
   const round = (v: number) => Math.round(v * 100) / 100;
   function setCut(above: number) {
-    if (Number.isFinite(above)) uiStore.planCutZ = round(uiStore.nodeCreateZ + above);
+    if (Number.isFinite(above)) uiStore.planCutZ = round(uiStore.nodeCreateZ + Math.max(0, above));
   }
   function nudge(e: { shiftKey: boolean }, d: 1 | -1) { setCut(round(cutAbove + d * (e.shiftKey ? 0.5 : 0.05))); }
   let cutEl: HTMLDivElement | undefined = $state();
   $effect(() => {
     const el = cutEl;
     if (!el) return;
-    const onWheel = (e: WheelEvent) => { e.preventDefault(); nudge(e, e.deltaY < 0 ? 1 : -1); };
+    let acc = 0;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      acc += e.deltaMode === 0 ? e.deltaY : e.deltaY * 40;
+      while (Math.abs(acc) >= 60) { nudge(e, acc < 0 ? 1 : -1); acc -= Math.sign(acc) * 60; }
+    };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
   });
@@ -60,7 +65,7 @@
     <span>{t('viewport.planCutField')}</span>
     <button onclick={(e) => nudge(e, -1)} aria-label="−" data-testid="plan-view-cut-down">−</button>
     <input type="text" inputmode="decimal" value={cutAbove.toFixed(2)} aria-label={t('viewport.planCutHint')}
-           onchange={(e) => { setCut(+e.currentTarget.value.replace(',', '.')); e.currentTarget.value = cutAbove.toFixed(2); }}
+           onchange={(e) => { const v = e.currentTarget.value.trim(); if (v) setCut(+v.replace(',', '.')); e.currentTarget.value = cutAbove.toFixed(2); }}
            onkeydown={(e) => { if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); nudge(e, e.key === 'ArrowUp' ? 1 : -1); } }}
            data-testid="plan-view-cut" />
     <button onclick={(e) => nudge(e, 1)} aria-label="+" data-testid="plan-view-cut-up">+</button>

@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import type { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { placeOverhead } from '../camera';
-import { toneBelowPlanCut, PLAN_DEPTH_M } from '../plan-cut';
+import { clearPlanCut, planFloorFor, toneBelowPlanCut, underPlanFloor } from '../plan-cut';
+import { ElementsBatched } from '../../three/elements-batched';
+import { modelStore } from '../../store/model.svelte';
+import '../../store/index';
 
 function overhead(rotationDeg: number) {
   const camera = new THREE.OrthographicCamera();
@@ -37,23 +40,64 @@ describe('what lies under the plan', () => {
     return m;
   };
 
-  it('is hidden by default, shown in halftone on request, and back as it was outside the plan', () => {
+  const pass = (parents: THREE.Object3D[], cut: Parameters<typeof toneBelowPlanCut>[1]) => { clearPlanCut(parents); toneBelowPlanCut(parents, cut); };
+
+  it('is hidden by default, shown in halftone on request, and back as it was outside the plan; the level stays whatever the cut', () => {
     const parent = new THREE.Group();
     const lower = at(0), level = at(3), column = at(1.5);
     column.scale.z = 15;
     column.updateMatrixWorld();
     parent.add(lower, level, column);
-    const cut = { cutZ: 3.15, below: 'hidden' as const };
+    const cut = { floorZ: planFloorFor(3), below: 'hidden' as const };
 
-    toneBelowPlanCut([parent], cut);
+    pass([parent], cut);
     expect([lower.visible, level.visible, column.visible]).toEqual([false, true, true]);
 
-    toneBelowPlanCut([parent], { ...cut, below: 'ghost' });
+    pass([parent], { ...cut, below: 'ghost' });
     expect(lower.visible).toBe(true);
     expect((lower.material as THREE.Material).transparent).toBe(true);
 
-    toneBelowPlanCut([parent], { ...cut, cutZ: 0.1 + PLAN_DEPTH_M });
-    toneBelowPlanCut([parent], null);
+    pass([parent], null);
     expect([lower.visible, level.visible, column.visible]).toEqual([true, true, true]);
+  });
+
+  it('does not show what something else hid', () => {
+    const parent = new THREE.Group();
+    const lower = at(0);
+    parent.add(lower);
+    pass([parent], { floorZ: planFloorFor(3), below: 'hidden' });
+    lower.visible = false;
+    clearPlanCut([parent]);
+    lower.visible = false;
+    toneBelowPlanCut([parent], { floorZ: planFloorFor(3), below: 'ghost' });
+    expect(lower.visible).toBe(false);
+  });
+
+  it('cannot be picked while hidden', () => {
+    modelStore.clear();
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0), c = modelStore.addNode(0, 0, 3), d = modelStore.addNode(4, 0, 3);
+    const low = modelStore.addElement(a, b), high = modelStore.addElement(c, d);
+    toneBelowPlanCut([], { floorZ: planFloorFor(3), below: 'hidden' });
+    expect([underPlanFloor({ type: 'element', id: low }), underPlanFloor({ type: 'element', id: high }), underPlanFloor({ type: 'node', id: a })]).toEqual([true, false, true]);
+    toneBelowPlanCut([], { floorZ: planFloorFor(3), below: 'ghost' });
+    expect(underPlanFloor({ type: 'element', id: low })).toBe(false);
+    toneBelowPlanCut([], null);
+  });
+
+  it('in wireframe, clips the members below or draws them dim', () => {
+    const batch = new ElementsBatched();
+    batch.upsert(1, 0, 0, 0, 4, 0, 0);
+    batch.upsert(2, 0, 0, 3, 4, 0, 3);
+    batch.flush();
+    const color = (id: number) => { const off = batch.indexOf(id)! * 6; return (batch as unknown as { colors: Float32Array }).colors.slice(off, off + 3); };
+    const base = [...color(1)];
+    batch.setPlanFloor(planFloorFor(3), 'hidden');
+    expect(batch.mesh.material.clippingPlanes?.[0]?.constant).toBeCloseTo(-2.85, 12);
+    batch.setPlanFloor(planFloorFor(3), 'ghost');
+    expect(batch.mesh.material.clippingPlanes).toBeNull();
+    expect(color(1)[0]).toBeCloseTo(base[0]! * 0.35, 2);
+    expect([...color(2)]).toEqual(base);
+    batch.setPlanFloor(null, 'hidden');
+    expect([...color(1)]).toEqual(base);
   });
 });

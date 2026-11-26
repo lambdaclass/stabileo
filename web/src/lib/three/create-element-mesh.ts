@@ -53,7 +53,7 @@ export interface CreateElementOpts {
   /** Render mode: wireframe=simple lines, solid=cylinders, sections=extruded profiles */
   renderMode?: 'wireframe' | 'solid' | 'sections';
   /**
-   * In the `physical` and `sections` modes, the member's concrete as built and the joints it owns
+   * In the `sections` mode, the member's concrete as built and the joints it owns
    * (`store/physical-frame.ts`). Absent, the member is drawn as its section.
    */
   physicalLayers?: readonly PrismLayer[];

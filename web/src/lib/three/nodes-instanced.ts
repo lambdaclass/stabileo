@@ -135,7 +135,7 @@ export class NodesInstanced {
     this.mesh.userData = { type: 'nodeBatch', indexToId: this.indexToId };
 
     this.pointsMat = new THREE.ShaderMaterial({
-      uniforms: { uPixelRatio: { value: 1 }, uSphere: { value: 0 }, uClipBelow: { value: -Infinity } },
+      uniforms: { uPixelRatio: { value: 1 }, uSphere: { value: 0 }, uClipBelow: { value: -1e30 } },
       vertexShader: POINTS_VERTEX,
       fragmentShader: POINTS_FRAGMENT,
     });
@@ -416,7 +416,7 @@ export class NodesInstanced {
   setClipBelow(z: number | null): void {
     if (z === this.clipBelow) return;
     this.clipBelow = z;
-    this.pointsMat.uniforms.uClipBelow!.value = z ?? -Infinity;
+    this.pointsMat.uniforms.uClipBelow!.value = z ?? -1e30;
     if (z === null) this.mat.clippingPlanes = null;
     else { this.clipPlane.constant = -z; this.mat.clippingPlanes = [this.clipPlane]; }
     this.mat.needsUpdate = true;

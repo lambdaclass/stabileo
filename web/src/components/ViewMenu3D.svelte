@@ -21,7 +21,10 @@
     uiStore.proActiveTab = 'view';
     onclose();
     await tick();
-    document.querySelector('[data-testid="view-style"]')?.scrollIntoView({ block: 'center' });
+    const find = () => document.querySelector('[data-testid="view-style"]');
+    const el = find();
+    if (el) el.scrollIntoView({ block: 'center' });
+    else requestAnimationFrame(() => find()?.scrollIntoView({ block: 'center' }));
   }
 
   const PROJECTIONS = [['perspective', 'viewMenu.perspective'], ['orthographic', 'viewMenu.orthographic']] as const;
@@ -68,7 +71,7 @@
   <div class="cam-seg" role="radiogroup" aria-label={t(pro ? 'viewMenu.barsPlates' : 'viewMenu.bars')} data-testid="cam-render">
     {#each BAR_STYLES as s (s.style)}
       <button class:on={barStyle(uiStore.renderMode3D) === s.style} role="radio" aria-checked={barStyle(uiStore.renderMode3D) === s.style}
-              onclick={() => { uiStore.renderMode3D = s.mode; }} title={t(s.hint)} data-testid="cam-bars-{s.style}">{t(s.label)}</button>
+              onclick={() => { if (barStyle(uiStore.renderMode3D) !== s.style) uiStore.renderMode3D = s.mode; }} title={t(s.hint)} data-testid="cam-bars-{s.style}">{t(s.label)}</button>
     {/each}
   </div>
   {#if pro}

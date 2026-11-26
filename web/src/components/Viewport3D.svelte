@@ -33,7 +33,7 @@
   import { currentShellContourField, shellStressInputs } from '../lib/store/shell-contour';
   import { shellComponentValue, shellComponentMeta, shellComponentLabelKey } from '../lib/engine/shell-stress';
   import { toneObject } from '../lib/viewport3d/category-tone';
-  import { toneBelowPlanCut, planFloorZ } from '../lib/viewport3d/plan-cut';
+  import { toneBelowPlanCut, clearPlanCut, planFloorFor } from '../lib/viewport3d/plan-cut';
   import { viewCategories, type ViewCategory } from '../lib/store/view-categories.svelte';
   import { syncUnderlays } from '../lib/three/underlay-3d';
   import { syncFootings } from '../lib/three/footings-3d';
@@ -852,29 +852,30 @@
         camera.position.add(forward);
       }
 
-      if (uiStore.planView3D) return;
-      // Q/E — vertical movement
-      if (keysPressed.has('q')) {
-        controls.target.z -= panSpeed;
-        camera.position.z -= panSpeed;
-      }
-      if (keysPressed.has('e')) {
-        controls.target.z += panSpeed;
-        camera.position.z += panSpeed;
-      }
+      if (!uiStore.planView3D) {
+        // Q/E — vertical movement
+        if (keysPressed.has('q')) {
+          controls.target.z -= panSpeed;
+          camera.position.z -= panSpeed;
+        }
+        if (keysPressed.has('e')) {
+          controls.target.z += panSpeed;
+          camera.position.z += panSpeed;
+        }
 
-      // Arrow keys — orbit around target
-      _orbitSpherical.setFromVector3(
-        camera.position.clone().sub(controls.target)
-      );
-      if (keysPressed.has('ArrowLeft')) _orbitSpherical.theta -= orbitSpeed;
-      if (keysPressed.has('ArrowRight')) _orbitSpherical.theta += orbitSpeed;
-      if (keysPressed.has('ArrowUp')) _orbitSpherical.phi = Math.max(0.1, _orbitSpherical.phi - orbitSpeed);
-      if (keysPressed.has('ArrowDown')) _orbitSpherical.phi = Math.min(Math.PI - 0.1, _orbitSpherical.phi + orbitSpeed);
-      if (keysPressed.has('ArrowLeft') || keysPressed.has('ArrowRight') || keysPressed.has('ArrowUp') || keysPressed.has('ArrowDown')) {
-        camera.position.copy(controls.target).add(
-          _panVec.setFromSpherical(_orbitSpherical)
+        // Arrow keys — orbit around target
+        _orbitSpherical.setFromVector3(
+          camera.position.clone().sub(controls.target)
         );
+        if (keysPressed.has('ArrowLeft')) _orbitSpherical.theta -= orbitSpeed;
+        if (keysPressed.has('ArrowRight')) _orbitSpherical.theta += orbitSpeed;
+        if (keysPressed.has('ArrowUp')) _orbitSpherical.phi = Math.max(0.1, _orbitSpherical.phi - orbitSpeed);
+        if (keysPressed.has('ArrowDown')) _orbitSpherical.phi = Math.min(Math.PI - 0.1, _orbitSpherical.phi + orbitSpeed);
+        if (keysPressed.has('ArrowLeft') || keysPressed.has('ArrowRight') || keysPressed.has('ArrowUp') || keysPressed.has('ArrowDown')) {
+          camera.position.copy(controls.target).add(
+            _panVec.setFromSpherical(_orbitSpherical)
+          );
+        }
       }
     }
 
@@ -1344,6 +1345,8 @@
   let toneDirty = true;
   function applyCategoryTones() {
     const s = (c: ViewCategory) => viewCategories.state(c);
+    const planned = [elementsParent, nodesParent, shellsParent, supportsParent, loadsParent];
+    clearPlanCut(planned);
     toneObject(elementsParent, s('members'));
     toneObject(nodesParent, s('nodes'));
     toneObject(shellsParent, s('shells'));
@@ -1352,9 +1355,10 @@
     for (const g of [resultsCtx?.nodeLabelsGroup, resultsCtx?.elementLabelsGroup, resultsCtx?.shellLabelsGroup]) toneObject(g, s('labels'));
     toneObject(underlaysGroup, s('underlays'));
     for (const [obj, c] of sceneHost.toned) toneObject(obj, s(c));
-    const cut = uiStore.planView3D && uiStore.planCutZ !== null ? { cutZ: uiStore.planCutZ, below: uiStore.planBelow } : null;
-    toneBelowPlanCut([elementsParent, nodesParent, shellsParent, supportsParent, loadsParent], cut);
-    nodesInstanced.setClipBelow(planFloorZ(cut));
+    const cut = uiStore.planView3D && uiStore.planCutZ !== null ? { floorZ: planFloorFor(uiStore.nodeCreateZ), below: uiStore.planBelow } : null;
+    toneBelowPlanCut(planned, cut);
+    nodesInstanced.setClipBelow(cut?.below === 'hidden' ? cut.floorZ : null);
+    elementsBatched.setPlanFloor(cut?.floorZ ?? null, cut?.below ?? 'hidden');
   }
   // Decorative overlays (member/shell local-axis triads, offset viz) fully rebuild
   // on every call. The nodes $effect re-runs them on every modelVersion bump, i.e.
@@ -4102,7 +4106,7 @@
     untrack(() => { if (uiStore.planView3D && beforePlan) turnPlan(); });
   });
   $effect(() => {
-    void uiStore.planView3D; void uiStore.planCutZ; void uiStore.planBelow;
+    void uiStore.planView3D; void uiStore.planCutZ; void uiStore.planBelow; void uiStore.nodeCreateZ;
     toneDirty = true;
     invalidate();
   });

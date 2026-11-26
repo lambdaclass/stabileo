@@ -1071,7 +1071,10 @@ function createUIStore() {
     set showSecondarySelector(v: boolean) { showSecondarySelector = v; },
 
     get renderMode3D() { return analysisMode === 'pro' ? renderMode3D_pro : renderMode3D_basic; },
-    set renderMode3D(v: 'wireframe' | 'solid' | 'sections') { if (analysisMode === 'pro') renderMode3D_pro = v; else renderMode3D_basic = v; },
+    set renderMode3D(v: 'wireframe' | 'solid' | 'sections') {
+      const m = (v as string) === 'physical' ? 'sections' : v;
+      if (analysisMode === 'pro') renderMode3D_pro = m; else renderMode3D_basic = m;
+    },
     get smoothOrbit3D() { return smoothOrbit3D; },
     set smoothOrbit3D(v: boolean) { smoothOrbit3D = v; },
 

@@ -52,13 +52,24 @@ test.describe('@smoke the plan view', () => {
     await expect(page.getByTestId('plan-view-cut')).toHaveValue('0.65');
   });
 
-  test('hides what lies under the level, or shows it faded', async ({ pro: page }) => {
-    await enterPlan(page);
-    await page.getByTestId('plan-view-cut').fill('3,3');
-    await page.getByTestId('plan-view-cut').press('Enter');
-    await expect(page.getByTestId('plan-view-cut')).toHaveValue('3.30');
+  test('hides what lies under the level, or shows it faded; the cut moves without hiding the level', async ({ pro: page }) => {
+    await loadModel(page, 'rc-design-qa-8');
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-grid').click();
+    await page.getByTestId('grid-heights').fill('3.2');
+    await page.getByTestId('grid-generate-levels').click();
+    await page.getByTestId('cam-menu').click();
+    await page.getByTestId('nav-plan-view').click();
+    await page.locator('.cam-backdrop').click({ position: { x: 420, y: 460 } });
+    await expect.poll(async () => (await census(page)).hidden).toBe(0);
+    await page.getByTestId('plan-view-up').click();
     await expect(page.getByTestId('plan-view-below')).toHaveAttribute('aria-pressed', 'false');
     await expect.poll(async () => (await census(page)).hidden).toBeGreaterThan(0);
+    const atLevel = (await census(page)).hidden;
+    await page.getByTestId('plan-view-cut').fill('1,5');
+    await page.getByTestId('plan-view-cut').press('Enter');
+    await expect(page.getByTestId('plan-view-cut')).toHaveValue('1.50');
+    expect((await census(page)).hidden, 'a higher cut hides nothing more').toBe(atLevel);
     const hidden = (await census(page)).hidden;
     await page.getByTestId('plan-view-below').click();
     await expect(page.getByTestId('plan-view-below')).toHaveAttribute('aria-pressed', 'true');
