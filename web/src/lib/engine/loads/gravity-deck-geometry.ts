@@ -12,6 +12,7 @@ type HeightRange = readonly [number, number];
 export type DeckSurface = {
   range: HeightRange;
   heights: (point: Point) => HeightRange;
+  independentShells?: ReadonlySet<GravityShellKey>;
   exactHeight?: (point: DoubledPlanPoint) => Elevation;
 };
 
@@ -42,7 +43,7 @@ export function physicalDeck(points: Point3[], plane?: FittedShellPlane): Deck {
   return { points, basis, ...deckSurface(range, planeHeight) };
 }
 
-export type DeckFootprint = { footprint: Polygon[]; geometry: DeckSurface; independentShells?: ReadonlySet<GravityShellKey> };
+export type DeckFootprint = { footprint: Polygon[]; geometry: DeckSurface };
 type Band = 'none' | 'full' | 'partial';
 
 function above(upper: number, lower: number, limit: number): number {

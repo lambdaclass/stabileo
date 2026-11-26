@@ -1,5 +1,5 @@
 import type { Constraint3D, LinearMpcConstraint } from '../../engine/types-3d';
-import { cross, dot, type Vec3 } from '../edit/affine';
+import { cross, dot, unit, type Vec3 } from '../edit/affine';
 import { pieceOf, type PieceModel } from '../curve-entity';
 import {
   arcInterior, circleThrough, externalFeatures, frameOfLoop, plateGeometry, plateKindOf, plateLoops,

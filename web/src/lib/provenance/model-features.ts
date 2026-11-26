@@ -546,9 +546,8 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     }
     const issue = plateAnalysisIssue(plates);
     if (issue && issue.kind !== 'unmeshed') f.add('plateAnalysisIssue');
-    if (issue?.kind === 'wallSlab' && 'contact' in issue.joint) {
-      f.add(issue.joint.contact.length === 1 ? 'wallSlabPointContact' : 'wallSlabInteriorContact');
-    }
+    if (issue?.kind === 'wallSlab' && 'contact' in issue.joint) f.add('wallSlabInteriorContact');
+    if (issue?.kind === 'wallSlab' && 'contact' in issue.joint && issue.joint.contact.length === 1) f.add('wallSlabPointContact');
   }
   if (s.provenance?.source === 'cad-dxf' && (s.provenance.cadWallSlabMesh || f.has('wallSlabInteriorContact'))) f.add('cadWallSlabMesh');
   if (quads.some((q) => q?.curved)) f.add('curvedShells');
