@@ -33,8 +33,8 @@
     "ru": "Недопустимые данные конструкции"
   },
   "explanation": {
-    "en": "Analysis now names malformed structural and solver fields that could previously be dropped or replaced by defaults. Check support fields, fixed-size arrays, connector keys and combination IDs.",
-    "es": "El análisis indica los campos estructurales y del solver inválidos que antes podían omitirse o reemplazarse por valores predeterminados. Revisá los campos de los apoyos, los arreglos de tamaño fijo, las claves de los conectores y los identificadores de las combinaciones.",
+    "en": "Analysis now names malformed structural and solver fields that could previously be dropped or replaced by defaults. Check support fields, fixed-size arrays, connector keys and combination IDs. Multi-case analysis also refuses unknown combination definition fields such as method.",
+    "es": "El análisis indica los campos estructurales y del solver inválidos que antes podían omitirse o reemplazarse por valores predeterminados. Revisá los campos de los apoyos, los arreglos de tamaño fijo, las claves de los conectores y los identificadores de las combinaciones. El análisis de varios casos también rechaza campos desconocidos en la definición de combinaciones, como method.",
     "pt": "A análise indica os campos estruturais e do solver inválidos que antes podiam ser descartados ou substituídos por valores padrão.",
     "de": "Die Berechnung benennt ungültige Struktur- und Solverfelder, die zuvor entfallen oder durch Standardwerte ersetzt werden konnten.",
     "fr": "Le calcul signale les champs de structure et de résolution invalides qui pouvaient auparavant être ignorés ou remplacés par des valeurs par défaut.",

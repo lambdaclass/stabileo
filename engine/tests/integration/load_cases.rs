@@ -685,7 +685,6 @@ fn load_cases_3d_duplicate_case_name_errors() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2588"]
 fn multi_case_2d_refuses_unsupported_combination_fields() {
     let mut request = serde_json::json!({
         "solver": make_beam_2d(),
@@ -699,7 +698,6 @@ fn multi_case_2d_refuses_unsupported_combination_fields() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2588"]
 fn multi_case_3d_refuses_unsupported_combination_fields() {
     let mut request = serde_json::json!({
         "solver": make_beam_3d(),

@@ -268,6 +268,7 @@ it.each(['xy', 'xz'] as const)('solves default rigid links in explicit %s with t
   expect(analyze([])).toEqual(reference);
 
   file.snapshot.drawPlane2D = undefined;
+  file.snapshot.nodes = file.snapshot.nodes.map(([id, node]) => [id, id === tip ? { ...node, y: 1 } : node]);
   file.snapshot.constraints = [{ ...link, dofs: [0] }];
   expect(open(file, 'file').opened).toBe(true);
   expect(modelStore.solve()).toMatchObject({ displacements: expect.arrayContaining([

@@ -604,7 +604,7 @@ type StoredProjectInput = {
 
 const NORMAL_AXIS = { xy: 'z', xz: 'y', yz: 'x' } as const;
 const AXES = ['x', 'y', 'z'] as const;
-const PLANAR_LOAD_TYPES = ['nodal', 'distributed', 'pointOnElement', 'thermal'];
+const PLANAR_FALLBACK_LOAD_TYPES = ['distributed', 'pointOnElement', 'thermal'];
 
 function storedRows(rows: unknown): Array<Record<string, unknown>> {
   if (!Array.isArray(rows)) return [];
@@ -666,8 +666,9 @@ function storedLoadFitsPlane(load: unknown, plane: DrawPlane): boolean {
         || ['I', 'J'].every(end => zero('q', normal.toUpperCase(), end));
     case 'pointOnElement3d': return data.frame !== 'global' || (zero('p', normal) && rotationFits('m'));
     case 'nodal':
-      return plane === 'xy' || ((!isFiniteInputNumber(data.fz ?? data.fy) || (data.fz ?? data.fy) === 0)
-        && zero('m', 'y') && zero('m', 'z') && (plane !== 'yz' || zero('f', 'x')));
+      if (plane === 'xy') return zero('f', normal) && rotationFits('m');
+      return (!isFiniteInputNumber(data.fz ?? data.fy) || (data.fz ?? data.fy) === 0)
+        && zero('m', 'y') && zero('m', 'z') && (plane !== 'yz' || zero('f', 'x'));
   }
   return true;
 }
@@ -689,15 +690,16 @@ export function storedProjectPlane(snapshot: StoredProjectInput, constraints: re
   const legacyNodalLoads = loads.filter(isLegacyNodal);
   const otherLoads = loads.filter(load => !isLegacyNodal(load));
   const globalPlanes = geometryPlanes.filter(plane => otherLoads.every(load => storedLoadFitsPlane(load, plane)));
+  const legacyXYIsEstablished = globalPlanes.length === 1 && globalPlanes[0] === 'xy';
   const candidates = globalPlanes.filter(plane =>
-    legacyNodalLoads.every(load => storedLoadFitsPlane(load, plane))
+    (legacyXYIsEstablished || legacyNodalLoads.every(load => storedLoadFitsPlane(load, plane)))
     && supports.every(support => supportAllowsPlaneInference(support, geometryPlanes.length === 1, globalPlanes.length === 1)));
   if (candidates.length === 1) return candidates[0];
 
   if (candidates.length === 2 && candidates.includes('xy') && candidates.includes('xz')
       && nodes.every(node => node.y === 0 && coordinate(node, 'z') === 0)
       && !constraints.some(dependsOnXYConstraintAxes)
-      && loads.every(load => isRecord(load) && typeof load.type === 'string' && PLANAR_LOAD_TYPES.includes(load.type))) {
+      && loads.every(load => isRecord(load) && typeof load.type === 'string' && PLANAR_FALLBACK_LOAD_TYPES.includes(load.type))) {
     return 'xy';
   }
   return undefined;

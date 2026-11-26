@@ -4,6 +4,7 @@ import { modelStore, type Support } from '../model.svelte';
 import { uiStore } from '../ui.svelte';
 import { recheckStore } from '../recheck.svelte';
 import { tabManager } from '../tabs.svelte';
+import { historyStore } from '../history.svelte';
 import type { CombinationCase } from '../../engine/loads/combination-cases';
 import { migrateSelfWeightIfNeeded } from '../self-weight-migration';
 import { compressSnapshot, loadFromShareLink, loadFromURLHash } from '../../utils/url-sharing';
@@ -16,6 +17,7 @@ import { t } from '../../i18n';
 import { readCorpusText } from '../../legacy-projects/legacy';
 import { requireStoredProjectInput } from '../../engine/model-input-numbers';
 import { deflateSync, inflateSync } from 'fflate';
+import LZString from 'lz-string';
 import '../index';
 
 beforeEach(() => {
@@ -54,7 +56,9 @@ function previousProject(enabled: boolean) {
   uiStore.includeSelfWeight = !enabled;
 }
 
-function open(entry: typeof entries[number], file: ReturnType<typeof buildProjectFile>) {
+const legacyNodalEntries = [...entries, 'v1 share', 'undo', 'redo'] as const;
+
+function open(entry: typeof legacyNodalEntries[number], file: ReturnType<typeof buildProjectFile>) {
   if (entry === 'file') {
     previousProject(file.includeSelfWeight!);
     expect(deserializeProject(JSON.stringify(file))).toBe(true);
@@ -70,6 +74,17 @@ function open(entry: typeof entries[number], file: ReturnType<typeof buildProjec
     const tab = { ...tabManager.activeTab!, modelSnapshot: file.snapshot };
     previousProject(file.includeSelfWeight!);
     tabManager.restoreSession([tab], tab.id);
+  } else if (entry === 'v1 share') {
+    const compressed = LZString.compressToEncodedURIComponent(JSON.stringify({
+      ...file.snapshot, analysisMode: file.analysisMode,
+    }));
+    uiStore.includeSelfWeight = file.includeSelfWeight!;
+    expect(loadFromShareLink(`https://x/#data=${compressed}`)).toBe(true);
+  } else if (entry === 'undo' || entry === 'redo') {
+    uiStore.analysisMode = file.analysisMode!;
+    uiStore.includeSelfWeight = file.includeSelfWeight!;
+    historyStore.setStacks(entry === 'undo' ? [file.snapshot] : [], entry === 'redo' ? [file.snapshot] : []);
+    historyStore[entry]();
   } else {
     const compressed = compressSnapshot({ ...file.snapshot, analysisMode: file.analysisMode });
     const compact = JSON.parse(new TextDecoder().decode(inflateSync(Buffer.from(compressed.slice(2), 'base64url'))));
@@ -426,9 +441,10 @@ it.each(entries)('known wrong result: #2588 — %s checks supports when a legacy
   expect(solvePDelta(modelStore.buildSolverInput()!).results.displacements).toEqual(secondOrder.results.displacements);
 });
 
-it('keeps the XY solution when a legacy nodal force leaves only XY and the spring is a planar preset', async () => {
+it('keeps the XY solution with a legacy nodal force when the geometry establishes XY', async () => {
   await initSolver();
   const { file, tip } = legacyLoadedCantilever({ type: 'spring', ky: 1, kz: 0 });
+  file.snapshot.nodes = file.snapshot.nodes.map(([id, node]) => [id, id === tip ? { ...node, y: 1 } : node]);
   modelStore.addNodalLoad(tip, 0, -10, 0, 1);
   file.snapshot.loads = buildProjectFile().snapshot.loads;
   file.snapshot.drawPlane2D = 'xy';
@@ -517,7 +533,7 @@ for (const [component, force, moment] of [
   ['bending moment', 0, -10],
   ['axial force only', 0, 0],
 ] as const) {
-  it.skip.each(entries)(`known wrong result: #2588 — %s requires a drawing plane for an X-aligned legacy beam with ${component}`, async entry => {
+  it.each(legacyNodalEntries)(`known wrong result: #2588 — %s requires a drawing plane for an X-aligned legacy beam with ${component}`, async entry => {
     await initSolver();
     const { file, tip } = legacyLoadedCantilever({ type: 'rollerX' });
     modelStore.addNodalLoad(tip, 1, force, moment, 1);
@@ -550,3 +566,22 @@ for (const [component, force, moment] of [
     expect(solvePDelta(modelStore.buildSolverInput()!).results).toEqual(nonlinear);
   });
 }
+
+it('retains a unique XY interpretation for an X-aligned beam with the older fy spelling', async () => {
+  await initSolver();
+  const { file, tip } = legacyLoadedCantilever({ type: 'rollerX' });
+  modelStore.addNodalLoad(tip, 1, -10, 0, 1);
+  file.snapshot.loads = buildProjectFile().snapshot.loads.map(load => {
+    if (load.type !== 'nodal') return load;
+    const data = { ...load.data, fy: load.data.fz };
+    Reflect.deleteProperty(data, 'fz');
+    return { ...load, data };
+  });
+  file.snapshot.drawPlane2D = 'xy';
+  open('file', file);
+  const reference = modelStore.solve();
+  expect(reference).toMatchObject({ reactions: expect.arrayContaining([expect.objectContaining({ nodeId: tip, rz: expect.any(Number) })]) });
+  open('file', { ...file, snapshot: { ...file.snapshot, drawPlane2D: undefined } });
+  expect(buildProjectFile().snapshot.drawPlane2D).toBe('xy');
+  expect(modelStore.solve()).toEqual(reference);
+});

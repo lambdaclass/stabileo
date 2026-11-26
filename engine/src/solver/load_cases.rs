@@ -22,7 +22,7 @@ pub struct LoadCase3D {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CombinationDef {
     pub name: String,
     /// Map from case name to factor, e.g. {"Dead": 1.2, "Live": 1.6}

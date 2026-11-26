@@ -704,7 +704,7 @@ for (const [dim, solver] of [['2d', planar], ['3d', space]] as const) {
     'bundle export': (input: object) => wasm[`export_combination_bundle_${dim}`](JSON.stringify(input)),
     'steel certificate': (input: object) => wasm[`certify_steel_multi_case_${dim}`](JSON.stringify({ multiCase: input, members: [] })),
   };
-  it.skip.each(Object.entries(entries))(`known wrong result: #2588 — WASM ${dim} %s refuses an unsupported combination method`, (_name, run) => {
+  it.each(Object.entries(entries))(`known wrong result: #2588 — WASM ${dim} %s refuses an unsupported combination method`, (_name, run) => {
     expect(run(request(combination))).toBeDefined();
     expect(() => run(request({ ...combination, method: 'SRSS' }))).toThrow(/unknown field .method/);
     expect(() => run(request({ ...combination, unexpected: null }))).toThrow(/unknown field .unexpected/);

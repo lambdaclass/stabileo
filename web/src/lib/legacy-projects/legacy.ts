@@ -172,7 +172,11 @@ export interface Opened {
  * Open a `.ded`'s text as the app does, and solve it. `beforeOpen` edits the parsed file first:
  * the negative tests' deliberately broken migration.
  */
-export async function openAndSolve(text: string, opts: { solve?: boolean; beforeOpen?: (file: Record<string, unknown>) => void } = {}): Promise<Opened> {
+export async function openAndSolve(text: string, opts: {
+  solve?: boolean;
+  beforeOpen?: (file: Record<string, unknown>) => void;
+  afterOpen?: () => Promise<void>;
+} = {}): Promise<Opened> {
   reset('2d');
   let body = text;
   if (opts.beforeOpen) {
@@ -184,6 +188,7 @@ export async function openAndSolve(text: string, opts: { solve?: boolean; before
   const changes = await assessedChanges();
   const values = modelCounts();
   const fingerprint = modelFingerprint();
+  await opts.afterOpen?.();
   if (opts.solve !== false) await solveAndRecord(values);
   return { values, changes, fingerprint };
 }

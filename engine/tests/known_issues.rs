@@ -1728,9 +1728,12 @@ fn warped_mitc_refusal_reaches_every_3d_entry_point() {
             ("craig-bampton", withheld(craig_bampton_3d(&CraigBamptonInput3D { solver: input.clone(), densities: densities.clone(), boundary_nodes: vec![tip], n_modes: 2 }), id)),
             ("buckling", withheld(solve_buckling_3d(&input, 1), id)),
             ("creep", withheld(solve_creep_shrinkage_3d(&creep), id)),
-            ("staged", match solve_staged_3d(&serde_json::from_value(staged).unwrap()) {
-                Err(e) if quad9 => e.starts_with("Nine-node shell elements are not yet supported in staged construction"),
-                outcome => withheld(outcome, id),
+            ("staged", if quad9 {
+                parse_staged_3d(&staged.to_string()).is_err_and(|e| e.starts_with(
+                    "Parse error: unsupported field `quad9s` (Nine-node shell elements are not yet supported in staged construction)",
+                ))
+            } else {
+                withheld(parse_staged_3d(&staged.to_string()).and_then(|request| solve_staged_3d(&request)), id)
             }),
             ("plastic", withheld(dedaliano_engine::solver::plastic::solve_plastic_3d(&plastic), id)),
             ("influence", withheld(dedaliano_engine::postprocess::influence::compute_influence_line_3d(&influence), id)),
