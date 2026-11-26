@@ -3,7 +3,7 @@ import inclinedFixture from '../../../../../engine/tests/fixtures/moving-shear-2
 import springFixture from '../../../../../engine/tests/fixtures/moving-shear-2104.json';
 import { solveMovingLoads as solveNative2D, solveMovingLoads3D } from '../wasm-solver';
 import * as wasm from '../wasm-solver';
-import { solveMovingLoads, solveMovingLoadsAsync } from '../moving-loads';
+import { computePointwiseEnvelope, solveMovingLoads, solveMovingLoadsAsync } from '../moving-loads';
 import { buildPath3D, sweepMovingLoad3D, sweepTrains3D, trainLoads } from '../moving-loads-3d';
 import { trainModelLoads, vehicleFromJson } from '../vehicles';
 import type { SolverInput } from '../types';
@@ -520,5 +520,44 @@ it('#2101 — browser axle-face shear excludes opposing endpoint point loads', a
   } finally {
     mock2D.mockRestore();
     mock3D.mockRestore();
+  }
+});
+
+it.skip('known wrong result: #2101 — planar pointwise shear includes both midspan axle cuts', async () => {
+  const length = 8, weight = 40;
+  const { plane } = reviewSpan(length, 0, true);
+  const train = { name: 'one axle', axles: [{ offset: 0, weight }] };
+  const config = { train, step: length / 2, pathElementIds: [1] };
+  for (const run of [solveMovingLoads, solveMovingLoadsAsync]) {
+    const result = await run(plane, config);
+    if (typeof result === 'string') throw new Error(result);
+    expect(result.positions.map(position => position.refPosition)).toEqual([0, length / 2, length]);
+    const shear = result.fullEnvelope!.shear.elements[0];
+    for (const [station, positive, negative] of [
+      [0, weight, 0],
+      [0.45, weight / 2, 0],
+      [0.5, weight / 2, -weight / 2],
+      [0.55, 0, -weight / 2],
+      [1, 0, -weight],
+    ]) {
+      const index = shear.tPositions.indexOf(station);
+      expect.soft(shear.posValues[index], `${run.name} V+ at ${station}`).toBeCloseTo(positive, 9);
+      expect.soft(shear.negValues[index], `${run.name} V- at ${station}`).toBeCloseTo(negative, 9);
+    }
+  }
+});
+
+it.skip('known wrong result: #2101 — planar pointwise shear uses the inward cut at each member end', () => {
+  const length = 8, weight = 40;
+  const { plane } = reviewSpan(length, 0, true);
+  plane.loads = [0, length].map(a => ({
+    type: 'pointOnElement', data: { elementId: 1, a, p: -weight },
+  }));
+  const result = wasm.solve(plane);
+  expect(result.reactions.map(reaction => reaction.rz)).toEqual([weight, weight]);
+  const shear = computePointwiseEnvelope([result])!.shear.elements[0];
+  for (const [index, station] of shear.tPositions.entries()) {
+    expect.soft(shear.posValues[index], `V+ at ${station}`).toBeCloseTo(0, 9);
+    expect.soft(shear.negValues[index], `V- at ${station}`).toBeCloseTo(0, 9);
   }
 });
