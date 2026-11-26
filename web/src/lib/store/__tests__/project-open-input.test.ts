@@ -157,3 +157,62 @@ it.each(['xy', 'xz', 'yz', undefined] as const)('opens the saved plane %s throug
     expect(uiStore.drawPlane2D).toBe(drawPlane2D ?? 'xy');
   }
 });
+
+const reviewCase = it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1');
+
+function duplicateNode(file: Project): Project {
+  const nodes = file.snapshot.nodes;
+  const [key, tip] = nodes[1]!;
+  return { ...file, snapshot: { ...file.snapshot, nodes: [...nodes, [key, { ...tip, x: 6 }]] } };
+}
+
+reviewCase.each(routes)('known wrong result: #2588 — %s refuses conflicting node rows before restore', route => {
+  const { file, tip } = frame('2d');
+  const before = modelStore.snapshot();
+  const invalid = duplicateNode(file);
+  const result = open(invalid, route);
+  expect.soft(result.opened).toBe(false);
+  expect.soft(result.messages).toContain(tp('svc.engine.invalidInputField', { path: `nodes.${tip}` }));
+  expect(modelStore.snapshot()).toEqual(before);
+});
+
+reviewCase.each(['2d', 'pro'] as const)('known wrong result: #2588 — %s restore refuses a conflicting span', async mode => {
+  await initSolver();
+  const { file, root, tip, force } = frame(mode);
+  const original = { ...file.snapshot, connectors: [] };
+  const solve = () => mode === '2d' ? modelStore.solve(false, 'xy') : modelStore.solve3D(false, false, true);
+  modelStore.restore(original);
+  const reference = solve();
+  expect(reference).toMatchObject({ displacements: expect.arrayContaining([expect.objectContaining({ nodeId: tip, ux: expect.any(Number) })]) });
+  if (!reference || typeof reference === 'string') throw new Error(String(reference));
+  const reaction = reference.reactions.find(r => r.nodeId === root);
+  expect(reaction && ('fx' in reaction ? reaction.fx : reaction.rx)).toBeCloseTo(-force);
+  const moved = duplicateNode({ ...file, snapshot: original }).snapshot;
+  modelStore.restore({ ...moved, nodes: [moved.nodes[0]!, moved.nodes[2]!] });
+  const longer = solve();
+  if (!longer || typeof longer === 'string') throw new Error(String(longer));
+  const displacement = (result: typeof reference) => result.displacements.find(d => d.nodeId === tip)!.ux;
+  expect(displacement(longer) / displacement(reference)).toBeCloseTo(6 / 5);
+  modelStore.restore(original);
+  const before = modelStore.snapshot();
+  const beforeInstall = vi.fn();
+  expect.soft(() => modelStore.restore(moved, beforeInstall)).toThrow(
+    tp('svc.engine.invalidInputField', { path: `nodes.${tip}` }),
+  );
+  expect.soft(beforeInstall).not.toHaveBeenCalled();
+  expect(modelStore.snapshot()).toEqual(before);
+});
+
+reviewCase.each(['elements', 'materials', 'sections', 'supports', 'plates', 'quads', 'groups', 'footings'] as const)(
+  'known wrong result: #2588 — restore refuses a repeated key in %s', table => {
+    const { file } = frame('pro');
+    const { snapshot } = file;
+    const row = snapshot[table]?.[0] ?? [1, { id: 1 }];
+    const invalid = { ...snapshot, [table]: [row, row] };
+    const beforeInstall = vi.fn();
+    expect.soft(() => modelStore.restore(invalid, beforeInstall)).toThrow(
+      tp('svc.engine.invalidInputField', { path: `${table}.${row[0]}` }),
+    );
+    expect(beforeInstall).not.toHaveBeenCalled();
+  },
+);

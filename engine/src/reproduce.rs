@@ -574,3 +574,33 @@ mod tests {
         }
     }
 }
+
+
+#[cfg(test)]
+#[test]
+#[ignore = "known wrong result: #2588"]
+fn staged_wire_fixtures_preserve_their_support_and_section_contracts() {
+    use crate::types::{StagedInput, StagedInput3D};
+    use serde_json::Value;
+
+    for source in [
+        include_str!("../tests/fixtures/staged-removal-r20.json"),
+        include_str!("../tests/fixtures/staged-global-springs-r20.json"),
+        include_str!("../tests/fixtures/staged-determined-r23.json"),
+    ] {
+        let cases: Vec<Value> = serde_json::from_str(source).unwrap();
+        let mut failures = Vec::new();
+        for case in cases {
+            let model = case["model"].clone();
+            let decoded = if case["dim"] == 2 {
+                serde_json::from_value::<StagedInput>(model).map(|_| ())
+            } else {
+                serde_json::from_value::<StagedInput3D>(model).map(|_| ())
+            };
+            if let Err(error) = decoded {
+                failures.push(format!("{}: {error}", case["name"]));
+            }
+        }
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+}

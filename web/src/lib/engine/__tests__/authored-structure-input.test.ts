@@ -720,3 +720,94 @@ it.each(['nodes', 'elements', 'supports', 'materials', 'sections', 'connectors']
     expect.soft(notices({ ...modelStore.snapshot(), [collection]: null })).toContain('malformed-structural-input');
   },
 );
+
+const reviewCase = it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1');
+
+reviewCase('known wrong result: #2588 — rejects a misspelled bending modifier before applying a fixture or solving', async () => {
+  const before = modelStore.snapshot();
+  const input = fixture();
+  const bad = { iZ: 0.5 };
+  Object.assign(input.elements[0]!, { stiffness: bad });
+  const saved = { ...before, elements: before.elements.map(([id, row]) => [id, { ...row, stiffness: bad }] as const) };
+  const field = `elements.${member}.stiffness.iZ`;
+  await refuses(field, {
+    replay: () => loadFixture(input, modelStore.fixtureApi() as never),
+    apply: () => modelStore.loadExample(input.name, async () => input),
+    restore: () => modelStore.restore(saved as never),
+  });
+  expect.soft(modelStore.snapshot()).toEqual(before);
+  modelStore.restore(before);
+  Object.assign(modelStore.model.elements.get(member)!, { stiffness: bad });
+  await refuses(field, analysisEntries());
+});
+
+reviewCase('known wrong result: #2588 — accepts recognized stiffness keys and applies a bending modifier', () => {
+  const model = modelStore.model;
+  model.loads = [{ type: 'nodal3d', data: { id: 1, nodeId: tip, fx: 0, fy: -1, fz: 0, mx: 0, my: 0, mz: 0, caseId: 1 } }];
+  const tipUy = () => {
+    const result = validateAndSolve3D(model);
+    if (!result || typeof result === 'string') throw new Error(String(result));
+    expect(result.reactions.find(row => row.nodeId === root)?.fy).toBeCloseTo(1);
+    return result.displacements.find(row => row.nodeId === tip)!.uy;
+  };
+  const nominal = tipUy();
+  expect(nominal).toBeLessThan(0);
+  model.elements.get(member)!.stiffness = { a: 1, iy: 1, iz: 0.5, j: 1, preset: 'beam' };
+  expect(tipUy() / nominal).toBeCloseTo(2);
+});
+
+function basicPlaneEntries(plane: 'xy' | 'xz') {
+  return {
+    'linear': () => modelStore.solve(false, plane),
+    'linear async': () => modelStore.solveAsync(false, plane),
+    'combinations': () => modelStore.solveCombinations(false, plane),
+    'solver input': () => modelStore.buildSolverInput(false, plane),
+    'P-Delta': () => solvePDelta(modelStore.buildSolverInput(false, plane)!),
+  };
+}
+
+reviewCase('known wrong result: #2588 — XY retains a nonzero MPC between both in-plane translations', async () => {
+  const model = modelStore.model;
+  const terms = [{ nodeId: tip, dof: 0, coefficient: 1 }, { nodeId: tip, dof: 2, coefficient: -1 }];
+  model.constraints = [{ type: 'linearMPC', terms }];
+  const xz = basicPlaneEntries('xz');
+  const reference = xz.linear();
+  if (!reference || typeof reference === 'string') throw new Error(String(reference));
+  const displacement = reference.displacements.find(row => row.nodeId === tip)!;
+  expect(displacement.ux).toBeGreaterThan(0);
+  expect(displacement.uz / displacement.ux).toBeCloseTo(1);
+  expect(xz['P-Delta']().converged).toBe(true);
+  const expected = await Promise.all(Object.values(xz).map(run => run()));
+  model.constraints = [{ type: 'linearMPC', terms: [terms[0]!, { ...terms[1]!, dof: 1 }] }];
+  for (const [index, [entry, run]] of Object.entries(basicPlaneEntries('xy')).entries()) {
+    try {
+      expect.soft(await run(), entry).toEqual(expected[index]);
+    } catch (error) {
+      expect.soft(String(error), entry).toEqual(expected[index]);
+    }
+  }
+  model.constraints = [{ type: 'linearMPC', terms }];
+  await refuses('constraints[0].terms', basicPlaneEntries('xy'));
+});
+
+reviewCase('known wrong result: #2588 — XY refuses a coupled normal Z offset and drops a separated one', async () => {
+  const model = modelStore.model;
+  const slave = modelStore.addNode(4, 0, 0);
+  modelStore.addElement(tip, slave);
+  const connection = { type: 'eccentricConnection' as const, masterNode: tip, slaveNode: slave, offsetX: 0, offsetY: 0, offsetZ: 0 };
+  const xy = basicPlaneEntries('xy');
+  model.constraints = [{ ...connection, offsetZ: 1 }];
+  await refuses('constraints[0].offsetZ', xy);
+  model.constraints = [{ ...connection, releases: [true, true, false, false, false, false] }];
+  const linear = xy.linear();
+  if (!linear || typeof linear === 'string') throw new Error(String(linear));
+  expect(linear.displacements.find(row => row.nodeId === tip)?.ux).toBeGreaterThan(0);
+  expect(xy['P-Delta']().converged).toBe(true);
+  const expected = await Promise.all(Object.values(xy).map(run => run()));
+  model.constraints = [{ ...model.constraints[0]!, offsetZ: 1 } as typeof connection];
+  for (const [index, [entry, run]] of Object.entries(xy).entries()) {
+    expect.soft(await run(), entry).toEqual(expected[index]);
+  }
+  model.constraints = [{ ...connection, offsetY: 1 }];
+  expect(xy.linear()).toMatchObject({ displacements: expect.any(Array) });
+});
