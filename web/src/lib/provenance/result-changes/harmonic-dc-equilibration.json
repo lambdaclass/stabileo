@@ -4,7 +4,7 @@
   "prs": [],
   "area": "analysis",
   "when": {
-    "all": ["analysis:harmonic"]
+    "all": ["recordedHarmonic"]
   },
   "quantities": ["solve.ok", "responsePoints", "peakAmplitude", "peakFrequency"],
   "title": {

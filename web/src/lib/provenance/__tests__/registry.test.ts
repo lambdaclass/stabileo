@@ -82,6 +82,18 @@ describe('result-change registry', () => {
     expect(notices(version)).toEqual([]);
   });
 
+  it('shows the zero-frequency harmonic notice only for a recorded harmonic run', () => {
+    const id = 'harmonic-dc-equilibration';
+    const resultsVersion = RESULT_CHANGES.changes.find(change => change.id === id)!.resultsVersion - 1;
+    const old = { ...unknownStamp(), resultsVersion };
+    const notices = (stamp: typeof old) =>
+      assessProject({}, stamp, '3d').changes.map(change => change.id);
+
+    expect(notices(old)).not.toContain(id);
+    expect(notices({ ...old, analyses: ['linear'] })).not.toContain(id);
+    expect(notices({ ...old, analyses: ['harmonic'] })).toContain(id);
+  });
+
   it('links every entry to a heading that exists in the named file', () => {
     for (const c of RESULT_CHANGES.changes) {
       const text = readFileSync(resolve(repo, c.changelog.file), 'utf8');
