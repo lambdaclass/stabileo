@@ -921,3 +921,67 @@ describe.each(['fixedDivisions', 'targetSize'] as const)('#2607 conforming wall 
     }
   });
 });
+
+
+const round12Cad = process.env.RUN_ROUND12_2607 === '1' ? it : it.skip;
+
+describe.each(['fixedDivisions', 'targetSize'] as const)('#2607 wall and beam alignment in %s mode', meshMode => {
+  const settings = { ...reviewSettings, meshMode, meshTargetSize: 1 };
+
+  function drafts(plan: ArchPlan, splitBeams = true) {
+    const assumptions = { ...settings, splitBeams };
+    return [
+      () => generateRcDraft(plan, assumptions, SOURCE),
+      () => buildDraft({ plan, assumptions, source: SOURCE }),
+      () => buildDraft({
+        floorPlans: [{ plan, fromFloor: 1, toFloor: 1 }, { plan: { ...plan, slabs: [], walls: [] }, fromFloor: 2, toFloor: 2 }],
+        assumptions: { ...assumptions, nFloors: 2, storyHeights: [3, 3] }, source: SOURCE,
+      }),
+    ];
+  }
+
+  function exteriorBeam(beamY: number, wallY: number) {
+    const plan = reviewPlan();
+    const a = { x: -2, y: beamY }, b = { x: 4, y: beamY };
+    plan.beams = [{ a, b }, { a: reviewOutline[2]!, b: reviewOutline[3]! }, { a, b: reviewOutline[3]! }];
+    plan.columns = [a, b, reviewOutline[2]!, reviewOutline[3]!].map(at => ({ at, sizeSource: 'default' }));
+    plan.walls = [{ a: { x: 2, y: wallY }, b: { x: 3, y: 3 }, thicknessSource: 'default' }];
+    return plan;
+  }
+
+  const refusal = expect.objectContaining({
+    key: 'cad.disconnectedWallBeam',
+    params: { wall: expect.any(Number), beam: expect.any(Number) },
+  });
+
+  round12Cad('known wrong result: #2607 refuses both orders of opposed wall ends around the original beam', () => {
+    for (const reverse of [false, true]) {
+      const plan = exteriorBeam(-0.008, 0);
+      plan.walls.push({ a: { x: 2.05, y: -0.016 }, b: { x: 2.05, y: -1 }, thicknessSource: 'default' });
+      if (reverse) plan.walls.reverse();
+      for (const generate of drafts(plan)) expect.soft(generate).toThrow(refusal);
+    }
+  });
+
+  round12Cad('known wrong result: #2607 refuses moving an exterior beam into a slab without bearing edges', () => {
+    for (const generate of drafts(exteriorBeam(-0.005, 0.003))) expect.soft(generate).toThrow(refusal);
+  });
+
+  round12Cad('known wrong result: #2607 refuses a near miss when beam splitting is disabled', () => {
+    for (const generate of drafts(exteriorBeam(-0.008, 0), false)) expect.soft(generate).toThrow(refusal);
+  });
+
+  it.each([0, 0.01, 0.011])('preserves a beam and wall at offset %s', offset => {
+    for (const generate of drafts(exteriorBeam(-offset, 0))) {
+      const draft = generate();
+      const model = snapshotToModelShape(draft.snapshot);
+      const joint = [...model.nodes.values()].find(n => n.x === 2 && n.y === 0 && n.z === 3)!;
+      expect([...model.plates.values()].some(plate => plate.nodes.includes(joint.id))).toBe(true);
+      expect([...model.quads.values()].some(wall => wall.nodes.includes(joint.id))).toBe(true);
+      const beams = [...model.elements.values()].filter(({ nodeI, nodeJ }) =>
+        [nodeI, nodeJ].every(id => model.nodes.get(id)!.z === 3 && model.nodes.get(id)!.y === -offset));
+      expect(beams.length).toBeGreaterThan(0);
+      expect(beams.some(({ nodeI, nodeJ }) => nodeI === joint.id || nodeJ === joint.id)).toBe(offset === 0);
+    }
+  });
+});

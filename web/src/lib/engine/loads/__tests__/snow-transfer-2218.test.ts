@@ -987,3 +987,52 @@ it.each([0.05, 0.08])('#2607 evaluates drift on a %s m shared edge', overlap => 
 it.each([[0.05, 0.005], [0, 0], [0, 0.005], [0.12, 0]])(
   '#2607 short roof step checks overlap %s and gap %s', checkShortStep,
 );
+
+
+const round12Snow = process.env.RUN_ROUND12_2607 === '1' ? it : it.skip;
+
+function checkEnteredAdjacentShadow(from: number, to: number) {
+  const model = steppedRoof();
+  for (const node of model.nodes.values()) if (node.z === 5) {
+    node.x -= 1;
+    node.y = node.y === 0 ? from : to;
+    node.z = 3;
+  }
+  const layout = gravityLayout(model, { ...adjacentGravity, tributaryWidth: 1 });
+  const adjacent = [{ side: '-x', separation: 1, topZ: 5, length: 7.5 }] as const;
+  const inputs = { ...adjacentInputs, adjacent: [...adjacent] };
+  const config = { ...adjacentConfig, adjacent: [...adjacent] };
+  const clear = 4 - Math.max(0, Math.min(4, to) - Math.max(0, from));
+  const surcharge = (balanced: number) => {
+    const { w, pd } = stepDrift({ ...inputs, balanced, stepHeight: 2, luUpper: 7.5, luLower: 7.5, separation: 1 });
+    return clear * w * pd / 2;
+  };
+  const receiver = model.nodes;
+  const receivingRows = (rows: SnowSurchargeLoad[]) => rows.filter(row => {
+    const member = model.elements.get(row.elementId)!;
+    return receiver.get(member.nodeI)!.x >= 0 && receiver.get(member.nodeJ)!.x >= 0;
+  });
+  const drift = driftAndSlidingLoads(model, layout, inputs).distributed;
+  expect.soft(receivingSnowForce(model, receivingRows(drift))).toBeCloseTo(surcharge(inputs.balanced), 10);
+  const cases = snowLoadCases({ model, layout, snow: config, tributaryWidth: 1 })!;
+  expect.soft(cases.result.refused).toBeUndefined();
+  expect.soft(receivingSnowForce(model, receivingRows(cases.cases[0]!.distributed)))
+    .toBeCloseTo(30 * cases.result.ps + surcharge(cases.result.ps), 10);
+  const plan = buildLoadPlan({
+    model, gravity: adjacentGravity, regulations: regulations(), dead: [], occupancyKey: 'vivienda', tributaryWidth: 1,
+    reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true,
+    snow: { ...config, enabled: true, source: 'site' },
+  });
+  expect.soft(plan.outcome).toBe('READY');
+  const snowCase = plan.cases.findIndex(c => c.type === 'S');
+  expect.soft(receivingSnowForce(model, receivingRows(plan.distributed.filter(row => row.caseType === 'S' && row.caseIndex === snowCase))))
+    .toBeCloseTo(30 * cases.result.ps + surcharge(cases.result.ps), 10);
+}
+
+round12Snow.each([[1, 3], [0.04, 4], [0, 0.04]])(
+  'known wrong result: #2607 preserves entered snow outside a modeled projection from %s to %s', checkEnteredAdjacentShadow,
+);
+
+it.each([[0, 4], [4, 5], [5, 6]])(
+  '#2607 retains the entered snow result at modeled projection boundaries %s to %s', checkEnteredAdjacentShadow,
+);
