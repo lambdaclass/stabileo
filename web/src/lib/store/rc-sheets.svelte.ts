@@ -379,7 +379,7 @@ function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces
     storeyOf: (id) => storeys.get(id),
     shells: { nodes: modelStore.nodes, quads: modelStore.quads, plates: modelStore.plates },
     groups, sets, dead, faces: opts.faces,
-    ...((fm) => ((f, sb) => ({ slabSides: (id: number) => f.get(id)?.sides.length ?? 0, slabsBeside: (id: number) => sb.get(id), ...(opts.flange ? { flangeSides: (id: number) => (opts.flangeIn(id) ? f.get(id)?.sides : undefined) } : {}) }))(beamFlangeSides(fm), beamSlabsBeside(fm)))({ nodes: modelStore.nodes, elements: modelStore.elements, sections: modelStore.sections, quads: concreteQuads() }),
+    ...((fm) => ((f, sb) => ({ slabSides: (id: number) => f.get(id)?.sides.length ?? 0, slabsBeside: (id: number) => sb.get(id), ...(opts.flange ? { flangeSides: (id: number) => (opts.flangeIn(id) ? f.get(id)?.sides ?? [] : undefined) } : {}) }))(beamFlangeSides(fm), beamSlabsBeside(fm)))({ nodes: modelStore.nodes, elements: modelStore.elements, sections: modelStore.sections, quads: concreteQuads() }),
     faceOffset: (id, end) => {
       const e = modelStore.elements.get(id);
       const sec = e ? modelStore.sections.get(e.sectionId) : undefined;

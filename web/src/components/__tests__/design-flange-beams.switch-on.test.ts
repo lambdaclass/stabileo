@@ -33,6 +33,9 @@ describe('the flange option', () => {
     const listed = render(DesignOptionsSections).body;
     expect(listed).toMatch(/data-testid="dd-flange-beam"[\s\S]*<strong>V7<\/strong>[\s\S]*P1/);
     expect(listed).toContain('data-testid="dd-flange-remove"');
+    const list = /list="([^"]+)"/.exec(empty)![1]!;
+    expect(empty).toContain(`<datalist id="${list}"`);
+    expect(list).not.toBe('fb-names');
   });
 
   it('reads typed names one by one, finds the beams a selection holds, and sorts them as people read', () => {

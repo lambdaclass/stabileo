@@ -15,6 +15,8 @@
   const nameOf = (id: number) => beams.find((b) => b.id === id)?.name ?? `#${id}`;
   const levelOf = (id: number) => beams.find((b) => b.id === id)?.level ?? '';
   const inModel = $derived.by(() => { void uiStore.selectedElements; return beamsHolding(modelStore.model.groups.values(), uiStore.selectedElements).filter((id) => !listed?.includes(id)); });
+  const uid = $props.id();
+  const names = `${uid}-names`;
   let typed = $state('');
   let unknown = $state<string[]>([]);
   let ticked = $state<Set<number>>(new Set());
@@ -26,6 +28,7 @@
     unknown = r.unknown;
     if (!r.unknown.length) typed = '';
   }
+  function removeOne(id: number) { setFlangeBeams((listed ?? []).filter((x) => x !== id)); toggle(id, false); }
   function removeTicked() { setFlangeBeams((listed ?? []).filter((id) => !ticked.has(id))); ticked = new Set(); }
   function toggle(id: number, on: boolean) { const next = new Set(ticked); if (on) next.add(id); else next.delete(id); ticked = next; }
   function showTicked() {
@@ -42,8 +45,8 @@
 
   {#if listed}
     <form class="fb-add" onsubmit={(e) => { e.preventDefault(); addTyped(); }}>
-      <input type="text" list="fb-names" bind:value={typed} placeholder={t('designData.flange.typePlaceholder')} aria-label={t('designData.flange.type')} data-testid="dd-flange-type" />
-      <datalist id="fb-names">{#each beams.filter((b) => !listed.includes(b.id)) as b (b.id)}<option value={b.name}>{b.level}</option>{/each}</datalist>
+      <input type="text" list={names} bind:value={typed} placeholder={t('designData.flange.typePlaceholder')} aria-label={t('designData.flange.type')} data-testid="dd-flange-type" />
+      <datalist id={names}>{#each beams.filter((b) => !listed.includes(b.id)) as b (b.id)}<option value={b.name}>{b.level}</option>{/each}</datalist>
       <button type="submit" disabled={!typed.trim()} data-testid="dd-flange-type-add">{t('designData.flange.add')}</button>
     </form>
     {#if unknown.length}<p class="fb-warn" data-testid="dd-flange-unknown">{tp('designData.flange.unknown', { names: unknown.join(', ') })}</p>{/if}
@@ -68,7 +71,7 @@
         {#each listed as id (id)}
           <li data-testid="dd-flange-beam">
             <label><input type="checkbox" checked={ticked.has(id)} onchange={(e) => toggle(id, e.currentTarget.checked)} /> <strong>{nameOf(id)}</strong> <span class="fb-lv">{levelOf(id)}</span></label>
-            <button type="button" class="fb-x" aria-label={tp('designData.flange.remove', { name: nameOf(id) })} onclick={() => setFlangeBeams(listed.filter((x) => x !== id))}>×</button>
+            <button type="button" class="fb-x" aria-label={tp('designData.flange.remove', { name: nameOf(id) })} onclick={() => removeOne(id)} data-testid="dd-flange-x">×</button>
           </li>
         {/each}
       </ul>

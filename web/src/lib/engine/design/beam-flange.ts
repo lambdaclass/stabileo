@@ -177,8 +177,7 @@ export function beamsInSlabPlane(m: FlangeModel): Set<number> {
   return out;
 }
 
-/** A slab beside a beam: on which side of its run (+1 to its left, from its node I towards J), its thickness and its top against the beam's top (negative below it), m. */
-/** A slab along a beam: its side, thickness and top below the beam's top, m (0 flush); `placed` where the model's offsets put it rather than it being taken flush. */
+/** A slab beside a beam: on which side of its run (+1 to its left, from its node I towards J), its thickness and its top against the beam's top (negative below it, 0 flush), m; `placed` where the model's offsets put it rather than it being taken flush. */
 export interface SlabBeside { side: 1 | -1; hf: number; top: number; placed?: true }
 
 /**

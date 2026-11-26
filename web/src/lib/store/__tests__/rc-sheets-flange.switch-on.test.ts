@@ -69,6 +69,7 @@ describe('the slab as a beam\'s flange', () => {
       expect(r.demand.flange?.kind, r.name).toBe('L');
       expect(r.demand.flange!.bf).toBeCloseTo(0.2 + Math.min(6 * 0.12, r.demand.length / 12), 6);
       expect(r.verifications.some((v) => v.label === 'rcSheets.v.flangeJoint')).toBe(true);
+      expect(JSON.stringify([r.verifications, r.steps ?? []]), r.name).not.toMatch(/FIUBA/);
     }
     const first = physicalGroups().find((g) => g.physical.kind === 'beam')!.id;
     setFlangeBeams([first]);
@@ -114,6 +115,11 @@ describe('the slab as a beam\'s flange', () => {
     const named = flangeTwiceWarnings(modelStore.model as never)[0]?.elementIds ?? [];
     expect(named.length).toBeGreaterThan(0);
     expect(named.every((id) => modelStore.elements.get(id)!.sectionId === tee)).toBe(true);
+    const mine = r.demand.line!.group;
+    setFlangeBeams(physicalGroups().filter((g) => g.physical.kind === 'beam' && g.id !== mine).map((g) => g.id));
+    const left = solve().beam.find((x) => x.demand.line?.group === mine)!;
+    expect(left.demand.b).toBeCloseTo(0.2, 9);
+    expect(left.demand.flange).toBeUndefined();
   }, 120_000);
 
   it('narrows a span carrying a beam framing in by 40 % of its overhang (FIUBA p. 52)', () => {
@@ -123,6 +129,8 @@ describe('the slab as a beam\'s flange', () => {
     const carrying = rows.filter((r) => r.demand.flange?.reduced);
     expect(carrying.length).toBeGreaterThan(0);
     for (const r of carrying) expect(r.demand.flange!.bf).toBeCloseTo(0.2 + 0.6 * Math.min(6 * 0.12, r.demand.length / 12, Infinity), 6);
+    const step = carrying[0]!.steps.flatMap((g) => g.steps).find((x) => x.label === 'rcSheets.s.flange')!;
+    expect(step.formula).toContain('bf − 40 % ({criterion})');
   }, 120_000);
 });
 

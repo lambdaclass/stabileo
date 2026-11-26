@@ -14,6 +14,10 @@ describe('the IFC of a building with columns', () => {
     const base = modelStore.nodes.get(col.nodeI)!;
     setFixedPoint(stackKey([base.x, base.y]), 'px');
     expect(exportProjectIfc((k) => k, 'en', 'fp')).toMatch(/IFCPROPERTYSINGLEVALUE\('FixedPoint',\$,IFCLABEL\('face px'\),\$\)/);
+    const { columnFixedPoints } = await import('../ifc-export');
+    const members = [{ id: `span-${col.id}`, kind: 'column', profile: { kind: 'rect' } }] as never as Parameters<typeof columnFixedPoints>[0];
+    columnFixedPoints(members, new Map([[`span-${col.id}`, col.nodeI]]));
+    expect(members[0]!.props).toMatchObject({ FixedPoint: 'face px', FixedPointX: Math.round(base.x * 1000) / 1000 });
     const axes = modelStore.grid?.axes ?? [];
     if (axes.some((a) => a.axis === 'x') && axes.some((a) => a.axis === 'y')) expect(plain).toContain('IFCGRID(');
   });

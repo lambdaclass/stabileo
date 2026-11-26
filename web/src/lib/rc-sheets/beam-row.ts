@@ -497,7 +497,7 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
     check('rcSheets.v.fitTop', e.fitTop, { clause: '§25.2.1' }),
     check('rcSheets.v.crack', e.crackBottom.ok && e.crackTop.ok, { clause: '§24.3.2', demand: `s = ${fmt(Math.max(e.crackBottom.s, topReq > 0 ? e.crackTop.s : 0) * 100, 1)} cm`, capacity: `≤ ${fmt(e.crackBottom.max * 100, 1)} cm` }),
     check('rcSheets.v.shear', e.shear.status !== 'fail', { clause: '§22.5', demand: `${f2(d.vu.value)} kN`, capacity: `${f2(e.shear.phiVn)} kN`, ratio: ratioOf(d.vu.value, e.shear.phiVn) }),
-    ...((j) => (j ? [check('rcSheets.v.flangeJoint', j.vu <= j.cap + 1e-6, { clause: '§22.9; FIUBA §8.11', demand: `vu = ${f2(j.vu)} kN/m → Avf ≥ ${f2(j.avf)} cm²/m`, capacity: `φ·min(0,2f'c; 5,5 MPa)·hf = ${f2(j.cap)} kN/m`, ratio: ratioOf(j.vu, j.cap) })] : []))(flangeJoint(d, c, e.shear.d)),
+    ...((j) => (j ? [check('rcSheets.v.flangeJoint', j.vu <= j.cap + 1e-6, { clause: withCriterion('§22.9'), demand: `vu = ${f2(j.vu)} kN/m → Avf ≥ ${f2(j.avf)} cm²/m`, capacity: `φ·min(0,2f'c; 5,5 MPa)·hf = ${f2(j.cap)} kN/m`, ratio: ratioOf(j.vu, j.cap) })] : []))(flangeJoint(d, c, e.shear.d)),
     check('rcSheets.v.stirrupSpacing', a.stirrups.spacing <= sMaxA + 1e-6, { clause: `${tor.neglect ? '§9.7.6.2.2' : '§9.7.6.2.2, §9.7.6.3.3'}${sMaxA >= courseCap - 1e-9 ? `; ${CRITERION}` : ''}`, demand: `${fmt(a.stirrups.spacing * 100, 1)} cm`, capacity: `≤ ${fmt(sMaxA * 100, 1)} cm` }),
     ...(tor.neglect ? [check('rcSheets.v.torsionNeglect', true, { clause: '§22.7.1', demand: `${f2(d.tu.value)} kN·m`, capacity: `< ${f2(PHI_V * tor0.Tcr / 4)} kN·m` })] : [
       check('rcSheets.v.stirrupsVT', e.ok.stirrups, { clause: '§22.5.8, §22.7.6', demand: `${f2(e.perLegRequired)} cm²/m`, capacity: `${f2(e.perLegProvided)} cm²/m`, ratio: ratioOf(e.perLegRequired, e.perLegProvided) }),
@@ -624,7 +624,7 @@ function dataSteps(d: BeamDemand, c: BeamContext, f: Fmt): StepGroup {
       { label: 'rcSheets.s.materials', formula: "f'c · fy", value: `${f(c.mat.fc, 0)} · ${f(c.mat.fy, 0)} MPa` },
       { label: 'rcSheets.s.cover', formula: 'r', value: `${f(c.cover * 100, 1)} cm` },
       d.faces ? { label: 'rcSheets.s.atFaces', formula: 'Mu(x = c) · Vu, Tu(x = c + d)', value: `${f(d.faces.start * 100, 0)} · ${f(d.faces.end * 100, 0)} cm; d = ${f(d.faces.shearAt * 100, 0)} cm` } : { label: 'rcSheets.s.assumptionAxis', value: '' },
-      ...(d.flange ? [{ label: 'rcSheets.s.flange', formula: `${d.flange.kind === 'L' ? 'bf = bw + min(6hf; sw/2; ln/12)' : 'bf = bw + Σ min(8hf; sw/2; ln/8)'} (6.3.2.1)${d.flange.own ? '; T' : ''}${d.flange.reduced ? '; bf − 40 % (FIUBA §8.10)' : ''}`, value: `bf = ${f(d.flange.bf * 100, 0)} cm; hf = ${f(d.flange.hf * 100, 0)} cm` }] : []),
+      ...(d.flange ? [{ label: 'rcSheets.s.flange', formula: `${d.flange.kind === 'L' ? 'bf = bw + min(6hf; sw/2; ln/12)' : 'bf = bw + Σ min(8hf; sw/2; ln/8)'} (6.3.2.1)${d.flange.own ? '; T' : ''}${d.flange.reduced ? `; bf − 40 % (${CRITERION})` : ''}`, value: `bf = ${f(d.flange.bf * 100, 0)} cm; hf = ${f(d.flange.hf * 100, 0)} cm` }] : []),
       sec('start', d.start), sec('span', d.span), sec('end', d.end),
       ...(d.negAny.value > Math.max(d.start.neg.value, d.span.neg.value, d.end.neg.value) + 1e-6
         ? [{ label: 'rcSheets.s.negAny', formula: `x = ${f(d.negAny.source?.x ?? 0)} m`, value: `M⁻ = ${f(d.negAny.value)} kN·m${src(d.negAny)}` }] : []),

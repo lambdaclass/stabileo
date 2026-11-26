@@ -22,7 +22,13 @@ type P3 = { x: number; y: number; z: number };
 export const placementData = (): Placement => { void modelStore.designData; return designData().placement ?? {}; };
 
 /** The fixed point a column stack stands by: its own, else its outer face or corner where the edges are flush, else the centre. */
-export const columnFixedPoint = (stack: string): FixedPointKind => { const p = placementData(); return p.columns?.[stack] ?? (p.edges ? edgeKinds().get(stack) : undefined) ?? 'c'; };
+export const columnFixedPoint = (stack: string): FixedPointKind => columnFixedPoints().get(stack) ?? 'c';
+
+/** Every stack's fixed point at once, the floor's edge read a single time. */
+export function columnFixedPoints(): Map<string, FixedPointKind> {
+  const p = placementData(), auto = p.edges ? edgeKinds() : new Map<string, FixedPointKind>();
+  return new Map(columnStacks().map((s) => [s.key, p.columns?.[s.key] ?? auto.get(s.key) ?? 'c']));
+}
 
 /** Whether a stack's fixed point is its own or read from the edge. */
 export const columnPointIsOwn = (stack: string): boolean => placementData().columns?.[stack] !== undefined;
@@ -50,19 +56,40 @@ export function setEdgesFlush(on: boolean): void {
   });
 }
 
-/** What the edges moved, back on its axis: the beams' and walls' offsets across, the stacks with no fixed point of their own. */
+/** What the edges moved, back on its axis: the beams and walls standing where the edge put them, the stacks with no fixed point of their own; an offset set by hand stays. */
 function backOnAxes(): void {
-  const p = placementData();
+  const p = placementData(), slabs = levelSlabs();
+  const flat = (v: P3) => ({ ...v, x: 0, y: 0 });
   for (const e of [...modelStore.elements.values()]) {
     if (e.type === 'truss' || !e.offset || e.offset.frame !== 'global') continue;
-    const a = at(e.nodeI), b = at(e.nodeJ);
-    if (!a || !b || Math.abs(a.z - b.z) > TOL) continue;
-    writeOffset(e.id, { ...vecOf(e.offset, 'i'), x: 0, y: 0 }, { ...vecOf(e.offset, 'j'), x: 0, y: 0 });
+    const d = edgeShift(e, slabs);
+    if (d && atShift(vecOf(e.offset, 'i'), d) && atShift(vecOf(e.offset, 'j'), d)) writeOffset(e.id, flat(vecOf(e.offset, 'i')), flat(vecOf(e.offset, 'j')));
   }
-  for (const w of edgeWalls(levelSlabs())) if (w.offset && (w.offset.x || w.offset.y)) setPlateOffset(w.id, w.offset.z ? { frame: 'global', x: 0, y: 0, z: w.offset.z } : undefined);
+  for (const w of edgeWalls(slabs)) if (w.offset && (w.shift[0] || w.shift[1]) && atShift(w.offset, w.shift)) setPlateOffset(w.id, w.offset.z ? { frame: 'global', x: 0, y: 0, z: w.offset.z } : undefined);
+  const auto = edgeKinds(slabs);
   for (const stack of columnStacks()) {
-    if (p.columns?.[stack.key]) continue;
-    for (const id of stack.storeys) { const e = modelStore.elements.get(id)!; if (!e.offset || e.offset.frame === 'global') writeOffset(id, { ...vecOf(e.offset, 'i'), x: 0, y: 0 }, { ...vecOf(e.offset, 'j'), x: 0, y: 0 }); }
+    const kind = auto.get(stack.key);
+    if (p.columns?.[stack.key] || !kind) continue;
+    for (const id of stack.storeys) {
+      const e = modelStore.elements.get(id)!, s = sectionOf(e);
+      if (e.offset?.frame !== 'global' || !s?.b || !s.h) continue;
+      const d = columnShift(kind, { b: s.b, h: s.h, rotDeg: memberRoll(e, modelStore.sections as never) });
+      if (atShift(vecOf(e.offset, 'i'), d) && atShift(vecOf(e.offset, 'j'), d)) writeOffset(id, flat(vecOf(e.offset, 'i')), flat(vecOf(e.offset, 'j')));
+    }
+  }
+}
+
+const atShift = (v: { x: number; y: number }, d: readonly [number, number]) => Math.abs(v.x - d[0]) < 1e-9 && Math.abs(v.y - d[1]) < 1e-9;
+
+/** Puts the storeys of the stacks whose own fixed point is dropped back on their axis, for the placement to place them again. */
+function dropOwnPoints(stacks: readonly string[]): void {
+  const own = new Set(stacks);
+  for (const stack of columnStacks()) {
+    if (!own.has(stack.key)) continue;
+    for (const id of stack.storeys) {
+      const e = modelStore.elements.get(id)!;
+      if (e.offset?.frame === 'global') writeOffset(id, { ...vecOf(e.offset, 'i'), x: 0, y: 0 }, { ...vecOf(e.offset, 'j'), x: 0, y: 0 });
+    }
   }
 }
 
@@ -73,6 +100,7 @@ export function setColumnFixedPoint(stack: string | null, kind: FixedPointKind |
     const columns = stack === null
       ? (kind === null ? {} : Object.fromEntries(columnStacks().map((s) => [s.key, kind])))
       : (({ [stack]: _old, ...rest }) => (kind === null ? rest : { ...rest, [stack]: kind }))(p.columns ?? {});
+    dropOwnPoints(Object.keys(p.columns ?? {}).filter((k) => !(k in columns)));
     savePlacement({ ...p, columns });
     applyPlacement();
   });
@@ -96,27 +124,31 @@ export function columnStacks(): Array<{ key: string; storeys: number[] }> {
   return [...by].map(([key, list]) => ({ key, storeys: list.sort((p, q) => p.z - q.z).map((s) => s.id) })).sort((p, q) => p.key.localeCompare(q.key));
 }
 
-function inside(pt: P3, poly: readonly P3[]): boolean {
+function inside(pt: P3, poly: readonly P3[], rim = true): boolean {
   let hit = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
     const a = poly[i]!, b = poly[j]!;
     const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy;
     const t = L2 > 0 ? Math.max(0, Math.min(1, ((pt.x - a.x) * dx + (pt.y - a.y) * dy) / L2)) : 0;
-    if (Math.hypot(a.x + t * dx - pt.x, a.y + t * dy - pt.y) < 1e-3) return true;
+    if (Math.hypot(a.x + t * dx - pt.x, a.y + t * dy - pt.y) < 1e-3) return rim;
     if ((a.y > pt.y) !== (b.y > pt.y) && pt.x < ((b.x - a.x) * (pt.y - a.y)) / (b.y - a.y) + a.x) hit = !hit;
   }
   return hit;
 }
 
-/** The level slabs: each plate declared a slab and lying flat, its outline and thickness. */
-function levelSlabs(): Array<{ id: number; z: number; outline: P3[]; t: number; offset?: { x: number; y: number; z: number } }> {
+/** The level slabs: each plate declared a slab and lying flat, its outline, openings and thickness. */
+function levelSlabs(): Array<{ id: number; z: number; outline: P3[]; holes: P3[][]; t: number; offset?: { x: number; y: number; z: number } }> {
   return physicalPlates().flatMap((pl) => {
     if (pl.physical.kind !== 'slab' || pl.physical.stair) return [];
-    const outline = plateLoops(pl.group).outer.map(at);
+    const loops = plateLoops(pl.group), outline = loops.outer.map(at);
     if (outline.length < 3 || outline.some((p) => !p) || outline.some((p) => Math.abs(p!.z - outline[0]!.z) > TOL)) return [];
-    return [{ id: pl.id, z: outline[0]!.z, outline: outline as P3[], t: pl.surface.thickness, ...(pl.surface.offset?.frame === 'global' ? { offset: pl.surface.offset } : {}) }];
+    const holes = loops.holes.map((h) => h.map(at)).filter((h): h is P3[] => h.length >= 3 && h.every((p) => p));
+    return [{ id: pl.id, z: outline[0]!.z, outline: outline as P3[], holes, t: pl.surface.thickness, ...(pl.surface.offset?.frame === 'global' ? { offset: pl.surface.offset } : {}) }];
   });
 }
+
+/** Whether a slab covers a point in plan: inside its outline or on it, and not inside an opening (its rim is still slab). */
+const covers = (s: ReturnType<typeof levelSlabs>[number], p: P3) => inside(p, s.outline) && !s.holes.some((h) => inside(p, h, false));
 
 const vecOf = (o: MemberOffset | undefined, end: 'i' | 'j') => (o?.frame === 'global' ? o[end] : undefined) ?? { x: 0, y: 0, z: 0 };
 const same = (p: { x: number; y: number; z: number }, q: { x: number; y: number; z: number }) => Math.abs(p.x - q.x) < 1e-9 && Math.abs(p.y - q.y) < 1e-9 && Math.abs(p.z - q.z) < 1e-9;
@@ -129,13 +161,28 @@ function writeOffset(id: number, i: P3, j: P3): boolean {
   return true;
 }
 
-const across = (e: { sectionId: number; rollAngle?: number }, s: { b?: number; h?: number }) => {
-  const r = Math.abs(((memberRoll(e as never, modelStore.sections as never) % 180) + 180) % 180 - 90) < 45;
-  return (r ? s.h : s.b) ?? 0;
-};
+const turned = (e: { sectionId: number; rollAngle?: number }) => Math.abs(((memberRoll(e as never, modelStore.sections as never) % 180) + 180) % 180 - 90) < 45;
+/** A horizontal member's section width in plan, and its depth, with its roll. */
+const across = (e: { sectionId: number; rollAngle?: number }, s: { b?: number; h?: number }) => (turned(e) ? s.h : s.b) ?? 0;
+const deep = (e: { sectionId: number; rollAngle?: number }, s: { b?: number; h?: number }) => (turned(e) ? s.b : s.h) ?? 0;
 
 /** The slabs at a height containing a point in plan. */
-const slabAt = (slabs: ReturnType<typeof levelSlabs>, p: P3) => slabs.some((s) => Math.abs(s.z - p.z) < TOL && inside(p, s.outline));
+const slabAt = (slabs: ReturnType<typeof levelSlabs>, p: P3) => slabs.some((s) => Math.abs(s.z - p.z) < TOL && covers(s, p));
+
+/** How far the edges move a horizontal member across, m in plan: toward the slab on its one side by half its width; null with slab on both sides or none. */
+function edgeShift(e: { nodeI: number; nodeJ: number; sectionId: number; rollAngle?: number }, slabs: ReturnType<typeof levelSlabs>): [number, number] | null {
+  const a = at(e.nodeI), b = at(e.nodeJ), sec = sectionOf(e);
+  if (!a || !b || !sec || Math.abs(a.z - b.z) > TOL) return null;
+  const L = Math.hypot(b.x - a.x, b.y - a.y);
+  if (L < TOL) return null;
+  const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: a.z }, w = across(e, sec);
+  const nx = -(b.y - a.y) / L, ny = (b.x - a.x) / L, probe = Math.max(0.1, w / 2 + 0.05);
+  const left = slabAt(slabs, { x: mid.x + nx * probe, y: mid.y + ny * probe, z: a.z }), right = slabAt(slabs, { x: mid.x - nx * probe, y: mid.y - ny * probe, z: a.z });
+  const side = left && !right ? 1 : right && !left ? -1 : 0;
+  if (!side || !w) return null;
+  const d = (side * w) / 2;
+  return [Math.round(nx * d * 1e9) / 1e9 + 0, Math.round(ny * d * 1e9) / 1e9 + 0];
+}
 
 /** Each stack's outer face or corner, from where its floors have no slab beside it; none for a stack inside the floor or with no slab at its nodes. */
 function edgeKinds(slabs = levelSlabs()): Map<string, FixedPointKind> {
@@ -200,32 +247,25 @@ export function applyPlacement(): number {
     }
     if (p.reference || p.edges) for (const e of [...modelStore.elements.values()]) {
       if (e.type === 'truss' || (e.offset && e.offset.frame !== 'global')) continue;
-      const a = at(e.nodeI), b = at(e.nodeJ), sec = sectionOf(e), h = sec?.h;
-      if (!a || !b || !sec || !h || Math.abs(a.z - b.z) > TOL) continue;
-      const L = Math.hypot(b.x - a.x, b.y - a.y);
-      if (L < TOL) continue;
+      const a = at(e.nodeI), b = at(e.nodeJ), sec = sectionOf(e), h = sec && deep(e, sec);
+      if (!a || !b || !sec || !h || Math.abs(a.z - b.z) > TOL || Math.hypot(b.x - a.x, b.y - a.y) < TOL) continue;
       const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: a.z };
-      const t = Math.max(0, ...slabs.filter((s) => Math.abs(s.z - a.z) < TOL && inside(mid, s.outline)).map((s) => s.t));
-      const cur = vecOf(e.offset, 'i');
-      const z = p.reference ? Math.round(beamDrop(p.reference, h, t, isSteel(e.materialId)) * 1e9) / 1e9 + 0 : cur.z;
-      let { x, y } = cur;
-      if (p.edges) {
-        const nx = -(b.y - a.y) / L, ny = (b.x - a.x) / L, probe = Math.max(0.1, across(e, sec) / 2 + 0.05);
-        const left = slabAt(slabs, { x: mid.x + nx * probe, y: mid.y + ny * probe, z: a.z }), right = slabAt(slabs, { x: mid.x - nx * probe, y: mid.y - ny * probe, z: a.z });
-        const side = left && !right ? 1 : right && !left ? -1 : 0, d = (side * across(e, sec)) / 2;
-        x = Math.round(nx * d * 1e9) / 1e9 + 0; y = Math.round(ny * d * 1e9) / 1e9 + 0;
-      }
-      if (writeOffset(e.id, { ...cur, x, y, z }, { ...vecOf(e.offset, 'j'), x, y, z })) moved++;
+      const t = Math.max(0, ...slabs.filter((s) => Math.abs(s.z - a.z) < TOL && covers(s, mid)).map((s) => s.t));
+      const ci = vecOf(e.offset, 'i'), cj = vecOf(e.offset, 'j');
+      const z = p.reference ? Math.round(beamDrop(p.reference, h, t, isSteel(e.materialId)) * 1e9) / 1e9 + 0 : null;
+      const d = p.edges ? edgeShift(e, slabs) : null;
+      const end = (c: P3): P3 => ({ x: d ? d[0] : c.x, y: d ? d[1] : c.y, z: z ?? c.z });
+      if (writeOffset(e.id, end(ci), end(cj))) moved++;
     }
     if (p.edges) for (const w of edgeWalls(slabs)) {
       const cur = w.offset ?? { x: 0, y: 0, z: 0 }, [x, y] = w.shift;
-      if (Math.abs(cur.x - x) < 1e-9 && Math.abs(cur.y - y) < 1e-9) continue;
+      if ((!x && !y) || (Math.abs(cur.x - x) < 1e-9 && Math.abs(cur.y - y) < 1e-9)) continue;
       setPlateOffset(w.id, x || y || cur.z ? { frame: 'global', x, y, z: cur.z } : undefined);
       moved++;
     }
     const auto = p.edges ? edgeKinds(slabs) : new Map<string, FixedPointKind>();
     for (const stack of columnStacks()) {
-      const kind = p.columns?.[stack.key] ?? auto.get(stack.key) ?? (p.edges ? 'c' : undefined);
+      const kind = p.columns?.[stack.key] ?? auto.get(stack.key);
       if (!kind) continue;
       for (const id of stack.storeys) {
         const e = modelStore.elements.get(id)!, s = sectionOf(e);

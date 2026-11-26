@@ -107,6 +107,12 @@ export interface BarRun {
  * bar along both, a face bar across its face and along it in proportion) and one bar's diameter
  * inward, to the millimetre; none where the bars are hooked.
  */
+/** How far a bar at `v` between the faces at ±`vc` moves to the storey above's section: by the step at each face, in proportion between them. */
+const across = (v: number, vc: number, neg: number, pos: number) => {
+  const t = Math.min(1, Math.max(0, (v + vc) / Math.max(2 * vc, 1e-9)));
+  return Math.max(0, neg) - t * (Math.max(0, neg) + Math.max(0, pos));
+};
+
 export function storeyBars(r: ColumnRow, s: ColumnStorey): BarRun[] {
   const bars = columnLayout(r, r.adopted, r.cover, r.aggregate).bars;
   if (!s.cranked || !s.up) return bars.map((bar) => ({ bar, e: 0, toward: inwardOf(bar, r) }));
@@ -116,8 +122,7 @@ export function storeyBars(r: ColumnRow, s: ColumnStorey): BarRun[] {
   const xc = r.b / 2 - r.cover - a.tieDia / 1000 - a.corner / 2000, yc = r.h / 2 - r.cover - a.tieDia / 1000 - a.corner / 2000;
   return bars.map((bar, i) => {
     const n = inwardOf(bar, r), c = lapOffset(bar.dia, upBars.length === bars.length ? upBars[i]!.dia : upMax);
-    const ex = Math.max(0, bar.x >= 0 ? st.pb : st.nb), ey = Math.max(0, bar.y >= 0 ? st.ph : st.nh);
-    const dx = -(bar.x / Math.max(xc, 1e-9)) * ex + c * n[0], dy = -(bar.y / Math.max(yc, 1e-9)) * ey + c * n[1], l = Math.hypot(dx, dy);
+    const dx = across(bar.x, xc, st.nb, st.pb) + c * n[0], dy = across(bar.y, yc, st.nh, st.ph) + c * n[1], l = Math.hypot(dx, dy);
     return { bar, e: Math.round(l * 1000) / 1000, toward: l > 1e-12 ? [dx / l, dy / l] : n };
   });
 }

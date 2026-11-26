@@ -65,7 +65,7 @@ export interface DemandInput {
   storeyOf?: (elementId: number) => StoreyStability | undefined;
   /** Half the support's extent along the beam at an element's end, m. */
   faceOffset?: (elementId: number, end: 'i' | 'j') => number;
-  /** The slab beside a beam element as flange sides; given only when beams are designed with the slab as a compression flange (Table 6.3.2.1). */
+  /** The slab beside a beam element as flange sides, none where it has no slab; given only when beams are designed with the slab as a compression flange (Table 6.3.2.1), and undefined for a beam left out of it. */
   flangeSides?: (elementId: number) => readonly FlangeSide[] | undefined;
   /** On how many sides a beam element has slab. */
   slabSides?: (elementId: number) => number;
@@ -255,7 +255,9 @@ function carriesPoint(inc: Map<number, El[]>, span: ReadonlyArray<{ e: El; forwa
  * carries a concentrated load (FIUBA §8.10, p. 52).
  */
 function flangeOf(m: DemandInput, inc: Map<number, El[]>, span: Array<{ e: El; forward: boolean }>, bw: number, ln: number, tee: { bf: number; hf: number } | null): BeamDemand['flange'] | null {
-  const sides = span.map(({ e }) => m.flangeSides?.(e.id)).find((x) => x && x.length);
+  const asked = span.map(({ e }) => m.flangeSides?.(e.id)).filter((x) => x !== undefined);
+  if (!asked.length) return null;
+  const sides = asked.find((x) => x.length);
   const slab = sides ? effectiveFlange(bw, ln, [...sides]) : null;
   const own = tee ? effectiveFlange(bw, ln, [{ hf: tee.hf, clear: Infinity }, { hf: tee.hf, clear: Infinity }]) : null;
   const f = tee && own ? { bf: Math.min(tee.bf, own.bf), hf: tee.hf, kind: 'T' as const } : slab;
@@ -422,7 +424,6 @@ function slabsAlong(m: DemandInput, span: ReadonlyArray<{ e: El; forward: boolea
   return null;
 }
 
-/** Nodes a horizontal shell takes: a flat slab cuts a column into storeys as a beam does. */
 /** How far a column storey's section centre stands off its axis at its bottom node, m, along its b and its h; none where it stands on it. */
 function columnShiftOf(m: DemandInput, e: El, node: number): [number, number] | undefined {
   const a = m.nodes.get(e.nodeI), b = m.nodes.get(e.nodeJ), p = m.nodes.get(node);
@@ -462,6 +463,7 @@ function jointAt(m: DemandInput, inc: Map<number, El[]>, mine: ReadonlySet<numbe
   return top === -Infinity ? { depth: 0, rise: 0 } : { depth: Math.round((top - bottom) * 1e9) / 1e9, rise: Math.round(top * 1e9) / 1e9 };
 }
 
+/** Nodes a horizontal shell takes: a flat slab cuts a column into storeys as a beam does. */
 function slabNodes(m: DemandInput): Set<number> {
   const out = new Set<number>();
   for (const map of [m.shells.quads, m.shells.plates]) for (const sh of map?.values() ?? []) {

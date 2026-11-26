@@ -130,6 +130,55 @@ describe('the members on the floor\'s edge', () => {
   });
 });
 
+describe('what the placement does not own', () => {
+  it('keeps each end\'s offset across, and a beam turned on its side drops by its width', () => {
+    const { beams } = floor();
+    modelStore.setElementOffset(beams[0]!, { frame: 'global', i: { x: 0, y: 0.02, z: 0 }, j: { x: 0, y: 0.06, z: 0 } });
+    modelStore.updateElement(beams[1]!, { rollAngle: 90 });
+    setLevelReference('slabTop');
+    const o = modelStore.elements.get(beams[0]!)!.offset!;
+    expect([o.i!.y, o.j!.y, o.i!.z, o.j!.z]).toEqual([0.02, 0.06, -0.25, -0.25]);
+    expect(dz(beams[1]!)).toBeCloseTo(-0.1, 9);
+  });
+
+  it('leaves a beam inside the floor where it was set by hand, the edges on and off, and puts a stack whose own point is dropped back on its axis', () => {
+    const { beams } = floor();
+    const bm = modelStore.sections.get(modelStore.elements.get(beams[0]!)!.sectionId)!.id;
+    const mid = [modelStore.addNode(2.5, 0, 3), modelStore.addNode(2.5, 4, 3)];
+    const inner = modelStore.addElement(mid[0]!, mid[1]!, 'frame');
+    modelStore.updateElementSection(inner, bm);
+    modelStore.setElementOffset(inner, { frame: 'global', i: { x: 0.04, y: 0, z: 0 }, j: { x: 0.04, y: 0, z: 0 } });
+    setEdgesFlush(true);
+    expect(modelStore.elements.get(inner)!.offset!.i!.x).toBe(0.04);
+    setEdgesFlush(false);
+    expect(modelStore.elements.get(inner)!.offset!.i!.x).toBe(0.04);
+    expect(beams.every((id) => !modelStore.elements.get(id)!.offset)).toBe(true);
+    const corner = stackKey([0, 0]);
+    setColumnFixedPoint(corner, 'nxny');
+    const c = columnStacks().find((s) => s.key === corner)!.storeys[0]!;
+    expect(modelStore.elements.get(c)!.offset!.i).toEqual({ x: 0.15, y: 0.15, z: 0 });
+    setColumnFixedPoint(corner, null);
+    expect(modelStore.elements.get(c)!.offset).toBeUndefined();
+  });
+
+  it('reads a slab\'s opening as no floor: a steel beam over it hangs from its nodes, one on its rim moves away from it', () => {
+    const conc = modelStore.addMaterial({ name: 'H-25', e: 23500, nu: 0.2, rho: 25, fy: 25, fc: 25 });
+    const steel = modelStore.addMaterial({ name: 'Acero F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 235, fu: 370 } as never);
+    const bm = modelStore.addSection({ name: '20×50', a: 0.1, iy: 0.2 * 0.5 ** 3 / 12, iz: 0.5 * 0.2 ** 3 / 12, j: 0.002, b: 0.2, h: 0.5, shape: 'rect' } as never);
+    const pts = (xy: Array<[number, number]>) => xy.map(([x, y]) => modelStore.addNode(x, y, 3));
+    const outline = pts([[0, 0], [5, 0], [5, 4], [0, 4]]), hole = pts([[1.5, 1], [3.5, 1], [3.5, 3], [1.5, 3]]);
+    const slab = createPlate({ outline, holes: [hole], materialId: conc, thickness: 0.15 });
+    expect('id' in slab).toBe(true);
+    const beam = (a: number, b: number, mat: number) => { const e = modelStore.addElement(a, b, 'frame'); modelStore.updateElementSection(e, bm); modelStore.updateElementMaterial(e, mat); return e; };
+    const [p, q] = pts([[1, 2], [4, 2]]);
+    const over = beam(p!, q!, steel), rim = beam(hole[0]!, hole[3]!, conc);
+    setLevelReference('slabTop');
+    expect(dz(over)).toBeCloseTo(-0.25, 9);
+    setEdgesFlush(true);
+    expect(modelStore.elements.get(rim)!.offset!.i!.x).toBeCloseTo(-0.1, 9);
+  });
+});
+
 describe('steel beams and edge walls', () => {
   it('hang a steel beam under its slab, its top flange carrying the slab\'s soffit, while a concrete one stays flush', () => {
     const { beams, plate } = floor();
@@ -210,6 +259,9 @@ describe('the column fixed points', () => {
     const negFace = flush.filter((b) => b.bar.x < -0.1), posFace = flush.filter((b) => b.bar.x > 0.1);
     expect(Math.max(...negFace.map((b) => Math.abs(b.e * b.toward[0])))).toBeLessThan(0.03);
     expect(Math.min(...posFace.map((b) => Math.abs(b.e * b.toward[0])))).toBeGreaterThan(0.1);
+    const middle = flush.filter((b) => Math.abs(b.bar.x) < 1e-6);
+    expect(middle.length).toBeGreaterThan(0);
+    for (const b of middle) expect(b.e * b.toward[0]).toBeCloseTo(-0.05, 3);
   }, 120_000);
 });
 

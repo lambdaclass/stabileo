@@ -668,16 +668,17 @@ export function concreteStrengthWarnings(
  * fault: the web as a rectangle and the slab as shells give the flange once.
  */
 export function flangeTwiceWarnings(m: Pick<ModelData, 'elements' | 'sections' | 'nodes' | 'quads' | 'plates'>): SolverDiagnostic[] {
-  const shellsAt = new Map<number, number>();
+  const shellsAt = new Map<number, Set<number>>();
+  let k = 0;
   for (const map of [m.quads, m.plates]) for (const sh of map?.values() ?? []) {
-    const zs = sh.nodes.map((n) => m.nodes.get(n)?.z ?? 0);
+    const zs = sh.nodes.map((n) => m.nodes.get(n)?.z ?? 0), id = k++;
     if (Math.max(...zs) - Math.min(...zs) > 1e-3) continue;
-    for (const n of sh.nodes) shellsAt.set(n, (shellsAt.get(n) ?? 0) + 1);
+    for (const n of sh.nodes) (shellsAt.get(n) ?? shellsAt.set(n, new Set()).get(n)!).add(id);
   }
-  const shared = (a: number, b: number) => [...(m.quads?.values() ?? []), ...(m.plates?.values() ?? [])].some((sh) => sh.nodes.includes(a) && sh.nodes.includes(b));
+  const shared = (a: number, b: number) => { const sb = shellsAt.get(b); return [...(shellsAt.get(a) ?? [])].some((id) => sb?.has(id)); };
   const twice = [...m.elements.values()].filter((e) => {
     const s = m.sections.get(e.sectionId) as { shape?: string; tw?: number; tf?: number } | undefined;
-    if (s?.shape !== 'T' || !s.tw || !s.tf || !shellsAt.has(e.nodeI) || !shellsAt.has(e.nodeJ)) return false;
+    if (s?.shape !== 'T' || !s.tw || !s.tf) return false;
     const a = m.nodes.get(e.nodeI), b = m.nodes.get(e.nodeJ);
     return !!a && !!b && Math.abs((a.z ?? 0) - (b.z ?? 0)) < 1e-6 && shared(e.nodeI, e.nodeJ);
   }).map((e) => e.id);

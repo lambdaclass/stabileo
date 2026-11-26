@@ -53,9 +53,9 @@ class Building {
     for (let i = 1; i < at.length; i++) this.m.member(this.node([x, at[i - 1]!, this.z(k)]), this.node([x, at[i]!, this.z(k)]), sec, mat, extra);
   }
 
-  /** A column at (x, y) from level `k0` up to `k1`, a member a storey, fixed at the ground. */
   private placed: { reference: 'slabTop'; edges: true } | null = null;
 
+  /** A column at (x, y) from level `k0` up to `k1`, a member a storey, fixed at the ground. */
   column(x: number, y: number, k0: number, k1: number, sec: (k: number) => number, mat: number, extra: Record<string, unknown> = {}): void {
     if (k0 === 0) this.m.support(this.node([x, y, this.z(0)]), 'fixed3d');
     for (let k = k0; k < k1; k++) this.m.member(this.node([x, y, this.z(k)]), this.node([x, y, this.z(k + 1)]), sec(k), mat, extra);
