@@ -237,7 +237,7 @@ test.engine.reduced-rank-wasm: wasm
 
 .PHONY: test.engine.release-gauges-wasm
 test.engine.release-gauges-wasm: wasm
-	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.release-gauges.XXXXXX"); modal=$$(mktemp "$(CURDIR)/.modal-release-gauges.XXXXXX"); trap '"'"'rm -f -- "$$cases" "$$modal"'"'"' EXIT; MATERIAL_RELEASE_WASM_CASES="$$cases" MODAL_RELEASE_WASM_CASES="$$modal" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=release_gauges::; node scripts/tests/release-gauges-wasm.mjs "$$cases" "$$modal"'
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.release-gauges.XXXXXX"); modal=$$(mktemp "$(CURDIR)/.modal-release-gauges.XXXXXX"); plate=$$(mktemp "$(CURDIR)/.plate-release-gauge.XXXXXX"); connector=$$(mktemp "$(CURDIR)/.connector-release-gauge.XXXXXX"); trap '"'"'rm -f -- "$$cases" "$$modal" "$$plate" "$$connector"'"'"' EXIT; MATERIAL_RELEASE_WASM_CASES="$$cases" MODAL_RELEASE_WASM_CASES="$$modal" ATTACHED_RELEASE_WASM_CASES="$$plate" SUPPORTED_RELEASE_WASM_CASES="$$connector" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=release_gauges::; node scripts/tests/release-gauges-wasm.mjs "$$cases" "$$modal" "$$plate" "$$connector"'
 
 .PHONY: test.engine.conditional-rank-wasm
 test.engine.conditional-rank-wasm: wasm

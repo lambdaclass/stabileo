@@ -484,7 +484,6 @@ fn issue_1315_a_turntable_whose_ends_slide_on_inclined_supports_is_refused_in_3d
 }
 
 #[test]
-#[ignore = "known wrong result: #2608"]
 fn issue_2608_modal_refusal_keeps_the_proven_frame_swing() {
     use dedaliano_engine::certify::modal::{certify_modal_2d, certify_modal_3d};
     let planar = column_with_hinged_arm_2d(true);

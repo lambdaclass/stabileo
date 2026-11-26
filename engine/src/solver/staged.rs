@@ -431,8 +431,8 @@ fn solve_stage_free(
         let mut factor = dense.clone();
         if !cholesky_decompose(&mut factor, pinned.n) { return Err(super::linear::not_positive_definite()); }
         *conditioning = crate::known_issues::dense_factor_conditioning(&dense, pinned.n, Some(&factor));
-        let u = back_solve(&factor, &forward_solve(&factor, &f, pinned.n), pinned.n);
-        super::linear::conditional_dense_refinement(&stability, &dense, &f, u, |rhs| back_solve(&factor, &forward_solve(&factor, rhs, pinned.n), pinned.n))?
+        super::linear::solve_dense_response(&stability, &dense, &f,
+            |rhs| back_solve(&factor, &forward_solve(&factor, rhs, pinned.n), pinned.n))?
     };
     if u.iter().any(|v| !v.is_finite()) { return Err(super::linear::not_positive_definite()); }
     stability.check_pins_with_rounding(&u, &f, &[], &incremental_rounding)?;

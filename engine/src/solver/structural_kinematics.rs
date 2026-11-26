@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use num_rational::BigRational as Rational;
-use num_traits::{One, Zero};
+use num_traits::{One, Signed, Zero};
 
 use super::constraints::FreeConstraintSystem;
 use super::dof::DofNumbering;
@@ -10,13 +10,13 @@ use crate::types::{SolverInput, SolverInput3D};
 #[derive(Default)]
 pub(super) struct StructuralKinematics {
     axial_joints: Vec<LocalMotion>,
-    frame_swings: Vec<LocalMotion>,
+    frame_swings: Vec<(LocalMotion, Option<&'static str>)>,
     unconstrained_swings: Vec<(usize, Vec<usize>)>,
 }
 
 pub(super) enum MechanismWitness {
     AxialJoint(usize),
-    FrameSwing(usize),
+    FrameSwing { node: usize, planar_component: Option<&'static str> },
 }
 
 struct LocalMotion {
@@ -134,7 +134,8 @@ impl StructuralKinematics {
                 if let Some(swing) =
                     LocalMotion::at_node(tip, rows, RowBasis::new(1), dof, &springs)
                 {
-                    frame_swings.push(swing);
+                    let component = if chord[1].abs() > chord[0].abs() { "ux" } else { "uz" };
+                    frame_swings.push((swing, Some(component)));
                 }
             }
         }
@@ -149,7 +150,7 @@ impl StructuralKinematics {
     pub(super) fn spatial(input: &SolverInput3D, dof: &DofNumbering) -> Self {
         let mut neighbors = BTreeMap::new();
         let mut other_members = BTreeSet::new();
-        let mut unsupported = BTreeSet::new();
+        let mut unsupported = other_stiffness_nodes_3d(input);
         let mut incidence = BTreeMap::new();
         for element in input.elements.values() {
             *incidence.entry(element.node_i).or_insert(0) += 1;
@@ -162,28 +163,6 @@ impl StructuralKinematics {
                 &element.elem_type,
             );
         }
-        for beam in &input.curved_beams {
-            unsupported.extend([beam.node_start, beam.node_mid, beam.node_end]);
-        }
-        for connector in input.connectors.values() {
-            unsupported.extend([connector.node_i, connector.node_j]);
-        }
-        unsupported.extend(input.plates.values().flat_map(|element| element.nodes));
-        unsupported.extend(input.quads.values().flat_map(|element| element.nodes));
-        unsupported.extend(input.quad9s.values().flat_map(|element| element.nodes));
-        unsupported.extend(
-            input
-                .curved_shells
-                .values()
-                .flat_map(|element| element.nodes),
-        );
-        unsupported.extend(
-            input
-                .solid_shells
-                .values()
-                .flat_map(|element| element.nodes),
-        );
-
         let mut springs = BTreeSet::new();
         for support in input.supports.values() {
             if support.is_inclined == Some(true) {
@@ -241,7 +220,7 @@ impl StructuralKinematics {
                     conditions.add(chord);
                     if let Some(swing) = LocalMotion::at_node(tip, rows, conditions, dof, &springs)
                     {
-                        frame_swings.push(swing);
+                        frame_swings.push((swing, None));
                     }
                 } else {
                     let free: Option<Vec<_>> = (0..6)
@@ -333,8 +312,10 @@ impl StructuralKinematics {
         if let Some(joint) = self.axial_joints.iter().find(admissible) {
             return Some(MechanismWitness::AxialJoint(joint.node));
         }
-        if let Some(swing) = self.frame_swings.iter().find(admissible) {
-            return Some(MechanismWitness::FrameSwing(swing.node));
+        if let Some((swing, planar_component)) = self.frame_swings.iter()
+            .find(|(motion, _)| motion.admissible(constraints, inactive, additional_dofs))
+        {
+            return Some(MechanismWitness::FrameSwing { node: swing.node, planar_component: *planar_component });
         }
         self.unconstrained_swings.iter().find_map(|(node, dofs)| {
             dofs.iter()
@@ -346,7 +327,7 @@ impl StructuralKinematics {
                     additional_dofs.get(dof) != Some(&true)
                         && retained.is_some_and(|index| inactive.binary_search(&index).is_err())
                 })
-                .then_some(MechanismWitness::FrameSwing(*node))
+                .then_some(MechanismWitness::FrameSwing { node: *node, planar_component: None })
         })
     }
 }
@@ -459,6 +440,17 @@ fn chord<const D: usize>(
         .map(|(&a, &b)| Some(Rational::from_float(b)? - Rational::from_float(a)?))
         .collect::<Option<_>>()?;
     row.iter().any(|value| !value.is_zero()).then_some(row)
+}
+
+pub(super) fn other_stiffness_nodes_3d(input: &SolverInput3D) -> BTreeSet<usize> {
+    input.curved_beams.iter().flat_map(|beam| [beam.node_start, beam.node_mid, beam.node_end])
+        .chain(input.connectors.values().flat_map(|element| [element.node_i, element.node_j]))
+        .chain(input.plates.values().flat_map(|element| element.nodes))
+        .chain(input.quads.values().flat_map(|element| element.nodes))
+        .chain(input.quad9s.values().flat_map(|element| element.nodes))
+        .chain(input.curved_shells.values().flat_map(|element| element.nodes))
+        .chain(input.solid_shells.values().flat_map(|element| element.nodes))
+        .collect()
 }
 
 fn terminal(

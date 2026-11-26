@@ -114,7 +114,11 @@ describe('engine sentences', () => {
       message,
       structuredDiagnostics: [{ code: 'reduced_stiffness_rank', severity: 'error', nodeIds: [2] }],
     });
-    for (const text of [message, refusal]) {
+    const modalRefusal = 'MODAL-MECHANISM: ' + JSON.stringify({
+      message: `Modal analysis: ${message}. The swing moves node 2 along ux. No modes are returned.`,
+      structuredDiagnostics: [{ code: 'reduced_stiffness_rank', severity: 'error', nodeIds: [2], phase: 'modal', message }],
+    });
+    for (const text of [message, refusal, modalRefusal]) {
       expect(localizeEngineText(text)).toBe('Hay un mecanismo en el nudo 2. Una barra puede girar alrededor de un extremo liberado sin deformarse ni mover sus restricciones.');
     }
   });

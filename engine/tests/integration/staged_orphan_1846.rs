@@ -1282,7 +1282,6 @@ fn review_archived_comment(key: &str) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1846"]
 fn issue_1846_review_comment_1085() {
     review_archived_comment("1085-6760749658-0");
 }

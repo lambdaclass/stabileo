@@ -5,7 +5,7 @@ use crate::types::*;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-use super::structural_kinematics::{MechanismWitness, StructuralKinematics};
+use super::structural_kinematics::{other_stiffness_nodes_3d, MechanismWitness, StructuralKinematics};
 
 pub(crate) fn has_member_releases_2d(input: &SolverInput) -> bool {
     input.elements.values().any(|e| e.hinge_start || e.hinge_end)
@@ -190,11 +190,7 @@ impl Stability {
                 ).with_nodes(self.mode_nodes.clone()),
             )),
             Reason::FrameMechanism => Some(crate::refusal::from_diagnostic(
-                StructuredDiagnostic::global(
-                    DiagnosticCode::ReducedStiffnessRank,
-                    Severity::Error,
-                    format!("the structure is a mechanism{nodes}: a frame can swing about a released end without straining its members or moving its restraints"),
-                ).with_nodes(self.mode_nodes.clone()),
+                frame_swing_diagnostic(&self.mode_nodes),
             )),
             Reason::Indefinite => Some(format!(
                 "the stiffness matrix is not positive semidefinite{nodes}: the structure has a direction of negative stiffness (a negative spring or a negative member property, say), so it is unstable; check the springs and member properties there"
@@ -218,6 +214,14 @@ impl Stability {
             )),
         }
     }
+}
+
+pub(super) fn frame_swing_diagnostic(nodes: &[usize]) -> StructuredDiagnostic {
+    StructuredDiagnostic::global(
+        DiagnosticCode::ReducedStiffnessRank,
+        Severity::Error,
+        format!("the structure is a mechanism at nodes {nodes:?}: a frame can swing about a released end without straining its members or moving its restraints"),
+    ).with_nodes(nodes.to_vec())
 }
 
 fn rotation_pins<'a>(directions: impl Iterator<Item = &'a FreeDirection>) -> Vec<(usize, usize, f64)> {
@@ -706,16 +710,10 @@ pub(super) fn released_rotations_in_frames(
             }
         }
     }
-    for e in &input.curved_beams {
-        for node in [e.node_start, e.node_mid, e.node_end] { released.remove(&node); }
-    }
-    for e in input.connectors.values() { released.remove(&e.node_i); released.remove(&e.node_j); }
-    for ids in input.plates.values().map(|e| e.nodes.to_vec())
-        .chain(input.quads.values().map(|e| e.nodes.to_vec()))
-        .chain(input.quad9s.values().map(|e| e.nodes.to_vec()))
-        .chain(input.curved_shells.values().map(|e| e.nodes.to_vec()))
-        .chain(input.solid_shells.values().map(|e| e.nodes.to_vec())) {
-        for node in ids { released.remove(&node); }
+    if !released.is_empty() {
+        let attached = other_stiffness_nodes_3d(input);
+        released.retain(|node| !attached.contains(node));
+        directions.retain(|(node, _)| released.contains(node));
     }
     for support in input.supports.values() {
         for (i, spring) in [support.krx, support.kry, support.krz].into_iter().enumerate() {
@@ -1632,14 +1630,18 @@ fn structural_mechanism(
     inactive: &[usize],
     supplemental_dofs: &[bool],
 ) -> Option<Stability> {
-    let (node, reason) = match kinematics.structure.mechanism(constraints, inactive, supplemental_dofs)? {
+    kinematics.structure.mechanism(constraints, inactive, supplemental_dofs).map(structural_verdict)
+}
+
+pub(super) fn structural_verdict(witness: MechanismWitness) -> Stability {
+    let (node, reason) = match witness {
         MechanismWitness::AxialJoint(node) => (node, Reason::AxialMechanism),
-        MechanismWitness::FrameSwing(node) => (node, Reason::FrameMechanism),
+        MechanismWitness::FrameSwing { node, .. } => (node, Reason::FrameMechanism),
     };
-    Some(Stability {
+    Stability {
         verdict: Verdict::Mechanism, reason,
         kappa: f64::INFINITY, anisotropy: 1.0, free: Vec::new(), mode_nodes: vec![node],
-    })
+    }
 }
 
 pub(super) fn classify_free_stiffness(
@@ -1827,15 +1829,11 @@ impl<'a> OperatorRank<'a> {
         ReleaseGauges(gauges)
     }
 
-    pub(super) fn check_structure(&self) -> Result<(), String> {
-        if !assumed() {
-            if let Some(refusal) = structural_mechanism(&self.kinematics, self.constraints, &[], &[])
-                .and_then(|proof| proof.refusal())
-            {
-                return Err(refusal);
-            }
+    pub(super) fn structural_witness(&self) -> Option<MechanismWitness> {
+        if assumed() {
+            return None;
         }
-        Ok(())
+        self.kinematics.structure.mechanism(self.constraints, &[], &[])
     }
 
     pub(super) fn check_rounding(&self, free: &CscMatrix, reduced: Option<&CscMatrix>, support_magnitude: Option<&CscMatrix>) -> Result<(), String> {

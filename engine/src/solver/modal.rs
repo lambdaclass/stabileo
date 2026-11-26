@@ -460,8 +460,22 @@ impl<'a> ModalStiffness<'a> {
         rank: &super::stability::OperatorRank<'_>,
         check_rounding: impl FnOnce() -> Result<(), String>,
     ) -> Result<(), String> {
-        rank.check_structure()?;
+        use super::structural_kinematics::MechanismWitness;
+        let witness = rank.structural_witness();
+        if let Some(witness @ MechanismWitness::AxialJoint(_)) = witness {
+            return Err(super::stability::structural_verdict(witness).refusal().unwrap());
+        }
         self.reject_massive_null_translation(mass, dof, constraints, inclined, axes)?;
+        if let Some(MechanismWitness::FrameSwing { node, planar_component }) = witness {
+            let diagnostic = super::stability::frame_swing_diagnostic(&[node]).with_phase("modal");
+            let translation = planar_component.unwrap_or("ux, uy or uz");
+            let message = format!(
+                "Modal analysis: {}. The swing moves node {node} along {translation}. No modes are returned.",
+                diagnostic.message,
+            );
+            let payload = serde_json::json!({ "message": message, "structuredDiagnostics": [diagnostic] });
+            return Err(format!("{MODAL_MECHANISM}: {payload}"));
+        }
         check_rounding()
     }
 

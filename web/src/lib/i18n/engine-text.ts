@@ -14,7 +14,7 @@ import { isMessage, type EngineMessage } from '../codes/message';
 import { AMBIGUOUS_ROLLER_Z } from '../engine/support-dofs-3d';
 import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../engine/member-diagram';
 import type { StructuredDiagnostic } from '../engine/types';
-import { asCodedRefusal, CodedRefusal } from '../engine/containment-error';
+import { asCodedRefusal, CodedRefusal, refusalDiagnostic } from '../engine/containment-error';
 import { i18n, registerFeatureDictionaries, tAt } from './store.svelte';
 import type { Locale } from './offered';
 import { axesStore } from '../axes/axes.svelte';
@@ -219,6 +219,11 @@ export function localizeEngineText(message: string): string {
   const original = rankRefusal instanceof CodedRefusal ? rankRefusal.message : message;
   const axialJoint = AXIAL_JOINT_REASON.exec(original);
   if (axialJoint) return fill(AXIAL_JOINT_MECHANISM, { node: axialJoint[1] });
+  const modalSwing = refusalDiagnostic(message, 'reduced_stiffness_rank');
+  const modalSwingNode = modalSwing?.nodeIds?.[0];
+  if (modalSwing?.phase === 'modal' && typeof modalSwingNode === 'number') {
+    return fill(FRAME_SWING_MECHANISM, { node: String(modalSwingNode) });
+  }
   const frameSwing = FRAME_SWING_REASON.exec(original);
   if (frameSwing) return fill(FRAME_SWING_MECHANISM, { node: frameSwing[1] });
   const constraintRank = CONSTRAINT_RANK_REASON.exec(original);

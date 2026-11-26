@@ -1,0 +1,45 @@
+{
+  "id": "staged-response-refinement",
+  "date": "2026-11-26",
+  "prs": [
+    2608
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "stagedConstruction"
+      ],
+      [
+        "members",
+        "springs",
+        "connectors",
+        "constraints"
+      ]
+    ]
+  },
+  "title": {
+    "en": "Conditioned staged response refinement",
+    "es": "Refinamiento de la respuesta por etapas condicionada",
+    "pt": "Refinamento da resposta condicionada por etapas",
+    "de": "Verfeinerung der Antwort bedingt zugelassener Bauphasen",
+    "fr": "Affinement de la réponse par phases sous condition",
+    "hu": "Feltételesen elfogadott fázisos válasz pontosítása",
+    "tr": "Koşullu aşamalı yanıtın iyileştirilmesi",
+    "zh": "有条件准入的分阶段响应细化"
+  },
+  "explanation": {
+    "en": "Conditionally admitted dense staged solves now refine the response before applying the accuracy limit. Recheck saved staged results for models with extreme stiffness contrasts.",
+    "es": "Los análisis densos por etapas admitidos condicionalmente refinan la respuesta antes de aplicar el límite de precisión. Volvé a verificar los resultados guardados de modelos con contrastes extremos de rigidez.",
+    "pt": "As análises densas por etapas admitidas condicionalmente refinam a resposta antes de aplicar o limite de precisão. Revise os resultados salvos de modelos com contrastes extremos de rigidez.",
+    "de": "Bedingt zugelassene dichte Bauphasenberechnungen verfeinern die Antwort vor der Genauigkeitsprüfung. Prüfen Sie gespeicherte Bauphasenergebnisse für Modelle mit extremen Steifigkeitsunterschieden erneut.",
+    "fr": "Les calculs denses par phases admis sous condition affinent la réponse avant de vérifier le seuil de précision. Revérifiez les résultats enregistrés des modèles présentant des contrastes extrêmes de raideur.",
+    "hu": "A feltételesen elfogadott sűrű fázisos számítások a pontossági határ előtt pontosítják a választ. Ellenőrizze újra a nagy merevségi különbségű modellek mentett fázisos eredményeit.",
+    "tr": "Koşullu kabul edilen yoğun aşamalı çözümler, doğruluk sınırından önce yanıtı iyileştirir. Rijitlik farkı çok yüksek modellerin kayıtlı aşama sonuçlarını yeniden denetleyin.",
+    "zh": "有条件准入的稠密分阶段求解会在应用精度限值前细化响应。请复核刚度差异极大的模型所保存的分阶段结果。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-staged-response-refinement.md",
+    "heading": "Conditioned staged response refinement (2026-11-26)"
+  }
+}

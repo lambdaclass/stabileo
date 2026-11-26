@@ -53,11 +53,14 @@ function report(issue, dim, solver) {
       run();
       failures.push(`#${issue} ${dim} ${name} returned a result`);
     } catch (error) {
+      const text = String(error);
+      const modalFrameSwing = issue !== 2584 && name.includes('modal');
       let diagnostic;
       try {
-        diagnostic = JSON.parse(String(error)).structuredDiagnostics?.[0];
+        diagnostic = JSON.parse(text.replace(/^MODAL-MECHANISM: /, '')).structuredDiagnostics?.[0];
       } catch {}
-      if (diagnostic?.code !== 'reduced_stiffness_rank' || diagnostic?.severity !== 'error'
+      if ((modalFrameSwing && !text.startsWith('MODAL-MECHANISM: '))
+          || diagnostic?.code !== 'reduced_stiffness_rank' || diagnostic?.severity !== 'error'
           || !diagnostic.message.includes(witness)) {
         failures.push(`#${issue} ${dim} ${name} returned ${error}`);
       }
