@@ -44,7 +44,7 @@ if (BUILD_FEATURES.proRcSheets) {
     const marks = await bars.evaluateAll((g) => g.map((x) => x.getAttribute('data-mark')));
     expect(new Set(marks).size).toBe(marks.length);
     await expect(fig.locator('[data-testid="rc-plan-bar"][data-layer="top"][data-kind="support"]').first()).toBeVisible();
-    await expect(fig.locator('[data-testid="rc-plan-bar"][data-layer="top"]').first()).toContainText(/Ø\d+ c\/\d+ L=\d+,\d\d/);
+    await expect(fig.locator('[data-testid="rc-plan-bar"][data-layer="top"]').first()).toContainText(/Ø\d+ c\/\d+(,\d+)? L=\d+,\d\d/);
     expect(await fig.locator('[data-testid="rc-plan-bar"][data-layer="top"] [data-testid="rc-plan-leg"]').count()).toBeGreaterThan(0);
     const stripCount = async () => {
       const m = /Franjas verificadas con el área que piden los paños: (\d+) de (\d+)$/.exec((await fig.getByTestId('rc-plan-checks').textContent()) ?? '');
