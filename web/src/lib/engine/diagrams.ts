@@ -103,8 +103,14 @@ function planarExtrema(critical: readonly DiagramOrdinate[]) {
 
 export function computePlanarDiagramExtrema(kind: PlanarKind, ef: PlanarForces, inwardAtI = false) {
   const curve = planarCurve(kind, ef);
-  const extrema = planarExtrema(diagramCriticalPoints(curve, curveExtrema(curve, ef.length), inwardAtI));
-  return { ...extrema, maxAbsX: curve.cutDistances.get(extrema.maxAbsT) ?? extrema.maxAbsT * ef.length };
+  const critical = diagramCriticalPoints(curve, curveExtrema(curve, ef.length), inwardAtI);
+  const extrema = planarExtrema(critical);
+  return {
+    ...extrema,
+    startValue: critical[0]!.value,
+    endValue: critical.at(-1)!.value,
+    maxAbsX: curve.cutDistances.get(extrema.maxAbsT) ?? extrema.maxAbsT * ef.length,
+  };
 }
 
 export function computeElementDiagram(

@@ -12,7 +12,7 @@ import { t, tp } from '../../i18n';
 import type { KinematicReport } from '../kinematic-report';
 import type { AnalysisResults, ElementEnvelopeDiagram, FullEnvelope } from '../types';
 import type { AnalysisResults3D, FullEnvelope3D } from '../types-3d';
-import { computeDiagramValueAt, computePlanarDiagramExtrema } from '../diagrams';
+import { computePlanarDiagramExtrema } from '../diagrams';
 import { computeSpatialDiagramExtrema, type Diagram3DKind } from '../diagrams-3d';
 import { isInwardEndpointFace, type DiagramOrdinate } from '../member-diagram';
 import type { FigureContent } from '../../export/view-figure';
@@ -226,10 +226,9 @@ export function forceTable2D(
       const vals = inwardEnvelopeValues(e, ef.length, sign);
       vI = vals[0]!.value; vJ = vals[vals.length - 1]!.value; best = envelopeExtreme(vals);
     } else {
-      const at = (x: number) => sign * computeDiagramValueAt(kind, x / ef.length, ef);
       const extrema = computePlanarDiagramExtrema(kind, ef, true);
-      vI = at(0);
-      vJ = at(ef.length);
+      vI = sign * extrema.startValue;
+      vJ = sign * extrema.endValue;
       best = { value: sign * extrema.maxAbsValue, x: extrema.maxAbsX, side: extrema.maxAbsSide };
     }
     h.push(`<tr><td>${ef.elementId}</td><td class="num">${F(vI)}</td><td class="num">${F(vJ)}</td><td class="num">${F(best.value)}</td><td class="num">${cutLabel(best, lenFmt)}</td></tr>`);

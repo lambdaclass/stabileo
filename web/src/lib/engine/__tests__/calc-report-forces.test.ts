@@ -99,7 +99,7 @@ describe('solved', () => {
     expect(max.join(' ')).toMatch(/45\.00 \(x = 3\.00 m\)/);
   });
 
-  it.skip('known wrong result: #2226 reads the inward I shear after a fixed-end point load', () => {
+  it('#2226 reads the inward I shear after a fixed-end point load', () => {
     const span = 4;
     const tipLoad = 4;
     const rootLoad = 20;
@@ -327,9 +327,9 @@ it('known wrong result: #2226 reads planar envelope end cells from the same inwa
   }
 });
 
-it.skip.each([
+it.each([
   [20, 0], [0, -20], [20, -20], [0, 0],
-])('known wrong result: #2226 reads inward planar shear with end actions %i and %i', (atI, atJ) => {
+])('#2226 reads inward planar shear with end actions %i and %i', (atI, atJ) => {
   const length = 4;
   const results2D = r2D(ef2D({
     length, vStart: 4 - atI, vEnd: 8 + atJ,
