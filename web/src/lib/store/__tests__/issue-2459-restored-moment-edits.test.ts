@@ -394,3 +394,17 @@ it('#2459 preserves result-change applicability when opening and resaving a lega
   expect(deserializeProject(serializeProject())).toBe(true);
   await vi.waitFor(() => expect(recheckStore.assessment?.changes.map(c => c.id)).toContain('restored-planar-moment-edits'));
 });
+
+it.skip('known wrong result: #2459 serializes an invalid nodal moment before its next restore', () => {
+  const member = cantilever('2d');
+  const nodeId = modelStore.model.elements.get(member)!.nodeJ;
+  const snapshot = modelStore.snapshot();
+  modelStore.restore({ ...snapshot, loads: [{
+    type: 'nodal', data: { id: loadId, nodeId, caseId: loadCase.id, fx: 0, fz: 0, my: NaN },
+  }] });
+  const serialized = serializeProject();
+  expect(JSON.parse(serialized).snapshot.loads[0].data).toStrictEqual(modelStore.snapshot().loads[0]!.data);
+  expect(deserializeProject(serialized)).toBe(true);
+  const refusal = t('svc.planarNodalLoadMomentAliases').replace('{load}', String(loadId)).replace('{n}', String(nodeId));
+  expect(() => buildSolverInput2D(modelStore.model)).toThrow(refusal);
+});

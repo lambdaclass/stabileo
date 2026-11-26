@@ -7,6 +7,7 @@ import { compressSnapshot, loadFromShareLink, loadFromURLHash } from '../../util
 import { acceptAutosavePayload, acceptSessionTabs, buildProjectFile, deserializeProject } from '../file';
 import { modelStore } from '../model.svelte';
 import { uiStore } from '../ui.svelte';
+import { tabManager } from '../tabs.svelte';
 import '../index';
 
 type Project = ReturnType<typeof buildProjectFile>;
@@ -214,3 +215,21 @@ it.each(['elements', 'materials', 'sections', 'supports', 'plates', 'quads', 'gr
     expect(beforeInstall).not.toHaveBeenCalled();
   },
 );
+
+it.skip('known wrong result: #2588 restores spatial constraints from a tab during a planar session', () => {
+  const { root, tip } = frame('pro');
+  modelStore.addConstraint({ type: 'equalDOF', masterNode: root, slaveNode: tip, dofs: [1] });
+  const file = buildProjectFile();
+  expect(file.snapshot.drawPlane2D).toBeUndefined();
+  tabManager.init();
+  const saved = {
+    ...tabManager.activeTab!,
+    modelSnapshot: file.snapshot,
+    analysisMode: 'pro' as const,
+  };
+  uiStore.analysisMode = '2d';
+  modelStore.clear();
+  tabManager.restoreSession([saved], saved.id);
+  expect(uiStore.analysisMode).toBe('pro');
+  expect(modelStore.model.constraints).toEqual(file.snapshot.constraints);
+});
