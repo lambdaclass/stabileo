@@ -1,9 +1,7 @@
 {
   "id": "malformed-authored-loads",
   "date": "2026-11-25",
-  "prs": [
-    2588
-  ],
+  "prs": [],
   "area": "analysis",
   "when": {
     "all": [
@@ -31,8 +29,8 @@
     "ru": "Нагрузки с недопустимыми данными"
   },
   "explanation": {
-    "en": "Analysis refuses malformed load records and names the field to correct. Review the stated load type, frame, target and components before recalculating. Both supplied planar nodal moment fields must be finite numbers.",
-    "es": "El análisis rechaza las cargas con datos inválidos e indica qué campo corregir. Revisá el tipo, el sistema de ejes, el destino y las componentes de la carga antes de recalcular. Las dos componentes de momento nodal plano, si se incluyen, deben ser números finitos.",
+    "en": "Analysis refuses malformed load records and names the field to correct. Review the stated load type, frame, target and components before recalculating.",
+    "es": "El análisis rechaza las cargas con datos inválidos e indica qué campo corregir. Revisá el tipo, el sistema de ejes, el destino y las componentes de la carga antes de recalcular.",
     "pt": "A análise recusa cargas com dados inválidos e indica qual campo corrigir. Revise o tipo, o sistema de eixos, o destino e as componentes da carga antes de recalcular.",
     "de": "Die Berechnung lehnt Lasten mit ungültigen Daten ab und nennt das zu korrigierende Feld. Prüfen Sie vor der Neuberechnung Lasttyp, Koordinatensystem, Ziel und Komponenten.",
     "fr": "Le calcul rejette les charges dont les données sont invalides et indique le champ à corriger. Vérifiez le type, le repère, la cible et les composantes de la charge avant de recalculer.",
