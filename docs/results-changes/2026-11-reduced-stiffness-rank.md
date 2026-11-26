@@ -100,7 +100,7 @@ The C08 fixtures for #973 and #1029 each have one member whose supported
 end can rotate. In #973 the member is released at the fixed support. In #1029
 the support is a pin and the member is released at the free tip. A rigid
 rotation about the support has zero member strain in both fixtures. The
-static rank verdict now classifies both as singular at assembly precision.
+static rank verdict proves both mechanisms and identifies node 2.
 The replay checks the refusal from modal analysis for #973 and from the
 no-foundation Winkler solve for #1029. The #1041 time-history replay uses
 the #1029 model and shares its static rank verdict. Time integration keeps

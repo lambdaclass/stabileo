@@ -2,6 +2,7 @@ import type { Translations } from '../types';
 
 const zh: Translations = {
   'svc.accountingMismatch': "分析已拒绝。荷载工况 {case}，分量 {component}。输入值 {entered}，组装值 {assembled}。",
+  'svc.accountingLineEnd': "分析已拒绝。荷载工况 {case}，构件 {member} 的 {end} 端。重新分配的荷载施加到了节点 {actual}，应施加到节点 {expected}。",
   'svc.accountingUnsupported': "分析已拒绝。无法核算荷载工况 {case} 中 {kind} {id} 的力和力矩。",
   'svc.accountingArea': "分析已拒绝。求解器中板 {plate} 的面积或边界不同。指定面积 {entered}，组装面积 {assembled}。",
   'svc.accountingSweep': "分析已拒绝。求解器中板 {plate} 的弧边走向不同。指定面积 {entered}，组装面积 {assembled}。",
@@ -1054,6 +1055,7 @@ const zh: Translations = {
   "fm.s9.bad": "两者不一致，最大差值为 {d}。",
   "fm.s9.flex": "柔度法",
   "fm.s9.stiff": "刚度法",
+  "fm.err.axialTrussPoint3d": "三维柔度法演示无法恢复桁架杆件内部轴向集中力的结果。请使用刚度法。",
   "fm.err.hypostatic": "结构为机构（GH < 0）：无法求解。",
   "fm.err.noRedundants": "没有任何一种多余未知力的取法能得到稳定的基本结构，结构可能部分为机构。",
   "fm.err.unstable": "结构不稳定。",
@@ -4135,6 +4137,7 @@ const zh: Translations = {
   "svc.engine.nonnegativeMassDensity": "质量密度必须有限且非负",
   "svc.engine.invalidInputField": "字段 {path} 缺失或包含不受支持的值。",
   "svc.engine.nonFiniteNumber": "请为 {path} 输入有限数值（收到的值为 {value}）。",
+  "svc.engine.unresolvedMovingAxle": "无法确定移动荷载路径节点处的车轴位置。",
   "svc.engine.ambiguousRollerZ": "rollerZ 在三维模型中的约束方向不明确。请明确指定三维约束后再求解。",
   "svc.engine.zeroDiagonal": "所有对角元素均为零：矩阵奇异",
   "svc.engine.singular": "刚度矩阵奇异",
@@ -14337,6 +14340,7 @@ const zh: Translations = {
   "plates.analysisMeshRefused": "无法划分网格：{names}。请检查其单元尺寸或轮廓。",
   "plates.analysisInvalid": "分析已停止。请修正以下无效板的几何形状或属性：{names}。",
   "plates.analysisWallSlab": "分析已停止。墙体 {wall} 和楼板 {slab} 在节点 {node} 处没有共用网格顶点。请重新划分连接处的网格，使两者共用节点。",
+  "plates.analysisWallSlabFace": "分析已停止。墙体 {wall} 与楼板 {slab} 在墙体节点 {nodes} 附近相接，但没有共用网格边。请重新划分连接处的网格，使两者共用边。",
   "plates.meshedAtAnalysis": "分析前已为 {n} 块板划分网格（{cells} 个单元）",
   "plates.liveNeedsMesh": "{n} 块板没有当前的网格：实时计算等待完整分析，完整分析会为其划分网格。",
   "plates.problem.needNodes": "至少需要三个已有节点。",

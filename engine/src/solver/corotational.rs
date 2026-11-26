@@ -540,6 +540,9 @@ pub fn solve_corotational_2d_from(
     }
     let u_r_base: Vec<f64> = u_full[nf..].to_vec();
     let u_r_target = super::linear::prescribed_displacements_2d(input, &dof_num);
+    if u_full.iter().chain(&u_r_target).all(|&u| u == 0.0) {
+        super::stability::refuse_axial_tips_2d(input, &dof_num, cs.as_ref(), std::iter::empty())?;
+    }
     let support_extent: Vec<_> = u_r_base.iter().zip(&u_r_target)
         .map(|(a,b)|a.abs()+b.abs()).collect();
     let metric = super::convergence::EquilibriumMetric::for_2d_with_state(
@@ -698,7 +701,11 @@ fn scaled_loads_3d(input: &SolverInput3D, factor: f64) -> SolverInput3D {
                     *v *= factor;
                 }
             }
-            SolverLoad3D::PointOnElement(p) => { p.py *= factor; p.pz *= factor; }
+            SolverLoad3D::PointOnElement(p) => {
+                p.px *= factor;
+                p.py *= factor;
+                p.pz *= factor;
+            }
             _ => {}
         }
     }
@@ -1701,6 +1708,7 @@ pub fn solve_corotational_3d(
 
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_3d(&input, &dof_num)?;
+    super::stability::refuse_axial_tips_3d(input, &dof_num, cs.as_ref(), std::iter::empty())?;
     let metric = super::convergence::EquilibriumMetric::for_3d(input, &dof_num, cs.as_ref())?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
@@ -2886,6 +2894,19 @@ fn elastic_corotational_forces_3d(
 mod tests {
     use super::*;
     use std::collections::HashMap;
+
+    #[test]
+    fn spatial_axle_point_force_scales_all_components_at_a_partial_step() {
+        let input: SolverInput3D = serde_json::from_value(serde_json::json!({
+            "nodes": {}, "elements": {}, "materials": {}, "sections": {}, "supports": {},
+            "loads": [{"type":"pointOnElement","data":{"elementId":1,"a":2.5,"px":-8.0,"py":0.0,"pz":-6.0}}]
+        })).unwrap();
+        let scaled = scaled_loads_3d(&input, 0.5);
+        let [SolverLoad3D::PointOnElement(axle)] = scaled.loads.as_slice() else {
+            panic!("expected one point force");
+        };
+        assert_eq!((axle.a, axle.px, axle.py, axle.pz), (2.5, -4.0, 0.0, -3.0));
+    }
 
     #[test]
     fn ends_a_whole_turn_apart_are_refused_whichever_turn_is_meant() {

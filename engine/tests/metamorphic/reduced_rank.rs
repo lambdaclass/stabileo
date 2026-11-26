@@ -47,6 +47,15 @@ fn report(label: &str, result: Result<impl std::fmt::Debug, String>, failures: &
     }
 }
 
+fn report_proven_swing(label: &str, result: Result<impl std::fmt::Debug, String>, failures: &mut Vec<String>) {
+    const EXPECTED: &str = "the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases";
+    match result {
+        Err(error) if error.strip_prefix("Failed to solve case 'A': ").unwrap_or(&error) == EXPECTED => {}
+        Err(error) => failures.push(format!("{label}: {error}")),
+        Ok(_) => failures.push(format!("{label}: returned a result")),
+    }
+}
+
 fn classification_2d(case: &Case2) -> Result<(), String> {
     match stability::of_2d(&case.s)?.refusal() {
         Some(e) => Err(e),
@@ -63,8 +72,8 @@ fn issue_2266_dense_in_original_and_scaled_units() {
     let row = crate::ana2::rows().into_iter().find(|a| a.name == entry).unwrap();
     let mut failures = Vec::new();
     for (label, model) in [("original", case), ("scaled", scaled)] {
-        report(label, (row.run)(&model), &mut failures);
-        report(label, classification_2d(&model), &mut failures);
+        report_proven_swing(label, (row.run)(&model), &mut failures);
+        report_proven_swing(label, classification_2d(&model), &mut failures);
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
@@ -83,8 +92,8 @@ fn issue_2380_constrained_in_original_and_rotated_coordinates() {
     let row = crate::ana2::rows().into_iter().find(|a| a.name == entry).unwrap();
     let mut failures = Vec::new();
     for (label, model) in [("original", case), ("rotated", rotated)] {
-        report(label, (row.run)(&model), &mut failures);
-        report(label, classification_2d(&model), &mut failures);
+        report_proven_swing(label, (row.run)(&model), &mut failures);
+        report_proven_swing(label, classification_2d(&model), &mut failures);
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
@@ -128,7 +137,13 @@ fn issue_2380_through_native_operator_entries() {
     }).collect();
     let mut failures = Vec::new();
     for row in selected2 {
-        report(&format!("2D {}", row.name), (row.run)(&case), &mut failures);
+        let label = format!("2D {}", row.name);
+        let result = (row.run)(&case);
+        if matches!(row.name, "SSI (no soil springs)" | "corotational" | "material nonlinear" | "modal") {
+            report(&label, result, &mut failures);
+        } else {
+            report_proven_swing(&label, result, &mut failures);
+        }
     }
     for row in selected3 {
         report(&format!("3D {}", row.name), (row.run)(&spatial), &mut failures);
@@ -180,8 +195,8 @@ fn check_spatial_issue(issue: &str, entry: &str, seed: u64, rotation: bool) {
         base.units(&scaled_units(&mut rng))
     };
     let mut failures = Vec::new();
-    report("original", (row.run)(&base), &mut failures);
-    report(&format!("#{issue} transformed"), (row.run)(&transformed), &mut failures);
+    report_proven_swing("original", (row.run)(&base), &mut failures);
+    report_proven_swing(&format!("#{issue} transformed"), (row.run)(&transformed), &mut failures);
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
@@ -212,14 +227,8 @@ fn issue_2190_typed_planar_refuses_unresolved_operator() {
     );
     let mirrored = base.iso(&iso).unwrap();
     let mut failures = Vec::new();
-    report("original", (row.run)(&base), &mut failures);
-    let transformed = (row.run)(&mirrored);
-    let conditioning_refusal = matches!(&transformed, Err(error)
-        if error.starts_with("the structure is a mechanism or so close to one that its stability cannot be decided in double precision")
-            && error.contains("the matrix exceeds a conditioning limit or the recovered response fails its accuracy check"));
-    if !conditioning_refusal {
-        report("#2190 mirrored", transformed, &mut failures);
-    }
+    report_proven_swing("original", (row.run)(&base), &mut failures);
+    report_proven_swing("#2190 mirrored", (row.run)(&mirrored), &mut failures);
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 

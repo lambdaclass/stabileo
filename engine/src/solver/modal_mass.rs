@@ -267,6 +267,10 @@ impl MassAssembly {
                 pivots: range.keys().copied().collect(),
                 transform,
                 weights,
+                massive_coordinates: (0..n).map(|i| {
+                    columns.get(&i).is_some_and(|uses| !uses.is_empty())
+                }).collect(),
+                released_gauges: Vec::new(),
             })
         };
         build().ok_or_else(|| "REFUSE: physical_mass_range: cannot establish the physical massive rows and their rank".into())
@@ -278,9 +282,58 @@ pub(super) struct MassRange {
     pivots: Vec<usize>,
     transform: SparseTransform,
     weights: SparseTransform,
+    massive_coordinates: Vec<bool>,
+    released_gauges: Vec<ReleasedGauge>,
+}
+
+struct ReleasedGauge {
+    direction: Vec<(usize, f64)>,
+    scale: f64,
 }
 
 impl MassRange {
+    pub(super) fn is_proven_massless(&self, axis: &[(usize, f64, f64)]) -> bool {
+        axis.iter().all(|&(i, value, error)| {
+            (value == 0.0 && error == 0.0) || !self.massive_coordinates[i]
+        })
+    }
+
+    pub(super) fn register_released_gauge(
+        &mut self, axis: &[(usize, f64, f64)], scale: f64,
+    ) -> Option<()> {
+        if !self.is_proven_massless(axis) || !scale.is_finite() || scale <= 0.0 {
+            return None;
+        }
+        let direction = axis.iter().filter_map(|&(i, value, _)| {
+            (value != 0.0).then_some((i, value))
+        }).collect();
+        self.released_gauges.push(ReleasedGauge { direction, scale });
+        Some(())
+    }
+
+    fn gauge_massless_block(&self, k: CscMatrix, null: &[usize]) -> Option<CscMatrix> {
+        if self.released_gauges.is_empty() {
+            return Some(k);
+        }
+        let mut rows = k.row_idx.clone();
+        let mut cols = (0..k.n).flat_map(|col| {
+            std::iter::repeat_n(col, k.col_ptr[col + 1] - k.col_ptr[col])
+        }).collect::<Vec<_>>();
+        let mut values = k.values;
+        for gauge in &self.released_gauges {
+            for (a, &(i, vi)) in gauge.direction.iter().enumerate() {
+                let i = null.binary_search(&i).ok()?;
+                for &(j, vj) in &gauge.direction[..=a] {
+                    let j = null.binary_search(&j).ok()?;
+                    rows.push(i.max(j));
+                    cols.push(i.min(j));
+                    values.push(gauge.scale * vi * vj);
+                }
+            }
+        }
+        Some(CscMatrix::from_triplets(k.n, &rows, &cols, &values))
+    }
+
     pub(super) fn has_mass_in(&self, coordinates: &[usize], direction: &[f64], round_off: f64) -> bool {
         if self.rank == self.transform.n_rows {
             return true;
@@ -322,8 +375,25 @@ impl MassRange {
         let null: Vec<_> = (0..n)
             .filter(|i| self.pivots.binary_search(i).is_err())
             .collect();
-        let massless = stiffness.extract_principal_submatrix(&null);
+        let mut massless = self.gauge_massless_block(stiffness.extract_principal_submatrix(&null), &null)?;
+        let scales = if self.released_gauges.is_empty() {
+            None
+        } else {
+            let scales: Vec<_> = massless.diagonal().into_iter().map(f64::sqrt).collect();
+            if scales.iter().any(|&s| !s.is_finite() || s == 0.0) {
+                return None;
+            }
+            for (col, &scale) in scales.iter().enumerate() {
+                for p in massless.col_ptr[col]..massless.col_ptr[col + 1] {
+                    massless.values[p] = (massless.values[p] / scale) / scales[massless.row_idx[p]];
+                }
+            }
+            Some(scales)
+        };
         let symbolic = std::rc::Rc::new(symbolic_cholesky(&massless));
+        if scales.is_some() && crate::linalg::sparse_chol::sparse_negative_inertia(&symbolic, &massless) != Some(0) {
+            return None;
+        }
         let factor = numeric_cholesky(&symbolic, &massless)?;
         let mut rows: Vec<Vec<(usize, f64)>> = vec![Vec::new(); n];
         let (mut ki, mut kj, mut kv) = (Vec::new(), Vec::new(), Vec::new());
@@ -332,8 +402,18 @@ impl MassRange {
             let mut unit = vec![0.0; n];
             unit[pivot] = 1.0;
             let product = stiffness.sym_mat_vec(&unit);
-            let rhs: Vec<_> = null.iter().map(|&i| -product[i]).collect();
-            let solution = sparse_cholesky_solve(&factor, &rhs);
+            let mut rhs: Vec<_> = null.iter().map(|&i| -product[i]).collect();
+            if let Some(scales) = &scales {
+                for (value, scale) in rhs.iter_mut().zip(scales) {
+                    *value /= scale;
+                }
+            }
+            let mut solution = sparse_cholesky_solve(&factor, &rhs);
+            if let Some(scales) = &scales {
+                for (value, scale) in solution.iter_mut().zip(scales) {
+                    *value /= scale;
+                }
+            }
             if solution.iter().any(|x| !x.is_finite()) {
                 return None;
             }

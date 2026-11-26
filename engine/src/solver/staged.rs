@@ -265,10 +265,10 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
                 .or_else(|| asm_dense.as_ref().and_then(|a| a.1.as_ref())),
             &dof_num, cs.as_ref(), true, &connected_nodes_2d(&stage_solver_input),
             &super::stability::coupling_2d(&stage_solver_input, &dof_num),
-            &super::stability::ReleasedRotations::default(), &f_f,
+            &super::stability::elastic_releases_2d(&stage_solver_input, &dof_num), &f_f,
             &asm_trips.as_ref().map_or_else(|| &asm_dense.as_ref().unwrap().0.f, |t| &t.f)[..nf],
             &applied[..nf], &cumulative_rounding, &incremental_rounding, use_sparse,
-            &mut sparse_sym_cache, &mut conditioning,
+            &mut sparse_sym_cache, &mut conditioning, None,
         )?;
 
         // Expand back to full free DOFs
@@ -388,6 +388,7 @@ fn solve_stage_free(
     sparse: bool,
     cache: &mut Option<SparseSymbolicCache>,
     conditioning: &mut Option<StructuredDiagnostic>,
+    physical_frame: Option<super::conditioning_accuracy::PhysicalFrameSystem<'_>>,
 ) -> Result<Vec<f64>, String> {
     let cumulative_rounding = constraints.map_or_else(|| cumulative_rounding.to_vec(), |c| c.reduce_load_rounding(cumulative_applied,cumulative_rounding));
     let incremental_rounding = constraints.map_or_else(|| incremental_rounding.to_vec(), |c| c.reduce_load_rounding(incremental_applied,incremental_rounding));
@@ -421,18 +422,22 @@ fn solve_stage_free(
     let inactive_scale = if active_scale > 0.0 { active_scale } else { 1.0 };
     for &d in &inactive { rows.push(d); cols.push(d); vals.push(inactive_scale); }
     let pinned = CscMatrix::from_triplets(pinned.n, &rows, &cols, &vals);
+    let refinement = super::linear::ConditionalRefinement {
+        physical_frame: physical_frame.as_ref(),
+        inactive: &inactive,
+    };
     let u = if sparse {
-        let factor = numeric_cholesky(cached_symbolic(cache, &pinned), &pinned).ok_or_else(super::linear::not_positive_definite)?;
-        *conditioning = crate::known_issues::sparse_factor_conditioning(&pinned, Some(&factor));
-        let u = if two_d { sparse_cholesky_solve(&factor, &f) } else { super::linear::refined_sparse_solve(&pinned, &factor, &f)? };
-        super::linear::conditional_sparse_refinement(&stability, &pinned, &f, u, |rhs| sparse_cholesky_solve(&factor, rhs))?
+        let symbolic = cached_symbolic(cache, &pinned);
+        let factor = super::elastic_cholesky::SparseCholesky::sparse(&pinned, symbolic, &stability)?;
+        *conditioning = factor.conditioning(&pinned);
+        let u = if two_d { factor.solve(&f) } else { super::linear::refined_sparse_solve(&pinned, &factor, &f)? };
+        refinement.sparse(&stability, &pinned, &f, u, |rhs| factor.solve(rhs))?
     } else {
         let dense = pinned.to_dense_symmetric();
-        let mut factor = dense.clone();
-        if !cholesky_decompose(&mut factor, pinned.n) { return Err(super::linear::not_positive_definite()); }
-        *conditioning = crate::known_issues::dense_factor_conditioning(&dense, pinned.n, Some(&factor));
-        let u = back_solve(&factor, &forward_solve(&factor, &f, pinned.n), pinned.n);
-        super::linear::conditional_dense_refinement(&stability, &dense, &f, u, |rhs| back_solve(&factor, &forward_solve(&factor, rhs, pinned.n), pinned.n))?
+        let factor = super::elastic_cholesky::DenseCholesky::dense(&dense, pinned.n, &stability)?;
+        *conditioning = factor.conditioning(&dense, pinned.n);
+        let u = factor.solve(&f);
+        refinement.dense(&stability, &dense, &f, u, |rhs| factor.solve(rhs))?
     };
     if u.iter().any(|v| !v.is_finite()) { return Err(super::linear::not_positive_definite()); }
     stability.check_pins_with_rounding(&u, &f, &[], &incremental_rounding)?;
@@ -1030,10 +1035,18 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
                 .or_else(|| asm_dense.as_ref().and_then(|a| a.1.as_ref())),
             &dof_num, cs.as_ref(), false, &connected_nodes_3d(&stage_input),
             &super::stability::coupling_3d(&stage_input, &dof_num),
-            &super::stability::released_rotations_3d(&stage_input, &dof_num), &f_f,
+            &super::stability::elastic_releases_3d(&stage_input, &dof_num), &f_f,
             &asm_trips.as_ref().map_or_else(|| &asm_dense.as_ref().unwrap().0.f, |t| &t.f)[..nf],
             &applied[..nf], &cumulative_rounding, &incremental_rounding, use_sparse,
             &mut sparse_sym_cache, &mut conditioning,
+            Some(super::conditioning_accuracy::PhysicalFrameSystem {
+                input: &stage_input,
+                dof: &dof_num,
+                inclined: &[],
+                constraints: cs.as_ref(),
+                prescribed: &du_r,
+                applied: asm_trips.as_ref().map_or_else(|| &asm_dense.as_ref().unwrap().0.f, |t| &t.f),
+            }),
         )?;
 
         // Expand back to full free DOFs

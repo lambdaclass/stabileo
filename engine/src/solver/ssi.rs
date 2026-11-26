@@ -539,6 +539,11 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
 
     // Constraint system (built once before iteration)
     let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
+    if input.max_iter > 0 {
+        super::stability::refuse_axial_tips_2d(
+            &input.solver, &dof_num, cs.as_ref(), input.soil_springs.iter().map(|spring| spring.node_id),
+        )?;
+    }
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Dispatch dense vs sparse once per solve call (not per iteration).
@@ -754,6 +759,11 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     // expansion adds new nodes/elements but preserves the original IDs that
     // constraints reference.
     let cs = FreeConstraintSystem::build_3d(&expanded_solver, &dof_num)?;
+    if input.max_iter > 0 {
+        super::stability::refuse_axial_tips_3d(
+            &expanded_solver, &dof_num, cs.as_ref(), input.soil_springs.iter().map(|spring| spring.node_id),
+        )?;
+    }
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Dispatch dense vs sparse once per solve call (not per iteration).

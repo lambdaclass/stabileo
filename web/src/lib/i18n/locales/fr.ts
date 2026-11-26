@@ -2,6 +2,7 @@ import type { Translations } from '../types';
 
 const fr: Translations = {
   'svc.accountingMismatch': "Analyse refusée. Cas de charge {case}, {component}. Valeur saisie {entered}, valeur assemblée {assembled}.",
+  'svc.accountingLineEnd': "Analyse refusée. Cas de charge {case}, extrémité {end} de la barre {member}. La charge redistribuée a été appliquée au nœud {actual}. Le nœud attendu est {expected}.",
   'svc.accountingUnsupported': "Analyse refusée. Les forces et les moments de {kind} {id} dans le cas de charge {case} ne peuvent pas être comptabilisés.",
   'svc.accountingArea': "Analyse refusée. La plaque {plate} a une aire ou un contour différent dans le solveur. Aire spécifiée {entered}, aire assemblée {assembled}.",
   'svc.accountingSweep': "Analyse refusée. L’arc du bord de la plaque {plate} suit un autre tracé dans le solveur. Aire spécifiée {entered}, aire assemblée {assembled}.",
@@ -696,6 +697,7 @@ const fr: Translations = {
   'fm.s9.bad': 'Elles ne concordent pas — plus grande différence : {d}.',
   'fm.s9.flex': 'Flexibilités',
   'fm.s9.stiff': 'Rigidités',
+  'fm.err.axialTrussPoint3d': 'La méthode des forces en 3D ne restitue pas les charges axiales ponctuelles à l’intérieur des barres de treillis. Utilisez la méthode de rigidité.',
   'fm.err.hypostatic': 'La structure est un mécanisme (GH < 0) : elle ne peut pas être résolue.',
   'fm.err.noRedundants': 'Aucun choix d\'inconnues hyperstatiques ne laisse une structure de base stable — la structure est probablement en partie un mécanisme.',
   'fm.err.unstable': 'La structure n\'est pas stable.',
@@ -6023,6 +6025,7 @@ const fr: Translations = {
   'edit.refused.ambiguousRoller': 'Définissez explicitement les blocages 3D de l’appui à rouleaux sans barre avant de le transformer.',
   'edit.refused.missingSupportMembers': 'Incluez toutes les barres qui définissent les axes de l’appui à rouleaux ou copiez sans les appuis.',
   'edit.refused.changedSupportFrame': 'Cette transformation modifierait les axes locaux d’un appui à rouleaux. Ajustez le placement ou utilisez un appui défini dans les axes globaux.',
+  "svc.engine.unresolvedMovingAxle": "La position d’un essieu ne peut pas être déterminée à un nœud du trajet de la charge mobile.",
   'svc.engine.ambiguousRollerZ': 'Le type rollerZ est ambigu en 3D. Définissez explicitement les blocages 3D avant le calcul.',
   'edit.variableNotCut': '{n} barres à section variable sont restées entières : la section à la coupe ne serait pas du même type que celles de leurs extrémités (deux profilés du catalogue, ou deux sections qui ne se raccordent pas).',
   'edit.cleanTitle': 'Nettoyer',
@@ -14245,6 +14248,7 @@ const fr: Translations = {
   'plates.analysisMeshRefused': 'Maillage impossible : {names}. Vérifiez leur taille d\'élément ou leur contour.',
   "plates.analysisInvalid": "Calcul arrêté. Corrigez la géométrie ou les propriétés des plaques non valides : {names}.",
   "plates.analysisWallSlab": "Calcul arrêté. Le voile {wall} et la dalle {slab} ne partagent aucun sommet de maillage au nœud {node}. Remaillez la jonction avec des nœuds communs.",
+  "plates.analysisWallSlabFace": "Calcul arrêté. Le voile {wall} rencontre la dalle {slab} près des nœuds {nodes} du voile sans bord de maillage commun. Remaillez la jonction avec des bords communs.",
   'plates.meshedAtAnalysis': '{n} plaques maillées avant le calcul ({cells} éléments)',
   'plates.liveNeedsMesh': '{n} plaques sans maillage à jour : le calcul en direct attend le calcul complet, qui les maille.',
   'plates.problem.needNodes': 'Il faut au moins trois nœuds existants.',

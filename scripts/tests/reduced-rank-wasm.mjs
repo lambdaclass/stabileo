@@ -7,6 +7,7 @@ engine.initSync({
 });
 const fixtures = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/reduced-rank.json', import.meta.url)));
 const failures = [];
+const provenSwing = 'the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases';
 function assertDisplacements(results, dim, nodeIds, axial = 0) {
   const fields = dim === '2d' ? ['ux', 'uz', 'ry'] : ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'];
   assert.deepEqual(results.displacements.map(d => d.nodeId).sort((a, b) => a - b), nodeIds);
@@ -52,6 +53,10 @@ function report(issue, dim, solver) {
       run();
       failures.push(`#${issue} ${dim} ${name} returned a result`);
     } catch (error) {
+      if (dim === '2d' && ['linear', 'constrained', 'P-Delta'].includes(name)) {
+        if (String(error) !== provenSwing) failures.push(`#${issue} ${dim} ${name} returned ${error}`);
+        continue;
+      }
       let diagnostic;
       try {
         diagnostic = JSON.parse(String(error)).structuredDiagnostics?.[0];

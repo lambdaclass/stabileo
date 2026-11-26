@@ -133,7 +133,7 @@ export function computeAxialDiagram(
 /**
  * Compute the value of a diagram (M, V, or N) at a given normalized position t ∈ [0,1]
  */
-export function computeDiagramValueAt(kind: PlanarKind, t: number, ef: PlanarForces): number {
+export function computeDiagramValueAt(kind: PlanarKind, t: number, ef: PlanarForces, right = false): number {
   const { length } = ef;
   if (!(length > 0 && Number.isFinite(length))) throw unavailableDiagramExtrema();
   if (kind === 'axial') {
@@ -145,8 +145,9 @@ export function computeDiagramValueAt(kind: PlanarKind, t: number, ef: PlanarFor
     return diagramLineValue(moment ? ef.mStart : ef.vStart, 0, moment ? -ef.vStart : 0, t * length, t);
   }
   const curve = planarCurve(kind, ef);
-  if (!curve.hasDistributedActions) return curve.value({ t });
-  return checkedCurveValue(curve, { t }, indexDiagramExtrema(curveExtrema(curve, length, t)));
+  const station = { t, right };
+  if (!curve.hasDistributedActions) return curve.value(station);
+  return checkedCurveValue(curve, station, indexDiagramExtrema(curveExtrema(curve, length, t)));
 }
 
 export function prepareDiagramValueAt(kind: PlanarKind, ef: PlanarForces): (t: number) => number {

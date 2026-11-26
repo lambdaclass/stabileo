@@ -2,6 +2,7 @@ import type { Translations } from '../types';
 
 const hu: Translations = {
   'svc.accountingMismatch': "A számítás elutasítva. {case} tehereset, {component}. Megadott érték {entered}, összeállított érték {assembled}.",
+  'svc.accountingLineEnd': "A számítás elutasítva. {case} tehereset, a(z) {member} rúd {end} vége. Az átosztott teher a(z) {actual} csomópontra került. A várt csomópont {expected}.",
   'svc.accountingUnsupported': "A számítás elutasítva. A(z) {case} teheresetben a(z) {kind} {id} erői és nyomatékai nem ellenőrizhetők.",
   'svc.accountingArea': "A számítás elutasítva. A(z) {plate} lemez területe vagy határa eltér a számítási modellben. Megadott terület {entered}, összeállított terület {assembled}.",
   'svc.accountingSweep': "A számítás elutasítva. A(z) {plate} lemez íves éle eltér a számítási modellben. Megadott terület {entered}, összeállított terület {assembled}.",
@@ -694,6 +695,7 @@ const hu: Translations = {
   "fm.s9.bad": "Nem egyeznek — a legnagyobb eltérés {d}.",
   "fm.s9.flex": "Hajlékonysági",
   "fm.s9.stiff": "Merevségi",
+  "fm.err.axialTrussPoint3d": "A 3D rugalmassági módszer nem számítja ki a rácsrúd belsejében ható koncentrált tengelyirányú terhek hatását. Használja a merevségi módszert.",
   "fm.err.hypostatic": "A szerkezet mechanizmus (GH < 0): nem oldható meg.",
   "fm.err.noRedundants": "A határozatlan erők egyetlen választása sem ad stabil alaprendszert — a szerkezet valószínűleg részben mechanizmus.",
   "fm.err.unstable": "A szerkezet nem stabil.",
@@ -5743,6 +5745,7 @@ const hu: Translations = {
   "edit.refused.ambiguousRoller": "Az átalakítás előtt adja meg egyértelműen a rúdhoz nem kapcsolódó görgős támasz 3D megkötéseit.",
   "edit.refused.missingSupportMembers": "Jelölje ki a görgős támasz tengelyeit meghatározó összes rudat, vagy másoljon támaszok nélkül.",
   "edit.refused.changedSupportFrame": "Az átalakítás megváltoztatná egy görgős támasz helyi tengelyeit. Módosítsa az elhelyezést, vagy használjon globális tengelyekkel megadott támaszt.",
+  "svc.engine.unresolvedMovingAxle": "A mozgó teher útvonalának egyik csomópontján nem határozható meg a tengely helyzete.",
   "svc.engine.ambiguousRollerZ": "A rollerZ típus 3D-ben kétértelmű. A számítás előtt adja meg egyértelműen a 3D megkötéseket.",
   "edit.variableNotCut": "{n} változó keresztmetszetű rúd egészben maradt: a vágásnál a keresztmetszet nem lenne a végeik fajtájú keresztmetszet (két katalógusszelvény, vagy két egymásba nem simuló keresztmetszet).",
   "edit.cleanTitle": "Takarítás",
@@ -13870,6 +13873,7 @@ const hu: Translations = {
   "plates.analysisMeshRefused": "Nem sikerült hálózni: {names}. Ellenőrizze az elemméretüket vagy a körvonalukat.",
   "plates.analysisInvalid": "A számítás leállt. Javítsa az érvénytelen lemezek geometriáját vagy tulajdonságait: {names}.",
   "plates.analysisWallSlab": "A számítás leállt. A(z) {wall} fal és a(z) {slab} födém hálójának nincs közös csúcsa a(z) {node} csomópontnál. Hálózza újra a csatlakozást közös csomópontokkal.",
+  "plates.analysisWallSlabFace": "A számítás leállt. A(z) {wall} fal a(z) {nodes} falcsomópontok közelében közös hálóél nélkül találkozik a(z) {slab} födémmel. Hálózza újra a csatlakozást közös élekkel.",
   "plates.meshedAtAnalysis": "{n} lemez hálózva az analízis előtt ({cells} elem)",
   "plates.liveNeedsMesh": "{n} lemeznek nincs aktuális hálója: az élő számítás megvárja a teljes analízist, amely hálózza őket.",
   "plates.problem.needNodes": "Legalább három meglévő csomópont szükséges.",

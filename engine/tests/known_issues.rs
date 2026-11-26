@@ -1379,41 +1379,6 @@ fn nonlinear_and_dynamic_shell_paths_run_the_membrane_guard() {
     }
 }
 
-fn transverse_loaded_bar() -> SolverInput {
-    serde_json::from_value(serde_json::json!({
-        "nodes": {"1": {"id": 1, "x": -53.39259906210398, "z": -85.39605063257972}, "2": {"id": 2, "x": -28.598050853224024, "z": -52.92016340104717}},
-        "materials": {"1": {"id": 1, "e": 10530.127602377152, "nu": 0.2681219095578359}},
-        "sections": {"1": {"id": 1, "a": 0.01819587776383571, "iz": 0.00011849462806740683}},
-        "elements": {"1": {"id": 1, "type": "truss", "nodeI": 2, "nodeJ": 1, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false}},
-        "supports": {"1": {"id": 1, "nodeId": 1, "type": "fixed"}},
-        "loads": [{"type": "distributed", "data": {"elementId": 1, "qI": -24.880367155551312, "qJ": -13.982488394650844}}]
-    })).unwrap()
-}
-
-#[test]
-fn contact_and_corotational_flag_the_mechanism_while_ssi_refuses_it() {
-    let check = |input: &SolverInput, flagged: bool| {
-        let contact: dedaliano_engine::solver::contact::ContactInput = serde_json::from_value(serde_json::json!({ "solver": input })).unwrap();
-        let contact = dedaliano_engine::solver::contact::solve_contact_2d(&contact).unwrap();
-        let ssi = solve_ssi_2d(&SSIInput { solver: input.clone(), soil_springs: vec![], max_iter: 50, tolerance: 1e-10 });
-        let corotational = dedaliano_engine::solver::corotational::solve_corotational_2d(input, 100, 1e-10, 4, false).unwrap();
-        for (name, d) in [("contact", &contact.results.structured_diagnostics), ("corotational", &corotational.results.structured_diagnostics)] {
-            assert_eq!(ids(d).contains(&"NUM-INVARIANCE".to_string()), flagged, "{name}: {:?}", ids(d));
-        }
-        if flagged {
-            let error = ssi.unwrap_err();
-            let refusal: serde_json::Value = serde_json::from_str(&error).unwrap_or_else(|_| panic!("{error}"));
-            assert_eq!(refusal["structuredDiagnostics"][0]["code"], "reduced_stiffness_rank");
-            assert_eq!(refusal["structuredDiagnostics"][0]["severity"], "error");
-        } else {
-            let diagnostics = ssi.unwrap().results.structured_diagnostics;
-            assert!(!ids(&diagnostics).contains(&"NUM-INVARIANCE".to_string()), "{:?}", ids(&diagnostics));
-        }
-    };
-    check(&transverse_loaded_bar(), true);
-    check(&make_beam(4, 4.0, E, 0.045, 3.375e-4, "fixed", None, tip(-10.0)), false);
-}
-
 #[test]
 fn a_prepared_3d_solve_reports_the_thermal_defaults_of_the_loads_it_solves() {
     let heat = |alpha: Option<f64>| SolverLoad3D::Thermal(SolverThermalLoad3D { element_id: 1, dt_uniform: 20.0, dt_gradient_y: 0.0, dt_gradient_z: 0.0, alpha, depth_y: None, depth_z: None });
@@ -1427,9 +1392,9 @@ fn a_prepared_3d_solve_reports_the_thermal_defaults_of_the_loads_it_solves() {
 }
 
 #[test]
-fn fiber_solves_of_a_mechanism_are_flagged() {
+fn spatial_fiber_solves_with_soft_rotational_springs_are_flagged() {
     use dedaliano_engine::element::fiber_beam::{Fiber, FiberMaterial, FiberSectionDef};
-    use dedaliano_engine::solver::fiber_nonlinear::{solve_fiber_nonlinear_2d, solve_fiber_nonlinear_3d, FiberNonlinearInput, FiberNonlinearInput3D};
+    use dedaliano_engine::solver::fiber_nonlinear::{solve_fiber_nonlinear_3d, FiberNonlinearInput3D};
     let sections = |a: f64, i: f64, e: f64, nz: usize| {
         let h = (12.0 * i / a).sqrt();
         let b = a / h;
@@ -1438,13 +1403,6 @@ fn fiber_solves_of_a_mechanism_are_flagged() {
         HashMap::from([("1".to_string(), FiberSectionDef { fibers, materials: vec![FiberMaterial::Elastic { e }] })])
     };
     for modified_nr in [false, true] {
-        let check_2d = |solver: SolverInput, flagged: bool| {
-            let fiber_sections = sections(solver.sections["1"].a, solver.sections["1"].iz, solver.materials["1"].e, 1);
-            let r = solve_fiber_nonlinear_2d(&FiberNonlinearInput { solver, fiber_sections, n_integration_points: 5, max_iter: 50, tolerance: 1e-10, n_increments: 1, modified_nr }).unwrap();
-            assert_eq!(ids(&r.results.structured_diagnostics).contains(&"NUM-INVARIANCE".to_string()), flagged, "2D modified {modified_nr}: {:?}", ids(&r.results.structured_diagnostics));
-        };
-        check_2d(transverse_loaded_bar(), true);
-        check_2d(make_beam(4, 4.0, E, 0.045, 3.375e-4, "fixed", None, tip(-10.0)), false);
         let check_3d = |solver: SolverInput3D, flagged: bool| {
             let fiber_sections = sections(0.01, 1e-4, E, 20);
             let r = solve_fiber_nonlinear_3d(&FiberNonlinearInput3D { solver, fiber_sections, n_integration_points: 5, max_iter: 50, tolerance: 1e-10, n_increments: 1, modified_nr }).unwrap();
@@ -1493,7 +1451,7 @@ fn a_fiber_solve_keeps_its_warning_after_the_stiff_member_yields() {
 
 #[test]
 fn a_mechanism_solve_keeps_its_warning_after_a_later_stable_iteration() {
-    let mut input = transverse_loaded_bar();
+    let mut input = crate::axial_tip_refusals::transverse_loaded_bar();
     input.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -10.0, my: 0.0 })];
     input.nodes.insert("3".into(), SolverNode { id: 3, x: -28.598050853224024, z: -53.92016340104717 });
     input.supports.insert("3".into(), serde_json::from_value(serde_json::json!({"id": 3, "nodeId": 3, "type": "fixed"})).unwrap());

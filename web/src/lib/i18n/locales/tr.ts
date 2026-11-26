@@ -2,6 +2,7 @@ import type { Translations } from '../types';
 
 const tr: Translations = {
   'svc.accountingMismatch': "Analiz reddedildi. Yük durumu {case}, {component}. Girilen {entered}, birleştirilen {assembled}.",
+  'svc.accountingLineEnd': "Analiz reddedildi. Yük durumu {case}, {member} numaralı elemanın {end} ucu. Yeniden dağıtılan yük {actual} düğümüne uygulandı. Beklenen düğüm {expected}.",
   'svc.accountingUnsupported': "Analiz reddedildi. {case} yük durumunda {kind} {id} için kuvvet ve moment hesabı yapılamıyor.",
   'svc.accountingArea': "Analiz reddedildi. Çözücüde {plate} plağının alanı veya sınırı farklı. Belirtilen alan {entered}, birleştirilen alan {assembled}.",
   'svc.accountingSweep': "Analiz reddedildi. Çözücüde {plate} plağının eğri kenar yayı farklı. Belirtilen alan {entered}, birleştirilen alan {assembled}.",
@@ -705,6 +706,7 @@ const tr: Translations = {
   'fm.s9.bad': 'Uyuşmuyorlar — en büyük fark {d}.',
   'fm.s9.flex': 'Esneklik',
   'fm.s9.stiff': 'Rijitlik',
+  'fm.err.axialTrussPoint3d': '3B esneklik yöntemi, kafes çubuklarının içindeki eksenel tekil yükleri hesaplayamaz. Rijitlik yöntemini kullanın.',
   'fm.err.hypostatic': 'Yapı bir mekanizmadır (GH < 0): çözülemez.',
   'fm.err.noRedundants': 'Hiçbir hiperstatik bilinmeyen seçimi kararlı bir esas sistem bırakmıyor — yapı muhtemelen kısmen bir mekanizma.',
   'fm.err.unstable': 'Yapı kararlı değil.',
@@ -6032,6 +6034,7 @@ const tr: Translations = {
   'edit.refused.ambiguousRoller': 'Dönüşümden önce çubuğa bağlı olmayan kayıcı mesnedin 3B kısıtlarını açıkça tanımlayın.',
   'edit.refused.missingSupportMembers': 'Kayıcı mesnedin eksenlerini tanımlayan tüm çubukları dahil edin veya mesnetler olmadan kopyalayın.',
   'edit.refused.changedSupportFrame': 'Bu dönüşüm, yerel eksenli bir kayıcı mesnedin eksenlerini değiştirir. Yerleşimi ayarlayın veya global eksenlerde tanımlı bir mesnet kullanın.',
+  "svc.engine.unresolvedMovingAxle": "Hareketli yük yolu üzerindeki bir düğümde aks konumu belirlenemiyor.",
   'svc.engine.ambiguousRollerZ': 'rollerZ türü 3B’de belirsizdir. Çözümden önce 3B kısıtları açıkça tanımlayın.',
   'edit.variableNotCut': 'Değişken kesitli {n} çubuk bütün bırakıldı: kesim yerindeki kesit, uçlarındaki türde bir kesit olmazdı (iki katalog profili veya birbirine geçiş yapmayan iki kesit).',
   'edit.cleanTitle': 'Temizle',
@@ -14245,6 +14248,7 @@ const tr: Translations = {
   'plates.analysisMeshRefused': 'Ağ oluşturulamadı: {names}. Eleman boyutlarını veya konturlarını kontrol edin.',
   "plates.analysisInvalid": "Analiz durduruldu. Geçersiz plakaların geometrisini veya özelliklerini düzeltin: {names}.",
   "plates.analysisWallSlab": "Analiz durduruldu. {wall} duvarı ve {slab} döşemesi, {node} düğümünde ortak bir ağ köşesine sahip değil. Birleşimi ortak düğümlerle yeniden ağlayın.",
+  "plates.analysisWallSlabFace": "Analiz durduruldu. {wall} duvarı, {nodes} duvar düğümleri yakınında {slab} döşemesiyle ortak ağ kenarı olmadan birleşiyor. Birleşimi ortak kenarlarla yeniden ağlayın.",
   'plates.meshedAtAnalysis': 'Analizden önce {n} plağın ağı oluşturuldu ({cells} eleman)',
   'plates.liveNeedsMesh': 'Güncel ağı olmayan {n} plak: canlı hesap, ağları oluşturan tam analizi bekliyor.',
   'plates.problem.needNodes': 'En az üç mevcut düğüm gerekir.',

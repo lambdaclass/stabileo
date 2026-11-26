@@ -67,7 +67,7 @@ export function caseMassLoads(
     out.push({
       caseId: f.caseId,
       factor: f.factor,
-      loads: buildSolverLoads3D(model, rest, [], leftHand),
+      loads: buildSolverLoads3D(model, rest, [], leftHand, { forcesOnly: true }),
       surface,
       ...(carried.length ? { carried } : {}),
     });

@@ -2,6 +2,7 @@ import type { Translations } from '../types';
 
 const de: Translations = {
   'svc.accountingMismatch': "Berechnung abgelehnt. Lastfall {case}, {component}. Eingegeben {entered}, assembliert {assembled}.",
+  'svc.accountingLineEnd': "Berechnung abgelehnt. Lastfall {case}, Stab {member}, Ende {end}. Die umgelagerte Last wirkt am Knoten {actual}. Erwartet wurde Knoten {expected}.",
   'svc.accountingUnsupported': "Berechnung abgelehnt. Kräfte und Momente von {kind} {id} im Lastfall {case} können nicht bilanziert werden.",
   'svc.accountingArea': "Berechnung abgelehnt. Platte {plate} hat eine andere Fläche oder Begrenzung im Rechenmodell. Vorgegebene Fläche {entered}, assemblierte Fläche {assembled}.",
   'svc.accountingSweep': "Berechnung abgelehnt. Platte {plate} hat einen anderen Bogenverlauf im Rechenmodell. Vorgegebene Fläche {entered}, assemblierte Fläche {assembled}.",
@@ -696,6 +697,7 @@ const de: Translations = {
   'fm.s9.bad': 'Sie stimmen nicht überein — größte Differenz {d}.',
   'fm.s9.flex': 'Kraftgrößen',
   'fm.s9.stiff': 'Weggrößen',
+  'fm.err.axialTrussPoint3d': 'Die 3D-Flexibilitätsmethode kann axiale Einzellasten im Inneren von Fachwerkstäben nicht auswerten. Verwenden Sie die Steifigkeitsmethode.',
   'fm.err.hypostatic': 'Das Tragwerk ist ein Mechanismus (GH < 0): Es kann nicht berechnet werden.',
   'fm.err.noRedundants': 'Keine Wahl der Überzähligen ergibt ein stabiles Grundsystem — das Tragwerk ist wahrscheinlich teilweise ein Mechanismus.',
   'fm.err.unstable': 'Das Tragwerk ist nicht stabil.',
@@ -6023,6 +6025,7 @@ const de: Translations = {
   'edit.refused.ambiguousRoller': 'Legen Sie vor der Transformation die 3D-Bindungen des Rollenlagers ohne angeschlossene Stäbe ausdrücklich fest.',
   'edit.refused.missingSupportMembers': 'Beziehen Sie alle Stäbe ein, die das Bezugssystem des Rollenlagers definieren, oder kopieren Sie ohne Auflager.',
   'edit.refused.changedSupportFrame': 'Diese Transformation würde die lokalen Achsen eines Rollenlagers ändern. Passen Sie die Platzierung an oder verwenden Sie ein Lager im globalen Bezugssystem.',
+  "svc.engine.unresolvedMovingAxle": "Eine Achsposition an einem Knoten des Wanderlastpfads lässt sich nicht bestimmen.",
   'svc.engine.ambiguousRollerZ': 'Der Typ rollerZ ist in 3D mehrdeutig. Legen Sie die 3D-Bindungen vor der Berechnung ausdrücklich fest.',
   'edit.variableNotCut': '{n} Stäbe mit veränderlichem Querschnitt wurden ganz gelassen: Der Querschnitt an einer Teilungsstelle wäre keiner von der Art ihrer Enden (zwei Katalogprofile oder zwei Querschnitte, die sich nicht überblenden lassen).',
   'edit.cleanTitle': 'Bereinigen',
@@ -14245,6 +14248,7 @@ const de: Translations = {
   'plates.analysisMeshRefused': 'Vernetzung nicht möglich: {names}. Prüfen Sie ihre Elementgröße oder ihren Umriss.',
   "plates.analysisInvalid": "Berechnung abgebrochen. Korrigieren Sie die Geometrie oder Eigenschaften der ungültigen Platten: {names}.",
   "plates.analysisWallSlab": "Berechnung abgebrochen. Wand {wall} und Deckenplatte {slab} haben bei Knoten {node} keinen gemeinsamen Netzknoten. Vernetzen Sie den Anschluss mit gemeinsamen Knoten neu.",
+  "plates.analysisWallSlabFace": "Berechnung abgebrochen. Die Wand {wall} trifft die Deckenplatte {slab} nahe den Wandknoten {nodes} ohne gemeinsame Netzkante. Vernetzen Sie den Anschluss mit gemeinsamen Kanten neu.",
   'plates.meshedAtAnalysis': '{n} Platten vor der Berechnung vernetzt ({cells} Elemente)',
   'plates.liveNeedsMesh': '{n} Platten ohne aktuelles Netz: Die Live-Berechnung wartet auf die vollständige Berechnung, die sie vernetzt.',
   'plates.problem.needNodes': 'Mindestens drei vorhandene Knoten sind erforderlich.',

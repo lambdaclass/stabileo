@@ -658,6 +658,7 @@ export interface PointLoadOnElement3D {
   mx?: number; my?: number; mz?: number;
   /** The axes the components are along: the member's (default) or the global ones (`member-point-loads.ts`). */
   frame?: import('../engine/member-point-loads').PointFrame;
+  vehicleAxle?: true;
   caseId?: number;
 }
 
