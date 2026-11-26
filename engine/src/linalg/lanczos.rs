@@ -41,6 +41,12 @@ pub trait MatVecOp {
     fn b_mul(&self, x: &[f64], y: &mut [f64]) {
         y[..x.len()].copy_from_slice(x);
     }
+
+    /// The symbolic factorization this operator already holds, for a caller that has a matrix
+    /// of the same pattern to factor.
+    fn symbolic(&self) -> Option<&super::sparse_chol::SymbolicCholesky> {
+        None
+    }
 }
 
 /// Dense symmetric matrix-vector: y = A*x (row-major flat storage).
@@ -715,6 +721,10 @@ impl<'a> SparseShiftInvertOp<'a> {
 }
 
 impl<'a> MatVecOp for SparseShiftInvertOp<'a> {
+    fn symbolic(&self) -> Option<&super::sparse_chol::SymbolicCholesky> {
+        Some(&self.factor.symbolic)
+    }
+
     fn mul_vec(&self, x: &[f64], y: &mut [f64]) {
         // tmp = B * x (sparse, O(nnz))
         let tmp = if self.compensated { buckling_mat_vec(self.b_csc,x,None) } else { self.b_csc.sym_mat_vec(x) };
@@ -794,6 +804,10 @@ fn sturm_complete(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k: usize) -> 
 // Retry a rejected LDLᵀ factorization at a larger spectral margin. Return
 // the actual cutoff with the count so the caller compares the same interval.
 fn sturm_count_above(a: &CscMatrix, b: &CscMatrix, boundary: f64) -> Option<(usize, f64)> {
+    sturm_count_above_with(a, b, boundary, None)
+}
+
+fn sturm_count_above_with(a: &CscMatrix, b: &CscMatrix, boundary: f64, known: Option<&super::sparse_chol::SymbolicCholesky>) -> Option<(usize, f64)> {
     let n = a.n;
     for margin in [1e-7, 3e-7, 1e-6] {
         let sigma = boundary * (1.0+margin);
@@ -806,8 +820,13 @@ fn sturm_count_above(a: &CscMatrix, b: &CscMatrix, boundary: f64) -> Option<(usi
             }}
         }
         let shifted = CscMatrix::from_triplets(n,&rows,&cols,&vals);
-        let sym = symbolic_cholesky(&shifted);
-        if let Some(count) = super::sparse_chol::sparse_negative_inertia(&sym,&shifted) {
+        drop((rows, cols, vals));
+        let own;
+        let sym = match known.filter(|known| known.fits(&shifted)) {
+            Some(known) => known,
+            None => { own = symbolic_cholesky(&shifted); &own }
+        };
+        if let Some(count) = super::sparse_chol::sparse_negative_inertia(sym,&shifted) {
             return Some((count, sigma));
         }
     }
@@ -960,7 +979,7 @@ fn sturm_complete_rounds(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k: usi
         let boundary = values[order[k-1]];
         let counted = match pencil {
             Some(pencil) => pencil.count_above(boundary),
-            None => sturm_count_above(a, b, boundary),
+            None => sturm_count_above_with(a, b, boundary, op.symbolic()),
         };
         let certified = if let Some((count, sigma)) = counted {
             let found = values.iter().filter(|&&v| v < sigma).count();
@@ -2043,6 +2062,40 @@ mod completeness_tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn a_sturm_count_on_a_symbolic_already_held_is_the_count_without_it() {
+        let m = 6;
+        let n = m * m;
+        let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+        for i in 0..m {
+            for j in 0..m {
+                let p = i * m + j;
+                rows.push(p); cols.push(p); vals.push(4.0 + 0.01 * p as f64);
+                if j + 1 < m { rows.push(p + 1); cols.push(p); vals.push(-1.0); }
+                if i + 1 < m { rows.push(p + m); cols.push(p); vals.push(-1.0); }
+            }
+        }
+        let k = CscMatrix::from_triplets(n, &rows, &cols, &vals);
+        let ids: Vec<_> = (0..n).collect();
+        let within = CscMatrix::from_triplets(n, &ids, &ids, &vec![1.0; n]);
+        let (mut rows, mut cols, mut vals) = (ids.clone(), ids.clone(), vec![1.0; n]);
+        rows.push(n - 1); cols.push(0); vals.push(0.1);
+        let outside = CscMatrix::from_triplets(n, &rows, &cols, &vals);
+        let held = symbolic_cholesky(&k);
+        for (mass, fits) in [(&within, true), (&outside, false)] {
+            let shifted = CscMatrix::from_triplets(n, &[k.row_idx.clone(), mass.row_idx.clone()].concat(),
+                &[&k, mass].iter().flat_map(|c| (0..n).flat_map(|j| vec![j; c.col_ptr[j + 1] - c.col_ptr[j]])).collect::<Vec<_>>(),
+                &[k.values.clone(), mass.values.clone()].concat());
+            assert_eq!(held.fits(&shifted), fits);
+            for boundary in [0.5, 1.0, 3.0, 9.0] {
+                let counted = sturm_count_above(&k, mass, boundary);
+                assert!(counted.is_some());
+                assert_eq!(sturm_count_above_with(&k, mass, boundary, Some(&held)), counted);
+            }
+        }
+        assert!(sturm_count_above(&k, &within, 3.0).unwrap().0 > sturm_count_above(&k, &within, 1.0).unwrap().0);
     }
 
     #[test]

@@ -51,6 +51,13 @@ pub struct SymbolicCholesky {
     pub pa_fingerprint: u64,
 }
 
+impl SymbolicCholesky {
+    /// Whether `a` has the pattern this was built from, which is what reusing it requires.
+    pub fn fits(&self, a: &CscMatrix) -> bool {
+        a.n == self.n && a.col_ptr.len() == self.n + 1 && structural_fingerprint(a) == self.pa_fingerprint
+    }
+}
+
 /// Numeric factorization result.
 /// Holds a shared reference to the (possibly reused) symbolic factorization
 /// instead of an O(nnz_L) deep copy per numeric factorization.
@@ -1473,17 +1480,25 @@ mod tests {
 /// refused, never regularized: callers may move their spectral shift and retry.
 /// Storage is O(nnz(L) + n), with no dense matrix allocation.
 pub fn sparse_negative_inertia(sym: &SymbolicCholesky, a: &CscMatrix) -> Option<usize> {
-    if a.n != sym.n || structural_fingerprint(a) != sym.pa_fingerprint { return None; }
+    if !sym.fits(a) { return None; }
     let n = a.n;
+    const NONE: usize = usize::MAX;
     let mut l = vec![0.0f64; sym.l_nnz];
     let mut d = vec![0.0; n];
     let mut x = vec![0.0; n];
-    let mut contributors = vec![Vec::new(); n];
-    for j in 0..n {
-        for p in sym.l_col_ptr[j]+1..sym.l_col_ptr[j+1] {
-            contributors[sym.l_row_idx[p]].push((j,p));
-        }
-    }
+    let mut next = vec![0usize; n];
+    let mut first = vec![NONE; n];
+    let mut after = vec![NONE; n];
+    let mut waiting = Vec::new();
+    let wait = |k: usize, pos: usize, row_now: usize, first: &mut [usize], after: &mut [usize], next: &mut [usize]| -> Option<()> {
+        if pos == sym.l_col_ptr[k+1] { return Some(()); }
+        let row = sym.l_row_idx[pos];
+        if row <= row_now || row >= n { return None; }
+        next[k] = pos;
+        after[k] = first[row];
+        first[row] = k;
+        Some(())
+    };
     let mut negative = 0;
     for j in 0..n {
         let range = sym.l_col_ptr[j]..sym.l_col_ptr[j+1];
@@ -1491,11 +1506,18 @@ pub fn sparse_negative_inertia(sym: &SymbolicCholesky, a: &CscMatrix) -> Option<
         for p in sym.pa_col_ptr[j]..sym.pa_col_ptr[j+1] {
             x[sym.pa_row_idx[p]] = a.values[sym.pa_src[p]];
         }
+        waiting.clear();
+        let mut k = first[j];
+        while k != NONE { waiting.push(k); k = after[k]; }
+        // Ascending, so that the updates are summed in the order of the columns.
+        waiting.sort_unstable();
         let mut scale = x[j].abs();
-        for &(k, pos) in &contributors[j] {
+        for &k in &waiting {
+            let pos = next[k];
             let factor = d[k] * l[pos];
             scale += (factor * l[pos]).abs();
             for p in pos..sym.l_col_ptr[k+1] { x[sym.l_row_idx[p]] -= factor * l[p]; }
+            wait(k, pos + 1, j, &mut first, &mut after, &mut next)?;
         }
         let pivot = x[j];
         if !pivot.is_finite() || pivot.abs() <= 64.0 * f64::EPSILON * scale.max(f64::MIN_POSITIVE) { return None; }
@@ -1506,6 +1528,7 @@ pub fn sparse_negative_inertia(sym: &SymbolicCholesky, a: &CscMatrix) -> Option<
             l[p] = x[sym.l_row_idx[p]] / pivot;
             if !l[p].is_finite() { return None; }
         }
+        wait(j, range.start + 1, j, &mut first, &mut after, &mut next)?;
     }
     Some(negative)
 }
@@ -1545,6 +1568,30 @@ mod inertia_tests {
             }}
             let a = CscMatrix::from_dense_symmetric(&dense,n);
             assert_eq!(sparse_negative_inertia(&symbolic_cholesky(&a),&a),Some(8));
+        }
+    }
+    #[test]
+    fn inertia_of_a_grid_with_fill_matches_the_dense_spectrum() {
+        let m = 9;
+        let n = m * m;
+        let mut a = vec![0.0; n * n];
+        for i in 0..m {
+            for j in 0..m {
+                let p = i * m + j;
+                a[p * n + p] = 3.1 - 0.41 * ((p * 7) % 13) as f64;
+                for q in [(i + 1 < m).then_some(p + m), (j + 1 < m).then_some(p + 1)].into_iter().flatten() {
+                    a[p * n + q] = -1.0;
+                    a[q * n + p] = -1.0;
+                }
+            }
+        }
+        let expected = crate::linalg::jacobi::jacobi_eigen(&a, n, 400).values.iter().filter(|&&v| v < 0.0).count();
+        assert!(expected > 5 && expected < n - 5, "{expected}");
+        let c = CscMatrix::from_dense_symmetric(&a, n);
+        for order in [CholOrdering::Amd, CholOrdering::Rcm] {
+            let sym = symbolic_cholesky_with(&c, order);
+            assert!(sym.l_nnz > 2 * c.values.len(), "the factor has fill");
+            assert_eq!(sparse_negative_inertia(&sym, &c), Some(expected));
         }
     }
     #[test]
