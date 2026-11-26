@@ -10,7 +10,6 @@
   import Icon from './Icon.svelte';
   import { runSolve } from '../../lib/actions/solve';
   import { TOOL_KEY_MAP, TOOL_DATA_TAB } from '../../lib/tool-keys';
-  import { saveProject } from '../../lib/store/file';
 
   /**
    * Ribbon toolbar.
@@ -706,8 +705,6 @@
     return false;  // `dim` is a switch, not a state: it never lights up.
   }
 
-  const mod = typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '⌘' : 'Ctrl';
-
   /** Keyboard shortcuts the application already listens for (lib/tool-keys.ts). */
   const KEYS: Record<string, string> = { ...TOOL_KEY_MAP, solve: 'Enter' };
 
@@ -847,55 +844,6 @@
     {/if}
   {:else}
   <div class="rb-row">
-    <!--
-      Document-level commands, in their own box before the first group.
-      ─────────────────────────────────────────────────────────────────
-      Project, Save, Undo and Redo do not act on the model in front of you —
-      they act on WHICH model you have. Filing them under a group heading would
-      misstate their scope, and scattering them (two in the title bar, three at
-      the far right) made the most consequential commands the hardest to find.
-
-      Two rows of two, not a row of four: at ribbon height a single row of small
-      square buttons reads as a strip of unrelated glyphs, while a 2×2 block
-      reads as one control with the document pair above and the history pair
-      below. It also costs half the width, which the groups want.
-    -->
-    <div class="rb-quick" data-testid="rb-quick">
-      <div class="rb-quick-row">
-        <button
-          class="rb-quick-btn"
-          class:active={activePanel === 'project'}
-          onclick={() => onOpenPanel('project')}
-          title={t('ribbon.project')}
-          aria-label={t('ribbon.project')}
-          data-testid="hdr-project"
-        ><Icon name="project" size={21} /></button>
-        <button
-          class="rb-quick-btn"
-          onclick={() => saveProject()}
-          title="{t('project.saveTab')} ({mod}+S)"
-          aria-label={t('project.saveTab')}
-          data-testid="rb-save"
-        ><Icon name="save" size={21} /></button>
-      </div>
-      <div class="rb-quick-row">
-        <button
-          class="rb-quick-btn"
-          onclick={() => historyStore.undo()}
-          disabled={!historyStore.canUndo}
-          title="{t('toolbar.undo')} ({mod}+Z)"
-          aria-label={t('toolbar.undo')}
-        ><Icon name="undo" size={16} /></button>
-        <button
-          class="rb-quick-btn"
-          onclick={() => historyStore.redo()}
-          disabled={!historyStore.canRedo}
-          title="{t('toolbar.redo')} ({mod}+Y)"
-          aria-label={t('toolbar.redo')}
-        ><Icon name="redo" size={16} /></button>
-      </div>
-    </div>
-
     {#each GROUPS as g (g.id)}
       <section class="rb-group" data-group={g.id} aria-label={t(g.labelKey)}>
         <div class="rb-cmds">
@@ -1111,24 +1059,6 @@
     align-self: stretch;
     flex: none;
   }
-
-  /* The grid places the four cells; the rows are transparent wrappers. */
-  .rb-quick-row {
-    display: contents;
-  }
-
-  /*
-     The document pair carries the dividers; history sits plain beneath it.
-     `--st-hair-strong` rather than `--st-hair`: the group separators run the
-     ribbon's full height, so they read at a low alpha — these are short
-     segments and disappear at the same value.
-
-     With `display: contents` the rows vanish from the box model but remain in
-     the DOM, so the rules are still addressed through them — `:nth-child` on
-     the buttons would count within each row and hit both.
-  */
-  .rb-quick-row:first-child .rb-quick-btn { border-bottom: 1px solid var(--st-hair-strong); }
-  .rb-quick-row:first-child .rb-quick-btn:first-child { border-right: 1px solid var(--st-hair-strong); }
 
 
   .rb-quick-btn {

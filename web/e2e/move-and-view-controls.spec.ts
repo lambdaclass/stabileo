@@ -168,16 +168,16 @@ test.describe('@smoke the two controls over a 3D model', () => {
     await page.waitForTimeout(2500);
   }
 
-  test('there are two, not nine', async ({ page }) => {
+  test('the view dock holds four, not nine', async ({ page }) => {
     await go3D(page);
-    /*
-     * The stack had grown to nine permanently-visible buttons down the side
-     * of the only thing the reader came to look at. What stays is the pointer
-     * mode, which changes moment to moment; everything about HOW the model is
-     * shown went behind one cube.
-     */
-    const count = await page.locator('.camera-controls button').count();
-    expect(count, 'the pointer mode and the view menu').toBe(2);
+    const dock = page.locator('.camera-controls');
+    await expect(dock).toHaveClass(/view-dock/);
+    const count = await dock.locator('button').count();
+    expect(count, 'the pointer mode, fit, home view and the view menu').toBe(4);
+    const box = (await dock.boundingBox())!;
+    const vp = (await page.locator('.viewport-container').boundingBox())!;
+    expect(Math.abs(box.x + box.width / 2 - (vp.x + vp.width / 2)), 'centred under the model').toBeLessThan(4);
+    expect(vp.y + vp.height - (box.y + box.height), 'at the foot of the viewport').toBeLessThan(40);
   });
 
   test('the cube opens the view options and a view closes it', async ({ page }) => {

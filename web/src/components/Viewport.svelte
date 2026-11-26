@@ -3355,7 +3355,7 @@
     <button type="button" class="axes-hit-2d" bind:this={axesHit2D} title={t('axes.open')} aria-label={t('axes.open')} data-testid="axes-open-2d" onclick={() => { axesStore.pickerOpen = true; }}></button>
   {/if}
 
-  <div class="viewport-controls" style="top: {uiStore.floatingToolsTopOffset}px">
+  <div class="viewport-controls" class:view-dock={!uiStore.isMobile} style:top={uiStore.isMobile ? `${uiStore.floatingToolsTopOffset}px` : undefined}>
     <!-- Pointer mode first: it is the control used most, and it took this slot
          from zoom-to-fit, which moved down one. -->
     <PointerModeButton />
@@ -3414,6 +3414,26 @@
     justify-content: center;
     transition: background 0.15s, color 0.15s;
   }
+
+  .viewport-controls.view-dock {
+    top: auto;
+    bottom: 14px;
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    flex-direction: row;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    background: color-mix(in srgb, var(--st-surface) 92%, transparent);
+    border: 1px solid var(--st-hair-strong);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px -10px rgba(0, 0, 0, 0.6);
+    transition: none;
+  }
+
+  .viewport-controls.view-dock button { border-color: transparent; background: transparent; }
+  .viewport-controls.view-dock button:hover { background: var(--st-surface-3); color: var(--st-text); }
 
   .vp-delete {
     display: flex;

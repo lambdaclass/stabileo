@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { shellLayout } from '../../lib/store/shell-layout.svelte';
   import { onMount } from 'svelte';
   import { t } from '../../lib/i18n';
   import ToolbarResults from '../toolbar/ToolbarResults.svelte';
@@ -66,17 +67,23 @@
   let dragging = $state(false);
   let widthPublishFrame = 0;
 
+  const onLeft = $derived(shellLayout.panelSide === 'left' && !uiStore.isMobile);
+
   function publishWidth() {
-    document.documentElement.style.setProperty('--st-right-panel-w', `${width}px`);
+    document.documentElement.style.setProperty('--st-right-panel-w', `${onLeft ? 0 : width}px`);
   }
+
+  $effect(() => {
+    void onLeft;
+    publishWidth();
+  });
 
   function startResize(e: PointerEvent) {
     dragging = true;
     const startX = e.clientX;
     const startW = width;
     const move = (ev: PointerEvent) => {
-      // The handle is on the panel's LEFT edge, so dragging left widens it.
-      width = Math.min(MAX, Math.max(MIN, startW - (ev.clientX - startX)));
+      width = Math.min(MAX, Math.max(MIN, startW + (onLeft ? 1 : -1) * (ev.clientX - startX)));
       // Publishing the width writes a custom property on the ROOT element,
       // which re-resolves styles document-wide — that must happen at most
       // once per frame, not once per pointermove.
@@ -182,6 +189,7 @@
 
 <aside
   class="basic-panel"
+  class:on-left={onLeft}
   class:st-panel-scrollbars={uiStore.panelScrollbars && !uiStore.isMobile}
   data-testid="basic-panel"
   data-panel={panel}
@@ -338,6 +346,9 @@
     cursor: col-resize;
     z-index: 2;
   }
+
+  .on-left { border-left: none; border-right: 1px solid var(--st-hair); }
+  .on-left .bp-resize { left: auto; right: -2px; }
 
   .bp-resize:hover,
   .bp-resize.dragging { background: var(--st-accent); }

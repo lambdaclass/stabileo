@@ -75,6 +75,10 @@
   import Ribbon from './components/ribbon/Ribbon.svelte';
   import BasicPanel from './components/ribbon/BasicPanel.svelte';
   import ToolOptionsBar from './components/ribbon/ToolOptionsBar.svelte';
+  import TitleBarCommands from './components/shell/TitleBarCommands.svelte';
+  import TitleBarAside from './components/shell/TitleBarAside.svelte';
+  import WorkspaceSwitch from './components/shell/WorkspaceSwitch.svelte';
+  import { shellLayout } from './lib/store/shell-layout.svelte';
 
   /**
    * Which right-hand panel the ribbon has opened, if any.
@@ -1383,7 +1387,7 @@
       root.style.removeProperty('--st-right-panel-w');
       return;
     }
-    const w = uiStore.proPanelVisible ? uiStore.proPanelWidth : 0;
+    const w = uiStore.proPanelVisible && shellLayout.panelSide === 'right' ? uiStore.proPanelWidth : 0;
     root.style.setProperty('--st-right-panel-w', `${w}px`);
   });
 
@@ -1453,7 +1457,7 @@
       if (!rafId) {
         rafId = requestAnimationFrame(() => {
           rafId = 0;
-          const delta = startX - lastX;
+          const delta = shellLayout.panelSide === 'left' ? lastX - startX : startX - lastX;
           uiStore.proPanelWidth = Math.max(360, Math.min(maxW, startWidth + delta));
         });
       }
@@ -1542,27 +1546,23 @@
             <option value="educativo">{t('app.modeEdu')} ({t('app.betaBadge')})</option>
           {/if}
         </select>
-      {:else}
-        <!--
-          Two modes, not three.
-          ─────────────────────
-          Educational stopped being a separate application: it is a panel
-          inside Basic, switched on from Settings. Leaving its button here
-          would have said the opposite — that it is a third place to be,
-          with its own model and its own canvas — which is the claim the
-          move was made to retract.
-
-          The MODE still exists and `/app/education` still resolves to it.
-          That is deliberate: a handed-out exercise is a link, and links
-          that already exist have to keep opening. What is gone is the way
-          IN from here, not the destination.
-        -->
+      {:else if uiStore.appMode === 'educativo'}
         <div class="mode-toggle" data-tour="mode-toggle">
-          <button class:active={uiStore.appMode === 'basico'} onclick={() => switchAppMode('basico')}>
-            {t('app.modeBasic')}
-          </button>
-          <button class:active={uiStore.appMode === 'pro'} class="pro-mode-btn" onclick={() => switchAppMode('pro')}>{t('app.modePro')}</button>
+          <button onclick={() => switchAppMode('basico')}>{t('app.modeBasic')}</button>
+          <button class="pro-mode-btn" onclick={() => switchAppMode('pro')}>{t('app.modePro')}</button>
         </div>
+      {:else}
+        <TitleBarCommands
+          mode={uiStore.appMode === 'pro' ? 'pro' : 'basico'}
+          projectActive={uiStore.appMode === 'pro'
+            ? uiStore.proPanelVisible && uiStore.proActiveTab === 'project'
+            : basicPanel === 'project'}
+          onProject={() => {
+            if (uiStore.appMode === 'pro') { uiStore.proActiveTab = 'project'; uiStore.proPanelVisible = true; }
+            else openBasicPanel('project');
+          }}
+          onHome={() => { history.pushState(null, '', '/'); syncRouteState(); }}
+        />
       {/if}
     </div>
     {#if !eduStore.isHandout}
@@ -1587,6 +1587,9 @@
     {/if}
 
     <div class="header-actions">
+      {#if !uiStore.isMobile && !eduStore.isHandout && (uiStore.appMode === 'basico' || uiStore.appMode === 'pro')}
+        <TitleBarAside />
+      {/if}
       <button class="btn btn-help" onclick={() => uiStore.showHelp = true} title={t('app.keyboardShortcuts')}>
         ?
       </button>
@@ -1767,7 +1770,14 @@
     variant dropping a command — see `Ribbon.svelte`.
   -->
   {#if uiStore.appMode === 'basico'}
-    <Ribbon onOpenPanel={openBasicPanel} activePanel={basicPanel} activeDataTab={basicDataTab} />
+    {#if uiStore.isMobile}
+      <Ribbon onOpenPanel={openBasicPanel} activePanel={basicPanel} activeDataTab={basicDataTab} />
+    {:else}
+      <div class="ribbon-shell">
+        <WorkspaceSwitch mode="basico" onSwitch={switchAppMode} />
+        <Ribbon onOpenPanel={openBasicPanel} activePanel={basicPanel} activeDataTab={basicDataTab} />
+      </div>
+    {/if}
     <ToolOptionsBar />
   {/if}
 
@@ -1793,6 +1803,7 @@
   <div
     class="app-body"
     class:app-body-pro={uiStore.appMode === 'pro'}
+    class:panels-left={shellLayout.panelSide === 'left' && !uiStore.isMobile}
     class:app-body-bottom-bar={uiStore.isMobile && uiStore.appMode !== 'basico'}
     class:app-body-sheet={uiStore.isMobile
       && ((uiStore.appMode === 'basico' && !!basicPanel)
@@ -1800,7 +1811,8 @@
   >
 
     {#if uiStore.appMode === 'pro' && !uiStore.isMobile && !uiStore.viewerMode}
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div class="ribbon-shell">
+        <WorkspaceSwitch mode="pro" onSwitch={switchAppMode} />
         <ProRibbon
           onSolve={() => { uiStore.proPanelVisible = true; proPanelRef?.solve(); }}
           onReport={() => { uiStore.proPanelVisible = true; proPanelRef?.report(); }}
@@ -1811,6 +1823,7 @@
           proPanel={uiStore.proActiveTab}
           onOpenProject={() => { uiStore.proActiveTab = 'project'; uiStore.proPanelVisible = true; }}
         />
+      </div>
     {/if}
     <!-- What the next click in the model does while drawing, under the bar that started it. -->
     {#if uiStore.appMode === 'pro' && !uiStore.viewerMode}<ProDrawBar />{/if}
@@ -3186,6 +3199,20 @@
   .app-body.app-body-pro {
     flex-direction: column;
   }
+  .ribbon-shell {
+    display: flex;
+    align-items: stretch;
+    flex: none;
+    min-width: 0;
+  }
+  .ribbon-shell > :global(.ribbon), .ribbon-shell > :global(.pro-ribbon) { flex: 1; min-width: 0; }
+  .panels-left :global(.basic-panel),
+  .panels-left .sidebar.right,
+  .panels-left .pro-panel-reopen { order: -1; }
+  .panels-left .sidebar.right { border-left: none; border-right: 1px solid var(--st-hair); }
+  .panels-left .pro-panel-reopen { border-left: none; border-right: 1px solid var(--st-hair); }
+  .panels-left .pro-resize-handle { left: auto; right: 0; }
+  .panels-left .pro-panel-close { right: 10px; }
   .app-body-inner {
     display: contents;
   }

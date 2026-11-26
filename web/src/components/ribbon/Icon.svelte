@@ -47,6 +47,35 @@
     <!-- A cube with a chevron: "the ways of looking at this, in a list". -->
     <path d="M12 3l7 4v8l-7 4-7-4V7z" />
     <path d="M12 3v8l7-4M12 11l-7-4M12 11v8" />
+  {:else if name === 'home'}
+    <path d="M4 11l8-7 8 7" />
+    <path d="M6 9.5V20h4.5v-5h3v5H18V9.5" />
+  {:else if name === 'bars'}
+    <path d="M7 5v14M12 5v14M17 5v14" />
+  {:else if name === 'panelLeft'}
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M9 4v16M5 8h2M5 11h2" />
+  {:else if name === 'panelRight'}
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M15 4v16M17 8h2M17 11h2" />
+  {:else if name === 'bug'}
+    <path d="M8 10a4 4 0 0 1 8 0v4a4 4 0 0 1-8 0z" />
+    <path d="M12 10v8M4 13h4M16 13h4M5 8l3 2M19 8l-3 2M5 19l3-2.5M19 19l-3-2.5M10 6.5 9 4M14 6.5 15 4" />
+  {:else if name === 'history'}
+    <path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1" />
+    <path d="M3.5 4.5V9H8" />
+    <path d="M12 7.5V12l3 2" />
+  {:else if name === 'skipStart'}
+    <path d="M6 5v14M18 6l-8.5 6 8.5 6z" />
+  {:else if name === 'skipEnd'}
+    <path d="M18 5v14M6 6l8.5 6L6 18z" />
+  {:else if name === 'stepBack'}
+    <path d="M15 6l-6 6 6 6" />
+  {:else if name === 'stepForward'}
+    <path d="M9 6l6 6-6 6" />
+  {:else if name === 'file'}
+    <path d="M7 3h7l5 5v13H7z" />
+    <path d="M14 3v5h5" />
   {:else if name === 'move'}
     <!-- Four arrows from a centre: the one glyph that means "drag this". -->
     <path d="M12 4v16M4 12h16M12 4l-2.5 2.5M12 4l2.5 2.5M12 20l-2.5-2.5M12 20l2.5-2.5M4 12l2.5-2.5M4 12l2.5 2.5M20 12l-2.5-2.5M20 12l-2.5 2.5" />
