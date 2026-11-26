@@ -54,16 +54,13 @@ impl incremental::IncrementalProblem for Corotational3D<'_> {
         }
 
         if sparse_tangent {
-            assemble_corotational_triplets_3d(
-                input,
-                &dof_num,
-                &u_geom,
-                &mut f_int,
-                &mut trip_rows,
-                &mut trip_cols,
-                &mut trip_vals,
-                left_hand,
-            );
+            assemble_corotational_3d_impl(input, dof_num, &u_geom, &mut f_int, &mut |i, j, value| {
+                if i >= j {
+                    trip_rows.push(i);
+                    trip_cols.push(j);
+                    trip_vals.push(value);
+                }
+            }, left_hand);
             add_spring_contributions_3d(input, &dof_num, &u_geom, &mut f_int, &mut |gi, gj, v| {
                 if gi >= gj {
                     trip_rows.push(gi);
@@ -83,7 +80,9 @@ impl incremental::IncrementalProblem for Corotational3D<'_> {
             }
         } else {
             k_t = vec![0.0; n * n];
-            assemble_corotational_3d(input, &dof_num, &u_geom, &mut f_int, &mut k_t, left_hand);
+            assemble_corotational_3d_impl(input, dof_num, &u_geom, &mut f_int, &mut |i, j, value| {
+                k_t[i * n + j] += value;
+            }, left_hand);
             add_spring_contributions_3d(input, &dof_num, &u_geom, &mut f_int, &mut |gi, gj, v| {
                 k_t[gi * n + gj] += v
             });

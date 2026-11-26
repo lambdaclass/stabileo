@@ -192,6 +192,15 @@ fn every_c08_reproducer_is_either_solved_identically_or_refused_by_the_verdict()
         println!("CONDITIONAL REF #{issue}: {} {cell:?}", summary(&Ok(v.clone())));
         if !v.needs_accuracy_check() { wrong.push(format!("#{issue} listed conditional reference: {}", summary(&Ok(v)))); }
     }
+    for &issue in PROVEN_MECHANISMS {
+        let (v, cell) = replay(issue);
+        let expected_outcome = if issue == 1041 { cell.inconclusive == 1 } else { cell.refused == 1 };
+        if v.verdict != Verdict::Mechanism || v.reason != Reason::FreeTranslation
+            || v.refusal().is_none() || !expected_outcome || !cell.fails.is_empty()
+        {
+            wrong.push(format!("#{issue} listed proven mechanism: {} {:?} {cell:?}", summary(&Ok(v.clone())), v.reason));
+        }
+    }
     for &issue in SOLVED {
         let (v, cell) = replay(issue);
         if !v.is_stable() || !cell.fails.is_empty() || cell.pass == 0 { wrong.push(format!("#{issue} listed solved: {} {cell:?}", summary(&Ok(v)))); }

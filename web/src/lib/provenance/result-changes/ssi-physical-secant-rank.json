@@ -1,0 +1,61 @@
+{
+  "id": "ssi-physical-secant-rank",
+  "date": "2026-11-26",
+  "prs": [
+    2584
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "plane2D",
+        "space3D"
+      ],
+      [
+        "members",
+        "shells",
+        "connectors"
+      ],
+      [
+        "analysis:ssi"
+      ],
+      [
+        "ssiHistory"
+      ]
+    ]
+  },
+  "quantities": [
+    "solve.ok",
+    "refusal",
+    "converged",
+    "displacements",
+    "reactions",
+    "elementForces",
+    "springResults",
+    "structuredDiagnostics"
+  ],
+  "title": {
+    "en": "Check SSI secant rank using physical stiffness",
+    "es": "Verificar el rango secante de la interacción suelo-estructura con la rigidez física",
+    "pt": "Verificar o posto da rigidez secante física na interação solo-estrutura",
+    "de": "Rang der Sekantensteifigkeit bei Boden-Bauwerk-Interaktion physikalisch prüfen",
+    "fr": "Vérifier le rang de la raideur sécante physique en interaction sol-structure",
+    "hu": "A talaj–szerkezet kölcsönhatás szelőmerevségének rangellenőrzése fizikai merevséggel",
+    "tr": "Zemin-yapı etkileşiminde sekant rijitliğinin mertebesini fiziksel rijitlikle denetle",
+    "zh": "使用物理刚度检查土与结构相互作用分析的割线刚度矩阵秩"
+  },
+  "explanation": {
+    "en": "Artificial rotation pins can no longer supply stiffness to the soil-structure interaction rank check. Recheck saved SSI results for models with released or weak rotations.",
+    "es": "Las restricciones de giro artificiales ya no aportan rigidez a la verificación de rango en la interacción suelo-estructura. Revisá los resultados guardados de modelos con giros liberados o de baja rigidez.",
+    "pt": "Restrições artificiais à rotação não contribuem mais para a verificação de posto na interação solo-estrutura. Revise os resultados salvos de modelos com rotações liberadas ou de baixa rigidez.",
+    "de": "Künstliche Rotationsstützungen tragen nicht mehr zur Rangprüfung bei Boden-Bauwerk-Interaktion bei. Prüfen Sie gespeicherte Ergebnisse für Modelle mit freigegebenen oder schwach gehaltenen Drehungen erneut.",
+    "fr": "Les blocages artificiels de rotation ne contribuent plus à la vérification du rang en interaction sol-structure. Vérifiez à nouveau les résultats enregistrés des modèles à rotations libérées ou peu raides.",
+    "hu": "A mesterséges forgási megtámasztások már nem járulnak hozzá a rangellenőrzéshez a talaj–szerkezet kölcsönhatás vizsgálatában. Ellenőrizze újra a felszabadított vagy gyengén megtámasztott forgású modellek mentett eredményeit.",
+    "tr": "Yapay dönme mesnetleri artık zemin-yapı etkileşimindeki mertebe denetimine rijitlik katmaz. Serbest bırakılmış veya düşük dönme rijitliğine sahip modellerin kayıtlı sonuçlarını yeniden denetleyin.",
+    "zh": "人工转动约束不再为土与结构相互作用分析的秩检查提供刚度。请重新检查含转动释放或转动刚度较低的模型的已保存结果。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-reduced-stiffness-rank.md",
+    "heading": "Check SSI secant rank using physical stiffness"
+  }
+}
