@@ -178,7 +178,8 @@ export function beamsInSlabPlane(m: FlangeModel): Set<number> {
 }
 
 /** A slab beside a beam: on which side of its run (+1 to its left, from its node I towards J), its thickness and its top against the beam's top (negative below it), m. */
-export interface SlabBeside { side: 1 | -1; hf: number; top: number }
+/** A slab along a beam: its side, thickness and top below the beam's top, m (0 flush); `placed` where the model's offsets put it rather than it being taken flush. */
+export interface SlabBeside { side: 1 | -1; hf: number; top: number; placed?: true }
 
 /**
  * The slabs along each horizontal beam, for its drawing: every horizontal shell sharing its two end
@@ -207,7 +208,7 @@ export function beamSlabsBeside(m: FlangeModel): Map<number, SlabBeside[]> {
       const cx = pts.reduce((t, p) => t + p.x, 0) / pts.length - a.x, cy = pts.reduce((t, p) => t + p.y, 0) / pts.length - a.y;
       const side = ux * cy - uy * cx > 0 ? 1 : -1;
       const prev = sides.get(side);
-      if (!prev || q.thickness < prev.hf) sides.set(side, { side, hf: q.thickness, top: Math.round(top * 1e6) / 1e6 });
+      if (!prev || q.thickness < prev.hf) sides.set(side, { side, hf: q.thickness, top: Math.round(top * 1e6) / 1e6, ...(placed ? { placed: true as const } : {}) });
     }
     if (sides.size) out.set(e.id, [...sides.values()].sort((x, y) => y.side - x.side));
   }
