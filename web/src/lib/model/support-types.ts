@@ -13,6 +13,10 @@ export function isPlaneRoller(type: unknown): boolean {
   return type === 'rollerX' || type === 'rollerY' || type === 'rollerZ';
 }
 
+export function planeSupportUsesAngle(type: unknown): boolean {
+  return isPlaneRoller(type) || type === 'spring';
+}
+
 export function isPlaneSupportType(type: unknown): boolean {
   return type === 'fixed' || type === 'pinned' || type === 'guidedX' || type === 'spring' || isPlaneRoller(type);
 }

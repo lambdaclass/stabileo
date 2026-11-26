@@ -2,7 +2,7 @@ import { t, tp } from '../i18n';
 import { DRAW_PLANES, isDrawPlane, type DrawPlane } from '../geometry/plane-projection';
 import { isAnalysisMode, is3DWorkspace } from '../utils/workspace';
 import type { Element, Load, LoadCombination, Material, Support } from '../store/model.svelte';
-import { isSupportType } from '../model/support-types';
+import { isPlaneSupportType, isSupportType, planeSupportUsesAngle } from '../model/support-types';
 import type { Constraint3D, LinearMpcConstraint } from './types-3d';
 import type { AnalysisSettings, SelfWeightLoad } from './analysis-settings';
 import type { StiffnessModifiers } from './member-behaviour';
@@ -605,30 +605,39 @@ function storedRows(rows: unknown): Array<Record<string, unknown>> {
   return rows.flatMap(row => Array.isArray(row) && isRecord(row[1]) ? [row[1]] : []);
 }
 
-const xyFallbackSupportTypes = ['fixed', 'pinned', 'guidedX', 'rollerX', 'spring'] as const satisfies readonly Support['type'][];
+type SupportPlaneField = 'invariant' | 'local' | 'angle' | 'transverseSettlement' | 'transverseSpring' | 'neutral' | 'spatial';
 
-const xyFallbackSupportFields: Partial<Record<string, 'invariant' | 'planar' | 'neutral'>> = {
+const supportPlaneFields = {
   id: 'invariant', nodeId: 'invariant', type: 'invariant', isGlobal: 'invariant',
   dx: 'invariant', kx: 'invariant',
-  angle: 'planar', dy: 'planar', dz: 'planar', dry: 'planar', drz: 'planar',
-  ky: 'planar', kz: 'planar',
+  angle: 'angle', dy: 'transverseSettlement', dz: 'transverseSettlement', dry: 'local', drz: 'local',
+  ky: 'transverseSpring', kz: 'local',
   drx: 'neutral', krx: 'neutral', kry: 'neutral', krz: 'neutral',
   normalX: 'neutral', normalY: 'neutral', normalZ: 'neutral',
   isInclined: 'neutral', uplift: 'neutral',
-} satisfies Partial<Record<keyof Support, 'invariant' | 'planar' | 'neutral'>>;
+  dofFrame: 'spatial', dofRestraints: 'spatial', dofLocalElementId: 'spatial', curves: 'spatial',
+} satisfies Record<keyof Support, SupportPlaneField>;
 
 function supportAllowsXYFallback(support: Record<string, unknown>): boolean {
-  const local = support.isGlobal === false;
-  const invariantType = xyFallbackSupportTypes.some(type => type === support.type);
-  const localRoller = local && (support.type === 'rollerY' || support.type === 'rollerZ');
-  if (!invariantType && !localRoller) return false;
+  const { type, isGlobal, angle } = support;
+  const local = isGlobal === false;
+  const untagged = isGlobal === undefined;
+  if (!isPlaneSupportType(type) || (!local && (type === 'rollerY' || type === 'rollerZ'))) return false;
 
   return Object.entries(support).every(([field, value]) => {
     if (value === undefined) return true;
-    if (!Object.hasOwn(xyFallbackSupportFields, field)) return false;
-    const rule = xyFallbackSupportFields[field];
-    return rule === 'invariant' || (rule === 'planar' && local)
-      || (value === 0 || value === false);
+    if (!Object.hasOwn(supportPlaneFields, field)) return false;
+    const rule = supportPlaneFields[field as keyof Support];
+    if (rule === 'spatial') return false;
+    if (value === 0 || value === false) return true;
+    switch (rule) {
+      case 'invariant': return true;
+      case 'local': return local;
+      case 'angle': return local || !planeSupportUsesAngle(type);
+      case 'transverseSettlement': return local || (untagged && type === 'rollerX' && (angle === undefined || angle === 0));
+      case 'transverseSpring': return local || (untagged && type === 'spring');
+      case 'neutral': return false;
+    }
   });
 }
 

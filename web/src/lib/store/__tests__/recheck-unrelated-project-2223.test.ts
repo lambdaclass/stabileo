@@ -349,7 +349,7 @@ it.each([
   expect(modelStore.solve()).toEqual(reference);
 });
 
-it.skip.each(entries)('known wrong result: #2588 — %s recovers the archived cantilever with a fixed support angle', async entry => {
+it.each(entries)('known wrong result: #2588 — %s recovers the archived cantilever with a fixed support angle', async entry => {
   await initSolver();
   uiStore.analysisMode = '2d';
   const file: ReturnType<typeof buildProjectFile> = JSON.parse(readCorpusText('v0.3.0/cantilever.ded'));
@@ -379,7 +379,7 @@ it.skip.each(entries)('known wrong result: #2588 — %s recovers the archived ca
   expect(solvePDelta(restoredInput).results.displacements).toEqual(nonlinear.results.displacements);
 });
 
-it.skip.each([
+it.each([
   { type: 'spring', ky: 1 },
   { type: 'rollerX', dz: -0.01 },
   { type: 'rollerX', dy: -0.01 },

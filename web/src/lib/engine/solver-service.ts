@@ -28,7 +28,7 @@ import { repeatedSolve3D } from './repeated-solve-3d';
 import { sectionShearAreas } from '../section/shear-areas';
 import { transverseSign } from './transverse-sign-2d';
 import { SupportMappingError, supportDofs3D } from './support-dofs-3d';
-import { isPlaneRoller, isPlaneSupportType, planeMemberAngle, resolvePlaneSupportSettlement } from '../model/support-types';
+import { isPlaneRoller, isPlaneSupportType, planeMemberAngle, planeSupportUsesAngle, resolvePlaneSupportSettlement } from '../model/support-types';
 import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, assertFiniteWire, finiteObjectWire, finiteWireJson, netCombinationFactors, combineResults, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D, solvePDelta3DAsync } from './wasm-solver';
 import { solverProperties } from '../section/state';
 import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from './types';
@@ -237,6 +237,7 @@ export function spaceBendingInertias(
 function buildSolverSupports2D(model: ModelData): Map<number, any> {
   return new Map(Array.from(model.supports.entries()).map(([id, s]) => {
     const isRoller = isPlaneRoller(s.type);
+    const angle = planeSupportUsesAngle(s.type) ? s.angle ?? 0 : 0;
     const { dz: supportDz, dry: supportDry } = resolvePlaneSupportSettlement(s);
     if (isRoller) {
       const baseAngleDeg = s.type === 'rollerX' ? 0 : 90;
@@ -245,7 +246,7 @@ function buildSolverSupports2D(model: ModelData): Map<number, any> {
         const elemAngle = planeMemberAngle(s.nodeId, model.nodes, model.elements.values());
         effectiveAngleDeg = (elemAngle * 180 / Math.PI) + baseAngleDeg;
       }
-      effectiveAngleDeg += (s.angle ?? 0);
+      effectiveAngleDeg += angle;
       effectiveAngleDeg = ((effectiveAngleDeg % 360) + 360) % 360;
       const isAxisAligned =
         Math.abs(effectiveAngleDeg % 360) < 0.01 ||
@@ -267,14 +268,14 @@ function buildSolverSupports2D(model: ModelData): Map<number, any> {
         return [id, { id: s.id, nodeId: s.nodeId, type: 'inclinedRoller' as any, angle: angleRad, kx: s.kx, ky: s.ky, kz: s.kz, dx: solverDx, dz: solverDz, dry: supportDry }];
       }
     }
-    if (s.type === 'spring' && (s.angle !== undefined && s.angle !== 0 || s.isGlobal === false)) {
+    if (s.type === 'spring' && (angle !== 0 || s.isGlobal === false)) {
       const baseAngleDeg = 0;
       let effectiveAngleDeg = baseAngleDeg;
       if (s.isGlobal === false) {
         const elemAngle = planeMemberAngle(s.nodeId, model.nodes, model.elements.values());
         effectiveAngleDeg = elemAngle * 180 / Math.PI;
       }
-      effectiveAngleDeg += (s.angle ?? 0);
+      effectiveAngleDeg += angle;
       const angleRad = effectiveAngleDeg * Math.PI / 180;
       return [id, { id: s.id, nodeId: s.nodeId, type: 'spring' as any, kx: s.kx, ky: s.ky, kz: s.kz, dx: s.dx, dz: supportDz, dry: supportDry, angle: angleRad }];
     }

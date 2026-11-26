@@ -17,13 +17,13 @@
     "zh": "旧版平面项目的绘图平面"
   },
   "explanation": {
-    "en": "Older planar projects recover their drawing plane from saved geometry and loads when the plane is clear. You must select a plane before analysis if the plane is ambiguous or the supports depend on the plane. Recalculate to check results in the intended plane.",
-    "es": "Los proyectos planos antiguos recuperan el plano de dibujo de la geometría y las cargas guardadas cuando es inequívoco. Elegí el plano antes de calcular si hay dudas o si los apoyos dependen del plano. Recalculá para verificar los resultados en el plano previsto.",
-    "pt": "Projetos planos antigos recuperam o plano de desenho da geometria e das cargas salvas quando ele é inequívoco. Selecione o plano antes da análise se houver dúvida ou se os apoios dependerem do plano. Recalcule no plano pretendido.",
-    "de": "Ältere ebene Projekte übernehmen die Zeichenebene aus der gespeicherten Geometrie und den Lasten, wenn sie eindeutig ist. Wählen Sie vor der Berechnung eine Ebene, wenn sie mehrdeutig ist oder die Lagerung von der Ebene abhängt. Berechnen Sie das Modell in der vorgesehenen Ebene erneut.",
-    "fr": "Les anciens projets plans retrouvent leur plan de dessin si la géométrie et les charges enregistrées le déterminent. Sélectionnez le plan avant le calcul s’il est ambigu ou si les appuis en dépendent. Recalculez dans le plan prévu.",
-    "tr": "Eski düzlemsel projelerde çizim düzlemi, açıksa kayıtlı geometri ve yüklerden belirlenir. Düzlem belirsizse veya mesnetler düzleme bağlıysa analizden önce düzlemi seçin. Sonuçları amaçlanan düzlemde yeniden hesaplayın.",
-    "zh": "当保存的几何和荷载可以唯一确定绘图平面时，旧版平面项目会恢复该平面。如果平面不明确或支座随平面而异，请在分析前选择平面，并在预期平面内重新计算。"
+    "en": "Older planar projects recover their drawing plane from saved geometry and loads when the plane is clear. Equivalent legacy planar supports keep the XY fallback. You must select a plane before analysis if the plane is ambiguous or the supports depend on the plane. Recalculate to check results in the intended plane.",
+    "es": "Los proyectos planos antiguos recuperan el plano de dibujo de la geometría y las cargas guardadas cuando es inequívoco. Los apoyos planos antiguos equivalentes conservan el plano XY predeterminado. Elegí el plano antes de calcular si hay dudas o si los apoyos dependen del plano. Recalculá para verificar los resultados en el plano previsto.",
+    "pt": "Projetos planos antigos recuperam o plano de desenho da geometria e das cargas salvas quando ele é inequívoco. Apoios planos antigos equivalentes mantêm o plano XY padrão. Selecione o plano antes da análise se houver dúvida ou se os apoios dependerem do plano. Recalcule no plano pretendido.",
+    "de": "Ältere ebene Projekte übernehmen die Zeichenebene aus der gespeicherten Geometrie und den Lasten, wenn sie eindeutig ist. Bei gleichwertigen älteren ebenen Lagerungen bleibt XY die Standardebene. Wählen Sie vor der Berechnung eine Ebene, wenn sie mehrdeutig ist oder die Lagerung von der Ebene abhängt. Berechnen Sie das Modell in der vorgesehenen Ebene erneut.",
+    "fr": "Les anciens projets plans retrouvent leur plan de dessin si la géométrie et les charges enregistrées le déterminent. Les appuis plans anciens équivalents conservent le plan XY par défaut. Sélectionnez le plan avant le calcul s’il est ambigu ou si les appuis en dépendent. Recalculez dans le plan prévu.",
+    "tr": "Eski düzlemsel projelerde çizim düzlemi, açıksa kayıtlı geometri ve yüklerden belirlenir. Eşdeğer eski düzlemsel mesnetlerde varsayılan XY düzlemi korunur. Düzlem belirsizse veya mesnetler düzleme bağlıysa analizden önce düzlemi seçin. Sonuçları amaçlanan düzlemde yeniden hesaplayın.",
+    "zh": "当保存的几何和荷载可以唯一确定绘图平面时，旧版平面项目会恢复该平面。等效的旧版平面支座仍使用默认的 XY 平面。如果平面不明确或支座随平面而异，请在分析前选择平面，并在预期平面内重新计算。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-legacy-planar-project-plane.md",
