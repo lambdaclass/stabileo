@@ -1,7 +1,7 @@
 /** Results snapshot gate (#716), the `pro` cases of `corpus.ts`. See `run-group.ts`. */
 import { readFileSync } from 'node:fs';
 import { beforeAll, expect, it } from 'vitest';
-import { compareValues, formatCaseReport, parseSnapshot, storeNumber } from '../../../../scripts/results-snapshot/compare.mjs';
+import { compareValues, formatCaseReport, parseSnapshot, storeNumber, type SnapshotValues } from '../../../../scripts/results-snapshot/compare.mjs';
 import { quadSelfWeightLoads } from '../../engine/solver-shells';
 import { modelStore } from '../../store/model.svelte';
 import { resultsStore } from '../../store/results.svelte';
@@ -18,8 +18,7 @@ runGroup('pro', {
   'pro-mat-foundation': ['warning:SH-MITC4-CONVERGENCE'],
 });
 
-const matFoundation = process.env.RUN_KNOWN_WRONG === '2586' ? it : it.skip;
-matFoundation('known wrong result: #2586 pro-mat-foundation weights and moment samples follow equilibrium', async () => {
+it('#2586 pro-mat-foundation weights and moment samples follow equilibrium', async () => {
   const name = 'pro-mat-foundation';
   const fresh = await capture(CORPUS.find(c => c.name === name)!);
   expect(fresh.values['solve.ok']).toBe(true);
@@ -45,7 +44,7 @@ matFoundation('known wrong result: #2586 pro-mat-foundation weights and moment s
 
   const combinations = [...resultsStore.perCombo3D.values()];
   expect(combinations.length).toBeGreaterThan(0);
-  const expectedMoments: Record<string, number> = {};
+  const expectedMoments: SnapshotValues = {};
   const members = resultsStore.envelope3D!.momentY.elements;
   expect(members).toHaveLength(modelStore.elements.size);
   for (const member of members) {
