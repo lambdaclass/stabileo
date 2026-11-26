@@ -1,0 +1,33 @@
+{
+  "id": "snow-connected-one-way-step-reactions",
+  "date": "2026-11-26",
+  "prs": [2218],
+  "area": "loads",
+  "when": { "all": ["space3D", "snow", "generatedLoads", "frameMembers"] },
+  "quantities": ["*", "solve.ok"],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Transfer roof step drift across connected one-way bays",
+    "es": "Transferir la acumulación de nieve por paños unidireccionales conectados",
+    "pt": "Transferir a acumulação de neve por painéis unidirecionais conectados",
+    "de": "Schneeverwehung über verbundene einachsig tragende Dachfelder abtragen",
+    "fr": "Transférer la charge de congère sur des panneaux unidirectionnels contigus",
+    "tr": "Çatı kot farkındaki kar birikimini bağlı tek doğrultulu açıklıklara aktar",
+    "zh": "将屋面高差积雪荷载传递至相连的单向板格",
+    "hu": "Tetőszintlépcső hóterhének átadása összefüggő egyirányú mezőkön"
+  },
+  "explanation": {
+    "en": "Regenerate snow loads and re-run the analysis. Connected rectangular one-way bays receive the part of the step drift that lies over each bay and deliver it to their bearings.",
+    "es": "Regenerá las cargas de nieve y repetí el análisis. Cada paño rectangular unidireccional conectado recibe la parte de la acumulación que lo cubre y la transmite a sus apoyos.",
+    "pt": "Gere novamente as cargas de neve e repita a análise. Cada painel retangular unidirecional conectado recebe a parte da acumulação que o cobre e a transfere aos apoios.",
+    "de": "Erzeugen Sie die Schneelasten neu und wiederholen Sie die Berechnung. Jedes verbundene rechteckige Dachfeld überträgt den darauf liegenden Schneeanteil auf seine Auflager.",
+    "fr": "Régénérez les charges de neige et relancez l’analyse. Chaque panneau rectangulaire unidirectionnel reçoit la part de la congère située au-dessus de lui et la transmet à ses appuis.",
+    "tr": "Kar yüklerini yeniden oluşturun ve analizi tekrarlayın. Bağlı dikdörtgen tek doğrultulu açıklıkların her biri, üzerindeki kar birikimi yükünü mesnetlerine aktarır.",
+    "zh": "请重新生成雪荷载并重新分析。每个相连的矩形单向板格将其上方的积雪荷载传递给自身的支承。",
+    "hu": "Generálja újra a hóterheket és futtassa újra a számítást. Minden összefüggő téglalap alakú egyirányú mező a fölötte lévő hótorlaszterhet adja át a támaszainak."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-supported-deck-and-step-drift.md",
+    "heading": "Transfer roof step drift across connected one-way bays"
+  }
+}

@@ -147,69 +147,107 @@ export function snowDriftRefusal(model: GravityModel, layout?: GravityLayout, su
 export const STEP_DRIFT_REFUSAL = 'snow.refused.stepDriftTransfer';
 
 function stepBearingLoads(
-  model: GravityModel, layout: GravityLayout, panelIndex: number, line: ReturnType<typeof lineInto>,
+  model: GravityModel, layout: GravityLayout, panelIndices: number[], line: ReturnType<typeof lineInto>,
   drift: StepDrift, stationError: number,
 ): SnowSurchargeLoad[] {
   const fail = (): never => { throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL)); };
-  const panel = layout.panels[panelIndex]!;
-  const span = panel.oneWaySpan;
   const { p0, u, n, len } = line;
-  if (!span || Math.abs(n[span === 'x' ? 1 : 0]) * len > stationError || !Number.isFinite(len) || len <= stationError) return fail();
-  const local = (point: P2): P2 => [dot(sub(point, p0), u), dot(sub(point, p0), n)];
-  const rectangle = panel.polygon.map(local);
-  const lo = Math.min(...rectangle.map(([t]) => t));
-  const hi = Math.max(...rectangle.map(([t]) => t));
-  const depth = Math.max(...rectangle.map(([, d]) => d));
-  const area = (hi - lo) * depth;
+  if (!Number.isFinite(len) || len <= stationError) return fail();
   const same = (a: number, b: number) => Math.abs(a - b) <= stationError;
-  if (depth <= stationError || lo > stationError || hi + stationError < len
-    || !same(Math.min(...rectangle.map(([, d]) => d)), 0)
-    || !agrees(ringArea(rectangle), area, area)
-    || rectangle.some(([t, d]) => !same(t, lo) && !same(t, hi) && !same(d, 0) && !same(d, depth))) return fail();
+  const local = (point: P2): P2 => [dot(sub(point, p0), u), dot(sub(point, p0), n)];
+  const strips = panelIndices.flatMap(panelIndex => {
+    const { polygon, oneWaySpan } = layout.panels[panelIndex]!;
+    const rectangle = polygon.map(local);
+    const ts = rectangle.map(([t]) => t), ds = rectangle.map(([, d]) => d);
+    const lo = Math.min(...ts), hi = Math.max(...ts);
+    const base = Math.min(...ds), far = Math.max(...ds);
+    const from = Math.max(0, lo), to = Math.min(len, hi);
+    const near = same(base, 0) ? 0 : base;
+    if (to - from <= stationError || far <= stationError || near >= drift.w) return [];
+    const area = (hi - lo) * (far - base);
+    if (!oneWaySpan || Math.abs(n[oneWaySpan === 'x' ? 1 : 0]) * len > stationError
+      || near < 0 || far - near <= stationError || !agrees(ringArea(rectangle), area, area)
+      || rectangle.some(([t, d]) => !same(t, lo) && !same(t, hi) && !same(d, base) && !same(d, far))) return fail();
+    return [{ panelIndex, from, to, near, far }];
+  }).sort((a, b) => a.near - b.near);
 
-  const extent = Math.min(depth, drift.w);
-  const ratio = extent / drift.w;
-  const force = drift.pd * extent * (1 - ratio / 2);
-  const first = drift.pd * extent ** 2 * (1 / 2 - ratio / 3);
-  const far = first / depth;
+  const profile = (near: number, far: number) => {
+    const end = Math.min(far, drift.w), depth = end - near;
+    const p0 = drift.pd * ((drift.w - near) / drift.w);
+    const p1 = drift.pd * ((drift.w - end) / drift.w);
+    return { force: depth * (p0 / 2 + p1 / 2), first: depth ** 2 * (p0 / 6 + p1 / 3) };
+  };
+  const cuts = [...new Set([0, len, ...strips.flatMap(({ from, to }) => [from, to])])].sort((a, b) => a - b);
+  const target = [new Sum(), new Sum(), new Sum()];
+  let start = 0;
+  for (const end of cuts) {
+    if (end - start <= stationError) continue;
+    const station = (start + end) / 2;
+    let depth = 0;
+    for (const strip of strips) {
+      if (station <= strip.from || station >= strip.to) continue;
+      if (!same(depth, strip.near)) return fail();
+      depth = strip.far;
+    }
+    if (!(depth > 0)) return fail();
+    const { force, first } = profile(0, depth);
+    target[0]!.add(force * (end - start));
+    target[1]!.add(force * (end - start) * station);
+    target[2]!.add(first * (end - start));
+    start = end;
+  }
+
+  const piecesByPanel = new Map<number, GravityLayout['pieces']>();
+  for (const piece of layout.pieces) {
+    const pieces = piecesByPanel.get(piece.panel) ?? [];
+    pieces.push(piece);
+    piecesByPanel.set(piece.panel, pieces);
+  }
   const rows: SnowSurchargeLoad[] = [];
   const assigned = [new Sum(), new Sum(), new Sum()];
-  for (const [side, q] of [[0, force - far], [depth, far]] as const) {
-    const spans: Array<{ from: number; to: number; row: SnowSurchargeLoad; meanT: number; meanD: number }> = [];
-    for (const piece of layout.pieces) {
-      if (piece.panel !== panelIndex) continue;
-      const member = model.elements.get(piece.elementId);
-      const a = member && model.nodes.get(member.nodeI), b = member && model.nodes.get(member.nodeJ);
-      if (!member || !a || !b) return fail();
-      const [ta, da] = local([a.x, a.y]), [tb, db] = local([b.x, b.y]);
-      if (!same(da, side) || !same(db, side)) continue;
-      const length = Math.hypot(b.x - a.x, b.y - a.y);
-      if (!same(length, Math.abs(tb - ta)) || length <= stationError || (a.z ?? 0) !== (b.z ?? 0)) return fail();
-      const tAt = (s: number) => ta + (tb - ta) * s / length;
-      const tA = tAt(piece.a ?? 0), tB = tAt(piece.b ?? length);
-      const from = Math.max(0, Math.min(tA, tB)), to = Math.min(len, Math.max(tA, tB));
-      if (to - from <= stationError) continue;
-      const station = (t: number) => Math.min(length, Math.max(0, (t - ta) * length / (tb - ta)));
-      const x0 = station(from), x1 = station(to);
-      const meanT = tAt((x0 + x1) / 2);
-      const meanD = da + (db - da) * ((x0 + x1) / 2) / length;
-      const row = { elementId: member.id, a: Math.min(x0, x1), b: Math.max(x0, x1), q: -q, frame: 'projected' as const };
-      spans.push({ from, to, row, meanT, meanD });
+  let elevation: number | undefined;
+  for (const strip of strips) {
+    const { near, far, from, to, panelIndex } = strip;
+    const { force, first } = profile(near, far);
+    const farReaction = first / (far - near);
+    if (!(farReaction > 0 && force > farReaction)) return fail();
+    for (const [side, q] of [[near, force - farReaction], [far, farReaction]] as const) {
+      const spans: Array<{ from: number; to: number; row: SnowSurchargeLoad; meanT: number; meanD: number }> = [];
+      for (const piece of piecesByPanel.get(panelIndex) ?? []) {
+        const member = model.elements.get(piece.elementId);
+        const a = member && model.nodes.get(member.nodeI), b = member && model.nodes.get(member.nodeJ);
+        if (!member || !a || !b) return fail();
+        const [ta, da] = local([a.x, a.y]), [tb, db] = local([b.x, b.y]);
+        if (!same(da, side) || !same(db, side)) continue;
+        const length = Math.hypot(b.x - a.x, b.y - a.y);
+        if (!same(length, Math.abs(tb - ta)) || length <= stationError || (a.z ?? 0) !== (b.z ?? 0)) return fail();
+        const tAt = (s: number) => ta + (tb - ta) * s / length;
+        const tA = tAt(piece.a ?? 0), tB = tAt(piece.b ?? length);
+        const lo = Math.max(from, Math.min(tA, tB)), hi = Math.min(to, Math.max(tA, tB));
+        if (hi - lo <= stationError) continue;
+        elevation ??= a.z ?? 0;
+        if ((a.z ?? 0) !== elevation) return fail();
+        const station = (t: number) => Math.min(length, Math.max(0, (t - ta) * length / (tb - ta)));
+        const x0 = station(lo), x1 = station(hi);
+        const meanT = tAt((x0 + x1) / 2);
+        const meanD = da + (db - da) * ((x0 + x1) / 2) / length;
+        const row = { elementId: member.id, a: Math.min(x0, x1), b: Math.max(x0, x1), q: -q, frame: 'projected' as const };
+        spans.push({ from: lo, to: hi, row, meanT, meanD });
+      }
+      let end = from;
+      for (const span of spans.sort((a, b) => a.from - b.from)) {
+        if (!same(span.from, end)) return fail();
+        end = span.to;
+        const F = q * (span.row.b! - span.row.a!);
+        assigned[0]!.add(F);
+        assigned[1]!.add(F * span.meanT);
+        assigned[2]!.add(F * span.meanD);
+        rows.push(span.row);
+      }
+      if (!same(end, to)) return fail();
     }
-    let end = 0;
-    for (const { from, to, row, meanT, meanD } of spans.sort((a, b) => a.from - b.from)) {
-      if (!same(from, end)) return fail();
-      end = to;
-      const F = q * (row.b! - row.a!);
-      assigned[0]!.add(F);
-      assigned[1]!.add(F * meanT);
-      assigned[2]!.add(F * meanD);
-      rows.push(row);
-    }
-    if (!same(end, len)) return fail();
   }
-  const target = [force * len, force * len ** 2 / 2, first * len];
-  if (!(far > 0 && force > far) || target.some((value, k) => !agrees(assigned[k]!.value, value, value))) return fail();
+  if (target.some(({ value }, k) => !agrees(assigned[k]!.value, value, value))) return fail();
   return rows;
 }
 
@@ -245,7 +283,8 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
     const { a, b } = step;
     const line = lineInto(a, b, L.polygon);
     const reach = (group: typeof roofs, sign: number) => Math.max(0, ...group.flatMap((p) => p.polygon.map((v) => sign * dot(sub(v, a), line.n))));
-    const luUpper = reach(roofOf(U.k), -1), luLower = reach(roofOf(L.k), 1);
+    const lowerRoof = roofOf(L.k);
+    const luUpper = reach(roofOf(U.k), -1), luLower = reach(lowerRoof, 1);
     const inputs = (pt: P2) => ({
       pg: i.pg, balanced: balanced(L.k, pt), stepHeight: surfaces(U.k).elevation(pt) - surfaces(L.k).elevation(pt), luUpper, luLower,
     });
@@ -266,9 +305,8 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
       const heights = surfaceModel.edgeHeights(a, b, layout, U.k, L.k);
       const heightScale = Math.max(Math.abs(U.z), Math.abs(L.z));
       const sameHeight = heights.length > 0 && heights.every(h => agrees(h, heights[0]!, heightScale));
-      if (!sameHeight || roofOf(L.k).length !== 1
-        || profiles.some(dr => !dr.applies || dr.pd !== first.pd || dr.w !== first.w)) throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL));
-      const bearings = stepBearingLoads(model, layout, L.k, line, first, stationError);
+      if (!sameHeight || profiles.some(dr => !dr.applies || dr.pd !== first.pd || dr.w !== first.w)) throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL));
+      const bearings = stepBearingLoads(model, layout, lowerRoof.map(panel => panel.k), line, first, stationError);
       if (i.receivers && bearings.some(row => !i.receivers!.has(row.elementId))) throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL));
       out.push(...bearings);
     }

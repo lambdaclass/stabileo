@@ -222,8 +222,7 @@ it('#2512 restored platforms with a second tie keep both pressures at a fixed ma
 });
 
 it.each(['D', 'S'] as const)('applied geometry-supported %s loads retain their bearing reactions', caseType => checkBearingReactions(caseType));
-const issue2218ConnectedBays = process.env.RUN_KNOWN_WRONG === '2218' ? it : it.skip;
-issue2218ConnectedBays('known wrong result: #2218 applied drift reaches three bearing lines', () => checkBearingReactions('S', true));
+it('#2218 applied drift reaches three bearing lines', () => checkBearingReactions('S', true));
 
 async function checkBearingReactions(caseType: 'D' | 'S', connectedBays = false) {
   const mode = uiStore.analysisMode;

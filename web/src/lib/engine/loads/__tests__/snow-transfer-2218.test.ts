@@ -243,9 +243,8 @@ it('#2218 requires both bearings to deliver the positive drift', () => {
 });
 
 
-const issue2218ConnectedBays = process.env.RUN_KNOWN_WRONG === '2218' ? it : it.skip;
 
-issue2218ConnectedBays.each([false, true])('known wrong result: #2218 positive pressure reaches each loaded one-way bay (station split %s)', stationSplit => {
+it.each([false, true])('#2218 positive pressure reaches each loaded one-way bay (station split %s)', stationSplit => {
   const config = { ...snow, roofKind: 'mono', slippery: false } as const;
   const inputs = { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1 };
   for (const [depth, expected] of [
@@ -303,10 +302,10 @@ issue2218ConnectedBays.each([false, true])('known wrong result: #2218 positive p
       }).map(e => e.id));
       const farRows = distributed.filter(row => farMembers.has(row.elementId));
       expect(farRows).toHaveLength(depth === 2 ? 0 : stationSplit ? 2 : 1);
-      if (depth === 1) {
-        const receivers = new Set([...model.elements.keys()].filter(id => !farMembers.has(id)));
-        expect(() => driftAndSlidingLoads(model, layout, { ...inputs, receivers })).toThrow('snow.refused.stepDriftTransfer');
-      }
+      const receivers = new Set([...model.elements.keys()].filter(id => !farMembers.has(id)));
+      const selected = () => driftAndSlidingLoads(model, layout, { ...inputs, receivers }).distributed;
+      if (depth === 1) expect(selected).toThrow('snow.refused.stepDriftTransfer');
+      else expect(selected()).toEqual(distributed);
       const direct = snowLoadCases({ model, layout, snow: config, tributaryWidth: 1 })!;
       expect(direct.result.refused).toBeUndefined();
       const plan = buildLoadPlan({
