@@ -310,7 +310,7 @@ function partyWall(): string {
   // still loads as a floor; the flights clear of the side walls, held at their ends: an inclined side
   // in a wall's plane is one its grid of rectangles cannot follow, the flight against the column the
   // width of the column's face away.
-  for (const x of [stair.x0 + gap, mid, stair.x1 - gap]) b.m.support(b.m.node(x, foot, 0), 'pinned3d');
+  for (const x of [stair.x0 + gap, mid]) b.m.support(b.m.node(x, foot, 0), 'pinned3d');
   for (let k = 0; k < top - 1; k++) {
     const z0 = b.z(k), z1 = b.z(k + 1), zm = (z0 + z1) / 2, at = levels[k]!.name;
     b.flight(`Tramo 1 · ${at}`, stair.x0 + gap, mid, foot, head, z0, zm, steps, ts, hc, k);

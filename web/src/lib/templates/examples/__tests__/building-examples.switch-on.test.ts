@@ -38,6 +38,11 @@ describe('the buildings of the gallery', () => {
 describe.each(BUILDINGS.map((e) => [e.id, e] as const))('%s', (id, ex) => {
   it('solves every combination of its generated loads, closes its forces and matches its baseline', async () => {
     await ex.load();
+    const used = new Set<number>();
+    for (const e of modelStore.elements.values()) { used.add(e.nodeI); used.add(e.nodeJ); }
+    for (const g of modelStore.model.groups.values()) for (const n of g.members.nodes ?? []) used.add(n);
+    const loose = [...modelStore.supports.values()].filter((sp) => !used.has(sp.nodeId)).map((sp) => { const n = modelStore.nodes.get(sp.nodeId)!; return [n.x, n.y, n.z ?? 0]; });
+    expect(loose, 'a support on a node nothing frames into').toEqual([]);
     const wind = modelStore.model.loadCases.filter((c) => c.type === 'W').map((c) => c.id);
     expect(wind.length).toBeGreaterThan(0);
     for (const caseId of wind) {
