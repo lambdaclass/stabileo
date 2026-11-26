@@ -329,3 +329,53 @@ mod planar_nodal {
         }
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2588"]
+fn producer_wire_metadata_is_accepted_by_native_wire_types() {
+    fn check<T: DeserializeOwned + Serialize>(
+        model: &Value, table: &str, metadata: &[(&str, Value)], misspelled: &str,
+    ) {
+        let decode = |input: &Value| serde_json::from_str::<T>(&input.to_string());
+        let expected = serde_json::to_value(decode(model).unwrap()).unwrap();
+        let mut produced = model.clone();
+        for (key, value) in metadata {
+            produced[table]["1"][key] = value.clone();
+        }
+        assert_eq!(serde_json::to_value(decode(&produced).unwrap()).unwrap(), expected);
+        produced[table]["1"][misspelled] = json!(1);
+        let error = decode(&produced).err().unwrap().to_string();
+        assert!(error.contains(&format!("unknown field `{misspelled}`")), "{error}");
+    }
+
+    let planar = json!({
+        "nodes": {}, "elements": {}, "loads": [],
+        "materials": {"1": {"id":1,"e":25000,"nu":0.2}},
+        "sections": {"1": {"id":1,"a":0.18,"iz":0.00135}},
+        "supports": {}
+    });
+    let spatial = json!({
+        "nodes": {}, "elements": {}, "loads": [],
+        "materials": planar["materials"],
+        "sections": {"1": {"id":1,"a":0.18,"iy":0.0054,"iz":0.00135,"j":0.001}},
+        "supports": {"1": {"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}}
+    });
+    let material = [("name", json!("H25")), ("fc", json!(25)), ("fy", json!(420))];
+    let section = [("b", json!(0.3)), ("h", json!(0.6))];
+    let planar_section = [
+        ("name", json!("RC")), ("iy", json!(0.0054)), ("j", json!(0.001)),
+        section[0].clone(), section[1].clone(),
+    ];
+    let support = [("stabilised", json!("created")), ("stabilisedAxes", json!([true, true, true]))];
+
+    check::<SolverInput>(&planar, "materials", &material, "nU");
+    check::<units::ElasticInput2D>(&planar, "materials", &material, "nU");
+    check::<SolverInput3D>(&spatial, "materials", &material, "nU");
+    check::<units::ElasticInput3D>(&spatial, "materials", &material, "nU");
+    check::<SolverInput>(&planar, "sections", &planar_section, "asYY");
+    check::<units::ElasticInput2D>(&planar, "sections", &planar_section, "asYY");
+    check::<SolverInput3D>(&spatial, "sections", &section, "asYY");
+    check::<units::ElasticInput3D>(&spatial, "sections", &section, "asYY");
+    check::<SolverInput3D>(&spatial, "supports", &support, "rrX");
+    check::<units::ElasticInput3D>(&spatial, "supports", &support, "rrX");
+}
