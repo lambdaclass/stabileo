@@ -383,10 +383,12 @@ fn producer_wire_metadata_is_accepted_by_native_wire_types() {
         ("shape", json!("I")), ("tw", json!(0.0071)), ("tf", json!(0.0107)),
         ("t", json!(null)), ("fabrication", json!("rolled")),
     ];
-    let planar_section = [
+    let mut planar_section = section.to_vec();
+    planar_section.extend([
         ("name", json!("RC")), ("iy", json!(0.0054)), ("j", json!(0.001)),
-        section[0].clone(), section[1].clone(), section[2].clone(), ("asZ", json!(0.01)),
-    ];
+        ("asZ", json!(0.01)), ("cw", json!(0)), ("shearCenterY", json!(0)),
+        ("shearCenterZ", json!(0)),
+    ]);
     let support = [
         ("id", json!(1)), ("type", json!("fixed")), ("stabilised", json!("created")),
         ("stabilisedAxes", json!([true, true, true])),

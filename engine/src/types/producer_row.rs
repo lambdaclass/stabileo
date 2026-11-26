@@ -3,13 +3,19 @@ macro_rules! producer_row {
         producer_row!(@row "SolverMaterial", [name, fc, fy, fu, rho], $($record)*);
     };
     (section_2d $($record:tt)*) => {
-        producer_row!(@row "SolverSection", [name, iy, j, b, h, rotation, as_z], $($record)*);
+        producer_row!(@section "SolverSection",
+            [name, iy, j, cw, as_z, shear_center_y, shear_center_z], $($record)*);
     };
     (section_3d $($record:tt)*) => {
-        producer_row!(@row "SolverSection3D", [b, h, rotation, fc, fy, cover, stirrup_dia, shape, tw, tf, t, fabrication], $($record)*);
+        producer_row!(@section "SolverSection3D", [], $($record)*);
     };
     (support_3d $($record:tt)*) => {
         producer_row!(@row "SolverSupport3D", [id, r#type, stabilised, stabilised_axes], $($record)*);
+    };
+    (@section $label:literal, [$($spatial:ident),*], $($record:tt)*) => {
+        producer_row!(@row $label,
+            [b, h, rotation, fc, fy, cover, stirrup_dia, shape, tw, tf, t, fabrication $(, $spatial)*],
+            $($record)*);
     };
     (
         @row $label:literal, [$($metadata:ident),+],

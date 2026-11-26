@@ -122,7 +122,9 @@ it('#2588 permits orphan rotation metadata on generated supports', () => {
 
 it('#2588 accepts the planar recovery adapter’s shared shear area row', () => {
   const planar = beam();
-  const section = { ...planar.sections.get(1)!, asY: 0.01, asZ: 0.01 };
+  const section = {
+    ...planar.sections.get(1)!, asY: 0.01, asZ: 0.01, cw: 0, shearCenterY: 0, shearCenterZ: 0,
+  };
   planar.sections.set(1, section);
   expectSolutions(planarRoutes(input2DToWireObject(planar)));
 });
@@ -135,6 +137,9 @@ it('#2588 accepts the spatial design adapters’ concrete and steel section rows
   for (const section of [concrete, steel]) {
     spatial.sections.set(1, section);
     expectSolutions(spatialRoutes(input3DToWireObject(spatial)));
+    const planar = beam();
+    planar.sections.set(1, section);
+    expectSolutions(planarRoutes(input2DToWireObject(planar)));
   }
 });
 
