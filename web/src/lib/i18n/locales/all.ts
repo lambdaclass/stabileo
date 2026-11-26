@@ -42,6 +42,7 @@ import ja from './ja';
 import ko from './ko';
 import ru from './ru';
 import zh from './full/zh';
+import nl from './full/nl';
 import ar from './ar';
 import id from './id';
 import steelEs from './steel/es';
@@ -53,6 +54,7 @@ import stepsFr from './steps/fr';
 import stepsTr from './steps/tr';
 import stepsHu from './steps/hu';
 import stepsZh from './steps/zh';
+import stepsNl from './steps/nl';
 import { isComplete } from '../offered';
 
 /**
@@ -75,7 +77,7 @@ export const ALL_DICTS: Record<string, Translations> = {
   es: { ...es, ...steelEs, ...stepsEs },
   en: { ...en, ...steelEn, ...stepsEn },
   pt: { ...pt, ...steelPt, ...stepsPt },
-  de: { ...de, ...stepsDe }, fr: { ...fr, ...stepsFr }, tr: { ...tr, ...stepsTr }, hu: { ...hu, ...stepsHu }, zh: { ...zh, ...stepsZh },
+  de: { ...de, ...stepsDe }, fr: { ...fr, ...stepsFr }, tr: { ...tr, ...stepsTr }, hu: { ...hu, ...stepsHu }, zh: { ...zh, ...stepsZh }, nl: { ...nl, ...stepsNl },
   it, hi, ja, ko, ru, ar, id,
 };
 
@@ -90,10 +92,10 @@ export function allDictFor(locale: string): Record<string, string> {
 }
 
 export function completeLocales(): string[] {
-  return ['es', 'en', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'].filter(isComplete);
+  return ['es', 'en', 'pt', 'de', 'fr', 'tr', 'hu', 'zh', 'nl'].filter(isComplete);
 }
 
 export function partialLocales(): string[] {
   const complete = completeLocales();
-  return ['de', 'fr', 'tr', 'hu', 'zh'].filter((l) => !complete.includes(l));
+  return ['de', 'fr', 'tr', 'hu', 'zh', 'nl'].filter((l) => !complete.includes(l));
 }

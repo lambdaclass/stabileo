@@ -22,6 +22,7 @@
     "de": "Dachschalenlasten an angeschlossenen Traufen wiederherstellen",
     "fr": "Rétablir les charges des coques de toiture aux rives liées",
     "tr": "Bağlı saçaklarda kabuk çatı yüklerini geri getir",
+    "nl": "Schaaldakbelastingen bij vastgemaakte dakranden herstellen",
     "zh": "恢复相连檐口处的壳屋面荷载",
     "hu": "A tetőhéjterhek helyreállítása a csatlakozó ereszeknél"
   },
@@ -32,6 +33,7 @@
     "de": "Erzeugen Sie die Schwerkraftlasten für Felder neu. Ein zusammenhängendes Schalendach kann die Fläche im angeschlossenen Traufring tragen. Bei ungeklärten Sparrenversätzen, die die Last verdoppeln könnten, wird der Lastplan gesperrt.",
     "fr": "Régénérez les charges gravitaires par travée. Une toiture de coques connectées peut porter la surface à l’intérieur de la ceinture de rive liée. Le plan bloque les décalages de chevrons non résolus qui pourraient doubler la charge.",
     "tr": "Panel yerçekimi yüklerini yeniden üretin. Bağlantılı bir kabuk çatı, bağlı saçak halkasının içindeki alanı taşıyabilir. Plan, yükü iki kez uygulayabilecek çözümlenmemiş mertek ötelenmelerinde durur.",
+    "nl": "Genereer paneelzwaartekracht opnieuw. Een verbonden schaaldak kan het gebied binnen haar vastgemaakte dakrandring dragen. Het plan blokkeert onopgeloste spantoffsets die de belasting zouden kunnen dupliceren.",
     "zh": "请重新生成板区重力荷载。相连的屋面壳可承受与之连接的檐口环梁内的面荷载。若椽条偏移无法确定归属并可能造成重复加荷，系统会阻止生成。",
     "hu": "Generálja újra a mezők gravitációs terheit. Az összefüggő tetőhéj viselheti a hozzá csatlakozó ereszgyűrűn belüli felület terhét. A terv leáll, ha a szarufa feloldatlan eltolása megkettőzheti a terhet."
   },

@@ -15,6 +15,7 @@
     "de": "Statische Erdbebenlasten beziehen sich auf das tiefste Auflager",
     "fr": "Les charges sismiques statiques se réfèrent à la cote de l’appui le plus bas",
     "tr": "Statik deprem yükleri en düşük mesnet kotunu kullanır",
+    "nl": "Statische seismische belastingen gebruiken het laagste opleggingsniveau",
     "zh": "等效静力地震荷载以最低支座标高为基准",
     "hu": "A statikus szeizmikus terhek a legalacsonyabb támasz magasságához igazodnak"
   },
@@ -25,6 +26,7 @@
     "de": "Die Geschosshöhen werden vom tiefsten Auflager aus gemessen. Erzeugen Sie betroffene E-Lasten neu und wiederholen Sie Analysen und Nachweise (#2316).",
     "fr": "Les hauteurs d’étage sont mesurées depuis l’appui le plus bas. Régénérez les charges E concernées, puis répétez les analyses et vérifications (#2316).",
     "tr": "Kat yükseklikleri en düşük mesnetten itibaren ölçülür. Etkilenen E yüklerini yeniden oluşturun, analizleri ve kontrolleri tekrarlayın (#2316).",
+    "nl": "Verdiepingshoogten worden gemeten vanaf de laagste oplegging. Genereer de betreffende E-belastingen opnieuw en herhaal berekeningen en ontwerptoetsingen (#2316).",
     "zh": "楼层高度从最低支座标高量起。请重新生成受影响的 E 荷载并重做分析和设计验算（#2316）。",
     "hu": "A szintek magasságát a legalacsonyabb támasztól mérjük. Generálja újra az érintett E terheket, és ismételje meg az elemzéseket és ellenőrzéseket (#2316)."
   },

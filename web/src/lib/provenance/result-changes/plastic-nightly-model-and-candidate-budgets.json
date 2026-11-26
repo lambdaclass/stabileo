@@ -25,6 +25,7 @@
     "fr": "L’équilibre plastique utilise les identifiants du modèle résolu et le certificat limite chaque candidat",
     "hu": "A képlékeny egyensúly a megoldott modell azonosítóit használja, a tanúsítvány a tényleges jelöltekre szab keretet",
     "tr": "Plastik denge çözülen modelin kimliklerini kullanır; sertifikalar gerçek adaylar için kaynak bütçesi uygular",
+    "nl": "Plastische balans gebruikt ID's van het opgeloste model en certificaten begroten werkelijke kandidaten",
     "zh": "塑性平衡使用已求解模型的 ID，证书按实际候选项设定预算"
   },
   "explanation": {
@@ -35,6 +36,7 @@
     "fr": "Les vérifications des forces récupérées utilisent les identifiants des barres et nœuds du modèle résolu, indépendamment des clés JSON. Une barre absente entraîne un refus codé. La certification plastique exacte vérifie le stockage initial et chaque candidat LP avec les limites d’octets existantes ; elle conserve les bornes prouvées si un raffinement supplémentaire dépasse le budget. Des portiques aléatoires auparavant refusés peuvent être certifiés. Les tolérances numériques sont inchangées.",
     "hu": "A visszanyert erők pontossági ellenőrzései most a megoldott modellből olvassák ki a rúd- és csomópont-azonosítókat, a JSON-térkép kulcsaitól függetlenül. A hiányzó visszanyert rudak kódolt elutasítást adnak. A pontos képlékeny tanúsítás a kezdeti tárolást és minden tényleges LP-jelöltet a meglévő bájthatárokhoz mér; ha a további finomítás nem fér bele, megtartja a már igazolt korlátokat. A korábban elutasított véletlenszerű keretek most tanúsíthatók. A numerikus tűrések nem változnak.",
     "tr": "Geri hesaplanan kuvvet kontrolleri, JSON anahtarlarından bağımsız olarak çözülen modeldeki çubuk ve düğüm kimliklerini kullanır. Eksik çubuk kodlu ret üretir. Kesin plastik sertifikalama ilk belleği ve her LP adayını mevcut bayt sınırlarıyla denetler; ek iyileştirme sığmazsa kanıtlanmış sınırları korur. Önceden reddedilen rastgele çerçeveler artık sertifikalanabilir. Sayısal toleranslar değişmez.",
+    "nl": "Nauwkeurigheidscontroles van herstelde krachten bepalen staaf- en knoop-ID's nu uit het opgeloste model, onafhankelijk van JSON-sleutels. Ontbrekende herstelde staven geven een gecodeerde weigering. Exacte plastische certificering controleert de initiële opslag en elke werkelijke LP-kandidaat tegen de bestaande bytegrenzen; ze behoudt bewezen grenzen als verdere verfijning niet past. Eerder geweigerde willekeurige raamwerken kunnen nu certificeren. Numerieke toleranties zijn ongewijzigd.",
     "zh": "恢复力的精度检查现在从已求解的模型中解析杆件和节点 ID，与 JSON 映射的键无关。缺失已恢复杆件时，返回带编码的拒绝。精确塑性认证对初始存储和每个实际的 LP 候选项按现有字节限值检查；如果进一步细化放不下，则保留已证明的界。以前被拒绝的随机框架现在可以获得认证。数值容差不变。"
   },
   "changelog": {

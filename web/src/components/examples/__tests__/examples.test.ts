@@ -52,9 +52,9 @@ describe('catalog and contract', () => {
   });
   it('has every string in all eight languages', () => {
     const keys = Object.keys(exampleStrings.en).sort();
-    for (const locale of ['es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh']) expect(Object.keys(exampleStrings[locale]).sort()).toEqual(keys);
+    for (const locale of ['es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh', 'nl']) expect(Object.keys(exampleStrings[locale]).sort()).toEqual(keys);
     for (const e of EXAMPLES) {
-      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh']) {
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh', 'nl']) {
         expect(hubTranslations[locale][`tools.${e.id}`], `${locale} ${e.id} title`).toBeTruthy();
         expect(hubTranslations[locale][`tools.${e.id}.subtitle`], `${locale} ${e.id} subtitle`).toBeTruthy();
       }

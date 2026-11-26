@@ -12,6 +12,7 @@
     "de": "CIRSOC 201 berücksichtigt die Längsbewehrung bei sekundärer Querkraft",
     "fr": "Le cisaillement secondaire selon le CIRSOC 201 tient compte du ferraillage longitudinal",
     "hu": "A CIRSOC 201 a hosszvasalást figyelembe veszi a másodlagos nyírásnál",
+    "nl": "CIRSOC 201 secundaire dwarskracht gebruikt de langswapening",
     "zh": "CIRSOC 201 次要方向抗剪采用纵筋布置",
     "tr": "CIRSOC 201 ikincil kesmede boyuna donatıyı kullanır"
   },
@@ -22,6 +23,7 @@
     "de": "Beim Nachweis für sekundäre Querkraft und Torsion ergibt sich die statische Höhe aus dem größten Längsstabdurchmesser. Ist der erforderliche Durchmesser unbekannt, wird der Nachweis verweigert. Unterhalb der Mindestquerbewehrung berücksichtigt der Stützennachweis nach CIRSOC 201-2025 den Zugbewehrungsgrad. Sekundäre Querkraft wird ab 0,001 kN geprüft. Berechnen Sie die betroffenen räumlichen Betontragwerke erneut (#2171).",
     "fr": "Les vérifications du cisaillement secondaire et de la torsion calculent la hauteur utile à partir de la barre longitudinale de plus grand diamètre. La vérification est refusée si le diamètre requis est inconnu. En dessous du minimum d’armatures transversales, le CIRSOC 201-2025 tient compte du taux d’armatures longitudinales tendues des poteaux. Le cisaillement secondaire est vérifié à partir de 0,001 kN. Recalculez les structures spatiales en béton concernées (#2171).",
     "hu": "A másodlagos nyírás és csavarás ellenőrzésénél a hasznos magasság a legnagyobb átmérőjű hosszvas alapján számítandó. Ismeretlen átmérő esetén az ellenőrzés nem végezhető el. A keresztirányú vasalás minimuma alatt a CIRSOC 201-2025 az oszlopok húzott hosszvasalási hányadát veszi figyelembe. A másodlagos nyírás ellenőrzése 0,001 kN-tól indul. Számítsa újra az érintett térbeli betonszerkezeteket (#2171).",
+    "nl": "Secundaire dwarskracht- en torsietoetsingen gebruiken een effectieve hoogte op basis van de grootste langsstaaf en weigeren verificatie wanneer de vereiste diameter onbekend is. De CIRSOC 201-2025-kolomtoetsingen gebruiken het percentage langse trekwapening onder het minimum van de dwarswapening. Secundaire dwarskrachttoetsingen beginnen bij 0.001 kN. Voer de betreffende ruimtelijke betonontwerpen opnieuw uit (#2171).",
     "zh": "次要方向的剪力和扭转验算采用基于最大纵筋的截面有效高度；所需直径未知时，拒绝进行验算。CIRSOC 201-2025 的柱验算在低于横向钢筋最小值时采用纵向受拉钢筋配筋率。次要方向抗剪验算从 0.001 kN 起进行。请重新运行受影响的空间混凝土设计（#2171）。",
     "tr": "İkincil kesme ve burulma denetimlerinde faydalı derinlik en büyük çaplı boyuna donatıya göre hesaplanır. Gerekli çap bilinmiyorsa denetim reddedilir. CIRSOC 201-2025, enine donatı minimumunun altında kolonların çekme donatısı oranını kullanır. İkincil kesme denetimi 0,001 kN'dan başlar. Etkilenen üç boyutlu betonarme tasarımları yeniden hesaplayın (#2171)."
   },

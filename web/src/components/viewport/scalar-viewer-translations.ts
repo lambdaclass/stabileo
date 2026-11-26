@@ -159,3 +159,23 @@ export const zh = {
   "scalarViewer.editorNote": "在编辑器中打开实验将随研究模式提供",
   "scalarViewer.keyboard": "键盘：方向键平移，Shift+方向键在 3D 中旋转，+ 和 - 缩放，0 或 Home 缩放至全部",
 } satisfies ViewerStrings;
+
+export const nl = {
+  "scalarViewer.view": "Weergave",
+  "scalarViewer.viewOptions": "Weergave-opties",
+  "scalarViewer.close": "Sluiten",
+  "scalarViewer.fit": "Zoomen tot alles in beeld is",
+  "scalarViewer.plan": "2D (plattegrond, draaien vergrendeld)",
+  "scalarViewer.orbit": "3D (draaien)",
+  "scalarViewer.switchProjection": "Wisselen tussen de plattegrond en draaien in 3D",
+  "scalarViewer.viewer": "Stabileo-viewer",
+  "scalarViewer.position": "pos:",
+  "scalarViewer.zoom": "zoom:",
+  "scalarViewer.model": "model:",
+  "scalarViewer.bars": "{nodes} knopen, {cells} staven",
+  "scalarViewer.elements": "{nodes} knopen, {cells} elementen",
+  "scalarViewer.openEditor": "Openen in de editor",
+  "scalarViewer.soon": " (binnenkort)",
+  "scalarViewer.editorNote": "Experimenten openen in de editor komt met de onderzoeksmodus",
+  "scalarViewer.keyboard": "Toetsenbord: pijltjestoetsen verschuiven, Shift+pijlen draaien in 3D, + en - zoomen, 0 of Home past de weergave aan",
+} satisfies ViewerStrings;

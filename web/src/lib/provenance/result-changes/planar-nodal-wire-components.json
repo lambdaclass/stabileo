@@ -13,6 +13,7 @@
     "fr": "Composantes des charges nodales planes à l’entrée du solveur",
     "hu": "Síkbeli csomóponti teherösszetevők a megoldó bemenetén",
     "tr": "Çözücü girişinde düzlemsel düğüm yükü bileşenleri",
+    "nl": "Vlakke knoopcomponenten op de grens van de solver",
     "zh": "求解器输入中的平面节点荷载分量"
   },
   "explanation": {
@@ -23,6 +24,7 @@
     "fr": "Une charge nodale plane à six composantes est acceptée si les composantes hors plan sont nulles. Une composante non prise en charge entraîne un refus avant l’analyse. Les métadonnées des charges enregistrées sont acceptées.",
     "hu": "A megoldó elfogadja a hat összetevős síkbeli csomóponti terhet, ha a síkra merőleges összetevők nullák. A nem támogatott összetevő miatt a számítás el sem indul. A mentett terhek metaadatai elfogadottak.",
     "tr": "Altı bileşenli düzlemsel düğüm yükü, düzlem dışı bileşenler sıfırsa kabul edilir. Desteklenmeyen bir bileşen, analizden önce girdinin reddedilmesine yol açar. Kayıtlı yük meta verileri kabul edilir.",
+    "nl": "Een vlak knooprecord met alle zes componenten wordt geaccepteerd wanneer de componenten buiten het vlak nul zijn. Een niet-ondersteunde component leidt vóór de berekening tot weigering. Opgeslagen belastingmetadata wordt geaccepteerd.",
     "zh": "六分量平面节点荷载的面外分量均为零时，求解器接受该输入。若存在不支持的分量，求解器会在分析前拒绝该输入。求解器接受已保存荷载的元数据。"
   },
   "changelog": {

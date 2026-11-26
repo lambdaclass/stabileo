@@ -18,6 +18,7 @@
     "fr": "La récupération conserve les rigidités de cisaillement et de flexion spatiale",
     "tr": "Eleman hesabı kayma ve uzaysal eğilme rijitliklerini korur",
     "hu": "A rúd belső elmozdulásának számítása megőrzi a nyírási és térbeli hajlítási merevséget",
+    "nl": "Staafherstel behoudt afschuifstijfheid en ruimtelijke stijfheid",
     "zh": "杆件恢复保留剪切刚度和空间刚度"
   },
   "explanation": {
@@ -28,6 +29,7 @@
     "fr": "La récupération plane transmet désormais la rigidité de cisaillement. La récupération spatiale accepte à nouveau toute rigidité en flexion finie et positive. Le déplacement au survol utilise la même courbe Rust que le dessin, avant ajout des coordonnées globales. Relancez les analyses et vérifiez flèches, rotations et service ; solutions nodales et bornes du certificat sont inchangées. Corrige des régressions de la branche #2143 non encore intégrée (PR #2170).",
     "tr": "Düzlem hesabı artık kayma rijitliğini iletir. Uzaysal hesap her sonlu pozitif eğilme rijitliğini yeniden kabul eder. İmleçteki yer değiştirme, global koordinatlar eklenmeden önce çizimle aynı Rust eğrisini kullanır. Analizleri yeniden çalıştırıp sehim, dönme ve kullanılabilirliği inceleyin; düğüm çözümleri ve sertifika sınırları değişmez. Birleştirilmemiş #2143 dalındaki gerilemeler düzeltilir (PR #2170).",
     "hu": "A síkbeli számítás most továbbadja a nyírási merevséget. A térbeli számítás ismét minden véges pozitív hajlítási merevséget elfogad. A kurzorral leolvasott elmozdulás ugyanazt a Rust-görbekiértékelést használja, mint a rajzolás, a globális koordináták hozzáadása előtt. Futtassa újra az analíziseket, és ellenőrizze a számított lehajlásokat, elfordulásokat és használhatóságot; a csomóponti megoldások és a tanúsítvány korlátai nem változnak. Ezek a még be nem olvasztott #2143 ágon bevezetett regressziókat javítják (#2170 PR).",
+    "nl": "Vlak herstel geeft de afschuifstijfheid nu door. Ruimtelijk herstel accepteert opnieuw elke eindige positieve buigstijfheid. Doorbuiging bij hover leest dezelfde Rust-krommeberekening die voor het tekenen wordt gebruikt, voordat wereldcoördinaten worden toegevoegd. Voer berekeningen opnieuw uit en bekijk herstelde doorbuigingen, rotaties en bruikbaarheid; knooposplossingen en certificaatgrenzen zijn ongewijzigd. Dit corrigeert regressies op de niet-gemergde #2143-tak (PR #2170).",
     "zh": "平面恢复现在会传递剪切刚度。空间恢复重新接受任何有限的正弯曲刚度。悬停位移读取绘图所用的同一个 Rust 曲线计算，然后再加上世界坐标。请重新运行分析，并复核恢复得到的挠度、转角和使用性验算；节点解和证书界限不变。这些修正的是尚未合并的 #2143 分支上的回归问题（PR #2170）。"
   },
   "changelog": {

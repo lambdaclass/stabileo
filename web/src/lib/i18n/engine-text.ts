@@ -108,6 +108,7 @@ const pdeltaPhysicalResidual: Record<Locale, string> = {
   pt: "Os resultados de P-Delta foram retidos porque o resíduo físico nos graus de liberdade livres não atendeu à tolerância solicitada.",
   tr: "Serbestlik derecelerindeki fiziksel artık istenen toleransı karşılamadığı için P-Delta sonuçları verilmedi.",
   zh: "自由自由度的物理残差未达到要求的容差，因此未提供 P-Delta 结果。",
+  nl: "De P-Delta-resultaten zijn achtergehouden omdat het fysieke residu van de vrije vrijheidsgraden niet aan de gevraagde tolerantie voldeed.",
 };
 registerFeatureDictionaries(Object.fromEntries(
   Object.entries(pdeltaPhysicalResidual).map(([locale, message]) => [locale, { [PDELTA_PHYSICAL_RESIDUAL]: message }]),

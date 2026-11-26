@@ -31,4 +31,8 @@ export const archCard = {
     title: '石拱可以有多薄？',
     hook: '刚性拱石，不承受拉力：用线性规划和所有铰机构，求出圆弧拱的最小厚度，以及使拱环倒塌的荷载。',
   },
+  nl: {
+    title: 'Hoe dun kan een stenen boog zijn?',
+    hook: 'Stijve wigstenen, geen trek: vind de minimale dikte van een cirkelboog en de belasting waarbij een ring bezwijkt, met een lineair programma en alle scharniermechanismen.',
+  },
 };

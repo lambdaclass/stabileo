@@ -31,7 +31,7 @@ const en = {
 
 export type CqcStrings = typeof en;
 
-export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh', CqcStrings> = {
+export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh' | 'nl', CqcStrings> = {
   en,
   es: {
     srss: 'SRSS', cqc: 'CQC',
@@ -228,6 +228,34 @@ export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu'
     viewer: '屋面 X 向位移 · mm', viewNote: 'Stabileo 查看器中的轴测投影。变形 ×40；动画对包络进行缩放，并非时程。',
     step: '包络显示', rule: '组合方法',
     error: '实时计算失败',
+  },
+  nl: {
+    srss: 'SRSS', cqc: 'CQC',
+    title: 'Dicht bij elkaar liggende vormen: SRSS en CQC',
+    metaTitle: 'SRSS en CQC (1981) — Stabileo Research',
+    metaDescription: 'Dicht bij elkaar liggende trillingsvormen van een gebouw vergeleken met een gesloten referentieoplossing.',
+    lead: 'Een kleine 3D-schuifgebouwidealisatie, opgelost met de modale en responsspectrum-engine van de productieversie.',
+    citation: '”, illustratie van de methode gebaseerd op',
+    model: 'Het voorbeeld', description: 'Vier ingeklemde kolommen van 3 m hoog op een plattegrond van 4 × 3 m. Elk dakknoop draagt 5 t in X. Dakrotaties en Y/Z-verplaatsingen zijn verhinderd; gelijke-X-voorwaarden koppelen elk dwarspaar. Twee axiale dakstaven koppelen de twee overgebleven coördinaten. Dit is onze illustratie van de methode, niet het oorspronkelijke gebouw uit het artikel.',
+    method: 'Gesloten referentieoplossing', equations: 'De gereduceerde matrices zijn M = diag(10, 10) t en K = [[1020, −20], [−20, 1230]] kN/m. Los det(K − ω²M) = 0 op; normeer elke vorm op eenheidsmassa. Voor Sa = 1 m/s² zijn de modale fundamentele dwarskrachten Γ²Sa. SRSS laat de kruistermen weg; CQC behoudt hun correlatie bij gelijke demping ξ = 5%.',
+    rhoSource: 'Dit is de correlatiecoëfficiënt bij gelijke demping van Wilson, Der Kiureghian en Bayo (1981), vgl. (14), p. 191; p. 190 legt uit waarom de kruistermen hun teken behouden. Het veronderstelt gelijke modale demping, een grondbeweging die lang duurt ten opzichte van de modale perioden en een breed, glad spectrum. De referentiewaarden hieronder zijn gesloten resultaten voor dit voorbeeld, geen gegevens uit tabel I van het artikel.',
+    explanation: 'Het artikel stelt CQC voor om fouten bij modale combinatie te verkleinen en valt terug op SRSS bij ver uit elkaar liggende frequenties. Hier is SRSS lager dan CQC voor de fundamentele dwarskracht. Dit verschil is relatief ten opzichte van de CQC-schatting, geen gemeten fout ten opzichte van een aardbevingsregistratie.',
+    referenceLabel: 'Ten opzichte van de gesloten oplossing',
+    publishedNote: 'Het gebouw en de tabellen uit het artikel worden niet gebruikt: deze pagina toetst haar eigen voorbeeld met twee vormen aan de gesloten oplossing.',
+    comparison: 'Fundamentele dwarskracht · kN', roofHeading: 'Omhullende van de X-verplaatsing van het dak · mm', node: 'Knoop',
+    modalHeading: 'Modale gegevens', quantity: 'Grootheid', f1: 'Frequentie 1 · Hz', f2: 'Frequentie 2 · Hz', rho: 'Modale correlatie ρ',
+    impliedNote: 'De ρ van Stabileo wordt herleid uit de eigen resultaten: ρ = (V_CQC² − V_SRSS²) / (2 V₁ V₂), waarbij Vᵢ de modale fundamentele dwarskrachten zijn.',
+    reference: 'Gesloten oplossing', result: 'Stabileo', delta: 'Verschil · %',
+    deficit: 'SRSS ten opzichte van CQC · %',
+    checksHeading: 'Controles',
+    tolerance: 'Regressiegrens: relatief verschil kleiner dan 1 × 10⁻⁸ voor beide frequenties, de massadeelname in X, beide fundamentele dwarskrachten en beide dakverplaatsingen (9 controles). De native run wijkt hooguit 6.4 × 10⁻¹⁵ af. De grens beschermt dit kleine, goed geconditioneerde probleem met twee coördinaten tegen regressies; het is geen nauwkeurigheidsdoel, en overeenstemming tussen solver en gesloten oplossing zegt niets over de fysieke nauwkeurigheid.',
+    scope: 'Reikwijdte',
+    limitations: ['De vergelijking is met de gesloten oplossing van dit voorbeeld met twee coördinaten; het eigen gebouw en de numerieke tabellen van het artikel worden niet gereproduceerd.', 'Geen tijdsdomeinanalyse: geen van beide regels wordt vergeleken met een grondbewegingsregistratie.', 'Eén verdieping, geen torsierespons en geen parameterreeksen.'],
+    run: 'Live herberekenen', stop: 'Stoppen', restart: 'Opnieuw starten', running: 'Berekenen…',
+    replay: 'Vooraf berekende weergave (dezelfde solver)', live: 'Live resultaat (WASM van de productieversie)',
+    viewer: 'X-verplaatsing van het dak · mm', viewNote: 'Axonometrische projectie in de viewer van Stabileo. Vervorming ×40; de animatie schaalt de omhullende, het is geen tijdsdomeinanalyse.',
+    step: 'Weergave van de omhullende', rule: 'Combinatie',
+    error: 'Live berekening mislukt',
   },
 };
 

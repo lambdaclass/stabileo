@@ -19,6 +19,7 @@
     "fr": "La flèche intérieure inclut les couples concentrés sur les barres",
     "tr": "İç sehim, eleman üzerindeki tekil momentleri içerir",
     "hu": "A rúdon belüli lehajlás figyelembe veszi a koncentrált erőpárokat",
+    "nl": "Doorbuiging in het binnenveld omvat geconcentreerde staafkoppels",
     "zh": "内部挠度包含杆件上的集中力偶"
   },
   "explanation": {
@@ -29,6 +30,7 @@
     "fr": "Les valeurs au survol et les déformées omettaient les couples appliqués à l’intérieur des barres. Déplacement et rotation utilisent désormais la récupération commune du moteur pour toutes les charges de travée. Relancez les analyses enregistrées avec charges sur barres et vérifiez les flèches et les contrôles de service. Déplacements nodaux et efforts restent inchangés (#2143). La récupération sous charge est explicitement refusée sans rigidité en flexion suffisante (SA-2026-070).",
     "tr": "İmleçteki sehim ve deforme şekiller, eleman içindeki tekil momentleri atlıyordu. İç yer değiştirme ve dönme artık tüm açıklık yükleri için motorun ortak hesabını kullanır. Eleman yükleri olan kayıtlı analizleri yeniden çalıştırıp sehim ve kullanılabilirlik kontrollerini inceleyin. Düğüm yer değiştirmeleri ve eleman kuvvetleri değişmez (#2143). Yeterli eğilme rijitliği olmadan yüklü elemanın hesabı açıkça reddedilir (SA-2026-070).",
     "hu": "A kurzorral leolvasott lehajlás és a deformált alakok nem vették figyelembe a rúd belsejében ható koncentrált erőpárokat. A belső elmozdulás és elfordulás most minden rúd menti tehernél a motor közös számítását használja. Futtassa újra a rúdterheket tartalmazó mentett analíziseket, és ellenőrizze a lehajlásokat és a használhatósági ellenőrzéseket. A csomóponti elmozdulások és a rúdigénybevételek nem változnak (#2143). Terhelt rúd esetén a program elegendő hajlítási merevség hiányában kifejezetten elutasítja a belső elmozdulás és elfordulás számítását (SA-2026-070).",
+    "nl": "Doorbuiging bij hover en vervormde vormen lieten koppels binnen een staaf weg. Verplaatsing en rotatie in het binnenveld delen nu het engineherstel voor alle overspanningsbelastingen. Voer opgeslagen berekeningen met staafbelastingen opnieuw uit en bekijk doorbuigingen en bruikbaarheidscontroles. Knoopverplaatsingen en staafkrachten zijn ongewijzigd (#2143). Belast herstel zonder voldoende buigstijfheid wordt expliciet geweigerd (SA-2026-070).",
     "zh": "悬停显示的挠度和变形图曾遗漏杆件内部所加的力偶。内部位移和转角现在对所有跨内荷载共用计算引擎的恢复结果。请重新运行带杆件荷载的已保存分析，并复核挠度和使用性验算。节点位移和杆件内力不变（#2143）。没有足够弯曲刚度时的带荷载恢复会被明确拒绝求解（SA-2026-070）。"
   },
   "changelog": {

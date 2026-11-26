@@ -1,6 +1,6 @@
 import {
   es as publicEs, en as publicEn, pt as publicPt,
-  de as publicDe, fr as publicFr, tr as publicTr, hu as publicHu, zh as publicZh, loaders as publicLoaders,
+  de as publicDe, fr as publicFr, tr as publicTr, hu as publicHu, zh as publicZh, nl as publicNl, loaders as publicLoaders,
 } from 'virtual:public-i18n';
 import type { Translations } from './types';
 import { OFFERED_LOCALES, PUBLIC_LOCALES, type Locale } from './offered';
@@ -8,7 +8,7 @@ import { OFFERED_LOCALES, PUBLIC_LOCALES, type Locale } from './offered';
 // A key a language lacks renders in English. The steel keys live only in `locales/steel/*`,
 // so a bundled dictionary registered without its steel half shows raw keys instead.
 const PUBLIC_DICTS: Partial<Record<Locale, Translations>> = {
-  es: publicEs, en: publicEn, pt: publicPt, de: publicDe, fr: publicFr, tr: publicTr, zh: publicZh,
+  es: publicEs, en: publicEn, pt: publicPt, de: publicDe, fr: publicFr, tr: publicTr, zh: publicZh, nl: publicNl,
   ...(__PUBLIC_FEATURES__.research ? { hu: publicHu } : {}),
 };
 const dicts: Record<string, Translations> = Object.fromEntries(
@@ -103,7 +103,7 @@ export function isOfferedLocale(code: string): code is OfferedLocale {
  * The browser's preference, narrowed to what is offered.
  *
  * Matched against what is OFFERED, not against what exists, and on the BARE code so that
- * `es-AR`, `pt-BR`, `de-AT`, `fr-CA`, `tr-TR` and `zh-CN` (also `zh-TW` and `zh-Hant`, which read the Simplified Chinese rather than the English) all land where they should. Anything else
+ * `es-AR`, `pt-BR`, `de-AT`, `fr-CA`, `tr-TR`, `nl-NL`, `nl-BE` and `zh-CN` (also `zh-TW` and `zh-Hant`, which read the Simplified Chinese rather than the English) all land where they should. Anything else
  * (`ja`, `it`) falls through to English.
  */
 function detectBrowserLocale(): OfferedLocale {

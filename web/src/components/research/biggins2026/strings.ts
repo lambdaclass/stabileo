@@ -258,5 +258,44 @@ const zh: Strings = {
     "Euler f1 relative error": "第二 Euler 荷载"
   }
 };
-export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, zh };
+const nl: Strings = {
+  "title": "Doorklappende bogen door krommingspatronen",
+  "lead": "Verander de breedte van een gekromd segment en verschuif de drempel waarbij een flauwe boog naar de andere kant omklapt.",
+  "model": "Van euler-knik naar een evenwichtssprong",
+  "theory": "Een aan beide uiteinden ingeklemde vlakke boog slaat de verkorting van de uiteinden op in zijn vorm. Een patroon van voorkeurskromming koppelt aan de knikvormen. Vergelijkingen (2) en (3), arXiv v2 pagina 3–4, geven het evenwicht bij kleine hoeken en het drukspectrum. We beperken dit experiment tot een gecentreerd rechthoekig patroon.",
+  "method": "De Stabileo-productiesolver voor 2D-raamwerkknik berekent 16 vormen op 64 elementen. Een onderzoekslaag projecteert de kromming op deze vormen en lost de drukvoorwaarde van het artikel op. Dezelfde Rust-code draait hier als WASM en genereert de weergave.",
+  "limits": "Dit is een evenwichtsmodel voor flauwe, onuitrekbare bogen. De sprong verbindt evenwichtstoestanden; hij simuleert de dynamica van het doorklappen niet en reproduceert geen laboratoriummetingen. De booglengtemethode van de productie-engine weigert opgelegde verplaatsingen en temperatuurbelasting en wordt daarom niet gebruikt voor dit door kromming gestuurde pad. Alleen gecentreerde patronen en kleine verkorting van de uiteinden worden behandeld.",
+  "evidence": "Bij een gestimuleerde breedte van 70% geeft het artikel α/√ε = {threshold} (arXiv v2 pagina 3, na vgl. 2). De overlay wordt opnieuw gegenereerd met de software voor kleine hoeken van de auteurs in Zenodo-record 18256271, onder licentie CC-BY-4.0. Het is een numerieke referentie, geen experimentele validatie.",
+  "checks": "Validatie en bronnen",
+  "publishedValue": "Gepubliceerde drempel bij 70% breedte",
+  "width": "Gestimuleerde breedte γ",
+  "compression": "Verkorting van de uiteinden ε",
+  "threshold": "Klapdrempel α",
+  "normalized": "Genormaliseerde drempel α/√ε",
+  "mode": "Eerste antisymmetrische knikvorm",
+  "arch": "Evenwicht van de boog",
+  "jump": "Reeks evenwichtstoestanden; de sprong heeft geen fysieke duur",
+  "run": "Live herberekenen",
+  "stop": "Stoppen",
+  "restart": "Opnieuw starten",
+  "error": "De solver kon niet laden of niet afronden. Het vorige resultaat blijft beschikbaar.",
+  "computing": "Berekenen met Stabileo…",
+  "paper": "Artikel en aanvullende vergelijkingen",
+  "data": "Zenodo-data en -software",
+  "ours": "Stabileo-vormen + vergelijkingen voor flauwe bogen",
+  "reference": "Zenodo-software van de auteurs",
+  "parameterNotice": "Getoonde resultaten behouden hun berekende parameters totdat de herberekening klaar is.",
+  "resultParameters": "Berekende parameters",
+  "alpha": "Voorkeurskromming α = Lκ₀",
+  "force": "Normaalkracht f = NL²/EI (positief: druk; negatief: trek)",
+  "coordinates": "Aan beide uiteinden ingeklemd. De coördinaten zijn x/L en w/L; α is de voorkeurskromming vermenigvuldigd met de overspanning L.",
+  "referenceCaveat": "De standaardoptimalisatie en de kwadratuur voor rechthoekige profielen van de auteurs geven kleine onregelmatigheden; hun uitvoer bij 70% is {software}, terwijl het artikel {published} vermeldt.",
+  "checkLabels": {
+    "max relative threshold error against 31 Zenodo software outputs": "Zenodo-curve: maximale relatieve fout",
+    "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": "Verfijning van elementennet en vormen",
+    "Euler f0 relative error": "Eerste eulerlast",
+    "Euler f1 relative error": "Tweede eulerlast"
+  }
+};
+export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, zh, nl };
 export const archStrings = (): Strings => translations[publicI18n.locale] ?? en;

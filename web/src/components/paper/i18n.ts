@@ -68,6 +68,14 @@ const S: Record<'es' | 'en', PaperStrings> & Partial<Record<PublicLocale, PaperS
     metaTitle: 'Developing a structural calculation agent on top of a verified solver（论文，英文）— Stabileo',
     metaDescription: '论文全文（英文）：用于结构计算的 AI 智能体，只有在调度经过验证的求解器、自己从不生成任何数值时，才是可靠的。',
   },
+  nl: {
+    venue: 'Gepresenteerd op de 29e Argentijnse conferentie over constructief ontwerp (JAIE 2026).',
+    download: 'PDF downloaden',
+    original: 'Spaans origineel (PDF)',
+    language: 'Dit is de Engelse vertaling; het Spaanse origineel kun je downloaden.',
+    metaTitle: 'Developing a structural calculation agent on top of a verified solver (paper, in het Engels) — Stabileo',
+    metaDescription: 'Het volledige paper: een AI-agent voor constructieve berekeningen is alleen betrouwbaar als hij een geverifieerde solver aanstuurt en zelf nooit een getal produceert.',
+  },
 };
 
 export function ps(): PaperStrings {

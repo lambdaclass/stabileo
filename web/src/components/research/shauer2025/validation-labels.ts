@@ -260,6 +260,22 @@ const labels: Record<string, Record<string, string>> = {
     "preDamage": "直至峰值的最大损伤",
     "force": "含断裂阶段的力",
     "mirror": "节点损伤，参考值或镜像"
+  },
+  "nl": {
+    "mesh": "Vingerafdrukken van het elementennet",
+    "steps": "Aantal belastingstappen",
+    "iterations": "Iteraties bij elke stap",
+    "damage": "Maximale schade bij elke stap",
+    "stress": "Spanning in het midden bij elke stap",
+    "damageField": "Schade in de knopen",
+    "displacementField": "Verplaatsing van de knopen",
+    "analytic": "Spanning in het midden / 1D AT2-oplossing, max d < 0.25",
+    "peakStep": "Stap met de piekkracht",
+    "peak": "Piekkracht",
+    "preForce": "Kracht tot en met de piek",
+    "preDamage": "Maximale schade tot en met de piek",
+    "force": "Kracht inclusief breuk",
+    "mirror": "Schade in de knopen, referentie of spiegelbeeld"
   }
 };
 const metrics: Record<string, Record<string, string>> = {
@@ -322,6 +338,14 @@ const metrics: Record<string, Record<string, string>> = {
   "zh": {
     "exact": "精确",
     "relative difference": "相对差异",
+    "absolute difference / AT2 peak stress": "|Δσ| / σc",
+    "max absolute difference": "max |Δd|",
+    "max absolute difference / max |u|": "max |Δu| / max |u|",
+    "absolute difference, kN": "|ΔF| (kN)"
+  },
+  "nl": {
+    "exact": "Exact",
+    "relative difference": "Relatief verschil",
     "absolute difference / AT2 peak stress": "|Δσ| / σc",
     "max absolute difference": "max |Δd|",
     "max absolute difference / max |u|": "max |Δu| / max |u|",

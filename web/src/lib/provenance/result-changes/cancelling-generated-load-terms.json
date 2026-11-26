@@ -13,6 +13,7 @@
     "fr": "Termes qui s’annulent dans les charges de câbles et les charges planes",
     "hu": "Egymást kioltó tagok a feszítőkábel- és síkbeli terhekben",
     "tr": "Tendon ve düzlem yüklerinde birbirini götüren terimler",
+    "nl": "Zich opheffende termen in voorspankabel- en vlakke belastingen",
     "zh": "预应力筋荷载与平面荷载中相互抵消的项"
   },
   "explanation": {
@@ -23,6 +24,7 @@
     "fr": "La vérification inclut les contributions qui s’annulent dans la charge d’un câble de précontrainte. L’assemblage plan conserve les deux projections sur les axes de la barre d’une charge alignée sur un axe global dès que l’une dépasse le seuil existant.",
     "hu": "A terhek ellenőrzése figyelembe veszi a feszítőkábel terhének egymást kioltó járulékait. A globális tengellyel párhuzamos síkbeli teher mindkét helyi vetülete megmarad, ha valamelyik meghaladja a meglévő küszöbértéket.",
     "tr": "Yük denetimi, tendon yükünde birbirini götüren katkıları hesaba katar. Global bir eksene paralel düzlem yükünün izdüşümlerinden biri mevcut eşiği aşarsa eleman eksenlerindeki iki izdüşüm de korunur.",
+    "nl": "De belastingcontrole neemt de bijdragen mee die elkaar in een voorspankabelbelasting opheffen. De vlakke belastingassemblage behoudt beide staafasprojecties van een aan de assen uitgelijnde globale belasting wanneer een van beide projecties de bestaande afkapgrens overschrijdt.",
     "zh": "荷载校核计入预应力筋荷载中相互抵消的各项。平面荷载沿整体坐标轴作用时，只要在构件轴上的任一投影超过现有阈值，就会保留两个投影。"
   },
   "changelog": {

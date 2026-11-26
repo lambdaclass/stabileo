@@ -50,6 +50,13 @@ export const adConsentTranslations: Record<string, Record<string, string>> = {
     'adConsent.decline': '拒绝',
     'adConsent.privacy': '隐私',
   },
+  nl: {
+    'adConsent.label': 'Advertentiecookies',
+    'adConsent.text': 'Met jouw toestemming gebruiken we cookies van Meta en Google om te leren welke advertenties mensen naar Stabileo brengen.',
+    'adConsent.accept': 'Accepteren',
+    'adConsent.decline': 'Weigeren',
+    'adConsent.privacy': 'Privacy',
+  },
 };
 
 registerFeatureDictionaries(adConsentTranslations);

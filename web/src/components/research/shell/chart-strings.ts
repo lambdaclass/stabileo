@@ -8,5 +8,6 @@ const strings: Record<string, { axes: string; table: string }> = {
   tr: { axes: '{x} ile {y}', table: 'Grafik verilerini göster' },
   hu: { axes: '{y} a(z) {x} függvényében', table: 'Diagramadatok megjelenítése' },
   zh: { axes: '{y} 随 {x} 的变化', table: '查看图表数据' },
+  nl: { axes: '{y} tegen {x}', table: 'Grafiekgegevens weergeven' },
 };
 export const chartStrings = () => strings[publicI18n.locale] ?? strings.en;

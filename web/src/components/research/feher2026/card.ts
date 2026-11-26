@@ -19,4 +19,8 @@ export const shapeCard = {
     title: '引导弯曲板条在两种形状之间转换',
     hook: '在固定荷载下转动主动弯曲板条的两个夹具，使其由拱形转为反向形状，而不发生突跳。',
   },
+  nl: {
+    title: 'Een gebogen strip sturen tussen twee vormen',
+    hook: 'Draai de twee klemmen van een actief gebogen strip onder een vaste belasting en breng hem van een boog naar zijn omgekeerde vorm zonder doorklappen.',
+  },
 };

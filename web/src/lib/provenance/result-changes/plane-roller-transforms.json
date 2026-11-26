@@ -19,6 +19,7 @@
     "pt": "Apoios móveis em modelos planos acompanham giros de um quarto de volta",
     "de": "Ebene Rollenlager folgen Vierteldrehungen",
     "fr": "Les appuis à rouleaux plans suivent les quarts de tour",
+    "nl": "Vlakke rollen volgen kwartslagwijzigingen",
     "zh": "平面滚动支座跟随 90° 转动编辑",
     "tr": "Düzlemdeki kayıcı mesnetler çeyrek dönüşü izler"
   },
@@ -28,6 +29,7 @@
     "pt": "A restrição de um apoio móvel em um modelo plano podia permanecer no eixo anterior após um giro. Revise os apoios de giros anteriores e repita a análise se corrigir a direção de um apoio.",
     "de": "Nach einer Drehung konnte die Bindung eines ebenen Rollenlagers auf der ursprünglichen Achse bleiben. Prüfen Sie Lager aus früheren Drehungen und berechnen Sie das Modell erneut, wenn Sie eine Lagerrichtung korrigieren.",
     "fr": "Après une rotation, le blocage d’un appui à rouleaux plan pouvait conserver son axe initial. Vérifiez les appuis issus de rotations antérieures et relancez l’analyse si vous corrigez la direction d’un appui.",
+    "nl": "De verhindering van een vlakke roloplegging kon na een rotatie op zijn oude as blijven staan. Controleer opleggingen met eerdere rotaties en voer de berekening opnieuw uit als je een oplegrichting corrigeert.",
     "zh": "平面滚动支座旋转后，其约束可能仍留在原来的轴上。请复核此前旋转过的支座；若纠正了支承方向，请重新运行分析。",
     "tr": "Dönüşten sonra düzlemdeki bir kayıcı mesnet kısıtı eski ekseninde kalabiliyordu. Önceki dönüşlerden kalan mesnetleri gözden geçirin ve bir mesnet yönünü düzeltirseniz analizi yeniden çalıştırın."
   },

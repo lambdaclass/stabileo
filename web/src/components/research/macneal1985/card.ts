@@ -31,4 +31,8 @@ export const card = {
     title: 'MacNeal–Harder (1985)：计算引擎基准算例',
     hook: '用生产环境计算引擎运行 MacNeal–Harder 悬臂梁算例；检查每个结果，包括失败的算例。',
   },
+  nl: {
+    title: 'MacNeal–Harder (1985): benchmarks van de engine',
+    hook: 'Draai de productie-engine op de MacNeal–Harder-uitkragingen; bekijk elk resultaat, ook de mislukkingen.',
+  },
 };

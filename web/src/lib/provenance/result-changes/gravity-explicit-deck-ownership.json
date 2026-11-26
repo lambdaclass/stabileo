@@ -23,6 +23,7 @@
     "de": "Eindeutige Zuordnung automatischer Schwerkraftlasten voraussetzen",
     "fr": "Exiger une attribution sans ambiguïté des charges gravitaires automatiques",
     "tr": "Otomatik yerçekimi yükleri için kesin taşıyıcı ataması gerektir",
+    "nl": "Ondubbelzinnige eigendom van automatische zwaartekracht vereisen",
     "zh": "要求明确分配自动重力荷载",
     "hu": "Az automatikus gravitációs terhek egyértelmű hozzárendelésének megkövetelése"
   },
@@ -33,6 +34,7 @@
     "de": "Erzeugen Sie die automatischen Schwerkraftlasten auf Feldern neu. Die Erzeugung stoppt bei unklarer Zuordnung überlappender Träger oder wenn ein verworfener breiter Rahmen die Überdeckung beeinflussen würde.",
     "fr": "Régénérez les charges gravitaires automatiques par panneaux. La génération s’arrête si l’attribution entre porteurs superposés est ambiguë ou si un cadre large écarté affecterait la couverture supérieure.",
     "tr": "Otomatik panel yerçekimi yüklerini yeniden üretin. Örtüşen taşıyıcılara yük ataması belirsizse veya elenen geniş bir halka üst örtüyü etkileyecekse üretim durur.",
+    "nl": "Genereer automatische paneelzwaartekracht opnieuw. De generatie stopt als overlappende dragers dubbelzinnige eigendom hebben of een afgewezen brede ring de bovenliggende bedekking zou beïnvloeden.",
     "zh": "请重新生成自动板格重力荷载。如果重叠承载构件的荷载归属不明确，或已排除的宽梁环会影响上方遮盖，生成将停止。",
     "hu": "Generálja újra a mezők automatikus gravitációs terheit. A generálás leáll, ha az átfedő teherhordók hozzárendelése bizonytalan, vagy egy elvetett széles keret befolyásolná a felső takarást."
   },

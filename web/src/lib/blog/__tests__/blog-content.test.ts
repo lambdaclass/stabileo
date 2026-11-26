@@ -417,6 +417,7 @@ describe('the safety-advisories post quotes the advisories', () => {
     hu: 'Távolítsa el a modellből a bizonyítottan elavult üres tehereseteket, azokat is, amelyek már a 0.6.4-es verzióban üresek voltak. Hozza létre újra a kombinációkat, és az érintett számítások megismétlése előtt ellenőrizze, hogy a kombinációk nem tartalmazzák ezeket a tehereset-azonosítókat.',
     tr: 'Artık geçerli olmadığını doğruladığınız boş yük durumlarını, 0.6.4 sürümünde zaten boş olanlar dahil, modelden kaldırın. Birleşimleri yeniden oluşturun ve etkilenen analizleri tekrarlamadan önce bu yük durumu kimliklerinin birleşimlerde yer almadığını doğrulayın.',
     zh: '从模型中删除经确认已失效的空荷载工况，包括在 0.6.4 版中已经为空的工况。重新生成组合，并在重新进行受影响的分析前，核实新组合不含这些工况的编号。',
+    nl: "Verwijder bevestigde verouderde lege belastinggevallen uit het model, inclusief gevallen die in 0.6.4 al leeg waren. Genereer de combinaties opnieuw en verifieer dat ze die gevals-ID's uitsluiten voordat je getroffen analyses opnieuw uitvoert.",
   };
 
   it.each(advisoryLocales)('known wrong result: #2589 — %s summarizes how to exclude obsolete empty cases from regenerated combinations', (locale) => {
@@ -562,6 +563,7 @@ describe('the safety-advisories post quotes the advisories', () => {
       tr: '0.6.2 sürümünde düzeltildi',
       hu: 'Javítva a 0.6.2 verzióban',
       zh: '已在 0.6.2 中修复',
+      nl: 'Verholpen in 0.6.2',
     };
     const fixedIds = fixed.map(({ id }) => id).sort();
     const november20 = readdirSync(directory).filter(file => /^SA-2026-09[1-5]-/.test(file));

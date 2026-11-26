@@ -18,6 +18,7 @@
     "de": "Gleichzeitige Nachweise behalten maßgebende Schnittgrößen",
     "fr": "Les vérifications simultanées conservent les efforts déterminants",
     "tr": "Eşzamanlı kontroller belirleyici talepleri korur",
+    "nl": "Gelijktijdige controles behouden maatgevende belastingen",
     "zh": "同时作用的验算保留控制内力"
   },
   "explanation": {
@@ -27,6 +28,7 @@
     "de": "Stahlnachweise behalten die maximale Zugkraft und ihre maßgebende Kombination. Negative Momente verwenden die Länge des unteren Flanschs; Normalkräfte an Zwischenstellen bleiben bei null Endkräften erhalten. Die Betonzertifizierung umfasst alle gleichzeitigen Fälle. Gespeicherte Bemessungen erneut ausführen und Schnittgrößen, Ausnutzung, Zertifikate und Kombinationen prüfen (PR #2080).",
     "fr": "Les vérifications acier conservent la traction maximale et sa combinaison déterminante. Les moments négatifs utilisent la longueur de la semelle inférieure et les efforts normaux intermédiaires restent présents lorsque les extrémités sont nulles. La certification béton inclut tous les cas simultanés. Relancer les projets enregistrés et vérifier efforts, taux, certificats et combinaisons (PR #2080).",
     "tr": "Çelik kontrolleri en büyük çekme kuvvetini ve belirleyici kombinasyonunu korur. Negatif momentler alt başlık uzunluğunu kullanır; uç kuvvetleri sıfır olsa da ara istasyon eksenel kuvvetleri korunur. Beton sertifikasyonu tüm eşzamanlı durumları içerir. Kayıtlı tasarımları yeniden çalıştırıp talepleri, oranları, sertifikaları ve kombinasyonları inceleyin (PR #2080).",
+    "nl": "Staalcontroles behouden hun eigen maximale trek en maatgevende combinatie. Negatieve momenten kiezen de lengte van de onderflens, en normaalkrachten op stations blijven behouden bij nul-eindsamenvattingen. Betoncertificatie omvat elk gelijktijdig geval. Voer opgeslagen ontwerpen opnieuw uit en bekijk belastingen, benuttingsgraad, certificaten en combinatielabels (PR #2080).",
     "zh": "钢结构验算保留其自身的最大拉力和控制组合。负弯矩选取下翼缘长度，站点轴力在端点汇总值为零时仍然保留。混凝土证书包含每一个同时作用的工况。请重新运行已保存的设计，并复核内力、利用率、证书和组合标签（PR #2080）。"
   },
   "quantities": [

@@ -23,6 +23,7 @@
     "de": "Konforme Neuvernetzung von Platten in vereinheitlichtem PRO zurückgezogen",
     "fr": "Retrait du remaillage conforme des plaques de PRO unifié",
     "tr": "Birleşik PRO uyumlu plak ağı yenilemesi geri çekildi",
+    "nl": "Geünificeerde PRO-conforme hermeshing van platen ingetrokken",
     "zh": "统一版 PRO 的板相容网格重划分已撤回"
   },
   "explanation": {
@@ -32,6 +33,7 @@
     "de": "PR #2509 hat die Plattenintegration des vereinheitlichten PRO (#2365) rückgängig gemacht. Das gemeinsame Festlegen der Randknoten bei der Neuvernetzung von Decken und Wänden ist nicht mehr aktiv. Prüfen Sie die Netzvorbereitung und wiederholen Sie betroffene Berechnungen aus dem vereinheitlichten PRO.",
     "fr": "La PR #2509 a annulé l’intégration des plaques dans PRO unifié (#2365). Le placement par lot des nœuds sur les bords communs lors du remaillage des dalles et des voiles ne s’applique plus. Vérifiez la préparation du maillage et relancez les calculs concernés qui ont été effectués avec PRO unifié.",
     "tr": "#2509, birleşik PRO plak entegrasyonunu (#2365) geri aldı. Döşeme ve duvarların ağı yenilenirken ortak kenar düğümlerinin toplu olarak yerleştirilmesi artık geçerli değil. Ağ hazırlığını kontrol edin ve birleşik PRO ile yapılan ve bu değişiklikten etkilenen analizleri yeniden çalıştırın.",
+    "nl": "PR #2509 heeft de geïntegreerde PRO-plaatintegratie (#2365) teruggedraaid. De batchplaatsing van gedeelde randknopen bij het hermeshen van vloeren en wanden is niet meer van kracht. Controleer de netvoorbereiding en voer de betreffende berekeningen met geünificeerde PRO opnieuw uit.",
     "zh": "#2509 已回退统一版 PRO 的板功能集成（#2365）。重新划分楼板和墙的网格时批量布置共用边节点的做法已不再生效。请检查网格准备情况，并重新运行曾使用统一版 PRO 执行且受影响的分析。"
   },
   "changelog": {

@@ -10,6 +10,7 @@
     "pt": "Os movimentos impostos acompanham a rotação dos apoios planos",
     "de": "Vorgegebene Bewegungen folgen der Drehung ebener Lager",
     "fr": "Les mouvements imposés suivent la rotation des appuis plans",
+    "nl": "Voorgeschreven bewegingen volgen rotaties van vlakke opleggingen",
     "zh": "指定运动跟随平面支座的转动",
     "tr": "Dayatılan hareketler düzlem mesnetlerin dönüşünü izler"
   },
@@ -19,6 +20,7 @@
     "pt": "Ao rodar um apoio plano com uma máscara de restrições explícita, um movimento imposto guardado com um nome de campo antigo podia ser aplicado na direção errada. Verifique os deslocamentos e as rotações impostos nos apoios rodados anteriormente e volte a executar a análise após corrigir os movimentos afetados.",
     "de": "Beim Drehen eines ebenen Lagers mit einer expliziten Freiheitsgradmaske konnte eine unter einem älteren Feldnamen gespeicherte Bewegung in der falschen Richtung angesetzt werden. Prüfen Sie die vorgegebenen Verschiebungen und Verdrehungen an bereits gedrehten Lagern und berechnen Sie das Modell nach der Korrektur erneut.",
     "fr": "La rotation d’un appui plan muni d’un masque de blocages explicite pouvait appliquer dans la mauvaise direction un mouvement imposé enregistré sous un ancien nom de champ. Vérifiez les déplacements et rotations imposés aux appuis déjà tournés, puis relancez l’analyse après avoir corrigé les mouvements concernés.",
+    "nl": "Het roteren van een vlakke oplegging met een expliciet verhinderingsmasker kon een voorgeschreven beweging, opgeslagen onder een oude veldnaam, verkeerd richten. Controleer de opgelegde verplaatsing en rotatie bij eerder gedraaide opleggingen en voer de berekening opnieuw uit nadat je de betreffende bewegingen hebt gecorrigeerd.",
     "zh": "旋转带有明确约束掩码的平面支座时，以旧字段名存储的指定位移可能被指向错误的方向。请检查此前转动过的支座处的强制位移和转角，在纠正受影响的运动后重新运行分析。",
     "tr": "Açık bir kısıtlama maskesi bulunan düzlem mesnet döndürüldüğünde, eski bir alan adıyla kaydedilmiş dayatılan hareket yanlış yönde uygulanabiliyordu. Daha önce döndürülmüş mesnetlerde dayatılan yer değiştirme ve dönmeleri denetleyin. Etkilenen hareketleri düzelttikten sonra analizi yeniden çalıştırın."
   },

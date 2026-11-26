@@ -48,7 +48,7 @@ const DICTS: Record<string, Record<string, string>> = {
 const rendered = (locale: string, key: string) => DICTS[locale][key] ?? DICTS.en[key];
 
 /** Where a browser in this language lands: the language once it is complete, English until then. */
-const reach = (code: 'de' | 'fr' | 'tr' | 'hu' | 'zh') => (BUILD_OFFERED_LOCALES.includes(code) ? code : 'en');
+const reach = (code: 'de' | 'fr' | 'tr' | 'hu' | 'zh' | 'nl') => (BUILD_OFFERED_LOCALES.includes(code) ? code : 'en');
 
 /**
  * Boot PRO with NOTHING stored — the app must decide from the browser alone.
@@ -107,7 +107,7 @@ const SMOKE_DETECTION = [
 
 /** The rest of the sweep: same assertion, outside the blocking suite. */
 const FULL_DETECTION = [
-  ['de-DE', reach('de')], ['de-AT', reach('de')], ['tr-TR', reach('tr')], ['hu-HU', reach('hu')], ['fr-CA', reach('fr')], ['ja-JP', 'en'], ['zh-CN', reach('zh')], ['zh-TW', reach('zh')], ['ru-RU', 'en'],
+  ['de-DE', reach('de')], ['de-AT', reach('de')], ['tr-TR', reach('tr')], ['hu-HU', reach('hu')], ['fr-CA', reach('fr')], ['ja-JP', 'en'], ['nl-NL', reach('nl')], ['nl-BE', reach('nl')], ['nl', reach('nl')], ['zh-CN', reach('zh')], ['zh-TW', reach('zh')], ['ru-RU', 'en'],
 ] as const;
 
 test.describe('@smoke the language a browser gets', () => {

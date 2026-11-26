@@ -19,6 +19,7 @@
     "fr": "Barres axiales avec une extrémité libre transversalement",
     "hu": "Axiális rudak szabad keresztirányú véggel",
     "tr": "Enine hareketi serbest uçlu eksenel elemanlar",
+    "nl": "Axiale staven met een vrije dwarse top",
     "zh": "端部可自由横移的轴向杆件"
   },
   "explanation": {
@@ -29,6 +30,7 @@
     "fr": "Une extrémité libre d’une barre axiale peut se déplacer latéralement sans déformation. Le solveur refuse le modèle si ce mouvement rend la raideur active singulière.",
     "hu": "Egy axiális rúd szabad vége alakváltozás nélkül oldalra mozdulhat. A megoldó elutasítja a modellt, ha ettől az aktív merevség szinguláris lesz.",
     "tr": "Eksenel bir elemanın serbest ucu şekil değiştirmeden enine hareket edebilir. Bu hareket etkin rijitliği tekil yaparsa çözücü modeli reddeder.",
+    "nl": "Een niet-aangesloten top van een axiale staaf kan zonder rek zijdelings bewegen. De solver weigert nu wanneer deze beweging de actieve stijfheid singulier maakt.",
     "zh": "轴向杆件的自由端可在杆件不发生应变的情况下横移。如果这一运动使当前刚度矩阵奇异，求解器会拒绝分析。"
   },
   "changelog": {

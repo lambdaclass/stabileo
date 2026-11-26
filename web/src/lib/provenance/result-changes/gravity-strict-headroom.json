@@ -19,6 +19,7 @@
     "de": "Laststreifen an der tatsächlichen lichten Höhe abschneiden",
     "fr": "Découper les bandes de charge selon la hauteur libre réelle",
     "tr": "Yerçekimi yükü şeritlerini gerçek net yüksekliğe göre kırpma",
+    "nl": "Zwaartekrachtstroken afknippen op fysieke grenzen voor stahoogte",
     "zh": "按实际净高限制剪裁重力荷载条带",
     "hu": "A gravitációs teher sávjainak vágása a tényleges szabad magasság alapján"
   },
@@ -29,6 +30,7 @@
     "de": "Bei der automatischen Flächenlastgenerierung werden Laststreifen einzelner Stäbe dort gekürzt, wo darüberliegende Felder zu wenig lichte Höhe lassen. Ist die Überdeckung wegen einer unbestimmten Feldhöhe unklar, wird die Erzeugung gesperrt. Erzeugen Sie betroffene Schwerkraft- und Dachschneelasten neu und wiederholen Sie Analysen und Kombinationen.",
     "fr": "La génération des charges gravitaires par panneaux découpe les bandes des barres isolées là où les travées supérieures laissent une hauteur libre insuffisante. La génération est bloquée si une hauteur de plancher indéterminée empêche de trancher. Régénérez les charges gravitaires par panneaux et les charges de neige en toiture concernées, puis relancez les analyses et les combinaisons.",
     "tr": "Otomatik panel yerçekimi yükü üretimi, üst döşeme gözlerinin yetersiz net yükseklik bıraktığı yerlerde bağımsız çubukların şeritlerini kırpar. Belirsiz döşeme yüksekliği örtünün belirlenmesini engellerse üretim durur. Etkilenen panel yerçekimi ve çatı kar yüklerini yeniden üretip analizleri ve birleşimleri tekrarlayın.",
+    "nl": "Automatische paneelzwaartekracht knipt losstaande stroken af overal waar behouden vakken onvoldoende stahoogte geven. Onopgeloste bedekking door een onbepaalde dekhoogte blokkeert de generatie. Genereer betrokken paneelzwaartekracht- en daksneeuwbelastingen opnieuw en voer berekeningen en combinaties opnieuw uit.",
     "zh": "自动板区重力荷载生成会剪裁上方板区净高不足处的独立杆件条带。如果板区高度不确定导致无法判定覆盖范围，系统将停止生成。请重新生成受影响的板区重力荷载和屋面雪荷载，并重新运行分析和组合计算。",
     "hu": "Az automatikus mezőnkénti gravitációs tehergenerálás levágja a különálló rudak sávjait, ahol a felső mezők alatt elégtelen a szabad magasság. A generálás leáll, ha a födém bizonytalan magassága miatt a fedettség nem dönthető el. Generálja újra az érintett mezőnkénti gravitációs és tetőhóterheket, majd ismételje meg az elemzéseket és a kombinációkat."
   },

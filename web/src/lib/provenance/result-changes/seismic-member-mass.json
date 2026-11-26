@@ -23,6 +23,7 @@
     "de": "Erzeugte Erdbebeneinwirkungen folgen der physischen Masse",
     "fr": "Les actions sismiques générées suivent la masse physique",
     "tr": "Üretilen deprem etkileri fiziksel kütleyi izler",
+    "nl": "Gegenereerde seismische acties volgen de fysieke massa",
     "zh": "生成的地震作用按实际质量分布确定",
     "hu": "A generált szeizmikus hatások a fizikai tömeget követik"
   },
@@ -33,6 +34,7 @@
     "de": "Die Unterteilung von Stäben konnte erzeugte Erdbebenlasten verschieben. Das statische Verfahren verwendet die physische Masse und meldet nicht darstellbare Ebenen. E-Lasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen (#2208, #2209).",
     "fr": "La subdivision des barres pouvait déplacer les charges sismiques générées. La méthode statique utilise la masse physique et signale les niveaux non pris en charge. Régénérez les charges E puis relancez les analyses, combinaisons et vérifications (#2208, #2209).",
     "tr": "Elemanları bölmek, üretilen deprem yüklerini kaydırabiliyordu. Statik yöntem fiziksel kütleyi kullanır ve desteklenmeyen seviyeleri bildirir. E yüklerini yeniden üretin, analizleri, birleşimleri ve kontrolleri tekrarlayın (#2208, #2209).",
+    "nl": "Onderverdeling van knopen kon gegenereerde seismische belastingen verschuiven. De statische planner gebruikt de fysieke massa en meldt niet-ondersteunde niveaus. Genereer E-belastingen opnieuw en herhaal berekeningen, combinaties en ontwerptoetsingen (#2208, #2209).",
     "zh": "细分节点曾可能改变生成的地震荷载。等效静力荷载生成采用实际质量，并报告缺少传力支承的标高。请重新生成 E 荷载并重做分析、组合和设计验算（#2208、#2209）。",
     "hu": "A rudak felosztása eltolhatta a generált szeizmikus terheket. A statikus módszer a fizikai tömeget használja, és jelzi a nem ábrázolható szinteket. Generálja újra az E terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket (#2208, #2209)."
   },

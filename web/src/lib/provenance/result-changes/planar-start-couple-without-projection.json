@@ -21,6 +21,7 @@
     "fr": "Couples plans au début des barres spatiales",
     "hu": "Síkbeli nyomaték a térbeli rúd kezdőpontján",
     "tr": "Uzay çubuklarının başlangıcındaki düzlemsel momentler",
+    "nl": "Vlakke startkoppels op ruimtelijke staven",
     "zh": "空间杆件起点的平面力偶"
   },
   "explanation": {
@@ -31,6 +32,7 @@
     "fr": "Un couple plan pur au début d’une barre spatiale sans projection exploitable agit désormais au nœud initial autour de la normale au plan de la charge. Relancez les analyses concernées.",
     "hu": "A használható vetület nélküli térbeli rúd kezdőpontján megadott tiszta síkbeli nyomaték most a kezdőcsomóponton, a teher síkjára merőleges tengely körül hat. Futtassa újra az érintett elemzéseket.",
     "tr": "Kullanılabilir izdüşümü olmayan bir uzay çubuğunun başlangıcındaki düzlemsel saf moment artık başlangıç düğümünde yük düzleminin normali etrafında etkir. Etkilenen analizleri yeniden çalıştırın.",
+    "nl": "Een zuiver vlak koppel aan het begin van een ruimtelijke staaf zonder bruikbare projectie werkt nu op de beginknoop om de normaal van het belastingvlak. Voer de betreffende berekeningen opnieuw uit.",
     "zh": "没有可用投影的空间杆件，其起点处的平面纯力偶现在直接作用于起始节点，转轴为荷载平面的法线。请重新运行受影响的分析。"
   },
   "changelog": {

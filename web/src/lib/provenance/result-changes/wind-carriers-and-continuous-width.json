@@ -21,6 +21,7 @@
     "de": "Windlastträger und stetige veränderliche Breiten",
     "fr": "Supports de vent et largeurs variables continues",
     "tr": "Rüzgâr taşıyıcıları ve sürekli değişen genişlikler",
+    "nl": "Winddragers en doorlopende taps toelopende breedtes",
     "zh": "风荷载承载构件与连续收分宽度",
     "hu": "Szélteherhordók és folytonosan változó szélességek"
   },
@@ -31,6 +32,7 @@
     "de": "Nicht zusammengeführte Builds von PR #2220 konnten ausgesteifte Türme ablehnen, Stablasten bei veränderlicher Breite durch Unterteilung ändern oder große Windlastvorschauen abbrechen. Kreuzstreben bleiben außerhalb der Stützenlastaufteilung; jedes Höhenfeld verwendet einheitlich die physische oder angegebene Breite. W und Wa neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten korrigiert sie nicht (#2220).",
     "fr": "Les versions non fusionnées de la PR #2220 pouvaient refuser des tours contreventées, modifier les charges de barres de largeur variable après subdivision ou échouer sur de grandes prévisualisations. Les diagonales restent hors du partage tributaire entre poteaux et chaque champ utilise uniformément la largeur physique ou déclarée. Régénérez W et Wa puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas (#2220).",
     "tr": "Birleştirilmemiş PR #2220 sürümleri çaprazlı kuleleri reddedebiliyor, değişken genişlikli çubuk yüklerini alt bölümlere ayırınca değiştirebiliyor veya büyük rüzgâr önizlemelerinde hata verebiliyordu. Çaprazlar kolonların yük alanı paylaşımının dışında tutulur; her yükseklik alanı fiziksel ya da belirtilen genişliği tutarlı kullanır. W ve Wa yüklerini yeniden üretin; analiz, birleşim ve kontrolleri tekrarlayın. Kayıtlı yükleri yeniden çözmek bunları düzeltmez (#2220).",
+    "nl": "Niet-gemergede builds van PR #2220 konden verbonden torens weigeren, taps toelopende staafbelastingen bij onderverdeling veranderen of grote windvoorbeelden laten mislukken. Windverbanden blijven nu buiten de belaste verdeling van kolommen, en elk hoogteveld kiest consistent de fysieke of gedeclareerde breedte. Genereer W en Wa opnieuw en voer berekeningen, combinaties en ontwerptoetsingen opnieuw uit. Alleen opnieuw berekenen met opgeslagen belastingen herstelt ze niet (#2220).",
     "zh": "尚未合并的 PR #2220 构建，可能拒绝带支撑的塔架、在细分时改变收分杆件上的荷载，或使大型风荷载预览失败。交叉支撑现在不参与柱的从属面积划分，每个高度场一致地选择实际宽度或声明宽度。请重新生成 W 和 Wa，然后重新运行分析、组合和设计验算。仅重新求解已存储的荷载并不能纠正它们。（#2220）",
     "hu": "A még nem egyesített #2220 PR merevített tornyokat utasíthatott el, felosztáskor módosíthatta a változó szélességű rudak terheit, vagy nagy szélelőnézeteknél hibát okozhatott. Az átlók kimaradnak az oszlopok hatásterületi felosztásából, és minden magassági mező következetesen a fizikai vagy a megadott szélességet használja. Állítsa elő újra a W és Wa terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket. A mentett terhek újraszámítása nem javítja ki őket (#2220)."
   },

@@ -255,5 +255,37 @@ const zh: Strings = {
   chartLabel: 'PR²/EI 随步数的变化', chartData: '曲线数据（每 20 步）', slider: '第 {step} 步：PR²/EI = {load}',
 };
 
-export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh', Strings> = { en, es, pt, de, fr, tr, hu, zh };
+const nl: Strings = {
+  title: 'DaDeppo–Schmidt: een diepe boog op zijn grens',
+  hook: 'Een boog van 215°, een last in de sleutel en de booglengtesolver van de productieversie, getoetst aan de gepubliceerde grenslast en sleuteltoestand.',
+  model: 'Eén ingeklemde, scharnierende boog',
+  description: 'Een cirkelboog met een ingeklemd linkeruiteinde en een scharnierend rechteruiteinde draagt in de sleutel een neerwaartse puntlast met vaste richting. Veertig rechte meedraaiende raamwerkelementen benaderen de opening van 215°. Door de asymmetrische opleggingen kan de sleutel vóór het eerste grenspunt naar het scharnierende uiteinde uitwijken.',
+  units: 'We gebruiken R = 1 m, EI = 1 kN·m² en EA = 10⁶ kN. De referentielast is 1 kN, dus de lastfactor van de solver is gelijk aan PR²/EI. De vaak genoemde P = 897 gebruikt R = 100 en EI = 10⁶: de genormaliseerde waarde is 8.97, niet 897.',
+  comparison: 'Vergelijking met het artikel',
+  referenceText: 'We vergelijken met tabel 1 van het artikel uit 1975, zoals aangehaald door medeauteur R. Schmidt in een discussie uit 2000 (J. Eng. Mech. 126(12), p. 1308): in het grenspunt is PR²/EI = 8.97, sleutel u/R = 0.6116, v/R = 1.1372 en rotatie 0.0498, afgerond op de getoonde cijfers.',
+  signs: 'u is positief richting het scharnierende uiteinde en v naar beneden; de rotatie wordt vergeleken met de sleutelrotatie ry van Stabileo, die in het grenspunt positief is.',
+  sourceLink: 'Lees de door Schmidt aangehaalde waarden',
+  method: 'De Crisfield-booglengtesolver van de productieversie volgt het evenwicht voorbij de piek met de bestaande meedraaiende raamwerkelementen. Het grenspunt wordt bepaald met een parabool door de drie stappen rond de grootste last; de sleuteltoestand daar wordt geïnterpoleerd uit berekeningen die bij die drie stappen zijn gestopt. De viewer gebruikt de ware verplaatsingsschaal.',
+  studyHeading: 'Elementennetstudie en toleranties',
+  studyText: 'Dezelfde boog is opgelost met 20, 40 en 80 elementen. Elke tolerantie is 1.25 keer de geschatte discretisatiefout bij 40 elementen (Richardson-extrapolatie met de waargenomen orde) plus een halve eenheid in het laatste gepubliceerde cijfer. Geëxtrapoleerd naar elementlengte nul komt elke grootheid overeen met de gepubliceerde waarde binnen de afronding en de foutschatting bij 80 elementen, dus de +0.46% in de grenslast bij 40 elementen is discretisatiefout. Een halvering van de booglengtestap verandert de grenslast met minder dan 10⁻⁶ (relatief); tien keer zo grote axiale stijfheid verandert haar met minder dan 10⁻⁴.',
+  studyCaption: 'Waarden in het grenspunt met 20, 40 en 80 elementen',
+  extrapolated: 'Geëxtrapoleerd',
+  inspect: 'Bekijk de boog bij de piek (stap 260)',
+  replayNote: 'De weergaveframes zijn eindresultaten van herhaalde berekeningen met dezelfde solver, om de twintig stappen gestopt. De live worker herhaalt die berekeningen omdat de API van de productieversie alleen aan het einde de volledige knoopverplaatsingen teruggeeft. De curve toont elke geconvergeerde stap; de horizontale as is het stapnummer, niet de verplaatsing van de sleutel.',
+  notYet: 'Buiten deze pagina',
+  limitations: ['De volledige gepubliceerde evenwichtscurve en het tweede grenspunt.', 'Andere openingshoeken, knik buiten het vlak, contact of materiaalnietlineariteit.'],
+  noAuthorCode: 'Niet vergeleken: er is geen code van de auteurs gebruikt.',
+  livePath: 'Live pad', shortPath: 'Kort pad · 20 stappen (vóór de piek)', fullPath: 'Volledige benchmark · 400 stappen',
+  replay: 'Vooraf berekende weergave (dezelfde solver)', live: 'Live berekening', cached: 'In de browser opgeslagen resultaat', running: 'Berekenen…',
+  run: 'Live herberekenen', stop: 'Stoppen', restart: 'Opnieuw starten', step: 'Stap', displacement: 'Grootte van de verplaatsing',
+  limit: 'In het grenspunt', quantity: 'Grootheid', reference: 'Gepubliceerd', stabileo: 'Stabileo, 40 elementen', difference: 'Verschil', tolerance: 'Tolerantie',
+  pass: 'Voldoet', fail: 'Voldoet niet',
+  verdictPass: 'Alle vier binnen de tolerantie; dalende tak bereikt', verdictFail: 'Buiten de tolerantie', incomplete: 'Onvolledig pad: {n} van {total} stappen',
+  errorSolve: 'De solver heeft dit pad niet afgerond.', errorInvalid: 'De solver gaf een onvolledig resultaat terug.',
+  qLoad: 'Grenslast PR²/EI', qU: 'Sleutel u/R', qV: 'Sleutel v/R', qRot: 'Sleutelrotatie (rad)',
+  largest: 'Grootste PR²/EI op het pad',
+  chartLabel: 'PR²/EI tegen stapnummer', chartData: 'Curvegegevens (elke 20 stappen)', slider: 'Stap {step}: PR²/EI = {load}',
+};
+
+export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh' | 'nl', Strings> = { en, es, pt, de, fr, tr, hu, zh, nl };
 export const archStrings = (locale: string): Strings => strings[locale as keyof typeof strings] ?? en;

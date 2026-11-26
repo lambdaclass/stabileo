@@ -18,6 +18,7 @@
     "de": "Bemessung verwendet gewählte Bewehrung und bekannte Querlasten",
     "fr": "Le calcul utilise les barres choisies et les charges de la portée",
     "tr": "Tasarım seçilen donatıyı ve açıklık yüklerini kullanır",
+    "nl": "Ontwerp gebruikt gekozen staven en bekende overspanningsbelasting",
     "zh": "设计采用所选钢筋和已知的跨内荷载情况"
   },
   "explanation": {
@@ -27,6 +28,7 @@
     "de": "Gemeinsame Betonbewehrung verwendet die wirksame Höhe der gewählten Stäbe. Bei Querlasten oder unbekannten Lasten entfällt die Endmomentenreduktion. Cb verwendet den Aussteifungsabschnitt des jeweiligen Nachweises; bei unbekannter Lage gilt eins. Gespeicherte Bemessungen erneut ausführen und Ausnutzung, maßgebende Fälle und Zertifikate prüfen (PR #2080; #2088, #2089).",
     "fr": "Les cages communes utilisent la hauteur utile des barres choisies. Les poteaux et voiles avec charge transversale ou inconnue ne bénéficient pas de la réduction par gradient des moments aux extrémités. Cb utilise la portée contreventée de chaque effort ; sa valeur est un si la position est inconnue. Relancer les calculs enregistrés et vérifier taux, cas déterminants et certificats (PR #2080; #2088, #2089).",
     "tr": "Ortak betonarme donatısı seçilen çubukların faydalı yüksekliğini kullanır. Enine yükü olan veya yük bilgisi bilinmeyen kolon ve perdelerde uç momenti azaltımı uygulanmaz. Cb her talebin bulunduğu destek aralığını kullanır; aralık bilinmiyorsa bir alınır. Kayıtlı tasarımları yeniden çalıştırıp oranları, belirleyici durumları ve sertifikaları inceleyin (PR #2080; #2088, #2089).",
+    "nl": "Gedeelde betonkooien gebruiken de hoogte van hun gekozen staven. Betonnen kolommen en wanden met dwarse of onbekende belasting krijgen geen reductie voor de eindgradiënt. De Cb van staal gebruikt het verbandinterval dat elke belasting bevat; onbekende intervallen krijgen één. Voer opgeslagen ontwerpen opnieuw uit en bekijk de benuttingsgraad, maatgevende gevallen en certificaten (PR #2080; #2088, #2089).",
     "zh": "共用的混凝土钢筋笼采用其所选钢筋的截面有效高度。承受横向荷载或荷载情况未知的混凝土柱和墙，不做端部梯度折减。钢材 Cb 采用包含各内力的支撑区间；未知区间取 1。请重新运行已保存的设计，并复核利用率、控制工况和证书（PR #2080；#2088、#2089）。"
   },
   "quantities": [

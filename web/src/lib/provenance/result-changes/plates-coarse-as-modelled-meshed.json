@@ -12,6 +12,7 @@
     "de": "Platten, die mit dem Modell als eine Schale je Feld kamen, werden vor der Berechnung vernetzt",
     "fr": "Les plaques venues avec le modèle à raison d’une coque par panneau sont maillées avant le calcul",
     "tr": "Modelle panel başına tek kabuk olarak gelen plaklar hesaptan önce ağlanıyor",
+    "nl": "Platen die met het model als één schaal per vak kwamen, worden vóór de berekening gemesht",
     "zh": "导入时每个区格仅含一个壳单元的板会在分析前划分网格"
   },
   "explanation": {
@@ -21,6 +22,7 @@
     "de": "Eine Platte, deren Schalen mit dem Modell kamen und gröber als ihre Netzgröße sind (eine Schalenseite länger als das 1,5-Fache davon, etwa eine Schale für ein ganzes Feld), galt als vernetzt, und „Vor der Berechnung vernetzen“ ließ sie unberührt. Mit dieser Option wird sie jetzt vor der Berechnung in ihrer Netzgröße vernetzt, wie eine Platte ohne Netz; ein feineres Netz, das mit dem Modell kam, bleibt erhalten, solange es zu den benachbarten Netzen passt. Verschiebungen, Auflagerkräfte, Stabschnittgrößen und Schalenspannungen solcher Modelle ändern sich.",
     "fr": "Une plaque dont les coques venaient avec le modèle et sont plus grossières que sa taille de maille (un côté de coque plus long que 1,5 fois cette taille, comme une coque pour tout un panneau) était prise pour maillée, et « Mailler avant le calcul » n’y touchait pas. Avec cette option, elle est désormais maillée à sa taille avant le calcul, comme une plaque sans maillage ; un maillage plus fin venu avec le modèle est conservé tant qu’il est compatible avec les maillages voisins. Les déplacements, réactions, efforts dans les barres et contraintes dans les coques de ces modèles changent.",
     "tr": "Kabukları modelle gelen ve ağ boyutundan kaba olan bir plak (kabuk kenarı bu boyutun 1,5 katından uzun, örneğin bütün bir panel için tek kabuk) ağlanmış sayılıyordu ve «Hesaptan önce ağla» ona dokunmuyordu. Bu seçenek açıkken artık hesaptan önce kendi ağ boyutunda, ağsız bir plak gibi ağlanıyor; modelle gelen daha ince bir ağ, komşu ağlarla uyumlu olduğu sürece korunuyor. Bu modellerin yer değiştirmeleri, mesnet tepkileri, çubuk kuvvetleri ve kabuk gerilmeleri değişir.",
+    "nl": "Een plaat waarvan de schalen met het model meekwamen en grover zijn dan haar netgrootte (een schaalzijde langer dan 1.5 keer die grootte, zoals één schaal voor een heel vak) werd als gemesht beschouwd, en \"Mesh vóór berekening\" liet haar ongemoeid. Met die optie aan wordt ze nu vóór de berekening op haar netgrootte gemesht, zoals een plaat zonder net; een fijner net dat met het model meekwam blijft behouden zolang het aansluit op de buren. Verplaatsingen, reacties, staafkrachten en schaalspanningen van zulke modellen verschuiven.",
     "zh": "如果导入模型时已有的壳单元比板的网格尺寸更粗（例如整个区格只有一个壳单元，且某一边长超过该尺寸的 1.5 倍），此前仍会将该板视为已划分网格，启用「分析前划分网格」也不会重新划分。现在启用此选项后，这类板会像无网格的板一样，在分析前按其网格尺寸划分网格。导入时已有的较细网格只要与相邻网格相容就会保留。这类模型的位移、支座反力、杆件内力和壳单元应力会发生变化。"
   },
   "changelog": {

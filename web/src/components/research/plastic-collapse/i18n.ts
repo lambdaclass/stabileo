@@ -39,7 +39,7 @@ const en = {
 };
 export type PlasticStrings = typeof en;
 
-export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh', PlasticStrings> = {
+export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh' | 'nl', PlasticStrings> = {
   en,
   es: {
     publisher: 'Elsevier',
@@ -299,6 +299,43 @@ export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'z
     eventsHeading: '塑性铰事件', event: '事件', location: '铰的位置', moment: 'My · kN·m',
     places: { leftBase: '左柱脚', leftCorner: '左屋面转角', midspan: '跨中', rightCorner: '右屋面转角', rightBase: '右柱脚' },
     nodalHeading: '事件 {event} 时的节点位移 · m', node: '节点',
+  },
+  nl: {
+    publisher: 'Elsevier',
+    title: 'Klassiek plastisch bezwijken',
+    metaTitle: 'Klassiek plastisch bezwijken — Stabileo Research',
+    metaDescription: 'Een portaal vergeleken met handberekeningen van het ligger-, zijdelings- en gecombineerde mechanisme.',
+    thumbnailAlt: 'Portaal vervormd bij bezwijken, uit de berekening met de productiesolver',
+    lead: 'Eén portaal met ingeklemde voeten, drie met de hand berekende mechanismen en de 3D-solver voor plastisch bezwijken van de productieversie.',
+    citation: '”, uitgewerkt voorbeeld van de mechanismemethode in',
+    model: 'Overspanning L = {span} m, hoogte h = {height} m, uniform Mp = {mp} kN·m. Beide voeten zijn ingeklemd. Het dak draagt λH = λ × {horizontal} kN naar rechts in de linkerhoek en λV = λ × {vertical} kN naar beneden in het midden van de overspanning. De ligger is bij de last gesplitst. Het raamwerk ligt in het XZ-vlak; er wordt geen belasting buiten het vlak aangebracht.',
+    method: 'Virtuele arbeid met starre staven en kleine rotaties geeft de drie bovengrenzen hieronder. Het gecombineerde mechanisme heft het linker dakscharnier op: de inwendige arbeid is 6Mpθ, de uitwendige arbeid is λ(Hh + VL/2)θ. Het minimum is maatgevend. Axiale vervorming is elastisch; vloeien door normaalkracht en dwarskracht, verharding en geometrische instabiliteit vallen buiten deze handberekening.',
+    provenance: 'De drie grenzen zijn onze eigen handafleidingen met de mechanismemethode via virtuele arbeid, de methode van Horne, Plastic Theory of Structures (1979), die we als achtergrondlectuur aanhalen: we hebben geen pagina- of vergelijkingsnummer in het boek gecontroleerd. De afmetingen zijn van ons; er is geen figuur of uitgewerkt voorbeeld uit het boek overgenomen. Crossref geeft de titel en het jaar zonder auteurs; de uitgever',
+    provenanceEnd: 'noemt M. R. Horne.',
+    referenceLabel: 'Ten opzichte van de handberekening',
+    publishedNote: 'Er wordt geen figuur of tabel uit het boek gebruikt: het voorbeeld en zijn afmetingen zijn van ons, dus de handberekening is de referentie.',
+    checksHeading: 'Controles',
+    checks: {
+      collapse: 'De bezwijkfactor is gelijk aan de gecombineerde grens 6Mp / (Hh + VL/2) binnen 1 × 10⁻⁶.',
+      mechanism: 'De solver meldt een volledig mechanisme en geen waarschuwingen.',
+      hinges: 'Er ontstaan scharnieren bij beide voeten, in het midden van de overspanning en in de rechter dakhoek; de linker dakhoek vloeit nooit.',
+      yield: 'Bij bezwijken geldt |My| ≤ Mp aan elk staafeinde.',
+      equilibrium: 'De reacties houden de aangebrachte belastingen in evenwicht: ΣFx, ΣFz en ΣMy binnen 1 × 10⁻⁹.',
+      corner: 'Volgens de statica draagt de linker dakhoek 3Mp − λHh = {corner} kN·m, en de liggervergelijking 3Mp + M = λVL/2 geldt.',
+    },
+    passed: 'voldoet', failed: 'voldoet niet',
+    comparison: 'Handberekening t.o.v. Stabileo', mechanism: 'Mechanisme', reference: 'λ met de hand', difference: 'Δ (Stabileo − hand)',
+    beam: 'Ligger', sway: 'Zijdelings', combined: 'Gecombineerd',
+    explanation: 'Alleen het minimum is de voorspelde bezwijkfactor. Verschillen met de andere twee bovengrenzen worden verwacht en zijn geen solverfouten. De tolerantie van 1 × 10⁻⁶ in λ is een regressiegrens, geen nauwkeurigheidsdoel: dit kleine, goed geconditioneerde probleem komt in de native run tot op 1.4 × 10⁻¹¹ overeen met de gecombineerde grens.',
+    scope: 'Reikwijdte', limits: ['Geen ontwerptoetsing.', 'Eén belastingverhouding en één uniforme doorsnede; geen interactie tussen normaalkracht en moment, knik of grote verplaatsingen.', 'De 2D-solver voor plasticiteit wordt hier niet gebruikt; deze pagina draait de 3D-solver (zie issue #758).', 'De viewer verbindt de verplaatste knopen met rechte lijnen en tekent geen scharniersymbolen.'],
+    run: 'Live herberekenen', stop: 'Stoppen', restart: 'Opnieuw starten', running: 'Live berekenen…', replay: 'Vooraf berekende weergave (dezelfde solver)', live: 'Live berekening',
+    error: 'De live berekening is mislukt; de vooraf berekende weergave wordt getoond', errorDetail: 'Melding van de solver',
+    step: 'Scharniergebeurtenis', displacement: 'Knoopverplaatsing',
+    pending: 'Geen vooraf berekende run beschikbaar', warning: 'Waarschuwing van de solver / onvolledig mechanisme',
+    amplified: 'Verplaatsingen ×{scale}', planeNote: 'Het XZ-vlak wordt plat getekend: X naar rechts, Z omhoog.',
+    eventsHeading: 'Scharniergebeurtenissen', event: 'Gebeurtenis', location: 'Scharnier bij', moment: 'My · kN·m',
+    places: { leftBase: 'Linkervoet', leftCorner: 'Linker dakhoek', midspan: 'Midden van de overspanning', rightCorner: 'Rechter dakhoek', rightBase: 'Rechtervoet' },
+    nodalHeading: 'Knoopverplaatsingen bij gebeurtenis {event} · m', node: 'Knoop',
   },
 };
 

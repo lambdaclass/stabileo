@@ -105,4 +105,17 @@ export const aiTranslations: Record<string, Translations> = {
     'landingAi.shotAiTitle': '由它提出更改，由您来应用',
     'landingAi.shotAiAlt': 'Stabileo AI 面板：一条日常语言的请求，以及 AI 在应用之前提出的更改。',
   },
+  nl: {
+    'landingAi.ebAi': 'STABILEO AI',
+    'landingAi.badgeDevPaid': 'IN ONTWIKKELING',
+    'landingAi.aiH': 'Een AI-assistent die modellen opbouwt, controleert en uitlegt.',
+    'landingAi.aiP': 'Vraag het in gewone taal. Hij werkt op hetzelfde model en dezelfde solver als jij: de AI stelt voor, de solver rekent en jij beslist. Het ontwerp blijft de verantwoordelijkheid van de ingenieur.',
+    'landingAi.aiPt1': 'Maakt een modelopzet op basis van een beschrijving: liggers, vakwerken en raamwerken met meerdere verdiepingen, in 2D en 3D.',
+    'landingAi.aiPt2': 'Past het model op het scherm aan en toont elke wijziging voordat die wordt toegepast.',
+    'landingAi.aiPt3': 'Controleert een berekend model: bevindingen per ernst, de betrokken staven, de aannamen om na te lopen.',
+    'landingAi.aiPt4': 'Legt waarschuwingen van de solver uit en beantwoordt vragen over de resultaten.',
+    'landingAi.aiStatus': 'Het paneel zit al in de editor en werkt met je eigen Anthropic (Claude)- of OpenAI-sleutel, die alleen in je browser wordt bewaard; de eigen AI-dienst van Stabileo volgt later.',
+    'landingAi.shotAiTitle': 'Hij stelt de wijziging voor; jij past hem toe',
+    'landingAi.shotAiAlt': 'Het Stabileo AI-paneel: een verzoek in gewone taal en de wijziging die de AI voorstelt voordat die wordt toegepast.',
+  },
 };

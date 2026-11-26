@@ -4412,6 +4412,7 @@ const pt: Translations = {
   'lang.tr': 'Türkçe',
   'lang.hu': 'Magyar',
   'lang.zh': '中文',
+  'lang.nl': 'Nederlands',
   'loadPlan.blocked.seismicMass.member': "A carga sísmica a {elevation} m foi recusada. Não foi possível determinar o peso físico ou o caminho de carga de uma barra.",
   'loadPlan.blocked.seismicMass.shell': "A carga sísmica a {elevation} m foi recusada. Não foi possível determinar a massa da casca ou sua superfície física carregada.",
   'loadPlan.blocked.seismicMass.panel': "A carga sísmica a {elevation} m foi recusada. A região tributária requer cargas excêntricas nas barras que não podem ser representadas.",

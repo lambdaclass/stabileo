@@ -12,6 +12,7 @@
     "de": "Gleichgewichtsmomente bei der Stahlbemessung",
     "fr": "Moments d’équilibre pour le dimensionnement de l’acier",
     "tr": "Çelik tasarımında denge momentleri",
+    "nl": "Evenwichtsmomenten in staalontwerp",
     "zh": "钢结构设计采用平衡弯矩",
     "hu": "Egyensúlyi nyomatékok az acélméretezésben"
   },
@@ -22,6 +23,7 @@
     "de": "Die Stahlbemessung berücksichtigt Biegespitzen zwischen den regulären Stationen. Für Cb verwendet sie die berechneten Momente an den Enden und Viertelpunkten jedes bekannten ungestützten Abschnitts. Führen Sie die Bemessung erneut aus und prüfen Sie die maßgebenden Nachweise.",
     "fr": "Les vérifications de l’acier incluent les pics de flexion entre les stations régulières. Pour Cb, elles utilisent les moments calculés aux extrémités et aux quarts de chaque tronçon non maintenu connu. Relancez le dimensionnement et revoyez les vérifications déterminantes.",
     "tr": "Çelik kontrolleri düzenli istasyonlar arasındaki eğilme tepe değerlerini içerir. Cb için konumu bilinen her yanal mesnetsiz parçanın uç ve çeyrek noktalarındaki analiz momentleri kullanılır. Çelik tasarımını yeniden çalıştırın ve belirleyici kontrolleri inceleyin.",
+    "nl": "Staaltoetsingen nemen buigpieken tussen regelmatige posities mee en gebruiken de opgeloste momenten aan de uiteinden en kwartpunten van elk bekend niet-gesteund segment voor Cb. Voer het staalontwerp opnieuw uit en bekijk de maatgevende toetsingen.",
     "zh": "钢构件验算计入常规计算站之间的弯矩峰值。计算 Cb 时采用每个已知无侧向支撑段端点和四分点处的分析弯矩。请重新运行钢结构设计并复核控制验算。",
     "hu": "Az acélellenőrzések figyelembe veszik a szabályos állomások közötti hajlítási csúcsokat. A Cb számítás az ismert oldalirányban meg nem támasztott szakaszok végein és negyedpontjain számított nyomatékokat használja. Futtassa újra az acélméretezést, és ellenőrizze a mértékadó eredményeket."
   },

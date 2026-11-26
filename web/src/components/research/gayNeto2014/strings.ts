@@ -323,5 +323,45 @@ const zh: Strings = {
   wholeLine: '整条管线',
 };
 
-export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, zh };
+const nl: Strings = {
+  title: riserTitle.nl,
+  lead: riserHook.nl,
+  model: 'Het model',
+  theory: 'Een geometrisch exacte staaf: elke doorsnede beweegt en roteert vrij, en de energie hangt af van rek, afschuiving, buiging en wringing gemeten in het eigen assenstelsel van de doorsnede. Elementen met drie knopen en twee gausspunten. De zeebodem is een stijf vlak dat bij elke knoop terugduwt met een penaltyveer, met coulombwrijving.',
+  method: 'We lezen de eigen invoerbestanden van de referentiecode en lossen dezelfde drie statische stappen op: eigen gewicht met contact, een horizontale trekkracht van 1 MN en daarna een lift van 186 m van het vrije uiteinde. De solver is een nieuwe Rust-crate, voor deze pagina gecompileerd naar WASM. De tangentiële stijfheid komt uit het tweemaal differentiëren van de elementenergie, dus Newton convergeert kwadratisch.',
+  comparison: 'Aan het einde van stap 3 vergelijken we het buigend moment en de dwarskracht van alle 134 elementen met de waarden in de tutorialhandleiding van de referentiecode. Het touchdownpunt en de hangende vorm worden ook getoetst aan de elastische kettinglijn. Een ligger van 1 m op één inklemming (tutorial 1) toetst de ligger alleen.',
+  limits: 'Alleen statica: geen zeestroming, geen golf- of sleepbelastingen, geen contact tussen leidingen. Overeenstemming met de referentiecode is numeriek; het is geen experiment en geen ontwerptoetsing.',
+  checks: 'Validatie en bronnen',
+  checkLabels: {
+    'T1 tip X and Z at t = 0.1 … 1.0 vs reference Figure 1-6 [m, max abs]': 'Ligger op één inklemming: uiteinde X, Z aan het einde (m)',
+    'T1 tip at t = 1, 5 elements vs Reissner rod boundary-value solution [m, max abs]': 'Ligger op één inklemming, 5 elementen: uiteinde X, Z (m)',
+    'T1 tip at t = 1, 40 elements vs Reissner rod boundary-value solution [m, max abs]': 'Ligger op één inklemming, 40 elementen: uiteinde X, Z (m)',
+    'T16 step 3: M(e1) per element vs reference Figure 16-12 data [N·m, max abs over 134 elements]': 'Riser: maximaal buigend moment (N·m)',
+    'T16 step 3: V(e2) per element vs reference Figure 16-13 data [N, max abs over 134 elements]': 'Riser: maximale dwarskracht (N)',
+    'T16 step 3: touchdown (moment at half its plateau) vs reference data [m]': 'Riser: touchdown (m langs de leiding)',
+    'T16 step 3: touchdown, last node on the seabed vs elastic catenary [m of line]': 'Riser: touchdown (m langs de leiding)',
+    'T16 step 3: suspended shape vs elastic catenary hung from the computed fairlead [m, max distance]': 'Riser: hangende vorm (m)',
+  } as Record<string, string>,
+  riser: 'Riser', forces: 'Snedekrachten', cantilever: 'Ligger op één inklemming',
+  pull: 'Horizontale trekkracht', lift: 'Lift van het vrije uiteinde', friction: 'Wrijving zeebodem μ',
+  run: 'Live herberekenen', stop: 'Stoppen', restart: 'Opnieuw starten',
+  computing: 'Berekenen met Stabileo… (enkele seconden)',
+  caseLabel: 'Geval',
+  error: 'De solver kon niet laden of niet afronden. Het vorige resultaat blijft beschikbaar.',
+  ours: 'Stabileo', reference: 'Referentiecode, einde van stap 3', figure: 'Referentiecode, figuur 1-6',
+  moment: 'Buigend moment M(e1)', shear: 'Dwarskracht V(e2)', length: 'Positie langs de leiding (m)', time: 'Belastingfactor',
+  tipX: 'Uiteinde X (m)', tipZ: 'Uiteinde Z (m)',
+  steps: ['Eigen gewicht op de zeebodem', 'Horizontale trekkracht', 'Lift van het vrije uiteinde'],
+  fairlead: 'Vrij uiteinde', touchdown: 'Touchdown (langs de leiding)', anchor: 'Trekkracht bij het anker',
+  defaults: 'De referentiewaarden gelden voor de eigen parameters van de tutorial (1 MN, 186 m, μ = 0.2).',
+  coordinates: 'Ware schaal, x langs de zeebodem en z omhoog, in meter. Kleur: buigend moment.',
+  cantileverNote: 'Een ligger van 1 m op één inklemming met een dwarskracht van 1000 N op het uiteinde, in tien stappen.',
+  inputs: 'Invoerbestanden', code: 'Referentiecode (BSD-3-Clause)',
+  tableIntro: 'We hebben de figuren van het artikel niet vergeleken: we hadden geen toegang tot de volledige tekst. De referenties zijn de resultaten die met GIRAFFE, de code van de auteur, zijn gepubliceerd, een onafhankelijke exacte oplossing voor de ligger op één inklemming en de analytische kettinglijn voor de riser. Het verschil is het grootste over alles wat is vergeleken: de tien stappen van de ligger op één inklemming ten opzichte van de figuur, de 134 elementen van de riser voor moment en dwarskracht, en het hele hangende deel van de leiding.',
+  table: { quantity: 'Grootheid', reference: 'Referentie', ours: 'Stabileo', difference: 'Max. verschil', tolerance: 'Tolerantie' },
+  sources: { figure: 'GIRAFFE, figuur 1-6 van de handleiding', exact: 'Exacte staafoplossing, onafhankelijk', giraffe: 'GIRAFFE, resultaten van tutorial 16', catenary: 'Analytische elastische kettinglijn' } as Record<string, string>,
+  wholeLine: 'hele leiding',
+};
+
+export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, zh, nl };
 export const riserStrings = (): Strings => translations[publicI18n.locale] ?? en;

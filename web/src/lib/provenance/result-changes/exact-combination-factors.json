@@ -11,6 +11,7 @@
     "pt": "Os fatores repetidos de um caso de carga são somados de forma exata",
     "de": "Wiederholte Faktoren eines Lastfalls werden exakt summiert",
     "fr": "Les coefficients répétés d’un cas de charge sont additionnés exactement",
+    "nl": "Herhaalde gevalfactoren worden exact opgeteld",
     "zh": "重复荷载工况的系数按精确值相加",
     "hu": "Az ismétlődő tehereset-tényezők összeadása pontos",
     "tr": "Yük durumunun yinelenen katsayıları tam olarak toplanır"
@@ -21,6 +22,7 @@
     "pt": "O motor verifica se os fatores de cada caso se cancelam usando a sua soma exata e arredonda cada fator restante uma única vez. Recalcule as combinações 2D e 3D com fatores repetidos.",
     "de": "Der Solver prüft anhand der exakten Summe, ob sich die Faktoren jedes Lastfalls aufheben, und rundet jeden verbleibenden Faktor einmal. Berechnen Sie 2D- und 3D-Kombinationen mit wiederholten Lastfallfaktoren erneut.",
     "fr": "Le solveur vérifie si les coefficients de chaque cas s’annulent à partir de leur somme exacte, puis arrondit une seule fois chaque coefficient restant. Recalculez les combinaisons 2D et 3D dont les coefficients se répètent pour un même cas.",
+    "nl": "De solver controleert of de factoren van elk geval elkaar opheffen aan de hand van hun exacte som en rondt dan elke overgebleven factor één keer af. Voer 2D- en 3D-combinaties met herhaalde gevalfactoren opnieuw uit.",
     "zh": "求解器使用精确和判断同一工况的系数是否相互抵消，再对不为零的合计系数舍入一次。请重新计算含重复工况系数的二维和三维组合。",
     "hu": "A megoldó a pontos összeg alapján ellenőrzi, hogy az egyes teheresetek tényezői kioltják-e egymást, majd minden megmaradó tényezőt egyszer kerekít. Számítsa újra az ismétlődő tehereset-tényezőket tartalmazó 2D és 3D kombinációkat.",
     "tr": "Çözücü, her yük durumunun katsayılarının birbirini götürüp götürmediğini tam toplamla denetler ve kalan her katsayıyı bir kez yuvarlar. Yinelenen yük durumu katsayıları içeren 2B ve 3B birleşimleri yeniden hesaplayın."

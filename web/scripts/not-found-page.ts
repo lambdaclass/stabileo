@@ -19,6 +19,7 @@ const LANGUAGE: Record<Locale, string> = {
   tr: 'Türkçe',
   hu: 'Magyar',
   zh: '中文',
+  nl: 'Nederlands',
 };
 
 const COPY: Record<Locale, Copy> = {
@@ -93,6 +94,15 @@ const COPY: Record<Locale, Copy> = {
     tools: '工具',
     blog: '博客',
     app: '打开应用',
+  },
+  nl: {
+    title: 'Pagina niet gevonden',
+    lead: 'Op dit adres staat geen pagina. Misschien is ze verplaatst, of bevat de link een tikfout.',
+    home: 'Home',
+    research: 'Onderzoek',
+    tools: 'Tools',
+    blog: 'Blog',
+    app: 'App openen',
   },
 };
 

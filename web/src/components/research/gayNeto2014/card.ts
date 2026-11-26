@@ -7,6 +7,7 @@ export const riserTitle = {
   tr: 'Deniz tabanından kaldırılan bir riser',
   hu: 'Tengerfenékről felemelt riser',
   zh: '从海床抬起的立管',
+  nl: 'Een riser die van de zeebodem wordt getild',
 };
 
 export const riserHook = {
@@ -18,4 +19,5 @@ export const riserHook = {
   tr: 'Deniz tabanında yatan 835 m’lik bir hat serbest ucundan çekilir ve 186 m kaldırılır. Hattın zeminden nerede ayrıldığını ve eğilmenin orada nasıl en büyük değerine ulaştığını izleyin.',
   hu: 'Egy 835 m hosszú vezeték a tengerfenéken fekszik; szabad végénél fogva meghúzzák, majd 186 m-rel megemelik. Figyelje meg, hol válik el a talajtól, és hogyan éri el ott a hajlítás a csúcsát.',
   zh: '一根 835 m 长的管线平躺在海床上，从其自由端拉动并抬起 186 m。观察它从何处离开地面，以及弯曲在该处如何达到峰值。',
+  nl: 'Een leiding van 835 m ligt op de zeebodem, wordt aan het vrije uiteinde getrokken en 186 m opgetild. Zie waar hij loskomt van de grond en hoe de buiging daar piekt.',
 };

@@ -116,7 +116,32 @@ const zh: Strings = {
   paper: '论文描述了一种用于结构动力学的时间步进方法。这里我们在一个有意设计得很小的线性基准算例上，运用其平均加速度的特例；我们并不声称复现了论文中的某幅图。',
   alt: '生产环境 Newmark 运行得到的轴向位移时程',
 };
-export const translations = { en, es, pt, hu, zh };
+const nl: Strings = {
+  title: 'Newmark, gemiddelde versnelling',
+  metaTitle: 'Newmark (1959) — Stabileo Research',
+  metaDescription: 'Newmark-methode met gemiddelde versnelling uit de productieversie, vergeleken met de exacte stapresponsie van een systeem met één vrijheidsgraad.',
+  lead: 'Eén ongedempte vrijheidsgraad onder een plotseling aangebrachte constante kracht. Vergroot de tijdstap om te zien hoe de numerieke periode groeit.',
+  model: 'Het voorbeeld',
+  description: 'Een axiale raamwerkstaaf van {L} m, links ingeklemd, met rechts alleen axiale verplaatsing vrij. E = {E} MPa, A = {A} m², synthetische dichtheid = {rho} kg/m³. De consistente axiale massa geeft m = ρAL/3 = {m} t en k = EA/L = {k} kN/m. Een stap van {F} kN werkt vanaf t = 0; de beginverplaatsing en beginsnelheid zijn nul. Dit is een exacte eindige-elementenbenchmark met één vrijheidsgraad, geen oplossing voor een continue staaf.',
+  method: 'De tijdsdomeinsolver in 3D van de productieversie draait via de bestaande WASM-wrapper, met β = ¼, γ = ½ en zonder demping. De weergave is een native berekening met dezelfde Rust-solver. Er wordt geen nieuwe integrator gebruikt.',
+  reference: 'Exacte referentie', difference: 'Verschil', measured: 'Stabileo T (s)', predicted: 'Discrete voorspelling Tₙ (s)',
+  formula: 'u(t) = (F/k)[1 − cos(ωt)], ω = √(k/m) = {omega} rad/s, T = 2π/ω = {T} s. De discrete oplossing met gemiddelde versnelling is uₙ = (F/k)[1 − cos(nθ)] met θ = 2 atan(ωΔt/2), dus haar periode is Tₙ = πΔt / atan(ωΔt/2). De perioden hieronder worden gemeten aan opeenvolgende opwaartse doorgangen van u = F/k; interpolatie beïnvloedt metingen bij grove stappen.',
+  comparison: 'Periodeverlenging tegen tijdstap', elongation: 'Verlenging ten opzichte van T (%)',
+  errors: 'Verschillen in verplaatsing', discreteError: 'Max. |u − uₙ| (m)', continuousError: 'Max. |u − u(t)| (mm)', bound: 'Grens voor faseverschuiving (mm)',
+  error: 'Maximaal verschil in verplaatsing (mm)',
+  tolerance: 'Controles, berekend uit de getoonde tijdsverlopen (ze volgen een live herberekening): elk monster komt overeen met de discrete oplossing uₙ binnen 10⁻¹⁰ m; elke gemeten periode komt overeen met Tₙ binnen 0.5%; het maximale verschil met de continue oplossing blijft onder de grens voor faseverschuiving (F/k)·min(2, N(ωΔt − θ)) die uit uₙ over de N stappen volgt; bij Δt/T = 0.025 is het over vier perioden ook kleiner dan 0.5 mm. Grovere stappen tonen bewust grotere fouten.',
+  published: 'Geen: deze pagina toetst de methode aan exacte gesloten oplossingen; ze reproduceert geen figuur of tabel uit het artikel.',
+  notYet: 'Nog niet', limitations: ['Gepubliceerde figuren en numerieke voorbeelden uit het artikel.', 'Demping, harmonische belasting, niet-lineaire respons en raamwerken met meerdere vrijheidsgraden.', 'Dit is geen technische certificering.'],
+  replay: 'Vooraf berekende weergave (dezelfde solver)', live: 'Live berekening in je browser', cached: 'Opgeslagen resultaat (berekend in deze browser)',
+  run: 'Live herberekenen', stop: 'Stoppen', restart: 'Opnieuw starten', busy: 'Berekenen…', step: 'Tijdstap', sample: 'Monster',
+  sampleValue: 'Monster {i} van {n}, t = {t} s',
+  speed: 'De weergave loopt bij elke tijdstap {x} keer trager dan de werkelijke tijd, dus een langere periode duurt echt langer.',
+  displacement: 'Axiale verplaatsing', time: 'Tijd (s)', scaled: 'Vervorming ×10; linkerknoop ingeklemd, rechterknoop axiaal geleid.',
+  tryCoarse: 'Probeer de grofste tijdstap', failure: 'Berekening mislukt; vorig resultaat behouden.',
+  paper: 'Het artikel beschrijft een tijdstapprocedure voor constructiedynamica. Hier passen we de variant met gemiddelde versnelling toe op een bewust kleine lineaire benchmark; we beweren geen figuur uit het artikel te reproduceren.',
+  alt: 'Tijdsverloop van de axiale verplaatsing uit onze Newmark-berekening van de productieversie',
+};
+export const translations = { en, es, pt, hu, zh, nl };
 export const strings = () => translations[researchLocale() as keyof typeof translations] ?? translations.en;
 export const fill = (template: string, values: Record<string, string>) =>
   template.replace(/\{(\w+)\}/g, (match, key: string) => values[key] ?? match);

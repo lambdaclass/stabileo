@@ -202,6 +202,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'lang.ru',
   'lang.tr',
   'lang.hu',
+  'lang.nl',
   'lang.zh',
   'list.col.diameter',
   'list.col.my',

@@ -13,7 +13,7 @@ describe('Register route translations', () => {
   });
   it('translates every key in all six locales, with matching placeholders', () => {
     const keys = Object.keys(dictionaries.en).sort();
-    for (const locale of ['es', 'pt', 'de', 'fr', 'tr', 'zh']) {
+    for (const locale of ['es', 'pt', 'de', 'fr', 'tr', 'zh', 'nl']) {
       expect(Object.keys(dictionaries[locale]).sort()).toEqual(keys);
       for (const key of keys) expect(dictionaries[locale][key].match(/\{\w+\}/g)?.sort() ?? []).toEqual(dictionaries.en[key].match(/\{\w+\}/g)?.sort() ?? []);
     }
@@ -22,7 +22,7 @@ describe('Register route translations', () => {
     const before = publicI18n.locale;
     registerFeatureDictionaries(dictionaries);
     try {
-      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh'] as const) {
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'nl'] as const) {
         setPublicLocale(locale);
         for (const key of Object.keys(dictionaries.en)) expect(tPublic(key)).toBe(dictionaries[locale][key]);
       }

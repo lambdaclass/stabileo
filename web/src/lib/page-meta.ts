@@ -23,7 +23,8 @@ const OG_LOCALE: Record<PublicLocale, string> = {
 	fr: 'fr_FR',
 	tr: 'tr_TR',
 	hu: 'hu_HU',
-	zh: 'zh_CN'
+	zh: 'zh_CN',
+	nl: 'nl_NL'
 };
 
 const META_TAGS = [

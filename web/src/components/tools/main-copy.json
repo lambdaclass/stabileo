@@ -33,5 +33,10 @@
     "tools.index": "免费工程计算器",
     "tools.lead": "梁、柱、框架、桁架、影响线和自振频率，由 Stabileo 生产版计算引擎求解，并与经典公式对比。",
     "tools.indexAssumptions": "线弹性、小位移、等截面 Euler–Bernoulli 杆件；桁架杆只承受轴力。采用国际单位制（SI）。不计自重。每个工具都会说明各自的假定、符号约定和经典参考解。不是规范设计验算。"
+  },
+  "nl": {
+    "tools.index": "Gratis rekentools voor constructeurs",
+    "tools.lead": "Liggers, kolommen, raamwerken, vakwerken, invloedslijnen en eigenfrequenties, berekend met de productie-engine van Stabileo en vergeleken met klassieke formules.",
+    "tools.indexAssumptions": "Lineair elastisch, kleine verplaatsingen, prismatische Euler–Bernoulli-staven; vakwerkstaven nemen alleen normaalkracht op. SI-eenheden. Eigen gewicht uitgesloten. Elke tool vermeldt zijn eigen aannamen, tekenafspraak en klassieke referentie. Geen normtoetsing."
   }
 }

@@ -171,6 +171,23 @@ export const CHANGELOG: ChangelogEntry[] = [
           '产品路线图优先安排独立核查荷载和板面积、采用精确内力函数、完善设计验算依据，以及统一模型表示并检查各种变换。 (#2469)',
         ],
       },
+      nl: {
+        title: 'Stabileo 0.6.4: Gecorrigeerde staafresultaten, plaatberekening en betontoetsing',
+        items: [
+          'Staafdiagrammen en omhullenden van bewegende belasting vinden extremen tussen stations, beide zijden van geconcentreerde belastingen en de snedekrachten net binnen de staafuiteinden. Gecombineerde diagrammen kunnen gelabelde conservatieve grenzen tonen wanneer exacte extremen niet beschikbaar zijn. Dubbelzinnige stations, onopgeloste maatgevende extremen en onvolledige ontwerpstationsroosters blokkeren het betreffende resultaat. Omgekeerde betonnen veldstukken behouden de fysieke trekzijde. Staaltoetsingen gebruiken uit evenwicht afgeleide piek- en kwartpuntmomenten en kennen geen krediet voor de momentgradiënt toe als de benodigde diagraminformatie onvolledig is. Rapporten met veel stations hergebruiken de voorbereide diagrammen. (#2403)',
+          'Beide commando’s voor het omkeren van een staaf behouden de richting, het belaste interval en de eindintensiteiten van verdeelde belastingen. De berekening gebruikt de ondubbelzinnige waarde ongelijk aan nul in de oude velden voor vlakke puntkoppels en weigert tegenstrijdige waarden. In ruimtelijke modellen kan een zuiver beginkoppel op zijn oorspronkelijke knoop worden aangebracht, ook zonder bruikbare staafprojectie. Andere oude belastingen die de projectie nog nodig hebben, kunnen de berekening blokkeren. (#2456)',
+          'Een eindige invoer voor een hersteld vlak puntkoppel of knoopmoment vervangt het opgeslagen moment, ook als de waarde nul is. Tegenstrijdige of ongeldige momenten blokkeren de berekening, ook na opslaan en opnieuw openen. Controleer het bedoelde moment, voer het opnieuw in en herhaal berekening en ontwerp. (#2467, SA-2026-105)',
+          'PRO weigert de berekening als er een ongeldig of verouderd plaatnet overblijft of als een wand-vloerverbinding niet compatibel is. De netgenerator vereist volledige, geldige contouren en uitsparingen voordat Toepassen beschikbaar is. Het bijgewerkte zeven verdiepingen tellende galerijvoorbeeld en het architectonische DXF-voorbeeld hebben compatibele netten bij de aansluitingen. Nieuwe CAD-concepten met net lijnen vloer- en wandstations uit. Exports van alleen het model naar een werkmap kunnen platen zonder net bevatten. (#2409)',
+          'Het opnieuw genereren van het net volgt de gebogen rand door het opgegeven tussenpunt van de plaat. Een dubbelzinnige boog blokkeert het opnieuw netten en de berekening. Controleer de rand, maak verouderde netten opnieuw en herhaal berekening en ontwerp. (#2466, SA-2026-106)',
+          'Bij het opnieuw netten worden schaalverschuivingen en krommingswijzigingen alleen overgedragen naar unieke, exact overeenkomende cellen. Als een bewerkte schaal niet kan worden gekoppeld, stopt het opnieuw netten en blijft het bestaande net behouden. Controleer de schaaleigenschappen aan de hand van het bedoelde model, herstel eerder verloren bewerkingen en herhaal berekening en ontwerp. (#2466, SA-2026-107)',
+          'CIRSOC 201-2025 toetst de minimale dwarswapening voor wringing in beide richtingen en gebruikt de berekende betongrens voor zuivere wringing als er een wapeningskorf beschikbaar is. Wringings- en dwarskrachttoetsingen kunnen worden geweigerd als de getekende wapening geen bewijs levert voor de omtrekstaven, de effectieve hoogte voor secundaire dwarskracht of de verankering over een verbinding. Dwarskrachttoetsingen gebruiken de afzonderlijke trekstaven die in de snede aanwezig zijn, ook tussen bemonsterde stations. Het voorbeeld met zeven verdiepingen kan nu weigeringen tonen voor toetsingen die eerder slaagden. (#2433)',
+          'De 3D-wapeningswerkruimte opent sneller, en opslaan, herstellen en wisselen van tabblad in gedetailleerde modellen hergebruiken onveranderlijke wapeningsgeometrie. Ongedaan maken en opnieuw uitvoeren herstellen de detaillering die bij de betongeometrie hoort. (#2438, #2444, #2458)',
+          'Basic toont 3D-opleggingsreactiemomenten met de globale tekens van de solver. Uitlezingen van het vrijlichaam gebruiken de gekozen assen en komen in 2D overeen met de pijlen aan de knoopzijde. Basic en PRO rapporteren componenten van puntkrachten en koppels in het vlak en de assen van de solver. Herhaal de betreffende inspecties en genereer de rapporten opnieuw. (#2396)',
+          'In de instellingen voor de AI-sleutel hebben de providerknoppen, het sleutelveld en de sleutelacties in beide richtingen een minimale grootte van 44 CSS-pixels. (#2440)',
+          'De gepubliceerde onderzoekspagina’s over de elastica van Mattiasson, MacNeal–Harder en het hindernisparcours voor schalen tonen het voltooide resultaat of de gemelde weigering van de eerste benchmarkrun. (#2445)',
+          'De productroadmap geeft prioriteit aan onafhankelijke controles van belastingen en plaatoppervlakken, exacte functies voor snedekrachten, volledig ontwerpbewijs en één canoniek model met controles over transformaties heen. (#2469)',
+        ],
+      },
     },
   },
   {
@@ -368,6 +385,29 @@ export const CHANGELOG: ChangelogEntry[] = [
           'Research 新增基于 Heyman 研究的砌体拱实验，展示拱的最小厚度和倒塌。',
         ],
       },
+      nl: {
+        title: 'Betontoetsing, doorsnedespanning en bewegende belasting',
+        items: [
+          'Gedetailleerde doorsnedespanning houdt gecombineerde resultaten achter wanneer wringing en dwarskracht samen voorkomen. De sneden bevatten nu beide dwarscomponenten in de totale dwarskracht en in von Mises. Bereken de betreffende spanningen opnieuw en bekijk de rapporten (SA-2026-092). Het uitgewerkte voorbeeld van het veiligheidsbericht geeft de vezelcoördinaten in zowel de lokale staafassen als de assen van de doorsnedetekening.',
+          'Vlakke bewegende belastingen behouden de sprong in de normaalkracht bij geconcentreerde assen. Bereken de betreffende diagrammen, omhullenden en invloedslijnen voor normaalkracht opnieuw (SA-2026-093).',
+          '2D- en 3D-combinaties behouden de nettofactor voor herhaalde gevallen en weigeren volledige opheffing. Kabel- en grond-constructieberekeningen weigeren een niet-eindige veerstijfheid. Voer de betreffende combinaties opnieuw uit.',
+          'Raamwerken en liggers doorlopen de gecertificeerde stabiliteitstoets sneller. Het herstel van 3D-combinaties is sneller en de iteratieve preconditioner voor platen is gecorrigeerd.',
+          '2D-corotationele berekening gebruikt een gedeelde niet-lineaire driver en behoudt de bestaande resultaten van Newton en gemodificeerd Newton. (#2394)',
+          'Toetsing van gewapend beton blokkeert toetsingen van dwarskracht, wringing en seismische beugels bij onvoldoende bewijs en legt uit waarom. Voer gecertificeerde ontwerpen opnieuw uit en bekijk de maatgevende sneden en wapeningstekeningen (SA-2026-091).',
+          'Statische seismische belastingen volgen de fysieke massa en de aangrijpingshoogte ervan. Het genereren van modale belasting is geblokkeerd. Genereer de betreffende belastingen waar van toepassing opnieuw met de statische methode en herhaal daarna berekening en ontwerp (SA-2026-086 en SA-2026-087).',
+          'Het genereren van zwaartekrachtbelasting blokkeert overlappende panelen die hetzelfde oppervlak twee keer kunnen belasten. Genereer de betreffende belastingen opnieuw voordat je berekeningen en ontwerptoetsingen herhaalt.',
+          'Transformaties blokkeren verplaatsingen of kopieën die de ingeklemde richtingen van een dubbelzinnige roloplegging kunnen wijzigen. Momentopnames behouden het vastgelegde opleggingstype.',
+          'Het statisch genereren van seismische belasting controleert bewijs voor een vloer bij kruisende windverbanden en dakknopen. Een nokligger alleen kan geen vloer vaststellen. Rechte staafonderverdelingen worden na verplaatsing consistent herkend en het genereren blokkeert als de coördinatenprecisie onvoldoende is of de bouwlaag dubbelzinnig is. Waar beide uiteinden bewijs voor een vloer hebben, krijgen verhoogde gordingen verdeelde traagheid langs de deelnemende velden. Een vastgestelde vloer splitst ook een doorlopend hellend traject bij de vloerknoop. Dit kan bouwlaagkrachten, basisdwarskracht en buiging en doorbuiging van gordingen veranderen. Genereer de betreffende statische seismische gevallen opnieuw en bekijk de basisdwarskracht en de belastingen op de gordingen. (#2404)',
+          'Het genereren van paneelzwaartekrachtbelasting blokkeert een dubbel lastpad waarbij een overlappend liggerveld en een schaaldek allebei belast zouden worden en de dekvoeg volledig is gekoppeld via master-knopen buiten de voeg. Automatische belastingen blokkeert ook vóór het voorbeeld als afrondingen in coördinaten de hellingsclassificatie van een belastingdrager onbepaald maken. Die classificatie kon eerder veranderen na een rotatie van het grondvlak of een onderverdeling van een staaf. Op platte en hellende daken blokkeert het genereren van sneeuwbelasting wanneer een sneeuwophoping bij een trap op het dak moet worden overgedragen op staven of de toepasbaarheid ervan niet kan worden vastgesteld. Eerdere overdracht kon kracht en excentrisch moment verliezen. Genereer de betreffende zwaartekracht- en sneeuwbelastingen opnieuw en los blokkerende omstandigheden op voordat je de resultaten gebruikt. (#2406)',
+          'CIRSOC 201-toetsing gebruikt de gelijktijdige normaalkracht voor de beugelafstand, controleert de verankering op exacte nulpunten van het moment en controleert lokale beugelintervallen. Seismische beugelgrenzen houden rekening met alle lagen eindstaven. Wringingscapaciteit en benuttingsgraad weerspiegelen de lagere berekende grens. De toetsing kan blokkeren wanneer het getekende uiteinde van een staaf tekortschiet ten opzichte van de getoetste doorsnede of wanneer de ontwikkeling van omtrekstaven niet is geverifieerd. De secundaire dwarskrachttoets met alleen beton vereist langsstaven die in beide bovenste beugelbochten zijn gezeteld. Hertoetsingen met de definitieve hoogte gebruiken de vervangende liggertekening als die is aangeleverd. Kolomstaten behouden gemengde staafdiameters en houden fysieke detaillering achter wanneer de opgegeven korf niet kan worden gereproduceerd. Voer de toetsing opnieuw uit met de actuele wapeningstekeningen en bekijk maatgevende combinaties en uitspraken. (#2398)',
+          'Vereenvoudigd Chinees is de achtste taal van Stabileo en is beschikbaar in de app, op de website en in de resultaatmeldingen.',
+          'Het importeren van een werkmap weigert bladnamen die op dezelfde naam uitkomen, dubbele kopteksten, ontbrekende vereiste kopteksten, ongeldige eenheden, spreadsheetfouten, tegenstrijdige opleggingsvlaggen en ingevulde niet-ondersteunde belastingvelden. Voor vlakke belastingen weigert het momentcomponenten ongelijk aan nul om een van de twee gedeclareerde werkmapassen die in het modelvlak liggen. Bij een geweigerde import blijft het huidige model staan. Volledige expliciete opleggingen blijven behouden in de gedeclareerde werkmapassen, ook in exports vóór het berekenen. Vlakke rotatieveren worden geëxporteerd als kr [kN·m/rad] en de oude kop blijft leesbaar. Importeer de betreffende werkmappen opnieuw en controleer coördinaten, belastingen, zwaartekracht en opleggingen voordat je opnieuw berekent. (#2395)',
+          'Het wissen van een plaatnet is sneller, ook bij het opnieuw opbouwen van vloernetten. (#2394)',
+          'Stabileo 0.6.2 is uitgebracht met correcties voor staafbelastingen, 3D-opleggingen, secundaire beugelwapening en gegenereerde belastingen. De release-opmerkingen geven aan wat je opnieuw moet berekenen en welke belastingen je opnieuw moet genereren.',
+          'Figuren op de landingspagina blijven bewegen onder de aanwijzer. Het projectpaneel legt uit welke acties een account vereisen en de registratiepagina gebruikt de figuren van de landingspagina.',
+          'Onderzoek voegt een experiment toe over de minimale dikte van metselwerkbogen en hun bezwijken, gebaseerd op het werk van Heyman.',
+        ],
+      },
     },
   },
   {
@@ -546,6 +586,26 @@ export const CHANGELOG: ChangelogEntry[] = [
           "3D 分析拒绝未知的支座类型。方向不明确的滚动支座和自定义支座需要明确的约束。混凝土梁示例使用预期的简支支座。请确认受影响的支座约束哪些位移，然后重新运行分析、组合和设计验算（SA-2026-089）。",
           "0.6.0 和 0.6.1 的版本说明和博客文章说明了哪些项目需要重新计算、哪些荷载需要重新生成。此处列出的后续修正已在 main 上，等待 0.6.2 版本发布；尚未关闭的审计发现仍在跟踪。",
           "一个新的 Research 实验基于 Heyman 关于砌体的研究，探讨拱的最小厚度以及拱在荷载下如何倒塌。",
+        ],
+      },
+      nl: {
+        "title": "Gecorrigeerde staafbelastingen, zwaartekrachtbelastingen en 3D-opleggingen",
+        "items": [
+          "Uitlezingen bij het aanwijzen van een staaf en vervormde vormen bevatten geconcentreerde koppels en gedeeltelijke verdeelde belastingen via gedeeld herstel in 2D en 3D. Belast herstel zonder voldoende buigstijfheid wordt expliciet geweigerd. Voer de betreffende berekeningen opnieuw uit en bekijk doorbuigingen in het veld en bruikbaarheidstoetsingen (SA-2026-070).",
+          "Belastingen die compatibel zijn met vrijgegeven rotaties behouden hun antwoorden na rotatie of eenhedenomrekening. Elkaar opheffende knoopmomenten blijven behouden; werkelijk niet-opneembare restmomenten worden nog steeds geweigerd. Voer de betreffende berekeningen opnieuw uit.",
+          "Verdeelde belastingen over te korte velden worden geweigerd met een melding die de staaf en het interval noemt. De krachtenevenwichtstoets telt de aangebrachte belasting onafhankelijk mee. Bekijk de geweigerde intervallen en herhaal de betreffende berekeningen.",
+          "ABS- en SRSS-staafdiagrammen in 3D bevatten pieken tussen tekenpunten en waarden aan beide zijden van sprongen. Bereken de betreffende diagrammen opnieuw en bekijk toetsingen die hun pieken hebben gebruikt.",
+          "Interactietoetsingen voor beton en staal houden krachten van dezelfde combinatie en hetzelfde station bij elkaar. Momentgradiëntfactoren voor staal, momentvergroting voor beton en aanwezige wringingsbeugels zijn gecorrigeerd. Voer de betreffende staafontwerpen opnieuw uit en bekijk maatgevende combinaties en wapening (SA-2026-064, SA-2026-066, SA-2026-068).",
+          "De doorsnedegrenzen voor dwarskracht en wringing volgens CIRSOC 201 bevatten beide gelijktijdige dwarskrachtrichtingen in liggers, kolommen en wanden. Eerder geaccepteerde doorsneden kunnen falen; extra beugels kunnen een overschreden doorsnedegrens niet herstellen. Voer de betreffende betonontwerpen opnieuw uit (SA-2026-069).",
+          "Staafontwerp en -certificering weigeren ontbrekende combinaties, staven of gedeclareerde stations in plaats van alleen de beschikbare belastingen te toetsen. Ongelijke stationsroosters behouden elke combinatie in omhullenden van liggerlijnen. Voer opgeslagen beton- en staalontwerpen opnieuw uit en bekijk weigeringen en certificaten (SA-2026-071).",
+          "Sneeuwophoping bij een daktrap op hellende ontvangende daken en dakbreedtes volgen de fysieke dakvlakken, onafhankelijk van rotatie van het grondvlak. Verbonden dakgebieden behouden ophoping-, afglij- en onevenwichtige patronen. Genereer de betreffende sneeuwbelastingen opnieuw voordat je berekeningen, combinaties en ontwerptoetsingen herhaalt (SA-2026-065, SA-2026-067).",
+          "Het toevoegen van knopen verplaatst sneeuwnokken niet meer en maakt verfijnde koepelpanelen niet meer tot vloeren. Belastingen op staven die een nok kruisen behouden kracht en moment, ook bij geselecteerde deelverzamelingen van dragers. Genereer alle betreffende gegenereerde oppervlaktebelastingen opnieuw, inclusief dak- en vloerbelastingen, en herhaal daarna berekeningen, combinaties en ontwerptoetsingen; alleen opgeslagen belastingen berekenen is onvoldoende (SA-2026-072, SA-2026-073, SA-2026-074).",
+          "In vakken met schalen dragen liggers de belasting op onbedekte stroken die ze kunnen opnemen. Het genereren van belasting stopt wanneer de dekking onduidelijk is. In de modus met lastbreedte volgen vloeroppervlak en seismische massa de belaste staven. Vloerzones worden geweigerd wanneer hun excentrische belasting niet kan worden weergegeven. Genereer de betreffende zwaartekracht- en seismische belastingen opnieuw voordat je berekeningen en toetsingen herhaalt.",
+          "Hongaarse vertalingen bevatten richtlijnen bij de release en meldingen voor opgeslagen projecten. Uitgebreide besturing van het Fehér-onderzoek, geconsolideerde Tools, nieuwe Mohr-ingangen en het diagramspel blijven optioneel en standaard uitgeschakeld. Accounts en het meten van advertenties blijven standaard uitgeschakeld.",
+          "Spanningstools behouden kleine hoofdspanningen en schuifspanningen ongelijk aan nul, en gedeelde Mohr-links behouden de ingevoerde spanningstoestand. Rekenmachines houden antwoorden gekoppeld aan de huidige invoer. Het openen van de wapeningswerkruimte kost minder herhaald geometriewerk, met ongewijzigde geometrie en berekeningsresultaten.",
+          "3D-berekening weigert onbekende opleggingstypen. Dubbelzinnige rolopleggingen en aangepaste opleggingen vereisen expliciete inklemmingen. Het voorbeeld van de betonnen ligger gebruikt zijn bedoelde eenvoudige opleggingen. Controleer welke bewegingen de betreffende opleggingen verhinderen en herhaal daarna berekeningen, combinaties en ontwerptoetsingen (SA-2026-089).",
+          "Release-opmerkingen en blogberichten voor 0.6.0 en 0.6.1 leggen uit welke projecten opnieuw berekend moeten worden en welke belastingen opnieuw gegenereerd moeten worden. De latere correcties die hier staan, zijn uitgebracht in 0.6.2. Openstaande auditbevindingen worden nog bijgehouden.",
+          "Een nieuw Onderzoek-experiment op basis van het werk van Heyman over metselwerk onderzoekt de minimale dikte van bogen en hoe ze onder belasting bezwijken.",
         ],
       },
     },
@@ -784,6 +844,34 @@ export const CHANGELOG: ChangelogEntry[] = [
           "重新提供德语、法语和土耳其语。Research 新增了带海床接触的海洋立管，以及弯曲板条的形状控制，对比和限制均在各自页面上列出。工作区保存会保留已设计的建筑，并在浏览器无法保存时给出提示。",
         ]
       },
+      nl: {
+        "title": "Stabiliteit gecontroleerd vóór het berekenen, gecorrigeerde bewegende belasting en P-Delta, duidelijkere grenzen",
+        "items": [
+          "Lineaire 2D- en 3D-berekeningen controleren de stijfheidsstabiliteit vóór het berekenen. Mechanismen, negatieve stijfheid en stijfheid die te onzeker is om op te lossen worden met een reden geweigerd, in plaats van te worden berekend met kunstmatige veren of verschuivingen. Voer de betreffende lineaire berekeningen en hun ontwerptoetsingen opnieuw uit.",
+          "Een veer op een star ingeklemde vrijheidsgraad wordt geweigerd in zowel 2D als 3D. Bewegende belastingen in 3D vangen pieken onder een as binnen het veld op, inclusief de normaalkracht ervan op hellende staven en de eindkrachten. Voer de betreffende omhullenden van bewegende belasting opnieuw uit.",
+          "P-Delta integreert de normaalkracht die langs elke staaf varieert in 2D en 3D, wat de onderschatte versterking onder veldbelastingen corrigeert. Harmonische analyse berekent frequenties volledig, zonder begrensde modale afkapping, ook voor modellen boven de limiet voor dichte matrices. Voer deze berekeningen en afgeleide toetsingen opnieuw uit.",
+          "Gecontroleerd 3D-plastisch bezwijken rapporteert zijn gecertificeerde ondergrens en weigert een onbetrouwbaar certificaat. Plastische berekening controleert zijn rekenwerk en geheugenbehoefte vóór het toewijzen. Vezelbelastingsturing omsluit zijn belastinggrens in plaats van er een te rapporteren die met de stapgrootte verandert.",
+          "Contactberekeningen weigeren een bevroren toestand die niet aan de laatste contactvoorwaarden voldoet. Kabelelementen worden geweigerd buiten de speciale kabelberekening, waar hun slap worden niet kan worden weergegeven. Deze grenzen gelden voor zowel native als browserberekeningen.",
+          "Schaalcombinaties behouden spanningen uit gevallen met opgelegde verplaatsing en bevatten knoopspanningen van vierhoekelementen; SSI geeft opleggingsreacties terug in 2D en 3D. Knik- en meergevallenberekeningen weigeren niet-eindige resultaten. Opgeslagen projecten herkennen berekeningen uit versies met bekende foute resultaten en vragen om de betreffende berekening opnieuw uit te voeren.",
+          "Knikberekeningen in 2D en 3D houden de afrondingsgrenzen voor normaalkracht beperkt tot delen die werkelijk gekoppeld zijn. Een inklemming in een onafhankelijke constructie belet niet meer dat een andere kolom wordt berekend; onzekere druk binnen een gekoppeld deel wordt nog steeds geweigerd. Voer opgeslagen knik- en P-Delta-berekeningen opnieuw uit om B2-factoren en stabiliteit te vernieuwen.",
+          "Regressiecontroles dekken 28 gemelde modellen die nu met een reden worden geweigerd; de beoordeling van het bewijs liet 25 kandidaat-problemen sluiten. Zeven oude schaalmodellen hebben een vrije starre rotatie in het vlak: native tests en browsertests bevestigen hun weigering en controleren de antwoorden na het toevoegen van de ontbrekende inklemming.",
+          "Gefaseerde 2D- en 3D-berekeningen delen de behandeling van vrije rotatie met de lineaire berekening. Eindvrijgaven en eenhedenwijzigingen voegen geen kunstmatige rotatiestijfheid meer toe en zettingen behouden hun bedoelde beweging. Voer de betreffende gefaseerde berekeningen en afgeleide ontwerptoetsingen opnieuw uit (SA-2026-060). Aanvankelijke elastische weigeringen in 3D-plastische berekening blijven nu weigeringen in plaats van stille nulbezwijkfactoren te worden (SA-2026-062).",
+          "Plastische evenwichtstoetsen crashen niet meer bij geïmporteerde modellen waarvan de recordlabels afwijken van hun staaf- en knoop-ID’s. Plastische certificaten tellen de werkelijk benodigde opslag en behouden de laatste geldige grenzen wanneer een optionele verfijning de limiet overschrijdt. Eerder geweigerde raamwerken kunnen nu binnen dezelfde limieten certificeren.",
+          "Plastische certificering draait sneller met ongewijzigde antwoorden en resourcelimieten. Het voorbeeld met uitleggers wordt ook sneller berekend en behoudt zijn gecontroleerde schuifbereik.",
+          "Niet-lineaire 2D- en 3D-berekeningen controleren het fysieke evenwicht consistent na rotatie, spiegeling en eenhedenwijzigingen. P-Delta, opgelegde zettingen en grondveren behouden kleine opgeloste responsen zonder de convergentielimieten te versoepelen. Voer de betreffende niet-lineaire, P-Delta- en grond-constructieberekeningen opnieuw uit.",
+          "Knikfactoren worden in 2D en 3D hersteld uit de oorspronkelijke stijfheidsmatrices, wat kleine overschattingen en onterechte weigeringen van modellen met inklemmingen of gekromde staven corrigeert. Geldige knikvormen in onderwijsmodellen blijven behouden bij andere eenheden. Voer de betreffende knikberekeningen opnieuw uit; de certificaatgrenzen blijven ongewijzigd.",
+          "Staafbelastingen op vakwerken gaan nu mee in de evenwichtstoets in 2D en 3D, zodat geldige modellen met staafbelasting niet meer worden geweigerd wanneer equivalente knoopbelastingen wel berekenen. Voer de betreffende vakwerkberekeningen opnieuw uit.",
+          "Modale analyse behoudt de fysieke massarang door inklemmingen en hellende opleggingen heen. Modellen met massaloze richtingen kunnen hun geldige eindige eigenvormen teruggeven zonder dat een onechte extra eigenvorm tot weigering leidt. Voer de betreffende modale berekeningen en daarvan afhankelijke dynamische responsen opnieuw uit.",
+          "Opgelegde zettingen en rotaties bij ingeklemde constraint-masters bereiken nu afhankelijke knopen in gefaseerde, Winkler-, contact-, materieel niet-lineaire, 2D-corotationele en booglengteberekeningen. Berekeningen met kabelelementen en lineaire tijdsdomeinanalyses weigeren opgelegde opleggingsbeweging ongelijk aan nul die ze niet kunnen weergeven. Voer de betreffende berekeningen en afgeleide toetsingen opnieuw uit (SA-2026-063).",
+          "Booglengte- en verplaatsingssturing herstellen opleggingsreacties en staafkrachten bij de laatste belastingfactor. Niet-lineair en gefaseerd herstel bevat krachten die via constraints worden overgedragen, sluit kunstmatige stijfheid uit en gebruikt de laatste fysieke toestand en het staafassenstelsel. Voer de betreffende berekeningen en afgeleide toetsingen opnieuw uit (SA-2026-061).",
+          "P-Delta maakt onderscheid tussen een mislukt fysiek residu en een beperking van het momentevenwicht in de verplaatste geometrie. Mislukt fysiek evenwicht houdt krachten en spanningen achter; bij de laatste beperking blijven geldige antwoorden voor kleine verplaatsingen behouden, met een waarschuwing. Tijdsdomeinanalyse houdt niet-beschikbare totale en piekopleggingsreacties achter, terwijl verplaatsingsverlopen en pieken behouden blijven. Controleer opgeslagen krachten opnieuw (SA-2026-061).",
+          "Gefaseerde verlopen die een staaf met snedekracht verwijderen worden geweigerd in 2D en 3D. Wijzigingen in stijfheid of opleggingsveren na belasting of beweging kunnen krachten en spanningen onbeschikbaar maken, met een diagnose. Exact onbelaste verwijderingen en volledig bepaalde fasen met alleen constraints behouden hun antwoorden; herverdeling van krachten bij belaste staven blijft niet ondersteund (SA-2026-061).",
+          "Grond-constructie-interactie corrigeert elastisch evenwicht zonder een ongewijzigde berekening opnieuw te starten. Geroteerde modellen en modellen met geschaalde eenheden, zonder grond of met grond in zijn aanvankelijk lineaire bereik, kunnen binnen de bestaande tolerantie en iteratielimiet convergeren. Voer de betreffende SSI-berekeningen opnieuw uit.",
+          "Geroteerde of gespiegelde raamwerken en vakwerken met inklemmingen krijgen geen onterechte weigeringen meer door de afrondingsgrens. Lineaire, gefaseerde, kruip- en P-Delta-beginberekeningen behouden oplosbare fysieke stijfheid in 2D en 3D; de grenzen voor mechanismen en nauwkeurigheid blijven ongewijzigd. Voer de betreffende berekeningen opnieuw uit.",
+          "CIRSOC 301-staalontwerp leest momentgradiënt en doorsnede-eigenschappen uit de engine. De momentgradiëntfactor omvat een tekenwisseling aan de uiteinden van een onverstijfd segment; de netto trekdoorsnede controleert elke verspringende boutketen en weigert een verbinding met alle elementen waarin bouten in het lijf of het tweede been ontbreken. Toets de betreffende staalstaven opnieuw.",
+          "Duits, Frans en Turks worden weer aangeboden. Onderzoek voegt een offshore-riser met zeebodemcontact en vormbesturing van een gebogen strip toe, met de vergelijkingen en grenzen op hun pagina’s. Werkruimte-opslagen behouden ontworpen gebouwen en melden wanneer de browser niet kan opslaan.",
+        ]
+      },
     },
   },
   {
@@ -884,6 +972,18 @@ export const CHANGELOG: ChangelogEntry[] = [
           "MITC4 和 MITC9 壳在翘曲几何上仍然过柔：在扭转 90° 的基准算例中，MITC4 的位移比参考值高约 30%，MITC9 最高达参考值的 2.4 倍。误差随扭转增大，平面单元上则不存在。该公式尚未修正（#1057）。PR #1074 按实测限值增加了警告和拒绝；这种遏制并不能修正公式。",
           "PRO 报告会打印所选的结果集，并检查其导出的表格。新增已保存视图、平面与 3D 组合视图、IFC 引用、只读链接以及更多板结果。Excel 和 IFC 导入会保留矩形截面正确的惯性轴。",
           "基础课程回归，涵盖静力学、影响线、二阶效应、屈曲、塑性和动力学。提供参数化示例，以及使用您自己的 Anthropic 或 OpenAI 密钥的助手。Research 和 Tools 页面在手机上打开更快。",
+        ]
+      },
+      nl: {
+        "title": "Gecorrigeerde belastingen, ontwerp en berekening; meer manieren om te rekenen en te leren",
+        "items": [
+          "Gegenereerde belastingen behouden vloerbelastingen bij gedeeltelijke bedekking en op geroteerde dekken, en nemen schalen mee in het seismische gewicht. De evenwichtstoets noemt belastingen die hij niet kan optellen. Genereer de betreffende belastingen opnieuw.",
+          "Staal- en betontoetsingen corrigeren dwarskrachtoppervlakken, overgewapende buiging, rechthoekige kolommen en drukkracht in buizen. Verbindingen en staven met niet-getoetste wringing geven aan wat niet is geëvalueerd. Elke component van de omhullende van een schaal behoudt zijn eigen extremen. Voer de betreffende ontwerpen opnieuw uit.",
+          "2D-knikberekening integreert de normaalkracht langs de staaf; mechanismen achter starre constraints worden geweigerd en 3D-corotationele berekening stelt grote rotaties samen. Dynamica behoudt beginbelastingen op massaloze knopen en weigert mechanismen. Niet-eindige resultaten worden met een reden geweigerd.",
+          "2D-plastische limietberekening is toegevoegd, maar plastisch bezwijken blijft achtergehouden tot de validatie voor #758 is voltooid. 3D-knik onderscheidt druk van afrondingsfouten; harmonische analyse kiest zijn methode per model en frequentie, zonder die met de belasting te veranderen. Lineaire berekening waarschuwt voor grote rotaties en mogelijke tweede-ordeeffecten.",
+          "MITC4- en MITC9-schalen blijven te slap op verwrongen geometrie: in de benchmark met 90° wringing lagen de verplaatsingen ongeveer 30% boven de referentie voor MITC4 en tot 2,4 keer boven de referentie voor MITC9. De fout groeit met de wringing en ontbreekt bij vlakke elementen. De formulering is nog niet hersteld (#1057). PR #1074 voegde waarschuwingen en weigeringen toe bij gemeten grenzen; die beperking corrigeert de formulering niet.",
+          "PRO-rapporten drukken de gekozen resultatenset af en controleren hun geëxporteerde tabellen. Er zijn opgeslagen weergaven, gecombineerde plattegrond- en 3D-weergaven, IFC-referenties, alleen-lezen links en meer plaatresultaten. Excel- en IFC-imports behouden de juiste traagheidsas van rechthoekige doorsneden.",
+          "De Basic-cursus keert terug met statica, invloedslijnen, tweede orde, knik, plasticiteit en dynamica. Parametrische voorbeelden en een assistent met je eigen Anthropic- of OpenAI-sleutel zijn beschikbaar. Pagina’s van Onderzoek en Tools openen sneller op telefoons.",
         ]
       },
     },
@@ -1004,6 +1104,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           "完整的 JAIE 2026 论文位于 /paper，以及本更新日志。",
         ]
       },
+      nl: {
+        "title": "Stabileo Research, Tools en de app in het Duits, Frans en Turks",
+        "items": [
+          "Spanningen van volumeschalen buiten het X–Y-vlak zijn nu correct; de app vraagt je de betreffende projecten opnieuw te berekenen.",
+          "De engine wordt bij elke wijziging getest met invariantiecontroles en elke nacht met willekeurige modellen; drie vermoedelijke enginefouten bleken foute testmodellen, en elke benchmark vereist nu twee onafhankelijke referenties, modelcontroles en een convergentiestudie.",
+          "Platen als fysieke objecten die worden genet wanneer je berekent, gekromde staven als één geheel, DXF-sjablonen over meerdere niveaus en gebruikszones per verdieping met hun veranderlijke belastingen.",
+          "Exports gekozen op wat eruit komt (resultaten, berekeningsrapport, tekeningen en IFC), en het berekeningsrapport ook in Word, met zijn figuren.",
+          "Kopiëren en plakken in Basic zoals in PRO, met een voorbeeld van waar het terechtkomt; Ctrl+S verplaatst de 3D-weergave niet meer, ongedaan maken legt een 2D-model niet meer plat in 3D, en verplaatsingen op de vervormde vorm worden op verzoek getoond.",
+          "De app en de site zijn nu ook in het Duits, Frans en Turks.",
+          "Stabileo Research: 17 gepubliceerde papers en klassieke benchmarks uit de numerieke mechanica die in de browser draaien op de engine van Stabileo, elk met vermelding waarmee het wordt vergeleken en hoe het wordt gecontroleerd.",
+          "Tools: acht gratis rekenmachines (liggers, uitkragingen, Euler-kolommen en meer) die op de echte engine rekenen, de klassieke formule naast het resultaat tonen en het model in Stabileo openen.",
+          "Het JAIE 2026-paper volledig op /paper, en dit wijzigingslogboek.",
+        ]
+      },
     },
   },
   {
@@ -1090,6 +1204,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           "两篇新博客文章，重新设计的索引，以及一个列出 Stabileo 对每部 CIRSOC 规范检查内容的页面。",
         ]
       },
+      nl: {
+        "title": "Ontwerptoetsingen in de engine, en versies 0.2.0 en 0.3.0",
+        "items": [
+          "Toetsingen van gewapend beton (CIRSOC 201) en staal (CIRSOC 301) volgens de ontwerpnormen draaien nu in de engine, met validatiesuites tegen gepubliceerde referentiemodellen.",
+          "Voor de resultaten waarbij dat kan, berekent de engine een foutgrens met intervalrekenkunde.",
+          "Versies 0.2.0 en 0.3.0 zijn uitgebracht, met opmerkingen in het Spaans, Engels en Portugees. Wanneer een wijziging resultaten beïnvloedt, vraagt de app je je opgeslagen projecten opnieuw te berekenen.",
+          "De landingspagina krijgt een sectie over verificatie en laadt nu 152 KB in plaats van 6,4 MB.",
+          "Twee nieuwe blogberichten, een vernieuwde index en een pagina met wat Stabileo toetst uit elke CIRSOC-norm.",
+        ]
+      },
     },
   },
   {
@@ -1108,6 +1232,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         tr: 'Temel modundaki hesap raporu iletişim kutusu; neyin dahil edileceğini seçmek için içerik listesiyle',
         hu: 'Az Alap mód számítási jelentésének párbeszédablaka a tartalomlistával, amelyből kiválasztható, mi kerüljön bele',
         zh: '基础模式的计算书对话框，列出可选择包含哪些内容的目录',
+        nl: 'Het dialoogvenster voor het berekeningsrapport in Basic, met de inhoudslijst om te kiezen wat je opneemt',
       },
     },
     i18n: {
@@ -1199,6 +1324,17 @@ export const CHANGELOG: ChangelogEntry[] = [
           "整个 PRO 中的单位，以及导出为 Excel、CSV、PDF 报告、DXF 和图像，每种导出都配有显示输出内容的对话框。",
         ]
       },
+      nl: {
+        "title": "Een rapport dat je zelf samenstelt in Basic, en dynamische belastingen in PRO",
+        "items": [
+          "Zoomen van kilometers tot millimeters, overlappende staven kiezen, delen van het model verbergen en beter leesbare labels.",
+          "Je stelt het pdf-berekeningsrapport samen door te kiezen wat erin komt, inclusief de kinematische analyse en de in evenwicht gebrachte vrijlichaamsschema’s, en figuren worden afdrukklaar geëxporteerd.",
+          "Een video van de constructie die verdieping voor verdieping omhoogkomt.",
+          "Samengestelde belastinggevallen en referentiebelastinggevallen, fictieve belastingen en SRSS- en ABS-combinaties.",
+          "Dynamische en bewegende belastingen: projectspecifieke responsspectra en voertuigen uit een catalogus.",
+          "Eenheden in heel PRO, en exports naar Excel, CSV, pdf-rapport, DXF en afbeeldingen, elk met een dialoogvenster dat toont wat eruit komt.",
+        ]
+      },
     },
   },
   {
@@ -1277,6 +1413,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "整栋建筑的钢筋混凝土设计所需时间不到以往的一半。",
         ]
       },
+      nl: {
+        "title": "Normbelastingen in PRO",
+        "items": [
+          "De normbelastinggenerator dekt daken, sneeuwophopingen en belastingpatronen, en berekent de windstootfactor volgens CIRSOC 102.",
+          "Belastingen op staven, knopen en platen kunnen worden ingevoerd met hun richting, hun verloop en het oppervlak dat ze beslaan.",
+          "Weergave-eenheden, taps toelopende staven en verbeteringen aan de doorsnede-editor.",
+          "Het ontwerp van gewapend beton voor een heel gebouw kost minder dan de helft van de tijd die het eerder kostte.",
+        ]
+      },
     },
   },
   {
@@ -1295,6 +1440,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         tr: 'PRO modunda aks ızgaraları ve katlarla modellenmiş çok katlı bir bina',
         hu: 'Többszintes épület a PRO módban modellezve, raszterrel és szintekkel',
         zh: '在 PRO 模式中建模的多层建筑，带轴网和标高',
+        nl: 'Een gebouw met meerdere verdiepingen gemodelleerd in PRO, met rasters en niveaus',
       },
     },
     i18n: {
@@ -1410,6 +1556,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           "一个使大型模型快得多的求解器，以及对板单元的一处修复。",
         ]
       },
+      nl: {
+        "title": "Van oefeningen naar echte projecten in PRO",
+        "items": [
+          "Staven worden van punt naar punt getekend, met magnetisch vangen op knopen, middelpunten en kruisingen, en de app vraagt of wat kruist verbonden moet worden.",
+          "Uitgelegde stap-voor-stap-oplossingen voor vijftien berekeningsmethoden.",
+          "Dynamische analyse tekent de eigenvormen.",
+          "Rasters en niveaus, constructiegeneratoren die in het model worden ingevoegd, en kopiëren en plakken.",
+          "Vloerbelastingen per lastoppervlak, plaatnetten, elastische opleggingen en funderingen.",
+          "Resultaattabellen, doorbuigingsgrenzen, plaatcontouren, een Excel-werkmap van het project en een rapport.",
+          "Een editor om samengestelde doorsneden te tekenen en een zoekfunctie naar de lichtste doorsnede die voldoet.",
+          "Zeven gepubliceerde referentieconstructies, gemodelleerd om de resultaten mee te toetsen, en een galerij van 24 voorbeelden.",
+          "Een solver die grote modellen veel sneller maakt, en een correctie aan de plaatelementen.",
+        ]
+      },
     },
   },
   {
@@ -1428,6 +1588,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         tr: 'Betonarme bir yapının boyutlandırılmış donatıları, PRO modunda 3B olarak',
         hu: 'Vasbeton szerkezet méretezett vasalása 3D-ben, a PRO módban',
         zh: '在 PRO 模式中以 3D 显示的钢筋混凝土结构设计配筋',
+        nl: 'De ontworpen wapening van een gewapende betonconstructie, in 3D getoond in PRO',
       },
     },
     i18n: {
@@ -1543,6 +1704,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           "构建有误的模型现在会被拒绝并给出提示，而不是返回零值。",
         ]
       },
+      nl: {
+        "title": "Ontwerp van gewapend beton in PRO",
+        "items": [
+          "Een kortere landingspagina, met het prijsvoorstel en een contactpaneel dat ook in de app wordt getoond.",
+          "Een nieuw blogbericht over wanneer je met staven en wanneer je met eindige elementen modelleert, en een gebruikershandleiding.",
+          "De CIRSOC Flex-rekenmachine voor gewapend beton stelt nu de wapeningsstaven voor en is gecontroleerd aan de hand van het oorspronkelijke spreadsheet.",
+          "Stap-voor-stap-oplossingen met de verplaatsings- en krachtenmethode, in 2D en 3D.",
+          "Temperatuurbelastingen in elke berekening.",
+          "De onderwijsmodus werd een paneel binnen Basic.",
+          "Ontwerp van gewapend beton en een heringedeelde PRO-interface.",
+          "Een evenwichtstoets van het model en dynamische berekeningen: modaal, responsspectrum en tijdsdomein.",
+          "Een slecht opgebouwd model wordt nu geweigerd met een melding in plaats van nullen terug te geven.",
+        ]
+      },
     },
   },
   {
@@ -1561,6 +1736,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         tr: 'Telefonda Temel modu; bir çerçevenin eğilme momenti diyagramıyla',
         hu: 'Az Alap mód telefonon, egy keret hajlítónyomatéki ábrájával',
         zh: '手机上的基础模式，显示框架的弯矩图',
+        nl: 'Basic op een telefoon, met de momentenlijn van een raamwerk',
       },
     },
     i18n: {
@@ -1636,6 +1812,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "钢结构：截面和材料选择器、生成器、钢结构工作流程和连接设计。",
         ]
       },
+      nl: {
+        "title": "Stabileo op je telefoon",
+        "items": [
+          "Een telefooninterface, met dezelfde indeling voor Basic en PRO.",
+          "Modelimport uit Excel, en gedeelde links openen weer het volledige model.",
+          "Wapeningsontwerp van doorsneden volgens CIRSOC Flex, het spreadsheet dat de meeste civiel ingenieurs in Argentinië gebruiken.",
+          "Staalconstructies: keuzes voor doorsneden en materialen, generatoren, de staalworkflow en het ontwerp van verbindingen.",
+        ]
+      },
     },
   },
   {
@@ -1654,6 +1839,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         tr: 'Düzenlenebilir parametrelerle oluşturulmuş çelik bir endüstriyel yapı',
         hu: 'Szerkeszthető paraméterekből felépített acél ipari csarnok',
         zh: '由可编辑参数构建的钢结构工业厂房',
+        nl: 'Een stalen industriehal opgebouwd uit bewerkbare parameters',
       },
     },
     i18n: {
@@ -1729,6 +1915,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "修复了三处计算错误：圆管的剪力、峰值剪力，以及一个遗漏了楼板和墙的分阶段分析。",
         ]
       },
+      nl: {
+        "title": "Staalconstructies, en de site in drie talen",
+        "items": [
+          "Generatoren voor vakwerken, vakwerkkolommen en industriehallen op basis van bewerkbare parameters, met een doorsnedekeuze met catalogus en filters.",
+          "De landingspagina en de blog in het Spaans, Engels en Portugees. De site werd indexeerbaar voor zoekmachines, met achttien pagina’s en vier berichten.",
+          "Zeven korte tutorials, ter vervanging van de rondleiding.",
+          "Drie rekenfouten verholpen: de dwarskracht van een ronde buis, de piekdwarskracht en een gefaseerde berekening die vloeren en wanden liet vallen.",
+        ]
+      },
     },
   },
   {
@@ -1747,6 +1942,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         tr: 'Temel modunda kesit analizi; profilin gerçek konturu üzerindeki gerilme durumuyla',
         hu: 'Keresztmetszet-vizsgálat az Alap módban, a feszültségi állapottal a keresztmetszet valós kontúrján',
         zh: '基础模式的截面分析，应力状态绘制在截面的真实轮廓上',
+        nl: 'Doorsnedeanalyse in Basic, met de spanningstoestand over de werkelijke contour van de doorsnede',
       },
     },
     i18n: {
@@ -1822,6 +2018,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "PRO 采用与基础模式相同的视觉标识重新设计。",
         ]
       },
+      nl: {
+        "title": "Doorsnedeanalyse, en een nieuwe PRO-interface",
+        "items": [
+          "Een klik op een willekeurig punt van de constructie geeft de spanningstoestand over de werkelijke doorsnede, met hoofdspanningen, de cirkel van Mohr, de kern van de doorsnede en een lastpunt dat je sleept om het effect van excentriciteit te zien.",
+          "Een database met materialen en doorsneden voor Argentinië, Europa, de Verenigde Staten en Brazilië, met meer dan 700 doorsneden getoetst aan hun normen.",
+          "Eenvoudigere selectie- en verplaatsingstools, en spanningskaarten met een kleurenschaal.",
+          "PRO is opnieuw ontworpen met dezelfde visuele identiteit als Basic.",
+        ]
+      },
     },
   },
   {
@@ -1840,6 +2045,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         tr: 'Eğitim modunda bir alıştırma; öğrencinin çizdiği diyagramlar hesaba göre değerlendiriliyor',
         hu: 'Feladat az Oktatási módban, a hallgató által rajzolt ábrákkal, amelyeket az alkalmazás az analízis alapján értékel',
         zh: '教学模式中的练习，学生绘制的图形会对照分析结果评分',
+        nl: 'Een oefening in de onderwijsmodus, waarbij de diagrammen die de student tekent worden beoordeeld aan de hand van de berekening',
       },
     },
     i18n: {
@@ -1923,6 +2129,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           "对设计验算的修复：偏不安全的默认值、缺失的极限状态，以及被忽略的输入。",
         ]
       },
+      nl: {
+        "title": "Een nieuwe visuele identiteit, en de onderwijsmodus",
+        "items": [
+          "De hele Basic-interface met de visuele identiteit van de nieuwe landingspagina.",
+          "Elke doorsnede wordt opgelost tot zijn exacte contour. Als die ontbreekt, weigert de app spanningen te berekenen in plaats van de ontbrekende diktes te verzinnen.",
+          "De docent bouwt de oefening in de app en de student lost die op; de diagrammen die de student tekent worden beoordeeld aan de hand van de berekening.",
+          "Funderingen van gewapend beton: van wapeningsontwerp tot een CAD-bestand, met de staatlijst in 3D.",
+          "Correcties aan de ontwerptoetsingen: onconservatieve standaardwaarden, ontbrekende grenstoestanden en invoer die werd genegeerd.",
+        ]
+      },
     },
   },
   {
@@ -1991,6 +2207,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           "重建了落地页：说明 Stabileo 是什么、目前可用的功能和开发中的功能，并设有基础模式、教学模式和 PRO 板块。",
           "按 2025 版 CIRSOC 规范进行荷载和设计验算，各规范的版本会记录在项目中。",
           "大型模型上更快的后处理和 3D 查看器。",
+        ]
+      },
+      nl: {
+        "title": "Een nieuwe landingspagina, en de CIRSOC-normen van 2025",
+        "items": [
+          "De landingspagina is opnieuw opgebouwd: ze legt uit wat Stabileo is, wat vandaag werkt en wat in ontwikkeling is, met secties voor Basic, Onderwijs en PRO.",
+          "Belastingen en ontwerptoetsingen volgens de CIRSOC-normen van 2025, met de uitgave van elke norm vastgelegd in het project.",
+          "Snellere nabewerking en 3D-weergave bij grote modellen.",
         ]
       },
     },
@@ -2063,6 +2287,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           "对约束和斜支座问题的修复。",
         ]
       },
+      nl: {
+        "title": "Resultaten die altijd bij het model passen",
+        "items": [
+          "Het bewerken van het model maakt de resultaten en ontwerptoetsingen die daardoor verouderd zijn ongeldig, zodat resultaten die niet meer gelden nooit worden getoond.",
+          "Snellere berekening: belastinggevallen hergebruiken de factorisatie, combinaties worden in batches berekend en de berekening draait op de achtergrond.",
+          "Correcties aan inklemmingen en hellende opleggingen.",
+        ]
+      },
     },
   },
   {
@@ -2117,6 +2349,12 @@ export const CHANGELOG: ChangelogEntry[] = [
           "DXF 图纸导入器新增预览和诊断、单位控制、多楼层和梁识别，向导也更清晰。",
         ]
       },
+      nl: {
+        "title": "Importeur voor DXF-tekeningen",
+        "items": [
+          "De importeur voor DXF-tekeningen voegt een voorbeeld en diagnoses toe, eenhedenbeheer, meerdere verdiepingen en liggerinterpretatie, met een duidelijkere wizard.",
+        ]
+      },
     },
   },
   {
@@ -2169,6 +2407,12 @@ export const CHANGELOG: ChangelogEntry[] = [
         "title": "基础模式中的杆件隔离体图",
         "items": [
           "2D 和 3D 中杆件的隔离体图，2D 中带滑动铰，3D 中带六自由度释放，并显示每端的力矢量。",
+        ]
+      },
+      nl: {
+        "title": "Vrijlichaamsschema’s van staven in Basic",
+        "items": [
+          "Vrijlichaamsschema’s van staven in 2D en 3D, met glijdende scharnieren in 2D en vrijgaven met zes vrijheidsgraden in 3D, en de krachtvectoren aan elk uiteinde.",
         ]
       },
     },
@@ -2241,6 +2485,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           "基础模式的 2D 和 3D 中统一了坐标轴和截面。",
         ]
       },
+      nl: {
+        "title": "Van een CAD-tekening naar een betonmodel",
+        "items": [
+          "Van een DXF-tekening naar een constructief concept in gewapend beton: een wizard die lagen classificeert, een downloadbaar sjabloon en voorbeelden.",
+          "De conventie voor lokale 3D-assen is vastgelegd in de interface en in de engine, en bestaande modellen zijn gemigreerd.",
+          "Assen en doorsneden zijn eenduidig gemaakt in Basic 2D en 3D.",
+        ]
+      },
     },
   },
   {
@@ -2259,6 +2511,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         tr: 'PRO modunda bir binanın normal kuvvetleri; 3B görüntüleyicide gerçek kesit şekilleriyle',
         hu: 'Normálerők egy épületben a PRO módban, valós keresztmetszet-alakokkal a 3D megjelenítőben',
         zh: 'PRO 模式中某建筑的轴力，3D 查看器中显示真实的截面形状',
+        nl: 'Normaalkrachten in een gebouw in PRO, met echte doorsnedevormen in de 3D-weergave',
       },
     },
     i18n: {
@@ -2340,6 +2593,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           "带真实截面形状和局部坐标轴的 3D 查看器，以及用于对梁与柱面相接建模的杆件偏移。",
           "楼板和墙的显示、坐标轴、主应力和报告。",
           "基础模式经过重写，与 PRO 的界线更清晰。",
+        ]
+      },
+      nl: {
+        "title": "Een professionele workflow in PRO",
+        "items": [
+          "Ontwerp, belastingen en het berekeningsrapport werken samen in PRO, met uniforme ontwerptoetsingen.",
+          "Resultaten per belastinggeval, combinatie en omhullende.",
+          "Een 3D-weergave met echte doorsnedevormen en lokale assen, en staafexcentriciteiten om liggers te modelleren die aan het kolomvlak aansluiten.",
+          "Vloeren en wanden met weergave, assen, hoofdspanningen en rapport.",
+          "De Basic-modus is herschreven, met een duidelijker scheiding van PRO.",
         ]
       },
     },
@@ -2437,6 +2700,17 @@ export const CHANGELOG: ChangelogEntry[] = [
           "对保存、共享链接和导出的修复。",
         ]
       },
+      nl: {
+        "title": "Een soepelere 3D-weergave en een robuustere engine",
+        "items": [
+          "Een opnieuw ontworpen landingspagina.",
+          "Bijna duizend nieuwe robuustheidstests, met nauwkeurigheidscorrecties in de engine, de elementen en de inklemmingen, en instabiliteitswaarschuwingen voordat de berekening draait.",
+          "Scharnieren in 3D die per as worden vrijgegeven aan elk staafuiteinde.",
+          "De 3D-weergave beweegt soepel bij modellen met meer dan duizend knopen: knopen worden in één keer getekend en het kiezen van staven is sneller.",
+          "Assen zijn in de hele app gelijkgetrokken met Z omhoog, en de momenten My en Mz zijn gecorrigeerd in spanningen en ontwerptoetsingen.",
+          "Correcties aan opslaan, gedeelde links en exports.",
+        ]
+      },
     },
   },
   {
@@ -2456,6 +2730,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         tr: '3B eğilme momenti diyagramıyla bir uzay çerçeve',
         hu: 'Térbeli keret a hajlítónyomatéki ábrájával 3D-ben',
         zh: '带 3D 弯矩图的空间框架',
+        nl: 'Een ruimtelijk raamwerk met zijn momentenlijn in 3D',
       },
     },
     i18n: {
@@ -2579,6 +2854,21 @@ export const CHANGELOG: ChangelogEntry[] = [
           "一个可通过对话来构建和编辑模型的 AI 助手。",
         ]
       },
+      nl: {
+        "title": "De engine in Rust, de PRO-modus en de naam Stabileo",
+        "items": [
+          "De berekeningsengine is herschreven in Rust en draait in de browser via WebAssembly. Voordat die de oude verving, zijn de twee vergeleken op 90 modellen.",
+          "Meer dan tweeduizend validatietests tegen oplossingen uit leerboeken en gepubliceerde referentiegevallen.",
+          "Geometrisch en materieel niet-lineaire berekening, modale, spectrale en tijdsdomeindynamica, platen en schalen, kabels, gefaseerde bouw en funderingen op veren.",
+          "Een solver voor ijle matrices die grote modellen versnelt: 3D-modale analyse werd 11,8 keer sneller.",
+          "Het project is omgedoopt tot Stabileo, met een eigen domein, een landingspagina en de interface in 14 talen.",
+          "De PRO-modus, met toetsingen van gewapend beton volgens CIRSOC 201, automatische belastingen, diagnoses en een berekeningsrapport.",
+          "Een workflow voor gewapend beton met de maatgevende combinatie voor elke staaf, automatische toetsingen, detaillering en verbindingen, en grote voorbeelden zoals een stadion met 1005 knopen.",
+          "De onderwijsmodus, met begeleide oefeningen die stap voor stap worden gecontroleerd.",
+          "De Basic-modus voegt de 3D-weergave toe en het omzetten van 3D-modellen naar 2D-modellen.",
+          "Een AI-assistent die modellen opbouwt en bewerkt vanuit een gesprek.",
+        ]
+      },
     },
   },
   {
@@ -2598,6 +2888,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         tr: 'Temel modunda eğilme momenti diyagramıyla bir düzlem çerçeve',
         hu: 'Síkbeli keret a hajlítónyomatéki ábrájával az Alap módban',
         zh: '基础模式中带弯矩图的平面框架',
+        nl: 'Een vlak raamwerk met zijn momentenlijn in Basic',
       },
     },
     i18n: {
@@ -2697,6 +2988,18 @@ export const CHANGELOG: ChangelogEntry[] = [
           "手机界面、携带模型的共享链接、引导式导览和键盘快捷键。",
         ]
       },
+      nl: {
+        "title": "Het begin: een constructie-editor in de browser",
+        "items": [
+          "De eerste versie, op 10 februari: staven, opleggingen en belastingen in 2D, met reacties, diagrammen en de vervormde vorm, zonder iets te installeren.",
+          "Puntlasten, gedeeltelijk verdeelde en bewegende belastingen, belastinggevallen, combinaties en omhullenden met beide krommen.",
+          "Staal- en betondoorsneden met een doorsnedebouwer, en spanningen in de doorsnede volgens Navier, Jourawski en Von Mises.",
+          "Hellende opleggingen, veren en zettingen, en eigen gewicht van staven.",
+          "Een 3D-engine met zes vrijheidsgraden per knoop en zijn weergave, plus P-Delta, knik en invloedslijnen in 2D.",
+          "Een kinematische analyse voor onderwijs die staaf voor staaf uitlegt waarom een constructie wel of geen mechanisme is.",
+          "Een mobiele interface, gedeelde links die het model meenemen, een rondleiding en sneltoetsen.",
+        ]
+      },
     },
   },
 ];
@@ -2710,6 +3013,7 @@ export const AREA_LABELS: Record<PublicLocale, Record<ChangelogArea, string>> = 
   tr: { basic: 'Temel', pro: 'PRO', edu: 'Eğitim', app: 'Uygulama', engine: 'Motor', site: 'Site' },
   hu: { basic: 'Alap', pro: 'PRO', edu: 'Oktatás', app: 'Alkalmazás', engine: 'Számítómag', site: 'Weboldal' },
   zh: { basic: '基础', pro: 'PRO', edu: '教学', app: '应用', engine: '计算引擎', site: '网站' },
+  nl: { basic: 'Basic', pro: 'PRO', edu: 'Onderwijs', app: 'App', engine: 'Rekenkern', site: 'Website' },
 };
 
 /** Parsed by parts, so no time zone moves the day back. */

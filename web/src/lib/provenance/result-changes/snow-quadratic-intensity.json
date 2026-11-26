@@ -22,6 +22,7 @@
     "fr": "Les intensités tributaires de neige ont une borne explicite",
     "tr": "Kar yük toplama şiddetlerinin açık bir yaklaşım sınırı vardır",
     "hu": "A másodfokú hóteher-intenzitás közelítési hibája kifejezetten korlátos",
+    "nl": "Belaste sneeuwintensiteiten hebben een expliciete benaderingsgrens",
     "zh": "雪荷载从属强度有明确的近似误差界"
   },
   "explanation": {
@@ -32,6 +33,7 @@
     "fr": "Les intensités quadratiques de neige utilisent des charges linéaires par morceaux avec une erreur ponctuelle limitée à 0,01% de l’intensité maximale échantillonnée de chaque bande physique complète, conservant la force et les deux moments en plan. La dérivation indique la borne absolue maximale. Régénérez les charges de neige concernées puis relancez analyses, combinaisons et vérifications. (#2172; #2176; PR #2197).",
     "tr": "İkinci derece kar şiddetleri, her tam fiziksel şeritte örneklenen en büyük şiddetin %0,01 değerini aşmayan noktasal hata ile parçalı doğrusal yüklere dönüştürülür; kuvvet ve plandaki iki moment korunur. Türetim en büyük mutlak sınırı bildirir. Etkilenen kar yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın. (#2172; #2176; PR #2197).",
     "hu": "A másodfokú hóteher-intenzitást szakaszonként lineáris terhek közelítik. A pontonkénti hibakorlát minden teljes fizikai sáv legnagyobb mintavételezett intenzitásának 0,01%-a; az erő és mindkét alaprajzi nyomaték megmarad. A levezetés közli a legnagyobb abszolút korlátot. Állítsa elő újra az érintett hóterheket, majd futtassa újra az analíziseket, kombinációkat és méretezési ellenőrzéseket. (#2172; #2176; PR #2197).",
+    "nl": "Kwadratische sneeuwintensiteiten gebruiken nu stuksgewijs lineaire belastingen met een vermelde puntsgewijze foutgrens van 0.01 % van de maximale bemonsterde intensiteit van elke volledige fysieke strook, waarbij kracht en beide momenten in het grondplan behouden blijven. De afleiding meldt de grootste absolute grens. Genereer de betreffende sneeuwbelastingen opnieuw en voer berekeningen, combinaties en ontwerptoetsingen opnieuw uit. (#2172; #2176; PR #2197).",
     "zh": "二次分布的雪荷载强度现在使用分段线性荷载，其逐点误差界为每条完整实际条带最大采样强度的 0.01%，并保持合力和两个平面力矩。推导会报告最大的绝对误差界。请重新生成受影响的雪荷载，并重新运行分析、组合和设计验算。（#2172；#2176；PR #2197）。"
   },
   "changelog": {

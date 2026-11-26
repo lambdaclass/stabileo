@@ -33,6 +33,7 @@
     "fr": "Les références de tassement et la rigidité initiale du fût restent continues",
     "hu": "A süllyedési referencia és a kezdeti palástmerevség folytonos marad",
     "tr": "Oturma referansları ve başlangıç kazık gövdesi rijitliği sürekli kalır",
+    "nl": "Zettingsreferenties en initiële schachtstijfheid blijven continu",
     "zh": "沉降参考与初始桩身刚度保持连续"
   },
   "explanation": {
@@ -43,6 +44,7 @@
     "fr": "Relancer les résultats non linéaires et SSI : les modèles ponctuels gardent leur échelle après translation, les tassements une référence continue sous faibles charges et déchargement ; les petits déplacements imposés sont résolus et les ressorts t-z utilisent un segment initial linéaire borné (#761, PR #1940).",
     "hu": "Futtassa újra a nemlineáris és SSI eredményeket: az egybeeső modellek eltolás után is megőrzik pontos pontskálájukat; a süllyedések kis terhek mellett és tehermentesítés során is folytonos erőreferenciát tartanak; az apró elmozdulásvezérlések megoldhatók; a t-z rugók korlátos kezdeti lineáris szakaszt használnak (#761, PR #1940).",
     "tr": "Doğrusal olmayan ve SSI sonuçlarını yeniden hesaplayın: çakışık modeller ötelemede ölçeğini, oturmalar küçük yükler ve boşaltmada sürekli referansını korur; küçük yer değiştirme kontrolleri çözülür ve t-z yayları sınırlı doğrusal başlangıç kullanır (#761, PR #1940).",
+    "nl": "Voer niet-lineaire en SSI-resultaten opnieuw uit: samenvallende modellen behouden na verplaatsing hun exacte puntschaal, zettingen behouden een continue krachtreferentie naast kleine belastingen en bij ontlasting, zeer kleine verplaatsingsbesturingen worden berekend, en t-z-veren gebruiken een begrensd initieel lineair segment (#761, PR #1940).",
     "zh": "请重新运行非线性和 SSI 结果：重合的模型在平移之后保持其精确的点尺度，沉降在小荷载旁以及卸载过程中保持连续的力参考，极小的位移控制可以求解，t-z 弹簧使用有界的初始线性段（#761，PR #1940）。"
   },
   "changelog": {

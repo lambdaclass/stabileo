@@ -175,5 +175,27 @@ export const LINK_NAMES: Record<string, Record<string, string>> = {
     "riks-crisfield": "Riks–Crisfield 弧长法与突跳屈曲",
     "newmark-1959": "Newmark 时间积分：单自由度基准算例",
     "cqc-1981": "SRSS 与 CQC：模态组合基准算例"
+  },
+  "nl": {
+    "simply-supported-beam": "Rekentool voor een ligger op twee steunpunten",
+    "cantilever-beam": "Rekentool voor de doorbuiging van een uitkraging",
+    "column-buckling": "Rekentool voor Euler-knik van een kolom",
+    "continuous-beam": "Rekentool voor een doorlopende ligger",
+    "portal-frame": "Rekentool voor een portaal",
+    "truss-2d": "Rekentool voor een 2D-vakwerk",
+    "influence-line": "Rekentool voor invloedslijnen",
+    "beam-natural-frequency": "Rekentool voor de eigenfrequentie van een ligger",
+    "macneal-harder-1985": "MacNeal–Harder-benchmarks voor eindige elementen",
+    "navier-plate": "Navier-plaatbuiging: benchmark met Fourierreeks",
+    "mattiasson-elastica": "Mattiasson-elastica: grote doorbuiging van een uitkraging",
+    "ferrari-sigmund-2025": "Roorda-raamwerkknik: Ferrari–Sigmund",
+    "biggins-2026": "Doorklappen van een boog door krommingspatronen",
+    "lee-frame-1968": "Lee-raamwerk, niet-lineaire benchmark (1968)",
+    "plastic-collapse": "Benchmark plastisch bezwijken van een portaal",
+    "grossman-2026": "Auxetische veernetwerken: Grossman–Boudaoud",
+    "pastrana-2026": "Vormvinding van kabels: krachtdichtheidsmethode",
+    "riks-crisfield": "Riks–Crisfield: booglengtemethode en doorklappen",
+    "newmark-1959": "Newmark-tijdsintegratie: benchmark met één vrijheidsgraad",
+    "cqc-1981": "SRSS en CQC: benchmark voor modale combinatie"
   }
 };

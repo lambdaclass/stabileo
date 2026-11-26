@@ -190,5 +190,29 @@
     "outrigger.subtitle": "混凝土核心筒通过一道伸臂桁架连接两根外围柱：移动伸臂桁架，观察全高范围内的顶点位移，并与解析解对比。",
     "tower.title": "钢塔：振型与屈曲",
     "tower.subtitle": "顶部可附加质量的钢管悬臂：前三阶弯曲振型和屈曲荷载，每一项结果都与精确解并列对比，便于检验计算引擎。"
+  },
+  "nl": {
+    "index.title": "Live constructieve voorbeelden",
+    "index.lead": "Verschuif een schuifregelaar en de Stabileo-engine berekent het model opnieuw in je browser. Elk voorbeeld noemt de controle die het verifieert en bewaart zijn instellingen in een link die je kunt delen; de raamwerkmodellen openen ook in de editor.",
+    "index.meta": "Parametrische constructieve modellen, live in de browser berekend door de Stabileo-engine: liggers en raamwerken, een vloer op kolommen, een aardbevings-tijdsdomeinanalyse, een gewapendbetonkolom, een outrigger-sweep en de eigenvormen en knik van een stalen toren.",
+    "open": "Voorbeeld openen",
+    "back": "Alle voorbeelden",
+    "parameters": "Parameters",
+    "beam-frame.title": "Ligger- en raamwerkspeeltuin",
+    "beam-frame.subtitle": "Opleggingen, overspanning en belastingen op een stalen ligger of portaal, met live buigend moment, dwarskracht en doorbuiging.",
+    "slab-on-columns.title": "Vloer op kolommen",
+    "slab-on-columns.subtitle": "Een vlakke betonvloer op een kolomraster, gemodelleerd met MITC4-schaalelementen, met het live doorbuigingsveld.",
+    "earthquake-frame.title": "Aardbevings-tijdsdomeinanalyse van een raamwerk",
+    "earthquake-frame.subtitle": "Een gewapendbetonraamwerk dat aan de voet wordt geschud, stap voor stap geïntegreerd met de gemiddelde-versnellingsmethode van Newmark.",
+    "legend.title": "Legenda",
+    "legend.undeformed": "onvervormd",
+    "legend.deformed": "vervormd ×{scale}",
+    "legend.mode": "eigenvorm, genormaliseerd",
+    "rc-column.title": "Gewapendbetonkolom",
+    "rc-column.subtitle": "Een rechthoekige kolom met beugels: doorsnede en beugels op schaal getekend, het CIRSOC 201-interactiediagram en de toetsing van een belasting.",
+    "outrigger.title": "Outrigger-sweep op een hoge kern",
+    "outrigger.subtitle": "Een betonnen kern met één outrigger naar twee gevelkolommen: verplaats de outrigger en zie de topverplaatsing, naast de gesloten oplossing, over de volle hoogte.",
+    "tower.title": "Stalen toren: eigenvormen en knik",
+    "tower.subtitle": "Een buisvormige stalen console met een optionele massa aan de top: de eerste drie buigeigenvormen en de kniklast, elk naast de exacte oplossing."
   }
 }

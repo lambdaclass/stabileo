@@ -19,6 +19,7 @@
     "de": "Früher erzeugte Erdbebenlasten prüfen",
     "fr": "Vérifiez les charges sismiques générées précédemment",
     "tr": "Daha önce üretilen deprem yüklerini inceleyin",
+    "nl": "Eerder gegenereerde seismische belastingen controleren",
     "zh": "复核以往生成的地震荷载",
     "hu": "Ellenőrizze a korábban generált szeizmikus terheket"
   },
@@ -29,6 +30,7 @@
     "de": "Frühere Versionen konnten modale Erdbebenkräfte falsch verteilen. Prüfen Sie diese Lastfälle und erzeugen Sie sie, soweit zulässig, mit dem statischen Verfahren neu, bevor Sie Analysen und Nachweise wiederholen (#2319).",
     "fr": "Les versions précédentes pouvaient répartir les forces sismiques modales de manière incorrecte. Vérifiez ces cas et régénérez-les avec la méthode statique lorsqu’elle est applicable avant de reprendre les analyses et les vérifications (#2319).",
     "tr": "Önceki sürümler modal deprem kuvvetlerini hatalı dağıtabiliyordu. Analizleri ve tasarım kontrollerini tekrarlamadan önce bu yük durumlarını inceleyin ve uygunsa statik yöntemle yeniden üretin (#2319).",
+    "nl": "Eerdere versies konden modale seismische krachten onjuist verdelen. Controleer deze seismische gevallen en genereer ze opnieuw met de statische methode waar die van toepassing is, voordat je berekeningen en ontwerptoetsingen herhaalt (#2319).",
     "zh": "旧版本可能错误分配振型地震力。请复核这些地震工况，在适用时使用等效静力法重新生成，再重做分析和设计验算（#2319）。",
     "hu": "A korábbi verziók hibásan oszthatták el a modális szeizmikus erőket. Az elemzések és ellenőrzések megismétlése előtt vizsgálja felül ezeket a tehereseteket, és ahol alkalmazható, generálja őket újra a statikus módszerrel (#2319)."
   },

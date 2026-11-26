@@ -17,6 +17,7 @@
     "fr": "L’analyse modale refuse les mécanismes avec inertie de translation",
     "hu": "A modális vizsgálat elutasítja a transzlációs tehetetlenséggel rendelkező mechanizmusokat",
     "tr": "Modal analiz öteleme ataletine sahip mekanizmaları reddediyor",
+    "nl": "Modale analyse weigert mechanismen met translatietraagheid",
     "zh": "模态分析拒绝求解具有平动惯性的机构"
   },
   "explanation": {
@@ -27,6 +28,7 @@
     "fr": "Un nœud avec inertie peut se déplacer dans une direction libre que ses barres et ses appuis ne bloquent pas. L’arrondi pouvait transformer la fréquence nulle en une petite fréquence positive. L’analyse modale plane et spatiale vérifie désormais la rigidité physique sous contraintes et l’espace de la masse avant de restituer les modes. Relancez les analyses modales concernées et les réponses qui en dépendent. La vérification couvre aussi les nœuds qui se déplacent ensemble sous l’effet des contraintes.",
     "hu": "Egy tehetetlenséggel rendelkező csomópont elmozdulhat olyan irányban, amelyet a rudak és a támaszok nem korlátoznak. A kerekítés a zérus frekvenciából kis pozitív frekvenciát adhatott. A síkbeli és térbeli modális vizsgálat a módusok visszaadása előtt ellenőrzi a kényszerek utáni fizikai merevséget és a tömeg képterét. Futtassa újra az érintett modális vizsgálatokat és a belőlük számított válaszokat. Az ellenőrzés a kényszerek miatt együtt elmozduló csomópontokra is kiterjed.",
     "tr": "Ataleti olan bir düğüm, çubukların ve mesnetlerin kısıtlamadığı bir yönde hareket edebilir. Yuvarlama sıfır frekansı küçük bir pozitif frekansa dönüştürebiliyordu. Düzlemsel ve uzaysal modal analiz artık modları vermeden önce kısıtlanmış fiziksel rijitliği ve kütlenin görüntü uzayını denetler. Etkilenen modal analizleri ve bunlara bağlı tepkileri yeniden hesaplayın. Kontrol, kısıtlar nedeniyle birlikte ötelenen düğümleri de kapsar.",
+    "nl": "Een knoop met traagheid kan bewegen in een richting die zijn staven en opleggingen niet verhinderen. Afronding kon de nulfrequentie in een kleine positieve frequentie veranderen. Vlakke en ruimtelijke modale analyse controleren nu de fysieke beperkte stijfheid en het massabereik voordat ze eigenvormen teruggeven. Voer betrokken modale analyses en afhankelijke responsen opnieuw uit. De controle omvat ook knopen die onder beperkingen samen translateren.",
     "zh": "具有惯性的节点可沿构件和支座无法约束的方向移动。舍入可能使零频率变成一个很小的正频率。平面和空间模态分析现在会在返回振型前检查施加约束后的物理刚度和质量矩阵的值域。请重新运行受影响的模态分析及其相关响应计算。该检查也涵盖受约束而一起平移的节点。"
   },
   "changelog": {

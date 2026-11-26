@@ -45,6 +45,7 @@ export const ADVISORIES: readonly Advisory[] = [
       tr: 'harmonik analiz',
       hu: 'harmonikus analízis',
       zh: '谐响应分析',
+      nl: 'de harmonische analyse',
     },
     title: {
       en: 'Harmonic analysis chose between modal superposition and the direct solve per load: superposition and reciprocity failed, and responses were off by up to 107 % at a node.',
@@ -55,6 +56,7 @@ export const ADVISORIES: readonly Advisory[] = [
       tr: 'Harmonik analiz modal süperpozisyon ile doğrudan çözüm arasında yüke göre seçim yapıyordu: süperpozisyon ve karşılıklılık bozuluyor, yanıtlar bir düğümde %107\'ye kadar sapıyordu.',
       hu: 'A harmonikus analízis terhenként választott a modális szuperpozíció és a közvetlen megoldás között: a szuperpozíció és a reciprocitás nem teljesült, és a válaszok egy csomópontban akár 107%-kal is eltértek.',
       zh: '谐响应分析按每个荷载在模态叠加与直接求解之间选择：叠加性和互易性均不成立，某个节点处的响应偏差最高达 107 %。',
+      nl: 'De harmonische analyse koos per belasting tussen modale superpositie en de directe oplossing: superpositie en reciprociteit gingen mis, en antwoorden weken op een knoop tot 107 % af.',
     },
   },
   {
@@ -74,6 +76,7 @@ export const ADVISORIES: readonly Advisory[] = [
       tr: 'mesnet yer değiştirmesi zorlayan bir yük durumu',
       hu: 'egy támaszelmozdulást előíró tehereset',
       zh: '一个施加了支座位移的荷载工况',
+      nl: 'een belastinggeval dat een oplegverplaatsing oplegde',
     },
     title: {
       en: 'In a model with shells, a load case that imposed a support displacement lost all of its shell stresses, and its combinations and envelopes summed only the other cases\' shell stresses: the combined shell stresses could be unconservative, without a warning.',
@@ -84,6 +87,7 @@ export const ADVISORIES: readonly Advisory[] = [
       tr: 'Kabuklu bir modelde mesnet yer değiştirmesi zorlayan bir yük durumu tüm kabuk gerilmelerini kaybediyor, kombinasyonları ve zarfları yalnızca diğer durumların kabuk gerilmelerini topluyordu: birleşik kabuk gerilmeleri uyarı vermeden güvensiz tarafta kalabiliyordu.',
       hu: 'Héjakat tartalmazó modellben a támaszelmozdulást előíró tehereset elvesztette összes héjfeszültségét, kombinációi és burkolói pedig csak a többi tehereset héjfeszültségeit összegezték: a kombinált héjfeszültségek figyelmeztetés nélkül a biztonság kárára tévedhettek.',
       zh: '在带壳的模型中，施加了支座位移的荷载工况丢失了其全部壳应力，其组合和包络只对其他工况的壳应力求和：组合后的壳应力可能偏不安全，且没有任何警告。',
+      nl: 'In een model met schalen verloor een belastinggeval dat een oplegverplaatsing oplegde al zijn schaalspanningen, en de combinaties en omhullenden ervan telden alleen de schaalspanningen van de andere gevallen op: de gecombineerde schaalspanningen konden onveilig uitvallen, zonder waarschuwing.',
     },
   },
   {
@@ -105,6 +109,7 @@ export const ADVISORIES: readonly Advisory[] = [
       tr: 'Küçük yer değiştirme kontrolü bir çubuğun kayma eğimini ve serbest bırakılmış bir uçtaki ısıl eğriliği atlıyordu: 0,1 rad\'dan fazla dönen bir açıklık için uyarı verilmiyordu.',
       hu: 'A kis elmozdulások ellenőrzése figyelmen kívül hagyta a rúd nyírásból adódó hajlásszögét és a felszabadított végnél fellépő hőmérsékleti görbületet: a 0,1 rad-nál jobban elforduló támaszközre nem érkezett figyelmeztetés.',
       zh: '小位移检查遗漏了杆件的剪切斜率以及杆端释放处的温度曲率：跨度转角超过 0.1 rad 时没有给出警告。',
+      nl: 'De controle op kleine verplaatsingen miste de dwarskrachthelling van een staaf en de thermische kromming bij een vrijgemaakt uiteinde: een overspanning die meer dan 0,1 rad draaide kreeg geen waarschuwing.',
     },
   },
 ];
