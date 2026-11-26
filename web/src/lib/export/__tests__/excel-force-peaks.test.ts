@@ -3,6 +3,8 @@ import { utils } from 'xlsx';
 import { modelStore, resultsStore, uiStore } from '../../store';
 import { initSolver } from '../../engine/wasm-solver';
 import { t } from '../../i18n';
+import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../../engine/member-diagram';
+import { publishCombinations3D } from '../../store/active-results';
 import { buildExcelWorkbook, combinationPeakRows } from '../excel';
 
 beforeAll(async () => { await initSolver(); });
@@ -84,4 +86,65 @@ it('known wrong result: #2581 spatial workbook summary gives wL²/8', async () =
   resultsStore.activeView = 'envelope';
   const envelopeSheets = await workbook();
   expect(Number(envelopeSheets(t('excel.sheetSummary')).find(row => row[0] === t('excel.maxMy'))?.[1])).toBe(peak);
+});
+
+
+const magnitudeLabels = [
+  'tooltip.diagAxial.title', 'calcReport.shearY', 'calcReport.shearZ',
+  'calcReport.torsionMx', 'calcReport.momentY', 'calcReport.momentZ',
+] as const;
+
+it.skip.each([
+  ['srss', false], ['abs', false], ['srss', true], ['abs', true],
+] as const)('known wrong result: #2581 Excel Summary gives exact %s peaks (P-Delta: %s)', async (method, pdelta) => {
+  const span = 6, intensity = 10;
+  const member = beam(true, span, true);
+  const cases = ['Dead', 'Live'].map(name => modelStore.addLoadCase('Workbook ' + name, 'D'));
+  for (const id of cases) modelStore.addDistributedLoad3D(member, 0, 0, 0, -intensity, undefined, undefined, id);
+  const signed = modelStore.addCombination('Signed', [{ caseId: cases[0]!, factor: 1 }]);
+  const magnitude = modelStore.addCombination('Magnitude', cases.map(caseId => ({ caseId, factor: 1 })));
+  modelStore.updateCombination(magnitude, { method });
+  if (pdelta) modelStore.setAnalysis({ perCombination: 'pdelta' });
+  const solved = modelStore.solveCombinations3D(false);
+  if (!solved || typeof solved === 'string') throw new Error(String(solved));
+  publishCombinations3D(solved);
+  resultsStore.activeView = 'combo';
+  resultsStore.activeComboId = magnitude;
+  expect(resultsStore.results3D?.magnitude).toEqual(pdelta ? { method, firstOrder: true } : { method });
+  const read = async () => (await workbook())(t('excel.sheetSummary'));
+  const summary = await read();
+  const multiplier = method === 'srss' ? Math.sqrt(2) : 2;
+  const expected = [0, 0, intensity * span / 3 * multiplier, 0, intensity * span ** 2 / (9 * Math.sqrt(3)) * multiplier, 0];
+  for (const [i, label] of magnitudeLabels.entries()) {
+    expect.soft(summary.find(row => row[0] === t(label)))
+      .toEqual([t(label), expected[i]!.toFixed(2), i < 3 ? 'kN' : 'kN·m']);
+  }
+  expect.soft(summary.flat()).toContain(t('figures.magnitudes'));
+  expect.soft(summary.flat()).not.toContain(t('excel.equilibriumCheck'));
+
+  resultsStore.activeComboId = signed;
+  const signedSummary = await read();
+  expect(signedSummary.flat()).toContain(t('excel.equilibriumCheck'));
+  if (!pdelta) {
+    expect(signedSummary.find(row => row[0] === t('excel.maxMy'))?.[1])
+      .toBe((intensity * span ** 2 / (9 * Math.sqrt(3))).toFixed(2));
+  }
+});
+
+it.skip('known wrong result: #2581 Excel Summary marks bounded component peaks unavailable', async () => {
+  const member = beam(true, 6, false);
+  const tip = modelStore.elements.get(member)!.nodeJ;
+  modelStore.addNodalLoad3D(tip, 5, 0, 0, 0, 0, 0);
+  const solved = modelStore.solve3D(false);
+  if (!solved || typeof solved === 'string') throw new Error(String(solved));
+  const leaf = solved.elementForces[0]!;
+  const method = 'abs';
+  const inner = { ...leaf, combined: { method, parts: [leaf, leaf] } };
+  const outer = { ...leaf, combined: { method, parts: [inner, leaf] } };
+  resultsStore.setResults3D({ ...solved, magnitude: { method }, elementForces: [outer] });
+  const summary = (await workbook())(t('excel.sheetSummary'));
+  for (const [i, label] of magnitudeLabels.entries()) {
+    expect.soft(summary.find(row => row[0] === t(label)))
+      .toEqual([t(label), t(DIAGRAM_EXTREMA_UNAVAILABLE), i < 3 ? 'kN' : 'kN·m']);
+  }
 });

@@ -22,7 +22,7 @@ import { combinationPeakRows } from '../../export/excel';
 import { resultSheets } from '../../export/workbook-results';
 import { envelopeSectionHtml } from '../report/project-sections';
 import { forceTable3D } from '../report/calc-report-extra';
-import { buildQueryRows, extremeRow, filterByAbsThreshold } from '../result-query';
+import { bindSpatialEnvelope, buildQueryRows, componentEnds, extremeRow, filterByAbsThreshold } from '../result-query';
 import { ConcurrentDemand } from '../concurrent-demand';
 import { computeElementStress3D } from '../section-stress-3d';
 import { generateCalcReportHtml } from '../calc-report';
@@ -735,6 +735,58 @@ describe('spatial cantilever end queries', () => {
     }
   });
 
+  it.skip('known wrong result: #2581 recovers the signed query maximum from bound members alone', () => {
+    const id = modelStore.addLoadEntry({
+      type: 'nodal3d', data: { id: 1, nodeId: tip, fx: -80, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 },
+    });
+    const negative = solveModel();
+    expect(modelStore.updateLoad(id, { fx: 30 })).toBe(true);
+    const positive = solveModel();
+    for (const [i, result] of negative.entries()) {
+      const envelope = computeEnvelope3D([result, positive[i]!])!;
+      const forces = envelope.maxAbsResults3D.elementForces;
+      expect(forces).toHaveLength(1);
+      const queried = buildQueryRows([...forces], 'N', { elementIds: [elementId] });
+      for (const end of ['i', 'j'] as const) {
+        const rows = queried.filter(row => row.end === end);
+        expect.soft(extremeRow(rows, 'min')?.value).toBeCloseTo(-80, 12);
+        expect.soft(extremeRow(rows, 'max')?.value).toBeCloseTo(30, 12);
+        expect.soft(extremeRow(rows, 'absmax')?.value).toBeCloseTo(-80, 12);
+      }
+      expect.soft(queried).toEqual(buildQueryRows(forces, 'N', { envelope }));
+      expect.soft(buildQueryRows(forces, 'N', { elementIds: [] })).toEqual([]);
+      expect.soft(buildQueryRows(positive[i]!.elementForces, 'N').map(row => row.value))
+        .toEqual(queried.filter(row => row.value > 0).map(row => row.value));
+      const detached = bindMemberEnvelopeEnds(structuredClone(envelope));
+      expect.soft(() => buildQueryRows(detached.maxAbsResults3D.elementForces, 'N')).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+    }
+  });
+
+  it.skip('known wrong result: #2581 recovers the signed member-end and spaced summary maximum', () => {
+    const id = modelStore.addLoadEntry({
+      type: 'nodal3d', data: { id: 1, nodeId: tip, fx: -80, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 },
+    });
+    const negative = solveModel();
+    expect(modelStore.updateLoad(id, { fx: 30 })).toBe(true);
+    const positive = solveModel();
+    for (const [i, result] of negative.entries()) {
+      const cases = [{ ...A, results: result }, { ...B, results: positive[i]! }];
+      const envelope = computeEnvelope3D(cases.map(source => source.results))!;
+      const aggregate = { id: 3, name: 'Envelope', results: envelope.maxAbsResults3D };
+      const detached = bindMemberEnvelopeEnds(structuredClone(envelope));
+      for (const stations of [2, 5, 'critical'] as const) {
+        const opts = { ...canonical, stations };
+        const axial = (sources: Source[]) => summaryRows('forces', sources, opts)[0]!;
+        const row = axial([aggregate]);
+        expect.soft(row.min?.value).toBeCloseTo(-80, 12);
+        expect.soft(row.max?.value).toBeCloseTo(30, 12);
+        expect.soft(axial([aggregate, ...cases])).toEqual(axial(cases));
+        expect.soft(axial([cases[1]!]).min?.value).toBeCloseTo(30, 12);
+        expect.soft(() => axial([{ ...aggregate, results: detached.maxAbsResults3D }])).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+      }
+    }
+  });
+
   it('known wrong result: #2581 queries signed bounds from linear and P-Delta case envelopes', () => {
     const positive = 100, negative = -60;
     const id = modelStore.addLoadEntry({
@@ -1046,4 +1098,73 @@ it('known wrong result: #2581 converge spatial WASM envelope paths share their f
   const compute = source.slice(source.indexOf('export function computeEnvelope3D('), source.indexOf('export function computeInfluenceLineWasm('));
   expect(compute.match(/return bindSpatialEnvelope\(/g)).toHaveLength(2);
   expect(compute).not.toContain('bindEnvelopeQuerySources');
+});
+
+
+it.skip('known wrong result: #2581 signed force readers never access bound display forces', async () => {
+  await initSolver();
+  const cases = [-80, 30].map((n, i) => ({
+    ...[A, B][i]!, results: reviewSources({ ...reviewForces, nStart: n, nEnd: n })[0]!.results,
+  }));
+  const envelope = computeEnvelope3D(cases.map(source => source.results))!;
+  const results = envelope.maxAbsResults3D;
+  const displayRead = () => { throw new Error('Signed reader accessed envelope display ordinates'); };
+  for (const member of results.elementForces) {
+    for (const field of Object.keys(member).filter(key => /^(n|v[yz]|m[xyz])(Start|End)$/.test(key))) {
+      Object.defineProperty(member, field, { get: displayRead });
+    }
+  }
+  for (const curve of [envelope.axial, envelope.shearY, envelope.shearZ, envelope.torsion, envelope.momentY, envelope.momentZ]) {
+    for (const member of curve.elements) {
+      Object.defineProperties(member, { posValues: { get: displayRead }, negValues: { get: displayRead } });
+    }
+  }
+  const aggregate = { id: 3, name: 'Envelope', results };
+  const forces = results.elementForces;
+  const expected = [30, -80, 30, -80];
+  expect.soft(() => componentEnds(forces[0]!, 'N')).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+  expect.soft(buildQueryRows(forces, 'N').map(row => row.value)).toEqual(expected);
+  expect.soft(buildQueryRows(forces, 'N', { envelope }).map(row => row.value)).toEqual(expected);
+  for (const stations of [2, 5, 'critical'] as const) {
+    const opts = { ...canonical, signedOnly: true, stations };
+    expect.soft(summaryRows('forces', [aggregate], opts)[0]).toMatchObject({ min: { value: -80 }, max: { value: 30 } });
+    expect.soft(envelopeRows('forces', [aggregate, ...cases], opts)).toEqual(envelopeRows('forces', cases, opts));
+    expect.soft(rowsOf('forces', results, opts)).toEqual(cases.flatMap(source => rowsOf('forces', source.results, opts)));
+    expect.soft(allRows('forces', [aggregate, ...cases], opts)).toEqual(allRows('forces', cases, opts));
+    const workbook = resultSheets({
+      sources: [{ ...aggregate, kind: 'envelope' }], stations, statics: null,
+    }, name => name === 'Maxima' || name === 'Envelope');
+    const axial = (name: string, index: number) => workbook.find(sheet => sheet.name === name)!.rows
+      .filter(row => row[0] === 'forces' && row[index] === 'N');
+    expect.soft(axial('Maxima', 1).map(row => [row[3], row[4]])).toEqual([['max', 30], ['min', -80]]);
+    expect.soft(axial('Envelope', 4).map(row => [row[6], row[9]]))
+      .toEqual(Array.from({ length: rowsOf('forces', cases[0]!.results, opts).length }, () => [30, -80]));
+  }
+});
+
+
+it.skip('known wrong result: #2581 signed bound reads require one matching physical member per case', async () => {
+  await initSolver();
+  const valid = reviewSources(reviewForces)[0]!.results;
+  const member = valid.elementForces[0]!;
+  const malformed = [
+    [],
+    [{ ...member, length: member.length * 2 }],
+    [member, member],
+    [{ ...member, combined: { method: 'abs' as const, parts: [member] } }],
+  ];
+  const opts = { ...canonical, signedOnly: true };
+  for (const elementForces of malformed) {
+    const envelope = computeEnvelope3D([valid])!;
+    bindSpatialEnvelope(envelope, [valid, { ...valid, elementForces }]);
+    const results = envelope.maxAbsResults3D;
+    const source = { ...A, results };
+    expect.soft(() => buildQueryRows(results.elementForces, 'N')).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+    expect.soft(() => buildQueryRows(results.elementForces, 'N', { envelope })).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+    expect.soft(() => summaryRows('forces', [source], opts)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+    expect.soft(() => envelopeRows('forces', [source], opts)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+    expect.soft(() => rowsOf('forces', results, opts)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+  }
+  const envelope = computeEnvelope3D([valid])!;
+  expect(buildQueryRows(envelope.maxAbsResults3D.elementForces, 'N')).toEqual(buildQueryRows(valid.elementForces, 'N'));
 });
