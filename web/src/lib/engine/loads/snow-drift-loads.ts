@@ -1,6 +1,6 @@
 import { agrees, roundoff, Sum } from '../accounting-math';
 import { ringArea } from './gravity-shell-partition';
-import { SNOW_EDGE_COINCIDENCE, STEP_DRIFT_REFUSAL, snowCoordinate, snowEdgeRoundoff, snowRoofComponents, snowRoofEdgePairs, snowRoofSurfaces, snowSegmentCuts, roofSurfaceModel } from './snow-roof-surfaces';
+import { MIN_COINCIDENT_ROOF_EDGE_OVERLAP, SNOW_EDGE_COINCIDENCE, STEP_DRIFT_REFUSAL, snowCoordinate, snowEdgeRoundoff, snowRoofComponents, snowRoofEdgePairs, snowRoofSurfaces, snowSegmentCuts, roofSurfaceModel } from './snow-roof-surfaces';
 import { gravityLayout, widthSpans, type GravityLayout, type GravityModel } from './plan-gravity';
 import { driftShapeMargins, stepDriftMargins, stepDrift, parapetDrift, slidingSnow, REF_DRIFT, REF_DRIFT_ADJACENT, REF_FIG9, REF_PARAPET, REF_SLIDING, type StepDrift } from '../../codes/cirsoc104/drift';
 import { EngineMessageError, msg, round, type EngineMessage } from '../../codes/message';
@@ -62,7 +62,7 @@ function joined(A: P2[], B: P2[], continuous: (a: P2, b: P2) => boolean): boolea
       const d = B[(f + 1) % B.length]!;
       const error = snowEdgeRoundoff(a, b, c, d);
       const interval = edgeInterval(a, b, c, d, error);
-      return interval && interval[1] - interval[0] > error
+      return interval && interval[1] - interval[0] > MIN_COINCIDENT_ROOF_EDGE_OVERLAP
         && continuous(point(interval[0]), point(interval[1]));
     });
   });

@@ -11,3 +11,5 @@ Beam descendants retain the original certified trace during splitting. The draft
 A measurable joint between coplanar bays interrupts the fetch. The generator keeps the drift strip over any clear span above geometric roundoff after it clips intervening roofs. When the separation varies along opposed roof edges, a clear in-range span below a higher modeled roof produces the existing snow transfer refusal. The supported uniform-separation calculation continues to use the physical gap width.
 
 Regenerate generated snow cases before rechecking affected projects. Fetch and clear span corrections can change the surcharge and its bearing reactions. A skewed transfer can make the plan block until the load can be represented.
+
+The edge checks use the elevation bounds of the authored roof surfaces and require the existing minimum overlap for a coincident seam to extend fetch. See the [valley and short-seam regression](2026-11-rafter-gap-width-and-valley-snow.md#preserve-valid-snow-generation-at-roof-valleys-and-short-seams).

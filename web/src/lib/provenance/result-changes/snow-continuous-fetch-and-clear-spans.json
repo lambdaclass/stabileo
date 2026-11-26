@@ -29,14 +29,14 @@
     "zh": "使用连续的风吹距离并检查未受遮挡的积雪漂移区段"
   },
   "explanation": {
-    "en": "Regenerate affected snow cases. Open joints interrupt fetch, short clear spans carry drift, and unsupported skewed transfers block generation.",
-    "es": "Volvé a generar los casos de nieve afectados. Las juntas abiertas interrumpen la captación, los tramos libres cortos reciben acumulación y las transferencias oblicuas no admitidas bloquean la generación.",
-    "pt": "Gere novamente os casos de neve afetados. Juntas abertas interrompem a captação, trechos livres curtos recebem acumulação e transferências oblíquas não suportadas bloqueiam a geração.",
-    "de": "Erzeugen Sie die betroffenen Schneelastfälle neu. Offene Fugen unterbrechen die Anströmlänge, kurze freie Abschnitte tragen Verwehungslasten und nicht unterstützte schräge Übergänge stoppen die Erzeugung.",
-    "fr": "Régénérez les cas de neige concernés. Les joints ouverts interrompent la collecte, les courts passages libres reçoivent la surcharge et les transferts obliques non pris en charge bloquent la génération.",
-    "hu": "Generálja újra az érintett hótehereseteket. A nyitott hézag megszakítja a hógyűjtési hosszt, a rövid szabad szakaszra is jut hótorlaszteher, a nem támogatott ferde átadás pedig leállítja a generálást.",
-    "tr": "Etkilenen kar yükü durumlarını yeniden oluşturun. Açık derzler toplama uzunluğunu keser, kısa açık aralıklar birikim yükü alır ve desteklenmeyen eğik aktarımlar üretimi durdurur.",
-    "zh": "请重新生成受影响的雪荷载工况。开口接缝会中断风吹距离，较短的未遮挡区段仍承受漂移荷载，无法处理的斜向传递会阻止生成。"
+    "en": "Regenerate affected snow cases. Open joints interrupt fetch, short clear spans carry drift, and unsupported skewed transfers block generation. Coincident roof edges must satisfy the minimum overlap to extend fetch. Height checks use the bounds of the authored roof surfaces.",
+    "es": "Volvé a generar los casos de nieve afectados. Las juntas abiertas interrumpen la captación, los tramos libres cortos reciben acumulación y las transferencias oblicuas no admitidas bloquean la generación. Los bordes de cubierta coincidentes deben alcanzar el solape mínimo para extender la captación. Las comprobaciones de altura usan los límites de las superficies de cubierta definidas en el modelo.",
+    "pt": "Gere novamente os casos de neve afetados. Juntas abertas interrompem a captação, trechos livres curtos recebem acumulação e transferências oblíquas não suportadas bloqueiam a geração. As bordas coincidentes dos telhados devem ter a sobreposição mínima para ampliar a captação. As verificações de altura usam os limites das superfícies de cobertura definidas no modelo.",
+    "de": "Erzeugen Sie die betroffenen Schneelastfälle neu. Offene Fugen unterbrechen die Anströmlänge, kurze freie Abschnitte tragen Verwehungslasten und nicht unterstützte schräge Übergänge stoppen die Erzeugung. Übereinstimmende Dachkanten müssen die Mindestüberdeckung erreichen, um die Anströmlänge zu erweitern. Höhenprüfungen verwenden die Grenzen der im Modell definierten Dachflächen.",
+    "fr": "Régénérez les cas de neige concernés. Les joints ouverts interrompent la collecte, les courts passages libres reçoivent la surcharge et les transferts obliques non pris en charge bloquent la génération. Les bords de toiture coïncidents doivent respecter le recouvrement minimal pour prolonger la collecte. Les vérifications de hauteur utilisent les limites des surfaces de toiture définies dans le modèle.",
+    "hu": "Generálja újra az érintett hótehereseteket. A nyitott hézag megszakítja a hógyűjtési hosszt, a rövid szabad szakaszra is jut hótorlaszteher, a nem támogatott ferde átadás pedig leállítja a generálást. A hógyűjtési hossz csak a minimális átfedést teljesítő közös tetőéleken növelhető. A magasság ellenőrzése a modellben megadott tetőfelületek határait használja.",
+    "tr": "Etkilenen kar yükü durumlarını yeniden oluşturun. Açık derzler toplama uzunluğunu keser, kısa açık aralıklar birikim yükü alır ve desteklenmeyen eğik aktarımlar üretimi durdurur. Çakışan çatı kenarları toplama uzunluğunu uzatmak için asgari örtüşmeyi sağlamalıdır. Yükseklik kontrolleri modelde tanımlanan çatı yüzeylerinin sınırlarını kullanır.",
+    "zh": "请重新生成受影响的雪荷载工况。开口接缝会中断风吹距离，较短的未遮挡区段仍承受漂移荷载，无法处理的斜向传递会阻止生成。 重合的屋面边必须达到最小重叠长度才能延长风吹距离。高度校核采用模型中定义的屋面范围。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-certified-bearings-and-snow-gaps.md",

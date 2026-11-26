@@ -44,10 +44,11 @@ export function boundedSnowIntensity(qI: number, centre: number, qJ: number, ref
   return { segments, approximated: delta !== 0, absoluteErrorBound: Math.abs(delta) / (3 * count * count) + Math.abs(rawDelta - delta) };
 }
 
+const planPoint = ({ x, y }: Point): P2 => [x, y];
 const cross = (a: P2, b: P2, c: P2) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
 
 
-function footprints(edges: Array<{ a: Point; b: Point }>, gradient: P2): P2[][] {
+function footprints(edges: Array<{ a: Point; b: Point }>, gradient: P2): Point[][] {
   const points: Point[] = [];
   const index = (p: Point) => {
     const k = points.findIndex(q => Math.hypot(p.x - q.x, p.y - q.y) < 1e-8);
@@ -85,17 +86,17 @@ function footprints(edges: Array<{ a: Point; b: Point }>, gradient: P2): P2[][] 
     }
   }
   const ordered = adj.map((ns, k) => [...ns].sort((a, b) => Math.atan2(points[a]!.y - points[k]!.y, points[a]!.x - points[k]!.x) - Math.atan2(points[b]!.y - points[k]!.y, points[b]!.x - points[k]!.x)));
-  const seen = new Set<string>(), out: P2[][] = [];
+  const seen = new Set<string>(), out: Point[][] = [];
   for (const [start, ns] of ordered.entries()) for (const next of ns) {
     let a = start, b = next;
-    const poly: P2[] = [];
+    const vertices: Point[] = [];
     while (!seen.has(`${a}:${b}`)) {
-      seen.add(`${a}:${b}`); poly.push([points[a]!.x, points[a]!.y]);
+      seen.add(`${a}:${b}`); vertices.push(points[a]!);
       const row = ordered[b]!, c = row[(row.indexOf(a) + row.length - 1) % row.length]!;
       a = b; b = c;
     }
-    const area = signedSnowArea(poly);
-    if (area < -1e-8) out.push(poly);
+    const area = signedSnowArea(vertices.map(planPoint));
+    if (area < -1e-8) out.push(vertices);
   }
   return out;
 }
@@ -217,6 +218,7 @@ export interface SnowPlane {
   slope: number;
   W: number;
   elevation: (pt: P2) => number;
+  elevationOnFootprint: (pt: P2) => number;
 }
 
 export interface RoofGeometry {
@@ -232,6 +234,7 @@ export interface RoofGeometry {
 
 const PANEL_ELEVATION_TOL = 0.05;
 export const SNOW_EDGE_COINCIDENCE = 0.01;
+export const MIN_COINCIDENT_ROOF_EDGE_OVERLAP = 0.1;
 export const STEP_DRIFT_REFUSAL = 'snow.refused.stepDriftTransfer';
 
 export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
@@ -276,27 +279,34 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     }
     candidates.sort((a, b) => b.score - a.score || Math.hypot(...a.gradient) - Math.hypot(...b.gradient));
     const unique = candidates.filter((c, k) => !candidates.slice(0, k).some(p => Math.hypot(p.gradient[0] - c.gradient[0], p.gradient[1] - c.gradient[1]) < 1e-8));
-    const bounded = unique.filter(c => footprints(c.supported, c.gradient).some(p => memberSupport(m.a, m.b, p).positive));
+    const bounded = unique.filter(c => footprints(c.supported, c.gradient).some(vertices => memberSupport(m.a, m.b, vertices.map(planPoint)).positive));
     for (const best of bounded.length ? bounded : [candidates[0]]) {
       const gradient: P2 = best?.gradient ?? [m.dz * m.dx / m.lh ** 2, m.dz * m.dy / m.lh ** 2];
       const supported = best?.supported ?? collinearSnowMembers(connected, m, gradient);
       if (!supported.some(r => roofIds.has(r.id))) continue;
       const norm = Math.hypot(...gradient);
-      const outlines = best ? footprints(supported, gradient) : [];
-      const polygons = outlines.some(p => memberSupport(m.a, m.b, p).positive) ? outlines : [[]];
+      const outlines = best ? footprints(supported, gradient).map(vertices => ({ vertices, polygon: vertices.map(planPoint) })) : [];
+      const polygons = outlines.some(({ polygon }) => memberSupport(m.a, m.b, polygon).positive) ? outlines : [{ vertices: [], polygon: [] }];
       const section = connectedSnowMembers(m, supported);
-      for (const polygon of polygons) {
+      for (const { vertices, polygon } of polygons) {
         const members = polygon.length ? supported.filter(r => memberSupport(r.a, r.b, polygon).positive) : section;
         if (!members.some(r => r.id === m.id)) continue;
         const existing = planes.find(p => p.members.has(m.id) && Math.hypot(p.gradient[0] - gradient[0], p.gradient[1] - gradient[1]) < 1e-8 && Math.abs(p.elevation([m.a.x, m.a.y]) - Z(m.a)) < 1e-8);
         if (existing) { atMember.set(m.id, existing); continue; }
         const points: P2[] = polygon.length ? polygon : members.flatMap(r => [[r.a.x, r.a.y] as P2, [r.b.x, r.b.y] as P2]);
         const coordinates = points.map(p => ((p[0] - m.a.x) * gradient[0] + (p[1] - m.a.y) * gradient[1]) / norm);
+        const elevations = vertices.map(Z);
+        const minimum = Math.min(...elevations), maximum = Math.max(...elevations);
+        const elevation = (pt: P2) => Z(m.a) + gradient[0] * (pt[0] - m.a.x) + gradient[1] * (pt[1] - m.a.y);
+        const elevationOnFootprint = (pt: P2) => {
+          const z = elevation(pt);
+          return polygon.length && Number.isFinite(z) ? Math.min(maximum, Math.max(minimum, z)) : z;
+        };
         const plane: SnowPlane = {
           kind: polygon.length ? 'plane' : 'section', origin: m.a, gradient, members: new Set(members.map(r => r.id)),
           polygon, slope: Math.atan(norm) * 180 / Math.PI,
           W: Math.max(...coordinates) - Math.min(...coordinates),
-          elevation: pt => Z(m.a) + gradient[0] * (pt[0] - m.a.x) + gradient[1] * (pt[1] - m.a.y),
+          elevation, elevationOnFootprint,
         };
         planes.push(plane); atMember.set(m.id, plane);
       }
@@ -368,7 +378,7 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
       return segmentAbovePanel(m.a, m.b, p.polygon, p.z);
     }));
     const datumZ = datum ? Z(datum) : p?.z ?? 0;
-    return { resolved, datumZ, planes: eligible, planeAt: at, slope: at(centre)?.slope ?? 0, slopeAt: (pt: P2) => at(pt)?.slope ?? 0, elevation: (pt: P2) => at(pt)?.elevation(pt) ?? datumZ };
+    return { resolved, datumZ, planes: eligible, planeAt: at, slope: at(centre)?.slope ?? 0, slopeAt: (pt: P2) => at(pt)?.slope ?? 0, elevation: (pt: P2) => at(pt)?.elevationOnFootprint(pt) ?? datumZ };
   };
   const cache = new WeakMap<GravityLayout, Map<number, ReturnType<typeof readPanel>>>();
   const panel = (index: number, layout?: GravityLayout) => {
@@ -554,7 +564,7 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     const lp = L.planeAt(r.point), rp = R.planeAt(r.point);
     return [r.from, (r.from + r.to) / 2, r.to].flatMap(t => {
       const pt: P2 = [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
-      return [L.elevation(pt) - R.elevation(pt), (lp?.elevation(pt) ?? L.elevation(pt)) - (rp?.elevation(pt) ?? R.elevation(pt))];
+      return [L.elevation(pt) - R.elevation(pt), (lp?.elevationOnFootprint(pt) ?? L.elevation(pt)) - (rp?.elevationOnFootprint(pt) ?? R.elevation(pt))];
     });
   });
   const resolves = (layout?: GravityLayout) => {
@@ -740,8 +750,8 @@ function roofEdgeElevations(
       const pt = point(t);
       values.push({
         point: mid,
-        lowerZ: lowerPlane?.elevation(pt) ?? lower.elevation(mid),
-        upperZ: upperPlane?.elevation(above(pt)) ?? upper.elevation(upperMid),
+        lowerZ: lowerPlane?.elevationOnFootprint(pt) ?? lower.elevation(mid),
+        upperZ: upperPlane?.elevationOnFootprint(above(pt)) ?? upper.elevation(upperMid),
       });
     }
   }
@@ -756,7 +766,7 @@ function roofObstructs(
   const panel = layout.panels[panelIndex]!;
   const candidates = surface.planes.flatMap(plane => {
     const footprint = [plane.polygon.map(project)];
-    const heights = footprintIntersection(part, footprint).flat(2).map(pt => plane.elevation(world(pt)));
+    const heights = footprintIntersection(part, footprint).flat(2).map(pt => plane.elevationOnFootprint(world(pt)));
     return heights.length ? [{ footprint, heights }] : [];
   });
   const planeCovers = candidates.some(({ heights, footprint }) =>
@@ -805,7 +815,7 @@ export function snowRoofEdgePairs(
         const gapAt = (t: number) => -offset(t);
         const skew = !coincident && !parallel;
         if (coincident) {
-          if (hi - lo <= 0.1) continue;
+          if (hi - lo <= MIN_COINCIDENT_ROOF_EDGE_OVERLAP) continue;
         } else {
           if (!includeAdjacent || !opposed) continue;
           const from = gapAt(lo), to = gapAt(hi);

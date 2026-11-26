@@ -74,13 +74,11 @@ it('#2512 explicit width gravity does not qualify for panel gravity regeneration
   expect(features.has('generatedPanelGravity')).toBe(false);
 });
 
-const registryRegression = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
-
 it('#2586 requires an actual paired roof attachment with a bounded gap', () => {
   checkRafterGapRegeneration('gravity-attached-rafter-gaps');
 });
 
-registryRegression('known wrong result: #2607 bounded attached roof gaps have a separate width regeneration notice', () => {
+it('#2607 bounded attached roof gaps have a separate width regeneration notice', () => {
   checkRafterGapRegeneration('gravity-attached-rafter-gap-width');
 });
 
