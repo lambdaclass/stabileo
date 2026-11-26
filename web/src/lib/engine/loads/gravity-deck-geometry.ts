@@ -1,7 +1,7 @@
 import type { Polygon } from 'polygon-clipping';
 import { orient2d, orient3d } from 'robust-predicates';
 import { msg } from '../../codes/message';
-import { footprintArea, footprintBounds, footprintIntersection, planarShell, refuseGravityGeometry, type ShellPlane } from './gravity-shell-partition';
+import { footprintArea, footprintBounds, footprintIntersection, planarShell, refuseGravityGeometry, type GravityShellKey, type ShellPlane } from './gravity-shell-partition';
 
 type Point = Polygon[number][number];
 type Point3 = [number, number, number];
@@ -36,7 +36,7 @@ export function physicalDeck(points: Point3[], plane?: ShellPlane): Deck {
   return { points, basis, ...deckSurface(range, surface) };
 }
 
-export type DeckFootprint = { footprint: Polygon[]; geometry: DeckSurface; independentShells?: ReadonlySet<number> };
+export type DeckFootprint = { footprint: Polygon[]; geometry: DeckSurface; independentShells?: ReadonlySet<GravityShellKey> };
 type Band = 'none' | 'full' | 'partial';
 
 function above(upper: number, lower: number, limit: number): number {

@@ -22,12 +22,12 @@ it('#2282 an offset rafter tied to a loaded roof shell receives no duplicate mem
     expect(plan.nodal).toEqual([]);
     expect(plan.levels.reduce((sum, level) => sum + level.planAreaM2, 0)).toBeCloseTo(40, 10);
     expect(plan.levels.reduce((sum, level) => sum + level.superimposedKN, 0)).toBeCloseTo(4 * Math.hypot(10, 2), 10);
-    expect(layout.shellQuads).toHaveLength(expectedShellAreas.length);
-    for (const [index, q] of layout.shellQuads.entries()) {
+    expect(layout.shells).toHaveLength(expectedShellAreas.length);
+    for (const [index, q] of layout.shells.entries()) {
       expect(q.area).toBeCloseTo(expectedShellAreas[index]!, 10);
       expect(q.cos).toBeCloseTo(cos, 10);
-      expect(plan.surface.find(load => load.caseType === 'D' && load.quadId === q.quadId)?.q).toBe(1);
-      const live = plan.surface.find(load => load.caseType === 'L' && load.quadId === q.quadId);
+      expect(plan.surface.find(load => load.caseType === 'D' && load.quadId === q.target.quadId)?.q).toBe(1);
+      const live = plan.surface.find(load => load.caseType === 'L' && load.quadId === q.target.quadId);
       expect(live?.q).toBeCloseTo(plan.factors.occupancy.value * cos, 10);
     }
     for (const shell of model.quads.values()) shell.thickness = 0.01;

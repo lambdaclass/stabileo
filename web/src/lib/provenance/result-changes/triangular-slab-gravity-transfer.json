@@ -1,0 +1,33 @@
+{
+  "id": "triangular-slab-gravity-transfer",
+  "date": "2026-11-26",
+  "prs": [2429],
+  "area": "loads",
+  "when": { "all": ["space3D", "triangularPlates", "generatedLoads"] },
+  "quantities": ["*", "solve.ok"],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Transfer automatic gravity through triangular slabs",
+    "es": "Transferir cargas gravitatorias automáticas por las losas triangulares",
+    "pt": "Transferir cargas gravitacionais automáticas pelas lajes triangulares",
+    "de": "Automatische Schwerkraftlasten über Dreiecksplatten übertragen",
+    "fr": "Transférer les charges gravitaires automatiques par les dalles triangulaires",
+    "tr": "Otomatik yerçekimi yüklerini üçgen döşemeler üzerinden aktar",
+    "hu": "Automatikus gravitációs terhek átadása háromszöglemezeken",
+    "zh": "通过三角形楼板传递自动重力荷载"
+  },
+  "explanation": {
+    "en": "Regenerate automatic loads and re-run the analysis. Triangular plates participate in pressure allocation, roof coverage and level weight.",
+    "es": "Volvé a generar las cargas automáticas y repetí el análisis. Las placas triangulares participan en la asignación de presiones, la cobertura de cubierta y el peso por nivel.",
+    "pt": "Gere novamente as cargas automáticas e repita a análise. As placas triangulares participam na atribuição de pressões, na cobertura da cobertura e no peso por piso.",
+    "de": "Erzeugen Sie die automatischen Lasten neu und wiederholen Sie die Berechnung. Dreiecksplatten werden bei der Druckzuweisung, bei der Dachüberdeckung und beim Geschossgewicht berücksichtigt.",
+    "fr": "Régénérez les charges automatiques et relancez l’analyse. Les plaques triangulaires interviennent dans l’affectation des pressions, la couverture de toiture et le poids par niveau.",
+    "tr": "Otomatik yükleri yeniden oluşturun ve analizi tekrarlayın. Üçgen plakalar basınç atamasına, çatı örtüsüne ve kat ağırlığına dahil edilir.",
+    "hu": "Hozza létre újra az automatikus terheket, majd futtassa újra a számítást. A háromszöglemezek részt vesznek a nyomás elosztásában, a tetőfedettség és a szintenkénti súly meghatározásában.",
+    "zh": "重新生成自动荷载并重新分析。三角形板参与压力分配、屋面覆盖判定和楼层重量计算。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-cad-wall-slab-load-transfer.md",
+    "heading": "Transfer automatic gravity through triangular slabs"
+  }
+}

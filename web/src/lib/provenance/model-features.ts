@@ -62,7 +62,7 @@ export const FEATURE_IDS = [
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
-  'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'cadWallSlabMesh', 'triangularGravityFootprint', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
+  'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'cadWallSlabMesh', 'triangularGravityFootprint', 'triangularPlates', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
   'physicalPlateDefinitions', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
@@ -494,6 +494,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     return !isFiniteInputNumber(rho) || rho < 0;
   })) f.add('invalidDynamicMaterialDensity');
   if (quads.length || values(s.plates).length || values(s.solidShells).length) f.add('shells');
+  if (values(s.plates).length) f.add('triangularPlates');
   if (mode !== 'pro' && (quads.length || values(s.plates).length)) f.add('shellsInBasic');
   const physicalPlates = new Set((Array.isArray(s.groups) ? s.groups : []).flatMap(entry =>
     plateSurfaceOf({ data: entry?.[1]?.data as Record<string, unknown> }) ? [entry[0]] : []));

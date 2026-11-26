@@ -7,7 +7,7 @@ import type { FloorBay } from './floor-loads';
 import {
   footprintArea, potentiallyOverlapping,
   refuseGravityGeometry, shellOverlapMessage, subtractFootprints, unionFootprints,
-  type ShellFootprint,
+  type GravityShellKey, type ShellFootprint,
 } from './gravity-shell-partition';
 
 type Point3 = [number, number, number];
@@ -27,7 +27,7 @@ function shareOnlyAnEdge(first: Polygon[number], second: Polygon[number]): boole
   });
 }
 
-type Shell = ShellFootprint & { nodes: number[]; pitched: boolean; footprint: [Polygon]; geometry: Deck };
+type Shell = ShellFootprint & { key: GravityShellKey; nodes: number[]; pitched: boolean; footprint: [Polygon]; geometry: Deck };
 type ShellDeck<S extends Shell> = { kind: 'shell'; shell: S; footprint: [Polygon]; geometry: Deck };
 
 function connectedPitchedRoofs<S extends Shell>(shells: readonly ShellDeck<S>[]) {
@@ -57,7 +57,7 @@ function connectedPitchedRoofs<S extends Shell>(shells: readonly ShellDeck<S>[])
 }
 
 export type BayAssignment =
-  | { partition: { kind: 'uncovered' }; region: [Polygon]; deck: Deck; independentShells?: ReadonlySet<number> }
+  | { partition: { kind: 'uncovered' }; region: [Polygon]; deck: Deck; independentShells?: ReadonlySet<GravityShellKey> }
   | { partition: { kind: 'shell' }; region: []; deck?: never; independentShells?: never };
 
 const bayMembers = (bay: FloorBay) => [...bay.members].sort((a, b) => a - b).join(', ');
@@ -72,7 +72,7 @@ export function partitionGravityFloors<S extends Shell>(
   shellBayAttachment: (shell: S, bay: FloorBay) => 'independent' | 'linked' | 'attached',
   shellSeparation: (first: S, second: S) => number,
   independentDecks: (shell: S, bay: FloorBay) => boolean,
-): { shellBayMembers: ReadonlyMap<number, ReadonlySet<number>>; bays: Map<FloorBay, BayAssignment> } {
+): { shellBayMembers: ReadonlyMap<GravityShellKey, ReadonlySet<number>>; bays: Map<FloorBay, BayAssignment> } {
   const shellCarriers: ShellDeck<S>[] = shells.map(shell => ({
     kind: 'shell', shell, footprint: shell.footprint, geometry: shell.geometry,
   }));
@@ -101,7 +101,7 @@ export function partitionGravityFloors<S extends Shell>(
       refuseGravityGeometry(shellOverlapMessage(a.shell, b.shell));
     }
   }
-  const independentShells = new Map<FloorBay, Set<number>>();
+  const independentShells = new Map<FloorBay, Set<GravityShellKey>>();
   let pitchedRoofs: ReturnType<typeof connectedPitchedRoofs<S>> | undefined;
   for (const [a, b] of potentiallyOverlapping([...shellCarriers, ...bayCarriers], carrierOutline)) {
     if (a.kind === 'bay' && b.kind === 'bay') {
@@ -125,7 +125,7 @@ export function partitionGravityFloors<S extends Shell>(
     const mayCoverEaves = bay.footprint[0].length === 1 && bayLow === bayHigh && shell.shell.pitched && shell.geometry.range[0] >= bayHigh;
     if (mayCoverEaves && attachment === 'independent' && independentDecks(shell.shell, bay.bay)) {
       const independent = independentShells.get(bay.bay) ?? new Set<number>();
-      independent.add(shell.shell.id);
+      independent.add(shell.shell.key);
       independentShells.set(bay.bay, independent);
       continue;
     }
@@ -161,7 +161,7 @@ export function partitionGravityFloors<S extends Shell>(
   }
 
   const assignments = new Map<FloorBay, BayAssignment>();
-  const shellBayMembers = new Map<number, Set<number>>();
+  const shellBayMembers = new Map<GravityShellKey, Set<number>>();
   for (const { bay, footprint: [footprint], boundaryNodes, geometry: deck } of bayCarriers) {
     const match = matches.get(bay);
     const covering = match?.roof ?? match?.covering ?? [];
@@ -187,9 +187,9 @@ export function partitionGravityFloors<S extends Shell>(
     }
     assignments.set(bay, { partition: { kind: 'shell' }, region: [] });
     for (const { shell } of covering) {
-      const members = shellBayMembers.get(shell.id) ?? new Set<number>();
+      const members = shellBayMembers.get(shell.key) ?? new Set<number>();
       for (const member of bay.members) members.add(member);
-      shellBayMembers.set(shell.id, members);
+      shellBayMembers.set(shell.key, members);
     }
   }
   return { bays: assignments, shellBayMembers };

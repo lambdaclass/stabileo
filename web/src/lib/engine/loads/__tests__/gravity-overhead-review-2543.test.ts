@@ -272,7 +272,7 @@ it('#2543 explicit independent beam decks below the cover rise leave the lower d
 it('#2543 complete upper shell cover and edge contact give a single exposure', () => {
   for (const [model, exposed] of [[stackedShells(0, 10), false], [stackedShells(10, 17), true]] as const) {
     const layout = gravityLayout(model, { ...panels, tributaryWidth: 3 });
-    expect(layout.roofQuads.has(1)).toBe(exposed);
+    expect(layout.roofShells.has('quad:1')).toBe(exposed);
     const actions = planAreaLoads({
       layout, tributaryWidth: 3, floor: { dead: 1, lo: 0, liveOf: () => 0 },
       roof: { use: 'occupancy', weight: 'heavy', dead: 2, slopePercent: 0 },

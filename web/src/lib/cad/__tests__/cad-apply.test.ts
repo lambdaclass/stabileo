@@ -174,10 +174,9 @@ describe('CAD draft apply contract', () => {
 
 type CadMode = 'replace' | 'insert' | 'per-floor plans';
 const cadModes: CadMode[] = ['replace', 'insert', 'per-floor plans'];
-const issue2429TriangleGravity = process.env.RUN_KNOWN_WRONG === '2429' ? it : it.skip;
 
 it.each(cadModes)('#2429 CAD %s preserves the applied triangle loads and wall reactions', mode => checkWallReactions(mode, false));
-issue2429TriangleGravity.each(cadModes)('#2429 CAD %s preserves wall reactions after automatic pressure regeneration', mode => checkWallReactions(mode, true));
+it.each(cadModes)('#2429 CAD %s preserves wall reactions after automatic pressure regeneration', mode => checkWallReactions(mode, true));
 
 async function checkWallReactions(mode: CadMode, regenerate: boolean) {
   const draft = makeDraft(mode);
@@ -217,11 +216,22 @@ async function checkWallReactions(mode: CadMode, regenerate: boolean) {
       );
       expect(applyLoadPlan(plan, { nameOf: key => key, clearExisting: true, bothSenses: false })).toBeUndefined();
       expect(deserializeProject(serializeProject())).toBe(true);
+      const dead = new Set(modelStore.loadCases.filter(c => c.type === 'D').map(c => c.id));
+      const stored = modelStore.loads.filter(load => dead.has(load.data.caseId!));
+      expect(stored).toHaveLength(modelStore.plates.size);
+      expect(stored.every(load => load.type === 'surface3d' && load.data.on === 'plate' && load.data.q === 1)).toBe(true);
+      modelStore.replaceLoads(stored);
     }
     const expected = (mode === 'per-floor plans' ? 2 : 1) * 4 * 4;
-    const check = (result: AnalysisResults3D | string | null | undefined) => {
+    const check = (result: AnalysisResults3D | string | null | undefined, perCombination: 'linear' | 'pdelta' = 'linear') => {
       if (!result || typeof result === 'string') throw new Error(String(result));
       expect(result.reactions.reduce((force, row) => force + row.fz, 0)).toBeCloseTo(expected, 8);
+      if (regenerate && perCombination === 'linear') {
+        const mx = result.reactions.reduce((sum, row) => sum + row.mx + modelStore.nodes.get(row.nodeId)!.y * row.fz, 0);
+        const my = result.reactions.reduce((sum, row) => sum + row.my - modelStore.nodes.get(row.nodeId)!.x * row.fz, 0);
+        expect(mx).toBeCloseTo(2 * expected, 8);
+        expect(my).toBeCloseTo(-2 * expected, 8);
+      }
     };
     check(modelStore.solve3D(false, false, true));
     check(await modelStore.solve3DAsync(false, false, true));
@@ -240,12 +250,12 @@ async function checkWallReactions(mode: CadMode, regenerate: boolean) {
       modelStore.setAnalysis({ perCombination });
       for (const bundle of [modelStore.solveCombinations3D(false, false, true), await modelStore.solveCombinations3DParallel(false, false, true)]) {
         if (!bundle || typeof bundle === 'string') throw new Error(String(bundle));
-        check(bundle.perCombo.get(combo));
+        check(bundle.perCombo.get(combo), perCombination);
       }
     }
     const direct = await runDirectAnalysis(model, model.loadCases, model.combinations, { includeSelfWeight: false });
     if (typeof direct === 'string') throw new Error(direct);
-    check(direct.perCombo.get(combo));
+    check(direct.perCombo.get(combo), 'pdelta');
   } finally {
     uiStore.analysisMode = '2d';
     uiStore.includeSelfWeight = true;

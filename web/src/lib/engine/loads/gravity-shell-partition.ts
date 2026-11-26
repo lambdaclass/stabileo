@@ -33,6 +33,31 @@ export function ringArea(ring: Point[]): number {
   return Math.abs(twiceArea.value / 2);
 }
 
+export type GravityShellTarget = { quadId: number; on?: 'plate' };
+export type GravityShellKey = `${'quad' | 'plate'}:${number}`;
+
+export function gravityShellKey(target: GravityShellTarget): GravityShellKey {
+  return `${target.on ?? 'quad'}:${target.quadId}`;
+}
+
+export function* gravityShellCells<Cell extends { id: number }>(model: {
+  quads?: ReadonlyMap<number, Cell>;
+  plates?: ReadonlyMap<number, Cell>;
+}): Iterable<{ cell: Cell; target: GravityShellTarget }> {
+  for (const cell of model.quads?.values() ?? []) yield { cell, target: { quadId: cell.id } };
+  for (const cell of model.plates?.values() ?? []) yield { cell, target: { quadId: cell.id, on: 'plate' } };
+}
+
+export function gravityShellSurfaceArea(p: Array<[number, number, number]>): number {
+  let s = 0;
+  for (let i = 1; i + 1 < p.length; i++) {
+    const a = p[0]!, b = p[i]!, c = p[i + 1]!;
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+    s += Math.hypot(u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!) / 2;
+  }
+  return s;
+}
+
 export function triangularGravityFootprint(model: {
   nodes: ReadonlyMap<number, { x: number; y: number }>;
   plates?: ReadonlyMap<number, { id: number; nodes: readonly number[] }>;

@@ -171,7 +171,7 @@ it('#2543 cover entirely in a hole leaves the annulus exposed', () => {
   rectangle(3, 3, 7, 7).forEach(([x, y], i) => Object.assign(model.nodes.get(upper[i]!)!, { x, y }));
   const layout = gravityLayout(model, options);
   expect(layout.panels.find(panel => panel.z === 3)?.roof).toBe(true);
-  expect(layout.roofQuads).toEqual(new Set([2]));
+  expect(layout.roofShells).toEqual(new Set(['quad:2']));
 });
 
 for (const mode of ['panels', 'width'] as const) it(`#2543 pitched shell covers the lower roof at its high end in ${mode}`, () => {
@@ -181,7 +181,7 @@ for (const mode of ['panels', 'width'] as const) it(`#2543 pitched shell covers 
   const options = { mode, loadEveryPanel: true, tributaryWidth: 3 };
   const layout = gravityLayout(model, options);
   expect(buildLoadPlan(input(model, { gravity: options })).outcome).toBe('READY');
-  expect([...layout.roofQuads]).toEqual([2]);
+  expect([...layout.roofShells]).toEqual(['quad:2']);
 });
 
 for (const mode of ['panels', 'width'] as const) it(`#2543 exact midpoint outside the cover receives roof dead pressure in ${mode}`, () => {
