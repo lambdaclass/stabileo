@@ -265,34 +265,25 @@ pub fn symbolic_cholesky_with_perm(a: &CscMatrix, perm: &[usize]) -> SymbolicCho
         if t + 1 < snode_start.len() { snode_start[t + 1] } else { n }
     };
 
-    // Supernode index of each column.
-    let mut snode_of = vec![0usize; n];
-    for t in 0..snode_start.len() {
-        for j in snode_start[t]..snode_end(t) {
-            snode_of[j] = t;
-        }
-    }
-
-    // For each supernode t, the prior supernodes that update it: those with
-    // at least one column k whose L structure contains a column of t.
-    // Built from row -> columns lists over L's structure (below diagonal),
-    // then collapsed to supernode granularity with a per-t stamp.
-    let mut row_to_cols: Vec<Vec<usize>> = vec![Vec::new(); n];
-    for k in 0..n {
-        for p in l_col_ptr[k]..l_col_ptr[k + 1] {
-            let i = l_row_idx[p];
-            if i > k {
-                row_to_cols[i].push(k);
-            }
+    // All columns of a fundamental supernode have the same external rows.
+    // Visit its first column's external tail once, instead of expanding every
+    // factor column and then discarding repeated source-supernode ids.
+    let mut row_to_nodes: Vec<Vec<usize>> = vec![Vec::new(); n];
+    for tk in 0..snode_start.len() {
+        let ks = snode_start[tk];
+        let width = snode_end(tk) - ks;
+        for &i in &l_row_idx[l_col_ptr[ks] + width..l_col_ptr[ks + 1]] {
+            row_to_nodes[i].push(tk);
         }
     }
     let mut seen = vec![NONE; snode_start.len()];
     let mut snode_upd: Vec<Vec<usize>> = vec![Vec::new(); snode_start.len()];
     for t in 0..snode_start.len() {
         for j in snode_start[t]..snode_end(t) {
-            for &k in &row_to_cols[j] {
-                let tk = snode_of[k];
-                if tk != t && seen[tk] != t {
+            // Source ids are ascending, as in the old per-column lists. Keep
+            // first appearance across target rows to preserve numeric order.
+            for &tk in &row_to_nodes[j] {
+                if seen[tk] != t {
                     seen[tk] = t;
                     snode_upd[t].push(tk);
                 }
@@ -1558,3 +1549,7 @@ mod inertia_tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "sparse_chol/updater_tests.rs"]
+mod updater_tests;
