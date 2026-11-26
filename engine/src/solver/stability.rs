@@ -1190,7 +1190,7 @@ fn analyze_with_magnitudes(
     let mut fast = None;
     let mut kept = None;
     if without_zeros {
-        match scaled(k, &groups, &group_of, &columns) {
+        match scaled_for_bound(k, &groups, &group_of, &columns) {
             Scaled::Sparse(sparse, full) => {
                 fast = fast_sparse_bound(&sparse, &Rc::new(symbolic_cholesky(&sparse)), anisotropy, amplification);
                 kept = full;
@@ -1206,7 +1206,7 @@ fn analyze_with_magnitudes(
         coupled.is_empty() && free.iter().all(|direction| direction.coupling.is_empty())
     };
     let fast = fast.filter(|&kappa| certified(kappa, &mut free));
-    let s = kept.unwrap_or_else(|| scaled_with_zeros(k, &groups, &group_of, &columns));
+    let s = kept.unwrap_or_else(|| scaled(k, &groups, &group_of, &columns));
     let symbolic = (m > FULL_SPECTRUM || projected_rounding.is_some()).then(|| Rc::new(symbolic_cholesky(&s)));
     if projected_rounding.as_ref().is_some_and(|bound| !bound.resolved(&s, symbolic.as_ref().unwrap())) {
         return Stability { verdict: Verdict::Singular, reason: Reason::ConstraintRounding, kappa: f64::INFINITY, anisotropy, free, mode_nodes: tags.iter().map(|t| t.node).collect() };
@@ -1222,11 +1222,9 @@ fn analyze_with_magnitudes(
     if let Some(kappa) = fast {
         return verify_rank(kappa, free);
     }
-    if !without_zeros {
-        if let Some(kappa) = symbolic.as_ref().filter(|_| m > FULL_SPECTRUM).and_then(|sym| fast_sparse_bound(&s, sym, anisotropy, amplification)) {
-            if certified(kappa, &mut free) {
-                return verify_rank(kappa, free);
-            }
+    if let Some(kappa) = symbolic.as_ref().filter(|_| !without_zeros && m > FULL_SPECTRUM).and_then(|sym| fast_sparse_bound(&s, sym, anisotropy, amplification)) {
+        if certified(kappa, &mut free) {
+            return verify_rank(kappa, free);
         }
     }
     let (kappa, mode, indefinite) = spectrum(&s, anisotropy, amplification, symbolic.as_ref());
@@ -1264,7 +1262,7 @@ fn resolves_rank(
         group: column.group,
         w: column.w.iter().map(|value| value.abs()).collect(),
     }).collect();
-    let envelope = scaled_with_zeros(magnitude, groups, group_of, &weights);
+    let envelope = scaled(magnitude, groups, group_of, &weights);
     let margin = envelope.sym_mat_vec(&vec![ROUNDING * f64::EPSILON; envelope.n]);
     let mut shifted = scaled_operator.clone();
     if !update_stored_diagonal(&mut shifted, |j, value| {
@@ -1577,16 +1575,16 @@ enum Scaled {
 /// The scaled matrix `S = Wᵀ K W`, `W` the columns kept, with no entry stored that is exactly
 /// zero off the diagonal when at least one in `ZEROS_WORTH_DROPPING` is. Where every column is
 /// along one degree of freedom, each entry is one product and is built as such; otherwise the
-/// terms of an entry are summed as `scaled_with_zeros` sums them and the zeros dropped. Either
+/// terms of an entry are summed as `scaled` sums them and the zeros dropped. Either
 /// way the values are its values.
-fn scaled(k: &CscMatrix, groups: &[((usize, DofKind), Vec<usize>)], group_of: &[(usize, usize)], columns: &[Column]) -> Scaled {
+fn scaled_for_bound(k: &CscMatrix, groups: &[((usize, DofKind), Vec<usize>)], group_of: &[(usize, usize)], columns: &[Column]) -> Scaled {
     #[cfg(test)]
     tests::ALONG_AXES.with(|count| count.set(count.get() + usize::from(along_axes(k, groups, columns).is_some())));
     if let Some(out) = along_axes(k, groups, columns) {
-        debug_assert!(same_values(&out, &scaled_with_zeros(k, groups, group_of, columns)), "the scaled matrix changed with its zeros");
+        debug_assert!(same_values(&out, &scaled(k, groups, group_of, columns)), "the scaled matrix changed with its zeros");
         return Scaled::Sparse(out, None);
     }
-    let full = scaled_with_zeros(k, groups, group_of, columns);
+    let full = scaled(k, groups, group_of, columns);
     let out = without_zeros(&full);
     if ZEROS_WORTH_DROPPING * (full.values.len() - out.values.len()) < full.values.len() {
         return Scaled::AsItWas(full);
@@ -1624,9 +1622,9 @@ fn without_zeros(full: &CscMatrix) -> CscMatrix {
     CscMatrix { n: full.n, col_ptr, row_idx, values }
 }
 
-/// `scaled` when each column has one weight that is not zero, and no two share a degree of
+/// `scaled` without its zeros when each column has one weight that is not zero, and no two share a degree of
 /// freedom; None otherwise. An entry of S is then the product of one entry of K with the
-/// weights of its two columns, written as `scaled_with_zeros` writes that term: the column of
+/// weights of its two columns, written as `scaled` writes that term: the column of
 /// the higher index first.
 fn along_axes(k: &CscMatrix, groups: &[((usize, DofKind), Vec<usize>)], columns: &[Column]) -> Option<CscMatrix> {
     let mut column_of: Vec<Option<(usize, f64)>> = vec![None; k.n];
@@ -1653,7 +1651,7 @@ fn along_axes(k: &CscMatrix, groups: &[((usize, DofKind), Vec<usize>)], columns:
     Some(CscMatrix::from_triplets(columns.len(), &rows, &cols, &vals))
 }
 
-fn scaled_with_zeros(k: &CscMatrix, groups: &[((usize, DofKind), Vec<usize>)], group_of: &[(usize, usize)], columns: &[Column]) -> CscMatrix {
+fn scaled(k: &CscMatrix, groups: &[((usize, DofKind), Vec<usize>)], group_of: &[(usize, usize)], columns: &[Column]) -> CscMatrix {
     let mut by_group: Vec<Vec<usize>> = vec![Vec::new(); groups.len()];
     for (c, col) in columns.iter().enumerate() { by_group[col.group].push(c); }
     let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
@@ -1871,7 +1869,7 @@ impl ProjectedRounding {
                 weights.push(Column { group: group_of[f.dofs[0]].0, w: f.direction.iter().map(|v| v.abs() / top.sqrt()).collect() });
             }
         }
-        let projected = scaled_with_zeros(bound, groups, group_of, &weights);
+        let projected = scaled(bound, groups, group_of, &weights);
         if projected.values.iter().any(|x| !x.is_finite()) { return None; }
         let mut terms = vec![0usize; weights.len()];
         for j in 0..projected.n {
@@ -3337,8 +3335,8 @@ mod tests {
                 columns.push(Column { group: g, w: (0..b).map(|r| vecs[r * b + c] / mu[c].sqrt()).collect() });
             }
         }
-        let full = scaled_with_zeros(k, &groups, &group_of, &columns);
-        match scaled(k, &groups, &group_of, &columns) {
+        let full = scaled(k, &groups, &group_of, &columns);
+        match scaled_for_bound(k, &groups, &group_of, &columns) {
             Scaled::Sparse(sparse, kept) => (sparse, full, kept.is_none()),
             Scaled::AsItWas(kept) => (without_zeros(&kept), full, false),
         }
