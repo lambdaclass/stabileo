@@ -168,6 +168,7 @@ export interface SolverDistributedLoad3D {
 
 export interface SolverPointLoad3D {
   elementId: number;
+  px?: number;
   a: number;   // distance from node I (m)
   py: number;  // kN in local Y
   pz: number;  // kN in local Z

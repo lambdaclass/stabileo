@@ -1,0 +1,160 @@
+{
+  "nodes": {
+    "1": {
+      "id": 1,
+      "x": -26.621581751731817,
+      "y": 16.69350130457852,
+      "z": 23.0980346144609
+    },
+    "2": {
+      "id": 2,
+      "x": -15.404501678881054,
+      "y": 16.255995549738444,
+      "z": -22.208085203821426
+    },
+    "3": {
+      "id": 3,
+      "x": 23.947922819944537,
+      "y": 36.400660127405644,
+      "z": -21.55263840334971
+    },
+    "4": {
+      "id": 4,
+      "x": 31.938766335971152,
+      "y": 19.803844163495683,
+      "z": 37.57253374274883
+    },
+    "5": {
+      "id": 5,
+      "x": -17.298899750265484,
+      "y": -47.371002147031426,
+      "z": -27.748709539067274
+    }
+  },
+  "materials": {
+    "1": {
+      "id": 1,
+      "e": 4418.099128898794,
+      "nu": 0.263795685271397
+    },
+    "2": {
+      "id": 2,
+      "e": 335382.07696464047,
+      "nu": 0.17666728115948027
+    },
+    "3": {
+      "id": 3,
+      "e": 100286792.81239687,
+      "nu": 0.14763121141805766
+    }
+  },
+  "sections": {
+    "1": {
+      "id": 1,
+      "a": 0.00011989828285657276,
+      "iy": 1.3577692429423656E-7,
+      "iz": 1.4323287668104013E-8,
+      "j": 1.33323646632256E-7
+    }
+  },
+  "elements": {
+    "2": {
+      "id": 2,
+      "type": "frame",
+      "nodeI": 4,
+      "nodeJ": 5,
+      "materialId": 3,
+      "sectionId": 1,
+      "releaseMyStart": false,
+      "releaseMyEnd": false,
+      "releaseMzStart": false,
+      "releaseMzEnd": false,
+      "releaseTStart": false,
+      "releaseTEnd": false
+    },
+    "3": {
+      "id": 3,
+      "type": "frame",
+      "nodeI": 1,
+      "nodeJ": 3,
+      "materialId": 1,
+      "sectionId": 1,
+      "releaseMyStart": false,
+      "releaseMyEnd": false,
+      "releaseMzStart": true,
+      "releaseMzEnd": false,
+      "releaseTStart": false,
+      "releaseTEnd": false
+    },
+    "4": {
+      "id": 4,
+      "type": "frame",
+      "nodeI": 3,
+      "nodeJ": 5,
+      "materialId": 1,
+      "sectionId": 1,
+      "releaseMyStart": false,
+      "releaseMyEnd": false,
+      "releaseMzStart": false,
+      "releaseMzEnd": false,
+      "releaseTStart": false,
+      "releaseTEnd": false
+    },
+    "5": {
+      "id": 5,
+      "type": "frame",
+      "nodeI": 3,
+      "nodeJ": 2,
+      "materialId": 1,
+      "sectionId": 1,
+      "releaseMyStart": false,
+      "releaseMyEnd": false,
+      "releaseMzStart": false,
+      "releaseMzEnd": false,
+      "releaseTStart": false,
+      "releaseTEnd": false
+    }
+  },
+  "supports": {
+    "1": {
+      "nodeId": 1,
+      "rx": true,
+      "ry": true,
+      "rz": true,
+      "rrx": true,
+      "rry": true,
+      "rrz": true
+    },
+    "2": {
+      "nodeId": 4,
+      "rx": false,
+      "ry": false,
+      "rz": false,
+      "rrx": false,
+      "rry": true,
+      "rrz": true
+    }
+  },
+  "loads": [
+    {
+      "type": "distributed",
+      "data": {
+        "qXI": 0,
+        "qXJ": 0,
+        "elementId": 5,
+        "qYI": 87.18867637982265,
+        "qYJ": -16.027088474264644,
+        "qZI": 32.68736841698097,
+        "qZJ": -58.219752829283244
+      }
+    }
+  ],
+  "constraints": [],
+  "plates": {},
+  "quads": {},
+  "quad9s": {},
+  "solidShells": {},
+  "curvedShells": {},
+  "curvedBeams": [],
+  "connectors": {}
+}

@@ -1,4 +1,5 @@
 import { accountingCaseSources, accountingSource } from './accounting-source';
+import { projectSelfWeightMembers, selfWeightMemberProjection } from './self-weight';
 import type { Load } from '../store/model.svelte';
 /**
  * What a member or a support does beyond the linear, stored on it and honoured by every solve.
@@ -111,6 +112,9 @@ function pruneModel<M extends ModelData>(model: M, dropLoose: boolean): M {
   return {
     ...model,
     elements,
+    ...(inactive.size > 0 ? {
+      [selfWeightMemberProjection]: projectSelfWeightMembers(model, new Map([...inactive].map(id => [id, []]))),
+    } : {}),
     nodes: new Map([...model.nodes].filter(([id]) => keepNode(id))),
     supports: new Map([...model.supports].filter(([, s]) => keepNode(s.nodeId))),
     loads: model.loads.filter(keepLoad),

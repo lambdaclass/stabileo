@@ -1,9 +1,14 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const {execFileSync} = require('node:child_process');
+const {createHash} = require('node:crypto');
 const os = require('node:os');
 const path = require('node:path');
 const {test} = require('node:test');
 const report = require('../../.github/scripts/nightly-findings.cjs');
+const {gunzipSync} = require('node:zlib');
+
+const botComment = body => ({body, user: {login: 'github-actions[bot]'}});
 
 const finding = {test: 'opensees/mismatch', seed: 42, model: {loads: [1], elements: {a: {}}},
   command: 'python3 testing/scripts/nightly-models.py --model model.json', reduction: '1-minimal', details: {status: 'mismatch'}};
@@ -11,6 +16,7 @@ const finding = {test: 'opensees/mismatch', seed: 42, model: {loads: [1], elemen
 async function fixture(fn) {
   const previous = process.cwd();
   const dry = process.env.FINDINGS_DRY_RUN;
+  const attempt = process.env.GITHUB_RUN_ATTEMPT;
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nightly-reporter-'));
   process.chdir(tmp);
   fs.mkdirSync('nightly-findings');
@@ -23,6 +29,7 @@ async function fixture(fn) {
       calls.push({name, args});
       if (name === 'getLabel') throw Object.assign(new Error('missing label'), {status: 404});
       if (name === 'create') return {data: {...args, number: 1, state: 'open'}};
+      if (name === 'update' && args.body) Object.assign(issues.find(i => i.number === args.issue_number), {body: args.body});
       return {data: {}};
     }]));
   const args = {github: {rest: {issues: api}, paginate: async method => method === api.listForRepo ? issues : comments},
@@ -31,11 +38,14 @@ async function fixture(fn) {
   const save = (name, value = finding) => fs.writeFileSync(`nightly-findings/${name}.finding.json`, JSON.stringify(value));
   try {
     process.env.FINDINGS_DRY_RUN = 'false';
+    process.env.GITHUB_RUN_ATTEMPT = '1';
     await fn({args, calls, issues, comments, logs, save});
   } finally {
     process.chdir(previous);
     if (dry === undefined) delete process.env.FINDINGS_DRY_RUN;
     else process.env.FINDINGS_DRY_RUN = dry;
+    if (attempt === undefined) delete process.env.GITHUB_RUN_ATTEMPT;
+    else process.env.GITHUB_RUN_ATTEMPT = attempt;
     fs.rmSync(tmp, {recursive: true, force: true});
   }
 }
@@ -80,7 +90,7 @@ test('existing closed issue gets occurrence comment and reopens; repeated run is
   assert.ok(comment.args.body.includes(finding.command));
   assert.equal(calls.find(c => c.name === 'update').args.state, 'open');
   assert.equal(calls.filter(c => c.name === 'create').length, 0);
-  comments.push({body: comment.args.body});
+  comments.push(botComment(comment.args.body));
   issues[0].state = 'open';
   calls.length = 0;
   await report(args);
@@ -463,3 +473,476 @@ test('a legacy issue adopted by one group cannot be adopted by another in a late
   assert.equal(calls.filter(c => c.name === 'createComment').length, 0);
   assert.equal(calls.filter(c => c.name === 'create').length, 1);
 }));
+
+test('fuzz signatures ignore artifact hashes and keep different messages and targets distinct', () => fixture(async ({args, calls, issues, save}) => {
+  const fuzz = (seed, target, message) => ({...finding, test: `fuzz/${target}`, seed,
+    model: {raw_hex: seed.toString(16).padStart(2, '0')}, details: message});
+  save('first', fuzz(1, 'json_plastic', `timeout-${'a'.repeat(40)}`));
+  await report(args);
+  const first = calls.find(c => c.name === 'create');
+  assert.ok(first);
+  issues.push({number: 1944, state: 'open', body: first.args.body});
+  calls.length = 0;
+  args.context.runId = 456;
+  require('node:fs').rmSync('nightly-findings/first.finding.json');
+  save('second', fuzz(2, 'json_plastic', `timeout-${'b'.repeat(40)}`));
+  save('crash', fuzz(3, 'json_plastic', `crash-${'c'.repeat(40)}`));
+  save('certify', fuzz(4, 'model_certify', `timeout-${'d'.repeat(40)}`));
+  await report(args);
+  const commented = calls.filter(c => c.name === 'createComment');
+  assert.deepEqual(commented.map(c => c.args.issue_number), [1944]);
+  assert.match(commented[0].args.body, /Seed: `2`/);
+  assert.match(commented[0].args.body, /second\.finding\.json/);
+  assert.match(commented[0].args.body, /<!-- nightly-reproducer:v1 /);
+  assert.equal(calls.filter(c => c.name === 'create').length, 2);
+}));
+
+test('sighting comments stop at the cap and overflow updates the total once', () => fixture(async ({args, calls, issues, comments, save}) => {
+  save('a');
+  await report(args);
+  const created = calls.find(c => c.name === 'create');
+  assert.match(created.args.body, /<!-- nightly-reproducer:v1 /);
+  issues.push({number: 6, state: 'open', body: created.args.body});
+  for (let i = 1; i <= 6; i++) {
+    args.context.runId++;
+    calls.length = 0;
+    await report(args);
+    const comment = calls.find(c => c.name === 'createComment');
+    if (i <= 5) {
+      assert.ok(comment);
+      comments.push(botComment(comment.args.body));
+      continue;
+    }
+    assert.equal(comment, undefined);
+    const update = calls.find(c => c.name === 'update');
+    assert.match(update.args.body, /1 additional sighting/);
+    issues[0].body = update.args.body;
+    calls.length = 0;
+    await report(args);
+    assert.equal(calls.filter(c => ['create', 'createComment', 'update'].includes(c.name)).length, 0);
+  }
+}));
+
+test('migration keeps the oldest matching issue and leaves other findings alone', () => {
+  const {planMigration} = require('../../scripts/migrate-nightly-findings.cjs');
+  const issue = (number, created_at, title) => ({number, created_at, state: 'open', title});
+  const group = [
+    issue(1944, '2026-11-09', `Nightly finding: fuzz/json_plastic: timeout-${'a'.repeat(40)}`),
+    issue(1802, '2026-11-08', `Nightly finding: fuzz/json_plastic: timeout-${'b'.repeat(40)}`),
+    issue(1762, '2026-11-07', `Nightly finding: fuzz/model_certify: crash-${'c'.repeat(40)}`)
+  ];
+  assert.deepEqual(planMigration(group).duplicates.map(({keep, close}) => [keep, close]), [[1802, [1944]]]);
+});
+
+test('an open matching issue receives sightings ahead of an older closed one', () => fixture(async ({args, calls, issues, save}) => {
+  save('a');
+  await report(args);
+  const {body} = calls.find(c => c.name === 'create').args;
+  issues.push({number: 2, state: 'closed', body}, {number: 3, state: 'open', body});
+  args.context.runId++;
+  calls.length = 0;
+  await report(args);
+  assert.deepEqual(calls.filter(c => c.name === 'createComment').map(c => c.args.issue_number), [3]);
+  assert.equal(calls.filter(c => ['create', 'update'].includes(c.name)).length, 0);
+}));
+
+test('machine reproducers preserve an exact u64 seed and every replay selector in a finding group', () => fixture(async ({args, calls, save}) => {
+  const details = ['seeded: displacement error 0.002 exceeds tolerance 1e-6'];
+  save('mirror', {...finding, test: 'metamorphic/linear/mirror', details});
+  save('rotation', {...finding, test: 'metamorphic/linear/rotation', details});
+  const file = 'nightly-findings/rotation.finding.json';
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('"seed":42', '"seed":18446744073709551615'));
+  await report(args);
+  const created = calls.filter(c => c.name === 'create');
+  assert.equal(created.length, 1);
+  const payload = created[0].args.body.match(/<!-- nightly-reproducer:v1 (\S+) -->/)[1];
+  const records = JSON.parse(gunzipSync(Buffer.from(payload, 'base64')));
+  assert.deepEqual(records.map(({test, seed, path}) => [test, seed, path]),
+    [['metamorphic/linear/mirror', '42', 'nightly-findings/mirror.finding.json'],
+     ['metamorphic/linear/rotation', '18446744073709551615', file]]);
+  assert.equal(records[1].artifact, fs.readFileSync(file, 'utf8'));
+}));
+
+test('a copied run marker by a non-reporter cannot suppress a sighting', () => fixture(async ({args, calls, issues, comments, save}) => {
+  save('original');
+  await report(args);
+  issues.push({number: 6, state: 'open', body: calls.find(c => c.name === 'create').args.body});
+  args.context.runId++;
+  const marker = '<!-- nightly-run:124:1 -->';
+  comments.push({body: marker, user: {login: 'maintainer'}}, {body: marker, user: {login: 'other[bot]'}});
+  await report(args);
+  const posted = calls.filter(c => c.name === 'createComment');
+  assert.equal(posted.length, 1);
+  assert.ok(posted[0].args.body.includes(marker));
+
+  comments.push(botComment(posted[0].args.body));
+  calls.length = 0;
+  await report(args);
+  assert.equal(calls.filter(c => c.name === 'createComment').length, 0);
+}));
+
+test('only reporter sightings count toward the detailed comment cap', () => fixture(async ({args, calls, issues, comments, save}) => {
+  save('original');
+  await report(args);
+  issues.push({number: 6, state: 'open', body: calls.find(c => c.name === 'create').args.body});
+  args.context.runId++;
+  for (let run = 1; run <= 4; run++) comments.push(botComment(`<!-- nightly-run:${run}:1 -->`));
+  comments.push({body: '<!-- nightly-run:5:1 -->', user: {login: 'maintainer'}});
+  await report(args);
+  const fifth = calls.find(c => c.name === 'createComment');
+  assert.ok(fifth);
+  comments.push(botComment(fifth.args.body));
+
+  args.context.runId++;
+  calls.length = 0;
+  await report(args);
+  assert.equal(calls.filter(c => c.name === 'createComment').length, 0);
+  assert.match(issues[0].body, /<!-- nightly-sightings:1:125:1 -->/);
+}));
+
+test('a legacy alias cannot adopt an issue with a different inferred analysis or diagnostic', () => fixture(async ({args, calls, issues, save}) => {
+  const alias = require('node:crypto').createHash('sha256').update(JSON.stringify(['opensees', 'wrong-result-candidate', 'solver residual #'])).digest('hex');
+  issues.push(
+    {number: 31, state: 'open', body: `<!-- nightly-finding:${alias} -->
+Check: **opensees** · kind: **wrong-result-candidate** · diagnostic: **residual_high**
+Root cause: solver residual #
+Analyses (hits): static: 1`},
+    {number: 32, state: 'closed', body: `<!-- nightly-finding:${alias} -->
+Check: **opensees** · kind: **wrong-result-candidate** · diagnostic: **iteration_limit**
+Root cause: solver residual #
+Analyses (hits): pdelta: 1`}
+  );
+  save('new', {...finding, details: {status: 'mismatch', analysis: 'pdelta', code: 'iteration_limit', message: 'solver residual 2'}});
+  await report(args);
+  assert.deepEqual(calls.filter(c => c.name === 'createComment').map(c => c.args.issue_number), [32]);
+  assert.equal(calls.filter(c => c.name === 'create').length, 0);
+  assert.deepEqual(calls.filter(c => c.name === 'update').map(c => c.args.issue_number), [32, 32]);
+}));
+
+test('a later run attempt updates overflow with its own exact reproducer', () => fixture(async ({args, calls, issues, comments, save}) => {
+  save('model');
+  await report(args);
+  issues.push({number: 6, state: 'open', body: calls.find(c => c.name === 'create').args.body});
+  for (let run = 1; run <= 5; run++) comments.push(botComment(`<!-- nightly-run:${run}:1 -->`));
+  args.context.runId++;
+  await report(args);
+  assert.match(issues[0].body, /<!-- nightly-sightings:1:124:1 -->/);
+
+  process.env.GITHUB_RUN_ATTEMPT = '2';
+  save('model', {...finding, seed: 78, model: {nodes: {b: {}}}});
+  calls.length = 0;
+  await report(args);
+  assert.match(issues[0].body, /<!-- nightly-sightings:2:124:2 -->/);
+  const overflowPayload = issues[0].body.match(/<!-- nightly-reproducer:v1 (\S+) -->/)[1];
+  const [record] = JSON.parse(gunzipSync(Buffer.from(overflowPayload, 'base64')));
+  assert.equal(record.seed, '78');
+  assert.deepEqual(JSON.parse(record.artifact).model, {nodes: {b: {}}});
+  assert.equal(calls.filter(c => c.name === 'createComment').length, 0);
+
+  calls.length = 0;
+  await report(args);
+  assert.equal(calls.filter(c => ['createComment', 'update'].includes(c.name)).length, 0);
+
+  args.context.runId--;
+  save('model', {...finding, seed: 79});
+  await report(args);
+  assert.match(issues[0].body, /<!-- nightly-sightings:3:123:2 -->/);
+}));
+
+test('bare crash artifacts identify exact inputs even when names are reused', () => fixture(async ({args, calls, logs, save}) => {
+  const crash = (raw_hex, details, seed) => ({...finding, test: 'fuzz/json_plastic', seed, model: {raw_hex}, details});
+  const filename = 'crash-' + 'a'.repeat(40);
+  save('first', crash('01', filename, 1));
+  save('different-bytes', crash('02', filename + '.min', 2));
+  save('same-bytes', crash('01', 'crash-' + 'b'.repeat(40), 3));
+  await report(args);
+
+  const created = calls.filter(call => call.name === 'create');
+  assert.equal(created.length, 2);
+  const models = created.map(({args: {body}}) => JSON.parse(body.split('```json\n')[1].split('\n```')[0]).raw_hex);
+  assert.deepEqual(models.sort(), ['01', '02']);
+  assert.ok(created.some(({args: {body}}) => body.includes('**2 findings**')));
+
+  calls.length = 0;
+  process.env.FINDINGS_DRY_RUN = 'true';
+  await report(args);
+  assert.equal(calls.length, 0);
+  assert.equal(logs.length, 2);
+}));
+
+test('stable fuzz diagnostics group variants without dropping distinct inputs', () => fixture(async ({args, calls, save}) => {
+  const crash = (target, raw_hex, count, code = 'index_out_of_bounds') => ({...finding,
+    test: 'fuzz/' + target, model: {raw_hex},
+    details: {code, status: 'crash', message: 'pivot index out of bounds, length ' + count}});
+  save('one', crash('json_plastic', '01', 1));
+  save('two', crash('json_plastic', '02', 2));
+  save('duplicate', crash('json_plastic', '01', 3));
+  save('other-diagnostic', crash('json_plastic', '03', 3, 'invalid_pivot'));
+  save('other-target', crash('model_certify', '04', 4));
+  await report(args);
+
+  const created = calls.filter(call => call.name === 'create');
+  const batches = created.map(({args: {body}}) => {
+    const payload = body.match(/<!-- nightly-reproducer:v1 (\S+) -->/)[1];
+    return JSON.parse(gunzipSync(Buffer.from(payload, 'base64')))
+      .map(record => JSON.parse(record.artifact).model.raw_hex).sort();
+  });
+  assert.deepEqual(batches.sort(), [['01', '02'], ['03'], ['04']]);
+}));
+
+test('overflow stays complete until the reporter replaces a saved batch', () => fixture(async ({args, calls, comments, issues, save}) => {
+  const writes = () => calls.filter(call => ['createComment', 'update'].includes(call.name));
+  const complete = '<!-- nightly-overflow-complete -->';
+  save('first');
+  await report(args);
+  issues.push({number: 44, state: 'open', body: calls.find(call => call.name === 'create').args.body});
+
+  for (let run = 1; run <= 5; run++) {
+    args.context.runId++;
+    calls.length = 0;
+    await report(args);
+    const [write] = writes();
+    assert.equal(write.name, 'createComment');
+    comments.push(botComment(write.args.body));
+    assert.doesNotMatch(issues[0].body, /nightly-sightings:/);
+  }
+  args.context.runId++;
+  calls.length = 0;
+  await report(args);
+  assert.equal(writes().length, 1);
+  assert.ok(issues[0].body.includes(complete));
+  assert.match(issues[0].body, /nightly-sightings:1:129:1/);
+
+  calls.length = 0;
+  await report(args);
+  assert.deepEqual(writes(), []);
+  assert.ok(issues[0].body.includes(complete));
+
+  for (let count = 2; count <= 3; count++) {
+    args.context.runId++;
+    calls.length = 0;
+    await report(args);
+    assert.equal(writes().length, 1);
+    assert.ok(!issues[0].body.includes(complete));
+    assert.ok(issues[0].body.includes('nightly-sightings:' + count + ':'));
+  }
+}));
+
+test('replay keeps a structural finding open when only the smallest model passes', () => fixture(async ({args, calls, save}) => {
+  const check = {...finding, test: 'metamorphic/linear/rotation', details: ['seeded: displacement mismatch']};
+  save('small', {...check, model: {nodes: {}}});
+  save('large', {...check, model: {nodes: {n1: {}}}});
+  await report(args);
+  const [issue] = calls.filter(c => c.name === 'create').map(c => ({...c.args, number: 1}));
+
+  const dir = process.cwd();
+  fs.writeFileSync('issues.json', JSON.stringify([issue]));
+  const binary = path.join(dir, 'replay-model');
+  fs.writeFileSync(binary, `#!/usr/bin/env python3
+import json
+import os
+from pathlib import Path
+
+model = json.loads(Path(os.environ["NIGHTLY_MODEL"]).read_text())
+verdict = {"analysis": "linear", "invariant": "rotation"}
+verdict["fail" if model["nodes"] else "pass"] = 1
+Path(os.environ["NIGHTLY_RESULTS"]).write_text(json.dumps({"verdicts": [verdict]}))
+`, {mode: 0o700});
+  const root = path.resolve(__dirname, '../..');
+  const replay = (command, ...args) => execFileSync('python3', ['-B', '-I', 'scripts/replay-findings.py',
+    command, '--issues', path.join(dir, 'issues.json'), ...args], {cwd: root});
+  const partial = path.join(dir, 'partial.json');
+  const merged = path.join(dir, 'report.json');
+  replay('replay', '--source', 'metamorphic', '--jobs', '2', '--metamorphic-bin', binary, '--output', partial);
+  replay('report', '--partials', partial, '--output', merged);
+  assert.equal(JSON.parse(fs.readFileSync(merged, 'utf8'))[0].status, 'still-fails');
+  assert.deepEqual(JSON.parse(fs.readFileSync(partial, 'utf8')).map(row => row.status).sort(), ['passes-now', 'still-fails']);
+}));
+
+test('structural replay selectors distinguish seeds and exact model numbers', () => fixture(async ({args, logs, save}) => {
+  const check = {...finding, test: 'metamorphic/linear/rotation', details: ['seeded: displacement mismatch']};
+  save('a', {...check, model: {nodes: {}, selector: 9007199254740992}});
+  save('b', {...check, model: {selector: 9007199254740992, nodes: {}}});
+  save('c', {...check, model: {nodes: {}, selector: 9007199254740992}});
+  save('d', {...check, seed: 43, model: {nodes: {}, selector: 9007199254740992}});
+  const file = 'nightly-findings/c.finding.json';
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('9007199254740992', '9007199254740993'));
+  process.env.FINDINGS_DRY_RUN = 'true';
+  await report(args);
+  assert.equal(logs.length, 1);
+  const payload = logs[0].match(/<!-- nightly-reproducer:v1 (\S+) -->/);
+  assert.ok(payload);
+  const records = JSON.parse(gunzipSync(Buffer.from(payload[1], 'base64')));
+  assert.deepEqual(records.map(({path, seed}) => [path, seed]), [
+    ['nightly-findings/a.finding.json', '42'],
+    [file, '42'],
+    ['nightly-findings/d.finding.json', '43']
+  ]);
+}));
+
+test('migration requires exact bytes before grouping legacy bare crashes', () => {
+  const {planMigration} = require('../../scripts/migrate-nightly-findings.cjs');
+  const crash = (number, name, raw_hex, root = name) => ({
+    number, state: 'open', title: `Nightly finding: fuzz/json_plastic: ${name}`,
+    body: `Check: **fuzz** · kind: **json_plastic**
+
+Root cause: ${root}
+
+Test: **fuzz/json_plastic**` +
+      (raw_hex === undefined ? '' : '\n\nSave as model.json:\n\n```json\n' + JSON.stringify({raw_hex}) + '\n```') +
+      '\n\nDetails:\n\n```text\n' + JSON.stringify(name) + '\n```'
+  });
+  const a = 'crash-' + 'a'.repeat(40);
+  const b = 'crash-' + 'b'.repeat(40);
+  const plan = planMigration([
+    crash(1, a), crash(2, b, undefined, 'crash-#'), crash(3, a, 'invalid'),
+    crash(4, a, '01'), crash(5, b, '01', 'crash-#'), crash(6, a, '02')
+  ]);
+  assert.deepEqual(plan.unresolved, [1, 2, 3]);
+  assert.deepEqual(plan.duplicates.map(({keep, close}) => [keep, close]), [[4, [5]]]);
+});
+
+test('oversized exact inventories use a verified manifest and publication continues',
+  () => fixture(async ({args, calls, comments, issues, save, logs}) => {
+    const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
+    const count = 900;
+    const manifests = 'nightly-replay-manifests';
+    fs.mkdirSync('nightly-findings/nightly-findings-opensees');
+    for (let index = 0; index < count; index++) {
+      const name = sha256(String(index));
+      save('nightly-findings-opensees/a-' + name, {...finding, model: {nodes: {[name]: {}}}, seed: index});
+    }
+    save('z', {...finding, test: 'codeaster/mismatch'});
+    const api = args.github.rest.issues;
+    for (const operation of ['create', 'createComment', 'update']) {
+      const write = api[operation];
+      api[operation] = async request => {
+        if (request.body) assert.ok(Buffer.byteLength(request.body) <= 64_000, 'GitHub rejects an oversized body');
+        return write(request);
+      };
+    }
+
+    await report({...args, prepareManifests: true});
+    assert.equal(calls.length, 0);
+    await assert.rejects(report(args), /manifest.*upload/i);
+    await report({...args, manifestArtifactId: '123'});
+    const created = calls.filter(call => call.name === 'create').map(call => call.args);
+    assert.equal(created.length, 2);
+    const verify = (body, run, attempt) => {
+      const pointer = body.match(/<!-- nightly-reproducer:v2 (\d+) (\d+) ([0-9a-f]{64}) -->/);
+      assert.ok(pointer);
+      assert.deepEqual(pointer.slice(1, 3), [String(run), String(attempt)]);
+      const raw = fs.readFileSync(path.join(manifests, pointer[3] + '.json'));
+      assert.equal(sha256(raw), pointer[3]);
+      const entries = JSON.parse(raw);
+      assert.equal(entries.length, count);
+      assert.equal(new Set(entries.map(entry => entry.seed)).size, count);
+      for (const entry of entries) assert.equal(sha256(fs.readFileSync(entry.path)), entry.artifactHash);
+    };
+    verify(created[0].body, 123, 1);
+    assert.match(created[1].body, /nightly-reproducer:v1 /);
+
+    issues.push({number: 1, state: 'open', ...created[0]});
+    args.context.runId = 124;
+    await report({...args, prepareManifests: true});
+    await report({...args, manifestArtifactId: '124'});
+    verify(calls.find(call => call.name === 'createComment').args.body, 124, 1);
+
+    for (let run = 124; run <= 128; run++) comments.push(botComment('<!-- nightly-run:' + run + ':1 -->'));
+    args.context.runId = 129;
+    await report({...args, prepareManifests: true});
+    await report({...args, manifestArtifactId: '129'});
+    assert.match(issues[0].body, /nightly-overflow-complete/);
+    verify(issues[0].body, 129, 1);
+    args.context.runId = 130;
+    await report({...args, prepareManifests: true});
+    await report({...args, manifestArtifactId: '130'});
+    assert.equal((issues[0].body.match(/nightly-sightings:/g) || []).length, 1);
+    assert.doesNotMatch(issues[0].body, /nightly-overflow-complete/);
+    verify(issues[0].body, 130, 1);
+    assert.match(issues[0].body, /nightly-reproducer:v2 123 1 /);
+
+    const fullBody = issues[0].body;
+    const oldBody = fullBody + ' '.repeat(64_000 - Buffer.byteLength(fullBody));
+    issues[0].body = oldBody;
+    args.context.runId = 10000;
+    await report({...args, prepareManifests: true});
+    await report({...args, manifestArtifactId: '10000'});
+    assert.equal(issues[0].body, oldBody);
+    const shortSighting = calls.filter(call => call.name === 'createComment').at(-1).args.body;
+    verify(shortSighting, 10000, 1);
+    assert.match(shortSighting, /<!-- nightly-run:10000:1 -->/);
+    assert.doesNotMatch(shortSighting, /Save as model.json/);
+
+    args.context.runId = 132;
+    process.env.FINDINGS_DRY_RUN = 'true';
+    const previousCalls = calls.length;
+    await report(args);
+    assert.equal(calls.length, previousCalls);
+    assert.match(logs.at(-2), /nightly-reproducer:v2 132 1 /);
+  }));
+
+test('inventories above the replay size limit are published as bounded verified chunks',
+  () => fixture(async ({args, calls, comments, issues, save}) => {
+    const count = 450;
+    const limit = 4_000_000;
+    const reduction = 'a'.repeat(9_000);
+    fs.mkdirSync('nightly-findings/nightly-findings-opensees');
+    for (let seed = 0; seed < count; seed++) {
+      save('nightly-findings-opensees/case-' + seed, {...finding, seed, reduction});
+    }
+    const manifestDir = 'nightly-replay-manifests';
+    await report({...args, prepareManifests: true});
+    assert.equal(calls.length, 0);
+    await report({...args, manifestArtifactId: '123'});
+    const published = calls.find(call => call.name === 'create').args.body;
+    const pointer = published.match(/<!-- nightly-reproducer:v3 123 1 ([0-9a-f]{64}) -->/);
+    assert.ok(pointer, 'inventories beyond 4 MB need a chunk index');
+    const read = digest => {
+      const bytes = fs.readFileSync(path.join(manifestDir, digest + '.json'));
+      assert.ok(bytes.length <= limit);
+      assert.equal(createHash('sha256').update(bytes).digest('hex'), digest);
+      return JSON.parse(bytes);
+    };
+    const {chunks} = read(pointer[1]);
+    assert.ok(chunks.length > 1);
+    const records = chunks.flatMap(read);
+    assert.equal(records.length, count);
+    assert.equal(new Set(records.map(({seed}) => seed)).size, count);
+    for (const record of records) {
+      assert.equal(createHash('sha256').update(fs.readFileSync(record.path)).digest('hex'), record.artifactHash);
+    }
+    fs.unlinkSync(path.join(manifestDir, chunks.at(-1) + '.json'));
+    calls.length = 0;
+    await assert.rejects(report({...args, manifestArtifactId: '123'}), /manifest.*upload/i);
+    assert.equal(calls.length, 0);
+
+    issues.push({number: 1, state: 'open', body: published});
+    for (const run of [111, 112, 113, 114, 115]) comments.push(botComment('<!-- nightly-run:' + run + ':1 -->'));
+    for (const run of [124, 125]) {
+      args.context.runId = run;
+      await report({...args, prepareManifests: true});
+      await report({...args, manifestArtifactId: String(run)});
+      const markers = [...issues[0].body.matchAll(/<!-- nightly-reproducer:v3 (\d+) 1 ([0-9a-f]{64}) -->/g)];
+      assert.deepEqual(markers.map(marker => Number(marker[1])), [run, 123]);
+      assert.equal(read(markers[0][2]).chunks.flatMap(read).length, count);
+    }
+
+    issues.length = 0;
+    let excess = Buffer.byteLength(JSON.stringify(records)) - limit;
+    for (const {seed} of records) {
+      if (!excess) break;
+      const trim = Math.min(excess, reduction.length);
+      save('nightly-findings-opensees/case-' + seed, {...finding, seed, reduction: reduction.slice(trim)});
+      excess -= trim;
+    }
+    assert.equal(excess, 0);
+    calls.length = 0;
+    await report({...args, prepareManifests: true});
+    await report({...args, manifestArtifactId: '125'});
+    const bounded = calls.find(call => call.name === 'create').args.body;
+    const manifest = bounded.match(/<!-- nightly-reproducer:v2 125 1 ([0-9a-f]{64}) -->/);
+    assert.ok(manifest, 'the exact limit fits in one manifest');
+    assert.equal(fs.statSync(path.join(manifestDir, manifest[1] + '.json')).size, limit);
+    assert.equal(read(manifest[1]).length, count);
+  }));

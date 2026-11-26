@@ -1,4 +1,7 @@
+import base64
 import contextlib
+import gzip
+import hashlib
 import importlib.util
 import io
 import json
@@ -11,12 +14,125 @@ import sys
 import tempfile
 import textwrap
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[3]
 spec = importlib.util.spec_from_file_location('models', ROOT / 'testing/scripts/nightly-models.py')
 models = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(models)
+
+
+class NightlyReplayLifecycle(unittest.TestCase):
+    def setUp(self):
+        replay_spec = importlib.util.spec_from_file_location('replay', ROOT / 'scripts/replay-findings.py')
+        self.replay = importlib.util.module_from_spec(replay_spec)
+        replay_spec.loader.exec_module(self.replay)
+
+    def test_close_requires_three_consecutive_nights_for_the_same_reproducers(self):
+        advance = self.replay.advance_nightly_replay
+        state, close = advance({}, '2026-11-01', 'a', 'passes-now')
+        self.assertEqual(state['streak'], 1)
+        self.assertFalse(close)
+        self.assertEqual(advance(state, '2026-11-01', 'a', 'passes-now'), (state, False))
+        state, close = advance(state, '2026-11-02', 'a', 'passes-now')
+        self.assertEqual(state['streak'], 2)
+        self.assertFalse(close)
+        for night, fingerprint, result in (
+                ('2026-11-04', 'a', 'passes-now'),
+                ('2026-11-03', 'b', 'passes-now'),
+                ('2026-11-03', 'a', 'not-replayable'),
+                ('2026-11-03', 'a', 'still-fails')):
+            changed, close = advance(state, night, fingerprint, result)
+            self.assertEqual(changed['streak'], int(result == 'passes-now'))
+            self.assertFalse(close)
+        state, close = advance(state, '2026-11-03', 'a', 'passes-now')
+        self.assertEqual(state['streak'], 3)
+        self.assertTrue(close)
+
+    def test_wrong_result_refusal_does_not_pass(self):
+        spec = {'test': 'codeaster/silent_singular', 'check_kind': 'silent_singular', 'kind': 'silent_singular'}
+        self.assertNotEqual(self.replay.classify_diff(spec, {'status': 'refused'})[0], 'passes-now')
+        self.assertEqual(self.replay.classify_diff(spec, {'status': 'ok'})[0], 'passes-now')
+
+    def test_every_stored_reproducer_must_have_an_explicit_pass(self):
+        replays = []
+        for relation, seed in (('mirror', 42), ('rotation', (1 << 64) - 1)):
+            test = f'metamorphic/linear/{relation}'
+            artifact = json.dumps({'test': test, 'model': {'tag': relation}, 'seed': seed})
+            replays.append({'test': test, 'seed': str(seed), 'kind': 'wrong-result-candidate',
+                            'message': 'stress mismatch', 'reduction': '1-minimal',
+                            'artifact': artifact, 'artifactHash': hashlib.sha256(artifact.encode()).hexdigest(),
+                            'path': f'nightly-findings/{relation}.finding.json', 'runId': '10'})
+
+        def issue_body(records):
+            encoded = base64.b64encode(gzip.compress(json.dumps(records).encode())).decode()
+            return f'<!-- nightly-reproducer:v1 {encoded} -->\n<!-- nightly-run:10:1 -->'
+
+        issue = {'number': 8, 'body': issue_body(replays[:1]), 'sightings': [issue_body(replays[1:])]}
+
+        def runner(cmd, *, env, timeout):
+            source = json.loads(Path(env['NIGHTLY_MODEL']).read_text())['tag']
+            self.assertEqual(int(env['METAMORPHIC_SEED']), 42 if source == 'mirror' else (1 << 64) - 1)
+            count = {'pass': 1} if source == 'mirror' else {'refused': 1}
+            Path(env['NIGHTLY_RESULTS']).write_text(json.dumps(
+                {'verdicts': [{'analysis': 'linear', 'invariant': source, **count}]}))
+            return subprocess.CompletedProcess(cmd, 0, '', '')
+
+        commit = '1' * 40
+        partial = self.replay.replay_issues([issue], commit=commit, runner=runner, metamorphic_bin='metamorphic')
+        self.assertEqual([result['status'] for result in partial], ['passes-now', 'not-replayable'])
+        self.assertEqual(self.replay.merge_reports([issue], [partial], commit)[0]['status'], 'not-replayable')
+        self.assertEqual(self.replay.merge_reports([issue], [partial[:1]], commit)[0]['status'], 'not-replayable')
+        self.assertEqual(self.replay.merge_reports([issue], [[partial[0], partial[0]]], commit)[0]['status'], 'not-replayable')
+        partial[1]['status'] = 'passes-now'
+        self.assertEqual(self.replay.merge_reports([issue], [partial], commit)[0]['status'], 'passes-now')
+
+    def test_new_sighting_resets_passes_and_closure_rechecks_the_issue(self):
+        issue = {'number': 8, 'body': '<!-- nightly-run:10:1 -->'}
+        report = [{'issue': 8, 'status': 'passes-now'}]
+        plan = self.replay.plan_nightly_actions
+        for night in ('2026-11-01', '2026-11-02'):
+            action, = plan([issue], report, night, '11', 'https://example.com/run', 'abc')
+            self.assertNotIn('comment', action)
+            issue['body'] = action['body']
+        old_body = issue['body']
+        changed, = plan([issue], report, '2026-11-03', '10', 'https://example.com/run', 'abc')
+        self.assertNotIn('comment', changed)
+        self.assertIn('"streak":0', changed['body'])
+        action, = plan([issue], report, '2026-11-03', '11', 'https://example.com/run', 'abc')
+        self.assertIn('2026-11-03', action['comment'])
+        self.assertIn('abc', action['comment'])
+
+        calls = []
+
+        def gh(*args, data=None):
+            calls.append((args, data))
+            return json.dumps({'state': 'open', 'body': old_body, 'comments': 0})
+
+        self.replay.apply_nightly_actions('owner/repo', [action], gh_runner=gh)
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(json.loads(calls[-1][1])['state'], 'closed')
+
+        updated = Mock(return_value=json.dumps({'state': 'open', 'body': old_body + ' changed'}))
+        with patch('builtins.print'):
+            self.replay.apply_nightly_actions('owner/repo', [action], gh_runner=updated)
+        updated.assert_called_once_with('api', 'repos/owner/repo/issues/8')
+
+        artifact = json.dumps({'test': 'metamorphic/linear/mirror', 'seed': 42, 'model': {'tag': 'new'}})
+        record = {'test': 'metamorphic/linear/mirror', 'seed': '42', 'kind': 'wrong-result-candidate',
+                  'message': 'stress mismatch', 'reduction': '1-minimal', 'artifact': artifact,
+                  'artifactHash': hashlib.sha256(artifact.encode()).hexdigest(),
+                  'path': 'nightly-findings/mirror.finding.json', 'runId': '12'}
+        payload = base64.b64encode(gzip.compress(json.dumps([record]).encode())).decode()
+        new_sighting = {'user': {'login': 'github-actions[bot]'},
+                        'body': f'<!-- nightly-reproducer:v1 {payload} -->\n<!-- nightly-run:12:1 -->'}
+        changed_comments = Mock(side_effect=[
+            json.dumps({"state": "open", "body": old_body, "comments": 1}), json.dumps([[new_sighting]]),
+        ])
+        with patch('builtins.print'):
+            self.replay.apply_nightly_actions('owner/repo', [action], gh_runner=changed_comments)
+        self.assertEqual(changed_comments.call_count, 2)
+        self.assertIn('/issues/8/comments?', changed_comments.call_args.args[-1])
 
 
 class Models(unittest.TestCase):
@@ -420,6 +536,30 @@ class Artifacts(unittest.TestCase):
 
 
 class Workflow(unittest.TestCase):
+
+    def test_issue_writer_queue_preserves_pending_publication(self):
+        for workflow, job in (("nightly", "findings"), ("replay-findings", "report")):
+            source = (ROOT / f".github/workflows/{workflow}.yml").read_text()
+            body = re.split(r"^  [\w-]+:$", source.split(f"\n  {job}:\n", 1)[1], maxsplit=1, flags=re.M)[0]
+            with self.subTest(workflow=workflow):
+                self.assertRegex(body, r"\n      queue: max\n")
+
+    def test_reporter_and_replay_writers_share_one_concurrency_group(self):
+        nightly = (ROOT / '.github/workflows/nightly.yml').read_text()
+        replay = (ROOT / '.github/workflows/replay-findings.yml').read_text()
+        findings_job = nightly.split('\n  findings:\n', 1)[1].split('\n  replay-open-findings:', 1)[0]
+        report_job = replay.split('\n  report:\n', 1)[1]
+        groups = []
+        for job in (findings_job, report_job):
+            self.assertIn('issues: write', job)
+            concurrency = re.search(r'^    concurrency:\n      group: (.+)\n      cancel-in-progress: false$', job, re.M)
+            self.assertIsNotNone(concurrency)
+            groups.append(concurrency[1])
+        self.assertEqual(groups[0], groups[1])
+        self.assertEqual(groups[0], 'nightly-finding-issue-writes-' + '$' + '{{ github.ref }}')
+        for workflow in (nightly, replay):
+            self.assertRegex(workflow, r'\nconcurrency:\n  group: [^\n]+\n  cancel-in-progress: false\n')
+
     def test_expensive_plastic_grid_stays_out_of_the_live_corpus(self):
         workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
         step = workflow.split('- name: Plastic LP budgets and seeded resource watchdog', 1)[1].split('- name:', 1)[0]

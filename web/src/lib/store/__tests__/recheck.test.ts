@@ -60,7 +60,7 @@ describe('recheckStore', () => {
     recheckStore.openProject(solved as never, 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
     expect(recheckStore.noticeOpen).toBe(true);
-    expect(recheckStore.assessment?.changes.map((c) => c.id)).toEqual(['generated-area-loads-headroom', 'snow-panel-geometry', 'concentrated-live-actions', 'gravity-width-mass', 'gravity-stations-and-exact-coverage', 'gravity-coverage-decisions', 'gravity-exact-ownership', 'gravity-local-deck-coverage', 'gravity-retained-span-midpoint']);
+    expect(recheckStore.assessment?.changes.map((c) => c.id)).toEqual(['generated-area-loads-headroom', 'snow-panel-geometry', 'concentrated-live-actions', 'gravity-width-mass', 'gravity-stations-and-exact-coverage', 'gravity-coverage-decisions', 'gravity-exact-ownership', 'gravity-local-deck-coverage', 'gravity-retained-span-midpoint', 'gravity-physical-thresholds', 'gravity-resolved-cover']);
     recheckStore.reset();
     recheckStore.openProject({ ...solved, designData: { loadBasis: { resultsVersion: RESULTS_VERSION } } } as never, 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
@@ -73,7 +73,7 @@ describe('recheckStore', () => {
     recheckStore.reset();
     recheckStore.openProject(generated(headroom), 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
-    expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual(['snow-panel-geometry', 'concentrated-live-actions', 'gravity-width-mass', 'gravity-stations-and-exact-coverage', 'gravity-coverage-decisions', 'gravity-exact-ownership', 'gravity-local-deck-coverage', 'gravity-retained-span-midpoint']);
+    expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual(['snow-panel-geometry', 'concentrated-live-actions', 'gravity-width-mass', 'gravity-stations-and-exact-coverage', 'gravity-coverage-decisions', 'gravity-exact-ownership', 'gravity-local-deck-coverage', 'gravity-retained-span-midpoint', 'gravity-physical-thresholds', 'gravity-resolved-cover']);
     expect(recheckStore.noticeOpen).toBe(true);
     recheckStore.reset();
     const { designData: _basis, ...unstamped } = generated() as unknown as Record<string, unknown>;
@@ -92,7 +92,7 @@ describe('recheckStore', () => {
     };
     const expected = [
       'snow-combination-provenance', 'snow-combination-validation', 'snow-companion-basis', 'snow-pair-coverage',
-      'concentrated-live-actions', 'generated-area-loads-headroom', 'gravity-retained-span-midpoint', 'snow-crossing-profile', 'snow-drift-coverage', 'snow-fallback-runs',
+      'concentrated-live-actions', 'generated-area-loads-headroom', 'gravity-physical-thresholds', 'gravity-retained-span-midpoint', ...(mode === '2d' ? [] : ['gravity-resolved-cover', 'gravity-retained-bay-headroom', 'gravity-strict-headroom']), 'snow-crossing-profile', 'snow-drift-coverage', 'snow-fallback-runs',
       'snow-flat-frame', 'snow-local-boundaries', 'snow-member-loading', 'snow-orientation-factors', 'snow-panel-geometry', 'snow-quadratic-intensity',
       'snow-ridge-mesh', 'snow-ridge-orientations', 'snow-roof-connectivity',
       'snow-roof-rotation', 'snow-roof-step', 'snow-selected-subsets', 'snow-surface-regions', 'snow-surface-support',
@@ -120,7 +120,7 @@ describe('recheckStore', () => {
   it.each(['2d', '3d', 'pro'])('keeps the exact wind regeneration notices after re-solving in %s', async mode => {
     for (const type of ['W', 'Wa']) {
       const snapshot = { analysisMode: mode, loadCases: [{ id: 1, type }], loads: [{ type: 'distributed', data: { caseId: 1, generatedBy: 'load-plan' } }], designData: { loadBasis: { resultsVersion: 0 } }, solvedWith: recheckStore.capture() };
-      const expected = ['generated-area-loads-headroom', 'gravity-retained-span-midpoint', 'snow-panel-geometry', 'wind-apex-torque', 'wind-band-width-and-shares', 'wind-carriers-and-continuous-width', 'wind-member-pressure-transfer', 'wind-physical-apex', 'wind-physical-pressure-field', 'wind-plan-couple-and-sign-face', 'wind-pressure-work-moments', 'wind-triangular-and-sign-minimum', 'wind-triangular-centroid'];
+      const expected = ['generated-area-loads-headroom', 'gravity-physical-thresholds', ...(mode === '2d' ? [] : ['gravity-resolved-cover']), 'gravity-retained-span-midpoint', 'snow-panel-geometry', 'wind-apex-torque', 'wind-band-width-and-shares', 'wind-carriers-and-continuous-width', 'wind-member-pressure-transfer', 'wind-physical-apex', 'wind-physical-pressure-field', 'wind-plan-couple-and-sign-face', 'wind-pressure-work-moments', 'wind-triangular-and-sign-minimum', 'wind-triangular-centroid'];
       expected.unshift('concentrated-live-actions');
       recheckStore.openProject(snapshot, mode);
       await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
@@ -432,9 +432,9 @@ describe('edited projects with older provenance', () => {
     {
       const store = { assessment: { changes: allChanges.filter(c => c.id !== 'compensated-applied-force-totals' && !rcNotices.has(c.id)) } };
     if (includeSSI) {
-    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['active-combination-completeness', 'cirsoc-axial-torsion-threshold', 'cirsoc-torsion-cage-verification', 'combined-section-shear-refusal', 'complete-concurrent-demands', 'concurrent-check-demands', 'concurrent-depth-and-load-context', 'concurrent-design-demands', 'concurrent-secondary-slenderness', 'concurrent-torsion-reinforcement', 'design-span-station-coverage', 'fail-closed-ratios', 'fixed-reinforcement-practical-maximum', 'flange-spans-and-behaviour', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'member-diagram-extrema-design', 'member-recovery-round4', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'provided-torsion-stirrups', 'safety-containment-diagnostics', 'secondary-shear-longitudinal', 'secondary-stirrup-legs', 'section-stress-cut-magnitudes', 'shared-demand-completeness', 'shared-span-axis-and-torsion-provision', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'ssi-support-reactions', 'steel-cb-combination', 'steel-diagram-moment-gradient', 'steel-station-coordinates-and-shear', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'torsion-secondary-shear']);
+    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['active-combination-completeness', 'cirsoc-axial-torsion-threshold', 'cirsoc-torsion-cage-verification', 'combined-section-shear-refusal', 'complete-concurrent-demands', 'concurrent-check-demands', 'concurrent-depth-and-load-context', 'concurrent-design-demands', 'concurrent-secondary-slenderness', 'concurrent-torsion-reinforcement', 'design-span-station-coverage', 'fail-closed-ratios', 'fixed-reinforcement-practical-maximum', 'flange-spans-and-behaviour', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'member-diagram-extrema-design', 'member-recovery-round4', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'provided-torsion-stirrups', 'reduced-stiffness-rank', 'safety-containment-diagnostics', 'secondary-shear-longitudinal', 'secondary-stirrup-legs', 'section-stress-cut-magnitudes', 'shared-demand-completeness', 'shared-span-axis-and-torsion-provision', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'ssi-support-reactions', 'steel-cb-combination', 'steel-diagram-moment-gradient', 'steel-station-coordinates-and-shear', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'torsion-secondary-shear']);
     } else {
-    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['active-combination-completeness', 'cirsoc-axial-torsion-threshold', 'cirsoc-torsion-cage-verification', 'combined-section-shear-refusal', 'complete-concurrent-demands', 'concurrent-check-demands', 'concurrent-depth-and-load-context', 'concurrent-design-demands', 'concurrent-secondary-slenderness', 'concurrent-torsion-reinforcement', 'design-span-station-coverage', 'fail-closed-ratios', 'fixed-reinforcement-practical-maximum', 'flange-spans-and-behaviour', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'member-diagram-extrema-design', 'member-recovery-round4', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'provided-torsion-stirrups', 'safety-containment-diagnostics', 'secondary-shear-longitudinal', 'secondary-stirrup-legs', 'section-stress-cut-magnitudes', 'shared-demand-completeness', 'shared-span-axis-and-torsion-provision', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'steel-cb-combination', 'steel-diagram-moment-gradient', 'steel-station-coordinates-and-shear', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'torsion-secondary-shear']);
+    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['active-combination-completeness', 'cirsoc-axial-torsion-threshold', 'cirsoc-torsion-cage-verification', 'combined-section-shear-refusal', 'complete-concurrent-demands', 'concurrent-check-demands', 'concurrent-depth-and-load-context', 'concurrent-design-demands', 'concurrent-secondary-slenderness', 'concurrent-torsion-reinforcement', 'design-span-station-coverage', 'fail-closed-ratios', 'fixed-reinforcement-practical-maximum', 'flange-spans-and-behaviour', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'member-diagram-extrema-design', 'member-recovery-round4', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'provided-torsion-stirrups', 'reduced-stiffness-rank', 'safety-containment-diagnostics', 'secondary-shear-longitudinal', 'secondary-stirrup-legs', 'section-stress-cut-magnitudes', 'shared-demand-completeness', 'shared-span-axis-and-torsion-provision', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'steel-cb-combination', 'steel-diagram-moment-gradient', 'steel-station-coordinates-and-shear', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'torsion-secondary-shear']);
     }
     }
     expect(store.noticeOpen).toBe(true);
@@ -447,6 +447,7 @@ describe('edited projects with older provenance', () => {
     'safety-containment-diagnostics', 'harmonic-modal-residual-checked',
     'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency',
     'connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'linear-stability-refusals', 'linear-pin-coupling', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness',
+    'reduced-stiffness-rank',
     ...(registry.changes.some(c => c.id === 'ssi-support-reactions') ? ['ssi-support-reactions'] : []),
   ].map(id => registry.changes.find(c => c.id === id)!)
     .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
@@ -476,7 +477,7 @@ describe('edited projects with older provenance', () => {
     await vi.waitFor(() => expect(store.pending).toBe(false));
     const received = store.assessment?.changes.map(c => c.id);
     const expected = openingNoticeIds(mergedRegistry);
-    const tail = ['compensated-applied-force-totals', 'connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness']
+    const tail = ['compensated-applied-force-totals', 'reduced-stiffness-rank', 'connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness']
       .map(id => mergedRegistry.changes.find(c => c.id === id)!)
       .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
       .map(c => c.id);
@@ -485,9 +486,9 @@ describe('edited projects with older provenance', () => {
         .map(id => mergedRegistry.changes.find(c => c.id === id)!)
         .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
         .map(c => c.id);
-      expect(expected.slice(-11)).toEqual([...combinedTail, 'linear-stability-refusals', 'linear-pin-coupling']);
+      expect(expected.slice(-12)).toEqual([...combinedTail, 'linear-stability-refusals', 'linear-pin-coupling']);
     } else {
-    expect(expected.slice(-10)).toEqual([...tail, 'linear-stability-refusals', 'linear-pin-coupling']);
+    expect(expected.slice(-11)).toEqual([...tail, 'linear-stability-refusals', 'linear-pin-coupling']);
     }
     expect(received, JSON.stringify({ expected, received }, null, 2)).toEqual(expected);
   });

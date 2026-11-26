@@ -491,6 +491,42 @@ pub fn solve_moving_loads_3d(json: &str) -> Result<String, JsValue> {
     to_json(&results)
 }
 
+#[wasm_bindgen]
+pub fn moving_axle_station(
+    start: f64, end: f64, length: f64, reversed: bool, position: f64,
+    start_roundoff: f64, end_roundoff: f64, arithmetic: f64,
+) -> Result<Option<f64>, JsValue> {
+    solver::moving_loads::sampled_axle_station(start, end, length, reversed, position, [start_roundoff, end_roundoff], arithmetic)
+        .map_err(JsValue::from_str)
+}
+
+#[wasm_bindgen]
+pub fn moving_face_force(interior: f64, local_force: f64, at_end: bool, axial: bool) -> Result<f64, JsValue> {
+    postprocess::diagram_extrema::moving_face_force(interior, local_force, at_end, axial).map_err(JsValue::from_str)
+}
+
+#[wasm_bindgen]
+pub fn check_moving_path_segment(
+    start: f64, end: f64, length: f64, start_roundoff: f64, end_roundoff: f64,
+) -> Result<(), JsValue> {
+    solver::moving_loads::check_path_segment(start, end, length, [start_roundoff, end_roundoff]).map_err(JsValue::from_str)
+}
+
+#[wasm_bindgen]
+pub fn moving_sample_station(base: f64, step: f64, index: f64, offset: f64) -> Box<[f64]> {
+    Box::new(solver::moving_loads::ReferencePosition::new(base, step, index).axle_station(offset))
+}
+
+#[wasm_bindgen]
+pub fn moving_segment_roundoff(xi: f64, yi: f64, zi: f64, xj: f64, yj: f64, zj: f64) -> f64 {
+    solver::moving_loads::segment_coordinate_roundoff([xi, yi, zi], [xj, yj, zj])
+}
+
+#[wasm_bindgen]
+pub fn moving_reference_sample_count(start: f64, end: f64, step: f64, end_roundoff: f64) -> Result<f64, JsValue> {
+    solver::moving_loads::reference_sample_count(start, end, step, end_roundoff).map_err(JsValue::from_str)
+}
+
 // ==================== Co-rotational Analysis ====================
 
 /// Solve 2D co-rotational (large displacement) analysis. JSON in → JSON out.

@@ -1,0 +1,35 @@
+{
+  "id": "ssi-pile-mechanism-refusal",
+  "date": "2026-11-25",
+  "prs": [2584],
+  "area": "analysis",
+  "when": { "all": ["plane2D", "members", "analysis:ssi", "ssiHistory"] },
+  "quantities": [
+    "solve.ok", "refusal", "converged", "iterations", "displacements", "reactions",
+    "elementForces", "springResults", "structuredDiagnostics"
+  ],
+  "title": {
+    "en": "Refuse pinned axial pile mechanisms in SSI",
+    "es": "Rechazar mecanismos en pilotes articulados bajo carga axial en SSI",
+    "pt": "Recusar mecanismos em estacas articuladas sob carga axial em SSI",
+    "de": "SSI-Mechanismen bei gelenkig gelagerten axial belasteten Pfählen ablehnen",
+    "fr": "Refuser les mécanismes des pieux articulés sous charge axiale en SSI",
+    "hu": "Axiálisan terhelt, csuklós megtámasztású cölöpmechanizmusok elutasítása az SSI-ben",
+    "tr": "SSI analizinde mafsallı ve eksenel yüklü kazık mekanizmalarını reddet",
+    "zh": "拒绝求解土与结构相互作用分析中铰支轴向受力桩的机构"
+  },
+  "explanation": {
+    "en": "A vertical pile with a pinned base can rotate freely if every soil spring acts along the pile. SSI now refuses when the reduced stiffness cannot resolve that motion. Recheck previously saved SSI results for these piles.",
+    "es": "Un pilote vertical con base articulada puede girar libremente si todos los resortes del suelo actúan en su eje. SSI ahora rechaza el cálculo si la rigidez reducida no resuelve ese movimiento. Revisá los resultados de SSI guardados para estos pilotes.",
+    "pt": "Uma estaca vertical com base articulada pode girar livremente se todas as molas do solo atuarem ao longo do seu eixo. A SSI agora recusa o cálculo quando a rigidez reduzida não resolve esse movimento. Revise os resultados de SSI salvos para essas estacas.",
+    "de": "Ein vertikaler Pfahl mit gelenkigem Fuß kann sich frei drehen, wenn alle Bodenfedern in Pfahlrichtung wirken. Die SSI-Berechnung wird jetzt abgebrochen, wenn die reduzierte Steifigkeit diese Bewegung nicht auflösen kann. Prüfen Sie die gespeicherten SSI-Ergebnisse für solche Pfähle erneut.",
+    "fr": "Un pieu vertical à base articulée peut tourner librement si tous les ressorts de sol agissent suivant son axe. Le calcul SSI est désormais bloqué lorsque la raideur réduite ne permet pas de résoudre ce mouvement. Vérifiez les résultats SSI enregistrés pour ces pieux.",
+    "hu": "A csuklós talpú függőleges cölöp szabadon elfordulhat, ha minden talajrugó a cölöp tengelye mentén hat. Az SSI-számítás megszakad, ha a redukált merevség alapján ez a mozgás nem oldható meg. Ellenőrizze újra az ilyen cölöpökhöz mentett SSI-eredményeket.",
+    "tr": "Tüm zemin yayları kazık ekseni boyunca etkirse mafsallı tabana sahip düşey kazık serbestçe dönebilir. İndirgenmiş rijitlik bu hareketi çözümlemeye yetmediğinde SSI artık çözümü reddeder. Bu kazıklar için kaydedilmiş SSI sonuçlarını yeniden kontrol edin.",
+    "zh": "如果所有土弹簧均沿桩轴作用，底部铰支的竖直桩可自由转动。当约化刚度无法判定该运动时，土与结构相互作用分析会拒绝求解。请重新检查此类桩的已保存分析结果。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-reduced-stiffness-rank.md",
+    "heading": "Refuse pinned axial pile mechanisms in SSI"
+  }
+}

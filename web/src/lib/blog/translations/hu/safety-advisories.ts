@@ -1,4 +1,5 @@
 import type { PostBody } from '../../types';
+import { nextReleaseAdvisoryBlocks } from '../../next-release-advisories';
 
 const body: PostBody = {
   "title": "Biztonsági figyelmeztetések: mely eredmények változtak és mi a teendő",
@@ -258,34 +259,7 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-106-complementary-plate-remesh-arc.md", "label": "SA-2026-106", "t": "Érintett bemenetek és szükséges teendők."},
     {"k": "note", "t": "SA-2026-107 — A 0.6.3 utáni következő kiadás (korlátozás)."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-107-plate-remesh-shell-edits.md", "label": "SA-2026-107", "t": "Érintett bemenetek és szükséges teendők."},
-    {"k": "note", "t": "SA-2026-108 — A 0.6.4 utáni következő kiadás."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-108-planar-projection-nodal-forces.md", "label": "SA-2026-108", "t": "Érintett bemenetek és szükséges teendők."},
-    {"k": "note", "t": "SA-2026-109 — A 0.6.4 utáni következő kiadás."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-109-dxf-support-labels.md", "label": "SA-2026-109", "t": "Érintett bemenetek és szükséges teendők."},
-    {"k": "note", "t": "SA-2026-110 — A 0.6.4 utáni következő kiadás."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-110-solver-json-boundary.md", "label": "SA-2026-110", "t": "Érintett bemenetek és szükséges teendők."},
-    {"k": "note", "t": "SA-2026-111 — A 0.6.4 utáni következő kiadás."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-111-gravity-shared-deck-coverage.md", "label": "SA-2026-111", "t": "Érintett bemenetek és szükséges teendők."},
-    {"k": "note", "t": "SA-2026-112 — A 0.6.4 utáni következő kiadás."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-112-basic-3d-shell-omission.md", "label": "SA-2026-112", "t": "Érintett bemenetek és szükséges teendők."},
-    {"k": "note", "t": "SA-2026-113 — A 0.6.4 utáni következő kiadás."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-113-native-supplied-linear-certificates.md", "label": "SA-2026-113", "t": "Érintett bemenetek és szükséges teendők."},
-    {"k": "note", "t": "SA-2026-114 — A 0.6.4 utáni következő kiadás."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-114-saved-combination-load-groups.md", "label": "SA-2026-114", "t": "Érintett bemenetek és szükséges teendők."},
-    {"k": "note", "t": "SA-2026-115 — A 0.6.4 utáni következő kiadás."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-115-gravity-floor-region-ownership.md", "label": "SA-2026-115", "t": "Érintett bemenetek és szükséges teendők."},
-    {"k": "note", "t": "SA-2026-116 — A 0.6.4 utáni következő kiadás."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-116-nonlinear-continuation-and-inclined-loads.md", "label": "SA-2026-116", "t": "Érintett bemenetek és szükséges teendők."},
-    {"k": "note", "t": "SA-2026-117 — A 0.6.4 utáni következő kiadás."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-117-static-shell-self-weight-density.md", "label": "SA-2026-117", "t": "Érintett bemenetek és szükséges teendők."},
-    {"k": "note", "t": "SA-2026-118 — A 0.6.4 utáni következő kiadás."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-118-self-weight-group-targets.md", "label": "SA-2026-118", "t": "Érintett bemenetek és szükséges teendők."},
-    {"k": "note", "t": "SA-2026-119 — A 0.6.4 utáni következő kiadás."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-119-modal-mass-missing-density.md", "label": "SA-2026-119", "t": "Érintett bemenetek és szükséges teendők."},
-    {"k": "note", "t": "SA-2026-120 — A 0.6.4 utáni következő kiadás."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-120-gravity-deck-load-placement.md", "label": "SA-2026-120", "t": "Érintett bemenetek és szükséges teendők."},
-    {"k": "note", "t": "SA-2026-121 — A 0.6.4 utáni következő kiadás."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-121-planar-nonlinear-member-loads.md", "label": "SA-2026-121", "t": "Érintett bemenetek és szükséges teendők."},
+    ...nextReleaseAdvisoryBlocks('A 0.6.4 utáni következő kiadás.', 'Érintett bemenetek és szükséges teendők.'),
     {
       "k": "img",
       "base": "blog/recheck-stale",
@@ -832,7 +806,16 @@ const body: PostBody = {
         ["SA-2026-118", "Érvénytelen célcsoport esetén kimaradhatott a csoport önsúlya. Javítsa a csoport hozzárendelését, és számítsa újra az érintett tehereseteket, kombinációkat és burkolókat.", "Magas", "A 0.6.4 utáni következő kiadás"],
         ["SA-2026-119", "A hiányzó anyagsűrűség hibás sajátfrekvenciát eredményezhetett. Állítsa vissza a sűrűséget, építse fel újra a tömegforrást, és ismételje meg az érintett dinamikai számításokat.", "Magas", "A 0.6.4 utáni következő kiadás"],
         ["SA-2026-120", "Az automatikus tehergenerálás megkettőzhette a gravitációs terheket, az automatikus fesztávhatárt meghaladó mezőkre vihette át őket, vagy hibásan sorolhatta be a tető- és födémterületeket. Generálja újra az érintett gravitációs, hó- és szélterheket, ellenőrizze őket, és ismételje meg a kapcsolódó számításokat.", "Magas", "A 0.6.4 utáni következő kiadás"],
-        ["SA-2026-121", "A síkbeli nemlineáris számítás hibás eredményeket adhatott a rudak terheire. Ismételje meg az érintett számításokat, beleértve a folytatás kezdeti állapotát meghatározó számításokat is, és ellenőrizze az elmozdulásokat, a támaszreakciókat és a rúdvég-igénybevételeket.", "Közepes", "A 0.6.4 utáni következő kiadás"]
+        ["SA-2026-121", "A síkbeli nemlineáris számítás hibás eredményeket adhatott a rudak terheire. Ismételje meg az érintett számításokat, beleértve a folytatás kezdeti állapotát meghatározó számításokat is, és ellenőrizze az elmozdulásokat, a támaszreakciókat és a rúdvég-igénybevételeket.", "Közepes", "A 0.6.4 utáni következő kiadás"],
+        ["SA-2026-122", "A létrehozott teherkombinációkból kimaradhattak kötelező alternatívák vagy kézzel megadott tetőhasznos terhek. A kombinációk hibás hóteheralapot vagy elavult széltehereseteket is tartalmazhattak. Ellenőrizze a terheket, a szabálytényezőket és a burkolókhoz rendelt kombinációkat. Távolítsa el a modellből a bizonyítottan elavult üres tehereseteket, azokat is, amelyek már a 0.6.4-es verzióban üresek voltak. Hozza létre újra a kombinációkat, és az érintett számítások megismétlése előtt ellenőrizze, hogy a kombinációk nem tartalmazzák ezeket a tehereset-azonosítókat.", "Magas", "A 0.6.4 utáni következő kiadás"],
+        ["SA-2026-123", "Az automatikus gravitációsteher-generálás megtarthatta a terheket elégtelen szabad magasságú födémmezők alatt, vagy bizonytalan takarás mellett is terheket rendelhetett hozzá. Generálja újra az érintett gravitációs, tetőszél- és hóterheket, ellenőrizze a hozzárendelést, és ismételje meg a kapcsolódó számításokat.", "Magas", "A 0.6.4 utáni következő kiadás"],
+        ["SA-2026-124", "A kijelölt elemek önsúlyának számításakor kimaradhattak a hiányzó elemek, vagy egy kijelölt rúd súlya csak egyetlen szakaszra kerülhetett. Javítsa a kijelölést, ellenőrizze a figyelembe vett önsúlyt, és ismételje meg az érintett számításokat, valamint a síkbeli dinamika tananyagában felosztott rudakkal végzett válaszszámításokat.", "Magas", "A 0.6.4 utáni következő kiadás"],
+        ["SA-2026-125", "A natív és a WASM kinematikai jelentések kétszer számolhattak egy közös merev megtámasztást. Ellenőrizze újra a statikai határozatlansági fokot, a besorolást és a diagnózist, majd frissítse az érintett jelentéseket.", "Közepes", "A 0.6.4 utáni következő kiadás"],
+        ["SA-2026-126", "Az ismételt tagok miatt kimaradhattak mértékadó teherelrendezések, vagy hóteher nélküli változat jöhetett létre. Ellenőrizze a szabályokat, hozza létre újra az érintett kombinációkat és összetett tehereseteket, majd ismételje meg a számításokat, a burkolóképzést és a méretezési ellenőrzéseket.", "Magas", "A 0.6.4 utáni következő kiadás"],
+        ["SA-2026-127", "Hiányos hálókapcsolat esetén előfordulhatott, hogy a födém nem adott át terhet a falnak. Hálózza újra mindkét felületet úgy, hogy a tervezett csatlakozás teljes hosszában közös hálóélek legyenek, ellenőrizze a teherátadást, majd ismételje meg az érintett térbeli számításokat, burkolóképzést és méretezési ellenőrzéseket.", "Magas", "A 0.6.4 utáni következő kiadás"],
+        ["SA-2026-128", "Az átalakítás során kimaradhattak az előjelet váltó tengelyirányú megoszló terhek síkbeli rudaknál vagy térbeli rácsostartórudaknál. Ellenőrizze a megoszló terheket és az egyenértékű rúdvégi erőket, majd ismételje meg az érintett számításokat, burkolóképzést és méretezési ellenőrzéseket.", "Közepes", "A 0.6.4 utáni következő kiadás"],
+        ["SA-2026-129", "A mozgóteher-burkolók hibás nyíró- vagy normálerőt adhattak, és a mentett járműpozíció-teheresetekben kimaradhattak a normálerő ugrásai a térbeli rácsos szerkezetekben. Az egy helyre eső tengelyterhelés és állandó pontteher egyetlen, együttes nyíróerőugrást okoz. A két teher közötti nyíróerőnek egyoldali határértékei vannak, amikor a tengely megközelíti vagy éppen elhagyja a pontterhet. Ellenőrizze mindkét határértéket a pontteher előtt és után közvetlenül elhelyezkedő tengellyel. Számítsa újra az érintett burkolókat, hozza létre újra a mentett tehereseteket, majd ismételje meg az ezekre épülő számításokat és méretezési ellenőrzéseket.", "Magas", "A 0.6.4 utáni következő kiadás"],
+        ["SA-2026-130", "A síkbeli rugalmas számítás figyelmeztetés nélkül minden elmozdulásra nullát adhatott egy mechanizmusnál. Ellenőrizze a hajlítási csuklókat és a megtámasztásokat, szüntesse meg a nem szándékolt mechanizmusokat, majd ismételje meg az érintett számításokat és méretezési ellenőrzéseket.", "Magas", "A 0.6.4 utáni következő kiadás"]
       ]
     },
     {

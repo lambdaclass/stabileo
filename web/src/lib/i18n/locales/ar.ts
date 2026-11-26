@@ -28,6 +28,7 @@ const ar: Translations = {
   'loadPlan.gravity.deckCheckFailed': "تعذر التحقق من تغطية البلاطة بالقشريات: {detail}",
   'loadPlan.gravity.exposureCheckFailed': "تعذر التحقق من انكشاف الشرائط غير المغطاة: {detail}",
   'loadPlan.gravity.mixedExposure': "تضم المساحة المخصصة مناطق سقف وأرضية. عيّن أحمال كل منطقة صراحةً.",
+  'loadPlan.gravity.uncertainDeckCover': "يتجاوز ارتفاع السطح أحد حدود التغطية أو الخلوص الرأسي، ولا يمكن تحديده من الإطار الإنشائي. عرّف سطحًا مستويًا أو عيّن الأحمال صراحةً.",
   'loadPlan.gravity.stripSpan': "يتجاوز الشريط غير المغطى البحر الأقصى للبلاطة.",
   'loadPlan.gravity.headroomCheckFailed': "تعذر التحقق من الارتفاع الصافي للشريط غير المغطى: {detail}",
   'loadPlan.gravity.stripHeadroom': "الارتفاع الصافي للطابق عند الشريط غير المغطى غير كافٍ أو غير محدد.",
@@ -3765,8 +3766,11 @@ const ar: Translations = {
   "svc.engine.unsupportedPointLoadMoment": "مركبة عزم غير مدعومة للحمل النقطي على العنصر",
   "svc.engine.applyPointLoadMomentAtNode": "طبّق العزم عند عقدة ثلاثية الأبعاد في موضع الحمل الأصلي",
   "svc.engine.invalidSelfWeightGroup": "مجموعة الوزن الذاتي {id} غير موجودة أو أن عضويتها غير صالحة. استعد المجموعة وعضويتها أو غيّر نطاق الوزن الذاتي.",
+  "svc.engine.invalidSelfWeightMemberId": "يجب أن يكون معرّف العنصر {id} للوزن الذاتي عددًا صحيحًا غير سالب يمكن تمثيله بدقة. غيّر نطاق الوزن الذاتي.",
+  "svc.engine.missingSelfWeightTarget": "هدف الوزن الذاتي {kind} {id} غير موجود. استعده أو غيّر نطاق الوزن الذاتي.",
   "svc.engine.invalidDensity": "أدخل كثافة (rho) منتهية وغير سالبة للمادة {id} (القيمة الواردة: {value}).",
   "svc.engine.nonnegativeMassDensity": "يجب أن تكون الكثافة الكتلية منتهية وغير سالبة",
+  "svc.engine.invalidInputField": "الحقل {path} مفقود أو يحتوي على قيمة غير مدعومة.",
   "svc.engine.nonFiniteNumber": "أدخل عددًا منتهيًا في الحقل {path} (القيمة الواردة: {value}).",
 } as const satisfies Record<string, string>;
 
