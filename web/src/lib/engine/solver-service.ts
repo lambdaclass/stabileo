@@ -1,5 +1,4 @@
 import { accountingCaseSources, accountingMemberPieces, accountingProjection, accountingSource, copyAccountingLoad, scenarioSurfaceIntentOf, type AccountingCaseSources, type ScenarioSurfaceIntent } from './accounting-source';
-import { accountingOrigin } from './accounting-source';
 import { EngineCheckError, EngineUnavailableError } from './engine-unavailable';
 import { LoadVector, scaleAssembledMagnitudes3D, zero, type MemberLinePieces, type Wrench } from './accounting-math';
 import { accountCombination, accountLoads2D, accountSource3D, accountWeight2D, hasGeneratedSource, weightSource3D, type CheckedSource3D, loadAccounting3D, loadCaseBatches, verifyFactoredScenarioNode, verifyScenarioSurfaceLoads } from './load-accounting';
@@ -1673,11 +1672,11 @@ export function buildSolverLoads3D(
       const axialOnly = takesNoBending(d.elementId);
       if ((d.frame ?? 'local') === 'local') {
         const y = userLeftHand ? -1 : 1;
-        emitAssembled(...localDistributedToSolver(m, [d.qXI ?? 0, y * d.qYI, d.qZI],
+        emitAssembled(localDistributedToSolver(m, [d.qXI ?? 0, y * d.qYI, d.qZI],
           [d.qXJ ?? 0, y * d.qYJ, d.qZJ], a, b, axialOnly));
       } else {
         const { gI, gJ } = distributedGlobalEnds(d, m.axes, userLeftHand);
-        emitAssembled(...globalDistributedToSolver(m, gI, gJ, a, b, axialOnly));
+        emitAssembled(globalDistributedToSolver(m, gI, gJ, a, b, axialOnly));
       }
     } else if (l.type === 'pointOnElement') {
       // A plane point load in the space axes (`planePointLoad3D`), then as a space one: its
@@ -1913,7 +1912,8 @@ export function notionalSourceLoads3D(
 ): SolverLoad3D[] {
   const { loads, sources, selfWeights } = recordedSolverLoads3D(model, model.loads, model.analysis?.selfWeight ?? [], leftHand);
   verifySelfWeightLoads3D(model, input, selfWeights);
-  verifyScenarioSurfaceLoads(model, caseId, model.loads, sources, undefined, expectedPressures);
+  const scenarioSurfaces = model.loads.filter(load => load.type === 'surface3d' && scenarioSurfaceIntentOf(load));
+  verifyScenarioSurfaceLoads(model, caseId, scenarioSurfaces, sources, undefined, expectedPressures);
   loadAccounting3D(model, input, shouldEmbedFlat2DModelIn3D(model), leftHand, new Map(), true)
     .verifyGenerated(caseId, model.loads, sources);
   return loads;
