@@ -52,6 +52,37 @@ fn assert_settlement(input: NonlinearMaterialInput3D) {
 }
 
 #[test]
+#[ignore = "known wrong result: #2609"]
+fn archive_metadata_is_removed_only_at_the_solver_root() {
+    fn check<T: serde::de::DeserializeOwned + serde::Serialize>(fixture: Value) {
+        let control: T = crate::common::nightly_solver(fixture.clone()).unwrap();
+        let mut archive = fixture;
+        archive["_archive_fixture_test"] = serde_json::json!({"source": "nightly"});
+        assert!(serde_json::from_value::<T>(archive.clone()).is_err());
+        let solver: T = crate::common::nightly_solver(archive.clone()).unwrap();
+        assert_eq!(
+            serde_json::to_value(solver).unwrap(),
+            serde_json::to_value(&control).unwrap()
+        );
+
+        let material = archive["materials"].as_object_mut().unwrap().values_mut().next().unwrap();
+        material["_archive_fixture_test"] = serde_json::json!(true);
+        let error = crate::common::nightly_solver::<T>(archive.clone()).err().unwrap();
+        assert!(error.to_string().contains("unknown field `_archive_fixture_test`"), "{error}");
+
+        let mut archive = serde_json::to_value(control).unwrap();
+        archive["archive_fixture_test"] = serde_json::json!(true);
+        let error = crate::common::nightly_solver::<T>(archive).err().unwrap();
+        assert!(error.to_string().contains("unknown field `archive_fixture_test`"), "{error}");
+    }
+
+    let planar: Value =
+        serde_json::from_str(include_str!("../fixtures/nightly-triage-2026-11-12.json")).unwrap();
+    check::<dedaliano_engine::types::SolverInput>(planar["1965"].clone());
+    check::<SolverInput3D>(serde_json::from_str(MODEL).unwrap());
+}
+
+#[test]
 fn issue_1090_reversed_warping_frame_carries_its_prescribed_translation() {
     let case = case();
     let analysis = crate::ana3::rows().into_iter().find(|row| row.name == "material nonlinear").unwrap();
