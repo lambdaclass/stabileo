@@ -482,3 +482,29 @@ fn issue_1315_a_turntable_whose_ends_slide_on_inclined_supports_is_refused_in_3d
         assert!(e.contains("moves node 1") || e.contains("moves node 3"), "{e}");
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2608"]
+fn issue_2608_modal_refusal_keeps_the_proven_frame_swing() {
+    use dedaliano_engine::certify::modal::{certify_modal_2d, certify_modal_3d};
+    let planar = column_with_hinged_arm_2d(true);
+    for segments in [1, 20] {
+        let spatial = column_with_hinged_arm_3d(segments, true);
+        let tip = segments + 2;
+        let check = |error: String, node| {
+            let payload: serde_json::Value =
+                serde_json::from_str(error.strip_prefix(MECHANISM).unwrap_or_else(|| panic!("{error}")))
+                    .unwrap();
+            let diagnostic = &payload["structuredDiagnostics"][0];
+            assert_eq!(diagnostic["code"], "reduced_stiffness_rank");
+            assert_eq!(diagnostic["severity"], "error");
+            assert_eq!(diagnostic["nodeIds"], json!([node]));
+            assert!(diagnostic["message"].as_str().unwrap().contains("a frame can swing"));
+            assert!(payload["message"].as_str().unwrap().contains("No modes are returned"));
+        };
+        check(freqs_2d(&planar, 4).unwrap_err(), 3);
+        check(certify_modal_2d(&planar, &densities(), 4).unwrap_err(), 3);
+        check(freqs_3d(&spatial, 6).unwrap_err(), tip);
+        check(certify_modal_3d(&spatial, &densities(), 6).unwrap_err(), tip);
+    }
+}
