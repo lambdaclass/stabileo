@@ -54,11 +54,10 @@ class Building {
   }
 
   /** A column at (x, y) from level `k0` up to `k1`, a member a storey, fixed at the ground. */
-  private readonly columnsAt = new Map<string, [number, number]>();
-  private placed: { reference: 'slabTop'; columns: Record<string, string> } | null = null;
+  private placed: { reference: 'slabTop'; edges: true } | null = null;
 
   column(x: number, y: number, k0: number, k1: number, sec: (k: number) => number, mat: number, extra: Record<string, unknown> = {}): void {
-    if (k0 === 0) { this.m.support(this.node([x, y, this.z(0)]), 'fixed3d'); this.columnsAt.set(`${Math.round(x * 100)},${Math.round(y * 100)}`, [x, y]); }
+    if (k0 === 0) this.m.support(this.node([x, y, this.z(0)]), 'fixed3d');
     for (let k = k0; k < k1; k++) this.m.member(this.node([x, y, this.z(k)]), this.node([x, y, this.z(k + 1)]), sec(k), mat, extra);
   }
 
@@ -146,21 +145,8 @@ class Building {
     for (const x of X) for (let j = 1; j < Y.length; j++) if (!skip('y', x, Y[j - 1]!, Y[j]!)) this.beamY(k, x, Y[j - 1]!, Y[j]!, secY, mat, extra);
   }
 
-  /**
-   * The beams' and slabs' tops on each level (`placement.ts`), and each column on the edge of the
-   * plan held by its outer face, a corner one by its corner, so a smaller section above stays flush
-   * with the façade; the inner ones centred.
-   */
-  flushOnLevels(): void {
-    const xs = [...this.columnsAt.values()].map((p) => p[0]), ys = [...this.columnsAt.values()].map((p) => p[1]);
-    const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-    const columns: Record<string, string> = {};
-    for (const [key, [x, y]] of this.columnsAt) {
-      const k = `${x === x0 ? 'nx' : x === x1 ? 'px' : ''}${y === y0 ? 'ny' : y === y1 ? 'py' : ''}`;
-      columns[key] = k || 'c';
-    }
-    this.placed = { reference: 'slabTop', columns };
-  }
+  /** The beams' and slabs' tops on each level, and the columns and beams on the floor's edge flush with the slab's edge, the axes on the building's edge (`placement.ts`). */
+  flushOnLevels(): void { this.placed = { reference: 'slabTop', edges: true }; }
 
   text(settings: GeneratorSettings): string {
     if (this.placed) this.m.setting('designData', { version: 1, placement: this.placed });
@@ -359,6 +345,7 @@ function steelBuildingSlabs(): string {
       b.plate(`Losa ${x0}–${x1} × ${y0}–${y1} · ${levels[k]!.name}`, [[x0!, y0!, z], [x1!, y0!, z], [x1!, y1!, z], [x0!, y1!, z]], { kind: 'slab', typology: 'solid', levelFrom: `lv-${k}` }, hc, 0.12);
     }
   }
+  b.flushOnLevels();
   return b.text({ ...CITY_WIND });
 }
 

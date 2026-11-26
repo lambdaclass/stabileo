@@ -7,7 +7,7 @@
   import Hint from '../Hint.svelte';
   import { t, tp, i18n } from '../../../lib/i18n';
   import { modelStore } from '../../../lib/store';
-  import { columnStacks, placementData, setColumnFixedPoint, setLevelReference } from '../../../lib/store/placement';
+  import { columnFixedPoint, columnPointIsOwn, columnStacks, placementData, setColumnFixedPoint, setEdgesFlush, setLevelReference } from '../../../lib/store/placement';
   import { LEVEL_REFERENCES, type LevelReference } from '../../../lib/model/placement';
   import { FIXED_POINT_KINDS, fixedSigns, type FixedPointKind } from '../../../lib/rc-sheets/fixed-points';
   import { PHYSICAL_GROUP_KIND } from '../../../lib/model/physical/types';
@@ -21,7 +21,7 @@
     const nameOf = (id: number) => [...modelStore.model.groups.values()].find((g) => g.kind === PHYSICAL_GROUP_KIND && (g.members.elements ?? []).includes(id))?.name;
     return columnStacks().filter((s) => s.storeys.length > 1).map((s) => ({ ...s, name: nameOf(s.storeys[0]!) ?? '', xy: s.key.split(',').map((v) => Number(v) / 100) }));
   });
-  const allKind = $derived.by(() => { const ks = new Set(stacks.map((s) => placement.columns?.[s.key] ?? 'c')); return ks.size === 1 ? [...ks][0]! : null; });
+  const allKind = $derived.by(() => { void placement; const ks = new Set(stacks.map((s) => columnFixedPoint(s.key))); return ks.size === 1 ? [...ks][0]! : null; });
   /** The beam and slab of each reference as drawn, the nodes' line dashed: y down, in px. */
   const FIG: Record<LevelReference, { slab: number; beam: number }> = { slabTop: { slab: 0, beam: 0 }, slabAxis: { slab: -6, beam: -6 }, axes: { slab: -6, beam: -14 } };
   const grid = [[-1, 1], [0, 1], [1, 1], [-1, 0], [0, 0], [1, 0], [-1, -1], [0, -1], [1, -1]] as const;
@@ -47,6 +47,11 @@
       {/each}
     </div>
     {#if !reference}<p class="pk-warn" data-testid="placement-unset">{t('placement.unset')}</p>{/if}
+    <label class="pk-check pl-edges">
+      <input type="checkbox" checked={!!placement.edges} onchange={(e) => setEdgesFlush(e.currentTarget.checked)} data-testid="placement-edges" />
+      {t('placement.edges')}
+    </label>
+    <Hint text={t('placement.edgesHint')} />
     {#if reference && reference !== 'axes'}<p class="pl-note" data-testid="placement-joint">{t(reference === 'slabTop' ? 'placement.jointSlabTop' : 'placement.jointSlabAxis')}</p>{/if}
   </section>
 
@@ -66,11 +71,13 @@
       <table class="pl-stacks">
         <tbody>
           {#each stacks as s (s.key)}
+            {@const own = placement && columnPointIsOwn(s.key)}
             <tr data-testid="placement-stack">
               <th scope="row">{s.name}</th>
               <td class="pl-xy">{tp('placement.at', { x: fmt(s.xy[0] ?? 0), y: fmt(s.xy[1] ?? 0) })}</td>
               <td>
-                <select value={placement.columns?.[s.key] ?? 'c'} onchange={(e) => setColumnFixedPoint(s.key, e.currentTarget.value as FixedPointKind)} aria-label={tp('placement.stackOf', { name: s.name || tp('placement.at', { x: fmt(s.xy[0] ?? 0), y: fmt(s.xy[1] ?? 0) }) })}>
+                <select value={own || !placement.edges ? columnFixedPoint(s.key) : ''} onchange={(e) => setColumnFixedPoint(s.key, e.currentTarget.value === '' ? null : e.currentTarget.value as FixedPointKind)} aria-label={tp('placement.stackOf', { name: s.name || tp('placement.at', { x: fmt(s.xy[0] ?? 0), y: fmt(s.xy[1] ?? 0) }) })}>
+                  {#if placement.edges}<option value="">{tp('placement.byEdge', { kind: t(`rcSheets.fixed.kind.${columnFixedPoint(s.key)}`) })}</option>{/if}
                   {#each FIXED_POINT_KINDS as k (k)}<option value={k}>{t(`rcSheets.fixed.kind.${k}`)}</option>{/each}
                 </select>
               </td>
@@ -94,6 +101,7 @@
   .pl-ref .slab { fill: var(--st-surface-3); stroke: var(--st-text-3); stroke-width: 0.8; }
   .pl-ref .beam { fill: var(--st-surface-3); stroke: var(--st-text-2); stroke-width: 0.8; }
   .pl-ref .node { stroke: var(--st-accent); stroke-width: 1; stroke-dasharray: 3 2; }
+  .pl-edges { margin-top: 8px; }
   .pl-note { font-size: 0.7rem; color: var(--st-text-2); margin: 6px 0 0; line-height: 1.35; }
   .pl-all { display: flex; align-items: center; gap: 10px; margin: 4px 0 8px; font-size: 0.72rem; color: var(--st-text-2); }
   .pl-grid { display: grid; grid-template-columns: repeat(3, 14px); gap: 3px; padding: 4px; border: 1px dashed var(--st-hair-strong); }
