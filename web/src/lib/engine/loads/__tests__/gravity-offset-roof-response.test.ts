@@ -166,7 +166,7 @@ it('#2295 linear and P-Delta reactions include the shell loads and the rafter ga
     const nonlinear = JSON.parse(solve_pdelta_3d(JSON.stringify(input), 100, 1e-10));
     expect(nonlinear.converged).toBe(true);
     for (const result of [solve_3d(input), nonlinear.results] as AnalysisResults3D[]) {
-      expect(result.reactions.reduce((sum, reaction) => sum + reaction.fz, 0)).toBeCloseTo((32 + 6) * developed, 8);
+      expect(result.reactions.reduce((sum, reaction) => sum + reaction.fz, 0)).toBeCloseTo(40 * developed, 8);
       const reference = result.elementForces.find(member => member.elementId === (subdivided ? 2 : 1))!;
       expect(Math.abs(evaluateDiagramAt(reference, 'momentY', 0.5))).toBeGreaterThan(0);
     }

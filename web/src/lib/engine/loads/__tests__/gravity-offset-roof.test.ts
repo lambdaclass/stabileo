@@ -89,7 +89,9 @@ it('#2295 the rafter receives the uncovered part of a rigidly attached roof run'
       expect(plan.outcome).toBe('READY');
       const dead = plan.distributed.filter(load => load.caseType === 'D');
       expect(dead).toHaveLength(1);
-      expect(dead[0]).toMatchObject({ elementId: subdivided ? 2 : 1, frame: 'global', q: -options.tributaryWidth });
+      const shellWidth = Math.max(...[...model.nodes.values()].map(n => mirror * (-n.x * Math.sin(angle) + n.y * Math.cos(angle))));
+      expect(dead[0]).toMatchObject({ elementId: subdivided ? 2 : 1, frame: 'global' });
+      expect(dead[0]!.q).toBeCloseTo(-shellWidth, 10);
       const load = dead[0]!;
       const el = model.elements.get(load.elementId)!;
       const a = model.nodes.get(el.nodeI)!, b = model.nodes.get(el.nodeJ)!;
@@ -99,22 +101,22 @@ it('#2295 the rafter receives the uncovered part of a rigidly attached roof run'
       expect(localRun + firstStation / developed).toBeCloseTo(start, 10);
       expect(localRun + lastStation / developed).toBeCloseTo(end, 10);
       const shellArea = 4 * (10 - (end - start)) * developed;
-      const beamForce = options.tributaryWidth * (lastStation - firstStation);
-      expect(beamForce).toBeCloseTo(3 * (end - start) * developed, 10);
+      const beamForce = -load.q * (lastStation - firstStation);
+      expect(beamForce).toBeCloseTo(shellWidth * (end - start) * developed, 10);
       expect(plan.surface.filter(load => load.caseType === 'D')).toEqual([
         { quadId: 1, caseType: 'D', q: 1 }, { quadId: 2, caseType: 'D', q: 1 },
       ]);
       expect(plan.levels.reduce((sum, l) => sum + l.superimposedKN, 0)).toBeCloseTo(shellArea + beamForce, 10);
       const actualFirst = (localRun + (firstStation + lastStation) / (2 * developed)) * beamForce
         + 2 * (start ** 2 + 100 - end ** 2) * developed;
-      expect(actualFirst).toBeCloseTo((200 - (end ** 2 - start ** 2) / 2) * developed, 10);
+      expect(actualFirst).toBeCloseTo(200 * developed, 10);
     }
   }
 });
 
 
 function roofWithTwoGaps(split: boolean, shelter: boolean) {
-  const { model, rafter } = offsetRoof(0.02, 0, 1, false, [2, 8]);
+  const { model, rafter } = offsetRoof(0.02, 0, 1, false, [2, 8], options.tributaryWidth);
   const addNode = (x: number, y: number, z: number) => {
     const id = model.nodes.size + 1;
     model.nodes.set(id, { id, x, y, z });
@@ -125,7 +127,7 @@ function roofWithTwoGaps(split: boolean, shelter: boolean) {
     const nodes = [addNode(a, y0, za), addNode(b, y0, zb), addNode(b, y1, zb), addNode(a, y1, za)];
     model.quads.set(id, { id, nodes, materialId: 1, thickness: 0.1 });
   };
-  shell(4, 6, 0, 4, 3.8, 4.2);
+  shell(4, 6, 0, options.tributaryWidth, 3.8, 4.2);
   if (shelter) shell(2, 4, -1, 1, 8, 8);
   if (split) {
     const middle = addNode(5, 0, 3.98);
@@ -169,7 +171,7 @@ it('#2586 keeps the full explicit width on a rigidly attached rafter with a boun
 it('#2586 partitions one attached gap at a canopy edge', () => {
   const reason = { key: 'loadPlan.gravity.mixedExposure' };
   for (const subdivided of [false, true]) for (const end of [4, 5, 6]) {
-    const { model } = offsetRoof(0.02, 0, 1, subdivided, [4, 6]);
+    const { model } = offsetRoof(0.02, 0, 1, subdivided, [4, 6], options.tributaryWidth);
     const nodes = [[4, -1], [end, -1], [end, 1], [4, 1]].map(([x, y]) => {
       const id = model.nodes.size + 1;
       model.nodes.set(id, { id, x: x!, y: y!, z: 8 + y! });
@@ -193,8 +195,8 @@ it('#2586 partitions one attached gap at a canopy edge', () => {
   }
 });
 
-it.skipIf(process.env.STABILEO_REPLAY_2607 !== '1').each([[4, 6], [2, 4]] as const)(
-  'known wrong result: #2607 — shell and rafter conserve a full-width gap [%s, %s]', (start, end) => {
+it.each([[4, 6], [2, 4]] as const)(
+  '#2607 shell and rafter conserve a full-width gap [%s, %s]', (start, end) => {
     const developed = Math.hypot(10, 2) / 10;
     const { model } = offsetRoof(0.02, 0, 1, false, [start, end]);
     const plan = roofPlan(model);
@@ -203,8 +205,8 @@ it.skipIf(process.env.STABILEO_REPLAY_2607 !== '1').each([[4, 6], [2, 4]] as con
   },
 );
 
-it.skipIf(process.env.STABILEO_REPLAY_2607 !== '1').each(['unequal edges', 'two rafters'] as const)(
-  'known wrong result: #2607 — refuse a gap without one certified transfer (%s)', mode => {
+it.each(['unequal edges', 'two rafters'] as const)(
+  '#2607 refuse a gap without one certified transfer (%s)', mode => {
     const { model } = offsetRoof(0.02, 0, 1, false, [4, 6]);
     const upper = model.quads.get(2)!.nodes;
     if (mode === 'unequal edges') {

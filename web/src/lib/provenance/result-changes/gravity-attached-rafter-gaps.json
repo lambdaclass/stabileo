@@ -3,7 +3,8 @@
   "date": "2026-11-25",
   "prs": [
     2295,
-    2586
+    2586,
+    2607
   ],
   "area": "loads",
   "when": {
@@ -28,14 +29,14 @@
     "zh": "在连接屋面的有界缺口处传递重力荷载"
   },
   "explanation": {
-    "en": "Two rigid end ties establish which roof intervals belong to the shells. The configured tributary width loads only the remaining rafter intervals. Regenerate affected gravity loads.",
-    "es": "Dos vínculos rígidos en los extremos establecen qué tramos corresponden a las superficies. El ancho tributario configurado carga solo los tramos restantes de la viga. Regenerá las cargas de gravedad afectadas.",
-    "pt": "Vínculos rígidos nas duas extremidades definem os trechos que pertencem às cascas. A largura de influência configurada carrega apenas os trechos restantes da barra. Regenere as cargas gravitacionais afetadas.",
-    "de": "Starre Verbindungen an beiden Enden bestimmen die von den Schalen getragenen Abschnitte. Die eingestellte Einflussbreite belastet nur die übrigen Sparrenabschnitte. Erzeugen Sie betroffene Lasten neu.",
-    "fr": "Deux liaisons rigides aux extrémités établissent les intervalles portés par les coques. La largeur tributaire choisie ne charge que les autres tronçons du chevron. Régénérez les charges concernées.",
-    "hu": "A két merev végkapcsolat kijelöli a héj által hordott szakaszokat. A megadott tehergyűjtő szélesség csak a többi szarufaszakaszt terheli. Generálja újra az érintett terheket.",
-    "tr": "İki rijit uç bağlantısı, kabukların taşıdığı aralıkları belirler. Seçilen yük toplama genişliği yalnızca kalan mertek parçalarına yük uygular. Etkilenen düşey yükleri yeniden oluşturun.",
-    "zh": "两端刚性连接确定由壳单元承载的区间。设定的负荷宽度仅作用于其余椽条区间。请重新生成受影响的重力荷载。"
+    "en": "The shell edges on both sides of the gap establish the width loaded on the rafter. Regenerate affected gravity loads.",
+    "es": "Los bordes de las placas a ambos lados de la abertura determinan el ancho cargado sobre la viga. Regenerá las cargas de gravedad afectadas.",
+    "pt": "As bordas das cascas dos dois lados da abertura determinam a largura carregada na barra. Regenere as cargas gravitacionais afetadas.",
+    "de": "Die Schalenränder auf beiden Seiten der Lücke bestimmen die belastete Breite des Sparrens. Erzeugen Sie betroffene Lasten neu.",
+    "fr": "Les bords des coques de part et d’autre de l’ouverture déterminent la largeur chargée sur le chevron. Régénérez les charges concernées.",
+    "hu": "A nyílás két oldalán a héjszélek határozzák meg a szarufára jutó terhelési szélességet. Generálja újra az érintett terheket.",
+    "tr": "Açıklığın iki tarafındaki kabuk kenarları, merteğe yüklenen genişliği belirler. Etkilenen düşey yükleri yeniden oluşturun.",
+    "zh": "缺口两侧的壳边确定椽条承担荷载的宽度。请重新生成受影响的重力荷载。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-generated-source-accounting.md",

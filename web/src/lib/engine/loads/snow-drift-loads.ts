@@ -1,6 +1,6 @@
 import { agrees, roundoff, Sum } from '../accounting-math';
 import { ringArea } from './gravity-shell-partition';
-import { snowCoordinate, snowRoofSteps, snowRoofSurfaces, roofSurfaceModel } from './snow-roof-surfaces';
+import { snowCoordinate, snowRoofComponents, snowRoofSteps, snowRoofSurfaces, roofSurfaceModel } from './snow-roof-surfaces';
 import { gravityLayout, widthSpans, type GravityLayout, type GravityModel } from './plan-gravity';
 import { driftShapeMargins, stepDriftMargins, stepDrift, parapetDrift, slidingSnow, REF_DRIFT, REF_DRIFT_ADJACENT, REF_FIG9, REF_PARAPET, REF_SLIDING, type StepDrift } from '../../codes/cirsoc104/drift';
 import { EngineMessageError, msg, round, type EngineMessage } from '../../codes/message';
@@ -264,14 +264,12 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
   const out: SnowSurchargeLoad[] = [];
   const modelScale = [...model.nodes.values()].reduce((scale, p) => Math.max(scale, Math.abs(p.x), Math.abs(p.y)), 1);
   const stationError = roundoff * modelScale;
-  const roofs = layout.panels.map((p, k) => ({ ...p, k })).filter((p) => p.roof);
-  const roofOf = (k: number): typeof roofs => {
-    const start = roofs.find((p) => p.k === k);
-    if (!start) return [];
+  const roofs = snowRoofComponents(layout);
+  const roofOf = (start: typeof roofs[number]): typeof roofs => {
     const group = [start];
     for (let i = 0; i < group.length; i++) {
       for (const p of roofs) {
-        if (group.includes(p)) continue;
+        if (group.some(other => other.k === p.k && other.component === p.component)) continue;
         const current = group[i]!;
         if (joined(current.polygon, p.polygon, (a, b) => surfaceModel.edgeHeights(a, b, layout, current.k, p.k).every(h => Math.abs(h) <= 1e-8))) group.push(p);
       }
@@ -279,12 +277,14 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
     return group;
   };
   for (const step of snowRoofSteps(model, layout, surfaces)) {
-    const L = roofs.find(p => p.k === step.lower)!, U = roofs.find(p => p.k === step.upper)!;
-    const { a, b } = step;
-    const line = lineInto(a, b, L.polygon);
+    const { a, b, lowerComponent: L, upperComponent: U, lowerOutline } = step;
+    const line = lineInto(a, b, lowerOutline);
+    if (lowerOutline !== L.polygon) {
+      line.n = [-line.n[0], -line.n[1]];
+    }
     const reach = (group: typeof roofs, sign: number) => Math.max(0, ...group.flatMap((p) => p.polygon.map((v) => sign * dot(sub(v, a), line.n))));
-    const lowerRoof = roofOf(L.k);
-    const luUpper = reach(roofOf(U.k), -1), luLower = reach(lowerRoof, 1);
+    const lowerRoof = roofOf(L);
+    const luUpper = reach(roofOf(U), -1), luLower = reach(lowerRoof, 1);
     const inputs = (pt: P2) => ({
       pg: i.pg, balanced: balanced(L.k, pt), stepHeight: surfaces(U.k).elevation(pt) - surfaces(L.k).elevation(pt), luUpper, luLower,
     });
@@ -306,7 +306,10 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
       const heightScale = Math.max(Math.abs(U.z), Math.abs(L.z));
       const sameHeight = heights.length > 0 && heights.every(h => agrees(h, heights[0]!, heightScale));
       if (!sameHeight || profiles.some(dr => !dr.applies || dr.pd !== first.pd || dr.w !== first.w)) throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL));
-      const bearings = stepBearingLoads(model, layout, lowerRoof.map(panel => panel.k), line, first, stationError);
+      if ([...lowerRoof, U].some(panel => layout.panels[panel.k]!.footprint)) {
+        throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL));
+      }
+      const bearings = stepBearingLoads(model, layout, [...new Set(lowerRoof.map(panel => panel.k))], line, first, stationError);
       if (i.receivers && bearings.some(row => !i.receivers!.has(row.elementId))) throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL));
       out.push(...bearings);
     }
@@ -339,7 +342,7 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
           if (line.len < 1e-9) continue;
           const mid: P2 = [a[0] + line.u[0] * line.len / 2 - line.n[0] * 0.05, a[1] + line.u[1] * line.len / 2 - line.n[1] * 0.05];
           if (roofs.some(p => p.k !== L.k && inside(mid, p.polygon) && surfaceModel.edgeHeights(a, b, layout, p.k, L.k).every(h => h >= -0.05))) continue;
-          const lower = roofOf(L.k);
+          const lower = roofOf(L);
           const lu = Math.max(0, ...lower.flatMap((p) => p.polygon.map((v) => dot(sub(v, a), line.n))));
           const point = (t: number): P2 => [a[0] + t * line.u[0], a[1] + t * line.u[1]];
           const reportBand = (local: (pt: P2) => StepDrift, margins: (pt: P2) => number[], clearHeight: (pt: P2) => number, report: (dr: StepDrift, pt: P2, from: number, to: number) => void) => {
@@ -413,7 +416,7 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
         if (!sl.applies) continue;
         if (!refs.includes(REF_SLIDING)) refs.push(REF_SLIDING);
         bands.push({ margins: (d, t) => [4.5 - d, source.elevation([a[0] + (t + t0) * line.u[0], a[1] + (t + t0) * line.u[1]]) - surfaces(L.k).elevation([a[0] + (t + t0) * line.u[0], a[1] + (t + t0) * line.u[1]]) - 1e-8], distanceBreaks: [4.5], p0: [a[0] + line.u[0] * t0, a[1] + line.u[1] * t0], u: line.u, len: t1 - t0, n: line.n,
-          on: roofOf(L.k).map(p => p.k), p: (d, t) => {
+          on: roofOf(L).map(p => p.k), p: (d, t) => {
             const pt: P2 = [a[0] + (t + t0) * line.u[0], a[1] + (t + t0) * line.u[1]];
             return d <= 4.5 && source.elevation(pt) > surfaces(L.k).elevation(pt) + 1e-8 ? sl.intensity : 0;
           } });

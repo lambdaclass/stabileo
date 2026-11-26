@@ -326,7 +326,7 @@ it.each([false, true])('#2218 positive pressure reaches each loaded one-way bay 
   }
 });
 
-it.skipIf(process.env.STABILEO_REPLAY_2607 !== '1')('known wrong result: #2607 — snow detects a step on the second owned roof strip', () => {
+it('#2607 snow detects a step on the second owned roof strip', () => {
   const model = steppedRoof();
   const layout = gravityLayout(model, { mode: 'panels', slab: 'oneWay', spanAxis: 'x', tributaryWidth: 1 });
   const rectangle = (a: number, b: number): [number, number][] => [[a, 0], [b, 0], [b, 4], [a, 4]];

@@ -1,0 +1,32 @@
+{
+  "id": "slab-cell-delivery",
+  "date": "2026-11-26",
+  "prs": [2607],
+  "area": "analysis",
+  "when": { "all": ["space3D", "wholeSlabLoadDefinitions"] },
+  "quantities": ["solve.ok"],
+  "title": {
+    "en": "Check assembled slab targets and nodal forces",
+    "es": "Verificar las celdas de losa y las fuerzas nodales ensambladas",
+    "pt": "Verificar as células de laje e as forças nodais montadas",
+    "de": "Zusammengebaute Deckenlasten und Knotenkräfte prüfen",
+    "fr": "Vérifier les cellules de dalle et les forces nodales assemblées",
+    "hu": "A födémcellák és az összeállított csomóponti erők ellenőrzése",
+    "tr": "Birleştirilen döşeme hücrelerini ve düğüm kuvvetlerini denetle",
+    "zh": "检查已组装的楼板单元和节点力"
+  },
+  "explanation": {
+    "en": "Analysis stops if a slab load reaches the wrong mesh cell or delivers the wrong forces to its nodes.",
+    "es": "El análisis se detiene si una carga de losa llega a otra celda o aplica fuerzas incorrectas en sus nodos.",
+    "pt": "A análise é interrompida se uma carga de laje for para outra célula ou aplicar forças incorretas aos nós.",
+    "de": "Die Berechnung stoppt, wenn eine Deckenlast eine falsche Netzzelle erreicht oder falsche Kräfte an deren Knoten ansetzt.",
+    "fr": "Le calcul s’arrête si une charge de dalle atteint la mauvaise cellule ou applique des forces incorrectes à ses nœuds.",
+    "hu": "A számítás leáll, ha a födémteher rossz hálócellára kerül, vagy hibás erőket ad át a csomópontjainak.",
+    "tr": "Bir döşeme yükü yanlış ağ hücresine ulaşırsa veya düğümlerine yanlış kuvvetler aktarırsa analiz durur.",
+    "zh": "如果楼板荷载施加到错误的网格单元，或传递到节点的力有误，分析将停止。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-generated-source-accounting.md",
+    "heading": "Check assembled slab targets and nodal forces"
+  }
+}

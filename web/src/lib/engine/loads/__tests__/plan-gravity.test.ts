@@ -1778,33 +1778,38 @@ it('#2429 triangles above an explicit-width floor shield all four beams', () => 
   expect(gravityLayout(model, { ...gravity, tributaryWidth: 3 }).roof).toEqual(new Set());
 });
 
-const replayReview2607 = it.skipIf(process.env.STABILEO_REPLAY_2607 !== '1');
-
-replayReview2607('known wrong result: #2607 — a central shell cover leaves both owned bay components', () => {
+it('#2607 a central shell cover leaves both owned bay components', () => {
   const model = floor(1, 1, 10, 6);
   rectangularShell(model, 1, 4, 6, 4);
   const layout = gravityLayout(model, { mode: 'panels', slab: 'oneWay', spanAxis: 'x', tributaryWidth: 3, uniformPressure: true });
   expect(layout.panels).toHaveLength(1);
   expect(layout.panels[0]).toMatchObject({ footprint: expect.any(Array) });
-  const panel = layout.panels[0] as unknown as { footprint: number[][][][]; oneWaySpan?: string };
-  expect(panel.footprint.map(polygon => [Math.min(...polygon[0]!.map(point => point[0]!)), Math.max(...polygon[0]!.map(point => point[0]!))]))
+  const panel = layout.panels[0]!;
+  expect(panel.footprint!.map(polygon => [Math.min(...polygon[0]!.map(point => point[0])), Math.max(...polygon[0]!.map(point => point[0]))]))
     .toEqual([[0, 4], [6, 10]]);
   expect(panel.oneWaySpan).toBeUndefined();
 });
 
-replayReview2607.each([1, MIN_STOREY_HEADROOM + 0.01])('known wrong result: #2607 — separate decks stand on their own columns at clearance %s', clearance => {
+it.each([1, MIN_STOREY_HEADROOM + 0.01])('#2607 separate decks stand on their own columns at clearance %s', clearance => {
   const model = floor(1, 1, 10, 6);
-  const upper = rectangularShell(model, 1, 0, 10, 3 + clearance);
-  model.supports = new Map();
+  const upper = rectangularShell(model, 1, -1, 11, 3 + clearance);
+  for (const id of upper) {
+    const point = model.nodes.get(id)!;
+    point.y += point.y === 0 ? -1 : 1;
+  }
+  const supports = new Map<number, { nodeId: number; type: 'fixed3d' }>();
+  model.supports = supports;
   for (const id of [1, 2, 3, 4, ...upper]) {
     const point = model.nodes.get(id)!;
     const ground = id + 1000;
     model.nodes.set(ground, { id: ground, x: point.x, y: point.y, z: upper.includes(id) ? -1 : 0 });
     model.elements.set(ground, { id: ground, nodeI: ground, nodeJ: id, sectionId: 1, materialId: 1 });
-    model.supports.set(ground, { nodeId: ground, type: 'fixed3d' });
+    supports.set(ground, { nodeId: ground, type: 'fixed3d' });
   }
   const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }] }));
   expect(plan.outcome).toBe('READY');
   expect(-totalKN(plan.distributed.filter(load => load.caseType === 'D'), model)).toBeCloseTo(60, 9);
-  expect(surfaceKN(plan.surface.filter(load => load.caseType === 'D'), model)).toBeCloseTo(60, 9);
+  expect(surfaceKN(plan.surface.filter(load => load.caseType === 'D'), model)).toBeCloseTo(12 * 8, 9);
+  const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 3 });
+  expect(layout.areaByLevel.get(3)).toBeCloseTo(60, 9);
 });

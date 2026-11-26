@@ -182,12 +182,13 @@ function splitSegmentsAtPoints(
   segments: Array<{ a: CadPt; b: CadPt }>,
   points: CadPt[],
   tol: number,
+  endTolerance?: number,
 ): Array<{ a: CadPt; b: CadPt }> {
   const out: Array<{ a: CadPt; b: CadPt }> = [];
   for (const seg of segments) {
     const cuts: Array<{ t: number; p: CadPt }> = [];
     for (const p of points) {
-      const t = pointOnSegment(p, seg.a, seg.b, tol);
+      const t = pointOnSegment(p, seg.a, seg.b, tol, endTolerance);
       if (t !== null) cuts.push({ t, p });
     }
     cuts.sort((u, v) => u.t - v.t);
@@ -533,6 +534,21 @@ export function generateRcDraft(
 
   // Structural lines that mesh boundaries must pass through (axis-aligned
   // beams, walls, and the column grid) — collected once, in plan coordinates.
+  const snapWallEnd = (point: CadPt) => {
+    let nearest = point, distance = tol;
+    for (const column of columnPts) {
+      const candidate = dist(column, point);
+      if (candidate < distance) {
+        nearest = column;
+        distance = candidate;
+      }
+    }
+    return nearest;
+  };
+  const wallRuns = plan.walls.flatMap(wall => {
+    const segment = { a: snapWallEnd(wall.a), b: snapWallEnd(wall.b) };
+    return splitSegmentsAtPoints([segment], columnPts, tol).map(run => ({ ...wall, ...run }));
+  });
   const axisX = new Set<number>(), axisY = new Set<number>();
   const axisTol = 1e-3;
   const addAxis = (set: Set<number>, v: number) => {
@@ -540,13 +556,11 @@ export function generateRcDraft(
     set.add(v);
   };
   for (const c of columns) { addAxis(axisX, c.at.x); addAxis(axisY, c.at.y); }
-  for (const seg of [...plan.beams, ...plan.walls]) {
+  for (const seg of [...plan.beams, ...wallRuns]) {
     if (Math.abs(seg.a.x - seg.b.x) <= axisTol) addAxis(axisX, (seg.a.x + seg.b.x) / 2);
     else if (Math.abs(seg.a.y - seg.b.y) <= axisTol) addAxis(axisY, (seg.a.y + seg.b.y) / 2);
   }
   const wallXs: number[] = [], wallYs: number[] = [];
-  const wallRuns = plan.walls.flatMap(wall => splitSegmentsAtPoints([wall], columnPts, tol)
-    .map(run => ({ ...wall, ...run })));
   for (const { a: start, b: end } of wallRuns) {
     if (start.x !== end.x && start.y !== end.y) continue;
     wallXs.push(start.x, end.x);
@@ -750,7 +764,7 @@ export function generateRcDraft(
     || tightPoints.some(n => dist(n, p) < PLATE_EDGE_TOL) ? PLATE_EDGE_TOL : tol;
   let wallScheduleHits = 0;
   for (const run of wallRuns) {
-    const segments = splitSegmentsAtPoints([run], stations, PLATE_EDGE_TOL)
+    const segments = splitSegmentsAtPoints([run], stations, PLATE_EDGE_TOL, 0)
       .map(segment => ({ ...segment, startWeld: stationTolerance(segment.a), endWeld: stationTolerance(segment.b) }));
     for (let k = 0; k < a.nFloors; k++) {
       const r = resolveSection(

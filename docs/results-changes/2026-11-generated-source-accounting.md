@@ -12,6 +12,10 @@ A reference gravity case can feed a notional case even when the gravity case is 
 
 Derived notional nodal loads are also checked at their authored nodes. For three equally spaced nodes with forces of 3 kN each, shifting the row forces by +1, −2 and +1 kN leaves both the resultant and its first moment unchanged. The per-action receipts reject that shift in the original case and in a case that includes it. The line-load applicability check compares opposing forces within each effective case. Mutually exclusive cases only contribute to that comparison if a composed case brings their loads together.
 
+## Check assembled slab targets and nodal forces
+
+Whole-slab accounting checks the actual shell family and cell for pressure rows, and the force delivered to every authored mesh node for nodal rows. Two horizontal slabs can have identical pressure wrenches even at different elevations. Routing a row to the upper slab therefore has to fail independently of the force and moment totals. The same cell receipt is checked after case inclusion and combination factoring.
+
 ## Transfer connected X-brace inertia on the brace spans
 
 At a four-way joint, the seismic mass model follows each pair of uniquely collinear member legs independently. The joint contributes no story elevation. Each run ends at a supported or evidenced floor station, and its inertia stays distributed over the portions of the brace assigned to the active story. A kinked or ambiguous crossing still blocks the plan.
@@ -26,9 +30,9 @@ The #2332 witness has 2 m of horizontal run and 1 m of rise on each rafter. At 2
 
 ## Transfer gravity over a bounded gap in an attached roof run
 
-Two rigid end ties can establish one vertical translation between an inclined rafter and the surrounding shells. The gravity planner clips the translated run against those shells. It assigns the complementary intervals to the rafter at the configured tributary width. The same intervals and exposure classifications are used when the run is subdivided. The gap trace is partitioned at cover boundaries and clearance changes. The planner stops when any sheltered and exposed intervals coexist and pressure depends on exposure. In explicit width mode the specified line load continues over the full member span. Partial attachments without independent end ties or with unresolved horizontal eccentricity still refuse. The regeneration notice uses the same paired-attachment and bounded-gap geometry as the planner.
+Two rigid end ties can establish one vertical translation between an inclined rafter and the surrounding shells. The gravity planner clips the translated run against those shells. It assigns the complementary intervals to the rafter using the common geometric width certified by the shell edges on both sides. The planner refuses a gap whose edges cannot establish a single covered strip. The same intervals and exposure classifications are used when the run is subdivided. The gap trace is partitioned at cover boundaries and clearance changes. The planner stops when any sheltered and exposed intervals coexist and pressure depends on exposure. In explicit width mode the specified line load continues over the full member span. Partial attachments without independent end ties or with unresolved horizontal eccentricity still refuse. The regeneration notice uses the same paired-attachment and bounded-gap geometry as the planner.
 
-In the #2295 model, the two shell regions cover 32 m² of horizontal projection. The unloaded part of the rafter runs from 4 m to 6 m of horizontal station, with a configured width of 3 m. At the fixture's uniform 1 kN/m² dead pressure the physical shell and rafter loads total `38√1.04` kN. The linear and P-Delta support reactions recover this total in the original and subdivided models.
+In the #2295 model, the two shell regions cover 32 m² of horizontal projection. The unloaded part of the rafter runs from 4 m to 6 m of horizontal station, and the adjoining shells establish a 4 m width. At the fixture's uniform 1 kN/m² dead pressure the physical shell and rafter loads total `40√1.04` kN. The former nominal-width transfer supplied `38√1.04` kN. The linear and P-Delta support reactions recover this total in the original and subdivided models.
 
 ## Preserve distributed loads in the member axes
 

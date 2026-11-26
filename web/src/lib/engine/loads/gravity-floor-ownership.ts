@@ -118,12 +118,14 @@ export function partitionGravityFloors<S extends Shell>(
     const shell = a.kind === 'shell' ? a : b.kind === 'shell' ? b : undefined;
     if (!bay || !shell) continue;
     const attachment = shellBayAttachment(shell.shell, bay.bay);
-    if (attachment === 'independent' && separatedDeckRanges(bay.geometry, shell.geometry, tolerance)) continue;
-    const overlap = deckOverlaps(bay, shell);
-    if (!overlap.length) continue;
+    const separate = separatedDeckRanges(bay.geometry, shell.geometry, tolerance);
     const [bayLow, bayHigh] = bay.geometry.range;
     const mayCoverEaves = bay.footprint[0].length === 1 && bayLow === bayHigh && shell.shell.pitched && shell.geometry.range[0] >= bayHigh;
-    if (mayCoverEaves && attachment === 'independent' && independentDecks(shell.shell, bay.bay)) {
+    const independent = attachment === 'independent' && (separate || mayCoverEaves) && independentDecks(shell.shell, bay.bay);
+    if (attachment === 'independent' && separate && !independent) continue;
+    const overlap = deckOverlaps(bay, shell);
+    if (!overlap.length) continue;
+    if (independent) {
       const independent = independentShells.get(bay.bay) ?? new Set<GravityShellKey>();
       independent.add(shell.shell.key);
       independentShells.set(bay.bay, independent);

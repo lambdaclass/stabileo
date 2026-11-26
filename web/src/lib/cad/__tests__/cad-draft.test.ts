@@ -567,9 +567,7 @@ it.each([0, 0.002, 0.011])('#2607 wall end outside a conforming slab snaps at of
   expect([...wallNodes].filter(id => slabNodes.has(id)).length).toBeGreaterThan(1);
 });
 
-const replayReview2607 = it.skipIf(process.env.STABILEO_REPLAY_2607 !== '1');
-
-replayReview2607.each([0.0201, 0.0211])('known wrong result: #2607 — floor interface pairs two close column stacks at %s m', last => {
+it.each([0.0201, 0.0211])('#2607 floor interface pairs two close column stacks at %s m', last => {
   const plan = (xs: number[]): ArchPlan => ({
     ...reviewPlan(), slabs: [], walls: [],
     columns: xs.map(x => ({ at: { x, y: 0 }, sizeSource: 'default' })),
@@ -593,7 +591,7 @@ replayReview2607.each([0.0201, 0.0211])('known wrong result: #2607 — floor int
   }
 });
 
-replayReview2607.each(['fixedDivisions', 'targetSize'] as const)('known wrong result: #2607 — %s snaps physical wall ends inside the slab', meshMode => {
+it.each(['fixedDivisions', 'targetSize'] as const)('#2607 %s snaps physical wall ends inside the slab', meshMode => {
   for (const offset of [0, 0.002, 0.011]) {
     const plan = reviewPlan();
     const end = { x: 2, y: 3 };

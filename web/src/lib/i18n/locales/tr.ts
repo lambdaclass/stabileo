@@ -14247,6 +14247,7 @@ const tr: Translations = {
   'plates.analysisMeshRefused': 'Ağ oluşturulamadı: {names}. Eleman boyutlarını veya konturlarını kontrol edin.',
   "plates.analysisInvalid": "Analiz durduruldu. Geçersiz plakaların geometrisini veya özelliklerini düzeltin: {names}.",
   "plates.analysisWallSlab": "Analiz durduruldu. {wall} duvarı ve {slab} döşemesi, {node} düğümünde ortak bir ağ köşesine sahip değil. Birleşimi ortak düğümlerle yeniden ağlayın.",
+  "plates.analysisWallSlabEdgePoint": "Analiz durduruldu. {wall} duvarı ile {slab} döşemesi ağ düğümleri arasında temas ediyor. Birleşimi temas noktasında ortak bir düğümle yeniden ağlayın.",
   "plates.analysisWallSlabFace": "Analiz durduruldu. {wall} duvarı, {nodes} duvar düğümleri yakınında {slab} döşemesiyle ortak ağ kenarı olmadan birleşiyor. Birleşimi ortak kenarlarla yeniden ağlayın.",
   'plates.meshedAtAnalysis': 'Analizden önce {n} plağın ağı oluşturuldu ({cells} eleman)',
   'plates.liveNeedsMesh': 'Güncel ağı olmayan {n} plak: canlı hesap, ağları oluşturan tam analizi bekliyor.',

@@ -852,8 +852,8 @@ function edgePointJoint(clearance: number, conforming: boolean) {
   }
 }
 
-it.skipIf(process.env.STABILEO_REPLAY_2607 !== '1').each(directEntries)(
-  'known wrong result: #2607 — the %s entry refuses a wall and slab touching at unmatched edge interiors', async (entry, solve) => {
+it.each(directEntries)(
+  '#2607 the %s entry refuses a wall and slab touching at unmatched edge interiors', async (entry, solve) => {
     edgePointJoint(0, false);
     const result = await solve();
     expect(result && typeof result === 'object' ? 'returned a result' : result)
@@ -861,7 +861,7 @@ it.skipIf(process.env.STABILEO_REPLAY_2607 !== '1').each(directEntries)(
   },
 );
 
-it.skipIf(process.env.STABILEO_REPLAY_2607 !== '1')('known wrong result: #2607 — global analysis refuses unmatched edge-to-edge contact', async () => {
+it('#2607 global analysis refuses unmatched edge-to-edge contact', async () => {
   edgePointJoint(0, false);
   expect(await runGlobalSolve({ directBase: true })).toEqual({ ok: false, error: expect.stringMatching(/wall q1.*slab q2/i) });
   expect(resultsStore.results3D).toBeNull();

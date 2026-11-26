@@ -4,7 +4,7 @@
 
 A conforming slab could change the snap tolerance of every floor-range join, leaving a column discontinuous even when the two column endpoints were within the specified tolerance. The slab mesh could also follow the drawn beam line after its endpoints had snapped to different coordinates. A wall run with a conforming slab station used the tight mesh tolerance at its other joints, where it could miss the frame.
 
-Draft generation now matches adjacent ranges one to one at their interface, using the configured snap tolerance and keeping the vertices within each range distinct. The slab mesh follows the welded beam endpoints and shares its stations with the beam. Only conforming wall stations use the tight mesh tolerance. Regenerate affected CAD drafts and rerun the analysis to recover the intended load paths.
+Draft generation now matches adjacent ranges one to one at their interface, using the configured snap tolerance and keeping the vertices within each range distinct. The slab mesh follows the welded beam endpoints and shares its stations with the beam. Physical column and wall joints take priority when matching floor interfaces. The importer maximizes admissible joins before minimizing total distance. It snaps drawn wall endpoints to nearby columns before generating the slab and uses the tight tolerance for the resulting conforming stations. Regenerate affected CAD drafts and rerun the analysis to recover the intended load paths.
 
 ## Keep crossed columns loaded at story elevation
 

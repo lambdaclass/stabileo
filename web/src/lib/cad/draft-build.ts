@@ -24,6 +24,7 @@ import {
   panelsFromBeamGrid, snapPanelCornersToColumns,
   pruneBeamsDisconnectedFromColumns, pruneFloating,
 } from './infer';
+import { dyadicInteger } from '../engine/accounting-math';
 import { pointInPolygon } from './geometry';
 import type { ModelSnapshot } from '../store/history.svelte';
 
@@ -310,35 +311,111 @@ function buildMultiFloor(input: BuildDraftInput, gapWarnings: FloorRangeIssue[] 
 
 type RangeNode = ModelSnapshot['nodes'][number][1];
 
+type InterfaceNode = RangeNode & { physical: boolean };
+type InterfacePair = { from: number; to: number; distance: bigint; physical: number };
+
+function interfaceNodes(snapshot: ModelSnapshot, z: number): InterfaceNode[] {
+  const nodes = new Map(snapshot.nodes);
+  const level = (id: number) => nodes.get(id)?.z ?? 0;
+  const physical = new Set(snapshot.elements.flatMap(([, member]) =>
+    level(member.nodeI) !== level(member.nodeJ) ? [member.nodeI, member.nodeJ] : []));
+  const neighbours = new Map<number, Set<number>>();
+  for (const [, wall] of snapshot.quads ?? []) {
+    const stations = wall.nodes.filter(id => level(id) === z);
+    if (stations.length !== 2) continue;
+    const [a, b] = stations as [number, number];
+    for (const [id, other] of [[a, b], [b, a]] as const) {
+      const adjacent = neighbours.get(id) ?? new Set<number>();
+      adjacent.add(other);
+      neighbours.set(id, adjacent);
+    }
+  }
+  for (const [id, adjacent] of neighbours) if (adjacent.size !== 2) physical.add(id);
+  return snapshot.nodes.flatMap(([, node]) => (node.z ?? 0) === z
+    ? [{ ...node, physical: physical.has(node.id) }] : []);
+}
+
+function matchInterfaceComponent(fromIds: readonly number[], pairs: ReadonlyMap<number, InterfacePair[]>): Map<number, InterfacePair> {
+  const matches = new Map<number, InterfacePair>(), reverse = new Map<number, InterfacePair>();
+  type Route = { physical: number; distance: bigint; pair?: InterfacePair };
+  const better = (a: Route, b?: Route) => !b || a.physical < b.physical || (a.physical === b.physical && a.distance < b.distance);
+  while (matches.size < fromIds.length) {
+    const routes = new Map<number, Route>(), arrivals = new Map<number, Route>();
+    const queue: number[] = [];
+    for (const id of fromIds) if (!matches.has(id)) {
+      routes.set(id, { physical: 0, distance: 0n });
+      queue.push(id);
+    }
+    const queued = new Set(queue);
+    for (let i = 0; i < queue.length; i++) {
+      const from = queue[i]!, route = routes.get(from)!;
+      queued.delete(from);
+      for (const pair of pairs.get(from) ?? []) {
+        if (matches.get(from) === pair) continue;
+        const next = { physical: route.physical - pair.physical, distance: route.distance + pair.distance, pair };
+        if (!better(next, arrivals.get(pair.to))) continue;
+        arrivals.set(pair.to, next);
+        const taken = reverse.get(pair.to);
+        if (!taken) continue;
+        const swap = { physical: next.physical + taken.physical, distance: next.distance + taken.distance };
+        if (!better(swap, routes.get(taken.from))) continue;
+        routes.set(taken.from, swap);
+        if (!queued.has(taken.from)) {
+          queued.add(taken.from);
+          queue.push(taken.from);
+        }
+      }
+    }
+    let best: Route | undefined;
+    for (const [to, route] of arrivals) if (!reverse.has(to) && better(route, best)) best = route;
+    if (!best?.pair || best.physical > 0) break;
+    let pair: InterfacePair | undefined = best.pair;
+    while (pair) {
+      const previous = matches.get(pair.from);
+      matches.set(pair.from, pair);
+      reverse.set(pair.to, pair);
+      pair = previous && arrivals.get(previous.to)?.pair;
+    }
+  }
+  return matches;
+}
+
 function rangeInterfaceMatches(
-  below: RangeNode[], above: RangeNode[], tolerance: number,
+  below: InterfaceNode[], above: InterfaceNode[], tolerance: number,
 ): Map<number, number> {
   const key = (x: number, y: number) => `${x}|${y}`;
-  const index = new Map<string, RangeNode[]>();
+  const index = new Map<string, InterfaceNode[]>();
   for (const node of below) {
     const cell = key(Math.floor(node.x / tolerance), Math.floor(node.y / tolerance));
     const entries = index.get(cell);
     if (entries) entries.push(node);
     else index.set(cell, [node]);
   }
-  const pairs: Array<{ from: number; to: number; distance: number }> = [];
+  const pairs = new Map<number, InterfacePair[]>(), sources = new Map<number, number[]>();
   for (const node of above) {
     const x = Math.floor(node.x / tolerance), y = Math.floor(node.y / tolerance);
     for (const dx of [-1, 0, 1]) for (const dy of [-1, 0, 1]) {
       for (const target of index.get(key(x + dx, y + dy)) ?? []) {
         const rx = target.x - node.x, ry = target.y - node.y;
         if (Math.abs(rx) < tolerance && Math.abs(ry) < tolerance) {
-          pairs.push({ from: node.id, to: target.id, distance: Math.hypot(rx, ry) });
+          const pair = { from: node.id, to: target.id, distance: dyadicInteger(Math.hypot(rx, ry)), physical: Number(node.physical && target.physical) };
+          (pairs.get(node.id) ?? pairs.set(node.id, []).get(node.id)!).push(pair);
+          (sources.get(target.id) ?? sources.set(target.id, []).get(target.id)!).push(node.id);
         }
       }
     }
   }
   const matches = new Map<number, number>();
-  const used = new Set<number>();
-  for (const { from, to } of pairs.sort((a, b) => a.distance - b.distance)) {
-    if (matches.has(from) || used.has(to)) continue;
-    matches.set(from, to);
-    used.add(to);
+  const remaining = new Set(pairs.keys());
+  for (const first of remaining) {
+    const component = [first], seenTargets = new Set<number>();
+    remaining.delete(first);
+    for (const from of component) for (const { to } of pairs.get(from)!) {
+      if (seenTargets.has(to)) continue;
+      seenTargets.add(to);
+      for (const next of sources.get(to)!) if (remaining.delete(next)) component.push(next);
+    }
+    for (const [from, pair] of matchInterfaceComponent(component, pairs)) matches.set(from, pair.to);
   }
   return matches;
 }
@@ -378,16 +455,15 @@ function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions):
   const rangeQuadIds: number[][] = [];
   const rangePlateIds: number[][] = [];
 
-  let previous: { floor: number; surface: RangeNode[] } | undefined;
+  let previous: { floor: number; surface: InterfaceNode[] } | undefined;
   for (const { result, zShift, localTop, spec } of builds) {
     const snap = result.snapshot;
     const myElems: number[] = [];
     const myQuads: number[] = [];
     const myPlates: number[] = [];
     const localToGlobalNode = previous?.floor === spec.fromFloor - 1
-      ? rangeInterfaceMatches(previous.surface, snap.nodes.flatMap(([, n]) => (n.z ?? 0) === 0 ? [n] : []), assumptions.snapTolerance)
+      ? rangeInterfaceMatches(previous.surface, interfaceNodes(snap, 0), assumptions.snapTolerance)
       : new Map<number, number>();
-    const surface: RangeNode[] = [];
     for (const [, node] of snap.nodes) {
       if (localToGlobalNode.has(node.id)) continue;
       const id = nextNode++;
@@ -395,9 +471,11 @@ function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions):
       const global = { id, x: node.x, y: node.y, ...(z !== 0 && { z }) };
       nodes.push([id, global]);
       localToGlobalNode.set(node.id, id);
-      if ((node.z ?? 0) === localTop) surface.push(global);
     }
-    previous = { floor: spec.toFloor, surface };
+    previous = {
+      floor: spec.toFloor,
+      surface: interfaceNodes(snap, localTop).map(node => ({ ...node, id: localToGlobalNode.get(node.id)! })),
+    };
     const localToGlobalSection = new Map<number, number>();
     for (const [, s] of snap.sections) {
       let gid = sectionByName.get(s.name);

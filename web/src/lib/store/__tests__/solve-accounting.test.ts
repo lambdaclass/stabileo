@@ -1047,9 +1047,16 @@ it.each(['xz', 'yz'] as const)('#2586 the planar P-Delta action uses and checks 
   uiStore.analysisMode = '2d';
   uiStore.drawPlane2D = plane;
   try {
-    expect(pdeltaBasic2D(false, uiStore.drawPlane2D)).toMatchObject({
-      results: { reactions: [expect.objectContaining({ rz: expect.closeTo(3, 10) })] },
+    expect(modelStore.solve(false, plane)).toMatchObject({
+      reactions: [expect.objectContaining({ nodeId: root, rz: expect.closeTo(3, 10), my: expect.closeTo(3 * 2, 10) })],
     });
+    const secondOrder = pdeltaBasic2D(false, plane);
+    expect(secondOrder).toMatchObject({
+      results: { reactions: [expect.objectContaining({ nodeId: root, rz: expect.closeTo(3, 10) })] },
+    });
+    if (!secondOrder || typeof secondOrder === 'string') throw new Error(String(secondOrder));
+    const deflection = secondOrder.results.displacements.find(node => node.nodeId === tip)!.uz;
+    expect(secondOrder.results.reactions[0]!.my).toBeCloseTo(3 * 2 - 2 * deflection, 10);
     sourceFault.dropProjectedFz = true;
     expect(await outcome(() => pdeltaBasic2D(false, uiStore.drawPlane2D))).toMatch(/case.*Fz.*-3.*0/i);
   } finally {
@@ -2181,10 +2188,8 @@ it('#2471 refuses a sign-reversing truss line whose end forces reach the same no
   expect(() => embedded()).toThrow(caseDiagnostic);
 });
 
-const replayReview2607 = it.skipIf(process.env.STABILEO_REPLAY_2607 !== '1');
-
-replayReview2607.each(['wrong shell', 'wrong nodes', 'wrong forces'] as const)(
-  'known wrong result: #2607 — slab accounting refuses %s with the same wrench', async mode => {
+it.each(['wrong shell', 'wrong nodes', 'wrong forces'] as const)(
+  '#2607 slab accounting refuses %s with the same wrench', async mode => {
     const lower = stripSlab(1);
     const upper = stripSlab(1, 3);
     addPlateLoad(lower, 1, 3);

@@ -8,7 +8,7 @@
   "when": {
     "all": [
       "space3D",
-      "cadWallSlabMesh"
+      "cadImportedDraft"
     ]
   },
   "quantities": [

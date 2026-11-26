@@ -624,17 +624,30 @@ export function snowRoofSurfaces(model: WindModel, layout?: GravityLayout, surfa
   return (index: number) => surfaces.panel(index, layout);
 }
 
+export function snowRoofComponents(layout: GravityLayout) {
+  const open = (ring: P2[]) => ring.length > 1 && ring[0]![0] === ring.at(-1)![0] && ring[0]![1] === ring.at(-1)![1]
+    ? ring.slice(0, -1) : ring;
+  return layout.panels.flatMap((panel, k) => panel.roof
+    ? (panel.footprint ?? [[panel.polygon]]).map(([exterior, ...holes], component) => ({
+      k, component, z: panel.z, polygon: open(exterior!), holes: holes.map(open),
+    }))
+    : []);
+}
+
 export function snowRoofSteps(model: WindModel, layout: GravityLayout, surfaces = snowRoofSurfaces(model, layout)) {
-  const steps: Array<{ lower: number; upper: number; a: P2; b: P2 }> = [];
-  for (const [lower, L] of layout.panels.entries()) for (const [upper, U] of layout.panels.entries()) {
-    if (!L.roof || !U.roof || lower === upper) continue;
-    for (let e = 0; e < L.polygon.length; e++) {
-      const a = L.polygon[e]!, b = L.polygon[(e + 1) % L.polygon.length]!;
+  const roofs = snowRoofComponents(layout);
+  type Component = typeof roofs[number];
+  const steps: Array<{ lower: number; upper: number; a: P2; b: P2; lowerOutline: P2[]; lowerComponent: Component; upperComponent: Component }> = [];
+  for (const L of roofs) for (const U of roofs) {
+    const { k: lower } = L, { k: upper } = U;
+    if (lower === upper) continue;
+    for (const lowerOutline of [L.polygon, ...L.holes]) for (let e = 0; e < lowerOutline.length; e++) {
+      const a = lowerOutline[e]!, b = lowerOutline[(e + 1) % lowerOutline.length]!;
       const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
       if (len < 1e-9) continue;
       const u: P2 = [dx / len, dy / len];
-      for (let f = 0; f < U.polygon.length; f++) {
-        const c = U.polygon[f]!, d = U.polygon[(f + 1) % U.polygon.length]!;
+      for (const outline of [U.polygon, ...U.holes]) for (let f = 0; f < outline.length; f++) {
+        const c = outline[f]!, d = outline[(f + 1) % outline.length]!;
         const normal = (p: P2) => (p[0] - a[0]) * -u[1] + (p[1] - a[1]) * u[0];
         if (Math.abs(normal(c)) > 0.01 || Math.abs(normal(d)) > 0.01) continue;
         const along = (p: P2) => (p[0] - a[0]) * u[0] + (p[1] - a[1]) * u[1];
@@ -642,7 +655,7 @@ export function snowRoofSteps(model: WindModel, layout: GravityLayout, surfaces 
         if (hi - lo <= 0.1) continue;
         const point = (t: number): P2 => [a[0] + t * u[0], a[1] + t * u[1]];
         if (![lo, (lo + hi) / 2, hi].some(t => surfaces(upper).elevation(point(t)) - surfaces(lower).elevation(point(t)) > 1e-8)) continue;
-        steps.push({ lower, upper, a: point(lo), b: point(hi) });
+        steps.push({ lower, upper, a: point(lo), b: point(hi), lowerOutline, lowerComponent: L, upperComponent: U });
       }
     }
   }

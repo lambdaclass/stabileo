@@ -1,10 +1,23 @@
 {
   "id": "snow-connected-one-way-step-reactions",
   "date": "2026-11-26",
-  "prs": [2218],
+  "prs": [
+    2218,
+    2607
+  ],
   "area": "loads",
-  "when": { "all": ["space3D", "snow", "generatedLoads", "frameMembers"] },
-  "quantities": ["*", "solve.ok"],
+  "when": {
+    "all": [
+      "space3D",
+      "snow",
+      "generatedLoads",
+      "frameMembers"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
   "requiresLoadRegeneration": true,
   "title": {
     "en": "Transfer roof step drift across connected one-way bays",

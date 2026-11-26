@@ -2,7 +2,7 @@ import type { RigidLinkConstraint } from '../../types-3d';
 import { buildLoadPlan, type LoadModelData } from '../load-plan';
 import { input } from './gravity-width-mass-fixture';
 
-export function offsetRoof(offset: number, angle = 0, mirror = 1, subdivide = false, gap: boolean | readonly [number, number] = false) {
+export function offsetRoof(offset: number, angle = 0, mirror = 1, subdivide = false, gap: boolean | readonly [number, number] = false, width = 4) {
   const nodes: LoadModelData['nodes'] = new Map();
   const elements: LoadModelData['elements'] = new Map();
   const quads = new Map<number, { id: number; nodes: number[]; materialId: number; thickness: number }>();
@@ -13,7 +13,7 @@ export function offsetRoof(offset: number, angle = 0, mirror = 1, subdivide = fa
     return id;
   }
   const elevation = (x: number) => 3 + x / 5;
-  const row = (x: number) => [node(x, 0, elevation(x)), node(x, 4, elevation(x))] as const;
+  const row = (x: number) => [node(x, 0, elevation(x)), node(x, width, elevation(x))] as const;
   const first = row(0), last = row(10);
   function shell([a, d]: ReturnType<typeof row>, [b, c]: ReturnType<typeof row>) {
     const id = quads.size + 1;
