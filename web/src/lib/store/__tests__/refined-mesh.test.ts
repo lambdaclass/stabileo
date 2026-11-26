@@ -429,7 +429,7 @@ describe('applying it to plates meshed from their outlines', () => {
     const applied = applyRefinedMesh(wire, adapt(wire).mesh);
     if ('refused' in applied) throw new Error(applied.refused);
     for (const id of [a, b]) for (const def of plateLoadDefs(id)) modelStore.removeGroup(def.id);
-    for (const load of [...modelStore.loads]) modelStore.removeLoad(load.id);
+    for (const load of [...modelStore.loads]) modelStore.removeLoad(load.data.id);
     meshPlate(a, 1);
     settle();
     // The input builder already accepts zero external loads; restoration needs no gravity
