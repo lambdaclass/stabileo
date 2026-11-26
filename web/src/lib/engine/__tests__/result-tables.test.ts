@@ -28,6 +28,10 @@ import { computeElementStress3D } from '../section-stress-3d';
 import { generateCalcReportHtml } from '../calc-report';
 import { stationForces3D } from '../../section/panel';
 import { DIAGRAM_EXTREMA_UNAVAILABLE, bindMemberEnvelopeEnds, memberEnvelopeOrdinates, requireConcurrentSectionForces } from '../member-diagram';
+import { buildForcesReport } from '../forces-report';
+import { RC_FORCES_DEFAULT } from '../../flow/rc-forces-report';
+import { pieceDiagram, pieceExtremes, type Piece } from '../../model/curve-entity';
+import { pieceCsv } from '../../model/piece-csv';
 import { buildSolverInput3D, solveCombinations3D, solveCombinations3DParallel } from '../solver-service';
 import { POINT_END_TOL } from '../member-point-loads';
 import { expandVariableMembers, variableExpansionFor } from '../variable-members';
@@ -784,6 +788,70 @@ describe('spatial cantilever end queries', () => {
         expect.soft(axial([cases[1]!]).min?.value).toBeCloseTo(30, 12);
         expect.soft(() => axial([{ ...aggregate, results: detached.maxAbsResults3D }])).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
       }
+    }
+  });
+
+  it.skip('known wrong result: #2581 raw forces report reads both constituent blocks', () => {
+    const id = modelStore.addLoadEntry({
+      type: 'nodal3d', data: { id: 1, nodeId: tip, fx: -80, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 },
+    });
+    const negative = solveModel();
+    expect(modelStore.updateLoad(id, { fx: 30 })).toBe(true);
+    const positive = solveModel();
+    for (const [i, result] of negative.entries()) {
+      const envelope = computeEnvelope3D([result, positive[i]!])!;
+      const aggregate = envelope.maxAbsResults3D;
+      const build = (results: AnalysisResults3D, sections = RC_FORCES_DEFAULT.sections) =>
+        buildForcesReport({ ...RC_FORCES_DEFAULT, sections }, {
+          results, perCombo: new Map(), comboNames: new Map(), elementNodes: new Map(),
+        }, key => key);
+      const endForces = (results: AnalysisResults3D) => build(results, ['elementForces']).sheets[0]!.aoa.slice(1);
+      expect.soft(endForces(aggregate).map(row => row.slice(0, 5))).toEqual([
+        ['1', elementId, result.elementForces[0]!.length, -80, -80],
+        ['2', elementId, result.elementForces[0]!.length, 30, 30],
+      ]);
+      const doc = build(aggregate);
+      for (const section of ['stations', 'rawStations'] as const) {
+        const axial = doc.sheets.find(sheet => sheet.section === section)!.aoa.slice(1);
+        expect.soft(new Set(axial.map(row => row[4]))).toEqual(new Set([-80, 30]));
+      }
+      expect.soft(endForces(positive[i]!)[0]?.[3]).toBe(30);
+      const detached = bindMemberEnvelopeEnds(structuredClone(envelope));
+      expect.soft(() => endForces(detached.maxAbsResults3D)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+    }
+  });
+
+  it.skip('known wrong result: #2581 piece extrema and CSV retain both signed constituent curves', () => {
+    const id = modelStore.addLoadEntry({
+      type: 'nodal3d', data: { id: 1, nodeId: tip, fx: -80, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 },
+    });
+    const negative = solveModel();
+    expect(modelStore.updateLoad(id, { fx: 30 })).toBe(true);
+    const positive = solveModel();
+    for (const [i, result] of negative.entries()) {
+      const envelope = computeEnvelope3D([result, positive[i]!])!;
+      const length = result.elementForces[0]!.length;
+      const piece: Piece = {
+        kind: 'single', start: tip, end: modelStore.elements.get(elementId)!.nodeI, length,
+        segments: [{ elementId, s0: 0, length, reversed: true }],
+      };
+      const memberMap = (results: AnalysisResults3D) => new Map(results.elementForces.map(member => [member.elementId, member]));
+      const forces = memberMap(envelope.maxAbsResults3D);
+      const stations = pieceDiagram(piece, forces, 'axial')!;
+      const extrema = pieceExtremes(stations)!;
+      expect.soft(extrema.min.value).toBeCloseTo(-80, 12);
+      expect.soft(extrema.max.value).toBeCloseTo(30, 12);
+      const csv = pieceCsv({ piece, name: 'Member', source: 'Envelope', forces, header: [] });
+      const [header, ...rows] = csv.trim().split('\n').map(row => row.split(','));
+      expect.soft(header?.at(-1)).toBe('envelopeCase');
+      expect.soft(new Set(rows.filter(row => row[2] === 'N').map(row => `${Number(row[6])}:${row[7]}`)))
+        .toEqual(new Set(['-80:1', '30:2']));
+      const single = pieceExtremes(pieceDiagram(piece, memberMap(positive[i]!), 'axial')!)!;
+      expect.soft(single.max.value).toBeCloseTo(30, 12);
+      const detached = bindMemberEnvelopeEnds(structuredClone(envelope));
+      expect.soft(() => pieceDiagram(piece, memberMap(detached.maxAbsResults3D), 'axial')).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+      expect.soft(() => pieceCsv({ piece, name: 'Member', source: 'Envelope', forces: memberMap(detached.maxAbsResults3D), header: [] }))
+        .toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
     }
   });
 
