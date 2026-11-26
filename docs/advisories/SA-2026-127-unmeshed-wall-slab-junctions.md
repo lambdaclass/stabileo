@@ -13,7 +13,8 @@
 ## Affected features
 
 PRO spatial analysis of shell walls intended to support or connect to a
-slab where the two meshes lack a compatible edge along the junction.
+slab where the meshes lack shared connectivity along part or all of the
+intended junction.
 This includes saved and manually meshed models and oblique walls in
 CAD-generated meshes, in both fixed-division and target-size modes.
 
@@ -39,7 +40,8 @@ isolated nodes and no edges. Both meshing modes returned a result.
 
 Compare the intended wall–slab junction with the actual analysis mesh.
 Trace the entire intersection, including where it crosses an internal
-slab mesh edge. Check for common edges or full edge compatibility.
+slab mesh edge. Check that the meshes share compatible edges throughout
+the intended junction.
 Inspect CAD-generated diagonal walls even where the two meshes share
 some node IDs. Review the distribution of reactions and wall forces under
 slab loading.
@@ -49,8 +51,8 @@ slab loading.
 The next release after 0.6.4. PR
 [#2580](https://github.com/lambdaclass/stabileo/pull/2580) stops affected
 spatial solves before returning results and identifies the wall and slab.
-The analysis mesh still requires repair. A junction with a complete
-shared mesh edge remains eligible for analysis.
+The wall and slab must have shared mesh connectivity along the entire
+intended junction.
 
 ## Workaround
 

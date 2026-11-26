@@ -429,7 +429,7 @@ describe('the safety-advisories post quotes the advisories', () => {
     expect.soft(blogRow?.[1], `${locale}: blog`).toContain(emptyCaseRecovery[locale]);
   });
 
-  it.skip('known wrong result: #2430 — SA-2026-127 requires connectivity along the full wall–slab junction', () => {
+  it('SA-2026-127 requires connectivity along the full wall–slab junction', () => {
     const advisory = readFileSync(new URL('SA-2026-127-unmeshed-wall-slab-junctions.md', advisoryDirectory), 'utf8');
     const fixedIn = advisory.split('## Fixed in\n')[1]?.split('\n## ')[0]?.replace(/\s+/g, ' ');
     const index = readFileSync(new URL('README.md', advisoryDirectory), 'utf8');
@@ -448,7 +448,7 @@ describe('the safety-advisories post quotes the advisories', () => {
     expect.soft(blogRow?.[1], `${locale}: blog`).toContain(wording);
   }
 
-  it.skip.each<[PublicLocale, string]>([
+  it.each<[PublicLocale, string]>([
     ['en', 'along the entire intended junction'],
     ['es', 'a lo largo de toda la unión prevista'],
     ['pt', 'ao longo de toda a junção prevista'],
@@ -457,14 +457,14 @@ describe('the safety-advisories post quotes the advisories', () => {
     ['hu', 'a tervezett csatlakozás teljes hosszában'],
     ['tr', 'amaçlanan birleşimin tamamı boyunca'],
     ['zh', '沿整个预期连接线'],
-  ])('known wrong result: #2430 — SA-2026-127 %s requires full-length shared mesh connectivity', (locale, wording) => {
+  ])('SA-2026-127 %s requires full-length shared mesh connectivity', (locale, wording) => {
     expectAdvisoryWording(locale, 'SA-2026-127', wording);
   });
 
-  it.skip.each<[PublicLocale, string]>([
+  it.each<[PublicLocale, string]>([
     ['es', 'barras de modelos planos (2D), independientemente de su sección'],
     ['pt', 'barras de modelos planos (2D), independentemente da seção transversal'],
-  ])('known wrong result: #2471 — SA-2026-128 %s identifies 2D models regardless of section', (locale, wording) => {
+  ])('SA-2026-128 %s identifies 2D models regardless of section', (locale, wording) => {
     expectAdvisoryWording(locale, 'SA-2026-128', wording);
   });
 
