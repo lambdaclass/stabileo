@@ -4,7 +4,7 @@ import { PLATE_EDGE_TOL } from '../model/physical/plate-analysis';
 import { dist, signedArea, type Segment } from './geometry';
 import type { CadPt } from './types';
 
-function clipTrace({ a, b }: Segment, outline: CadPt[], inset: number): Segment | null {
+export function clipTrace({ a, b }: Segment, outline: CadPt[], inset: number): Segment | null {
   let start = 0;
   let end = 1;
   for (const [i, p] of outline.entries()) {
@@ -65,7 +65,7 @@ function crossing({ a, b }: Segment, { a: c, b: d }: Segment): CadPt | null {
 
 export function meshSlabAlongWalls(
   corners: CadPt[], walls: Segment[], beams: Array<Segment & { id: number }>, fixed: CadPt[], size: number, divisions?: number,
-): { points: CadPt[]; cells: number[][]; beamEdges: Map<number, Array<[number, number]>> } | null {
+): { outline: CadPt[]; points: CadPt[]; cells: number[][]; beamEdges: Map<number, Array<[number, number]>> } | null {
   if (corners.length !== 4) return null;
   const origin = corners[0]!;
   const signed = signedArea(corners.map(p => ({ x: p.x - origin.x, y: p.y - origin.y })));
@@ -111,5 +111,5 @@ export function meshSlabAlongWalls(
     if (!edges) return null;
     if (trace.id !== undefined) beamEdges.set(trace.id, edges);
   }
-  return { points, cells: mesh.cells, beamEdges };
+  return { outline, points, cells: mesh.cells, beamEdges };
 }

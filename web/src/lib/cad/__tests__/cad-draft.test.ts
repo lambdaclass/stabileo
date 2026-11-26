@@ -643,7 +643,7 @@ it('#2607 conforming slab meshes preserve authored wall joints within CAD snap t
 });
 
 it('#2607 an upper column prefers a bent wall corner to a closer slab station', () => {
-  for (const meshMode of ['fixedDivisions', 'targetSize'] as const) for (const x of [2.006, 2.013]) {
+  for (const meshMode of ['fixedDivisions', 'targetSize'] as const) for (const x of [2.011, 2.013]) {
     const corner = { x, y: 2 };
     const lower = bentWallPlan(corner);
     lower.walls[0]!.a = { x: 3, y: 1 };
@@ -723,19 +723,25 @@ it('#2607 nearby authored wall ends retain their joint at a column', () => {
 });
 
 it.each(['fixedDivisions', 'targetSize'] as const)(
-  '#2607 %s preserves the certified beam edges beside an off-line wall end', meshMode => {
+  '#2607 %s keeps certified beam edges and refuses near off-line wall ends', meshMode => {
     for (const offset of [0, 0.005, 0.011]) {
       const plan = reviewPlan();
       const x = offset === 0 ? 2 : 1.7;
       plan.walls.push({ a: { x, y: -offset }, b: { x, y: -1 }, thicknessSource: 'default' });
       const settings = { ...reviewSettings, meshMode, meshTargetSize: 1 };
-      const lower = generateRcDraft(plan, settings, SOURCE);
       const upper = { ...reviewPlan(), slabs: [], walls: [] };
-      const stacked = buildDraft({
-        floorPlans: [{ plan, fromFloor: 1, toFloor: 1 }, { plan: upper, fromFloor: 2, toFloor: 2 }],
-        assumptions: { ...settings, nFloors: 2, storyHeights: [3, 3] }, source: SOURCE,
-      });
-      for (const draft of [lower, stacked]) {
+      for (const generate of [
+        () => generateRcDraft(plan, settings, SOURCE),
+        () => buildDraft({
+          floorPlans: [{ plan, fromFloor: 1, toFloor: 1 }, { plan: upper, fromFloor: 2, toFloor: 2 }],
+          assumptions: { ...settings, nFloors: 2, storyHeights: [3, 3] }, source: SOURCE,
+        }),
+      ]) {
+        if (offset > 0 && offset < settings.snapTolerance) {
+          expect.soft(generate).toThrow('cad.disconnectedWallBeam');
+          continue;
+        }
+        const draft = generate();
         const model = snapshotToModelShape(draft.snapshot);
         const key = (a: number, b: number) => [Math.min(a, b), Math.max(a, b)].join(':');
         const slabEdges = [...model.plates.values()].flatMap(({ nodes }) => nodes.flatMap((id, i) => {
@@ -760,7 +766,7 @@ it.each(['fixedDivisions', 'targetSize'] as const)(
 );
 
 it.each(['fixedDivisions', 'targetSize'] as const)(
-  '#2607 %s snaps wall ends beyond the certified portion of the same beam', meshMode => {
+  '#2607 %s requires alignment beyond the certified portion of the same beam', meshMode => {
     for (const offset of [0, 0.005, 0.009, 0.011]) {
       const plan = reviewPlan();
       const left = { x: -4, y: 0 };
@@ -769,13 +775,18 @@ it.each(['fixedDivisions', 'targetSize'] as const)(
       plan.walls.push({ a: { x: -2, y: -offset }, b: { x: -2, y: -2 }, thicknessSource: 'default' });
       const settings = { ...reviewSettings, meshMode, meshTargetSize: 1 };
       const upper = { ...reviewPlan(), slabs: [], walls: [] };
-      for (const draft of [
-        generateRcDraft(plan, settings, SOURCE),
-        buildDraft({
+      for (const generate of [
+        () => generateRcDraft(plan, settings, SOURCE),
+        () => buildDraft({
           floorPlans: [{ plan, fromFloor: 1, toFloor: 1 }, { plan: upper, fromFloor: 2, toFloor: 2 }],
           assumptions: { ...settings, nFloors: 2, storyHeights: [3, 3] }, source: SOURCE,
         }),
       ]) {
+        if (offset > 0 && offset < settings.snapTolerance) {
+          expect.soft(generate).toThrow('cad.disconnectedWallBeam');
+          continue;
+        }
+        const draft = generate();
         const model = snapshotToModelShape(draft.snapshot);
         const wallNodes = new Set([...model.quads.values()].flatMap(({ nodes }) => nodes));
         const hasJoint = [...model.elements.values()].some(({ nodeI, nodeJ }) => {
@@ -783,7 +794,7 @@ it.each(['fixedDivisions', 'targetSize'] as const)(
           return a.z === 3 && b.z === 3 && [nodeI, nodeJ].some(id => wallNodes.has(id) && model.nodes.get(id)!.x === -2);
         });
         expect(draft.counts.slabTriangles).toBeGreaterThan(0);
-        expect.soft(hasJoint, String(offset)).toBe(offset < settings.snapTolerance);
+        expect.soft(hasJoint, String(offset)).toBe(offset === 0);
       }
     }
   },
@@ -798,14 +809,19 @@ describe.each(['fixedDivisions', 'targetSize'] as const)('#2607 exterior beam jo
     plan.columns = [a, b, reviewOutline[2]!, reviewOutline[3]!].map(at => ({ at, sizeSource: 'default' }));
     plan.walls = [{ a: end, b: { x: 3, y: 3 }, thicknessSource: 'default' }];
     const settings = { ...reviewSettings, meshMode, meshTargetSize: 1 };
-    for (const [entry, draft] of [
-      ['generator', generateRcDraft(plan, settings, SOURCE)],
-      ['single plan', buildDraft({ plan, assumptions: settings, source: SOURCE })],
-      ['floor ranges', buildDraft({
+    for (const [entry, generate] of [
+      ['generator', () => generateRcDraft(plan, settings, SOURCE)],
+      ['single plan', () => buildDraft({ plan, assumptions: settings, source: SOURCE })],
+      ['floor ranges', () => buildDraft({
         floorPlans: [{ plan, fromFloor: 1, toFloor: 1 }, { plan: { ...plan, slabs: [], walls: [] }, fromFloor: 2, toFloor: 2 }],
         assumptions: { ...settings, nFloors: 2, storyHeights: [3, 3] }, source: SOURCE,
       })],
     ] as const) {
+      if (offset < settings.snapTolerance) {
+        expect.soft(generate, entry).toThrow('cad.disconnectedWallBeam');
+        continue;
+      }
+      const draft = generate();
       const model = snapshotToModelShape(draft.snapshot);
       const station = (p: typeof end) => [...model.nodes.values()].find(n => n.x === p.x && n.y === p.y && n.z === 3)!.id;
       const joint = station(end), left = station(a), right = station(b);
@@ -814,15 +830,14 @@ describe.each(['fixedDivisions', 'targetSize'] as const)('#2607 exterior beam jo
       const neighbors = (id: number) => [...model.elements.values()].flatMap(({ nodeI, nodeJ }) =>
         nodeI === id ? [nodeJ] : nodeJ === id ? [nodeI] : [],
       ).filter(other => other === left || other === right || other === joint);
-      const withinSnap = offset < settings.snapTolerance;
-      expect.soft(neighbors(left), entry).toEqual([withinSnap ? joint : right]);
-      expect.soft(neighbors(right), entry).toEqual([withinSnap ? joint : left]);
-      expect.soft(neighbors(joint).sort(), entry).toEqual(withinSnap ? [left, right].sort() : []);
+      expect.soft(neighbors(left), entry).toEqual([right]);
+      expect.soft(neighbors(right), entry).toEqual([left]);
+      expect.soft(neighbors(joint).sort(), entry).toEqual([]);
     }
   }
 
   for (const offset of [0.005, 0.009]) {
-    it(`#2607 snaps a conforming wall end to an exterior beam at offset ${offset}`, () => {
+    it(`#2607 refuses a conforming wall end near an exterior beam at offset ${offset}`, () => {
       checkExteriorJoint(offset);
     });
   }
@@ -923,8 +938,6 @@ describe.each(['fixedDivisions', 'targetSize'] as const)('#2607 conforming wall 
 });
 
 
-const round12Cad = process.env.RUN_ROUND12_2607 === '1' ? it : it.skip;
-
 describe.each(['fixedDivisions', 'targetSize'] as const)('#2607 wall and beam alignment in %s mode', meshMode => {
   const settings = { ...reviewSettings, meshMode, meshTargetSize: 1 };
 
@@ -954,7 +967,7 @@ describe.each(['fixedDivisions', 'targetSize'] as const)('#2607 wall and beam al
     params: { wall: expect.any(Number), beam: expect.any(Number) },
   });
 
-  round12Cad('known wrong result: #2607 refuses both orders of opposed wall ends around the original beam', () => {
+  it('#2607 refuses both orders of opposed wall ends around the original beam', () => {
     for (const reverse of [false, true]) {
       const plan = exteriorBeam(-0.008, 0);
       plan.walls.push({ a: { x: 2.05, y: -0.016 }, b: { x: 2.05, y: -1 }, thicknessSource: 'default' });
@@ -963,11 +976,11 @@ describe.each(['fixedDivisions', 'targetSize'] as const)('#2607 wall and beam al
     }
   });
 
-  round12Cad('known wrong result: #2607 refuses moving an exterior beam into a slab without bearing edges', () => {
+  it('#2607 refuses moving an exterior beam into a slab without bearing edges', () => {
     for (const generate of drafts(exteriorBeam(-0.005, 0.003))) expect.soft(generate).toThrow(refusal);
   });
 
-  round12Cad('known wrong result: #2607 refuses a near miss when beam splitting is disabled', () => {
+  it('#2607 refuses a near miss when beam splitting is disabled', () => {
     for (const generate of drafts(exteriorBeam(-0.008, 0), false)) expect.soft(generate).toThrow(refusal);
   });
 

@@ -989,8 +989,6 @@ it.each([[0.05, 0.005], [0, 0], [0, 0.005], [0.12, 0]])(
 );
 
 
-const round12Snow = process.env.RUN_ROUND12_2607 === '1' ? it : it.skip;
-
 function checkEnteredAdjacentShadow(from: number, to: number) {
   const model = steppedRoof();
   for (const node of model.nodes.values()) if (node.z === 5) {
@@ -1007,16 +1005,11 @@ function checkEnteredAdjacentShadow(from: number, to: number) {
     const { w, pd } = stepDrift({ ...inputs, balanced, stepHeight: 2, luUpper: 7.5, luLower: 7.5, separation: 1 });
     return clear * w * pd / 2;
   };
-  const receiver = model.nodes;
-  const receivingRows = (rows: SnowSurchargeLoad[]) => rows.filter(row => {
-    const member = model.elements.get(row.elementId)!;
-    return receiver.get(member.nodeI)!.x >= 0 && receiver.get(member.nodeJ)!.x >= 0;
-  });
   const drift = driftAndSlidingLoads(model, layout, inputs).distributed;
-  expect.soft(receivingSnowForce(model, receivingRows(drift))).toBeCloseTo(surcharge(inputs.balanced), 10);
+  expect.soft(receivingSnowForce(model, drift)).toBeCloseTo(surcharge(inputs.balanced), 10);
   const cases = snowLoadCases({ model, layout, snow: config, tributaryWidth: 1 })!;
   expect.soft(cases.result.refused).toBeUndefined();
-  expect.soft(receivingSnowForce(model, receivingRows(cases.cases[0]!.distributed)))
+  expect.soft(receivingSnowForce(model, cases.cases[0]!.distributed))
     .toBeCloseTo(30 * cases.result.ps + surcharge(cases.result.ps), 10);
   const plan = buildLoadPlan({
     model, gravity: adjacentGravity, regulations: regulations(), dead: [], occupancyKey: 'vivienda', tributaryWidth: 1,
@@ -1025,12 +1018,12 @@ function checkEnteredAdjacentShadow(from: number, to: number) {
   });
   expect.soft(plan.outcome).toBe('READY');
   const snowCase = plan.cases.findIndex(c => c.type === 'S');
-  expect.soft(receivingSnowForce(model, receivingRows(plan.distributed.filter(row => row.caseType === 'S' && row.caseIndex === snowCase))))
+  expect.soft(receivingSnowForce(model, plan.distributed.filter(row => row.caseType === 'S' && row.caseIndex === snowCase)))
     .toBeCloseTo(30 * cases.result.ps + surcharge(cases.result.ps), 10);
 }
 
-round12Snow.each([[1, 3], [0.04, 4], [0, 0.04]])(
-  'known wrong result: #2607 preserves entered snow outside a modeled projection from %s to %s', checkEnteredAdjacentShadow,
+it.each([[1, 3], [0.04, 4], [0, 0.04]])(
+  '#2607 preserves entered snow outside a modeled projection from %s to %s', checkEnteredAdjacentShadow,
 );
 
 it.each([[0, 4], [4, 5], [5, 6]])(

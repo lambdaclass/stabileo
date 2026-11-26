@@ -42,7 +42,7 @@ import { buildBilinearQuadGrid, sanitizeDivisions, MAX_DIVISIONS_PER_AXIS } from
 import type { ModelSnapshot } from '../store/history.svelte';
 import type { ModelProvenance } from '../model/provenance';
 import { PLATE_EDGE_TOL } from '../model/physical/plate-analysis';
-import { meshSlabAlongWalls } from './wall-slab-mesh';
+import { clipTrace, meshSlabAlongWalls } from './wall-slab-mesh';
 
 const NO_RELEASE = { my: false, mz: false, t: false };
 
@@ -177,6 +177,14 @@ class DraftBuilder {
     this.elements.splice(idx, 1, a, b);
     return [a, b];
   }
+}
+
+function distanceToBeam(p: CadPt, a: CadPt, b: CadPt): number {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const length = Math.hypot(dx, dy);
+  if (length === 0) return dist(p, a);
+  const station = Math.max(0, Math.min(length, (p.x - a.x) * (dx / length) + (p.y - a.y) * (dy / length)));
+  return dist(p, { x: a.x + station * (dx / length), y: a.y + station * (dy / length) });
 }
 
 /** Split plan segments wherever a column point lies on their interior. */
@@ -625,9 +633,8 @@ export function generateRcDraft(
   let isolatedSlabs = 0;
   const conformingNodes = new Set<number>();
   const beamEdgeKey = (a: number, b: number) => a < b ? `${a}:${b}` : `${b}:${a}`;
-  const certifiedBeams = new Map<number, {
-    a: CadPt; b: CadPt; station: (point: CadPt) => number; edges: Map<string, readonly [number, number]>;
-  }>();
+  const certifiedBeams = new Map<number, Set<string>>();
+  const conformingSlabs = new Map<number, CadPt[][]>();
   const slabBounds = new Map(plan.slabs.map(slab => [slab, polygonBBox(slab.outline)]));
   const frameAtFloor = new Map(floorLevels.map(z => [z, {
     points: [] as CadPt[],
@@ -672,20 +679,13 @@ export function generateRcDraft(
           const thickness = slabThicknessAt(slab, z);
           const ids = mesh.points.map(({ x, y }) => b.node(x, y, z, PLATE_EDGE_TOL));
           ids.forEach(id => conformingNodes.add(id));
-          for (const beam of frameAtFloor.get(z)!.beams) {
-            const edges = mesh.beamEdges.get(beam.id);
-            if (!edges) continue;
-            const dx = beam.b.x - beam.a.x, dy = beam.b.y - beam.a.y;
-            const length = Math.hypot(dx, dy);
-            const trace = certifiedBeams.get(beam.id) ?? {
-              ...beam, edges: new Map<string, readonly [number, number]>(),
-              station: (point: CadPt) => ((point.x - beam.a.x) * dx + (point.y - beam.a.y) * dy) / length,
-            };
-            for (const [i, j] of edges) {
-              const from = trace.station(mesh.points[i]!), to = trace.station(mesh.points[j]!);
-              trace.edges.set(beamEdgeKey(ids[i]!, ids[j]!), [Math.min(from, to), Math.max(from, to)]);
-            }
-            certifiedBeams.set(beam.id, trace);
+          const outlines = conformingSlabs.get(z) ?? [];
+          outlines.push(mesh.outline);
+          conformingSlabs.set(z, outlines);
+          for (const [beam, edges] of mesh.beamEdges) {
+            const certified = certifiedBeams.get(beam) ?? new Set<string>();
+            for (const [i, j] of edges) certified.add(beamEdgeKey(ids[i]!, ids[j]!));
+            certifiedBeams.set(beam, certified);
           }
           for (const cell of mesh.cells) {
             const nodes = cell.map(i => ids[i]!) as DraftPlate['nodes'];
@@ -801,7 +801,17 @@ export function generateRcDraft(
   const tightPoints = [...tightStations.values()];
   const stationTolerance = (p: CadPt) => tightStations.has(`${p.x}|${p.y}`)
     || tightPoints.some(n => dist(n, p) < PLATE_EDGE_TOL) ? PLATE_EDGE_TOL : tol;
-  const wallEndNodes = new Map<number, number>();
+  const wallBeamIds = new Set<number>();
+  const checkWallEnd = (wall: number, point: CadPt, node: DraftNode) => {
+    for (const beam of frameAtFloor.get(node.z ?? 0)?.beams ?? []) {
+      const gap = distanceToBeam(point, beam.a, beam.b);
+      const weldedGap = distanceToBeam(node, beam.a, beam.b);
+      if (Math.max(gap, weldedGap) < PLATE_EDGE_TOL) wallBeamIds.add(beam.id);
+      else if (Math.min(gap, weldedGap) < tol) {
+        throw new EngineMessageError(msg('cad.disconnectedWallBeam', { wall, beam: beam.id }));
+      }
+    }
+  };
   let wallScheduleHits = 0;
   for (const run of wallRuns) {
     const segments = splitSegmentsAtPoints([run], stations, PLATE_EDGE_TOL, 0)
@@ -823,12 +833,12 @@ export function generateRcDraft(
         const n3 = b.node(start.x, start.y, z1, startWeld);
         const wall = b.quad([n0, n1, n2, n3], t);
         if (start === run.a) {
-          wallEndNodes.set(n0, wall);
-          wallEndNodes.set(n3, wall);
+          checkWallEnd(wall, start, b.nodes[n0 - 1]!);
+          checkWallEnd(wall, start, b.nodes[n3 - 1]!);
         }
         if (end === run.b) {
-          wallEndNodes.set(n1, wall);
-          wallEndNodes.set(n2, wall);
+          checkWallEnd(wall, end, b.nodes[n1 - 1]!);
+          checkWallEnd(wall, end, b.nodes[n2 - 1]!);
         }
       }
     }
@@ -862,8 +872,10 @@ export function generateRcDraft(
   // ── Split beams at shell nodes (PR [8] mesh logic) ────────
   const nodeById = (id: number) => b.nodes[id - 1];
   const beamTraces = new Map(certifiedBeams);
+  for (const id of wallBeamIds) if (!beamTraces.has(id)) beamTraces.set(id, new Set<string>());
   let beamsSplit = 0;
   if (a.splitBeams) {
+    const exactNodes = new Set([...conformingNodes, ...b.quads.slice(wallQuadStart).flatMap(q => q.nodes)]);
     const shellNodeIds = new Set([...conformingNodes, ...[...b.quads, ...b.plates].flatMap(q => q.nodes)]);
     // Split beams to a FIXED POINT: a split creates new shorter sub-beams, and
     // another shell node may lie on a newly-created sub-beam (common where
@@ -874,22 +886,13 @@ export function generateRcDraft(
       for (const nid of shellNodeIds) {
         const nn = nodeById(nid);
         if (!nn) continue;
-        const conforming = conformingNodes.has(nid);
-        const canSnap = !conforming || wallEndNodes.has(nid);
         for (let guard = 0; guard < 4; guard++) {
-          const eligible = beamTraces.size === 0 ? b.elements : b.elements.filter(element => {
-            const trace = beamTraces.get(element.id);
-            if (!trace) return true;
-            if (trace.edges.has(beamEdgeKey(element.nodeI, element.nodeJ))) return false;
-            const station = trace.station(nn);
-            const certified = [...trace.edges.values()].some(([from, to]) =>
-              station >= from - PLATE_EDGE_TOL && station <= to + PLATE_EDGE_TOL);
-            return !certified || pointOnSegment(nn, trace.a, trace.b, PLATE_EDGE_TOL, 0) !== null;
-          });
-          const meshHit = conforming
-            ? beamThrough(nodeById, eligible, nn.x, nn.y, nn.z ?? 0, PLATE_EDGE_TOL, 0)
-            : null;
-          const hit = meshHit ?? (canSnap ? beamThrough(nodeById, eligible, nn.x, nn.y, nn.z ?? 0, tol) : null);
+          const eligible = beamTraces.size === 0 ? b.elements : b.elements.filter(({ id, nodeI, nodeJ }) =>
+            !beamTraces.get(id)?.has(beamEdgeKey(nodeI, nodeJ)));
+          const exactHit = beamThrough(nodeById, eligible, nn.x, nn.y, nn.z ?? 0, PLATE_EDGE_TOL, 0);
+          const hit = exactHit ?? (exactNodes.has(nid) ? null : beamThrough(
+            nodeById, eligible.filter(({ id }) => !beamTraces.has(id)), nn.x, nn.y, nn.z ?? 0, tol,
+          ));
           if (!hit) break;
           const children = b.splitElement(hit.id, nid);
           const trace = beamTraces.get(hit.id);
@@ -903,33 +906,25 @@ export function generateRcDraft(
       }
       if (splitThisRound === 0) break;
     }
-    const remaining = new Map([...certifiedBeams.values()].map(trace => [trace, new Set(trace.edges.keys())]));
-    for (const element of b.elements) {
-      const trace = beamTraces.get(element.id);
-      if (trace) remaining.get(trace)!.delete(beamEdgeKey(element.nodeI, element.nodeJ));
-    }
-    if ([...remaining.values()].some(edges => edges.size > 0)) throw new Error(t('cad.generateFailed'));
-  }
-
-  const beamSegments = b.elements.flatMap(({ id, nodeI, nodeJ }) => {
-    const start = nodeById(nodeI)!, end = nodeById(nodeJ)!;
-    const z = start.z ?? 0;
-    const slabEdge = beamTraces.get(id)?.edges.has(beamEdgeKey(nodeI, nodeJ));
-    return z === (end.z ?? 0) && !slabEdge ? [{ id, start, end, z }] : [];
-  });
-  for (const [node, wall] of wallEndNodes) {
-    if (!conformingNodes.has(node)) continue;
-    const { x, y, z = 0 } = nodeById(node)!;
-    for (const { id, start, end, z: beamZ } of beamSegments) {
-      if (node === start.id || node === end.id || Math.abs(beamZ - z) >= tol) continue;
-      const dx = end.x - start.x, dy = end.y - start.y;
-      const length = Math.hypot(dx, dy);
-      const station = length > 0 ? Math.max(0, Math.min(length, (x - start.x) * (dx / length) + (y - start.y) * (dy / length))) : 0;
-      const fraction = length > 0 ? station / length : 0;
-      if (Math.hypot(x - (start.x + fraction * dx), y - (start.y + fraction * dy), z - beamZ) < tol) {
-        throw new EngineMessageError(msg('cad.disconnectedWallBeam', { wall, beam: id }));
+    const uncertifiedBeam = (beam: number): never => {
+      throw new EngineMessageError(msg('cad.uncertifiedSlabBeam', { beam }));
+    };
+    const remaining = new Map([...certifiedBeams].map(([id, edges]) => [edges, { id, edges: new Set(edges) }]));
+    for (const { id, nodeI, nodeJ } of b.elements) {
+      const trace = beamTraces.get(id);
+      const key = beamEdgeKey(nodeI, nodeJ);
+      if (trace?.has(key)) {
+        remaining.get(trace)!.edges.delete(key);
+        continue;
+      }
+      const a = nodeById(nodeI)!, b = nodeById(nodeJ)!;
+      if (a.z !== b.z) continue;
+      for (const outline of conformingSlabs.get(a.z ?? 0) ?? []) {
+        const clipped = clipTrace({ a, b }, outline, 0);
+        if (clipped && dist(clipped.a, clipped.b) > PLATE_EDGE_TOL) uncertifiedBeam(id);
       }
     }
+    for (const { id, edges } of remaining.values()) if (edges.size) uncertifiedBeam(id);
   }
 
   // Final offset-element count (splits at shell nodes copy the parallel

@@ -1,5 +1,6 @@
 const en: Record<string, string> = {
-  'cad.disconnectedWallBeam': "Wall quad {wall} is within the CAD snap tolerance of beam {beam} and has no shared joint with it. Align the wall end and beam in the drawing.",
+  'cad.disconnectedWallBeam': "Wall quad {wall} and beam {beam} are within CAD snap tolerance but their traces do not meet. Connect the wall end to the beam in the drawing.",
+  'cad.uncertifiedSlabBeam': "Beam {beam} has no certified mesh edge along its trace in the slab. Connect the beam and slab along a shared edge in the drawing.",
   'svc.accountingMismatch': "Analysis refused. Load case {case}, {component}. Entered {entered}, assembled {assembled}.",
   'svc.accountingLineEnd': "Analysis refused. Load case {case}, member {member} end {end}. Redistributed load reached node {actual}. Expected node {expected}.",
   'svc.accountingUnsupported': "Analysis refused. Load case {case} includes {kind} {id}, whose forces and moments cannot be accounted for.",

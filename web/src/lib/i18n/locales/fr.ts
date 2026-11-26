@@ -1,7 +1,8 @@
 import type { Translations } from '../types';
 
 const fr: Translations = {
-  'cad.disconnectedWallBeam': "Le quadrilatère de mur {wall} est dans la tolérance d’accrochage CAO de la poutre {beam} et ne partage aucun nœud avec elle. Alignez l’extrémité du mur et la poutre dans le dessin.",
+  'cad.disconnectedWallBeam': "Le quadrilatère de mur {wall} et la poutre {beam} sont dans la tolérance d’accrochage CAO, mais leurs tracés ne se rejoignent pas. Reliez l’extrémité du mur à la poutre dans le dessin.",
+  'cad.uncertifiedSlabBeam': "La poutre {beam} ne possède aucune arête de maillage certifiée le long de son tracé dans la dalle. Reliez la poutre à la dalle par une arête commune dans le dessin.",
   'svc.accountingMismatch': "Analyse refusée. Cas de charge {case}, {component}. Valeur saisie {entered}, valeur assemblée {assembled}.",
   'svc.accountingLineEnd': "Analyse refusée. Cas de charge {case}, extrémité {end} de la barre {member}. La charge redistribuée a été appliquée au nœud {actual}. Le nœud attendu est {expected}.",
   'svc.accountingUnsupported': "Analyse refusée. Les forces et les moments de {kind} {id} dans le cas de charge {case} ne peuvent pas être comptabilisés.",

@@ -1,7 +1,8 @@
 import type { Translations } from '../types';
 
 const zh: Translations = {
-  'cad.disconnectedWallBeam': "墙体四边形单元 {wall} 位于梁 {beam} 的 CAD 捕捉容差范围内，但两者没有共用节点。请在图纸中将墙端与梁对齐。",
+  'cad.disconnectedWallBeam': "墙体四边形单元 {wall} 和梁 {beam} 位于 CAD 捕捉容差范围内，但其轨迹不相交。请在图纸中将墙端与梁连接。",
+  'cad.uncertifiedSlabBeam': "梁 {beam} 在板内的轨迹上没有经过验证的网格边。请在图纸中沿共用边连接梁和板。",
   'svc.accountingMismatch': "分析已拒绝。荷载工况 {case}，分量 {component}。输入值 {entered}，组装值 {assembled}。",
   'svc.accountingLineEnd': "分析已拒绝。荷载工况 {case}，构件 {member} 的 {end} 端。重新分配的荷载施加到了节点 {actual}，应施加到节点 {expected}。",
   'svc.accountingUnsupported': "分析已拒绝。无法核算荷载工况 {case} 中 {kind} {id} 的力和力矩。",

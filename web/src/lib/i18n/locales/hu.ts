@@ -1,7 +1,8 @@
 import type { Translations } from '../types';
 
 const hu: Translations = {
-  'cad.disconnectedWallBeam': "A(z) {wall}. fal-négyszögelem a(z) {beam}. gerenda CAD illesztési tűrésén belül van, és nincs vele közös csomópontja. Igazítsa egymáshoz a fal végét és a gerendát a rajzon.",
+  'cad.disconnectedWallBeam': "A(z) {wall}. fal-négyszögelem és a(z) {beam}. gerenda a CAD illesztési tűrésén belül vannak, de a nyomvonaluk nem találkozik. Kösse össze a fal végét a gerendával a rajzon.",
+  'cad.uncertifiedSlabBeam': "A(z) {beam}. gerenda lemezen belüli nyomvonalán nincs igazolt hálóél. Kösse össze a gerendát a lemezzel közös él mentén a rajzon.",
   'svc.accountingMismatch': "A számítás elutasítva. {case} tehereset, {component}. Megadott érték {entered}, összeállított érték {assembled}.",
   'svc.accountingLineEnd': "A számítás elutasítva. {case} tehereset, a(z) {member} rúd {end} vége. Az átosztott teher a(z) {actual} csomópontra került. A várt csomópont {expected}.",
   'svc.accountingUnsupported': "A számítás elutasítva. A(z) {case} teheresetben a(z) {kind} {id} erői és nyomatékai nem ellenőrizhetők.",

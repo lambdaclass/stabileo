@@ -2,7 +2,7 @@
 
 ## Refuse disconnected CAD wall ends near beams
 
-A conforming wall end may snap to an eligible beam interior. If generation leaves an eligible beam within the CAD snap tolerance without a shared joint, the draft is refused and the message identifies the wall quad and beam. A beam already connected through a certified conforming slab edge retains that load path. Regenerate affected CAD drafts and check the intended wall connections before solving.
+Draft generation refuses a disconnected wall end within the CAD snap tolerance of a beam. The [CAD wall and beam alignment change](2026-11-cad-beam-alignment-and-adjacent-snow.md#require-aligned-cad-wall-and-beam-joints) describes the current alignment and bearing requirements.
 
 ## Check independent deck clearance within the overlap
 

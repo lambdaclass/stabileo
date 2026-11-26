@@ -1,7 +1,8 @@
 import type { Translations } from '../types';
 
 const de: Translations = {
-  'cad.disconnectedWallBeam': "Das Wandviereck {wall} liegt innerhalb der CAD-Fangtoleranz des Trägers {beam} und hat keinen gemeinsamen Knoten mit ihm. Richten Sie das Wandende und den Träger in der Zeichnung aus.",
+  'cad.disconnectedWallBeam': "Das Wandviereck {wall} und der Träger {beam} liegen innerhalb der CAD-Fangtoleranz, ihre Linien treffen sich aber nicht. Verbinden Sie das Wandende und den Träger in der Zeichnung.",
+  'cad.uncertifiedSlabBeam': "Für den Träger {beam} fehlt entlang seiner Linie in der Platte eine nachgewiesene Netzkante. Verbinden Sie Träger und Platte in der Zeichnung über eine gemeinsame Kante.",
   'svc.accountingMismatch': "Berechnung abgelehnt. Lastfall {case}, {component}. Eingegeben {entered}, assembliert {assembled}.",
   'svc.accountingLineEnd': "Berechnung abgelehnt. Lastfall {case}, Stab {member}, Ende {end}. Die umgelagerte Last wirkt am Knoten {actual}. Erwartet wurde Knoten {expected}.",
   'svc.accountingUnsupported': "Berechnung abgelehnt. Kräfte und Momente von {kind} {id} im Lastfall {case} können nicht bilanziert werden.",

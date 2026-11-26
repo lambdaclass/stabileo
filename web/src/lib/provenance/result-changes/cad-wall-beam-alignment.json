@@ -1,0 +1,42 @@
+{
+  "id": "cad-wall-beam-alignment",
+  "date": "2026-11-26",
+  "prs": [
+    2607
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "cadImportedDraft"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Require aligned CAD wall and beam joints",
+    "es": "Exigir uniones alineadas de muros y vigas CAD",
+    "pt": "Exigir ligações alinhadas de paredes e vigas CAD",
+    "de": "Fluchtende Wand- und Trägeranschlüsse in CAD verlangen",
+    "fr": "Exiger des raccords CAO alignés entre murs et poutres",
+    "hu": "Illeszkedő fal–gerenda kapcsolatok megkövetelése a CAD-ben",
+    "tr": "CAD duvar ve kiriş birleşimlerinde hizalama gerektir",
+    "zh": "要求 CAD 墙梁节点对齐"
+  },
+  "explanation": {
+    "en": "Regenerate affected CAD drafts. A wall end within the CAD snap tolerance must meet the beam trace. A beam in a conforming slab must share its certified mesh edges.",
+    "es": "Volvé a generar los borradores CAD afectados. Un extremo de muro dentro de la tolerancia de ajuste CAD debe coincidir con la traza de la viga. Una viga en una losa conforme debe compartir los bordes certificados de la malla.",
+    "pt": "Gere novamente os rascunhos CAD afetados. Uma extremidade de parede dentro da tolerância de ajuste CAD deve encontrar o traçado da viga. Uma viga em uma laje com malha conforme deve compartilhar as arestas certificadas da malha.",
+    "de": "Erzeugen Sie betroffene CAD-Entwürfe erneut. Ein Wandende innerhalb der CAD-Fangtoleranz muss die Trägerlinie treffen. Ein Träger in einer Platte mit konformem Netz muss deren nachgewiesene Netzkanten teilen.",
+    "fr": "Régénérez les ébauches CAO concernées. Une extrémité de mur dans la tolérance d’accrochage CAO doit rejoindre le tracé de la poutre. Une poutre dans une dalle à maillage conforme doit partager les arêtes certifiées du maillage.",
+    "hu": "Készítse újra az érintett CAD-vázlatokat. A CAD illesztési tűrésén belüli falvégnek találkoznia kell a gerenda nyomvonalával. A konform hálóval ellátott lemezben futó gerendának közös igazolt hálóélekkel kell rendelkeznie.",
+    "tr": "Etkilenen CAD taslaklarını yeniden oluşturun. CAD yakalama toleransı içindeki duvar ucu kiriş hattıyla birleşmelidir. Uyumlu ağla modellenen döşemedeki kiriş, doğrulanmış ağ kenarlarını paylaşmalıdır.",
+    "zh": "请重新生成受影响的 CAD 草案。处于 CAD 捕捉容差内的墙端必须与梁的轨迹相接。采用协调网格的板内，梁必须与板共用经过验证的网格边。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-cad-beam-alignment-and-adjacent-snow.md",
+    "heading": "Require aligned CAD wall and beam joints"
+  }
+}

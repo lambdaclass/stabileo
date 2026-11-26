@@ -59,6 +59,23 @@ function edgeInterval(a: P2, b: P2, c: P2, d: P2, tolerance = SNOW_EDGE_COINCIDE
   return hi - lo > 1e-9 ? [lo, hi] : undefined;
 }
 
+function exteriorProjection(line: EdgeLine, end: P2, polygon: P2[]): Array<readonly [number, number]> {
+  const error = snowEdgeRoundoff(line.p0, end, ...polygon);
+  const local = polygon.map(point => {
+    const delta = sub(point, line.p0);
+    const outward = -dot(delta, line.n);
+    return [dot(delta, line.u), Math.abs(outward) <= error ? 0 : outward] as const;
+  });
+  return local.flatMap(([a, da], index) => {
+    const [b, db] = local[(index + 1) % local.length]!;
+    if (da <= 0 && db <= 0) return [];
+    const atEdge = () => a + (b - a) * da / (da - db);
+    const from = da < 0 ? atEdge() : a, to = db < 0 ? atEdge() : b;
+    const lo = Math.max(0, Math.min(from, to)), hi = Math.min(line.len, Math.max(from, to));
+    return hi - lo > error ? [[lo / line.len, hi / line.len] as const] : [];
+  });
+}
+
 function joined(
   first: RoofComponent, second: RoofComponent, minimumOverlap: number, continuous: (a: P2, b: P2) => boolean,
 ): boolean {
@@ -442,6 +459,9 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
           const want: P2 = adj.side === '+x' ? [1, 0] : adj.side === '-x' ? [-1, 0] : adj.side === '+y' ? [0, 1] : [0, -1];
           return dot(edgeOut, want) >= 0.95;
         });
+        const projected = adjacent.length ? layout.panels.flatMap((panel, k) =>
+          (panel.footprint ?? [[panel.polygon]]).flatMap(([polygon], component) =>
+            k === L.k && component === L.component ? [] : exteriorProjection(edge, end, polygon!))) : [];
         const modeled = modeledAdjacent.flatMap(({ pair, a, b, fetch }) => {
           if (pair.lowerComponent.k !== L.k || pair.lowerComponent.component !== L.component) return [];
           const interval = edgeInterval(start, end, a, b, snowEdgeRoundoff(start, end, a, b));
@@ -459,9 +479,9 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
         const emit = ([from, to]: readonly [number, number], adj?: NonNullable<DriftInputs['adjacent']>[number], bounded = false) => {
           const a = atEdge(from), b = atEdge(to), edgeStart = from * edge.len;
           const line = lineInto(a, b, L.polygon);
-          if (line.len < 1e-9) return;
+          if (line.len <= (adj ? stationError : 1e-9)) return;
           const mid = outside(atEdge((from + to) / 2));
-          if (covers.some(p => within(mid, p.polygon, -1) && !p.holes.some(hole => within(mid, hole, -1))
+          if (!adj && covers.some(p => within(mid, p.polygon, -1) && !p.holes.some(hole => within(mid, hole, -1))
             && surfaceModel.edgeHeights(a, b, layout, p.k, L.k).every(h => h >= -0.05))) return;
           const lower = roofOf(L, MIN_WHOLE_BAND_JOIN);
           const lu = Math.max(0, ...lower.flatMap((p) => p.polygon.map((v) => dot(sub(v, a), line.n))));
@@ -503,11 +523,6 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
             if (applies && !refs.includes(REF_PARAPET)) refs.push(REF_PARAPET, REF_FIG9);
           }
           if (adj) {
-            const beyond = layout.panels.some((p) => {
-              const t = p.polygon.map((v) => dot(sub(v, a), line.u)), o = p.polygon.map((v) => dot(sub(v, a), edgeOut));
-              return Math.max(...o) > 0.05 && Math.max(...t) > 0.05 && Math.min(...t) < line.len - 0.05;
-            });
-            if (beyond) return;
             const inputs = (pt: P2) => ({ pg: i.pg, balanced: balanced(L.k, pt), stepHeight: adj.topZ - surfaces(L.k).elevation(pt), luUpper: adj.length, luLower: lu, separation: adj.separation });
             const local = (pt: P2) => stepDrift(inputs(pt));
             const applies = reportBand(local, pt => stepDriftMargins(inputs(pt)), pt => inputs(pt).stepHeight - local(pt).hb, (dr, pt, from, to) => {
@@ -522,12 +537,12 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
         };
         if (i.parapet) for (const range of ranges) emit(range);
         for (const adj of adjacent) {
-          const covered = modeled.filter(({ pair, fetch }) =>
+          const matches = modeled.filter(({ pair, fetch }) =>
             agrees(adj.separation, pair.separation, pair.separation)
             && agrees(adj.length, fetch, fetch)
             && pair.elevations.every(({ upperZ }) => agrees(adj.topZ, upperZ, upperZ)))
-            .map(({ interval: [lo, hi] }) => [lo / edge.len, hi / edge.len] as const)
-            .sort(([a], [b]) => a - b);
+            .map(({ interval: [lo, hi] }) => [lo / edge.len, hi / edge.len] as const);
+          const covered = [...projected, ...matches].sort(([a], [b]) => a - b);
           for (const [from, to] of ranges) {
             let remaining = from;
             for (const [lo, hi] of covered) {
