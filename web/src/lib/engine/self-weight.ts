@@ -232,7 +232,6 @@ export function* selfWeightSources(model: ModelData, entries: readonly SelfWeigh
     const { caseId, direction, factor } = entry;
     const scope = selfWeightScope(model, entry);
     yield* memberSelfWeightSources(model, entry, scope.members);
-    if (factor === 0) continue;
     for (const kind of ['plate', 'quad'] as const) {
       const shells = kind === 'plate' ? model.plates : model.quads;
       const include = kind === 'plate' ? scope.plates : scope.quads;
@@ -241,7 +240,7 @@ export function* selfWeightSources(model: ModelData, entries: readonly SelfWeigh
         const material = model.materials.get(shell.materialId);
         if (!material) continue;
         const intensity = requireMaterialDensity(shell.materialId, material) * shell.thickness * factor;
-        if (intensity !== 0) yield { caseId, id: shell.id, direction, kind, intensity, factor };
+        yield { caseId, id: shell.id, direction, kind, intensity, factor };
       }
     }
   }

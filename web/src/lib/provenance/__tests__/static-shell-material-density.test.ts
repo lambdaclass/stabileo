@@ -117,15 +117,13 @@ it.each(['plate', 'quad'] as const)('#2472 refuses negative %s self-weight on th
   }
 });
 
-const issue2472 = process.env.RUN_KNOWN_WRONG === '2472' ? it : it.skip;
-
-issue2472.each(['plate', 'quad'] as const)('known wrong result: #2472 validates and solves zero %s self-weight', async kind => {
+it.each(['plate', 'quad'] as const)('#2472 validates %s density and retains zero self-weight cases', async kind => {
   const { area, material, model } = shell(kind, -1);
   const support = model.supports.values().next().value!;
   for (const method of [undefined, 'solveEach', 'superpose'] as const) {
     if (method) modelStore.updateSupport(support.id, { uplift: true });
     for (const factor of [0, 1]) {
-      model.analysis = { selfWeight: [{ ...gravity, factor }], combinationMethod: method };
+      model.analysis = { selfWeight: [{ ...gravity, factor: gravity.factor * factor }], combinationMethod: method };
       const { pdeltaCombination, asyncPdeltaCombination, ...paths } = savedSolvePaths(model);
       const selected = method ? paths : { ...paths, pdeltaCombination, asyncPdeltaCombination };
       for (const rho of [-1, -Number.MIN_VALUE, 0, 1]) {

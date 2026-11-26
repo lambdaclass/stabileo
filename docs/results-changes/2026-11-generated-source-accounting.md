@@ -12,6 +12,8 @@ A reference gravity case can feed a notional case even when the gravity case is 
 
 Derived notional nodal loads are also checked at their authored nodes. For three equally spaced nodes with forces of 3 kN each, shifting the row forces by +1, −2 and +1 kN leaves both the resultant and its first moment unchanged. The per-action receipts reject that shift in the original case and in a case that includes it. The line-load applicability check compares opposing forces within each effective case. Mutually exclusive cases only contribute to that comparison if a composed case brings their loads together.
 
+For every plate or quad covered by a spatial self-weight rule, assembly validates the material density before multiplying by the rule's factor. It retains the corner load rows when their force is zero, so an applicable rule with zero density or factor still has a case result. This preserves the main branch's behavior in single, linear combination, P-Delta and active-set solves. Invalid density is refused even at a zero factor.
+
 ## Transfer connected X-brace inertia on the brace spans
 
 At a four-way joint, the seismic mass model follows each pair of uniquely collinear member legs independently. The joint contributes no story elevation. Each run ends at a supported or evidenced floor station, and its inertia stays distributed over the portions of the brace assigned to the active story. A kinked or ambiguous crossing still blocks the plan.
