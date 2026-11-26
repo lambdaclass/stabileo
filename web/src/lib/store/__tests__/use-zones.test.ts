@@ -257,4 +257,18 @@ describe('use zones over two floors', () => {
     // The zone covers plate A less its hole: 2.5 × 29.
     expect(fz).toBeCloseTo(2.5 * 29, 5);
   });
+
+  (process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip)('known wrong result: #2607 assembles clipped use-zone shell loads', () => {
+    modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
+    floor(3);
+    meshAll(0.5);
+    const z1 = zone([[0, 0], [6, 0], [6, 5], [0, 5]], 3, 'Oficina');
+    setZoneUse([z1], { occupancy: 'oficina', provenance: 'confirmed' });
+    applyZoneLoadPlan(zoneLoadPlan()!);
+    syncDefinedLoadsForAnalysis();
+    const res = modelStore.solve3D(false, false, true);
+    expect(typeof res, String(res)).not.toBe('string');
+    const fz = (res as AnalysisResults3D).reactions.reduce((s, x) => s + x.fz, 0);
+    expect(fz).toBeCloseTo(2.5 * 29, 5);
+  });
 });

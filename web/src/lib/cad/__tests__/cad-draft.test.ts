@@ -758,3 +758,33 @@ it.each(['fixedDivisions', 'targetSize'] as const)(
     }
   },
 );
+
+(process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip).each(['fixedDivisions', 'targetSize'] as const)(
+  'known wrong result: #2607 %s snaps wall ends beyond the certified portion of the same beam', meshMode => {
+    for (const offset of [0, 0.005, 0.009, 0.011]) {
+      const plan = reviewPlan();
+      const left = { x: -4, y: 0 };
+      plan.columns[0] = { at: left, sizeSource: 'default' };
+      plan.beams[0] = { a: left, b: reviewOutline[1]! };
+      plan.walls.push({ a: { x: -2, y: -offset }, b: { x: -2, y: -2 }, thicknessSource: 'default' });
+      const settings = { ...reviewSettings, meshMode, meshTargetSize: 1 };
+      const upper = { ...reviewPlan(), slabs: [], walls: [] };
+      for (const draft of [
+        generateRcDraft(plan, settings, SOURCE),
+        buildDraft({
+          floorPlans: [{ plan, fromFloor: 1, toFloor: 1 }, { plan: upper, fromFloor: 2, toFloor: 2 }],
+          assumptions: { ...settings, nFloors: 2, storyHeights: [3, 3] }, source: SOURCE,
+        }),
+      ]) {
+        const model = snapshotToModelShape(draft.snapshot);
+        const wallNodes = new Set([...model.quads.values()].flatMap(({ nodes }) => nodes));
+        const hasJoint = [...model.elements.values()].some(({ nodeI, nodeJ }) => {
+          const a = model.nodes.get(nodeI)!, b = model.nodes.get(nodeJ)!;
+          return a.z === 3 && b.z === 3 && [nodeI, nodeJ].some(id => wallNodes.has(id) && model.nodes.get(id)!.x === -2);
+        });
+        expect(draft.counts.slabTriangles).toBeGreaterThan(0);
+        expect.soft(hasJoint, String(offset)).toBe(offset < settings.snapTolerance);
+      }
+    }
+  },
+);

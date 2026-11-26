@@ -351,3 +351,42 @@ it.each([[false, false], [true, false], [false, true], [true, true]] as const)('
     }
   }
 });
+
+(process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip).each([0, 0.5, -0.5, 1e-8])(
+  'known wrong result: #2607 panel gravity checks a 2 m gap strip offset by %s m', offset => {
+    for (const split of [false, true]) for (const angle of [0, 0.53]) {
+      const roof = offsetRoof(0.02, angle, 1, split, [4, 6], 2);
+      for (const node of roof.model.nodes.values()) {
+        if (roof.rafter.includes(node.id)) continue;
+        const across = -node.x * Math.sin(angle) + node.y * Math.cos(angle);
+        if (across < 1) continue;
+        node.x -= (offset - 1) * Math.sin(angle);
+        node.y += (offset - 1) * Math.cos(angle);
+      }
+      for (const link of roof.model.constraints) {
+        const master = roof.model.nodes.get(link.masterNode)!;
+        const slave = roof.model.nodes.get(link.slaveNode)!;
+        master.x = slave.x;
+        master.y = slave.y;
+      }
+      const edgeNodes = new Set(roof.model.constraints.map(link => link.masterNode));
+      for (const node of roof.model.nodes.values()) {
+        if (roof.rafter.includes(node.id) || edgeNodes.has(node.id)) continue;
+        const across = -node.x * Math.sin(angle) + node.y * Math.cos(angle);
+        if (across > 0.25) continue;
+        node.x -= (offset - 1) * Math.sin(angle);
+        node.y += (offset - 1) * Math.cos(angle);
+      }
+      const model = roof.model;
+      expect.soft(roofPlan(model, 'width').outcome).toBe('READY');
+      if (offset === 0) {
+        expect.soft(roofPlan(model).outcome).toBe('READY');
+      } else {
+        expect.soft(roofPlan(model)).toMatchObject({
+          outcome: 'BLOCKED', blockedKeys: [expect.objectContaining({ key: 'loadPlan.gravity.unresolvedMember' })],
+          distributed: [], surface: [],
+        });
+      }
+    }
+  },
+);

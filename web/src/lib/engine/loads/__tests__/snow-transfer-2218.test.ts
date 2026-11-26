@@ -709,3 +709,51 @@ it.each([0, 0.005, 0.009, 0.011])('#2607 physical roof fetch across a %s m seam'
   expect.soft(receivingSnowForce(model, plan.distributed.filter(row => row.caseType === 'S' && row.caseIndex === snowCase)))
     .toBeCloseTo(30 * cases.result.ps + surcharge(cases.result.ps), 10);
 });
+
+(process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip).each([[0.002, 0.008], [0, 0.008], [0.008, 0.002]])(
+  'known wrong result: #2607 a skew gap of %s to %s m is separated', (near, far) => {
+    const model = mesh([
+      [[0, 0, 3], [7.5, 0, 3], [7.5, 4, 3], [0, 4, 3]],
+      [[-9, 0, 5], [-near, 0, 5], [-far, 4, 5], [-9, 4, 5]],
+    ]);
+    const layout = gravityLayout(model, { ...adjacentGravity, tributaryWidth: 1 });
+    expect.soft(() => snowRoofEdgePairs(model, layout)).toThrow('snow.refused.stepDriftTransfer');
+    expect.soft(() => driftAndSlidingLoads(model, layout, adjacentInputs)).toThrow('snow.refused.stepDriftTransfer');
+    expect.soft(snowLoadCases({ model, layout, snow: adjacentConfig, tributaryWidth: 1 }))
+      .toMatchObject({ result: { refused: 'snow.refused.stepDriftTransfer' }, cases: [] });
+    expect.soft(adjacentPlan(model)).toMatchObject({
+      outcome: 'BLOCKED', blockedKeys: [{ key: 'snow.refused.stepDriftTransfer' }], distributed: [],
+    });
+  },
+);
+
+(process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip).each([0.04, 1, 2])(
+  'known wrong result: #2607 preserves entered adjacent snow in a %s m unmodeled edge interval', start => {
+    const model = steppedRoof();
+    for (const node of model.nodes.values()) if (node.z === 5) {
+      node.x -= 1;
+      if (node.y === 0) node.y = start;
+    }
+    const layout = gravityLayout(model, { ...adjacentGravity, tributaryWidth: 1 });
+    const adjacent = [{ side: '-x', separation: 1, topZ: 5, length: 7.5 }] as const;
+    const inputs = { ...adjacentInputs, adjacent: [...adjacent] };
+    const config = { ...adjacentConfig, adjacent: [...adjacent] };
+    const surcharge = (balanced: number) => {
+      const { w, pd } = stepDrift({ ...inputs, balanced, stepHeight: 2, luUpper: 7.5, luLower: 7.5, separation: 1 });
+      return 4 * w * pd / 2;
+    };
+    expect.soft(receivingSnowForce(model, driftAndSlidingLoads(model, layout, inputs).distributed)).toBeCloseTo(surcharge(inputs.balanced), 10);
+    const cases = snowLoadCases({ model, layout, snow: config, tributaryWidth: 1 })!;
+    expect.soft(cases.result.refused).toBeUndefined();
+    expect.soft(receivingSnowForce(model, cases.cases[0]!.distributed)).toBeCloseTo(30 * cases.result.ps + surcharge(cases.result.ps), 10);
+    const plan = buildLoadPlan({
+      model, gravity: adjacentGravity, regulations: regulations(), dead: [], occupancyKey: 'vivienda', tributaryWidth: 1,
+      reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true,
+      snow: { ...config, enabled: true, source: 'site' },
+    });
+    expect.soft(plan.outcome).toBe('READY');
+    const snowCase = plan.cases.findIndex(c => c.type === 'S');
+    expect.soft(receivingSnowForce(model, plan.distributed.filter(row => row.caseType === 'S' && row.caseIndex === snowCase)))
+      .toBeCloseTo(30 * cases.result.ps + surcharge(cases.result.ps), 10);
+  },
+);
