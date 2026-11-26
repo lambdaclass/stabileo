@@ -6,7 +6,7 @@ import { resolve } from 'path';
 import { REGISTRY_LOCALES, validateRegistry, githubSlug, changelogUrl, conditionGroups, type ResultChangeRegistry } from '../registry';
 import { assessProject } from '../applicability';
 import { FEATURE_IDS, type FeatureSnapshot } from '../model-features';
-import { unknownStamp } from '../solve-stamp';
+import { unknownStamp, type SolveStamp } from '../solve-stamp';
 import { readRegistry } from '../../../../scripts/result-changes/registry.mjs';
 
 const repo = resolve(__dirname, '../../../../..');
@@ -97,7 +97,7 @@ describe('result-change registry', () => {
   it('shows conditional elastic recovery for a large contrast among materials assigned to members', () => {
     const id = 'conditional-elastic-equilibration';
     const resultsVersion = RESULT_CHANGES.changes.find(change => change.id === id)!.resultsVersion - 1;
-    const stamp = { ...unknownStamp(), resultsVersion, analyses: ['linear'] };
+    const stamp: SolveStamp = { ...unknownStamp(), resultsVersion, analyses: ['linear'] };
     const model: FeatureSnapshot = {
       materials: [[1, { id: 1, e: 17785.640071810256 }], [2, { id: 2, e: 65814124.383935295 }]],
       elements: [[1, { id: 1, materialId: 1, sectionId: 1, nodeI: 1, nodeJ: 2 }],

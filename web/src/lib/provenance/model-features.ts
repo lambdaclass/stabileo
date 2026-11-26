@@ -403,7 +403,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   let minElasticModulus = Infinity;
   let maxElasticModulus = 0;
   for (const carrier of massCarriers) {
-    const modulus = materials.get(carrier.materialId)?.e;
+    const modulus = carrier.materialId === undefined ? undefined : materials.get(carrier.materialId)?.e;
     if (typeof modulus !== 'number' || !Number.isFinite(modulus) || modulus <= 0) continue;
     minElasticModulus = Math.min(minElasticModulus, modulus);
     maxElasticModulus = Math.max(maxElasticModulus, modulus);
