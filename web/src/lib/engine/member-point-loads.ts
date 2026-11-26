@@ -57,6 +57,14 @@ export function pointGlobal(d: PointLoad3DLike, axes: MemberAxes, leftHand = fal
   return { F: onAxes(d.px ?? 0, d.py ?? 0, d.pz ?? 0), M: onAxes(d.mx ?? 0, d.my ?? 0, d.mz ?? 0) };
 }
 
+export function localPointForce(axes: MemberAxes, force: Vec3): Vec3 {
+  return [dot(force, axes.ex), dot(force, axes.ey), dot(force, axes.ez)];
+}
+
+export function memberPointForceRow3D(elementId: number, a: number, [px, py, pz]: Vec3): SolverLoad3D {
+  return { type: 'pointOnElement', data: { elementId, a, px, py, pz } };
+}
+
 /** Whether a load needs the member cut where it sits: an axial force or a moment inside the span. */
 export function pointNeedsCut(d: PointLoad3DLike, axes: MemberAxes, leftHand = false): boolean {
   if (!(d.a > POINT_END_TOL && d.a < axes.L - POINT_END_TOL)) return false;

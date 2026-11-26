@@ -55,7 +55,7 @@ export const FEATURE_IDS = [
   'native:duplicate-json-connector-keys',
   'native:duplicate-json-analysis-table-keys', 'native:wasm-iterable-load-fields', 'native:producer-wire-metadata',
   GLOBAL_AXES_EVIDENCE, 'conflictingModelAliases', 'outOfPlaneNodalComponents', 'duplicateFixtureEndRelease',
-  'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
+  'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'unrestrainedAxialTip', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
   'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
@@ -67,7 +67,7 @@ export const FEATURE_IDS = [
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'invalidSelfWeightTarget', 'scopedMemberSelfWeight', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'malformedAuthoredLoad',
   'malformedAuthoredStructure', 'separatedPlanarEccentricConnection', 'reducedPlanarMpc', 'xyConstraintProjection',
-  'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
+  'ssiHistory', 'recordedHarmonic', 'strongElasticModulusContrast', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase', 'loadPlanCombinationSupplements', 'flatRoofSnowCombinations',
   'occupiedGeneratedLoadCases', 'repeatedUngroupedRuleTerms', 'emptyManualLoadAlternatives', 'retiredAutoLoadsCases',
   'repeatedCombinationRuleActions', 'superposedCombinations', 'repeatedCombinationCases', 'zeroOrOpposingCombinationFactors', 'explicitNotionalCombinationCases',
@@ -461,6 +461,15 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
 
   const quads = values(s.quads);
   const massCarriers = [...elements, ...quads, ...values(s.plates), ...values(s.quad9s), ...values(s.solidShells), ...values(s.curvedShells)];
+  let minElasticModulus = Infinity;
+  let maxElasticModulus = 0;
+  for (const carrier of massCarriers) {
+    const modulus = carrier.materialId === undefined ? undefined : materials.get(carrier.materialId)?.e;
+    if (typeof modulus !== 'number' || !Number.isFinite(modulus) || modulus <= 0) continue;
+    minElasticModulus = Math.min(minElasticModulus, modulus);
+    maxElasticModulus = Math.max(maxElasticModulus, modulus);
+  }
+  if (maxElasticModulus / minElasticModulus >= 1e3) f.add('strongElasticModulusContrast');
   if (massCarriers.some(carrier => {
     if (typeof carrier?.materialId !== 'number') return false;
     const rho = materials.get(carrier.materialId)?.rho;
@@ -516,6 +525,17 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
 
   const connectors = values(s.connectors);
   if (connectors.length) f.add('connectors');
+  if (f.has('trussMembers') && !f.has('contactElements') && !constraints.length && !connectors.length
+    && !f.has('shells') && !f.has('arcMembers') && !s.quad9s?.length && !s.curvedShells?.length) {
+    const incident = new Map<number, number>();
+    for (const { nodeI, nodeJ } of elements) {
+      for (const node of [nodeI, nodeJ]) incident.set(node, (incident.get(node) ?? 0) + 1);
+    }
+    if (elements.some(e => (e.type === 'truss' || e.type === 'cable')
+      && [e.nodeI, e.nodeJ].some(node => incident.get(node) === 1 && !supportedNodes.has(node)))) {
+      f.add('unrestrainedAxialTip');
+    }
+  }
   if (connectors.some((c) => positive(c.kShear) || positive(c.kShearZ))) f.add('connectorsWithShear');
 
   if (f.has('space3D') && elements.some(e => e.behaviour === 'inactive')) f.add('inactiveSpatialMembers');
@@ -773,6 +793,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
 
   // Analyses: what the stamp recorded, plus what the model itself implies; nothing recorded: all.
   const run = ctx.analysesRun;
+  if (run?.includes('harmonic')) f.add('recordedHarmonic');
   if (run == null) {
     for (const k of ANALYSIS_KINDS) f.add(`analysis:${k}`);
   } else {

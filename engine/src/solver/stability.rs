@@ -2,8 +2,10 @@ use crate::linalg::sparse::CscMatrix;
 use crate::linalg::sparse_chol::{numeric_cholesky, sparse_cholesky_solve, symbolic_cholesky, SymbolicCholesky};
 use crate::solver::dof::DofNumbering;
 use crate::types::*;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
+
+mod planar_frame_swing;
 
 pub(crate) fn has_member_releases_2d(input: &SolverInput) -> bool {
     input.elements.values().any(|e| e.hinge_start || e.hinge_end)
@@ -451,6 +453,158 @@ pub(crate) struct ReleasedRotations {
     pub rows: Vec<Vec<(usize, f64)>>,
     nodes: std::collections::BTreeSet<usize>,
     directions: Vec<(usize, Vec<(usize, f64, f64)>)>,
+    translation_mechanisms: Vec<TranslationMechanism>,
+}
+
+struct TranslationMechanism {
+    nodes: Vec<usize>,
+    dofs: Vec<usize>,
+}
+
+impl TranslationMechanism {
+    fn project(&self, transform: &super::constraints::SparseTransform) -> Option<Self> {
+        let dofs = self.dofs.iter().map(|&row| transform.isolated_unit_column(row))
+            .collect::<Option<Vec<_>>>()?;
+        Some(Self { nodes: self.nodes.clone(), dofs })
+    }
+}
+
+fn unrestrained_member_tips(
+    dof: &DofNumbering, components: usize,
+    members: impl Iterator<Item = (usize, usize, bool, bool)>,
+    mut attached: BTreeSet<usize>,
+) -> Vec<TranslationMechanism> {
+    let mut seen = BTreeSet::new();
+    let mut candidates = BTreeSet::new();
+    for (i, j, free_i, free_j) in members {
+        for (node, free) in [(i, free_i), (j, free_j)] {
+            if !seen.insert(node) {
+                attached.insert(node);
+            }
+            if free {
+                candidates.insert(node);
+            }
+        }
+    }
+    candidates.difference(&attached).filter_map(|&node| {
+        let dofs = (0..components)
+            .map(|local| dof.global_dof(node, local).filter(|&index| index < dof.n_free))
+            .collect::<Option<Vec<_>>>()?;
+        Some(TranslationMechanism { nodes: vec![node], dofs })
+    }).collect()
+}
+
+fn has_spring<const N: usize>(dofs: [super::support::SupportDof; N]) -> bool {
+    dofs.iter().any(|d| d.spring.is_some_and(|value| value != 0.0))
+}
+
+fn axial_member(kind: &str) -> bool {
+    matches!(kind, "truss" | "cable")
+}
+
+fn axial_tips_2d(
+    input: &SolverInput, dof: &DofNumbering, extra: impl Iterator<Item = usize>,
+) -> Vec<TranslationMechanism> {
+    if !input.elements.values().any(|element| axial_member(&element.elem_type)) { return Vec::new(); }
+    let attached = extra.chain(input.connectors.values().flat_map(|e| [e.node_i, e.node_j]))
+        .chain(input.supports.values().filter_map(|support| {
+            super::support::support_dofs_2d(support)[..2].iter()
+                .any(|dof| dof.spring.is_some_and(|k| k != 0.0)).then_some(support.node_id)
+        })).collect();
+    let members = input.elements.values().map(|element| {
+        let axial = axial_member(&element.elem_type);
+        (element.node_i, element.node_j, axial, axial)
+    });
+    unrestrained_member_tips(dof, 2, members, attached)
+}
+
+fn axial_tips_3d(
+    input: &SolverInput3D, dof: &DofNumbering, extra: impl Iterator<Item = usize>,
+) -> Vec<TranslationMechanism> {
+    if !input.elements.values().any(|element| axial_member(&element.elem_type)) { return Vec::new(); }
+    let attached = extra.chain(non_member_attachments_3d(input))
+        .chain(input.supports.values().filter_map(|support| {
+            super::support::support_dofs_3d(support)[..3].iter()
+                .any(|dof| dof.spring.is_some_and(|k| k != 0.0)).then_some(support.node_id)
+        })).collect();
+    let members = input.elements.values().map(|element| {
+        let axial = axial_member(&element.elem_type);
+        (element.node_i, element.node_j, axial, axial)
+    });
+    unrestrained_member_tips(dof, 3, members, attached)
+}
+
+pub(super) fn refuse_axial_tips_2d(
+    input: &SolverInput, dof: &DofNumbering,
+    constraints: Option<&super::constraints::FreeConstraintSystem>, extra: impl Iterator<Item = usize>,
+) -> Result<(), String> {
+    refuse_projected_mechanisms(axial_tips_2d(input, dof, extra), constraints)
+}
+
+pub(super) fn refuse_axial_tips_3d(
+    input: &SolverInput3D, dof: &DofNumbering,
+    constraints: Option<&super::constraints::FreeConstraintSystem>, extra: impl Iterator<Item = usize>,
+) -> Result<(), String> {
+    refuse_projected_mechanisms(axial_tips_3d(input, dof, extra), constraints)
+}
+
+fn refuse_projected_mechanisms(
+    mechanisms: Vec<TranslationMechanism>, constraints: Option<&super::constraints::FreeConstraintSystem>,
+) -> Result<(), String> {
+    let mechanisms = if let Some(constraints) = constraints {
+        mechanisms.iter().filter_map(|m| m.project(&constraints.c_ff)).collect()
+    } else {
+        mechanisms
+    };
+    translation_mechanism_stability(&mechanisms).and_then(|s| s.refusal()).map_or(Ok(()), Err)
+}
+
+fn translation_mechanism_stability(mechanisms: &[TranslationMechanism]) -> Option<Stability> {
+    (!mechanisms.is_empty()).then(|| Stability {
+        verdict: Verdict::Mechanism,
+        reason: Reason::FreeTranslation,
+        kappa: f64::INFINITY,
+        anisotropy: 1.0,
+        free: Vec::new(),
+        mode_nodes: mechanisms.iter().flat_map(|m| m.nodes.iter().copied())
+            .collect::<BTreeSet<_>>().into_iter().collect(),
+    })
+}
+
+pub(crate) fn elastic_releases_2d(input: &SolverInput, dof: &DofNumbering) -> ReleasedRotations {
+    let mut mechanisms = axial_tips_2d(input, dof, std::iter::empty());
+    if dof.dofs_per_node == 3 {
+        mechanisms.extend(planar_frame_swing::find_swings(input, dof));
+    }
+    ReleasedRotations { translation_mechanisms: mechanisms, ..ReleasedRotations::default() }
+}
+
+fn non_member_attachments_3d(input: &SolverInput3D) -> impl Iterator<Item = usize> + '_ {
+    input.curved_beams.iter().flat_map(|e| [e.node_start, e.node_mid, e.node_end])
+        .chain(input.connectors.values().flat_map(|e| [e.node_i, e.node_j]))
+        .chain(input.plates.values().flat_map(|e| e.nodes))
+        .chain(input.quads.values().flat_map(|e| e.nodes))
+        .chain(input.quad9s.values().flat_map(|e| e.nodes))
+        .chain(input.curved_shells.values().flat_map(|e| e.nodes))
+        .chain(input.solid_shells.values().flat_map(|e| e.nodes))
+}
+
+pub(crate) fn elastic_releases_3d(input: &SolverInput3D, dof: &DofNumbering) -> ReleasedRotations {
+    let mut releases = released_rotations_3d(input, dof);
+    releases.translation_mechanisms = axial_tips_3d(input, dof, std::iter::empty());
+    if dof.dofs_per_node == 6 && has_member_releases_3d(input) {
+        let attached = non_member_attachments_3d(input)
+            .chain(input.supports.values().filter_map(|support| {
+                has_spring(super::support::support_dofs_3d(support)).then_some(support.node_id)
+            })).collect();
+        let members = input.elements.values().map(|e| {
+            let frame = e.elem_type == "frame";
+            (e.node_i, e.node_j, frame && (e.release_my_end || e.release_mz_end),
+                frame && (e.release_my_start || e.release_mz_start))
+        });
+        releases.translation_mechanisms.extend(unrestrained_member_tips(dof, dof.dofs_per_node, members, attached));
+    }
+    releases
 }
 
 struct ReleasedVector {
@@ -581,7 +735,8 @@ impl ReleasedRotations {
             }
             Some((*node, projected))
         }).collect();
-        Self { rows, nodes: self.nodes.clone(), directions }
+        let translation_mechanisms = self.translation_mechanisms.iter().filter_map(|swing| swing.project(c)).collect();
+        Self { rows, nodes: self.nodes.clone(), directions, translation_mechanisms }
     }
 }
 
@@ -607,17 +762,7 @@ pub(crate) fn released_rotations_3d(input: &SolverInput3D, dof: &DofNumbering) -
             }
         }
     }
-    for e in &input.curved_beams {
-        for node in [e.node_start, e.node_mid, e.node_end] { released.remove(&node); }
-    }
-    for e in input.connectors.values() { released.remove(&e.node_i); released.remove(&e.node_j); }
-    for ids in input.plates.values().map(|e| e.nodes.to_vec())
-        .chain(input.quads.values().map(|e| e.nodes.to_vec()))
-        .chain(input.quad9s.values().map(|e| e.nodes.to_vec()))
-        .chain(input.curved_shells.values().map(|e| e.nodes.to_vec()))
-        .chain(input.solid_shells.values().map(|e| e.nodes.to_vec())) {
-        for node in ids { released.remove(&node); }
-    }
+    for node in non_member_attachments_3d(input) { released.remove(&node); }
     for support in input.supports.values() {
         for (i, spring) in [support.krx, support.kry, support.krz].into_iter().enumerate() {
             if spring.is_some_and(|k| k != 0.0) {
@@ -636,7 +781,36 @@ pub(crate) fn released_rotations_3d(input: &SolverInput3D, dof: &DofNumbering) -
             rows.push(row);
         }
     }
-    ReleasedRotations { rows, nodes: released, directions }
+    ReleasedRotations { rows, nodes: released, directions, ..ReleasedRotations::default() }
+}
+
+pub(super) fn isolated_released_rotations_3d(
+    input: &SolverInput3D,
+    dof: &DofNumbering,
+) -> Vec<Vec<(usize, f64, f64)>> {
+    if !has_member_releases_3d(input) {
+        return Vec::new();
+    }
+    let releases = released_rotations_3d(input, dof);
+    let mut incidence = BTreeMap::<usize, usize>::new();
+    for element in input.elements.values() {
+        for node in [element.node_i, element.node_j] {
+            *incidence.entry(node).or_default() += 1;
+        }
+    }
+    let mut blocked = super::assembly::constraint_nodes(&input.constraints);
+    for support in input.supports.values() {
+        if super::support::support_dofs_3d(support)[3..6]
+            .iter()
+            .any(|d| d.spring.is_some_and(|k| k != 0.0))
+        {
+            blocked.insert(support.node_id);
+        }
+    }
+    releases.directions.into_iter().filter_map(|(node, axis)| {
+        (releases.nodes.contains(&node) && incidence.get(&node) == Some(&1)
+            && !blocked.contains(&node) && axis.len() == 3).then_some(axis)
+    }).collect()
 }
 
 struct Column { group: usize, w: Vec<f64> }
@@ -741,6 +915,9 @@ pub(crate) fn analyze_coupled_with_rounding(k: &CscMatrix, tags: &[DofTag], move
     let n = k.n;
     if k.values.iter().any(|v| !v.is_finite()) {
         return non_finite();
+    }
+    if let Some(mechanism) = translation_mechanism_stability(&releases.translation_mechanisms) {
+        return mechanism;
     }
     let diagonal_rounding = rounding.map(CscMatrix::diagonal);
     for (i, value) in k.diagonal().into_iter().enumerate() {
@@ -1323,6 +1500,7 @@ pub(crate) fn analyze_excluding(
     let coupling: Vec<_> = coupling.iter().filter_map(|&(i, j)| Some((map.get(i).copied().flatten()?, map.get(j).copied().flatten()?))).collect();
     let remap = |row: &Vec<(usize, f64)>| row.iter().filter_map(|&(i, v)| map.get(i).copied().flatten().map(|j| (j, v))).collect();
     let releases = ReleasedRotations {
+        translation_mechanisms: releases.translation_mechanisms.iter().filter_map(|swing| swing.project(&selection)).collect(),
         rows: releases.rows.iter().map(remap).collect(), nodes: releases.nodes.clone(),
         directions: releases.directions.iter().map(|(node,row)| (*node,row.iter().filter_map(|&(i,v,e)|map.get(i).copied().flatten().map(|j|(j,v,e))).collect())).collect(),
     };
@@ -1393,7 +1571,7 @@ pub fn of_2d(input: &SolverInput) -> Result<Stability, String> {
     let dof = DofNumbering::build_2d(input);
     let asm = crate::solver::assembly::without_artificial_stiffness(|| crate::solver::assembly::assemble_2d(input, &dof));
     let fcs = crate::solver::constraints::FreeConstraintSystem::build_2d(input, &dof)?;
-    Ok(of_assembled(&asm.k, &dof, true, fcs, &coupling_2d(input, &dof), &ReleasedRotations::default()))
+    Ok(of_assembled(&asm.k, &dof, true, fcs, &coupling_2d(input, &dof), &elastic_releases_2d(input, &dof)))
 }
 
 pub fn of_3d(input: &SolverInput3D) -> Result<Stability, String> {
@@ -1401,7 +1579,7 @@ pub fn of_3d(input: &SolverInput3D) -> Result<Stability, String> {
     let dof = DofNumbering::build_3d(input);
     let asm = crate::solver::assembly::without_artificial_stiffness(|| crate::solver::assembly::assemble_3d(input, &dof));
     let fcs = crate::solver::constraints::FreeConstraintSystem::build_3d(input, &dof)?;
-    Ok(of_assembled(&asm.k, &dof, false, fcs, &coupling_3d(input, &dof), &released_rotations_3d(input, &dof)))
+    Ok(of_assembled(&asm.k, &dof, false, fcs, &coupling_3d(input, &dof), &elastic_releases_3d(input, &dof)))
 }
 
 #[cfg(test)]
@@ -1421,7 +1599,7 @@ mod tests {
         let c = crate::solver::constraints::SparseTransform::from_rows(n, n, (0..n).map(|i| vec![(i, 1.0)]).collect());
         for count in [0, 1, 64] {
             let directions: Vec<_> = (0..count).map(|node| (node, vec![(3*node, 0.6, f64::EPSILON), (3*node+1, 0.8, f64::EPSILON), (3*node+2, 0.0, 0.0)])).collect();
-            let releases = ReleasedRotations { rows: vec![], nodes: (0..count).collect(), directions: directions.clone() };
+            let releases = ReleasedRotations { rows: vec![], nodes: (0..count).collect(), directions: directions.clone(), ..ReleasedRotations::default() };
             PROJECT_ROWS.with(|visits| visits.set(0));
             let result = releases.project(&c);
             for (actual, expected) in result.directions.iter().zip(&directions) {
@@ -1473,7 +1651,7 @@ mod tests {
                     Some(projected.into_iter().filter_map(|(j, (x, e))| (x != 0.0 || e != 0.0).then_some((j, x, e))).collect::<Vec<_>>())
                 };
                 let expected = dense();
-                let releases = ReleasedRotations { rows: vec![vec![(0, 1.0)]], nodes: [1].into(), directions: vec![(1, source)] };
+                let releases = ReleasedRotations { rows: vec![vec![(0, 1.0)]], nodes: [1].into(), directions: vec![(1, source)], ..ReleasedRotations::default() };
                 let actual = releases.project(&c);
                 assert_eq!(actual.directions.first().map(|(_, v)| v.clone()), expected);
                 assert_eq!(actual.nodes, releases.nodes);
@@ -1499,6 +1677,7 @@ mod tests {
                 rows: vec![ex.into_iter().enumerate().collect()],
                 nodes: [1].into_iter().collect(),
                 directions: [(ey,bounds[1]),(y,other[1]),(ez,bounds[2]),(z,other[2])].into_iter().map(|(v,e)|(1,(0..3).map(|i|(i,v[i],e[i])).collect())).collect(),
+                ..ReleasedRotations::default()
             };
             let v: Vec<_> = (0..3).map(|i|0.8*ey[i]+0.6*ez[i]).collect();
             let direction = releases.canonical(1,&[0,1,2],&v,2,ROUNDING*3.0*f64::EPSILON).unwrap_or_else(||panic!("angle {angle}"));
@@ -1587,6 +1766,7 @@ mod tests {
             rows: (1..n).map(|i| vec![(i, 1.0)]).collect(),
             nodes: [7].into_iter().collect(),
             directions: vec![(7, vec![(0, 1.0, 0.0)])],
+            ..ReleasedRotations::default()
         };
         assert!(releases.permits(7, &(0..n).collect::<Vec<_>>(), &{
             let mut axis = vec![0.0; n];
@@ -1623,6 +1803,7 @@ mod tests {
                 rows: (1..n).map(|i| vec![(i, 1.0)]).collect(),
                 nodes: [7].into_iter().collect(),
                 directions: vec![(7, vec![(0, 1.0, 0.0)])],
+                ..ReleasedRotations::default()
             };
             let tags = vec![DofTag { node: 7, kind: DofKind::Rotation }; n];
             let result = analyze_dense_with_coupling(&k, n, &tags, &[], &releases);
@@ -1692,6 +1873,7 @@ mod tests {
             rows: vec![vec![(0, 1.0), (1, 1.0)], vec![(2, 1.0)]],
             nodes: [1].into_iter().collect(),
             directions: vec![(1, vec![(0, 1.0, 0.0), (1, -1.0, 0.0)])],
+            ..ReleasedRotations::default()
         };
         let result = analyze_dense_with_coupling(&k, 3, &tags, &[], &releases);
         assert_eq!(result.verdict, Verdict::Stable, "{result:?}");
