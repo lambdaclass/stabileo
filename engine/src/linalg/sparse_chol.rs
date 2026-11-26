@@ -1480,6 +1480,10 @@ mod tests {
 /// refused, never regularized: callers may move their spectral shift and retry.
 /// Storage is O(nnz(L) + n), with no dense matrix allocation.
 pub fn sparse_negative_inertia(sym: &SymbolicCholesky, a: &CscMatrix) -> Option<usize> {
+    unpivoted_ldl(sym, a).map(|(negative, _, _)| negative)
+}
+
+fn unpivoted_ldl(sym: &SymbolicCholesky, a: &CscMatrix) -> Option<(usize, Vec<f64>, Vec<f64>)> {
     if !sym.fits(a) { return None; }
     let n = a.n;
     const NONE: usize = usize::MAX;
@@ -1490,6 +1494,12 @@ pub fn sparse_negative_inertia(sym: &SymbolicCholesky, a: &CscMatrix) -> Option<
     let mut first = vec![NONE; n];
     let mut after = vec![NONE; n];
     let mut waiting = Vec::new();
+    let mut supernode = vec![0usize; n];
+    for (t, &start) in sym.snode_start.iter().enumerate() {
+        let end = sym.snode_start.get(t + 1).copied().unwrap_or(n);
+        supernode[start..end].fill(t);
+    }
+    let mut sources: Vec<(usize, f64)> = Vec::with_capacity(4);
     let wait = |k: usize, pos: usize, row_now: usize, first: &mut [usize], after: &mut [usize], next: &mut [usize]| -> Option<()> {
         if pos == sym.l_col_ptr[k+1] { return Some(()); }
         let row = sym.l_row_idx[pos];
@@ -1512,12 +1522,22 @@ pub fn sparse_negative_inertia(sym: &SymbolicCholesky, a: &CscMatrix) -> Option<
         // Ascending, so that the updates are summed in the order of the columns.
         waiting.sort_unstable();
         let mut scale = x[j].abs();
-        for &k in &waiting {
+        let mut at = 0;
+        while at < waiting.len() {
+            let k = waiting[at];
             let pos = next[k];
-            let factor = d[k] * l[pos];
-            scale += (factor * l[pos]).abs();
-            for p in pos..sym.l_col_ptr[k+1] { x[sym.l_row_idx[p]] -= factor * l[p]; }
-            wait(k, pos + 1, j, &mut first, &mut after, &mut next)?;
+            sources.clear();
+            while sources.len() < 4 && waiting.get(at) == Some(&(k + sources.len())) && supernode[k + sources.len()] == supernode[k] {
+                let entry = next[k + sources.len()];
+                let factor = d[k + sources.len()] * l[entry];
+                scale += (factor * l[entry]).abs();
+                sources.push((entry, factor));
+                at += 1;
+            }
+            subtract_scattered(&mut x, &sym.l_row_idx[pos..sym.l_col_ptr[k+1]], &l, &sources);
+            for (column, &(entry, _)) in (k..).zip(&sources) {
+                wait(column, entry + 1, j, &mut first, &mut after, &mut next)?;
+            }
         }
         let pivot = x[j];
         if !pivot.is_finite() || pivot.abs() <= 64.0 * f64::EPSILON * scale.max(f64::MIN_POSITIVE) { return None; }
@@ -1530,12 +1550,214 @@ pub fn sparse_negative_inertia(sym: &SymbolicCholesky, a: &CscMatrix) -> Option<
         }
         wait(j, range.start + 1, j, &mut first, &mut after, &mut next)?;
     }
-    Some(negative)
+    Some((negative, d, l))
 }
+
+/// Subtracts from `x`, at `rows`, each source column times its factor, the sources in the order
+/// given: every entry takes the subtractions one after another in that order. A source is
+/// `(start, factor)`, its column at `values[start..]`, and all of them lie on `rows`.
+#[inline]
+fn subtract_scattered(x: &mut [f64], rows: &[usize], values: &[f64], sources: &[(usize, f64)]) {
+    let column = |source: &(usize, f64)| (&values[source.0..][..rows.len()], source.1);
+    match sources {
+        [s0, s1, s2, s3] => {
+            let ((a, ua), (b, ub), (c, uc), (d, ud)) = (column(s0), column(s1), column(s2), column(s3));
+            for ((((&row, &a), &b), &c), &d) in rows.iter().zip(a).zip(b).zip(c).zip(d) {
+                let mut value = x[row];
+                value -= ua * a;
+                value -= ub * b;
+                value -= uc * c;
+                value -= ud * d;
+                x[row] = value;
+            }
+        }
+        [s0, s1, rest @ ..] => {
+            let ((a, ua), (b, ub)) = (column(s0), column(s1));
+            for ((&row, &a), &b) in rows.iter().zip(a).zip(b) {
+                let mut value = x[row];
+                value -= ua * a;
+                value -= ub * b;
+                x[row] = value;
+            }
+            for source in rest {
+                let (c, uc) = column(source);
+                for (&row, &c) in rows.iter().zip(c) {
+                    x[row] -= uc * c;
+                }
+            }
+        }
+        [s0] => {
+            let (a, ua) = column(s0);
+            for (&row, &a) in rows.iter().zip(a) {
+                x[row] -= ua * a;
+            }
+        }
+        [] => {}
+    }
+}
+
 
 #[cfg(test)]
 mod inertia_tests {
     use super::*;
+
+    /// The factorization with every source column subtracted by itself, as it was first written.
+    fn unpivoted_ldl_a_column_at_a_time(sym: &SymbolicCholesky, a: &CscMatrix) -> Option<(usize, Vec<f64>, Vec<f64>)> {
+        if a.n != sym.n || structural_fingerprint(a) != sym.pa_fingerprint { return None; }
+        let n = a.n;
+        let mut l = vec![0.0f64; sym.l_nnz];
+        let mut d = vec![0.0; n];
+        let mut x = vec![0.0; n];
+        let mut contributors = vec![Vec::new(); n];
+        for j in 0..n {
+            for p in sym.l_col_ptr[j]+1..sym.l_col_ptr[j+1] {
+                contributors[sym.l_row_idx[p]].push((j,p));
+            }
+        }
+        let mut negative = 0;
+        for j in 0..n {
+            let range = sym.l_col_ptr[j]..sym.l_col_ptr[j+1];
+            for p in range.clone() { x[sym.l_row_idx[p]] = 0.0; }
+            for p in sym.pa_col_ptr[j]..sym.pa_col_ptr[j+1] {
+                x[sym.pa_row_idx[p]] = a.values[sym.pa_src[p]];
+            }
+            let mut scale = x[j].abs();
+            for &(k, pos) in &contributors[j] {
+                let factor = d[k] * l[pos];
+                scale += (factor * l[pos]).abs();
+                for p in pos..sym.l_col_ptr[k+1] { x[sym.l_row_idx[p]] -= factor * l[p]; }
+            }
+            let pivot = x[j];
+            if !pivot.is_finite() || pivot.abs() <= 64.0 * f64::EPSILON * scale.max(f64::MIN_POSITIVE) { return None; }
+            d[j] = pivot;
+            negative += usize::from(pivot < 0.0);
+            l[range.start] = 1.0;
+            for p in range.start+1..range.end {
+                l[p] = x[sym.l_row_idx[p]] / pivot;
+                if !l[p].is_finite() { return None; }
+            }
+        }
+        Some((negative, d, l))
+    }
+
+    fn same_bits(now: Option<(usize, Vec<f64>, Vec<f64>)>, before: Option<(usize, Vec<f64>, Vec<f64>)>, context: &str) -> usize {
+        assert_eq!(now.is_some(), before.is_some(), "{context}");
+        let (Some(now), Some(before)) = (now, before) else { return 0 };
+        assert_eq!(now.0, before.0, "{context}");
+        for (now, before) in [(&now.1, &before.1), (&now.2, &before.2)] {
+            assert_eq!(now.len(), before.len(), "{context}");
+            assert!(now.iter().zip(before).all(|(a, b)| a.to_bits() == b.to_bits()), "{context}");
+        }
+        now.2.len()
+    }
+
+    #[test]
+    fn the_factor_has_the_bits_of_a_source_column_at_a_time() {
+        let mut state = 0xA24BAED4963EE407u64;
+        let mut unit = || {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            (state >> 11) as f64 / (1u64 << 53) as f64
+        };
+        let (mut compared, mut refused, mut negative, mut wide) = (0, 0, 0, 0);
+        for case in 0..80 {
+            let n = 1 + (case * 37) % 420;
+            let block = [1usize, 2, 3, 6, 9][case % 5];
+            let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+            let mut diagonal = vec![0.0f64; n];
+            for j in 0..n {
+                let node = j / block;
+                for other in [node, node + 1, node + 9, node + 9 * 7] {
+                    for d in 0..block {
+                        let i = other * block + d;
+                        if i > j && i < n && unit() < 0.8 {
+                            let v = 2.0 * unit() - 1.0;
+                            rows.push(i); cols.push(j); vals.push(v);
+                            diagonal[i] += v.abs();
+                            diagonal[j] += v.abs();
+                        }
+                    }
+                }
+            }
+            let shift = [0.0, 0.6, 1.0, 1.4][case % 4];
+            for (j, sum) in diagonal.iter().enumerate() {
+                rows.push(j); cols.push(j); vals.push(sum * (1.0 + 0.5 * unit() - shift) + 1e-3);
+            }
+            let matrix = CscMatrix::from_triplets(n, &rows, &cols, &vals);
+            let symbolic = symbolic_cholesky(&matrix);
+            wide += usize::from((0..symbolic.snode_start.len()).any(|t| symbolic.snode_start.get(t + 1).copied().unwrap_or(n) - symbolic.snode_start[t] >= 9));
+            let now = unpivoted_ldl(&symbolic, &matrix);
+            negative += usize::from(now.as_ref().is_some_and(|factor| factor.0 > 0));
+            compared += same_bits(now, unpivoted_ldl_a_column_at_a_time(&symbolic, &matrix), &format!("case {case}, order {n}, block {block}"));
+            for value in [0.0, f64::NAN, f64::INFINITY, f64::MAX, 1e-300] {
+                let mut broken = matrix.clone();
+                let column = (case * 13) % n;
+                let at = (broken.col_ptr[column]..broken.col_ptr[column + 1]).find(|&q| broken.row_idx[q] == column).expect("a diagonal entry");
+                broken.values[at] = value;
+                let now = unpivoted_ldl(&symbolic, &broken);
+                refused += usize::from(now.is_none());
+                same_bits(now, unpivoted_ldl_a_column_at_a_time(&symbolic, &broken), &format!("case {case} with {value:?} on the diagonal"));
+            }
+        }
+        assert!(compared > 300_000 && refused > 50 && negative > 20 && wide > 10, "{compared} entries compared, {refused} refused, {negative} with negative pivots, {wide} with a wide supernode");
+    }
+
+    #[test]
+    fn a_dense_factor_has_the_bits_of_a_source_column_at_a_time_after_extreme_values() {
+        for n in [2, 5, 8, 33] {
+            let (mut rows, mut cols, mut values) = (Vec::new(), Vec::new(), Vec::new());
+            for j in 0..n {
+                for i in j..n {
+                    rows.push(i);
+                    cols.push(j);
+                    values.push(if i == j { if j % 3 == 0 { -(n as f64) } else { n as f64 } } else { ((i * 17 + j * 31) % 23) as f64 / 23.0 - 0.5 });
+                }
+            }
+            let matrix = CscMatrix::from_triplets(n, &rows, &cols, &values);
+            let symbolic = symbolic_cholesky_with_perm(&matrix, &(0..n).collect::<Vec<_>>());
+            assert_eq!(symbolic.snode_start, vec![0]);
+            for value in [0.0, -0.0, 1e-300, -1.0, f64::MAX, f64::INFINITY, f64::NEG_INFINITY, f64::NAN] {
+                for at in [0, 1, matrix.col_ptr[n / 2], matrix.col_ptr[n / 2] + 1, matrix.values.len() - 1] {
+                    let mut changed = matrix.clone();
+                    changed.values[at.min(matrix.values.len() - 1)] = value;
+                    for input in [&changed, &matrix] {
+                        same_bits(unpivoted_ldl(&symbolic, input), unpivoted_ldl_a_column_at_a_time(&symbolic, input), &format!("order {n}, {value:?} at {at}"));
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_pivot_at_the_threshold_is_refused_as_with_a_source_column_at_a_time() {
+        for n in [3, 4, 5, 6, 9, 14] {
+            let (mut rows, mut cols, mut values) = (Vec::new(), Vec::new(), Vec::new());
+            for j in 0..n {
+                for i in j..n {
+                    rows.push(i);
+                    cols.push(j);
+                    values.push(if i == j { 2.0 + j as f64 } else { ((i * 17 + j * 31) % 23) as f64 / 23.0 - 0.5 });
+                }
+            }
+            let matrix = CscMatrix::from_triplets(n, &rows, &cols, &values);
+            let symbolic = symbolic_cholesky_with_perm(&matrix, &(0..n).collect::<Vec<_>>());
+            assert_eq!(symbolic.snode_start, vec![0]);
+            let last = matrix.values.len() - 1;
+            let pivot = unpivoted_ldl_a_column_at_a_time(&symbolic, &matrix).expect("resolved pivots").1[n - 1];
+            let cancelled = matrix.values[last] - pivot;
+            let (mut refused, mut accepted) = (0, 0);
+            for step in 1..2000 {
+                let mut changed = matrix.clone();
+                changed.values[last] = cancelled + step as f64 * f64::EPSILON * cancelled.abs();
+                let now = unpivoted_ldl(&symbolic, &changed);
+                if now.is_some() { accepted += 1 } else { refused += 1 }
+                same_bits(now, unpivoted_ldl_a_column_at_a_time(&symbolic, &changed), &format!("order {n}, step {step}"));
+            }
+            assert!(refused > 20 && accepted > 20, "order {n}: {refused} refused, {accepted} accepted");
+        }
+    }
+
     #[test]
     fn inertia_matches_dense_spectrum() {
         for n in [3, 17, 81] {
