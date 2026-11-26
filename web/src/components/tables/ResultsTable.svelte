@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { memberEndSections2D } from '../../lib/engine/diagrams';
-  import { memberEndComponents3D } from '../../lib/engine/diagrams-3d';
+  import { memberEndDisplay2D } from '../../lib/engine/diagrams';
+  import { memberEndDisplay3D } from '../../lib/engine/diagrams-3d';
   import { resultComponents } from '../../lib/axes/result-components';
   import { axesStore } from '../../lib/axes/axes.svelte';
   const components = $derived(resultComponents(axesStore.frame, uiStore.is3DWorkspace ? resultsStore.results3D : resultsStore.results));
@@ -182,7 +182,7 @@
         </thead>
         <tbody>
           {#each resultsStore.results3D.elementForces as ef}
-            {@const [i, j] = memberEndComponents3D(ef)}
+            {@const [i, j] = memberEndDisplay3D(ef)}
             <tr>
               <td class="id-cell">{ef.elementId}</td>
               <td class="num">{frc(i.n, 2)}</td>
@@ -191,12 +191,12 @@
               <td class="num">{frc(j.vy, 2)}</td>
               <td class="num">{frc(i.vz, 2)}</td>
               <td class="num">{frc(j.vz, 2)}</td>
-              <td class="num">{mom(-i.mx, 2)}</td>
-              <td class="num">{mom(-j.mx, 2)}</td>
-              <td class="num">{mom(-i.my, 2)}</td>
-              <td class="num">{mom(-j.my, 2)}</td>
-              <td class="num">{mom(-i.mz, 2)}</td>
-              <td class="num">{mom(-j.mz, 2)}</td>
+              <td class="num">{mom(i.mx, 2)}</td>
+              <td class="num">{mom(j.mx, 2)}</td>
+              <td class="num">{mom(i.my, 2)}</td>
+              <td class="num">{mom(j.my, 2)}</td>
+              <td class="num">{mom(i.mz, 2)}</td>
+              <td class="num">{mom(j.mz, 2)}</td>
             </tr>
           {/each}
         </tbody>
@@ -246,15 +246,15 @@
         </thead>
         <tbody>
           {#each resultsStore.results.elementForces as ef}
-            {@const [i, j] = memberEndSections2D(ef)}
+            {@const [i, j] = memberEndDisplay2D(ef)}
             <tr>
               <td class="id-cell">{ef.elementId}</td>
               <td class="num">{frc(i.n)}</td>
               <td class="num">{frc(j.n)}</td>
               <td class="num">{frc(i.v)}</td>
               <td class="num">{frc(j.v)}</td>
-              <td class="num">{mom(-i.m)}</td>
-              <td class="num">{mom(-j.m)}</td>
+              <td class="num">{mom(i.m)}</td>
+              <td class="num">{mom(j.m)}</td>
             </tr>
           {/each}
         </tbody>

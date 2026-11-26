@@ -278,8 +278,23 @@ function criticalEnvelopeStations(sources: readonly Source[], opts: TableOptions
       : [memberSectionStation(station)])]));
 }
 
+function requireEnvelopeMemberCoverage(sources: readonly Source[], entities: TableOptions['entities']): void {
+  let expected: Set<number> | undefined;
+  for (const { results } of sources) {
+    const present = new Set<number>();
+    for (const { elementId } of results.elementForces) {
+      if (entities && !entities.has(elementId)) continue;
+      if (present.has(elementId) || (expected && !expected.has(elementId))) throw unavailableDiagramExtrema();
+      present.add(elementId);
+    }
+    if (expected && present.size !== expected.size) throw unavailableDiagramExtrema();
+    expected ??= present;
+  }
+}
+
 /** For each node or member end (or station), the largest and smallest value of each column over the sources. */
 export function envelopeRows(kind: TableKind, sources: readonly Source[], opts: TableOptions): EnvelopeRow[] {
+  if (kind === 'forces') requireEnvelopeMemberCoverage(sources, opts.entities);
   const byKey = new Map<number | string, EnvelopeRow>();
   const critical = opts.stations === 'critical';
   const spec = opts.stations ?? 2;

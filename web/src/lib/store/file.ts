@@ -1,4 +1,4 @@
-import { memberEndSections2D } from '../engine/diagrams';
+import { memberEndComponents2D } from '../engine/diagrams';
 import { memberEndComponents3D } from '../engine/diagrams-3d';
 import { resultComponents } from '../axes/result-components';
 import { exportMessages, warningImage, warningCanvas } from '../export/containment';
@@ -839,7 +839,7 @@ export function exportResultsCSV(solveError?: string, record?: ResultProvenance)
     lines.push(`# ${t('file.internalForces')}`);
     lines.push(`${t('file.element')},N_i (kN),N_j (kN),V_i (kN),V_j (kN),M_i (kN·m),M_j (kN·m),L (m),qI (kN/m),qJ (kN/m)`);
     for (const f of r2d.elementForces) {
-      const [i, j] = memberEndSections2D(f);
+      const [i, j] = memberEndComponents2D(f);
       lines.push([f.elementId, i.n, j.n, i.v, j.v, i.m, j.m, f.length, f.qI, f.qJ].join(','));
     }
   }

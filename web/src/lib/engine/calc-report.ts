@@ -1,6 +1,6 @@
 import { bindMemberEnvelopeEnds, unavailableDiagramExtrema } from './member-diagram';
 import { maxMemberForce } from './member-force-extrema';
-import { memberEndSections2D } from './diagrams';
+import { memberEndComponents2D } from './diagrams';
 import { memberEndComponents3D } from './diagrams-3d';
 import { resultComponents } from '../axes/result-components';
 /**
@@ -514,7 +514,6 @@ function buildForcesSection(data: CalcReportData, num = '5'): string {
   if (data.is3D && data.results3D) {
     const forces = data.results3D.elementForces;
     // Summary
-    if (data.provenance.kind === 'envelope' && !data.envelope3D) throw unavailableDiagramExtrema();
     const maxN = maxMemberForce(forces, 'axial');
     const maxVy = maxMemberForce(forces, 'shearY');
     const maxVz = maxMemberForce(forces, 'shearZ');
@@ -546,7 +545,6 @@ function buildForcesSection(data: CalcReportData, num = '5'): string {
     if (condensed) h.push(`<p class="table-note">${esc(tp('calcReport.showingForces', { n: forces.length }))}</p>`);
   } else if (data.results2D) {
     const forces = data.results2D.elementForces;
-    if (data.provenance.kind === 'envelope' && !data.envelope2D) throw unavailableDiagramExtrema();
     const maxN = maxMemberForce(forces, 'axial');
     const maxV = maxMemberForce(forces, 'shear');
     const maxM = maxMemberForce(forces, 'moment');
@@ -561,7 +559,7 @@ function buildForcesSection(data: CalcReportData, num = '5'): string {
     h.push(`<h2>${num}.2 ${t('calcReport.endForces')}</h2>`);
     h.push(`<table><tr><th>${t('table.elemLabel')}</th><th>${t('tables.end')}</th><th>N (${uf})</th><th>V (${uf})</th><th>M (${um})</th></tr>`);
     for (const ef of forces) {
-      const [i, j] = memberEndSections2D(ef);
+      const [i, j] = memberEndComponents2D(ef);
       h.push(`<tr><td rowspan="2">${ef.elementId}</td><td>I</td><td class="num">${F(i.n)}</td><td class="num">${F(i.v)}</td><td class="num">${M(i.m)}</td></tr>`);
       h.push(`<tr><td>J</td><td class="num">${F(j.n)}</td><td class="num">${F(j.v)}</td><td class="num">${M(j.m)}</td></tr>`);
     }
@@ -579,6 +577,12 @@ export function generateCalcReportHtml(data: CalcReportData): string {
   bindMemberEnvelopeEnds(data.envelope3D);
   const c = data.content;
   const hasResults = !!(data.is3D ? data.results3D : data.results2D);
+  const forceKinds = (['moment', 'shear', 'axial'] as const).filter(k => c?.rows[k].table || c?.rows[k].diagram);
+  const readsForceTable = !c || forceKinds.some(k => c.rows[k].table);
+  if (readsForceTable && data.provenance.kind === 'envelope') {
+    const missing = data.is3D && data.results3D ? !data.envelope3D : data.results2D && !data.envelope2D;
+    if (missing) throw unavailableDiagramExtrema();
+  }
   const figures = new Map((data.figures ?? []).map((f) => [f.content, f]));
   // Figures are numbered as they appear, the model's first when it is drawn.
   const fig = figureCounter();
@@ -608,8 +612,7 @@ export function generateCalcReportHtml(data: CalcReportData): string {
     if (r.displacements.table || r.displacements.diagram) {
       add(t('report.displacements'), 'sec-displacements', (n) => buildDisplacementsSection(data, n, r.displacements.diagram ? fig.html(figures.get('deformed')) : '', r.displacements.table));
     }
-    const forces = (['moment', 'shear', 'axial'] as const).filter((k) => r[k].table || r[k].diagram);
-    if (forces.length) add(t('report.forces'), 'sec-forces', (n) => buildChosenForces(data, n, forces, fig));
+    if (forceKinds.length) add(t('report.forces'), 'sec-forces', (n) => buildChosenForces(data, n, forceKinds, fig));
   }
 
   const sections = parts.map((p, i) => ({ num: String(i + 1), title: p.title, anchor: p.anchor }));

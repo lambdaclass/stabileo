@@ -63,7 +63,9 @@ export function envelopeSectionHtml(sources: readonly Source[], tr: Tr, heading:
   for (const [kind, title] of kinds) {
     const cols = columnsOf(kind, { resultant: true });
     let summ: ReturnType<typeof summaryRows>;
+    let env: ReturnType<typeof envelopeRows>;
     try {
+      env = envelopeRows(kind, sources, { resultant: true, axes });
       summ = summaryRows(kind, sources, { resultant: true, axes, ...(kind === 'forces' ? { stations: 'critical' } : {}) });
     } catch (error) {
       if (error instanceof Error && error.message === DIAGRAM_EXTREMA_UNAVAILABLE) {
@@ -80,7 +82,6 @@ export function envelopeSectionHtml(sources: readonly Source[], tr: Tr, heading:
         + `</tr>`);
     }
     out.push(`</tbody></table>`);
-    const env = envelopeRows(kind, sources, { resultant: true, axes });
     out.push(`<h3>${esc(title)}: ${esc(tr('report.env.envelope'))} (${env.length})</h3>`);
     out.push(`<table class="env" data-printed="envelope-${kind}"><thead><tr><th>${kind === 'forces' ? esc(tr('report.env.memberEnd')) : esc(tr('report.nodes'))}</th><th></th>${cols.map((c) => `<th>${esc(c.label)} (${esc(c.unit)})</th>`).join('')}</tr></thead><tbody>`);
     const maxLabel = esc(tr('tables.max')), minLabel = esc(tr('tables.min'));

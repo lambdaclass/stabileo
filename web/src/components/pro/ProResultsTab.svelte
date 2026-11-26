@@ -1,6 +1,6 @@
 <script lang="ts">
   import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../../lib/engine/member-diagram';
-  import { memberEndComponents3D } from '../../lib/engine/diagrams-3d';
+  import { memberEndDisplay3D } from '../../lib/engine/diagrams-3d';
   import { resultComponents } from '../../lib/axes/result-components';
   import { axesStore } from '../../lib/axes/axes.svelte';
   import { userDof } from '../../lib/axes/typed-frame';
@@ -833,7 +833,7 @@
             </thead>
             <tbody>
               {#each results.elementForces as ef}
-                {@const [i, j] = memberEndComponents3D(ef)}
+                {@const [i, j] = memberEndDisplay3D(ef)}
                 <tr onclick={() => { uiStore.selectMode = 'elements'; uiStore.selectElement(ef.elementId, false); }} style="cursor:pointer">
                   <td class="col-id" rowspan="2">{ef.elementId}</td>
                   <td class="col-end">i</td>

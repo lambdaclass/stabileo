@@ -3,7 +3,7 @@
 // using equilibrium equations with distributed and point loads.
 
 import { type UnitSystem, formatDiagramValue } from '../utils/units';
-import { absolutePolynomialBranches, addMagnitudeBounds, checkedCurveValue, requireConcurrentSectionForces, diagramCriticalPoints, diagramCurvePoints, envelopeMemberEndValues, fullSpanFallback, indexDiagramExtrema, inwardMemberEndValues, diagramOrdinateExtrema, memberEndFace, memberSectionStation, memberDiagram, curveExtrema, prepareCurveExtrema, prepareMagnitudeExtrema, sortedStations, spanCuts, spanResultantExtrema, unavailableDiagramExtrema, visitContinuousSpanCriticalPoints, visitMemberCriticalPoints, type DiagramCurve, type DiagramExtremum, type DiagramOrdinate, type DiagramStation, type PolynomialBranch } from './member-diagram';
+import { absolutePolynomialBranches, addMagnitudeBounds, checkedCurveValue, displayMemberMoment, requireConcurrentSectionForces, diagramCriticalPoints, diagramCurvePoints, envelopeMemberEndValues, fullSpanFallback, indexDiagramExtrema, inwardMemberEndValues, diagramOrdinateExtrema, memberEndFace, memberSectionStation, memberDiagram, curveExtrema, prepareCurveExtrema, prepareMagnitudeExtrema, sortedStations, spanCuts, spanResultantExtrema, unavailableDiagramExtrema, visitContinuousSpanCriticalPoints, visitMemberCriticalPoints, type DiagramCurve, type DiagramExtremum, type DiagramOrdinate, type DiagramStation, type PolynomialBranch } from './member-diagram';
 import { distanceUnits, exactCutUnits, sameCutLocation, type DiagramCutLocation } from './diagram-cut';
 import type { ElementForces3D, EnvelopeDiagramData3D } from './types-3d';
 
@@ -518,6 +518,17 @@ export function memberEndComponents3D(ef: ElementForces3D) {
     { n: ni, vy: vyi, vz: vzi, mx: mxi, my: myi, mz: mzi },
     { n: nj, vy: vyj, vz: vzj, mx: mxj, my: myj, mz: mzj },
   ] as const;
+}
+
+export function memberEndDisplay3D(ef: ElementForces3D) {
+  const [i, j] = memberEndComponents3D(ef);
+  const display = (end: typeof i) => ({
+    ...end,
+    mx: displayMemberMoment(end.mx),
+    my: displayMemberMoment(end.my),
+    mz: displayMemberMoment(end.mz),
+  });
+  return [display(i), display(j)] as const;
 }
 
 export function computeSpatialDiagramExtrema(ef: ElementForces3D, kind: Diagram3DKind, faces?: 'diagram') {

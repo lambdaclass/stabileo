@@ -522,6 +522,10 @@ export function boundSpatialEnvelope(member: MemberEndRecord): FullEnvelope3D | 
   return envelopeMemberDiagrams.get(member)?.spatialEnvelope;
 }
 
+export function displayMemberMoment(moment: number): number {
+  return -moment;
+}
+
 export function envelopeMemberEndValues(member: MemberEndRecord, kind: string): [number, number] | undefined {
   const curve = boundMemberEnvelopeDiagram(member, kind);
   if (!curve) return undefined;

@@ -83,7 +83,8 @@
 
   const all = $derived(mode === 'all' ? allRows(kind, sources, opts, byEntity ? 'entity' : 'source') : []);
   const summary = $derived(mode === 'summary' ? summaryRows(kind, sources, opts) : []);
-  const envelope = $derived(mode === 'envelope' ? envelopeRows(kind, sources, opts) : []);
+  const guardedEnvelope = $derived(engineGuarded(() => mode === 'envelope' ? envelopeRows(kind, sources, opts) : []));
+  const envelope = $derived(guardedEnvelope.value ?? []);
   // Station demands are the engine's: its absence or refusal is shown in place of the rows.
   const guardedByType = $derived(engineGuarded(() => {
     if (mode !== 'maxType' || resultsStore.knownIssues3D.refused) return [];
@@ -162,8 +163,8 @@
   {/each}
   </div>
   {#if mode !== 'current'}
-    <button class="pk-btn tm-csv" onclick={csv} data-testid="tm-csv">CSV</button>
-    <button class="pk-btn tm-csv" onclick={xlsx} data-testid="tm-xlsx">Excel</button>
+    <button class="pk-btn tm-csv" onclick={csv} disabled={!!guardedEnvelope.error} data-testid="tm-csv">CSV</button>
+    <button class="pk-btn tm-csv" onclick={xlsx} disabled={!!guardedEnvelope.error} data-testid="tm-xlsx">Excel</button>
   {/if}
 </div>
 
@@ -237,6 +238,8 @@
       </tbody>
     </table>
   </div>
+{:else if mode === 'envelope' && guardedEnvelope.error}
+  <p class="tm-cap" role="alert">{guardedEnvelope.error}</p>
 {:else if mode === 'envelope'}
   <div class="pro-res-table-wrap">
     <table class="pro-res-table" data-testid="tm-envelope">

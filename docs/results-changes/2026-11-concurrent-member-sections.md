@@ -23,3 +23,14 @@ each shared cut. A section with bending components 3 and 4 kN·m has a
 moment colour value of 4 kN·m. The shared sampler preserves both physical
 faces at a jump. The shear heatmap evaluates its vector magnitude using
 the two components from the same load state and cut.
+
+The planar endpoint stress path uses the same concurrency check. In the
+converge-round cantilever, 100 kN axial force and 30 kN·m bending occur in
+separate load cases. Quick stress now refuses the envelope. The force
+table still shows each independent component. Interactive member-end
+tables and tooltips use the results table's moment signs.
+
+The calculation book requires the selected envelope for every selected
+force table. The across-combination force envelope refuses a member that
+is missing from a constituent. The same refusal applies to the report
+and workbook.

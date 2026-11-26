@@ -716,7 +716,7 @@ it('known wrong result: #2581 round 3 solved linear and nonlinear envelopes cann
   }
 });
 
-it.skip('known wrong result: #2581 converge interactive tables and member hover agree on inward moment signs', () => {
+it('known wrong result: #2581 converge interactive tables and member hover agree on inward moment signs', () => {
   const sources = (file: string) => readFileSync(new URL('../../../components/' + file + '.svelte', import.meta.url), 'utf8');
   const basic = sources('tables/ResultsTable');
   const pro = sources('pro/ProResultsTab');
@@ -749,11 +749,11 @@ it.skip('known wrong result: #2581 converge interactive tables and member hover 
   }
 });
 
-it.skip('known wrong result: #2581 converge planar section ends refuse separate axial and bending winners', async () => {
+it('known wrong result: #2581 converge planar section ends refuse separate axial and bending winners', async () => {
   await initSolver();
   const axial = 100, bending = 30, length = 4;
-  const section = { id: 1, name: 'Rectangle', shape: 'rect' as const, a: 0.01, iz: 0.0001, h: 0.1, b: 0.1 };
-  const material = { id: 1, e: 200000, nu: 0.3 };
+  const section = { id: 1, name: 'Rectangle', shape: 'rect' as const, a: 0.125, iz: 0.0001220703125, h: 0.25, b: 0.5 };
+  const material = { id: 1, name: 'Test material', e: 262144, nu: 0.3, rho: 0 };
   const solveCase = (fx: number, my: number): SolverInput => ({
     nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: length, z: 0 }]]),
     materials: new Map([[1, material]]),
@@ -770,14 +770,15 @@ it.skip('known wrong result: #2581 converge planar section ends refuse separate 
     const aggregate = envelope2D.maxAbsResults.elementForces[0]!;
     expect(memberEndForces2D(aggregate, 'axial').map(Math.abs)).toEqual([axial, axial]);
     expect(memberEndForces2D(aggregate, 'moment').map(Math.abs)).toEqual([bending, bending]);
-    expect(planarDiagrams.memberEndSections2D(cases[0]!.elementForces[0]!).map(({ n, m }) => [Math.abs(n), m])).toEqual([[axial, 0], [axial, 0]]);
+    expect(planarDiagrams.memberEndSections2D(cases[0]!.elementForces[0]!).map(({ n, m }) => [Math.abs(n), Math.abs(m)])).toEqual([[axial, 0], [axial, 0]]);
     expect(computeElementStress(cases[0]!.elementForces[0]!, section, material).sigmaStart).toBe(axial / section.a / 1000);
     expect.soft(() => planarDiagrams.memberEndSections2D(aggregate)).toThrow('solver.diagramExtremaUnavailable');
     expect.soft(() => computeElementStress(aggregate, section, material)).toThrow('solver.diagramExtremaUnavailable');
   }
 });
 
-it.skip('known wrong result: #2581 converge every calc report force table requires the selected envelope', () => {
+it('known wrong result: #2581 converge every calc report force table requires the selected envelope', async () => {
+  await initSolver();
   const planar = r2D(ef2D({ nStart: 100, nEnd: 100 }));
   const spatial = r3D(ef3D({ nStart: 100, nEnd: 100 }));
   const envelope2D = computeEnvelope([planar])!;

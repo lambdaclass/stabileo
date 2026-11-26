@@ -1,4 +1,4 @@
-import { memberEndSections2D } from '../engine/diagrams';
+import { memberEndComponents2D } from '../engine/diagrams';
 import { memberEndComponents3D } from '../engine/diagrams-3d';
 import { resultComponents } from '../axes/result-components';
 /**
@@ -301,7 +301,7 @@ function createElementsSheet(): Xlsx.WorkSheet {
     } else if (hasResults && r2d) {
       const forces = r2d.elementForces.find(f => f.elementId === elem.id);
       if (forces) {
-        const [i, j] = memberEndSections2D(forces);
+        const [i, j] = memberEndComponents2D(forces);
         row.push(
           Number(i.n.toFixed(4)), Number(j.n.toFixed(4)),
           Number(i.v.toFixed(4)), Number(j.v.toFixed(4)),

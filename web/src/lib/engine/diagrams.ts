@@ -2,7 +2,7 @@
 // Given end forces and distributed load, compute intermediate values
 
 import { computeDeformedShape as wasmComputeDeformedShape } from './wasm-solver';
-import { checkedCurveValue, checkedSectionValue, curveExtrema, diagramCriticalPoints, diagramCurvePoints, envelopeMemberEndValues, diagramLineValue, distributedActionTerms, fullSpanFallback, indexDiagramExtrema, inwardMemberEndValues, diagramOrdinateExtrema, memberDiagram, memberSectionStation, prepareCurveExtrema, unavailableDiagramExtrema, type DiagramOrdinate, type DiagramStation } from './member-diagram';
+import { displayMemberMoment, requireConcurrentSectionForces, checkedCurveValue, checkedSectionValue, curveExtrema, diagramCriticalPoints, diagramCurvePoints, envelopeMemberEndValues, diagramLineValue, distributedActionTerms, fullSpanFallback, indexDiagramExtrema, inwardMemberEndValues, diagramOrdinateExtrema, memberDiagram, memberSectionStation, prepareCurveExtrema, unavailableDiagramExtrema, type DiagramOrdinate, type DiagramStation } from './member-diagram';
 
 export interface DiagramPoint extends DiagramStation {
   /** World coordinates */
@@ -92,10 +92,20 @@ export function memberEndForces2D(ef: PlanarMemberForces, kind: PlanarKind): [nu
 }
 
 export function memberEndSections2D(ef: PlanarMemberForces) {
+  requireConcurrentSectionForces(ef);
+  return memberEndComponents2D(ef);
+}
+
+export function memberEndComponents2D(ef: PlanarMemberForces) {
   const [ni, nj] = memberEndForces2D(ef, 'axial');
   const [vi, vj] = memberEndForces2D(ef, 'shear');
   const [mi, mj] = memberEndForces2D(ef, 'moment');
   return [{ n: ni, v: vi, m: mi }, { n: nj, v: vj, m: mj }] as const;
+}
+
+export function memberEndDisplay2D(ef: PlanarMemberForces) {
+  const [i, j] = memberEndComponents2D(ef);
+  return [{ ...i, m: displayMemberMoment(i.m) }, { ...j, m: displayMemberMoment(j.m) }] as const;
 }
 
 function buildDiagram(

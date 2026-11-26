@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { memberEndSections2D } from '../../lib/engine/diagrams';
-  import { memberEndComponents3D } from '../../lib/engine/diagrams-3d';
+  import { engineGuarded } from '../../lib/store/engine-action';
+  import { memberEndDisplay2D } from '../../lib/engine/diagrams';
+  import { memberEndDisplay3D } from '../../lib/engine/diagrams-3d';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import { computeElementStress } from '../../lib/store/results.svelte';
@@ -292,7 +293,7 @@
           {@const forces3D = resultsStore.getElementForces3D(elemId)}
           {@const fb3 = certificateStore.forceBound<ForceBound3D>(true, elemId)}
           {#if forces3D}
-            {@const [i, j] = memberEndComponents3D(forces3D)}
+            {@const [i, j] = memberEndDisplay3D(forces3D)}
             <h4>{t('prop.internalForces3d')}</h4>
             <div class="property-row">
               <span>N_i:</span>
@@ -321,42 +322,42 @@
             <h4>{t('prop.moments3d')}</h4>
             <div class="property-row">
               <span>Mx_i:</span>
-              <span>{dv(-i.mx, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb3?.t, 'moment')}</span>
+              <span>{dv(i.mx, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb3?.t, 'moment')}</span>
             </div>
             <div class="property-row">
               <span>Mx_j:</span>
-              <span>{dv(-j.mx, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb3?.t, 'moment')}</span>
+              <span>{dv(j.mx, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb3?.t, 'moment')}</span>
             </div>
             <div class="property-row">
               <span>My_i:</span>
-              <span>{dv(-i.my, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb3?.my, 'moment')}</span>
+              <span>{dv(i.my, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb3?.my, 'moment')}</span>
             </div>
             <div class="property-row">
               <span>My_j:</span>
-              <span>{dv(-j.my, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb3?.my, 'moment')}</span>
+              <span>{dv(j.my, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb3?.my, 'moment')}</span>
             </div>
             <div class="property-row">
               <span>Mz_i:</span>
-              <span>{dv(-i.mz, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb3?.mz, 'moment')}</span>
+              <span>{dv(i.mz, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb3?.mz, 'moment')}</span>
             </div>
             <div class="property-row">
               <span>Mz_j:</span>
-              <span>{dv(-j.mz, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb3?.mz, 'moment')}</span>
+              <span>{dv(j.mz, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb3?.mz, 'moment')}</span>
             </div>
           {/if}
         {:else}
           {@const forces = resultsStore.getElementForces(elemId)}
           {@const fb2 = certificateStore.forceBound<ForceBound2D>(false, elemId)}
           {#if forces}
-            {@const [i, j] = memberEndSections2D(forces)}
+            {@const [i, j] = memberEndDisplay2D(forces)}
             <h4>{t('prop.internalForces')}</h4>
             <div class="property-row">
               <span>M_i:</span>
-              <span>{dv(-i.m, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb2?.m, 'moment')}</span>
+              <span>{dv(i.m, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb2?.m, 'moment')}</span>
             </div>
             <div class="property-row">
               <span>M_j:</span>
-              <span>{dv(-j.m, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb2?.m, 'moment')}</span>
+              <span>{dv(j.m, 'moment').toFixed(2)} {ul('moment')}{@render pm(fb2?.m, 'moment')}</span>
             </div>
             <div class="property-row">
               <span>V_i:</span>
@@ -376,25 +377,29 @@
             </div>
 
             {#if sec && mat}
-              {@const stress = computeElementStress(forces, sec, mat)}
+              {@const { value: stress, error } = engineGuarded(() => computeElementStress(forces, sec, mat))}
               <h4>{t('prop.stresses')}</h4>
-              <div class="property-row">
-                <span>σ_max:</span>
-                <span>{dv(Math.max(stress.sigmaStart, stress.sigmaEnd), 'stress').toFixed(1)} {ul('stress')}</span>
-              </div>
-              <div class="property-row">
-                <span>τ_max:</span>
-                <span>{dv(Math.max(stress.tauStart, stress.tauEnd), 'stress').toFixed(1)} {ul('stress')}</span>
-              </div>
-              <div class="property-row">
-                <span>σ_vm:</span>
-                <span>{dv(Math.max(stress.vonMisesStart, stress.vonMisesEnd), 'stress').toFixed(1)} {ul('stress')}</span>
-              </div>
-              {#if stress.ratio !== null}
+              {#if error}
+                <p role="alert">{error}</p>
+              {:else if stress}
                 <div class="property-row">
-                  <span>Ratio:</span>
-                  <span class:ratio-ok={stress.ratio <= 1} class:ratio-warn={stress.ratio > 1}>{(stress.ratio * 100).toFixed(1)}%</span>
+                  <span>σ_max:</span>
+                  <span>{dv(Math.max(stress.sigmaStart, stress.sigmaEnd), 'stress').toFixed(1)} {ul('stress')}</span>
                 </div>
+                <div class="property-row">
+                  <span>τ_max:</span>
+                  <span>{dv(Math.max(stress.tauStart, stress.tauEnd), 'stress').toFixed(1)} {ul('stress')}</span>
+                </div>
+                <div class="property-row">
+                  <span>σ_vm:</span>
+                  <span>{dv(Math.max(stress.vonMisesStart, stress.vonMisesEnd), 'stress').toFixed(1)} {ul('stress')}</span>
+                </div>
+                {#if stress.ratio !== null}
+                  <div class="property-row">
+                    <span>Ratio:</span>
+                    <span class:ratio-ok={stress.ratio <= 1} class:ratio-warn={stress.ratio > 1}>{(stress.ratio * 100).toFixed(1)}%</span>
+                  </div>
+                {/if}
               {/if}
             {/if}
           {/if}
