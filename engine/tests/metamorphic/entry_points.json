@@ -356,6 +356,15 @@
     "engine_build_info": {"scope": "utility"},
     "engine_reproduce_hashes": {"scope": "utility"},
     "envelope_shell_stresses": {"scope": "postprocess"},
+    "adapt_mesh_3d": {"scope": "solve", "calls": "adapt::adapt_3d", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"tracked": 1497},
+      "prepared": {"tracked": 1497}
+    }},
     "estimate_discretization_3d": {"scope": "solve", "calls": "discretization::solve_and_estimate_3d", "invariances": {
       "units": {"tracked": 1497},
       "relabel": {"tracked": 1497},

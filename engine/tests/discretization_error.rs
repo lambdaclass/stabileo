@@ -10,7 +10,8 @@
 #[path = "benchmarks/macneal_harder.rs"]
 mod mh;
 use dedaliano_engine::postprocess::discretization::convergence::{convergence_study_3d, governing, is_inconclusive, member_moment_max, quantity_convergence, richardson, ConvergenceOptions};
-use dedaliano_engine::postprocess::discretization::refine::{refine_uniform, GeometryMode};
+use dedaliano_engine::postprocess::discretization::adapt::{adapt_3d, marked, AdaptOptions};
+use dedaliano_engine::postprocess::discretization::refine::{hanging_nodes, refine_marked, refine_uniform, ElementKey, GeometryMode};
 use dedaliano_engine::postprocess::discretization::{estimate_3d, DiscretizationEstimate};
 use dedaliano_engine::solver::linear;
 use dedaliano_engine::types::*;
@@ -1164,3 +1165,642 @@ fn richardson_roundoff_after_convergence_is_converged() {
     assert_eq!(richardson(&[1.0, 1.001, 1.0005]).3, "oscillating");
 }
 
+
+// ==================== Local refinement ====================
+
+/// A flat n × n MITC4 square of side 1 pulled along x by a uniform edge traction of resultant
+/// `pull`, held so that the exact answer is a uniform strain.
+fn pulled_square(n: usize, pull: f64) -> Model {
+    let map = |u: f64, v: f64| ([u, v, 0.0], [0.0, 0.0, 1.0]);
+    let bc = |i: usize, j: usize, mx: usize, _my: usize| -> Option<[bool; 6]> {
+        if i == 0 {
+            Some([true, j == 0, true, false, false, false])
+        } else if i == mx {
+            Some([false, false, true, false, false, false])
+        } else {
+            None
+        }
+    };
+    let mut m = surface(Fam::Mitc4, n, n, 0.01, 200_000.0, 0.3, &map, &bc, Load::None);
+    for j in 0..n {
+        let (a, b) = (m.grid[n][j].0, m.grid[n][j + 1].0);
+        let q = m.input.quads.values().find(|q| q.nodes.contains(&a) && q.nodes.contains(&b)).unwrap();
+        let edge = (0..4).find(|&e| q.nodes[e] == a && q.nodes[(e + 1) % 4] == b).unwrap();
+        m.input.loads.push(SolverLoad3D::QuadEdge(SolverQuadEdgeLoad { element_id: q.id, edge, qn: pull, qt: 0.0 }));
+    }
+    m
+}
+
+/// An L-shaped MITC4 plate (the unit square without its x > ½, y > ½ quarter), clamped along
+/// x = 0 and y = 0, under uniform pressure: the re-entrant corner at (½, ½) is a singularity.
+fn l_plate(n: usize) -> SolverInput3D {
+    assert!(n % 2 == 0);
+    let map = |u: f64, v: f64| ([u, v, 0.0], [0.0, 0.0, 1.0]);
+    let bc = |i: usize, j: usize, _mx: usize, _my: usize| -> Option<[bool; 6]> { (i == 0 || j == 0).then_some([true; 6]) };
+    let mut input = surface(Fam::Mitc4, n, n, 0.01, 200_000.0, 0.3, &map, &bc, Load::Pressure(-1.0)).input;
+    let xy: HashMap<usize, (f64, f64)> = input.nodes.values().map(|n| (n.id, (n.x, n.y))).collect();
+    let cut: Vec<usize> = input
+        .quads
+        .values()
+        .filter(|q| {
+            let (x, y) = q.nodes.iter().fold((0.0, 0.0), |a, n| (a.0 + xy[n].0 / 4.0, a.1 + xy[n].1 / 4.0));
+            x > 0.5 && y > 0.5
+        })
+        .map(|q| q.id)
+        .collect();
+    input.quads.retain(|_, q| !cut.contains(&q.id));
+    input.loads.retain(|l| !matches!(l, SolverLoad3D::QuadPressure(p) if cut.contains(&p.element_id)));
+    let used: std::collections::HashSet<usize> = input.quads.values().flat_map(|q| q.nodes).collect();
+    input.nodes.retain(|_, n| used.contains(&n.id));
+    input.supports.retain(|_, s| used.contains(&s.node_id));
+    input
+}
+
+/// `l_plate`'s domain as a membrane: held along x = 0 and sheared along its x = 1 edge. The
+/// re-entrant corner is a stress singularity.
+fn l_membrane(n: usize) -> SolverInput3D {
+    let mut input = l_plate(n);
+    input.loads.clear();
+    input.supports.clear();
+    let xy: HashMap<usize, (f64, f64)> = input.nodes.values().map(|n| (n.id, (n.x, n.y))).collect();
+    let mut ids: Vec<usize> = xy.keys().copied().collect();
+    ids.sort_unstable();
+    for (sid, id) in ids.into_iter().enumerate() {
+        let held = xy[&id].0 == 0.0;
+        input.supports.insert((sid + 1).to_string(), support(id, [held, held, true, true, true, held]));
+    }
+    for q in input.quads.values() {
+        for e in 0..4 {
+            if xy[&q.nodes[e]].0 == 1.0 && xy[&q.nodes[(e + 1) % 4]].0 == 1.0 {
+                input.loads.push(SolverLoad3D::QuadEdge(SolverQuadEdgeLoad { element_id: q.id, edge: e, qn: 0.0, qt: 100.0 }));
+            }
+        }
+    }
+    input
+}
+
+fn quad_at(input: &SolverInput3D, x: f64, y: f64) -> ElementKey {
+    let xy: HashMap<usize, (f64, f64)> = input.nodes.values().map(|n| (n.id, (n.x, n.y))).collect();
+    let holds = |q: &&SolverQuadElement| {
+        let (xs, ys): (Vec<f64>, Vec<f64>) = q.nodes.iter().map(|n| xy[n]).unzip();
+        let within = |v: &[f64], at: f64| v.iter().cloned().fold(f64::MAX, f64::min) < at && at < v.iter().cloned().fold(f64::MIN, f64::max);
+        within(&xs, x) && within(&ys, y)
+    };
+    ("quad", input.quads.values().find(holds).expect("a quad there").id)
+}
+
+fn only(elements: &[ElementKey]) -> std::collections::HashSet<ElementKey> {
+    elements.iter().copied().collect()
+}
+
+/// Nodes of a flat mesh in the xy-plane that sit inside an element edge without being tied to
+/// that edge's ends: each is a crack.
+fn cracks(input: &SolverInput3D) -> Vec<(usize, usize, usize)> {
+    let hanging = hanging_nodes(input).expect("only hanging-node constraints");
+    let xy: HashMap<usize, (f64, f64)> = input.nodes.values().map(|n| (n.id, (n.x, n.y))).collect();
+    let mut found = Vec::new();
+    for q in input.quads.values() {
+        for e in 0..4 {
+            let (p, r) = (q.nodes[e], q.nodes[(e + 1) % 4]);
+            let (a, b) = (xy[&p], xy[&r]);
+            let length2 = (b.0 - a.0).powi(2) + (b.1 - a.1).powi(2);
+            for (&k, &c) in &xy {
+                let off = (b.0 - a.0) * (c.1 - a.1) - (b.1 - a.1) * (c.0 - a.0);
+                let along = ((c.0 - a.0) * (b.0 - a.0) + (c.1 - a.1) * (b.1 - a.1)) / length2;
+                let inside = off.abs() < 1e-12 && along > 1e-9 && along < 1.0 - 1e-9;
+                if inside && hanging.get(&k) != Some(&(p.min(r), p.max(r))) {
+                    found.push((p, r, k));
+                }
+            }
+        }
+    }
+    found
+}
+
+fn same_model(a: &SolverInput3D, b: &SolverInput3D) -> bool {
+    serde_json::to_value(a).unwrap() == serde_json::to_value(b).unwrap()
+}
+
+#[test]
+fn splitting_every_element_is_the_uniform_refinement() {
+    for fam in [Fam::Dkt, Fam::Mitc4, Fam::Mitc9, Fam::Curved, Fam::Solid] {
+        let m = square_plate(fam, 3, false).input;
+        let tag = match fam { Fam::Dkt => "plate", Fam::Mitc4 => "quad", Fam::Mitc9 => "quad9", Fam::Curved => "curvedShell", Fam::Solid => "solidShell" };
+        let ids: Vec<usize> = m.plates.values().map(|e| e.id)
+            .chain(m.quads.values().map(|e| e.id)).chain(m.quad9s.values().map(|e| e.id))
+            .chain(m.curved_shells.values().map(|e| e.id)).chain(m.solid_shells.values().map(|e| e.id)).collect();
+        let all: std::collections::HashSet<ElementKey> = ids.iter().map(|id| (tag, *id)).collect();
+        for mode in [GeometryMode::Smooth, GeometryMode::Faceted] {
+            let uniform = refine_uniform(&m, mode).unwrap();
+            let marked_all = refine_marked(&m, mode, &all).unwrap();
+            assert!(same_model(&uniform.input, &marked_all.input), "{fam:?} {mode:?}");
+            assert_eq!((uniform.caveats, uniform.supports_inferred), (marked_all.caveats, marked_all.supports_inferred), "{fam:?}");
+            assert!(marked_all.input.constraints.is_empty());
+        }
+    }
+}
+
+#[test]
+fn a_family_that_cannot_carry_a_hanging_node_is_split_as_far_as_it_reaches() {
+    for (fam, tag) in [(Fam::Dkt, "plate"), (Fam::Mitc9, "quad9"), (Fam::Curved, "curvedShell"), (Fam::Solid, "solidShell")] {
+        let m = square_plate(fam, 3, false).input;
+        let first = m.plates.values().map(|e| e.id).chain(m.quad9s.values().map(|e| e.id))
+            .chain(m.curved_shells.values().map(|e| e.id)).chain(m.solid_shells.values().map(|e| e.id)).min().unwrap();
+        let one = refine_marked(&m, GeometryMode::Faceted, &only(&[(tag, first)])).unwrap();
+        let uniform = refine_uniform(&m, GeometryMode::Faceted).unwrap();
+        assert!(same_model(&one.input, &uniform.input), "{fam:?}");
+    }
+}
+
+#[test]
+fn a_locally_refined_membrane_reproduces_a_uniform_strain_at_every_node() {
+    let (pull, t, e) = (10.0, 0.01, 200_000.0 * 1000.0);
+    let m = pulled_square(3, pull).input;
+    let once = refine_marked(&m, GeometryMode::Faceted, &only(&[quad_at(&m, 0.5, 0.5)])).unwrap().input;
+    assert_eq!((once.quads.len(), once.nodes.len(), hanging_nodes(&once).unwrap().len(), once.constraints.len()), (12, 21, 4, 24));
+    let twice = refine_marked(&once, GeometryMode::Faceted, &only(&[quad_at(&once, 0.4, 0.4)])).unwrap().input;
+    let thrice = refine_marked(&twice, GeometryMode::Faceted, &only(&[quad_at(&twice, 0.36, 0.36), quad_at(&twice, 0.9, 0.9)])).unwrap().input;
+    for model in [&once, &twice, &thrice] {
+        assert_eq!(cracks(model), vec![]);
+        let r = solve(model);
+        let strain = pull / t / e;
+        let origin = disp(&r, m.nodes.values().find(|n| n.x == 0.0 && n.y == 0.0).unwrap().id);
+        for n in model.nodes.values() {
+            let d = disp(&r, n.id);
+            assert!((d[0] - strain * n.x).abs() <= 1e-9 * strain, "node {} ux {} vs {}", n.id, d[0], strain * n.x);
+            assert!((d[1] - origin[1] + 0.3 * strain * n.y).abs() <= 1e-9 * strain, "node {} uy {}", n.id, d[1]);
+            assert!(d[2].abs() <= 1e-9 * strain);
+        }
+        let estimate = estimate(model, &r);
+        assert!(estimate.relative_error.unwrap() < 1e-6, "{:?}", estimate.relative_error);
+    }
+}
+
+#[test]
+fn an_element_split_beside_a_hanging_node_splits_the_element_across_and_hangs_on_its_child() {
+    let m = pulled_square(3, 10.0).input;
+    let once = refine_marked(&m, GeometryMode::Faceted, &only(&[quad_at(&m, 0.5, 0.5)])).unwrap().input;
+    let twice = refine_marked(&once, GeometryMode::Faceted, &only(&[quad_at(&once, 0.4, 0.4)])).unwrap().input;
+    assert_eq!(cracks(&twice), vec![]);
+    let hanging = hanging_nodes(&twice).unwrap();
+    let xy: HashMap<usize, (f64, f64)> = twice.nodes.values().map(|n| (n.id, (n.x, n.y))).collect();
+    let quarter = 1.0 / 12.0;
+    let on_a_child = hanging.iter().filter(|(_, (a, b))| ((xy[a].0 - xy[b].0).abs() + (xy[a].1 - xy[b].1).abs() - 2.0 * quarter).abs() < 1e-12).count();
+    assert!(on_a_child >= 2, "{hanging:?}");
+    assert!(hanging.values().all(|(a, b)| !hanging.contains_key(a) || !hanging.contains_key(b)));
+    for (node, (a, b)) in &hanging {
+        assert!((xy[node].0 - 0.5 * (xy[a].0 + xy[b].0)).abs() < 1e-12 && (xy[node].1 - 0.5 * (xy[a].1 + xy[b].1)).abs() < 1e-12);
+    }
+}
+
+#[test]
+fn no_element_is_left_with_hanging_nodes_on_two_edges() {
+    let m = pulled_square(4, 10.0).input;
+    let refined = refine_marked(&m, GeometryMode::Faceted, &only(&[quad_at(&m, 0.4, 0.4), quad_at(&m, 0.6, 0.6)])).unwrap().input;
+    let hanging = hanging_nodes(&refined).unwrap();
+    let edges: std::collections::HashSet<(usize, usize)> = hanging.values().copied().collect();
+    for q in refined.quads.values() {
+        let hung = (0..4).filter(|&e| { let (a, b) = (q.nodes[e], q.nodes[(e + 1) % 4]); edges.contains(&(a.min(b), a.max(b))) }).count();
+        assert!(hung <= 1, "quad {} has {hung}", q.id);
+    }
+    assert_eq!(cracks(&refined), vec![]);
+    assert!(refined.quads.len() > 16 + 6);
+}
+
+#[test]
+fn hanging_nodes_do_not_lock_a_thin_plate() {
+    let coarse = l_plate(4);
+    let mut reference = coarse.clone();
+    for _ in 0..3 {
+        reference = refine_uniform(&reference, GeometryMode::Faceted).unwrap().input;
+    }
+    let exact = energy_norm_sq(&reference, &solve(&reference));
+    let mut model = coarse;
+    for _ in 0..6 {
+        let r = solve(&model);
+        model = refine_marked(&model, GeometryMode::Faceted, &marked(&estimate(&model, &r), 0.5)).unwrap().input;
+    }
+    assert!(!hanging_nodes(&model).unwrap().is_empty());
+    assert_eq!(cracks(&model), vec![]);
+    let energy = energy_norm_sq(&model, &solve(&model));
+    assert!((energy - exact).abs() < 0.02 * exact, "{energy} vs {exact}");
+}
+
+#[test]
+fn local_refinement_keeps_loads_supports_and_members() {
+    let mut m = l_plate(4);
+    m.sections.insert("1".into(), SolverSection3D {
+        id: 1, name: None, a: 0.01, iy: 1e-5, iz: 1e-5, j: 2e-5, cw: None, as_y: None, as_z: None,
+        shear_center_y: None, shear_center_z: None,
+    });
+    let at = |x: f64, y: f64| m.nodes.values().find(|n| (n.x - x).abs() < 1e-9 && (n.y - y).abs() < 1e-9).unwrap().id;
+    let beam = SolverElement3D {
+        id: 1000, elem_type: "frame".into(), node_i: at(0.25, 0.25), node_j: at(0.5, 0.25), material_id: 1, section_id: 1,
+        release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false,
+        release_t_start: false, release_t_end: false, local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
+    };
+    m.elements.insert("1000".into(), beam);
+    m.loads.push(SolverLoad3D::Distributed(SolverDistributedLoad3D { element_id: 1000, q_xi: 0.0, q_xj: 0.0, q_yi: 0.0, q_yj: 0.0, q_zi: -2.0, q_zj: -2.0, a: None, b: None }));
+    let load = total_reaction(&solve(&m));
+
+    let one_side = refine_marked(&m, GeometryMode::Faceted, &only(&[quad_at(&m, 0.4, 0.1)])).unwrap().input;
+    assert_eq!(one_side.elements.len(), 1, "a member along an edge with a hanging node stays whole");
+    assert_eq!(hanging_nodes(&one_side).unwrap().len(), 3);
+    let both_sides = refine_marked(&m, GeometryMode::Faceted, &only(&[quad_at(&m, 0.4, 0.1), quad_at(&m, 0.4, 0.4)])).unwrap().input;
+    assert_eq!(both_sides.elements.len(), 2, "a member along an edge split on both sides is split");
+    let later = refine_marked(&one_side, GeometryMode::Faceted, &only(&[quad_at(&one_side, 0.4, 0.4)])).unwrap().input;
+    assert_eq!(later.elements.len(), 2, "and is split once the other side catches up");
+
+    for model in [&one_side, &both_sides, &later] {
+        assert_eq!(cracks(model), vec![]);
+        let total = total_reaction(&solve(model));
+        assert!((total[2] - load[2]).abs() < 1e-9 * load[2].abs(), "{total:?} vs {load:?}");
+        let supported: std::collections::HashSet<usize> = model.supports.values().map(|s| s.node_id).collect();
+        for n in model.nodes.values() {
+            assert_eq!(supported.contains(&n.id), n.x.abs() < 1e-9 || n.y.abs() < 1e-9, "node {} at ({}, {})", n.id, n.x, n.y);
+        }
+    }
+}
+
+#[test]
+fn constraints_that_are_not_hanging_nodes_are_refused() {
+    let m = pulled_square(3, 10.0).input;
+    let once = refine_marked(&m, GeometryMode::Faceted, &only(&[quad_at(&m, 0.5, 0.5)])).unwrap().input;
+    let centre = only(&[quad_at(&once, 0.1, 0.1)]);
+    assert!(refine_marked(&once, GeometryMode::Faceted, &centre).is_ok());
+    assert_eq!(refine_uniform(&once, GeometryMode::Faceted).unwrap_err(), "constraints");
+
+    let spoil = |change: &dyn Fn(&mut Vec<Constraint>)| {
+        let mut model = once.clone();
+        change(&mut model.constraints);
+        (hanging_nodes(&model).err(), refine_marked(&model, GeometryMode::Faceted, &centre).err())
+    };
+    let refused = (Some("constraints".to_string()), Some("constraints".to_string()));
+    assert_eq!(spoil(&|c| c.push(Constraint::EqualDOF(EqualDOFConstraint { master_node: 1, slave_node: 2, dofs: vec![0] }))), refused);
+    assert_eq!(spoil(&|c| { c.pop(); }), refused, "a node tied in five of its six displacements");
+    let term = |c: &mut Vec<Constraint>, i: usize, change: &dyn Fn(&mut MPCTerm)| {
+        let Constraint::LinearMPC(mpc) = &mut c[0] else { panic!() };
+        change(&mut mpc.terms[i]);
+    };
+    assert_eq!(spoil(&|c| term(c, 1, &|t| t.coefficient = -0.25)), refused);
+    assert_eq!(spoil(&|c| term(c, 0, &|t| t.coefficient = 2.0)), refused);
+    assert_eq!(spoil(&|c| term(c, 2, &|t| t.dof = 1)), refused);
+    assert_eq!(spoil(&|c| term(c, 2, &|t| t.node_id = 1)), refused, "tied to another edge than its other displacements");
+    assert_eq!(spoil(&|c| { let first = c[0].clone(); c.push(first); }), refused, "the same displacement tied twice");
+
+    let unknown = refine_marked(&m, GeometryMode::Faceted, &only(&[("quad", 9999)]));
+    assert_eq!(unknown.unwrap_err(), "quad 9999 not found");
+    let nothing = refine_marked(&m, GeometryMode::Faceted, &only(&[])).unwrap();
+    assert!(same_model(&nothing.input, &m));
+}
+
+#[test]
+fn the_elements_marked_are_the_fewest_that_carry_the_share_of_the_error() {
+    let m = l_membrane(4);
+    let mut est = estimate(&m, &solve(&m));
+    let etas = [3.0, 1.0, 2.0, 2.0, 0.0, 5.0];
+    est.elements.truncate(etas.len());
+    for (i, (element, eta)) in est.elements.iter_mut().zip(etas).enumerate() {
+        element.eta = eta;
+        element.element_id = 10 + i;
+        element.kind = "quad".into();
+        element.local_percent = Some(1.0);
+    }
+    est.elements[5].local_percent = None;
+    let ids_of = |est: &DiscretizationEstimate, fraction: f64| { let mut v: Vec<usize> = marked(est, fraction).into_iter().map(|(_, id)| id).collect(); v.sort_unstable(); v };
+    let ids = |fraction: f64| ids_of(&est, fraction);
+    assert_eq!(ids(0.5), vec![10], "9 of 18");
+    assert_eq!(ids(0.51), vec![10, 12], "ties go to the lower id");
+    assert_eq!(ids(0.75), vec![10, 12, 13]);
+    assert_eq!(ids(1.0), vec![10, 11, 12, 13], "never the one without an estimate, nor the one without error");
+    let mut unknown = est.clone();
+    unknown.elements[0].kind = "membrane".into();
+    assert_eq!(ids_of(&unknown, 1.0), vec![11, 12, 13]);
+}
+
+#[test]
+fn adaptive_refinement_reaches_the_target_with_far_fewer_elements_than_uniform() {
+    let coarse = l_membrane(4);
+    let target = 0.1;
+    let mut uniform = coarse.clone();
+    let mut uniform_elements = 0;
+    for _ in 0..6 {
+        uniform_elements = uniform.quads.len();
+        if estimate(&uniform, &solve(&uniform)).relative_error.unwrap() <= target {
+            break;
+        }
+        uniform = refine_uniform(&uniform, GeometryMode::Faceted).unwrap().input;
+    }
+    let reference = energy_norm_sq(&uniform, &solve(&uniform));
+
+    let options = AdaptOptions { target, max_passes: 20, geometry: GeometryMode::Faceted, ..AdaptOptions::default() };
+    let out = adapt_3d(&coarse, &options).unwrap();
+    assert_eq!(out.status, "converged");
+    assert!(!out.certified && !out.estimate.certified);
+    assert!(out.estimate.relative_error.unwrap() <= target);
+    let last = out.passes.last().unwrap();
+    assert_eq!((last.shell_elements, last.nodes, last.marked), (out.input.quads.len(), out.input.nodes.len(), 0));
+    assert_eq!(last.relative_error, out.estimate.relative_error);
+    assert!(3 * last.shell_elements < uniform_elements, "{} adaptive, {uniform_elements} uniform", last.shell_elements);
+    assert!(out.passes.windows(2).all(|w| w[1].shell_elements > w[0].shell_elements && w[0].marked > 0));
+    assert_eq!(out.passes[0].shell_elements, coarse.quads.len());
+    assert_eq!(cracks(&out.input), vec![]);
+    let energy = energy_norm_sq(&out.input, &solve(&out.input));
+    assert!((energy - reference).abs() < 0.02 * reference, "{energy} vs {reference}");
+
+    let again = adapt_3d(&coarse, &options).unwrap();
+    assert!(same_model(&out.input, &again.input));
+
+    let max_node = coarse.nodes.values().map(|n| n.id).max().unwrap();
+    let (first, last) = (governing(&coarse, &solve(&coarse), max_node), governing(&out.input, &solve(&out.input), max_node));
+    assert_eq!(out.quantities.len(), first.len());
+    assert!(out.quantities.iter().any(|q| q.quantity == "maxDisplacement") && out.quantities.iter().any(|q| q.quantity == "reaction" && q.node_id.is_some()));
+    for q in &out.quantities {
+        let key = (q.quantity.clone(), first.keys().find(|k| k.0 == q.quantity && (q.node_id.is_none() || q.node_id == Some(k.1))).unwrap().1);
+        assert_eq!(q.model, first[&key], "{}", q.quantity);
+        assert_eq!(q.adapted, last.get(&key).copied(), "{}", q.quantity);
+    }
+    let moved = out.quantities.iter().find(|q| q.quantity == "maxDisplacement").unwrap();
+    assert!(moved.adapted.unwrap() > moved.model, "the coarse membrane is too stiff: {moved:?}");
+}
+
+#[test]
+fn adaptive_refinement_stops_at_its_limits_and_says_which() {
+    let coarse = l_membrane(4);
+    let tight = AdaptOptions { target: 1e-6, geometry: GeometryMode::Faceted, ..AdaptOptions::default() };
+
+    let passes = adapt_3d(&coarse, &AdaptOptions { max_passes: 2, ..tight.clone() }).unwrap();
+    assert_eq!((passes.status.as_str(), passes.passes.len()), ("passLimit", 3));
+    let none = adapt_3d(&coarse, &AdaptOptions { max_passes: 0, ..tight.clone() }).unwrap();
+    assert_eq!((none.status.as_str(), none.passes.len()), ("passLimit", 1));
+    assert!(same_model(&none.input, &coarse));
+
+    let options: AdaptOptions = serde_json::from_str(r#"{"target": 0.2, "maxPasses": 3}"#).unwrap();
+    assert_eq!((options.target, options.max_passes, options.fraction, options.max_elements), (0.2, 3, 0.5, 20_000));
+
+    let capped = adapt_3d(&coarse, &AdaptOptions { max_elements: 40, max_passes: 50, ..tight.clone() }).unwrap();
+    assert_eq!(capped.status, "elementLimit");
+    assert!(capped.input.quads.len() <= 40 && capped.input.quads.len() > coarse.quads.len());
+    assert_eq!(capped.passes.last().unwrap().shell_elements, capped.input.quads.len());
+
+    let already = adapt_3d(&coarse, &AdaptOptions { target: 0.9, ..tight.clone() }).unwrap();
+    assert_eq!((already.status.as_str(), already.passes.len()), ("converged", 1));
+    assert!(same_model(&already.input, &coarse));
+    assert!(!already.quantities.is_empty() && already.quantities.iter().all(|q| q.adapted == Some(q.model)));
+
+    let single = square_plate(Fam::Mitc4, 1, true).input;
+    let lone = adapt_3d(&single, &tight).unwrap();
+    assert_eq!(lone.status, "unestimable");
+    assert!(lone.estimate.relative_error.is_none() && lone.estimate.unestimable_reason.is_some());
+    assert!(same_model(&lone.input, &single));
+
+    for (options, message) in [
+        (AdaptOptions { target: 0.0, ..tight.clone() }, "The target error must be finite and positive"),
+        (AdaptOptions { target: f64::NAN, ..tight.clone() }, "The target error must be finite and positive"),
+        (AdaptOptions { target: f64::INFINITY, ..tight.clone() }, "The target error must be finite and positive"),
+        (AdaptOptions { fraction: 0.0, ..tight.clone() }, "The marked fraction must be over 0 and at most 1"),
+        (AdaptOptions { fraction: 1.01, ..tight.clone() }, "The marked fraction must be over 0 and at most 1"),
+        (AdaptOptions { fraction: f64::NAN, ..tight.clone() }, "The marked fraction must be over 0 and at most 1"),
+        (AdaptOptions { max_passes: 51, ..tight.clone() }, "At most 50 passes"),
+        (AdaptOptions { max_passes: usize::MAX, ..tight.clone() }, "At most 50 passes"),
+        (AdaptOptions { max_elements: 200_001, ..tight.clone() }, "At most 200000 shell elements"),
+    ] {
+        assert_eq!(adapt_3d(&coarse, &options).unwrap_err(), message);
+    }
+
+    let mut tied = coarse.clone();
+    tied.constraints.push(Constraint::EqualDOF(EqualDOFConstraint { master_node: 1, slave_node: 2, dofs: vec![0] }));
+    assert_eq!(adapt_3d(&tied, &tight).unwrap_err(), "constraints");
+}
+
+fn rotated(tilt: bool, p: [f64; 3]) -> [f64; 3] {
+    if !tilt {
+        return p;
+    }
+    let (a, b) = (0.6_f64, 0.9_f64);
+    let q = [p[0], p[1] * a.cos() - p[2] * a.sin(), p[1] * a.sin() + p[2] * a.cos()];
+    [q[0] * b.cos() - q[1] * b.sin(), q[0] * b.sin() + q[1] * b.cos(), q[2]]
+}
+
+/// An n × n MITC4 square with ν = 0, clamped along u = 0 and bent by a uniform moment along
+/// u = 1: a cylinder of constant curvature.
+fn bent_square(n: usize, tilt: bool) -> Model {
+    let map = move |u: f64, v: f64| (rotated(tilt, [u, v, 0.0]), rotated(tilt, [0.0, 0.0, 1.0]));
+    let bc = |i: usize, _j: usize, _mx: usize, _my: usize| -> Option<[bool; 6]> { (i == 0).then_some([true; 6]) };
+    let mut m = surface(Fam::Mitc4, n, n, 0.01, 200_000.0, 0.0, &map, &bc, Load::None);
+    let axis = rotated(tilt, [0.0, 1.0, 0.0]);
+    for j in 0..=n {
+        let share = if j == 0 || j == n { 0.5 } else { 1.0 } / n as f64;
+        m.input.loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: m.grid[n][j].0, fx: 0.0, fy: 0.0, fz: 0.0, mx: share * axis[0], my: share * axis[1], mz: share * axis[2], bw: None,
+        }));
+    }
+    m
+}
+
+fn element_at(input: &SolverInput3D, tilt: bool, u: f64, v: f64) -> ElementKey {
+    let target = rotated(tilt, [u, v, 0.0]);
+    let c: HashMap<usize, [f64; 3]> = input.nodes.values().map(|n| (n.id, [n.x, n.y, n.z])).collect();
+    let far = |q: &SolverQuadElement| {
+        let mid = q.nodes.iter().fold([0.0; 3], |a, n| [a[0] + c[n][0] / 4.0, a[1] + c[n][1] / 4.0, a[2] + c[n][2] / 4.0]);
+        (0..3).map(|k| (mid[k] - target[k]).powi(2)).sum::<f64>()
+    };
+    ("quad", input.quads.values().min_by(|a, b| far(a).total_cmp(&far(b))).unwrap().id)
+}
+
+#[test]
+fn a_locally_refined_plate_reproduces_a_constant_curvature_in_any_plane() {
+    for tilt in [false, true] {
+        let m = bent_square(4, tilt).input;
+        let (normal, along) = (rotated(tilt, [0.0, 0.0, 1.0]), rotated(tilt, [1.0, 0.0, 0.0]));
+        let once = refine_marked(&m, GeometryMode::Faceted, &only(&[element_at(&m, tilt, 0.375, 0.375)])).unwrap().input;
+        let twice = refine_marked(&once, GeometryMode::Faceted, &only(&[element_at(&once, tilt, 0.3, 0.3)])).unwrap().input;
+        let thrice = refine_marked(&twice, GeometryMode::Faceted, &only(&[element_at(&twice, tilt, 0.27, 0.27)])).unwrap().input;
+        assert_eq!(hanging_nodes(&thrice).unwrap().len(), 16);
+        let coarse_tip = { let r = solve(&m); let d = disp(&r, m.nodes.values().find(|n| n.id == 25).unwrap().id); dot3(d, normal) };
+        for model in [&m, &once, &twice, &thrice] {
+            let r = solve(model);
+            for n in model.nodes.values() {
+                let u = dot3([n.x, n.y, n.z], along);
+                let w = dot3(disp(&r, n.id), normal);
+                assert!((w - coarse_tip * u * u).abs() <= 1e-8 * coarse_tip.abs(), "tilt {tilt}, node {} at {u}: {w} vs {}", n.id, coarse_tip * u * u);
+            }
+        }
+    }
+}
+
+fn dot3(a: [f64; 3], b: [f64; 3]) -> f64 {
+    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+}
+
+#[test]
+fn local_refinements_one_after_another_leave_no_crack_and_keep_a_uniform_strain() {
+    let (pull, t, e) = (10.0, 0.01, 200_000.0 * 1000.0);
+    let mut seed: u64 = 12345;
+    let mut next = move || { seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407); (seed >> 33) as usize };
+    let mut model = pulled_square(4, pull).input;
+    for round in 0..6 {
+        let mut ids: Vec<usize> = model.quads.values().map(|q| q.id).collect();
+        ids.sort_unstable();
+        let picks: Vec<ElementKey> = (0..1 + ids.len() / 12).map(|_| ("quad", ids[next() % ids.len()])).collect();
+        model = refine_marked(&model, GeometryMode::Faceted, &only(&picks)).unwrap().input;
+        assert_eq!(cracks(&model), vec![], "round {round}");
+        let r = solve(&model);
+        let strain = pull / t / e;
+        for n in model.nodes.values() {
+            assert!((disp(&r, n.id)[0] - strain * n.x).abs() <= 1e-9 * strain, "round {round}, node {}", n.id);
+        }
+    }
+    assert!(model.quads.len() > 300 && !hanging_nodes(&model).unwrap().is_empty());
+}
+
+#[test]
+fn a_curved_roof_refined_locally_deflects_as_the_one_refined_everywhere() {
+    let m = scordelis(Fam::Mitc4, 4);
+    let free_edge = m.grid[0][4];
+    for mode in [GeometryMode::Smooth, GeometryMode::Faceted] {
+        let mut uniform = m.input.clone();
+        for _ in 0..3 {
+            uniform = refine_uniform(&uniform, mode).unwrap().input;
+        }
+        let reference = mid_disp(&solve(&uniform), free_edge)[2];
+        let mut model = m.input.clone();
+        for _ in 0..6 {
+            let r = solve(&model);
+            model = refine_marked(&model, mode, &marked(&estimate(&model, &r), 0.5)).unwrap().input;
+        }
+        assert!(!hanging_nodes(&model).unwrap().is_empty());
+        assert!(model.quads.len() < uniform.quads.len());
+        let got = mid_disp(&solve(&model), free_edge)[2];
+        assert!((got - reference).abs() < 0.02 * reference.abs(), "{mode:?}: {got} vs {reference}");
+    }
+}
+
+#[test]
+fn no_hanging_node_is_left_on_a_fold() {
+    let map = |u: f64, v: f64| if u <= 0.5 { ([u, v, 0.0], [0.0, 0.0, 1.0]) } else { ([0.5, v, u - 0.5], [-1.0, 0.0, 0.0]) };
+    let bc = |i: usize, _j: usize, _mx: usize, _my: usize| -> Option<[bool; 6]> { (i == 0).then_some([true; 6]) };
+    let mut m = surface(Fam::Mitc4, 4, 2, 0.01, 200_000.0, 0.3, &map, &bc, Load::None);
+    for j in 0..=2 {
+        m.input.loads.push(nodal(m.grid[4][j].0, [1.0, 0.0, 0.0]));
+    }
+    let c: HashMap<usize, [f64; 3]> = m.input.nodes.values().map(|n| (n.id, [n.x, n.y, n.z])).collect();
+    let beside = m.input.quads.values().find(|q| q.nodes.iter().all(|n| c[n][2] == 0.0 && c[n][0] >= 0.25 && c[n][1] <= 0.5)).unwrap().id;
+    let refined = refine_marked(&m.input, GeometryMode::Faceted, &only(&[("quad", beside)])).unwrap().input;
+    let cr: HashMap<usize, [f64; 3]> = refined.nodes.values().map(|n| (n.id, [n.x, n.y, n.z])).collect();
+    let hanging = hanging_nodes(&refined).unwrap();
+    assert!(!hanging.is_empty());
+    assert!(hanging.keys().all(|n| !(cr[n][0] == 0.5 && cr[n][2] == 0.0)), "{hanging:?}");
+    let across = refined.quads.values().filter(|q| q.nodes.iter().all(|n| cr[n][0] == 0.5 && cr[n][1] <= 0.5 && cr[n][2] <= 0.25)).count();
+    assert_eq!(across, 4, "the element across the fold is split with it");
+    let total = total_reaction(&solve(&refined));
+    assert!((total[0] + 3.0).abs() < 1e-9, "{total:?}");
+}
+
+#[test]
+fn a_constraint_that_only_looks_like_a_hanging_node_is_refused() {
+    let m = bent_square(3, false).input;
+    let once = refine_marked(&m, GeometryMode::Faceted, &only(&[element_at(&m, false, 0.5, 0.5)])).unwrap().input;
+    let hung = hanging_nodes(&once).unwrap();
+    assert_eq!(hung.len(), 4);
+    let refused = Err("constraints".to_string());
+    let bent = once
+        .constraints
+        .iter()
+        .position(|c| matches!(c, Constraint::LinearMPC(mpc) if mpc.terms.len() > 3))
+        .expect("a plate's hanging node is tied with the bending term");
+
+    let mut other_bending = once.clone();
+    let Constraint::LinearMPC(mpc) = &mut other_bending.constraints[bent] else { panic!() };
+    mpc.terms[3].coefficient *= 2.0;
+    assert_eq!(hanging_nodes(&other_bending), refused);
+
+    let mut plain_mean = once.clone();
+    let Constraint::LinearMPC(mpc) = &mut plain_mean.constraints[bent] else { panic!() };
+    mpc.terms.truncate(3);
+    assert_eq!(hanging_nodes(&plain_mean), refused);
+
+    let mut off_the_middle = once.clone();
+    let node = *hung.keys().min().unwrap();
+    off_the_middle.nodes.values_mut().find(|n| n.id == node).unwrap().x += 1e-3;
+    assert_eq!(hanging_nodes(&off_the_middle), refused);
+
+    let mut elsewhere = m.clone();
+    let (tied, a, b) = (m.quads["5"].nodes[0], m.quads["1"].nodes[0], m.quads["9"].nodes[2]);
+    for dof in 0..6 {
+        elsewhere.constraints.push(Constraint::LinearMPC(LinearMPCConstraint {
+            terms: vec![
+                MPCTerm { node_id: tied, dof, coefficient: 1.0 },
+                MPCTerm { node_id: a, dof, coefficient: -0.5 },
+                MPCTerm { node_id: b, dof, coefficient: -0.5 },
+            ],
+        }));
+    }
+    assert_eq!(hanging_nodes(&elsewhere), refused, "the mean of two nodes that are not the ends of an edge");
+    assert_eq!(refine_marked(&elsewhere, GeometryMode::Faceted, &only(&[element_at(&m, false, 0.5, 0.5)])).err(), Some("constraints".to_string()));
+    assert_eq!(adapt_3d(&elsewhere, &AdaptOptions { target: 1e-6, ..AdaptOptions::default() }).err(), Some("constraints".to_string()));
+}
+
+/// `l_membrane`'s domain held along x = 0 and sheared by forces at the nodes of its x = 1 edge:
+/// under each force the strain energy of a membrane is unbounded, and no mesh resolves it.
+fn l_membrane_under_point_forces(scale: f64) -> SolverInput3D {
+    let mut input = l_membrane(4);
+    input.loads.clear();
+    let loaded: Vec<(usize, f64)> = input.nodes.values().filter(|n| n.x == 1.0).map(|n| (n.id, n.y)).collect();
+    for (node_id, y) in loaded {
+        let share = if y == 0.0 || y == 0.5 { 0.5 } else { 1.0 } * 25.0;
+        input.loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D { node_id, fx: 0.0, fy: share, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None }));
+    }
+    for n in input.nodes.values_mut() {
+        (n.x, n.y) = (scale * n.x, scale * n.y);
+    }
+    input
+}
+
+fn smallest_edge(input: &SolverInput3D) -> f64 {
+    let at: HashMap<usize, [f64; 2]> = input.nodes.values().map(|n| (n.id, [n.x, n.y])).collect();
+    input
+        .quads
+        .values()
+        .flat_map(|q| (0..4).map(|k| (at[&q.nodes[k]], at[&q.nodes[(k + 1) % 4]])).collect::<Vec<_>>())
+        .map(|(a, b)| (a[0] - b[0]).hypot(a[1] - b[1]))
+        .fold(f64::MAX, f64::min)
+}
+
+#[test]
+fn adaptive_refinement_stops_where_refining_no_longer_brings_the_error_down() {
+    let coarse = l_membrane_under_point_forces(1.0);
+    let options = AdaptOptions { target: 0.01, max_passes: 40, max_levels: 4, geometry: GeometryMode::Faceted, ..AdaptOptions::default() };
+    let out = adapt_3d(&coarse, &options).unwrap();
+    assert_eq!(out.status, "depthLimit");
+    assert!(out.refused.is_none());
+    assert!(out.passes.len() > 4 && out.passes.len() < 40, "{} passes", out.passes.len());
+    assert!(out.estimate.relative_error.unwrap() > options.target);
+    assert_eq!(out.passes.last().unwrap().shell_elements, out.input.quads.len());
+    let floor = smallest_edge(&coarse) / 16.0;
+    assert!(smallest_edge(&out.input) >= 0.5 * floor, "{} under {floor}", smallest_edge(&out.input));
+    assert!((smallest_edge(&out.input) - floor).abs() < 1e-12 || smallest_edge(&out.input) < floor, "the limit was reached");
+    assert_eq!(cracks(&out.input), vec![]);
+
+    let deeper = adapt_3d(&coarse, &AdaptOptions { max_levels: 6, ..options.clone() }).unwrap();
+    assert_eq!(deeper.status, "depthLimit");
+    assert!(deeper.input.quads.len() > out.input.quads.len());
+
+    let none = adapt_3d(&coarse, &AdaptOptions { max_levels: 0, ..options.clone() }).unwrap();
+    assert_eq!((none.status.as_str(), none.passes.len(), none.input.quads.len()), ("depthLimit", 1, coarse.quads.len()));
+    assert_eq!(adapt_3d(&coarse, &AdaptOptions { max_levels: 17, ..options }).unwrap_err(), "At most 16 levels");
+}
+
+#[test]
+fn a_mesh_the_solver_refuses_ends_the_refinement_at_the_last_one_it_solved() {
+    let coarse = l_membrane_under_point_forces(2e-6);
+    let options = AdaptOptions { target: 0.01, max_passes: 40, max_levels: 16, geometry: GeometryMode::Faceted, ..AdaptOptions::default() };
+    let out = adapt_3d(&coarse, &options).unwrap();
+    assert_eq!(out.status, "refused");
+    assert!(out.refused.as_deref().is_some_and(|reason| reason.contains("MITC4")), "{:?}", out.refused);
+    assert!(out.passes.len() > 1, "{} passes", out.passes.len());
+    let last = out.passes.last().unwrap();
+    assert_eq!((last.shell_elements, last.marked), (out.input.quads.len(), 0));
+    assert_eq!(last.relative_error, out.estimate.relative_error);
+    assert_eq!(estimate(&out.input, &solve(&out.input)).relative_error, out.estimate.relative_error);
+}

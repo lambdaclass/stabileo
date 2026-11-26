@@ -241,6 +241,7 @@ engine/src/postprocess/discretization/convergence.rs: smax = smax.max((a * a - a
 engine/src/postprocess/discretization/convergence.rs: visit_t([p.sigma_xx, p.sigma_yy, p.tau_xy], [p.mx, p.my, p.mxy], thick_p.get(&p.element_id).copied().unwrap_or(0.0));
 engine/src/postprocess/discretization/convergence.rs: visit_t([p.sigma_xx, p.sigma_yy, p.tau_xy], [p.mx, p.my, p.mxy], thick_q.get(&p.element_id).copied().unwrap_or(0.0));
 engine/src/postprocess/discretization/convergence.rs: let original_max_node = input.nodes.values().map(|n| n.id).max().unwrap_or(0);
+engine/src/postprocess/discretization/adapt.rs: let original_max_node = input.nodes.values().map(|n| n.id).max().unwrap_or(0);
 engine/src/postprocess/discretization/mod.rs: let mean = if n_estimated > 0 { ((u + eta2) / n_estimated as f64).sqrt() } else { 0.0 };
 engine/src/postprocess/discretization/refine.rs: let next_node = coords.keys().copied().max().unwrap_or(0) + 1;
 engine/src/postprocess/discretization/refine.rs: .unwrap_or(0);

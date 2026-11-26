@@ -1098,7 +1098,7 @@ const CERTIFY_EXPORTS = [
   'engine_reproduce_hashes',
   // Not certificates: the discretization-error estimate and convergence check
   // (testing/docs/DISCRETIZATION.md) ride the same worker path because they re-solve too.
-  'estimate_discretization_3d', 'convergence_study_3d',
+  'estimate_discretization_3d', 'convergence_study_3d', 'adapt_mesh_3d',
 ] as const;
 export type CertifyExport = (typeof CERTIFY_EXPORTS)[number];
 

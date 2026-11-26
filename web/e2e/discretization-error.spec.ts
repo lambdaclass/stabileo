@@ -10,11 +10,10 @@
  */
 import { test, expect, loadModel, solveModel } from './fixtures';
 
-test('a frame-and-shell model shows its estimated discretization error and runs the convergence check', async ({ pro: page }) => {
-  test.setTimeout(300_000);
+test('@smoke a frame-and-shell model shows its estimated discretization error and runs the convergence check', async ({ pro: page }) => {
   await loadModel(page, 'rc-qa-diagnostic-shells');
   await solveModel(page);
-  await expect.poll(() => page.evaluate(() => window.__stabileo.discretizationState().estimate), { timeout: 60_000 })
+  await expect.poll(() => page.evaluate(() => window.__stabileo.discretizationState().estimate), { timeout: 30_000 })
     .toBe('done');
   const state = await page.evaluate(() => window.__stabileo.discretizationState());
   expect(state.reason, 'the estimate must not fail in the worker').toBeNull();
@@ -32,10 +31,38 @@ test('a frame-and-shell model shows its estimated discretization error and runs 
   await expect(status).not.toContainText(/not available/i);
 
   await page.getByTestId('discretization-run-study').first().click();
-  await expect.poll(() => page.evaluate(() => window.__stabileo.discretizationState().study), { timeout: 240_000 })
+  await expect.poll(() => page.evaluate(() => window.__stabileo.discretizationState().study), { timeout: 30_000 })
     .not.toBe('running');
   expect((await page.evaluate(() => window.__stabileo.discretizationState())).reason).toBeNull();
   const table = page.getByTestId('discretization-study').first();
   await expect(table).toBeVisible();
   await expect(table.locator('tbody tr').first()).toBeVisible();
+});
+
+test('@smoke the adaptive refinement is folded away until asked for, runs in the worker and reports its passes', async ({ pro: page }) => {
+  await loadModel(page, 'rc-qa-diagnostic-shells');
+  await solveModel(page);
+  await expect.poll(() => page.evaluate(() => window.__stabileo.discretizationState().estimate), { timeout: 30_000 })
+    .toBe('done');
+  await page.evaluate(() => window.__stabileoActions.openProTab('results'));
+  const section = page.getByTestId('discretization-adaptive').first();
+  await expect(section).toBeVisible({ timeout: 30_000 });
+  const run = page.getByTestId('discretization-run-adaptive').first();
+  await expect(section).not.toHaveAttribute('open', '');
+  await expect(run).toBeHidden();
+  expect((await page.evaluate(() => window.__stabileo.discretizationState())).adaptive).toBe('idle');
+
+  await section.locator('summary').click();
+  await page.getByTestId('discretization-adaptive-target').first().fill('1000');
+  await expect(run).toBeDisabled();
+  await page.getByTestId('discretization-adaptive-target').first().fill('20');
+  await run.click();
+  await expect.poll(() => page.evaluate(() => window.__stabileo.discretizationState().adaptive), { timeout: 30_000 })
+    .toBe('done');
+  expect((await page.evaluate(() => window.__stabileo.discretizationState())).reason).toBeNull();
+  await expect(page.getByTestId('discretization-adaptive-status').first()).toContainText('%');
+  const passes = page.getByTestId('discretization-adaptive-passes').first();
+  await expect(passes.locator('tbody tr').first()).toContainText(/model/i);
+  expect(await passes.locator('tbody tr').count()).toBeGreaterThanOrEqual(1);
+  await expect(page.getByTestId('discretization-estimate').first()).toContainText(/not certified/i);
 });
