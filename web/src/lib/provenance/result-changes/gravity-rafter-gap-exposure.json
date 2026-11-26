@@ -1,0 +1,43 @@
+{
+  "id": "gravity-rafter-gap-exposure",
+  "date": "2026-11-26",
+  "prs": [
+    2607
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "generatedPanelGravityShells",
+      "roofShellFrameLinks"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Classify exposure over the full rafter gap",
+    "es": "Clasificar la exposición de toda la abertura de cubierta",
+    "pt": "Classificar a exposição de toda a abertura na cobertura",
+    "de": "Die Exposition der gesamten Sparrenlücke bestimmen",
+    "fr": "Classer l’exposition sur toute l’ouverture de toiture",
+    "hu": "A teljes szarufanyílás fedettségének megállapítása",
+    "tr": "Mertek açıklığının tamamındaki örtülmeyi sınıflandır",
+    "zh": "按完整椽条缺口确定覆盖情况"
+  },
+  "explanation": {
+    "en": "Regenerate affected gravity loads. When pressure depends on exposure, partial overhead coverage of the rafter gap stops generation.",
+    "es": "Regenerá las cargas de gravedad afectadas. Si la presión depende de la exposición, la cobertura parcial de la abertura detiene la generación.",
+    "pt": "Gere novamente as cargas gravitacionais afetadas. Se a pressão depender da exposição, a cobertura parcial da abertura interrompe a geração.",
+    "de": "Erzeugen Sie die betroffenen Lasten neu. Hängt der Druck von der Exposition ab, stoppt eine teilweise Überdeckung der Sparrenlücke die Lasterzeugung.",
+    "fr": "Régénérez les charges gravitaires concernées. Lorsque la pression dépend de l’exposition, la couverture partielle de l’ouverture arrête la génération.",
+    "hu": "Generálja újra az érintett gravitációs terheket. Ha a nyomás a fedettségtől függ, a rés részleges fedettsége leállítja a terhek előállítását.",
+    "tr": "Etkilenen düşey yükleri yeniden oluşturun. Basınç örtülmeye bağlı olduğunda, mertek açıklığının kısmen örtülmesi yük üretimini durdurur.",
+    "zh": "请重新生成受影响的重力荷载。当压力取决于覆盖情况时，椽条缺口被部分覆盖会停止生成荷载。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-generated-source-accounting.md",
+    "heading": "Classify exposure over the full rafter gap"
+  }
+}

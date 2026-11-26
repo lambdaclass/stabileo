@@ -17,3 +17,9 @@ Vertical continuations keep their story loads. Inclined braces with evidenced en
 A wall corner could touch the interior of a slab cell with no shared node and a zero-length intersection. A loaded slab with other supports could then solve through those supports while the wall received no pressure reaction. Spatial preflight now reports the incompatible vertex and asks for a mesh with shared nodes.
 
 Cells that meet at a shared edge or corner proceed when a plane through that boundary separates all their other corners. This restores analysis of the full-stadium gallery model, whose warped shell cells have compatible boundaries.
+
+## Join authored walls and prioritize wall corners
+
+The CAD importer resolves nearby authored wall ends before either the slab or the walls are meshed. In the regression, wall ends drawn 2 mm apart with a 10 mm snap tolerance share both wall joint nodes, including the node on the conforming slab. Wall ends outside the tolerance retain distinct joints.
+
+The floor range matcher treats a bend between two wall panels as a physical joint. In the regression, an upper column joins the lower wall corner even though a slab mesh station is closer. Regenerate the affected CAD draft and rerun the analysis.

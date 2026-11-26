@@ -25,7 +25,8 @@ import {
   pruneBeamsDisconnectedFromColumns, pruneFloating,
 } from './infer';
 import { dyadicInteger } from '../engine/accounting-math';
-import { pointInPolygon } from './geometry';
+import { pointInPolygon, pointOnSegment } from './geometry';
+import { PLATE_EDGE_TOL } from '../model/physical/plate-analysis';
 import type { ModelSnapshot } from '../store/history.svelte';
 
 export interface InferenceOptions {
@@ -330,7 +331,12 @@ function interfaceNodes(snapshot: ModelSnapshot, z: number): InterfaceNode[] {
       neighbours.set(id, adjacent);
     }
   }
-  for (const [id, adjacent] of neighbours) if (adjacent.size !== 2) physical.add(id);
+  for (const [id, adjacent] of neighbours) {
+    const [a, b] = adjacent;
+    if (adjacent.size !== 2 || pointOnSegment(nodes.get(id)!, nodes.get(a!)!, nodes.get(b!)!, PLATE_EDGE_TOL, 0) === null) {
+      physical.add(id);
+    }
+  }
   return snapshot.nodes.flatMap(([, node]) => (node.z ?? 0) === z
     ? [{ ...node, physical: physical.has(node.id) }] : []);
 }

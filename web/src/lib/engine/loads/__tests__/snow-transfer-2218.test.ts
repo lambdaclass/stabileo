@@ -4,7 +4,7 @@ import { teAt } from '../../../i18n/engine-text';
 import { expect, it } from 'vitest';
 import { driftAndSlidingLoads } from '../snow-drift-loads';
 import { gravityLayout } from '../plan-gravity';
-import { roofSurfaceModel, snowRoofSteps } from '../snow-roof-surfaces';
+import { roofSurfaceModel, snowRoofEdgePairs, snowRoofSteps } from '../snow-roof-surfaces';
 import { snowLoadCases } from '../snow-loads';
 import { buildLoadPlan } from '../load-plan';
 import { pressure, regulations, snow } from './snow-roof-plane-fixture';
@@ -354,9 +354,7 @@ it('#2607 snow detects a step on the second owned roof strip', () => {
   }, surfaces)).toThrow('snow.refused.stepDriftTransfer');
 });
 
-const reviewRegression = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
-
-reviewRegression('known wrong result: #2607 separated roof edges use the measured separation for drift', () => {
+it('#2607 separated roof edges use the measured separation for drift', () => {
   const gravity = { mode: 'panels', slab: 'oneWay', spanAxis: 'x' } as const;
   const config = { ...snow, roofKind: 'mono', slippery: false } as const;
   const inputs = { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1 };
@@ -405,32 +403,62 @@ reviewRegression('known wrong result: #2607 separated roof edges use the measure
   }
 });
 
-reviewRegression('known wrong result: #2607 a higher roof opening leaves the lower roof parapet band exposed', () => {
+it('#2607 translating the plan preserves a measurable roof separation', () => {
+  const model = steppedRoof();
+  const layout = gravityLayout(model, { mode: 'panels', slab: 'oneWay', spanAxis: 'x', tributaryWidth: 1 });
+  const shift = 1e12;
+  const gap = 0.005;
+  const panels = layout.panels.map(panel => ({
+    ...panel, polygon: panel.polygon.map(([x, y]): [number, number] => [x + (panel.z === 5 ? shift - gap : shift), y]),
+  }));
+  const shifted = { ...layout, panels };
+  const geometry = roofSurfaceModel(model);
+  const surfaces = (index: number) => ({ ...geometry.panel(index, layout), elevation: () => panels[index]!.z });
+  expect(snowRoofSteps(model, shifted, surfaces)).toEqual([]);
+  expect(snowRoofEdgePairs(model, shifted, surfaces)).toEqual([
+    expect.objectContaining({ separation: shift - (shift - gap) }),
+  ]);
+});
+
+it('#2607 a higher roof opening leaves the lower roof parapet band exposed', () => {
   const model = steppedRoof();
   const layout = gravityLayout(model, { mode: 'panels', slab: 'oneWay', spanAxis: 'x', tributaryWidth: 1 });
   const rectangle = (lo: number, bottom: number, hi: number, top: number): [number, number][] =>
     [[lo, bottom], [hi, bottom], [hi, top], [lo, top]];
   const low = layout.panels.findIndex(panel => panel.z === 3);
   const high = layout.panels.findIndex(panel => panel.z === 5);
-  const exterior = rectangle(-2, -2, 9.5, 6);
-  const opening = rectangle(-1, -1, 8.5, 5);
+  const exterior = rectangle(-8, -8, 15.5, 12);
+  const opening = rectangle(-7, -7, 14.5, 11);
   const geometry = roofSurfaceModel(model);
   const surfaces = {
     ...geometry,
+    resolves: () => true,
     panel: (index: number) => ({ ...geometry.panel(index, layout), elevation: () => layout.panels[index]!.z }),
     edgeHeights: (_a: [number, number], _b: [number, number], _layout: typeof layout, first: number, second: number) =>
       [layout.panels[first]!.z - layout.panels[second]!.z],
   };
-  const loads = (upper: typeof layout.panels[number]) => {
+  const loads = (upper: typeof layout.panels[number], cover = true) => {
     const panels = layout.panels.map((panel, i) => i === high ? upper : panel);
     const lowerMembers = new Set(layout.pieces.filter(piece => piece.panel === low).map(piece => piece.elementId));
     return driftAndSlidingLoads(model, { ...layout, panels }, {
       pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1, parapet: { height: 2 },
-    }, surfaces).distributed.filter(row => lowerMembers.has(row.elementId));
+    }, {
+      ...surfaces,
+      edgeHeights: (...args) => cover ? surfaces.edgeHeights(...args) : [-2],
+    }).distributed.filter(row => lowerMembers.has(row.elementId));
   };
-  const upper = layout.panels[high]!;
-  const uncovered = loads({ ...upper, polygon: rectangle(-12, -2, -8, 6) });
+  const solid = { ...layout.panels[high]!, polygon: exterior, footprint: [[exterior]] };
+  const opened = { ...solid, footprint: [[exterior, opening]] };
+  const uncovered = loads(opened, false);
   expect(uncovered.length).toBeGreaterThan(0);
-  expect(loads({ ...upper, polygon: exterior, footprint: [[exterior]] })).toEqual([]);
-  expect(loads({ ...upper, polygon: exterior, footprint: [[exterior, opening]] })).toEqual(uncovered);
+  expect(loads(solid)).toEqual([]);
+  expect(loads(opened)).toEqual(uncovered);
+  const partial = loads({ ...solid, footprint: [[exterior, rectangle(-7, 0.5, 14.5, 1.5)]] });
+  const west = [...model.elements.values()].find(({ nodeI, nodeJ }) => [nodeI, nodeJ].every(id => {
+    const p = model.nodes.get(id)!;
+    return p.x === 0 && p.z === 3;
+  }))!;
+  const station = (y: number) => Math.abs(model.nodes.get(west.nodeI)!.y - y);
+  expect(pressure(partial, west.id, station(1))).toBeGreaterThan(0);
+  expect(Math.abs(pressure(partial, west.id, station(2)))).toBe(0);
 });

@@ -1,0 +1,42 @@
+{
+  "id": "cad-authored-wall-joints",
+  "date": "2026-11-26",
+  "prs": [
+    2607
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "cadImportedDraft"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Join authored walls and prioritize wall corners",
+    "es": "Unir los muros dibujados y priorizar sus esquinas",
+    "pt": "Unir paredes desenhadas e priorizar seus cantos",
+    "de": "Gezeichnete Wände verbinden und Wandecken priorisieren",
+    "fr": "Relier les voiles dessinés et donner la priorité à leurs angles",
+    "hu": "Rajzolt falak összekötése és a falsarkok előnyben részesítése",
+    "tr": "Çizilen perdeleri birleştir ve perde köşelerine öncelik ver",
+    "zh": "连接绘制的墙并优先匹配墙角"
+  },
+  "explanation": {
+    "en": "Regenerate the affected CAD draft and rerun analysis. Nearby wall ends share a joint, and wall corners take priority at floor interfaces.",
+    "es": "Volvé a generar el borrador CAD afectado y repetí el análisis. Los extremos cercanos de muros comparten un nodo y las esquinas de muro tienen prioridad entre pisos.",
+    "pt": "Gere novamente o rascunho CAD afetado e repita a análise. Extremidades próximas de paredes compartilham um nó, e os cantos têm prioridade entre pavimentos.",
+    "de": "Erstellen Sie den betroffenen CAD-Entwurf neu und wiederholen Sie die Berechnung. Nahe Wandenden teilen einen Knoten, und Wandecken haben an Geschossübergängen Vorrang.",
+    "fr": "Régénérez l’ébauche CAO concernée et relancez le calcul. Les extrémités proches des voiles partagent un nœud et les angles ont priorité aux interfaces d’étages.",
+    "hu": "Generálja újra az érintett CAD-vázlatot, és futtassa újra az elemzést. A közeli falvégek közös csomópontot kapnak, a falsarkok pedig elsőbbséget élveznek a szintek határán.",
+    "tr": "Etkilenen CAD taslağını yeniden oluşturun ve analizi tekrarlayın. Yakın perde uçları ortak düğüm kullanır ve kat geçişlerinde perde köşelerine öncelik verilir.",
+    "zh": "请重新生成受影响的 CAD 草稿并重新分析。相近墙端共享节点，楼层交界处优先匹配墙角。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-cad-connectivity-and-seismic-story-loads.md",
+    "heading": "Join authored walls and prioritize wall corners"
+  }
+}

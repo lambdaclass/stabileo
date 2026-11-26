@@ -534,16 +534,23 @@ export function generateRcDraft(
 
   // Structural lines that mesh boundaries must pass through (axis-aligned
   // beams, walls, and the column grid) — collected once, in plan coordinates.
-  const snapWallEnd = (point: CadPt) => {
-    let nearest = point, distance = tol;
-    for (const column of columnPts) {
-      const candidate = dist(column, point);
+  const wallJoints: CadPt[] = [];
+  const nearestWallJoint = (point: CadPt, joints: CadPt[]) => {
+    let nearest: CadPt | undefined, distance = tol;
+    for (const joint of joints) {
+      const candidate = dist(joint, point);
       if (candidate < distance) {
-        nearest = column;
+        nearest = joint;
         distance = candidate;
       }
     }
     return nearest;
+  };
+  const snapWallEnd = (point: CadPt): CadPt => {
+    const joint = nearestWallJoint(point, columnPts) ?? nearestWallJoint(point, wallJoints);
+    if (joint) return joint;
+    wallJoints.push(point);
+    return point;
   };
   const wallRuns = plan.walls.flatMap(wall => {
     const segment = { a: snapWallEnd(wall.a), b: snapWallEnd(wall.b) };

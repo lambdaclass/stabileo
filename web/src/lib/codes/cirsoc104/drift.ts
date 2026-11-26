@@ -126,11 +126,11 @@ export function driftShapeMargins(dr: StepDrift, clearHeight: number, distance: 
 }
 
 const MIN_CLEAR_RATIO = 0.2;
-const MAX_SEPARATION = 6;
+export const MAX_ADJACENT_ROOF_SEPARATION = 6;
 
 export function stepDriftMargins(i: Pick<StepDriftInputs, 'pg' | 'balanced' | 'stepHeight' | 'separation'>): number[] {
   const hb = i.balanced / snowDensity(i.pg);
-  return [hb, i.stepHeight - (1 + MIN_CLEAR_RATIO) * hb, MAX_SEPARATION - (i.separation ?? 0)];
+  return [hb, i.stepHeight - (1 + MIN_CLEAR_RATIO) * hb, MAX_ADJACENT_ROOF_SEPARATION - (i.separation ?? 0)];
 }
 
 export function stepDrift(i: StepDriftInputs): StepDrift {
@@ -142,8 +142,8 @@ export function stepDrift(i: StepDriftInputs): StepDrift {
   const hd = Math.max(hdLeeward, hdWindward);
   const base = { gamma, hb, hc, hdLeeward, hdWindward, governs: (hdLeeward >= hdWindward ? 'leeward' : 'windward') as StepDrift['governs'], outside: lee.outside || wind.outside };
   const s = i.separation ?? 0;
-  if (hb <= 0 || hc / hb < MIN_CLEAR_RATIO || s >= MAX_SEPARATION) return { ...base, applies: false, height: 0, w: 0, pd: 0 };
-  const reduce = (MAX_SEPARATION - s) / MAX_SEPARATION;
+  if (hb <= 0 || hc / hb < MIN_CLEAR_RATIO || s >= MAX_ADJACENT_ROOF_SEPARATION) return { ...base, applies: false, height: 0, w: 0, pd: 0 };
+  const reduce = (MAX_ADJACENT_ROOF_SEPARATION - s) / MAX_ADJACENT_ROOF_SEPARATION;
   const shape = driftShape(hd, hc);
   const height = shape.height * reduce;
   return { ...base, applies: true, height, w: shape.w, pd: height * gamma };

@@ -21,3 +21,9 @@ The receiving roof may now consist of several connected rectangular bays with de
 Regenerate snow loads and repeat the analysis for affected roofs. Other receiving geometries still require a known bearing arrangement and a pressure field the generator can integrate.
 
 A shell can split a bay into several owned roof components. Step detection and fetch use the actual components. A positive step affecting a split or perforated receiving region requires a resolved bearing arrangement and stops before transfer.
+
+## Use roof separation and openings in snow drift
+
+Connected step drift requires coincident edges. Facing edges separated by an open plan gap use the adjacent-roof calculation with the measured separation and the elevation of each edge at its own location. Supported one-way bays transfer the resulting force and first moments to their bearings. A separation at the adjacent-roof limit yields no drift.
+
+A higher roof covers a lower edge only where the cover point lies on the higher roof's footprint. Openings interrupt that cover along the lower edge so the affected surcharge bands remain in the load plan. Regenerate affected automatic snow loads and rerun the analysis.

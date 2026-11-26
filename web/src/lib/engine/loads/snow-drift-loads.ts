@@ -1,6 +1,6 @@
 import { agrees, roundoff, Sum } from '../accounting-math';
 import { ringArea } from './gravity-shell-partition';
-import { snowCoordinate, snowRoofComponents, snowRoofSteps, snowRoofSurfaces, roofSurfaceModel } from './snow-roof-surfaces';
+import { snowCoordinate, snowEdgeRoundoff, snowRoofComponents, snowRoofEdgePairs, snowRoofSurfaces, snowSegmentCuts, roofSurfaceModel } from './snow-roof-surfaces';
 import { gravityLayout, widthSpans, type GravityLayout, type GravityModel } from './plan-gravity';
 import { driftShapeMargins, stepDriftMargins, stepDrift, parapetDrift, slidingSnow, REF_DRIFT, REF_DRIFT_ADJACENT, REF_FIG9, REF_PARAPET, REF_SLIDING, type StepDrift } from '../../codes/cirsoc104/drift';
 import { EngineMessageError, msg, round, type EngineMessage } from '../../codes/message';
@@ -44,11 +44,11 @@ function within(pt: P2, poly: P2[]): boolean {
   return c;
 }
 
-function edgeInterval(a: P2, b: P2, c: P2, d: P2): [number, number] | undefined {
+function edgeInterval(a: P2, b: P2, c: P2, d: P2, tolerance = 0.01): [number, number] | undefined {
   const delta = sub(b, a), len = Math.hypot(...delta);
   if (len < 1e-9) return;
   const u: P2 = [delta[0] / len, delta[1] / len], n: P2 = [-u[1], u[0]];
-  if (Math.abs(dot(sub(c, a), n)) > 0.01 || Math.abs(dot(sub(d, a), n)) > 0.01) return;
+  if (Math.abs(dot(sub(c, a), n)) > tolerance || Math.abs(dot(sub(d, a), n)) > tolerance) return;
   const tc = dot(sub(c, a), u), td = dot(sub(d, a), u);
   const lo = Math.max(0, Math.min(tc, td)), hi = Math.min(len, Math.max(tc, td));
   return hi - lo > 1e-9 ? [lo, hi] : undefined;
@@ -59,7 +59,8 @@ function joined(A: P2[], B: P2[], continuous: (a: P2, b: P2) => boolean): boolea
     const b = A[(e + 1) % A.length]!, delta = sub(b, a), len = Math.hypot(...delta);
     const point = (t: number): P2 => [a[0] + t * delta[0] / len, a[1] + t * delta[1] / len];
     return B.some((c, f) => {
-      const interval = edgeInterval(a, b, c, B[(f + 1) % B.length]!);
+      const d = B[(f + 1) % B.length]!;
+      const interval = edgeInterval(a, b, c, d, snowEdgeRoundoff(a, b, c, d));
       return interval && interval[1] - interval[0] > 0.1
         && continuous(point(interval[0]), point(interval[1]));
     });
@@ -101,7 +102,8 @@ export function snowDriftRefusal(model: GravityModel, layout?: GravityLayout, su
       for (const [e, a] of panel.polygon.entries()) {
         const b = panel.polygon[(e + 1) % panel.polygon.length]!, line = lineInto(a, b, panel.polygon);
         for (const [f, c] of other.polygon.entries()) {
-          const interval = edgeInterval(a, b, c, other.polygon[(f + 1) % other.polygon.length]!);
+          const d = other.polygon[(f + 1) % other.polygon.length]!;
+          const interval = edgeInterval(a, b, c, d, snowEdgeRoundoff(a, b, c, d));
           if (!interval) continue;
           const lo: P2 = [a[0] + interval[0] * line.u[0], a[1] + interval[0] * line.u[1]];
           const hi: P2 = [a[0] + interval[1] * line.u[0], a[1] + interval[1] * line.u[1]];
@@ -276,17 +278,22 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
     }
     return group;
   };
-  for (const step of snowRoofSteps(model, layout, surfaces)) {
-    const { a, b, lowerComponent: L, upperComponent: U, lowerOutline } = step;
+  for (const step of snowRoofEdgePairs(model, layout, surfaces)) {
+    const { a, b, lowerComponent: L, upperComponent: U, lowerOutline, upperOffset, separation } = step;
     const line = lineInto(a, b, lowerOutline);
     if (lowerOutline !== L.polygon) {
       line.n = [-line.n[0], -line.n[1]];
     }
-    const reach = (group: typeof roofs, sign: number) => Math.max(0, ...group.flatMap((p) => p.polygon.map((v) => sign * dot(sub(v, a), line.n))));
+    if (separation > 0) line.n = step.inward;
+    const above = ([x, y]: P2): P2 => [x + upperOffset[0], y + upperOffset[1]];
+    const below = (pt: P2) => sub(pt, upperOffset);
+    const reach = (group: typeof roofs, origin: P2, sign: number) =>
+      Math.max(0, ...group.flatMap(p => p.polygon.map(v => sign * dot(sub(v, origin), line.n))));
     const lowerRoof = roofOf(L);
-    const luUpper = reach(roofOf(U), -1), luLower = reach(lowerRoof, 1);
+    const luUpper = reach(roofOf(U), above(a), -1), luLower = reach(lowerRoof, a, 1);
     const inputs = (pt: P2) => ({
-      pg: i.pg, balanced: balanced(L.k, pt), stepHeight: surfaces(U.k).elevation(pt) - surfaces(L.k).elevation(pt), luUpper, luLower,
+      pg: i.pg, balanced: balanced(L.k, pt),
+      stepHeight: surfaces(U.k).elevation(above(pt)) - surfaces(L.k).elevation(pt), luUpper, luLower, separation,
     });
     if (typeof i.balanced !== 'number' && i.balancedConstantOnPlanes !== true) {
       throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL));
@@ -298,11 +305,12 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
     };
     const ranges = surfaceModel.edgeRanges(a, b, layout, pt => stepDriftMargins(inputs(pt)));
     const samples: P2[] = [a, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], b];
-    const checks = [...ranges.map(range => range.point), ...samples].map(inputs);
+    const upperRanges = separation > 0 ? surfaceModel.edgeRanges(above(a), above(b), layout, pt => stepDriftMargins(inputs(below(pt)))) : [];
+    const checks = [...ranges.map(range => range.point), ...upperRanges.map(range => below(range.point)), ...samples].map(inputs);
     const profiles = checks.map(checkedDrift);
     const first = profiles.find(dr => dr.applies && dr.pd > 0 && dr.w > 0);
     if (first) {
-      const heights = surfaceModel.edgeHeights(a, b, layout, U.k, L.k);
+      const heights = separation > 0 ? checks.map(check => check.stepHeight) : surfaceModel.edgeHeights(a, b, layout, U.k, L.k);
       const heightScale = Math.max(Math.abs(U.z), Math.abs(L.z));
       const sameHeight = heights.length > 0 && heights.every(h => agrees(h, heights[0]!, heightScale));
       if (!sameHeight || profiles.some(dr => !dr.applies || dr.pd !== first.pd || dr.w !== first.w)) throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL));
@@ -315,14 +323,23 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
     }
     for (const pt of samples) {
       const dr = checkedDrift(inputs(pt));
-      derivation.push(msg(dr.applies ? 'snow.derivation.drift' : 'snow.derivation.noDrift', {
-        z: round(surfaces(L.k).elevation(pt), 2), up: round(surfaces(U.k).elevation(pt), 2), hb: round(dr.hb, 3), hc: round(dr.hc, 3),
+      const derivationKey = separation > 0
+        ? (dr.applies ? 'snow.derivation.adjacent' : 'snow.derivation.noAdjacent')
+        : (dr.applies ? 'snow.derivation.drift' : 'snow.derivation.noDrift');
+      const top = round(surfaces(U.k).elevation(above(pt)), 2);
+      const [nx, ny] = line.n;
+      const side = Math.abs(nx) >= Math.abs(ny) ? (nx > 0 ? '-X' : '+X') : (ny > 0 ? '-Y' : '+Y');
+      derivation.push(msg(derivationKey, {
+        z: round(surfaces(L.k).elevation(pt), 2), up: top, top, side, s: round(separation, 3), from: 0, to: round(line.len, 3),
+        hb: round(dr.hb, 3), hc: round(dr.hc, 3),
         lee: round(dr.hdLeeward, 3), wind: round(dr.hdWindward, 3), h: round(dr.height, 3), w: round(dr.w, 2), pd: round(dr.pd, 3),
       }));
     }
-    if (refs.length === 0) refs.push(REF_DRIFT, REF_FIG9);
+    const reference = separation > 0 ? REF_DRIFT_ADJACENT : REF_DRIFT;
+    if (!refs.includes(reference)) refs.push(reference);
+    if (!refs.includes(REF_FIG9)) refs.push(REF_FIG9);
   }
-  const inside = (pt: P2, poly: P2[]) => {
+  const insideRing = (pt: P2, poly: P2[]) => {
     let c = false;
     for (let k = 0, j = poly.length - 1; k < poly.length; j = k++) {
       const [xi, yi] = poly[k]!, [xj, yj] = poly[j]!;
@@ -334,14 +351,24 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
     for (const L of roofs) {
       for (let e = 0; e < L.polygon.length; e++) {
         const start = L.polygon[e]!, end = L.polygon[(e + 1) % L.polygon.length]!;
-        if (Math.hypot(end[0] - start[0], end[1] - start[1]) < 0.1) continue;
-        for (const range of surfaceModel.edgeRanges(start, end, layout, () => [])) {
-          const atEdge = (t: number): P2 => [start[0] + t * (end[0] - start[0]), start[1] + t * (end[1] - start[1])];
-          const a = atEdge(range.from), b = atEdge(range.to), edgeStart = range.from * Math.hypot(end[0] - start[0], end[1] - start[1]);
+        const edge = lineInto(start, end, L.polygon);
+        if (edge.len < 0.1) continue;
+        const atEdge = (t: number): P2 => [start[0] + t * (end[0] - start[0]), start[1] + t * (end[1] - start[1])];
+        const outside = ([x, y]: P2): P2 => [x - edge.n[0] * 0.05, y - edge.n[1] * 0.05];
+        const covers = roofs.filter(p => p.k !== L.k);
+        const cutouts = covers.flatMap(p => p.holes.length ? [p.polygon, ...p.holes] : []);
+        const cuts = snowSegmentCuts(outside(start), outside(end), cutouts);
+        const ranges = surfaceModel.edgeRanges(start, end, layout, () => []).flatMap(({ from, to }) => {
+          const boundaries = [from, ...cuts.filter(t => t > from && t < to), to];
+          return boundaries.slice(1).map((end, k) => [boundaries[k]!, end] as const);
+        });
+        for (const [from, to] of ranges) {
+          const a = atEdge(from), b = atEdge(to), edgeStart = from * edge.len;
           const line = lineInto(a, b, L.polygon);
           if (line.len < 1e-9) continue;
-          const mid: P2 = [a[0] + line.u[0] * line.len / 2 - line.n[0] * 0.05, a[1] + line.u[1] * line.len / 2 - line.n[1] * 0.05];
-          if (roofs.some(p => p.k !== L.k && inside(mid, p.polygon) && surfaceModel.edgeHeights(a, b, layout, p.k, L.k).every(h => h >= -0.05))) continue;
+          const mid = outside(atEdge((from + to) / 2));
+          if (covers.some(p => insideRing(mid, p.polygon) && !p.holes.some(hole => insideRing(mid, hole))
+            && surfaceModel.edgeHeights(a, b, layout, p.k, L.k).every(h => h >= -0.05))) continue;
           const lower = roofOf(L);
           const lu = Math.max(0, ...lower.flatMap((p) => p.polygon.map((v) => dot(sub(v, a), line.n))));
           const point = (t: number): P2 => [a[0] + t * line.u[0], a[1] + t * line.u[1]];

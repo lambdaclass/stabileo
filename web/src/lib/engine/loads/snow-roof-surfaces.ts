@@ -3,6 +3,9 @@ export { snowCoordinate } from './physical-roof-geometry';
 import { roofMembers, type WindModel } from './wind-cases';
 import { beamLike, type GravityLayout } from './plan-gravity';
 import { UNBALANCED_WIDTH_LIMIT } from '../../codes/cirsoc104/snow';
+import { MAX_ADJACENT_ROOF_SEPARATION } from '../../codes/cirsoc104/drift';
+import { roundoff } from '../accounting-math';
+import { footprintIntersection } from './gravity-shell-partition';
 
 type P2 = [number, number];
 type Point = { x: number; y: number; z?: number };
@@ -634,30 +637,102 @@ export function snowRoofComponents(layout: GravityLayout) {
     : []);
 }
 
-export function snowRoofSteps(model: WindModel, layout: GravityLayout, surfaces = snowRoofSurfaces(model, layout)) {
+type SnowRoofComponent = ReturnType<typeof snowRoofComponents>[number];
+
+function roofEdges(roof: SnowRoofComponent) {
+  return [roof.polygon, ...roof.holes].flatMap(outline => {
+    const origin = outline[0];
+    if (!origin) return [];
+    const [x, y] = origin;
+    const signedArea = outline.reduce((area, [ax, ay], i) => {
+      const [bx, by] = outline[(i + 1) % outline.length]!;
+      return area + (ax - x) * (by - y) - (ay - y) * (bx - x);
+    }, 0);
+    const side = Math.sign(signedArea) * (outline === roof.polygon ? 1 : -1);
+    return outline.flatMap((a, i) => {
+      const b = outline[(i + 1) % outline.length]!;
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (len < 1e-9 || side === 0) return [];
+      const u: P2 = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
+      const inward: P2 = [-u[1] * side, u[0] * side];
+      return [{ a, b, len, u, inward, outline }];
+    });
+  });
+}
+
+export function snowEdgeRoundoff([x, y]: P2, ...points: P2[]): number {
+  return roundoff * Math.max(...points.flatMap(([px, py]) => [Math.abs(px - x), Math.abs(py - y)]));
+}
+
+function clearRoofGap(
+  roofs: SnowRoofComponent[], lo: number, hi: number,
+  point: (t: number) => P2, upperPoint: (t: number) => P2, station: (point: P2) => number, error: number,
+): [number, number][] {
+  const a = point(lo), b = point(hi), c = upperPoint(hi), d = upperPoint(lo);
+  const width = Math.hypot(d[0] - a[0], d[1] - a[1]);
+  const inset = Math.min(error / width, 0.25);
+  const inside = ([x, y]: P2, [tx, ty]: P2): P2 => [x + (tx - x) * inset, y + (ty - y) * inset];
+  const corridor = [[inside(a, d), inside(b, c), inside(c, b), inside(d, a)]];
+  const blocked = roofs.flatMap(roof => footprintIntersection(corridor, [roof.polygon, ...roof.holes]).flatMap(([ring]) => {
+    if (!ring) return [];
+    const stations = ring.map(station);
+    return [[Math.min(...stations), Math.max(...stations)] as [number, number]];
+  })).sort(([a], [b]) => a - b);
+  const clear: [number, number][] = [];
+  let start = lo;
+  for (const [from, to] of blocked) {
+    if (from - start > error) clear.push([start, from]);
+    start = Math.max(start, to);
+  }
+  if (hi - start > error) clear.push([start, hi]);
+  return clear;
+}
+
+export function snowRoofEdgePairs(
+  model: WindModel, layout: GravityLayout, surfaces = snowRoofSurfaces(model, layout), includeAdjacent = true,
+) {
   const roofs = snowRoofComponents(layout);
-  type Component = typeof roofs[number];
-  const steps: Array<{ lower: number; upper: number; a: P2; b: P2; lowerOutline: P2[]; lowerComponent: Component; upperComponent: Component }> = [];
-  for (const L of roofs) for (const U of roofs) {
+  const boundaries = roofs.map(roof => ({ roof, edges: roofEdges(roof) }));
+  const pairs: Array<{
+    lower: number; upper: number; a: P2; b: P2; separation: number; upperOffset: P2; inward: P2;
+    lowerOutline: P2[]; lowerComponent: SnowRoofComponent; upperComponent: SnowRoofComponent;
+  }> = [];
+  for (const { roof: L, edges: lowerEdges } of boundaries) for (const { roof: U, edges: upperEdges } of boundaries) {
     const { k: lower } = L, { k: upper } = U;
     if (lower === upper) continue;
-    for (const lowerOutline of [L.polygon, ...L.holes]) for (let e = 0; e < lowerOutline.length; e++) {
-      const a = lowerOutline[e]!, b = lowerOutline[(e + 1) % lowerOutline.length]!;
-      const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
-      if (len < 1e-9) continue;
-      const u: P2 = [dx / len, dy / len];
-      for (const outline of [U.polygon, ...U.holes]) for (let f = 0; f < outline.length; f++) {
-        const c = outline[f]!, d = outline[(f + 1) % outline.length]!;
-        const normal = (p: P2) => (p[0] - a[0]) * -u[1] + (p[1] - a[1]) * u[0];
-        if (Math.abs(normal(c)) > 0.01 || Math.abs(normal(d)) > 0.01) continue;
-        const along = (p: P2) => (p[0] - a[0]) * u[0] + (p[1] - a[1]) * u[1];
+    for (const { a, b, len, u, inward, outline: lowerOutline } of lowerEdges) {
+      const along = (p: P2) => (p[0] - a[0]) * u[0] + (p[1] - a[1]) * u[1];
+      const normal = (p: P2) => (p[0] - a[0]) * inward[0] + (p[1] - a[1]) * inward[1];
+      const point = (t: number): P2 => [a[0] + t * u[0], a[1] + t * u[1]];
+      for (const { a: c, b: d, inward: upperInward } of upperEdges) {
+        const error = snowEdgeRoundoff(a, b, c, d);
+        const nc = normal(c), nd = normal(d);
+        const coincident = Math.abs(nc) <= error && Math.abs(nd) <= error;
+        const separation = coincident ? 0 : -(nc + nd) / 2;
+        if (!coincident && (!includeAdjacent || separation <= error || separation >= MAX_ADJACENT_ROOF_SEPARATION ||
+          Math.abs(nc - nd) > error || inward[0] * upperInward[0] + inward[1] * upperInward[1] >= 0)) continue;
         const lo = Math.max(0, Math.min(along(c), along(d))), hi = Math.min(len, Math.max(along(c), along(d)));
         if (hi - lo <= 0.1) continue;
-        const point = (t: number): P2 => [a[0] + t * u[0], a[1] + t * u[1]];
-        if (![lo, (lo + hi) / 2, hi].some(t => surfaces(upper).elevation(point(t)) - surfaces(lower).elevation(point(t)) > 1e-8)) continue;
-        steps.push({ lower, upper, a: point(lo), b: point(hi), lowerOutline, lowerComponent: L, upperComponent: U });
+        const upperOffset: P2 = [-separation * inward[0], -separation * inward[1]];
+        const upperPoint = (t: number): P2 => {
+          const [x, y] = point(t);
+          return [x + upperOffset[0], y + upperOffset[1]];
+        };
+        const spans = coincident ? [[lo, hi] as const] : clearRoofGap(roofs, lo, hi, point, upperPoint, along, error);
+        for (const [from, to] of spans) {
+          if (to - from <= 0.1 || ![from, (from + to) / 2, to].some(t =>
+            surfaces(upper).elevation(upperPoint(t)) - surfaces(lower).elevation(point(t)) > 1e-8)) continue;
+          pairs.push({
+            lower, upper, a: point(from), b: point(to), separation, upperOffset, inward,
+            lowerOutline, lowerComponent: L, upperComponent: U,
+          });
+        }
       }
     }
   }
-  return steps;
+  return pairs;
+}
+
+export function snowRoofSteps(model: WindModel, layout: GravityLayout, surfaces = snowRoofSurfaces(model, layout)) {
+  return snowRoofEdgePairs(model, layout, surfaces, false);
 }

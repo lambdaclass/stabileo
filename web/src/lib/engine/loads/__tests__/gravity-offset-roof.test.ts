@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { buildLoadPlan, roofWeightFor, roofWeightOf } from '../load-plan';
 import { gravityLayout } from '../plan-gravity';
+import { planAreaLoads } from '../plan-area-loads';
 import { snowDriftRefusal } from '../snow-drift-loads';
 import { doubleAttachedRoof, offsetRoof, roofPlan } from './gravity-offset-roof-fixture';
 import { input } from './gravity-width-mass-fixture';
@@ -204,7 +205,7 @@ it('#2586 partitions one attached gap at a canopy edge', () => {
   const reason = { key: 'loadPlan.gravity.mixedExposure' };
   for (const subdivided of [false, true]) for (const end of [4, 5, 6]) {
     const { model } = offsetRoof(0.02, 0, 1, subdivided, [4, 6], options.tributaryWidth);
-    const nodes = [[4, -1], [end, -1], [end, 1], [4, 1]].map(([x, y]) => {
+    const nodes = [[4, 0], [end, 0], [end, options.tributaryWidth], [4, options.tributaryWidth]].map(([x, y]) => {
       const id = model.nodes.size + 1;
       model.nodes.set(id, { id, x: x!, y: y!, z: 8 + y! });
       return id;
@@ -263,9 +264,7 @@ it.each(['unequal edges', 'two rafters'] as const)(
   },
 );
 
-const reviewRegression = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
-
-reviewRegression('known wrong result: #2607 a cover crossing the rafter only shelters part of its certified gap footprint', () => {
+it('#2607 a cover crossing the rafter only shelters part of its certified gap footprint', () => {
   const reason = { key: 'loadPlan.gravity.mixedExposure' };
   for (const split of [false, true]) for (const mirror of [1, -1]) {
     for (const [lo, hi, exposure] of [
@@ -282,7 +281,8 @@ reviewRegression('known wrong result: #2607 a cover crossing the rafter only she
         gravity: { mode: 'panels' },
         roof: { use: 'maintenance', weight: 'heavy', dead: 1, slopeDeg: Math.atan(0.2) * 180 / Math.PI },
       }));
-      expect(roofPlan(model, 'width').outcome).toBe('READY');
+      const explicitWidth = roofPlan(model, 'width');
+      expect.soft(explicitWidth.outcome, JSON.stringify(explicitWidth.blockedKeys)).toBe('READY');
       expect(() => gravityLayout(model, { ...options, uniformPressure: true })).not.toThrow();
       if (exposure === 'mixed') {
         expect.soft(plan).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [reason], distributed: [], surface: [] });
@@ -290,10 +290,19 @@ reviewRegression('known wrong result: #2607 a cover crossing the rafter only she
         expect.soft(() => roofWeightFor(model, options, options.tributaryWidth, 1)).toThrow(expect.objectContaining(reason));
         expect.soft(() => snowDriftRefusal(model)).toThrow(expect.objectContaining(reason));
       } else {
-        expect.soft(plan.outcome).toBe('READY');
+        expect.soft(roofPlan(model).outcome).toBe('READY');
+        expect.soft(plan.blockedKeys).toEqual([{ key: 'loadPlan.blocked.concentratedRoof' }]);
         const layout = gravityLayout(model, options);
+        const elementId = split ? 2 : 1;
         const areas = exposure === 'exposed' ? layout.roofAreaOf : layout.areaOf;
-        expect.soft(areas.get(split ? 2 : 1)).toBeCloseTo(8, 10);
+        expect.soft(areas.get(elementId)).toBeCloseTo(8, 10);
+        const floorLive = 2, roofLive = 3;
+        const rows = planAreaLoads({
+          layout, tributaryWidth: options.tributaryWidth,
+          floor: { dead: 1, lo: floorLive, liveOf: () => floorLive },
+          roof: { use: 'occupancy', weight: 'heavy', dead: 1, slopePercent: 20, lo: roofLive, liveOf: () => roofLive },
+        }).distributed.filter(row => row.caseType === 'L');
+        expect.soft(rows).toEqual([expect.objectContaining({ elementId, q: -4 * (exposure === 'exposed' ? roofLive : floorLive) })]);
       }
     }
   }

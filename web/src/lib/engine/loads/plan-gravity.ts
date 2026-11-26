@@ -633,7 +633,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     (i, j) => panelLevel[i] === panelLevel[j] && [...panelBeams[i]!].some((id) => panelBeams[j]!.has(id)));
   out.widthColour = widthCheckerboard(model, out.widthMembers.map((m) => m.elementId));
 
-  const runExposure = new Map<readonly Segment[], boolean>();
+  const runExposure = new Map<readonly CertifiedGap[], boolean>();
   for (const m of out.widthMembers) {
     const fringe = memberFringes.get(m.elementId);
     const attached = attachedCoverage.get(m.elementId);
@@ -642,9 +642,11 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     if (typeof attached === 'object') {
       exposed = runExposure.get(attached.runGaps);
       if (exposed === undefined) {
-        const exposure = new Set(attached.runGaps.flatMap(gap => coverAbove.memberExposure(gap)));
-        if (exposure.size > 1 && !opts.uniformPressure) refuseGravityGeometry(msg('loadPlan.gravity.mixedExposure'));
-        exposed = exposure.has(true);
+        const exposure = new Set(attached.runGaps.map(gap => coverAbove.areaExposure(gap)));
+        if ((exposure.has('mixed') || exposure.size > 1) && !opts.uniformPressure) {
+          refuseGravityGeometry(msg('loadPlan.gravity.mixedExposure'));
+        }
+        exposed = exposure.has('exposed') || exposure.has('mixed');
         runExposure.set(attached.runGaps, exposed);
       }
     }
@@ -684,7 +686,7 @@ export const MAX_DECK_SPAN = 12;
 
 type ShellCoverage = 'none' | 'partial' | 'full';
 type RunInterval = [number, number];
-type AttachmentCoverage = ShellCoverage | 'unresolvedOffset' | { gaps: WidthSpan[]; runGaps: readonly Segment[] };
+type AttachmentCoverage = ShellCoverage | 'unresolvedOffset' | { gaps: WidthSpan[]; runGaps: readonly CertifiedGap[] };
 type ShellOffset = { offset: Segment[0]; error: number; shellNode: number };
 type ShellAttachment = { offset: Segment[0]; anchors: Set<number>; shellNodes: Set<number>; error: number };
 
@@ -875,6 +877,7 @@ function rigidShellCoverage(
     }
     let coverage: ShellCoverage | 'unresolvedOffset' = 'none';
     let gapSpans: CertifiedGap[] | undefined;
+    const gapClaims: CertifiedGap[] = [];
     const unresolvedVerticalAnchors = new Set<number>();
     for (const { offset, anchors, shellNodes, error } of attachments) {
       if (Math.abs(offset[2]) >= MIN_STOREY_HEADROOM) continue;
@@ -906,6 +909,7 @@ function rigidShellCoverage(
               sides[1] < match.sides[0] || match.sides[1] < sides[0];
           })
         ))) { coverage = 'partial'; break; }
+        gapClaims.push(...certified);
         gapSpans = gapSpans?.map(({ t0, t1, sides }, i) => {
           const match = certified[i]!;
           return certifiedGap(runTrace, t0, t1, [
@@ -925,7 +929,7 @@ function rigidShellCoverage(
       coverage = 'unresolvedOffset';
     }
     if (gapSpans && coverage === 'none' && !unresolvedVerticalAnchors.size) {
-      const overlaps = gapSpans.some(gap => claimedGaps.some(other => deckOverlaps(gap, other).some(part => !part.separated(TOL))));
+      const overlaps = gapClaims.some(gap => claimedGaps.some(other => deckOverlaps(gap, other).some(part => !part.separated(TOL))));
       if (overlaps) {
         for (const id of ids) byMember.set(id, 'partial');
         continue;
@@ -942,9 +946,8 @@ function rigidShellCoverage(
         continue;
       }
       const start = attachmentPoint(run.a, [0, 0, 0]), end = attachmentPoint(run.b, [0, 0, 0]);
-      const at = (t: number): Segment[0] => start.map((coordinate, i) => coordinate + t * (end[i]! - coordinate)) as Segment[0];
-      claimedGaps.push(...gapSpans);
-      const runGaps = gapSpans.map(({ t0: lo, t1: hi }): Segment => [at(lo), at(hi)]);
+      claimedGaps.push(...gapClaims);
+      const runGaps = gapSpans.map(({ t0, t1, sides }) => certifiedGap([start, end], t0, t1, sides));
       for (const { id, a, b, start, end } of parts) {
         const tolerance = 64 * Number.EPSILON * Math.max(1, Math.abs(a), Math.abs(b));
         const gaps: WidthSpan[] = [];
@@ -1984,57 +1987,9 @@ function coverage(
     return false;
   };
   const memberCovered = (segment: Segment) => coveredWithin(memberMidpointQuery(segment), Infinity);
-  const memberExposure = ([start, end]: Segment) => {
-    const dx = end[0] - start[0], dy = end[1] - start[1];
-    const length = Math.hypot(dx, dy);
-    const error = 64 * Number.EPSILON * Math.max(length, ...start.map(Math.abs), ...end.map(Math.abs));
-    const tolerance = error / length;
-    const at = (t: number): Segment[0] => [
-      start[0] + t * dx, start[1] + t * dy, start[2] + t * (end[2] - start[2]),
-    ];
-    const cuts = [0, 1];
-    const add = (t: number) => { if (t > tolerance && t < 1 - tolerance) cuts.push(t); };
-    const pointAt = (point: Segment[0]): PlanPoint => [point[0], point[1]];
-    const cutClearance = (from: number, to: number, clearance: number) => {
-      const a = from - start[2] - clearance, b = to - end[2] - clearance;
-      if (a !== b) add(a / (a - b));
-    };
-    const cutRing = (ring: Polygon[number]) =>
-      ring.forEach((p, i) => cutPlanTrace(start, end, p, ring[(i + 1) % ring.length]!, add, error));
-    for (const panel of [...panels, ...rejectedPanels]) {
-      panel.footprint.forEach(polygon => polygon.forEach(cutRing));
-      const from = panel.geometry.heights(pointAt(start)), to = panel.geometry.heights(pointAt(end));
-      cutClearance(from[0], to[0], MIN_COVER_RISE);
-      cutClearance(from[1], to[1], MIN_COVER_RISE);
-    }
-    for (const shell of shells) {
-      cutRing(shell.poly);
-      cutClearance(shell.height(pointAt(start)), shell.height(pointAt(end)), MIN_COVER_RISE);
-    }
-    for (const { segments, ownPanels } of runs) {
-      for (const { z, rings } of ownPanels) {
-        rings.forEach(cutRing);
-        cutClearance(z, z, TOL);
-        cutClearance(z, z, -TOL);
-      }
-      for (const { a, b, dx: x, dy: y, dz, lh } of segments) {
-        cutPlanTrace(start, end, [a.x, a.y], [b.x, b.y], add, error);
-        const elevation = (p: Segment[0]) => (a.z ?? 0) + ((p[0] - a.x) * x + (p[1] - a.y) * y) / lh ** 2 * dz;
-        cutClearance(elevation(start), elevation(end), MIN_COVER_RISE);
-      }
-    }
-    cuts.sort((a, b) => a - b);
-    return cuts.slice(1).flatMap((end, i) => {
-      const start = cuts[i]!;
-      return end - start <= tolerance ? [] : [!memberCovered([at(start), at(end)])];
-    });
-  };
   const pointCovered = (pt: PlanPoint, zTop: number, ownMembers?: ReadonlySet<number>, limit = Infinity, ownShell?: number) =>
     coveredWithin(pointCoverQuery(pt, zTop), limit, ownMembers, ownShell);
-  const areaCovered = (
-    lower: DeckFootprint, uniformPressure: boolean,
-    bareRun?: { point: PlanPoint; z: number; ownMembers?: ReadonlySet<number> }, ownShell?: number,
-  ) => {
+  const areaExposure = (lower: DeckFootprint, ownShell?: number) => {
     const cover: Polygon[] = [];
     let partial = false;
     const compare = (upper: DeckFootprint) => deckOverlapsInBand(lower, upper, MIN_COVER_RISE, Infinity);
@@ -2048,20 +2003,25 @@ function coverage(
         else partial = true;
       }
     }
-    if (cover.length && lower.footprint.every(part => subtractFootprints(part, cover).length === 0)) return true;
+    if (cover.length && lower.footprint.every(part => subtractFootprints(part, cover).length === 0)) return 'sheltered';
     if (rejectedPanels.some(panel => compare(panel).length)) {
       refuseGravityGeometry(msg('loadPlan.gravity.widePanels', { n: 1, span: MAX_DECK_SPAN }));
     }
-    if (partial || cover.length) {
-      if (!uniformPressure) refuseGravityGeometry(msg('loadPlan.gravity.mixedExposure'));
-      return true;
-    }
+    return partial || cover.length ? 'mixed' : 'exposed';
+  };
+  const areaCovered = (
+    lower: DeckFootprint, uniformPressure: boolean,
+    bareRun?: { point: PlanPoint; z: number; ownMembers?: ReadonlySet<number> }, ownShell?: number,
+  ) => {
+    const exposure = areaExposure(lower, ownShell);
+    if (exposure === 'mixed' && !uniformPressure) refuseGravityGeometry(msg('loadPlan.gravity.mixedExposure'));
+    if (exposure !== 'exposed') return true;
     if (!bareRun) return false;
     const center = pointCoverQuery(bareRun.point, bareRun.z);
     return lower.footprint.some(part => footprintContains(center.plan, part))
       && coveredWithin(center, Infinity, bareRun.ownMembers, ownShell, false);
   };
-  return { pointCovered, memberCovered, memberExposure, areaCovered };
+  return { pointCovered, memberCovered, areaExposure, areaCovered };
 }
 
 /**
