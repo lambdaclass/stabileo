@@ -262,3 +262,39 @@ it.each(['unequal edges', 'two rafters'] as const)(
     expect(roofPlan(model, 'width').outcome).toBe('READY');
   },
 );
+
+const reviewRegression = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
+
+reviewRegression('known wrong result: #2607 a cover crossing the rafter only shelters part of its certified gap footprint', () => {
+  const reason = { key: 'loadPlan.gravity.mixedExposure' };
+  for (const split of [false, true]) for (const mirror of [1, -1]) {
+    for (const [lo, hi, exposure] of [
+      [-1, 1, 'mixed'], [1, 2, 'mixed'], [-2, 0, 'exposed'], [0, 4, 'sheltered'],
+    ] as const) {
+      const { model } = offsetRoof(0.02, 0, mirror, split, [4, 6]);
+      const nodes = [[4, lo], [6, lo], [6, hi], [4, hi]].map(([x, y]) => {
+        const id = model.nodes.size + 1;
+        model.nodes.set(id, { id, x: x!, y: mirror * y!, z: 8 });
+        return id;
+      });
+      model.quads.set(3, { id: 3, nodes, materialId: 1, thickness: 0.1 });
+      const plan = buildLoadPlan(input(model, {
+        gravity: { mode: 'panels' },
+        roof: { use: 'maintenance', weight: 'heavy', dead: 1, slopeDeg: Math.atan(0.2) * 180 / Math.PI },
+      }));
+      expect(roofPlan(model, 'width').outcome).toBe('READY');
+      expect(() => gravityLayout(model, { ...options, uniformPressure: true })).not.toThrow();
+      if (exposure === 'mixed') {
+        expect.soft(plan).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [reason], distributed: [], surface: [] });
+        expect.soft(() => gravityLayout(model, options)).toThrow(expect.objectContaining(reason));
+        expect.soft(() => roofWeightFor(model, options, options.tributaryWidth, 1)).toThrow(expect.objectContaining(reason));
+        expect.soft(() => snowDriftRefusal(model)).toThrow(expect.objectContaining(reason));
+      } else {
+        expect.soft(plan.outcome).toBe('READY');
+        const layout = gravityLayout(model, options);
+        const areas = exposure === 'exposed' ? layout.roofAreaOf : layout.areaOf;
+        expect.soft(areas.get(split ? 2 : 1)).toBeCloseTo(8, 10);
+      }
+    }
+  }
+});

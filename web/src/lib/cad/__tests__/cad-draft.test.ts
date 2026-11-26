@@ -610,3 +610,62 @@ it.each(['fixedDivisions', 'targetSize'] as const)('#2607 %s snaps physical wall
     if (offset < reviewSettings.snapTolerance) expect([...wallNodes].filter(id => slabNodes.has(id)).length).toBeGreaterThan(1);
   }
 });
+
+function bentWallPlan(corner: { x: number; y: number }, secondEnd = corner) {
+  const plan = reviewPlan();
+  plan.walls = [
+    { a: { x: 1, y: 1 }, b: corner, thicknessSource: 'default' },
+    { a: secondEnd, b: { x: 3, y: 3 }, thicknessSource: 'default' },
+  ];
+  return plan;
+}
+
+const reviewRegression = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
+
+reviewRegression('known wrong result: #2607 conforming slab meshes preserve authored wall joints within CAD snap tolerance', () => {
+  const corner = { x: 2, y: 2 };
+  for (const meshMode of ['fixedDivisions', 'targetSize'] as const) for (const offset of [0, 0.002, 0.009, 0.011]) {
+    const plan = bentWallPlan(corner, { x: corner.x + offset, y: corner.y });
+    const settings = { ...reviewSettings, meshMode };
+    for (const draft of [generateRcDraft(plan, settings, SOURCE), buildDraft({ plan, assumptions: settings, source: SOURCE })]) {
+      expect(draft.counts.slabTriangles).toBeGreaterThan(0);
+      const model = snapshotToModelShape(draft.snapshot);
+      const walls = [...model.quads.values()].slice(draft.counts.slabQuads);
+      const incidence = new Map<number, number>();
+      for (const wall of walls) for (const id of wall.nodes) incidence.set(id, (incidence.get(id) ?? 0) + 1);
+      const near = [...model.nodes.values()].filter(p => Math.hypot(p.x - corner.x, p.y - corner.y) <= offset + 1e-10);
+      const plateNodes = new Set([...model.plates.values()].flatMap(plate => plate.nodes));
+      for (const z of [0, 3]) {
+        const joints = near.filter(p => (p.z ?? 0) === z && (incidence.get(p.id) ?? 0) > 1);
+        expect.soft(joints, `${meshMode}, ${offset}, z=${z}`).toHaveLength(offset < settings.snapTolerance ? 1 : 0);
+        if (z === 3) for (const joint of joints) expect(plateNodes.has(joint.id)).toBe(true);
+      }
+    }
+  }
+});
+
+reviewRegression('known wrong result: #2607 an upper column prefers a bent wall corner to a closer slab station', () => {
+  for (const meshMode of ['fixedDivisions', 'targetSize'] as const) for (const x of [0.006, 0.013]) {
+    const corner = { x, y: 2 };
+    const lower = bentWallPlan(corner);
+    const at = { x: 0.002, y: 2 };
+    const upper = { ...reviewPlan(), walls: [], slabs: [] };
+    upper.columns.push({ at, sizeSource: 'default' });
+    upper.beams.push({ a: at, b: reviewOutline[0]! });
+    const draft = buildDraft({
+      floorPlans: [{ plan: lower, fromFloor: 1, toFloor: 1 }, { plan: upper, fromFloor: 2, toFloor: 2 }],
+      assumptions: { ...reviewSettings, meshMode, nFloors: 2, storyHeights: [3, 3] }, source: SOURCE,
+    });
+    const model = snapshotToModelShape(draft.snapshot);
+    const upperColumn = [...model.elements.values()].find(({ nodeI, nodeJ }) => {
+      const a = model.nodes.get(nodeI)!, b = model.nodes.get(nodeJ)!;
+      return a.z === 3 && b.z === 6 && b.y === at.y;
+    })!;
+    const cornerId = [...model.nodes.values()].find(p => p.x === x && p.y === at.y && p.z === 3)!.id;
+    const slabId = [...model.nodes.values()].find(p => p.x === 0 && p.y === at.y && p.z === 3)!.id;
+    expect([...model.quads.values()].filter(q => q.nodes.includes(cornerId))).toHaveLength(2);
+    expect([...model.quads.values()].some(q => q.nodes.includes(slabId))).toBe(false);
+    expect([...model.plates.values()].some(p => p.nodes.includes(slabId))).toBe(true);
+    expect.soft(upperColumn.nodeI, `${meshMode}, corner x=${x}`).toBe(x - at.x < reviewSettings.snapTolerance ? cornerId : slabId);
+  }
+});

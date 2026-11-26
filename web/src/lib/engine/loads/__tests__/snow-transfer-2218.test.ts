@@ -353,3 +353,84 @@ it('#2607 snow detects a step on the second owned roof strip', () => {
     pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1,
   }, surfaces)).toThrow('snow.refused.stepDriftTransfer');
 });
+
+const reviewRegression = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
+
+reviewRegression('known wrong result: #2607 separated roof edges use the measured separation for drift', () => {
+  const gravity = { mode: 'panels', slab: 'oneWay', spanAxis: 'x' } as const;
+  const config = { ...snow, roofKind: 'mono', slippery: false } as const;
+  const inputs = { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1 };
+  for (const separation of [0, 0.005, 0.011, 5.999, 6, 6.001]) {
+    const model = steppedRoof();
+    for (const node of model.nodes.values()) if (node.z === 5) node.x -= separation;
+    const layout = gravityLayout(model, { ...gravity, tributaryWidth: 1 });
+    expect.soft(snowRoofSteps(model, layout)).toHaveLength(separation === 0 ? 1 : 0);
+    const { distributed } = driftAndSlidingLoads(model, layout, inputs);
+    const measure = (rows: typeof distributed) => {
+      let force = 0, moment = 0;
+      for (const row of rows) {
+        const member = model.elements.get(row.elementId)!;
+        const a = model.nodes.get(member.nodeI)!, b = model.nodes.get(member.nodeJ)!;
+        if (a.z !== 3) continue;
+        const length = Math.hypot(b.x - a.x, b.y - a.y);
+        const load = -(row.q + (row.qJ ?? row.q)) * ((row.b ?? length) - (row.a ?? 0)) / 2;
+        expect(a.x).toBe(b.x);
+        force += load;
+        moment += load * a.x;
+      }
+      return { force, moment };
+    };
+    const expected = (balanced: number) => {
+      const { pd, w } = stepDrift({ ...inputs, balanced, stepHeight: 2, luUpper: 7.5, luLower: 7.5, separation });
+      return { force: 4 * pd * w / 2, moment: 4 * pd * w ** 2 / 6 };
+    };
+    const drift = measure(distributed);
+    expect.soft(drift.force, `force at ${separation}`).toBeCloseTo(expected(inputs.balanced).force, 10);
+    expect.soft(drift.moment, `moment at ${separation}`).toBeCloseTo(expected(inputs.balanced).moment, 10);
+    const direct = snowLoadCases({ model, layout, snow: config, tributaryWidth: 1 })!;
+    expect(direct.result.refused).toBeUndefined();
+    const plan = buildLoadPlan({
+      model, gravity, regulations: regulations(), dead: [], occupancyKey: 'vivienda', tributaryWidth: 1,
+      reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true,
+      snow: { ...config, enabled: true, source: 'site' },
+    });
+    expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+    const caseIndex = plan.cases.findIndex(c => c.type === 'S');
+    for (const rows of [direct.cases[0]!.distributed, plan.distributed.filter(load => load.caseType === 'S' && load.caseIndex === caseIndex)]) {
+      const applied = measure(rows as typeof distributed);
+      const balanced = direct.result.ps;
+      expect.soft(applied.force, `snow force at ${separation}`).toBeCloseTo(30 * balanced + expected(balanced).force, 10);
+      expect.soft(applied.moment, `snow moment at ${separation}`).toBeCloseTo(30 * 3.75 * balanced + expected(balanced).moment, 10);
+    }
+  }
+});
+
+reviewRegression('known wrong result: #2607 a higher roof opening leaves the lower roof parapet band exposed', () => {
+  const model = steppedRoof();
+  const layout = gravityLayout(model, { mode: 'panels', slab: 'oneWay', spanAxis: 'x', tributaryWidth: 1 });
+  const rectangle = (lo: number, bottom: number, hi: number, top: number): [number, number][] =>
+    [[lo, bottom], [hi, bottom], [hi, top], [lo, top]];
+  const low = layout.panels.findIndex(panel => panel.z === 3);
+  const high = layout.panels.findIndex(panel => panel.z === 5);
+  const exterior = rectangle(-2, -2, 9.5, 6);
+  const opening = rectangle(-1, -1, 8.5, 5);
+  const geometry = roofSurfaceModel(model);
+  const surfaces = {
+    ...geometry,
+    panel: (index: number) => ({ ...geometry.panel(index, layout), elevation: () => layout.panels[index]!.z }),
+    edgeHeights: (_a: [number, number], _b: [number, number], _layout: typeof layout, first: number, second: number) =>
+      [layout.panels[first]!.z - layout.panels[second]!.z],
+  };
+  const loads = (upper: typeof layout.panels[number]) => {
+    const panels = layout.panels.map((panel, i) => i === high ? upper : panel);
+    const lowerMembers = new Set(layout.pieces.filter(piece => piece.panel === low).map(piece => piece.elementId));
+    return driftAndSlidingLoads(model, { ...layout, panels }, {
+      pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1, parapet: { height: 2 },
+    }, surfaces).distributed.filter(row => lowerMembers.has(row.elementId));
+  };
+  const upper = layout.panels[high]!;
+  const uncovered = loads({ ...upper, polygon: rectangle(-12, -2, -8, 6) });
+  expect(uncovered.length).toBeGreaterThan(0);
+  expect(loads({ ...upper, polygon: exterior, footprint: [[exterior]] })).toEqual([]);
+  expect(loads({ ...upper, polygon: exterior, footprint: [[exterior, opening]] })).toEqual(uncovered);
+});
