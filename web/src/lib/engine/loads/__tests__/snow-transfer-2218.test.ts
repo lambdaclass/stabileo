@@ -2,7 +2,7 @@ import { stepDrift } from '../../../codes/cirsoc104/drift';
 import { snowDensity } from '../../../codes/cirsoc104/snow';
 import { teAt } from '../../../i18n/engine-text';
 import { expect, it } from 'vitest';
-import { driftAndSlidingLoads } from '../snow-drift-loads';
+import { driftAndSlidingLoads, type SnowSurchargeLoad } from '../snow-drift-loads';
 import { gravityLayout } from '../plan-gravity';
 import { roofSurfaceModel, snowRoofEdgePairs, snowRoofSteps } from '../snow-roof-surfaces';
 import { snowLoadCases } from '../snow-loads';
@@ -649,6 +649,15 @@ it.each([[1, 1.5, true], [0, 1.5, true], [5.75, 6.25, true], [6, 6.5, false], [1
   },
 );
 
+function receivingSnowForce(model: ReturnType<typeof mesh>, rows: readonly Omit<SnowSurchargeLoad, 'frame'>[]) {
+  return rows.reduce((sum, row) => {
+    const member = model.elements.get(row.elementId)!;
+    const a = model.nodes.get(member.nodeI)!, b = model.nodes.get(member.nodeJ)!;
+    if (a.x < 0 || b.x < 0) return sum;
+    return sum - (row.q + (row.qJ ?? row.q)) / 2 * ((row.b ?? Math.hypot(b.x - a.x, b.y - a.y)) - (row.a ?? 0));
+  }, 0);
+}
+
 it.each([0, 0.08, 0.12])(
   '#2607 obstruction leaves a %s m clear drift span', clear => {
     const model = mesh([
@@ -661,23 +670,18 @@ it.each([0, 0.08, 0.12])(
     const pairs = snowRoofEdgePairs(model, layout).filter(pair => pair.lower === receiver);
     expect.soft(pairs).toHaveLength(Number(clear > 0));
     if (pairs.length) expect.soft(Math.hypot(pairs[0]!.a[0] - pairs[0]!.b[0], pairs[0]!.a[1] - pairs[0]!.b[1])).toBeCloseTo(clear, 10);
-    const force = (rows: ReturnType<typeof driftAndSlidingLoads>['distributed']) => rows.reduce((sum, row) => {
-      const e = model.elements.get(row.elementId)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
-      if (a.x < 0 || b.x < 0) return sum;
-      return sum - (row.q + (row.qJ ?? row.q)) * ((row.b ?? Math.hypot(b.x - a.x, b.y - a.y)) - (row.a ?? 0)) / 2;
-    }, 0);
     const surcharge = (balanced: number) => {
       const { pd, w } = stepDrift({ ...adjacentInputs, balanced, stepHeight: 2, luUpper: 7.5, luLower: 7.5, separation: 1 });
       return clear * pd * w / 2;
     };
-    expect.soft(force(driftAndSlidingLoads(model, layout, adjacentInputs).distributed)).toBeCloseTo(surcharge(adjacentInputs.balanced), 10);
+    expect.soft(receivingSnowForce(model, driftAndSlidingLoads(model, layout, adjacentInputs).distributed)).toBeCloseTo(surcharge(adjacentInputs.balanced), 10);
     const cases = snowLoadCases({ model, layout, snow: adjacentConfig, tributaryWidth: 1 })!;
     expect.soft(cases.result.refused).toBeUndefined();
     const plan = adjacentPlan(model);
     expect.soft(plan.outcome).toBe('READY');
     const snowCase = plan.cases.findIndex(c => c.type === 'S');
-    expect.soft(force(cases.cases[0]!.distributed)).toBeCloseTo(30 * cases.result.ps + surcharge(cases.result.ps), 10);
-    expect.soft(force(plan.distributed.filter(row => row.caseType === 'S' && row.caseIndex === snowCase)))
+    expect.soft(receivingSnowForce(model, cases.cases[0]!.distributed)).toBeCloseTo(30 * cases.result.ps + surcharge(cases.result.ps), 10);
+    expect.soft(receivingSnowForce(model, plan.distributed.filter(row => row.caseType === 'S' && row.caseIndex === snowCase)))
       .toBeCloseTo(30 * cases.result.ps + surcharge(cases.result.ps), 10);
   },
 );
@@ -689,25 +693,19 @@ it.each([0, 0.005, 0.009, 0.011])('#2607 physical roof fetch across a %s m seam'
     [[-35, 0, 5], [-7.5 - gap, 0, 5], [-7.5 - gap, 4, 5], [-35, 4, 5]],
   ]);
   const layout = gravityLayout(model, { ...adjacentGravity, tributaryWidth: 1 });
-  const force = (rows: ReturnType<typeof driftAndSlidingLoads>['distributed']) => rows.reduce((sum, row) => {
-    const member = model.elements.get(row.elementId)!;
-    const a = model.nodes.get(member.nodeI)!, b = model.nodes.get(member.nodeJ)!;
-    if (a.z !== 3 || b.z !== 3) return sum;
-    return sum - (row.q + (row.qJ ?? row.q)) / 2 * ((row.b ?? Math.hypot(b.x - a.x, b.y - a.y)) - (row.a ?? 0));
-  }, 0);
   const surcharge = (balanced: number) => {
     const { pd, w } = stepDrift({ ...adjacentInputs, balanced, stepHeight: 2, luUpper: gap === 0 ? 35 : 7.5, luLower: 7.5 });
     return 4 * pd * w / 2;
   };
   const rows = driftAndSlidingLoads(model, layout, adjacentInputs).distributed;
   expect(rows).toHaveLength(2);
-  expect.soft(force(rows)).toBeCloseTo(surcharge(adjacentInputs.balanced), 10);
+  expect.soft(receivingSnowForce(model, rows)).toBeCloseTo(surcharge(adjacentInputs.balanced), 10);
   const cases = snowLoadCases({ model, layout, snow: adjacentConfig, tributaryWidth: 1 })!;
   expect.soft(cases.result.refused).toBeUndefined();
   const plan = adjacentPlan(model);
   expect.soft(plan.outcome).toBe('READY');
   const snowCase = plan.cases.findIndex(c => c.type === 'S');
-  expect.soft(force(cases.cases[0]!.distributed)).toBeCloseTo(30 * cases.result.ps + surcharge(cases.result.ps), 10);
-  expect.soft(force(plan.distributed.filter(row => row.caseType === 'S' && row.caseIndex === snowCase)))
+  expect.soft(receivingSnowForce(model, cases.cases[0]!.distributed)).toBeCloseTo(30 * cases.result.ps + surcharge(cases.result.ps), 10);
+  expect.soft(receivingSnowForce(model, plan.distributed.filter(row => row.caseType === 'S' && row.caseIndex === snowCase)))
     .toBeCloseTo(30 * cases.result.ps + surcharge(cases.result.ps), 10);
 });
