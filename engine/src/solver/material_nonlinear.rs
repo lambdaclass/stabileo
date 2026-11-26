@@ -780,7 +780,7 @@ fn yield_utilization(n: f64, m: f64, np: f64, mp: f64) -> f64 {
 }
 
 enum MaterialTangent {
-    Dense(Vec<f64>),
+    Dense { free: Vec<f64>, reduced: Option<Vec<f64>> },
     Sparse(CscMatrix),
 }
 
@@ -819,25 +819,19 @@ impl MaterialTangent {
             CscMatrix::from_dense_symmetric_exact(k, cs.n_free_indep)
         });
         rank.require_resolved(&physical, reduced_operator.as_ref(), support_magnitude)?;
-        let solve = if artificial.is_empty() {
-            reduced.unwrap_or(original)
-        } else {
-            assembly::add_artificial_tangent(dense, n, None, artificial);
-            let pinned = extract_submatrix(dense, n, free, free);
-            match constraints {
-                Some(cs) => cs.reduce_matrix(&pinned),
-                None => pinned,
-            }
-        };
-        Ok(Self::Dense(solve))
+        if artificial.is_empty() {
+            return Ok(Self::Dense { free: original, reduced });
+        }
+        assembly::add_artificial_tangent(dense, n, None, artificial);
+        let pinned = extract_submatrix(dense, n, free, free);
+        let reduced = constraints.map(|cs| cs.reduce_matrix(&pinned));
+        Ok(Self::Dense { free: pinned, reduced })
     }
 
     fn solve(self, rhs: Vec<f64>, cache: &mut Option<SparseSymbolicCache>) -> Result<Vec<f64>, String> {
+        let n = rhs.len();
         match self {
-            Self::Dense(k) => {
-                let n = rhs.len();
-                solve_system(k, rhs, n)
-            }
+            Self::Dense { free, reduced } => solve_system(reduced.unwrap_or(free), rhs, n),
             Self::Sparse(k) => solve_tangent_sparse(&k, &rhs, cache),
         }
     }
@@ -1262,14 +1256,22 @@ fn solve_nonlinear_material_3d_inner(
                 Some(cs) => cs.reduce_vector(&r_free),
                 None => r_free,
             };
-            let mut delta_u_indep = if let MaterialTangent::Sparse(k_s_csc) = tangent {
+            let mut delta_u_indep = if sparse_tangent {
+                let MaterialTangent::Sparse(k_s_csc) = tangent else {
+                    return Err("material tangent dispatch disagrees with the sparse solve".into());
+                };
                 let k_s_csc = if gauges.reduced.free.is_empty() { k_s_csc } else { gauges.reduced.pin_sparse(&k_s_csc) };
                 solve_tangent_sparse(&k_s_csc, &rhs_s, &mut sparse_sym_cache)?
-            } else if let MaterialTangent::Dense(mut k_s) = tangent {
+            } else {
+                let MaterialTangent::Dense { free, reduced } = tangent else {
+                    return Err("material tangent dispatch disagrees with the dense solve".into());
+                };
+                let mut k_s = match &cs {
+                    Some(_) => reduced.ok_or("material tangent is missing the constrained stiffness")?,
+                    None => free,
+                };
                 gauges.reduced.pin_dense(&mut k_s, ns);
                 solve_system(k_s, rhs_s, ns)?
-            } else {
-                unreachable!()
             };
             MaterialReleaseGauges::remove_free_rotation(&gauges.reduced, &mut delta_u_indep);
             let delta_u_f = match &cs {
