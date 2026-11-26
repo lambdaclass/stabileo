@@ -861,7 +861,7 @@ fn kinematic_result_3d(degree: i32, dof_num: &DofNumbering, cs: Option<&FreeCons
         }
     }
 
-    finish_rank_analysis(degree, mechanism_modes, unconstrained_dofs, rank_stability, physical_rank)
+    finish_rank_analysis(degree, mechanism_modes, unconstrained_dofs, &rank_stability, physical_rank)
 }
 
 // ==================== Helpers ====================
