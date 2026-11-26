@@ -52,6 +52,12 @@
          oninput={(e) => (uiStore.planCutZ = +e.currentTarget.value)}
          aria-label={t('viewport.planCut')} title={t('viewport.planCut')} data-testid="plan-view-cut" />
   <span class="pv-z">{tp('viewport.planCutAt', { z: (uiStore.planCutZ ?? uiStore.nodeCreateZ).toFixed(2) })}</span>
+  <select bind:value={uiStore.planBelow} aria-label={t('viewport.planBelow')} title={t('viewport.planBelow')} data-testid="plan-view-below">
+    <option value="hidden">{t('viewport.planBelow')}: {t('viewport.planBelowHidden')}</option>
+    <option value="ghost">{t('viewport.planBelow')}: {t('viewport.planBelowGhost')}</option>
+  </select>
+  <button onclick={() => (uiStore.planRotation -= 90)} aria-label={t('viewport.planRotateLeft')} title={t('viewport.planRotateLeft')} data-testid="plan-view-rotate-left">⟲</button>
+  <button onclick={() => (uiStore.planRotation += 90)} aria-label={t('viewport.planRotateRight')} title={t('viewport.planRotateRight')} data-testid="plan-view-rotate-right">⟳</button>
   <button onclick={() => (uiStore.planView3D = false)} aria-label={t('viewport.planExit')} title={t('viewport.planExit')} data-testid="plan-view-exit">×</button>
 </div>
 

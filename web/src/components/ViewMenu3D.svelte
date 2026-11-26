@@ -44,6 +44,7 @@
   <div class="cam-seg" role="radiogroup" aria-label={t('viewMenu.projection')}>
     {#each PROJECTIONS as [m, key] (m)}
       <button class:on={uiStore.cameraMode3D === m} role="radio" aria-checked={uiStore.cameraMode3D === m}
+              disabled={uiStore.planView3D && m === 'perspective'} title={uiStore.planView3D ? t('viewMenu.planOrtho') : undefined}
               onclick={() => onprojection(m)} data-testid="cam-projection-{m}">{t(key)}</button>
     {/each}
   </div>

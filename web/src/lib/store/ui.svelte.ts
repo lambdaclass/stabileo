@@ -367,6 +367,8 @@ function createUIStore() {
    * person sets (`clippingEnabled`). Null outside the plan view.
    */
   let planCutZ = $state<number | null>(null);
+  let planBelow = $state<'hidden' | 'ghost'>('hidden');
+  let planRotation = $state<number>(0);
   /** What a left drag does with the Pan tool in 3D: orbit the model, or slide over the view's plane. */
   let dragMode3D = $state<'orbit' | 'slide'>('orbit');
 
@@ -1082,6 +1084,10 @@ function createUIStore() {
     set planView3D(v: boolean) { planView3D = v; },
     get planCutZ() { return planCutZ; },
     set planCutZ(v: number | null) { planCutZ = v; },
+    get planBelow() { return planBelow; },
+    set planBelow(v: 'hidden' | 'ghost') { planBelow = v; },
+    get planRotation() { return planRotation; },
+    set planRotation(v: number) { planRotation = ((Math.round(v / 90) * 90) % 360 + 360) % 360; },
     get dragMode3D() { return dragMode3D; },
     set dragMode3D(v: 'orbit' | 'slide') { dragMode3D = v; },
 

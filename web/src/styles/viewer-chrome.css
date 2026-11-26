@@ -148,6 +148,7 @@
   .cam-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; margin: 1px 4px 4px; padding: 2px; gap: 2px; border-radius: 4px; background: var(--st-surface-2); }
   .cam-seg button { min-height: 24px; border: none; border-radius: 3px; background: none; color: var(--st-text-2); font-size: 0.7rem; cursor: pointer; }
   .cam-seg button:hover { color: var(--st-text); }
+  .cam-seg button:disabled { opacity: 0.4; cursor: not-allowed; }
   .cam-seg button.on { background: var(--st-surface-3); color: var(--st-accent); box-shadow: inset 0 0 0 1px var(--st-hair-strong); }
 
   .cam-glyph {

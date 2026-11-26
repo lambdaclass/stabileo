@@ -33,6 +33,7 @@
   import { currentShellContourField, shellStressInputs } from '../lib/store/shell-contour';
   import { shellComponentValue, shellComponentMeta, shellComponentLabelKey } from '../lib/engine/shell-stress';
   import { toneObject } from '../lib/viewport3d/category-tone';
+  import { toneBelowPlanCut, planFloorZ } from '../lib/viewport3d/plan-cut';
   import { viewCategories, type ViewCategory } from '../lib/store/view-categories.svelte';
   import { syncUnderlays } from '../lib/three/underlay-3d';
   import { syncFootings } from '../lib/three/footings-3d';
@@ -91,7 +92,7 @@
   import { toDisplay } from '../lib/utils/units';
   import type { StationBound3D } from '../lib/engine/wasm-solver';
   import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentIntersectsRect2D, worldPerPixel } from '../lib/viewport3d/picking';
-  import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, type PresetView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum, nearPlaneFor, farPlaneFor } from '../lib/viewport3d/camera';
+  import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, placeOverhead, type PresetView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum, nearPlaneFor, farPlaneFor } from '../lib/viewport3d/camera';
   import { createFrameCoalescer } from '../lib/viewport3d/frame-coalesce';
   import { planeNormal, projectNodeToScene, setCameraUp, shouldProjectModelToXZ, GLOBAL_X, GLOBAL_Y, GLOBAL_Z } from '../lib/geometry/coordinate-system';
   import { setCameraProbe, setWorldProjector } from '../lib/viewport3d/camera-probe';
@@ -851,6 +852,7 @@
         camera.position.add(forward);
       }
 
+      if (uiStore.planView3D) return;
       // Q/E — vertical movement
       if (keysPressed.has('q')) {
         controls.target.z -= panSpeed;
@@ -1350,6 +1352,9 @@
     for (const g of [resultsCtx?.nodeLabelsGroup, resultsCtx?.elementLabelsGroup, resultsCtx?.shellLabelsGroup]) toneObject(g, s('labels'));
     toneObject(underlaysGroup, s('underlays'));
     for (const [obj, c] of sceneHost.toned) toneObject(obj, s(c));
+    const cut = uiStore.planView3D && uiStore.planCutZ !== null ? { cutZ: uiStore.planCutZ, below: uiStore.planBelow } : null;
+    toneBelowPlanCut([elementsParent, nodesParent, shellsParent, supportsParent, loadsParent], cut);
+    nodesInstanced.setClipBelow(planFloorZ(cut));
   }
   // Decorative overlays (member/shell local-axis triads, offset viz) fully rebuild
   // on every call. The nodes $effect re-runs them on every modelVersion bump, i.e.
@@ -4010,6 +4015,7 @@
 
 
   function zoomToFit() {
+    if (uiStore.planView3D) { framePlan(); return; }
     _zoomToFit(camera, controls, modelStore.nodes, orthoCamera, container);
     invalidate();
   }
@@ -4049,11 +4055,25 @@
     controls.update();
     invalidate();
   }
+  const OVERHEAD_TIP = 2e-6;
+  const TOP_VIEW_TIP = 0.018;
+  function framePlan() {
+    if (!camera || !controls) return;
+    const { center, maxDim } = _getModelBounds(modelStore.nodes);
+    placeOverhead(camera, controls, { x: center.x, y: center.y, z: uiStore.nodeCreateZ }, maxDim * 1.8, uiStore.planRotation, OVERHEAD_TIP);
+    if (camera === orthoCamera) syncOrthoFrustum(container ? container.clientWidth / container.clientHeight : 1);
+    invalidate();
+  }
+  function turnPlan() {
+    if (!camera || !controls) return;
+    placeOverhead(camera, controls, controls.target, camera.position.distanceTo(controls.target), uiStore.planRotation, OVERHEAD_TIP);
+    invalidate();
+  }
   function enterPlanView() {
     if (!camera || !controls || beforePlan) return;
     beforePlan = { mode: uiStore.cameraMode3D, tool: uiStore.currentTool };
-    setView('top');
-    if (uiStore.cameraMode3D === 'perspective') toggleCameraMode();
+    if (uiStore.cameraMode3D === 'perspective') setCameraMode('orthographic');
+    framePlan();
     followLevel(uiStore.nodeCreateZ);
     // On entering, a drag slides over the floor (the Pan tool); any other tool can still be taken.
     uiStore.currentTool = 'pan';
@@ -4065,13 +4085,26 @@
     beforePlan = null;
     uiStore.planCutZ = null;
     if (uiStore.currentTool === 'pan' && b.tool !== 'pan') uiStore.currentTool = b.tool;
-    if (uiStore.cameraMode3D !== b.mode) toggleCameraMode();
+    // Left straight down, the first orbit would spin about the pole.
+    if (camera && controls && camera.position.z - controls.target.z > 0.999 * camera.position.distanceTo(controls.target)) {
+      placeOverhead(camera, controls, controls.target, camera.position.distanceTo(controls.target), uiStore.planRotation, TOP_VIEW_TIP);
+    }
+    if (uiStore.cameraMode3D !== b.mode) setCameraMode(b.mode);
     applyNavigation();
     invalidate();
   }
   $effect(() => {
     const on = uiStore.planView3D;
     untrack(() => { if (on) enterPlanView(); else exitPlanView(); });
+  });
+  $effect(() => {
+    void uiStore.planRotation;
+    untrack(() => { if (uiStore.planView3D && beforePlan) turnPlan(); });
+  });
+  $effect(() => {
+    void uiStore.planView3D; void uiStore.planCutZ; void uiStore.planBelow;
+    toneDirty = true;
+    invalidate();
   });
   // The working level moves the plan view with it: the camera and the cut follow.
   $effect(() => {
@@ -4124,6 +4157,7 @@
   function setView(view: PresetView) {
     // Another standard view leaves the plan view (which holds the camera above the floor).
     if (view !== 'top' && uiStore.planView3D) uiStore.planView3D = false;
+    if (uiStore.planView3D) { framePlan(); return; }
     _setView(view, camera, controls, modelStore.nodes);
     invalidate();
   }
@@ -4172,9 +4206,13 @@
 
 
   function toggleCameraMode() {
+    setCameraMode(camera === orthoCamera ? 'perspective' : 'orthographic');
+  }
+  function setCameraMode(newMode: 'perspective' | 'orthographic') {
     if (!camera || !controls || !renderer) return;
-    const isPersp = uiStore.cameraMode3D === 'perspective';
-    const newMode = isPersp ? 'orthographic' : 'perspective';
+    if (uiStore.planView3D && newMode === 'perspective') { uiStore.cameraMode3D = 'orthographic'; return; }
+    const isPersp = camera !== orthoCamera;
+    if ((newMode === 'perspective') === isPersp) { uiStore.cameraMode3D = newMode; return; }
     const from = isPersp ? perspCamera : orthoCamera;
     const to = isPersp ? orthoCamera : perspCamera;
 
@@ -4197,6 +4235,10 @@
     uiStore.cameraMode3D = newMode;
     invalidate();
   }
+  $effect(() => {
+    const m = uiStore.cameraMode3D;
+    untrack(() => { if (camera && (m === 'orthographic') !== (camera === orthoCamera)) setCameraMode(m); });
+  });
 
   // ─── Utils ──────────────────────────────────────────────────
 
