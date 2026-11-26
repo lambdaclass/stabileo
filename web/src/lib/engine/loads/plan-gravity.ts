@@ -30,7 +30,7 @@
  *
  * Pure: no store.
  */
-import { canonicalFootprint, footprintArea, footprintBounds, footprintIntersection, planarShell, refuseGravityGeometry, ringArea, samePhysicalDeck, subtractFootprints, unionFootprints, type PlaneBasis, type ShellPlane } from './gravity-shell-partition';
+import { canonicalFootprint, footprintArea, footprintBounds, footprintIntersection, planarShell, refuseGravityGeometry, ringArea, samePhysicalDeck, shellEdgeComponents, subtractFootprints, unionFootprints, type PlaneBasis, type ShellPlane } from './gravity-shell-partition';
 import { gravityShellCells, gravityShellKey, gravityShellSurfaceArea, type GravityShellTarget, type GravityShellKey } from './gravity-shell-partition';
 import { physicalRoofRuns, samePhysicalPoint, snowCoordinate } from './physical-roof-geometry';
 import polygonClipping, { type Polygon } from 'polygon-clipping';
@@ -637,26 +637,43 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     (i, j) => panelLevel[i] === panelLevel[j] && [...panelBeams[i]!].some((id) => panelBeams[j]!.has(id)));
   out.widthColour = widthCheckerboard(model, out.widthMembers.map((m) => m.elementId));
 
+  const widthRoofs = new Set<number>();
+  const roofStrips: DeckFootprint[] = [];
+  for (const m of out.widthMembers) {
+    if (typeof attachedCoverage.get(m.elementId) === 'object') continue;
+    const fringe = memberFringes.get(m.elementId);
+    const trace = segment(m.elementId);
+    const roof = fringe && opts.mode === 'panels'
+      ? !coverAbove.areaCovered(fringe, opts.uniformPressure === true)
+      : !!fringe || !coverAbove.memberCovered(trace);
+    if (!roof) continue;
+    widthRoofs.add(m.elementId);
+    if (gapDecks.length && opts.tributaryWidth > 0) {
+      const strip = fringe ?? memberStrip(trace, opts.tributaryWidth);
+      const area = footprintArea(strip.footprint);
+      if (!(area > 0) || !Number.isFinite(area)) refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
+      roofStrips.push(strip);
+    }
+  }
+
   const runExposure = new Map<readonly CertifiedGap[], boolean>();
   for (const m of out.widthMembers) {
-    const fringe = memberFringes.get(m.elementId);
     const attached = attachedCoverage.get(m.elementId);
-    const trace = segment(m.elementId);
-    let exposed: boolean | undefined;
+    let roof = widthRoofs.has(m.elementId);
     if (typeof attached === 'object') {
-      exposed = runExposure.get(attached.runGaps);
-      if (exposed === undefined) {
-        const exposure = new Set(attached.runGaps.map(gap => coverAbove.areaExposure(gap)));
+      const { runGaps } = attached;
+      const known = runExposure.get(runGaps);
+      if (known === undefined) {
+        const exposure = new Set(runGaps.map(gap => coverAbove.areaExposure(gap, undefined, roofStrips)));
         if ((exposure.has('mixed') || exposure.size > 1) && !opts.uniformPressure) {
           refuseGravityGeometry(msg('loadPlan.gravity.mixedExposure'));
         }
-        exposed = exposure.has('exposed') || exposure.has('mixed');
-        runExposure.set(attached.runGaps, exposed);
+        roof = exposure.has('exposed') || exposure.has('mixed');
+        runExposure.set(runGaps, roof);
+      } else {
+        roof = known;
       }
     }
-    const roof = exposed ?? (fringe && opts.mode === 'panels'
-      ? !coverAbove.areaCovered(fringe, opts.uniformPressure === true)
-      : !!fringe || !coverAbove.memberCovered(trace));
     addArea(roof ? out.roofAreaOf : out.areaOf, m.elementId, widthSpans(m, opts.tributaryWidth).reduce((s, w) => s + w.width * (w.t1 - w.t0), 0) * m.horizontalLength);
     if (roof) out.roof.add(m.elementId);
   }
@@ -788,21 +805,42 @@ function gapFootprint([start, end]: Segment, t0: number, t1: number, [lo, hi]: R
   return { t0, t1, width, centered, footprint: [[footprint]], geometry: memberStrip([start, end], width).geometry };
 }
 
-function boundedGapSpans([start, end]: Segment, intervals: readonly RunInterval[], carriers: readonly ShellCarrier[]): CertifiedGap[] | undefined {
+function gapTraceShells([start, end]: Segment, carriers: readonly ShellCarrier[], error: number): ShellCarrier[] {
+  return carriers.filter(({ plane }) => plane && samePhysicalDeck([
+    [plane([start[0], start[1]]), start[2]], [plane([end[0], end[1]]), end[2]],
+  ], error));
+}
+
+function refuseGapAttachment(members: ReadonlySet<number>, shells: readonly ShellCarrier[]): never {
+  return refuseGravityGeometry(msg('loadPlan.gravity.gapAttachment', {
+    members: [...members].sort((a, b) => a - b).join(', '),
+    shells: [...new Set(shells.map(shell => shell.key))].sort().join(', '),
+  }));
+}
+
+function boundedGapSpans(
+  [start, end]: Segment, intervals: readonly RunInterval[], members: ReadonlySet<number>,
+  { attached, detached, error }: { attached: readonly ShellCarrier[]; detached: readonly ShellCarrier[]; error: number },
+): CertifiedGap[] | undefined {
   const dx = end[0] - start[0], dy = end[1] - start[1];
   const length = Math.hypot(dx, dy);
-  const error = 64 * Number.EPSILON * Math.max(length, ...start.map(Math.abs), ...end.map(Math.abs));
   const along = (x: number, y: number) => ((x - start[0]) * dx + (y - start[1]) * dy) / length;
   const across = (x: number, y: number) => ((y - start[1]) * dx - (x - start[0]) * dy) / length;
-  const shells = carriers.filter(({ plane }) => plane && samePhysicalDeck([
-    [plane([start[0], start[1]]), start[2]], [plane([end[0], end[1]]), end[2]],
-  ], error)).map(({ pts }) => pts.map(([x, y, z]) => [along(x, y), across(x, y), z] as const));
+  const project = ({ pts }: ShellCarrier) => pts.map(([x, y, z]) => [along(x, y), across(x, y), z] as const);
+  const shells = attached.map(project);
+  const others = detached.map(shell => ({ shell, points: project(shell) }));
+  const stationEdges = (points: ReturnType<typeof project>, station: number, sign: number) => {
+    if (points.some(([a]) => (a - station) * sign < -error)) return [];
+    return points.flatMap((p, i) => {
+      const q = points[(i + 1) % points.length]!;
+      return Math.abs(p[0] - station) <= error && Math.abs(q[0] - station) <= error && Math.abs(p[1] - q[1]) > error
+        ? [[p, q] as const] : [];
+    });
+  };
   const boundary = (station: number, sign: number, elevation: number): RunInterval | undefined => {
     const edges: RunInterval[] = [];
     for (const points of shells) {
-      if (points.some(([a]) => (a - station) * sign < -error)) continue;
-      for (const [[a, b, z], [c, d, w]] of points.map((point, i) => [point, points[(i + 1) % points.length]!] as const)) {
-        if (Math.abs(a - station) > error || Math.abs(c - station) > error || Math.abs(b - d) <= error) continue;
+      for (const [[, b, z], [, d, w]] of stationEdges(points, station, sign)) {
         if (Math.abs(z - elevation) > error || Math.abs(w - elevation) > error) return undefined;
         edges.push([Math.min(b, d), Math.max(b, d)]);
       }
@@ -828,13 +866,19 @@ function boundedGapSpans([start, end]: Segment, intervals: readonly RunInterval[
   for (const [t0, t1] of gaps) {
     const a = t0 * length, b = t1 * length;
     const left = boundary(a, -1, elevationAt(t0)), right = boundary(b, 1, elevationAt(t1));
-    if (!left || !right || Math.abs(left[0] - right[0]) > error || Math.abs(left[1] - right[1]) > error) return undefined;
+    if (!left || !right || Math.abs(left[0] - right[0]) > error || Math.abs(left[1] - right[1]) > error) {
+      const unproven = others.filter(({ points }) => stationEdges(points, a, -1).length || stationEdges(points, b, 1).length);
+      if (unproven.length) refuseGapAttachment(members, unproven.map(({ shell }) => shell));
+      return undefined;
+    }
     const [lo, hi] = left;
     const gap: Polygon = [[[a, lo], [b, lo], [b, hi], [a, hi]]];
-    for (const shell of shells) {
-      if (shell.every(([station]) => station <= a + error) || shell.every(([station]) => station >= b - error)) continue;
-      if (footprintIntersection(gap, [shell.map(([x, y]): PlanPoint => [x, y])]).length) return undefined;
-    }
+    const intrudes = (points: ReturnType<typeof project>) =>
+      points.some(([station]) => station > a + error) && points.some(([station]) => station < b - error)
+      && footprintIntersection(gap, [points.map(([x, y]): PlanPoint => [x, y])]).length > 0;
+    const unproven = others.filter(({ points }) => intrudes(points));
+    if (unproven.length) refuseGapAttachment(members, unproven.map(({ shell }) => shell));
+    if (shells.some(intrudes)) return undefined;
     const centered = Math.abs(lo + hi) <= error && Math.abs(right[0] + right[1]) <= error;
     spans.push(gapFootprint([start, end], t0, t1, left, centered));
   }
@@ -905,16 +949,30 @@ function rigidShellCoverage(
       }
       const anchored = [run.a, run.b].every(end => [...anchors].some(id => model.nodes.get(id) === end));
       const runTrace: Segment = [attachmentPoint(run.a, offset), attachmentPoint(run.b, offset)];
-      const gaps = anchored && Math.hypot(offset[0], offset[1]) <= error && Math.abs(runTrace[1][2] - runTrace[0][2]) > TOL
-        ? shellTrace(runTrace, carriers).gaps : [];
-      if (gaps.length && gaps.every(([t0, t1]) => t0 > 0 && t1 < 1)) {
+      const canBoundGap = anchored && Math.hypot(offset[0], offset[1]) <= error && Math.abs(runTrace[1][2] - runTrace[0][2]) > TOL;
+      const traceError = 64 * Number.EPSILON * Math.max(run.length, ...runTrace.flat().map(Math.abs));
+      const matching = canBoundGap && !legacyGapMembers ? gapTraceShells(runTrace, carriers, traceError) : [];
+      const components = shellEdgeComponents(matching, shell => shell.nodes);
+      const established = new Set(matching.filter(shell => shell.nodes.some(node => shellNodes.has(node)))
+        .flatMap(shell => components.get(shell)!));
+      const attached = [...established];
+      const detached = matching.filter(shell => !established.has(shell));
+      const gaps = canBoundGap ? shellTrace(runTrace, legacyGapMembers ? carriers : attached).gaps : [];
+      const bounded = (spans: readonly RunInterval[]) => spans.length > 0 && spans.every(([t0, t1]) => t0 > 0 && t1 < 1);
+      if (detached.length && gaps.length && !bounded(gaps)) {
+        const combined = shellTrace(runTrace, matching);
+        if (combined.coverage === 'full' || bounded(combined.gaps)) {
+          refuseGapAttachment(ids, detached.filter(shell => shellCoverage(runTrace, [shell]) !== 'none'));
+        }
+      }
+      if (bounded(gaps)) {
         if (coverage !== 'none') { coverage = 'partial'; break; }
         if (legacyGapMembers) {
           if (!boundedGap) boundedGap = { kind: 'legacy', intervals: [], members: legacyGapMembers };
           if (boundedGap.kind === 'legacy') boundedGap.intervals.push(...gaps);
           continue;
         }
-        const certified = boundedGapSpans(runTrace, gaps, carriers);
+        const certified = boundedGapSpans(runTrace, gaps, ids, { attached, detached, error: traceError });
         if (!certified) { coverage = 'partial'; break; }
         if (boundedGap) { coverage = 'conflictingGapDecks'; break; }
         boundedGap = { kind: 'certified', spans: certified };
@@ -2000,12 +2058,12 @@ function coverage(
   const memberCovered = (segment: Segment) => coveredWithin(memberMidpointQuery(segment), Infinity);
   const pointCovered = (pt: PlanPoint, zTop: number, ownMembers?: ReadonlySet<number>, limit = Infinity, ownShell?: number) =>
     coveredWithin(pointCoverQuery(pt, zTop), limit, ownMembers, ownShell);
-  const areaExposure = (lower: DeckFootprint, ownShell?: number) => {
+  const areaExposure = (lower: DeckFootprint, ownShell?: number, roofStrips: readonly DeckFootprint[] = []) => {
     const cover: Polygon[] = [];
     let partial = false;
     const compare = (upper: DeckFootprint) => deckOverlapsInBand(lower, upper, MIN_COVER_RISE, Infinity);
-    for (const { deck: upper, shell } of areaCovers) {
-      if (upper === lower || (shell && shell.id === ownShell)) continue;
+    const addCover = (upper: DeckFootprint) => {
+      if (upper === lower) return;
       const overlaps = isIndependentShell(lower, upper)
         ? deckOverlapsInBand(lower, upper, 0, Infinity, 'open')
         : compare(upper);
@@ -2013,7 +2071,11 @@ function coverage(
         if (coverage === 'full') cover.push(part);
         else partial = true;
       }
+    };
+    for (const { deck, shell } of areaCovers) {
+      if (!shell || shell.id !== ownShell) addCover(deck);
     }
+    roofStrips.forEach(addCover);
     if (cover.length && lower.footprint.every(part => subtractFootprints(part, cover).length === 0)) return 'sheltered';
     if (rejectedPanels.some(panel => compare(panel).length)) {
       refuseGravityGeometry(msg('loadPlan.gravity.widePanels', { n: 1, span: MAX_DECK_SPAN }));

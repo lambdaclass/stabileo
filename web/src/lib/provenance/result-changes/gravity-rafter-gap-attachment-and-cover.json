@@ -1,0 +1,43 @@
+{
+  "id": "gravity-rafter-gap-attachment-and-cover",
+  "date": "2026-11-26",
+  "prs": [
+    2607
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "generatedPanelGravityShells",
+      "roofShellFrameLinks"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Verify rafter gap attachment and width-loaded roof cover",
+    "es": "Verificar la unión y la cobertura de los huecos en cabios",
+    "pt": "Verificar a ligação e a cobertura das aberturas em caibros",
+    "de": "Anbindung und Überdeckung von Sparrenlücken nachweisen",
+    "fr": "Vérifier la liaison et la couverture des ouvertures sur chevrons",
+    "hu": "A szarufanyílások kapcsolatának és fedettségének ellenőrzése",
+    "tr": "Mertek açıklıklarının bağlantısını ve örtülmesini doğrula",
+    "zh": "验证椽条缺口的连接和上方覆盖"
+  },
+  "explanation": {
+    "en": "Only attached shell cells can establish a rafter gap width. Overhead roof strips loaded by tributary width can shelter the gap. Regenerate affected panel gravity and snow loads.",
+    "es": "Solo las láminas vinculadas pueden determinar el ancho del hueco en un cabio. Las franjas de cubierta cargadas por ancho tributario pueden cubrir el hueco. Regenerá las cargas gravitatorias y de nieve afectadas.",
+    "pt": "Apenas cascas conectadas podem determinar a largura da abertura no caibro. Faixas superiores carregadas pela largura de influência podem cobrir a abertura. Regenere as cargas gravitacionais e de neve afetadas.",
+    "de": "Nur angeschlossene Schalen können die Breite der Sparrenlücke bestimmen. Höhere Dachstreifen mit Lasten aus der Einflussbreite können die Lücke überdecken. Erzeugen Sie betroffene Eigen-, Nutz- und Schneelasten neu.",
+    "fr": "Seules les coques liées peuvent déterminer la largeur de l’ouverture sur le chevron. Des bandes de toiture supérieures chargées selon leur largeur tributaire peuvent couvrir l’ouverture. Régénérez les charges gravitaires et de neige concernées.",
+    "hu": "A szarufanyílás szélességét csak a kapcsolt héjak határozhatják meg. A tehergyűjtő szélességgel terhelt felső tetősávok lefedhetik a nyílást. Generálja újra az érintett gravitációs és hóterheket.",
+    "tr": "Mertek açıklığının genişliğini yalnızca bağlı kabuk elemanları belirleyebilir. Yük toplama genişliğiyle yüklenen üst çatı şeritleri açıklığı örtebilir. Etkilenen düşey yükleri ve kar yüklerini yeniden oluşturun.",
+    "zh": "只有已连接的壳单元才能确定椽条缺口的宽度。按分担宽度加载的上方屋面条带可以遮挡缺口。请重新生成受影响的板格重力荷载和雪荷载。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-rafter-gap-attachment-and-cover.md",
+    "heading": "Verify rafter gap attachment and width-loaded roof cover"
+  }
+}

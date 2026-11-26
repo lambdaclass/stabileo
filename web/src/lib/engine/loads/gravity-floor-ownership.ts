@@ -5,7 +5,7 @@ import { msg } from '../../codes/message';
 import { deckOverlaps, physicalDeck, separatedDeckRanges, type Deck } from './gravity-deck-geometry';
 import type { FloorBay } from './floor-loads';
 import {
-  footprintArea, potentiallyOverlapping,
+  footprintArea, potentiallyOverlapping, shellEdgeComponents,
   refuseGravityGeometry, shellOverlapMessage, subtractFootprints, unionFootprints,
   type GravityShellKey, type ShellFootprint,
 } from './gravity-shell-partition';
@@ -31,29 +31,7 @@ type Shell = ShellFootprint & { key: GravityShellKey; nodes: number[]; pitched: 
 type ShellDeck<S extends Shell> = { kind: 'shell'; shell: S; footprint: [Polygon]; geometry: Deck };
 
 function connectedPitchedRoofs<S extends Shell>(shells: readonly ShellDeck<S>[]) {
-  const edges = ({ shell: { nodes } }: ShellDeck<S>) => nodes.map((a, i) => {
-    const b = nodes[(i + 1) % nodes.length]!;
-    return a < b ? `${a}:${b}` : `${b}:${a}`;
-  });
-  const pitched = shells.filter(({ shell }) => shell.pitched);
-  const byEdge = new Map<string, ShellDeck<S>[]>();
-  for (const shell of pitched) for (const edge of edges(shell)) {
-    const adjacent = byEdge.get(edge) ?? [];
-    adjacent.push(shell);
-    byEdge.set(edge, adjacent);
-  }
-  const roofs = new Map<ShellDeck<S>, ShellDeck<S>[]>();
-  for (const seed of pitched) {
-    if (roofs.has(seed)) continue;
-    const connected = new Set([seed]);
-    for (const shell of connected) for (const edge of edges(shell)) {
-      for (const neighbour of byEdge.get(edge) ?? []) connected.add(neighbour);
-      byEdge.delete(edge);
-    }
-    const roof = [...connected];
-    for (const shell of roof) roofs.set(shell, roof);
-  }
-  return roofs;
+  return shellEdgeComponents(shells.filter(({ shell }) => shell.pitched), ({ shell }) => shell.nodes);
 }
 
 export type BayAssignment =

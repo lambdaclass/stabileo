@@ -4486,6 +4486,7 @@ const pt: Translations = {
   'loadPlan.gravity.offsetShellDeck': "A casca {id} está vinculada verticalmente a um painel de vigas sobreposto (barras {members}) em outra elevação. Corrija a geometria da casca, da ligação ou do painel, ou atribua a carga de área manualmente uma única vez.",
   'loadPlan.gravity.memberSlopeLimit': "A barra {id} está demasiado perto do limite de inclinação para classificar com segurança o suporte de cargas gravitacionais. Defina as suas cargas explicitamente.",
   'loadPlan.gravity.unresolvedMember': "A barra {id} está coberta apenas parcialmente por uma casca e a transferência de carga do painel não pôde ser determinada.",
+  'loadPlan.gravity.gapAttachment': "Não é possível verificar a abertura da cobertura nas barras {members} porque a ligação das cascas {shells} é incerta. Atribua explicitamente as cargas superficiais.",
   'loadPlan.gravity.offsetRafter': "A barra {id} está ligada rigidamente a uma casca de cobertura com um desnível que impede a atribuição automática da carga gravitacional. Aplique a carga superficial uma única vez, manualmente.",
   'loadPlan.gravity.differentDeck': "A casca que cobre o painel de vigas deve pertencer ao mesmo tabuleiro.",
   'loadPlan.gravity.differentSlopedDeck': "A casca inclinada que cobre o painel de vigas deve pertencer ao mesmo tabuleiro.",

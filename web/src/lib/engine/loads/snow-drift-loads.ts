@@ -87,9 +87,11 @@ export interface DriftInputs {
   adjacent?: Array<{ side: '+x' | '-x' | '+y' | '-y'; topZ: number; separation: number; length: number }>;
 }
 
-export function snowDriftRefusal(model: GravityModel, layout?: GravityLayout, surfaceModel = roofSurfaceModel(model)): string | undefined {
+export function snowDriftRefusal(
+  model: GravityModel, layout?: GravityLayout, surfaceModel = roofSurfaceModel(model), tributaryWidth = 1,
+): string | undefined {
   if (!surfaceModel.resolves(layout)) return 'snow.refused.roofPlane';
-  const coverage = layout?.panels.some(p => p.roof) ? layout : gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
+  const coverage = layout?.panels.some(p => p.roof) ? layout : gravityLayout(model, { mode: 'panels', tributaryWidth });
   const coverageResolved = coverage === layout || surfaceModel.resolves(coverage);
   const surfaces = snowRoofSurfaces(model, coverage, surfaceModel);
   for (const [k, panel] of coverage.panels.entries()) {
@@ -146,7 +148,7 @@ export const STEP_DRIFT_REFUSAL = 'snow.refused.stepDriftTransfer';
 export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout, i: DriftInputs, surfaceModel = roofSurfaceModel(model)): {
   distributed: SnowSurchargeLoad[]; derivation: EngineMessage[]; refs: ClauseRef[];
 } {
-  const refused = snowDriftRefusal(model, layout, surfaceModel);
+  const refused = snowDriftRefusal(model, layout, surfaceModel, i.tributaryWidth);
   if (refused) throw new Error(refused);
   const surfaces = snowRoofSurfaces(model, layout, surfaceModel);
   const balanced = (panel: number, pt: P2) => typeof i.balanced === 'number' ? i.balanced : i.balanced(panel, pt);

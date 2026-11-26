@@ -42,6 +42,31 @@ export function gravityShellKey(target: GravityShellTarget): GravityShellKey {
   return `${target.on ?? 'quad'}:${target.quadId}`;
 }
 
+export function shellEdgeComponents<S>(shells: readonly S[], nodesOf: (shell: S) => readonly number[]) {
+  const edges = (nodes: readonly number[]) => nodes.map((a, i) => {
+    const b = nodes[(i + 1) % nodes.length]!;
+    return a < b ? `${a}:${b}` : `${b}:${a}`;
+  });
+  const byEdge = new Map<string, S[]>();
+  for (const shell of shells) for (const edge of edges(nodesOf(shell))) {
+    const adjacent = byEdge.get(edge) ?? [];
+    adjacent.push(shell);
+    byEdge.set(edge, adjacent);
+  }
+  const components = new Map<S, S[]>();
+  for (const seed of shells) {
+    if (components.has(seed)) continue;
+    const connected = new Set([seed]);
+    for (const shell of connected) for (const edge of edges(nodesOf(shell))) {
+      for (const neighbour of byEdge.get(edge) ?? []) connected.add(neighbour);
+      byEdge.delete(edge);
+    }
+    const group = [...connected];
+    for (const shell of group) components.set(shell, group);
+  }
+  return components;
+}
+
 export function* gravityShellCells<Cell extends { id: number }>(model: {
   quads?: ReadonlyMap<number, Cell>;
   plates?: ReadonlyMap<number, Cell>;

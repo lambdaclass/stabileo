@@ -3,8 +3,10 @@ import { buildLoadPlan, roofWeightFor, roofWeightOf } from '../load-plan';
 import { gravityLayout } from '../plan-gravity';
 import { planAreaLoads } from '../plan-area-loads';
 import { snowDriftRefusal } from '../snow-drift-loads';
+import { snowLoadCases } from '../snow-loads';
 import { doubleAttachedRoof, offsetRoof, roofPlan, triangulateRoof } from './gravity-offset-roof-fixture';
 import { input } from './gravity-width-mass-fixture';
+import { snow } from './snow-roof-plane-fixture';
 
 const options = { mode: 'panels', tributaryWidth: 3 } as const;
 
@@ -155,19 +157,23 @@ function roofWithTwoGaps(split: boolean, shelter: boolean) {
     model.nodes.set(id, { id, x, y, z });
     return id;
   };
-  const shell = (a: number, b: number, y0: number, y1: number, za: number, zb: number) => {
+  const shell = (a: number, b: number, y0: number, y1: number, za: number, zb: number, seam?: [number, number]) => {
     const id = model.quads.size + 1;
-    const nodes = [addNode(a, y0, za), addNode(b, y0, zb), addNode(b, y1, zb), addNode(a, y1, za)];
+    const [first, second] = seam ?? [addNode(a, y0, za), addNode(b, y0, zb)];
+    const nodes = [first, second, addNode(b, y1, zb), addNode(a, y1, za)] as [number, number, number, number];
     model.quads.set(id, { id, nodes, materialId: 1, thickness: 0.1 });
+    return nodes;
   };
-  shell(4, 6, -options.tributaryWidth / 2, options.tributaryWidth / 2, 3.8, 4.2);
+  const [, , right, left] = shell(4, 6, -options.tributaryWidth / 2, 0, 3.8, 4.2);
+  shell(4, 6, 0, options.tributaryWidth / 2, 3.8, 4.2, [left, right]);
+  const anchor = addNode(4, 0, 3.78);
+  model.constraints.push({ ...model.constraints[0]!, masterNode: left, slaveNode: anchor });
   if (shelter) shell(2, 4, -1, 1, 8, 8);
-  if (split) {
-    const middle = addNode(5, 0, 3.98);
-    const member = model.elements.get(1)!;
-    model.elements.set(1, { ...member, nodeJ: middle });
-    model.elements.set(2, { ...member, id: 2, nodeI: middle, nodeJ: rafter[1]! });
-  }
+  const member = model.elements.get(1)!;
+  model.elements.set(1, { ...member, nodeJ: anchor });
+  const middle = split ? addNode(5, 0, 3.98) : rafter[1]!;
+  model.elements.set(2, { ...member, id: 2, nodeI: anchor, nodeJ: middle });
+  if (split) model.elements.set(3, { ...member, id: 3, nodeI: middle, nodeJ: rafter[1]! });
   return model;
 }
 
@@ -427,11 +433,9 @@ it('#2607 exposes the individual rafter outside the certified gap footprint', ()
   checkRafterBelowGap(2 + 1e-6, false);
 });
 
-const replayGapReview = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
-
-replayGapReview.each([[false, false], [true, true]] as const)(
-  'known wrong result: #2607 gap width follows shell attachment (split %s, triangles %s)', (split, triangles) => {
-    for (const connected of [false, true]) {
+it.each([[false, false], [true, true]] as const)(
+  '#2607 gap width follows shell attachment (split %s, triangles %s)', (split, triangles) => {
+    for (const attachment of ['detached', 'one node', 'shared edge']) {
       const { model: quads } = offsetRoof(0.02, 0, 1, split, [4, 6], 2);
       const addNode = (x: number, y: number) => {
         const id = quads.nodes.size + 1;
@@ -442,15 +446,17 @@ replayGapReview.each([[false, false], [true, true]] as const)(
         const [a, b, c, d] = shell.nodes;
         for (const [start, end, direction] of [[a!, b!, -1], [d!, c!, 1]] as const) {
           const p = quads.nodes.get(start)!, q = quads.nodes.get(end)!;
-          const from = connected ? start : addNode(p.x, p.y);
-          const to = connected ? end : addNode(q.x, q.y);
+          const sharesNode = (x: number) => attachment === 'shared edge'
+            || (attachment === 'one node' && (x === 4 || x === 6));
+          const from = sharesNode(p.x) ? start : addNode(p.x, p.y);
+          const to = sharesNode(q.x) ? end : addNode(q.x, q.y);
           const id = quads.quads.size + 1;
           quads.quads.set(id, { ...shell, id, nodes: [from, to, addNode(q.x, q.y + direction * 2), addNode(p.x, p.y + direction * 2)] });
         }
       }
       const model = triangles ? triangulateRoof(quads) : quads;
       const member = split ? 2 : 1;
-      const width = connected ? 6 : 2;
+      const width = attachment === 'shared edge' ? 6 : 2;
       const layout = gravityLayout(model, options);
       expect.soft(layout.roofAreaOf.get(member)).toBeCloseTo(2 * width, 10);
       expect.soft(roofPlan(model)).toMatchObject({
@@ -462,7 +468,7 @@ replayGapReview.each([[false, false], [true, true]] as const)(
   },
 );
 
-replayGapReview('known wrong result: #2607 a detached shell advancing a gap edge must be identified', () => {
+it.each([4, 6])('#2607 a detached shell reaching station %s must be identified', end => {
   for (const connected of [false, true]) {
     const { model } = offsetRoof(0.02, 0, 1, false, [3, 6], 2);
     const addNode = (x: number, y: number) => {
@@ -472,12 +478,14 @@ replayGapReview('known wrong result: #2607 a detached shell advancing a gap edge
     };
     const shell = model.quads.get(1)!;
     const left = connected ? [shell.nodes[1]!, shell.nodes[2]!] : [addNode(3, -1), addNode(3, 1)];
-    model.quads.set(3, { ...shell, id: 3, nodes: [left[0]!, addNode(4, -1), addNode(4, 1), left[1]!] });
+    const right = connected && end === 6 ? [model.quads.get(2)!.nodes[0]!, model.quads.get(2)!.nodes[3]!]
+      : [addNode(end, -1), addNode(end, 1)];
+    model.quads.set(3, { ...shell, id: 3, nodes: [left[0]!, right[0]!, right[1]!, left[1]!] });
     if (connected) {
-      expect.soft(gravityLayout(model, options).roofAreaOf.get(1)).toBeCloseTo(4, 10);
+      expect.soft(gravityLayout(model, options).roofAreaOf.get(1) ?? 0).toBeCloseTo(2 * (6 - end), 10);
       expect.soft(roofPlan(model).outcome).toBe('READY');
     } else {
-      const reason = { key: 'loadPlan.gravity.gapAttachment', params: { members: '1', shells: '3' } };
+      const reason = { key: 'loadPlan.gravity.gapAttachment', params: { members: '1', shells: 'quad:3' } };
       expect.soft(roofPlan(model)).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [reason], distributed: [], surface: [] });
       expect.soft(() => gravityLayout(model, options)).toThrow(expect.objectContaining(reason));
       expect.soft(() => roofWeightFor(model, options, options.tributaryWidth, 1)).toThrow(expect.objectContaining(reason));
@@ -487,12 +495,12 @@ replayGapReview('known wrong result: #2607 a detached shell advancing a gap edge
   }
 });
 
-replayGapReview.each([
+it.each([
   { y: 0, rise: 1, exposure: 'sheltered' },
   { y: 0, rise: 0.03, exposure: 'exposed' },
   { y: 2.5, rise: 1, exposure: 'exposed' },
   { y: 2.25, rise: 1, exposure: 'mixed' },
-] as const)('known wrong result: #2607 bare roof strip $exposure at y=$y, rise=$rise', ({ y, rise, exposure }) => {
+] as const)('#2607 bare roof strip $exposure at y=$y, rise=$rise', ({ y, rise, exposure }) => {
   for (const split of [false, true]) {
     const { model: quads } = offsetRoof(0.02, 0, 1, split, [4, 6], 2);
     const nodeI = quads.nodes.size + 1, nodeJ = nodeI + 1;
@@ -508,9 +516,16 @@ replayGapReview.each([
     }));
     expect.soft(roofPlan(model).outcome).toBe('READY');
     expect.soft(roofPlan(model, 'width').outcome).toBe('READY');
+    const snowConfig = { ...snow, roofKind: 'mono', slippery: false } as const;
+    const snowPlan = buildLoadPlan(input(model, {
+      gravity: { mode: 'panels' },
+      snow: { ...snowConfig, enabled: true, source: 'site' },
+    }));
     if (exposure === 'mixed') {
       const reason = { key: 'loadPlan.gravity.mixedExposure' };
       expect.soft(plan).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [reason], distributed: [], surface: [] });
+      expect.soft(snowPlan).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [reason], distributed: [], surface: [] });
+      expect.soft(() => snowLoadCases({ model, tributaryWidth: 3, snow: snowConfig })).toThrow(expect.objectContaining(reason));
       expect.soft(() => gravityLayout(model, options)).toThrow(expect.objectContaining(reason));
       expect.soft(() => roofWeightFor(model, options, 3, 1)).toThrow(expect.objectContaining(reason));
       continue;
@@ -521,8 +536,31 @@ replayGapReview.each([
     expect.soft((sheltered ? layout.areaOf : layout.roofAreaOf).get(gapId)).toBeCloseTo(4, 10);
     expect.soft(plan.distributed.find(row => row.elementId === gapId && row.caseType === 'D')?.q).toBeCloseTo(sheltered ? -2 : -4, 10);
     expect.soft(roofWeightFor(model, options, 3, 1)).toBe('heavy');
-    expect.soft(() => snowDriftRefusal(model)).not.toThrow();
-    const snowLayout = gravityLayout(model, { ...options, tributaryWidth: 1 });
-    expect.soft(snowLayout.roof.has(gapId)).toBe(true);
+    expect.soft(() => snowDriftRefusal(model, layout, undefined, 3)).not.toThrow();
+    const snowCases = snowLoadCases({ model, layout, tributaryWidth: 3, snow: snowConfig });
+    expect.soft(snowPlan.outcome).toBe('READY');
+    expect.soft(snowPlan.distributed.some(row => row.caseType === 'S' && row.elementId === gapId)).toBe(!sheltered);
+    expect.soft(snowCases?.result.refused).toBeUndefined();
+    expect.soft(snowCases?.cases[0]?.distributed.some(row => row.elementId === upperId)).toBe(true);
+    expect.soft(snowCases?.cases[0]?.distributed.some(row => row.elementId === gapId)).toBe(!sheltered);
+    if (sheltered) {
+      const reason = { key: 'loadPlan.gravity.mixedExposure' };
+      expect.soft(() => snowDriftRefusal(model)).toThrow(expect.objectContaining(reason));
+    } else {
+      expect.soft(() => snowDriftRefusal(model)).not.toThrow();
+    }
   }
+});
+
+it('#2607 refuses a positive roof strip whose footprint collapses at the model coordinates', () => {
+  const { model } = offsetRoof(0.02, 0, 1, false, [4, 6], 2);
+  const nodeI = model.nodes.size + 1, nodeJ = nodeI + 1;
+  model.nodes.set(nodeI, { id: nodeI, x: 4, y: 0, z: 5 });
+  model.nodes.set(nodeJ, { id: nodeJ, x: 6, y: 0, z: 5.4 });
+  model.elements.set(2, { ...model.elements.get(1)!, id: 2, nodeI, nodeJ });
+  for (const node of model.nodes.values()) node.y += 1e8;
+  const plan = (tributaryWidth: number) => buildLoadPlan(input(model, { gravity: { mode: 'panels' }, tributaryWidth }));
+  const reason = { key: 'loadPlan.gravity.coveragePrecision' };
+  expect(plan(1e-9)).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [reason], distributed: [], surface: [] });
+  expect(plan(3).outcome).toBe('READY');
 });
