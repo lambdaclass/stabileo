@@ -229,6 +229,17 @@ meshed again, every refined plate is cleared first and meshed from its outline, 
 hanging nodes and their constraints gone. A refined side carries nodes no mesh size gives, and
 two plates meshed against such a side keep each other's nodes alive and grow at every pass.
 
+The sizes come back by themselves. A refined plate keeps, with its settings, the centre and
+longest edge of every cell the refinement made (`PlateSurface.refinement`). Once the plates
+are meshed again and current, `restoreRefinements` hands those samples to
+`adapt::resize_3d` (WASM `resize_mesh_3d`), which splits the elements longer than 1.5 times
+the size wanted at a sample inside them, as `refine_marked` splits, until none is: no solve
+and no estimate. The result is applied as an adaptive refinement is. On the slab on columns
+below, to a quarter of the coarse estimate, the adaptive loop takes 1.7 s for 4 282 elements
+and 16.3 s for 20 896; putting the same sizes back takes 0.07 s and 0.9 s (one run, macOS
+arm64, native). The sizes are dropped when the plate is given other mesh settings, when its
+mesh is cleared by hand, or when they cannot be put back.
+
 The model applied spreads its surface loads over the new nodes; the engine's own
 refinement of the solver input leaves the nodal forces the app gave it where they were, so the
 estimate after solving again is close to the one reported, not equal to it.
