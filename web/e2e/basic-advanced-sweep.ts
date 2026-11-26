@@ -118,6 +118,7 @@ function project(name: string, mode: '2d' | '3d', g: Gen): Record<string, unknow
   return {
     version: '2.0', name, timestamp: '2026-01-01T00:00:00.000Z', analysisMode: mode,
     snapshot: {
+      ...(mode === '2d' ? { drawPlane2D: 'xy' } : {}),
       solvedWith: CURRENT_STAMP,
       name, localAxisConvention: 'zUpStrongAxis',
       nodes, materials: MATERIALS, sections: SECTIONS, elements, supports, loads,
@@ -1007,10 +1008,9 @@ async function pressBack(page: Page): Promise<void> {
 export function pinnedDefects(): void {
   test.describe('@slow Basic advanced — defects found by this sweep, now regression tests', () => {
     test('generated cantilever with a moment solves and returns from the step-by-step catalog', async ({ page }) => {
-      test.fixme(true, 'known wrong result: #2588');
       const ctx = await boot(page);
       await loadNamed(ctx, 'gen-cantilever-moment');
-      expect.soft(await solveFromRibbon(ctx)).toBe('solved');
+      expect.soft(await solveFromRibbon(ctx)).toMatch(/^success:Analysis successful/);
       await expect.soft(page.getByTestId('rb-cmd-momentY')).toBeEnabled();
       await runFn(ctx, 'steps');
       await expect.soft(page.getByTestId('steps-catalog')).toBeVisible();
