@@ -795,7 +795,6 @@ fn axial_joint_refusal_reports_admissible_displacement_components() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2608"]
 fn kinematics_distinguishes_a_proven_mechanism_from_unknown_rank() {
     use dedaliano_engine::solver::kinematic::{analyze_kinematics_2d, analyze_kinematics_3d};
 

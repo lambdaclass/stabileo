@@ -57,6 +57,11 @@ pub struct Stability {
     pub mode_nodes: Vec<usize>,
 }
 
+pub(super) enum RankFinding {
+    ProvenMechanism { diagnosis: String, nodes: Vec<usize> },
+    Indeterminate(String),
+}
+
 impl FreeDirection {
     fn load_work(&self, f: &[f64], rounding: &[f64]) -> super::load_work::Work {
         let mut work = super::load_work::Work::default();
@@ -166,14 +171,23 @@ impl Stability {
         self.free.iter().filter(|f| f.moves_translation)
     }
 
-    pub(super) fn rank_refusal(&self) -> Option<String> {
+    pub(super) fn rank_finding(&self) -> Option<RankFinding> {
         match self.reason {
-            Reason::OperatorRounding | Reason::AxialMechanism(_) | Reason::FrameMechanism => self.refusal(),
+            Reason::AxialMechanism(_) | Reason::FrameMechanism => self.refusal().map(|diagnosis| {
+                RankFinding::ProvenMechanism { diagnosis, nodes: self.mode_nodes.clone() }
+            }),
+            Reason::OperatorRounding => self.refusal().map(RankFinding::Indeterminate),
             Reason::ConstraintRounding => self.refusal().map(|message| {
-                crate::refusal::coded(DiagnosticCode::ReducedStiffnessRank, &message)
+                RankFinding::Indeterminate(crate::refusal::coded(DiagnosticCode::ReducedStiffnessRank, &message))
             }),
             _ => None,
         }
+    }
+
+    fn rank_refusal(&self) -> Option<String> {
+        self.rank_finding().map(|finding| match finding {
+            RankFinding::ProvenMechanism { diagnosis, .. } | RankFinding::Indeterminate(diagnosis) => diagnosis,
+        })
     }
 
     pub fn refusal(&self) -> Option<String> {
@@ -1975,9 +1989,8 @@ impl<'a> OperatorRank<'a> {
         result.rank_refusal().map_or(Ok(()), Err)
     }
 
-    pub(super) fn check_free_rounding(&self, free: &CscMatrix, magnitude: Option<&CscMatrix>) -> Result<(), String> {
-        let reduced = self.constraints.map(|cs| cs.reduce_matrix_sparse(free));
-        self.check_rounding(free, reduced.as_ref(), magnitude)
+    pub(super) fn free_rank_finding(&self, free: &CscMatrix, magnitude: Option<&CscMatrix>) -> Option<RankFinding> {
+        self.classify(free, None, magnitude, &[]).rank_finding()
     }
 
     pub(super) fn check_secant(

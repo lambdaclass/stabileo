@@ -125,7 +125,7 @@ const codedRankError = error => {
     return diagnostic.code === 'reduced_stiffness_rank' && diagnostic.severity === 'error';
   } catch { return false; }
 };
-if (process.env.STABILEO_TEST_KNOWN_WRONG_2608) {
+{
   for (const kind of ['frame', 'truss']) {
     const planar = structuredClone(truss);
     Object.assign(planar.nodes[2], { x: 3, z: 4 });

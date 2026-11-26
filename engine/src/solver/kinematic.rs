@@ -4,6 +4,7 @@ use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly::*;
 use super::constraints::FreeConstraintSystem;
+use super::stability::{RankFinding, Stability, Verdict};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -239,13 +240,13 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     // assembly and the dense LU rank below. Anything unusual — a floating
     // translation, an unexpected zero, a failed factorization — falls through
     // to the full path, which names the DOFs.
-    let physical_refusal = rank_input.as_ref().and_then(|_| {
+    let physical_rank = rank_input.as_ref().and_then(|_| {
         let cs = FreeConstraintSystem::build_2d(physical_input, &dof_num).ok()?;
         let asm = super::assembly::without_artificial_stiffness(|| assemble_sparse_2d(physical_input, &dof_num));
         super::stability::OperatorRank::for_2d(physical_input, &dof_num, cs.as_ref())
-            .check_free_rounding(&asm.k_ff, asm.support_magnitude.as_ref()).err()
+            .free_rank_finding(&asm.k_ff, asm.support_magnitude.as_ref())
     });
-    if physical_refusal.is_none() && nf >= KINEMATIC_SPARSE_THRESHOLD && input.constraints.is_empty() {
+    if physical_rank.is_none() && nf >= KINEMATIC_SPARSE_THRESHOLD && input.constraints.is_empty() {
         if let Some(result) = fast_solvable_2d(input, &dof_num, degree) {
             return result;
         }
@@ -310,41 +311,17 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
         }
     }
 
-    let mut node_set = std::collections::HashSet::new();
     let mut unconstrained_dofs = Vec::new();
     for &dof_idx in &true_mechanism_dofs {
         if let Some(&(node_id, local_dof)) = reverse_map.get(&dof_idx) {
-            node_set.insert(node_id);
             unconstrained_dofs.push(UnconstrainedDof {
                 node_id,
                 dof: dof_labels.get(local_dof).unwrap_or(&"ux").to_string(),
             });
         }
     }
-    let mut mechanism_nodes: Vec<usize> = node_set.into_iter().collect();
-    mechanism_nodes.sort();
 
-    let rank_refusal = physical_refusal.or_else(|| rank_stability.rank_refusal());
-    let kinematic_is_solvable = mechanism_modes == 0
-        && rank_stability.verdict != super::stability::Verdict::Mechanism;
-    let (classification, is_solvable) = classify_rank(degree, kinematic_is_solvable, rank_refusal.is_some());
-
-    let diagnosis = rank_refusal.unwrap_or_else(|| {
-        build_diagnosis_2d(degree, mechanism_modes, &mechanism_nodes, &unconstrained_dofs)
-    });
-
-    KinematicResult {
-        degree,
-        classification,
-        mechanism_modes,
-        mechanism_nodes,
-        unconstrained_dofs,
-        diagnosis,
-        is_solvable,
-        kinematic_is_solvable,
-        invalid_input: None,
-        invalid_input_kind: None,
-    }
+    finish_rank_analysis(degree, mechanism_modes, unconstrained_dofs, &rank_stability, physical_rank)
 }
 
 /// Above this many free DOFs the 2D kinematic analysis tries the sparse proof
@@ -421,15 +398,52 @@ fn rank_springs_3d(input: &SolverInput3D) -> Option<SolverInput3D> {
     Some(rank)
 }
 
-fn classify_rank(degree: i32, kinematic_is_solvable: bool, rank_refused: bool) -> (String, bool) {
-    let is_solvable = kinematic_is_solvable && !rank_refused;
-    let classification = match (rank_refused, is_solvable, degree.cmp(&0)) {
+fn finish_rank_analysis(
+    degree: i32,
+    mut mechanism_modes: usize,
+    unconstrained_dofs: Vec<UnconstrainedDof>,
+    stability: &Stability,
+    physical_rank: Option<RankFinding>,
+) -> KinematicResult {
+    let mut mechanism_nodes: Vec<_> = unconstrained_dofs.iter().map(|dof| dof.node_id).collect();
+    let finding = physical_rank.or_else(|| stability.rank_finding());
+    let indeterminate = matches!(finding, Some(RankFinding::Indeterminate(_)));
+    let diagnosis = match finding {
+        Some(RankFinding::ProvenMechanism { diagnosis, nodes }) => {
+            mechanism_modes = mechanism_modes.max(1);
+            mechanism_nodes.extend(nodes);
+            Some(diagnosis)
+        }
+        Some(RankFinding::Indeterminate(diagnosis)) => Some(diagnosis),
+        None => None,
+    };
+    mechanism_nodes.sort_unstable();
+    mechanism_nodes.dedup();
+
+    let kinematic_is_solvable = mechanism_modes == 0 && stability.verdict != Verdict::Mechanism;
+    let is_solvable = kinematic_is_solvable && !indeterminate;
+    let classification = match (indeterminate, is_solvable, degree.cmp(&0)) {
         (true, _, _) => "indeterminate",
         (_, true, std::cmp::Ordering::Greater) => "hyperstatic",
         (_, true, std::cmp::Ordering::Equal) => "isostatic",
         _ => "hypostatic",
     };
-    (classification.into(), is_solvable)
+    let diagnosis = diagnosis.unwrap_or_else(|| {
+        build_diagnosis_2d(degree, mechanism_modes, &mechanism_nodes, &unconstrained_dofs)
+    });
+
+    KinematicResult {
+        degree,
+        classification: classification.into(),
+        mechanism_modes,
+        mechanism_nodes,
+        unconstrained_dofs,
+        diagnosis,
+        is_solvable,
+        kinematic_is_solvable,
+        invalid_input: None,
+        invalid_input_kind: None,
+    }
 }
 
 fn mechanism_pivots(k: &[f64], n: usize, stability: &super::stability::Stability) -> Vec<usize> {
@@ -456,7 +470,7 @@ fn fast_solvable_2d(
     let (physical, stability) = super::stability::analyze_free_stiffness(
         &sasm.k_ff, dof_num, true, None, &super::stability::elastic_kinematics_2d(input, dof_num), &super::stability::ReleasedRotations::default(), sasm.support_magnitude.as_ref(),
     );
-    if stability.verdict == super::stability::Verdict::Mechanism || stability.rank_refusal().is_some() { return None; }
+    if stability.verdict == Verdict::Mechanism || stability.rank_finding().is_some() { return None; }
     let pinned = stability.pin_sparse(&physical);
     let k = &pinned;
     let mut symbolic = None;
@@ -647,10 +661,10 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
         },
     };
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
-    let physical_refusal = rank_input.as_ref().and_then(|_| {
+    let physical_rank = rank_input.as_ref().and_then(|_| {
         let asm = super::assembly::without_artificial_stiffness(|| assemble_sparse_3d(physical_input, &dof_num, false));
         super::stability::OperatorRank::for_3d(physical_input, &dof_num, cs.as_ref())
-            .check_free_rounding(&asm.k_ff, asm.support_magnitude.as_ref()).err()
+            .free_rank_finding(&asm.k_ff, asm.support_magnitude.as_ref())
     });
     let (k_s, rank_stability) = super::stability::analyze_free_stiffness(
         &crate::linalg::sparse::CscMatrix::from_dense_symmetric_exact(&k_ff, nf),
@@ -686,41 +700,17 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
         }
     }
 
-    let mut node_set = std::collections::HashSet::new();
     let mut unconstrained_dofs = Vec::new();
     for &dof_idx in &true_mechanism_dofs {
         if let Some(&(node_id, local_dof)) = reverse_map.get(&dof_idx) {
-            node_set.insert(node_id);
             unconstrained_dofs.push(UnconstrainedDof {
                 node_id,
                 dof: labels.get(local_dof).unwrap_or(&"ux").to_string(),
             });
         }
     }
-    let mut mechanism_nodes: Vec<usize> = node_set.into_iter().collect();
-    mechanism_nodes.sort();
 
-    let rank_refusal = physical_refusal.or_else(|| rank_stability.rank_refusal());
-    let kinematic_is_solvable = mechanism_modes == 0
-        && rank_stability.verdict != super::stability::Verdict::Mechanism;
-    let (classification, is_solvable) = classify_rank(degree, kinematic_is_solvable, rank_refusal.is_some());
-
-    let diagnosis = rank_refusal.unwrap_or_else(|| {
-        build_diagnosis_2d(degree, mechanism_modes, &mechanism_nodes, &unconstrained_dofs)
-    });
-
-    KinematicResult {
-        degree,
-        classification,
-        mechanism_modes,
-        mechanism_nodes,
-        unconstrained_dofs,
-        diagnosis,
-        is_solvable,
-        kinematic_is_solvable,
-        invalid_input: None,
-        invalid_input_kind: None,
-    }
+    finish_rank_analysis(degree, mechanism_modes, unconstrained_dofs, &rank_stability, physical_rank)
 }
 
 // ==================== Helpers ====================

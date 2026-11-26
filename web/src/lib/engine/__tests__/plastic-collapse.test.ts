@@ -49,7 +49,7 @@ describe('plastic collapse, step by step', () => {
     expect(r.collapseFactor).toBeCloseTo(MP / 45, 6);
   });
 
-  it.skipIf(!process.env.STABILEO_TEST_KNOWN_WRONG_2608)('accepts the free truss motion created by axial yield (#2608)', () => {
+  it('accepts the free truss motion created by axial yield (#2608)', () => {
     const load = 15;
     const capacity = 30;
     const input = model([[1, -3, 0], [2, 3, 0], [3, 0, 0], [4, 0, 4]],
