@@ -1,3 +1,4 @@
+use crate::types::unique_table;
 /// Fiber beam-column nonlinear solver.
 ///
 /// Incremental-iterative N-R solver that uses fiber section integration
@@ -23,6 +24,7 @@ use super::sparse_tangent::{SparseSymbolicCache, cached_symbolic, tangent_free_s
 pub struct FiberNonlinearInput {
     pub solver: SolverInput,
     /// Fiber section definitions per section ID
+    #[serde(deserialize_with = "unique_table::fiber_sections")]
     pub fiber_sections: HashMap<String, FiberSectionDef>,
     /// Number of Gauss-Lobatto integration points per element (3-7, default 5;
     /// other values are refused)
@@ -997,6 +999,7 @@ pub(super) fn add_springs(
 pub struct FiberNonlinearInput3D {
     #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
+    #[serde(deserialize_with = "unique_table::fiber_sections")]
     pub fiber_sections: HashMap<String, FiberSectionDef>,
     #[serde(default = "default_n_ip")]
     pub n_integration_points: usize,

@@ -1,3 +1,4 @@
+use crate::types::unique_table;
 use crate::solver::support::support_dofs_2d;
 use crate::postprocess::diagrams::compute_diagram_value_at;
 use crate::types::*;
@@ -82,10 +83,10 @@ impl Confirmation {
 pub struct LimitInput {
     pub solver: SolverInput,
     /// Plastic moment per element id; every frame needs a finite, positive entry or the input is refused.
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::mp")]
     pub mp: HashMap<String, f64>,
     /// Axial yield force per element id, positive; a missing entry never yields axially, an infinite one is refused.
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::np")]
     pub np: HashMap<String, f64>,
 }
 

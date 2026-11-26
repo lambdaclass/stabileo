@@ -232,7 +232,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2588"]
     fn json_analysis_refuses_duplicate_structural_table_keys() {
         use crate::solver::staged::{parse_staged_2d, parse_staged_3d};
         use crate::types::units::{ElasticInput2D, ElasticInput3D};
@@ -322,7 +321,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2588"]
     fn json_analysis_refuses_duplicate_nested_table_keys() {
         use crate::solver::{
             contact::{ContactInput, ContactInput3D},

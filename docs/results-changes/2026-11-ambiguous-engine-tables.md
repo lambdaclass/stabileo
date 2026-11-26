@@ -1,0 +1,5 @@
+# Refuse ambiguous analysis tables and malformed iterable loads
+
+Planar and spatial JSON analysis report a repeated key before inserting a structural record. This applies to nodes, materials, sections, elements, supports, connectors and the spatial shell tables, as well as keyed inputs such as combination factors and material densities. The diagnostic names the table. For two parallel members entered under the same key, earlier analysis could assemble one member and return the displacements and forces of that incomplete model. Give each intended member its own key, then rerun the analysis.
+
+WASM object analysis applies the same row validation to load arrays, Sets and other iterables. A spatial distributed load with `qXi` in place of `qXI` now receives an unknown-field diagnostic. Earlier decoding could omit the start intensity and solve with the default zero, changing the support reaction and member forces. Correct the field name and rerun the analysis. Valid iterable loads retain their intensities, and distinct table keys retain all their entries.

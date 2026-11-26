@@ -509,17 +509,15 @@ it('translates the JSON duplicate-key refusal', async () => {
   }
 });
 
-const reviewTest = process.env.STABILEO_REVIEW_REPRO === '1' ? it : it.skip;
-
-reviewTest.each([false, true])('validates every iterable load row (space = %s)', (is3D) => {
+it.each([false, true])('validates every iterable load row (space = %s)', (is3D) => {
   const model = is3D ? space : planar;
-  const load = is3D
-    ? { type: 'distributed', data: { elementId: 1, qXI: 6, qXJ: 0, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0 } }
-    : { type: 'nodal', data: { nodeId: 2, fx: 0, fz: 0, my: 5 } };
+  const magnitude = is3D ? 6 : 5;
+  const unloaded = is3D
+    ? { elementId: 1, qXJ: 0, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0 }
+    : { nodeId: 2, fx: 0, fz: 0, my: 0 };
   const field = is3D ? 'qXI' : 'my';
   const typo = is3D ? 'qXi' : 'mY';
-  const { [field]: magnitude, ...unloaded } = load.data as Record<string, number>;
-  if (!is3D) unloaded.my = 0;
+  const load = { type: is3D ? 'distributed' : 'nodal', data: { ...unloaded, [field]: magnitude } };
   const malformed = { ...load, data: { ...unloaded, [typo]: magnitude } };
   const linear = is3D ? solve_3d : solve_2d;
   const Session = is3D ? LoadSession3D : LoadSession2D;
@@ -553,7 +551,11 @@ reviewTest.each([false, true])('validates every iterable load row (space = %s)',
     },
     ...(is3D ? {
       discretization: (loads: unknown) => estimate_discretization_3d({ ...model, loads }),
-      convergence: (loads: unknown) => convergence_study_3d({ ...model, loads }, { levels: 1 }),
+      convergence: (loads: unknown) => convergence_study_3d({
+        ...model, loads,
+        nodes: { ...space.nodes, 3: { id: 3, x: 2, y: 1, z: 0 }, 4: { id: 4, x: 0, y: 1, z: 0 } },
+        quads: indexed({ id: 1, nodes: [1, 2, 3, 4], materialId: 1, thickness: 0.1 }),
+      }, { levels: 1 }),
     } : {}),
   };
 
@@ -561,10 +563,10 @@ reviewTest.each([false, true])('validates every iterable load row (space = %s)',
   const shorter = linear({ ...model, loads: new Set([{ ...load, data: unloaded }]) });
   if (is3D) {
     const length = space.nodes[2]!.x - space.nodes[1]!.x;
-    expect(accepted.reactions[0].fx).toBeCloseTo(-magnitude! * length / 2, 12);
+    expect(accepted.reactions[0].fx).toBeCloseTo(-magnitude * length / 2, 12);
     expect(shorter.reactions[0].fx).toBe(0);
   } else {
-    expect(accepted.reactions[0].my).toBeCloseTo(-magnitude!, 12);
+    expect(accepted.reactions[0].my).toBeCloseTo(-magnitude, 12);
     expect(shorter.reactions[0].my).toBe(0);
   }
   for (const [entry, run] of Object.entries(entries)) {
@@ -579,7 +581,7 @@ reviewTest.each([false, true])('validates every iterable load row (space = %s)',
   }
 });
 
-reviewTest.each([false, true])('refuses repeated frame keys before JSON solves (space = %s)', (is3D) => {
+it.each([false, true])('refuses repeated frame keys before JSON solves (space = %s)', (is3D) => {
   const base = is3D ? space : planar;
   const first = base.elements[1]!;
   const second = { ...first, id: 2 };

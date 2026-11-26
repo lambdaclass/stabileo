@@ -1,4 +1,4 @@
-use super::numeric;
+use super::{numeric, unique_table};
 use serde::{de, Deserialize, Serialize};
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -264,51 +264,27 @@ impl<'de> de::Visitor<'de> for EmptyShellCollection2D {
     }
 }
 
-fn deserialize_connectors<'de, D: de::Deserializer<'de>>(
-    deserializer: D,
-) -> Result<HashMap<String, ConnectorElement>, D::Error> {
-    struct ConnectorTable;
-
-    impl<'de> de::Visitor<'de> for ConnectorTable {
-        type Value = HashMap<String, ConnectorElement>;
-
-        fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            f.write_str("a map of connectors with unique keys")
-        }
-
-        fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
-            use std::collections::hash_map::Entry;
-
-            let mut connectors = HashMap::new();
-            while let Some(key) = map.next_key()? {
-                match connectors.entry(key) {
-                    Entry::Vacant(entry) => {
-                        entry.insert(map.next_value()?);
-                    }
-                    Entry::Occupied(_) => {
-                        return Err(de::Error::custom("duplicate key in field `connectors`"));
-                    }
-                }
-            }
-            Ok(connectors)
-        }
-    }
-
-    deserializer.deserialize_map(ConnectorTable)
-}
-
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(
+    rename_all = "camelCase",
+    deny_unknown_fields,
+    bound(deserialize = "M: Deserialize<'de>, S: Deserialize<'de>, N: Deserialize<'de>, L: Deserialize<'de>, P: Deserialize<'de>")
+)]
 struct SolverInputWire2D<M, S, N, L, P> {
+    #[serde(deserialize_with = "unique_table::nodes")]
     nodes: HashMap<String, N>,
+    #[serde(deserialize_with = "unique_table::materials")]
     materials: HashMap<String, M>,
+    #[serde(deserialize_with = "unique_table::sections")]
     sections: HashMap<String, S>,
+    #[serde(deserialize_with = "unique_table::elements")]
     elements: HashMap<String, SolverElement>,
+    #[serde(deserialize_with = "unique_table::supports")]
     supports: HashMap<String, P>,
     loads: Vec<L>,
     #[serde(default)]
     constraints: Vec<Constraint>,
-    #[serde(default, deserialize_with = "deserialize_connectors")]
+    #[serde(default, deserialize_with = "unique_table::connectors")]
     connectors: HashMap<String, ConnectorElement>,
     #[serde(default)]
     solver_options: Option<SolverOptions>,
@@ -814,29 +790,34 @@ pub struct SolverPlateThermalLoad {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", bound(deserialize = "M: super::units::TypedWire + Deserialize<'de>, S: super::units::TypedWire + Deserialize<'de>, N: super::units::TypedWire + Deserialize<'de>, L: super::units::TypedWire + Deserialize<'de>, P: super::units::TypedWire + Deserialize<'de>, E: super::units::TypedWire + Deserialize<'de>"), deny_unknown_fields)]
 pub struct SolverInput3D<M = SolverMaterial, S = SolverSection3D, N = SolverNode3D, L = SolverLoad3D, P = SolverSupport3D, E = SolverElement3D> {
+    #[serde(deserialize_with = "unique_table::nodes")]
     pub nodes: HashMap<String, N>,
+    #[serde(deserialize_with = "unique_table::materials")]
     pub materials: HashMap<String, M>,
+    #[serde(deserialize_with = "unique_table::sections")]
     pub sections: HashMap<String, S>,
+    #[serde(deserialize_with = "unique_table::elements")]
     pub elements: HashMap<String, E>,
+    #[serde(deserialize_with = "unique_table::supports")]
     pub supports: HashMap<String, P>,
     pub loads: Vec<L>,
     #[serde(default)]
     pub constraints: Vec<Constraint>,
     #[serde(default)]
     pub left_hand: Option<bool>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::plates")]
     pub plates: HashMap<String, SolverPlateElement>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::quads")]
     pub quads: HashMap<String, SolverQuadElement>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::quad9s")]
     pub quad9s: HashMap<String, SolverQuad9Element>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::solid_shells")]
     pub solid_shells: HashMap<String, SolverSolidShellElement>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::curved_shells")]
     pub curved_shells: HashMap<String, SolverCurvedShellElement>,
     #[serde(default)]
     pub curved_beams: Vec<CurvedBeamInput>,
-    #[serde(default, deserialize_with = "deserialize_connectors")]
+    #[serde(default, deserialize_with = "unique_table::connectors")]
     pub connectors: HashMap<String, ConnectorElement>,
     #[serde(default)]
     pub solver_options: Option<SolverOptions>,
@@ -1034,6 +1015,7 @@ fn default_num_segments() -> usize { 10 }
 #[serde(rename_all = "camelCase")]
 pub struct ModalInput {
     pub solver: SolverInput,
+    #[serde(deserialize_with = "unique_table::densities")]
     pub densities: HashMap<String, f64>, // materialId → density (kg/m³)
 }
 
@@ -1043,6 +1025,7 @@ pub struct ModalInput {
 pub struct SpectralInput {
     pub solver: SolverInput,
     pub modes: Vec<SpectralModeInput>,
+    #[serde(deserialize_with = "unique_table::densities")]
     pub densities: HashMap<String, f64>,
     pub spectrum: DesignSpectrum,
     pub direction: String, // "X" or "Y"
@@ -1104,6 +1087,7 @@ pub struct SpectralInput3D {
     #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     pub modes: Vec<SpectralModeInput3D>,
+    #[serde(deserialize_with = "unique_table::densities")]
     pub densities: HashMap<String, f64>,
     pub spectrum: DesignSpectrum,
     pub direction: String, // "X", "Y", or "Z"
@@ -1152,6 +1136,7 @@ pub struct SpectralModeDisp3D {
 pub struct ModalInput3D {
     #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
+    #[serde(deserialize_with = "unique_table::densities")]
     pub densities: HashMap<String, f64>,
 }
 
@@ -1161,9 +1146,9 @@ pub struct ModalInput3D {
 #[serde(rename_all = "camelCase")]
 pub struct CableInput<S> {
     pub solver: S,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::densities")]
     pub densities: HashMap<String, f64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::pretension")]
     pub pretension: HashMap<String, f64>,
 }
 
@@ -1172,11 +1157,13 @@ pub struct CableInput<S> {
 #[serde(rename_all = "camelCase")]
 pub struct PlasticInput {
     pub solver: SolverInput,
+    #[serde(deserialize_with = "unique_table::sections")]
     pub sections: HashMap<String, PlasticSectionData>,
+    #[serde(deserialize_with = "unique_table::materials")]
     pub materials: HashMap<String, PlasticMaterialData>,
     #[serde(default)]
     pub max_hinges: Option<usize>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::mp_overrides")]
     pub mp_overrides: Option<HashMap<String, f64>>,
 }
 
@@ -1206,12 +1193,14 @@ pub struct PlasticMaterialData {
 pub struct PlasticInput3D {
     #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
+    #[serde(deserialize_with = "unique_table::sections")]
     pub sections: HashMap<String, PlasticSectionData3D>,
+    #[serde(deserialize_with = "unique_table::materials")]
     pub materials: HashMap<String, PlasticMaterialData>,
     #[serde(default)]
     pub max_hinges: Option<usize>,
     /// Override plastic moments: key is section_id, value is [Mp_y, Mp_z]
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::mp_overrides")]
     pub mp_overrides: Option<HashMap<String, [f64; 2]>>,
 }
 
@@ -1281,7 +1270,9 @@ pub struct MovingLoadInput3D {
 #[serde(rename_all = "camelCase")]
 pub struct NonlinearMaterialInput {
     pub solver: SolverInput,
+    #[serde(deserialize_with = "unique_table::material_models")]
     pub material_models: HashMap<String, MaterialModel>,
+    #[serde(deserialize_with = "unique_table::section_capacities")]
     pub section_capacities: HashMap<String, SectionCapacity>,
     #[serde(default = "default_max_iter")]
     pub max_iter: usize,
@@ -1321,7 +1312,9 @@ pub struct SectionCapacity {
 pub struct NonlinearMaterialInput3D {
     #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
+    #[serde(deserialize_with = "unique_table::material_models")]
     pub material_models: HashMap<String, MaterialModel>,
+    #[serde(deserialize_with = "unique_table::section_capacities")]
     pub section_capacities: HashMap<String, SectionCapacity3D>,
     #[serde(default = "default_max_iter")]
     pub max_iter: usize,
@@ -1421,10 +1414,10 @@ pub struct ImperfectionInput {
     #[serde(default)]
     pub notional_loads: Vec<NotionalLoadDef>,
     /// Residual stress patterns per section ID
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::residual_stresses")]
     pub residual_stresses: HashMap<String, ResidualStressPattern>,
     /// Initial displacements from previous analysis (node_id → [ux, uz, ry])
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::initial_displacements")]
     pub initial_displacements: HashMap<String, Vec<f64>>,
 }
 
@@ -1434,6 +1427,7 @@ pub struct ImperfectionInput {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TimeHistoryInput {
     pub solver: SolverInput,
+    #[serde(deserialize_with = "unique_table::densities")]
     pub densities: HashMap<String, f64>,
     pub time_step: f64,
     pub n_steps: usize,
@@ -1473,6 +1467,7 @@ pub struct TimeForceRecord {
 pub struct TimeHistoryInput3D {
     #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
+    #[serde(deserialize_with = "unique_table::densities")]
     pub densities: HashMap<String, f64>,
     pub time_step: f64,
     pub n_steps: usize,
@@ -1597,10 +1592,15 @@ impl From<StagedInputWire2D> for StagedInput {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct StagedInput3D {
+    #[serde(deserialize_with = "unique_table::nodes")]
     pub nodes: HashMap<String, SolverNode3D>,
+    #[serde(deserialize_with = "unique_table::materials")]
     pub materials: HashMap<String, SolverMaterial>,
+    #[serde(deserialize_with = "unique_table::sections")]
     pub sections: HashMap<String, SolverSection3D>,
+    #[serde(deserialize_with = "unique_table::elements")]
     pub elements: HashMap<String, SolverElement3D>,
+    #[serde(deserialize_with = "unique_table::supports")]
     pub supports: HashMap<String, SolverSupport3D>,
     pub loads: Vec<SolverLoad3D>,
     pub stages: Vec<ConstructionStage3D>,
@@ -1621,11 +1621,11 @@ pub struct StagedInput3D {
      * Defaulted so a payload that carries no shells still deserialises, and so
      * older stored inputs keep working.
      */
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::plates")]
     pub plates: HashMap<String, SolverPlateElement>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::quads")]
     pub quads: HashMap<String, SolverQuadElement>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::quad9s")]
     pub quad9s: HashMap<String, SolverQuad9Element>,
 }
 

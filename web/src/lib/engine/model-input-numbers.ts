@@ -208,7 +208,7 @@ export function requireLoadInput(loads: unknown): void {
 
 export function loadInputRefusal(loads: unknown): string | null {
   try {
-    check();
+    requireLoadInput(loads);
     return null;
   } catch (error) {
     if (error instanceof ModelInputError) return error.message;

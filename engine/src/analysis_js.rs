@@ -1,10 +1,26 @@
-use web_sys::js_sys::{try_iter, Array, Object, Reflect, Set, Symbol};
+use web_sys::js_sys::{try_iter, Array, IntoIter, Object, Reflect, Set, Symbol};
 use serde::de::value::{MapDeserializer, SeqDeserializer};
 use serde::de::{self, Deserializer, IntoDeserializer, Visitor};
 use serde_wasm_bindgen::Error;
 use wasm_bindgen::{JsCast, JsValue};
 
 pub(crate) struct AnalysisJs(pub(crate) JsValue);
+
+struct AnalysisSequence(IntoIter);
+
+impl<'de> de::SeqAccess<'de> for AnalysisSequence {
+    type Error = Error;
+
+    fn next_element_seed<T: de::DeserializeSeed<'de>>(
+        &mut self,
+        seed: T,
+    ) -> Result<Option<T::Value>, Error> {
+        self.0
+            .next()
+            .map(|item| seed.deserialize(AnalysisJs(item?)))
+            .transpose()
+    }
+}
 
 impl<'de> IntoDeserializer<'de, Error> for AnalysisJs {
     type Deserializer = Self;
@@ -79,8 +95,10 @@ impl<'de> Deserializer<'de> for AnalysisJs {
     fn deserialize_seq<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Error> {
         if let Some(array) = self.0.dyn_ref::<Array>() {
             SeqDeserializer::new(array.iter().map(AnalysisJs)).deserialize_seq(visitor)
+        } else if let Some(iter) = try_iter(&self.0)? {
+            visitor.visit_seq(AnalysisSequence(iter))
         } else {
-            serde_wasm_bindgen::Deserializer::from(self.0).deserialize_seq(visitor)
+            Err(de::Error::invalid_type(de::Unexpected::Other("non-iterable value"), &"a sequence"))
         }
     }
 
@@ -89,7 +107,7 @@ impl<'de> Deserializer<'de> for AnalysisJs {
             return self.deserialize_seq(visitor);
         }
         let Some(iter) = try_iter(&self.0)? else {
-            return self.deserialize_seq(visitor);
+            return Err(de::Error::invalid_type(de::Unexpected::Other("non-iterable value"), &"a sequence"));
         };
         let items = iter.take(len.saturating_add(1)).map(|item| item.map(AnalysisJs))
             .collect::<Result<Vec<_>, _>>()?;

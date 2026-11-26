@@ -1,3 +1,4 @@
+use crate::types::unique_table;
 use crate::types::*;
 use crate::solver::linear::{prepare_static_2d, prepare_static_3d, solve_2d, solve_3d};
 use crate::postprocess::combinations::*;
@@ -25,6 +26,7 @@ pub struct LoadCase3D {
 pub struct CombinationDef {
     pub name: String,
     /// Map from case name to factor, e.g. {"Dead": 1.2, "Live": 1.6}
+    #[serde(deserialize_with = "unique_table::factors")]
     pub factors: HashMap<String, f64>,
 }
 
