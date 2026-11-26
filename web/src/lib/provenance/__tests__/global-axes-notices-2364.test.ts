@@ -19,9 +19,10 @@ it('known wrong result: #2364 the older #2223 nodal project stays quiet before t
   for (const analysisMode of modes) {
     for (const analysis of histories) {
       const stamp = { ...stampSolve(analysis, null), resultsVersion: weightNotice.resultsVersion - 1 };
+      const support = { id: 1, nodeId: 1, type: analysisMode === '2d' ? 'fixed' as const : 'fixed3d' as const };
       const snapshot: FeatureSnapshot = {
         analysisMode,
-        supports: [[1, { nodeId: 1, type: analysisMode === '2d' ? 'fixed' : 'fixed3d' }]],
+        supports: [[1, support]],
         loads: [{ type: 'nodal3d', data: { nodeId: 1, fx: 0, fy: 0, fz: -20, mx: 0, my: 0, mz: 0, caseId: 1 } }],
         loadCases: [{ id: 1, type: 'D' }],
         includeSelfWeight: true,
