@@ -67,9 +67,12 @@ export function footingDetail(r: Pick<FootingRow, 'adopted' | 'cover' | 'layers'
     dowels = { count: dw.count, dia: dw.dia, shape: out.shape, turned: turned.shape, foot: out.foot, rise: out.rise, z: out.z, offset: place.offset, crankAt: out.crankAt, xs, inward };
   }
   const topLayer = (axis: 'x' | 'y', t: FootingMesh, below: number): FootingLayerBars => {
-    const len = (axis === 'x' ? a.B : a.L) - 2 * c, db = t.dia / 1000;
-    const shape = hookedStraight(0, len, 0, t.dia, R.mandrel(t.dia, 'longitudinal'), [true, true], -1, R.extension(t.dia, 90, 'longitudinal'));
-    return { dir: axis, dia: t.dia, z: a.h - c - below - db / 2, from: -len / 2, to: len / 2, hooked: true, ends: [true, true], shape, ...meshSpan(axis, { B: a.B, L: a.L, ex: 0, ey: 0 }, { dia: t.dia, spacing: t.spacing }, c) };
+    const len = (axis === 'x' ? a.B : a.L) - 2 * c, db = t.dia / 1000, z = a.h - c - below - db / 2;
+    const bent = (ext: number) => hookedStraight(0, len, 0, t.dia, R.mandrel(t.dia, 'longitudinal'), [true, true], -1, ext);
+    const full = R.extension(t.dia, 90, 'longitudinal'), reach = z + Math.min(...bent(full).pts.map((p) => p[1]));
+    // A shallow footing's legs would otherwise reach through the bottom cover.
+    const shape = reach < c + db / 2 ? bent(Math.max(0, full - (c + db / 2 - reach))) : bent(full);
+    return { dir: axis, dia: t.dia, z, from: -len / 2, to: len / 2, hooked: true, ends: [true, true], shape, ...meshSpan(axis, { B: a.B, L: a.L, ex: 0, ey: 0 }, { dia: t.dia, spacing: t.spacing }, c) };
   };
   const laid = (m: FootingMesh | undefined): m is FootingMesh => !!m && m.dia > 0 && m.spacing > 0;
   const tops: FootingLayerBars[] = [];
