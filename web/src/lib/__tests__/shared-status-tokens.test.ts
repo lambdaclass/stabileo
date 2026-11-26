@@ -410,6 +410,12 @@ describe('--st-accent stays an action, not a status', () => {
       + 'decorative fill inside a track, with the count written next to it in --st-text-2, so '
       + 'nothing here is read off the colour. Arrived from feat/pro-steel-family, which restored '
       + 'a fill that the merge base had left at `background: none` — an invisible progress bar.',
+    'FlangeBeamsPicker.svelte|.fb-seg button.on { background: var(--st-surface-3); color: var(--st-accent); box-shadow: inset 0 0 0 1px var(--st-hair-strong); }':
+      'selection — the choice taken in the two-way switch of the beams that take the flange, every '
+      + 'beam or the chosen ones; it says which the person picked.',
+    'FlangeBeamsPicker.svelte|.fb-sel { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 6px; border: 1px dashed var(--st-accent); border-radius: 4px; }':
+      'selection — the dashed border of the beams selected in the model, offered to be added. A '
+      + 'border, so the 3:1 bar applies.',
     "RebarSchematics.svelte|fill={bar.index < 4 ? 'var(--st-accent)' : 'var(--st-warn)'}":
       'neither — it distinguishes corner bars from intermediate ones in a diagram, which is data '
       + 'and not a verdict. Left alone rather than renamed: worth noting, though, that the same '
