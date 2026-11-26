@@ -1872,6 +1872,18 @@ fn assemble_truss_corotational_3d(
     }
 }
 
+
+struct FrameReference3D {
+    chord: (f64, f64, f64, f64),
+    dofs: Vec<usize>,
+    axes: ([f64; 3], [f64; 3], [f64; 3]),
+    stiffness: Vec<f64>,
+}
+
+#[cfg(feature = "experimental-nonlinear")]
+#[path = "corotational/prepared_3d.rs"]
+mod prepared_3d;
+
 /// Co-rotational treatment for a 3D frame element.
 ///
 /// Uses the direct natural deformation approach:
@@ -1898,12 +1910,47 @@ fn assemble_frame_corotational_3d(
     scatter: &mut impl FnMut(usize, usize, f64),
     left_hand: bool,
 ) {
-    let dx0 = node_j.x - node_i.x;
-    let dy0 = node_j.y - node_i.y;
-    let dz0 = node_j.z - node_i.z;
-    let l0 = (dx0 * dx0 + dy0 * dy0 + dz0 * dz0).sqrt();
+    assemble_frame_corotational_3d_prepared(
+        dof_num, elem, node_i, node_j, e, a, iy, iz, j, g, phi_y, phi_z,
+        u_full, f_int, scatter, left_hand, None,
+    );
+}
 
-    let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+fn assemble_frame_corotational_3d_prepared(
+    dof_num: &DofNumbering,
+    elem: &SolverElement3D,
+    node_i: &SolverNode3D,
+    node_j: &SolverNode3D,
+    e: f64,
+    a: f64,
+    iy: f64,
+    iz: f64,
+    j: f64,
+    g: f64,
+    phi_y: f64,
+    phi_z: f64,
+    u_full: &[f64],
+    f_int: &mut [f64],
+    scatter: &mut impl FnMut(usize, usize, f64),
+    left_hand: bool,
+    prepared: Option<&FrameReference3D>,
+) {
+    let (dx0, dy0, dz0, l0) = if let Some(reference) = prepared {
+        reference.chord
+    } else {
+        let dx0 = node_j.x - node_i.x;
+        let dy0 = node_j.y - node_i.y;
+        let dz0 = node_j.z - node_i.z;
+        (dx0, dy0, dz0, (dx0 * dx0 + dy0 * dy0 + dz0 * dz0).sqrt())
+    };
+
+    let fresh_dofs;
+    let elem_dofs = if let Some(reference) = prepared {
+        &reference.dofs
+    } else {
+        fresh_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+        &fresh_dofs
+    };
     if elem_dofs.len() < 12 {
         return; // Need at least 6 DOFs per node
     }
@@ -1926,20 +1973,24 @@ fn assemble_frame_corotational_3d(
         return;
     }
 
-    // Resolve the local-Y reference once from the initial geometry so both
-    // frames share it (robust to the default convention's vertical singularity).
-    let (ref_yx, ref_yy, ref_yz) = corot_local_y_ref(
-        node_i.x, node_i.y, node_i.z, node_j.x, node_j.y, node_j.z,
-        elem.local_yx, elem.local_yy, elem.local_yz,
-    );
+    let (ex_0, ey_0, ez_0) = if let Some(reference) = prepared {
+        reference.axes
+    } else {
+        // Resolve the local-Y reference once from the initial geometry so both
+        // frames share it (robust to the default convention's vertical singularity).
+        let (ref_yx, ref_yy, ref_yz) = corot_local_y_ref(
+            node_i.x, node_i.y, node_i.z, node_j.x, node_j.y, node_j.z,
+            elem.local_yx, elem.local_yy, elem.local_yz,
+        );
 
-    // Original local axes
-    let (ex_0, ey_0, ez_0) = compute_local_axes_3d(
-        node_i.x, node_i.y, node_i.z,
-        node_j.x, node_j.y, node_j.z,
-        ref_yx, ref_yy, ref_yz,
-        elem.roll_angle, left_hand,
-    );
+        // Original local axes
+        compute_local_axes_3d(
+            node_i.x, node_i.y, node_i.z,
+            node_j.x, node_j.y, node_j.z,
+            ref_yx, ref_yy, ref_yz,
+            elem.roll_angle, left_hand,
+        )
+    };
 
     let ((ex_n, ey_n, ez_n), theta_i_nat, theta_j_nat, _) = natural_rotations_3d(
         (&ex_0, &ey_0, &ez_0),
@@ -1956,10 +2007,16 @@ fn assemble_frame_corotational_3d(
     ];
 
     // Local stiffness (using original length)
-    let k_local = frame_local_stiffness_3d(
-        e, a, iy, iz, j, l0, g,
-        Hinge3D::from_elem(elem), phi_y, phi_z,
-    );
+    let fresh_stiffness;
+    let k_local = if let Some(reference) = prepared {
+        &reference.stiffness
+    } else {
+        fresh_stiffness = frame_local_stiffness_3d(
+            e, a, iy, iz, j, l0, g,
+            Hinge3D::from_elem(elem), phi_y, phi_z,
+        );
+        &fresh_stiffness
+    };
 
     // f_local = K_local * d_nat
     let mut f_local = [0.0; 12];

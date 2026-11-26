@@ -121,3 +121,23 @@ test('Krylov profiling retains finite results near the Euler load of a cantileve
   sameFiniteResults(plain.results, direct.results);
   assert.ok(profiled.work.krylov.tangentProducts > 0);
 });
+
+test('prepared 3D members retain the legacy Newton result near the Euler load', () => {
+  const n = 30, length = 6, eMPa = 200, inertia = 1e-4;
+  const input = { ...structuredClone(space), nodes: {}, elements: {}, loads: [],
+    materials: { 1: { id: 1, e: eMPa, nu: 0.3 } },
+    sections: { 1: { id: 1, a: 0.01, iy: inertia, iz: inertia, j: 1.5e-4 } } };
+  for (let i = 0; i <= n; i++) input.nodes[i + 1] = { id: i + 1, x: length * i / n, y: 0, z: 0 };
+  for (let i = 0; i < n; i++) input.elements[i + 1] = { ...frame.elements[1], id: i + 1, nodeI: i + 1, nodeJ: i + 2 };
+  const critical = Math.PI ** 2 * eMPa * 1000 * inertia / (4 * length ** 2);
+  input.loads.push({ type: 'nodal', data: { nodeId: n + 1, fx: -0.9 * critical, fy: 0, fz: -0.0002, mx: 0, my: 0, mz: 0 } });
+  const json = JSON.stringify(input);
+  const options = { method: 'newton', stepping: 'equal', nIncrements: 4, maxIter: 80, tolerance: 1e-8 };
+  const original = JSON.parse(engine.solve_corotational_3d(json, 80, 1e-8, 4));
+  const prepared = JSON.parse(engine.solve_experimental_corotational_3d(json, JSON.stringify(options)));
+  assert.equal(original.converged, true);
+  assert.deepEqual(prepared, original);
+  const krylov = JSON.parse(engine.solve_experimental_corotational_3d(json, JSON.stringify({ ...options, method: 'newtonKrylov' })));
+  assert.equal(krylov.converged, true);
+  sameFiniteResults(krylov.results, original.results);
+});

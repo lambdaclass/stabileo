@@ -4,6 +4,10 @@ use crate::solver::experimental_nonlinear::incremental::{self, IterationMethod, 
 
 struct Corotational3D<'a> {
     input: &'a SolverInput3D,
+    prepared: Option<prepared_3d::PreparedCorotational3D<'a>>,
+    f_int: Vec<f64>,
+    u_geom: Vec<f64>,
+    residual: Vec<f64>,
     dof_num: &'a DofNumbering,
     cs: &'a Option<FreeConstraintSystem>,
     asm: &'a assembly::AssemblyResult,
@@ -44,29 +48,46 @@ impl incremental::IncrementalProblem for Corotational3D<'_> {
             self.left_hand,
         );
         let (n, nf, ns) = (dof_num.n_total, dof_num.n_free, self.ns);
-        let mut f_int = vec![0.0; n];
+        let mut f_int = std::mem::take(&mut self.f_int);
+        f_int.resize(n, 0.0);
+        f_int.fill(0.0);
         let sparse_tangent = ns >= SPARSE_THRESHOLD;
-        let mut k_t: Vec<f64> = Vec::new();
-        let mut trip_rows: Vec<usize> = Vec::new();
-        let mut trip_cols: Vec<usize> = Vec::new();
-        let mut trip_vals: Vec<f64> = Vec::new();
+        let mut k_t = std::mem::take(&mut self.k_t);
+        k_t.clear();
+        let mut trip_rows = std::mem::take(&mut self.trip_rows);
+        trip_rows.clear();
+        let mut trip_cols = std::mem::take(&mut self.trip_cols);
+        trip_cols.clear();
+        let mut trip_vals = std::mem::take(&mut self.trip_vals);
+        trip_vals.clear();
 
-        let mut u_geom = self.u_full.clone();
+        let mut u_geom = std::mem::take(&mut self.u_geom);
+        u_geom.clone_from(&self.u_full);
         for it in &asm.inclined_transforms {
             assembly::reverse_inclined_transform(&mut u_geom, &it.dofs, &it.r);
         }
 
         if sparse_tangent {
-            assemble_corotational_triplets_3d(
-                input,
-                &dof_num,
-                &u_geom,
-                &mut f_int,
-                &mut trip_rows,
-                &mut trip_cols,
-                &mut trip_vals,
-                left_hand,
-            );
+            if let Some(prepared) = &self.prepared {
+                prepared.assemble(dof_num, &u_geom, &mut f_int, &mut |gi, gj, v| {
+                    if gi >= gj {
+                        trip_rows.push(gi);
+                        trip_cols.push(gj);
+                        trip_vals.push(v);
+                    }
+                }, left_hand);
+            } else {
+                assemble_corotational_triplets_3d(
+                    input,
+                    &dof_num,
+                    &u_geom,
+                    &mut f_int,
+                    &mut trip_rows,
+                    &mut trip_cols,
+                    &mut trip_vals,
+                    left_hand,
+                );
+            }
             add_spring_contributions_3d(input, &dof_num, &u_geom, &mut f_int, &mut |gi, gj, v| {
                 if gi >= gj {
                     trip_rows.push(gi);
@@ -85,8 +106,14 @@ impl incremental::IncrementalProblem for Corotational3D<'_> {
                 );
             }
         } else {
-            k_t = vec![0.0; n * n];
-            assemble_corotational_3d(input, &dof_num, &u_geom, &mut f_int, &mut k_t, left_hand);
+            k_t.resize(n * n, 0.0);
+            if let Some(prepared) = &self.prepared {
+                prepared.assemble(dof_num, &u_geom, &mut f_int, &mut |gi, gj, v| {
+                    k_t[gi * n + gj] += v;
+                }, left_hand);
+            } else {
+                assemble_corotational_3d(input, &dof_num, &u_geom, &mut f_int, &mut k_t, left_hand);
+            }
             add_spring_contributions_3d(input, &dof_num, &u_geom, &mut f_int, &mut |gi, gj, v| {
                 k_t[gi * n + gj] += v
             });
@@ -96,16 +123,20 @@ impl incremental::IncrementalProblem for Corotational3D<'_> {
             }
         }
 
-        let mut residual = vec![0.0; n];
+        let mut residual = std::mem::take(&mut self.residual);
+        residual.resize(n, 0.0);
         for i in 0..n {
             residual[i] = self.f_ext[i] - f_int[i];
         }
 
-        let r_f: Vec<f64> = residual[..nf].to_vec();
+        self.r_f.clear();
+        self.r_f.extend_from_slice(&residual[..nf]);
         let rel_error = metric.relative_residual(&residual, &self.f_ext, None, cs.as_ref());
 
-        self.unbalance.clone_from(&r_f);
-        self.r_f = r_f;
+        self.unbalance.clone_from(&self.r_f);
+        self.f_int = f_int;
+        self.u_geom = u_geom;
+        self.residual = residual;
         self.k_t = k_t;
         self.trip_rows = trip_rows;
         self.trip_cols = trip_cols;
@@ -120,8 +151,8 @@ impl incremental::IncrementalProblem for Corotational3D<'_> {
         let (dof_num, cs) = (self.dof_num, self.cs);
         let (n, nf, ns) = (dof_num.n_total, dof_num.n_free, self.ns);
         let r_f = std::mem::take(&mut self.r_f);
-        let k_t = std::mem::take(&mut self.k_t);
-        let (trip_rows, trip_cols, trip_vals) = (
+        let mut k_t = std::mem::take(&mut self.k_t);
+        let (mut trip_rows, mut trip_cols, mut trip_vals) = (
             std::mem::take(&mut self.trip_rows),
             std::mem::take(&mut self.trip_cols),
             std::mem::take(&mut self.trip_vals),
@@ -218,6 +249,14 @@ impl incremental::IncrementalProblem for Corotational3D<'_> {
             delta_u_indep
         };
 
+        k_t.clear();
+        trip_rows.clear();
+        trip_cols.clear();
+        trip_vals.clear();
+        self.k_t = k_t;
+        self.trip_rows = trip_rows;
+        self.trip_cols = trip_cols;
+        self.trip_vals = trip_vals;
         Ok(delta_u)
     }
 
@@ -420,6 +459,10 @@ fn corotational_3d(
 
     let u_full = vec![0.0; n];
     let mut problem = Corotational3D {
+        prepared: prepared_3d::PreparedCorotational3D::new(input, &dof_num, left_hand),
+        f_int: Vec::new(),
+        u_geom: Vec::new(),
+        residual: Vec::new(),
         input,
         dof_num: &dof_num,
         cs: &cs,
@@ -579,6 +622,70 @@ mod shared_driver_equivalence_3d {
                 before.map(|r| r.converged),
                 now.map(|r| r.converged)
             ),
+        }
+    }
+
+    #[test]
+    fn reused_assembly_clears_poisoned_storage_and_matches_fresh_tangents() {
+        use incremental::IncrementalProblem;
+        for n in [1, 12] {
+            let mut input = frame(n, 0.0, false, 0.05);
+            let support = input.supports.get_mut("1").unwrap();
+            support.is_inclined = Some(true);
+            support.normal_x = Some(0.6);
+            support.normal_y = Some(0.0);
+            support.normal_z = Some(0.8);
+            if n > 1 {
+                input.constraints.push(serde_json::from_value(serde_json::json!({
+                    "type": "linearMPC", "terms": [
+                        {"nodeId": n, "dof": 1, "coefficient": 1.0},
+                        {"nodeId": n + 1, "dof": 1, "coefficient": -1.0}
+                    ]
+                })).unwrap());
+            }
+            let dof_num = DofNumbering::build_3d(&input);
+            let cs = FreeConstraintSystem::build_3d(&input, &dof_num).unwrap();
+            let metric = crate::solver::convergence::EquilibriumMetric::for_3d(&input, &dof_num, cs.as_ref()).unwrap();
+            let asm = assembly::assemble_3d(&input, &dof_num);
+            let make = |prepared| Corotational3D {
+                input: &input, prepared, f_int: Vec::new(), u_geom: Vec::new(), residual: Vec::new(),
+                dof_num: &dof_num, cs: &cs, asm: &asm, metric: &metric,
+                ns: cs.as_ref().map_or(dof_num.n_free, |c| c.n_free_indep), left_hand: false,
+                f_total: &asm.f, u_full: vec![0.0; dof_num.n_total], u_converged: Vec::new(), naturals: Vec::new(),
+                sparse_sym_cache: None, conditioning: None, f_ext: asm.f.clone(), cached_factor: None,
+                work: NonlinearWork::default(), r_f: Vec::new(), unbalance: Vec::new(), k_t: Vec::new(),
+                trip_rows: Vec::new(), trip_cols: Vec::new(), trip_vals: Vec::new(),
+            };
+            for use_cache in [false, true] {
+                let mut reused = make(if use_cache { prepared_3d::PreparedCorotational3D::new(&input, &dof_num, false) } else { None });
+                for scale in [0.0, 1e-3, -2e-3, 0.0] {
+                    let mut fresh = make(None);
+                    for d in 0..dof_num.n_free {
+                        reused.u_full[d] = scale * (d as f64 * 0.17).sin();
+                    }
+                    fresh.u_full.clone_from(&reused.u_full);
+                    reused.f_int.fill(f64::NAN);
+                    reused.u_geom.fill(f64::NAN);
+                    reused.residual.fill(f64::NAN);
+                    reused.k_t.fill(f64::NAN);
+                    reused.trip_vals.fill(f64::NAN);
+                    reused.trip_rows.fill(usize::MAX);
+                    reused.trip_cols.fill(usize::MAX);
+                    assert_eq!(fresh.linearize().unwrap().measure.to_bits(), reused.linearize().unwrap().measure.to_bits());
+                    let bits = |v: &[f64]| v.iter().map(|x| x.to_bits()).collect::<Vec<_>>();
+                    assert_eq!(bits(&fresh.r_f), bits(&reused.r_f));
+                    assert_eq!(bits(&fresh.k_t), bits(&reused.k_t));
+                    assert_eq!(fresh.trip_rows, reused.trip_rows);
+                    assert_eq!(fresh.trip_cols, reused.trip_cols);
+                    assert_eq!(bits(&fresh.trip_vals), bits(&reused.trip_vals));
+                    match (fresh.correction(false), reused.correction(false)) {
+                        (Ok(a), Ok(b)) => assert_eq!(bits(&a), bits(&b)),
+                        (Err(a), Err(b)) => assert_eq!(a, b),
+                        _ => panic!("reused tangent changed correction success or refusal"),
+                    }
+                    assert!(reused.k_t.is_empty() && reused.trip_vals.is_empty());
+                }
+            }
         }
     }
 
