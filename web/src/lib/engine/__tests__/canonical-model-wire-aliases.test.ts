@@ -633,3 +633,29 @@ it('refuses repeated compound-section material ratio keys in JSON', () => {
     expect.soft(() => wasm.analyze_section(encode(duplicate))).toThrow(/duplicate key in field `modularRatios`/);
   }
 });
+
+it.skip.each([false, true])('known wrong result: #2588 — staged WASM refuses unconsumed tables (space = %s)', (spatial) => {
+  const solve = spatial ? wasm.solve_staged_3d : wasm.solve_staged_2d;
+  const model = {
+    ...(spatial ? space : planar),
+    stages: [{ name: 'Load beam', elementsAdded: [1], supportsAdded: [1], loadIndices: [0] }],
+  };
+  const reference = JSON.parse(solve(JSON.stringify(model)));
+  expect(reference.finalResults.displacements).toHaveLength(2);
+  const fields = spatial
+    ? { solidShells: /solid shell elements/, curvedShells: /curved shell elements/, curvedBeams: /curved beams/, connectors: /connector elements/ }
+    : { solidShells: /Shell elements require 3D analysis/, curvedShells: /Shell elements require 3D analysis/,
+        plates: /Shell elements require 3D analysis/, quads: /Shell elements require 3D analysis/,
+        quad9s: /Shell elements require 3D analysis/, connectors: /connector elements/ };
+  for (const [field, diagnostic] of Object.entries(fields)) {
+    for (const [empty, populated] of [[{}, { 1: { id: 1 } }], [[], [{ id: 1 }]], [null, true]]) {
+      expect.soft(() => expect(JSON.parse(solve(JSON.stringify({ ...model, [field]: empty })))).toEqual(reference), field).not.toThrow();
+      expect.soft(() => solve(JSON.stringify({ ...model, [field]: populated })), field).toThrow(diagnostic);
+    }
+  }
+  expect.soft(() => solve(JSON.stringify({ ...model, shellTableTypo: { 1: { id: 1 } } })))
+    .toThrow(/unknown field `shellTableTypo`/);
+  expect.soft(() => solve(JSON.stringify({ ...model, masses: { nodal: [{ nodeId: 2, mass: 1 }] } })))
+    .toThrow(/masses/);
+  expect(JSON.parse(solve(JSON.stringify({ ...model, masses: { nodal: [], line: [] } })))).toEqual(reference);
+});

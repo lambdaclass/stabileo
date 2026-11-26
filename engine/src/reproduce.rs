@@ -601,3 +601,118 @@ fn staged_wire_fixtures_preserve_their_support_and_section_contracts() {
         assert!(failures.is_empty(), "{}", failures.join("\n"));
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2588"]
+fn staged_wire_refuses_tables_it_cannot_consume() {
+    use crate::solver::staged::{parse_staged_2d, parse_staged_3d, solve_staged_2d, solve_staged_3d};
+    use crate::types::{StagedInput, StagedInput3D};
+    use serde_json::{json, Value};
+
+    fn decode_2d(value: &Value) -> Result<Value, String> {
+        let model: StagedInput = serde_json::from_value(value.clone()).map_err(|e| e.to_string())?;
+        Ok(serde_json::to_value(solve_staged_2d(&model)?).unwrap())
+    }
+
+    fn decode_3d(value: &Value) -> Result<Value, String> {
+        let model: StagedInput3D = serde_json::from_value(value.clone()).map_err(|e| e.to_string())?;
+        Ok(serde_json::to_value(solve_staged_3d(&model)?).unwrap())
+    }
+
+    let mut failures = Vec::new();
+    for spatial in [false, true] {
+        let sections = if spatial {
+            json!({"1": {"id": 1, "a": 1, "iy": 1, "iz": 1, "j": 1}})
+        } else {
+            json!({"1": {"id": 1, "a": 1, "iz": 1}})
+        };
+        let supports = if spatial {
+            json!({"1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}})
+        } else {
+            json!({"1": {"id": 1, "nodeId": 1, "type": "fixed"}})
+        };
+        let dof = if spatial {
+            json!({"nodeId": 2, "fx": 1, "fy": 0, "fz": 0, "mx": 0, "my": 0, "mz": 0})
+        } else {
+            json!({"nodeId": 2, "fx": 1, "fz": 0, "my": 0})
+        };
+        let base = json!({
+            "nodes": {"1": {"id": 1, "x": 0, "y": 0}, "2": {"id": 2, "x": 1, "y": 0}},
+            "materials": {"1": {"id": 1, "e": 1, "nu": 0}},
+            "sections": sections,
+            "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+            "supports": supports,
+            "loads": [{"type": "nodal", "data": dof}],
+            "stages": [{"name": "Load beam", "elementsAdded": [1], "supportsAdded": [1], "loadIndices": [0]}]
+        });
+        let mut base = base;
+        if spatial {
+            base["nodes"]["1"]["z"] = json!(0);
+            base["nodes"]["2"]["z"] = json!(0);
+        }
+        let decode = if spatial { decode_3d } else { decode_2d };
+        let parse = |value: &Value| {
+            if spatial {
+                parse_staged_3d(&value.to_string()).and_then(|model| solve_staged_3d(&model))
+                    .map(|results| serde_json::to_value(results).unwrap())
+            } else {
+                parse_staged_2d(&value.to_string()).and_then(|model| solve_staged_2d(&model))
+                    .map(|results| serde_json::to_value(results).unwrap())
+            }
+        };
+        let expected = decode(&base).unwrap();
+        assert_eq!(expected["finalResults"]["displacements"][1]["ux"], json!(1.0 / 1000.0));
+
+        let fields: &[(&str, &str)] = if spatial {
+            &[
+                ("solidShells", "solid shell elements"),
+                ("curvedShells", "curved shell elements"),
+                ("curvedBeams", "curved beams"),
+                ("connectors", "connector elements"),
+                ("quad9s", "Nine-node shell elements"),
+            ]
+        } else {
+            &[
+                ("solidShells", "Shell elements require 3D analysis"),
+                ("curvedShells", "Shell elements require 3D analysis"),
+                ("plates", "Shell elements require 3D analysis"),
+                ("quads", "Shell elements require 3D analysis"),
+                ("quad9s", "Shell elements require 3D analysis"),
+                ("connectors", "connector elements"),
+            ]
+        };
+        for &(field, diagnostic) in fields {
+            for (empty, populated) in [
+                (json!({}), json!({"1": {"id": 1}})),
+                (json!([]), json!([{"id": 1}])),
+                (Value::Null, json!(true)),
+            ] {
+                let mut input = base.clone();
+                input[field] = empty;
+                for (entry, result) in [("decode", decode(&input)), ("parse", parse(&input))] {
+                    if result.as_ref() != Ok(&expected) {
+                        failures.push(format!("{spatial} {entry} empty {field} {}: {result:?}", input[field]));
+                    }
+                }
+                input[field] = populated;
+                for (entry, result) in [("decode", decode(&input)), ("parse", parse(&input))] {
+                    match result {
+                        Err(error) if error.contains(diagnostic) => (),
+                        Ok(_) => failures.push(format!("{spatial} {entry} {field} {} returned a result", input[field])),
+                        Err(error) => failures.push(format!("{spatial} {entry} {field}: {error}")),
+                    }
+                }
+            }
+        }
+        let mut input = base.clone();
+        input["shellTableTypo"] = json!({"1": {"id": 1}});
+        for (entry, result) in [("decode", decode(&input)), ("parse", parse(&input))] {
+            match result {
+                Err(error) if error.contains("unknown field `shellTableTypo`") => (),
+                Ok(_) => failures.push(format!("{spatial} {entry} shellTableTypo returned a result")),
+                Err(error) => failures.push(format!("{spatial} {entry} shellTableTypo: {error}")),
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}

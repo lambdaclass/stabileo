@@ -399,3 +399,43 @@ it.each([
   expect(requireStoredProjectInput({ ...snapshot, drawPlane2D: undefined })).toBeUndefined();
   expect(requireStoredProjectInput(snapshot)).toBe('xz');
 });
+
+it.skip.each(entries)('known wrong result: #2588 — %s checks supports when a legacy nodal force leaves only XY', async entry => {
+  await initSolver();
+  const { file, tip } = legacyLoadedCantilever({ type: 'spring', ky: 1, kz: 2 });
+  modelStore.addNodalLoad(tip, 0, -10, 0, 1);
+  file.snapshot.loads = buildProjectFile().snapshot.loads;
+  open(entry, file);
+  const reference = modelStore.solve();
+  expect(reference).toMatchObject({ displacements: expect.any(Array) });
+  const secondOrder = solvePDelta(modelStore.buildSolverInput()!);
+  expect(secondOrder.results.displacements).toEqual(expect.arrayContaining([expect.objectContaining({ nodeId: tip })]));
+
+  const legacy = { ...file, snapshot: { ...file.snapshot, drawPlane2D: undefined } };
+  open(entry, legacy);
+  expect.soft(buildProjectFile().snapshot.drawPlane2D).toBeUndefined();
+  expect.soft(modelStore.solve()).toBe(t('svc.savedPlaneRequired'));
+  expect.soft(await modelStore.solveAsync()).toBe(t('svc.savedPlaneRequired'));
+  expect.soft(modelStore.solveCombinations()).toBe(t('svc.savedPlaneRequired'));
+  expect.soft(() => modelStore.buildSolverInput()).toThrow(t('svc.savedPlaneRequired'));
+  expect.soft(assessProject({ ...legacy.snapshot, analysisMode: legacy.analysisMode }, null, '2d').changes.map(change => change.id))
+    .toContain('legacy-planar-project-plane');
+
+  uiStore.drawPlane2D = 'xz';
+  expect(modelStore.solve()).toEqual(reference);
+  expect(solvePDelta(modelStore.buildSolverInput()!).results.displacements).toEqual(secondOrder.results.displacements);
+});
+
+it('keeps the XY solution when a legacy nodal force leaves only XY and the spring is a planar preset', async () => {
+  await initSolver();
+  const { file, tip } = legacyLoadedCantilever({ type: 'spring', ky: 1, kz: 0 });
+  modelStore.addNodalLoad(tip, 0, -10, 0, 1);
+  file.snapshot.loads = buildProjectFile().snapshot.loads;
+  file.snapshot.drawPlane2D = 'xy';
+  open('file', file);
+  const reference = modelStore.solve();
+  expect(reference).toMatchObject({ displacements: expect.any(Array) });
+  open('file', { ...file, snapshot: { ...file.snapshot, drawPlane2D: undefined } });
+  expect(buildProjectFile().snapshot.drawPlane2D).toBe('xy');
+  expect(modelStore.solve()).toEqual(reference);
+});
