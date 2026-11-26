@@ -434,6 +434,7 @@ pub fn numeric_cholesky(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<Num
     let mut pair_j: Vec<usize> = Vec::new();
     // Maximal stretches of the pairs over which both positions advance by one: (first, end).
     let mut runs: Vec<(usize, usize)> = Vec::new();
+    let mut sources: Vec<(usize, f64)> = Vec::new();
 
     for t in 0..ns {
         let s = sym.snode_start[t];
@@ -505,53 +506,42 @@ pub fn numeric_cholesky(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<Num
                 }
             }
 
-            // Column ks+d of K starts at l_col_ptr[ks+d]; entry (row position
-            // q, column d) of the dense trapezoid lives at l_col_ptr[ks+d]+q-d.
-            for d in 0..kw {
-                let col_base = sym.l_col_ptr[ks + d] - d;
-                // Only pairs with q >= pj contribute to panel column j;
-                // both are ascending, so the start index only moves forward.
-                let mut idx0 = 0;
-                let mut run0 = 0;
-                for pj in p_lo..p_hi {
-                    let jcol = k_row[pj] - s; // column within the panel
-                    while idx0 < pair_k.len() && pair_k[idx0] < pj {
-                        idx0 += 1;
-                    }
+            let mut idx0 = 0;
+            let mut run0 = 0;
+            for pj in p_lo..p_hi {
+                let jcol = k_row[pj] - s;
+                while idx0 < pair_k.len() && pair_k[idx0] < pj {
+                    idx0 += 1;
+                }
+                sources.clear();
+                for d in 0..kw {
+                    let col_base = sym.l_col_ptr[ks + d] - d;
                     let u = l_values[col_base + pj];
-                    if u == 0.0 {
-                        continue;
+                    if u != 0.0 {
+                        sources.push((col_base, u));
                     }
-                    while run0 < runs.len() && runs[run0].1 <= idx0 {
-                        run0 += 1;
-                    }
-                    // Each entry takes the same subtraction as before, a stretch at a time.
-                    for &(first, end) in &runs[run0..] {
-                        let from = first.max(idx0);
-                        let len = end - from;
-                        let target = &mut panel[jcol * rows + pair_j[from]..][..len];
-                        let source = &l_values[col_base + pair_k[from]..][..len];
-                        for (t, &l) in target.iter_mut().zip(source) {
-                            *t -= l * u;
-                        }
-                    }
+                }
+                while run0 < runs.len() && runs[run0].1 <= idx0 {
+                    run0 += 1;
+                }
+                for &(first, end) in &runs[run0..] {
+                    let from = first.max(idx0);
+                    let target = &mut panel[jcol * rows + pair_j[from]..][..end - from];
+                    subtract_columns(target, &l_values, &sources, pair_k[from]);
                 }
             }
         }
 
         for d in 0..width {
+            let (before, after) = panel.split_at_mut(d * rows);
+            sources.clear();
             for k in 0..d {
-                let f = panel[k * rows + d];
-                if f == 0.0 {
-                    continue;
-                }
-                let (before, after) = panel.split_at_mut(d * rows);
-                let source = &before[k * rows + d..k * rows + rows];
-                let target = &mut after[d..rows];
-                for (value, &source) in target.iter_mut().zip(source) {
-                    *value -= f * source;
+                let f = before[k * rows + d];
+                if f != 0.0 {
+                    sources.push((k * rows, f));
                 }
             }
+            subtract_columns(&mut after[d..rows], before, &sources, d);
             let diag = panel[d * rows + d];
             // `!(diag > t)` (not `diag <= t`) so a NaN pivot — where every
             // comparison is false — is also rejected instead of producing a
@@ -580,6 +570,43 @@ pub fn numeric_cholesky(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<Num
         symbolic: Rc::clone(sym),
         l_values,
     })
+}
+
+/// Subtracts from `target` each source column times its factor, the sources in the order given:
+/// every entry takes the subtractions one after another in that order, whatever the number of
+/// columns a pass covers. A source is `(start, factor)`, its column at `values[start + shift..]`.
+#[inline]
+fn subtract_columns(target: &mut [f64], values: &[f64], mut sources: &[(usize, f64)], shift: usize) {
+    let len = target.len();
+    let column = |source: &(usize, f64)| (&values[source.0 + shift..][..len], source.1);
+    while let Some((group, rest)) = sources.split_first_chunk::<4>() {
+        let ((a, ua), (b, ub), (c, uc), (d, ud)) = (column(&group[0]), column(&group[1]), column(&group[2]), column(&group[3]));
+        for ((((t, &a), &b), &c), &d) in target.iter_mut().zip(a).zip(b).zip(c).zip(d) {
+            let mut value = *t;
+            value -= a * ua;
+            value -= b * ub;
+            value -= c * uc;
+            value -= d * ud;
+            *t = value;
+        }
+        sources = rest;
+    }
+    if let Some((group, rest)) = sources.split_first_chunk::<2>() {
+        let ((a, ua), (b, ub)) = (column(&group[0]), column(&group[1]));
+        for ((t, &a), &b) in target.iter_mut().zip(a).zip(b) {
+            let mut value = *t;
+            value -= a * ua;
+            value -= b * ub;
+            *t = value;
+        }
+        sources = rest;
+    }
+    if let [source] = sources {
+        let (a, ua) = column(source);
+        for (t, &a) in target.iter_mut().zip(a) {
+            *t -= a * ua;
+        }
+    }
 }
 
 /// Solve L*L^T * x = b using sparse Cholesky factor, with permutation.
@@ -954,6 +981,60 @@ mod tests {
 
     fn make_spd(dense: &[f64], n: usize) -> CscMatrix {
         CscMatrix::from_dense_symmetric(dense, n)
+    }
+
+    #[test]
+    fn columns_subtracted_together_leave_the_bits_of_one_at_a_time() {
+        let mut state = 0x9E3779B97F4A7C15u64;
+        let mut unit = || {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            (state >> 11) as f64 / (1u64 << 53) as f64
+        };
+        let special = [0.0, -0.0, 1e-300, -1e300, f64::MAX, f64::INFINITY, f64::NEG_INFINITY, f64::NAN];
+        for count in 0..=11 {
+            for len in [0, 1, 3, 4, 17] {
+                for shift in [0, 2] {
+                    let stride = len + shift + 1;
+                    let mut values: Vec<f64> = (0..count * stride).map(|_| (2.0 * unit() - 1.0) * 10f64.powi((unit() * 40.0) as i32 - 20)).collect();
+                    let mut sources: Vec<(usize, f64)> = (0..count).map(|k| (k * stride, 2.0 * unit() - 1.0)).collect();
+                    let mut start: Vec<f64> = (0..len).map(|_| unit()).collect();
+                    for round in 0..2 {
+                        let mut expected = start.clone();
+                        for &(at, factor) in &sources {
+                            for (t, &l) in expected.iter_mut().zip(&values[at + shift..][..len]) {
+                                *t -= l * factor;
+                            }
+                        }
+                        let mut together = start.clone();
+                        subtract_columns(&mut together, &values, &sources, shift);
+                        assert_eq!(together.iter().map(|x| x.to_bits()).collect::<Vec<_>>(), expected.iter().map(|x| x.to_bits()).collect::<Vec<_>>(), "{count} columns of {len}, shift {shift}, round {round}");
+                        for (k, value) in values.iter_mut().enumerate() {
+                            if k % 5 == 0 { *value = special[(k / 5) % special.len()]; }
+                        }
+                        if let Some(source) = sources.get_mut(count / 2) { source.1 = special[count % special.len()]; }
+                        if let Some(first) = start.first_mut() { *first = -0.0; }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_source_column_with_a_zero_factor_is_not_subtracted() {
+        let across_supernodes = (4, vec![(0, 0, 4.0), (2, 0, 0.0), (3, 0, -1.0), (1, 1, 4.0), (3, 1, 1.0), (2, 2, 4.0), (3, 2, -0.0), (3, 3, 4.0)], vec![0, 1, 2]);
+        let within_a_panel = (3, vec![(0, 0, 4.0), (1, 0, 0.0), (2, 0, -1.0), (1, 1, 4.0), (2, 1, -0.0), (2, 2, 4.0)], vec![0]);
+        for (n, entries, supernodes) in [across_supernodes, within_a_panel] {
+            let (rows, cols, values): (Vec<_>, Vec<_>, Vec<_>) = (entries.iter().map(|e| e.0).collect(), entries.iter().map(|e| e.1).collect(), entries.iter().map(|e| e.2).collect());
+            let matrix = CscMatrix::from_triplets(n, &rows, &cols, &values);
+            let symbolic = Rc::new(symbolic_cholesky_with_perm(&matrix, &(0..n).collect::<Vec<_>>()));
+            assert_eq!(symbolic.snode_start, supernodes);
+            let factor = numeric_cholesky(&symbolic, &matrix).expect("positive definite");
+            let reference = numeric_cholesky_by_pairs(&symbolic, &matrix).expect("positive definite");
+            assert_eq!(factor.l_values.iter().map(|x| x.to_bits()).collect::<Vec<_>>(), reference.l_values.iter().map(|x| x.to_bits()).collect::<Vec<_>>());
+            assert!(factor.l_values.iter().any(|x| x.to_bits() == (-0.0f64).to_bits()), "subtracting the product by the zero factor turns the negative zero positive");
+        }
     }
 
     #[test]
