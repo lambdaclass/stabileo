@@ -1,9 +1,10 @@
-use crate::solver::support::{support_dofs_2d, support_dofs_3d};
+use crate::solver::support::{plain_rigid_dofs_2d, plain_rigid_dofs_3d, rigid_support_union, support_dofs_2d, support_dofs_3d, supports_by_node};
 use crate::types::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly::*;
 use super::constraints::FreeConstraintSystem;
+use super::stability::{RankFinding, Stability, Verdict};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -19,6 +20,8 @@ pub struct KinematicResult {
     pub unconstrained_dofs: Vec<UnconstrainedDof>,
     pub diagnosis: String,
     pub is_solvable: bool,
+    #[serde(default)]
+    pub kinematic_is_solvable: bool,
     /// Set when the model failed input validation and was not analysed: the
     /// validator's own message. `mechanism_modes` is then 0 because nothing
     /// was checked, not because nothing was found, and a reader has to be
@@ -79,6 +82,34 @@ fn count_support_restraints_2d(sup: &SolverSupport) -> (i32, bool) {
     (translations + i32::from(held[2]), held[2])
 }
 
+fn static_support_counts<S, const N: usize>(
+    supports: &HashMap<String, S>,
+    node_id: impl Fn(&S) -> usize,
+    rigid_dofs: impl Fn(&S) -> Option<[bool; N]>,
+    count_rigid: impl Fn([bool; N]) -> (i32, bool),
+    count_single: impl Fn(&S) -> (i32, bool),
+) -> (i32, std::collections::HashSet<usize>) {
+    let mut restraints = 0;
+    let mut rot_restrained_nodes = std::collections::HashSet::new();
+    for (node, group) in supports_by_node(supports, node_id) {
+        let (count, holds_rotation) = if let Some(dofs) =
+            rigid_support_union(group.iter().map(|&(_, support)| support), &rigid_dofs)
+        {
+            count_rigid(dofs)
+        } else {
+            group.iter().map(|&(_, support)| count_single(support))
+                .fold((0, false), |(total, any_rotation), (count, rotation)| {
+                    (total + count, any_rotation || rotation)
+                })
+        };
+        restraints += count;
+        if holds_rotation {
+            rot_restrained_nodes.insert(node);
+        }
+    }
+    (restraints, rot_restrained_nodes)
+}
+
 /// Compute the static degree of indeterminacy for a 2D structure.
 /// Frame: GH = 3*m_frame + m_truss + r - 3*n - c
 /// Pure truss: GH = m + r - 2*n
@@ -86,15 +117,11 @@ fn compute_static_degree_2d(input: &SolverInput) -> (i32, HashMap<usize, i32>) {
     let has_frames = crate::ordered::values(&input.elements).any(|e| e.elem_type == "frame");
 
     // Count support restraints
-    let mut r = 0i32;
-    let mut rot_restrained_nodes = std::collections::HashSet::new();
-    for sup in crate::ordered::values(&input.supports) {
-        let (sr, has_rot) = count_support_restraints_2d(sup);
-        r += sr;
-        if has_rot {
-            rot_restrained_nodes.insert(sup.node_id);
-        }
-    }
+    let (r, rot_restrained_nodes) = static_support_counts(
+        &input.supports, |s| s.node_id, plain_rigid_dofs_2d,
+        |dofs| (dofs.into_iter().filter(|&held| held).count() as i32, dofs[2]),
+        count_support_restraints_2d,
+    );
 
     if !has_frames {
         let m = input.elements.len() as i32;
@@ -180,11 +207,13 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
             unconstrained_dofs: Vec::new(),
             diagnosis: "El modelo no puede analizarse porque tiene datos inválidos.".into(),
             is_solvable: false,
+            kinematic_is_solvable: false,
             invalid_input: Some(reason),
             invalid_input_kind: unsupported_nodal_moment(input).then_some(KinematicInputError::UnsupportedNodalMoment),
         };
     }
 
+    let physical_input = input;
     let rank_input = rank_springs_2d(input);
     let input = rank_input.as_ref().unwrap_or(input);
     let dof_num = DofNumbering::build_2d(input);
@@ -199,6 +228,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
             unconstrained_dofs: Vec::new(),
             diagnosis: "Todos los GDL están restringidos.".into(),
             is_solvable: true,
+            kinematic_is_solvable: true,
             invalid_input: None,
             invalid_input_kind: None,
         };
@@ -210,14 +240,20 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     // assembly and the dense LU rank below. Anything unusual — a floating
     // translation, an unexpected zero, a failed factorization — falls through
     // to the full path, which names the DOFs.
-    if nf >= KINEMATIC_SPARSE_THRESHOLD && input.constraints.is_empty() {
+    let physical_rank = rank_input.as_ref().and_then(|_| {
+        let cs = FreeConstraintSystem::build_2d(physical_input, &dof_num).ok()?;
+        let asm = super::assembly::without_artificial_stiffness(|| assemble_sparse_2d(physical_input, &dof_num));
+        super::stability::OperatorRank::for_2d(physical_input, &dof_num, cs.as_ref())
+            .free_rank_finding(&asm.k_ff, asm.support_magnitude.as_ref())
+    });
+    if physical_rank.is_none() && nf >= KINEMATIC_SPARSE_THRESHOLD && input.constraints.is_empty() {
         if let Some(result) = fast_solvable_2d(input, &dof_num, degree) {
             return result;
         }
     }
 
     // Assemble K (no artificial stiffness in Rust assembly)
-    let asm = super::assembly::without_artificial_stiffness(|| assemble_2d(input, &dof_num));
+    let (asm, support_magnitude) = super::assembly::without_artificial_stiffness(|| super::assembly::assemble_2d_with_magnitude(input, &dof_num));
     let n = dof_num.n_total;
 
     // Extract Kff
@@ -235,6 +271,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
             unconstrained_dofs: Vec::new(),
             diagnosis: "El modelo no puede analizarse: una restricción no puede imponerse.".into(),
             is_solvable: false,
+            kinematic_is_solvable: false,
             invalid_input: Some(reason),
             invalid_input_kind: None,
         },
@@ -242,7 +279,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
     let (k_s, rank_stability) = super::stability::analyze_free_stiffness(
         &crate::linalg::sparse::CscMatrix::from_dense_symmetric_exact(&k_ff, nf),
-        &dof_num, true, cs.as_ref(), &super::stability::coupling_2d(input, &dof_num), &super::stability::ReleasedRotations::default(),
+        &dof_num, true, cs.as_ref(), &super::stability::elastic_kinematics_2d(input, &dof_num), &super::stability::ReleasedRotations::default(), support_magnitude.as_ref(),
     );
     let k_s = rank_stability.pin_sparse(&k_s).to_dense_symmetric();
 
@@ -274,42 +311,17 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
         }
     }
 
-    let mut node_set = std::collections::HashSet::new();
     let mut unconstrained_dofs = Vec::new();
     for &dof_idx in &true_mechanism_dofs {
         if let Some(&(node_id, local_dof)) = reverse_map.get(&dof_idx) {
-            node_set.insert(node_id);
             unconstrained_dofs.push(UnconstrainedDof {
                 node_id,
                 dof: dof_labels.get(local_dof).unwrap_or(&"ux").to_string(),
             });
         }
     }
-    let mut mechanism_nodes: Vec<usize> = node_set.into_iter().collect();
-    mechanism_nodes.sort();
 
-    let is_solvable = mechanism_modes == 0 && rank_stability.verdict != super::stability::Verdict::Mechanism;
-    let classification = if degree > 0 && is_solvable {
-        "hyperstatic"
-    } else if degree == 0 && is_solvable {
-        "isostatic"
-    } else {
-        "hypostatic"
-    }.to_string();
-
-    let diagnosis = build_diagnosis_2d(degree, mechanism_modes, &mechanism_nodes, &unconstrained_dofs);
-
-    KinematicResult {
-        degree,
-        classification,
-        mechanism_modes,
-        mechanism_nodes,
-        unconstrained_dofs,
-        diagnosis,
-        is_solvable,
-        invalid_input: None,
-        invalid_input_kind: None,
-    }
+    finish_rank_analysis(degree, mechanism_modes, unconstrained_dofs, &rank_stability, physical_rank)
 }
 
 /// Above this many free DOFs the 2D kinematic analysis tries the sparse proof
@@ -386,6 +398,54 @@ fn rank_springs_3d(input: &SolverInput3D) -> Option<SolverInput3D> {
     Some(rank)
 }
 
+fn finish_rank_analysis(
+    degree: i32,
+    mut mechanism_modes: usize,
+    unconstrained_dofs: Vec<UnconstrainedDof>,
+    stability: &Stability,
+    physical_rank: Option<RankFinding>,
+) -> KinematicResult {
+    let mut mechanism_nodes: Vec<_> = unconstrained_dofs.iter().map(|dof| dof.node_id).collect();
+    let finding = physical_rank.or_else(|| stability.rank_finding());
+    let indeterminate = matches!(finding, Some(RankFinding::Indeterminate(_)));
+    let diagnosis = match finding {
+        Some(RankFinding::ProvenMechanism { diagnosis, nodes }) => {
+            mechanism_modes = mechanism_modes.max(1);
+            mechanism_nodes.extend(nodes);
+            Some(diagnosis)
+        }
+        Some(RankFinding::Indeterminate(diagnosis)) => Some(diagnosis),
+        None => None,
+    };
+    mechanism_nodes.sort_unstable();
+    mechanism_nodes.dedup();
+
+    let kinematic_is_solvable = mechanism_modes == 0 && stability.verdict != Verdict::Mechanism;
+    let is_solvable = kinematic_is_solvable && !indeterminate;
+    let classification = match (indeterminate, is_solvable, degree.cmp(&0)) {
+        (true, _, _) => "indeterminate",
+        (_, true, std::cmp::Ordering::Greater) => "hyperstatic",
+        (_, true, std::cmp::Ordering::Equal) => "isostatic",
+        _ => "hypostatic",
+    };
+    let diagnosis = diagnosis.unwrap_or_else(|| {
+        build_diagnosis_2d(degree, mechanism_modes, &mechanism_nodes, &unconstrained_dofs)
+    });
+
+    KinematicResult {
+        degree,
+        classification: classification.into(),
+        mechanism_modes,
+        mechanism_nodes,
+        unconstrained_dofs,
+        diagnosis,
+        is_solvable,
+        kinematic_is_solvable,
+        invalid_input: None,
+        invalid_input_kind: None,
+    }
+}
+
 fn mechanism_pivots(k: &[f64], n: usize, stability: &super::stability::Stability) -> Vec<usize> {
     let (_, mut pivots) = lu_rank(k, n, 1e-10);
     for direction in stability.mechanism_directions() {
@@ -408,9 +468,9 @@ fn fast_solvable_2d(
     // entry for entry (rotated springs, inclined-roller frames included).
     let sasm = super::assembly::without_artificial_stiffness(|| assemble_sparse_2d(input, dof_num));
     let (physical, stability) = super::stability::analyze_free_stiffness(
-        &sasm.k_ff, dof_num, true, None, &super::stability::coupling_2d(input, dof_num), &super::stability::ReleasedRotations::default(),
+        &sasm.k_ff, dof_num, true, None, &super::stability::elastic_kinematics_2d(input, dof_num), &super::stability::ReleasedRotations::default(), sasm.support_magnitude.as_ref(),
     );
-    if stability.verdict == super::stability::Verdict::Mechanism { return None; }
+    if stability.verdict == Verdict::Mechanism || stability.rank_finding().is_some() { return None; }
     let pinned = stability.pin_sparse(&physical);
     let k = &pinned;
     let mut symbolic = None;
@@ -440,6 +500,7 @@ fn fast_solvable_2d(
             unconstrained_dofs: Vec::new(),
             diagnosis: build_diagnosis_2d(degree, 0, &[], &[]),
             is_solvable: true,
+            kinematic_is_solvable: true,
             invalid_input: None,
             invalid_input_kind: None,
         }
@@ -469,15 +530,11 @@ fn count_support_restraints_3d(sup: &SolverSupport3D) -> (i32, bool) {
 fn compute_static_degree_3d(input: &SolverInput3D) -> (i32, HashMap<usize, i32>) {
     let has_frames = crate::ordered::values(&input.elements).any(|e| e.elem_type == "frame");
 
-    let mut r = 0i32;
-    let mut rot_restrained_nodes = std::collections::HashSet::new();
-    for sup in crate::ordered::values(&input.supports) {
-        let (sr, has_rot) = count_support_restraints_3d(sup);
-        r += sr;
-        if has_rot {
-            rot_restrained_nodes.insert(sup.node_id);
-        }
-    }
+    let (r, rot_restrained_nodes) = static_support_counts(
+        &input.supports, |s| s.node_id, plain_rigid_dofs_3d,
+        |dofs| (dofs[..6].iter().filter(|&&held| held).count() as i32, dofs[3..6].contains(&true)),
+        count_support_restraints_3d,
+    );
 
     if !has_frames {
         let m = input.elements.len() as i32;
@@ -554,11 +611,13 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
             unconstrained_dofs: Vec::new(),
             diagnosis: "El modelo no puede analizarse porque tiene datos inválidos.".into(),
             is_solvable: false,
+            kinematic_is_solvable: false,
             invalid_input: Some(reason),
             invalid_input_kind: None,
         };
     }
 
+    let physical_input = input;
     let rank_input = rank_springs_3d(input);
     let input = rank_input.as_ref().unwrap_or(input);
     let dof_num = DofNumbering::build_3d(input);
@@ -573,12 +632,13 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
             unconstrained_dofs: Vec::new(),
             diagnosis: "Todos los GDL están restringidos.".into(),
             is_solvable: true,
+            kinematic_is_solvable: true,
             invalid_input: None,
             invalid_input_kind: None,
         };
     }
 
-    let asm = super::assembly::without_artificial_stiffness(|| assemble_3d(input, &dof_num));
+    let (asm, support_magnitude) = super::assembly::without_artificial_stiffness(|| super::assembly::assemble_3d_with_magnitude(input, &dof_num));
     let n = dof_num.n_total;
 
     let free_idx: Vec<usize> = (0..nf).collect();
@@ -595,14 +655,20 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
             unconstrained_dofs: Vec::new(),
             diagnosis: "El modelo no puede analizarse: una restricción no puede imponerse.".into(),
             is_solvable: false,
+            kinematic_is_solvable: false,
             invalid_input: Some(reason),
             invalid_input_kind: None,
         },
     };
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
+    let physical_rank = rank_input.as_ref().and_then(|_| {
+        let asm = super::assembly::without_artificial_stiffness(|| assemble_sparse_3d(physical_input, &dof_num, false));
+        super::stability::OperatorRank::for_3d(physical_input, &dof_num, cs.as_ref())
+            .free_rank_finding(&asm.k_ff, asm.support_magnitude.as_ref())
+    });
     let (k_s, rank_stability) = super::stability::analyze_free_stiffness(
         &crate::linalg::sparse::CscMatrix::from_dense_symmetric_exact(&k_ff, nf),
-        &dof_num, false, cs.as_ref(), &super::stability::coupling_3d(input, &dof_num), &super::stability::released_rotations_3d(input, &dof_num),
+        &dof_num, false, cs.as_ref(), &super::stability::elastic_kinematics_3d(input, &dof_num), &super::stability::released_rotations_3d(input, &dof_num), support_magnitude.as_ref(),
     );
     let k_s = rank_stability.pin_sparse(&k_s).to_dense_symmetric();
 
@@ -634,42 +700,17 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
         }
     }
 
-    let mut node_set = std::collections::HashSet::new();
     let mut unconstrained_dofs = Vec::new();
     for &dof_idx in &true_mechanism_dofs {
         if let Some(&(node_id, local_dof)) = reverse_map.get(&dof_idx) {
-            node_set.insert(node_id);
             unconstrained_dofs.push(UnconstrainedDof {
                 node_id,
                 dof: labels.get(local_dof).unwrap_or(&"ux").to_string(),
             });
         }
     }
-    let mut mechanism_nodes: Vec<usize> = node_set.into_iter().collect();
-    mechanism_nodes.sort();
 
-    let is_solvable = mechanism_modes == 0 && rank_stability.verdict != super::stability::Verdict::Mechanism;
-    let classification = if degree > 0 && is_solvable {
-        "hyperstatic"
-    } else if degree == 0 && is_solvable {
-        "isostatic"
-    } else {
-        "hypostatic"
-    }.to_string();
-
-    let diagnosis = build_diagnosis_2d(degree, mechanism_modes, &mechanism_nodes, &unconstrained_dofs);
-
-    KinematicResult {
-        degree,
-        classification,
-        mechanism_modes,
-        mechanism_nodes,
-        unconstrained_dofs,
-        diagnosis,
-        is_solvable,
-        invalid_input: None,
-        invalid_input_kind: None,
-    }
+    finish_rank_analysis(degree, mechanism_modes, unconstrained_dofs, &rank_stability, physical_rank)
 }
 
 // ==================== Helpers ====================

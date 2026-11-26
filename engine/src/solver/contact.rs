@@ -767,6 +767,13 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
     let nf = dof_num.n_free;
 
     let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
+    if max_iter > 0 {
+        let attached = input.gap_elements.iter().flat_map(|gap| [gap.node_i, gap.node_j])
+            .chain(input.node_to_surface_pairs.iter().flat_map(|pair| [
+                pair.slave_node, pair.master_segment.node_a, pair.master_segment.node_b,
+            ]));
+        super::stability::refuse_axial_tips_2d(&input.solver, &dof_num, cs.as_ref(), attached)?;
+    }
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
     let use_sparse = ns >= linear::SPARSE_THRESHOLD;
 
@@ -1302,6 +1309,10 @@ fn solve_contact_3d_contained(input: &ContactInput3D) -> Result<ContactResult3D,
     let nf = dof_num.n_free;
 
     let cs = FreeConstraintSystem::build_3d(&input_solver, &dof_num)?;
+    if max_iter > 0 {
+        let attached = input.gap_elements.iter().flat_map(|gap| [gap.node_i, gap.node_j]);
+        super::stability::refuse_axial_tips_3d(input_solver, &dof_num, cs.as_ref(), attached)?;
+    }
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
     let use_sparse = ns >= linear::SPARSE_THRESHOLD;
 

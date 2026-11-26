@@ -818,8 +818,9 @@ it('#2291 a detached sloped shell starting at bay level blocks gravity', () => {
   checkBlockedGravity(model, differentDeck);
 });
 
-it('#2295 a rigidly linked rafter under a centered shell gap blocks gravity', () => {
+it('#2295 a rafter beneath a shell gap needs two independently tied ends', () => {
   const { model } = offsetRoof(0.02, 0, 1, false, [4, 6]);
+  model.constraints.pop();
   checkBlockedGravity(model, { key: 'loadPlan.gravity.unresolvedMember', params: { id: 1 } });
 });
 

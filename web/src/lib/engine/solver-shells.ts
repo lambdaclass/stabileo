@@ -9,6 +9,7 @@
 
 import type { SolverLoad3D, AnalysisResults3D } from './types-3d';
 import type { Node, Material, SurfaceLoad3D, ThermalLoadQuad3D } from '../store/model.svelte';
+import { add, cross, mul, norm, sub, xyz } from './accounting-math';
 import { shellLoadForces } from './shell-load-integration';
 import { plateThermalToWire } from './unit-types';
 import { requireMaterialDensity } from '../section/weight';
@@ -40,6 +41,23 @@ function triArea3D(a: Node, b: Node, c: Node): number {
   );
 }
 
+export function* quadGaussSamples([a, b, c, d]: readonly [Node, Node, Node, Node]) {
+  const ab = sub(xyz(b), xyz(a)), dc = sub(xyz(c), xyz(d));
+  const ad = sub(xyz(d), xyz(a)), bc = sub(xyz(c), xyz(b));
+  const g = 1 / (2 * Math.sqrt(3));
+  const stations = [0.5 - g, 0.5 + g];
+  for (const s of stations) {
+    for (const t of stations) {
+      const ds = add(mul(ab, 1 - t), mul(dc, t));
+      const dt = add(mul(ad, 1 - s), mul(bc, s));
+      yield {
+        area: norm(cross(ds, dt)) / 4,
+        shapes: [(1 - s) * (1 - t), s * (1 - t), s * t, (1 - s) * t] as const,
+      };
+    }
+  }
+}
+
 /**
  * Each corner's share of a uniform load over a quad: ∫ Nᵢ dA, with Nᵢ the bilinear shape
  * functions, by 2×2 Gauss over the quad's own surface. The shares add up to its area.
@@ -50,21 +68,9 @@ function triArea3D(a: Node, b: Node, c: Node): number {
  * with, and their resultant is at the area's centroid.
  */
 export function quadCornerShares(p: readonly [Node, Node, Node, Node]): [number, number, number, number] {
-  const g = 1 / Math.sqrt(3);
-  const xi = [-1, 1, 1, -1], eta = [-1, -1, 1, 1];
   const out: [number, number, number, number] = [0, 0, 0, 0];
-  const z = (n: Node) => n.z ?? 0;
-  for (const a of [-g, g]) {
-    for (const b of [-g, g]) {
-      const dxi = [0, 0, 0], deta = [0, 0, 0];
-      for (let i = 0; i < 4; i++) {
-        const dNdxi = 0.25 * xi[i]! * (1 + b * eta[i]!), dNdeta = 0.25 * eta[i]! * (1 + a * xi[i]!);
-        const c = [p[i]!.x, p[i]!.y, z(p[i]!)];
-        for (let k = 0; k < 3; k++) { dxi[k] += dNdxi * c[k]!; deta[k] += dNdeta * c[k]!; }
-      }
-      const J = Math.hypot(dxi[1]! * deta[2]! - dxi[2]! * deta[1]!, dxi[2]! * deta[0]! - dxi[0]! * deta[2]!, dxi[0]! * deta[1]! - dxi[1]! * deta[0]!);
-      for (let i = 0; i < 4; i++) out[i] += 0.25 * (1 + a * xi[i]!) * (1 + b * eta[i]!) * J;
-    }
+  for (const { area, shapes } of quadGaussSamples(p)) {
+    for (const [i, shape] of shapes.entries()) out[i] = out[i]! + shape * area;
   }
   return out;
 }

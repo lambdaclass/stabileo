@@ -1,0 +1,38 @@
+{
+  "id": "gravity-physical-thresholds",
+  "date": "2026-11-25",
+  "prs": [2564],
+  "area": "loads",
+  "when": {
+    "allOf": [
+      ["generatedLoads"],
+      ["generatedPanelGravity", "generatedWidthGravity", "generatedWindLoads", "snow"]
+    ]
+  },
+  "quantities": ["*", "solve.ok"],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Use physical clearance for automatic gravity",
+    "es": "Usar la altura libre real para las cargas gravitatorias automáticas",
+    "pt": "Usar a altura livre real para as cargas gravitacionais automáticas",
+    "de": "Tatsächliche lichte Höhe für automatische Schwerkraftlasten verwenden",
+    "fr": "Utiliser la hauteur libre réelle pour les charges gravitaires automatiques",
+    "tr": "Otomatik yerçekimi yüklerinde gerçek net yüksekliği kullan",
+    "zh": "按实际净高生成自动重力荷载",
+    "hu": "A tényleges szabad magasság használata az automatikus gravitációs terheknél"
+  },
+  "explanation": {
+    "en": "Automatic gravity uses local headroom and the exact midpoint of each member to determine coverage. A noncoplanar bay that straddles the cover threshold requires a planar deck or explicit loads. Regenerate affected gravity, roof wind and snow loads, then rerun analyses and combinations.",
+    "es": "Las cargas gravitatorias automáticas se asignan según la altura libre local y la cobertura en el punto medio exacto de cada barra. Si un paño no coplanar cruza el límite de cobertura, definí un paño plano o asigná las cargas explícitamente. Regenerá las cargas gravitatorias, de viento sobre cubierta y de nieve afectadas y repetí los análisis y las combinaciones.",
+    "pt": "A geração automática de cargas gravitacionais usa a altura livre local e a cobertura no ponto médio exato de cada barra. Se um painel não coplanar cruzar o limite de cobertura, defina uma laje plana ou atribua explicitamente as cargas. Gere novamente as cargas gravitacionais, de vento na cobertura e de neve afetadas e refaça as análises e combinações.",
+    "de": "Für automatische Schwerkraftlasten werden die örtliche lichte Höhe und die Überdeckung am exakten Mittelpunkt jedes Stabs verwendet. Liegt ein nicht ebenes Feld beiderseits des Überdeckungsgrenzwerts, ist eine ebene Decke oder eine ausdrückliche Lastzuweisung erforderlich. Erzeugen Sie betroffene Schwerkraft-, Dachwind- und Schneelasten neu und wiederholen Sie Analysen und Kombinationen.",
+    "fr": "La génération des charges gravitaires utilise la hauteur libre locale et le recouvrement au milieu exact de chaque barre. Un panneau non coplanaire situé de part et d’autre du seuil de recouvrement nécessite un plancher plan ou des charges explicites. Régénérez les charges gravitaires, de vent en toiture et de neige concernées, puis relancez les analyses et les combinaisons.",
+    "tr": "Otomatik yerçekimi yükleri, yerel net yüksekliği ve her çubuğun tam orta noktasındaki örtüyü kullanır. Örtü sınırını aşan düzlemsel olmayan bir göz için düzlemsel bir döşeme tanımlayın veya yükleri açıkça atayın. Etkilenen yerçekimi, çatı rüzgârı ve kar yüklerini yeniden üretip analizleri ve birleşimleri tekrarlayın.",
+    "zh": "自动重力荷载根据局部净高和每根杆件精确中点处的覆盖情况分配。如果非共面板区的高度范围跨越覆盖阈值，请定义平面楼板或明确指定荷载。请重新生成受影响的重力、屋面风和雪荷载，并重新运行分析和组合计算。",
+    "hu": "Az automatikus gravitációs terhek a helyi szabad magasság és a rúd pontos felezőpontjának fedettsége alapján készülnek. Ha egy nem síkbeli mező magassága átlépi a fedettségi küszöböt, sík födémet vagy közvetlenül megadott terheket kell megadni. Generálja újra az érintett gravitációs, tetőszél- és hóterheket, majd ismételje meg az elemzéseket és a kombinációkat."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-physical-thresholds.md",
+    "heading": "Use physical clearance for automatic gravity"
+  }
+}
