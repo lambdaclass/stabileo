@@ -1,9 +1,9 @@
-use super::{DofNumbering, FrameSwing, SolverInput};
+use super::{DofNumbering, TranslationMechanism, SolverInput};
 use crate::sanity::geometry::Components;
 use crate::solver::support::support_dofs_2d;
 use std::collections::{BTreeMap, BTreeSet};
 
-pub(super) fn find_swings(input: &SolverInput, dof: &DofNumbering) -> Vec<FrameSwing> {
+pub(super) fn find_swings(input: &SolverInput, dof: &DofNumbering) -> Vec<TranslationMechanism> {
     let mut components = Components::new();
     let mut frame_ends = Vec::new();
     let mut rotations = BTreeMap::new();
@@ -74,6 +74,6 @@ pub(super) fn find_swings(input: &SolverInput, dof: &DofNumbering) -> Vec<FrameS
                 dofs.push(free(node, 2)?);
             }
         }
-        (!moving.is_empty()).then_some(FrameSwing { nodes: moving, dofs })
+        (!moving.is_empty()).then_some(TranslationMechanism { nodes: moving, dofs })
     }).collect()
 }

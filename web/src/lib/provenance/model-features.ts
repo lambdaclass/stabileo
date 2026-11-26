@@ -51,7 +51,7 @@ export const FEATURE_IDS = [
   'gallery:slab-on-columns:walls', 'example:rc-beam-flexure', 'native:supplied-linear-certificate',
   'native:planar-nodal-vector',
   GLOBAL_AXES_EVIDENCE, 'conflictingModelAliases', 'outOfPlaneNodalComponents', 'duplicateFixtureEndRelease',
-  'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
+  'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'unrestrainedAxialTip', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
   'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
@@ -463,6 +463,17 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
 
   const connectors = values(s.connectors);
   if (connectors.length) f.add('connectors');
+  if (f.has('trussMembers') && !f.has('contactElements') && !constraints.length && !connectors.length
+    && !f.has('shells') && !f.has('arcMembers') && !s.quad9s?.length && !s.curvedShells?.length) {
+    const incident = new Map<number, number>();
+    for (const { nodeI, nodeJ } of elements) {
+      for (const node of [nodeI, nodeJ]) incident.set(node, (incident.get(node) ?? 0) + 1);
+    }
+    if (elements.some(e => (e.type === 'truss' || e.type === 'cable')
+      && [e.nodeI, e.nodeJ].some(node => incident.get(node) === 1 && !supportedNodes.has(node)))) {
+      f.add('unrestrainedAxialTip');
+    }
+  }
   if (connectors.some((c) => positive(c.kShear) || positive(c.kShearZ))) f.add('connectorsWithShear');
 
   if (f.has('space3D') && elements.some(e => e.behaviour === 'inactive')) f.add('inactiveSpatialMembers');

@@ -504,6 +504,9 @@ pub fn solve_corotational_2d_from(
     }
     let u_r_base: Vec<f64> = u_full[nf..].to_vec();
     let u_r_target = super::linear::prescribed_displacements_2d(input, &dof_num);
+    if u_full.iter().chain(&u_r_target).all(|&u| u == 0.0) {
+        super::stability::refuse_axial_tips_2d(input, &dof_num, cs.as_ref(), std::iter::empty())?;
+    }
     let support_extent: Vec<_> = u_r_base.iter().zip(&u_r_target)
         .map(|(a,b)|a.abs()+b.abs()).collect();
     let metric = super::convergence::EquilibriumMetric::for_2d_with_state(
@@ -1660,6 +1663,7 @@ pub fn solve_corotational_3d(
 
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_3d(&input, &dof_num)?;
+    super::stability::refuse_axial_tips_3d(input, &dof_num, cs.as_ref(), std::iter::empty())?;
     let metric = super::convergence::EquilibriumMetric::for_3d(input, &dof_num, cs.as_ref())?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 

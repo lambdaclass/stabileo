@@ -1000,6 +1000,8 @@ jobs:
         run: make test.engine.harmonic-dc-wasm
       - name: Conditional elastic response recovery WASM regressions
         run: make test.engine.conditional-elastic-wasm
+      - name: Unrestrained axial tip mechanism WASM regressions
+        run: make test.engine.axial-tip-wasm
       - name: SSI elastic refinement WASM regressions
         run: make test.engine.ssi-elastic-2011-wasm
 
