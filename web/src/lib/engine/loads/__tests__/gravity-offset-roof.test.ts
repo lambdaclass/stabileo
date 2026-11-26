@@ -307,3 +307,42 @@ it('#2607 a cover crossing the rafter only shelters part of its certified gap fo
     }
   }
 });
+
+const review2607 = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
+
+review2607.each([false, true])('known wrong result: #2607 — distinct attached decks refuse a single gap transfer (split %s)', split => {
+  const reason = { key: 'loadPlan.gravity.unresolvedMember', params: { id: 1 } };
+  for (const reverse of [false, true]) {
+    const model = doubleAttachedRoof(split);
+    if (reverse) model.constraints.reverse();
+    expect.soft(roofPlan(model)).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [reason], distributed: [], surface: [] });
+    expect.soft(() => gravityLayout(model, { ...options, uniformPressure: true })).toThrow(expect.objectContaining(reason));
+    expect.soft(() => roofWeightFor(model, options, options.tributaryWidth, 1)).toThrow(expect.objectContaining(reason));
+    expect.soft(() => snowDriftRefusal(model)).toThrow(expect.objectContaining(reason));
+    expect.soft(roofPlan(model, 'width').outcome).toBe('READY');
+  }
+});
+
+review2607.each([false, true])('known wrong result: #2607 — gap exposure uses the attached plane (split %s)', split => {
+  for (const [rise, width, sheltered] of [[-0.02, 4, false], [0.03, 4, false], [0.03, 2, false], [0.07, 4, true]] as const) {
+    const { model } = offsetRoof(0.04, 0, 1, split, [4, 6]);
+    const nodes = [[4, 0], [6, 0], [6, width], [4, width]].map(([x, y]) => {
+      const id = model.nodes.size + 1;
+      model.nodes.set(id, { id, x: x!, y: y!, z: 3 + x! / 5 + rise });
+      return id;
+    });
+    model.quads.set(3, { id: 3, nodes, materialId: 1, thickness: 0.1 });
+    expect.soft(() => roofWeightFor(model, options, options.tributaryWidth, 1)).not.toThrow();
+    expect.soft(() => snowDriftRefusal(model)).not.toThrow();
+    expect.soft(roofPlan(model).outcome).toBe('READY');
+    const layout = gravityLayout(model, options);
+    const elementId = split ? 2 : 1;
+    expect.soft((sheltered ? layout.areaOf : layout.roofAreaOf).get(elementId), `rise ${rise}`).toBeCloseTo(8, 10);
+    const distributed = planAreaLoads({
+      layout, tributaryWidth: options.tributaryWidth,
+      floor: { dead: 1, lo: 2, liveOf: () => 2 },
+      roof: { use: 'occupancy', weight: 'heavy', dead: 1, slopePercent: 20, lo: 3, liveOf: () => 3 },
+    }).distributed.filter(row => row.caseType === 'L');
+    expect.soft(distributed, `rise ${rise}`).toEqual([expect.objectContaining({ elementId, q: -4 * (sheltered ? 2 : 3) })]);
+  }
+});
