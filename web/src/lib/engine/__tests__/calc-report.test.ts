@@ -1,6 +1,7 @@
 // Regression tests for the calc-book report generator.
 import { describe, it, expect } from 'vitest';
 import { generateCalcReportHtml, type CalcReportData } from '../calc-report';
+import { computeEnvelope, initSolver } from '../wasm-solver';
 
 function baseData(overrides: Partial<CalcReportData> = {}): CalcReportData {
   return {
@@ -24,9 +25,9 @@ function baseData(overrides: Partial<CalcReportData> = {}): CalcReportData {
         { nodeId: 1, rx: 0, rz: 6, my: 0 },
         { nodeId: 2, rx: 0, rz: 4, my: 0 },
       ],
-      displacements: [{ nodeId: 1, ux: 0, uz: 0 }],
+      displacements: [{ nodeId: 1, ux: 0, uz: 0, ry: 0 }],
       elementForces: [],
-    } as any,
+    },
     ...overrides,
   };
 }
@@ -39,8 +40,12 @@ describe('calc-report reactions section', () => {
     expect(html).toContain('Support reactions balance the applied loads');
   });
 
-  it('notes that envelope reaction sums are not a physical load balance', () => {
-    const html = generateCalcReportHtml(baseData({ provenance: { kind: 'envelope' } }));
+  it('notes that envelope reaction sums are not a physical load balance', async () => {
+    await initSolver();
+    const data = baseData({ provenance: { kind: 'envelope' } });
+    const envelope2D = computeEnvelope([data.results2D!]);
+    expect(envelope2D).not.toBeNull();
+    const html = generateCalcReportHtml({ ...data, envelope2D: envelope2D!, results2D: envelope2D!.maxAbsResults });
     expect(html).toContain('not a physical load balance');
   });
 });
