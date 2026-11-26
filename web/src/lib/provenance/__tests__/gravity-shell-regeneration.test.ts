@@ -124,7 +124,8 @@ it.each(['linear', 'pdelta'] as const)(
     for (const [mode, paired, affected] of [['panels', true, true], ['panels', false, false], ['width', true, false]] as const) {
       const snapshot = {
         ...legacyPanel, analysisMode: 'pro', nodes: [...model.nodes], elements: [...model.elements],
-        quads: [...model.quads], constraints: paired ? model.constraints : model.constraints.slice(0, 1),
+        quads: [...model.quads],
+        constraints: (paired ? model.constraints : model.constraints.slice(0, 1)).map(link => ({ ...link })),
         regulations: { roles: { loads: { adapterId: 'cirsoc-101', settings: { dialog: { gravityMode: mode } } } } },
       } satisfies FeatureSnapshot;
       const stamp = { ...stampSolve(analysis, null), resultsVersion: change.resultsVersion };
