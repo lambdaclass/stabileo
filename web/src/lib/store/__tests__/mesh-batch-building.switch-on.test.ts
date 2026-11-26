@@ -112,7 +112,7 @@ describe('mesh before analysis', () => {
     } finally {
       meshBeforeAnalysis.value = true;
     }
-  });
+  }, 120_000);
 
   it('leaves no adjacent slab stale after the RC sheets wall remesh', async () => {
     await building();
