@@ -9,15 +9,30 @@
  */
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
-import '../../store/index';
+import { uiStore } from '../../store';
+import { constraintsInXY } from '../constraint-2d-remap';
 import { initSolver } from '../wasm-solver';
 import type { Constraint3D } from '../types-3d';
 
 beforeAll(async () => { await initSolver(); });
-beforeEach(() => { modelStore.clear(); });
+beforeEach(() => {
+  uiStore.analysisMode = '2d';
+  modelStore.clear();
+  uiStore.drawPlane2D = 'xy';
+});
+
+function solvePlaneFromSpaceConstraints() {
+  const spaceConstraints = modelStore.model.constraints;
+  modelStore.model.constraints = constraintsInXY('xz', spaceConstraints);
+  try {
+    return modelStore.solve(false);
+  } finally {
+    modelStore.model.constraints = spaceConstraints;
+  }
+}
 
 function agree(what: string): void {
-  const r2 = modelStore.solve(false);
+  const r2 = solvePlaneFromSpaceConstraints();
   if (!r2 || typeof r2 === 'string') throw new Error(`2D: ${String(r2)}`);
   const input = modelStore.buildSolverInput3D(false, false);
   for (const n of input!.nodes.values()) expect(n.y, 'the model stands in X–Z').toBe(0);
@@ -69,7 +84,7 @@ describe('constraints: the plane solve and the space solve of one model agree', 
   it('a floor diaphragm leaves the beam it spans free to bend', () => {
     const { b, c } = portal();
     modelStore.addConstraint({ type: 'diaphragm', masterNode: b, slaveNodes: [c] } as Constraint3D);
-    const r2 = modelStore.solve(false);
+    const r2 = solvePlaneFromSpaceConstraints();
     if (!r2 || typeof r2 === 'string') throw new Error(String(r2));
     // The slave column head keeps the master's sway…
     const db = r2.displacements.find((d) => d.nodeId === b)!, dc = r2.displacements.find((d) => d.nodeId === c)!;

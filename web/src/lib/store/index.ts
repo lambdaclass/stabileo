@@ -197,11 +197,11 @@ resultsStore._setOnStaticPublish((r, dim) => {
   certificateStore.track(r, dim);
   discretizationStore.track(r, dim);
   noteBaseSolve(r);
-  if (r) recheckStore.noteSolved('linear', dim === '2d' ? uiStore.drawPlane2D : undefined);
+  if (r) recheckStore.noteSolved('linear', is3DWorkspace(dim) ? undefined : uiStore.drawPlane2D);
 });
 resultsStore._setOnComboPublish((pc, pco, dim) => {
   certificateStore.trackCombinations(pc, pco, dim);
-  recheckStore.noteSolved('linear', dim === '2d' ? uiStore.drawPlane2D : undefined);
+  recheckStore.noteSolved('linear', is3DWorkspace(dim) ? undefined : uiStore.drawPlane2D);
 });
 resultsStore._setOnAnalysisPublish((kind) => recheckStore.noteSolved(kind, is3DWorkspace(uiStore.analysisMode) ? undefined : uiStore.drawPlane2D));
 

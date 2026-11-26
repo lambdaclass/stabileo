@@ -1,5 +1,6 @@
 import { t, tp } from '../i18n';
 import { isDrawPlane } from '../geometry/plane-projection';
+import { isAnalysisMode, is3DWorkspace } from '../utils/workspace';
 import type { Element, Load, LoadCombination, Material, Support } from '../store/model.svelte';
 import { isSupportType } from '../model/support-types';
 import type { Constraint3D, LinearMpcConstraint } from './types-3d';
@@ -569,7 +570,8 @@ export function requireStoredProjectInput(
     const footing: unknown = Array.isArray(row) ? row[1] : row;
     return isRecord(footing) ? footing.id : undefined;
   });
-  if (snapshot.drawPlane2D === undefined && (snapshot.analysisMode === '2d' || snapshot.analysisMode === 'edu')) {
+  const { analysisMode } = snapshot;
+  if (snapshot.drawPlane2D === undefined && isAnalysisMode(analysisMode) && !is3DWorkspace(analysisMode)) {
     const index = migrateModelConstraints(snapshot.constraints).findIndex(dependsOnXYConstraintAxes);
     requireInputField(`constraints[${index}]`, index === -1);
   }
