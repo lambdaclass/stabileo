@@ -48,9 +48,7 @@
       "1": {
         "id": 1,
         "a": 1,
-        "iy": 1,
-        "iz": 1,
-        "j": 1
+        "iz": 1
       }
     },
     "elements": {
@@ -195,9 +193,7 @@
     },
     "supports": {
       "1": {
-        "id": 1,
         "nodeId": 1,
-        "type": "rollerX",
         "rx": false,
         "ry": true,
         "rz": true,
@@ -206,9 +202,7 @@
         "rrz": true
       },
       "2": {
-        "id": 2,
         "nodeId": 2,
-        "type": "spring",
         "rx": false,
         "ry": false,
         "rz": false,
@@ -218,9 +212,7 @@
         "kx": 1
       },
       "4": {
-        "id": 4,
         "nodeId": 4,
-        "type": "fixed",
         "rx": true,
         "ry": true,
         "rz": true,
@@ -229,9 +221,7 @@
         "rrz": true
       },
       "5": {
-        "id": 5,
         "nodeId": 5,
-        "type": "fixed",
         "rx": true,
         "ry": true,
         "rz": true,
@@ -240,9 +230,7 @@
         "rrz": true
       },
       "6": {
-        "id": 6,
         "nodeId": 6,
-        "type": "guidedX",
         "rx": false,
         "ry": true,
         "rz": true,

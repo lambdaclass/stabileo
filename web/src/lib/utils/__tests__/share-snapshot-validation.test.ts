@@ -145,7 +145,8 @@ describe('shared-link importer', () => {
       objectLoadType: p => { p.loads[0].type = { toString: () => 'distributed' }; },
     };
     for (const [name, fault] of Object.entries(faults)) {
-      const payload = { ...legacy(), drawPlane2D: 'xy' };
+      const payload = legacy();
+      payload.drawPlane2D = 'xy';
       fault(payload);
       expect(prepareSharedSnapshot(payload), name).toBeNull();
     }
@@ -175,7 +176,8 @@ describe('shared-link importer', () => {
   });
 
   it('accepts connectors, constraints and combinations that resolve', () => {
-    const payload = { ...legacy(), drawPlane2D: 'xy' };
+    const payload = legacy();
+    payload.drawPlane2D = 'xy';
     payload.nodes.push([3, { id: 3, x: 0, y: 4 }]);
     payload.connectors = [[1, { id: 1, nodeI: 1, nodeJ: 3, kAxial: 1000 }]];
     payload.constraints = [

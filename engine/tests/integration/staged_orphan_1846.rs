@@ -696,12 +696,22 @@ fn issue_1846_prestress_inclined_public_refusals_2d_and_3d() {
 }
 
 fn review_model(dim: usize, pads: usize) -> serde_json::Value {
+    let section = if dim == 2 {
+        serde_json::json!({"id":1,"a":0.01,"iz":0.002})
+    } else {
+        serde_json::json!({"id":1,"a":0.01,"iy":0.001,"iz":0.002,"j":0.003})
+    };
+    let support = if dim == 2 {
+        serde_json::json!({"id":1,"nodeId":1,"type":"fixed"})
+    } else {
+        serde_json::json!({"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true})
+    };
     let mut v = serde_json::json!({
         "nodes":{"1":{"id":1,"x":0.0,"y":0.0,"z":0.0},"2":{"id":2,"x":4.0,"y":0.0,"z":0.0},"3":{"id":3,"x":8.0,"y":0.0,"z":0.0},"4":{"id":4,"x":12.0,"y":0.0,"z":0.0}},
         "materials":{"1":{"id":1,"e":10000.0,"nu":0.3}},
-        "sections":{"1":{"id":1,"a":0.01,"iy":0.001,"iz":0.002,"j":0.003}},
+        "sections":{"1":section},
         "elements":{"1":{"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1},"2":{"id":2,"type":"frame","nodeI":2,"nodeJ":3,"materialId":1,"sectionId":1},"3":{"id":3,"type":"frame","nodeI":3,"nodeJ":4,"materialId":1,"sectionId":1}},
-        "supports":{"1":{"id":1,"nodeId":1,"type":"fixed","rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}},
+        "supports":{"1":support},
         "loads":[{"type":"nodal","data":{"nodeId":2,"fx":1.0,"fy":0.0,"fz":0.0,"mx":0.0,"my":0.0,"mz":0.0}}]
     });
     for i in 0..pads {
@@ -715,13 +725,13 @@ fn review_model(dim: usize, pads: usize) -> serde_json::Value {
         e["nodeJ"] = serde_json::json!(101 + 2 * i);
         v["elements"][&a] = e;
         let mut s = v["supports"]["1"].clone();
-        s["id"] = serde_json::json!(100 + 2 * i);
+        if dim == 2 { s["id"] = serde_json::json!(100 + 2 * i); }
         s["nodeId"] = serde_json::json!(100 + 2 * i);
         v["supports"][&a] = s;
     }
     if dim == 2 {
         for l in v["loads"].as_array_mut().unwrap() {
-            for key in ["fy", "mz"] {
+            for key in ["fy", "mx", "mz"] {
                 l["data"].as_object_mut().unwrap().remove(key);
             }
         }
@@ -863,7 +873,8 @@ fn issue_1846_review_loads_on_future_members_refused() {
                 vec!["fx", "fy", "fz", "mx", "my", "mz"]
             } {
                 let mut v = review_model(dim, pads);
-                v["loads"][0]["data"] = serde_json::json!({"nodeId":3,"fx":0.0,"fy":0.0,"fz":0.0,"mx":0.0,"my":0.0,"mz":0.0});
+                v["loads"][0]["data"]["nodeId"] = 3.into();
+                v["loads"][0]["data"]["fx"] = 0.0.into();
                 v["loads"][0]["data"][field] = 1.0.into();
                 if field.starts_with('m') {
                     v["supports"]["3"] = if dim == 2 {
@@ -896,9 +907,9 @@ fn issue_1846_review_unidirectional_inactive_springs() {
                 }
                 v["materials"]["1"]["e"] = serde_json::json!(10000.0 / scale.powi(2));
                 for (field, power) in [("a", 2), ("iy", 4), ("iz", 4), ("j", 4)] {
-                    v["sections"]["1"][field] = serde_json::json!(
-                        v["sections"]["1"][field].as_f64().unwrap() * scale.powi(power)
-                    );
+                    if let Some(value) = v["sections"]["1"][field].as_f64() {
+                        v["sections"]["1"][field] = (value * scale.powi(power)).into();
+                    }
                 }
                 v["supports"]["3"] = if dim == 2 {
                     serde_json::json!({"id":3,"nodeId":3,"type":"spring","kx":1000.0/scale})
@@ -929,7 +940,7 @@ fn issue_1846_review_inactive_settlement_has_no_reaction() {
         for pads in [0, 22] {
             let mut v = review_model(dim, pads);
             let mut s = v["supports"]["1"].clone();
-            s["id"] = 3.into();
+            if dim == 2 { s["id"] = 3.into(); }
             s["nodeId"] = 3.into();
             s["dx"] = 0.125.into();
             v["supports"]["3"] = s;
@@ -1047,8 +1058,9 @@ fn issue_1846_round5_kinematic_spring_threshold_and_dispatch() {
                     }
                     v["materials"]["1"]["e"] = (1e7 / scale.powi(2)).into();
                     for (key, power) in [("a", 2), ("iy", 4), ("iz", 4), ("j", 4)] {
-                        let x = v["sections"]["1"][key].as_f64().unwrap();
-                        v["sections"]["1"][key] = (x * scale.powi(power)).into();
+                        if let Some(value) = v["sections"]["1"][key].as_f64() {
+                            v["sections"]["1"][key] = (value * scale.powi(power)).into();
+                        }
                     }
                     for sup in v["supports"].as_object_mut().unwrap().values_mut() {
                         for key in ["kx", "ky", "kz"] {
@@ -1198,17 +1210,11 @@ fn issue_1846_review_tiny_springs_dense_sparse_refusal_parity() {
     for dim in [2, 3] {
         for pads in [0, 22] {
             let mut v = review_model(dim, pads);
-            let mut s = v["supports"]["1"].clone();
-            s["id"] = 3.into();
-            s["nodeId"] = 3.into();
-            s["type"] = "spring".into();
-            for key in ["rx", "ry", "rz", "rrx", "rry", "rrz"] {
-                s[key] = false.into();
-            }
-            for key in ["kx", "ky", "kz", "krx", "kry", "krz"] {
-                s[key] = 1e-35.into();
-            }
-            v["supports"]["3"] = s;
+            v["supports"]["3"] = if dim == 2 {
+                serde_json::json!({"id":3,"nodeId":3,"type":"spring","kx":1e-35,"ky":1e-35,"kz":1e-35})
+            } else {
+                serde_json::json!({"nodeId":3,"rx":false,"ry":false,"rz":false,"rrx":false,"rry":false,"rrz":false,"kx":1e-35,"ky":1e-35,"kz":1e-35,"krx":1e-35,"kry":1e-35,"krz":1e-35})
+            };
             v["loads"][0]["data"]["nodeId"] = 3.into();
             v["loads"][0]["data"]["fx"] = 1e-35.into();
             v["elements"].as_object_mut().unwrap().remove("2");
@@ -1443,9 +1449,12 @@ fn issue_1846_round3_swinging_rotations_report_mechanisms() {
                 }
                 for held in [false, true] {
                     if held {
-                        v["supports"]["1"]["type"] = "fixed".into();
-                        for field in ["rrx", "rry", "rrz"] {
-                            v["supports"]["1"][field] = true.into();
+                        if dim == 2 {
+                            v["supports"]["1"]["type"] = "fixed".into();
+                        } else {
+                            for field in ["rrx", "rry", "rrz"] {
+                                v["supports"]["1"][field] = true.into();
+                            }
                         }
                     }
                     let k = if dim == 2 {
@@ -2034,7 +2043,7 @@ fn round8_history(axis: [f64; 3], pads: usize, constrained: bool, residual: f64)
             load["data"]["nodeId"] = 3.into();
         }
     }
-    let mut solver: SolverInput3D = serde_json::from_value(v.clone()).unwrap();
+    let mut solver = round8_solver(v.clone());
     pad_3d(&mut solver, pads);
     assert_eq!(DofNumbering::build_3d(&solver).n_total >= SPARSE_THRESHOLD, pads >= if constrained { 4 } else { 5 });
     let mut input: StagedInput3D = serde_json::from_value(v).unwrap();
@@ -2044,6 +2053,11 @@ fn round8_history(axis: [f64; 3], pads: usize, constrained: bool, residual: f64)
     input.stages[0].elements_added = input.elements.values().map(|e| e.id).collect();
     input.stages[0].supports_added = input.supports.values().map(|s| s.node_id).collect();
     input
+}
+
+fn round8_solver(mut staged: serde_json::Value) -> SolverInput3D {
+    staged.as_object_mut().unwrap().remove("stages");
+    serde_json::from_value(staged).unwrap()
 }
 
 #[test]
@@ -2111,7 +2125,7 @@ fn issue_1943_round8_supported_moment_keeps_its_incremental_response() {
             moment.my = 1.0;
             input.loads.push(load.clone());
             input.stages[1].load_indices.push(2);
-            let mut reference: SolverInput3D = serde_json::from_value(serde_json::to_value(&input).unwrap()).unwrap();
+            let mut reference = round8_solver(serde_json::to_value(&input).unwrap());
             reference.elements.remove("1");
             reference.loads = vec![load];
             let reference = solve_3d(&reference).unwrap();

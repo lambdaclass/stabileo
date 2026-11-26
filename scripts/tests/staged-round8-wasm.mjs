@@ -79,6 +79,7 @@ for (const pads of [0, 4, 5]) for (const constrained of [false, true]) {
     input.loads.push(load);
     input.stages[1].loadIndices.push(2);
     const referenceInput = structuredClone(input);
+    delete referenceInput.stages;
     delete referenceInput.elements[1];
     referenceInput.loads = [load];
     const reference = solve_3d(referenceInput);
