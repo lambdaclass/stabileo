@@ -258,17 +258,46 @@ describe('use zones over two floors', () => {
     expect(fz).toBeCloseTo(2.5 * 29, 5);
   });
 
-  (process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip)('known wrong result: #2607 assembles clipped use-zone shell loads', () => {
-    modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
-    floor(3);
-    meshAll(0.5);
-    const z1 = zone([[0, 0], [6, 0], [6, 5], [0, 5]], 3, 'Oficina');
+  it.each([false, true])('#2607 accounts for a clipped use-zone force and moments (uplift %s)', async uplift => {
+    const nodes = [[0, 0], [6, 0], [5.9, 5], [0, 5]].map(([x, y]) => modelStore.addNode(x!, y!, 3));
+    for (const nodeId of nodes) modelStore.addSupport(nodeId, 'pinned3d');
+    modelStore.addQuad(nodes as [number, number, number, number], 1, 0.15);
+    const width = 4.25, length = 3.75;
+    const z1 = zone([[0, 0], [width, 0], [width, length], [0, length]], 3, 'Oficina');
     setZoneUse([z1], { occupancy: 'oficina', provenance: 'confirmed' });
     applyZoneLoadPlan(zoneLoadPlan()!);
     syncDefinedLoadsForAnalysis();
-    const res = modelStore.solve3D(false, false, true);
-    expect(typeof res, String(res)).not.toBe('string');
-    const fz = (res as AnalysisResults3D).reactions.reduce((s, x) => s + x.fz, 0);
-    expect(fz).toBeCloseTo(2.5 * 29, 5);
+    const load = modelStore.loads.find(l => l.type === 'surface3d' && l.data.fromDef !== undefined)!;
+    expect(load.type).toBe('surface3d');
+    if (load.type !== 'surface3d') throw new Error('Expected a zone surface load');
+    const caseId = load.data.caseId!;
+    const comboId = modelStore.addCombination('Zone live load', [{ caseId, factor: 2 }]);
+    if (uplift) modelStore.updateSupport(modelStore.supports.keys().next().value!, { uplift: true });
+    const check = (res: AnalysisResults3D | string | null | undefined, factor = 1) => {
+      expect(res, String(res)).toEqual(expect.objectContaining({ reactions: expect.any(Array) }));
+      const { reactions } = res as AnalysisResults3D;
+      const q = 2.5 * factor, area = width * length;
+      expect.soft(reactions.reduce((sum, r) => sum + r.fz, 0)).toBeCloseTo(q * area, 5);
+      expect.soft(reactions.reduce((sum, r) => sum + r.mx + modelStore.nodes.get(r.nodeId)!.y * r.fz, 0))
+        .toBeCloseTo(q * area * length / 2, 5);
+      expect.soft(reactions.reduce((sum, r) => sum + r.my - modelStore.nodes.get(r.nodeId)!.x * r.fz, 0))
+        .toBeCloseTo(-q * area * width / 2, 5);
+    };
+    check(modelStore.solve3D(false, false, true));
+    check(await modelStore.solve3DAsync(false, false, true));
+    for (const method of uplift ? ['linear'] as const : ['linear', 'pdelta'] as const) {
+      modelStore.setAnalysis({ perCombination: method });
+      for (const bundle of [
+        modelStore.solveCombinations3D(false, false, true),
+        await modelStore.solveCombinations3DParallel(false, false, true),
+      ]) {
+        expect(bundle, String(bundle)).toEqual(expect.objectContaining({ perCombo: expect.any(Map) }));
+        if (!bundle || typeof bundle === 'string') continue;
+        const result = bundle.perCombo.get(comboId);
+        check(result, 2);
+        if (method === 'pdelta') expect(result?.secondOrder?.converged).toBe(true);
+        if (uplift) expect(result?.nonlinear).toBeDefined();
+      }
+    }
   });
 });

@@ -181,7 +181,9 @@ function clippedAffineForces(
   return result;
 }
 
-export function expectedSurfaceNodeForces(points: Vector[], spec: ShellLoadSpec): LoadVector[] | null {
+export function expectedSurfaceNodeForces(
+  points: Vector[], spec: ShellLoadSpec, integrateClippedQuad?: () => LoadVector[] | undefined,
+): LoadVector[] | null {
   const triangle = points.length === 3;
   if (!triangle && points.length !== 4) return null;
   const [origin, second, third] = points as [Vector, Vector, Vector, ...Vector[]];
@@ -214,7 +216,10 @@ export function expectedSurfaceNodeForces(points: Vector[], spec: ShellLoadSpec)
     return integrals.map(integral => integral.force(force));
   }
 
-  if (spec.qNodes || norm(w) > roundoff * Math.max(norm(u), norm(v))) return null;
+  if (spec.qNodes) return null;
+  if (norm(w) > roundoff * Math.max(norm(u), norm(v))) {
+    return spec.region ? integrateClippedQuad?.() ?? null : null;
+  }
   const shell: Ring = triangle ? [[0, 0], [1, 0], [0, 1]] : quadCorners.map(([s, t]) => [s, t]);
   let rings = [[shell]];
   if (spec.region) {

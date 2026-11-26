@@ -160,7 +160,7 @@ function roofWithTwoGaps(split: boolean, shelter: boolean) {
     const nodes = [addNode(a, y0, za), addNode(b, y0, zb), addNode(b, y1, zb), addNode(a, y1, za)];
     model.quads.set(id, { id, nodes, materialId: 1, thickness: 0.1 });
   };
-  shell(4, 6, 0, options.tributaryWidth, 3.8, 4.2);
+  shell(4, 6, -options.tributaryWidth / 2, options.tributaryWidth / 2, 3.8, 4.2);
   if (shelter) shell(2, 4, -1, 1, 8, 8);
   if (split) {
     const middle = addNode(5, 0, 3.98);
@@ -205,7 +205,8 @@ it('#2586 partitions one attached gap at a canopy edge', () => {
   const reason = { key: 'loadPlan.gravity.mixedExposure' };
   for (const subdivided of [false, true]) for (const end of [4, 5, 6]) {
     const { model } = offsetRoof(0.02, 0, 1, subdivided, [4, 6], options.tributaryWidth);
-    const nodes = [[4, 0], [end, 0], [end, options.tributaryWidth], [4, options.tributaryWidth]].map(([x, y]) => {
+    const nodes = [[4, -options.tributaryWidth / 2], [end, -options.tributaryWidth / 2],
+      [end, options.tributaryWidth / 2], [4, options.tributaryWidth / 2]].map(([x, y]) => {
       const id = model.nodes.size + 1;
       model.nodes.set(id, { id, x: x!, y: y!, z: 8 + y! });
       return id;
@@ -240,7 +241,7 @@ it.each([[4, 6], [2, 4]] as const)(
 
 it.each(['unequal edges', 'two rafters'] as const)(
   '#2607 refuse a gap without one certified transfer (%s)', mode => {
-    const { model } = offsetRoof(0.02, 0, 1, false, [4, 6]);
+    const { model } = offsetRoof(0.02, 0, 1, false, [4, 6], 4, 4, 2);
     const upper = model.quads.get(2)!.nodes;
     if (mode === 'unequal edges') {
       model.nodes.get(upper[2]!)!.y = 3;
@@ -268,7 +269,7 @@ it('#2607 a cover crossing the rafter only shelters part of its certified gap fo
   const reason = { key: 'loadPlan.gravity.mixedExposure' };
   for (const split of [false, true]) for (const mirror of [1, -1]) {
     for (const [lo, hi, exposure] of [
-      [-1, 1, 'mixed'], [1, 2, 'mixed'], [-2, 0, 'exposed'], [0, 4, 'sheltered'],
+      [-1, 1, 'mixed'], [1, 2, 'mixed'], [-4, -2, 'exposed'], [-2, 2, 'sheltered'],
     ] as const) {
       const { model } = offsetRoof(0.02, 0, mirror, split, [4, 6]);
       const nodes = [[4, lo], [6, lo], [6, hi], [4, hi]].map(([x, y]) => {
@@ -324,7 +325,7 @@ it.each([[false, false], [true, false], [false, true], [true, true]] as const)('
 it.each([[false, false], [true, false], [false, true], [true, true]] as const)('#2607 gap exposure uses the attached plane (split %s, triangles %s)', (split, triangles) => {
   for (const [rise, width, sheltered] of [[-0.02, 4, false], [0.03, 4, false], [0.03, 2, false], [0.07, 4, true]] as const) {
     const { model: quads } = offsetRoof(0.04, 0, 1, split, [4, 6]);
-    const nodes = [[4, 0], [6, 0], [6, width], [4, width]].map(([x, y]) => {
+    const nodes = [[4, -2], [6, -2], [6, width - 2], [4, width - 2]].map(([x, y]) => {
       const id = quads.nodes.size + 1;
       quads.nodes.set(id, { id, x: x!, y: y!, z: 3 + x! / 5 + rise });
       return id;
@@ -352,32 +353,10 @@ it.each([[false, false], [true, false], [false, true], [true, true]] as const)('
   }
 });
 
-(process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip).each([0, 0.5, -0.5, 1e-8])(
-  'known wrong result: #2607 panel gravity checks a 2 m gap strip offset by %s m', offset => {
+it.each([0, 0.5, -0.5, 1e-8])(
+  '#2607 panel gravity checks a 2 m gap strip offset by %s m', offset => {
     for (const split of [false, true]) for (const angle of [0, 0.53]) {
-      const roof = offsetRoof(0.02, angle, 1, split, [4, 6], 2);
-      for (const node of roof.model.nodes.values()) {
-        if (roof.rafter.includes(node.id)) continue;
-        const across = -node.x * Math.sin(angle) + node.y * Math.cos(angle);
-        if (across < 1) continue;
-        node.x -= (offset - 1) * Math.sin(angle);
-        node.y += (offset - 1) * Math.cos(angle);
-      }
-      for (const link of roof.model.constraints) {
-        const master = roof.model.nodes.get(link.masterNode)!;
-        const slave = roof.model.nodes.get(link.slaveNode)!;
-        master.x = slave.x;
-        master.y = slave.y;
-      }
-      const edgeNodes = new Set(roof.model.constraints.map(link => link.masterNode));
-      for (const node of roof.model.nodes.values()) {
-        if (roof.rafter.includes(node.id) || edgeNodes.has(node.id)) continue;
-        const across = -node.x * Math.sin(angle) + node.y * Math.cos(angle);
-        if (across > 0.25) continue;
-        node.x -= (offset - 1) * Math.sin(angle);
-        node.y += (offset - 1) * Math.cos(angle);
-      }
-      const model = roof.model;
+      const { model } = offsetRoof(0.02, angle, 1, split, [4, 6], 2, 2, offset);
       expect.soft(roofPlan(model, 'width').outcome).toBe('READY');
       if (offset === 0) {
         expect.soft(roofPlan(model).outcome).toBe('READY');

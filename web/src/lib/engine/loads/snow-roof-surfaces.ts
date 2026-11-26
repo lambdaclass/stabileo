@@ -806,31 +806,32 @@ export function snowRoofEdgePairs(
         let lo = Math.max(0, Math.min(tc, td)), hi = Math.min(len, Math.max(tc, td));
         if (hi - lo <= error) continue;
         const opposed = inward[0] * upperInward[0] + inward[1] * upperInward[1] < 0;
-        const parallel = Math.abs(nc - nd) <= error;
-        const gap = -(nc + nd) / 2;
-        const open = opposed && parallel && gap > error;
-        const exact = Math.abs(nc) <= error && Math.abs(nd) <= error;
-        const coincident = exact || (opposed && !open && Math.max(Math.abs(nc), Math.abs(nd)) <= SNOW_EDGE_COINCIDENCE);
-        const offset = (t: number) => open ? -gap : exact ? 0 : nc + (nd - nc) * (t - tc) / (td - tc);
-        const gapAt = (t: number) => -offset(t);
+        const signedGap = (t: number) => -nc - (nd - nc) * (t - tc) / (td - tc);
+        const fromGap = signedGap(lo), toGap = signedGap(hi);
+        const least = Math.min(fromGap, toGap), greatest = Math.max(fromGap, toGap);
+        const gap = (fromGap + toGap) / 2;
+        const parallel = greatest - least <= error;
+        const exact = Math.max(Math.abs(least), Math.abs(greatest)) <= error;
+        const coincident = exact || (opposed && greatest <= error && least >= -SNOW_EDGE_COINCIDENCE);
+        const gapAt = (t: number) => exact ? 0 : parallel ? gap : signedGap(t);
         const skew = !coincident && !parallel;
         if (coincident) {
           if (hi - lo <= MIN_COINCIDENT_ROOF_EDGE_OVERLAP) continue;
         } else {
           if (!includeAdjacent || !opposed) continue;
-          const from = gapAt(lo), to = gapAt(hi);
-          const least = Math.min(from, to), greatest = Math.max(from, to);
-          if (least < -error || greatest <= error || least >= MAX_ADJACENT_ROOF_SEPARATION) continue;
-          if (greatest > MAX_ADJACENT_ROOF_SEPARATION) {
-            const limit = lo + (hi - lo) * (MAX_ADJACENT_ROOF_SEPARATION - from) / (to - from);
-            if (to > from) hi = limit;
-            else lo = limit;
-          }
+          if (greatest <= error || least >= MAX_ADJACENT_ROOF_SEPARATION) continue;
+          const atGap = (width: number) => lo + (hi - lo) * (width - fromGap) / (toGap - fromGap);
+          const start = fromGap < -error ? atGap(0)
+            : fromGap > MAX_ADJACENT_ROOF_SEPARATION ? atGap(MAX_ADJACENT_ROOF_SEPARATION) : lo;
+          const end = toGap < -error ? atGap(0)
+            : toGap > MAX_ADJACENT_ROOF_SEPARATION ? atGap(MAX_ADJACENT_ROOF_SEPARATION) : hi;
+          lo = start;
+          hi = end;
           if (hi - lo <= error) continue;
         }
         const displaced = !exact;
         const move = ([x, y]: P2, sign: number): P2 => {
-          const distance = sign * offset(along([x, y]));
+          const distance = -sign * gapAt(along([x, y]));
           return [x + distance * inward[0], y + distance * inward[1]];
         };
         const above = (pt: P2) => move(pt, 1), below = (pt: P2) => move(pt, -1);

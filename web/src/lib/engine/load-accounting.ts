@@ -15,7 +15,7 @@ import { planarLoadDirection } from './planar-load-direction';
 import { transverseSign } from './transverse-sign-2d';
 import { add, cross, mul, agreesAtScale, assembledMagnitudes3D, memberLineSources, LoadScalar, LoadVector, norm, positionAt, sub, unit, xyz, zero, Wrench, type Vector } from './accounting-math';
 import { accountSurface, expectedSurfaceNodeForces } from './surface-accounting';
-import type { ShellLoadSpec } from './shell-load-integration';
+import { shellLoadForces, type ShellLoadSpec } from './shell-load-integration';
 import { quadGaussSamples } from './solver-shells';
 import { selfWeightDirection, type SelfWeightSource } from './self-weight';
 import { SolveAccountingError, type PlateMeasure } from './plate-accounting';
@@ -543,12 +543,17 @@ type ShellTarget = { id: number; kind: 'pressure' | 'quadPressure' | 'curvedShel
 type WrenchSource3D = { label: string; expected: Wrench; rows: readonly SolverLoad3D[]; nodeId?: number; shell?: ShellTarget };
 
 function shellTarget(
-  model: ModelData, caseId: number, on: 'plate' | undefined, id: number, spec: ShellLoadSpec,
+  model: ModelData, caseId: number, on: 'plate' | undefined, id: number, spec: ShellLoadSpec & { fromDef?: number },
 ): ShellTarget {
   const shell = (on === 'plate' ? model.plates : model.quads)?.get(id);
   if (!shell) unsupported(model, caseId, 'surface3d', id);
-  const points = shell.nodes.map(nodeId => xyz(model.nodes.get(nodeId) ?? unsupported(model, caseId, 'node', nodeId)));
-  const forces = expectedSurfaceNodeForces(points, spec);
+  const nodes = shell.nodes.map(nodeId => model.nodes.get(nodeId) ?? unsupported(model, caseId, 'node', nodeId));
+  const group = spec.fromDef === undefined ? undefined : model.groups?.get(spec.fromDef);
+  const definition = group?.kind === 'floorLoad' ? group.data as unknown as FloorLoadDef : undefined;
+  const integrateZoneQuad = definition?.distribution === 'slab' && definition.target.by === 'zone'
+    ? () => shellLoadForces('quad', nodes, spec)?.forces.map(force => LoadVector.from(force))
+    : undefined;
+  const forces = expectedSurfaceNodeForces(nodes.map(xyz), spec, integrateZoneQuad);
   if (!forces) unsupported(model, caseId, 'surface3d', id);
   const kind = on === 'plate' ? 'pressure' : 'curved' in shell && shell.curved ? 'curvedShellPressure' : 'quadPressure';
   return { id, kind, forces: new Map(shell.nodes.map((nodeId, i) => [nodeId, forces[i]!])) };

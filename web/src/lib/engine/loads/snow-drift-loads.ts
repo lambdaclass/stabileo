@@ -12,7 +12,7 @@ export interface SnowSurchargeLoad {
   elementId: number; q: number; qJ?: number; a?: number; b?: number; frame: 'projected';
 }
 
-interface Band { margins: (d: number, t: number) => number[]; distanceBreaks?: number[]; p0: P2; u: P2; len: number; n: P2; on: number[]; p: (d: number, t: number) => number }
+interface Band { bounded?: boolean; margins: (d: number, t: number) => number[]; distanceBreaks?: number[]; p0: P2; u: P2; len: number; n: P2; on: number[]; p: (d: number, t: number) => number }
 
 const dot = (a: P2, b: P2) => a[0] * b[0] + a[1] * b[1];
 const sub = (a: P2, b: P2): P2 => [a[0] - b[0], a[1] - b[1]];
@@ -72,7 +72,9 @@ function surcharge(bands: Band[], pt: P2, on: (panel: number) => boolean): numbe
   let s = 0;
   for (const b of bands) {
     const t = snowCoordinate(pt, b.p0, b.u, [0, b.len]), d = snowCoordinate(pt, b.p0, b.n, b.distanceBreaks);
-    if (t < -1e-6 || t > b.len + 1e-6 || d < -1e-6) continue;
+    const along = b.bounded ? dot(sub(pt, b.p0), b.u) : t;
+    const allowance = b.bounded ? 0 : 1e-6;
+    if (along < -allowance || along > b.len + allowance || d < -1e-6) continue;
     if (!b.on.some(on)) continue;
     s += b.p(d, t);
   }
@@ -279,6 +281,11 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
     }
     return group;
   };
+  const deliverStep = (lower: typeof roofs, line: ReturnType<typeof lineInto>, drift: StepDrift) => {
+    const bearings = stepBearingLoads(model, layout, [...new Set(lower.map(panel => panel.k))], line, drift, stationError);
+    if (i.receivers && bearings.some(row => !i.receivers!.has(row.elementId))) throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL));
+    out.push(...bearings);
+  };
   const modeledAdjacent: Array<{ pair: ReturnType<typeof snowRoofEdgePairs>[number]; fetch: number }> = [];
   for (const step of snowRoofEdgePairs(model, layout, surfaces)) {
     const { a, b, lowerComponent: L, upperComponent: U, lowerOutline, above, below, displaced, separation, elevations } = step;
@@ -320,9 +327,7 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
       if ([...lowerRoof, U].some(panel => layout.panels[panel.k]!.footprint)) {
         throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL));
       }
-      const bearings = stepBearingLoads(model, layout, [...new Set(lowerRoof.map(panel => panel.k))], line, first, stationError);
-      if (i.receivers && bearings.some(row => !i.receivers!.has(row.elementId))) throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL));
-      out.push(...bearings);
+      deliverStep(lowerRoof, line, first);
     }
     for (const pt of samples) {
       const dr = checkedDrift(inputs(pt));
@@ -359,13 +364,12 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
         const edgeOut: P2 = [-edge.n[0], -edge.n[1]];
         const adjacent = (i.adjacent ?? []).filter(adj => {
           const want: P2 = adj.side === '+x' ? [1, 0] : adj.side === '-x' ? [-1, 0] : adj.side === '+y' ? [0, 1] : [0, -1];
-          if (dot(edgeOut, want) < 0.95) return false;
-          return !modeledAdjacent.some(({ pair, fetch }) =>
-            pair.lowerComponent.k === L.k && pair.lowerComponent.component === L.component
-            && edgeInterval(start, end, pair.a, pair.b, snowEdgeRoundoff(start, end, pair.a, pair.b)) !== undefined
-            && agrees(adj.separation, pair.separation, pair.separation)
-            && agrees(adj.length, fetch, fetch)
-            && pair.elevations.every(({ upperZ }) => agrees(adj.topZ, upperZ, upperZ)));
+          return dot(edgeOut, want) >= 0.95;
+        });
+        const modeled = modeledAdjacent.flatMap(({ pair, fetch }) => {
+          if (pair.lowerComponent.k !== L.k || pair.lowerComponent.component !== L.component) return [];
+          const interval = edgeInterval(start, end, pair.a, pair.b, snowEdgeRoundoff(start, end, pair.a, pair.b));
+          return interval ? [{ pair, fetch, interval }] : [];
         });
         const atEdge = (t: number): P2 => [start[0] + t * (end[0] - start[0]), start[1] + t * (end[1] - start[1])];
         const outside = ([x, y]: P2): P2 => [x - edge.n[0] * 0.05, y - edge.n[1] * 0.05];
@@ -376,13 +380,13 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
           const boundaries = [from, ...cuts.filter(t => t > from && t < to), to];
           return boundaries.slice(1).map((end, k) => [boundaries[k]!, end] as const);
         });
-        for (const [from, to] of ranges) {
+        const emit = ([from, to]: readonly [number, number], adj?: NonNullable<DriftInputs['adjacent']>[number], bounded = false) => {
           const a = atEdge(from), b = atEdge(to), edgeStart = from * edge.len;
           const line = lineInto(a, b, L.polygon);
-          if (line.len < 1e-9) continue;
+          if (line.len < 1e-9) return;
           const mid = outside(atEdge((from + to) / 2));
           if (covers.some(p => insideRing(mid, p.polygon) && !p.holes.some(hole => insideRing(mid, hole))
-            && surfaceModel.edgeHeights(a, b, layout, p.k, L.k).every(h => h >= -0.05))) continue;
+            && surfaceModel.edgeHeights(a, b, layout, p.k, L.k).every(h => h >= -0.05))) return;
           const lower = roofOf(L);
           const lu = Math.max(0, ...lower.flatMap((p) => p.polygon.map((v) => dot(sub(v, a), line.n))));
           const point = (t: number): P2 => [a[0] + t * line.u[0], a[1] + t * line.u[1]];
@@ -394,13 +398,24 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
               applies ||= dr.applies;
               report(dr, range.point, edgeStart + range.from * line.len, edgeStart + range.to * line.len);
             }
-            bands.push({ margins: (d, t) => [...margins(point(t)), ...driftShapeMargins(local(point(t)), clearHeight(point(t)), d)], p0: a, u: line.u, len: line.len, n: line.n, on: lower.map(p => p.k), p: (d, t) => {
+            if (adj && bounded && (typeof i.balanced === 'number' || i.balancedConstantOnPlanes)
+              && lower.every(panel => !layout.panels[panel.k]!.footprint)) {
+              const profile = local(a);
+              if (profile.applies && profile.pd > 0 && profile.w > 0 && [b, ...ranges.map(range => range.point)].every(pt => {
+                const sample = local(pt);
+                return sample.applies && sample.pd === profile.pd && sample.w === profile.w;
+              })) {
+                deliverStep(lower, line, profile);
+                return true;
+              }
+            }
+            bands.push({ bounded, margins: (d, t) => [...margins(point(t)), ...driftShapeMargins(local(point(t)), clearHeight(point(t)), d)], p0: a, u: line.u, len: line.len, n: line.n, on: lower.map(p => p.k), p: (d, t) => {
               const dr = local(point(t));
               return dr.applies && d <= dr.w ? dr.pd * (1 - d / dr.w) : 0;
             } });
             return applies;
           };
-          if (i.parapet && i.parapet.height > 0) {
+          if (!adj && i.parapet && i.parapet.height > 0) {
             const local = (pt: P2) => parapetDrift({ pg: i.pg, balanced: balanced(L.k, pt), parapetHeight: i.parapet!.height, lu });
             const applies = reportBand(local, pt => stepDriftMargins({ pg: i.pg, balanced: balanced(L.k, pt), stepHeight: i.parapet!.height }), pt => i.parapet!.height - local(pt).hb, (dr, pt, from, to) => {
               derivation.push(msg('snow.derivation.edgeInterval', { from: round(from, 3), to: round(to, 3), at: round((from + to) / 2, 3) }));
@@ -411,12 +426,12 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
             });
             if (applies && !refs.includes(REF_PARAPET)) refs.push(REF_PARAPET, REF_FIG9);
           }
-          for (const adj of adjacent) {
+          if (adj) {
             const beyond = layout.panels.some((p) => {
               const t = p.polygon.map((v) => dot(sub(v, a), line.u)), o = p.polygon.map((v) => dot(sub(v, a), edgeOut));
               return Math.max(...o) > 0.05 && Math.max(...t) > 0.05 && Math.min(...t) < line.len - 0.05;
             });
-            if (beyond) continue;
+            if (beyond) return;
             const inputs = (pt: P2) => ({ pg: i.pg, balanced: balanced(L.k, pt), stepHeight: adj.topZ - surfaces(L.k).elevation(pt), luUpper: adj.length, luLower: lu, separation: adj.separation });
             const local = (pt: P2) => stepDrift(inputs(pt));
             const applies = reportBand(local, pt => stepDriftMargins(inputs(pt)), pt => inputs(pt).stepHeight - local(pt).hb, (dr, pt, from, to) => {
@@ -427,6 +442,25 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
               }));
             });
             if (applies && !refs.includes(REF_DRIFT_ADJACENT)) refs.push(REF_DRIFT_ADJACENT, REF_FIG9);
+          }
+        };
+        if (i.parapet) for (const range of ranges) emit(range);
+        for (const adj of adjacent) {
+          const covered = modeled.filter(({ pair, fetch }) =>
+            agrees(adj.separation, pair.separation, pair.separation)
+            && agrees(adj.length, fetch, fetch)
+            && pair.elevations.every(({ upperZ }) => agrees(adj.topZ, upperZ, upperZ)))
+            .map(({ interval: [lo, hi] }) => [lo / edge.len, hi / edge.len] as const)
+            .sort(([a], [b]) => a - b);
+          for (const [from, to] of ranges) {
+            let remaining = from;
+            for (const [lo, hi] of covered) {
+              if (hi <= remaining) continue;
+              if (lo >= to) break;
+              if (remaining < lo) emit([remaining, lo], adj, true);
+              remaining = Math.max(remaining, hi);
+            }
+            if (remaining < to) emit([remaining, to], adj, covered.length > 0);
           }
         }
       }

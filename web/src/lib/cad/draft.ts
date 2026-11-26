@@ -624,7 +624,9 @@ export function generateRcDraft(
   let isolatedSlabs = 0;
   const conformingNodes = new Set<number>();
   const beamEdgeKey = (a: number, b: number) => a < b ? `${a}:${b}` : `${b}:${a}`;
-  const certifiedBeams = new Map<number, { a: CadPt; b: CadPt; edges: Set<string> }>();
+  const certifiedBeams = new Map<number, {
+    a: CadPt; b: CadPt; station: (point: CadPt) => number; edges: Map<string, readonly [number, number]>;
+  }>();
   const slabBounds = new Map(plan.slabs.map(slab => [slab, polygonBBox(slab.outline)]));
   const frameAtFloor = new Map(floorLevels.map(z => [z, {
     points: [] as CadPt[],
@@ -672,8 +674,16 @@ export function generateRcDraft(
           for (const beam of frameAtFloor.get(z)!.beams) {
             const edges = mesh.beamEdges.get(beam.id);
             if (!edges) continue;
-            const trace = certifiedBeams.get(beam.id) ?? { ...beam, edges: new Set<string>() };
-            for (const [i, j] of edges) trace.edges.add(beamEdgeKey(ids[i]!, ids[j]!));
+            const dx = beam.b.x - beam.a.x, dy = beam.b.y - beam.a.y;
+            const length = Math.hypot(dx, dy);
+            const trace = certifiedBeams.get(beam.id) ?? {
+              ...beam, edges: new Map<string, readonly [number, number]>(),
+              station: (point: CadPt) => ((point.x - beam.a.x) * dx + (point.y - beam.a.y) * dy) / length,
+            };
+            for (const [i, j] of edges) {
+              const from = trace.station(mesh.points[i]!), to = trace.station(mesh.points[j]!);
+              trace.edges.set(beamEdgeKey(ids[i]!, ids[j]!), [Math.min(from, to), Math.max(from, to)]);
+            }
             certifiedBeams.set(beam.id, trace);
           }
           for (const cell of mesh.cells) {
@@ -844,7 +854,7 @@ export function generateRcDraft(
   if (a.splitBeams) {
     const nodeById = (id: number) => b.nodes[id - 1];
     const beamTraces = new Map(certifiedBeams);
-    const shellNodeIds = new Set([...b.quads, ...b.plates].flatMap(q => q.nodes));
+    const shellNodeIds = new Set([...conformingNodes, ...[...b.quads, ...b.plates].flatMap(q => q.nodes)]);
     // Split beams to a FIXED POINT: a split creates new shorter sub-beams, and
     // another shell node may lie on a newly-created sub-beam (common where
     // closely-spaced structural lines make short stubs). Re-scan all shell
@@ -857,10 +867,12 @@ export function generateRcDraft(
         for (let guard = 0; guard < 4; guard++) {
           const eligible = beamTraces.size === 0 ? b.elements : b.elements.filter(element => {
             const trace = beamTraces.get(element.id);
-            return !trace || (
-              !trace.edges.has(beamEdgeKey(element.nodeI, element.nodeJ))
-              && pointOnSegment(nn, trace.a, trace.b, PLATE_EDGE_TOL, 0) !== null
-            );
+            if (!trace) return true;
+            if (trace.edges.has(beamEdgeKey(element.nodeI, element.nodeJ))) return false;
+            const station = trace.station(nn);
+            const certified = [...trace.edges.values()].some(([from, to]) =>
+              station >= from - PLATE_EDGE_TOL && station <= to + PLATE_EDGE_TOL);
+            return !certified || pointOnSegment(nn, trace.a, trace.b, PLATE_EDGE_TOL, 0) !== null;
           });
           const hit = conformingNodes.has(nid)
             ? beamThrough(nodeById, eligible, nn.x, nn.y, nn.z ?? 0, PLATE_EDGE_TOL, 0)
@@ -878,7 +890,7 @@ export function generateRcDraft(
       }
       if (splitThisRound === 0) break;
     }
-    const remaining = new Map([...certifiedBeams.values()].map(trace => [trace, new Set(trace.edges)]));
+    const remaining = new Map([...certifiedBeams.values()].map(trace => [trace, new Set(trace.edges.keys())]));
     for (const element of b.elements) {
       const trace = beamTraces.get(element.id);
       if (trace) remaining.get(trace)!.delete(beamEdgeKey(element.nodeI, element.nodeJ));

@@ -224,7 +224,7 @@ export function hasBoundedRafterGap(model: GravityModel): boolean {
     const members = candidates.filter(e => beamLike(model, e).ok).map(e => e.id);
     const coverage = attachedShellCoverage(model, candidates, members, carriers, links, groundedStations(model));
     for (const [id, attached] of coverage) {
-      if (attached === 'conflictingGapDecks') return true;
+      if (attached === 'conflictingGapDecks' || attached === 'eccentricGap') return true;
       if (typeof attached !== 'object' || !attached.gaps.length) continue;
       const { nodeI, nodeJ } = model.elements.get(id)!;
       const a = model.nodes.get(nodeI)!, b = model.nodes.get(nodeJ)!;
@@ -281,7 +281,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     if (original !== 'full' && attached === 'unresolvedOffset') {
       refuseGravityGeometry(msg('loadPlan.gravity.offsetRafter', { id: e.id }));
     }
-    if (attached === 'conflictingGapDecks' || original === 'partial' || (original !== 'full' && attached === 'partial')) {
+    if (attached === 'conflictingGapDecks' || attached === 'eccentricGap' || original === 'partial' || (original !== 'full' && attached === 'partial')) {
       refuseGravityGeometry(msg('loadPlan.gravity.unresolvedMember', { id: e.id }));
     }
     const covered = original === 'full' || attached === 'full' || (typeof attached === 'object' && !attached.gaps.length);
@@ -687,7 +687,7 @@ export const MAX_DECK_SPAN = 12;
 
 type ShellCoverage = 'none' | 'partial' | 'full';
 type RunInterval = [number, number];
-type AttachmentCoverage = ShellCoverage | 'unresolvedOffset' | 'conflictingGapDecks' | { gaps: WidthSpan[]; runGaps: readonly CertifiedGap[] };
+type AttachmentCoverage = ShellCoverage | 'unresolvedOffset' | 'conflictingGapDecks' | 'eccentricGap' | { gaps: WidthSpan[]; runGaps: readonly CertifiedGap[] };
 type ShellOffset = { offset: Segment[0]; error: number; shellNode: number };
 type ShellAttachment = { offset: Segment[0]; anchors: Set<number>; shellNodes: Set<number>; error: number };
 
@@ -772,18 +772,17 @@ function shellOffsets(
   return offsets;
 }
 
-type CertifiedGap = WidthSpan & DeckFootprint;
+type CertifiedGap = WidthSpan & DeckFootprint & { centered: boolean };
 
-function certifiedGap([start, end]: Segment, t0: number, t1: number, sides: RunInterval): CertifiedGap {
+function gapFootprint([start, end]: Segment, t0: number, t1: number, [lo, hi]: RunInterval, centered: boolean): CertifiedGap {
   const dx = end[0] - start[0], dy = end[1] - start[1];
   const length = Math.hypot(dx, dy);
-  const [lo, hi] = sides;
   const ring: PlanPoint[] = [[t0, lo], [t1, lo], [t1, hi], [t0, hi]];
   const footprint = ring.map(([t, side]): PlanPoint => [
     start[0] + t * dx - side * dy / length, start[1] + t * dy + side * dx / length,
   ]);
   const width = hi - lo;
-  return { t0, t1, width, footprint: [[footprint]], geometry: memberStrip([start, end], width).geometry };
+  return { t0, t1, width, centered, footprint: [[footprint]], geometry: memberStrip([start, end], width).geometry };
 }
 
 function boundedGapSpans([start, end]: Segment, intervals: readonly RunInterval[], carriers: readonly ShellCarrier[]): CertifiedGap[] | undefined {
@@ -833,7 +832,8 @@ function boundedGapSpans([start, end]: Segment, intervals: readonly RunInterval[
       if (shell.every(([station]) => station <= a + error) || shell.every(([station]) => station >= b - error)) continue;
       if (footprintIntersection(gap, [shell.map(([x, y]): PlanPoint => [x, y])]).length) return undefined;
     }
-    spans.push(certifiedGap([start, end], t0, t1, left));
+    const centered = Math.abs(lo + hi) <= error && Math.abs(right[0] + right[1]) <= error;
+    spans.push(gapFootprint([start, end], t0, t1, left, centered));
   }
   return spans;
 }
@@ -935,6 +935,10 @@ function rigidShellCoverage(
         continue;
       }
       claimedGaps.push(...gapSpans);
+      if (gapSpans.some(gap => !gap.centered)) {
+        for (const id of ids) byMember.set(id, 'eccentricGap');
+        continue;
+      }
       for (const { id, a, b, start, end } of parts) {
         const tolerance = 64 * Number.EPSILON * Math.max(1, Math.abs(a), Math.abs(b));
         const gaps: WidthSpan[] = [];

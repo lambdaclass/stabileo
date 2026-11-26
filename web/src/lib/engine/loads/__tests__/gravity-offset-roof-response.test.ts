@@ -183,7 +183,7 @@ function checkGapResponse(model: ReturnType<typeof offsetRoof>['model'], subdivi
 
 it('#2295 linear and P-Delta reactions include the shell loads and the rafter gap once', () => {
   for (const subdivided of [false, true]) {
-    checkGapResponse(offsetRoof(0.02, 0.53, -1, subdivided, [4, 6]).model, subdivided, 40);
+    checkGapResponse(offsetRoof(0.02, 0.53, -1, subdivided, [4, 6]).model, subdivided, 40, true);
   }
 });
 

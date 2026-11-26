@@ -2,7 +2,7 @@ import type { RigidLinkConstraint } from '../../types-3d';
 import { buildLoadPlan, type LoadModelData } from '../load-plan';
 import { input } from './gravity-width-mass-fixture';
 
-export function offsetRoof(offset: number, angle = 0, mirror = 1, subdivide = false, gap: boolean | readonly [number, number] = false, width = 4, endWidth = width) {
+export function offsetRoof(offset: number, angle = 0, mirror = 1, subdivide = false, gap: boolean | readonly [number, number] = false, width = 4, endWidth = width, gapCenter = gap ? 0 : width / 2) {
   const nodes: LoadModelData['nodes'] = new Map();
   const elements: LoadModelData['elements'] = new Map();
   const quads = new Map<number, { id: number; nodes: number[]; materialId: number; thickness: number }>();
@@ -13,7 +13,11 @@ export function offsetRoof(offset: number, angle = 0, mirror = 1, subdivide = fa
     return id;
   }
   const elevation = (x: number) => 3 + x / 5;
-  const row = (x: number) => [node(x, 0, elevation(x)), node(x, x === 0 || x === 10 ? endWidth : width, elevation(x))] as const;
+  const row = (x: number) => {
+    const end = x === 0 || x === 10;
+    return [node(x, end ? 0 : gapCenter - width / 2, elevation(x)),
+      node(x, end ? endWidth : gapCenter + width / 2, elevation(x))] as const;
+  };
   const first = row(0), last = row(10);
   function shell([a, d]: ReturnType<typeof row>, [b, c]: ReturnType<typeof row>) {
     const id = quads.size + 1;
@@ -49,8 +53,8 @@ export function offsetRoof(offset: number, angle = 0, mirror = 1, subdivide = fa
 
 export function doubleAttachedRoof(subdivide: boolean, secondGap: readonly [number, number] = [4, 6], stacked = false) {
   const [edgeWidth, endWidth] = stacked ? [3, 5] : [1.5, 6.5];
-  const { model, rafter } = offsetRoof(0.04, 0, 1, subdivide, [4, 6], edgeWidth, endWidth);
-  const { model: second } = offsetRoof(0.04, 0, stacked ? 1 : -1, subdivide, secondGap, edgeWidth, endWidth);
+  const { model, rafter } = offsetRoof(0.04, 0, 1, subdivide, [4, 6], edgeWidth, endWidth, edgeWidth / 2);
+  const { model: second } = offsetRoof(0.04, 0, stacked ? 1 : -1, subdivide, secondGap, edgeWidth, endWidth, edgeWidth / 2);
   const start = model.nodes.size;
   for (const { nodes, ...quad } of second.quads.values()) {
     for (const nodeId of nodes) {

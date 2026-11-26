@@ -759,8 +759,8 @@ it.each(['fixedDivisions', 'targetSize'] as const)(
   },
 );
 
-(process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip).each(['fixedDivisions', 'targetSize'] as const)(
-  'known wrong result: #2607 %s snaps wall ends beyond the certified portion of the same beam', meshMode => {
+it.each(['fixedDivisions', 'targetSize'] as const)(
+  '#2607 %s snaps wall ends beyond the certified portion of the same beam', meshMode => {
     for (const offset of [0, 0.005, 0.009, 0.011]) {
       const plan = reviewPlan();
       const left = { x: -4, y: 0 };

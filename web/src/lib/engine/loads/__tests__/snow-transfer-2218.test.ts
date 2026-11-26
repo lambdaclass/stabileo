@@ -465,10 +465,7 @@ it('#2607 a higher roof opening leaves the lower roof parapet band exposed', () 
 
 it('#2607 entered and modeled adjacent roofs generate one drift source', () => {
   const model = steppedRoof();
-  for (const node of model.nodes.values()) if (node.z === 5) {
-    node.x -= 1;
-    if (node.y === 0) node.y = 0.04;
-  }
+  for (const node of model.nodes.values()) if (node.z === 5) node.x -= 1;
   const layout = gravityLayout(model, { mode: 'panels', slab: 'oneWay', spanAxis: 'x', tributaryWidth: 1 });
   const lower = layout.panels.find(panel => panel.z === 3)!;
   const partition = { ...lower, roof: false, polygon: [[0, 0], [0.02, 0], [0.02, 0.08], [0, 0.08]] as [number, number][] };
@@ -488,8 +485,15 @@ it('#2607 entered and modeled adjacent roofs generate one drift source', () => {
     expect(snowCases([entered])?.cases).toEqual(cases?.cases);
   }
   const distinct = { ...entered, separation: 2 };
-  expect(driftAndSlidingLoads(model, partitioned, { ...inputs, adjacent: [distinct] }).distributed.length)
-    .toBeGreaterThan(driftAndSlidingLoads(model, partitioned, inputs).distributed.length);
+  const inset = steppedRoof();
+  for (const node of inset.nodes.values()) if (node.z === 5) {
+    node.x -= 1;
+    if (node.y === 0) node.y = 0.04;
+  }
+  const insetLayout = gravityLayout(inset, { mode: 'panels', slab: 'oneWay', spanAxis: 'x', tributaryWidth: 1 });
+  const insetPartitioned = { ...insetLayout, panels: [...insetLayout.panels, partition] };
+  expect(driftAndSlidingLoads(inset, insetPartitioned, { ...inputs, adjacent: [distinct] }).distributed.length)
+    .toBeGreaterThan(driftAndSlidingLoads(inset, insetPartitioned, inputs).distributed.length);
   const plan = (adjacent?: typeof entered[]) => buildLoadPlan({
     model, gravity: { mode: 'panels', slab: 'oneWay', spanAxis: 'x' },
     regulations: regulations(), dead: [], occupancyKey: 'vivienda', tributaryWidth: 1,
@@ -569,7 +573,7 @@ it('#2607 a low intervening roof preserves adjacent drift', () => {
   }
 });
 
-it.each([[0.004, 0.004, true], [-0.004, -0.009, true], [-0.004, -0.011, false]] as const)(
+it.each([[0.004, 0.004, true], [0.004, 0.009, true], [-0.004, -0.011, false]] as const)(
   '#2607 step edge mismatch %s to %s', (near, far, matches) => {
     const model = steppedRoof();
     for (const node of model.nodes.values()) if (node.z === 5 && node.x === 0) node.x = node.y === 0 ? near : far;
@@ -710,8 +714,8 @@ it.each([0, 0.005, 0.009, 0.011])('#2607 physical roof fetch across a %s m seam'
     .toBeCloseTo(30 * cases.result.ps + surcharge(cases.result.ps), 10);
 });
 
-(process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip).each([[0.002, 0.008], [0, 0.008], [0.008, 0.002]])(
-  'known wrong result: #2607 a skew gap of %s to %s m is separated', (near, far) => {
+it.each([[0.002, 0.008], [0, 0.008], [0.008, 0.002], [-0.002, 0.008]])(
+  '#2607 a skew gap of %s to %s m is separated', (near, far) => {
     const model = mesh([
       [[0, 0, 3], [7.5, 0, 3], [7.5, 4, 3], [0, 4, 3]],
       [[-9, 0, 5], [-near, 0, 5], [-far, 4, 5], [-9, 4, 5]],
@@ -727,12 +731,12 @@ it.each([0, 0.005, 0.009, 0.011])('#2607 physical roof fetch across a %s m seam'
   },
 );
 
-(process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip).each([0.04, 1, 2])(
-  'known wrong result: #2607 preserves entered adjacent snow in a %s m unmodeled edge interval', start => {
+it.each([[0.04, 4], [1, 4], [2, 4], [1, 3]] as const)(
+  '#2607 preserves entered adjacent snow outside modeled stations %s to %s m', (start, end) => {
     const model = steppedRoof();
     for (const node of model.nodes.values()) if (node.z === 5) {
       node.x -= 1;
-      if (node.y === 0) node.y = start;
+      node.y = node.y === 0 ? start : end;
     }
     const layout = gravityLayout(model, { ...adjacentGravity, tributaryWidth: 1 });
     const adjacent = [{ side: '-x', separation: 1, topZ: 5, length: 7.5 }] as const;
@@ -742,7 +746,18 @@ it.each([0, 0.005, 0.009, 0.011])('#2607 physical roof fetch across a %s m seam'
       const { w, pd } = stepDrift({ ...inputs, balanced, stepHeight: 2, luUpper: 7.5, luLower: 7.5, separation: 1 });
       return 4 * w * pd / 2;
     };
-    expect.soft(receivingSnowForce(model, driftAndSlidingLoads(model, layout, inputs).distributed)).toBeCloseTo(surcharge(inputs.balanced), 10);
+    const driftRows = driftAndSlidingLoads(model, layout, inputs).distributed;
+    expect.soft(receivingSnowForce(model, driftRows)).toBeCloseTo(surcharge(inputs.balanced), 10);
+    const { w, pd } = stepDrift({ ...inputs, stepHeight: 2, luUpper: 7.5, luLower: 7.5, separation: 1 });
+    const moment = driftRows.reduce((sum, row) => {
+      const member = model.elements.get(row.elementId)!;
+      const a = model.nodes.get(member.nodeI)!, b = model.nodes.get(member.nodeJ)!;
+      if (a.z !== 3 || b.z !== 3) return sum;
+      expect.soft(a.x).toBe(b.x);
+      const length = (row.b ?? Math.hypot(b.x - a.x, b.y - a.y)) - (row.a ?? 0);
+      return sum - length * a.x * (row.q + (row.qJ ?? row.q)) / 2;
+    }, 0);
+    expect.soft(moment).toBeCloseTo(4 * pd * w ** 2 / 6, 10);
     const cases = snowLoadCases({ model, layout, snow: config, tributaryWidth: 1 })!;
     expect.soft(cases.result.refused).toBeUndefined();
     expect.soft(receivingSnowForce(model, cases.cases[0]!.distributed)).toBeCloseTo(30 * cases.result.ps + surcharge(cases.result.ps), 10);
