@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { parseCadDxf } from '../parse';
 import { suggestLayerMappings, extractArchPlan } from '../classify';
 import { generateRcDraft, rectJ } from '../draft';
+import { buildDraft } from '../draft-build';
 import type { ArchPlan, RcDraftAssumptions } from '../types';
 import { simplePlanDxf } from './dxf-fixture';
 import { beamThrough } from '../../engine/mesh-weld';
@@ -464,4 +465,106 @@ describe('Continuous shared edges resolve the former refusal', () => {
 
 it.each(['fixedDivisions', 'targetSize'] as const)('#2429 %s meshes the full interior wall trace before transferring pressure', meshMode => {
   checkWallTrace(meshMode, 'interior');
+});
+
+
+const reviewCad = process.env.STABILEO_REPLAY_2607 ? it : it.skip;
+const reviewOutline = [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }, { x: 0, y: 4 }];
+const reviewSettings = assumptions({ nFloors: 1, storyHeights: [3], liveLoad: 0, generateCombos: false });
+
+function reviewPlan(): ArchPlan {
+  return {
+    ...fixturePlan(), openings: [],
+    columns: [reviewOutline[0]!, reviewOutline[1]!].map(at => ({ at, sizeSource: 'default' })),
+    beams: [{ a: reviewOutline[0]!, b: reviewOutline[1]! }],
+    walls: [{ a: { x: 1, y: 1 }, b: { x: 3, y: 3 }, thicknessSource: 'default' }],
+    slabs: [{ outline: reviewOutline, isQuad: true, isRectilinear: true }],
+  };
+}
+
+reviewCad.each([0, 0.002, 0.009, 0.011])('known wrong result: #2607 range columns join at CAD tolerance with offset %s', offset => {
+  const lower = reviewPlan();
+  const end = { x: 4 + offset, y: 0 };
+  const upper: ArchPlan = {
+    ...lower, slabs: [], walls: [],
+    columns: [reviewOutline[0]!, end].map(at => ({ at, sizeSource: 'default' })),
+    beams: [{ a: reviewOutline[0]!, b: end }],
+  };
+  const draft = buildDraft({
+    floorPlans: [{ plan: lower, fromFloor: 1, toFloor: 1 }, { plan: upper, fromFloor: 2, toFloor: 2 }],
+    assumptions: { ...reviewSettings, nFloors: 2, storyHeights: [3, 3] }, source: SOURCE,
+  });
+  const model = snapshotToModelShape(draft.snapshot);
+  const columns = [...model.elements.values()].filter(e =>
+    model.nodes.get(e.nodeI)!.z !== model.nodes.get(e.nodeJ)!.z && model.nodes.get(e.nodeJ)!.x > 3);
+  const bottom = columns.find(e => model.nodes.get(e.nodeJ)!.z === 3);
+  const top = columns.find(e => model.nodes.get(e.nodeJ)!.z === 6);
+  expect(draft.counts.columns).toBe(4);
+  expect(bottom).toBeDefined();
+  expect(top).toBeDefined();
+  if (offset < reviewSettings.snapTolerance) expect(top!.nodeI).toBe(bottom!.nodeJ);
+  else expect(top!.nodeI).not.toBe(bottom!.nodeJ);
+});
+
+reviewCad('known wrong result: #2607 range assembly preserves mesh vertices within CAD snap distance', () => {
+  const lower = reviewPlan();
+  lower.walls[0]!.a = { x: 0.002, y: 1 };
+  const upper = reviewPlan();
+  upper.walls = [];
+  upper.slabs = [];
+  const settings = { ...reviewSettings, meshMode: 'targetSize' as const, meshTargetSize: 1 };
+  const single = generateRcDraft(lower, settings, SOURCE);
+  const combined = buildDraft({
+    floorPlans: [{ plan: lower, fromFloor: 1, toFloor: 1 }, { plan: upper, fromFloor: 2, toFloor: 2 }],
+    assumptions: { ...settings, nFloors: 2, storyHeights: [3, 3] }, source: SOURCE,
+  });
+  const cells = (draft: typeof single) => {
+    const model = snapshotToModelShape(draft.snapshot);
+    return [...model.plates.values()].map(p => p.nodes.map(id => {
+      const { x, y } = model.nodes.get(id)!;
+      return [x, y];
+    }));
+  };
+  const lowerCells = cells(single);
+  expect(lowerCells.flat()).toEqual(expect.arrayContaining([[0, 1], [0.002, 1]]));
+  expect(cells(combined)).toEqual(lowerCells);
+});
+
+reviewCad.each(['fixedDivisions', 'targetSize'] as const)('known wrong result: #2607 %s follows the welded endpoints of the slab beam', meshMode => {
+  const plan = reviewPlan();
+  const left = { x: 0, y: 2.002 }, right = { x: 4, y: 2 };
+  plan.columns = [left, right].map(at => ({ at, sizeSource: 'default' }));
+  plan.beams.push({ a: { x: 0, y: 2 }, b: right });
+  const result = generateRcDraft(plan, { ...reviewSettings, meshMode, meshTargetSize: 1 }, SOURCE);
+  const model = snapshotToModelShape(result.snapshot);
+  const edgeKey = (a: number, b: number) => [Math.min(a, b), Math.max(a, b)].join(':');
+  const slabEdges = new Set([...model.plates.values()].flatMap(({ nodes }) =>
+    nodes.map((a, i) => edgeKey(a, nodes[(i + 1) % nodes.length]!))));
+  const beams = [...model.elements.values()].filter(e => {
+    const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+    return a.z === b.z && a.y >= 2 && b.y >= 2;
+  });
+  expect(result.counts.slabTriangles).toBeGreaterThan(0);
+  expect(beams.length).toBeGreaterThan(1);
+  expect(beams.every(e => slabEdges.has(edgeKey(e.nodeI, e.nodeJ)))).toBe(true);
+  const lengths = beams.map(e => {
+    const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  });
+  expect(lengths.reduce((a, b) => a + b, 0)).toBeCloseTo(Math.hypot(right.x - left.x, right.y - left.y), 8);
+});
+
+reviewCad.each([0, 0.002, 0.011])('known wrong result: #2607 wall end outside a conforming slab snaps at offset %s', offset => {
+  const plan = reviewPlan();
+  const end = { x: 5, y: 3 };
+  plan.columns.push({ at: { x: end.x + offset, y: end.y }, sizeSource: 'default' });
+  plan.walls = [{ a: { x: 1, y: 1 }, b: end, thicknessSource: 'default' }];
+  const draft = generateRcDraft(plan, reviewSettings, SOURCE);
+  const model = snapshotToModelShape(draft.snapshot);
+  const column = [...model.elements.values()].find(e => model.nodes.get(e.nodeJ)!.x === end.x + offset)!;
+  const wallNodes = new Set([...model.quads.values()].flatMap(q => q.nodes));
+  expect(wallNodes.has(column.nodeJ)).toBe(offset < reviewSettings.snapTolerance);
+  expect(draft.counts.slabTriangles).toBeGreaterThan(0);
+  const slabNodes = new Set([...model.plates.values()].flatMap(p => p.nodes));
+  expect([...wallNodes].filter(id => slabNodes.has(id)).length).toBeGreaterThan(1);
 });
