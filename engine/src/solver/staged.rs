@@ -944,7 +944,7 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         let (asm_dense, support_magnitude) = if use_sparse {
             (None, None)
         } else {
-            let (assembly, magnitude) = super::assembly::without_artificial_stiffness(|| assemble_3d_with_magnitude(&stage_input, &dof_num));
+            let (assembly, magnitude) = super::assembly::without_artificial_stiffness(|| super::assembly::assemble_3d_with_magnitude(&stage_input, &dof_num));
             (Some(assembly), magnitude)
         };
         let asm_trips = if use_sparse {
