@@ -206,6 +206,32 @@ fn every_c08_reproducer_is_either_solved_identically_or_refused_by_the_verdict()
     assert!(wrong.is_empty(), "{}", wrong.join("\n"));
 }
 
+fn assert_c08_proven_elastic_mechanism(issue: u32, nodes: &[usize]) {
+    let (verdict, _) = replay(issue);
+    assert_eq!(verdict.verdict, Verdict::Mechanism, "#{issue}: {verdict:?}");
+    assert_eq!(verdict.reason, Reason::FreeTranslation, "#{issue}: {verdict:?}");
+    assert_eq!(verdict.mode_nodes, nodes, "#{issue}: {verdict:?}");
+    assert!(verdict.refusal().is_some(), "#{issue}: {verdict:?}");
+}
+
+#[test]
+#[ignore = "known wrong result: #973"]
+fn issue_973_elastic_verdict_proves_released_member_swing() {
+    assert_c08_proven_elastic_mechanism(973, &[2]);
+}
+
+#[test]
+#[ignore = "known wrong result: #1029"]
+fn issue_1029_elastic_verdict_proves_pinned_frame_swing() {
+    assert_c08_proven_elastic_mechanism(1029, &[2]);
+}
+
+#[test]
+#[ignore = "known wrong result: #1041"]
+fn issue_1041_elastic_verdict_proves_pinned_frame_swing() {
+    assert_c08_proven_elastic_mechanism(1041, &[2]);
+}
+
 #[test]
 fn no_model_of_the_example_and_feature_corpus_is_refused() {
     let mut refused = Vec::new();
