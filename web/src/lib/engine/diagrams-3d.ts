@@ -26,7 +26,7 @@ export interface ElementDiagram3D {
 
 const diagramKinds = ['momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion'] as const;
 
-interface SpatialCurve extends Pick<DiagramCurve, 'cuts' | 'value'> {
+interface SpatialCurve extends Pick<DiagramCurve, 'cuts' | 'mayHaveJump' | 'value'> {
   readonly length: number;
   cutLocations: ReadonlyMap<number, DiagramCutLocation>;
   polynomials?: {
@@ -120,6 +120,7 @@ function magnitudeCurve(
   const magnitudeBound = () => curves.reduce((bound, curve) => addMagnitudeBounds(bound, maxMagnitude(curve)), 0);
   return {
     length,
+    mayHaveJump: curves.some(curve => curve.mayHaveJump),
     get cuts() { return cuts(); },
     get cutLocations() { return locations(); },
     extrema: exact ? prepareMagnitudeExtrema(polynomialParts, method, distances, length, keepAlias)
@@ -218,6 +219,7 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
     let extrema: DiagramExtremum[] | undefined;
     return {
       length,
+      mayHaveJump: true,
       magnitudeBound,
       get cuts() { return sortedStations(locations().keys()); },
       get cutLocations() { return locations(); },
@@ -253,6 +255,7 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
   };
   return {
     length,
+    mayHaveJump: curve.mayHaveJump,
     get cuts() { return curve.cuts; },
     get cutLocations() { return cutLocations ??= new Map([...curve.cutDistances].map(([t, x]) => [t, { x }])); },
     value: station => curve.value({ ...station, distance: distance(station) }),
@@ -285,21 +288,36 @@ export function criticalDiagramStations3D(ef: ElementForces3D, purpose: 'diagram
   });
 }
 
-export function memberCriticalOrdinates3D(
-  ef: ElementForces3D, kind: Diagram3DKind | readonly [Diagram3DKind, Diagram3DKind], inwardAtI = false,
+type CriticalDiagram3DKind = Diagram3DKind | readonly [Diagram3DKind, Diagram3DKind];
+
+export function memberCriticalOrdinates3D(ef: ElementForces3D, kind: CriticalDiagram3DKind, inwardAtI = false) {
+  return memberCriticalOrdinatesByKind3D(ef, [kind], inwardAtI)[0]!;
+}
+
+export function memberCriticalOrdinatesByKind3D(
+  ef: ElementForces3D, kinds: readonly CriticalDiagram3DKind[], inwardAtI = false,
 ) {
-  const curve = typeof kind === 'string' ? spatialCurve(ef, kind)
-    : magnitudeCurve(kind.map(component => spatialCurve(ef, component)), 'srss', ef.length, true);
+  const curves: Partial<Record<Diagram3DKind, SpatialCurve>> = {};
+  const component = (kind: Diagram3DKind) => curves[kind] ??= spatialCurve(ef, kind);
+  return kinds.map(kind => {
+    const curve = typeof kind === 'string' ? component(kind)
+      : magnitudeCurve(kind.map(component), 'srss', ef.length, true);
+    return criticalSpatialOrdinates(curve, inwardAtI);
+  });
+}
+
+function criticalSpatialOrdinates(curve: SpatialCurve, inwardAtI: boolean) {
   if (curve.magnitudeBound) throw unavailableDiagramExtrema();
   const extrema = curve.extrema();
-  const critical = diagramCriticalPoints(curve, extrema.filter(peak => !peak.aliased), inwardAtI);
-  if (extrema.some(peak => peak.aliased)) {
+  const aliased = extrema.filter(peak => peak.aliased);
+  const critical = diagramCriticalPoints(curve, aliased.length ? extrema.filter(peak => !peak.aliased) : extrema, inwardAtI);
+  if (aliased.length) {
     let min = Infinity, max = -Infinity;
     for (const { value } of critical) {
       min = Math.min(min, value);
       max = Math.max(max, value);
     }
-    if (extrema.some(peak => peak.aliased && (peak.value < min || peak.value > max))) throw unavailableDiagramExtrema();
+    if (aliased.some(peak => peak.value < min || peak.value > max)) throw unavailableDiagramExtrema();
   }
   return critical.map(point => ({
     ...point,

@@ -29,7 +29,7 @@ import type { ElementDesignDemands, GoverningDemand } from './station-design-for
 import { criticalForceStations, stationTs, type StationSpec } from './station-forces';
 import { unavailableDiagramExtrema, type DiagramStation } from './member-diagram';
 import { sameCutLocation } from './diagram-cut';
-import { memberCriticalOrdinates3D, prepareDiagramEvaluator3D, type Diagram3DKind } from './diagrams-3d';
+import { memberCriticalOrdinatesByKind3D, prepareDiagramEvaluator3D, type Diagram3DKind } from './diagrams-3d';
 import { resultComponents } from '../axes/result-components';
 import { makeFrame, type AxesChoice } from '../axes/frame';
 
@@ -205,16 +205,18 @@ export function summaryRows(kind: TableKind, sources: readonly Source[], opts: T
   for (const source of sources) {
     const visit = (c: number, value: number, entity: number, end: Extreme['end'], x: number | undefined, side?: Extreme['side']) => {
       if (!Number.isFinite(value)) return;
+      const newMax = beats(1, value, entity, x, max[c]!);
+      const newMin = beats(-1, value, entity, x, min[c]!);
+      if (!newMax && !newMin) return;
       const where = { value, entity, end, x, source, ...(side && { side }) };
-      if (beats(1, value, entity, x, max[c]!)) max[c] = where;
-      if (beats(-1, value, entity, x, min[c]!)) min[c] = where;
+      if (newMax) max[c] = where;
+      if (newMin) min[c] = where;
     };
     if (critical) {
       const diagrams = opts.resultant ? [...forceDiagrams, ...resultantDiagrams] : forceDiagrams;
       for (const ef of source.results.elementForces) {
         if (opts.entities && !opts.entities.has(ef.elementId)) continue;
-        diagrams.forEach((diagram, c) => {
-          const ordinates = memberCriticalOrdinates3D(ef, diagram);
+        memberCriticalOrdinatesByKind3D(ef, diagrams).forEach((ordinates, c) => {
           for (const { t, value, x, side } of ordinates) {
             visit(c, value, ef.elementId, t === 0 ? 'i' : t === 1 ? 'j' : undefined, x, side);
           }

@@ -275,9 +275,7 @@ const reviewForces: ElementForces3D = {
 const criticalOptions = { ...canonical, stations: 'critical', resultant: true } as const;
 const reviewSources = (forces: ElementForces3D) => [{ ...A, results: { ...A.results, elementForces: [forces] } }];
 
-const scaleRegression = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
-
-scaleRegression('known wrong result: #2581 shares component curves between the report summary and its resultants', () => {
+it('known wrong result: #2581 shares component curves between the report summary and its resultants', () => {
   let reads = 0;
   const loads = [{ a: 0, b: 1, qI: 8, qJ: 8 }];
   const forces: ElementForces3D = {
