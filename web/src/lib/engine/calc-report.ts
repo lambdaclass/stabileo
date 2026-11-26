@@ -1,7 +1,7 @@
 import { bindMemberEnvelopeEnds, unavailableDiagramExtrema } from './member-diagram';
 import { maxMemberForce } from './member-force-extrema';
 import { memberEndSections2D } from './diagrams';
-import { memberEndSections3D } from './diagrams-3d';
+import { memberEndComponents3D } from './diagrams-3d';
 import { resultComponents } from '../axes/result-components';
 /**
  * Basic Structural Calc-Book Report Generator
@@ -538,7 +538,7 @@ function buildForcesSection(data: CalcReportData, num = '5'): string {
     h.push(`<table style="font-size:7.5pt"><tr><th>${t('table.elemLabel')}</th><th>${t('tables.end')}</th><th>N (${uf})</th><th>Vy (${uf})</th><th>Vz (${uf})</th><th>Mx (${um})</th><th>My (${um})</th><th>Mz (${um})</th></tr>`);
     const showForces = condensed ? forces.slice(0, 30) : forces;
     for (const ef of showForces) {
-      const [i, j] = memberEndSections3D(ef);
+      const [i, j] = memberEndComponents3D(ef);
       h.push(`<tr><td rowspan="2">${ef.elementId}</td><td>I</td><td class="num">${F(i.n)}</td><td class="num">${F(i.vy)}</td><td class="num">${F(i.vz)}</td><td class="num">${M(i.mx)}</td><td class="num">${M(i.my)}</td><td class="num">${M(i.mz)}</td></tr>`);
       h.push(`<tr><td>J</td><td class="num">${F(j.n)}</td><td class="num">${F(j.vy)}</td><td class="num">${F(j.vz)}</td><td class="num">${M(j.mx)}</td><td class="num">${M(j.my)}</td><td class="num">${M(j.mz)}</td></tr>`);
     }

@@ -3,7 +3,7 @@
 // using equilibrium equations with distributed and point loads.
 
 import { type UnitSystem, formatDiagramValue } from '../utils/units';
-import { absolutePolynomialBranches, addMagnitudeBounds, checkedCurveValue, boundMemberEnvelopeDiagram, diagramCriticalPoints, diagramCurvePoints, envelopeMemberEndValues, fullSpanFallback, indexDiagramExtrema, inwardMemberEndValues, diagramOrdinateExtrema, memberEndFace, memberSectionStation, memberDiagram, curveExtrema, prepareCurveExtrema, prepareMagnitudeExtrema, sortedStations, spanCuts, spanResultantExtrema, unavailableDiagramExtrema, visitContinuousSpanCriticalPoints, visitMemberCriticalPoints, type DiagramCurve, type DiagramExtremum, type DiagramOrdinate, type DiagramStation, type PolynomialBranch } from './member-diagram';
+import { absolutePolynomialBranches, addMagnitudeBounds, checkedCurveValue, requireConcurrentSectionForces, diagramCriticalPoints, diagramCurvePoints, envelopeMemberEndValues, fullSpanFallback, indexDiagramExtrema, inwardMemberEndValues, diagramOrdinateExtrema, memberEndFace, memberSectionStation, memberDiagram, curveExtrema, prepareCurveExtrema, prepareMagnitudeExtrema, sortedStations, spanCuts, spanResultantExtrema, unavailableDiagramExtrema, visitContinuousSpanCriticalPoints, visitMemberCriticalPoints, type DiagramCurve, type DiagramExtremum, type DiagramOrdinate, type DiagramStation, type PolynomialBranch } from './member-diagram';
 import { distanceUnits, exactCutUnits, sameCutLocation, type DiagramCutLocation } from './diagram-cut';
 import type { ElementForces3D, EnvelopeDiagramData3D } from './types-3d';
 
@@ -305,11 +305,28 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
 export function sampleMemberResultant3D(
   members: readonly ElementForces3D[], kinds: readonly [Diagram3DKind, Diagram3DKind], displayStations: readonly number[],
 ) {
+  return sampleMemberCurves(members, displayStations, member => [
+    magnitudeCurve(kinds.map(kind => spatialCurve(member, kind)), 'srss', member.length, true),
+  ]);
+}
+
+export function sampleMemberComponentMagnitudes3D(
+  members: readonly ElementForces3D[], kinds: readonly Diagram3DKind[], displayStations: readonly number[],
+) {
+  return sampleMemberCurves(members, displayStations, member => kinds.map(kind => spatialCurve(member, kind)));
+}
+
+function sampleMemberCurves(
+  members: readonly ElementForces3D[], displayStations: readonly number[],
+  curvesFor: (member: ElementForces3D) => readonly SpatialCurve[],
+) {
   const length = members[0]?.length;
   if (length === undefined || members.some(member => member.length !== length)) throw unavailableDiagramExtrema();
-  const sources = members.map(member => {
+  const curves = members.flatMap(member => {
     requireConcurrentSectionForces(member);
-    const curve = magnitudeCurve(kinds.map(kind => spatialCurve(member, kind)), 'srss', length, true);
+    return curvesFor(member);
+  });
+  const sources = curves.map(curve => {
     if (curve.magnitudeBound) throw unavailableDiagramExtrema();
     const extrema = curve.extrema();
     const points = spatialCriticalPoints(curve, undefined, extrema);
@@ -318,7 +335,7 @@ export function sampleMemberResultant3D(
   const cuts = joinedCutLocations(sources.map(({ curve }) => curve.cutLocations));
   const ts = sortedStations([...displayStations, ...cuts.keys(), ...sources.flatMap(({ points }) => points.map(point => point.t))]);
   const valueAt = (at: DiagramStation) => sources.reduce(
-    (max, { curve, critical }) => Math.max(max, checkedCurveValue(curve, at, critical)), 0);
+    (max, { curve, critical }) => Math.max(max, Math.abs(checkedCurveValue(curve, at, critical))), 0);
   const stations = ts.flatMap(t => {
     const location = cuts.get(t);
     const cut = memberSectionStation(location ? { t, distance: location.x, location } : { t });
@@ -327,7 +344,7 @@ export function sampleMemberResultant3D(
     const right = valueAt({ ...cut, right: true });
     return value === right ? [{ t, value }] : [{ t, value }, { t, value: right }];
   });
-  const peak = sources.reduce((max, { points }) => Math.max(max, diagramOrdinateExtrema(points).max.value), 0);
+  const peak = sources.reduce((max, { points }) => Math.max(max, Math.abs(diagramOrdinateExtrema(points).abs.value)), 0);
   return { stations, peak };
 }
 
@@ -485,11 +502,12 @@ export function memberEndForces3D(ef: ElementForces3D, kind: Diagram3DKind): [nu
     () => prepareDiagramEvaluator3D(ef, kind));
 }
 
-export function requireConcurrentSectionForces(ef: ElementForces3D): void {
-  if (ef.combined || boundMemberEnvelopeDiagram(ef, 'axial')) throw unavailableDiagramExtrema();
+export function memberEndSections3D(ef: ElementForces3D) {
+  requireConcurrentSectionForces(ef);
+  return memberEndComponents3D(ef);
 }
 
-export function memberEndSections3D(ef: ElementForces3D) {
+export function memberEndComponents3D(ef: ElementForces3D) {
   const [ni, nj] = memberEndForces3D(ef, 'axial');
   const [vyi, vyj] = memberEndForces3D(ef, 'shearY');
   const [vzi, vzj] = memberEndForces3D(ef, 'shearZ');

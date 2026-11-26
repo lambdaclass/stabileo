@@ -1,5 +1,5 @@
 import { memberEndSections2D } from '../engine/diagrams';
-import { memberEndSections3D } from '../engine/diagrams-3d';
+import { memberEndComponents3D } from '../engine/diagrams-3d';
 import { resultComponents } from '../axes/result-components';
 /**
  * Excel Export Module
@@ -286,7 +286,7 @@ function createElementsSheet(): Xlsx.WorkSheet {
     if (hasResults && is3D && r3d) {
       const f = r3d.elementForces.find(f => f.elementId === elem.id);
       if (f) {
-        const [i, j] = memberEndSections3D(f);
+        const [i, j] = memberEndComponents3D(f);
         row.push(
           Number(i.n.toFixed(4)), Number(j.n.toFixed(4)),
           Number(i.vy.toFixed(4)), Number(j.vy.toFixed(4)),

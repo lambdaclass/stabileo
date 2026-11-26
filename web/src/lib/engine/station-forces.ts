@@ -22,7 +22,7 @@
 
 import type { ElementForces3D } from './types-3d';
 import { criticalDiagramStations3D, evaluateDiagramAt } from './diagrams-3d';
-import { memberSectionStation, sortedStations, type DiagramStation } from './member-diagram';
+import { memberSectionStation, requireConcurrentSectionForces, sortedStations, type DiagramStation } from './member-diagram';
 
 /** Full force state at one station of one element. Signs are the solver's and are preserved. */
 export interface StationForces {
@@ -62,6 +62,7 @@ export function stationTs(ef: ElementForces3D, spec: StationSpec): number[] {
 
 /** Extract the full force tuple at a single station. */
 export function extractForcesAtStation(ef: ElementForces3D, station: number | DiagramStation): StationForces {
+  requireConcurrentSectionForces(ef);
   const cut = memberSectionStation(typeof station === 'number' ? { t: station } : station);
   const { t } = cut;
   const x = cut.distance ?? t * ef.length;

@@ -3,7 +3,7 @@ import { ConcurrentDemand } from '../concurrent-demand';
 import { extractForcesAtStation } from '../station-forces';
 import { completeResultDemands } from '../result-demand-gate';
 import { memberEndForces2D } from '../diagrams';
-import { memberEndForces3D } from '../diagrams-3d';
+import { memberEndForces3D, sampleMemberResultant3D } from '../diagrams-3d';
 import { analyzeSectionStress3D, computeElementStress3D, interpolateForces3D } from '../section-stress-3d';
 import { stationForces2D, stationForces3D } from '../../section/panel';
 import { forcePeakScale } from '../member-force-extrema';
@@ -518,17 +518,22 @@ describe('consumer sweep #2581', () => {
     expect(() => sampleElementValues(detached, 'shear', section)).toThrow('solver.diagramExtremaUnavailable');
   });
 
-  it('known wrong result: #2581 spatial envelope moment takes concurrent resultants on shared cuts', () => {
+  it('known wrong result: #2581 spatial envelope moments and vector resultants share cut sampling', () => {
     const section = { A: 1, Iz: 1, Iy: 1, h: 1, b: 1, fy: null };
     const concurrent = r3D(ef3D({ myStart: 3, myEnd: 3, mzStart: 4, mzEnd: 4 }));
     const y = r3D(ef3D({ myStart: 3, myEnd: 3 }));
     const z = r3D(ef3D({ mzStart: 4, mzEnd: 4 }));
     for (const [sources, peak] of [[[concurrent], 5], [[y, z], 4]] as const) {
+      const resultants = sampleMemberResultant3D(sources.flatMap(source => source.elementForces), ['momentY', 'momentZ'], [0, 0.5, 1]);
+      expect.soft(resultants.peak).toBe(peak);
+      expect.soft(resultants.stations.every(cut => cut.value === peak)).toBe(true);
+      expect.soft(new Set(resultants.stations.map(cut => cut.t)).size).toBe(resultants.stations.length);
+
       const envelope = computeEnvelope3D([...sources])!;
-      const result = sampleElementValues(envelope.maxAbsResults3D.elementForces[0]!, 'moment', section);
-      expect.soft(result.peak).toBe(peak);
-      expect.soft(result.stations.every(cut => cut.value === peak)).toBe(true);
-      expect.soft(new Set(result.stations.map(cut => cut.t)).size).toBe(result.stations.length);
+      const components = sampleElementValues(envelope.maxAbsResults3D.elementForces[0]!, 'moment', section);
+      expect.soft(components.peak).toBe(4);
+      expect.soft(components.stations.every(cut => cut.value === 4)).toBe(true);
+      expect.soft(new Set(components.stations.map(cut => cut.t)).size).toBe(components.stations.length);
     }
   });
 });
@@ -545,7 +550,7 @@ describe('concurrent section result consumers', () => {
     ];
   }
 
-  it.skip('known wrong result: #2581 round 3 endpoint demands refuse independent axial and bending maxima', () => {
+  it('known wrong result: #2581 round 3 endpoint demands refuse independent axial and bending maxima', () => {
     expect(ConcurrentDemand.endpoints(axial).map(d => [d.n, d.my])).toEqual([[-100, 0], [-100, 0]]);
     expect(ConcurrentDemand.endpoints(bending).map(d => [d.n, d.my])).toEqual([[0, 50], [0, 50]]);
     for (const record of nonconcurrentRecords()) {
@@ -554,7 +559,7 @@ describe('concurrent section result consumers', () => {
     }
   });
 
-  it.skip('known wrong result: #2581 round 3 quick end stress refuses independent force components', () => {
+  it('known wrong result: #2581 round 3 quick end stress refuses independent force components', () => {
     const stress = (record: ElementForces3D) => computeElementStress3D(record, section.A, section.Iz, section.Iy, section.h, section.b, section.fy);
     for (const [force, sigma] of [[axial, 100], [bending, 50]] as const) {
       const { start, end, max } = stress(force);
@@ -565,7 +570,7 @@ describe('concurrent section result consumers', () => {
     }
   });
 
-  it.skip('known wrong result: #2581 round 3 every piece must carry concurrent forces', () => {
+  it('known wrong result: #2581 round 3 every piece must carry concurrent forces', () => {
     const first = { ...axial, length: 3 };
     const concurrent = ef3D({ pieces: [{ x0: 0, x1: 3, sectionId: 1, forces: first }, { x0: 3, x1: 6, sectionId: 1, forces: { ...bending, length: 3 } }] });
     expect(ConcurrentDemand.endpoints(concurrent).map(d => [d.n, d.my])).toEqual([[-100, 0], [0, 50]]);
@@ -589,7 +594,7 @@ describe('concurrent section result consumers', () => {
     }
   });
 
-  it.skip('known wrong result: #2581 round 3 the section panel refuses aggregate planar and spatial records', () => {
+  it('known wrong result: #2581 round 3 the section panel refuses aggregate planar and spatial records', () => {
     const planarAxial = ef2D({ nStart: -100, nEnd: -100 });
     const planarBending = ef2D({ mStart: 50, mEnd: 50 });
     const planar = computeEnvelope([r2D(planarAxial), r2D(planarBending)])!.maxAbsResults.elementForces[0]!;
@@ -603,7 +608,7 @@ describe('concurrent section result consumers', () => {
     }
   });
 
-  it.skip('known wrong result: #2581 round 3 envelope ends and extrema refuse the same malformed ordinates', () => {
+  it('known wrong result: #2581 round 3 envelope ends and extrema refuse the same malformed ordinates', () => {
     const planar = computeEnvelope([r2D(ef2D({ nStart: -10, nEnd: -10 }))])!;
     const spatial = computeEnvelope3D([r3D(ef3D({ nStart: -10, nEnd: -10 }))])!;
     for (const [source, member, endForces] of [
@@ -632,7 +637,7 @@ describe('concurrent section result consumers', () => {
     }
   });
 
-  it.skip('known wrong result: #2581 round 3 moment colours use the larger component at shared faces', () => {
+  it('known wrong result: #2581 round 3 moment colours use the larger component at shared faces', () => {
     const left = ef3D({ length: 3, myStart: 3, myEnd: 3, mzStart: 4, mzEnd: 4 });
     const right = ef3D({ length: 3, myStart: -2, myEnd: -2, mzStart: 1, mzEnd: 1 });
     const member = ef3D({ pieces: [{ x0: 0, x1: 3, sectionId: 1, forces: left }, { x0: 3, x1: 6, sectionId: 1, forces: right }] });
@@ -649,7 +654,7 @@ describe('concurrent section result consumers', () => {
   });
 });
 
-it.skip('known wrong result: #2581 round 3 solved linear and nonlinear envelopes cannot drive section stress', async () => {
+it('known wrong result: #2581 round 3 solved linear and nonlinear envelopes cannot drive section stress', async () => {
   await initSolver();
   const length = 4;
   const axialLoad = -100;

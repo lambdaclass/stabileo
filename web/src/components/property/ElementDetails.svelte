@@ -1,6 +1,6 @@
 <script lang="ts">
   import { memberEndSections2D } from '../../lib/engine/diagrams';
-  import { memberEndSections3D } from '../../lib/engine/diagrams-3d';
+  import { memberEndComponents3D } from '../../lib/engine/diagrams-3d';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import { computeElementStress } from '../../lib/store/results.svelte';
@@ -292,7 +292,7 @@
           {@const forces3D = resultsStore.getElementForces3D(elemId)}
           {@const fb3 = certificateStore.forceBound<ForceBound3D>(true, elemId)}
           {#if forces3D}
-            {@const [i, j] = memberEndSections3D(forces3D)}
+            {@const [i, j] = memberEndComponents3D(forces3D)}
             <h4>{t('prop.internalForces3d')}</h4>
             <div class="property-row">
               <span>N_i:</span>

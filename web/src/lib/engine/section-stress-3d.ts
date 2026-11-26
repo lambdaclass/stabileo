@@ -11,12 +11,12 @@
 // Torsion: τ_T (Bredt for closed, Saint-Venant for open sections)
 // Von Mises: σ_vm = √(σ² + 3·(τ_xy² + τ_xz²))
 
-import { evaluateDiagramAt, memberEndSections3D, requireConcurrentSectionForces, stationaryBendingStations3D } from './diagrams-3d';
+import { evaluateDiagramAt, memberEndSections3D, stationaryBendingStations3D } from './diagrams-3d';
 import type { ElementForces3D } from './types-3d';
 import type { Section } from '../store/model.svelte';
 import { computeSectionStress3DFromForces, isWasmReady } from './wasm-solver';
 import { t } from '../i18n';
-import { unavailableDiagramExtrema, type DiagramStation } from './member-diagram';
+import { requireConcurrentSectionForces, unavailableDiagramExtrema, type DiagramStation } from './member-diagram';
 import { requireEngine } from './engine-unavailable';
 import {
   resolveSectionGeometryLegacy,

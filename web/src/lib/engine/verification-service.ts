@@ -1,8 +1,7 @@
-import { criticalDiagramStations3D, evaluateDiagramAt, requireConcurrentSectionForces } from './diagrams-3d';
+import { criticalDiagramStations3D, evaluateDiagramAt } from './diagrams-3d';
 import { exactForcePeak, exactMemberForceRange } from './member-force-extrema';
-import { memberEndFace } from './member-diagram';
+import { memberEndFace, requireConcurrentSectionForces, type DiagramStation } from './member-diagram';
 import { extractForcesAtStation } from './station-forces';
-import type { DiagramStation } from './member-diagram';
 import { ConcurrentDemand } from './concurrent-demand';
 import { CompleteDemandSet, IncompleteConcurrentDemandError, requireDemandInventories, demandCoverage, memberDemandScope, type DemandCoverage } from './complete-demand-set';
 import { completeResultDemands } from './result-demand-gate';
@@ -223,6 +222,7 @@ function stationsWithExtrema(
   grid: StationForces[],
   purpose: Parameters<typeof criticalDiagramStations3D>[1],
 ): StationForces[] {
+  requireConcurrentSectionForces(ef);
   const at = (cut: DiagramStation) => ({ ...extractForcesAtStation(ef, cut), x: cut.t * ef.length });
   const represented = new Set(grid.map(s => s.t));
   const cuts = criticalDiagramStations3D(ef, purpose).filter(cut => !represented.has(cut.t) || (memberEndFace(cut.t) === undefined && cut.right));

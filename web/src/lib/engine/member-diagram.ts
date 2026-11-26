@@ -1,7 +1,7 @@
 import { EngineMessageError } from '../codes/message';
 import { distanceUnits, envelopeJumpCuts, type DiagramCutLocation } from './diagram-cut';
 import type { ElementEnvelopeDiagram, FullEnvelope } from './types';
-import type { FullEnvelope3D } from './types-3d';
+import type { ElementForces3D, FullEnvelope3D } from './types-3d';
 import { polynomialValue, preparePolynomialSign, roundDiagramSum, sumDiagramTerms, type DiagramPolynomial, type DiagramSum } from './diagram-sum';
 
 export const DIAGRAM_EXTREMA_UNAVAILABLE = 'solver.diagramExtremaUnavailable';
@@ -482,7 +482,7 @@ export function memberSectionStation(station: DiagramStation): DiagramStation {
 }
 
 type MemberEndRecord = { length: number; elementId: number };
-const envelopeMemberDiagrams = new WeakMap<MemberEndRecord, {
+const envelopeMemberDiagrams = new WeakMap<object, {
   byKind: ReadonlyMap<string, ReadonlyMap<number, ElementEnvelopeDiagram>>;
   spatialEnvelope?: FullEnvelope3D;
 }>();
@@ -502,6 +502,12 @@ export function bindMemberEnvelopeEnds<E extends FullEnvelope | FullEnvelope3D |
   const binding = { byKind, spatialEnvelope };
   for (const member of members) envelopeMemberDiagrams.set(member, binding);
   return envelope;
+}
+
+export function requireConcurrentSectionForces(member: object): void {
+  const { combined, pieces } = member as Pick<ElementForces3D, 'combined' | 'pieces'>;
+  if (combined || envelopeMemberDiagrams.has(member)) throw unavailableDiagramExtrema();
+  for (const piece of pieces ?? []) requireConcurrentSectionForces(piece.forces);
 }
 
 export function boundMemberEnvelopeDiagram(member: MemberEndRecord, kind: string): ElementEnvelopeDiagram | undefined {
@@ -548,16 +554,25 @@ function isInwardEndpointFace(t: number, right?: boolean): boolean {
 }
 
 function memberEnvelopeBounds(diagram: ElementEnvelopeDiagram, length: number, facesMode?: 'diagram') {
+  const { tPositions, posValues, negValues } = diagram;
+  if (!Number.isFinite(length) || length <= 0 ||
+    !Array.isArray(tPositions) || !Array.isArray(posValues) || !Array.isArray(negValues) ||
+    tPositions.length !== posValues.length || tPositions.length !== negValues.length ||
+    tPositions[0] !== 0 || tPositions.at(-1) !== 1) throw unavailableDiagramExtrema();
+  for (const [i, t] of tPositions.entries()) {
+    const pos = posValues[i]!, neg = negValues[i]!;
+    if (!Number.isFinite(t) || (i > 0 && t < tPositions[i - 1]!) ||
+      !Number.isFinite(pos) || pos < 0 || !Number.isFinite(neg) || neg > 0) throw unavailableDiagramExtrema();
+  }
   const faces = new Map<number, { x: number; side: 'left' | 'right' }>();
   for (const { index, distance: x } of envelopeJumpCuts(diagram, length)) {
     faces.set(index, { x, side: 'left' });
     faces.set(index + 1, { x, side: 'right' });
   }
-  return diagram.tPositions.flatMap((t, i) => {
+  return tPositions.flatMap((t, i) => {
     const face = faces.get(i);
     if (!(facesMode === 'diagram' && t === 0) && !isInwardEndpointFace(t, face && face.side === 'right')) return [];
-    const pos = diagram.posValues[i] ?? 0, neg = diagram.negValues[i] ?? 0;
-    return [{ t, x: t * length, pos, neg, ...face }];
+    return [{ t, x: t * length, pos: posValues[i]!, neg: negValues[i]!, ...face }];
   });
 }
 
@@ -568,15 +583,6 @@ export function memberEnvelopeOrdinates(diagram: ElementEnvelopeDiagram, length:
 }
 
 export function envelopeForceExtrema(diagram: ElementEnvelopeDiagram, length: number, faces?: 'diagram') {
-  const { tPositions, posValues, negValues } = diagram;
-  if (!Number.isFinite(length) || length <= 0 ||
-    tPositions.length !== posValues.length || tPositions.length !== negValues.length ||
-    tPositions[0] !== 0 || tPositions.at(-1) !== 1) throw unavailableDiagramExtrema();
-  for (const [i, t] of tPositions.entries()) {
-    const pos = posValues[i]!, neg = negValues[i]!;
-    if (!Number.isFinite(t) || (i > 0 && t < tPositions[i - 1]!) ||
-      !Number.isFinite(pos) || pos < 0 || !Number.isFinite(neg) || neg > 0) throw unavailableDiagramExtrema();
-  }
   const stations = memberEnvelopeBounds(diagram, length, faces);
   const upper = stations.map(({ pos, neg, ...station }) => ({ ...station, value: pos }));
   const lower = stations.map(({ pos, neg, ...station }) => ({ ...station, value: neg }));

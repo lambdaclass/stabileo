@@ -5,7 +5,7 @@
    * displacement and reaction. A member: its ends, length, section, material and its largest
    * end forces in the result set on screen.
    */
-  import { memberEndSections3D } from '../../lib/engine/diagrams-3d';
+  import { memberEndComponents3D } from '../../lib/engine/diagrams-3d';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import { viewState } from '../../lib/store/view-state.svelte';
@@ -49,7 +49,7 @@
       <div>{elem.nodeI} → {elem.nodeJ} · L = {fmtCoord(length)} {unitQ('length')}</div>
       <div>{modelStore.sections.get(elem.sectionId)?.name ?? elem.sectionId} · {modelStore.materials.get(elem.materialId)?.name ?? elem.materialId}</div>
       {#if ef}
-        {@const [i, j] = memberEndSections3D(ef)}
+        {@const [i, j] = memberEndComponents3D(ef)}
         <div>N = {fmtQ(peak(i.n, j.n), 'force')} · Vy = {fmtQ(peak(i.vy, j.vy), 'force')} · Vz = {fmtQ(peak(i.vz, j.vz), 'force')} {unitQ('force')}</div>
         <div>My = {fmtQ(peak(i.my, j.my), 'moment')} · Mz = {fmtQ(peak(i.mz, j.mz), 'moment')} · T = {fmtQ(peak(i.mx, j.mx), 'moment')} {unitQ('moment')}</div>
         <div class="qi-hint">{t('quick.endsHint')}</div>

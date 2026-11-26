@@ -1,6 +1,6 @@
 import { computeDiagram3D } from './diagrams-3d';
 import { bindEnvelopeQuerySources } from './result-query';
-import { bindMemberEnvelopeEnds, unavailableDiagramExtrema } from './member-diagram';
+import { bindMemberEnvelopeEnds, requireConcurrentSectionForces, unavailableDiagramExtrema } from './member-diagram';
 import { collapseVariableEnvelope, reexpandVariableResults, sameVariableLayout } from './variable-member-results';
 import { registerMemberIntervalKernel } from './member-interval-kernel';
 import { CodedRefusal, asCodedRefusal, isContainmentRefusal, refusedWithCode } from './containment-error';
@@ -1743,12 +1743,14 @@ export function computeSectionStress2D(input: {
   yFiber?: number | null;
 }) {
   if (!wasmReady || !wasmComputeSectionStress2d) throw new Error('WASM solver not initialized.');
+  requireConcurrentSectionForces(input.elementForces);
   return JSON.parse(wasmComputeSectionStress2d(JSON.stringify(input)));
 }
 
 /** Compute 3D section stress via WASM. Takes pre-resolved geometry. */
 export function computeSectionStress3D(input: any) {
   if (!wasmReady || !wasmComputeSectionStress3d) throw new Error('WASM solver not initialized.');
+  requireConcurrentSectionForces(input.elementForces);
   return JSON.parse(wasmComputeSectionStress3d(JSON.stringify(input)));
 }
 

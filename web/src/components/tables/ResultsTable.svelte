@@ -1,6 +1,6 @@
 <script lang="ts">
   import { memberEndSections2D } from '../../lib/engine/diagrams';
-  import { memberEndSections3D } from '../../lib/engine/diagrams-3d';
+  import { memberEndComponents3D } from '../../lib/engine/diagrams-3d';
   import { resultComponents } from '../../lib/axes/result-components';
   import { axesStore } from '../../lib/axes/axes.svelte';
   const components = $derived(resultComponents(axesStore.frame, uiStore.is3DWorkspace ? resultsStore.results3D : resultsStore.results));
@@ -182,7 +182,7 @@
         </thead>
         <tbody>
           {#each resultsStore.results3D.elementForces as ef}
-            {@const [i, j] = memberEndSections3D(ef)}
+            {@const [i, j] = memberEndComponents3D(ef)}
             <tr>
               <td class="id-cell">{ef.elementId}</td>
               <td class="num">{frc(i.n, 2)}</td>

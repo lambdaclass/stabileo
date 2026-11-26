@@ -1,5 +1,5 @@
 import { memberEndSections2D } from '../engine/diagrams';
-import { memberEndSections3D } from '../engine/diagrams-3d';
+import { memberEndComponents3D } from '../engine/diagrams-3d';
 import { resultComponents } from '../axes/result-components';
 import { exportMessages, warningImage, warningCanvas } from '../export/containment';
 // File operations: save/load projects, export results, autosave
@@ -815,7 +815,7 @@ export function exportResultsCSV(solveError?: string, record?: ResultProvenance)
     lines.push(`# ${t('file.internalForces')}`);
     lines.push(`${t('file.element')},L (m),Ni (kN),Nj (kN),Vyi (kN),Vyj (kN),Vzi (kN),Vzj (kN),Mxi (kN·m),Mxj (kN·m),Myi (kN·m),Myj (kN·m),Mzi (kN·m),Mzj (kN·m)`);
     for (const f of r3d.elementForces) {
-      const [i, j] = memberEndSections3D(f);
+      const [i, j] = memberEndComponents3D(f);
       lines.push([f.elementId, f.length, i.n, j.n, i.vy, j.vy, i.vz, j.vz, i.mx, j.mx, i.my, j.my, i.mz, j.mz].join(','));
     }
   } else if (r2d) {

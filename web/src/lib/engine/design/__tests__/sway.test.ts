@@ -81,7 +81,7 @@ it('known wrong result: #2581 storey stability uses the compression between two 
   }
 });
 
-it.skip('known wrong result: #2581 round 3 storey shear is oriented at the lower cut of a reversed column', () => {
+it('known wrong result: #2581 round 3 storey shear is oriented at the lower cut of a reversed column', () => {
   const up = computeLocalAxes3D({ ...nodes.get(1)!, z: 0 }, { ...nodes.get(2)!, z: 3 });
   const down = computeLocalAxes3D({ ...nodes.get(4)!, z: 3 }, { ...nodes.get(3)!, z: 0 });
   const reversed = new Map(elements);

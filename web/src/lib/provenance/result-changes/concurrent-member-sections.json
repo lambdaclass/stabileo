@@ -1,0 +1,34 @@
+{
+  "id": "concurrent-member-sections",
+  "date": "2026-11-26",
+  "prs": [2615],
+  "area": "analysis",
+  "when": {
+    "all": ["members"]
+  },
+  "quantities": ["member", "diagrams", "sectionStress", "steel", "rc"],
+  "title": {
+    "en": "Concurrent member demands and physical storey cuts",
+    "es": "Demandas simultáneas en barras y cortes físicos de piso",
+    "pt": "Solicitações simultâneas em barras e cortes físicos de pavimento",
+    "de": "Gleichzeitige Stabbeanspruchungen und physische Geschossschnitte",
+    "fr": "Efforts concomitants dans les barres et coupes physiques aux étages",
+    "tr": "Eşzamanlı eleman talepleri ve fiziksel kat kesitleri",
+    "zh": "同一工况下的构件内力需求与实际楼层截面",
+    "hu": "Egyidejű rúd-igénybevételek és fizikai szintmetszetek"
+  },
+  "explanation": {
+    "en": "Demand and stress checks require concurrent member forces. Storey sway uses the shear at the lower cut, and moment colours use the larger absolute bending component at each shared cut.",
+    "es": "Las verificaciones de demanda y tensión exigen esfuerzos simultáneos. La traslación de piso usa el cortante en el corte inferior y el mapa de momentos usa la mayor componente de flexión en valor absoluto en cada corte común.",
+    "pt": "As verificações de solicitação e tensão exigem esforços simultâneos. A translação do pavimento usa o cortante no corte inferior e o mapa de momentos usa a maior componente de flexão em valor absoluto em cada corte comum.",
+    "de": "Beanspruchungs- und Spannungsnachweise setzen gleichzeitige Schnittgrößen voraus. Die Geschossverschieblichkeit nutzt die Querkraft im unteren Schnitt. Die Momentenfarbkarte zeigt im gemeinsamen Schnitt die betragsgrößere Biegekomponente.",
+    "fr": "Les vérifications des efforts et des contraintes exigent des efforts concomitants. La stabilité d’étage utilise l’effort tranchant à la coupe basse et la carte des moments utilise la plus grande composante de flexion en valeur absolue à chaque coupe commune.",
+    "tr": "Talep ve gerilme kontrolleri eşzamanlı eleman kuvvetleri gerektirir. Kat ötelenmesi için alt kesitteki kesme kuvveti, moment renkleri için her ortak kesitte mutlak değeri daha büyük olan eğilme bileşeni kullanılır.",
+    "zh": "内力需求和应力验算要求构件内力来自同一工况。楼层侧移判定使用下端截面的剪力，弯矩颜色取每个共同截面中绝对值较大的弯矩分量。",
+    "hu": "Az igénybevétel és a feszültség ellenőrzéséhez egyidejű rúd-erők szükségesek. A szinti kilengés az alsó metszet nyíróerejét, a nyomatéki színtérkép az egyes közös metszetek nagyobb abszolút értékű hajlítókomponensét használja."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-concurrent-member-sections.md",
+    "heading": "Concurrent member demands and physical storey cuts"
+  }
+}

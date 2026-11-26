@@ -2,9 +2,9 @@
 // Creates per-vertex colored geometries that show stress/force variation along each member.
 
 import * as THREE from 'three';
-import { prepareDiagramEvaluator3D, requireConcurrentSectionForces, sampleMemberResultant3D } from '../engine/diagrams-3d';
+import { prepareDiagramEvaluator3D, sampleMemberComponentMagnitudes3D, sampleMemberResultant3D } from '../engine/diagrams-3d';
 import { memberForceExtrema } from '../engine/member-force-extrema';
-import { boundMemberEnvelopeDiagram, boundSpatialEnvelope, memberEnvelopeOrdinates, memberSectionStation, unavailableDiagramExtrema } from '../engine/member-diagram';
+import { boundMemberEnvelopeDiagram, boundSpatialEnvelope, memberEnvelopeOrdinates, memberSectionStation, requireConcurrentSectionForces, unavailableDiagramExtrema } from '../engine/member-diagram';
 import { envelopeSourcesByMember } from '../engine/result-query';
 import { computeSectionStress } from '../engine/section-stress-3d';
 import type { ElementForces3D } from '../engine/types-3d';
@@ -79,8 +79,12 @@ export function sampleElementValues(ef: ElementForces3D, variable: HeatmapVariab
     return { stations, peak: Math.max(...stations.map(p => p.value)) };
   }
 
-  if (variable === 'moment' || variable === 'shear') {
-    const kinds = variable === 'moment' ? ['momentY', 'momentZ'] as const : ['shearY', 'shearZ'] as const;
+  if (variable === 'moment') {
+    return sampleMemberComponentMagnitudes3D(resultantSources(ef), ['momentY', 'momentZ'], heatmapStations);
+  }
+
+  if (variable === 'shear') {
+    const kinds = ['shearY', 'shearZ'] as const;
     return sampleMemberResultant3D(resultantSources(ef), kinds, heatmapStations);
   }
 
