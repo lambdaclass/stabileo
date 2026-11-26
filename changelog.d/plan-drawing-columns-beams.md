@@ -19,3 +19,6 @@ slabs on the one above, its ceiling. The plan view of a storey cuts at its ceili
 drawn show, and draws the ceiling's slab in halftone. What sits on its floor belongs to the storey
 below and is hidden with it, except on the lowest level. The levels come first in Levels and grid,
 followed by the template and then the axes; until there are two levels, the panel says what is missing.
+
+In 3D, each level's outline covers the templates as they were laid and the axes, with a margin. A
+template laid with no axes no longer sits outside its levels.

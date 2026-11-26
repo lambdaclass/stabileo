@@ -13,7 +13,23 @@ const AXIS_COLOR = 0x5b84b1;
 const LABEL_COLOR = '#3f6f9f';
 const LEVEL_COLOR = 0x8a9bb0;
 
-export function buildStructuralGrid(grid: StructuralGrid | undefined, activeZ: number | null): THREE.Group | null {
+export type PlanBox = { x0: number; x1: number; y0: number; y1: number };
+
+/** What the levels' outlines cover: the axes and the templates, so a template laid with no axes is inside its levels. */
+export function gridExtent(grid: StructuralGrid | undefined, around: PlanBox | null): PlanBox {
+  const xs = axesOf(grid, 'x'), ys = axesOf(grid, 'y');
+  const b = around ? { ...around } : null;
+  const take = (k: 'x' | 'y', v: number) => {
+    if (!b) return;
+    if (k === 'x') { b.x0 = Math.min(b.x0, v); b.x1 = Math.max(b.x1, v); } else { b.y0 = Math.min(b.y0, v); b.y1 = Math.max(b.y1, v); }
+  };
+  for (const a of xs) take('x', a.at);
+  for (const a of ys) take('y', a.at);
+  if (b) return b;
+  return { x0: xs[0]?.at ?? 0, x1: xs[xs.length - 1]?.at ?? 0, y0: ys[0]?.at ?? 0, y1: ys[ys.length - 1]?.at ?? 0 };
+}
+
+export function buildStructuralGrid(grid: StructuralGrid | undefined, activeZ: number | null, around: PlanBox | null = null): THREE.Group | null {
   const xs = axesOf(grid, 'x'), ys = axesOf(grid, 'y');
   const levels = sortedLevels(grid);
   if (xs.length === 0 && ys.length === 0 && levels.length === 0) return null;
@@ -22,8 +38,8 @@ export function buildStructuralGrid(grid: StructuralGrid | undefined, activeZ: n
   group.name = 'structuralGrid';
   group.userData.noPick = true;
 
-  const xMin = xs.length ? xs[0]!.at : 0, xMax = xs.length ? xs[xs.length - 1]!.at : 0;
-  const yMin = ys.length ? ys[0]!.at : 0, yMax = ys.length ? ys[ys.length - 1]!.at : 0;
+  const box = gridExtent(grid, around);
+  const xMin = box.x0, xMax = box.x1, yMin = box.y0, yMax = box.y1;
   const span = Math.max(xMax - xMin, yMax - yMin, 4);
   const m = Math.max(1, span * 0.08);
   const z = activeZ ?? levels[0]?.z ?? 0;
@@ -71,9 +87,9 @@ export function buildStructuralGrid(grid: StructuralGrid | undefined, activeZ: n
 }
 
 /** Replace `prev` in `scene` with the grid as it stands now. */
-export function syncStructuralGrid(scene: THREE.Scene, prev: THREE.Group | null, grid: StructuralGrid | undefined, activeZ: number | null): THREE.Group | null {
+export function syncStructuralGrid(scene: THREE.Scene, prev: THREE.Group | null, grid: StructuralGrid | undefined, activeZ: number | null, around: PlanBox | null = null): THREE.Group | null {
   if (prev) { scene.remove(prev); disposeObject(prev); }
-  const next = buildStructuralGrid(grid, activeZ);
+  const next = buildStructuralGrid(grid, activeZ, around);
   if (next) scene.add(next);
   return next;
 }

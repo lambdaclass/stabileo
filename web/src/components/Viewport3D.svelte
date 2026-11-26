@@ -28,6 +28,7 @@
   import { setGeometryDrag } from '../lib/store/physical-frame';
   import { discretizationStore } from '../lib/store/discretization.svelte';
   import { syncStructuralGrid } from '../lib/three/structural-grid-3d';
+  import { laidExtent } from '../lib/model/underlay';
   import { sceneHost } from '../lib/viewport3d/scene-host.svelte';
   import SplitView3D from './viewport/SplitView3D.svelte';
   import { currentShellContourField, shellStressInputs } from '../lib/store/shell-contour';
@@ -1998,10 +1999,10 @@
     const grid = uiStore.analysisMode === 'pro' ? modelStore.grid : undefined;
     const z = uiStore.workingPlane === 'XY' ? uiStore.nodeCreateZ : null;
     if (!scene) return;
-    structuralGridGroup = syncStructuralGrid(scene, structuralGridGroup, grid, z);
+    structuralGridGroup = syncStructuralGrid(scene, structuralGridGroup, grid, z, laidExtent(uiStore.analysisMode === 'pro' ? modelStore.underlays : []));
   }
   $effect(() => {
-    void modelStore.grid; void uiStore.analysisMode; void uiStore.workingPlane; void uiStore.nodeCreateZ;
+    void modelStore.grid; void uiStore.analysisMode; void uiStore.workingPlane; void uiStore.nodeCreateZ; void modelStore.underlays;
     syncStructGrid();
     invalidate();
   });
