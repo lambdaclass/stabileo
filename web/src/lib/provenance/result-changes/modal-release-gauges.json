@@ -4,7 +4,6 @@
   "prs": [],
   "area": "analysis",
   "when": { "allOf": [["space3D"], ["hinges"], ["analysis:modal", "analysis:spectral"]] },
-  "quantities": ["solve.ok", "modes", "nullModes", "structuredDiagnostics", "certificate"],
   "title": {
     "en": "Modal analysis of massless released frame ends",
     "es": "Análisis modal de extremos articulados sin masa",

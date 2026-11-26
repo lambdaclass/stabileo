@@ -9,7 +9,6 @@
       ["analysis:linear", "analysis:pdelta", "analysis:buckling"]
     ]
   },
-  "quantities": ["solve.ok", "displacements", "reactions", "elementForces", "constraintForces", "equilibrium", "structuredDiagnostics", "secondOrder", "resultSummary"],
   "title": {
     "en": "Accuracy of conditionally admitted static solves",
     "es": "Precisión de los análisis estáticos de admisión condicional",

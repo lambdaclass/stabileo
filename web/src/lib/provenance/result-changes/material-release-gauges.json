@@ -4,7 +4,6 @@
   "prs": [],
   "area": "analysis",
   "when": { "allOf": [["space3D"], ["hinges"], ["analysis:nonlinear"]] },
-  "quantities": ["solve.ok", "displacements", "reactions", "elementForces", "nonlinear"],
   "title": {
     "en": "Material analysis of released frame ends",
     "es": "Análisis de material con extremos de barra articulados",
