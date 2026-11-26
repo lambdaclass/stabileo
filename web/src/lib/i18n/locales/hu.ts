@@ -1,8 +1,6 @@
 import type { Translations } from '../types';
 
 const hu: Translations = {
-  'cad.disconnectedWallBeam': "A(z) {wall}. fal-négyszögelem és a(z) {beam}. gerenda a CAD illesztési tűrésén belül vannak, de a nyomvonaluk nem találkozik. Kösse össze a fal végét a gerendával a rajzon.",
-  'cad.uncertifiedSlabBeam': "A(z) {beam}. gerenda lemezen belüli nyomvonalán nincs igazolt hálóél. Kösse össze a gerendát a lemezzel közös él mentén a rajzon.",
   'svc.accountingMismatch': "A számítás elutasítva. {case} tehereset, {component}. Megadott érték {entered}, összeállított érték {assembled}.",
   'svc.accountingLineEnd': "A számítás elutasítva. {case} tehereset, a(z) {member} rúd {end} vége. Az átosztott teher a(z) {actual} csomópontra került. A várt csomópont {expected}.",
   'svc.accountingUnsupported': "A számítás elutasítva. A(z) {case} teheresetben a(z) {kind} {id} erői és nyomatékai nem ellenőrizhetők.",
@@ -1866,7 +1864,7 @@ const hu: Translations = {
   "cad.cNodes": "Csomópontok",
   "cad.cColumns": "Oszlopelemek",
   "cad.cBeams": "Gerendaelemek",
-  "cad.cSlabCells": "Födém héjelemek",
+  "cad.cSlabQuads": "Födém héj négyszögelemek",
   "cad.cWallQuads": "Fal héj négyszögelemek",
   "cad.cSupports": "Támaszok",
   "cad.cLoads": "Terhek",
@@ -13876,7 +13874,6 @@ const hu: Translations = {
   "plates.analysisMeshRefused": "Nem sikerült hálózni: {names}. Ellenőrizze az elemméretüket vagy a körvonalukat.",
   "plates.analysisInvalid": "A számítás leállt. Javítsa az érvénytelen lemezek geometriáját vagy tulajdonságait: {names}.",
   "plates.analysisWallSlab": "A számítás leállt. A(z) {wall} fal és a(z) {slab} födém hálójának nincs közös csúcsa a(z) {node} csomópontnál. Hálózza újra a csatlakozást közös csomópontokkal.",
-  "plates.analysisWallSlabEdgePoint": "A számítás leállt. A(z) {wall} fal és a(z) {slab} födém a háló csomópontjai között érintkezik. Hálózza újra a csatlakozást közös csomóponttal az érintkezési pontban.",
   "plates.analysisWallSlabFace": "A számítás leállt. A(z) {wall} fal a(z) {nodes} falcsomópontok közelében közös hálóél nélkül találkozik a(z) {slab} födémmel. Hálózza újra a csatlakozást közös élekkel.",
   "plates.meshedAtAnalysis": "{n} lemez hálózva az analízis előtt ({cells} elem)",
   "plates.liveNeedsMesh": "{n} lemeznek nincs aktuális hálója: az élő számítás megvárja a teljes analízist, amely hálózza őket.",

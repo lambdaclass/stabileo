@@ -24,9 +24,7 @@ import {
   panelsFromBeamGrid, snapPanelCornersToColumns,
   pruneBeamsDisconnectedFromColumns, pruneFloating,
 } from './infer';
-import { dyadicInteger } from '../engine/accounting-math';
-import { pointInPolygon, pointOnSegment } from './geometry';
-import { PLATE_EDGE_TOL } from '../model/physical/plate-analysis';
+import { pointInPolygon } from './geometry';
 import type { ModelSnapshot } from '../store/history.svelte';
 
 export interface InferenceOptions {
@@ -172,7 +170,6 @@ function recountAfterPrune(result: RcDraftResult): void {
   c.columns = s.columns;
   c.beams = s.beams;
   c.slabQuads = s.slabQuads;
-  c.slabTriangles = s.slabTriangles;
   c.wallQuads = s.wallQuads;
   c.supports = result.snapshot.supports.length;
   c.loads = result.snapshot.loads.length;
@@ -205,11 +202,10 @@ function buildSinglePlan(input: BuildDraftInput): RcDraftResult {
   if (inf) pushInferenceProvenance(result, report, inf);
   if (inf?.pruneFloatingMembers) {
     const removed = pruneFloating(result.snapshot);
-    const removedShells = removed.quads + removed.plates;
-    if (removed.elements > 0 || removed.nodes > 0 || removedShells > 0) {
+    if (removed.elements > 0 || removed.nodes > 0 || removed.quads > 0) {
       recountAfterPrune(result);
-      result.provenance.assumptions.push(tp('cad.assume.prunedFloating', { members: removed.elements, shells: removedShells, nodes: removed.nodes }));
-      result.warnings.push({ severity: 'warning', message: `prunedFloatingMembers:${removed.elements + removedShells}` });
+      result.provenance.assumptions.push(tp('cad.assume.prunedFloating', { members: removed.elements, shells: removed.quads, nodes: removed.nodes }));
+      result.warnings.push({ severity: 'warning', message: `prunedFloatingMembers:${removed.elements + removed.quads}` });
     }
   }
   return result;
@@ -217,7 +213,7 @@ function buildSinglePlan(input: BuildDraftInput): RcDraftResult {
 
 // ── Multi-floor composition (Layer 3) ─────────────────────────────
 
-interface RangeBuild { result: RcDraftResult; zShift: number; localTop: number; spec: FloorPlanSpec }
+interface RangeBuild { result: RcDraftResult; zShift: number; spec: FloorPlanSpec }
 
 function cumulativeHeights(heights: number[]): number[] {
   const out = [0];
@@ -265,11 +261,10 @@ function buildMultiFloor(input: BuildDraftInput, gapWarnings: FloorRangeIssue[] 
     if ((result.counts.columns + result.counts.beams) === 0) {
       rangeIssues.push({ severity: 'error', message: `emptyFloorRange:${tp('cad.range.emptyDetail', { label: spec.label ?? t('cad.range.planFallback'), from: spec.fromFloor, to: spec.toFloor })}` });
     }
-    const localTop = rangeAssumptions.storyHeights.reduce((sum, height) => sum + height, 0);
-    builds.push({ result, zShift: cum[spec.fromFloor - 1], localTop, spec });
+    builds.push({ result, zShift: cum[spec.fromFloor - 1], spec });
   }
 
-  const { result: merged, rangeElemIds, rangeQuadIds, rangePlateIds } = mergeRanges(builds, input.assumptions);
+  const { result: merged, rangeElemIds, rangeQuadIds } = mergeRanges(builds, input.assumptions);
   // Hanging members (columns that don't continue between adjacent plans) →
   // prune to keep a connected model, always for multi-floor (reported).
   const removed = pruneFloating(merged.snapshot);
@@ -280,12 +275,10 @@ function buildMultiFloor(input: BuildDraftInput, gapWarnings: FloorRangeIssue[] 
   // yet none survive — surface it as an error rather than a lone provenance line.
   const survElem = new Set(merged.snapshot.elements.map(([id]) => id));
   const survQuad = new Set((merged.snapshot.quads ?? []).map(([id]) => id));
-  const survPlate = new Set((merged.snapshot.plates ?? []).map(([id]) => id));
   const prunedAway = builds.filter((_, i) => {
     const els = rangeElemIds[i] ?? [], qs = rangeQuadIds[i] ?? [];
-    const ps = rangePlateIds[i] ?? [];
-    if (els.length + qs.length + ps.length === 0) return false; // 0-member range → emptyFloorRange already
-    return !els.some((id) => survElem.has(id)) && !qs.some((id) => survQuad.has(id)) && !ps.some(id => survPlate.has(id));
+    if (els.length + qs.length === 0) return false; // 0-member range → emptyFloorRange already
+    return !els.some((id) => survElem.has(id)) && !qs.some((id) => survQuad.has(id));
   });
   if (prunedAway.length > 0) {
     rangeIssues.push({ severity: 'error', message: `floorRangePruned:${prunedAway.map((b) => b.spec.label ?? t('cad.range.planFallback')).join(', ')}` });
@@ -297,7 +290,7 @@ function buildMultiFloor(input: BuildDraftInput, gapWarnings: FloorRangeIssue[] 
     .join('; ');
   const assumptions = merged.snapshot.provenance!.assumptions
     .filter((line) => !isReplicatedPlanAssumption(line));
-  assumptions.unshift(tp('cad.assume.perFloorPlans', { map: planMap, members: removed.elements, shells: removed.quads + removed.plates, nodes: removed.nodes }));
+  assumptions.unshift(tp('cad.assume.perFloorPlans', { map: planMap, members: removed.elements, shells: removed.quads, nodes: removed.nodes }));
   merged.snapshot.provenance!.assumptions = assumptions;
   merged.provenance.assumptions = assumptions;
   merged.warnings.push({ severity: 'info', message: `perFloorPlans:${specs.length}` });
@@ -310,145 +303,40 @@ function buildMultiFloor(input: BuildDraftInput, gapWarnings: FloorRangeIssue[] 
   return merged;
 }
 
-type RangeNode = ModelSnapshot['nodes'][number][1];
-
-type InterfaceNode = RangeNode & { physical: boolean };
-type InterfacePair = { from: number; to: number; distance: bigint; physical: number };
-
-function interfaceNodes(snapshot: ModelSnapshot, z: number): InterfaceNode[] {
-  const nodes = new Map(snapshot.nodes);
-  const level = (id: number) => nodes.get(id)?.z ?? 0;
-  const physical = new Set(snapshot.elements.flatMap(([, member]) =>
-    level(member.nodeI) !== level(member.nodeJ) ? [member.nodeI, member.nodeJ] : []));
-  const neighbours = new Map<number, Set<number>>();
-  for (const [, wall] of snapshot.quads ?? []) {
-    const stations = wall.nodes.filter(id => level(id) === z);
-    if (stations.length !== 2) continue;
-    const [a, b] = stations as [number, number];
-    for (const [id, other] of [[a, b], [b, a]] as const) {
-      const adjacent = neighbours.get(id) ?? new Set<number>();
-      adjacent.add(other);
-      neighbours.set(id, adjacent);
-    }
-  }
-  for (const [id, adjacent] of neighbours) {
-    const [a, b] = adjacent;
-    if (adjacent.size !== 2 || pointOnSegment(nodes.get(id)!, nodes.get(a!)!, nodes.get(b!)!, PLATE_EDGE_TOL, 0) === null) {
-      physical.add(id);
-    }
-  }
-  return snapshot.nodes.flatMap(([, node]) => (node.z ?? 0) === z
-    ? [{ ...node, physical: physical.has(node.id) }] : []);
-}
-
-function matchInterfaceComponent(fromIds: readonly number[], pairs: ReadonlyMap<number, InterfacePair[]>): Map<number, InterfacePair> {
-  const matches = new Map<number, InterfacePair>(), reverse = new Map<number, InterfacePair>();
-  type Route = { physical: number; distance: bigint; pair?: InterfacePair };
-  const extend = (route: Route, pair: InterfacePair, direction: 1 | -1): Route => ({
-    physical: route.physical + direction * pair.physical,
-    distance: route.distance + BigInt(direction) * pair.distance,
-  });
-  const better = (a: Route, b?: Route) => !b || a.physical < b.physical || (a.physical === b.physical && a.distance < b.distance);
-  while (matches.size < fromIds.length) {
-    const routes = new Map<number, Route>(), arrivals = new Map<number, Route>();
-    const queue: number[] = [];
-    for (const id of fromIds) if (!matches.has(id)) {
-      routes.set(id, { physical: 0, distance: 0n });
-      queue.push(id);
-    }
-    const queued = new Set(queue);
-    for (let i = 0; i < queue.length; i++) {
-      const from = queue[i]!, route = routes.get(from)!;
-      queued.delete(from);
-      for (const pair of pairs.get(from) ?? []) {
-        if (matches.get(from) === pair) continue;
-        const next = { ...extend(route, pair, 1), pair };
-        if (!better(next, arrivals.get(pair.to))) continue;
-        arrivals.set(pair.to, next);
-        const taken = reverse.get(pair.to);
-        if (!taken) continue;
-        const swap = extend(next, taken, -1);
-        if (!better(swap, routes.get(taken.from))) continue;
-        routes.set(taken.from, swap);
-        if (!queued.has(taken.from)) {
-          queued.add(taken.from);
-          queue.push(taken.from);
-        }
-      }
-    }
-    let best: Route | undefined;
-    for (const [to, route] of arrivals) if (!reverse.has(to) && better(route, best)) best = route;
-    if (!best?.pair || best.physical > 0) break;
-    let pair: InterfacePair | undefined = best.pair;
-    while (pair) {
-      const previous = matches.get(pair.from);
-      matches.set(pair.from, pair);
-      reverse.set(pair.to, pair);
-      pair = previous && arrivals.get(previous.to)?.pair;
-    }
-  }
-  return matches;
-}
-
-function rangeInterfaceMatches(
-  below: InterfaceNode[], above: InterfaceNode[], tolerance: number,
-): Map<number, number> {
-  const key = (x: number, y: number) => `${x}|${y}`;
-  const index = new Map<string, InterfaceNode[]>();
-  for (const node of below) {
-    const cell = key(Math.floor(node.x / tolerance), Math.floor(node.y / tolerance));
-    const entries = index.get(cell);
-    if (entries) entries.push(node);
-    else index.set(cell, [node]);
-  }
-  const pairs = new Map<number, InterfacePair[]>(), sources = new Map<number, number[]>();
-  for (const node of above) {
-    const x = Math.floor(node.x / tolerance), y = Math.floor(node.y / tolerance);
-    for (const dx of [-1, 0, 1]) for (const dy of [-1, 0, 1]) {
-      for (const target of index.get(key(x + dx, y + dy)) ?? []) {
-        const distance = Math.hypot(target.x - node.x, target.y - node.y);
-        if (distance < tolerance) {
-          const pair = { from: node.id, to: target.id, distance: dyadicInteger(distance), physical: -Number(node.physical && target.physical) };
-          (pairs.get(node.id) ?? pairs.set(node.id, []).get(node.id)!).push(pair);
-          (sources.get(target.id) ?? sources.set(target.id, []).get(target.id)!).push(node.id);
-        }
-      }
-    }
-  }
-  const matches = new Map<number, number>();
-  const remaining = new Set(pairs.keys());
-  for (const first of remaining) {
-    const component = [first], seenTargets = new Set<number>();
-    remaining.delete(first);
-    for (const from of component) for (const { to } of pairs.get(from)!) {
-      if (seenTargets.has(to)) continue;
-      seenTargets.add(to);
-      for (const next of sources.get(to)!) if (remaining.delete(next)) component.push(next);
-    }
-    for (const [from, pair] of matchInterfaceComponent(component, pairs)) matches.set(from, pair.to);
-  }
-  return matches;
-}
-
 /** Merge per-range RcDraftResults into one snapshot (weld by coordinate,
  *  renumber ids, dedup sections, regenerate base supports). Also returns, per
  *  range (aligned with `builds`), the global element/quad ids it contributed —
  *  so the caller can tell whether a range's structure survived the prune. */
 function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions):
-  { result: RcDraftResult; rangeElemIds: number[][]; rangeQuadIds: number[][]; rangePlateIds: number[][] } {
-  const cadWallSlabMesh = builds.some(({ result }) => result.provenance.cadWallSlabMesh);
+  { result: RcDraftResult; rangeElemIds: number[][]; rangeQuadIds: number[][] } {
+  const tol = assumptions.snapTolerance;
   const nodes: ModelSnapshot['nodes'] = [];
   const elements: ModelSnapshot['elements'] = [];
   const quads: NonNullable<ModelSnapshot['quads']> = [];
-  const plates: NonNullable<ModelSnapshot['plates']> = [];
   const sections: ModelSnapshot['sections'] = [];
   const loads: ModelSnapshot['loads'] = [];
-  let nextNode = 1, nextElem = 1, nextQuad = 1, nextPlate = 1, nextLoad = 1;
+  let nextNode = 1, nextElem = 1, nextQuad = 1, nextLoad = 1;
+
+  // Global node weld by rounded coordinate.
+  const nodeKey = (x: number, y: number, z: number) =>
+    `${Math.round(x / tol)}|${Math.round(y / tol)}|${Math.round(z / tol)}`;
+  const nodeAt = new Map<string, number>();
+  const weldNode = (x: number, y: number, z: number): number => {
+    const key = nodeKey(x, y, z);
+    const found = nodeAt.get(key);
+    if (found != null) return found;
+    const id = nextNode++;
+    const n: { id: number; x: number; y: number; z?: number } = { id, x, y };
+    if (z !== 0) n.z = z;
+    nodes.push([id, n]);
+    nodeAt.set(key, id);
+    return id;
+  };
 
   // Section dedup by name.
   const sectionByName = new Map<string, number>();
   const aggCounts: RcDraftResult['counts'] = {
-    nodes: 0, columns: 0, beams: 0, slabQuads: 0, slabTriangles: 0, wallQuads: 0, supports: 0, loads: 0,
+    nodes: 0, columns: 0, beams: 0, slabQuads: 0, wallQuads: 0, supports: 0, loads: 0,
     combinations: 0, beamsSplit: 0, slabsSkipped: 0, beamsWithOffsets: 0, offsetsAmbiguous: 0,
     specSections: { schedule: 0, label: 0, geometry: 0, default: 0 },
     scheduleAssignments: 0, openingsDetected: 0, openingsCutFromSlabs: 0, openingsNotCut: 0,
@@ -463,29 +351,16 @@ function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions):
   // a range whose whole structure was pruned during composition.
   const rangeElemIds: number[][] = [];
   const rangeQuadIds: number[][] = [];
-  const rangePlateIds: number[][] = [];
 
-  let previous: { floor: number; surface: InterfaceNode[] } | undefined;
-  for (const { result, zShift, localTop, spec } of builds) {
+  for (const { result, zShift, spec } of builds) {
     const snap = result.snapshot;
     const myElems: number[] = [];
     const myQuads: number[] = [];
-    const myPlates: number[] = [];
-    const localToGlobalNode = previous?.floor === spec.fromFloor - 1
-      ? rangeInterfaceMatches(previous.surface, interfaceNodes(snap, 0), assumptions.snapTolerance)
-      : new Map<number, number>();
-    for (const [, node] of snap.nodes) {
-      if (localToGlobalNode.has(node.id)) continue;
-      const id = nextNode++;
-      const z = (node.z ?? 0) + zShift;
-      const global = { id, x: node.x, y: node.y, ...(z !== 0 && { z }) };
-      nodes.push([id, global]);
-      localToGlobalNode.set(node.id, id);
+    const localToGlobalNode = new Map<number, number>();
+    for (const [, n] of snap.nodes) {
+      const gid = weldNode(n.x, n.y, (n.z ?? 0) + zShift);
+      localToGlobalNode.set(n.id, gid);
     }
-    previous = {
-      floor: spec.toFloor,
-      surface: interfaceNodes(snap, localTop).map(node => ({ ...node, id: localToGlobalNode.get(node.id)! })),
-    };
     const localToGlobalSection = new Map<number, number>();
     for (const [, s] of snap.sections) {
       let gid = sectionByName.get(s.name);
@@ -513,20 +388,10 @@ function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions):
       localToGlobalQuad.set(q.id, id);
       quads.push([id, { ...q, id, nodes: q.nodes.map((n) => localToGlobalNode.get(n)!) as [number, number, number, number] }]);
     }
-    const localToGlobalPlate = new Map<number, number>();
-    for (const [, p] of snap.plates ?? []) {
-      const id = nextPlate++;
-      myPlates.push(id);
-      localToGlobalPlate.set(p.id, id);
-      plates.push([id, { ...p, id, nodes: p.nodes.map(n => localToGlobalNode.get(n)!) as [number, number, number] }]);
-    }
     for (const l of snap.loads) {
-      const d = { ...l.data } as { id?: number; quadId?: number; on?: 'plate' };
+      const d = { ...l.data } as { id?: number; quadId?: number };
       d.id = nextLoad++;
-      if (d.quadId !== undefined) {
-        const shells = d.on === 'plate' ? localToGlobalPlate : localToGlobalQuad;
-        d.quadId = shells.get(d.quadId) ?? d.quadId;
-      }
+      if (d.quadId !== undefined) d.quadId = localToGlobalQuad.get(d.quadId) ?? d.quadId;
       loads.push({ type: l.type, data: d });
     }
     // Aggregate informational counts.
@@ -553,7 +418,6 @@ function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions):
     }
     rangeElemIds.push(myElems);
     rangeQuadIds.push(myQuads);
-    rangePlateIds.push(myPlates);
   }
 
   // Regenerate base supports from welded ground nodes (z ≈ 0).
@@ -567,7 +431,6 @@ function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions):
   const provenance = {
     ...(builds[0]?.result.provenance ?? {}),
     assumptions: topProvenanceAssumptions,
-    ...(cadWallSlabMesh && { cadWallSlabMesh }),
   } as RcDraftResult['provenance'];
 
   const snapshot: ModelSnapshot = {
@@ -575,17 +438,17 @@ function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions):
     analysisMode: 'pro',
     nodes, materials: material, sections, elements, supports, loads,
     loadCases: topLoadCases, combinations: topCombinations,
-    plates, quads, constraints: [], connectors: [],
+    plates: [], quads, constraints: [], connectors: [],
     provenance,
     nextId: {
       node: nextNode, material: 2, section: sections.length + 1, element: nextElem,
       support: supId, load: nextLoad, loadCase: (topLoadCases?.length ?? 0) + 1,
-      combination: (topCombinations?.length ?? 0) + 1, plate: nextPlate, quad: nextQuad, connector: 1,
+      combination: (topCombinations?.length ?? 0) + 1, plate: 1, quad: nextQuad, connector: 1,
     },
   };
   aggCounts.combinations = topCombinations?.length ?? 0;
 
-  return { result: { snapshot, provenance, warnings, counts: aggCounts }, rangeElemIds, rangeQuadIds, rangePlateIds };
+  return { result: { snapshot, provenance, warnings, counts: aggCounts }, rangeElemIds, rangeQuadIds };
 }
 
 /**

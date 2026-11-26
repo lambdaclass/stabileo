@@ -34,7 +34,6 @@ import {
 import { resolveSection } from './specs';
 import { ROOM_CATEGORY_LOADS } from './rooms';
 import { t, tp } from '../i18n';
-import { EngineMessageError, msg } from '../codes/message';
 import type { SectionScheduleEntry, SpecSource } from './types';
 import type { MemberOffset } from '../model/element-3d-metadata';
 import { findCoincidentNode, beamThrough } from '../engine/mesh-weld';
@@ -42,7 +41,6 @@ import { buildBilinearQuadGrid, sanitizeDivisions, MAX_DIVISIONS_PER_AXIS } from
 import type { ModelSnapshot } from '../store/history.svelte';
 import type { ModelProvenance } from '../model/provenance';
 import { PLATE_EDGE_TOL } from '../model/physical/plate-analysis';
-import { clipTrace, meshSlabAlongWalls } from './wall-slab-mesh';
 
 const NO_RELEASE = { my: false, mz: false, t: false };
 
@@ -86,28 +84,24 @@ interface DraftElement {
 }
 interface DraftQuad { id: number; nodes: [number, number, number, number]; materialId: number; thickness: number }
 
-type DraftPlate = Omit<DraftQuad, 'nodes'> & { nodes: [number, number, number] };
-
 class DraftBuilder {
   nodes: DraftNode[] = [];
   elements: DraftElement[] = [];
   quads: DraftQuad[] = [];
-  plates: DraftPlate[] = [];
   sections: Array<Record<string, unknown> & { id: number }> = [];
   supports: Array<{ id: number; nodeId: number; type: string }> = [];
   loads: Array<{ type: string; data: Record<string, unknown> }> = [];
   nextNode = 1;
   nextElement = 1;
   nextQuad = 1;
-  nextPlate = 1;
   nextLoad = 1;
   private sectionByKey = new Map<string, number>();
 
   constructor(private tol: number) {}
 
   /** Weld-or-create a node at (x, y, z). */
-  node(x: number, y: number, z: number, tolerance = this.tol): number {
-    const existing = findCoincidentNode(this.nodes, x, y, z, tolerance);
+  node(x: number, y: number, z: number): number {
+    const existing = findCoincidentNode(this.nodes, x, y, z, this.tol);
     if (existing != null) return existing;
     const id = this.nextNode++;
     const n: DraftNode = { id, x, y };
@@ -160,31 +154,16 @@ class DraftBuilder {
     return id;
   }
 
-  plate(nodes: DraftPlate['nodes'], thickness: number): number {
-    const id = this.nextPlate++;
-    this.plates.push({ id, nodes, materialId: 1, thickness });
-    return id;
-  }
-
   /** Split a frame element at parameter t, sharing node `nodeId` there.
    *  Draft beams carry no element loads, so the split is pure topology. */
-  splitElement(elementId: number, nodeId: number): [DraftElement, DraftElement] | undefined {
+  splitElement(elementId: number, nodeId: number): void {
     const idx = this.elements.findIndex((e) => e.id === elementId);
     if (idx < 0) return;
     const el = this.elements[idx];
     const a: DraftElement = { ...el, id: this.nextElement++, nodeJ: nodeId, releaseI: { ...el.releaseI }, releaseJ: { ...NO_RELEASE } };
     const b: DraftElement = { ...el, id: this.nextElement++, nodeI: nodeId, releaseI: { ...NO_RELEASE }, releaseJ: { ...el.releaseJ } };
     this.elements.splice(idx, 1, a, b);
-    return [a, b];
   }
-}
-
-function distanceToBeam(p: CadPt, a: CadPt, b: CadPt): number {
-  const dx = b.x - a.x, dy = b.y - a.y;
-  const length = Math.hypot(dx, dy);
-  if (length === 0) return dist(p, a);
-  const station = Math.max(0, Math.min(length, (p.x - a.x) * (dx / length) + (p.y - a.y) * (dy / length)));
-  return dist(p, { x: a.x + station * (dx / length), y: a.y + station * (dy / length) });
 }
 
 /** Split plan segments wherever a column point lies on their interior. */
@@ -192,13 +171,12 @@ function splitSegmentsAtPoints(
   segments: Array<{ a: CadPt; b: CadPt }>,
   points: CadPt[],
   tol: number,
-  endTolerance?: number,
 ): Array<{ a: CadPt; b: CadPt }> {
   const out: Array<{ a: CadPt; b: CadPt }> = [];
   for (const seg of segments) {
     const cuts: Array<{ t: number; p: CadPt }> = [];
     for (const p of points) {
-      const t = pointOnSegment(p, seg.a, seg.b, tol, endTolerance);
+      const t = pointOnSegment(p, seg.a, seg.b, tol);
       if (t !== null) cuts.push({ t, p });
     }
     cuts.sort((u, v) => u.t - v.t);
@@ -454,7 +432,7 @@ export function generateRcDraft(
     warnings.push({ severity: 'warning', message: `beamsDefaulted:${beamsDefaulted}` });
   }
   // ── Slabs ─────────────────────────────────────────────────
-  const slabCells: Array<{ id: number; z: number; on?: 'plate' }> = [];
+  const slabQuads: Array<{ id: number; z: number }> = [];
   let slabsSkipped = 0;
   let slabsDecomposed = 0;
 
@@ -477,7 +455,7 @@ export function generateRcDraft(
       {
         findNode: (x, y, zz) => b.findNode(x, y, zz),
         addNode: (x, y, zz) => b.node(x, y, zz),
-        addQuad: (nodes) => { slabCells.push({ id: b.quad(nodes, thickness), z }); },
+        addQuad: (nodes) => { slabQuads.push({ id: b.quad(nodes, thickness), z }); },
       },
     );
   };
@@ -494,7 +472,7 @@ export function generateRcDraft(
     const n1 = b.node(r.maxX, r.minY, z);
     const n2 = b.node(r.maxX, r.maxY, z);
     const n3 = b.node(r.minX, r.maxY, z);
-    slabCells.push({ id: b.quad([n0, n1, n2, n3], thickness), z });
+    slabQuads.push({ id: b.quad([n0, n1, n2, n3], thickness), z });
   };
 
   // Count a slab's "supported" edges: edges collinear-overlapping a beam, OR
@@ -544,39 +522,6 @@ export function generateRcDraft(
 
   // Structural lines that mesh boundaries must pass through (axis-aligned
   // beams, walls, and the column grid) — collected once, in plan coordinates.
-  const authoredJoints = new Map<CadPt, CadPt[]>();
-  const jointAt = new Map<CadPt, CadPt>();
-  for (const wall of plan.walls) for (const end of [wall.a, wall.b]) {
-    if (jointAt.has(end)) continue;
-    let anchor = end, distance = tol;
-    for (const candidate of authoredJoints.keys()) {
-      const gap = dist(candidate, end);
-      if (gap < distance) {
-        anchor = candidate;
-        distance = gap;
-      }
-    }
-    jointAt.set(end, anchor);
-    const ends = authoredJoints.get(anchor);
-    if (ends) ends.push(end);
-    else authoredJoints.set(anchor, [end]);
-  }
-  const resolvedJoints = new Map<CadPt, CadPt>();
-  for (const [anchor, ends] of authoredJoints) {
-    let resolved = anchor, distance = tol;
-    for (const column of columnPts) for (const end of ends) {
-      const gap = dist(column, end);
-      if (gap < distance) {
-        resolved = column;
-        distance = gap;
-      }
-    }
-    resolvedJoints.set(anchor, resolved);
-  }
-  const wallRuns = plan.walls.flatMap(wall => {
-    const segment = { a: resolvedJoints.get(jointAt.get(wall.a)!)!, b: resolvedJoints.get(jointAt.get(wall.b)!)! };
-    return splitSegmentsAtPoints([segment], columnPts, tol).map(run => ({ ...wall, ...run }));
-  });
   const axisX = new Set<number>(), axisY = new Set<number>();
   const axisTol = 1e-3;
   const addAxis = (set: Set<number>, v: number) => {
@@ -584,11 +529,13 @@ export function generateRcDraft(
     set.add(v);
   };
   for (const c of columns) { addAxis(axisX, c.at.x); addAxis(axisY, c.at.y); }
-  for (const seg of [...plan.beams, ...wallRuns]) {
+  for (const seg of [...plan.beams, ...plan.walls]) {
     if (Math.abs(seg.a.x - seg.b.x) <= axisTol) addAxis(axisX, (seg.a.x + seg.b.x) / 2);
     else if (Math.abs(seg.a.y - seg.b.y) <= axisTol) addAxis(axisY, (seg.a.y + seg.b.y) / 2);
   }
   const wallXs: number[] = [], wallYs: number[] = [];
+  const wallRuns = plan.walls.flatMap(wall => splitSegmentsAtPoints([wall], columnPts, tol)
+    .map(run => ({ ...wall, ...run })));
   for (const { a: start, b: end } of wallRuns) {
     if (start.x !== end.x && start.y !== end.y) continue;
     wallXs.push(start.x, end.x);
@@ -631,20 +578,6 @@ export function generateRcDraft(
   let openingsUncut = 0;                       // recognized but not cut (per slab×opening)
   let cantileverSlabs = 0;
   let isolatedSlabs = 0;
-  const conformingNodes = new Set<number>();
-  const beamEdgeKey = (a: number, b: number) => a < b ? `${a}:${b}` : `${b}:${a}`;
-  const certifiedBeams = new Map<number, Set<string>>();
-  const conformingSlabs = new Map<number, CadPt[][]>();
-  const slabBounds = new Map(plan.slabs.map(slab => [slab, polygonBBox(slab.outline)]));
-  const frameAtFloor = new Map(floorLevels.map(z => [z, {
-    points: [] as CadPt[],
-    beams: [] as Array<{ id: number; a: CadPt; b: CadPt }>,
-  }]));
-  for (const node of b.nodes) frameAtFloor.get(node.z ?? 0)?.points.push(node);
-  for (const beam of b.elements.slice(columnElementCount)) {
-    const start = b.nodes[beam.nodeI - 1]!, end = b.nodes[beam.nodeJ - 1]!;
-    frameAtFloor.get(start.z ?? 0)?.beams.push({ id: beam.id, a: start, b: end });
-  }
 
   for (const slab of plan.slabs) {
     // Skip slabs with no structural support (not a beam edge, not adjacent to
@@ -657,45 +590,6 @@ export function generateRcDraft(
       .map((op, idx) => ({ op, idx }))
       .filter(({ op }) => pointInPolygon(op.centroid, slab.outline));
     const axisAligned = isAxisAlignedRectilinear(slab.outline, 1e-4);
-
-    const bounds = slabBounds.get(slab)!;
-    if (a.meshSlabs && a.splitBeams && slab.isQuad
-      && (a.ignoreOpenings || opsInSlab.length === 0)
-      && !(a.roomBasedLiveLoads && plan.roomLabels.length > 0)
-      && wallRuns.some(({ a: start, b: end }) => !axisAligned || (start.x !== end.x && start.y !== end.y))
-      && [...slabBounds].every(([other, box]) => other === slab
-        || bounds.maxX + tol < box.minX || box.maxX + tol < bounds.minX
-        || bounds.maxY + tol < box.minY || box.maxY + tol < bounds.minY)) {
-      const longestSide = Math.max(...slab.outline.map((p, i) => dist(p, slab.outline[(i + 1) % slab.outline.length]!)));
-      const meshes = floorLevels.map(z => {
-        const { beams, points } = frameAtFloor.get(z)!;
-        return meshSlabAlongWalls(slab.outline, wallRuns, beams, points,
-          meshMode === 'targetSize' ? effTarget : longestSide / fixedN,
-          meshMode === 'fixedDivisions' ? fixedN : undefined);
-      });
-      if (meshes.every(mesh => mesh !== null)) {
-        for (const [i, mesh] of meshes.entries()) {
-          const z = floorLevels[i]!;
-          const thickness = slabThicknessAt(slab, z);
-          const ids = mesh.points.map(({ x, y }) => b.node(x, y, z, PLATE_EDGE_TOL));
-          ids.forEach(id => conformingNodes.add(id));
-          const outlines = conformingSlabs.get(z) ?? [];
-          outlines.push(mesh.outline);
-          conformingSlabs.set(z, outlines);
-          for (const [beam, edges] of mesh.beamEdges) {
-            const certified = certifiedBeams.get(beam) ?? new Set<string>();
-            for (const [i, j] of edges) certified.add(beamEdgeKey(ids[i]!, ids[j]!));
-            certifiedBeams.set(beam, certified);
-          }
-          for (const cell of mesh.cells) {
-            const nodes = cell.map(i => ids[i]!) as DraftPlate['nodes'];
-            slabCells.push({ id: b.plate(nodes, thickness), z, on: 'plate' });
-          }
-        }
-        openingsUncut += opsInSlab.length;
-        continue;
-      }
-    }
 
     if (axisAligned) {
       // Axis-aligned slab: target-size (or fixed) structured mesh that forces
@@ -789,33 +683,15 @@ export function generateRcDraft(
 
   // ── Walls / tabiques ──────────────────────────────────────
   const wallQuadStart = b.quads.length;
-  const slabNodeIds = new Set([...b.quads, ...b.plates].flatMap(q => q.nodes));
+  const slabNodeIds = new Set(b.quads.flatMap(q => q.nodes));
   const slabStations = new Map<string, CadPt>();
-  const tightStations = new Map<string, CadPt>();
   for (const n of b.nodes) {
-    const key = `${n.x}|${n.y}`;
-    if (slabNodeIds.has(n.id)) slabStations.set(key, n);
-    if (conformingNodes.has(n.id)) tightStations.set(key, n);
+    if (slabNodeIds.has(n.id)) slabStations.set(`${n.x}|${n.y}`, n);
   }
   const stations = [...slabStations.values()];
-  const tightPoints = [...tightStations.values()];
-  const stationTolerance = (p: CadPt) => tightStations.has(`${p.x}|${p.y}`)
-    || tightPoints.some(n => dist(n, p) < PLATE_EDGE_TOL) ? PLATE_EDGE_TOL : tol;
-  const wallBeamIds = new Set<number>();
-  const checkWallEnd = (wall: number, point: CadPt, node: DraftNode) => {
-    for (const beam of frameAtFloor.get(node.z ?? 0)?.beams ?? []) {
-      const gap = distanceToBeam(point, beam.a, beam.b);
-      const weldedGap = distanceToBeam(node, beam.a, beam.b);
-      if (Math.max(gap, weldedGap) < PLATE_EDGE_TOL) wallBeamIds.add(beam.id);
-      else if (Math.min(gap, weldedGap) < tol) {
-        throw new EngineMessageError(msg('cad.disconnectedWallBeam', { wall, beam: beam.id }));
-      }
-    }
-  };
   let wallScheduleHits = 0;
   for (const run of wallRuns) {
-    const segments = splitSegmentsAtPoints([run], stations, PLATE_EDGE_TOL, 0)
-      .map(segment => ({ ...segment, startWeld: stationTolerance(segment.a), endWeld: stationTolerance(segment.b) }));
+    const segments = splitSegmentsAtPoints([run], stations, PLATE_EDGE_TOL);
     for (let k = 0; k < a.nFloors; k++) {
       const r = resolveSection(
         'wall', run.mark, k + 1, schedules,
@@ -826,20 +702,12 @@ export function generateRcDraft(
       if (r.source === 'schedule') wallScheduleHits++;
       const t = r.t ?? a.wallThickness;
       const z0 = levels[k], z1 = levels[k + 1];
-      for (const { a: start, b: end, startWeld, endWeld } of segments) {
-        const n0 = b.node(start.x, start.y, z0, startWeld);
-        const n1 = b.node(end.x, end.y, z0, endWeld);
-        const n2 = b.node(end.x, end.y, z1, endWeld);
-        const n3 = b.node(start.x, start.y, z1, startWeld);
-        const wall = b.quad([n0, n1, n2, n3], t);
-        if (start === run.a) {
-          checkWallEnd(wall, start, b.nodes[n0 - 1]!);
-          checkWallEnd(wall, start, b.nodes[n3 - 1]!);
-        }
-        if (end === run.b) {
-          checkWallEnd(wall, end, b.nodes[n1 - 1]!);
-          checkWallEnd(wall, end, b.nodes[n2 - 1]!);
-        }
+      for (const { a: start, b: end } of segments) {
+        const n0 = b.node(start.x, start.y, z0);
+        const n1 = b.node(end.x, end.y, z0);
+        const n2 = b.node(end.x, end.y, z1);
+        const n3 = b.node(start.x, start.y, z1);
+        b.quad([n0, n1, n2, n3], t);
       }
     }
   }
@@ -870,13 +738,11 @@ export function generateRcDraft(
   }
 
   // ── Split beams at shell nodes (PR [8] mesh logic) ────────
-  const nodeById = (id: number) => b.nodes[id - 1];
-  const beamTraces = new Map(certifiedBeams);
-  for (const id of wallBeamIds) if (!beamTraces.has(id)) beamTraces.set(id, new Set<string>());
   let beamsSplit = 0;
   if (a.splitBeams) {
-    const exactNodes = new Set([...conformingNodes, ...b.quads.slice(wallQuadStart).flatMap(q => q.nodes)]);
-    const shellNodeIds = new Set([...conformingNodes, ...[...b.quads, ...b.plates].flatMap(q => q.nodes)]);
+    const nodeById = (id: number) => b.nodes.find((nn) => nn.id === id);
+    // Every distinct node referenced by a shell quad.
+    const shellNodeIds = [...new Set(b.quads.flatMap((q) => q.nodes))];
     // Split beams to a FIXED POINT: a split creates new shorter sub-beams, and
     // another shell node may lie on a newly-created sub-beam (common where
     // closely-spaced structural lines make short stubs). Re-scan all shell
@@ -887,44 +753,15 @@ export function generateRcDraft(
         const nn = nodeById(nid);
         if (!nn) continue;
         for (let guard = 0; guard < 4; guard++) {
-          const eligible = beamTraces.size === 0 ? b.elements : b.elements.filter(({ id, nodeI, nodeJ }) =>
-            !beamTraces.get(id)?.has(beamEdgeKey(nodeI, nodeJ)));
-          const exactHit = beamThrough(nodeById, eligible, nn.x, nn.y, nn.z ?? 0, PLATE_EDGE_TOL, 0);
-          const hit = exactHit ?? (exactNodes.has(nid) ? null : beamThrough(
-            nodeById, eligible.filter(({ id }) => !beamTraces.has(id)), nn.x, nn.y, nn.z ?? 0, tol,
-          ));
+          const hit = beamThrough(nodeById, b.elements, nn.x, nn.y, nn.z ?? 0, tol);
           if (!hit) break;
-          const children = b.splitElement(hit.id, nid);
-          const trace = beamTraces.get(hit.id);
-          if (trace && children) {
-            beamTraces.delete(hit.id);
-            for (const child of children) beamTraces.set(child.id, trace);
-          }
+          b.splitElement(hit.id, nid);
           beamsSplit++;
           splitThisRound++;
         }
       }
       if (splitThisRound === 0) break;
     }
-    const uncertifiedBeam = (beam: number): never => {
-      throw new EngineMessageError(msg('cad.uncertifiedSlabBeam', { beam }));
-    };
-    const remaining = new Map([...certifiedBeams].map(([id, edges]) => [edges, { id, edges: new Set(edges) }]));
-    for (const { id, nodeI, nodeJ } of b.elements) {
-      const trace = beamTraces.get(id);
-      const key = beamEdgeKey(nodeI, nodeJ);
-      if (trace?.has(key)) {
-        remaining.get(trace)!.edges.delete(key);
-        continue;
-      }
-      const a = nodeById(nodeI)!, b = nodeById(nodeJ)!;
-      if (a.z !== b.z) continue;
-      for (const outline of conformingSlabs.get(a.z ?? 0) ?? []) {
-        const clipped = clipTrace({ a, b }, outline, 0);
-        if (clipped && dist(clipped.a, clipped.b) > PLATE_EDGE_TOL) uncertifiedBeam(id);
-      }
-    }
-    for (const { id, edges } of remaining.values()) if (edges.size) uncertifiedBeam(id);
   }
 
   // Final offset-element count (splits at shell nodes copy the parallel
@@ -975,8 +812,8 @@ export function generateRcDraft(
   // slab by room boundaries is future work. The roof always carries Lr.
   const roomBased = a.roomBasedLiveLoads === true && plan.roomLabels.length > 0;
   const ROOM_REACH = 6; // m — max quad-centroid → label distance to classify
-  const cellCentroid = (qid: number, on?: 'plate'): CadPt | null => {
-    const q = (on === 'plate' ? b.plates : b.quads).find((qq) => qq.id === qid);
+  const quadCentroid = (qid: number): CadPt | null => {
+    const q = b.quads.find((qq) => qq.id === qid);
     if (!q) return null;
     let x = 0, y = 0; let nn = 0;
     for (const nid of q.nodes) {
@@ -997,20 +834,21 @@ export function generateRcDraft(
   const liveLoadByCategory: Record<string, number> = {};
   let liveLoadDefaulted = 0;
 
-  for (const { id: qid, z, on } of slabCells) {
-    const addPressure = (q: number, caseId: number) => {
-      if (q > 0) b.loads.push({ type: 'surface3d', data: { id: b.nextLoad++, quadId: qid, ...(on && { on }), q, caseId } });
-    };
+  for (const { id: qid, z } of slabQuads) {
     const isRoof = useLr && Math.abs(z - topZ) <= tol;
-    addPressure(a.deadLoad, 1);
+    if (a.deadLoad > 0) {
+      b.loads.push({ type: 'surface3d', data: { id: b.nextLoad++, quadId: qid, q: a.deadLoad, caseId: 1 } });
+    }
     if (isRoof) {
-      addPressure(a.roofLiveLoad ?? 0, 3);
+      if ((a.roofLiveLoad ?? 0) > 0) {
+        b.loads.push({ type: 'surface3d', data: { id: b.nextLoad++, quadId: qid, q: a.roofLiveLoad!, caseId: 3 } });
+      }
       continue;
     }
     // Floor live load: room-based when enabled, else the global default.
     let lq = a.liveLoad;
     if (roomBased) {
-      const c = cellCentroid(qid, on);
+      const c = quadCentroid(qid);
       const room = c ? nearestRoomQ(c) : null;
       if (room) {
         lq = room.q;
@@ -1020,7 +858,9 @@ export function generateRcDraft(
         liveLoadDefaulted++;
       }
     }
-    addPressure(lq, 2);
+    if (lq > 0) {
+      b.loads.push({ type: 'surface3d', data: { id: b.nextLoad++, quadId: qid, q: lq, caseId: 2 } });
+    }
   }
   if (roomBased) {
     warnings.push({ severity: 'info', message: `liveLoadsByRoom:${Object.keys(liveLoadByCategory).length}` });
@@ -1138,7 +978,6 @@ export function generateRcDraft(
 
   const provenance: ModelProvenance = {
     source: 'cad-dxf',
-    ...(conformingNodes.size > 0 && { cadWallSlabMesh: true }),
     fileName: source.fileName,
     importedAtIso: source.importedAtIso,
     status: 'cad-draft-unreviewed',
@@ -1158,7 +997,7 @@ export function generateRcDraft(
     loads: b.loads,
     loadCases,
     combinations,
-    plates: b.plates.map(p => [p.id, p]),
+    plates: [],
     quads: b.quads.map((q) => [q.id, { ...q, nodes: [...q.nodes] as [number, number, number, number] }]),
     constraints: [],
     connectors: [],
@@ -1172,7 +1011,7 @@ export function generateRcDraft(
       load: b.nextLoad,
       loadCase: loadCases.length + 1,
       combination: combinations.length + 1,
-      plate: b.nextPlate,
+      plate: 1,
       quad: b.nextQuad,
       connector: 1,
     },
@@ -1186,8 +1025,7 @@ export function generateRcDraft(
       nodes: b.nodes.length,
       columns: columnElementCount,
       beams: b.elements.length - columnElementCount,
-      slabQuads: slabCells.length - b.plates.length,
-      slabTriangles: b.plates.length,
+      slabQuads: slabQuads.length,
       wallQuads: wallQuadCount,
       supports: b.supports.length,
       loads: b.loads.length,

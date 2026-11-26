@@ -1,7 +1,5 @@
 import type { Translations } from '../types';
 const pt: Translations = {
-  'cad.disconnectedWallBeam': "O quadrilátero de parede {wall} e a viga {beam} estão dentro da tolerância de ajuste CAD, mas seus traçados não se encontram. Conecte a extremidade da parede à viga no desenho.",
-  'cad.uncertifiedSlabBeam': "A viga {beam} não tem uma aresta de malha certificada ao longo do seu traçado na laje. Conecte a viga à laje por uma aresta compartilhada no desenho.",
   'svc.accountingMismatch': "Análise recusada. Caso de carga {case}, {component}. Valor introduzido {entered}, valor montado {assembled}.",
   'svc.accountingLineEnd': "Análise recusada. Caso de carga {case}, extremidade {end} da barra {member}. A carga redistribuída chegou ao nó {actual}. Esperava-se o nó {expected}.",
   'svc.accountingUnsupported': "Análise recusada. No caso de carga {case}, não é possível contabilizar as forças e os momentos de {kind} {id}.",
@@ -11932,7 +11930,7 @@ const pt: Translations = {
   'cad.cNodes': 'Nós',
   'cad.cOffsets': 'Elementos de viga com offset excêntrico',
   'cad.cSchedAssign': 'Seções por tabela (elemento-pavimento)',
-  'cad.cSlabCells': 'Elementos de laje',
+  'cad.cSlabQuads': 'Quads de laje',
   'cad.cSplits': 'Vigas divididas nos nós da laje',
   'cad.cSupports': 'Apoios',
   'cad.cWallQuads': 'Quads de parede',
@@ -14429,7 +14427,6 @@ const pt: Translations = {
   "plates.analysisMeshRefused": "Não foi possível malhar: {names}. Revise o tamanho do elemento ou o contorno.",
   "plates.analysisInvalid": "A análise foi interrompida. Corrija a geometria ou as propriedades das placas inválidas: {names}.",
   "plates.analysisWallSlab": "A análise foi interrompida. A parede {wall} e a laje {slab} não compartilham um vértice de malha no nó {node}. Gere novamente a malha da junção com nós compartilhados.",
-  "plates.analysisWallSlabEdgePoint": "A análise foi interrompida. A parede {wall} e a laje {slab} se tocam entre os nós da malha. Remalhe a junção com um nó compartilhado no ponto de contato.",
   "plates.analysisWallSlabFace": "A análise foi interrompida. A parede {wall} encontra a laje {slab} sem uma borda de malha compartilhada perto dos nós da parede {nodes}. Remalhe a junção com bordas compartilhadas.",
   "plates.meshedAtAnalysis": "{n} placas malhadas antes do cálculo ({cells} elementos)",
   "plates.liveNeedsMesh": "{n} placas sem malha vigente: o cálculo ao vivo espera o cálculo completo, que as malha.",

@@ -64,7 +64,7 @@ export const FEATURE_IDS = [
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'unrestrainedAxialTip', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
-  'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'wallSlabPointContact', 'cadWallSlabMesh', 'cadImportedDraft', 'triangularGravityFootprint', 'triangularPlates', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
+  'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'triangularGravityFootprint', 'triangularPlates', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
   'physicalPlateDefinitions', 'wholeSlabLoadDefinitions', 'shellPressureLoads', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
@@ -110,7 +110,6 @@ type ShellSnapshot = { id?: number; materialId?: number; nodes?: number[]; curve
 type FeatureLoad = { type?: unknown; data?: Record<string, unknown> };
 
 interface FeatureSnapshotFields {
-  provenance?: { source?: string; cadWallSlabMesh?: boolean };
   analysisMode?: string;
   gapElements?: unknown[];
   nodeToSurfacePairs?: unknown[];
@@ -556,10 +555,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     const issue = plateAnalysisIssue(plates);
     if (issue && issue.kind !== 'unmeshed') f.add('plateAnalysisIssue');
     if (issue?.kind === 'wallSlab' && 'contact' in issue.joint) f.add('wallSlabInteriorContact');
-    if (issue?.kind === 'wallSlab' && 'contact' in issue.joint && issue.joint.contact.length <= 1) f.add('wallSlabPointContact');
   }
-  if (s.provenance?.source === 'cad-dxf') f.add('cadImportedDraft');
-  if (s.provenance?.source === 'cad-dxf' && (s.provenance.cadWallSlabMesh || f.has('wallSlabInteriorContact'))) f.add('cadWallSlabMesh');
   if (quads.some((q) => q?.curved)) f.add('curvedShells');
   if ([...quads, ...values(s.plates)].some((q) => offsetMoves(q?.offset))) f.add('eccentricities');
 

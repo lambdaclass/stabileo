@@ -6,7 +6,7 @@ import { snow, pressure, regulations } from './snow-roof-plane-fixture';
 import { gravityLayout, type GravityLayout } from '../plan-gravity';
 import { snowLoadCases, type SnowCasesInput } from '../snow-loads';
 import { driftAndSlidingLoads, snowDriftRefusal } from '../snow-drift-loads';
-import { roofSurfaceModel, snowRoofEdgePairs } from '../snow-roof-surfaces';
+import { roofSurfaceModel } from '../snow-roof-surfaces';
 import { shapedSnow } from '../snow-shapes';
 import { stepDrift, parapetDrift, slidingSnow } from '../../../codes/cirsoc104/drift';
 import { planSnow } from '../load-plan-snow';
@@ -87,26 +87,15 @@ function move(model: Model, layout: GravityLayout, angle: number, mirror: number
   }
 }
 
-function splitValleyPanel(layout: GravityLayout) {
-  layout.widthMembers = [];
-  layout.panels[0] = { polygon: [[0.1, 0], [2, 0], [2, 4], [0.1, 4]], z: 3, roof: true };
-  layout.panels.push({ polygon: [[0, 0], [0.1, 0], [0.1, 4], [0, 4]], z: 3, roof: true });
-  layout.pieces = [{ elementId: 500, panel: 0, roof: true, a: 0, b: 1, wI: 0.1, wJ: 0.1 }];
-}
-
-it.each([0, 0.37, Math.PI / 2])('#2607 valley edge behind a continuous flat roof at rotation %s', angle => {
-  const { model, layout } = valley();
-  splitValleyPanel(layout);
-  move(model, layout, angle, 1);
-  const config = { ...snow, slippery: false, roofKind: 'mono' as const, parapet: { height: 3 } };
-  expect.soft(publicSnow(model, layout, config).result.refused).toBeUndefined();
-  expect(snowRoofEdgePairs(model, layout).filter(({ separation }) => separation > 0)).toEqual([]);
-});
-
 for (const angle of [0, 0.37, Math.PI / 2]) for (const mirror of [1, -1]) for (const mode of ['width', 'pieces'] as const) {
   it(`round9 valley cannot extend parapet fetch ${mode} ${angle} ${mirror}`, () => {
     const { model, layout } = valley();
-    if (mode === 'pieces') splitValleyPanel(layout);
+    if (mode === 'pieces') {
+      layout.widthMembers = [];
+      layout.panels[0] = { polygon: [[0.1, 0], [2, 0], [2, 4], [0.1, 4]], z: 3, roof: true };
+      layout.panels.push({ polygon: [[0, 0], [0.1, 0], [0.1, 4], [0, 4]], z: 3, roof: true });
+      layout.pieces = [{ elementId: 500, panel: 0, roof: true, a: 0, b: 1, wI: 0.1, wJ: 0.1 }];
+    }
     move(model, layout, angle, mirror);
     const base = driftAndSlidingLoads(model, layout, inputs);
     const out = driftAndSlidingLoads(model, layout, { ...inputs, parapet: { height: 3 } });
@@ -178,23 +167,6 @@ for (const gap of [0, 0.5e-8, 1e-8, 2e-8, 0.2]) {
     expect(pressure(out.distributed, 500, 0.5) - pressure(base.distributed, 500, 0.5)).toBeCloseTo(expected, 10);
   });
 }
-
-it.each([[0.099, 2], [0.101, 22]])('#2607 rotated roof seam of length %s has fetch %s', (overlap, fetch) => {
-  const { model, layout } = valley();
-  const roof = mesh([[[0, 0, 3], [2, 0, 3], [2, 4, 3], [0, 4, 3]], [[2, 4 - overlap, 3], [22, 4 - overlap, 3], [22, 8, 3], [2, 8, 3]]]);
-  for (const id of [500, 501]) roof.nodes.set(id, model.nodes.get(id)!);
-  roof.elements.set(500, model.elements.get(500)!);
-  layout.panels[1] = { polygon: [[2, 4 - overlap], [22, 4 - overlap], [22, 8], [2, 8]], z: 3, roof: true };
-  move(roof, layout, 0.37, -1);
-  const parapet = { height: 3 }, dr = parapetDrift({ pg: 1, balanced: 1, parapetHeight: 3, lu: fetch });
-  const expected = dr.pd * (1 - 0.1 / dr.w) * 0.1;
-  const out = driftAndSlidingLoads(roof, layout, { ...inputs, parapet });
-  expect.soft(pressure(out.distributed, 500, 0.5)).toBeCloseTo(expected, 10);
-  const config = { ...snow, slippery: false, roofKind: 'mono' as const };
-  const ordinary = publicSnow(roof, layout, config), loaded = publicSnow(roof, layout, { ...config, parapet });
-  expect(loaded.result.refused).toBeUndefined();
-  expect(pressure(loaded.cases[0]!.distributed, 500, 0.5) - pressure(ordinary.cases[0]!.distributed, 500, 0.5)).toBeCloseTo(expected, 10);
-});
 
 for (const overlap of [0, 0.099, 0.1, 0.101]) {
   it(`round9 continuous join overlap boundary ${overlap}`, () => {

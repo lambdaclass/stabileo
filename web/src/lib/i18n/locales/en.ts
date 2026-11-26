@@ -1,6 +1,4 @@
 const en: Record<string, string> = {
-  'cad.disconnectedWallBeam': "Wall quad {wall} and beam {beam} are within CAD snap tolerance but their traces do not meet. Connect the wall end to the beam in the drawing.",
-  'cad.uncertifiedSlabBeam': "Beam {beam} has no certified mesh edge along its trace in the slab. Connect the beam and slab along a shared edge in the drawing.",
   'svc.accountingMismatch': "Analysis refused. Load case {case}, {component}. Entered {entered}, assembled {assembled}.",
   'svc.accountingLineEnd': "Analysis refused. Load case {case}, member {member} end {end}. Redistributed load reached node {actual}. Expected node {expected}.",
   'svc.accountingUnsupported': "Analysis refused. Load case {case} includes {kind} {id}, whose forces and moments cannot be accounted for.",
@@ -2330,7 +2328,7 @@ const en: Record<string, string> = {
   'cad.cNodes': 'Nodes',
   'cad.cColumns': 'Column elements',
   'cad.cBeams': 'Beam elements',
-  'cad.cSlabCells': 'Slab shell elements',
+  'cad.cSlabQuads': 'Slab shell quads',
   'cad.cWallQuads': 'Wall shell quads',
   'cad.cSupports': 'Supports',
   'cad.cLoads': 'Loads',
@@ -14787,7 +14785,6 @@ const en: Record<string, string> = {
   "plates.analysisMeshRefused": "Could not mesh: {names}. Check their element size or their outline.",
   "plates.analysisInvalid": "Analysis stopped. Correct the invalid plate geometry or properties for {names}.",
   "plates.analysisWallSlab": "Analysis stopped. Wall {wall} and slab {slab} do not share a mesh vertex at node {node}. Remesh the joint with shared nodes.",
-  "plates.analysisWallSlabEdgePoint": "Analysis stopped. Wall {wall} and slab {slab} touch between mesh nodes. Remesh the joint with a shared node at the contact point.",
   "plates.analysisWallSlabFace": "Analysis stopped. Wall {wall} meets slab {slab} without a shared mesh edge near wall nodes {nodes}. Remesh the joint with shared edges.",
   "plates.meshedAtAnalysis": "{n} plates meshed before the analysis ({cells} elements)",
   "plates.liveNeedsMesh": "{n} plates without a current mesh: live calculation waits for the full analysis, which meshes them.",

@@ -1,8 +1,6 @@
 import type { Translations } from '../types';
 
 const ja: Translations = {
-  'cad.disconnectedWallBeam': "壁の四角形要素 {wall} と梁 {beam} は CAD スナップ許容範囲内にありますが、両者の線が交わっていません。図面で壁端と梁を接続してください。",
-  'cad.uncertifiedSlabBeam': "梁 {beam} のスラブ内の線に沿って、検証済みのメッシュ辺がありません。図面で梁とスラブを共通の辺に沿って接続してください。",
   'svc.accountingMismatch': "解析を拒否しました。荷重ケース {case}、成分 {component}。入力値 {entered}、組立値 {assembled}。",
   'svc.accountingUnsupported': "解析を拒否しました。荷重ケース {case} の {kind} {id} の力とモーメントを集計できません。",
   'svc.accountingArea': "解析を拒否しました。ソルバー内のプレート {plate} の面積または境界が異なります。指定面積 {entered}、組立面積 {assembled}。",

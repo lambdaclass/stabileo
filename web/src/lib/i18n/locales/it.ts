@@ -1,7 +1,5 @@
 import type { Translations } from '../types';
 const it: Translations = {
-  'cad.disconnectedWallBeam': "Il quadrilatero di parete {wall} e la trave {beam} rientrano nella tolleranza di aggancio CAD, ma i loro tracciati non si incontrano. Collega l’estremità della parete alla trave nel disegno.",
-  'cad.uncertifiedSlabBeam': "La trave {beam} non ha un bordo della mesh verificato lungo il suo tracciato nella soletta. Collega la trave alla soletta lungo un bordo comune nel disegno.",
   'svc.accountingMismatch': "Analisi rifiutata. Caso di carico {case}, {component}. Valore inserito {entered}, valore assemblato {assembled}.",
   'svc.accountingUnsupported': "Analisi rifiutata. Non è possibile contabilizzare forze e momenti di {kind} {id} nel caso di carico {case}.",
   'svc.accountingArea': "Analisi rifiutata. La piastra {plate} ha un’area o un contorno diverso nel solutore. Area specificata {entered}, area assemblata {assembled}.",

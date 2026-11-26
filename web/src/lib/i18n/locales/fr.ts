@@ -1,8 +1,6 @@
 import type { Translations } from '../types';
 
 const fr: Translations = {
-  'cad.disconnectedWallBeam': "Le quadrilatère de mur {wall} et la poutre {beam} sont dans la tolérance d’accrochage CAO, mais leurs tracés ne se rejoignent pas. Reliez l’extrémité du mur à la poutre dans le dessin.",
-  'cad.uncertifiedSlabBeam': "La poutre {beam} ne possède aucune arête de maillage certifiée le long de son tracé dans la dalle. Reliez la poutre à la dalle par une arête commune dans le dessin.",
   'svc.accountingMismatch': "Analyse refusée. Cas de charge {case}, {component}. Valeur saisie {entered}, valeur assemblée {assembled}.",
   'svc.accountingLineEnd': "Analyse refusée. Cas de charge {case}, extrémité {end} de la barre {member}. La charge redistribuée a été appliquée au nœud {actual}. Le nœud attendu est {expected}.",
   'svc.accountingUnsupported': "Analyse refusée. Les forces et les moments de {kind} {id} dans le cas de charge {case} ne peuvent pas être comptabilisés.",
@@ -1975,7 +1973,7 @@ const fr: Translations = {
   'cad.cNodes': 'Nœuds',
   'cad.cColumns': 'Éléments poteau',
   'cad.cBeams': 'Éléments poutre',
-  'cad.cSlabCells': 'Éléments de coque de dalle',
+  'cad.cSlabQuads': 'Quadrangles de coque de dalle',
   'cad.cWallQuads': 'Quadrangles de coque de voile',
   'cad.cSupports': 'Appuis',
   'cad.cLoads': 'Charges',
@@ -14251,7 +14249,6 @@ const fr: Translations = {
   'plates.analysisMeshRefused': 'Maillage impossible : {names}. Vérifiez leur taille d\'élément ou leur contour.',
   "plates.analysisInvalid": "Calcul arrêté. Corrigez la géométrie ou les propriétés des plaques non valides : {names}.",
   "plates.analysisWallSlab": "Calcul arrêté. Le voile {wall} et la dalle {slab} ne partagent aucun sommet de maillage au nœud {node}. Remaillez la jonction avec des nœuds communs.",
-  "plates.analysisWallSlabEdgePoint": "Calcul arrêté. Le voile {wall} et la dalle {slab} se touchent entre des nœuds de maillage. Remaillez la jonction avec un nœud commun au point de contact.",
   "plates.analysisWallSlabFace": "Calcul arrêté. Le voile {wall} rencontre la dalle {slab} près des nœuds {nodes} du voile sans bord de maillage commun. Remaillez la jonction avec des bords communs.",
   'plates.meshedAtAnalysis': '{n} plaques maillées avant le calcul ({cells} éléments)',
   'plates.liveNeedsMesh': '{n} plaques sans maillage à jour : le calcul en direct attend le calcul complet, qui les maille.',

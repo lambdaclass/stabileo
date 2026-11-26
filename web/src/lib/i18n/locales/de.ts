@@ -1,8 +1,6 @@
 import type { Translations } from '../types';
 
 const de: Translations = {
-  'cad.disconnectedWallBeam': "Das Wandviereck {wall} und der Träger {beam} liegen innerhalb der CAD-Fangtoleranz, ihre Linien treffen sich aber nicht. Verbinden Sie das Wandende und den Träger in der Zeichnung.",
-  'cad.uncertifiedSlabBeam': "Für den Träger {beam} fehlt entlang seiner Linie in der Platte eine nachgewiesene Netzkante. Verbinden Sie Träger und Platte in der Zeichnung über eine gemeinsame Kante.",
   'svc.accountingMismatch': "Berechnung abgelehnt. Lastfall {case}, {component}. Eingegeben {entered}, assembliert {assembled}.",
   'svc.accountingLineEnd': "Berechnung abgelehnt. Lastfall {case}, Stab {member}, Ende {end}. Die umgelagerte Last wirkt am Knoten {actual}. Erwartet wurde Knoten {expected}.",
   'svc.accountingUnsupported': "Berechnung abgelehnt. Kräfte und Momente von {kind} {id} im Lastfall {case} können nicht bilanziert werden.",
@@ -1975,7 +1973,7 @@ const de: Translations = {
   'cad.cNodes': 'Knoten',
   'cad.cColumns': 'Stützenelemente',
   'cad.cBeams': 'Balkenelemente',
-  'cad.cSlabCells': 'Deckenschalenelemente',
+  'cad.cSlabQuads': 'Deckenschalen-Vierecke',
   'cad.cWallQuads': 'Wandschalen-Vierecke',
   'cad.cSupports': 'Auflager',
   'cad.cLoads': 'Lasten',
@@ -14251,7 +14249,6 @@ const de: Translations = {
   'plates.analysisMeshRefused': 'Vernetzung nicht möglich: {names}. Prüfen Sie ihre Elementgröße oder ihren Umriss.',
   "plates.analysisInvalid": "Berechnung abgebrochen. Korrigieren Sie die Geometrie oder Eigenschaften der ungültigen Platten: {names}.",
   "plates.analysisWallSlab": "Berechnung abgebrochen. Wand {wall} und Deckenplatte {slab} haben bei Knoten {node} keinen gemeinsamen Netzknoten. Vernetzen Sie den Anschluss mit gemeinsamen Knoten neu.",
-  "plates.analysisWallSlabEdgePoint": "Berechnung abgebrochen. Wand {wall} und Deckenplatte {slab} berühren sich zwischen Netzknoten. Vernetzen Sie den Anschluss mit einem gemeinsamen Knoten am Kontaktpunkt neu.",
   "plates.analysisWallSlabFace": "Berechnung abgebrochen. Die Wand {wall} trifft die Deckenplatte {slab} nahe den Wandknoten {nodes} ohne gemeinsame Netzkante. Vernetzen Sie den Anschluss mit gemeinsamen Kanten neu.",
   'plates.meshedAtAnalysis': '{n} Platten vor der Berechnung vernetzt ({cells} Elemente)',
   'plates.liveNeedsMesh': '{n} Platten ohne aktuelles Netz: Die Live-Berechnung wartet auf die vollständige Berechnung, die sie vernetzt.',

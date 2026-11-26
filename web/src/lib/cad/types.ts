@@ -341,7 +341,6 @@ export interface RcDraftResult {
     columns: number;
     beams: number;
     slabQuads: number;
-    slabTriangles: number;
     wallQuads: number;
     supports: number;
     loads: number;

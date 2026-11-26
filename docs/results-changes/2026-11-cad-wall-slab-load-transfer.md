@@ -1,12 +1,4 @@
-# CAD slab load transfer along wall traces
-
-## Mesh CAD slabs along oblique wall traces
-
-A CAD wall can cross a slab cell between mesh nodes. The previous draft generator subdivided the wall at slab nodes on the trace, which could leave the wall and slab connected only at isolated points. The slab then lacked the intended continuous wall load path.
-
-For supported draft geometry, generation clips the wall and beam runs to the slab outline and requires the entire in-slab intervals to be edges of a common mesh. The slab uses triangular plates, and the wall panels share the slab edge nodes. The draft places its pressure on those same plates. The connection can change reactions, displacements, frame forces and shell results.
-
-Regenerate affected CAD drafts and re-run their analyses. Previously saved finite-element meshes retain their topology and must pass the existing wall–slab conformity check.
+# Automatic gravity on triangular slabs
 
 ## Refuse automatic gravity on triangular slabs
 

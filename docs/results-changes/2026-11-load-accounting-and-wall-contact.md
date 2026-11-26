@@ -10,8 +10,6 @@ A wall piercing the common edge of two slab cells also stops before solving if t
 
 A wall edge that crosses the plane of an intermediate slab is checked at the plane intersection. The solve stops if that intersection lies strictly inside a slab cell and the edge passes through the slab without a shared mesh station. The preflight also intersects the two faces and checks their common trace for compatible edges. A wall extending from x = −1 m to x = 5 m at y = 2 m and through z = 0 intersects a 4 m square slab along its full 4 m width. Neither wall edge crosses the slab face. This model now stops with an intersection message. A wall clear of the slab and a wall with a shared trace still solve. The preflight classifies wall nodes against the slab plane and accounts for roundoff at a conforming skew joint. A wall edge that crosses the slab plane only at a slab corner no longer requires a shared edge when the model already declares compatible motion at the corner.
 
-A wall and slab can also touch between nodes on both mesh edges. Spatial preflight checks the zero-length intersection and stops with a request for a shared contact node. A clearance or an explicitly shared node keeps the ordinary structural result.
-
 ## Per-member line-load accounting
 
 The case-wide force and moment can both be zero for an axial load that reverses sign along a member. A 2 m span with endpoint intensities of +2 and −2 kN/m has zero net force and a signed station first moment of −4/3 kN·m. Dropping that load on the previous application path could pass the case balance and remove the member’s axial response.

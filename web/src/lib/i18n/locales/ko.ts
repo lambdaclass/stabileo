@@ -1,8 +1,6 @@
 import type { Translations } from '../types';
 
 const ko: Translations = {
-  'cad.disconnectedWallBeam': "벽 사각형 요소 {wall}과 보 {beam}이 CAD 스냅 허용 범위 안에 있지만 두 선이 만나지 않습니다. 도면에서 벽 끝을 보에 연결하세요.",
-  'cad.uncertifiedSlabBeam': "보 {beam}의 슬래브 내부 선을 따라 검증된 메시 모서리가 없습니다. 도면에서 보와 슬래브를 공통 모서리를 따라 연결하세요.",
   'svc.accountingMismatch': "해석을 거부했습니다. 하중 케이스 {case}, 성분 {component}. 입력값 {entered}, 조립값 {assembled}.",
   'svc.accountingUnsupported': "해석을 거부했습니다. 하중 케이스 {case}의 {kind} {id}에 대한 힘과 모멘트를 집계할 수 없습니다.",
   'svc.accountingArea': "해석을 거부했습니다. 솔버의 판 {plate} 면적 또는 경계가 다릅니다. 지정 면적 {entered}, 조립 면적 {assembled}.",

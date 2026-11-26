@@ -1,8 +1,6 @@
 import type { Translations } from '../types';
 
 const zh: Translations = {
-  'cad.disconnectedWallBeam': "墙体四边形单元 {wall} 和梁 {beam} 位于 CAD 捕捉容差范围内，但其轨迹不相交。请在图纸中将墙端与梁连接。",
-  'cad.uncertifiedSlabBeam': "梁 {beam} 在板内的轨迹上没有经过验证的网格边。请在图纸中沿共用边连接梁和板。",
   'svc.accountingMismatch': "分析已拒绝。荷载工况 {case}，分量 {component}。输入值 {entered}，组装值 {assembled}。",
   'svc.accountingLineEnd': "分析已拒绝。荷载工况 {case}，构件 {member} 的 {end} 端。重新分配的荷载施加到了节点 {actual}，应施加到节点 {expected}。",
   'svc.accountingUnsupported': "分析已拒绝。无法核算荷载工况 {case} 中 {kind} {id} 的力和力矩。",
@@ -2296,7 +2294,7 @@ const zh: Translations = {
   "cad.cNodes": "节点",
   "cad.cColumns": "柱单元",
   "cad.cBeams": "梁单元",
-  "cad.cSlabCells": "楼板壳单元",
+  "cad.cSlabQuads": "楼板壳四边形",
   "cad.cWallQuads": "墙壳四边形",
   "cad.cSupports": "支座",
   "cad.cLoads": "荷载",
@@ -14343,7 +14341,6 @@ const zh: Translations = {
   "plates.analysisMeshRefused": "无法划分网格：{names}。请检查其单元尺寸或轮廓。",
   "plates.analysisInvalid": "分析已停止。请修正以下无效板的几何形状或属性：{names}。",
   "plates.analysisWallSlab": "分析已停止。墙体 {wall} 和楼板 {slab} 在节点 {node} 处没有共用网格顶点。请重新划分连接处的网格，使两者共用节点。",
-  "plates.analysisWallSlabEdgePoint": "分析已停止。墙体 {wall} 与楼板 {slab} 在网格节点之间相接。请重新划分连接处的网格，使接触点共用一个节点。",
   "plates.analysisWallSlabFace": "分析已停止。墙体 {wall} 与楼板 {slab} 在墙体节点 {nodes} 附近相接，但没有共用网格边。请重新划分连接处的网格，使两者共用边。",
   "plates.meshedAtAnalysis": "分析前已为 {n} 块板划分网格（{cells} 个单元）",
   "plates.liveNeedsMesh": "{n} 块板没有当前的网格：实时计算等待完整分析，完整分析会为其划分网格。",

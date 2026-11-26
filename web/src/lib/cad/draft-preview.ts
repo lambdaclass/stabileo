@@ -21,7 +21,6 @@ export interface DraftPreviewStats {
   beams: number;
   /** Quads with all 4 nodes at one z — slab panels. */
   slabQuads: number;
-  slabTriangles: number;
   /** Quads spanning two z levels — wall panels. */
   wallQuads: number;
   supports: number;
@@ -53,12 +52,12 @@ export function draftPreviewStats(snap: ModelSnapshot): DraftPreviewStats {
   }
   const used = new Set<number>();
   for (const [, e] of snap.elements) { used.add(e.nodeI); used.add(e.nodeJ); }
-  for (const [, q] of [...(snap.quads ?? []), ...(snap.plates ?? [])]) for (const n of q.nodes) used.add(n);
+  for (const [, q] of snap.quads ?? []) for (const n of q.nodes) used.add(n);
   for (const [, s] of snap.supports) used.add(s.nodeId);
   const orphans = [...nodes.values()].filter((n) => !used.has(n.id)).length;
   const levels = new Set([...nodes.values()].map((n) => Math.round(n.z * 1000) / 1000)).size;
   return {
-    nodes: nodes.size, columns, beams, slabQuads, slabTriangles: snap.plates?.length ?? 0, wallQuads,
+    nodes: nodes.size, columns, beams, slabQuads, wallQuads,
     supports: snap.supports.length, orphans, levels,
   };
 }
@@ -117,8 +116,9 @@ export function drawDraftPreview(
   const SY = (p: { iy: number }) => oy + k * p.iy;
   const P = (id: number) => { const n = nodes.get(id); return n ? iso(n) : null; };
 
+  // Quads first (filled), then frames, then markers.
   ctx.lineWidth = 0.8;
-  for (const [, q] of [...(snap.quads ?? []), ...(snap.plates ?? [])]) {
+  for (const [, q] of snap.quads ?? []) {
     const ps = q.nodes.map(P);
     if (ps.some((p) => !p)) continue;
     const zs = q.nodes.map((id) => nodes.get(id)!.z);
@@ -157,7 +157,7 @@ export function drawDraftPreview(
   if (opts?.highlightFailures && stats.orphans > 0) {
     const used = new Set<number>();
     for (const [, e] of snap.elements) { used.add(e.nodeI); used.add(e.nodeJ); }
-    for (const [, q] of [...(snap.quads ?? []), ...(snap.plates ?? [])]) for (const n of q.nodes) used.add(n);
+    for (const [, q] of snap.quads ?? []) for (const n of q.nodes) used.add(n);
     for (const [, s] of snap.supports) used.add(s.nodeId);
     ctx.fillStyle = COLORS.orphan;
     for (const n of nodes.values()) {

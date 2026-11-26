@@ -1,6 +1,4 @@
 const es: Record<string, string> = {
-  'cad.disconnectedWallBeam': "El cuadrilátero de muro {wall} y la viga {beam} están dentro de la tolerancia de ajuste CAD, pero sus trazas no se encuentran. Conectá el extremo del muro con la viga en el dibujo.",
-  'cad.uncertifiedSlabBeam': "La viga {beam} no tiene un borde de malla certificado a lo largo de su traza en la losa. Conectá la viga y la losa por un borde compartido en el dibujo.",
   'svc.accountingMismatch': "Análisis rechazado. Caso de carga {case}, {component}. Valor ingresado {entered}, valor ensamblado {assembled}.",
   'svc.accountingLineEnd': "Análisis rechazado. Caso de carga {case}, extremo {end} de la barra {member}. La carga redistribuida llegó al nodo {actual}. Se esperaba el nodo {expected}.",
   'svc.accountingUnsupported': "Análisis rechazado. En el caso de carga {case} no se pueden contabilizar las fuerzas ni los momentos de {kind} {id}.",
@@ -2323,7 +2321,7 @@ const es: Record<string, string> = {
   'cad.cNodes': 'Nodos',
   'cad.cColumns': 'Elementos columna',
   'cad.cBeams': 'Elementos viga',
-  'cad.cSlabCells': 'Elementos de losa',
+  'cad.cSlabQuads': 'Quads de losa',
   'cad.cWallQuads': 'Quads de tabique',
   'cad.cSupports': 'Apoyos',
   'cad.cLoads': 'Cargas',
@@ -14776,7 +14774,6 @@ const es: Record<string, string> = {
   "plates.analysisMeshRefused": "No se pudo mallar: {names}. Revisá su tamaño de elemento o su contorno.",
   "plates.analysisInvalid": "Se detuvo el análisis. Corregí la geometría o las propiedades de las placas no válidas: {names}.",
   "plates.analysisWallSlab": "Se detuvo el análisis. El muro {wall} y la losa {slab} no comparten un vértice de malla en el nodo {node}. Volvé a mallar la unión con nodos compartidos.",
-  "plates.analysisWallSlabEdgePoint": "Se detuvo el análisis. El muro {wall} y la losa {slab} se tocan entre nodos de malla. Volvé a mallar la unión con un nodo compartido en el punto de contacto.",
   "plates.analysisWallSlabFace": "Se detuvo el análisis. El muro {wall} encuentra la losa {slab} sin un borde de malla compartido cerca de los nodos del muro {nodes}. Volvé a mallar la unión con bordes compartidos.",
   "plates.meshedAtAnalysis": "Se mallaron {n} placas antes del cálculo ({cells} elementos)",
   "plates.liveNeedsMesh": "{n} placas sin malla vigente: el cálculo en vivo espera al cálculo completo, que las malla.",

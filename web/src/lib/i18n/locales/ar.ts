@@ -1,8 +1,6 @@
 import type { Translations } from '../types';
 
 const ar: Translations = {
-  'cad.disconnectedWallBeam': "عنصر الجدار الرباعي {wall} والكمرة {beam} ضمن سماحية الالتقاط في الرسم، لكن مساريهما لا يلتقيان. صِل طرف الجدار بالكمرة في الرسم.",
-  'cad.uncertifiedSlabBeam': "لا توجد حافة شبكة مُتحقق منها على طول مسار الكمرة {beam} في البلاطة. صِل الكمرة بالبلاطة على طول حافة مشتركة في الرسم.",
   'svc.accountingMismatch': "رُفض التحليل. حالة الحمل {case}، المركبة {component}. المُدخل {entered}، المُجمّع {assembled}.",
   'svc.accountingUnsupported': "رُفض التحليل. لا يمكن حساب قوى وعزوم {kind} {id} في حالة الحمل {case}.",
   'svc.accountingArea': "رُفض التحليل. مساحة اللوح {plate} أو حدوده مختلفة في نموذج الحل. المساحة المحددة {entered}، والمساحة المجمّعة {assembled}.",

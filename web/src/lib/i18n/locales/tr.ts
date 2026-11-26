@@ -1,8 +1,6 @@
 import type { Translations } from '../types';
 
 const tr: Translations = {
-  'cad.disconnectedWallBeam': "{wall} numaralı dörtgen duvar elemanı ile {beam} numaralı kiriş CAD yakalama toleransı içinde, ancak çizgileri birleşmiyor. Çizimde duvar ucunu kirişe bağlayın.",
-  'cad.uncertifiedSlabBeam': "{beam} numaralı kirişin döşeme içindeki hattı boyunca doğrulanmış ağ kenarı yok. Çizimde kirişi ve döşemeyi ortak bir kenar boyunca bağlayın.",
   'svc.accountingMismatch': "Analiz reddedildi. Yük durumu {case}, {component}. Girilen {entered}, birleştirilen {assembled}.",
   'svc.accountingLineEnd': "Analiz reddedildi. Yük durumu {case}, {member} numaralı elemanın {end} ucu. Yeniden dağıtılan yük {actual} düğümüne uygulandı. Beklenen düğüm {expected}.",
   'svc.accountingUnsupported': "Analiz reddedildi. {case} yük durumunda {kind} {id} için kuvvet ve moment hesabı yapılamıyor.",
@@ -1984,7 +1982,7 @@ const tr: Translations = {
   'cad.cNodes': 'Düğümler',
   'cad.cColumns': 'Kolon elemanları',
   'cad.cBeams': 'Kiriş elemanları',
-  'cad.cSlabCells': 'Döşeme kabuk elemanları',
+  'cad.cSlabQuads': 'Döşeme kabuk dörtgenleri',
   'cad.cWallQuads': 'Duvar kabuk dörtgenleri',
   'cad.cSupports': 'Mesnetler',
   'cad.cLoads': 'Yükler',
@@ -14251,7 +14249,6 @@ const tr: Translations = {
   'plates.analysisMeshRefused': 'Ağ oluşturulamadı: {names}. Eleman boyutlarını veya konturlarını kontrol edin.',
   "plates.analysisInvalid": "Analiz durduruldu. Geçersiz plakaların geometrisini veya özelliklerini düzeltin: {names}.",
   "plates.analysisWallSlab": "Analiz durduruldu. {wall} duvarı ve {slab} döşemesi, {node} düğümünde ortak bir ağ köşesine sahip değil. Birleşimi ortak düğümlerle yeniden ağlayın.",
-  "plates.analysisWallSlabEdgePoint": "Analiz durduruldu. {wall} duvarı ile {slab} döşemesi ağ düğümleri arasında temas ediyor. Birleşimi temas noktasında ortak bir düğümle yeniden ağlayın.",
   "plates.analysisWallSlabFace": "Analiz durduruldu. {wall} duvarı, {nodes} duvar düğümleri yakınında {slab} döşemesiyle ortak ağ kenarı olmadan birleşiyor. Birleşimi ortak kenarlarla yeniden ağlayın.",
   'plates.meshedAtAnalysis': 'Analizden önce {n} plağın ağı oluşturuldu ({cells} eleman)',
   'plates.liveNeedsMesh': 'Güncel ağı olmayan {n} plak: canlı hesap, ağları oluşturan tam analizi bekliyor.',
