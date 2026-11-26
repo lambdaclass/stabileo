@@ -305,7 +305,7 @@ for (const dim of ['2d', '3d']) {
   assert.equal(result.results.displacements.find(({ nodeId }) => nodeId === 2).rx, 1);
 }
 
-if (process.env.REPRODUCE_ARTIFICIAL_TANGENT_RANK) {
+{
   const model = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/reduced-rank-pins.json', import.meta.url)));
   for (const modulus of [1e15, 1e21]) {
     model.materials[2].e = modulus;
@@ -324,7 +324,7 @@ for (const dim of ['2d', '3d']) {
     Object.assign(planar.elements[1], {type: 'frame', hingeEnd: released});
     const model = dim === '2d' ? planar : spatial(planar);
     delete model.supports[2];
-    model.nodes[3] = {id: 3, x: 1 + offset, y: 0, z: 0};
+    model.nodes[3] = dim === '2d' ? {id: 3, x: 1 + offset, z: 0} : {id: 3, x: 1 + offset, y: 0, z: 0};
     model.constraints = [{
       type: 'rigidLink', masterNode: 2, slaveNode: 3, dofs: dim === '2d' ? [] : [0, 1, 2, 3, 4, 5],
     }];

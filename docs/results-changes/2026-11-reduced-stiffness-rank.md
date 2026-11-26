@@ -105,3 +105,19 @@ The replay checks the refusal from modal analysis for #973 and from the
 no-foundation Winkler solve for #1029. The #1041 time-history replay uses
 the #1029 model and shares its static rank verdict. Time integration keeps
 its existing treatment of this model.
+
+### Artificial rotational stiffness in nonlinear rank checks
+
+The corotational and material nonlinear rank checks use the physical
+stiffness before artificial rotational pins are added for factorization.
+An offset rigid link can turn a rotation released by all incident beams
+into a translation of the slave. That motion still needs physical
+restraint. A coincident link can leave the same unloaded rotation as a
+gauge, so the model can solve.
+
+In the spatial material regression, a slightly skewed cantilever has a
+tip torsion release. A second member joins two fully fixed nodes. Making
+that member stiffer can increase the artificial pin derived from the
+largest assembled diagonal. It cannot change the free stiffness at the
+cantilever tip. The material rank check now accepts the same equilibrium
+as the linear solve for both tested stiffnesses of the fixed member.

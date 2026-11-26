@@ -672,7 +672,6 @@ fn ssi_released_tip_torque_respects_supported_springs_and_soil_direction_validat
 }
 
 #[test]
-#[ignore = "known wrong result: #2584"]
 fn material_rank_is_independent_of_an_artificial_rotation_diagonal() {
     use dedaliano_engine::{
         solver::{dof::DofNumbering, material_nonlinear::solve_nonlinear_material_3d},

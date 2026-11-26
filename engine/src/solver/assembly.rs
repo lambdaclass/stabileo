@@ -36,6 +36,24 @@ fn artificial_entries(max_diag_k: f64, dofs: &[usize]) -> Vec<(usize, f64)> {
     dofs.iter().map(|&d| (d, k)).collect()
 }
 
+pub(super) fn add_artificial_tangent(
+    dense: &mut [f64], n: usize,
+    triplets: Option<(&mut Vec<usize>, &mut Vec<usize>, &mut Vec<f64>)>,
+    artificial: &[(usize, f64)],
+) {
+    if let Some((rows, cols, values)) = triplets {
+        for &(d, stiffness) in artificial {
+            rows.push(d);
+            cols.push(d);
+            values.push(stiffness);
+        }
+    } else {
+        for &(d, stiffness) in artificial {
+            dense[d * n + d] += stiffness;
+        }
+    }
+}
+
 thread_local! {
     static ARTIFICIAL_STIFFNESS: std::cell::Cell<bool> = const { std::cell::Cell::new(true) };
 }
