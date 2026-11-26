@@ -488,3 +488,22 @@ describe('a cut bends each member about the axis the space model bends it about 
     expect(guard()).toEqual([column]);
   });
 });
+
+it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1')('known wrong result: #2588 — saved plane constraints require an unambiguous axis convention', () => {
+  const { b, d } = columnsInXZ();
+  modelStore.addElement(b, d, 'frame');
+  expect(sliceAt('xz', 0).ok).toBe(true);
+  const snapshot = modelStore.snapshot();
+  const mpc = {
+    type: 'linearMPC', terms: [{ nodeId: b, dof: 0, coefficient: 1 }, { nodeId: d, dof: 5, coefficient: -1 }],
+  };
+  const axialTie = { type: 'equalDOF', masterNode: b, slaveNode: d, dofs: [0] };
+  const restore = (drawPlane2D: DrawPlane | undefined, constraint: typeof mpc | typeof axialTie) =>
+    modelStore.restore({ ...snapshot, drawPlane2D, analysisMode: '2d', constraints: [constraint] });
+  expect(() => restore(undefined, axialTie)).not.toThrow();
+  expect(modelStore.solve(false, 'xy')).toMatchObject({ displacements: expect.any(Array) });
+  expect(() => restore('xy', mpc)).not.toThrow();
+  const before = modelStore.snapshot();
+  expect(() => restore(undefined, mpc)).toThrow('constraints[0]');
+  expect(modelStore.snapshot()).toEqual(before);
+});
