@@ -3,6 +3,7 @@ import { featuresForMode } from '../../../../config/public-features.mjs';
 import { defaults } from '../../../components/examples/define';
 import { beamFrame } from '../../../components/examples/beam-frame';
 import { earthquake } from '../../../components/examples/earthquake';
+import { profileByName, profileToSectionFull } from '../../data/steel-profiles';
 import { applyWorkbook } from '../../excel-import/apply';
 import { deserializeProject, serializeProject } from '../../store/file';
 import { modelStore, uiStore } from '../../store';
@@ -117,6 +118,24 @@ it('#2588 permits orphan rotation metadata on generated supports', () => {
   const wire = input3DToWireObject(exactOrphanRotations3D(spatial));
   expect(Object.values(wire.supports).some(support => support.stabilised && support.stabilisedAxes)).toBe(true);
   expectSolutions(spatialRoutes(wire));
+});
+
+it.skip('known wrong result: #2588 accepts the planar recovery adapter’s shared shear area row', () => {
+  const planar = beam();
+  const section = { ...planar.sections.get(1)!, asY: 0.01, asZ: 0.01 };
+  planar.sections.set(1, section);
+  expectSolutions(planarRoutes(input2DToWireObject(planar)));
+});
+
+it.skip('known wrong result: #2588 accepts the spatial design adapters’ concrete and steel section rows', () => {
+  const spatial = space();
+  const base = spatial.sections.get(1)!;
+  const concrete = { ...base, fc: 30, fy: 420, cover: 0.025, stirrupDia: 8 };
+  const steel = { ...profileToSectionFull(profileByName('IPE 300')!), id: 1, j: base.j, fabrication: 'rolled' };
+  for (const section of [concrete, steel]) {
+    spatial.sections.set(1, section);
+    expectSolutions(spatialRoutes(input3DToWireObject(spatial)));
+  }
 });
 
 it('refuses misspelled material, section and support solver fields across WASM routes', () => {
