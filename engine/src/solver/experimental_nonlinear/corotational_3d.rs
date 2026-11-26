@@ -3,6 +3,7 @@ use crate::solver::experimental_nonlinear::{NonlinearWork, KrylovWork};
 use crate::solver::experimental_nonlinear::incremental::{self, IterationMethod, LoadStepping};
 
 struct Corotational3D<'a> {
+    modified_newton: bool,
     input: &'a SolverInput3D,
     prepared: Option<prepared_3d::PreparedCorotational3D<'a>>,
     f_int: Vec<f64>,
@@ -67,7 +68,19 @@ impl incremental::IncrementalProblem for Corotational3D<'_> {
             assembly::reverse_inclined_transform(&mut u_geom, &it.dofs, &it.r);
         }
 
-        if sparse_tangent {
+        // Only Modified Newton consumes a kept factor without reading the current
+        // tangent. Krylov still needs current tangent products. Without reference
+        // preparation (including a budget miss), retain the original assembler.
+        let force_only = self.prepared.as_ref().filter(|_| {
+            self.modified_newton && self.cached_factor.is_some()
+        });
+        if let Some(prepared) = force_only {
+            prepared.assemble_forces(dof_num, &u_geom, &mut f_int, left_hand);
+            add_spring_contributions_3d(input, dof_num, &u_geom, &mut f_int, &mut |_, _, _| {});
+            for it in &asm.inclined_transforms {
+                assembly::rotate_inclined_f_triplets(&mut f_int, &it.dofs, &it.r);
+            }
+        } else if sparse_tangent {
             if let Some(prepared) = &self.prepared {
                 prepared.assemble(dof_num, &u_geom, &mut f_int, &mut |gi, gj, v| {
                     if gi >= gj {
@@ -459,6 +472,7 @@ fn corotational_3d(
 
     let u_full = vec![0.0; n];
     let mut problem = Corotational3D {
+        modified_newton: method == IterationMethod::ModifiedNewton,
         prepared: prepared_3d::PreparedCorotational3D::new(input, &dof_num, left_hand),
         f_int: Vec::new(),
         u_geom: Vec::new(),
@@ -567,7 +581,7 @@ fn corotational_3d(
 mod shared_driver_equivalence_3d {
     use super::*;
 
-    fn frame(n: usize, rise: f64, propped: bool, scale: f64) -> SolverInput3D {
+    pub(super) fn frame(n: usize, rise: f64, propped: bool, scale: f64) -> SolverInput3D {
         let mut nodes = serde_json::Map::new();
         let mut elements = serde_json::Map::new();
         for i in 0..=n {
@@ -648,6 +662,7 @@ mod shared_driver_equivalence_3d {
             let metric = crate::solver::convergence::EquilibriumMetric::for_3d(&input, &dof_num, cs.as_ref()).unwrap();
             let asm = assembly::assemble_3d(&input, &dof_num);
             let make = |prepared| Corotational3D {
+                modified_newton: false,
                 input: &input, prepared, f_int: Vec::new(), u_geom: Vec::new(), residual: Vec::new(),
                 dof_num: &dof_num, cs: &cs, asm: &asm, metric: &metric,
                 ns: cs.as_ref().map_or(dof_num.n_free, |c| c.n_free_indep), left_hand: false,
@@ -960,3 +975,7 @@ mod shared_driver_equivalence_3d {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "corotational_3d/force_only_tests.rs"]
+mod force_only_tests;

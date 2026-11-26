@@ -49,6 +49,12 @@ fn compare(input: &SolverInput3D, states: impl IntoIterator<Item = Vec<f64>>) {
             &mut |i, j, v| new_triplets.push((i, j, v.to_bits())),
             left,
         );
+        let mut force_only = vec![0.0; dofs.n_total];
+        prepared.assemble_forces(&dofs, &u, &mut force_only, left);
+        assert_eq!(
+            old_force.iter().map(|v| v.to_bits()).collect::<Vec<_>>(),
+            force_only.iter().map(|v| v.to_bits()).collect::<Vec<_>>()
+        );
         assert_eq!(
             old_triplets, new_triplets,
             "every contribution must retain its value and order"
