@@ -52,6 +52,21 @@ test.describe('@smoke the plan view', () => {
     await expect(page.getByTestId('plan-view-cut')).toHaveValue('0.65');
   });
 
+  test('without levels offers to define them, and with them picks the floor plan by name and height', async ({ pro: page }) => {
+    await enterPlan(page);
+    await expect(page.getByTestId('plan-view-level')).toHaveCount(0);
+    await page.getByTestId('plan-view-define-levels').click();
+    await expect(page.getByTestId('grid-heights')).toBeFocused();
+    await page.getByTestId('grid-heights').fill('3.2');
+    await page.getByTestId('grid-generate-levels').click();
+    const level = page.getByTestId('plan-view-level');
+    await expect(page.getByTestId('plan-view-define-levels')).toHaveCount(0);
+    await expect(level.locator('option:checked')).toContainText('(+0.00 m)');
+    await level.selectOption({ index: 0 });
+    await expect(level.locator('option:checked')).toContainText('(+3.20 m)');
+    await expect(page.getByTestId('plan-view-cut')).toHaveValue('0.15');
+  });
+
   test('hides what lies under the level, or shows it faded; the cut moves without hiding the level', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await page.getByTestId('pr-stage-model').click();

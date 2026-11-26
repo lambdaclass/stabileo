@@ -14063,6 +14063,8 @@ const de: Translations = {
   'viewport.planExit': 'Grundriss verlassen',
   'viewport.planChip': 'Grundriss · {level}',
   'viewport.planLevel': 'Grundrissebene',
+  'viewport.planDefineLevels': 'Geschosse festlegen',
+  'viewport.planDefineLevelsHint': 'Öffnet Geschosse und Raster, um die Geschosshöhen einzugeben; mit Geschossen wählt dieses Feld den Grundriss.',
   "viewport.planCutField": "Schnitt",
   "viewport.planCutHint": "Höhe des Schnitts über der Ebene: was darüber liegt, wird nicht gezeichnet. Pfeiltasten oder Mausrad verschieben ihn um 5 cm, mit Umschalt um 50 cm.",
   "viewport.planShowBelow": "Darunter zeigen",

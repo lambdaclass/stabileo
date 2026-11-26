@@ -13699,6 +13699,8 @@ const hu: Translations = {
   "viewport.planExit": "Kilépés az alaprajzból",
   "viewport.planChip": "Plan · {level}",
   "viewport.planLevel": "Alaprajz szintje",
+  "viewport.planDefineLevels": "Szintek megadása",
+  "viewport.planDefineLevelsHint": "Megnyitja a Szintek és raszter lépést a szintmagasságok megadásához; szintekkel ez a mező választja az alaprajzot.",
   "viewport.planCutField": "Metszet",
   "viewport.planCutHint": "A metszet magassága a szint felett: ami fölötte van, nem jelenik meg. A nyilak vagy a görgő 5 cm-rel, Shifttel 50 cm-rel mozgatják.",
   "viewport.planShowBelow": "Alatta lévő",

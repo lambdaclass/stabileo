@@ -9,6 +9,9 @@ export type PlanCut = { floorZ: number; below: 'hidden' | 'ghost' };
 
 export const planFloorFor = (levelZ: number): number => levelZ - PLAN_BELOW_LEVEL_M;
 
+/** Where the clipping plane goes for a cut at `cutZ`: a hair over it, since a plane through the level's own grid and drawing clips them in flickering dashes. */
+export const planClipZ = (cutZ: number): number => cutZ + 1e-3;
+
 const box = new THREE.Box3();
 let census = { hidden: 0, ghost: 0 };
 let pickFloor: number | null = null;

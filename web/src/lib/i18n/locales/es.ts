@@ -14589,6 +14589,8 @@ const es: Record<string, string> = {
   "viewport.planExit": "Salir de la planta",
   "viewport.planChip": "Planta · {level}",
   "viewport.planLevel": "Nivel de la planta",
+  "viewport.planDefineLevels": "Definir niveles",
+  "viewport.planDefineLevelsHint": "Abre Niveles y grilla para cargar las alturas de piso; con niveles, este cuadro elige la planta.",
   "viewport.planCutField": "Corte",
   "viewport.planCutHint": "Altura del corte sobre el nivel: lo que queda arriba no se dibuja. Las flechas o la rueda lo mueven 5 cm, 50 cm con Shift.",
   "viewport.planShowBelow": "Ver abajo",

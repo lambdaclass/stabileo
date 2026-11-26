@@ -7,12 +7,21 @@
    * The plan's cut is its own (`uiStore.planCutZ`): the cut plane a person sets in the view menu
    * stays as it was (QA of 20-oct: «que esa sea una función independiente»).
    */
+  import { tick } from 'svelte';
   import { modelStore, uiStore } from '../../lib/store';
+  import { buildingUi } from '../../lib/store/building-ui.svelte';
   import { tp, t } from '../../lib/i18n';
 
   const levels = $derived([...(modelStore.grid?.levels ?? [])].sort((a, b) => b.z - a.z));
   const current = $derived(levels.find((l) => Math.abs(l.z - uiStore.nodeCreateZ) < 1e-6));
-  const level = $derived(current ? current.name : `+${uiStore.nodeCreateZ.toFixed(2)} m`);
+  const elevation = (z: number) => `${z < 0 ? '−' : '+'}${Math.abs(z).toFixed(2)} m`;
+  const level = $derived(current ? current.name : elevation(uiStore.nodeCreateZ));
+  async function defineLevels() {
+    buildingUi.tool = 'levels';
+    uiStore.proActiveTab = 'building';
+    await tick();
+    document.querySelector<HTMLInputElement>('[data-testid="grid-heights"]')?.focus();
+  }
   const cutAbove = $derived((uiStore.planCutZ ?? uiStore.nodeCreateZ) - uiStore.nodeCreateZ);
   const round = (v: number) => Math.round(v * 100) / 100;
   function setCut(above: number) {
@@ -50,15 +59,19 @@
 <svelte:window onkeydown={onKey} />
 
 <div class="pv" role="status" data-testid="plan-view-chip">
-  <span>{tp('viewport.planChip', { level })}</span>
   {#if levels.length}
+    <select class="pv-level" value={current?.id ?? ''} onchange={(e) => { const l = levels.find((x) => x.id === e.currentTarget.value); if (l) uiStore.setActiveLevel(l.z); }}
+            aria-label={t('viewport.planLevel')} title={`${t('viewport.planLevel')} (PgUp / PgDn)`} data-testid="plan-view-level">
+      {#if !current}<option value="" disabled>{tp('viewport.planChip', { level })}</option>{/if}
+      {#each levels as l (l.id)}<option value={l.id}>{tp('viewport.planChip', { level: `${l.name} (${elevation(l.z)})` })}</option>{/each}
+    </select>
     <button onclick={() => step(1)} disabled={!above} aria-label={t('viewport.planUp')} title={`${t('viewport.planUp')} (PgUp)`} data-testid="plan-view-up">▲</button>
     <button onclick={() => step(-1)} disabled={!below} aria-label={t('viewport.planDown')} title={`${t('viewport.planDown')} (PgDn)`} data-testid="plan-view-down">▼</button>
-    <select value={current?.id ?? ''} onchange={(e) => { const l = levels.find((x) => x.id === e.currentTarget.value); if (l) uiStore.setActiveLevel(l.z); }}
-            aria-label={t('viewport.planLevel')} title={t('viewport.planLevel')} data-testid="plan-view-level">
-      {#if !current}<option value="" disabled>{level}</option>{/if}
-      {#each levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
-    </select>
+  {:else}
+    <span>{tp('viewport.planChip', { level })}</span>
+    {#if uiStore.analysisMode === 'pro'}
+      <button class="pv-toggle" onclick={defineLevels} title={t('viewport.planDefineLevelsHint')} data-testid="plan-view-define-levels">{t('viewport.planDefineLevels')}</button>
+    {/if}
   {/if}
   <span class="pv-sep"></span>
   <div class="pv-cut" bind:this={cutEl} title={t('viewport.planCutHint')}>
@@ -92,6 +105,7 @@
     width: max-content; max-width: calc(100% - 24px); flex-wrap: wrap;
   }
   .pv-sep { width: 1px; align-self: stretch; margin: 3px 2px; background: var(--st-hair-strong); }
+  .pv-level { font-size: 0.72rem; margin-left: -6px; }
   select { font: inherit; font-size: 0.7rem; color: var(--st-text); background: var(--st-surface); border: 1px solid var(--st-hair-strong); border-radius: 4px; padding: 1px 4px; }
   .pv-cut { display: inline-flex; align-items: center; gap: 2px; color: var(--st-text-2); }
   .pv-cut > span:first-child { margin-right: 2px; }

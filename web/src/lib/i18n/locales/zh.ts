@@ -14157,6 +14157,8 @@ const zh: Translations = {
   "viewport.planExit": "退出平面",
   "viewport.planChip": "平面 · {level}",
   "viewport.planLevel": "平面楼层",
+  "viewport.planDefineLevels": "定义楼层",
+  "viewport.planDefineLevelsHint": "打开“楼层与轴网”以输入层高；有楼层时，此处选择平面。",
   "viewport.planCutField": "剖切",
   "viewport.planCutHint": "剖切面在楼层以上的高度：其上方的内容不显示。方向键或滚轮每次移动 5 cm，按住 Shift 为 50 cm。",
   "viewport.planShowBelow": "显示下方",

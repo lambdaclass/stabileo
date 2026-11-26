@@ -14072,6 +14072,8 @@ const tr: Translations = {
   'viewport.planExit': 'Plandan çık',
   'viewport.planChip': 'Plan · {level}',
   'viewport.planLevel': 'Plan katı',
+  'viewport.planDefineLevels': 'Katları tanımla',
+  'viewport.planDefineLevelsHint': 'Kat yüksekliklerini girmek için Katlar ve akslar adımını açar; katlar varken bu kutu planı seçer.',
   "viewport.planCutField": "Kesit",
   "viewport.planCutHint": "Kesitin kot üzerindeki yüksekliği: üstünde kalan çizilmez. Ok tuşları veya tekerlek 5 cm, Shift ile 50 cm taşır.",
   "viewport.planShowBelow": "Altını göster",

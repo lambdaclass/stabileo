@@ -14242,6 +14242,8 @@ const pt: Translations = {
   "viewport.planExit": "Sair da planta",
   "viewport.planChip": "Planta · {level}",
   "viewport.planLevel": "Nível da planta",
+  "viewport.planDefineLevels": "Definir níveis",
+  "viewport.planDefineLevelsHint": "Abre Níveis e grelha para informar as alturas dos pavimentos; com níveis, esta caixa escolhe a planta.",
   "viewport.planCutField": "Corte",
   "viewport.planCutHint": "Altura do corte acima do nível: o que fica acima não é desenhado. As setas ou a roda o movem 5 cm, 50 cm com Shift.",
   "viewport.planShowBelow": "Ver abaixo",

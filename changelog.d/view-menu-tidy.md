@@ -18,3 +18,8 @@ the glide the 3D view keeps after a drag, and it slides over the level without r
 The plan view looks straight down, where it used to lean a degree, and stays orthographic while it
 is on. What lies wholly under the level is hidden; «Show below» shows it in halftone instead.
 The cut is set as a height over the level, typed or stepped 5 cm with the arrows or the wheel. Two buttons turn the plan by 90°, and the axes in the corner turn with it.
+
+The level is picked from the plan's own box by name and height, or, in a model without levels,
+«Define levels» opens the step that creates them. A background drawing shows whole over the grid
+of its level, and a cut on the level no longer breaks the grid and the drawing into flickering
+dashes.

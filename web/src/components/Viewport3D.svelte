@@ -33,7 +33,7 @@
   import { currentShellContourField, shellStressInputs } from '../lib/store/shell-contour';
   import { shellComponentValue, shellComponentMeta, shellComponentLabelKey } from '../lib/engine/shell-stress';
   import { toneObject } from '../lib/viewport3d/category-tone';
-  import { toneBelowPlanCut, clearPlanCut, planFloorFor } from '../lib/viewport3d/plan-cut';
+  import { toneBelowPlanCut, clearPlanCut, planFloorFor, planClipZ } from '../lib/viewport3d/plan-cut';
   import { viewCategories, type ViewCategory } from '../lib/store/view-categories.svelte';
   import { syncUnderlays } from '../lib/three/underlay-3d';
   import { syncFootings } from '../lib/three/footings-3d';
@@ -4256,7 +4256,7 @@
     const planes: THREE.Plane[] = [];
     // The plan view's own cut, beside the cut plane a person set.
     if (uiStore.planView3D && uiStore.planCutZ !== null) {
-      planPlane.constant = uiStore.planCutZ;
+      planPlane.constant = planClipZ(uiStore.planCutZ);
       planes.push(planPlane);
     }
     if (uiStore.clippingEnabled) {

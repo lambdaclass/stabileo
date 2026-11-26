@@ -14063,6 +14063,8 @@ const fr: Translations = {
   'viewport.planExit': 'Quitter le plan',
   'viewport.planChip': 'Plan · {level}',
   'viewport.planLevel': 'Niveau du plan',
+  'viewport.planDefineLevels': 'Définir les niveaux',
+  'viewport.planDefineLevelsHint': 'Ouvre Niveaux et grille pour saisir les hauteurs d’étage ; avec des niveaux, cette case choisit le plan.',
   "viewport.planCutField": "Coupe",
   "viewport.planCutHint": "Hauteur de la coupe au-dessus du niveau : ce qui est au-dessus n'est pas dessiné. Les flèches ou la molette la déplacent de 5 cm, de 50 cm avec Maj.",
   "viewport.planShowBelow": "Voir dessous",

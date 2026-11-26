@@ -14600,6 +14600,8 @@ const en: Record<string, string> = {
   "viewport.planExit": "Leave the plan",
   "viewport.planChip": "Plan · {level}",
   "viewport.planLevel": "Plan level",
+  "viewport.planDefineLevels": "Define levels",
+  "viewport.planDefineLevelsHint": "Opens Levels and grid to enter the story heights; with levels, this box picks the floor plan.",
   "viewport.planCutField": "Cut",
   "viewport.planCutHint": "Height of the cut above the level: what is above it is not drawn. Arrow keys or the wheel move it 5 cm, 50 cm with Shift.",
   "viewport.planShowBelow": "Show below",
