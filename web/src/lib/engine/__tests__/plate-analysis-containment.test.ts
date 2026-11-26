@@ -873,3 +873,45 @@ it.each([[0, true], [2 * PLATE_EDGE_TOL, false]] as const)('#2607 edge contact c
   if (!result || typeof result === 'string') throw new Error(String(result));
   expect(result.reactions.reduce((sum, support) => sum + support.fz, 0)).toBeCloseTo(2 * (2 - clearance), 8);
 });
+
+const reviewRound = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
+
+function tangentWall(offset: number, shared = false) {
+  const [corner] = loadedSlab();
+  const a = modelStore.addNode(2, offset - 2, -3), b = modelStore.addNode(-2, offset + 2, -3);
+  modelStore.addSupport(a, 'fixed3d');
+  modelStore.addSupport(b, 'fixed3d');
+  if (shared) {
+    modelStore.addPlate([a, b, corner!], 1, 0.15);
+  } else {
+    const c = modelStore.addNode(-2, offset + 2, 1), d = modelStore.addNode(2, offset - 2, 1);
+    modelStore.addQuad([a, b, c, d], 1, 0.15);
+    modelStore.addElement(corner!, a);
+  }
+  return [a, b];
+}
+
+reviewRound.each(directEntries)('known wrong result: #2607 %s detects a slab corner inside the wall face', async (entry, solve) => {
+  tangentWall(0);
+  const result = await solve();
+  expect(result && typeof result === 'object' ? 'returned a result' : result)
+    .toEqual(entry === 'reproducible input' ? null : expect.stringMatching(/wall q2.*slab q1/i));
+});
+
+reviewRound('known wrong result: #2607 global solve detects a tangent wall at the slab vertex', async () => {
+  for (const offset of [0, 2 * PLATE_EDGE_TOL]) {
+    modelStore.clear();
+    tangentWall(offset);
+    expect.soft(await runGlobalSolve({ directBase: true })).toEqual({ ok: false, error: expect.stringMatching(/wall q2.*slab q1/i) });
+    expect.soft(resultsStore.results3D).toBeNull();
+  }
+  modelStore.clear();
+  const bases = tangentWall(-2 * PLATE_EDGE_TOL);
+  const result = modelStore.solve3D(false, false, true);
+  expectLoadedSlab(result);
+  if (!result || typeof result === 'string') throw new Error(String(result));
+  expect(result.reactions.filter(r => bases.includes(r.nodeId)).map(r => r.fz)).toEqual([0, 0]);
+  modelStore.clear();
+  tangentWall(0, true);
+  expectLoadedSlab(modelStore.solve3D(false, false, true));
+});

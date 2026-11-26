@@ -2219,3 +2219,56 @@ it.each(['wrong shell', 'wrong nodes', 'wrong forces'] as const)(
     }
   },
 );
+
+const reviewRound = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
+
+reviewRound.each(['wrong shell', 'wrong nodes', 'wrong forces'] as const)(
+  'known wrong result: #2607 generated surface rejects %s at equal wrench', async mode => {
+    const lower = stripSlab(1);
+    const upper = stripSlab(1, 3);
+    const model = modelStore.model;
+    const from = plateEntry(lower)!.group.members.quads![0]!;
+    const to = plateEntry(upper)!.group.members.quads![0]!;
+    const lowerNodes = model.quads!.get(from)!.nodes;
+    const upperNodes = model.quads!.get(to)!.nodes;
+    const connected: ModelData = {
+      ...model,
+      loads: [{ type: 'surface3d', data: { id: 1, caseId: 1, quadId: from, q: 3, frame: 'global' } }],
+      elements: new Map(model.elements).set(500, {
+        id: 500, nodeI: lowerNodes[0]!, nodeJ: upperNodes[0]!, sectionId: model.sections.keys().next().value!,
+        materialId: model.materials.keys().next().value!, type: 'frame', releaseI: NO_RELEASE, releaseJ: NO_RELEASE,
+      }),
+      analysis: { ...model.analysis, perCombination: 'pdelta' },
+    };
+    const cases = modelStore.loadCases;
+    const combos = modelStore.combinations;
+    const advanced = () => buildSolverInput3D(connected);
+    const paths = {
+      linear: () => validateAndSolve3D(connected),
+      async: () => validateAndSolve3DAsync(connected),
+      advanced,
+      resolvedCase: () => caseSolverLoads3D(connected, cases, false, false),
+      linearCombo: () => solveCombinations3D({ ...connected, analysis: { ...connected.analysis, perCombination: 'linear' } }, cases, combos),
+      pdelta: () => solveCombinations3D(connected, cases, combos),
+      parallel: () => solveCombinations3DParallel(connected, cases, combos),
+      direct: () => runDirectAnalysis(connected, cases, combos, { includeSelfWeight: false }),
+      notionalSource: () => notionalSourceLoads3D(connected, false, 1, [], valid!),
+    };
+    const valid = advanced();
+    expect(valid?.loads).toEqual(lowerNodes.map(nodeId => expect.objectContaining({
+      type: 'nodal', data: expect.objectContaining({ nodeId, fz: expect.closeTo(-3 / lowerNodes.length, 12) }),
+    })));
+    try {
+      slabRoutingFault.from = from;
+      slabRoutingFault.to = to;
+      slabRoutingFault.pressure = mode === 'wrong shell';
+      slabRoutingFault.nodes = mode === 'wrong nodes' ? new Map(lowerNodes.map((node, i) => [node, upperNodes[i]!])) : new Map();
+      for (const [path, solve] of Object.entries(paths)) expect.soft(await outcome(solve), path).toMatch(/case.*load.*#1/i);
+    } finally {
+      slabRoutingFault.from = 0;
+      slabRoutingFault.to = 0;
+      slabRoutingFault.nodes.clear();
+      slabRoutingFault.pressure = false;
+    }
+  },
+);

@@ -462,3 +462,50 @@ it('#2607 a higher roof opening leaves the lower roof parapet band exposed', () 
   expect(pressure(partial, west.id, station(1))).toBeGreaterThan(0);
   expect(Math.abs(pressure(partial, west.id, station(2)))).toBe(0);
 });
+
+const reviewRound = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
+
+reviewRound('known wrong result: #2607 entered and modeled adjacent roofs generate one drift source', () => {
+  const model = steppedRoof();
+  for (const node of model.nodes.values()) if (node.z === 5) {
+    node.x -= 1;
+    if (node.y === 0) node.y = 0.04;
+  }
+  const layout = gravityLayout(model, { mode: 'panels', slab: 'oneWay', spanAxis: 'x', tributaryWidth: 1 });
+  const lower = layout.panels.find(panel => panel.z === 3)!;
+  const partition = { ...lower, roof: false, polygon: [[0, 0], [0.02, 0], [0.02, 0.08], [0, 0.08]] as [number, number][] };
+  const partitioned = { ...layout, panels: [...layout.panels, partition] };
+  const entered = { side: '-x', separation: 1, topZ: 5, length: 7.5 } as const;
+  const inputs = { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1 };
+  for (const roofLayout of [layout, partitioned]) {
+    const modeled = driftAndSlidingLoads(model, roofLayout, inputs);
+    expect(modeled.distributed.length).toBeGreaterThan(0);
+    expect.soft(driftAndSlidingLoads(model, roofLayout, { ...inputs, adjacent: [entered] }).distributed)
+      .toEqual(modeled.distributed);
+  }
+});
+
+reviewRound('known wrong result: #2607 a separated off-center ridge is checked on both roof profiles', () => {
+  const lower = [[0, 0, 3], [7.5, 0, 3], [7.5, 30, 3], [0, 30, 3]];
+  const base = [[-8.5, 0, 3], [-1, 0, 3], [-1, 30, 3], [-8.5, 30, 3]];
+  const separated = gravityLayout(mesh([lower, base]), { mode: 'panels', slab: 'oneWay', spanAxis: 'x', tributaryWidth: 1 });
+  const upper = separated.panels.findIndex(panel => panel.polygon.every(([x]) => x < 0));
+  const receiver = separated.panels.findIndex(panel => panel.polygon.every(([x]) => x >= 0));
+  const inputs = { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1 };
+  for (const peak of [3, 5]) {
+    const crest = [[-8.5, 6, peak], [-1, 6, peak]];
+    const toe = [[-8.5, 12, 3], [-1, 12, 3]];
+    const model = mesh([lower, [base[0]!, base[1]!, crest[1]!, crest[0]!], [crest[0]!, crest[1]!, toe[1]!, toe[0]!]]);
+    const surfaceModel = roofSurfaceModel(model);
+    const surface = (index: number) => surfaceModel.panel(index, separated);
+    expect(surface(upper).elevation([-1, 6])).toBe(peak);
+    for (const y of [0, 15, 30]) expect(surface(upper).elevation([-1, y])).toBe(surface(receiver).elevation([0, y]));
+    const pairs = snowRoofEdgePairs(model, separated, surface).filter(pair => pair.lower === receiver);
+    expect.soft(pairs).toHaveLength(peak > 3 ? 1 : 0);
+    if (peak > 3) {
+      expect.soft(() => driftAndSlidingLoads(model, separated, inputs, surfaceModel)).toThrow('snow.refused.stepDriftTransfer');
+    } else {
+      expect(driftAndSlidingLoads(model, separated, inputs, surfaceModel).distributed).toEqual([]);
+    }
+  }
+});

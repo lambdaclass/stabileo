@@ -672,3 +672,54 @@ it('#2607 an upper column prefers a bent wall corner to a closer slab station', 
     expect.soft(upperColumn.nodeI, `${meshMode}, corner x=${x}`).toBe(x - at.x < reviewSettings.snapTolerance ? cornerId : slabId);
   }
 });
+
+const reviewRound = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
+
+reviewRound('known wrong result: #2607 floor ranges join only within the plan distance', () => {
+  const plan = (end: { x: number; y: number }): ArchPlan => ({
+    ...reviewPlan(), slabs: [], walls: [],
+    columns: [end, { x: 4, y: 0 }].map(at => ({ at, sizeSource: 'default' })),
+    beams: [{ a: end, b: { x: 4, y: 0 } }],
+  });
+  for (const [offset, joins] of [[0, true], [0.007, true], [0.008, false]] as const) {
+    const draft = buildDraft({
+      floorPlans: [
+        { plan: plan({ x: 0, y: 0 }), fromFloor: 1, toFloor: 1 },
+        { plan: plan({ x: offset, y: offset }), fromFloor: 2, toFloor: 2 },
+      ],
+      assumptions: { ...reviewSettings, nFloors: 2, storyHeights: [3, 3] }, source: SOURCE,
+    });
+    const model = snapshotToModelShape(draft.snapshot);
+    const columns = [...model.elements.values()].filter(e => model.nodes.get(e.nodeI)!.z !== model.nodes.get(e.nodeJ)!.z);
+    const lower = columns.find(e => model.nodes.get(e.nodeJ)!.z === 3 && model.nodes.get(e.nodeJ)!.x === 0)!;
+    const upper = columns.find(e => model.nodes.get(e.nodeJ)!.z === 6 && model.nodes.get(e.nodeJ)!.x === offset)!;
+    expect.soft(upper.nodeI === lower.nodeJ, String(offset)).toBe(joins);
+  }
+});
+
+reviewRound('known wrong result: #2607 nearby authored wall ends retain their joint at a column', () => {
+  const columnAt = { x: 2, y: 1.8 };
+  const near = { x: columnAt.x + 0.008, y: columnAt.y };
+  for (const meshMode of ['fixedDivisions', 'targetSize'] as const) for (const reverse of [false, true]) {
+    for (const [far, joins] of [[0.012, true], [0.019, false]] as const) {
+      const plan = bentWallPlan(near, { x: columnAt.x + far, y: columnAt.y });
+      plan.columns.push({ at: columnAt, sizeSource: 'default' });
+      if (reverse) plan.walls.reverse();
+      const settings = { ...reviewSettings, meshMode, meshTargetSize: 2 };
+      for (const draft of [generateRcDraft(plan, settings, SOURCE), buildDraft({ plan, assumptions: settings, source: SOURCE })]) {
+        const model = snapshotToModelShape(draft.snapshot);
+        const column = [...model.elements.values()].find(e => {
+          const node = model.nodes.get(e.nodeJ)!;
+          return node.x === columnAt.x && node.y === columnAt.y && node.z === 3;
+        })!;
+        const walls = [...model.quads.values()].slice(draft.counts.slabQuads);
+        for (const id of [column.nodeI, column.nodeJ]) {
+          expect.soft(walls.filter(wall => wall.nodes.includes(id)), `${meshMode}, reverse=${reverse}, offset=${far}`)
+            .toHaveLength(joins ? 2 : 1);
+        }
+        expect(draft.counts.slabTriangles).toBeGreaterThan(0);
+        expect([...model.plates.values()].some(plate => plate.nodes.includes(column.nodeJ))).toBe(true);
+      }
+    }
+  }
+});
