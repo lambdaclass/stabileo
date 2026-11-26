@@ -163,6 +163,7 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
         return Err(CONSTRAINTS_REFUSED.to_string());
     }
     let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
+    super::stability::refuse_axial_tips_2d(&input.solver, &dof_num, cs.as_ref(), std::iter::empty())?;
     let metric = super::convergence::EquilibriumMetric::for_2d(&input.solver, &dof_num, cs.as_ref())?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
@@ -1077,6 +1078,7 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
         return Err(CONSTRAINTS_REFUSED.to_string());
     }
     let cs = FreeConstraintSystem::build_3d(&input.solver, &dof_num)?;
+    super::stability::refuse_axial_tips_3d(&input.solver, &dof_num, cs.as_ref(), std::iter::empty())?;
     let metric = super::convergence::EquilibriumMetric::for_3d(&input.solver, &dof_num, cs.as_ref())?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 

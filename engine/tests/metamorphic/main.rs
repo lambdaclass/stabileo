@@ -34,6 +34,9 @@ mod checks3;
 mod corpus;
 mod modal_checks;
 mod modal_mass_range;
+mod modal_released_axis;
+mod released_tip_mechanisms;
+mod material_released_rotation;
 mod modal_null;
 mod parity;
 mod nightly_tolerances;
@@ -41,6 +44,7 @@ mod dynamic_accuracy;
 mod quick;
 mod regressions;
 mod harmonic_linearity;
+mod harmonic_dc_equilibration;
 mod linear_identities;
 mod completeness;
 mod response;
@@ -276,3 +280,7 @@ fn issue_2125_ground_motion_preserves_half_turn_symmetry() {
 }
 
 mod support_invariance;
+
+mod conditional_elastic_equilibration;
+
+mod axial_tip_mechanisms;

@@ -219,10 +219,19 @@ fn issue_762_refusal(error: &str) -> &str {
 
 #[test]
 fn issue_762_2d_refuses_reported_unreliable_models_in_equivalent_frames() {
+    assert_issue_762_planar_refusals(&[20756, 20795, 20800, 20806, 20833, 20865]);
+}
+
+#[test]
+fn issue_762_seed_20824_refuses_proven_mechanism_in_equivalent_frames() {
+    assert_issue_762_planar_refusals(&[20824]);
+}
+
+fn assert_issue_762_planar_refusals(seeds: &[u64]) {
     use dedaliano_engine::metamorphic::transform::Iso2;
 
     let analyses: Vec<_> = ana2::rows().into_iter().filter(|a| issue_762_static_path(a.name)).collect();
-    for seed in [20756, 20795, 20800, 20806, 20824, 20833, 20865] {
+    for &seed in seeds {
         let case = corpus::fuzz_case_2d(ISSUE_762_CORPUS, seed - ISSUE_762_CORPUS);
         let mut copies = vec![("original".into(), case.clone())];
         for units in issue_762_units() {
@@ -250,8 +259,7 @@ fn issue_762_2d_refuses_reported_unreliable_models_in_equivalent_frames() {
                 } else {
                     let matches = match seed {
                         20756 | 20795 => reason.contains("constraint reduction cancels stiffness contributions"),
-                        20824 => reason.contains("the matrix exceeds a conditioning limit or the recovered response fails its accuracy check")
-                            || reason.starts_with("the structure cannot be solved reliably: stiffness factorization accuracy is unresolved after the stability check;"),
+                        20824 => reason.starts_with("the structure is a mechanism at nodes [4]: a node can move freely in a direction no member, support or spring stiffens"),
                         _ => reason.starts_with("the structure is a mechanism at nodes [3]: a node can move freely"),
                     };
                     assert!(matches, "{context}: {reason}");
