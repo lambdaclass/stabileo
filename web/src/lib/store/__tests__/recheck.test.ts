@@ -10,7 +10,7 @@ const steelTruss = () => ({
   analysisMode: 'pro',
   materials: [[1, STEEL]],
   elements: [[1, { id: 1, type: 'truss', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseI: {}, releaseJ: {} }]],
-  supports: [[1, { nodeId: 1, type: 'pinned3d' }]],
+  supports: [[1, { id: 1, nodeId: 1, type: 'pinned3d' }]],
   loads: [],
   loadCases: [{ id: 1, type: 'D' }],
 }) as never;
@@ -310,8 +310,12 @@ describe('edited projects with older provenance', () => {
   const frame = () => ({
     analysisMode: 'pro',
     materials: [[1, STEEL]],
-    elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
+    elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]],
   }) as import('../../provenance/model-features').FeatureSnapshot;
+  const connectorFrame = (): ReturnType<typeof frame> => {
+    const connector = { id: 1, nodeI: 1, nodeJ: 2, kShear: 0 };
+    return { ...frame(), elements: [], connectors: [[1, connector]], regulations: { roles: { steel: { adapterId: 'eurocode3' } } } };
+  };
   const oldStamp = () => {
     const { recorded: _recorded, ...stamp } = createRecheckStore().capture()!;
     return { ...stamp, resultsVersion: 4, analyses: ['linear' as const] };
@@ -404,10 +408,11 @@ describe('edited projects with older provenance', () => {
         module.assessProject(args[0], args[1], args[2], precedingRegistry, args[4], args[5]),
     }));
     const combined = createRecheckStore();
+    const concrete = { id: 1, name: 'H30', e: 25000, nu: STEEL.nu, rho: 25, fy: 30 };
     const snapshot: import('../../provenance/model-features').FeatureSnapshot & { solvedWith: unknown } = {
       ...frame(),
-      materials: [[1, { id: 1, name: 'H30', e: 25000, rho: 25, fy: 30 }], [2, { ...STEEL, id: 2 }]],
-      elements: [...frame().elements!, [2, { id: 2, type: 'frame', nodeI: 2, nodeJ: 3, materialId: 2 }]],
+      materials: [[1, concrete], [2, { ...STEEL, id: 2 }]],
+      elements: [...frame().elements!, [2, { id: 2, type: 'frame', nodeI: 2, nodeJ: 3, materialId: 2, sectionId: 1 }]],
       solvedWith: { ...oldStamp(), resultsVersion: 30 },
     };
     store.openProject(snapshot, 'pro');
@@ -472,7 +477,7 @@ describe('edited projects with older provenance', () => {
       assessProject: (...args: Parameters<typeof module.assessProject>) =>
         module.assessProject(args[0], args[1], args[2], mergedRegistry, args[4], args[5]),
     }));
-    const snapshot = { ...frame(), elements: [], connectors: [[1, { kShear: 0 }]], regulations: { roles: { steel: { adapterId: 'eurocode3' } } } } as ReturnType<typeof frame>;
+    const snapshot = connectorFrame();
     store.openProject({ ...snapshot, solvedWith: oldStamp() }, 'pro');
     await vi.waitFor(() => expect(store.pending).toBe(false));
     const received = store.assessment?.changes.map(c => c.id);
@@ -496,7 +501,7 @@ describe('edited projects with older provenance', () => {
 
   it('clears an acknowledged linear notice before adding shells, saving and reopening without a solve', async () => {
     const store = createRecheckStore();
-    const snapshot = { ...frame(), elements: [], connectors: [[1, { kShear: 0 }]], regulations: { roles: { steel: { adapterId: 'eurocode3' } } } } as ReturnType<typeof frame>;
+    const snapshot = connectorFrame();
     store.openProject({ ...snapshot, solvedWith: oldStamp() }, 'pro');
     await vi.waitFor(() => expect(store.pending).toBe(false));
     expect(store.assessment?.changes.map(c => c.id)).toEqual(openingNoticeIds());

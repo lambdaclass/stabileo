@@ -262,7 +262,7 @@ for (const dimension of [2, 3]) {
       const input = {
         nodes: { 1: { id: 1, x: 0, z: 0 }, 2: { id: 2, x: 1, z: 1 } },
         materials: { 1: { id: 1, e: 1e7, nu: 0.3 } },
-        sections: { 1: { id: 1, a: 0.01, iy: 0.001, iz: 0.002, j: 0.003 } },
+        sections: { 1: { id: 1, a: 0.01, iz: 0.002, ...(dimension === 3 ? { iy: 0.001, j: 0.003 } : {}) } },
         elements: { 1: { id: 1, type: 'truss', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 } },
         supports: dimension === 2 ? { 1: { id: 1, nodeId: 1, type: 'fixed' }, 2: { id: 2, nodeId: 2, type: 'spring', kx: spring } } : {
           1: { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true },
@@ -278,7 +278,9 @@ for (const dimension of [2, 3]) {
       if (dimension === 3) for (const node of Object.values(input.nodes)) node.y = 0;
       for (const node of Object.values(input.nodes)) for (const axis of ['x','y','z']) if (axis in node) node[axis] *= scale;
       input.materials[1].e /= scale ** 2;
-      for (const [key, power] of [['a',2],['iy',4],['iz',4],['j',4]]) input.sections[1][key] *= scale ** power;
+      for (const key of Object.keys(input.sections[1])) {
+        if (key !== 'id') input.sections[1][key] *= scale ** (key === 'a' ? 2 : 4);
+      }
       for (const sup of Object.values(input.supports)) for (const key of ['kx','ky','kz']) if (key in sup) sup[key] /= scale;
       const linear = dimension === 2 ? solve_2d : solve_3d;
       if (spring === 0.1) {
@@ -343,9 +345,11 @@ for (const dimension of [2, 3]) {
         const input = round3Model(`swing${dimension}`, pads);
         input.constraints = [kind === 'diaphragm'
           ? { type: kind, masterNode: 1, slaveNodes: [2], plane: 'XZ' }
-          : { type: kind, masterNode: 1, slaveNode: 2, dofs: [], releases: [], offsetX: 2, offsetY: 0, offsetZ: 1 }];
+          : kind === 'rigidLink'
+            ? { type: kind, masterNode: 1, slaveNode: 2, dofs: [] }
+            : { type: kind, masterNode: 1, slaveNode: 2, releases: [], offsetX: 2, offsetY: 0, offsetZ: 1 }];
         if (kind === 'diaphragm') input.supports[2] = { nodeId: 2, rx: false, ry: true, rz: false, rrx: false, rry: false, rrz: false };
-        if (held) Object.assign(input.supports[1], { type: 'fixed', rrx: true, rry: true, rrz: true });
+        if (held) Object.assign(input.supports[1], dimension === 2 ? { type: 'fixed' } : { rrx: true, rry: true, rrz: true });
         const result = JSON.parse(kinematics(JSON.stringify(input)));
         assert.equal(result.isSolvable, held);
         if (held) {
@@ -398,13 +402,13 @@ for (const dimension of [2, 3]) {
       delete input.constraints;
       delete input.elements[2];
       delete input.nodes[3];
-      input.sections[1].iy = 0.001;
+      if (dimension === 3) input.sections[1].iy = 0.001;
       input.sections[1].iz = 0.002;
       input.materials[1].e *= scale;
       input.nodes[4] = { ...input.nodes[1], id: 4, x: 8 };
       input.nodes[5] = { ...input.nodes[2], id: 5, x: 12 };
       input.elements[2] = { ...input.elements[1], id: 2, nodeI: 4, nodeJ: 5 };
-      input.supports[4] = { ...input.supports[1], id: 4, nodeId: 4 };
+      input.supports[4] = { ...input.supports[1], nodeId: 4, ...(dimension === 2 ? { id: 4 } : {}) };
       input.loads = [];
       const stages = [
         { name: 'before', elementsAdded: Object.values(input.elements).filter(e => e.id !== 2).map(e => e.id), supportsAdded: Object.values(input.supports).map(s => s.nodeId), loadIndices: [] },
@@ -445,7 +449,7 @@ for (const dimension of [2, 3]) {
   delete input.constraints;
   delete input.elements[2];
   delete input.nodes[3];
-  input.sections[1].iy = 0.001;
+  if (dimension === 3) input.sections[1].iy = 0.001;
   input.sections[1].iz = 0.002;
   input.loads = [];
   const stages = [

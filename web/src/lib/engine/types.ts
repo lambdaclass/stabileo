@@ -30,7 +30,7 @@ export interface SolverElement {
   hingeEnd: boolean;
 }
 
-export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerZ' | 'spring' | 'inclinedRoller';
+export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerZ' | 'guidedX' | 'spring' | 'inclinedRoller';
 
 export interface SolverSupport {
   id: number;

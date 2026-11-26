@@ -1019,6 +1019,9 @@ test.engine.reactions-frozen: wasm
 test.audit.evidence:
 	$(NIX_RUN) python3 -B scripts/tests/test_soundness_audit.py
 
+test.engine.staged-orphan-wasm test.engine.staged-settlement-1085-wasm test.engine.translation-rank-wasm \
+test.engine.modal-mass-range-wasm test.engine.time-history-2009-wasm test.engine.candidate-1901-wasm: scripts/tests/nightly-solver-fixture.mjs
+
 .PHONY: test.engine.staged-orphan-wasm
 test.engine.staged-orphan-wasm: wasm scripts/tests/staged-history-containment.mjs test.engine.staged-physical-r14-wasm test.engine.staged-r20-wasm test.engine.staged-r23-wasm
 	$(NIX_RUN) node scripts/tests/staged-final-plastic-wasm.mjs

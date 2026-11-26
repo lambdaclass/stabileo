@@ -3770,6 +3770,12 @@ const ar: Translations = {
   "svc.engine.missingSelfWeightTarget": "هدف الوزن الذاتي {kind} {id} غير موجود. استعده أو غيّر نطاق الوزن الذاتي.",
   "svc.engine.invalidDensity": "أدخل كثافة (rho) منتهية وغير سالبة للمادة {id} (القيمة الواردة: {value}).",
   "svc.engine.nonnegativeMassDensity": "يجب أن تكون الكثافة الكتلية منتهية وغير سالبة",
+  "svc.engine.unknownInputField": "حقل غير معروف {path}.",
+  "svc.engine.allowedInputFields": "الحقول المسموح بها: {fields}.",
+  "svc.engine.noInputFields": "لا يُسمح بأي حقول.",
+  "svc.engine.inputParseError": "خطأ في قراءة المدخلات: {detail}",
+  "svc.engine.inputLocation": "(السطر {line}، العمود {column})",
+  "svc.savedPlaneRequired": "اختر مستوى الرسم قبل تحليل هذا المشروع المحفوظ.",
   "svc.engine.invalidInputField": "الحقل {path} مفقود أو يحتوي على قيمة غير مدعومة.",
   "svc.engine.nonFiniteNumber": "أدخل عددًا منتهيًا في الحقل {path} (القيمة الواردة: {value}).",
 } as const satisfies Record<string, string>;

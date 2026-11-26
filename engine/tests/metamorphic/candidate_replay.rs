@@ -14,11 +14,13 @@ fn input(key: &str) -> Value {
 }
 
 fn refused(issue: u64, analysis: &str, prefix: &str, diagnostic: Option<Value>) {
-    let value = input(&format!("{issue}-body-0"));
+    let mut value = input(&format!("{issue}-body-0"));
+    let (name, densities) = crate::common::take_nightly_metadata(&mut value);
+    let name = name.as_ref().and_then(Value::as_str).unwrap_or("replay");
     let error = match corpus::parse(&value.to_string()).unwrap() {
         corpus::Model::D2(s) => {
-            let mut c = Case2::new(value["_nightly_name"].as_str().unwrap_or("replay"), s);
-            if let Some(d) = value.get("_nightly_dens") {
+            let mut c = Case2::new(name, s);
+            if let Some(d) = densities.as_ref() {
                 c.dens = serde_json::from_value(d.clone()).unwrap();
             }
             let a = ana2::rows()
@@ -28,8 +30,8 @@ fn refused(issue: u64, analysis: &str, prefix: &str, diagnostic: Option<Value>) 
             (a.run)(&c).expect_err("the reported input returned a result")
         }
         corpus::Model::D3(s) => {
-            let mut c = Case3::new(value["_nightly_name"].as_str().unwrap_or("replay"), s);
-            if let Some(d) = value.get("_nightly_dens") {
+            let mut c = Case3::new(name, s);
+            if let Some(d) = densities.as_ref() {
                 c.dens = serde_json::from_value(d.clone()).unwrap();
             }
             let a = ana3::rows()
@@ -395,7 +397,7 @@ fn issue_1992_1901_linear_reference_and_pdelta_outcome() {
         solver::{linear, pdelta},
         types::SolverInput,
     };
-    let solver: SolverInput = serde_json::from_value(input("1901-body-0")).unwrap();
+    let solver: SolverInput = crate::common::nightly_solver(input("1901-body-0")).unwrap();
     let reference = reference_1901();
     let typed = serde_json::from_value(serde_json::to_value(&solver).unwrap()).unwrap();
     for result in [

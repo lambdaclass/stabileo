@@ -182,3 +182,22 @@ describe('engine sentences', () => {
     expect(localizeEngineText('Residual 1.2e-3 exceeds tolerance')).toBe('Residual 1.2e-3 exceeds tolerance');
   });
 });
+
+it('translates the whole unknown-field diagnostic in Spanish', async () => {
+  await setLocale('es');
+  expect(localizeEngineText('Parse error: unknown field `methdo`, expected one of `id`, `method`, `factors` at line 4 column 8'))
+    .toBe('Error de análisis: Campo desconocido methdo. Campos permitidos: `id`, `method`, `factors`. (línea 4, columna 8)');
+  expect(localizeEngineText('Parse error: Error: unknown field `fram`, expected `frame`'))
+    .toBe('Error de análisis: Campo desconocido fram. Campos permitidos: `frame`.');
+  expect(localizeEngineText('unknown field `fram`, expected `frame`'))
+    .toBe('Campo desconocido fram. Campos permitidos: `frame`.');
+  expect(localizeEngineText('unknown field `fram`')).toBe('Campo desconocido fram.');
+});
+
+it('translates the whole missing-field diagnostic in Spanish', async () => {
+  await setLocale('es');
+  expect(localizeEngineText('Parse error: missing field `method` at line 4 column 8'))
+    .toBe('Error de análisis: Falta el campo method o su valor no es compatible. (línea 4, columna 8)');
+  expect(localizeEngineText('Parse error: Error: missing field `method`'))
+    .toBe('Error de análisis: Falta el campo method o su valor no es compatible.');
+});

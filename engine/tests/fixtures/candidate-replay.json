@@ -18335,7 +18335,6 @@
     "connectors": {},
     "constraints": [
       {
-        "dofs": [],
         "masterNode": 4,
         "slaveNode": 5,
         "type": "rigidLink"
@@ -30164,7 +30163,6 @@
     "connectors": {},
     "constraints": [
       {
-        "dofs": [],
         "masterNode": 2,
         "slaveNode": 3,
         "type": "rigidLink"
@@ -31051,7 +31049,6 @@
     "connectors": {},
     "constraints": [
       {
-        "dofs": [],
         "masterNode": 4,
         "slaveNode": 3,
         "type": "rigidLink"
@@ -31837,7 +31834,6 @@
     "connectors": {},
     "constraints": [
       {
-        "dofs": [],
         "masterNode": 2,
         "slaveNode": 3,
         "type": "rigidLink"
@@ -32103,7 +32099,6 @@
     "connectors": {},
     "constraints": [
       {
-        "dofs": [],
         "masterNode": 2,
         "slaveNode": 3,
         "type": "rigidLink"
@@ -33357,13 +33352,11 @@
     "connectors": {},
     "constraints": [
       {
-        "dofs": [],
         "masterNode": 4,
         "slaveNode": 6,
         "type": "rigidLink"
       },
       {
-        "dofs": [],
         "masterNode": 2,
         "slaveNode": 3,
         "type": "rigidLink"

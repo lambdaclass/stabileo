@@ -34,7 +34,11 @@
  *       XZ (the model's plane)  → the rigid body, rotation tied (as the space solve ties it)
  */
 
-import type { Constraint3D } from './types-3d';
+import { t, tp } from '../i18n';
+import { dyadicInteger } from './accounting-math';
+import { ModelInputError, requireEccentricReleaseMask } from './model-input-numbers';
+import { rigidLinkDofs } from './types-3d';
+import type { Constraint3D, EccentricConnectionConstraint, LinearMpcConstraint } from './types-3d';
 import type { DrawPlane } from '../geometry/plane-projection';
 
 /**
@@ -49,16 +53,31 @@ const AXES_IN_XZ: Record<Exclude<DrawPlane, 'xz'>, [number, number, number]> = {
  * `constraintsTo2D` reads them in (#466).
  */
 export function constraintsInXZ(plane: DrawPlane, constraints: readonly Constraint3D[]): Constraint3D[] {
+  for (const [index, c] of constraints.entries()) {
+    if (c.type === 'eccentricConnection') requireEccentricReleaseMask(`constraints[${index}].releases`, c.releases);
+  }
   if (plane === 'xz') return [...constraints];
-  const axis = AXES_IN_XZ[plane];
+  return remapConstraintAxes(constraints, AXES_IN_XZ[plane]);
+}
+
+export function constraintsInXY(plane: DrawPlane, constraints: readonly Constraint3D[]): Constraint3D[] {
+  if (plane === 'xy') return [...constraints];
+  return remapConstraintAxes(constraintsInXZ(plane, constraints), AXES_IN_XZ.xy);
+}
+
+function remapConstraintAxes(
+  constraints: readonly Constraint3D[], axis: [number, number, number],
+): Constraint3D[] {
+  const [x, y, z] = axis;
+  const inversions = Number(x > y) + Number(x > z) + Number(y > z);
+  const rotationSign = inversions % 2 === 0 ? 1 : -1;
   const dof = (d: number) => (d < 3 ? axis[d] : 3 + axis[d - 3]);
-  const inPlaneRotation = plane === 'yz' ? 3 : 5;
   const letter = (c: string) => 'XYZ'[axis['XYZ'.indexOf(c)]] ?? c;
   return constraints.map((c): Constraint3D => {
     switch (c.type) {
       case 'rigidLink': return c.dofs ? { ...c, dofs: c.dofs.map(dof) } : { ...c };
       case 'equalDOF': return { ...c, dofs: c.dofs.map(dof) };
-      case 'linearMPC': return { ...c, terms: c.terms.map((t) => ({ ...t, dof: dof(t.dof), coefficient: t.dof === inPlaneRotation ? -t.coefficient : t.coefficient })) };
+      case 'linearMPC': return { ...c, terms: c.terms.map((t) => ({ ...t, dof: dof(t.dof), coefficient: t.dof < 3 ? t.coefficient : rotationSign * t.coefficient })) };
       case 'diaphragm': {
         const name = (c.plane ?? 'XY').toUpperCase();
         return /^[XYZ]{2}$/.test(name) ? { ...c, plane: [...name].map(letter).sort().join('') } : { ...c };
@@ -67,11 +86,11 @@ export function constraintsInXZ(plane: DrawPlane, constraints: readonly Constrai
         const offsets = [c.offsetX ?? 0, c.offsetY ?? 0, c.offsetZ ?? 0];
         const moved = [0, 0, 0];
         offsets.forEach((v, i) => { moved[axis[i]] = v; });
-        let releases = c.releases;
-        if (releases && releases.length === 6) {
-          const out = new Array<boolean>(6).fill(false);
-          releases.forEach((r, i) => { out[dof(i)] = r; });
-          releases = out;
+        const authoredReleases = c.releases;
+        let releases: boolean[] | undefined;
+        if (authoredReleases) {
+          releases = new Array<boolean>(6).fill(false);
+          for (let i = 0; i < releases.length; i++) releases[dof(i)] = authoredReleases[i] ?? false;
         }
         return { ...c, offsetX: moved[0], offsetY: moved[1], offsetZ: moved[2], releases };
       }
@@ -79,6 +98,8 @@ export function constraintsInXZ(plane: DrawPlane, constraints: readonly Constrai
   });
 }
 
+const PLANAR_TRANSLATIONS = [0, 2] as const;
+const PLANAR_DOFS = [...PLANAR_TRANSLATIONS, 4];
 const DOF_3D_TO_2D: Record<number, number> = { 0: 0, 2: 1, 4: 2 };
 
 /**
@@ -87,13 +108,96 @@ const DOF_3D_TO_2D: Record<number, number> = { 0: 0, 2: 1, 4: 2 };
  * The plane solver has no out-of-plane DOFs, so it cannot keep that coupling (#466).
  */
 export function constraintsCoupledAcrossPlane(constraints: readonly Constraint3D[]): Constraint3D[] {
-  return constraints.filter((c) => {
+  return constraints.filter(couplesAcrossPlane);
+}
+
+type MpcTerm = LinearMpcConstraint['terms'][number];
+type MpcProjection = MpcTerm[] | 'coupled' | 'unrepresentable';
+
+function roundedCoefficient(exact: bigint): number {
+  const magnitude = exact < 0n ? -exact : exact;
+  const shift = BigInt(Math.max(0, magnitude.toString(2).length - 53));
+  let significand = magnitude >> shift;
+  if (shift > 0n) {
+    const remainder = magnitude - (significand << shift);
+    const half = 1n << (shift - 1n);
+    if (remainder > half || (remainder === half && (significand & 1n) === 1n)) significand += 1n;
+  }
+  return (exact < 0n ? -1 : 1) * Number(significand) * 2 ** (Number(shift) - 1074);
+}
+
+function fitMpcCoefficients(totals: readonly bigint[]): number[] | null {
+  const coefficients = totals.map(roundedCoefficient);
+  if (coefficients.every(Number.isFinite)) return coefficients;
+  if (totals.length === 1) return [1];
+
+  const maxBits = totals.reduce((bits, total) => Math.max(bits, (total < 0n ? -total : total).toString(2).length), 0);
+  const maxFiniteBits = dyadicInteger(Number.MAX_VALUE).toString(2).length;
+  const shift = BigInt(Math.max(1, maxBits - maxFiniteBits));
+  const scaled = totals.map(total => total >> shift);
+  const fitted = scaled.map(roundedCoefficient);
+  if (scaled.some((value, index) =>
+    !Number.isFinite(fitted[index]!) || (value << shift) !== totals[index] || dyadicInteger(fitted[index]!) !== value,
+  )) return null;
+  const largest = fitted.reduce((max, value) => Math.max(max, Math.abs(value)), 0);
+  return fitted.some(value => value / largest === 0) ? null : fitted;
+}
+
+function projectMpc(terms: readonly MpcTerm[]): MpcProjection {
+  const groups = new Map<string, { term: MpcTerm; total: bigint }>();
+  for (const term of terms) {
+    if (!Number.isFinite(term.coefficient)) return 'unrepresentable';
+    const key = `${term.nodeId}:${term.dof}`;
+    const coefficient = dyadicInteger(term.coefficient);
+    const group = groups.get(key);
+    if (group) group.total += coefficient;
+    else groups.set(key, { term, total: coefficient });
+  }
+  const inPlane: Array<{ nodeId: number; dof: number; total: bigint }> = [];
+  let outOfPlane = false;
+  for (const { term, total } of groups.values()) {
+    if (total === 0n) continue;
+    const dof = DOF_3D_TO_2D[term.dof];
+    if (dof === undefined) outOfPlane = true;
+    else inPlane.push({ nodeId: term.nodeId, dof, total: term.dof === 4 ? -total : total });
+  }
+  if (outOfPlane && inPlane.length > 0) return 'coupled';
+  const coefficients = fitMpcCoefficients(inPlane.map(({ total }) => total));
+  if (!coefficients) return 'unrepresentable';
+  return inPlane.map(({ nodeId, dof }, index) => ({ nodeId, dof, coefficient: coefficients[index]! }));
+}
+
+export function hasReducedPlanarMpc(c: Constraint3D): boolean {
+  if (c.type !== 'linearMPC' || !c.terms.some(term => DOF_3D_TO_2D[term.dof] !== undefined)) return false;
+  const terms = projectMpc(c.terms);
+  return terms === 'unrepresentable' || (Array.isArray(terms) && terms.length < c.terms.length);
+}
+
+function couplesAcrossPlane(c: Constraint3D): boolean {
+  if (c.type === 'linearMPC') return typeof projectMpc(c.terms) === 'string';
+  return c.type === 'eccentricConnection' && classifyEccentricNormalOffset(c) === 'coupled';
+}
+
+function mpcRefusal(projection: Exclude<MpcProjection, MpcTerm[]>, index: number): string {
+  const path = `constraints[${index}].terms`;
+  return projection === 'coupled' ? `${t('svc.constraintsCoupled')} ${path}` : tp('svc.engine.invalidInputField', { path });
+}
+
+export function classifyEccentricNormalOffset(c: EccentricConnectionConstraint): 'none' | 'separated' | 'coupled' {
+  if ((c.offsetY ?? 0) === 0) return 'none';
+  return PLANAR_TRANSLATIONS.every(dof => c.releases?.[dof] === true) ? 'separated' : 'coupled';
+}
+
+export function planeConstraintRefusal(constraints: readonly Constraint3D[] = [], plane: DrawPlane = 'xz'): string | null {
+  for (const [index, c] of constraints.entries()) {
     if (c.type === 'linearMPC') {
-      const live = c.terms.filter((t) => t.coefficient !== 0);
-      return live.some((t) => DOF_3D_TO_2D[t.dof] !== undefined) && live.some((t) => DOF_3D_TO_2D[t.dof] === undefined);
+      const terms = projectMpc(c.terms);
+      if (typeof terms === 'string') return mpcRefusal(terms, index);
+    } else if (c.type === 'eccentricConnection' && classifyEccentricNormalOffset(c) === 'coupled') {
+      return `${t('svc.constraintsCoupled')} constraints[${index}].offset${NORMAL[plane].toUpperCase()}`;
     }
-    return c.type === 'eccentricConnection' && (c.offsetY ?? 0) !== 0;
-  });
+  }
+  return null;
 }
 
 const NORMAL: Record<DrawPlane, 'x' | 'y' | 'z'> = { xz: 'y', yz: 'x', xy: 'z' };
@@ -111,7 +215,7 @@ export function constraintsAcrossDepth(
   return constraints.filter((c) => {
     let ids: number[];
     if (c.type === 'rigidLink') {
-      if (c.dofs && c.dofs.length > 0 && c.dofs.every((d) => d >= 3)) return false;
+      if (rigidLinkDofs(c).every(d => d >= 3)) return false;
       ids = [c.masterNode, c.slaveNode];
     } else if (c.type === 'diaphragm') ids = [c.masterNode, ...c.slaveNodes];
     else return false;
@@ -120,7 +224,7 @@ export function constraintsAcrossDepth(
   });
 }
 
-function mapDofs(dofs: number[] | undefined): number[] | undefined {
+function mapDofs(dofs: readonly number[] | undefined): number[] | undefined {
   if (!dofs) return undefined;
   return dofs
     .map(d => DOF_3D_TO_2D[d])
@@ -135,13 +239,10 @@ function mapDofs(dofs: number[] | undefined): number[] | undefined {
 export function constraintsTo2D(constraints: Constraint3D[] | undefined): Constraint3D[] {
   if (!constraints || constraints.length === 0) return [];
   const out: Constraint3D[] = [];
-  for (const c of constraints) {
+  for (const [index, c] of constraints.entries()) {
     switch (c.type) {
       case 'rigidLink': {
-        // No DOFs listed: all translational, as the space solve reads it; listed for the plane
-        // solver, whose own default would tie the rotation as well.
-        if (!c.dofs || c.dofs.length === 0) { out.push({ ...c, dofs: [0, 1] }); break; }
-        const dofs = mapDofs(c.dofs);
+        const dofs = mapDofs(rigidLinkDofs(c));
         if (!dofs || dofs.length === 0) break; // only out-of-plane DOFs
         out.push({ ...c, dofs });
         break;
@@ -153,13 +254,16 @@ export function constraintsTo2D(constraints: Constraint3D[] | undefined): Constr
         break;
       }
       case 'linearMPC': {
-        // An equation involving an out-of-plane DOF has no 2D meaning — drop whole.
-        if (c.terms.some(t => DOF_3D_TO_2D[t.dof] === undefined)) break;
-        // θ = −ry: an ry term keeps its meaning with its coefficient negated.
-        out.push({ ...c, terms: c.terms.map(t => ({ ...t, dof: DOF_3D_TO_2D[t.dof], coefficient: t.dof === 4 ? -t.coefficient : t.coefficient })) });
+        const terms = projectMpc(c.terms);
+        if (typeof terms === 'string') throw new ModelInputError(mpcRefusal(terms, index));
+        if (terms.length > 0) out.push({ ...c, terms });
         break;
       }
       case 'eccentricConnection': {
+        requireEccentricReleaseMask(`constraints[${index}].releases`, c.releases);
+        if (classifyEccentricNormalOffset(c) === 'coupled') {
+          throw new ModelInputError(`${t('svc.constraintsCoupled')} constraints[${index}].offsetY`);
+        }
         // 2D solver kinematics read offset_x (horizontal) and offset_y
         // (VERTICAL — its dy slot); the stored 3D shape keeps vertical in
         // offsetZ. The out-of-plane offsetY is dropped, like uy loads.
@@ -168,11 +272,7 @@ export function constraintsTo2D(constraints: Constraint3D[] | undefined): Constr
           offsetX: c.offsetX,
           offsetY: c.offsetZ,
           offsetZ: 0,
-          releases: [
-            c.releases?.[0] ?? false, // ux
-            c.releases?.[2] ?? false, // uz → 2D slot 1
-            c.releases?.[4] ?? false, // ry → 2D slot 2
-          ],
+          releases: PLANAR_DOFS.map(dof => c.releases?.[dof] ?? false),
         });
         break;
       }

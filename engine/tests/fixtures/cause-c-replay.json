@@ -757,13 +757,11 @@
     },
     "constraints": [
       {
-        "dofs": [],
         "masterNode": 10,
         "slaveNode": 16,
         "type": "rigidLink"
       },
       {
-        "dofs": [],
         "masterNode": 4,
         "slaveNode": 14,
         "type": "rigidLink"
@@ -1299,8 +1297,7 @@
       {
         "type": "rigidLink",
         "masterNode": 2,
-        "slaveNode": 9001,
-        "dofs": []
+        "slaveNode": 9001
       }
     ],
     "connectors": {
@@ -1885,8 +1882,7 @@
       {
         "type": "rigidLink",
         "masterNode": 2,
-        "slaveNode": 9001,
-        "dofs": []
+        "slaveNode": 9001
       }
     ],
     "connectors": {

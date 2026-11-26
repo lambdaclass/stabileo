@@ -1,0 +1,32 @@
+{
+  "id": "wasm-iterable-solver-tables",
+  "date": "2026-11-25",
+  "prs": [2588],
+  "area": "analysis",
+  "when": {
+    "all": ["native:wasm-iterable-solver-tables"]
+  },
+  "quantities": ["*"],
+  "title": {
+    "en": "Iterable WASM solver tables",
+    "es": "Tablas iterables del solver WASM",
+    "pt": "Tabelas iteráveis do solver WASM",
+    "de": "Iterierbare Tabellen für den WASM-Solver",
+    "fr": "Tables itérables du solveur WASM",
+    "tr": "Yinelenebilir WASM çözücü tabloları",
+    "zh": "可迭代的 WASM 求解器表"
+  },
+  "explanation": {
+    "en": "WASM object analysis preserves solver entries supplied as iterable key-value pairs, including connectors in a Set. It refuses invalid table shapes, malformed pairs and duplicate keys.",
+    "es": "El análisis con objetos WASM conserva las entradas del solver enviadas como pares iterables de clave y valor, incluso conectores en un Set. Rechaza los formatos de tabla inválidos, los pares mal formados y las claves duplicadas.",
+    "pt": "A análise com objetos WASM preserva as entradas do solver enviadas como pares iteráveis de chave e valor, incluindo conectores em um Set. Tabelas inválidas, pares malformados e chaves duplicadas são recusados.",
+    "de": "Die WASM-Objektanalyse übernimmt Solver-Einträge aus iterierbaren Schlüssel-Wert-Paaren, auch Verbindungselemente in einem Set. Ungültige Tabellenformen, fehlerhafte Paare und doppelte Schlüssel werden abgelehnt.",
+    "fr": "L’analyse avec des objets WASM conserve les entrées du solveur fournies sous forme de paires clé-valeur itérables, y compris les connecteurs dans un Set. Les tables invalides, les paires mal formées et les clés en double sont refusées.",
+    "tr": "WASM nesne analizi, Set içindeki bağlantı elemanları dahil, yinelenebilir anahtar-değer çiftleri olarak verilen çözücü girdilerini korur. Geçersiz tablo biçimleri, hatalı çiftler ve yinelenen anahtarlar reddedilir.",
+    "zh": "WASM 对象分析会保留以可迭代键值对提供的求解器条目，包括 Set 中的连接件。无效的表结构、格式错误的键值对和重复键都会被拒绝。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-wasm-iterable-solver-tables.md",
+    "heading": "Iterable WASM solver tables"
+  }
+}

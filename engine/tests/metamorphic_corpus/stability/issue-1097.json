@@ -18,7 +18,6 @@
  },
  "constraints": [
   {
-   "dofs": [],
    "masterNode": 3,
    "slaveNode": 4,
    "type": "rigidLink"

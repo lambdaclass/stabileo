@@ -83,7 +83,7 @@ fn assert_force(actual: f64, expected: f64) {
 fn issue_2101_inclined_support_moving_shear() {
     let fixture: Value =
         serde_json::from_str(include_str!("../fixtures/moving-shear-2101.json")).unwrap();
-    let solver: SolverInput3D = serde_json::from_value(fixture.clone()).unwrap();
+    let solver: SolverInput3D = crate::common::nightly_solver(fixture.clone()).unwrap();
     let section = &solver.sections["6"];
     let e = solver.materials["1"].e * 1000.0;
     let support = &solver.supports["7"];
@@ -148,7 +148,7 @@ fn issue_2101_inclined_support_moving_shear() {
 fn issue_2104_tip_spring_moving_shear() {
     let fixture: Value =
         serde_json::from_str(include_str!("../fixtures/moving-shear-2104.json")).unwrap();
-    let solver: SolverInput = serde_json::from_value(fixture.clone()).unwrap();
+    let solver: SolverInput = crate::common::nightly_solver(fixture.clone()).unwrap();
     let length = solver.nodes["7"].x - solver.nodes["1"].x;
     let ei = solver.materials["1"].e * 1000.0 * solver.sections["1"].iz;
     let k = solver.supports["2"].ky.unwrap();
@@ -198,7 +198,8 @@ fn issue_2104_cumulative_station_resolves_both_sides_of_a_joint() {
     use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
 
     let mut solver: SolverInput =
-        serde_json::from_str(include_str!("../fixtures/moving-shear-2104.json")).unwrap();
+        crate::common::nightly_solver_from_str(include_str!("../fixtures/moving-shear-2104.json"))
+            .unwrap();
     solver.loads.clear();
     solver.elements.retain(|_, e| e.id <= 3);
     solver.nodes.retain(|_, n| n.id <= 4);
@@ -296,7 +297,8 @@ fn issue_2104_cumulative_station_resolves_both_sides_of_a_joint() {
 
 fn review_beam(length: f64) -> SolverInput {
     let mut solver: SolverInput =
-        serde_json::from_str(include_str!("../fixtures/moving-shear-2104.json")).unwrap();
+        crate::common::nightly_solver_from_str(include_str!("../fixtures/moving-shear-2104.json"))
+            .unwrap();
     solver.loads.clear();
     solver.elements.retain(|_, e| e.id == 1);
     solver.nodes.retain(|_, n| n.id <= 2);
@@ -352,7 +354,8 @@ fn issue_2104_a_joint_axle_governs_both_adjacent_members() {
     use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
 
     let mut solver: SolverInput =
-        serde_json::from_str(include_str!("../fixtures/moving-shear-2104.json")).unwrap();
+        crate::common::nightly_solver_from_str(include_str!("../fixtures/moving-shear-2104.json"))
+            .unwrap();
     solver.loads.clear();
     solver.elements.retain(|_, e| e.id <= 2);
     solver.nodes.retain(|_, n| n.id <= 3);
