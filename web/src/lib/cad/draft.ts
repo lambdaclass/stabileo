@@ -800,6 +800,7 @@ export function generateRcDraft(
   const tightPoints = [...tightStations.values()];
   const stationTolerance = (p: CadPt) => tightStations.has(`${p.x}|${p.y}`)
     || tightPoints.some(n => dist(n, p) < PLATE_EDGE_TOL) ? PLATE_EDGE_TOL : tol;
+  const wallEndNodes = new Set<number>();
   let wallScheduleHits = 0;
   for (const run of wallRuns) {
     const segments = splitSegmentsAtPoints([run], stations, PLATE_EDGE_TOL, 0)
@@ -819,6 +820,14 @@ export function generateRcDraft(
         const n1 = b.node(end.x, end.y, z0, endWeld);
         const n2 = b.node(end.x, end.y, z1, endWeld);
         const n3 = b.node(start.x, start.y, z1, startWeld);
+        if (start === run.a) {
+          wallEndNodes.add(n0);
+          wallEndNodes.add(n3);
+        }
+        if (end === run.b) {
+          wallEndNodes.add(n1);
+          wallEndNodes.add(n2);
+        }
         b.quad([n0, n1, n2, n3], t);
       }
     }
@@ -864,6 +873,8 @@ export function generateRcDraft(
       for (const nid of shellNodeIds) {
         const nn = nodeById(nid);
         if (!nn) continue;
+        const conforming = conformingNodes.has(nid);
+        const canSnap = !conforming || wallEndNodes.has(nid);
         for (let guard = 0; guard < 4; guard++) {
           const eligible = beamTraces.size === 0 ? b.elements : b.elements.filter(element => {
             const trace = beamTraces.get(element.id);
@@ -874,9 +885,10 @@ export function generateRcDraft(
               station >= from - PLATE_EDGE_TOL && station <= to + PLATE_EDGE_TOL);
             return !certified || pointOnSegment(nn, trace.a, trace.b, PLATE_EDGE_TOL, 0) !== null;
           });
-          const hit = conformingNodes.has(nid)
+          const meshHit = conforming
             ? beamThrough(nodeById, eligible, nn.x, nn.y, nn.z ?? 0, PLATE_EDGE_TOL, 0)
-            : beamThrough(nodeById, eligible, nn.x, nn.y, nn.z ?? 0, tol);
+            : null;
+          const hit = meshHit ?? (canSnap ? beamThrough(nodeById, eligible, nn.x, nn.y, nn.z ?? 0, tol) : null);
           if (!hit) break;
           const children = b.splitElement(hit.id, nid);
           const trace = beamTraces.get(hit.id);

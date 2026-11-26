@@ -789,8 +789,6 @@ it.each(['fixedDivisions', 'targetSize'] as const)(
   },
 );
 
-const replayConformingWallEnd = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
-
 describe.each(['fixedDivisions', 'targetSize'] as const)('#2607 exterior beam joints in %s mode', meshMode => {
   function checkExteriorJoint(offset: number) {
     const plan = reviewPlan();
@@ -824,7 +822,7 @@ describe.each(['fixedDivisions', 'targetSize'] as const)('#2607 exterior beam jo
   }
 
   for (const offset of [0.005, 0.009]) {
-    replayConformingWallEnd(`known wrong result: #2607 snaps a conforming wall end to an exterior beam at offset ${offset}`, () => {
+    it(`#2607 snaps a conforming wall end to an exterior beam at offset ${offset}`, () => {
       checkExteriorJoint(offset);
     });
   }
