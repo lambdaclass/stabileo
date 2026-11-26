@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeGoverning2D, computeGoverning3D, governingMagnitude2D, governingMagnitude3D } from '../governing-case';
-import { computeDiagram3D } from '../diagrams-3d';
+import { computeDiagram3D, computeGlobalMax3D, criticalDiagramStations3D, evaluateDiagramAt, memberCriticalOrdinates3D } from '../diagrams-3d';
 import { computeElementDiagram } from '../diagrams';
 import type { AnalysisResults, ElementForces } from '../types';
 import type { AnalysisResults3D, ElementForces3D } from '../types-3d';
@@ -97,4 +97,35 @@ it('#2273 withholds an exact governing claim if a possible winner has only a bou
   ).get(1)?.axial;
   expect.soft(select(15)).toBeUndefined();
   expect(select(21)).toMatchObject({ comboId: 2, value: 21 });
+});
+
+const issue2273 = process.env.RUN_KNOWN_WRONG === '2273' ? it : it.skip;
+
+issue2273('known wrong result: #2273 nested ABS uses a conservative bound in diagrams and governing selection', () => {
+  const pulse = (a: number) => ef3d({ pointLoadsX: [{ a, p: -10 }, { a: a + 1, p: 10 }] });
+  const abs = (...parts: ElementForces3D[]) => ef3d({ combined: { method: 'abs', parts } });
+  const first = pulse(0.5), second = pulse(2);
+  const nested = abs(abs(first), second);
+  const flat = abs(first, second);
+  const upperBound = 20 + 2 ** -48;
+
+  expect.soft(computeDiagram3D(nested, 'axial')).toMatchObject({ extrema: 'bounded', maxAbsValue: upperBound });
+  expect.soft(computeGlobalMax3D([nested], 'axial')).toBe(upperBound);
+  expect.soft(governingMagnitude3D(nested, 'axial')).toEqual({ value: upperBound, bounded: true });
+  expect.soft(() => criticalDiagramStations3D(nested)).toThrow(/extrema/i);
+  expect.soft(() => memberCriticalOrdinates3D(nested, 'axial')).toThrow(/extrema/i);
+  expect.soft(evaluateDiagramAt(nested, 'axial', 0.25)).toBe(10);
+  expect.soft(governingMagnitude3D(flat, 'axial')).toEqual({ value: 10 });
+  expect.soft(() => criticalDiagramStations3D(flat)).not.toThrow();
+
+  for (const reverse of [false, true]) {
+    const governing = (member: ElementForces3D, n: number) => {
+      const combos = new Map([[1, results3D([member])], [2, results3D([ef3d({ nStart: n, nEnd: n })])]]);
+      return computeGoverning3D(reverse ? new Map([...combos].reverse()) : combos, new Map()).get(1)?.axial;
+    };
+    expect.soft(governing(nested, 20)).toBeUndefined();
+    expect.soft(governing(nested, upperBound)).toMatchObject({ comboId: 2, value: upperBound });
+    expect.soft(governing(nested, upperBound + 2 ** -48)).toMatchObject({ comboId: 2, value: upperBound + 2 ** -48 });
+    expect.soft(governing(flat, 9)).toMatchObject({ comboId: 1, value: 10 });
+  }
 });

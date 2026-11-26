@@ -676,3 +676,57 @@ it('known wrong result: #2226 prepared planar and spatial curves retain their or
     verify(() => prepareDiagramEvaluator3D(ef!, 'shearZ'), load);
   }
 });
+
+const issue2226 = process.env.RUN_KNOWN_WRONG === '2226' ? it : it.skip;
+
+issue2226('known wrong result: #2226 prepared piecewise shear retains the member and piece geometry', () => {
+  const [, space] = cantilevers(2);
+  const linear = solve3D(space);
+  const nonlinear = solvePDelta3D(space);
+  expect(nonlinear.converged).toBe(true);
+  for (const { elementForces: [leaf] } of [linear, nonlinear.results]) {
+    const first = { x0: 0, x1: 1, sectionId: 1, forces: { ...leaf!, length: 1, vzStart: 2, vzEnd: 2 } };
+    const second = { x0: 1, x1: 2, sectionId: 2, forces: { ...leaf!, length: 1, qZI: 8, qZJ: 8, vzEnd: 8 } };
+    const member = { ...leaf!, pieces: [first, second] };
+    const prepare = () => prepareDiagramEvaluator3D(member, 'shearZ');
+    const old = prepare();
+    const cold = prepare();
+    const section = { t: 0.75, distance: 1.5 };
+
+    expect(old(0.75)).toBe(4);
+    expect.soft(evaluateDiagramAt(member, 'shearZ', section)).toBe(4);
+    expect.soft(old(0.5)).toBe(2);
+    expect.soft(old(0.5, true)).toBe(0);
+
+    member.length = 3;
+    second.x1 = 3;
+    second.forces.length = 2;
+    second.forces.vzEnd = 16;
+
+    expect.soft(old(0.75)).toBe(4);
+    expect.soft(cold(0.75)).toBe(4);
+    expect.soft(old(section)).toBe(4);
+    expect.soft(prepare()(0.75)).toBe(10);
+    expect.soft(evaluateDiagramAt(member, 'shearZ', section)).toBe(4);
+
+    first.x1 = 0.5;
+    first.forces.length = 0.5;
+    second.x0 = 0.5;
+    second.forces.length = 2.5;
+    second.forces.vzEnd = 20;
+
+    for (const evaluate of [old, cold]) {
+      expect.soft(evaluate(0.75)).toBe(4);
+      expect.soft(evaluate(section)).toBe(4);
+      expect.soft(evaluate({ t: 0.5, distance: 1 })).toBe(2);
+      expect.soft(evaluate({ t: 0.5, distance: 1, right: true })).toBe(0);
+      expect.soft(evaluate(0.5)).toBe(2);
+      expect.soft(evaluate(0.5, true)).toBe(0);
+    }
+    const current = prepare();
+    expect.soft(current(0.75)).toBe(14);
+    expect.soft(current(section)).toBe(8);
+    expect.soft(current({ t: 0.5 / 3, distance: 0.5 })).toBe(2);
+    expect.soft(current({ t: 0.5 / 3, distance: 0.5, right: true })).toBe(0);
+  }
+});
