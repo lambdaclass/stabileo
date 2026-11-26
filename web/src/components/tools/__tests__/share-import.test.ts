@@ -72,12 +72,16 @@ it('imports the calculated influence-line model with its critical axle', async (
   expect(solve(imported).reactions).toEqual(result.linear.reactions);
 });
 
-it.skip('known wrong result: #2588 opens the column tool’s guided support', () => {
+it('#2588 opens the column tool’s guided support', () => {
   const p = workedExamples('column-buckling').find(example => example.k === 0.5)!;
   const original = buildModel('column-buckling', p);
   const snapshot = decompressSnapshot(editorUrl(original, 'column-buckling').split('#data=')[1])!;
   modelStore.restore(snapshot);
   const imported = modelStore.buildSolverInput(false)!;
-  expect([...imported.supports.values()].map(support => support.type)).toContain('guidedX');
+  const guided = [...imported.supports.values()].find(support => support.type === 'guidedX')!;
+  expect(guided).toBeDefined();
+  expect(modelStore.buildSolverInput3D()!.supports.get(guided.nodeId)).toMatchObject({
+    rx: false, ry: true, rz: true, rrx: true, rry: true, rrz: true,
+  });
   expect(solve(imported).displacements).toEqual(solve(original).displacements);
 });

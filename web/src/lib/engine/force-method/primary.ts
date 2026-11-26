@@ -79,6 +79,7 @@ export function restrainedComponents(sup: SolverSupport): [boolean, boolean, boo
     case 'fixed': return [true, true, true];
     case 'pinned': return [true, true, false];
     case 'rollerX': return [false, true, false];
+    case 'guidedX': return [false, true, true];
     case 'rollerZ': return [true, false, false];
     case 'inclinedRoller': return [false, true, false];
     default: return [false, false, false];

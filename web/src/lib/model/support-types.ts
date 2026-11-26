@@ -1,5 +1,5 @@
 export const SUPPORT_TYPES = [
-  'fixed', 'pinned', 'rollerX', 'rollerY', 'rollerZ', 'spring',
+  'fixed', 'pinned', 'rollerX', 'rollerY', 'rollerZ', 'guidedX', 'spring',
   'fixed3d', 'pinned3d', 'rollerXZ', 'rollerXY', 'rollerYZ', 'spring3d', 'custom3d',
 ] as const;
 
@@ -14,7 +14,7 @@ export function isPlaneRoller(type: unknown): boolean {
 }
 
 export function isPlaneSupportType(type: unknown): boolean {
-  return type === 'fixed' || type === 'pinned' || type === 'spring' || isPlaneRoller(type);
+  return type === 'fixed' || type === 'pinned' || type === 'guidedX' || type === 'spring' || isPlaneRoller(type);
 }
 
 export function isLocalPlaneRoller(support: { type: unknown; isGlobal?: boolean }): boolean {
