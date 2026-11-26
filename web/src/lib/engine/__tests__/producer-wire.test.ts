@@ -1,4 +1,5 @@
-import { expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
+import { featuresForMode } from '../../../../config/public-features.mjs';
 import { defaults } from '../../../components/examples/define';
 import { beamFrame } from '../../../components/examples/beam-frame';
 import { earthquake } from '../../../components/examples/earthquake';
@@ -11,6 +12,8 @@ import { buildSolverInput2D, buildSolverInput3D } from '../solver-service';
 import { exactOrphanRotations3D } from '../orphan-rotations-3d';
 import { finiteObjectWire, finiteWireJson, input2DToWireObject, input3DToWireObject } from '../wasm-solver';
 import { solve_2d, solve_3d, solve_pdelta_2d, solve_pdelta_3d } from '../../wasm/dedaliano_engine';
+
+afterEach(() => vi.unstubAllGlobals());
 
 function planarRoutes(wire: ReturnType<typeof input2DToWireObject>) {
   return [
@@ -58,6 +61,7 @@ it.each(['2d', '3d'] as const)('strictly decodes edited, saved and workbook mode
   expect(deserializeProject(saved)).toBe(true);
   expect(modelRoutes(dim).map(run => run().displacements)).toEqual(expected.map(result => result.displacements));
 
+  vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('test'));
   const sheets = currentWorkbookSheets(2, { results: false, design: false });
   const workbook = Object.fromEntries(sheets.map(sheet => [sheet.name, sheet.rows.map(row => [...row])]));
   expect(applyWorkbook(workbook)).toMatchObject({ problems: [], loaded: { nodes: 2, elements: 1 } });
@@ -72,8 +76,7 @@ it('strictly decodes the gallery, bundled fixture and model-code template produc
   await modelStore.loadExample('3d-cantilever-load');
   expectSolutions(modelRoutes('3d'));
   await loadCodeExample('pro-plane-frame-seismic');
-  const input = buildSolverInput3D(modelStore.model)!;
-  expectSolutions(spatialRoutes(input3DToWireObject({ ...input, loads: [] })));
+  expectSolutions(modelRoutes('3d'));
 });
 
 const beam = () => beamFrame.build(defaults(beamFrame.params));

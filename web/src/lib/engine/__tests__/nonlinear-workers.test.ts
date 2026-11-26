@@ -141,7 +141,7 @@ it.each(['sequential', 'worker', 'fallback'] as const)('ignores factored empty c
 
   for (const factor of [NaN, Infinity, -Infinity]) {
     const rejected = await solve(model, cases, [withEmpty(factor)]);
-    expect(rejected).toContain(`Enter a finite number for input[1].factor (received ${factor}).`);
+    expect(rejected).toContain(`Enter a finite number for combinations[0].factors[1].factor (received ${factor}).`);
   }
 });
 

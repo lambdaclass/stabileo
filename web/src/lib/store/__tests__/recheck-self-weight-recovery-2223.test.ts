@@ -132,9 +132,10 @@ it('#2364 saves the same notice stamp and features as main with global axes off'
   vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
   const stamp = unknownStamp();
   const store = createRecheckStore();
+  const support = { id: 1, nodeId: 1, type: 'fixed' as const, drz: Math.PI / 180 };
   store.openProject({
     solvedWith: stamp,
-    supports: [[1, { id: 1, nodeId: 1, type: 'fixed', drz: Math.PI / 180 }]],
+    supports: [[1, support]],
     loadCases: [{ id: 1, type: 'D', axisNamed: true }],
     analysis: { selfWeight: [{ caseId: 1, ...GRAVITY_SELF_WEIGHT }] },
   }, '2d');
