@@ -6,19 +6,19 @@ import { summaryRows, envelopeRows, allRows, maxByType, rowsOf, toCsv, columnsOf
 import { magnitudeCombination } from '../combination-methods';
 import { evaluateDiagramAt, memberCriticalOrdinates3D, memberEndForces3D } from '../diagrams-3d';
 import { criticalForceStations, extractForcesAtStation } from '../station-forces';
-import { envelopeMembers, pruneScopes } from '../result-scopes';
+import { envelopeMembers, envelopeOver, pruneScopes } from '../result-scopes';
 import { DEFAULT_AXES } from '../../axes/frame';
 import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';
 import '../../store/index';
-import { computeEnvelope3D, initSolver, solve3D, solvePDelta3D } from '../wasm-solver';
+import { combineResultsEnvelope3D, computeEnvelope3D, initSolver, solve3D, solvePDelta3D } from '../wasm-solver';
 import { publishCombinations3D, activePerCombo3D, activeCombinations } from '../../store/active-results';
 import { computeStationDemands, steelDemandOf } from '../verification-service';
 import { combinationPeakRows } from '../../export/excel';
 import { resultSheets } from '../../export/workbook-results';
 import { envelopeSectionHtml } from '../report/project-sections';
 import { forceTable3D } from '../report/calc-report-extra';
-import { buildQueryRows, extremeRow } from '../result-query';
+import { buildQueryRows, extremeRow, filterByAbsThreshold } from '../result-query';
 import { ConcurrentDemand } from '../concurrent-demand';
 import { computeElementStress3D } from '../section-stress-3d';
 import { generateCalcReportHtml } from '../calc-report';
@@ -693,6 +693,49 @@ describe('spatial cantilever end queries', () => {
         const single = buildQueryRows(result.elementForces, component);
         expect.soft(single).toHaveLength(2);
         for (const row of single) expect.soft(row.value).toBeCloseTo(positive, 12);
+      }
+    }
+  });
+
+  it.skip.each([
+    { label: 'all-positive', values: [10, 20], min: 10, max: 20, absmax: 20 },
+    { label: 'all-negative', values: [-10, -20], min: -20, max: -10, absmax: -20 },
+    { label: 'mixed with a zero case', values: [-20, 0, 10, 15], min: -20, max: 15, absmax: -20 },
+  ])('known wrong result: #2581 queries the true $label spatial case ends', ({ values, min, max, absmax }) => {
+    const loadId = modelStore.addLoadEntry({
+      type: 'nodal3d', data: { id: 1, nodeId: tip, fx: 0, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 },
+    });
+    const solved = [...values, 100].map(value => {
+      expect(modelStore.updateLoad(loadId, { fy: -value, fz: -value })).toBe(true);
+      return solveModel();
+    });
+    for (const mode of [0, 1]) {
+      const cases = new Map(solved.map((results, i) => [i + 1, results[mode]!]));
+      const ids = values.map((_, i) => i + 1);
+      const selected = ids.map(id => cases.get(id)!);
+      const factors = ids.map(caseId => [{ caseId, factor: 1 }]);
+      const envelopes = [
+        computeEnvelope3D(selected),
+        combineResultsEnvelope3D(factors, cases, new Map()).envelope,
+        envelopeOver(new Map(), [], cases, ids),
+      ];
+      for (const envelope of envelopes) {
+        expect(envelope).not.toBeNull();
+        const result = envelope!.maxAbsResults3D;
+        for (const [kind, component] of [['shearY', 'Vy'], ['shearZ', 'Vz']] as const) {
+          const rows = buildQueryRows(result.elementForces, component, { envelope: envelope![kind] });
+          for (const end of ['i', 'j'] as const) {
+            const at = rows.filter(row => row.end === end);
+            expect.soft(extremeRow(at, 'min')?.value).toBeCloseTo(min, 12);
+            expect.soft(extremeRow(at, 'max')?.value).toBeCloseTo(max, 12);
+            expect.soft(extremeRow(at, 'absmax')?.value).toBeCloseTo(absmax, 12);
+            expect.soft(at.map(row => Math.round(row.value))).toEqual([...values].sort((a, b) => b - a));
+            expect.soft(filterByAbsThreshold(at, 10).map(row => Math.round(row.value)))
+              .toEqual(values.filter(value => Math.abs(value) >= 10).sort((a, b) => b - a));
+            expect.soft(filterByAbsThreshold(at, 11).map(row => Math.round(row.value)))
+              .toEqual(values.filter(value => Math.abs(value) >= 11).sort((a, b) => b - a));
+          }
+        }
       }
     }
   });
