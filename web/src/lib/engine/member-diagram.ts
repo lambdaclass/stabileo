@@ -26,7 +26,7 @@ export interface PolynomialBranch {
   polynomial: DiagramPolynomial;
 }
 
-type PeakTransferCertificate = (x: number, value: number) => boolean;
+type PeakTransferCertificate = (x0: number, x1: number, x: number, value: number) => boolean;
 
 export interface DiagramCurve {
   readonly length: number;
@@ -211,8 +211,8 @@ class LoadedMemberDiagram implements DiagramCurve {
     this.mayHaveJump = this.points.length > 0;
     this.component = order === 'force' ? 0 : 1;
     if (order === 'moment' && change === 0 && !this.mayHaveJump && Number.isFinite(start) && Number.isFinite(rate)
-      && actions.every(load => load.a === 0 && load.b === length && load.qI === load.qJ && Number.isFinite(load.qI))) {
-      this.certifyPeakTransfer = (x, value) => uniformMomentTransfers(length, start, rate, sign, actions, x, value);
+      && actions.every(load => load.a >= 0 && load.a < load.b && load.b <= length && load.qI === load.qJ && Number.isFinite(load.qI))) {
+      this.certifyPeakTransfer = (x0, x1, x, value) => uniformMomentTransfers(start, rate, sign, actions, x0, x1, x, value);
     }
   }
 
@@ -375,7 +375,7 @@ function diagramExtremum(
     const local = (x - x0) / (x1 - x0);
     if (!(local > 0 && local < 1)) return false;
     const moved = polynomials.map((p, i) => roundDiagramSum(moveOrdinate(ordinates[i]!, p, u, local - u)));
-    return combine(moved) === value || certifyTransfer?.(x, value) === true;
+    return combine(moved) === value || certifyTransfer?.(x0, x1, x, value) === true;
   };
   return { t, value, canTransfer };
 }
@@ -648,23 +648,38 @@ export function addMagnitudeBounds(a: number, b: number): number {
 const zeroAction: readonly [number, number] = [0, 0];
 
 function uniformMomentTransfers(
-  length: number, start: number, rate: number, sign: number, loads: readonly DistributedAction[],
-  distance: number, expected: number,
+  start: number, rate: number, sign: number, loads: readonly DistributedAction[],
+  x0: number, x1: number, distance: number, expected: number,
 ): boolean {
   const unit = 1n << 1074n;
-  const moment = distanceUnits(start), shear = distanceUnits(rate), x = distanceUnits(distance);
-  const intensity = loads.reduce((sum, load) => sum + distanceUnits(sign * load.qI), 0n);
+  const denominator = 2n * unit * unit;
+  const origin = distanceUnits(x0);
+  const offset = distanceUnits(distance) - origin;
+  const end = distanceUnits(x1) - origin;
+  if (offset <= 0n || offset >= end) return false;
+
+  let shear = distanceUnits(rate) * unit;
+  let moment = distanceUnits(start) * denominator + 2n * shear * origin;
+  let intensity = 0n;
+  for (const load of loads) {
+    if (load.a > x0) continue;
+    const fromStart = origin - distanceUnits(load.a);
+    const covered = distanceUnits(Math.min(x0, load.b)) - distanceUnits(load.a);
+    const q = distanceUnits(sign * load.qI);
+    moment += q * covered * (2n * fromStart - covered);
+    shear += q * covered;
+    if (load.b > x0) intensity += q;
+  }
+
   const direction = intensity < 0n ? -1n : 1n;
   const absIntensity = intensity * direction;
-  const root = -direction * shear * unit;
-  if (root <= 0n || root >= absIntensity * distanceUnits(length)) return false;
+  const root = -direction * shear;
+  if (root <= 0n || root >= absIntensity * end) return false;
 
-  const peakDenominator = 2n * absIntensity;
-  const peakNumerator = moment * peakDenominator - direction * shear * shear;
-  const stationDenominator = 2n * unit * unit;
-  const stationNumerator = moment * stationDenominator + 2n * shear * x * unit + intensity * x * x;
-  return ordinateRoundsTo(peakNumerator, peakDenominator, expected)
-    && ordinateRoundsTo(stationNumerator, stationDenominator, expected);
+  const peak = moment * absIntensity - direction * shear * shear;
+  const station = moment + 2n * shear * offset + intensity * offset * offset;
+  return ordinateRoundsTo(peak, denominator * absIntensity, expected)
+    && ordinateRoundsTo(station, denominator, expected);
 }
 
 function ordinateRoundsTo(numerator: bigint, denominator: bigint, expected: number): boolean {

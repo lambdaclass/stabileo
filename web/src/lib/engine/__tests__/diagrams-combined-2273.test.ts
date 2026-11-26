@@ -157,9 +157,7 @@ it('#2226 refuses ambiguous point queries at either cut side, including across m
   expect(evaluateDiagramAt(pulse(a), 'axial', a / length, true)).toBe(0);
 });
 
-const issue2581Bound = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
-
-issue2581Bound('known wrong result: #2581 a plotted magnitude bound covers the exterior I face', () => {
+it('known wrong result: #2581 a plotted magnitude bound covers the exterior I face', () => {
   const exterior = 10;
   const load = 8;
   const inward = exterior - load;

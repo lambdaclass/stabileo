@@ -1,0 +1,32 @@
+{
+  "id": "member-diagram-point-queries",
+  "date": "2026-11-26",
+  "prs": [2295, 2581],
+  "area": "analysis",
+  "when": { "all": ["members"], "any": ["memberLoads", "magnitudeCombinations"] },
+  "quantities": ["diagrams", "beamStations", "sectionStress"],
+  "title": {
+    "en": "Member cuts and bounded diagram scales",
+    "es": "Cortes de barra y escalas de diagramas acotados",
+    "pt": "Cortes de barra e escalas dos diagramas limitados",
+    "de": "Stabschnitte und Skalierung von Diagrammen mit Schranken",
+    "fr": "Coupes de barre et échelles des diagrammes bornés",
+    "tr": "Eleman kesitleri ve sınırlandırılmış diyagram ölçekleri",
+    "zh": "杆件截面与有界内力图的比例",
+    "hu": "Rúdmetszetek és korlátos diagramok léptéke"
+  },
+  "explanation": {
+    "en": "Planar section queries use the inward member ends. Point queries can recover certified moments in uniform load patches. Bounded spatial diagrams include their plotted end ordinates, and spatial stress suggestions use the stationary bending cuts.",
+    "es": "Las consultas de sección plana usan los extremos interiores de la barra. Las consultas puntuales recuperan momentos certificados en tramos con carga uniforme. Los diagramas espaciales acotados incluyen las ordenadas dibujadas en los extremos y las sugerencias de tensiones espaciales usan los cortes estacionarios de flexión.",
+    "pt": "As consultas de seção plana usam os lados internos das extremidades da barra. As consultas pontuais recuperam momentos certificados em trechos de carga uniforme. Os diagramas espaciais limitados incluem as ordenadas desenhadas nas extremidades e as sugestões de tensões espaciais usam os cortes estacionários de flexão.",
+    "de": "Ebene Schnittabfragen verwenden die Innenseiten der Stabenden. Punktabfragen können nachgewiesene Momente in Abschnitten mit Gleichlast liefern. Die Skalierung räumlicher Diagramme mit Schranken erfasst die dargestellten Endordinaten. Vorschläge für räumliche Spannungsabfragen verwenden die stationären Biegeschnitte.",
+    "fr": "Les coupes planes utilisent le côté intérieur des extrémités de la barre. Les requêtes ponctuelles peuvent restituer des moments certifiés dans les zones à charge uniforme. Les diagrammes spatiaux bornés incluent les ordonnées tracées aux extrémités et les suggestions de contraintes spatiales utilisent les coupes où le moment est stationnaire.",
+    "tr": "Düzlemsel kesit sorguları eleman uçlarının iç tarafını kullanır. Nokta sorguları düzgün yayılı yük bölgelerinde doğrulanmış momentleri verebilir. Sınırlandırılmış uzaysal diyagramlar çizilen uç ordinatlarını kapsar ve uzaysal gerilme kesiti önerileri eğilme momentinin durağan kesitlerini kullanır.",
+    "zh": "平面截面查询采用杆件端部的内侧值。点查询可求得均布荷载区段内经验证的弯矩。有界空间内力图的比例涵盖图示端部值，空间应力建议采用弯矩驻点截面。",
+    "hu": "A síkbeli metszetlekérdezés a rúdvégek belső oldalát használja. A pontlekérdezés igazolt nyomatékot adhat az egyenletesen megoszló terhelésű szakaszokon. A korlátos térbeli diagramok léptéke tartalmazza az ábrázolt végordinátákat. A térbeli feszültséghez javasolt metszetek a hajlítónyomaték stacionárius pontjain vannak."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-member-diagram-point-queries.md",
+    "heading": "Member cuts and bounded diagram scales"
+  }
+}

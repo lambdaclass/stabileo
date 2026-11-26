@@ -11,7 +11,7 @@
 // Torsion: τ_T (Bredt for closed, Saint-Venant for open sections)
 // Von Mises: σ_vm = √(σ² + 3·(τ_xy² + τ_xz²))
 
-import { memberEndForces3D, memberEndSections3D } from './diagrams-3d';
+import { memberEndSections3D, stationaryBendingStations3D } from './diagrams-3d';
 import type { ElementForces3D } from './types-3d';
 import type { Section } from '../store/model.svelte';
 import { computeSectionStress3D, computeSectionStress3DFromForces, isWasmReady } from './wasm-solver';
@@ -510,24 +510,6 @@ export function suggestCriticalSections3D(ef: ElementForces3D): Array<{ t: numbe
   // Midspan
   sections.push({ t: 0.5, reason: t('stress.midspan') });
 
-  // Where Vy = 0 (max Mz)
-  const [vyi, vyj] = memberEndForces3D(ef, 'shearY');
-  if (Math.abs(vyi) > 1e-6 && Math.abs(vyj) > 1e-6 && vyi * vyj < 0) {
-    const tVy0 = vyi / (vyi - vyj);
-    if (tVy0 > 0.01 && tVy0 < 0.99) {
-      sections.push({ t: tVy0, reason: 'Vy=0 (Mz max)' });
-    }
-  }
-
-  // Where Vz = 0 (max My)
-  const [vzi, vzj] = memberEndForces3D(ef, 'shearZ');
-  if (Math.abs(vzi) > 1e-6 && Math.abs(vzj) > 1e-6 && vzi * vzj < 0) {
-    const tVz0 = vzi / (vzi - vzj);
-    if (tVz0 > 0.01 && tVz0 < 0.99) {
-      sections.push({ t: tVz0, reason: 'Vz=0 (My max)' });
-    }
-  }
-
   // Point load positions
   for (const pl of ef.pointLoadsY) {
     const tp = pl.a / ef.length;
@@ -550,5 +532,12 @@ export function suggestCriticalSections3D(ef: ElementForces3D): Array<{ t: numbe
       deduped.push(s);
     }
   }
-  return deduped;
+  const byStation = new Map(deduped.map(({ t, reason }) => [t, reason]));
+  for (const [kind, reason] of [['momentZ', 'Vy=0 (Mz)'], ['momentY', 'Vz=0 (My)']] as const) {
+    for (const station of stationaryBendingStations3D(ef, kind)) {
+      const previous = byStation.get(station);
+      byStation.set(station, previous ? `${previous} / ${reason}` : reason);
+    }
+  }
+  return [...byStation].sort(([a], [b]) => a - b).map(([t, reason]) => ({ t, reason }));
 }

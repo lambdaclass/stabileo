@@ -841,9 +841,7 @@ it('known wrong result: #2226 prepared piecewise shear retains the member and pi
   }
 });
 
-const issue2295 = process.env.RUN_KNOWN_WRONG === '2295' ? it : it.skip;
-
-issue2295('known wrong result: #2295 transfers the midpoint moment of the loaded roof gap', () => {
+it('known wrong result: #2295 transfers the midpoint moment of the loaded roof gap', () => {
   const span = 10.198039027185569;
   const start = -7.546548880117323;
   const shear = 3;

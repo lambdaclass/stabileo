@@ -303,6 +303,14 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
   return new SpatialLeafCurve(length, leafCurve(ef, kind));
 }
 
+export function stationaryBendingStations3D(ef: ElementForces3D, kind: 'momentY' | 'momentZ'): number[] {
+  const curve = spatialCurve(ef, kind);
+  if (!curve.polynomials?.signed) return [];
+  const peaks = [...indexDiagramExtrema(curve.extrema()).values()];
+  if (peaks.some(peak => !peak.canTransfer(peak.t))) throw unavailableDiagramExtrema();
+  return peaks.map(peak => peak.t);
+}
+
 export function criticalDiagramStations3D(ef: ElementForces3D, purpose: 'diagram' | 'concrete-design' = 'diagram'): DiagramStation[] {
   const curves = diagramKinds.map(kind => ({ kind, curve: spatialCurve(ef, kind) }));
   if (curves.some(({ curve }) => curve.magnitudeBound)) throw unavailableDiagramExtrema();
@@ -416,7 +424,7 @@ function spatialExtrema(curve: SpatialCurve, critical: readonly DiagramOrdinate[
     if (value < minValue) minValue = value;
   }
   if (curve.magnitudeBound) {
-    const bound = curve.magnitudeBound();
+    const bound = Math.max(curve.magnitudeBound(), Math.abs(maxValue), Math.abs(minValue));
     if (!Number.isFinite(bound)) throw unavailableDiagramExtrema();
     return { maxValue: bound, minValue: -bound, maxAbsValue: bound, extrema: 'bounded' as const };
   }

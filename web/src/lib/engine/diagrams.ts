@@ -2,7 +2,7 @@
 // Given end forces and distributed load, compute intermediate values
 
 import { computeDeformedShape as wasmComputeDeformedShape } from './wasm-solver';
-import { checkedCurveValue, checkedSectionValue, curveExtrema, diagramCriticalPoints, diagramCurvePoints, envelopeMemberEndValues, diagramLineValue, distributedActionTerms, fullSpanFallback, indexDiagramExtrema, inwardMemberEndValues, maxAbsDiagramOrdinate, memberDiagram, prepareCurveExtrema, unavailableDiagramExtrema, type DiagramOrdinate, type DiagramStation } from './member-diagram';
+import { checkedCurveValue, checkedSectionValue, curveExtrema, diagramCriticalPoints, diagramCurvePoints, envelopeMemberEndValues, diagramLineValue, distributedActionTerms, fullSpanFallback, indexDiagramExtrema, inwardMemberEndValues, maxAbsDiagramOrdinate, memberDiagram, memberSectionStation, prepareCurveExtrema, unavailableDiagramExtrema, type DiagramOrdinate, type DiagramStation } from './member-diagram';
 
 export interface DiagramPoint extends DiagramStation {
   /** World coordinates */
@@ -207,7 +207,8 @@ export function computeDiagramValueAt(kind: PlanarKind, t: number, ef: PlanarFor
 
 export function computePlanarSectionValue(kind: PlanarKind, distance: number, ef: PlanarForces): number {
   if (!(distance >= 0 && distance <= ef.length)) throw unavailableDiagramExtrema();
-  return checkedSectionValue(planarCurve(kind, ef), { t: distance / ef.length, distance });
+  const station = memberSectionStation({ t: distance / ef.length, distance });
+  return checkedSectionValue(planarCurve(kind, ef), station);
 }
 
 export function prepareDiagramValueAt(kind: PlanarKind, ef: PlanarForces): (t: number) => number {

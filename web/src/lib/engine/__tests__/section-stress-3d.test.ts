@@ -392,7 +392,10 @@ describe('suggestCriticalSections3D', () => {
   });
 
   it('should include Vy=0 point when shear changes sign', () => {
-    const ef = makeEF({ vyStart: 20, vyEnd: -30 });
+    const start = 20, end = -30;
+    const ef = makeEF({ vyStart: start, vyEnd: end });
+    const q = (end - start) / ef.length;
+    ef.distributedLoadsY = [{ a: 0, b: ef.length, qI: q, qJ: q }];
     const sections = suggestCriticalSections3D(ef);
     const vy0 = sections.find(s => s.reason.includes('Vy=0'));
     expect(vy0).toBeDefined();
@@ -400,7 +403,10 @@ describe('suggestCriticalSections3D', () => {
   });
 
   it('should include Vz=0 point for vertical shear', () => {
-    const ef = makeEF({ vzStart: 20, vzEnd: -30 });
+    const start = 20, end = -30;
+    const ef = makeEF({ vzStart: start, vzEnd: end });
+    const q = (end - start) / ef.length;
+    ef.distributedLoadsZ = [{ a: 0, b: ef.length, qI: q, qJ: q }];
     const sections = suggestCriticalSections3D(ef);
     const vz0 = sections.find(s => s.reason.includes('Vz=0'));
     expect(vz0).toBeDefined();
@@ -843,9 +849,7 @@ describe('PR [12] section-analysis convention', () => {
   });
 });
 
-const issue2581Stress = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
-
-issue2581Stress('known wrong result: #2581 a transverse action at I does not create a false zero-shear suggestion', () => {
+it('known wrong result: #2581 a transverse action at I does not create a false zero-shear suggestion', () => {
   const length = 6;
   const intensity = 12;
   const inward = intensity * length / 6;
@@ -859,10 +863,11 @@ issue2581Stress('known wrong result: #2581 a transverse action at I does not cre
     });
     const expected = 1 / Math.sqrt(3);
     const sections = suggestCriticalSections3D(ef);
-    for (const axis of ['Vy', 'Vz']) {
+    for (const axis of ['Vy', 'Vz'] as const) {
       const cuts = sections.filter(section => section.reason.includes(`${axis}=0`));
       expect.soft(cuts).toHaveLength(1);
       expect.soft(cuts[0]?.t).toBeCloseTo(expected, 14);
+      if (cuts[0]) expect.soft(interpolateForces3D(ef, cuts[0].t)[axis]).toBeCloseTo(0, 12);
     }
     expect.soft(sections.map(section => section.t)).toEqual(expect.arrayContaining([0, 0.5, 1]));
   }

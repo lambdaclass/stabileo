@@ -1,5 +1,7 @@
+use crate::certify::exact::{q, qi, Q};
 use crate::element::distributed_load_terms_at_distance;
 use crate::types::DistributedLoadInfo;
+use num_traits::{ToPrimitive, Zero};
 use std::collections::BTreeMap;
 
 const ALIASED_CUTS: &str = "distinct member diagram cuts share a normalized station";
@@ -409,15 +411,20 @@ where
         let mut ordinate = None;
         let mut validate = |start, end| {
             self.visit_extrema(start, end, Some(t), |cut, change, u| {
-                let actual = (t * self.length - start) / (end - start);
+                let x = t * self.length;
+                let actual = (x - start) / (end - start);
                 let mut moved = self.accumulate_cut(cut)?;
-                let peak = moved.value();
+                let mut peak = moved.value();
+                let unavailable = "member diagram extrema cannot be evaluated at the requested station";
+                if !(0.0 < actual && actual < 1.0 && peak.is_finite()) {
+                    return Err(unavailable);
+                }
                 add_change(&mut moved, change, u, actual);
-                if !(0.0 < actual && actual < 1.0 && peak.is_finite())
-                    || moved.value() != peak
-                    || ordinate.is_some_and(|value| value != peak)
-                {
-                    return Err("member diagram extrema cannot be evaluated at the requested station");
+                if moved.value() != peak {
+                    peak = self.certified_uniform_moment_transfer(start, end, x).ok_or(unavailable)?;
+                }
+                if ordinate.is_some_and(|value| value != peak) {
+                    return Err(unavailable);
                 }
                 ordinate = Some(peak);
                 Ok(())
@@ -430,6 +437,54 @@ where
             validate(start, end)?;
         }
         Ok(ordinate.unwrap_or(value))
+    }
+
+    fn certified_uniform_moment_transfer(&self, x0: f64, x1: f64, x: f64) -> Option<f64> {
+        let Response::Moment(sign) = self.response else { return None };
+        if self.change != 0.0 || self.points.clone().next().is_some() {
+            return None;
+        }
+        let origin = q(x0)?;
+        let offset = q(x)? - &origin;
+        let width = q(x1)? - &origin;
+        let zero = Q::zero();
+        if offset <= zero || offset >= width {
+            return None;
+        }
+
+        let half = qi(2).recip();
+        let mut shear = q(self.slope)?;
+        let mut moment = q(self.start)? + &shear * &origin;
+        let mut intensity = Q::zero();
+        for load in &self.distributed.0 {
+            if !(0.0 <= load.a && load.a < load.b && load.b <= self.length && load.q_i == load.q_j) {
+                return None;
+            }
+            let load_intensity = q(sign * load.q_i)?;
+            if load.a > x0 {
+                continue;
+            }
+            let a = q(load.a)?;
+            let covered = q(x0.min(load.b))? - &a;
+            let force = &load_intensity * &covered;
+            moment += &force * (&origin - a - &half * covered);
+            shear += force;
+            if load.b > x0 {
+                intensity += load_intensity;
+            }
+        }
+        if intensity.is_zero() {
+            return None;
+        }
+        let root = -&shear / &intensity;
+        if root <= zero || root >= width {
+            return None;
+        }
+
+        let vertex = &moment + &half * &shear * root;
+        let station = moment + &offset * (shear + half * intensity * &offset);
+        let rounded = vertex.to_f64()?;
+        (rounds_to(&vertex, rounded)? && rounds_to(&station, rounded)?).then_some(rounded)
     }
 
     fn action_distances(&self) -> impl Iterator<Item = f64> + '_ {
@@ -617,6 +672,17 @@ fn add_change(value: &mut DiagramSum, [linear, quadratic, cubic]: &[DiagramSum; 
     value.add_scaled(&curvature.scaled(step).scaled(step), 1.0);
 }
 
+fn rounds_to(value: &Q, rounded: f64) -> Option<bool> {
+    let center = q(rounded)?;
+    let lower = q(rounded.next_down()).or_else(|| Some(&center * qi(2) - q(rounded.next_up())?))?;
+    let upper = q(rounded.next_up()).unwrap_or_else(|| &center * qi(2) - &lower);
+    let lo = &center + lower;
+    let hi = center + upper;
+    let doubled = value + value;
+    let even = rounded.to_bits() & 1 == 0;
+    Some(lo < doubled && doubled < hi || even && (doubled == lo || doubled == hi))
+}
+
 fn interior_roots([linear, quadratic, cubic]: [f64; 3]) -> Result<impl Iterator<Item = f64>, &'static str> {
     Ok(quadratic_roots(cubic, quadratic, linear)?.into_iter().filter(|&u| 0.0 < u && u < 1.0))
 }
@@ -646,7 +712,6 @@ mod round3_tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #2295"]
     fn issue_2295_transfers_the_midpoint_moment_of_the_loaded_roof_gap() {
         let a = 4.079215610874228;
         let b = 6.118823416311343;
@@ -659,6 +724,26 @@ mod round3_tests {
                 points: std::iter::empty(),
             };
             assert_eq!(curve.checked_station_value(0.5, false), Ok(sign * 6.220803806583197));
+        }
+
+        let base = 2.0_f64.powi(51) + 0.5;
+        for length in [1.9, 2.0] {
+            let curve = Curve {
+                length, start: base, change: 0.0, slope: 1.0, response: Response::Moment(1.0),
+                distributed: [DistributedLoadInfo { a: 0.0, b: 1.0, q_i: -2.0, q_j: -2.0 }].into_iter().collect(),
+                points: std::iter::empty(),
+            };
+            let station = 0.5 / length;
+            let peak = base.next_up();
+            let expected = if station * length == 0.5 {
+                Ok(peak)
+            } else {
+                Err("member diagram extrema cannot be evaluated at the requested station")
+            };
+            let cut = curve.critical_cuts().unwrap().into_iter().find(|cut| cut.t == station).unwrap();
+            assert_eq!(curve.checked_value(cut), Ok(peak));
+            assert_eq!(curve.certified_uniform_moment_transfer(0.0, 1.0, station * length), expected.ok());
+            assert_eq!(curve.checked_station_value(station, false), expected);
         }
     }
 

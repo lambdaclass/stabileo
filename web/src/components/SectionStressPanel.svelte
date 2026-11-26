@@ -42,6 +42,7 @@
   } from '../lib/engine/section-stress-3d';
   import { computeDiagramValueAt } from '../lib/engine/diagrams';
   import { isEngineUnavailable, engineFailureText } from '../lib/engine/engine-unavailable';
+  import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../lib/engine/member-diagram';
   import { fmtForce, isPointInConvexPolygon } from './stress/fmt';
   import { toQ, unitQ } from '../lib/store/display-units.svelte';
   import UnitInput from './UnitInput.svelte';
@@ -836,7 +837,7 @@
     activeState?.tau ?? (uses3DPath ? (analysis3D?.tauTotal ?? 0) : (analysis2D?.tauAtY ?? 0)),
   );
 
-  const criticalSections = $derived.by(() => {
+  const criticalSectionResult = $derived.by(() => guarded('critical', () => {
     if (!query) return [];
     if (is3D && resultsStore.results3D) {
       const ef = resultsStore.getElementForces3D(query.elementId);
@@ -849,6 +850,12 @@
       return suggestCriticalSections(ef);
     }
     return [];
+  }));
+  const criticalSectionFailure = $derived.by(() => {
+    if (criticalSectionResult !== null) return null;
+    const error = failures.critical;
+    return error instanceof Error && error.message === DIAGRAM_EXTREMA_UNAVAILABLE
+      ? t(DIAGRAM_EXTREMA_UNAVAILABLE) : engineFailureText(error);
   });
 
   // Global stress scales: max σ and τ across all critical sections of the element (MPa)
@@ -1379,9 +1386,11 @@
         {t('stress.criticalSections')}
         <span class="ssp-help ssp-help-inline" title={t('stress.criticalSectionsHelp')}>?</span>
       </button>
-      {#if showCritical && criticalSections.length > 0}
+      {#if showCritical && criticalSectionFailure}
+        <p role="alert">{criticalSectionFailure}</p>
+      {:else if showCritical && criticalSectionResult?.length}
         <div class="ssp-critical">
-          {#each criticalSections as cs}
+          {#each criticalSectionResult as cs}
             <button
               class="ssp-critical-chip"
               class:active={Math.abs(cs.t - query.t) < 0.02}
