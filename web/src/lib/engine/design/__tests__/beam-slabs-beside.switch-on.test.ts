@@ -21,7 +21,7 @@ describe('the slabs beside a beam', () => {
 
   it('read a slab its insertion puts lower as standing that far below the beam\'s top', () => {
     const quads = new Map([[1, { id: 1, nodes: [1, 2, 3, 4], thickness: 0.12, offset: { frame: 'global', x: 0, y: 0, z: 0.14 } as never }]]);
-    expect(beamSlabsBeside({ nodes, elements, sections, quads }).get(1)).toEqual([{ side: 1, hf: 0.12, top: -0.05 }]);
+    expect(beamSlabsBeside({ nodes, elements, sections, quads }).get(1)).toEqual([{ side: 1, hf: 0.12, top: -0.05, placed: true }]);
   });
 
   it('find none for a beam no horizontal slab runs along', () => {
