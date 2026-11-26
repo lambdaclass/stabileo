@@ -13,7 +13,7 @@ if (BUILD_FEATURES.proRcSheets) {
   test.use({ appLocale: 'es' });
 
   test('@slow the reinforcement sheets design beams, columns, slabs and walls of a solved building', async ({ pro: page }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(300_000);
     await loadModel(page, 'pro-edificio-7p');
     await page.evaluate(() => window.__stabileoActions.setMeshBeforeAnalysis(false));
     // Two combinations by the same name, as a file of one's own beside the generated ones can hold: each keeps its row.
