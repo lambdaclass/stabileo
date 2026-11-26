@@ -207,6 +207,18 @@ impl incremental::IncrementalProblem for Corotational3D<'_> {
         Ok(delta_u)
     }
 
+    fn damped_correction(&mut self, damping: f64) -> Result<Vec<f64>, String> {
+        if damping != 0.0 {
+            super::experimental_nonlinear_2d::damp(
+                (self.dof_num.n_total, self.dof_num.n_free),
+                &mut self.k_t,
+                (&mut self.trip_rows, &mut self.trip_cols, &mut self.trip_vals),
+                damping,
+            )?;
+        }
+        incremental::IncrementalProblem::correction(self, false)
+    }
+
     fn advance(&mut self, delta_u: &[f64]) {
         for i in 0..self.dof_num.n_free {
             self.u_full[i] += delta_u[i];
@@ -227,6 +239,28 @@ impl incremental::IncrementalProblem for Corotational3D<'_> {
 
     fn set_state(&mut self, state: &[f64]) {
         self.u_full[..self.dof_num.n_free].copy_from_slice(state);
+    }
+
+    fn residual(&self) -> Vec<f64> {
+        super::experimental_nonlinear_2d::reduced(self.cs, &self.unbalance)
+    }
+
+    fn tangent_times(&self, v: &[f64]) -> Vec<f64> {
+        super::experimental_nonlinear_2d::tangent_product(
+            self.cs,
+            (self.dof_num.n_total, self.dof_num.n_free),
+            &self.k_t,
+            (&self.trip_rows, &self.trip_cols, &self.trip_vals),
+            v,
+        )
+    }
+
+    fn lagged_solve(&self, rhs: &[f64]) -> Option<Vec<f64>> {
+        super::experimental_nonlinear_2d::kept_solve(&self.cached_factor, rhs)
+    }
+
+    fn expand(&self, reduced: &[f64]) -> Vec<f64> {
+        super::experimental_nonlinear_2d::expanded(self.cs, reduced)
     }
 
     fn commit(&mut self) -> Result<(), String> {
@@ -663,6 +697,82 @@ mod shared_driver_equivalence_3d {
         }
     }
 
+    fn building(bays: usize, stories: usize, push: f64) -> SolverInput3D {
+        let id = |i: usize, j: usize, k: usize| 1 + i + (bays + 1) * (j + (bays + 1) * k);
+        let (mut nodes, mut elements, mut supports, mut loads) = (serde_json::Map::new(), serde_json::Map::new(), serde_json::Map::new(), Vec::new());
+        let mut member = |a: usize, b: usize, section: usize| {
+            let e = elements.len() + 1;
+            elements.insert(e.to_string(), serde_json::json!({"id": e, "type": "frame", "nodeI": a, "nodeJ": b, "materialId": 1, "sectionId": section}));
+        };
+        for k in 0..=stories {
+            for j in 0..=bays {
+                for i in 0..=bays {
+                    let n = id(i, j, k);
+                    nodes.insert(n.to_string(), serde_json::json!({"id": n, "x": 5.0 * i as f64, "y": 5.0 * j as f64, "z": 3.0 * k as f64}));
+                    if k == 0 {
+                        supports.insert(n.to_string(), serde_json::json!({"nodeId": n, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}));
+                        continue;
+                    }
+                    member(id(i, j, k - 1), n, 1);
+                    if i > 0 { member(id(i - 1, j, k), n, 2); }
+                    if j > 0 { member(id(i, j - 1, k), n, 2); }
+                    loads.push(serde_json::json!({"type": "nodal", "data": {"nodeId": n, "fx": push, "fy": 0.4 * push, "fz": -40.0, "mx": 0.0, "my": 0.0, "mz": 0.0}}));
+                }
+            }
+        }
+        serde_json::from_value(serde_json::json!({
+            "nodes": nodes, "elements": elements, "supports": supports, "loads": loads,
+            "materials": {"1": {"id": 1, "e": 30000.0, "nu": 0.2}},
+            "sections": {"1": {"id": 1, "a": 0.25, "iy": 5.2e-3, "iz": 5.2e-3, "j": 8.8e-3}, "2": {"id": 2, "a": 0.18, "iy": 5.4e-3, "iz": 1.35e-3, "j": 3.7e-3}}
+        })).unwrap()
+    }
+
+    #[test]
+    fn newton_krylov_reaches_newtons_solution_of_a_building_in_as_many_iterations() {
+        for (bays, stories) in [(2, 3), (3, 6)] {
+            let input = building(bays, stories, 20.0);
+            let newton = solve_corotational_3d_by(&input, 40, 1e-8, 4, IterationMethod::Newton).unwrap();
+            let inexact = solve_corotational_3d_by(&input, 40, 1e-8, 4, IterationMethod::NewtonKrylov).unwrap();
+            assert!(newton.converged && inexact.converged, "{bays} bays, {stories} stories");
+            assert_eq!(inexact.load_factor, 1.0);
+            assert!(apart(&inexact, &newton) <= 1e-7, "{}", apart(&inexact, &newton));
+            assert!(inexact.iterations <= newton.iterations + 4, "{} against {}", inexact.iterations, newton.iterations);
+        }
+    }
+
+    #[test]
+    fn overflowing_damping_is_refused_by_the_spatial_solver() {
+        for input in [frame(4, 0.0, false, 0.05), building(3, 4, 20.0)] {
+            let error = solve_corotational_3d_by(&input, 50, 1e-8, 1,
+                IterationMethod::PseudoTransient { damping: f64::MAX }).unwrap_err();
+            assert_eq!(error, "Pseudo-transient damping exceeds the finite tangent range");
+        }
+    }
+
+    #[test]
+    fn pseudo_transient_continuation_reaches_newtons_solution_of_a_building() {
+        let input = building(3, 4, 20.0);
+        let newton = solve_corotational_3d_by(&input, 40, 1e-8, 2, IterationMethod::Newton).unwrap();
+        assert!(newton.converged);
+        for damping in [1e-3, 0.1] {
+            let damped = solve_corotational_3d_by(&input, 400, 1e-8, 2, IterationMethod::PseudoTransient { damping }).unwrap();
+            assert!(damped.converged, "{damping}");
+            assert!(apart(&damped, &newton) <= 1e-6, "{damping}: {}", apart(&damped, &newton));
+        }
+    }
+
+    #[test]
+    fn the_line_search_on_newton_krylov_reaches_newtons_solution_of_a_building() {
+        use crate::solver::experimental_nonlinear::Direction;
+        for (bays, stories, push) in [(2, 3, 20.0), (3, 6, 150.0)] {
+            let input = building(bays, stories, push);
+            let newton = solve_corotational_3d_by(&input, 60, 1e-8, 2, IterationMethod::Newton).unwrap();
+            let composed = solve_corotational_3d_by(&input, 60, 1e-8, 2, IterationMethod::LineSearch { direction: Direction::NewtonKrylov }).unwrap();
+            assert!(newton.converged && composed.converged, "{bays} bays, {stories} stories");
+            assert!(apart(&composed, &newton) <= 1e-7, "{}", apart(&composed, &newton));
+        }
+    }
+
     #[test]
     fn the_other_iterations_reach_the_3d_solution_newton_reaches() {
         for n in [4, 12] {
@@ -675,6 +785,7 @@ mod shared_driver_equivalence_3d {
                 for method in [
                     IterationMethod::NewtonLineSearch,
                     IterationMethod::Anderson { depth: 4 },
+                    IterationMethod::PseudoTransient { damping: 1e-3 },
                 ] {
                     let other = solve_corotational_3d_by(&input, 400, 1e-9, 4, method).unwrap();
                     assert!(other.converged, "n {n}, {method:?}");
