@@ -1337,7 +1337,8 @@ function isIndependentShell(lower: DeckFootprint, upper: DeckFootprint): boolean
 }
 
 function headroomOverlaps(lower: DeckFootprint, upper: readonly DeckFootprint[]): HeadroomOverlaps {
-  return upper.flatMap(deck => isIndependentShell(lower, deck) ? [] : deckOverlapsInBand(lower, deck, TOL, MIN_STOREY_HEADROOM));
+  upper = upper.filter(deck => !isIndependentShell(lower, deck));
+  return upper.flatMap(deck => deckOverlapsInBand(lower, deck, TOL, MIN_STOREY_HEADROOM));
 }
 
 function headroomCover(lower: DeckFootprint, upper: readonly DeckFootprint[], pending: Set<DeckFootprint>): Region {
