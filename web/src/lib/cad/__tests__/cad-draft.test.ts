@@ -788,3 +788,33 @@ it.each(['fixedDivisions', 'targetSize'] as const)(
     }
   },
 );
+
+const replayInterface = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
+
+replayInterface('known wrong result: #2607 alternating floor matches minimize the total distance', () => {
+  const A = { x: 0, y: -0.004 }, B = { x: 0.002, y: 0.006 };
+  const L = { x: 0.008, y: 0 }, M = { x: -0.006, y: 0.003 };
+  const remote = { x: 0, y: 4 };
+  const plan = (points: Array<{ x: number; y: number }>): ArchPlan => ({
+    ...reviewPlan(), slabs: [], walls: [],
+    columns: [...points, remote].map(at => ({ at, sizeSource: 'default' })),
+    beams: points.map(a => ({ a, b: remote })),
+  });
+  const draft = buildDraft({
+    floorPlans: [{ plan: plan([L, M]), fromFloor: 1, toFloor: 1 }, { plan: plan([A, B]), fromFloor: 2, toFloor: 2 }],
+    assumptions: { ...reviewSettings, nFloors: 2, storyHeights: [3, 3] }, source: SOURCE,
+  });
+  const model = snapshotToModelShape(draft.snapshot);
+  const joint = (at: { x: number; y: number }, z: number) => {
+    const node = [...model.nodes.values()].find(p => p.x === at.x && p.y === at.y && p.z === z);
+    expect(node).toBeDefined();
+    return node!.id;
+  };
+  const upperBase = (at: { x: number; y: number }) => {
+    const column = [...model.elements.values()].find(e => e.nodeJ === joint(at, 6));
+    expect(column).toBeDefined();
+    return column!.nodeI;
+  };
+  expect(upperBase(A)).toBe(joint(L, 3));
+  expect(upperBase(B)).toBe(joint(M, 3));
+});

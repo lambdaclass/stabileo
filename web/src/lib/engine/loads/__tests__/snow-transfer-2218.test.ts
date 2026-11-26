@@ -772,3 +772,102 @@ it.each([[0.04, 4], [1, 4], [2, 4], [1, 3]] as const)(
       .toBeCloseTo(30 * cases.result.ps + surcharge(cases.result.ps), 10);
   },
 );
+
+const replayRoof = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
+
+replayRoof.each([0, 1])('known wrong result: #2607 each half of the step uses its own fetch at separation %s', separation => {
+  const model = mesh([
+    [[0, 0, 3], [7.5, 0, 3], [7.5, 4, 3], [0, 4, 3]],
+    [[-2 - separation, 0, 5], [-separation, 0, 5], [-separation, 4, 5], [-2 - separation, 4, 5], [-2 - separation, 2, 5]],
+    [[-8 - separation, 0, 5], [-2 - separation, 0, 5], [-2 - separation, 2, 5], [-8 - separation, 2, 5]],
+  ]);
+  const layout = gravityLayout(model, { ...adjacentGravity, tributaryWidth: 1 });
+  const resultants = (balanced: number) => [8, 2].map(luUpper => {
+    const { pd, w } = stepDrift({ ...adjacentInputs, balanced, stepHeight: 2, luUpper, luLower: 7.5, separation });
+    const force = pd * w / 2;
+    const far = force * w / (3 * 7.5);
+    return [force - far, far];
+  });
+  const expected = resultants(adjacentInputs.balanced);
+  const rows = driftAndSlidingLoads(model, layout, adjacentInputs).distributed;
+  for (const [side, x] of [0, 7.5].entries()) {
+    for (const [half, y] of [1, 3].entries()) {
+      const onBearing = rows.filter(row => {
+        const member = model.elements.get(row.elementId)!;
+        const a = model.nodes.get(member.nodeI)!, b = model.nodes.get(member.nodeJ)!;
+        if (a.z !== 3 || b.z !== 3 || a.x !== x || b.x !== x) return false;
+        const station = (y - a.y) * Math.sign(b.y - a.y);
+        return station > (row.a ?? 0) && station < (row.b ?? Math.abs(b.y - a.y));
+      });
+      expect.soft(onBearing).toHaveLength(1);
+      expect.soft(onBearing[0]?.q).toBeCloseTo(-expected[half]![side]!, 10);
+    }
+  }
+  const cases = snowLoadCases({ model, layout, snow: adjacentConfig, tributaryWidth: 1 })!;
+  expect(cases.result.refused).toBeUndefined();
+  const plan = adjacentPlan(model);
+  expect(plan.outcome).toBe('READY');
+  const snowCase = plan.cases.findIndex(c => c.type === 'S');
+  const force = 30 * cases.result.ps + resultants(cases.result.ps).flat().reduce((sum, q) => sum + 2 * q, 0);
+  expect.soft(receivingSnowForce(model, cases.cases[0]!.distributed)).toBeCloseTo(force, 10);
+  expect.soft(receivingSnowForce(model, plan.distributed.filter(row => row.caseType === 'S' && row.caseIndex === snowCase))).toBeCloseTo(force, 10);
+});
+
+replayRoof.each(['parapet', 'sliding'] as const)('known wrong result: #2607 %s stays inside its receiving roof component', kind => {
+  const sliding = kind === 'sliding';
+  const rectangle = (lo: number, hi: number): [number, number][] => [[lo, 0], [hi, 0], [hi, 8], [lo, 8]];
+  const panel = rectangle(0, 12);
+  const components = sliding ? [rectangle(1, 3), rectangle(3.25, 12)] : [rectangle(7.5, 8), rectangle(8.25, 12)];
+  const receiver = (x: number) => [[x, 3, 3], [x, 5, 3]];
+  const receivers = sliding ? [receiver(2.9), receiver(3.35)] : [receiver(7.9), receiver(8.35)];
+  const model = mesh([
+    panel.map(([x, y]) => [x, y, 3]),
+    ...receivers,
+    ...(sliding ? [[[-5, 0, 3.65], [1, 0, 3.05], [1, 8, 3.05], [-5, 8, 3.65]]] : []),
+  ]);
+  const members = receivers.map(points => [...model.elements.values()].find(element =>
+    [element.nodeI, element.nodeJ].every(id => model.nodes.get(id)!.x === points[0]![0]))!.id);
+  const layout = gravityLayout(model, { ...adjacentGravity, tributaryWidth: 1 });
+  const geometry = roofSurfaceModel(model);
+  const surfaces = {
+    ...geometry,
+    resolves: () => true,
+    panel: (index: number) => ({ ...geometry.panel(index, layout), elevation: () => 3 }),
+  };
+  const inputs = { ...adjacentInputs, slippery: sliding, ...(sliding ? {} : { parapet: { height: 2 } }) };
+  const generate = (outlines: Array<[number, number][]>, width: boolean) => driftAndSlidingLoads(model, {
+    ...layout,
+    panels: [{ polygon: panel, z: 3, roof: true, footprint: outlines.map(outline => [outline]) }],
+    pieces: width ? [] : members.map(elementId => ({ elementId, wI: 0.05, wJ: 0.05, roof: true, panel: 0 })),
+    widthMembers: width ? members.map(elementId => ({ elementId, length: 2, horizontalLength: 2 })) : [],
+    roof: new Set(members),
+  }, inputs, surfaces).distributed;
+  for (const width of [false, true]) {
+    const combined = generate(components, width);
+    const left = generate([components[0]!], width).filter(row => row.elementId === members[0]);
+    const right = generate([components[1]!], width).filter(row => row.elementId === members[1]);
+    expect(left.length).toBeGreaterThan(0);
+    expect.soft(combined.filter(row => row.elementId === members[0])).toEqual(left);
+    expect.soft(combined.filter(row => row.elementId === members[1])).toEqual(right);
+  }
+});
+
+replayRoof('known wrong result: #2607 a varying positive fetch refuses when bearing pressure cannot be resolved', () => {
+  const model = mesh([
+    [[0, 0, 3], [7.5, 0, 3], [7.5, 4, 3], [0, 4, 3]],
+    [[-2, 0, 5], [0, 0, 5], [0, 4, 5], [-8, 4, 5]],
+  ]);
+  const layout = gravityLayout(model, { ...adjacentGravity, tributaryWidth: 1 });
+  expect.soft(() => driftAndSlidingLoads(model, layout, adjacentInputs)).toThrow('snow.refused.stepDriftTransfer');
+  expect.soft(snowLoadCases({ model, layout, snow: adjacentConfig, tributaryWidth: 1 })).toMatchObject({
+    result: { refused: 'snow.refused.stepDriftTransfer' }, cases: [],
+  });
+  expect.soft(adjacentPlan(model)).toMatchObject({
+    outcome: 'BLOCKED', blockedKeys: [{ key: 'snow.refused.stepDriftTransfer' }], distributed: [],
+  });
+  for (const node of model.nodes.values()) if (node.x === -8) node.x = -7;
+  const short = gravityLayout(model, { ...adjacentGravity, tributaryWidth: 1 });
+  const rows = driftAndSlidingLoads(model, short, adjacentInputs).distributed;
+  const { pd, w } = stepDrift({ ...adjacentInputs, stepHeight: 2, luUpper: 7, luLower: 7.5 });
+  expect(receivingSnowForce(model, rows)).toBeCloseTo(4 * pd * w / 2, 10);
+});
