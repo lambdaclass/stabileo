@@ -830,6 +830,80 @@ fn planar_released_swing_respects_the_exact_mpc_subspace() {
     assert!(response.displacements.iter().all(|u| u.ux == 0.0 && u.uz == 0.0 && u.ry == 0.0));
 }
 
+#[test]
+fn released_swing_rotation_mpc_agrees_with_xz_embedding() {
+    let mut planar = model("2380").s;
+    planar.nodes.get_mut("1").unwrap().x = 0.0;
+    planar.nodes.get_mut("1").unwrap().z = 0.0;
+    planar.nodes.get_mut("2").unwrap().x = 1.0;
+    planar.nodes.get_mut("2").unwrap().z = 1.0;
+    let mut spatial = embed_2d(&planar, Plane::XZ).unwrap();
+    let entries = ["linear", "constrained", "P-Delta", "corotational", "material nonlinear", "modal"];
+    let rows2 = crate::ana2::rows();
+    let rows3 = crate::ana3::rows();
+    let mut failures = Vec::new();
+
+    for (dof_2d, dof_3d, transverse) in [(0, 0, -1.0), (1, 2, 1.0)] {
+        for permits_swing in [true, false] {
+            let coefficient = if permits_swing { -transverse } else { transverse };
+            let tie = |translation, rotation, coefficient| {
+                vec![Constraint::LinearMPC(LinearMPCConstraint {
+                    terms: vec![
+                        MPCTerm { node_id: 2, dof: translation, coefficient: 1.0 },
+                        MPCTerm { node_id: 2, dof: rotation, coefficient },
+                    ],
+                })]
+            };
+            planar.constraints = tie(dof_2d, 2, coefficient);
+            spatial.constraints = tie(dof_3d, 4, coefficient * Plane::XZ.normal()[1]);
+            let case2 = Case2::new("planar rotation MPC", planar.clone());
+            let case3 = Case3::new("spatial rotation MPC", spatial.clone());
+            let label = format!("translation DOF {dof_2d}, permits_swing={permits_swing}");
+            for (dimension, verdict) in [
+                ("2D", stability::of_2d(&planar).unwrap()),
+                ("3D", stability::of_3d(&spatial).unwrap()),
+            ] {
+                if permits_swing {
+                    assert_terminal_swing(
+                        &format!("{label} {dimension} classification"),
+                        verdict.refusal().map_or(Ok(()), Err),
+                        &mut failures,
+                    );
+                } else {
+                    assert!(verdict.is_stable(), "{label} {dimension}: {:?}", verdict.refusal());
+                }
+            }
+            for name in entries {
+                let result2 = (rows2.iter().find(|row| row.name == name).unwrap().run)(&case2);
+                let result3 = (rows3.iter().find(|row| row.name == name).unwrap().run)(&case3);
+                for (dimension, result) in [("2D", result2), ("3D", result3)] {
+                    let entry = format!("{label} {dimension} {name}");
+                    if permits_swing {
+                        assert_terminal_swing(&entry, result, &mut failures);
+                    } else if let Err(error) = result {
+                        failures.push(format!("{entry}: {error}"));
+                    }
+                }
+            }
+            if !permits_swing {
+                let response = linear::solve_2d(&planar).unwrap();
+                assert_eq!(response.displacements.len(), 2);
+                assert!(response.displacements.iter().all(|u| [u.ux, u.uz, u.ry] == [0.0; 3]));
+                let response = linear::solve_3d(&spatial).unwrap();
+                assert_eq!(response.displacements.len(), 2);
+                assert!(response.displacements.iter().all(|u| [u.ux, u.uy, u.uz, u.rx, u.ry, u.rz] == [0.0; 6]));
+            }
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "For chord (1, 1), planar CCW rotation gives (ux, uz, ry) = (-1, 1, 1) times the rotation amplitude. XZ maps this to (ux, uz, ry) = (-1, 1, -1). A tie that annihilates this vector admits the swing. Reversing its rotation coefficient adds an independent restraint.
+{}",
+        failures.join("
+")
+    );
+}
+
 fn check_spatial_terminal_swing(issue: &str, entry: &str) {
     let base = space_model(issue);
     let row = crate::ana3::rows().into_iter().find(|row| row.name == entry).unwrap();

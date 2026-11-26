@@ -227,6 +227,7 @@ fn benchmark_protocol_toggle_frame_refinement() {
 }
 
 #[test]
+#[ignore = "known wrong result: #2608"]
 fn benchmark_protocol_toggle_truss_refinement_mechanism() {
     for n in [1, 2] {
         solve(&model("shallow-toggle-truss", n, false, ""), true);

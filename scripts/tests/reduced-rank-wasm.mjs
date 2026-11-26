@@ -125,6 +125,40 @@ const codedRankError = error => {
 const nonlinear = (analysis, dim, model) => JSON.parse(engine[`solve_${analysis}_${dim}`](JSON.stringify(model), 8, 1e-12, 1));
 
 for (const dim of ['2d', '3d']) {
+  const model = dim === '2d' ? structuredClone(swing) : spatial(swing);
+  const isPlanar = dim === '2d';
+  const rotation = isPlanar ? 2 : 4;
+  for (const [translation, transverse] of [[0, -1], [isPlanar ? 1 : 2, 1]]) {
+    const coefficient = isPlanar ? -transverse : transverse;
+    model.constraints = [{ type: 'linearMPC', terms: [
+      { nodeId: 2, dof: translation, coefficient: 1 },
+      { nodeId: 2, dof: rotation, coefficient },
+    ] }];
+    const densities = Object.fromEntries(Object.keys(model.materials).map(id => [id, 1]));
+    for (const [name, run] of [
+      ['linear', () => engine[`solve_${dim}`](model)],
+      ['constrained', () => engine[`solve_constrained_${dim}`](JSON.stringify({ solver: model, constraints: model.constraints }))],
+      ['modal', () => engine[`solve_modal_${dim}`](JSON.stringify({ solver: model, densities }), 1)],
+      ['certified modal', () => engine[`certify_modal_${dim}`](JSON.stringify({ solver: model, densities }), 1)],
+      ['P-Delta', () => engine[`solve_pdelta_${dim}`](JSON.stringify(model), 2, 1e-12)],
+      ['corotational', () => nonlinear('corotational', dim, model)],
+      ['material nonlinear', () => nonlinear('nonlinear_material', dim, {
+        solver: model, materialModels: {}, sectionCapacities: {}, maxIter: 8, tolerance: 1e-12, nIncrements: 1,
+      })],
+    ]) {
+      assert.throws(run, error => {
+        const diagnostic = JSON.parse(String(error).replace(/^MODAL-MECHANISM: /, '')).structuredDiagnostics[0];
+        return diagnostic.code === 'reduced_stiffness_rank' && diagnostic.severity === 'error'
+          && diagnostic.nodeIds.length === 1 && diagnostic.nodeIds[0] === 2
+          && diagnostic.message.includes('a frame can swing about a released end');
+      }, `${dim} ${name}, translation DOF ${translation}`);
+    }
+    model.constraints[0].terms[1].coefficient = -coefficient;
+    assertDisplacements(engine[`solve_${dim}`](model), dim, [1, 2]);
+  }
+}
+
+for (const dim of ['2d', '3d']) {
   const model = dim === '2d' ? structuredClone(truss) : spatial(truss);
   if (dim === '3d') {
     Object.assign(model.supports[2], { kz: 1, rry: true });
