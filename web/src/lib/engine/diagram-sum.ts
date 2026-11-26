@@ -31,48 +31,84 @@ function accumulateDiagramTerm(accumulator: DiagramAccumulator, term: number): b
   return true;
 }
 
+function appendTerms(accumulator: DiagramAccumulator, terms: DiagramSum): boolean {
+  for (const term of terms) {
+    if (!accumulateDiagramTerm(accumulator, term)) return false;
+  }
+  return true;
+}
+
 export function sumDiagramTerms(terms: readonly number[]): DiagramSum {
   const accumulator: DiagramAccumulator = { partials: [], size: 0 };
-  for (const term of terms) {
-    if (!accumulateDiagramTerm(accumulator, term)) break;
-  }
+  appendTerms(accumulator, terms);
   accumulator.partials.length = accumulator.size;
   return accumulator.partials;
 }
 
-function accumulateCoefficient(next: DiagramAccumulator, coefficient: DiagramSum, value: DiagramAccumulator, x: number): void {
-  next.size = 0;
-  for (const term of coefficient) {
-    if (!accumulateDiagramTerm(next, term)) return;
-  }
+function appendScaledTerms(next: DiagramAccumulator, value: DiagramAccumulator, x: number): void {
   for (let i = 0; i < value.size; i++) {
     if (!accumulateDiagramTerm(next, value.partials[i]! * x)) return;
   }
 }
 
-function evaluatePolynomial(coefficients: DiagramPolynomial, x: number, value: DiagramAccumulator, next: DiagramAccumulator): DiagramAccumulator {
-  value.size = 0;
+function accumulateCoefficient(next: DiagramAccumulator, coefficient: DiagramSum, value: DiagramAccumulator, x: number): void {
+  next.size = 0;
+  if (appendTerms(next, coefficient)) appendScaledTerms(next, value, x);
+}
+
+export function polynomialValue(coefficients: DiagramPolynomial, x: number): DiagramSum {
+  let value: DiagramAccumulator = { partials: [], size: 0 };
+  let next: DiagramAccumulator = { partials: [], size: 0 };
   for (let i = coefficients.length - 1; i >= 0; i--) {
     accumulateCoefficient(next, coefficients[i]!, value, x);
     const previous = value;
     value = next;
     next = previous;
   }
-  return value;
+  value.partials.length = value.size;
+  return value.partials;
 }
 
-export function polynomialValue(coefficients: DiagramPolynomial, x: number): DiagramSum {
-  const result = evaluatePolynomial(coefficients, x, { partials: [], size: 0 }, { partials: [], size: 0 });
-  result.partials.length = result.size;
-  return result.partials;
+interface PreparedCoefficient extends DiagramAccumulator {
+  acceptsMore: boolean;
+}
+
+function accumulatePreparedCoefficient(next: DiagramAccumulator, c: PreparedCoefficient, value: DiagramAccumulator, x: number): void {
+  next.size = c.size;
+  for (let i = 0; i < c.size; i++) next.partials[i] = c.partials[i]!;
+  if (c.acceptsMore) appendScaledTerms(next, value, x);
 }
 
 export function prepareRoundedPolynomial(coefficients: DiagramPolynomial): (x: number) => number {
-  const first: DiagramAccumulator = { partials: [], size: 0 };
-  const second: DiagramAccumulator = { partials: [], size: 0 };
+  if (coefficients.length === 0) return () => 0;
+  const prepared = coefficients.map(terms => {
+    const coefficient: PreparedCoefficient = { partials: [], size: 0, acceptsMore: true };
+    coefficient.acceptsMore = appendTerms(coefficient, terms);
+    return coefficient;
+  });
+  const a: DiagramAccumulator = { partials: [], size: 0 };
+  const b: DiagramAccumulator = { partials: [], size: 0 };
+  const leading = prepared.pop()!;
+  if (prepared.length === 3) {
+    const constant = prepared[0]!, linear = prepared[1]!, quadratic = prepared[2]!;
+    return x => {
+      accumulatePreparedCoefficient(a, quadratic, leading, x);
+      accumulatePreparedCoefficient(b, linear, a, x);
+      accumulatePreparedCoefficient(a, constant, b, x);
+      return roundPartials(a.partials, a.size);
+    };
+  }
   return x => {
-    const { partials, size } = evaluatePolynomial(coefficients, x, first, second);
-    return roundPartials(partials, size);
+    if (prepared.length === 0) return roundPartials(leading.partials, leading.size);
+    let value = a, next = b;
+    accumulatePreparedCoefficient(value, prepared[prepared.length - 1]!, leading, x);
+    for (let i = prepared.length - 2; i >= 0; i--) {
+      accumulatePreparedCoefficient(next, prepared[i]!, value, x);
+      const previous = value;
+      value = next;
+      next = previous;
+    }
+    return roundPartials(value.partials, value.size);
   };
 }
 

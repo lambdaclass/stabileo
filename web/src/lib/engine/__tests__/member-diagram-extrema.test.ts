@@ -118,7 +118,7 @@ it('known wrong result: #2250 preserves an interval-local shear peak in both dim
   })).toContainEqual({ t: 0.5 });
 });
 
-it.skipIf(process.env.RUN_KNOWN_WRONG !== '2581')('known wrong result: #2581 reuses the cut interval polynomial across component and resultant extrema', () => {
+it('known wrong result: #2581 reuses the cut interval polynomial across component and resultant extrema', () => {
   const length = 4;
   const curve = memberDiagram(length, -2, 0, [{ a: 0, b: length, qI: 2, qJ: 2 }], [
     { a: 1, jump: 3 },

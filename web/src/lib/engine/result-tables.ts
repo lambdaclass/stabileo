@@ -92,6 +92,10 @@ export interface Source { id: number; name: string; results: AnalysisResults3D }
 /** One row of one result set: a node, or a member end or station (`x`, m from end i). */
 export interface Row { entity: number; end?: 'i' | 'j'; x?: number; side?: Extreme['side']; values: number[] }
 
+function usesMemberEnds(spec: StationSpec): boolean {
+  return spec !== 'critical' && Math.max(2, Math.floor(spec)) === 2;
+}
+
 /**
  * Each row of one result set, in the order the tables list them, handed to `visit` without
  * building a row object. `values` is the row's own array (resultants included under `resultant`).
@@ -114,7 +118,7 @@ function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visi
     return;
   }
   const spec = opts.stations ?? 2;
-  const ends = spec !== 'critical' && Math.max(2, Math.floor(spec)) === 2;
+  const ends = usesMemberEnds(spec);
   for (const f of r.elementForces) {
     if (!keep(f.elementId)) continue;
     if (ends) {
@@ -164,6 +168,10 @@ export function allRows(kind: TableKind, sources: readonly Source[], opts: Table
 /** A value, where it is, and under which source. */
 export interface Extreme { value: number; entity: number; end?: 'i' | 'j'; x?: number; side?: 'left' | 'right'; source: Source }
 
+function extremeTieTolerance(value: number, previous: number): number {
+  return 1e-9 * Math.max(Math.abs(value), Math.abs(previous), 1e-12);
+}
+
 /**
  * Whether `v` at `(entity, x)` takes the place of the current extreme `e`: beyond it by more than
  * round-off in the direction `sign` (+1 for a maximum, −1 for a minimum), or tied with it and at a
@@ -176,7 +184,7 @@ export interface Extreme { value: number; entity: number; end?: 'i' | 'j'; x?: n
  */
 export function beatsExtreme(sign: 1 | -1, v: number, entity: number, x: number | undefined, e: { value: number; entity: number; x?: number } | null): boolean {
   if (!e) return true;
-  const tol = 1e-9 * Math.max(Math.abs(v), Math.abs(e.value), 1e-12);
+  const tol = extremeTieTolerance(v, e.value);
   const d = sign * (v - e.value);
   if (d > tol) return true;
   if (d < -tol) return false;
@@ -266,24 +274,36 @@ function criticalEnvelopeStations(sources: readonly Source[], opts: TableOptions
 
 /** For each node or member end (or station), the largest and smallest value of each column over the sources. */
 export function envelopeRows(kind: TableKind, sources: readonly Source[], opts: TableOptions): EnvelopeRow[] {
-  const byKey = new Map<string, EnvelopeRow>();
-  const sharedStations = kind === 'forces' && opts.stations === 'critical' ? criticalEnvelopeStations(sources, opts) : undefined;
-  for (const s of sources) {
-    eachRow(kind, s.results, opts, (entity, end, x, values, side) => {
-      const distance = opts.stations === 'critical' ? x : x?.toFixed(6);
-      const key = `${entity}:${end ?? ''}:${distance ?? ''}:${side ?? ''}`;
-      const e = byKey.get(key);
-      if (!e) {
-        byKey.set(key, { entity, end, x, ...(side && { side }), max: values.map((v) => ({ value: v, source: s })), min: values.map((v) => ({ value: v, source: s })) });
+  const byKey = new Map<number | string, EnvelopeRow>();
+  const critical = opts.stations === 'critical';
+  const spec = opts.stations ?? 2;
+  const atStations = kind === 'forces' && !usesMemberEnds(spec);
+  const sharedStations = kind === 'forces' && critical ? criticalEnvelopeStations(sources, opts) : undefined;
+  for (const source of sources) {
+    eachRow(kind, source.results, opts, (entity, end, x, values, side) => {
+      const key = atStations || end === 'j' ? `${entity}:${end ?? ''}:${(critical ? x : x?.toFixed(6)) ?? ''}:${side ?? ''}` : entity;
+      const row = byKey.get(key);
+      if (!row) {
+        const first: EnvelopeRow = {
+          entity, end, x, ...(side && { side }),
+          max: values.map(value => ({ value, source })),
+          min: values.map(value => ({ value, source })),
+        };
+        byKey.set(key, first);
         return;
       }
-      values.forEach((v, c) => {
-        // A tie within round-off keeps the earlier source: the sources' order is stable, the last digit is not.
-        const tol = (a: number) => 1e-9 * Math.max(Math.abs(v), Math.abs(a), 1e-12);
-        const max = e.max[c]!.value, min = e.min[c]!.value;
-        if (v - max > (opts.stations === 'critical' ? 0 : tol(max))) e.max[c] = { value: v, source: s };
-        if (min - v > (opts.stations === 'critical' ? 0 : tol(min))) e.min[c] = { value: v, source: s };
-      });
+      for (let c = 0; c < values.length; c++) {
+        const value = values[c]!;
+        const max = row.max[c]!, min = row.min[c]!;
+        if (value - max.value > (critical ? 0 : extremeTieTolerance(value, max.value))) {
+          max.value = value;
+          max.source = source;
+        }
+        if (min.value - value > (critical ? 0 : extremeTieTolerance(value, min.value))) {
+          min.value = value;
+          min.source = source;
+        }
+      }
     }, sharedStations);
   }
   return [...byKey.values()];

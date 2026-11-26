@@ -19,6 +19,12 @@ import { DEFAULT_AXES, makeFrame, type AxesChoice } from '../../axes/frame';
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const num = (v: number, d = 3) => (Number.isFinite(v) ? (Math.abs(v) < 1e-9 ? '0' : Math.abs(v) >= 1e5 || Math.abs(v) < 1e-3 ? v.toExponential(3) : v.toFixed(d)) : '—');
 
+function envelopeCells(values: readonly { value: number }[]): string {
+  let html = '';
+  for (const { value } of values) html += `<td class="num">${num(value)}</td>`;
+  return html;
+}
+
 type Tr = (k: string) => string;
 
 /** The job's block on the cover: client, job, site, current revision, and the signatures. */
@@ -77,9 +83,10 @@ export function envelopeSectionHtml(sources: readonly Source[], tr: Tr, heading:
     const env = envelopeRows(kind, sources, { resultant: true, axes });
     out.push(`<h3>${esc(title)}: ${esc(tr('report.env.envelope'))} (${env.length})</h3>`);
     out.push(`<table class="env" data-printed="envelope-${kind}"><thead><tr><th>${kind === 'forces' ? esc(tr('report.env.memberEnd')) : esc(tr('report.nodes'))}</th><th></th>${cols.map((c) => `<th>${esc(c.label)} (${esc(c.unit)})</th>`).join('')}</tr></thead><tbody>`);
+    const maxLabel = esc(tr('tables.max')), minLabel = esc(tr('tables.min'));
     for (const r of env) {
-      out.push(`<tr><td rowspan="2">${esc(whereOf(r))}</td><td>${esc(tr('tables.max'))}</td>${r.max.map((m) => `<td class="num">${num(m.value)}</td>`).join('')}</tr>`);
-      out.push(`<tr><td>${esc(tr('tables.min'))}</td>${r.min.map((m) => `<td class="num">${num(m.value)}</td>`).join('')}</tr>`);
+      out.push(`<tr><td rowspan="2">${esc(whereOf(r))}</td><td>${maxLabel}</td>${envelopeCells(r.max)}</tr>`);
+      out.push(`<tr><td>${minLabel}</td>${envelopeCells(r.min)}</tr>`);
     }
     out.push(`</tbody></table>`);
   }
