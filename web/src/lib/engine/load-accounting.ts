@@ -458,7 +458,7 @@ function assembled3D(
         localVector(axes, d.qXJ ?? 0, d.qYJ, d.qZJ, line?.qJ), line?.source === 'prestress' ? undefined : elementId);
     } else {
       const d = load.data;
-      result.apply(positionAt(start, axes.ex, d.a), localVector(axes, 0, d.py, d.pz));
+      result.apply(positionAt(start, axes.ex, d.a), localVector(axes, d.px ?? 0, d.py, d.pz));
     }
   }
   return result;

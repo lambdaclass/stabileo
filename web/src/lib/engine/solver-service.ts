@@ -55,7 +55,8 @@ import { enrichComboShellStresses, envelopeShellStresses } from './shell-combos'
 import { axialShares, combineShares, giveBackAxialShares } from './axial-shares';
 import { addSettlementCase, addSettlementCase2D, hasSettlement, withoutSettlement, SETTLEMENT_CASE_ID } from './settlement-case';
 import { memberAlphaOf, thermalAlphaOf, ENGINE_ALPHA } from './thermal-alpha';
-import { pointToSolver, pointToEnds, PointLoadNeedsCut, planePointLoad3D, pointWithCoupleToEnds, planarMoment3D, planarPointOrigin, requirePlanarNodalMoment, requirePlanarPointMoment, PlanarLoadMomentError, type PlanePointLoadLike } from './member-point-loads';
+import { isVehicleAxle, vehiclePositionCaseIds } from './vehicles';
+import { localPointForce, memberPointForceRow3D, pointGlobal, pointToSolver, pointToEnds, PointLoadNeedsCut, planePointLoad3D, pointWithCoupleToEnds, planarMoment3D, planarPointOrigin, requirePlanarNodalMoment, requirePlanarPointMoment, PlanarLoadMomentError, type PlanePointLoadLike } from './member-point-loads';
 import { ModelInputError, modelNumberRefusal, requireLoadInput, requireModelNumbers } from './model-input-numbers';
 import { planarPointMomentWithoutProjection, planarPointProjectionTooShort } from './planar-point-load';
 import { planarLoadDirection } from './planar-load-direction';
@@ -1566,12 +1567,13 @@ export function buildSolverLoads3D(
   const axialMember = (id: number) => memberTakesNoBending(model.elements.get(id));
 
   const truss = (id: number) => takesNoBending(id) ? refOf(id) : null;
+  const positionCases = vehiclePositionCaseIds(model.loadCases);
   for (const l of loads) {
-    const emit = (...batch: SolverLoad3D[]) => {
-      const assembled = transverseToNodes(batch, truss);
+    const emitAssembled = (assembled: SolverLoad3D[]) => {
       opts.record?.(l.data.caseId ?? 1, assembled, l.type === 'surface3d' && scenarioSurfaceIntentOf(l) ? l : undefined);
       for (const load of assembled) solverLoads.push(load);
     };
+    const emit = (...batch: SolverLoad3D[]) => emitAssembled(transverseToNodes(batch, truss));
     if (l.type === 'nodal') {
       const vertical = get2DDisplayNodalLoadVertical(l.data);
       const moment = requirePlanarNodalMoment(l.data);
@@ -1687,7 +1689,13 @@ export function buildSolverLoads3D(
       if (!m) continue;
       if (axialMember(d.elementId)) {
         if ([d.mx, d.my, d.mz].some((v) => v)) throw new PointLoadNeedsCut(d.elementId);
-        emit(...pointToEnds(m, d, userLeftHand));
+        const regularTruss = takesNoBending(d.elementId) && !model.elements.get(d.elementId)?.behaviour;
+        if (!opts.forcesOnly && regularTruss && d.a !== 0 && d.a !== m.axes.L && isVehicleAxle(d, positionCases)) {
+          const force = pointGlobal(d, m.axes, userLeftHand).F;
+          emitAssembled([memberPointForceRow3D(d.elementId, d.a, localPointForce(m.axes, force))]);
+        } else {
+          emit(...pointToEnds(m, d, userLeftHand));
+        }
       } else {
         emit(...pointToSolver(m, d, userLeftHand, opts.forcesOnly));
       }
