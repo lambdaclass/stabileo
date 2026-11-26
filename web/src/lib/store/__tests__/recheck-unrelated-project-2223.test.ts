@@ -13,6 +13,7 @@ import { RESULTS_VERSION } from '../../provenance/registry';
 import { stampSolve } from '../../provenance/solve-stamp';
 import { initSolver, solvePDelta } from '../../engine/wasm-solver';
 import { t } from '../../i18n';
+import { readCorpusText } from '../../legacy-projects/legacy';
 import { requireStoredProjectInput } from '../../engine/model-input-numbers';
 import { deflateSync, inflateSync } from 'fflate';
 import '../index';
@@ -346,4 +347,55 @@ it.each([
   open('file', { ...xy, snapshot: { ...xy.snapshot, drawPlane2D: undefined } });
   expect(buildProjectFile().snapshot.drawPlane2D).toBe('xy');
   expect(modelStore.solve()).toEqual(reference);
+});
+
+it.skip.each(entries)('known wrong result: #2588 — %s recovers the archived cantilever with a fixed support angle', async entry => {
+  await initSolver();
+  uiStore.analysisMode = '2d';
+  const file: ReturnType<typeof buildProjectFile> = JSON.parse(readCorpusText('v0.3.0/cantilever.ded'));
+  const xy = { ...file, snapshot: { ...file.snapshot, analysisMode: '2d' as const, drawPlane2D: 'xy' as const } };
+  open(entry, xy);
+  const linear = modelStore.solve();
+  expect(linear).toMatchObject({ displacements: expect.any(Array) });
+  const combinations = modelStore.solveCombinations();
+  expect(combinations).toMatchObject({ perCase: expect.any(Map) });
+  const input = modelStore.buildSolverInput()!;
+  const nonlinear = solvePDelta(input);
+  expect(nonlinear.results.displacements).toEqual(expect.arrayContaining([expect.objectContaining({ nodeId: 2 })]));
+
+  uiStore.drawPlane2D = 'yz';
+  const legacy = { ...file, snapshot: { ...file.snapshot, analysisMode: '2d' as const } };
+  open(entry, legacy);
+  expect.soft(buildProjectFile().snapshot.drawPlane2D).toBe('xy');
+  expect.soft(assessProject(legacy.snapshot, null, '2d').changes.map(change => change.id))
+    .not.toContain('legacy-planar-project-plane');
+  expect.soft(modelStore.solve()).toEqual(linear);
+  expect.soft(await modelStore.solveAsync()).toEqual(linear);
+  const restoredCombinations = modelStore.solveCombinations();
+  expect.soft(typeof restoredCombinations === 'object' && restoredCombinations?.perCase)
+    .toEqual(typeof combinations === 'object' && combinations?.perCase);
+  const restoredInput = modelStore.buildSolverInput()!;
+  expect(restoredInput).toEqual(input);
+  expect(solvePDelta(restoredInput).results.displacements).toEqual(nonlinear.results.displacements);
+});
+
+it.skip.each([
+  { type: 'spring', ky: 1 },
+  { type: 'rollerX', dz: -0.01 },
+  { type: 'rollerX', dy: -0.01 },
+] satisfies Omit<Support, 'id' | 'nodeId'>[])('known wrong result: #2588 — the legacy planar support %j retains its XY input', support => {
+  const { file } = legacyLoadedCantilever(support);
+  const snapshot = { ...file.snapshot, analysisMode: file.analysisMode };
+  expect(requireStoredProjectInput({ ...snapshot, drawPlane2D: undefined })).toBe('xy');
+});
+
+it.each([
+  { type: 'rollerX', isGlobal: true, dz: -0.01 },
+  { type: 'rollerX', angle: 90, dz: -0.01 },
+  { type: 'spring', ky: 1, dofFrame: 'global' },
+] satisfies Omit<Support, 'id' | 'nodeId'>[])('#2588 requires a plane when %j supplies a directional support field', support => {
+  const { file } = legacyLoadedCantilever(support);
+  const snapshot = { ...file.snapshot, analysisMode: file.analysisMode };
+  expect(requireStoredProjectInput({ ...snapshot, drawPlane2D: undefined })).toBeUndefined();
+  expect(requireStoredProjectInput(snapshot)).toBe('xz');
 });
