@@ -1843,8 +1843,8 @@ it('four wrong slab pressures can preserve counts and the definition wrench', as
   });
 });
 
-it.skip.each(['case inclusion', 'assembly', 'combination factoring'] as const)(
-  'known wrong result: #2586 — refuses alternating whole-slab quad corner forces during %s', async stage => {
+it.each(['case inclusion', 'assembly', 'combination factoring'] as const)(
+  '#2586 refuses alternating whole-slab quad corner forces during %s', async stage => {
     const id = stripSlab(1);
     const shell = plateEntry(id)!.group.members.quads![0]!;
     const reference = modelStore.addLoadCase('Reference slab');

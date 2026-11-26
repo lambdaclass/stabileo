@@ -1,7 +1,7 @@
 import { accountingCaseSources, accountingMemberPieces, accountingProjection, accountingSource, copyAccountingLoad, scenarioSurfaceIntentOf, type AccountingCaseSources, type ScenarioSurfaceIntent } from './accounting-source';
 import { EngineCheckError, EngineUnavailableError } from './engine-unavailable';
 import { LoadVector, scaleAssembledMagnitudes3D, zero, type MemberLinePieces, type Wrench } from './accounting-math';
-import { accountCombination, accountLoads2D, accountSource3D, accountWeight2D, hasGeneratedSource, weightSource3D, type CheckedSource3D, loadAccounting3D, loadCaseBatches, verifyFactoredScenarioNode, verifyScenarioSurfaceLoads } from './load-accounting';
+import { accountCombination, accountLoads2D, accountSource3D, accountWeight2D, hasGeneratedSource, weightSource3D, type CheckedSource3D, loadAccounting3D, loadCaseBatches, verifyFactoredSurfaceNode, verifyScenarioSurfaceLoads } from './load-accounting';
 import { accountPlateGeometry, SolveAccountingError } from './plate-accounting';
 import { mapModelNodeToSolver3D, shouldEmbedFlat2DModelIn3D } from './model-embedding';
 export { shouldEmbedFlat2DModelIn3D } from './model-embedding';
@@ -1922,8 +1922,10 @@ export function notionalSourceLoads3D(
   verifySelfWeightLoads3D(model, input, selfWeights);
   const scenarioSurfaces = model.loads.filter(load => load.type === 'surface3d' && scenarioSurfaceIntentOf(load));
   verifyScenarioSurfaceLoads(model, caseId, scenarioSurfaces, sources, undefined, expectedPressures);
-  loadAccounting3D(model, input, shouldEmbedFlat2DModelIn3D(model), leftHand, new Map(), true)
-    .verifyGenerated(caseId, model.loads, sources);
+  const accounting = loadAccounting3D(model, input, shouldEmbedFlat2DModelIn3D(model), leftHand,
+    accountPlateGeometry(model[accountingSource] ?? model, input), true);
+  accounting.verifySlabs(caseId, model.loads, sources);
+  accounting.verifyGenerated(caseId, model.loads, sources);
   return loads;
 }
 
@@ -3315,7 +3317,7 @@ export function comboSolverLoads3D(combo: LoadCombination, caseLoads: Map<number
       if (rows) rows.push(scaled);
       else byOriginal.set(load, [scaled]);
       if (audit?.authored.has(load)) {
-        verifyFactoredScenarioNode(audit.model, combo.id, combo.name, load, scaled, factor);
+        verifyFactoredSurfaceNode(audit.model, combo.id, combo.name, load, scaled, factor);
         assembled.push(scaled);
       }
       return scaled;
