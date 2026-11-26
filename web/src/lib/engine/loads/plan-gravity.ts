@@ -377,7 +377,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     const owned = ownership ? floor.bays.flatMap((bay): OwnedPanel[] => {
       const { region: footprint, deck, independentShells } = ownership.bays.get(bay)!;
       if (!footprint.length) return [];
-      if (!geometry) refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
+      if (!deck) refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
       const panel = res.panels[bay.index];
       const own = panel?.own;
       const pieces = (own?.loads ?? []).map(l => physicalPiece({
