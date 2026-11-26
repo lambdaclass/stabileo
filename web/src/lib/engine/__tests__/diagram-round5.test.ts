@@ -4,7 +4,7 @@ import { computeDiagram3D, criticalDiagramStations3D, evaluateDiagramAt, prepare
 import {
   computeDiagrams2D, computeDiagrams3D, computeDiagramValueAtWasm, computeDiagramValueAt3DWasm,
   computeEnvelope, computeEnvelope3D, extractBeamStations, extractBeamStations3D,
-  extractBeamStationsGrouped, extractBeamStationsGrouped3D, solve, solve3D, solvePDelta, solvePDelta3D,
+  extractBeamStationsGrouped, extractBeamStationsGrouped3D, extractBeamStationBuffer3D, solve, solve3D, solvePDelta, solvePDelta3D,
   solveMovingLoads as solveMovingLoadsWasm, solveMovingLoads3D as solveMovingLoads3DWasm,
 } from '../wasm-solver';
 import { computeDiagramGlobalMax } from '../../canvas/draw-diagrams';
@@ -12,6 +12,8 @@ import { computePointwiseEnvelope, solveMovingLoads, solveMovingLoadsAsync } fro
 import { buildPath3D, foldPosition, sweepMovingLoad3D, trainLoads } from '../moving-loads-3d';
 import type { SolverInput } from '../types';
 import { extractForcesAtStation } from '../station-forces';
+import { decodeStationBuffer } from '../station-buffer';
+import { peakAlong } from '../governing-case';
 import type { SolverInput3D } from '../types-3d';
 
 const length = 3;
@@ -54,6 +56,53 @@ function forceRecords() {
   const spatial = [linearSpace, pDeltaSpace.results];
   return [plane, space, planar, spatial] as const;
 }
+
+const review2581 = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
+
+review2581('known wrong result: #2581 envelopes and station tables use the inside of both member ends', () => {
+  const span = 4, load = 10;
+  const members = [{ elementId: 1, length: span, sectionId: 1, materialId: 1 }];
+  for (const [a, applied] of [[0, load], [1, load], [span, load], [0, 0]] as const) {
+    const [plane, space] = cantilevers(span);
+    plane.loads = [{ type: 'pointOnElement', data: { elementId: 1, a, p: 0, my: applied } }];
+    space.loads = [{ type: 'pointOnElement', data: { elementId: 1, a, px: applied, py: 0, pz: 0 } }];
+    const pn = solvePDelta(plane), sn = solvePDelta3D(space);
+    expect(pn.converged && sn.converged).toBe(true);
+    const peak = a === 0 ? 0 : applied;
+    const t = a / span;
+    const faces = t > 0 && t < 1 ? 2 : 1;
+    for (const [mode, planar, spatial] of [['linear', solve(plane), solve3D(space)], ['P-Delta', pn.results, sn.results]] as const) {
+      const context = `${mode}, a=${a}, load=${applied}`;
+      for (const [api, diagram] of [
+        ['explicit planar envelope', computeEnvelope([planar], true)!.moment],
+        ['planar envelope', computeEnvelope([planar])!.moment],
+        ['spatial envelope', computeEnvelope3D([spatial])!.axial],
+      ] as const) {
+        expect.soft(diagram.globalMax, `${api}: ${context}`).toBeCloseTo(peak, 12);
+        expect.soft(diagram.elements[0]!.tPositions.filter(x => x === t), `${api}: ${context}`).toHaveLength(faces);
+      }
+      expect.soft(peakAlong('moment', planar.elementForces[0]!), context).toBeCloseTo(peak, 12);
+      const input = { members, combinations: [{ comboId: 1, results: planar }] };
+      const input3D = { members, combinations: [{ comboId: 1, results: spatial }] };
+      for (const stations of [extractBeamStations(input).stations, extractBeamStationsGrouped(input).members[0]!.stations]) {
+        expect.soft(Math.max(...stations.map(s => Math.abs(s.comboForces[0]!.m))), context).toBeCloseTo(peak, 12);
+        expect.soft(stations.filter(s => s.t === t), context).toHaveLength(faces);
+      }
+      for (const stations of [extractBeamStations3D(input3D).stations, extractBeamStationsGrouped3D(input3D).members[0]!.stations]) {
+        expect.soft(Math.max(...stations.map(s => Math.abs(s.comboForces[0]!.n))), context).toBeCloseTo(peak, 12);
+        expect.soft(stations.filter(s => s.t === t), context).toHaveLength(faces);
+      }
+      const compact = extractBeamStationBuffer3D({
+        members, combinations: [{ comboId: 1, elementForces: spatial.elementForces }], numStations: 5,
+      });
+      expect(compact).not.toBeNull();
+      const stations = decodeStationBuffer(compact!, new Map())[0]!.comboResults[0]!.stations;
+      expect.soft(Math.abs(stations[0]!.n), context).toBeCloseTo(peak, 12);
+      expect.soft(Math.abs(stations.at(-1)!.n), context).toBeCloseTo(a === span ? applied : 0, 12);
+      expect.soft(Math.abs(extractForcesAtStation(spatial.elementForces[0]!, 0).n), context).toBeCloseTo(peak, 12);
+    }
+  }
+});
 
 it('#2250 refuses a point query at a peak whose ordinate cannot transfer', () => {
   const [plane, space, planar, spatial] = forceRecords();

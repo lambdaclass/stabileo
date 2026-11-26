@@ -503,3 +503,32 @@ it('known wrong result: #2581 summarizes only inward member-end forces', async (
     }
   }
 });
+
+const review2581 = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
+
+review2581('known wrong result: #2581 exports only inward ends and both interior jump faces', () => {
+  const length = 4, axial = 10, shear = 20;
+  const control = reviewSources({ ...reviewForces, length, vzStart: 0, vzEnd: 0 })[0]!;
+  const high = { ...control, id: 2, name: 'Continuous' };
+  for (const a of [0, 1, length]) {
+    const forces = {
+      ...reviewForces, length, nStart: axial, vzStart: shear,
+      nEnd: a === length ? axial : 0, vzEnd: a === length ? -shear : 0,
+      pointLoadsX: [{ a, p: axial }], pointLoadsZ: [{ a, p: -shear }],
+    };
+    const source = reviewSources(forces)[0]!;
+    const at = a === 0 ? [[0, 0]] : a === length ? [[axial, shear]] : [[axial, shear], [0, 0]];
+    const direct = rowsOf('forces', source.results, criticalOptions).filter(row => row.x === a);
+    expect.soft(direct.map(row => [row.values[0], row.values[2]]), `rows at ${a}`).toEqual(at);
+    for (const sources of [[source, high], [high, source]]) {
+      const envelope = envelopeRows('forces', sources, criticalOptions).filter(row => row.x === a);
+      expect.soft(envelope.map(row => [row.max[0]!.value, row.max[2]!.value]), `envelope at ${a}`).toEqual(at);
+      const [sheet] = resultSheets({
+        sources: sources.map(s => ({ ...s, kind: 'combination' })), stations: 'critical', statics: null,
+      }, name => name === 'Envelope');
+      expect.soft(sheet!.rows.filter(row => row[3] === a && row[4] === 'N').map(row => row[6]), `workbook at ${a}`)
+        .toEqual(at.map(values => values[0]));
+    }
+  }
+  expect(rowsOf('forces', control.results, criticalOptions).map(row => row.x)).toEqual([0, 1, 2, 3, 4]);
+});

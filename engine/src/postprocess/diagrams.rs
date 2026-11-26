@@ -672,6 +672,62 @@ mod tests {
         (plane, [linear, (planar.results, spatial.results)])
     }
 
+    #[test]
+    #[ignore = "known wrong result: #2581"]
+    fn member_envelopes_and_station_tables_use_inward_end_faces() {
+        use crate::postprocess::beam_stations::*;
+        use crate::postprocess::combinations::{compute_envelope, compute_envelope_2d_with_member_faces, compute_envelope_3d};
+
+        let length = 4.0;
+        let load = 10.0;
+        let mut actual = Vec::new();
+        let mut expected = Vec::new();
+        for (a, applied) in [(0.0, load), (1.0, load), (length, load), (0.0, 0.0)] {
+            let (plane, space) = diagram_issue_models(
+                length,
+                serde_json::json!({"type":"pointOnElement","data":{"elementId":1,"a":a,"p":0,"my":applied}}),
+                serde_json::json!({"type":"pointOnElement","data":{"elementId":1,"a":a,"px":applied,"py":0,"pz":0}}),
+            );
+            let pn = crate::solver::pdelta::solve_pdelta_2d(&plane, 20, 1e-10).unwrap();
+            let sn = crate::solver::pdelta::solve_pdelta_3d(&space, 20, 1e-10).unwrap();
+            assert!(pn.converged && sn.converged);
+            let peak = if a == 0.0 { 0.0 } else { applied };
+            let t = a / length;
+            let faces = if t > 0.0 && t < 1.0 { 2 } else { 1 };
+            for (planar, spatial) in [
+                (crate::solver::linear::solve_2d(&plane).unwrap(), crate::solver::linear::solve_3d(&space).unwrap()),
+                (pn.results, sn.results),
+            ] {
+                for diagram in [
+                    compute_envelope_2d_with_member_faces(std::slice::from_ref(&planar), true).unwrap().moment,
+                    compute_envelope(std::slice::from_ref(&planar)).unwrap().moment,
+                    compute_envelope_3d(std::slice::from_ref(&spatial)).unwrap().axial,
+                ] {
+                    actual.push((diagram.global_max, diagram.elements[0].t_positions.iter().filter(|&&x| x == t).count()));
+                    expected.push((peak, faces));
+                }
+
+                let flat = extract_beam_stations(&BeamStationInput {
+                    members: vec![BeamMemberInfo { element_id: 1, section_id: 1, material_id: 1, length, label: None }],
+                    combinations: vec![LabeledResults { combo_id: 1, combo_name: None, results: planar }],
+                    num_stations: None,
+                });
+                let flat_3d = extract_beam_stations_3d(&BeamStationInput3D {
+                    members: vec![BeamMemberInfo { element_id: 1, section_id: 1, material_id: 1, length, label: None }],
+                    combinations: vec![LabeledResults3D { combo_id: 1, combo_name: None, results: spatial }],
+                    num_stations: None,
+                });
+                actual.push((flat.stations.iter().map(|s| s.combo_forces[0].m.abs()).fold(0.0, f64::max),
+                    flat.stations.iter().filter(|s| s.t == t).count()));
+                actual.push((flat_3d.stations.iter().map(|s| s.combo_forces[0].n.abs()).fold(0.0, f64::max),
+                    flat_3d.stations.iter().filter(|s| s.t == t).count()));
+                expected.extend([(peak, faces); 2]);
+            }
+        }
+        assert!(actual.iter().zip(&expected).all(|((value, cuts), (peak, faces))|
+            (value - peak).abs() < 1e-12 && cuts == faces), "actual: {actual:?}; expected: {expected:?}");
+    }
+
     fn round5_shear_peak(a: f64, b: f64, q: f64) -> (DistributedLoadInfo, f64, f64) {
         let t = a / 3.0 + (b / 3.0 - a / 3.0) / 2.0;
         (DistributedLoadInfo { a, b, q_i: q, q_j: -q }, t, (b - a) * q / 4.0)
