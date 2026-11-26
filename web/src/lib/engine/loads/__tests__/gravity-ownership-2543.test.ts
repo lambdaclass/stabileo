@@ -9,6 +9,8 @@ import { snowDriftRefusal } from '../snow-drift-loads';
 import { teAt } from '../../../i18n/engine-text';
 import { applyLoadPlan } from '../../../store/apply-load-plan';
 import { modelStore } from '../../../store/index';
+import { snow } from './snow-roof-plane-fixture';
+import { snowLoadCases } from '../snow-loads';
 
 type Point = [number, number];
 const rectangle = (x0: number, y0: number, x1: number, y1: number): Point[] =>
@@ -420,4 +422,63 @@ it('#2607 refuses a supported pitched roof that crosses the bay inside the overl
   expect(() => gravityLayout(model, gravity)).toThrow(reason);
   expect(() => roofWeightFor(model, gravity, 3, 1)).toThrow(reason);
   expect(() => snowDriftRefusal(model)).toThrow(reason);
+});
+
+const independentCoverRegression = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
+const siteSnow = { ...snow, enabled: true, source: 'site', roofKind: 'mono' } as const;
+
+independentCoverRegression.each([false, true])('known wrong result: #2607 a shell at bay elevation cannot certify full shelter (%s)', loadEveryPanel => {
+  const model = supportedLocalBay(2.5);
+  const gravity = { mode: 'panels', loadEveryPanel, tributaryWidth: 3 } as const;
+  const key = 'loadPlan.gravity.mixedExposure';
+  const refusal = expect.objectContaining({ key });
+  const plan = buildLoadPlan(input(model, { gravity, snow: siteSnow }));
+
+  expect.soft(plan.outcome).toBe('BLOCKED');
+  expect.soft(plan.blockedKeys).toEqual([refusal]);
+  expect.soft(plan.cases).toEqual([]);
+  expect.soft(plan.distributed).toEqual([]);
+  expect.soft(plan.nodal).toEqual([]);
+  expect.soft(plan.surface).toEqual([]);
+  expect.soft(() => gravityLayout(model, gravity)).toThrow(refusal);
+  expect.soft(() => roofWeightFor(model, gravity, 3, 1)).toThrow(refusal);
+  expect.soft(() => snowDriftRefusal(model)).toThrow(refusal);
+  expect.soft(() => snowLoadCases({ model, snow: siteSnow, tributaryWidth: 3 })).toThrow(refusal);
+
+  const uniform = planFor(model, loadEveryPanel);
+  expect(uniform.outcome).toBe('READY');
+  expect(uniform.levels.reduce((sum, level) => sum + level.superimposedKN, 0))
+    .toBeCloseTo(16 + 4 * Math.hypot(6, 1.5), 10);
+});
+
+it.each([-1, 1])('#2607 a shell just to the %s side of zero clearance uses the clipped elevations', side => {
+  const model = supportedLocalBay(2.5 + side / 1024);
+  const gravity = { mode: 'panels', tributaryWidth: 3 } as const;
+  const plan = buildLoadPlan(input(model, { gravity, snow: siteSnow }));
+  if (side < 0) {
+    expectRefusal(plan, 'loadPlan.gravity.differentDeck');
+    return;
+  }
+  expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+  const layout = gravityLayout(model, gravity);
+  expect(layout.panels).toMatchObject([{ roof: false }]);
+  expect([...layout.areaOf.values()].reduce((sum, area) => sum + area, 0)).toBeCloseTo(16, 10);
+  expect(plan.distributed.filter(load => load.caseType === 'S')).toEqual([]);
+});
+
+it('#2607 a shell below an independently supported bay leaves the bay roof and snow loaded', () => {
+  const { model, ring, shell } = fixture();
+  const outline = rectangle(0, 0, 4, 4);
+  const nodes = [...ring(outline, 3), ...shell(outline, 2)];
+  const supported: LoadModelData = {
+    ...model, supports: new Map(nodes.map(id => [id, { id, nodeId: id, type: 'fixed3d' as const }])),
+  };
+  const gravity = { mode: 'panels', slab: 'oneWay', spanAxis: 'x', tributaryWidth: 3 } as const;
+  const layout = gravityLayout(supported, gravity);
+  expect(layout.panels).toMatchObject([{ roof: true }]);
+  expect(layout.roofShells.size).toBe(0);
+  expect([...layout.roofAreaOf.values()].reduce((sum, area) => sum + area, 0)).toBeCloseTo(16, 10);
+  const plan = buildLoadPlan(input(supported, { gravity, snow: siteSnow }));
+  expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+  expect(plan.distributed.some(load => load.caseType === 'S' && load.q < 0)).toBe(true);
 });
