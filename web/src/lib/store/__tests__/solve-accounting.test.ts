@@ -10,7 +10,7 @@ import {
 } from '../../engine/solver-service';
 import type { ShellLoadSpec } from '../../engine/shell-load-integration';
 import type { SolverLoad3D } from '../../engine/types-3d';
-import { withCaseEffects } from '../../engine/case-effects';
+import { singleSolveModel, withCaseEffects } from '../../engine/case-effects';
 import { G } from '../../engine/dynamics/requests';
 import { caseMassLoads, withMassSource } from '../../engine/dynamics/mass-source-model';
 import { runDirectAnalysis } from '../../engine/direct-analysis';
@@ -1842,6 +1842,82 @@ it('four wrong slab pressures can preserve counts and the definition wrench', as
     loads: loads.map((load, i) => ({ ...load, data: { ...load.data, q: i === 0 || i === 3 ? 6 : 0 } })),
   });
 });
+
+it.skip.each(['case inclusion', 'assembly', 'combination factoring'] as const)(
+  'known wrong result: #2586 — refuses alternating whole-slab quad corner forces during %s', async stage => {
+    const id = stripSlab(1);
+    const shell = plateEntry(id)!.group.members.quads![0]!;
+    const reference = modelStore.addLoadCase('Reference slab');
+    expect(modelStore.updateLoadCaseFields(reference, { reference: true })).toBe(true);
+    expect(modelStore.updateLoadCaseFields(1, { includes: [{ caseId: reference, factor: 2 }] })).toBe(true);
+    expect(addPlateLoad(id, reference, 8)).not.toBeNull();
+    syncDefinedLoadsForAnalysis();
+    const { model, loadCases: cases } = modelStore;
+    const combos = [{ id: 1, name: 'Factored slab', factors: [{ caseId: 1, factor: 2 }] }];
+    const linear = () => singleSolveModel(model, cases);
+    const expand = () => withCaseEffects(model, cases, { includeSelfWeight: false, leftHand: false }, new Set([1]));
+    const caseWires = () => caseSolverLoads3D(expand(), cases.filter(c => c.id === 1), false, false);
+    const combinationWires = () => comboSolverLoads3D(combos[0]!, caseWires());
+    const active: ModelData = { ...model, supports: new Map(model.supports) };
+    const [support, fixed] = model.supports.entries().next().value!;
+    active.supports.set(support, { ...fixed, uplift: true });
+    const pdelta: ModelData = { ...model, analysis: { ...model.analysis, perCombination: 'pdelta' } };
+    const pdeltaPaths = {
+      pdelta: () => solveCombinations3D(pdelta, cases, combos),
+      pdeltaParallel: () => solveCombinations3DParallel(pdelta, cases, combos),
+      activeSet: () => solveCombinations3D(active, cases, combos),
+      activeSetParallel: () => solveCombinations3DParallel(active, cases, combos),
+      direct: () => runDirectAnalysis(pdelta, cases, combos, { includeSelfWeight: false }),
+    };
+    const casePaths = {
+      input: () => buildSolverInput3D(linear()),
+      cases: caseWires,
+      linear: () => validateAndSolve3D(linear()),
+      linearAsync: () => validateAndSolve3DAsync(linear()),
+      active: () => validateAndSolve3D(singleSolveModel(active, cases)),
+      activeAsync: () => validateAndSolve3DAsync(singleSolveModel(active, cases)),
+      combinations: () => solveCombinations3D(model, cases, combos),
+      combinationsParallel: () => solveCombinations3DParallel(model, cases, combos),
+      notionalSource: () => {
+        const expanded = expand();
+        const prepared = prepareSolverInput3D(expanded, false);
+        return notionalSourceLoads3D(prepared.model, false, 1, [], prepared.build([])!);
+      },
+    };
+    const vertical = (rows: readonly SolverLoad3D[]) => rows.map(row => row.type === 'nodal' ? row.data.fz : null);
+    for (const [rows, expected] of [[caseWires().get(1)!, -4], [combinationWires(), -8]] as const) {
+      expect(rows).toHaveLength(4);
+      for (const force of vertical(rows)) expect(force).toBeCloseTo(expected, 12);
+    }
+    const answer = validateAndSolve3D(linear());
+    expect(answer).toMatchObject({ reactions: expect.any(Array) });
+    if (!answer || typeof answer === 'string') throw new Error(String(answer));
+    expect(answer.reactions).toHaveLength(4);
+    for (const reaction of answer.reactions) expect(reaction.fz).toBeCloseTo(4, 12);
+
+    const diagnostic = /case.*Strip slab.*quad #.*node.*Fz/i;
+    if (stage === 'assembly' || stage === 'combination factoring') {
+      const apply = (relative: number) => {
+        if (stage === 'assembly') fault.signedForceDelta = 4 * relative;
+        else fault.combinationDrift = { shell, relative };
+      };
+      const wires = stage === 'assembly' ? caseWires : combinationWires;
+      apply(roundoff - 2 * Number.EPSILON);
+      expect(wires()).toBeTruthy();
+      apply(roundoff + 2 * Number.EPSILON);
+      expect.soft(await outcome(wires), 'above the corner roundoff bound').toMatch(diagnostic);
+      apply(stage === 'assembly' ? 0.25 : 0.125);
+    } else {
+      fault.cornerPressureDelta = 9;
+    }
+    const paths = stage === 'combination factoring'
+      ? { combinationWires, ...pdeltaPaths }
+      : { ...casePaths, ...pdeltaPaths };
+    for (const [path, solve] of Object.entries(paths)) {
+      expect.soft(await outcome(solve), path).toMatch(diagnostic);
+    }
+  },
+);
 
 it('#2586 P-Delta refuses a cell-pressure fault introduced only in combination factoring', async () => {
   const id = stripSlab(4);
