@@ -18,7 +18,14 @@ import { activePerCombo3D, activeCombinations, publishCombinations3D } from '../
 import { staticsRows, BALANCED } from '../../store/statics-rows';
 import { envelopeOver, envelopeMembers, scopeBundle3D } from '../result-scopes';
 import { addCompositeCases } from '../../store/generated-combinations';
-import { currentWorkbookSheets } from '../../store/project-workbook';
+import { currentWorkbookParts, currentWorkbookSheets } from '../../store/project-workbook';
+import { materialize, partSize } from '../../export/workbook-cells';
+import { buildExcelWorkbook } from '../../export/excel';
+import { utils } from 'xlsx';
+import { DEFAULT_AXES } from '../../axes/frame';
+import { envelopeRows, summaryRows } from '../result-tables';
+import { envelopeSectionHtml } from '../report/project-sections';
+import { generateCalcReportHtml, type CalcReportData } from '../calc-report';
 import { withNotionalVariants } from '../loads/notional-combinations';
 import { toSectionFields } from '../../section/section-choice';
 import { computeSectionProperties } from '../../data/section-shapes';
@@ -369,6 +376,127 @@ describe('the project workbook', () => {
       expect(rows.flat()).not.toContain('3 D srss');
     }
     void lin;
+  });
+});
+
+const issue2581 = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
+
+describe('magnitude exports and signed consumers #2581', () => {
+  function solvedPortal(method: 'srss' | 'abs', pdelta = false) {
+    let D: number;
+    if (pdelta) {
+      const i = modelStore.addNode(0, 0, 0), j = modelStore.addNode(0, 0, 4);
+      modelStore.addElement(i, j, 'frame');
+      modelStore.addSupport(i, 'fixed3d');
+      D = 1;
+      modelStore.addNodalLoad3D(j, 0, 0.12, -180, 0, 0, 0, D);
+    } else {
+      D = portal().D;
+    }
+    const signed = modelStore.addCombination('Signed D', [{ caseId: D, factor: pdelta ? 0.1 : 1 }]);
+    const magnitude = modelStore.addCombination('Magnitude 3D', [{ caseId: D, factor: pdelta ? 0.2 : 3 }]);
+    modelStore.updateCombination(magnitude, { method });
+    if (pdelta) modelStore.setAnalysis({ perCombination: 'pdelta' });
+    const solved = solve();
+    publishCombinations3D(solved);
+    const signedSource = { id: signed, name: 'Signed D', results: solved.perCombo.get(signed)! };
+    const magnitudeSource = { id: magnitude, name: 'Magnitude 3D', results: solved.perCombo.get(magnitude)! };
+    expect(magnitudeSource.results.magnitude).toEqual(pdelta ? { method, firstOrder: true } : { method });
+    return { signed, magnitude, signedSource, magnitudeSource };
+  }
+
+  issue2581.each([
+    ['srss', 2, false],
+    ['abs', 5, true],
+    ['srss', 'critical', false],
+    ['abs', 'critical', false],
+  ] as const)('known wrong result: #2581 workbook keeps %s detail at %s stations (P-Delta: %s)', (method, stations, pdelta) => {
+    const { signed, magnitude } = solvedPortal(method, pdelta);
+    const opts = { model: false, design: false, sources: { cases: new Set<number>(), combinations: new Set([signed, magnitude]) } };
+    const parts = currentWorkbookParts(stations, opts);
+    const part = (name: string) => parts.find(p => p.name === name)!;
+    for (const name of ['EndForces', 'Stations']) {
+      const rows = materialize(part(name)).rows.slice(1);
+      const magnitudes = rows.filter(r => r[1] === magnitude);
+      if (stations === 'critical' && name === 'Stations') {
+        expect.soft(magnitudes).toEqual([]);
+      } else {
+        expect(magnitudes.length).toBeGreaterThan(0);
+        expect(new Set(magnitudes.map(r => r[0]))).toEqual(new Set(['magnitude']));
+      }
+      expect(rows.some(r => r[1] === signed)).toBe(true);
+    }
+    for (const name of ['Stresses', 'Deflections']) {
+      const rows = materialize(part(name)).rows.slice(1);
+      expect(rows.length).toBeGreaterThan(0);
+      expect.soft(new Set(rows.map(r => r[1]))).toEqual(new Set([signed]));
+      expect(partSize(part(name)).rows).toBe(rows.length + 1);
+    }
+    for (const name of ['Maxima', 'Envelope']) {
+      const rows = materialize(part(name)).rows.slice(1);
+      expect(rows.length).toBeGreaterThan(0);
+      expect(rows.flat()).toContain('Signed D');
+      expect(rows.flat()).not.toContain('Magnitude 3D');
+    }
+
+    const selected = currentWorkbookSheets(stations, { ...opts, sources: { ...opts.sources, combinations: new Set([magnitude]) } });
+    expect(selected.find(p => p.name === 'EndForces')!.rows.length).toBeGreaterThan(1);
+    for (const name of ['Deflections', 'Stresses', 'Maxima', 'Envelope']) {
+      expect(selected.find(p => p.name === name)!.rows).toHaveLength(1);
+    }
+  });
+
+  issue2581.each([2, 'critical'] as const)('known wrong result: #2581 signed result tables and report exclude magnitude sources at %s stations', (stations) => {
+    const { signedSource, magnitudeSource } = solvedPortal('srss');
+    const signed = [signedSource], both = [signedSource, magnitudeSource], magnitudes = [magnitudeSource];
+    const opts = { stations, axes: DEFAULT_AXES };
+    const expected = summaryRows('forces', signed, opts);
+    expect(expected.some(row => row.max && row.max.value !== 0)).toBe(true);
+    expect(summaryRows('forces', both, opts)).toEqual(expected);
+    expect(summaryRows('forces', magnitudes, opts).every(row => !row.max && !row.min)).toBe(true);
+    expect(envelopeRows('forces', both, opts)).toEqual(envelopeRows('forces', signed, opts));
+    expect(envelopeRows('forces', magnitudes, opts)).toEqual([]);
+    const report = (sources: typeof both) => envelopeSectionHtml(sources, key => key, 'Envelope').join('');
+    expect(report(both)).toEqual(report(signed));
+    expect(report(magnitudes)).toBe('');
+  });
+
+  issue2581('known wrong result: #2581 the standalone Excel summary omits signed peaks and equilibrium for a selected magnitude', async () => {
+    const { signed, magnitude } = solvedPortal('abs');
+    resultsStore.activeView = 'combo';
+    const summary = async (id: number) => {
+      resultsStore.activeComboId = id;
+      const book = (await buildExcelWorkbook({ provenance: false }))!;
+      return utils.sheet_to_json<Array<string | number>>(book.Sheets[t('excel.sheetSummary')]!, { header: 1 }).flat();
+    };
+    const signedSummary = await summary(signed);
+    const magnitudeSummary = await summary(magnitude);
+    expect(signedSummary).toContain(t('excel.maxN'));
+    expect(signedSummary).toContain(t('excel.equilibriumCheck'));
+    expect(magnitudeSummary).toContain(t('figures.magnitudes'));
+    expect(magnitudeSummary).not.toContain(t('excel.maxN'));
+    expect(magnitudeSummary).not.toContain(t('excel.equilibriumCheck'));
+  });
+
+  issue2581('known wrong result: #2581 the calculation report identifies magnitude forces without a signed summary', () => {
+    const { signedSource, magnitudeSource } = solvedPortal('srss');
+    const report = ({ name, results }: typeof signedSource) => {
+      const data: CalcReportData = {
+        config: { projectName: 'Portal', engineerName: '', companyName: '', date: '', notes: '' },
+        is3D: true, analysisMode: 'PRO', provenance: { kind: 'combo', comboName: name },
+        nodes: [...modelStore.nodes.values()], elements: [...modelStore.elements.values()],
+        supports: [...modelStore.supports.values()], materials: [...modelStore.materials.values()],
+        sections: [...modelStore.sections.values()], loads: [], loadCases: [], combinations: [], results3D: results,
+      };
+      return generateCalcReportHtml(data);
+    };
+    const signed = report(signedSource), magnitude = report(magnitudeSource);
+    expect(signed).toContain(t('calcReport.forceSummary'));
+    expect(signed).toContain(t('calcReport.reactionBalanceNote'));
+    expect(magnitude).toContain(t('figures.magnitudes'));
+    expect(magnitude).toContain(t('calcReport.endForces'));
+    expect(magnitude).not.toContain(t('calcReport.forceSummary'));
+    expect(magnitude).not.toContain(t('calcReport.reactionBalanceNote'));
   });
 });
 
