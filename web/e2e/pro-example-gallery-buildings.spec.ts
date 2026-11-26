@@ -9,7 +9,7 @@ import { BUILD_FEATURES } from './build-features';
 import { test, expect, alSection } from './fixtures';
 
 if (BUILD_FEATURES.proPlatesUnified) {
-  test('@smoke the gallery opens on the concrete buildings and one loads with the generator\'s wind, its dialog on its settings', async ({ pro: page }) => {
+  test('@slow the gallery opens on the concrete buildings and one loads with the generator\'s wind, its dialog on its settings', async ({ pro: page }) => {
     test.setTimeout(180_000);
     await page.getByTestId('pr-project').click();
     await page.getByTestId('pp-examples').click();
