@@ -602,6 +602,7 @@ fn staged_wire_fixtures_preserve_their_support_and_section_contracts() {
     }
 }
 
+#[cfg(test)]
 #[test]
 fn staged_wire_refuses_tables_it_cannot_consume() {
     use crate::solver::staged::{parse_staged_2d, parse_staged_3d, solve_staged_2d, solve_staged_3d};
