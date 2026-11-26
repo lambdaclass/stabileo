@@ -11,9 +11,10 @@
   import Hint from '../Hint.svelte';
   import { t, tp, i18n } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
-  import { modelStore } from '../../../lib/store';
+  import { modelStore, uiStore } from '../../../lib/store';
   import { designData, patchDesignData } from '../../../lib/store/design-data';
-  import { rcSheetsData, seismicAdvice, setAlternativeOptions, setColumnEndZones, setDeflectionSettings, setRcOption, setTorsionMode, sheetCode } from '../../../lib/store/rc-sheets.svelte';
+  import { rcSheetsData, seismicAdvice, setAlternativeOptions, setColumnEndZones, setDeflectionSettings, setFlangeBeams, setRcOption, setTorsionMode, sheetCode } from '../../../lib/store/rc-sheets.svelte';
+  import { PHYSICAL_GROUP_KIND } from '../../../lib/model/physical/types';
   import { acceptedClassesAfter, DEFLECTION_SUPPORTS, LOAD_MONTHS, optionRule, type DeflectionSupport, type DesignOptionFlag, type DesignOptionKey, type LoadMonths } from '../../../lib/rc-sheets/design-options';
   import { DEFAULT_CREEP, DEFAULT_MONTHS, DEFAULT_SUPPORTS } from '../../../lib/rc-sheets/deflection';
   import { MIN_TIE_SPACING_RANGE, PRESUMED_BEARING_RANGE, FOUNDING_RANGE } from '../../../lib/model/design-data';
@@ -48,6 +49,9 @@
     if (Number.isFinite(v) && v >= 0 && v <= max) setDeflectionSettings({ [key]: v }); else input.value = defl[key] !== undefined ? String(defl[key]) : '';
   };
   const ANALYSIS: DesignOptionFlag[] = ['faces', 'flange'];
+  /** The beams (physical groups) holding the members selected now. */
+  const selectedBeams = (): number[] => [...modelStore.model.groups.values()].filter((g) => g.kind === PHYSICAL_GROUP_KIND && (g.data as { kind?: string } | undefined)?.kind === 'beam' && (g.members.elements ?? []).some((e) => uiStore.selectedElements.has(e))).map((g) => g.id);
+  const beamName = (id: number) => modelStore.model.groups.get(id)?.name ?? `#${id}`;
   const DETAILING: Array<DesignOptionFlag | 'endZones'> = ['bentBars', 'slabBentBars', 'endZones'];
   const advice = $derived(seismicAdvice());
   const SEISMIC_RULES = ['capacity', 'hoops', 'confinement', 'joints', 'laps', 'walls'] as const;
@@ -75,6 +79,23 @@
   <summary><span class="do-h">{t('designData.analysis')}</span> <span class="do-sum" data-testid="design-options-analysis-summary">{summary(ANALYSIS, [t(`designData.opt.short.torsion.${o.torsion}`)])}</span></summary>
   {@render option('faces')}
   {@render option('flange')}
+  {#if on('flange')}
+    {@const listed = d.designOptions?.flangeBeams}
+    <div class="do-sub" data-testid="dd-flange-beams">
+      <label class="do-inline"><input type="radio" name="flange-beams" checked={!listed} onchange={() => setFlangeBeams(null)} data-testid="dd-flange-all" /> {t('designData.flange.all')}</label>
+      <label class="do-inline"><input type="radio" name="flange-beams" checked={!!listed} onchange={() => setFlangeBeams(selectedBeams())} data-testid="dd-flange-chosen" /> {t('designData.flange.chosen')}</label>
+      {#if listed}
+        <div class="do-beams">
+          {#each listed as id (id)}
+            <span class="do-beam" data-testid="dd-flange-beam">{beamName(id)} <button type="button" aria-label={tp('designData.flange.remove', { name: beamName(id) })} onclick={() => setFlangeBeams(listed.filter((x) => x !== id))}>×</button></span>
+          {:else}
+            <span class="do-cl">{t('designData.flange.none')}</span>
+          {/each}
+          <button type="button" class="do-add" disabled={!selectedBeams().length} onclick={() => setFlangeBeams([...listed, ...selectedBeams()])} data-testid="dd-flange-add">{t('designData.flange.addSelected')}</button>
+        </div>
+      {/if}
+    </div>
+  {/if}
   <div class="do-opt">
     <label class="do-inline">{t('rcSheets.torsion')}
       <select value={o.torsion} onchange={(e) => setTorsionMode(e.currentTarget.value as TorsionMode)} data-testid="dd-opt-torsion">
@@ -240,4 +261,8 @@
   .do-advice.warn { color: var(--st-warn); }
   .do-label { font-weight: 600; color: var(--st-text); }
   .do-rules { margin: 2px 0 0; padding-left: 2.2em; font-size: 0.68rem; line-height: 1.45; color: var(--st-text-2); }
+  .do-beams { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 4px; }
+  .do-beam { font-size: 0.7rem; padding: 1px 6px; border: 1px solid var(--st-hair); border-radius: 999px; }
+  .do-beam button { border: none; background: none; color: var(--st-text-3); cursor: pointer; padding: 0 0 0 2px; }
+  .do-add { font-size: 0.7rem; }
 </style>

@@ -46,7 +46,7 @@ export interface DemandSet {
 export interface DemandInput {
   nodes: ReadonlyMap<number, Pt>;
   elements: ReadonlyMap<number, El>;
-  sections: ReadonlyMap<number, { id: number; b?: number; h?: number; rotation?: number }>;
+  sections: ReadonlyMap<number, { id: number; b?: number; h?: number; rotation?: number; shape?: string; tw?: number; tf?: number }>;
   supportNodes: ReadonlySet<number>;
   shells: ShellModel;
   groups: readonly DemandGroup[];
@@ -216,10 +216,34 @@ function take(env: SectionEnv, m: number, n: number, combo: string): void {
   if (-m > env.neg.value) { env.neg = { value: -m, source: { combo, x: env.x } }; env.nNeg = n; }
 }
 
-function flangeOf(m: DemandInput, span: Array<{ e: El; forward: boolean }>, bw: number, ln: number): { bf: number; hf: number } | null {
+/** A span modelled with a T section: its web, and the flange its section draws. */
+function teeOf(m: DemandInput, span: ReadonlyArray<{ e: El }>): { bw: number; bf: number; hf: number } | null {
+  const secs = span.map(({ e }) => m.sections.get(e.sectionId));
+  if (!secs.every((x) => x?.shape === 'T' && x.tw && x.tf && x.b && x.h)) return null;
+  return { bw: Math.min(...secs.map((x) => x!.tw!)), bf: Math.min(...secs.map((x) => x!.b!)), hf: Math.min(...secs.map((x) => x!.tf!)) };
+}
+
+/** Whether a span carries a concentrated load: a beam framing in or a post standing on one of its inner nodes. */
+function carriesPoint(inc: Map<number, El[]>, span: ReadonlyArray<{ e: El; forward: boolean }>): boolean {
+  const mine = new Set(span.map(({ e }) => e.id));
+  const inner = span.slice(1).map(({ e, forward }) => (forward ? e.nodeI : e.nodeJ));
+  return inner.some((n) => (inc.get(n) ?? []).some((o) => !mine.has(o.id)));
+}
+
+/**
+ * The slab as a compression flange for sagging (Tabla 6.3.2.1): its effective width from the slabs
+ * beside it, or from its own T section's flange cut to that width; reduced 40 % where the span
+ * carries a concentrated load (FIUBA §8.10, p. 52).
+ */
+function flangeOf(m: DemandInput, inc: Map<number, El[]>, span: Array<{ e: El; forward: boolean }>, bw: number, ln: number, tee: { bf: number; hf: number } | null): BeamDemand['flange'] | null {
   const sides = span.map(({ e }) => m.flangeSides?.(e.id)).find((x) => x && x.length);
-  const f = sides ? effectiveFlange(bw, ln, [...sides]) : null;
-  return f && f.bf > bw + 1e-6 ? { bf: f.bf, hf: f.hf } : null;
+  const slab = sides ? effectiveFlange(bw, ln, [...sides]) : null;
+  const own = tee ? effectiveFlange(bw, ln, [{ hf: tee.hf, clear: Infinity }, { hf: tee.hf, clear: Infinity }]) : null;
+  const f = tee && own ? { bf: Math.min(tee.bf, own.bf), hf: tee.hf, kind: 'T' as const } : slab;
+  if (!f || f.bf <= bw + 1e-6) return null;
+  const point = carriesPoint(inc, span);
+  const bf = point ? Math.max(bw, bw + 0.6 * (f.bf - bw)) : f.bf;
+  return { bf: Math.round(bf * 1e6) / 1e6, hf: f.hf, kind: f.kind, ...(point ? { reduced: true as const } : {}), ...(tee ? { own: true as const, ...(slab ? { twice: true as const } : {}) } : {}) };
 }
 
 /** The nodes of vertical shells (walls), each with the walls through it: thickness, m, and horizontal direction in plan. */
@@ -292,6 +316,7 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
       const sec = smallestSection(m, span);
       if (!sec) return;
       const turned = !upright(first) && Math.abs((((first.rollAngle ?? 0) % 180) + 180) % 180 - 90) < 5;
+      const tee = turned ? null : teeOf(m, span);
       const flex: 'my' | 'mz' = turned ? 'mz' : 'my';
       const shear: 'vz' | 'vy' = turned ? 'vy' : 'vz';
       const L = span.reduce((s, r) => s + lengthOf(m, r.e), 0);
@@ -349,7 +374,7 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
       });
       out.push({
         key: `beam:${g.id}:${k}`, name: spans.length > 1 ? `${g.name}-${k + 1}` : g.name, level: g.level,
-        length: L, b: turned ? sec.h : sec.b, h: turned ? sec.b : sec.h,
+        length: L, b: turned ? sec.h : tee ? tee.bw : sec.b, h: turned ? sec.b : sec.h,
         start, span: mid, end, negAny, nNegAny, vu, nAtV: nV, tu, combos,
         faces: m.faces ? { start: faceI, end: faceJ, shearAt: dv } : undefined,
         ...(m.faceOffset ? { supportHalf: { start: m.faceOffset(first.id, span[0]!.forward ? 'i' : 'j'), end: m.faceOffset(lastEl.e.id, lastEl.forward ? 'j' : 'i') } } : {}),
@@ -358,7 +383,7 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
         ...((ps, pe) => (ps || pe ? { posts: { ...(ps ? { start: ps } : {}), ...(pe ? { end: pe } : {}) } } : {}))(postAt(m, inc, mine, startNode, named), postAt(m, inc, mine, endNode, named)),
         ...(m.slabSides ? { perimeter: span.some(({ e }) => m.slabSides!(e.id) < 2) } : {}),
         env,
-        ...((fl) => (fl ? { flange: fl } : {}))(m.flangeSides && !turned ? flangeOf(m, span, sec.b, x1 - x0) : null),
+        ...((fl) => (fl ? { flange: fl } : {}))(m.flangeSides && !turned ? flangeOf(m, inc, span, tee ? tee.bw : sec.b, x1 - x0, tee) : null),
         ...((sl) => (sl ? { slabs: sl } : {}))(slabsAlong(m, span)),
         ...(missing.length ? { missing } : {}),
       });
