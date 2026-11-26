@@ -227,16 +227,37 @@ fn benchmark_protocol_toggle_frame_refinement() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2608"]
 fn benchmark_protocol_toggle_truss_refinement_mechanism() {
-    for n in [1, 2] {
-        solve(&model("shallow-toggle-truss", n, false, ""), true);
+    solve(&model("shallow-toggle-truss", 1, false, ""), true);
+
+    let message = "the structure is a mechanism at nodes [2]: a translation of this joint leaves all attached trusses unstrained and satisfies the restraints";
+    for (n, dx, dz) in [(2, 1.0, 0.05), (4, 0.5, 0.025)] {
+        let proof = format!(
+            "{n} subdivisions. Node 2 is unrestrained and lies between nodes 1 and 3. \
+             The chords of bars 1–2 and 2–3 are both ({dx}, {dz}). \
+             Moving only node 2 by ({}, {dx}) gives zero chord dot product in both bars \
+             and preserves the end supports, so the reference stiffness has a null mode.",
+            -dz
+        );
+        let error = try_solve(&model("shallow-toggle-truss", n, false, ""), true)
+            .expect_err(&proof);
+        let diagnostic: Value = error
+            .strip_prefix("model or reference suspect: ")
+            .and_then(|quoted| serde_json::from_str::<String>(quoted).ok())
+            .and_then(|diagnostic| serde_json::from_str(&diagnostic).ok())
+            .unwrap_or_else(|| panic!("{proof} Expected a structured solver refusal. Got {error}"));
+        assert_eq!(diagnostic["message"], message, "{proof}");
+        assert_eq!(
+            diagnostic["structuredDiagnostics"],
+            json!([{
+                "code": "reduced_stiffness_rank",
+                "message": message,
+                "nodeIds": [2],
+                "severity": "error",
+            }]),
+            "{proof}"
+        );
     }
-    // Only the four-subdivision mesh fails the tangent solve; the two-subdivision
-    // mesh above must still reach full load rather than accepting any error.
-    let error = try_solve(&model("shallow-toggle-truss", 4, false, ""), true)
-        .expect_err("four-subdivision truss must expose its transverse mechanism");
-    assert_eq!(error, "model or reference suspect: \"Singular tangent stiffness — structure may be a mechanism or load increment too large\"");
 }
 
 #[test]

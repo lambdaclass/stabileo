@@ -180,12 +180,15 @@ impl StructuralKinematics {
                 if !released || !terminal(tip, &incidence, &unsupported) {
                     continue;
                 }
-                let Some(chord) = chord(&positions, pivot, tip) else {
+                let Some([x, z]) = chord(&positions, pivot, tip) else {
                     continue;
                 };
+                let component = if z.abs() > x.abs() { "ux" } else { "uz" };
+                let [ux, _, uz] = swing_translation_rows(&[x, Rational::zero(), z]);
+                let project_onto_negative_y = |row: Row| vec![-&row[1]];
                 let rows = [
-                    vec![-&chord[1]],
-                    vec![chord[0].clone()],
+                    project_onto_negative_y(ux),
+                    project_onto_negative_y(uz),
                     vec![if tip_released {
                         Rational::zero()
                     } else {
@@ -195,7 +198,6 @@ impl StructuralKinematics {
                 if let Some(swing) =
                     LocalMotion::at_node(tip, rows, RowBasis::new(1), dof, &springs)
                 {
-                    let component = if chord[1].abs() > chord[0].abs() { "ux" } else { "uz" };
                     frame_swings.push((swing, Some(component)));
                 }
             }
@@ -264,19 +266,10 @@ impl StructuralKinematics {
                 let Some(chord) = chord(&positions, pivot, tip) else {
                     continue;
                 };
-                let [x, y, z] = chord.as_slice() else {
-                    unreachable!()
-                };
-                let rows = [
-                    vec![Rational::zero(), z.clone(), -y],
-                    vec![-z, Rational::zero(), x.clone()],
-                    vec![y.clone(), -x, Rational::zero()],
-                    unit_row(3, 0),
-                    unit_row(3, 1),
-                    unit_row(3, 2),
-                ];
+                let [ux, uy, uz] = swing_translation_rows(&chord);
+                let rows = [ux, uy, uz, unit_row(3, 0), unit_row(3, 1), unit_row(3, 2)];
                 let mut conditions = RowBasis::new(3);
-                conditions.add(chord);
+                conditions.add(chord.into());
                 if let Some(swing) = LocalMotion::at_node(tip, rows, conditions, dof, &springs)
                 {
                     frame_swings.push((swing, None));
@@ -470,15 +463,22 @@ fn chord<const D: usize>(
     positions: &BTreeMap<usize, [f64; D]>,
     pivot: usize,
     tip: usize,
-) -> Option<Row> {
+) -> Option<[Rational; D]> {
     let a = positions.get(&pivot)?;
     let b = positions.get(&tip)?;
-    let row: Row = a
-        .iter()
-        .zip(b)
-        .map(|(&a, &b)| Some(Rational::from_float(b)? - Rational::from_float(a)?))
-        .collect::<Option<_>>()?;
-    row.iter().any(|value| !value.is_zero()).then_some(row)
+    let mut chord = std::array::from_fn(|_| Rational::zero());
+    for (axis, difference) in chord.iter_mut().enumerate() {
+        *difference = Rational::from_float(b[axis])? - Rational::from_float(a[axis])?;
+    }
+    chord.iter().any(|value| !value.is_zero()).then_some(chord)
+}
+
+fn swing_translation_rows([x, y, z]: &[Rational; 3]) -> [Row; 3] {
+    [
+        vec![Rational::zero(), z.clone(), -y],
+        vec![-z, Rational::zero(), x.clone()],
+        vec![y.clone(), -x, Rational::zero()],
+    ]
 }
 
 fn terminal(
