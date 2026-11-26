@@ -16,14 +16,14 @@
     "hu": "A térbeli burkológörbék lekérdezése megtartja mindkét előjeles rúdvégi szélsőértéket"
   },
   "explanation": {
-    "en": "When both signs occur, the query table and CSV export include the positive and negative bounds on the inward face of each member end.",
-    "es": "Cuando se dan ambos signos, la tabla de consulta y la exportación CSV incluyen los límites positivo y negativo de la cara interior de cada extremo de la barra.",
-    "pt": "Quando ocorrem ambos os sinais, a tabela de consulta e a exportação CSV incluem os limites positivo e negativo na face interior de cada extremidade da barra.",
-    "de": "Treten beide Vorzeichen auf, enthalten die Abfragetabelle und der CSV-Export die positive und die negative Grenze an der Innenseite jedes Stabendes.",
-    "fr": "Lorsque les deux signes sont présents, la table de requête et l’export CSV incluent les bornes positive et négative du côté intérieur de chaque extrémité de barre.",
-    "tr": "Her iki işaret de varsa sorgu tablosu ve CSV dışa aktarımı, her eleman ucunun iç tarafındaki pozitif ve negatif sınırları içerir.",
-    "zh": "当两种符号都出现时，查询表和 CSV 导出均包含各杆端内侧的正负限值。",
-    "hu": "Ha mindkét előjel előfordul, a lekérdezési táblázat és a CSV-export minden rúdvég belső oldalán a pozitív és a negatív szélsőértéket is tartalmazza."
+    "en": "The query table and CSV use the signed values at the inward face of each member end across the solved cases or combinations in the displayed envelope. Signed minima and maxima are available even when all values have the same sign.",
+    "es": "La tabla de consulta y el CSV usan los valores con signo de la cara interior de cada extremo de barra en los casos o combinaciones resueltos de la envolvente mostrada. El mínimo y el máximo con signo están disponibles aunque todos los valores tengan el mismo signo.",
+    "pt": "A tabela de consulta e o CSV usam os valores com sinal na face interna de cada extremidade da barra, nos casos ou combinações resolvidos da envolvente exibida. O mínimo e o máximo com sinal estão disponíveis mesmo quando todos os valores têm o mesmo sinal.",
+    "de": "Abfragetabelle und CSV verwenden die vorzeichenbehafteten Werte an der Innenseite jedes Stabendes aus den berechneten Lastfällen oder Kombinationen der dargestellten Einhüllenden. Minimum und Maximum sind auch bei einheitlichem Vorzeichen verfügbar.",
+    "fr": "La table de requête et le CSV utilisent les valeurs signées du côté intérieur de chaque extrémité de barre, issues des cas ou combinaisons calculés de l’enveloppe affichée. Les minimums et maximums signés sont disponibles même si toutes les valeurs ont le même signe.",
+    "tr": "Sorgu tablosu ve CSV, görüntülenen zarftaki çözülmüş yük durumları veya birleşimlerinden her eleman ucunun iç tarafındaki işaretli değerleri kullanır. Tüm değerler aynı işarete sahip olsa da işaretli en küçük ve en büyük değerler gösterilir.",
+    "zh": "查询表和 CSV 使用当前包络中各已求解工况或组合在杆端内侧的带符号值。即使所有值同号，仍可查询带符号的最小值和最大值。",
+    "hu": "A lekérdezési táblázat és a CSV a megjelenített burkológörbe megoldott tehereseteinek vagy teherkombinációinak előjeles értékeit használja a rúdvégek belső oldalán. Az előjeles minimum és maximum akkor is elérhető, ha minden érték előjele azonos."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-signed-envelope-end-queries.md",

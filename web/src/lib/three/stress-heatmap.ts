@@ -5,9 +5,9 @@ import * as THREE from 'three';
 import { prepareDiagramEvaluator3D, requireConcurrentSectionForces, sampleMemberResultant3D } from '../engine/diagrams-3d';
 import { memberForceExtrema } from '../engine/member-force-extrema';
 import { boundMemberEnvelopeDiagram, boundSpatialEnvelope, memberEnvelopeOrdinates, memberSectionStation, unavailableDiagramExtrema } from '../engine/member-diagram';
-import { envelopeQuerySources } from '../engine/result-query';
+import { envelopeSourcesByMember } from '../engine/result-query';
 import { computeSectionStress } from '../engine/section-stress-3d';
-import type { AnalysisResults3D, ElementForces3D } from '../engine/types-3d';
+import type { ElementForces3D } from '../engine/types-3d';
 import { heatmapColor } from './selection-helpers';
 import { ensureOwnShellMaterial } from './create-shell-mesh';
 import { bandValue } from '../engine/contour-scale';
@@ -52,18 +52,11 @@ type HeatmapStation = { t: number; value: number };
 
 const heatmapStations = Array.from({ length: HEATMAP_SEGMENTS + 1 }, (_, index) => index / HEATMAP_SEGMENTS);
 
-const envelopeMembers = new WeakMap<readonly AnalysisResults3D[], readonly ReadonlyMap<number, ElementForces3D>[]>();
-
 function resultantSources(ef: ElementForces3D): readonly ElementForces3D[] {
   const envelope = boundSpatialEnvelope(ef);
   if (!envelope) return [ef];
-  const sources = envelopeQuerySources(envelope);
-  if (!sources?.length) throw unavailableDiagramExtrema();
-  let members = envelopeMembers.get(sources);
-  if (!members) {
-    members = sources.map(source => new Map(source.elementForces.map(member => [member.elementId, member])));
-    envelopeMembers.set(sources, members);
-  }
+  const members = envelopeSourcesByMember(envelope);
+  if (!members) throw unavailableDiagramExtrema();
   return members.map(source => {
     const member = source.get(ef.elementId);
     if (!member || member.length !== ef.length) throw unavailableDiagramExtrema();

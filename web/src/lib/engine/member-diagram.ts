@@ -547,7 +547,7 @@ function isInwardEndpointFace(t: number, right?: boolean): boolean {
   return face === undefined || right === undefined || face === right;
 }
 
-export function memberEnvelopeBounds(diagram: ElementEnvelopeDiagram, length: number, facesMode?: 'diagram') {
+function memberEnvelopeBounds(diagram: ElementEnvelopeDiagram, length: number, facesMode?: 'diagram') {
   const faces = new Map<number, { x: number; side: 'left' | 'right' }>();
   for (const { index, distance: x } of envelopeJumpCuts(diagram, length)) {
     faces.set(index, { x, side: 'left' });

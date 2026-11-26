@@ -1,10 +1,12 @@
 # Signed bounds in spatial envelope end queries
 
-The Pro query table and its CSV export now include both signed envelope
-bounds at the inward side of each member end. If two load cases give
-+100 kN and −60 kN at the same inward end, both values are available
-to the query and to its absolute threshold. Previously the branch kept
-only +100 kN in this example. The absolute governing value is +100 kN.
+The Pro query table and its CSV export now include each distinct signed
+value at the inward side of a member end across the solved cases or
+combinations in the displayed envelope. The minimum and maximum modes
+can use those values even when every case has the same sign. For
+example, if two cases yield +10 kN and +20 kN at an end, the minimum is
++10 kN and the maximum is +20 kN. The absolute threshold applies to
+each available value.
 
-Open the envelope and export the query again to recover the additional
-rows. Existing solved cases and combinations supply the bounds.
+Open the envelope and export the query again to recover the signed
+values.

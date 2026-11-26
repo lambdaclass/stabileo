@@ -9,9 +9,9 @@
  * ProResultsTab wires these to UI state and handles the CSV download.
  */
 
-import type { AnalysisResults3D, ElementForces3D, EnvelopeDiagramData3D, FullEnvelope3D } from './types-3d';
+import type { AnalysisResults3D, ElementForces3D, FullEnvelope3D } from './types-3d';
 import { memberEndForces3D, type Diagram3DKind } from './diagrams-3d';
-import { memberEnvelopeBounds } from './member-diagram';
+import { unavailableDiagramExtrema } from './member-diagram';
 
 // ─── Components ───────────────────────────────────────────────
 
@@ -44,10 +44,6 @@ const forceDiagrams: Record<ForceComponent, Diagram3DKind> = {
   N: 'axial', Vy: 'shearY', Vz: 'shearZ', T: 'torsion', My: 'momentY', Mz: 'momentZ',
 };
 
-export function forceDiagramForComponent(component: ForceComponent): Diagram3DKind {
-  return forceDiagrams[component];
-}
-
 export function componentEnds(ef: ElementForces3D, component: ForceComponent): { i: number; j: number } {
   const [i, j] = memberEndForces3D(ef, forceDiagrams[component]);
   return { i, j };
@@ -71,20 +67,55 @@ export type ExtremeMode = 'max' | 'min' | 'absmax';
 export interface QueryRowsOptions {
   /** If provided, only these element ids are included (in iteration order). */
   elementIds?: Iterable<number>;
-  envelope?: EnvelopeDiagramData3D;
+  envelope?: FullEnvelope3D;
 }
 
-const envelopeCases = new WeakMap<FullEnvelope3D, readonly AnalysisResults3D[]>();
+const envelopeCases = new WeakMap<FullEnvelope3D, {
+  sources: readonly AnalysisResults3D[];
+  byMember?: readonly ReadonlyMap<number, ElementForces3D>[];
+}>();
 
 export function bindEnvelopeQuerySources<E extends FullEnvelope3D | null>(
   envelope: E, sources: readonly AnalysisResults3D[],
 ): E {
-  if (envelope && sources.length) envelopeCases.set(envelope, [...sources]);
+  if (envelope && sources.length) envelopeCases.set(envelope, { sources: [...sources] });
   return envelope;
 }
 
 export function envelopeQuerySources(envelope: FullEnvelope3D): readonly AnalysisResults3D[] | undefined {
-  return envelopeCases.get(envelope);
+  return envelopeCases.get(envelope)?.sources;
+}
+
+export function envelopeSourcesByMember(envelope: FullEnvelope3D) {
+  const binding = envelopeCases.get(envelope);
+  if (binding) {
+    return binding.byMember ??= binding.sources.map(result => new Map(result.elementForces.map(ef => [ef.elementId, ef])));
+  }
+}
+
+function envelopeQueryRows(
+  members: ElementForces3D[], component: ForceComponent, envelope: FullEnvelope3D,
+): QueryRow[] {
+  const casesByMember = envelopeSourcesByMember(envelope);
+  if (!casesByMember) throw unavailableDiagramExtrema();
+  const rows: QueryRow[] = [];
+  for (const { elementId } of members) {
+    const starts = new Set<number>(), ends = new Set<number>();
+    for (const byMember of casesByMember) {
+      const member = byMember.get(elementId);
+      if (!member) throw unavailableDiagramExtrema();
+      const { i, j } = componentEnds(member, component);
+      if (!Number.isFinite(i) || !Number.isFinite(j)) throw unavailableDiagramExtrema();
+      starts.add(i);
+      ends.add(j);
+    }
+    for (const [end, values] of [['i', starts], ['j', ends]] as const) {
+      for (const value of [...values].sort((a, b) => b - a)) {
+        rows.push({ elementId, component, end, value });
+      }
+    }
+  }
+  return rows;
 }
 
 /**
@@ -95,28 +126,16 @@ export function buildQueryRows(
   component: ForceComponent,
   opts: QueryRowsOptions = {},
 ): QueryRow[] {
-  const rows: QueryRow[] = [];
-  let source = forces;
+  const members = opts.envelope?.maxAbsResults3D.elementForces ?? forces;
+  let source = members;
   if (opts.elementIds) {
     const wanted = new Set(opts.elementIds);
-    const byId = new Map(forces.map((ef) => [ef.elementId, ef]));
+    const byId = new Map(members.map((ef) => [ef.elementId, ef]));
     source = [...wanted].map((id) => byId.get(id)).filter((ef): ef is ElementForces3D => ef != null);
   }
-  const envelopes = opts.envelope && new Map(opts.envelope.elements.map(diagram => [diagram.elementId, diagram]));
+  if (opts.envelope) return envelopeQueryRows(source, component, opts.envelope);
+  const rows: QueryRow[] = [];
   for (const ef of source) {
-    if (envelopes) {
-      const diagram = envelopes.get(ef.elementId);
-      if (!diagram) continue;
-      const bounds = memberEnvelopeBounds(diagram, ef.length);
-      const endpoints = [bounds[0], bounds.at(-1)];
-      for (const [index, end] of (['i', 'j'] as const).entries()) {
-        const face = endpoints[index];
-        if (face?.t !== index) continue;
-        if (face.pos !== 0 || face.neg === 0) rows.push({ elementId: ef.elementId, component, end, value: face.pos });
-        if (face.neg !== 0) rows.push({ elementId: ef.elementId, component, end, value: face.neg });
-      }
-      continue;
-    }
     const { i, j } = componentEnds(ef, component);
     rows.push({ elementId: ef.elementId, component, end: 'i', value: i });
     rows.push({ elementId: ef.elementId, component, end: 'j', value: j });
