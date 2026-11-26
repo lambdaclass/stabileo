@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { memberDiagram } from '../member-diagram';
 import { computeElementDiagram } from '../diagrams';
 import { computeDiagram3D, criticalDiagramStations3D, type Diagram3DKind } from '../diagrams-3d';
 import type { ElementForces3D } from '../types-3d';
@@ -115,4 +116,19 @@ it('known wrong result: #2250 preserves an interval-local shear peak in both dim
   expect(criticalDiagramStations3D({
     ...spatial, distributedLoadsZ: [{ a: 0, b: length, qI: 1, qJ: -1 }],
   })).toContainEqual({ t: 0.5 });
+});
+
+it.skipIf(process.env.RUN_KNOWN_WRONG !== '2581')('known wrong result: #2581 reuses the cut interval polynomial across component and resultant extrema', () => {
+  const length = 4;
+  const curve = memberDiagram(length, -2, 0, [{ a: 0, b: length, qI: 2, qJ: 2 }], [
+    { a: 1, jump: 3 },
+  ]);
+  const first = curve.polynomial(0, 0.25);
+  const second = curve.polynomial(0.25, 1);
+  expect.soft(curve.polynomial(0, 0.25, 0, 1)).toBe(first);
+  expect.soft(curve.polynomial(0.25, 1, 1, length)).toBe(second);
+  expect.soft(curve.value({ t: 0.125 })).toBe(-1);
+  expect.soft(curve.value({ t: 0.5 })).toBe(5);
+  expect.soft(curve.polynomial(0.25, 1, 2, length)).not.toEqual(second);
+  expect.soft(curve.polynomial(0, 1)).not.toEqual(first);
 });
