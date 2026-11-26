@@ -1006,6 +1006,18 @@ async function pressBack(page: Page): Promise<void> {
 
 export function pinnedDefects(): void {
   test.describe('@slow Basic advanced — defects found by this sweep, now regression tests', () => {
+    test('generated cantilever with a moment solves and returns from the step-by-step catalog', async ({ page }) => {
+      test.fixme(true, 'known wrong result: #2588');
+      const ctx = await boot(page);
+      await loadNamed(ctx, 'gen-cantilever-moment');
+      expect.soft(await solveFromRibbon(ctx)).toBe('solved');
+      await expect.soft(page.getByTestId('rb-cmd-momentY')).toBeEnabled();
+      await runFn(ctx, 'steps');
+      await expect.soft(page.getByTestId('steps-catalog')).toBeVisible();
+      await openList(ctx);
+      finish(ctx);
+    });
+
     test('D1 influence line: "← Back" throws and leaves the line drawn', async ({ page }) => {
       const ctx = await boot(page);
       await loadNamed(ctx, 'portal-frame');
