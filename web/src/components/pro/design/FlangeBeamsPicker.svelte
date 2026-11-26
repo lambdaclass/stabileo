@@ -96,6 +96,6 @@
   .fb-list label { display: inline-flex; align-items: center; gap: 6px; }
   .fb-lv { color: var(--st-text-3); }
   .fb-x { border: none; background: none; color: var(--st-text-3); cursor: pointer; font-size: 0.85rem; }
-  .fb-x:hover, .fb-del:not(:disabled) { color: var(--st-danger, #e5484d); }
+  .fb-x:hover, .fb-del:not(:disabled) { color: var(--st-danger); }
   button { font-size: 0.7rem; }
 </style>
