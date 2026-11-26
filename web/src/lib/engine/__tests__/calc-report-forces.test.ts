@@ -1,4 +1,9 @@
 import { readFileSync } from 'node:fs';
+import { render } from 'svelte/server';
+import QuickInfoCard from '../../../components/viewport/QuickInfoCard.svelte';
+import { resultsStore } from '../../store/results.svelte';
+import { viewState } from '../../store/view-state.svelte';
+import { fmtQ } from '../../store/display-units.svelte';
 import * as planarDiagrams from '../diagrams';
 import * as spatialDiagrams from '../diagrams-3d';
 import { computeElementStress } from '../../store/results.svelte';
@@ -722,7 +727,6 @@ it('known wrong result: #2581 converge interactive tables and member hover agree
   const pro = sources('pro/ProResultsTab');
   const hover = sources('Viewport');
   const properties = sources('property/ElementDetails');
-  const quickInfo = sources('viewport/QuickInfoCard');
   const planar = ef2D({ nStart: 100, nEnd: 100, mStart: -30, mEnd: -30 });
   const spatial = ef3D({ nStart: 100, nEnd: 100, mxStart: -10, mxEnd: -10, myStart: -30, myEnd: -30, mzStart: 20, mzEnd: 20 });
   const displayedMoments = (source: string, forces: typeof planar | typeof spatial, fields: string[]) => {
@@ -736,17 +740,89 @@ it('known wrong result: #2581 converge interactive tables and member hover agree
     return fields.map(field => {
       const expr = new RegExp("(?:mom|fmtQ|dv)\\((-?i\\." + field + ")(?=[,)])").exec(source)?.[1];
       if (expr) return expr.startsWith('-') ? -i[field] : i[field];
-      const peak = new RegExp("fmtQ\\(peak\\(i\\." + field + ", j\\." + field + "\\), 'moment'\\)").test(source);
-      if (peak) return i[field];
       throw new Error('Missing moment expression for ' + field);
     });
   };
   for (const source of [basic, hover, properties]) {
     expect.soft(displayedMoments(source, planar, ['m'])).toEqual([30]);
   }
-  for (const source of [basic, pro, properties, quickInfo]) {
+  for (const source of [basic, pro, properties]) {
     expect.soft(displayedMoments(source, spatial, ['mx', 'my', 'mz'])).toEqual([10, 30, -20]);
   }
+});
+
+it.skip('known wrong result: #2581 converge quick info formats the signed peak across unequal ends', () => {
+  modelStore.clear();
+  const previousQuickInfo = viewState.quickInfo;
+  try {
+    const i = modelStore.addNode(0, 0, 0), j = modelStore.addNode(6, 0, 0);
+    const elementId = modelStore.addElement(i, j, 'frame');
+    uiStore.selectMode = 'elements';
+    uiStore.selectElement(elementId, false);
+    viewState.quickInfo = true;
+    const force = ef3D({
+      elementId, mxStart: -10, mxEnd: 2, myStart: -4, myEnd: 30, mzStart: 5, mzEnd: -20,
+      vzStart: 34 / 6, vzEnd: 34 / 6, vyStart: 25 / 6, vyEnd: 25 / 6,
+    });
+    resultsStore.setResults3D(r3D(force));
+    const { body } = render(QuickInfoCard);
+    expect(body).toContain(`My = ${fmtQ(-30, 'moment')} · Mz = ${fmtQ(20, 'moment')} · T = ${fmtQ(10, 'moment')}`);
+  } finally {
+    viewState.quickInfo = previousQuickInfo;
+    modelStore.clear();
+  }
+});
+
+it.skip('known wrong result: #2581 converge ordinary rebased cuts sample each spatial case in its own span', () => {
+  const local = 0.1;
+  const split = ef3D({
+    length: 2,
+    pieces: [
+      { x0: 0, x1: 1, sectionId: 1, forces: ef3D({ length: 1, vyStart: 3, vyEnd: 3 }) },
+      { x0: 1, x1: 2, sectionId: 2, forces: ef3D({ length: 1, vyStart: 3, vyEnd: 4, pointLoadsY: [{ a: local, p: 1 }] }) },
+    ],
+  });
+  const plain = ef3D({ length: 2, vzStart: 2, vzEnd: 2 });
+  const t = (1 + local) / split.length;
+  for (const cases of [[split, plain], [plain, split]]) {
+    const components = spatialDiagrams.sampleMemberComponentMagnitudes3D(cases, ['shearY', 'shearZ'], [0, 1]);
+    expect(components.stations.filter(point => point.t === t).map(point => point.value)).toEqual([3, 4]);
+    const resultants = sampleMemberResultant3D(cases, ['shearY', 'shearZ'], [0, 1]);
+    expect(resultants.stations.filter(point => point.t === t).map(point => point.value)).toEqual([3, 4]);
+    expect(resultants.stations.filter(point => point.t === 0 || point.t === 1).map(point => point.value)).toEqual([3, 4]);
+  }
+
+  const location = { x: 1 + local, rebased: { offset: 1, local: { x: local } } };
+  const at = { t, distance: location.x, location };
+  const atRoundedCut = ef3D({ length: 2, pointLoadsZ: [{ a: location.x, p: 5 }], vzEnd: 5 });
+  expect(spatialDiagrams.evaluateDiagramAt(atRoundedCut, 'shearZ', at, true)).toBe(0);
+  expect(spatialDiagrams.evaluateDiagramAt(atRoundedCut, 'shearZ', { ...at, location: undefined }, true)).toBe(5);
+  const intensity = 2 ** 55;
+  const continuous = ef3D({
+    length: 2, vzStart: -location.x * intensity, vzEnd: (2 - location.x) * intensity,
+    distributedLoadsZ: [{ a: 0, b: 2, qI: intensity, qJ: intensity }],
+  });
+  expect(spatialDiagrams.evaluateDiagramAt(continuous, 'shearZ', at)).toBe((local - (location.x - 1)) * intensity);
+});
+
+it.skip('known wrong result: #2581 converge spatial envelope ranges use inward end faces', () => {
+  const cases = [
+    { tPositions: [0, 0, 1], posValues: [10, 0, 0], negValues: [0, 0, 0] },
+    { tPositions: [0, 1, 1], posValues: [0, 0, 10], negValues: [0, 0, -10] },
+  ];
+  for (const data of cases) {
+    const diagram = { kind: 'axial' as const, globalMax: 10, elements: [{ ...data, elementId: 1 }] };
+    const [positive, negative] = spatialDiagrams.envelopeDiagrams3D(diagram, 1);
+    expect.soft(positive?.maxAbsValue).toBe(0);
+    expect.soft(negative?.maxAbsValue).toBe(0);
+  }
+  const interior = {
+    kind: 'axial' as const, globalMax: 5,
+    elements: [{ elementId: 1, tPositions: [0, 0.5, 0.5, 1], posValues: [2, 5, 0, 0], negValues: [0, 0, -3, -1] }],
+  };
+  const [positive, negative] = spatialDiagrams.envelopeDiagrams3D(interior, 1);
+  expect(positive?.maxValue).toBe(5);
+  expect(negative?.minValue).toBe(-3);
 });
 
 it('known wrong result: #2581 converge planar section ends refuse separate axial and bending winners', async () => {

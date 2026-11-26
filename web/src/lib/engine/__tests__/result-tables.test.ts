@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { memberForceExtrema } from '../member-force-extrema';
 /**
  * The across-combination tables: every value comes from a result set, with where and under what.
@@ -26,7 +27,7 @@ import { ConcurrentDemand } from '../concurrent-demand';
 import { computeElementStress3D } from '../section-stress-3d';
 import { generateCalcReportHtml } from '../calc-report';
 import { stationForces3D } from '../../section/panel';
-import { DIAGRAM_EXTREMA_UNAVAILABLE, memberEnvelopeOrdinates } from '../member-diagram';
+import { DIAGRAM_EXTREMA_UNAVAILABLE, bindMemberEnvelopeEnds, memberEnvelopeOrdinates, requireConcurrentSectionForces } from '../member-diagram';
 import { buildSolverInput3D, solveCombinations3D, solveCombinations3DParallel } from '../solver-service';
 import { POINT_END_TOL } from '../member-point-loads';
 import { expandVariableMembers, variableExpansionFor } from '../variable-members';
@@ -837,6 +838,12 @@ describe('spatial cantilever end queries', () => {
       }
     };
     checkEnds();
+    const collapsed = [...resultsStore.perCase3D.values()];
+    const direct = computeEnvelope3D(collapsed)!;
+    const member = direct.maxAbsResults3D.elementForces[0]!;
+    expect(member.pieces).toHaveLength(2);
+    for (const end of memberEndForces3D(member, 'shearZ')) expect(end).toBeCloseTo(values[1]!, 12);
+    expect(() => requireConcurrentSectionForces(member)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
     const viewed = envelopeOver(new Map(), [], resultsStore.perCase3D, [...cases.keys()]);
     expect(viewed).not.toBeNull();
     resultsStore.viewEnvelope3D(viewed, 'Variable member cases');
@@ -914,4 +921,47 @@ it('known wrong result: #2581 converge a force envelope requires the same member
     expect(complete.map(row => [row.min[0]?.value, row.max[0]?.value]))
       .toEqual(Array.from({ length: stations === 'critical' ? 5 : stations }, () => [100, 200]));
   }
+});
+
+
+it.skip('known wrong result: #2581 converge end resultants never combine independent envelope winners', async () => {
+  await initSolver();
+  const y = reviewSources({ ...reviewForces, vyStart: 3, vyEnd: 3, vzStart: 0, vzEnd: 0 })[0]!;
+  const z = { ...B, results: reviewSources({ ...reviewForces, vzStart: 4, vzEnd: 4 })[0]!.results };
+  const envelope = { ...A, results: computeEnvelope3D([y.results, z.results])!.maxAbsResults3D };
+  const opts = { ...canonical, resultant: true };
+  expect(rowsOf('forces', envelope.results, canonical).map(row => row.values.slice(1, 3))).toEqual([[3, 4], [3, 4]]);
+  expect(rowsOf('forces', y.results, opts).map(row => row.values[6])).toEqual([3, 3]);
+  expect(envelopeRows('forces', [y, z], opts).map(row => row.max[6]?.value)).toEqual([4, 4]);
+  expect.soft(() => rowsOf('forces', envelope.results, opts)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+  expect.soft(() => allRows('forces', [envelope], opts)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+  expect.soft(() => summaryRows('forces', [envelope], opts)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+  expect.soft(() => envelopeRows('forces', [envelope], opts)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+});
+
+it.skip.each([1, -1])('known wrong result: #2581 converge critical envelope summaries report attained signed extrema (%s)', async sign => {
+  await initSolver();
+  const sources = [10, 20].map((v, i) => ({
+    ...[A, B][i]!,
+    results: reviewSources({ ...reviewForces, nStart: sign * v, nEnd: sign * v, vzStart: 0, vzEnd: 0 })[0]!.results,
+  }));
+  const envelope = computeEnvelope3D(sources.map(source => source.results))!;
+  const aggregate = { id: 3, name: 'Envelope', results: envelope.maxAbsResults3D };
+  const opts = { ...canonical, stations: 'critical' } as const;
+  const axial = (sets: Source[]) => summaryRows('forces', sets, opts).find(row => row.column.key === 'n')!;
+  const [min, max] = (sign > 0 ? [10, 20] : [-20, -10]);
+  expect.soft(axial([aggregate])).toMatchObject({ min: { value: min }, max: { value: max } });
+  expect.soft(axial([aggregate, ...sources])).toEqual(axial(sources));
+  expect.soft(axial([sources[0]!])).toMatchObject({
+    min: { value: sign * 10, source: sources[0] }, max: { value: sign * 10, source: sources[0] },
+  });
+  const detached = bindMemberEnvelopeEnds(structuredClone(envelope));
+  expect.soft(() => axial([{ ...aggregate, results: detached.maxAbsResults3D }])).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+});
+
+it.skip('known wrong result: #2581 converge spatial WASM envelope paths share their finalizer', () => {
+  const source = readFileSync(new URL('../wasm-solver.ts', import.meta.url), 'utf8');
+  const compute = source.slice(source.indexOf('export function computeEnvelope3D('), source.indexOf('export function computeInfluenceLineWasm('));
+  expect(compute.match(/return bindSpatialEnvelope\(/g)).toHaveLength(2);
+  expect(compute).not.toContain('bindEnvelopeQuerySources');
 });

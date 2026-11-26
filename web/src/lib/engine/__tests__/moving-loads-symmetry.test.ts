@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import * as wasm from '../wasm-solver';
+import { t } from '../../i18n';
+import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../member-diagram';
 import { solveMovingLoads, solveMovingLoadsAsync } from '../moving-loads';
 import type { SolverInput } from '../types';
 import type { MovingLoadEnvelope } from '../moving-loads';
@@ -126,5 +129,29 @@ it('known wrong result: #2226 sync and async planar sweeps capture an axle betwe
     const { mMaxPos, mMaxNeg } = env.elements.get(1)!;
     expect.soft(Math.max(Math.abs(mMaxPos), Math.abs(mMaxNeg))).toBeCloseTo(exact, 10);
     expect.soft(env.fullEnvelope!.moment.elements[0]!.tPositions).toContain(step / length);
+  }
+});
+
+
+it.skip.each([
+  ['sync', solveMovingLoads],
+  ['async', solveMovingLoadsAsync],
+] as const)('known wrong result: #2581 converge a %s planar sweep requires a merged envelope', async (_mode, run) => {
+  const length = 4, weight = 8;
+  const input = makeSimpleBeam(length);
+  const train = { name: 'Axle', axles: [{ offset: 0, weight }] };
+  const config = { train, step: length / 2 };
+  const control = await run(input, config);
+  if (typeof control === 'string') throw new Error(control);
+  expect(control.fullEnvelope?.moment.globalMax).toBeCloseTo(weight * length / 4, 12);
+  const merge = vi.spyOn(wasm, 'computeEnvelope').mockReturnValue(null);
+  try {
+    expect(await run(input, { ...config, train: { ...train, axles: [] } })).toBe(t('train.noPositionSolved'));
+    expect(merge).not.toHaveBeenCalled();
+    expect(await run(input, config)).toBe(t('svc.solverError').replace('{n}', t(DIAGRAM_EXTREMA_UNAVAILABLE)));
+    expect(merge).toHaveBeenCalledOnce();
+    expect(merge.mock.calls[0]![0].length).toBeGreaterThan(0);
+  } finally {
+    merge.mockRestore();
   }
 });
