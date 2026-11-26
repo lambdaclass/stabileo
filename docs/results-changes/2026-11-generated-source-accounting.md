@@ -15,6 +15,7 @@ Derived notional nodal loads are also checked at their authored nodes. For three
 ## Check assembled slab targets and nodal forces
 
 Whole-slab accounting checks the actual shell family and cell for pressure rows, and the force delivered to every authored mesh node for nodal rows. Two horizontal slabs can have identical pressure wrenches even at different elevations. Routing a row to the upper slab therefore has to fail independently of the force and moment totals. The same cell receipt is checked after case inclusion and combination factoring.
+For every plate or quad covered by a spatial self-weight rule, assembly validates the material density before multiplying by the rule's factor. It retains the corner load rows when their force is zero, so an applicable rule with zero density or factor still has a case result. This preserves the main branch's behavior in single, linear combination, P-Delta and active-set solves. Invalid density is refused even at a zero factor.
 
 ## Transfer connected X-brace inertia on the brace spans
 
