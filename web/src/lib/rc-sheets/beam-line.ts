@@ -7,6 +7,7 @@ import { minFlexuralSteelCm2, shearFy } from '../engine/codes/argentina/cirsoc20
 import { barArea, faceBars, faceLayout, groupsArea, groupsLabel, moreStirrup, roundDown, stirrupsLabel } from './bars';
 import { hangerArea } from '../engine/design/beam-hangers';
 import { requiredAreas, shortStretches, withMinimum, type SteelStation } from './line-steel';
+import { spanFlange, type SpanFlange } from './flange-bars';
 import { beamSeismic, faceRule } from './seismic';
 import { beamContext, beamRow, phiMnOf, sectionQuery, type BeamContext, type BeamDemand, type BeamEnd, type BeamRow, type SupportPost } from './beam-row';
 import type { Fmt } from './format';
@@ -174,7 +175,7 @@ const UNIFY_AREA = 0.15;
 export interface LineLayout {
   key: string; group: number; name: string; level?: string;
   length: number;
-  spans: Array<{ name: string; x0: number; x1: number; b: number; h: number }>;
+  spans: Array<{ name: string; x0: number; x1: number; b: number; h: number; flange?: SpanFlange }>;
   /** Each support's extent along the line, m (0 where unknown). */
   supportWidths: number[];
   posts?: Array<SupportPost | null>;
@@ -1253,7 +1254,7 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
   return {
     key: `line:${sorted[0]?.demand.line?.group ?? sorted[0]?.key}`, group: sorted[0]?.demand.line?.group ?? 0,
     name: sorted[0]?.demand.line?.lineName ?? sorted[0]?.name ?? '', level: sorted[0]?.level, length: total,
-    spans: spans.map((s) => ({ name: s.row.name, x0: s.x0, x1: s.x0 + s.L, b: s.b, h: s.h })),
+    spans: spans.map((s) => ({ name: s.row.name, x0: s.x0, x1: s.x0 + s.L, b: s.b, h: s.h, ...((fl) => (fl ? { flange: fl } : {}))(spanFlange(s.row.demand)) })),
     cover: c.cover,
     supportWidths: supports.map((_, j) => 2 * Math.max(spans[j - 1]?.row.demand.supportHalf?.end ?? 0, spans[j]?.row.demand.supportHalf?.start ?? 0)),
     posts: supports.map((_, j) => spans[j - 1]?.row.demand.posts?.end ?? spans[j]?.row.demand.posts?.start ?? null),

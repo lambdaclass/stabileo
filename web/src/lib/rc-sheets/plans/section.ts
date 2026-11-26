@@ -28,7 +28,10 @@ export function sectionPrimitives(d: SectionDrawing, c: PlanCtx, marks?: { top: 
   }
   for (const bar of d.bars) ps.push({ kind: 'circle', layer: arm(barLayer(bar.y), bar.dia), c: pt(bar.x * K, bar.y * K), r: bar.dia / 2, fill: true, dia: bar.dia });
   const left = slabs.find((x) => x.side === 1), right = slabs.find((x) => x.side === -1);
-  const reach = (x: { hf: number } | undefined) => (x ? Math.min(Math.max(b, 2 * x.hf * K), 2.5 * b) : 0);
+  const own = (x: { side: 1 | -1 }) => (d.flange ? (x.side === 1 ? d.flange.left : d.flange.right) * K : 0);
+  const reach = (x: { side: 1 | -1; hf: number } | undefined) => (x ? own(x) || Math.min(Math.max(b, 2 * x.hf * K), 2.5 * b) : 0);
+  if (d.flange) ps.push(dim(pt(-d.flange.left * K, h), pt(b + d.flange.right * K, h), 6, `be = ${cm(c.fmt, d.flange.bf)}`));
+  if (d.flange && !slabs.length) ps.push(rect(HORM, -d.flange.left * K, h - d.flange.hf * K, b + d.flange.right * K, h));
   for (const sl of slabs) {
     const L = reach(sl), yt = h + sl.top * K, yb = yt - sl.hf * K, x0 = sl.side === 1 ? -L : b, x1 = sl.side === 1 ? 0 : b + L, far = sl.side === 1 ? x0 : x1;
     ps.push(seg(HORM, pt(x0, yt), pt(x1, yt)), seg(HORM, pt(x0, yb), pt(x1, yb)), ...hatch(x0, yb, x1, yt, 2 * s), breakLine(far, yb, yt, s));

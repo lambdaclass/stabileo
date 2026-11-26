@@ -128,10 +128,12 @@ export function lineSections(line: LineLayout, spans: readonly BeamRow[], fmt: F
       const notes = [`↑ ${groupsLabel(g.top)}`, `↓ ${groupsLabel(g.bottom)}`, stirrupsLabel(sa.stirrups)];
       const marks = { top: marksAt(line, 'top', cutAt), bottom: marksAt(line, 'bottom', cutAt) };
       const slabs = d?.slabs;
-      const key = `${sp.b}×${sp.h}|${notes.join('|')}|${sa.stirrups.legs}${withMarks ? `|${marks.top.join()}|${marks.bottom.join()}` : ''}|${(slabs ?? []).map((x) => `${x.side}:${x.hf}:${x.top}`).join()}`;
+      const support = sec === 'span' ? undefined : line.adopted?.supportTop?.[sec === 'start' ? k : k + 1];
+      const flange = sp.flange ? { fl: sp.flange, ...(support && support.count > 0 ? { spread: support } : {}) } : undefined;
+      const key = `${sp.b}×${sp.h}|${notes.join('|')}|${sa.stirrups.legs}${withMarks ? `|${marks.top.join()}|${marks.bottom.join()}` : ''}|${(slabs ?? []).map((x) => `${x.side}:${x.hf}:${x.top}`).join()}|${flange ? `${flange.fl.bf}:${flange.fl.sides.join()}:${flange.spread?.count ?? 0}` : ''}`;
       const same = out.find((q) => q.key === key);
       if (same) { same.tags.push(`${sp.name} · ${tag}`); same.at.push(cutAt); }
-      else out.push({ key, drawing: beamSection(sp.b, sp.h, line.cover, g.top, g.bottom, sa.stirrups), notes, tags: [`${sp.name} · ${tag}`], title: '', marks, label: String(out.length + 1), at: [cutAt], ...(slabs?.length ? { slabs } : {}) });
+      else out.push({ key, drawing: beamSection(sp.b, sp.h, line.cover, g.top, g.bottom, sa.stirrups, flange), notes, tags: [`${sp.name} · ${tag}`], title: '', marks, label: String(out.length + 1), at: [cutAt], ...(slabs?.length ? { slabs } : {}) });
     }
   });
   for (const x of out) x.title = `${x.label}–${x.label} · ${x.tags.length <= 2 ? x.tags.join(', ') : `${x.tags[0]} … ${x.tags[x.tags.length - 1]} (${x.tags.length})`}`;
