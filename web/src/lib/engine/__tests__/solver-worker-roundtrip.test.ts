@@ -136,6 +136,39 @@ describe('solver-worker message round-trip', () => {
     }
   });
 
+  it.each(['solve3d', 'pdelta3d', 'nonlinear-step'])('forwards an unresolved inclined support rank from %s', async (type) => {
+    const input = cantileverWire();
+    const angle = 0.4;
+    const x = Math.sin(angle);
+    const z = Math.cos(angle);
+    Object.assign(input.nodes[2], { x, z });
+    input.elements[1].type = 'truss';
+    input.supports[2] = {
+      nodeId: 2, rx: false, ry: false, rz: false, rrx: true, rry: true, rrz: true,
+      isInclined: true, normalX: x, normalY: 0, normalZ: z, ky: 1,
+    };
+    input.loads = [];
+
+    const run = async (id: number) => {
+      await dispatch(type === 'nonlinear-step'
+        ? { type, id, sessionId: id, input: { kind: 'ssi', input, soilSprings: [] } }
+        : { type, id, input, maxIter: 8, tol: 1e-12 });
+      return posted.find(message => message.type === 'result' && message.id === id)!;
+    };
+    const id = 2600 + ['solve3d', 'pdelta3d', 'nonlinear-step'].indexOf(type) * 3;
+    const refused = await run(id);
+    expect(refused.result).toBeUndefined();
+    expect(JSON.parse(refused.error!).structuredDiagnostics).toEqual([
+      expect.objectContaining({ code: 'reduced_stiffness_rank', severity: 'error' }),
+    ]);
+
+    input.nodes[2].x += 0.25;
+    const solved = await run(id + 1);
+    expect(solved.error).toBeUndefined();
+    expect(solved.result).toBeDefined();
+    if (type === 'nonlinear-step') await dispatch({ type: 'nonlinear-free', id: id + 2, sessionId: id + 1 });
+  });
+
   it('reports an error for structurally invalid input instead of hanging', async () => {
     // Element references node 99, which does not exist.
     const bad = cantileverWire();

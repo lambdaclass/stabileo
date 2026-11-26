@@ -224,6 +224,15 @@ impl SparseTransform {
     /// Cost O(Σ_{(l,l')∈K} deg(l)·deg(l')) — near-linear in nnz(K) for the
     /// near-identity transforms MPCs produce.
     pub fn reduce_sparse(&self, k: &crate::linalg::sparse::CscMatrix) -> crate::linalg::sparse::CscMatrix {
+        self.reduce_sparse_with::<false>(k)
+    }
+
+    pub(super) fn reduce_sparse_upper_bound(&self, k: &CscMatrix) -> CscMatrix {
+        self.reduce_sparse_with::<true>(k)
+    }
+
+    fn reduce_sparse_with<const UPPER_BOUND: bool>(&self, k: &CscMatrix) -> CscMatrix {
+        let multiply = |a, b| if UPPER_BOUND { super::load_work::mul_up(a, b) } else { a * b };
         // Same precondition the dense twin asserts. Without it, a K narrower
         // than C's row count silently drops every row from k.n upward and
         // returns an under-stiff reduced system with no diagnostic; a wider one
@@ -261,11 +270,11 @@ impl SparseTransform {
                 let kv = k.values[pk];
                 for pa in self.row_ptr[l]..self.row_ptr[l + 1] {
                     let (j, ca) = (self.col_idx[pa], self.vals[pa]);
-                    let cak = ca * kv;
+                    let cak = multiply(ca, kv);
                     for pb in self.row_ptr[l2]..self.row_ptr[l2 + 1] {
                         let (j2, cb) = (self.col_idx[pb], self.vals[pb]);
                         if j >= j2 {
-                            trip.push((j2, j, cak * cb));
+                            trip.push((j2, j, multiply(cak, cb)));
                         }
                     }
                 }
@@ -273,11 +282,11 @@ impl SparseTransform {
                     // Transposed orientation (l2, l)
                     for pa in self.row_ptr[l2]..self.row_ptr[l2 + 1] {
                         let (j, ca) = (self.col_idx[pa], self.vals[pa]);
-                        let cak = ca * kv;
+                        let cak = multiply(ca, kv);
                         for pb in self.row_ptr[l]..self.row_ptr[l + 1] {
                             let (j2, cb) = (self.col_idx[pb], self.vals[pb]);
                             if j >= j2 {
-                                trip.push((j2, j, cak * cb));
+                                trip.push((j2, j, multiply(cak, cb)));
                             }
                         }
                     }
@@ -297,7 +306,7 @@ impl SparseTransform {
             let (c, r, mut v) = trip[i];
             i += 1;
             while i < trip.len() && trip[i].0 == c && trip[i].1 == r {
-                v += trip[i].2;
+                v = if UPPER_BOUND { super::load_work::add_up(v, trip[i].2) } else { v + trip[i].2 };
                 i += 1;
             }
             // Same drop every other sparse producer applies — `from_dense_symmetric`,
@@ -307,7 +316,7 @@ impl SparseTransform {
             // denser elimination graph than the model actually has, filling in more
             // than the dense path did and eroding the speedup this reduction exists
             // for. Terms that cancel exactly land here as 0.0.
-            if r >= c && v.abs() > 1e-30 {
+            if r >= c && (v.abs() > 1e-30 || UPPER_BOUND && v != 0.0) {
                 row_idx.push(r);
                 values.push(v);
                 col_ptr[c + 1] += 1;
@@ -1623,7 +1632,7 @@ fn solve_constrained_2d_dense_validated(
     let nf = dof_num.n_free;
     let nr = n - nf;
 
-    let asm = assembly::without_artificial_stiffness(|| assembly::assemble_2d(&input.solver, &dof_num));
+    let (asm, support_magnitude) = assembly::without_artificial_stiffness(|| assembly::assemble_2d_with_magnitude(&input.solver, &dof_num));
 
     // Build prescribed displacements
     let u_r = linear::prescribed_displacements_2d(&input.solver,dof_num);
@@ -1699,7 +1708,11 @@ fn solve_constrained_2d_dense_validated(
     let load_rounding = super::load_work::assembly_rounding_2d(&input.solver,&input.solver.loads,dof_num,&asm.inclined_transforms_2d);
     let load_rounding = fcs.reduce_load_rounding(&f_f,&load_rounding);
     let f_reduced = fcs.reduce_vector(&f_f);
+    let numbering = dof_num;
+    let rank_numbering = super::stability::RankNumbering::new(numbering, support_magnitude.as_ref());
+    let dof_num = &rank_numbering;
     let stability = fcs.stability(&crate::linalg::sparse::CscMatrix::from_dense_symmetric(&k_reduced, n_free_indep), dof_num, &CscMatrix::from_dense_symmetric(&k_ff, nf), &super::stability::coupling_2d(&input.solver, dof_num), &super::stability::elastic_releases_2d(&input.solver, dof_num));
+    let dof_num = numbering;
     refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let u_indep = {
         let mut k_pinned = k_reduced.clone();
@@ -1914,7 +1927,11 @@ pub(super) fn solve_constrained_2d_sparse(
     let load_rounding = super::load_work::assembly_rounding_2d(&input.solver,&input.solver.loads,dof_num,&stiff.inclined_transforms_2d);
     let load_rounding = fcs.reduce_load_rounding(&f_f,&load_rounding);
     let f_reduced = fcs.reduce_vector(&f_f);
+    let numbering = dof_num;
+    let rank_numbering = super::stability::RankNumbering::new(numbering, stiff.support_magnitude.as_ref());
+    let dof_num = &rank_numbering;
     let stability = fcs.stability(&k_reduced, dof_num, k_ff, &super::stability::coupling_2d(&input.solver, dof_num), &super::stability::elastic_releases_2d(&input.solver, dof_num));
+    let dof_num = numbering;
     refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let k_pinned = stability.pin_sparse(&k_reduced);
     let symbolic = std::rc::Rc::new(symbolic_cholesky(&k_pinned));
@@ -2155,7 +2172,11 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
     let f_reduced = fcs.reduce_vector(&f_f);
     let containment_conditioning = crate::known_issues::sparse_conditioning(k_ff)
         .or_else(|| crate::known_issues::sparse_conditioning(&k_reduced));
+    let numbering = dof_num;
+    let rank_numbering = super::stability::RankNumbering::new(&numbering, sasm.support_magnitude.as_ref());
+    let dof_num = rank_numbering;
     let stability = fcs.stability(&k_reduced, &dof_num, k_ff, &super::stability::coupling_3d(&input.solver, &dof_num), &super::stability::elastic_releases_3d(&input.solver, &dof_num));
+    let dof_num = numbering;
     refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let k_pinned = stability.pin_sparse(&k_reduced);
     let symbolic = std::rc::Rc::new(symbolic_cholesky(&k_pinned));
@@ -2520,11 +2541,11 @@ impl FreeConstraintSystem {
         self.dependent[i]
     }
 
-    pub(crate) fn stability(&self, k_reduced: &CscMatrix, dof_num: &DofNumbering, k_original: &CscMatrix, coupling: &[(usize, usize)], releases: &super::stability::ReleasedRotations) -> super::stability::Stability {
-        self.stability_excluding(k_reduced, dof_num, k_original, coupling, releases, &[])
+    pub(crate) fn stability(&self, k_reduced: &CscMatrix, dof_num: &super::stability::RankNumbering, k_original: &CscMatrix, coupling: &[(usize, usize)], releases: &super::stability::ReleasedRotations) -> super::stability::Stability {
+        self.stability_excluding(k_reduced, dof_num, k_original, coupling, releases, &[], dof_num.support_magnitude())
     }
 
-    pub(crate) fn stability_excluding(&self, k_reduced: &CscMatrix, dof_num: &DofNumbering, k_original: &CscMatrix, coupling: &[(usize, usize)], releases: &super::stability::ReleasedRotations, inactive: &[usize]) -> super::stability::Stability {
+    pub(crate) fn stability_excluding(&self, k_reduced: &CscMatrix, dof_num: &DofNumbering, k_original: &CscMatrix, coupling: &[(usize, usize)], releases: &super::stability::ReleasedRotations, inactive: &[usize], support_magnitude: Option<&CscMatrix>) -> super::stability::Stability {
         let tags = super::stability::tags(dof_num, self.dimensions == 2);
         let reduced_tags: Vec<_> = self.independent.iter().map(|&d| tags[d]).collect();
         let c = &self.c_ff;
@@ -2535,12 +2556,25 @@ impl FreeConstraintSystem {
                 .collect()
         }).collect();
         let coupling = super::stability::project_coupling(k_original, &tags, coupling, c, &self.independent);
-        let mut magnitude_c = c.clone();
-        for v in magnitude_c.vals.iter_mut().chain(&mut magnitude_c.csc_vals) { *v = v.abs(); }
-        let mut magnitude_k = k_original.clone();
-        for v in &mut magnitude_k.values { *v = v.abs(); }
-        let rounding = magnitude_c.reduce_sparse(&magnitude_k);
-        super::stability::analyze_excluding(k_reduced, &reduced_tags, &moves, &coupling, Some(&rounding), &releases.project(c), inactive)
+        let rounding = self.reduce_stiffness_magnitude(&super::stability::absolute_stiffness(k_original));
+        let support_magnitude = support_magnitude.map(|magnitude| self.reduce_stiffness_magnitude(magnitude));
+        super::stability::analyze_excluding(k_reduced, &reduced_tags, &moves, &coupling, Some(&rounding), &releases.project(c), inactive, support_magnitude.as_ref())
+    }
+
+    pub(super) fn reduce_stiffness_magnitude(&self, magnitude: &CscMatrix) -> CscMatrix {
+        let mut transform = self.c_ff.clone();
+        for value in transform.vals.iter_mut().chain(&mut transform.csc_vals) {
+            *value = value.abs();
+        }
+        transform.reduce_sparse(magnitude)
+    }
+
+    pub(super) fn reduce_stiffness_roundoff(&self, roundoff: &CscMatrix) -> CscMatrix {
+        let mut transform = self.c_ff.clone();
+        for value in &mut transform.vals {
+            *value = value.abs();
+        }
+        transform.reduce_sparse_upper_bound(roundoff)
     }
 
     pub(crate) fn reduce_load_rounding(&self, values: &[f64], rounding: &[f64]) -> Vec<f64> {
@@ -2768,7 +2802,7 @@ mod tests {
                 };
                 let reduced = cs.reduce_matrix_sparse(&k);
                 assert_eq!(reduced.diagonal(), vec![1.0;3]);
-                let actual = cs.stability(&reduced, &dof, &k, &[], &ReleasedRotations::default());
+                let actual = cs.stability_excluding(&reduced, &dof, &k, &[], &ReleasedRotations::default(), &[], None);
                 assert_eq!(actual.verdict == Verdict::Stable, admitted, "{dimensions}D stiff={stiff} gap={gap}: {actual:?}");
             }
         }

@@ -14,6 +14,7 @@ import { isMessage, type EngineMessage } from '../codes/message';
 import { AMBIGUOUS_ROLLER_Z } from '../engine/support-dofs-3d';
 import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../engine/member-diagram';
 import type { StructuredDiagnostic } from '../engine/types';
+import { asCodedRefusal, CodedRefusal } from '../engine/containment-error';
 import { i18n, registerFeatureDictionaries, tAt } from './store.svelte';
 import type { Locale } from './offered';
 import { axesStore } from '../axes/axes.svelte';
@@ -113,6 +114,42 @@ registerFeatureDictionaries(Object.fromEntries(
   Object.entries(pdeltaPhysicalResidual).map(([locale, message]) => [locale, { [PDELTA_PHYSICAL_RESIDUAL]: message }]),
 ));
 
+const REDUCED_STIFFNESS_RANK = 'svc.engine.reducedStiffnessRank';
+const reducedStiffnessRank: Record<Locale, string> = {
+  de: 'Der Rang der reduzierten Steifigkeitsmatrix lässt sich mit der Genauigkeit der Assemblierung nicht bestimmen. Prüfen Sie Freigaben, Auflager, Federn und Kopplungen auf einen Mechanismus.',
+  en: 'The reduced stiffness rank cannot be resolved at assembly precision. Check member releases, supports, springs and constraints for a mechanism.',
+  es: 'El rango de la rigidez reducida no se puede determinar con la precisión del ensamblaje. Revisá las liberaciones, los apoyos, los resortes y las restricciones para detectar un mecanismo.',
+  fr: 'Le rang de la raideur réduite ne peut pas être déterminé à la précision de l’assemblage. Vérifiez les relâchements, les appuis, les ressorts et les contraintes pour détecter un mécanisme.',
+  hu: 'A redukált merevségi mátrix rangja az összeállítás pontosságával nem határozható meg. Mechanizmus kereséséhez ellenőrizze a rúdvégi feloldásokat, a támaszokat, a rugókat és a kényszereket.',
+  pt: 'Não é possível determinar o posto da rigidez reduzida com a precisão da montagem. Verifique as liberações, os apoios, as molas e as restrições para identificar um mecanismo.',
+  tr: 'İndirgenmiş rijitlik matrisinin mertebesi montaj hassasiyetiyle belirlenemiyor. Bir mekanizma olup olmadığını görmek için eleman mafsallarını, mesnetleri, yayları ve kısıtları kontrol edin.',
+  zh: '在组装精度下无法判定约化刚度矩阵的秩。请检查杆端释放、支座、弹簧和约束是否形成机构。',
+};
+registerFeatureDictionaries(Object.fromEntries(
+  Object.entries(reducedStiffnessRank).map(([locale, message]) => [locale, { [REDUCED_STIFFNESS_RANK]: message }]),
+));
+
+const CONSTRAINT_STIFFNESS_RANK = 'svc.engine.constraintStiffnessRank';
+const CONSTRAINT_STIFFNESS_NODES = 'svc.engine.constraintStiffnessNodes';
+const constraintStiffnessRank: Record<Locale, [string, string]> = {
+  de: ['Bei der Reduktion der Kopplungen heben sich Steifigkeitsbeiträge{where} auf. Wegen Rundung lässt sich die verbleibende Steifigkeit nicht bestimmen. Verringern Sie extreme Steifigkeitsunterschiede oder überarbeiten Sie die Kopplungen.', ' an den Knoten {nodes}'],
+  en: ['Constraint reduction cancels stiffness contributions{where}. Rounding prevents resolving the remaining stiffness. Reduce extreme stiffness contrasts or revise the constraints.', ' at nodes {nodes}'],
+  es: ['La reducción de las restricciones cancela aportes de rigidez{where}. El redondeo impide determinar la rigidez restante. Reducí los contrastes extremos de rigidez o revisá las restricciones.', ' en los nodos {nodes}'],
+  fr: ['La réduction des contraintes annule des contributions à la raideur{where}. L’arrondi empêche de déterminer la raideur restante. Réduisez les contrastes extrêmes de raideur ou révisez les contraintes.', ' aux nœuds {nodes}'],
+  hu: ['A kényszerek redukciója kioltja a merevségi hozzájárulásokat{where}. A kerekítés miatt a fennmaradó merevség nem határozható meg. Csökkentse a szélsőséges merevségkülönbségeket, vagy módosítsa a kényszereket.', ' a(z) {nodes} csomópontokban'],
+  pt: ['A redução das restrições cancela contribuições de rigidez{where}. O arredondamento impede determinar a rigidez restante. Reduza os contrastes extremos de rigidez ou revise as restrições.', ' nos nós {nodes}'],
+  tr: ['Kısıtların indirgenmesi{where} rijitlik katkılarını birbirini götürecek şekilde birleştiriyor. Yuvarlama kalan rijitliğin belirlenmesini engelliyor. Aşırı rijitlik farklarını azaltın veya kısıtları gözden geçirin.', ' {nodes} düğümlerinde'],
+  zh: ['约束消元使刚度贡献{where}相互抵消。舍入误差导致剩余刚度无法判定。请减小过大的刚度差异或调整约束。', '在节点 {nodes} 处'],
+};
+registerFeatureDictionaries(Object.fromEntries(
+  Object.entries(constraintStiffnessRank).map(([locale, [message, nodes]]) => [locale, {
+    [CONSTRAINT_STIFFNESS_RANK]: message,
+    [CONSTRAINT_STIFFNESS_NODES]: nodes,
+  }]),
+));
+
+const CONSTRAINT_RANK_REASON = /^the structure is a mechanism or so close to one that its stability cannot be decided in double precision(?: at nodes (\[[0-9, ]+\]))?: constraint reduction cancels stiffness contributions whose rounding is too large to resolve the remaining stiffness; reduce extreme stiffness contrasts or revise the constraints$/;
+
 /**
  * The solver's own error sentences, which it writes in English, in the app's language.
  *
@@ -121,6 +158,9 @@ registerFeatureDictionaries(Object.fromEntries(
  * they appear in a message; anything else is left as it is.
  */
 const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
+  ['the structure is a mechanism or so close to one that its stability cannot be decided in double precision: the reduced stiffness rank cannot be resolved at assembly precision. Check member releases, supports, springs and constraints for a mechanism.', REDUCED_STIFFNESS_RANK],
+  [reducedStiffnessRank.en, REDUCED_STIFFNESS_RANK],
+  ['The reduced stiffness rank cannot be resolved at assembly precision.', REDUCED_STIFFNESS_RANK],
   [DIAGRAM_EXTREMA_UNAVAILABLE, DIAGRAM_EXTREMA_UNAVAILABLE],
   ['distinct member diagram cuts share a normalized station', DIAGRAM_EXTREMA_UNAVAILABLE],
   ['interior member diagram extremum has no distinct normalized station', DIAGRAM_EXTREMA_UNAVAILABLE],
@@ -142,8 +182,25 @@ const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
 ];
 
 export function localizeEngineText(message: string): string {
-  let out = message;
-  for (const [en, key] of ENGINE_SENTENCES) if (out.includes(en)) out = out.split(en).join(tAt(key, i18n.locale));
+  const rankRefusal = asCodedRefusal(message, 'reduced_stiffness_rank');
+  const original = rankRefusal instanceof CodedRefusal ? rankRefusal.message : message;
+  const constraintRank = CONSTRAINT_RANK_REASON.exec(original);
+  if (constraintRank) {
+    const nodes = constraintRank[1];
+    return fill(CONSTRAINT_STIFFNESS_RANK, {
+      where: nodes ? fill(CONSTRAINT_STIFFNESS_NODES, { nodes }) : '',
+    });
+  }
+  let out = original;
+  let translatedRank = false;
+  for (const [en, key] of ENGINE_SENTENCES) {
+    if ((key === REDUCED_STIFFNESS_RANK && translatedRank) || !out.includes(en)) continue;
+    out = out.split(en).join(tAt(key, i18n.locale));
+    translatedRank ||= key === REDUCED_STIFFNESS_RANK;
+  }
+  if (rankRefusal instanceof CodedRefusal && !translatedRank) {
+    out = `${tAt(REDUCED_STIFFNESS_RANK, i18n.locale)} ${out}`;
+  }
   out = out.replace(/Non-finite number \((NaN|Infinity|-Infinity)\) at (\S+)/g, (_, value: string, path: string) =>
     fill('svc.engine.nonFiniteNumber', { value, path }));
   return out.replace(SELF_CHECK_REFUSAL, (whole, check: string, mode: string | undefined, rest: string) => {
