@@ -11,14 +11,14 @@ import { DEFAULT_AXES } from '../../axes/frame';
 import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';
 import '../../store/index';
-import { initSolver } from '../wasm-solver';
+import { initSolver, solve3D, solvePDelta3D } from '../wasm-solver';
 import { publishCombinations3D, activePerCombo3D, activeCombinations } from '../../store/active-results';
 import { computeStationDemands } from '../verification-service';
 import { combinationPeakRows } from '../../export/excel';
 import { resultSheets } from '../../export/workbook-results';
 import { envelopeSectionHtml } from '../report/project-sections';
 import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../member-diagram';
-import type { AnalysisResults3D, ElementForces3D } from '../types-3d';
+import type { AnalysisResults3D, ElementForces3D, SolverInput3D } from '../types-3d';
 
 const disp = (nodeId: number, ux: number, uz: number) => ({ nodeId, ux, uy: 0, uz, rx: 0, ry: 0, rz: 0 });
 const set = (d: ReturnType<typeof disp>[]) => ({ displacements: d, reactions: [], elementForces: [] }) as unknown as AnalysisResults3D;
@@ -453,4 +453,55 @@ it('known wrong result: #2226 evaluates every combination at each critical stati
   }, name => name === 'Envelope');
   const axial = sheets.find(sheet => sheet.name === 'Envelope')!.rows.filter(row => row[3] === a && row[4] === 'N');
   expect.soft(axial.map(row => [row[6], row[8], row.at(-1)])).toEqual([[100, high.name, '−'], [100, high.name, '+']]);
+});
+
+const issue2581 = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
+
+issue2581('known wrong result: #2581 summarizes only inward member-end forces', async () => {
+  await initSolver();
+  const span = 4;
+  const tipY = -3, tipZ = -4;
+  const pointY = 5 * tipY, pointZ = 5 * tipZ;
+  const input: SolverInput3D = {
+    nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: span, y: 0, z: 0 }]]),
+    materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
+    sections: new Map([[1, { id: 1, a: 0.01, iz: 0.0001, iy: 0.0001, j: 0.0001 }]]),
+    elements: new Map([[7, {
+      id: 7, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1,
+      releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false,
+      releaseTStart: false, releaseTEnd: false,
+    }]]),
+    supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
+    loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: tipY, fz: tipZ, mx: 0, my: 0, mz: 0 } }],
+  };
+
+  for (const a of [0, span / 4, span, undefined]) {
+    const loaded: SolverInput3D = a === undefined ? input : {
+      ...input,
+      loads: [...input.loads, { type: 'pointOnElement', data: { elementId: 7, a, py: pointY, pz: pointZ } }],
+    };
+    const nonlinear = solvePDelta3D(loaded);
+    expect(nonlinear.converged).toBe(true);
+
+    const pointCrossesAnInwardCut = a !== undefined && a > 0;
+    const maxY = -(tipY + (pointCrossesAnInwardCut ? pointY : 0));
+    const maxZ = -(tipZ + (pointCrossesAnInwardCut ? pointZ : 0));
+    const maxV = Math.hypot(maxY, maxZ);
+    for (const [mode, results] of [['linear', solve3D(loaded)], ['P-Delta', nonlinear.results]] as const) {
+      const basis = `${mode}, point station ${a}: equilibrium on the J side of a cut includes the tip force and any point force beyond the cut. At I the support takes the point force directly.`;
+      const sources = [{ ...A, results }];
+      const summary = summaryRows('forces', sources, criticalOptions);
+      for (const [key, value] of [['vy', maxY], ['vz', maxZ], ['v', maxV]] as const) {
+        expect.soft(summary.find(row => row.column.key === key)?.max?.value, basis).toBeCloseTo(value, 12);
+      }
+      const html = envelopeSectionHtml(sources, key => key, 'Envelope').join('');
+      expect.soft(html, basis).toContain(`<td>Vz (kN)</td><td class="num">${maxZ.toFixed(3)}</td>`);
+      expect.soft(html, basis).toContain(`<td>V (kN)</td><td class="num">${maxV.toFixed(3)}</td>`);
+      const [sheet] = resultSheets({
+        sources: sources.map(source => ({ ...source, kind: 'combination' })), stations: 'critical', statics: null,
+      }, name => name === 'Maxima');
+      const peak = sheet!.rows.find(row => row[1] === 'Vz' && row[3] === 'max');
+      expect.soft(peak?.[4], basis).toBeCloseTo(maxZ, 12);
+    }
+  }
 });
