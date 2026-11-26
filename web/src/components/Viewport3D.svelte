@@ -37,7 +37,7 @@
   import { viewCategories, type ViewCategory } from '../lib/store/view-categories.svelte';
   import { syncUnderlays } from '../lib/three/underlay-3d';
   import { syncFootings } from '../lib/three/footings-3d';
-  import { osnapUnderlays } from '../lib/model/osnap';
+  import { osnapUnderlays, underlayLevelFor } from '../lib/model/osnap';
   import { PlacementGhost } from '../lib/three/placement-ghost';
   import { placementStore } from '../lib/store/placement.svelte';
   import { editPreview } from '../lib/store/edit-preview.svelte';
@@ -62,6 +62,9 @@
   import SelectionDeleteButton from './ribbon/SelectionDeleteButton.svelte';
   import SelectionClipboardButtons from './ribbon/SelectionClipboardButtons.svelte';
   import ConnectionPrompt from './ConnectionPrompt.svelte';
+  import PlanDrawBar from './viewport/PlanDrawBar.svelte';
+  import { planDraw } from '../lib/store/plan-draw.svelte';
+  import { columnSnapPoints } from '../lib/model/building/draw-on-plan';
   import { askAboutNewMember } from '../lib/model/edit/connection-questions';
   import { addThermalLoadIfAny } from '../lib/store/load-ops';
   import Icon from './ribbon/Icon.svelte';
@@ -1969,7 +1972,7 @@
   let underlaysGroup: THREE.Group | null = null;
   $effect(() => {
     const list = uiStore.analysisMode === 'pro' ? modelStore.underlays : [];
-    const z = uiStore.workingPlane === 'XY' ? uiStore.nodeCreateZ : null;
+    const z = uiStore.workingPlane === 'XY' ? underlayLevelFor(list, uiStore.nodeCreateZ) ?? uiStore.nodeCreateZ : null;
     if (!scene) return;
     underlaysGroup = syncUnderlays(scene, underlaysGroup, list, z);
     toneDirty = true;
@@ -2277,7 +2280,8 @@
     // A point of the background drawing on this level, of the kinds turned on, within a few pixels.
     if (uiStore.analysisMode === 'pro' && uiStore.snapToAxes && uiStore.workingPlane === 'XY' && modelStore.underlays.length > 0 && camera && container) {
       const tol = worldPerPixel(camera, pos, container.clientHeight) * 10;
-      const hit = osnapUnderlays(modelStore.underlays, pos.x, pos.y, tol, uiStore.nodeCreateZ, uiStore.osnapModes, osnapFrom());
+      const on = underlayLevelFor(modelStore.underlays, uiStore.nodeCreateZ);
+      const hit = on === null ? null : osnapUnderlays(modelStore.underlays, pos.x, pos.y, tol, on, uiStore.osnapModes, osnapFrom());
       if (hit) return { x: hit.x, y: hit.y, z: uiStore.nodeCreateZ, label: t(`osnap.${hit.mode}`), mode: hit.mode };
     }
     const grid = uiStore.analysisMode === 'pro' && uiStore.snapToAxes && uiStore.workingPlane === 'XY' ? modelStore.grid : undefined;
@@ -2293,6 +2297,59 @@
     }
     return uiStore.snapWorld3D(pos.x, pos.y, pos.z);
   }
+
+  function planDrawPoint(e: MouseEvent): { x: number; y: number; mode?: string; label?: string } | null {
+    const ground = getGroundIntersection(e);
+    if (!ground || !camera || !container) return null;
+    const tol = worldPerPixel(camera, ground, container.clientHeight) * 10;
+    const z = uiStore.nodeCreateZ;
+    let best: { x: number; y: number; d: number; mode: string } | null = null;
+    const offer = (x: number, y: number, mode: string) => {
+      const d = Math.hypot(x - ground.x, y - ground.y);
+      if (d <= tol && (!best || d < best.d)) best = { x, y, d, mode };
+    };
+    for (const p of columnSnapPoints(z)) offer(p.x, p.y, p.kind === 'corner' ? 'endpoint' : p.kind === 'face' ? 'midpoint' : 'center');
+    for (const n of modelStore.nodes.values()) if (Math.abs((n.z ?? 0) - z) < 1e-6) offer(n.x, n.y, 'node');
+    const b = best as { x: number; y: number; d: number; mode: string } | null;
+    if (b) return { x: b.x, y: b.y, mode: b.mode, label: t(`planDraw.snap.${b.mode}`) };
+    const s = snapToStructure(ground);
+    if (s.mode || s.label) return { x: s.x, y: s.y, mode: s.mode ?? 'grid', ...(s.label ? { label: s.label } : {}) };
+    return { x: Math.round(ground.x * 100) / 100, y: Math.round(ground.y * 100) / 100 };
+  }
+  let planHint = $state<{ snap: { sx: number; sy: number; mode: string; label?: string } | null; outline: string; mx: number; my: number; text: string } | null>(null);
+  let planHintFrame = 0;
+  let planHintEvent: MouseEvent | null = null;
+  let planLast: { cx: number; cy: number; p: { x: number; y: number; mode?: string; label?: string } | null } | null = null;
+  function schedulePlanHint(e: MouseEvent) {
+    planHintEvent = e;
+    if (planHintFrame) return;
+    planHintFrame = requestAnimationFrame(() => {
+      planHintFrame = 0;
+      const ev = planHintEvent; planHintEvent = null;
+      if (!ev || !container || !planDraw.active) { planHint = null; return; }
+      const p = planDrawPoint(ev);
+      planDraw.hover = p ? { x: p.x, y: p.y } : null;
+      planLast = { cx: ev.clientX, cy: ev.clientY, p };
+      refreshPlanHint(ev.clientX, ev.clientY, p);
+    });
+  }
+  function refreshPlanHint(cx: number, cy: number, p: { x: number; y: number; mode?: string; label?: string } | null) {
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const z = uiStore.nodeCreateZ;
+    const outline = planDraw.preview.map((q) => { const s = projectToScreen(q.x, q.y, z); return `${s.x},${s.y}`; }).join(' ');
+    const h = planDraw.hover;
+    const snap = h && p?.mode ? (() => { const s = projectToScreen(h.x, h.y, z); return { sx: s.x, sy: s.y, mode: p.mode!, ...(p.label ? { label: p.label } : {}) }; })() : null;
+    const len = planDraw.rubber;
+    const text = planDraw.typed ? `${planDraw.typed} m ⏎` : len !== null ? `${len.toFixed(2)} m` : '';
+    planHint = { snap, outline, mx: cx - rect.left, my: cy - rect.top, text };
+  }
+  $effect(() => {
+    void planDraw.points; void planDraw.typed; void planDraw.column.b; void planDraw.column.h; void planDraw.column.angle; void planDraw.column.fixedPoint;
+    void planDraw.beam.width; void planDraw.beam.align;
+    if (!planDraw.active) { planHint = null; return; }
+    untrack(() => { if (planLast) refreshPlanHint(planLast.cx, planLast.cy, planLast.p); });
+  });
 
   // ─── Placement ─────────────────────────────────────────────
   let ghost: PlacementGhost | null = null;
@@ -3343,6 +3400,12 @@
     raycaster.setFromCamera(mouse, camera);
     raycaster.camera = camera;
 
+    if (planDraw.active) {
+      const p = planDrawPoint(e);
+      if (p) planDraw.add({ x: p.x, y: p.y });
+      return;
+    }
+
     // ── Drawing a use zone: a click is a point of its outline, captured as a new node would be ──
     if (zoneDraw.active) {
       const place = nodePlacement3D(e);
@@ -3608,6 +3671,7 @@
     else if (nodeHint) nodeHint = null;
     if (uiStore.currentTool === 'element') scheduleSnapHint(e);
     else if (snapHint) snapHint = null;
+    if (planDraw.active) schedulePlanHint(e);
     if (uiStore.currentTool === 'load' && uiStore.loadType === 'distributed' && uiStore.distLoadPartial && uiStore.appMode !== 'pro') scheduleStretchHint(e);
     else if (stretchHint) stretchHint = null;
 
@@ -4439,6 +4503,17 @@
       {#if label}<text class="nh-text" x={x + 12} y={y - 12}>{label}</text>{/if}
     </g>
   {/snippet}
+  {#if planDraw.active && planHint}
+    <svg class="node-hint plan-draw-hint" aria-hidden="true" data-testid="plan-draw-hint">
+      {#if planHint.outline}<polygon points={planHint.outline} />{/if}
+      {#if planHint.snap}<g data-testid="plan-draw-snap" data-mode={planHint.snap.mode}>{@render osnapGlyph(planHint.snap.mode, planHint.snap.sx, planHint.snap.sy, planHint.snap.label)}</g>{/if}
+      {#if planHint.text}<text class="nh-text" x={planHint.mx + 14} y={planHint.my + 22}>{planHint.text}</text>{/if}
+    </svg>
+  {/if}
+  {#if planDraw.active}
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="vp-plan-draw" onmousedown={(e) => e.stopPropagation()} onpointerdown={(e) => e.stopPropagation()}><PlanDrawBar /></div>
+  {/if}
   {#if snapHint && uiStore.currentTool === 'element'}
     <svg class="node-hint" aria-hidden="true" data-testid="osnap-hint" data-mode={snapHint.mode}>
       {@render osnapGlyph(snapHint.mode, snapHint.sx, snapHint.sy, snapHint.label)}
@@ -4747,6 +4822,8 @@
     z-index: 2;
   }
   .node-hint { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; overflow: visible; }
+  .plan-draw-hint polygon { fill: color-mix(in srgb, var(--st-accent) 18%, transparent); stroke: var(--st-accent); stroke-width: 1.5; stroke-dasharray: 5 3; }
+  .vp-plan-draw { position: absolute; left: 50%; bottom: 52px; transform: translateX(-50%); width: max-content; max-width: calc(100% - 24px); z-index: 7; }
   .nh-member { stroke: var(--st-accent); stroke-width: 6; stroke-linecap: round; opacity: 0.45; }
   .nh-split { fill: var(--st-surface); stroke: var(--st-accent); stroke-width: 2; }
   .nh-plus { stroke: var(--st-accent); stroke-width: 2; }

@@ -14,7 +14,7 @@
   import { frameBetweenAxes } from '../../../lib/model/grid';
   import { fittingChoice, sectionFits, typologyFamily } from '../../../lib/model/building/typology-defaults';
   import { buildingUi } from '../../../lib/store/building-ui.svelte';
-  import { nextMember } from '../../../lib/store/next-member.svelte';
+  import { planDraw } from '../../../lib/store/plan-draw.svelte';
   import { setMemberCovers } from '../../../lib/store/design-data';
   import { untrack } from 'svelte';
 
@@ -70,13 +70,15 @@
     report(tp('grid.frameCreated', { members: r.elements, nodes: r.nodes, welded: r.welded, duplicates: r.duplicates }));
   }
   let workLevel = $state('');
-  $effect(() => { if (!levels.some((l) => l.id === workLevel)) workLevel = levels[1]?.id ?? levels[0]?.id ?? ''; });
+  $effect(() => { if (!levels.some((l) => l.id === workLevel)) workLevel = levels[0]?.id ?? ''; });
   function draw() {
-    nextMember.physical = { kind: 'column', typology };
     const l = levels.find((x) => x.id === workLevel);
     if (l) uiStore.setActiveLevel(l.z);
-    uiStore.currentTool = 'element';
-    report(t('building.col.drawing'));
+    const sec = modelStore.sections.get(section);
+    Object.assign(planDraw.column, { typology, fixedPoint: [...fixedPoint] as [number, number], angle, fixBase, levelFrom: '', levelTo: '',
+      ...(sec?.shape === 'rect' && sec.b && sec.h ? { b: sec.b, h: sec.h } : {}) });
+    planDraw.start('column');
+    report(t('planDraw.started.column'));
   }
 </script>
 

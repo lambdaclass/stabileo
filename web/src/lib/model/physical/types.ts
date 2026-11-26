@@ -39,6 +39,8 @@ export interface PhysicalData {
    * corner nodes, to put it back to one shell.
    */
   meshAtSolve?: { size: number; meshed: boolean; panel: number[] };
+  /** A column's point that stays put when its section changes, as in the building's fixed-point picker. */
+  fixedPoint?: [number, number];
 }
 
 export interface PhysicalDraft extends PhysicalData {

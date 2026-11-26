@@ -145,6 +145,17 @@ function crossing(a: [P, P], b: [P, P]): P | null {
  * at elevation `z` (any when null). `from` is the point drawn last, for the perpendicular.
  * Nearest only answers when no other kind is within reach.
  */
+/** The level whose drawings a point on level `z` snaps to: its own, else the nearest one under it that has any. */
+export function underlayLevelFor(list: readonly Underlay[], z: number): number | null {
+  let below: number | null = null;
+  for (const u of list) {
+    if (!u.visible) continue;
+    if (Math.abs(u.z - z) < 1e-6) return u.z;
+    if (u.z < z && (below === null || u.z > below)) below = u.z;
+  }
+  return below;
+}
+
 export function osnapUnderlays(list: readonly Underlay[], x: number, y: number, tol: number, z: number | null, modes: ReadonlySet<OsnapMode>, from?: { x: number; y: number } | null): OsnapHit | null {
   if (modes.size === 0) return null;
   let best: { x: number; y: number; d: number; mode: OsnapMode } | null = null;

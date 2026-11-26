@@ -24,8 +24,7 @@
 
   const grid = $derived(modelStore.grid);
   const levels = $derived(grid?.levels ?? []);
-  const axes = $derived(grid?.axes ?? []);
-  const ready = $derived(levels.length >= 2 && axes.filter((a) => a.axis === 'x').length + axes.filter((a) => a.axis === 'y').length >= 2);
+  const ready = $derived(levels.length >= 2);
   /**
    * Without a grid the only tool that can do anything is the one that makes it. Opened without
    * one, the panel stays on it once the grid is complete too (the heights may still be under

@@ -16,6 +16,7 @@
   import { fittingChoice, sectionFits, typologyFamily } from '../../../lib/model/building/typology-defaults';
   import { buildingUi } from '../../../lib/store/building-ui.svelte';
   import { nextMember } from '../../../lib/store/next-member.svelte';
+  import { planDraw } from '../../../lib/store/plan-draw.svelte';
   import { untrack } from 'svelte';
 
   let { report }: { report: (text: string) => void } = $props();
@@ -71,6 +72,16 @@
   let drawKind = $state<'beam' | 'brace'>('beam'), workLevel = $state('');
   $effect(() => { if (!levels.some((l) => l.id === workLevel)) workLevel = levels[1]?.id ?? levels[0]?.id ?? ''; });
   function draw() {
+    if (drawKind === 'beam') {
+      const l = levels.find((x) => x.id === workLevel);
+      if (l) uiStore.setActiveLevel(l.z);
+      const sec = modelStore.sections.get(sectionX);
+      Object.assign(planDraw.beam, { typology, topFlush, align: align === 'perimeter' ? 0 : Math.sign(align) as -1 | 0 | 1,
+        ...(sec?.shape === 'rect' && sec.b && sec.h ? { width: sec.b, height: sec.h } : {}) });
+      planDraw.start('beam');
+      report(t('planDraw.started.beam'));
+      return;
+    }
     nextMember.physical = { kind: drawKind, typology: drawKind === 'brace' ? (fam === 'timber' ? 'timber' : 'steel') : typology };
     const l = levels.find((x) => x.id === workLevel);
     if (l) uiStore.setActiveLevel(l.z);

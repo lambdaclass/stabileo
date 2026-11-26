@@ -206,7 +206,7 @@
   <UnderlayCard />
   <LinkedModelsCard />
 
-  {#if xs.length > 0 && ys.length > 0 && levels.length > 0}
+  {#if levels.length >= 2}
     <section class="pk-card">
       <Hint text={t('building.fromGrid')} />
       <button class="pk-btn" onclick={() => { buildingUi.tool = 'columns'; if (!embedded) uiStore.proActiveTab = 'building'; }} data-testid="grid-open-building">{t(embedded ? 'building.next.columns' : 'building.open')}</button>
