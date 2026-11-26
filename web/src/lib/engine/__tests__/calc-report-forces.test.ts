@@ -1,5 +1,13 @@
+import { analyzeSectionStress, resolveSectionGeometryLegacy } from '../section-stress';
+import { ConcurrentDemand } from '../concurrent-demand';
+import { extractForcesAtStation } from '../station-forces';
+import { completeResultDemands } from '../result-demand-gate';
+import { memberEndForces2D } from '../diagrams';
+import { memberEndForces3D } from '../diagrams-3d';
+import { analyzeSectionStress3D, computeElementStress3D, interpolateForces3D } from '../section-stress-3d';
+import { stationForces2D, stationForces3D } from '../../section/panel';
 import { forcePeakScale } from '../member-force-extrema';
-import { bindMemberEnvelopeEnds } from '../member-diagram';
+import { bindMemberEnvelopeEnds, envelopeForceExtrema } from '../member-diagram';
 import { steelDemandOf } from '../verification-service';
 import { sampleElementValues } from '../../three/stress-heatmap';
 /**
@@ -11,9 +19,9 @@ import { generateCalcReportHtml, DEFAULT_REPORT_CONTENT, type CalcReportData, ty
 import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';
 import '../../store/index';
-import { computeEnvelope, computeEnvelope3D, initSolver, solve, solvePDelta } from '../wasm-solver';
+import { computeEnvelope, computeEnvelope3D, computeSectionStress3D, initSolver, solve, solve3D, solvePDelta, solvePDelta3D, solvePDelta3DAsync, solvePDelta3DWire } from '../wasm-solver';
 import type { AnalysisResults, ElementForces, SolverInput } from '../types';
-import type { AnalysisResults3D, ElementForces3D } from '../types-3d';
+import type { AnalysisResults3D, ElementForces3D, SolverInput3D } from '../types-3d';
 
 type Kind = 'moment' | 'shear' | 'axial';
 
@@ -523,4 +531,178 @@ describe('consumer sweep #2581', () => {
       expect.soft(new Set(result.stations.map(cut => cut.t)).size).toBe(result.stations.length);
     }
   });
+});
+
+describe('concurrent section result consumers', () => {
+  const section = { A: 1, Iz: 1, Iy: 1, h: 2, b: 2, fy: 100 };
+  const axial = ef3D({ nStart: -100, nEnd: -100 });
+  const bending = ef3D({ myStart: 50, myEnd: 50 });
+
+  function nonconcurrentRecords() {
+    return [
+      computeEnvelope3D([r3D(axial), r3D(bending)])!.maxAbsResults3D.elementForces[0]!,
+      ...(['abs', 'srss'] as const).map(method => ef3D({ combined: { method, parts: [axial, bending] } })),
+    ];
+  }
+
+  it.skip('known wrong result: #2581 round 3 endpoint demands refuse independent axial and bending maxima', () => {
+    expect(ConcurrentDemand.endpoints(axial).map(d => [d.n, d.my])).toEqual([[-100, 0], [-100, 0]]);
+    expect(ConcurrentDemand.endpoints(bending).map(d => [d.n, d.my])).toEqual([[0, 50], [0, 50]]);
+    for (const record of nonconcurrentRecords()) {
+      expect.soft(() => ConcurrentDemand.endpoints(record)).toThrow('solver.diagramExtremaUnavailable');
+      expect.soft(() => completeResultDemands(r3D(record), [record.elementId])).toThrow('solver.diagramExtremaUnavailable');
+    }
+  });
+
+  it.skip('known wrong result: #2581 round 3 quick end stress refuses independent force components', () => {
+    const stress = (record: ElementForces3D) => computeElementStress3D(record, section.A, section.Iz, section.Iy, section.h, section.b, section.fy);
+    for (const [force, sigma] of [[axial, 100], [bending, 50]] as const) {
+      const { start, end, max } = stress(force);
+      expect([start.sigmaMax, end.sigmaMax, max.sigmaMax]).toEqual([sigma, sigma, sigma]);
+    }
+    for (const record of nonconcurrentRecords()) {
+      expect.soft(() => stress(record)).toThrow('solver.diagramExtremaUnavailable');
+    }
+  });
+
+  it.skip('known wrong result: #2581 round 3 every piece must carry concurrent forces', () => {
+    const first = { ...axial, length: 3 };
+    const concurrent = ef3D({ pieces: [{ x0: 0, x1: 3, sectionId: 1, forces: first }, { x0: 3, x1: 6, sectionId: 1, forces: { ...bending, length: 3 } }] });
+    expect(ConcurrentDemand.endpoints(concurrent).map(d => [d.n, d.my])).toEqual([[-100, 0], [0, 50]]);
+    expect(interpolateForces3D(concurrent, { t: 0.5, right: false }).N).toBe(-100);
+    expect(interpolateForces3D(concurrent, { t: 0.5, right: true }).My).toBe(50);
+    for (const bad of nonconcurrentRecords()) {
+      const inner = ef3D({ length: 6, pieces: [{ x0: 0, x1: 6, sectionId: 1, forces: bad }] });
+      const parent = ef3D({ length: 9, pieces: [{ x0: 0, x1: 3, sectionId: 1, forces: first }, { x0: 3, x1: 9, sectionId: 1, forces: inner }] });
+      expect.soft(() => ConcurrentDemand.endpoints(parent)).toThrow('solver.diagramExtremaUnavailable');
+      expect.soft(() => computeElementStress3D(parent, 1, 1, 1, 2, 2)).toThrow('solver.diagramExtremaUnavailable');
+      for (const station of [0, 1 / 3, 1]) {
+        expect.soft(() => interpolateForces3D(parent, station)).toThrow('solver.diagramExtremaUnavailable');
+        expect.soft(() => extractForcesAtStation(parent, station)).toThrow('solver.diagramExtremaUnavailable');
+        expect.soft(() => stationForces3D(parent, station)).toThrow('solver.diagramExtremaUnavailable');
+      }
+      expect.soft(() => steelDemandOf(parent)).toThrow('solver.diagramExtremaUnavailable');
+      expect.soft(() => sampleElementValues(parent, 'shear', section)).toThrow('solver.diagramExtremaUnavailable');
+      for (const variable of ['sigmaMax', 'tauMax', 'vonMises', 'stressRatio'] as const) {
+        expect.soft(() => sampleElementValues(parent, variable, section)).toThrow('solver.diagramExtremaUnavailable');
+      }
+    }
+  });
+
+  it.skip('known wrong result: #2581 round 3 the section panel refuses aggregate planar and spatial records', () => {
+    const planarAxial = ef2D({ nStart: -100, nEnd: -100 });
+    const planarBending = ef2D({ mStart: 50, mEnd: 50 });
+    const planar = computeEnvelope([r2D(planarAxial), r2D(planarBending)])!.maxAbsResults.elementForces[0]!;
+    for (const t of [0, 0.5, 1]) {
+      expect.soft(stationForces2D(planarAxial, t).n).toBe(-100);
+      expect.soft(stationForces3D(bending, t).my).toBe(50);
+      expect.soft(() => stationForces2D(planar, t)).toThrow('solver.diagramExtremaUnavailable');
+      for (const record of nonconcurrentRecords()) {
+        expect.soft(() => stationForces3D(record, t)).toThrow('solver.diagramExtremaUnavailable');
+      }
+    }
+  });
+
+  it.skip('known wrong result: #2581 round 3 envelope ends and extrema refuse the same malformed ordinates', () => {
+    const planar = computeEnvelope([r2D(ef2D({ nStart: -10, nEnd: -10 }))])!;
+    const spatial = computeEnvelope3D([r3D(ef3D({ nStart: -10, nEnd: -10 }))])!;
+    for (const [source, member, endForces] of [
+      [planar.axial.elements[0]!, planar.maxAbsResults.elementForces[0]!, () => memberEndForces2D(planar.maxAbsResults.elementForces[0]!, 'axial')],
+      [spatial.axial.elements[0]!, spatial.maxAbsResults3D.elementForces[0]!, () => memberEndForces3D(spatial.maxAbsResults3D.elementForces[0]!, 'axial')],
+    ] as const) {
+      expect(endForces()).toEqual([-10, -10]);
+      expect(envelopeForceExtrema(source, member.length).absolute.value).toBe(-10);
+      const valid = structuredClone(source);
+      for (const damage of [
+        () => Reflect.deleteProperty(source, 'negValues'),
+        () => source.negValues.pop(),
+        () => { delete source.negValues[0]; },
+        () => { source.posValues[0] = Number.NaN; },
+        () => { source.posValues[0] = -1; },
+        () => { source.negValues[0] = 1; },
+        () => { source.tPositions[1] = -1; },
+        () => { source.tPositions[0] = 0.25; },
+        () => { source.tPositions[source.tPositions.length - 1] = 0.75; },
+      ]) {
+        damage();
+        expect.soft(endForces).toThrow('solver.diagramExtremaUnavailable');
+        expect.soft(() => envelopeForceExtrema(source, member.length)).toThrow('solver.diagramExtremaUnavailable');
+        Object.assign(source, structuredClone(valid));
+      }
+    }
+  });
+
+  it.skip('known wrong result: #2581 round 3 moment colours use the larger component at shared faces', () => {
+    const left = ef3D({ length: 3, myStart: 3, myEnd: 3, mzStart: 4, mzEnd: 4 });
+    const right = ef3D({ length: 3, myStart: -2, myEnd: -2, mzStart: 1, mzEnd: 1 });
+    const member = ef3D({ pieces: [{ x0: 0, x1: 3, sectionId: 1, forces: left }, { x0: 3, x1: 6, sectionId: 1, forces: right }] });
+    const sample = sampleElementValues(member, 'moment', section);
+    expect.soft(sample.peak).toBe(4);
+    expect.soft(sample.stations.filter(cut => cut.t === 0.5).map(cut => cut.value)).toEqual([4, 2]);
+    expect.soft(sample.stations[0]?.value).toBe(4);
+    expect.soft(sample.stations.at(-1)?.value).toBe(2);
+
+    const envelope = computeEnvelope3D([r3D({ ...left, length: 6 }), r3D(ef3D({ mzStart: -3, mzEnd: -3 }))])!;
+    const aggregate = sampleElementValues(envelope.maxAbsResults3D.elementForces[0]!, 'moment', section);
+    expect.soft(aggregate.peak).toBe(4);
+    expect.soft(aggregate.stations.every(cut => cut.value === 4)).toBe(true);
+  });
+});
+
+it.skip('known wrong result: #2581 round 3 solved linear and nonlinear envelopes cannot drive section stress', async () => {
+  await initSolver();
+  const length = 4;
+  const axialLoad = -100;
+  const bendingLoad = 50;
+  const section = { id: 1, name: 'Rectangle', shape: 'rect' as const, a: 0.01, iz: 0.0001, iy: 0.0001, h: 0.1, b: 0.1 };
+  const material = { id: 1, e: 200000, nu: 0.3 };
+  const element = { id: 1, type: 'frame' as const, nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 };
+  const planar = (fx: number, my: number): SolverInput => ({
+    nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: length, z: 0 }]]),
+    materials: new Map([[1, material]]),
+    sections: new Map([[1, section]]),
+    elements: new Map([[1, { ...element, hingeStart: false, hingeEnd: false }]]),
+    supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
+    loads: [{ type: 'nodal', data: { nodeId: 2, fx, fz: 0, my } }],
+  });
+  const spatial = (fx: number, my: number): SolverInput3D => ({
+    nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: length, y: 0, z: 0 }]]),
+    materials: new Map([[1, material]]),
+    sections: new Map([[1, { ...section, j: 0.0001 }]]),
+    elements: new Map([[1, { ...element, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
+    supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
+    loads: [{ type: 'nodal', data: { nodeId: 2, fx, fy: 0, fz: 0, mx: 0, my, mz: 0 } }],
+  });
+  const planarCases = [planar(axialLoad, 0), planar(0, bendingLoad)];
+  const planarNonlinear = planarCases.map(input => solvePDelta(input));
+  expect(planarNonlinear.every(result => result.converged)).toBe(true);
+  for (const cases of [planarCases.map(input => solve(input)), planarNonlinear.map(result => result.results)]) {
+    const envelope = computeEnvelope(cases)!.maxAbsResults.elementForces[0]!;
+    expect.soft(analyzeSectionStress(cases[0]!.elementForces[0]!, section, undefined, 0.5).N).toBeCloseTo(axialLoad, 10);
+    expect.soft(() => analyzeSectionStress(envelope, section, undefined, 0.5)).toThrow('solver.diagramExtremaUnavailable');
+  }
+
+  const spatialCases = [spatial(axialLoad, 0), spatial(0, bendingLoad)];
+  const spatialNonlinear = spatialCases.map(input => solvePDelta3D(input));
+  const { solve_pdelta_3d } = await import('../../wasm/dedaliano_engine.js');
+  let workerAnswers = 0;
+  const asyncNonlinear = await Promise.all(spatialCases.map(input => solvePDelta3DAsync(input, 20, 1e-4,
+    async (wire, iterations, tolerance) => {
+      const answer = solvePDelta3DWire(wire, iterations, tolerance, solve_pdelta_3d);
+      workerAnswers++;
+      return answer;
+    })));
+  expect(workerAnswers).toBe(spatialCases.length);
+  expect([...spatialNonlinear, ...asyncNonlinear].every(result => result.converged)).toBe(true);
+  for (const cases of [spatialCases.map(solve3D), spatialNonlinear.map(result => result.results), asyncNonlinear.map(result => result.results)]) {
+    const envelope = computeEnvelope3D(cases)!.maxAbsResults3D.elementForces[0]!;
+    const control = cases[0]!.elementForces[0]!;
+    const stress = (elementForces: ElementForces3D) => computeSectionStress3D({ elementForces, section: resolveSectionGeometryLegacy(section), t: 0.5 });
+    expect.soft(stress(control).N).toBeCloseTo(axialLoad, 10);
+    expect.soft(analyzeSectionStress3D(control, section, undefined, 0.5).N).toBeCloseTo(axialLoad, 10);
+    expect.soft(ConcurrentDemand.endpoints(control)[0]!.n).toBeCloseTo(axialLoad, 10);
+    expect.soft(() => stress(envelope)).toThrow('solver.diagramExtremaUnavailable');
+    expect.soft(() => analyzeSectionStress3D(envelope, section, undefined, 0.5)).toThrow('solver.diagramExtremaUnavailable');
+    expect.soft(() => ConcurrentDemand.endpoints(envelope)).toThrow('solver.diagramExtremaUnavailable');
+  }
 });

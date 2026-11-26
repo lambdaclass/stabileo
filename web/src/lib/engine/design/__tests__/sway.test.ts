@@ -80,3 +80,31 @@ it('known wrong result: #2581 storey stability uses the compression between two 
     expect.soft(stability.deltaS).toBeCloseTo(q > 0.05 ? 1 / (1 - q) : 1, 10);
   }
 });
+
+it.skip('known wrong result: #2581 round 3 storey shear is oriented at the lower cut of a reversed column', () => {
+  const up = computeLocalAxes3D({ ...nodes.get(1)!, z: 0 }, { ...nodes.get(2)!, z: 3 });
+  const down = computeLocalAxes3D({ ...nodes.get(4)!, z: 3 }, { ...nodes.get(3)!, z: 0 });
+  const reversed = new Map(elements);
+  reversed.set(11, { ...elements.get(11)!, nodeI: 4, nodeJ: 3 });
+  for (const drift of [0.006, 0.009]) {
+    for (const reverse of [false, true]) {
+      const perCombo: Map<number, AnalysisResults3D> = results(drift);
+      const row = perCombo.get(1)!;
+      const [first, second] = row.elementForces;
+      const axis = reverse ? down : up;
+      const start = reverse ? -10 : 50;
+      const end = reverse ? -50 : 10;
+      row.elementForces = [first!, {
+        ...second!,
+        vyStart: start * axis.ey[0], vyEnd: end * axis.ey[0],
+        vzStart: start * axis.ez[0], vzEnd: end * axis.ez[0],
+      }];
+      const stability = storeyStability({ nodes, elements: reverse ? reversed : elements, sections, materials, columns: [10, 11], perCombo })[0]!;
+      const q = 2000 * drift / (100 * 3);
+      expect.soft(stability.Q).toBeCloseTo(q, 10);
+      expect.soft(stability.sway).toBe(q > 0.05);
+      expect.soft(stability.deltaS).toBeCloseTo(q > 0.05 ? 1 / (1 - q) : 1, 10);
+      expect.soft(stability.direction).toBe('X');
+    }
+  }
+});
