@@ -1725,3 +1725,63 @@ it.each(['panels', 'width'] as const)('#2429 %s gravity retains the beam loads b
   expect(plan.surface).toEqual([]);
   expect(totalKN(plan.distributed.filter(load => load.caseType === 'D'), model)).toBeCloseTo(mode === 'panels' ? -4 * 4 : -4 * 4 * 3, 8);
 });
+
+
+const issue2429TriangleGravity = process.env.RUN_KNOWN_WRONG === '2429' ? it : it.skip;
+
+issue2429TriangleGravity('#2429 automatic panel gravity delivers pressure to triangles and distinguishes a quad with the same ID', () => {
+  const model = floor(1, 1, 4, 4);
+  model.plates = new Map([
+    [1, { id: 1, nodes: [1, 2, 4], thickness: 0.2, materialId: 1 }],
+    [2, { id: 2, nodes: [1, 4, 3], thickness: 0.2, materialId: 1 }],
+  ]);
+  const upper = [[0, 0], [4, 0], [4, 4], [0, 4]];
+  const nodes = upper.map(([x, y], i) => {
+    const id = i + 5;
+    model.nodes.set(id, { id, x: x!, y: y!, z: 6 });
+    return id;
+  });
+  model.quads = new Map([[1, { id: 1, nodes, thickness: 0.2, materialId: 1 }]]);
+  const plan = buildLoadPlan(planInput(model, {
+    dead: [{ labelKey: 'a', q: 1 }],
+    roof: { use: 'maintenance', weight: 'heavy', dead: 2, slopeDeg: 0 },
+  }));
+  expect.soft(plan.outcome).toBe('READY');
+  expect.soft(plan.distributed).toEqual([]);
+  expect.soft(plan.nodal).toEqual([]);
+  expect.soft(plan.surface.filter(load => load.caseType === 'D')).toEqual([
+    { quadId: 1, on: 'plate', caseType: 'D', q: 1 },
+    { quadId: 2, on: 'plate', caseType: 'D', q: 1 },
+    { quadId: 1, caseType: 'D', q: 2 },
+  ]);
+  const levels = plan.levels.map(({ elevation, planAreaM2, superimposedKN, selfWeightKN }) =>
+    ({ elevation, planAreaM2, superimposedKN, selfWeightKN }));
+  expect.soft(levels).toEqual([
+    { elevation: 3, planAreaM2: 16, superimposedKN: 16, selfWeightKN: 116 },
+    { elevation: 6, planAreaM2: 16, superimposedKN: 32, selfWeightKN: 80 },
+  ]);
+  expect(roofWeightFor(model, { mode: 'panels' }, 3, 2).structure).toBeCloseTo(5, 8);
+});
+
+issue2429TriangleGravity('#2429 triangles above an explicit-width floor shield all four beams', () => {
+  const model = floor(1, 1, 4, 4);
+  const upper = [[-1, -1], [5, -1], [5, 5], [-1, 5]];
+  const nodes = upper.map(([x, y], i) => {
+    const id = i + 5;
+    model.nodes.set(id, { id, x: x!, y: y!, z: 6 });
+    return id;
+  });
+  model.plates = new Map([
+    [1, { id: 1, nodes: [nodes[0]!, nodes[1]!, nodes[2]!] }],
+    [2, { id: 2, nodes: [nodes[0]!, nodes[2]!, nodes[3]!] }],
+  ]);
+  const gravity = { mode: 'width' } as const;
+  const plan = buildLoadPlan(planInput(model, {
+    gravity, dead: [{ labelKey: 'a', q: 1 }],
+    roof: { use: 'maintenance', weight: 'heavy', dead: 2, slopeDeg: 0 },
+  }));
+  expect.soft(plan.outcome).toBe('READY');
+  expect.soft(plan.surface).toEqual([]);
+  expect.soft(totalKN(plan.distributed.filter(load => load.caseType === 'D'), model)).toBeCloseTo(-48, 8);
+  expect(gravityLayout(model, { ...gravity, tributaryWidth: 3 }).roof).toEqual(new Set());
+});

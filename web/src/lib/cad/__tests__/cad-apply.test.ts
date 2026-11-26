@@ -13,6 +13,9 @@ import { organizeImported } from '../../model/building/organize-import';
 import { modelFeatures } from '../../provenance/model-features';
 import { uiStore } from '../../store';
 import { placementStore } from '../../store/placement.svelte';
+import { buildLoadPlan } from '../../engine/loads/load-plan';
+import { applyLoadPlan } from '../../store/apply-load-plan';
+import { regulations } from '../../engine/loads/__tests__/snow-roof-plane-fixture';
 import { runDirectAnalysis } from '../../engine/direct-analysis';
 import { runGlobalSolve } from '../../engine/live-calc';
 import type { AnalysisResults3D } from '../../engine/types-3d';
@@ -169,7 +172,14 @@ describe('CAD draft apply contract', () => {
 });
 
 
-it.each(['replace', 'insert', 'per-floor plans'] as const)('#2429 CAD %s preserves the applied triangle loads and wall reactions', async mode => {
+type CadMode = 'replace' | 'insert' | 'per-floor plans';
+const cadModes: CadMode[] = ['replace', 'insert', 'per-floor plans'];
+const issue2429TriangleGravity = process.env.RUN_KNOWN_WRONG === '2429' ? it : it.skip;
+
+it.each(cadModes)('#2429 CAD %s preserves the applied triangle loads and wall reactions', mode => checkWallReactions(mode, false));
+issue2429TriangleGravity.each(cadModes)('#2429 CAD %s preserves wall reactions after automatic pressure regeneration', mode => checkWallReactions(mode, true));
+
+async function checkWallReactions(mode: CadMode, regenerate: boolean) {
   const draft = makeDraft(mode);
   expect(diagnoseDraft(draft).solvableShape).toBe(true);
   expect(draft.counts.slabTriangles).toBeGreaterThan(0);
@@ -194,6 +204,20 @@ it.each(['replace', 'insert', 'per-floor plans'] as const)('#2429 CAD %s preserv
       expect(deserializeProject(serializeProject())).toBe(true);
     }
     expect(modelStore.plates.size).toBe(draft.counts.slabTriangles);
+    if (regenerate) {
+      modelStore.replaceLoads([]);
+      const plan = buildLoadPlan({
+        model: modelStore.model, regulations: regulations(), gravity: { mode: 'panels' },
+        dead: [{ labelKey: 'a', q: 1 }], occupancyKey: 'vivienda', tributaryWidth: 3,
+        reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: false,
+      });
+      expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+      expect(plan.surface.filter(load => load.caseType === 'D')).toEqual(
+        [...modelStore.plates.keys()].map(quadId => ({ quadId, on: 'plate', caseType: 'D', q: 1 })),
+      );
+      expect(applyLoadPlan(plan, { nameOf: key => key, clearExisting: true, bothSenses: false })).toBeUndefined();
+      expect(deserializeProject(serializeProject())).toBe(true);
+    }
     const expected = (mode === 'per-floor plans' ? 2 : 1) * 4 * 4;
     const check = (result: AnalysisResults3D | string | null | undefined) => {
       if (!result || typeof result === 'string') throw new Error(String(result));
@@ -205,7 +229,9 @@ it.each(['replace', 'insert', 'per-floor plans'] as const)('#2429 CAD %s preserv
     expect(modelStore.singleSolveInput3D(false, false, true)).toBeTruthy();
     expect(await runGlobalSolve({ directBase: true })).toMatchObject({ ok: true });
     const model = modelStore.model;
-    const deadCases = new Set(model.loads.flatMap(load => load.type === 'surface3d' ? [load.data.caseId!] : []));
+    const deadCases = new Set(model.loads.flatMap(load =>
+      load.type === 'surface3d' && model.loadCases.some(c => c.id === load.data.caseId && c.type === 'D') ? [load.data.caseId!] : [],
+    ));
     expect(deadCases.size).toBe(1);
     const caseId = [...deadCases][0]!;
     expect(model.loadCases.find(c => c.id === caseId)?.type).toBe('D');
@@ -225,4 +251,4 @@ it.each(['replace', 'insert', 'per-floor plans'] as const)('#2429 CAD %s preserv
     uiStore.includeSelfWeight = true;
     placementStore.cancel();
   }
-});
+}
