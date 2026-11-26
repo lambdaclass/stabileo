@@ -1,3 +1,4 @@
+use dedaliano_engine::solver::spectral::{solve_spectral_3d, SpectralResult3D};
 use dedaliano_engine::solver::modal::{solve_modal_2d, solve_modal_3d, uncondensed_solves, with_condensed_mass_range, ModalResult3D};
 use serde_json::json;
 use dedaliano_engine::types::*;
@@ -150,8 +151,7 @@ fn a_curved_roof_whose_massless_rotations_are_along_no_axis_has_the_same_modes()
     agree("curved roof", &model, 6, true);
 }
 
-#[test]
-fn a_slab_on_columns_has_the_same_modes() {
+fn slab_on_columns() -> SolverInput3D {
     let n = 12;
     let mut model = shell(n, &|i, j| [i, 0.7 * j, 3.0]);
     model.sections.insert("1".into(), SolverSection3D {
@@ -173,7 +173,12 @@ fn a_slab_on_columns_has_the_same_modes() {
             element += 1;
         }
     }
-    agree("slab on columns", &model, 6, true);
+    model
+}
+
+#[test]
+fn a_slab_on_columns_has_the_same_modes() {
+    agree("slab on columns", &slab_on_columns(), 6, true);
 }
 
 #[test]
@@ -424,4 +429,58 @@ fn a_plane_frame_with_its_mass_lumped_at_the_joints_has_the_same_modes() {
         }
     }
     assert!((found.cumulative_mass_ratio_x - condensed.cumulative_mass_ratio_x).abs() <= 1e-8);
+}
+
+fn spectral(model: &SolverInput3D, modal: &ModalResult3D, direction: &str) -> SpectralResult3D {
+    let modes = modal.modes.iter().map(|m| SpectralModeInput3D {
+        frequency: m.frequency, period: m.period, omega: m.omega,
+        displacements: m.displacements.iter().map(|d| SpectralModeDisp3D {
+            node_id: d.node_id, ux: d.ux, uy: d.uy, uz: d.uz, rx: d.rx, ry: d.ry, rz: d.rz,
+        }).collect(),
+        participation_x: m.participation_x, participation_y: m.participation_y, participation_z: m.participation_z,
+        effective_mass_x: m.effective_mass_x, effective_mass_y: m.effective_mass_y, effective_mass_z: m.effective_mass_z,
+    }).collect();
+    let points = [(0.0, 0.4), (0.1, 1.0), (0.5, 1.0), (1.0, 0.5), (4.0, 0.125)];
+    solve_spectral_3d(&SpectralInput3D {
+        solver: model.clone(), modes, densities: densities(),
+        spectrum: DesignSpectrum { name: "plateau".into(), points: points.iter().map(|&(period, sa)| SpectrumPoint { period, sa }).collect(), in_g: Some(true) },
+        direction: direction.into(), rule: Some("CQC".into()), xi: Some(0.05), importance_factor: None, reduction_factor: None, total_mass: None,
+    }).unwrap_or_else(|e| panic!("spectral {direction}: {e}"))
+}
+
+#[test]
+fn a_spectral_analysis_on_the_modes_found_without_condensing_is_the_one_on_the_condensed_modes() {
+    let model = slab_on_columns();
+    let before = uncondensed_solves();
+    let found = solve_modal_3d(&model, &densities(), 6).unwrap();
+    assert!(uncondensed_solves() > before);
+    let condensed = with_condensed_mass_range(|| solve_modal_3d(&model, &densities(), 6)).unwrap();
+    for direction in ["X", "Y", "Z"] {
+        let (a, b) = (spectral(&model, &found, direction), spectral(&model, &condensed, direction));
+        assert!(b.base_shear > 0.0, "{direction}");
+        assert!((a.base_shear - b.base_shear).abs() <= 1e-8 * b.base_shear, "{direction}: base shear {} against {}", a.base_shear, b.base_shear);
+        assert_eq!(serde_json::to_value(&a.structured_diagnostics).unwrap(), serde_json::to_value(&b.structured_diagnostics).unwrap(), "{direction}");
+        assert_eq!(a.per_mode.len(), b.per_mode.len());
+        for (x, y) in a.per_mode.iter().zip(&b.per_mode) {
+            assert!((x.sa - y.sa).abs() <= 1e-9 * y.sa && (x.modal_force.abs() - y.modal_force.abs()).abs() <= 1e-8 * b.base_shear, "{direction}, mode {}", y.mode);
+        }
+        let all = |d: &Displacement3D| [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz];
+        let scale = b.displacements.iter().flat_map(all).fold(0.0f64, |m, v| m.max(v.abs()));
+        assert!(scale > 0.0 && a.displacements.len() == b.displacements.len());
+        for (x, y) in a.displacements.iter().zip(&b.displacements) {
+            assert_eq!(x.node_id, y.node_id);
+            for (p, q) in all(x).into_iter().zip(all(y)) {
+                assert!((p - q).abs() <= 1e-6 * scale, "{direction}, node {}: {p} against {q}", x.node_id);
+            }
+        }
+        let forces = |f: &dedaliano_engine::solver::spectral::SpectralElementForce3D| [f.n_max, f.vy_max, f.vz_max, f.mx_max, f.my_max, f.mz_max];
+        let scale = b.element_forces.iter().flat_map(forces).fold(0.0f64, f64::max);
+        assert!(scale > 0.0 && a.element_forces.len() == b.element_forces.len());
+        for (x, y) in a.element_forces.iter().zip(&b.element_forces) {
+            assert_eq!(x.element_id, y.element_id);
+            for (p, q) in forces(x).into_iter().zip(forces(y)) {
+                assert!((p - q).abs() <= 1e-6 * scale, "{direction}, element {}: {p} against {q}", x.element_id);
+            }
+        }
+    }
 }
