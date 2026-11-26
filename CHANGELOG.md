@@ -841,6 +841,16 @@ Release notes cover all 57 results-change notices through results version 95 and
 
 ### Fixed
 
+#### 3D diagrams keep their shape far from the origin (2026-11-19)
+
+A 3D force diagram stored its vertices as single-precision coordinates measured
+from zero. On a model placed at survey coordinates (X = 500,000 m,
+Y = 5,000,000 m) those hold 0.03 m in X and 0.5 m in Y, so a one-metre member's
+diagram was drawn on that grid. A diagram's vertices, outlines, closing
+segments, markers and value labels are now measured from the model's centre,
+which the diagram group carries as its own position. The members, nodes and
+loads of the 3D view are still measured from zero.
+
 #### Mohr calculations and shared links retain small stresses (2026-11-16)
 
 Plane and spatial Mohr calculations preserve small nonzero principal stresses and rotated stress components when other components are much larger. Shared links preserve stresses and angles when reopened in every display unit. Mohr plots select the shear point for the displayed convention. Tool exercises retain authored decimals and bounds, and unloaded truss bars remain unloaded. The flexure article uses actual bar depths and rejects the nonductile example in every published translation.
@@ -854,6 +864,39 @@ Reports, printable calculations and workbooks reject results changed while signi
 Envelopes match nodal displacements and reactions by node ID, and member forces by element ID. Mismatched or duplicate IDs cause a refusal. Nonlinear analysis also rejects non-finite inputs sent to the cable and soil–structure solvers and discards superseded results. [Envelope result scope](docs/results-changes/2026-11-envelope-entity-ids.md), #2283.
 
 ### Performance
+
+#### Draw a 3D diagram's closing lines and markers once each (2026-11-18)
+
+A 3D force diagram drew, for every member, two closing lines and up to two
+marker spheres as objects of their own: on a 3,414-member model 14,429 objects
+a diagram, each a draw call every frame. The closing lines of a diagram are
+now one set of segments and its markers one instanced mesh, so the same
+diagram is 6,831 objects. The segments, the markers' positions, the colours
+and the draw order of the markers are the same; each member keeps its own fill
+and outline, which the hover reading uses.
+
+#### Draw a 3D diagram with one set of materials (2026-11-18)
+
+Every member of a 3D force diagram made its own fill, outline, closing and
+marker materials and its own marker sphere, the sphere even where nothing was
+marked. A diagram now makes one of each for the group (two for an envelope,
+one a colour) and makes the sphere when the first marker needs it. The objects
+drawn, their vertices, colours and order are the same. A moment diagram of
+3,414 members builds in 52 ms where it took 72.
+
+`make bench.web.render` builds the diagrams and the deformed shape of the
+examples given and prints a digest of everything each build draws, so two
+versions can be compared.
+
+#### Skip the eigenvectors the stability check never reads (2026-11-18)
+
+The conditioning estimate behind the mechanism check runs two Lanczos
+iterations and read the mode of the first one only; the second still
+accumulated its whole eigenvector matrix. It no longer does. Where the
+eigenvectors of the tridiagonal problem are wanted, their columns are kept
+contiguous while the rotations are applied. Every value is computed by the
+same operations in the same order: a 192-unknown beam solves 28 % sooner and
+its results are bit-identical.
 
 #### Reinforcement workspace avoids repeated coordinate reads (2026-11-16)
 

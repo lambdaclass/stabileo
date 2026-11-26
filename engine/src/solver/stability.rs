@@ -1571,7 +1571,7 @@ fn start(m: usize, seed: u64) -> Vec<f64> {
     x.into_iter().map(|a| a / nx).collect()
 }
 
-fn lanczos_top(apply: &dyn Fn(&[f64]) -> Vec<f64>, m: usize, seed: u64, certify: &dyn Fn(f64) -> Option<f64>) -> Option<(f64, Vec<f64>)> {
+fn lanczos_top(apply: &dyn Fn(&[f64]) -> Vec<f64>, m: usize, seed: u64, certify: &dyn Fn(f64) -> Option<f64>, mode: bool) -> Option<(f64, Vec<f64>)> {
     #[cfg(test)]
     tests::LANCZOS_RUNS.with(|count| count.set(count.get() + 1));
     let steps = m.min(200);
@@ -1600,6 +1600,7 @@ fn lanczos_top(apply: &dyn Fn(&[f64]) -> Vec<f64>, m: usize, seed: u64, certify:
         let top = crate::linalg::lanczos::tridiag_eigen(&alpha, &shifted, k)[k - 1];
         if !top.is_finite() { return None; }
         if exhausted || (top - previous).abs() <= 1e-12 * top.abs() {
+            if !mode { return certify(top).map(|upper| (upper, Vec::new())); }
             let (_, y) = crate::linalg::lanczos::tridiag_eigen_vecs(&alpha, &shifted, k);
             let mut x = vec![0.0; m];
             for (i, v) in basis.iter().enumerate() {
@@ -1683,9 +1684,9 @@ fn spectrum(s: &CscMatrix, anisotropy: f64, amplification: f64, symbolic: Option
         let Some((inverse_top, x)) = lanczos_top(&|v| sparse_cholesky_solve(&factor, v), m, seed, &|top| {
             (0..WIDEN).map(|t| (1.0 - CERTIFY) / top / 2f64.powi(t))
                 .find(|&lower| lower > 0.0 && positive_definite(s, &sym, 1.0, -lower)).map(|lower| 1.0 / lower)
-        }) else { continue };
+        }, true) else { continue };
         mode = Some(x);
-        let Some((lmax, _)) = lanczos_top(&|v| s.sym_mat_vec(v), m, seed, &|top| certified_top(s, &sym, top)) else { continue };
+        let Some((lmax, _)) = lanczos_top(&|v| s.sym_mat_vec(v), m, seed, &|top| certified_top(s, &sym, top), false) else { continue };
         if !(inverse_top.is_finite() && inverse_top > 0.0 && lmax > 0.0) { continue; }
         return (lmax * inverse_top, mode, false);
     }
@@ -2535,9 +2536,30 @@ mod tests {
             let exact_top = 2.001;
             let calls = std::cell::Cell::new(0);
             let apply = |x: &[f64]| { calls.set(calls.get() + 1); matrix.sym_mat_vec(x) };
-            let (upper, _) = lanczos_top(&apply, m, seed, &|top| certified_top(&matrix, &Rc::new(symbolic_cholesky(&matrix)), top)).expect("a finite upper bound");
+            let (upper, _) = lanczos_top(&apply, m, seed, &|top| certified_top(&matrix, &Rc::new(symbolic_cholesky(&matrix)), top), true).expect("a finite upper bound");
             assert_eq!(calls.get(), if m == 2 { 1 } else { 20 }, "exercise both breakdown and successive stalled estimates");
             assert!(upper >= exact_top, "stalled Ritz estimate {upper} is below the exact eigenvalue {exact_top}");
+        }
+    }
+
+    #[test]
+    fn the_top_estimate_does_not_depend_on_whether_its_mode_is_asked_for() {
+        for (m, seed) in [(2usize, 1u64), (5, 2), (40, 3), (97, 1), (230, 2), (400, 3)] {
+            let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+            for i in 0..m {
+                rows.push(i); cols.push(i); vals.push(2.0 + (i % 7) as f64 * 1e-3 + 1.0 / (i + 1) as f64);
+                if i + 1 < m { rows.push(i + 1); cols.push(i); vals.push(-1.0 + (i % 3) as f64 * 1e-2); }
+                if i + 9 < m { rows.push(i + 9); cols.push(i); vals.push(0.05); }
+            }
+            let matrix = CscMatrix::from_triplets(m, &rows, &cols, &vals);
+            let sym = Rc::new(symbolic_cholesky(&matrix));
+            let run = |mode: bool| lanczos_top(&|x| matrix.sym_mat_vec(x), m, seed, &|top| certified_top(&matrix, &sym, top), mode);
+            let (with, without) = (run(true).expect("a mode"), run(false).expect("an estimate"));
+            assert_eq!(with.0.to_bits(), without.0.to_bits(), "order {m}");
+            assert_eq!(with.1.len(), m);
+            assert!(without.1.is_empty());
+            let refused = |mode: bool| lanczos_top(&|x| matrix.sym_mat_vec(x), m, seed, &|_| None, mode);
+            assert!(refused(true).is_none() && refused(false).is_none());
         }
     }
 
@@ -2545,7 +2567,7 @@ mod tests {
     fn issue_1753_an_exhausted_estimate_without_an_upper_certificate_is_refused() {
         let matrix = CscMatrix::from_triplets(2, &[0, 1, 1], &[0, 0, 1], &[2049.0, -2047.0, 2049.0]);
         let seed = 15_233_338_564_176_581_173;
-        assert!(lanczos_top(&|x| matrix.sym_mat_vec(x), 2, seed, &|top| certified_top(&matrix, &Rc::new(symbolic_cholesky(&matrix)), top)).is_none());
+        assert!(lanczos_top(&|x| matrix.sym_mat_vec(x), 2, seed, &|top| certified_top(&matrix, &Rc::new(symbolic_cholesky(&matrix)), top), true).is_none());
     }
     #[test]
     fn issue_1958_identity_jacobi_rotations_do_no_matrix_work() {
