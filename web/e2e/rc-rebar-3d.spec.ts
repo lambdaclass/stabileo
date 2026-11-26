@@ -32,14 +32,15 @@ if (BUILD_FEATURES.proRcSheets) {
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('stabileo-camera-view', { detail: 'iso' })));
     await page.screenshot({ path: test.info().outputPath('rebar-3d-ghost-on.png') });
     const box = (await page.locator('.viewport3d-wrapper').boundingBox())!;
+    expect(await page.evaluate(() => window.__stabileo.selection()), 'nothing hidden stays selected, for a key to delete').toEqual([]);
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-    expect(await page.evaluate(() => window.__stabileo.selection())).toEqual([...ids].sort((a, b) => a - b));
+    expect(await page.evaluate(() => window.__stabileo.selection()), 'a click on the bars selects nothing').toEqual([]);
     await ghost.uncheck();
     await page.screenshot({ path: test.info().outputPath('rebar-3d-ghost-off.png') });
     await panel.getByTestId('rc-rebar-3d-toggle').click();
     await expect(panel.getByTestId('rc-rebar-3d-toggle')).toHaveAttribute('aria-pressed', 'false');
     await expect(solo).toHaveCount(0);
-    expect(await page.evaluate(() => window.__stabileo.selection())).toEqual([...ids].sort((a, b) => a - b));
+    expect(await page.evaluate(() => window.__stabileo.selection())).toEqual([]);
     expect(await page.evaluate(() => window.__stabileo.undoCount())).toBe(undos);
     await panel.getByTestId('rc-rebar-3d-toggle').click();
     await expect(panel.getByTestId('rc-rebar-3d-toggle')).toHaveAttribute('aria-pressed', 'true');
