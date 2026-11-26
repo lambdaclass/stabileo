@@ -140,26 +140,34 @@ function isLoadType(type: unknown): type is Load['type'] {
   return typeof type === 'string' && Object.hasOwn(loadFields, type);
 }
 
-function requireLoadSelectors(path: string, type: Load['type'], data: Record<string, unknown>, strict: boolean): void {
-  const { isGlobal, frame, on } = data;
-  const planarMember = type === 'distributed' || type === 'pointOnElement';
-  const spatialFrame = type === 'distributed3d' || type === 'pointOnElement3d' || type === 'surface3d';
-  const shellTarget = type === 'surface3d' || type === 'thermalQuad3d';
-  requireInputField(`${path}.isGlobal`, (!strict && !planarMember) || isGlobal === undefined || (planarMember && typeof isGlobal === 'boolean'));
-  requireInputField(`${path}.frame`, (!strict && !spatialFrame) || frame === undefined || (spatialFrame && (frame === 'local' || frame === 'global'
-    || (frame === 'projected' && type !== 'pointOnElement3d'))));
-  requireInputField(`${path}.on`, (!strict && !shellTarget) || on === undefined || (shellTarget && on === 'plate'));
+function requireLoadSelectors(path: string, type: Load['type'], data: Record<string, unknown>): void {
+  if (type === 'distributed' || type === 'pointOnElement') {
+    const { isGlobal } = data;
+    requireInputField(`${path}.isGlobal`, isGlobal === undefined || typeof isGlobal === 'boolean');
+  }
+  if (type === 'distributed3d' || type === 'pointOnElement3d' || type === 'surface3d') {
+    const { frame } = data;
+    requireInputField(`${path}.frame`, frame === undefined || frame === 'local' || frame === 'global'
+      || (frame === 'projected' && type !== 'pointOnElement3d'));
+  }
+  if (type === 'surface3d' || type === 'thermalQuad3d') {
+    requireInputField(`${path}.on`, data.on === undefined || data.on === 'plate');
+  }
 }
 
-function requireLoadRecord(load: unknown, i: number, strict = true) {
+function requireLoadRecord(load: unknown, i: number) {
   const row = `loads[${i}]`;
   requireInputField(`${row}.type`, isRecord(load) && isLoadType(load.type));
-  if (strict) requireKnownFields(row, load, loadRecordFields);
   const path = `${row}.data`;
   const { type, data } = load;
   requireInputField(path, isRecord(data));
-  requireLoadSelectors(path, type, data, strict);
-  if (!strict) return { path, type, data };
+  requireLoadSelectors(path, type, data);
+  return { path, type, data };
+}
+
+function requireAdditionalLoadFields(load: unknown, i: number, { path, type, data }: ReturnType<typeof requireLoadRecord>): void {
+  const row = `loads[${i}]`;
+  requireKnownFields(row, recordAt(row, load), loadRecordFields);
   const fields: NumericFieldNames & { basicProjection?: NumericFieldNames } = loadFields[type];
   for (const key of Object.keys(data)) {
     const allowed = Object.hasOwn(commonLoadFields, key) || Object.hasOwn(loadMetadataFields[type], key)
@@ -167,13 +175,11 @@ function requireLoadRecord(load: unknown, i: number, strict = true) {
       || fields.basicProjection?.required.includes(key) || fields.basicProjection?.optional.includes(key);
     requireInputField(`${path}.${key}`, allowed === true);
   }
-  return { path, type, data };
 }
 
-function requireProjectionNumbers({ path, type, data }: ReturnType<typeof requireLoadRecord>, strict = true): void {
+function requireProjectionNumbers({ path, type, data }: ReturnType<typeof requireLoadRecord>): void {
   const fields = loadFields[type].basicProjection;
   if (fields) recordNumbers(path, data, fields);
-  if (strict && type === 'nodal') requirePlanarNodalMoment(path, data);
   if (type === 'nodal') numberAt(`${path}.fz/fy`, data.fz ?? data.fy);
 }
 
@@ -197,8 +203,10 @@ export function requireLoadInput(loads: unknown): void {
   for (const [i, load] of loads.entries()) {
     const row = requireLoadRecord(load, i);
     const { path, type, data } = row;
+    requireAdditionalLoadFields(load, i, row);
     requireNumericFields(path, data, commonLoadFields);
     recordNumbers(path, data, loadFields[type]);
+    if (type === 'nodal') requirePlanarNodalMoment(path, data);
     requireProjectionNumbers(row);
     if (type === 'pointOnElement') {
       const { mx } = data;
@@ -241,30 +249,35 @@ export function loadInputRefusal(loads: unknown): string | null {
   return modelInputError(() => requireLoadInput(loads))?.message ?? null;
 }
 
-export function authoredLoadIssues(loads: unknown, basicProjection: boolean): Set<'malformedAuthoredLoad' | 'addedAuthoredLoadRefusal'> {
-  const issues = new Set<'malformedAuthoredLoad' | 'addedAuthoredLoadRefusal'>();
-  if (loads === undefined) return issues;
-  if (!Array.isArray(loads)) {
-    issues.add('malformedAuthoredLoad');
-    return issues;
-  }
-  for (const [i, load] of loads.entries()) {
-    const released = modelInputError(() => {
-      const row = requireLoadRecord(load, i, false);
-      if (basicProjection) requireProjectionNumbers(row, false);
-    });
-    if (released) {
-      issues.add('malformedAuthoredLoad');
-      continue;
+export function hasMalformedAuthoredLoad(loads: unknown, basicProjection: boolean): boolean {
+  if (loads === undefined) return false;
+  return modelInputError(() => {
+    requireLoadCollection(loads);
+    for (const [i, load] of loads.entries()) {
+      const row = requireLoadRecord(load, i);
+      if (basicProjection) requireProjectionNumbers(row);
     }
-    const added = modelInputError(() => {
-      const { path, type, data } = requireLoadRecord(load, i);
+  }) !== null;
+}
+
+export function hasAddedAuthoredLoadRefusal(loads: unknown, basicProjection: boolean): boolean {
+  if (!Array.isArray(loads)) return false;
+  return loads.some((load, i) => {
+    let row: ReturnType<typeof requireLoadRecord>;
+    try {
+      row = requireLoadRecord(load, i);
+      if (basicProjection) requireProjectionNumbers(row);
+    } catch (error) {
+      if (error instanceof ModelInputError) return false;
+      throw error;
+    }
+    return modelInputError(() => {
+      const { path, type, data } = row;
+      requireAdditionalLoadFields(load, i, row);
       if (basicProjection && loadFields[type].basicProjection) recordNumbers(path, data, loadFields[type]);
       if (type === 'nodal') requirePlanarNodalMoment(path, data);
-    });
-    if (added) issues.add('addedAuthoredLoadRefusal');
-  }
-  return issues;
+    }) !== null;
+  });
 }
 
 function recordAt(path: string, value: unknown): Record<string, unknown> {
