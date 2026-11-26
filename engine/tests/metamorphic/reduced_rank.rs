@@ -50,7 +50,7 @@ fn classification_2d(case: &Case2) -> Result<(), String> {
 }
 
 #[test]
-fn issue_2380_rank_refusal_survives_spatial_embedding_and_planar_nonlinear_entries() {
+fn issue_2380_through_native_operator_entries() {
     let case = model("2380");
     let spatial = Case3::new("spatial", embed_2d(&case.s, Plane::XZ).unwrap());
     let entries = [
@@ -724,10 +724,9 @@ fn planar_released_swing_respects_the_exact_mpc_subspace() {
     assert!(response.displacements.iter().all(|u| u.ux == 0.0 && u.uz == 0.0 && u.ry == 0.0));
 }
 
-#[test]
-fn issue_2134_winkler_refuses_the_proven_mechanism() {
-    let base = space_model("2134");
-    let row = crate::ana3::rows().into_iter().find(|row| row.name == "Winkler (no foundation)").unwrap();
+fn check_spatial_terminal_swing(issue: &str, entry: &str) {
+    let base = space_model(issue);
+    let row = crate::ana3::rows().into_iter().find(|row| row.name == entry).unwrap();
     let mut rng = Rng::new(2026111404217 ^ hash(row.name));
     let frames = [
         ("original", base.clone()),
@@ -736,11 +735,47 @@ fn issue_2134_winkler_refuses_the_proven_mechanism() {
         ("scaled", base.units(&Units::froude(25.0, 1e-2))),
     ];
     for (label, case) in frames {
-        let error = (row.run)(&case).expect_err("Winkler returned results for a released swing");
+        let error = (row.run)(&case).expect_err("the analysis returned results for a released swing");
         assert!(error.starts_with("the structure is a mechanism at nodes [2]: a node can move freely"), "{label}: {error}");
         let verdict = stability::of_3d(&case.s).unwrap();
         assert_eq!(verdict.verdict, stability::Verdict::Mechanism, "{label}");
         assert_eq!(verdict.reason, stability::Reason::FreeTranslation, "{label}");
         assert_eq!(verdict.mode_nodes, [2], "{label}");
     }
+}
+
+
+#[test]
+fn issue_2119_terminal_swing_has_a_structural_witness() {
+    check_spatial_terminal_swing("2119", "contact (no gaps)");
+}
+
+#[test]
+fn issue_2134_terminal_swing_has_a_structural_witness() {
+    check_spatial_terminal_swing("2134", "Winkler (no foundation)");
+}
+
+#[test]
+fn issue_2139_terminal_swing_has_a_structural_witness() {
+    check_spatial_terminal_swing("2139", "plastic collapse");
+}
+
+fn check_embedded_terminal_swing(issue: &str) {
+    let base = model(issue);
+    let mut failures = Vec::new();
+    for plane in Plane::ALL {
+        let spatial = embed_2d(&base.s, plane).unwrap();
+        assert_terminal_swing("spatial embedding", linear::solve_3d(&spatial), &mut failures);
+    }
+    assert!(failures.is_empty(), "#{}:\n{}", issue, failures.join("\n"));
+}
+
+#[test]
+fn issue_2190_terminal_swing_has_a_structural_witness() {
+    check_embedded_terminal_swing("2190");
+}
+
+#[test]
+fn issue_2266_terminal_swing_has_a_structural_witness() {
+    check_embedded_terminal_swing("2266");
 }
