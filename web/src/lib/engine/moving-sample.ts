@@ -1,3 +1,4 @@
+import { memberEndFace } from './member-diagram';
 import { movingFaceForce } from './wasm-solver';
 
 type LocalForce = [axial: number, shearY: number, shearZ: number];
@@ -16,7 +17,7 @@ export function axleFaceForce(force: LocalForce, axialOnly: boolean): LocalForce
 export function recoverAxleFace(
   end: 0 | 1, load: number, axial: boolean, evaluate: (t: number, right: boolean) => number,
 ): number {
-  return movingFaceForce(evaluate(end, end === 0), load, end === 1, axial);
+  return movingFaceForce(evaluate(end, memberEndFace(end) === true), load, end === 1, axial);
 }
 
 export type FaceLoads = Map<number, [LocalForce, LocalForce]>;

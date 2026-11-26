@@ -1,4 +1,3 @@
-import { envelopeJumpCuts } from '../diagram-cut';
 /**
  * The calculation report's chosen parts: what goes in, the figures, the kinematic analysis and a
  * table per internal force.
@@ -10,11 +9,11 @@ import { envelopeJumpCuts } from '../diagram-cut';
  */
 import { t, tp } from '../../i18n';
 import type { KinematicReport } from '../kinematic-report';
-import type { AnalysisResults, ElementEnvelopeDiagram, FullEnvelope } from '../types';
+import type { AnalysisResults, FullEnvelope } from '../types';
 import type { AnalysisResults3D, FullEnvelope3D } from '../types-3d';
 import { computePlanarDiagramExtrema } from '../diagrams';
 import { computeSpatialDiagramExtrema, type Diagram3DKind } from '../diagrams-3d';
-import { isInwardEndpointFace, type DiagramOrdinate } from '../member-diagram';
+import { memberEnvelopeOrdinates, type DiagramOrdinate } from '../member-diagram';
 import type { FigureContent } from '../../export/view-figure';
 
 /** A result the reader can have as a table, a diagram, or both. */
@@ -169,22 +168,7 @@ function cutLabel({ x, side }: Extreme, format: LengthFmt): string {
   return format(x, side !== undefined) + (side === 'left' ? '⁻' : side === 'right' ? '⁺' : '');
 }
 
-type EnvelopeValue = Extreme & Pick<DiagramOrdinate, 't'>;
-
-function inwardEnvelopeValues(d: ElementEnvelopeDiagram, length: number, sign = 1): EnvelopeValue[] {
-  const faces = new Map<number, Pick<Extreme, 'x' | 'side'>>();
-  const addFaces = (index: number, x: number) => {
-    faces.set(index, { x, side: 'left' });
-    faces.set(index + 1, { x, side: 'right' });
-  };
-  for (const { index, distance } of envelopeJumpCuts(d, length)) addFaces(index, distance);
-  return d.tPositions.map((t, i) => {
-    const p = d.posValues[i] ?? 0, n = d.negValues[i] ?? 0;
-    return { t, value: sign * (Math.abs(n) > Math.abs(p) ? n : p), x: t * length, ...faces.get(i) };
-  }).filter(({ t, side }) => isInwardEndpointFace(t, side === undefined ? undefined : side === 'right'));
-}
-
-function envelopeExtreme(values: readonly EnvelopeValue[]): Extreme {
+function envelopeExtreme(values: ReturnType<typeof memberEnvelopeOrdinates>): Extreme {
   let best: Extreme = { value: 0, x: 0 };
   for (const { t, value, x, side } of values) {
     if (Math.abs(value) > Math.abs(best.value)) {
@@ -223,10 +207,10 @@ export function forceTable2D(
     if (env) {
       const e = env.get(ef.elementId);
       if (!e?.tPositions.length) { h.push(`<tr><td>${ef.elementId}</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>`); continue; }
-      const vals = inwardEnvelopeValues(e, ef.length, sign);
+      const vals = memberEnvelopeOrdinates(e, ef.length).map(v => ({ ...v, value: sign * v.value }));
       vI = vals[0]!.value; vJ = vals[vals.length - 1]!.value; best = envelopeExtreme(vals);
     } else {
-      const extrema = computePlanarDiagramExtrema(kind, ef, true);
+      const extrema = computePlanarDiagramExtrema(kind, ef);
       vI = sign * extrema.startValue;
       vJ = sign * extrema.endValue;
       best = { value: sign * extrema.maxAbsValue, x: extrema.maxAbsX, side: extrema.maxAbsSide };
@@ -238,8 +222,7 @@ export function forceTable2D(
   return h.join('\n');
 }
 
-type Ef3 = AnalysisResults3D['elementForces'][number];
-type Col3 = [string, Diagram3DKind, (e: Ef3, end: 'I' | 'J') => number];
+type Col3 = [string, Diagram3DKind];
 
 /**
  * A 3D internal force along each member, its components side by side: the value at each end,
@@ -254,29 +237,30 @@ export function forceTable3D(
   kind: 'moment' | 'shear' | 'axial', r: AnalysisResults3D, F: Fmt, unit: string, lenFmt: LengthFmt, lenUnit: string,
   envelope?: FullEnvelope3D,
 ): string {
-  const cols: Col3[] =
-    kind === 'moment'
-      ? [['My', 'momentY', (e, s) => (s === 'I' ? e.myStart : e.myEnd)], ['Mz', 'momentZ', (e, s) => (s === 'I' ? e.mzStart : e.mzEnd)], ['Mx', 'torsion', (e, s) => (s === 'I' ? e.mxStart : e.mxEnd)]]
-      : kind === 'shear'
-        ? [['Vy', 'shearY', (e, s) => (s === 'I' ? e.vyStart : e.vyEnd)], ['Vz', 'shearZ', (e, s) => (s === 'I' ? e.vzStart : e.vzEnd)]]
-        : [['N', 'axial', (e, s) => (s === 'I' ? e.nStart : e.nEnd)]];
+  const cols: Col3[] = kind === 'moment' ? [['My', 'momentY'], ['Mz', 'momentZ'], ['Mx', 'torsion']]
+    : kind === 'shear' ? [['Vy', 'shearY'], ['Vz', 'shearZ']] : [['N', 'axial']];
   const envOf = new Map(cols.map(([, k]) => [k, envelope ? new Map(envelope[k].elements.map((e) => [e.elementId, e])) : null]));
   const h: string[] = [`<table><tr><th>${t('table.elemLabel')}</th><th>${t('tables.end')}</th>${cols.map(([c]) => `<th>${c} (${unit})</th>`).join('')}</tr>`];
   for (const ef of r.elementForces) {
-    for (const end of ['I', 'J'] as const) {
-      h.push(`<tr>${end === 'I' ? `<td rowspan="3">${ef.elementId}</td>` : ''}<td>${end}</td>${cols.map(([, , get]) => `<td class="num">${F(get(ef, end))}</td>`).join('')}</tr>`);
-    }
-    const largest = cols.map(([, k]) => {
+    const results = cols.map(([, k]) => {
       const env = envOf.get(k);
       if (env) {
         const e = env.get(ef.elementId);
-        return e?.tPositions.length ? envelopeExtreme(inwardEnvelopeValues(e, ef.length)) : null;
+        const values = e ? memberEnvelopeOrdinates(e, ef.length) : [];
+        if (!values.length) return null;
+        return { startValue: values[0]!.value, endValue: values.at(-1)!.value, best: envelopeExtreme(values) };
       }
-      const result = computeSpatialDiagramExtrema(ef, k, true);
-      return result.extrema ? { value: result.maxAbsValue, x: undefined } : {
-        value: result.maxAbsValue, x: result.maxAbsX, side: result.maxAbsSide,
+      const result = computeSpatialDiagramExtrema(ef, k);
+      const best = {
+        value: result.maxAbsValue, x: result.extrema ? undefined : result.maxAbsX, side: result.maxAbsSide,
       };
+      return { startValue: result.startValue, endValue: result.endValue, best };
     });
+    for (const [end, key] of [['I', 'startValue'], ['J', 'endValue']] as const) {
+      const cells = results.map(result => `<td class="num">${result ? F(result[key]) : '—'}</td>`).join('');
+      h.push(`<tr>${end === 'I' ? `<td rowspan="3">${ef.elementId}</td>` : ''}<td>${end}</td>${cells}</tr>`);
+    }
+    const largest = results.map(result => result?.best);
     h.push(`<tr><td>${esc(t('calcReport.maxAbs'))}</td>${largest.map((b) => {
       const value = !b ? '—' : b.x === undefined ? `${esc(t('figures.diagramMagnitudeBound'))} ${F(b.value)}` : `${F(b.value)} (x = ${cutLabel({ ...b, x: b.x }, lenFmt)} ${lenUnit})`;
       return `<td class="num">${value}</td>`;

@@ -22,7 +22,7 @@
 
 import type { ElementForces3D } from './types-3d';
 import { criticalDiagramStations3D, evaluateDiagramAt } from './diagrams-3d';
-import { sortedStations, type DiagramStation } from './member-diagram';
+import { memberSectionStation, sortedStations, type DiagramStation } from './member-diagram';
 
 /** Full force state at one station of one element. Signs are the solver's and are preserved. */
 export interface StationForces {
@@ -37,7 +37,7 @@ export interface StationForces {
 }
 
 export function criticalForceStations(ef: ElementForces3D): DiagramStation[] {
-  if (ef.length < 1e-10) return [{ t: 0 }, { t: 1 }];
+  if (ef.length < 1e-10) return [{ t: 0 }, { t: 1 }].map(memberSectionStation);
   const cuts = criticalDiagramStations3D(ef);
   const ts = new Set(cuts.map(cut => cut.t));
   return [...cuts, ...[0.25, 0.5, 0.75].filter(t => !ts.has(t)).map(t => ({ t }))].sort((a, b) => a.t - b.t);
@@ -62,7 +62,7 @@ export function stationTs(ef: ElementForces3D, spec: StationSpec): number[] {
 
 /** Extract the full force tuple at a single station. */
 export function extractForcesAtStation(ef: ElementForces3D, station: number | DiagramStation): StationForces {
-  const cut = typeof station === 'number' ? { t: station } : station;
+  const cut = memberSectionStation(typeof station === 'number' ? { t: station } : station);
   const { t } = cut;
   const x = cut.distance ?? t * ef.length;
   return {

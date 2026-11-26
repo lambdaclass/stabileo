@@ -57,9 +57,7 @@ function forceRecords() {
   return [plane, space, planar, spatial] as const;
 }
 
-const review2581 = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
-
-review2581('known wrong result: #2581 envelopes and station tables use the inside of both member ends', () => {
+it('known wrong result: #2581 envelopes and station tables use the inside of both member ends', () => {
   const span = 4, load = 10;
   const members = [{ elementId: 1, length: span, sectionId: 1, materialId: 1 }];
   for (const [a, applied] of [[0, load], [1, load], [span, load], [0, 0]] as const) {

@@ -36,6 +36,7 @@
   let wasAnimating = false;
   import {
     diagramTypeToComponent,
+    forceDiagramForComponent,
     buildQueryRows,
     extremeRow,
     filterByAbsThreshold,
@@ -220,10 +221,6 @@
     return undefined;
   });
 
-  // Envelope view holds maxAbsResults3D: per field, the SIGNED value of the
-  // combo with the largest magnitude. 'max'/'min' over those rows do NOT give
-  // the true envelope extremes (those live in pos/negValues of the envelope
-  // diagrams) — only 'absmax' is semantically valid, so coerce.
   const isEnvelopeView = $derived(resultsStore.activeView === 'envelope');
   $effect(() => {
     if (isEnvelopeView && queryMode !== 'absmax') queryMode = 'absmax';
@@ -231,7 +228,10 @@
 
   const activeRows = $derived.by(() => {
     if (!results || !queryComponent) return [];
-    return buildQueryRows(results.elementForces, queryComponent, scopeIds ? { elementIds: scopeIds } : {});
+    const activeEnvelope = isEnvelopeView ? resultsStore.fullEnvelope3D ?? resultsStore.envelope3D : null;
+    if (isEnvelopeView && !activeEnvelope) return [];
+    const envelope = activeEnvelope?.[forceDiagramForComponent(queryComponent)];
+    return buildQueryRows(results.elementForces, queryComponent, { elementIds: scopeIds, envelope });
   });
   const filteredRows = $derived(filterByAbsThreshold(activeRows, queryThreshold));
   // DOM cap: scope='all' yields 2 rows per element — a 10k-element model would

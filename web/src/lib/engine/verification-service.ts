@@ -1,4 +1,5 @@
 import { criticalDiagramStations3D, evaluateDiagramAt } from './diagrams-3d';
+import { memberEndFace } from './member-diagram';
 import { extractForcesAtStation } from './station-forces';
 import type { DiagramStation } from './member-diagram';
 import { ConcurrentDemand } from './concurrent-demand';
@@ -223,7 +224,7 @@ function stationsWithExtrema(
 ): StationForces[] {
   const at = (cut: DiagramStation) => ({ ...extractForcesAtStation(ef, cut), x: cut.t * ef.length });
   const represented = new Set(grid.map(s => s.t));
-  const cuts = criticalDiagramStations3D(ef, purpose).filter(cut => cut.right || !represented.has(cut.t));
+  const cuts = criticalDiagramStations3D(ef, purpose).filter(cut => !represented.has(cut.t) || (memberEndFace(cut.t) === undefined && cut.right));
   const base = ef.pieces?.length || ef.combined ? grid.map(({ t }) => at({ t })) : grid;
   return [...base, ...cuts.map(at)].sort((a, b) => a.t - b.t);
 }

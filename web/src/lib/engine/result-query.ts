@@ -9,7 +9,9 @@
  * ProResultsTab wires these to UI state and handles the CSV download.
  */
 
-import type { ElementForces3D } from './types-3d';
+import type { ElementForces3D, EnvelopeDiagramData3D } from './types-3d';
+import { memberEndForces3D, type Diagram3DKind } from './diagrams-3d';
+import { memberEnvelopeOrdinates } from './member-diagram';
 
 // ─── Components ───────────────────────────────────────────────
 
@@ -38,16 +40,17 @@ export function diagramTypeToComponent(diagramType: string): ForceComponent | nu
   }
 }
 
-/** Extract the (i, j) end values of one component from an element's forces. */
+const forceDiagrams: Record<ForceComponent, Diagram3DKind> = {
+  N: 'axial', Vy: 'shearY', Vz: 'shearZ', T: 'torsion', My: 'momentY', Mz: 'momentZ',
+};
+
+export function forceDiagramForComponent(component: ForceComponent): Diagram3DKind {
+  return forceDiagrams[component];
+}
+
 export function componentEnds(ef: ElementForces3D, component: ForceComponent): { i: number; j: number } {
-  switch (component) {
-    case 'N':  return { i: ef.nStart,  j: ef.nEnd };
-    case 'Vy': return { i: ef.vyStart, j: ef.vyEnd };
-    case 'Vz': return { i: ef.vzStart, j: ef.vzEnd };
-    case 'T':  return { i: ef.mxStart, j: ef.mxEnd };
-    case 'My': return { i: ef.myStart, j: ef.myEnd };
-    case 'Mz': return { i: ef.mzStart, j: ef.mzEnd };
-  }
+  const [i, j] = memberEndForces3D(ef, forceDiagrams[component]);
+  return { i, j };
 }
 
 // ─── Query rows (active source: case / combo / envelope) ──────
@@ -68,6 +71,7 @@ export type ExtremeMode = 'max' | 'min' | 'absmax';
 export interface QueryRowsOptions {
   /** If provided, only these element ids are included (in iteration order). */
   elementIds?: Iterable<number>;
+  envelope?: EnvelopeDiagramData3D;
 }
 
 /**
@@ -87,7 +91,17 @@ export function buildQueryRows(
     const byId = new Map(forces.map((ef) => [ef.elementId, ef]));
     source = [...wanted].map((id) => byId.get(id)).filter((ef): ef is ElementForces3D => ef != null);
   }
+  const envelopes = opts.envelope && new Map(opts.envelope.elements.map(diagram => [diagram.elementId, diagram]));
   for (const ef of source) {
+    if (envelopes) {
+      const diagram = envelopes.get(ef.elementId);
+      if (!diagram) continue;
+      const values = memberEnvelopeOrdinates(diagram, ef.length);
+      const i = values[0], j = values.at(-1);
+      if (i?.t === 0) rows.push({ elementId: ef.elementId, component, end: 'i', value: i.value });
+      if (j?.t === 1) rows.push({ elementId: ef.elementId, component, end: 'j', value: j.value });
+      continue;
+    }
     const { i, j } = componentEnds(ef, component);
     rows.push({ elementId: ef.elementId, component, end: 'i', value: i });
     rows.push({ elementId: ef.elementId, component, end: 'j', value: j });

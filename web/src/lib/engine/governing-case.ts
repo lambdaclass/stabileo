@@ -33,17 +33,17 @@ export type Component2D = typeof components2D[number];
 type Magnitude = { value: number; bounded?: true };
 
 export function governingMagnitude3D(ef: ElementForces3D, component: Component3D): Magnitude {
-  const d = computeSpatialDiagramExtrema(ef, component, true);
+  const d = computeSpatialDiagramExtrema(ef, component);
   const value = Math.abs(d.maxAbsValue);
   return d.extrema === 'bounded' ? { value, bounded: true } : { value };
 }
 
-export function peakAlong(kind: Component2D, ef: ElementForces, inwardAtI = false): number {
-  return Math.abs(computePlanarDiagramExtrema(kind, ef, inwardAtI).maxAbsValue);
+export function peakAlong(kind: Component2D, ef: ElementForces): number {
+  return Math.abs(computePlanarDiagramExtrema(kind, ef).maxAbsValue);
 }
 
 export function governingMagnitude2D(ef: ElementForces, component: Component2D): number {
-  return peakAlong(component, ef, true);
+  return peakAlong(component, ef);
 }
 
 function governing<E extends { elementId: number }, C extends string>(

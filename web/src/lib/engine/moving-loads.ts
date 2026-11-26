@@ -626,7 +626,7 @@ export async function solveMovingLoadsAsync(
 }
 
 export function computePointwiseEnvelope(results: AnalysisResults[]): FullEnvelope | undefined {
-  return results.length ? computeEnvelope(results, true) ?? undefined : undefined;
+  return results.length ? computeEnvelope(results) ?? undefined : undefined;
 }
 
 // ─── Axle Position Visualization ──────────────────────────────────

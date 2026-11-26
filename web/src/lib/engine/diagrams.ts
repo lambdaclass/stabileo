@@ -82,7 +82,7 @@ function buildDiagram(
   nodeJx: number, nodeJy: number,
 ): ElementDiagram {
   const curve = planarCurve(kind, ef);
-  const critical = diagramCriticalPoints(curve, curveExtrema(curve, ef.length));
+  const critical = diagramCriticalPoints(curve, curveExtrema(curve, ef.length), 'diagram');
   const points = diagramCurvePoints(curve, critical).map(point => ({
     ...point,
     x: nodeIx + point.t * (nodeJx - nodeIx),
@@ -101,9 +101,9 @@ function planarExtrema(critical: readonly DiagramOrdinate[]) {
   return { maxValue, minValue, maxAbsT, maxAbsValue, maxAbsSide };
 }
 
-export function computePlanarDiagramExtrema(kind: PlanarKind, ef: PlanarForces, inwardAtI = false) {
+export function computePlanarDiagramExtrema(kind: PlanarKind, ef: PlanarForces, faces?: 'diagram') {
   const curve = planarCurve(kind, ef);
-  const critical = diagramCriticalPoints(curve, curveExtrema(curve, ef.length), inwardAtI);
+  const critical = diagramCriticalPoints(curve, curveExtrema(curve, ef.length), faces);
   const extrema = planarExtrema(critical);
   return {
     ...extrema,

@@ -1,4 +1,5 @@
-import { distanceUnits, type DiagramCutLocation } from './diagram-cut';
+import { distanceUnits, envelopeJumpCuts, type DiagramCutLocation } from './diagram-cut';
+import type { ElementEnvelopeDiagram } from './types';
 import { polynomialValue, preparePolynomialSign, roundDiagramSum, sumDiagramTerms, type DiagramPolynomial, type DiagramSum } from './diagram-sum';
 
 export const DIAGRAM_EXTREMA_UNAVAILABLE = 'solver.diagramExtremaUnavailable';
@@ -469,26 +470,50 @@ export type DiagramOrdinate = DiagramStation & { value: number; side?: 'left' | 
 type DiagramValues = Pick<DiagramCurve, 'cuts' | 'mayHaveJump' | 'value'>;
 type VisitOrdinate = (t: number, value: number, right?: true, side?: DiagramOrdinate['side']) => void;
 
-export function isInwardEndpointFace(t: number, right?: boolean): boolean {
-  return !((t === 0 && right === false) || (t === 1 && right === true));
+export function memberEndFace(t: number): boolean | undefined {
+  return t === 0 ? true : t === 1 ? false : undefined;
+}
+
+export function memberSectionStation(station: DiagramStation): DiagramStation {
+  const face = memberEndFace(station.t);
+  return face === undefined || face === (station.right ?? false) ? station : { ...station, right: face };
+}
+
+function isInwardEndpointFace(t: number, right?: boolean): boolean {
+  const face = memberEndFace(t);
+  return face === undefined || right === undefined || face === right;
+}
+
+export function memberEnvelopeOrdinates(diagram: ElementEnvelopeDiagram, length: number) {
+  const faces = new Map<number, { x: number; side: 'left' | 'right' }>();
+  for (const { index, distance: x } of envelopeJumpCuts(diagram, length)) {
+    faces.set(index, { x, side: 'left' });
+    faces.set(index + 1, { x, side: 'right' });
+  }
+  return diagram.tPositions.flatMap((t, i) => {
+    const face = faces.get(i);
+    if (!isInwardEndpointFace(t, face && face.side === 'right')) return [];
+    const pos = diagram.posValues[i] ?? 0, neg = diagram.negValues[i] ?? 0;
+    return [{ t, x: t * length, value: Math.abs(neg) > Math.abs(pos) ? neg : pos, ...face }];
+  });
 }
 
 export function diagramCriticalPoints(
-  curve: DiagramValues, critical: readonly DiagramExtremum[], inwardAtI = false,
+  curve: DiagramValues, critical: readonly DiagramExtremum[], faces: 'section' | 'diagram' = 'section',
 ): DiagramOrdinate[] {
   const points: DiagramOrdinate[] = [];
-  visitDiagramCriticalPoints(curve, critical, inwardAtI, (t, value, right, side) => {
+  visitCriticalPoints(curve, critical, (t, value, right, side) => {
     points.push({ t, value, ...(right && { right }), ...(side && { side }) });
-  });
+  }, faces);
   return points;
 }
 
 const startLeft = Object.freeze({ t: 0 });
-const startRight = Object.freeze({ t: 0, right: true });
+const startRight = Object.freeze(memberSectionStation(startLeft));
 const endLeft = Object.freeze({ t: 1 });
 
-function visitCut(curve: DiagramValues, t: number, inwardAtI: boolean, visit: VisitOrdinate): void {
-  const left = !inwardAtI || isInwardEndpointFace(t, false)
+function visitCut(curve: DiagramValues, t: number, faces: 'section' | 'diagram', visit: VisitOrdinate): void {
+  const left = faces === 'diagram' || isInwardEndpointFace(t, false)
     ? checkedSectionValue(curve, t === 0 ? startLeft : t === 1 ? endLeft : { t }) : undefined;
   const right = isInwardEndpointFace(t, true) && (curve.mayHaveJump || left === undefined)
     ? checkedSectionValue(curve, t === 0 ? startRight : { t, right: true }) : undefined;
@@ -503,17 +528,23 @@ function visitPeak(peak: DiagramExtremum, visit: VisitOrdinate): void {
 }
 
 export function visitContinuousSpanCriticalPoints(
-  start: number, end: number, peaks: readonly DiagramExtremum[], inwardAtI: boolean, visit: VisitOrdinate,
+  start: number, end: number, peaks: readonly DiagramExtremum[], visit: VisitOrdinate,
 ): void {
   if (!Number.isFinite(start)) throw unavailableDiagramExtrema();
-  visit(0, start, inwardAtI ? true : undefined);
+  visit(0, start, memberEndFace(0) ? true : undefined);
   for (const peak of peaks) visitPeak(peak, visit);
   if (!Number.isFinite(end)) throw unavailableDiagramExtrema();
   visit(1, end);
 }
 
-export function visitDiagramCriticalPoints(
-  curve: DiagramValues, critical: readonly DiagramExtremum[], inwardAtI: boolean, visit: VisitOrdinate,
+export function visitMemberCriticalPoints(
+  curve: DiagramValues, critical: readonly DiagramExtremum[], visit: VisitOrdinate,
+): void {
+  visitCriticalPoints(curve, critical, visit, 'section');
+}
+
+function visitCriticalPoints(
+  curve: DiagramValues, critical: readonly DiagramExtremum[], visit: VisitOrdinate, faces: 'section' | 'diagram',
 ): void {
   const cuts = curve.cuts;
   if (critical.length < 2) {
@@ -523,7 +554,7 @@ export function visitDiagramCriticalPoints(
         visitPeak(peak, visit);
         peak = undefined;
       }
-      visitCut(curve, t, inwardAtI, visit);
+      visitCut(curve, t, faces, visit);
       if (peak?.t === t) {
         if (!peak.fallback) visitPeak(peak, visit);
         peak = undefined;
@@ -535,7 +566,7 @@ export function visitDiagramCriticalPoints(
   const boundaries = new Set(cuts);
   const extrema = indexDiagramExtrema(critical.filter(peak => !peak.fallback || !boundaries.has(peak.t)));
   for (const t of sortedStations([...cuts, ...extrema.keys()])) {
-    if (boundaries.has(t)) visitCut(curve, t, inwardAtI, visit);
+    if (boundaries.has(t)) visitCut(curve, t, faces, visit);
     const peak = extrema.get(t);
     if (peak) visitPeak(peak, visit);
   }

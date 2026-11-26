@@ -39,6 +39,15 @@ impl Cut {
         Self { t, right: false, location: Location::Interior { start, end, u } }
     }
 
+    pub fn in_member(mut self) -> Self {
+        self.right = match self.t {
+            0.0 => true,
+            1.0 => false,
+            _ => self.right,
+        };
+        self
+    }
+
     pub fn station_x(self, length: f64) -> f64 {
         match self.location {
             Location::Grid => self.t * length,
@@ -63,6 +72,13 @@ impl Cut {
     fn includes(self, t: f64) -> bool {
         t < self.t || (self.right && t == self.t)
     }
+}
+
+pub(crate) fn sort_member_cuts(cuts: &mut Vec<Cut>) -> Result<(), &'static str> {
+    for cut in cuts.iter_mut() {
+        *cut = cut.in_member();
+    }
+    sort_cuts(cuts)
 }
 
 pub(crate) fn sort_cuts(cuts: &mut Vec<Cut>) -> Result<(), &'static str> {
@@ -490,8 +506,10 @@ where
     }
 
     pub fn interior_range(&self, end: f64, limits: MovingForceCuts<'_>) -> Result<(f64, f64), &'static str> {
+        let end_cut = Cut::boundary(1.0, self.length, false).in_member();
+        let start_cut = Cut::boundary(0.0, 0.0, false).in_member();
         let end_limit = if self.points.clone().any(|p| p.a == self.length && p.jump != 0.0) {
-            self.checked_value(Cut::boundary(1.0, self.length, false))?
+            self.checked_value(end_cut)?
         } else {
             end
         };
@@ -499,7 +517,7 @@ where
             return Err("non-finite moving load member diagram");
         }
         let critical = self.critical_cuts()?;
-        let cuts = std::iter::once(Cut::boundary(0.0, 0.0, true))
+        let cuts = std::iter::once(start_cut)
             .chain(critical.into_iter().filter(|cut| cut.t > 0.0 && cut.t < 1.0));
         let mut lo = end_limit;
         let mut hi = end_limit;
@@ -514,7 +532,7 @@ where
         if let Response::Force(sign) = self.response {
             let [start_load, end_load] = limits.faces;
             if start_load != 0.0 {
-                let interior = self.checked_value(Cut::boundary(0.0, 0.0, true))?;
+                let interior = self.checked_value(start_cut)?;
                 let value = moving_face_force(interior, start_load, false, sign < 0.0)?;
                 lo = lo.min(value);
                 hi = hi.max(value);

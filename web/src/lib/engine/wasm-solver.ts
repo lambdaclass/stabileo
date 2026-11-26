@@ -86,7 +86,7 @@ let wasmCombineResults2d: ((input: any) => any) | null = null;
 let wasmCombineResults3d: ((input: any) => any) | null = null;
 let wasmCombineResultsBatch3d: ((input: any) => any) | null = null;
 let wasmCombineResultsEnvelope3d: ((input: any) => any) | null = null;
-let wasmComputeEnvelope2d: ((input: AnalysisResults[], inwardAtI?: boolean) => FullEnvelope) | null = null;
+let wasmComputeEnvelope2d: ((input: AnalysisResults[]) => FullEnvelope) | null = null;
 let wasmComputeEnvelope3d: ((input: any) => any) | null = null;
 
 // Influence Lines
@@ -1669,11 +1669,11 @@ export function combineResultsEnvelope3D(
 }
 
 /** Compute 2D envelope via WASM. JsValue in/out — no JSON round trip. */
-export function computeEnvelope(results: AnalysisResults[], inwardAtI = false): FullEnvelope | null {
+export function computeEnvelope(results: AnalysisResults[], _inwardAtI?: boolean): FullEnvelope | null {
   if (!wasmReady || !wasmComputeEnvelope2d) throw new Error('WASM solver not initialized.');
   if (results.length === 0) return null;
   // Solver output — no guard (see combineResults).
-  return wasmComputeEnvelope2d(results, inwardAtI);
+  return wasmComputeEnvelope2d(results);
 }
 
 /** Compute 3D envelope via WASM. JsValue in/out — no JSON round trip. */

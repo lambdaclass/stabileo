@@ -16,8 +16,7 @@
  *
  * Every view takes the same options (`TableOptions`): which nodes or members (a selection or a
  * group), the resultant columns, and, for members, stations along each member instead of its two
- * ends. The station values are the diagram's (`station-forces.ts`), which at the ends are the end
- * forces themselves.
+ * ends.
  *
  * Pure functions over solved results; the component wires them to the active combinations.
  */
@@ -27,9 +26,9 @@ import type { Quantity } from '../utils/units';
 import { csvCell } from './result-query';
 import type { ElementDesignDemands, GoverningDemand } from './station-design-forces';
 import { criticalForceStations, stationTs, type StationSpec } from './station-forces';
-import { unavailableDiagramExtrema, type DiagramStation } from './member-diagram';
+import { memberEndFace, memberSectionStation, unavailableDiagramExtrema, type DiagramStation } from './member-diagram';
 import { sameCutLocation } from './diagram-cut';
-import { prepareDiagramEvaluator3D, visitMemberCriticalOrdinates3D, type Diagram3DKind } from './diagrams-3d';
+import { memberEndForces3D, prepareDiagramEvaluator3D, visitMemberCriticalOrdinates3D, type Diagram3DKind } from './diagrams-3d';
 import { resultComponents } from '../axes/result-components';
 import { makeFrame, type AxesChoice } from '../axes/frame';
 
@@ -122,8 +121,9 @@ function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visi
   for (const f of r.elementForces) {
     if (!keep(f.elementId)) continue;
     if (ends) {
-      visit(f.elementId, 'i', 0, fin([f.nStart, f.vyStart, f.vzStart, f.mxStart, f.myStart, f.mzStart]));
-      visit(f.elementId, 'j', f.length, fin([f.nEnd, f.vyEnd, f.vzEnd, f.mxEnd, f.myEnd, f.mzEnd]));
+      const endForces = forceDiagrams.map(kind => memberEndForces3D(f, kind));
+      visit(f.elementId, 'i', 0, fin(endForces.map(([i]) => i)));
+      visit(f.elementId, 'j', f.length, fin(endForces.map(([, j]) => j)));
       continue;
     }
     const stations: readonly DiagramStation[] | undefined = sharedStations ? sharedStations.get(f.elementId)
@@ -136,9 +136,10 @@ function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visi
     const torsion = prepareDiagramEvaluator3D(f, 'torsion');
     const momentY = prepareDiagramEvaluator3D(f, 'momentY');
     const momentZ = prepareDiagramEvaluator3D(f, 'momentZ');
-    stations.forEach((station, i) => {
+    stations.forEach((at, i) => {
+      const station = memberSectionStation(at);
       const { t, distance, right } = station;
-      const side = right ? 'right' : stations[i + 1]?.t === t ? 'left' : undefined;
+      const side = stations[i + 1]?.t === t ? 'left' : stations[i - 1]?.t === t && right ? 'right' : undefined;
       const v = [axial(station), shearY(station), shearZ(station), torsion(station), momentY(station), momentZ(station)];
       visit(f.elementId, t === 0 ? 'i' : t === 1 ? 'j' : undefined, distance ?? t * f.length, fin(v), side);
     });
@@ -226,7 +227,7 @@ export function summaryRows(kind: TableKind, sources: readonly Source[], opts: T
         if (opts.entities && !opts.entities.has(ef.elementId)) continue;
         visitMemberCriticalOrdinates3D(ef, diagrams, (c, t, value, x, _right, side) => {
           visit(c, value, ef.elementId, t === 0 ? 'i' : t === 1 ? 'j' : undefined, x, side);
-        }, true);
+        });
       }
     } else {
       eachRow(kind, source.results, opts, (entity, end, x, values) => values.forEach((value, c) => visit(c, value, entity, end, x)));
@@ -269,7 +270,9 @@ function criticalEnvelopeStations(sources: readonly Source[], opts: TableOptions
   }
   return new Map([...members].map(([id, cuts]) => [id, [...cuts.values()]
     .sort((a, b) => a.station.t - b.station.t)
-    .flatMap(({ station, hasRight }) => hasRight ? [station, { ...station, right: true }] : [station])]));
+    .flatMap(({ station, hasRight }) => memberEndFace(station.t) === undefined && hasRight
+      ? [station, { ...station, right: true }]
+      : [memberSectionStation(station)])]));
 }
 
 /** For each node or member end (or station), the largest and smallest value of each column over the sources. */

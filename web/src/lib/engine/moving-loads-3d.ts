@@ -159,7 +159,7 @@ export function foldPosition(
     if (!reuse) {
       visitMemberCriticalOrdinates3D(ef, componentDiagrams, (column, _t, value, x) => {
         include(rec[ENVELOPE_COMPONENTS[column]], value, x);
-      }, true);
+      });
     }
     if (loads) {
       for (const end of [0, 1] as const) {

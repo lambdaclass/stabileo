@@ -2,7 +2,7 @@ use crate::types::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::diagram_extrema::{sort_cuts, uniform_cuts};
+use super::diagram_extrema::{sort_member_cuts, uniform_cuts};
 use super::diagrams::{diagram_critical_cuts_2d, try_evaluate_diagram_cut_2d, sorted_point_loads, DIAGRAM_KINDS_2D};
 use super::diagrams_3d::{diagram_critical_cuts_3d, try_evaluate_diagram_cut_3d, DIAGRAM_KINDS_3D};
 
@@ -361,7 +361,11 @@ pub(crate) fn try_extract_beam_stations(input: &BeamStationInput) -> Result<Beam
                     }
                 }
             }
-            sort_cuts(&mut cuts).map_err(|e| format!("Element {}: {e}", member.element_id))?;
+            sort_member_cuts(&mut cuts).map_err(|e| format!("Element {}: {e}", member.element_id))?;
+        } else {
+            for cut in &mut cuts {
+                *cut = cut.in_member();
+            }
         }
         for (s_idx, cut) in cuts.into_iter().enumerate() {
             let t = cut.t;
@@ -461,7 +465,11 @@ pub(crate) fn try_extract_beam_stations_3d(input: &BeamStationInput3D) -> Result
                     }
                 }
             }
-            sort_cuts(&mut cuts).map_err(|e| format!("Element {}: {e}", member.element_id))?;
+            sort_member_cuts(&mut cuts).map_err(|e| format!("Element {}: {e}", member.element_id))?;
+        } else {
+            for cut in &mut cuts {
+                *cut = cut.in_member();
+            }
         }
         for (s_idx, cut) in cuts.into_iter().enumerate() {
             let t = cut.t;

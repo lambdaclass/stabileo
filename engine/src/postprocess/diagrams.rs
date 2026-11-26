@@ -673,10 +673,9 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2581"]
     fn member_envelopes_and_station_tables_use_inward_end_faces() {
         use crate::postprocess::beam_stations::*;
-        use crate::postprocess::combinations::{compute_envelope, compute_envelope_2d_with_member_faces, compute_envelope_3d};
+        use crate::postprocess::combinations::{compute_envelope, compute_envelope_3d};
 
         let length = 4.0;
         let load = 10.0;
@@ -699,7 +698,6 @@ mod tests {
                 (pn.results, sn.results),
             ] {
                 for diagram in [
-                    compute_envelope_2d_with_member_faces(std::slice::from_ref(&planar), true).unwrap().moment,
                     compute_envelope(std::slice::from_ref(&planar)).unwrap().moment,
                     compute_envelope_3d(std::slice::from_ref(&spatial)).unwrap().axial,
                 ] {

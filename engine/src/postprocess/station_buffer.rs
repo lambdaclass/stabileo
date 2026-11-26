@@ -1,6 +1,7 @@
 //! Compact station forces for the verification consumer. The report API retains its
 //! grouped stations and governing summaries; this path transfers only forces it uses.
-use super::diagrams_3d::evaluate_diagram_3d_at;
+use super::diagram_extrema::uniform_cuts;
+use super::diagrams_3d::evaluate_diagram_cut_3d;
 use crate::types::ElementForces3D;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -51,10 +52,9 @@ pub fn extract(input: &StationBufferInput) -> Vec<f64> {
             };
             output[combo_count] += 1.0;
             output.push(combo.combo_id as f64);
-            for station in 0..count {
-                let t = station as f64 / (count - 1) as f64;
+            for cut in uniform_cuts(count).map(|cut| cut.in_member()) {
                 for component in ["axial", "shearY", "shearZ", "momentY", "momentZ", "torsion"] {
-                    output.push(evaluate_diagram_3d_at(ef, component, t));
+                    output.push(evaluate_diagram_cut_3d(ef, component, cut));
                 }
             }
         }

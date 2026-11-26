@@ -17,6 +17,8 @@ import { computeStationDemands } from '../verification-service';
 import { combinationPeakRows } from '../../export/excel';
 import { resultSheets } from '../../export/workbook-results';
 import { envelopeSectionHtml } from '../report/project-sections';
+import { forceTable3D } from '../report/calc-report-extra';
+import { buildQueryRows } from '../result-query';
 import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../member-diagram';
 import type { AnalysisResults3D, ElementForces3D, SolverInput3D } from '../types-3d';
 
@@ -504,9 +506,7 @@ it('known wrong result: #2581 summarizes only inward member-end forces', async (
   }
 });
 
-const review2581 = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
-
-review2581('known wrong result: #2581 exports only inward ends and both interior jump faces', () => {
+it('known wrong result: #2581 exports only inward ends and both interior jump faces', () => {
   const length = 4, axial = 10, shear = 20;
   const control = reviewSources({ ...reviewForces, length, vzStart: 0, vzEnd: 0 })[0]!;
   const high = { ...control, id: 2, name: 'Continuous' };
@@ -520,6 +520,17 @@ review2581('known wrong result: #2581 exports only inward ends and both interior
     const at = a === 0 ? [[0, 0]] : a === length ? [[axial, shear]] : [[axial, shear], [0, 0]];
     const direct = rowsOf('forces', source.results, criticalOptions).filter(row => row.x === a);
     expect.soft(direct.map(row => [row.values[0], row.values[2]]), `rows at ${a}`).toEqual(at);
+    for (const stations of [2, 5]) {
+      const ends = envelopeRows('forces', [source, high], { ...canonical, stations });
+      expect.soft(ends.find(row => row.end === 'i')?.max[0]?.value).toBe(a === 0 ? 0 : axial);
+      expect.soft(ends.find(row => row.end === 'j')?.max[0]?.value).toBe(a === length ? axial : 0);
+    }
+    const [queryI, queryJ] = buildQueryRows([forces], 'N');
+    expect.soft(queryI?.value).toBe(a === 0 ? 0 : axial);
+    expect.soft(queryJ?.value).toBe(a === length ? axial : 0);
+    const report = forceTable3D('axial', source.results, String, 'kN', String, 'm');
+    expect.soft(report).toContain(`<td>I</td><td class="num">${a === 0 ? 0 : axial}</td>`);
+    expect.soft(report).toContain(`<td>J</td><td class="num">${a === length ? axial : 0}</td>`);
     for (const sources of [[source, high], [high, source]]) {
       const envelope = envelopeRows('forces', sources, criticalOptions).filter(row => row.x === a);
       expect.soft(envelope.map(row => [row.max[0]!.value, row.max[2]!.value]), `envelope at ${a}`).toEqual(at);
@@ -530,5 +541,10 @@ review2581('known wrong result: #2581 exports only inward ends and both interior
         .toEqual(at.map(values => values[0]));
     }
   }
+  const legacy = {
+    kind: 'axial' as const, globalMax: axial,
+    elements: [{ elementId: reviewForces.elementId, tPositions: [0, 0, 1], posValues: [axial, 0, 0], negValues: [0, 0, 0] }],
+  };
+  expect(buildQueryRows(control.results.elementForces, 'N', { envelope: legacy }).map(row => row.value)).toEqual([0, 0]);
   expect(rowsOf('forces', control.results, criticalOptions).map(row => row.x)).toEqual([0, 1, 2, 3, 4]);
 });

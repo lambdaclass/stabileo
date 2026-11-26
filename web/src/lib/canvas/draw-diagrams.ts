@@ -47,7 +47,7 @@ const DIAGRAM_COLORS: Record<DiagramKind, { fill: string; stroke: string; text: 
  * Used to establish a consistent scale when overlaying multiple diagrams.
  */
 export function computeDiagramGlobalMax(results: AnalysisResults, kind: DiagramKind): number {
-  return results.elementForces.reduce((max, ef) => Math.max(max, Math.abs(computePlanarDiagramExtrema(kind, ef).maxAbsValue)), 0);
+  return results.elementForces.reduce((max, ef) => Math.max(max, Math.abs(computePlanarDiagramExtrema(kind, ef, 'diagram').maxAbsValue)), 0);
 }
 
 /**

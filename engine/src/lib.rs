@@ -848,12 +848,12 @@ pub fn combine_results_envelope_3d(input: JsValue) -> Result<Vec<JsValue>, JsVal
 
 /// Compute 2D envelope. JsValue in → JsValue out (hot path).
 #[wasm_bindgen]
-pub fn compute_envelope_2d(input: JsValue, inward_at_i: Option<bool>) -> Result<JsValue, JsValue> {
+pub fn compute_envelope_2d(input: JsValue) -> Result<JsValue, JsValue> {
     let results: Vec<types::AnalysisResults> = from_js_value(input)?;
     if results.is_empty() {
         return Ok(JsValue::NULL);
     }
-    let env = postprocess::combinations::compute_envelope_2d_with_member_faces(&results, inward_at_i.unwrap_or(false))
+    let env = postprocess::combinations::compute_envelope(&results)
         .map_err(|e| JsValue::from_str(&e))?;
     to_js_value(&env)
 }
