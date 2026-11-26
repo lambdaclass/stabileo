@@ -7,8 +7,8 @@ import { generateCalcReportHtml, DEFAULT_REPORT_CONTENT, type CalcReportData, ty
 import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';
 import '../../store/index';
-import { computeEnvelope, computeEnvelope3D, initSolver } from '../wasm-solver';
-import type { AnalysisResults, ElementForces } from '../types';
+import { computeEnvelope, computeEnvelope3D, initSolver, solve, solvePDelta } from '../wasm-solver';
+import type { AnalysisResults, ElementForces, SolverInput } from '../types';
 import type { AnalysisResults3D, ElementForces3D } from '../types-3d';
 
 type Kind = 'moment' | 'shear' | 'axial';
@@ -97,6 +97,30 @@ describe('solved', () => {
     const max = rows(html).find((x) => x.includes('Max |value|'))!;
     // My, then Mz and Mx: zero along the member.
     expect(max.join(' ')).toMatch(/45\.00 \(x = 3\.00 m\)/);
+  });
+
+  it.skip('known wrong result: #2226 reads the inward I shear after a fixed-end point load', () => {
+    const span = 4;
+    const tipLoad = 4;
+    const rootLoad = 20;
+    const input: SolverInput = {
+      nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: span, z: 0 }]]),
+      materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
+      sections: new Map([[1, { id: 1, a: 0.01, iz: 0.0001 }]]),
+      elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]]),
+      supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
+      loads: [
+        { type: 'pointOnElement', data: { elementId: 1, a: 0, p: -rootLoad } },
+        { type: 'nodal', data: { nodeId: 2, fx: 0, fz: -tipLoad, my: 0 } },
+      ],
+    };
+    const nonlinear = solvePDelta(input);
+    expect(nonlinear.converged).toBe(true);
+    for (const [mode, result] of [['linear', solve(input)], ['P-Delta', nonlinear.results]] as const) {
+      const [row] = rows(report('shear', { results2D: result }));
+      expect.soft(row?.slice(1).map(num), `${mode}: the fixed support carries the root load, so only the tip load crosses either inward cut.`)
+        .toEqual([tipLoad, tipLoad, tipLoad, 0]);
+    }
   });
 
   /** A 4 m simple span under D = 10 and L = 10 kN/m, with 1.4D and 1.2D + 1.6L. */
@@ -301,4 +325,17 @@ it('known wrong result: #2226 reads planar envelope end cells from the same inwa
       expect.soft(row?.slice(1).map(num), `I action ${atI}, J action ${atJ}`).toEqual([4, 8, 8, length]);
     }
   }
+});
+
+it.skip.each([
+  [20, 0], [0, -20], [20, -20], [0, 0],
+])('known wrong result: #2226 reads inward planar shear with end actions %i and %i', (atI, atJ) => {
+  const length = 4;
+  const results2D = r2D(ef2D({
+    length, vStart: 4 - atI, vEnd: 8 + atJ,
+    pointLoads: [{ a: 0, p: atI }, { a: length, p: atJ }].filter(load => load.p !== 0),
+    distributedLoads: [{ a: 0, b: length, qI: 1, qJ: 1 }],
+  }));
+  const [row] = rows(report('shear', { results2D }));
+  expect(row?.slice(1).map(num)).toEqual([4, 8, 8, length]);
 });

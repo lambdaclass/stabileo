@@ -254,7 +254,7 @@ it('known wrong result: #1782 assigns the last axle to the exact spatial path en
   expect.soft(loadsAt(last.cumStart + 0.5).find(l => l.type === 'pointOnElement')?.data).toMatchObject({ elementId: 2, a: 0.5 });
 });
 
-it('#1782 browser and WASM moving analyses apply a rounded path endpoint at the fixed node', async () => {
+it('#1782 browser and WASM distinguish fixed-node samples from the traversed member face', async () => {
   const [planar, spatial] = cantilevers(256);
   const length = 1 + 2 ** -45;
   planar.nodes.set(3, { id: 3, x: 256, z: length });
@@ -268,26 +268,45 @@ it('#1782 browser and WASM moving analyses apply a rounded path endpoint at the 
   const weight = 100;
   const config = { train: { name: 'P', axles: [{ offset: 0, weight }] }, step: 256 + length, pathElementIds: [1, 2] };
   expect(config.step - 256).toBe(1);
+  const positions = [0, config.step];
+  const nodeIds = [1, 3];
+  const envelope = { nMaxPos: weight, nMaxNeg: 0 };
+  const derivation = 'Member 2 spans path stations 256 to 256 + L, with L = 1 + 2⁻⁴⁵. ' +
+    'The axle travels from 0 to the rounded 256 + L, crossing the member even though both samples are at fixed nodes. ' +
+    'For a downward axial load W at distance a from I, zero end displacement gives the upward J reaction W·a/L. ' +
+    'The cut between the axle and J is in tension by that reaction, so the approach to J gives +W. ' +
+    'J is the only sampled face of member 2, giving a minimum of zero from the exact samples.';
+  const axialEnds = (results: { elementForces: readonly { elementId: number; nStart: number; nEnd: number }[] }) => {
+    const { nStart, nEnd } = results.elementForces.find(f => f.elementId === 2)!;
+    return Math.max(Math.abs(nStart), Math.abs(nEnd));
+  };
   for (const result of [solveMovingLoads(planar, config), await solveMovingLoadsAsync(planar, config)]) {
     if (typeof result === 'string') throw new Error(result);
-    expect(result.positions.map(position => position.refPosition)).toEqual([0, config.step]);
-    const atEnd = result.positions[1]!.results;
-    const { nStart, nEnd } = atEnd.elementForces.find(f => f.elementId === 2)!;
-    expect.soft(Math.max(Math.abs(nStart), Math.abs(nEnd))).toBe(0);
-    expect.soft(atEnd.reactions.find(r => r.nodeId === 3)?.rz).toBe(weight);
-    expect.soft(result.elements.get(2)).toMatchObject({ nMaxPos: weight, nMaxNeg: 0 });
+    expect(result.positions.map(position => position.refPosition)).toEqual(positions);
+    for (const [index, { refPosition, results }] of result.positions.entries()) {
+      expect.soft(axialEnds(results), `Planar position at station ${refPosition}`).toBe(0);
+      expect.soft(results.reactions.find(r => r.nodeId === nodeIds[index])?.rz).toBe(weight);
+    }
+    expect.soft(result.elements.get(2), derivation).toMatchObject(envelope);
   }
   const path = buildPath3D(spatial, [1, 2])!;
-  const atEnd = solve3D({ ...spatial, loads: trainLoads(spatial, path, config.train, config.step) });
-  const { nStart, nEnd } = atEnd.elementForces.find(f => f.elementId === 2)!;
-  expect.soft(Math.max(Math.abs(nStart), Math.abs(nEnd))).toBe(0);
-  expect.soft(atEnd.reactions.find(r => r.nodeId === 3)?.fz).toBe(weight);
+  for (const [index, station] of positions.entries()) {
+    const loads = trainLoads(spatial, path, config.train, station);
+    const results = solve3D({ ...spatial, loads });
+    expect.soft(axialEnds(results), `Spatial position at station ${station}`).toBe(0);
+    expect.soft(results.reactions.find(r => r.nodeId === nodeIds[index])?.fz).toBe(weight);
+  }
+  for (const nodeId of nodeIds) {
+    const results = solve({ ...planar, loads: [{ type: 'nodal', data: { nodeId, fx: 0, fz: -weight, my: 0 } }] });
+    expect.soft(axialEnds(results), `Planar WASM solve at fixed node ${nodeId}`).toBe(0);
+    expect.soft(results.reactions.find(r => r.nodeId === nodeId)?.rz).toBe(weight);
+  }
   const spatialSweep = await sweepMovingLoad3D(spatial, path, config.train, { step: config.step });
   expect.soft(spatialSweep.positions).toBe(2);
-  expect.soft(spatialSweep.elements.get(2)?.n).toMatchObject({ max: { value: weight }, min: { value: 0 } });
+  expect.soft(spatialSweep.elements.get(2)?.n, derivation).toMatchObject({ max: { value: weight }, min: { value: 0 } });
   for (const result of [solveMovingLoadsWasm({ ...config, solver: planar }), solveMovingLoads3DWasm({ ...config, solver: spatial })]) {
     expect.soft(result.numPositions).toBe(2);
-    expect.soft(result.elements['2']).toMatchObject({ nMaxPos: weight, nMaxNeg: 0 });
+    expect.soft(result.elements['2'], derivation).toMatchObject(envelope);
   }
 });
 
