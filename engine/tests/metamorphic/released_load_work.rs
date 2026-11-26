@@ -5,9 +5,11 @@ use dedaliano_engine::types::*;
 use serde_json::{json, Value};
 
 fn fixture() -> Value {
-    serde_json::from_str::<Value>(include_str!("../fixtures/nightly-2026-11-13.json")).unwrap()
-        ["2023"]
-        .clone()
+    let archive: Value =
+        serde_json::from_str(include_str!("../fixtures/nightly-2026-11-13.json")).unwrap();
+    let mut solver = archive["2023"].clone();
+    crate::common::take_nightly_metadata(&mut solver);
+    solver
 }
 
 fn member(axis: &str, end: &str, oblique: bool) -> SolverInput3D {

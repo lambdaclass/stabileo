@@ -142,7 +142,7 @@ fn issue_2067_released_rotation_load() {
 
 #[test]
 fn issue_2019_rigid_translation_matches_the_independent_zero_strain_solution() {
-    let input = serde_json::from_value(witness("decoded-2019")).unwrap();
+    let input = crate::common::nightly_solver(witness("decoded-2019")).unwrap();
     let out = dedaliano_engine::certify::certify_linear_3d_full(&input).unwrap();
     verify_2019_rigid_translation(&out);
 }
@@ -198,7 +198,7 @@ fn assert_node_ids(ids: impl Iterator<Item = usize>, expected: &[usize], field: 
 }
 
 fn certified_2019() -> dedaliano_engine::certify::CertifiedResults3D {
-    let input = serde_json::from_value(witness("decoded-2019")).unwrap();
+    let input = crate::common::nightly_solver(witness("decoded-2019")).unwrap();
     dedaliano_engine::certify::certify_linear_3d_full(&input).unwrap()
 }
 

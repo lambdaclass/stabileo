@@ -13,7 +13,7 @@ const ROTATION: &str = include_str!("../metamorphic_corpus/stability/issue-1351.
 const REVERSAL: &str = include_str!("../metamorphic_corpus/stability/issue-1635.json");
 
 fn case(model: &str) -> Case3 {
-    Case3::new("replay", serde_json::from_str(model).unwrap())
+    Case3::new("replay", crate::common::nightly_solver_from_str(model).unwrap())
 }
 
 fn images(case: &Case3, rng_seed: u64) -> Vec<Case3> {

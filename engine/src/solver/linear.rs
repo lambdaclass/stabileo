@@ -5658,7 +5658,7 @@ mod released_orphan_2074_tests {
         v["elements"] = json!({"1":e});
         v["supports"] = json!({"1":{"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":false,"rry":false,"rrz":false},"2":{"nodeId":2,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}});
         v["loads"] = json!([{"type":"nodal","data":{"nodeId":1,"fx":0.0,"fy":0.0,"fz":0.0,"mx":0.0,"my":1.0,"mz":0.0}}]);
-        serde_json::from_value(v.clone()).unwrap()
+        crate::common::nightly_solver(v.clone()).unwrap()
     }
 
     #[test]

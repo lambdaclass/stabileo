@@ -103,7 +103,10 @@ fn conditional_elastic_wasm_cases() {
     cases.push(json!({ "dimension": 2, "input": s, "stage": stage, "control": true }));
 
     let mut s: dedaliano_engine::types::SolverInput3D =
-        serde_json::from_str(include_str!("../metamorphic_corpus/stability/issue-1090.json")).unwrap();
+        crate::common::nightly_solver_from_str(include_str!(
+            "../metamorphic_corpus/stability/issue-1090.json"
+        ))
+        .unwrap();
     s.elements.get_mut("1").unwrap().release_my_end = false;
     let stage = ana3::stage_all(&s, (0..s.loads.len()).collect());
     cases.push(json!({ "dimension": 3, "input": s, "stage": stage, "control": true }));

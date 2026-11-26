@@ -387,7 +387,7 @@ fn issue_1992_1901_linear_reference_and_pdelta_outcome() {
         solver::{linear, pdelta},
         types::SolverInput,
     };
-    let solver: SolverInput = serde_json::from_value(input("1901-body-0")).unwrap();
+    let solver: SolverInput = crate::common::nightly_solver(input("1901-body-0")).unwrap();
     let reference = reference_1901();
     let typed = serde_json::from_value(serde_json::to_value(&solver).unwrap()).unwrap();
     for result in [

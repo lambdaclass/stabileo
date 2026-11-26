@@ -12,7 +12,10 @@ pub fn take_nightly_metadata(
     let Some(fields) = value.as_object_mut() else {
         return (None, None);
     };
-    (fields.remove("_nightly_name"), fields.remove("_nightly_dens"))
+    let name = fields.remove("_nightly_name");
+    let densities = fields.remove("_nightly_dens");
+    fields.retain(|field, _| !field.starts_with('_'));
+    (name, densities)
 }
 
 #[allow(dead_code)]
@@ -21,6 +24,13 @@ pub fn nightly_solver<T: serde::de::DeserializeOwned>(
 ) -> Result<T, serde_json::Error> {
     take_nightly_metadata(&mut value);
     serde_json::from_value(value)
+}
+
+#[allow(dead_code)]
+pub fn nightly_solver_from_str<T: serde::de::DeserializeOwned>(
+    text: &str,
+) -> Result<T, serde_json::Error> {
+    nightly_solver(serde_json::from_str(text)?)
 }
 
 #[allow(dead_code)]

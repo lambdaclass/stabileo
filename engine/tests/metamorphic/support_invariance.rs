@@ -12,7 +12,7 @@ fn spatial_replay_case(model: &str) -> Case3 {
     let fixtures: serde_json::Value =
         serde_json::from_str(include_str!("../fixtures/support-invariance.json")).unwrap();
     let data = &fixtures[model];
-    let input: SolverInput3D = serde_json::from_value(data.clone()).unwrap();
+    let input: SolverInput3D = crate::common::nightly_solver(data.clone()).unwrap();
     let mut case = Case3::new("replay", input);
     if let Some(densities) = data.get("_nightly_dens") {
         case.dens = serde_json::from_value(densities.clone()).unwrap();
@@ -56,7 +56,7 @@ fn assert_equivalent_planar_supports(shared: &Case2, canonical: &Case2) {
 #[test]
 fn issue_1192_pinned_and_roller_supports_rotate_as_one_restraint() {
     let model = include_str!("../metamorphic_corpus/nightly/issue-1192.json");
-    let case = Case2::new("issue-1192", serde_json::from_str(model).unwrap());
+    let case = Case2::new("issue-1192", crate::common::nightly_solver_from_str(model).unwrap());
     let mut canonical = case.clone();
     canonical.s.supports.remove("3").unwrap();
     assert_equivalent_planar_supports(&case, &canonical);
@@ -84,7 +84,7 @@ fn issue_1192_pinned_and_roller_supports_rotate_as_one_restraint() {
 
 fn loaded_planar_case() -> Case2 {
     let model = include_str!("../metamorphic_corpus/nightly/issue-1192.json");
-    let mut case = Case2::new("loaded issue-1192 control", serde_json::from_str(model).unwrap());
+    let mut case = Case2::new("loaded issue-1192 control", crate::common::nightly_solver_from_str(model).unwrap());
     let [start, end] = [&case.s.nodes["1"], &case.s.nodes["2"]];
     let midpoint = [start.x.midpoint(end.x), start.z.midpoint(end.z)];
     let loaded = case.s.nodes.get_mut("3").unwrap();
@@ -261,7 +261,7 @@ fn shared_supports_with_settlements_still_refuse_in_both_dimensions() {
     assert!(settled.iso(&Iso3::about_z(0.37)).unwrap_err().contains("cannot be merged as plain rigid restraints"));
 
     let data = include_str!("../metamorphic_corpus/nightly/issue-1192.json");
-    let mut case = Case2::new("zero settlement", serde_json::from_str(data).unwrap());
+    let mut case = Case2::new("zero settlement", crate::common::nightly_solver_from_str(data).unwrap());
     case.s.supports.get_mut("3").unwrap().dz = Some(-0.0);
     solve_2d(&case.iso(&Iso2::rotation(0.37)).unwrap().s).unwrap();
     case.s.supports.get_mut("3").unwrap().dz = Some(0.01);

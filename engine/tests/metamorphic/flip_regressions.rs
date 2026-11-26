@@ -201,8 +201,10 @@ fn minimal_761() -> SolverInput {
 
 #[test]
 fn corrected_cantilevers_match_independent_element_equilibria() {
-    let issue_971: SolverInput =
-        serde_json::from_str(include_str!("../metamorphic_corpus/nightly/issue-971.json")).unwrap();
+    let issue_971: SolverInput = crate::common::nightly_solver_from_str(include_str!(
+        "../metamorphic_corpus/nightly/issue-971.json"
+    ))
+    .unwrap();
     let mut calls = Vec::new();
     for (issue, base, analysis) in [
         (761, minimal_761(), "corotational"),
@@ -328,10 +330,10 @@ fn supported_response(
 
 #[test]
 fn supported_nodal_load_mirrors_keep_the_exact_zero_strain_answer() {
-    let s: SolverInput = crate::common::nightly_solver(serde_json::from_str(include_str!(
+    let s: SolverInput = crate::common::nightly_solver_from_str(include_str!(
         "../metamorphic_corpus/nightly/issue-1100.json"
     ))
-    .unwrap()).unwrap();
+    .unwrap();
     let base = Case2::new("random-11-input", s);
     let mut calls = Vec::new();
     for (length, force) in [(1.0, 1.0), (1e-3, 1e3), (25.0, 1e-2), (0.3048, 4.448)] {
@@ -612,7 +614,10 @@ pub(crate) fn verify_generated_corotational_equilibria(count: u64) {
 }
 
 fn r19_physical_cantilever(dim: usize) {
-    let original: SolverInput = serde_json::from_str(include_str!("../metamorphic_corpus/nightly/issue-971.json")).unwrap();
+    let original: SolverInput = crate::common::nightly_solver_from_str(include_str!(
+        "../metamorphic_corpus/nightly/issue-971.json"
+    ))
+    .unwrap();
     let base = Case2::new("r19-971", original);
     let mut calls = Vec::new();
     for (l, f) in [(1.0, 1.0), (1e-3, 1e3), (25.0, 1e-2), (0.3048, 4.448)] {

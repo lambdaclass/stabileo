@@ -1,3 +1,3 @@
-export function nightlySolverFixture({ _nightly_dens, _nightly_name, ...solver }) {
-  return solver;
+export function nightlySolverFixture(archive) {
+  return Object.fromEntries(Object.entries(archive).filter(([key]) => !key.startsWith('_')));
 }

@@ -1100,7 +1100,7 @@ pub(crate) fn gauss_complex(k: &[f64], m: &[f64], c: &[f64], f: &[f64], n: usize
 fn harmonic_c2_symmetric_frame_matches_direct_solve() {
     use dedaliano_engine::solver::{assembly, dof::DofNumbering, harmonic, mass_matrix};
     let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-1371.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
-    let c = crate::case::Case3::new("issue-1371", serde_json::from_str(&text).unwrap());
+    let c = crate::case::Case3::new("issue-1371", crate::common::nightly_solver_from_str(&text).unwrap());
     for anti in [false, true] {
         let sym = crate::symmetry::symmetrize_3d(&c.name, &c.s, anti).unwrap();
         let sc = &sym.case;
