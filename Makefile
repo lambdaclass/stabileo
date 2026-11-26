@@ -1180,6 +1180,10 @@ test.engine.modal-released-axis-wasm: wasm scripts/tests/modal-released-axis-was
 test.engine.harmonic-dc-wasm: wasm scripts/tests/harmonic-dc-equilibration-wasm.mjs
 	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.harmonic-dc.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; HARMONIC_DC_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=harmonic_dc_equilibration::harmonic_dc_wasm_cases; node scripts/tests/harmonic-dc-equilibration-wasm.mjs "$$cases"'
 
+.PHONY: test.engine.conditional-elastic-wasm
+test.engine.conditional-elastic-wasm: wasm scripts/tests/conditional-elastic-equilibration-wasm.mjs
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.conditional-elastic.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; CONDITIONAL_ELASTIC_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=conditional_elastic_equilibration::conditional_elastic_wasm_cases; node scripts/tests/conditional-elastic-equilibration-wasm.mjs "$$cases"'
+
 .PHONY: test.engine.material-release-wasm
 test.engine.material-release-wasm: wasm scripts/tests/material-released-rotation-wasm.mjs
 	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.material-release.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; MATERIAL_RELEASE_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=material_released_rotation::material_release_wasm_cases; node scripts/tests/material-released-rotation-wasm.mjs "$$cases"'

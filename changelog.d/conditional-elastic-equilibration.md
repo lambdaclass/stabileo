@@ -1,0 +1,1 @@
+- Recover conditionally admitted elastic responses in scaled coordinates so equivalent models agree across changes of units and frame.

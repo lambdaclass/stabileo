@@ -1702,14 +1702,11 @@ fn solve_constrained_2d_dense_validated(
     let stability = fcs.stability(&crate::linalg::sparse::CscMatrix::from_dense_symmetric(&k_reduced, n_free_indep), dof_num, &CscMatrix::from_dense_symmetric(&k_ff, nf), &super::stability::coupling_2d(&input.solver, dof_num), &super::stability::elastic_releases_2d(&input.solver, dof_num));
     refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let u_indep = {
-        let mut k_work = k_reduced.clone();
-        stability.pin_dense(&mut k_work, n_free_indep);
-        if !cholesky_decompose(&mut k_work, n_free_indep) { return Err(linear::not_positive_definite()); }
-        let u = back_solve(&k_work, &forward_solve(&k_work, &f_reduced, n_free_indep), n_free_indep);
         let mut k_pinned = k_reduced.clone();
         stability.pin_dense(&mut k_pinned, n_free_indep);
-        linear::conditional_dense_refinement(&stability, &k_pinned, &f_reduced, u,
-            |rhs| back_solve(&k_work, &forward_solve(&k_work, rhs, n_free_indep), n_free_indep))?
+        let factor = super::elastic_cholesky::DenseCholesky::dense(&k_pinned, n_free_indep, &stability)?;
+        let u = factor.solve(&f_reduced);
+        linear::ConditionalRefinement::planar().dense(&stability, &k_pinned, &f_reduced, u, |rhs| factor.solve(rhs))?
     };
     stability.check_pins_with_rounding(&u_indep, &f_reduced, &[], &load_rounding)?;
 
@@ -1920,9 +1917,10 @@ pub(super) fn solve_constrained_2d_sparse(
     let stability = fcs.stability(&k_reduced, dof_num, k_ff, &super::stability::coupling_2d(&input.solver, dof_num), &super::stability::elastic_releases_2d(&input.solver, dof_num));
     refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let k_pinned = stability.pin_sparse(&k_reduced);
-    let num = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_pinned)), &k_pinned).ok_or_else(linear::not_positive_definite)?;
-    let u_indep = sparse_cholesky_solve(&num, &f_reduced);
-    let u_indep = linear::conditional_sparse_refinement(&stability, &k_pinned, &f_reduced, u_indep, |rhs| sparse_cholesky_solve(&num, rhs))?;
+    let symbolic = std::rc::Rc::new(symbolic_cholesky(&k_pinned));
+    let factor = super::elastic_cholesky::SparseCholesky::sparse(&k_pinned, &symbolic, &stability)?;
+    let u_indep = factor.solve(&f_reduced);
+    let u_indep = linear::ConditionalRefinement::planar().sparse(&stability, &k_pinned, &f_reduced, u_indep, |rhs| factor.solve(rhs))?;
     stability.check_pins_with_rounding(&u_indep, &f_reduced, &[], &load_rounding)?;
 
     let u_f = fcs.expand_solution(&u_indep, MasterMotion::Prescribed(&u_r));
@@ -2160,9 +2158,20 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
     let stability = fcs.stability(&k_reduced, &dof_num, k_ff, &super::stability::coupling_3d(&input.solver, &dof_num), &super::stability::elastic_releases_3d(&input.solver, &dof_num));
     refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let k_pinned = stability.pin_sparse(&k_reduced);
-    let num = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_pinned)), &k_pinned).ok_or_else(linear::not_positive_definite)?;
-    let u_indep = sparse_cholesky_solve(&num, &f_reduced);
-    let u_indep = linear::conditional_sparse_refinement(&stability, &k_pinned, &f_reduced, u_indep, |rhs| sparse_cholesky_solve(&num, rhs))?;
+    let symbolic = std::rc::Rc::new(symbolic_cholesky(&k_pinned));
+    let factor = super::elastic_cholesky::SparseCholesky::sparse(&k_pinned, &symbolic, &stability)?;
+    let u_indep = factor.solve(&f_reduced);
+    let physical = super::conditioning_accuracy::PhysicalFrameSystem {
+        input: &input.solver,
+        dof: &dof_num,
+        inclined: &sasm.inclined_transforms,
+        constraints: Some(&fcs),
+        prescribed: &u_r,
+        applied: &sasm.f,
+    };
+    let u_indep = linear::ConditionalRefinement::spatial(&physical).sparse(
+        &stability, &k_pinned, &f_reduced, u_indep, |rhs| factor.solve(rhs),
+    )?;
     stability.check_pins_with_rounding(&u_indep, &f_reduced, &[], &load_rounding)?;
 
     let u_f = fcs.expand_solution(&u_indep, MasterMotion::Prescribed(&u_r));

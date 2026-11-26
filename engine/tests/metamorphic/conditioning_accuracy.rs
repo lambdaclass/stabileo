@@ -150,10 +150,9 @@ fn expected_refusal(name: &str, e: &str) -> bool {
         && e.contains("the matrix exceeds a conditioning limit or the recovered response fails its accuracy check");
     let mechanism = e.starts_with("the structure is a mechanism at nodes ")
         && e.contains("a node can move freely in a direction no member, support or spring stiffens");
-    let factorization_accuracy = e == "the structure cannot be solved reliably: stiffness factorization accuracy is unresolved after the stability check; no result is returned";
     match name {
-        "issue-1029" | "issue-973" => conditioning || factorization_accuracy,
-        "issue-1083" | "issue-1091" | "issue-1353" | "issue-1355" | "issue-1362" => conditioning,
+        "issue-1029" | "issue-1083" | "issue-1091" | "issue-973" => mechanism,
+        "issue-1353" | "issue-1355" | "issue-1362" => conditioning,
         "issue-1008" | "issue-1095" | "issue-1103" | "issue-1112" | "issue-1359" | "issue-1648" | "issue-1651" | "issue-964" | "issue-966" | "issue-967" => mechanism,
         "issue-1028" => serde_json::from_str::<serde_json::Value>(e).ok().is_some_and(|v| {
             v["structuredDiagnostics"].as_array().is_some_and(|ds| ds.iter().any(|d| d["code"] == "conflicting_support_spring" && d["severity"] == "error"))
@@ -244,4 +243,34 @@ fn every_loaded_c08_copy_agrees_with_its_physical_reference_and_other_solved_cop
     assert!(compared >= required, "{compared} successful comparisons, require {required}");
     let originals = SOLVABLE.len();
     assert!(tested >= required - originals, "{tested} transformed copies compared");
+}
+
+#[test]
+fn conditional_elastic_2519_matches_the_independent_physical_response() {
+    let case = Case3::new(
+        "issue-2519",
+        serde_json::from_str(include_str!("../fixtures/conditional-elastic-2519.json")).unwrap(),
+    );
+    let data: serde_json::Value = serde_json::from_str(include_str!(
+        "../fixtures/conditional-elastic-2519-reference.json"
+    )).unwrap();
+    let expected = reference(&data, false);
+    let force = data["force_scale"].as_str().unwrap().parse().unwrap();
+    let length = data["length"].as_str().unwrap().parse().unwrap();
+    let mut worst = 0.0_f64;
+    let rows = crate::ana3::rows();
+    let routes = [
+        "linear", "linear (load session)", "linear (sparse path)", "linear (PCG)",
+        "constrained", "certified linear", "staged (one stage)",
+    ];
+    for (l, f) in [(1.0, 1.0), (1e-3, 1e3), (25.0, 1e-2), (0.3048, 4.448)] {
+        let units = Change::Units(Units::froude(l, f));
+        let image = case.units(&Units::froude(l, f));
+        for name in routes {
+            let analysis = rows.iter().find(|row| row.name == name).unwrap();
+            let actual = units.response(&(analysis.run)(&image).unwrap(), true);
+            worst = worst.max(compare(&actual, &expected, &expected, force, length));
+        }
+    }
+    println!("Issue #2519 physical reference maximum relative error: {worst:.6e}");
 }

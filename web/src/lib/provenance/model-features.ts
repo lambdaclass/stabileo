@@ -62,7 +62,7 @@ export const FEATURE_IDS = [
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'invalidSelfWeightTarget', 'scopedMemberSelfWeight', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'malformedAuthoredLoad',
-  'ssiHistory', 'recordedHarmonic', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
+  'ssiHistory', 'recordedHarmonic', 'strongElasticModulusContrast', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase', 'loadPlanCombinationSupplements', 'flatRoofSnowCombinations',
   'occupiedGeneratedLoadCases', 'repeatedUngroupedRuleTerms', 'emptyManualLoadAlternatives', 'retiredAutoLoadsCases',
   'repeatedCombinationRuleActions', 'superposedCombinations', 'repeatedCombinationCases', 'zeroOrOpposingCombinationFactors', 'explicitNotionalCombinationCases',
@@ -400,6 +400,15 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
 
   const quads = values(s.quads);
   const massCarriers = [...elements, ...quads, ...values(s.plates), ...values(s.quad9s), ...values(s.solidShells), ...values(s.curvedShells)];
+  let minElasticModulus = Infinity;
+  let maxElasticModulus = 0;
+  for (const carrier of massCarriers) {
+    const modulus = materials.get(carrier.materialId)?.e;
+    if (typeof modulus !== 'number' || !Number.isFinite(modulus) || modulus <= 0) continue;
+    minElasticModulus = Math.min(minElasticModulus, modulus);
+    maxElasticModulus = Math.max(maxElasticModulus, modulus);
+  }
+  if (maxElasticModulus / minElasticModulus >= 1e3) f.add('strongElasticModulusContrast');
   if (massCarriers.some(carrier => {
     if (typeof carrier?.materialId !== 'number') return false;
     const rho = materials.get(carrier.materialId)?.rho;

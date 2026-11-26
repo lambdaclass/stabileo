@@ -94,6 +94,20 @@ describe('result-change registry', () => {
     expect(notices({ ...old, analyses: ['harmonic'] })).toContain(id);
   });
 
+  it('shows conditional elastic recovery for a large contrast among materials assigned to members', () => {
+    const id = 'conditional-elastic-equilibration';
+    const resultsVersion = RESULT_CHANGES.changes.find(change => change.id === id)!.resultsVersion - 1;
+    const stamp = { ...unknownStamp(), resultsVersion, analyses: ['linear'] };
+    const model: FeatureSnapshot = {
+      materials: [[1, { id: 1, e: 17785.640071810256 }], [2, { id: 2, e: 65814124.383935295 }]],
+      elements: [[1, { id: 1, materialId: 1, sectionId: 1, nodeI: 1, nodeJ: 2 }],
+        [2, { id: 2, materialId: 2, sectionId: 2, nodeI: 2, nodeJ: 3 }]],
+    };
+    const notices = (model: FeatureSnapshot) => assessProject(model, stamp, '3d').changes.map(change => change.id);
+    expect(notices(model)).toContain(id);
+    expect(notices({ ...model, elements: model.elements?.slice(0, 1) })).not.toContain(id);
+  });
+
   it('links every entry to a heading that exists in the named file', () => {
     for (const c of RESULT_CHANGES.changes) {
       const text = readFileSync(resolve(repo, c.changelog.file), 'utf8');
