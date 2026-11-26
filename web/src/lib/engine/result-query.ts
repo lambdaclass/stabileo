@@ -88,9 +88,8 @@ export function envelopeQuerySources(envelope: FullEnvelope3D): readonly Analysi
 
 export function envelopeSourcesByMember(envelope: FullEnvelope3D) {
   const binding = envelopeCases.get(envelope);
-  if (binding) {
-    return binding.byMember ??= binding.sources.map(result => new Map(result.elementForces.map(ef => [ef.elementId, ef])));
-  }
+  if (!binding) return undefined;
+  return binding.byMember ??= binding.sources.map(result => new Map(result.elementForces.map(ef => [ef.elementId, ef])));
 }
 
 function envelopeQueryRows(
