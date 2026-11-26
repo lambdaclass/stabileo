@@ -1,7 +1,9 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { decompressSnapshot } from '../../../lib/utils/url-sharing';
+import { compressSnapshot, decompressSnapshot, loadFromShareLink, loadFromURLHash } from '../../../lib/utils/url-sharing';
 import { modelStore } from '../../../lib/store/model.svelte';
-import { solve, solveBuckling, initSolver } from '../../../lib/engine/wasm-solver';
+import { uiStore } from '../../../lib/store/ui.svelte';
+import { t } from '../../../lib/i18n';
+import { solve, solveBuckling, solvePDelta, initSolver } from '../../../lib/engine/wasm-solver';
 import { restrainedComponents } from '../../../lib/engine/force-method/primary';
 import { editorUrl } from '../share';
 import { buildModel, EXAMPLE, TOOL_IDS, workedExamples } from '../calculators';
@@ -86,4 +88,60 @@ it('#2588 opens the column tool’s guided support', () => {
     rx: false, ry: true, rz: true, rrx: true, rry: true, rrz: true,
   });
   expect(solve(imported).displacements).toEqual(solve(original).displacements);
+});
+
+const shareEntries = ['paste', 'data', 'embed'] as const;
+
+function openToolLink(entry: typeof shareEntries[number], payload: string) {
+  const hash = `#${entry === 'embed' ? 'embed' : 'data'}=${payload}`;
+  try {
+    vi.stubGlobal('location', { hash, pathname: '/app/basic', search: '' });
+    vi.stubGlobal('history', { replaceState: vi.fn() });
+    vi.stubGlobal('window', { dispatchEvent: vi.fn() });
+    vi.stubGlobal('queueMicrotask', (callback: () => void) => callback());
+    if (entry === 'paste') expect(loadFromShareLink(hash)).toBe(true);
+    else expect(loadFromURLHash()).toBe(entry);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+}
+
+it.skip.each(shareEntries)('known wrong result: #2588 — %s restores the calculator’s XY plane', async entry => {
+  await initSolver();
+  const original = buildModel('column-buckling', { ...EXAMPLE, k: 0.5 });
+  const payload = editorUrl(original, 'column-buckling').split('#data=')[1];
+  uiStore.drawPlane2D = 'xz';
+  openToolLink(entry, payload);
+  expect(uiStore.drawPlane2D).toBe('xy');
+  expect(uiStore.analysisPlane2D).toBe('xy');
+
+  const imported = modelStore.buildSolverInput(false)!;
+  const linear = solve(original);
+  const importedLinear = solve(imported);
+  expect(importedLinear.displacements).toEqual(linear.displacements);
+  expect(importedLinear.reactions).toEqual(linear.reactions);
+  const nonlinear = solvePDelta(original).results;
+  const importedNonlinear = solvePDelta(imported).results;
+  expect(importedNonlinear.displacements).toEqual(nonlinear.displacements);
+  expect(importedNonlinear.reactions).toEqual(nonlinear.reactions);
+});
+
+it.each(shareEntries)('%s still asks for the drawing plane of an unstamped guided column', async entry => {
+  await initSolver();
+  const original = buildModel('column-buckling', { ...EXAMPLE, k: 0.5 });
+  const payload = editorUrl(original, 'column-buckling').split('#data=')[1];
+  const snapshot = decompressSnapshot(payload)!;
+  uiStore.drawPlane2D = 'xz';
+  openToolLink(entry, compressSnapshot({ ...snapshot, drawPlane2D: undefined }));
+  expect(uiStore.analysisPlane2D).toBeUndefined();
+  expect(modelStore.solve()).toBe(t('svc.savedPlaneRequired'));
+  expect(await modelStore.solveAsync()).toBe(t('svc.savedPlaneRequired'));
+  expect(modelStore.solveCombinations()).toBe(t('svc.savedPlaneRequired'));
+  expect(() => modelStore.buildSolverInput()).toThrow(t('svc.savedPlaneRequired'));
+
+  uiStore.drawPlane2D = 'xy';
+  const linear = solve(original);
+  const selected = solve(modelStore.buildSolverInput(false)!);
+  expect(selected.displacements).toEqual(linear.displacements);
+  expect(selected.reactions).toEqual(linear.reactions);
 });
