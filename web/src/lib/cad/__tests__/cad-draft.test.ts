@@ -789,6 +789,51 @@ it.each(['fixedDivisions', 'targetSize'] as const)(
   },
 );
 
+const replayConformingWallEnd = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
+
+describe.each(['fixedDivisions', 'targetSize'] as const)('#2607 exterior beam joints in %s mode', meshMode => {
+  function checkExteriorJoint(offset: number) {
+    const plan = reviewPlan();
+    const a = { x: -2, y: -offset }, b = { x: 4, y: -offset };
+    const end = { x: 2, y: 0 };
+    plan.beams = [{ a, b }, { a: reviewOutline[2]!, b: reviewOutline[3]! }, { a, b: reviewOutline[3]! }];
+    plan.columns = [a, b, reviewOutline[2]!, reviewOutline[3]!].map(at => ({ at, sizeSource: 'default' }));
+    plan.walls = [{ a: end, b: { x: 3, y: 3 }, thicknessSource: 'default' }];
+    const settings = { ...reviewSettings, meshMode, meshTargetSize: 1 };
+    for (const [entry, draft] of [
+      ['generator', generateRcDraft(plan, settings, SOURCE)],
+      ['single plan', buildDraft({ plan, assumptions: settings, source: SOURCE })],
+      ['floor ranges', buildDraft({
+        floorPlans: [{ plan, fromFloor: 1, toFloor: 1 }, { plan: { ...plan, slabs: [], walls: [] }, fromFloor: 2, toFloor: 2 }],
+        assumptions: { ...settings, nFloors: 2, storyHeights: [3, 3] }, source: SOURCE,
+      })],
+    ] as const) {
+      const model = snapshotToModelShape(draft.snapshot);
+      const station = (p: typeof end) => [...model.nodes.values()].find(n => n.x === p.x && n.y === p.y && n.z === 3)!.id;
+      const joint = station(end), left = station(a), right = station(b);
+      expect([...model.plates.values()].some(plate => plate.nodes.includes(joint)), entry).toBe(true);
+      expect([...model.quads.values()].some(wall => wall.nodes.includes(joint)), entry).toBe(true);
+      const neighbors = (id: number) => [...model.elements.values()].flatMap(({ nodeI, nodeJ }) =>
+        nodeI === id ? [nodeJ] : nodeJ === id ? [nodeI] : [],
+      ).filter(other => other === left || other === right || other === joint);
+      const withinSnap = offset < settings.snapTolerance;
+      expect.soft(neighbors(left), entry).toEqual([withinSnap ? joint : right]);
+      expect.soft(neighbors(right), entry).toEqual([withinSnap ? joint : left]);
+      expect.soft(neighbors(joint).sort(), entry).toEqual(withinSnap ? [left, right].sort() : []);
+    }
+  }
+
+  for (const offset of [0.005, 0.009]) {
+    replayConformingWallEnd(`known wrong result: #2607 snaps a conforming wall end to an exterior beam at offset ${offset}`, () => {
+      checkExteriorJoint(offset);
+    });
+  }
+
+  it.each([0.01, 0.011])('keeps the exterior beam separate at offset %s', offset => {
+    checkExteriorJoint(offset);
+  });
+});
+
 it('#2607 alternating floor matches minimize the total distance', () => {
   const A = { x: 0, y: -0.004 }, B = { x: 0.002, y: 0.006 };
   const L = { x: 0.008, y: 0 }, M = { x: -0.006, y: 0.003 };
