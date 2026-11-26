@@ -1,6 +1,7 @@
 ### Fixed
 
-#### Keep both signed bounds in spatial envelope end queries
+#### Show signed minima and maxima in spatial envelope end queries
 
-The Pro query table and its CSV export include both signed force bounds
-when they occur at the same inward member end.
+The Pro query and its CSV export use the solved case and combination
+values at each inward member end. Signed minima and maxima now work
+even when every value has the same sign.

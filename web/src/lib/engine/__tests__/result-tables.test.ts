@@ -9,6 +9,8 @@ import { criticalForceStations, extractForcesAtStation } from '../station-forces
 import { envelopeMembers, envelopeOver, pruneScopes } from '../result-scopes';
 import { DEFAULT_AXES } from '../../axes/frame';
 import { modelStore } from '../../store/model.svelte';
+import { resultsStore } from '../../store/results.svelte';
+import { computeSectionProperties } from '../../data/section-shapes';
 import { uiStore } from '../../store/ui.svelte';
 import '../../store/index';
 import { combineResultsEnvelope3D, computeEnvelope3D, initSolver, solve3D, solvePDelta3D } from '../wasm-solver';
@@ -23,7 +25,7 @@ import { ConcurrentDemand } from '../concurrent-demand';
 import { computeElementStress3D } from '../section-stress-3d';
 import { generateCalcReportHtml } from '../calc-report';
 import { stationForces3D } from '../../section/panel';
-import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../member-diagram';
+import { DIAGRAM_EXTREMA_UNAVAILABLE, memberEnvelopeOrdinates } from '../member-diagram';
 import { buildSolverInput3D } from '../solver-service';
 import { POINT_END_TOL } from '../member-point-loads';
 import { expandVariableMembers, variableExpansionFor } from '../variable-members';
@@ -553,7 +555,7 @@ it('known wrong result: #2581 exports only inward ends and both interior jump fa
     kind: 'axial' as const, globalMax: axial,
     elements: [{ elementId: reviewForces.elementId, tPositions: [0, 0, 1], posValues: [axial, 0, 0], negValues: [0, 0, 0] }],
   };
-  expect(buildQueryRows(control.results.elementForces, 'N', { envelope: legacy }).map(row => row.value)).toEqual([0, 0]);
+  expect(memberEnvelopeOrdinates(legacy.elements[0]!, length).map(row => row.value)).toEqual([0, 0]);
   expect(rowsOf('forces', control.results, criticalOptions).map(row => row.x)).toEqual([0, 1, 2, 3, 4]);
 });
 
@@ -682,8 +684,8 @@ describe('spatial cantilever end queries', () => {
 
     for (const [i, result] of plus.entries()) {
       const envelope = computeEnvelope3D([result, minus[i]!])!;
-      for (const [kind, component] of [['shearY', 'Vy'], ['shearZ', 'Vz']] as const) {
-        const rows = buildQueryRows(envelope.maxAbsResults3D.elementForces, component, { envelope: envelope[kind] });
+      for (const component of ['Vy', 'Vz'] as const) {
+        const rows = buildQueryRows(envelope.maxAbsResults3D.elementForces, component, { envelope });
         for (const end of ['i', 'j'] as const) {
           const at = rows.filter(row => row.end === end);
           expect.soft(extremeRow(at, 'max')?.value).toBeCloseTo(positive, 12);
@@ -697,7 +699,7 @@ describe('spatial cantilever end queries', () => {
     }
   });
 
-  it.skip.each([
+  it.each([
     { label: 'all-positive', values: [10, 20], min: 10, max: 20, absmax: 20 },
     { label: 'all-negative', values: [-10, -20], min: -20, max: -10, absmax: -20 },
     { label: 'mixed with a zero case', values: [-20, 0, 10, 15], min: -20, max: 15, absmax: -20 },
@@ -722,22 +724,70 @@ describe('spatial cantilever end queries', () => {
       for (const envelope of envelopes) {
         expect(envelope).not.toBeNull();
         const result = envelope!.maxAbsResults3D;
-        for (const [kind, component] of [['shearY', 'Vy'], ['shearZ', 'Vz']] as const) {
-          const rows = buildQueryRows(result.elementForces, component, { envelope: envelope![kind] });
+        for (const component of ['Vy', 'Vz'] as const) {
+          const rows = buildQueryRows(result.elementForces, component, { envelope: envelope! });
           for (const end of ['i', 'j'] as const) {
             const at = rows.filter(row => row.end === end);
             expect.soft(extremeRow(at, 'min')?.value).toBeCloseTo(min, 12);
             expect.soft(extremeRow(at, 'max')?.value).toBeCloseTo(max, 12);
             expect.soft(extremeRow(at, 'absmax')?.value).toBeCloseTo(absmax, 12);
-            expect.soft(at.map(row => Math.round(row.value))).toEqual([...values].sort((a, b) => b - a));
-            expect.soft(filterByAbsThreshold(at, 10).map(row => Math.round(row.value)))
-              .toEqual(values.filter(value => Math.abs(value) >= 10).sort((a, b) => b - a));
-            expect.soft(filterByAbsThreshold(at, 11).map(row => Math.round(row.value)))
-              .toEqual(values.filter(value => Math.abs(value) >= 11).sort((a, b) => b - a));
+            const expectValues = (actual: typeof at, expected: number[]) => {
+              expect.soft(actual).toHaveLength(expected.length);
+              expected.sort((a, b) => b - a).forEach((value, index) => {
+                expect.soft(actual[index]?.value).toBeCloseTo(value, 12);
+              });
+            };
+            expectValues(at, [...values]);
+            const boundary = Math.abs(buildQueryRows(selected[values.findIndex(value => Math.abs(value) === 10)]!.elementForces, component)
+              .find(row => row.end === end)!.value);
+            expectValues(filterByAbsThreshold(at, boundary), values.filter(value => Math.abs(value) >= 10));
+            expectValues(filterByAbsThreshold(at, boundary + 1), values.filter(value => Math.abs(value) >= 11));
           }
         }
       }
     }
+  });
+
+  it('keeps the case ends when publishing or viewing a variable-member envelope', () => {
+    const rect = (h: number) => {
+      const params = { b: 0.2, h };
+      const props = computeSectionProperties('concrete-rect', params)!;
+      return modelStore.addSection({
+        ...props, name: `R${h}`, shape: 'rect', rotation: 0, built: { shapeType: 'concrete-rect', params },
+      });
+    };
+    modelStore.updateElement(elementId, { sectionId: rect(0.6), variableSection: { sectionJ: rect(0.3), segments: 2 } });
+    const loadId = modelStore.addLoadEntry({
+      type: 'nodal3d', data: { id: 1, nodeId: tip, fx: 0, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 },
+    });
+    const values = [10, 20];
+    const cases = new Map(values.map((value, index) => {
+      expect(modelStore.updateLoad(loadId, { fz: -value })).toBe(true);
+      const model = expandVariableMembers(modelStore.model);
+      return [index + 1, solve3D(buildSolverInput3D(model, false, false)!)];
+    }));
+    const factors = [...cases.keys()].map(caseId => [{ caseId, factor: 1 }]);
+    const { envelope } = combineResultsEnvelope3D(factors, cases, new Map());
+    expect(envelope?.maxAbsResults3D.elementForces).toHaveLength(2);
+    resultsStore.setCombinationResults3D(cases, cases, envelope!);
+    resultsStore.activeView = 'envelope';
+
+    const checkEnds = () => {
+      const active = resultsStore.fullEnvelope3D!;
+      expect(active.maxAbsResults3D.elementForces.map(force => force.elementId)).toEqual([elementId]);
+      const rows = buildQueryRows(resultsStore.results3D!.elementForces, 'Vz', { envelope: active });
+      for (const end of ['i', 'j']) {
+        const at = rows.filter(row => row.end === end);
+        expect(at).toHaveLength(2);
+        expect(extremeRow(at, 'min')?.value).toBeCloseTo(values[0]!, 12);
+        expect(extremeRow(at, 'max')?.value).toBeCloseTo(values[1]!, 12);
+      }
+    };
+    checkEnds();
+    const viewed = envelopeOver(new Map(), [], resultsStore.perCase3D, [...cases.keys()]);
+    expect(viewed).not.toBeNull();
+    resultsStore.viewEnvelope3D(viewed, 'Variable member cases');
+    checkEnds();
   });
 
   it.each([0, POINT_END_TOL / 2, length / 4, 3 * length / 4, length - POINT_END_TOL / 2, length])(

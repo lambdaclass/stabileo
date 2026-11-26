@@ -1,6 +1,6 @@
-import { bindMemberEnvelopeEnds } from './member-diagram';
+import { bindMemberEnvelopeEnds, unavailableDiagramExtrema } from './member-diagram';
+import { bindEnvelopeQuerySources, envelopeQuerySources } from './result-query';
 import { envelopeJumpCuts, sameCutLocation, type DiagramCutLocation } from './diagram-cut';
-import { unavailableDiagramExtrema } from './member-diagram';
 import type { AnalysisResults3D, Displacement3D, ElementForces3D, EnvelopeDiagramData3D, FullEnvelope3D } from './types-3d';
 import type { ResultPiece, VariableExpansion, VariableMember, VariablePiece } from './variable-members';
 
@@ -145,10 +145,12 @@ function collapseDiagram(d: EnvelopeDiagramData3D, exp: VariableExpansion): Enve
 
 export function collapseVariableEnvelope(env: FullEnvelope3D, exp: VariableExpansion | undefined): FullEnvelope3D {
   if (!exp || exp.members.size === 0) return bindMemberEnvelopeEnds(env);
-  return bindMemberEnvelopeEnds({
+  const collapsed = bindMemberEnvelopeEnds({
     momentY: collapseDiagram(env.momentY, exp), momentZ: collapseDiagram(env.momentZ, exp),
     shearY: collapseDiagram(env.shearY, exp), shearZ: collapseDiagram(env.shearZ, exp),
     axial: collapseDiagram(env.axial, exp), torsion: collapseDiagram(env.torsion, exp),
     maxAbsResults3D: collapseVariableResults(env.maxAbsResults3D, exp),
   });
+  const sources = envelopeQuerySources(env);
+  return sources ? bindEnvelopeQuerySources(collapsed, sources.map(result => collapseVariableResults(result, exp))) : collapsed;
 }

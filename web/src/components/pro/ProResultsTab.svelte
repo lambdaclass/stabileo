@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../../lib/engine/member-diagram';
   import { memberEndSections3D } from '../../lib/engine/diagrams-3d';
   import { resultComponents } from '../../lib/axes/result-components';
   import { axesStore } from '../../lib/axes/axes.svelte';
@@ -37,7 +38,6 @@
   let wasAnimating = false;
   import {
     diagramTypeToComponent,
-    forceDiagramForComponent,
     buildQueryRows,
     extremeRow,
     filterByAbsThreshold,
@@ -223,18 +223,18 @@
   });
 
   const isEnvelopeView = $derived(resultsStore.activeView === 'envelope');
-  $effect(() => {
-    if (isEnvelopeView && queryMode !== 'absmax') queryMode = 'absmax';
-  });
-
   const activeRows = $derived.by(() => {
     if (!results || !queryComponent) return [];
-    const activeEnvelope = isEnvelopeView ? resultsStore.fullEnvelope3D ?? resultsStore.envelope3D : null;
-    if (isEnvelopeView && !activeEnvelope) return [];
-    const envelope = activeEnvelope?.[forceDiagramForComponent(queryComponent)];
-    return buildQueryRows(results.elementForces, queryComponent, { elementIds: scopeIds, envelope });
+    const envelope = isEnvelopeView ? resultsStore.fullEnvelope3D : undefined;
+    if (envelope === null) return null;
+    try {
+      return buildQueryRows(results.elementForces, queryComponent, { elementIds: scopeIds, envelope });
+    } catch (error) {
+      if (error instanceof Error && error.message === DIAGRAM_EXTREMA_UNAVAILABLE) return null;
+      throw error;
+    }
   });
-  const filteredRows = $derived(filterByAbsThreshold(activeRows, queryThreshold));
+  const filteredRows = $derived(filterByAbsThreshold(activeRows ?? [], queryThreshold));
   const MAX_RENDER_ROWS = 500;
   const renderRows = $derived(filteredRows.length > MAX_RENDER_ROWS ? filteredRows.slice(0, MAX_RENDER_ROWS) : filteredRows);
   const activeExtreme = $derived(extremeRow(filteredRows, queryMode));
@@ -714,8 +714,8 @@
               <label class="pro-viz-label">{t('pro.queryMode')}</label>
               <select class="pro-viz-sel" bind:value={queryMode}>
                 <option value="absmax">{t('pro.queryModeAbsmax')}</option>
-                <option value="max" disabled={isEnvelopeView}>{t('pro.queryModeMax')}</option>
-                <option value="min" disabled={isEnvelopeView}>{t('pro.queryModeMin')}</option>
+                <option value="max">{t('pro.queryModeMax')}</option>
+                <option value="min">{t('pro.queryModeMin')}</option>
               </select>
             </div>
             <div class="pro-viz-row">
@@ -730,6 +730,8 @@
                 <span class="pqc-val">{queryComponent} = {fmtQ(activeExtreme.value, queryQty)} {unitQ(queryQty)}</span>
                 <span class="pqc-meta">{t('pro.elemLabel')} {activeExtreme.elementId} · {t('pro.queryEnd')} {activeExtreme.end} · {activeSourceLabel}</span>
               </div>
+            {:else if activeRows === null}
+              <div class="pro-query-empty" role="status">{t(DIAGRAM_EXTREMA_UNAVAILABLE)}</div>
             {:else}
               <div class="pro-query-empty">{t('pro.queryNoRows')}</div>
             {/if}
