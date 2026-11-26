@@ -127,3 +127,52 @@ fn a_mechanism_is_diagnosed_in_a_model_too_large_for_the_dense_elimination() {
     let fixed = analyze_kinematics_3d(&holding(&model, &found));
     assert!(fixed.is_solvable, "{}", fixed.diagnosis);
 }
+
+/// A beam of `n` frame members fixed at every fifth node, with a spring under its third, with two trusses side by side hung from its end
+/// their far node held in every direction or in its rotations alone.
+fn cantilever_with_a_hanging_truss(n: usize, tip_held: bool) -> SolverInput3D {
+    let mut model = slab(1, &|_, _| None);
+    model.nodes.clear();
+    model.quads.clear();
+    model.sections.insert("1".into(), serde_json::from_value(serde_json::json!({"id": 1, "a": 0.01, "iy": 1e-4, "iz": 1e-4, "j": 1e-4})).unwrap());
+    let member = |id: usize, i: usize, j: usize, kind: &str| serde_json::from_value(serde_json::json!({
+        "id": id, "nodeI": i, "nodeJ": j, "materialId": 1, "sectionId": 1, "type": kind
+    })).unwrap();
+    for i in 0..=n {
+        model.nodes.insert((i + 1).to_string(), SolverNode3D { id: i + 1, x: i as f64, y: 0.0, z: 3.0 });
+        if i > 0 { model.elements.insert(i.to_string(), member(i, i, i + 1, "frame")); }
+    }
+    let tip = n + 2;
+    model.nodes.insert(tip.to_string(), SolverNode3D { id: tip, x: n as f64 + 1.0, y: 2.0, z: 0.0 });
+    for id in [n + 1, n + 2] {
+        model.elements.insert(id.to_string(), member(id, n + 1, tip, "truss"));
+    }
+    for i in (0..n).step_by(5) {
+        model.supports.insert((i + 1).to_string(), held(i + 1, [true; 6]));
+    }
+    let mut spring = held(3, [false; 6]);
+    spring.kz = Some(1.0e4);
+    model.supports.insert("3".into(), spring);
+    model.supports.insert(tip.to_string(), held(tip, if tip_held { [true; 6] } else { [false, false, false, true, true, true] }));
+    model
+}
+
+#[test]
+fn a_mechanism_proven_on_the_physical_springs_is_reported_as_the_dense_analysis_reports_it() {
+    for n in [20, 300] {
+        for tip_held in [false, true] {
+            let model = cantilever_with_a_hanging_truss(n, tip_held);
+            let (dense, sparse, auto) = (analyze_kinematics_3d_dense(&model), analyze_kinematics_3d_sparse(&model), analyze_kinematics_3d(&model));
+            assert_eq!(dense.is_solvable, tip_held, "n {n}: {}", dense.diagnosis);
+            if !tip_held {
+                assert_eq!(dense.mechanism_nodes, vec![n + 2], "n {n}");
+                assert!(dense.diagnosis.contains("reduced_stiffness_rank"), "n {n}: {}", dense.diagnosis);
+            }
+            for (name, other) in [("sparse", &sparse), ("auto", &auto)] {
+                assert_eq!((verdict(other), other.kinematic_is_solvable), (verdict(&dense), dense.kinematic_is_solvable), "{name}, n {n}, tip held {tip_held}");
+                assert_eq!(other.diagnosis, dense.diagnosis, "{name}, n {n}, tip held {tip_held}");
+                assert_eq!(other.mechanism_nodes, dense.mechanism_nodes, "{name}, n {n}, tip held {tip_held}");
+            }
+        }
+    }
+}
