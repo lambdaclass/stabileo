@@ -64,7 +64,7 @@ function slopeAt(d: PrestressLike, xi: number, L: number) {
   ], 1, L);
 }
 
-function lineIntensity(d: PrestressLike, L: number) {
+export function tendonLineIntensity(d: PrestressLike, L: number) {
   return evaluateTerms([
     new LoadScalar(4).scale(d.eI),
     new LoadScalar(-8).scale(d.eM),
@@ -79,7 +79,7 @@ export function tendonSlope(d: PrestressLike, xi: number, L: number): number {
 
 /** The constant transverse load of the curved tendon, along local z, kN/m. */
 export function tendonLoad(d: PrestressLike, L: number): number {
-  return lineIntensity(d, L).amount.value;
+  return tendonLineIntensity(d, L).amount.value;
 }
 
 /** The tendon of the stretch [x0, x1] of a member of length L, as a tendon of that stretch. */
@@ -105,11 +105,11 @@ export function prestressToSolver(m: MemberRef, d: PrestressLike): SolverLoad3D[
     return load;
   };
   const out = [at(m.nodeI, 0, P, d.eI, m.armI), at(m.nodeJ, 1, -P, d.eJ, m.armJ)];
-  const { amount: { value: q, underflow }, magnitude: qScale } = lineIntensity(d, L);
+  const { amount: { value: q, underflow }, magnitude: qScale } = tendonLineIntensity(d, L);
   if (Math.abs(q) > 1e-12) {
     const load: SolverLoad3D = { type: 'distributed', data: { elementId: m.elementId, qYI: 0, qYJ: 0, qZI: q, qZJ: q } };
     const intensity = LoadVector.from([0, 0, q], [0, 0, qScale], [0, 0, underflow]);
-    assembledMagnitudes3D.set(load, { qI: intensity, qJ: intensity });
+    assembledMagnitudes3D.set(load, { qI: intensity, qJ: intensity, source: 'prestress' });
     out.push(load);
   }
   return out;

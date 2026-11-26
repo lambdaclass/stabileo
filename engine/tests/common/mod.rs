@@ -6,6 +6,17 @@ use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
 #[allow(dead_code)]
+pub fn rank_refusal_message(error: &str) -> String {
+    let Ok(refusal) = serde_json::from_str::<serde_json::Value>(error) else {
+        return error.to_owned();
+    };
+    let diagnostic = &refusal["structuredDiagnostics"][0];
+    assert_eq!(diagnostic["code"], "reduced_stiffness_rank", "{error}");
+    assert_eq!(diagnostic["severity"], "error", "{error}");
+    refusal["message"].as_str().unwrap().to_owned()
+}
+
+#[allow(dead_code)]
 pub fn assert_pdelta_equilibrium_refusal(error: &str, tolerance: f64) -> f64 {
     let refusal: serde_json::Value = serde_json::from_str(error).unwrap();
     let diagnostics = refusal["structuredDiagnostics"].as_array().unwrap();

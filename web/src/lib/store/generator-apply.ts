@@ -23,7 +23,7 @@
  */
 
 import { modelStore } from './model.svelte';
-import { loadFixture } from '../templates/load-fixture';
+import { loadFixture, validateFixtureReferences } from '../templates/load-fixture';
 import type { GeneratedModel } from '../engine/generators/emit';
 import type { ModelProvenance, ProvenanceSource } from '../model/provenance';
 
@@ -69,12 +69,10 @@ export function applyGeneratedModel(g: GeneratedModel, opts: ApplyOptions): Appl
   // wrapper is what makes it ONE undo step — without it `clear()` pushes a snapshot and
   // `bulkMutate()` pushes a second one (of the now-empty model), so the first Ctrl+Z would
   // restore nothing and the promise in `generator.ui.replacesModel` would be a lie.
-  const api = modelStore.fixtureApi();
+  validateFixtureReferences(g.json);
   modelStore.batch(() => {
     modelStore.clear();
-    modelStore.bulkMutate(() => {
-      loadFixture({ ...g.json, name: opts.name ?? g.json.name }, api as never);
-    });
+    loadFixture({ ...g.json, name: opts.name ?? g.json.name }, modelStore.fixtureApi() as never);
   });
   modelStore.refreshCanonicalSections();
   modelStore.model.provenance = provenance;

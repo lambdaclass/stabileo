@@ -18,28 +18,28 @@ import type { StructuredDiagnostic } from './types';
  * ── The loads ────────────────────────────────────────────────────
  *
  * Each axle weighs downward (−Z in the solver's frame, which is also the frame a flat model is
- * embedded in). On the member it stands on, the weight is split onto the member's own axes, as
- * the load serializer does for a point load (`solver-service.ts`): the transverse part as a
- * point load, the axial part as nodal forces shared by the two ends in proportion to position.
+ * embedded in).
  * A train that is not symmetric also runs the other way, on the mirrored positions.
  */
-import { prepareLoadSession3D } from './wasm-solver';
+import { prepareLoadSession3D, movingSegmentRoundoff } from './wasm-solver';
 import { computeLocalAxes3D } from './local-axes-3d';
+import { localPointForce, memberPointForceRow3D } from './member-point-loads';
+import { evaluateDiagramAt } from './diagrams-3d';
 import { criticalForceStations, extractForcesAtStation } from './station-forces';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D } from './types-3d';
 import type { LoadTrain } from './moving-loads';
 import { buildSolverInput3D, type ModelData } from './solver-service';
 import { withoutSettlement } from './settlement-case';
+import { checkAxlePath, locateAxlePlacement, referenceStation, type ReferencePosition, type RouteSegment } from './moving-axle-station';
 // The position cases read the same symmetry and the same reversed train (`vehicles.ts`).
-import { isSymmetric, reversedTrain, usableStep } from './vehicles';
+import { positionPasses, usableStep } from './vehicles';
+import { axleFaceForce, MovingSample, recoverAxleFace, type AxleFace, type FaceLoads } from './moving-sample';
 
-export interface PathSegment3D {
+export interface PathSegment3D extends RouteSegment {
   elementId: number;
   /** Node the path enters the member by. */
   from: number;
   to: number;
-  length: number;
-  cumStart: number;
   /** True when the path runs from the member's node J to node I. */
   reversed: boolean;
 }
@@ -76,7 +76,7 @@ export function buildPath3D(input: SolverInput3D, ids: number[]): PathSegment3D[
   let at = ends.includes(first.nodeI) ? first.nodeI : ends.includes(first.nodeJ) ? first.nodeJ : ends[0]!;
   const left = new Set(els.map((e) => e.id));
   const out: PathSegment3D[] = [];
-  let cum = 0;
+  let cum = 0, roundoff = 0;
   while (left.size > 0) {
     const e = els.find((x) => left.has(x.id) && (x.nodeI === at || x.nodeJ === at));
     if (!e) return null;
@@ -84,7 +84,13 @@ export function buildPath3D(input: SolverInput3D, ids: number[]): PathSegment3D[
     const reversed = e.nodeJ === at;
     const a = input.nodes.get(e.nodeI)!, b = input.nodes.get(e.nodeJ)!;
     const L = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
-    out.push({ elementId: e.id, from: at, to: reversed ? e.nodeI : e.nodeJ, length: L, cumStart: cum, reversed });
+    const lengthRoundoff = movingSegmentRoundoff(a, b);
+    const startRoundoff = roundoff;
+    roundoff += lengthRoundoff;
+    out.push({
+      elementId: e.id, from: at, to: reversed ? e.nodeI : e.nodeJ, length: L, cumStart: cum, reversed,
+      lengthRoundoff, startRoundoff, endRoundoff: roundoff,
+    });
     cum += L;
     at = reversed ? e.nodeI : e.nodeJ;
   }
@@ -92,35 +98,50 @@ export function buildPath3D(input: SolverInput3D, ids: number[]): PathSegment3D[
 }
 
 /** The solver loads of `train` with its reference axle at `refPos` along the path. */
-export function trainLoads(input: SolverInput3D, path: PathSegment3D[], train: LoadTrain, refPos: number): SolverLoad3D[] {
-  const total = path.reduce((s, p) => s + p.length, 0);
-  const loads: SolverLoad3D[] = [];
-  for (const axle of train.axles) {
-    const s = refPos + axle.offset;
-    if (s < 0 || s > total) continue;
-    const seg = path.find((p) => s >= p.cumStart - 1e-12 && s <= p.cumStart + p.length + 1e-12);
-    if (!seg) continue;
-    const e = input.elements.get(seg.elementId)!;
+export function trainLoads(input: SolverInput3D, path: PathSegment3D[], train: LoadTrain, refPos: ReferencePosition): SolverLoad3D[] {
+  checkAxlePath(path);
+  const sample = new MovingSample<SolverLoad3D>();
+  addTrain(sample, input, path, train, refPos);
+  return sample.loads;
+}
+
+function addTrain(
+  sample: MovingSample<SolverLoad3D>, input: SolverInput3D, path: PathSegment3D[],
+  train: LoadTrain, refPos: ReferencePosition,
+): void {
+  const axleOn = (elementId: number, weight: number) => {
+    const e = input.elements.get(elementId)!;
     const ni = input.nodes.get(e.nodeI)!, nj = input.nodes.get(e.nodeJ)!;
     const localY = e.localYx !== undefined && e.localYy !== undefined && e.localYz !== undefined
       ? { x: e.localYx, y: e.localYy, z: e.localYz } : undefined;
-    const axes = computeLocalAxes3D(ni, nj, localY, e.rollAngle ?? 0, false);
-    const along = Math.min(Math.max(s - seg.cumStart, 0), seg.length);
-    const a = seg.reversed ? seg.length - along : along;
-    const F: [number, number, number] = [0, 0, -axle.weight];
-    const dot = (v: readonly number[]) => v[0]! * F[0] + v[1]! * F[1] + v[2]! * F[2];
-    const py = dot(axes.ey), pz = dot(axes.ez), px = dot(axes.ex);
-    if (Math.abs(py) > 1e-12 || Math.abs(pz) > 1e-12) {
-      loads.push({ type: 'pointOnElement', data: { elementId: e.id, a, py, pz } });
+    const axes = computeLocalAxes3D(ni, nj, localY, e.rollAngle ?? 0, input.leftHand);
+    const force = localPointForce(axes, [0, 0, -weight]);
+    return { e, force };
+  };
+  for (const axle of train.axles) {
+    const at = locateAxlePlacement(path, refPos, axle.offset, (seg) => seg.reversed);
+    if (!at) continue;
+    if (at.kind === 'joint') {
+      const face = (routeFace: typeof at.faces[number]): AxleFace | undefined => {
+        if (!routeFace) return undefined;
+        const { segment, atEnd } = routeFace;
+        const { e, force } = axleOn(segment.elementId, axle.weight);
+        return {
+          elementId: e.id, nodeId: atEnd ? e.nodeJ : e.nodeI, atEnd,
+          force: axleFaceForce(force, e.type === 'truss'),
+        };
+      };
+      sample.addJoint([face(at.faces[0]), face(at.faces[1])], (nodeId) => (
+        { type: 'nodal', data: { nodeId, fx: 0, fy: 0, fz: -axle.weight, mx: 0, my: 0, mz: 0 } }
+      ));
+      continue;
     }
-    if (Math.abs(px) > 1e-12) {
-      const t = a / seg.length;
-      for (const [node, f] of [[e.nodeI, px * (1 - t)], [e.nodeJ, px * t]] as const) {
-        loads.push({ type: 'nodal', data: { nodeId: node, fx: f * axes.ex[0], fy: f * axes.ex[1], fz: f * axes.ex[2], mx: 0, my: 0, mz: 0 } });
-      }
+    const { segment: seg, a } = at;
+    const { e, force } = axleOn(seg.elementId, axle.weight);
+    if (force.some(component => component !== 0)) {
+      sample.loads.push(memberPointForceRow3D(e.id, a, force));
     }
   }
-  return loads;
 }
 
 function blank(): Record<EnvelopeComponent, { max: Extreme; min: Extreme }> {
@@ -129,16 +150,35 @@ function blank(): Record<EnvelopeComponent, { max: Extreme; min: Extreme }> {
 }
 
 /** Fold one position's results into the envelope, at each member's critical stations. */
-export function foldPosition(env: MovingEnvelope3D['elements'], results: AnalysisResults3D, position: number): void {
+export function foldPosition(
+  env: MovingEnvelope3D['elements'], results: AnalysisResults3D, position: number, faces?: FaceLoads, reuse = false,
+): void {
+  const include = (component: { max: Extreme; min: Extreme }, value: number, x: number) => {
+    if (value > component.max.value) component.max = { value, x, position };
+    if (value < component.min.value) component.min = { value, x, position };
+  };
   for (const ef of results.elementForces) {
+    const loads = faces?.get(ef.elementId);
+    if (reuse && !loads) continue;
     let rec = env.get(ef.elementId);
     if (!rec) { rec = blank(); env.set(ef.elementId, rec); }
-    for (const t of criticalForceStations(ef)) {
-      const f = extractForcesAtStation(ef, t);
-      for (const c of ENVELOPE_COMPONENTS) {
-        const v = f[c];
-        if (v > rec[c].max.value) rec[c].max = { value: v, x: f.x, position };
-        if (v < rec[c].min.value) rec[c].min = { value: v, x: f.x, position };
+    if (!reuse) {
+      for (const t of criticalForceStations(ef)) {
+        const f = extractForcesAtStation(ef, t);
+        for (const c of ENVELOPE_COMPONENTS) include(rec[c], f[c], f.x);
+      }
+    }
+    if (loads) {
+      for (const end of [0, 1] as const) {
+        for (const [axis, component, kind] of [
+          [0, 'n', 'axial'], [1, 'vy', 'shearY'], [2, 'vz', 'shearZ'],
+        ] as const) {
+          const load = loads[end][axis];
+          if (load === 0) continue;
+          const value = recoverAxleFace(end, load, kind === 'axial',
+            (t, right) => evaluateDiagramAt(ef, kind, t, right));
+          include(rec[component], value, end * ef.length);
+        }
       }
     }
   }
@@ -196,11 +236,9 @@ export async function sweepMovingLoad3D(
   // At least `MIN_STEP`: a step of a few micrometres ran for ever.
   const step = usableStep(opts.step ?? 0, 0.25);
   const total = path.reduce((s, p) => s + p.length, 0);
-  const maxOff = Math.max(0, ...train.axles.map((a) => a.offset));
-  const forward: number[] = [];
-  for (let r = -maxOff; r <= total + 1e-9; r += step) forward.push(r);
-  const passes: Array<{ train: LoadTrain; refs: number[] }> = [{ train, refs: forward }];
-  if (!isSymmetric(train)) passes.push({ train: reversedTrain(train), refs: forward.map((r) => total - r - maxOff) });
+  const passes = positionPasses(train, total, step, path.at(-1)?.endRoundoff);
+  checkAxlePath(path);
+  if (opts.path2) checkAxlePath(opts.path2);
   const count = passes.reduce((n, p) => n + p.refs.length, 0);
   const env: MovingEnvelope3D['elements'] = new Map();
   const structuredDiagnostics: StructuredDiagnostic[] = [];
@@ -211,23 +249,29 @@ export async function sweepMovingLoad3D(
     for (const p of passes) {
       for (const r of p.refs) {
         if (opts.signal?.aborted) throw new DOMException('aborted', 'AbortError');
+        const position = referenceStation(r);
+        const sample = new MovingSample<SolverLoad3D>();
+        const wheelLine = opts.path2 ? half(p.train) : p.train;
+        addTrain(sample, base, path, wheelLine, r);
+        if (opts.path2) addTrain(sample, base, opts.path2, wheelLine, r);
         try {
-          // Two wheel lines: half the train on each path (`MovingLoad3DOptions.path2`).
-          const loads = opts.path2
-            ? [...trainLoads(base, path, half(p.train), r), ...trainLoads(base, opts.path2, half(p.train), r)]
-            : trainLoads(base, path, p.train, r);
-          const result = session.solve(loads);
-          const diagnostics = result.structuredDiagnostics ?? [];
-          if (diagnostics.some(d => d.code === 'known_issue' && d.severity === 'error')) {
-            throw new Error(JSON.stringify({ structuredDiagnostics: diagnostics }));
-          }
-          for (const d of diagnostics) {
-            const key = JSON.stringify(d);
-            if (!seen.has(key)) { seen.add(key); structuredDiagnostics.push(d); }
-          }
-          foldPosition(env, result, r);
+          const solve = (loads: SolverLoad3D[]) => {
+            const result = session.solve(loads);
+            const diagnostics = result.structuredDiagnostics ?? [];
+            if (diagnostics.some(d => d.code === 'known_issue' && d.severity === 'error')) {
+              throw new Error(JSON.stringify({ structuredDiagnostics: diagnostics }));
+            }
+            for (const d of diagnostics) {
+              const key = JSON.stringify(d);
+              if (!seen.has(key)) { seen.add(key); structuredDiagnostics.push(d); }
+            }
+            return result;
+          };
+          const exact = solve(sample.loads);
+          foldPosition(env, exact, position);
+          sample.foldLimits(exact, solve, (limit, faces, reuse) => foldPosition(env, limit, position, faces, reuse));
         } catch (error) {
-          if (isContainmentRefusal(error)) throw error;
+          if (isContainmentRefusal(error) || sample.hasJoints) throw error;
           failed++;
         }
         done++;

@@ -22,7 +22,7 @@ it('known wrong result: #2364 the older #2223 nodal project stays quiet before t
       const snapshot: FeatureSnapshot = {
         analysisMode,
         supports: [[1, { nodeId: 1, type: analysisMode === '2d' ? 'fixed' : 'fixed3d' }]],
-        loads: [{ type: 'nodal3d', data: { nodeId: 1, fz: -20, caseId: 1 } }],
+        loads: [{ type: 'nodal3d', data: { nodeId: 1, fx: 0, fy: 0, fz: -20, mx: 0, my: 0, mz: 0, caseId: 1 } }],
         loadCases: [{ id: 1, type: 'D' }],
         includeSelfWeight: true,
       };

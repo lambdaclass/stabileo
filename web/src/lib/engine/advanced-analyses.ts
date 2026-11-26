@@ -75,7 +75,7 @@ export function lumpedNodalForces(input: SolverInput3D): Map<number, Vec3> {
     } else if (l.type === 'pointOnElement') {
       const g = memberAxes(input, l.data.elementId);
       if (!g) continue;
-      split(g, toGlobal(g, l.data.py, l.data.pz), l.data.a);
+      split(g, toGlobal(g, l.data.py, l.data.pz, l.data.px), l.data.a);
     }
   }
   return out;

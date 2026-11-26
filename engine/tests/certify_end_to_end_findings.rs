@@ -455,3 +455,26 @@ fn issue_458_supplied_2d_combination_cannot_certify_a_spring_supported_case() {
     assert!(!certified.combinations[0].certified);
     assert!(!certified.envelope.certified);
 }
+
+#[test]
+fn issue_458_loaded_hinged_rotation_refuses_in_equivalent_planar_frames() {
+    use dedaliano_engine::metamorphic::transform::{Iso2, transform_2d};
+    use dedaliano_engine::metamorphic::units::{Units, scale_2d};
+    use dedaliano_engine::solver::linear::solve_2d;
+
+    let model = fully_hinged_node_2d();
+    for units in [Units::froude(1.0, 1.0), Units::froude(0.001, 1000.0), Units::froude(25.0, 0.01)] {
+        let scaled = scale_2d(&model, &units);
+        for iso in [Iso2::rotation(0.0), Iso2::rotation(0.37).translated(3.0, -4.0), Iso2::mirror_line(0.4)] {
+            let transformed = transform_2d(&scaled, &iso).unwrap();
+            let error = solve_2d(&transformed).unwrap_err();
+            assert!(error.contains("Nodal moment at node 2 is not supported"), "{error}");
+            let error = certify_linear_2d_full(&transformed).unwrap_err();
+            assert!(error.contains("Nodal moment at node 2 is not supported"), "{error}");
+            let mut held = transformed;
+            held.elements.get_mut("1").unwrap().hinge_end = false;
+            solve_2d(&held).unwrap();
+            assert!(certify_linear_2d_full(&held).unwrap().certificate.is_certified());
+        }
+    }
+}

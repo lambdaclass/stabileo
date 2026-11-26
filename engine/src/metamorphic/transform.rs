@@ -37,7 +37,34 @@
 
 use super::{unrep, TResult};
 use crate::element::compute_local_axes_3d;
+use crate::solver::support::{plain_rigid_dofs_2d, plain_rigid_dofs_3d, plain_rigid_support_type_2d, rigid_support_union, supports_by_node};
 use crate::types::*;
+use std::collections::HashMap;
+
+fn transform_supports<S: Clone, const N: usize>(
+    supports: &HashMap<String, S>,
+    node_id: impl Fn(&S) -> usize,
+    rigid_dofs: impl Fn(&S) -> Option<[bool; N]>,
+    set_dofs: impl Fn(&mut S, [bool; N]) -> TResult<()>,
+    transform: impl Fn(&S) -> TResult<S>,
+) -> TResult<HashMap<String, S>> {
+    let groups = supports_by_node(supports, node_id);
+    let mut transformed = HashMap::with_capacity(groups.len());
+    for (node, group) in groups {
+        let (key, first) = group[0];
+        let support = if group.len() == 1 {
+            transform(first)?
+        } else {
+            let union = rigid_support_union(group.iter().map(|&(_, support)| support), &rigid_dofs)
+                .ok_or_else(|| super::Unrepresentable(format!("supports at node {node} cannot be merged as plain rigid restraints")))?;
+            let mut merged = first.clone();
+            set_dofs(&mut merged, union)?;
+            transform(&merged)?
+        };
+        transformed.insert(key.clone(), support);
+    }
+    Ok(transformed)
+}
 
 pub type M2 = [[f64; 2]; 2];
 pub type M3 = [[f64; 3]; 3];
@@ -351,15 +378,16 @@ pub fn transform_2d(input: &SolverInput, iso: &Iso2) -> TResult<SolverInput> {
         n.x = p[0];
         n.z = p[1];
     }
-    for (k, s) in input.supports.iter() {
-        m.supports.insert(k.clone(), transform_support_2d(s, iso)?);
-    }
-    for (k, s) in input.supports.iter() {
-        let shared = input.supports.values().filter(|o| o.node_id == s.node_id).count() > 1;
-        if shared && s.support_type != "inclinedRoller" && m.supports[k].support_type == "inclinedRoller" {
-            return unrep("a node with several supports, one of them turned off the axes (the solver merges only axis-aligned restraints)");
-        }
-    }
+    m.supports = transform_supports(
+        &input.supports, |s| s.node_id, plain_rigid_dofs_2d,
+        |s, dofs| {
+            s.support_type = plain_rigid_support_type_2d(dofs)
+                .ok_or_else(|| super::Unrepresentable(format!("unsupported rigid restraint set at node {}", s.node_id)))?
+                .into();
+            Ok(())
+        },
+        |s| transform_support_2d(s, iso),
+    )?;
     for l in m.loads.iter_mut() {
         match l {
             SolverLoad::Nodal(nl) => {
@@ -718,9 +746,15 @@ pub fn transform_3d(input: &SolverInput3D, iso: &Iso3) -> TResult<SolverInput3D>
             }
         }
     }
-    for (k, s) in src.supports.iter() {
-        m.supports.insert(k.clone(), transform_support_3d(s, iso)?);
-    }
+    m.supports = transform_supports(
+        &src.supports, |s| s.node_id, plain_rigid_dofs_3d,
+        |s, [x, y, z, rx, ry, rz, w]| {
+            (s.rx, s.ry, s.rz, s.rrx, s.rry, s.rrz) = (x, y, z, rx, ry, rz);
+            s.rw = w.then_some(true);
+            Ok(())
+        },
+        |s| transform_support_3d(s, iso),
+    )?;
     for l in m.loads.iter_mut() {
         let rot_g = |gx: &mut f64, gy: &mut f64, gz: &mut f64| {
             let g = iso.apply_vec([*gx, *gy, *gz]);

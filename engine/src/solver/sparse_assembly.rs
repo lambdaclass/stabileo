@@ -14,7 +14,7 @@ use crate::linalg::transform_stiffness;
 use crate::linalg::transform_force;
 use crate::linalg::sparse::CscMatrix;
 use super::dof::DofNumbering;
-use super::assembly::assemble_element_loads_2d;
+use super::assembly::{absolute_triplet_matrix, assemble_element_loads_2d, free_magnitude};
 use super::assembly::InclinedTransformData2D;
 
 /// COO triplet accumulator for building sparse matrices.
@@ -271,6 +271,7 @@ pub fn assemble_2d_sparse(input: &SolverInput, dof_num: &DofNumbering) -> Triple
 /// Stiffness-only sparse 2D assembly result (linear-solve path): CSC of Kff
 /// plus full-K CSC for reactions and prescribed-displacement coupling.
 pub struct StiffnessSparseAssembly2D {
+    pub(crate) support_magnitude: Option<CscMatrix>,
     pub k_ff: CscMatrix,
     pub k_full: CscMatrix,
     pub max_diag_k: f64,
@@ -292,6 +293,15 @@ pub fn assemble_stiffness_sparse_2d(input: &SolverInput, dof_num: &DofNumbering)
 pub(crate) fn assemble_stiffness_sparse_2d_typed(
     input: &SolverInput, dof_num: &DofNumbering,
     properties: &crate::types::units::ElasticProperties2D,
+) -> StiffnessSparseAssembly2D {
+    assemble_stiffness_sparse_2d_recording(input, dof_num, properties, None)
+}
+
+pub(super) fn assemble_stiffness_sparse_2d_recording(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    properties: &crate::types::units::ElasticProperties2D,
+    mut roundoff: Option<&mut super::stiffness_roundoff::StiffnessRoundoff>,
 ) -> StiffnessSparseAssembly2D {
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
@@ -472,6 +482,10 @@ pub(crate) fn assemble_stiffness_sparse_2d_typed(
 
     // Apply 2D inclined support transformations (triplets before CSC conversion;
     // the force vector rotation happens in `assemble_load_vector_2d`)
+    if let Some(roundoff) = roundoff.as_deref_mut() {
+        roundoff.record_symmetric(&trip_rows, &trip_cols, &trip_vals);
+    }
+    let mut unrotated_magnitude = None;
     let mut inclined_transforms_2d = Vec::new();
     for sup in crate::ordered::values(&input.supports) {
         if sup.support_type == "inclinedRoller" {
@@ -482,10 +496,16 @@ pub(crate) fn assemble_stiffness_sparse_2d_typed(
                 dof_num.map.get(&(sup.node_id, 1)),
             ) {
                 let dofs = [d0, d1];
+                unrotated_magnitude.get_or_insert_with(|| {
+                    absolute_triplet_matrix(n, &trip_rows, &trip_cols, &trip_vals)
+                });
                 super::assembly::apply_inclined_transform_triplets_2d(
                     &mut trip_rows, &mut trip_cols, &mut trip_vals,
                     &dofs, &r,
                 );
+                if let Some(roundoff) = roundoff.as_deref_mut() {
+                    roundoff.rotate(dofs, &r);
+                }
                 inclined_transforms_2d.push(InclinedTransformData2D {
                     node_id: sup.node_id,
                     dofs,
@@ -494,6 +514,9 @@ pub(crate) fn assemble_stiffness_sparse_2d_typed(
             }
         }
     }
+
+    let support_magnitude = unrotated_magnitude
+        .map(|magnitude| free_magnitude(magnitude, nf, &inclined_transforms_2d));
 
     // Compact zeroed-out triplets left by inclined support transforms
     if !inclined_transforms_2d.is_empty() {
@@ -521,6 +544,9 @@ pub(crate) fn assemble_stiffness_sparse_2d_typed(
         trip_rows.push(d);
         trip_cols.push(d);
         trip_vals.push(artificial_k);
+        if let Some(roundoff) = roundoff.as_deref_mut() {
+            roundoff.record(d, d, artificial_k);
+        }
     }
     if !artificial_dofs.is_empty() {
         k_full = CscMatrix::from_triplets(n, &trip_rows, &trip_cols, &trip_vals);
@@ -540,6 +566,7 @@ pub(crate) fn assemble_stiffness_sparse_2d_typed(
     k_ff.drop_below_threshold(1e-30);
 
     StiffnessSparseAssembly2D {
+        support_magnitude,
         k_ff,
         k_full,
         max_diag_k: max_diag,
@@ -1266,15 +1293,18 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
                         dof_num.map.get(&(sup.node_id, 2)),
                     ) {
                         let dofs = [d0, d1, d2];
-                        super::assembly::apply_inclined_transform_triplets_k(
-                            &mut trip_rows, &mut trip_cols, &mut trip_vals,
-                            &dofs, &r,
-                        );
                         inclined_transforms.push(InclinedTransformData { node_id: sup.node_id, dofs, r });
                     }
                 }
             }
         }
+    }
+
+    let support_magnitude = (!inclined_transforms.is_empty()).then(|| {
+        super::assembly::triplet_magnitude(&trip_rows, &trip_cols, &trip_vals, dof_num, &inclined_transforms)
+    });
+    for frame in &inclined_transforms {
+        super::assembly::InclinedFrame::rotate_triplets(frame, &mut trip_rows, &mut trip_cols, &mut trip_vals);
     }
 
     // Compact zeroed-out triplets
@@ -1314,6 +1344,7 @@ pub fn assemble_stiffness_sparse_3d_parallel(input: &SolverInput3D, dof_num: &Do
     k_ff.drop_below_threshold(1e-30);
 
     super::assembly::StiffnessSparseAssembly3D {
+        support_magnitude,
         k_ff, k_full, max_diag_k: max_diag,
         artificial_dofs: artificial_dofs_3d, inclined_transforms, diagnostics,
     }
@@ -1325,6 +1356,7 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
     let stiff = assemble_stiffness_sparse_3d_parallel(input, dof_num, build_k_full);
     let f = assemble_load_vector_3d_sparse_parallel(input, &input.loads, dof_num, &stiff.inclined_transforms);
     SparseAssemblyResult3D {
+        support_magnitude: stiff.support_magnitude,
         k_ff: stiff.k_ff,
         k_full: stiff.k_full,
         f,

@@ -3776,8 +3776,11 @@ const hi: Translations = {
   "svc.engine.unsupportedPointLoadMoment": "सदस्य के बिंदु भार में असमर्थित आघूर्ण घटक",
   "svc.engine.applyPointLoadMomentAtNode": "आघूर्ण को भार की मूल स्थिति पर स्थित 3D नोड पर लगाएँ",
   "svc.engine.invalidSelfWeightGroup": "स्व-भार समूह {id} अनुपलब्ध है या उसकी सदस्य सूची अमान्य है। समूह और उसके सदस्यों को पुनर्स्थापित करें या स्व-भार का लक्ष्य बदलें।",
+  "svc.engine.invalidSelfWeightMemberId": "स्व-भार के लिए सदस्य आईडी {id} एक गैर-ऋणात्मक पूर्णांक होना चाहिए जिसे ठीक-ठीक दर्शाया जा सके। स्व-भार का लक्ष्य बदलें।",
+  "svc.engine.missingSelfWeightTarget": "स्व-भार का लक्ष्य {kind} {id} अनुपलब्ध है। उसे पुनर्स्थापित करें या स्व-भार का लक्ष्य बदलें।",
   "svc.engine.invalidDensity": "सामग्री {id} के लिए परिमित और गैर-ऋणात्मक घनत्व (rho) दर्ज करें (प्राप्त मान: {value})।",
   "svc.engine.nonnegativeMassDensity": "द्रव्यमान घनत्व परिमित और गैर-ऋणात्मक होना चाहिए",
+  "svc.engine.invalidInputField": "फ़ील्ड {path} मौजूद नहीं है या उसका मान समर्थित नहीं है।",
   "svc.engine.nonFiniteNumber": "{path} में एक परिमित संख्या दर्ज करें (प्राप्त मान: {value})।",
 };
 export default hi;

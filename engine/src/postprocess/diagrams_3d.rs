@@ -1,6 +1,6 @@
 use crate::types::*;
 use serde::{Deserialize, Serialize};
-use super::diagram_extrema::{distributed_actions, Curve, Cut, PointAction, Response};
+use super::diagram_extrema::{distributed_actions, Curve, Cut, MovingForceCuts, PointAction, Response};
 
 // ==================== Types ====================
 
@@ -86,7 +86,7 @@ pub(crate) fn try_evaluate_diagram_cut_3d(ef: &ElementForces3D, kind: &str, cut:
     spatial_curve(ef, kind).checked_value(cut).map_err(str::to_owned)
 }
 
-pub(crate) fn member_diagram_range_3d(ef: &ElementForces3D, kind: &str) -> Result<(f64, f64), String> {
+pub(crate) fn member_diagram_range_3d(ef: &ElementForces3D, kind: &str, limits: MovingForceCuts<'_>) -> Result<(f64, f64), String> {
     validate_diagram_loads_3d(ef)?;
     let end = match kind {
         "momentY" => ef.my_end,
@@ -97,7 +97,7 @@ pub(crate) fn member_diagram_range_3d(ef: &ElementForces3D, kind: &str) -> Resul
         "torsion" => ef.mx_end,
         _ => 0.0,
     };
-    spatial_curve(ef, kind).interior_range(end).map_err(str::to_owned)
+    spatial_curve(ef, kind).interior_range(end, limits).map_err(str::to_owned)
 }
 
 fn spatial_curve<'a>(

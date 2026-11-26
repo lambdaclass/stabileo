@@ -3758,8 +3758,11 @@ const ja: Translations = {
   "svc.engine.unsupportedPointLoadMoment": "部材集中荷重で指定できないモーメント成分",
   "svc.engine.applyPointLoadMomentAtNode": "荷重の元の位置にある 3D 節点にモーメントを適用してください",
   "svc.engine.invalidSelfWeightGroup": "自重グループ {id} が存在しないか、所属要素の情報が無効です。グループとその所属要素を復元するか、自重の適用対象を変更してください。",
+  "svc.engine.invalidSelfWeightMemberId": "自重の部材 ID {id} は、正確に表現できる非負の整数でなければなりません。自重の適用対象を変更してください。",
+  "svc.engine.missingSelfWeightTarget": "自重の適用対象 {kind} {id} が存在しません。対象を復元するか、自重の適用対象を変更してください。",
   "svc.engine.invalidDensity": "材料 {id} の密度 (rho) に有限かつ非負の数値を入力してください（受け取った値: {value}）。",
   "svc.engine.nonnegativeMassDensity": "質量密度は有限かつ非負でなければなりません",
+  "svc.engine.invalidInputField": "フィールド {path} が指定されていないか、サポートされていない値が指定されています。",
   "svc.engine.nonFiniteNumber": "{path} に有限の数値を入力してください（受け取った値: {value}）。",
 } as const satisfies Record<string, string>;
 
