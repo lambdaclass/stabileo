@@ -385,7 +385,7 @@ function wallFaceContact(wall: Cell, slab: Cell, sides: readonly FaceSide[]): re
     for (const { point, nodes } of section) {
       if (nodes.length !== 2) continue;
       const distances = sides.map(side => signedDistance(point, side.point, side.inward));
-      if (distances.every(distance => distance >= 0) && distances.filter(distance => distance === 0).length === 1) return nodes;
+      if (distances.every(distance => distance >= 0) && distances.filter(distance => distance === 0).length === 1) return [];
     }
   }
 
