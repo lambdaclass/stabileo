@@ -777,7 +777,11 @@
       {/if}
 
       {#if resSection === 'memberStress'}
-        <ProMemberStressTable />
+        {#if resultsStore.results3D?.magnitude}
+          <p>{t('figures.magnitudes')}</p>
+        {:else}
+          <ProMemberStressTable />
+        {/if}
       {/if}
       {#if resSection === 'statics'}
         <StaticsCheckPanel />

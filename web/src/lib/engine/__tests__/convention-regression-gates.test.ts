@@ -18,6 +18,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { sampleElementValues } from '../../three/stress-heatmap';
 import { solve, solve3D } from '../wasm-solver';
 import { autoVerifyFromResults, type AutoVerifyModelData } from '../auto-verify';
 import type { AnalysisResults3D } from '../types-3d';
@@ -213,22 +214,26 @@ describe('SEAM 3: My/Mz axis identity preservation', () => {
     expect(src, 'old My·z/Iy pairing must not exist').not.toContain('sigma -= My * z / Iy');
   });
 
-  it('stress-heatmap.ts Math.max(my, mz) is intentional for visualization', () => {
-    const src = readSource('../../three/stress-heatmap.ts');
-    // Find the Math.max(my, mz) usage
-    expect(src).toMatch(/Math\.max\(my, mz\)/);
-    // It must have a comment confirming it is for visualization, not axis assignment
-    const momentBlock = src.match(/(?:\/\/.*(?:envelope|intensity|visualization).*\n.*)?Math\.max\(my, mz\)/i)
-      || src.match(/Math\.max\(my, mz\)[\s\S]{0,200}/);
-    const contextLines = src.split('\n');
-    const maxLine = contextLines.findIndex(l => l.includes('Math.max(my, mz)'));
-    expect(maxLine).toBeGreaterThan(-1);
-    // Check surrounding lines for the intentionality comment
-    const surrounding = contextLines.slice(Math.max(0, maxLine - 5), maxLine + 3).join('\n');
-    expect(
-      surrounding,
-      'Math.max(my, mz) in stress-heatmap.ts must be annotated as intentional for visualization',
-    ).toMatch(/envelope|intensity|visualization/i);
+  it('the moment heatmap combines the largest component magnitude for visualization', () => {
+    const section = { A: 1, Iy: 1, Iz: 1, h: 1, b: 1, fy: null };
+    for (const [my, mz] of [[3, -4], [-4, 3]] as const) {
+      const forces: ElementForces3D = {
+        elementId: 1, length: 1,
+        nStart: 0, nEnd: 0, vyStart: 0, vyEnd: 0, vzStart: 0, vzEnd: 0,
+        mxStart: 0, mxEnd: 0, myStart: my, myEnd: my, mzStart: mz, mzEnd: mz,
+        releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false,
+        releaseTStart: false, releaseTEnd: false,
+        qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, pointLoadsY: [], pointLoadsZ: [],
+        distributedLoadsY: [], distributedLoadsZ: [],
+      };
+      const overlay = sampleElementValues(forces, 'moment', section);
+      expect(overlay.peak).toBe(4);
+      expect(overlay.stations[0]).toEqual({ t: 0, value: 4 });
+      expect(overlay.stations.at(-1)).toEqual({ t: 1, value: 4 });
+      expect(sampleElementValues(forces, 'momentY', section).peak).toBe(Math.abs(my));
+      expect(sampleElementValues(forces, 'momentZ', section).peak).toBe(Math.abs(mz));
+    }
+    expect(readSource('../../three/stress-heatmap.ts')).toContain('`moment` and `shear` are ENVELOPE metrics');
   });
 });
 

@@ -9,7 +9,7 @@ const toUser = (f: import('../../axes/frame').AxesFrame, values: import('../../a
  */
 import { ContainmentExportError } from '../containment-error';
 import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../member-diagram';
-import { summaryRows, envelopeRows, columnsOf, whereOf, type Source, type TableKind } from '../result-tables';
+import { summaryRows, envelopeRows, extremaResultSources, columnsOf, whereOf, type Source, type TableKind } from '../result-tables';
 import type { StaticsRows } from '../../store/statics-rows';
 import { staticsVerdict } from '../statics-check';
 import type { ProjectInfo } from '../../model/project-info';
@@ -55,9 +55,13 @@ export function projectCoverHtml(info: ProjectInfo | undefined, tr: Tr): string[
  * Across the result sets: for each table, the extreme of every column with where and under
  * which set, then the envelope of every node or member end. Complete, however many members.
  */
-export function envelopeSectionHtml(sources: readonly Source[], tr: Tr, heading: string, axes: AxesChoice = DEFAULT_AXES): string[] {
+export function envelopeSectionHtml(
+  resultSets: readonly Source[], tr: Tr, heading: string, axes: AxesChoice = DEFAULT_AXES, signedOnly = false,
+): string[] {
+  const sources = extremaResultSources(resultSets, signedOnly);
   if (sources.length === 0) return [];
   const out: string[] = [`<h2 id="sec-envelope">${esc(heading)}</h2>`];
+  if (sources[0]!.results.magnitude) out.push(`<p class="note">${esc(tr('figures.magnitudes'))}</p>`);
   out.push(`<p class="note">${esc(tr('report.env.basis').replace('{n}', String(sources.length)))}: ${sources.map((s) => esc(s.name)).join(', ')}</p>`);
   const kinds: Array<[TableKind, string]> = [['reactions', tr('report.reactions')], ['forces', tr('report.forces')], ['displacements', tr('report.displacements')]];
   for (const [kind, title] of kinds) {

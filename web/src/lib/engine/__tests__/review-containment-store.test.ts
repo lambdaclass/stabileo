@@ -113,7 +113,7 @@ it.each([false, true])('a refused single solve reaches no viewport getter (3D: %
     : {
       displacements: [{ nodeId: 1, ux: v, uz: 0, ry: 0 }],
       reactions: [{ nodeId: 1, rx: v, rz: 0, my: 0 }],
-      elementForces: [{ elementId: 1, nStart: v, nEnd: v, vStart: v, vEnd: v, mStart: v, mEnd: v }],
+      elementForces: [{ elementId: 1, length: 1, qI: 0, qJ: 0, nStart: v, nEnd: v, vStart: v, vEnd: v, mStart: v, mEnd: 0 }],
       constraintForces: [{ nodeId: 1, dof: 'ux', force: v }],
     };
   uiStore.analysisMode = is3D ? 'pro' : '2d';

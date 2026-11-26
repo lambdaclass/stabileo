@@ -62,6 +62,7 @@ export const RESULTANTS: Readonly<Record<TableKind, readonly Column[]>> = Object
 
 export interface TableOptions {
   axes: AxesChoice;
+  signedOnly?: boolean;
   /** Only these nodes (displacements, reactions) or members (forces). Absent: all. */
   entities?: ReadonlySet<number> | null;
   /** Add the resultant columns: |u|; |F| and |M|; V = √(Vy² + Vz²) and M = √(My² + Mz²). */
@@ -88,6 +89,11 @@ function withResultants(kind: TableKind, v: number[]): number[] {
 
 /** A result set with a name: a combination, or a case when nothing is combined. */
 export interface Source { id: number; name: string; results: AnalysisResults3D }
+
+export function extremaResultSources(sources: readonly Source[], signedOnly = false): readonly Source[] {
+  const signed = sources.filter(source => !source.results.magnitude);
+  return signedOnly || signed.length > 0 ? signed : sources;
+}
 
 /** One row of one result set: a node, or a member end or station (`x`, m from end i). */
 export interface Row { entity: number; end?: 'i' | 'j'; x?: number; side?: Extreme['side']; values: number[] }
@@ -212,7 +218,7 @@ export function summaryRows(kind: TableKind, sources: readonly Source[], opts: T
   const min: Array<Extreme | null> = cols.map(() => null);
   const critical = kind === 'forces' && opts.stations === 'critical';
   const beats = critical ? beatsCriticalExtreme : beatsExtreme;
-  for (const source of sources) {
+  for (const source of extremaResultSources(sources, opts.signedOnly)) {
     const visit = (c: number, value: number, entity: number, end: Extreme['end'], x: number | undefined, side?: Extreme['side']) => {
       if (!Number.isFinite(value)) return;
       const newMax = beats(1, value, entity, x, max[c]!);
@@ -294,13 +300,14 @@ function requireEnvelopeMemberCoverage(sources: readonly Source[], entities: Tab
 
 /** For each node or member end (or station), the largest and smallest value of each column over the sources. */
 export function envelopeRows(kind: TableKind, sources: readonly Source[], opts: TableOptions): EnvelopeRow[] {
-  if (kind === 'forces') requireEnvelopeMemberCoverage(sources, opts.entities);
+  const eligible = extremaResultSources(sources, opts.signedOnly);
+  if (kind === 'forces') requireEnvelopeMemberCoverage(eligible, opts.entities);
   const byKey = new Map<number | string, EnvelopeRow>();
   const critical = opts.stations === 'critical';
   const spec = opts.stations ?? 2;
   const atStations = kind === 'forces' && !usesMemberEnds(spec);
-  const sharedStations = kind === 'forces' && critical ? criticalEnvelopeStations(sources, opts) : undefined;
-  for (const source of sources) {
+  const sharedStations = kind === 'forces' && critical ? criticalEnvelopeStations(eligible, opts) : undefined;
+  for (const source of eligible) {
     eachRow(kind, source.results, opts, (entity, end, x, values, side) => {
       const key = atStations || end === 'j' ? `${entity}:${end ?? ''}:${(critical ? x : x?.toFixed(6)) ?? ''}:${side ?? ''}` : entity;
       const row = byKey.get(key);

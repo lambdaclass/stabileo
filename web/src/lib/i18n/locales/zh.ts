@@ -5359,7 +5359,7 @@ const zh: Translations = {
   "wb.cover.case": "工况",
   "wb.conv.axes": "整体坐标轴：X 和 Y 为水平，Z 向上，右手系。位移和反力采用整体坐标轴。",
   "wb.conv.localAxes": "杆件局部坐标轴：x 从节点 I 指向节点 J；y 和 z 依据局部 Y 向量和滚转角确定。导出的滚转角同时包含杆件滚转和截面旋转，单位为度。",
-  "wb.conv.sources": "结果来源：case 和 combination 标识一个已求解的荷载工况或组合。Single（sourceId 0）是独立求解，而不是单个荷载工况。包络导出采用来源 envelope 和 id 0，并带有所显示的包络名称。Magnitude 是 SRSS 或 ABS 组合：其数值是不带符号的量值，不满足平衡，并且不计入极值和包络。",
+  "wb.conv.sources": "结果来源：case 和 combination 标识一个已求解的荷载工况或组合。Single（sourceId 0）是独立求解，而不是单个荷载工况。包络导出采用来源 envelope 和 id 0，并带有所显示的包络名称。Magnitude 是 SRSS 或 ABS 组合：其数值是不带符号的量值，不满足平衡，并且不计入极值和包络。 幅值列在 EndForces 和 Stations 的等间距测点中。Stresses、Deflections 和关键测点需要带符号的结果。",
   "wb.conv.selfWeight": "SelfWeight 记录每个自重荷载的方向、系数和作用范围。显式的工况荷载同样适用于全部荷载的求解。对于旧版项目，单独的 case 行和 single 行记录各次求解所用的自重；它们是替代关系，而非叠加关系。此工作表仅作记录，模型导入器不会读取它。",
   "wb.conv.selfWeightImport": "SelfWeight 记录自重的方向、系数和作用范围。工况规则也适用于全荷载计算，除非旧版 single 行单独定义了该计算的重力。旧版 case 行和 single 行分别用于各自的计算，两者不叠加。导入支持工况规则和旧版独立重力，并报告不受支持的作用范围。",
   "wb.conv.units": "全部采用国际单位制：m、kN、kN·m；杆件应力和模量用 MPa，壳应力用 kN/m²，壳弯矩用 kN·m/m（与屏幕所示一致）；转角用 rad，温度用 °C。每个表头的括号内标注其单位。",

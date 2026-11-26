@@ -227,6 +227,7 @@ function buildReportMetadata(data: CalcReportData): string {
 
   const h: string[] = ['<div class="report-meta"><table>'];
   h.push(`<tr><th>${t('calcReport.reportType')}</th><td>${reportType}<div class="${typeNoteClass}">${typeNote}</div></td></tr>`);
+  if (data.is3D && data.results3D?.magnitude) basisNote = esc(t('figures.magnitudes'));
   h.push(`<tr><th>${t('calcReport.resultBasis')}</th><td>${basisLabel}<div class="meta-note">${basisNote}</div></td></tr>`);
   h.push('</table></div>');
   return h.join('\n');
@@ -410,9 +411,11 @@ function buildReactionsSection(data: CalcReportData, num = '3', figureHtml = '',
       h.push(`<tr><td>${r.nodeId}</td><td class="num">${F(fx)}</td><td class="num">${F(fy)}</td><td class="num">${F(fz)}</td><td class="num">${M(mx)}</td><td class="num">${M(my)}</td><td class="num">${M(mz)}</td></tr>`);
       sumFx += fx; sumFy += fy; sumFz += fz;
     }
-    h.push(`<tr style="font-weight:700;border-top:2px solid #333"><td>ΣF</td><td class="num">${F(sumFx)}</td><td class="num">${F(sumFy)}</td><td class="num">${F(sumFz)}</td><td colspan="3"></td></tr>`);
+    if (!data.results3D.magnitude) {
+      h.push(`<tr style="font-weight:700;border-top:2px solid #333"><td>ΣF</td><td class="num">${F(sumFx)}</td><td class="num">${F(sumFy)}</td><td class="num">${F(sumFz)}</td><td colspan="3"></td></tr>`);
+    }
     h.push('</table>');
-    h.push(buildReactionSumNote(data));
+    if (!data.results3D.magnitude) h.push(buildReactionSumNote(data));
   } else if (data.results2D) {
     const reactions = data.results2D.reactions;
     h.push(`<table><tr><th>${t('table.nodeLabel')}</th><th>${TWO_D_REACTION_LABELS.horizontal} (${uf})</th><th>${TWO_D_REACTION_LABELS.vertical} (${uf})</th><th>${TWO_D_REACTION_LABELS.moment} (${um})</th></tr>`);
@@ -513,26 +516,27 @@ function buildForcesSection(data: CalcReportData, num = '5'): string {
 
   if (data.is3D && data.results3D) {
     const forces = data.results3D.elementForces;
-    // Summary
-    const maxN = maxMemberForce(forces, 'axial');
-    const maxVy = maxMemberForce(forces, 'shearY');
-    const maxVz = maxMemberForce(forces, 'shearZ');
-    const maxMx = maxMemberForce(forces, 'torsion');
-    const maxMy = maxMemberForce(forces, 'momentY');
-    const maxMz = maxMemberForce(forces, 'momentZ');
+    if (!data.results3D.magnitude) {
+      const maxN = maxMemberForce(forces, 'axial');
+      const maxVy = maxMemberForce(forces, 'shearY');
+      const maxVz = maxMemberForce(forces, 'shearZ');
+      const maxMx = maxMemberForce(forces, 'torsion');
+      const maxMy = maxMemberForce(forces, 'momentY');
+      const maxMz = maxMemberForce(forces, 'momentZ');
 
-    h.push(`<h2>${num}.1 ${t('calcReport.forceSummary')}</h2>`);
-    h.push(`<table><tr><th>${t('report.quantity')}</th><th>${t('calcReport.maxAbsValue')}</th><th>${t('report.unit')}</th></tr>`);
-    h.push(`<tr><td>${t('tooltip.diagAxial.title')}</td><td class="num">${F(maxN)}</td><td>${uf}</td></tr>`);
-    h.push(`<tr><td>${t('calcReport.shearY')}</td><td class="num">${F(maxVy)}</td><td>${uf}</td></tr>`);
-    h.push(`<tr><td>${t('calcReport.shearZ')}</td><td class="num">${F(maxVz)}</td><td>${uf}</td></tr>`);
-    h.push(`<tr><td>${t('calcReport.torsionMx')}</td><td class="num">${M(maxMx)}</td><td>${um}</td></tr>`);
-    h.push(`<tr><td>${t('calcReport.momentY')}</td><td class="num">${M(maxMy)}</td><td>${um}</td></tr>`);
-    h.push(`<tr><td>${t('calcReport.momentZ')}</td><td class="num">${M(maxMz)}</td><td>${um}</td></tr>`);
-    h.push('</table>');
+      h.push(`<h2>${num}.1 ${t('calcReport.forceSummary')}</h2>`);
+      h.push(`<table><tr><th>${t('report.quantity')}</th><th>${t('calcReport.maxAbsValue')}</th><th>${t('report.unit')}</th></tr>`);
+      h.push(`<tr><td>${t('tooltip.diagAxial.title')}</td><td class="num">${F(maxN)}</td><td>${uf}</td></tr>`);
+      h.push(`<tr><td>${t('calcReport.shearY')}</td><td class="num">${F(maxVy)}</td><td>${uf}</td></tr>`);
+      h.push(`<tr><td>${t('calcReport.shearZ')}</td><td class="num">${F(maxVz)}</td><td>${uf}</td></tr>`);
+      h.push(`<tr><td>${t('calcReport.torsionMx')}</td><td class="num">${M(maxMx)}</td><td>${um}</td></tr>`);
+      h.push(`<tr><td>${t('calcReport.momentY')}</td><td class="num">${M(maxMy)}</td><td>${um}</td></tr>`);
+      h.push(`<tr><td>${t('calcReport.momentZ')}</td><td class="num">${M(maxMz)}</td><td>${um}</td></tr>`);
+      h.push('</table>');
+    }
 
     // Per-element table
-    h.push(`<h2>${num}.2 ${t('calcReport.endForces')}</h2>`);
+    h.push(`<h2>${num}.${data.results3D.magnitude ? 1 : 2} ${t('calcReport.endForces')}</h2>`);
     const condensed = forces.length > 40;
     h.push(`<table style="font-size:7.5pt"><tr><th>${t('table.elemLabel')}</th><th>${t('tables.end')}</th><th>N (${uf})</th><th>Vy (${uf})</th><th>Vz (${uf})</th><th>Mx (${um})</th><th>My (${um})</th><th>Mz (${um})</th></tr>`);
     const showForces = condensed ? forces.slice(0, 30) : forces;

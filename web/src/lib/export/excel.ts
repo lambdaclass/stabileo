@@ -168,7 +168,9 @@ function createSummarySheet(): Xlsx.WorkSheet {
   data.push([t('excel.loads'), modelStore.loads.length]);
   data.push([]);
 
-  if (is3D && r3d) {
+  if (is3D && r3d?.magnitude) {
+    data.push([t('figures.magnitudes')]);
+  } else if (is3D && r3d) {
     data.push([t('excel.maxResults')]);
     let maxDisp = 0;
     for (const d of r3d.displacements) {

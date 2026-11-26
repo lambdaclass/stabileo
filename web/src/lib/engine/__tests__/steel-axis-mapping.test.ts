@@ -54,11 +54,15 @@ const IPE200 = {
 
 const STEEL = { id: 1, name: 'F-24', fy: 235, fu: 360, e: 200_000 };
 
+const length = 4;
+const bendingMoment = 10;
+const shear = -bendingMoment / length;
+
 const model = {
   elements: new Map([[1, { id: 1, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1, type: 'frame' }]]),
   nodes: new Map([
     [1, { id: 1, x: 0, y: 0, z: 0 }],
-    [2, { id: 2, x: 4, y: 0, z: 0 }],
+    [2, { id: 2, x: length, y: 0, z: 0 }],
   ]),
   sections: new Map([[1, IPE200]]),
   materials: new Map([[1, STEEL]]),
@@ -70,11 +74,12 @@ const model = {
  *  in `steel-demand-axis-mapping.test.ts`. */
 const results = {
   elementForces: [{
-    elementId: 1,
+    elementId: 1, length,
     nStart: 0, nEnd: 0,
+    mxStart: 0, mxEnd: 0,
     mzStart: 0, mzEnd: 0,
-    myStart: 10, myEnd: 0,
-    vyStart: 0, vyEnd: 0, vzStart: 0, vzEnd: 0,
+    myStart: bendingMoment, myEnd: 0,
+    vyStart: 0, vyEnd: 0, vzStart: shear, vzEnd: shear,
   }],
 } as any;
 

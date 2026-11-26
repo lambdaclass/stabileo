@@ -89,12 +89,13 @@ const stationRows = (sources: readonly WorkbookSource[], stations: StationSpec, 
 function stationsSheet(sources: readonly WorkbookSource[], stations: StationSpec, opts: TableOptions): StreamedSheet {
   const critical = stations === 'critical';
   const options = { ...opts, stations };
+  const listed = critical ? sources.filter(s => s.kind !== 'magnitude') : sources;
   return {
     name: 'Stations', header: [...SOURCE, 'member', 'station', 'x [m]', ...(critical ? ['cut side'] : []), ...head('forces')],
-    count: () => critical ? sources.reduce((n, s) => n + rowsOf('forces', s.results, options).length, 0)
-      : stationRows(sources, stations),
+    count: () => critical ? listed.reduce((n, s) => n + rowsOf('forces', s.results, options).length, 0)
+      : stationRows(listed, stations),
     *body() {
-      for (const s of sources) {
+      for (const s of listed) {
         let last = -1, k = 0;
         for (const r of rowsOf('forces', s.results, options)) {
           k = r.entity === last ? k + 1 : 1;
@@ -437,14 +438,15 @@ function deferred(name: string, columns: number, build: () => WorkbookSheet, cou
  */
 export function resultSheetParts(input: ResultSheetsInput, want: (name: string) => boolean = () => true): WorkbookPart[] {
   const shells = !!input.shells && hasShells(input);
+  const signed = { ...input, sources: input.sources.filter(s => s.kind !== 'magnitude') };
   const opts = { axes: workbookFrame(input.axes)?.choice ?? DEFAULT_AXES };
   const all: Array<[string, () => WorkbookPart | null]> = [
     ['Reactions', () => nodeSheet('Reactions', 'reactions', input.sources, opts)],
     ['Displacements', () => nodeSheet('Displacements', 'displacements', input.sources, opts)],
     ['EndForces', () => endForcesSheet(input.sources, opts)],
     ['Stations', () => stationsSheet(input.sources, input.stations, opts)],
-    ['Deflections', () => deflectionsSheet(input)],
-    ['Stresses', () => stressesSheet(input)],
+    ['Deflections', () => deflectionsSheet(signed)],
+    ['Stresses', () => stressesSheet(signed)],
     ['Maxima', () => deferred('Maxima', input.stations === 'critical' ? 12 : 11, () => maximaSheet(input, opts), () => 3 * 6 * 2 + (shells ? SHELL_MAXIMA.length * 2 : 0))],
     ['Envelope', () => deferred('Envelope', 12, () => envelopeSheet(input, opts), () => {
       const sources = governing(input.sources);

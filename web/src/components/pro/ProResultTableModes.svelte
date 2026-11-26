@@ -77,7 +77,7 @@
     }
     return nodes;
   });
-  const opts = $derived<TableOptions>({ entities, resultant, stations: isNode ? 2 : stations, axes: axesStore.choice });
+  const opts = $derived<TableOptions>({ entities, resultant, stations: isNode ? 2 : stations, axes: axesStore.choice, signedOnly: true });
   const withStations = $derived(!isNode && stations > 2);
   const cols = $derived(columnsOf(kind, opts));
 

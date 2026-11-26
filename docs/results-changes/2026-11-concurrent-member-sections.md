@@ -34,3 +34,12 @@ The calculation book requires the selected envelope for every selected
 force table. The across-combination force envelope refuses a member that
 is missing from a constituent. The same refusal applies to the report
 and workbook.
+
+The project workbook uses the solved combination composition to publish SRSS
+and ABS as component magnitudes. Its end forces and equally spaced station
+rows still list those results. Signed stress recovery, deflection relative to
+the displaced chord, critical station tables, and governing summaries exclude
+them. The across-combination result tables and report use the same source
+check before finding signed extrema. The standalone workbook and calculation
+report identify a selected magnitude result and omit signed peak and
+equilibrium summaries. The solved forces and combination values are unchanged.

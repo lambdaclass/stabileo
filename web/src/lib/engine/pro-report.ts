@@ -685,7 +685,7 @@ export function generateReportHtml(data: ReportData): string {
     }
   }
 
-  if (showSection('envelope') && data.resultSets?.length) html.push(...envelopeSectionHtml(data.resultSets, tr, `${subNo('sec-results')} ${tr('report.env.title')}`, axes));
+  if (showSection('envelope') && data.resultSets?.length) html.push(...envelopeSectionHtml(data.resultSets, tr, `${subNo('sec-results')} ${tr('report.env.title')}`, axes, true));
   if (showSection('statics') && data.statics) html.push(...staticsSectionHtml(data.statics, tr, `${subNo('sec-results')} ${tr('pro.statics.title')}`, axes));
   if (showSection('deflections') && data.deflections?.length) html.push(...deflectionSectionHtml(data.deflections, tr, `${subNo('sec-results')} ${tr('defl.title')}`));
 

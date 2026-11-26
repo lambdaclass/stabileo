@@ -379,8 +379,6 @@ describe('the project workbook', () => {
   });
 });
 
-const issue2581 = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
-
 describe('magnitude exports and signed consumers #2581', () => {
   function solvedPortal(method: 'srss' | 'abs', pdelta = false) {
     let D: number;
@@ -405,7 +403,7 @@ describe('magnitude exports and signed consumers #2581', () => {
     return { signed, magnitude, signedSource, magnitudeSource };
   }
 
-  issue2581.each([
+  it.each([
     ['srss', 2, false],
     ['abs', 5, true],
     ['srss', 'critical', false],
@@ -446,22 +444,22 @@ describe('magnitude exports and signed consumers #2581', () => {
     }
   });
 
-  issue2581.each([2, 'critical'] as const)('known wrong result: #2581 signed result tables and report exclude magnitude sources at %s stations', (stations) => {
+  it.each([2, 'critical'] as const)('known wrong result: #2581 signed result tables and report exclude magnitude sources at %s stations', (stations) => {
     const { signedSource, magnitudeSource } = solvedPortal('srss');
     const signed = [signedSource], both = [signedSource, magnitudeSource], magnitudes = [magnitudeSource];
-    const opts = { stations, axes: DEFAULT_AXES };
+    const opts = { stations, axes: DEFAULT_AXES, signedOnly: true };
     const expected = summaryRows('forces', signed, opts);
     expect(expected.some(row => row.max && row.max.value !== 0)).toBe(true);
     expect(summaryRows('forces', both, opts)).toEqual(expected);
     expect(summaryRows('forces', magnitudes, opts).every(row => !row.max && !row.min)).toBe(true);
     expect(envelopeRows('forces', both, opts)).toEqual(envelopeRows('forces', signed, opts));
     expect(envelopeRows('forces', magnitudes, opts)).toEqual([]);
-    const report = (sources: typeof both) => envelopeSectionHtml(sources, key => key, 'Envelope').join('');
+    const report = (sources: typeof both) => envelopeSectionHtml(sources, key => key, 'Envelope', DEFAULT_AXES, true).join('');
     expect(report(both)).toEqual(report(signed));
     expect(report(magnitudes)).toBe('');
   });
 
-  issue2581('known wrong result: #2581 the standalone Excel summary omits signed peaks and equilibrium for a selected magnitude', async () => {
+  it('known wrong result: #2581 the standalone Excel summary omits signed peaks and equilibrium for a selected magnitude', async () => {
     const { signed, magnitude } = solvedPortal('abs');
     resultsStore.activeView = 'combo';
     const summary = async (id: number) => {
@@ -478,12 +476,12 @@ describe('magnitude exports and signed consumers #2581', () => {
     expect(magnitudeSummary).not.toContain(t('excel.equilibriumCheck'));
   });
 
-  issue2581('known wrong result: #2581 the calculation report identifies magnitude forces without a signed summary', () => {
+  it('known wrong result: #2581 the calculation report identifies magnitude forces without a signed summary', () => {
     const { signedSource, magnitudeSource } = solvedPortal('srss');
     const report = ({ name, results }: typeof signedSource) => {
       const data: CalcReportData = {
         config: { projectName: 'Portal', engineerName: '', companyName: '', date: '', notes: '' },
-        is3D: true, analysisMode: 'PRO', provenance: { kind: 'combo', comboName: name },
+        is3D: true, analysisMode: 'PRO', hasDesignChecks: false, provenance: { kind: 'combo', comboName: name },
         nodes: [...modelStore.nodes.values()], elements: [...modelStore.elements.values()],
         supports: [...modelStore.supports.values()], materials: [...modelStore.materials.values()],
         sections: [...modelStore.sections.values()], loads: [], loadCases: [], combinations: [], results3D: results,
