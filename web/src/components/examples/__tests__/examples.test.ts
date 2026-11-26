@@ -50,7 +50,7 @@ describe('catalog and contract', () => {
     expect(mergeQuery(params, changed, '?e2e=1&span=3')).toBe('?e2e=1&supports=2&span=7.5');
     expect(mergeQuery(params, defaults(params), '?e2e=1&span=3')).toBe('?e2e=1');
   });
-  it('has every string in all eight languages', () => {
+  it('has every string in all nine languages', () => {
     const keys = Object.keys(exampleStrings.en).sort();
     for (const locale of ['es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh', 'nl']) expect(Object.keys(exampleStrings[locale]).sort()).toEqual(keys);
     for (const e of EXAMPLES) {
