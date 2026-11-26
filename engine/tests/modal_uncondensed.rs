@@ -62,6 +62,18 @@ fn densities() -> HashMap<String, f64> {
     HashMap::from([("1".to_string(), 2500.0)])
 }
 
+/// The diagnostics of a result, those of a self-check without the values it measured.
+fn diagnostics(result: &ModalResult3D) -> Vec<serde_json::Value> {
+    let all = serde_json::to_value(&result.structured_diagnostics).unwrap();
+    all.as_array().unwrap().iter().map(|d| {
+        if d["phase"].as_str().is_some_and(|phase| phase.starts_with("self_check:")) {
+            json!([d["code"], d["phase"], d["severity"]])
+        } else {
+            d.clone()
+        }
+    }).collect()
+}
+
 /// `compared`, for a model that has massless coordinates and is solved without condensing them.
 fn agree(name: &str, model: &SolverInput3D, modes: usize, shapes: bool) -> ModalResult3D {
     let (found, uncondensed) = compared(name, model, modes, shapes);
@@ -78,6 +90,7 @@ fn compared(name: &str, model: &SolverInput3D, modes: usize, shapes: bool) -> (M
     assert_eq!(uncondensed_solves(), before, "{name}: the comparison condenses");
     let found = solve_modal_3d(model, &densities(), modes).unwrap_or_else(|e| panic!("{name}: {e}"));
     let uncondensed = uncondensed_solves() > before;
+    assert_eq!(diagnostics(&found), diagnostics(&condensed), "{name}");
     assert_eq!(found.modes.len(), modes, "{name}");
     assert_eq!((found.modes.len(), found.n_dof), (condensed.modes.len(), condensed.n_dof), "{name}");
     assert!((found.total_mass - condensed.total_mass).abs() <= 1e-12 * condensed.total_mass, "{name}");

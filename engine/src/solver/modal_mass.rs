@@ -394,14 +394,18 @@ impl MassRange {
             )?;
             return (result.values.len() == count.min(self.rank)).then_some(result);
         }
+        let uncondensed = self.rank > CONDENSED_RANK && 2 * count < self.rank && !CONDENSED.with(|on| on.get());
+        if uncondensed && self.transform.is_identity() {
+            return self.solve_sparse_implicit(stiffness, count, observe);
+        }
         {
             use crate::linalg::sparse_chol::{numeric_cholesky, symbolic_cholesky};
             let symbolic = std::rc::Rc::new(symbolic_cholesky(stiffness));
             let factor = numeric_cholesky(&symbolic, stiffness);
             observe(factor.as_ref());
         }
-        if self.rank > CONDENSED_RANK && 2 * count < self.rank && !CONDENSED.with(|on| on.get()) {
-            return self.solve_sparse_implicit(stiffness, count);
+        if uncondensed {
+            return self.solve_sparse_implicit(&self.transform.reduce_sparse(stiffness), count, &mut |_| {});
         }
         let condensed = self.condensed(stiffness)?;
         let result = crate::linalg::lanczos::lanczos_generalized_eigen_sparse_observed(
@@ -446,13 +450,18 @@ impl MassRange {
     /// The modes of the pencil on the mass range without forming the condensed stiffness: the
     /// massless coordinates stay in the stiffness and have no mass, so the finite eigenvalues
     /// of (K, M) are those of the condensed pencil and each vector already carries them.
-    fn solve_sparse_implicit(&self, stiffness: &CscMatrix, count: usize) -> Option<EigenResult> {
+    /// `stiffness` is in the coordinates of the range, and its factor is what `observe` sees.
+    fn solve_sparse_implicit(
+        &self,
+        stiffness: &CscMatrix,
+        count: usize,
+        observe: &mut dyn FnMut(Option<&crate::linalg::sparse_chol::NumericCholesky>),
+    ) -> Option<EigenResult> {
         UNCONDENSED_SOLVES.with(|solves| solves.set(solves.get() + 1));
         let n = self.transform.n_rows;
-        let stiffness = self.transform.reduce_sparse(stiffness);
         let mass = self.mass_on_range();
         let want = count.min(self.rank);
-        let result = crate::linalg::lanczos::lanczos_generalized_eigen_sparse_observed(&stiffness, &mass, want, 0.0, &mut |_| {})?;
+        let result = crate::linalg::lanczos::lanczos_generalized_eigen_sparse_observed(stiffness, &mass, want, 0.0, observe)?;
         if result.values.len() != want {
             return None;
         }
