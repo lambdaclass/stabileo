@@ -8,7 +8,8 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';
 import '../../store/index';
-import { initSolver } from '../wasm-solver';
+import { initSolver, solve3D } from '../wasm-solver';
+import { extractForcesAtStation } from '../station-forces';
 import { buildSolverInput3D } from '../solver-service';
 import { buildPath3D, sweepMovingLoad3D, trainLoads, movingLoadBase3D } from '../moving-loads-3d';
 
@@ -76,12 +77,16 @@ describe('moving loads in 3D', () => {
     modelStore.addSupport(a, 'fixed3d' as never);
     const input = buildSolverInput3D(modelStore.model as never, false, false)!;
     const loads = trainLoads(input, buildPath3D(input, [e])!, { name: 'P', axles: [{ offset: 0, weight: 10 }] }, 2.5);
-    const point = loads.find((l) => l.type === 'pointOnElement')!.data as { py: number; pz: number; a: number };
+    const point = loads.find((l) => l.type === 'pointOnElement')!.data;
     expect(point.a).toBeCloseTo(2.5, 12);
-    // Transverse part 10·cos(53,13°) = 6; the axial 8 goes to the two nodes, half each at midlength.
     expect(Math.hypot(point.py, point.pz)).toBeCloseTo(6, 9);
-    const nodal = loads.filter((l) => l.type === 'nodal').map((l) => l.data as { fz: number });
-    expect(nodal.reduce((s, n) => s + n.fz, 0)).toBeCloseTo(-8 * 0.8, 9);
+    expect((point.px ?? 0) * (4 / 5)).toBeCloseTo(-8 * 0.8, 9);
+
+    const result = solve3D({ ...input, loads });
+    const member = result.elementForces.find((force) => force.elementId === e)!;
+    expect(extractForcesAtStation(member, 0.25).n).toBeCloseTo(-8, 9);
+    expect(extractForcesAtStation(member, 0.75).n).toBeCloseTo(0, 9);
+    expect(result.reactions.reduce((sum, reaction) => sum + reaction.fz, 0)).toBeCloseTo(10, 9);
   });
 
   it('refuses a set of members that is not one chain', () => {

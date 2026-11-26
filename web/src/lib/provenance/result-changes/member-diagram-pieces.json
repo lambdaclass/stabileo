@@ -1,7 +1,7 @@
 {
   "id": "member-diagram-pieces",
   "date": "2026-11-25",
-  "prs": [1782, 2226, 2437],
+  "prs": [1782, 2226, 2437, 2581],
   "area": "analysis",
   "when": { "all": ["members"], "any": ["memberLoads", "selfWeight", "movingLoads", "combinations", "magnitudeCombinations"] },
   "quantities": ["diagrams", "envelope", "movingLoads", "beamStations"],

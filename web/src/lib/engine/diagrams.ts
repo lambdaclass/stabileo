@@ -55,7 +55,7 @@ function planarCurve(kind: PlanarKind, ef: PlanarForces) {
   return memberDiagram(...planarCurveArgs(kind, ef));
 }
 
-let lastPlanarQuery: { key: readonly (number | string | undefined)[]; evaluate: (t: number) => number } | undefined;
+let lastPlanarQuery: { key: readonly (number | string | undefined)[]; evaluate: (t: number, right: boolean) => number } | undefined;
 
 function planarQuery([length, start, change, loads, points, order, sign, rate]: PlanarCurveArgs) {
   const key = [length, start, change, order, sign, rate, loads.length,
@@ -69,8 +69,8 @@ function planarQuery([length, start, change, loads, points, order, sign, rate]: 
   const curve = memberDiagram(length, start, change, loads, points, order, sign, rate);
   const extremaAt = prepareCurveExtrema(curve, length);
   const evaluate = curve.hasDistributedActions
-    ? (t: number) => checkedCurveValue(curve, { t }, indexDiagramExtrema(extremaAt(t)))
-    : (t: number) => curve.value({ t });
+    ? (t: number, right: boolean) => checkedCurveValue(curve, { t, right }, indexDiagramExtrema(extremaAt(t)))
+    : (t: number, right: boolean) => curve.value({ t, right });
   lastPlanarQuery = { key, evaluate };
   return evaluate;
 }
@@ -162,7 +162,7 @@ export function computeAxialDiagram(
 /**
  * Compute the value of a diagram (M, V, or N) at a given normalized position t ∈ [0,1]
  */
-export function computeDiagramValueAt(kind: PlanarKind, t: number, ef: PlanarForces): number {
+export function computeDiagramValueAt(kind: PlanarKind, t: number, ef: PlanarForces, right = false): number {
   const { length } = ef;
   if (!(length > 0 && Number.isFinite(length))) throw unavailableDiagramExtrema();
   if (kind === 'axial') {
@@ -173,7 +173,7 @@ export function computeDiagramValueAt(kind: PlanarKind, t: number, ef: PlanarFor
     const moment = kind === 'moment';
     return diagramLineValue(moment ? ef.mStart : ef.vStart, 0, moment ? -ef.vStart : 0, t * length, t);
   }
-  return planarQuery(planarCurveArgs(kind, ef))(t);
+  return planarQuery(planarCurveArgs(kind, ef))(t, right);
 }
 
 export function computePlanarSectionValue(kind: PlanarKind, distance: number, ef: PlanarForces): number {

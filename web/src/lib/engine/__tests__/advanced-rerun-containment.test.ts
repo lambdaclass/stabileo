@@ -135,10 +135,15 @@ it('moving-load catch renders the localized refusal rather than its JSON', () =>
   const moving = readFileSync(new URL('../../../components/pro/ProMovingLoadsPanel.svelte', import.meta.url), 'utf8');
   expect(() => compile(moving, { filename: 'ProMovingLoadsPanel.svelte', generate: 'server' })).not.toThrow();
   const expression = moving.match(/error = e instanceof DOMException[^;]+;/)![0];
-  const runCatch = new Function('e', 'errorText', 't', 'localizeEngineText', `let error; ${expression}; return error;`);
-  const message = runCatch(new Error(refusal), errorText, (key: string) => key, localizeEngineText);
-  expect(message).toContain('#741');
-  expect(message).not.toMatch(/ENGINE|structuredDiagnostics/);
+  const runCatch = new Function('e', 'errorText', 'localizeEngineText', 't', `let error; ${expression}; return error;`);
+  const render = (error: unknown) => runCatch(error, errorText, localizeEngineText, (key: string) => key);
+  for (const error of [new Error(refusal), refusal]) {
+    const message = render(error);
+    expect(message).toContain('#741');
+    expect(message).not.toMatch(/ENGINE|structuredDiagnostics/);
+  }
+  expect(render(new DOMException('interrupted', 'AbortError'))).toBe('train.analysisCancelled');
+  expect(render(new Error('Connection lost'))).toBe('Connection lost');
 });
 
 it('spectral success followed by string or thrown refusal retires report and local results', () => {

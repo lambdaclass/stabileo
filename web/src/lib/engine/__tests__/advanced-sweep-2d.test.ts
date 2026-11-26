@@ -686,20 +686,24 @@ function reversed(train: LoadTrain): LoadTrain {
 }
 
 /** The axles at `refPos`, placed on the member each falls on, measured from that member's own node I. */
-function trainLoads(input: SolverInput, env: MovingLoadEnvelope, train: LoadTrain, refPos: number): SolverLoad[] {
+function trainLoads(input: SolverInput, env: MovingLoadEnvelope, train: LoadTrain, refPos: number, scale: number): SolverLoad[] {
   const path = env.path;
-  const total = path[path.length - 1].cumStart + path[path.length - 1].length;
   const out: SolverLoad[] = [];
   for (const ax of train.axles) {
     const pos = refPos + ax.offset;
-    if (pos < 0 || pos > total) continue;
-    const seg = path.find((s) => pos >= s.cumStart && pos <= s.cumStart + s.length);
+    const joint = path.flatMap((s) => [
+      { node: s.nodeI, x: s.cumStart, length: s.length },
+      { node: s.nodeJ, x: s.cumStart + s.length, length: s.length },
+    ]).find(({ x, length }) => Math.abs(pos - x) <= Math.max(8 * (Math.abs(x) || length), 4 * scale) * Number.EPSILON);
+    if (joint) {
+      out.push({ type: 'nodal', data: { nodeId: joint.node, fx: 0, fz: -ax.weight, my: 0 } });
+      continue;
+    }
+    const seg = path.find((s) => pos > s.cumStart && pos < s.cumStart + s.length);
     if (!seg) continue;
-    const from = input.nodes.get(seg.nodeI)!;
-    const f = (pos - seg.cumStart) / seg.length;
-    const px = from.x + f * seg.dx, pz = from.z + f * seg.dy;
     const g = geom(input, seg.elementId);
-    const a = Math.hypot(px - g.a.x, pz - g.a.z);
+    const fromStart = pos - seg.cumStart;
+    const a = g.e.nodeI === seg.nodeI ? fromStart : g.L - fromStart;
     const t = a / g.L;
     if (g.e.type === 'truss') {
       // A bar carries no bending: the axle reaches its two nodes by the lever rule.
@@ -727,8 +731,10 @@ function checkMoving(label: string, input: SolverInput, r: ReturnType<typeof rng
   if (bad.length) fail('moving', `${label}: non-finite envelope ${bad}`);
   const total = env.path[env.path.length - 1].cumStart + env.path[env.path.length - 1].length;
   const maxOff = Math.max(...train.axles.map((a) => a.offset));
+  const scale = Math.max(...train.axles.map((a) => Math.abs(a.offset)));
+  const sampleBound = Math.max(8 * total, 4 * Math.abs(maxOff)) * Number.EPSILON;
   let nForward = 0;
-  for (let p = -maxOff; p <= total; p += 0.5) nForward++;
+  while (nForward * 0.5 - maxOff - total <= sampleBound) nForward++;
   const W = train.axles.reduce((s, a) => s + a.weight, 0);
   const againstPath = env.path.some((s) => input.elements.get(s.elementId)!.nodeI !== s.nodeI);
   const trussOnPath = env.path.some((s) => input.elements.get(s.elementId)!.type === 'truss');
@@ -737,8 +743,10 @@ function checkMoving(label: string, input: SolverInput, r: ReturnType<typeof rng
     ran('moving-position');
     const i = r.int(0, env.positions.length - 1);
     const pos = env.positions[i];
-    const tr = i < nForward ? train : reversed(train);
-    const mine = wasmSolve({ ...input, supports: withoutSettlement(input.supports), loads: trainLoads(input, env, tr, pos.refPosition) });
+    const forward = i < nForward;
+    const tr = forward ? train : reversed(train);
+    const sampleScale = forward ? scale : Math.max(scale, total);
+    const mine = wasmSolve({ ...input, supports: withoutSettlement(input.supports), loads: trainLoads(input, env, tr, pos.refPosition, sampleScale) });
     const theirs = new Map(pos.results.reactions.map((x) => [x.nodeId, x]));
     let worst = 0;
     for (const m of mine.reactions) {
@@ -754,7 +762,7 @@ function checkMoving(label: string, input: SolverInput, r: ReturnType<typeof rng
   // The envelope covers the static response at a position between its steps.
   ran('moving-envelope');
   const ref = -maxOff + r.next() * (total + maxOff);
-  const mine = wasmSolve({ ...input, supports: withoutSettlement(input.supports), loads: trainLoads(input, env, train, ref) });
+  const mine = wasmSolve({ ...input, supports: withoutSettlement(input.supports), loads: trainLoads(input, env, train, ref, scale) });
   const gmax = env.fullEnvelope!.moment.globalMax;
   for (const e of env.fullEnvelope!.moment.elements) {
     const ef = mine.elementForces.find((f) => f.elementId === e.elementId)!;

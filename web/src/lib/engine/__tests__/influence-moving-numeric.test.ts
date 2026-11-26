@@ -124,9 +124,26 @@ describe('moving loads', () => {
     expect(worst).toBeCloseTo(250, 0);
   });
 
-  it('the supports carry endpoint axles and the closest interior axle governs member shear', () => {
-    const length = 10, step = 0.25;
-    const env = solveMovingLoads(solverBeam(length), { train: single, step }) as MovingLoadEnvelope;
+  it('support faces govern the shear envelope', async () => {
+    const weight = single.axles[0].weight;
+    for (const run of [solveMovingLoads, solveMovingLoadsAsync]) {
+      const env = await run(solverBeam(10), { train: single, step: 0.25 });
+      if (typeof env === 'string') throw new Error(env);
+      const shear = env.fullEnvelope!.shear!.elements[0];
+      expect.soft(shear.posValues[0]).toBeCloseTo(weight, 9);
+      expect.soft(shear.negValues.at(-1)).toBeCloseTo(-weight, 9);
+      for (const [position, node] of [[0, 1], [10, 2]]) {
+        const atSupport = env.positions.find((sample) => sample.refPosition === position)!.results;
+        expect.soft(atSupport.reactions.find((reaction) => reaction.nodeId === node)?.rz).toBeCloseTo(weight, 9);
+        const member = atSupport.elementForces[0];
+        expect.soft(member.vStart).toBeCloseTo(0, 9);
+        expect.soft(member.vEnd).toBeCloseTo(0, 9);
+      }
+    }
+  });
+
+  it('shear envelopes to the axle weight at the supports', () => {
+    const env = solveMovingLoads(solverBeam(10), { train: single, step: 0.25 }) as MovingLoadEnvelope;
     const e = env.elements.get(1)!;
     const weight = single.axles[0]!.weight;
     for (const endpoint of [env.positions[0]!, env.positions[env.positions.length - 1]!]) {
@@ -134,7 +151,7 @@ describe('moving loads', () => {
       const forces = endpoint.results.elementForces[0]!;
       expect(Math.max(Math.abs(forces.vStart), Math.abs(forces.vEnd))).toBe(0);
     }
-    expect(Math.max(Math.abs(e.vMaxPos), Math.abs(e.vMaxNeg))).toBeCloseTo(weight * (length - step) / length, 0);
+    expect(Math.max(Math.abs(e.vMaxPos), Math.abs(e.vMaxNeg))).toBeCloseTo(weight, 0);
   });
 
   it('a heavier train envelopes proportionally', () => {

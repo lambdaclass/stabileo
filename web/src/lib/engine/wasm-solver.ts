@@ -56,6 +56,12 @@ let wasmSolveModal2d: ((json: string, numModes: number) => string) | null = null
 let wasmSolveSpectral2d: ((json: string) => string) | null = null;
 let wasmSolvePlastic2d: ((json: string) => string) | null = null;
 let wasmSolveMovingLoads2d: ((json: string) => string) | null = null;
+let wasmMovingFaceForce: ((interior: number, localForce: number, atEnd: boolean, axial: boolean) => number) | null = null;
+let wasmMovingAxleStation: ((start: number, end: number, length: number, reversed: boolean, position: number, startRoundoff: number, endRoundoff: number, arithmetic: number) => number | undefined) | null = null;
+let wasmCheckMovingPathSegment: ((start: number, end: number, length: number, startRoundoff: number, endRoundoff: number) => void) | null = null;
+let wasmMovingSampleStation: ((base: number, step: number, index: number, offset: number) => Float64Array) | null = null;
+let wasmMovingSegmentRoundoff: ((xi: number, yi: number, zi: number, xj: number, yj: number, zj: number) => number) | null = null;
+let wasmMovingReferenceSampleCount: ((start: number, end: number, step: number, endRoundoff: number) => number) | null = null;
 
 // 2D advanced analysis WASM functions
 let wasmSolveCorotational2d: ((json: string, maxIter: number, tolerance: number, nIncrements: number) => string) | null = null;
@@ -80,7 +86,7 @@ let wasmCombineResults2d: ((input: any) => any) | null = null;
 let wasmCombineResults3d: ((input: any) => any) | null = null;
 let wasmCombineResultsBatch3d: ((input: any) => any) | null = null;
 let wasmCombineResultsEnvelope3d: ((input: any) => any) | null = null;
-let wasmComputeEnvelope2d: ((input: any) => any) | null = null;
+let wasmComputeEnvelope2d: ((input: AnalysisResults[], inwardAtI?: boolean) => FullEnvelope) | null = null;
 let wasmComputeEnvelope3d: ((input: any) => any) | null = null;
 
 // Influence Lines
@@ -265,6 +271,12 @@ export async function initSolver(): Promise<void> {
     wasmSolveSpectral2d = wasm.solve_spectral_2d;
     wasmSolvePlastic2d = wasm.solve_plastic_2d;
     wasmSolveMovingLoads2d = wasm.solve_moving_loads_2d;
+    wasmMovingFaceForce = wasm.moving_face_force;
+    wasmMovingAxleStation = wasm.moving_axle_station;
+    wasmCheckMovingPathSegment = wasm.check_moving_path_segment;
+    wasmMovingSampleStation = wasm.moving_sample_station;
+    wasmMovingSegmentRoundoff = wasm.moving_segment_roundoff;
+    wasmMovingReferenceSampleCount = wasm.moving_reference_sample_count;
     // 2D advanced
     wasmSolveCorotational2d = wasm.solve_corotational_2d;
     wasmSolveNonlinearMaterial2d = wasm.solve_nonlinear_material_2d;
@@ -1291,6 +1303,38 @@ export function solvePlastic(config: {
   return JSON.parse(resultJson);
 }
 
+export function movingFaceForce(interior: number, localForce: number, atEnd: boolean, axial: boolean): number {
+  if (!wasmReady || !wasmMovingFaceForce) throw new EngineUnavailableError('moving axle face');
+  return wasmMovingFaceForce(interior, localForce, atEnd, axial);
+}
+
+export function movingAxleStation(start: number, end: number, length: number, reversed: boolean, position: number, startRoundoff: number, endRoundoff: number, arithmetic: number): number | undefined {
+  if (!wasmReady || !wasmMovingAxleStation) throw new EngineUnavailableError('moving axle station');
+  return wasmMovingAxleStation(start, end, length, reversed, position, startRoundoff, endRoundoff, arithmetic);
+}
+
+export function checkMovingPathSegment(start: number, end: number, length: number, startRoundoff: number, endRoundoff: number): void {
+  if (!wasmReady || !wasmCheckMovingPathSegment) throw new EngineUnavailableError('moving axle station');
+  wasmCheckMovingPathSegment(start, end, length, startRoundoff, endRoundoff);
+}
+
+export function movingSampleStation(base: number, step: number, index: number, offset: number): Float64Array {
+  if (!wasmReady || !wasmMovingSampleStation) throw new EngineUnavailableError('moving axle station');
+  return wasmMovingSampleStation(base, step, index, offset);
+}
+
+export function movingSegmentRoundoff(
+  start: { x: number; y?: number; z: number }, end: { x: number; y?: number; z: number },
+): number {
+  if (!wasmReady || !wasmMovingSegmentRoundoff) throw new EngineUnavailableError('moving axle station');
+  return wasmMovingSegmentRoundoff(start.x, start.y ?? 0, start.z, end.x, end.y ?? 0, end.z);
+}
+
+export function movingReferenceSampleCount(start: number, end: number, step: number, endRoundoff: number): number {
+  if (!wasmReady || !wasmMovingReferenceSampleCount) throw new EngineUnavailableError('moving reference grid');
+  return wasmMovingReferenceSampleCount(start, end, step, endRoundoff);
+}
+
 /** Solve 2D moving loads analysis via WASM. */
 export function solveMovingLoads(config: {
   solver: SolverInput;
@@ -1300,14 +1344,7 @@ export function solveMovingLoads(config: {
 }) {
   if (!wasmReady || !wasmSolveMovingLoads2d) throw new Error('WASM solver not available.');
   const payload = finiteWireJson({
-    solver: {
-      nodes: mapToObj(config.solver.nodes),
-      materials: mapToObj(config.solver.materials),
-      sections: mapToObj(config.solver.sections),
-      elements: mapToObj(config.solver.elements),
-      supports: mapToObj(config.solver.supports),
-      loads: config.solver.loads,
-    },
+    solver: input2DToWireObject(config.solver),
     train: config.train,
     step: config.step,
     pathElementIds: config.pathElementIds,
@@ -1632,11 +1669,11 @@ export function combineResultsEnvelope3D(
 }
 
 /** Compute 2D envelope via WASM. JsValue in/out — no JSON round trip. */
-export function computeEnvelope(results: AnalysisResults[]): FullEnvelope | null {
+export function computeEnvelope(results: AnalysisResults[], inwardAtI = false): FullEnvelope | null {
   if (!wasmReady || !wasmComputeEnvelope2d) throw new Error('WASM solver not initialized.');
   if (results.length === 0) return null;
   // Solver output — no guard (see combineResults).
-  return wasmComputeEnvelope2d(results);
+  return wasmComputeEnvelope2d(results, inwardAtI);
 }
 
 /** Compute 3D envelope via WASM. JsValue in/out — no JSON round trip. */

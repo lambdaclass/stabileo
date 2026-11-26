@@ -106,11 +106,33 @@ pub(crate) fn uniform_cuts(count: usize) -> impl Iterator<Item = Cut> {
     (0..count).map(move |i| Cut::left(i as f64 / (count - 1) as f64))
 }
 
+pub(crate) fn moving_face_force(interior: f64, local_force: f64, at_end: bool, axial: bool) -> Result<f64, &'static str> {
+    let value = if at_end != axial { interior + local_force } else { interior - local_force };
+    if value.is_finite() {
+        Ok(value)
+    } else {
+        Err("non-finite moving load member diagram")
+    }
+}
+
 #[derive(Clone, Copy)]
 pub(crate) struct PointAction {
     pub a: f64,
     pub jump: f64,
     pub slope: f64,
+}
+
+pub(crate) struct CoincidentAxle {
+    pub station: f64,
+    pub force: [f64; 3],
+    pub moving_after: bool,
+}
+
+#[derive(Default)]
+pub(crate) struct MovingForceCuts<'a> {
+    pub faces: [f64; 2],
+    pub coincident: &'a [CoincidentAxle],
+    pub axis: usize,
 }
 
 #[derive(Clone, Copy)]
@@ -199,6 +221,14 @@ impl DiagramSum {
             self.add(term * scale);
         }
     }
+}
+
+pub(crate) fn sum_diagram_terms(terms: [f64; 3]) -> f64 {
+    let mut sum = DiagramSum::default();
+    for term in terms {
+        sum.add(term);
+    }
+    sum.value()
 }
 
 #[derive(Default)]
@@ -459,7 +489,7 @@ where
         Ok(cuts)
     }
 
-    pub fn interior_range(&self, end: f64) -> Result<(f64, f64), &'static str> {
+    pub fn interior_range(&self, end: f64, limits: MovingForceCuts<'_>) -> Result<(f64, f64), &'static str> {
         let end_limit = if self.points.clone().any(|p| p.a == self.length && p.jump != 0.0) {
             self.checked_value(Cut::boundary(1.0, self.length, false))?
         } else {
@@ -480,6 +510,31 @@ where
             }
             lo = lo.min(value);
             hi = hi.max(value);
+        }
+        if let Response::Force(sign) = self.response {
+            let [start_load, end_load] = limits.faces;
+            if start_load != 0.0 {
+                let interior = self.checked_value(Cut::boundary(0.0, 0.0, true))?;
+                let value = moving_face_force(interior, start_load, false, sign < 0.0)?;
+                lo = lo.min(value);
+                hi = hi.max(value);
+            }
+            if end_load != 0.0 {
+                let value = moving_face_force(end_limit, end_load, true, sign < 0.0)?;
+                lo = lo.min(value);
+                hi = hi.max(value);
+            }
+            for axle in limits.coincident {
+                let force = axle.force[limits.axis];
+                if force == 0.0 {
+                    continue;
+                }
+                let cut = Cut::boundary(axle.station / self.length, axle.station, axle.moving_after);
+                let baseline = self.checked_value(cut)?;
+                let value = moving_face_force(baseline, force, !axle.moving_after, sign < 0.0)?;
+                lo = lo.min(value);
+                hi = hi.max(value);
+            }
         }
         Ok((lo, hi))
     }
@@ -586,7 +641,7 @@ mod round3_tests {
             length: 1.0, start: 0.0, change: 0.0, slope: 0.0,
             response: Response::Force(1.0), distributed: loads.into_iter().collect(), points: std::iter::empty(),
         };
-        assert_eq!(curve.interior_range(0.0), Ok((0.0, 0.25)));
+        assert_eq!(curve.interior_range(0.0, MovingForceCuts::default()), Ok((0.0, 0.25)));
         assert_eq!(curve.checked_station_value(0.5, false), Ok(0.25));
     }
 
@@ -599,14 +654,14 @@ mod round3_tests {
                 response: Response::Force(1.0), distributed: DiagramLoads::default(),
                 points: std::iter::once(PointAction { a: 1.0, jump: action, slope: 0.0 }),
             };
-            assert_eq!(curve.interior_range(stored), Ok((1.0, 2.0)));
+            assert_eq!(curve.interior_range(stored, MovingForceCuts::default()), Ok((1.0, 2.0)));
         }
         let curve = Curve {
             length: 1.0, start: 1.0, change: 0.0, slope: -1.0,
             response: Response::Force(1.0), distributed: DiagramLoads::default(),
             points: [jump, 1.0].into_iter().map(|jump| PointAction { a: 1.0, jump, slope: 0.0 }),
         };
-        assert_eq!(curve.interior_range(jump), Ok((0.0, 1.0)));
+        assert_eq!(curve.interior_range(jump, MovingForceCuts::default()), Ok((0.0, 1.0)));
     }
 
     #[test]
@@ -668,8 +723,8 @@ mod round3_tests {
         let without_jump = curve([0.0; 5]);
         assert_eq!(without_jump.checked_station_value(0.5, false), Ok(0.5));
         assert_eq!(without_jump.segment_change(0.0, 1.0).each_ref().map(DiagramSum::value), [1.0, 0.0, 0.0]);
-        assert_eq!(without_jump.interior_range(1.0), Ok((0.0, 1.0)));
-        assert_eq!(curve(terms).interior_range(2.0), Ok((0.0, 1.0)));
+        assert_eq!(without_jump.interior_range(1.0, MovingForceCuts::default()), Ok((0.0, 1.0)));
+        assert_eq!(curve(terms).interior_range(2.0, MovingForceCuts::default()), Ok((0.0, 1.0)));
     }
 
     #[test]
@@ -729,7 +784,7 @@ mod round3_tests {
         };
         let cuts = curve.critical_cuts().unwrap();
         assert_eq!(cuts.iter().map(|cut| cut.t).collect::<Vec<_>>(), [0.0, 0.5, 1.0]);
-        assert_eq!(curve.interior_range(0.0), Ok((0.0, 0.25)));
+        assert_eq!(curve.interior_range(0.0, MovingForceCuts::default()), Ok((0.0, 0.25)));
         assert_eq!(curve.checked_station_value(0.5, false), Ok(0.25));
         assert_eq!(curve.checked_station_value(1.0, false), Ok(0.0));
     }
@@ -757,10 +812,10 @@ mod round3_tests {
             }
             if aliases {
                 assert_eq!(curve.diagram_cuts(21), Err(refusal));
-                assert_eq!(curve.interior_range(start), Err(refusal));
+                assert_eq!(curve.interior_range(start, MovingForceCuts::default()), Err(refusal));
             } else {
                 let expected = if steps == 2 { start } else { start + 8.0 };
-                assert_eq!(curve.interior_range(start), Ok((start, expected)));
+                assert_eq!(curve.interior_range(start, MovingForceCuts::default()), Ok((start, expected)));
             }
         }
     }

@@ -1,6 +1,7 @@
 pub mod dof;
 pub(crate) mod convergence;
 mod equilibrium;
+mod elastic_cholesky;
 pub(crate) mod support;
 pub(crate) mod dynamic_validation;
 pub mod assembly;
@@ -11,6 +12,7 @@ pub mod mass_matrix;
 pub mod buckling;
 pub mod modal;
 mod modal_mass;
+mod stiffness_roundoff;
 pub mod spectral;
 pub mod plastic;
 pub mod plastic_limit;

@@ -271,6 +271,7 @@ fn member_envelope<C>(
     element_id: usize,
     length: f64,
     cases: &[C],
+    inward_at_i: bool,
     critical_cuts: impl Fn(&C) -> Result<Vec<Cut>, String>,
     evaluate: impl Fn(&C, Cut) -> Result<f64, String>,
 ) -> Result<(ElementEnvelopeDiagram, f64), String> {
@@ -278,6 +279,13 @@ fn member_envelope<C>(
     let mut stations: Vec<_> = uniform_cuts(N_POINTS).collect();
     for (result, case) in cases.iter().enumerate() {
         stations.extend(critical_cuts(case).map_err(|error| format!("{} in result {result}: {error}", context()))?);
+    }
+    if inward_at_i {
+        for cut in &mut stations {
+            if cut.t == 0.0 {
+                cut.right = true;
+            }
+        }
     }
     sort_cuts(&mut stations).map_err(|error| format!("{}: {error}", context()))?;
 
@@ -655,6 +663,12 @@ pub fn combine_results_checked(input: &CombinationInput) -> Result<Option<Analys
 
 /// Compute pointwise envelope from multiple results. A result that carries a refusal is refused.
 pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, String> {
+    compute_envelope_2d_with_member_faces(results, false)
+}
+
+pub(crate) fn compute_envelope_2d_with_member_faces(
+    results: &[AnalysisResults], inward_at_i: bool,
+) -> Result<FullEnvelope, String> {
     for result in results {
         crate::known_issues::refuse_contained(&result.structured_diagnostics, result)?;
     }
@@ -707,7 +721,9 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, Str
     }
     let max_abs_results = AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, result_summary: None, solver_run_meta: None };
 
-    fn compute_env_diagram(kind: &str, results: &[AlignedResultFields<'_, Displacement, Reaction, ElementForces>]) -> Result<EnvelopeDiagramData, String> {
+    fn compute_env_diagram(
+        kind: &str, results: &[AlignedResultFields<'_, Displacement, Reaction, ElementForces>], inward_at_i: bool,
+    ) -> Result<EnvelopeDiagramData, String> {
         let first = &results[0];
         let mut elements = Vec::new();
         let mut global_max = 0.0f64;
@@ -718,7 +734,7 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, Str
                 (forces, sorted_point_loads(forces))
             }).collect();
             let (element, peak) = member_envelope(
-                kind, ef.element_id, ef.length, &cases,
+                kind, ef.element_id, ef.length, &cases, inward_at_i,
                 |(forces, points)| diagram_critical_cuts_2d(forces, kind, points),
                 |(forces, points), cut| try_evaluate_diagram_cut_2d(kind, cut, forces, points),
             )?;
@@ -730,9 +746,9 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, Str
     }
 
     Ok(FullEnvelope {
-        moment: compute_env_diagram("moment", &aligned)?,
-        shear: compute_env_diagram("shear", &aligned)?,
-        axial: compute_env_diagram("axial", &aligned)?,
+        moment: compute_env_diagram("moment", &aligned, false)?,
+        shear: compute_env_diagram("shear", &aligned, inward_at_i)?,
+        axial: compute_env_diagram("axial", &aligned, inward_at_i)?,
         max_abs_results,
     })
 }
@@ -1106,7 +1122,7 @@ pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Resu
         for (e_idx, ef) in first.element_forces.iter().enumerate() {
             let cases: Vec<_> = results.iter().map(|res| &res.element_forces[e_idx]).collect();
             let (element, peak) = member_envelope(
-                kind, ef.element_id, ef.length, &cases,
+                kind, ef.element_id, ef.length, &cases, false,
                 |forces| diagram_critical_cuts_3d(forces, kind),
                 |forces, cut| try_evaluate_diagram_cut_3d(forces, kind, cut),
             )?;

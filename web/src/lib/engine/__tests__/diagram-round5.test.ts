@@ -248,7 +248,9 @@ it('known wrong result: #1782 assigns the last axle to the exact spatial path en
   expect(last.length).toBeGreaterThan(end - last.cumStart);
   const train = { name: 'P', axles: [{ offset: 0, weight: 10 }] };
   const loadsAt = (x: number) => trainLoads(input, path, train, x);
-  expect.soft(loadsAt(end).find(l => l.type === 'pointOnElement')?.data).toMatchObject({ elementId: 2, a: last.length });
+  expect.soft(loadsAt(end)).toEqual([
+    { type: 'nodal', data: { nodeId: 3, fx: 0, fy: 0, fz: -10, mx: 0, my: 0, mz: 0 } },
+  ]);
   expect.soft(loadsAt(last.cumStart + 0.5).find(l => l.type === 'pointOnElement')?.data).toMatchObject({ elementId: 2, a: 0.5 });
 });
 
@@ -268,15 +270,24 @@ it('#1782 browser and WASM moving analyses apply a rounded path endpoint at the 
   expect(config.step - 256).toBe(1);
   for (const result of [solveMovingLoads(planar, config), await solveMovingLoadsAsync(planar, config)]) {
     if (typeof result === 'string') throw new Error(result);
-    expect(result.positions.map(position => position.refPosition)).toEqual([-0, config.step]);
-    expect.soft(result.elements.get(2)).toMatchObject({ nMaxPos: 0, nMaxNeg: 0 });
+    expect(result.positions.map(position => position.refPosition)).toEqual([0, config.step]);
+    const atEnd = result.positions[1]!.results;
+    const { nStart, nEnd } = atEnd.elementForces.find(f => f.elementId === 2)!;
+    expect.soft(Math.max(Math.abs(nStart), Math.abs(nEnd))).toBe(0);
+    expect.soft(atEnd.reactions.find(r => r.nodeId === 3)?.rz).toBe(weight);
+    expect.soft(result.elements.get(2)).toMatchObject({ nMaxPos: weight, nMaxNeg: 0 });
   }
-  const spatialSweep = await sweepMovingLoad3D(spatial, buildPath3D(spatial, [1, 2])!, config.train, { step: config.step });
+  const path = buildPath3D(spatial, [1, 2])!;
+  const atEnd = solve3D({ ...spatial, loads: trainLoads(spatial, path, config.train, config.step) });
+  const { nStart, nEnd } = atEnd.elementForces.find(f => f.elementId === 2)!;
+  expect.soft(Math.max(Math.abs(nStart), Math.abs(nEnd))).toBe(0);
+  expect.soft(atEnd.reactions.find(r => r.nodeId === 3)?.fz).toBe(weight);
+  const spatialSweep = await sweepMovingLoad3D(spatial, path, config.train, { step: config.step });
   expect.soft(spatialSweep.positions).toBe(2);
-  expect.soft(spatialSweep.elements.get(2)?.n).toMatchObject({ max: { value: 0 }, min: { value: 0 } });
+  expect.soft(spatialSweep.elements.get(2)?.n).toMatchObject({ max: { value: weight }, min: { value: 0 } });
   for (const result of [solveMovingLoadsWasm({ ...config, solver: planar }), solveMovingLoads3DWasm({ ...config, solver: spatial })]) {
     expect.soft(result.numPositions).toBe(2);
-    expect.soft(result.elements['2']).toMatchObject({ nMaxPos: 0, nMaxNeg: 0 });
+    expect.soft(result.elements['2']).toMatchObject({ nMaxPos: weight, nMaxNeg: 0 });
   }
 });
 
@@ -586,10 +597,11 @@ it('known wrong result: #2226 emits only the two faces of a jump shared with a b
 });
 
 it('known wrong result: #1782 keeps a reversed axle just inside a path endpoint', async () => {
-  const d = 2 ** -53;
-  const start = 0.25 + 3 * d;
+  const ulp = 2 ** -53;
+  const d = 65 * ulp;
+  const start = 0.25 + 3 * ulp;
   const end = start + 1.5;
-  const interior = 1.75 + 2 * d;
+  const interior = 1.75 - 62 * ulp;
   const [plane, space] = cantilevers(start);
   plane.nodes.set(2, { id: 2, x: 0, z: start });
   plane.nodes.set(3, { id: 3, x: 1.5, z: start });
@@ -608,9 +620,11 @@ it('known wrong result: #1782 keeps a reversed axle just inside a path endpoint'
   const path = buildPath3D(space, [1, 2])!;
   expect.soft(trainLoads(space, path, train, interior)).toContainEqual(
     expect.objectContaining({ type: 'pointOnElement', data: expect.objectContaining({ elementId: 2, a: d }) }));
-  expect.soft(() => trainLoads(space, path, train, start + d / 2)).toThrow('solver.diagramExtremaUnavailable');
-  expect.soft(trainLoads(space, path, train, end)).toContainEqual(
-    expect.objectContaining({ type: 'pointOnElement', data: expect.objectContaining({ elementId: 2, a: 0 }) }));
+  for (const [position, nodeId] of [[start + ulp / 2, 2], [end, 3]]) {
+    expect.soft(trainLoads(space, path, train, position)).toEqual([
+      { type: 'nodal', data: { nodeId, fx: 0, fy: 0, fz: -8, mx: 0, my: 0, mz: 0 } },
+    ]);
+  }
   const sweep = await sweepMovingLoad3D(space, path, train, { step: interior });
   expect.soft(sweep.positions).toBe(2);
   const forces = sweep.elements.get(2)!;

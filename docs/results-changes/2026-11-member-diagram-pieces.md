@@ -2,6 +2,8 @@
 
 The planar moving-load envelope uses each solved position's load boundaries, jump faces and stationary points. The spatial moving-load sweep folds the right-hand limit at I, the left-hand limit at J and both faces of each interior jump. An axle that matches a stored path endpoint is applied at the corresponding member end even if subtracting cumulative distances would produce an interior coordinate. The sweep still evaluates the requested discrete train positions.
 
+The merge with #2582 keeps the exact member intervals and adds the one-sided axle contributions to the inward cuts when a sweep samples a path joint. A simply supported span reaches the axle weight in its shear envelope at either support face. At each exact support position, the reaction carries that weight and the member forces at the sample are zero. The planar pointwise envelope keeps the two ordinates at an interior jump and takes the member-side ordinate at each end for shear and axial force.
+
 The planar overlay scale and calculation report tables use the extrema of the same piecewise diagrams. A partial line load that changes from +128 to −128 over a length of 1/32 has zero resultant and a shear peak of 1 halfway through the patch. An overlay grid and the former moving-load station grid reported zero for that patch. Both the planar and spatial report regressions use a shorter patch with the same integrated peak.
 
 The project report summary and the critical-station results summary use both load faces and interior extrema. The magnitude of two transverse components is evaluated from their squared-resultant polynomial, whose extrema can lie between the extrema of either component. If the assembled magnitude supplies only a bound, the project report refuses to state its extrema.

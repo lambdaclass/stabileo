@@ -105,6 +105,7 @@
     const only = renumberOnlySel ? { nodes: new Set(uiStore.selectedNodes), elements: new Set(uiStore.selectedElements), shells: new Set(uiStore.selectedShells) } : undefined;
     const r = renumber({ nodes: renumberNodes, members: renumberMembers, shells: renumberShells, order, only, ...(renumberFrom && renumberFrom > 0 ? { start: Math.floor(renumberFrom) } : {}) });
     if ('refused' in r) {
+      if (r.refused === 'selfWeight') { message = r.message; return; }
       const ids = (ids: number[]) => ids.slice(0, 12).join(', ') + (ids.length > 12 ? '…' : '');
       message = r.refused === 'hasDesignDocuments'
         ? tp('edit.renumberRefused', { fields: r.fields.join(', ') })
