@@ -54,7 +54,7 @@ export const FEATURE_IDS = [
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'unrestrainedAxialTip', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
-  'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
+  'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
   'physicalPlateDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
@@ -433,6 +433,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     }
     const issue = plateAnalysisIssue(plates);
     if (issue && issue.kind !== 'unmeshed') f.add('plateAnalysisIssue');
+    if (issue?.kind === 'wallSlab' && 'contact' in issue.joint) f.add('wallSlabInteriorContact');
   }
   if (quads.some((q) => q?.curved)) f.add('curvedShells');
   if ([...quads, ...values(s.plates)].some((q) => offsetMoves(q?.offset))) f.add('eccentricities');

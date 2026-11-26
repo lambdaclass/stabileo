@@ -1,5 +1,6 @@
 const en: Record<string, string> = {
   'svc.accountingMismatch': "Analysis refused. Load case {case}, {component}. Entered {entered}, assembled {assembled}.",
+  'svc.accountingLineEnd': "Analysis refused. Load case {case}, member {member} end {end}. Redistributed load reached node {actual}. Expected node {expected}.",
   'svc.accountingUnsupported': "Analysis refused. Load case {case} includes {kind} {id}, whose forces and moments cannot be accounted for.",
   'svc.accountingArea': "Analysis refused. Plate {plate} has a different area or boundary in the solver. Specified area {entered}, assembled area {assembled}.",
   'svc.accountingSweep': "Analysis refused. Plate {plate} has a different curved-edge sweep in the solver. Specified area {entered}, assembled area {assembled}.",
@@ -14781,6 +14782,7 @@ const en: Record<string, string> = {
   "plates.analysisMeshRefused": "Could not mesh: {names}. Check their element size or their outline.",
   "plates.analysisInvalid": "Analysis stopped. Correct the invalid plate geometry or properties for {names}.",
   "plates.analysisWallSlab": "Analysis stopped. Wall {wall} and slab {slab} do not share a mesh vertex at node {node}. Remesh the joint with shared nodes.",
+  "plates.analysisWallSlabFace": "Analysis stopped. Wall {wall} meets slab {slab} without a shared mesh edge near wall nodes {nodes}. Remesh the joint with shared edges.",
   "plates.meshedAtAnalysis": "{n} plates meshed before the analysis ({cells} elements)",
   "plates.liveNeedsMesh": "{n} plates without a current mesh: live calculation waits for the full analysis, which meshes them.",
   "plates.problem.needNodes": "At least three existing nodes are needed.",

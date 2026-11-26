@@ -109,7 +109,7 @@ export function prestressToSolver(m: MemberRef, d: PrestressLike): SolverLoad3D[
   if (Math.abs(q) > 1e-12) {
     const load: SolverLoad3D = { type: 'distributed', data: { elementId: m.elementId, qYI: 0, qYJ: 0, qZI: q, qZJ: q } };
     const intensity = LoadVector.from([0, 0, q], [0, 0, qScale], [0, 0, underflow]);
-    assembledMagnitudes3D.set(load, { qI: intensity, qJ: intensity });
+    assembledMagnitudes3D.set(load, { qI: intensity, qJ: intensity, source: 'prestress' });
     out.push(load);
   }
   return out;
