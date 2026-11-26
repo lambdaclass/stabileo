@@ -1,5 +1,5 @@
 import { computeDiagram3D } from './diagrams-3d';
-import { unavailableDiagramExtrema } from './member-diagram';
+import { bindMemberEnvelopeEnds, unavailableDiagramExtrema } from './member-diagram';
 import { collapseVariableEnvelope, reexpandVariableResults, sameVariableLayout } from './variable-member-results';
 import { registerMemberIntervalKernel } from './member-interval-kernel';
 import { CodedRefusal, asCodedRefusal, isContainmentRefusal, refusedWithCode } from './containment-error';
@@ -1665,7 +1665,7 @@ export function combineResultsEnvelope3D(
   const [results, envelope]: [Array<unknown | null>, FullEnvelope3D | null] = wasmCombineResultsEnvelope3d({
     combinations, cases, plateThicknesses: [...plates].map(([id, p]) => [id, p.thickness]),
   });
-  return { combinations: results.map(result => result == null ? null : results3DFromWasm(result)), envelope };
+  return { combinations: results.map(result => result == null ? null : results3DFromWasm(result)), envelope: bindMemberEnvelopeEnds(envelope) };
 }
 
 /** Compute 2D envelope via WASM. JsValue in/out — no JSON round trip. */
@@ -1673,7 +1673,7 @@ export function computeEnvelope(results: AnalysisResults[], _inwardAtI?: boolean
   if (!wasmReady || !wasmComputeEnvelope2d) throw new Error('WASM solver not initialized.');
   if (results.length === 0) return null;
   // Solver output — no guard (see combineResults).
-  return wasmComputeEnvelope2d(results);
+  return bindMemberEnvelopeEnds(wasmComputeEnvelope2d(results));
 }
 
 /** Compute 3D envelope via WASM. JsValue in/out — no JSON round trip. */
@@ -1682,7 +1682,7 @@ export function computeEnvelope3D(results: AnalysisResults3D[]): FullEnvelope3D 
   if (results.length === 0) return null;
   // Solver output — no guard (see combineResults).
   if (results.some(r => r.magnitude || r.elementForces.some(f => f.combined))) throw unavailableDiagramExtrema();
-  if (!results.some(r => r.elementForces.some(f => f.pieces?.length))) return wasmComputeEnvelope3d(results);
+  if (!results.some(r => r.elementForces.some(f => f.pieces?.length))) return bindMemberEnvelopeEnds(wasmComputeEnvelope3d(results));
   const expanded = results.map(reexpandVariableResults);
   if (expanded.some(r => r.results.elementForces.some(f => f.pieces?.length))) throw unavailableDiagramExtrema();
   const reference = expanded[0]!;
@@ -2247,7 +2247,9 @@ export function solveMultiCase2D(config: any): any {
   if (config.solver && config.solver.nodes instanceof Map) {
     config = { ...config, solver: input2DToWireObject(config.solver) };
   }
-  return wasmSolveMultiCase2d(finiteObjectWire(config));
+  const result = wasmSolveMultiCase2d(finiteObjectWire(config));
+  bindMemberEnvelopeEnds(result?.envelope);
+  return result;
 }
 
 /** Solve 3D multi-case analysis via WASM. JsValue in/out — no JSON round trip. */
@@ -2274,6 +2276,7 @@ export function solveMultiCase3D(config: any): any {
       for (const cr of result.combinationResults ?? []) stripStabilisedReactions(cr.results, input);
       if (result.envelope?.maxAbsResults3D) stripStabilisedReactions(result.envelope.maxAbsResults3D, input);
     }
+    bindMemberEnvelopeEnds(result?.envelope);
     return result;
   } catch (e: any) {
     const panicMsg = captured.length > 0 ? captured.join('\n') : '';

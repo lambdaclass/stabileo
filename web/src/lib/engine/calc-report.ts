@@ -1,3 +1,4 @@
+import { bindMemberEnvelopeEnds } from './member-diagram';
 import { memberEndSections2D } from './diagrams';
 import { memberEndSections3D } from './diagrams-3d';
 import { resultComponents } from '../axes/result-components';
@@ -579,6 +580,8 @@ function buildForcesSection(data: CalcReportData, num = '5'): string {
 // ─── Main generator ──────────────────────────────────────────────
 
 export function generateCalcReportHtml(data: CalcReportData): string {
+  bindMemberEnvelopeEnds(data.envelope2D);
+  bindMemberEnvelopeEnds(data.envelope3D);
   const c = data.content;
   const hasResults = !!(data.is3D ? data.results3D : data.results2D);
   const figures = new Map((data.figures ?? []).map((f) => [f.content, f]));

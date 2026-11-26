@@ -3,7 +3,7 @@
 // using equilibrium equations with distributed and point loads.
 
 import { type UnitSystem, formatDiagramValue } from '../utils/units';
-import { absolutePolynomialBranches, addMagnitudeBounds, checkedCurveValue, diagramCriticalPoints, diagramCurvePoints, fullSpanFallback, indexDiagramExtrema, inwardMemberEndValues, maxAbsDiagramOrdinate, memberEndFace, memberSectionStation, memberDiagram, curveExtrema, prepareCurveExtrema, prepareMagnitudeExtrema, sortedStations, spanCuts, spanResultantExtrema, unavailableDiagramExtrema, visitContinuousSpanCriticalPoints, visitMemberCriticalPoints, type DiagramCurve, type DiagramExtremum, type DiagramOrdinate, type DiagramStation, type PolynomialBranch } from './member-diagram';
+import { absolutePolynomialBranches, addMagnitudeBounds, checkedCurveValue, diagramCriticalPoints, diagramCurvePoints, envelopeMemberEndValues, fullSpanFallback, indexDiagramExtrema, inwardMemberEndValues, maxAbsDiagramOrdinate, memberEndFace, memberSectionStation, memberDiagram, curveExtrema, prepareCurveExtrema, prepareMagnitudeExtrema, sortedStations, spanCuts, spanResultantExtrema, unavailableDiagramExtrema, visitContinuousSpanCriticalPoints, visitMemberCriticalPoints, type DiagramCurve, type DiagramExtremum, type DiagramOrdinate, type DiagramStation, type PolynomialBranch } from './member-diagram';
 import { distanceUnits, exactCutUnits, sameCutLocation, type DiagramCutLocation } from './diagram-cut';
 import type { ElementForces3D, EnvelopeDiagramData3D } from './types-3d';
 
@@ -425,6 +425,8 @@ function spatialExtrema(curve: SpatialCurve, critical: readonly DiagramOrdinate[
 }
 
 export function memberEndForces3D(ef: ElementForces3D, kind: Diagram3DKind): [number, number] {
+  const envelopeEnds = envelopeMemberEndValues(ef, kind);
+  if (envelopeEnds) return envelopeEnds;
   if (ef.combined || ef.pieces?.length) {
     const evaluate = prepareDiagramEvaluator3D(ef, kind);
     return [evaluate(spanStart), evaluate(spanEnd)];

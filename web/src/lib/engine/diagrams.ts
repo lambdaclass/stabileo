@@ -2,7 +2,7 @@
 // Given end forces and distributed load, compute intermediate values
 
 import { computeDeformedShape as wasmComputeDeformedShape } from './wasm-solver';
-import { checkedCurveValue, checkedSectionValue, curveExtrema, diagramCriticalPoints, diagramCurvePoints, diagramLineValue, distributedActionTerms, fullSpanFallback, indexDiagramExtrema, inwardMemberEndValues, maxAbsDiagramOrdinate, memberDiagram, prepareCurveExtrema, unavailableDiagramExtrema, type DiagramOrdinate, type DiagramStation } from './member-diagram';
+import { checkedCurveValue, checkedSectionValue, curveExtrema, diagramCriticalPoints, diagramCurvePoints, envelopeMemberEndValues, diagramLineValue, distributedActionTerms, fullSpanFallback, indexDiagramExtrema, inwardMemberEndValues, maxAbsDiagramOrdinate, memberDiagram, prepareCurveExtrema, unavailableDiagramExtrema, type DiagramOrdinate, type DiagramStation } from './member-diagram';
 
 export interface DiagramPoint extends DiagramStation {
   /** World coordinates */
@@ -75,7 +75,11 @@ function planarQuery([length, start, change, loads, points, order, sign, rate]: 
   return evaluate;
 }
 
-export function memberEndForces2D(ef: PlanarForces, kind: PlanarKind): [number, number] {
+type PlanarMemberForces = PlanarForces & { elementId: number };
+
+export function memberEndForces2D(ef: PlanarMemberForces, kind: PlanarKind): [number, number] {
+  const envelopeEnds = envelopeMemberEndValues(ef, kind);
+  if (envelopeEnds) return envelopeEnds;
   const stored: [number, number] = kind === 'axial' ? [ef.nStart, ef.nEnd]
     : kind === 'shear' ? [ef.vStart, ef.vEnd] : [ef.mStart, ef.mEnd];
   const jump = kind === 'axial' ? 'px' : kind === 'shear' ? 'p' : 'my';
@@ -87,7 +91,7 @@ export function memberEndForces2D(ef: PlanarForces, kind: PlanarKind): [number, 
     });
 }
 
-export function memberEndSections2D(ef: PlanarForces) {
+export function memberEndSections2D(ef: PlanarMemberForces) {
   const [ni, nj] = memberEndForces2D(ef, 'axial');
   const [vi, vj] = memberEndForces2D(ef, 'shear');
   const [mi, mj] = memberEndForces2D(ef, 'moment');

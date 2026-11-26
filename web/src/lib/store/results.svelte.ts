@@ -1,3 +1,4 @@
+import { bindMemberEnvelopeEnds } from '../engine/member-diagram';
 import { memberEndSections2D } from '../engine/diagrams';
 import { uiStore } from './ui.svelte';
 import { timeHistoryView } from './time-history-view.svelte';
@@ -1239,7 +1240,7 @@ function createResultsStore() {
     },
     /** Show a named envelope (built over the current solve) in place of the active one, or go back (`null`). */
     viewEnvelope3D(env: FullEnvelope3D | null, name = '') {
-      viewedEnvelope3D = env && envelope3D ? { env: freezeResult(env), name, over: envelope3D } : null;
+      viewedEnvelope3D = env && envelope3D ? { env: freezeResult(bindMemberEnvelopeEnds(env)), name, over: envelope3D } : null;
       if (activeView === 'envelope') this._update3DView('envelope');
     },
 
@@ -1263,7 +1264,7 @@ function createResultsStore() {
       perCase3D = pc;
       perCombo3D = pco;
       unstableCombinations3D = [...unstable];
-      envelope3D = env;
+      envelope3D = bindMemberEnvelopeEnds(env);
       showReactions = false;
       showConstraintForces = false;
       activeCaseId = null;

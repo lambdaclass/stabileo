@@ -1,5 +1,6 @@
 import { distanceUnits, envelopeJumpCuts, type DiagramCutLocation } from './diagram-cut';
-import type { ElementEnvelopeDiagram } from './types';
+import type { ElementEnvelopeDiagram, FullEnvelope } from './types';
+import type { FullEnvelope3D } from './types-3d';
 import { polynomialValue, preparePolynomialSign, roundDiagramSum, sumDiagramTerms, type DiagramPolynomial, type DiagramSum } from './diagram-sum';
 
 export const DIAGRAM_EXTREMA_UNAVAILABLE = 'solver.diagramExtremaUnavailable';
@@ -477,6 +478,35 @@ export function memberEndFace(t: number): boolean | undefined {
 export function memberSectionStation(station: DiagramStation): DiagramStation {
   const face = memberEndFace(station.t);
   return face === undefined || face === (station.right ?? false) ? station : { ...station, right: face };
+}
+
+type MemberEndRecord = { length: number; elementId: number };
+const envelopeMemberDiagrams = new WeakMap<MemberEndRecord, ReadonlyMap<string, ReadonlyMap<number, ElementEnvelopeDiagram>>>();
+
+export function bindMemberEnvelopeEnds<E extends FullEnvelope | FullEnvelope3D | null | undefined>(envelope: E): E {
+  if (!envelope) return envelope;
+  const members = 'maxAbsResults' in envelope ? envelope.maxAbsResults?.elementForces : envelope.maxAbsResults3D?.elementForces;
+  if (!members?.length) return envelope;
+  const curves = 'maxAbsResults' in envelope
+    ? [envelope.moment, envelope.shear, envelope.axial]
+    : [envelope.momentY, envelope.momentZ, envelope.shearY, envelope.shearZ, envelope.axial, envelope.torsion];
+  const byKind = new Map<string, ReadonlyMap<number, ElementEnvelopeDiagram>>();
+  for (const curve of curves) {
+    if (curve?.elements) byKind.set(curve.kind, new Map(curve.elements.map(element => [element.elementId, element])));
+  }
+  for (const member of members) envelopeMemberDiagrams.set(member, byKind);
+  return envelope;
+}
+
+export function envelopeMemberEndValues(member: MemberEndRecord, kind: string): [number, number] | undefined {
+  const byKind = envelopeMemberDiagrams.get(member);
+  if (!byKind) return undefined;
+  const curve = byKind.get(kind)?.get(member.elementId);
+  if (!curve) throw unavailableDiagramExtrema();
+  const values = memberEnvelopeOrdinates(curve, member.length);
+  const i = values[0], j = values.at(-1);
+  if (i?.t !== 0 || j?.t !== 1) throw unavailableDiagramExtrema();
+  return [i.value, j.value];
 }
 
 export function inwardMemberEndValues(

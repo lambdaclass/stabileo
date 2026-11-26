@@ -628,9 +628,7 @@ it('known wrong result: #2581 excludes the exterior axial value at J', () => {
   expect.soft(stationForces3D(force, 1).n).toBe(tip - point);
 });
 
-const envelopeEndRegression = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
-
-envelopeEndRegression('known wrong result: #2581 reads the aggregate spatial J cell from its case envelope', async () => {
+it('known wrong result: #2581 reads the aggregate spatial J cell from its case envelope', async () => {
   await initSolver();
   const length = 4, inward = 9, exterior = 24, start = 30, end = 18;
   const point = { ...reviewForces, length, vyStart: inward, vyEnd: exterior, pointLoadsY: [{ a: length, p: exterior - inward }] };
