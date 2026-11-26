@@ -272,5 +272,9 @@ fn conditional_elastic_2519_matches_the_independent_physical_response() {
             worst = worst.max(compare(&actual, &expected, &expected, force, length));
         }
     }
-    println!("Issue #2519 physical reference maximum relative error: {worst:.6e}");
+    let tolerance = stability::CONDITIONAL_ACCURACY;
+    assert!(
+        worst.is_finite() && worst <= tolerance,
+        "Issue #2519 maximum scaled response error {worst:.6e} exceeds the conditional accuracy limit {tolerance:.6e} or is nonfinite. The 90-digit independent response supplies the reference; each component is normalized by the larger of its reference quantity scale and its physical scale derived from load and length.",
+    );
 }
