@@ -2,24 +2,29 @@ use serde::de::{self, Deserializer, MapAccess, Visitor};
 use serde::Deserialize;
 use std::collections::{hash_map::Entry, HashMap};
 use std::fmt;
+use std::hash::Hash;
 use std::marker::PhantomData;
 
-struct Table<V> {
+struct Table<K, V> {
     field: &'static str,
-    value: PhantomData<V>,
+    entries: PhantomData<(K, V)>,
 }
 
-impl<V> Table<V> {
+impl<K, V> Table<K, V> {
     fn new(field: &'static str) -> Self {
         Self {
             field,
-            value: PhantomData,
+            entries: PhantomData,
         }
     }
 }
 
-impl<'de, V: Deserialize<'de>> Visitor<'de> for Table<V> {
-    type Value = HashMap<String, V>;
+impl<'de, K, V> Visitor<'de> for Table<K, V>
+where
+    K: Deserialize<'de> + Eq + Hash,
+    V: Deserialize<'de>,
+{
+    type Value = HashMap<K, V>;
 
     fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "a map of {} with unique keys", self.field)
@@ -44,7 +49,7 @@ impl<'de, V: Deserialize<'de>> Visitor<'de> for Table<V> {
     }
 }
 
-struct OptionalTable<V>(Table<V>);
+struct OptionalTable<V>(Table<String, V>);
 
 impl<'de, V: Deserialize<'de>> Visitor<'de> for OptionalTable<V> {
     type Value = Option<HashMap<String, V>>;
@@ -108,4 +113,10 @@ pub(crate) fn mp_overrides<'de, D: Deserializer<'de>, V: Deserialize<'de>>(
     deserializer: D,
 ) -> Result<Option<HashMap<String, V>>, D::Error> {
     deserializer.deserialize_option(OptionalTable(Table::new("mpOverrides")))
+}
+
+pub(crate) fn modular_ratios<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<HashMap<usize, f64>, D::Error> {
+    deserializer.deserialize_map(Table::new("modularRatios"))
 }

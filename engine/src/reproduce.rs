@@ -409,7 +409,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2588"]
     fn json_analysis_refuses_duplicate_section_ratio_keys() {
         use crate::section::{SectionInput, analyze_section};
 

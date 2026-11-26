@@ -623,9 +623,7 @@ it.each([false, true])('refuses repeated frame keys before JSON solves (space = 
     .toThrow(/duplicate key in field `factors`/);
 });
 
-const reviewTest = process.env.STABILEO_REVIEW_REPRO === '1' ? it : it.skip;
-
-reviewTest('refuses repeated compound-section material ratio keys in JSON', () => {
+it('refuses repeated compound-section material ratio keys in JSON', () => {
   const section = '{"polygons":[{"materialId":1,"vertices":[[0,0],[2,0],[2,1],[0,1]]}],"modularRatios":{}}';
   const encode = (rows: string) => section.replace('"modularRatios":{}', '"modularRatios":{' + rows + '}');
   const area = (rows: string) => JSON.parse(wasm.analyze_section(encode(rows))).a;
