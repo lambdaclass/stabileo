@@ -721,3 +721,42 @@ it('#2607 nearby authored wall ends retain their joint at a column', () => {
     }
   }
 });
+
+const replayCertifiedBeam = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
+
+replayCertifiedBeam.each(['fixedDivisions', 'targetSize'] as const)(
+  'known wrong result: #2607 %s preserves the certified beam edges beside an off-line wall end', meshMode => {
+    for (const offset of [0, 0.005, 0.011]) {
+      const plan = reviewPlan();
+      const x = offset === 0 ? 2 : 1.7;
+      plan.walls.push({ a: { x, y: -offset }, b: { x, y: -1 }, thicknessSource: 'default' });
+      const settings = { ...reviewSettings, meshMode, meshTargetSize: 1 };
+      const lower = generateRcDraft(plan, settings, SOURCE);
+      const upper = { ...reviewPlan(), slabs: [], walls: [] };
+      const stacked = buildDraft({
+        floorPlans: [{ plan, fromFloor: 1, toFloor: 1 }, { plan: upper, fromFloor: 2, toFloor: 2 }],
+        assumptions: { ...settings, nFloors: 2, storyHeights: [3, 3] }, source: SOURCE,
+      });
+      for (const draft of [lower, stacked]) {
+        const model = snapshotToModelShape(draft.snapshot);
+        const key = (a: number, b: number) => [Math.min(a, b), Math.max(a, b)].join(':');
+        const slabEdges = [...model.plates.values()].flatMap(({ nodes }) => nodes.flatMap((id, i) => {
+          const next = nodes[(i + 1) % nodes.length]!;
+          return [id, next].every(n => model.nodes.get(n)!.y === 0) ? [key(id, next)] : [];
+        }));
+        const beamEdges = [...model.elements.values()].flatMap(({ nodeI, nodeJ }) => {
+          const a = model.nodes.get(nodeI)!, b = model.nodes.get(nodeJ)!;
+          return a.z === 3 && b.z === 3 && a.y === 0 && b.y === 0 ? [key(nodeI, nodeJ)] : [];
+        });
+        expect(slabEdges.length).toBeGreaterThan(1);
+        expect.soft(beamEdges.sort(), `offset ${offset}`).toEqual(slabEdges.sort());
+        const wallNodes = new Set([...model.quads.values()].flatMap(({ nodes }) => nodes));
+        const beamStations = [...model.elements.values()].filter(e => {
+          const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+          return a.z === 3 && b.z === 3;
+        }).flatMap(e => [e.nodeI, e.nodeJ]);
+        expect.soft(beamStations.some(id => wallNodes.has(id) && model.nodes.get(id)!.x === x), `offset ${offset}`).toBe(offset === 0);
+      }
+    }
+  },
+);

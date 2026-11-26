@@ -351,3 +351,39 @@ it.each([[false, false], [true, false], [false, true], [true, true]] as const)('
     }
   }
 });
+
+const replayGapCover = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
+
+replayGapCover.each([[false, false], [true, false], [false, true], [true, true]] as const)(
+  'known wrong result: #2607 a certified gap shelters a floor clear of the rafter (split %s, triangles %s)', (split, triangles) => {
+    for (const y of [1, 5]) {
+      const { model: quads } = offsetRoof(0.04, 0, 1, split, [4, 6]);
+      const bay = [[4.25, y], [5.75, y], [5.75, y + 1], [4.25, y + 1]].map(([x, y]) => {
+        const id = quads.nodes.size + 1;
+        quads.nodes.set(id, { id, x: x!, y: y!, z: 1 });
+        return id;
+      });
+      const firstBeam = quads.elements.size + 1;
+      bay.forEach((nodeI, i) => {
+        const id = firstBeam + i;
+        quads.elements.set(id, { id, nodeI, nodeJ: bay[(i + 1) % bay.length]!, type: 'frame', materialId: 1, sectionId: 1 });
+      });
+      const model = triangles ? triangulateRoof(quads) : quads;
+      const layout = gravityLayout(model, options);
+      expect.soft(layout.panels.filter(panel => panel.z === 1).map(panel => panel.roof)).toEqual([y > 4]);
+      expect.soft(layout.roofAreaOf.get(split ? 2 : 1)).toBeCloseTo(8, 10);
+      const area = planAreaLoads({
+        layout, tributaryWidth: options.tributaryWidth,
+        floor: { dead: 1, lo: 2, liveOf: () => 2 },
+        roof: { use: 'occupancy', weight: 'heavy', dead: 1, slopePercent: 20, lo: 3, liveOf: () => 3 },
+      });
+      const force = area.distributed.filter(row => row.elementId >= firstBeam && row.caseType === 'L').reduce((sum, row) => {
+        const member = model.elements.get(row.elementId)!;
+        const a = model.nodes.get(member.nodeI)!, b = model.nodes.get(member.nodeJ)!;
+        return sum - (row.q + (row.qJ ?? row.q)) / 2 * ((row.b ?? Math.hypot(b.x - a.x, b.y - a.y)) - (row.a ?? 0));
+      }, 0);
+      expect.soft(force).toBeCloseTo(1.5 * (y > 4 ? 3 : 2), 10);
+      expect.soft(roofPlan(model).outcome).toBe('READY');
+    }
+  },
+);
