@@ -380,6 +380,13 @@ bench.engine:
 	cd engine && $(NIX_RUN) cargo bench --no-run
 	cd engine && $(NIX_RUN) cargo bench --bench solver_bench --bench assembly_bench --bench workflow_bench -- --sample-size 10 --warm-up-time 1 --measurement-time 3
 
+.PHONY: build.engine.nonlinear-bench bench.engine.nonlinear
+build.engine.nonlinear-bench:
+	$(NIX_RUN) cargo build -p dedaliano-engine --release --example nonlinear_preparation_bench
+
+bench.engine.nonlinear: build.engine.nonlinear-bench
+	./target/release/examples/nonlinear_preparation_bench $(ARGS)
+
 ENGINE_BENCHES = solver_bench assembly_bench workflow_bench pcg_bench eigen_bench
 
 ## Run every benchmark of every engine bench once, untimed (Criterion's --test): a benchmark whose model the engine has come to refuse fails here

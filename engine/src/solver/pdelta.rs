@@ -6,7 +6,7 @@ use super::linear::{build_displacements_2d, compute_internal_forces_2d,
     build_displacements_3d, compute_internal_forces_3d,
     compute_plate_stresses, compute_quad_stresses};
 use super::constraints::{FreeConstraintSystem, MasterMotion};
-use super::sparse_tangent::{SparseSymbolicCache, cached_symbolic};
+use super::sparse_tangent::{SparseSymbolicCache, cached_numeric};
 
 /// The linear pass's structured diagnostics that describe the model, not the
 /// linear solution: pre-solve gates, constraints, conditioning of K.
@@ -136,7 +136,7 @@ fn solve_spd_or_lu(
 ) -> Option<(Vec<f64>, bool)> {
     if ns >= SPARSE_THRESHOLD {
         let k_csc = CscMatrix::from_dense_symmetric(&k_solve, ns);
-        if let Some(factor) = numeric_cholesky(cached_symbolic(symbolic, &k_csc), &k_csc) {
+        if let Some(factor) = cached_numeric(symbolic, &k_csc) {
             let u = sparse_cholesky_solve(&factor, f_solve);
             let u = super::equilibrium::refine(u, |rhs| sparse_cholesky_solve(&factor, rhs), |u| super::equilibrium::sparse_residual(&k_csc, f_solve, u));
             return Some((u, false));
@@ -549,7 +549,7 @@ impl PDeltaTangent {
             }
             Self::Sparse(k) => {
                 let k = cs.as_ref().map_or_else(|| k.clone(), |c| c.reduce_matrix_sparse(&k));
-                if let Some(factor) = numeric_cholesky(cached_symbolic(cache, &k), &k) {
+                if let Some(factor) = cached_numeric(cache, &k) {
                     (super::equilibrium::refine(sparse_cholesky_solve(&factor, &f),
                         |rhs| sparse_cholesky_solve(&factor, rhs),
                         |u| super::equilibrium::sparse_residual(&k, &f, u)), false)
@@ -595,6 +595,10 @@ impl PDeltaSystem3D {
     }
 
     fn tangent(&self, input: &SolverInput3D, dofs: &DofNumbering, u: &[f64]) -> PDeltaTangent {
+        self.tangent_with_assembly(input, dofs, u, None)
+    }
+
+    fn tangent_with_assembly(&self, input: &SolverInput3D, dofs: &DofNumbering, u: &[f64], cache: Option<&mut crate::linalg::sparse::assembly::TripletAssemblyCache>) -> PDeltaTangent {
         match self {
             Self::Dense(a) => PDeltaTangent::Dense(k_with_geometric_3d(input, dofs, a, u)),
             Self::Sparse(a) => {
@@ -614,7 +618,10 @@ impl PDeltaSystem3D {
                         rows.push(k.row_idx[p]); cols.push(j); vals.push(k.values[p]);
                     }
                 }
-                PDeltaTangent::Sparse(CscMatrix::from_triplets(dofs.n_total, &rows, &cols, &vals))
+                PDeltaTangent::Sparse(match cache {
+                    Some(cache) => cache.assemble(dofs.n_total, &rows, &cols, &vals),
+                    None => CscMatrix::from_triplets(dofs.n_total, &rows, &cols, &vals),
+                })
             }
         }
     }
@@ -645,9 +652,10 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
     let metric = super::convergence::EquilibriumMetric::for_3d(input, dof_num, cs.as_ref())?;
     let mut state = Iteration { u: u_prev.clone(), iterations: 0, converged: false, indefinite: false };
     let mut symbolic = None;
+    let mut assembly = crate::linalg::sparse::assembly::TripletAssemblyCache::default();
     for iter in 0..max_iter {
         state.iterations = iter + 1;
-        let tangent = system.tangent(input, dof_num, &state.u);
+        let tangent = system.tangent_with_assembly(input, dof_num, &state.u, Some(&mut assembly));
         let Some((u, indefinite)) = tangent.correct_equilibrium(n, nf, f, &state.u, &cs, &mut symbolic) else {
             return Ok(PDeltaResult3D { results: linear_results.clone(), linear_results, iterations: state.iterations,
                 converged: false, is_stable: false, b2_factor: f64::INFINITY });
@@ -656,7 +664,7 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
         let step_error = metric.relative_increment(&state.u, &u);
         state.u[..nf].copy_from_slice(&u[..nf]);
         if step_error < tolerance {
-            let equilibrium = system.tangent(input, dof_num, &state.u);
+            let equilibrium = system.tangent_with_assembly(input, dof_num, &state.u, Some(&mut assembly));
             let residual = equilibrium.all_residual(n, f, &state.u);
             let support_driven = state.u[nf..].iter().any(|v| *v != 0.0);
             if metric.relative_residual(&residual, f, support_driven.then_some(1.0), cs.as_ref()) < tolerance {
@@ -704,6 +712,28 @@ fn solve_pdelta_3d_on(input: &SolverInput3D, dof_num: &DofNumbering, cs: Option<
 mod tests {
     use super::*;
     use std::collections::HashMap;
+
+    #[test]
+    fn cached_spatial_tangents_match_independent_assembly() {
+        for fixture in [
+            include_str!("../../tests/metamorphic_corpus/differential/pdelta3d-0.json"),
+            include_str!("../../tests/metamorphic_corpus/differential/pdelta3d-5.json"),
+            include_str!("../../tests/fixtures/distorted-single-quad-combination.json"),
+        ] {
+            let input: SolverInput3D = serde_json::from_str(fixture).unwrap();
+            let dofs = DofNumbering::build_3d(&input);
+            let system = PDeltaSystem3D::new(&input, &dofs, true);
+            let mut cache = crate::linalg::sparse::assembly::TripletAssemblyCache::default();
+            for scale in [0.0, 1e-300, 0.001, -0.001, -0.0, f64::MAX, f64::NAN, 0.001] {
+                let u: Vec<_> = (0..dofs.n_total).map(|i| (i as f64 - 2.0) * scale).collect();
+                let PDeltaTangent::Sparse(expected) = system.tangent(&input, &dofs, &u) else { unreachable!() };
+                let PDeltaTangent::Sparse(actual) = system.tangent_with_assembly(&input, &dofs, &u, Some(&mut cache)) else { unreachable!() };
+                assert_eq!(actual.col_ptr, expected.col_ptr);
+                assert_eq!(actual.row_idx, expected.row_idx);
+                assert_eq!(actual.values.iter().map(|v| v.to_bits()).collect::<Vec<_>>(), expected.values.iter().map(|v| v.to_bits()).collect::<Vec<_>>());
+            }
+        }
+    }
 
     thread_local! {
         static REJECTED_ITERATE: std::cell::RefCell<Option<serde_json::Value>> =
