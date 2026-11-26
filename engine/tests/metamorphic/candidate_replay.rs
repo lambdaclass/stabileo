@@ -87,49 +87,41 @@ fn issue_1902_refuses_unresolved_stiffness() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1859"]
 fn issue_1859_refuses_proven_mechanism() {
     refused_mechanism(1859, "P-Delta", &[2, 3, 6]);
 }
 
 #[test]
-#[ignore = "known wrong result: #1858"]
 fn issue_1858_refuses_proven_mechanism() {
     refused_mechanism(1858, "certified linear", &[2]);
 }
 
 #[test]
-#[ignore = "known wrong result: #1856"]
 fn issue_1856_refuses_proven_mechanism() {
     refused_mechanism(1856, "linear (WASM typed path)", &[2]);
 }
 
 #[test]
-#[ignore = "known wrong result: #1852"]
 fn issue_1852_refuses_proven_mechanism() {
     refused_mechanism(1852, "linear (WASM typed path)", &[2, 3, 6]);
 }
 
 #[test]
-#[ignore = "known wrong result: #1851"]
 fn issue_1851_refuses_proven_mechanism() {
     refused_mechanism(1851, "P-Delta", &[2]);
 }
 
 #[test]
-#[ignore = "known wrong result: #1850"]
 fn issue_1850_refuses_proven_mechanism() {
     refused_mechanism(1850, "linear", &[2, 3, 6]);
 }
 
 #[test]
-#[ignore = "known wrong result: #1847"]
 fn issue_1847_refuses_proven_mechanism() {
     refused_mechanism(1847, "linear (load session)", &[2, 3, 6]);
 }
 
 #[test]
-#[ignore = "known wrong result: #1842"]
 fn issue_1842_refuses_proven_mechanism() {
     refused_mechanism(1842, "linear", &[2]);
 }

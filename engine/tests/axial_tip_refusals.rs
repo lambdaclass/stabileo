@@ -13,7 +13,7 @@ use std::collections::HashMap;
 
 const FREE_AXIAL_TIP: &str = "the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases";
 
-fn transverse_loaded_bar() -> SolverInput {
+pub(super) fn transverse_loaded_bar() -> SolverInput {
     serde_json::from_value(serde_json::json!({
         "nodes": {"1": {"id": 1, "x": -53.39259906210398, "z": -85.39605063257972}, "2": {"id": 2, "x": -28.598050853224024, "z": -52.92016340104717}},
         "materials": {"1": {"id": 1, "e": 10530.127602377152, "nu": 0.2681219095578359}},
@@ -45,7 +45,6 @@ fn assert_no_invariance_warning(diagnostics: &[StructuredDiagnostic], context: &
 }
 
 #[test]
-#[ignore = "known wrong result: #762"]
 fn planar_contact_ssi_and_corotational_refuse_the_transverse_bar_mechanism() {
     let solve = |input: &SolverInput| {
         let contact: ContactInput =
@@ -85,7 +84,6 @@ fn planar_contact_ssi_and_corotational_refuse_the_transverse_bar_mechanism() {
 }
 
 #[test]
-#[ignore = "known wrong result: #762"]
 fn planar_fiber_refuses_the_transverse_bar_mechanism() {
     let solve = |solver: SolverInput, modified_nr| {
         let section = &solver.sections["1"];

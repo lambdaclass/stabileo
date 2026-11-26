@@ -223,7 +223,6 @@ fn issue_762_2d_refuses_reported_unreliable_models_in_equivalent_frames() {
 }
 
 #[test]
-#[ignore = "known wrong result: #762"]
 fn issue_762_seed_20824_refuses_proven_mechanism_in_equivalent_frames() {
     assert_issue_762_planar_refusals(&[20824]);
 }
