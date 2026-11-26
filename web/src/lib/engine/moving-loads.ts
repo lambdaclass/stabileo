@@ -697,12 +697,15 @@ export function computePointwiseEnvelope(
         let maxPos = 0;
         let maxNeg = 0;
 
+        const cutSides = kind !== 'shear' || t === 1 ? [false] : t === 0 ? [true] : [false, true];
         for (const res of results) {
           if (eIdx >= res.elementForces.length) continue;
           const ef = res.elementForces[eIdx];
-          const val = computeDiagramValueAt(kind, t, ef);
-          if (val > maxPos) maxPos = val;
-          if (val < maxNeg) maxNeg = val;
+          for (const right of cutSides) {
+            const val = computeDiagramValueAt(kind, t, ef, right);
+            if (val > maxPos) maxPos = val;
+            if (val < maxNeg) maxNeg = val;
+          }
         }
 
         const face = j === 0 ? faceRanges?.[0] : j === N_POINTS - 1 ? faceRanges?.[1] : undefined;

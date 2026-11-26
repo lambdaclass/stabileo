@@ -523,7 +523,7 @@ it('#2101 — browser axle-face shear excludes opposing endpoint point loads', a
   }
 });
 
-it.skip('known wrong result: #2101 — planar pointwise shear includes both midspan axle cuts', async () => {
+it('#2101 — planar pointwise shear includes both midspan axle cuts', async () => {
   const length = 8, weight = 40;
   const { plane } = reviewSpan(length, 0, true);
   const train = { name: 'one axle', axles: [{ offset: 0, weight }] };
@@ -547,7 +547,7 @@ it.skip('known wrong result: #2101 — planar pointwise shear includes both mids
   }
 });
 
-it.skip('known wrong result: #2101 — planar pointwise shear uses the inward cut at each member end', () => {
+it('#2101 — planar pointwise shear uses the inward cut at each member end', () => {
   const length = 8, weight = 40;
   const { plane } = reviewSpan(length, 0, true);
   plane.loads = [0, length].map(a => ({
