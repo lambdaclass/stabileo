@@ -239,6 +239,10 @@ test.engine.reduced-rank-wasm: wasm
 test.engine.release-gauges-wasm: wasm
 	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.release-gauges.XXXXXX"); modal=$$(mktemp "$(CURDIR)/.modal-release-gauges.XXXXXX"); trap '"'"'rm -f -- "$$cases" "$$modal"'"'"' EXIT; MATERIAL_RELEASE_WASM_CASES="$$cases" MODAL_RELEASE_WASM_CASES="$$modal" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=release_gauges::; node scripts/tests/release-gauges-wasm.mjs "$$cases" "$$modal"'
 
+.PHONY: test.engine.conditional-rank-wasm
+test.engine.conditional-rank-wasm: wasm
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.conditional-rank.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; CONDITIONAL_RANK_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=issue_2519_conditional_linear; node scripts/tests/conditional-rank-wasm.mjs "$$cases"'
+
 NEWMARK_DIR = $(CURDIR)/research/benchmarks/newmark-1959
 research.newmark.replay:
 	NEWMARK_REPLAY_OUT=$(NEWMARK_DIR)/results/stabileo_results.json NEWMARK_VALIDATION_OUT=$(NEWMARK_DIR)/VALIDATION.json \

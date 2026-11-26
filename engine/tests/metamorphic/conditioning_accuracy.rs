@@ -152,7 +152,21 @@ fn expected_refusal(name: &str, e: &str) -> bool {
         && e.contains("a node can move freely in a direction no member, support or spring stiffens");
     let factorization_accuracy = e == "the structure cannot be solved reliably: stiffness factorization accuracy is unresolved after the stability check; no result is returned";
     match name {
-        "issue-1029" | "issue-973" => conditioning || factorization_accuracy
+        "issue-973" => serde_json::from_str::<serde_json::Value>(e).is_ok_and(|refusal| {
+            refusal["structuredDiagnostics"].as_array().is_some_and(|diagnostics| {
+                if diagnostics.len() != 1 {
+                    return false;
+                }
+                let diagnostic = &diagnostics[0];
+                let Some(node) = diagnostic["nodeIds"][0].as_u64() else { return false; };
+                let message = format!("the structure is a mechanism at nodes [{node}]: a frame can swing about a released end without straining its members or moving its restraints");
+                diagnostic["code"] == "reduced_stiffness_rank"
+                    && diagnostic["severity"] == "error"
+                    && diagnostic["nodeIds"].as_array().is_some_and(|nodes| nodes.len() == 1)
+                    && diagnostic["message"] == message && refusal["message"] == message
+            })
+        }),
+        "issue-1029" => conditioning || factorization_accuracy
             || serde_json::from_str::<serde_json::Value>(e).is_ok_and(|refusal| {
                 let message = "the structure is a mechanism or so close to one that its stability cannot be decided in double precision: the reduced stiffness rank cannot be resolved at assembly precision. Check member releases, supports, springs and constraints for a mechanism.";
                 refusal["message"] == message
@@ -257,7 +271,6 @@ fn every_loaded_c08_copy_agrees_with_its_physical_reference_and_other_solved_cop
 }
 
 #[test]
-#[ignore = "known wrong result: #2519"]
 fn issue_2519_conditional_linear_solution_matches_sparse_reference_in_each_unit_system() {
     use dedaliano_engine::solver::constraints::{solve_constrained_3d, ConstrainedInput3D};
     let Model::D3(input) = crate::corpus::parse(include_str!("../fixtures/conditional-rank-2519.json")).unwrap() else {
@@ -272,7 +285,7 @@ fn issue_2519_conditional_linear_solution_matches_sparse_reference_in_each_unit_
         let (sparse, nodes, members) = crate::case::pad_3d(&model);
         let mut reference = response::static_3d(&linear::solve_3d(&sparse).unwrap());
         reference.retain_ids(&nodes, &members);
-        let mut pcg = sparse;
+        let mut pcg = sparse.clone();
         pcg.solver_options = Some(SolverOptions {
             method: Some("pcg".into()), preconditioner: None, tolerance: Some(1e-12), max_iterations: Some(100_000),
         });
@@ -291,7 +304,10 @@ fn issue_2519_conditional_linear_solution_matches_sparse_reference_in_each_unit_
                 Err(error) => failures.push(format!("{entry} ({length}/{force}): {error}")),
             }
         }
-        wasm.push(serde_json::json!({"model": model, "pcg": pcg}));
+        wasm.push(serde_json::json!({
+            "model": model, "sparse": sparse, "pcg": pcg,
+            "accuracy": stability::CONDITIONAL_ACCURACY,
+        }));
     }
     if let Some(path) = std::env::var_os("CONDITIONAL_RANK_WASM_CASES") {
         std::fs::write(path, serde_json::to_vec(&wasm).unwrap()).unwrap();

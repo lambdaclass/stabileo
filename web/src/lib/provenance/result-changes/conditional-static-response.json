@@ -1,0 +1,37 @@
+{
+  "id": "conditional-static-response",
+  "date": "2026-11-26",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      ["members", "springs", "connectors", "constraints"],
+      ["analysis:linear", "analysis:pdelta", "analysis:buckling"]
+    ]
+  },
+  "quantities": ["solve.ok", "displacements", "reactions", "elementForces", "constraintForces", "equilibrium", "structuredDiagnostics", "secondOrder", "resultSummary"],
+  "title": {
+    "en": "Accuracy of conditionally admitted static solves",
+    "es": "Precisión de los análisis estáticos de admisión condicional",
+    "pt": "Precisão das análises estáticas admitidas condicionalmente",
+    "de": "Genauigkeit bedingt zugelassener statischer Berechnungen",
+    "fr": "Précision des calculs statiques admis sous condition",
+    "hu": "A feltételesen elfogadott statikai számítások pontossága",
+    "tr": "Koşullu kabul edilen statik çözümlerin doğruluğu",
+    "zh": "有条件准入的静力求解精度"
+  },
+  "explanation": {
+    "en": "For some models with extreme stiffness contrasts, the solver now refines the static response before applying the accuracy limit. Recheck affected saved analyses and any result that uses them as a preload.",
+    "es": "Para algunos modelos con contrastes extremos de rigidez, el motor ahora refina la respuesta estática antes de aplicar el límite de precisión. Volvé a verificar los análisis guardados afectados y los resultados que los usan como precarga.",
+    "pt": "Para alguns modelos com contrastes extremos de rigidez, o solver agora refina a resposta estática antes de aplicar o limite de precisão. Confira os resultados salvos afetados e as análises que os utilizam como pré-carga.",
+    "de": "Bei einigen Modellen mit extremen Steifigkeitsunterschieden verfeinert der Solver die statische Antwort vor der Genauigkeitsprüfung. Prüfen Sie betroffene gespeicherte Analysen und Ergebnisse erneut, die diese als Vorlast verwenden.",
+    "fr": "Pour certains modèles présentant des contrastes extrêmes de raideur, le solveur affine la réponse statique avant de vérifier le seuil de précision. Vérifiez les analyses enregistrées concernées et les résultats qui les utilisent comme précharge.",
+    "hu": "Nagy merevségi különbségű modelleknél a megoldó a pontossági határ ellenőrzése előtt pontosítja a statikai választ. Ellenőrizze az érintett mentett eredményeket és az azokat előterhelésként használó számításokat.",
+    "tr": "Rijitlik farkı çok yüksek bazı modellerde çözücü, doğruluk sınırını uygulamadan önce statik yanıtı iyileştirir. Etkilenen kayıtlı analizleri ve bunları ön yük olarak kullanan sonuçları yeniden kontrol edin.",
+    "zh": "对于部分刚度差异极大的模型，求解器会在应用精度限值前细化静力响应。请复核受影响的已保存分析及使用其作为预加载的结果。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-conditional-static-response.md",
+    "heading": "Accuracy of conditionally admitted static solves (2026-11-26)"
+  }
+}

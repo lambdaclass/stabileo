@@ -952,15 +952,7 @@ impl PreparedStatic2D<'_> {
                 }
 
                 // Solve Kff · u_f = Ff_modified with the precomputed factorization
-                let u_f = match factor {
-                    FactorizedKff::SparseCholesky(num) => sparse_cholesky_solve(num, &f_f),
-                    FactorizedKff::DenseCholesky(l) => {
-                        let y = forward_solve(l, &f_f, nf);
-                        back_solve(l, &y, nf)
-                    }
-                };
-
-                let u_f = conditional_dense_refinement(&self.stability, k_ff, &f_f, u_f, |rhs| match factor {
+                let u_f = solve_dense_response(&self.stability, k_ff, &f_f, |rhs| match factor {
                     FactorizedKff::SparseCholesky(num) => sparse_cholesky_solve(num, rhs),
                     FactorizedKff::DenseCholesky(l) => back_solve(l, &forward_solve(l, rhs, nf), nf),
                 })?;
@@ -1104,7 +1096,7 @@ impl PreparedStatic2D<'_> {
 
                 // Triangular solve with the precomputed sparse Cholesky factor
                 let u = sparse_cholesky_solve(&p.num, &f_f);
-                let u = conditional_sparse_refinement(&self.stability, &p.k_ff, &f_f, u, |rhs| sparse_cholesky_solve(&p.num, rhs))?;
+                let u = polish_sparse_response(&self.stability, &p.k_ff, &f_f, u, |rhs| sparse_cholesky_solve(&p.num, rhs))?;
 
 
                 // Verify solution quality via residual check
@@ -1280,7 +1272,7 @@ impl PreparedStatic2D<'_> {
                     }
                 };
 
-                let u_f = conditional_sparse_refinement(&self.stability, &p.k_ff, &f_f, u_f, |rhs| sparse_cholesky_solve(direct, rhs))?;
+                let u_f = polish_sparse_response(&self.stability, &p.k_ff, &f_f, u_f, |rhs| sparse_cholesky_solve(direct, rhs))?;
 
                 let has_nan_inf = u_f.iter().any(|v| v.is_nan() || v.is_infinite());
                 if has_nan_inf {
@@ -1464,6 +1456,36 @@ pub(super) fn conditional_sparse_refinement(
     conditional_refinement(stability, &k.diagonal(), u, solve, |u| compensated_sparse_residual(k, f, u))
 }
 
+pub(super) fn solve_dense_response(
+    stability: &super::stability::Stability,
+    k: &[f64],
+    f: &[f64],
+    solve: impl Fn(&[f64]) -> Vec<f64>,
+) -> Result<Vec<f64>, String> {
+    let u = solve(f);
+    if !stability.needs_accuracy_check() {
+        return Ok(u);
+    }
+    let u = refine_static_approximation(u, &solve, |u| super::equilibrium::dense_residual(k, f, u))
+        .map_err(|_| stability.conditioning_refusal())?;
+    conditional_dense_refinement(stability, k, f, u, solve)
+}
+
+pub(super) fn polish_sparse_response(
+    stability: &super::stability::Stability,
+    k: &CscMatrix,
+    f: &[f64],
+    u: Vec<f64>,
+    solve: impl Fn(&[f64]) -> Vec<f64>,
+) -> Result<Vec<f64>, String> {
+    if !stability.needs_accuracy_check() {
+        return Ok(u);
+    }
+    let u = refine_static_approximation(u, &solve, |u| compensated_sparse_residual(k, f, u))
+        .map_err(|_| stability.conditioning_refusal())?;
+    conditional_sparse_refinement(stability, k, f, u, solve)
+}
+
 fn compensated_sparse_residual(k: &CscMatrix, f: &[f64], u: &[f64]) -> Vec<f64> {
     super::equilibrium::sparse_residual(k, f, u)
 }
@@ -1473,8 +1495,16 @@ fn refined_static_solve(
     solve: impl Fn(&[f64]) -> Vec<f64>,
     residual: impl Fn(&[f64]) -> Vec<f64>,
 ) -> Result<Vec<f64>, String> {
+    refine_static_approximation(solve(f), solve, residual)
+}
+
+fn refine_static_approximation(
+    u: Vec<f64>,
+    solve: impl Fn(&[f64]) -> Vec<f64>,
+    residual: impl Fn(&[f64]) -> Vec<f64>,
+) -> Result<Vec<f64>, String> {
     let (u, resolved) = super::equilibrium::refine_solution(
-        solve(f),
+        u,
         |u| Ok(solve(&residual(u))),
         |u, correction| {
             let error = correction.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
@@ -2071,8 +2101,7 @@ impl PreparedStatic3D {
         let mut f_f: Vec<f64> = f[..nf].to_vec();
         for i in 0..nf { f_f[i] -= p.k_fr_ur[i]; }
 
-        let u_f = back_solve(&p.factor, &forward_solve(&p.factor, &f_f, nf), nf);
-        let u_f = conditional_dense_refinement(&self.stability, &p.k_ff, &f_f, u_f,
+        let u_f = solve_dense_response(&self.stability, &p.k_ff, &f_f,
             |rhs| back_solve(&p.factor, &forward_solve(&p.factor, rhs, nf), nf))?;
 
         // NaN/Inf guard: numerical blow-up means singular matrix.
@@ -2602,7 +2631,7 @@ impl PreparedStatic3D {
             };
         // NaN/Inf guard — see `solve_loads_dense`. Covers the PCG result and
         // both direct fallbacks.
-        let u_f = conditional_sparse_refinement(&self.stability, &p.k_ff, &f_f, u_f, |rhs| sparse_cholesky_solve(num, rhs))?;
+        let u_f = polish_sparse_response(&self.stability, &p.k_ff, &f_f, u_f, |rhs| sparse_cholesky_solve(num, rhs))?;
         assert_finite_3d(&u_f)?;
         self.stability.check_pins_with_rounding(&u_f, &f[..nf], &p.kfr_ur, &load_rounding)?;
 
