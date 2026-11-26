@@ -100,6 +100,10 @@ function removePlanarNodalPadding(copy: Fields): void {
   }
 }
 
+function jsonMoment(value: unknown): unknown {
+  return value === null || (typeof value === 'number' && !Number.isFinite(value)) ? 'NaN' : value;
+}
+
 export function canonicalizeLoadAliases<T extends LoadRecord>(record: T): T {
   const { type, data } = record;
   if (type !== 'nodal' && type !== 'pointOnElement' && type !== 'distributed') return record;
@@ -115,11 +119,14 @@ export function canonicalizeLoadAliases<T extends LoadRecord>(record: T): T {
     if (invalidMoment) {
       if (copy.my !== undefined && copy.mz !== undefined && copy.my !== copy.mz) conflict('my', 'mz');
       if (copy.enteredZeroMoment === true) conflict('my', 'enteredZeroMoment');
+      for (const field of ['my', 'mz']) {
+        if (typeof copy[field] === 'number') copy[field] = jsonMoment(copy[field]);
+      }
     } else {
       reconcile(copy, 'my', copy.mz, 'mz', conflict);
       delete copy.mz;
       if (copy.enteredZeroMoment === true) reconcile(copy, 'my', 0, 'enteredZeroMoment', conflict);
-      if (copy.my === null || (typeof copy.my === 'number' && !Number.isFinite(copy.my))) copy.my = 'NaN';
+      if (copy.my !== undefined) copy.my = jsonMoment(copy.my);
     }
     delete copy.enteredZeroMoment;
     if (type === 'nodal') {

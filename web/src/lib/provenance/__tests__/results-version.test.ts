@@ -105,7 +105,7 @@ describe('results versions', () => {
   it('tells a modal frame about modal completeness up to version 8, self-checks up to 9, the mechanism refusal up to 12, the 3D co-rotational rotations up to 23 and the containment diagnostics up to 29, until it is re-solved', () => {
     const frame: FeatureSnapshot = {
       analysisMode: 'pro',
-      elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
+      elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]],
     };
     const stamp = { resultsVersion: 4, analyses: ['modal'] } as unknown as SolveStamp;
     const stagedIds = ['kinematic-translation-motion', 'modal-massive-translation'];
@@ -148,7 +148,7 @@ describe('results versions', () => {
     for (const analysisMode of ['2d', 'pro']) {
       const frame: FeatureSnapshot = {
         analysisMode,
-        elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
+        elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]],
       };
       for (const analysis of ['linear', 'modal'] as const) {
         const stamp = { resultsVersion: before, analyses: [analysis] } as unknown as SolveStamp;

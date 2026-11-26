@@ -372,7 +372,7 @@ export function adoptStoredProject(raw: ModelSnapshot, name: string, analysisMod
   return snapshot.analysisMode;
 }
 
-function storedProjectSnapshot(snapshot: ModelSnapshot, mode: ModelSnapshot['analysisMode']): ModelSnapshot {
+export function storedProjectSnapshot(snapshot: ModelSnapshot, mode: ModelSnapshot['analysisMode']): ModelSnapshot {
   return { ...snapshot, analysisMode: mode ?? snapshot.analysisMode };
 }
 

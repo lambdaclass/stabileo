@@ -2414,7 +2414,7 @@ function createModelStore() {
       const constraints = migrateModelConstraints(copy.constraints);
       if (copy.combinations !== undefined) requireCombinationInput(copy.combinations);
       const s = canonicalizeModelAliases(copy);
-      requireStructureInput(s);
+      requireStructureInput(s, { allowStoredNullDensity: true });
       beforeInstall?.();
       loadEpoch++;
       _onReplaced?.();

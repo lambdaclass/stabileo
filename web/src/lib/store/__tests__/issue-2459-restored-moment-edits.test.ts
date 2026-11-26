@@ -395,7 +395,7 @@ it('#2459 preserves result-change applicability when opening and resaving a lega
   await vi.waitFor(() => expect(recheckStore.assessment?.changes.map(c => c.id)).toContain('restored-planar-moment-edits'));
 });
 
-it.skip('known wrong result: #2459 serializes an invalid nodal moment before its next restore', () => {
+it('#2459 serializes an invalid nodal moment before its next restore', () => {
   const member = cantilever('2d');
   const nodeId = modelStore.model.elements.get(member)!.nodeJ;
   const snapshot = modelStore.snapshot();

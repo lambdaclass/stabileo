@@ -73,14 +73,15 @@ const supportFields = {
 
 const materialFields: Fields<Material> = {
   required: ['id', 'e', 'nu'],
-  optional: ['rho', 'alpha', 'fy', 'fu', 'fc'],
+  optional: ['alpha', 'fy', 'fu', 'fc'],
 };
 
 export class ModelInputError extends Error {}
 
 export class InvalidModelNumber extends ModelInputError {
-  constructor(path: string, value: unknown) {
-    super(tp('svc.engine.nonFiniteNumber', { path, value: String(value) }));
+  constructor(path: string, value: unknown, explanation?: string) {
+    const diagnostic = tp('svc.engine.nonFiniteNumber', { path, value: String(value) });
+    super(explanation ? `${explanation} ${diagnostic}` : diagnostic);
   }
 }
 
@@ -174,9 +175,15 @@ function requireProjectionNumbers({ path, type, data }: ReturnType<typeof requir
   if (type === 'nodal') numberAt(`${path}.fz/fy`, data.fz ?? data.fy);
 }
 
+export function planarNodalMomentRefusal(id: unknown, nodeId: unknown): string {
+  return tp('svc.planarNodalLoadMomentAliases', { load: String(id ?? '—'), n: String(nodeId) });
+}
+
 function requirePlanarNodalMoment(path: string, data: Record<string, unknown>): void {
-  const invalidMoment = invalidPlanarNodalMomentField(data);
-  if (invalidMoment !== undefined) throw new InvalidModelNumber(`${path}.${invalidMoment}`, data[invalidMoment]);
+  const field = invalidPlanarNodalMomentField(data);
+  if (field !== undefined) {
+    throw new InvalidModelNumber(`${path}.${field}`, data[field], planarNodalMomentRefusal(data.id, data.nodeId));
+  }
 }
 
 export function requireLoadCollection(loads: unknown): asserts loads is readonly unknown[] {
@@ -576,7 +583,7 @@ export function requireStructureInput(model: {
   sections: ModelRows;
   connectors?: ModelRows;
   analysis?: unknown;
-}): void {
+}, { allowStoredNullDensity = false } = {}): void {
   for (const [id, node] of model.nodes) {
     const path = `nodes.${id}`;
     recordNumbers(path, recordAt(path, node), { required: ['id', 'x', 'y'], optional: ['z'] });
@@ -586,7 +593,9 @@ export function requireStructureInput(model: {
   for (const [id, section] of model.sections) validateSection(`sections.${id}`, section);
   for (const [id, material] of model.materials) {
     const path = `materials.${id}`;
-    recordNumbers(path, recordAt(path, material), materialFields);
+    const row = recordAt(path, material);
+    recordNumbers(path, row, materialFields);
+    if (row.rho !== undefined && !(allowStoredNullDensity && row.rho === null)) numberAt(`${path}.rho`, row.rho);
   }
   for (const [id, connector] of model.connectors ?? []) {
     const path = `connectors.${id}`;

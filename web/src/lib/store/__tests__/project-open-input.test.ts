@@ -216,7 +216,7 @@ it.each(['elements', 'materials', 'sections', 'supports', 'plates', 'quads', 'gr
   },
 );
 
-it.skip('known wrong result: #2588 restores spatial constraints from a tab during a planar session', () => {
+it('#2588 restores spatial constraints from a tab during a planar session', () => {
   const { root, tip } = frame('pro');
   modelStore.addConstraint({ type: 'equalDOF', masterNode: root, slaveNode: tip, dofs: [1] });
   const file = buildProjectFile();
