@@ -379,3 +379,32 @@ it('known wrong result: #2581 reads the aggregate planar J cell from its case en
     expect.soft(table.find(row => row[0] === 'J')?.[2]).toBe(end.toFixed(2));
   }
 });
+
+describe('default report whole-member peaks', () => {
+  const peak = (html: string, index: number) => {
+    const summary = rows(html.slice(0, html.indexOf('5.2 ')));
+    return num(summary[index]![1]!);
+  };
+
+  it.skip('known wrong result: #2581 planar default report gives wL²/8', () => {
+    const f = ef2D({ length: 6, vStart: 30, vEnd: -30, qI: -10, qJ: -10 });
+    expect(peak(report('moment', { content: undefined, results2D: r2D(f) }), 2)).toBe(10 * 6 ** 2 / 8);
+  });
+
+  it.skip('known wrong result: #2581 spatial default report gives wL²/8 on both bending axes', () => {
+    const f = ef3D({ vyStart: 30, vyEnd: -30, vzStart: 30, vzEnd: -30, qYI: -10, qYJ: -10, qZI: -10, qZJ: -10 });
+    const html = report('moment', { content: undefined, is3D: true, analysisMode: '3D', results3D: r3D(f) });
+    expect(peak(html, 4)).toBe(10 * 6 ** 2 / 8);
+    expect(peak(html, 5)).toBe(10 * 6 ** 2 / 8);
+  });
+
+  it.skip('known wrong result: #2581 default report uses the envelope rather than the combined end records', () => {
+    const f = ef2D({ length: 6 });
+    const results = r2D(f);
+    const env = computeEnvelope([results, r2D(ef2D({ length: 6, vStart: -30, vEnd: 30, qI: 10, qJ: 10 }))]);
+    if (!env) throw new Error("Envelope unavailable");
+    const html = report('moment', { content: undefined, provenance: { kind: 'envelope' }, results2D: env.maxAbsResults, envelope2D: env });
+    expect(peak(html, 2)).toBe(10 * 6 ** 2 / 8);
+  });
+});
+

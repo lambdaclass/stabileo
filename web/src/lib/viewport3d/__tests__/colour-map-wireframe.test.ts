@@ -110,3 +110,30 @@ describe('colour maps in wireframe render mode (no element groups)', () => {
     expect(eb.getBaseColor(tie)).toBe(eb.getBaseColor(strut));
   });
 });
+
+it.skip('known wrong result: #2581 the spatial force legend includes a point-load peak between texture stations', () => {
+  const { tie } = twoBarModel();
+  const batched = new ElementsBatched();
+  const ctx = context(batched);
+  const span = 4, at = 1.125, load = 64;
+  const reaction = load * (span - at) / span;
+  resultsStore.setResults3D({
+    displacements: [], reactions: [],
+    elementForces: [{
+      elementId: tie, length: span, nStart: 0, nEnd: 0, mxStart: 0, mxEnd: 0,
+      vyStart: 0, vyEnd: 0, vzStart: reaction, vzEnd: reaction - load,
+      myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0, qZI: 0, qZJ: 0,
+      qYI: 0, qYJ: 0, distributedLoadsY: [], pointLoadsY: [],
+      distributedLoadsZ: [], pointLoadsZ: [{ a: at, p: -load }],
+    }],
+  } as NonNullable<typeof resultsStore.results3D>);
+  resultsStore.diagramType = 'colorMap';
+  resultsStore.colorMapKind = 'momentY';
+  try {
+    syncColorMap3D(ctx);
+    expect(resultsStore.colourScale?.max).toBe(reaction * at);
+  } finally {
+    resultsStore.clear3D();
+  }
+});
+
