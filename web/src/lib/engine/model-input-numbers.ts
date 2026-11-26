@@ -13,46 +13,53 @@ type Fields<T> = {
   optional: readonly NumberKeys<T>[];
 };
 
-const commonLoadFields = { id: 'optional', caseId: 'optional', generatedBy: 'field', seismicGeneration: 'field' } as const;
-type InputField = 'required' | 'optional' | 'field';
-type LoadKeys<K extends Load['type']> =
-  Exclude<Extract<keyof Extract<Load, { type: K }>['data'], string>, keyof typeof commonLoadFields>;
+type LoadFields<T> = Fields<T> & { basicProjection?: Fields<T> };
 
-const loadFields = {
-  nodal: { nodeId: 'required', fx: 'required', fz: 'optional', fy: 'optional', my: 'field', mz: 'field' },
-  distributed: {
-    elementId: 'required', qI: 'required', qJ: 'required', a: 'optional', b: 'optional',
-    angle: 'optional', isGlobal: 'field',
+const loadFields: { [K in Load['type']]: LoadFields<Extract<Load, { type: K }>['data']> } = {
+  nodal: {
+    required: ['nodeId'], optional: [],
+    basicProjection: { required: ['fx'], optional: ['fz', 'fy'] },
   },
-  pointOnElement: {
-    elementId: 'required', a: 'required', p: 'required', px: 'optional', angle: 'optional',
-    my: 'field', mz: 'field', mx: 'field', enteredZeroMoment: 'field', isGlobal: 'field',
-  },
-  thermal: {
-    elementId: 'required', dtUniform: 'required', dtGradient: 'required', dtGradientY: 'optional', strain: 'optional',
-  },
+  distributed: { required: ['elementId', 'qI', 'qJ'], optional: ['a', 'b', 'angle'] },
+  pointOnElement: { required: ['elementId', 'a', 'p'], optional: ['px', 'angle'] },
+  thermal: { required: ['elementId', 'dtUniform', 'dtGradient'], optional: ['dtGradientY', 'strain'] },
   nodal3d: {
-    nodeId: 'required', fx: 'required', fy: 'required', fz: 'required', mx: 'required',
-    my: 'required', mz: 'required', fromDef: 'optional', carrier: 'optional',
+    required: ['nodeId'], optional: [],
+    basicProjection: { required: ['fx', 'fy', 'fz', 'mx', 'my', 'mz'], optional: ['fromDef', 'carrier'] },
   },
   distributed3d: {
-    elementId: 'required', qYI: 'required', qYJ: 'required', qZI: 'required', qZJ: 'required',
-    qXI: 'optional', qXJ: 'optional', a: 'optional', b: 'optional', fromDef: 'optional', frame: 'field',
+    required: ['elementId'], optional: [],
+    basicProjection: { required: ['qYI', 'qYJ', 'qZI', 'qZJ'], optional: ['qXI', 'qXJ', 'a', 'b', 'fromDef'] },
   },
-  pointOnElement3d: {
-    elementId: 'required', a: 'required', py: 'required', pz: 'required', px: 'optional',
-    mx: 'optional', my: 'optional', mz: 'optional', frame: 'field',
-  },
-  surface3d: {
-    quadId: 'required', q: 'required', fromDef: 'optional',
-    dir: 'field', qNodes: 'field', vary: 'field', region: 'field', frame: 'field', on: 'field',
-  },
-  thermalQuad3d: { quadId: 'required', dtUniform: 'required', dtGradient: 'required', on: 'field' },
-  prestress3d: { elementId: 'required', force: 'required', eI: 'required', eM: 'required', eJ: 'required' },
-  displacement3d: {
-    nodeId: 'required', dx: 'optional', dy: 'optional', dz: 'optional', drx: 'optional', dry: 'optional', drz: 'optional',
-  },
-} satisfies { [K in Load['type']]: Record<LoadKeys<K> | (K extends 'pointOnElement' ? 'mx' : never), InputField> };
+  pointOnElement3d: { required: ['elementId', 'a', 'py', 'pz'], optional: ['px', 'mx', 'my', 'mz'] },
+  surface3d: { required: ['quadId', 'q'], optional: ['fromDef'] },
+  thermalQuad3d: { required: ['quadId', 'dtUniform', 'dtGradient'], optional: [] },
+  prestress3d: { required: ['elementId', 'force', 'eI', 'eM', 'eJ'], optional: [] },
+  displacement3d: { required: ['nodeId'], optional: ['dx', 'dy', 'dz', 'drx', 'dry', 'drz'] },
+};
+
+const commonLoadFields = { id: 'optional', caseId: 'optional', generatedBy: 'field', seismicGeneration: 'field' } as const;
+type InputField = 'required' | 'optional' | 'field';
+type LoadData<K extends Load['type']> = Extract<Load, { type: K }>['data'];
+type LoadMetadataKeys<K extends Load['type']> = Exclude<
+  Extract<keyof LoadData<K>, string>, NumberKeys<LoadData<K>> | keyof typeof commonLoadFields
+>;
+
+const loadMetadataFields = {
+  nodal: { my: true, mz: true },
+  distributed: { isGlobal: true },
+  pointOnElement: { my: true, mz: true, mx: true, enteredZeroMoment: true, isGlobal: true },
+  thermal: {},
+  nodal3d: {},
+  distributed3d: { frame: true },
+  pointOnElement3d: { frame: true },
+  surface3d: { dir: true, qNodes: true, vary: true, region: true, frame: true, on: true },
+  thermalQuad3d: { on: true },
+  prestress3d: {},
+  displacement3d: {},
+} satisfies { [K in Load['type']]: Record<
+  LoadMetadataKeys<K> | (K extends 'nodal' ? 'my' | 'mz' : never) | (K extends 'pointOnElement' ? 'my' | 'mz' | 'mx' : never), true
+> };
 
 const loadRecordFields = { type: true, data: true } satisfies Record<keyof Load, true>;
 
@@ -85,9 +92,9 @@ function numberAt(path: string, value: unknown): asserts value is number {
   if (!isFiniteInputNumber(value)) throw new InvalidModelNumber(path, value);
 }
 
-function recordNumbers(
-  path: string, data: object, { required, optional }: { required: readonly string[]; optional: readonly string[] },
-): void {
+type NumericFieldNames = { required: readonly string[]; optional: readonly string[] };
+
+function recordNumbers(path: string, data: object, { required, optional }: NumericFieldNames): void {
   const record = data as Record<string, unknown>;
   for (const field of required) numberAt(`${path}.${field}`, record[field]);
   for (const field of optional) {
@@ -119,14 +126,8 @@ export function invalidPlanarPointTorsion(mx: unknown): boolean {
   return mx !== undefined && mx !== 0;
 }
 
-class InvalidModelInputField extends ModelInputError {
-  constructor(path: string) {
-    super(tp('svc.engine.invalidInputField', { path }));
-  }
-}
-
 function requireInputField(path: string, valid: boolean): asserts valid {
-  if (!valid) throw new InvalidModelInputField(path);
+  if (!valid) throw new ModelInputError(tp('svc.engine.invalidInputField', { path }));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -148,97 +149,101 @@ function requireLoadSelectors(path: string, type: Load['type'], data: Record<str
   requireInputField(`${path}.on`, on === undefined || (shellTarget && on === 'plate'));
 }
 
-export function requireLoadCollection(loads: unknown): asserts loads is readonly unknown[] {
-  requireInputField('loads', Array.isArray(loads));
-}
-
-function requireLoadRecord(load: unknown, index: number) {
-  const row = `loads[${index}]`;
+function requireLoadRecord(load: unknown, i: number) {
+  const row = `loads[${i}]`;
   requireInputField(`${row}.type`, isRecord(load) && isLoadType(load.type));
   requireKnownFields(row, load, loadRecordFields);
   const path = `${row}.data`;
   const { type, data } = load;
   requireInputField(path, isRecord(data));
   requireLoadSelectors(path, type, data);
-  const fields = loadFields[type];
-  requireKnownFields(path, data, fields, commonLoadFields);
-  return { path, type, data, fields };
+  const fields: NumericFieldNames & { basicProjection?: NumericFieldNames } = loadFields[type];
+  for (const key of Object.keys(data)) {
+    const allowed = Object.hasOwn(commonLoadFields, key) || Object.hasOwn(loadMetadataFields[type], key)
+      || fields.required.includes(key) || fields.optional.includes(key)
+      || fields.basicProjection?.required.includes(key) || fields.basicProjection?.optional.includes(key);
+    requireInputField(`${path}.${key}`, allowed === true);
+  }
+  return { path, type, data };
 }
 
-function requirePlanarNodalNumbers(path: string, data: Record<string, unknown>): void {
+function requireProjectionNumbers({ path, type, data }: ReturnType<typeof requireLoadRecord>): void {
+  const fields = loadFields[type].basicProjection;
+  if (fields) recordNumbers(path, data, fields);
+  if (type === 'nodal') requirePlanarNodalMoment(path, data);
+  if (type === 'nodal') numberAt(`${path}.fz/fy`, data.fz ?? data.fy);
+}
+
+function requirePlanarNodalMoment(path: string, data: Record<string, unknown>): void {
   const invalidMoment = invalidPlanarNodalMomentField(data);
   if (invalidMoment !== undefined) throw new InvalidModelNumber(`${path}.${invalidMoment}`, data[invalidMoment]);
-  numberAt(`${path}.fz/fy`, data.fz ?? data.fy);
 }
 
-function requireLoadRow(load: unknown, index: number): void {
-  const { path, type, data, fields } = requireLoadRecord(load, index);
-  requireNumericFields(path, data, commonLoadFields);
-  requireNumericFields(path, data, fields);
-  if (type === 'pointOnElement') {
-    const { mx } = data;
-    if (invalidPlanarPointTorsion(mx)) {
-      const field = `${path}.mx`;
-      numberAt(field, mx);
-      throw new ModelInputError(`${t('svc.engine.unsupportedPointLoadMoment')} ${field}: ${t('svc.engine.applyPointLoadMomentAtNode')}`);
-    }
-  }
-  if (type === 'nodal') requirePlanarNodalNumbers(path, data);
-  if (type === 'surface3d') {
-    const { dir, qNodes, vary, region } = data as Partial<Extract<Load, { type: 'surface3d' }>['data']>;
-    if (dir !== undefined) vector(`${path}.dir`, dir);
-    if (qNodes !== undefined) arrayOf(`${path}.qNodes`, qNodes, numberAt);
-    if (vary !== undefined) {
-      if (!vary) throw new InvalidModelNumber(`${path}.vary`, vary);
-      recordNumbers(`${path}.vary`, vary, { required: ['c1', 'q1', 'c2', 'q2'], optional: [] });
-      vector(`${path}.vary.dir`, vary.dir);
-    }
-    if (region !== undefined) {
-      if (!region) throw new InvalidModelNumber(`${path}.region`, region);
-      vector(`${path}.region.normal`, region.normal);
-      polygon(`${path}.region.points`, region.points);
-      if (region.holes !== undefined) arrayOf(`${path}.region.holes`, region.holes, polygon);
-    }
-  }
+export function requireLoadCollection(loads: unknown): asserts loads is readonly unknown[] {
+  requireInputField('loads', Array.isArray(loads));
 }
 
 export function requireLoadInput(loads: unknown): void {
   requireLoadCollection(loads);
-  for (const [index, load] of loads.entries()) requireLoadRow(load, index);
+  for (const [i, load] of loads.entries()) {
+    const row = requireLoadRecord(load, i);
+    const { path, type, data } = row;
+    requireNumericFields(path, data, commonLoadFields);
+    recordNumbers(path, data, loadFields[type]);
+    requireProjectionNumbers(row);
+    if (type === 'pointOnElement') {
+      const { mx } = data;
+      if (invalidPlanarPointTorsion(mx)) {
+        const field = `${path}.mx`;
+        numberAt(field, mx);
+        throw new ModelInputError(`${t('svc.engine.unsupportedPointLoadMoment')} ${field}: ${t('svc.engine.applyPointLoadMomentAtNode')}`);
+      }
+    }
+    if (type === 'surface3d') {
+      const { dir, qNodes, vary, region } = data as Partial<Extract<Load, { type: 'surface3d' }>['data']>;
+      if (dir !== undefined) vector(`${path}.dir`, dir);
+      if (qNodes !== undefined) arrayOf(`${path}.qNodes`, qNodes, numberAt);
+      if (vary !== undefined) {
+        if (!vary) throw new InvalidModelNumber(`${path}.vary`, vary);
+        recordNumbers(`${path}.vary`, vary, { required: ['c1', 'q1', 'c2', 'q2'], optional: [] });
+        vector(`${path}.vary.dir`, vary.dir);
+      }
+      if (region !== undefined) {
+        if (!region) throw new InvalidModelNumber(`${path}.region`, region);
+        vector(`${path}.region.normal`, region.normal);
+        polygon(`${path}.region.points`, region.points);
+        if (region.holes !== undefined) arrayOf(`${path}.region.holes`, region.holes, polygon);
+      }
+    }
+  }
 }
 
-export function loadInputRefusal(loads: unknown): string | null {
+function modelInputError(check: () => void): ModelInputError | null {
   try {
-    requireLoadInput(loads);
+    check();
     return null;
   } catch (error) {
-    if (error instanceof ModelInputError) return error.message;
+    if (error instanceof ModelInputError) return error;
     throw error;
   }
 }
 
+export function loadInputRefusal(loads: unknown): string | null {
+  return modelInputError(() => requireLoadInput(loads))?.message ?? null;
+}
+
 export function hasMalformedAuthoredLoad(loads: unknown, basicProjection: boolean): boolean {
   if (loads === undefined) return false;
-  if (!Array.isArray(loads)) return true;
-  for (const [index, load] of loads.entries()) {
-    try {
-      const { path, type, data, fields } = requireLoadRecord(load, index);
-      if (type === 'nodal') {
-        if (basicProjection) requirePlanarNodalNumbers(path, data);
-        else {
-          const invalidMoment = invalidPlanarNodalMomentField(data);
-          if (invalidMoment !== undefined) throw new InvalidModelNumber(`${path}.${invalidMoment}`, data[invalidMoment]);
-        }
-      }
-      if (basicProjection && (type === 'nodal' || type === 'nodal3d' || type === 'distributed3d')) {
-        requireNumericFields(path, data, fields);
-      }
-    } catch (error) {
-      if (error instanceof ModelInputError) return true;
-      throw error;
+  return modelInputError(() => {
+    requireLoadCollection(loads);
+    for (const [i, load] of loads.entries()) {
+      const row = requireLoadRecord(load, i);
+      const fields = loadFields[row.type];
+      if (basicProjection && fields.basicProjection) recordNumbers(row.path, row.data, fields);
+      if (basicProjection) requireProjectionNumbers(row);
+      else if (row.type === 'nodal') requirePlanarNodalMoment(row.path, row.data);
     }
-  }
-  return false;
+  }) !== null;
 }
 
 function recordAt(path: string, value: unknown): Record<string, unknown> {
@@ -264,7 +269,7 @@ function validateSupport(path: string, value: unknown): void {
   const row = recordAt(path, value);
   requireKnownFields(path, row, supportFields);
   requireNumericFields(path, row, supportFields);
-  if (!isSupportType(row.type)) throw new InvalidModelInputField(`${path}.type (${String(row.type)})`);
+  requireInputField(`${path}.type (${String(row.type)})`, isSupportType(row.type));
   optionalValue(`${path}.dofFrame`, row.dofFrame, ['global', 'local']);
   for (const field of ['isGlobal', 'isInclined', 'uplift']) {
     optionalValue(`${path}.${field}`, row[field], [true, false]);
@@ -592,7 +597,7 @@ export function requireStructureInput(model: {
   requireAnalysisInput(model.analysis);
 }
 
-export function requireModelInput(model: ModelData): void {
+function requireModelNumbers(model: ModelData): void {
   requireLoadInput(model.loads);
   requireStructureInput(model);
   if (model.constraints !== undefined) {
@@ -600,12 +605,8 @@ export function requireModelInput(model: ModelData): void {
   }
 }
 
-export function modelInputRefusal(model: ModelData): string | null {
-  try {
-    requireModelInput(model);
-    return null;
-  } catch (error) {
-    if (error instanceof ModelInputError) return error.message;
-    throw error;
-  }
+function modelNumberRefusal(model: ModelData): string | null {
+  return modelInputError(() => requireModelNumbers(model))?.message ?? null;
 }
+
+export { requireModelNumbers as requireModelInput, modelNumberRefusal as modelInputRefusal };
