@@ -106,7 +106,7 @@ function openToolLink(entry: typeof shareEntries[number], payload: string) {
   }
 }
 
-it.skip.each(shareEntries)('known wrong result: #2588 — %s restores the calculator’s XY plane', async entry => {
+it.each(shareEntries)('known wrong result: #2588 — %s restores the calculator’s XY plane', async entry => {
   await initSolver();
   const original = buildModel('column-buckling', { ...EXAMPLE, k: 0.5 });
   const payload = editorUrl(original, 'column-buckling').split('#data=')[1];
