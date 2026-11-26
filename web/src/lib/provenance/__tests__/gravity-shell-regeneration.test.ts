@@ -116,3 +116,23 @@ it.each([false, true])('#2607 older panel gravity with stacked gap decks require
   expect(result('panels', [])).not.toContain(id);
   expect(result('width', constraints)).not.toContain(id);
 });
+
+const replayLegacyWidth = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
+
+replayLegacyWidth.each(['linear', 'pdelta'] as const)(
+  'known wrong result: #2607 an older %s result with unequal gap end widths requires regeneration', analysis => {
+    const { model } = offsetRoof(0.02, 0, 1, true, [4, 6]);
+    for (const node of model.nodes.values()) if (node.x === 6) node.y *= 1.5;
+    for (const [mode, paired, affected] of [['panels', true, true], ['panels', false, false], ['width', true, false]] as const) {
+      const snapshot = {
+        ...legacyPanel, analysisMode: 'pro', nodes: [...model.nodes], elements: [...model.elements],
+        quads: [...model.quads], constraints: paired ? model.constraints : model.constraints.slice(0, 1),
+        regulations: { roles: { loads: { adapterId: 'cirsoc-101', settings: { dialog: { gravityMode: mode } } } } },
+      } satisfies FeatureSnapshot;
+      const stamp = { ...stampSolve(analysis, null), resultsVersion: change.resultsVersion };
+      const notices = assessProject(snapshot, stamp).changes.map(c => c.id);
+      expect.soft(modelFeatures(snapshot).has('roofShellFrameLinks')).toBe(affected);
+      expect.soft(notices.includes('gravity-attached-rafter-gap-width')).toBe(affected);
+    }
+  },
+);

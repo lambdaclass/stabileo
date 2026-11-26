@@ -369,3 +369,30 @@ it.each([0, 0.5, -0.5, 1e-8])(
     }
   },
 );
+
+const replayStackedGaps = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
+
+replayStackedGaps.each([0, 5])(
+  'known wrong result: #2607 aligned certified rafter gaps with lateral offset %s', lateralOffset => {
+    const { model } = offsetRoof(0.02, 0, 1, false, [4, 6]);
+    const sheltered = lateralOffset === 0;
+    const lowerId = 1;
+    const { model: upper } = offsetRoof(0.02, 0, 1, false, [4, 6]);
+    const offset = model.nodes.size;
+    for (const [id, node] of upper.nodes) model.nodes.set(id + offset, { ...node, id: id + offset, y: node.y + lateralOffset, z: node.z! + 1 });
+    for (const [id, shell] of upper.quads) model.quads.set(id + 2, { ...shell, id: id + 2, nodes: shell.nodes.map(node => node + offset) });
+    for (const [id, member] of upper.elements) model.elements.set(id + 1, { ...member, id: id + 1, nodeI: member.nodeI + offset, nodeJ: member.nodeJ + offset });
+    for (const link of upper.constraints) model.constraints.push({ ...link, masterNode: link.masterNode + offset, slaveNode: link.slaveNode + offset });
+    const layout = gravityLayout(model, options);
+    expect.soft((sheltered ? layout.areaOf : layout.roofAreaOf).get(lowerId)).toBeCloseTo(8, 10);
+    expect.soft(layout.roofAreaOf.get(2)).toBeCloseTo(8, 10);
+    const plan = buildLoadPlan(input(model, {
+      gravity: { mode: 'panels' },
+      roof: { use: 'occupancy', occupancyKey: 'vivienda', weight: 'heavy', dead: 2, slopeDeg: Math.atan(0.2) * 180 / Math.PI },
+    }));
+    expect.soft(roofPlan(model).outcome).toBe('READY');
+    expect.soft(plan.blockedKeys).toEqual([{ key: 'loadPlan.blocked.concentratedRoof' }]);
+    expect.soft(plan.distributed.find(row => row.elementId === lowerId && row.caseType === 'D')?.q).toBeCloseTo(sheltered ? -4 : -8, 10);
+    expect.soft(plan.distributed.find(row => row.elementId === 2 && row.caseType === 'D')?.q).toBeCloseTo(-8, 10);
+  },
+);

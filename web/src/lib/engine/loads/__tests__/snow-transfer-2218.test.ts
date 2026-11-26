@@ -869,3 +869,83 @@ it('#2607 a varying positive fetch refuses when bearing pressure cannot be resol
   const { pd, w } = stepDrift({ ...adjacentInputs, stepHeight: 2, luUpper: 7, luLower: 7.5 });
   expect(receivingSnowForce(model, rows)).toBeCloseTo(4 * pd * w / 2, 10);
 });
+
+const replayRoofContinuity = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
+
+replayRoofContinuity.each([[0.08, 0], [0.1, 0], [0.12, 0], [0.08, 0.005]])(
+  'known wrong result: #2607 receiving seam length %s and open gap %s', (width, gap) => {
+    const depth = 0.5;
+    const far = 7.5;
+    const model = mesh([
+      [[0, 0, 3], [depth, 0, 3], [depth, width, 3], [depth, 4, 3], [0, 4, 3]],
+      [[depth + gap, 0, 3], [far, 0, 3], [far, width, 3], [depth + gap, width, 3]],
+      [[-35, 0, 5], [0, 0, 5], [0, 4, 5], [-35, 4, 5]],
+    ]);
+    const layout = gravityLayout(model, { ...adjacentGravity, tributaryWidth: 1 });
+    const loadedDepth = gap ? depth : far;
+    const surcharge = (balanced: number) => {
+      const integrate = (fetch: number) => {
+        const { pd, w } = stepDrift({ ...adjacentInputs, balanced, stepHeight: 2, luUpper: 35, luLower: fetch });
+        const end = Math.min(fetch, w);
+        return pd * end * (1 - end / (2 * w));
+      };
+      return (4 - width) * integrate(depth) + width * integrate(loadedDepth);
+    };
+    const rows = driftAndSlidingLoads(model, layout, adjacentInputs).distributed;
+    expect.soft(receivingSnowForce(model, rows)).toBeCloseTo(surcharge(adjacentInputs.balanced), 10);
+    const cases = snowLoadCases({ model, layout, snow: adjacentConfig, tributaryWidth: 1 })!;
+    const plan = adjacentPlan(model);
+    expect.soft(cases.result.refused).toBeUndefined();
+    expect.soft(plan.outcome).toBe('READY');
+    const snowCase = plan.cases.findIndex(c => c.type === 'S');
+    const area = 4 * depth + (far - depth - gap) * width;
+    expect.soft(receivingSnowForce(model, cases.cases[0]!.distributed)).toBeCloseTo(area * cases.result.ps + surcharge(cases.result.ps), 10);
+    expect.soft(receivingSnowForce(model, plan.distributed.filter(row => row.caseType === 'S' && row.caseIndex === snowCase)))
+      .toBeCloseTo(area * cases.result.ps + surcharge(cases.result.ps), 10);
+  },
+);
+
+replayRoofContinuity.each([0, 1])('known wrong result: #2607 roof fetch across a hole edge with clearance %s', clearance => {
+  const model = mesh([
+    [[0, 0, 3], [7.5, 0, 3], [7.5, 4, 3], [0, 4, 3]],
+    [[-8, -10, 5], [0, -10, 5], [0, 14, 5], [-8, 14, 5]],
+  ]);
+  const base = gravityLayout(model, { ...adjacentGravity, tributaryWidth: 1, loadEveryPanel: true });
+  const exterior: Array<[number, number]> = [[-35, -11], [17, -11], [17, 15], [-35, 15]];
+  const hole: Array<[number, number]> = [[-8 - clearance, -10], [16, -10], [16, 14], [-8 - clearance, 14]];
+  const clipped = { ...base, panels: [...base.panels, { z: 5, roof: true, polygon: exterior, footprint: [[exterior, hole]] }] };
+  const surcharge = (balanced: number) => {
+    const { w, pd } = stepDrift({ ...adjacentInputs, balanced, stepHeight: 2, luUpper: clearance === 0 ? 35 : 8, luLower: 7.5 });
+    return 4 * w * pd / 2;
+  };
+  expect.soft(receivingSnowForce(model, driftAndSlidingLoads(model, clipped, adjacentInputs).distributed))
+    .toBeCloseTo(surcharge(adjacentInputs.balanced), 10);
+  const cases = snowLoadCases({ model, layout: clipped, snow: adjacentConfig, tributaryWidth: 1 })!;
+  expect.soft(cases.result.refused).toBeUndefined();
+  expect.soft(receivingSnowForce(model, cases.cases[0]!.distributed)).toBeCloseTo(30 * cases.result.ps + surcharge(cases.result.ps), 10);
+});
+
+it.each([false, true])('#2607 a concave two-way receiver refuses positive step drift (notch %s)', notch => {
+  const outline = [[0, 0, 3], [7.5, 0, 3], [7.5, 4, 3], [0, 4, 3]];
+  if (notch) outline.splice(1, 0, [1, 0, 3], [1, 1, 3], [2, 1, 3], [2, 0, 3]);
+  const model = mesh([outline, [[-7.5, 0, 5], [0, 0, 5], [0, 4, 5], [-7.5, 4, 5]]]);
+  const gravity = { mode: 'panels', slab: notch ? 'twoWay' : 'oneWay', spanAxis: 'x' } as const;
+  const layout = gravityLayout(model, { ...gravity, tributaryWidth: 1 });
+  const run = () => driftAndSlidingLoads(model, layout, adjacentInputs);
+  const cases = snowLoadCases({ model, layout, snow: adjacentConfig, tributaryWidth: 1 })!;
+  const plan = buildLoadPlan({
+    model, gravity, regulations: regulations(), dead: [], occupancyKey: 'vivienda', tributaryWidth: 1,
+    reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true,
+    snow: { ...adjacentConfig, enabled: true, source: 'site' },
+  });
+  if (notch) {
+    const reason = 'snow.refused.stepDriftTransfer';
+    expect.soft(run).toThrow(reason);
+    expect.soft(cases).toMatchObject({ result: { refused: reason }, cases: [] });
+    expect.soft(plan).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [{ key: reason }], distributed: [] });
+  } else {
+    expect.soft(run().distributed).toHaveLength(2);
+    expect.soft(cases.result.refused).toBeUndefined();
+    expect.soft(plan.outcome).toBe('READY');
+  }
+});

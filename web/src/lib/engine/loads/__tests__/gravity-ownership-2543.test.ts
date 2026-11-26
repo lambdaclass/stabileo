@@ -387,3 +387,21 @@ it('#2543 solves the generated inclined fringe force and moment in both WASM dim
     expect(secondOrder.my).toBeCloseTo(expected.my, 9);
   }
 });
+
+const replayLocalBay = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
+
+replayLocalBay('known wrong result: #2607 a separately supported pitched roof clears the bay across their overlap', () => {
+  const { model, ring, quad, node } = fixture();
+  const lower = ring(rectangle(2, 0, 6, 4), 3);
+  const upper = rectangle(0, 0, 6, 4).map(point => node(point, 2.75 + point[0] / 4));
+  quad(upper);
+  const supported: LoadModelData = {
+    ...model,
+    supports: new Map([...lower, ...upper].map(id => [id, { id, nodeId: id, type: 'fixed3d' }])),
+  };
+  const layout = gravityLayout(supported, { mode: 'panels', tributaryWidth: 3 });
+  expect.soft([...layout.areaOf.values()].reduce((sum, area) => sum + area, 0)).toBeCloseTo(16, 10);
+  const plan = planFor(supported);
+  expect.soft(plan.outcome).toBe('READY');
+  expect.soft(plan.levels.reduce((sum, level) => sum + level.superimposedKN, 0)).toBeCloseTo(16 + 4 * Math.hypot(6, 1.5), 10);
+});
