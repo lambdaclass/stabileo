@@ -28,3 +28,20 @@ it('the planar viewport uses the shared member scale for paint and legend', () =
   expect(colourMap).toContain('colourRampCss(val / globalMax)');
   expect(colourMap).toContain('{ max: globalMax, unit: colourMapUnit(kind)');
 });
+
+it.skip('known wrong result: #2581 the axial label and colour share the signed peak for a member with axial force 0 to 10', () => {
+  const source = readFileSync(new URL('../../../components/Viewport.svelte', import.meta.url), 'utf8');
+  expect(source).toMatch(/for \(const \[(\w+), (\w+)\] of (\w+)\)[\s\S]*?colorMapOverrides\.set\(\1, mix\([\s\S]*?for \(const \[(\w+), (\w+)\] of \3\)[\s\S]*?drawMemberValueLabel\(\4, [^\n]*fixedQuantity\(\5,/);
+});
+
+it.skip('known wrong result: #2581 remaining force consumers use the shared extrema and concurrency paths', () => {
+  const sourceOf = (file: string) => readFileSync(new URL(file, import.meta.url), 'utf8');
+  for (const file of ['../design/sway.ts', '../direct-analysis.ts', '../verification-service.ts']) {
+    expect.soft(sourceOf(file), file).not.toMatch(/Math\.(?:max|min)\([^;\n]*(?:\b[ij]\.(?:n|m[yz]|v[yz])\b|\b[ij] \?\? 0)/);
+  }
+  const tables = sourceOf('../report/calc-report-extra.ts');
+  expect.soft(tables).not.toContain('bindMemberEnvelopeEnds');
+  const heatmap = sourceOf('../../three/stress-heatmap.ts');
+  expect.soft(heatmap).toContain('requireConcurrentSectionForces');
+  expect.soft(heatmap).not.toMatch(/stations.push\(\.\.\.memberEnvelopeOrdinates/);
+});

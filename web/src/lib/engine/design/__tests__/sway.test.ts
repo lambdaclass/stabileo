@@ -64,3 +64,18 @@ describe('sway storeys', () => {
     expect(s.deltaS).toBe(Number.POSITIVE_INFINITY);
   });
 });
+
+it.skip('known wrong result: #2581 storey stability uses the compression between two opposing axial loads', () => {
+  for (const drift of [0.06, 0.09]) {
+    const perCombo = results(drift);
+    const result = perCombo.get(1) as import('../../types-3d').AnalysisResults3D;
+    result.elementForces = result.elementForces.map(force => ({
+      ...force, nStart: 0, nEnd: 0, pointLoadsX: [{ a: 1, p: 100 }, { a: 2, p: -100 }],
+    }));
+    const stability = storeyStability({ nodes, elements, sections, materials, columns: [10, 11], perCombo })[0]!;
+    const q = 200 * drift / (100 * 3);
+    expect.soft(stability.Q).toBeCloseTo(q, 10);
+    expect.soft(stability.sway).toBe(q > 0.05);
+    expect.soft(stability.deltaS).toBeCloseTo(q > 0.05 ? 1 / (1 - q) : 1, 10);
+  }
+});

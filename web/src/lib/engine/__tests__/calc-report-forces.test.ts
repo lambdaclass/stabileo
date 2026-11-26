@@ -1,4 +1,6 @@
 import { forcePeakScale } from '../member-force-extrema';
+import { steelDemandOf } from '../verification-service';
+import { sampleElementValues } from '../../three/stress-heatmap';
 /**
  * The report's internal-force tables: each member's ends and the largest value along it, with
  * where it is — for one load state, for the envelope, in 2D and in 3D — and the figure numbers.
@@ -430,4 +432,79 @@ it('a default report refuses a conservative-only peak while a flat exact load st
   const html = (f: ElementForces3D) => report('axial', { content: undefined, is3D: true, results3D: r3D(f) });
   expect(() => html(outer)).toThrow('solver.diagramExtremaUnavailable');
   expect(num(rows(html(inner))[0]![1]!)).toBe(12);
+});
+
+describe('consumer sweep #2581', () => {
+  beforeAll(async () => { await initSolver(); });
+
+  it.skip('known wrong result: #2581 copied planar results still use the selected envelope ends and peak', () => {
+    const selected = r2D(ef2D({ nStart: -10, nEnd: -10 }));
+    const envelope = computeEnvelope([selected])!;
+    const copied = r2D(ef2D({ nStart: 2, nEnd: 2 }));
+    const [row] = rows(report('axial', { provenance: { kind: 'envelope' }, results2D: copied, envelope2D: envelope }));
+    expect(row?.slice(1).map(num)).toEqual([-10, -10, -10, 0]);
+  });
+
+  it.skip('known wrong result: #2581 copied spatial results still use the selected envelope ends and peak', () => {
+    const selected = r3D(ef3D({ nStart: -10, nEnd: -10 }));
+    const envelope = computeEnvelope3D([selected])!;
+    const copied = r3D(ef3D({ nStart: 2, nEnd: 2 }));
+    const table = rows(report('axial', {
+      is3D: true, analysisMode: '3D', provenance: { kind: 'envelope' }, results3D: copied, envelope3D: envelope,
+    }));
+    expect(table.find(row => row[1] === 'I')?.at(-1)).toBe('-10.00');
+    expect(table.find(row => row[0] === 'J')?.at(-1)).toBe('-10.00');
+    expect(table.find(row => row[0] === 'Max |value|')?.at(-1)).toBe('-10.00 (x = 0.00 m)');
+  });
+
+  it.skip('known wrong result: #2581 the steel fallback reads concurrent interior bending on a uniformly loaded simple span', () => {
+    const length = 6;
+    const load = 10;
+    const reaction = load * length / 2;
+    const forces = ef3D({ length, vzStart: reaction, vzEnd: -reaction,
+      distributedLoadsZ: [{ qI: -load, qJ: -load, a: 0, b: length }] });
+    const demand = steelDemandOf(forces);
+    expect.soft(demand.MuStrong).toBeCloseTo(load * length ** 2 / 8, 10);
+    expect.soft(demand.VuStrong).toBeCloseTo(reaction, 10);
+    expect.soft(demand.concurrent?.some(cut => cut.stationT === 0.5 && cut.vz === 0
+      && Math.abs(cut.my) === load * length ** 2 / 8)).toBe(true);
+  });
+
+  it.skip('known wrong result: #2581 the spatial heatmap refuses nonconcurrent stress components', () => {
+    const section = { A: 1, Iz: 1, Iy: 1, h: 1, b: 1, fy: 100 };
+    const axial = ef3D({ nStart: 10, nEnd: 10 });
+    const bending = ef3D({ myStart: 20, myEnd: 20 });
+    const combined = ef3D({ combined: { method: 'abs', parts: [axial, bending] } });
+    const control = sampleElementValues(axial, 'sigmaMax', section);
+    expect(control.peak).toBe(10);
+    expect(() => sampleElementValues(combined, 'sigmaMax', section)).toThrow('solver.diagramExtremaUnavailable');
+    const envelope = computeEnvelope3D([r3D(axial), r3D(bending)])!;
+    expect(() => sampleElementValues(envelope.maxAbsResults3D.elementForces[0]!, 'sigmaMax', section))
+      .toThrow('solver.diagramExtremaUnavailable');
+  });
+
+  it.skip('known wrong result: #2581 spatial envelope shear uses both components on each shared face', () => {
+    const section = { A: 1, Iz: 1, Iy: 1, h: 1, b: 1, fy: null };
+    const forces = ef3D({ vyStart: 3, vzStart: 4,
+      pointLoadsY: [{ a: 3, p: -3 }], pointLoadsZ: [{ a: 3, p: -4 }] });
+    const envelope = computeEnvelope3D([r3D(forces)])!;
+    const result = sampleElementValues(envelope.maxAbsResults3D.elementForces[0]!, 'shear', section);
+    expect.soft(result.peak).toBe(5);
+    expect.soft(result.stations.filter(cut => cut.t === 0.5).map(cut => cut.value)).toEqual([5, 0]);
+    expect(result.stations.at(-1)?.value).toBe(0);
+  });
+
+  it.skip('known wrong result: #2581 spatial envelope moment takes concurrent resultants on shared cuts', () => {
+    const section = { A: 1, Iz: 1, Iy: 1, h: 1, b: 1, fy: null };
+    const concurrent = r3D(ef3D({ myStart: 3, myEnd: 3, mzStart: 4, mzEnd: 4 }));
+    const y = r3D(ef3D({ myStart: 3, myEnd: 3 }));
+    const z = r3D(ef3D({ mzStart: 4, mzEnd: 4 }));
+    for (const [sources, peak] of [[[concurrent], 5], [[y, z], 4]] as const) {
+      const envelope = computeEnvelope3D([...sources])!;
+      const result = sampleElementValues(envelope.maxAbsResults3D.elementForces[0]!, 'moment', section);
+      expect.soft(result.peak).toBe(peak);
+      expect.soft(result.stations.every(cut => cut.value === peak)).toBe(true);
+      expect.soft(new Set(result.stations.map(cut => cut.t)).size).toBe(result.stations.length);
+    }
+  });
 });
