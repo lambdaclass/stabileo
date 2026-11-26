@@ -6,23 +6,41 @@ import type { Level } from '../model/grid';
 import { typologyFamily } from '../model/building/typology-defaults';
 import { storeyAt } from '../model/storeys';
 import {
-  beamAxis, beamFromFaces, footprintAt, footprintCorners, footprintFromCorners, footprintFromSide,
-  placeBeamOnPlan, placeColumnOnPlan, type Footprint, type P2, type PlanPlaced,
+  beamAxis, beamFromFaces, beamFromRect, footprintAt, footprintCorners, footprintFromCorners, footprintFromSide,
+  placeBeamOnPlan, placeColumnOnPlan, rectCorners, type Footprint, type P2, type PlanPlaced,
 } from '../model/building/draw-on-plan';
+import { placeSlabOnPlan, slabFraming, type SlabEdge } from '../model/building/slab-on-plan';
 
-export type PlanDrawKind = 'column' | 'beam';
+export type PlanDrawKind = 'column' | 'beam' | 'slab';
 export type ColumnMode = 'point' | 'corners' | 'side';
-export type BeamMode = 'axis' | 'faces';
+export type BeamMode = 'rect' | 'axis' | 'faces';
 
-const NEED: Record<ColumnMode | BeamMode, number> = { point: 1, corners: 2, side: 3, axis: 2, faces: 3 };
+const NEED: Record<ColumnMode | BeamMode, number> = { point: 1, corners: 2, side: 3, rect: 2, axis: 2, faces: 3 };
+
+/** What a point snaps to while drawing on the plan, each turned on or off; `on` is all of them at once (F3). */
+export const STRUCTURE_SNAPS = ['column', 'beam', 'node', 'axes', 'grid'] as const;
+export type StructureSnap = (typeof STRUCTURE_SNAPS)[number];
+const SNAP_KEY = 'stabileo-plan-snaps';
+const snapDefaults = { on: true, template: true, column: true, beam: true, node: true, axes: true, grid: false };
+const snap = $state<typeof snapDefaults>((() => {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(SNAP_KEY) : null;
+    if (raw) return { ...snapDefaults, ...(JSON.parse(raw) as Partial<typeof snapDefaults>) };
+  } catch { /* private mode, or a value from elsewhere */ }
+  return { ...snapDefaults };
+})());
+function saveSnaps() { try { localStorage.setItem(SNAP_KEY, JSON.stringify(snap)); } catch { /* not kept */ } }
 
 let kind = $state<PlanDrawKind | null>(null);
 let points = $state<P2[]>([]);
 let hover = $state<P2 | null>(null);
 let typed = $state('');
 let ortho = $state(false);
+/** Ortho kept on (F8), as Shift holds it while pressed. */
+let orthoLock = $state(false);
 const column = $state({ mode: 'corners' as ColumnMode, b: 0.3, h: 0.3, angle: 0, fixedPoint: [0, 0] as [number, number], levelFrom: '', levelTo: '', fixBase: true, typology: 'concrete', sectionId: null as number | null });
-const beam = $state({ mode: 'axis' as BeamMode, width: 0.2, height: 0.5, align: 0 as -1 | 0 | 1, topFlush: true, typology: 'dropped', sectionId: null as number | null });
+const beam = $state({ mode: 'rect' as BeamMode, width: 0.2, height: 0.5, align: 0 as -1 | 0 | 1, topFlush: true, typology: 'dropped', sectionId: null as number | null });
+const slab = $state({ thickness: 0.15, typology: 'solid' });
 let modeBefore: 'wireframe' | 'solid' | 'sections' | null = null;
 
 const levels = (): Level[] => [...(modelStore.grid?.levels ?? [])].sort((a, b) => a.z - b.z);
@@ -31,15 +49,15 @@ const levelHere = (): Level | undefined => levels().find((l) => Math.abs(l.z - u
 const beamLevel = (): Level | undefined => (levelHere() ? storeyAt(levels(), uiStore.nodeCreateZ).ceiling ?? levelHere() : undefined);
 
 /** Whether the next point draws a line from the last one, which is what Shift squares. */
-const linear = () => points.length === 1 && (kind === 'beam' || column.mode === 'side');
+const linear = () => points.length === 1 && ((kind === 'beam' && beam.mode !== 'rect') || (kind === 'column' && column.mode === 'side'));
 
 function constrain(p: P2): P2 {
   const last = points[points.length - 1];
-  if (!ortho || !last || !linear()) return p;
+  if (!(ortho || orthoLock) || !last || !linear()) return p;
   return Math.abs(p.x - last.x) >= Math.abs(p.y - last.y) ? { x: p.x, y: last.y } : { x: last.x, y: p.y };
 }
 
-const mode = () => (kind === 'column' ? column.mode : beam.mode);
+const mode = (): ColumnMode | BeamMode => (kind === 'column' ? column.mode : kind === 'slab' ? 'rect' : beam.mode);
 
 function band(a: P2, b: P2, width: number): P2[] {
   const L = Math.hypot(b.x - a.x, b.y - a.y);
@@ -55,6 +73,7 @@ function columnFootprint(pts: readonly P2[]): Footprint | null {
 }
 
 function beamLine(pts: readonly P2[]): { a: P2; b: P2; width: number } | null {
+  if (beam.mode === 'rect') return pts.length >= 2 ? beamFromRect(pts[0]!, pts[1]!) : null;
   if (beam.mode === 'axis') return pts.length >= 2 ? { ...beamAxis(pts[0]!, pts[1]!, beam.width, beam.align), width: beam.width } : null;
   return pts.length >= 3 ? beamFromFaces(pts[0]!, pts[1]!, pts[2]!) : null;
 }
@@ -84,8 +103,17 @@ function commit(pts: P2[]) {
     if (placed && column.mode !== 'point' && column.sectionId === null) { column.b = Math.round(f.b * 100) / 100; column.h = Math.round(f.h * 100) / 100; }
     return;
   }
-  const line = beamLine(pts);
   const ceiling = beamLevel();
+  if (kind === 'slab') {
+    points = [];
+    if (!ceiling) { uiStore.toast(t('planDraw.noLevel'), 'error'); return; }
+    const r = placeSlabOnPlan({ corners: rectCorners(pts[0]!, pts[1]!), level: ceiling, thickness: slab.thickness, materialId: buildingUi.concreteId, typology: slab.typology });
+    if (r.refused) { uiStore.toast(t(`planDraw.refused.${r.refused}`), 'error'); return; }
+    const free = r.edges.filter((e) => e.support === 'free').length;
+    uiStore.toast(free ? tp('planDraw.placed.slabFree', { n: free, level: ceiling.name }) : tp('planDraw.placed.slab', { level: ceiling.name }), free ? 'info' : 'success');
+    return;
+  }
+  const line = beamLine(pts);
   if (!ceiling) { uiStore.toast(t('planDraw.noLevel'), 'error'); points = []; return; }
   if (!line) { uiStore.toast(t('planDraw.refused.size'), 'error'); points = []; return; }
   const materialId = buildingUi.materialFor(typologyFamily('beam', beam.typology));
@@ -93,7 +121,7 @@ function commit(pts: P2[]) {
     a: line.a, b: line.b, width: line.width, height: beam.height, level: ceiling, materialId, typology: beam.typology, topFlush: beam.topFlush,
     ...(beam.sectionId !== null ? { sectionId: beam.sectionId } : {}),
   }), 'beam');
-  if (placed && beam.mode === 'faces') beam.width = Math.round(line.width * 100) / 100;
+  if (placed && beam.mode !== 'axis' && beam.sectionId === null) beam.width = Math.round(line.width * 100) / 100;
   points = placed && beam.mode === 'axis' ? [pts[1]!] : [];
 }
 
@@ -106,13 +134,25 @@ export const planDraw = {
   get typed() { return typed; },
   get ortho() { return ortho; },
   set ortho(v: boolean) { ortho = v; },
+  get orthoLock() { return orthoLock; },
+  set orthoLock(v: boolean) { orthoLock = v; },
+  /** The snaps, read by the viewport; set through `setSnap`, which keeps them for the next visit. */
+  get snap(): Readonly<typeof snapDefaults> { return snap; },
+  setSnap(k: keyof typeof snapDefaults, v: boolean) { snap[k] = v; saveSnaps(); },
   column,
   beam,
+  slab,
   get levels() { return levels(); },
   /** The level the next click lands on: the storey's floor for a column, its ceiling for a beam. */
-  get z(): number { return kind === 'beam' ? beamLevel()?.z ?? uiStore.nodeCreateZ : uiStore.nodeCreateZ; },
-  /** The level a beam is placed on, while drawing beams. */
-  get beamLevel(): Level | undefined { return kind === 'beam' ? beamLevel() : undefined; },
+  get z(): number { return kind === 'beam' || kind === 'slab' ? beamLevel()?.z ?? uiStore.nodeCreateZ : uiStore.nodeCreateZ; },
+  /** The level a beam or a slab is placed on, while drawing them. */
+  get beamLevel(): Level | undefined { return kind === 'beam' || kind === 'slab' ? beamLevel() : undefined; },
+  /** The sides of the slab the next click would place, and what carries each. */
+  get slabEdges(): SlabEdge[] {
+    if (kind !== 'slab' || points.length !== 1 || !hover) return [];
+    const z = beamLevel()?.z;
+    return z === undefined ? [] : slabFraming(rectCorners(points[0]!, hover), z);
+  },
   /** What a click needs next, as a key of `planDraw.step.*`. */
   get step(): string {
     const m = mode();
@@ -132,7 +172,7 @@ export const planDraw = {
   },
   /** Another way of drawing: what was half drawn the other way is dropped. */
   setMode(m: ColumnMode | BeamMode) {
-    if (kind === 'column') column.mode = m as ColumnMode; else beam.mode = m as BeamMode;
+    if (kind === 'column') column.mode = m as ColumnMode; else if (kind === 'beam') beam.mode = m as BeamMode;
     points = []; typed = '';
   },
   /** Whether a key typed now belongs to the drawing: a length needs a point to start from. */
@@ -172,6 +212,8 @@ export const planDraw = {
       if (f) return footprintCorners(f);
       return pts.length === 2 ? pts : [];
     }
+    if (kind === 'slab') return pts.length >= 2 ? rectCorners(pts[0]!, pts[1]!) : [];
+    if (beam.mode === 'rect' && pts.length >= 2) { const l = beamFromRect(pts[0]!, pts[1]!); return l ? band(l.a, l.b, l.width) : rectCorners(pts[0]!, pts[1]!); }
     if (beam.mode === 'axis' && pts.length >= 2) { const a = beamAxis(pts[0]!, pts[1]!, beam.width, beam.align); return band(a.a, a.b, beam.width); }
     if (beam.mode === 'faces') {
       const l = pts.length >= 3 ? beamFromFaces(pts[0]!, pts[1]!, pts[2]!) : null;
@@ -179,6 +221,12 @@ export const planDraw = {
       return pts.length === 2 ? pts : [];
     }
     return [];
+  },
+  /** A rectangle's two sides, from the first corner to the pointer, while one is drawn. */
+  get size(): string | null {
+    const rect = kind === 'slab' || (kind === 'beam' && beam.mode === 'rect') || (kind === 'column' && column.mode === 'corners');
+    const p = points[0];
+    return rect && points.length === 1 && p && hover ? `${Math.abs(hover.x - p.x).toFixed(2)} × ${Math.abs(hover.y - p.y).toFixed(2)} m` : null;
   },
   /** The length from the last point to the pointer, m. */
   get rubber(): number | null {

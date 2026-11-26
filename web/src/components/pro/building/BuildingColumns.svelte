@@ -79,6 +79,10 @@
 </script>
 
 <section class="pk-card" data-testid="building-columns">
+  <div class="bk-draw">
+    <button class="pk-btn pk-btn-primary" onclick={draw} data-testid="building-columns-draw">{t('building.col.draw')}</button>
+    <span class="pk-hint">{t('building.col.drawHint')}</span>
+  </div>
   <TypologyPicker kind="column" bind:value={typology} testid="building-col-typology" />
   <div class="bk-row">
     <label class="bk-field">{t('building.section')}
@@ -115,13 +119,10 @@
     {count ? tp('building.col.place', { n: count }) : t('grid.frameNothing')}
   </button>
 
-  <h5 class="bk-h">{t('building.drawTitle')}</h5>
-  <div class="bk-row">
-    <button class="pk-btn" onclick={draw} data-testid="building-columns-draw">{t('building.col.draw')}</button>
-  </div>
 </section>
 
 <style>
+  .bk-draw { display: flex; flex-direction: column; gap: 3px; margin: 0 0 8px; padding-bottom: 8px; border-bottom: 1px solid var(--st-hair); }
   .bk-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 12px; margin: 4px 0; }
   .bk-field { display: flex; flex-direction: column; gap: 2px; font-size: 0.7rem; color: var(--st-text-2); }
   .bk-field input[type='number'] { width: 4.5rem; font-size: 0.72rem; }

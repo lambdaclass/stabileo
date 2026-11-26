@@ -66,7 +66,7 @@
   import ConnectionPrompt from './ConnectionPrompt.svelte';
   import PlanDrawBar from './viewport/PlanDrawBar.svelte';
   import { planDraw } from '../lib/store/plan-draw.svelte';
-  import { columnSnapPoints } from '../lib/model/building/draw-on-plan';
+  import { beamSnapPoints, columnSnapPoints } from '../lib/model/building/draw-on-plan';
   import { askAboutNewMember } from '../lib/model/edit/connection-questions';
   import { addThermalLoadIfAny } from '../lib/store/load-ops';
   import Icon from './ribbon/Icon.svelte';
@@ -2302,28 +2302,46 @@
     return uiStore.snapWorld3D(pos.x, pos.y, pos.z);
   }
 
-  let columnSnapCache: { key: string; points: ReturnType<typeof columnSnapPoints> } | null = null;
+  let columnSnapCache: { key: string; points: ReturnType<typeof columnSnapPoints>; beams: ReturnType<typeof beamSnapPoints> } | null = null;
   function planDrawPoint(e: MouseEvent): { x: number; y: number; mode?: string; label?: string } | null {
     const ground = getGroundIntersection(e);
     if (!ground || !camera || !container) return null;
+    const free = { x: Math.round(ground.x * 100) / 100, y: Math.round(ground.y * 100) / 100 };
+    const sn = planDraw.snap;
+    if (!sn.on) return free;
     const tol = worldPerPixel(camera, ground, container.clientHeight) * 10;
     const z = planDraw.z;
-    let best: { x: number; y: number; d: number; mode: string } | null = null;
-    const offer = (x: number, y: number, mode: string) => {
+    let best: { x: number; y: number; d: number; mode: string; label: string } | null = null;
+    const offer = (x: number, y: number, mode: string, label: string) => {
       const d = Math.hypot(x - ground.x, y - ground.y);
-      if (d <= tol && (!best || d < best.d)) best = { x, y, d, mode };
+      if (d <= tol && (!best || d < best.d)) best = { x, y, d, mode, label };
     };
     const key = `${modelStore.modelVersion}:${z}`;
-    if (columnSnapCache?.key !== key) columnSnapCache = { key, points: columnSnapPoints(z) };
-    for (const p of columnSnapCache.points) offer(p.x, p.y, p.kind === 'corner' ? 'endpoint' : p.kind === 'face' ? 'midpoint' : 'center');
-    for (const n of modelStore.nodes.values()) if (Math.abs((n.z ?? 0) - z) < 1e-6) offer(n.x, n.y, 'node');
-    const b = best as { x: number; y: number; d: number; mode: string } | null;
-    if (b) return { x: b.x, y: b.y, mode: b.mode, label: t(`planDraw.snap.${b.mode}`) };
-    const s = snapToStructure(ground);
-    if (s.mode || s.label) return { x: s.x, y: s.y, mode: s.mode ?? 'grid', ...(s.label ? { label: s.label } : {}) };
-    return { x: Math.round(ground.x * 100) / 100, y: Math.round(ground.y * 100) / 100 };
+    if (columnSnapCache?.key !== key) columnSnapCache = { key, points: columnSnapPoints(z), beams: beamSnapPoints(z) };
+    const kindMode = (k: 'corner' | 'face' | 'center') => (k === 'corner' ? 'endpoint' : k === 'face' ? 'midpoint' : 'center');
+    if (sn.column) for (const p of columnSnapCache.points) offer(p.x, p.y, kindMode(p.kind), `planDraw.snap.${kindMode(p.kind)}`);
+    if (sn.beam) for (const p of columnSnapCache.beams) offer(p.x, p.y, kindMode(p.kind), `planDraw.snap.beam.${kindMode(p.kind)}`);
+    if (sn.node) for (const n of modelStore.nodes.values()) if (Math.abs((n.z ?? 0) - z) < 1e-6) offer(n.x, n.y, 'node', 'planDraw.snap.node');
+    let near: { x: number; y: number } | null = null;
+    if (sn.template && modelStore.underlays.length) {
+      const on = underlayLevelFor(modelStore.underlays, uiStore.nodeCreateZ);
+      const last = planDraw.points[planDraw.points.length - 1] ?? null;
+      const hit = on === null ? null : osnapUnderlays(modelStore.underlays, ground.x, ground.y, tol, on, uiStore.osnapModes, last);
+      if (hit && hit.mode === 'nearest') near = hit;
+      else if (hit) offer(hit.x, hit.y, hit.mode, `osnap.${hit.mode}`);
+    }
+    const b = best as { x: number; y: number; d: number; mode: string; label: string } | null;
+    if (b) return { x: b.x, y: b.y, mode: b.mode, label: t(b.label) };
+    if (near) return { x: near.x, y: near.y, mode: 'nearest', label: t('osnap.nearest') };
+    if (sn.axes && modelStore.grid) {
+      const hit = snapToAxes(modelStore.grid, ground.x, ground.y, tol);
+      if (hit?.kind === 'intersection') return { x: hit.x, y: hit.y, mode: 'intersection', label: hit.label };
+      if (hit) return { x: hit.x, y: hit.y, mode: 'axis', label: hit.label };
+    }
+    if (sn.grid) { const s = uiStore.snapWorld3D(ground.x, ground.y, z); return { x: s.x, y: s.y, mode: 'grid' }; }
+    return free;
   }
-  let planHint = $state<{ snap: { sx: number; sy: number; mode: string; label?: string } | null; outline: string; mx: number; my: number; text: string } | null>(null);
+  let planHint = $state<{ snap: { sx: number; sy: number; mode: string; label?: string } | null; outline: string; mx: number; my: number; text: string; free: Array<{ x1: number; y1: number; x2: number; y2: number }> } | null>(null);
   let planHintFrame = 0;
   let planHintEvent: MouseEvent | null = null;
   let planLast: { cx: number; cy: number; p: { x: number; y: number; mode?: string; label?: string } | null } | null = null;
@@ -2348,8 +2366,9 @@
     const h = planDraw.hover;
     const snap = h && p?.mode ? (() => { const s = projectToScreen(h.x, h.y, z); return { sx: s.x, sy: s.y, mode: p.mode!, ...(p.label ? { label: p.label } : {}) }; })() : null;
     const len = planDraw.rubber;
-    const text = planDraw.typed ? `${planDraw.typed} m ⏎` : len !== null ? `${len.toFixed(2)} m` : '';
-    planHint = { snap, outline, mx: cx - rect.left, my: cy - rect.top, text };
+    const text = planDraw.typed ? `${planDraw.typed} m ⏎` : planDraw.size ?? (len !== null ? `${len.toFixed(2)} m` : '');
+    const free = planDraw.slabEdges.filter((ed) => ed.support === 'free').map((ed) => { const a = projectToScreen(ed.a.x, ed.a.y, z), b = projectToScreen(ed.b.x, ed.b.y, z); return { x1: a.x, y1: a.y, x2: b.x, y2: b.y }; });
+    planHint = { snap, outline, mx: cx - rect.left, my: cy - rect.top, text, free };
   }
   $effect(() => {
     void planDraw.points; void planDraw.typed; void planDraw.column.b; void planDraw.column.h; void planDraw.column.angle; void planDraw.column.fixedPoint;
@@ -4514,6 +4533,7 @@
   {#if planDraw.active && planHint}
     <svg class="node-hint plan-draw-hint" aria-hidden="true" data-testid="plan-draw-hint">
       {#if planHint.outline}<polygon points={planHint.outline} />{/if}
+      {#each planHint.free as f, i (i)}<line class="pd-free" x1={f.x1} y1={f.y1} x2={f.x2} y2={f.y2} data-testid="plan-draw-free-edge" />{/each}
       {#if planHint.snap}<g data-testid="plan-draw-snap" data-mode={planHint.snap.mode}>{@render osnapGlyph(planHint.snap.mode, planHint.snap.sx, planHint.snap.sy, planHint.snap.label)}</g>{/if}
       {#if planHint.text}<text class="nh-text" x={planHint.mx + 14} y={planHint.my + 22}>{planHint.text}</text>{/if}
     </svg>
@@ -4830,6 +4850,7 @@
     z-index: 2;
   }
   .node-hint { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; overflow: visible; }
+  .plan-draw-hint .pd-free { stroke: var(--st-warn, #e0a030); stroke-width: 3; }
   .plan-draw-hint polygon { fill: color-mix(in srgb, var(--st-accent) 18%, transparent); stroke: var(--st-accent); stroke-width: 1.5; stroke-dasharray: 5 3; }
   .vp-plan-draw { position: absolute; left: 50%; bottom: 52px; transform: translateX(-50%); width: max-content; max-width: calc(100% - 24px); z-index: 7; }
   .nh-member { stroke: var(--st-accent); stroke-width: 6; stroke-linecap: round; opacity: 0.45; }

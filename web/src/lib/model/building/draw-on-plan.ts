@@ -68,7 +68,8 @@ const levelsBetween = (levels: readonly Level[], from: string, to: string): Leve
   return levels.filter((l) => l.z >= lo - 1e-9 && l.z <= hi + 1e-9).sort((p, q) => p.z - q.z);
 };
 
-function nodeFinder() {
+/** Finds the node at a point, within a millimetre, or makes one there. */
+export function nodeFinder() {
   const index = new NodeIndex(WELD_M);
   const pos = (id: number): Vec3 | undefined => { const n = modelStore.nodes.get(id); return n ? [n.x, n.y, n.z ?? 0] : undefined; };
   for (const [id, n] of modelStore.nodes) index.add(id, [n.x, n.y, n.z ?? 0]);
@@ -353,6 +354,49 @@ export function columnSnapPoints(z: number): Array<P2 & { kind: 'corner' | 'face
     for (const p of footprintCorners(f)) out.push({ ...p, kind: 'corner' });
     for (const [i, j] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) out.push({ x: f.center.x + f.u.x * i * f.b / 2 + f.v.x * j * f.h / 2, y: f.center.y + f.u.y * i * f.b / 2 + f.v.y * j * f.h / 2, kind: 'face' });
     out.push({ ...f.center, kind: 'center' });
+  }
+  return out;
+}
+
+/** A beam drawn as the rectangle between two opposite corners: along its longer side, as wide as its shorter one. */
+export function beamFromRect(p: P2, q: P2): { a: P2; b: P2; width: number } | null {
+  const dx = Math.abs(q.x - p.x), dy = Math.abs(q.y - p.y);
+  if (Math.min(dx, dy) < 0.01 || Math.max(dx, dy) < 0.05) return null;
+  const x0 = Math.min(p.x, q.x), x1 = Math.max(p.x, q.x), y0 = Math.min(p.y, q.y), y1 = Math.max(p.y, q.y);
+  return dx >= dy
+    ? { a: { x: x0, y: (y0 + y1) / 2 }, b: { x: x1, y: (y0 + y1) / 2 }, width: dy }
+    : { a: { x: (x0 + x1) / 2, y: y0 }, b: { x: (x0 + x1) / 2, y: y1 }, width: dx };
+}
+
+/** The rectangle between two opposite corners, counter-clockwise from the lowest x and y. */
+export function rectCorners(p: P2, q: P2): P2[] {
+  const x0 = Math.min(p.x, q.x), x1 = Math.max(p.x, q.x), y0 = Math.min(p.y, q.y), y1 = Math.max(p.y, q.y);
+  return [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
+}
+
+/** A horizontal bar on level `z` as drawn: its nodes, its drawn axis (nodes plus offsets) and its width. */
+export function beamsAtLevel(z: number): Array<{ id: number; a: P2; b: P2; A: P2; B: P2; width: number }> {
+  const onLevel = (n: number) => Math.abs((modelStore.nodes.get(n)?.z ?? NaN) - z) < 1e-6;
+  const out: Array<{ id: number; a: P2; b: P2; A: P2; B: P2; width: number }> = [];
+  for (const e of modelStore.elements.values()) {
+    if (!onLevel(e.nodeI) || !onLevel(e.nodeJ)) continue;
+    const a = modelStore.nodes.get(e.nodeI)!, b = modelStore.nodes.get(e.nodeJ)!;
+    const g = e.offset?.frame === 'global' ? e.offset : undefined;
+    const sec = modelStore.sections.get(e.sectionId);
+    out.push({ id: e.id, a: { x: a.x, y: a.y }, b: { x: b.x, y: b.y }, A: { x: a.x + (g?.i?.x ?? 0), y: a.y + (g?.i?.y ?? 0) }, B: { x: b.x + (g?.j?.x ?? 0), y: b.y + (g?.j?.y ?? 0) }, width: sec?.b ?? 0.2 });
+  }
+  return out;
+}
+
+/** Where a slab or a beam drawn next can start on the beams of a level: their axis ends and middles, and their corners. */
+export function beamSnapPoints(z: number): Array<P2 & { kind: 'corner' | 'face' | 'center' }> {
+  const out: Array<P2 & { kind: 'corner' | 'face' | 'center' }> = [];
+  for (const bm of beamsAtLevel(z)) {
+    const L = Math.hypot(bm.B.x - bm.A.x, bm.B.y - bm.A.y);
+    if (L < 1e-9) continue;
+    const n = { x: -(bm.B.y - bm.A.y) / L * bm.width / 2, y: (bm.B.x - bm.A.x) / L * bm.width / 2 };
+    out.push({ ...bm.A, kind: 'center' }, { ...bm.B, kind: 'center' }, { x: (bm.A.x + bm.B.x) / 2, y: (bm.A.y + bm.B.y) / 2, kind: 'face' });
+    for (const p of [bm.A, bm.B]) for (const s of [1, -1]) out.push({ x: p.x + n.x * s, y: p.y + n.y * s, kind: 'corner' });
   }
   return out;
 }

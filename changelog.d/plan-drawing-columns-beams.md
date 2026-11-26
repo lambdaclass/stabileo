@@ -22,3 +22,14 @@ followed by the template and then the axes; until there are two levels, the pane
 
 In 3D, each level's outline covers the templates as they were laid and the axes, with a margin. A
 template laid with no axes no longer sits outside its levels.
+
+Columns, beams and slabs are drawn on the plan as rectangles, from «Draw on the plan» at the top of
+each tab. A column takes its rectangle as its section and stands from the storey's level to its
+ceiling. A beam drawn as a rectangle runs along its longer side, takes the shorter one as its width,
+goes on the ceiling and frames into the columns it touches. A slab drawn as a rectangle goes on the
+ceiling. While it is drawn, the sides no beam or wall carries are marked, and once placed it says
+how many are free. Its sides on beams move onto the beams, so its mesh shares their nodes.
+
+The drawing bar has its own snaps menu. In it, the CAD template's snaps (endpoint, midpoint, center,
+quadrant, intersection, perpendicular, nearest) and the model's (columns, beams, nodes, axes,
+drawing grid) are each turned on or off. F3 turns them all off to draw freely, and F8 keeps ortho on.

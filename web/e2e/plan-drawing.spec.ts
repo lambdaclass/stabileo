@@ -51,6 +51,7 @@ test.describe('@smoke drawing the building on the plan', () => {
     await expect(page.getByTestId('plan-draw-bar')).toContainText(/Viga|Beam/);
     await expect(page.getByTestId('building-storey-select').locator('option:checked'), 'the storey stays the one its columns were drawn on').toContainText('N0');
     await expect(page.getByTestId('plan-draw-level'), 'and its beams go on its ceiling').toContainText('N1');
+    await page.getByTestId('plan-draw-mode-axis').click();
     await page.getByTestId('plan-draw-width').fill('20');
     await page.getByTestId('plan-draw-width').press('Enter');
     await page.getByTestId('plan-draw-height').fill('50');
@@ -115,5 +116,47 @@ test.describe('@smoke drawing the building on the plan', () => {
     const pos = new Map(m.nodes);
     const b = m.elements[1]![1];
     expect([pos.get(b.nodeI), pos.get(b.nodeJ)].map((n) => [+n!.x.toFixed(9), +n!.y.toFixed(9), n!.z])).toEqual([[X(0), Y(2.1), 3], [X(6), Y(2.1), 3]]);
+  });
+  test('columns, beams and a slab drawn as rectangles; the slab tells its free side, and with the snaps off the point is free', async ({ pro: page }) => {
+    await levelsOnly(page);
+    await page.getByTestId('building-columns-draw').click();
+    for (const [x, y] of [[0, 0], [6, 0], [6, 5], [0, 5]] as const) {
+      await click(page, x - 0.15, y - 0.15, 0);
+      await click(page, x + 0.15, y + 0.15, 0);
+    }
+    await expect.poll(async () => (await model(page)).elements.length).toBe(4);
+    await page.getByTestId('plan-draw-exit').click();
+
+    await page.getByTestId('building-tab-beams').click();
+    await page.getByTestId('building-beams-draw').click();
+    await expect(page.getByTestId('plan-draw-mode-rect')).toHaveAttribute('aria-checked', 'true');
+    for (const [a, b] of [[[0, -0.1], [6, 0.1]], [[5.9, 0], [6.1, 5]], [[-0.1, 0], [0.1, 5]]] as const) {
+      await click(page, a[0], a[1], 3);
+      await click(page, b[0], b[1], 3);
+    }
+    await expect.poll(async () => (await model(page)).elements.length).toBe(7);
+    await page.getByTestId('plan-draw-exit').click();
+
+    await page.getByTestId('building-tab-slabs').click();
+    await page.getByTestId('building-slabs-draw').click();
+    await expect(page.getByTestId('plan-draw-level')).toContainText('N1');
+    await click(page, 0.1, 0.1, 3);
+    const hover = await at(page, 5.9, 4.9, 3);
+    await page.mouse.move(hover.x, hover.y);
+    await page.mouse.move(hover.x + 1, hover.y);
+    await expect(page.getByTestId('plan-draw-free-edge'), 'the side with no beam, before the click').toHaveCount(1);
+    await page.mouse.click(hover.x, hover.y);
+    await expect.poll(async () => (await model(page)).groups?.find(([, g]) => g.data?.kind === 'slab')?.[1].data?.edges).toEqual(['beam', 'beam', 'free', 'beam']);
+
+    await page.getByTestId('plan-draw-snaps').click();
+    await page.getByTestId('plan-snap-on').uncheck();
+    await page.getByTestId('plan-draw-snaps').click();
+    const near = await at(page, 6.03, 0.04, 3);
+    await page.mouse.move(near.x, near.y);
+    await page.mouse.move(near.x + 1, near.y);
+    await expect(page.getByTestId('plan-draw-snap'), 'nothing captures the point').toHaveCount(0);
+    await page.keyboard.press('F3');
+    await page.mouse.move(near.x, near.y);
+    await expect(page.getByTestId('plan-draw-snap')).toHaveCount(1);
   });
 });

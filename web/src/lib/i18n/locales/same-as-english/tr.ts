@@ -288,6 +288,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'pt.sys.k',
   'pt.sys.mu',
   'pt.ui.systemSummary',
+  'planDraw.snapGroup.model',
   'regulations.name.aci318',
   'regulations.name.cirsoc101',
   'regulations.name.cirsoc102',

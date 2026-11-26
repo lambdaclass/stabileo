@@ -86,6 +86,17 @@
 </script>
 
 <section class="pk-card" data-testid="building-beams">
+  <div class="bk-draw">
+  <div class="bk-row">
+    <div class="bk-seg" role="radiogroup" aria-label={t('physical.kindCol')}>
+      {#each ['beam', 'brace'] as const as k}
+        <button class="pk-btn" class:on={drawKind === k} role="radio" aria-checked={drawKind === k} onclick={() => (drawKind = k)} data-testid="building-draw-{k}">{t(`physical.kind.${k}`)}</button>
+      {/each}
+    </div>
+    <button class="pk-btn pk-btn-primary" onclick={draw} data-testid="building-beams-draw">{t('building.draw')}</button>
+  </div>
+    <span class="pk-hint">{t('building.beam.drawHint')}</span>
+  </div>
   <TypologyPicker kind="beam" bind:value={typology} testid="building-beam-typology" />
   <div class="bk-row">
     <label class="bk-check"><input type="checkbox" bind:checked={wantX} /> {planNamesIn(t('grid.beamsX'))}</label>
@@ -140,18 +151,10 @@
     {count ? tp('building.beam.place', { n: count }) : t('grid.frameNothing')}
   </button>
 
-  <h5 class="bk-h">{t('building.drawTitle')}</h5>
-  <div class="bk-row">
-    <div class="bk-seg" role="radiogroup" aria-label={t('physical.kindCol')}>
-      {#each ['beam', 'brace'] as const as k}
-        <button class="pk-btn" class:on={drawKind === k} role="radio" aria-checked={drawKind === k} onclick={() => (drawKind = k)} data-testid="building-draw-{k}">{t(`physical.kind.${k}`)}</button>
-      {/each}
-    </div>
-    <button class="pk-btn" onclick={draw} data-testid="building-beams-draw">{t('building.draw')}</button>
-  </div>
 </section>
 
 <style>
+  .bk-draw { display: flex; flex-direction: column; gap: 3px; margin: 0 0 8px; padding-bottom: 8px; border-bottom: 1px solid var(--st-hair); }
   .bk-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 12px; margin: 4px 0; font-size: 0.7rem; }
   .bk-row select { font-size: 0.72rem; max-width: 12rem; min-width: 0; }
   .bk-field { display: flex; flex-direction: column; gap: 2px; font-size: 0.7rem; color: var(--st-text-2); }
