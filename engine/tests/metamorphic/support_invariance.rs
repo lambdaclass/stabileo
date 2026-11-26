@@ -338,6 +338,7 @@ fn shared_spatial_support_with_an_inclined_restraint_refuses() {
     assert!(refusal.contains("supports at node 3 cannot be merged as plain rigid restraints"), "{refusal}");
 
     case.s.supports.remove("2").unwrap();
+    case.s.elements.get_mut("1").unwrap().release_my_start = false;
     solve_3d(&case.s).unwrap();
     solve_3d(&case.iso(&iso).unwrap().s).unwrap();
 }

@@ -522,7 +522,16 @@ fn reported_seeds_advanced_modal_and_time_history_are_contained() {
         }
         solver = control;
         match solve_modal_2d(&solver, &densities, 2) {
-            Ok(r) => assert_warning(&r.structured_diagnostics, "NUM-INVARIANCE", 762.0),
+            Err(error) if matches!(seed, 20795 | 20756) => {
+                let refusal: serde_json::Value = serde_json::from_str(&error).unwrap_or_else(|_| panic!("{error}"));
+                assert_eq!(refusal["structuredDiagnostics"][0]["code"], "reduced_stiffness_rank");
+                assert_eq!(refusal["structuredDiagnostics"][0]["severity"], "error");
+                assert!(refusal["message"].as_str().unwrap().contains("constraint reduction cancels stiffness contributions"));
+            }
+            Ok(r) => {
+                assert!(!matches!(seed, 20795 | 20756), "unresolved stiffness returned modal results");
+                assert_warning(&r.structured_diagnostics, "NUM-INVARIANCE", 762.0);
+            }
             Err(error) => assert!(error.starts_with("MODAL-MECHANISM:") || error.starts_with(if seed == 20824 { "Eigenvalue decomposition failed" } else { "No valid modes found" }), "seed {seed}: {error}"),
         }
         let th: TimeHistoryInput = serde_json::from_value(serde_json::json!({

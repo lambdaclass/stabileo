@@ -94,7 +94,7 @@ fn check(sparse: bool) {
                         asm.f,
                     )
                 } else {
-                    let asm = assemble_staged_2d(&input, &dof, &stage);
+                    let (asm, _) = assemble_staged_2d(&input, &dof, &stage);
                     (asm.k, asm.f)
                 };
                 close(&f, &expected_asm.f);
@@ -181,7 +181,7 @@ fn staged_review_numeric_nonfinite_solutions_are_refused() {
                 let k = CscMatrix::from_dense_symmetric(&dense, nf);
                 let f = vec![load; nf];
                 let result = solve_stage_free(
-                    &k,
+                    &k, None,
                     &dof,
                     None,
                     two_d,
@@ -225,7 +225,7 @@ fn round4_reaction_check(prestress_only: bool) {
                 }
                 let stage = stage(profile, force);
                 let dof = DofNumbering::build_2d(&input);
-                let dense = assemble_staged_2d(&input, &dof, &stage);
+                let (dense, _) = assemble_staged_2d(&input, &dof, &stage);
                 let free: Vec<_> = (0..dof.n_free).collect();
                 let mut kff = extract_submatrix(&dense.k, dof.n_total, &free, &free);
                 let uf = cholesky_solve(&mut kff, &dense.f[..dof.n_free], dof.n_free).unwrap();
@@ -299,7 +299,7 @@ fn staged_final_zero_stiffness_uses_accumulated_load() {
                 let force_scale = 1e30;
                 let k = CscMatrix::from_triplets(1, &[0], &[0], &[stiffness * force_scale]);
                 let solve = |increment: f64, applied: f64| solve_stage_free(
-                    &k, &dof, None, true, &connected, &[],
+                    &k, None, &dof, None, true, &connected, &[],
                     &super::super::stability::ReleasedRotations::default(),
                     &[increment * force_scale], &[increment * force_scale], &[applied * force_scale], &[], &[], sparse, &mut None, &mut None,
                     None,
@@ -337,7 +337,7 @@ fn staged_round8_multiple_null_rotations_keep_supported_loads() {
             let k = CscMatrix::from_dense_symmetric_exact(&matrix, 3);
             let applied = k.sym_mat_vec(&expected);
             let u = solve_stage_free(
-                &k, &dof, None, false, &HashSet::from([1,2]), &[],
+                &k, None, &dof, None, false, &HashSet::from([1,2]), &[],
                 &super::super::stability::ReleasedRotations::default(),
                 &increment, &increment, &applied, &[], &[], sparse, &mut None, &mut None,
                 None,
@@ -354,7 +354,7 @@ fn staged_round8_projection_preserves_prescribed_drive_and_positive_stiffness() 
     for sparse in [false, true] {
         let oblique = CscMatrix::from_dense_symmetric_exact(&[1.0,-1.0,0.0,-1.0,1.0,0.0,0.0,0.0,2.0], 3);
         let driven = solve_stage_free(
-            &oblique, &dof, None, false, &HashSet::from([1,2]), &[],
+            &oblique, None, &dof, None, false, &HashSet::from([1,2]), &[],
             &super::super::stability::ReleasedRotations::default(),
             &[-1.0,-1.0,0.0], &[0.0;3], &[0.0;3], &[], &[], sparse, &mut None, &mut None,
             None,
@@ -363,7 +363,7 @@ fn staged_round8_projection_preserves_prescribed_drive_and_positive_stiffness() 
         let tiny = 1e-13;
         let unresolved = CscMatrix::from_dense_symmetric_exact(&[1.0+tiny,-1.0+tiny,0.0,-1.0+tiny,1.0+tiny,0.0,0.0,0.0,1.0], 3);
         let loaded = solve_stage_free(
-            &unresolved, &dof, None, false, &HashSet::from([1,2]), &[],
+            &unresolved, None, &dof, None, false, &HashSet::from([1,2]), &[],
             &super::super::stability::ReleasedRotations::default(),
             &[-1.0,-1.0,0.0], &[-1.0,-1.0,0.0], &[0.0;3], &[], &[], sparse, &mut None, &mut None,
             None,
@@ -373,7 +373,7 @@ fn staged_round8_projection_preserves_prescribed_drive_and_positive_stiffness() 
             let force_scale = 1e30;
             let k = CscMatrix::from_triplets(3, &[0,1,2], &[0,1,2], &[stiffness * force_scale;3]);
             let solve = |applied: &[f64]| solve_stage_free(
-                &k, &dof, None, false, &HashSet::from([1,2]), &[],
+                &k, None, &dof, None, false, &HashSet::from([1,2]), &[],
                 &super::super::stability::ReleasedRotations::default(),
                 &[-force_scale,0.0,0.0], &applied.iter().map(|x| x * force_scale).collect::<Vec<_>>(), &[0.0;3], &[], &[], sparse, &mut None, &mut None,
                 None,

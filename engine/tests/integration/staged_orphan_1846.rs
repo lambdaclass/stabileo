@@ -1518,7 +1518,12 @@ fn issue_1846_round3_elastic_refusals_do_not_become_kinematic_mechanisms() {
                         }
                     );
                 }
-                assert!(k.is_solvable, "{dim}D {pads} soft={soft}: {k:?}");
+                assert!(k.kinematic_is_solvable, "{dim}D {pads} soft={soft}: {k:?}");
+                assert_eq!(k.is_solvable, !(soft && dim == 2), "{k:?}");
+                if !k.is_solvable {
+                    assert_eq!(k.classification, "indeterminate");
+                    assert!(k.diagnosis.contains("reduced_stiffness_rank"), "{k:?}");
+                }
                 assert_eq!(k.mechanism_modes, 0, "{k:?}");
                 assert_eq!(r.is_ok(), !soft, "{r:?}");
             }
