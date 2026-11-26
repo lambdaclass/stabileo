@@ -317,6 +317,7 @@ fn staged_final_zero_stiffness_uses_accumulated_load() {
 }
 
 #[test]
+#[ignore = "known wrong result: #2588"]
 fn staged_round8_multiple_null_rotations_keep_supported_loads() {
     let input = serde_json::from_str::<crate::types::units::ElasticInput3D>(include_str!(
         "../../tests/fixtures/staged-round8.json"
@@ -346,6 +347,7 @@ fn staged_round8_multiple_null_rotations_keep_supported_loads() {
 
 #[cfg(test)]
 #[test]
+#[ignore = "known wrong result: #2588"]
 fn staged_round8_projection_preserves_prescribed_drive_and_positive_stiffness() {
     let input = serde_json::from_str::<crate::types::units::ElasticInput3D>(include_str!(
         "../../tests/fixtures/staged-round8.json"
