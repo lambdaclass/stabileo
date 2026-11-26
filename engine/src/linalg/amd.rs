@@ -22,9 +22,19 @@ use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 
 const NIL: usize = usize::MAX;
+const MAX_COUNT_CACHE_BYTES: usize = 8 * 1024 * 1024;
+
+fn count_cache_fits(n: usize, budget: usize) -> bool {
+    n.checked_mul(std::mem::size_of::<(usize, usize)>())
+        .is_some_and(|bytes| bytes <= budget)
+}
 
 /// Compute AMD ordering. Returns perm where perm[new] = old.
 pub fn amd_order(n: usize, col_ptr: &[usize], row_idx: &[usize]) -> Vec<usize> {
+    amd_order_with_budget(n, col_ptr, row_idx, MAX_COUNT_CACHE_BYTES)
+}
+
+fn amd_order_with_budget(n: usize, col_ptr: &[usize], row_idx: &[usize], budget: usize) -> Vec<usize> {
     if n <= 1 {
         return (0..n).collect();
     }
@@ -69,6 +79,13 @@ pub fn amd_order(n: usize, col_ptr: &[usize], row_idx: &[usize]) -> Vec<usize> {
     let mut ea_len = vec![0usize; n];
     let mut elist = vec![NIL; n]; // head of variable i's element list
     let mut in_le = vec![false; n]; // membership marks for the current Lp
+    // (pivot node, live external count); node ids stamp the cache without a wrapping epoch.
+    // A budget miss keeps the original scan, with identical ordering decisions.
+    let mut external_counts = if count_cache_fits(n, budget) {
+        vec![(NIL, 0usize); n]
+    } else {
+        Vec::new()
+    };
 
     // Append-only arenas. Element adjacencies are written once (contiguous);
     // element lists are intrusive linked lists (deterministic order).
@@ -155,12 +172,19 @@ pub fn amd_order(n: usize, col_ptr: &[usize], row_idx: &[usize]) -> Vec<usize> {
                 }
                 // Count e's live external variables outside Lp; if there are
                 // none, e is absorbed by the new element.
-                let mut live_out = 0usize;
-                for &v in &ea[ea_start[e]..ea_start[e] + ea_len[e]] {
-                    if status[v] == -1 && !in_le[v] {
-                        live_out += 1;
+                // Only members of Lp can be mass-eliminated during this pivot.
+                // They are already excluded by in_le: e's outside count cannot change.
+                let live_out = match external_counts.get_mut(e) {
+                    Some(slot) if slot.0 == p => slot.1,
+                    slot => {
+                        let mut count = 0usize;
+                        for &v in &ea[ea_start[e]..ea_start[e] + ea_len[e]] {
+                            if status[v] == -1 && !in_le[v] { count += 1; }
+                        }
+                        if let Some(slot) = slot { *slot = (p, count); }
+                        count
                     }
-                }
+                };
                 if live_out == 0 {
                     elem_alive[e] = false;
                 } else {
@@ -848,3 +872,7 @@ mod tests {
         assert!(cases >= 100, "expected ~100 patterns, got {}", cases);
     }
 }
+
+#[cfg(test)]
+#[path = "amd/count_cache_tests.rs"]
+mod count_cache_tests;
