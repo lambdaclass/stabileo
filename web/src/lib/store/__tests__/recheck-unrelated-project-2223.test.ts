@@ -585,3 +585,45 @@ it('retains a unique XY interpretation for an X-aligned beam with the older fy s
   expect(buildProjectFile().snapshot.drawPlane2D).toBe('xy');
   expect(modelStore.solve()).toEqual(reference);
 });
+
+it.runIf(process.env.REPLAY_2588 === '1').each(legacyNodalEntries)(
+  'known wrong result: #2588 — %s keeps conflicting projected point forces and moments from establishing XZ',
+  async entry => {
+    await initSolver();
+    uiStore.analysisMode = '2d';
+    uiStore.drawPlane2D = 'xz';
+    uiStore.includeSelfWeight = false;
+    const root = modelStore.addNode(0, 0);
+    const tip = modelStore.addNode(5, 0);
+    const member = modelStore.addElement(root, tip, 'frame');
+    modelStore.addSupport(root, 'fixed');
+    modelStore.addDistributedLoad3D(member, 0, 0, -10, -10, undefined, undefined, 1, { frame: 'global' });
+    modelStore.addCombination('D', [{ caseId: 1, factor: 1 }]);
+    const file = buildProjectFile();
+    const reference = modelStore.solve();
+    expect(reference).toMatchObject({ displacements: expect.any(Array) });
+    file.snapshot.drawPlane2D = undefined;
+    const point = { id: file.snapshot.nextId.load++, elementId: member, a: 2, py: 0, pz: 0, caseId: 1 };
+    for (const components of [{ py: -3 }, { mx: 3 }, { mz: 3 }]) {
+      file.snapshot.loads = [...modelStore.loads.filter(load => load.type === 'distributed3d'), {
+        type: 'pointOnElement3d', data: { ...point, ...components, frame: 'projected' },
+      }] as typeof file.snapshot.loads;
+      open(entry, file);
+      expect.soft(modelStore.snapshot().drawPlane2D).toBeUndefined();
+      expect.soft(modelStore.solve()).toBe(t('svc.savedPlaneRequired'));
+      expect.soft(await modelStore.solveAsync()).toBe(t('svc.savedPlaneRequired'));
+      expect.soft(modelStore.solveCombinations()).toBe(t('svc.savedPlaneRequired'));
+      expect.soft(() => modelStore.buildSolverInput()).toThrow(t('svc.savedPlaneRequired'));
+    }
+    for (const components of [{}, { pz: -3 }, { my: 3 }]) {
+      file.snapshot.loads = [...modelStore.loads.filter(load => load.type === 'distributed3d'), {
+        type: 'pointOnElement3d', data: { ...point, ...components, frame: 'projected' },
+      }] as typeof file.snapshot.loads;
+      open(entry, file);
+      expect(modelStore.snapshot().drawPlane2D).toBe('xz');
+    }
+    file.snapshot.loads = modelStore.loads.filter(load => load.type === 'distributed3d');
+    open(entry, file);
+    expect(modelStore.solve()).toEqual(reference);
+  },
+);
