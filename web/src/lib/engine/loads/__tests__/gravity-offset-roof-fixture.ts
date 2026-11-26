@@ -68,11 +68,11 @@ export function doubleAttachedRoof(subdivide: boolean, secondGap: readonly [numb
 }
 
 export function triangulateRoof<T extends ReturnType<typeof offsetRoof>['model']>(model: T) {
-  const plates = new Map([...model.quads.values()].flatMap(({ id, nodes: [a, b, c, d], ...shell }) => [
-    [2 * id - 1, { ...shell, id: 2 * id - 1, nodes: [a!, b!, c!] }],
-    [2 * id, { ...shell, id: 2 * id, nodes: [a!, c!, d!] }],
-  ] as const));
-  return { ...model, quads: new Map<number, never>(), plates };
+  const plates = [...model.quads.values()].flatMap(({ id, nodes: [a, b, c, d], ...shell }) => [
+    { ...shell, id: 2 * id - 1, nodes: [a!, b!, c!] },
+    { ...shell, id: 2 * id, nodes: [a!, c!, d!] },
+  ]);
+  return { ...model, quads: new Map<number, never>(), plates: new Map(plates.map(shell => [shell.id, shell])) };
 }
 
 export function roofPlan(model: LoadModelData, mode: 'panels' | 'width' = 'panels') {
