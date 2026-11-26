@@ -11,7 +11,7 @@
 
 import type { ElementForces3D, EnvelopeDiagramData3D } from './types-3d';
 import { memberEndForces3D, type Diagram3DKind } from './diagrams-3d';
-import { memberEnvelopeOrdinates } from './member-diagram';
+import { memberEnvelopeBounds } from './member-diagram';
 
 // ─── Components ───────────────────────────────────────────────
 
@@ -76,8 +76,6 @@ export interface QueryRowsOptions {
 
 /**
  * Flatten element forces into per-end query rows for one component.
- * Emits an `i` row and a `j` row per element. When `elementIds` is given,
- * only those elements are included (silently skipping ids not in results).
  */
 export function buildQueryRows(
   forces: ElementForces3D[],
@@ -96,10 +94,14 @@ export function buildQueryRows(
     if (envelopes) {
       const diagram = envelopes.get(ef.elementId);
       if (!diagram) continue;
-      const values = memberEnvelopeOrdinates(diagram, ef.length);
-      const i = values[0], j = values.at(-1);
-      if (i?.t === 0) rows.push({ elementId: ef.elementId, component, end: 'i', value: i.value });
-      if (j?.t === 1) rows.push({ elementId: ef.elementId, component, end: 'j', value: j.value });
+      const bounds = memberEnvelopeBounds(diagram, ef.length);
+      const endpoints = [bounds[0], bounds.at(-1)];
+      for (const [index, end] of (['i', 'j'] as const).entries()) {
+        const face = endpoints[index];
+        if (face?.t !== index) continue;
+        if (face.pos !== 0 || face.neg === 0) rows.push({ elementId: ef.elementId, component, end, value: face.pos });
+        if (face.neg !== 0) rows.push({ elementId: ef.elementId, component, end, value: face.neg });
+      }
       continue;
     }
     const { i, j } = componentEnds(ef, component);

@@ -432,6 +432,15 @@ function spatialExtrema(curve: SpatialCurve, critical: readonly DiagramOrdinate[
   return { maxValue, minValue, maxAbsValue, maxAbsX: curve.cutLocations.get(t)?.x ?? t * curve.length, maxAbsSide };
 }
 
+const leafEndFields = {
+  axial: ['nStart', 'nEnd', 'pointLoadsX'],
+  shearY: ['vyStart', 'vyEnd', 'pointLoadsY'],
+  shearZ: ['vzStart', 'vzEnd', 'pointLoadsZ'],
+  torsion: ['mxStart', 'mxEnd'],
+  momentY: ['myStart', 'myEnd'],
+  momentZ: ['mzStart', 'mzEnd'],
+} as const;
+
 export function memberEndForces3D(ef: ElementForces3D, kind: Diagram3DKind): [number, number] {
   const envelopeEnds = envelopeMemberEndValues(ef, kind);
   if (envelopeEnds) return envelopeEnds;
@@ -439,15 +448,9 @@ export function memberEndForces3D(ef: ElementForces3D, kind: Diagram3DKind): [nu
     const evaluate = prepareDiagramEvaluator3D(ef, kind);
     return [evaluate(spanStart), evaluate(spanEnd)];
   }
-  switch (kind) {
-    case 'momentY': return [ef.myStart, ef.myEnd];
-    case 'momentZ': return [ef.mzStart, ef.mzEnd];
-    case 'torsion': return [ef.mxStart, ef.mxEnd];
-  }
-  const [start, end, points] = kind === 'axial' ? [ef.nStart, ef.nEnd, ef.pointLoadsX]
-    : kind === 'shearY' ? [ef.vyStart, ef.vyEnd, ef.pointLoadsY] : [ef.vzStart, ef.vzEnd, ef.pointLoadsZ];
-  return inwardMemberEndValues(ef.length, [start, end],
-    x => points?.some(p => p.a === x && p.p !== 0) ?? false,
+  const [start, end, jumpLoads] = leafEndFields[kind];
+  return inwardMemberEndValues(ef.length, [ef[start], ef[end]],
+    x => jumpLoads !== undefined && (ef[jumpLoads]?.some(p => p.a === x && p.p !== 0) ?? false),
     () => prepareDiagramEvaluator3D(ef, kind));
 }
 

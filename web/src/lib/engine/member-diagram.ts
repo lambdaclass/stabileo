@@ -527,7 +527,7 @@ function isInwardEndpointFace(t: number, right?: boolean): boolean {
   return face === undefined || right === undefined || face === right;
 }
 
-export function memberEnvelopeOrdinates(diagram: ElementEnvelopeDiagram, length: number) {
+export function memberEnvelopeBounds(diagram: ElementEnvelopeDiagram, length: number) {
   const faces = new Map<number, { x: number; side: 'left' | 'right' }>();
   for (const { index, distance: x } of envelopeJumpCuts(diagram, length)) {
     faces.set(index, { x, side: 'left' });
@@ -537,8 +537,14 @@ export function memberEnvelopeOrdinates(diagram: ElementEnvelopeDiagram, length:
     const face = faces.get(i);
     if (!isInwardEndpointFace(t, face && face.side === 'right')) return [];
     const pos = diagram.posValues[i] ?? 0, neg = diagram.negValues[i] ?? 0;
-    return [{ t, x: t * length, value: Math.abs(neg) > Math.abs(pos) ? neg : pos, ...face }];
+    return [{ t, x: t * length, pos, neg, ...face }];
   });
+}
+
+export function memberEnvelopeOrdinates(diagram: ElementEnvelopeDiagram, length: number) {
+  return memberEnvelopeBounds(diagram, length).map(({ pos, neg, ...station }) => ({
+    ...station, value: Math.abs(neg) > Math.abs(pos) ? neg : pos,
+  }));
 }
 
 export function diagramCriticalPoints(

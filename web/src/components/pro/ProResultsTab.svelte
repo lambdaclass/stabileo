@@ -235,9 +235,6 @@
     return buildQueryRows(results.elementForces, queryComponent, { elementIds: scopeIds, envelope });
   });
   const filteredRows = $derived(filterByAbsThreshold(activeRows, queryThreshold));
-  // DOM cap: scope='all' yields 2 rows per element — a 10k-element model would
-  // mount 20k <tr> in a 180px scroll box. The CSV export still uses the FULL
-  // filteredRows; only rendering is capped.
   const MAX_RENDER_ROWS = 500;
   const renderRows = $derived(filteredRows.length > MAX_RENDER_ROWS ? filteredRows.slice(0, MAX_RENDER_ROWS) : filteredRows);
   const activeExtreme = $derived(extremeRow(filteredRows, queryMode));
@@ -717,8 +714,6 @@
               <label class="pro-viz-label">{t('pro.queryMode')}</label>
               <select class="pro-viz-sel" bind:value={queryMode}>
                 <option value="absmax">{t('pro.queryModeAbsmax')}</option>
-                <!-- Envelope data is abs-max winners: signed max/min over it is
-                     not the true envelope extreme, so those modes are disabled. -->
                 <option value="max" disabled={isEnvelopeView}>{t('pro.queryModeMax')}</option>
                 <option value="min" disabled={isEnvelopeView}>{t('pro.queryModeMin')}</option>
               </select>
@@ -748,8 +743,8 @@
                     <th>{t('pro.elemLabel')}</th><th>{t('pro.queryEnd')}</th><th>{t('pro.queryValue')} ({unitQ(queryQty)})</th>
                   </tr></thead>
                   <tbody>
-                    {#each renderRows as r (r.elementId + '-' + r.end)}
-                      <tr onclick={() => selectQueryElement(r.elementId)} style="cursor:pointer" class:pq-extreme={activeExtreme && r.elementId === activeExtreme.elementId && r.end === activeExtreme.end}>
+                    {#each renderRows as r (`${r.elementId}-${r.end}-${r.value}`)}
+                      <tr onclick={() => selectQueryElement(r.elementId)} style="cursor:pointer" class:pq-extreme={r === activeExtreme}>
                         <td class="col-id">{r.elementId}</td>
                         <td class="col-end">{r.end}</td>
                         <td class="col-num">{fmtQ(r.value, queryQty)}</td>

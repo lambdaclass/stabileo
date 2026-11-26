@@ -1,0 +1,32 @@
+{
+  "id": "signed-envelope-end-queries",
+  "date": "2026-11-26",
+  "prs": [2581],
+  "area": "analysis",
+  "when": { "all": ["space3D", "members", "combinations"] },
+  "quantities": ["envelopes"],
+  "title": {
+    "en": "Spatial envelope queries retain both signed end bounds",
+    "es": "Las consultas de envolventes espaciales conservan ambos límites con signo en los extremos",
+    "pt": "As consultas de envolventes espaciais mantêm os dois limites com sinal nas extremidades",
+    "de": "Abfragen räumlicher Einhüllender behalten beide vorzeichenbehafteten Endwerte",
+    "fr": "Les requêtes d’enveloppes spatiales conservent les deux bornes signées aux extrémités",
+    "tr": "Uzaysal zarf sorguları uçlardaki iki işaretli sınırı korur",
+    "zh": "空间包络查询保留杆端的正负限值",
+    "hu": "A térbeli burkológörbék lekérdezése megtartja mindkét előjeles rúdvégi szélsőértéket"
+  },
+  "explanation": {
+    "en": "When both signs occur, the query table and CSV export include the positive and negative bounds on the inward face of each member end.",
+    "es": "Cuando se dan ambos signos, la tabla de consulta y la exportación CSV incluyen los límites positivo y negativo de la cara interior de cada extremo de la barra.",
+    "pt": "Quando ocorrem ambos os sinais, a tabela de consulta e a exportação CSV incluem os limites positivo e negativo na face interior de cada extremidade da barra.",
+    "de": "Treten beide Vorzeichen auf, enthalten die Abfragetabelle und der CSV-Export die positive und die negative Grenze an der Innenseite jedes Stabendes.",
+    "fr": "Lorsque les deux signes sont présents, la table de requête et l’export CSV incluent les bornes positive et négative du côté intérieur de chaque extrémité de barre.",
+    "tr": "Her iki işaret de varsa sorgu tablosu ve CSV dışa aktarımı, her eleman ucunun iç tarafındaki pozitif ve negatif sınırları içerir.",
+    "zh": "当两种符号都出现时，查询表和 CSV 导出均包含各杆端内侧的正负限值。",
+    "hu": "Ha mindkét előjel előfordul, a lekérdezési táblázat és a CSV-export minden rúdvég belső oldalán a pozitív és a negatív szélsőértéket is tartalmazza."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-signed-envelope-end-queries.md",
+    "heading": "Signed bounds in spatial envelope end queries"
+  }
+}

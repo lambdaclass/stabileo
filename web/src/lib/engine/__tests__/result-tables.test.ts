@@ -671,7 +671,7 @@ describe('spatial cantilever end queries', () => {
     return [linear, nonlinear.results].map(result => collapseVariableResults(result, expansion));
   }
 
-  it.skip('known wrong result: #2581 queries signed bounds from linear and P-Delta case envelopes', () => {
+  it('known wrong result: #2581 queries signed bounds from linear and P-Delta case envelopes', () => {
     const positive = 100, negative = -60;
     const id = modelStore.addLoadEntry({
       type: 'nodal3d', data: { id: 1, nodeId: tip, fx: 0, fy: -positive, fz: -positive, mx: 0, my: 0, mz: 0 },

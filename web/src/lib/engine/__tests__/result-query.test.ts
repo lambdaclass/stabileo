@@ -175,7 +175,7 @@ describe('result-query: flat CSV serialization with metadata', () => {
   });
 });
 
-it.skip('known wrong result: #2581 preserves both signed bounds on the inward face of each end', () => {
+it('known wrong result: #2581 preserves both signed bounds on the inward face of each end', () => {
   const elementId = 7;
   const forces = [ef(elementId), ef(8)];
   for (const faces of [{}, { jumpCuts: [{ index: 0, distance: 0 }, { index: 3, distance: 1 }] }]) {
@@ -204,7 +204,7 @@ it.skip('known wrong result: #2581 preserves both signed bounds on the inward fa
   }
 });
 
-it.skip('known wrong result: #2581 keeps the positive envelope bound when the negative bound governs the magnitude', () => {
+it('known wrong result: #2581 keeps the positive envelope bound when the negative bound governs the magnitude', () => {
   const envelope: EnvelopeDiagramData3D = {
     kind: 'axial', globalMax: 100,
     elements: [{ elementId: 7, tPositions: [0, 1], posValues: [60, 0], negValues: [-100, -20] }],
