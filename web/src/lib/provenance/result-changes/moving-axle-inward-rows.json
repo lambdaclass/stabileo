@@ -1,0 +1,32 @@
+{
+  "id": "moving-axle-inward-rows",
+  "date": "2026-11-26",
+  "prs": [2581],
+  "area": "analysis",
+  "when": { "all": ["plane2D", "members", "movingLoads"] },
+  "quantities": ["movingLoads"],
+  "title": {
+    "en": "Moving-axle limits at inward member faces",
+    "es": "Límites de ejes móviles en las caras interiores de las barras",
+    "pt": "Limites de eixos móveis nas faces internas das barras",
+    "de": "Grenzwerte bewegter Achslasten an den inneren Stabseiten",
+    "fr": "Limites des charges d’essieu mobiles du côté intérieur des barres",
+    "tr": "Eleman uçlarının iç tarafındaki hareketli aks sınırları",
+    "zh": "杆端内侧的移动轴载限值",
+    "hu": "Mozgó tengelyterhek határértékei a rúdvégek belső oldalán"
+  },
+  "explanation": {
+    "en": "When a planar moving-load envelope has two ordinates at a member end, the inward row now includes the recovered axle shear and axial force limits used by member-end results.",
+    "es": "Cuando una envolvente plana de cargas móviles tiene dos ordenadas en el extremo de una barra, la fila interior incluye ahora los límites recuperados de cortante y esfuerzo axial debidos al eje que se usan en los resultados de extremo.",
+    "pt": "Quando uma envoltória plana de cargas móveis tem duas ordenadas na extremidade de uma barra, a linha interna passa a incluir os limites recuperados de esforço cortante e força axial devidos ao eixo que são usados nos resultados da extremidade.",
+    "de": "Wenn eine ebene Wanderlastumhüllende zwei Ordinaten an einem Stabende enthält, umfasst die innere Zeile jetzt die ermittelten Querkraft- und Normalkraftgrenzwerte der Achslast, die in den Stabendwerten verwendet werden.",
+    "fr": "Lorsqu’une enveloppe plane de charges mobiles comporte deux ordonnées à une extrémité de barre, la ligne intérieure comprend désormais les limites d’effort tranchant et d’effort normal dues à l’essieu qui sont utilisées dans les résultats d’extrémité.",
+    "tr": "Düzlemsel hareketli yük zarfında bir eleman ucunda iki ordinat varsa, iç yüzdeki satır artık eleman ucu sonuçlarında kullanılan aks kaynaklı kesme ve eksenel kuvvet sınırlarını içerir.",
+    "zh": "当平面移动荷载包络在杆端有两个纵坐标值时，内侧行现在包含杆端结果所用的移动轴载剪力和轴力限值。",
+    "hu": "Ha egy síkbeli mozgóteher-burkológörbének két ordinátája van egy rúdvégen, a belső sor már tartalmazza a rúdvégi eredményekhez használt, tengelyteherből számított nyíróerő- és normálerő-határértékeket."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-moving-axle-inward-rows.md",
+    "heading": "Moving-axle force limits at inward member ends"
+  }
+}
