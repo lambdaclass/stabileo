@@ -7,6 +7,7 @@ engine.initSync({
 });
 const fixtures = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/reduced-rank.json', import.meta.url)));
 const failures = [];
+const provenSwing = 'the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases';
 function assertDisplacements(results, dim, nodeIds, axial = 0) {
   const fields = dim === '2d' ? ['ux', 'uz', 'ry'] : ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'];
   assert.deepEqual(results.displacements.map(d => d.nodeId).sort((a, b) => a - b), nodeIds);
@@ -48,13 +49,17 @@ function report(issue, dim, solver) {
     ['modal', () => engine[`solve_modal_${dim}`](modal, 1)],
     ['certified modal', () => engine[`certify_modal_${dim}`](modal, 1)],
     ['P-Delta', () => engine[`solve_pdelta_${dim}`](JSON.stringify(solver), 2, 1e-12)],
-  ].filter(([name]) => issue === 2584 || dim === '3d' || name.includes('modal'))) {
+  ]) {
     try {
       run();
       failures.push(`#${issue} ${dim} ${name} returned a result`);
     } catch (error) {
       const text = String(error);
       const modalFrameSwing = issue !== 2584 && name.includes('modal');
+      if (issue !== 2584 && dim === '2d' && !modalFrameSwing) {
+        if (text !== provenSwing) failures.push(`#${issue} ${dim} ${name} returned ${error}`);
+        continue;
+      }
       let diagnostic;
       try {
         diagnostic = JSON.parse(text.replace(/^MODAL-MECHANISM: /, '')).structuredDiagnostics?.[0];
@@ -330,4 +335,93 @@ for (const dim of ['2d', '3d']) {
   const result = solve([]);
   assert.equal(result.converged, true);
   assert.equal(result.results.displacements.find(({ nodeId }) => nodeId === 2).rx, 1);
+}
+
+{
+  const model = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/reduced-rank-pins.json', import.meta.url)));
+  for (const modulus of [1e15, 1e21]) {
+    model.materials[2].e = modulus;
+    assertDisplacements(engine.solve_3d(model), '3d', [1, 2, 3]);
+    const result = nonlinear('nonlinear_material', '3d', {
+      solver: model, materialModels: {}, sectionCapacities: {}, maxIter: 8, tolerance: 1e-12, nIncrements: 1,
+    });
+    assert.equal(result.converged, true);
+    assertDisplacements(result.results, '3d', [1, 2, 3]);
+  }
+}
+
+for (const dim of ['2d', '3d']) {
+  for (const [offset, released] of [[1, true], [0, true], [1, false]]) {
+    const planar = structuredClone(truss);
+    Object.assign(planar.elements[1], {type: 'frame', hingeEnd: released});
+    const model = dim === '2d' ? planar : spatial(planar);
+    delete model.supports[2];
+    model.nodes[3] = dim === '2d' ? {id: 3, x: 1 + offset, z: 0} : {id: 3, x: 1 + offset, y: 0, z: 0};
+    model.constraints = [{
+      type: 'rigidLink', masterNode: 2, slaveNode: 3, dofs: dim === '2d' ? [] : [0, 1, 2, 3, 4, 5],
+    }];
+    const linear = () => engine[`solve_${dim}`](model);
+    const corotational = () => nonlinear('corotational', dim, model);
+    const material = () => nonlinear('nonlinear_material', dim, {
+      solver: model, materialModels: {}, sectionCapacities: {}, maxIter: 8, tolerance: 1e-12, nIncrements: 1,
+    });
+    if (offset !== 0 && released) {
+      assert.throws(linear, /mechanism/);
+      assert.throws(corotational, codedRankError);
+      assert.throws(material, codedRankError);
+    } else {
+      assertDisplacements(linear(), dim, [1, 2, 3]);
+      for (const run of [corotational, material]) {
+        const result = run();
+        assert.equal(result.converged, true);
+        assertDisplacements(result.results, dim, [1, 2, 3]);
+      }
+    }
+  }
+}
+
+{
+  const solver = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/ssi-artificial-rotation.json', import.meta.url)));
+  const load = solver.loads[0].data.fz;
+  for (const inertia of [2 ** -44, 2 ** -36]) {
+    solver.sections[1].iy = inertia;
+    const solve = soilSprings => JSON.parse(engine.solve_ssi_3d(JSON.stringify({
+      solver, soilSprings, maxIter: 3, tolerance: 1e-10,
+    })));
+    assert.throws(() => solve([]), codedRankError);
+    const result = solve([{ nodeId: 2, direction: 2, curve: { type: 'custom', points: [[0, 0], [1, 1]] }, tributaryLength: 1 }]);
+    const tip = result.results.displacements.find(({ nodeId }) => nodeId === 2);
+    assert.equal(result.converged, true);
+    assert.ok(Math.abs(tip.uz / load - 1) <= 1e-12);
+    assert.ok(Math.abs(tip.ry / load + 1) <= 1e-12);
+    assert.ok(Math.abs(result.springResults[0].reaction / load - 1) <= 1e-12);
+  }
+}
+
+for (const dim of ['2d', '3d']) {
+  const planar = structuredClone(truss);
+  Object.assign(planar.elements[1], { type: 'frame', hingeEnd: true });
+  planar.loads = [{ type: 'nodal', data: { nodeId: 3, fx: 0, fz: 0.125, my: 0 } }];
+  const solver = dim === '2d' ? planar : spatial(planar);
+  delete solver.supports[2];
+  if (dim === '3d') {
+    for (const nodeId of [2, 3]) {
+      solver.supports[nodeId] = { nodeId, rx: false, ry: true, rz: false, rrx: true, rry: false, rrz: true };
+    }
+  }
+  solver.nodes[3] = dim === '2d' ? { id: 3, x: 2, z: 0 } : { id: 3, x: 2, y: 0, z: 0 };
+  solver.constraints = [{
+    type: 'rigidLink', masterNode: 2, slaveNode: 3, dofs: dim === '2d' ? [] : [0, 1, 2, 3, 4, 5],
+  }];
+  const solve = soilSprings => JSON.parse(engine[`solve_ssi_${dim}`](JSON.stringify({
+    solver, soilSprings, maxIter: 3, tolerance: 1e-10,
+  })));
+  assert.throws(() => solve([]), codedRankError);
+  const result = solve([{
+    nodeId: 3, direction: dim === '2d' ? 1 : 2,
+    curve: { type: 'custom', points: [[0, 0], [1, 1]] }, tributaryLength: 1,
+  }]);
+  assert.equal(result.converged, true);
+  assert.equal(result.springResults[0].displacement, planar.loads[0].data.fz);
+  assert.equal(result.springResults[0].reaction, planar.loads[0].data.fz);
 }

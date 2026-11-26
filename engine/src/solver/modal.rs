@@ -149,23 +149,28 @@ pub fn solve_modal_2d(
         let m_csc = modal_mass;
         m_r_x = ground_influence(&dof_num, 0, &its, &m_csc, m_full_sparse);
         m_r_y = ground_influence(&dof_num, 1, &its, &m_csc, m_full_sparse);
-        let k_reduced = cs.as_ref().map(|cs| cs.reduce_matrix_sparse(&k_ff));
-        let k_solve = k_reduced.as_ref().unwrap_or(&k_ff);
-        let ns = k_solve.n;
-        ModalStiffness::sparse(k_solve, &stiffness_roundoff).check_before_eigensolve(
-            &mass_range, &dof_num, cs.as_ref(), &its, &[0, 2], &rank,
-            || rank.check_rounding(&k_ff, k_reduced.as_ref(), support_magnitude.as_ref()),
-        )?;
-        let m_solve = match &cs {
-            Some(cs) => cs.reduce_matrix_sparse(&m_csc),
-            None => m_csc,
+        let mut k_before_constraints = None;
+        let (k_solve, m_solve) = if let Some(ref cs) = cs {
+            let k_ff = k_before_constraints.insert(k_ff);
+            (cs.reduce_matrix_sparse(&k_ff), cs.reduce_matrix_sparse(&m_csc))
+        } else {
+            (k_ff, m_csc)
         };
-        let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(k_solve, |observe| {
-            mass_range.solve_sparse(k_solve, &m_solve, num_modes, observe)
+        let ns = k_solve.n;
+        ModalStiffness::sparse(&k_solve, &stiffness_roundoff).check_before_eigensolve(
+            &mass_range, &dof_num, cs.as_ref(), &its, &[0, 2], &rank,
+            || rank.check_rounding(
+                k_before_constraints.as_ref().unwrap_or(&k_solve),
+                k_before_constraints.as_ref().map(|_| &k_solve),
+                support_magnitude.as_ref(),
+            ),
+        )?;
+        let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(&k_solve, |observe| {
+            mass_range.solve_sparse(&k_solve, &m_solve, num_modes, observe)
         });
         crate::known_issues::attach(&mut structured_diagnostics, conditioning.into_iter().collect());
         let result = result.ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(ns))?;
-        k_check_sparse = Some(k_reduced.unwrap_or(k_ff));
+        k_check_sparse = Some(k_solve);
         m_csc_opt = Some(m_solve);
         (result, ns, Vec::new())
     } else {

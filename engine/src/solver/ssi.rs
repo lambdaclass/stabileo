@@ -21,6 +21,7 @@ use super::linear;
 use super::soil_curves::{SoilCurve, evaluate_soil_curve};
 use super::constraints::{FreeConstraintSystem, MasterMotion};
 use super::sparse_tangent::SparseSymbolicCache;
+use super::stability::{OperatorRank, VerifiedGauges};
 
 struct SpringStiffness {
     rows: Vec<usize>,
@@ -136,15 +137,20 @@ fn dense_free_stiffness(k: &[f64], n: usize, nf: usize) -> CscMatrix {
     CscMatrix { n: nf, col_ptr, row_idx, values }
 }
 
-struct SecantSystem(CscMatrix);
+struct SecantSystem {
+    physical: CscMatrix,
+    gauges: VerifiedGauges,
+}
 
 fn secant_system(
     base: &CscMatrix,
     reduced_base: Option<&CscMatrix>,
     soil: SpringStiffness,
     cs: Option<&FreeConstraintSystem>,
-    rank: &super::stability::OperatorRank<'_>,
+    rank: &OperatorRank<'_>,
     support_magnitude: Option<&CscMatrix>,
+    force: &[f64],
+    force_rounding: &[f64],
 ) -> Result<SecantSystem, String> {
     let nf = base.n;
     let SpringStiffness { rows, cols, vals, magnitude: soil_magnitude } = soil;
@@ -165,8 +171,8 @@ fn secant_system(
         Some(base) => add_stiffness(base, &soil_magnitude),
         None => add_stiffness(&super::stability::absolute_stiffness(base), &soil_magnitude),
     };
-    rank.check_secant(&physical, reduced.as_ref(), &magnitude, &soil_magnitude)?;
-    Ok(SecantSystem(reduced.unwrap_or(physical)))
+    let gauges = rank.check_secant(&physical, reduced.as_ref(), &magnitude, &soil_magnitude, force, force_rounding)?;
+    Ok(SecantSystem { physical: reduced.unwrap_or(physical), gauges })
 }
 
 fn add_stiffness(base: &CscMatrix, soil: &CscMatrix) -> CscMatrix {
@@ -258,7 +264,7 @@ impl SecantFactor {
 }
 
 struct SecantState {
-    k: CscMatrix,
+    system: SecantSystem,
     factor: SecantFactor,
     u: Vec<f64>,
     rounding_round: f64,
@@ -267,16 +273,18 @@ struct SecantState {
 impl SecantState {
     fn update(
         state: &mut Option<Self>,
-        SecantSystem(k): SecantSystem,
+        system: SecantSystem,
         force: &[f64],
         sparse: bool,
         cache: &mut Option<SparseSymbolicCache>,
         conditioning: &mut Option<StructuredDiagnostic>,
     ) -> Result<(), String> {
+        let k = &system.physical;
         if state.as_ref().is_some_and(|s| {
-            s.k.col_ptr == k.col_ptr
-                && s.k.row_idx == k.row_idx
-                && s.k
+            s.system.gauges == system.gauges
+                && s.system.physical.col_ptr == k.col_ptr
+                && s.system.physical.row_idx == k.row_idx
+                && s.system.physical
                     .values
                     .iter()
                     .map(|v| v.to_bits())
@@ -284,10 +292,11 @@ impl SecantState {
         }) {
             return Ok(());
         }
-        let factor = SecantFactor::new(&k, sparse, cache, conditioning)?;
-        let u = factor.initial_solution(&k, force)?;
+        let factor_matrix = system.gauges.factor_matrix(k)?;
+        let factor = SecantFactor::new(&factor_matrix, sparse, cache, conditioning)?;
+        let u = factor.initial_solution(k, force)?;
         *state = Some(Self {
-            k,
+            system,
             factor,
             u,
             rounding_round: 0.0,
@@ -356,7 +365,7 @@ fn refine_secant<T: InclinedFrame>(
         }
         Ok(metric.relative_residual(&physical_residual(u)?, force, None, cs))
     };
-    let diagonal = state.k.diagonal();
+    let diagonal = state.system.physical.diagonal();
     let polish = |u: &[f64]| {
         let r = physical_residual(u)?;
         let rhs: Vec<_> = r[..nf].iter().map(|v| -v).collect();
@@ -543,42 +552,38 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
     // Base assembly (without soil springs). Below the sparse threshold: the
     // legacy dense n×n path, unchanged. At or above it: CSC assembly (k_ff
     // for the per-iteration solves) — no dense n×n matrix is ever built.
-    let dense_asm = if use_sparse {
-        None
-    } else {
-        Some(assembly::assemble_2d_with_magnitude(&input.solver, &dof_num))
-    };
-    let sparse_stiff = if use_sparse {
-        Some(super::sparse_assembly::assemble_stiffness_sparse_2d(&input.solver, &dof_num))
-    } else {
-        None
-    };
-    let f_global = if let Some(ref s) = sparse_stiff {
-        assembly::assemble_load_vector_2d(
-            &input.solver, &input.solver.loads, &dof_num, &s.inclined_transforms_2d,
-        )
-    } else {
-        dense_asm.as_ref().unwrap().0.f.clone()
-    };
-
+    let (dense_asm, sparse_stiff) = assembly::physical_stiffness(|| {
+        if use_sparse {
+            (None, Some(super::sparse_assembly::assemble_stiffness_sparse_2d(&input.solver, &dof_num)))
+        } else {
+            (Some(assembly::assemble_stiffness_2d(&input.solver, &dof_num)), None)
+        }
+    });
     // K and F are in the inclined-support frames (the same by either
     // assembler); the springs are rotated into them and the solution back.
     let its: &[assembly::InclinedTransformData2D] = if let Some(ref s) = sparse_stiff {
         &s.inclined_transforms_2d
     } else {
-        &dense_asm.as_ref().unwrap().0.inclined_transforms_2d
+        &dense_asm.as_ref().unwrap().inclined_transforms_2d
     };
+
+    let (f_global, force_rounding) =
+        assembly::assemble_load_vector_2d_with_rounding(&input.solver, &input.solver.loads, &dof_num, its, true);
 
     let base = if let Some(ref sparse) = sparse_stiff {
         sparse.k_ff.clone()
     } else {
-        dense_free_stiffness(&dense_asm.as_ref().unwrap().0.k, n, nf)
+        dense_free_stiffness(&dense_asm.as_ref().unwrap().k, n, nf)
     };
     let support_magnitude = sparse_stiff.as_ref().and_then(|s| s.support_magnitude.as_ref())
-        .or_else(|| dense_asm.as_ref().and_then(|s| s.1.as_ref()));
+        .or_else(|| dense_asm.as_ref().and_then(|s| s.support_magnitude.as_ref()));
     let reduced_base = cs.as_ref().map(|cs| cs.reduce_matrix_sparse(&base));
-    let rank = super::stability::OperatorRank::for_2d(&input.solver, &dof_num, cs.as_ref());
+    let rank = OperatorRank::for_2d(&input.solver, &dof_num, cs.as_ref());
     let force = cs.as_ref().map_or_else(|| f_global[..nf].to_vec(), |cs| cs.reduce_vector(&f_global[..nf]));
+    let force_rounding = cs.as_ref().map_or_else(
+        || force_rounding[..nf].to_vec(),
+        |cs| cs.reduce_load_rounding(&f_global, &force_rounding),
+    );
 
     // Initialize secant stiffnesses (use initial tangent from curves)
     let mut spring_k: Vec<f64> = input.soil_springs.iter()
@@ -607,14 +612,14 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
 
     let assemble_secant = |spring_k: &[f64]| secant_system(
         &base, reduced_base.as_ref(), spring_stiffness(&input.soil_springs, spring_k, &dof_num, its),
-        cs.as_ref(), &rank, support_magnitude,
+        cs.as_ref(), &rank, support_magnitude, &force, &force_rounding,
     );
     let mut secant_state = None;
     for iter in 0..input.max_iter {
         total_iters = iter + 1;
 
-        let k = assemble_secant(&spring_k)?;
-        SecantState::update(&mut secant_state, k, &force, use_sparse, &mut sparse_sym_cache, &mut conditioning)?;
+        let system = assemble_secant(&spring_k)?;
+        SecantState::update(&mut secant_state, system, &force, use_sparse, &mut sparse_sym_cache, &mut conditioning)?;
         let state = secant_state.as_mut().unwrap();
         let u_indep = state.u.clone();
 
@@ -651,7 +656,7 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
             refine_secant(state, nf, n, cs.as_ref(), its, &input.soil_springs, &dof_num,
                 |frame| if let Some(ref s) = sparse_stiff {
                     sparse_balance(&s.k_full, n, frame, &f_global)
-                } else { dense_balance(&dense_asm.as_ref().unwrap().0.k, n, frame, &f_global) },
+                } else { dense_balance(&dense_asm.as_ref().unwrap().k, n, frame, &f_global) },
                 &metric, &f_global, input.tolerance)?;
             u_frame = cs.as_ref().map_or_else(|| state.u.clone(), |cs|cs.expand_solution(&state.u, MasterMotion::Homogeneous));
             u_full = assembly::to_global(&u_frame, n, its);
@@ -663,7 +668,7 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
             }
             let ku = if let Some(ref s) = sparse_stiff {
                 sparse_balance(&s.k_full, n, &u_frame, &f_global)
-            } else { dense_balance(&dense_asm.as_ref().unwrap().0.k, n, &u_frame, &f_global) };
+            } else { dense_balance(&dense_asm.as_ref().unwrap().k, n, &u_frame, &f_global) };
             let r = residual(ku, &input.soil_springs, &dof_num, its, &u_full)?;
             if max_change < input.tolerance && metric.relative_residual(&r, &f_global, None, cs.as_ref()) < input.tolerance {
                 converged = true;
@@ -695,10 +700,6 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
         .collect::<Result<_, String>>()?;
 
     u_frame.resize(n, 0.0);
-    let sparse_stiff = sparse_stiff.as_ref().map(|_| assembly::physical_stiffness(||
-        super::sparse_assembly::assemble_stiffness_sparse_2d(&input.solver, &dof_num)));
-    let dense_asm = dense_asm.as_ref().map(|_| assembly::physical_stiffness(||
-        assembly::assemble_2d(&input.solver, &dof_num)));
     let ku = if let Some(ref s) = sparse_stiff {
         sparse_balance(&s.k_full, n, &u_frame, &f_global)
     } else {
@@ -772,39 +773,37 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     // legacy dense n×n path, unchanged. At or above it: CSC assembly (k_ff
     // for the per-iteration solves, k_full for the reactions) — no dense n×n
     // matrix is ever built.
-    let dense_asm = if use_sparse {
-        None
-    } else {
-        Some(assembly::assemble_3d_with_magnitude(&expanded_solver, &dof_num))
-    };
-    let sparse_asm = if use_sparse {
-        Some(assembly::assemble_sparse_3d(&expanded_solver, &dof_num, true))
-    } else {
-        None
-    };
-    let f_global = if let Some(ref s) = sparse_asm {
-        s.f.clone()
-    } else {
-        dense_asm.as_ref().unwrap().0.f.clone()
-    };
-
+    let (dense_asm, sparse_asm) = assembly::physical_stiffness(|| {
+        if use_sparse {
+            (None, Some(assembly::assemble_stiffness_sparse_3d(&expanded_solver, &dof_num, true)))
+        } else {
+            (Some(assembly::assemble_stiffness_3d(&expanded_solver, &dof_num)), None)
+        }
+    });
     // In the inclined-support frames, as in 2D.
     let its: &[assembly::InclinedTransformData] = if let Some(ref s) = sparse_asm {
         &s.inclined_transforms
     } else {
-        &dense_asm.as_ref().unwrap().0.inclined_transforms
+        &dense_asm.as_ref().unwrap().inclined_transforms
     };
+
+    let (f_global, force_rounding) =
+        assembly::assemble_load_vector_3d_with_rounding(&expanded_solver, &expanded_solver.loads, &dof_num, its, true);
 
     let base = if let Some(ref sparse) = sparse_asm {
         sparse.k_ff.clone()
     } else {
-        dense_free_stiffness(&dense_asm.as_ref().unwrap().0.k, n, nf)
+        dense_free_stiffness(&dense_asm.as_ref().unwrap().k, n, nf)
     };
     let support_magnitude = sparse_asm.as_ref().and_then(|s| s.support_magnitude.as_ref())
-        .or_else(|| dense_asm.as_ref().and_then(|s| s.1.as_ref()));
+        .or_else(|| dense_asm.as_ref().and_then(|s| s.support_magnitude.as_ref()));
     let reduced_base = cs.as_ref().map(|cs| cs.reduce_matrix_sparse(&base));
-    let rank = super::stability::OperatorRank::for_3d(&expanded_solver, &dof_num, cs.as_ref());
+    let rank = OperatorRank::for_3d(&expanded_solver, &dof_num, cs.as_ref());
     let force = cs.as_ref().map_or_else(|| f_global[..nf].to_vec(), |cs| cs.reduce_vector(&f_global[..nf]));
+    let force_rounding = cs.as_ref().map_or_else(
+        || force_rounding[..nf].to_vec(),
+        |cs| cs.reduce_load_rounding(&f_global, &force_rounding),
+    );
 
     let mut spring_k: Vec<f64> = input.soil_springs.iter()
         .map(|s| {
@@ -832,14 +831,14 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
 
     let assemble_secant = |spring_k: &[f64]| secant_system(
         &base, reduced_base.as_ref(), spring_stiffness(&input.soil_springs, spring_k, &dof_num, its),
-        cs.as_ref(), &rank, support_magnitude,
+        cs.as_ref(), &rank, support_magnitude, &force, &force_rounding,
     );
     let mut secant_state = None;
     for iter in 0..input.max_iter {
         total_iters = iter + 1;
 
-        let k = assemble_secant(&spring_k)?;
-        SecantState::update(&mut secant_state, k, &force, use_sparse, &mut sparse_sym_cache, &mut conditioning)?;
+        let system = assemble_secant(&spring_k)?;
+        SecantState::update(&mut secant_state, system, &force, use_sparse, &mut sparse_sym_cache, &mut conditioning)?;
         let state = secant_state.as_mut().unwrap();
         let u_indep = state.u.clone();
 
@@ -875,7 +874,7 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
             refine_secant(state, nf, n, cs.as_ref(), its, &input.soil_springs, &dof_num,
                 |frame| if let Some(ref s) = sparse_asm {
                     sparse_balance(s.k_full.as_ref().ok_or("SSI: sparse assembly without the full stiffness").unwrap(), n, frame, &f_global)
-                } else { dense_balance(&dense_asm.as_ref().unwrap().0.k, n, frame, &f_global) },
+                } else { dense_balance(&dense_asm.as_ref().unwrap().k, n, frame, &f_global) },
                 &metric, &f_global, input.tolerance)?;
             u_frame = cs.as_ref().map_or_else(|| state.u.clone(), |cs|cs.expand_solution(&state.u, MasterMotion::Homogeneous));
             u_full = assembly::to_global(&u_frame, n, its);
@@ -887,7 +886,7 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
             }
             let ku = if let Some(ref s) = sparse_asm {
                 sparse_balance(s.k_full.as_ref().ok_or("SSI: sparse assembly without the full stiffness")?, n, &u_frame, &f_global)
-            } else { dense_balance(&dense_asm.as_ref().unwrap().0.k, n, &u_frame, &f_global) };
+            } else { dense_balance(&dense_asm.as_ref().unwrap().k, n, &u_frame, &f_global) };
             let r = residual(ku, &input.soil_springs, &dof_num, its, &u_full)?;
             if max_change < input.tolerance && metric.relative_residual(&r, &f_global, None, cs.as_ref()) < input.tolerance {
                 converged = true;
@@ -918,10 +917,6 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
         .collect::<Result<_, String>>()?;
 
     u_frame.resize(n, 0.0);
-    let sparse_asm = sparse_asm.as_ref().map(|_| assembly::physical_stiffness(||
-        assembly::assemble_sparse_3d(&expanded_solver, &dof_num, true)));
-    let dense_asm = dense_asm.as_ref().map(|_| assembly::physical_stiffness(||
-        assembly::assemble_3d(&expanded_solver, &dof_num)));
     let ku = if let Some(ref s) = sparse_asm {
         sparse_balance(s.k_full.as_ref().ok_or("SSI: sparse assembly without the full stiffness")?, n, &u_frame, &f_global)
     } else {
@@ -1019,15 +1014,18 @@ mod refinement_scope_2072 {
             diagonal[d] = 1.0;
         }
         let k = CscMatrix::from_triplets(nf, &indices, &indices, &diagonal);
+        let mut force = vec![0.0; n];
+        force[d] = evaluate_soil_curve(&curve, displacement).unwrap().0 + force_increment;
+        let rank = OperatorRank::for_2d(&input.solver, &dofs, None);
+        let soil_magnitude = CscMatrix::from_triplets(nf, &[], &[], &[]);
+        let gauges = rank.check_secant(&k, None, &k, &soil_magnitude, &force[..nf], &vec![0.0; nf]).unwrap();
         let factor = SecantFactor::new(&k, false, &mut None, &mut None).unwrap();
         let mut state = SecantState {
-            k,
+            system: SecantSystem { physical: k, gauges },
             factor,
             u,
             rounding_round: 0.0,
         };
-        let mut force = vec![0.0; n];
-        force[d] = evaluate_soil_curve(&curve, displacement).unwrap().0 + force_increment;
         let metric =
             super::super::convergence::EquilibriumMetric::for_2d(&input.solver, &dofs, None)
                 .unwrap();

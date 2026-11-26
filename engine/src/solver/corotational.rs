@@ -249,7 +249,10 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
             dof_num, ns >= SPARSE_THRESHOLD, &asm.inclined_transforms_2d, &mut f_int,
             |internal, mut scatter| {
                 assemble_corotational_impl_with_magnitude(input, dof_num, &u_geom, internal, &mut scatter);
-                add_spring_contributions(input, dof_num, &u_geom, internal, art, &mut |i, j, k| scatter(i, j, k, k.abs()));
+                add_physical_spring_contributions(input, dof_num, &u_geom, internal, &mut |i, j, k| scatter(i, j, k, k.abs()));
+                for &(d, stiffness) in art {
+                    internal[d] += stiffness * u_geom[d];
+                }
             },
         ));
 
@@ -280,8 +283,12 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
         let (n, nf, ns) = (dof_num.n_total, dof_num.n_free, self.ns);
         let sparse_tangent = ns >= SPARSE_THRESHOLD;
         let r_f = std::mem::take(&mut self.r_f);
-        let k_t = std::mem::take(&mut stiffness.dense);
-        let (trip_rows, trip_cols, trip_vals) = (std::mem::take(&mut stiffness.rows), std::mem::take(&mut stiffness.cols), std::mem::take(&mut stiffness.values));
+        assembly::add_artificial_tangent(
+            &mut stiffness.dense, n,
+            sparse_tangent.then_some((&mut stiffness.rows, &mut stiffness.cols, &mut stiffness.values)),
+            self.art,
+        );
+        let ActiveStiffness { dense: k_t, rows: trip_rows, cols: trip_cols, values: trip_vals, .. } = stiffness;
         // The supports' step enters the first iteration as the tangent
         // predictor's load −K_fr·Δu_r: moving only the support nodes
         // would crush the elements next to them.
@@ -510,7 +517,7 @@ pub fn solve_corotational_2d_from(
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Get the full external load vector from linear assembly (reference load)
-    let asm = assembly::assemble_stiffness_2d(input, &dof_num);
+    let asm = assembly::physical_stiffness(|| assembly::assemble_stiffness_2d(input, &dof_num));
     let rank = super::stability::OperatorRank::for_2d(input, &dof_num, cs.as_ref());
     if start.is_none() {
         rank.check_rounding(&super::stability::dense_free_block(&asm.k, &dof_num), None, asm.support_magnitude.as_ref())?;
@@ -1706,7 +1713,7 @@ pub fn solve_corotational_3d(
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Reference load vector from linear assembly
-    let (asm, support_magnitude) = assembly::assemble_3d_with_magnitude(input, &dof_num);
+    let (asm, support_magnitude) = assembly::physical_stiffness(|| assembly::assemble_3d_with_magnitude(input, &dof_num));
     let rank = super::stability::OperatorRank::for_3d(input, &dof_num, cs.as_ref());
     rank.check_rounding(&super::stability::dense_free_block(&asm.k, &dof_num), None, support_magnitude.as_ref())?;
     let f_total = asm.f.clone();

@@ -100,8 +100,47 @@ The C08 fixtures for #973 and #1029 each have one member whose supported
 end can rotate. In #973 the member is released at the fixed support. In #1029
 the support is a pin and the member is released at the free tip. A rigid
 rotation about the support has zero member strain in both fixtures. The
-static rank verdict now classifies both as singular at assembly precision.
+static rank verdict proves both mechanisms and identifies node 2.
 The replay checks the refusal from modal analysis for #973 and from the
 no-foundation Winkler solve for #1029. The #1041 time-history replay uses
 the #1029 model and shares its static rank verdict. Time integration keeps
 its existing treatment of this model.
+
+### Artificial rotational stiffness in nonlinear rank checks
+
+The corotational and material nonlinear rank checks use the physical
+stiffness before artificial rotational pins are added for factorization.
+An offset rigid link can turn a rotation released by all incident beams
+into a translation of the slave. That motion still needs physical
+restraint. A coincident link can leave the same unloaded rotation as a
+gauge, so the model can solve.
+
+In the spatial material regression, a slightly skewed cantilever has a
+tip torsion release. A second member joins two fully fixed nodes. Making
+that member stiffer can increase the artificial pin derived from the
+largest assembled diagonal. It cannot change the free stiffness at the
+cantilever tip. The material rank check now accepts the same equilibrium
+as the linear solve for both tested stiffnesses of the fixed member.
+
+The rank checks share a row-index lookup for diagonal shifts and refuse a
+missing diagonal. The tangent CSC builder already inserts each diagonal and
+sorts lower-triangle entries by row. This preserves both inertia endpoints on
+current solver inputs and guards the rank proof against a change in storage order.
+
+## Check SSI secant rank using physical stiffness
+
+SSI now checks the unpinned structural and soil stiffness together. Both the
+initial secant and the secant after each soil update must resolve the physical
+motion, including after reduction by rigid links and other constraints.
+Only verified rotation or warping gauges with no resolvable load work can
+receive numerical regularization. Equilibrium, reactions and refinement use
+physical stiffness and soil forces.
+
+For example, a spatial beam released about its weak bending axis at its base
+can sway without straining the beam. An artificial pin on its tip rotation
+previously supplied rank and produced a finite displacement under transverse
+load. The solver now refuses with `reduced_stiffness_rank`. Adding a transverse
+soil spring at the tip restrains the sway. Its reaction balances the
+transverse load, and the tip rotation follows the sway allowed by the hinge.
+Recheck saved SSI results for models whose behavior depends on released or
+weak rotational directions.

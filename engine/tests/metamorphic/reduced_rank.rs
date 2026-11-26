@@ -32,6 +32,11 @@ fn space_model(issue: &str) -> Case3 {
     Case3::new("replay", serde_json::from_value(fixture(issue)).unwrap())
 }
 
+fn scaled_units(rng: &mut Rng) -> Units {
+    let (l, f) = [(1e-3, 1e3), (25.0, 1e-2), (0.3048, 4.448)][rng.below(3)];
+    Units::froude(l, f)
+}
+
 fn report(label: &str, result: Result<impl std::fmt::Debug, String>, failures: &mut Vec<String>) {
     match result {
         Err(e) if e.find('{').and_then(|start| serde_json::from_str::<serde_json::Value>(&e[start..]).ok())
@@ -42,11 +47,55 @@ fn report(label: &str, result: Result<impl std::fmt::Debug, String>, failures: &
     }
 }
 
+fn report_proven_swing(label: &str, result: Result<impl std::fmt::Debug, String>, failures: &mut Vec<String>) {
+    const EXPECTED: &str = "the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases";
+    match result {
+        Err(error) if error.strip_prefix("Failed to solve case 'A': ").unwrap_or(&error) == EXPECTED => {}
+        Err(error) => failures.push(format!("{label}: {error}")),
+        Ok(_) => failures.push(format!("{label}: returned a result")),
+    }
+}
+
 fn classification_2d(case: &Case2) -> Result<(), String> {
     match stability::of_2d(&case.s)?.refusal() {
         Some(e) => Err(e),
         None => Ok(()),
     }
+}
+
+#[test]
+fn issue_2266_dense_in_original_and_scaled_units() {
+    let case = model("2266");
+    let entry = "linear (dense reference)";
+    let mut rng = Rng::new(2026111702194 ^ hash(&case.name) ^ hash(entry));
+    let scaled = case.units(&scaled_units(&mut rng));
+    let row = crate::ana2::rows().into_iter().find(|a| a.name == entry).unwrap();
+    let mut failures = Vec::new();
+    for (label, model) in [("original", case), ("scaled", scaled)] {
+        report_proven_swing(label, (row.run)(&model), &mut failures);
+        report_proven_swing(label, classification_2d(&model), &mut failures);
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn issue_2380_constrained_in_original_and_rotated_coordinates() {
+    let case = model("2380");
+    let entry = "constrained";
+    let mut rng = Rng::new(2026112003058 ^ hash(&case.name) ^ hash(entry));
+    let rotated = case
+        .iso(&Iso2::rotation(rng.range(0.1, 6.2)).translated(
+            rng.range(-50.0, 50.0),
+            rng.range(-50.0, 50.0),
+        ))
+        .unwrap();
+    let row = crate::ana2::rows().into_iter().find(|a| a.name == entry).unwrap();
+    let mut failures = Vec::new();
+    for (label, model) in [("original", case), ("rotated", rotated)] {
+        report_proven_swing(label, (row.run)(&model), &mut failures);
+        report_proven_swing(label, classification_2d(&model), &mut failures);
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
 #[test]
@@ -74,8 +123,12 @@ fn issue_2380_through_native_operator_entries() {
     ];
     let rows2 = crate::ana2::rows();
     let rows3 = crate::ana3::rows();
-    let selected2: Vec<_> = ["SSI (no soil springs)", "corotational", "material nonlinear", "modal"]
-        .into_iter().map(|name| rows2.iter().find(|row| row.name == name).unwrap()).collect();
+    let selected2: Vec<_> = entries.into_iter().chain(["linear (WASM typed path)"]).map(|name| {
+        let mut matching = rows2.iter().filter(|row| row.name == name);
+        let row = matching.next().unwrap_or_else(|| panic!("missing 2D entry {name}"));
+        assert!(matching.next().is_none(), "duplicate 2D entry {name}");
+        row
+    }).collect();
     let selected3: Vec<_> = entries.into_iter().map(|name| {
         let mut matching = rows3.iter().filter(|row| row.name == name);
         let row = matching.next().unwrap_or_else(|| panic!("missing 3D entry {name}"));
@@ -84,7 +137,13 @@ fn issue_2380_through_native_operator_entries() {
     }).collect();
     let mut failures = Vec::new();
     for row in selected2 {
-        report(&format!("2D {}", row.name), (row.run)(&case), &mut failures);
+        let label = format!("2D {}", row.name);
+        let result = (row.run)(&case);
+        if matches!(row.name, "SSI (no soil springs)" | "corotational" | "material nonlinear" | "modal") {
+            report(&label, result, &mut failures);
+        } else {
+            report_proven_swing(&label, result, &mut failures);
+        }
     }
     for row in selected3 {
         report(&format!("3D {}", row.name), (row.run)(&spatial), &mut failures);
@@ -125,6 +184,53 @@ fn unhinged_and_independently_restrained_frames_solve() {
     }
 }
 
+
+fn check_spatial_issue(issue: &str, entry: &str, seed: u64, rotation: bool) {
+    let base = space_model(issue);
+    let row = crate::ana3::rows().into_iter().find(|a| a.name == entry).unwrap();
+    let mut rng = Rng::new(seed ^ hash(&base.name) ^ hash(entry) ^ 0x3d);
+    let transformed = if rotation {
+        base.iso(&crate::checks3::rotation_for(&row, &mut rng)).unwrap()
+    } else {
+        base.units(&scaled_units(&mut rng))
+    };
+    let mut failures = Vec::new();
+    report_proven_swing("original", (row.run)(&base), &mut failures);
+    report_proven_swing(&format!("#{issue} transformed"), (row.run)(&transformed), &mut failures);
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn issue_2119_contact_refuses_unresolved_operator() {
+    check_spatial_issue("2119", "contact (no gaps)", 2026111404217, true);
+}
+
+#[test]
+fn issue_2134_winkler_refuses_unresolved_operator() {
+    check_spatial_issue("2134", "Winkler (no foundation)", 2026111401487, false);
+}
+
+#[test]
+fn issue_2139_plastic_refuses_unresolved_operator() {
+    check_spatial_issue("2139", "plastic collapse", 2026111404217, false);
+}
+
+#[test]
+fn issue_2190_typed_planar_refuses_unresolved_operator() {
+    let base = model("2190");
+    let entry = "linear (WASM typed path)";
+    let row = crate::ana2::rows().into_iter().find(|a| a.name == entry).unwrap();
+    let mut rng = Rng::new(2026111607522 ^ hash(&base.name) ^ hash(entry));
+    let iso = Iso2::mirror_line(rng.range(0.0, 3.1)).translated(
+        rng.range(-50.0, 50.0),
+        rng.range(-50.0, 50.0),
+    );
+    let mirrored = base.iso(&iso).unwrap();
+    let mut failures = Vec::new();
+    report_proven_swing("original", (row.run)(&base), &mut failures);
+    report_proven_swing("#2190 mirrored", (row.run)(&mirrored), &mut failures);
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
 
 #[test]
 fn rotational_spring_and_connector_resolve_the_same_released_motion() {
@@ -778,4 +884,205 @@ fn issue_2190_terminal_swing_has_a_structural_witness() {
 #[test]
 fn issue_2266_terminal_swing_has_a_structural_witness() {
     check_embedded_terminal_swing("2266");
+}
+
+#[test]
+fn material_rank_is_independent_of_an_artificial_rotation_diagonal() {
+    use dedaliano_engine::{
+        solver::{dof::DofNumbering, material_nonlinear::solve_nonlinear_material_3d},
+        types::{NonlinearMaterialInput3D, SolverInput3D},
+    };
+    let solver: SolverInput3D = serde_json::from_str(include_str!("../fixtures/reduced-rank-pins.json")).unwrap();
+    let padded = crate::case::pad_3d(&solver).0;
+    let mut failures = Vec::new();
+    for (sparse, model) in [(false, solver), (true, padded)] {
+        assert_eq!(DofNumbering::build_3d(&model).n_free >= linear::SPARSE_THRESHOLD, sparse);
+        for modulus in [1e15, 1e21] {
+            let mut solver = model.clone();
+            solver.materials.get_mut("2").unwrap().e = modulus;
+            let assert_zero = |results: dedaliano_engine::types::AnalysisResults3D| {
+                assert_eq!(results.displacements.len(), solver.nodes.len());
+                assert!(results.displacements.iter().all(|d| {
+                    [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz] == [0.0; 6]
+                }));
+            };
+            assert_zero(linear::solve_3d(&solver).unwrap());
+            let input: NonlinearMaterialInput3D = serde_json::from_value(serde_json::json!({
+                "solver": solver, "materialModels": {}, "sectionCapacities": {}, "maxIter": 8,
+                "tolerance": 1e-12, "nIncrements": 1
+            })).unwrap();
+            match solve_nonlinear_material_3d(&input) {
+                Ok(result) => {
+                    assert!(result.converged);
+                    assert_zero(result.results);
+                }
+                Err(error) => failures.push(format!("sparse={sparse}, modulus={modulus:e}: {error}")),
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn released_rotation_can_move_an_offset_rigid_link_slave() {
+    use dedaliano_engine::{
+        solver::corotational::{solve_corotational_2d_from, CorotationalStart2D},
+        types::{RigidLinkConstraint, SolverNode},
+    };
+    let mut failures = Vec::new();
+    for (offset, released) in [(1.0, true), (0.0, true), (1.0, false)] {
+        let mut planar = truss();
+        let beam = planar.elements.get_mut("1").unwrap();
+        beam.elem_type = "frame".into();
+        beam.hinge_end = released;
+        planar.supports.remove("2");
+        planar.nodes.insert("3".into(), SolverNode { id: 3, x: 1.0 + offset, z: 0.0 });
+        let mut space = embed_2d(&planar, Plane::XZ).unwrap();
+        let link = |dofs| Constraint::RigidLink(RigidLinkConstraint {
+            master_node: 2, slave_node: 3, dofs
+        });
+        planar.constraints = vec![link(vec![])];
+        space.constraints = vec![link(vec![0, 1, 2, 3, 4, 5])];
+
+        let mechanism = offset != 0.0 && released;
+        let linear2 = linear::solve_2d(&planar);
+        let linear3 = linear::solve_3d(&space);
+        if mechanism {
+            assert!(linear2.unwrap_err().contains("mechanism"));
+            assert!(linear3.unwrap_err().contains("mechanism"));
+        } else {
+            assert!(linear2.unwrap().displacements.iter().all(|d| [d.ux, d.uz, d.ry] == [0.0; 3]));
+            assert!(linear3.unwrap().displacements.iter().all(|d| [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz] == [0.0; 6]));
+        }
+
+        let plane = Case2::new("released link", planar);
+        let space = Case3::new("released link", space);
+        for name in ["corotational", "material nonlinear"] {
+            let solve2 = crate::ana2::rows().into_iter().find(|row| row.name == name).unwrap().run;
+            let solve3 = crate::ana3::rows().into_iter().find(|row| row.name == name).unwrap().run;
+            let result2 = solve2(&plane);
+            let result3 = solve3(&space);
+            if mechanism {
+                report(&format!("2D {name}"), result2, &mut failures);
+                report(&format!("3D {name}"), result3, &mut failures);
+            } else {
+                let result2 = result2.unwrap();
+                let result3 = result3.unwrap();
+                for node in [1, 2, 3] {
+                    assert_eq!(result2.node_vec(node, "u").unwrap(), [0.0; 2]);
+                    assert_eq!(result3.node_vec(node, "u").unwrap(), [0.0; 3]);
+                }
+            }
+        }
+
+        let initial = plane.s.clone();
+        let displacements = [1, 2, 3].map(|node_id| dedaliano_engine::types::Displacement {
+            node_id, ux: 0.0, uz: 0.0, ry: 0.0,
+        });
+        let start = CorotationalStart2D { input: &initial, displacements: &displacements };
+        for modified in [false, true] {
+            let result = solve_corotational_2d_from(&plane.s, Some(&start), 8, 1e-12, 1, modified);
+            if mechanism {
+                report("2D supplied start", result, &mut failures);
+            } else {
+                let result = result.unwrap();
+                assert!(result.converged);
+                assert!(result.results.displacements.iter().all(|d| [d.ux, d.uz, d.ry] == [0.0; 3]));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+fn unit_soil_spring(node_id: usize, direction: usize) -> dedaliano_engine::solver::ssi::SoilSpring {
+    use dedaliano_engine::solver::{soil_curves::SoilCurve, ssi::SoilSpring};
+    SoilSpring {
+        node_id,
+        direction,
+        tributary_length: 1.0,
+        curve: SoilCurve::Custom { points: vec![[0.0, 0.0], [1.0, 1.0]] },
+    }
+}
+
+#[test]
+fn ssi_artificial_rotation_cannot_hold_a_spatial_mechanism() {
+    use dedaliano_engine::{solver::{dof::DofNumbering, ssi::*}, types::SolverInput3D};
+    let solver: SolverInput3D = serde_json::from_str(include_str!("../fixtures/ssi-artificial-rotation.json")).unwrap();
+    let load = solver.sections["1"].iy / 8.0;
+    let mut padded = crate::case::pad_3d(&solver).0;
+    let mut section = padded.sections["1"].clone();
+    section.id = 2;
+    section.iy = section.iz;
+    padded.sections.insert("2".into(), section);
+    for element in padded.elements.values_mut().filter(|e| e.id != 1) {
+        element.section_id = 2;
+    }
+
+    let mut failures = Vec::new();
+    for (sparse, model) in [(false, solver), (true, padded)] {
+        assert_eq!(DofNumbering::build_3d(&model).n_free >= linear::SPARSE_THRESHOLD, sparse);
+        for inertia in [2_f64.powi(-44), 2_f64.powi(-36)] {
+            let mut solver = model.clone();
+            solver.sections.get_mut("1").unwrap().iy = inertia;
+            let mut input = SSIInput3D {
+                solver, soil_springs: vec![], max_iter: 3, tolerance: 1e-10,
+            };
+            report(&format!("spatial SSI sway, sparse={sparse}, I_y={inertia:e}"), solve_ssi_3d(&input), &mut failures);
+            input.soil_springs.push(unit_soil_spring(2, 2));
+            match solve_ssi_3d(&input) {
+                Ok(result) => {
+                    let tip = result.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
+                    if !(result.converged && (tip.uz / load - 1.0).abs() <= 1e-12
+                        && (tip.ry / load + 1.0).abs() <= 1e-12
+                        && (result.spring_results[0].reaction / load - 1.0).abs() <= 1e-12)
+                    {
+                        failures.push(format!("spatial SSI with soil, sparse={sparse}, I_y={inertia:e}: {tip:?}"));
+                    }
+                }
+                Err(error) => failures.push(error),
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn ssi_released_offset_link_needs_transverse_restraint() {
+    use dedaliano_engine::{
+        solver::ssi::*,
+        types::{RigidLinkConstraint, SolverNode},
+    };
+    let load = 0.125;
+    let mut planar = truss();
+    let beam = planar.elements.get_mut("1").unwrap();
+    beam.elem_type = "frame".into();
+    beam.hinge_end = true;
+    planar.supports.remove("2");
+    planar.nodes.insert("3".into(), SolverNode { id: 3, x: 2.0, z: 0.0 });
+    planar.loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: load, my: 0.0 }));
+    let mut spatial = embed_2d(&planar, Plane::XZ).unwrap();
+    let link = |dofs| Constraint::RigidLink(RigidLinkConstraint { master_node: 2, slave_node: 3, dofs });
+    planar.constraints = vec![link(vec![])];
+    spatial.constraints = vec![link(vec![0, 1, 2, 3, 4, 5])];
+
+    let mut failures = Vec::new();
+    for (planar, spatial) in [
+        (planar.clone(), spatial.clone()),
+        (crate::case::pad_2d(&planar).0, crate::case::pad_3d(&spatial).0),
+    ] {
+        let mut plane = SSIInput { solver: planar, soil_springs: vec![], max_iter: 3, tolerance: 1e-10 };
+        let mut space = SSIInput3D { solver: spatial, soil_springs: vec![], max_iter: 3, tolerance: 1e-10 };
+        report("planar offset link", solve_ssi_2d(&plane), &mut failures);
+        report("spatial offset link", solve_ssi_3d(&space), &mut failures);
+        plane.soil_springs.push(unit_soil_spring(3, 1));
+        space.soil_springs.push(unit_soil_spring(3, 2));
+        let planar = solve_ssi_2d(&plane).unwrap();
+        let spatial = solve_ssi_3d(&space).unwrap();
+        assert!(planar.converged && spatial.converged);
+        for spring in [&planar.spring_results[0], &spatial.spring_results[0]] {
+            assert_eq!(spring.displacement, load);
+            assert_eq!(spring.reaction, load);
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
 }

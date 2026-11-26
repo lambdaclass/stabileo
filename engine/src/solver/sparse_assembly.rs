@@ -14,7 +14,7 @@ use crate::linalg::transform_stiffness;
 use crate::linalg::transform_force;
 use crate::linalg::sparse::CscMatrix;
 use super::dof::DofNumbering;
-use super::assembly::assemble_element_loads_2d;
+use super::assembly::{absolute_triplet_matrix, assemble_element_loads_2d, free_magnitude};
 use super::assembly::InclinedTransformData2D;
 
 /// COO triplet accumulator for building sparse matrices.
@@ -485,6 +485,7 @@ pub(super) fn assemble_stiffness_sparse_2d_recording(
     if let Some(roundoff) = roundoff.as_deref_mut() {
         roundoff.record_symmetric(&trip_rows, &trip_cols, &trip_vals);
     }
+    let mut unrotated_magnitude = None;
     let mut inclined_transforms_2d = Vec::new();
     for sup in crate::ordered::values(&input.supports) {
         if sup.support_type == "inclinedRoller" {
@@ -495,6 +496,16 @@ pub(super) fn assemble_stiffness_sparse_2d_recording(
                 dof_num.map.get(&(sup.node_id, 1)),
             ) {
                 let dofs = [d0, d1];
+                unrotated_magnitude.get_or_insert_with(|| {
+                    absolute_triplet_matrix(n, &trip_rows, &trip_cols, &trip_vals)
+                });
+                super::assembly::apply_inclined_transform_triplets_2d(
+                    &mut trip_rows, &mut trip_cols, &mut trip_vals,
+                    &dofs, &r,
+                );
+                if let Some(roundoff) = roundoff.as_deref_mut() {
+                    roundoff.rotate(dofs, &r);
+                }
                 inclined_transforms_2d.push(InclinedTransformData2D {
                     node_id: sup.node_id,
                     dofs,
@@ -504,15 +515,8 @@ pub(super) fn assemble_stiffness_sparse_2d_recording(
         }
     }
 
-    let support_magnitude = (!inclined_transforms_2d.is_empty()).then(|| {
-        super::assembly::triplet_magnitude(&trip_rows, &trip_cols, &trip_vals, dof_num, &inclined_transforms_2d)
-    });
-    for frame in &inclined_transforms_2d {
-        super::assembly::InclinedFrame::rotate_triplets(frame, &mut trip_rows, &mut trip_cols, &mut trip_vals);
-        if let Some(roundoff) = roundoff.as_deref_mut() {
-            roundoff.rotate(frame.dofs, &frame.r);
-        }
-    }
+    let support_magnitude = unrotated_magnitude
+        .map(|magnitude| free_magnitude(magnitude, nf, &inclined_transforms_2d));
 
     // Compact zeroed-out triplets left by inclined support transforms
     if !inclined_transforms_2d.is_empty() {

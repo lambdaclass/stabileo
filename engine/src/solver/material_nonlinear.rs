@@ -196,7 +196,7 @@ fn solve_nonlinear_material_2d_inner(
             // + f rotation == dense apply_inclined_transform_2d).
             let support_magnitude = if sparse_tangent {
                 assemble_tangent_stiffness_triplets(
-                    solver, &dof_num, &states, &art,
+                    solver, &dof_num, &states,
                     &mut trip_rows, &mut trip_cols, &mut trip_vals,
                 );
                 let magnitude = (!asm.inclined_transforms_2d.is_empty()).then(|| {
@@ -210,7 +210,7 @@ fn solve_nonlinear_material_2d_inner(
                 }
                 magnitude
             } else {
-                k_t = assemble_tangent_stiffness(solver, &dof_num, &states, &art);
+                k_t = assemble_tangent_stiffness(solver, &dof_num, &states);
                 let magnitude = assembly::dense_support_magnitude(&k_t, &dof_num, &asm.inclined_transforms_2d);
                 for it in &asm.inclined_transforms_2d {
                     assembly::apply_inclined_transform_2d(&mut k_t, &mut f_int, n, &it.dofs, &it.r);
@@ -220,8 +220,8 @@ fn solve_nonlinear_material_2d_inner(
 
             // Residual: R = F_ext - f_int
             let tangent = MaterialTangent::prepare(
-                &k_t, sparse_tangent.then_some((&trip_rows, &trip_cols, &trip_vals)),
-                n, &free_idx, cs.as_ref(), &rank, support_magnitude.as_ref(), None,
+                &mut k_t, sparse_tangent.then_some((&mut trip_rows, &mut trip_cols, &mut trip_vals)),
+                n, &free_idx, cs.as_ref(), &rank, support_magnitude.as_ref(), &art,
             )?;
             let mut residual = vec![0.0; n];
             for i in 0..n {
@@ -472,11 +472,10 @@ pub(super) fn assemble_tangent_stiffness(
     solver: &SolverInput,
     dof_num: &DofNumbering,
     states: &[(usize, ElementState)],
-    art: &[(usize, f64)],
 ) -> Vec<f64> {
     let n = dof_num.n_total;
     let mut k_global = vec![0.0; n * n];
-    assemble_tangent_stiffness_scatter(solver, dof_num, states, art, &mut |gi, gj, v| {
+    assemble_tangent_stiffness_scatter(solver, dof_num, states, &mut |gi, gj, v| {
         k_global[gi * n + gj] += v;
     });
     k_global
@@ -488,12 +487,11 @@ fn assemble_tangent_stiffness_triplets(
     solver: &SolverInput,
     dof_num: &DofNumbering,
     states: &[(usize, ElementState)],
-    art: &[(usize, f64)],
     trip_rows: &mut Vec<usize>,
     trip_cols: &mut Vec<usize>,
     trip_vals: &mut Vec<f64>,
 ) {
-    assemble_tangent_stiffness_scatter(solver, dof_num, states, art, &mut |gi, gj, v| {
+    assemble_tangent_stiffness_scatter(solver, dof_num, states, &mut |gi, gj, v| {
         if gi >= gj {
             trip_rows.push(gi);
             trip_cols.push(gj);
@@ -508,7 +506,6 @@ fn assemble_tangent_stiffness_scatter(
     solver: &SolverInput,
     dof_num: &DofNumbering,
     states: &[(usize, ElementState)],
-    art: &[(usize, f64)],
     scatter: &mut impl FnMut(usize, usize, f64),
 ) {
 
@@ -587,14 +584,6 @@ fn assemble_tangent_stiffness_scatter(
     // Connectors (small displacements, as in the linear assembler).
     for (i, j, k) in crate::element::connector::connector_entries_2d(solver, dof_num) {
         scatter_diag(i, j, k);
-    }
-
-    // The linear assembler's artificial stiffness on DOFs nothing else holds
-    // (the rotation of a node reached only by trusses or by members hinged
-    // there). It used to be recomputed here for all-hinged nodes only, so a
-    // truss-only node in a frame left the tangent singular.
-    for &(d, k) in art {
-        scatter_diag(d, d, k);
     }
 }
 
@@ -791,65 +780,72 @@ fn yield_utilization(n: f64, m: f64, np: f64, mp: f64) -> f64 {
 }
 
 enum MaterialTangent {
-    Dense(Vec<f64>),
+    Dense { free: Vec<f64>, reduced: Option<Vec<f64>> },
     Sparse(CscMatrix),
 }
 
 impl MaterialTangent {
     fn prepare(
-        dense: &[f64],
-        triplets: Option<(&[usize], &[usize], &[f64])>,
+        dense: &mut [f64],
+        triplets: Option<(&mut Vec<usize>, &mut Vec<usize>, &mut Vec<f64>)>,
         n: usize,
         free: &[usize],
         constraints: Option<&FreeConstraintSystem>,
         rank: &super::stability::OperatorRank<'_>,
         support_magnitude: Option<&CscMatrix>,
-        gauges: Option<&MaterialReleaseGauges>,
+        artificial: &[(usize, f64)],
     ) -> Result<Self, String> {
         let nf = free.len();
-        let mut dense = triplets.is_none().then(|| extract_submatrix(dense, n, free, free));
-        let mut physical = match (triplets, &dense) {
-            (Some((rows, cols, values)), _) => tangent_free_sparse_triplets(rows, cols, values, nf, &None),
-            (_, Some(k)) => CscMatrix::from_dense_symmetric_exact(k, nf),
-            _ => unreachable!(),
-        };
-        let pinned_magnitude;
-        let support_magnitude = if let Some(gauges) = gauges.filter(|gauges| !gauges.physical.free.is_empty()) {
-            let gauges = &gauges.physical;
-            pinned_magnitude = support_magnitude.map(|magnitude| super::stability::with_stiffness_entries(
-                magnitude, gauges.pins().into_iter().map(|(i, j, value)| (i, j, value.abs())),
-            ));
-            physical = if let Some(k) = &mut dense {
-                gauges.pin_dense(k, nf);
-                CscMatrix::from_dense_symmetric_exact(k, nf)
+        if let Some((rows, cols, values)) = triplets {
+            let original = tangent_free_sparse_triplets(rows, cols, values, nf, &None);
+            let reduced = constraints.map(|cs| cs.reduce_matrix_sparse(&original));
+            rank.require_resolved(&original, reduced.as_ref(), support_magnitude)?;
+            let solve = if artificial.is_empty() {
+                reduced.unwrap_or(original)
             } else {
-                gauges.pin_sparse(&physical)
+                assembly::add_artificial_tangent(dense, n, Some((rows, cols, values)), artificial);
+                let pinned = tangent_free_sparse_triplets(rows, cols, values, nf, &None);
+                match constraints {
+                    Some(cs) => cs.reduce_matrix_sparse(&pinned),
+                    None => pinned,
+                }
             };
-            pinned_magnitude.as_ref()
-        } else {
-            support_magnitude
-        };
+            return Ok(Self::Sparse(solve));
+        }
+        let original = extract_submatrix(dense, n, free, free);
+        let reduced = constraints.map(|cs| cs.reduce_matrix(&original));
+        let physical = CscMatrix::from_dense_symmetric_exact(&original, nf);
+        let reduced_operator = reduced.as_ref().zip(constraints).map(|(k, cs)| {
+            CscMatrix::from_dense_symmetric_exact(k, cs.n_free_indep)
+        });
+        rank.require_resolved(&physical, reduced_operator.as_ref(), support_magnitude)?;
+        if artificial.is_empty() {
+            return Ok(Self::Dense { free: original, reduced });
+        }
+        assembly::add_artificial_tangent(dense, n, None, artificial);
+        let pinned = extract_submatrix(dense, n, free, free);
+        let reduced = constraints.map(|cs| cs.reduce_matrix(&pinned));
+        Ok(Self::Dense { free: pinned, reduced })
+    }
 
-        if let Some(k) = dense {
-            let reduced = constraints.map(|cs| cs.reduce_matrix(&k));
-            let reduced_operator = reduced.as_ref().zip(constraints).map(|(k, cs)| {
-                CscMatrix::from_dense_symmetric_exact(k, cs.n_free_indep)
-            });
-            rank.require_resolved(&physical, reduced_operator.as_ref(), support_magnitude)?;
-            Ok(Self::Dense(reduced.unwrap_or(k)))
-        } else {
-            let reduced = constraints.map(|cs| cs.reduce_matrix_sparse(&physical));
-            rank.require_resolved(&physical, reduced.as_ref(), support_magnitude)?;
-            Ok(Self::Sparse(reduced.unwrap_or(physical)))
+    fn with_release_gauges(self, n: usize, gauges: &super::stability::Stability) -> Self {
+        if gauges.free.is_empty() {
+            return self;
+        }
+        match self {
+            Self::Dense { mut free, mut reduced } => {
+                let solve = reduced.as_mut().unwrap_or(&mut free);
+                gauges.pin_dense(solve, n);
+                Self::Dense { free, reduced }
+            }
+            Self::Sparse(k) => Self::Sparse(gauges.pin_sparse(&k)),
         }
     }
 
     fn solve(self, rhs: Vec<f64>, cache: &mut Option<SparseSymbolicCache>) -> Result<Vec<f64>, String> {
+        let n = rhs.len();
         match self {
-            Self::Dense(k) => {
-                let n = rhs.len();
-                solve_system(k, rhs, n)
-            }
+            Self::Dense { free, reduced } => solve_system(reduced.unwrap_or(free), rhs, n),
             Self::Sparse(k) => solve_tangent_sparse(&k, &rhs, cache),
         }
     }
@@ -1205,7 +1201,7 @@ fn solve_nonlinear_material_3d_inner(
 
             let support_magnitude = if sparse_tangent {
                 assemble_tangent_stiffness_3d_triplets(
-                    solver, &dof_num, &states, &art,
+                    solver, &dof_num, &states,
                     &mut trip_rows, &mut trip_cols, &mut trip_vals,
                 );
                 // Triplet K rotation + f rotation == dense
@@ -1221,7 +1217,7 @@ fn solve_nonlinear_material_3d_inner(
                 }
                 magnitude
             } else {
-                k_t = assemble_tangent_stiffness_3d(solver, &dof_num, &states, &art);
+                k_t = assemble_tangent_stiffness_3d(solver, &dof_num, &states);
                 let magnitude = assembly::dense_support_magnitude(&k_t, &dof_num, &asm.inclined_transforms);
                 for it in &asm.inclined_transforms {
                     assembly::apply_inclined_transform(&mut k_t, &mut f_int, n, &it.dofs, &it.r);
@@ -1230,8 +1226,8 @@ fn solve_nonlinear_material_3d_inner(
             };
 
             let tangent = MaterialTangent::prepare(
-                &k_t, sparse_tangent.then_some((&trip_rows, &trip_cols, &trip_vals)),
-                n, &free_idx, cs.as_ref(), &rank, support_magnitude.as_ref(), Some(&gauges),
+                &mut k_t, sparse_tangent.then_some((&mut trip_rows, &mut trip_cols, &mut trip_vals)),
+                n, &free_idx, cs.as_ref(), &rank, support_magnitude.as_ref(), &art,
             )?;
             let mut residual = vec![0.0; n];
             for i in 0..n {
@@ -1259,11 +1255,12 @@ fn solve_nonlinear_material_3d_inner(
             // the structure it iterated on: a diaphragm-tied pair of columns
             // was solved as two independent columns, and a node tied only by
             // a constraint left the tangent singular.
-            let rhs = match &cs {
+            let rhs_s = match &cs {
                 Some(cs) => cs.reduce_vector(&r_free),
                 None => r_free,
             };
-            let mut delta_u_indep = tangent.solve(rhs, &mut sparse_sym_cache)?;
+            let mut delta_u_indep = tangent.with_release_gauges(rhs_s.len(), &gauges.reduced)
+                .solve(rhs_s, &mut sparse_sym_cache)?;
             MaterialReleaseGauges::remove_free_rotation(&gauges.reduced, &mut delta_u_indep);
             let delta_u_f = match &cs {
                 Some(cs) => cs.expand_solution(&delta_u_indep, MasterMotion::Homogeneous),
@@ -1393,11 +1390,10 @@ pub(super) fn assemble_tangent_stiffness_3d(
     solver: &SolverInput3D,
     dof_num: &DofNumbering,
     states: &[(usize, ElementState3D)],
-    art: &[(usize, f64)],
 ) -> Vec<f64> {
     let n = dof_num.n_total;
     let mut k_global = vec![0.0; n * n];
-    assemble_tangent_stiffness_3d_scatter(solver, dof_num, states, art, &mut |gi, gj, v| {
+    assemble_tangent_stiffness_3d_scatter(solver, dof_num, states, &mut |gi, gj, v| {
         k_global[gi * n + gj] += v;
     });
     k_global
@@ -1409,12 +1405,11 @@ fn assemble_tangent_stiffness_3d_triplets(
     solver: &SolverInput3D,
     dof_num: &DofNumbering,
     states: &[(usize, ElementState3D)],
-    art: &[(usize, f64)],
     trip_rows: &mut Vec<usize>,
     trip_cols: &mut Vec<usize>,
     trip_vals: &mut Vec<f64>,
 ) {
-    assemble_tangent_stiffness_3d_scatter(solver, dof_num, states, art, &mut |gi, gj, v| {
+    assemble_tangent_stiffness_3d_scatter(solver, dof_num, states, &mut |gi, gj, v| {
         if gi >= gj {
             trip_rows.push(gi);
             trip_cols.push(gj);
@@ -1429,7 +1424,6 @@ fn assemble_tangent_stiffness_3d_scatter(
     solver: &SolverInput3D,
     dof_num: &DofNumbering,
     states: &[(usize, ElementState3D)],
-    art: &[(usize, f64)],
     scatter: &mut impl FnMut(usize, usize, f64),
 ) {
     let left_hand = solver.left_hand.unwrap_or(false);
@@ -1558,10 +1552,6 @@ fn assemble_tangent_stiffness_3d_scatter(
     // Connectors (small displacements, as in the linear assembler).
     for (i, j, k) in crate::element::connector::connector_entries_3d(solver, dof_num) {
         scatter(i, j, k);
-    }
-
-    for &(d, k) in art {
-        scatter(d, d, k);
     }
 }
 

@@ -22,14 +22,14 @@
     "zh": "拒绝求解秩无法判定的约化刚度矩阵"
   },
   "explanation": {
-    "en": "The solver now refuses models when rounding of the reduced stiffness can conceal a mechanism. Re-run saved analysis results and kinematic checks that depended on the unresolved stiffness.",
-    "es": "El motor ahora rechaza los modelos cuando el redondeo de la rigidez reducida puede ocultar un mecanismo. Recalculá los resultados de análisis y las verificaciones cinemáticas guardadas que dependían de esa rigidez.",
-    "pt": "O motor agora recusa modelos quando o arredondamento da rigidez reduzida pode ocultar um mecanismo. Recalcule os resultados de análise e as verificações cinemáticas salvas que dependiam dessa rigidez.",
-    "de": "Der Solver lehnt Modelle ab, wenn Rundung der reduzierten Steifigkeit einen Mechanismus verdecken kann. Berechnen Sie gespeicherte Analyseergebnisse und kinematische Prüfungen neu, die von dieser Steifigkeit abhingen.",
-    "fr": "Le solveur refuse désormais les modèles dont l’arrondi de la raideur réduite peut masquer un mécanisme. Recalculez les résultats d’analyse et les vérifications cinématiques enregistrés qui dépendaient de cette raideur.",
-    "hu": "A megoldó elutasítja a modellt, ha a redukált merevség kerekítése elfedhet egy mechanizmust. Számítsa újra az ettől a merevségtől függő mentett elemzési eredményeket és kinematikai ellenőrzéseket.",
-    "tr": "Çözücü artık indirgenmiş rijitliğin yuvarlanması bir mekanizmayı gizleyebiliyorsa modeli reddeder. Bu rijitliğe bağlı kayıtlı analiz sonuçlarını ve kinematik kontrolleri yeniden hesaplayın.",
-    "zh": "如果约化刚度的舍入误差可能掩盖机构，求解器现在会拒绝求解。请重新计算依赖该刚度的已保存分析结果和运动学检查。"
+    "en": "The solver now refuses models when rounding of the reduced stiffness can conceal a mechanism. Re-run saved analysis results and kinematic checks that depended on the unresolved stiffness. Nonlinear rank checks use the physical stiffness before artificial rotational pins are added.",
+    "es": "El motor ahora rechaza los modelos cuando el redondeo de la rigidez reducida puede ocultar un mecanismo. Recalculá los resultados de análisis y las verificaciones cinemáticas guardadas que dependían de esa rigidez. Las comprobaciones de rango no lineales usan la rigidez física antes de añadir restricciones de giro artificiales.",
+    "pt": "O motor agora recusa modelos quando o arredondamento da rigidez reduzida pode ocultar um mecanismo. Recalcule os resultados de análise e as verificações cinemáticas salvas que dependiam dessa rigidez. As verificações de posto não lineares usam a rigidez física antes de adicionar restrições artificiais à rotação.",
+    "de": "Der Solver lehnt Modelle ab, wenn Rundung der reduzierten Steifigkeit einen Mechanismus verdecken kann. Berechnen Sie gespeicherte Analyseergebnisse und kinematische Prüfungen neu, die von dieser Steifigkeit abhingen. Die nichtlinearen Rangprüfungen verwenden die physikalische Steifigkeit vor dem Hinzufügen künstlicher Rotationsstützungen.",
+    "fr": "Le solveur refuse désormais les modèles dont l’arrondi de la raideur réduite peut masquer un mécanisme. Recalculez les résultats d’analyse et les vérifications cinématiques enregistrés qui dépendaient de cette raideur. Les vérifications non linéaires du rang utilisent la raideur physique avant l’ajout de blocages artificiels de rotation.",
+    "hu": "A megoldó elutasítja a modellt, ha a redukált merevség kerekítése elfedhet egy mechanizmust. Számítsa újra az ettől a merevségtől függő mentett elemzési eredményeket és kinematikai ellenőrzéseket. A nemlineáris rangellenőrzések a mesterséges forgási megtámasztások hozzáadása előtti fizikai merevséget használják.",
+    "tr": "Çözücü artık indirgenmiş rijitliğin yuvarlanması bir mekanizmayı gizleyebiliyorsa modeli reddeder. Bu rijitliğe bağlı kayıtlı analiz sonuçlarını ve kinematik kontrolleri yeniden hesaplayın. Doğrusal olmayan mertebe kontrolleri, yapay dönme mesnetleri eklenmeden önceki fiziksel rijitliği kullanır.",
+    "zh": "如果约化刚度的舍入误差可能掩盖机构，求解器现在会拒绝求解。请重新计算依赖该刚度的已保存分析结果和运动学检查。 非线性秩检查使用添加人工转动约束之前的物理刚度。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-reduced-stiffness-rank.md",
