@@ -3775,6 +3775,12 @@ const ru: Translations = {
   "svc.engine.missingSelfWeightTarget": "Объект приложения собственного веса {kind} {id} отсутствует. Восстановите его или измените область приложения собственного веса.",
   "svc.engine.invalidDensity": "Введите конечную неотрицательную плотность (rho) для материала {id} (получено: {value}).",
   "svc.engine.nonnegativeMassDensity": "Плотность массы должна быть конечной и неотрицательной",
+  "svc.engine.unknownInputField": "Неизвестное поле {path}.",
+  "svc.engine.allowedInputFields": "Допустимые поля: {fields}.",
+  "svc.engine.noInputFields": "Поля не допускаются.",
+  "svc.engine.inputParseError": "Ошибка разбора входных данных: {detail}",
+  "svc.engine.inputLocation": "(строка {line}, столбец {column})",
+  "svc.savedPlaneRequired": "Перед расчётом этого сохранённого проекта выберите плоскость чертежа.",
   "svc.engine.invalidInputField": "Поле {path} отсутствует или содержит неподдерживаемое значение.",
   "svc.engine.nonFiniteNumber": "Введите конечное число для {path} (получено: {value}).",
 } as const satisfies Record<string, string>;

@@ -6,7 +6,6 @@
  "connectors": {},
  "constraints": [
   {
-   "dofs": [],
    "masterNode": 9,
    "slaveNode": 5,
    "type": "rigidLink"

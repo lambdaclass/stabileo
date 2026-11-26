@@ -1,9 +1,11 @@
+import { classifyEccentricNormalOffset, constraintsInXZ, hasReducedPlanarMpc } from '../engine/constraint-2d-remap';
+import { dependsOnXYConstraintAxes, hasAddedAuthoredLoadRefusal, hasMalformedAuthoredLoad, invalidPlanarPointTorsion, isFiniteInputNumber, ModelInputError, migrateModelConstraints, requireCombinationInput, requireStoredProjectInput, requireStructureInput, storedProjectPlane } from '../engine/model-input-numbers';
+import { DRAW_PLANES, isDrawPlane, type DrawPlane } from '../geometry/plane-projection';
 import { caseOrder, caseReductionRatio } from '../engine/case-rules';
 import { dyadicInteger } from '../engine/accounting-math';
 import { hasBoundedRafterGap, type GravityModel } from '../engine/loads/plan-gravity';
 import { triangularGravityFootprint } from '../engine/loads/gravity-shell-partition';
 import type { Constraint3D } from '../engine/types-3d';
-import { hasMalformedAuthoredLoad, invalidPlanarPointTorsion, isFiniteInputNumber } from '../engine/model-input-numbers';
 import { PLANAR_LINE_COMPONENT_CUTOFF, trussComponentBelowCutoff } from '../engine/member-loads';
 import { POINT_END_TOL } from '../engine/member-point-loads';
 import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
@@ -59,7 +61,9 @@ export const GLOBAL_AXES_EVIDENCE = 'axisNamedLoads';
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
   'gallery:slab-on-columns:walls', 'example:rc-beam-flexure', 'native:supplied-linear-certificate',
-  'native:planar-nodal-vector',
+  'native:planar-nodal-vector', 'native:analysis-wire-unknown-fields', 'native:wasm-iterable-solver-tables',
+  'native:duplicate-json-connector-keys', 'native:staged-unconsumed-tables', 'native:staged-unknown-fields',
+  'native:duplicate-json-analysis-table-keys', 'native:wasm-iterable-load-fields', 'native:producer-wire-metadata',
   GLOBAL_AXES_EVIDENCE, 'conflictingModelAliases', 'outOfPlaneNodalComponents', 'duplicateFixtureEndRelease',
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'unrestrainedAxialTip', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
@@ -67,11 +71,13 @@ export const FEATURE_IDS = [
   'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'triangularGravityFootprint', 'triangularPlates', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
   'physicalPlateDefinitions', 'wholeSlabLoadDefinitions', 'shellPressureLoads', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
-  'connectors', 'connectorsWithShear', 'pathAnalysis',
+  'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'zoneSurfaceLoads', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'invalidSelfWeightTarget', 'scopedMemberSelfWeight', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'malformedAuthoredLoad',
+  'addedAuthoredLoadRefusal', 'legacyPlanarProjectPlane', 'emptyRigidLinkMask',
+  'malformedAuthoredStructure', 'separatedPlanarEccentricConnection', 'reducedPlanarMpc', 'xyConstraintProjection',
   'ssiHistory', 'recordedHarmonic', 'strongElasticModulusContrast', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase', 'loadPlanCombinationSupplements', 'flatRoofSnowCombinations',
   'occupiedGeneratedLoadCases', 'repeatedUngroupedRuleTerms', 'emptyManualLoadAlternatives', 'retiredAutoLoadsCases',
@@ -111,6 +117,7 @@ type FeatureLoad = { type?: unknown; data?: Record<string, unknown> };
 
 interface FeatureSnapshotFields {
   analysisMode?: string;
+  drawPlane2D?: DrawPlane;
   gapElements?: unknown[];
   nodeToSurfacePairs?: unknown[];
   upliftSupports?: unknown[];
@@ -153,6 +160,7 @@ export interface FeatureSnapshot extends FeatureSnapshotFields {
 export interface FeatureContext {
   storedLoads?: FeatureSnapshot['loads'];
   storedElements?: FeatureSnapshot['elements'];
+  drawPlane2D?: DrawPlane;
   /** The workspace the project opens in (the file's `analysisMode`). */
   analysisMode?: string;
   /** Analyses the project's results came from, as its stamp records them; null: not recorded. */
@@ -392,6 +400,48 @@ function addSelfWeightFeatures(
   }
 }
 
+function structureFeatureRows<T>(rows: Entries<T>, features: Set<FeatureId>): Entries<T> {
+  if (rows === undefined) return undefined;
+  if (!Array.isArray(rows)) {
+    features.add('malformedAuthoredStructure');
+    return [];
+  }
+  return rows.filter(entry => {
+    const valid = Array.isArray(entry) && entry.length === 2 && isFiniteInputNumber(entry[0])
+      && entry[1] !== null && typeof entry[1] === 'object' && !Array.isArray(entry[1]);
+    if (!valid) features.add('malformedAuthoredStructure');
+    return valid;
+  });
+}
+
+function addAuthoredStructureFeatures(s: FeatureSnapshot, features: Set<FeatureId>, stampPlane?: DrawPlane): void {
+  try {
+    const constraints = migrateModelConstraints(s.constraints);
+    if (s.combinations !== undefined) requireCombinationInput(s.combinations);
+    if (features.has('plane2D')) {
+      if (s.elements?.length && s.drawPlane2D === undefined && storedProjectPlane(s, constraints) !== 'xy') {
+        features.add('legacyPlanarProjectPlane');
+      }
+      const plane = stampPlane ?? s.drawPlane2D;
+      for (const plausible of isDrawPlane(plane) ? [plane] : DRAW_PLANES) {
+        const remapped = constraintsInXZ(plausible, constraints);
+        if (plausible === 'xy' && constraints.some(dependsOnXYConstraintAxes)) features.add('xyConstraintProjection');
+        if (remapped.some(c => c.type === 'eccentricConnection' && classifyEccentricNormalOffset(c) === 'separated')) {
+          features.add('separatedPlanarEccentricConnection');
+        }
+        if (remapped.some(hasReducedPlanarMpc)) features.add('reducedPlanarMpc');
+      }
+    }
+    requireStructureInput({
+      nodes: s.nodes ?? [], elements: s.elements ?? [], supports: s.supports ?? [],
+      materials: s.materials ?? [], sections: s.sections ?? [], connectors: s.connectors, analysis: s.analysis,
+    }, { storedSupportKeys: true });
+  } catch (error) {
+    if (!(error instanceof ModelInputError)) throw error;
+    features.add('malformedAuthoredStructure');
+  }
+}
+
 const lineComponents = ['qXI', 'qXJ', 'qYI', 'qYJ', 'qZI', 'qZJ'];
 
 function hasOpposedGeneratedLines(cases: NonNullable<FeatureSnapshot['loadCases']>, loads: FeatureSnapshot['loads']): boolean {
@@ -443,6 +493,21 @@ function hasOpposedGeneratedLines(cases: NonNullable<FeatureSnapshot['loadCases'
 /** The features of one saved model. */
 export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set<FeatureId> {
   const f = new Set<FeatureId>();
+  try {
+    requireStoredProjectInput(s);
+  } catch (error) {
+    if (!(error instanceof ModelInputError)) throw error;
+    f.add('invalidStoredProjectInput');
+  }
+  s = {
+    ...s,
+    nodes: structureFeatureRows(s.nodes, f),
+    elements: structureFeatureRows(s.elements, f),
+    supports: structureFeatureRows(s.supports, f),
+    materials: structureFeatureRows(s.materials, f),
+    sections: structureFeatureRows(s.sections, f),
+    connectors: structureFeatureRows(s.connectors, f),
+  };
   const mode = ctx.analysisMode ?? s.analysisMode ?? '2d';
   if (ctx.analysesRun == null || ctx.analysesRun.some(k => k !== 'modal' && k !== 'buckling')) f.add('forceSummaryResults');
   f.add(is3DWorkspace(mode) ? 'space3D' : 'plane2D');
@@ -579,9 +644,12 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   }
   if ([...supportedNodes.values()].some((n) => n > 1)) f.add('multipleSupportsOnNode');
 
+  const emptyRigidLink = (c: Record<string, unknown>) =>
+    c?.type === 'rigidLink' && Array.isArray(c.dofs) && c.dofs.length === 0;
   const constraints = Array.isArray(s.constraints) ? s.constraints : [];
+  if (constraints.some(emptyRigidLink)) f.add('emptyRigidLinkMask');
   if (constraints.length) f.add('constraints');
-  if (constraints.some((c) => slaveNodes(c).some((n) => supportedNodes.has(n)))) f.add('constraintOnSupportedNode');
+  if (constraints.some((c) => c && slaveNodes(c).some((n) => supportedNodes.has(n)))) f.add('constraintOnSupportedNode');
 
   const connectors = values(s.connectors);
   if (connectors.length) f.add('connectors');
@@ -642,6 +710,10 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       (rawStoredLoads !== s.loads && hasMalformedAuthoredLoad(rawStoredLoads, basicProjection))) {
     f.add('malformedAuthoredLoad');
   }
+  if (hasAddedAuthoredLoadRefusal(s.loads, basicProjection) ||
+      (rawStoredLoads !== s.loads && hasAddedAuthoredLoadRefusal(rawStoredLoads, basicProjection))) {
+    f.add('addedAuthoredLoadRefusal');
+  }
   const loads = featureLoads(s.loads);
   const storedLoads = rawStoredLoads === s.loads ? loads : featureLoads(rawStoredLoads);
   const refusal = modelAliasRefusalFeature({
@@ -658,6 +730,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     f.add('legacyPlanarPointCoupleAliases');
   }
   const planarLoadInputs = storedLoads === loads ? loads : [...storedLoads, ...loads];
+  addAuthoredStructureFeatures(s, f, ctx.drawPlane2D);
   for (const { type, data } of planarLoadInputs) {
     if (type !== 'pointOnElement' && type !== 'nodal') continue;
     if (data?.my === null || data?.mz === null) f.add('nullPlanarMomentAliases');

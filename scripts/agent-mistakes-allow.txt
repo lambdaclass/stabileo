@@ -173,9 +173,6 @@ switch-default web/src/lib/store/__tests__/model-3d.test.ts: return { rx: true, 
 
 ## A plane-support set guard currently limits callers to the cases above; #2276 consolidates this duplicate support table.
 
-## Null refuses an unsupported model record in this conversion.
-switch-default web/src/lib/store/model.svelte.ts: return null;
-
 ## The result store falls back to checking the display mode against its allow set and the presence of results.
 switch-default web/src/lib/store/results.svelte.ts: return (d === 'despiece' || valid.includes(d)) && (is3D ? results3D : results) !== null;
 

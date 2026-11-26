@@ -268,6 +268,14 @@ export function localizeEngineText(message: string): string {
   }
   out = out.replace(/Non-finite number \((NaN|Infinity|-Infinity)\) at (\S+)/g, (_, value: string, path: string) =>
     fill('svc.engine.nonFiniteNumber', { value, path }));
+  out = out.replace(UNKNOWN_FIELD, (_, prefix: string | undefined, path: string, allowed: string | undefined, empty: string | undefined, line: string | undefined, column: string | undefined) => {
+    const field = fill('svc.engine.unknownInputField', { path });
+    const expected = allowed ? ' ' + fill('svc.engine.allowedInputFields', { fields: allowed.replace(' or ', ', ') })
+      : empty ? ' ' + active('svc.engine.noInputFields') : '';
+    return inputDiagnostic(field + expected, prefix, line, column);
+  });
+  out = out.replace(INVALID_FIELD, (_, prefix: string | undefined, path: string, line: string | undefined, column: string | undefined) =>
+    inputDiagnostic(fill('svc.engine.invalidInputField', { path }), prefix, line, column));
   return out.replace(SELF_CHECK_REFUSAL, (whole, check: string, mode: string | undefined, rest: string) => {
     const name = selfCheckName(check, mode);
     if (!name) return whole;
@@ -277,6 +285,16 @@ export function localizeEngineText(message: string): string {
     if (Number.isFinite(value) && Number.isFinite(limit)) return fill('selfCheck.refused', { check: name, value: scientific(value), threshold: scientific(limit) });
     return fill('selfCheck.refusedInvalid', { check: name, reason: selfCheckReason(rest) });
   });
+}
+
+const UNKNOWN_FIELD = /(Parse error: (?:Error: )?)?unknown field [`']([^`'\n]+)[`'](?:, expected (?:one of )?(`[^`\n]+`(?:(?:, | or )`[^`\n]+`)*)|, (there are no fields))?(?: at line (\d+) column (\d+))?/g;
+
+const INVALID_FIELD = /(Parse error: (?:Error: )?)?(?:missing|unsupported|duplicate key in) field [`']([^`'\n]+)[`'](?: \(Staged construction analysis does not support [^\n)]+\)| \(Nine-node shell elements are not yet supported in staged construction\))?(?: at line (\d+) column (\d+))?/g;
+
+function inputDiagnostic(detail: string, prefix?: string, line?: string, column?: string): string {
+  const message = prefix ? fill('svc.engine.inputParseError', { detail }) : detail;
+  const location = line && column ? ' ' + fill('svc.engine.inputLocation', { line, column }) : '';
+  return message + location;
 }
 
 const SELF_CHECKS = new Set(['static_residual', 'static_balance', 'modal_residual', 'modal_orthogonality', 'modal_mass']);

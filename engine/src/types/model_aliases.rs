@@ -131,9 +131,6 @@ macro_rules! deserialize_aliased_input {
     (@read $d:ident, $name:literal, $fields:expr, $visitor:expr, struct) => {
         $d.deserialize_struct($name, $fields, $visitor)
     };
-    (@read $d:ident, $name:literal, $fields:expr, $visitor:expr, any) => {
-        $d.deserialize_any($visitor)
-    };
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -187,7 +184,7 @@ deserialize_aliased_input! {
     fx: F => "fx", required, strict, "numeric::fx::optional";
     fz: F => "fz", required, strict, "numeric::fz_or_fy::optional", fy => "fy";
     my: M => "my", required, strict, "numeric::my_or_mz::optional", mz => "mz";
-    @map any wire mut {
+    @map struct wire mut {
         mx: f64 => "mx", "numeric::mx::optional";
         _id: Option<u64> => "id", "present";
         _case_id: Option<u64> => "caseId", "present";

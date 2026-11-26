@@ -24,6 +24,7 @@ import { packJointDesigns, unpackJointDesigns } from '../connection/joint-share'
 import { CODE_HASH, readCodeFragment, codeShareUrl } from '../model/code/share';
 import { mergeCode } from '../model/code/apply';
 import { prepareSharedSnapshot } from './share-snapshot';
+import { ModelInputError } from '../engine/model-input-numbers';
 
 /**
  * The wire schema tag.
@@ -245,6 +246,7 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
 
   // Analysis mode
   if (snapshot.analysisMode) c.m = snapshot.analysisMode;
+  if (snapshot.drawPlane2D) c.dp = snapshot.drawPlane2D;
   if (snapshot.name) c.nm = snapshot.name;
   // Local-axis convention tag — carry it so a shared NEW (post-fix) model stays
   // self-describing and the migration note (see noteAxisConventionMigrationIfNeeded)
@@ -470,13 +472,15 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
 }
 
 type CompactElement = ModelSnapshot['elements'][number][1];
-type DecodedCompactSnapshot = Omit<ModelSnapshot, 'elements'> & {
+type DecodedCompactSnapshot = Omit<ModelSnapshot, 'elements' | 'drawPlane2D'> & {
+  drawPlane2D?: unknown;
   elements: Array<[number, Partial<CompactElement>]>;
 };
 
 function fromCompact(c: Record<string, unknown>): DecodedCompactSnapshot {
   const snapshot: DecodedCompactSnapshot = {
     analysisMode: c.m as '2d' | '3d' | 'pro' | 'edu' | undefined,
+    ...(c.dp !== undefined ? { drawPlane2D: c.dp } : {}),
     name: c.nm as string | undefined,
     localAxisConvention: c.lx as ModelSnapshot['localAxisConvention'],
     ...(c.sw && typeof c.sw === 'object' ? { solvedWith: c.sw as ModelSnapshot['solvedWith'] } : {}),
@@ -666,7 +670,7 @@ function compressV2(snapshot: ModelSnapshot, meta?: ShareMeta): string {
   return V2_PREFIX + uint8ToBase64url(deflated);
 }
 
-function decompressV2(data: string, onConflict?: (error: ModelAliasConflict) => void): ModelSnapshot | null {
+function decompressV2(data: string, onRefusal?: (error: ModelAliasConflict | ModelInputError) => void): ModelSnapshot | null {
   try {
     const b64 = data.slice(V2_PREFIX.length);
     const deflated = base64urlToUint8(b64);
@@ -677,7 +681,7 @@ function decompressV2(data: string, onConflict?: (error: ModelAliasConflict) => 
     if (!Array.isArray(compact.ni)) return null;
     return prepareSharedSnapshot(fromCompact(compact));
   } catch (error) {
-    if (error instanceof ModelAliasConflict) onConflict?.(error);
+    if (error instanceof ModelAliasConflict || error instanceof ModelInputError) onRefusal?.(error);
     return null;
   }
 }
@@ -695,10 +699,10 @@ export function compressSnapshot(snapshot: ModelSnapshot): string {
  * Decompress a URL-safe string back to a ModelSnapshot.
  * Auto-detects v2 (prefix "2.") vs v1 (LZ-String) format.
  */
-export function decompressSnapshot(data: string, onConflict?: (error: ModelAliasConflict) => void): ModelSnapshot | null {
+export function decompressSnapshot(data: string, onRefusal?: (error: ModelAliasConflict | ModelInputError) => void): ModelSnapshot | null {
   // v2 format
   if (data.startsWith(V2_PREFIX)) {
-    return decompressV2(data, onConflict);
+    return decompressV2(data, onRefusal);
   }
   // v1 (legacy LZ-String) — migrate hingeStart/hingeEnd → releaseI.mz/releaseJ.mz
   // LZ-String's output can grow quadratically in its input and its decoder cannot be stopped
@@ -710,7 +714,7 @@ export function decompressSnapshot(data: string, onConflict?: (error: ModelAlias
     if (!json) return null;
     return prepareSharedSnapshot(JSON.parse(json));
   } catch (error) {
-    if (error instanceof ModelAliasConflict) onConflict?.(error);
+    if (error instanceof ModelAliasConflict || error instanceof ModelInputError) onRefusal?.(error);
     return null;
   }
 }

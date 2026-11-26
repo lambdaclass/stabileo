@@ -21,6 +21,7 @@
  * Local y is the displayed axis, which the left-handed convention flips (`member-loads.ts`).
  */
 import { tp } from '../i18n';
+import { planarNodalMomentRefusal } from './model-input-numbers';
 import type { SolverLoad3D } from './types-3d';
 import { dot, type MemberAxes, type MemberRef, type Vec3 } from './member-loads';
 import { transverseSign } from './transverse-sign-2d';
@@ -158,7 +159,7 @@ export class PlanarLoadMomentError extends Error {}
 export function requirePlanarNodalMoment(fields: PlanarMomentFields & { id?: number; nodeId: number }): number {
   const moment = planarNodalMoment(fields);
   if (moment === null) {
-    throw new PlanarLoadMomentError(tp('svc.planarNodalLoadMomentAliases', { load: fields.id ?? '—', n: fields.nodeId }));
+    throw new PlanarLoadMomentError(planarNodalMomentRefusal(fields.id, fields.nodeId));
   }
   return moment ?? 0;
 }

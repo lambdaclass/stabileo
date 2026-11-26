@@ -6,6 +6,50 @@ use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
 #[allow(dead_code)]
+pub fn take_nightly_metadata(
+    value: &mut serde_json::Value,
+) -> (Option<serde_json::Value>, Option<serde_json::Value>) {
+    let Some(fields) = value.as_object_mut() else {
+        return (None, None);
+    };
+    let name = fields.remove("_nightly_name");
+    let densities = fields.remove("_nightly_dens");
+    fields.retain(|field, _| !field.starts_with('_'));
+    (name, densities)
+}
+
+#[allow(dead_code)]
+pub fn nightly_solver<T: serde::de::DeserializeOwned>(
+    mut value: serde_json::Value,
+) -> Result<T, serde_json::Error> {
+    take_nightly_metadata(&mut value);
+    serde_json::from_value(value)
+}
+
+#[allow(dead_code)]
+pub fn nightly_solver_from_str<T: serde::de::DeserializeOwned>(
+    text: &str,
+) -> Result<T, serde_json::Error> {
+    nightly_solver(serde_json::from_str(text)?)
+}
+
+#[allow(dead_code)]
+pub fn staged_model_without_history(mut value: serde_json::Value) -> serde_json::Value {
+    value.as_object_mut().unwrap().remove("stages");
+    value
+}
+
+#[allow(dead_code)]
+pub fn use_planar_fixture_sections(model: &mut serde_json::Value) {
+    for section in model["sections"].as_object_mut().unwrap().values_mut() {
+        let section = section.as_object_mut().unwrap();
+        for field in ["iy", "j", "cw", "asZ", "name", "shearCenterY", "shearCenterZ"] {
+            section.remove(field);
+        }
+    }
+}
+
+#[allow(dead_code)]
 pub fn rank_refusal_message(error: &str) -> String {
     let Ok(refusal) = serde_json::from_str::<serde_json::Value>(error) else {
         return error.to_owned();

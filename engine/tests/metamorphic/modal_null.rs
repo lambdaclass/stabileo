@@ -65,7 +65,7 @@ fn assert_null(result: Result<Value, String>, node: usize) {
 
 fn issue_case(seed: u64, certified: bool, relabel: bool) {
     let value: Value = serde_json::from_str(FIXTURE).unwrap();
-    let input: SolverInput3D = serde_json::from_value(value.clone()).unwrap();
+    let input: SolverInput3D = crate::common::nightly_solver(value.clone()).unwrap();
     let mut base = Case3::new(value["_nightly_name"].as_str().unwrap(), input);
     base.dens = serde_json::from_value(value["_nightly_dens"].clone()).unwrap();
     let name = if certified {
@@ -309,7 +309,7 @@ fn spatial_independent_spring_restores_modes_on_the_issue_model() {
     let mut model: Value = serde_json::from_str(FIXTURE).unwrap();
     let densities = serde_json::from_value(model["_nightly_dens"].clone()).unwrap();
     model["supports"]["4"]["ky"] = model["supports"]["4"]["kx"].clone();
-    let input: SolverInput3D = serde_json::from_value(model).unwrap();
+    let input: SolverInput3D = crate::common::nightly_solver(model).unwrap();
     for api in ["solve_modal_3d", "certify_modal_3d"] {
         record_case(api, 6, &input, &densities, json!({"modes":6,"nulls":0}));
     }

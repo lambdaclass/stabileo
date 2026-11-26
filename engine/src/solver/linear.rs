@@ -3674,7 +3674,7 @@ pub(crate) fn refuse_moments_without_rotation_2d(input: &SolverInput, loads: &[S
             // (found by the metamorphic energy check, testing/docs/METAMORPHIC.md).
             Constraint::RigidLink(r) => {
                 carried.insert(r.master_node);
-                if r.dofs.contains(&2) { carried.insert(r.slave_node); }
+                if r.effective_dofs(3).contains(&2) { carried.insert(r.slave_node); }
             }
             Constraint::Diaphragm(d) => { carried.insert(d.master_node); carried.extend(&d.slave_nodes); }
             Constraint::LinearMPC(m) => carried.extend(m.terms.iter().filter(|t| t.dof == 2).map(|t| t.node_id)),
@@ -5662,7 +5662,7 @@ mod released_orphan_2074_tests {
         v["elements"] = json!({"1":e});
         v["supports"] = json!({"1":{"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":false,"rry":false,"rrz":false},"2":{"nodeId":2,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}});
         v["loads"] = json!([{"type":"nodal","data":{"nodeId":1,"fx":0.0,"fy":0.0,"fz":0.0,"mx":0.0,"my":1.0,"mz":0.0}}]);
-        serde_json::from_value(v.clone()).unwrap()
+        crate::common::nightly_solver(v.clone()).unwrap()
     }
 
     #[test]

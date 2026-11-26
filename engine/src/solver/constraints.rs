@@ -422,7 +422,7 @@ pub fn validate_constraint_refs(
                 if !node_ids.contains(&rl.slave_node) {
                     return Err(format!("Constraint {}: RigidLink slave node {} does not exist", i, rl.slave_node));
                 }
-                for &dof in &rl.dofs {
+                for &dof in rl.effective_dofs(max_dofs_per_node) {
                     if dof >= max_dofs_per_node {
                         return Err(format!(
                             "Constraint {}: RigidLink references DOF {} but max is {} (0..{})",
@@ -710,12 +710,7 @@ fn collect_dependent_dofs(
 
     match constraint {
         Constraint::RigidLink(rl) => {
-            let dofs = if rl.dofs.is_empty() {
-                (0..dof_num.dofs_per_node.min(3)).collect::<Vec<_>>()
-            } else {
-                rl.dofs.clone()
-            };
-            for &dof in &dofs {
+            for &dof in rl.effective_dofs(dof_num.dofs_per_node) {
                 if let Some(&slave_global) = dof_num.map.get(&(rl.slave_node, dof)) {
                     let mut masters = Vec::new();
                     if let Some(&m) = dof_num.map.get(&(rl.master_node, dof)) {
@@ -910,20 +905,13 @@ fn build_constraint_transform_with_ties(
     for constraint in constraints {
         match constraint {
             Constraint::RigidLink(rl) => {
-                let dofs = if rl.dofs.is_empty() {
-                    // Default: all translational DOFs
-                    (0..dof_num.dofs_per_node.min(3)).collect::<Vec<_>>()
-                } else {
-                    rl.dofs.clone()
-                };
-
                 // Get offset from master to slave
                 let (dx, dy, dz) = get_node_offset(
                     rl.master_node, rl.slave_node,
                     node_by_id_2d.as_ref(), node_by_id_3d.as_ref(),
                 );
 
-                for &dof in &dofs {
+                for &dof in rl.effective_dofs(dof_num.dofs_per_node) {
                     if let Some(&slave_global) = dof_num.map.get(&(rl.slave_node, dof)) {
                         // Rigid body kinematics:
                         // 2D: u_slave_x = u_master_x - dy * θ_master

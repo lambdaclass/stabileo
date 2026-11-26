@@ -1,3 +1,4 @@
+use crate::types::unique_table;
 use crate::types::*;
 use crate::linalg::*;
 use serde::{Deserialize, Serialize};
@@ -15,6 +16,7 @@ use super::time_integration::MAX_DENSE_FALLBACK_DOFS;
 #[serde(rename_all = "camelCase")]
 pub struct HarmonicInput {
     pub solver: SolverInput,
+    #[serde(deserialize_with = "unique_table::densities")]
     pub densities: HashMap<String, f64>,
     /// Frequencies to evaluate (Hz)
     pub frequencies: Vec<f64>,
@@ -33,6 +35,7 @@ pub struct HarmonicInput {
 pub struct HarmonicInput3D {
     #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
+    #[serde(deserialize_with = "unique_table::densities")]
     pub densities: HashMap<String, f64>,
     pub frequencies: Vec<f64>,
     #[serde(default = "default_damping_ratio")]

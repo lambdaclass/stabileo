@@ -1,0 +1,32 @@
+{
+  "id": "legacy-planar-project-plane",
+  "date": "2026-11-26",
+  "prs": [2588],
+  "area": "analysis",
+  "when": {
+    "all": ["plane2D", "legacyPlanarProjectPlane"]
+  },
+  "quantities": ["*", "solve.ok"],
+  "title": {
+    "en": "Drawing planes in older planar projects",
+    "es": "Planos de dibujo en proyectos planos antiguos",
+    "pt": "Planos de desenho em projetos planos antigos",
+    "de": "Zeichenebenen in älteren ebenen Projekten",
+    "fr": "Plans de dessin des anciens projets plans",
+    "tr": "Eski düzlemsel projelerde çizim düzlemleri",
+    "zh": "旧版平面项目的绘图平面"
+  },
+  "explanation": {
+    "en": "Older planar projects recover their drawing plane from saved geometry and loads when the plane is clear. Equivalent legacy planar supports keep the XY fallback. You must select a plane before analysis if the plane is ambiguous or the supports depend on the plane. Recalculate to check results in the intended plane. A bare guided X support needs a plane if the geometry and global loads leave it ambiguous. Legacy nodal force and moment fields also require a plane selection when they leave multiple plausible planes or rule all of them out.",
+    "es": "Los proyectos planos antiguos recuperan el plano de dibujo de la geometría y las cargas guardadas cuando es inequívoco. Los apoyos planos antiguos equivalentes conservan el plano XY predeterminado. Elegí el plano antes de calcular si hay dudas o si los apoyos dependen del plano. Recalculá para verificar los resultados en el plano previsto. Un apoyo guiado en X sin datos de orientación requiere un plano si la geometría y las cargas globales no lo determinan. Las fuerzas y los momentos nodales antiguos también requieren elegir un plano cuando encajan en varios planos o en ninguno.",
+    "pt": "Projetos planos antigos recuperam o plano de desenho da geometria e das cargas salvas quando ele é inequívoco. Apoios planos antigos equivalentes mantêm o plano XY padrão. Selecione o plano antes da análise se houver dúvida ou se os apoios dependerem do plano. Recalcule no plano pretendido. Um apoio guiado em X sem dados de orientação exige um plano se a geometria e as cargas globais não o determinarem. Forças e momentos nodais antigos também exigem a escolha de um plano quando se ajustam a vários planos ou a nenhum.",
+    "de": "Ältere ebene Projekte übernehmen die Zeichenebene aus der gespeicherten Geometrie und den Lasten, wenn sie eindeutig ist. Bei gleichwertigen älteren ebenen Lagerungen bleibt XY die Standardebene. Wählen Sie vor der Berechnung eine Ebene, wenn sie mehrdeutig ist oder die Lagerung von der Ebene abhängt. Berechnen Sie das Modell in der vorgesehenen Ebene erneut. Eine geführte Lagerung in X ohne Richtungsangaben erfordert eine Ebenenwahl, wenn Geometrie und globale Lasten die Ebene nicht eindeutig bestimmen. Ältere Knotenkräfte und Knotenmomente erfordern ebenfalls eine Ebenenwahl, wenn mehrere oder keine Ebenen passen.",
+    "fr": "Les anciens projets plans retrouvent leur plan de dessin si la géométrie et les charges enregistrées le déterminent. Les appuis plans anciens équivalents conservent le plan XY par défaut. Sélectionnez le plan avant le calcul s’il est ambigu ou si les appuis en dépendent. Recalculez dans le plan prévu. Un appui guidé selon X sans indication d’orientation nécessite le choix d’un plan si la géométrie et les charges globales ne le déterminent pas. Les anciennes forces et moments nodaux exigent aussi de choisir un plan lorsque plusieurs plans conviennent ou qu’aucun ne convient.",
+    "tr": "Eski düzlemsel projelerde çizim düzlemi, açıksa kayıtlı geometri ve yüklerden belirlenir. Eşdeğer eski düzlemsel mesnetlerde varsayılan XY düzlemi korunur. Düzlem belirsizse veya mesnetler düzleme bağlıysa analizden önce düzlemi seçin. Sonuçları amaçlanan düzlemde yeniden hesaplayın. Geometri ve global yükler düzlemi belirlemiyorsa yön bilgisi olmayan X doğrultusunda kılavuzlu mesnet için düzlem seçilmelidir. Eski düğüm kuvvetleri ve momentleri birden fazla düzleme uyduğunda veya hiçbirine uymadığında da bir düzlem seçilmelidir.",
+    "zh": "当保存的几何和荷载可以唯一确定绘图平面时，旧版平面项目会恢复该平面。等效的旧版平面支座仍使用默认的 XY 平面。如果平面不明确或支座随平面而异，请在分析前选择平面，并在预期平面内重新计算。如果几何和全局荷载无法确定绘图平面，未指定方向的 X 向导向支座需要选择平面。 当旧版节点力和节点力矩适用于多个平面或不适用于任何平面时，也必须选择绘图平面。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-legacy-planar-project-plane.md",
+    "heading": "Drawing planes in older planar projects"
+  }
+}

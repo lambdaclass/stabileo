@@ -197,7 +197,7 @@ it('time-history success then refusal clears chart, peaks and selected node', ()
     timeHistoryView: { result: null as any, set(r: any) { this.result = r; }, clear() { this.result = null; } },
     nodeId: null, running: false, onError: vi.fn(), save: vi.fn(), spec: { ground: { x: {}, y: {}, z: {} } },
     buildDynamicInput: () => ({}), timeHistoryInput: () => ({}), spectrumSa: null, component: 'ux',
-    modelStore: { modelVersion: 1 }, peakNode: () => 12345, errorText, timeHistoryRefusal, te: (m: unknown) => String(m), t: (s: string) => s,
+    modelStore: { modelVersion: 1 }, peakNode: () => 12345, errorText, timeHistoryRefusal, localizeEngineText, te: (m: unknown) => String(m), t: (s: string) => s,
     solveTimeHistory3D: vi.fn().mockReturnValueOnce({ peakDisplacements: [12345] }).mockImplementationOnce(() => { throw refusal; }),
   };
   const run = new Function('scope', `with(scope) { ${ts.transpile(th.slice(start, end))}; return run; }`)(scope);
