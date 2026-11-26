@@ -28,7 +28,7 @@ import {
 const fault = vi.hoisted(() => ({ dropSceneCase: 0, integrateDrift: 0, signedForceDelta: 0, dropMemberLoad: false, dropFactoredAxialLine: false, misrouteLineEnd: null as { from: number; to: number } | null, misrouteFactoredLineEnd: 0, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, assemblyDrift: null as { shell: number; relative: number } | null, combinationDrift: null as { shell: number; relative: number } | null, dropNodalFy: false }));
 const sourceFault = vi.hoisted(() => ({ shiftNotionalCase: 0, dropOpposedSources: undefined as "case" | "split" | undefined, dropProjectedFz: false, factoredCellShifts: new Map<number, number>(), stripAssemblyMagnitude: false }));
 
-const slabRoutingFault = vi.hoisted(() => ({ from: 0, to: 0, nodes: new Map<number, number>(), pressure: false }));
+const slabRoutingFault = vi.hoisted(() => ({ from: 0, to: 0, nodes: new Map<number, number>(), pressure: false, pressureKind: 'quadPressure' }));
 
 vi.mock('../../engine/case-effects', async importOriginal => {
   const original = await importOriginal<typeof import('../../engine/case-effects')>();
@@ -147,7 +147,7 @@ vi.mock('../../engine/solver-shells', async importOriginal => {
     convertSurfaceLoad: (...args: Parameters<typeof original.convertSurfaceLoad>) => {
       const assembled = original.convertSurfaceLoad(...args);
       if (args[0].quadId === slabRoutingFault.from) {
-        if (slabRoutingFault.pressure) return [{ type: 'quadPressure', data: { elementId: slabRoutingFault.to, pressure: -args[0].q } }] as unknown as SolverLoad3D[];
+        if (slabRoutingFault.pressure) return [{ type: slabRoutingFault.pressureKind, data: { elementId: slabRoutingFault.to, pressure: -args[0].q } }] as unknown as SolverLoad3D[];
         for (const [i, row] of assembled.entries()) {
           if (row.type !== 'nodal') continue;
           row.data.nodeId = slabRoutingFault.nodes.get(row.data.nodeId) ?? row.data.nodeId;
@@ -2220,24 +2220,35 @@ it.each(['wrong shell', 'wrong nodes', 'wrong forces'] as const)(
   },
 );
 
-const reviewRound = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
-
-reviewRound.each(['wrong shell', 'wrong nodes', 'wrong forces'] as const)(
-  'known wrong result: #2607 generated surface rejects %s at equal wrench', async mode => {
+it.each(['wrong shell', 'wrong shell kind', 'wrong nodes', 'wrong forces'] as const)(
+  '#2607 generated surface rejects %s at equal wrench', async mode => {
     const lower = stripSlab(1);
     const upper = stripSlab(1, 3);
+    const otherKind = mode === 'wrong shell kind' ? [[-0.5, 1 / 6], [1.5, 1 / 6], [0.5, 7 / 6]].map(([x, y]) => {
+      const id = modelStore.addNode(x!, y!, 6);
+      modelStore.addSupport(id, 'fixed3d');
+      return id;
+    }) as [number, number, number] : undefined;
+    const otherId = otherKind ? modelStore.addPlate(otherKind, 1, 0.2) : undefined;
     const model = modelStore.model;
     const from = plateEntry(lower)!.group.members.quads![0]!;
     const to = plateEntry(upper)!.group.members.quads![0]!;
     const lowerNodes = model.quads!.get(from)!.nodes;
     const upperNodes = model.quads!.get(to)!.nodes;
+    const elements = new Map(model.elements);
+    const connect = (id: number, nodeI: number, nodeJ: number) => elements.set(id, {
+      id, nodeI, nodeJ, sectionId: model.sections.keys().next().value!, materialId: model.materials.keys().next().value!,
+      type: 'frame', releaseI: NO_RELEASE, releaseJ: NO_RELEASE,
+    });
+    connect(500, lowerNodes[0]!, upperNodes[0]!);
+    if (otherKind) {
+      expect(otherId).toBe(from);
+      connect(501, upperNodes[0]!, otherKind[0]);
+    }
     const connected: ModelData = {
       ...model,
+      elements,
       loads: [{ type: 'surface3d', data: { id: 1, caseId: 1, quadId: from, q: 3, frame: 'global' } }],
-      elements: new Map(model.elements).set(500, {
-        id: 500, nodeI: lowerNodes[0]!, nodeJ: upperNodes[0]!, sectionId: model.sections.keys().next().value!,
-        materialId: model.materials.keys().next().value!, type: 'frame', releaseI: NO_RELEASE, releaseJ: NO_RELEASE,
-      }),
       analysis: { ...model.analysis, perCombination: 'pdelta' },
     };
     const cases = modelStore.loadCases;
@@ -2260,8 +2271,9 @@ reviewRound.each(['wrong shell', 'wrong nodes', 'wrong forces'] as const)(
     })));
     try {
       slabRoutingFault.from = from;
-      slabRoutingFault.to = to;
-      slabRoutingFault.pressure = mode === 'wrong shell';
+      slabRoutingFault.to = otherId ?? to;
+      slabRoutingFault.pressure = mode === 'wrong shell' || mode === 'wrong shell kind';
+      slabRoutingFault.pressureKind = otherKind ? 'pressure' : 'quadPressure';
       slabRoutingFault.nodes = mode === 'wrong nodes' ? new Map(lowerNodes.map((node, i) => [node, upperNodes[i]!])) : new Map();
       for (const [path, solve] of Object.entries(paths)) expect.soft(await outcome(solve), path).toMatch(/case.*load.*#1/i);
     } finally {
@@ -2269,6 +2281,7 @@ reviewRound.each(['wrong shell', 'wrong nodes', 'wrong forces'] as const)(
       slabRoutingFault.to = 0;
       slabRoutingFault.nodes.clear();
       slabRoutingFault.pressure = false;
+      slabRoutingFault.pressureKind = 'quadPressure';
     }
   },
 );

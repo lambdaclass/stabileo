@@ -1,0 +1,40 @@
+{
+  "id": "isolated-wall-slab-section-contact",
+  "date": "2026-11-26",
+  "prs": [
+    2607
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "wallSlabPointContact"
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Detect isolated wall–slab contact along the wall section",
+    "es": "Detectar el contacto puntual entre muro y losa a lo largo de la sección del muro",
+    "pt": "Detectar contato pontual entre parede e laje ao longo da seção da parede",
+    "de": "Punktkontakt zwischen Wand und Decke entlang des Wandschnitts erkennen",
+    "fr": "Détecter le contact ponctuel entre voile et dalle le long de la coupe du voile",
+    "hu": "A fal és a födém pontszerű érintkezésének felismerése a fal metszete mentén",
+    "tr": "Perde kesiti boyunca perde ile döşeme arasındaki noktasal teması algıla",
+    "zh": "检测沿墙体截面的墙板孤立接触"
+  },
+  "explanation": {
+    "en": "Analysis stops when a wall section touches a slab at an isolated point without a mesh connection. Connect the meshes at the contact.",
+    "es": "El análisis se detiene si la sección de un muro toca una losa en un punto sin conexión entre mallas. Conectá las mallas en ese punto.",
+    "pt": "A análise é interrompida quando a seção de uma parede toca uma laje em um ponto sem conexão entre malhas. Conecte as malhas nesse ponto.",
+    "de": "Die Berechnung stoppt, wenn ein Wandschnitt die Decke in einem Punkt ohne Netzverbindung berührt. Verbinden Sie die Netze am Kontaktpunkt.",
+    "fr": "Le calcul s’arrête si la coupe d’un voile touche la dalle en un point sans liaison de maillage. Reliez les maillages à ce point.",
+    "hu": "A számítás leáll, ha a fal metszete hálókapcsolat nélküli pontban érinti a födémet. Kapcsolja össze a hálókat az érintkezési pontban.",
+    "tr": "Perde kesiti döşemeye ağ bağlantısı olmayan tek bir noktada değerse analiz durur. Ağları temas noktasında birleştirin.",
+    "zh": "如果墙体截面仅在一点接触楼板且网格未连接，分析会停止。请在接触点连接网格。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-cad-connectivity-and-seismic-story-loads.md",
+    "heading": "Detect isolated wall–slab contact along the wall section"
+  }
+}

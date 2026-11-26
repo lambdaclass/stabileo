@@ -463,9 +463,7 @@ it('#2607 a higher roof opening leaves the lower roof parapet band exposed', () 
   expect(Math.abs(pressure(partial, west.id, station(2)))).toBe(0);
 });
 
-const reviewRound = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
-
-reviewRound('known wrong result: #2607 entered and modeled adjacent roofs generate one drift source', () => {
+it('#2607 entered and modeled adjacent roofs generate one drift source', () => {
   const model = steppedRoof();
   for (const node of model.nodes.values()) if (node.z === 5) {
     node.x -= 1;
@@ -482,10 +480,28 @@ reviewRound('known wrong result: #2607 entered and modeled adjacent roofs genera
     expect(modeled.distributed.length).toBeGreaterThan(0);
     expect.soft(driftAndSlidingLoads(model, roofLayout, { ...inputs, adjacent: [entered] }).distributed)
       .toEqual(modeled.distributed);
+    const config = { ...snow, roofKind: 'mono', slippery: false } as const;
+    const snowCases = (adjacent?: typeof entered[]) => snowLoadCases({ model, layout: roofLayout, snow: { ...config, adjacent }, tributaryWidth: 1 });
+    const cases = snowCases();
+    expect(cases?.result.refused).toBeUndefined();
+    expect(cases?.cases[0]?.distributed.length).toBeGreaterThan(0);
+    expect(snowCases([entered])?.cases).toEqual(cases?.cases);
   }
+  const distinct = { ...entered, separation: 2 };
+  expect(driftAndSlidingLoads(model, partitioned, { ...inputs, adjacent: [distinct] }).distributed.length)
+    .toBeGreaterThan(driftAndSlidingLoads(model, partitioned, inputs).distributed.length);
+  const plan = (adjacent?: typeof entered[]) => buildLoadPlan({
+    model, gravity: { mode: 'panels', slab: 'oneWay', spanAxis: 'x' },
+    regulations: regulations(), dead: [], occupancyKey: 'vivienda', tributaryWidth: 1,
+    reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true,
+    snow: { ...snow, roofKind: 'mono', slippery: false, enabled: true, source: 'site', adjacent },
+  });
+  const modeledPlan = plan();
+  expect(modeledPlan.outcome).toBe('READY');
+  expect(plan([entered]).distributed).toEqual(modeledPlan.distributed);
 });
 
-reviewRound('known wrong result: #2607 a separated off-center ridge is checked on both roof profiles', () => {
+it('#2607 a separated off-center ridge is checked on both roof profiles', () => {
   const lower = [[0, 0, 3], [7.5, 0, 3], [7.5, 30, 3], [0, 30, 3]];
   const base = [[-8.5, 0, 3], [-1, 0, 3], [-1, 30, 3], [-8.5, 30, 3]];
   const separated = gravityLayout(mesh([lower, base]), { mode: 'panels', slab: 'oneWay', spanAxis: 'x', tributaryWidth: 1 });

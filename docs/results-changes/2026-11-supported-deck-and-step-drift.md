@@ -27,3 +27,9 @@ A shell can split a bay into several owned roof components. Step detection and f
 Connected step drift requires coincident edges. Facing edges separated by an open plan gap use the adjacent-roof calculation with the measured separation and the elevation of each edge at its own location. Supported one-way bays transfer the resulting force and first moments to their bearings. A separation at the adjacent-roof limit yields no drift.
 
 A higher roof covers a lower edge only where the cover point lies on the higher roof's footprint. Openings interrupt that cover along the lower edge so the affected surcharge bands remain in the load plan. Regenerate affected automatic snow loads and rerun the analysis.
+
+## Reconcile adjacent snow roofs and evaluate their full edge profiles
+
+A modeled and an entered neighbor on the same facing edge represent one roof when their separation, upper fetch and upper edge elevation agree. The modeled bearing reactions supply the surcharge. Profile subdivisions on the receiving edge no longer create a second entered surcharge for that roof.
+
+For separated roofs, the elevation comparison follows both edge profiles to their breakpoints and checks the one-sided extremes of each interval. A ridge away from the midpoint can create active drift even when the endpoints and midpoint have equal elevations. The existing transfer refusal applies if those elevations produce variable drift along the edge.

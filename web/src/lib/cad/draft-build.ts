@@ -402,9 +402,9 @@ function rangeInterfaceMatches(
     const x = Math.floor(node.x / tolerance), y = Math.floor(node.y / tolerance);
     for (const dx of [-1, 0, 1]) for (const dy of [-1, 0, 1]) {
       for (const target of index.get(key(x + dx, y + dy)) ?? []) {
-        const rx = target.x - node.x, ry = target.y - node.y;
-        if (Math.abs(rx) < tolerance && Math.abs(ry) < tolerance) {
-          const pair = { from: node.id, to: target.id, distance: dyadicInteger(Math.hypot(rx, ry)), physical: Number(node.physical && target.physical) };
+        const distance = Math.hypot(target.x - node.x, target.y - node.y);
+        if (distance < tolerance) {
+          const pair = { from: node.id, to: target.id, distance: dyadicInteger(distance), physical: Number(node.physical && target.physical) };
           (pairs.get(node.id) ?? pairs.set(node.id, []).get(node.id)!).push(pair);
           (sources.get(target.id) ?? sources.set(target.id, []).get(target.id)!).push(node.id);
         }

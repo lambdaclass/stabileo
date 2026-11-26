@@ -278,8 +278,9 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
     }
     return group;
   };
+  const modeledAdjacent: Array<{ pair: ReturnType<typeof snowRoofEdgePairs>[number]; fetch: number }> = [];
   for (const step of snowRoofEdgePairs(model, layout, surfaces)) {
-    const { a, b, lowerComponent: L, upperComponent: U, lowerOutline, upperOffset, separation } = step;
+    const { a, b, lowerComponent: L, upperComponent: U, lowerOutline, upperOffset, separation, elevations } = step;
     const line = lineInto(a, b, lowerOutline);
     if (lowerOutline !== L.polygon) {
       line.n = [-line.n[0], -line.n[1]];
@@ -291,9 +292,9 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
       Math.max(0, ...group.flatMap(p => p.polygon.map(v => sign * dot(sub(v, origin), line.n))));
     const lowerRoof = roofOf(L);
     const luUpper = reach(roofOf(U), above(a), -1), luLower = reach(lowerRoof, a, 1);
-    const inputs = (pt: P2) => ({
-      pg: i.pg, balanced: balanced(L.k, pt),
-      stepHeight: surfaces(U.k).elevation(above(pt)) - surfaces(L.k).elevation(pt), luUpper, luLower, separation,
+    if (separation > 0) modeledAdjacent.push({ pair: step, fetch: luUpper });
+    const inputs = (pt: P2, height = surfaces(U.k).elevation(above(pt)) - surfaces(L.k).elevation(pt)) => ({
+      pg: i.pg, balanced: balanced(L.k, pt), stepHeight: height, luUpper, luLower, separation,
     });
     if (typeof i.balanced !== 'number' && i.balancedConstantOnPlanes !== true) {
       throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL));
@@ -306,7 +307,10 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
     const ranges = surfaceModel.edgeRanges(a, b, layout, pt => stepDriftMargins(inputs(pt)));
     const samples: P2[] = [a, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], b];
     const upperRanges = separation > 0 ? surfaceModel.edgeRanges(above(a), above(b), layout, pt => stepDriftMargins(inputs(below(pt)))) : [];
-    const checks = [...ranges.map(range => range.point), ...upperRanges.map(range => below(range.point)), ...samples].map(inputs);
+    const checks = [
+      ...[...ranges.map(range => range.point), ...upperRanges.map(range => below(range.point)), ...samples].map(pt => inputs(pt)),
+      ...elevations.map(({ point, lowerZ, upperZ }) => inputs(point, upperZ - lowerZ)),
+    ];
     const profiles = checks.map(checkedDrift);
     const first = profiles.find(dr => dr.applies && dr.pd > 0 && dr.w > 0);
     if (first) {
@@ -353,6 +357,17 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
         const start = L.polygon[e]!, end = L.polygon[(e + 1) % L.polygon.length]!;
         const edge = lineInto(start, end, L.polygon);
         if (edge.len < 0.1) continue;
+        const edgeOut: P2 = [-edge.n[0], -edge.n[1]];
+        const adjacent = (i.adjacent ?? []).filter(adj => {
+          const want: P2 = adj.side === '+x' ? [1, 0] : adj.side === '-x' ? [-1, 0] : adj.side === '+y' ? [0, 1] : [0, -1];
+          if (dot(edgeOut, want) < 0.95) return false;
+          return !modeledAdjacent.some(({ pair, fetch }) =>
+            pair.lowerComponent.k === L.k && pair.lowerComponent.component === L.component
+            && edgeInterval(start, end, pair.a, pair.b, snowEdgeRoundoff(start, end, pair.a, pair.b)) !== undefined
+            && agrees(adj.separation, pair.separation, pair.separation)
+            && agrees(adj.length, fetch, fetch)
+            && pair.elevations.every(({ upperZ }) => agrees(adj.topZ, upperZ, upperZ)));
+        });
         const atEdge = (t: number): P2 => [start[0] + t * (end[0] - start[0]), start[1] + t * (end[1] - start[1])];
         const outside = ([x, y]: P2): P2 => [x - edge.n[0] * 0.05, y - edge.n[1] * 0.05];
         const covers = roofs.filter(p => p.k !== L.k);
@@ -397,12 +412,9 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
             });
             if (applies && !refs.includes(REF_PARAPET)) refs.push(REF_PARAPET, REF_FIG9);
           }
-          for (const adj of i.adjacent ?? []) {
-            const out: P2 = [-line.n[0], -line.n[1]];
-            const want: P2 = adj.side === '+x' ? [1, 0] : adj.side === '-x' ? [-1, 0] : adj.side === '+y' ? [0, 1] : [0, -1];
-            if (dot(out, want) < 0.95) continue;
+          for (const adj of adjacent) {
             const beyond = layout.panels.some((p) => {
-              const t = p.polygon.map((v) => dot(sub(v, a), line.u)), o = p.polygon.map((v) => dot(sub(v, a), out));
+              const t = p.polygon.map((v) => dot(sub(v, a), line.u)), o = p.polygon.map((v) => dot(sub(v, a), edgeOut));
               return Math.max(...o) > 0.05 && Math.max(...t) > 0.05 && Math.min(...t) < line.len - 0.05;
             });
             if (beyond) continue;

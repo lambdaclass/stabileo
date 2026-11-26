@@ -23,3 +23,11 @@ Cells that meet at a shared edge or corner proceed when a plane through that bou
 The CAD importer resolves nearby authored wall ends before either the slab or the walls are meshed. In the regression, wall ends drawn 2 mm apart with a 10 mm snap tolerance share both wall joint nodes, including the node on the conforming slab. Wall ends outside the tolerance retain distinct joints.
 
 The floor range matcher treats a bend between two wall panels as a physical joint. In the regression, an upper column joins the lower wall corner even though a slab mesh station is closer. Regenerate the affected CAD draft and rerun the analysis.
+
+## Apply the CAD snap distance to floor ranges and wall joints
+
+Floor-interface candidates are admitted by their plan distance. A column offset by 8 mm in each direction is farther than the 10 mm snap tolerance and stays separate. Wall ends drawn 8 mm and 12 mm from a column along one axis first form a joint from their 4 mm separation. That joint then snaps to the column and both wall meshes and the conforming slab use the same node.
+
+## Detect isolated wall–slab contact along the wall section
+
+A wall section can cross a slab plane with both section ends outside the slab. Clipping the full section against the slab can leave a single point, including where a wall on y = −x touches the corner of a square slab in the positive x and y quadrant. The shared spatial preflight refuses this disconnected joint. A compatible shared mesh node or existing complete edge tie provides the connection.

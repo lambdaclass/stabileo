@@ -874,8 +874,6 @@ it.each([[0, true], [2 * PLATE_EDGE_TOL, false]] as const)('#2607 edge contact c
   expect(result.reactions.reduce((sum, support) => sum + support.fz, 0)).toBeCloseTo(2 * (2 - clearance), 8);
 });
 
-const reviewRound = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
-
 function tangentWall(offset: number, shared = false) {
   const [corner] = loadedSlab();
   const a = modelStore.addNode(2, offset - 2, -3), b = modelStore.addNode(-2, offset + 2, -3);
@@ -891,14 +889,14 @@ function tangentWall(offset: number, shared = false) {
   return [a, b];
 }
 
-reviewRound.each(directEntries)('known wrong result: #2607 %s detects a slab corner inside the wall face', async (entry, solve) => {
+it.each(directEntries)('#2607 %s detects a slab corner inside the wall face', async (entry, solve) => {
   tangentWall(0);
   const result = await solve();
   expect(result && typeof result === 'object' ? 'returned a result' : result)
     .toEqual(entry === 'reproducible input' ? null : expect.stringMatching(/wall q2.*slab q1/i));
 });
 
-reviewRound('known wrong result: #2607 global solve detects a tangent wall at the slab vertex', async () => {
+it('#2607 global solve detects a tangent wall at the slab vertex', async () => {
   for (const offset of [0, 2 * PLATE_EDGE_TOL]) {
     modelStore.clear();
     tangentWall(offset);

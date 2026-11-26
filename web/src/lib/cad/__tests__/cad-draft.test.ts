@@ -673,9 +673,7 @@ it('#2607 an upper column prefers a bent wall corner to a closer slab station', 
   }
 });
 
-const reviewRound = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
-
-reviewRound('known wrong result: #2607 floor ranges join only within the plan distance', () => {
+it('#2607 floor ranges join only within the plan distance', () => {
   const plan = (end: { x: number; y: number }): ArchPlan => ({
     ...reviewPlan(), slabs: [], walls: [],
     columns: [end, { x: 4, y: 0 }].map(at => ({ at, sizeSource: 'default' })),
@@ -697,7 +695,7 @@ reviewRound('known wrong result: #2607 floor ranges join only within the plan di
   }
 });
 
-reviewRound('known wrong result: #2607 nearby authored wall ends retain their joint at a column', () => {
+it('#2607 nearby authored wall ends retain their joint at a column', () => {
   const columnAt = { x: 2, y: 1.8 };
   const near = { x: columnAt.x + 0.008, y: columnAt.y };
   for (const meshMode of ['fixedDivisions', 'targetSize'] as const) for (const reverse of [false, true]) {

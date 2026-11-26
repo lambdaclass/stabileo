@@ -524,11 +524,23 @@ export function accountWeight2D(model: ModelData, input: SolverInput, source: Se
   compare(weightLabel(model, source), expected, assembled2D(model, input, rows, source.caseId));
 }
 
-type SlabTarget = { id: number; kind: 'pressure' | 'quadPressure' | 'curvedShellPressure'; forces: ReadonlyMap<number, LoadVector> };
-export type CheckedSource3D = { label: string; expected: Wrench; rows: readonly SolverLoad3D[]; nodeId?: number; slab?: SlabTarget };
+type ShellTarget = { id: number; kind: 'pressure' | 'quadPressure' | 'curvedShellPressure'; forces: ReadonlyMap<number, LoadVector> };
+export type CheckedSource3D = { label: string; expected: Wrench; rows: readonly SolverLoad3D[]; nodeId?: number; shell?: ShellTarget };
 
-function verifySlabDelivery(
-  model: ModelData, input: SolverInput3D, caseId: number, label: string, slab: SlabTarget,
+function shellTarget(
+  model: ModelData, caseId: number, on: 'plate' | undefined, id: number, spec: ShellLoadSpec,
+): ShellTarget {
+  const shell = (on === 'plate' ? model.plates : model.quads)?.get(id);
+  if (!shell) unsupported(model, caseId, 'surface3d', id);
+  const points = shell.nodes.map(nodeId => xyz(model.nodes.get(nodeId) ?? unsupported(model, caseId, 'node', nodeId)));
+  const forces = expectedSurfaceNodeForces(points, spec);
+  if (!forces) unsupported(model, caseId, 'surface3d', id);
+  const kind = on === 'plate' ? 'pressure' : 'curved' in shell && shell.curved ? 'curvedShellPressure' : 'quadPressure';
+  return { id, kind, forces: new Map(shell.nodes.map((nodeId, i) => [nodeId, forces[i]!])) };
+}
+
+function verifyShellDelivery(
+  model: ModelData, input: SolverInput3D, caseId: number, label: string, slab: ShellTarget,
   rows: readonly SolverLoad3D[], factor: number,
 ): void {
   const actual = new Map<number, LoadVector>();
@@ -580,10 +592,10 @@ export function accountSource3D(
       compareComponent(source.label, tp('whatif.node', { n: source.nodeId }), source.nodeId, row.data.nodeId, 0, 0);
     }
   }
-  if (source.slab) verifySlabDelivery(model, input, caseId, source.label, source.slab, rows, factor);
   const expected = new Wrench();
   expected.addScaled(source.expected, factor);
   compare(source.label, expected, assembled3D(model, input, rows, caseId, source.label));
+  if (source.shell) verifyShellDelivery(model, input, caseId, source.label, source.shell, rows, factor);
 }
 
 export function weightSource3D(model: ModelData, embedded: boolean, source: SelfWeightSource, rows: readonly SolverLoad3D[]): CheckedSource3D {
@@ -620,7 +632,17 @@ export function weightSource3D(model: ModelData, embedded: boolean, source: Self
   return { label: weightLabel(model, source), expected, rows };
 }
 
-type GeneratedMeasure = Pick<CheckedSource3D, 'expected' | 'nodeId'>;
+type GeneratedMeasure = Pick<CheckedSource3D, 'expected' | 'nodeId' | 'shell'>;
+
+function addGeneratedMeasure(
+  receipts: Map<Load, GeneratedMeasure>, original: Load, receipt: GeneratedMeasure, factor: number,
+) {
+  const previous = receipts.get(original);
+  const expected = previous?.expected ?? new Wrench();
+  expected.addScaled(receipt.expected, factor);
+  const shell = receipt.shell && { ...receipt.shell, forces: scaleShellForces(receipt.shell.forces, factor, previous?.shell?.forces) };
+  receipts.set(original, { expected, nodeId: receipt.nodeId, shell });
+}
 
 function generatedExpected(
   model: ModelData, loads: readonly Load[], frame: 'xz' | 'space', leftHand: boolean, caseId: number, factor: number,
@@ -629,12 +651,18 @@ function generatedExpected(
   const receipts = new Map<Load, GeneratedMeasure>();
   for (const load of loads) {
     if (!select(load)) continue;
-    const original = accountingOrigin(load);
-    const receipt = receipts.get(original) ?? {
-      expected: new Wrench(), nodeId: load.type === 'nodal3d' ? load.data.nodeId : undefined,
-    };
-    receipt.expected.addScaled(enteredLoads(model, [load], frame, leftHand, caseId, new Set()), factor);
-    receipts.set(original, receipt);
+    const expected = enteredLoads(model, [load], frame, leftHand, caseId, new Set());
+    const receipt: GeneratedMeasure = { expected, nodeId: load.type === 'nodal3d' ? load.data.nodeId : undefined };
+    if (load.type === 'surface3d') {
+      const intent = scenarioSurfaceIntentOf(load);
+      const spec = intent?.baseline ?? load.data;
+      const shell = shellTarget(model, caseId, spec.on, spec.quadId, spec);
+      receipt.shell = intent ? {
+        ...shell,
+        forces: [intent.factor, ...(intent.caseFactors ?? [])].reduce((forces, k) => scaleShellForces(forces, k), shell.forces),
+      } : shell;
+    }
+    addGeneratedMeasure(receipts, accountingOrigin(load), receipt, factor);
   }
   return receipts;
 }
@@ -660,9 +688,9 @@ export function accountLoads2D(
   compare(label, expected, wire.toWorld(projection.plane, origin));
 }
 
-type SlabCell = { count: number; expected: Wrench; slab: SlabTarget };
+type SlabCell = { count: number; expected: Wrench; slab: ShellTarget };
 
-function scaleSlabForces(
+function scaleShellForces(
   source: ReadonlyMap<number, LoadVector>, factor: number, previous?: ReadonlyMap<number, LoadVector>,
 ): Map<number, LoadVector> {
   return new Map([...source].map(([id, force]) => {
@@ -680,7 +708,7 @@ function addSlabSource(targets: Map<number, Map<string, SlabCell>>, id: number, 
     const previous = target.get(cell);
     const expected = previous?.expected ?? new Wrench();
     expected.addScaled(receipt.expected, factor);
-    const forces = scaleSlabForces(receipt.slab.forces, factor, previous?.slab.forces);
+    const forces = scaleShellForces(receipt.slab.forces, factor, previous?.slab.forces);
     target.set(cell, { count: (previous?.count ?? 0) + receipt.count, expected, slab: { ...receipt.slab, forces } });
   }
   targets.set(id, target);
@@ -720,10 +748,8 @@ export function loadAccounting3D(
         const cellExpected = new Wrench();
         if (!shell) unsupported(model, d.caseId, 'surface3d', cell);
         const points = shell.nodes.map(nodeId => xyz(source.nodes.get(nodeId) ?? unsupported(model, d.caseId, 'node', nodeId)));
-        const forces = expectedSurfaceNodeForces(points, spec);
-        if (!forces || !accountSurface(cellExpected, points, spec)) unsupported(model, d.caseId, 'surface3d', cell);
-        const kind = on === 'plate' ? 'pressure' : 'curved' in shell && shell.curved ? 'curvedShellPressure' : 'quadPressure';
-        const slab: SlabTarget = { id: cell, kind, forces: new Map(shell.nodes.map((nodeId, i) => [nodeId, forces[i]!])) };
+        if (!accountSurface(cellExpected, points, spec)) unsupported(model, d.caseId, 'surface3d', cell);
+        const slab = shellTarget(source, d.caseId, on, cell, spec);
         cells.set(slabCell(on, cell), { count: 1, expected: cellExpected, slab });
       }
     }
@@ -768,7 +794,7 @@ export function loadAccounting3D(
       const scenario = new Map([...cell.slab.forces.keys()].map((nodeId, index) => [
         nodeId, (intent.caseFactors ?? []).reduce((force, factor) => force.scale(factor), forces[index]!.scale(intent.factor - 1)),
       ]));
-      cell.slab.forces = scaleSlabForces(scenario, ratio, cell.slab.forces);
+      cell.slab.forces = scaleShellForces(scenario, ratio, cell.slab.forces);
     }
     const result = new Wrench();
     result.addScaled(totals, ratio);
@@ -785,9 +811,7 @@ export function loadAccounting3D(
       for (const name of part.names) names.add(name);
       for (const [id, cells] of part.slabs) addSlabSource(slabs, id, cells, factor);
       for (const [load, receipt] of part.generated) {
-        const copied = receipts.get(load) ?? { expected: new Wrench(), nodeId: receipt.nodeId };
-        copied.expected.addScaled(receipt.expected, factor);
-        receipts.set(load, copied);
+        addGeneratedMeasure(receipts, load, receipt, factor);
       }
     }
     const entry = { totals: result, names, slabs, generated: receipts };
@@ -818,7 +842,7 @@ export function loadAccounting3D(
       const receipt: CheckedSource3D = {
         label: sourceLabel(model, caseId, original), expected: expectedSource?.expected ?? new Wrench(),
         rows: delivered.get(original) ?? [],
-        nodeId: expectedSource?.nodeId,
+        nodeId: expectedSource?.nodeId, shell: expectedSource?.shell,
       };
       accountSource3D(model, input, caseId, receipt);
       checkedSource?.(receipt);
@@ -862,7 +886,7 @@ export function loadAccounting3D(
             const expected = intended?.get(cell), delivery = actual?.get(cell);
             const label = `${sourceLabel} · ${tp('whatif.loads')} · ${cell}`;
             compareComponent(label, tp('whatif.loads'), expected?.count ?? 0, delivery?.count ?? 0, 0, 0);
-            const receipt = { label, expected: expected?.expected ?? new Wrench(), rows: delivery?.rows ?? [], slab: expected?.slab };
+            const receipt = { label, expected: expected?.expected ?? new Wrench(), rows: delivery?.rows ?? [], shell: expected?.slab };
             accountSource3D(model, input, caseId, receipt);
             checkedSource?.(receipt);
           }

@@ -534,26 +534,37 @@ export function generateRcDraft(
 
   // Structural lines that mesh boundaries must pass through (axis-aligned
   // beams, walls, and the column grid) — collected once, in plan coordinates.
-  const wallJoints: CadPt[] = [];
-  const nearestWallJoint = (point: CadPt, joints: CadPt[]) => {
-    let nearest: CadPt | undefined, distance = tol;
-    for (const joint of joints) {
-      const candidate = dist(joint, point);
-      if (candidate < distance) {
-        nearest = joint;
-        distance = candidate;
+  const authoredJoints = new Map<CadPt, CadPt[]>();
+  const jointAt = new Map<CadPt, CadPt>();
+  for (const wall of plan.walls) for (const end of [wall.a, wall.b]) {
+    if (jointAt.has(end)) continue;
+    let anchor = end, distance = tol;
+    for (const candidate of authoredJoints.keys()) {
+      const gap = dist(candidate, end);
+      if (gap < distance) {
+        anchor = candidate;
+        distance = gap;
       }
     }
-    return nearest;
-  };
-  const snapWallEnd = (point: CadPt): CadPt => {
-    const joint = nearestWallJoint(point, columnPts) ?? nearestWallJoint(point, wallJoints);
-    if (joint) return joint;
-    wallJoints.push(point);
-    return point;
-  };
+    jointAt.set(end, anchor);
+    const ends = authoredJoints.get(anchor);
+    if (ends) ends.push(end);
+    else authoredJoints.set(anchor, [end]);
+  }
+  const resolvedJoints = new Map<CadPt, CadPt>();
+  for (const [anchor, ends] of authoredJoints) {
+    let resolved = anchor, distance = tol;
+    for (const column of columnPts) for (const end of ends) {
+      const gap = dist(column, end);
+      if (gap < distance) {
+        resolved = column;
+        distance = gap;
+      }
+    }
+    resolvedJoints.set(anchor, resolved);
+  }
   const wallRuns = plan.walls.flatMap(wall => {
-    const segment = { a: snapWallEnd(wall.a), b: snapWallEnd(wall.b) };
+    const segment = { a: resolvedJoints.get(jointAt.get(wall.a)!)!, b: resolvedJoints.get(jointAt.get(wall.b)!)! };
     return splitSegmentsAtPoints([segment], columnPts, tol).map(run => ({ ...wall, ...run }));
   });
   const axisX = new Set<number>(), axisY = new Set<number>();

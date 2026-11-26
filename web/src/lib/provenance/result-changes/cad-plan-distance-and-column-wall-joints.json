@@ -1,0 +1,42 @@
+{
+  "id": "cad-plan-distance-and-column-wall-joints",
+  "date": "2026-11-26",
+  "prs": [
+    2607
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "cadImportedDraft"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Apply the CAD snap distance to floor ranges and wall joints",
+    "es": "Aplicar la distancia de ajuste de CAD entre pisos y en uniones de muros",
+    "pt": "Aplicar a distância de ajuste do CAD entre pavimentos e nas juntas de paredes",
+    "de": "CAD-Fangabstand an Geschossübergängen und Wandanschlüssen anwenden",
+    "fr": "Appliquer la distance d’accrochage CAO aux étages et aux jonctions de voiles",
+    "hu": "A CAD illesztési távolság alkalmazása a szintek és falak csatlakozásainál",
+    "tr": "Kat geçişlerinde ve perde birleşimlerinde CAD yakalama mesafesini uygula",
+    "zh": "在楼层衔接和墙体接头处应用 CAD 捕捉距离"
+  },
+  "explanation": {
+    "en": "Regenerate the CAD draft. Floor ranges use the plan distance, and nearby wall ends share a joint when it snaps to a column.",
+    "es": "Volvé a generar el borrador CAD. Los pisos se unen por distancia en planta y los extremos de muro cercanos conservan un nodo común al ajustarse a una columna.",
+    "pt": "Gere novamente o rascunho CAD. Os pavimentos se unem pela distância em planta e extremidades próximas de paredes mantêm um nó comum ao se ajustar a um pilar.",
+    "de": "Erstellen Sie den CAD-Entwurf neu. Der Grundrissabstand bestimmt die Geschossanschlüsse. Nahe Wandenden behalten beim Fangen an einer Stütze ihren gemeinsamen Knoten.",
+    "fr": "Régénérez le brouillon CAO. Les raccords entre étages utilisent la distance en plan. Les extrémités proches de voiles restent reliées lorsqu’elles sont accrochées à un poteau.",
+    "hu": "Generálja újra a CAD-vázlatot. A szintek alaprajzi távolság szerint kapcsolódnak. A közeli falvégek az oszlophoz illesztve is közös csomópontot kapnak.",
+    "tr": "CAD taslağını yeniden oluşturun. Katlar plan mesafesine göre birleşir. Yakın perde uçları kolona oturduğunda ortak düğümü korur.",
+    "zh": "请重新生成 CAD 草稿。楼层按平面距离连接，相近的墙端捕捉到柱时保留共享节点。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-cad-connectivity-and-seismic-story-loads.md",
+    "heading": "Apply the CAD snap distance to floor ranges and wall joints"
+  }
+}

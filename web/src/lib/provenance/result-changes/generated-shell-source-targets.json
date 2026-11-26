@@ -1,0 +1,41 @@
+{
+  "id": "generated-shell-source-targets",
+  "date": "2026-11-26",
+  "prs": [
+    2607
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "shellPressureLoads"
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Verify surface-load delivery on the intended shell",
+    "es": "Verificar la transferencia de la carga superficial a la lámina prevista",
+    "pt": "Verificar a transferência da carga superficial para a casca prevista",
+    "de": "Übertragung der Flächenlast auf das vorgesehene Schalenelement prüfen",
+    "fr": "Vérifier le transfert de la charge surfacique vers la coque prévue",
+    "hu": "A felületi terhelés átadásának ellenőrzése a kijelölt héjelemre",
+    "tr": "Yüzey yükünün hedef kabuğa aktarımını doğrula",
+    "zh": "核验面荷载传递到指定壳单元"
+  },
+  "explanation": {
+    "en": "Analysis stops if a surface load reaches the wrong shell or applies the wrong forces at individual mesh nodes.",
+    "es": "El análisis se detiene si una carga superficial llega a otra lámina o aplica fuerzas incorrectas en los nodos de malla.",
+    "pt": "A análise é interrompida se uma carga superficial atingir outra casca ou aplicar forças incorretas nos nós da malha.",
+    "de": "Die Berechnung stoppt, wenn eine Flächenlast ein falsches Schalenelement erreicht oder falsche Kräfte an Netzknoten ansetzt.",
+    "fr": "Le calcul s’arrête si une charge surfacique atteint la mauvaise coque ou applique des forces incorrectes aux nœuds du maillage.",
+    "hu": "A számítás leáll, ha a felületi teher rossz héjelemre kerül, vagy hibás erőket ad át a háló csomópontjain.",
+    "tr": "Yüzey yükü yanlış kabuğa ulaşırsa veya ağ düğümlerine yanlış kuvvet uygularsa analiz durur.",
+    "zh": "如果面荷载传到错误的壳单元或施加了错误的网格节点力，分析会停止。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-generated-source-accounting.md",
+    "heading": "Verify surface-load delivery on the intended shell"
+  }
+}
