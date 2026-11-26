@@ -1,5 +1,5 @@
 ### BREAKING (results)
 
-#### Material analysis of released frame ends
+#### Released rotations with independent constraints
 
-- Solve spatial material tangents with an unloaded released end rotation in either member orientation.
+- Preserve the released rotation in spatial material analysis when constraints at the same node leave its rotational coordinates independent.

@@ -3,7 +3,8 @@
   "date": "2026-11-25",
   "prs": [],
   "area": "analysis",
-  "when": { "allOf": [["space3D"], ["hinges"], ["analysis:nonlinear"]] },
+  "quantities": ["solve.ok", "displacements.rx", "displacements.ry", "displacements.rz"],
+  "when": { "allOf": [["space3D"], ["hinges"], ["constraints"], ["analysis:nonlinear"]] },
   "title": {
     "en": "Material analysis of released frame ends",
     "es": "Análisis de material con extremos de barra articulados",
@@ -26,6 +27,6 @@
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-material-release-gauges.md",
-    "heading": "Material analysis of released frame ends (2026-11-25)"
+    "heading": "Released rotations with independent constraints (2026-11-25)"
   }
 }

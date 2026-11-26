@@ -2,10 +2,11 @@ use crate::linalg::sparse::CscMatrix;
 use crate::linalg::sparse_chol::{numeric_cholesky, sparse_negative_inertia, sparse_cholesky_solve, symbolic_cholesky, SymbolicCholesky};
 use crate::solver::dof::DofNumbering;
 use crate::types::*;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
-use super::structural_kinematics::{other_stiffness_nodes_3d, MechanismWitness, StructuralKinematics};
+use super::structural_kinematics::{MechanismWitness, StructuralKinematics, TranslationMechanism};
+mod planar_frame_swing;
 
 pub(crate) fn has_member_releases_2d(input: &SolverInput) -> bool {
     input.elements.values().any(|e| e.hinge_start || e.hinge_end)
@@ -239,39 +240,7 @@ fn rotation_pins<'a>(directions: impl Iterator<Item = &'a FreeDirection>) -> Vec
     pins
 }
 
-pub(super) struct ReleaseGauges(Vec<FreeDirection>);
-
-impl ReleaseGauges {
-    pub(super) fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    pub(super) fn check_load(&self, load: &[f64], rounding: &[f64]) -> Result<(), String> {
-        if let Some(direction) = self.0.iter().find(|direction| !direction.load_work(load, rounding).contains_zero()) {
-            return Err(super::linear::moment_lost_3d(direction.node, "a free rotation would carry load"));
-        }
-        Ok(())
-    }
-
-    pub(super) fn pin_dense(&self, k: &mut [f64], n: usize) {
-        for (i, j, value) in rotation_pins(self.0.iter()) {
-            k[i * n + j] += value;
-            if i != j {
-                k[j * n + i] += value;
-            }
-        }
-    }
-
-    pub(super) fn pin_sparse(&self, k: &CscMatrix) -> CscMatrix {
-        with_stiffness_entries(k, rotation_pins(self.0.iter()))
-    }
-
-    pub(super) fn add_pin_magnitudes(&self, magnitude: &CscMatrix) -> CscMatrix {
-        with_stiffness_entries(magnitude, rotation_pins(self.0.iter()).into_iter().map(|(i, j, value)| (i, j, value.abs())))
-    }
-}
-
-fn with_stiffness_entries(k: &CscMatrix, entries: impl IntoIterator<Item = (usize, usize, f64)>) -> CscMatrix {
+pub(super) fn with_stiffness_entries(k: &CscMatrix, entries: impl IntoIterator<Item = (usize, usize, f64)>) -> CscMatrix {
     let mut entries = entries.into_iter().peekable();
     if entries.peek().is_none() { return k.clone(); }
     let (mut rows, mut cols, mut values) = (Vec::new(), Vec::new(), Vec::new());
@@ -333,11 +302,19 @@ pub(crate) struct ElasticKinematics {
 }
 
 pub(crate) fn elastic_kinematics_2d(input: &SolverInput, dof: &DofNumbering) -> ElasticKinematics {
-    ElasticKinematics { coupling: coupling_2d(input, dof), structure: StructuralKinematics::planar(input, dof) }
+    let mut structure = StructuralKinematics::planar(input, dof);
+    structure.extend_axial(axial_tips_2d(input, dof, std::iter::empty()));
+    if dof.dofs_per_node == 3 {
+        structure.extend_frames(planar_frame_swing::find_swings(input, dof));
+    }
+    ElasticKinematics { coupling: coupling_2d(input, dof), structure }
 }
 
 pub(crate) fn elastic_kinematics_3d(input: &SolverInput3D, dof: &DofNumbering) -> ElasticKinematics {
-    ElasticKinematics { coupling: coupling_3d(input, dof), structure: StructuralKinematics::spatial(input, dof) }
+    let mut structure = StructuralKinematics::spatial(input, dof);
+    structure.extend_axial(axial_tips_3d(input, dof, std::iter::empty()));
+    structure.extend_frames(frame_swings_3d(input, dof));
+    ElasticKinematics { coupling: coupling_3d(input, dof), structure }
 }
 
 fn coupling_2d(input: &SolverInput, dof: &DofNumbering) -> Vec<(usize, usize)> {
@@ -547,6 +524,118 @@ pub(crate) struct ReleasedRotations {
     directions: Vec<(usize, Vec<(usize, f64, f64)>)>,
 }
 
+fn unrestrained_member_tips(
+    dof: &DofNumbering, components: usize,
+    members: impl Iterator<Item = (usize, usize, bool, bool)>,
+    mut attached: BTreeSet<usize>,
+) -> Vec<TranslationMechanism> {
+    let mut seen = BTreeSet::new();
+    let mut candidates = BTreeSet::new();
+    for (i, j, free_i, free_j) in members {
+        for (node, free) in [(i, free_i), (j, free_j)] {
+            if !seen.insert(node) {
+                attached.insert(node);
+            }
+            if free {
+                candidates.insert(node);
+            }
+        }
+    }
+    candidates.difference(&attached).filter_map(|&node| {
+        let dofs = (0..components)
+            .map(|local| dof.global_dof(node, local).filter(|&index| index < dof.n_free))
+            .collect::<Option<Vec<_>>>()?;
+        Some(TranslationMechanism::isolated(vec![node], dofs))
+    }).collect()
+}
+
+fn has_spring<const N: usize>(dofs: [super::support::SupportDof; N]) -> bool {
+    dofs.iter().any(|d| d.spring.is_some_and(|value| value != 0.0))
+}
+
+fn axial_member(kind: &str) -> bool {
+    matches!(kind, "truss" | "cable")
+}
+
+fn axial_tips_2d(
+    input: &SolverInput, dof: &DofNumbering, extra: impl Iterator<Item = usize>,
+) -> Vec<TranslationMechanism> {
+    if !input.elements.values().any(|element| axial_member(&element.elem_type)) { return Vec::new(); }
+    let attached = extra.chain(input.connectors.values().flat_map(|e| [e.node_i, e.node_j]))
+        .chain(input.supports.values().filter_map(|support| {
+            super::support::support_dofs_2d(support)[..2].iter()
+                .any(|dof| dof.spring.is_some_and(|k| k != 0.0)).then_some(support.node_id)
+        })).collect();
+    let members = input.elements.values().map(|element| {
+        let axial = axial_member(&element.elem_type);
+        (element.node_i, element.node_j, axial, axial)
+    });
+    unrestrained_member_tips(dof, 2, members, attached)
+}
+
+fn axial_tips_3d(
+    input: &SolverInput3D, dof: &DofNumbering, extra: impl Iterator<Item = usize>,
+) -> Vec<TranslationMechanism> {
+    if !input.elements.values().any(|element| axial_member(&element.elem_type)) { return Vec::new(); }
+    let attached = extra.chain(non_member_attachments_3d(input))
+        .chain(input.supports.values().filter_map(|support| {
+            super::support::support_dofs_3d(support)[..3].iter()
+                .any(|dof| dof.spring.is_some_and(|k| k != 0.0)).then_some(support.node_id)
+        })).collect();
+    let members = input.elements.values().map(|element| {
+        let axial = axial_member(&element.elem_type);
+        (element.node_i, element.node_j, axial, axial)
+    });
+    unrestrained_member_tips(dof, 3, members, attached)
+}
+
+pub(super) fn refuse_axial_tips_2d(
+    input: &SolverInput, dof: &DofNumbering,
+    constraints: Option<&super::constraints::FreeConstraintSystem>, extra: impl Iterator<Item = usize>,
+) -> Result<(), String> {
+    refuse_projected_mechanisms(axial_tips_2d(input, dof, extra), constraints)
+}
+
+pub(super) fn refuse_axial_tips_3d(
+    input: &SolverInput3D, dof: &DofNumbering,
+    constraints: Option<&super::constraints::FreeConstraintSystem>, extra: impl Iterator<Item = usize>,
+) -> Result<(), String> {
+    refuse_projected_mechanisms(axial_tips_3d(input, dof, extra), constraints)
+}
+
+fn refuse_projected_mechanisms(
+    mechanisms: Vec<TranslationMechanism>, constraints: Option<&super::constraints::FreeConstraintSystem>,
+) -> Result<(), String> {
+    let structure = StructuralKinematics::isolated(mechanisms);
+    structure.mechanism(constraints, &[], &[]).and_then(|witness| structural_verdict(witness).refusal()).map_or(Ok(()), Err)
+}
+
+pub(super) fn non_member_attachments_3d(input: &SolverInput3D) -> impl Iterator<Item = usize> + '_ {
+    input.curved_beams.iter().flat_map(|e| [e.node_start, e.node_mid, e.node_end])
+        .chain(input.connectors.values().flat_map(|e| [e.node_i, e.node_j]))
+        .chain(input.plates.values().flat_map(|e| e.nodes))
+        .chain(input.quads.values().flat_map(|e| e.nodes))
+        .chain(input.quad9s.values().flat_map(|e| e.nodes))
+        .chain(input.curved_shells.values().flat_map(|e| e.nodes))
+        .chain(input.solid_shells.values().flat_map(|e| e.nodes))
+}
+
+fn frame_swings_3d(input: &SolverInput3D, dof: &DofNumbering) -> Vec<TranslationMechanism> {
+    if dof.dofs_per_node != 6 || !has_member_releases_3d(input) {
+        return Vec::new();
+    }
+    let attached = non_member_attachments_3d(input)
+        .chain(input.supports.values().filter_map(|support| {
+            has_spring(super::support::support_dofs_3d(support)).then_some(support.node_id)
+        })).collect();
+    let members = input.elements.values().map(|e| {
+        let frame = e.elem_type == "frame";
+        (e.node_i, e.node_j, frame && (e.release_my_end || e.release_mz_end),
+            frame && (e.release_my_start || e.release_mz_start))
+    });
+    unrestrained_member_tips(dof, dof.dofs_per_node, members, attached)
+}
+
 struct ReleasedVector {
     values: Vec<f64>,
     rounding: Vec<f64>,
@@ -711,7 +800,7 @@ pub(super) fn released_rotations_in_frames(
         }
     }
     if !released.is_empty() {
-        let attached = other_stiffness_nodes_3d(input);
+        let attached = non_member_attachments_3d(input).collect::<BTreeSet<_>>();
         released.retain(|node| !attached.contains(node));
         directions.retain(|(node, _)| released.contains(node));
     }
@@ -734,6 +823,60 @@ pub(super) fn released_rotations_in_frames(
         }
     }
     Some(ReleasedRotations { rows, nodes: released, directions })
+}
+
+pub(super) struct IsolatedReleasedRotation {
+    pub(super) node: usize,
+    pub(super) axis: Vec<(usize, f64, f64)>,
+}
+
+impl IsolatedReleasedRotation {
+    pub(super) fn project(
+        &self, constraints: Option<&super::constraints::FreeConstraintSystem>,
+    ) -> Option<Vec<(usize, f64, f64)>> {
+        self.axis.iter().map(|&(dof, value, roundoff)| {
+            let coordinate = match constraints {
+                Some(cs) => cs.c_ff.isolated_unit_column(dof)?,
+                None => dof,
+            };
+            Some((coordinate, value, roundoff))
+        }).collect()
+    }
+
+    pub(super) fn already_pinned(&self, artificial: &[usize]) -> bool {
+        self.axis.iter().all(|&(dof, value, roundoff)| {
+            (value == 0.0 && roundoff == 0.0) || artificial.contains(&dof)
+        })
+    }
+}
+
+pub(super) fn isolated_released_rotations_3d(
+    input: &SolverInput3D,
+    dof: &DofNumbering,
+) -> Vec<IsolatedReleasedRotation> {
+    if !has_member_releases_3d(input) {
+        return Vec::new();
+    }
+    let releases = released_rotations_3d(input, dof);
+    let mut incidence = BTreeMap::<usize, usize>::new();
+    for element in input.elements.values() {
+        for node in [element.node_i, element.node_j] {
+            *incidence.entry(node).or_default() += 1;
+        }
+    }
+    let mut blocked = BTreeSet::new();
+    for support in input.supports.values() {
+        if super::support::support_dofs_3d(support)[3..6]
+            .iter()
+            .any(|d| d.spring.is_some_and(|k| k != 0.0))
+        {
+            blocked.insert(support.node_id);
+        }
+    }
+    releases.directions.into_iter().filter_map(|(node, axis)| {
+        (releases.nodes.contains(&node) && incidence.get(&node) == Some(&1)
+            && !blocked.contains(&node) && axis.len() == 3).then_some(IsolatedReleasedRotation { node, axis })
+    }).collect()
 }
 
 struct Column { group: usize, w: Vec<f64> }
@@ -1634,13 +1777,14 @@ fn structural_mechanism(
 }
 
 pub(super) fn structural_verdict(witness: MechanismWitness) -> Stability {
-    let (node, reason) = match witness {
-        MechanismWitness::AxialJoint(node) => (node, Reason::AxialMechanism),
-        MechanismWitness::FrameSwing { node, .. } => (node, Reason::FrameMechanism),
+    let (nodes, reason) = match witness {
+        MechanismWitness::Unrestrained { nodes, .. } => (nodes, Reason::FreeTranslation),
+        MechanismWitness::AxialJoint(node) => (vec![node], Reason::AxialMechanism),
+        MechanismWitness::FrameSwing { node, .. } => (vec![node], Reason::FrameMechanism),
     };
     Stability {
         verdict: Verdict::Mechanism, reason,
-        kappa: f64::INFINITY, anisotropy: 1.0, free: Vec::new(), mode_nodes: vec![node],
+        kappa: f64::INFINITY, anisotropy: 1.0, free: Vec::new(), mode_nodes: nodes,
     }
 }
 
@@ -1697,35 +1841,12 @@ pub(super) fn dense_free_block(k: &[f64], dof: &DofNumbering) -> CscMatrix {
     CscMatrix::from_triplets(nf, &rows, &cols, &values)
 }
 
-fn isolated_release_nodes(input: &SolverInput3D, dof: &DofNumbering, releases: &ReleasedRotations) -> std::collections::BTreeSet<usize> {
-    if releases.nodes.is_empty() {
-        return Default::default();
-    }
-    let mut ends = BTreeMap::<_, usize>::new();
-    for member in input.elements.values().filter(|e| !matches!(e.elem_type.as_str(), "truss" | "cable")) {
-        for node in [member.node_i, member.node_j] {
-            *ends.entry(node).or_default() += 1;
-        }
-    }
-    let rotational_springs: std::collections::BTreeSet<_> = input.supports.values()
-        .filter(|support| super::support::support_dofs_3d(support)[3..6].iter()
-            .any(|setting| setting.spring.is_some_and(|value| value != 0.0)))
-        .map(|support| support.node_id)
-        .collect();
-    releases.nodes.iter().copied().filter(|node| {
-        ends.get(node) == Some(&1)
-            && !rotational_springs.contains(node)
-            && (3..6).all(|axis| dof.global_dof(*node, axis).is_some_and(|g| g < dof.n_free))
-    }).collect()
-}
-
 pub(super) struct OperatorRank<'a> {
     dof: &'a DofNumbering,
     two_d: bool,
     constraints: Option<&'a super::constraints::FreeConstraintSystem>,
     kinematics: ElasticKinematics,
     releases: ReleasedRotations,
-    isolated_release_nodes: std::collections::BTreeSet<usize>,
 }
 
 impl<'a> OperatorRank<'a> {
@@ -1733,7 +1854,7 @@ impl<'a> OperatorRank<'a> {
         input: &SolverInput, dof: &'a DofNumbering,
         constraints: Option<&'a super::constraints::FreeConstraintSystem>,
     ) -> Self {
-        Self { dof, two_d: true, constraints, kinematics: elastic_kinematics_2d(input, dof), releases: ReleasedRotations::default(), isolated_release_nodes: Default::default() }
+        Self { dof, two_d: true, constraints, kinematics: elastic_kinematics_2d(input, dof), releases: ReleasedRotations::default() }
     }
 
     pub(super) fn for_3d(
@@ -1741,8 +1862,7 @@ impl<'a> OperatorRank<'a> {
         constraints: Option<&'a super::constraints::FreeConstraintSystem>,
     ) -> Self {
         let releases = released_rotations_3d(input, dof);
-        let isolated_release_nodes = isolated_release_nodes(input, dof, &releases);
-        Self { dof, two_d: false, constraints, kinematics: elastic_kinematics_3d(input, dof), releases, isolated_release_nodes }
+        Self { dof, two_d: false, constraints, kinematics: elastic_kinematics_3d(input, dof), releases }
     }
 
     fn classify(
@@ -1774,59 +1894,6 @@ impl<'a> OperatorRank<'a> {
             Some(error) => Err(error),
             None => Ok(()),
         }
-    }
-
-    pub(super) fn isolated_release_gauges(&self, physical: &CscMatrix) -> ReleaseGauges {
-        if self.isolated_release_nodes.is_empty() {
-            return ReleaseGauges(Vec::new());
-        }
-        let diagonal = physical.diagonal();
-        let directions = self.releases.directions.iter().filter_map(|(node, axis)| {
-            if !self.isolated_release_nodes.contains(node)
-                || axis.iter().any(|&(_, value, error)| !value.is_finite() || !error.is_finite())
-            {
-                return None;
-            }
-            let scale = axis.iter().fold(0.0_f64, |scale, &(i, _, _)| scale.max(diagonal[i].abs()));
-            let scale = if scale > 0.0 { scale } else { 1.0 };
-            let dofs = axis.iter().map(|&(i, _, _)| i).collect::<Vec<_>>();
-            if let Some(cs) = self.constraints {
-                for &row in &dofs {
-                    cs.exact_identity_column(row)?;
-                }
-            }
-            Some(FreeDirection {
-                node: *node,
-                kind: DofKind::Rotation,
-                moves_translation: false,
-                dofs,
-                direction: axis.iter().map(|&(_, value, _)| value).collect(),
-                direction_rounding: axis.iter().map(|&(_, _, error)| error).collect(),
-                scale,
-                coupling: Vec::new(),
-            })
-        }).collect();
-        ReleaseGauges(directions)
-    }
-
-    pub(super) fn massless_release_gauges(
-        &self,
-        physical: &CscMatrix,
-        mass_range: &super::modal_mass::MassRange,
-    ) -> ReleaseGauges {
-        let ReleaseGauges(mut gauges) = self.isolated_release_gauges(physical);
-        gauges.retain_mut(|direction| {
-            if let Some(cs) = self.constraints {
-                for dof in &mut direction.dofs {
-                    let Some(index) = cs.exact_identity_column(*dof) else {
-                        return false;
-                    };
-                    *dof = index;
-                }
-            }
-            mass_range.coordinates_are_massless(&direction.dofs)
-        });
-        ReleaseGauges(gauges)
     }
 
     pub(super) fn structural_witness(&self) -> Option<MechanismWitness> {
@@ -2012,7 +2079,6 @@ mod tests {
                 two_d: false,
                 constraints: None,
                 kinematics: ElasticKinematics { coupling: vec![(0, 1)], ..Default::default() },
-                isolated_release_nodes: Default::default(),
                 releases: ReleasedRotations {
                     rows: vec![vec![(0, 1.0), (1, -1.0)], vec![(2, 1.0)]],
                     nodes: [1].into(),
@@ -2043,7 +2109,7 @@ mod tests {
         let c = crate::solver::constraints::SparseTransform::from_rows(n, n, (0..n).map(|i| vec![(i, 1.0)]).collect());
         for count in [0, 1, 64] {
             let directions: Vec<_> = (0..count).map(|node| (node, vec![(3*node, 0.6, f64::EPSILON), (3*node+1, 0.8, f64::EPSILON), (3*node+2, 0.0, 0.0)])).collect();
-            let releases = ReleasedRotations { rows: vec![], nodes: (0..count).collect(), directions: directions.clone() };
+            let releases = ReleasedRotations { rows: vec![], nodes: (0..count).collect(), directions: directions.clone(), ..ReleasedRotations::default() };
             PROJECT_ROWS.with(|visits| visits.set(0));
             let result = releases.project(&c);
             for (actual, expected) in result.directions.iter().zip(&directions) {
@@ -2095,7 +2161,7 @@ mod tests {
                     Some(projected.into_iter().filter_map(|(j, (x, e))| (x != 0.0 || e != 0.0).then_some((j, x, e))).collect::<Vec<_>>())
                 };
                 let expected = dense();
-                let releases = ReleasedRotations { rows: vec![vec![(0, 1.0)]], nodes: [1].into(), directions: vec![(1, source)] };
+                let releases = ReleasedRotations { rows: vec![vec![(0, 1.0)]], nodes: [1].into(), directions: vec![(1, source)], ..ReleasedRotations::default() };
                 let actual = releases.project(&c);
                 assert_eq!(actual.directions.first().map(|(_, v)| v.clone()), expected);
                 assert_eq!(actual.nodes, releases.nodes);
@@ -2121,6 +2187,7 @@ mod tests {
                 rows: vec![ex.into_iter().enumerate().collect()],
                 nodes: [1].into_iter().collect(),
                 directions: [(ey,bounds[1]),(y,other[1]),(ez,bounds[2]),(z,other[2])].into_iter().map(|(v,e)|(1,(0..3).map(|i|(i,v[i],e[i])).collect())).collect(),
+                ..ReleasedRotations::default()
             };
             let v: Vec<_> = (0..3).map(|i|0.8*ey[i]+0.6*ez[i]).collect();
             let direction = releases.canonical(1,&[0,1,2],&v,2,ROUNDING*3.0*f64::EPSILON).unwrap_or_else(||panic!("angle {angle}"));
@@ -2209,6 +2276,7 @@ mod tests {
             rows: (1..n).map(|i| vec![(i, 1.0)]).collect(),
             nodes: [7].into_iter().collect(),
             directions: vec![(7, vec![(0, 1.0, 0.0)])],
+            ..ReleasedRotations::default()
         };
         assert!(releases.permits(7, &(0..n).collect::<Vec<_>>(), &{
             let mut axis = vec![0.0; n];
@@ -2245,6 +2313,7 @@ mod tests {
                 rows: (1..n).map(|i| vec![(i, 1.0)]).collect(),
                 nodes: [7].into_iter().collect(),
                 directions: vec![(7, vec![(0, 1.0, 0.0)])],
+                ..ReleasedRotations::default()
             };
             let tags = vec![DofTag { node: 7, kind: DofKind::Rotation }; n];
             let result = analyze_dense_with_coupling(&k, n, &tags, &[], &releases);
@@ -2314,6 +2383,7 @@ mod tests {
             rows: vec![vec![(0, 1.0), (1, 1.0)], vec![(2, 1.0)]],
             nodes: [1].into_iter().collect(),
             directions: vec![(1, vec![(0, 1.0, 0.0), (1, -1.0, 0.0)])],
+            ..ReleasedRotations::default()
         };
         let result = analyze_dense_with_coupling(&k, 3, &tags, &[], &releases);
         assert_eq!(result.verdict, Verdict::Stable, "{result:?}");

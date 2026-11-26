@@ -221,8 +221,7 @@ fn solve_nonlinear_material_2d_inner(
             // Residual: R = F_ext - f_int
             let tangent = MaterialTangent::prepare(
                 &k_t, sparse_tangent.then_some((&trip_rows, &trip_cols, &trip_vals)),
-                n, &free_idx, cs.as_ref(), &rank, support_magnitude.as_ref(), &f_total,
-                || super::load_work::assembly_rounding_2d(solver, &solver.loads, &dof_num, &asm.inclined_transforms_2d),
+                n, &free_idx, cs.as_ref(), &rank, support_magnitude.as_ref(), None,
             )?;
             let mut residual = vec![0.0; n];
             for i in 0..n {
@@ -805,8 +804,7 @@ impl MaterialTangent {
         constraints: Option<&FreeConstraintSystem>,
         rank: &super::stability::OperatorRank<'_>,
         support_magnitude: Option<&CscMatrix>,
-        load: &[f64],
-        load_rounding: impl FnOnce() -> Vec<f64>,
+        gauges: Option<&MaterialReleaseGauges>,
     ) -> Result<Self, String> {
         let nf = free.len();
         let mut dense = triplets.is_none().then(|| extract_submatrix(dense, n, free, free));
@@ -815,13 +813,12 @@ impl MaterialTangent {
             (_, Some(k)) => CscMatrix::from_dense_symmetric_exact(k, nf),
             _ => unreachable!(),
         };
-        let gauges = rank.isolated_release_gauges(&physical);
         let pinned_magnitude;
-        let support_magnitude = if gauges.is_empty() {
-            support_magnitude
-        } else {
-            gauges.check_load(load, &load_rounding())?;
-            pinned_magnitude = support_magnitude.map(|magnitude| gauges.add_pin_magnitudes(magnitude));
+        let support_magnitude = if let Some(gauges) = gauges.filter(|gauges| !gauges.physical.free.is_empty()) {
+            let gauges = &gauges.physical;
+            pinned_magnitude = support_magnitude.map(|magnitude| super::stability::with_stiffness_entries(
+                magnitude, gauges.pins().into_iter().map(|(i, j, value)| (i, j, value.abs())),
+            ));
             physical = if let Some(k) = &mut dense {
                 gauges.pin_dense(k, nf);
                 CscMatrix::from_dense_symmetric_exact(k, nf)
@@ -829,6 +826,8 @@ impl MaterialTangent {
                 gauges.pin_sparse(&physical)
             };
             pinned_magnitude.as_ref()
+        } else {
+            support_magnitude
         };
 
         if let Some(k) = dense {
@@ -1006,6 +1005,78 @@ pub fn solve_nonlinear_material_3d(
     Ok(r)
 }
 
+struct MaterialReleaseGauges {
+    physical: super::stability::Stability,
+    reduced: super::stability::Stability,
+}
+
+impl MaterialReleaseGauges {
+    fn new(
+        solver: &SolverInput3D,
+        dof: &DofNumbering,
+        assembly: &assembly::AssemblyResult,
+        constraints: Option<&FreeConstraintSystem>,
+        artificial: &mut Vec<(usize, f64)>,
+    ) -> Result<Self, String> {
+        use super::stability::{DofKind, FreeDirection, Stability};
+
+        let mut physical = Stability::stable();
+        let mut reduced = Stability::stable();
+        let axes = super::stability::isolated_released_rotations_3d(solver, dof);
+        if axes.is_empty() {
+            return Ok(Self { physical, reduced });
+        }
+        let mut gauge_dofs = std::collections::BTreeSet::new();
+        for release in axes {
+            if release.already_pinned(&assembly.artificial_dofs) {
+                continue;
+            }
+            let Some(projected) = release.project(constraints) else { continue; };
+            let axis = release.axis;
+            let node = release.node;
+            let dofs: Vec<_> = axis.iter().map(|&(index, _, _)| index).collect();
+            let mapped = projected.into_iter().map(|(index, _, _)| index).collect();
+            let scale = dofs.iter().map(|&index| assembly.k[index * (dof.n_total + 1)])
+                .fold(0.0, f64::max);
+            let scale = if scale > 0.0 { scale } else { 1.0 };
+            gauge_dofs.extend(dofs.iter().copied());
+            let gauge = FreeDirection {
+                node,
+                kind: DofKind::Rotation,
+                moves_translation: false,
+                dofs,
+                direction: axis.iter().map(|&(_, value, _)| value).collect(),
+                direction_rounding: axis.iter().map(|&(_, _, rounding)| rounding).collect(),
+                scale,
+                coupling: Vec::new(),
+            };
+            reduced.free.push(FreeDirection { dofs: mapped, ..gauge.clone() });
+            physical.free.push(gauge);
+        }
+        if !physical.free.is_empty() {
+            let rounding = super::load_work::assembly_rounding_3d(
+                solver, &solver.loads, dof, &assembly.inclined_transforms,
+            );
+            if let Some(node) = physical.load_on_free_rotation_with_rounding(&assembly.f, &rounding) {
+                return Err(super::linear::moment_lost_3d(node, "a free rotation would carry load"));
+            }
+            artificial.retain(|(index, _)| !gauge_dofs.contains(index));
+        }
+        Ok(Self { physical, reduced })
+    }
+
+    fn remove_free_rotation(stability: &super::stability::Stability, vector: &mut [f64]) {
+        for gauge in stability.free_rotations() {
+            let projection = gauge.dofs.iter().zip(&gauge.direction)
+                .map(|(&index, &axis)| vector[index] * axis).sum::<f64>();
+            let squared_norm = gauge.direction.iter().map(|axis| axis * axis).sum::<f64>();
+            for (&index, &axis) in gauge.dofs.iter().zip(&gauge.direction) {
+                vector[index] -= (projection / squared_norm) * axis;
+            }
+        }
+    }
+}
+
 fn solve_nonlinear_material_3d_inner(
     input: &NonlinearMaterialInput3D,
 ) -> Result<NonlinearMaterialResult3D, String> {
@@ -1038,12 +1109,13 @@ fn solve_nonlinear_material_3d_inner(
     // Full elastic assembly for total external load vector.
     let asm = super::assembly::assemble_3d(solver, &dof_num);
     let f_total = asm.f.clone();
-    let art = assembly::artificial_stiffness_entries(&asm);
+    let mut art = assembly::artificial_stiffness_entries(&asm);
     super::linear::refuse_material_loads_on_orphan_dofs_3d(solver, &dof_num, &asm.artificial_dofs.iter().copied().collect())?;
 
     // Build constraint system (if constraints present)
     let cs = FreeConstraintSystem::build_3d(&solver, &dof_num)?;
     let rank = super::stability::OperatorRank::for_3d(solver, &dof_num, cs.as_ref());
+    let gauges = MaterialReleaseGauges::new(solver, &dof_num, &asm, cs.as_ref(), &mut art)?;
     let metric = super::convergence::EquilibriumMetric::for_3d(solver, &dof_num, cs.as_ref())?;
 
     // Prescribed displacements, in the inclined-support frames the restrained
@@ -1159,13 +1231,13 @@ fn solve_nonlinear_material_3d_inner(
 
             let tangent = MaterialTangent::prepare(
                 &k_t, sparse_tangent.then_some((&trip_rows, &trip_cols, &trip_vals)),
-                n, &free_idx, cs.as_ref(), &rank, support_magnitude.as_ref(), &f_total,
-                || super::load_work::assembly_rounding_3d(solver, &solver.loads, &dof_num, &asm.inclined_transforms),
+                n, &free_idx, cs.as_ref(), &rank, support_magnitude.as_ref(), Some(&gauges),
             )?;
             let mut residual = vec![0.0; n];
             for i in 0..n {
                 residual[i] = f_ext[i] - f_int[i];
             }
+            MaterialReleaseGauges::remove_free_rotation(&gauges.physical, &mut residual);
             let r_free = extract_subvec(&residual, &free_idx);
 
             // Measured on the independent DOFs: with constraints, the raw
@@ -1191,7 +1263,8 @@ fn solve_nonlinear_material_3d_inner(
                 Some(cs) => cs.reduce_vector(&r_free),
                 None => r_free,
             };
-            let delta_u_indep = tangent.solve(rhs, &mut sparse_sym_cache)?;
+            let mut delta_u_indep = tangent.solve(rhs, &mut sparse_sym_cache)?;
+            MaterialReleaseGauges::remove_free_rotation(&gauges.reduced, &mut delta_u_indep);
             let delta_u_f = match &cs {
                 Some(cs) => cs.expand_solution(&delta_u_indep, MasterMotion::Homogeneous),
                 None => delta_u_indep,

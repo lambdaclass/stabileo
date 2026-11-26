@@ -30,7 +30,7 @@ it('known wrong result: #2223 — unrelated older nodal projects have no diagram
       const snapshot: FeatureSnapshot = {
         analysisMode,
         supports: [[1, { nodeId: 1, type: analysisMode === '2d' ? 'fixed' : 'fixed3d' }]],
-        loads: [{ type: 'nodal3d', data: { nodeId: 1, fz: -20, caseId: 1 } }],
+        loads: [{ type: 'nodal3d', data: { nodeId: 1, fx: 0, fy: 0, fz: -20, mx: 0, my: 0, mz: 0, caseId: 1 } }],
         loadCases: [{ id: 1, type: 'D' }],
         includeSelfWeight: true,
       };

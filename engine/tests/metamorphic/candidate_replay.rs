@@ -55,6 +55,11 @@ fn refused(issue: u64, analysis: &str, prefix: &str, diagnostic: Option<Value>) 
     }
 }
 
+fn refused_mechanism(issue: u64, analysis: &str, nodes: &[usize]) {
+    let reason = format!("the structure is a mechanism at nodes {nodes:?}: a node can move freely in a direction no member, support or spring stiffens");
+    refused(issue, analysis, &reason, None);
+}
+
 fn rank_refused(issue: u64, analysis: &str, prefix: &str) {
     refused(issue, analysis, prefix, Some(serde_json::json!({
         "code": "reduced_stiffness_rank", "severity": "error"
@@ -92,43 +97,43 @@ fn issue_1902_refuses_unresolved_stiffness() {
 }
 
 #[test]
-fn issue_1859_refuses_unrestrained_translation() {
-    refused(1859, "P-Delta", "the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens", None);
+fn issue_1859_refuses_proven_mechanism() {
+    refused_mechanism(1859, "P-Delta", &[2, 3, 6]);
 }
 
 #[test]
-fn issue_1858_refuses_unresolved_stiffness() {
-    rank_refused(1858, "certified linear", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision");
+fn issue_1858_refuses_proven_mechanism() {
+    refused_mechanism(1858, "certified linear", &[2]);
 }
 
 #[test]
-fn issue_1856_refuses_unresolved_stiffness() {
-    rank_refused(1856, "linear (WASM typed path)", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision");
+fn issue_1856_refuses_proven_mechanism() {
+    refused_mechanism(1856, "linear (WASM typed path)", &[2]);
 }
 
 #[test]
-fn issue_1852_refuses_unrestrained_translation() {
-    refused(1852, "linear (WASM typed path)", "the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens", None);
+fn issue_1852_refuses_proven_mechanism() {
+    refused_mechanism(1852, "linear (WASM typed path)", &[2, 3, 6]);
 }
 
 #[test]
-fn issue_1851_refuses_unresolved_stiffness() {
-    rank_refused(1851, "P-Delta", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision");
+fn issue_1851_refuses_proven_mechanism() {
+    refused_mechanism(1851, "P-Delta", &[2]);
 }
 
 #[test]
-fn issue_1850_refuses_unrestrained_translation() {
-    refused(1850, "linear", "the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens", None);
+fn issue_1850_refuses_proven_mechanism() {
+    refused_mechanism(1850, "linear", &[2, 3, 6]);
 }
 
 #[test]
-fn issue_1847_refuses_unrestrained_translation() {
-    refused(1847, "linear (load session)", "the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens", None);
+fn issue_1847_refuses_proven_mechanism() {
+    refused_mechanism(1847, "linear (load session)", &[2, 3, 6]);
 }
 
 #[test]
-fn issue_1842_refuses_unresolved_stiffness() {
-    rank_refused(1842, "linear", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision");
+fn issue_1842_refuses_proven_mechanism() {
+    refused_mechanism(1842, "linear", &[2]);
 }
 
 #[test]

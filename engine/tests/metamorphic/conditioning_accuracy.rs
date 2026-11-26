@@ -150,34 +150,9 @@ fn expected_refusal(name: &str, e: &str) -> bool {
         && e.contains("the matrix exceeds a conditioning limit or the recovered response fails its accuracy check");
     let mechanism = e.starts_with("the structure is a mechanism at nodes ")
         && e.contains("a node can move freely in a direction no member, support or spring stiffens");
-    let factorization_accuracy = e == "the structure cannot be solved reliably: stiffness factorization accuracy is unresolved after the stability check; no result is returned";
     match name {
-        "issue-973" => serde_json::from_str::<serde_json::Value>(e).is_ok_and(|refusal| {
-            refusal["structuredDiagnostics"].as_array().is_some_and(|diagnostics| {
-                if diagnostics.len() != 1 {
-                    return false;
-                }
-                let diagnostic = &diagnostics[0];
-                let Some(node) = diagnostic["nodeIds"][0].as_u64() else { return false; };
-                let message = format!("the structure is a mechanism at nodes [{node}]: a frame can swing about a released end without straining its members or moving its restraints");
-                diagnostic["code"] == "reduced_stiffness_rank"
-                    && diagnostic["severity"] == "error"
-                    && diagnostic["nodeIds"].as_array().is_some_and(|nodes| nodes.len() == 1)
-                    && diagnostic["message"] == message && refusal["message"] == message
-            })
-        }),
-        "issue-1029" => conditioning || factorization_accuracy
-            || serde_json::from_str::<serde_json::Value>(e).is_ok_and(|refusal| {
-                let message = "the structure is a mechanism or so close to one that its stability cannot be decided in double precision: the reduced stiffness rank cannot be resolved at assembly precision. Check member releases, supports, springs and constraints for a mechanism.";
-                refusal["message"] == message
-                    && refusal["structuredDiagnostics"].as_array().is_some_and(|diagnostics| {
-                        diagnostics.len() == 1
-                            && diagnostics[0]["code"] == "reduced_stiffness_rank"
-                            && diagnostics[0]["severity"] == "error"
-                            && diagnostics[0]["message"] == message
-                    })
-            }),
-        "issue-1083" | "issue-1091" | "issue-1353" | "issue-1355" | "issue-1362" => conditioning,
+        "issue-1029" | "issue-1083" | "issue-1091" | "issue-973" => mechanism,
+        "issue-1353" | "issue-1355" | "issue-1362" => conditioning,
         "issue-1008" | "issue-1095" | "issue-1103" | "issue-1112" | "issue-1359" | "issue-1648" | "issue-1651" | "issue-964" | "issue-966" | "issue-967" => mechanism,
         "issue-1028" => serde_json::from_str::<serde_json::Value>(e).ok().is_some_and(|v| {
             v["structuredDiagnostics"].as_array().is_some_and(|ds| ds.iter().any(|d| d["code"] == "conflicting_support_spring" && d["severity"] == "error"))
@@ -271,46 +246,35 @@ fn every_loaded_c08_copy_agrees_with_its_physical_reference_and_other_solved_cop
 }
 
 #[test]
-fn issue_2519_conditional_linear_solution_matches_sparse_reference_in_each_unit_system() {
-    use dedaliano_engine::solver::constraints::{solve_constrained_3d, ConstrainedInput3D};
-    let Model::D3(input) = crate::corpus::parse(include_str!("../fixtures/conditional-rank-2519.json")).unwrap() else {
-        panic!("expected the archived spatial model");
-    };
-    let case = Case3::new("replay", input);
-    let mut failures = Vec::new();
-    let mut wasm = Vec::new();
-    for (length, force) in [(1.0, 1.0), (1e-3, 1e3), (25.0, 1e-2), (0.3048, 4.448)] {
-        let model = case.units(&Units::froude(length, force)).s;
-        assert!(stability::of_3d(&model).unwrap().needs_accuracy_check());
-        let (sparse, nodes, members) = crate::case::pad_3d(&model);
-        let mut reference = response::static_3d(&linear::solve_3d(&sparse).unwrap());
-        reference.retain_ids(&nodes, &members);
-        let mut pcg = sparse.clone();
-        pcg.solver_options = Some(SolverOptions {
-            method: Some("pcg".into()), preconditioner: None, tolerance: Some(1e-12), max_iterations: Some(100_000),
-        });
-        let constrained = ConstrainedInput3D { solver: model.clone(), constraints: model.constraints.clone() };
-        for (entry, answer) in [
-            ("linear", linear::solve_3d(&model)),
-            ("constrained", solve_constrained_3d(&constrained)),
-            ("PCG", linear::solve_3d(&pcg)),
-        ] {
-            match answer {
-                Ok(answer) => {
-                    let mut response = response::static_3d(&answer);
-                    response.retain_ids(&nodes, &members);
-                    compare(&response, &reference, &reference, force, length);
-                }
-                Err(error) => failures.push(format!("{entry} ({length}/{force}): {error}")),
-            }
+fn conditional_elastic_2519_matches_the_independent_physical_response() {
+    let case = Case3::new(
+        "issue-2519",
+        serde_json::from_str(include_str!("../fixtures/conditional-elastic-2519.json")).unwrap(),
+    );
+    let data: serde_json::Value = serde_json::from_str(include_str!(
+        "../fixtures/conditional-elastic-2519-reference.json"
+    )).unwrap();
+    let expected = reference(&data, false);
+    let force = data["force_scale"].as_str().unwrap().parse().unwrap();
+    let length = data["length"].as_str().unwrap().parse().unwrap();
+    let mut worst = 0.0_f64;
+    let rows = crate::ana3::rows();
+    let routes = [
+        "linear", "linear (load session)", "linear (sparse path)", "linear (PCG)",
+        "constrained", "certified linear", "staged (one stage)",
+    ];
+    for (l, f) in [(1.0, 1.0), (1e-3, 1e3), (25.0, 1e-2), (0.3048, 4.448)] {
+        let units = Change::Units(Units::froude(l, f));
+        let image = case.units(&Units::froude(l, f));
+        for name in routes {
+            let analysis = rows.iter().find(|row| row.name == name).unwrap();
+            let actual = units.response(&(analysis.run)(&image).unwrap(), true);
+            worst = worst.max(compare(&actual, &expected, &expected, force, length));
         }
-        wasm.push(serde_json::json!({
-            "model": model, "sparse": sparse, "pcg": pcg,
-            "accuracy": stability::CONDITIONAL_ACCURACY,
-        }));
     }
-    if let Some(path) = std::env::var_os("CONDITIONAL_RANK_WASM_CASES") {
-        std::fs::write(path, serde_json::to_vec(&wasm).unwrap()).unwrap();
-    }
-    assert!(failures.is_empty(), "{}", failures.join("\n"));
+    let tolerance = stability::CONDITIONAL_ACCURACY;
+    assert!(
+        worst.is_finite() && worst <= tolerance,
+        "Issue #2519 maximum scaled response error {worst:.6e} exceeds the conditional accuracy limit {tolerance:.6e} or is nonfinite. The 90-digit independent response supplies the reference; each component is normalized by the larger of its reference quantity scale and its physical scale derived from load and length.",
+    );
 }

@@ -55,6 +55,15 @@ pub struct SparseTransform {
 }
 
 impl SparseTransform {
+    pub(super) fn isolated_unit_column(&self, row: usize) -> Option<usize> {
+        let span = self.row_ptr[row]..self.row_ptr[row + 1];
+        if span.len() != 1 || self.vals[span.start] != 1.0 {
+            return None;
+        }
+        let col = self.col_idx[span.start];
+        (self.col_ptr[col + 1] - self.col_ptr[col] == 1).then_some(col)
+    }
+
     pub(crate) fn buckling_transform(&self) -> crate::linalg::lanczos::BucklingTransform<'_> {
         crate::linalg::lanczos::BucklingTransform {
             n_rows: self.n_rows, n_cols: self.n_cols,
@@ -1702,13 +1711,11 @@ fn solve_constrained_2d_dense_validated(
     let stability = super::stability::classify_free_stiffness(&CscMatrix::from_dense_symmetric(&k_ff, nf), &CscMatrix::from_dense_symmetric(&k_reduced, n_free_indep), dof_num, true, Some(&fcs), &super::stability::elastic_kinematics_2d(&input.solver, dof_num), &super::stability::ReleasedRotations::default(), &[], support_magnitude.as_ref(), &[]);
     refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let u_indep = {
-        let mut k_work = k_reduced.clone();
-        stability.pin_dense(&mut k_work, n_free_indep);
-        if !cholesky_decompose(&mut k_work, n_free_indep) { return Err(linear::not_positive_definite()); }
         let mut k_pinned = k_reduced.clone();
         stability.pin_dense(&mut k_pinned, n_free_indep);
-        linear::solve_dense_response(&stability, &k_pinned, &f_reduced,
-            |rhs| back_solve(&k_work, &forward_solve(&k_work, rhs, n_free_indep), n_free_indep))?
+        let factor = super::elastic_cholesky::DenseCholesky::dense(&k_pinned, n_free_indep, &stability)?;
+        let u = factor.solve(&f_reduced);
+        linear::ConditionalRefinement::planar().dense(&stability, &k_pinned, &f_reduced, u, |rhs| factor.solve(rhs))?
     };
     stability.check_pins_with_rounding(&u_indep, &f_reduced, &[], &load_rounding)?;
 
@@ -1919,9 +1926,10 @@ pub(super) fn solve_constrained_2d_sparse(
     let stability = super::stability::classify_free_stiffness(k_ff, &k_reduced, dof_num, true, Some(&fcs), &super::stability::elastic_kinematics_2d(&input.solver, dof_num), &super::stability::ReleasedRotations::default(), &[], stiff.support_magnitude.as_ref(), &[]);
     refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let k_pinned = stability.pin_sparse(&k_reduced);
-    let num = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_pinned)), &k_pinned).ok_or_else(linear::not_positive_definite)?;
-    let u_indep = sparse_cholesky_solve(&num, &f_reduced);
-    let u_indep = linear::polish_sparse_response(&stability, &k_pinned, &f_reduced, u_indep, |rhs| sparse_cholesky_solve(&num, rhs))?;
+    let symbolic = std::rc::Rc::new(symbolic_cholesky(&k_pinned));
+    let factor = super::elastic_cholesky::SparseCholesky::sparse(&k_pinned, &symbolic, &stability)?;
+    let u_indep = factor.solve(&f_reduced);
+    let u_indep = linear::ConditionalRefinement::planar().sparse(&stability, &k_pinned, &f_reduced, u_indep, |rhs| factor.solve(rhs))?;
     stability.check_pins_with_rounding(&u_indep, &f_reduced, &[], &load_rounding)?;
 
     let u_f = fcs.expand_solution(&u_indep, MasterMotion::Prescribed(&u_r));
@@ -2159,9 +2167,20 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
     let stability = super::stability::classify_free_stiffness(k_ff, &k_reduced, &dof_num, false, Some(&fcs), &super::stability::elastic_kinematics_3d(&input.solver, &dof_num), &super::stability::released_rotations_3d(&input.solver, &dof_num), &[], sasm.support_magnitude.as_ref(), &[]);
     refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let k_pinned = stability.pin_sparse(&k_reduced);
-    let num = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_pinned)), &k_pinned).ok_or_else(linear::not_positive_definite)?;
-    let u_indep = sparse_cholesky_solve(&num, &f_reduced);
-    let u_indep = linear::polish_sparse_response(&stability, &k_pinned, &f_reduced, u_indep, |rhs| sparse_cholesky_solve(&num, rhs))?;
+    let symbolic = std::rc::Rc::new(symbolic_cholesky(&k_pinned));
+    let factor = super::elastic_cholesky::SparseCholesky::sparse(&k_pinned, &symbolic, &stability)?;
+    let u_indep = factor.solve(&f_reduced);
+    let physical = super::conditioning_accuracy::PhysicalFrameSystem {
+        input: &input.solver,
+        dof: &dof_num,
+        inclined: &sasm.inclined_transforms,
+        constraints: Some(&fcs),
+        prescribed: &u_r,
+        applied: &sasm.f,
+    };
+    let u_indep = linear::ConditionalRefinement::spatial(&physical).sparse(
+        &stability, &k_pinned, &f_reduced, u_indep, |rhs| factor.solve(rhs),
+    )?;
     stability.check_pins_with_rounding(&u_indep, &f_reduced, &[], &load_rounding)?;
 
     let u_f = fcs.expand_solution(&u_indep, MasterMotion::Prescribed(&u_r));
@@ -2570,14 +2589,6 @@ impl FreeConstraintSystem {
     /// K_reduced = C_ff^T * K_ff * C_ff as lower-triangle CSC.
     pub fn reduce_matrix_sparse(&self, k_ff: &CscMatrix) -> CscMatrix {
         self.c_ff.reduce_sparse(k_ff)
-    }
-
-    pub(super) fn exact_identity_column(&self, row: usize) -> Option<usize> {
-        let col = self.independent_dofs().binary_search(&row).ok()?;
-        let start = self.c_ff.col_ptr[col];
-        (self.c_ff.col_ptr[col + 1] == start + 1
-            && self.c_ff.row_idx[start] == row && self.c_ff.csc_vals[start] == 1.0)
-            .then_some(col)
     }
 
     pub(super) fn independent_dofs(&self) -> &[usize] { &self.independent }

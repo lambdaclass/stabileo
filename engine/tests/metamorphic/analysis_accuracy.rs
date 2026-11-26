@@ -696,9 +696,9 @@ pub fn moving_2d(
     let span: f64 = env.path.iter().map(|p| p.length).sum();
     let mut bounds = [0.0f64; 2];
     let mut s = c.s.clone();
-    let mut pos = 0.0;
-    for _ in 0..env.num_positions {
-        s.loads = moving_loads::moving_loads_at_position_2d(&c.s, &env.train, &env.path, pos, span);
+    let end = env.path.last().ok_or("missing moving-load path")?.end_pos;
+    for pos in moving_loads::reference_positions(&env.train, end, c.p.step, env.path.last().unwrap().station_roundoff[1])? {
+        s.loads = moving_loads::moving_loads_at_position_2d(&c.s, &env.train, &env.path, pos)?;
         let raw = crate::response::static_2d(&linear::solve_2d(&s)?);
         let asm = assembly::assemble_2d(&s, &dof);
         let cs = FreeConstraintSystem::build_2d(&s, &dof)?;
@@ -722,7 +722,6 @@ pub fn moving_2d(
         for j in 0..2 {
             bounds[j] = bounds[j].max(e[j]);
         }
-        pos += c.p.step;
     }
     let weight: f64 = env.train.axles.iter().map(|a| a.weight.abs()).sum();
     for i in &mut r.0 {
@@ -755,10 +754,10 @@ pub fn moving_3d(
     let span: f64 = env.path.iter().map(|p| p.length).sum();
     let mut bounds = [0.0f64; 2];
     let mut s = c.s.clone();
-    let mut pos = 0.0;
-    for _ in 0..env.num_positions {
+    let end = env.path.last().ok_or("missing moving-load path")?.end_pos;
+    for pos in moving_loads::reference_positions(&env.train, end, c.p.step, env.path.last().unwrap().station_roundoff[1])? {
         s.loads =
-            moving_loads::moving_loads_at_position_3d(&c.s, &env.train, "z", &env.path, pos, span);
+            moving_loads::moving_loads_at_position_3d(&c.s, &env.train, "z", &env.path, pos)?;
         let raw = crate::response::static_3d(&linear::solve_3d(&s)?);
         let asm = assembly::assemble_3d(&s, &dof);
         let cs = FreeConstraintSystem::build_3d(&s, &dof)?;
@@ -782,7 +781,6 @@ pub fn moving_3d(
         for j in 0..2 {
             bounds[j] = bounds[j].max(e[j]);
         }
-        pos += c.p.step;
     }
     let weight: f64 = env.train.axles.iter().map(|a| a.weight.abs()).sum();
     for i in &mut r.0 {

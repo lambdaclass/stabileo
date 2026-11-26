@@ -1,6 +1,7 @@
 pub mod dof;
 pub(crate) mod convergence;
 mod equilibrium;
+mod elastic_cholesky;
 pub(crate) mod support;
 pub(crate) mod dynamic_validation;
 pub mod assembly;

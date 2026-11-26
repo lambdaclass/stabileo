@@ -13,7 +13,8 @@ joint is terminal and all its stiffness contributions are accounted for.
 The resulting blocking diagnostic identifies the moving joint. The same
 structural check also evaluates axial truss witnesses against restraints.
 
-Recheck saved analyses of spatial and planar frames with end releases.
-The archived #2119, #2134, #2139, #2190, #2266 and #2380 inputs now have
-a structural refusal. Springs and connectors that restrain the swing
-remain part of the physical solve.
+Recheck saved analyses of released frames when a spring or constraint leaves
+a terminal swing admissible. The exact compatibility check classifies this
+motion after applying the same transform used by the solve. The #2134 Winkler
+replay also verifies the shared refusal and its witnessed node. Springs and
+connectors that restrain the swing remain part of the physical solve.

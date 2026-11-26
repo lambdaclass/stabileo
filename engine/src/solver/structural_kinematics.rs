@@ -9,18 +9,67 @@ use crate::types::{SolverInput, SolverInput3D};
 
 #[derive(Default)]
 pub(super) struct StructuralKinematics {
-    axial_joints: Vec<LocalMotion>,
-    frame_swings: Vec<(LocalMotion, Option<&'static str>)>,
-    unconstrained_swings: Vec<(usize, Vec<usize>)>,
+    axial_joints: Vec<TranslationMechanism>,
+    frame_swings: Vec<(TranslationMechanism, Option<&'static str>)>,
+    isolated_axial: Vec<TranslationMechanism>,
+    isolated_frames: Vec<TranslationMechanism>,
+}
+
+pub(super) struct TranslationMechanism {
+    nodes: Vec<usize>,
+    motion: TranslationMotion,
+    planar_component: Option<&'static str>,
+}
+
+enum TranslationMotion {
+    Isolated(Vec<usize>),
+    Exact(LocalMotion),
+}
+
+impl TranslationMechanism {
+    pub(super) fn isolated(nodes: Vec<usize>, dofs: Vec<usize>) -> Self {
+        Self { nodes, motion: TranslationMotion::Isolated(dofs), planar_component: None }
+    }
+
+    pub(super) fn planar_swing(nodes: Vec<usize>, dofs: Vec<usize>, component: &'static str) -> Self {
+        Self { planar_component: Some(component), ..Self::isolated(nodes, dofs) }
+    }
+
+    fn local(node: usize, components: Vec<(usize, Row)>, conditions: RowBasis) -> Self {
+        Self {
+            nodes: vec![node],
+            motion: TranslationMotion::Exact(LocalMotion { components, conditions }),
+            planar_component: None,
+        }
+    }
+
+    fn admissible(
+        &self,
+        constraints: Option<&FreeConstraintSystem>,
+        inactive: &[usize],
+        additional_dofs: &[bool],
+    ) -> bool {
+        match &self.motion {
+            TranslationMotion::Isolated(dofs) => dofs.iter().all(|&dof| {
+                let retained = match constraints {
+                    Some(cs) => cs.c_ff.isolated_unit_column(dof),
+                    None => Some(dof),
+                };
+                additional_dofs.get(dof) != Some(&true)
+                    && retained.is_some_and(|index| inactive.binary_search(&index).is_err())
+            }),
+            TranslationMotion::Exact(motion) => motion.admissible(constraints, inactive, additional_dofs),
+        }
+    }
 }
 
 pub(super) enum MechanismWitness {
+    Unrestrained { nodes: Vec<usize>, frame_nodes: Vec<usize>, planar_component: Option<&'static str> },
     AxialJoint(usize),
     FrameSwing { node: usize, planar_component: Option<&'static str> },
 }
 
 struct LocalMotion {
-    node: usize,
     components: Vec<(usize, Row)>,
     conditions: RowBasis,
 }
@@ -61,6 +110,18 @@ impl RowBasis {
 }
 
 impl StructuralKinematics {
+    pub(super) fn isolated(axial: Vec<TranslationMechanism>) -> Self {
+        Self { isolated_axial: axial, ..Self::default() }
+    }
+
+    pub(super) fn extend_axial(&mut self, mechanisms: Vec<TranslationMechanism>) {
+        self.isolated_axial.extend(mechanisms);
+    }
+
+    pub(super) fn extend_frames(&mut self, mechanisms: Vec<TranslationMechanism>) {
+        self.isolated_frames.extend(mechanisms);
+    }
+
     pub(super) fn planar(input: &SolverInput, dof: &DofNumbering) -> Self {
         let mut neighbors = BTreeMap::new();
         let mut other_members = BTreeSet::new();
@@ -143,14 +204,14 @@ impl StructuralKinematics {
         Self {
             axial_joints: Self::axial_joints(dof, &positions, neighbors, &other_members, &springs),
             frame_swings,
-            unconstrained_swings: Vec::new(),
+            ..Self::default()
         }
     }
 
     pub(super) fn spatial(input: &SolverInput3D, dof: &DofNumbering) -> Self {
         let mut neighbors = BTreeMap::new();
         let mut other_members = BTreeSet::new();
-        let mut unsupported = other_stiffness_nodes_3d(input);
+        let mut unsupported: BTreeSet<_> = super::stability::non_member_attachments_3d(input).collect();
         let mut incidence = BTreeMap::new();
         for element in input.elements.values() {
             *incidence.entry(element.node_i).or_insert(0) += 1;
@@ -182,7 +243,6 @@ impl StructuralKinematics {
             .map(|node| (node.id, [node.x, node.y, node.z]))
             .collect();
         let mut frame_swings = Vec::new();
-        let mut unconstrained_swings = Vec::new();
         for member in crate::ordered::values(&input.elements).filter(|e| e.elem_type == "frame") {
             for (pivot, tip, my, mz) in [
                 (
@@ -198,40 +258,28 @@ impl StructuralKinematics {
                     member.release_mz_end,
                 ),
             ] {
-                if !(my || mz) || !terminal(tip, &incidence, &unsupported) {
+                if !(my && mz) || input.left_hand.unwrap_or(false) || !terminal(tip, &incidence, &unsupported) {
                     continue;
                 }
                 let Some(chord) = chord(&positions, pivot, tip) else {
                     continue;
                 };
-                if my && mz && !input.left_hand.unwrap_or(false) {
-                    let [x, y, z] = chord.as_slice() else {
-                        unreachable!()
-                    };
-                    let rows = [
-                        vec![Rational::zero(), z.clone(), -y],
-                        vec![-z, Rational::zero(), x.clone()],
-                        vec![y.clone(), -x, Rational::zero()],
-                        unit_row(3, 0),
-                        unit_row(3, 1),
-                        unit_row(3, 2),
-                    ];
-                    let mut conditions = RowBasis::new(3);
-                    conditions.add(chord);
-                    if let Some(swing) = LocalMotion::at_node(tip, rows, conditions, dof, &springs)
-                    {
-                        frame_swings.push((swing, None));
-                    }
-                } else {
-                    let free: Option<Vec<_>> = (0..6)
-                        .map(|axis| {
-                            let index = dof.global_dof(tip, axis)?;
-                            (index < dof.n_free && !springs.contains(&(tip, axis))).then_some(index)
-                        })
-                        .collect();
-                    if let Some(free) = free {
-                        unconstrained_swings.push((tip, free));
-                    }
+                let [x, y, z] = chord.as_slice() else {
+                    unreachable!()
+                };
+                let rows = [
+                    vec![Rational::zero(), z.clone(), -y],
+                    vec![-z, Rational::zero(), x.clone()],
+                    vec![y.clone(), -x, Rational::zero()],
+                    unit_row(3, 0),
+                    unit_row(3, 1),
+                    unit_row(3, 2),
+                ];
+                let mut conditions = RowBasis::new(3);
+                conditions.add(chord);
+                if let Some(swing) = LocalMotion::at_node(tip, rows, conditions, dof, &springs)
+                {
+                    frame_swings.push((swing, None));
                 }
             }
         }
@@ -239,7 +287,7 @@ impl StructuralKinematics {
         Self {
             axial_joints: Self::axial_joints(dof, &positions, neighbors, &other_members, &springs),
             frame_swings,
-            unconstrained_swings,
+            ..Self::default()
         }
     }
 
@@ -249,7 +297,7 @@ impl StructuralKinematics {
         neighbors: BTreeMap<usize, Vec<usize>>,
         unsupported: &BTreeSet<usize>,
         springs: &BTreeSet<(usize, usize)>,
-    ) -> Vec<LocalMotion> {
+    ) -> Vec<TranslationMechanism> {
         neighbors
             .into_iter()
             .filter_map(|(node, mut others)| {
@@ -288,15 +336,10 @@ impl StructuralKinematics {
                     }
                 }
                 let width = axes.len();
-                Some(LocalMotion {
-                    node,
-                    components: axes
-                        .into_iter()
-                        .enumerate()
-                        .map(|(axis, (_, index))| (index, unit_row(width, axis)))
-                        .collect(),
-                    conditions: strains,
-                })
+                let components = axes.into_iter().enumerate()
+                    .map(|(axis, (_, index))| (index, unit_row(width, axis)))
+                    .collect();
+                Some(TranslationMechanism::local(node, components, strains))
             })
             .collect()
     }
@@ -307,28 +350,28 @@ impl StructuralKinematics {
         inactive: &[usize],
         additional_dofs: &[bool],
     ) -> Option<MechanismWitness> {
-        let admissible =
-            |motion: &&LocalMotion| motion.admissible(constraints, inactive, additional_dofs);
+        let admissible = |motion: &&TranslationMechanism| motion.admissible(constraints, inactive, additional_dofs);
         if let Some(joint) = self.axial_joints.iter().find(admissible) {
-            return Some(MechanismWitness::AxialJoint(joint.node));
+            return Some(MechanismWitness::AxialJoint(joint.nodes[0]));
         }
-        if let Some((swing, planar_component)) = self.frame_swings.iter()
+        let axial_nodes = self.isolated_axial.iter().filter(admissible).flat_map(|m| m.nodes.iter().copied());
+        let frames = self.isolated_frames.iter().filter(admissible);
+        let planar_component = frames.clone().min_by_key(|m| m.nodes[0]).and_then(|m| m.planar_component);
+        let frame_nodes: BTreeSet<_> = frames.flat_map(|m| m.nodes.iter().copied()).collect();
+        let nodes: BTreeSet<_> = axial_nodes.chain(frame_nodes.iter().copied()).collect();
+        if !nodes.is_empty() {
+            return Some(MechanismWitness::Unrestrained {
+                nodes: nodes.into_iter().collect(),
+                frame_nodes: frame_nodes.into_iter().collect(),
+                planar_component,
+            });
+        }
+        self.frame_swings.iter()
             .find(|(motion, _)| motion.admissible(constraints, inactive, additional_dofs))
-        {
-            return Some(MechanismWitness::FrameSwing { node: swing.node, planar_component: *planar_component });
-        }
-        self.unconstrained_swings.iter().find_map(|(node, dofs)| {
-            dofs.iter()
-                .all(|&dof| {
-                    let retained = match constraints {
-                        Some(cs) => cs.exact_identity_column(dof),
-                        None => Some(dof),
-                    };
-                    additional_dofs.get(dof) != Some(&true)
-                        && retained.is_some_and(|index| inactive.binary_search(&index).is_err())
-                })
-                .then_some(MechanismWitness::FrameSwing { node: *node, planar_component: None })
-        })
+            .map(|(motion, component)| MechanismWitness::FrameSwing {
+                node: motion.nodes[0],
+                planar_component: *component,
+            })
     }
 }
 
@@ -339,7 +382,7 @@ impl LocalMotion {
         mut conditions: RowBasis,
         dof: &DofNumbering,
         springs: &BTreeSet<(usize, usize)>,
-    ) -> Option<Self> {
+    ) -> Option<TranslationMechanism> {
         let mut components = Vec::new();
         for (axis, row) in rows.into_iter().enumerate() {
             if row.iter().all(Zero::is_zero) {
@@ -352,11 +395,7 @@ impl LocalMotion {
                 conditions.add(row);
             }
         }
-        conditions.has_kernel().then_some(Self {
-            node,
-            components,
-            conditions,
-        })
+        conditions.has_kernel().then(|| TranslationMechanism::local(node, components, conditions))
     }
 
     fn admissible(
@@ -440,17 +479,6 @@ fn chord<const D: usize>(
         .map(|(&a, &b)| Some(Rational::from_float(b)? - Rational::from_float(a)?))
         .collect::<Option<_>>()?;
     row.iter().any(|value| !value.is_zero()).then_some(row)
-}
-
-pub(super) fn other_stiffness_nodes_3d(input: &SolverInput3D) -> BTreeSet<usize> {
-    input.curved_beams.iter().flat_map(|beam| [beam.node_start, beam.node_mid, beam.node_end])
-        .chain(input.connectors.values().flat_map(|element| [element.node_i, element.node_j]))
-        .chain(input.plates.values().flat_map(|element| element.nodes))
-        .chain(input.quads.values().flat_map(|element| element.nodes))
-        .chain(input.quad9s.values().flat_map(|element| element.nodes))
-        .chain(input.curved_shells.values().flat_map(|element| element.nodes))
-        .chain(input.solid_shells.values().flat_map(|element| element.nodes))
-        .collect()
 }
 
 fn terminal(

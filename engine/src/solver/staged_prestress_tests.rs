@@ -196,6 +196,7 @@ fn staged_review_numeric_nonfinite_solutions_are_refused() {
                     sparse,
                     &mut None,
                     &mut None,
+                    None,
                 );
                 if load == 1.0 {
                     assert!(result.unwrap().iter().all(|u| u.is_finite()));
@@ -301,6 +302,7 @@ fn staged_final_zero_stiffness_uses_accumulated_load() {
                     &k, None, &dof, None, true, &connected, &super::super::stability::ElasticKinematics::default(),
                     &super::super::stability::ReleasedRotations::default(),
                     &[increment * force_scale], &[increment * force_scale], &[applied * force_scale], &[], &[], sparse, &mut None, &mut None,
+                    None,
                 );
                 let u = solve(-1.0, 0.0).unwrap();
                 close(&u, &[if stiffness == 0.0 { 0.0 } else { -1.0 / stiffness }]);
@@ -338,6 +340,7 @@ fn staged_round8_multiple_null_rotations_keep_supported_loads() {
                 &k, None, &dof, None, false, &HashSet::from([1,2]), &super::super::stability::ElasticKinematics::default(),
                 &super::super::stability::ReleasedRotations::default(),
                 &increment, &increment, &applied, &[], &[], sparse, &mut None, &mut None,
+                None,
             ).unwrap();
             close(&u, &expected);
         }
@@ -359,6 +362,7 @@ fn staged_round8_projection_preserves_prescribed_drive_and_positive_stiffness() 
             &oblique, None, &dof, None, false, &HashSet::from([1,2]), &super::super::stability::ElasticKinematics::default(),
             &super::super::stability::ReleasedRotations::default(),
             &[-1.0,-1.0,0.0], &[0.0;3], &[0.0;3], &[], &[], sparse, &mut None, &mut None,
+            None,
         );
         assert!(driven.unwrap_err().contains("rotation"));
         let tiny = 1e-13;
@@ -367,6 +371,7 @@ fn staged_round8_projection_preserves_prescribed_drive_and_positive_stiffness() 
             &unresolved, None, &dof, None, false, &HashSet::from([1,2]), &super::super::stability::ElasticKinematics::default(),
             &super::super::stability::ReleasedRotations::default(),
             &[-1.0,-1.0,0.0], &[-1.0,-1.0,0.0], &[0.0;3], &[], &[], sparse, &mut None, &mut None,
+            None,
         );
         assert!(loaded.unwrap_err().contains("rotation"));
         for stiffness in [-1e-30, 0.0, 1e-30, 1e-13, 1e-11, 1.0] {
@@ -376,6 +381,7 @@ fn staged_round8_projection_preserves_prescribed_drive_and_positive_stiffness() 
                 &k, None, &dof, None, false, &HashSet::from([1,2]), &super::super::stability::ElasticKinematics::default(),
                 &super::super::stability::ReleasedRotations::default(),
                 &[-force_scale,0.0,0.0], &applied.iter().map(|x| x * force_scale).collect::<Vec<_>>(), &[0.0;3], &[], &[], sparse, &mut None, &mut None,
+                None,
             );
             if stiffness == 0.0 {
                 close(&solve(&[-1.0,0.0,0.0]).unwrap(), &[0.0;3]);

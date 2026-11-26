@@ -1,0 +1,42 @@
+{
+  "id": "planar-spatial-distributed-load-component",
+  "date": "2026-11-25",
+  "prs": [
+    2583
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "plane2D",
+      "projectedSpatialLoads",
+      "distributedMemberLoads"
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Preserve the planar component of spatial distributed loads",
+    "es": "Conservar la componente plana de las cargas distribuidas espaciales",
+    "pt": "Preservar a componente plana das cargas distribuídas espaciais",
+    "de": "Die ebene Komponente räumlicher Streckenlasten erhalten",
+    "fr": "Préserver la composante plane des charges réparties spatiales",
+    "hu": "A térbeli megoszló terhek síkbeli komponensének megőrzése",
+    "tr": "Uzaysal yayılı yüklerin düzlem içi bileşenini koru",
+    "zh": "保留空间分布荷载的平面分量"
+  },
+  "explanation": {
+    "en": "Basic XY analysis can solve representable spatial distributed loads using their qY endpoints and original span limits. XZ and YZ use qZ. Loads with components that cannot be represented in the plane still receive a refusal.",
+    "es": "El análisis Basic en XY puede resolver cargas distribuidas espaciales representables con sus valores qY en los extremos y sus límites de aplicación originales. XZ e YZ usan qZ. Las cargas con componentes que no se pueden representar en el plano siguen siendo rechazadas.",
+    "pt": "A análise Basic em XY pode resolver cargas distribuídas espaciais representáveis usando os valores de qY nas extremidades e os limites originais do trecho carregado. XZ e YZ usam qZ. Cargas com componentes que não podem ser representadas no plano continuam sendo recusadas.",
+    "de": "Die Basic-Analyse in XY kann darstellbare räumliche Streckenlasten mit ihren qY-Endwerten und ursprünglichen Lastgrenzen berechnen. XZ und YZ verwenden qZ. Lasten mit Komponenten, die in der Ebene nicht darstellbar sind, werden weiterhin abgelehnt.",
+    "fr": "L’analyse Basic en XY peut traiter les charges réparties spatiales représentables en utilisant les valeurs de qY aux extrémités et les limites d’application d’origine. XZ et YZ utilisent qZ. Les charges dont les composantes ne peuvent pas être représentées dans le plan restent refusées.",
+    "hu": "A Basic XY számítás a síkban ábrázolható térbeli megoszló terheket a qY végértékekkel és az eredeti terhelési határokkal kezeli. Az XZ és YZ sík qZ-t használ. A síkban nem ábrázolható komponenseket tartalmazó terheket a számítás továbbra is elutasítja.",
+    "tr": "Basic XY analizi, düzlemde temsil edilebilen uzaysal yayılı yükleri qY uç değerleri ve özgün yükleme sınırlarıyla çözebilir. XZ ve YZ qZ kullanır. Düzlemde temsil edilemeyen bileşenleri olan yükler yine reddedilir.",
+    "zh": "Basic 的 XY 分析可使用 qY 两端值及原始加载区间求解能够在平面内表示的空间分布荷载。XZ 和 YZ 使用 qZ。含有无法在平面内表示的分量的荷载仍会被拒绝。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-planar-spatial-distributed-load-component.md",
+    "heading": "Preserve the planar component of spatial distributed loads (2026-11-25)"
+  }
+}

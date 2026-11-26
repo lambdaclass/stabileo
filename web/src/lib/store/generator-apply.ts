@@ -70,12 +70,9 @@ export function applyGeneratedModel(g: GeneratedModel, opts: ApplyOptions): Appl
   // `bulkMutate()` pushes a second one (of the now-empty model), so the first Ctrl+Z would
   // restore nothing and the promise in `generator.ui.replacesModel` would be a lie.
   validateFixtureReferences(g.json);
-  const api = modelStore.fixtureApi();
   modelStore.batch(() => {
     modelStore.clear();
-    modelStore.bulkMutate(() => {
-      loadFixture({ ...g.json, name: opts.name ?? g.json.name }, api as never);
-    });
+    loadFixture({ ...g.json, name: opts.name ?? g.json.name }, modelStore.fixtureApi() as never);
   });
   modelStore.refreshCanonicalSections();
   modelStore.model.provenance = provenance;

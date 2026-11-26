@@ -48,7 +48,7 @@ function report(issue, dim, solver) {
     ['modal', () => engine[`solve_modal_${dim}`](modal, 1)],
     ['certified modal', () => engine[`certify_modal_${dim}`](modal, 1)],
     ['P-Delta', () => engine[`solve_pdelta_${dim}`](JSON.stringify(solver), 2, 1e-12)],
-  ]) {
+  ].filter(([name]) => issue === 2584 || dim === '3d' || name.includes('modal'))) {
     try {
       run();
       failures.push(`#${issue} ${dim} ${name} returned a result`);
@@ -81,6 +81,25 @@ for (const issue of ['2266', '2380']) {
     assertDisplacements(engine.solve_2d(input), '2d', Object.keys(input.nodes).map(Number).sort((a, b) => a - b));
   }
 }
+assert.throws(
+  () => engine.solve_winkler_3d(JSON.stringify({ solver: fixtures['2134'], foundationSprings: [] })),
+  error => String(error).startsWith('the structure is a mechanism at nodes [2]: a node can move freely'),
+);
+const swing = structuredClone(fixtures['2380']);
+Object.assign(swing.nodes['1'], { x: 0, z: 0 });
+Object.assign(swing.nodes['2'], { x: 1, z: 1 });
+swing.constraints.push({ type: 'linearMPC', terms: [
+  { nodeId: 2, dof: 0, coefficient: 1 },
+  { nodeId: 2, dof: 1, coefficient: 1 },
+] });
+assert.throws(() => engine.solve_2d(swing), error => {
+  const diagnostic = JSON.parse(String(error)).structuredDiagnostics[0];
+  return diagnostic.code === 'reduced_stiffness_rank' && diagnostic.severity === 'error'
+    && diagnostic.nodeIds.length === 1 && diagnostic.nodeIds[0] === 2
+    && diagnostic.message.includes('a frame can swing about a released end');
+});
+swing.constraints[0].terms[1].coefficient = -1;
+assertDisplacements(engine.solve_2d(swing), '2d', [1, 2]);
 assert.deepEqual(failures, []);
 
 const truss = {

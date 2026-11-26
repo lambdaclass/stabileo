@@ -202,6 +202,7 @@ const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
   ['non-finite member diagram polynomial', DIAGRAM_EXTREMA_UNAVAILABLE],
   ['non-finite moving load member diagram', DIAGRAM_EXTREMA_UNAVAILABLE],
   ['Repeated load case factors cancel to zero in this combination.', 'svc.engine.cancelledCombination'],
+  ['Moving loads: axle position cannot be resolved at a path joint', 'svc.engine.unresolvedMovingAxle'],
   [AMBIGUOUS_ROLLER_Z, 'svc.engine.ambiguousRollerZ'],
   ['out-of-plane nodal component', 'xls.err.nodalOutOfPlane'],
   ['Mass density must be finite and nonnegative', 'svc.engine.nonnegativeMassDensity'],

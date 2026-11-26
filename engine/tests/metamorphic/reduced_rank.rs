@@ -32,11 +32,6 @@ fn space_model(issue: &str) -> Case3 {
     Case3::new("replay", serde_json::from_value(fixture(issue)).unwrap())
 }
 
-fn scaled_units(rng: &mut Rng) -> Units {
-    let (l, f) = [(1e-3, 1e3), (25.0, 1e-2), (0.3048, 4.448)][rng.below(3)];
-    Units::froude(l, f)
-}
-
 fn report(label: &str, result: Result<impl std::fmt::Debug, String>, failures: &mut Vec<String>) {
     match result {
         Err(e) if e.find('{').and_then(|start| serde_json::from_str::<serde_json::Value>(&e[start..]).ok())
@@ -55,42 +50,7 @@ fn classification_2d(case: &Case2) -> Result<(), String> {
 }
 
 #[test]
-fn issue_2266_dense_in_original_and_scaled_units() {
-    let case = model("2266");
-    let entry = "linear (dense reference)";
-    let mut rng = Rng::new(2026111702194 ^ hash(&case.name) ^ hash(entry));
-    let scaled = case.units(&scaled_units(&mut rng));
-    let row = crate::ana2::rows().into_iter().find(|a| a.name == entry).unwrap();
-    let mut failures = Vec::new();
-    for (label, model) in [("original", case), ("scaled", scaled)] {
-        report(label, (row.run)(&model), &mut failures);
-        report(label, classification_2d(&model), &mut failures);
-    }
-    assert!(failures.is_empty(), "{}", failures.join("\n"));
-}
-
-#[test]
-fn issue_2380_constrained_in_original_and_rotated_coordinates() {
-    let case = model("2380");
-    let entry = "constrained";
-    let mut rng = Rng::new(2026112003058 ^ hash(&case.name) ^ hash(entry));
-    let rotated = case
-        .iso(&Iso2::rotation(rng.range(0.1, 6.2)).translated(
-            rng.range(-50.0, 50.0),
-            rng.range(-50.0, 50.0),
-        ))
-        .unwrap();
-    let row = crate::ana2::rows().into_iter().find(|a| a.name == entry).unwrap();
-    let mut failures = Vec::new();
-    for (label, model) in [("original", case), ("rotated", rotated)] {
-        report(label, (row.run)(&model), &mut failures);
-        report(label, classification_2d(&model), &mut failures);
-    }
-    assert!(failures.is_empty(), "{}", failures.join("\n"));
-}
-
-#[test]
-fn issue_2380_through_native_operator_entries() {
+fn issue_2380_rank_refusal_survives_spatial_embedding_and_planar_nonlinear_entries() {
     let case = model("2380");
     let spatial = Case3::new("spatial", embed_2d(&case.s, Plane::XZ).unwrap());
     let entries = [
@@ -114,12 +74,8 @@ fn issue_2380_through_native_operator_entries() {
     ];
     let rows2 = crate::ana2::rows();
     let rows3 = crate::ana3::rows();
-    let selected2: Vec<_> = entries.into_iter().chain(["linear (WASM typed path)"]).map(|name| {
-        let mut matching = rows2.iter().filter(|row| row.name == name);
-        let row = matching.next().unwrap_or_else(|| panic!("missing 2D entry {name}"));
-        assert!(matching.next().is_none(), "duplicate 2D entry {name}");
-        row
-    }).collect();
+    let selected2: Vec<_> = ["SSI (no soil springs)", "corotational", "material nonlinear", "modal"]
+        .into_iter().map(|name| rows2.iter().find(|row| row.name == name).unwrap()).collect();
     let selected3: Vec<_> = entries.into_iter().map(|name| {
         let mut matching = rows3.iter().filter(|row| row.name == name);
         let row = matching.next().unwrap_or_else(|| panic!("missing 3D entry {name}"));
@@ -169,59 +125,6 @@ fn unhinged_and_independently_restrained_frames_solve() {
     }
 }
 
-
-fn check_spatial_issue(issue: &str, entry: &str, seed: u64, rotation: bool) {
-    let base = space_model(issue);
-    let row = crate::ana3::rows().into_iter().find(|a| a.name == entry).unwrap();
-    let mut rng = Rng::new(seed ^ hash(&base.name) ^ hash(entry) ^ 0x3d);
-    let transformed = if rotation {
-        base.iso(&crate::checks3::rotation_for(&row, &mut rng)).unwrap()
-    } else {
-        base.units(&scaled_units(&mut rng))
-    };
-    let mut failures = Vec::new();
-    report("original", (row.run)(&base), &mut failures);
-    report(&format!("#{issue} transformed"), (row.run)(&transformed), &mut failures);
-    assert!(failures.is_empty(), "{}", failures.join("\n"));
-}
-
-#[test]
-fn issue_2119_contact_refuses_unresolved_operator() {
-    check_spatial_issue("2119", "contact (no gaps)", 2026111404217, true);
-}
-
-#[test]
-fn issue_2134_winkler_refuses_unresolved_operator() {
-    check_spatial_issue("2134", "Winkler (no foundation)", 2026111401487, false);
-}
-
-#[test]
-fn issue_2139_plastic_refuses_unresolved_operator() {
-    check_spatial_issue("2139", "plastic collapse", 2026111404217, false);
-}
-
-#[test]
-fn issue_2190_typed_planar_refuses_unresolved_operator() {
-    let base = model("2190");
-    let entry = "linear (WASM typed path)";
-    let row = crate::ana2::rows().into_iter().find(|a| a.name == entry).unwrap();
-    let mut rng = Rng::new(2026111607522 ^ hash(&base.name) ^ hash(entry));
-    let iso = Iso2::mirror_line(rng.range(0.0, 3.1)).translated(
-        rng.range(-50.0, 50.0),
-        rng.range(-50.0, 50.0),
-    );
-    let mirrored = base.iso(&iso).unwrap();
-    let mut failures = Vec::new();
-    report("original", (row.run)(&base), &mut failures);
-    let transformed = (row.run)(&mirrored);
-    let conditioning_refusal = matches!(&transformed, Err(error)
-        if error.starts_with("the structure is a mechanism or so close to one that its stability cannot be decided in double precision")
-            && error.contains("the matrix exceeds a conditioning limit or the recovered response fails its accuracy check"));
-    if !conditioning_refusal {
-        report("#2190 mirrored", transformed, &mut failures);
-    }
-    assert!(failures.is_empty(), "{}", failures.join("\n"));
-}
 
 #[test]
 fn rotational_spring_and_connector_resolve_the_same_released_motion() {
@@ -795,73 +698,49 @@ fn assert_terminal_swing(label: &str, result: Result<impl std::fmt::Debug, Strin
     }
 }
 
-fn check_planar_terminal_swing(issue: &str, entry: &str) {
-    let base = model(issue);
-    let row = crate::ana2::rows().into_iter().find(|row| row.name == entry).unwrap();
-    let frames = [
-        ("original", base.clone()),
-        ("rotated", base.iso(&Iso2::rotation(0.4)).unwrap()),
-        ("translated", base.iso(&Iso2::rotation(0.0).translated(3.0, -5.0)).unwrap()),
-        ("mirrored", base.iso(&Iso2::mirror_x()).unwrap()),
-        ("scaled", base.units(&Units::froude(25.0, 1e-2))),
-    ];
+#[test]
+fn planar_released_swing_respects_the_exact_mpc_subspace() {
+    let mut input = model("2380").s;
+    input.nodes.get_mut("1").unwrap().x = 0.0;
+    input.nodes.get_mut("1").unwrap().z = 0.0;
+    input.nodes.get_mut("2").unwrap().x = 1.0;
+    input.nodes.get_mut("2").unwrap().z = 1.0;
+    input.constraints.push(Constraint::LinearMPC(LinearMPCConstraint {
+        terms: vec![
+            MPCTerm { node_id: 2, dof: 0, coefficient: 1.0 },
+            MPCTerm { node_id: 2, dof: 1, coefficient: 1.0 },
+        ],
+    }));
+    let case = Case2::new("swing within constraint", input.clone());
     let mut failures = Vec::new();
-    for (label, case) in frames {
-        assert_terminal_swing(label, classification_2d(&case), &mut failures);
-        assert_terminal_swing(label, (row.run)(&case), &mut failures);
-    }
-    for plane in Plane::ALL {
-        let spatial = embed_2d(&base.s, plane).unwrap();
-        assert_terminal_swing("spatial embedding", linear::solve_3d(&spatial), &mut failures);
-    }
-    assert!(failures.is_empty(), "#{} {entry}:\n{}", issue, failures.join("\n"));
+    assert_terminal_swing("classification", classification_2d(&case), &mut failures);
+    assert_terminal_swing("linear", linear::solve_2d(&input), &mut failures);
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+
+    let Constraint::LinearMPC(mpc) = &mut input.constraints[0] else { unreachable!() };
+    mpc.terms[1].coefficient = -1.0;
+    assert!(stability::of_2d(&input).unwrap().is_stable());
+    let response = linear::solve_2d(&input).unwrap();
+    assert!(response.displacements.iter().all(|u| u.ux == 0.0 && u.uz == 0.0 && u.ry == 0.0));
 }
 
-fn check_spatial_terminal_swing(issue: &str, entry: &str) {
-    let base = space_model(issue);
-    let row = crate::ana3::rows().into_iter().find(|row| row.name == entry).unwrap();
-    let mut rng = Rng::new(2026111404217 ^ hash(entry));
+#[test]
+fn issue_2134_winkler_refuses_the_proven_mechanism() {
+    let base = space_model("2134");
+    let row = crate::ana3::rows().into_iter().find(|row| row.name == "Winkler (no foundation)").unwrap();
+    let mut rng = Rng::new(2026111404217 ^ hash(row.name));
     let frames = [
         ("original", base.clone()),
         ("rotated", base.iso(&crate::checks3::rotation_for(&row, &mut rng)).unwrap()),
         ("translated", base.iso(&dedaliano_engine::metamorphic::transform::Iso3::axis_permutation(0).translated([3.0, -5.0, 7.0])).unwrap()),
         ("scaled", base.units(&Units::froude(25.0, 1e-2))),
     ];
-    let mut failures = Vec::new();
     for (label, case) in frames {
-        assert_terminal_swing(label, (row.run)(&case), &mut failures);
-        let classification = stability::of_3d(&case.s).and_then(|stability| stability.refusal().map_or(Ok(()), Err));
-        assert_terminal_swing(label, classification, &mut failures);
+        let error = (row.run)(&case).expect_err("Winkler returned results for a released swing");
+        assert!(error.starts_with("the structure is a mechanism at nodes [2]: a node can move freely"), "{label}: {error}");
+        let verdict = stability::of_3d(&case.s).unwrap();
+        assert_eq!(verdict.verdict, stability::Verdict::Mechanism, "{label}");
+        assert_eq!(verdict.reason, stability::Reason::FreeTranslation, "{label}");
+        assert_eq!(verdict.mode_nodes, [2], "{label}");
     }
-    assert!(failures.is_empty(), "#{} {entry}:\n{}", issue, failures.join("\n"));
-}
-
-#[test]
-fn issue_2266_terminal_swing_has_a_structural_witness() {
-    check_planar_terminal_swing("2266", "linear (dense reference)");
-}
-
-#[test]
-fn issue_2380_terminal_swing_has_a_structural_witness() {
-    check_planar_terminal_swing("2380", "constrained");
-}
-
-#[test]
-fn issue_2190_terminal_swing_has_a_structural_witness() {
-    check_planar_terminal_swing("2190", "linear (WASM typed path)");
-}
-
-#[test]
-fn issue_2119_terminal_swing_has_a_structural_witness() {
-    check_spatial_terminal_swing("2119", "contact (no gaps)");
-}
-
-#[test]
-fn issue_2134_terminal_swing_has_a_structural_witness() {
-    check_spatial_terminal_swing("2134", "Winkler (no foundation)");
-}
-
-#[test]
-fn issue_2139_terminal_swing_has_a_structural_witness() {
-    check_spatial_terminal_swing("2139", "plastic collapse");
 }

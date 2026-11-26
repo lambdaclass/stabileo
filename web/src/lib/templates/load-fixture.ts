@@ -12,6 +12,8 @@ import { withOrigin } from '../codes/families';
 import { CIRSOC101_BASIS } from '../codes/families/cirsoc';
 import { expandCombinations, modelCombinationCases, presentSymbols, type CombinationCase } from '../engine/loads/combination-cases';
 import { tp } from '../i18n';
+import { ModelInputError, requireLoadCollection, requireLoadInput } from '../engine/model-input-numbers';
+import { LOAD_TARGET, type Load } from '../store/model.svelte';
 import { remapSupportElement } from '../model/support-types';
 import { selfWeightScope } from '../engine/self-weight';
 
@@ -118,11 +120,18 @@ interface FixtureLoadOptions {
  * materials → sections → nodes → elements → supports → loads → shells → constraints
  */
 export function loadFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOptions = {}): void {
+  prepareFixture(json, opts)(api);
+}
+
+export function prepareFixture(json: JSONModel, opts: FixtureLoadOptions = {}): (api: FixtureLoader) => void {
+  requireLoadCollection(json.loads);
   const canonical = canonicalizeModelAliases(json);
   validateFixtureReferences(canonical);
-  const load = () => replayFixture(canonical, api, opts);
-  if (api.replay) api.replay(load);
-  else load();
+  return (api) => {
+    const load = () => replayFixture(canonical, api, opts);
+    if (api.replay) api.replay(load);
+    else load();
+  };
 }
 
 function fixtureSupportElement(support: JSONModel['supports'][number], elementId: (id: number) => number | undefined): number | undefined {
@@ -134,7 +143,23 @@ function fixtureSupportElement(support: JSONModel['supports'][number], elementId
 }
 
 export function validateFixtureReferences(json: JSONModel): void {
+  requireLoadCollection(json.loads);
+  json = canonicalizeModelAliases(json);
+  requireLoadInput(json.loads);
   const ids = new Set(json.elements.map(e => e.id));
+  const targets = {
+    node: { field: 'nodeId', ids: new Set(json.nodes.map(node => node.id)) },
+    member: { field: 'elementId', ids },
+    shell: { field: 'quadId', ids: new Set(json.quads.map(quad => quad.id)) },
+    plate: { field: 'quadId', ids: new Set(json.plates.map(plate => plate.id)) },
+  };
+  for (const [index, { type, data }] of json.loads.entries()) {
+    const target = LOAD_TARGET[type as Load['type']];
+    const { field, ids } = targets[target === 'shell' && data.on === 'plate' ? 'plate' : target];
+    if (!ids.has(data[field] as number)) {
+      throw new ModelInputError(tp('svc.engine.invalidInputField', { path: `loads[${index}].data.${field}` }));
+    }
+  }
   for (const support of json.supports) fixtureSupportElement(support, id => ids.has(id) ? id : undefined);
   for (const rule of json.analysis?.selfWeight ?? []) selfWeightScope({ elements: ids }, rule);
 }
