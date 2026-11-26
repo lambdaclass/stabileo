@@ -88,7 +88,7 @@ test('a static solve leaves the harmonic advisory up, and running harmonic analy
   await expect(notice.locator('[data-advisory-id="issue-1569"]')).toHaveCount(0);
   await page.getByTestId('recheck-close').click();
   await expect(notice).toBeHidden();
-  const solved = await page.evaluate(() => JSON.parse(window.__stabileoActions.serializeProject()).snapshot.solvedWith.analyses);
+  const solved = await page.evaluate(() => JSON.parse(window.__stabileo.serializeProject()).snapshot.solvedWith.analyses);
   expect(solved).toContain('linear');
   expect(solved).not.toContain('harmonic');
 
@@ -109,7 +109,7 @@ test('a static solve leaves the harmonic advisory up, and running harmonic analy
   await page.getByTestId('adv-chip-harmonic').click();
   await page.getByTestId('adv-run-harmonic').click();
   await expect(page.getByTestId('recheck-stale-banner')).toBeHidden({ timeout: 45_000 });
-  const stamp = await page.evaluate(() => JSON.parse(window.__stabileoActions.serializeProject()).snapshot.solvedWith);
+  const stamp = await page.evaluate(() => JSON.parse(window.__stabileo.serializeProject()).snapshot.solvedWith);
   expect(stamp.analyses).toEqual(expect.arrayContaining(['harmonic', 'linear']));
   expect(stamp.recorded).toContain('harmonic');
 });
