@@ -64,10 +64,12 @@ fn assert_null(result: Result<Value, String>, node: usize) {
 }
 
 fn issue_case(seed: u64, certified: bool, relabel: bool) {
-    let mut value: Value = serde_json::from_str(FIXTURE).unwrap();
+    let value: Value = serde_json::from_str(FIXTURE).unwrap();
+    let archive = value;
+    let mut value = archive.clone();
     crate::common::take_nightly_metadata(&mut value);
     let input: SolverInput3D = serde_json::from_value(value.clone()).unwrap();
-    let value: Value = serde_json::from_str(FIXTURE).unwrap();
+    let value = archive;
     let mut base = Case3::new(value["_nightly_name"].as_str().unwrap(), input);
     base.dens = serde_json::from_value(value["_nightly_dens"].clone()).unwrap();
     let name = if certified {
