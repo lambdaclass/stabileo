@@ -1,6 +1,6 @@
 import polygonClipping, { type Ring } from 'polygon-clipping';
 import type { ShellLoadSpec } from './shell-load-integration';
-import { add, cross, dot, LoadScalar, LoadVector, mul, norm, roundoff, sub, Sum, unit, zero, type Vector, type Wrench } from './accounting-math';
+import { add, cross, dot, LoadScalar, LoadVector, mul, norm, polygonMeasure, roundoff, sub, Sum, unit, zero, type Vector, type Wrench } from './accounting-math';
 
 function clip(points: Vector[], distance: (p: Vector) => number): Vector[] {
   const result: Vector[] = [];
@@ -181,9 +181,7 @@ function clippedAffineForces(
   return result;
 }
 
-export function expectedSurfaceNodeForces(
-  points: Vector[], spec: ShellLoadSpec, integrateClippedQuad?: () => LoadVector[] | undefined,
-): LoadVector[] | null {
+function surfaceGeometry(points: Vector[]) {
   const triangle = points.length === 3;
   if (!triangle && points.length !== 4) return null;
   const [origin, second, third] = points as [Vector, Vector, Vector, ...Vector[]];
@@ -194,6 +192,64 @@ export function expectedSurfaceNodeForces(
   const w = triangle ? zero() : sub(sub(sub(third, origin), u), v);
   const along = dot(cross(u, w), normal), across = dot(cross(w, v), normal);
   if (quadCorners.some(([s, t]) => !(jac + along * s + across * t > 0))) return null;
+  return { triangle, origin, u, v, normal, jac, w, along, across };
+}
+
+function nonAffineQuad({ u, v, w }: NonNullable<ReturnType<typeof surfaceGeometry>>): boolean {
+  return norm(w) > roundoff * Math.max(norm(u), norm(v));
+}
+
+export function clippedQuadNeedsResultant(points: Vector[]): boolean {
+  const geometry = surfaceGeometry(points);
+  return geometry !== null && nonAffineQuad(geometry);
+}
+
+export function accountUniformClippedSurface(out: Wrench, points: Vector[], spec: ShellLoadSpec): boolean {
+  const geometry = surfaceGeometry(points), region = spec.region;
+  if (!geometry || !region || spec.vary || spec.qNodes || !Number.isFinite(spec.q)) return false;
+  const { origin, u, v, normal } = geometry;
+  const scale = Math.max(...points.map(norm), norm(u), norm(v));
+  if (points.some(p => !(Math.abs(dot(sub(p, origin), normal)) <= roundoff * scale))) return false;
+
+  if (spec.frame && spec.frame !== 'local' && spec.frame !== 'global' && spec.frame !== 'projected') return false;
+  const direction: Vector = spec.frame === 'local' ? normal : spec.frame ? unit(spec.dir ?? [0, 0, -1]) : [0, 0, -1];
+  const force = LoadVector.from(direction).scale(spec.frame === 'projected' ? Math.abs(dot(direction, normal)) : 1).scale(spec.q);
+  const projection = unit(region.normal);
+  const denominator = dot(projection, normal);
+  if (!Number.isFinite(denominator) || !force.value.every(Number.isFinite)) return false;
+  if (denominator === 0) return true;
+  const ex = unit(u), ey = cross(normal, ex);
+  const planar = (p: Vector): [number, number] => [dot(p, ex), dot(p, ey)];
+  const projectedRing = (ring: Vector[]): Ring => ring.map(p => {
+    const delta = sub(p, origin);
+    return planar(sub(delta, mul(projection, dot(delta, normal) / denominator)));
+  });
+  let clipped: Ring[][];
+  try {
+    const outer = projectedRing(region.points);
+    const holes = (region.holes ?? []).map(ring => [projectedRing(ring)]);
+    const footprint = holes.length ? polygonClipping.difference([outer], ...holes) : [[outer]];
+    clipped = polygonClipping.intersection([points.map(p => planar(sub(p, origin)))], footprint);
+  } catch {
+    return false;
+  }
+
+  for (const polygon of clipped) {
+    for (const [index, ring] of polygon.entries()) {
+      const { area, first } = polygonMeasure(ring.map(([x, y]) => [x, y, 0]), zero(), [0, 0, 1]);
+      if (!Number.isFinite(area) || !first.every(Number.isFinite)) return false;
+      const sign = Math.sign(area) * (index === 0 ? 1 : -1);
+      const firstMoment = add(mul(ex, sign * first[0]), mul(ey, sign * first[1]));
+      out.apply(origin, force.scale(sign * area), force.momentAt(firstMoment));
+    }
+  }
+  return true;
+}
+
+export function expectedSurfaceNodeForces(points: Vector[], spec: ShellLoadSpec): LoadVector[] | null {
+  const geometry = surfaceGeometry(points);
+  if (!geometry) return null;
+  const { triangle, origin, u, v, normal, jac, along, across } = geometry;
 
   const normalized = (direction: Vector) => norm(direction) === 0 ? zero() : unit(direction);
   const direction = spec.frame === 'local' ? normal : normalized(spec.frame ? spec.dir ?? [0, 0, -1] : [0, 0, -1]);
@@ -217,9 +273,7 @@ export function expectedSurfaceNodeForces(
   }
 
   if (spec.qNodes) return null;
-  if (norm(w) > roundoff * Math.max(norm(u), norm(v))) {
-    return spec.region ? integrateClippedQuad?.() ?? null : null;
-  }
+  if (nonAffineQuad(geometry)) return null;
   const shell: Ring = triangle ? [[0, 0], [1, 0], [0, 1]] : quadCorners.map(([s, t]) => [s, t]);
   let rings = [[shell]];
   if (spec.region) {

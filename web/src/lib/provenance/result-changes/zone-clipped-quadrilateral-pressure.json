@@ -27,14 +27,14 @@
     "zh": "核算裁剪四边形单元上的用途分区压力"
   },
   "explanation": {
-    "en": "Valid pressure on a clipped quadrilateral passes the corner force and independent resultant checks. Rerun the analysis.",
-    "es": "La presión válida en un cuadrilátero recortado supera las verificaciones de fuerzas en los nodos y de la resultante independiente. Repetí el análisis.",
-    "pt": "A pressão válida em um quadrilátero recortado passa pelas verificações das forças nodais e da resultante independente. Execute a análise novamente.",
-    "de": "Gültige Lasten auf zugeschnittenen Vierecken bestehen die Prüfung der Knotenkräfte und der unabhängig bestimmten Resultierenden. Wiederholen Sie die Berechnung.",
-    "fr": "Une pression valide sur un quadrilatère découpé satisfait les vérifications des forces nodales et de la résultante indépendante. Relancez l’analyse.",
-    "hu": "A metszett négyszögre ható érvényes nyomás megfelel a csomóponti erők és a független eredő ellenőrzésének. Futtassa újra az elemzést.",
-    "tr": "Kırpılmış dörtgende geçerli basınç, düğüm kuvveti ve bağımsız bileşke kontrollerinden geçer. Analizi yeniden çalıştırın.",
-    "zh": "裁剪四边形上的有效压力可以通过节点力与独立合力核验。请重新运行分析。"
+    "en": "A closed-form polygon check verifies the force and moments of clipped use-zone pressure. Analysis refuses inconsistent delivery. Rerun the analysis.",
+    "es": "Una comprobación poligonal en forma cerrada verifica la fuerza y los momentos de la presión recortada de la zona de uso. El análisis se bloquea si la carga aplicada es incoherente. Repetí el análisis.",
+    "pt": "Uma verificação poligonal em forma fechada confere a força e os momentos da pressão recortada da zona de uso. A análise é bloqueada se a carga aplicada for inconsistente. Execute a análise novamente.",
+    "de": "Eine geschlossene Polygonberechnung prüft Kraft und Momente der zugeschnittenen Nutzungszonenlast. Bei widersprüchlicher Lastübertragung wird die Berechnung verweigert. Wiederholen Sie die Berechnung.",
+    "fr": "Un calcul polygonal en forme fermée vérifie la force et les moments de la pression découpée de la zone d’usage. L’analyse est bloquée si le chargement appliqué est incohérent. Relancez l’analyse.",
+    "hu": "Zárt alakú sokszögszámítás ellenőrzi a metszett használati zóna nyomásából származó erőt és nyomatékokat. Inkonzisztens teherátadás esetén az elemzés leáll. Futtassa újra az elemzést.",
+    "tr": "Kapalı biçimli çokgen hesabı, kırpılmış kullanım bölgesi basıncının kuvvetini ve momentlerini doğrular. Tutarsız yük aktarımında analiz durdurulur. Analizi yeniden çalıştırın.",
+    "zh": "使用闭式多边形公式核验裁剪后的用途分区压力产生的合力和力矩。荷载传递不一致时将拒绝分析。请重新运行分析。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-cad-and-roof-load-intervals.md",

@@ -259,13 +259,13 @@ describe('use zones over two floors', () => {
     expect(fz).toBeCloseTo(2.5 * 29, 5);
   });
 
-  it.skipIf(process.env.STABILEO_REPLAY_2607 !== '1').each([
+  it.each([
     ...['case', 'case async', 'linear', 'linear async', 'pdelta', 'pdelta async', 'uplift', 'uplift async', 'notional']
       .map(route => ({ route, topWidth: 5.875, delta: [47, -47, 48, -48], component: 'Fz', error: 'reversed corner direction' })),
     { route: 'case', topWidth: 6, delta: [1, -1, 1, -1], component: 'Fz', error: 'alternating corner shares on a rectangle' },
     { route: 'case', topWidth: 5.875, delta: [1, -1, 1, -1], component: 'My', error: 'bending moment' },
     { route: 'case', topWidth: 5.875, delta: [1, 1, 1, 1], component: 'Fz', error: 'resultant force' },
-  ])('known wrong result: #2607 refuses a corrupted use-zone $error in $route', async ({ route, topWidth, delta, component, error }) => {
+  ])('#2607 refuses a corrupted use-zone $error in $route', async ({ route, topWidth, delta, component, error }) => {
     const shell = [[0, 0], [6, 0], [topWidth, 5], [0, 5]] as const;
     const nodes = shell.map(([x, y]) => modelStore.addNode(x, y, 3));
     for (const nodeId of nodes) modelStore.addSupport(nodeId, 'pinned3d');
@@ -313,10 +313,10 @@ describe('use zones over two floors', () => {
     }
   });
 
-  it.skipIf(process.env.STABILEO_REPLAY_2607 !== '1').each([
+  it.each([
     { topWidth: 5.875, reversed: false }, { topWidth: 5.875, reversed: true },
     { topWidth: 6, reversed: false }, { topWidth: 6, reversed: true },
-  ])('known wrong result: #2607 accounts for overlapping openings (top width $topWidth, reversed $reversed)', ({ topWidth, reversed }) => {
+  ])('#2607 accounts for overlapping openings (top width $topWidth, reversed $reversed)', ({ topWidth, reversed }) => {
     const nodes = [[0, 0], [6, 0], [topWidth, 5], [0, 5]].map(([x, y]) => modelStore.addNode(x!, y!, 3));
     for (const nodeId of nodes) modelStore.addSupport(nodeId, 'pinned3d');
     modelStore.addQuad(nodes as [number, number, number, number], 1, 0.15);
