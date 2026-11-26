@@ -10,7 +10,7 @@ Regenerate affected panel gravity loads and rerun the analysis. Where generation
 
 ## Use physical roof edges and elevations for snow drift
 
-The modeled adjacent-roof corridor compares an intervening roof’s elevation with the receiving edge over the part it crosses. A canopy wholly below the receiver leaves the drift path clear. A roof at or above the receiver can still block the covered interval. If the available roof geometry gives overlapping elevation ranges and cannot certify the obstruction, positive modeled drift geometry requires the existing transfer refusal.
+The modeled adjacent-roof corridor compares an intervening roof’s elevation with the receiving edge over the part it crosses. A canopy wholly below the receiver leaves the drift path clear. A roof at or above the receiver can still block the covered interval. For a corridor covered by a verified pitched plane, the check uses that plane. Clipping in coordinates aligned to the corridor avoids spurious intersections at shared seams under rotation. If the available roof geometry gives overlapping elevation ranges and cannot certify the obstruction, positive modeled drift geometry requires the existing transfer refusal.
 
 Step detection and same-level roof grouping use the established 10 mm plan coincidence distance. Step detection matches slightly skewed edges within that distance and samples both physical edges. A measurable parallel open gap still uses its measured separation for adjacent-roof drift. The 10 mm distance is for geometric matching. Bearing integration keeps its existing precision requirements and refuses unsupported transfers.
 

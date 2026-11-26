@@ -5,7 +5,7 @@ import { beamLike, type GravityLayout } from './plan-gravity';
 import { UNBALANCED_WIDTH_LIMIT } from '../../codes/cirsoc104/snow';
 import { MAX_ADJACENT_ROOF_SEPARATION } from '../../codes/cirsoc104/drift';
 import { roundoff } from '../accounting-math';
-import { footprintIntersection } from './gravity-shell-partition';
+import { footprintIntersection, subtractFootprints } from './gravity-shell-partition';
 import { EngineMessageError, msg } from '../../codes/message';
 import type { Polygon } from 'polygon-clipping';
 
@@ -671,21 +671,30 @@ export function snowEdgeRoundoff([x, y]: P2, ...points: P2[]): number {
   return roundoff * Math.max(...points.flatMap(([px, py]) => [Math.abs(px - x), Math.abs(py - y)]));
 }
 
+type CorridorCoordinates = {
+  project: (point: P2) => P2;
+  world: (point: P2) => P2;
+};
+
 function clearRoofGap(
-  roofs: SnowRoofComponent[], lo: number, hi: number,
-  point: (t: number) => P2, upperPoint: (t: number) => P2, station: (point: P2) => number, error: number,
-  obstructs: (roof: SnowRoofComponent, part: Polygon, from: number, to: number) => boolean,
+  roofs: SnowRoofComponent[], lo: number, hi: number, width: number, error: number,
+  coordinates: CorridorCoordinates,
+  obstructs: (roof: SnowRoofComponent, part: Polygon, from: number, to: number, coordinates: CorridorCoordinates) => boolean,
 ): [number, number][] {
-  const a = point(lo), b = point(hi), c = upperPoint(hi), d = upperPoint(lo);
-  const width = Math.hypot(d[0] - a[0], d[1] - a[1]);
-  const inset = Math.min(error / width, 0.25);
-  const inside = ([x, y]: P2, [tx, ty]: P2): P2 => [x + (tx - x) * inset, y + (ty - y) * inset];
-  const corridor = [[inside(a, d), inside(b, c), inside(c, b), inside(d, a)]];
-  const blocked = roofs.flatMap(roof => footprintIntersection(corridor, [roof.polygon, ...roof.holes]).flatMap(part => {
-    const stations = part[0]!.map(station);
-    const from = Math.max(lo, Math.min(...stations)), to = Math.min(hi, Math.max(...stations));
-    return to - from > error && obstructs(roof, part, from, to) ? [[from, to] as const] : [];
-  })).sort(([a], [b]) => a - b);
+  const inset = Math.min(error, width / 4);
+  const corridor: Polygon = [[[lo, inset], [hi, inset], [hi, width - inset], [lo, width - inset]]];
+  const project = (point: P2): P2 => {
+    const [t, d] = coordinates.project(point);
+    return [Math.abs(t - lo) <= error ? lo : Math.abs(t - hi) <= error ? hi : t, d];
+  };
+  const blocked = roofs.flatMap(roof => {
+    const outline = [roof.polygon, ...roof.holes].map(ring => ring.map(project));
+    return footprintIntersection(corridor, outline).flatMap(part => {
+      const stations = part[0]!.map(([t]) => t);
+      const from = Math.max(lo, Math.min(...stations)), to = Math.min(hi, Math.max(...stations));
+      return to - from > error && obstructs(roof, part, from, to, { ...coordinates, project }) ? [[from, to] as const] : [];
+    });
+  }).sort(([a], [b]) => a - b);
   const clear: [number, number][] = [];
   let start = lo;
   for (const [from, to] of blocked) {
@@ -739,10 +748,22 @@ function roofEdgeElevations(
 }
 
 function roofObstructs(
-  part: Polygon, surface: PanelSurface, receiver: readonly EdgeElevation[],
+  part: Polygon, coordinates: CorridorCoordinates, layout: GravityLayout, panelIndex: number,
+  surface: PanelSurface, receiver: readonly EdgeElevation[],
 ): boolean {
-  const elevations = [surface.datumZ, ...surface.planes.flatMap(plane =>
-    footprintIntersection(part, [plane.polygon]).flat(2).map(plane.elevation))];
+  const { project, world } = coordinates;
+  const panel = layout.panels[panelIndex]!;
+  const candidates = surface.planes.flatMap(plane => {
+    const footprint = [plane.polygon.map(project)];
+    const heights = footprintIntersection(part, footprint).flat(2).map(pt => plane.elevation(world(pt)));
+    return heights.length ? [{ footprint, heights }] : [];
+  });
+  const planeCovers = candidates.some(({ heights, footprint }) =>
+    Math.min(...heights) >= panel.z - PANEL_ELEVATION_TOL && subtractFootprints(part, [footprint]).length === 0);
+  const mayBeMasked = planeCovers && layout.panels.some(other =>
+    other.z > panel.z + PANEL_ELEVATION_TOL && footprintIntersection(part, [other.polygon.map(project)]).length > 0);
+  const elevations = candidates.flatMap(({ heights }) => heights);
+  if (!planeCovers || mayBeMasked) elevations.push(surface.datumZ);
   const lowerEdge = receiver.map(({ lowerZ }) => lowerZ);
   if ([...elevations, ...lowerEdge].every(Number.isFinite)) {
     if (Math.max(...elevations) < Math.min(...lowerEdge)) return false;
@@ -794,8 +815,12 @@ export function snowRoofEdgePairs(
         const rises = (values: EdgeElevation[]) => values.some(({ lowerZ, upperZ }) => upperZ - lowerZ > 1e-8);
         if (!rises(fullElevations)) continue;
         const spans = separation === 0 ? [[lo, hi] as const] : clearRoofGap(
-          roofs, lo, hi, point, t => above(point(t)), along, error,
-          (roof, part, from, to) => roofObstructs(part, surfaces(roof.k), elevationsFor(from, to)),
+          roofs, lo, hi, separation, error, {
+            project: p => [along(p), -normal(p)],
+            world: ([t, d]) => [a[0] + t * u[0] - d * inward[0], a[1] + t * u[1] - d * inward[1]],
+          },
+          (roof, part, from, to, coordinates) =>
+            roofObstructs(part, coordinates, layout, roof.k, surfaces(roof.k), elevationsFor(from, to)),
         );
         for (const [from, to] of spans) {
           if (to - from <= 0.1) continue;
