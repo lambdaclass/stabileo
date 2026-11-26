@@ -424,4 +424,5 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   "writeLoad.sameAsI",
   "writeLoad.sketch.plan",
   "xls.col.supportType",
+  "placement.at",
 ];
