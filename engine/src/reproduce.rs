@@ -232,6 +232,185 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "known wrong result: #2588"]
+    fn json_analysis_refuses_duplicate_structural_table_keys() {
+        use crate::solver::staged::{parse_staged_2d, parse_staged_3d};
+        use crate::types::units::{ElasticInput2D, ElasticInput3D};
+
+        let mut failures = Vec::new();
+        for space in [false, true] {
+            let mut model = cantilever(space);
+            model["loads"] = if space {
+                json!([{"type": "nodal", "data": {"nodeId": 2, "fx": 1, "fy": 0, "fz": 0, "mx": 0, "my": 0, "mz": 0}}])
+            } else {
+                json!([{"type": "nodal", "data": {"nodeId": 2, "fx": 1, "fz": 0, "my": 0}}])
+            };
+            let mut both = model.clone();
+            let mut last_only = model.clone();
+            let mut second = model["elements"]["1"].clone();
+            second["id"] = json!(2);
+            both["elements"]["2"] = second.clone();
+            last_only["elements"]["1"] = second.clone();
+            let tip = |model: &Value| {
+                if space {
+                    solve_3d(&serde_json::from_value(model.clone()).unwrap()).unwrap()
+                        .displacements.iter().find(|n| n.node_id == 2).unwrap().ux
+                } else {
+                    solve_2d(&serde_json::from_value(model.clone()).unwrap()).unwrap()
+                        .displacements.iter().find(|n| n.node_id == 2).unwrap().ux
+                }
+            };
+            let both_ux = tip(&both);
+            assert!(0.0 < both_ux && both_ux < tip(&last_only));
+            assert!(linear_hashes(&both.to_string(), space).is_ok());
+            assert!(pdelta(&both.to_string(), space).is_ok());
+
+            let common = ["nodes", "materials", "sections", "elements", "supports"];
+            let shell_rows = [
+                ("plates", json!({"id": 1, "nodes": [1, 2, 3], "materialId": 1, "thickness": 0.1})),
+                ("quads", json!({"id": 1, "nodes": [1, 2, 3, 4], "materialId": 1, "thickness": 0.1})),
+                ("quad9s", json!({"id": 1, "nodes": [1, 2, 3, 4, 5, 6, 7, 8, 9], "materialId": 1, "thickness": 0.1})),
+                ("solidShells", json!({"id": 1, "nodes": [1, 2, 3, 4, 5, 6, 7, 8], "materialId": 1})),
+                ("curvedShells", json!({"id": 1, "nodes": [1, 2, 3, 4], "materialId": 1, "thickness": 0.1})),
+            ];
+            let tables = common.into_iter().map(|field| (field, model[field]["1"].clone()))
+                .chain(shell_rows.into_iter().filter(|_| space));
+            for (field, first) in tables {
+                let last = if field == "elements" { &second } else { &first };
+                let mut empty = model.clone();
+                empty[field] = json!({});
+                let replace = |entries: &str| {
+                    empty.to_string().replace(&format!(r#""{field}":{{}}"#), &format!(r#""{field}":{{{entries}}}"#))
+                };
+                let check = |text: &str| {
+                    if space {
+                        serde_json::from_str::<ElasticInput3D>(text).map(|_| ())
+                    } else {
+                        serde_json::from_str::<ElasticInput2D>(text).map(|_| ())
+                    }
+                };
+                assert!(check(&replace(&format!(r#""1":{first}"#))).is_ok(), "{field}");
+                assert!(check(&replace(&format!(r#""1":{first},"2":{last}"#))).is_ok(), "{field}");
+
+                for entries in [
+                    format!(r#""1":{first},"1":{last}"#),
+                    format!(r#""1":{first},"2":{last},"\u0031":{last}"#),
+                    format!(r#""1":{first},"1":null"#),
+                ] {
+                    let text = replace(&entries);
+                    let staged = format!(r#"{},"stages":[]}}"#, text.strip_suffix('}').unwrap());
+                    let mut results = vec![
+                        ("typed wire", check(&text).map_err(|e| e.to_string())),
+                        ("linear replay", linear_hashes(&text, space).map(|_| ())),
+                        ("P-Delta", pdelta(&text, space)),
+                    ];
+                    match (space, field) {
+                        (false, _) => results.push(("staged", parse_staged_2d(&staged).map(|_| ()))),
+                        (true, "solidShells" | "curvedShells") => {}
+                        (true, _) => results.push(("staged", parse_staged_3d(&staged).map(|_| ()))),
+                    }
+                    for (path, result) in results {
+                        let expected = format!("duplicate key in field `{field}`");
+                        if !matches!(&result, Err(error) if error.contains(&expected)) {
+                            failures.push(format!("space={space}, {path}, {field}: {result:?}"));
+                        }
+                    }
+                }
+            }
+        }
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2588"]
+    fn json_analysis_refuses_duplicate_nested_table_keys() {
+        use crate::solver::{
+            contact::{ContactInput, ContactInput3D},
+            creep_shrinkage::{CreepShrinkageInput, CreepShrinkageInput3D},
+            fiber_nonlinear::{FiberNonlinearInput, FiberNonlinearInput3D},
+            harmonic::{HarmonicInput, HarmonicInput3D},
+            load_cases::CombinationDef,
+            plastic_limit::LimitInput,
+            reduction::{CraigBamptonInput, CraigBamptonInput3D},
+        };
+        use crate::types::{
+            CableInput, ImperfectionInput, ModalInput, ModalInput3D, NonlinearMaterialInput,
+            NonlinearMaterialInput3D, PlasticInput, PlasticInput3D, SpectralInput, SpectralInput3D,
+            TimeHistoryInput, TimeHistoryInput3D,
+        };
+
+        fn check<T: serde::de::DeserializeOwned>(
+            input: Value, field: &str, row: Value, failures: &mut Vec<String>,
+        ) {
+            let input = input.to_string();
+            let encode = |second_key: &str| {
+                input.replace(
+                    &format!(r#""{field}":{{}}"#),
+                    &format!(r#""{field}":{{"1":{row},"{second_key}":{row}}}"#),
+                )
+            };
+            assert!(serde_json::from_str::<T>(&encode("2")).is_ok(), "{} {field}", std::any::type_name::<T>());
+            let expected = format!("duplicate key in field `{field}`");
+            if !matches!(serde_json::from_str::<T>(&encode("1")), Err(error) if error.to_string().contains(&expected)) {
+                failures.push(format!("{} {field}", std::any::type_name::<T>()));
+            }
+        }
+
+        let mut failures = Vec::new();
+        let plane = cantilever(false);
+        let space = cantilever(true);
+        macro_rules! check {
+            ($type:ty, $input:expr, $field:literal, $row:tt) => {{
+                let mut input = $input;
+                input[$field] = json!({});
+                check::<$type>(input, $field, json!($row), &mut failures);
+            }};
+        }
+        check!(CombinationDef, json!({"name": "D"}), "factors", 1);
+        check!(ModalInput, json!({"solver": plane}), "densities", 1);
+        check!(ModalInput3D, json!({"solver": space}), "densities", 1);
+        check!(CableInput<SolverInput>, json!({"solver": plane}), "densities", 1);
+        check!(CableInput<SolverInput3D>, json!({"solver": space}), "pretension", 1);
+        check!(TimeHistoryInput, json!({"solver": plane, "timeStep": 1, "nSteps": 2}), "densities", 1);
+        check!(TimeHistoryInput3D, json!({"solver": space, "timeStep": 1, "nSteps": 2}), "densities", 1);
+        check!(HarmonicInput, json!({"solver": plane, "frequencies": [], "responseNodeId": 2}), "densities", 1);
+        check!(HarmonicInput3D, json!({"solver": space, "frequencies": [], "responseNodeId": 2}), "densities", 1);
+        check!(CraigBamptonInput, json!({"solver": plane, "boundaryNodes": []}), "densities", 1);
+        check!(CraigBamptonInput3D, json!({"solver": space, "boundaryNodes": []}), "densities", 1);
+        check!(ContactInput, json!({"solver": plane}), "elementBehaviors", "tension_only");
+        check!(ContactInput3D, json!({"solver": space}), "elementBehaviors", "tension_only");
+        check!(FiberNonlinearInput, json!({"solver": plane}), "fiberSections", {"fibers": [], "materials": []});
+        check!(FiberNonlinearInput3D, json!({"solver": space}), "fiberSections", {"fibers": [], "materials": []});
+        check!(CreepShrinkageInput, json!({"solver": plane, "timeSteps": []}), "creepParams", {"fc": 1, "rh": 1, "h0": 1});
+        check!(CreepShrinkageInput3D, json!({"solver": space, "timeSteps": []}), "creepParams", {"fc": 1, "rh": 1, "h0": 1});
+        check!(LimitInput, json!({"solver": plane}), "mp", 1);
+        check!(LimitInput, json!({"solver": plane}), "np", 1);
+        check!(ImperfectionInput, json!({}), "initialDisplacements", [0, 0, 0]);
+        check!(ImperfectionInput, json!({}), "residualStresses", {"type": "uniform", "stress": 1});
+
+        let plastic = json!({"solver": plane, "sections": {}, "materials": {}});
+        let plastic3d = json!({"solver": space, "sections": {}, "materials": {}});
+        check!(PlasticInput, plastic.clone(), "mpOverrides", 1);
+        check!(PlasticInput, plastic.clone(), "sections", {"a": 1, "iz": 1, "materialId": 1});
+        check!(PlasticInput, plastic, "materials", {});
+        check!(PlasticInput3D, plastic3d.clone(), "mpOverrides", [1, 1]);
+        check!(PlasticInput3D, plastic3d.clone(), "sections", {"a": 1, "iy": 1, "iz": 1, "materialId": 1});
+        check!(PlasticInput3D, plastic3d, "materials", {});
+
+        let nonlinear = json!({"solver": plane, "materialModels": {}, "sectionCapacities": {}});
+        let nonlinear3d = json!({"solver": space, "materialModels": {}, "sectionCapacities": {}});
+        check!(NonlinearMaterialInput, nonlinear.clone(), "materialModels", {"modelType": "elastic", "fy": 1});
+        check!(NonlinearMaterialInput, nonlinear, "sectionCapacities", {"np": 1, "mp": 1});
+        check!(NonlinearMaterialInput3D, nonlinear3d.clone(), "materialModels", {"modelType": "elastic", "fy": 1});
+        check!(NonlinearMaterialInput3D, nonlinear3d, "sectionCapacities", {"np": 1, "mpy": 1, "mpz": 1});
+        let spectrum = json!({"name": "Test", "points": []});
+        check!(SpectralInput, json!({"solver": plane, "modes": [], "spectrum": spectrum, "direction": "X"}), "densities", 1);
+        check!(SpectralInput3D, json!({"solver": space, "modes": [], "spectrum": spectrum, "direction": "X"}), "densities", 1);
+
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+
+    #[test]
     fn planar_json_requires_a_named_model() {
         let model = cantilever(false);
         let positional = json!([

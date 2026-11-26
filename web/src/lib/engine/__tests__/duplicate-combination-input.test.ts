@@ -1,21 +1,26 @@
-import { beforeAll, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { modelStore, uiStore } from '../../store';
 import { setLocale } from '../../i18n';
 import { mainThreadPDelta, runDirectAnalysis } from '../direct-analysis';
 import { solveCombinations2D, solveCombinations3D, solveCombinations3DParallel } from '../solver-service';
-import { initSolver } from '../wasm-solver';
+import * as solver from '../wasm-solver';
+import * as pool from '../solver-pool';
+import { solve_3d, solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
+import { finishSolve3D } from '../solve-finish';
 
 const force = 4;
 const loadCase = { id: 1, name: 'Dead', type: 'D' };
 const first = { id: 1, name: 'First', factors: [{ caseId: loadCase.id, factor: 1 }] };
 const second = { id: 2, name: 'Second', factors: [{ caseId: loadCase.id, factor: 2 }] };
 
-beforeAll(async () => { await initSolver(); });
+beforeAll(async () => { await solver.initSolver(); });
 beforeEach(() => {
   modelStore.clear();
   uiStore.analysisMode = '3d';
   uiStore.useNative3DPresentation();
 });
+
+afterEach(() => vi.restoreAllMocks());
 
 it.each([
   'planar solve-each', 'planar superposition', 'planar store',
@@ -39,6 +44,36 @@ it.each([
     },
   };
   const directRun = vi.fn(mainThreadPDelta);
+  const planarBatch = vi.spyOn(solver, 'solveMultiCase2D');
+  const spatialBatch = vi.spyOn(solver, 'solveMultiCase3D');
+  const planarLinear = vi.spyOn(solver, 'solve');
+  const spatialLinear = vi.spyOn(solver, 'solve3D');
+  const pdelta = vi.spyOn(solver, 'solvePDelta3D');
+  vi.spyOn(pool, 'isPoolReady').mockReturnValue(true);
+  const workerBatch = vi.spyOn(pool, 'solveParallel').mockImplementation(async inputs => new Map(
+    inputs.map(({ id, input }) => {
+      const wire = solver.finiteObjectWire(input);
+      return [id, finishSolve3D(solve_3d(wire), wire as Parameters<typeof finishSolve3D>[1])];
+    }),
+  ));
+  const workerPdelta = vi.spyOn(pool, 'pdelta3DInWorker').mockImplementation(async (wire, iterations, tolerance) =>
+    JSON.parse(solve_pdelta_3d(solver.finiteWireJson(wire), iterations, tolerance)),
+  );
+  const expectedDispatch = {
+    'planar solve-each': [planarBatch],
+    'planar superposition': [planarBatch],
+    'planar store': [planarBatch],
+    'spatial solve-each': [spatialBatch],
+    'spatial superposition': [spatialBatch],
+    'spatial parallel': [workerBatch],
+    'spatial store': [spatialBatch],
+    'spatial parallel store': [workerBatch],
+    'P-Delta': [spatialBatch, pdelta],
+    'P-Delta parallel': [spatialBatch, workerPdelta],
+    'direct analysis': [directRun],
+  }[entry];
+  const dispatch = { planarBatch, spatialBatch, planarLinear, spatialLinear, pdelta, workerBatch, workerPdelta, directRun };
+  const dispatchCounts = () => Object.fromEntries(Object.entries(dispatch).map(([name, spy]) => [name, spy.mock.calls.length]));
   const solve = (combinations: typeof first[]) => {
     modelStore.model.combinations = combinations;
     if (entry === 'planar store') return modelStore.solveCombinations(false, 'xz');
@@ -69,12 +104,13 @@ it.each([
     }
   }
 
-  directRun.mockClear();
+  for (const spy of expectedDispatch) expect(spy).toHaveBeenCalled();
+  const before = dispatchCounts();
   await setLocale('es');
   try {
-    expect(await solve([first, { ...second, id: first.id }]))
+    expect.soft(await solve([first, { ...second, id: first.id }]))
       .toBe('Falta el campo combinations[1].id o su valor no es compatible.');
-    expect(directRun).not.toHaveBeenCalled();
+    expect(dispatchCounts()).toEqual(before);
   } finally {
     await setLocale('en');
   }

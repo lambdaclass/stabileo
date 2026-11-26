@@ -425,6 +425,51 @@ it.each([false, true])('keeps connectors in iterable WASM tables (space = %s)', 
   }
 });
 
+function refuseDuplicateSolverTable(duplicate: string, loads: object[], is3D: boolean, refusal: RegExp) {
+  const pdelta = is3D ? solve_pdelta_3d : solve_pdelta_2d;
+  const dim = is3D ? '3d' : '2d';
+  const nested = (solver: string) => `{"solver":${solver}}`;
+  const multiCase = (solver: string) =>
+    `{"solver":${solver},"loadCases":[{"name":"D","loads":${JSON.stringify(loads)}}],"combinations":[{"name":"D","factors":{"D":1}}]}`;
+  const entries = {
+    replay: (input: string) => engine_reproduce_hashes(input, is3D),
+    'linear bundle': wasm[`export_linear_bundle_${dim}`],
+    'combination bundle': (input: string) => wasm[`export_combination_bundle_${dim}`](multiCase(input)),
+    'P-Delta': (input: string) => pdelta(input, 20, 1e-9),
+    'P-Delta certificate': (input: string) => wasm[`certify_pdelta_${dim}`](input, 20, 1e-9),
+    buckling: (input: string) => wasm[`solve_buckling_${dim}`](input, 1),
+    'buckling certificate': (input: string) => wasm[`certify_buckling_${dim}`](input, 1),
+    'buckling result certificate': (input: string) => wasm[`certify_buckling_result_${dim}`](input, '{}'),
+    corotational: (input: string) => wasm[`solve_corotational_${dim}`](input, 20, 1e-9, 1),
+    kinematics: wasm[`analyze_kinematics_${dim}`],
+    modal: (input: string) => wasm[`solve_modal_${dim}`](nested(input), 1),
+    'modal certificate': (input: string) => wasm[`certify_modal_${dim}`](nested(input), 1),
+    cable: (input: string) => wasm[`solve_cable_${dim}`](nested(input), 20, 1e-9),
+    'steel combination certificate': (input: string) =>
+      wasm[`certify_steel_multi_case_${dim}`](`{"multiCase":${multiCase(input)},"members":[]}`),
+    ...(is3D ? {} : {
+      'arc length': (input: string) => solve_arc_length(nested(input)),
+      'displacement control': (input: string) => solve_displacement_control(nested(input)),
+      Guyan: (input: string) => wasm.guyan_reduce_2d(nested(input)),
+      'Craig-Bampton': (input: string) => wasm.craig_bampton_2d(nested(input)),
+    }),
+  };
+  const nestedEntries = [
+    'export_plastic_bundle', 'solve_spectral', 'certify_spectral', 'solve_plastic', 'certify_plastic',
+    'solve_moving_loads', 'solve_nonlinear_material', 'solve_time_history', 'certify_time_history',
+    'solve_harmonic', 'certify_harmonic', 'solve_winkler', 'solve_constrained', 'solve_contact',
+    'solve_ssi', 'solve_fiber_nonlinear', 'solve_creep_shrinkage', 'solve_with_imperfections',
+  ] as const;
+  for (const [entry, run] of Object.entries(entries)) {
+    expect.soft(() => run(duplicate), entry).toThrow(refusal);
+  }
+  for (const name of nestedEntries) {
+    expect.soft(() => wasm[`${name}_${dim}`](nested(duplicate)), name).toThrow(refusal);
+  }
+  const influence = is3D ? wasm.compute_influence_line_3d : wasm.compute_influence_line;
+  expect.soft(() => influence(nested(duplicate)), 'influence line').toThrow(refusal);
+}
+
 it.each([false, true])(
   'refuses repeated connector keys in JSON analysis (space = %s)',
   (is3D) => {
@@ -440,40 +485,7 @@ it.each([false, true])(
     const distinct = encode(`"17":${JSON.stringify(first)},"18":${JSON.stringify(second)}`);
     const lastOnly = encode(`"17":${JSON.stringify(second)}`);
     const pdelta = is3D ? solve_pdelta_3d : solve_pdelta_2d;
-    const dim = is3D ? '3d' : '2d';
-    const nested = (solver: string) => `{"solver":${solver}}`;
-    const multiCase = (solver: string) =>
-      `{"solver":${solver},"loadCases":[{"name":"D","loads":${JSON.stringify(loads)}}],"combinations":[{"name":"D","factors":{"D":1}}]}`;
-    const entries = {
-      replay: (input: string) => engine_reproduce_hashes(input, is3D),
-      'linear bundle': wasm[`export_linear_bundle_${dim}`],
-      'combination bundle': (input: string) => wasm[`export_combination_bundle_${dim}`](multiCase(input)),
-      'P-Delta': (input: string) => pdelta(input, 20, 1e-9),
-      'P-Delta certificate': (input: string) => wasm[`certify_pdelta_${dim}`](input, 20, 1e-9),
-      buckling: (input: string) => wasm[`solve_buckling_${dim}`](input, 1),
-      'buckling certificate': (input: string) => wasm[`certify_buckling_${dim}`](input, 1),
-      'buckling result certificate': (input: string) => wasm[`certify_buckling_result_${dim}`](input, '{}'),
-      corotational: (input: string) => wasm[`solve_corotational_${dim}`](input, 20, 1e-9, 1),
-      kinematics: wasm[`analyze_kinematics_${dim}`],
-      modal: (input: string) => wasm[`solve_modal_${dim}`](nested(input), 1),
-      'modal certificate': (input: string) => wasm[`certify_modal_${dim}`](nested(input), 1),
-      cable: (input: string) => wasm[`solve_cable_${dim}`](nested(input), 20, 1e-9),
-      'steel combination certificate': (input: string) =>
-        wasm[`certify_steel_multi_case_${dim}`](`{"multiCase":${multiCase(input)},"members":[]}`),
-      ...(is3D ? {} : {
-        'arc length': (input: string) => solve_arc_length(nested(input)),
-        'displacement control': (input: string) => solve_displacement_control(nested(input)),
-        Guyan: (input: string) => wasm.guyan_reduce_2d(nested(input)),
-        'Craig-Bampton': (input: string) => wasm.craig_bampton_2d(nested(input)),
-      }),
-    };
-    const nestedEntries = [
-      'export_plastic_bundle', 'solve_spectral', 'certify_spectral', 'solve_plastic', 'certify_plastic',
-      'solve_moving_loads', 'solve_nonlinear_material', 'solve_time_history', 'certify_time_history',
-      'solve_harmonic', 'certify_harmonic', 'solve_winkler', 'solve_constrained', 'solve_contact',
-      'solve_ssi', 'solve_fiber_nonlinear', 'solve_creep_shrinkage', 'solve_with_imperfections',
-    ] as const;
-    const solve = (input: string) => JSON.parse(entries['P-Delta'](input));
+    const solve = (input: string) => JSON.parse(pdelta(input, 20, 1e-9));
     const tip = (input: string) => {
       const result = solve(input);
       expect(result.converged).toBe(true);
@@ -483,14 +495,7 @@ it.each([false, true])(
     expect(tip(distinct)).toBeLessThan(tip(lastOnly));
     expect(tip(lastOnly)).toBeLessThan(tip(encode('')));
     const refusal = /duplicate key in field `connectors`/;
-    for (const [entry, run] of Object.entries(entries)) {
-      expect.soft(() => run(duplicate), entry).toThrow(refusal);
-    }
-    for (const name of nestedEntries) {
-      expect.soft(() => wasm[`${name}_${dim}`](nested(duplicate)), name).toThrow(refusal);
-    }
-    const influence = is3D ? wasm.compute_influence_line_3d : wasm.compute_influence_line;
-    expect.soft(() => influence(nested(duplicate)), 'influence line').toThrow(refusal);
+    refuseDuplicateSolverTable(duplicate, loads, is3D, refusal);
   },
 );
 
@@ -502,4 +507,116 @@ it('translates the JSON duplicate-key refusal', async () => {
   } finally {
     await setLocale('en');
   }
+});
+
+const reviewTest = process.env.STABILEO_REVIEW_REPRO === '1' ? it : it.skip;
+
+reviewTest.each([false, true])('validates every iterable load row (space = %s)', (is3D) => {
+  const model = is3D ? space : planar;
+  const load = is3D
+    ? { type: 'distributed', data: { elementId: 1, qXI: 6, qXJ: 0, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0 } }
+    : { type: 'nodal', data: { nodeId: 2, fx: 0, fz: 0, my: 5 } };
+  const field = is3D ? 'qXI' : 'my';
+  const typo = is3D ? 'qXi' : 'mY';
+  const { [field]: magnitude, ...unloaded } = load.data as Record<string, number>;
+  if (!is3D) unloaded.my = 0;
+  const malformed = { ...load, data: { ...unloaded, [typo]: magnitude } };
+  const linear = is3D ? solve_3d : solve_2d;
+  const Session = is3D ? LoadSession3D : LoadSession2D;
+  const solveCases = is3D ? solve_multi_case_3d : solve_multi_case_2d;
+  const certifyCases = is3D ? certify_multi_case_3d : certify_multi_case_2d;
+  const request = (loads: unknown) => ({
+    solver: { ...model, loads: [] },
+    loadCases: [{ name: 'D', loads }],
+    combinations: [{ name: 'D', factors: { D: 1 } }],
+  });
+  const entries = {
+    linear: (loads: unknown) => linear({ ...model, loads }),
+    certificate: (loads: unknown) => (is3D ? certify_linear_3d : certify_linear_2d)({ ...model, loads }),
+    'session setup': (loads: unknown) => {
+      const session = new Session({ ...model, loads });
+      session.free();
+    },
+    'session loads': (loads: unknown) => {
+      const session = new Session({ ...model, loads: [] });
+      try {
+        return session.solve(loads);
+      } finally {
+        session.free();
+      }
+    },
+    'multi-case loads': (loads: unknown) => solveCases(request(loads)),
+    'multi-case certificate loads': (loads: unknown) => certifyCases(request(loads)),
+    'multi-case rows': (loads: unknown) => {
+      const input = request(loads);
+      return solveCases({ ...input, loadCases: new Set(input.loadCases) });
+    },
+    ...(is3D ? {
+      discretization: (loads: unknown) => estimate_discretization_3d({ ...model, loads }),
+      convergence: (loads: unknown) => convergence_study_3d({ ...model, loads }, { levels: 1 }),
+    } : {}),
+  };
+
+  const accepted = linear({ ...model, loads: new Set([load]) });
+  const shorter = linear({ ...model, loads: new Set([{ ...load, data: unloaded }]) });
+  if (is3D) {
+    const length = space.nodes[2]!.x - space.nodes[1]!.x;
+    expect(accepted.reactions[0].fx).toBeCloseTo(-magnitude! * length / 2, 12);
+    expect(shorter.reactions[0].fx).toBe(0);
+  } else {
+    expect(accepted.reactions[0].my).toBeCloseTo(-magnitude!, 12);
+    expect(shorter.reactions[0].my).toBe(0);
+  }
+  for (const [entry, run] of Object.entries(entries)) {
+    const reference = run([load]);
+    expect.soft(run(new Set([load])), entry + ' Set').toEqual(reference);
+    expect.soft(run([load].values()), entry + ' iterator').toEqual(reference);
+    expect.soft(run(new Set()), entry + ' empty Set').toEqual(run([]));
+    const refusal = new RegExp('unknown field .*' + typo);
+    expect.soft(() => run([malformed]), entry + ' invalid array').toThrow(refusal);
+    expect.soft(() => run(new Set([malformed])), entry + ' invalid Set').toThrow(refusal);
+    expect.soft(() => run([malformed].values()), entry + ' invalid iterator').toThrow(refusal);
+  }
+});
+
+reviewTest.each([false, true])('refuses repeated frame keys before JSON solves (space = %s)', (is3D) => {
+  const base = is3D ? space : planar;
+  const first = base.elements[1]!;
+  const second = { ...first, id: 2 };
+  const loads = [{ type: 'nodal', data: {
+    nodeId: 2, fx: 1, fz: 0, my: 0, ...(is3D ? { fy: 0, mx: 0, mz: 0 } : {}),
+  } }];
+  const model = { ...base, loads, elements: {} };
+  const modelText = JSON.stringify(model);
+  const duplicate = modelText.replace('"elements":{}', `"elements":{"1":${JSON.stringify(first)},"1":${JSON.stringify(second)}}`);
+  const distinct = { ...model, elements: indexed(first, second) };
+  const lastOnly = { ...model, elements: { 1: second } };
+  const linear = is3D ? solve_3d : solve_2d;
+  const pdelta = is3D ? solve_pdelta_3d : solve_pdelta_2d;
+  const tip = (result: ReturnType<typeof solve_2d>) =>
+    result.displacements.find((node: { nodeId: number }) => node.nodeId === 2).ux;
+  const combinations = (solver: object) => ({
+    solver,
+    loadCases: [{ name: 'D', loads }],
+    combinations: [{ name: 'D', factors: { D: 1 } }],
+  });
+  const linearWithBoth = tip(linear(distinct));
+  expect(linearWithBoth).toBeGreaterThan(0);
+  expect(tip(linear(lastOnly))).toBeCloseTo(2 * linearWithBoth, 12);
+  for (const input of [distinct, lastOnly]) {
+    const result = JSON.parse(pdelta(JSON.stringify(input), 20, 1e-9));
+    expect(result.converged).toBe(true);
+    expect(tip(result.results)).toBeCloseTo(tip(linear(input)), 12);
+  }
+  const jsInput = { ...model, elements: [['1', first], ['1', second]] };
+  expect(() => linear(jsInput)).toThrow(/duplicate map entry key/);
+  const refusal = /duplicate key in field `elements`/;
+  refuseDuplicateSolverTable(duplicate, loads, is3D, refusal);
+  const staged = is3D ? wasm.solve_staged_3d : wasm.solve_staged_2d;
+  expect.soft(() => staged(duplicate.replace(/}$/, ',"stages":[]}')), 'staged').toThrow(refusal);
+
+  const dim = is3D ? '3d' : '2d';
+  const combinationText = JSON.stringify(combinations(distinct)).replace('"D":1', '"D":1,"D":2');
+  expect.soft(() => wasm[`export_combination_bundle_${dim}`](combinationText), 'combination factors')
+    .toThrow(/duplicate key in field `factors`/);
 });
