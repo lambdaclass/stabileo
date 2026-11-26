@@ -370,10 +370,8 @@ it.each([0, 0.5, -0.5, 1e-8])(
   },
 );
 
-const replayStackedGaps = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
-
-replayStackedGaps.each([0, 5])(
-  'known wrong result: #2607 aligned certified rafter gaps with lateral offset %s', lateralOffset => {
+it.each([0, 5])(
+  '#2607 aligned certified rafter gaps with lateral offset %s', lateralOffset => {
     const { model } = offsetRoof(0.02, 0, 1, false, [4, 6]);
     const sheltered = lateralOffset === 0;
     const lowerId = 1;

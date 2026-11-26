@@ -57,18 +57,21 @@ function edgeInterval(a: P2, b: P2, c: P2, d: P2, tolerance = SNOW_EDGE_COINCIDE
   return hi - lo > 1e-9 ? [lo, hi] : undefined;
 }
 
-function joined(A: P2[], B: P2[], continuous: (a: P2, b: P2) => boolean): boolean {
-  return A.some((a, e) => {
-    const b = A[(e + 1) % A.length]!, delta = sub(b, a), len = Math.hypot(...delta);
+function joined(
+  first: RoofComponent, second: RoofComponent, minimumOverlap: number, continuous: (a: P2, b: P2) => boolean,
+): boolean {
+  const others = [second.polygon, ...second.holes];
+  return [first.polygon, ...first.holes].some(ring => ring.some((a, i) => {
+    const b = ring[(i + 1) % ring.length]!, delta = sub(b, a), len = Math.hypot(...delta);
     const point = (t: number): P2 => [a[0] + t * delta[0] / len, a[1] + t * delta[1] / len];
-    return B.some((c, f) => {
-      const d = B[(f + 1) % B.length]!;
+    return others.some(other => other.some((c, j) => {
+      const d = other[(j + 1) % other.length]!;
       const error = snowEdgeRoundoff(a, b, c, d);
       const interval = edgeInterval(a, b, c, d, error);
-      return interval && interval[1] - interval[0] > MIN_COINCIDENT_ROOF_EDGE_OVERLAP
+      return interval && interval[1] - interval[0] > Math.max(error, minimumOverlap)
         && continuous(point(interval[0]), point(interval[1]));
-    });
-  });
+    }));
+  }));
 }
 
 function surcharge(bands: Band[], pt: P2, on: (roof: RoofComponent) => boolean): number {
@@ -336,13 +339,13 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
     const heights = surfaceModel.edgeHeights(a, b, layout, first.k, second.k);
     return heights.length > 0 && heights.every(h => Math.abs(h) <= 1e-8);
   };
-  const roofOf = (start: typeof roofs[number]): typeof roofs => {
+  const roofOf = (start: RoofComponent, minimumOverlap: number): typeof roofs => {
     const group = [start];
     for (let i = 0; i < group.length; i++) {
       for (const p of roofs) {
         if (group.some(other => other.k === p.k && other.component === p.component)) continue;
         const current = group[i]!;
-        if (joined(current.polygon, p.polygon, (a, b) => continuous(current, p, a, b))) group.push(p);
+        if (joined(current, p, minimumOverlap, (a, b) => continuous(current, p, a, b))) group.push(p);
       }
     }
     return group;
@@ -356,7 +359,7 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
   for (const step of snowRoofEdgePairs(model, layout, surfaces)) {
     const { a, b, lowerComponent: L, upperComponent: U, lowerOutline, above, below, displaced, separation, elevations } = step;
     const line = { ...lineInto(a, b, lowerOutline), n: step.inward };
-    const lowerRoof = roofOf(L), upperRoof = roofOf(U);
+    const lowerRoof = roofOf(L, 0), upperRoof = roofOf(U, 0);
     const upper = stepFetch(U, upperRoof, line, above(a), above(b), -1, stationError, continuous);
     const lower = stepFetch(L, lowerRoof, line, a, b, 1, stationError, continuous);
     const cuts = [0, ...[...upper.cuts, ...lower.cuts]
@@ -458,7 +461,7 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
           const mid = outside(atEdge((from + to) / 2));
           if (covers.some(p => within(mid, p.polygon, -1) && !p.holes.some(hole => within(mid, hole, -1))
             && surfaceModel.edgeHeights(a, b, layout, p.k, L.k).every(h => h >= -0.05))) return;
-          const lower = roofOf(L);
+          const lower = roofOf(L, MIN_COINCIDENT_ROOF_EDGE_OVERLAP);
           const lu = Math.max(0, ...lower.flatMap((p) => p.polygon.map((v) => dot(sub(v, a), line.n))));
           const point = (t: number): P2 => [a[0] + t * line.u[0], a[1] + t * line.u[1]];
           const reportBand = (local: (pt: P2) => StepDrift, margins: (pt: P2) => number[], clearHeight: (pt: P2) => number, report: (dr: StepDrift, pt: P2, from: number, to: number) => void) => {
@@ -559,7 +562,7 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
         if (!sl.applies) continue;
         if (!refs.includes(REF_SLIDING)) refs.push(REF_SLIDING);
         bands.push({ margins: (d, t) => [4.5 - d, source.elevation([a[0] + (t + t0) * line.u[0], a[1] + (t + t0) * line.u[1]]) - surfaces(L.k).elevation([a[0] + (t + t0) * line.u[0], a[1] + (t + t0) * line.u[1]]) - 1e-8], distanceBreaks: [4.5], p0: [a[0] + line.u[0] * t0, a[1] + line.u[1] * t0], u: line.u, len: t1 - t0, n: line.n,
-          on: roofOf(L), p: (d, t) => {
+          on: roofOf(L, MIN_COINCIDENT_ROOF_EDGE_OVERLAP), p: (d, t) => {
             const pt: P2 = [a[0] + (t + t0) * line.u[0], a[1] + (t + t0) * line.u[1]];
             return d <= 4.5 && source.elevation(pt) > surfaces(L.k).elevation(pt) + 1e-8 ? sl.intensity : 0;
           } });

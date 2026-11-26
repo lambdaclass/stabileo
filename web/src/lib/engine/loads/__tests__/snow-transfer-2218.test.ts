@@ -870,10 +870,8 @@ it('#2607 a varying positive fetch refuses when bearing pressure cannot be resol
   expect(receivingSnowForce(model, rows)).toBeCloseTo(4 * pd * w / 2, 10);
 });
 
-const replayRoofContinuity = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
-
-replayRoofContinuity.each([[0.08, 0], [0.1, 0], [0.12, 0], [0.08, 0.005]])(
-  'known wrong result: #2607 receiving seam length %s and open gap %s', (width, gap) => {
+it.each([[0.08, 0], [0.1, 0], [0.12, 0], [0.08, 0.005]])(
+  '#2607 receiving seam length %s and open gap %s', (width, gap) => {
     const depth = 0.5;
     const far = 7.5;
     const model = mesh([
@@ -892,6 +890,11 @@ replayRoofContinuity.each([[0.08, 0], [0.1, 0], [0.12, 0], [0.08, 0.005]])(
       return (4 - width) * integrate(depth) + width * integrate(loadedDepth);
     };
     const rows = driftAndSlidingLoads(model, layout, adjacentInputs).distributed;
+    const farBearing = rows.some(row => {
+      const member = model.elements.get(row.elementId)!;
+      return model.nodes.get(member.nodeI)!.x === far && model.nodes.get(member.nodeJ)!.x === far;
+    });
+    expect.soft(farBearing).toBe(gap === 0);
     expect.soft(receivingSnowForce(model, rows)).toBeCloseTo(surcharge(adjacentInputs.balanced), 10);
     const cases = snowLoadCases({ model, layout, snow: adjacentConfig, tributaryWidth: 1 })!;
     const plan = adjacentPlan(model);
@@ -905,7 +908,7 @@ replayRoofContinuity.each([[0.08, 0], [0.1, 0], [0.12, 0], [0.08, 0.005]])(
   },
 );
 
-replayRoofContinuity.each([0, 1])('known wrong result: #2607 roof fetch across a hole edge with clearance %s', clearance => {
+it.each([0, 1])('#2607 roof fetch across a hole edge with clearance %s', clearance => {
   const model = mesh([
     [[0, 0, 3], [7.5, 0, 3], [7.5, 4, 3], [0, 4, 3]],
     [[-8, -10, 5], [0, -10, 5], [0, 14, 5], [-8, 14, 5]],
@@ -939,6 +942,7 @@ it.each([false, true])('#2607 a concave two-way receiver refuses positive step d
     snow: { ...adjacentConfig, enabled: true, source: 'site' },
   });
   if (notch) {
+    expect.soft(layout.panels.some(panel => panel.roof && panel.z === 3 && panel.polygon.length === outline.length)).toBe(true);
     const reason = 'snow.refused.stepDriftTransfer';
     expect.soft(run).toThrow(reason);
     expect.soft(cases).toMatchObject({ result: { refused: reason }, cases: [] });

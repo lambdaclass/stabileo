@@ -117,10 +117,8 @@ it.each([false, true])('#2607 older panel gravity with stacked gap decks require
   expect(result('width', constraints)).not.toContain(id);
 });
 
-const replayLegacyWidth = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
-
-replayLegacyWidth.each(['linear', 'pdelta'] as const)(
-  'known wrong result: #2607 an older %s result with unequal gap end widths requires regeneration', analysis => {
+it.each(['linear', 'pdelta'] as const)(
+  '#2607 an older %s result with unequal gap end widths requires regeneration', analysis => {
     const { model } = offsetRoof(0.02, 0, 1, true, [4, 6]);
     for (const node of model.nodes.values()) if (node.x === 6) node.y *= 1.5;
     for (const [mode, paired, affected] of [['panels', true, true], ['panels', false, false], ['width', true, false]] as const) {

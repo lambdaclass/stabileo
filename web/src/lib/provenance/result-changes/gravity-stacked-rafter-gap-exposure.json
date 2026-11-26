@@ -1,0 +1,43 @@
+{
+  "id": "gravity-stacked-rafter-gap-exposure",
+  "date": "2026-11-26",
+  "prs": [
+    2607
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "generatedPanelGravityShells",
+      "roofShellFrameLinks"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Include certified rafter gaps in deck exposure",
+    "es": "Incluir los huecos certificados de cabios al evaluar la exposición",
+    "pt": "Incluir aberturas certificadas nos caibros ao avaliar a exposição",
+    "de": "Nachgewiesene Sparrenlücken bei der Überdeckung berücksichtigen",
+    "fr": "Inclure les ouvertures certifiées entre chevrons dans le calcul de l’exposition",
+    "hu": "Az igazolt szarufanyílások figyelembevétele a fedettség vizsgálatakor",
+    "tr": "Örtülme hesabında doğrulanmış mertek açıklıklarını dikkate al",
+    "zh": "在板面覆盖分析中计入经验证的椽条缺口"
+  },
+  "explanation": {
+    "en": "Regenerate affected panel gravity loads. A certified upper gap can shelter a lower deck. The regeneration check includes older rafter gaps with unequal end widths.",
+    "es": "Regenerá las cargas gravitatorias de paneles afectadas. Un hueco superior certificado puede cubrir un paño inferior. La comprobación incluye huecos antiguos con anchos distintos en los extremos.",
+    "pt": "Gere novamente as cargas gravitacionais dos painéis afetados. Uma abertura superior certificada pode cobrir um painel inferior. A verificação inclui aberturas antigas com larguras diferentes nas extremidades.",
+    "de": "Erzeugen Sie die betroffenen Eigen- und Nutzlasten der Felder neu. Eine nachgewiesene obere Lücke kann ein unteres Feld überdecken. Die Prüfung erfasst auch ältere Sparrenlücken mit unterschiedlichen Endbreiten.",
+    "fr": "Régénérez les charges gravitaires des panneaux concernés. Une ouverture supérieure certifiée peut abriter un panneau inférieur. Le contrôle inclut les anciennes ouvertures de largeur différente aux extrémités.",
+    "hu": "Generálja újra az érintett mezők gravitációs terheit. Egy igazolt felső nyílás lefedhet egy alsó mezőt. Az ellenőrzés a régi, eltérő végszélességű szarufanyílásokra is kiterjed.",
+    "tr": "Etkilenen panellerin düşey yüklerini yeniden oluşturun. Doğrulanmış üst açıklık alttaki paneli örtebilir. Denetim, uç genişlikleri farklı eski mertek açıklıklarını da kapsar.",
+    "zh": "请重新生成受影响板格的重力荷载。经验证的上层缺口可以遮挡下层板面。重新生成检查也包括两端宽度不等的旧椽条缺口。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-rafter-cover-and-snow-continuity.md",
+    "heading": "Include certified rafter gaps in deck exposure"
+  }
+}

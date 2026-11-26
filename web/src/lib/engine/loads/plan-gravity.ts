@@ -205,14 +205,14 @@ function gravityShells(model: GravityModel, mode: GravityOptions['mode']) {
 
 function attachedShellCoverage(
   model: GravityModel, candidates: readonly { nodeI: number; nodeJ: number }[], members: Iterable<number>,
-  carriers: ShellCarrier[], links: readonly VerticalShellLink[], terminals: ReadonlySet<number>,
+  carriers: ShellCarrier[], links: readonly VerticalShellLink[], terminals: ReadonlySet<number>, legacyGapMembers?: Set<number>,
 ): Map<number, AttachmentCoverage> {
   const offsetLinks = links.filter(link => link.geometry);
   if (!offsetLinks.length || !carriers.length) return new Map();
   const shellNodes = new Set(carriers.flatMap(carrier => carrier.nodes));
   const frameNodes = new Set(candidates.flatMap(({ nodeI, nodeJ }) => [nodeI, nodeJ]).filter(id => model.nodes.has(id)));
   const offsets = shellOffsets(model, shellNodes, frameNodes, new AttachmentComponents(offsetLinks, terminals));
-  return rigidShellCoverage(model, offsets, carriers, members);
+  return rigidShellCoverage(model, offsets, carriers, members, legacyGapMembers);
 }
 
 export function hasBoundedRafterGap(model: GravityModel): boolean {
@@ -222,10 +222,9 @@ export function hasBoundedRafterGap(model: GravityModel): boolean {
     const { carriers } = gravityShells(model, 'panels');
     const candidates = [...model.elements.values()].filter(e => e.type !== 'truss');
     const members = candidates.filter(e => beamLike(model, e).ok).map(e => e.id);
-    const coverage = attachedShellCoverage(model, candidates, members, carriers, links, groundedStations(model));
-    for (const [id, attached] of coverage) {
-      if (attached === 'conflictingGapDecks' || attached === 'eccentricGap') return true;
-      if (typeof attached !== 'object' || !attached.gaps.length) continue;
+    const legacyGapMembers = new Set<number>();
+    attachedShellCoverage(model, candidates, members, carriers, links, groundedStations(model), legacyGapMembers);
+    for (const id of legacyGapMembers) {
       const { nodeI, nodeJ } = model.elements.get(id)!;
       const a = model.nodes.get(nodeI)!, b = model.nodes.get(nodeJ)!;
       const trace: Segment = [[a.x, a.y, a.z ?? 0], [b.x, b.y, b.z ?? 0]];
@@ -392,6 +391,10 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       footprint: [bay.boundary], geometry: physicalDeck(bay.boundaryNodes.flat().map(coordinates)),
     })));
   }
+  const gapDecks = [...new Set(out.widthMembers.flatMap(({ elementId }) => {
+    const attached = attachedCoverage.get(elementId);
+    return typeof attached === 'object' ? attached.runGaps : [];
+  }))];
   const wideCandidates = opts.loadEveryPanel ? [] : [...levels].flatMap(([z, { owned }]) =>
     owned.filter(({ panel }) => isWideDeck(panel.polygon)).map(panel => ({ z, ...panel })));
   const wide = new Map<number, DeckFootprint[]>();
@@ -400,7 +403,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     for (const [z, { owned }] of levels) {
       panelsAt.set(z, owned.filter(({ panel }) => !isWideDeck(panel.polygon)));
     }
-    const preliminary = notADeck(model, carriers, coverage(model, out.zOf, panelsAt, coverShells), true);
+    const preliminary = notADeck(model, carriers, coverage(model, out.zOf, panelsAt, coverShells, gapDecks), true);
     for (const { z, panel, footprint, geometry } of wideCandidates) {
       const reason = preliminary.why(panel.polygon, { footprint, geometry });
       deckReasons.set(panel, reason);
@@ -408,7 +411,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       source.set(z, [...source.get(z) ?? [], { footprint, geometry }]);
     }
   }
-  const preliminaryCover = coverage(model, out.zOf, panelsAt, coverShells, wide);
+  const preliminaryCover = coverage(model, out.zOf, panelsAt, coverShells, gapDecks, wide);
   const panelSides = new Map<number, SideStretch[]>();
   for (const { res } of levels.values()) for (const pn of res.panels) for (const [id, sides] of pn.own?.sides ?? []) {
     (panelSides.get(id) ?? panelSides.set(id, []).get(id)!).push(...sides);
@@ -550,7 +553,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   })]));
 
   const coverAbove = opts.mode === 'panels' && (dropped.size || fringeKept.size)
-    ? coverage(model, out.zOf, selectedPanels, coverShells, wide)
+    ? coverage(model, out.zOf, selectedPanels, coverShells, gapDecks, wide)
     : preliminaryCover;
   const levelOrder = [...levels.keys()].sort((a, b) => a - b);
   for (const z of levels.keys()) for (const b of flatAt.get(z) ?? []) {
@@ -840,6 +843,7 @@ function boundedGapSpans([start, end]: Segment, intervals: readonly RunInterval[
 
 function rigidShellCoverage(
   model: GravityModel, offsets: ReadonlyMap<number, ShellOffset[]>, carriers: ShellCarrier[], members: Iterable<number>,
+  legacyGapMembers?: Set<number>,
 ): Map<number, AttachmentCoverage> {
   const byMember = new Map<number, AttachmentCoverage>();
   if (!offsets.size) return byMember;
@@ -877,7 +881,10 @@ function rigidShellCoverage(
       }
     }
     let coverage: Exclude<AttachmentCoverage, object> = 'none';
-    let gapSpans: CertifiedGap[] | undefined;
+    let boundedGap:
+      | { kind: 'legacy'; intervals: RunInterval[]; members: Set<number> }
+      | { kind: 'certified'; spans: CertifiedGap[] }
+      | undefined;
     const unresolvedVerticalAnchors = new Set<number>();
     for (const { offset, anchors, shellNodes, error } of attachments) {
       if (Math.abs(offset[2]) >= MIN_STOREY_HEADROOM) continue;
@@ -901,12 +908,18 @@ function rigidShellCoverage(
       const gaps = anchored && Math.hypot(offset[0], offset[1]) <= error && Math.abs(runTrace[1][2] - runTrace[0][2]) > TOL
         ? shellTrace(runTrace, carriers).gaps : [];
       if (gaps.length && gaps.every(([t0, t1]) => t0 > 0 && t1 < 1)) {
+        if (coverage !== 'none') { coverage = 'partial'; break; }
+        if (legacyGapMembers) {
+          if (!boundedGap) boundedGap = { kind: 'legacy', intervals: [], members: legacyGapMembers };
+          if (boundedGap.kind === 'legacy') boundedGap.intervals.push(...gaps);
+          continue;
+        }
         const certified = boundedGapSpans(runTrace, gaps, carriers);
-        if (!certified || coverage !== 'none') { coverage = 'partial'; break; }
-        if (gapSpans) { coverage = 'conflictingGapDecks'; break; }
-        gapSpans = certified;
+        if (!certified) { coverage = 'partial'; break; }
+        if (boundedGap) { coverage = 'conflictingGapDecks'; break; }
+        boundedGap = { kind: 'certified', spans: certified };
       } else if (anchors.size > 1 && covered.every(state => state === 'full')) {
-        if (gapSpans) { coverage = 'partial'; break; }
+        if (boundedGap) { coverage = 'partial'; break; }
         coverage = 'full';
       } else if (covered.some(state => state !== 'none') || traces.some(trace => shellCoverage(trace, carriers, false) !== 'none')) {
         coverage = 'partial';
@@ -917,9 +930,9 @@ function rigidShellCoverage(
       (unresolvedVerticalAnchors.size === 1 && [...ids].some(sharesShellTrace)))) {
       coverage = 'unresolvedOffset';
     }
-    if (gapSpans && coverage === 'none' && !unresolvedVerticalAnchors.size) {
-      const overlaps = gapSpans.some(gap => claimedGaps.some(other => deckOverlaps(gap, other).some(part => !part.separated(TOL))));
-      if (overlaps) {
+    if (boundedGap && coverage === 'none' && !unresolvedVerticalAnchors.size) {
+      if (boundedGap.kind === 'certified' && boundedGap.spans.some(gap =>
+        claimedGaps.some(other => deckOverlaps(gap, other).some(part => !part.separated(TOL))))) {
         for (const id of ids) byMember.set(id, 'partial');
         continue;
       }
@@ -928,19 +941,26 @@ function rigidShellCoverage(
       const parts = [...ids].map(id => {
         const axis = axesById.get(id)!;
         const a = station(axis.a), b = station(axis.b);
-        return { id, a, b, start: Math.min(a, b), end: Math.max(a, b) };
+        const tolerance = 64 * Number.EPSILON * Math.max(1, Math.abs(a), Math.abs(b));
+        return { id, a, b, start: Math.min(a, b), end: Math.max(a, b), tolerance };
       }).sort((a, b) => a.start - b.start);
       if (parts.some((part, i) => i > 0 && part.start !== parts[i - 1]!.end)) {
         for (const id of ids) byMember.set(id, 'partial');
         continue;
       }
+      if (boundedGap.kind === 'legacy') {
+        for (const { id, start, end, tolerance } of parts) {
+          if (boundedGap.intervals.some(([t0, t1]) => Math.min(t1, end) - Math.max(t0, start) > tolerance)) boundedGap.members.add(id);
+        }
+        continue;
+      }
+      const gapSpans = boundedGap.spans;
       claimedGaps.push(...gapSpans);
       if (gapSpans.some(gap => !gap.centered)) {
         for (const id of ids) byMember.set(id, 'eccentricGap');
         continue;
       }
-      for (const { id, a, b, start, end } of parts) {
-        const tolerance = 64 * Number.EPSILON * Math.max(1, Math.abs(a), Math.abs(b));
+      for (const { id, a, b, start, end, tolerance } of parts) {
         const gaps: WidthSpan[] = [];
         for (const { t0, t1, width } of gapSpans) {
           const lo = Math.max(t0, start), hi = Math.min(t1, end);
@@ -951,7 +971,7 @@ function rigidShellCoverage(
         }
         byMember.set(id, { gaps: gaps.sort((a, b) => a.t0 - b.t0), runGaps: gapSpans });
       }
-    } else if (coverage !== 'none' || gapSpans) {
+    } else if (coverage !== 'none' || boundedGap) {
       for (const id of ids) byMember.set(id, coverage === 'none' ? 'partial' : coverage);
     }
   }
@@ -1880,11 +1900,13 @@ function memberGeometry(model: GravityModel, ids: Iterable<number>) {
 /** How far above `zTop` the lowest panel, slab or beam over a plan point is (see the header); Infinity when none is. */
 function coverage(
   model: GravityModel, zOf: Map<number, number>, panelsAt: ReadonlyMap<number, DeckFootprint[]>,
-  carriers: readonly ShellCarrier[], rejected: ReadonlyMap<number, DeckFootprint[]> = new Map(),
+  carriers: readonly ShellCarrier[], gaps: readonly CertifiedGap[],
+  rejected: ReadonlyMap<number, DeckFootprint[]> = new Map(),
 ) {
   const shells = carriers.map(shell => ({ ...shell, id: shell.coverageId }));
   const footprints = [...panelsAt].flatMap(([z, polys]) => unionFootprints(polys.flatMap(panel => panel.footprint)).map(rings => ({ z, rings: rings.map(openRing) })));
   const panels = [...panelsAt.values()].flat();
+  const areaCovers: Array<DeckFootprint & { id?: number }> = [...panels, ...shells, ...gaps];
   const rejectedPanels = [...rejected.values()].flat();
   const geometry = memberGeometry(model, zOf.keys());
   const byMember = new Map(geometry.map(member => [member.id, member]));
@@ -1984,7 +2006,8 @@ function coverage(
     const cover: Polygon[] = [];
     let partial = false;
     const compare = (upper: DeckFootprint) => deckOverlapsInBand(lower, upper, MIN_COVER_RISE, Infinity);
-    for (const upper of [...panels, ...shells.filter(shell => shell.id !== ownShell)]) {
+    for (const upper of areaCovers) {
+      if (upper === lower || (ownShell !== undefined && upper.id === ownShell)) continue;
       if (isIndependentShell(lower, upper)) {
         cover.push(...deckOverlaps(lower, upper).map(overlap => overlap.part));
         continue;
