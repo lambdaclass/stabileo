@@ -1,3 +1,7 @@
+import { readFileSync } from 'node:fs';
+import * as planarDiagrams from '../diagrams';
+import * as spatialDiagrams from '../diagrams-3d';
+import { computeElementStress } from '../../store/results.svelte';
 import { analyzeSectionStress, resolveSectionGeometryLegacy } from '../section-stress';
 import { ConcurrentDemand } from '../concurrent-demand';
 import { extractForcesAtStation } from '../station-forces';
@@ -709,5 +713,91 @@ it('known wrong result: #2581 round 3 solved linear and nonlinear envelopes cann
     expect.soft(() => stress(envelope)).toThrow('solver.diagramExtremaUnavailable');
     expect.soft(() => analyzeSectionStress3D(envelope, section, undefined, 0.5)).toThrow('solver.diagramExtremaUnavailable');
     expect.soft(() => ConcurrentDemand.endpoints(envelope)).toThrow('solver.diagramExtremaUnavailable');
+  }
+});
+
+it.skip('known wrong result: #2581 converge interactive tables and member hover agree on inward moment signs', () => {
+  const sources = (file: string) => readFileSync(new URL('../../../components/' + file + '.svelte', import.meta.url), 'utf8');
+  const basic = sources('tables/ResultsTable');
+  const pro = sources('pro/ProResultsTab');
+  const hover = sources('Viewport');
+  const properties = sources('property/ElementDetails');
+  const quickInfo = sources('viewport/QuickInfoCard');
+  const planar = ef2D({ nStart: 100, nEnd: 100, mStart: -30, mEnd: -30 });
+  const spatial = ef3D({ nStart: 100, nEnd: 100, mxStart: -10, mxEnd: -10, myStart: -30, myEnd: -30, mzStart: 20, mzEnd: 20 });
+  const displayedMoments = (source: string, forces: typeof planar | typeof spatial, fields: string[]) => {
+    const dimension = 'mStart' in forces ? '2D' : '3D';
+    const reader = new RegExp('const \\[i, j\\] = (memberEnd\\w+' + dimension + ')\\(\\w+\\)').exec(source)?.[1];
+    if (!reader) throw new Error('Missing member-end reader');
+    const diagrams = dimension === '2D' ? planarDiagrams : spatialDiagrams;
+    const read = Reflect.get(diagrams, reader);
+    if (typeof read !== 'function') throw new Error('Unknown member-end reader ' + reader);
+    const [i] = read(forces);
+    return fields.map(field => {
+      const expr = new RegExp("(?:mom|fmtQ|dv)\\((-?i\\." + field + ")(?=[,)])").exec(source)?.[1];
+      if (expr) return expr.startsWith('-') ? -i[field] : i[field];
+      const peak = new RegExp("fmtQ\\(peak\\(i\\." + field + ", j\\." + field + "\\), 'moment'\\)").test(source);
+      if (peak) return i[field];
+      throw new Error('Missing moment expression for ' + field);
+    });
+  };
+  for (const source of [basic, hover, properties]) {
+    expect.soft(displayedMoments(source, planar, ['m'])).toEqual([30]);
+  }
+  for (const source of [basic, pro, properties, quickInfo]) {
+    expect.soft(displayedMoments(source, spatial, ['mx', 'my', 'mz'])).toEqual([10, 30, -20]);
+  }
+});
+
+it.skip('known wrong result: #2581 converge planar section ends refuse separate axial and bending winners', async () => {
+  await initSolver();
+  const axial = 100, bending = 30, length = 4;
+  const section = { id: 1, name: 'Rectangle', shape: 'rect' as const, a: 0.01, iz: 0.0001, h: 0.1, b: 0.1 };
+  const material = { id: 1, e: 200000, nu: 0.3 };
+  const solveCase = (fx: number, my: number): SolverInput => ({
+    nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: length, z: 0 }]]),
+    materials: new Map([[1, material]]),
+    sections: new Map([[1, section]]),
+    elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]]),
+    supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
+    loads: [{ type: 'nodal', data: { nodeId: 2, fx, fz: 0, my } }],
+  });
+  const inputs = [solveCase(axial, 0), solveCase(0, bending)];
+  const nonlinear = inputs.map(input => solvePDelta(input));
+  expect(nonlinear.every(result => result.converged)).toBe(true);
+  for (const cases of [inputs.map(input => solve(input)), nonlinear.map(result => result.results)]) {
+    const envelope2D = computeEnvelope(cases)!;
+    const aggregate = envelope2D.maxAbsResults.elementForces[0]!;
+    expect(memberEndForces2D(aggregate, 'axial').map(Math.abs)).toEqual([axial, axial]);
+    expect(memberEndForces2D(aggregate, 'moment').map(Math.abs)).toEqual([bending, bending]);
+    expect(planarDiagrams.memberEndSections2D(cases[0]!.elementForces[0]!).map(({ n, m }) => [Math.abs(n), m])).toEqual([[axial, 0], [axial, 0]]);
+    expect(computeElementStress(cases[0]!.elementForces[0]!, section, material).sigmaStart).toBe(axial / section.a / 1000);
+    expect.soft(() => planarDiagrams.memberEndSections2D(aggregate)).toThrow('solver.diagramExtremaUnavailable');
+    expect.soft(() => computeElementStress(aggregate, section, material)).toThrow('solver.diagramExtremaUnavailable');
+  }
+});
+
+it.skip('known wrong result: #2581 converge every calc report force table requires the selected envelope', () => {
+  const planar = r2D(ef2D({ nStart: 100, nEnd: 100 }));
+  const spatial = r3D(ef3D({ nStart: 100, nEnd: 100 }));
+  const envelope2D = computeEnvelope([planar])!;
+  const envelope3D = computeEnvelope3D([spatial])!;
+  for (const [result, envelope, otherDimension] of [
+    [{ results2D: planar }, { envelope2D }, { envelope3D }],
+    [{ is3D: true, analysisMode: '3D', results3D: spatial }, { envelope3D }, { envelope2D }],
+  ] as const) {
+    const provenance = { kind: 'envelope' } as const;
+    const data = { ...result, provenance };
+    for (const kind of ['axial', 'shear', 'moment'] as const) {
+      for (const content of [onlyTable(kind), undefined]) {
+        expect.soft(() => report(kind, { ...data, content })).toThrow('solver.diagramExtremaUnavailable');
+        expect.soft(() => report(kind, { ...data, ...otherDimension, content })).toThrow('solver.diagramExtremaUnavailable');
+        expect(rows(report(kind, { ...data, ...envelope, content })).length).toBeGreaterThan(0);
+        expect(rows(report(kind, { ...result, content })).length).toBeGreaterThan(0);
+      }
+    }
+    const diagramsOnly = onlyTable('axial');
+    diagramsOnly.rows.axial = { table: false, diagram: true };
+    expect(rows(report('axial', { ...data, content: diagramsOnly }))).toEqual([]);
   }
 });

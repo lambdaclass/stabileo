@@ -831,3 +831,28 @@ describe('spatial cantilever end queries', () => {
     },
   );
 });
+
+it.skip('known wrong result: #2581 converge a force envelope requires the same members in every combination', () => {
+  const member = (elementId: number, n: number) => ({
+    elementId, length: 4, nStart: n, nEnd: n,
+    vyStart: 0, vyEnd: 0, vzStart: 0, vzEnd: 0,
+    mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0,
+    distributedLoadsY: [], distributedLoadsZ: [], pointLoadsY: [], pointLoadsZ: [],
+  }) as ElementForces3D;
+  const a: Source = { ...A, results: { ...A.results, elementForces: [member(7, 100), member(8, 20)] } };
+  const b: Source = { ...B, results: { ...B.results, elementForces: [member(8, 30), member(7, 200)] } };
+  const incomplete = { ...b, results: { ...b.results, elementForces: [b.results.elementForces[0]!] } };
+  for (const stations of [2, 3, 'critical'] as const) {
+    const opts = { ...canonical, stations, resultant: true };
+    for (const sources of [[a, incomplete], [incomplete, a]]) {
+      expect.soft(() => envelopeRows('forces', sources, opts)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+      expect.soft(() => envelopeRows('forces', sources, { ...opts, entities: new Set([7]) })).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+      const selected = envelopeRows('forces', sources, { ...opts, entities: new Set([8]) });
+      expect(selected.map(row => [row.entity, row.min[0]?.value, row.max[0]?.value]))
+        .toEqual(Array.from({ length: stations === 3 ? 3 : 2 }, () => [8, 20, 30]));
+    }
+    const complete = envelopeRows('forces', [a, b], opts).filter(row => row.entity === 7);
+    expect(complete.map(row => [row.min[0]?.value, row.max[0]?.value]))
+      .toEqual(Array.from({ length: stations === 3 ? 3 : 2 }, () => [100, 200]));
+  }
+});
