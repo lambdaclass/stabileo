@@ -511,3 +511,42 @@ it.each(['xy', 'xz'] as const)('infers %s from a global load on an X-aligned gui
   expect(buildProjectFile().snapshot.drawPlane2D).toBe(plane);
   expect(modelStore.solve()).toEqual(reference);
 });
+
+for (const [component, force, moment] of [
+  ['transverse force', -10, 0],
+  ['bending moment', 0, -10],
+  ['axial force only', 0, 0],
+] as const) {
+  it.skip.each(entries)(`known wrong result: #2588 — %s requires a drawing plane for an X-aligned legacy beam with ${component}`, async entry => {
+    await initSolver();
+    const { file, tip } = legacyLoadedCantilever({ type: 'rollerX' });
+    modelStore.addNodalLoad(tip, 1, force, moment, 1);
+    file.snapshot.loads = buildProjectFile().snapshot.loads.filter(load => load.type === 'nodal');
+    const explicit = { ...file, snapshot: { ...file.snapshot, drawPlane2D: 'xy' as const } };
+    open(entry, explicit);
+    const linear = modelStore.solve();
+    expect(linear).toMatchObject({ displacements: expect.arrayContaining([expect.objectContaining({ nodeId: tip })]) });
+    const combinations = modelStore.solveCombinations();
+    expect(combinations).toMatchObject({ perCase: expect.any(Map) });
+    const input = modelStore.buildSolverInput()!;
+    const nonlinear = solvePDelta(input).results;
+    expect(nonlinear.displacements).toEqual(expect.arrayContaining([expect.objectContaining({ nodeId: tip })]));
+
+    const legacy = { ...file, snapshot: { ...file.snapshot, drawPlane2D: undefined } };
+    open(entry, legacy);
+    expect.soft(buildProjectFile().snapshot.drawPlane2D).toBeUndefined();
+    expect.soft(modelStore.solve()).toBe(t('svc.savedPlaneRequired'));
+    expect.soft(await modelStore.solveAsync()).toBe(t('svc.savedPlaneRequired'));
+    expect.soft(modelStore.solveCombinations()).toBe(t('svc.savedPlaneRequired'));
+    expect.soft(() => modelStore.buildSolverInput()).toThrow(t('svc.savedPlaneRequired'));
+    expect.soft(assessProject({ ...legacy.snapshot, analysisMode: legacy.analysisMode }, null, '2d').changes.map(c => c.id))
+      .toContain('legacy-planar-project-plane');
+
+    uiStore.drawPlane2D = 'xy';
+    expect(modelStore.buildSolverInput()).toEqual(input);
+    expect(modelStore.solve()).toEqual(linear);
+    expect(await modelStore.solveAsync()).toEqual(linear);
+    expect(modelStore.solveCombinations()).toEqual(combinations);
+    expect(solvePDelta(modelStore.buildSolverInput()!).results).toEqual(nonlinear);
+  });
+}

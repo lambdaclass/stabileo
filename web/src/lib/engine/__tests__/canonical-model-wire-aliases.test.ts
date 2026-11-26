@@ -678,3 +678,35 @@ it.each([false, true])('known wrong result: #2588 — staged WASM refuses uncons
     .toThrow(/masses/);
   expect(JSON.parse(solve(JSON.stringify({ ...model, masses: { nodal: [], line: [] } })))).toEqual(reference);
 });
+
+for (const [dim, solver] of [['2d', planar], ['3d', space]] as const) {
+  const load = (fx: number) => ({ type: 'nodal', data: { nodeId: 2, fx, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 } });
+  const planarLoad = (fx: number) => ({ type: 'nodal', data: { nodeId: 2, fx, fz: 0, my: 0 } });
+  const nodal = dim === '2d' ? planarLoad : load;
+  const combination = { name: 'A + B', factors: { A: 1, B: 1 } };
+  const request = (def: object) => ({
+    solver: { ...solver, loads: [] },
+    loadCases: [{ name: 'A', loads: [nodal(3)] }, { name: 'B', loads: [nodal(-4)] }],
+    combinations: [def],
+  });
+
+  it(`WASM ${dim} retains the signed linear combination for supported fields`, () => {
+    const result = wasm[`solve_multi_case_${dim}`](request(combination));
+    expect(result.combinationResults).toMatchObject([{
+      name: combination.name,
+      results: { reactions: [{ nodeId: 1, [dim === '2d' ? 'rx' : 'fx']: 1 }] },
+    }]);
+  });
+
+  const entries = {
+    'solve object': (input: object) => wasm[`solve_multi_case_${dim}`](input),
+    'certify object': (input: object) => wasm[`certify_multi_case_${dim}`](input),
+    'bundle export': (input: object) => wasm[`export_combination_bundle_${dim}`](JSON.stringify(input)),
+    'steel certificate': (input: object) => wasm[`certify_steel_multi_case_${dim}`](JSON.stringify({ multiCase: input, members: [] })),
+  };
+  it.skip.each(Object.entries(entries))(`known wrong result: #2588 — WASM ${dim} %s refuses an unsupported combination method`, (_name, run) => {
+    expect(run(request(combination))).toBeDefined();
+    expect(() => run(request({ ...combination, method: 'SRSS' }))).toThrow(/unknown field .method/);
+    expect(() => run(request({ ...combination, unexpected: null }))).toThrow(/unknown field .unexpected/);
+  });
+}

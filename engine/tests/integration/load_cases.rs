@@ -683,3 +683,31 @@ fn load_cases_3d_duplicate_case_name_errors() {
     assert!(err.contains("Dead") && err.contains("Duplicate"),
         "error should name the duplicated case: {}", err);
 }
+
+#[test]
+#[ignore = "known wrong result: #2588"]
+fn multi_case_2d_refuses_unsupported_combination_fields() {
+    let mut request = serde_json::json!({
+        "solver": make_beam_2d(),
+        "loadCases": [{"name": "D", "loads": []}],
+        "combinations": [{"name": "D", "factors": {"D": 1}}],
+    });
+    let input: MultiCaseInput = serde_json::from_str(&request.to_string()).unwrap();
+    assert_eq!(solve_multi_case_2d(&input).unwrap().combination_results[0].name, "D");
+    request["combinations"][0]["method"] = "SRSS".into();
+    assert!(serde_json::from_str::<MultiCaseInput>(&request.to_string()).unwrap_err().to_string().contains("unknown field `method`"));
+}
+
+#[test]
+#[ignore = "known wrong result: #2588"]
+fn multi_case_3d_refuses_unsupported_combination_fields() {
+    let mut request = serde_json::json!({
+        "solver": make_beam_3d(),
+        "loadCases": [{"name": "D", "loads": []}],
+        "combinations": [{"name": "D", "factors": {"D": 1}}],
+    });
+    let input: MultiCaseInput3D = serde_json::from_str(&request.to_string()).unwrap();
+    assert_eq!(solve_multi_case_3d(&input).unwrap().combination_results[0].name, "D");
+    request["combinations"][0]["method"] = "SRSS".into();
+    assert!(serde_json::from_str::<MultiCaseInput3D>(&request.to_string()).unwrap_err().to_string().contains("unknown field `method`"));
+}
