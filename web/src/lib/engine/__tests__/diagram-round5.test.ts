@@ -1,4 +1,5 @@
 import { memberForceExtrema } from '../member-force-extrema';
+import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../member-diagram';
 import { interpolateForces3D } from '../section-stress-3d';
 import { expect, it } from 'vitest';
 import { computeDiagramValueAt, computeElementDiagram, prepareDiagramValueAt } from '../diagrams';
@@ -491,7 +492,12 @@ it('known wrong result: #2437 selects the jump face from the supplied physical d
       for (const adjacent of [t - Number.EPSILON / 8, t, t + Number.EPSILON / 2]) {
         expect.soft(evaluateDiagramAt(ef, 'shearZ', { t: adjacent, distance })).toBe(left);
         expect.soft(prepared({ t: adjacent, distance, right: true })).toBe(3);
-        expect.soft(extractForcesAtStation(ef, { t: adjacent, distance }).vz).toBe(left);
+        const section = () => extractForcesAtStation(ef, { t: adjacent, distance });
+        if ('combined' in ef && ef.combined) {
+          expect.soft(section).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+        } else {
+          expect.soft(section().vz).toBe(left);
+        }
       }
       expect.soft(prepared(t + Number.EPSILON / 2)).toBe(3);
     }
