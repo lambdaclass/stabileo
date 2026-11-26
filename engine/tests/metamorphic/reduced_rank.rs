@@ -795,6 +795,67 @@ fn axial_joint_refusal_reports_admissible_displacement_components() {
 }
 
 #[test]
+#[ignore = "known wrong result: #2608"]
+fn kinematics_distinguishes_a_proven_mechanism_from_unknown_rank() {
+    use dedaliano_engine::solver::kinematic::{analyze_kinematics_2d, analyze_kinematics_3d};
+
+    let mut failures = Vec::new();
+    for (kind, witness) in [
+        ("frame", "a frame can swing about a released end"),
+        ("truss", "a translation of this joint leaves all attached trusses unstrained"),
+    ] {
+        for anchor_spring in [None, Some(1.0)] {
+            let mut input = truss();
+            let tip = input.nodes.get_mut("2").unwrap();
+            (tip.x, tip.z) = (3.0, 4.0);
+            let member = input.elements.get_mut("1").unwrap();
+            member.elem_type = kind.into();
+            member.hinge_start = kind == "frame";
+            if kind == "truss" {
+                let mut parallel = member.clone();
+                parallel.id = 2;
+                input.elements.insert("2".into(), parallel);
+            }
+            let mut tip_restraint = input.supports.remove("2").unwrap();
+            tip_restraint.support_type = "rollerX".into();
+            tip_restraint.ky = None;
+            if let Some(kx) = anchor_spring {
+                let anchor = input.supports.get_mut("1").unwrap();
+                anchor.support_type = "guidedX".into();
+                anchor.kx = Some(kx);
+            }
+
+            for restrained in [false, true] {
+                if restrained {
+                    input.supports.insert("2".into(), tip_restraint.clone());
+                }
+                let spatial = embed_2d(&input, Plane::XZ).unwrap();
+                for (dim, result) in [
+                    ("2D", analyze_kinematics_2d(&input)),
+                    ("3D", analyze_kinematics_3d(&spatial)),
+                ] {
+                    let expected = if restrained {
+                        result.is_solvable && result.kinematic_is_solvable && result.mechanism_modes == 0
+                    } else {
+                        result.classification == "hypostatic"
+                            && !result.is_solvable
+                            && !result.kinematic_is_solvable
+                            && result.mechanism_modes >= 1
+                            && result.mechanism_nodes.contains(&2)
+                            && ((dim == "2D" && kind == "frame")
+                                || (result.diagnosis.contains(RANK_REFUSAL) && result.diagnosis.contains(witness)))
+                    };
+                    if !expected {
+                        failures.push(format!("{dim} {kind}, anchor spring {anchor_spring:?}, restrained {restrained}: {result:?}"));
+                    }
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
 fn axial_joint_rank_does_not_depend_on_parallel_scatter() {
     let input = weak_parallel_trusses(1024);
     let base = Case2::new("parallel axial rows", input);

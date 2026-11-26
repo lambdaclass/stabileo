@@ -125,6 +125,34 @@ const codedRankError = error => {
     return diagnostic.code === 'reduced_stiffness_rank' && diagnostic.severity === 'error';
   } catch { return false; }
 };
+if (process.env.STABILEO_TEST_KNOWN_WRONG_2608) {
+  for (const kind of ['frame', 'truss']) {
+    const planar = structuredClone(truss);
+    Object.assign(planar.nodes[2], { x: 3, z: 4 });
+    Object.assign(planar.elements[1], { type: kind, hingeStart: kind === 'frame' });
+    if (kind === 'truss') planar.elements[2] = { ...planar.elements[1], id: 2 };
+    for (const dim of ['2d', '3d']) {
+      const model = dim === '2d' ? structuredClone(planar) : spatial(planar);
+      delete model.supports[2].ky;
+      for (const restrained of [false, true]) {
+        if (restrained) {
+          if (dim === '2d') model.supports[2].type = 'rollerX';
+          else model.supports[2].rz = true;
+        }
+        const result = JSON.parse(engine[`analyze_kinematics_${dim}`](JSON.stringify(model)));
+        const label = `${dim} ${kind}, restrained=${restrained}: ${JSON.stringify(result)}`;
+        if (result.isSolvable !== restrained || result.kinematicIsSolvable !== restrained) failures.push(label);
+        if (!restrained && (result.classification !== 'hypostatic' || result.mechanismModes < 1
+            || !result.mechanismNodes.includes(2)
+            || ((kind === 'truss' || dim === '3d') && !codedRankError(result.diagnosis)))) {
+          failures.push(label);
+        }
+      }
+    }
+  }
+  assert.deepEqual(failures, []);
+}
+
 const nonlinear = (analysis, dim, model) => JSON.parse(engine[`solve_${analysis}_${dim}`](JSON.stringify(model), 8, 1e-12, 1));
 
 for (const dim of ['2d', '3d']) {
