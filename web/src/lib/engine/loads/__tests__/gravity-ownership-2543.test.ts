@@ -424,10 +424,9 @@ it('#2607 refuses a supported pitched roof that crosses the bay inside the overl
   expect(() => snowDriftRefusal(model)).toThrow(reason);
 });
 
-const independentCoverRegression = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
 const siteSnow = { ...snow, enabled: true, source: 'site', roofKind: 'mono' } as const;
 
-independentCoverRegression.each([false, true])('known wrong result: #2607 a shell at bay elevation cannot certify full shelter (%s)', loadEveryPanel => {
+it.each([false, true])('#2607 a shell at bay elevation cannot certify full shelter (%s)', loadEveryPanel => {
   const model = supportedLocalBay(2.5);
   const gravity = { mode: 'panels', loadEveryPanel, tributaryWidth: 3 } as const;
   const key = 'loadPlan.gravity.mixedExposure';

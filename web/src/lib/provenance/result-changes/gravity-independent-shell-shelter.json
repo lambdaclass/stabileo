@@ -1,0 +1,35 @@
+{
+  "id": "gravity-independent-shell-shelter",
+  "date": "2026-11-26",
+  "prs": [2607],
+  "area": "loads",
+  "when": {
+    "all": ["generatedPanelGravityShells"]
+  },
+  "quantities": ["*", "solve.ok"],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Require positive clearance for independent shell cover",
+    "es": "Exigir separación positiva para la cobertura de láminas independientes",
+    "pt": "Exigir folga positiva para a cobertura por cascas independentes",
+    "de": "Positiven Abstand für die Überdeckung durch unabhängige Schalen verlangen",
+    "fr": "Exiger un dégagement positif sous une coque indépendante",
+    "hu": "Pozitív távolság szükséges a független héj alatti fedettséghez",
+    "tr": "Bağımsız kabuk örtüsü için pozitif açıklık gerektir",
+    "zh": "独立壳单元遮蔽需要正净距"
+  },
+  "explanation": {
+    "en": "Regenerate panel gravity and snow loads. An independently supported shell must clear the bay throughout their overlap to shelter it fully. If the generator reports mixed exposure, assign the roof and floor loads explicitly.",
+    "es": "Regenerá las cargas gravitatorias de paneles y de nieve. Una lámina con apoyos independientes debe quedar por encima del paño en toda la superposición para cubrirlo por completo. Si el generador indica exposición mixta, asigná explícitamente las cargas de techo y piso.",
+    "pt": "Gere novamente as cargas gravitacionais dos painéis e as cargas de neve. Uma casca com apoios independentes deve estar acima do painel em toda a sobreposição para cobri-lo por completo. Se o gerador indicar exposição mista, atribua explicitamente as cargas da cobertura e do piso.",
+    "de": "Erzeugen Sie die Schwerkraft- und Schneelasten der Felder neu. Eine unabhängig gelagerte Schale muss im gesamten Überlappungsbereich über dem Trägerfeld liegen, um es vollständig abzudecken. Meldet der Generator eine gemischte Exposition, weisen Sie Dach- und Deckenlasten ausdrücklich zu.",
+    "fr": "Régénérez les charges gravitaires des panneaux et les charges de neige. Une coque sur appuis indépendants doit rester au-dessus de la travée sur tout le recouvrement pour l’abriter entièrement. Si le générateur signale une exposition mixte, affectez explicitement les charges de toiture et de plancher.",
+    "hu": "Generálja újra a mezők gravitációs és hóterheit. A független megtámasztású héj akkor fedi le teljesen a mezőt, ha a teljes átfedésben fölötte van. Vegyes kitettségnél adja meg külön a tető- és födémterheket.",
+    "tr": "Panel yerçekimi ve kar yüklerini yeniden oluşturun. Bağımsız mesnetli bir kabuğun kirişi tamamen örtmesi için tüm örtüşme boyunca kiriş gözünün üzerinde kalması gerekir. Oluşturucu karma maruziyet bildirirse çatı ve döşeme yüklerini açıkça atayın.",
+    "zh": "请重新生成板格重力荷载和雪荷载。独立支承的壳单元只有在整个重叠范围内都高于梁格时才能完全遮蔽梁格。如果生成器报告混合暴露，请显式指定屋面和楼面荷载。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-independent-shell-shelter.md",
+    "heading": "Require positive clearance for independent shell cover"
+  }
+}

@@ -821,7 +821,8 @@ it('#2291 a detached sloped shell starting at bay level blocks gravity', () => {
 it('#2291 detached independently supported roof and bay both carry gravity', () => {
   for (const angle of [0, 0.37]) for (const cuts of [[], [0.25, 0.75]]) for (const loadEveryPanel of [false, true]) {
     const model = floor(1, 1, 10, 6);
-    const shell = rectangularShell(model, 1, 0, 10, 3, 6);
+    const clearance = 1 / 1024;
+    const shell = rectangularShell(model, 1, 0, 10, 3 + clearance, 6 + clearance);
     const supports = new Map([...model.nodes.keys()].map(id => [id, { id, nodeId: id, type: 'fixed3d' as const }]));
     model.supports = supports;
     subdivideMembers(model, cuts);

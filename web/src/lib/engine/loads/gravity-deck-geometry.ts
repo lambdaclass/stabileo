@@ -133,10 +133,13 @@ export function deckOverlaps(lower: DeckFootprint, upper: DeckFootprint) {
   });
 }
 
-export function deckOverlapsInBand(lower: DeckFootprint, upper: DeckFootprint, min: number, max: number) {
+export function deckOverlapsInBand(
+  lower: DeckFootprint, upper: DeckFootprint, min: number, max: number, lowerBound: 'closed' | 'open' = 'closed',
+) {
   if (deckRangeBand(lower.geometry, upper.geometry, min, max) === 'none') return [];
-  return deckOverlaps(lower, upper).flatMap(({ part, band, margin }) => {
-    const coverage = band(min, max);
+  return deckOverlaps(lower, upper).flatMap(({ part, band, margin, strictlyAbove }) => {
+    const inBand = band(min, max);
+    const coverage = inBand === 'full' && lowerBound === 'open' && !strictlyAbove(min) ? 'partial' : inBand;
     return coverage === 'none' ? [] : [{ part, coverage, margin }];
   });
 }

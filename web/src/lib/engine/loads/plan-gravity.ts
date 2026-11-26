@@ -2006,11 +2006,10 @@ function coverage(
     const compare = (upper: DeckFootprint) => deckOverlapsInBand(lower, upper, MIN_COVER_RISE, Infinity);
     for (const { deck: upper, shell } of areaCovers) {
       if (upper === lower || (shell && shell.id === ownShell)) continue;
-      if (isIndependentShell(lower, upper)) {
-        cover.push(...deckOverlaps(lower, upper).map(overlap => overlap.part));
-        continue;
-      }
-      for (const { part, coverage } of compare(upper)) {
+      const overlaps = isIndependentShell(lower, upper)
+        ? deckOverlapsInBand(lower, upper, 0, Infinity, 'open')
+        : compare(upper);
+      for (const { part, coverage } of overlaps) {
         if (coverage === 'full') cover.push(part);
         else partial = true;
       }
