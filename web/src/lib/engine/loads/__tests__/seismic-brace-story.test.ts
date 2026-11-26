@@ -2,6 +2,7 @@ import { expect, it } from 'vitest';
 import { bindRole } from '../../../codes/roles';
 import { buildLoadPlan, type LoadModelData, type SeismicPlanSink } from '../load-plan';
 import { INPRES103_SEISMIC } from '../../../codes/families/cirsoc';
+import { assessProject } from '../../../provenance/applicability';
 import { input } from './gravity-width-mass-fixture';
 
 function bracedFrame(): LoadModelData {
@@ -121,9 +122,7 @@ it('#2330 a connected X transfers inertia on each upper brace span', () => {
   }
 });
 
-const reviewSeismic = process.env.RUN_KNOWN_WRONG ? it : it.skip;
-
-reviewSeismic.each([false, true])('known wrong result: #2607 a crossed column keeps its story overturning (reversed: %s)', reversed => {
+it.each([false, true])('#2607 a crossed column keeps its story overturning (reversed: %s)', reversed => {
   const model = bracedFrame();
   model.nodes.set(6, { id: 6, x: 2, y: 0, z: 0 });
   model.nodes.set(7, { id: 7, x: 2, y: 0, z: 4 });
@@ -156,4 +155,17 @@ reviewSeismic.each([false, true])('known wrong result: #2607 a crossed column ke
     expect.soft(distributed).toEqual([]);
     expect.soft(nodal).toEqual([expect.objectContaining({ nodeId: 7, fx: force })]);
   }
+
+  const snapshot = {
+    nodes: [...model.nodes],
+    elements: [...model.elements],
+    supports: [...model.supports!],
+    loadCases: [{ id: 1, type: 'E' }],
+    loads: [{ type: 'nodal3d', data: { nodeId: 7, fx: force, caseId: 1, generatedBy: 'loadPlan' } }],
+  };
+  const changes = (saved: typeof snapshot) => assessProject(saved, undefined, '3d').changes.map(change => change.id);
+  const id = 'seismic-crossed-column-story-load';
+  expect(changes(snapshot)).toContain(id);
+  expect(changes({ ...snapshot, loads: [] })).not.toContain(id);
+  expect(changes({ ...snapshot, elements: snapshot.elements.filter(([id]) => id !== 1 && id !== 2) })).not.toContain(id);
 });

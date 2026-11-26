@@ -337,7 +337,7 @@ function seismicTopology(model: SeismicGeometry) {
 
   type Run = { atStory: Map<number, MassNode>; loading: 'story' | 'member' | 'unresolvedSlope' };
   const runs = new Map<number, Run>();
-  let connectedBraceCrossing = false;
+  let connectedBraceCrossing = false, crossedColumn = false;
   for (const [id, line] of geometry) {
     if (line.nodeI.z === line.nodeJ.z || runs.has(id)) continue;
     const run: Run = { atStory: new Map(), loading: 'story' };
@@ -362,21 +362,29 @@ function seismicTopology(model: SeismicGeometry) {
         if (!runs.has(nextId) && adjacent.nodeI.z !== adjacent.nodeJ.z) pending.push(adjacent);
       }
     }
+    if (low.x === high.x && low.y === high.y) {
+      crossedColumn ||= crossesBrace;
+      continue;
+    }
     if (gableMembers.has(id)) run.loading = 'member';
-    else if (crossesBrace || (low.z > component.elevation && (low.x !== high.x || low.y !== high.y))) {
+    else if (crossesBrace || low.z > component.elevation) {
       run.loading = evidenced.has(low.id) && evidenced.has(high.id) ? 'member' : 'unresolvedSlope';
       connectedBraceCrossing ||= crossesBrace && run.loading === 'member';
     }
   }
   return {
     nodes, geometry, surfaces, component, storyNodes, runs,
-    connectedBraceCrossing, supportedGable: gableMembers.size > 0,
+    connectedBraceCrossing, crossedColumn, supportedGable: gableMembers.size > 0,
   };
 }
 
 export function seismicRegenerationGeometry(model: SeismicGeometry) {
   const topology = seismicTopology(model);
-  return { connectedBraceCrossing: topology.connectedBraceCrossing === true, supportedGable: topology.supportedGable === true };
+  return {
+    connectedBraceCrossing: topology.connectedBraceCrossing === true,
+    crossedColumn: topology.crossedColumn === true,
+    supportedGable: topology.supportedGable === true,
+  };
 }
 
 export function buildSeismicModel(
