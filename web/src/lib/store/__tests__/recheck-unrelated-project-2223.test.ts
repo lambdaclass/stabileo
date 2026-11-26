@@ -12,6 +12,7 @@ import { RESULT_CHANGES } from '../../provenance/full-registry';
 import { RESULTS_VERSION } from '../../provenance/registry';
 import { stampSolve } from '../../provenance/solve-stamp';
 import { initSolver } from '../../engine/wasm-solver';
+import { t } from '../../i18n';
 import { deflateSync, inflateSync } from 'fflate';
 import '../index';
 
@@ -189,4 +190,79 @@ it('#2569 recheck keeps separate snow actions and zero factors out of the rankin
     const assessment = assessProject({ combinationRules: [rule] }, null, 'pro');
     expect(assessment.changes.map(change => change.id)).not.toContain(rankingNotice);
   }
+});
+
+it.skip.each(entries)('known wrong result: #2588 — %s recovers an inclined legacy XZ or YZ frame', async entry => {
+  await initSolver();
+  for (const plane of ['xz', 'yz'] as const) {
+    uiStore.analysisMode = '2d';
+    uiStore.drawPlane2D = plane;
+    modelStore.clear();
+    const root = modelStore.addNode(0, 0);
+    const tip = modelStore.addNode(plane === 'xz' ? 5 : 0, plane === 'yz' ? 5 : 0, 3);
+    modelStore.addElement(root, tip, 'frame');
+    modelStore.addSupport(root, 'fixed');
+    modelStore.addNodalLoad3D(tip, 0, 0, -10, 0, 0, 0, 1);
+    modelStore.addCombination('D', [{ caseId: 1, factor: 1 }]);
+    const file = buildProjectFile();
+    const reference = modelStore.solve(false, plane);
+    expect(reference).toMatchObject({ displacements: expect.arrayContaining([
+      expect.objectContaining({ nodeId: tip, uz: expect.any(Number) }),
+    ]) });
+
+    uiStore.drawPlane2D = 'xy';
+    open(entry, { ...file, snapshot: { ...file.snapshot, drawPlane2D: undefined } });
+    expect.soft(uiStore.analysisMode).toBe('2d');
+    expect.soft(uiStore.drawPlane2D).toBe(plane);
+    expect.soft(modelStore.solve()).toEqual(reference);
+    expect.soft(await modelStore.solveAsync()).toEqual(reference);
+    const input = modelStore.buildSolverInput();
+    expect.soft(input?.nodes.get(tip)).toMatchObject({ x: 5, z: 3 });
+    const combinations = modelStore.solveCombinations();
+    expect.soft(combinations && typeof combinations !== 'string' && combinations.perCase.get(1)?.displacements)
+      .toEqual(reference && typeof reference !== 'string' && reference.displacements);
+  }
+});
+
+it.skip.each(['file', 'share'] as const)('known wrong result: #2588 — %s blocks an ambiguous plane until selected', async entry => {
+  await initSolver();
+  uiStore.analysisMode = '2d';
+  uiStore.drawPlane2D = 'xy';
+  const root = modelStore.addNode(0, 0);
+  const tip = modelStore.addNode(5, 1, 3);
+  modelStore.addElement(root, tip, 'frame');
+  modelStore.addSupport(root, 'fixed');
+  modelStore.addNodalLoad3D(tip, 10, 0, 0, 0, 0, 0, 1);
+  const reference = modelStore.solve(false, 'xy');
+  expect(reference).toMatchObject({ displacements: expect.any(Array) });
+  const file = buildProjectFile();
+  open(entry, { ...file, snapshot: { ...file.snapshot, drawPlane2D: undefined } });
+
+  expect.soft(uiStore.analysisMode).toBe('2d');
+  expect.soft(buildProjectFile().snapshot.drawPlane2D).toBeUndefined();
+  expect.soft(modelStore.solve(false, 'xy')).toBe(t('svc.savedPlaneRequired'));
+  expect.soft(await modelStore.solveAsync(false, 'xy')).toBe(t('svc.savedPlaneRequired'));
+  expect.soft(modelStore.solveCombinations(false, 'xy')).toBe(t('svc.savedPlaneRequired'));
+  expect.soft(() => modelStore.buildSolverInput(false, 'xy')).toThrow(t('svc.savedPlaneRequired'));
+
+  uiStore.drawPlane2D = 'xy';
+  expect(modelStore.solve()).toEqual(reference);
+  expect(buildProjectFile().snapshot.drawPlane2D).toBe('xy');
+});
+
+it.skip.each(['xz', 'yz'] as const)('known wrong result: #2588 — a global load resolves an otherwise ambiguous %s frame', async plane => {
+  await initSolver();
+  uiStore.analysisMode = '2d';
+  uiStore.drawPlane2D = plane;
+  const root = modelStore.addNode(0, 0);
+  const tip = modelStore.addNode(plane === 'xz' ? 5 : 0, plane === 'yz' ? 5 : 0);
+  modelStore.addElement(root, tip, 'frame');
+  modelStore.addSupport(root, 'fixed');
+  modelStore.addNodalLoad3D(tip, 0, 0, -10, 0, 0, 0, 1);
+  const reference = modelStore.solve(false, plane);
+  expect(reference).toMatchObject({ displacements: expect.any(Array) });
+  const file = buildProjectFile();
+  open('file', { ...file, snapshot: { ...file.snapshot, drawPlane2D: undefined } });
+  expect.soft(uiStore.drawPlane2D).toBe(plane);
+  expect(modelStore.solve()).toEqual(reference);
 });

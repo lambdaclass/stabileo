@@ -572,6 +572,20 @@ describe('which registered changes concern a model', () => {
     expect(ids(model({ loads }), previous)).toEqual([]);
   });
 
+  it.skip.each(['2d', '3d'] as const)('known wrong result: #2588 — %s does not mistake the support tuple key for missing structural input', analysisMode => {
+    const change = 'malformed-structural-input';
+    const type = analysisMode === '2d' ? 'fixed' : 'fixed3d';
+    const snapshot = model({
+      analysisMode,
+      nodes: [node(1, 0), node(2, 5)],
+      elements: [member(1, 1, 'frame')],
+      supports: [[1, { nodeId: 1, type }]],
+    });
+    expect.soft(ids(snapshot)).not.toContain(change);
+    expect.soft(ids({ ...snapshot, supports: [[1, { nodeId: 1, type, kx: 'invalid' }]] })).toContain(change);
+    expect(ids({ ...snapshot, supports: [[1, { nodeId: 1, type, id: null }]] as never })).toContain(change);
+  });
+
   it('tells a truss-only model with a support spring about the orphan-rotation fix, and not one without', () => {
     const v32 = { resultsVersion: 32, analyses: ['linear'] } as SolveStamp;
     const springs = [[1, { nodeId: 1, type: 'fixed3d' }], [2, { nodeId: 2, type: 'spring3d', krz: 1e-13 }]] as never;

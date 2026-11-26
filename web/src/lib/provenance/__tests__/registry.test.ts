@@ -217,3 +217,9 @@ it('finds both malformed-input changes under PR 2588', () => {
   const changes = RESULT_CHANGES.changes.filter(change => change.prs?.includes(2588)).map(change => change.id);
   expect(changes).toEqual(expect.arrayContaining(['malformed-authored-loads', 'malformed-structural-input']));
 });
+
+it.skip('known wrong result: #2588 — registers added load validation separately from the released change', () => {
+  const entries = RESULT_CHANGES.changes;
+  expect.soft(entries.find(change => change.id === 'malformed-authored-loads')?.prs).toEqual([]);
+  expect(entries.find(change => change.id === 'authored-load-validation')?.prs).toEqual([2588]);
+});

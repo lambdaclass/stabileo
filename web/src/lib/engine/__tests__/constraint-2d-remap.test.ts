@@ -7,10 +7,13 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { constraintsTo2D } from '../constraint-2d-remap';
+import { constraintsInXZ, constraintsTo2D } from '../constraint-2d-remap';
 import { initSolver } from '../wasm-solver';
 import { validateAndSolve2D } from '../solver-service';
 import type { ModelData } from '../solver-service';
+import { modelStore } from '../../store/model.svelte';
+import { uiStore } from '../../store/ui.svelte';
+import type { LinearMpcConstraint } from '../types-3d';
 
 describe('constraintsTo2D mapping', () => {
   it('maps in-plane dof indices 0/2/4 → 0/1/2 and drops out-of-plane 1/3/5', () => {
@@ -113,4 +116,51 @@ describe('UI-authored 3D constraints survive the real 2D wire', () => {
     expect(typeof result).not.toBe('string');
     expect(result).toBeTruthy();
   });
+});
+
+it.skip.each([
+  { plane: 'xy', horizontal: 0, normal: 5, orthogonal: 3, mappedOrthogonal: 3 },
+  { plane: 'yz', horizontal: 1, normal: 3, orthogonal: 4, mappedOrthogonal: 3 },
+] as const)('known wrong result: #2588 — $plane reflects axial MPC coefficients and preserves signed displacement', async ({
+  plane, horizontal, normal, orthogonal, mappedOrthogonal,
+}) => {
+  await initSolver();
+  uiStore.analysisMode = '2d';
+  uiStore.drawPlane2D = plane;
+  modelStore.clear();
+  try {
+    const span = 5;
+    const root = modelStore.addNode(0, 0);
+    const tip = modelStore.addNode(plane === 'xy' ? span : 0, plane === 'yz' ? span : 0);
+    modelStore.addElement(root, tip, 'frame');
+    modelStore.addSupport(root, 'fixed');
+    modelStore.addNodalLoad3D(tip, 0, 0, 0, plane === 'yz' ? 10 : 0, 0, plane === 'xy' ? 10 : 0);
+    const mpc: LinearMpcConstraint = {
+      type: 'linearMPC', terms: [
+        { nodeId: tip, dof: horizontal, coefficient: 1 },
+        { nodeId: tip, dof: normal, coefficient: -span },
+      ],
+    };
+    const spatial: LinearMpcConstraint = {
+      ...mpc, terms: [...mpc.terms, { nodeId: tip, dof: orthogonal, coefficient: 2 }],
+    };
+    expect.soft(constraintsInXZ(plane, [spatial])).toEqual([{
+      type: 'linearMPC', terms: [
+        { nodeId: tip, dof: 0, coefficient: 1 },
+        { nodeId: tip, dof: 4, coefficient: span },
+        { nodeId: tip, dof: mappedOrthogonal, coefficient: -2 },
+      ],
+    }]);
+    modelStore.addConstraint(mpc);
+    for (const result of [modelStore.solve(false, plane), await modelStore.solveAsync(false, plane)]) {
+      if (!result || typeof result === 'string') throw new Error(String(result));
+      const displacement = result.displacements.find(d => d.nodeId === tip)!;
+      expect.soft(displacement.ux).toBeGreaterThan(0);
+      expect.soft(displacement.ry).toBeGreaterThan(0);
+      expect.soft(displacement.ux / displacement.ry).toBeCloseTo(span, 12);
+    }
+  } finally {
+    uiStore.drawPlane2D = 'xy';
+    modelStore.clear();
+  }
 });
