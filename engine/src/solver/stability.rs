@@ -1192,7 +1192,7 @@ fn analyze_with_magnitudes(
     if without_zeros {
         match scaled_for_bound(k, &groups, &group_of, &columns) {
             Scaled::Sparse(sparse, full) => {
-                fast = fast_sparse_bound(&sparse, &Rc::new(symbolic_cholesky(&sparse)), anisotropy, amplification);
+                fast = fast_sparse_bound_with_floor(&sparse, &Rc::new(symbolic_cholesky(&sparse)), anisotropy, amplification);
                 kept = full;
             }
             Scaled::AsItWas(full) => {
@@ -1205,13 +1205,21 @@ fn analyze_with_magnitudes(
         let coupled = coupled_free(k, free, &own, &columns, &groups, &group_of, kappa, releases);
         coupled.is_empty() && free.iter().all(|direction| direction.coupling.is_empty())
     };
-    let fast = fast.filter(|&kappa| certified(kappa, &mut free));
+    let fast = fast.filter(|&(kappa, _)| certified(kappa, &mut free));
+    let follows = |floor: f64| !rank_factorization_asked() && rank_follows_from_bound(k, support_magnitude, &groups, &columns, floor);
+    let resolved = |kappa, free| Stability { verdict: Verdict::Stable, reason: Reason::Resolved, kappa, anisotropy, free, mode_nodes: Vec::new() };
+    if let Some((kappa, _)) = fast.filter(|&(_, floor)| follows(floor)) {
+        debug_assert!(resolves_rank(k, support_magnitude, &scaled(k, &groups, &group_of, &columns), &groups, &group_of, &columns, None), "the rank the bound implies is not resolved");
+        return resolved(kappa, free);
+    }
     let s = kept.unwrap_or_else(|| scaled(k, &groups, &group_of, &columns));
     let symbolic = (m > FULL_SPECTRUM || projected_rounding.is_some()).then(|| Rc::new(symbolic_cholesky(&s)));
     if projected_rounding.as_ref().is_some_and(|bound| !bound.resolved(&s, symbolic.as_ref().unwrap())) {
         return Stability { verdict: Verdict::Singular, reason: Reason::ConstraintRounding, kappa: f64::INFINITY, anisotropy, free, mode_nodes: tags.iter().map(|t| t.node).collect() };
     }
     let verify_rank = |kappa, free| {
+        #[cfg(test)]
+        tests::RANK_FACTORIZATIONS.with(|count| count.set(count.get() + 1));
         let (verdict, reason) = if resolves_rank(k, support_magnitude, &s, &groups, &group_of, &columns, symbolic.as_ref()) {
             (Verdict::Stable, Reason::Resolved)
         } else {
@@ -1219,11 +1227,15 @@ fn analyze_with_magnitudes(
         };
         Stability { verdict, reason, kappa, anisotropy, free, mode_nodes: Vec::new() }
     };
-    if let Some(kappa) = fast {
+    if let Some((kappa, _)) = fast {
         return verify_rank(kappa, free);
     }
-    if let Some(kappa) = symbolic.as_ref().filter(|_| !without_zeros && m > FULL_SPECTRUM).and_then(|sym| fast_sparse_bound(&s, sym, anisotropy, amplification)) {
+    if let Some((kappa, floor)) = symbolic.as_ref().filter(|_| !without_zeros && m > FULL_SPECTRUM).and_then(|sym| fast_sparse_bound_with_floor(&s, sym, anisotropy, amplification)) {
         if certified(kappa, &mut free) {
+            if follows(floor) {
+                debug_assert!(resolves_rank(k, support_magnitude, &s, &groups, &group_of, &columns, symbolic.as_ref()), "the rank the bound implies is not resolved");
+                return resolved(kappa, free);
+            }
             return verify_rank(kappa, free);
         }
     }
@@ -1281,6 +1293,50 @@ fn resolves_rank(
         }
     };
     numeric_cholesky(symbolic, &shifted).is_some()
+}
+
+/// The share of the floor of a certified bound that the largest margin of `resolves_rank` may
+/// reach for its factorization to be left out.
+const RANK_FLOOR_SHARE: f64 = 0.5;
+
+/// Whether the matrix `resolves_rank` factorizes is known positive definite without factorizing
+/// it, from `S - floor I` having been factorized: it is that matrix plus a diagonal with no
+/// negative entry when no margin is over `floor`. The margins are bounded from above, rounding
+/// up, as the row sums of the envelope without building it, and asked to stay under
+/// `RANK_FLOOR_SHARE` of the floor.
+fn rank_follows_from_bound(
+    physical: &CscMatrix, support_magnitude: Option<&CscMatrix>, groups: &[((usize, DofKind), Vec<usize>)], columns: &[Column], floor: f64,
+) -> bool {
+    use super::load_work::{add_up, mul_up};
+    let magnitude = support_magnitude.unwrap_or(physical);
+    if magnitude.n != physical.n { return false; }
+    let mut reach = vec![0.0; magnitude.n];
+    for column in columns {
+        for (weight, &dof) in column.w.iter().zip(&groups[column.group].1) {
+            reach[dof] = add_up(reach[dof], weight.abs());
+        }
+    }
+    let mut sums = vec![0.0; magnitude.n];
+    for j in 0..magnitude.n {
+        for p in magnitude.col_ptr[j]..magnitude.col_ptr[j + 1] {
+            let i = magnitude.row_idx[p];
+            let value = magnitude.values[p].abs();
+            sums[i] = add_up(sums[i], mul_up(value, reach[j]));
+            if i != j { sums[j] = add_up(sums[j], mul_up(value, reach[i])); }
+        }
+    }
+    columns.iter().all(|column| {
+        let row = column.w.iter().zip(&groups[column.group].1).fold(0.0, |row, (weight, &dof)| add_up(row, mul_up(weight.abs(), sums[dof])));
+        let margin = mul_up(ROUNDING * f64::EPSILON, row);
+        margin.is_finite() && margin <= RANK_FLOOR_SHARE * floor
+    })
+}
+
+fn rank_factorization_asked() -> bool {
+    #[cfg(test)]
+    return tests::RANK_FACTORIZED.with(|always| always.get());
+    #[cfg(not(test))]
+    false
 }
 
 pub(super) fn absolute_stiffness(k: &CscMatrix) -> CscMatrix {
@@ -1780,7 +1836,14 @@ fn row_sums_bound_the_top(s: &CscMatrix, largest_row_sum: f64, diagonals: usize)
     diagonals == s.n && s.n <= ROW_SUM_BOUND_ORDER && largest_row_sum > ROW_SUM_BOUND_SCALE
 }
 
+#[cfg(test)]
 fn fast_sparse_bound(s: &CscMatrix, sym: &Rc<SymbolicCholesky>, anisotropy: f64, amplification: f64) -> Option<f64> {
+    fast_sparse_bound_with_floor(s, sym, anisotropy, amplification).map(|(kappa, _)| kappa)
+}
+
+/// The bound on the condition number and the `lower` it was certified with: `S - lower I` was
+/// factorized.
+fn fast_sparse_bound_with_floor(s: &CscMatrix, sym: &Rc<SymbolicCholesky>, anisotropy: f64, amplification: f64) -> Option<(f64, f64)> {
     let mut rows = vec![0.0; s.n];
     let mut diagonals = 0;
     let mut finite = true;
@@ -1806,7 +1869,7 @@ fn fast_sparse_bound(s: &CscMatrix, sym: &Rc<SymbolicCholesky>, anisotropy: f64,
             return None;
         }
         if !*below_upper.get_or_insert_with(|| bounded || positive_definite(s, sym, -1.0, upper)) { return None; }
-        if positive_definite(s, sym, 1.0, -lower) { return Some(kappa); }
+        if positive_definite(s, sym, 1.0, -lower) { return Some((kappa, lower)); }
     }
     None
 }
@@ -2299,6 +2362,8 @@ mod tests {
         pub(super) static LANCZOS_RUNS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static DEFINITENESS_FACTORIZATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static STORED_ZEROS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+        pub(super) static RANK_FACTORIZED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+        pub(super) static RANK_FACTORIZATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static ALONG_AXES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static IDENTITY_ROTATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static EIGENVALUE_DECOMPOSITIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
@@ -3319,7 +3384,9 @@ mod tests {
         out
     }
 
-    fn scaled_of(k: &CscMatrix, tags: &[DofTag]) -> (CscMatrix, CscMatrix, bool) {
+    type Projection = (Vec<((usize, DofKind), Vec<usize>)>, Vec<(usize, usize)>, Vec<Column>);
+
+    fn projection(k: &CscMatrix, tags: &[DofTag]) -> Projection {
         let mut groups: BTreeMap<(usize, DofKind), Vec<usize>> = BTreeMap::new();
         for (i, t) in tags.iter().enumerate() { groups.entry((t.node, t.kind)).or_default().push(i); }
         let groups: Vec<((usize, DofKind), Vec<usize>)> = groups.into_iter().collect();
@@ -3335,6 +3402,11 @@ mod tests {
                 columns.push(Column { group: g, w: (0..b).map(|r| vecs[r * b + c] / mu[c].sqrt()).collect() });
             }
         }
+        (groups, group_of, columns)
+    }
+
+    fn scaled_of(k: &CscMatrix, tags: &[DofTag]) -> (CscMatrix, CscMatrix, bool) {
+        let (groups, group_of, columns) = projection(k, tags);
         let full = scaled(k, &groups, &group_of, &columns);
         match scaled_for_bound(k, &groups, &group_of, &columns) {
             Scaled::Sparse(sparse, kept) => (sparse, full, kept.is_none()),
@@ -3416,4 +3488,66 @@ mod tests {
         assert_eq!(stored.kappa.to_bits(), unresolved.kappa.to_bits());
     }
 
+    fn off_diagonals_times(k: &CscMatrix, factor: f64) -> CscMatrix {
+        let mut magnitude = absolute_stiffness(k);
+        for j in 0..k.n {
+            for p in k.col_ptr[j]..k.col_ptr[j + 1] {
+                if k.row_idx[p] != j { magnitude.values[p] *= factor; }
+            }
+        }
+        magnitude
+    }
+
+    #[test]
+    fn the_margins_bounded_without_the_envelope_are_never_under_its_row_sums() {
+        for (ground, shear, skew) in [(1.0, 1.0, 0.0), (1e-3, 0.3, 0.25), (2.0, 1e-4, 0.5)] {
+            let (k, tags) = spring_grid(7, ground, shear, skew);
+            let (groups, group_of, columns) = projection(&k, &tags);
+            let weights: Vec<_> = columns.iter().map(|column| Column { group: column.group, w: column.w.iter().map(|w| w.abs()).collect() }).collect();
+            for magnitude in [None, Some(off_diagonals_times(&k, 1e6))] {
+                let envelope = scaled(magnitude.as_ref().unwrap_or(&absolute_stiffness(&k)), &groups, &group_of, &weights);
+                let largest = envelope.sym_mat_vec(&vec![ROUNDING * f64::EPSILON; envelope.n]).into_iter().fold(0.0, f64::max);
+                let floor = largest / RANK_FLOOR_SHARE;
+                let follows = |floor: f64| rank_follows_from_bound(&k, magnitude.as_ref(), &groups, &columns, floor);
+                assert!(!follows(floor * (1.0 - 1e-9)), "a margin over its share of the floor passed, skew {skew}");
+                assert!(follows(floor * (1.0 + 1e-9)), "the bound on the margins is loose, skew {skew}");
+            }
+        }
+    }
+
+    #[test]
+    fn the_rank_a_certified_bound_implies_is_answered_without_its_factorization() {
+        let (k, tags) = spring_grid(9, 1.0, 1.0, 0.0);
+        let run = |magnitude: Option<&CscMatrix>| {
+            RANK_FACTORIZATIONS.with(|count| count.set(0));
+            let out = analyze_with_magnitudes(&k, &tags, &[], &[], None, magnitude, &ReleasedRotations::default());
+            ((out.verdict, out.reason, out.kappa.to_bits()), RANK_FACTORIZATIONS.with(|count| count.get()))
+        };
+        let factorized = |magnitude: Option<&CscMatrix>| {
+            RANK_FACTORIZED.with(|always| always.set(true));
+            let out = run(magnitude);
+            RANK_FACTORIZED.with(|always| always.set(false));
+            out
+        };
+        let (plain, count) = run(None);
+        assert_eq!(((plain.0, plain.1), count), ((Verdict::Stable, Reason::Resolved), 0));
+        assert_eq!(with_stored_zeros(|| run(None)), (plain, 0), "the bound on the matrix with its zeros implies it too");
+        assert_eq!(factorized(None), (plain, 1));
+        assert_eq!(with_stored_zeros(|| factorized(None)), (plain, 1));
+
+        let (mut implied, mut resolved, mut refused) = (0, 0, 0);
+        for exponent in 0..=15 {
+            let magnitude = off_diagonals_times(&k, 10f64.powi(exponent));
+            let (now, count) = run(Some(&magnitude));
+            assert_eq!(factorized(Some(&magnitude)), (now, 1), "inflated by 1e{exponent}");
+            assert_eq!(with_stored_zeros(|| run(Some(&magnitude))), (now, count), "inflated by 1e{exponent}");
+            match (now.0, count) {
+                (Verdict::Stable, 0) => implied += 1,
+                (Verdict::Stable, 1) => resolved += 1,
+                (Verdict::Singular, 1) => refused += 1,
+                other => panic!("inflated by 1e{exponent}: {other:?}"),
+            }
+        }
+        assert!(implied > 0 && resolved > 0 && refused > 0, "{implied} implied, {resolved} resolved by factorizing, {refused} refused");
+    }
 }
