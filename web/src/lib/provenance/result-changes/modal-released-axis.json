@@ -1,0 +1,34 @@
+{
+  "id": "modal-released-axis",
+  "date": "2026-11-25",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "allOf": [["space3D"], ["hinges"], ["analysis:modal", "analysis:spectral", "seismic"]]
+  },
+  "quantities": ["solve.ok", "modal", "spectral"],
+  "title": {
+    "en": "Spatial modal spectra with released end rotations",
+    "es": "Espectros modales espaciales con giros liberados en los extremos",
+    "pt": "Espectros modais espaciais com rotações liberadas nas extremidades",
+    "de": "Räumliche Modalspektren bei freigegebenen Endverdrehungen",
+    "fr": "Spectres modaux spatiaux avec rotations libérées aux extrémités",
+    "hu": "Térbeli modális spektrumok felszabadított végelfordulásokkal",
+    "tr": "Uç dönmeleri serbest bırakılmış uzaysal modal spektrumlar",
+    "zh": "存在端部转动释放时的空间模态频谱"
+  },
+  "explanation": {
+    "en": "Spatial modal analysis can recover finite modes when an isolated released end rotation has no stiffness or inertia. Re-run affected modal analyses and dependent response spectra.",
+    "es": "El análisis modal espacial puede recuperar modos finitos cuando un giro de extremo liberado y aislado carece de rigidez e inercia. Repita los análisis modales afectados y los espectros de respuesta que dependen de ellos.",
+    "pt": "A análise modal espacial pode recuperar modos finitos quando uma rotação de extremidade liberada e isolada não tem rigidez nem inércia. Refaça as análises modais afetadas e os espectros de resposta que delas dependem.",
+    "de": "Die räumliche Modalanalyse kann endliche Moden bestimmen, wenn eine isolierte freigegebene Endverdrehung weder Steifigkeit noch Trägheit besitzt. Berechnen Sie betroffene Modalanalysen und abhängige Antwortspektren erneut.",
+    "fr": "L’analyse modale spatiale peut retrouver les modes finis lorsqu’une rotation d’extrémité libérée et isolée est dépourvue de raideur et d’inertie. Relancez les analyses modales concernées et les spectres de réponse qui en dépendent.",
+    "hu": "A térbeli modális vizsgálat meghatározhatja a véges módusokat, ha egy elszigetelt, felszabadított végelforduláshoz sem merevség, sem tehetetlenség nem tartozik. Futtassa újra az érintett modális vizsgálatokat és a belőlük számított válaszspektrumokat.",
+    "tr": "Uzaysal modal analiz, yalıtılmış bir serbest uç dönmesinde rijitlik ve atalet yoksa sonlu modları hesaplayabilir. Etkilenen modal analizleri ve bunlara bağlı tepki spektrumlarını yeniden hesaplayın.",
+    "zh": "孤立的端部转动释放方向同时没有刚度和惯性时，空间模态分析可以求得有限模态。请重新计算受影响的模态分析和依赖这些结果的反应谱。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-modal-released-axis.md",
+    "heading": "Spatial modal spectra with released end rotations"
+  }
+}

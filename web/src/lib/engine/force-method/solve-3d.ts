@@ -248,6 +248,9 @@ function kffNullity(d: DSMStepData): number {
 
 export function solveForceMethod3D(input: SolverInput3D): ForceMethodResult {
   requireCableAnalysis(input.elements.values());
+  if (input.loads.some(l => l.type === 'pointOnElement' && l.data.px && input.elements.get(l.data.elementId)?.type === 'truss')) {
+    throw new ForceMethodError('axialTrussPoint3d');
+  }
   let base: DSMStepData;
   try { base = solveDetailed3D(input); } catch { throw new ForceMethodError('hypostatic'); }
   if (base.nullModes.length > 0) throw new ForceMethodError('unstable', base.nullModes);

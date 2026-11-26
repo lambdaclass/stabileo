@@ -1,0 +1,39 @@
+{
+  "id": "conditional-elastic-equilibration",
+  "date": "2026-11-26",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "analysis:linear",
+      "strongElasticModulusContrast"
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Conditional elastic response recovery in scaled coordinates",
+    "es": "Recuperación de la respuesta elástica condicional en coordenadas escaladas",
+    "pt": "Recuperação da resposta elástica condicional em coordenadas escalonadas",
+    "de": "Bedingt zugelassene elastische Antwort in skalierten Koordinaten",
+    "fr": "Calcul de la réponse élastique sous conditions en coordonnées mises à l’échelle",
+    "hu": "Feltételes rugalmas válasz számítása skálázott koordinátákban",
+    "tr": "Ölçeklenmiş koordinatlarda koşullu elastik yanıtın hesaplanması",
+    "zh": "在缩放坐标中恢复有条件通过的弹性响应"
+  },
+  "explanation": {
+    "en": "The solver refines conditionally admitted elastic responses in scaled coordinates. Re-run affected analyses previously refused for response accuracy.",
+    "es": "El solver refina en coordenadas escaladas las respuestas elásticas admitidas condicionalmente. Repita los análisis afectados que se rechazaron por precisión de respuesta.",
+    "pt": "O solver refina em coordenadas escalonadas as respostas elásticas admitidas condicionalmente. Refaça as análises afetadas que foram recusadas por precisão da resposta.",
+    "de": "Der Solver verfeinert bedingt zugelassene elastische Antworten in skalierten Koordinaten. Wiederholen Sie betroffene Analysen, die wegen der Antwortgenauigkeit abgelehnt wurden.",
+    "fr": "Le solveur affine en coordonnées mises à l’échelle les réponses élastiques admises sous conditions. Relancez les analyses concernées qui ont été refusées pour précision insuffisante de la réponse.",
+    "hu": "A megoldó skálázott koordinátákban pontosítja a feltételesen befogadott rugalmas válaszokat. Futtassa újra az érintett elemzéseket, ha a válasz pontossága miatt elutasítást kapott.",
+    "tr": "Çözücü, koşullu kabul edilen elastik yanıtları ölçeklenmiş koordinatlarda iyileştirir. Yanıt doğruluğu nedeniyle reddedilen ilgili analizleri yeniden çalıştırın.",
+    "zh": "求解器在缩放坐标中细化有条件通过的弹性响应。请重新运行此前因响应精度而被拒绝的受影响分析。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-conditional-elastic-equilibration.md",
+    "heading": "Conditional elastic response recovery in scaled coordinates"
+  }
+}

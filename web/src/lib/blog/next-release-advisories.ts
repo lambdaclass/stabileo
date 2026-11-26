@@ -20,6 +20,8 @@ const nextReleaseAdvisories = [
   'SA-2026-124-scoped-self-weight.md',
   'SA-2026-125-shared-rigid-support-degree.md',
   'SA-2026-126-repeated-load-combination-terms.md',
+  'SA-2026-127-unmeshed-wall-slab-junctions.md',
+  'SA-2026-128-sign-reversing-member-loads.md',
 ];
 
 export function nextReleaseAdvisoryBlocks(status: string, linkText: string): Block[] {

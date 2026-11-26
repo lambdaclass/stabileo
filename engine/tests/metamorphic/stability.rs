@@ -121,7 +121,8 @@ fn same(a: &Stability, b: &Stability) -> Result<(), String> {
 
 
 const REFUSED: &[u32] = &[964, 965, 966, 967, 968, 1008, 1028, 1083, 1091, 1095, 1103, 1112, 1353, 1355, 1359, 1362, 1648, 1651];
-const CONDITIONAL_REFS: &[u32] = &[973, 993, 1029, 1041, 1115, 1357, 1653];
+const CONDITIONAL_REFS: &[u32] = &[993, 1115, 1357, 1653];
+const PROVEN_MECHANISMS: &[u32] = &[973, 1029, 1041];
 const SOLVED: &[u32] = &[954, 956, 960, 994, 1086, 1097, 1101, 1102, 1116, 1117, 1118, 1216, 1265];
 const STABLE_PENDING: &[u32] = &[972, 1099, 1647];
 const RELEASE_STABLE: &[u32] = &[1090, 1106, 1193, 1351, 1352, 1635];
@@ -179,7 +180,7 @@ fn replay_as(issue: u32, analysis_override: Option<&str>) -> (Stability, crate::
 
 #[test]
 fn every_c08_reproducer_is_either_solved_identically_or_refused_by_the_verdict() {
-    let listed: std::collections::BTreeSet<u32> = REFUSED.iter().chain(SOLVED).chain(STABLE_PENDING).chain(RELEASE_STABLE).chain(CONDITIONAL_REFS).copied().collect();
+    let listed: std::collections::BTreeSet<u32> = REFUSED.iter().chain(SOLVED).chain(STABLE_PENDING).chain(RELEASE_STABLE).chain(CONDITIONAL_REFS).chain(PROVEN_MECHANISMS).copied().collect();
     assert_eq!(listed, C08.iter().map(|c| c.0).collect(), "every C08 issue is classified once");
     let mut wrong = Vec::new();
     for &issue in REFUSED {
@@ -204,6 +205,29 @@ fn every_c08_reproducer_is_either_solved_identically_or_refused_by_the_verdict()
         if !v.is_stable() { wrong.push(format!("#{issue} listed stable: {} {:?}", summary(&Ok(v.clone())), v.reason)); }
     }
     assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+}
+
+fn assert_c08_proven_elastic_mechanism(issue: u32, nodes: &[usize]) {
+    let (verdict, _) = replay(issue);
+    assert_eq!(verdict.verdict, Verdict::Mechanism, "#{issue}: {verdict:?}");
+    assert_eq!(verdict.reason, Reason::FreeTranslation, "#{issue}: {verdict:?}");
+    assert_eq!(verdict.mode_nodes, nodes, "#{issue}: {verdict:?}");
+    assert!(verdict.refusal().is_some(), "#{issue}: {verdict:?}");
+}
+
+#[test]
+fn issue_973_elastic_verdict_proves_released_member_swing() {
+    assert_c08_proven_elastic_mechanism(973, &[2]);
+}
+
+#[test]
+fn issue_1029_elastic_verdict_proves_pinned_frame_swing() {
+    assert_c08_proven_elastic_mechanism(1029, &[2]);
+}
+
+#[test]
+fn issue_1041_elastic_verdict_proves_pinned_frame_swing() {
+    assert_c08_proven_elastic_mechanism(1041, &[2]);
 }
 
 #[test]

@@ -24,6 +24,7 @@
   import { toQ, unitQ } from '../../lib/store/display-units.svelte';
   import { downloadText } from '../../lib/store/file';
   import { errorText } from '../../lib/utils/error-text';
+  import { localizeEngineText } from '../../lib/i18n/engine-text';
   import { toCsv } from '../../lib/engine/result-tables';
   import { isVariableMember } from '../../lib/section/variable';
   import { getPredefinedTrains } from '../../lib/engine/moving-loads';
@@ -126,16 +127,18 @@
     // The train alone, on the unloaded structure (`movingLoadBase3D`): no settlement, no load case's
     // cut or imposed displacement. The project's axis convention, as the other solves use it.
     let base: ReturnType<typeof movingLoadBase3D>;
+    let path: ReturnType<typeof buildPath3D>;
+    let raw2: ReturnType<typeof buildPath3D>;
     try {
       base = movingLoadBase3D(modelStore.model as never, uiStore.axisConvention3D === 'leftHand');
+      if (!base) { error = t('moving.noModel'); return; }
+      path = buildPath3D(base, pathIds);
+      raw2 = path2Ids.length ? buildPath3D(base, path2Ids) : null;
     } catch (e) {
       // What the builder refuses (a semi-rigid end it cannot model) is said, not thrown past the panel.
-      error = errorText(e, t('pro.unknownError')); return;
+      error = localizeEngineText(errorText(e, t('pro.unknownError'))); return;
     }
-    if (!base) { error = t('moving.noModel'); return; }
-    const path = buildPath3D(base, pathIds);
     if (!path) { error = t('moving.notAChain'); return; }
-    const raw2 = path2Ids.length ? buildPath3D(base, path2Ids) : null;
     if (path2Ids.length && !raw2) { error = t('moving.notAChain'); return; }
     // The second line run the first one's way, and what does not match it said.
     const line2 = raw2 ? alignSecondLine(base.nodes, path, raw2, gauge) : null;
@@ -156,7 +159,7 @@
       else if (disposition) notes = [...notes, ...disposition.messages];
       if (result) resultProvenance = provenance(result);
     } catch (e) {
-      error = e instanceof DOMException && e.name === 'AbortError' ? t('train.analysisCancelled') : errorText(e, t('pro.unknownError'));
+      error = e instanceof DOMException && e.name === 'AbortError' ? t('train.analysisCancelled') : localizeEngineText(errorText(e, t('pro.unknownError')));
     } finally {
       running = false; controller = null;
     }

@@ -279,6 +279,9 @@ fn solve_arc_length_contained(
         Some(start) => start_displacements_2d(solver, start, &dof_num)?,
         None => vec![0.0; n],
     };
+    if u_full.iter().all(|&u| u == 0.0) {
+        crate::solver::stability::refuse_axial_tips_2d(solver, &dof_num, cs.as_ref(), std::iter::empty())?;
+    }
     let loads =
         PlanarLoadPath::continuation(solver, start.map(|start| start.input), &dof_num, &its);
     let f_ref_full = loads.reference().forces();
