@@ -6,19 +6,82 @@
  * `rcSheets` read them from there until they are stated anew.
  */
 import type { SheetCode, TorsionMode } from './types';
+import { CRITERION, readCriteria, type CriteriaValues } from './criteria';
+
+export type DeflectionSupport = 'none' | 'nonFragile' | 'fragile';
+export const DEFLECTION_SUPPORTS: readonly DeflectionSupport[] = ['none', 'nonFragile', 'fragile'];
+export type LoadMonths = 3 | 6 | 12 | 60;
+export const LOAD_MONTHS: readonly LoadMonths[] = [3, 6, 12, 60];
+
+/** What the design data say of deflections: what the members carry, how long the sustained load lasts, its share of the live load, the creep coefficient (EN 1992) and whether to calculate even where the depth spares it. */
+export interface DeflectionSettings {
+  supports?: DeflectionSupport;
+  months?: LoadMonths;
+  /** Share of the live load that is sustained, 0 to 1. */
+  sustained?: number;
+  /** φ(∞, t0) of EN 1992-1-1 §3.1.4. */
+  creep?: number;
+  always?: true;
+}
 
 export type DesignOptionFlag = 'faces' | 'flange' | 'bentBars' | 'slabBentBars' | 'seismic';
 export const DESIGN_OPTION_FLAGS: readonly DesignOptionFlag[] = ['faces', 'flange', 'bentBars', 'slabBentBars', 'seismic'];
 
-/** Each flag on when true; torsion by equilibrium when absent. */
-export type DesignOptions = { torsion?: TorsionMode } & Partial<Record<DesignOptionFlag, true>>;
+/**
+ * What a row with no arrangement for its section and concrete may be offered: a stronger concrete
+ * (`raiseFc` false: never), up to `fcMax` MPa, among `fcClasses` (the code's classes when absent).
+ */
+export interface AlternativeOptions { raiseFc?: false; fcMax?: number; fcClasses?: number[] }
 
-export type DesignOptionKey = DesignOptionFlag | 'torsion' | 'endZones' | 'minTieSpacing';
+/** The classes an alternative may take after one is ticked or unticked: null for all of them; unchanged (`refused`) where the last one would go. */
+export function acceptedClassesAfter(all: readonly number[], accepted: readonly number[] | undefined, fc: number, on: boolean): { refused: true } | { refused: false; fcClasses: number[] | null } {
+  const has = (x: number) => !accepted?.length || accepted.some((y) => Math.abs(y - x) < 0.05);
+  const now = all.filter((k) => (Math.abs(k - fc) < 0.05 ? on : has(k)));
+  if (!now.length) return { refused: true };
+  return { refused: false, fcClasses: now.length === all.length ? null : now };
+}
+
+/** Each flag on when true; torsion by equilibrium when absent; the deflection settings at their defaults when absent (`deflection.ts`); the Stabileo criteria the project states (`criteria.ts`). */
+export type DesignOptions = { torsion?: TorsionMode; deflection?: DeflectionSettings; alternatives?: AlternativeOptions; criteria?: CriteriaValues } & Partial<Record<DesignOptionFlag, true>>;
+
+export type DesignOptionKey = DesignOptionFlag | 'torsion' | 'endZones' | 'minTieSpacing' | 'deflection' | 'creep' | 'months' | 'aggregate' | 'alternatives';
+
+/** The deflection settings a stored shape states, each kept only when valid; undefined when none is. */
+export function readDeflectionSettings(x: unknown): DeflectionSettings | undefined {
+  if (!x || typeof x !== 'object') return undefined;
+  const o = x as Record<string, unknown>;
+  const num = (v: unknown, lo: number, hi: number) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+  const out: DeflectionSettings = {
+    ...(DEFLECTION_SUPPORTS.includes(o.supports as never) ? { supports: o.supports as DeflectionSettings['supports'] } : {}),
+    ...(LOAD_MONTHS.includes(o.months as never) ? { months: o.months as DeflectionSettings['months'] } : {}),
+    ...(num(o.sustained, 0, 1) ? { sustained: o.sustained as number } : {}),
+    ...(num(o.creep, 0, 6) ? { creep: o.creep as number } : {}),
+    ...(o.always === true ? { always: true as const } : {}),
+  };
+  return Object.keys(out).length ? out : undefined;
+}
 
 const flagsOf = (o: Record<string, unknown>, torsion: (x: unknown) => boolean): DesignOptions => ({
   ...(torsion(o.torsion) ? { torsion: o.torsion as TorsionMode } : {}),
   ...Object.fromEntries(DESIGN_OPTION_FLAGS.filter((k) => o[k] === true).map((k) => [k, true])),
+  ...((d) => (d ? { deflection: d } : {}))(readDeflectionSettings(o.deflection)),
+  ...((a) => (a ? { alternatives: a } : {}))(alternativesOf(o.alternatives)),
+  ...((c) => (c ? { criteria: c } : {}))(readCriteria(o.criteria)),
 });
+
+const strength = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x) && x >= 10 && x <= 120;
+
+function alternativesOf(raw: unknown): AlternativeOptions | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  const classes = Array.isArray(o.fcClasses) ? [...new Set(o.fcClasses.filter(strength))].sort((p, q) => p - q) : [];
+  const out: AlternativeOptions = {
+    ...(o.raiseFc === false ? { raiseFc: false as const } : {}),
+    ...(strength(o.fcMax) ? { fcMax: o.fcMax } : {}),
+    ...(classes.length ? { fcClasses: classes } : {}),
+  };
+  return Object.keys(out).length ? out : undefined;
+}
 
 /** The options a stored shape states: its own `designOptions`, else those an older project kept under `rcSheets`; undefined when none. */
 export function migrateDesignOptions(own: unknown, legacy: unknown): DesignOptions | undefined {
@@ -36,11 +99,16 @@ const RULES: Record<DesignOptionKey, Partial<Record<Family, string>> & { off?: P
   torsion: { cirsoc: '§22.7.3', aci: '§22.7.3', ec2: '6.3.1(2)', ts500: '8.2' },
   faces: { cirsoc: '§9.4.3.2', aci: '§9.4.3.2', ec2: '5.3.2.2(3), 6.2.1(8)' },
   flange: { cirsoc: 'Tabla 6.3.2.1', aci: 'Table 6.3.2.1', ec2: '5.3.2.1' },
-  bentBars: { cirsoc: '§9.7.3; FIUBA §11.4', aci: '§9.7.3', ec2: '9.2.1.3' },
-  slabBentBars: { cirsoc: '§8.7.4; FIUBA §13.1', aci: '§8.7.4', ec2: '9.3.1.2' },
+  bentBars: { cirsoc: `§9.7.3; ${CRITERION}`, aci: '§9.7.3', ec2: '9.2.1.3' },
+  slabBentBars: { cirsoc: `§8.7.4; ${CRITERION}`, aci: '§8.7.4', ec2: '9.3.1.2' },
   endZones: { cirsoc: '§25.7.2.1', aci: '§25.7.2.1', ts500: '7.4.1', off: { ec2: 'designData.opt.off.endZonesEc2' } },
   seismic: { cirsoc: 'Cap. 18', aci: 'Chapter 18', off: { ec2: 'designData.opt.off.seismic', ts500: 'designData.opt.off.seismic' } },
   minTieSpacing: { cirsoc: '§25.7.2.1(a)', aci: '§25.7.2.1(a)', ec2: '8.2(2)', ts500: '7.4.1' },
+  deflection: { cirsoc: '§24.2, Tabla 24.2.2, Tabla 24.2.4.1.3', aci: '§24.2, Table 24.2.2, Table 24.2.4.1.3', ec2: '7.4.1, 7.4.3', ts500: '13.2' },
+  months: { cirsoc: 'Tabla 24.2.4.1.3', aci: 'Table 24.2.4.1.3', off: { ec2: 'designData.opt.off.months', ts500: 'designData.opt.off.monthsTs500' } },
+  creep: { ec2: '3.1.4, 7.4.3(5)', off: { cirsoc: 'designData.opt.off.creep', aci: 'designData.opt.off.creep', ts500: 'designData.opt.off.creep' } },
+  aggregate: { cirsoc: '§25.2.1, §25.2.3', aci: '§25.2.1, §25.2.3', ec2: '8.2(2)', off: { ts500: 'designData.opt.off.aggregateTs500' } },
+  alternatives: { cirsoc: `§19.2; ${CRITERION}`, aci: '§19.2', ec2: 'Table 3.1', ts500: 'Table 3.1' },
 };
 
 const CODE_NAME: Record<SheetCode, string> = { 'cirsoc201-2025': 'CIRSOC 201-2025', 'aci318-19': 'ACI 318-19', 'en1992-1-1': 'EN 1992-1-1', 'bs-en1992-1-1': 'BS EN 1992-1-1', 'ts500-2000': 'TS 500' };

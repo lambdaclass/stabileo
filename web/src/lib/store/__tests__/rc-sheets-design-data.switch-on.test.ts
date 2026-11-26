@@ -4,7 +4,6 @@
  * date, and proposals adopted under the old data are proposed again.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
-import { readFileSync } from 'node:fs';
 import { modelStore } from '../model.svelte';
 import { resultsStore } from '../results.svelte';
 import { uiStore } from '../ui.svelte';
@@ -15,7 +14,6 @@ import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
 import { ensurePhysicalModel } from '../plates-from-shells';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
-import { deserializeProject } from '../file';
 import { adoptAll, buildSheetRows, rcSheetsData, setAdopted, setColumnEndZones, setRcOption, setSheetCode, setTorsionMode, type SheetRows } from '../rc-sheets.svelte';
 import { designSheets, sheetsStale } from '../rc-sheets-view.svelte';
 import { sheetCoverShortfalls } from '../rc-sheets-covers';
@@ -109,10 +107,12 @@ describe('the project\'s design data in the sheets', () => {
     expect(after.beam[0]!.req.bottom).toBeLessThan(before.beam[0]!.req.bottom);
   });
 
-  it('stirrupDiaMm: the beams take the default stirrup', () => {
+  it('stirrupDiametersMm: the beams start from Ø8 where it is allowed, else from the nearest allowed above it, and a stated starting stirrup is no longer read', () => {
     frame();
     expect(lineStirrups(buildSheetRows()).every((s) => s.dia === 8)).toBe(true);
-    patchDesignData({ stirrupDiaMm: 10 });
+    patchDesignData({ stirrupDiaMm: 10 } as never);
+    expect(lineStirrups(buildSheetRows()).every((s) => s.dia === 8)).toBe(true);
+    patchDesignData({ stirrupDiametersMm: [6, 10, 12] });
     expect(lineStirrups(buildSheetRows()).every((s) => s.dia === 10)).toBe(true);
   });
 
@@ -209,25 +209,16 @@ describe('the project\'s design data in the sheets', () => {
     expect(after.every((r) => r.status !== 'fail')).toBe(true);
   });
 
-  it('wallBarDiaMm and stirrupDiametersMm: a wall\'s bars and the ties its detail draws', async () => {
+  it('wallDiametersMm and stirrupDiametersMm: a wall\'s bars come from its list and the ties its detail draws from theirs', async () => {
     wall();
     const { wallDetail } = await import('../../rc-sheets/wall-detail');
-    expect(buildSheetRows().wall[0]!.adopted.vertical.diameter).toBe(12);
-    patchDesignData({ wallBarDiaMm: 10, stirrupDiametersMm: [10, 12] });
+    expect([8, 10, 12, 16]).toContain(buildSheetRows().wall[0]!.adopted.vertical.diameter);
+    patchDesignData({ wallDiametersMm: [16], stirrupDiametersMm: [10, 12] });
     const w = buildSheetRows().wall[0]!;
-    expect(w.adopted.vertical.diameter).toBe(10);
+    expect(w.adopted.vertical.diameter).toBe(16);
+    expect(w.adopted.horizontal.diameter).toBe(16);
     const det = wallDetail(w, 'cirsoc201-2025');
     for (const d of [det.boundary?.ties?.dia, det.crossTies?.dia]) if (d !== undefined) expect(d).toBeGreaterThanOrEqual(10);
-  });
-
-  it('longDiametersMm: the footings\' mats take their bars from the list within Ø10 to Ø25', () => {
-    expect(deserializeProject(readFileSync(new URL('../../export/__fixtures__/rc-footing-cad-poc.ded.json', import.meta.url), 'utf8'))).toBe(true);
-    uiStore.analysisMode = 'pro';
-    solve();
-    patchDesignData({ longDiametersMm: [16, 32] });
-    const rows = buildSheetRows().footing;
-    expect(rows.length).toBeGreaterThan(0);
-    expect(rows.every((r) => [r.adopted.x.dia, r.adopted.y.dia].every((d) => d === 0 || d === 16))).toBe(true);
   });
 
   it('a change of any of them leaves the rows out of date, and proposes again what was adopted from a proposal', async () => {

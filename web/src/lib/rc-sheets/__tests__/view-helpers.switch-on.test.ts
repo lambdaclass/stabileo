@@ -25,6 +25,15 @@ describe('what the sheets draw', () => {
     expect(4 - p.at[p.at.length - 1]!).toBeGreaterThanOrEqual(0.086 - 1e-9);
   });
 
+  it('thins a slab layer by a gap on the drawing, the same for equal spacings over any span', () => {
+    const long = layerPositions(10, 0.1, 0.03, Infinity, 0.28), short = layerPositions(2, 0.1, 0.03, Infinity, 0.28);
+    expect(long.every).toBe(3);
+    expect(short.every).toBe(long.every);
+    expect(long.at[1]! - long.at[0]!).toBeCloseTo(short.at[1]! - short.at[0]!, 9);
+    expect(layerPositions(10, 0.3, 0.03, Infinity, 0.28).every).toBe(1);
+    expect(layerPositions(4, 0.2, 0.086, 5).every).toBe(Math.ceil(layerPositions(4, 0.2, 0.086).n / 5));
+  });
+
   it('writes values in the locale\'s decimal mark as well as formulas, clauses left alone', () => {
     expect(localizeDecimals('φMn = 12.35 kN·m (§9.7.3.5)', true)).toBe('φMn = 12,35 kN·m (§9.7.3.5)');
     expect(localizeDecimals('0.85 · 1.05', false)).toBe('0.85 · 1.05');

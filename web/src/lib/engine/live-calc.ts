@@ -354,6 +354,7 @@ async function globalSolve(options: { directBase?: boolean }, run: { latest: () 
       uiStore.toast(error, 'error');
       return { ok: false, error };
     }
+    if (p.stale?.length) uiStore.toast(tp('plates.analysisStale', { names: p.stale.join(', ') }), 'info', undefined, true);
     if (p.meshed > 0) {
       const kept = physicalPlates().length - p.meshed;
       uiStore.toast(tp(kept > 0 ? 'plates.meshedAtAnalysisKept' : 'plates.meshedAtAnalysis', { n: p.meshed, cells: p.cells, kept }), 'info');

@@ -14,6 +14,7 @@
  * beyond what the row's shear check leaves room for.
  */
 import { roundDown } from './bars';
+import { layoutDias } from './column-layout';
 import type { ColumnRow } from './column-row';
 import type { Fmt } from './format';
 import { check, type CheckLine, type SheetCode } from './types';
@@ -59,8 +60,7 @@ export function columnTieLayout(row: ColumnRow, code: SheetCode, opts: { endZone
   const clear = Math.max(0.1, row.demand.lu);
   const jointBottom = row.demand.joints?.bottom ?? 0, jointTop = row.demand.joints?.top ?? 0;
   const s = Math.max(0.025, a.tieSpacing);
-  const thinnest = Math.min(a.corner, a.nx > 0 ? a.dx : 99, a.ny > 0 ? a.dy : 99);
-  const longest = Math.max(a.corner, a.nx > 0 ? a.dx : 0, a.ny > 0 ? a.dy : 0);
+  const thinnest = Math.min(...layoutDias(a)), longest = Math.max(...layoutDias(a));
   const fam = family(code);
   const zones: TieZone[] = [];
   const notes: TieNote[] = [];
@@ -87,7 +87,10 @@ export function columnTieLayout(row: ColumnRow, code: SheetCode, opts: { endZone
     const lo = Math.min(row.confinement.lo, clear / 2);
     middle(Math.min(0.006 * thinnest, 0.15, row.checks.tieMax), '§18.7.5.5', '§22.5');
     zones.push({ kind: 'end', from: 0, to: lo, spacing: s, clause: '§18.7.5.1, §18.7.5.3', confined: true }, { kind: 'end', from: clear - lo, to: clear, spacing: s, clause: '§18.7.5.1, §18.7.5.3', confined: true });
-    if (row.lap) {
+    if (row.lap && row.confinement.lapAtFloor) {
+      lap = { from: 0, to: Math.min(row.lap.length, clear), fits: row.lap.length <= clear + 1e-6 };
+      zones.push({ kind: 'lap', from: lap.from, to: lap.to, spacing: s, clause: '§18.14.3' });
+    } else if (row.lap) {
       const l = Math.min(row.lap.length, clear / 2);
       lap = { from: clear / 2 - l / 2, to: clear / 2 + l / 2, fits: row.lap.length <= clear / 2 + 1e-6 };
       zones.push({ kind: 'lap', from: lap.from, to: lap.to, spacing: s, clause: '§18.7.4.3' });
@@ -175,15 +178,16 @@ export function tieSegments(layout: ColumnTieLayout): TieZone[] {
 export function lapFit(row: ColumnRow, code: SheetCode, fmt: Fmt): CheckLine | null {
   if (!row.lap) return null;
   const fam = family(code), clear = Math.max(0.1, row.demand.lu);
-  const middle = fam === 'aci' && !!row.confinement;
+  const middle = fam === 'aci' && !!row.confinement && !row.confinement.lapAtFloor;
   const room = middle ? clear / 2 : clear;
   const clause = fam === 'aci' ? (middle ? '§18.7.4.3' : row.lap.tension ? '§25.5.2' : '§25.5.5.1') : fam === 'ec2' ? '8.7.3' : '9.3';
   return check('rcSheets.v.colLapFit', row.lap.length <= room + 1e-6, { clause, demand: `${fmt(row.lap.length * 100, 0)} cm`, capacity: `≤ ${fmt(room * 100, 0)} cm`, ratio: row.lap.length / room });
 }
 
-/** A column row with its lap's room checked: one that does not fit fails the row. */
+/** A column row with its lap's room checked (one that does not fit fails the row) and where the lap starts over the joint below. */
 export function withLapFit(row: ColumnRow, code: SheetCode, fmt: Fmt): ColumnRow {
   const v = lapFit(row, code, fmt);
-  if (!v) return row;
-  return { ...row, verifications: [...row.verifications, v], ...(v.ok ? {} : { status: 'fail' as const, checks: { ...row.checks, ok: false } }) };
+  if (!v || !row.lap) return row;
+  const lap = { ...row.lap, from: columnTieLayout(row, code).lap?.from ?? 0 };
+  return { ...row, lap, verifications: [...row.verifications, v], ...(v.ok ? {} : { status: 'fail' as const, checks: { ...row.checks, ok: false } }) };
 }

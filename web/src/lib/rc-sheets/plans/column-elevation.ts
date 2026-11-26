@@ -1,6 +1,6 @@
 /**
  * A column storey's drawings to scale: the elevation with the joints below and above, the bars
- * (and those lapped from below), every tie where `columnTieLayout` places it, the clear height,
+ * standing at the faces and those from below cranked in beside them over the lap, every tie where `columnTieLayout` places it, the clear height,
  * the lap and each tie zone dimensioned; the section; and the storey's bar schedule. The same
  * layout the workspace's elevation draws, at true width.
  *
@@ -10,6 +10,7 @@ import type { DrawingInput } from '../../sheets/compose';
 import type { Primitive } from '../../sheets/primitives';
 import { columnLabel, crosstiesText, tieLabel, type ColumnRow } from '../column-row';
 import { columnTieLayout, tieSegments, tiesIn } from '../column-ties';
+import { CRANK_SLOPE, lapOffset } from '../column-stack';
 import { columnSection, type ColumnSectionOptions } from '../drawing';
 import { legLengths } from '../shape';
 import { rulesFor } from '../codes';
@@ -29,17 +30,23 @@ export function columnElevationPrimitives(row: ColumnRow, o: ColumnPlanOptions):
   const s = o.scale, a = row.adopted, layout = columnTieLayout(row, o.code, { endZones: o.endZones });
   const b = row.b * K, clear = layout.clear * K, jb = layout.jointBottom * K, jt = layout.jointTop * K, top = clear + jt;
   const ps: Primitive[] = [rect(HORM, 0, 0, b, clear)];
-  if (jt > 0) ps.push(rect(HORM, -STUB, clear, b + STUB, top));
-  if (jb > 0) ps.push(rect(HORM, -STUB, -jb, b + STUB, 0));
   const inset = row.cover * K + a.tieDia + a.corner / 2, long = arm('LONG', a.corner);
   const bars = [inset, b - inset];
+  const step = row.step && !row.step.dowels ? row.step.offset * K : 0, lapIn = (lapOffset(a.corner, a.corner) * K) / Math.SQRT2;
+  const by = row.step?.dowels ? 0 : step + lapIn, crank = by / CRANK_SLOPE;
+  if (jt > 0) ps.push(rect(HORM, -STUB, clear, b + STUB, top));
+  if (jb > 0) ps.push(rect(HORM, -STUB, -jb, b + STUB, 0));
   if (layout.lap) {
-    const lf = layout.lap.from * K, lt = layout.lap.to * K;
+    const lf = layout.lap.from * K, lt = layout.lap.to * K, end = step > 0 ? 0 : lf, bottom = -jb;
     bars.forEach((x, i) => {
-      const inward = (i ? -1 : 1) * a.corner;
-      ps.push(seg(long, pt(x, -jb), pt(x, lt), a.corner), seg(long, pt(x + inward, lf), pt(x + inward, top), a.corner));
+      const inward = i ? -1 : 1, lapped = x + inward * lapIn, low = lapped - inward * by;
+      ps.push(seg(long, pt(low, bottom), pt(low, end - crank), a.corner), ...(by > 0 ? [seg(long, pt(low, end - crank), pt(lapped, end), a.corner)] : []), seg(long, pt(lapped, end), pt(lapped, lt), a.corner));
+      ps.push(seg(long, pt(x, lf), pt(x, top), a.corner));
     });
     ps.push(dim(pt(inset, lf), pt(inset, lt), 3, o.tr('rcSheets.elev.lapLength', { l: cm(o.fmt, layout.lap.to - layout.lap.from) })));
+    const note = row.step ? o.tr(row.step.dowels ? 'rcSheets.elev.dowels' : 'rcSheets.elev.crank', { off: o.fmt(row.step.offset * 100, 1) })
+      : o.tr('rcSheets.elev.lapCrank', { off: o.fmt(lapIn * Math.SQRT2 / 10, 1) });
+    ps.push(label(pt(b / 2, bottom / 2), note, 2.2));
   } else for (const x of bars) ps.push(seg(long, pt(x, -jb), pt(x, top), a.corner));
   for (let i = 0; i < a.nx; i++) {
     const x = inset + ((i + 1) * (b - 2 * inset)) / (a.nx + 1);
@@ -73,7 +80,7 @@ export function columnSectionMarks(row: ColumnRow, all: readonly ColumnRow[], o:
 
 /** The section a storey's sheets and workspace draw: lo's crossties under chapter 18, the schedule's marks, the code's hooks. */
 export const columnSectionOf = (row: ColumnRow, all: readonly ColumnRow[], o: Pick<ColumnPlanOptions, 'code' | 'endZones'>) =>
-  columnSection(row.b, row.h, row.cover, row.adopted, { confined: !!row.confinement, bends: rulesFor(o.code).bends, marks: columnSectionMarks(row, all, o) });
+  columnSection(row.b, row.h, row.cover, row.adopted, { confined: !!row.confinement, bends: rulesFor(o.code).bends, marks: columnSectionMarks(row, all, o), aggregate: row.aggregate });
 
 export function columnPlans(row: ColumnRow, all: readonly ColumnRow[], o: ColumnPlanOptions): DrawingInput[] {
   const drawing = columnSectionOf(row, all, o);

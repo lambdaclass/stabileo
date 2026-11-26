@@ -5,7 +5,7 @@
  * rc-design-visual.spec.ts and are non-blocking on this first landing.
  */
 
-import { test, expect, loadModel, solveModel, computeDemands, designPlace, sizeAll, stateSuiteCovers } from './fixtures';
+import { test, expect, loadModel, solveModel, computeDemands, designPlace, sizeAll, stateSuiteCovers, setLateralBeams } from './fixtures';
 
 const QA = 'rc-design-qa-8';
 const FLAGSHIP = 'rc-design-frame';
@@ -251,7 +251,7 @@ test.describe('@smoke RC design workflow', () => {
     expect(undeclared, 'undeclared, every beam anchors with the concurrent compression').toEqual([]);
 
     await designPlace(page, 'designData');
-    await page.getByTestId('design-data-lateral-beams').selectOption('gravity');
+    await setLateralBeams(page, 'gravity');
     const runBefore = await page.evaluate(() => window.__stabileo.designRunId());
     await page.evaluate(() => window.__stabileoActions.designAll());
     await expect.poll(() => page.evaluate(() => window.__stabileo.designRunId())).not.toBe(runBefore);

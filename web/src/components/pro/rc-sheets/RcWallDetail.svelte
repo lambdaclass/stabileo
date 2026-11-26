@@ -2,7 +2,7 @@
   /** A wall's bars in elevation and in a horizontal cut, as `rc-sheets/wall-detail.ts` lays them out, each kind switched on and off on its own. */
   import { t, tp, i18n } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
-  import { wallDetail, wallLevels } from '../../../lib/rc-sheets/wall-detail';
+  import { columnTag, wallDetail, wallLevels } from '../../../lib/rc-sheets/wall-detail';
   import type { WallRow } from '../../../lib/rc-sheets/wall-row';
   import type { SheetCode } from '../../../lib/rc-sheets/types';
 
@@ -10,6 +10,7 @@
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   const d = $derived(wallDetail(row, code));
   let on = $state({ vertical: true, horizontal: true, ends: true, ties: true });
+  const uid = $props.id();
 
   const EW = 380, EH = 230, PAD = 26, MAXLINES = 70;
   const ke = $derived(Math.min((EW - 2 * PAD) / Math.max(d.length, 0.1), (EH - 2 * PAD) / Math.max(row.height, 0.1)));
@@ -21,18 +22,34 @@
   const tieLevels = $derived(d.boundary?.ties ? levels(row.height, d.boundary.ties.spacing) : []);
   const crossGrid = $derived(d.crossTies ? { xs: levels(d.length, d.crossTies.along), ys: levels(row.height, d.crossTies.up) } : null);
 
-  const PW = 380, PAD2 = 18;
-  const kx = $derived((PW - 2 * PAD2) / Math.max(d.length, 0.1));
-  // The thickness drawn at least 60 px, so both curtains and the U-bars stay apart.
-  const ky = $derived(Math.max(kx, 60 / Math.max(d.thickness, 0.05)));
-  const PH = $derived(d.thickness * ky + 2 * PAD2 + 12);
-  const PX = (x: number) => PAD2 + x * kx, PY = (y: number) => PAD2 + y * ky;
+  const PW = 380, PAD2 = 18, TOP = 14, MIN_T_PX = 36, DETAIL_H = 150;
+  type View = { id: string; k: number; wx0: number; wx1: number; clip: boolean };
+  const ext = $derived(d.columns.flatMap((c) => c.outline));
+  const x0 = $derived(Math.min(0, ...ext.map((p) => p.x))), x1 = $derived(Math.max(d.length, ...ext.map((p) => p.x)));
+  const y0 = $derived(Math.min(0, ...ext.map((p) => p.y))), y1 = $derived(Math.max(d.thickness, ...ext.map((p) => p.y)));
+  const overview = $derived<View>({ id: 'all', k: (PW - 2 * PAD2) / Math.max(x1 - x0, 0.1), wx0: x0, wx1: x1, clip: false });
   const uLeg = $derived(Math.min(d.ends.lap, d.length / 2));
-  const ubar = (end: 0 | 1) => {
+  const details = $derived.by<View[]>(() => {
+    if (d.thickness * overview.k >= MIN_T_PX) return [];
+    const spans = d.columns.length
+      ? d.columns.map((c) => [Math.min(...c.outline.map((p) => p.x)), Math.max(...c.outline.map((p) => p.x))] as const)
+      : [[0, Math.max(d.boundary?.length ?? 0, uLeg, d.cover)] as const];
+    return spans.map(([a, b], i) => {
+      const wx0 = Math.max(x0, a - 0.3), wx1 = Math.min(x1, b + 0.3);
+      return { id: `d${i}`, k: Math.min((PW - 2 * PAD2) / Math.max(wx1 - wx0, 0.1), DETAIL_H / Math.max(y1 - y0, 0.05)), wx0, wx1, clip: true };
+    }).filter((v) => v.k > overview.k * 1.3);
+  });
+  const zoneX = (c: (typeof d.columns)[number]) => { const xs = c.outline.map((p) => Math.min(d.length, Math.max(0, p.x))); return [Math.min(...xs), Math.max(...xs)] as const; };
+  const W = (v: View) => (v.wx1 - v.wx0) * v.k + 2 * PAD2;
+  const H = (v: View) => (y1 - y0) * v.k + 2 * PAD2 + TOP;
+  const X = (v: View, x: number) => PAD2 + (x - v.wx0) * v.k, Y = (v: View, y: number) => PAD2 + TOP + (y - y0) * v.k;
+  const R = (v: View, dia: number) => Math.max(1.5, (dia / 2000) * v.k);
+  const pts = (v: View, ps: ReadonlyArray<{ x: number; y: number }>) => ps.map((p) => `${X(v, p.x)},${Y(v, p.y)}`).join(' ');
+  const ubar = (v: View, end: 0 | 1) => {
     if (d.horizontals.y.length < 2) return '';
-    const [ya, yb] = [PY(d.horizontals.y[0]!) + 2, PY(d.horizontals.y[1]!) - 2];
-    const xe = end === 0 ? PX(d.cover + d.horizontals.dia / 2000) + 2 : PX(d.length - d.cover - d.horizontals.dia / 2000) - 2;
-    const xl = end === 0 ? PX(uLeg) : PX(d.length - uLeg);
+    const [ya, yb] = [Y(v, d.horizontals.y[0]!), Y(v, d.horizontals.y[1]!)];
+    const xe = end === 0 ? X(v, d.cover + d.horizontals.dia / 2000) : X(v, d.length - d.cover - d.horizontals.dia / 2000);
+    const xl = end === 0 ? X(v, uLeg) : X(v, d.length - uLeg);
     const r = Math.min(6, (yb - ya) / 2);
     const dir = end === 0 ? 1 : -1;
     return `M ${xl} ${ya} L ${xe + dir * r} ${ya} Q ${xe} ${ya} ${xe} ${ya + r} L ${xe} ${yb - r} Q ${xe} ${yb} ${xe + dir * r} ${yb} L ${xl} ${yb}`;
@@ -58,6 +75,10 @@
       <rect x={EX(0)} y={PAD} width={d.boundary.length * ke} height={eh} class="zone" />
       <rect x={EX(d.length - d.boundary.length)} y={PAD} width={d.boundary.length * ke} height={eh} class="zone" />
     {/if}
+    {#each d.columns as c (c.key)}
+      {@const [a, b] = zoneX(c)}
+      <rect x={EX(a)} y={PAD} width={(b - a) * ke} height={eh} class="col" data-testid="rc-wall-elev-column" />
+    {/each}
     {#if on.vertical}
       <g class="v" data-testid="rc-wall-elev-vertical">
         {#each face as v, i (i)}<line x1={EX(v.x)} y1={EY(0)} x2={EX(v.x)} y2={EY(row.height)} class:bnd={v.boundary} />{/each}
@@ -93,47 +114,69 @@
     <text x={PAD - 9} y={PAD + eh / 2} class="dim" transform="rotate(-90 {PAD - 9} {PAD + eh / 2})">hw = {fmt(row.height, 2)} m</text>
   </svg>
 
-  <svg viewBox="0 0 {PW} {PH}" width={PW} height={PH} role="img" aria-label={t('rcSheets.wallFig.plan')} data-testid="rc-wall-plan">
-    <rect x={PX(0)} y={PY(0)} width={d.length * kx} height={d.thickness * ky} class="conc" />
-    {#if d.boundary}
-      <rect x={PX(0)} y={PY(0)} width={d.boundary.length * kx} height={d.thickness * ky} class="zone" />
-      <rect x={PX(d.length - d.boundary.length)} y={PY(0)} width={d.boundary.length * kx} height={d.thickness * ky} class="zone" />
-    {/if}
-    {#if on.horizontal}
-      <g class="h">{#each d.horizontals.y as y, i (i)}<line x1={PX(d.cover)} y1={PY(y)} x2={PX(d.length - d.cover)} y2={PY(y)} />{/each}</g>
-    {/if}
-    {#if on.ends}
-      <g class="u" data-testid="rc-wall-plan-ends">
-        {#if d.ends.kind === 'ubar'}
-          <path d={ubar(0)} /><path d={ubar(1)} />
-        {:else}
-          {@const y = PY(d.horizontals.y[0]!)}
-          <path d="M {PX(0.15)} {y} L {PX(d.cover)} {y} L {PX(d.cover)} {y - 8}" />
-          <path d="M {PX(d.length - 0.15)} {y} L {PX(d.length - d.cover)} {y} L {PX(d.length - d.cover)} {y - 8}" />
+  {#snippet plan(v: View)}
+    <svg viewBox="0 0 {W(v)} {H(v)}" width={W(v)} height={H(v)} role="img" aria-label={v.clip ? t('rcSheets.wallFig.planDetail') : t('rcSheets.wallFig.plan')} data-testid={v.clip ? 'rc-wall-plan-detail' : 'rc-wall-plan'} data-scale={v.k}>
+      {#if v.clip}<defs><clipPath id="rwd-{uid}-{v.id}"><rect x={PAD2} y={0} width={W(v) - 2 * PAD2} height={H(v)} /></clipPath></defs>{/if}
+      <g clip-path={v.clip ? `url(#rwd-${uid}-${v.id})` : undefined}>
+        <rect x={X(v, 0)} y={Y(v, 0)} width={d.length * v.k} height={d.thickness * v.k} class="conc" />
+        {#if d.boundary}
+          <rect x={X(v, 0)} y={Y(v, 0)} width={d.boundary.length * v.k} height={d.thickness * v.k} class="zone" />
+          <rect x={X(v, d.length - d.boundary.length)} y={Y(v, 0)} width={d.boundary.length * v.k} height={d.thickness * v.k} class="zone" />
+        {/if}
+        {#if on.horizontal}
+          <g class="h">{#each d.horizontals.y as y, i (i)}<line x1={X(v, d.cover)} y1={Y(v, y)} x2={X(v, d.length - d.cover)} y2={Y(v, y)} />{/each}</g>
+        {/if}
+        {#if on.ends}
+          <g class="u" data-testid="rc-wall-plan-ends">
+            {#if d.ends.kind === 'ubar'}
+              <path d={ubar(v, 0)} /><path d={ubar(v, 1)} />
+            {:else}
+              {@const y = Y(v, d.horizontals.y[0]!)}
+              <path d="M {X(v, 0.15)} {y} L {X(v, d.cover)} {y} L {X(v, d.cover)} {y - 8}" />
+              <path d="M {X(v, d.length - 0.15)} {y} L {X(v, d.length - d.cover)} {y} L {X(v, d.length - d.cover)} {y - 8}" />
+            {/if}
+          </g>
+        {/if}
+        {#if on.ties && d.boundary?.ties}
+          {@const i0 = Y(v, d.cover)}
+          {@const i1 = Y(v, d.thickness - d.cover)}
+          {@const legs = d.boundary.ties.legs ?? 2}
+          {@const bl = d.boundary.length}
+          <g class="t" data-testid="rc-wall-plan-boundary-ties">
+            <rect x={X(v, d.cover)} y={i0} width={(d.boundary.length - d.cover) * v.k} height={i1 - i0} />
+            <rect x={X(v, d.length - d.boundary.length)} y={i0} width={(d.boundary.length - d.cover) * v.k} height={i1 - i0} />
+            {#each Array.from({ length: Math.max(0, legs - 2) }, (_, k) => d.cover + ((k + 1) * (bl - 2 * d.cover)) / (legs - 1)) as x, k (k)}
+              <line x1={X(v, x)} y1={i0} x2={X(v, x)} y2={i1} />
+              <line x1={X(v, d.length - x)} y1={i0} x2={X(v, d.length - x)} y2={i1} />
+            {/each}
+          </g>
+        {/if}
+        {#if on.ties && crossGrid && d.horizontals.y.length === 2}
+          <g class="x">{#each crossGrid.xs as x, j (j)}<line x1={X(v, x)} y1={Y(v, d.horizontals.y[0]!)} x2={X(v, x)} y2={Y(v, d.horizontals.y[1]!)} />{/each}</g>
+        {/if}
+        {#each d.columns as c (c.key)}
+          <polygon points={pts(v, c.outline)} class="col" data-testid="rc-wall-plan-column" data-key={c.key} />
+          {#if on.vertical}<g class="v">{#each c.bars as b, i (i)}<circle cx={X(v, b.x)} cy={Y(v, b.y)} r={R(v, b.dia)} class="bnd" />{/each}</g>{/if}
+        {/each}
+        {#if on.vertical}
+          <g class="v" data-testid="rc-wall-plan-vertical">{#each d.verticals as b, i (i)}<circle cx={X(v, b.x)} cy={Y(v, b.y)} r={R(v, b.dia)} class:bnd={b.boundary} />{/each}</g>
         {/if}
       </g>
-    {/if}
-    {#if on.ties && d.boundary?.ties}
-      {@const i0 = PY(d.cover)}
-      {@const i1 = PY(d.thickness - d.cover)}
-      {@const legs = d.boundary.ties.legs ?? 2}
-      <g class="t" data-testid="rc-wall-plan-boundary-ties">
-        <rect x={PX(d.cover)} y={i0} width={(d.boundary.length - d.cover) * kx} height={i1 - i0} />
-        <rect x={PX(d.length - d.boundary.length)} y={i0} width={(d.boundary.length - d.cover) * kx} height={i1 - i0} />
-        {#each Array.from({ length: Math.max(0, legs - 2) }, (_, k) => d.cover + ((k + 1) * (d.boundary.length - 2 * d.cover)) / (legs - 1)) as x, k (k)}
-          <line x1={PX(x)} y1={i0} x2={PX(x)} y2={i1} />
-          <line x1={PX(d.length - x)} y1={i0} x2={PX(d.length - x)} y2={i1} />
-        {/each}
-      </g>
-    {/if}
-    {#if on.ties && crossGrid && d.horizontals.y.length === 2}
-      <g class="x">{#each crossGrid.xs as x, j (j)}<line x1={PX(x)} y1={PY(d.horizontals.y[0]!)} x2={PX(x)} y2={PY(d.horizontals.y[1]!)} />{/each}</g>
-    {/if}
-    {#if on.vertical}
-      <g class="v" data-testid="rc-wall-plan-vertical">{#each d.verticals as v, i (i)}<circle cx={PX(v.x)} cy={PY(v.y)} r={Math.max(1.8, (v.dia / 2000) * ky)} class:bnd={v.boundary} />{/each}</g>
-    {/if}
-    <text x={PX(d.length) + 2} y={PY(d.thickness) + 12} class="dim end">t = {cm(d.thickness)}</text>
-  </svg>
+      {#each d.columns.filter((c) => { const xs = c.outline.map((p) => X(v, p.x)); return Math.max(...xs) >= PAD2 && Math.min(...xs) <= W(v) - PAD2; }) as c (c.key)}
+        {@const xs = c.outline.map((p) => X(v, p.x))}
+        {@const cx = Math.min(Math.max((Math.min(...xs) + Math.max(...xs)) / 2, PAD2 + 30), W(v) - PAD2 - 30)}
+        <text x={cx} y={Math.min(...c.outline.map((p) => Y(v, p.y))) - 4} class="dim tag" data-testid="rc-wall-plan-column-tag">{columnTag(c)}</text>
+      {/each}
+      {#if !v.clip}<text x={X(v, d.length) + 2} y={Y(v, d.thickness) + 12} class="dim end">t = {cm(d.thickness)}</text>{/if}
+    </svg>
+  {/snippet}
+  {@render plan(overview)}
+  {#if details.length}
+    <div class="rwd-detail">
+      <span class="rwd-k">{t('rcSheets.wallFig.planDetail')}</span>
+      {#each details as v (v.id)}{@render plan(v)}{/each}
+    </div>
+  {/if}
 
   <ul class="rwd-notes">
     <li>{t('rcSheets.wallFig.vertical')}: {row.adopted.curtains} × Ø{row.adopted.vertical.diameter} c/{sp(row.adopted.vertical.spacing)} · {t('rcSheets.wallFig.horizontal')}: Ø{d.horizontals.dia} c/{sp(d.horizontals.spacing)}</li>
@@ -154,6 +197,7 @@
   .tg-t, .t, .x { --c: #d9607a; }
   .conc { fill: var(--st-surface-3, rgba(128, 128, 128, 0.12)); stroke: var(--st-text-3); stroke-width: 1; }
   .zone { fill: rgba(217, 96, 122, 0.08); stroke: none; }
+  .col { fill: rgba(91, 141, 239, 0.1); stroke: var(--st-text-2); stroke-width: 1; stroke-dasharray: 3 2; }
   .v line { stroke: var(--c); stroke-width: 1; opacity: 0.8; }
   .v line.bnd { stroke-width: 2.2; opacity: 1; }
   .v circle { fill: var(--c); }
@@ -164,5 +208,9 @@
   .x circle { fill: var(--c); }
   .dim { font-size: 10px; fill: var(--st-text-3); text-anchor: middle; font-family: var(--st-mono); }
   .dim.end { text-anchor: end; }
+  .dim.tag { fill: var(--st-text-2); font-weight: 600; }
+  .rwd-detail { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 12px; }
+  .rwd-k { flex-basis: 100%; font-size: 0.66rem; color: var(--st-text-3); }
+  svg { max-width: 100%; height: auto; }
   .rwd-notes { margin: 0; padding-left: 14px; font-size: 0.66rem; color: var(--st-text-2); max-width: 64ch; }
 </style>

@@ -1321,7 +1321,7 @@ export function deletePlate(id: number): void {
 // ─── Before an analysis ──────────────────────────────────────────
 
 export type PlatePreparation =
-  | { ok: true; meshed: number; cells: number }
+  | { ok: true; meshed: number; cells: number; stale?: string[] }
   | { ok: false; reason: 'needsMesh' | 'invalid'; plates: string[] }
   | { ok: false; reason: 'wallSlab' | 'remeshBlocked'; error: string }
   | { ok: false; reason: 'refused'; plates: string[] }
@@ -1335,9 +1335,17 @@ function invalidPreparation(): PlatePreparation | null {
   return invalid.length ? { ok: false, reason: 'invalid', plates: invalid } : null;
 }
 
-function prepared(meshed: number, cells: number): PlatePreparation {
+function prepared(meshed: number, cells: number, stale?: string[]): PlatePreparation {
   const error = wallSlabRefusal(modelStore.model);
-  return error ? { ok: false, reason: 'wallSlab', error } : { ok: true, meshed, cells };
+  if (error) return { ok: false, reason: 'wallSlab', error };
+  return stale ? { ok: true, meshed, cells, stale } : { ok: true, meshed, cells };
+}
+
+/** Without meshing: a plate with no mesh, or whose mesh leaves nodes hanging on a neighbour, stops the solve; one whose mesh is only out of date solves on it and is named. */
+function unmeshedOrStale(need: number[], names: (ids: number[]) => string[]): PlatePreparation {
+  const missing = need.filter((id) => { const e = plateStatus(id) === 'stale' ? plateEntry(id) : undefined; return !e || meshHangsNeighbours(e); });
+  if (missing.length) return { ok: false, reason: 'needsMesh', plates: names(missing) };
+  return prepared(0, 0, names(need));
 }
 
 function checkPreparedPlates(report: PlateMeshReport): PlatePreparation {
@@ -1364,7 +1372,7 @@ export function preparePlatesForAnalysis(): PlatePreparation {
   const need = platesNeedingMesh({ coarse: meshBeforeAnalysis.value });
   if (!need.length) return prepared(0, 0);
   const names = (ids: number[]) => ids.map((id) => plateEntry(id)?.name ?? `#${id}`);
-  if (!meshBeforeAnalysis.value) return { ok: false, reason: 'needsMesh', plates: names(need) };
+  if (!meshBeforeAnalysis.value) return unmeshedOrStale(need, names);
   const r = applyMeshingRun(meshingRun(planPlateMeshesNow(need), true));
   return checkPreparedPlates(r);
 }
@@ -1383,7 +1391,7 @@ export async function preparePlatesForAnalysisAsync(recognizePhysicalModel?: () 
   const need = platesNeedingMesh({ coarse: meshBeforeAnalysis.value });
   if (!need.length) return prepared(0, 0);
   const names = (ids: number[]) => ids.map((id) => plateEntry(id)?.name ?? `#${id}`);
-  if (!meshBeforeAnalysis.value) return { ok: false, reason: 'needsMesh', plates: names(need) };
+  if (!meshBeforeAnalysis.value) return unmeshedOrStale(need, names);
   try {
     const plans = await planPlateMeshes(need, undefined, { onProgress: (done, total) => setMeshProgress('planning', done, total) });
     if (!plans) return { ok: false, reason: 'refused', plates: names(need) };

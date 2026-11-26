@@ -30,12 +30,12 @@ if (BUILD_FEATURES.proRcSheets) {
     await page.getByTestId('pr-cmd-rcSheets').click();
     await page.getByTestId('rc-design').click();
     await expect(page.getByTestId('rc-building')).toHaveCount(0, { timeout: 30_000 });
-    await page.getByTestId('rc-open-column').click();
+    await page.getByTestId('rc-open-vertical').click();
     const ws = page.getByTestId('rc-sheets-workspace');
-    const table = ws.getByTestId('rc-table-column');
+    const table = ws.getByTestId('rc-table-vertical');
     await expect(table).toBeVisible();
 
-    const family = await misalignment(table, [3, 4, 8]);
+    const family = await misalignment(table, [4, 7, 10]);
     for (const [k, d] of family.entries()) expect(d, `family column ${k}`).toBeLessThanOrEqual(2);
 
     await ws.getByTestId('rc-row').first().click();

@@ -14,7 +14,7 @@
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   let on = $state<Record<string, boolean>>({ bottomX: true, bottomY: true, topX: true, topY: true });
 
-  const PW = 220, PH = 190, PAD = 24, MAXLINES = 24;
+  const PW = 220, PH = 190, PAD = 24, MIN_GAP_PX = 4;
   const k = $derived(Math.min((PW - 2 * PAD) / Math.max(row.lx, 0.1), (PH - 2 * PAD) / Math.max(row.ly, 0.1)));
   const w = $derived(row.lx * k), h = $derived(row.ly * k);
   const present = (f: (typeof SLAB_FACES)[number]) => row.adopted[f].dia > 0 && row.adopted[f].spacing > 0;
@@ -22,7 +22,7 @@
   const layers = $derived(SLAB_FACES.filter(present).map((f) => {
     const m = row.adopted[f];
     const alongX = f.endsWith('X');
-    const p = layerPositions(alongX ? row.ly : row.lx, m.spacing, cover + m.dia / 2000, MAXLINES);
+    const p = layerPositions(alongX ? row.ly : row.lx, m.spacing, cover + m.dia / 2000, Infinity, MIN_GAP_PX / k);
     return { f, alongX, top: f.startsWith('top'), ...p, label: meshLabel(m) };
   }));
 

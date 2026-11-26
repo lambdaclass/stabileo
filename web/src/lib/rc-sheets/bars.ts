@@ -3,7 +3,7 @@ import { chooseBars } from '../engine/codes/argentina/cirsoc201-bars';
 import { barsPerRow, layerClearBetween, minClearSpacingInLayer } from '../codes/cirsoc201/spacing';
 import { minMandrelDiameter, standardHook } from '../codes/cirsoc201/bar-geometry';
 import type { BendRules } from './shape';
-import { SLAB_BAR_RANGE, allowedTie, inRange, nextTie, tieDiametersOf, tieFloorOf, type BarGroup, type MeshBars, type Stirrups, type TransverseList } from './types';
+import { DEFAULT_AGGREGATE_MM, SLAB_BAR_RANGE, allowedTie, inRange, nextTie, tieDiametersOf, tieFloorOf, type BarGroup, type MeshBars, type Stirrups, type TransverseList } from './types';
 
 export const barArea = (dia: number): number => rebarGroupArea({ count: 1, diameter: dia });
 
@@ -18,7 +18,13 @@ export const meshLabel = (m: MeshBars): string => `Ø${m.dia} c/${Math.round(m.s
 
 export const meshArea = (m: MeshBars): number => (m.spacing > 0 ? barArea(m.dia) / m.spacing : 0);
 
-export const minClearSpacing = (dia: number): number => minClearSpacingInLayer('2025', { barDiameterMm: dia, maxAggregateSizeMm: 0 }).minClear;
+let beamAggregate = DEFAULT_AGGREGATE_MM;
+
+/** The project's largest aggregate the beams' clear spacing reads, mm (`maxAggregateMm`): set by the sheets as they read the design data, the default until then. */
+export const setBeamAggregate = (mm: number): void => { beamAggregate = mm; };
+
+/** The least clear spacing between a beam's bars in a row, m: max(25 mm; db; 4/3·dagg), §25.2.1. */
+export const minClearSpacing = (dia: number): number => minClearSpacingInLayer('2025', { barDiameterMm: dia, maxAggregateSizeMm: beamAggregate }).minClear;
 
 /** How many bars of `dia` (mm) fit in one row across `inner` (m) at the code's least clear spacing. */
 const rowCapacity = (inner: number, dia: number) => {
@@ -97,14 +103,38 @@ export function faceLayout(groups: readonly BarGroup[], b: number, cover: number
   return { centroidFromFace: area > 0 ? moment / area : cover + stirrupDia / 1000 + 0.008, fits, clear };
 }
 
+/**
+ * A face's bars for `AsCm2`: the arrangement `chooseBars` picks, in the nearest allowed diameter;
+ * where that does not lay out within the width in at most two layers, among single diameters and
+ * two consecutive ones (FIUBA §8.1) one layer before two, then the lightest, then the thinner bars
+ * (§8.1: more bars of a smaller diameter). Where nothing lays out, the pick as it is.
+ */
 export function proposeBeamFace(AsCm2: number, b: number, h: number, cover: number, stirrupDia: number, diameters: readonly number[]): BarGroup[] {
-  const allowed = diameters.filter((d) => d >= 10 && d <= 25);
+  const allowed = diameters.filter((d) => d >= 10 && d <= 25).sort((p, q) => p - q);
   const pick = chooseBars(Math.max(AsCm2, 0), { widthM: b, coverM: cover + stirrupDia / 1000 + 0.008, minCount: 2, maxLayers: 2, heightM: h });
   const dia = allowed.includes(pick.diameter) ? pick.diameter : nearest(allowed, pick.diameter);
   const n = Math.max(2, Math.ceil(AsCm2 / barArea(dia)));
-  const perLayer = Math.max(2, barsPerRow(b - 2 * cover - 2 * stirrupDia / 1000, dia, minClearSpacingInLayer('2025', { barDiameterMm: dia, maxAggregateSizeMm: 0 }), Infinity));
-  if (n <= perLayer) return [{ count: n, dia }];
-  return [{ count: perLayer, dia }, { count: Math.max(2, n - perLayer), dia }];
+  const perLayer = Math.max(2, barsPerRow(b - 2 * cover - 2 * stirrupDia / 1000, dia, minClearSpacingInLayer('2025', { barDiameterMm: dia, maxAggregateSizeMm: beamAggregate }), Infinity));
+  const first: BarGroup[] = n <= perLayer ? [{ count: n, dia }] : [{ count: perLayer, dia }, { count: Math.max(2, n - perLayer), dia }];
+  if (!allowed.length) return first;
+  const layered = (g: BarGroup[]) => {
+    const bars = faceBars(g, b, cover, stirrupDia);
+    const rows = [...new Set(bars.map((x) => x.row))].map((r) => bars.filter((x) => x.row === r).length);
+    return { fits: faceLayout(g, b, cover, stirrupDia).fits && rows.length <= 2, rows };
+  };
+  const single = allowed.map((d) => [{ count: Math.max(2, Math.ceil(AsCm2 / barArea(d) - 1e-9)), dia: d }]);
+  const mixed = allowed.slice(1).flatMap((big, i) => {
+    const small = allowed[i]!;
+    return Array.from({ length: 6 }, (_, k) => k + 2).map((nb) => [{ count: nb, dia: big }, { count: Math.ceil((AsCm2 - nb * barArea(big)) / barArea(small) - 1e-9), dia: small }])
+      .filter((g) => g[1]!.count > 0);
+  });
+  const bars = (g: BarGroup[]) => g.reduce((a, x) => a + x.count, 0);
+  if (layered(first).fits) return first;
+  const fit = [...single, ...mixed].map((g) => ({ g, l: layered(g), a: groupsArea(g) })).filter((x) => x.l.fits);
+  if (!fit.length) return first;
+  const top = (g: BarGroup[]) => Math.max(...g.map((x) => x.dia));
+  const best = fit.sort((p, q) => p.l.rows.length - q.l.rows.length || p.a - q.a || top(p.g) - top(q.g) || bars(p.g) - bars(q.g))[0]!;
+  return best.g.length === 1 && best.l.rows.length === 2 ? [{ count: best.l.rows[0]!, dia: best.g[0]!.dia }, { count: best.l.rows[1]!, dia: best.g[0]!.dia }] : best.g;
 }
 
 /** A face of the same area in at least `count` bars of one layer, the thickest that fit; none where no diameter does. */

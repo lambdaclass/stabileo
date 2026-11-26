@@ -49,6 +49,21 @@ describe('the beams of a level in plan', () => {
     for (const c of it.cuts) { expect(c[1]).toBe(0); expect(c[0]).toBeGreaterThanOrEqual(0); expect(c[0]).toBeLessThanOrEqual(9); }
   });
 
+  it('ticks across the beam where its bars are lapped, in the workspace and on paper', () => {
+    const r = rows(), base = r.line[0]!;
+    const lapped = { ...base, splices: [{ mark: 'A', face: 'bottom' as const, x: 5.3, length: 0.6, bars: 2, spliceClass: 'B' as const }, { mark: 'B', face: 'top' as const, x: 7, length: 0.6, bars: 2, spliceClass: 'B' as const }] };
+    const p = structurePlan('beam', 'N1', { ...r, line: [lapped] }, model());
+    const it = p.items[0]!;
+    if (it.kind !== 'beam') throw new Error('not a beam');
+    expect(it.splices).toHaveLength(2);
+    for (const [[x1, y1], [x2, y2]] of it.splices) { expect(x1).toBeCloseTo(x2, 9); expect(Math.abs(y2 - y1)).toBeCloseTo(1.2 * 0.25, 9); }
+    expect(it.splices.map((t) => t[0][0])).toEqual([expect.closeTo(5.3, 9), expect.closeTo(7, 9)]);
+    const d = structurePlanDrawing(p, { scale: 100, fmt, tr, group: 'g' } as never);
+    const ticks = (d as { primitives: Array<{ kind: string; a?: { x: number; y: number }; b?: { x: number; y: number } }> }).primitives
+      .filter((q) => q.kind === 'line' && Math.abs(q.a!.x - 5300) < 1e-6 && Math.abs(q.b!.x - 5300) < 1e-6);
+    expect(ticks).toHaveLength(1);
+  });
+
   it('runs the grid\'s axes a metre past what is drawn, leaves out the ones far from it, and lays the slabs under it', () => {
     expect(plan.axes.map((a) => a.name)).toEqual(['A', '1']);
     expect(plan.axes[0]!.a[1]).toBeCloseTo(-1 - 0.125, 9);

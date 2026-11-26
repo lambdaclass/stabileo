@@ -53,11 +53,12 @@ const lineOf = (spans: SpanSpec[], extra: object = {}, adopted?: LineAdopted, en
 const fixed: LineAdopted = { bottom: { count: 2, dia: 25 }, top: { count: 2, dia: 12 }, supportTop: [{ count: 0, dia: 16 }, { count: 2, dia: 16 }, { count: 0, dia: 16 }], spanBottom: [{ count: 0, dia: 16 }, { count: 0, dia: 16 }] };
 
 describe('hooks of a beam line', () => {
-  it('turns the bottom bars\' end hooks down into the end columns and draws them as long as they are cut', () => {
+  it('turns the bottom bars\' end hooks up into the end joints, toward their mid-depth as the top bars\' turn down, and draws them as long as they are cut', () => {
     const { line } = lineOf([{ L: 5, h: 0.4 }, { L: 5, h: 0.4 }], {}, fixed);
     const b = line.bars.find((x) => x.kind === 'continuous' && x.face === 'bottom')!;
-    expect(hookTurn(b, 0)).toBeLessThan(0);
-    expect(hookTurn(b, 1)).toBeLessThan(0);
+    expect(hookTurn(b, 0)).toBeGreaterThan(0);
+    expect(hookTurn(b, 1)).toBeGreaterThan(0);
+    expect(hookTurn(b, 0)).toBeLessThanOrEqual(0.4 + 1e-9);
     const pts = barPolyline(line, b, 0);
     expect(Math.abs(pts[0]!.y - pts[1]!.y) / 1000).toBeCloseTo(hookLegOf(b), 6);
     expect((pts[0]!.y - pts[1]!.y) / 1000).toBeCloseTo(hookTurn(b, 0), 6);
@@ -70,7 +71,7 @@ describe('hooks of a beam line', () => {
     const free: BeamEnd = { kind: 'free', half: 0 };
     const { line } = lineOf([{ L: 5, h: 0.4 }, { L: 5, h: 0.4 }], {}, fixed, [column, free]);
     const b = line.bars.find((x) => x.kind === 'continuous' && x.face === 'bottom')!;
-    expect(hookTurn(b, 0)).toBeLessThan(0);
+    expect(hookTurn(b, 0)).toBeGreaterThan(0);
     expect(b.hook180).toEqual([false, true]);
     const rise = (6 * 25 + 25) / 1000;
     expect(hookTurn(b, 1)).toBeCloseTo(rise, 9);
@@ -272,7 +273,20 @@ describe('the course notes and CIRSOC 201-2025 on a line', () => {
     const req = Math.max(...rows.map((r) => r.req.bottom));
     const asMin = CIRSOC_LINE.minBottom(bctx, 0.3, 0.75 - 0.025 - 0.008 - 0.01);
     expect(line.adopted.bottom.count).toBeLessThanOrEqual(4);
-    expect(line.adopted.bottom.count * Math.PI * (line.adopted.bottom.dia / 20) ** 2).toBeGreaterThanOrEqual(Math.min(asMin, (4 / 3) * req) - 1e-9);
+    const area = line.adopted.bottom.count * Math.PI * (line.adopted.bottom.dia / 20) ** 2;
+    const need = Math.min(asMin, req);
+    expect(area).toBeGreaterThanOrEqual(need - 1e-9);
+    expect(area - Math.PI * (line.adopted.bottom.dia / 20) ** 2).toBeLessThan(Math.max(need, 2 * Math.PI * (line.adopted.bottom.dia / 20) ** 2));
+  });
+
+  it('takes the rows\' bottom requirement as it is, 4/3·As included once, where 4/3·As is under As,min', () => {
+    const { line, rows } = lineOf([{ L: 6, h: 1 }, { L: 6, h: 1 }, { L: 6, h: 1 }], {}, undefined, undefined, 10);
+    const req = Math.max(...rows.map((r) => r.req.bottom));
+    expect(req).toBeLessThan(CIRSOC_LINE.minBottom(bctx, 0.3, 1 - 0.025 - 0.008 - 0.01) - 1e-6);
+    const bar = Math.PI * (line.adopted.bottom.dia / 20) ** 2;
+    const area = line.adopted.bottom.count * bar;
+    expect(area).toBeGreaterThanOrEqual(req - 1e-9);
+    expect(area).toBeLessThan(Math.max(req, 2 * bar) + bar);
   });
 
   it('carries a third of the span steel and 0.75·Vu/fy into a simple support, a quarter into a column', () => {

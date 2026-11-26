@@ -64,6 +64,8 @@ export interface BendingSchedule {
   clause: string;
   /** An i18n key, when the code's bending rules are assumed. */
   confirm?: string;
+  /** The levels from the lowest up, where the rows know them: the level view groups by storey (`storeys.ts`). */
+  levels?: string[];
 }
 
 export const letterMark = (i: number): string => String.fromCharCode(65 + (i % 26)) + (i >= 26 ? String(Math.floor(i / 26)) : '');
@@ -153,7 +155,7 @@ export function scheduleOf(elements: readonly ScheduleElement[], o: Pick<Schedul
   const byDiameter = [...byDia].sort((a, b) => a[0] - b[0]).map(([dia, d]) => ({
     dia, length: d.length, kg: d.kg, withWaste: d.kg * (1 + waste), stockBars: stock.byDiameter.find((x) => x.diameterMm === dia)?.stockBars ?? 0,
   }));
-  const fams: SheetFamily[] = ['beam', 'column', 'slab', 'wall', 'footing'];
+  const fams: SheetFamily[] = ['beam', 'column', 'slab', 'wall'];
   const byFamily = fams.map((family) => {
     const kg = out.filter((r) => r.family === family).reduce((s, r) => s + r.kg, 0);
     return { family, kg, withWaste: kg * (1 + waste) };

@@ -21,7 +21,7 @@ vi.mock('../../engine/shell-results', async (orig) => {
 beforeAll(async () => { await wasmSolver.initSolver(); });
 
 describe('reinforcement sheets on a building', () => {
-  it('read the shells of each combination once for all its slabs and walls', async () => {
+  it('read the shells of each combination, and of each unfactored load group the deflections read, once for all its slabs and walls', async () => {
     modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
     await modelStore.loadExample('pro-edificio-7p');
     ensurePhysicalModel();
@@ -33,6 +33,6 @@ describe('reinforcement sheets on a building', () => {
     expect(rows.slab.length + rows.wall.length).toBeGreaterThan(40);
     expect(rows.combos).toBeGreaterThan(1);
     expect(reads.n).toBeGreaterThan(0);
-    expect(reads.n).toBeLessThanOrEqual(rows.combos);
+    expect(reads.n).toBeLessThanOrEqual(rows.combos + 3);
   }, 300000);
 });

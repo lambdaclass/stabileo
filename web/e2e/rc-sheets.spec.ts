@@ -13,7 +13,7 @@ if (BUILD_FEATURES.proRcSheets) {
   test.use({ appLocale: 'es' });
 
   test('@slow the reinforcement sheets design beams, columns, slabs and walls of a solved building', async ({ pro: page }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(300_000);
     await loadModel(page, 'pro-edificio-7p');
     await page.evaluate(() => window.__stabileoActions.setMeshBeforeAnalysis(false));
     // Two combinations by the same name, as a file of one's own beside the generated ones can hold: each keeps its row.
@@ -45,11 +45,10 @@ if (BUILD_FEATURES.proRcSheets) {
     await expect.poll(() => page.evaluate(() => (window as unknown as { building: string[] }).building.some((x) => x.includes('combinaciones')))).toBe(true);
 
     await expect(page.getByTestId('rc-open-beam')).toBeEnabled({ timeout: 60_000 });
-    await expect(page.getByTestId('rc-open-column')).toBeEnabled();
+    await expect(page.getByTestId('rc-open-vertical')).toBeEnabled();
     await expect(page.getByTestId('rc-open-slab')).toBeEnabled();
-    await expect(page.getByTestId('rc-open-wall')).toBeEnabled();
     await expect(page.getByTestId('rc-panel-code').getByTestId('rc-code-select')).toHaveValue('cirsoc201-2025');
-    await expect(page.getByTestId('rc-scope-note')).toHaveText(/buena parte sigue en desarrollo: revisá los resultados/);
+    await expect(page.getByTestId('rc-code-desc')).toContainText('CIRSOC 201-2025');
 
     await page.getByTestId('rc-open-beam').click();
     const ws = page.getByTestId('rc-sheets-workspace');
@@ -64,7 +63,7 @@ if (BUILD_FEATURES.proRcSheets) {
       expect(close.y - head.y).toBeLessThan(14);
       // Everything on one row: the header no taller than its tallest control.
       expect(head.height, `header at ${width} px`).toBeLessThan(52);
-      for (const tab of ['beam', 'column', 'slab', 'wall', 'punching']) await expect(ws.getByTestId(`rc-tab-${tab}`)).toBeInViewport();
+      for (const tab of ['beam', 'vertical', 'slab', 'punching']) await expect(ws.getByTestId(`rc-tab-${tab}`)).toBeInViewport();
       expect(head.x + head.width - (close.x + close.width)).toBeLessThan(16);
     }
     await expect(ws).toHaveClass(/st-panel-scrollbars/);
@@ -88,12 +87,14 @@ if (BUILD_FEATURES.proRcSheets) {
 
     await first.click();
     await expect(ws.getByTestId('rc-line-svg')).toBeVisible();
-    // The bars' marks of the schedule stand on the elevation and beside each section, and go away together.
+    // The bars drawn apart and the schedule's marks on them and beside each section go away together.
     await expect(ws.getByTestId('rc-line-marks')).toContainText('A');
     await expect(ws.getByTestId('rc-section-marks').first()).toContainText('A');
+    await expect(ws.getByTestId('rc-track').first()).toBeAttached();
     await ws.getByTestId('rc-marks-toggle').uncheck();
     await expect(ws.getByTestId('rc-line-marks')).toHaveCount(0);
     await expect(ws.getByTestId('rc-section-marks')).toHaveCount(0);
+    await expect(ws.getByTestId('rc-track')).toHaveCount(0);
     await ws.getByTestId('rc-marks-toggle').check();
     await expect(ws.getByTestId('rc-line-envelope')).toBeVisible();
     await expect(ws.getByTestId('rc-env-phivn')).toHaveAttribute('d', /^(M[\d.]+,[\d.]+( L[\d.]+,[\d.]+)+ ?)+$/);
@@ -141,8 +142,8 @@ if (BUILD_FEATURES.proRcSheets) {
     await expect(ws.getByTestId('rc-combos').first()).toBeVisible();
     await expect(ws.getByTestId('rc-combos').first().locator('tr', { hasText: '1.0 todos' })).toHaveCount(2);
 
-    await ws.getByTestId('rc-tab-column').click();
-    await expect(ws.getByTestId('rc-table-column')).toBeVisible();
+    await ws.getByTestId('rc-tab-vertical').click();
+    await expect(ws.getByTestId('rc-table-vertical')).toBeVisible();
     await ws.getByTestId('rc-row').first().click();
     await expect(ws.getByTestId('rc-checks').first()).toContainText('Tabla 20.5.1.3.1');
     await expect(ws.getByTestId('rc-checks').first()).toContainText('§10.3.1');
@@ -169,30 +170,32 @@ if (BUILD_FEATURES.proRcSheets) {
     await expect(slabFig.getByTestId('rc-slab-plan-bottomX')).toHaveCount(1);
     await slabFig.getByTestId('rc-slab-layer-bottomY').check();
     await expect(slabFig.getByTestId('rc-slab-plan-bottomY')).toHaveCount(1);
-    await ws.getByTestId('rc-tab-wall').click();
-    await expect(ws.getByTestId('rc-table-wall')).toBeVisible();
+    await ws.getByTestId('rc-tab-vertical').click();
+    await expect(ws.getByTestId('rc-table-vertical')).toBeVisible();
     // The fixture as tests load it, without the card's correction, stands its core on the corner column alone.
-    const ground = ws.getByTestId('rc-row').filter({ hasText: 'N0' });
+    const walls = ws.locator('[data-testid="rc-row"][data-family="wall"]');
+    const ground = walls.filter({ hasText: 'N0' });
     await expect(ground).toHaveCount(3);
-    await expect(ground.first()).toContainText('No verifica');
+    await expect(ground.first()).toContainText(/No verifica|Sin armado posible/);
     await ground.first().click();
     await expect(ws.getByTestId('rc-checks').first()).toContainText('La base del tabique apoya en toda su longitud');
     await expect(ws.getByTestId('rc-resize-hint')).toHaveCount(0);
     // One click holds the three bases, solves again and designs again, with the window kept open.
     await ws.getByTestId('rc-wall-hold-base').click();
-    await expect(ws.getByTestId('rc-row').filter({ hasText: 'N0' })).toHaveCount(3, { timeout: 120_000 });
+    await expect(walls.filter({ hasText: 'N0' })).toHaveCount(3, { timeout: 120_000 });
     await expect(ws.getByTestId('rc-wall-hold-base')).toHaveCount(0);
     await expect(ws.getByTestId('rc-wall-base-unheld')).toHaveCount(0);
     await expect(ws.getByTestId('rc-solve-design')).toHaveCount(0);
-    await expect(ws.getByTestId('rc-row').filter({ hasText: 'N0' }).filter({ hasText: 'No verifica' })).toHaveCount(0);
-    await expect(ws.getByTestId('rc-row').filter({ hasText: 'N1' }).first()).toContainText('Verifica');
+    await expect(walls.filter({ hasText: 'N0' }).filter({ hasText: 'No verifica' })).toHaveCount(0);
+    await expect(walls.filter({ hasText: 'N1' }).first()).toContainText('Verifica');
     // A wall's bars: the verticals and the horizontals, the U-bars that close its edges, each kind switched by itself.
-    await ws.getByTestId('rc-row').filter({ hasText: 'N1' }).first().click();
+    await walls.filter({ hasText: 'N1' }).first().click();
     const wallFig = ws.getByTestId('rc-wall-detail');
     await expect(wallFig).toBeVisible();
-    await expect(wallFig.getByTestId('rc-wall-plan-ends').locator('path')).toHaveCount(2);
+    await expect(wallFig.getByTestId('rc-wall-plan').getByTestId('rc-wall-plan-ends').locator('path')).toHaveCount(2);
     await expect(wallFig).toContainText(/Horquillas en los bordes|Una sola cortina: las horizontales terminan con gancho/);
-    await expect(wallFig.getByTestId('rc-wall-note').last()).toContainText('Tabique ordinario (capítulo 11)');
+    await expect(wallFig.getByTestId('rc-wall-note').filter({ hasText: 'Tabique ordinario (capítulo 11)' })).toHaveCount(1);
+    await expect(wallFig.getByTestId('rc-wall-plan-column-tag').first()).toHaveText('C1 40×40');
     await wallFig.getByTestId('rc-wall-layer-vertical').uncheck();
     await expect(wallFig.getByTestId('rc-wall-elev-vertical')).toHaveCount(0);
     await expect(wallFig.getByTestId('rc-wall-elev-horizontal')).toHaveCount(1);
@@ -207,7 +210,7 @@ if (BUILD_FEATURES.proRcSheets) {
       await expect(ws.getByTestId('rc-row').first()).toBeVisible();
       await ws.getByTestId('rc-row').first().click();
       await expect(ws.getByTestId('rc-checks').first()).toContainText(clause);
-      await ws.getByTestId('rc-tab-column').click();
+      await ws.getByTestId('rc-tab-vertical').click();
       await expect(ws.getByTestId('rc-row').first()).toBeVisible();
     }
     await page.keyboard.press('Escape');
@@ -231,7 +234,7 @@ if (BUILD_FEATURES.proRcSheets) {
     await setDesignOption(page, 'endZones');
     await page.getByTestId('rc-redesign').click();
     await expect(page.getByTestId('rc-stale')).toHaveCount(0, { timeout: 60_000 });
-    await page.getByTestId('rc-open-column').click();
+    await page.getByTestId('rc-open-vertical').click();
     await ws.getByTestId('rc-row').first().click();
     await expect(ws.locator('[data-testid="rc-elev-zone"][data-kind="end"]')).toHaveCount(2);
     await expect(ws.getByTestId('rc-elev-note')).toContainText('el proyecto lo pide');

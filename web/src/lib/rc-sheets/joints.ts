@@ -15,7 +15,7 @@ const layers = (g: readonly BarGroup[]) => g.filter((x) => x.count > 0).map((x, 
 export function columnJointSection(r: ColumnRow, fc: number, fy: number, cover: number): { section: { outline: { kind: 'rect'; b: number; h: number }; bars: ReturnType<typeof columnBars> }; axial: { min: number; max: number } } {
   const a = r.adopted, pus = r.demand.cases.map((k) => k.pu);
   return {
-    section: { outline: { kind: 'rect', b: r.b, h: r.h }, bars: columnBars(r.demand, a, { mat: { fc, fy }, cover, tieDia: a.tieDia, diameters: [] }) },
+    section: { outline: { kind: 'rect', b: r.b, h: r.h }, bars: columnBars(r.demand, a, { mat: { fc, fy }, cover, tieDia: a.tieDia, diameters: [], aggregate: r.aggregate }) },
     axial: { min: pus.length ? Math.min(...pus) : 0, max: pus.length ? Math.max(...pus) : 0 },
   };
 }

@@ -11,11 +11,11 @@
   let { rows, current = null, onclose }: { rows: SheetRows; current?: { key: string; name: string } | null; onclose: () => void } = $props();
 
   const SCALES = [10, 20, 25, 50, 75, 100, 200];
-  const allLevels = $derived([...new Set([...rows.line, ...rows.column, ...rows.wall, ...rows.footing].map((r) => r.level ?? '').concat(rows.slabPlan.map((p) => p.level)))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
-  const has = (f: PlanFamily) => (f === 'beam' ? rows.line.length : f === 'column' ? rows.column.length : f === 'slab' ? rows.slabPlan.some((p) => p.packages.length) : f === 'footing' ? rows.footing.filter((r) => !r.uncovered && r.B > 0).length : rows.wall.length) > 0;
+  const allLevels = $derived([...new Set([...rows.line, ...rows.column, ...rows.wall].map((r) => r.level ?? '').concat(rows.slabPlan.map((p) => p.level)))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
+  const has = (f: PlanFamily) => (f === 'beam' ? rows.line.length : f === 'vertical' ? rows.column.length + rows.wall.length : rows.slabPlan.some((p) => p.packages.length) ? 1 : 0) > 0;
 
   let scope = $state<'current' | 'families'>(current ? 'current' : 'families');
-  let families = $state<Record<PlanFamily, boolean>>({ beam: true, column: true, slab: true, wall: true, footing: true });
+  let families = $state<Record<PlanFamily, boolean>>({ beam: true, vertical: true, slab: true });
   let levels = $state<Record<string, boolean>>({});
   let format = $state<PlanFormat>('A3');
   let elevation = $state(DEFAULT_PLAN_SCALES.elevation);
@@ -51,7 +51,7 @@
       {#if scope === 'families'}
         <div class="rcp-row" role="group" aria-label={t('rcSheets.plans.families')}>
           {#each PLAN_FAMILIES as f (f)}
-            <label class:off={!has(f)}><input type="checkbox" bind:checked={families[f]} disabled={!has(f)} data-testid="rc-plans-family-{f}" /> {t(`rcSheets.family.${f}`)}</label>
+            <label class:off={!has(f)}><input type="checkbox" bind:checked={families[f]} disabled={!has(f)} data-testid="rc-plans-family-{f}" /> {t(`rcSheets.tab.${f}`)}</label>
           {/each}
         </div>
         <div class="rcp-row" role="group" aria-label={t('rcSheets.plans.levels')}>

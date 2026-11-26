@@ -82,6 +82,8 @@ export interface FlexureResult {
   // Doubly reinforced (compression steel A's)
   isDoublyReinforced: boolean;
   AsComp?: number;     // compression steel area (cm²)
+  /** The compression steel the design asks, cm², before bars are chosen for it. */
+  AsCompReq?: number;
   barsComp?: string;   // compression bars description
   barCountComp?: number;
   barDiaComp?: number; // mm
@@ -518,6 +520,7 @@ export function checkFlexure(
     steps,
     isDoublyReinforced: isDoubly,
     AsComp: rebarComp?.area,
+    ...(design.kind === 'doubly' ? { AsCompReq: design.AsComp } : {}),
     barsComp: rebarComp?.label,
     barCountComp: rebarComp?.count,
     barDiaComp: rebarComp?.dia,

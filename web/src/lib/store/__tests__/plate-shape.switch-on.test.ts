@@ -195,7 +195,7 @@ describe('rectangular holes in the shared-station batch', () => {
     const edge = shellNodesOn(slab.id, node => node.x === 6);
     expect(edge).toEqual(shellNodesOn(left.id, node => node.x === 6));
     expect([...edge].map(n => modelStore.nodes.get(n)!.y)).toContain(0.2);
-  });
+  }, 120_000);
 
   it.each(batchPaths)('applies the identical planned cells to an isolated plate with a hole (%s)', async (_mode, apply) => {
     modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';

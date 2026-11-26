@@ -1,4 +1,4 @@
-import { checkSlabJointPunching, slabJointPosition, type AdjoiningShell, type SlabColumnJoint } from './slab-punching';
+import { checkSlabJointPunching, slabJointPosition, type AdjoiningShell, type SlabColumnJoint, type SlabPunchingResult } from './slab-punching';
 import type { Fmt } from './format';
 import { check, ratioOf, type CheckLine, type ComboTable, type RowStatus, type StepGroup } from './types';
 
@@ -49,6 +49,13 @@ export interface PunchingFigure {
   integrity?: { bars: number; dia: number };
 }
 
+/** The governing shear as the check compares it, stresses on the critical section with the moment's share in them; the forces where no section was read. */
+function stresses(r: Pick<SlabPunchingResult, 'Vu' | 'phiVc' | 'utilization' | 'perimeter'>, fmt: Fmt, unsupported: boolean): { demand: string; capacity: string } {
+  const area = r.perimeter ? r.perimeter.bo * r.perimeter.d * 1000 : 0;
+  if (unsupported || !(area > 0)) return { demand: `${fmt(r.Vu)} kN`, capacity: `${fmt(r.phiVc)} kN` };
+  return { demand: `vu = ${fmt((r.utilization * r.phiVc) / area, 2)} MPa`, capacity: `φvc = ${fmt(r.phiVc / area, 2)} MPa` };
+}
+
 /** What the check could not establish, said for what it is: the joint's geometry, the slab's or column's dimensions, the column's forces, or the shear itself. */
 export function unsupportedLabel(keys: readonly string[]): string {
   const has = (k: string) => keys.includes(`detailing.slabPunching.${k}`);
@@ -63,7 +70,7 @@ export function punchingRow(d: PunchingDemand, c: PunchingContext, fmt: Fmt): Pu
   const r = checkSlabJointPunching({ panelId: d.key, joint: d.joint, position, thickness: d.thickness, cover: c.cover, topBarDiameterMm: c.topBarDia, fc: c.fc, fy: c.fy, qu: 0, staleAnalysis: false });
   const unsupported = r.status === 'UNSUPPORTED' || r.unsupported.length > 0;
   const verifications: CheckLine[] = [
-    check(unsupported ? unsupportedLabel(r.unsupported.map((m) => m.key)) : 'rcSheets.v.punching', !unsupported && r.status === 'OK', { clause: '§22.6', demand: `${fmt(r.Vu)} kN`, capacity: `${fmt(r.phiVc)} kN`, ratio: unsupported ? undefined : r.utilization }),
+    check(unsupported ? unsupportedLabel(r.unsupported.map((m) => m.key)) : 'rcSheets.v.punching', !unsupported && r.status === 'OK', { clause: '§22.6', ...stresses(r, fmt, unsupported), ratio: unsupported ? undefined : r.utilization }),
     ...(c.integrity ? [check('rcSheets.v.punchingIntegrity', c.integrity.x >= c.integrity.required && c.integrity.y >= c.integrity.required, { clause: '§8.7.4.2.2', demand: `≥ ${c.integrity.required} (X) · ≥ ${c.integrity.required} (Y)`, capacity: `${c.integrity.x} (X) · ${c.integrity.y} (Y)` })] : []),
     ...(r.reinforcement ? [check('rcSheets.v.punchingStirrups', !r.reinforcement.overCeiling, { clause: '§22.6.7', demand: `${r.reinforcement.lines} × Ø${r.reinforcement.legDiameter} c/${fmt(r.reinforcement.spacing * 100, 1)} (${r.reinforcement.legs})`, capacity: r.reinforcement.overCeiling ? "> 0.5·√f'c" : `${fmt(r.reinforcement.extent * 100, 0)} cm` })] : []),
   ];

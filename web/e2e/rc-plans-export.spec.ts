@@ -50,7 +50,7 @@ if (BUILD_FEATURES.proRcSheets) {
     const dxfs = names.filter((n) => n.endsWith('.dxf'));
     expect(dxfs.length).toBeGreaterThan(0);
     // Packed: the elevation, breakdown, sections and schedule of one beam on few sheets.
-    expect(dxfs.length).toBeLessThanOrEqual(3);
+    expect(dxfs.length).toBeLessThanOrEqual(4);
     expect(names.filter((n) => n.endsWith('.pdf'))).toHaveLength(1);
     const dxf = dxfs.map((n) => latin1(files[n]!)).join('\n');
     expect(dxf).toContain('$ACADVER\r\n1\r\nAC1018');

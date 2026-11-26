@@ -11,22 +11,22 @@ import type { DrawingInput } from '../../sheets/compose';
 import type { P, Primitive } from '../../sheets/primitives';
 import type { LineBar, LineLayout } from '../beam-line';
 import type { BeamRow } from '../beam-row';
-import { stirrupsLabel } from '../bars';
-import { barTrace, hookBack, hookTurn, lineSections, lineSupports, markPlaces, placeLabels, setOut, spanIndexAt, stirrupPositions } from '../line-geometry';
+import { barTrace, hookBack, hookTurn, lineSections, lineSupports, setOut, stirrupPositions } from '../line-geometry';
+import { annotationPrimitives, planLayout, trackLabelsWithin } from './beam-annotations';
+import type { ElevationLayout } from '../elevation-layout';
 import { SCALES } from '../../sheets/formats';
 import { scheduleElements } from '../schedule/pieces';
 import { scheduleOf, type ScheduleRow } from '../schedule/schedule';
 import type { SheetCode } from '../types';
 import { bands, clipToBand } from './clip';
-import { EJES, HORM, TEXTO, arm, bubble, cm, dim, framed, label, pt, rect, seg, type ArmLayer, type PlanCtx } from './draw';
+import { EJES, HORM, arm, bubble, cm, dim, framed, label, pt, rect, seg, type ArmLayer, type PlanCtx } from './draw';
 import { sectionPrimitives } from './section';
 import { scheduleTables } from './schedule-table';
 
 const K = 1000;
 /** How far the columns stand above and, at least, below the beam, mm. */
-const STUB = 250, STUB_UP = 150;
-/** Paper mm: a mark's centre in from the stirrup, a leg's dimension off its bar. */
-const MARK_IN = 5.5, LEG_DIM = 3, DIM_TEXT = 2.5;
+const STUB = 150, STUB_UP = 150;
+const LEG_DIM = 3, DIM_TEXT = 2.5;
 
 export interface BeamPlanOptions extends PlanCtx {
   code: SheetCode;
@@ -65,10 +65,9 @@ export function barPolyline(line: LineLayout, bar: LineBar, offset: number): P[]
 }
 
 /** How far the columns stand below the beam, mm: deep enough for every hook turned down into them. */
-const stubBelow = (line: LineLayout) => Math.max(STUB, ...line.bars.flatMap((b) => [-hookTurn(b, 0), -hookTurn(b, 1)]).map((d) => d * K + 30));
+const stubBelow = (line: LineLayout) => Math.max(STUB, ...line.bars.flatMap((b) => b.shape.pts.map((q) => -q[1] * K + 30)));
 
-/** The elevation itself, whole: concrete, stirrups, bars, cuts, splices, zones and the dimensions between axes, in centimetres. The marks go on by band. */
-function elevation(line: LineLayout, cuts: Array<{ x: number; label: string }>, c: PlanCtx, whole: boolean): { ps: Primitive[]; below: number } {
+function elevation(line: LineLayout, cuts: Array<{ x: number; label: string }>, c: PlanCtx, whole: boolean): { ps: Primitive[]; above: number; below: number; lay: ElevationLayout } {
   const s = c.scale, hMax = Math.max(...line.spans.map((x) => x.h)) * K, ps: Primitive[] = [];
   const supports = lineSupports(line).map((x) => x * K);
   const stub = stubBelow(line);
@@ -77,12 +76,7 @@ function elevation(line: LineLayout, cuts: Array<{ x: number; label: string }>, 
     if (w <= 0) return;
     ps.push(rect(HORM, xs - w / 2, 0, xs + w / 2, STUB_UP), rect(HORM, xs - w / 2, -hMax - stub, xs + w / 2, -hMax));
   });
-  const names = line.spans.map((sp) => `${sp.name} · ${cm(c.fmt, sp.b)}×${cm(c.fmt, sp.h)}`);
-  const nameAt = placeLabels(line.spans.map((sp) => ((sp.x0 + sp.x1) / 2) * K), 0, cuts.map((x) => x.x * K), (Math.max(...names.map((n) => n.length)) * 0.75 + 4) * s);
-  line.spans.forEach((sp, k) => {
-    ps.push(rect(HORM, sp.x0 * K, -sp.h * K, sp.x1 * K, 0));
-    ps.push(label(pt(nameAt[k]!, 2 * s), names[k]!, 2.5, 'center'));
-  });
+  line.spans.forEach((sp) => ps.push(rect(HORM, sp.x0 * K, -sp.h * K, sp.x1 * K, 0)));
   for (const p of stirrupPositions(line)) {
     const sp = line.spans[p.span]!, z = line.zones[p.zone]!, d = z.stirrups.dia, cov = line.cover * K + d / 2;
     ps.push(seg(arm('EST', d), pt(p.x * K, -cov), pt(p.x * K, -sp.h * K + cov), d));
@@ -91,41 +85,16 @@ function elevation(line: LineLayout, cuts: Array<{ x: number; label: string }>, 
     const pts = barPolyline(line, bar, bar.kind === 'continuous' || bar.kind === 'bent' ? 0 : 0.8 * s);
     if (pts.length >= 2) ps.push({ kind: 'polyline', layer: arm(barLayer(bar), bar.bars.dia), points: pts, dia: bar.bars.dia });
   }
-  for (const cut of cuts) {
-    const x = cut.x * K;
-    for (const [y0, y1, ty] of [[3 * s, 9 * s, 9.5 * s], [-hMax - 3 * s, -hMax - 9 * s, -hMax - 12.5 * s]] as const) {
-      ps.push(seg(TEXTO, pt(x, y0), pt(x, y1)), label(pt(x + 1.2 * s, ty), cut.label, 2.5));
-    }
-  }
-  for (const sp of line.splices) {
-    const k = line.spans.findIndex((x) => sp.x >= x.x0 - 1e-9 && sp.x <= x.x1 + 1e-9);
-    const h = (line.spans[Math.max(0, k)]?.h ?? hMax / K) * K, y = sp.face === 'top' ? -line.cover * K - 2.5 * s : -h + line.cover * K + 1.5 * s;
-    ps.push(label(pt(sp.x * K, y), `${c.tr('rcSheets.line.splice')} ${cm(c.fmt, sp.length)}`, 2, 'center'));
-  }
-  const yZone = -hMax, below0 = Math.max(stub / s, 14) + 3;
+  const lay = planLayout(line, cuts, c, stub, STUB_UP);
+  const ann = annotationPrimitives(lay, c);
+  ps.push(...ann.ps);
+  const chain = (-hMax - ann.bottom) / s + 9;
   const spanDims = supports.slice(1).map((x, j) => [supports[j]!, x] as const);
-  const same = (a: number, b: number) => Math.abs(a - b) < 10;
-  for (const z of line.zones) {
-    if (z.to - z.from < 1e-6) continue;
-    if (!spanDims.some(([a, b]) => same(a, z.from * K) && same(b, z.to * K))) ps.push(dim(pt(z.from * K, yZone), pt(z.to * K, yZone), -below0, cm(c.fmt, z.to - z.from)));
-    ps.push(label(pt(((z.from + z.to) / 2) * K, yZone - (below0 + 4.5) * s), stirrupsLabel(z.stirrups), 2.2, 'center'));
-  }
-  const chain = below0 + 9;
-  for (const [a, b] of spanDims) ps.push(dim(pt(a, yZone), pt(b, yZone), -chain, cm(c.fmt, (b - a) / K)));
+  for (const [a, b] of spanDims) ps.push(dim(pt(a, -hMax), pt(b, -hMax), -chain, cm(c.fmt, (b - a) / K)));
+  line.spans.forEach((sp) => ps.push(label(pt(((sp.x0 + sp.x1) / 2) * K, -hMax - (chain + 4.5) * s), `${sp.name} · ${cm(c.fmt, sp.b)}×${cm(c.fmt, sp.h)}`, 2.5, 'center')));
   const total = whole && supports.length > 2;
-  if (total) ps.push(dim(pt(supports[0]!, yZone), pt(supports[supports.length - 1]!, yZone), -(chain + 7), cm(c.fmt, line.length)));
-  return { ps, below: hMax + (chain + (total ? 11 : 4)) * s };
-}
-
-/** The marks of the bars that show within [x0, x1], mm: each over its longest piece there, inside the beam beside its own bar, kept off the other marks of its face. */
-function elevationMarks(line: LineLayout, x0: number, x1: number, s: number): Primitive[] {
-  const along = markPlaces(line, (6 * s) / K, { window: [x0 / K, x1 / K] });
-  return line.bars.flatMap((bar) => {
-    const x = along.get(bar.mark);
-    if (x === undefined) return [];
-    const k = spanIndexAt(line, x), sp = line.spans[k]!, inner = (line.cover * K + stirrupDiaOf(line, k)) + MARK_IN * s;
-    return bubble(pt(x * K, bar.face === 'top' ? -inner : -sp.h * K + inner), bar.mark, s);
-  });
+  if (total) ps.push(dim(pt(supports[0]!, -hMax), pt(supports[supports.length - 1]!, -hMax), -(chain + 9), cm(c.fmt, line.length)));
+  return { ps, above: ann.top, below: hMax + (chain + (total ? 13 : 7)) * s, lay };
 }
 
 /** A polyline without the points where it runs straight on. */
@@ -215,22 +184,22 @@ export function beamPlans(line: LineLayout, spans: readonly BeamRow[], o: BeamPl
   const from = Math.min(line.ends.from * K, -half) - 10 * s, to = Math.max(line.ends.to * K, line.length * K + half) + 10 * s;
   const room = Math.max(50, o.maxWidth - 20);
   const windows = bands(from, to, room * s, supports.slice(1, -1));
-  const { ps, below } = elevation(line, cuts, o, windows.length === 1);
+  const { ps, above, below, lay } = elevation(line, cuts, o, windows.length === 1);
   const hMax = Math.max(...line.spans.map((x) => x.h)) * K;
   const axes = (a: number, b: number, y0: number, y1: number, sc: number) => supports.flatMap((xs, j) => (xs < a - 1e-6 || xs > b + 1e-6 ? [] : [seg(EJES, pt(xs, y0), pt(xs, y1)), ...bubble(pt(xs, y0 + 3 * sc), String(j + 1), sc)]));
   const out: DrawingInput[] = [];
   const whole = windows.length === 1;
   windows.forEach(([a, b], i) => {
-    const body = [...clipToBand(ps, a, b), ...elevationMarks(line, a, b, s)];
+    const body = [...clipToBand(ps, a, b), ...(windows.length > 1 ? trackLabelsWithin(lay, o, a, b) : [])];
     if (i > 0) body.push(zigzag(a + 2 * s, 0, -hMax, s));
     if (i < windows.length - 1) body.push(zigzag(b - 2 * s, 0, -hMax, s));
     if (whole) {
       const bd = breakdown(line, -below - 4 * s, a, b, o);
-      body.push(...bd.ps, ...axes(a, b, STUB_UP + 5 * s, bd.bottom, s));
+      body.push(...bd.ps, ...axes(a, b, above + 5 * s, bd.bottom, s));
       out.push(framed(`${line.key}:elev`, o.tr('rcSheets.plans.beamElevationBars', { name: line.name }), body, s, o.group, 3));
       return;
     }
-    body.push(...axes(a, b, STUB_UP + 5 * s, -below + 4 * s, s));
+    body.push(...axes(a, b, above + 5 * s, -below + 4 * s, s));
     out.push(framed(`${line.key}:elev-${i + 1}`, `${o.tr('rcSheets.plans.beamElevation', { name: line.name })} (${i + 1}/${windows.length})`, body, s, o.group, 2));
   });
   for (const g of sections) {

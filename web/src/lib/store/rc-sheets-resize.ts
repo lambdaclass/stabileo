@@ -1,18 +1,29 @@
 /**
  * Resizing from the sheets: the dimension a row would need to verify with the forces it has now,
- * or, for a column or a wall with room to spare, the smallest that still does; and the way to the
- * element in the model, where its dimensions are changed. Nothing is changed from here.
+ * or, for a column or a wall with room to spare, the smallest that still does; where the proposal
+ * finds no arrangement for a row's section and concrete, the alternatives it verifies with (a
+ * section, a stronger concrete), each computed by designing the row again with it; and the way to
+ * the element in the model. Applying an alternative is `rc-sheets-apply.ts`'s.
  *
- * Beams and slabs are never offered smaller: the sheets do not check deflections.
+ * Beams and slabs are offered smaller only where their row checks the deflection: the smaller
+ * section must meet it as well as everything else.
  */
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import { holdPlateSidesAt, plateOfShell } from './physical-plates';
-import { redesignerOf, type SheetRow } from './rc-sheets.svelte';
+import { designData } from './design-data';
+import { concreteOfRow, lineRedesignerOf, redesignerOf, sheetCode, type SheetRow } from './rc-sheets.svelte';
+import { criteriaOf, type Criteria } from '../rc-sheets/criteria';
+import { concreteClasses, concreteClassOf, DEFAULT_FC_MAX } from '../rc-sheets/concrete-classes';
+import { lineRowStatus } from '../rc-sheets/beam-line';
 import type { BeamRow } from '../rc-sheets/beam-row';
 import type { ColumnRow } from '../rc-sheets/column-row';
 import type { WallRow } from '../rc-sheets/wall-row';
 import type { LineLayout } from '../rc-sheets/beam-line';
+import { inRange, TIE_BAR_RANGE, type CheckLine } from '../rc-sheets/types';
+import { BAR_DIAMETERS_MM } from '../model/design-data';
+
+const sheetCriteria = (): Criteria => criteriaOf(designData().designOptions?.criteria);
 
 export type ResizeWhat = 'beamH' | 'beamB' | 'column' | 'slabH' | 'wallT' | 'punchSlab' | 'punchColumn' | 'punchCapital' | 'punchDrop';
 /**
@@ -20,21 +31,32 @@ export type ResizeWhat = 'beamH' | 'beamB' | 'column' | 'slabH' | 'wallT' | 'pun
  * projection beyond the column face; a drop panel's, its depth under the slab and its extent from
  * the column face.
  */
-export interface ResizeHint { what: ResizeWhat; direction: 'grow' | 'shrink'; from: number[]; to: number[] | null }
+export interface ResizeHint {
+  what: ResizeWhat; direction: 'grow' | 'shrink' | 'stiffen'; from: number[]; to: number[] | null;
+  /** A wall's thickness that verifies everything but its base, which the model has to hold. */
+  apartFromBase?: true;
+}
 
 const passes = (r: SheetRow) => r.status !== 'fail';
+const WALL_BASE = 'rcSheets.v.wallBase';
+/** A wall whose base is not held all along fails for the model, not its thickness: the other checks say what thickness verifies. */
+const apartFromBase = (r: SheetRow) => r.verifications.every((v) => v.ok || v.label === WALL_BASE);
 /** Below this strength ratio a column or a wall is worth trying smaller. */
 const ROOM = 0.6;
 const round = (x: number) => Math.round(x * 1000) / 1000;
+const DEFLECTION_CHECKS = new Set(['rcSheets.v.deflection', 'rcSheets.v.deflectionDepth', 'rcSheets.ts500.u.deflection', 'rcSheets.ts500.u.deflectionDepth']);
+/** Whether a beam or slab row checks its deflection: its proposal fits its steel to the forces, so whether a shallower one verifies is for the redesign to say, not for its ratios. */
+const checksDeflection = (r: { verifications: CheckLine[] }) => r.verifications.some((v) => DEFLECTION_CHECKS.has(v.label));
 
-/** The first size from `start`, stepped by `step` up to `limit`, whose row passes; null when none does. */
-function grow(key: string, start: number[], step: number, limit: number[], make: (v: number[]) => unknown): number[] | null {
+/** The first size from `start`, stepped by `step` up to `limit`, whose row passes (and meets `also`); null when none does. */
+function grow(key: string, start: number[], step: number, limit: number[], make: (v: number[]) => unknown, also: (r: SheetRow) => boolean = () => true, ok: (r: SheetRow) => boolean = passes): number[] | null {
   const redesign = redesignerOf(key);
   if (!redesign) return null;
   for (let k = 1; k <= 60; k++) {
     const v = start.map((x) => round(x + k * step));
     if (v.some((x, i) => x > limit[i]! + 1e-9)) return null;
-    if (passes(redesign(make(v) as never))) return v;
+    const r = redesign(make(v) as never);
+    if (ok(r) && also(r)) return v;
   }
   return null;
 }
@@ -53,15 +75,26 @@ function shrink(key: string, start: number[], step: number, floor: number, make:
   return best;
 }
 
+/** A member whose proposal took steel for its deflection: the least depth at which its strength steel already meets it. */
+function stiffer(key: string, what: 'beamH' | 'slabH', h0: number, step: number, limit: number, make: (h: number) => unknown): ResizeHint[] {
+  const to = grow(key, [h0], step, [limit], ([h]) => make(h!), (r) => !(r as { byDeflection?: true }).byDeflection);
+  return to ? [{ what, direction: 'stiffen', from: [h0], to }] : [];
+}
+
 export function resizeHints(row: SheetRow): ResizeHint[] {
   if (row.status === 'none') return [];
   const fail = row.status === 'fail';
   switch (row.family) {
     case 'beam': {
-      if (!fail) return [];
-      const d = row.demand;
-      const deeper: ResizeHint = { what: 'beamH', direction: 'grow', from: [d.h], to: grow(row.key, [d.h], 0.05, [Math.min(2 * d.h, 2)], ([h]) => ({ ...d, h })) };
-      return deeper.to ? [deeper] : [deeper, { what: 'beamB', direction: 'grow', from: [d.b], to: grow(row.key, [d.b], 0.05, [2 * d.b], ([b]) => ({ ...d, b })) }];
+      const d = row.demand, cr = sheetCriteria(), step = cr.beamSectionStep;
+      if (!fail) {
+        if (!checksDeflection(row)) return [];
+        if (row.byDeflection) return stiffer(row.key, 'beamH', d.h, step, Math.min(2 * d.h, 2), (h) => ({ ...d, h }));
+        const to = shrink(row.key, [d.h], step, Math.max(cr.beamMinDepth, d.b), ([h]) => ({ ...d, h }));
+        return to ? [{ what: 'beamH', direction: 'shrink', from: [d.h], to }] : [];
+      }
+      const deeper: ResizeHint = { what: 'beamH', direction: 'grow', from: [d.h], to: grow(row.key, [d.h], step, [Math.min(2 * d.h, 2)], ([h]) => ({ ...d, h })) };
+      return deeper.to ? [deeper] : [deeper, { what: 'beamB', direction: 'grow', from: [d.b], to: grow(row.key, [d.b], step, [2 * d.b], ([b]) => ({ ...d, b })) }];
     }
     case 'column': {
       const d = row.demand;
@@ -72,13 +105,21 @@ export function resizeHints(row: SheetRow): ResizeHint[] {
       return to ? [{ what: 'column', direction: 'shrink', from: [d.b, d.h], to }] : [];
     }
     case 'slab': {
-      if (!fail) return [];
       const d = row.demand;
+      if (!fail) {
+        if (!checksDeflection(row)) return [];
+        if (row.byDeflection) return stiffer(row.key, 'slabH', d.h, 0.01, 2 * d.h, (h) => ({ ...d, h }));
+        const to = shrink(row.key, [d.h], 0.01, sheetCriteria().slabMinThickness, ([h]) => ({ ...d, h }));
+        return to ? [{ what: 'slabH', direction: 'shrink', from: [d.h], to }] : [];
+      }
       return [{ what: 'slabH', direction: 'grow', from: [d.h], to: grow(row.key, [d.h], 0.01, [2 * d.h], ([h]) => ({ ...d, h })) }];
     }
     case 'wall': {
       const d = row.demand;
-      if (d.base?.unheld?.length) return [];
+      if (d.base?.unheld?.length) {
+        if (!row.verifications.some((v) => !v.ok && v.label !== WALL_BASE)) return [];
+        return [{ what: 'wallT', direction: 'grow', from: [d.thickness], to: grow(row.key, [d.thickness], 0.05, [2 * d.thickness], ([t]) => ({ ...d, thickness: t }), undefined, apartFromBase), apartFromBase: true }];
+      }
       if (fail) return [{ what: 'wallT', direction: 'grow', from: [d.thickness], to: grow(row.key, [d.thickness], 0.05, [2 * d.thickness], ([t]) => ({ ...d, thickness: t })) }];
       if (!row.generous && row.utilization >= ROOM) return [];
       const to = shrink(row.key, [d.thickness], 0.05, 0.1, ([t]) => ({ ...d, thickness: t }));
@@ -96,7 +137,6 @@ export function resizeHints(row: SheetRow): ResizeHint[] {
         { what: 'punchDrop', direction: 'grow', from: [0, 0], to: dropPanel(row.key, d) },
       ];
     }
-    case 'footing': return [];
   }
 }
 
@@ -121,8 +161,19 @@ function dropPanel(key: string, d: import('../rc-sheets/punching-row').PunchingD
   return null;
 }
 
-/** A continuous beam's depth: the deepest any of its failing spans needs; where no depth up to twice does, the widest width they need. */
+/**
+ * A continuous beam's depth: the deepest any of its failing spans needs; where no depth up to twice
+ * does, the widest width they need. With none failing, the shallowest depth every span verifies
+ * with, deflection included, when each of them has room to be shallower.
+ */
 export function lineResizeHint(spans: readonly BeamRow[]): ResizeHint | null {
+  if (spans.length && spans.every((s) => s.status !== 'fail')) {
+    const down = spans.map((s) => resizeHints(s).find((h) => h.what === 'beamH' && h.direction === 'shrink'));
+    if (down.some((h) => !h?.to)) return null;
+    const from = Math.max(...spans.map((s) => s.demand.h));
+    const to = Math.max(...down.map((h) => h!.to![0]!));
+    return to < from - 1e-9 ? { what: 'beamH', direction: 'shrink', from: [from], to: [to] } : null;
+  }
   const hints = spans.filter((s) => s.status === 'fail').flatMap((s) => resizeHints(s));
   if (!hints.length) return null;
   const of = (what: ResizeWhat, side: (s: BeamRow) => number): ResizeHint => {
@@ -137,7 +188,7 @@ const groupOf = (key: string) => Number(key.split(':')[1]);
 const membersOf = (g: number) => [...(modelStore.model.groups.get(g)?.members.elements ?? [])];
 
 /** The storey's own members of a column stack: those between its bottom and top nodes. */
-function storeyMembers(row: ColumnRow): number[] {
+export function storeyMembers(row: ColumnRow): number[] {
   const n = row.demand.nodes;
   const all = membersOf(groupOf(row.key));
   if (!n) return all;
@@ -156,7 +207,6 @@ export function rowTargets(row: SheetRow | LineLayout): GotoTarget[] {
   if ('spanAdopted' in row) return ['members'];
   if (row.family === 'beam' || row.family === 'column') return ['members'];
   if (row.family === 'punching') return ['plates', 'members'];
-  if (row.family === 'footing') return [];
   return ['plates'];
 }
 
@@ -209,4 +259,97 @@ export function goToRow(row: SheetRow | LineLayout, target: GotoTarget): boolean
     return true;
   }
   return false;
+}
+
+/** A row whose own proposal does not verify: with its section and concrete the sheets find no arrangement. Bars set by hand are the engineer's, not a proposal. */
+export function noArrangement(row: SheetRow | LineLayout, spans: readonly BeamRow[] = []): boolean {
+  if ('spanAdopted' in row) return !row.isAdopted && lineRowStatus(row, spans) === 'fail';
+  return row.status === 'fail' && (row.family === 'punching' || !row.isAdopted);
+}
+
+/** An alternative a row verifies with: a section (`what` and its dimensions, m) or a stronger concrete (f'c, MPa, and its class's name). */
+export type Alternative =
+  | { kind: 'section'; what: ResizeWhat | 'beam'; from: number[]; to: number[] }
+  | { kind: 'concrete'; from: number; to: number; name: string }
+  | { kind: 'ties'; from: number[]; to: number; list: number[] };
+
+const tiesAlternative = (k: { dia: number; list: number[] }): Alternative => ({ kind: 'ties', from: designData().stirrupDiametersMm, to: k.dia, list: k.list });
+
+/** The stirrup and tie diameters the project does not allow yet, smallest first, each with the list it would make. */
+export function widerTieLists(): Array<{ dia: number; list: number[] }> {
+  const now = designData().stirrupDiametersMm;
+  return BAR_DIAMETERS_MM.filter((x) => inRange(x, TIE_BAR_RANGE) && !now.includes(x)).map((dia) => ({ dia, list: [...now, dia].sort((p, q) => p - q) }));
+}
+
+/**
+ * The beam sections a row is tried at, smallest depth first, by the Stabileo criteria (FIUBA §3.1):
+ * h in their steps from the depth it has, b in their steps between h/n of the narrowest and of the
+ * widest, never narrower than it is.
+ */
+export function beamSections(b0: number, h0: number, limit = Math.min(2 * h0, 2), cr: Criteria = sheetCriteria()): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  const s = cr.beamSectionStep;
+  const up = (x: number) => Math.ceil(x / s - 1e-9) * s, down = (x: number) => Math.floor(x / s + 1e-9) * s;
+  for (let h = up(h0 - 1e-6); h <= limit + 1e-9; h = round(h + s)) {
+    const lo = Math.max(b0, up(h / cr.beamWidthFrom - 1e-6)), hi = Math.max(b0, down(h / cr.beamWidthTo));
+    for (let b = lo; b <= hi + 1e-9; b = round(b + s)) {
+      if (Math.abs(b - b0) < 1e-6 && Math.abs(h - h0) < 1e-6) continue;
+      out.push([round(b), round(h)]);
+    }
+  }
+  return out;
+}
+
+/** The concrete strengths an alternative is chosen among, ascending: the project's list or the code's classes, above `from` and up to the largest it allows. */
+export function strongerConcretes(from: number): Array<{ fc: number; name: string }> {
+  const o = designData().designOptions?.alternatives;
+  if (o?.raiseFc === false) return [];
+  const code = sheetCode();
+  const max = o?.fcMax ?? DEFAULT_FC_MAX;
+  const pool = o?.fcClasses?.length ? o.fcClasses.map((fc) => concreteClassOf(code, fc)) : [...concreteClasses(code)];
+  return pool.filter((k) => k.fc > from + 1e-6 && k.fc <= max + 1e-6).sort((p, q) => p.fc - q.fc).map((k) => ({ fc: k.fc, name: k.name }));
+}
+
+
+/**
+ * The alternatives a row with no arrangement verifies with, each found by designing it again: the
+ * least section (a beam by `beamSections`, the rest as `resizeHints` grows them) and the weakest
+ * stronger concrete; `fc` is the concrete the row has, MPa.
+ */
+export function alternatives(row: SheetRow, fc = concreteOfRow(row.key)): Alternative[] {
+  if (!noArrangement(row)) return [];
+  const redesign = redesignerOf(row.key);
+  if (!redesign) return [];
+  const out: Alternative[] = [];
+  if (row.family === 'beam') {
+    const d = row.demand;
+    const to = beamSections(d.b, d.h).find(([b, h]) => passes(redesign({ ...d, b, h } as never)));
+    if (to) out.push({ kind: 'section', what: 'beam', from: [d.b, d.h], to });
+  } else {
+    for (const h of resizeHints(row)) if (h.to && h.direction === 'grow' && h.what !== 'punchCapital' && h.what !== 'punchDrop') out.push({ kind: 'section', what: h.what, from: h.from, to: h.to });
+  }
+  const demand = row.demand;
+  const stronger = fc !== undefined ? strongerConcretes(fc).find((k) => passes(redesign(demand as never, { fc: k.fc }))) : undefined;
+  if (stronger && fc !== undefined) out.push({ kind: 'concrete', from: fc, to: stronger.fc, name: stronger.name });
+  const ties = row.family === 'beam' || row.family === 'column' || row.family === 'wall' ? widerTieLists().find((k) => passes(redesign(demand as never, { ties: k.list }))) : undefined;
+  if (ties) out.unshift(tiesAlternative(ties));
+  return out;
+}
+
+/** The same for a physical beam laid out as one line: one section for all its spans, or a stronger concrete, the whole line designed again with it. */
+export function lineAlternatives(line: LineLayout, spans: readonly BeamRow[], fc = concreteOfRow(line.key)): Alternative[] {
+  if (!noArrangement(line, spans)) return [];
+  const redesign = lineRedesignerOf(line.group);
+  if (!redesign || !spans.length) return [];
+  const b0 = Math.max(...spans.map((s) => s.b)), h0 = Math.max(...spans.map((s) => s.h));
+  const out: Alternative[] = [];
+  const own = spans.map((s) => ({ s, redo: redesignerOf(s.key) })).filter((x) => x.redo && passes(x.redo(x.s.demand as never)) === false);
+  const alone = (o: { b?: number; h?: number; fc?: number; ties?: number[] }) => own.every(({ s, redo }) => passes(redo!({ ...s.demand, ...(o.b ? { b: o.b, h: o.h } : {}) } as never, { fc: o.fc, ties: o.ties })));
+  const to = beamSections(b0, h0).find(([b, h]) => alone({ b, h }) && redesign({ b, h }).status !== 'fail');
+  if (to) out.push({ kind: 'section', what: 'beam', from: [b0, h0], to });
+  const stronger = fc !== undefined ? strongerConcretes(fc).find((k) => alone({ fc: k.fc }) && redesign({ fc: k.fc }).status !== 'fail') : undefined;
+  if (stronger && fc !== undefined) out.push({ kind: 'concrete', from: fc, to: stronger.fc, name: stronger.name });
+  const ties = widerTieLists().find((k) => alone({ ties: k.list }) && redesign({ ties: k.list }).status !== 'fail');
+  if (ties) out.unshift(tiesAlternative(ties));
+  return out;
 }

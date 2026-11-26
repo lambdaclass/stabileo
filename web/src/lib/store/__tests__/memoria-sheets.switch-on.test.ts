@@ -17,8 +17,10 @@ import { renderMemoriaHtml, type RenderContext } from '../../report/memoria/rend
 import { ALL_CHAPTERS, memoElementState } from '../../report/memoria/types';
 import en from '../../i18n/locales/en';
 import { exportProjectIfc, projectIfcInput } from '../ifc-export';
-import { columnBars, columnLabel, type ColumnContext } from '../../rc-sheets/column-row';
-import { stirrupsOver } from '../../rc-sheets/schedule/pieces';
+import { columnLabel } from '../../rc-sheets/column-row';
+import { scheduleElements } from '../../rc-sheets/schedule/pieces';
+import { developedLength } from '../../rc-sheets/shape';
+import { pieceOptions } from '../rc-rebar-3d.svelte';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => {
@@ -112,27 +114,29 @@ describe('the IFC reads the reinforcement sheets', () => {
     const rows = buildSheetRows();
     const input = projectIfcInput(tr, 'en', 'P');
     const line = rows.line[0]!;
+    const schedule = scheduleElements(rows, pieceOptions(rows));
+    const pieces = (key: string, kinds: readonly string[]) => schedule.find((e) => e.key === key)!.pieces.filter((p) => kinds.includes(p.kind));
+    const stockPieces = (ps: ReturnType<typeof pieces>) => ps.reduce((s, p) => s + p.count * ((p.shape.laps?.count ?? 0) + 1), 0);
     const lineBars = input.bars.filter((b) => b.id.startsWith(`${line.key}:`) && b.role === 'main');
-    expect(lineBars.length).toBe(line.bars.reduce((s, b) => s + b.bars.count, 0));
+    expect(lineBars.length).toBe(stockPieces(pieces(line.key, ['continuous', 'support', 'span', 'bent'])));
     const bottom = line.bars.find((b) => b.kind === 'continuous' && b.face === 'bottom')!;
     const drawn = lineBars.filter((b) => b.mark === bottom.mark);
-    expect(drawn.length).toBe(bottom.bars.count);
+    expect(drawn.length).toBe(bottom.bars.count * ((bottom.shape.laps?.count ?? 0) + 1));
+    const runs = drawn.flatMap((b) => b.points.filter((p) => Math.abs(p[2] - (3 - 0.3 + bottom.shape.pts[1]![1])) < 1e-9));
+    expect(Math.min(...runs.map((p) => p[0]))).toBeCloseTo(bottom.from, 9);
+    expect(Math.max(...runs.map((p) => p[0]))).toBeCloseTo(bottom.to, 9);
     for (const b of drawn) {
       expect(b.diameter).toBeCloseTo(bottom.bars.dia / 1000, 12);
-      // The run along the line's axis (y = 0), at its height over the soffit of the 60 cm beam on nodes at z = 3.
-      const run = b.points.filter((p) => Math.abs(p[2] - (3 - 0.3 + bottom.shape.pts[1]![1])) < 1e-9);
-      expect(run.length).toBeGreaterThanOrEqual(2);
-      expect(Math.min(...run.map((p) => p[0]))).toBeCloseTo(bottom.from, 9);
-      expect(Math.max(...run.map((p) => p[0]))).toBeCloseTo(bottom.to, 9);
       expect(Math.abs(b.points[0]![1])).toBeLessThan(0.15);
     }
-    const hoops = input.bars.filter((b) => b.id.startsWith(`${line.key}:st`));
-    expect(hoops.length).toBe(line.zones.reduce((s, z) => s + stirrupsOver(z.from, z.to, z.stirrups.spacing), 0));
+    const ligatures = input.bars.filter((b) => b.id.startsWith(`${line.key}:`) && b.role === 'ligature');
+    expect(ligatures.length).toBe(stockPieces(pieces(line.key, ['stirrup', 'stirrupTie', 'hanger'])));
     const c = rows.column[0]!;
-    const verticals = input.bars.filter((b) => b.id.startsWith(`${c.key}:`) && b.role === 'main');
-    expect(verticals.length).toBe(columnBars(c, c.adopted, { cover: c.cover, tieDia: c.adopted.tieDia } as ColumnContext).length);
-    for (const b of verticals) expect(b.points[1]![2] - b.points[0]![2]).toBeCloseTo(3, 9);
-    expect(input.bars.filter((b) => b.id.startsWith(`${c.key}:t`)).length).toBe(stirrupsOver(0, 3, c.adopted.tieSpacing));
+    const verticals = input.bars.filter((b) => b.id.startsWith(`${c.key}:`) && b.role === 'main' && b.points.length > 1);
+    const own = pieces(c.key, ['column', 'cranked', 'dowel']);
+    expect(verticals.length).toBe(stockPieces(own));
+    for (const b of verticals) expect(own.some((p) => Math.abs(developedLength(p.shape) - b.length) < 1e-6)).toBe(true);
+    expect(input.bars.filter((b) => b.id.startsWith(`${c.key}:`) && b.role === 'ligature').length).toBe(stockPieces(pieces(c.key, ['hoop', 'crossTie'])));
     const beamMember = input.members.find((m) => m.kind === 'beam')!;
     expect(beamMember.props?.ReinforcementSheet).toBe(rows.beam.find((r) => r.key.endsWith(':0'))!.name);
     expect(String(beamMember.props?.Reinforcement)).toContain('bottom:');

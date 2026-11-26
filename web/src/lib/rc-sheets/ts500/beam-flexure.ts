@@ -1,5 +1,5 @@
 import { faceLayout, groupsArea } from '../bars';
-import { SECTION_NAMES, type BeamContext, type BeamDemand, type FlexureCheck, type SectionName } from '../beam-row';
+import { peakSection, SECTION_NAMES, type BeamContext, type BeamDemand, type FlexureCheck, type SectionName } from '../beam-row';
 import type { BarGroup, BeamAdopted, Signed } from '../types';
 import { rhoMinBeam, type Ts500Mat } from './basis';
 import { balancedArea, designFlexure, limitStrain, stripAtAxial, stripCapacity, type FlexureDesign, type Strip } from './section';
@@ -32,7 +32,7 @@ export function flexChecks(c: BeamContext, t: Ts500Mat, d: BeamDemand, a: BeamAd
     const e = sectionOf(d, s);
     items.push({ section: s, sign: 'pos', mu: e.pos.value, nc: e.nPos }, { section: s, sign: 'neg', mu: e.neg.value, nc: e.nNeg });
   }
-  if (d.negAny.value > Math.max(d.start.neg.value, d.span.neg.value, d.end.neg.value) + 1e-6) items.push({ section: 'span', sign: 'neg', mu: d.negAny.value, nc: d.nNegAny });
+  if (d.negAny.value > Math.max(d.start.neg.value, d.span.neg.value, d.end.neg.value) + 1e-6) items.push({ section: peakSection(d, d.negAny.source?.x) ?? 'span', sign: 'neg', mu: d.negAny.value, nc: d.nNegAny });
   return items.map((i) => {
     const g = barsAt(a, i.section);
     const sag = i.sign === 'pos';
@@ -63,6 +63,6 @@ export function flexureNeeds(c: BeamContext, t: Ts500Mat, d: BeamDemand): { pos:
   };
   const pos = SECTION_NAMES.map((s) => need(s, 'pos', sectionOf(d, s).pos, sectionOf(d, s).nPos));
   const neg = SECTION_NAMES.map((s) => need(s, 'neg', sectionOf(d, s).neg, sectionOf(d, s).nNeg));
-  if (d.negAny.value > Math.max(...neg.map((x) => x.env.value)) + 1e-6) neg.push(need('span', 'neg', d.negAny, d.nNegAny));
+  if (d.negAny.value > Math.max(...neg.map((x) => x.env.value)) + 1e-6) neg.push(need(peakSection(d, d.negAny.source?.x) ?? 'span', 'neg', d.negAny, d.nNegAny));
   return { pos, neg };
 }
