@@ -273,3 +273,34 @@ it('applied gravity on independently supported decks reaches both bearings', asy
     }
   }
 });
+
+it('#2607 a restored rafter gap blocks generation and application without replacing existing rows', () => {
+  modelStore.clear();
+  const node = (x: number, y: number, drop = 0) => modelStore.addNode(x, y, 3 + x / 5 - drop);
+  const a = node(0, 0), b = node(10, 0);
+  const i = node(0, 0, 0.02), j = node(10, 0, 0.02);
+  const member = modelStore.addElement(i, j);
+  const material = modelStore.model.materials.keys().next().value!;
+  modelStore.addQuad([a, node(4, -2), node(4, 2), node(0, 4)], material, 0.1);
+  modelStore.addQuad([node(6, -2), b, node(10, 4), node(6, 2)], material, 0.1);
+  for (const [masterNode, slaveNode] of [[a, i], [b, j]] as const) {
+    modelStore.addConstraint({ type: 'rigidLink', masterNode, slaveNode, dofs: [0, 1, 2, 3, 4, 5] });
+  }
+  const projectInput = planInput();
+  const width = buildLoadPlan({ ...projectInput, gravity: { mode: 'width' } });
+  expect(width.outcome).toBe('READY');
+  expect(applyLoadPlan(width, { clearExisting: true, bothSenses: true, nameOf })).toBeUndefined();
+
+  modelStore.restore(JSON.parse(JSON.stringify(modelStore.snapshot())));
+  const before = modelStore.snapshot();
+  expect(before.loads).toContainEqual(expect.objectContaining({
+    type: 'distributed3d', data: expect.objectContaining({ elementId: member }),
+  }));
+  const restored = planInput();
+  const model = { ...restored.model, constraints: modelStore.model.constraints };
+  const plan = buildLoadPlan({ ...restored, model, gravity: { mode: 'panels' } });
+  const reason = { key: 'loadPlan.gravity.rafterGap', params: { members: String(member), gap: '4–6' } };
+  expect(plan).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [reason], distributed: [], nodal: [], surface: [] });
+  expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf })).toEqual(reason);
+  expect(modelStore.snapshot()).toEqual(before);
+});

@@ -78,8 +78,8 @@ it('#2586 requires an actual paired roof attachment with a bounded gap', () => {
   checkRafterGapRegeneration('gravity-attached-rafter-gaps');
 });
 
-it('#2607 bounded attached roof gaps have a separate width regeneration notice', () => {
-  checkRafterGapRegeneration('gravity-attached-rafter-gap-width');
+it('#2607 bounded attached roof gaps have a refusal and regeneration notice', () => {
+  checkRafterGapRegeneration('gravity-rafter-gap-refusal');
 });
 
 function checkRafterGapRegeneration(id: string) {
@@ -103,7 +103,7 @@ function checkRafterGapRegeneration(id: string) {
 }
 
 it.each([false, true])('#2607 older panel gravity with stacked gap decks requires regeneration (triangles %s)', triangles => {
-  const id = 'gravity-attached-gap-decks';
+  const id = 'gravity-rafter-gap-refusal';
   const quads = doubleAttachedRoof(false, [4, 6], true);
   const model = triangles ? triangulateRoof(quads) : { ...quads, plates: undefined };
   const result = (mode: 'panels' | 'width', constraints: FeatureSnapshot['constraints']) => changes({
@@ -131,7 +131,7 @@ it.each(['linear', 'pdelta'] as const)(
       const stamp = { ...stampSolve(analysis, null), resultsVersion: change.resultsVersion };
       const notices = assessProject(snapshot, stamp).changes.map(c => c.id);
       expect.soft(modelFeatures(snapshot).has('roofShellFrameLinks')).toBe(affected);
-      expect.soft(notices.includes('gravity-attached-rafter-gap-width')).toBe(affected);
+      expect.soft(notices.includes('gravity-rafter-gap-refusal')).toBe(affected);
     }
   },
 );
@@ -153,7 +153,7 @@ function checkLegacyPanelDerivation(triangles: boolean, gravityMode?: 'panels' |
     expect.soft(features.has('roofShellFrameLinks')).toBe(panel);
     for (const analysis of ['linear', 'pdelta'] as const) {
       const notices = assessProject(snapshot, stampSolve(analysis, null)).changes.map(entry => entry.id);
-      for (const id of [change.id, 'gravity-attached-rafter-gap-width', 'gravity-stacked-rafter-gap-exposure']) {
+      for (const id of [change.id, 'gravity-rafter-gap-refusal']) {
         expect.soft(notices.includes(id)).toBe(panel);
       }
     }

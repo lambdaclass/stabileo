@@ -22,7 +22,7 @@ const ko: Translations = {
   'loadPlan.gravity.memberSlopeLimit': "부재 {id}의 경사가 중력 하중을 지지하는 부재의 판정 한계에 너무 가깝습니다. 하중을 명시적으로 지정하세요.",
   'snow.refused.stepDriftTransfer': "지붕 단차의 눈 쌓임으로 인한 하중을 지지 부재에 안정적으로 전달할 수 없습니다. 적설 하중을 명시적으로 지정하세요.",
   'loadPlan.gravity.unresolvedMember': "부재 {id}는 쉘에 일부만 덮여 있으며 패널의 하중 전달을 결정할 수 없습니다.",
-  'loadPlan.gravity.gapAttachment': "셸 {shells}의 연결이 불분명하여 부재 {members}의 지붕 틈을 확인할 수 없습니다. 면 하중을 명시적으로 지정하세요.",
+  'loadPlan.gravity.rafterGap': "부재 {members}를 따라 {gap} m 위치에 지붕 데크의 틈이 있습니다. 틈을 덮는 데크를 모델링하거나 그 위치의 하중을 명시적으로 지정하세요.",
   'loadPlan.gravity.offsetRafter': "부재 {id}이(가) 지붕 셸에 강접합되어 있지만 오프셋 때문에 중력 하중을 자동으로 배정할 수 없습니다. 면 하중을 수동으로 한 번만 배정하세요.",
   'loadPlan.gravity.differentDeck': "보 패널을 덮는 쉘은 패널과 같은 데크에 속해야 합니다.",
   'loadPlan.gravity.differentSlopedDeck': "보 패널을 덮는 경사 쉘은 패널과 같은 데크에 속해야 합니다.",

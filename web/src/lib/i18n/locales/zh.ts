@@ -94,7 +94,7 @@ const zh: Translations = {
   'loadPlan.gravity.offsetShellDeck': "壳单元 {id} 与不同标高处投影重叠的梁板区（杆件 {members}）存在竖向耦合。请修正壳单元、连接或梁板区的几何，或手动施加一次面荷载。",
   'loadPlan.gravity.memberSlopeLimit': "杆件 {id} 的坡度过于接近承受重力荷载的判定界限，无法可靠分类。请显式定义其荷载。",
   'loadPlan.gravity.unresolvedMember': "杆件 {id} 仅被壳单元部分覆盖，且无法确定梁格的荷载传递。",
-  'loadPlan.gravity.gapAttachment': "无法验证构件 {members} 处的屋面缺口，因为壳单元 {shells} 的连接不明确。请明确指定面荷载。",
+  'loadPlan.gravity.rafterGap': "沿构件 {members} 的 {gap} 米测站处存在屋面板缺口。请对缺口上方的屋面板建模，或显式指定该处的荷载。",
   'loadPlan.gravity.offsetRafter': "构件 {id} 与屋面壳刚性连接，但其偏移量使重力荷载无法自动分配。请手动分配一次面荷载。",
   'loadPlan.gravity.differentDeck': "覆盖梁格的壳单元必须与梁格属于同一板面。",
   'loadPlan.gravity.differentSlopedDeck': "覆盖梁格的倾斜壳单元必须与梁格属于同一板面。",

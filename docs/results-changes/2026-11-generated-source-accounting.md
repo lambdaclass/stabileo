@@ -39,10 +39,6 @@ In the #2295 model, the two shell regions cover 32 m² of horizontal projection.
 
 Spatial analysis sends locally specified distributed components to the solver in their entered axes, including the displayed local Y sign convention. Global components are resolved onto the member axes once. A frame retains its line load, and a truss receives its statically equivalent end forces. This removes round-trip projection error that could produce unintended components or stop analysis on a skew frame. The skew-frame sweep now prepares all 30 of its original models and the modal stiffness-scaling check runs with its original expected values.
 
-## Classify exposure over the full rafter gap
-
-An offset rafter with a bounded gap carries the strip certified by the shell edges on both sides. The exposure check uses that strip's full plan footprint. A canopy can cover the rafter axis while leaving a portion of the strip exposed, and a canopy off the axis can also cover part of the strip. The planner refuses mixed exposure when the selected loads depend on exposure. Fully exposed and fully covered strips use their respective pressures. Regenerate affected automatic gravity loads.
-
 ## Verify surface-load delivery on the intended shell
 
 The generated-source ledger checks pressure rows against the authored shell family and cell ID. For equivalent nodal rows it checks the force at every intended node. Identical horizontal shells at different heights have the same wrench under a vertical pressure. Alternating force errors at the four corners of a square can also preserve the wrench. Both errors now refuse before dispatch. The same receipt follows the surface load through case inclusion and combination factoring.
