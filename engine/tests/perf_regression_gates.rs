@@ -605,3 +605,242 @@ fn sparse_not_slower_than_dense_3d() {
         || format!("Sparse path ({}us) is more than 2x slower than dense ({}us) on 10x10 plate — regression", sparse_us, dense_us),
     );
 }
+
+fn cost_relative_to(mut reference: impl FnMut(), mut run: impl FnMut()) -> (f64, f64) {
+    fn elapsed_ms(run: &mut impl FnMut()) -> f64 {
+        let start = Instant::now();
+        run();
+        start.elapsed().as_secs_f64() * 1000.0
+    }
+    reference();
+    run();
+    let mut rounds: Vec<(f64, f64)> = (0..5).map(|round| {
+        let (reference_ms, ms) = if round % 2 == 0 {
+            (elapsed_ms(&mut reference), elapsed_ms(&mut run))
+        } else {
+            let ms = elapsed_ms(&mut run);
+            (elapsed_ms(&mut reference), ms)
+        };
+        (ms, ms / reference_ms)
+    }).collect();
+    rounds.sort_by(|a, b| a.1.total_cmp(&b.1));
+    rounds[rounds.len() / 2]
+}
+
+const FIVEFOLD_MODEL_COST_LIMIT: f64 = 12.0;
+
+#[test]
+fn prepared_2d_ten_load_cases_scale_with_model() {
+    let reference_input = make_2d_beam(120);
+    let input = make_2d_beam(600);
+    let reference = linear::prepare_static_2d(&reference_input).expect("prepare failed");
+    let prepared = linear::prepare_static_2d(&input).expect("prepare failed");
+    let cases_for = |stride: usize| -> Vec<Vec<SolverLoad>> {
+        (1..=10).map(|k| vec![SolverLoad::Nodal(SolverNodalLoad {
+            node_id: stride * k - stride / 2, fx: 0.0, fz: -10.0 * k as f64, my: 0.0,
+        })]).collect()
+    };
+    let reference_cases = cases_for(12);
+    let cases = cases_for(60);
+    let (ms, ratio) = cost_relative_to(|| {
+        for loads in &reference_cases {
+            let result = reference.solve_loads(loads).expect("reference case solve failed");
+            assert!(!result.displacements.is_empty());
+        }
+    }, || {
+        for loads in &cases {
+            let result = prepared.solve_loads(loads).expect("case solve failed");
+            assert!(!result.displacements.is_empty());
+        }
+    });
+    println!("600 vs 120 elements, 10 prepared 2D cases: {ms:.1}ms, {ratio:.2}x cost");
+    dedaliano_engine::wall_clock::budget(
+        ratio < FIVEFOLD_MODEL_COST_LIMIT,
+        || format!("Fivefold 2D model took {ratio:.2}x the prepared-case time (limit: {FIVEFOLD_MODEL_COST_LIMIT})"),
+    );
+}
+
+// ==================== 3D frame builder (as engine/benches/workflow_bench.rs) ====================
+
+fn make_input_3d(
+    nodes: Vec<(usize, f64, f64, f64)>,
+    mats: Vec<(usize, f64, f64)>,
+    secs: Vec<(usize, f64, f64, f64, f64)>,
+    elems: Vec<(usize, &str, usize, usize, usize, usize)>,
+    sups: Vec<(usize, usize, bool, bool, bool, bool, bool, bool)>,
+    loads: Vec<SolverLoad3D>,
+) -> SolverInput3D {
+    let mut nodes_map = HashMap::new();
+    for (id, x, y, z) in nodes {
+        nodes_map.insert(id.to_string(), SolverNode3D { id, x, y, z });
+    }
+    let mut mats_map = HashMap::new();
+    for (id, e, nu) in mats {
+        mats_map.insert(id.to_string(), SolverMaterial { id, e, nu });
+    }
+    let mut secs_map = HashMap::new();
+    for (id, a, iy, iz, j) in secs {
+        secs_map.insert(
+            id.to_string(),
+            SolverSection3D { id, name: None, a, iy, iz, j, cw: None, as_y: None, as_z: None, shear_center_y: None, shear_center_z: None },
+        );
+    }
+    let mut elems_map = HashMap::new();
+    for (id, t, ni, nj, mi, si) in elems {
+        elems_map.insert(
+            id.to_string(),
+            SolverElement3D {
+                id,
+                elem_type: t.to_string(),
+                node_i: ni,
+                node_j: nj,
+                material_id: mi,
+                section_id: si,
+                release_my_start: false,
+                release_my_end: false,
+                release_mz_start: false,
+                release_mz_end: false,
+                release_t_start: false,
+                release_t_end: false,
+                local_yx: None,
+                local_yy: None,
+                local_yz: None,
+                roll_angle: None,
+            },
+        );
+    }
+    let mut sups_map = HashMap::new();
+    for (id, nid, rx, ry, rz, rrx, rry, rrz) in sups {
+        sups_map.insert(
+            id.to_string(),
+            SolverSupport3D {
+                node_id: nid,
+                rx, ry, rz, rrx, rry, rrz,
+                kx: None, ky: None, kz: None,
+                krx: None, kry: None, krz: None,
+                dx: None, dy: None, dz: None,
+                drx: None, dry: None, drz: None,
+                normal_x: None, normal_y: None, normal_z: None,
+                is_inclined: None, rw: None, kw: None,
+            },
+        );
+    }
+    SolverInput3D {
+        nodes: nodes_map,
+        materials: mats_map,
+        sections: secs_map,
+        elements: elems_map,
+        supports: sups_map,
+        loads,
+        constraints: vec![],
+        left_hand: None,
+        plates: HashMap::new(),
+        quads: HashMap::new(), quad9s: HashMap::new(),
+        solid_shells: HashMap::new(), curved_shells: HashMap::new(),
+        curved_beams: vec![],
+        connectors: HashMap::new(),
+
+        solver_options: None, masses: Default::default(),    }
+}
+
+fn make_frame_3d(n_stories: usize, n_bays: usize) -> SolverInput3D {
+    let h = 3.0;
+    let w = 6.0;
+    let e = 200_000.0;
+    let a = 0.01;
+    let iy = 1e-4;
+    let iz = 1e-4;
+    let j = 1.5e-4;
+    let cols = n_bays + 1;
+
+    let mut nodes = Vec::new();
+    let mut node_id = 1;
+    for level in 0..=n_stories {
+        for col in 0..=n_bays {
+            nodes.push((node_id, col as f64 * w, 0.0, level as f64 * h));
+            node_id += 1;
+        }
+    }
+
+    let mut elems = Vec::new();
+    let mut eid = 1;
+    for level in 0..n_stories {
+        for col in 0..=n_bays {
+            let ni = level * cols + col + 1;
+            let nj = (level + 1) * cols + col + 1;
+            elems.push((eid, "frame", ni, nj, 1, 1));
+            eid += 1;
+        }
+    }
+    for level in 1..=n_stories {
+        for bay in 0..n_bays {
+            let ni = level * cols + bay + 1;
+            let nj = level * cols + bay + 2;
+            elems.push((eid, "frame", ni, nj, 1, 1));
+            eid += 1;
+        }
+    }
+
+    let mut sups = Vec::new();
+    for col in 0..=n_bays {
+        sups.push((col + 1, col + 1, true, true, true, true, true, true));
+    }
+
+    let mut loads = Vec::new();
+    for level in 1..=n_stories {
+        loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: level * cols + 1,
+            fx: 10.0, fy: 0.0, fz: 0.0,
+            mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+        }));
+        for col in 0..=n_bays {
+            loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
+                node_id: level * cols + col + 1,
+                fx: 0.0, fy: 0.0, fz: -50.0,
+                mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+            }));
+        }
+    }
+
+    make_input_3d(
+        nodes,
+        vec![(1, e, 0.3)],
+        vec![(1, a, iy, iz, j)],
+        elems,
+        sups,
+        loads,
+    )
+}
+
+
+#[test]
+fn prepared_3d_ten_load_cases_scale_with_model() {
+    let reference_input = make_frame_3d(4, 5);
+    let input = make_frame_3d(20, 5);
+    let reference = linear::prepare_static_3d(&reference_input).expect("prepare failed");
+    let prepared = linear::prepare_static_3d(&input).expect("prepare failed");
+    let cases_for = |input: &SolverInput3D| -> Vec<Vec<SolverLoad3D>> {
+        (1..=10).map(|k| input.loads.iter().cloned().map(|l| match l {
+            SolverLoad3D::Nodal(mut n) => { n.fz *= k as f64; SolverLoad3D::Nodal(n) }
+            other => other,
+        }).collect()).collect()
+    };
+    let reference_cases = cases_for(&reference_input);
+    let cases = cases_for(&input);
+    let (ms, ratio) = cost_relative_to(|| {
+        for loads in &reference_cases {
+            let result = reference.solve_loads(loads).expect("reference case solve failed");
+            assert!(!result.displacements.is_empty());
+        }
+    }, || {
+        for loads in &cases {
+            let result = prepared.solve_loads(loads).expect("case solve failed");
+            assert!(!result.displacements.is_empty());
+        }
+    });
+    println!("20 vs 4 storeys, 10 prepared 3D cases: {ms:.1}ms, {ratio:.2}x cost");
+    dedaliano_engine::wall_clock::budget(
+        ratio < FIVEFOLD_MODEL_COST_LIMIT,
+        || format!("Fivefold 3D model took {ratio:.2}x the prepared-case time (limit: {FIVEFOLD_MODEL_COST_LIMIT})"),
+    );
+}
