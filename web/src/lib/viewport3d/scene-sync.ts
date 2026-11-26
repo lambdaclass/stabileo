@@ -625,7 +625,8 @@ function syncShellsNow(ctx: SceneSyncContext): void {
     const geo = plateGeometry(modelStore, pl.group);
     if (!geo) continue;
     // The outline as drawn, its curved sides sampled: the face is triangulated over these very points.
-    const toScene = (l: Array<[number, number, number]>) => l.map(([x, y, z]) => ({ x, y, z }));
+    const off = pl.surface.offset ? resolveShellOffsetGlobal(pl.surface.offset, geo.outer.map(([x, y, z]) => ({ x, y, z }))) : null;
+    const toScene = (l: Array<[number, number, number]>) => l.map(([x, y, z]) => ({ x: x + (off?.x ?? 0), y: y + (off?.y ?? 0), z: z + (off?.z ?? 0) }));
     const outer = toScene(geo.outer), holes = geo.holes.map(toScene);
     const f = geo.frame;
     const uv = (p: [number, number, number]): [number, number] => {
