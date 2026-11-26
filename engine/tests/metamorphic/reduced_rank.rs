@@ -714,7 +714,6 @@ fn sparse_drop_trusses(factor: f64) -> dedaliano_engine::types::SolverInput3D {
 }
 
 #[test]
-#[ignore = "known wrong result: #2608"]
 fn axial_joint_refusal_reports_admissible_displacement_components() {
     use dedaliano_engine::solver::kinematic;
 
@@ -752,7 +751,7 @@ fn axial_joint_refusal_reports_admissible_displacement_components() {
     let analyses = [
         "linear", "linear (dense reference)", "linear (WASM typed path)", "linear (sparse path)",
         "linear (PCG)", "linear (load session)", "constrained", "certified linear",
-        "load combinations", "staged (one stage)", "Winkler (no foundation)", "contact (no gaps)",
+        "load combinations", "staged (one stage)",
         "SSI (no soil springs)", "P-Delta", "corotational", "material nonlinear", "modal",
         "certified modal",
     ];

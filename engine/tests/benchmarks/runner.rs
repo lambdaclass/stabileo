@@ -230,7 +230,7 @@ fn benchmark_protocol_toggle_frame_refinement() {
 fn benchmark_protocol_toggle_truss_refinement_mechanism() {
     solve(&model("shallow-toggle-truss", 1, false, ""), true);
 
-    let message = "the structure is a mechanism at nodes [2]: a translation of this joint leaves all attached trusses unstrained and satisfies the restraints";
+    let message = "the structure is a mechanism at nodes [2]: a translation of this joint leaves all attached trusses unstrained and satisfies the restraints (displacement components: X, Z)";
     for (n, dx, dz) in [(2, 1.0, 0.05), (4, 0.5, 0.025)] {
         let proof = format!(
             "{n} subdivisions. Node 2 is unrestrained and lies between nodes 1 and 3. \

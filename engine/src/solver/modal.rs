@@ -467,7 +467,7 @@ impl<'a> ModalStiffness<'a> {
     ) -> Result<(), String> {
         use super::structural_kinematics::MechanismWitness;
         let witness = rank.structural_witness();
-        if let Some(witness @ MechanismWitness::AxialJoint(_)) = witness {
+        if let Some(witness @ MechanismWitness::AxialJoint { .. }) = witness {
             return Err(super::stability::structural_verdict(witness).refusal().unwrap());
         }
         self.reject_massive_null_translation(mass, dof, constraints, inclined, axes)?;

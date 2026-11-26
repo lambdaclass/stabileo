@@ -69,6 +69,9 @@ function report(issue, dim, solver) {
           || !diagnostic.message.includes(witness)) {
         failures.push(`#${issue} ${dim} ${name} returned ${error}`);
       }
+      if (issue === 2584 && !diagnostic?.message.endsWith(' (displacement components: X, Z)')) {
+        failures.push(`#${issue} ${dim} ${name} omitted the proven X and Z components: ${error}`);
+      }
     }
   }
 }

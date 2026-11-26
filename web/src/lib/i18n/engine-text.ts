@@ -18,6 +18,7 @@ import { asCodedRefusal, CodedRefusal, refusalDiagnostic } from '../engine/conta
 import { i18n, registerFeatureDictionaries, tAt } from './store.svelte';
 import type { Locale } from './offered';
 import { axesStore } from '../axes/axes.svelte';
+import { userLetterIn } from '../axes/frame';
 import { axisTokensIn } from '../axes/case-names';
 
 /**
@@ -149,6 +150,7 @@ registerFeatureDictionaries(Object.fromEntries(
 ));
 
 const AXIAL_JOINT_MECHANISM = 'svc.engine.axialJointMechanism';
+const AXIAL_JOINT_COMPONENTS = 'svc.engine.axialJointComponents';
 const axialJointMechanism: Record<Locale, string> = {
   de: 'Am Knoten {node} liegt ein Mechanismus vor. Der Knoten kann sich verschieben, ohne die angeschlossenen Fachwerkstäbe zu dehnen oder die Lagerbedingungen zu verletzen.',
   en: 'There is a mechanism at joint {node}. The joint can translate without straining its attached truss members or violating the restraints.',
@@ -159,11 +161,24 @@ const axialJointMechanism: Record<Locale, string> = {
   tr: '{node} düğümünde bir mekanizma var. Düğüm, bağlı kafes çubuklarını deforme etmeden ve kısıtları ihlal etmeden ötelenebilir.',
   zh: '节点 {node} 处存在机构。该节点可以平移，而不使相连的桁架杆产生应变，也不违反约束。',
 };
+const axialJointComponents: Record<Locale, string> = {
+  de: 'Mögliche Bewegungskomponenten: {components}.',
+  en: 'Possible motion components: {components}.',
+  es: 'Componentes posibles del movimiento: {components}.',
+  fr: 'Composantes possibles du mouvement : {components}.',
+  hu: 'A mozgás lehetséges összetevői: {components}.',
+  pt: 'Componentes possíveis do movimento: {components}.',
+  tr: 'Olası hareket bileşenleri: {components}.',
+  zh: '可能的运动分量：{components}。',
+};
 registerFeatureDictionaries(Object.fromEntries(
-  Object.entries(axialJointMechanism).map(([locale, message]) => [locale, { [AXIAL_JOINT_MECHANISM]: message }]),
+  Object.entries(axialJointMechanism).map(([locale, message]) => [locale, {
+    [AXIAL_JOINT_MECHANISM]: message,
+    [AXIAL_JOINT_COMPONENTS]: axialJointComponents[locale as Locale],
+  }]),
 ));
 
-const AXIAL_JOINT_REASON = /^the structure is a mechanism at nodes \[(\d+)\]: a translation of this joint leaves all attached trusses unstrained and satisfies the restraints$/;
+const AXIAL_JOINT_REASON = /^the structure is a mechanism at nodes \[(\d+)\]: a translation of this joint leaves all attached trusses unstrained and satisfies the restraints(?: \(displacement components: ([XYZ](?:, [XYZ]){0,2})\))?$/;
 
 const FRAME_SWING_MECHANISM = 'svc.engine.frameSwingMechanism';
 const frameSwingMechanism: Record<Locale, string> = {
@@ -219,7 +234,14 @@ export function localizeEngineText(message: string): string {
   const rankRefusal = asCodedRefusal(message, 'reduced_stiffness_rank');
   const original = rankRefusal instanceof CodedRefusal ? rankRefusal.message : message;
   const axialJoint = AXIAL_JOINT_REASON.exec(original);
-  if (axialJoint) return fill(AXIAL_JOINT_MECHANISM, { node: axialJoint[1] });
+  if (axialJoint) {
+    const [, node, axes] = axialJoint;
+    const diagnosis = fill(AXIAL_JOINT_MECHANISM, { node });
+    if (!axes) return diagnosis;
+    const labels = axes.split(', ').map((axis) => tAt(`kin.dof3dU${userLetterIn(axesStore.frame, axis).toLowerCase()}`, i18n.locale));
+    const components = new Intl.ListFormat(i18n.locale).format(labels);
+    return `${diagnosis} ${fill(AXIAL_JOINT_COMPONENTS, { components })}`;
+  }
   const modalSwing = refusalDiagnostic(message, 'reduced_stiffness_rank');
   const modalSwingNode = modalSwing?.nodeIds?.[0];
   if (modalSwing?.phase === 'modal' && typeof modalSwingNode === 'number') {

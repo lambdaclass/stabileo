@@ -9,7 +9,7 @@ use crate::types::{SolverInput, SolverInput3D};
 
 #[derive(Default)]
 pub(super) struct StructuralKinematics {
-    axial_joints: Vec<TranslationMechanism>,
+    axial_joints: Vec<AxialJoint>,
     frame_swings: Vec<(TranslationMechanism, Option<&'static str>)>,
     isolated_axial: Vec<TranslationMechanism>,
     isolated_frames: Vec<TranslationMechanism>,
@@ -65,8 +65,14 @@ impl TranslationMechanism {
 
 pub(super) enum MechanismWitness {
     Unrestrained { nodes: Vec<usize>, frame_nodes: Vec<usize>, planar_component: Option<&'static str> },
-    AxialJoint(usize),
+    AxialJoint { node: usize, axes: [bool; 3] },
     FrameSwing { node: usize, planar_component: Option<&'static str> },
+}
+
+struct AxialJoint {
+    node: usize,
+    axes: Vec<usize>,
+    motion: LocalMotion,
 }
 
 struct LocalMotion {
@@ -88,20 +94,26 @@ impl RowBasis {
         }
     }
 
-    fn add(&mut self, mut row: Row) {
-        for (pivot, basis) in self.rows.iter_mut().enumerate() {
+    fn add(&mut self, row: Row) {
+        if let Some((pivot, row)) = self.reduce(row) {
+            self.rows[pivot] = Some(row);
+        }
+    }
+
+    fn reduce(&self, mut row: Row) -> Option<(usize, Row)> {
+        for (pivot, basis) in self.rows.iter().enumerate() {
             if row[pivot].is_zero() {
                 continue;
             }
             let Some(basis) = basis else {
-                *basis = Some(row);
-                return;
+                return Some((pivot, row));
             };
             let scale = &row[pivot] / &basis[pivot];
             for (value, entry) in row[pivot..].iter_mut().zip(&basis[pivot..]) {
                 *value -= &scale * entry;
             }
         }
+        None
     }
 
     fn has_kernel(&self) -> bool {
@@ -204,7 +216,7 @@ impl StructuralKinematics {
         }
         other_members.extend(unsupported);
         Self {
-            axial_joints: Self::axial_joints(dof, &positions, neighbors, &other_members, &springs),
+            axial_joints: Self::axial_joints(dof, &positions, [0, 2], neighbors, &other_members, &springs),
             frame_swings,
             ..Self::default()
         }
@@ -278,7 +290,7 @@ impl StructuralKinematics {
         }
         other_members.extend(unsupported);
         Self {
-            axial_joints: Self::axial_joints(dof, &positions, neighbors, &other_members, &springs),
+            axial_joints: Self::axial_joints(dof, &positions, [0, 1, 2], neighbors, &other_members, &springs),
             frame_swings,
             ..Self::default()
         }
@@ -287,10 +299,11 @@ impl StructuralKinematics {
     fn axial_joints<const D: usize>(
         dof: &DofNumbering,
         positions: &BTreeMap<usize, [f64; D]>,
+        global_axes: [usize; D],
         neighbors: BTreeMap<usize, Vec<usize>>,
         unsupported: &BTreeSet<usize>,
         springs: &BTreeSet<(usize, usize)>,
-    ) -> Vec<TranslationMechanism> {
+    ) -> Vec<AxialJoint> {
         neighbors
             .into_iter()
             .filter_map(|(node, mut others)| {
@@ -329,10 +342,14 @@ impl StructuralKinematics {
                     }
                 }
                 let width = axes.len();
-                let components = axes.into_iter().enumerate()
-                    .map(|(axis, (_, index))| (index, unit_row(width, axis)))
+                let components = axes.iter().enumerate()
+                    .map(|(axis, &(_, index))| (index, unit_row(width, axis)))
                     .collect();
-                Some(TranslationMechanism::local(node, components, strains))
+                Some(AxialJoint {
+                    node,
+                    axes: axes.into_iter().map(|(axis, _)| global_axes[axis]).collect(),
+                    motion: LocalMotion { components, conditions: strains },
+                })
             })
             .collect()
     }
@@ -344,8 +361,14 @@ impl StructuralKinematics {
         additional_dofs: &[bool],
     ) -> Option<MechanismWitness> {
         let admissible = |motion: &&TranslationMechanism| motion.admissible(constraints, inactive, additional_dofs);
-        if let Some(joint) = self.axial_joints.iter().find(admissible) {
-            return Some(MechanismWitness::AxialJoint(joint.nodes[0]));
+        for joint in &self.axial_joints {
+            if let Some(conditions) = joint.motion.admissible_conditions(constraints, inactive, additional_dofs) {
+                let mut axes = [false; 3];
+                for (index, &axis) in joint.axes.iter().enumerate() {
+                    axes[axis] = conditions.reduce(unit_row(joint.axes.len(), index)).is_some();
+                }
+                return Some(MechanismWitness::AxialJoint { node: joint.node, axes });
+            }
         }
         let axial_nodes = self.isolated_axial.iter().filter(admissible).flat_map(|m| m.nodes.iter().copied());
         let frames = self.isolated_frames.iter().filter(admissible);
@@ -397,6 +420,15 @@ impl LocalMotion {
         inactive: &[usize],
         additional_dofs: &[bool],
     ) -> bool {
+        self.admissible_conditions(constraints, inactive, additional_dofs).is_some()
+    }
+
+    fn admissible_conditions(
+        &self,
+        constraints: Option<&FreeConstraintSystem>,
+        inactive: &[usize],
+        additional_dofs: &[bool],
+    ) -> Option<RowBasis> {
         let mut conditions = self.conditions.clone();
         for (dof, row) in &self.components {
             if additional_dofs.get(*dof) == Some(&true)
@@ -406,14 +438,9 @@ impl LocalMotion {
             }
         }
         if let Some(system) = constraints {
-            if self
-                .restrict_to_constraint_range(system, inactive, &mut conditions)
-                .is_none()
-            {
-                return false;
-            }
+            self.restrict_to_constraint_range(system, inactive, &mut conditions)?;
         }
-        conditions.has_kernel()
+        conditions.has_kernel().then_some(conditions)
     }
 
     fn restrict_to_constraint_range(

@@ -33,7 +33,7 @@ pub struct DofTag { pub node: usize, pub kind: DofKind }
 pub enum Verdict { Stable, Mechanism, Singular }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Reason { Resolved, FreeTranslation, SwingAtRounding, Conditioning, CoupledSoftDirection, ConstraintRounding, OperatorRounding, AxialMechanism, FrameMechanism, Indefinite, NonFinite }
+pub enum Reason { Resolved, FreeTranslation, SwingAtRounding, Conditioning, CoupledSoftDirection, ConstraintRounding, OperatorRounding, AxialMechanism([bool; 3]), FrameMechanism, Indefinite, NonFinite }
 
 #[derive(Debug, Clone)]
 pub struct FreeDirection {
@@ -168,7 +168,7 @@ impl Stability {
 
     pub(super) fn rank_refusal(&self) -> Option<String> {
         match self.reason {
-            Reason::OperatorRounding | Reason::AxialMechanism | Reason::FrameMechanism => self.refusal(),
+            Reason::OperatorRounding | Reason::AxialMechanism(_) | Reason::FrameMechanism => self.refusal(),
             Reason::ConstraintRounding => self.refusal().map(|message| {
                 crate::refusal::coded(DiagnosticCode::ReducedStiffnessRank, &message)
             }),
@@ -183,13 +183,18 @@ impl Stability {
             Reason::FreeTranslation => Some(format!(
                 "the structure is a mechanism{nodes}: a node can move freely in a direction no member, support or spring stiffens; add supports or members, or remove releases"
             )),
-            Reason::AxialMechanism => Some(crate::refusal::from_diagnostic(
-                StructuredDiagnostic::global(
-                    DiagnosticCode::ReducedStiffnessRank,
-                    Severity::Error,
-                    format!("the structure is a mechanism{nodes}: a translation of this joint leaves all attached trusses unstrained and satisfies the restraints"),
-                ).with_nodes(self.mode_nodes.clone()),
-            )),
+            Reason::AxialMechanism(axes) => {
+                let components = ["X", "Y", "Z"].into_iter().zip(axes)
+                    .filter_map(|(name, moves)| moves.then_some(name))
+                    .collect::<Vec<_>>().join(", ");
+                Some(crate::refusal::from_diagnostic(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::ReducedStiffnessRank,
+                        Severity::Error,
+                        format!("the structure is a mechanism{nodes}: a translation of this joint leaves all attached trusses unstrained and satisfies the restraints (displacement components: {components})"),
+                    ).with_nodes(self.mode_nodes.clone()),
+                ))
+            }
             Reason::FrameMechanism => Some(crate::refusal::from_diagnostic(
                 frame_swing_diagnostic(&self.mode_nodes),
             )),
@@ -1799,7 +1804,7 @@ fn structural_mechanism(
 pub(super) fn structural_verdict(witness: MechanismWitness) -> Stability {
     let (nodes, reason) = match witness {
         MechanismWitness::Unrestrained { nodes, .. } => (nodes, Reason::FreeTranslation),
-        MechanismWitness::AxialJoint(node) => (vec![node], Reason::AxialMechanism),
+        MechanismWitness::AxialJoint { node, axes } => (vec![node], Reason::AxialMechanism(axes)),
         MechanismWitness::FrameSwing { node, .. } => (vec![node], Reason::FrameMechanism),
     };
     Stability {
@@ -1952,7 +1957,7 @@ impl<'a> OperatorRank<'a> {
     pub(super) fn require_resolved(&self, free: &CscMatrix, reduced: Option<&CscMatrix>, support_magnitude: Option<&CscMatrix>) -> Result<(), String> {
         let result = self.classify(free, reduced, support_magnitude, &[]);
         match result.refusal() {
-            Some(error) if !matches!(result.reason, Reason::OperatorRounding | Reason::AxialMechanism | Reason::FrameMechanism) => Err(crate::refusal::coded(DiagnosticCode::ReducedStiffnessRank, &error)),
+            Some(error) if !matches!(result.reason, Reason::OperatorRounding | Reason::AxialMechanism(_) | Reason::FrameMechanism) => Err(crate::refusal::coded(DiagnosticCode::ReducedStiffnessRank, &error)),
             Some(error) => Err(error),
             None => Ok(()),
         }

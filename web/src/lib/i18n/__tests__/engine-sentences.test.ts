@@ -2,7 +2,9 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import { localizeEngineText } from '../engine-text';
 import { errorText } from '../../utils/error-text';
-import { setLocale, t } from '../index';
+import { ensureLocale, OFFERED_LOCALES, setLocale, t } from '../index';
+import { axesStore } from '../../axes/axes.svelte';
+import { globalAxes } from '../../features';
 
 afterAll(() => setLocale('en'));
 
@@ -107,9 +109,10 @@ describe('engine sentences', () => {
       .toBe('Hay un mecanismo en el nudo 2. El nudo puede desplazarse sin deformar las barras articuladas conectadas ni violar las restricciones.');
   });
 
-  it.skip('localizes the proven axial displacement components in every offered language (#2608)', async () => {
-    for (const locale of ['de', 'en', 'es', 'fr', 'hu', 'pt', 'tr', 'zh']) {
-      await setLocale(locale);
+  it('localizes the proven axial displacement components in every offered language (#2608)', async () => {
+    for (const locale of OFFERED_LOCALES) {
+      setLocale(locale);
+      await ensureLocale(locale);
       const cause = 'the structure is a mechanism at nodes [2]: a translation of this joint leaves all attached trusses unstrained and satisfies the restraints';
       const message = cause + ' (displacement components: X, Z)';
       const coded = JSON.stringify({
@@ -124,6 +127,20 @@ describe('engine sentences', () => {
         expect(translated, locale).not.toContain(t('kin.dof3dUy'));
         expect(translated, locale).not.toContain('{components}');
       }
+    }
+  });
+
+  it('uses the active axes for a proven axial displacement component', async () => {
+    setLocale('en');
+    await ensureLocale('en');
+    try {
+      axesStore.choice = { up: '-Y', right: '+X', hand: 'right' };
+      const message = 'the structure is a mechanism at nodes [2]: a translation of this joint leaves all attached trusses unstrained and satisfies the restraints (displacement components: Z)';
+      const [vertical, other] = globalAxes() ? ['Y', 'Z'] : ['Z', 'Y'];
+      expect(localizeEngineText(message)).toContain(`displacement in ${vertical}`);
+      expect(localizeEngineText(message)).not.toContain(`displacement in ${other}`);
+    } finally {
+      axesStore.reset();
     }
   });
 
