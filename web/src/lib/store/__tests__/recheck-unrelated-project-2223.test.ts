@@ -233,21 +233,21 @@ it.skip.each(['file', 'share'] as const)('known wrong result: #2588 — %s block
   modelStore.addElement(root, tip, 'frame');
   modelStore.addSupport(root, 'fixed');
   modelStore.addNodalLoad3D(tip, 10, 0, 0, 0, 0, 0, 1);
-  const reference = modelStore.solve(false, 'xy');
+  const reference = modelStore.solve(false, 'xz');
   expect(reference).toMatchObject({ displacements: expect.any(Array) });
   const file = buildProjectFile();
   open(entry, { ...file, snapshot: { ...file.snapshot, drawPlane2D: undefined } });
 
   expect.soft(uiStore.analysisMode).toBe('2d');
   expect.soft(buildProjectFile().snapshot.drawPlane2D).toBeUndefined();
-  expect.soft(modelStore.solve(false, 'xy')).toBe(t('svc.savedPlaneRequired'));
-  expect.soft(await modelStore.solveAsync(false, 'xy')).toBe(t('svc.savedPlaneRequired'));
-  expect.soft(modelStore.solveCombinations(false, 'xy')).toBe(t('svc.savedPlaneRequired'));
-  expect.soft(() => modelStore.buildSolverInput(false, 'xy')).toThrow(t('svc.savedPlaneRequired'));
+  expect.soft(modelStore.solve(false, 'xz')).toBe(t('svc.savedPlaneRequired'));
+  expect.soft(await modelStore.solveAsync(false, 'xz')).toBe(t('svc.savedPlaneRequired'));
+  expect.soft(modelStore.solveCombinations(false, 'xz')).toBe(t('svc.savedPlaneRequired'));
+  expect.soft(() => modelStore.buildSolverInput(false, 'xz')).toThrow(t('svc.savedPlaneRequired'));
 
-  uiStore.drawPlane2D = 'xy';
+  uiStore.drawPlane2D = 'xz';
   expect(modelStore.solve()).toEqual(reference);
-  expect(buildProjectFile().snapshot.drawPlane2D).toBe('xy');
+  expect(buildProjectFile().snapshot.drawPlane2D).toBe('xz');
 });
 
 it.skip.each(['xz', 'yz'] as const)('known wrong result: #2588 — a global load resolves an otherwise ambiguous %s frame', async plane => {

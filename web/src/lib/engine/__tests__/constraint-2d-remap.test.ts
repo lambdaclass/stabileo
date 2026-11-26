@@ -134,7 +134,8 @@ it.skip.each([
     const tip = modelStore.addNode(plane === 'xy' ? span : 0, plane === 'yz' ? span : 0);
     modelStore.addElement(root, tip, 'frame');
     modelStore.addSupport(root, 'fixed');
-    modelStore.addNodalLoad3D(tip, 0, 0, 0, plane === 'yz' ? 10 : 0, 0, plane === 'xy' ? 10 : 0);
+    if (plane === 'xy') modelStore.addNodalLoad(tip, 0, 0, 10);
+    else modelStore.addNodalLoad3D(tip, 0, 0, 0, 10, 0, 0);
     const mpc: LinearMpcConstraint = {
       type: 'linearMPC', terms: [
         { nodeId: tip, dof: horizontal, coefficient: 1 },
