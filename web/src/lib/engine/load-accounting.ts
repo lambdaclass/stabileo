@@ -764,8 +764,6 @@ function scaleShellForces(
     return [id, prior ? prior.add(scaled) : scaled];
   }));
 }
-||||||| 6d65be25a
-type SlabCell = { count: number; expected: Wrench };
 type SlabSource = { name: string; cells: ReadonlyMap<string, SlabCell>; expected: Wrench };
 
 function addSlabSource(targets: Map<number, Map<string, SlabCell>>, id: number, cells: ReadonlyMap<string, SlabCell>, factor: number) {
