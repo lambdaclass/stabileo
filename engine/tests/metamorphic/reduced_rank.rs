@@ -670,3 +670,112 @@ fn ssi_released_tip_torque_respects_supported_springs_and_soil_direction_validat
     assert!(answer.converged);
     assert_eq!(answer.results.displacements.iter().find(|d| d.node_id == 2).unwrap().rx, 1.0);
 }
+
+#[test]
+#[ignore = "known wrong result: #2584"]
+fn material_rank_is_independent_of_an_artificial_rotation_diagonal() {
+    use dedaliano_engine::{
+        solver::{dof::DofNumbering, material_nonlinear::solve_nonlinear_material_3d},
+        types::{NonlinearMaterialInput3D, SolverInput3D},
+    };
+    let solver: SolverInput3D = serde_json::from_str(include_str!("../fixtures/reduced-rank-pins.json")).unwrap();
+    let padded = crate::case::pad_3d(&solver).0;
+    let mut failures = Vec::new();
+    for (sparse, model) in [(false, solver), (true, padded)] {
+        assert_eq!(DofNumbering::build_3d(&model).n_free >= linear::SPARSE_THRESHOLD, sparse);
+        for modulus in [1e15, 1e21] {
+            let mut solver = model.clone();
+            solver.materials.get_mut("2").unwrap().e = modulus;
+            let assert_zero = |results: dedaliano_engine::types::AnalysisResults3D| {
+                assert_eq!(results.displacements.len(), solver.nodes.len());
+                assert!(results.displacements.iter().all(|d| {
+                    [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz] == [0.0; 6]
+                }));
+            };
+            assert_zero(linear::solve_3d(&solver).unwrap());
+            let input: NonlinearMaterialInput3D = serde_json::from_value(serde_json::json!({
+                "solver": solver, "materialModels": {}, "sectionCapacities": {}, "maxIter": 8,
+                "tolerance": 1e-12, "nIncrements": 1
+            })).unwrap();
+            match solve_nonlinear_material_3d(&input) {
+                Ok(result) => {
+                    assert!(result.converged);
+                    assert_zero(result.results);
+                }
+                Err(error) => failures.push(format!("sparse={sparse}, modulus={modulus:e}: {error}")),
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn released_rotation_can_move_an_offset_rigid_link_slave() {
+    use dedaliano_engine::{
+        solver::corotational::{solve_corotational_2d_from, CorotationalStart2D},
+        types::{RigidLinkConstraint, SolverNode},
+    };
+    let mut failures = Vec::new();
+    for (offset, released) in [(1.0, true), (0.0, true), (1.0, false)] {
+        let mut planar = truss();
+        let beam = planar.elements.get_mut("1").unwrap();
+        beam.elem_type = "frame".into();
+        beam.hinge_end = released;
+        planar.supports.remove("2");
+        planar.nodes.insert("3".into(), SolverNode { id: 3, x: 1.0 + offset, z: 0.0 });
+        let mut space = embed_2d(&planar, Plane::XZ).unwrap();
+        let link = |dofs| Constraint::RigidLink(RigidLinkConstraint {
+            master_node: 2, slave_node: 3, dofs
+        });
+        planar.constraints = vec![link(vec![])];
+        space.constraints = vec![link(vec![0, 1, 2, 3, 4, 5])];
+
+        let mechanism = offset != 0.0 && released;
+        let linear2 = linear::solve_2d(&planar);
+        let linear3 = linear::solve_3d(&space);
+        if mechanism {
+            assert!(linear2.unwrap_err().contains("mechanism"));
+            assert!(linear3.unwrap_err().contains("mechanism"));
+        } else {
+            assert!(linear2.unwrap().displacements.iter().all(|d| [d.ux, d.uz, d.ry] == [0.0; 3]));
+            assert!(linear3.unwrap().displacements.iter().all(|d| [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz] == [0.0; 6]));
+        }
+
+        let plane = Case2::new("released link", planar);
+        let space = Case3::new("released link", space);
+        for name in ["corotational", "material nonlinear"] {
+            let solve2 = crate::ana2::rows().into_iter().find(|row| row.name == name).unwrap().run;
+            let solve3 = crate::ana3::rows().into_iter().find(|row| row.name == name).unwrap().run;
+            let result2 = solve2(&plane);
+            let result3 = solve3(&space);
+            if mechanism {
+                report(&format!("2D {name}"), result2, &mut failures);
+                report(&format!("3D {name}"), result3, &mut failures);
+            } else {
+                let result2 = result2.unwrap();
+                let result3 = result3.unwrap();
+                for node in [1, 2, 3] {
+                    assert_eq!(result2.node_vec(node, "u").unwrap(), [0.0; 2]);
+                    assert_eq!(result3.node_vec(node, "u").unwrap(), [0.0; 3]);
+                }
+            }
+        }
+
+        let initial = plane.s.clone();
+        let displacements = [1, 2, 3].map(|node_id| dedaliano_engine::types::Displacement {
+            node_id, ux: 0.0, uz: 0.0, ry: 0.0,
+        });
+        let start = CorotationalStart2D { input: &initial, displacements: &displacements };
+        for modified in [false, true] {
+            let result = solve_corotational_2d_from(&plane.s, Some(&start), 8, 1e-12, 1, modified);
+            if mechanism {
+                report("2D supplied start", result, &mut failures);
+            } else {
+                let result = result.unwrap();
+                assert!(result.converged);
+                assert!(result.results.displacements.iter().all(|d| [d.ux, d.uz, d.ry] == [0.0; 3]));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}

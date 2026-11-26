@@ -304,3 +304,46 @@ for (const dim of ['2d', '3d']) {
   assert.equal(result.converged, true);
   assert.equal(result.results.displacements.find(({ nodeId }) => nodeId === 2).rx, 1);
 }
+
+if (process.env.REPRODUCE_ARTIFICIAL_TANGENT_RANK) {
+  const model = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/reduced-rank-pins.json', import.meta.url)));
+  for (const modulus of [1e15, 1e21]) {
+    model.materials[2].e = modulus;
+    assertDisplacements(engine.solve_3d(model), '3d', [1, 2, 3]);
+    const result = nonlinear('nonlinear_material', '3d', {
+      solver: model, materialModels: {}, sectionCapacities: {}, maxIter: 8, tolerance: 1e-12, nIncrements: 1,
+    });
+    assert.equal(result.converged, true);
+    assertDisplacements(result.results, '3d', [1, 2, 3]);
+  }
+}
+
+for (const dim of ['2d', '3d']) {
+  for (const [offset, released] of [[1, true], [0, true], [1, false]]) {
+    const planar = structuredClone(truss);
+    Object.assign(planar.elements[1], {type: 'frame', hingeEnd: released});
+    const model = dim === '2d' ? planar : spatial(planar);
+    delete model.supports[2];
+    model.nodes[3] = {id: 3, x: 1 + offset, y: 0, z: 0};
+    model.constraints = [{
+      type: 'rigidLink', masterNode: 2, slaveNode: 3, dofs: dim === '2d' ? [] : [0, 1, 2, 3, 4, 5],
+    }];
+    const linear = () => engine[`solve_${dim}`](model);
+    const corotational = () => nonlinear('corotational', dim, model);
+    const material = () => nonlinear('nonlinear_material', dim, {
+      solver: model, materialModels: {}, sectionCapacities: {}, maxIter: 8, tolerance: 1e-12, nIncrements: 1,
+    });
+    if (offset !== 0 && released) {
+      assert.throws(linear, /mechanism/);
+      assert.throws(corotational, codedRankError);
+      assert.throws(material, codedRankError);
+    } else {
+      assertDisplacements(linear(), dim, [1, 2, 3]);
+      for (const run of [corotational, material]) {
+        const result = run();
+        assert.equal(result.converged, true);
+        assertDisplacements(result.results, dim, [1, 2, 3]);
+      }
+    }
+  }
+}
