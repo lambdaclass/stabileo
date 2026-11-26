@@ -1,4 +1,5 @@
 import { buildCriticalStations, extractForcesAtStation, type StationForces } from '../engine/station-forces';
+import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../engine/member-diagram';
 import { shellCentreRows, shellLocalAxes, type ShellCentreRow, type ShellModel } from '../engine/shell-results';
 import { woodArmer } from '../engine/wood-armer';
 import { effectiveFlange, type FlangeSide } from '../codes/cirsoc201/effective-flange';
@@ -141,6 +142,24 @@ function shellRowsIn(set: DemandSet, shells: ShellModel, keys: ReadonlySet<strin
   return idx.sort((a, b) => a - b).map((i) => k.rows[i]!);
 }
 
+/**
+ * The stations a member's forces are read at for design: the critical ones (load positions, zero
+ * shear, quarters), or, where the diagram's extrema cannot be resolved (a peak on a load's
+ * discontinuity), 40 equal divisions with the loads' positions and edges, where those peaks stand.
+ */
+export function designStations(ef: ElementForces3D): number[] {
+  try {
+    return buildCriticalStations(ef);
+  } catch (err) {
+    if ((err as Error).message !== DIAGRAM_EXTREMA_UNAVAILABLE) throw err;
+    const L = ef.length > 0 ? ef.length : 1;
+    const at = [...(ef.pointLoadsY ?? []), ...(ef.pointLoadsZ ?? [])].map((p) => p.a / L);
+    const edges = [...(ef.distributedLoadsY ?? []), ...(ef.distributedLoadsZ ?? [])].flatMap((d) => [d.a / L, d.b / L]);
+    const ts = [...Array.from({ length: 41 }, (_, k) => k / 40), ...at, ...edges].filter((t) => t >= 0 && t <= 1).map((t) => Math.round(t * 1e9) / 1e9);
+    return [...new Set(ts)].sort((a, b) => a - b);
+  }
+}
+
 function runStations(m: DemandInput, run: Array<{ e: El; forward: boolean }>, set: DemandSet): Station[] {
   const by = forcesOf(set);
   const out: Station[] = [];
@@ -148,7 +167,7 @@ function runStations(m: DemandInput, run: Array<{ e: El; forward: boolean }>, se
   for (const { e, forward } of run) {
     const L = lengthOf(m, e);
     const ef: ElementForces3D | undefined = by.get(e.id);
-    if (ef) for (const t of buildCriticalStations(ef)) out.push({ x: offset + (forward ? t : 1 - t) * L, s: unrolled(m, e, extractForcesAtStation(ef, t)) });
+    if (ef) for (const t of designStations(ef)) out.push({ x: offset + (forward ? t : 1 - t) * L, s: unrolled(m, e, extractForcesAtStation(ef, t)) });
     offset += L;
   }
   return out;
