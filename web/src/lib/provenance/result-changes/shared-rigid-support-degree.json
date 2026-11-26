@@ -1,0 +1,54 @@
+{
+  "id": "shared-rigid-support-degree",
+  "date": "2026-11-25",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "multipleSupportsOnNode"
+    ]
+  },
+  "quantities": [
+    "degree",
+    "classification",
+    "diagnosis"
+  ],
+  "title": {
+    "en": "Count each restrained degree of freedom once",
+    "es": "Contar una sola vez cada grado de libertad restringido",
+    "pt": "Contar uma única vez cada grau de liberdade restringido",
+    "de": "Jeden gesperrten Freiheitsgrad einmal zählen",
+    "fr": "Compter une seule fois chaque degré de liberté bloqué",
+    "hu": "Minden megkötött szabadságfok egyszer számít",
+    "tr": "Kısıtlanan her serbestlik derecesini bir kez say",
+    "zh": "每个受约束自由度只计一次",
+    "ar": "احتساب كل درجة حرية مقيدة مرة واحدة",
+    "hi": "हर बाधित स्वतंत्रता कोटि को एक बार गिनें",
+    "id": "Hitung setiap derajat kebebasan terkekang satu kali",
+    "it": "Contare una sola volta ogni grado di libertà vincolato",
+    "ja": "拘束された各自由度を一度だけ数える",
+    "ko": "구속된 각 자유도를 한 번만 계산",
+    "ru": "Учитывать каждую закреплённую степень свободы один раз"
+  },
+  "explanation": {
+    "en": "When several rigid supports share a node, each restrained degree of freedom is counted once. Recheck the degree of static indeterminacy, classification, and diagnosis for these models.",
+    "es": "Cuando varios apoyos rígidos comparten un nodo, cada grado de libertad restringido se cuenta una sola vez. Revisá el grado de hiperestaticidad, la clasificación y el diagnóstico de estos modelos.",
+    "pt": "Quando vários apoios rígidos compartilham um nó, cada grau de liberdade restringido é contado uma única vez. Reveja o grau de hiperestaticidade, a classificação e o diagnóstico desses modelos.",
+    "de": "Wenn mehrere starre Lager an einem Knoten liegen, wird jeder gesperrte Freiheitsgrad einmal gezählt. Prüfen Sie den Grad der statischen Unbestimmtheit, die Klassifizierung und die Diagnose dieser Modelle erneut.",
+    "fr": "Lorsque plusieurs appuis rigides partagent un nœud, chaque degré de liberté bloqué est compté une seule fois. Vérifiez à nouveau le degré d’hyperstaticité, la classification et le diagnostic de ces modèles.",
+    "hu": "Ha egy csomóponton több merev támasz van, minden megkötött szabadságfok egyszer számít. Ellenőrizze újra az ilyen modellek statikai határozatlansági fokát, besorolását és diagnózisát.",
+    "tr": "Bir düğümde birden çok rijit mesnet varsa kısıtlanan her serbestlik derecesi bir kez sayılır. Bu modellerin hiperstatiklik derecesini, sınıflandırmasını ve tanısını yeniden kontrol edin.",
+    "zh": "同一节点上有多个刚性支座时，每个受约束的自由度只计一次。请重新检查这些模型的超静定次数、分类和诊断。",
+    "ar": "عند وجود عدة مساند صلبة في العقدة نفسها، تُحتسب كل درجة حرية مقيدة مرة واحدة. أعد التحقق من درجة عدم التحديد الساكن والتصنيف والتشخيص لهذه النماذج.",
+    "hi": "जब एक नोड पर कई कठोर आधार होते हैं, तो हर बाधित स्वतंत्रता कोटि को एक बार गिना जाता है। इन मॉडलों में स्थैतिक अनिर्धार्यता की कोटि, वर्गीकरण और निदान की फिर से जाँच करें।",
+    "id": "Jika beberapa tumpuan kaku berada pada satu simpul, setiap derajat kebebasan yang terkekang dihitung satu kali. Periksa kembali derajat hiperstatis, klasifikasi, dan diagnosis model tersebut.",
+    "it": "Quando più vincoli rigidi condividono un nodo, ogni grado di libertà vincolato viene contato una sola volta. Ricontrollare il grado di iperstaticità, la classificazione e la diagnosi di questi modelli.",
+    "ja": "同じ節点に複数の剛な支持がある場合、拘束された各自由度は一度だけ数えます。該当するモデルの不静定次数、分類、診断を再確認してください。",
+    "ko": "한 절점에 여러 강체 지지가 있으면 각 구속 자유도를 한 번만 계산합니다. 해당 모델의 부정정 차수, 분류, 진단을 다시 확인하세요.",
+    "ru": "Если несколько жёстких опор находятся в одном узле, каждая закреплённая степень свободы учитывается один раз. Перепроверьте степень статической неопределимости, классификацию и диагностику этих моделей."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-shared-rigid-support-degree.md",
+    "heading": "Count each restrained degree of freedom once (2026-11-25)"
+  }
+}

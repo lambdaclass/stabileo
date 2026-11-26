@@ -12,8 +12,10 @@ import { withOrigin } from '../codes/families';
 import { CIRSOC101_BASIS } from '../codes/families/cirsoc';
 import { expandCombinations, modelCombinationCases, presentSymbols, type CombinationCase } from '../engine/loads/combination-cases';
 import { tp } from '../i18n';
-import { fixtureRows, migrateModelConstraints, requireCombinationInput, requireLoadInput, requireStructureInput } from '../engine/model-input-numbers';
+import { ModelInputError, requireLoadCollection, fixtureRows, migrateModelConstraints, requireCombinationInput, requireLoadInput, requireStructureInput } from '../engine/model-input-numbers';
+import { LOAD_TARGET, type Load } from '../store/model.svelte';
 import { remapSupportElement } from '../model/support-types';
+import { selfWeightScope } from '../engine/self-weight';
 
 export interface JSONModel {
   name: string;
@@ -127,12 +129,11 @@ export function prepareFixture(json: JSONModel, opts: FixtureLoadOptions = {}): 
     supports: fixtureRows('supports', json.supports), materials: fixtureRows('materials', json.materials),
     sections: fixtureRows('sections', json.sections), analysis: json.analysis,
   });
+  requireLoadCollection(json.loads);
   const canonical = canonicalizeModelAliases(json);
-  requireLoadInput(canonical.loads);
+  validateFixtureReferences(canonical);
   requireCombinationInput(canonical.combinations);
   const constraints = migrateModelConstraints(canonical.constraints);
-  const ids = new Set(canonical.elements.map(e => e.id));
-  for (const support of canonical.supports) fixtureSupportElement(support, id => ids.has(id) ? id : undefined);
   const prepared = { ...canonical, constraints: constraints.map(constraint => ({ ...constraint })) };
   return api => {
     const load = () => replayFixture(prepared, api, opts);
@@ -147,6 +148,26 @@ function fixtureSupportElement(support: JSONModel['supports'][number], elementId
     throw new Error(`Fixture support ${support.id} has an unresolved local element reference (${String(support.dofLocalElementId)}).`);
   }
   return reference;
+}
+
+function validateFixtureReferences(json: JSONModel): void {
+  requireLoadInput(json.loads);
+  const ids = new Set(json.elements.map(e => e.id));
+  const targets = {
+    node: { field: 'nodeId', ids: new Set(json.nodes.map(node => node.id)) },
+    member: { field: 'elementId', ids },
+    shell: { field: 'quadId', ids: new Set(json.quads.map(quad => quad.id)) },
+    plate: { field: 'quadId', ids: new Set(json.plates.map(plate => plate.id)) },
+  };
+  for (const [index, { type, data }] of json.loads.entries()) {
+    const target = LOAD_TARGET[type as Load['type']];
+    const { field, ids } = targets[target === 'shell' && data.on === 'plate' ? 'plate' : target];
+    if (!ids.has(data[field] as number)) {
+      throw new ModelInputError(tp('svc.engine.invalidInputField', { path: `loads[${index}].data.${field}` }));
+    }
+  }
+  for (const support of json.supports) fixtureSupportElement(support, id => ids.has(id) ? id : undefined);
+  for (const rule of json.analysis?.selfWeight ?? []) selfWeightScope({ elements: ids }, rule);
 }
 
 function replayFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOptions): void {

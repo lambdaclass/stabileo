@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { allShippedLocales } from '../../i18n/locales/all';
 import declaredQuantities from 'virtual:result-change-quantities';
 import { assessProject } from '../applicability';
 import { unknownStamp } from '../solve-stamp';
@@ -153,4 +154,49 @@ it('#2297 shell notices require a zero or possibly cancelling factor', () => {
   expect.soft(notice([dead])).toBe(false);
   expect(notice([dead, { caseId: 1, factor: 2 }])).toBe(false);
   expect.soft(notice([dead, { caseId: 2, factor: Number.MIN_VALUE }])).toBe(false);
+});
+
+it.each(['invalid-self-weight-target', 'subdivided-member-self-weight'])('#2565 — registers %s in every shipped locale', id => {
+  const change = RESULT_CHANGES.changes.find(c => c.id === id);
+  expect(change).toBeDefined();
+  for (const [label, texts] of Object.entries({ title: change!.title, explanation: change!.explanation })) {
+    const registered = new Map(Object.entries(texts));
+    for (const locale of allShippedLocales()) {
+      const text = registered.get(locale);
+      expect.soft(text, `${label} in ${locale}`).toBeTruthy();
+      if (locale !== 'en') expect.soft(text, `${label} in ${locale}`).not.toBe(texts.en);
+    }
+  }
+});
+
+it.each([
+  ['2d', 'linear'],
+  ['3d', 'nonlinear'],
+  ['pro', 'pdelta'],
+] as const)('#2565 — rechecks older %s %s results for valid scoped member self-weight', (mode, analysis) => {
+  const id = 'subdivided-member-self-weight';
+  const invalid = 'invalid-self-weight-target';
+  const original = RESULT_CHANGES.changes.find(c => c.id === invalid)!;
+  const stamp = { ...unknownStamp(), resultsVersion: original.resultsVersion - 1, analyses: [analysis], recorded: [...ANALYSIS_KINDS] };
+  const snapshot: FeatureSnapshot = {
+    ...model,
+    nodes: [[1, { x: 0, y: 0 }], [2, { x: 1, y: 0 }]],
+    groups: [[1, { members: { elements: [1] } }], [2, { members: { quads: [1] } }]],
+    quads: [[1, { id: 1 }]],
+  };
+  const rule = { caseId: 1, direction: 'Z', factor: -1 };
+  const notices = (selector = {}, saved: typeof stamp | undefined = stamp) =>
+    assessProject({ ...snapshot, analysis: { selfWeight: [{ ...rule, ...selector }] } }, saved, mode).changes.map(c => c.id);
+
+  expect.soft(notices({ groupId: 1 })).toContain(id);
+  expect.soft(notices({ elements: [1] })).toContain(id);
+  expect.soft(notices({ elements: [20] })).toContain(invalid);
+  expect.soft(notices({ elements: [20] })).not.toContain(id);
+  const current = { ...stamp, resultsVersion: RESULT_CHANGES.currentResultsVersion };
+  expect.soft(notices({ groupId: 1 }, current)).not.toContain(id);
+  expect.soft(notices({ groupId: 1 }, { ...current, analyses: [] })).not.toContain(id);
+  expect.soft(notices({ groupId: 1, factor: 0 })).not.toContain(id);
+  expect.soft(notices({ groupId: 2 })).not.toContain(id);
+  expect.soft(notices({ elements: [] })).not.toContain(id);
+  expect(notices()).not.toContain(id);
 });

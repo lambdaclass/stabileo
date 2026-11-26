@@ -17,7 +17,7 @@
   import { parseDecimal } from '../../../lib/utils/numeric-input';
   import type { Load } from '../../../lib/store/model.svelte';
   import { addLoads } from '../../../lib/store/load-ops';
-  import { resolveTargets, type TargetEntity } from '../../../lib/model/loads/load-targets';
+  import { resolveTargets, selfWeightTarget, type TargetEntity } from '../../../lib/model/loads/load-targets';
   import { inclinedForce, type GlobalAxis } from '../../../lib/model/loads/member-load-tools';
   import { buildWrittenLoads, type WriteKind, type WriteOutcome, type WriteRefusal } from '../../../lib/model/loads/write-load';
   import { loadedLength } from '../../../lib/model/loads/load-stretch';
@@ -220,10 +220,9 @@
   function addSelfWeight() {
     const f = swFactor.trim() === '' ? null : parseDecimal(swFactor);
     if (f === null || f === 0) { error = t('writeLoad.zero'); done = null; return; }
-    const reach: Pick<SelfWeightLoad, 'elements' | 'groupId'> = target.by === 'all' ? {}
-      : target.by === 'group' ? { groupId: target.groupId }
-      : { elements: resolveTargets('members', target as never, modelStore.model as never, sel()) };
-    if (reach.elements?.length === 0 || (reach.groupId !== undefined && !modelStore.model.groups.has(reach.groupId))) { error = t('writeLoad.noTarget'); done = null; return; }
+    const reach = selfWeightTarget(target.by === 'chain' ? { by: 'selection' } : target, modelStore.model, sel());
+    if ('error' in reach) { error = reach.error; done = null; return; }
+    if (reach.elements?.length === 0) { error = t('writeLoad.noTarget'); done = null; return; }
     const m = modelAxisOf(swDir);
     const rule: SelfWeightLoad = { caseId: caseId ?? modelStore.model.loadCases[0]?.id ?? 1, direction: (['X', 'Y', 'Z'] as const)[m.index], factor: m.sign * f, ...reach };
     const key = (r: SelfWeightLoad) => JSON.stringify([r.caseId, r.direction, r.groupId ?? null, r.elements ? [...r.elements].sort((a, b) => a - b) : null]);

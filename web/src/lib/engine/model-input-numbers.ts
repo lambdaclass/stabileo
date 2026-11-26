@@ -118,8 +118,6 @@ export function invalidPlanarPointTorsion(mx: unknown): boolean {
   return mx !== undefined && mx !== 0;
 }
 
-class UnsupportedPlanarPointTorsion extends ModelInputError {}
-
 class InvalidModelInputField extends ModelInputError {
   constructor(path: string) {
     super(tp('svc.engine.invalidInputField', { path }));
@@ -153,7 +151,7 @@ export function requireLoadCollection(loads: unknown): asserts loads is readonly
   requireInputField('loads', Array.isArray(loads));
 }
 
-function requireLoadRow(load: unknown, index: number): void {
+function requireLoadRecord(load: unknown, index: number) {
   const row = `loads[${index}]`;
   requireInputField(`${row}.type`, isRecord(load) && isLoadType(load.type));
   requireKnownFields(row, load, loadRecordFields);
@@ -163,6 +161,17 @@ function requireLoadRow(load: unknown, index: number): void {
   requireLoadSelectors(path, type, data);
   const fields = loadFields[type];
   requireKnownFields(path, data, fields, commonLoadFields);
+  return { path, type, data, fields };
+}
+
+function requirePlanarNodalNumbers(path: string, data: Record<string, unknown>): void {
+  const invalidMoment = invalidPlanarNodalMomentField(data);
+  if (invalidMoment !== undefined) throw new InvalidModelNumber(`${path}.${invalidMoment}`, data[invalidMoment]);
+  numberAt(`${path}.fz/fy`, data.fz ?? data.fy);
+}
+
+function requireLoadRow(load: unknown, index: number): void {
+  const { path, type, data, fields } = requireLoadRecord(load, index);
   requireNumericFields(path, data, commonLoadFields);
   requireNumericFields(path, data, fields);
   if (type === 'pointOnElement') {
@@ -170,14 +179,10 @@ function requireLoadRow(load: unknown, index: number): void {
     if (invalidPlanarPointTorsion(mx)) {
       const field = `${path}.mx`;
       numberAt(field, mx);
-      throw new UnsupportedPlanarPointTorsion(`${t('svc.engine.unsupportedPointLoadMoment')} ${field}: ${t('svc.engine.applyPointLoadMomentAtNode')}`);
+      throw new ModelInputError(`${t('svc.engine.unsupportedPointLoadMoment')} ${field}: ${t('svc.engine.applyPointLoadMomentAtNode')}`);
     }
   }
-  if (type === 'nodal') {
-    const invalidMoment = invalidPlanarNodalMomentField(data);
-    if (invalidMoment !== undefined) throw new InvalidModelNumber(`${path}.${invalidMoment}`, data[invalidMoment]);
-    numberAt(`${path}.fz/fy`, data.fz ?? data.fy);
-  }
+  if (type === 'nodal') requirePlanarNodalNumbers(path, data);
   if (type === 'surface3d') {
     const { dir, qNodes, vary, region } = data as Partial<Extract<Load, { type: 'surface3d' }>['data']>;
     if (dir !== undefined) vector(`${path}.dir`, dir);
@@ -203,7 +208,7 @@ export function requireLoadInput(loads: unknown): void {
 
 export function loadInputRefusal(loads: unknown): string | null {
   try {
-    requireLoadInput(loads);
+    check();
     return null;
   } catch (error) {
     if (error instanceof ModelInputError) return error.message;
@@ -211,14 +216,23 @@ export function loadInputRefusal(loads: unknown): string | null {
   }
 }
 
-export function hasMalformedAuthoredLoad(loads: unknown): boolean {
+export function hasMalformedAuthoredLoad(loads: unknown, basicProjection: boolean): boolean {
   if (loads === undefined) return false;
   if (!Array.isArray(loads)) return true;
   for (const [index, load] of loads.entries()) {
     try {
-      requireLoadRow(load, index);
+      const { path, type, data, fields } = requireLoadRecord(load, index);
+      if (type === 'nodal') {
+        if (basicProjection) requirePlanarNodalNumbers(path, data);
+        else {
+          const invalidMoment = invalidPlanarNodalMomentField(data);
+          if (invalidMoment !== undefined) throw new InvalidModelNumber(`${path}.${invalidMoment}`, data[invalidMoment]);
+        }
+      }
+      if (basicProjection && (type === 'nodal' || type === 'nodal3d' || type === 'distributed3d')) {
+        requireNumericFields(path, data, fields);
+      }
     } catch (error) {
-      if (error instanceof UnsupportedPlanarPointTorsion) continue;
       if (error instanceof ModelInputError) return true;
       throw error;
     }

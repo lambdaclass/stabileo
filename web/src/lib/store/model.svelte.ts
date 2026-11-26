@@ -75,6 +75,9 @@ import type { ModelProvenance } from '../model/provenance';
 export type { MemberOffset, MemberOffsetVec } from '../model/element-3d-metadata';
 import { uiStore } from './ui.svelte';
 import { requirePlanarPointMoment } from '../engine/member-point-loads';
+import { memberFrame3D } from '../engine/member-loads';
+import { hasMemberOffset } from '../engine/member-offsets';
+import { transverseSign } from '../engine/transverse-sign-2d';
 import { planarNodalMoment, type PlanarMomentFields } from '../engine/planar-point-load';
 import { plainDeepCopy } from '../utils/plain-deep-copy';
 // Cycle-safe: switch-2d imports this module, but resetSwitchBackup is a
@@ -1237,6 +1240,48 @@ function createModelStore() {
    */
   let loadEpoch = $state(0);
 
+  function canRemapDistributedLoadInXY(source: ModelData, load: DistributedLoad3D): boolean {
+    if (load.qXI || load.qXJ || load.qZI || load.qZJ) return false;
+
+    const member = source.elements.get(load.elementId);
+    if (!member || hasMemberOffset(member)) return false;
+    const spatial = memberFrame3D(source, member);
+    if (!spatial || spatial.ni[2] !== 0 || spatial.nj[2] !== 0) return false;
+    const dx = spatial.nj[0] - spatial.ni[0];
+    const dy = spatial.nj[1] - spatial.ni[1];
+
+    if (load.frame === 'global' || load.frame === 'projected') return dy === 0;
+    return spatial.ax.ey[2] === 0 && spatial.ax.ez[2] * transverseSign(dx, dy) > 0;
+  }
+
+  function remapPlaneLoads(plane: DrawPlane, source: ModelData): Load[] {
+    return source.loads.map(l => {
+      if (l.type === 'distributed3d') {
+        const d = l.data;
+        if (plane === 'xy' && !canRemapDistributedLoadInXY(source, d)) return l;
+        const [qI, qJ] = plane === 'xy' ? [d.qYI, d.qYJ] : [d.qZI, d.qZJ];
+        const interval = plane === 'xy' ? { a: d.a, b: d.b } : {};
+        return { type: 'distributed', data: { id: d.id, elementId: d.elementId, qI, qJ, caseId: d.caseId, ...interval } };
+      }
+      if (plane === 'xy') return l;
+      if (l.type === 'nodal') {
+        const d = l.data;
+        const f = remapNodalLoad2D(plane, d.fx, canonicalLoadFz(d), 0);
+        const data = { ...d, fx: f.fx, fz: f.fy };
+        const moment = planarNodalMoment(d);
+        if (moment !== null) writePlanarMoment(data, remapMoment2D(plane, 0, 0, moment ?? 0));
+        return { ...l, data };
+      }
+      if (l.type === 'nodal3d') {
+        const d = l.data;
+        const f = remapNodalLoad2D(plane, d.fx, d.fy, d.fz);
+        const m = remapMoment2D(plane, d.mx, d.my, d.mz);
+        return { type: 'nodal' as const, data: { id: d.id, nodeId: d.nodeId, fx: f.fx, fz: f.fy, my: m, caseId: d.caseId } };
+      }
+      return l;
+    });
+  }
+
   /**
    * Create a remapped model view where node coordinates and loads are projected
    * into the 2D convention (x=horizontal, y=vertical) for the given plane.
@@ -1255,8 +1300,9 @@ function createModelStore() {
     const constraintRefusal = planeConstraintRefusal(constraints, plane === 'yz' ? 'offsetX' : 'offsetY');
     if (constraintRefusal) throw new ModelInputError(constraintRefusal);
     if (plane !== 'xy' && constraintsAcrossDepth(plane, model.constraints, (id) => model.nodes.get(id)).length > 0) return t('svc.constraintsCoupled');
+    const remappedLoads = remapPlaneLoads(plane, source);
     if (plane === 'xy') {
-      return { ...source, constraints };
+      return { ...source, loads: remappedLoads, constraints };
     }
 
     // Remap nodes into the selected 2D plane
@@ -1294,30 +1340,6 @@ function createModelStore() {
       remappedSupports.set(id, { ...sup, type: type2d });
     }
 
-    // Remap loads: nodal3d → nodal, distributed3d → distributed
-    const remappedLoads = model.loads.map(l => {
-      if (l.type === 'nodal') {
-        const d = l.data;
-        const f = remapNodalLoad2D(plane, d.fx, canonicalLoadFz(d), 0);
-        const data = { ...d, fx: f.fx, fz: f.fy };
-        const moment = planarNodalMoment(d);
-        if (moment !== null) writePlanarMoment(data, remapMoment2D(plane, 0, 0, moment ?? 0));
-        return { ...l, data };
-      }
-      if (l.type === 'nodal3d') {
-        const d = l.data;
-        const f = remapNodalLoad2D(plane, d.fx, d.fy, d.fz);
-        const m = remapMoment2D(plane, d.mx, d.my, d.mz);
-        return { type: 'nodal' as const, data: { id: d.id, nodeId: d.nodeId, fx: f.fx, fz: f.fy, my: m, caseId: d.caseId } };
-      }
-      if (l.type === 'distributed3d') {
-        // Map 3D distributed loads to 2D: use the component in the selected plane's vertical axis
-        const { qZI: qI, qZJ: qJ, ...d } = l.data;
-        return { type: 'distributed' as const, data: { id: d.id, elementId: d.elementId, qI, qJ, caseId: d.caseId } };
-      }
-      return l;
-    });
-
     // Connectors are pure node-id + stiffness pairs — no geometry to remap.
     return { ...source, nodes: remappedNodes, supports: remappedSupports, loads: remappedLoads,
       constraints, [accountingProjection]: { plane, source } };
@@ -1330,6 +1352,17 @@ function createModelStore() {
       if (error instanceof ModelInputError) return error.message;
       throw error;
     }
+  }
+
+  function solveSingle2D<T>(
+    plane: DrawPlane,
+    includeSelfWeight: boolean,
+    solve: (input: ModelData, selfWeight: boolean, onKinematic: (result: KinematicResult | null) => void) => T,
+  ): T | string {
+    lastKinematicResult = null;
+    const mapped = mappedSolveModel(plane, includeSelfWeight);
+    if (typeof mapped === 'string') return mapped;
+    return solve(mapped, includeSelfWeight, result => { lastKinematicResult = result; });
   }
 
   let nextId = $state({
@@ -4147,17 +4180,13 @@ function createModelStore() {
     },
 
     solve(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): AnalysisResults | string | null {
-      const mapped = mappedSolveModel(drawPlane, includeSelfWeight);
-      if (typeof mapped === 'string') return mapped;
-      return validateAndSolve2D(mapped, includeSelfWeight, (k) => { lastKinematicResult = k; });
+      return solveSingle2D(drawPlane, includeSelfWeight, validateAndSolve2D);
     },
 
     /** Async 2D solve via the worker pool (UI stays responsive). Same result
      *  shape and string-error semantics as solve(). */
     async solveAsync(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): Promise<AnalysisResults | string | null> {
-      const mapped = mappedSolveModel(drawPlane, includeSelfWeight);
-      if (typeof mapped === 'string') return mapped;
-      return validateAndSolve2DAsync(mapped, includeSelfWeight, (k) => { lastKinematicResult = k; });
+      return solveSingle2D(drawPlane, includeSelfWeight, validateAndSolve2DAsync);
     },
 
     /** Build a SolverInput from the current model state (no validation). Returns null if model is empty. */

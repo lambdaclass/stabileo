@@ -36,7 +36,7 @@ import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D
 import { unheldNodalMoment2D } from './orphan-rotations-2d';
 import { computeLocalAxes3D, memberRoll } from './local-axes-3d';
 import { distributedGlobalEnds, globalDistributedToSolver, transverseToNodes, memberFrame3D, takesNoBending as memberTakesNoBending, type MemberRef } from './member-loads';
-import { InvalidSelfWeightGroup, selfWeightFor, selfWeightScope, selfWeightSolverLoads } from './self-weight';
+import { InvalidSelfWeightScope, selfWeightFor, selfWeightMemberProjection, selfWeightScope, selfWeightSolverLoads, snapshotSelfWeightProjection, type SelfWeightMemberProjection } from './self-weight';
 import type { SelfWeightLoad } from './analysis-settings';
 import type { SolverInput3D, SolverSection3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, NonlinearReport } from './types-3d';
 import { analyzeKinematics, type KinematicResult } from './kinematic-2d';
@@ -116,6 +116,7 @@ function thermalDepths(model: ModelData, elementId: number, embedded: boolean | 
 
 export interface ModelData {
   [accountingSource]?: ModelData;
+  [selfWeightMemberProjection]?: SelfWeightMemberProjection;
   [accountingProjection]?: { plane: 'xz' | 'yz'; source: ModelData };
   [accountingCaseSources]?: AccountingCaseSources;
   nodes: Map<number, Node>;
@@ -153,6 +154,8 @@ function snapshotNonlinearModel(model: ModelData): ModelData {
   };
   const source = model[accountingSource];
   if (source) snapshot[accountingSource] = snapshotNonlinearModel(source);
+  const projection = model[selfWeightMemberProjection];
+  if (projection) snapshot[selfWeightMemberProjection] = snapshotSelfWeightProjection(projection);
   return snapshot;
 }
 
@@ -508,9 +511,9 @@ function convertSolverLoads2D(
   const sectionWeight = createSectionWeight(model.materials);
   for (const weight of weights) {
     if (!Number.isFinite(weight.factor)) throw new PlaneSelfWeightError(t('svc.selfWeightNonFinite'));
+    const { members } = selfWeightScope(model, weight);
     if (weight.factor === 0) continue;
     if (weight.direction === 'Y') throw new PlaneSelfWeightError(t('svc.selfWeightOutsidePlane'));
-    const { members } = selfWeightScope(model, weight);
     for (const elem of model.elements.values()) {
       if (members && !members.has(elem.id)) continue;
       const mat = model.materials.get(elem.materialId);
@@ -2187,7 +2190,7 @@ export function loadRefusal(err: unknown): string | null {
   if (err instanceof EngineCheckError) return localizeEngineText(err.engineMessage);
   if (err instanceof EngineUnavailableError) return t('engine.unavailable');
   if (err instanceof MemberLoadIntervalError || err instanceof SolveAccountingError || err instanceof ModelInputError || err instanceof InvalidMaterialDensity) return err.message;
-  if (err instanceof PlaneSelfWeightError || err instanceof PlanarPointLoadProjectionError || err instanceof PlanarLoadMomentError || err instanceof InvalidSelfWeightGroup) return err.message;
+  if (err instanceof PlaneSelfWeightError || err instanceof PlanarPointLoadProjectionError || err instanceof PlanarLoadMomentError || err instanceof InvalidSelfWeightScope) return err.message;
   return err instanceof PointLoadNeedsCut ? tp('svc.pointMomentOnTruss', { n: err.elementId }) : null;
 }
 
