@@ -3,7 +3,7 @@
 // using equilibrium equations with distributed and point loads.
 
 import { type UnitSystem, formatDiagramValue } from '../utils/units';
-import { absolutePolynomialBranches, addMagnitudeBounds, checkedCurveValue, diagramCriticalPoints, diagramCurvePoints, fullSpanFallback, indexDiagramExtrema, maxAbsDiagramOrdinate, memberDiagram, prepareCurveExtrema, prepareMagnitudeExtrema, sortedStations, unavailableDiagramExtrema, type DiagramCurve, type DiagramExtremum, type DiagramOrdinate, type DiagramStation, type PolynomialBranch } from './member-diagram';
+import { absolutePolynomialBranches, addMagnitudeBounds, checkedCurveValue, diagramCriticalPoints, diagramCurvePoints, fullSpanFallback, indexDiagramExtrema, maxAbsDiagramOrdinate, memberDiagram, prepareCurveExtrema, prepareMagnitudeExtrema, sortedStations, unavailableDiagramExtrema, visitDiagramCriticalPoints, type DiagramCurve, type DiagramExtremum, type DiagramOrdinate, type DiagramStation, type PolynomialBranch } from './member-diagram';
 import { distanceUnits, exactCutUnits, sameCutLocation, type DiagramCutLocation } from './diagram-cut';
 import type { ElementForces3D, EnvelopeDiagramData3D } from './types-3d';
 
@@ -99,13 +99,17 @@ function magnitudeCurve(
   const locations = () => cutLocations ??= joinedCutLocations([
     new Map([[0, { x: 0 }], [1, { x: length }]]), ...curves.map(c => c.cutLocations),
   ]);
-  const distances = () => new Map([...locations()].map(([t, cut]) => [t, cut.x]));
-  const cuts = () => sortedStations(locations().keys());
+  let cutStations: number[] | undefined;
+  const cuts = () => cutStations ??= sortedStations(locations().keys());
+  const distances = (): [number, number][] => cuts().map(t => [t, locations().get(t)!.x]);
   const branches = curves.flatMap(({ polynomials }) =>
     polynomials && (polynomials.signed || method === 'srss') ? [polynomials.branches] : []);
   const exact = branches.length === curves.length;
-  const polynomialParts = branches.map(branch => (lo: number, hi: number, x0: number, x1: number) =>
-    branch(atCut({ t: lo, distance: x0, right: true }), atCut({ t: hi, distance: x1 })));
+  const intervalBranches = (lo: number, hi: number, x0: number, x1: number) => {
+    const start = atCut({ t: lo, distance: x0, right: true });
+    const end = atCut({ t: hi, distance: x1 });
+    return branches.map(branch => branch(start, end));
+  };
   function atCut(station: DiagramStation): DiagramStation {
     const published = locations().get(station.t);
     const location = station.location ?? (station.distance === undefined || station.distance === published?.x ? published : undefined);
@@ -113,6 +117,7 @@ function magnitudeCurve(
   }
   const combine = (station: DiagramStation) => {
     const at = atCut(station);
+    if (method === 'srss' && curves.length === 2) return Math.hypot(curves[0]!.value(at), curves[1]!.value(at));
     const values = curves.map(curve => curve.value(at));
     return method === 'srss' ? Math.hypot(...values) : values.reduce((sum, value) => sum + Math.abs(value), 0);
   };
@@ -123,7 +128,7 @@ function magnitudeCurve(
     mayHaveJump: curves.some(curve => curve.mayHaveJump),
     get cuts() { return cuts(); },
     get cutLocations() { return locations(); },
-    extrema: exact ? prepareMagnitudeExtrema(polynomialParts, method, distances, length, keepAlias)
+    extrema: exact ? prepareMagnitudeExtrema(intervalBranches, method, distances, length, keepAlias)
       : () => curves.flatMap(curve => curve.extrema().map(({ t }) => ({ t, value: combine({ t }), canTransfer: () => false, fallback: true }))),
     ...(!exact ? { magnitudeBound } : {}),
     ...(method === 'abs' && exact ? { polynomials: {
@@ -289,40 +294,43 @@ export function criticalDiagramStations3D(ef: ElementForces3D, purpose: 'diagram
 }
 
 type CriticalDiagram3DKind = Diagram3DKind | readonly [Diagram3DKind, Diagram3DKind];
+type VisitSpatialOrdinate = (column: number, t: number, value: number, x: number, right?: true, side?: DiagramOrdinate['side']) => void;
 
 export function memberCriticalOrdinates3D(ef: ElementForces3D, kind: CriticalDiagram3DKind, inwardAtI = false) {
-  return memberCriticalOrdinatesByKind3D(ef, [kind], inwardAtI)[0]!;
+  const ordinates: (DiagramOrdinate & { x: number })[] = [];
+  visitMemberCriticalOrdinates3D(ef, [kind], (_column, t, value, x, right, side) => {
+    ordinates.push({ t, value, ...(right && { right }), ...(side && { side }), x });
+  }, inwardAtI);
+  return ordinates;
 }
 
-export function memberCriticalOrdinatesByKind3D(
-  ef: ElementForces3D, kinds: readonly CriticalDiagram3DKind[], inwardAtI = false,
-) {
+export function visitMemberCriticalOrdinates3D(
+  ef: ElementForces3D, kinds: readonly CriticalDiagram3DKind[], visit: VisitSpatialOrdinate, inwardAtI = false,
+): void {
   const curves: Partial<Record<Diagram3DKind, SpatialCurve>> = {};
   const component = (kind: Diagram3DKind) => curves[kind] ??= spatialCurve(ef, kind);
-  return kinds.map(kind => {
+  kinds.forEach((kind, column) => {
     const curve = typeof kind === 'string' ? component(kind)
       : magnitudeCurve(kind.map(component), 'srss', ef.length, true);
-    return criticalSpatialOrdinates(curve, inwardAtI);
-  });
-}
-
-function criticalSpatialOrdinates(curve: SpatialCurve, inwardAtI: boolean) {
-  if (curve.magnitudeBound) throw unavailableDiagramExtrema();
-  const extrema = curve.extrema();
-  const aliased = extrema.filter(peak => peak.aliased);
-  const critical = diagramCriticalPoints(curve, aliased.length ? extrema.filter(peak => !peak.aliased) : extrema, inwardAtI);
-  if (aliased.length) {
+    if (curve.magnitudeBound) throw unavailableDiagramExtrema();
+    const extrema = curve.extrema();
+    const aliased = extrema.filter(peak => peak.aliased);
+    const locations = curve.cutLocations;
+    const emit = (t: number, value: number, right?: true, side?: DiagramOrdinate['side']) =>
+      visit(column, t, value, locations.get(t)?.x ?? t * curve.length, right, side);
+    if (aliased.length === 0) {
+      visitDiagramCriticalPoints(curve, extrema, inwardAtI, emit);
+      return;
+    }
+    const points = diagramCriticalPoints(curve, extrema.filter(peak => !peak.aliased), inwardAtI);
     let min = Infinity, max = -Infinity;
-    for (const { value } of critical) {
+    for (const { value } of points) {
       min = Math.min(min, value);
       max = Math.max(max, value);
     }
     if (aliased.some(peak => peak.value < min || peak.value > max)) throw unavailableDiagramExtrema();
-  }
-  return critical.map(point => ({
-    ...point,
-    x: curve.cutLocations.get(point.t)?.x ?? point.t * curve.length,
-  }));
+    for (const { t, value, right, side } of points) emit(t, value, right ? true : undefined, side);
+  });
 }
 
 function spatialExtrema(curve: SpatialCurve, critical: readonly DiagramOrdinate[]) {
