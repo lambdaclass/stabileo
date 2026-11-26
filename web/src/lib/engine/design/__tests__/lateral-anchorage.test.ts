@@ -18,7 +18,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { buildMemberContext, type ContextModelData } from '../member-context';
-import { endSupportChecks, endSupportVerdicts, supportInputOf } from '../end-support-anchorage';
+import { endSupportChecks, endSupportPlan, endSupportVerdicts, hookTails, supportInputOf } from '../end-support-anchorage';
 import { lateralReadingOf, physicalKey, memberKey, type LateralSystemData, spanLateralReading } from '../../../model/lateral-system';
 import { deriveHookedDevelopment } from '../../../codes/cirsoc201/anchorage';
 import type { ProvidedReinforcement } from '../../../design-contract/reinforcement';
@@ -59,6 +59,25 @@ function bottomEnds(data: LateralSystemData | undefined) {
 describe('§9.7.3.8.2: one beam, its three readings', () => {
   const ldh12 = deriveHookedDevelopment({ diameterMm: 12, fy: 420, fc: 30, edition: '2025' }).ldhM;
   const hooked = 0.2 + (0.166 + 0.001 - 0.032 - 0.048) - (0.012 + (4 / 3) * 0.020);
+
+  it.each(['gravity', 'lateral'] as const)('reusing a %s plan preserves hook geometry and leaves the plan intact', (role) => {
+    const data = { members: { [memberKey(2)]: role } };
+    const ctx = buildMemberContext(2, model, { lateralOf: (id, kind) => lateralReadingOf(data, id, { kind }) })!;
+    const input = supportInputOf(ctx, rebar)!;
+    const nodes = { start: 2, end: 3 };
+    const plan = endSupportPlan(input);
+    const original = structuredClone(plan);
+    const tails = hookTails(plan.verdicts, nodes);
+    expect(tails.length).toBeGreaterThan(0);
+    expect(tails).toEqual(hookTails(endSupportPlan(input).verdicts, nodes));
+    const bottom = tails.filter(t => t.position === 'bottom');
+    expect(bottom.map(t => t.nodeId)).toEqual(role === 'lateral' ? [2, 3] : []);
+    for (const tail of bottom) {
+      expect(tail.at).toBeCloseTo(hooked - 0.2 - 0.012 / 2, 12);
+      expect([tail.diameterMm, tail.row]).toEqual([12, 0]);
+    }
+    expect(plan).toEqual(original);
+  });
 
   it('ℓdh(Ø12, H-30) and the hook plane are the ones worked by hand', () => {
     expect(ldh12).toBeCloseTo(0.24 * 420 / Math.sqrt(30) * 0.012, 6);
