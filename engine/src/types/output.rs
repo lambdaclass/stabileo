@@ -228,6 +228,7 @@ pub enum DiagnosticCode {
     LocalMechanism,
     /// Singular stiffness matrix.
     SingularMatrix,
+    ReducedStiffnessRank,
     /// Disconnected node — not connected to any element.
     DisconnectedNode,
     /// Near-duplicate nodes — two nodes at nearly the same position.
@@ -392,7 +393,7 @@ impl From<&StructuredDiagnostic> for SolverDiagnostic {
             DiagnosticCode::HighDiagonalRatio | DiagnosticCode::ExtremelyHighDiagonalRatio | DiagnosticCode::NearZeroDiagonal => "conditioning",
             DiagnosticCode::ResidualOk | DiagnosticCode::ResidualHigh | DiagnosticCode::EquilibriumOk | DiagnosticCode::EquilibriumViolation => "residual",
             DiagnosticCode::HighAspectRatio | DiagnosticCode::NegativeJacobian | DiagnosticCode::HighWarping | DiagnosticCode::PoorJacobianRatio | DiagnosticCode::SmallMinAngle => "element_quality",
-            DiagnosticCode::NoFreeDofs | DiagnosticCode::LocalMechanism | DiagnosticCode::SingularMatrix | DiagnosticCode::DisconnectedNode | DiagnosticCode::NearDuplicateNodes | DiagnosticCode::InstabilityRisk | DiagnosticCode::ShellDistortion | DiagnosticCode::SuspiciousLocalAxis | DiagnosticCode::ExcessiveDisplacement | DiagnosticCode::StiffnessNotPositiveDefinite => "model_quality",
+            DiagnosticCode::NoFreeDofs | DiagnosticCode::LocalMechanism | DiagnosticCode::SingularMatrix | DiagnosticCode::ReducedStiffnessRank | DiagnosticCode::DisconnectedNode | DiagnosticCode::NearDuplicateNodes | DiagnosticCode::InstabilityRisk | DiagnosticCode::ShellDistortion | DiagnosticCode::SuspiciousLocalAxis | DiagnosticCode::ExcessiveDisplacement | DiagnosticCode::StiffnessNotPositiveDefinite => "model_quality",
             DiagnosticCode::NoCompressedElements | DiagnosticCode::ModalTranslationMechanism => "model_quality",
             DiagnosticCode::ModalStiffnessConditioning => "conditioning",
             DiagnosticCode::EigenDecompositionFailed => "solver_path",

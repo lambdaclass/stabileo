@@ -71,6 +71,27 @@ describe('audited output changes are registered narrowly', () => {
     }
   });
 
+  it.each(['2d', '3d', 'pro'])('shows the reduced stiffness rank notice for older buckling results in %s', (mode) => {
+    const id = 'reduced-stiffness-rank';
+    const entry = RESULT_CHANGES.changes.find(change => change.id === id)!;
+    const stamp = {
+      ...unknownStamp(),
+      resultsVersion: entry.resultsVersion - 1,
+      analyses: ['buckling' as const],
+      recorded: [...ANALYSIS_KINDS],
+    };
+    const notices = (snapshot: FeatureSnapshot, saved: typeof stamp, evidence?: ReadonlySet<string>) =>
+      assessProject(snapshot, saved, mode, RESULT_CHANGES, evidence).changes.map(change => change.id);
+    const structuralFeatures = [mode === '2d' ? 'plane2D' : 'space3D', 'members'];
+
+    expect(notices(model, { ...stamp, resultsVersion: entry.resultsVersion })).not.toContain(id);
+    expect(notices(model, { ...stamp, resultsVersion: entry.resultsVersion + 1 })).not.toContain(id);
+    expect(notices(model, stamp, new Set([...structuralFeatures, 'analysis:timeHistory']))).not.toContain(id);
+    expect(notices({}, stamp)).not.toContain(id);
+    expect(notices(model, stamp)).toContain(id);
+    expect(notices(model, stamp, new Set([...structuralFeatures, 'analysis:buckling']))).toContain(id);
+  });
+
   it('registers 2D nonlinear arc arithmetic without matching 3D or linear', () => {
     expect(applicable('arc-length-reference-norm', '2d', ['nonlinear'])).toBe(true);
     expect(applicable('arc-length-reference-norm', '3d', ['nonlinear'])).toBe(false);

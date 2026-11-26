@@ -40,11 +40,15 @@ fn refused(issue: u64, analysis: &str, prefix: &str, diagnostic: Option<Value>) 
         }
     };
     if let Some(expected) = diagnostic {
-        let value: Value = serde_json::from_str(&error).unwrap();
+        let value: Value = serde_json::from_str(&error)
+            .unwrap_or_else(|_| panic!("#{issue}: expected a structured refusal, got {error}"));
         let actual = value["structuredDiagnostics"].as_array().unwrap();
         assert_eq!(actual.len(), 1);
         for (key, expected_value) in expected.as_object().unwrap() {
             assert_eq!(&actual[0][key], expected_value, "#{issue}: {key}");
+        }
+        if !prefix.is_empty() {
+            assert!(value["message"].as_str().unwrap().starts_with(prefix), "#{issue}: {error}");
         }
     } else {
         assert!(error.starts_with(prefix), "#{issue}: {error}");
@@ -56,9 +60,15 @@ fn refused_mechanism(issue: u64, analysis: &str, nodes: &[usize]) {
     refused(issue, analysis, &reason, None);
 }
 
+fn rank_refused(issue: u64, analysis: &str, prefix: &str) {
+    refused(issue, analysis, prefix, Some(serde_json::json!({
+        "code": "reduced_stiffness_rank", "severity": "error"
+    })));
+}
+
 #[test]
 fn issue_1912_refuses_unresolved_stiffness() {
-    refused(1912, "linear (WASM typed path)", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
+    rank_refused(1912, "linear (WASM typed path)", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision");
 }
 
 #[test]
@@ -68,12 +78,12 @@ fn issue_1908_refuses_unresolved_stiffness() {
 
 #[test]
 fn issue_1906_refuses_unresolved_stiffness() {
-    refused(1906, "certified linear", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
+    rank_refused(1906, "certified linear", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision");
 }
 
 #[test]
 fn issue_1905_refuses_unresolved_stiffness() {
-    refused(1905, "linear (load session)", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
+    rank_refused(1905, "linear (load session)", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision");
 }
 
 #[test]
@@ -83,7 +93,7 @@ fn issue_1903_refuses_unrestrained_translation() {
 
 #[test]
 fn issue_1902_refuses_unresolved_stiffness() {
-    refused(1902, "linear", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
+    rank_refused(1902, "linear", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision");
 }
 
 #[test]

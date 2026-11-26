@@ -16,7 +16,12 @@ for (const dim of [2, 3]) for (const unit of [1e-3, 1, 1e3]) for (const unrelate
     const analyze = dim === 2 ? analyze_kinematics_2d : analyze_kinematics_3d;
     const out = JSON.parse(analyze(JSON.stringify(input)));
     assert.equal(out.invalidInput, undefined);
-    assert.equal(out.isSolvable, spring > 0);
+    assert.equal(out.kinematicIsSolvable, spring > 0);
+    assert.equal(out.isSolvable, spring === 1);
+    if (spring === 1e-30) {
+      assert.equal(out.classification, 'indeterminate');
+      assert.equal(JSON.parse(out.diagnosis).structuredDiagnostics[0].code, 'reduced_stiffness_rank');
+    }
     assert.equal(out.mechanismModes, spring === 0 ? 1 : 0);
   } catch (e) { failures.push(`${dim}D unit=${unit} unrelated=${unrelated} spring=${spring}: ${e}`); }
 }
