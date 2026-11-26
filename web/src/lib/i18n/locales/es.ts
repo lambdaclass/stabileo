@@ -4330,6 +4330,7 @@ const es: Record<string, string> = {
   "svc.engine.missingSelfWeightTarget": "Falta el destino del peso propio {kind} {id}. Restauralo o cambiá el destino del peso propio.",
   "svc.engine.invalidDensity": "Ingresá un valor de densidad (rho) finito y no negativo para el material {id} (valor recibido: {value}).",
   "svc.engine.nonnegativeMassDensity": "La densidad de masa debe ser finita y no negativa",
+  "svc.engine.invalidInputField": "Falta el campo {path} o su valor no es compatible.",
   "svc.engine.nonFiniteNumber": "Ingresá un número finito en {path} (valor recibido: {value}).",
   'svc.engine.zeroDiagonal': "Todas las entradas de la diagonal son cero: matriz singular",
   'svc.engine.singular': "Matriz de rigidez singular",
