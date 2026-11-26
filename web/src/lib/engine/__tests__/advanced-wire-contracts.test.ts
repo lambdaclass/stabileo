@@ -129,7 +129,7 @@ describe('advanced analyses: 3D payloads the engine accepts', () => {
     expect(res.stages[0].stageName).toBe('Etapa 1');
   });
 
-  it.runIf(process.env.REPLAY_2588 === '1')('known wrong result: #2588 — rejects a misspelled staged load-index field', () => {
+  it('known wrong result: #2588 — rejects a misspelled staged load-index field', () => {
     const solver = input3D();
     const supportNodes = [...new Set([...modelStore.supports.values()].map(s => s.nodeId))];
     const [stage] = stagedStagesPayload([{

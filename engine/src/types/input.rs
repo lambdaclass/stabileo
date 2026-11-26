@@ -1724,7 +1724,7 @@ staged_input!(
 );
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ConstructionStage3D {
     pub name: String,
     #[serde(default)]
@@ -1818,31 +1818,18 @@ pub enum Constraint {
 pub struct RigidLinkConstraint {
     pub master_node: usize,
     pub slave_node: usize,
-    #[serde(default, deserialize_with = "deserialize_rigid_link_dofs", skip_serializing_if = "Option::is_none")]
-    pub dofs: Option<Vec<usize>>,
-}
-
-fn deserialize_rigid_link_dofs<'de, D: de::Deserializer<'de>>(d: D) -> Result<Option<Vec<usize>>, D::Error> {
-    Vec::deserialize(d).map(Some)
+    #[serde(default)]
+    pub dofs: Vec<usize>,
 }
 
 impl RigidLinkConstraint {
     pub fn effective_dofs(&self, dofs_per_node: usize) -> &[usize] {
         const DEFAULT: [usize; 3] = [0, 1, 2];
-        self.dofs.as_deref().unwrap_or(&DEFAULT[..dofs_per_node.min(DEFAULT.len())])
-    }
-}
-
-impl Constraint {
-    pub fn is_active(&self) -> bool {
-        match self {
-            Self::RigidLink(link) => !link.effective_dofs(3).is_empty(),
-            _ => true,
+        if self.dofs.is_empty() {
+            &DEFAULT[..dofs_per_node.min(DEFAULT.len())]
+        } else {
+            &self.dofs
         }
-    }
-
-    pub fn any_active(constraints: &[Self]) -> bool {
-        constraints.iter().any(Self::is_active)
     }
 }
 

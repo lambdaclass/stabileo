@@ -441,7 +441,7 @@ fn harmonic_2d_sparse_constrained_dependent_target_errors() {
     let mut solver = make_large_ss_beam_2d_constrained();
     solver.constraints = vec![
         Constraint::RigidLink(RigidLinkConstraint {
-            master_node: 16, slave_node: 100, dofs: Some(vec![0, 1]),
+            master_node: 16, slave_node: 100, dofs: vec![0, 1],
         }),
     ];
     let mut densities = HashMap::new();

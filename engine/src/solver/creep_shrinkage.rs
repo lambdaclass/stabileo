@@ -217,7 +217,7 @@ pub fn solve_creep_shrinkage_2d(input: &CreepShrinkageInput) -> Result<CreepShri
     // Only without constraints: `prepare_static_2d` is the unconstrained solve, and a model
     // with a diaphragm or a tie must go through `solve_2d`, which hands it to the
     // constrained solver — prepared, every step came back with the constraints ignored.
-    let prepared = if !crate::types::Constraint::any_active(&input.solver.constraints) {
+    let prepared = if input.solver.constraints.is_empty() {
         Some(linear::prepare_static_2d(&input.solver)?)
     } else {
         None
@@ -394,7 +394,7 @@ pub fn solve_creep_shrinkage_3d(input: &CreepShrinkageInput3D) -> Result<CreepSh
     // Initial elastic solution (used for sustained stress baseline). As in
     // 2D, the structure is prepared once and each step re-solves loads only.
     // Constraints go through `solve_3d`, for the same reason.
-    let prepared = if !crate::types::Constraint::any_active(&input.solver.constraints) {
+    let prepared = if input.solver.constraints.is_empty() {
         Some(linear::prepare_static_3d(&input.solver)?)
     } else {
         None

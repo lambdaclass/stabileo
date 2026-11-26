@@ -498,7 +498,7 @@ fn carry(input: &SolverInput3D, state: CarryState) -> Result<Option<AnalysisResu
     if super::super::kinematic::analyze_kinematics_3d(input).is_solvable {
         return crate::known_issues::optional_solve(super::super::linear::solve_3d(input));
     }
-    if crate::types::Constraint::any_active(&input.constraints) || !input.connectors.is_empty() {
+    if !input.constraints.is_empty() || !input.connectors.is_empty() {
         return Err("plastic 3D cannot certify a soft-spring hinge state with constraints or connectors: the member-force balance check does not include their forces".into());
     }
     let soft = with_soft_springs(input);
@@ -606,7 +606,7 @@ fn balanced(input: &SolverInput3D, r: &AnalysisResults3D) -> bool {
     for p in crate::ordered::values(&input.curved_shells) {
         skip.extend(p.nodes);
     }
-    if crate::types::Constraint::any_active(&input.constraints) || !input.connectors.is_empty() {
+    if !input.constraints.is_empty() || !input.connectors.is_empty() {
         return false;
     }
     let mut sum: HashMap<usize, [f64; 6]> = HashMap::new();

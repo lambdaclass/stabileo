@@ -61,7 +61,7 @@ export const GLOBAL_AXES_EVIDENCE = 'axisNamedLoads';
 export const FEATURE_IDS = [
   'gallery:slab-on-columns:walls', 'example:rc-beam-flexure', 'native:supplied-linear-certificate',
   'native:planar-nodal-vector', 'native:analysis-wire-unknown-fields', 'native:wasm-iterable-solver-tables',
-  'native:duplicate-json-connector-keys', 'native:staged-unconsumed-tables',
+  'native:duplicate-json-connector-keys', 'native:staged-unconsumed-tables', 'native:staged-unknown-fields',
   'native:duplicate-json-analysis-table-keys', 'native:wasm-iterable-load-fields', 'native:producer-wire-metadata',
   GLOBAL_AXES_EVIDENCE, 'conflictingModelAliases', 'outOfPlaneNodalComponents', 'duplicateFixtureEndRelease',
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'unrestrainedAxialTip', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
@@ -643,9 +643,8 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
 
   const emptyRigidLink = (c: Record<string, unknown>) =>
     c?.type === 'rigidLink' && Array.isArray(c.dofs) && c.dofs.length === 0;
-  const storedConstraints = Array.isArray(s.constraints) ? s.constraints : [];
-  if (storedConstraints.some(emptyRigidLink)) f.add('emptyRigidLinkMask');
-  const constraints = storedConstraints.filter(c => !emptyRigidLink(c));
+  const constraints = Array.isArray(s.constraints) ? s.constraints : [];
+  if (constraints.some(emptyRigidLink)) f.add('emptyRigidLinkMask');
   if (constraints.length) f.add('constraints');
   if (constraints.some((c) => c && slaveNodes(c).some((n) => supportedNodes.has(n)))) f.add('constraintOnSupportedNode');
 

@@ -153,7 +153,7 @@ pub fn certify_pdelta_results_2d(input: &SolverInput, results: &AnalysisResults)
 }
 
 fn pdelta_results_2d(input: &SolverInput, results: &AnalysisResults) -> PDeltaCertificate {
-    if crate::types::Constraint::any_active(&input.constraints) {
+    if !input.constraints.is_empty() {
         return PDeltaCertificate::uncertified("unsupported: constraints");
     }
     let dof_num = DofNumbering::build_2d(input);
@@ -183,7 +183,7 @@ pub fn certify_pdelta_results_3d(input: &SolverInput3D, results: &AnalysisResult
 
 fn pdelta_results_3d(input: &SolverInput3D, results: &AnalysisResults3D) -> PDeltaCertificate {
     let input = &expand_curved_beams_3d(input);
-    if crate::types::Constraint::any_active(&input.constraints) {
+    if !input.constraints.is_empty() {
         return PDeltaCertificate::uncertified("unsupported: constraints");
     }
     let dof_num = DofNumbering::build_3d(input);

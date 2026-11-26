@@ -142,7 +142,7 @@ fn validation_rigid_link_moment_transfer() {
     input.constraints.push(Constraint::RigidLink(RigidLinkConstraint {
         master_node: 3,
         slave_node: 4,
-        dofs: Some(vec![0, 1, 2]),
+        dofs: vec![0, 1, 2],
     }));
 
     let results = linear::solve_2d(&input).unwrap();

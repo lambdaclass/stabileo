@@ -29,7 +29,7 @@
  * deliberately skipped here AND documented.
  */
 
-import { isActiveConstraint, type Constraint3D } from './types-3d';
+import type { Constraint3D } from './types-3d';
 
 /** Add every node referenced by any constraint to the connected-nodes set. */
 export function addConstraintConnectivity(
@@ -38,7 +38,6 @@ export function addConstraintConnectivity(
 ): void {
   if (!constraints) return;
   for (const c of constraints) {
-    if (!isActiveConstraint(c)) continue;
     switch (c.type) {
       case 'rigidLink':
       case 'equalDOF':
@@ -69,7 +68,6 @@ export function addConstraintAdjacency(
     adj.get(b)?.add(a);
   };
   for (const c of constraints) {
-    if (!isActiveConstraint(c)) continue;
     switch (c.type) {
       case 'rigidLink':
       case 'equalDOF':

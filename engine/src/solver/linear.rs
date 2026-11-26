@@ -422,7 +422,7 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
 /// Typed direct API. Frame properties stay typed from serde to stiffness/recovery.
 pub fn solve_2d_typed(input: &ElasticInput2D) -> Result<AnalysisResults, String> {
     let legacy = input.legacy_view();
-    if crate::types::Constraint::any_active(&legacy.constraints) {
+    if !legacy.constraints.is_empty() {
         return solve_2d(&legacy);
     }
     let properties = ElasticProperties2D::from_typed(input);
@@ -434,7 +434,7 @@ pub fn solve_2d_typed(input: &ElasticInput2D) -> Result<AnalysisResults, String>
 
 fn solve_2d_inner(input: &SolverInput) -> Result<AnalysisResults, String> {
     // Auto-delegate to constrained solver when constraints are present
-    if crate::types::Constraint::any_active(&input.constraints) {
+    if !input.constraints.is_empty() {
         let ci = super::constraints::ConstrainedInput {
             solver: input.clone(),
             constraints: input.constraints.clone(),
@@ -646,7 +646,7 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool, properties: El
     // routes constrained models elsewhere today; refusing here keeps a new
     // caller from silently solving the model without them (the dense
     // reference did: found by the metamorphic relabel check).
-    if crate::types::Constraint::any_active(&input.constraints) {
+    if !input.constraints.is_empty() {
         return Err("prepared static solve does not support constraints: solve the model with solve_2d (constrained solver)".into());
     }
     let dof_num = DofNumbering::build_2d(input);
@@ -1577,7 +1577,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
 pub(crate) fn buckling_preload_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
     let analysis = crate::known_issues::Analysis::Buckling;
     crate::known_issues::refuse_distorted(&crate::known_issues::for_3d(input, analysis))?;
-    if !crate::types::Constraint::any_active(&input.constraints) {
+    if input.constraints.is_empty() {
         let prepared = prepare_static_3d_for_analysis(input, analysis)?;
         return prepared.solve_loads(&prepared.input.loads);
     }
@@ -1589,7 +1589,7 @@ pub(crate) fn buckling_preload_3d(input: &SolverInput3D) -> Result<AnalysisResul
 }
 
 fn solve_3d_inner(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
-    if !crate::types::Constraint::any_active(&input.constraints) {
+    if input.constraints.is_empty() {
         let prepared = prepare_static_3d(input)?;
         return prepared.solve_loads(&prepared.input.loads);
     }
@@ -1771,7 +1771,7 @@ fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_
     // routes constrained models elsewhere today; refusing here keeps a new
     // caller from silently solving the model without them (the dense
     // reference did: found by the metamorphic relabel check).
-    if crate::types::Constraint::any_active(&input.constraints) {
+    if !input.constraints.is_empty() {
         return Err("prepared static solve does not support constraints: solve the model with solve_3d (constrained solver)".into());
     }
     // Known issues of the model as given (an arch is only visible before its expansion); they
@@ -3672,11 +3672,10 @@ pub(crate) fn refuse_moments_without_rotation_2d(input: &SolverInput, loads: &[S
             // tying translations alone left the slave's moment on the artificial
             // spring, and the constrained path returned a rotation of ~1e5 rad
             // (found by the metamorphic energy check, testing/docs/METAMORPHIC.md).
-            Constraint::RigidLink(r) if c.is_active() => {
+            Constraint::RigidLink(r) => {
                 carried.insert(r.master_node);
                 if r.effective_dofs(3).contains(&2) { carried.insert(r.slave_node); }
             }
-            Constraint::RigidLink(_) => {}
             Constraint::Diaphragm(d) => { carried.insert(d.master_node); carried.extend(&d.slave_nodes); }
             Constraint::LinearMPC(m) => carried.extend(m.terms.iter().filter(|t| t.dof == 2).map(|t| t.node_id)),
             Constraint::EqualDOF(e) => {
@@ -4207,8 +4206,7 @@ pub(crate) fn refuse_moments_without_rotation_3d(input: &SolverInput3D, loads: &
     nodes.extend(crate::ordered::values(&input.connectors).flat_map(|c| [c.node_i, c.node_j]));
     for c in &input.constraints {
         match c {
-            Constraint::RigidLink(r) if c.is_active() => nodes.extend([r.master_node, r.slave_node]),
-            Constraint::RigidLink(_) => {}
+            Constraint::RigidLink(r) => nodes.extend([r.master_node, r.slave_node]),
             Constraint::Diaphragm(d) => { nodes.push(d.master_node); nodes.extend(&d.slave_nodes); }
             Constraint::LinearMPC(m) => nodes.extend(m.terms.iter().map(|t| t.node_id)),
             Constraint::EqualDOF(e) => nodes.extend([e.master_node, e.slave_node]),

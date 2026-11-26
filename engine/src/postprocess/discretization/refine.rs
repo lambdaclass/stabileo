@@ -60,7 +60,7 @@ pub struct Refined {
 /// Why a model cannot be refined automatically, or Ok. Node references are checked here:
 /// refinement indexes node coordinates before any solver validation runs.
 pub fn check_refinable(input: &SolverInput3D) -> Result<(), String> {
-    if crate::types::Constraint::any_active(&input.constraints) {
+    if !input.constraints.is_empty() {
         return Err("constraints".into());
     }
     if !input.connectors.is_empty() {

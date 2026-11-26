@@ -116,7 +116,7 @@ fn linked_to_a_hinged_column(constraint: &str, member: &str, slave_support: &str
 }
 
 const TIES_ROTATION: [&str; 3] = [
-    r#"{"type":"rigidLink","masterNode":2,"slaveNode":3}"#,
+    r#"{"type":"rigidLink","masterNode":2,"slaveNode":3,"dofs":[]}"#,
     r#"{"type":"rigidLink","masterNode":2,"slaveNode":3,"dofs":[0,1,2]}"#,
     r#"{"type":"diaphragm","masterNode":2,"slaveNodes":[3]}"#,
 ];

@@ -110,7 +110,7 @@ fn restraint(plane: Plane, support: Option<&SolverSupport>) -> TResult<[bool; 6]
 }
 
 pub fn embed_2d(s: &SolverInput, plane: Plane) -> TResult<SolverInput3D> {
-    if crate::types::Constraint::any_active(&s.constraints) {
+    if !s.constraints.is_empty() {
         return unrep("constraints have no plane-frame embedding");
     }
     if !s.connectors.is_empty() {

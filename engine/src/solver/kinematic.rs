@@ -246,7 +246,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
         super::stability::OperatorRank::for_2d(physical_input, &dof_num, cs.as_ref())
             .free_rank_finding(&asm.k_ff, asm.support_magnitude.as_ref())
     });
-    if physical_rank.is_none() && nf >= KINEMATIC_SPARSE_THRESHOLD && !crate::types::Constraint::any_active(&input.constraints) {
+    if physical_rank.is_none() && nf >= KINEMATIC_SPARSE_THRESHOLD && input.constraints.is_empty() {
         if let Some(result) = fast_solvable_2d(input, &dof_num, degree) {
             return result;
         }

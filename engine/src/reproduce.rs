@@ -719,7 +719,6 @@ fn staged_wire_refuses_tables_it_cannot_consume() {
 
 #[cfg(test)]
 #[test]
-#[ignore = "known wrong result: #2588"]
 fn issue_2588_3d_staged_wire_refuses_unknown_load_index_field() {
     use crate::solver::staged::{parse_staged_3d, solve_staged_3d};
     use serde_json::json;

@@ -376,7 +376,7 @@ pub fn stable_3d(seed: u64) -> SolverInput3D {
         }
         1 => {
             constraints.push(Constraint::RigidLink(RigidLinkConstraint {
-                master_node: id_of[&(0, 0, nz)], slave_node: id_of[&(nx, 0, nz)], dofs: None,
+                master_node: id_of[&(0, 0, nz)], slave_node: id_of[&(nx, 0, nz)], dofs: vec![],
             }));
         }
         2 => {

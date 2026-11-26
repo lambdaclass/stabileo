@@ -219,7 +219,7 @@ fn geom_factor(points: &[[f64; 3]], chords: &[f64]) -> (f64, f64) {
 pub fn of_2d(input: &SolverInput) -> Result<Conditioning, String> {
     let dof = DofNumbering::build_2d(input);
     let asm = assemble_2d(input, &dof);
-    let ct = if !crate::types::Constraint::any_active(&input.constraints) {
+    let ct = if input.constraints.is_empty() {
         None
     } else {
         Some(build_constraint_transform(&input.constraints, &dof, Some(&input.nodes), None, &inclined_dofs_2d(input, &dof))?)
@@ -243,7 +243,7 @@ pub fn of_3d(input: &SolverInput3D) -> Result<Conditioning, String> {
     let input = &crate::solver::linear::expand_curved_beams_3d(input);
     let dof = DofNumbering::build_3d(input);
     let asm = assemble_3d(input, &dof);
-    let ct = if !crate::types::Constraint::any_active(&input.constraints) {
+    let ct = if input.constraints.is_empty() {
         None
     } else {
         Some(build_constraint_transform(&input.constraints, &dof, None, Some(&input.nodes), &inclined_dofs_3d(input, &dof))?)

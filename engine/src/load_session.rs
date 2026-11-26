@@ -30,7 +30,7 @@ impl LoadSession2D {
     pub fn from_input(mut input: SolverInput) -> Result<LoadSession2D, String> {
         crate::solver::linear::validate_input_2d(&input)?;
         input.loads.clear();
-        let state = if !crate::types::Constraint::any_active(&input.constraints) {
+        let state = if input.constraints.is_empty() {
             State2D::Prepared(Box::new(prepare_static_2d(&input)?.into_owned()))
         } else {
             State2D::Constrained(Box::new(input))
@@ -83,7 +83,7 @@ impl LoadSession3D {
     fn from_input_with_prepare(mut input: SolverInput3D, mut prepare: impl FnMut(&SolverInput3D) -> Result<PreparedStatic3D, String>) -> Result<LoadSession3D, String> {
         crate::solver::linear::validate_input_3d(&input)?;
         let initial_loads = std::mem::take(&mut input.loads);
-        let state = if !crate::types::Constraint::any_active(&input.constraints) {
+        let state = if input.constraints.is_empty() {
             let prepared = match prepare(&input) {
                 Ok(prepared) => prepared,
                 Err(original) => {

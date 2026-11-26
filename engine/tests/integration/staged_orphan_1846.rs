@@ -1442,7 +1442,7 @@ fn issue_1846_round3_swinging_rotations_report_mechanisms() {
                     "eccentricConnection" => {
                         serde_json::json!({"type":kind,"masterNode":1,"slaveNode":2,"offsetX":2.0,"offsetY":0.0,"offsetZ":1.0,"releases":[]})
                     }
-                    _ => serde_json::json!({"type":kind,"masterNode":1,"slaveNode":2}),
+                    _ => serde_json::json!({"type":kind,"masterNode":1,"slaveNode":2,"dofs":[]}),
                 };
                 if kind == "diaphragm" {
                     v["supports"]["2"] = serde_json::json!({"nodeId":2,"rx":false,"ry":true,"rz":false,"rrx":false,"rry":false,"rrz":false});
@@ -2173,7 +2173,7 @@ fn issue_1846_round5_rigid_arm_rotation_subspace() {
                     v["supports"]["1"]["rry"] = held.into();
                     v["supports"]["1"]["rrz"] = held.into();
                     v["constraints"][0] = if kind == "rigidLink" {
-                        serde_json::json!({"type":kind,"masterNode":1,"slaveNode":2})
+                        serde_json::json!({"type":kind,"masterNode":1,"slaveNode":2,"dofs":[]})
                     } else {
                         serde_json::json!({"type":kind,"masterNode":1,"slaveNode":2,"offsetX":0.0,"offsetY":a,"offsetZ":b,"releases":[]})
                     };

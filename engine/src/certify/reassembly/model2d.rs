@@ -393,14 +393,12 @@ pub(super) fn constraints(input: &SolverInput, model: &Model, kin: &mut Kinemati
     };
     for con in &input.constraints {
         match con {
-            Constraint::RigidLink(rl) if con.is_active() => {
-                let dofs = rl.effective_dofs(dpn);
+            Constraint::RigidLink(rl) => {
                 let (ox, oz) = off(rl.master_node, rl.slave_node)?;
-                for &d in dofs {
+                for &d in rl.effective_dofs(dpn) {
                     kin.equation(need(rl.slave_node, d)?, rigid(rl.master_node, d, ox, oz)?);
                 }
             }
-            Constraint::RigidLink(_) => {}
             Constraint::Diaphragm(dia) => {
                 // "XY" and "XZ" both name the model plane. Every slave moves
                 // with the master as one rigid body, its rotation included.

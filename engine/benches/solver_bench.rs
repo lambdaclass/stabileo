@@ -757,7 +757,7 @@ fn bench_constraints(c: &mut Criterion) {
                 cons.push(Constraint::RigidLink(RigidLinkConstraint {
                     master_node: master,
                     slave_node: slave,
-                    dofs: Some(vec![0]),
+                    dofs: vec![0],
                 }));
             }
         }

@@ -130,8 +130,8 @@ fn support_fields_2d_never_dropped() {
 #[test]
 fn constraint_fields_2d_never_dropped() {
     let add = |c: Constraint| move |i: &mut SolverInput| i.constraints.push(c);
-    assert_out_of_scope(e2e_2d(truss_2d(), add(Constraint::RigidLink(RigidLinkConstraint { master_node: 2, slave_node: 4, dofs: None }))), "rigid link with an offset, model without rotations");
-    assert_out_of_scope(e2e_2d(truss_2d(), add(Constraint::RigidLink(RigidLinkConstraint { master_node: 2, slave_node: 4, dofs: Some(vec![2]) }))), "rigid link on a rotation the model lacks");
+    assert_out_of_scope(e2e_2d(truss_2d(), add(Constraint::RigidLink(RigidLinkConstraint { master_node: 2, slave_node: 4, dofs: vec![] }))), "rigid link with an offset, model without rotations");
+    assert_out_of_scope(e2e_2d(truss_2d(), add(Constraint::RigidLink(RigidLinkConstraint { master_node: 2, slave_node: 4, dofs: vec![2] }))), "rigid link on a rotation the model lacks");
     assert_out_of_scope(e2e_2d(truss_2d(), add(Constraint::EqualDOF(EqualDOFConstraint { master_node: 2, slave_node: 4, dofs: vec![2] }))), "equal-DOF on a rotation the model lacks");
     assert_out_of_scope(
         e2e_2d(truss_2d(), add(Constraint::LinearMPC(LinearMPCConstraint { terms: vec![
@@ -269,7 +269,7 @@ fn constraint_fields_3d_never_dropped() {
         "diaphragm, model without rotations",
     );
     assert_out_of_scope(
-        e2e_3d(truss_3d(), add(Constraint::RigidLink(RigidLinkConstraint { master_node: 2, slave_node: 3, dofs: None }))),
+        e2e_3d(truss_3d(), add(Constraint::RigidLink(RigidLinkConstraint { master_node: 2, slave_node: 3, dofs: vec![] }))),
         "rigid link with an offset, model without rotations",
     );
     assert_out_of_scope(

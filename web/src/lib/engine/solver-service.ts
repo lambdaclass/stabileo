@@ -41,7 +41,7 @@ export { memberRef3D } from './member-loads';
 import { InvalidSelfWeightScope, selfWeightFor, selfWeightMemberProjection, selfWeightScope, selfWeightSolverLoads, snapshotSelfWeightProjection, type SelfWeightMemberProjection } from './self-weight';
 import { memberSelfWeightSources, selfWeightSources, type RecordSelfWeight, planarSelfWeightComponents } from './self-weight';
 import type { SelfWeightLoad } from './analysis-settings';
-import { isActiveConstraint, type SolverInput3D, type SolverSection3D, type SolverLoad3D, type AnalysisResults3D, type FullEnvelope3D, type Constraint3D, type NonlinearReport } from './types-3d';
+import type { SolverInput3D, SolverSection3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, NonlinearReport } from './types-3d';
 import { analyzeKinematics, type KinematicResult } from './kinematic-2d';
 import {
   convertSurfaceLoad, convertThermalQuadLoad,
@@ -2139,7 +2139,7 @@ function buildValidatedSolverInput3D(
     curvedShells: model.quads ? new Map(Array.from(model.quads.entries()).filter(([, q]) => q.curved).map(([id, q]) => [id, { id: q.id, nodes: q.nodes, materialId: q.materialId, thickness: q.thickness }])) : new Map(),
     // The engine's diaphragm ties each slave's rotation about the normal too (#342); the
     // equalDOF this added for it would now tie the same DOF twice.
-    constraints: (model.constraints ?? []).filter(isActiveConstraint),
+    constraints: [...(model.constraints ?? [])],
     connectors: model.connectors,
     leftHand: false, // see buildSolverLoads3D: the analysis is always right-handed
   };

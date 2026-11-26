@@ -3,6 +3,8 @@ import { deflateSync, inflateSync } from 'fflate';
 import LZString from 'lz-string';
 import { t, tp } from '../../i18n';
 import { initSolver, solve, solve3D, solvePDelta, solvePDelta3D } from '../../engine/wasm-solver';
+import type { AnalysisResults } from '../../engine/types';
+import type { AnalysisResults3D } from '../../engine/types-3d';
 import { compressSnapshot, loadFromShareLink, loadFromURLHash } from '../../utils/url-sharing';
 import { acceptAutosavePayload, acceptSessionTabs, buildProjectFile, deserializeProject } from '../file';
 import { assessProject } from '../../provenance/applicability';
@@ -240,7 +242,7 @@ it.each(routes)('known wrong result: #2588 — %s refuses an implicit default ri
   file.snapshot.drawPlane2D = undefined;
   const link = { type: 'rigidLink' as const, masterNode: root, slaveNode: tip };
   const before = modelStore.snapshot();
-  for (const dofs of [undefined, [0, 1, 2], [0, 1, 2, 3, 4, 5]]) {
+  for (const dofs of [undefined, [], [0, 1, 2], [0, 1, 2, 3, 4, 5]]) {
     file.snapshot.constraints = [dofs === undefined ? link : { ...link, dofs }];
     const result = open(file, route);
     expect.soft(result.opened, String(dofs)).toBe(false);
@@ -249,10 +251,6 @@ it.each(routes)('known wrong result: #2588 — %s refuses an implicit default ri
     expect.soft(assessProject({ ...file.snapshot, analysisMode: '2d' }, null, '2d').changes.map(c => c.id))
       .toContain('xy-constraint-projection');
   }
-  file.snapshot.constraints = [{ ...link, dofs: [] }];
-  expect(open(file, route).opened).toBe(true);
-  expect(assessProject({ ...file.snapshot, analysisMode: '2d' }, null, '2d').changes.map(c => c.id))
-    .not.toContain('xy-constraint-projection');
 });
 
 it.each(['xy', 'xz'] as const)('solves default rigid links in explicit %s with the same translations as a listed mask', async plane => {
@@ -269,6 +267,7 @@ it.each(['xy', 'xz'] as const)('solves default rigid links in explicit %s with t
   };
   const reference = analyze([0, 1, 2]);
   expect(analyze()).toEqual(reference);
+  expect(analyze([])).toEqual(reference);
 
   file.snapshot.drawPlane2D = undefined;
   file.snapshot.nodes = file.snapshot.nodes.map(([id, node]) => [id, id === tip ? { ...node, y: 1 } : node]);
@@ -299,44 +298,13 @@ it('known wrong result: #2588 — a legacy v1 share with a guidedX support opens
   expect(modelStore.solve()).toBe(t('svc.savedPlaneRequired'));
 });
 
-it.each(['xy', 'xz', 'pro'] as const)(
-  'known wrong result: #2588 — an empty rigid-link mask leaves the %s tip free',
-  async mode => {
-    await initSolver();
-    const spatial = mode === 'pro';
-    const { file, root, tip } = frame(spatial ? 'pro' : '2d');
-    if (!spatial) file.snapshot.drawPlane2D = mode;
-    const link = { type: 'rigidLink' as const, masterNode: root, slaveNode: tip };
-    const analyze = async (constraints: typeof file.snapshot.constraints) => {
-      file.snapshot.constraints = constraints;
-      expect(open(file, 'file').opened).toBe(true);
-      const linear = spatial ? modelStore.solve3D(false, false, true) : modelStore.solve();
-      const asyncLinear = spatial ? await modelStore.solve3DAsync(false, false, true) : await modelStore.solveAsync();
-      const nonlinear = spatial
-        ? solvePDelta3D(modelStore.buildSolverInput3D()!)
-        : solvePDelta(modelStore.buildSolverInput()!);
-      expect(nonlinear.converged).toBe(true);
-      const tipUx = (result: typeof linear) => {
-        if (!result || typeof result === 'string') throw new Error(String(result));
-        return result.displacements.find(d => d.nodeId === tip)!.ux;
-      };
-      return [linear, asyncLinear, nonlinear.results].map(result => tipUx(result));
-    };
-    const untied = await analyze([]);
-    expect(untied.every(ux => ux > 0)).toBe(true);
-    expect(await analyze([{ ...link, dofs: [] }])).toEqual(untied);
-    expect(modelStore.model.constraints).toEqual([{ ...link, dofs: [] }]);
-    const translations = await analyze([{ ...link, dofs: [0, 1, 2] }]);
-    expect(translations).toEqual([0, 0, 0]);
-    expect(await analyze([link])).toEqual(translations);
-  },
-);
-
-it.each(['2d', 'pro'] as const)('preserves an empty rigid-link mask at the %s WASM wire boundary', async mode => {
+it.each(['2d', 'pro'] as const)('uses the historical default for an empty rigid-link mask at the %s WASM wire boundary', async mode => {
   await initSolver();
   const { root, tip } = frame(mode);
+  if (mode === 'pro') modelStore.addNodalLoad3D(tip, 0, 0, 0, 0, 1, 0);
+  else modelStore.addNodalLoad(tip, 0, 0, 1);
   const link = { type: 'rigidLink' as const, masterNode: root, slaveNode: tip };
-  const analyze = (mask: typeof link & { dofs?: number[] } | undefined) => {
+  const analyze = (mask: typeof link & { dofs?: number[] } | undefined): (AnalysisResults | AnalysisResults3D)[] => {
     const constraints = mask ? [mask] : [];
     if (mode === 'pro') {
       const input = { ...modelStore.buildSolverInput3D()!, constraints };
@@ -346,18 +314,23 @@ it.each(['2d', 'pro'] as const)('preserves an empty rigid-link mask at the %s WA
     return [solve(input), solvePDelta(input).results];
   };
   const untied = analyze(undefined);
-  expect(analyze({ ...link, dofs: [] })).toEqual(untied);
+  for (const result of untied) {
+    expect(result.displacements.find(d => d.nodeId === tip)!.ux).toBeGreaterThan(0);
+  }
   const tied = analyze({ ...link, dofs: [0, 1, 2] });
   for (const result of tied) {
-    expect(result.displacements).toContainEqual(expect.objectContaining({ nodeId: tip, ux: 0 }));
+    const tipDisplacement = result.displacements.find(d => d.nodeId === tip)!;
+    expect(tipDisplacement.ux).toBe(0);
+    if (mode === 'pro') expect(Math.abs(tipDisplacement.ry)).toBeGreaterThan(0);
+    else expect(tipDisplacement.ry).toBe(0);
   }
   expect(analyze(link)).toEqual(tied);
+  expect(analyze({ ...link, dofs: [] })).toEqual(tied);
 });
 
+const historicalLinkRoutes = [...routes, 'restore'] as const;
 
-const historicalLinkRoutes = ['file', 'v1 share', 'v2 share', 'v2 embed', 'data hash', 'embed hash', 'restore'] as const;
-
-it.runIf(process.env.REPLAY_2588 === '1').each(
+it.each(
   (['xy', 'xz', 'pro'] as const).flatMap(mode => historicalLinkRoutes.map(route => [mode, route] as const)),
 )('known wrong result: #2588 — %s %s restores the historical empty rigid-link default', async (mode, route) => {
   await initSolver();
@@ -369,13 +342,28 @@ it.runIf(process.env.REPLAY_2588 === '1').each(
   const link = { type: 'rigidLink' as const, masterNode: root, slaveNode: tip };
   const analyze = async (constraints: typeof file.snapshot.constraints) => {
     file.snapshot.constraints = constraints;
-    if (route === 'restore') modelStore.restore(file.snapshot);
-    else expect(open(file, route).opened).toBe(true);
+    if (route === 'restore') {
+      modelStore.restore(file.snapshot);
+    } else if (route === 'autosave') {
+      const accepted = acceptAutosavePayload(file);
+      expect(accepted).not.toBeNull();
+      modelStore.restore(accepted!.snapshot);
+    } else if (route === 'session') {
+      tabManager.init();
+      const saved = { ...tabManager.activeTab!, modelSnapshot: file.snapshot, analysisMode: file.analysisMode };
+      const verdict = acceptSessionTabs([saved]);
+      expect(verdict.dropped).toEqual([]);
+      expect(verdict.tabs).toHaveLength(1);
+      tabManager.restoreSession(verdict.tabs, saved.id);
+    } else {
+      expect(open(file, route).opened).toBe(true);
+    }
     const linear = spatial ? modelStore.solve3D(false, false, true) : modelStore.solve();
     const asyncLinear = spatial ? await modelStore.solve3DAsync(false, false, true) : await modelStore.solveAsync();
     const nonlinear = spatial ? solvePDelta3D(modelStore.buildSolverInput3D()!) : solvePDelta(modelStore.buildSolverInput()!);
     expect(nonlinear.converged).toBe(true);
-    return [linear, asyncLinear, nonlinear.results].map(result => {
+    const results: (typeof linear)[] = [linear, asyncLinear, nonlinear.results];
+    return results.map(result => {
       if (!result || typeof result === 'string') throw new Error(String(result));
       return result.displacements.find(d => d.nodeId === tip)!.ux;
     });

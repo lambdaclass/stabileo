@@ -464,7 +464,7 @@ fn a_free_master_rotation_that_swings_a_rigid_link_slave_is_a_mechanism_in_every
         "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}},
         "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 3, "materialId": 1, "sectionId": 1, "hingeStart": true}},
         "supports": {"1": {"id": 1, "nodeId": 1, "type": "pinned"}, "3": {"id": 3, "nodeId": 3, "type": "fixed"}},
-        "constraints": [{"type": "rigidLink", "masterNode": 1, "slaveNode": 2}],
+        "constraints": [{"type": "rigidLink", "masterNode": 1, "slaveNode": 2, "dofs": []}],
         "loads": []
     });
     assert_eq!(invariant_verdict("rigid-link pendulum", d2(pendulum)).verdict, Verdict::Mechanism);
@@ -478,7 +478,7 @@ fn a_spin_about_a_collinear_rigid_link_is_a_free_rotation_and_any_offset_one_is_
         "sections": {"1": {"id": 1, "a": 0.01, "iy": 2e-4, "iz": 1e-4, "j": 5e-5}},
         "elements": {"1": {"id": 1, "type": "frame", "nodeI": 3, "nodeJ": 1, "materialId": 1, "sectionId": 1, "releaseTEnd": true}},
         "supports": {"3": {"nodeId": 3, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}},
-        "constraints": [{"type": "rigidLink", "masterNode": 1, "slaveNode": 2}],
+        "constraints": [{"type": "rigidLink", "masterNode": 1, "slaveNode": 2, "dofs": []}],
         "loads": []
     });
     let s = invariant_or_conservatively_refused("collinear rigid link", d3(model([2.0, 0.0, 0.0])));

@@ -24,13 +24,13 @@
     "zh": "刚性连接的空自由度列表"
   },
   "explanation": {
-    "en": "A rigid link with an explicit empty degree-of-freedom list leaves the nodes untied. An omitted list in a saved project still ties the translations. Recalculate to check displacements, member forces and reactions.",
-    "es": "Un enlace rígido con una lista de grados de libertad explícitamente vacía deja los nodos libres entre sí. Si se omite la lista en un proyecto guardado, se siguen vinculando las traslaciones. Recalculá para verificar desplazamientos, esfuerzos y reacciones.",
-    "pt": "Um vínculo rígido com uma lista explicitamente vazia de graus de liberdade deixa os nós livres entre si. Se a lista for omitida em um projeto salvo, as translações continuam vinculadas. Recalcule para verificar deslocamentos, esforços e reações.",
-    "de": "Eine starre Kopplung mit einer explizit leeren Freiheitsgradliste lässt die Knoten ungekoppelt. Fehlt die Liste in einem gespeicherten Projekt, bleiben die Translationen gekoppelt. Berechnen Sie Verschiebungen, Schnittgrößen und Auflagerreaktionen erneut.",
-    "fr": "Une liaison rigide avec une liste de degrés de liberté explicitement vide laisse les nœuds indépendants. Si la liste est omise dans un projet enregistré, les translations restent liées. Recalculez pour vérifier les déplacements, les efforts et les réactions.",
-    "tr": "Serbestlik derecesi listesi açıkça boş olan rijit bağlantı düğümleri birbirine bağlamaz. Kayıtlı bir projede liste belirtilmezse ötelemeler bağlı kalır. Yer değiştirmeleri, çubuk kuvvetlerini ve mesnet tepkilerini yeniden hesaplayın.",
-    "zh": "刚性连接明确使用空自由度列表时，节点之间没有约束。保存的项目省略该列表时，仍约束平移。请重新计算以检查位移、构件内力和支座反力。"
+    "en": "An empty degree-of-freedom list selects the historical default restraints. Recalculate any results that were obtained with a build that ignored these links.",
+    "es": "Una lista vacía de grados de libertad selecciona las restricciones históricas predeterminadas. Recalculá los resultados obtenidos con una versión que ignoraba estos enlaces.",
+    "pt": "Uma lista vazia de graus de liberdade seleciona as restrições padrão históricas. Recalcule os resultados obtidos com uma versão que ignorava esses vínculos.",
+    "de": "Eine leere Freiheitsgradliste wählt die bisherigen Standardbindungen. Berechnen Sie Ergebnisse erneut, wenn sie mit einer Version ermittelt wurden, die diese Kopplungen ignorierte.",
+    "fr": "Une liste vide de degrés de liberté sélectionne les liaisons par défaut historiques. Recalculez les résultats obtenus avec une version qui ignorait ces liaisons.",
+    "tr": "Boş bir serbestlik derecesi listesi, geçmişteki varsayılan kısıtları seçer. Bu bağlantıları yok sayan bir sürümden alınan sonuçları yeniden hesaplayın.",
+    "zh": "自由度列表为空时使用历史默认约束。若结果来自忽略此类连接的版本，请重新计算。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-empty-rigid-link-mask.md",

@@ -54,9 +54,7 @@ export function constraintLabel(c: Record<string, unknown>, t: Translate): strin
     return t('pro.constraintRigid')
       .replace('{master}', s('masterNode'))
       .replace('{slave}', s('slaveNode'))
-      .replace('{dofs}', Array.isArray(c.dofs) && c.dofs.length === 0
-        ? t('selection.none')
-        : dofIndicesToNames(c.dofs ?? rigidLinkDofs({}), t));
+      .replace('{dofs}', dofIndicesToNames(rigidLinkDofs({ dofs: Array.isArray(c.dofs) ? c.dofs : undefined }), t));
   }
   if (c.type === 'diaphragm') {
     return t('pro.constraintDiaph')

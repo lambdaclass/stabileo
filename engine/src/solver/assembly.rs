@@ -113,8 +113,7 @@ pub(crate) fn constraint_nodes(constraints: &[Constraint]) -> std::collections::
     let mut tied: std::collections::HashSet<usize> = std::collections::HashSet::new();
     for c in constraints {
         match c {
-            Constraint::RigidLink(r) if c.is_active() => { tied.insert(r.master_node); tied.insert(r.slave_node); }
-            Constraint::RigidLink(_) => {}
+            Constraint::RigidLink(r) => { tied.insert(r.master_node); tied.insert(r.slave_node); }
             Constraint::Diaphragm(d) => { tied.insert(d.master_node); tied.extend(d.slave_nodes.iter().copied()); }
             Constraint::LinearMPC(m) => tied.extend(m.terms.iter().map(|t| t.node_id)),
             Constraint::EqualDOF(e) => { tied.insert(e.master_node); tied.insert(e.slave_node); }
@@ -189,11 +188,10 @@ fn constraint_rotation_nodes_2d(input: &SolverInput) -> std::collections::HashSe
     let mut tied = std::collections::HashSet::new();
     for c in &input.constraints {
         match c {
-            Constraint::RigidLink(r) if c.is_active() => {
+            Constraint::RigidLink(r) => {
                 tied.insert(r.master_node);
                 if r.effective_dofs(3).contains(&2) { tied.insert(r.slave_node); }
             }
-            Constraint::RigidLink(_) => {}
             Constraint::Diaphragm(d) => { tied.insert(d.master_node); tied.extend(d.slave_nodes.iter().copied()); }
             Constraint::EqualDOF(e) => {
                 if e.dofs.contains(&2) { tied.extend([e.master_node, e.slave_node]); }
@@ -231,11 +229,10 @@ pub(crate) fn refuse_connector_arm_mechanism_3d(input: &SolverInput3D) -> Result
     let mut tied: HashSet<usize> = HashSet::new();
     for c in &input.constraints {
         match c {
-            Constraint::RigidLink(r) if c.is_active() => {
+            Constraint::RigidLink(r) => {
                 tied.insert(r.master_node);
                 if r.effective_dofs(6).iter().any(rotation) { tied.insert(r.slave_node); }
             }
-            Constraint::RigidLink(_) => {}
             Constraint::Diaphragm(d) => { tied.insert(d.master_node); tied.extend(d.slave_nodes.iter().copied()); }
             Constraint::LinearMPC(m) => tied.extend(m.terms.iter().filter(|t| rotation(&t.dof)).map(|t| t.node_id)),
             Constraint::EqualDOF(e) => {

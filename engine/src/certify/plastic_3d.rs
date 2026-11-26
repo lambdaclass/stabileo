@@ -269,7 +269,7 @@ pub fn build_model_3d(input: &PlasticInput3D) -> Result<PlasticModel3, String> {
     super::finite::check_magnitudes(input, super::plastic::EXACT_MIN_ABS, super::plastic::EXACT_MAX_ABS)?;
     let s = &input.solver;
     crate::solver::support::validate_supports_3d(s)?;
-    if crate::types::Constraint::any_active(&s.constraints) {
+    if !s.constraints.is_empty() {
         return Err("constraints are not supported by the plastic certificate".into());
     }
     if !s.connectors.is_empty() {

@@ -270,11 +270,7 @@ export interface RigidLinkConstraint {
 const defaultRigidLinkDofs = [0, 1, 2] as const;
 
 export function rigidLinkDofs(constraint: Pick<RigidLinkConstraint, 'dofs'>): readonly number[] {
-  return constraint.dofs ?? defaultRigidLinkDofs;
-}
-
-export function isActiveConstraint(constraint: Constraint3D): boolean {
-  return constraint.type !== 'rigidLink' || rigidLinkDofs(constraint).length > 0;
+  return constraint.dofs?.length ? constraint.dofs : defaultRigidLinkDofs;
 }
 
 export interface DiaphragmConstraint {

@@ -460,12 +460,12 @@ mod pathological_constraints {
             Constraint::RigidLink(RigidLinkConstraint {
                 master_node: 1,
                 slave_node: 2,
-                dofs: Some(vec![0, 1]),
+                dofs: vec![0, 1],
             }),
             Constraint::RigidLink(RigidLinkConstraint {
                 master_node: 2,
                 slave_node: 1,
-                dofs: Some(vec![0, 1]),
+                dofs: vec![0, 1],
             }),
         ];
 
@@ -503,7 +503,7 @@ mod pathological_constraints {
             Constraint::RigidLink(RigidLinkConstraint {
                 master_node: 2,
                 slave_node: 1,
-                dofs: Some(vec![0, 1]),
+                dofs: vec![0, 1],
             }),
         ];
         let result = linear::solve_2d(&input);
@@ -552,12 +552,12 @@ mod pathological_constraints {
             Constraint::RigidLink(RigidLinkConstraint {
                 master_node: 1,
                 slave_node: 2,
-                dofs: Some(vec![0, 1]),
+                dofs: vec![0, 1],
             }),
             Constraint::RigidLink(RigidLinkConstraint {
                 master_node: 4,
                 slave_node: 2,
-                dofs: Some(vec![0, 1]),
+                dofs: vec![0, 1],
             }),
         ];
         let result = linear::solve_2d(&input);

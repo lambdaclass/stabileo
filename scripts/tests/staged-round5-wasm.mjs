@@ -95,7 +95,7 @@ for (const pads of [0, 22]) for (const [a,b] of [[2,1],[1,2],[0,1],[1,0],[0,0]])
   pad(input, pads);
   Object.assign(input.nodes[2], { x: 0, y: a, z: b });
   Object.assign(input.supports[1], { rrx: true, rry: held, rrz: held });
-  input.constraints[0] = kind === 'rigidLink' ? { type: kind, masterNode: 1, slaveNode: 2 } : { type: kind, masterNode: 1, slaveNode: 2, offsetX: 0, offsetY: a, offsetZ: b, releases: [] };
+  input.constraints[0] = kind === 'rigidLink' ? { type: kind, masterNode: 1, slaveNode: 2, dofs: [] } : { type: kind, masterNode: 1, slaveNode: 2, offsetX: 0, offsetY: a, offsetZ: b, releases: [] };
   input.loads = [{ type: 'nodal', data: { nodeId: 2, fx: 1e-6, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 } }];
   const modes = !held && (a !== 0 || b !== 0) ? 1 : 0;
   check(`3D pads=${pads} arm=(${a},${b}) ${kind} held=${held}`, () => {
