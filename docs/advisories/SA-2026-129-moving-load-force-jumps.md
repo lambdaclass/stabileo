@@ -22,10 +22,15 @@ An axle at a path joint could be treated as a span load just short of
 the joint. An equivalent rotation or reflection could therefore change
 the reported shear. Sweeps could also omit a governing cut on one
 side of an axle at a sampled joint or support. The native sweeps could
-miss the cut between coincident moving and permanent loads inside a
-member. The planar browser envelope could keep only one of the two
-section forces at an interior axle, and the spatial browser sweep
-could replace the interior axial axle force with end-node forces.
+miss one-sided shear limits when an axle passed a permanent point load
+inside a member. At exact coincidence, the axle and permanent point load
+produce a single combined shear jump. The shear between them has
+one-sided limits as the axle approaches or passes the load. Each limit
+comes from a cut in the gap as the separation tends to zero.
+
+The planar browser envelope could keep only one of the two section
+forces at an interior axle, and the spatial browser sweep could replace
+the interior axial axle force with end-node forces.
 
 In #2101, the original model returned a minimum shear of about
 −47.85 kN where compatibility and equilibrium, including the limit at
@@ -67,9 +72,12 @@ truss cases retain the interior axle force for force recovery.
 
 Use an independently verified moving-load analysis that checks both
 sides of each relevant axle, including the one-sided limits at
-sampled joints and supports. For saved spatial truss cases, verify
-the member forces using a model that retains each axle at its applied
-position.
+sampled joints and supports. For an axle that passes a permanent point
+load inside a member, check both one-sided shear limits with the axle
+just before and just after the permanent point load. In each case,
+evaluate the shear at a cut between the loads as their separation tends
+to zero. For saved spatial truss cases, verify the member forces using
+a model that retains each axle at its applied position.
 
 ## What to do with results you already have
 

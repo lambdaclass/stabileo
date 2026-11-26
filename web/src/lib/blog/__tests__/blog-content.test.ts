@@ -479,11 +479,11 @@ describe('the safety-advisories post quotes the advisories', () => {
     zh: '车轴与永久点荷载的位置完全重合时，两项荷载共同产生一次剪力跳变。车轴接近或刚越过该荷载时，两者之间的剪力分别趋于相应的单侧极限。请检查车轴紧邻该荷载前后两个位置所对应的单侧极限。',
   };
 
-  it.skip.each(advisoryLocales)('known wrong result: #2101 — SA-2026-129 coincidence and both approach limits appear in %s', (locale) => {
+  it.each(advisoryLocales)('SA-2026-129 coincidence and both approach limits appear in %s', (locale) => {
     expectAdvisoryWording(locale, 'SA-2026-129', movingLoadCoincidence[locale]);
   });
 
-  it.skip('known wrong result: #2101 — SA-2026-129 coincidence differs from the two approach limits', () => {
+  it('SA-2026-129 coincidence differs from the two approach limits', () => {
     const advisory = readFileSync(new URL('SA-2026-129-moving-load-force-jumps.md', advisoryDirectory), 'utf8');
     const failure = advisory.split('## What was wrong\n')[1]?.split('\n## ')[0]?.replace(/\s+/g, ' ');
     const workaround = advisory.split('## Workaround\n')[1]?.split('\n## ')[0]?.replace(/\s+/g, ' ');
@@ -493,7 +493,7 @@ describe('the safety-advisories post quotes the advisories', () => {
     expect.soft(workaround).toContain('both one-sided shear limits with the axle just before and just after the permanent point load');
   });
 
-  it.skip('known wrong result: #2101 — SA-2026-129 coincidence has a combined jump in the linked results record', () => {
+  it('SA-2026-129 coincidence has a combined jump in the linked results record', () => {
     const record = readFileSync(new URL('../results-changes/2026-11-moving-axle-joints.md', advisoryDirectory), 'utf8');
     expect.soft(record).toContain('At exact coincidence, the axle and permanent point load produce a single combined shear jump.');
     expect.soft(record).toContain('the shear between the two loads as the axle approaches or passes the permanent point load');
