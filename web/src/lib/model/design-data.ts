@@ -18,6 +18,7 @@ import { specifiedCoverMm } from '../codes/cirsoc201/cover';
 import { PROPERTY_SIDES, type PropertyLines } from './foundation/edges';
 import { footingSetupOf } from '../rc-sheets/footing-types';
 import { fixedPointsOf } from '../rc-sheets/fixed-points';
+import { placementOf } from './placement';
 
 export type DesignKind = 'beam' | 'column' | 'slab' | 'wall' | 'footing';
 export const DESIGN_KINDS: readonly DesignKind[] = ['beam', 'column', 'slab', 'wall', 'footing'];
@@ -145,6 +146,8 @@ export interface ProjectDesignData {
   rcSheets?: import('../rc-sheets/types').StoredRcSheets;
   /** How the beams take torsion and the choices the design makes before it starts (`rc-sheets/design-options.ts`). Absent: none stated. */
   designOptions?: import('../rc-sheets/design-options').DesignOptions;
+  /** Where the members stand on their lines: the beams' and slabs' level reference and each column stack's fixed point (`placement.ts`). */
+  placement?: import('./placement').Placement;
   /** A predetermined slab base mat, deducted before bands are added (absent: the minimum). */
   slabBase?: Partial<Record<'topX' | 'topY' | 'bottomX' | 'bottomY', { diameter: number; spacing: number }>>;
 }
@@ -347,6 +350,7 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
     ...(e.executionControl === false ? { executionControl: false as const } : {}),
     ...(Array.isArray(e.joistTypes) ? { joistTypes: (e.joistTypes as Array<{ id?: unknown; name?: unknown }>).filter((t) => typeof t?.id === 'string' && typeof t?.name === 'string') as never } : {}),
     ...(e.slabBase && typeof e.slabBase === 'object' ? { slabBase: e.slabBase as ProjectDesignData['slabBase'] } : {}),
+    ...placementWithLegacy(e.placement, (e.rcSheets as { fixedPoints?: unknown } | undefined)?.fixedPoints),
     ...(e.rcSheets && typeof e.rcSheets === 'object' && typeof (e.rcSheets as { adopted?: unknown }).adopted === 'object' ? { rcSheets: { version: 1 as const, ...(SHEET_CODE_LIST.includes((e.rcSheets as { code?: unknown }).code as never) ? { code: (e.rcSheets as { code: SheetCode }).code } : {}), ...bentLinesOf((e.rcSheets as { bentLines?: unknown }).bentLines), ...(['full', 'minimum', 'reinforce'].includes((e.rcSheets as { footingSizing?: unknown }).footingSizing as string) ? { footingSizing: (e.rcSheets as { footingSizing: 'full' | 'minimum' | 'reinforce' }).footingSizing } : {}), ...(['auto', 'footings', 'strips', 'mat', 'piles'].includes((e.rcSheets as { foundationSystem?: unknown }).foundationSystem as string) ? { foundationSystem: (e.rcSheets as { foundationSystem: 'auto' | 'footings' | 'strips' | 'mat' | 'piles' }).foundationSystem } : {}), ...scheduleOf((e.rcSheets as { schedule?: unknown }).schedule), ...footingSetupOf((e.rcSheets as { footingSetup?: unknown }).footingSetup), ...fixedPointsOf((e.rcSheets as { fixedPoints?: unknown }).fixedPoints), ...(Array.isArray((e.rcSheets as { edited?: unknown }).edited) ? { edited: ((e.rcSheets as { edited: unknown[] }).edited).filter((k): k is string => typeof k === 'string') } : {}), ...(SHEET_CODE_LIST.includes((e.rcSheets as { adoptedCode?: unknown }).adoptedCode as never) ? { adoptedCode: (e.rcSheets as { adoptedCode: SheetCode }).adoptedCode } : {}), ...((e.rcSheets as { adoptedSeismic?: unknown }).adoptedSeismic === true ? { adoptedSeismic: true as const } : {}), ...((x) => (typeof x === 'number' && Number.isInteger(x) && x > 0 ? { adoptedLogic: x } : {}))((e.rcSheets as { adoptedLogic?: unknown }).adoptedLogic), ...((x) => (typeof x === 'string' && x ? { adoptedBasis: x } : {}))((e.rcSheets as { adoptedBasis?: unknown }).adoptedBasis), ...((x) => (typeof x === 'string' && x ? { adoptedFoundationBasis: x } : {}))((e.rcSheets as { adoptedFoundationBasis?: unknown }).adoptedFoundationBasis), ...((e.rcSheets as { foundationSystem?: unknown }).foundationSystem === null ? { foundationSystem: null } : {}), adopted: { ...((e.rcSheets as { adopted: Record<string, never> }).adopted) } } } : {}),
     // The seismic roles fixed by hand are the lateral-system declaration under its older name:
     // they move there (`migrateLateralSystem`), and the seismic settings keep none of their own.
@@ -385,3 +389,12 @@ export const REBAR_GRADES: ReadonlyArray<{ name: string; fy: number }> = [
 export function concreteFc(m: { fc?: number; fy?: number } | undefined): number | undefined {
   return m?.fc ?? m?.fy;
 }
+
+/** The placement a project states, the column fixed points it kept with the sheets read in where it states none of its own. */
+function placementWithLegacy(placement: unknown, sheetsFixed: unknown): { placement?: import('./placement').Placement } {
+  const own = placementOf(placement).placement, legacy = fixedPointsOf(sheetsFixed).fixedPoints;
+  const columns = own?.columns ?? legacy;
+  const out = { ...own, ...(columns ? { columns } : {}) };
+  return Object.keys(out).length ? { placement: out } : {};
+}
+

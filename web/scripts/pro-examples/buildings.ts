@@ -53,6 +53,8 @@ class Building {
     for (let i = 1; i < at.length; i++) this.m.member(this.node([x, at[i - 1]!, this.z(k)]), this.node([x, at[i]!, this.z(k)]), sec, mat, extra);
   }
 
+  private placed: { reference: 'slabTop'; edges: true } | null = null;
+
   /** A column at (x, y) from level `k0` up to `k1`, a member a storey, fixed at the ground. */
   column(x: number, y: number, k0: number, k1: number, sec: (k: number) => number, mat: number, extra: Record<string, unknown> = {}): void {
     if (k0 === 0) this.m.support(this.node([x, y, this.z(0)]), 'fixed3d');
@@ -143,7 +145,14 @@ class Building {
     for (const x of X) for (let j = 1; j < Y.length; j++) if (!skip('y', x, Y[j - 1]!, Y[j]!)) this.beamY(k, x, Y[j - 1]!, Y[j]!, secY, mat, extra);
   }
 
-  text(settings: GeneratorSettings): string { this.m.setting('regulations', generatorRegulations(settings)); return this.m.text(); }
+  /** The beams' and slabs' tops on each level, and the columns and beams on the floor's edge flush with the slab's edge, the axes on the building's edge (`placement.ts`). */
+  flushOnLevels(): void { this.placed = { reference: 'slabTop', edges: true }; }
+
+  text(settings: GeneratorSettings): string {
+    if (this.placed) this.m.setting('designData', { version: 1, placement: this.placed });
+    this.m.setting('regulations', generatorRegulations(settings));
+    return this.m.text();
+  }
 }
 
 const H25 = concrete(25);
@@ -191,6 +200,7 @@ function house(): string {
   const col = b.m.rect('Col 20×20', 0.2, 0.2), beam = b.m.rect('Viga 20×40', 0.2, 0.4);
   for (const x of [0, 4, 8]) for (const y of [0, 4.5, 9]) b.column(x, y, 0, 2, () => col, hc);
   for (const k of [1, 2]) { b.axisBeams(k, beam, beam, hc); b.slab(k, 0.12, hc, { x0: 0, x1: 8, y0: 0, y1: 9 }); }
+  b.flushOnLevels();
   return b.text({ ...CITY_WIND });
 }
 
@@ -205,6 +215,7 @@ function fourStorey(): string {
   const low = b.m.rect('Col 40×40', 0.4, 0.4), up = b.m.rect('Col 35×35', 0.35, 0.35), beam = b.m.rect('Viga 25×55', 0.25, 0.55);
   for (const x of [0, 6, 12, 18]) for (const y of [0, 6, 12]) b.column(x, y, 0, 4, (k) => (k < 2 ? low : up), hc);
   for (let k = 1; k <= 4; k++) { b.axisBeams(k, beam, beam, hc); b.slab(k, 0.15, hc, { x0: 0, x1: 18, y0: 0, y1: 12 }); }
+  b.flushOnLevels();
   return b.text({ ...CITY_WIND, windDyn: approximate('concreteMomentFrame') });
 }
 
@@ -220,6 +231,7 @@ function steelColumns(): string {
   const bx = b.m.rect('Viga 25×60', 0.25, 0.6), by = b.m.rect('Viga 20×50', 0.2, 0.5);
   for (const x of [0, 7, 14]) for (const y of [0, 6, 12, 18]) b.column(x, y, 0, 3, (k) => (k < 2 ? low : up), steel);
   for (let k = 1; k <= 3; k++) { b.axisBeams(k, bx, by, hc); b.slab(k, 0.14, hc, { x0: 0, x1: 14, y0: 0, y1: 18 }); }
+  b.flushOnLevels();
   return b.text({ ...CITY_WIND });
 }
 
@@ -249,6 +261,7 @@ function liftCore(): string {
     b.beamX(k, shaft.y0, shaft.x0, shaft.x1, beam, hc);
     b.slab(k, 0.13, hc, { x0: 0, x1: 16.5, y0: 0, y1: 11 }, [shaft]);
   }
+  b.flushOnLevels();
   return b.text({ ...CITY_WIND, windDyn: approximate('otherSteelOrConcrete') });
 }
 
@@ -304,6 +317,7 @@ function partyWall(): string {
     b.landing(`Descanso · ${at}`, { x0: stair.x0, x1: stair.x1, y0: head, y1: stair.y1 }, zm, ts, hc, k);
     b.flight(`Tramo 2 · ${at}`, stair.x1 - gap, mid, head, foot, zm, z1, steps, ts, hc, k);
   }
+  b.flushOnLevels();
   return b.text({ ...CITY_WIND, windDirs: ['+y', '-y'], windDyn: approximate('otherSteelOrConcrete') });
 }
 
@@ -331,6 +345,7 @@ function steelBuildingSlabs(): string {
       b.plate(`Losa ${x0}–${x1} × ${y0}–${y1} · ${levels[k]!.name}`, [[x0!, y0!, z], [x1!, y0!, z], [x1!, y1!, z], [x0!, y1!, z]], { kind: 'slab', typology: 'solid', levelFrom: `lv-${k}` }, hc, 0.12);
     }
   }
+  b.flushOnLevels();
   return b.text({ ...CITY_WIND });
 }
 

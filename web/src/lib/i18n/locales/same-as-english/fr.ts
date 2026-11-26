@@ -840,4 +840,11 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'xls.col.supportType',
   'rcSheets.slabFig.plan',
   'rcSheets.exportShort',
+  'placement.at',
+  'rcSheets.fixed.kind.c',
+  'rcSheets.fixed.kind.px',
+  'rcSheets.fixed.kind.nx',
+  'rcSheets.fixed.kind.py',
+  'rcSheets.fixed.kind.ny',
+  'rcSheets.order.total',
 ];

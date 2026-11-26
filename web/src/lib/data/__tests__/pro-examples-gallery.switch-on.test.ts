@@ -11,6 +11,7 @@ import '../../store/index';
 import { initSolver } from '../../engine/wasm-solver';
 import { autoLoadsMemory } from '../../../components/pro/auto-loads-memory';
 import { physicalPlates } from '../../store/physical-plates';
+import { designData } from '../../store/design-data';
 import es from '../../i18n/locales/es';
 import en from '../../i18n/locales/en';
 import pt from '../../i18n/locales/pt';
@@ -69,6 +70,27 @@ describe.each(PRO_EXAMPLES.filter((e) => e.loads === 'generator').map((e) => [e.
     expect(uiStore.visibleLoadCases3D, 'the gravity cases shown, the wind ones hidden').toEqual(modelStore.model.loadCases.filter((c) => c.type === 'D' || c.type === 'L').map((c) => c.id));
     const memory = autoLoadsMemory(regulationsStore.roles, { wind: regulationsStore.bound('wind'), seismic: regulationsStore.bound('seismic') });
     expect([memory.selectedOccupancy, memory.enableWind, memory.enableSeismic, memory.roofCfg.enabled]).toEqual(['vivienda', true, false, false]);
+    if (ex.id === 'pro-steel-building-slabs') {
+      expect(designData().placement?.reference).toBe('slabTop');
+      const t = physicalPlates().find((pl) => pl.physical.kind === 'slab')!.surface.thickness;
+      const level = [...modelStore.elements.values()].filter((e) => { const a = modelStore.nodes.get(e.nodeI)!, b = modelStore.nodes.get(e.nodeJ)!; return Math.abs((a.z ?? 0) - (b.z ?? 0)) < 1e-6 && Math.hypot(b.x - a.x, b.y - a.y) > 1e-6; });
+      expect(level.length).toBeGreaterThan(0);
+      expect(level.every((e) => Math.abs((e.offset?.i?.z ?? 0) + t + (modelStore.sections.get(e.sectionId)!.h ?? 0) / 2) < 1e-9), 'each steel beam\'s top flange under the slab\'s soffit').toBe(true);
+    }
+    if (ex.id.startsWith('pro-rc-')) {
+      expect(designData().placement?.reference, 'the tops of the beams and slabs on the level').toBe('slabTop');
+      const flat = physicalPlates().filter((pl) => pl.physical.kind === 'slab' && !pl.physical.stair);
+      expect(flat.every((pl) => Math.abs((pl.surface.offset?.z ?? 0) + pl.surface.thickness / 2) < 1e-9)).toBe(true);
+      const level = [...modelStore.elements.values()].filter((e) => { const a = modelStore.nodes.get(e.nodeI)!, b = modelStore.nodes.get(e.nodeJ)!; return Math.abs((a.z ?? 0) - (b.z ?? 0)) < 1e-6 && Math.hypot(b.x - a.x, b.y - a.y) > 1e-6; });
+      expect(level.length).toBeGreaterThan(0);
+      expect(level.every((e) => Math.abs((e.offset?.i?.z ?? 0) + (modelStore.sections.get(e.sectionId)!.h ?? 0) / 2) < 1e-9)).toBe(true);
+      expect(designData().placement?.edges, 'the edge members flush with the slab\'s edge').toBe(true);
+      const ground = [...modelStore.elements.values()].filter((e) => { const a = modelStore.nodes.get(e.nodeI)!, b = modelStore.nodes.get(e.nodeJ)!; return Math.hypot(b.x - a.x, b.y - a.y) < 1e-6 && Math.min(a.z ?? 0, b.z ?? 0) === 0; });
+      const lo = (e: (typeof ground)[number]) => modelStore.nodes.get(e.nodeI)!;
+      const corner = ground.reduce((c, e) => (lo(e).x + lo(e).y < lo(c).x + lo(c).y ? e : c));
+      const o = corner.offset?.i ?? { x: 0, y: 0, z: 0 };
+      expect(o.x > 0 && o.y > 0, `${ex.id}: the corner column held by its corner, moved inward both ways`).toBe(true);
+    }
     const dead = modelStore.model.loadCases.find((c) => c.type === 'D')!;
     expect(modelStore.analysis?.selfWeight).toEqual([{ caseId: dead.id, direction: 'Z', factor: -1 }]);
     const cases = new Set(modelStore.model.loadCases.map((c) => c.id));

@@ -178,7 +178,9 @@ function measurePlate(model: ModelData, input: SolverInput3D, group: PlateGroup)
       return { x: point.x, y: point.y, z: point.z ?? 0 };
     });
     const offset = (declared as { offset?: ShellOffset }).offset;
-    const shift = offset ? resolveShellOffsetGlobal(offset, corners) : null;
+    // An input built without expanding the offsets keeps the shell on its own nodes.
+    const expanded = wire.nodes.some((id, i) => id !== nodeIds[i]);
+    const shift = offset && expanded ? resolveShellOffsetGlobal(offset, corners) : null;
     const expectedShift = shift ? xyz(shift) : zero();
     const boundaryPoints = corners.map(xyz);
     if (points.some((p, i) => norm(sub(sub(p, boundaryPoints[i]!), expectedShift)) > roundoff * scale)) {

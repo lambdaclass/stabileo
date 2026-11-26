@@ -16,10 +16,12 @@ import type { SlabJointForce } from './slab-punching';
 import type { Signed } from './types';
 import type { LevelGeometry, PlanBeam, PlanColumn } from './slab-plan';
 import type { CutForces } from './piers';
-import { computeLocalAxes3D } from '../engine/local-axes-3d';
+import { computeLocalAxes3D, memberRoll } from '../engine/local-axes-3d';
+import { memberReferenceLine } from '../engine/member-offsets';
+import { resolveShellOffsetGlobal } from '../engine/shell-offsets';
 
 type Pt = { id: number; x: number; y: number; z?: number };
-type El = { id: number; nodeI: number; nodeJ: number; sectionId: number; type?: string; rollAngle?: number };
+type El = { id: number; nodeI: number; nodeJ: number; sectionId: number; type?: string; rollAngle?: number; offset?: import('../model/element-3d-metadata').MemberOffset };
 
 export interface DemandGroup {
   id: number; name: string; kind: string;
@@ -45,7 +47,7 @@ export interface DemandSet {
 export interface DemandInput {
   nodes: ReadonlyMap<number, Pt>;
   elements: ReadonlyMap<number, El>;
-  sections: ReadonlyMap<number, { id: number; b?: number; h?: number; rotation?: number }>;
+  sections: ReadonlyMap<number, { id: number; b?: number; h?: number; rotation?: number; shape?: string; tw?: number; tf?: number }>;
   supportNodes: ReadonlySet<number>;
   shells: ShellModel;
   groups: readonly DemandGroup[];
@@ -63,7 +65,7 @@ export interface DemandInput {
   storeyOf?: (elementId: number) => StoreyStability | undefined;
   /** Half the support's extent along the beam at an element's end, m. */
   faceOffset?: (elementId: number, end: 'i' | 'j') => number;
-  /** The slab beside a beam element as flange sides; given only when beams are designed with the slab as a compression flange (Table 6.3.2.1). */
+  /** The slab beside a beam element as flange sides, none where it has no slab; given only when beams are designed with the slab as a compression flange (Table 6.3.2.1), and undefined for a beam left out of it. */
   flangeSides?: (elementId: number) => readonly FlangeSide[] | undefined;
   /** On how many sides a beam element has slab. */
   slabSides?: (elementId: number) => number;
@@ -233,10 +235,36 @@ function take(env: SectionEnv, m: number, n: number, combo: string): void {
   if (-m > env.neg.value) { env.neg = { value: -m, source: { combo, x: env.x } }; env.nNeg = n; }
 }
 
-function flangeOf(m: DemandInput, span: Array<{ e: El; forward: boolean }>, bw: number, ln: number): { bf: number; hf: number } | null {
-  const sides = span.map(({ e }) => m.flangeSides?.(e.id)).find((x) => x && x.length);
-  const f = sides ? effectiveFlange(bw, ln, [...sides]) : null;
-  return f && f.bf > bw + 1e-6 ? { bf: f.bf, hf: f.hf } : null;
+/** A span modelled with a T section: its web, and the flange its section draws. */
+function teeOf(m: DemandInput, span: ReadonlyArray<{ e: El }>): { bw: number; bf: number; hf: number } | null {
+  const secs = span.map(({ e }) => m.sections.get(e.sectionId));
+  if (!secs.every((x) => x?.shape === 'T' && x.tw && x.tf && x.b && x.h)) return null;
+  return { bw: Math.min(...secs.map((x) => x!.tw!)), bf: Math.min(...secs.map((x) => x!.b!)), hf: Math.min(...secs.map((x) => x!.tf!)) };
+}
+
+/** Whether a span carries a concentrated load: a beam framing in or a post standing on one of its inner nodes. */
+function carriesPoint(inc: Map<number, El[]>, span: ReadonlyArray<{ e: El; forward: boolean }>): boolean {
+  const mine = new Set(span.map(({ e }) => e.id));
+  const inner = span.slice(1).map(({ e, forward }) => (forward ? e.nodeI : e.nodeJ));
+  return inner.some((n) => (inc.get(n) ?? []).some((o) => !mine.has(o.id)));
+}
+
+/**
+ * The slab as a compression flange for sagging (Tabla 6.3.2.1): its effective width from the slabs
+ * beside it, or from its own T section's flange cut to that width; reduced 40 % where the span
+ * carries a concentrated load (FIUBA §8.10, p. 52).
+ */
+function flangeOf(m: DemandInput, inc: Map<number, El[]>, span: Array<{ e: El; forward: boolean }>, bw: number, ln: number, tee: { bf: number; hf: number } | null): BeamDemand['flange'] | null {
+  const asked = span.map(({ e }) => m.flangeSides?.(e.id)).filter((x) => x !== undefined);
+  if (!asked.length) return null;
+  const sides = asked.find((x) => x.length);
+  const slab = sides ? effectiveFlange(bw, ln, [...sides]) : null;
+  const own = tee ? effectiveFlange(bw, ln, [{ hf: tee.hf, clear: Infinity }, { hf: tee.hf, clear: Infinity }]) : null;
+  const f = tee && own ? { bf: Math.min(tee.bf, own.bf), hf: tee.hf, kind: 'T' as const } : slab;
+  if (!f || f.bf <= bw + 1e-6) return null;
+  const point = carriesPoint(inc, span);
+  const bf = point ? Math.max(bw, bw + 0.6 * (f.bf - bw)) : f.bf;
+  return { bf: Math.round(bf * 1e6) / 1e6, hf: f.hf, kind: f.kind, ...(point ? { reduced: true as const } : {}), ...(tee ? { own: true as const, ...(slab ? { twice: true as const } : {}) } : {}) };
 }
 
 /** The nodes of vertical shells (walls), each with the walls through it: thickness, m, and horizontal direction in plan. */
@@ -309,6 +337,7 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
       const sec = smallestSection(m, span);
       if (!sec) return;
       const turned = !upright(first) && Math.abs((((first.rollAngle ?? 0) % 180) + 180) % 180 - 90) < 5;
+      const tee = turned ? null : teeOf(m, span);
       const flex: 'my' | 'mz' = turned ? 'mz' : 'my';
       const shear: 'vz' | 'vy' = turned ? 'vy' : 'vz';
       const L = span.reduce((s, r) => s + lengthOf(m, r.e), 0);
@@ -366,7 +395,7 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
       });
       out.push({
         key: `beam:${g.id}:${k}`, name: spans.length > 1 ? `${g.name}-${k + 1}` : g.name, level: g.level,
-        length: L, b: turned ? sec.h : sec.b, h: turned ? sec.b : sec.h,
+        length: L, b: turned ? sec.h : tee ? tee.bw : sec.b, h: turned ? sec.b : sec.h,
         start, span: mid, end, negAny, nNegAny, vu, nAtV: nV, tu, combos,
         faces: m.faces ? { start: faceI, end: faceJ, shearAt: dv } : undefined,
         ...(m.faceOffset ? { supportHalf: { start: m.faceOffset(first.id, span[0]!.forward ? 'i' : 'j'), end: m.faceOffset(lastEl.e.id, lastEl.forward ? 'j' : 'i') } } : {}),
@@ -375,7 +404,7 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
         ...((ps, pe) => (ps || pe ? { posts: { ...(ps ? { start: ps } : {}), ...(pe ? { end: pe } : {}) } } : {}))(postAt(m, inc, mine, startNode, named), postAt(m, inc, mine, endNode, named)),
         ...(m.slabSides ? { perimeter: span.some(({ e }) => m.slabSides!(e.id) < 2) } : {}),
         env,
-        ...((fl) => (fl ? { flange: fl } : {}))(m.flangeSides && !turned ? flangeOf(m, span, sec.b, x1 - x0) : null),
+        ...((fl) => (fl ? { flange: fl } : {}))(m.flangeSides && !turned ? flangeOf(m, inc, span, tee ? tee.bw : sec.b, x1 - x0, tee) : null),
         ...((sl) => (sl ? { slabs: sl } : {}))(slabsAlong(m, span)),
         ...(missing.length ? { missing } : {}),
       });
@@ -393,6 +422,45 @@ function slabsAlong(m: DemandInput, span: ReadonlyArray<{ e: El; forward: boolea
     if (s?.length) return s.map((x) => ({ ...x, side: (forward ? x.side : -x.side) as 1 | -1 })).sort((x, y) => y.side - x.side);
   }
   return null;
+}
+
+/** How far a column storey's section centre stands off its axis at its bottom node, m, along its b and its h; none where it stands on it. */
+function columnShiftOf(m: DemandInput, e: El, node: number): [number, number] | undefined {
+  const a = m.nodes.get(e.nodeI), b = m.nodes.get(e.nodeJ), p = m.nodes.get(node);
+  if (!a || !b || !p || !e.offset) return undefined;
+  const line = memberReferenceLine(e as never, a, b, m.sections as never), q = e.nodeI === node ? line.i : line.j;
+  const dx = q.x - p.x, dy = q.y - p.y;
+  if (Math.hypot(dx, dy) < 1e-9) return undefined;
+  const r = (memberRoll(e as never, m.sections as never) * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r);
+  return [Math.round((dx * c + dy * s) * 1e9) / 1e9 + 0, Math.round((-dx * s + dy * c) * 1e9) / 1e9 + 0];
+}
+
+/**
+ * The concrete of the floor a column meets at a node, m from the node: how deep it is and how far
+ * its top stands above the node. The beams and level slabs framing in, each where its offset puts
+ * it; with none moved, a beam's depth centred on the node.
+ */
+function jointAt(m: DemandInput, inc: Map<number, El[]>, mine: ReadonlySet<number>, node: number): { depth: number; rise: number } {
+  const p = m.nodes.get(node);
+  if (!p) return { depth: 0, rise: 0 };
+  const z0 = zOf(p);
+  let top = -Infinity, bottom = Infinity;
+  for (const o of inc.get(node) ?? []) {
+    if (mine.has(o.id) || isVertical(m, o)) continue;
+    const h = m.sections.get(o.sectionId)?.h, a = m.nodes.get(o.nodeI), b = m.nodes.get(o.nodeJ);
+    if (!h || !a || !b) continue;
+    const line = memberReferenceLine(o as never, a, b, m.sections as never), oz = (o.nodeI === node ? line.i.z : line.j.z) - z0;
+    top = Math.max(top, oz + h / 2); bottom = Math.min(bottom, oz - h / 2);
+  }
+  for (const map of [m.shells.quads, m.shells.plates]) for (const sh of map?.values() ?? []) {
+    if (!sh.nodes.includes(node)) continue;
+    const pts = sh.nodes.map((n) => m.nodes.get(n)).filter((q): q is NonNullable<typeof q> => !!q);
+    if (pts.length !== sh.nodes.length || Math.max(...pts.map(zOf)) - Math.min(...pts.map(zOf)) > 1e-3) continue;
+    const off = (sh as { offset?: import('../model/element-3d-metadata').ShellOffset }).offset;
+    const oz = off ? (resolveShellOffsetGlobal(off, pts.map((q) => ({ x: q.x, y: q.y, z: zOf(q) })))?.z ?? 0) : 0;
+    top = Math.max(top, oz + sh.thickness / 2); bottom = Math.min(bottom, oz - sh.thickness / 2);
+  }
+  return top === -Infinity ? { depth: 0, rise: 0 } : { depth: Math.round((top - bottom) * 1e9) / 1e9, rise: Math.round(top * 1e9) / 1e9 };
 }
 
 /** Nodes a horizontal shell takes: a flat slab cuts a column into storeys as a beam does. */
@@ -440,14 +508,15 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
       const top = r.forward ? r.e.nodeJ : r.e.nodeI;
       if (i < run.length - 1 && ((inc.get(top) ?? []).some((o) => !mine.has(o.id) && !isVertical(m, o)) || floorNodes.has(top))) storeys.push([]);
     });
-    const deepest = (node: number) => Math.max(0, ...(inc.get(node) ?? []).filter((o) => !mine.has(o.id) && !isVertical(m, o)).map((o) => m.sections.get(o.sectionId)?.h ?? 0));
+    const joint = (node: number) => jointAt(m, inc, mine, node);
     storeys.forEach((st, k) => {
       const bottom = st[0]!, top = st[st.length - 1]!;
       const sec = smallestSection(m, st);
       if (!sec) return;
       const nBot = bottom.forward ? bottom.e.nodeI : bottom.e.nodeJ, nTop = top.forward ? top.e.nodeJ : top.e.nodeI;
       const L = st.reduce((s, r) => s + lengthOf(m, r.e), 0);
-      const lu = Math.max(0.1, L - (deepest(nBot) + deepest(nTop)) / 2);
+      const jb = joint(nBot), jt = joint(nTop);
+      const lu = Math.max(0.1, L - jb.rise - (jt.depth - jt.rise));
       const pb = m.psi?.(bottom.e.id), pt = m.psi?.(top.e.id);
       const psiBot = pb ? (bottom.forward ? pb.psiA : pb.psiB) : 1, psiTop = pt ? (top.forward ? pt.psiB : pt.psiA) : 1;
       const at = (ef: ElementForces3D | undefined, forward: boolean, end: 'bottom' | 'top') =>
@@ -491,7 +560,7 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
       } : undefined;
       out.push({
         key: `column:${g.id}:${k}`, name: g.name, level: m.levelAt ? m.levelAt(zOf(m.nodes.get(nBot))) : g.level,
-        b: sec.b, h: sec.h, length: L, lu, psiTop, psiBot, cases, nodes: { bottom: nBot, top: nTop }, joints: { bottom: deepest(nBot), top: deepest(nTop) },
+        b: sec.b, h: sec.h, length: L, lu, psiTop, psiBot, cases, nodes: { bottom: nBot, top: nTop }, joints: { bottom: jb.depth, top: jt.depth, bottomRise: jb.rise, topRise: jt.rise }, ...((sh) => (sh ? { shift: sh } : {}))(columnShiftOf(m, bottom.e, nBot)),
         ...(axes && pBot ? { plan: { x: pBot.x, y: pBot.y, z: zOf(pBot), ey: [axes.ey[0], axes.ey[1]] as [number, number], ez: [axes.ez[0], axes.ez[1]] as [number, number] } } : {}),
         ...(sway ? { sway } : {}),
         ...(missing.length ? { missing } : {}),
@@ -685,8 +754,9 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
     }
     const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
     const bounds = { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys), z: pts.reduce((a, p) => a + zOf(p), 0) / pts.length };
+    const moved = g.quads.map((id) => (m.shells.quads?.get(id) as { offset?: import('../model/element-3d-metadata').ShellOffset } | undefined)?.offset).find((o) => o?.frame === 'global' && o.z);
     out.push({
-      key: `slab:${g.id}`, name: g.name, level: g.level,
+      key: `slab:${g.id}`, name: g.name, level: g.level, ...(moved ? { mid: moved.z } : {}),
       lx: bounds.x1 - bounds.x0, ly: bounds.y1 - bounds.y0, bounds, h, m: best, q, combos,
       ...(field.size ? { topField: [...field.values()] } : {}),
       ...(missing.length ? { missing } : {}),

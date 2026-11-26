@@ -1,5 +1,6 @@
 import { barActsAt, type LineBar, type LineLayout } from './beam-line';
 import { faceBars } from './bars';
+import { flangeTopAcross } from './flange-bars';
 import { spanIndexAt } from './line-geometry';
 import { hoop, tieAcross, zoneStirrups } from './schedule/pieces';
 import { barOf, laid, type Frame, type Rebar3d } from './rebar-3d-geometry';
@@ -51,11 +52,18 @@ export function lineSlots(l: LineLayout): Map<LineBar, Place[]> {
       const x = l.length / 2, slots = layout(x, []);
       out.set(cont, placeIn(slots, slots.slice(0, cont.bars.count), widthAt(x)));
     }
+    const flangeOf = (bar: LineBar): number[] | null => {
+      if (face !== 'top' || bar.kind !== 'support') return null;
+      const x = cutOf(bar, face), fl = x === null ? undefined : l.spans[spanIndexAt(l, x)]?.flange;
+      return fl && x !== null ? flangeTopAcross(fl, widthAt(x), l.cover, bar.bars.count) : null;
+    };
     for (const bar of l.bars) {
       if (out.has(bar)) continue;
       const x = cutOf(bar, face);
       if (x === null) continue;
-      const here = l.bars.filter((q) => q !== cont && barActsAt(q, face, x, 1e-6));
+      const spread = flangeOf(bar);
+      if (spread) { out.set(bar, spread.map((s) => ({ s, dv: 0 }))); continue; }
+      const here = l.bars.filter((q) => q !== cont && barActsAt(q, face, x, 1e-6) && !flangeOf(q));
       if (!here.includes(bar)) here.push(bar);
       const slots = layout(x, here), free = [...slots], b = widthAt(x);
       for (const other of [cont, ...here]) {

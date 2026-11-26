@@ -43,6 +43,8 @@ import { loadCodeExample, type CodeExampleId } from '../templates/examples';
 import { PRO_EXAMPLE_FIXES, declareSteelGrades } from './pro-example-fixes';
 import { localiseExampleNames } from './example-names';
 import { generateSavedLoads } from '../store/saved-loads';
+import { applyPlacement } from '../store/placement';
+import { designData } from '../store/design-data';
 import { exampleProgress } from '../store/example-progress.svelte';
 import { nextFrame } from '../store/mesh-progress.svelte';
 
@@ -162,6 +164,7 @@ async function loadExample(ex: ProExample): Promise<void> {
     if (ex.loads === 'generator') { exampleProgress.step('loads'); await nextFrame(); }
     modelStore.batch(() => {
       PRO_EXAMPLE_FIXES[ex.id]?.();
+      if (designData().placement) applyPlacement();
       declareSteelGrades();
       // After the fixes and grades, which read the names as written; before the combinations,
       // which are named from the cases.

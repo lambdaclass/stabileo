@@ -400,6 +400,9 @@ export function checkModel(m: ModelData): SolverDiagnostic[] {
   // ─── A concrete whose strength field holds a steel number ──────
   out.push(...concreteStrengthWarnings(m.materials, m.elements));
 
+  // ─── A T section under a slab modelled too ──────
+  out.push(...flangeTwiceWarnings(m));
+
   return out;
 }
 
@@ -658,3 +661,27 @@ export function concreteStrengthWarnings(
   }
   return out;
 }
+
+/**
+ * Beams modelled with a T section whose flange is also a slab of the model, the shells sharing
+ * the beam's nodes: the analysis counts that flange twice in the beam's stiffness. Advice, not a
+ * fault: the web as a rectangle and the slab as shells give the flange once.
+ */
+export function flangeTwiceWarnings(m: Pick<ModelData, 'elements' | 'sections' | 'nodes' | 'quads' | 'plates'>): SolverDiagnostic[] {
+  const shellsAt = new Map<number, Set<number>>();
+  let k = 0;
+  for (const map of [m.quads, m.plates]) for (const sh of map?.values() ?? []) {
+    const zs = sh.nodes.map((n) => m.nodes.get(n)?.z ?? 0), id = k++;
+    if (Math.max(...zs) - Math.min(...zs) > 1e-3) continue;
+    for (const n of sh.nodes) (shellsAt.get(n) ?? shellsAt.set(n, new Set()).get(n)!).add(id);
+  }
+  const shared = (a: number, b: number) => { const sb = shellsAt.get(b); return [...(shellsAt.get(a) ?? [])].some((id) => sb?.has(id)); };
+  const twice = [...m.elements.values()].filter((e) => {
+    const s = m.sections.get(e.sectionId) as { shape?: string; tw?: number; tf?: number } | undefined;
+    if (s?.shape !== 'T' || !s.tw || !s.tf) return false;
+    const a = m.nodes.get(e.nodeI), b = m.nodes.get(e.nodeJ);
+    return !!a && !!b && Math.abs((a.z ?? 0) - (b.z ?? 0)) < 1e-6 && shared(e.nodeI, e.nodeJ);
+  }).map((e) => e.id);
+  return twice.length ? [diag('info', 'MODEL_FLANGE_TWICE', 'diag.model.flangeTwice', { elementIds: twice, details: { members: twice.length } })] : [];
+}
+

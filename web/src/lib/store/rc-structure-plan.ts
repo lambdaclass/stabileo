@@ -1,5 +1,5 @@
 import { modelStore } from './model.svelte';
-import { rcSheetsData, saveRcSheetsData } from './rc-sheets.svelte';
+import { columnFixedPoint, setColumnFixedPoint } from './placement';
 import { familyLevels, structurePlan, STRUCTURE_FAMILIES, type StructureFamily, type StructureModel, type StructurePlan, type StructureRows } from '../rc-sheets/structure-plan';
 import { withFixedPoints, type FixedPointKind } from '../rc-sheets/fixed-points';
 
@@ -8,15 +8,11 @@ const structureModel = (): StructureModel => ({
   axes: modelStore.grid?.axes ?? [],
 });
 
-/** The fixed point the project states for a column stack, the centre when none. */
-export const fixedPointKind = (stack: string): FixedPointKind => { void modelStore.designData; return rcSheetsData().fixedPoints?.[stack] ?? 'c'; };
+/** The fixed point the project states for a column stack, the centre when none (`store/placement.ts`). */
+export const fixedPointKind = (stack: string): FixedPointKind => columnFixedPoint(stack);
 
-/** State a column stack's fixed point; the centre clears it. */
-export function setFixedPoint(stack: string, kind: FixedPointKind): void {
-  const d = rcSheetsData(), next = { ...(d.fixedPoints ?? {}) };
-  if (kind === 'c') delete next[stack]; else next[stack] = kind;
-  saveRcSheetsData({ ...d, fixedPoints: Object.keys(next).length ? next : undefined });
-}
+/** State a column stack's fixed point, the storeys above moved to it (`store/placement.ts`). */
+export const setFixedPoint = (stack: string, kind: FixedPointKind): void => setColumnFixedPoint(stack, kind);
 
 const placed = (plans: StructurePlan[], rows: StructureRows & { levels?: readonly string[] }) => withFixedPoints(plans, rows.levels ?? [], fixedPointKind);
 

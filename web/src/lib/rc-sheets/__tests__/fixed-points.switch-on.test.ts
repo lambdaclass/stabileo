@@ -14,15 +14,17 @@ describe('a column stack\'s fixed point', () => {
     for (const p of out) { const c = p.items[0] as PlanColumnItem; expect(c.fixed!.shift).toBe(0); expect(c.fixed!.at).toEqual([2, 3]); }
   });
 
-  it('keeps a face where the section shrinks above, moving the upper section off its axis by half the change', () => {
+  it('puts that face on the axis in every storey, so where the section shrinks above the face stays and the section moves off the axis', () => {
     const out = withFixedPoints(plans, levels, (k) => (k === stackKey([2, 3]) ? 'px' : 'c') as FixedPointKind);
     const low = out[0]!.items[0] as PlanColumnItem, up = out[1]!.items[0] as PlanColumnItem;
-    expect(low.fixed!.at[0]).toBeCloseTo(2.3, 9);
-    expect(up.fixed!.at[0]).toBeCloseTo(2.3, 9);
-    expect(up.fixed!.centre[0]).toBeCloseTo(2.1, 9);
-    expect(up.fixed!.shift).toBeCloseTo(0.1, 9);
-    expect(Math.max(...up.outline.map((p) => p[0]))).toBeCloseTo(2.3, 9);
-    expect(up.rebars[0]!.at[0]).toBeCloseTo(2.1, 9);
+    expect(low.fixed!.at).toEqual([2, 3]);
+    expect(up.fixed!.at).toEqual([2, 3]);
+    expect(low.fixed!.centre[0]).toBeCloseTo(1.7, 9);
+    expect(up.fixed!.centre[0]).toBeCloseTo(1.8, 9);
+    expect(up.fixed!.shift).toBeCloseTo(0.2, 9);
+    expect(Math.max(...low.outline.map((p) => p[0]))).toBeCloseTo(2, 9);
+    expect(Math.max(...up.outline.map((p) => p[0]))).toBeCloseTo(2, 9);
+    expect(up.rebars[0]!.at[0]).toBeCloseTo(1.8, 9);
   });
 
   it('is drawn as a circle at the centre, a half circle at a face and a quarter circle at a corner, opening into the section', () => {
@@ -39,10 +41,10 @@ describe('a column stack\'s fixed point', () => {
     const out = withFixedPoints(plans, levels, () => 'px');
     const [s] = settingOut(out, levels, [{ name: 'A', axis: 'x', at: 0 }, { name: 'B', axis: 'x', at: 2.5 }, { name: '1', axis: 'y', at: 3 }]);
     expect(s).toMatchObject({ name: 'C1', kind: 'px', axisX: { name: 'B' }, axisY: { name: '1' } });
-    expect(s!.x).toBeCloseTo(2.3, 9);
-    expect(s!.axisX!.d).toBeCloseTo(-0.2, 9);
+    expect(s!.x).toBeCloseTo(2, 9);
+    expect(s!.axisX!.d).toBeCloseTo(-0.5, 9);
     expect(s!.axisY!.d).toBeCloseTo(0, 9);
-    expect(s!.shift).toBeCloseTo(0.1, 9);
+    expect(s!.shift).toBeCloseTo(0.3, 9);
   });
 });
 

@@ -11,6 +11,9 @@
   import RcSectionSvg from './RcSectionSvg.svelte';
   import RcResize from './RcResize.svelte';
   import { lineSections } from '../../../lib/rc-sheets/line-geometry';
+  import { slabSeat } from '../../../lib/rc-sheets/slab-seat';
+  import { rcSheetsData } from '../../../lib/store/rc-sheets.svelte';
+  import { modelStore } from '../../../lib/store';
   import type { ChartKind } from '../../../lib/rc-sheets/line-charts';
 
   let { line, spans, onleave = () => {}, highlight = [] }: { line: LineLayout; spans: BeamRow[]; onleave?: () => void; highlight?: string[] } = $props();
@@ -33,9 +36,17 @@
   function setCuts(on: boolean) { showCuts = on; try { localStorage.setItem(CUTS_KEY, on ? '1' : '0'); } catch { /* lasts the session */ } }
   const kind = (k: string) => t(`rcSheets.line.kind.${k}`);
   const sections = $derived(lineSections(line, spans, fmt, showMarks));
+  const flangeOn = $derived.by(() => { void modelStore.designData; return rcSheetsData().flange === true; });
+  /** How each span's slab meets it, said once where every span is alike. */
+  const seats = $derived.by(() => {
+    const said = spans.map((r) => { const st = slabSeat(r.demand, r.demand.h); return st ? { name: r.name, text: tp(`rcSheets.seat.${st.kind}`, { d: fmt(st.below * 100, 0) }) + (flangeOn && r.demand.flange ? ' · ' + t('rcSheets.seat.flange') : flangeOn && (st.kind === 'below' || st.kind === 'bottom') ? ' · ' + t('rcSheets.seat.noFlange') : ''), kind: st.kind } : null; });
+    const texts = new Set(said.map((x) => x?.text ?? ''));
+    return texts.size === 1 ? (said[0] ? [{ name: '', text: said[0].text, kind: said[0].kind }] : []) : said.filter((x): x is NonNullable<typeof x> => !!x);
+  });
 </script>
 
 <RcResize row={line} {spans} {onleave} />
+{#each seats as st, i (i)}<p class="rcd-seat" class:assumed={st.kind === 'assumed'} data-testid="rc-line-seat" data-kind={st.kind}>{#if st.name}<strong>{st.name}</strong> · {/if}{st.text}</p>{/each}
 <RcLineEditor {line} />
 {#each line.bentNotes as n, i (i)}<p class="rcd-note" data-testid="rc-line-bent-note" data-reason={n.reason}>{tp(`rcSheets.line.noBent.${n.reason}`, { span: n.span !== undefined ? line.spans[n.span]?.name ?? '' : '', clause: n.clause ?? '' })}</p>{/each}
 <div class="rcd-toggles">
@@ -108,4 +119,6 @@
   .rcd-toggles { display: flex; flex-wrap: wrap; gap: 4px 14px; }
   .rcd-chart { font-size: 0.7rem; padding: 0 4px; background: var(--st-surface-2); color: var(--st-text-2); border: 1px solid var(--st-hair); border-radius: 4px; }
   .rcd-marks { display: inline-flex; align-items: center; gap: 4px; font-size: 0.7rem; color: var(--st-text-2); margin: 2px 0 4px; cursor: pointer; }
+  .rcd-seat { font-size: 0.72rem; color: var(--st-text-2); margin: 0 0 6px; }
+  .rcd-seat.assumed { color: var(--st-warn, var(--st-text-2)); }
 </style>

@@ -1,4 +1,5 @@
 import { ACI_BENDS, faceBars } from './bars';
+import { flangeTopAcross, type SpanFlange } from './flange-bars';
 import { confinedTies } from './column-row';
 import { columnLayout } from './column-layout';
 import { tiePaths, type Pt } from './column-tie-path';
@@ -16,23 +17,35 @@ export interface SectionDrawing {
   hoop?: { pts: Pt[]; w: number; h: number; box: { x0: number; y0: number; x1: number; y1: number }; mark?: string };
   /** A column's crossties, each from the free end of one hook to the other's, its straight `leg` tangent to the bars it engages: `hooks` at the start and end. */
   crossties?: Array<{ pts: Pt[]; hooks: [HookAngle, HookAngle]; across: 'h' | 'b'; length: number; leg: [Pt, Pt]; mark?: string }>;
+  /** A T or L beam's flange taken in its design: how far it stands out on each side of the web (left as seen from the line's start), its thickness and its effective width, m. */
+  flange?: { left: number; right: number; hf: number; bf: number };
   /** The zone the crossties drawn hold in: chapter 18's lo where it has more than the rest of the storey. */
   zone?: 'lo' | 'all';
 }
 
 /** A beam section: top and bottom bars layer by layer inside the stirrup, and the stirrup's inner legs. */
-export function beamSection(b: number, h: number, cover: number, top: readonly BarGroup[], bottom: readonly BarGroup[], st: Stirrups): SectionDrawing {
+export function beamSection(b: number, h: number, cover: number, top: readonly BarGroup[], bottom: readonly BarGroup[], st: Stirrups, flange?: { fl: SpanFlange; spread?: BarGroup }): SectionDrawing {
   const sd = st.dia;
+  const across = flange?.spread ? flangeTopAcross(flange.fl, b, cover, flange.spread.count) : null;
+  const web = across && flange?.spread ? withoutGroup(top, flange.spread) : top;
   const bars = [
     ...faceBars(bottom, b, cover, sd).map((x) => ({ x: x.x, y: x.depth, dia: x.dia })),
-    ...faceBars(top, b, cover, sd).map((x) => ({ x: x.x, y: h - x.depth, dia: x.dia })),
+    ...faceBars(web, b, cover, sd).map((x) => ({ x: x.x, y: h - x.depth, dia: x.dia })),
+    ...(across ? across.map((s) => ({ x: b / 2 - s, y: h - cover - flange!.spread!.dia / 2000, dia: flange!.spread!.dia })) : []),
   ];
   const leg = cover + sd / 2000, ties: SectionDrawing['ties'] = [];
   for (let k = 1; k < st.legs - 1; k++) {
     const x = leg + (k * (b - 2 * leg)) / (st.legs - 1);
     ties.push({ x1: x, y1: leg, x2: x, y2: h - leg });
   }
-  return { b, h, cover, tieDia: sd, bars, ties };
+  const out = flange ? flange.fl.bf - b : 0, two = flange?.fl.sides.length === 2;
+  return { b, h, cover, tieDia: sd, bars, ties, ...(flange ? { flange: { left: two ? out / 2 : flange.fl.sides[0] === 1 ? out : 0, right: two ? out / 2 : flange.fl.sides[0] === -1 ? out : 0, hf: flange.fl.hf, bf: flange.fl.bf } } : {}) };
+}
+
+/** The groups but one of `g`'s count of its diameter: the bars that go elsewhere. */
+function withoutGroup(groups: readonly BarGroup[], g: BarGroup): BarGroup[] {
+  let left = g.count;
+  return groups.map((x) => { if (x.dia !== g.dia || left <= 0) return x; const take = Math.min(left, x.count); left -= take; return { ...x, count: x.count - take }; }).filter((x) => x.count > 0);
 }
 
 export interface ColumnSectionOptions {

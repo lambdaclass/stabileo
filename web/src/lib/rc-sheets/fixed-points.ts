@@ -1,9 +1,8 @@
 /**
  * A column's fixed point: the point of its section that stays put up the building while the
  * section changes, by which it is set out on site. It is the centre, the middle of a face or a
- * corner, read in the section's own axes (b along its first, h along its second) of the column's
- * lowest storey; the sections above stand so that their same point falls on it, each moved off
- * its analysis axis by what the change of size takes. A circle marks the centre, a half circle a
+ * corner, read in the section's own axes (b along its first, h along its second), standing on the
+ * column's axis in every storey, so a smaller section above keeps that face or corner where it was. A circle marks the centre, a half circle a
  * face, a quarter circle a corner.
  */
 import type { PlanColumnItem, Pt, StructurePlan } from './structure-plan';
@@ -41,29 +40,20 @@ export const fixedPointOf = (at: Pt, rotDeg: number, b: number, h: number, k: Fi
 export interface ColumnFixed { kind: FixedPointKind; stack: string; at: Pt; rotDeg: number; centre: Pt; shift: number }
 
 /**
- * The plans with each column placed by its stack's fixed point: grouped by where they stand,
- * the lowest of `levels` the reference, the outline and bars of the sections above moved so that
- * their same point falls on the reference's. The analysis keeps every section on its axis: the
- * move is what the drawings and the setting out show, and each column says how far.
+ * The plans with each column placed by its stack's fixed point: that point of its section on its
+ * axis, every storey, as the model's offsets place it (`store/placement.ts`); the outline and bars
+ * moved off the axis by it, and each column saying how far.
  */
-export function withFixedPoints(plans: readonly StructurePlan[], levels: readonly string[], kindOf: (stack: string) => FixedPointKind): StructurePlan[] {
-  const rank = (l: string) => { const i = levels.indexOf(l); return i < 0 ? levels.length : i; };
-  const ref = new Map<string, { item: PlanColumnItem; rank: number }>();
-  for (const p of plans) for (const it of p.items) {
-    if (it.kind !== 'column') continue;
-    const k = stackKey(it.at), r = rank(p.level), cur = ref.get(k);
-    if (!cur || r < cur.rank) ref.set(k, { item: it, rank: r });
-  }
+export function withFixedPoints(plans: readonly StructurePlan[], _levels: readonly string[], kindOf: (stack: string) => FixedPointKind): StructurePlan[] {
   return plans.map((p) => ({
     ...p,
     items: p.items.map((it) => {
       if (it.kind !== 'column') return it;
-      const stack = stackKey(it.at), kind = kindOf(stack), base = ref.get(stack)!.item;
-      const at = fixedPointOf(base.at, base.rotDeg, base.b, base.h, kind);
+      const stack = stackKey(it.at), kind = kindOf(stack);
       const [sx, sy] = fixedSigns(kind), o = turn([(sx * it.b) / 2, (sy * it.h) / 2], it.rotDeg);
-      const centre: Pt = [at[0] - o[0], at[1] - o[1]], d: Pt = [centre[0] - it.at[0], centre[1] - it.at[1]];
+      const centre: Pt = [it.at[0] - o[0], it.at[1] - o[1]], d: Pt = [-o[0], -o[1]];
       const move = (q: Pt): Pt => [q[0] + d[0], q[1] + d[1]];
-      return { ...it, outline: it.outline.map(move), rebars: it.rebars.map((b) => ({ ...b, at: move(b.at) })), fixed: { kind, stack, at, rotDeg: it.rotDeg, centre, shift: Math.hypot(d[0], d[1]) } };
+      return { ...it, outline: it.outline.map(move), rebars: it.rebars.map((b) => ({ ...b, at: move(b.at) })), fixed: { kind, stack, at: it.at, rotDeg: it.rotDeg, centre, shift: Math.hypot(d[0], d[1]) } };
     }),
   }));
 }

@@ -66,7 +66,10 @@ export interface ColumnDemand {
   cases: ColumnCase[];
   nodes?: { bottom: number; top: number };
   /** Depth of the deepest beam framing in at each end, m; 0 where none does. */
-  joints?: { bottom: number; top: number };
+  /** How far the section's centre stands off the column's axis, m, along b and along h: where its stack's fixed point moves it. */
+  shift?: [number, number];
+  /** Depth of the floor's concrete at the bottom and top nodes, m, and how far its top stands above each (absent: half its depth). */
+  joints?: { bottom: number; top: number; bottomRise?: number; topRise?: number };
   /** The combinations whose results lack a force of this storey: its demand is incomplete. */
   missing?: string[];
   /** Absent where no combination was read for it: the storey is then taken as braced. */
@@ -772,3 +775,8 @@ function proposeColumn(d: ColumnDemand, c: ColumnContext, ast: number, dias: rea
   const tie = tieOf(dia);
   return { layout: { ...evenLayout(d, c, dia, tie, 0.15), tieSpacing: spacingFor(dia, tie) }, iterations: 0, exhausted: true };
 }
+
+/** How far the top of a column storey's joint stands above its node, m: where the storey below is cast up to and the bars wait. */
+export const jointRise = (d: Pick<ColumnDemand, 'joints'>, end: 'bottom' | 'top'): number =>
+  (end === 'bottom' ? d.joints?.bottomRise : d.joints?.topRise) ?? (d.joints?.[end] ?? 0) / 2;
+

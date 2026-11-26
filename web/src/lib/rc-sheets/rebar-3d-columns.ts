@@ -1,4 +1,4 @@
-import { confinedTies, type ColumnRow } from './column-row';
+import { confinedTies, jointRise, type ColumnRow } from './column-row';
 import { columnLayout } from './column-layout';
 import { columnTieLayout, type ColumnTieLayout } from './column-ties';
 import { tiePaths, type TiePath } from './column-tie-path';
@@ -20,7 +20,7 @@ export function columnBars3d(rows: readonly ColumnRow[], r: ColumnRow, f: Frame,
   const base = { element: r.key, rows: [r.key], family: 'column' as const, ...(r.level !== undefined ? { level: r.level } : {}) };
   const a = r.adopted, s = columnStorey(rows, r), run = storeyRun(r, s, o.code);
   const layout = columnTieLayout(r, o.code, { endZones: o.endZones });
-  const floor = (r.demand.joints?.bottom ?? 0) / 2;
+  const floor = jointRise(r.demand, 'bottom');
   for (const { bar, e, toward } of storeyBars(r, s)) {
     const pieces = columnBarPieces(run, bar.dia, e, R).flatMap((pc) => Array.from({ length: pc.count }, () => pc));
     let z = run.from;

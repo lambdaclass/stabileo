@@ -6,9 +6,11 @@
   let { drawing, title, notes = [], marks }: { drawing: SectionDrawing; title: string; notes?: string[]; marks?: { top: string[]; bottom: string[] } } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   const BOX = 130, PAD = 26;
-  const k = $derived(BOX / Math.max(drawing.b, drawing.h));
-  const w = $derived(drawing.b * k), hh = $derived(drawing.h * k);
-  const X = (x: number) => PAD + x * k;
+  const fl = $derived(drawing.flange);
+  const left = $derived(fl?.left ?? 0), right = $derived(fl?.right ?? 0);
+  const k = $derived(BOX / Math.max(drawing.b + left + right, drawing.h));
+  const w = $derived(drawing.b * k), hh = $derived(drawing.h * k), W = $derived((drawing.b + left + right) * k);
+  const X = (x: number) => PAD + (x + left) * k;
   const Y = (y: number) => PAD + hh - y * k;
   const inset = $derived((drawing.cover + drawing.tieDia / 2000) * k);
   const MARKW = 34;
@@ -21,8 +23,13 @@
 
 <figure class="rcs-fig" data-testid="rc-section">
   <figcaption>{title}</figcaption>
-  <svg viewBox="0 0 {w + 2 * PAD + (marks ? MARKW : 0)} {hh + 2 * PAD}" width={w + 2 * PAD + (marks ? MARKW : 0)} height={hh + 2 * PAD} role="img" aria-label={title}>
-    <rect x={PAD} y={PAD} width={w} height={hh} class="conc" />
+  <svg viewBox="0 0 {W + 2 * PAD + (marks ? MARKW : 0)} {hh + 2 * PAD}" width={W + 2 * PAD + (marks ? MARKW : 0)} height={hh + 2 * PAD} role="img" aria-label={title}>
+    {#if fl}
+      <rect x={X(-left)} y={Y(drawing.h)} width={W} height={fl.hf * k} class="conc flange" data-testid="rc-section-flange" />
+      <line x1={X(-left)} y1={PAD - 9} x2={X(drawing.b + right)} y2={PAD - 9} class="lead" />
+      <text x={(X(-left) + X(drawing.b + right)) / 2} y={PAD - 12} class="dim" data-testid="rc-section-be">be = {len(fl.bf)}</text>
+    {/if}
+    <rect x={X(0)} y={PAD} width={w} height={hh} class="conc" />
     {#if drawing.hoop}
       {@const hp = drawing.hoop}
       <polyline points={P(hp.pts)} class="hoop" style="stroke-width: {sw}px" data-testid="rc-section-hoop" />
@@ -34,7 +41,7 @@
         {#if hp.mark}<text x={PAD - 2} y={PAD - 12} class="mk" text-anchor="end">{hp.mark}</text>{/if}
       </g>
     {:else}
-      <rect x={PAD + inset} y={PAD + inset} width={Math.max(0, w - 2 * inset)} height={Math.max(0, hh - 2 * inset)} rx="3" class="hoop" style="stroke-width: {sw}px" />
+      <rect x={X(0) + inset} y={PAD + inset} width={Math.max(0, w - 2 * inset)} height={Math.max(0, hh - 2 * inset)} rx="3" class="hoop" style="stroke-width: {sw}px" />
     {/if}
     {#each drawing.ties as t, i (i)}
       <line x1={X(t.x1)} y1={Y(t.y1)} x2={X(t.x2)} y2={Y(t.y2)} class="tie" style="stroke-width: {sw}px" />
@@ -54,14 +61,14 @@
       <g data-testid="rc-section-marks">
         {#each [{ top: true, list: marks.top }, { top: false, list: marks.bottom }] as f (f.top)}
           {#if f.list.length}
-            <line x1={PAD + w - inset + 2} y1={faceY(f.top)} x2={PAD + w + 6} y2={faceY(f.top)} class="lead" />
-            <text x={PAD + w + 8} y={faceY(f.top) + 3.5} class="mk">{f.list.join(' ')}</text>
+            <line x1={X(drawing.b) - inset + 2} y1={faceY(f.top)} x2={X(drawing.b + right) + 6} y2={faceY(f.top)} class="lead" />
+            <text x={X(drawing.b + right) + 8} y={faceY(f.top) + 3.5} class="mk">{f.list.join(' ')}</text>
           {/if}
         {/each}
       </g>
     {/if}
-    <text x={PAD + w / 2} y={PAD + hh + 16} class="dim">{fmt(drawing.b * 100, 0)}</text>
-    <text x={PAD - 8} y={PAD + hh / 2} class="dim" transform="rotate(-90 {PAD - 8} {PAD + hh / 2})">{fmt(drawing.h * 100, 0)}</text>
+    <text x={X(drawing.b / 2)} y={PAD + hh + 16} class="dim">{fmt(drawing.b * 100, 0)}</text>
+    <text x={X(0) - 8} y={PAD + hh / 2} class="dim" transform="rotate(-90 {X(0) - 8} {PAD + hh / 2})">{fmt(drawing.h * 100, 0)}</text>
   </svg>
   {#each notes as n, i (i)}<div class="note">{n}</div>{/each}
 </figure>

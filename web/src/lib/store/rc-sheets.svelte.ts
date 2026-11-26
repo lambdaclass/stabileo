@@ -260,6 +260,13 @@ export function resetCriteria(): void {
 /** The Stabileo criteria the sheets design with. */
 export const sheetCriteria = () => criteriaOf(designData().designOptions?.criteria);
 
+/** The beams that take the slab as their flange: those listed, or every beam when `beams` is null. */
+export function setFlangeBeams(beams: readonly number[] | null): void {
+  const next: DesignOptions = { ...designData().designOptions };
+  if (beams === null) delete next.flangeBeams; else next.flangeBeams = [...new Set(beams)];
+  setDesignOptions(next);
+}
+
 export function setRcOption(option: DesignOptionFlag, on: boolean): void {
   const next: DesignOptions = { ...designData().designOptions };
   if (on) next[option] = true; else delete next[option];
@@ -348,7 +355,15 @@ export function designSets(): { sets: DemandSet[]; basis: SheetRows['basis']; de
   return r ? { sets: [{ name: '—', result: r }], basis: 'single', dead: [] } : { sets: [], basis: 'none', dead: [] };
 }
 
-function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces: boolean; flange: boolean; swayKMin: number }): DemandInput {
+/** Whether a member takes the slab as its flange: every one, or those of the beams the design data lists. */
+function flangeFilter(): (elementId: number) => boolean {
+  const listed = designData().designOptions?.flangeBeams;
+  if (!listed) return () => true;
+  const ids = new Set(listed.flatMap((g) => modelStore.model.groups.get(g)?.members.elements ?? []));
+  return (id) => ids.has(id);
+}
+
+function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces: boolean; flange: boolean; flangeIn: (elementId: number) => boolean; swayKMin: number }): DemandInput {
   const supportsByNode = new Map([...modelStore.supports.values()].map((s) => [s.nodeId, s]));
   const namer = storeyNamer();
   const groups: DemandGroup[] = physicalGroups().map((g) => ({
@@ -364,7 +379,7 @@ function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces
     storeyOf: (id) => storeys.get(id),
     shells: { nodes: modelStore.nodes, quads: modelStore.quads, plates: modelStore.plates },
     groups, sets, dead, faces: opts.faces,
-    ...((fm) => ((f, sb) => ({ slabSides: (id: number) => f.get(id)?.sides.length ?? 0, slabsBeside: (id: number) => sb.get(id), ...(opts.flange ? { flangeSides: (id: number) => f.get(id)?.sides } : {}) }))(beamFlangeSides(fm), beamSlabsBeside(fm)))({ nodes: modelStore.nodes, elements: modelStore.elements, sections: modelStore.sections, quads: concreteQuads() }),
+    ...((fm) => ((f, sb) => ({ slabSides: (id: number) => f.get(id)?.sides.length ?? 0, slabsBeside: (id: number) => sb.get(id), ...(opts.flange ? { flangeSides: (id: number) => (opts.flangeIn(id) ? f.get(id)?.sides ?? [] : undefined) } : {}) }))(beamFlangeSides(fm), beamSlabsBeside(fm)))({ nodes: modelStore.nodes, elements: modelStore.elements, sections: modelStore.sections, quads: concreteQuads() }),
     faceOffset: (id, end) => {
       const e = modelStore.elements.get(id);
       const sec = e ? modelStore.sections.get(e.sectionId) : undefined;
@@ -522,8 +537,8 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const key = basis === 'combinations' ? resultsStore.perCombo3D : sets[0]!.result;
   const groupsRev = modelStore.model.groups;
   const crit = criteriaOf(dd.designOptions?.criteria);
-  const opts = { faces: data.faces === true, flange: data.flange === true, swayKMin: rules.swayFloor ? crit.columnSwayKMin : 1 };
-  const optsKey = JSON.stringify({ ...opts, sets: sets.map((x) => x.name) });
+  const opts = { faces: data.faces === true, flange: data.flange === true, flangeIn: flangeFilter(), swayKMin: rules.swayFloor ? crit.columnSwayKMin : 1 };
+  const optsKey = JSON.stringify({ ...opts, flangeBeams: designData().designOptions?.flangeBeams ?? null, sets: sets.map((x) => x.name) });
   let dem = demandCache.get(key);
   if (!dem || dem.groupsRev !== groupsRev || dem.opts !== optsKey) {
     const input = demandInput(sets, dead, opts);

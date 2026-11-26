@@ -923,7 +923,7 @@ describe('reinforcement sheets from a solved model', () => {
     expect(second.demand.sway!.Q).toBeCloseTo(col.demand.sway!.Q, 9);
   });
 
-  it('cuts a column into storeys at the flat slabs it carries, as at beams, and checks punching at each', () => {
+  it('cuts a column into storeys at the flat slabs it carries, as at beams, its clear height between the slabs, and checks punching at each', () => {
     const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
     const col = modelStore.addSection({ name: '40×40', a: 0.16, iy: 0.4 ** 4 / 12, iz: 0.4 ** 4 / 12, j: 0.1406 * 0.4 ** 4, b: 0.4, h: 0.4, shape: 'rect' } as never);
     const D = modelStore.model.loadCases.find((c) => c.type === 'D')!.id;
@@ -945,7 +945,8 @@ describe('reinforcement sheets from a solved model', () => {
     solve();
     const rows = buildSheetRows();
     expect(rows.column).toHaveLength(2);
-    for (const c of rows.column) { expect(c.length).toBeCloseTo(3, 6); expect(c.demand.lu).toBeCloseTo(3, 6); }
+    for (const c of rows.column) expect(c.length).toBeCloseTo(3, 6);
+    expect(rows.column.map((c) => c.demand.lu)).toEqual([expect.closeTo(3 - 0.1, 6), expect.closeTo(3 - 0.2, 6)]);
     expect(rows.punching).toHaveLength(2);
   });
 

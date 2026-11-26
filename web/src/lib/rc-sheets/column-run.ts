@@ -8,7 +8,7 @@
  * (§10.7.4.2). A bar longer than a stock bar is cut and lapped where it is cut.
  */
 import { columnLayout, layoutDias, type PlacedBar } from './column-layout';
-import type { ColumnRow } from './column-row';
+import { jointRise, type ColumnRow } from './column-row';
 import { columnTieLayout } from './column-ties';
 import { CRANK_LIMIT, CRANK_SLOPE, inwardOf, lapOffset } from './column-stack';
 import { crankedBar, developedLength, hookedStraight, type BarShape, type BendRules } from './shape';
@@ -43,7 +43,14 @@ export const above = <T extends { key: string }>(rows: readonly T[], row: T): T 
 
 export const below = <T extends { key: string }>(rows: readonly T[], row: T): T | undefined => stepOf(rows, row, -1);
 
-const offsetTo = (r: ColumnRow, up: ColumnRow) => Math.max(0, (r.b - up.b) / 2, (r.h - up.h) / 2);
+/** How far each face of the storey above stands in from this storey's, m, along +b, −b, +h, −h: equal halves for concentric storeys, one face flush and the other the whole step where a fixed point holds a face. */
+export function faceSteps(r: ColumnRow, up: ColumnRow): { pb: number; nb: number; ph: number; nh: number } {
+  const [rb, rh] = r.demand.shift ?? [0, 0], [ub, uh] = up.demand.shift ?? [0, 0];
+  const f = (v: number) => Math.round(v * 1e6) / 1e6 + 0;
+  return { pb: f(r.b / 2 + rb - (up.b / 2 + ub)), nb: f(r.b / 2 - rb - (up.b / 2 - ub)), ph: f(r.h / 2 + rh - (up.h / 2 + uh)), nh: f(r.h / 2 - rh - (up.h / 2 - uh)) };
+}
+
+const offsetTo = (r: ColumnRow, up: ColumnRow) => { const s = faceSteps(r, up); return Math.max(0, s.pb, s.nb, s.ph, s.nh); };
 
 export interface ColumnStorey {
   up?: ColumnRow;
@@ -67,7 +74,7 @@ export function columnStorey(rows: readonly ColumnRow[], r: ColumnRow): ColumnSt
 /** Where a storey's lap with the bars from below starts, m up from its bottom node: the face of the joint below, or the start of the middle half under chapter 18; its node where nothing laps. */
 export function lapStart(r: ColumnRow, code: SheetCode): number {
   if (!r.lap) return 0;
-  return (r.demand.joints?.bottom ?? 0) / 2 + (columnTieLayout(r, code).lap?.from ?? 0);
+  return jointRise(r.demand, 'bottom') + (columnTieLayout(r, code).lap?.from ?? 0);
 }
 
 export interface StoreyRun {
@@ -82,9 +89,9 @@ export interface StoreyRun {
 export function storeyRun(r: ColumnRow, s: ColumnStorey, code: SheetCode): StoreyRun {
   const from = lapStart(r, code), lapUp = s.up?.lap?.length ?? 0;
   const own = r.lap?.length ?? lapUp;
-  if (s.hooked || !s.up) return { from, top: r.length + (r.demand.joints?.top ?? 0) / 2 - r.cover, crankAt: null, own };
+  if (s.hooked || !s.up) return { from, top: r.length + jointRise(r.demand, 'top') - r.cover, crankAt: null, own };
   const up = s.up, startUp = lapStart(up, code);
-  const crankAt = r.length + (s.e > 1e-3 ? (up.demand.joints?.bottom ?? 0) / 2 : startUp);
+  const crankAt = r.length + (s.e > 1e-3 ? jointRise(up.demand, 'bottom') : startUp);
   return { from, top: r.length + startUp + lapUp, crankAt, own };
 }
 
@@ -100,16 +107,22 @@ export interface BarRun {
  * bar along both, a face bar across its face and along it in proportion) and one bar's diameter
  * inward, to the millimetre; none where the bars are hooked.
  */
+/** How far a bar at `v` between the faces at ±`vc` moves to the storey above's section: by the step at each face, in proportion between them. */
+const across = (v: number, vc: number, neg: number, pos: number) => {
+  const t = Math.min(1, Math.max(0, (v + vc) / Math.max(2 * vc, 1e-9)));
+  return Math.max(0, neg) - t * (Math.max(0, neg) + Math.max(0, pos));
+};
+
 export function storeyBars(r: ColumnRow, s: ColumnStorey): BarRun[] {
   const bars = columnLayout(r, r.adopted, r.cover, r.aggregate).bars;
   if (!s.cranked || !s.up) return bars.map((bar) => ({ bar, e: 0, toward: inwardOf(bar, r) }));
   const up = s.up, ua = up.adopted;
   const upBars = columnLayout(up, ua, up.cover, up.aggregate).bars, upMax = Math.max(...layoutDias(ua));
-  const ex = Math.max(0, (r.b - up.b) / 2), ey = Math.max(0, (r.h - up.h) / 2), a = r.adopted;
+  const st = faceSteps(r, up), a = r.adopted;
   const xc = r.b / 2 - r.cover - a.tieDia / 1000 - a.corner / 2000, yc = r.h / 2 - r.cover - a.tieDia / 1000 - a.corner / 2000;
   return bars.map((bar, i) => {
     const n = inwardOf(bar, r), c = lapOffset(bar.dia, upBars.length === bars.length ? upBars[i]!.dia : upMax);
-    const dx = -(bar.x / Math.max(xc, 1e-9)) * ex + c * n[0], dy = -(bar.y / Math.max(yc, 1e-9)) * ey + c * n[1], l = Math.hypot(dx, dy);
+    const dx = across(bar.x, xc, st.nb, st.pb) + c * n[0], dy = across(bar.y, yc, st.nh, st.ph) + c * n[1], l = Math.hypot(dx, dy);
     return { bar, e: Math.round(l * 1000) / 1000, toward: l > 1e-12 ? [dx / l, dy / l] : n };
   });
 }

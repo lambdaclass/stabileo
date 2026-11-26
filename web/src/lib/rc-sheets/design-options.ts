@@ -42,7 +42,8 @@ export function acceptedClassesAfter(all: readonly number[], accepted: readonly 
 }
 
 /** Each flag on when true; torsion by equilibrium when absent; the deflection settings at their defaults when absent (`deflection.ts`); the Stabileo criteria the project states (`criteria.ts`). */
-export type DesignOptions = { torsion?: TorsionMode; deflection?: DeflectionSettings; alternatives?: AlternativeOptions; criteria?: CriteriaValues } & Partial<Record<DesignOptionFlag, true>>;
+/** `flangeBeams`: with the flange on, the beams (their physical groups) that take it; absent, every beam. */
+export type DesignOptions = { torsion?: TorsionMode; deflection?: DeflectionSettings; alternatives?: AlternativeOptions; criteria?: CriteriaValues; flangeBeams?: number[] } & Partial<Record<DesignOptionFlag, true>>;
 
 export type DesignOptionKey = DesignOptionFlag | 'torsion' | 'endZones' | 'minTieSpacing' | 'deflection' | 'creep' | 'months' | 'aggregate' | 'alternatives';
 
@@ -67,6 +68,7 @@ const flagsOf = (o: Record<string, unknown>, torsion: (x: unknown) => boolean): 
   ...((d) => (d ? { deflection: d } : {}))(readDeflectionSettings(o.deflection)),
   ...((a) => (a ? { alternatives: a } : {}))(alternativesOf(o.alternatives)),
   ...((c) => (c ? { criteria: c } : {}))(readCriteria(o.criteria)),
+  ...(Array.isArray(o.flangeBeams) ? { flangeBeams: [...new Set(o.flangeBeams.filter((x): x is number => Number.isInteger(x) && (x as number) > 0))] } : {}),
 });
 
 const strength = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x) && x >= 10 && x <= 120;

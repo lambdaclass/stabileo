@@ -2,7 +2,7 @@
  * A line's bars never fall short of the steel its chart asks for, the strength or the minimum
  * (§9.6.1.1 unless 4/3 of the strength's): the proposal adds a span's or a support's own bars
  * where they are short, the check fails a line adopted short, and the editor offers each support
- * and span its own extras, along the beam.
+ * and span its own extras, along the beam; the detail says where the slab meets the beam.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { render } from 'svelte/server';
@@ -12,6 +12,7 @@ import { buildSheetRows, setAdopted } from '../rc-sheets.svelte';
 import { shortStretches } from '../../rc-sheets/line-steel';
 import { setLocale } from '../../i18n';
 import RcLineEditor from '../../../components/pro/rc-sheets/RcLineEditor.svelte';
+import RcLineDetail from '../../../components/pro/rc-sheets/RcLineDetail.svelte';
 
 beforeAll(async () => { await initSolver(); });
 
@@ -25,20 +26,27 @@ describe('the steel of a line against its chart', () => {
       expect(check(l).ok, l.name).toBe((['top', 'bottom'] as const).every((f) => shortStretches(l.steel ?? [], f).length === 0));
       if (!l.isAdopted) expect(check(l).ok, l.name).toBe(true);
     }
-    const v15 = lines.find((l) => l.name === 'V15')!;
-    expect(v15.adopted.spanBottom[2]!.count).toBeGreaterThan(0);
-    expect(v15.adopted.spanBottom.slice(0, 2).every((g) => g.count === 0)).toBe(true);
-
-    setAdopted(v15.key, { ...v15.adopted, spanBottom: v15.adopted.spanBottom.map((g) => ({ ...g, count: 0 })) });
-    const short = buildSheetRows().line.find((l) => l.key === v15.key)!;
-    expect(check(short).ok).toBe(false);
-    expect(short.status).toBe('fail');
+    const candidates = lines.filter((l) => !l.isAdopted && l.adopted.spanBottom.some((g) => g.count > 0)).slice(0, 6);
+    expect(candidates.length, 'lines given a span\'s own bottom bars').toBeGreaterThan(0);
+    let short: (typeof lines)[number] | undefined;
+    for (const l of candidates) {
+      setAdopted(l.key, { ...l.adopted, spanBottom: l.adopted.spanBottom.map((g) => ({ ...g, count: 0 })) });
+      const now = buildSheetRows().line.find((x) => x.key === l.key)!;
+      if (!check(now).ok) { short = now; break; }
+      setAdopted(l.key, null);
+    }
+    expect(short, 'a line whose span bars, taken away, leave it short').toBeDefined();
+    expect(short!.status).toBe('fail');
 
     setLocale('es');
-    const html = render(RcLineEditor, { props: { line: short } }).body;
+    const html = render(RcLineEditor, { props: { line: short! } }).body;
     const order = [...html.matchAll(/data-testid="(rc-line-(?:support|span)-\d+)"/g)].map((m) => m[1]);
-    expect(order).toEqual(['rc-line-support-0', 'rc-line-span-0', 'rc-line-support-1', 'rc-line-span-1', 'rc-line-support-2', 'rc-line-span-2', 'rc-line-support-3']);
+    expect(order).toEqual(short!.adopted.supportTop.flatMap((_, j) => [`rc-line-support-${j}`, ...(j < short!.adopted.spanBottom.length ? [`rc-line-span-${j}`] : [])]));
     expect(html).toContain('Refuerzos a lo largo de la viga');
+    const rows = buildSheetRows(), first = rows.line[0]!;
+    const detail = render(RcLineDetail, { props: { line: first, spans: rows.beam.filter((r) => first.spans.some((sp) => sp.name === r.name)) } }).body;
+    expect(detail).toMatch(/data-testid="rc-line-seat" data-kind="top"/);
+    expect(detail).toContain('Losa vinculada al ras de la cara superior');
     setLocale('en');
   }, 600_000);
 });

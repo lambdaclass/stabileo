@@ -29,7 +29,7 @@ import { columnShapeOf } from '../engine/design/shaped-column';
 import { samplePath } from '../codes/cirsoc201/bar-geometry';
 import { writeIfc, type IfcExportInput, type ProfileSpec, type V3 } from '../ifc/ifc-writer';
 import { withIfcGrid } from '../ifc/ifc-grid';
-import { fixedPointOf, fixedShape, stackKey } from '../rc-sheets/fixed-points';
+import { fixedShape, stackKey } from '../rc-sheets/fixed-points';
 import { fixedPointKind } from './rc-structure-plan';
 import { verificationStore } from './verification.svelte';
 import type { SpanRef } from '../engine/design/design-spans';
@@ -178,7 +178,7 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
   const bodies = ifcPhysicalBodies(projectPhysicalFrame(), designData().exchange?.ifcColumnTop ?? 'slabTop');
   const spanOf = new Map<number, SpanRef>();
   for (const c of verificationStore.contexts.values()) if (c.span) spanOf.set(c.elementId, c.span);
-  const members: IfcExportInput['members'] = [];
+  const members: IfcExportInput['members'] = [], startOf = new Map<string, number>();
   for (const e of m.elements.values()) {
     const sp = spanOf.get(e.id);
     if (sp && sp.representative !== e.id) continue;
@@ -193,6 +193,7 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
       return [p[0] + o.x, p[1] + o.y, p[2] + o.z];
     };
     const a = axisAt(na, sp ? sp.start : e.nodeI), b = axisAt(nb, sp ? sp.end : e.nodeJ);
+    startOf.set(sp ? sp.key : String(e.id), sp ? sp.start : e.nodeI);
     const s = m.sections.get(e.sectionId);
     const vertical = Math.hypot(b[0] - a[0], b[1] - a[1]) < TOL, level = Math.abs(b[2] - a[2]) < TOL;
     // Cut at the joints where every piece of it was cut; the joints it owns in its body.
@@ -292,19 +293,18 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
     ProjectDesignState: pv.state === 'conforms' ? 'every concrete design member satisfies' : `not approved: ${pv.conforming} of ${pv.total} concrete design members satisfy`,
     ...(pv.state === 'held' ? { ProjectHeldBy: projectVerdictLines(pv, (k, p) => IFC_VERDICT[k]?.replace(/\{n\}/g, String(p?.n ?? '')) ?? k).reasons.join('; ') } : {}),
   };
-  withFixedPoints(members);
+  columnFixedPoints(members, startOf);
   return { project: { name: projectName, time: new Date().toISOString().slice(0, 19), app: 'Stabileo' }, buildingProps, storeys, members, slabs, walls, footings, bars, parts };
 }
 
-/** Each column with its stack's fixed point: how it is set out, and where, from the lowest column of the stack (`rc-sheets/fixed-points.ts`). */
-function withFixedPoints(members: IfcExportInput['members']): void {
-  const columns = members.filter((m) => m.kind === 'column' && m.profile.kind === 'rect');
-  const lowest = new Map<string, (typeof columns)[number]>();
-  for (const c of columns) { const k = stackKey([c.a[0], c.a[1]]), cur = lowest.get(k); if (!cur || Math.min(c.a[2], c.b[2]) < Math.min(cur.a[2], cur.b[2])) lowest.set(k, c); }
-  for (const c of columns) {
-    const k = stackKey([c.a[0], c.a[1]]), base = lowest.get(k)!, kind = fixedPointKind(k), p = base.profile as { b: number; h: number };
-    const at = fixedPointOf([base.a[0], base.a[1]], base.rollDeg ?? 0, p.b, p.h, kind);
-    c.props = { ...c.props, FixedPoint: fixedShape(kind) === 'centre' ? 'centre' : `${fixedShape(kind)} ${kind}`, FixedPointX: Math.round(at[0] * 1000) / 1000, FixedPointY: Math.round(at[1] * 1000) / 1000 };
+/** Each column with its stack's fixed point, read at the node it starts from (`startOf`, by member id): how it is set out, and where, on its axis (`rc-sheets/fixed-points.ts`). */
+export function columnFixedPoints(members: IfcExportInput['members'], startOf: ReadonlyMap<string, number>): void {
+  for (const c of members) {
+    if (c.kind !== 'column' || c.profile.kind !== 'rect') continue;
+    const at = startOf.get(c.id), n = at !== undefined ? modelStore.nodes.get(at) : undefined;
+    if (!n) continue;
+    const kind = fixedPointKind(stackKey([n.x, n.y]));
+    c.props = { ...c.props, FixedPoint: fixedShape(kind) === 'centre' ? 'centre' : `${fixedShape(kind)} ${kind}`, FixedPointX: Math.round(n.x * 1000) / 1000, FixedPointY: Math.round(n.y * 1000) / 1000 };
   }
 }
 

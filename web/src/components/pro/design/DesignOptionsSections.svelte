@@ -26,6 +26,7 @@
   import ProDeflectionLimits from '../ProDeflectionLimits.svelte';
   import { setBeamsLateral } from '../../../lib/store/lateral-system';
   import StabileoCriteria from './StabileoCriteria.svelte';
+  import FlangeBeamsPicker from './FlangeBeamsPicker.svelte';
   import { PROPERTY_SIDES } from '../../../lib/model/foundation/edges';
 
   const code = $derived.by(() => { void modelStore.designData; return sheetCode(); });
@@ -72,9 +73,11 @@
 {/snippet}
 
 <details class="pk-card do" data-testid="design-options-analysis">
-  <summary><span class="do-h">{t('designData.analysis')}</span> <span class="do-sum" data-testid="design-options-analysis-summary">{summary(ANALYSIS, [t(`designData.opt.short.torsion.${o.torsion}`)])}</span></summary>
+  <summary><span class="do-h">{t('designData.analysis')}</span> <span class="do-sum" data-testid="design-options-analysis-summary">{summary(ANALYSIS)}</span></summary>
   {@render option('faces')}
   {@render option('flange')}
+  <p class="do-explain" data-testid="dd-flange-explain">{t('designData.flange.hint')}</p>
+  {#if on('flange')}<FlangeBeamsPicker />{/if}
   <div class="do-opt">
     <label class="do-inline">{t('rcSheets.torsion')}
       <select value={o.torsion} onchange={(e) => setTorsionMode(e.currentTarget.value as TorsionMode)} data-testid="dd-opt-torsion">
@@ -240,4 +243,5 @@
   .do-advice.warn { color: var(--st-warn); }
   .do-label { font-weight: 600; color: var(--st-text); }
   .do-rules { margin: 2px 0 0; padding-left: 2.2em; font-size: 0.68rem; line-height: 1.45; color: var(--st-text-2); }
+  .do-explain { margin: -2px 0 4px 22px; font-size: 0.68rem; color: var(--st-text-3); line-height: 1.35; }
 </style>
