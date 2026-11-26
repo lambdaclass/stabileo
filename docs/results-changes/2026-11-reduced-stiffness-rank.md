@@ -121,3 +121,21 @@ that member stiffer can increase the artificial pin derived from the
 largest assembled diagonal. It cannot change the free stiffness at the
 cantilever tip. The material rank check now accepts the same equilibrium
 as the linear solve for both tested stiffnesses of the fixed member.
+
+## Check SSI secant rank using physical stiffness
+
+SSI now checks the unpinned structural and soil stiffness together. Both the
+initial secant and the secant after each soil update must resolve the physical
+motion, including after reduction by rigid links and other constraints.
+Only verified rotation or warping gauges with no resolvable load work can
+receive numerical regularization. Equilibrium, reactions and refinement use
+physical stiffness and soil forces.
+
+For example, a spatial beam released about its weak bending axis at its base
+can sway without straining the beam. An artificial pin on its tip rotation
+previously supplied rank and produced a finite displacement under transverse
+load. The solver now refuses with `reduced_stiffness_rank`. Adding a transverse
+soil spring at the tip restrains the sway. Its reaction balances the
+transverse load, and the tip rotation follows the sway allowed by the hinge.
+Recheck saved SSI results for models whose behavior depends on released or
+weak rotational directions.

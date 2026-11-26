@@ -790,7 +790,6 @@ fn unit_soil_spring(node_id: usize, direction: usize) -> dedaliano_engine::solve
 }
 
 #[test]
-#[ignore = "known wrong result: #2584"]
 fn ssi_artificial_rotation_cannot_hold_a_spatial_mechanism() {
     use dedaliano_engine::{solver::{dof::DofNumbering, ssi::*}, types::SolverInput3D};
     let solver: SolverInput3D = serde_json::from_str(include_str!("../fixtures/ssi-artificial-rotation.json")).unwrap();

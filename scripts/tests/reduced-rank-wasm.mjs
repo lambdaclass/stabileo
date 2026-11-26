@@ -348,7 +348,7 @@ for (const dim of ['2d', '3d']) {
   }
 }
 
-if (process.env.RUN_KNOWN_WRONG_2584_SSI === '1') {
+{
   const solver = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/ssi-artificial-rotation.json', import.meta.url)));
   const load = solver.loads[0].data.fz;
   for (const inertia of [2 ** -44, 2 ** -36]) {
@@ -372,6 +372,11 @@ for (const dim of ['2d', '3d']) {
   planar.loads = [{ type: 'nodal', data: { nodeId: 3, fx: 0, fz: 0.125, my: 0 } }];
   const solver = dim === '2d' ? planar : spatial(planar);
   delete solver.supports[2];
+  if (dim === '3d') {
+    for (const nodeId of [2, 3]) {
+      solver.supports[nodeId] = { nodeId, rx: false, ry: true, rz: false, rrx: true, rry: false, rrz: true };
+    }
+  }
   solver.nodes[3] = dim === '2d' ? { id: 3, x: 2, z: 0 } : { id: 3, x: 2, y: 0, z: 0 };
   solver.constraints = [{
     type: 'rigidLink', masterNode: 2, slaveNode: 3, dofs: dim === '2d' ? [] : [0, 1, 2, 3, 4, 5],

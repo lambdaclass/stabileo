@@ -1583,6 +1583,26 @@ pub(super) fn dense_free_block(k: &[f64], dof: &DofNumbering) -> CscMatrix {
     CscMatrix::from_triplets(nf, &rows, &cols, &values)
 }
 
+#[derive(PartialEq, Eq)]
+pub(super) struct VerifiedGauges(Vec<usize>);
+
+impl VerifiedGauges {
+    pub(super) fn factor_matrix<'a>(&self, physical: &'a CscMatrix) -> Result<std::borrow::Cow<'a, CscMatrix>, String> {
+        if self.0.is_empty() {
+            return Ok(std::borrow::Cow::Borrowed(physical));
+        }
+        let diagonal = physical.diagonal();
+        let scale = diagonal.iter().fold(0.0_f64, |scale, value| scale.max(value.abs()));
+        let regularization = super::assembly::artificial_stiffness(scale);
+        let entries = self.0.iter().map(|&d| (d, d, diagonal[d].abs().max(regularization)));
+        let factor = with_stiffness_entries(physical, entries);
+        if factor.values.iter().any(|value| !value.is_finite()) {
+            return Err(operator_rounding_refusal());
+        }
+        Ok(std::borrow::Cow::Owned(factor))
+    }
+}
+
 pub(super) struct OperatorRank<'a> {
     dof: &'a DofNumbering,
     two_d: bool,
@@ -1638,12 +1658,13 @@ impl<'a> OperatorRank<'a> {
 
     pub(super) fn check_secant(
         &self, free: &CscMatrix, reduced: Option<&CscMatrix>, magnitude: &CscMatrix,
-    ) -> Result<(), String> {
+        force: &[f64], force_rounding: &[f64],
+    ) -> Result<VerifiedGauges, String> {
         self.check_rounding(free, reduced, Some(magnitude))?;
         let reduced_magnitude = self.constraints.map(|cs| cs.reduce_stiffness_magnitude(magnitude));
         let physical = reduced.unwrap_or(free);
         let envelope = reduced_magnitude.as_ref().unwrap_or(magnitude);
-        self.check_physical_tangent(physical, envelope, None, &self.releases)
+        self.check_physical_tangent(physical, envelope, None, &self.releases, Some((force, force_rounding)))
     }
 
     pub(super) fn check_tangent(
@@ -1656,34 +1677,39 @@ impl<'a> OperatorRank<'a> {
         let magnitude = reduced_magnitude.as_ref().unwrap_or(magnitude);
         let reduced_error = self.constraints.map(|cs| cs.reduce_stiffness_roundoff(accumulation_error));
         let error = reduced_error.as_ref().unwrap_or(accumulation_error);
-        self.check_physical_tangent(k, magnitude, Some(error), active_releases.unwrap_or(&self.releases))
+        self.check_physical_tangent(k, magnitude, Some(error), active_releases.unwrap_or(&self.releases), None)?;
+        Ok(())
     }
 
     fn check_physical_tangent(
         &self, k: &CscMatrix, magnitude: &CscMatrix, accumulation_error: Option<&CscMatrix>,
-        releases: &ReleasedRotations,
-    ) -> Result<(), String> {
-        if tangent_has_resolved_rank(k, magnitude, accumulation_error) { return Ok(()); }
+        releases: &ReleasedRotations, load: Option<(&[f64], &[f64])>,
+    ) -> Result<VerifiedGauges, String> {
+        if tangent_has_resolved_rank(k, magnitude, accumulation_error) {
+            return Ok(VerifiedGauges(Vec::new()));
+        }
         if k.values.iter().chain(&magnitude.values).any(|value| !value.is_finite()) {
             return Err(operator_rounding_refusal());
         }
 
-        let kept = self.tangent_coordinates(k, magnitude, releases);
-        if kept.len() < k.n
+        let excluded = self.tangent_gauges(k, magnitude, releases, load);
+        let (gauges, kept): (Vec<_>, Vec<_>) = (0..k.n).partition(|&d| excluded[d]);
+        if !gauges.is_empty()
             && tangent_has_resolved_rank(
                 &k.extract_principal_submatrix(&kept),
                 &magnitude.extract_principal_submatrix(&kept),
                 accumulation_error.map(|bound| bound.extract_principal_submatrix(&kept)).as_ref(),
             )
         {
-            return Ok(());
+            return Ok(VerifiedGauges(gauges));
         }
         Err(operator_rounding_refusal())
     }
 
-    fn tangent_coordinates(
+    fn tangent_gauges(
         &self, k: &CscMatrix, magnitude: &CscMatrix, releases: &ReleasedRotations,
-    ) -> Vec<usize> {
+        load: Option<(&[f64], &[f64])>,
+    ) -> Vec<bool> {
         let tags = tags(self.dof, self.two_d);
         let reduced_tags = self.constraints.map(|cs| {
             cs.independent_dofs().iter().map(|&d| tags[d]).collect::<Vec<_>>()
@@ -1708,7 +1734,8 @@ impl<'a> OperatorRank<'a> {
             if tag.kind == DofKind::Translation { continue; }
             if row_scale[d] == 0.0 && row_entries[d] == 0.0 {
                 direction[d] = 1.0;
-                excluded[d] = !translates(&direction);
+                excluded[d] = !translates(&direction)
+                    && load.is_none_or(|(force, rounding)| rounding[d].is_finite() && force[d].abs() <= rounding[d]);
                 direction[d] = 0.0;
             }
             if tag.kind == DofKind::Rotation && releases.nodes.contains(&tag.node) {
@@ -1732,7 +1759,14 @@ impl<'a> OperatorRank<'a> {
             }
             let admissible = !translates(&direction)
                 && releases.permits(*node, dofs, &candidate.values)
-                && is_null_action(k, &absolute, &direction, dofs.len());
+                && is_null_action(k, &absolute, &direction, dofs.len())
+                && load.is_none_or(|(force, rounding)| {
+                    let mut work = super::load_work::Work::default();
+                    for (i, &d) in dofs.iter().enumerate() {
+                        work.product(candidate.values[i], candidate.rounding[i], force[d], rounding[d]);
+                    }
+                    work.contains_zero()
+                });
             for &d in dofs { direction[d] = 0.0; }
             if !admissible { continue; }
 
@@ -1747,9 +1781,8 @@ impl<'a> OperatorRank<'a> {
             excluded[dofs[pivot]] = true;
             basis.push((pivot, candidate));
         }
-        (0..k.n).filter(|&d| !excluded[d]).collect()
+        excluded
     }
-
 }
 
 pub fn of_2d(input: &SolverInput) -> Result<Stability, String> {
