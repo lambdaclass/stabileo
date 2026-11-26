@@ -14,9 +14,9 @@ the lower cut and orients them before adding their global components. In
 the regression, two columns carry 50 kN each in the same lateral direction
 at that cut. One column carries 10 kN at its upper end. With 2000 kN of
 total axial compression, a 3 m storey height and 6 mm of drift, the
-lower-cut shear gives (Q = 2000 \times 0.006/(100 \times 3) = 0.04) in
-either member orientation. Using the local I end of the reversed column
-gave (Q = 0.10) and classified the storey as sway.
+lower-cut shear gives `Q = 2000 × 0.006 / (100 × 3) = 0.04` in either
+member orientation. Using the local I end of the reversed column gave
+`Q = 0.10` and classified the storey as sway.
 
 The spatial moment heatmap uses the larger absolute bending component at
 each shared cut. A section with bending components 3 and 4 kN·m has a

@@ -4,7 +4,8 @@
   "prs": [2615],
   "area": "analysis",
   "when": {
-    "all": ["members"]
+    "all": ["members"],
+    "any": ["memberLoads", "selfWeight", "combinations", "magnitudeCombinations"]
   },
   "quantities": ["member", "diagrams", "sectionStress", "steel", "rc"],
   "title": {
