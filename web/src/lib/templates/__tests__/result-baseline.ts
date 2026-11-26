@@ -2,7 +2,9 @@
  * A model's results held to a baseline file: its maxima (every component, where it occurs and
  * under which result) and its statics (applied, reactions and residual per case and
  * combination), as the project workbook writes them at 5 stations. Text is compared exactly and
- * numbers to 1e-9 of their column's scale (see `sameRows` for the two statics columns that differ). `STABILEO_UPDATE_BASELINES=1` re-records.
+ * numbers to 1e-9 of their column's scale (see `sameRows` for the two statics columns that differ);
+ * an extreme that is round-off (1e-12 of its column) is held by its value alone, every place a tie for it.
+ * `STABILEO_UPDATE_BASELINES=1` re-records.
  */
 import { expect } from 'vitest';
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
@@ -20,7 +22,7 @@ export interface Baseline { maxima: Cell[][]; statics: Cell[][] }
  *   measured against the forces it is the difference of.
  * - `worstRelative` is already relative: absolute 1e-9.
  */
-function sameRows(label: string, got: Cell[][], want: Cell[][]) {
+export function sameRows(label: string, got: Cell[][], want: Cell[][]) {
   expect(got.length, `${label}: rows`).toBe(want.length);
   const own = (c: number) => Math.max(1e-12, ...want.slice(1).map((r) => (typeof r[c] === 'number' ? Math.abs(r[c] as number) : 0)));
   const header = want[0]!.map(String);
@@ -30,8 +32,11 @@ function sameRows(label: string, got: Cell[][], want: Cell[][]) {
     if (header[c] === 'worstRelative') return 1;
     return own(c);
   };
+  const value = column('value'), where = ['entity', 'end', 'x [m]', 'source', 'sourceId', 'sourceName'].map(column).filter((k) => k >= 0);
   want.forEach((w, i) => {
+    const tie = value >= 0 && typeof w[value] === 'number' && Math.abs(w[value] as number) <= 1e-12 * scale(value);
     w.forEach((v, c) => {
+      if (tie && where.includes(c)) return;
       const g = got[i]![c];
       if (typeof v === 'number' && typeof g === 'number') expect(Math.abs(g - v), `${label}, row ${i} "${want[0]![c]}": ${g} against ${v}`).toBeLessThanOrEqual(1e-9 * scale(c));
       else expect(g, `${label}, row ${i} "${want[0]![c]}"`).toEqual(v);
