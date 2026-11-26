@@ -335,6 +335,9 @@ pub(crate) fn flexure_inputs_valid(m: &Cirsoc201MemberData) -> bool {
 /// the strength), the tension steel strain falls. It is −As·fy − Nu as c → 0, so the root is
 /// unique where it is strictly increasing. With Nu = 0 the moment is the internal couple, and
 /// the arithmetic is the one this module used before the axial force was added.
+///
+/// Each rounded f64 operation in the residual must stay non-decreasing in c: the root search
+/// (`increasing_root_rounded_monotone`) returns the bisection's bits only then.
 fn flexure_at<T: Real>(m: &Cirsoc201MemberData, b1: T, c: T, nu: T) -> (T, T, T, T, T, T) {
     let es = T::exact(m.es.unwrap_or(200e9));
     let fy = T::exact(m.fy);
@@ -396,7 +399,7 @@ pub(crate) fn nominal_flexure_axial_r<T: Real>(m: &Cirsoc201MemberData, nu: T, n
     // Without compression the root is below d (R(d) ≥ Cc > 0). With it, the neutral axis can
     // leave the section; every strain saturates within a few depths, so a wide bracket is safe.
     let hi = if nu_f64 > 0.0 { 1e3 * (m.h / b1_f + m.d) } else { m.h / b1_f + m.d };
-    let c = T::increasing_root(
+    let c = T::increasing_root_rounded_monotone(
         |c| flexure_at::<f64>(m, b1_f, c, nu_f64).0,
         |c| flexure_at::<T>(m, b1, c, nu).0,
         1e-9,
@@ -789,6 +792,45 @@ mod tests {
         assert!(out[0].is_nan());
         row[0] = 2019.0;
         assert!(beam_batch(&row).is_err());
+    }
+
+    #[test]
+    fn neutral_axis_has_the_bits_of_the_bisection() {
+        let mut state = 0x9E3779B97F4A7C15u64;
+        let mut unit = || {
+            state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            (state >> 11) as f64 / (1u64 << 53) as f64
+        };
+        let mut solved = 0;
+        for i in 0..20_000 {
+            let h = 0.15 + 1.2 * unit();
+            let b = 0.12 + 0.6 * unit();
+            let d = h * (0.75 + 0.2 * unit());
+            let flanged = i % 3 == 0;
+            let m = Cirsoc201MemberData {
+                element_id: 1,
+                fc: 15e6 + 60e6 * unit(),
+                fy: if i % 2 == 0 { 420e6 } else { 500e6 },
+                es: if i % 5 == 0 { Some(210e9) } else { None },
+                b, h, d,
+                as_tension: b * h * (1e-5 + 0.1 * unit() * unit()),
+                as_compression: if i % 4 == 0 { None } else { Some(b * h * 0.05 * unit()) },
+                d_prime: if i % 7 == 0 { None } else { Some(h * (0.05 + 0.15 * unit())) },
+                av: None, s_stirrup: None, fyt: None, ag: None, lambda: None,
+                bf: flanged.then(|| b * (1.0 + 3.0 * unit())),
+                hf: flanged.then(|| h * unit()),
+                edition: Cirsoc201Edition::E2025,
+            };
+            let capacity = 0.85 * m.fc * b * h;
+            let nu = match i % 6 { 0 | 1 => 0.0, 2 => -capacity * 0.05 * unit(), 3 => capacity * 2.0 * unit(), _ => capacity * 0.6 * unit() };
+            let b1 = beta1(m.fc);
+            let hi = if nu > 0.0 { 1e3 * (m.h / b1 + m.d) } else { m.h / b1 + m.d };
+            let bisected = crate::certify::real::bisect_increasing(|c| flexure_at::<f64>(&m, b1, c, nu).0, 1e-9, hi);
+            let state = nominal_flexure_axial_r::<f64>(&m, nu, nu).unwrap();
+            assert_eq!(state.c.to_bits(), bisected.to_bits(), "case {i}: {m:?} Nu {nu}");
+            solved += usize::from(bisected.is_finite());
+        }
+        assert!(solved > 15_000, "{solved}");
     }
 
     #[test]
