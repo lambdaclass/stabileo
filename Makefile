@@ -1430,3 +1430,37 @@ test.engine.nonlinear-drivers-2510-wasm: wasm scripts/tests/arc-review-wasm.mjs 
 .PHONY: test.engine.prescribed-motion-2227-wasm
 test.engine.prescribed-motion-2227-wasm: wasm
 	$(NIX_RUN) node --test scripts/tests/prescribed-motion-2227-wasm.mjs
+
+.PHONY: test.compute check.compute.webgpu test.compute.metal build.compute.webgpu
+test.compute:
+	$(NIX_RUN) cargo test --locked -p stabileo-compute
+check.compute.webgpu:
+	$(NIX_RUN) cargo check --locked -p stabileo-compute --target wasm32-unknown-unknown --features webgpu
+test.compute.metal:
+	$(NIX_RUN) cargo test --locked -p stabileo-compute --features metal,hardware-tests --test gpu -- --nocapture
+build.compute.webgpu:
+	$(NIX_RUN) wasm-pack build compute --target web --out-dir ../target/compute-webgpu --no-opt -- --features webgpu --locked
+
+.PHONY: test.compute.webgpu check.compute fmt.compute lint.compute
+test.compute.webgpu: build.compute.webgpu
+	$(NIX_RUN) node compute/browser-smoke.mjs
+check.compute: test.compute check.compute.webgpu
+fmt.compute:
+	$(NIX_RUN) cargo fmt -p stabileo-compute
+	$(NIX_RUN) rustfmt --edition 2021 engine/src/linalg/backend.rs
+lint.compute:
+	$(NIX_RUN) cargo clippy --locked -p stabileo-compute --all-targets --all-features --no-deps -- -D warnings
+
+.PHONY: bench.compute.metal bench.compute.webgpu
+bench.compute.metal:
+	$(NIX_RUN) cargo run --locked --release -p stabileo-compute --features metal --example compare
+bench.compute.webgpu: build.compute.webgpu
+	$(NIX_RUN) node compute/browser-smoke.mjs --solve
+
+.PHONY: bench.compute.pcg
+bench.compute.pcg:
+	$(NIX_RUN) cargo run --locked --release -p stabileo-compute --example pcg_cost
+
+.PHONY: bench.compute.reuse
+bench.compute.reuse: build.compute.webgpu
+	$(NIX_RUN) node compute/browser-smoke.mjs --reuse

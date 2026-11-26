@@ -1,4 +1,4 @@
 [workspace]
-members = ["engine", "ai-backend"]
+members = ["engine", "ai-backend", "compute"]
 exclude = ["testing/fuzz"]
 resolver = "2"

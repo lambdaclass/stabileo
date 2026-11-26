@@ -130,7 +130,7 @@ def area(path):
         return 'research'
     if path.startswith('web/src/components/tools/') or re.fullmatch(r'web/e2e/tools[^/]*\.spec\.ts', path):
         return 'tools'
-    if path.startswith(('engine/', 'testing/fuzz/')):
+    if path.startswith(('engine/', 'compute/', 'testing/fuzz/')):
         return 'engine'
     if path.startswith('web/') and not path.startswith(SITE_EXCLUDED):
         return 'site'
