@@ -241,3 +241,88 @@ it('#2218 requires both bearings to deliver the positive drift', () => {
   const low = steppedRoof([], 3 + 1.199 * hb);
   expect(driftAndSlidingLoads(low, gravityLayout(low, { ...gravity, tributaryWidth: 1 }), inputs).distributed).toEqual([]);
 });
+
+
+const issue2218ConnectedBays = process.env.RUN_KNOWN_WRONG === '2218' ? it : it.skip;
+
+issue2218ConnectedBays.each([false, true])('known wrong result: #2218 positive pressure reaches each loaded one-way bay (station split %s)', stationSplit => {
+  const config = { ...snow, roofKind: 'mono', slippery: false } as const;
+  const inputs = { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1 };
+  for (const [depth, expected] of [
+    [1, [1.5633453333333334, 1.476509181184, 0.00968777348266666]],
+    [2, [2.274958546848, 0.774583741152, 0]],
+  ] as const) {
+    for (const angle of [0, Math.PI / 2]) {
+      const near = [[0, 0, 3], [depth, 0, 3], ...(stationSplit ? [[depth, 2, 3]] : []), [depth, 4, 3], [0, 4, 3]];
+      const far = stationSplit
+        ? [
+            [[depth, 0, 3], [7.5, 0, 3], [7.5, 2, 3], [depth, 2, 3]],
+            [[depth, 2, 3], [7.5, 2, 3], [7.5, 4, 3], [depth, 4, 3]],
+          ]
+        : [[[depth, 0, 3], [7.5, 0, 3], [7.5, 4, 3], [depth, 4, 3]]];
+      const model = transform(mesh([near, ...far, [[-7.5, 0, 5], [0, 0, 5], [0, 4, 5], [-7.5, 4, 5]]]), angle, 0);
+      const gravity = { mode: 'panels', slab: 'oneWay', spanAxis: angle === 0 ? 'x' : 'y' } as const;
+      const layout = gravityLayout(model, { ...gravity, tributaryWidth: 1 });
+      const measures = (rows: Array<{ elementId: number; q: number; qJ?: number; a?: number; b?: number }>) => {
+        const forceByBearing = [0, 0, 0];
+        const momentAlong = [0, 0, 0];
+        for (const row of rows) {
+          const e = model.elements.get(row.elementId)!;
+          const worldA = model.nodes.get(e.nodeI)!, worldB = model.nodes.get(e.nodeJ)!;
+          if ((worldA.z ?? 0) > 3) continue;
+          const local = ({ x, y }: typeof worldA) => [
+            x * Math.cos(angle) + y * Math.sin(angle),
+            y * Math.cos(angle) - x * Math.sin(angle),
+          ];
+          const [ax, ay] = local(worldA), [bx, by] = local(worldB);
+          const bearing = [0, depth, 7.5].findIndex(x => Math.abs(x - ax!) < 1e-10 && Math.abs(x - bx!) < 1e-10);
+          expect(bearing).toBeGreaterThanOrEqual(0);
+          const length = Math.hypot(worldB.x - worldA.x, worldB.y - worldA.y);
+          const start = row.a ?? 0, span = (row.b ?? length) - start;
+          const q0 = -row.q, q1 = -(row.qJ ?? row.q);
+          const force = span * (q0 + q1) / 2;
+          const first = span ** 2 * (q0 + 2 * q1) / 6;
+          forceByBearing[bearing] = forceByBearing[bearing]! + force;
+          momentAlong[bearing] = momentAlong[bearing]! + ay! * force + (by! - ay!) / length * (start * force + first);
+        }
+        return { forceByBearing, momentAlong };
+      };
+      const { distributed } = driftAndSlidingLoads(model, layout, inputs);
+      const drift = measures(distributed);
+      for (const [i, force] of expected.entries()) {
+        expect(drift.forceByBearing[i]).toBeCloseTo(force, 10);
+        expect(drift.momentAlong[i]).toBeCloseTo(2 * force, 10);
+      }
+      expect(drift.forceByBearing[1]! * depth + drift.forceByBearing[2]! * 7.5).toBeCloseTo(1.549167482304, 10);
+      const farMembers = new Set([...model.elements.values()].filter(({ nodeI, nodeJ }) => {
+        const depthAt = (id: number) => {
+          const { x, y } = model.nodes.get(id)!;
+          return x * Math.cos(angle) + y * Math.sin(angle);
+        };
+        return [nodeI, nodeJ].every(id => Math.abs(depthAt(id) - 7.5) < 1e-10);
+      }).map(e => e.id));
+      const farRows = distributed.filter(row => farMembers.has(row.elementId));
+      expect(farRows).toHaveLength(depth === 2 ? 0 : stationSplit ? 2 : 1);
+      if (depth === 1) {
+        const receivers = new Set([...model.elements.keys()].filter(id => !farMembers.has(id)));
+        expect(() => driftAndSlidingLoads(model, layout, { ...inputs, receivers })).toThrow('snow.refused.stepDriftTransfer');
+      }
+      const direct = snowLoadCases({ model, layout, snow: config, tributaryWidth: 1 })!;
+      expect(direct.result.refused).toBeUndefined();
+      const plan = buildLoadPlan({
+        model, gravity, regulations: regulations(), dead: [], occupancyKey: 'vivienda', tributaryWidth: 1,
+        reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true,
+        snow: { ...config, enabled: true, source: 'site' },
+      });
+      expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+      for (const rows of [direct.cases[0]!.distributed, plan.distributed.filter(load => load.caseType === 'S' && load.caseIndex === plan.cases.findIndex(c => c.type === 'S'))]) {
+        const total = measures(rows);
+        for (const [i, area] of [2 * depth, 15, 2 * (7.5 - depth)].entries()) {
+          const force = area * direct.result.ps + expected[i]!;
+          expect(total.forceByBearing[i]).toBeCloseTo(force, 10);
+          expect(total.momentAlong[i]).toBeCloseTo(2 * force, 10);
+        }
+      }
+    }
+  }
+});

@@ -221,7 +221,11 @@ it('#2512 restored platforms with a second tie keep both pressures at a fixed ma
     .toEqual([lower.quad, upper.quad].map(quadId => expect.objectContaining({ data: expect.objectContaining({ quadId, q: 1 }) })));
 });
 
-it.each(['D', 'S'] as const)('applied geometry-supported %s loads retain their bearing reactions', async caseType => {
+it.each(['D', 'S'] as const)('applied geometry-supported %s loads retain their bearing reactions', caseType => checkBearingReactions(caseType));
+const issue2218ConnectedBays = process.env.RUN_KNOWN_WRONG === '2218' ? it : it.skip;
+issue2218ConnectedBays('known wrong result: #2218 applied drift reaches three bearing lines', () => checkBearingReactions('S', true));
+
+async function checkBearingReactions(caseType: 'D' | 'S', connectedBays = false) {
   const mode = uiStore.analysisMode;
   onTestFinished(() => { uiStore.analysisMode = mode; });
   uiStore.analysisMode = 'pro';
@@ -242,7 +246,19 @@ it.each(['D', 'S'] as const)('applied geometry-supported %s loads retain their b
   const gravity = caseType === 'D' ? { mode: 'panels' } as const
     : { mode: 'panels', slab: 'oneWay', spanAxis: 'x' } as const;
   const lower = caseType === 'D' ? ring(0, 10, 6, 3, 3) : ring(0, 7.5, 4, 3, 3);
-  framed(lower, caseType === 'D' ? 3 : 2, 3);
+  const middle = connectedBays ? [0, 4].map(y => {
+    const id = modelStore.addNode(1, y, 3);
+    modelStore.addSupport(id, 'fixed3d');
+    return id;
+  }) : [];
+  if (connectedBays) {
+    framed([lower[0], middle[0]!, middle[1]!, lower[3]], 2, 3);
+    modelStore.addElement(middle[0]!, lower[1]);
+    modelStore.addElement(lower[1], lower[2]);
+    modelStore.addElement(lower[2], middle[1]!);
+  } else {
+    framed(lower, caseType === 'D' ? 3 : 2, 3);
+  }
   const upper = caseType === 'D' ? ring(0, 10, 6, 3, 6) : ring(-7.5, 0, 4, 5, 5);
   if (caseType === 'D') {
     const material = modelStore.model.materials.keys().next().value!;
@@ -268,7 +284,7 @@ it.each(['D', 'S'] as const)('applied geometry-supported %s loads retain their b
   const ps = caseType === 'S' ? plan.cases.find(entry => entry.type === 'S')!.nameParams?.ps as number : 0;
   for (const result of [modelStore.solve3D(false, false, true), await modelStore.solve3DAsync(false, false, true)]) {
     if (!result || typeof result === 'string') throw new Error(String(result));
-    expect(result.reactions.length).toBe(8);
+    expect(result.reactions.length).toBe(8 + middle.length);
   }
   expect(modelStore.singleSolveInput3D(false, false, true)).toBeTruthy();
   expect(modelStore.buildSolverInput3D()).toBeTruthy();
@@ -284,6 +300,11 @@ it.each(['D', 'S'] as const)('applied geometry-supported %s loads retain their b
       if (caseType === 'D') {
         expect(force(lower)).toBeCloseTo(60, 8);
         expect(force(upper)).toBeCloseTo(10 * Math.sqrt(45), 8);
+      } else if (connectedBays) {
+        expect(force([lower[0], lower[3]])).toBeCloseTo(2 * ps + 1.5633453333333334, 8);
+        expect(force(middle)).toBeCloseTo(15 * ps + 1.476509181184, 8);
+        expect(force([lower[1], lower[2]])).toBeCloseTo(13 * ps + 0.00968777348266666, 8);
+        expect(force(upper)).toBeCloseTo(30 * ps, 8);
       } else {
         expect(force([lower[0], lower[3]])).toBeCloseTo(15 * ps + 3.049542288 - 1.549167482304 / 7.5, 8);
         expect(force([lower[1], lower[2]])).toBeCloseTo(15 * ps + 1.549167482304 / 7.5, 8);
@@ -291,4 +312,4 @@ it.each(['D', 'S'] as const)('applied geometry-supported %s loads retain their b
       }
     }
   }
-});
+}
