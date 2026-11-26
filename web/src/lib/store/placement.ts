@@ -1,16 +1,19 @@
 /**
  * The project's placement written into the model: each horizontal beam's and slab's vertical
- * offset from the level reference, each column storey's offset in plan from its stack's fixed
- * point. Only what the placement owns is written: the vertical part of a beam's offset (its
- * offset across, a perimeter beam's, stays) and the plan offset of the stacks given a fixed point.
+ * offset from the level reference, each column storey's offset in plan so its fixed point stands
+ * on its axis, and with `edges` each beam with slab on one side moved toward it. Only what the
+ * placement owns is written: without `edges` a beam keeps its offset across, and a stack with no
+ * fixed point of its own (and none from `edges`) keeps its own.
  */
 import { modelStore } from './model.svelte';
 import { designData, patchDesignData, storedDesignData } from './design-data';
 import { physicalPlates, setPlateOffset } from './physical-plates';
 import { plateLoops } from '../model/physical/plate';
-import { beamDrop, columnShift, slabDrop, type LevelReference, type Placement } from '../model/placement';
+import { beamDrop, columnShift, outerKind, slabDrop, type LevelReference, type Placement } from '../model/placement';
 import { stackKey, type FixedPointKind } from '../rc-sheets/fixed-points';
 import { memberRoll } from '../engine/local-axes-3d';
+import { materialFamilyOf } from '../model/material-family';
+import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import type { MemberOffset } from '../model/element-3d-metadata';
 
 const TOL = 1e-6;
@@ -18,12 +21,15 @@ type P3 = { x: number; y: number; z: number };
 
 export const placementData = (): Placement => { void modelStore.designData; return designData().placement ?? {}; };
 
-/** The fixed point the project states for a column stack, the centre when none. */
-export const columnFixedPoint = (stack: string): FixedPointKind => placementData().columns?.[stack] ?? 'c';
+/** The fixed point a column stack stands by: its own, else its outer face or corner where the edges are flush, else the centre. */
+export const columnFixedPoint = (stack: string): FixedPointKind => { const p = placementData(); return p.columns?.[stack] ?? (p.edges ? edgeKinds().get(stack) : undefined) ?? 'c'; };
+
+/** Whether a stack's fixed point is its own or read from the edge. */
+export const columnPointIsOwn = (stack: string): boolean => placementData().columns?.[stack] !== undefined;
 
 function savePlacement(next: Placement): void {
   const columns = next.columns && Object.keys(next.columns).length ? next.columns : undefined;
-  const p: Placement = { ...(next.reference ? { reference: next.reference } : {}), ...(columns ? { columns } : {}) };
+  const p: Placement = { ...(next.reference ? { reference: next.reference } : {}), ...(columns ? { columns } : {}), ...(next.edges ? { edges: true } : {}) };
   const stored = storedDesignData() as Record<string, unknown>;
   const sheets = stored.rcSheets as { fixedPoints?: unknown } | undefined;
   const rcSheets = sheets && 'fixedPoints' in sheets ? (({ fixedPoints: _gone, ...rest }) => rest)(sheets) : sheets;
@@ -35,15 +41,44 @@ export function setLevelReference(reference: LevelReference): void {
   modelStore.batch(() => { savePlacement({ ...placementData(), reference }); applyPlacement(); });
 }
 
-/** State the fixed point of one stack, or of every stack when `stack` is null, and move the storeys above to it; one undo step. */
-export function setColumnFixedPoint(stack: string | null, kind: FixedPointKind): void {
+/** Flush, or not, the columns and beams on the floor's edge with the slab's edge; one undo step. */
+export function setEdgesFlush(on: boolean): void {
+  modelStore.batch(() => {
+    if (!on && placementData().edges) backOnAxes();
+    savePlacement({ ...placementData(), edges: on });
+    applyPlacement();
+  });
+}
+
+/** What the edges moved, back on its axis: the beams' and walls' offsets across, the stacks with no fixed point of their own. */
+function backOnAxes(): void {
+  const p = placementData();
+  for (const e of [...modelStore.elements.values()]) {
+    if (e.type === 'truss' || !e.offset || e.offset.frame !== 'global') continue;
+    const a = at(e.nodeI), b = at(e.nodeJ);
+    if (!a || !b || Math.abs(a.z - b.z) > TOL) continue;
+    writeOffset(e.id, { ...vecOf(e.offset, 'i'), x: 0, y: 0 }, { ...vecOf(e.offset, 'j'), x: 0, y: 0 });
+  }
+  for (const w of edgeWalls(levelSlabs())) if (w.offset && (w.offset.x || w.offset.y)) setPlateOffset(w.id, w.offset.z ? { frame: 'global', x: 0, y: 0, z: w.offset.z } : undefined);
+  for (const stack of columnStacks()) {
+    if (p.columns?.[stack.key]) continue;
+    for (const id of stack.storeys) { const e = modelStore.elements.get(id)!; if (!e.offset || e.offset.frame === 'global') writeOffset(id, { ...vecOf(e.offset, 'i'), x: 0, y: 0 }, { ...vecOf(e.offset, 'j'), x: 0, y: 0 }); }
+  }
+}
+
+/** State the fixed point of one stack, or of every stack when `stack` is null, and move its storeys to it; `kind` null leaves the stack to its edge again. One undo step. */
+export function setColumnFixedPoint(stack: string | null, kind: FixedPointKind | null): void {
   modelStore.batch(() => {
     const p = placementData();
-    const columns = stack === null ? Object.fromEntries(columnStacks().map((s) => [s.key, kind])) : { ...(p.columns ?? {}), [stack]: kind };
+    const columns = stack === null
+      ? (kind === null ? {} : Object.fromEntries(columnStacks().map((s) => [s.key, kind])))
+      : (({ [stack]: _old, ...rest }) => (kind === null ? rest : { ...rest, [stack]: kind }))(p.columns ?? {});
     savePlacement({ ...p, columns });
     applyPlacement();
   });
 }
+
+const isSteel = (id: number | undefined) => id !== undefined && materialFamilyOf(modelStore.materials.get(id) as never, catalogueGradeFamily).family === 'steel';
 
 const at = (id: number): P3 | null => { const n = modelStore.nodes.get(id); return n ? { x: n.x, y: n.y, z: n.z ?? 0 } : null; };
 const sectionOf = (e: { sectionId: number }) => modelStore.sections.get(e.sectionId) as { b?: number; h?: number } | undefined;
@@ -94,6 +129,58 @@ function writeOffset(id: number, i: P3, j: P3): boolean {
   return true;
 }
 
+const across = (e: { sectionId: number; rollAngle?: number }, s: { b?: number; h?: number }) => {
+  const r = Math.abs(((memberRoll(e as never, modelStore.sections as never) % 180) + 180) % 180 - 90) < 45;
+  return (r ? s.h : s.b) ?? 0;
+};
+
+/** The slabs at a height containing a point in plan. */
+const slabAt = (slabs: ReturnType<typeof levelSlabs>, p: P3) => slabs.some((s) => Math.abs(s.z - p.z) < TOL && inside(p, s.outline));
+
+/** Each stack's outer face or corner, from where its floors have no slab beside it; none for a stack inside the floor or with no slab at its nodes. */
+function edgeKinds(slabs = levelSlabs()): Map<string, FixedPointKind> {
+  const out = new Map<string, FixedPointKind>();
+  const probe = 0.1;
+  for (const stack of columnStacks()) {
+    const base = modelStore.elements.get(stack.storeys[0]!)!;
+    for (const id of stack.storeys) {
+      const e = modelStore.elements.get(id)!, a = at(e.nodeI), b = at(e.nodeJ);
+      if (!a || !b) continue;
+      const top = a.z > b.z ? a : b;
+      if (!slabAt(slabs, top)) continue;
+      const has = (dx: number, dy: number) => slabAt(slabs, { x: top.x + dx * probe, y: top.y + dy * probe, z: top.z });
+      const ox = !has(-1, 0) && has(1, 0) ? -1 : !has(1, 0) && has(-1, 0) ? 1 : 0, oy = !has(0, -1) && has(0, 1) ? -1 : !has(0, 1) && has(0, -1) ? 1 : 0;
+      if (ox || oy) out.set(stack.key, outerKind([ox, oy], memberRoll(base, modelStore.sections as never)));
+      break;
+    }
+  }
+  return out;
+}
+
+/** The walls standing on the floor's edge, each with how far its mid-plane moves to put its outer face on the slab's edge (half its thickness toward the slab), m in plan. */
+function edgeWalls(slabs: ReturnType<typeof levelSlabs>): Array<{ id: number; shift: [number, number]; offset?: { x: number; y: number; z: number } }> {
+  return physicalPlates().flatMap((pl) => {
+    if (pl.physical.kind !== 'wall') return [];
+    const pts = plateLoops(pl.group).outer.map(at);
+    if (pts.length < 3 || pts.some((q) => !q)) return [];
+    const ps = pts as P3[], zTop = Math.max(...ps.map((q) => q.z));
+    const top = ps.filter((q) => Math.abs(q.z - zTop) < TOL);
+    let a = top[0]!, b = top[0]!;
+    for (const q of top) for (const r of top) if (Math.hypot(r.x - q.x, r.y - q.y) > Math.hypot(b.x - a.x, b.y - a.y)) { a = q; b = r; }
+    const L = Math.hypot(b.x - a.x, b.y - a.y);
+    if (L < TOL) return [];
+    const nx = -(b.y - a.y) / L, ny = (b.x - a.x) / L, t = pl.surface.thickness, probe = t / 2 + 0.1;
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: zTop };
+    const levels = [...new Set(slabs.map((s) => s.z))].filter((z) => z <= zTop + TOL && z >= Math.min(...ps.map((q) => q.z)) - TOL);
+    const side = levels.map((z) => {
+      const l = slabAt(slabs, { x: mid.x + nx * probe, y: mid.y + ny * probe, z }), r = slabAt(slabs, { x: mid.x - nx * probe, y: mid.y - ny * probe, z });
+      return l && !r ? 1 : r && !l ? -1 : 0;
+    }).find((v) => v !== 0) ?? 0;
+    const d = (side * t) / 2;
+    return [{ id: pl.id, shift: [Math.round(nx * d * 1e9) / 1e9 + 0, Math.round(ny * d * 1e9) / 1e9 + 0] as [number, number], ...(pl.surface.offset?.frame === 'global' ? { offset: pl.surface.offset } : {}) }];
+  });
+}
+
 /**
  * Write the placement into the model: the members it owns moved to where it puts them, nothing
  * else touched. A member offset along its own axes is left alone, the placement owning global
@@ -103,36 +190,47 @@ export function applyPlacement(): number {
   const p = placementData();
   let moved = 0;
   modelStore.batch(() => {
-    if (p.reference) {
-      const slabs = levelSlabs();
-      for (const s of slabs) {
-        const z = slabDrop(p.reference, s.t), cur = s.offset ?? { x: 0, y: 0, z: 0 };
-        if (Math.abs(cur.z - z) < 1e-9) continue;
-        const next = { frame: 'global' as const, x: cur.x, y: cur.y, z };
-        setPlateOffset(s.id, next.x || next.y || next.z ? next : undefined);
-        moved++;
-      }
-      for (const e of [...modelStore.elements.values()]) {
-        if (e.type === 'truss' || (e.offset && e.offset.frame !== 'global')) continue;
-        const a = at(e.nodeI), b = at(e.nodeJ), h = sectionOf(e)?.h;
-        if (!a || !b || !h || Math.abs(a.z - b.z) > TOL || Math.hypot(b.x - a.x, b.y - a.y) < TOL) continue;
-        const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: a.z };
-        const t = Math.max(0, ...slabs.filter((s) => Math.abs(s.z - a.z) < TOL && inside(mid, s.outline)).map((s) => s.t));
-        const z = Math.round(beamDrop(p.reference, h, t) * 1e9) / 1e9 + 0;
-        const i = { ...vecOf(e.offset, 'i'), z }, j = { ...vecOf(e.offset, 'j'), z };
-        if (writeOffset(e.id, i, j)) moved++;
-      }
+    const slabs = levelSlabs();
+    if (p.reference) for (const s of slabs) {
+      const z = slabDrop(p.reference, s.t), cur = s.offset ?? { x: 0, y: 0, z: 0 };
+      if (Math.abs(cur.z - z) < 1e-9) continue;
+      const next = { frame: 'global' as const, x: cur.x, y: cur.y, z };
+      setPlateOffset(s.id, next.x || next.y || next.z ? next : undefined);
+      moved++;
     }
+    if (p.reference || p.edges) for (const e of [...modelStore.elements.values()]) {
+      if (e.type === 'truss' || (e.offset && e.offset.frame !== 'global')) continue;
+      const a = at(e.nodeI), b = at(e.nodeJ), sec = sectionOf(e), h = sec?.h;
+      if (!a || !b || !sec || !h || Math.abs(a.z - b.z) > TOL) continue;
+      const L = Math.hypot(b.x - a.x, b.y - a.y);
+      if (L < TOL) continue;
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: a.z };
+      const t = Math.max(0, ...slabs.filter((s) => Math.abs(s.z - a.z) < TOL && inside(mid, s.outline)).map((s) => s.t));
+      const cur = vecOf(e.offset, 'i');
+      const z = p.reference ? Math.round(beamDrop(p.reference, h, t, isSteel(e.materialId)) * 1e9) / 1e9 + 0 : cur.z;
+      let { x, y } = cur;
+      if (p.edges) {
+        const nx = -(b.y - a.y) / L, ny = (b.x - a.x) / L, probe = Math.max(0.1, across(e, sec) / 2 + 0.05);
+        const left = slabAt(slabs, { x: mid.x + nx * probe, y: mid.y + ny * probe, z: a.z }), right = slabAt(slabs, { x: mid.x - nx * probe, y: mid.y - ny * probe, z: a.z });
+        const side = left && !right ? 1 : right && !left ? -1 : 0, d = (side * across(e, sec)) / 2;
+        x = Math.round(nx * d * 1e9) / 1e9 + 0; y = Math.round(ny * d * 1e9) / 1e9 + 0;
+      }
+      if (writeOffset(e.id, { ...cur, x, y, z }, { ...vecOf(e.offset, 'j'), x, y, z })) moved++;
+    }
+    if (p.edges) for (const w of edgeWalls(slabs)) {
+      const cur = w.offset ?? { x: 0, y: 0, z: 0 }, [x, y] = w.shift;
+      if (Math.abs(cur.x - x) < 1e-9 && Math.abs(cur.y - y) < 1e-9) continue;
+      setPlateOffset(w.id, x || y || cur.z ? { frame: 'global', x, y, z: cur.z } : undefined);
+      moved++;
+    }
+    const auto = p.edges ? edgeKinds(slabs) : new Map<string, FixedPointKind>();
     for (const stack of columnStacks()) {
-      const kind = p.columns?.[stack.key];
+      const kind = p.columns?.[stack.key] ?? auto.get(stack.key) ?? (p.edges ? 'c' : undefined);
       if (!kind) continue;
-      const [baseId, ...up] = stack.storeys, base = modelStore.elements.get(baseId!)!, bs = sectionOf(base);
-      if (!bs?.b || !bs.h || (base.offset && base.offset.frame !== 'global')) continue;
-      const bo = vecOf(base.offset, 'i');
-      for (const id of up) {
+      for (const id of stack.storeys) {
         const e = modelStore.elements.get(id)!, s = sectionOf(e);
         if (!s?.b || !s.h || (e.offset && e.offset.frame !== 'global')) continue;
-        const [x, y] = columnShift(kind, { b: bs.b, h: bs.h, rotDeg: memberRoll(base, modelStore.sections as never), offset: [bo.x, bo.y] }, { b: s.b, h: s.h, rotDeg: memberRoll(e, modelStore.sections as never) });
+        const [x, y] = columnShift(kind, { b: s.b, h: s.h, rotDeg: memberRoll(e, modelStore.sections as never) });
         if (writeOffset(id, { ...vecOf(e.offset, 'i'), x, y }, { ...vecOf(e.offset, 'j'), x, y })) moved++;
       }
     }

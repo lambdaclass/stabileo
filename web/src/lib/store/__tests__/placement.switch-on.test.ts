@@ -14,11 +14,12 @@ import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
 import { createPlate, plateEntry, preparePlatesForAnalysis } from '../physical-plates';
 import { meshBeforeAnalysis } from '../mesh-policy.svelte';
-import { applyPlacement, columnFixedPoint, columnStacks, placementData, setColumnFixedPoint, setLevelReference } from '../placement';
+import { applyPlacement, columnFixedPoint, columnPointIsOwn, columnStacks, placementData, setColumnFixedPoint, setEdgesFlush, setLevelReference } from '../placement';
 import { buildSheetRows } from '../rc-sheets.svelte';
 import { migrateDesignData } from '../../model/design-data';
 import { beamDrop, columnShift } from '../../model/placement';
 import { stackKey } from '../../rc-sheets/fixed-points';
+import { slabSeat } from '../../rc-sheets/slab-seat';
 import { storeyRun, columnStorey, faceSteps, storeyBars } from '../../rc-sheets/column-run';
 
 beforeAll(async () => { await initSolver(); });
@@ -92,8 +93,10 @@ describe('the level reference', () => {
     };
     const centred = solve();
     expect(centred.demand.lu).toBeCloseTo(3 - 0.25, 6);
+    expect(buildSheetRows().beam.map((r) => slabSeat(r.demand, r.demand.h)?.kind), 'a slab the model does not place, taken flush').toContain('assumed');
     setLevelReference('slabTop');
     const flush = solve();
+    expect(new Set(buildSheetRows().beam.map((r) => slabSeat(r.demand, r.demand.h)?.kind ?? 'none'))).toEqual(new Set(['top']));
     expect(flush.demand.lu).toBeCloseTo(3 - 0.5, 6);
     expect(flush.demand.joints).toMatchObject({ top: expect.closeTo(0.5, 9), topRise: expect.closeTo(0, 9) });
     const rows = buildSheetRows().column;
@@ -104,8 +107,57 @@ describe('the level reference', () => {
   }, 120_000);
 });
 
+describe('the members on the floor\'s edge', () => {
+  it('stand flush with the slab\'s edge: a corner column held by its corner, an edge beam moved toward the slab by half its width', () => {
+    const { beams } = floor();
+    setEdgesFlush(true);
+    const cols = [...modelStore.elements.values()].filter((e) => !beams.includes(e.id));
+    const at = (id: number) => modelStore.nodes.get(modelStore.elements.get(id)!.nodeI)!;
+    for (const c of cols) {
+      const n = at(c.id), o = modelStore.elements.get(c.id)!.offset!.i!;
+      expect([o.x, o.y], `${n.x},${n.y}`).toEqual([n.x === 0 ? 0.15 : -0.15, n.y === 0 ? 0.15 : -0.15]);
+    }
+    const inward = beams.map((id) => { const o = modelStore.elements.get(id)!.offset!.i!; return [o.x, o.y]; });
+    expect(inward).toEqual([[0, 0.1], [-0.1, 0], [0, -0.1], [0.1, 0]]);
+    expect(columnFixedPoint(stackKey([0, 0]))).toBe('nxny');
+    expect(columnPointIsOwn(stackKey([0, 0]))).toBe(false);
+    setColumnFixedPoint(stackKey([0, 0]), 'c');
+    expect(modelStore.elements.get(cols.find((c) => at(c.id).x === 0 && at(c.id).y === 0)!.id)!.offset).toBeUndefined();
+    setEdgesFlush(false);
+    expect(placementData().edges).toBeUndefined();
+    expect(beams.every((id) => !modelStore.elements.get(id)!.offset)).toBe(true);
+    expect(cols.every((c) => !modelStore.elements.get(c.id)!.offset)).toBe(true);
+  });
+});
+
+describe('steel beams and edge walls', () => {
+  it('hang a steel beam under its slab, its top flange carrying the slab\'s soffit, while a concrete one stays flush', () => {
+    const { beams, plate } = floor();
+    const steel = modelStore.addMaterial({ name: 'Acero F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 235, fu: 370 } as never);
+    modelStore.updateElementMaterial(beams[0]!, steel);
+    setLevelReference('slabTop');
+    expect(dz(beams[0]!)).toBeCloseTo(-0.15 - 0.25, 9);
+    expect(dz(beams[1]!)).toBeCloseTo(-0.25, 9);
+    expect(plateZ(plate)).toBeCloseTo(-0.075, 9);
+    setLevelReference('slabAxis');
+    expect(dz(beams[0]!)).toBeCloseTo(-0.075 - 0.25, 9);
+  });
+
+  it('put a wall on the floor\'s edge with its outer face on the slab\'s edge, half its thickness toward the slab', () => {
+    const { conc } = floor();
+    const wall = [[0, 4, 0], [5, 4, 0], [5, 4, 3], [0, 4, 3]].map(([x, y, z]) => [...modelStore.nodes.values()].find((n) => n.x === x && n.y === y && (n.z ?? 0) === z)?.id ?? modelStore.addNode(x!, y!, z!));
+    const { id } = createPlate({ outline: wall, materialId: conc, thickness: 0.2 }) as { id: number };
+    expect(plateEntry(id)!.physical.kind).toBe('wall');
+    setEdgesFlush(true);
+    const o = plateEntry(id)!.surface.offset!;
+    expect([o.x, o.y]).toEqual([0, -0.1]);
+    setEdgesFlush(false);
+    expect(plateEntry(id)!.surface.offset).toBeUndefined();
+  });
+});
+
 describe('the column fixed points', () => {
-  it('move each storey above so its point falls on the lowest storey\'s, and read the fixed points the sheets kept', () => {
+  it('put that point of every storey\'s section on the column\'s axis, and read the fixed points the sheets kept', () => {
     const big = modelStore.addSection({ name: '40×40', a: 0.16, iy: 1, iz: 1, j: 1, b: 0.4, h: 0.4, shape: 'rect' } as never);
     const small = modelStore.addSection({ name: '30×30', a: 0.09, iy: 1, iz: 1, j: 1, b: 0.3, h: 0.3, shape: 'rect' } as never);
     const n = [0, 3, 6].map((z) => modelStore.addNode(2, 1, z));
@@ -114,14 +166,16 @@ describe('the column fixed points', () => {
     const key = stackKey([2, 1]);
     expect(columnStacks()).toEqual([{ key, storeys: [low, up] }]);
     setColumnFixedPoint(key, 'px');
-    expect(modelStore.elements.get(up)!.offset!.i).toEqual({ x: 0.05, y: 0, z: 0 });
-    expect(modelStore.elements.get(low)!.offset).toBeUndefined();
+    expect(modelStore.elements.get(low)!.offset!.i).toEqual({ x: -0.2, y: 0, z: 0 });
+    expect(modelStore.elements.get(up)!.offset!.i).toEqual({ x: -0.15, y: 0, z: 0 });
     setColumnFixedPoint(null, 'nxny');
-    expect(modelStore.elements.get(up)!.offset!.i).toEqual({ x: -0.05, y: -0.05, z: 0 });
+    expect(modelStore.elements.get(low)!.offset!.i).toEqual({ x: 0.2, y: 0.2, z: 0 });
+    expect(modelStore.elements.get(up)!.offset!.i).toEqual({ x: 0.15, y: 0.15, z: 0 });
     setColumnFixedPoint(key, 'c');
+    expect(modelStore.elements.get(low)!.offset).toBeUndefined();
     expect(modelStore.elements.get(up)!.offset).toBeUndefined();
     expect(columnFixedPoint(key)).toBe('c');
-    expect(columnShift('py', { b: 0.4, h: 0.6, rotDeg: 90, offset: [0, 0] }, { b: 0.3, h: 0.4, rotDeg: 90 })).toEqual([-0.1, 0]);
+    expect(columnShift('py', { b: 0.3, h: 0.4, rotDeg: 90 })).toEqual([0.2, 0]);
     expect(migrateDesignData({ rcSheets: { adopted: {}, fixedPoints: { '1,2': 'px' } } }).placement).toEqual({ columns: { '1,2': 'px' } });
     expect(migrateDesignData({ placement: { reference: 'slabTop', columns: { '1,2': 'ny', '3,4': 'up' } } }).placement).toEqual({ reference: 'slabTop', columns: { '1,2': 'ny' } });
   });
@@ -145,9 +199,9 @@ describe('the column fixed points', () => {
     resultsStore.setResults3D(modelStore.solve3D(false, false, true) as never);
     publishCombinations3D(modelStore.solveCombinations3D(false, false, true) as never);
     const rows = buildSheetRows().column, low = rows.find((r) => r.b === 0.4)!;
-    expect(low.demand.shift ?? [0, 0]).toEqual([0, 0]);
+    expect(low.demand.shift).toEqual([0.2, 0]);
     const up = rows.find((r) => r.b === 0.3 && Math.abs((modelStore.nodes.get(r.demand.nodes!.bottom)!.x) - modelStore.nodes.get(low.demand.nodes!.bottom)!.x) < 1e-9)!;
-    expect(up.demand.shift).toEqual([-0.05, 0]);
+    expect(up.demand.shift).toEqual([0.15, 0]);
     expect(faceSteps(low, up)).toEqual({ pb: 0.1, nb: 0, ph: 0.05, nh: 0.05 });
     const st = columnStorey(rows, low);
     expect(st.e).toBeCloseTo(0.1, 9);
@@ -157,5 +211,16 @@ describe('the column fixed points', () => {
     expect(Math.max(...negFace.map((b) => Math.abs(b.e * b.toward[0])))).toBeLessThan(0.03);
     expect(Math.min(...posFace.map((b) => Math.abs(b.e * b.toward[0])))).toBeGreaterThan(0.1);
   }, 120_000);
+});
+
+describe('where a beam\'s slab meets it', () => {
+  it('is flush with its top, lower down, or at its soffit, read from the slabs\' tops the model places', () => {
+    const slab = (top: number, placed = true) => ({ side: 1 as const, hf: 0.12, top, ...(placed ? { placed: true as const } : {}) });
+    expect(slabSeat({ slabs: [] }, 0.5)).toBeNull();
+    expect(slabSeat({ slabs: [slab(0, false)] }, 0.5)).toEqual({ kind: 'assumed', below: 0 });
+    expect(slabSeat({ slabs: [slab(0)] }, 0.5)).toEqual({ kind: 'top', below: 0 });
+    expect(slabSeat({ slabs: [slab(-0.19)] }, 0.5)).toEqual({ kind: 'below', below: 0.19 });
+    expect(slabSeat({ slabs: [slab(0), slab(-0.38)] }, 0.5)).toEqual({ kind: 'bottom', below: 0.38 });
+  });
 });
 

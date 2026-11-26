@@ -6,9 +6,10 @@
  * which offsets those are.
  *
  * - `slabTop`: the nodes on the top of the floor. The slabs hang half their thickness below
- *   them and the beams their whole depth, all tops on the level; a column is cast up to it.
- * - `slabAxis`: the nodes on the slabs' mid-plane. The slabs stay on it and each beam drops
- *   until its top meets the top of the slabs beside it.
+ *   them and the concrete beams their whole depth, all tops on the level; a column is cast up to it.
+ * - `slabAxis`: the nodes on the slabs' mid-plane. The slabs stay on it and each concrete beam
+ *   drops until its top meets the top of the slabs beside it.
+ * A steel beam carries its slab on its top flange in either: its top on the slab's soffit.
  * - `axes`: every member on its own axis, none moved.
  */
 import { FIXED_POINT_KINDS, fixedSigns, type FixedPointKind } from '../rc-sheets/fixed-points';
@@ -19,8 +20,10 @@ export const LEVEL_REFERENCES: readonly LevelReference[] = ['slabTop', 'slabAxis
 export interface Placement {
   /** Absent: the project never stated one, and the offsets are left as they are. */
   reference?: LevelReference;
-  /** Each column stack's fixed point by `stackKey`; absent, the stack is centred on its axis. */
+  /** Each column stack's fixed point by `stackKey`: the point of its section on its axis, every storey. */
   columns?: Record<string, FixedPointKind>;
+  /** The columns and beams on the floor's edge flush with the slab's edge: a column with no point of its own held by its outer face or corner, a beam with slab on one side moved toward it. */
+  edges?: boolean;
 }
 
 /** The placement a project states, what it names that is known. */
@@ -31,15 +34,21 @@ export function placementOf(v: unknown): { placement?: Placement } {
   const columns = o.columns && typeof o.columns === 'object'
     ? Object.fromEntries(Object.entries(o.columns as Record<string, unknown>).filter((e): e is [string, FixedPointKind] => FIXED_POINT_KINDS.includes(e[1] as FixedPointKind)))
     : {};
-  const out: Placement = { ...(reference ? { reference } : {}), ...(Object.keys(columns).length ? { columns } : {}) };
+  const out: Placement = { ...(reference ? { reference } : {}), ...(Object.keys(columns).length ? { columns } : {}), ...(o.edges === true ? { edges: true } : {}) };
   return Object.keys(out).length ? { placement: out } : {};
 }
 
-/** How far a beam's axis stands off its nodes, m (negative: below): `h` its depth, `slab` the thickness of the slabs beside it (0 where none). */
-export function beamDrop(ref: LevelReference, h: number, slab: number): number {
-  if (ref === 'slabTop') return -h / 2;
-  if (ref === 'slabAxis') return Math.min(0, slab / 2 - h / 2);
-  return 0;
+/**
+ * How far a beam's axis stands off its nodes, m (negative: below): `h` its depth, `slab` the
+ * thickness of the slabs on it (0 where none). A concrete beam is cast with its slab, their tops
+ * flush; a steel beam carries the slab on its top flange (deck and studs on it), its top on the
+ * slab's soffit.
+ */
+export function beamDrop(ref: LevelReference, h: number, slab: number, under = false): number {
+  if (ref === 'axes') return 0;
+  const slabTop = ref === 'slabTop' ? 0 : slab / 2;
+  const top = under ? slabTop - slab : slabTop;
+  return Math.min(0, top - h / 2);
 }
 
 /** How far a slab's mid-plane stands off its nodes, m. */
@@ -51,13 +60,16 @@ export const floorTopRise = (ref: LevelReference, slab: number): number => (ref 
 type P2 = [number, number];
 const turn = (v: P2, deg: number): P2 => { const r = (deg * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r); return [v[0] * c - v[1] * s, v[0] * s + v[1] * c]; };
 
-/**
- * A column storey's offset off its axis, m in plan, so its section's fixed point falls on the
- * lowest storey's: `base` the lowest storey's section and offset, `own` this storey's section.
- */
-export function columnShift(kind: FixedPointKind, base: { b: number; h: number; rotDeg: number; offset: P2 }, own: { b: number; h: number; rotDeg: number }): P2 {
+/** A column storey's offset off its axis, m in plan, so the point `kind` of its section, `b` × `h` turned `rotDeg`, stands on the axis. */
+export function columnShift(kind: FixedPointKind, own: { b: number; h: number; rotDeg: number }): P2 {
   const [sx, sy] = fixedSigns(kind);
-  const pb = turn([(sx * base.b) / 2, (sy * base.h) / 2], base.rotDeg), po = turn([(sx * own.b) / 2, (sy * own.h) / 2], own.rotDeg);
-  const x = base.offset[0] + pb[0] - po[0], y = base.offset[1] + pb[1] - po[1];
-  return [Math.round(x * 1e6) / 1e6 + 0, Math.round(y * 1e6) / 1e6 + 0];
+  const p = turn([(sx * own.b) / 2, (sy * own.h) / 2], own.rotDeg);
+  return [Math.round(-p[0] * 1e6) / 1e6 + 0, Math.round(-p[1] * 1e6) / 1e6 + 0];
+}
+
+/** The fixed point of a section turned `rotDeg` whose outside, in plan, lies toward `out` (each −1, 0 or 1 along global X and Y): its outer face, or its corner where two sides are out. */
+export function outerKind(out: P2, rotDeg: number): FixedPointKind {
+  const r = (rotDeg * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r);
+  const sb = Math.round(out[0] * c + out[1] * s), sh = Math.round(-out[0] * s + out[1] * c);
+  return FIXED_POINT_KINDS.find((k) => { const [a, b] = fixedSigns(k); return a === Math.sign(sb) && b === Math.sign(sh); }) ?? 'c';
 }
