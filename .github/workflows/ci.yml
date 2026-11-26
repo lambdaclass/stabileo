@@ -996,6 +996,8 @@ jobs:
         run: make test.engine.released-tip-mechanisms-wasm
       - name: Released rotations in material tangent WASM regressions
         run: make test.engine.material-release-wasm
+      - name: Harmonic zero-frequency scaling WASM regressions
+        run: make test.engine.harmonic-dc-wasm
       - name: SSI elastic refinement WASM regressions
         run: make test.engine.ssi-elastic-2011-wasm
 
