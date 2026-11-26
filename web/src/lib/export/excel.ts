@@ -39,7 +39,8 @@ let XLSX!: XlsxModule;
 import { exportMessages } from './containment';
 import { modelStore, resultsStore, uiStore } from '../store';
 import { activePerCombo3D } from '../store/active-results';
-import { exactForcePeak, maxMemberForce } from '../engine/member-force-extrema';
+import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../engine/member-diagram';
+import { exactForcePeak, maxMemberForce, spatialForcePeaks } from '../engine/member-force-extrema';
 import type { AnalysisResults } from '../engine/types';
 import type { AnalysisResults3D } from '../engine/types-3d';
 import { t } from '../i18n';
@@ -170,6 +171,9 @@ function createSummarySheet(): Xlsx.WorkSheet {
 
   if (is3D && r3d?.magnitude) {
     data.push([t('figures.magnitudes')]);
+    for (const { label, quantity, value } of spatialForcePeaks(r3d)) {
+      data.push([t(label), value === null ? t(DIAGRAM_EXTREMA_UNAVAILABLE) : value.toFixed(2), quantity === 'force' ? 'kN' : 'kN·m']);
+    }
   } else if (is3D && r3d) {
     data.push([t('excel.maxResults')]);
     let maxDisp = 0;

@@ -11,7 +11,7 @@
 
 import type { AnalysisResults3D, ElementForces3D, FullEnvelope3D } from './types-3d';
 import { memberEndForces3D, type Diagram3DKind } from './diagrams-3d';
-import { bindMemberEnvelopeEnds, unavailableDiagramExtrema } from './member-diagram';
+import { bindMemberEnvelopeEnds, boundSpatialEnvelope, requireConcurrentSectionForces, unavailableDiagramExtrema } from './member-diagram';
 
 // ─── Components ───────────────────────────────────────────────
 
@@ -45,6 +45,7 @@ const forceDiagrams: Record<ForceComponent, Diagram3DKind> = {
 };
 
 export function componentEnds(ef: ElementForces3D, component: ForceComponent): { i: number; j: number } {
+  if (boundSpatialEnvelope(ef)) throw unavailableDiagramExtrema();
   const [i, j] = memberEndForces3D(ef, forceDiagrams[component]);
   return { i, j };
 }
@@ -72,7 +73,10 @@ export interface QueryRowsOptions {
 
 const envelopeCases = new WeakMap<FullEnvelope3D, {
   sources: readonly AnalysisResults3D[];
-  byMember?: readonly ReadonlyMap<number, ElementForces3D>[];
+  index?: {
+    byMember: readonly ReadonlyMap<number, ElementForces3D>[];
+    duplicateIds: ReadonlySet<number>;
+  };
 }>();
 
 export function bindEnvelopeQuerySources<E extends FullEnvelope3D | null>(
@@ -92,35 +96,55 @@ export function envelopeQuerySources(envelope: FullEnvelope3D): readonly Analysi
   return envelopeCases.get(envelope)?.sources;
 }
 
-export function envelopeSourcesByMember(envelope: FullEnvelope3D) {
+function indexedEnvelopeSources(envelope: FullEnvelope3D) {
   const binding = envelopeCases.get(envelope);
-  if (!binding) return undefined;
-  return binding.byMember ??= binding.sources.map(result => new Map(result.elementForces.map(ef => [ef.elementId, ef])));
+  if (!binding || binding.index) return binding;
+  const duplicateIds = new Set<number>();
+  const byMember = binding.sources.map(({ elementForces }) => {
+    const index = new Map<number, ElementForces3D>();
+    for (const member of elementForces) {
+      if (index.has(member.elementId)) duplicateIds.add(member.elementId);
+      index.set(member.elementId, member);
+    }
+    return index;
+  });
+  binding.index = { byMember, duplicateIds };
+  return binding;
 }
 
-function envelopeQueryRows(
-  members: ElementForces3D[], component: ForceComponent, envelope: FullEnvelope3D,
-): QueryRow[] {
-  const casesByMember = envelopeSourcesByMember(envelope);
-  if (!casesByMember) throw unavailableDiagramExtrema();
-  const rows: QueryRow[] = [];
-  for (const { elementId } of members) {
-    const starts = new Set<number>(), ends = new Set<number>();
-    for (const byMember of casesByMember) {
-      const member = byMember.get(elementId);
-      if (!member) throw unavailableDiagramExtrema();
-      const { i, j } = componentEnds(member, component);
-      if (!Number.isFinite(i) || !Number.isFinite(j)) throw unavailableDiagramExtrema();
-      starts.add(i);
-      ends.add(j);
-    }
-    for (const [end, values] of [['i', starts], ['j', ends]] as const) {
-      for (const value of [...values].sort((a, b) => b - a)) {
-        rows.push({ elementId, component, end, value });
-      }
+export function envelopeSourcesByMember(envelope: FullEnvelope3D) {
+  return indexedEnvelopeSources(envelope)?.index?.byMember;
+}
+
+export function expandSignedEnvelopeMember(member: ElementForces3D, envelope = boundSpatialEnvelope(member)) {
+  if (!envelope) return undefined;
+  const binding = indexedEnvelopeSources(envelope);
+  const index = binding?.index;
+  if (!index || index.duplicateIds.has(member.elementId)) throw unavailableDiagramExtrema();
+  return binding.sources.map((result, caseIndex) => {
+    const signed = index.byMember[caseIndex]!.get(member.elementId);
+    if (result.magnitude || !signed || signed.length !== member.length) throw unavailableDiagramExtrema();
+    requireConcurrentSectionForces(signed);
+    return { result, member: signed };
+  });
+}
+
+function appendEnvelopeQueryRows(
+  rows: QueryRow[], elementId: number, component: ForceComponent,
+  constituents: NonNullable<ReturnType<typeof expandSignedEnvelopeMember>>,
+): void {
+  const starts = new Set<number>(), ends = new Set<number>();
+  for (const { member } of constituents) {
+    const { i, j } = componentEnds(member, component);
+    if (!Number.isFinite(i) || !Number.isFinite(j)) throw unavailableDiagramExtrema();
+    starts.add(i);
+    ends.add(j);
+  }
+  for (const [end, values] of [['i', starts], ['j', ends]] as const) {
+    for (const value of [...values].sort((a, b) => b - a)) {
+      rows.push({ elementId, component, end, value });
     }
   }
-  return rows;
 }
 
 /**
@@ -138,9 +162,14 @@ export function buildQueryRows(
     const byId = new Map(members.map((ef) => [ef.elementId, ef]));
     source = [...wanted].map((id) => byId.get(id)).filter((ef): ef is ElementForces3D => ef != null);
   }
-  if (opts.envelope) return envelopeQueryRows(source, component, opts.envelope);
+  if (opts.envelope && !envelopeQuerySources(opts.envelope)) throw unavailableDiagramExtrema();
   const rows: QueryRow[] = [];
   for (const ef of source) {
+    const constituents = expandSignedEnvelopeMember(ef, opts.envelope);
+    if (constituents) {
+      appendEnvelopeQueryRows(rows, ef.elementId, component, constituents);
+      continue;
+    }
     const { i, j } = componentEnds(ef, component);
     rows.push({ elementId: ef.elementId, component, end: 'i', value: i });
     rows.push({ elementId: ef.elementId, component, end: 'j', value: j });

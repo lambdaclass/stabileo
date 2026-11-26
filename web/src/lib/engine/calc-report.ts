@@ -1,6 +1,5 @@
 import { bindMemberEnvelopeEnds, DIAGRAM_EXTREMA_UNAVAILABLE, unavailableDiagramExtrema } from './member-diagram';
-import { maxMemberForce } from './member-force-extrema';
-import { engineFailureMessage } from './engine-unavailable';
+import { maxMemberForce, spatialForcePeaks } from './member-force-extrema';
 import { memberEndComponents2D } from './diagrams';
 import { memberEndComponents3D } from './diagrams-3d';
 import { resultComponents } from '../axes/result-components';
@@ -518,26 +517,11 @@ function buildForcesSection(data: CalcReportData, num = '5'): string {
   if (data.is3D && data.results3D) {
     const forces = data.results3D.elementForces;
     const magnitude = data.results3D.magnitude !== undefined;
-    const components = [
-      ['axial', 'tooltip.diagAxial.title', F, uf],
-      ['shearY', 'calcReport.shearY', F, uf],
-      ['shearZ', 'calcReport.shearZ', F, uf],
-      ['torsion', 'calcReport.torsionMx', M, um],
-      ['momentY', 'calcReport.momentY', M, um],
-      ['momentZ', 'calcReport.momentZ', M, um],
-    ] as const;
-
     h.push(`<h2>${num}.1 ${t(magnitude ? 'calcReport.magnitudeForceSummary' : 'calcReport.forceSummary')}</h2>`);
     h.push(`<table><tr><th>${t('report.quantity')}</th><th>${t('calcReport.maxAbsValue')}</th><th>${t('report.unit')}</th></tr>`);
-    for (const [kind, label, format, unit] of components) {
-      let value: string;
-      try {
-        value = format(maxMemberForce(forces, kind));
-      } catch (error) {
-        if (!magnitude || engineFailureMessage(error)?.key !== DIAGRAM_EXTREMA_UNAVAILABLE) throw error;
-        value = esc(t(DIAGRAM_EXTREMA_UNAVAILABLE));
-      }
-      h.push(`<tr><td>${t(label)}</td><td class="num">${value}</td><td>${unit}</td></tr>`);
+    for (const { label, quantity, value } of spatialForcePeaks(data.results3D)) {
+      const cell = value === null ? esc(t(DIAGRAM_EXTREMA_UNAVAILABLE)) : U.q(value, quantity);
+      h.push(`<tr><td>${t(label)}</td><td class="num">${cell}</td><td>${U.u(quantity)}</td></tr>`);
     }
     h.push('</table>');
 

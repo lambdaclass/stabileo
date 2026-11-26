@@ -94,7 +94,7 @@ const magnitudeLabels = [
   'calcReport.torsionMx', 'calcReport.momentY', 'calcReport.momentZ',
 ] as const;
 
-it.skip.each([
+it.each([
   ['srss', false], ['abs', false], ['srss', true], ['abs', true],
 ] as const)('known wrong result: #2581 Excel Summary gives exact %s peaks (P-Delta: %s)', async (method, pdelta) => {
   const span = 6, intensity = 10;
@@ -131,14 +131,14 @@ it.skip.each([
   }
 });
 
-it.skip('known wrong result: #2581 Excel Summary marks bounded component peaks unavailable', async () => {
+it('known wrong result: #2581 Excel Summary marks bounded component peaks unavailable', async () => {
   const member = beam(true, 6, false);
   const tip = modelStore.elements.get(member)!.nodeJ;
   modelStore.addNodalLoad3D(tip, 5, 0, 0, 0, 0, 0);
   const solved = modelStore.solve3D(false);
   if (!solved || typeof solved === 'string') throw new Error(String(solved));
   const leaf = solved.elementForces[0]!;
-  const method = 'abs';
+  const method = 'abs' as const;
   const inner = { ...leaf, combined: { method, parts: [leaf, leaf] } };
   const outer = { ...leaf, combined: { method, parts: [inner, leaf] } };
   resultsStore.setResults3D({ ...solved, magnitude: { method }, elementForces: [outer] });

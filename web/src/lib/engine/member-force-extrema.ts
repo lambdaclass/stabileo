@@ -1,8 +1,9 @@
 import { computePlanarDiagramExtrema } from './diagrams';
 import { computeSpatialDiagramExtrema, visitMemberCriticalOrdinates3D, type Diagram3DKind } from './diagrams-3d';
-import { boundMemberEnvelopeDiagram, envelopeForceExtrema, includeDiagramOrdinate, unavailableDiagramExtrema, type DiagramOrdinate, type DiagramOrdinateExtrema } from './member-diagram';
+import { DIAGRAM_EXTREMA_UNAVAILABLE, boundMemberEnvelopeDiagram, envelopeForceExtrema, includeDiagramOrdinate, unavailableDiagramExtrema, type DiagramOrdinate, type DiagramOrdinateExtrema } from './member-diagram';
 import type { ElementForces } from './types';
-import type { ElementForces3D } from './types-3d';
+import type { AnalysisResults3D, ElementForces3D } from './types-3d';
+import { engineFailureMessage } from './engine-unavailable';
 
 type Member = ElementForces | ElementForces3D;
 type SpatialComponent = Diagram3DKind | readonly [Diagram3DKind, Diagram3DKind];
@@ -86,4 +87,27 @@ export function maxMemberForce(members: readonly Member[], component: Component)
   let max = 0;
   for (const member of members) max = Math.max(max, exactForcePeak(member, component));
   return max;
+}
+
+
+const spatialForceComponents = [
+  { kind: 'axial', label: 'tooltip.diagAxial.title', quantity: 'force' },
+  { kind: 'shearY', label: 'calcReport.shearY', quantity: 'force' },
+  { kind: 'shearZ', label: 'calcReport.shearZ', quantity: 'force' },
+  { kind: 'torsion', label: 'calcReport.torsionMx', quantity: 'moment' },
+  { kind: 'momentY', label: 'calcReport.momentY', quantity: 'moment' },
+  { kind: 'momentZ', label: 'calcReport.momentZ', quantity: 'moment' },
+] as const;
+
+export function spatialForcePeaks(result: AnalysisResults3D) {
+  return spatialForceComponents.map(({ kind, label, quantity }) => {
+    let value: number | null;
+    try {
+      value = maxMemberForce(result.elementForces, kind);
+    } catch (error) {
+      if (!result.magnitude || engineFailureMessage(error)?.key !== DIAGRAM_EXTREMA_UNAVAILABLE) throw error;
+      value = null;
+    }
+    return { label, quantity, value };
+  });
 }

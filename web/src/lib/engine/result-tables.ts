@@ -24,7 +24,7 @@ import { criticalMemberForceExtrema3D } from './member-force-extrema';
 
 import type { AnalysisResults3D, ElementForces3D } from './types-3d';
 import type { Quantity } from '../utils/units';
-import { csvCell, envelopeQuerySources, envelopeSourcesByMember } from './result-query';
+import { csvCell, expandSignedEnvelopeMember } from './result-query';
 import type { ElementDesignDemands, GoverningDemand } from './station-design-forces';
 import { criticalForceStations, stationTs, type StationSpec } from './station-forces';
 import { boundSpatialEnvelope, memberEndFace, memberSectionStation, requireConcurrentSectionForces, unavailableDiagramExtrema, type DiagramStation } from './member-diagram';
@@ -127,6 +127,7 @@ function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visi
   const ends = usesMemberEnds(spec);
   for (const f of r.elementForces) {
     if (!keep(f.elementId)) continue;
+    if (opts.signedOnly && boundSpatialEnvelope(f)) throw unavailableDiagramExtrema();
     if (opts.resultant && (!r.magnitude || boundSpatialEnvelope(f))) requireConcurrentSectionForces(f);
     if (ends) {
       const endForces = forceDiagrams.map(kind => memberEndForces3D(f, kind));
@@ -154,13 +155,19 @@ function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visi
   }
 }
 
-/** The rows of one result set, in the order the tables list them. */
-export function rowsOf(kind: TableKind, r: AnalysisResults3D, opts: TableOptions): Row[] {
+function collectRows(kind: TableKind, r: AnalysisResults3D, opts: TableOptions): Row[] {
   const out: Row[] = [];
   eachRow(kind, r, opts, (entity, end, x, values, side) => {
     out.push(kind === 'forces' ? { entity, ...(end ? { end } : {}), x, ...(side && { side }), values } : { entity, values });
   });
   return out;
+}
+
+/** The rows of one result set, in the order the tables list them. */
+export function rowsOf(kind: TableKind, r: AnalysisResults3D, opts: TableOptions): Row[] {
+  const cases = kind === 'forces' && opts.signedOnly && !opts.resultant
+    ? signedForceResults(r, opts.entities) : undefined;
+  return cases ? cases.flatMap(result => collectRows(kind, result, opts)) : collectRows(kind, r, opts);
 }
 
 /**
@@ -169,7 +176,9 @@ export function rowsOf(kind: TableKind, r: AnalysisResults3D, opts: TableOptions
  * under each.
  */
 export function allRows(kind: TableKind, sources: readonly Source[], opts: TableOptions, order: 'source' | 'entity' = 'source'): Array<Row & { source: Source }> {
-  const rows = sources.flatMap((s, si) => rowsOf(kind, s.results, opts).map((row, ri) => ({ ...row, source: s, si, ri })));
+  const cases = kind === 'forces' && !opts.resultant
+    ? signedForceEnvelopeSources(sources, opts.entities) : sources;
+  const rows = cases.flatMap((s, si) => collectRows(kind, s.results, opts).map((row, ri) => ({ ...row, source: s, si, ri })));
   if (order === 'entity') rows.sort((a, b) => a.entity - b.entity || (a.x ?? 0) - (b.x ?? 0) || a.si - b.si || a.ri - b.ri);
   return rows.map(({ si: _s, ri: _r, ...row }) => row);
 }
@@ -212,13 +221,6 @@ function beatsCriticalExtreme(sign: 1 | -1, value: number, entity: number, x: nu
 const forceDiagrams: readonly Diagram3DKind[] = ['axial', 'shearY', 'shearZ', 'torsion', 'momentY', 'momentZ'];
 const resultantDiagrams: readonly (readonly [Diagram3DKind, Diagram3DKind])[] = [['shearY', 'shearZ'], ['momentY', 'momentZ']];
 
-function requireSignedEnvelopeMember(member: ElementForces3D, byMember: ReadonlyMap<number, ElementForces3D>): ElementForces3D {
-  const signed = byMember.get(member.elementId);
-  if (!signed || signed.length !== member.length) throw unavailableDiagramExtrema();
-  requireConcurrentSectionForces(signed);
-  return signed;
-}
-
 /** For each column, the largest and the smallest value over every row of every source. */
 export function summaryRows(kind: TableKind, sources: readonly Source[], opts: TableOptions): Array<{ column: Column; max: Extreme | null; min: Extreme | null }> {
   const cols = columnsOf(kind, opts);
@@ -227,8 +229,9 @@ export function summaryRows(kind: TableKind, sources: readonly Source[], opts: T
   const critical = kind === 'forces' && opts.stations === 'critical';
   const beats = critical ? beatsCriticalExtreme : beatsExtreme;
   const eligible = extremaResultSources(sources, opts.signedOnly);
-  const named = critical ? new Set(eligible.map(source => source.results)) : undefined;
-  for (const source of eligible) {
+  const cases = kind === 'forces' && (!opts.resultant || critical)
+    ? signedForceEnvelopeSources(eligible, opts.entities) : eligible;
+  for (const source of cases) {
     const visit = (c: number, value: number, entity: number, end: Extreme['end'], x: number | undefined, side?: Extreme['side']) => {
       if (!Number.isFinite(value)) return;
       const newMax = beats(1, value, entity, x, max[c]!);
@@ -249,18 +252,7 @@ export function summaryRows(kind: TableKind, sources: readonly Source[], opts: T
       };
       for (const member of source.results.elementForces) {
         if (opts.entities && !opts.entities.has(member.elementId)) continue;
-        const envelope = boundSpatialEnvelope(member);
-        if (!envelope) {
-          visitMember(member);
-          continue;
-        }
-        const cases = envelopeQuerySources(envelope);
-        const membersByCase = envelopeSourcesByMember(envelope);
-        if (!cases || !membersByCase) throw unavailableDiagramExtrema();
-        for (const [index, result] of cases.entries()) {
-          const signed = requireSignedEnvelopeMember(member, membersByCase[index]!);
-          if (!named!.has(result)) visitMember(signed);
-        }
+        visitMember(member);
       }
     } else {
       eachRow(kind, source.results, opts, (entity, end, x, values) => values.forEach((value, c) => visit(c, value, entity, end, x)));
@@ -308,9 +300,9 @@ function criticalEnvelopeStations(sources: readonly Source[], opts: TableOptions
       : [memberSectionStation(station)])]));
 }
 
-function requireEnvelopeMemberCoverage(sources: readonly Source[], entities: TableOptions['entities']): void {
+function requireEnvelopeMemberCoverage(sources: readonly AnalysisResults3D[], entities: TableOptions['entities']): void {
   let expected: Set<number> | undefined;
-  for (const { results } of sources) {
+  for (const results of sources) {
     const present = new Set<number>();
     for (const { elementId } of results.elementForces) {
       if (entities && !entities.has(elementId)) continue;
@@ -322,26 +314,28 @@ function requireEnvelopeMemberCoverage(sources: readonly Source[], entities: Tab
   }
 }
 
-function signedForceEnvelopeSources(sources: readonly Source[], entities: TableOptions['entities']): Source[] {
+function signedForceResults(results: AnalysisResults3D, entities: TableOptions['entities']): AnalysisResults3D[] | undefined {
+  const selected = (member: ElementForces3D) => !entities || entities.has(member.elementId);
+  const aggregate = results.elementForces.find(member => selected(member) && boundSpatialEnvelope(member));
+  if (!aggregate) return undefined;
+  const envelope = boundSpatialEnvelope(aggregate)!;
+  const cases = expandSignedEnvelopeMember(aggregate, envelope)!.map(({ result }) => result);
+  requireEnvelopeMemberCoverage([results, ...cases], entities);
+  for (const member of results.elementForces) {
+    if (member === aggregate || !selected(member)) continue;
+    if (boundSpatialEnvelope(member) !== envelope) throw unavailableDiagramExtrema();
+    expandSignedEnvelopeMember(member, envelope);
+  }
+  return cases;
+}
+
+function signedForceEnvelopeSources(sources: readonly Source[], entities: TableOptions['entities']): readonly Source[] {
   let named: Set<AnalysisResults3D> | undefined;
   return sources.flatMap(source => {
-    const selected = (member: ElementForces3D) => !entities || entities.has(member.elementId);
-    const aggregate = source.results.elementForces.find(member => selected(member) && boundSpatialEnvelope(member));
-    if (!aggregate) return [source];
-    const envelope = boundSpatialEnvelope(aggregate)!;
-    const members = source.results.elementForces.filter(selected);
-    const cases = envelopeQuerySources(envelope);
-    const byMember = envelopeSourcesByMember(envelope);
-    if (!cases || !byMember || members.some(member => boundSpatialEnvelope(member) !== envelope)) throw unavailableDiagramExtrema();
-
-    const constituents = cases.map(results => ({ ...source, results }));
-    requireEnvelopeMemberCoverage([source, ...constituents], entities);
-    for (const [i, result] of cases.entries()) {
-      if (result.magnitude) throw unavailableDiagramExtrema();
-      for (const member of members) requireSignedEnvelopeMember(member, byMember[i]!);
-    }
+    const cases = signedForceResults(source.results, entities);
+    if (!cases) return [source];
     const namedResults = named ??= new Set(sources.map(source => source.results));
-    return constituents.filter(({ results }) => !namedResults.has(results));
+    return cases.filter(result => !namedResults.has(result)).map(results => ({ ...source, results }));
   });
 }
 
@@ -349,7 +343,7 @@ function signedForceEnvelopeSources(sources: readonly Source[], entities: TableO
 export function envelopeRows(kind: TableKind, sources: readonly Source[], opts: TableOptions): EnvelopeRow[] {
   const eligible = extremaResultSources(sources, opts.signedOnly);
   const cases = kind === 'forces' && !opts.resultant ? signedForceEnvelopeSources(eligible, opts.entities) : eligible;
-  if (kind === 'forces') requireEnvelopeMemberCoverage(cases, opts.entities);
+  if (kind === 'forces') requireEnvelopeMemberCoverage(cases.map(source => source.results), opts.entities);
   const byKey = new Map<number | string, EnvelopeRow>();
   const critical = opts.stations === 'critical';
   const spec = opts.stations ?? 2;

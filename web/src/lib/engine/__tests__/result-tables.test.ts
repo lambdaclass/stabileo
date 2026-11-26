@@ -735,7 +735,7 @@ describe('spatial cantilever end queries', () => {
     }
   });
 
-  it.skip('known wrong result: #2581 recovers the signed query maximum from bound members alone', () => {
+  it('known wrong result: #2581 recovers the signed query maximum from bound members alone', () => {
     const id = modelStore.addLoadEntry({
       type: 'nodal3d', data: { id: 1, nodeId: tip, fx: -80, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 },
     });
@@ -762,7 +762,7 @@ describe('spatial cantilever end queries', () => {
     }
   });
 
-  it.skip('known wrong result: #2581 recovers the signed member-end and spaced summary maximum', () => {
+  it('known wrong result: #2581 recovers the signed member-end and spaced summary maximum', () => {
     const id = modelStore.addLoadEntry({
       type: 'nodal3d', data: { id: 1, nodeId: tip, fx: -80, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 },
     });
@@ -1101,7 +1101,7 @@ it('known wrong result: #2581 converge spatial WASM envelope paths share their f
 });
 
 
-it.skip('known wrong result: #2581 signed force readers never access bound display forces', async () => {
+it('known wrong result: #2581 signed force readers never access bound display forces', async () => {
   await initSolver();
   const cases = [-80, 30].map((n, i) => ({
     ...[A, B][i]!, results: reviewSources({ ...reviewForces, nStart: n, nEnd: n })[0]!.results,
@@ -1143,7 +1143,7 @@ it.skip('known wrong result: #2581 signed force readers never access bound displ
 });
 
 
-it.skip('known wrong result: #2581 signed bound reads require one matching physical member per case', async () => {
+it('known wrong result: #2581 signed bound reads require one matching physical member per case', async () => {
   await initSolver();
   const valid = reviewSources(reviewForces)[0]!.results;
   const member = valid.elementForces[0]!;
