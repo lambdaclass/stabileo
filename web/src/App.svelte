@@ -78,6 +78,10 @@
   import TitleBarCommands from './components/shell/TitleBarCommands.svelte';
   import TitleBarAside from './components/shell/TitleBarAside.svelte';
   import WorkspaceSwitch from './components/shell/WorkspaceSwitch.svelte';
+  import StartCard from './components/library/StartCard.svelte';
+  import ExamplesDialog from './components/library/ExamplesDialog.svelte';
+  import TutorialsDialog from './components/library/TutorialsDialog.svelte';
+  import { examplesUi } from './lib/store/examples-ui.svelte';
   import { shellLayout } from './lib/store/shell-layout.svelte';
 
   /**
@@ -702,6 +706,12 @@
   import type { ModelSnapshot } from './lib/store/history.svelte';
   const modeSnapshots = new Map<AppMode, ModelSnapshot>();
   let currentAppMode = $state<AppMode>(typeof window !== 'undefined' ? pathToMode(location.pathname) : 'basico');
+
+  function startTutorial(id: string) {
+    if (uiStore.appMode === 'basico') { startDemo(id); return; }
+    switchAppMode('basico');
+    setTimeout(() => startDemo(id), 400);
+  }
 
   function switchAppMode(target: AppMode) {
     const prev = currentAppMode;
@@ -2034,6 +2044,9 @@
         {/if}
         </ContainmentBanner>
         {#if uiStore.appMode === 'pro' || uiStore.appMode === 'basico'}<PlacementHud />{/if}
+        {#if (uiStore.appMode === 'pro' || uiStore.appMode === 'basico') && !uiStore.viewerMode && !uiStore.embedMode && !eduStore.isHandout && !(deskDocked && deskUi.open)}
+          <StartCard mode={uiStore.appMode === 'pro' ? 'pro' : 'basico'} />
+        {/if}
         {#if uiStore.appMode === 'pro'}{#if !uiStore.viewerMode}<StoreyScopeBar />{/if}<ProLinkedLayer />{/if}
         <!-- Instruction for the armed-but-unanswered stress mode. Inside the
              viewport container because it points at the canvas it belongs to. -->
@@ -2262,6 +2275,10 @@
     {/if}
   {/if}
   {#if __PUBLIC_FEATURES__.accounts && accountsEnabled}<AccountGateDialog /><FeedbackDialog />{/if}
+  {#if uiStore.appMode === 'basico' || uiStore.appMode === 'pro'}
+    {#if examplesUi.view === 'examples'}<ExamplesDialog mode={uiStore.appMode === 'pro' ? 'pro' : 'basico'} />{/if}
+    {#if examplesUi.view === 'tutorials'}<TutorialsDialog onStart={startTutorial} />{/if}
+  {/if}
 
   <!--
     Mobile drawers (overlay on top of canvas) — PRO and Education only.
@@ -2668,20 +2685,10 @@
     color: var(--st-text);
   }
 
-  .mode-toggle button.active {
-    background: var(--st-accent);
-    color: white;
-  }
-
   .mode-toggle button.pro-mode-btn {
     background: var(--st-surface-2);
     color: var(--st-warn);
     border-left: 1px solid var(--st-hair);
-  }
-
-  .mode-toggle button.pro-mode-btn.active {
-    background: var(--st-accent);
-    color: white;
   }
 
   .pro-panel-close {

@@ -137,7 +137,7 @@ describe('each entry point, with the engine down', () => {
     const before = uiStore.toasts.length;
     expect(await runEngineActionAsync(async () => { await ex.load(); return true; })).toBeUndefined();
     expect(uiStore.toasts.length).toBe(before + 1);
-    expect(read('components/pro/ProPanel.svelte')).toMatch(/runEngineActionAsync\(async \(\) => \{ await ex\.load\(\); return true; \}\)/);
+    expect(read('lib/pro/load-pro-example.ts')).toMatch(/runEngineActionAsync\(async \(\) => \{ await ex\.load\(\); return true; \}\)/);
   });
 
   it('the code spectrum of a spectral case: the reason, as the string the solve reports', () => {

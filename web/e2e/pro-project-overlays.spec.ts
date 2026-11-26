@@ -28,13 +28,15 @@ test.describe('@smoke PRO project tab overlays', () => {
 
   test('pressing the button does the thing and leaves no tip pinned', async ({ pro: page }) => {
     await page.getByTestId('pr-project').click();
-    await page.getByTestId('pp-examples').click();
+    await page.getByTestId('tb-file').click();
+    await page.getByTestId('tb-open-example').click();
     await expect(page.getByRole('tooltip')).toHaveCount(0);
   });
 
   test('the gallery covers the panel\'s resize handle', async ({ pro: page }) => {
     await page.getByTestId('pr-project').click();
-    await page.getByTestId('pp-examples').click();
+    await page.getByTestId('tb-file').click();
+    await page.getByTestId('tb-open-example').click();
     const handle = (await page.locator('.pro-resize-handle').boundingBox())!;
     const hit = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.className ?? '',
       [handle.x + handle.width / 2, handle.y + handle.height / 2]);

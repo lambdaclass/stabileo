@@ -105,7 +105,7 @@ async function expectNoRawKeys(page: Page, screen: string): Promise<void> {
 async function bootBasic(page: Page, locale: string): Promise<void> {
   await page.addInitScript((loc) => {
     try {
-      localStorage.clear();
+      localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off');
       localStorage.setItem('stabileo-lang', loc);
       localStorage.setItem('stabileo-lang-manual', '1');
     } catch { /* private mode */ }
@@ -119,7 +119,7 @@ async function bootBasic(page: Page, locale: string): Promise<void> {
 async function bootProDesignOff(page: Page, locale: string): Promise<void> {
   await page.addInitScript((loc) => {
     try {
-      localStorage.clear();
+      localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off');
       localStorage.setItem('stabileo-lang', loc);
       localStorage.setItem('stabileo-lang-manual', '1');
     } catch { /* private mode */ }

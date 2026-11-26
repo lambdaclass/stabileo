@@ -4,6 +4,7 @@
  */
 import type { ProCmd } from './stages';
 import { proNav } from '../store/pro-nav.svelte';
+import { examplesUi } from '../store/examples-ui.svelte';
 import { uiStore } from '../store';
 import { viewCategories } from '../store/view-categories.svelte';
 import { viewState, viewVisibility } from '../store/view-state.svelte';
@@ -20,8 +21,8 @@ export function paletteActions(): PaletteAction[] {
   return [
     a('save', 'project.save', project, () => proNav.ask('save')),
     a('save-now', 'save.clickToSave', project, () => { void requestAutosave('manual'); }),
-    a('examples', 'pro.exampleBtn', project, () => proNav.ask('examples')),
-    a('videos', 'videos.button', project, () => proNav.ask('videos')),
+    a('examples', 'pro.exampleBtn', project, () => examplesUi.open('examples')),
+    a('videos', 'videos.button', project, () => examplesUi.open('tutorials')),
     a('viewer-link', 'viewer.copyLink', project, () => proNav.ask('viewerLink')),
     a('report', 'proExport.reportBtn', project, () => window.dispatchEvent(new Event('stabileo-open-report'))),
     a('results', 'proExport.resultsBtn', project, () => proNav.ask('data')),

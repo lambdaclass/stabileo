@@ -18,11 +18,12 @@ test.describe('@smoke Basic 3D defaults', () => {
     await expect(page.getByTestId('cfg-grid-extent')).toHaveValue('2');
     await expect(page.getByTestId('cfg-node-ids')).toBeChecked();
 
-    if (await page.locator('[data-testid="basic-panel"][data-panel="project"]').count() === 0) await page.getByTestId('hdr-project').click();
+    await page.getByTestId('tb-file').click();
+    await page.getByTestId('tb-open-example').click();
     await page.getByTestId('ex-group-3d').click();
     await page.getByTestId('example-3d-portal-frame').click();
     await expect.poll(() => page.evaluate(() => window.__stabileo.nodeCount())).toBeGreaterThan(0);
-    await page.getByTestId('rb-settings').click();
+    if (!(await page.getByTestId('cfg-node-ids').isVisible())) await page.getByTestId('rb-settings').click();
     await expect(page.getByTestId('cfg-node-ids')).not.toBeChecked();
   });
 });

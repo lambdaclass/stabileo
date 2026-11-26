@@ -38,7 +38,6 @@
    * branch has already fixed twice.
    */
   import { onDestroy } from 'svelte';
-  import { runEngineActionAsync } from '../../lib/store/engine-action';
   import { t } from '../../lib/i18n';
   import { leaveSelfWeightRule, selfWeightRuleEffect } from '../../lib/store/self-weight-migration';
   import SelectionPanel from '../SelectionPanel.svelte';
@@ -54,13 +53,12 @@
   import ProViewPanel from './ProViewPanel.svelte';
   import ProProjectFileActions from './ProProjectFileActions.svelte';
   import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
-  import { modelStore, resultsStore, uiStore, verificationStore, tabManager, historyStore } from '../../lib/store';
+  import { modelStore, resultsStore, uiStore, verificationStore, historyStore } from '../../lib/store';
   import AiDrawer from '../AiDrawer.svelte';
   import type { ReportConfig, ReportData } from '../../lib/engine/pro-report';
   import { exportReportAs, type ReportFigureChoices } from '../../lib/pro/report-export';
   import { tellIfEmpty } from '../../lib/export/empty-model';
   import { runGlobalSolve } from '../../lib/engine/live-calc';
-  import { proExampleGroups, type ProExample } from '../../lib/data/pro-examples';
   import ProReportDialog from './ProReportDialog.svelte';
   import ProNodesTab from './ProNodesTab.svelte';
   import ProProjectTab from './ProProjectTab.svelte';
@@ -73,7 +71,6 @@
   import ProInstabilityReport from './ProInstabilityReport.svelte';
   import ProShellTab from './ProShellTab.svelte';
   import ProSpecificationsTab from './spec/ProSpecificationsTab.svelte';
-  import { resetProjectProvenance } from '../../lib/store/project-provenance';
   import ProAdvancedTab from './ProAdvancedTab.svelte';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
   /*
@@ -103,7 +100,6 @@
   /* A shell carries load, so a plates-only raft is a model. This read
      `elements.size > 0` and would not arm Calcular; see `hasLoadCarrying3D`. */
   const hasModel = $derived(modelStore.nodes.size > 0 && hasLoadCarrying3D(modelStore.model));
-  const exampleGroups = $derived(proExampleGroups(t));
 
   // Expose action handlers for App.svelte's top strip via bind:this
   export function solve() { handleSolve(); }
@@ -192,24 +188,6 @@
   // What is drawn in another mode is not drawn in PRO: a model seen empty here is migrated on return.
   onDestroy(leaveSelfWeightRule);
 
-  async function loadProExample(ex: ProExample) {
-    // The example states its own self-weight and combinations (`lib/data/pro-examples.ts`); the
-    // combinations are the engine's, so an example cannot load without it, and says so.
-    if ((await runEngineActionAsync(async () => { await ex.load(); return true; })) !== true) return;
-    // A new project: nothing of the previous one's session state (figures, direct analysis,
-    // export records) belongs to it.
-    resetProjectProvenance();
-    // Label overlays off on arrival, whatever the preset: they are unreadable on the large
-    // models and unnecessary on the small ones. Grid and axes stay user-controlled.
-    uiStore.showLengths3D = false;
-    uiStore.showNodeLabels3D = false;
-    uiStore.showElementLabels3D = false;
-    tabManager.syncActiveTabName();
-    resultsStore.clear();
-    resultsStore.clear3D();
-    setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 200);
-    setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 600);
-  }
 
   /* ── The phone's command grid ──────────────────────────────────────────
   /*
@@ -356,7 +334,7 @@
         {:else if activeTab === 'view'}
           <ProViewPanel />
         {:else if activeTab === 'project'}
-          <ProProjectTab groups={exampleGroups} onLoadExample={loadProExample} />
+          <ProProjectTab />
         {:else if activeTab === 'nodes'}
           <ProNodesTab />
         {:else if activeTab === 'elements'}

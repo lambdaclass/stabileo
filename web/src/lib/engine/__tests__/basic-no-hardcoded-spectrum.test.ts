@@ -32,6 +32,8 @@ const BASIC_TOOLBAR_SOURCES = [
   '../../../components/toolbar/ToolbarConfig.svelte',
   '../../../components/toolbar/ToolbarProject.svelte',
   '../../../components/toolbar/ToolbarAiReview.svelte',
+  '../../../components/library/ExamplesDialog.svelte',
+  '../../../components/library/StartCard.svelte',
 ];
 
 /** Strip block and line comments so the explanatory note does not match. */

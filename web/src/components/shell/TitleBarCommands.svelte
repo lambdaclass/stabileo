@@ -4,6 +4,7 @@
   import { saveProject, loadFile } from '../../lib/store/file';
   import { accountGate } from '../../lib/store/account-gate.svelte';
   import Icon from '../ribbon/Icon.svelte';
+  import { examplesUi } from '../../lib/store/examples-ui.svelte';
 
   type Props = {
     mode: 'basico' | 'pro';
@@ -76,6 +77,12 @@
         </button>
         <button role="menuitem" class="tb-item" onclick={() => { menu = null; accountGate.guard('open', () => fileInput?.click()); }}>
           <Icon name="project" size={15} /><span>{t('appShell.openFile')}</span>
+        </button>
+        <button role="menuitem" class="tb-item" onclick={() => { menu = null; examplesUi.open('examples'); }} data-testid="tb-open-example">
+          <Icon name="examples" size={15} /><span>{t('appShell.openExample')}</span>
+        </button>
+        <button role="menuitem" class="tb-item" onclick={() => { menu = null; examplesUi.open('tutorials'); }} data-testid="tb-tutorials">
+          <Icon name="solve" size={15} /><span>{t('appShell.tutorials')}</span>
         </button>
         <button role="menuitem" class="tb-item" onclick={() => { menu = null; saveProject(); }}>
           <Icon name="save" size={15} /><span>{t('project.saveTab')}</span><kbd>{mod}+S</kbd>

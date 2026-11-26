@@ -5,7 +5,7 @@ export async function bootLanding(page: Page, opts: { locale?: string; manual?: 
   await page.addInitScript(
     ({ locale, manual }) => {
       try {
-        localStorage.clear();
+        localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off');
         if (manual) {
           localStorage.setItem('stabileo-lang', locale);
           localStorage.setItem('stabileo-lang-manual', '1');

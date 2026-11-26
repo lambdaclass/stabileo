@@ -1,51 +1,13 @@
 <script lang="ts">
-  import { uiStore, modelStore, resultsStore } from '../../lib/store';
+  import { uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
+  import { EXAMPLES_2D, EXAMPLES_3D, loadBasicExample, type BasicExample } from '../../lib/examples/basic-examples';
 
   let showExamples = $state(false);
   let showExamples3D = $state(false);
 
-  const examples = [
-    // Vigas simples
-    { id: 'simply-supported', nameKey: 'ex.simply-supported', descKey: 'ex.simply-supported.desc' },
-    { id: 'cantilever', nameKey: 'ex.cantilever', descKey: 'ex.cantilever.desc' },
-    { id: 'cantilever-point', nameKey: 'ex.cantilever-point', descKey: 'ex.cantilever-point.desc' },
-    { id: 'point-loads', nameKey: 'ex.point-loads', descKey: 'ex.point-loads.desc' },
-    // Vigas multi-tramo y condiciones especiales
-    { id: 'gerber-beam', nameKey: 'ex.gerber-beam', descKey: 'ex.gerber-beam.desc' },
-    { id: 'continuous-beam', nameKey: 'ex.continuous-beam', descKey: 'ex.continuous-beam.desc' },
-    { id: 'spring-support', nameKey: 'ex.spring-support', descKey: 'ex.spring-support.desc' },
-    { id: 'settlement', nameKey: 'ex.settlement', descKey: 'ex.settlement.desc' },
-    { id: 'thermal', nameKey: 'ex.thermal', descKey: 'ex.thermal.desc' },
-    // Reticulados
-    { id: 'truss', nameKey: 'ex.truss', descKey: 'ex.truss.desc' },
-    { id: 'warren-truss', nameKey: 'ex.warren-truss', descKey: 'ex.warren-truss.desc' },
-    { id: 'howe-truss', nameKey: 'ex.howe-truss', descKey: 'ex.howe-truss.desc' },
-    // Arcos y pórticos
-    { id: 'three-hinge-arch', nameKey: 'ex.three-hinge-arch', descKey: 'ex.three-hinge-arch.desc' },
-    { id: 'portal-frame', nameKey: 'ex.portal-frame', descKey: 'ex.portal-frame.desc' },
-    { id: 'two-story-frame', nameKey: 'ex.two-story-frame', descKey: 'ex.two-story-frame.desc' },
-    // Puentes y envolventes
-    { id: 'bridge-moving-load', nameKey: 'ex.bridge-moving-load', descKey: 'ex.bridge-moving-load.desc' },
-    // Edificios con combinaciones CIRSOC
-    { id: 'frame-cirsoc-dl', nameKey: 'ex.frame-cirsoc-dl', descKey: 'ex.frame-cirsoc-dl.desc' },
-    { id: 'building-3story-dlw', nameKey: 'ex.building-3story-dlw', descKey: 'ex.building-3story-dlw.desc' },
-    { id: 'frame-seismic', nameKey: 'ex.frame-seismic', descKey: 'ex.frame-seismic.desc' },
-  ] as const;
-
-  // Unified 3D examples — ordered by ascending complexity
-  const examples3D: { id: string; nameKey: string; descKey: string }[] = [
-    { id: '3d-cantilever-load', nameKey: 'ex.3d-cantilever-load', descKey: 'ex.3d-cantilever-load.desc' },
-    { id: '3d-torsion-beam', nameKey: 'ex.3d-torsion-beam', descKey: 'ex.3d-torsion-beam.desc' },
-    { id: 'hinged-arch-3d', nameKey: 'ex.hingedArch3D', descKey: 'ex.hingedArch3D.desc' },
-    { id: '3d-portal-frame', nameKey: 'ex.3d-portal-frame', descKey: 'ex.3d-portal-frame.desc' },
-    { id: 'grid-beams', nameKey: 'ex.gridBeams', descKey: 'ex.gridBeams.desc' },
-    { id: '3d-space-truss', nameKey: 'ex.3d-space-truss', descKey: 'ex.3d-space-truss.desc' },
-    { id: 'space-frame', nameKey: 'ex.spaceFrame3D', descKey: 'ex.spaceFrame3D.desc' },
-    { id: 'tower-3d-2', nameKey: 'ex.tower3D_2', descKey: 'ex.tower3D_2.desc' },
-    { id: 'tower-3d-4', nameKey: 'ex.tower3D_4', descKey: 'ex.tower3D_4.desc' },
-    { id: '3d-nave-industrial', nameKey: 'ex.3d-nave-industrial', descKey: 'ex.3d-nave-industrial.desc' },
-  ];
+  const examples = EXAMPLES_2D;
+  const examples3D = EXAMPLES_3D;
 
 
 
@@ -74,7 +36,7 @@
   model opens fine in the 3D viewport, and picking a 3D example from 2D switches
   the viewport with it rather than flattening a space frame into a plane.
 -->
-{#snippet exampleList(items: { id: string; nameKey: string; descKey: string }[], to3D: boolean)}
+{#snippet exampleList(items: readonly BasicExample[], to3D: boolean)}
   <div class="examples-list">
     {#each items as ex}
       <button class="example-item" data-testid={`example-${ex.id}`} onclick={async () => {
@@ -86,14 +48,7 @@
          * restraint, so the 3D solver correctly called it a mechanism and the
          * example looked broken. An example carries the mode it was built for.
          */
-        const want = to3D ? '3d' : '2d';
-        if (uiStore.analysisMode !== want) uiStore.analysisMode = want;
-        await modelStore.loadExample(ex.id);
-        // As in PRO: an example arrives without node IDs, unreadable on its larger models.
-        if (to3D) uiStore.showNodeLabels3D = false;
-        resultsStore.clear();
-        resultsStore.forgetView();
-        resultsStore.clear3D();
+        await loadBasicExample(ex.id, to3D);
         /*
          * On a phone, get out of the way of the model you just loaded.
          *
@@ -108,7 +63,6 @@
          * over it, and closing it would throw away the list you may want again.
          */
         if (uiStore.isMobile) window.dispatchEvent(new CustomEvent('stabileo-open-panel', { detail: null }));
-        setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50);
       }}>
         <span class="example-name">{t(ex.nameKey)}</span>
         <span class="example-desc">{t(ex.descKey)}</span>
@@ -128,7 +82,7 @@
   Closed by default and counted in the header, so the panel shows what it
   holds without unrolling it, which is how PRO presents the same thing.
 -->
-{#snippet group(titleKey: string, items: { id: string; nameKey: string; descKey: string }[], to3D: boolean, open: boolean, toggle: () => void)}
+{#snippet group(titleKey: string, items: readonly BasicExample[], to3D: boolean, open: boolean, toggle: () => void)}
   <div class="toolbar-section">
     <button class="section-toggle" onclick={toggle} data-testid={`ex-group-${to3D ? '3d' : '2d'}`}>
       <span>{open ? '▾' : '▸'} {t(titleKey)}</span>

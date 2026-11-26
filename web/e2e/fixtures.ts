@@ -244,6 +244,7 @@ export async function bootPro(page: Page, appLocale = 'en'): Promise<void> {
       // exercise it, so it is turned on as a reader turns it on. `design-optional.spec.ts` covers
       // the default.
       localStorage.setItem('stabileo-design-in-pro', '1');
+      localStorage.setItem('stabileo-start-card', 'off');
     } catch { /* private mode */ }
   }, { loc: appLocale, bootKey });
 

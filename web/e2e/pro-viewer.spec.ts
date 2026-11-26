@@ -53,12 +53,14 @@ test('@smoke an example in the viewer, seen in plan and split, then duplicated t
   await expect(page).toHaveURL(/\/app\/pro$/);
 });
 
-test('@smoke the Project tab lists the videos beside the examples, and offers the read-only link', async ({ page }) => {
+test('@smoke the tutorials list the PRO videos, and Project offers the read-only link', async ({ page }) => {
   await page.goto('/app/pro?e2e=1');
   await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
+  await page.getByTestId('tb-file').click();
+  await page.getByTestId('tb-tutorials').click();
+  await expect(page.getByTestId('pp-video-list').locator('[data-testid^="pp-video-"]')).toHaveCount(2);
+  await page.getByTestId('tutorials-close').click();
   await page.getByTestId('pr-project').click();
-  await page.getByTestId('pp-videos').click();
-  await expect(page.getByTestId('pp-video-list').locator('li')).toHaveCount(2);
   await expect(page.getByTestId('pro-videos-offer')).toHaveCount(0);
   await expect(page.getByTestId('pp-share-viewer')).toBeVisible();
 });
