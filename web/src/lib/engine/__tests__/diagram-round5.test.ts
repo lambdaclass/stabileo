@@ -419,6 +419,40 @@ it('known wrong result: #2437 selects the jump face from the supplied physical d
   }
 });
 
+const spatialFaceRegression = process.env.RUN_KNOWN_WRONG === '2437' ? it : it.skip;
+
+spatialFaceRegression('known wrong result: #2437 applies the explicit spatial face at a physical cut', () => {
+  const [, space] = cantilevers(2);
+  const linear = solve3D(space);
+  const nonlinear = solvePDelta3D(space);
+  expect(nonlinear.converged).toBe(true);
+
+  for (const { elementForces: [leaf] } of [linear, nonlinear.results]) {
+    const ef = { ...leaf!, vzStart: -4, vzEnd: 3, pointLoadsZ: [{ a: 1, p: 7 }] };
+    const station = { t: 0.5, distance: 1 };
+    const direct = (at: Parameters<ReturnType<typeof prepareDiagramEvaluator3D>>[0], right?: boolean) =>
+      evaluateDiagramAt(ef, 'shearZ', at, right);
+    const prepared = prepareDiagramEvaluator3D(ef, 'shearZ');
+
+    for (const [entry, read] of [['direct', direct], ['prepared', prepared]] as const) {
+      expect.soft(read(station, false), `${entry}: explicit left at the physical cut`).toBe(-4);
+      expect.soft(read(station, true), `${entry}: explicit right at the physical cut`).toBe(3);
+      expect.soft(read({ ...station, right: true }, false)).toBe(-4);
+      expect.soft(read({ ...station, right: false }, true)).toBe(3);
+      expect.soft(read({ ...station, right: true })).toBe(3);
+      expect.soft(read(station)).toBe(-4);
+      expect.soft(read(station.t, false)).toBe(-4);
+      expect.soft(read(station.t, true)).toBe(3);
+      expect.soft(read({ t: station.t }, true)).toBe(3);
+      for (const right of [false, true]) {
+        expect.soft(read({ t: station.t, distance: 1 - Number.EPSILON / 2 }, right)).toBe(-4);
+        expect.soft(read({ t: station.t, distance: 1 + Number.EPSILON }, right)).toBe(3);
+        expect.soft(read({ t: 0.25, distance: 0.5 }, right)).toBe(-4);
+      }
+    }
+  }
+});
+
 it('known wrong result: #2437 keeps the sampled concrete policy for the seven-storey force record', () => {
   const [, , , [result]] = forceRecords();
   const f = {
