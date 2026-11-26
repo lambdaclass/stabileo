@@ -120,3 +120,40 @@ it('#2330 a connected X transfers inertia on each upper brace span', () => {
     expect(moment).toBeCloseTo(64 + 12 * leg, 7);
   }
 });
+
+const reviewSeismic = process.env.RUN_KNOWN_WRONG ? it : it.skip;
+
+reviewSeismic.each([false, true])('known wrong result: #2607 a crossed column keeps its story overturning (reversed: %s)', reversed => {
+  const model = bracedFrame();
+  model.nodes.set(6, { id: 6, x: 2, y: 0, z: 0 });
+  model.nodes.set(7, { id: 7, x: 2, y: 0, z: 4 });
+  model.supports = new Map([[1, { nodeId: 1 }], [6, { nodeId: 6 }]]);
+  model.materials = new Map([[1, { id: 1, rho: 0 }], [2, { id: 2, rho: 4 }]]);
+  model.elements = new Map([[1, 5], [5, 4], [6, 5], [5, 7], [7, 4]].map(([a, b], i) => [
+    i + 1, {
+      id: i + 1, nodeI: (reversed ? b : a)!, nodeJ: (reversed ? a : b)!,
+      sectionId: 1, materialId: i === 2 || i === 3 ? 2 : 1, type: 'frame' as const,
+    },
+  ]));
+  model.nodes.delete(2);
+  model.nodes.delete(3);
+
+  const { plan, sink } = seismicPlan(model);
+  expect(plan.outcome).toBe('READY');
+  expect(plan.seismicModel!.levels.map(l => l.elevation)).toEqual([0, 4]);
+  const force = 4 * 0.5 * (4 / 2);
+  expect(plan.factors.baseShear!.value).toBeCloseTo(force, 10);
+  for (const loads of [plan, sink]) {
+    const nodal = loads.nodal.filter(l => l.caseType === 'E');
+    const distributed = loads.distributed.filter(l => l.caseType === 'E');
+    const moment = nodal.reduce((sum, l) => sum + l.fx * model.nodes.get(l.nodeId)!.z!, 0)
+      + distributed.reduce((sum, l) => {
+        const member = model.elements.get(l.elementId)!;
+        const zI = model.nodes.get(member.nodeI)!.z!, zJ = model.nodes.get(member.nodeJ)!.z!;
+        return sum + (l.b! - l.a!) * l.qX! * (zI + zJ) / 2;
+      }, 0);
+    expect.soft(moment).toBeCloseTo(force * 4, 10);
+    expect.soft(distributed).toEqual([]);
+    expect.soft(nodal).toEqual([expect.objectContaining({ nodeId: 7, fx: force })]);
+  }
+});
