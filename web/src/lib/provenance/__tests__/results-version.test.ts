@@ -108,7 +108,8 @@ describe('results versions', () => {
       elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
     };
     const stamp = { resultsVersion: 4, analyses: ['modal'] } as unknown as SolveStamp;
-    const stagedIds = ['kinematic-translation-motion', 'modal-massive-translation', 'reduced-stiffness-rank'];
+    const stagedIds = ['kinematic-translation-motion', 'modal-massive-translation'];
+    stagedIds.push('reduced-stiffness-rank');
     const precedingRegistry = {
       ...RESULT_CHANGES,
       changes: RESULT_CHANGES.changes.filter(c => !stagedIds.includes(c.id)),
