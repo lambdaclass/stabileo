@@ -89,13 +89,25 @@
     right: auto;
     left: 50%;
     transform: translateX(-50%);
-    display: block;
-    column-count: 2;
-    column-gap: 8px;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 8px;
     min-width: 420px;
+    max-height: calc(100cqh - 76px);
+    overflow-y: auto;
   }
 
-  .camera-controls.view-dock .cam-menu > * { break-inside: avoid; }
+  .cam-col { display: contents; }
+
+  .camera-controls.view-dock .cam-col {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .camera-controls.view-dock .cam-col + .cam-col > .cam-sep:first-child { display: none; }
 
   .view-dock-rule {
     width: 1px;

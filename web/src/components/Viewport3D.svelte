@@ -4487,6 +4487,7 @@
           tabindex="-1"
         ></button>
         <div class="cam-menu" data-testid="cam-menu-pop">
+          <div class="cam-col">
           <button class="cam-item" onclick={() => { zoomToFit(); camMenuOpen = false; }}>
             <Icon name="fit" size={15} /><span>{t('viewport3d.zoomToFit')}</span>
           </button>
@@ -4537,6 +4538,8 @@
             <span>{uiStore.measureMode
               ? t('viewport3d.disableMeasure') : t('viewport3d.enableMeasure')}</span>
           </button>
+          </div>
+          <div class="cam-col">
           <div class="cam-sep"></div>
           <!--
             How the bars are drawn: one choice of four (QA of 20-oct: «Modelo con secciones» and
@@ -4561,6 +4564,7 @@
             <span class="cam-glyph">▶</span>
             <span>{t('timelapse.menu')}</span>
           </button>
+          </div>
         </div>
       {/if}
     </div>
@@ -4759,6 +4763,7 @@
     height: 100%;
     position: relative;
     overflow: hidden;
+    container-type: size;
   }
   .viewport3d-wrapper.split-main { width: 50%; }
 
