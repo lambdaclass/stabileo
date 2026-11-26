@@ -175,8 +175,8 @@ export const planDraw = {
     if (kind === 'column') column.mode = m as ColumnMode; else if (kind === 'beam') beam.mode = m as BeamMode;
     points = []; typed = '';
   },
-  /** Whether a key typed now belongs to the drawing: a length needs a point to start from. */
-  get typing() { return points.length > 0; },
+  /** Whether a key typed now belongs to the drawing: a length, from a point, along a line. */
+  get typing() { return linear(); },
   add(p: P2) {
     if (!kind) return;
     const q = constrain(p);
@@ -194,7 +194,7 @@ export const planDraw = {
     else this.stop();
   },
   cancel() { if (points.length || typed) { points = []; typed = ''; } else this.stop(); },
-  type(ch: string) { if (points.length) typed = (typed + ch).replace(',', '.'); },
+  type(ch: string) { if (linear()) typed = (typed + ch).replace(',', '.'); },
   /** The length typed, from the last point towards the pointer. */
   enter() {
     const last = points[points.length - 1], len = parseFloat(typed);

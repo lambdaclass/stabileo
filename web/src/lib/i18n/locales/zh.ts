@@ -6469,6 +6469,7 @@ const zh: Translations = {
   "building.storeyHint": "一个楼层从其标高到上一个标高。在平面上绘制的内容属于所选楼层：柱和墙从其标高到上一标高；梁和楼板位于上一标高，即其顶部。其底图是该层的 DXF 平面图。",
   "building.storeyTemplate": "底图：{name}",
   "building.storeyNoTemplate": "无底图",
+  "building.storeyBorrowed": "使用 {level} 的底图：{name}",
   "building.storeyAddTemplate": "加载其底图",
   "building.needLevels": "要进入“柱”，需要先有楼层：在“楼层”中输入层高（例如 3; 3; 3），然后点击“生成”。轴线和底图可选。",
   "building.col.drawHint": "在底图上将每根柱绘制为矩形：采用该截面，从楼层延伸到其顶部。",

@@ -106,6 +106,10 @@ test.describe('@smoke drawing the building on the plan', () => {
 
     await page.getByTestId('plan-draw-exit').click();
     await page.getByTestId('building-tab-beams').click();
+    await page.getByTestId('building-storey-select').selectOption({ index: 0 });
+    await expect(page.getByTestId('building-storey-borrowed'), 'the storey above draws over the one below').toContainText('N0');
+    await page.getByTestId('building-storey-select').selectOption({ index: 1 });
+    await expect(page.getByTestId('building-storey-template')).toContainText('plan');
     await page.getByTestId('building-beams-draw').click();
     await page.getByTestId('plan-draw-mode-faces').click();
     await click(page, X(0.02), Y(2.01), 3);
@@ -138,6 +142,7 @@ test.describe('@smoke drawing the building on the plan', () => {
     await page.getByTestId('plan-draw-exit').click();
 
     await page.getByTestId('building-tab-slabs').click();
+    await expect(page.getByTestId('building-storey-borrowed'), 'no template laid: nothing borrowed').toHaveText(/./);
     await page.getByTestId('building-slabs-draw').click();
     await expect(page.getByTestId('plan-draw-level')).toContainText('N1');
     await click(page, 0.1, 0.1, 3);

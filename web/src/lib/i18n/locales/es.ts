@@ -6722,6 +6722,7 @@ const es: Record<string, string> = {
   'building.storeyHint': 'Una planta va de su nivel al siguiente. Lo que dibujes en planta va a la planta elegida: las columnas y los tabiques, de su nivel al de arriba; las vigas y las losas, en el de arriba, que es su techo. Su plantilla es el plano DXF de ese piso.',
   'building.storeyTemplate': 'Plantilla: {name}',
   'building.storeyNoTemplate': 'Sin plantilla',
+  'building.storeyBorrowed': 'Usa la de {level}: {name}',
   'building.storeyAddTemplate': 'Cargar su plantilla',
   'building.needLevels': 'Para pasar a Columnas faltan los niveles: escribí las alturas de piso en Niveles (por ejemplo 3; 3; 3) y tocá Generar. Los ejes y la plantilla son opcionales.',
   'building.col.drawHint': 'Dibujá cada columna como un rectángulo sobre la plantilla: toma esa sección y va de la planta a su techo.',

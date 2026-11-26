@@ -10,11 +10,20 @@
   import { sortedLevels } from '../../../lib/model/grid';
   import { storeyLabel } from '../../../lib/model/storeys';
   import { buildingUi } from '../../../lib/store/building-ui.svelte';
+  import { underlayLevelFor } from '../../../lib/model/osnap';
 
   const levels = $derived(sortedLevels(modelStore.grid ?? undefined));
   const current = $derived(levels.find((l) => Math.abs(l.z - uiStore.nodeCreateZ) < 1e-6));
   $effect(() => { if (!current && levels[0]) uiStore.setActiveLevel(levels[0].z); });
   const template = $derived(current ? modelStore.underlays.find((u) => u.levelId === current.id || Math.abs(u.z - current.z) < 1e-6) : undefined);
+  /** With none of its own, the storey draws over the nearest one below, as the snaps do. */
+  const borrowed = $derived.by(() => {
+    if (!current || template) return undefined;
+    const z = underlayLevelFor(modelStore.underlays, current.z);
+    const u = z === null ? undefined : modelStore.underlays.find((x) => Math.abs(x.z - z) < 1e-6);
+    const l = u && levels.find((x) => Math.abs(x.z - u.z) < 1e-6);
+    return u ? { name: u.name, level: l?.name ?? `${u.z.toFixed(2)} m` } : undefined;
+  });
 </script>
 
 <section class="pk-card st" data-testid="building-storey">
@@ -27,7 +36,7 @@
     {#if template}
       <span class="st-tpl" data-testid="building-storey-template">{tp('building.storeyTemplate', { name: template.name })}</span>
     {:else}
-      <span class="st-tpl st-none">{t('building.storeyNoTemplate')}</span>
+      <span class="st-tpl st-none" data-testid="building-storey-borrowed">{borrowed ? tp('building.storeyBorrowed', borrowed) : t('building.storeyNoTemplate')}</span>
       <button class="pk-btn" onclick={() => (buildingUi.tool = 'levels')} data-testid="building-storey-add-template">{t('building.storeyAddTemplate')}</button>
     {/if}
   </div>

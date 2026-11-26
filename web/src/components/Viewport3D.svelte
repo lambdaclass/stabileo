@@ -3596,7 +3596,7 @@
       } else if (pick?.kind === 'load') { uiStore.selectLoad(pick.id, addToSel); hit = true; }
       if (!hit && uiStore.selectsKind('supports') && !viewCategories.isHidden('supports')) {
         for (const h of raycaster.intersectObjects(supportsParent.children, true)) {
-          const ud = findUserData(h.object);
+          const ud = resolveHitUserData(h);
           if (ud?.type === 'support') {
             uiStore.selectSupport(ud.id, addToSel);
             hit = true;
@@ -3619,7 +3619,7 @@
     if (sm === 'supports') {
       const supHits = !viewCategories.isHidden('supports') ? raycaster.intersectObjects(supportsParent.children, true) : [];
       for (const hit of supHits) {
-        const ud = findUserData(hit.object);
+        const ud = resolveHitUserData(hit);
         if (ud?.type === 'support') {
           uiStore.selectSupport(ud.id, addToSel);
           return;

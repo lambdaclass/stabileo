@@ -88,6 +88,26 @@ describe('what lies under the plan', () => {
     expect(planCutCensus().overhead).toBe(1);
   });
 
+  it('reads a drawn slab by its outline, not its thickness: the one on the floor goes with the storey below', () => {
+    modelStore.clear();
+    const slab = (z: number) => {
+      const ids = [[0, 0], [4, 0], [4, 4], [0, 4]].map(([x, y]) => modelStore.addNode(x!, y!, z));
+      const id = modelStore.addGroup(`L${z}`, 'physicalMember', { nodes: ids }, { data: { kind: 'slab', provenance: 'declared' } });
+      const g = new THREE.Group();
+      g.userData = { type: 'physicalPlate', id };
+      const m = at(z);
+      m.scale.z = 1.5;
+      g.add(m);
+      return g;
+    };
+    const floor = slab(3), ceiling = slab(6);
+    const parent = new THREE.Group();
+    parent.add(floor, ceiling);
+    pass([parent], storey3(), [parent]);
+    expect([floor.visible, ceiling.visible]).toEqual([false, true]);
+    expect(planCutCensus().overhead).toBe(1);
+  });
+
   it('on the lowest level, keeps what sits on it: the foundation beams', () => {
     modelStore.clear();
     const parent = new THREE.Group();
@@ -116,6 +136,8 @@ describe('what lies under the plan', () => {
     toneBelowPlanCut([], storey3());
     expect([low, onFloor, column].map((id) => underPlanFloor({ type: 'element', id }))).toEqual([true, true, false]);
     expect([underPlanFloor({ type: 'node', id: a }), underPlanFloor({ type: 'node', id: c })]).toEqual([true, false]);
+    const base = modelStore.addSupport(a, 'fixed3d'), upper = modelStore.addSupport(c, 'fixed3d');
+    expect([underPlanFloor({ type: 'support', id: base }), underPlanFloor({ type: 'support', id: upper })], 'a support goes with its node').toEqual([true, false]);
     toneBelowPlanCut([], storey3('ghost'));
     expect(underPlanFloor({ type: 'element', id: low })).toBe(false);
     toneBelowPlanCut([], null);

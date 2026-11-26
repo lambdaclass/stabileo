@@ -37,16 +37,19 @@ const nodeZ = (id: number) => modelStore.nodes.get(id)?.z ?? 0;
 
 function nodesOf(hit: { type: string; id: number }): readonly number[] {
   if (hit.type === 'node') return [hit.id];
+  if (hit.type === 'support') { const n = modelStore.supports.get(hit.id)?.nodeId; return n === undefined ? [] : [n]; }
   if (hit.type === 'element') { const e = modelStore.elements.get(hit.id); return e ? [e.nodeI, e.nodeJ] : []; }
   if (hit.type === 'plate') return modelStore.plates.get(hit.id)?.nodes ?? [];
   if (hit.type === 'quad') return modelStore.quads.get(hit.id)?.nodes ?? [];
+  if (hit.type === 'physicalPlate') return modelStore.model.groups.get(hit.id)?.members.nodes ?? [];
   return [];
 }
 
 /** The lowest and highest z of what an object draws, read from its nodes when it has them: a section's depth does not move a beam to another level. */
 function span(o: THREE.Object3D): { min: number; max: number } | null {
-  const u = o.userData as { type?: string; id?: number };
-  const ids = typeof u.type === 'string' && typeof u.id === 'number' ? nodesOf({ type: u.type, id: u.id }) : [];
+  const u = o.userData as { type?: string; id?: number; plateOutline?: number };
+  const ids = typeof u.plateOutline === 'number' ? nodesOf({ type: 'physicalPlate', id: u.plateOutline })
+    : typeof u.type === 'string' && typeof u.id === 'number' ? nodesOf({ type: u.type, id: u.id }) : [];
   if (ids.length) { const zs = ids.map(nodeZ); return { min: Math.min(...zs), max: Math.max(...zs) }; }
   box.setFromObject(o);
   return box.isEmpty() ? null : { min: box.min.z, max: box.max.z };
@@ -88,6 +91,6 @@ export function toneBelowPlanCut(parents: ReadonlyArray<THREE.Object3D | null | 
 export function underPlanFloor(hit: { type: string; id: number } | null): boolean {
   if (pick === null || !hit) return false;
   const nodes = nodesOf(hit);
-  const floor = hit.type === 'node' ? pick.nodeFloorZ : pick.floorZ;
+  const floor = hit.type === 'node' || hit.type === 'support' ? pick.nodeFloorZ : pick.floorZ;
   return nodes.length > 0 && Math.max(...nodes.map(nodeZ)) < floor;
 }

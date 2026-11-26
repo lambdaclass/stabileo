@@ -6276,6 +6276,7 @@ const fr: Translations = {
   'building.storeyHint': 'Un étage va de son niveau au suivant. Ce que vous dessinez en plan va à l’étage choisi : les poteaux et les voiles, de son niveau à celui du dessus ; les poutres et les dalles, sur celui du dessus, son plafond. Son fond de plan est le plan DXF de cet étage.',
   'building.storeyTemplate': 'Fond de plan : {name}',
   'building.storeyNoTemplate': 'Sans fond de plan',
+  'building.storeyBorrowed': 'Utilise celui de {level} : {name}',
   'building.storeyAddTemplate': 'Charger son fond de plan',
   'building.needLevels': 'Pour passer aux Poteaux, il faut d’abord les niveaux : saisissez les hauteurs d’étage dans Niveaux (par exemple 3; 3; 3) et cliquez sur Générer. Les axes et le fond de plan sont facultatifs.',
   'building.col.drawHint': 'Dessinez chaque poteau comme un rectangle sur le fond de plan : il prend cette section et va de l’étage à son plafond.',

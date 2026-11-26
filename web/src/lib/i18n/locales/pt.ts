@@ -6159,6 +6159,7 @@ const pt: Translations = {
   'building.storeyHint': 'Um pavimento vai do seu nível ao seguinte. O que você desenha na planta vai para o pavimento escolhido: pilares e paredes, do seu nível ao de cima; vigas e lajes, no de cima, que é o seu teto. A planta de fundo dele é o DXF desse andar.',
   'building.storeyTemplate': 'Planta de fundo: {name}',
   'building.storeyNoTemplate': 'Sem planta de fundo',
+  'building.storeyBorrowed': 'Usa a de {level}: {name}',
   'building.storeyAddTemplate': 'Carregar a planta de fundo',
   'building.needLevels': 'Para passar a Pilares faltam os níveis: escreva as alturas de pavimento em Níveis (por exemplo 3; 3; 3) e toque em Gerar. Os eixos e a planta de fundo são opcionais.',
   'building.col.drawHint': 'Desenhe cada pilar como um retângulo sobre a planta de fundo: ele toma essa seção e vai do pavimento ao seu teto.',

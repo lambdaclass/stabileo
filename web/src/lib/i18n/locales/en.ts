@@ -6729,6 +6729,7 @@ const en: Record<string, string> = {
   'building.storeyHint': 'A story runs from its level to the next one. What you draw on the plan goes to the chosen story: columns and walls from its level to the one above; beams and slabs on the one above, its ceiling. Its drawing is that floor\'s DXF plan.',
   'building.storeyTemplate': 'Drawing: {name}',
   'building.storeyNoTemplate': 'No drawing',
+  'building.storeyBorrowed': 'Uses {level}\'s: {name}',
   'building.storeyAddTemplate': 'Load its drawing',
   'building.needLevels': 'Columns need the levels first: type the story heights under Levels (for example 3; 3; 3) and press Generate. The grid lines and the drawing are optional.',
   'building.col.drawHint': 'Draw each column as a rectangle over the drawing: it takes that section and runs from the story\'s level to its ceiling.',

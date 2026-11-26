@@ -5996,6 +5996,7 @@ const hu: Translations = {
   "building.storeyHint": "Egy emelet a saját szintjétől a következőig tart. Amit alaprajzban rajzol, a kiválasztott emelethez kerül: az oszlopok és a falak a szintjétől a fölötte lévőig, a gerendák és a födémek a fölötte lévő szintre, a mennyezetére. A háttérrajza annak az emeletnek a DXF alaprajza.",
   "building.storeyTemplate": "Rajz: {name}",
   "building.storeyNoTemplate": "Nincs rajz",
+  "building.storeyBorrowed": "A(z) {level} rajzát használja: {name}",
   "building.storeyAddTemplate": "Rajz betöltése",
   "building.needLevels": "Az oszlopokhoz előbb szintek kellenek: a Szintek részben írja be az emeletmagasságokat (például 3; 3; 3), és kattintson a Létrehozás gombra. A tengelyek és a rajz nem kötelezők.",
   "building.col.drawHint": "Rajzoljon minden oszlopot téglalapként a rajzra: felveszi ezt a keresztmetszetet, és az emelettől a mennyezetéig tart.",

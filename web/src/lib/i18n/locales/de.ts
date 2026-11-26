@@ -6276,6 +6276,7 @@ const de: Translations = {
   'building.storeyHint': 'Ein Geschoss reicht von seiner Ebene bis zur nächsten. Was Sie im Grundriss zeichnen, gehört zum gewählten Geschoss: Stützen und Wände von seiner Ebene bis zur oberen, Balken und Decken auf der oberen Ebene, seiner Decke. Seine Hintergrundzeichnung ist der DXF-Grundriss dieses Geschosses.',
   'building.storeyTemplate': 'Zeichnung: {name}',
   'building.storeyNoTemplate': 'Keine Zeichnung',
+  'building.storeyBorrowed': 'Verwendet die von {level}: {name}',
   'building.storeyAddTemplate': 'Zeichnung laden',
   'building.needLevels': 'Für die Stützen fehlen zuerst die Geschosse: Geben Sie unter Geschosse die Geschosshöhen ein (zum Beispiel 3; 3; 3) und klicken Sie auf Erzeugen. Achsen und Zeichnung sind optional.',
   'building.col.drawHint': 'Zeichnen Sie jede Stütze als Rechteck auf der Zeichnung: Sie erhält diesen Querschnitt und reicht vom Geschoss bis zu seiner Decke.',

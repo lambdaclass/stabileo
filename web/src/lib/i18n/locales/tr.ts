@@ -6285,6 +6285,7 @@ const tr: Translations = {
   'building.storeyHint': 'Bir kat, kendi kotundan bir üstteki kota kadar uzanır. Planda çizdikleriniz seçilen kata gider: kolonlar ve perdeler kendi kotundan üstteki kota; kirişler ve döşemeler üstteki kotta, yani tavanında. Arka plan çizimi o katın DXF planıdır.',
   'building.storeyTemplate': 'Çizim: {name}',
   'building.storeyNoTemplate': 'Çizim yok',
+  'building.storeyBorrowed': '{level} çizimini kullanıyor: {name}',
   'building.storeyAddTemplate': 'Çizimini yükle',
   'building.needLevels': 'Kolonlara geçmek için önce katlar gerekir: Katlar bölümüne kat yüksekliklerini yazın (örneğin 3; 3; 3) ve Oluştur\'a tıklayın. Akslar ve çizim isteğe bağlıdır.',
   'building.col.drawHint': 'Her kolonu çizim üzerinde bir dikdörtgen olarak çizin: o kesiti alır ve kattan tavanına kadar uzanır.',
