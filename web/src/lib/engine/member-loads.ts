@@ -120,7 +120,6 @@ export interface MemberRef {
 }
 
 export const PLANAR_LINE_COMPONENT_CUTOFF = 1e-10;
-export const TRUSS_LOAD_COMPONENT_CUTOFF = 1e-12;
 
 export function distributedSolverRow3D(elementId: number, qI: LoadVector, qJ: LoadVector, a?: number, b?: number, source: MemberLineSource = 'external'): SolverLoad3D {
   const [qXI, qYI, qZI] = qI.value, [qXJ, qYJ, qZJ] = qJ.value;
@@ -134,26 +133,43 @@ export function distributedSolverRow3D(elementId: number, qI: LoadVector, qJ: Lo
  * `axialOnly` transfers the load to end nodes for members that carry no bending.
  */
 export function globalDistributedToSolver(m: MemberRef, gI: Vec3, gJ: Vec3, a: number, b: number, axialOnly = false): SolverLoad3D[] {
-  return distributedVectorsToSolver(m, LoadVector.from(gI).projectOnto(m.axes),
-    LoadVector.from(gJ).projectOnto(m.axes), a, b, axialOnly, 'external');
+  return distributedVectorsToSolver(m, LoadVector.from(gI), LoadVector.from(gJ), a, b, axialOnly, 'external');
 }
 
-export function localDistributedToSolver(m: MemberRef, qI: Vec3, qJ: Vec3, a: number, b: number): SolverLoad3D[] {
-  return distributedVectorsToSolver(m, LoadVector.from(qI), LoadVector.from(qJ), a, b, false, 'external');
+export function localDistributedToSolver(m: MemberRef, qI: Vec3, qJ: Vec3, a: number, b: number, axialOnly = false): SolverLoad3D[] {
+  return localDistributedVectorsToSolver(m, LoadVector.from(qI), LoadVector.from(qJ), a, b, axialOnly, 'external');
 }
 
 function distributedVectorsToSolver(
+  m: MemberRef, gI: LoadVector, gJ: LoadVector, a: number, b: number, axialOnly: boolean, source: MemberLineSource,
+): SolverLoad3D[] {
+  const qI = gI.projectOnto(m.axes), qJ = gJ.projectOnto(m.axes);
+  return localDistributedVectorsToSolver(m, qI, qJ, a, b, axialOnly, source);
+}
+
+function localDistributedVectorsToSolver(
   m: MemberRef, qI: LoadVector, qJ: LoadVector, a: number, b: number, axialOnly: boolean, source: MemberLineSource,
 ): SolverLoad3D[] {
-  const { ex, ey, ez, L } = m.axes;
   if (!axialOnly) {
     return [...qI.value, ...qJ.value].some(v => v !== 0) ? [distributedSolverRow3D(m.elementId, qI, qJ, a, b, source)] : [];
   }
 
   const span = trapezoidSpan(a, b);
   if (!span) return [];
+  return distributedEndNodeRows(m, qI, qJ, span, source);
+}
+
+export function trussComponentBelowCutoff(value: number): boolean {
+  const tiny = (v: number) => Math.abs(v) < 1e-12;
+  return tiny(value);
+}
+
+function distributedEndNodeRows(
+  m: MemberRef, qI: LoadVector, qJ: LoadVector, span: NonNullable<ReturnType<typeof trapezoidSpan>>, source: MemberLineSource,
+): SolverLoad3D[] {
+  const { ex, ey, ez, L } = m.axes;
   const out: SolverLoad3D[] = [];
-  const tiny = (v: number) => Math.abs(v) < TRUSS_LOAD_COMPONENT_CUTOFF;
+  const tiny = trussComponentBelowCutoff;
   const toNodes = (vI: LoadVector, vJ: LoadVector, axial = false) => {
     let fI = LoadVector.from(zero()), fJ = LoadVector.from(zero());
     for (const [q, station] of [[vI, span.stationI], [vJ, span.stationJ]] as const) {
@@ -205,10 +221,15 @@ export function transverseToNodes(loads: SolverLoad3D[], axialOnly: (elementId: 
     if (l.type === 'distributed') {
       const m = axialOnly(l.data.elementId);
       if (!m) { out.push(l); continue; }
+      const { ex, ey, ez } = m.axes;
       const magnitudes = assembledMagnitudes3D.get(l);
       const line = magnitudes && 'qI' in magnitudes ? magnitudes : undefined;
-      const qI = LoadVector.from([l.data.qXI ?? 0, l.data.qYI, l.data.qZI], line?.qI.magnitude, line?.qI.underflow);
-      const qJ = LoadVector.from([l.data.qXJ ?? 0, l.data.qYJ, l.data.qZJ], line?.qJ.magnitude, line?.qJ.underflow);
+      const globalEnd = (x: number, y: number, z: number, budget?: LoadVector) => {
+        const local = LoadVector.from([x, y, z], budget?.magnitude, budget?.underflow);
+        return local.componentAlong(1, ey).add(local.componentAlong(2, ez)).add(local.componentAlong(0, ex));
+      };
+      const qI = globalEnd(l.data.qXI ?? 0, l.data.qYI, l.data.qZI, line?.qI);
+      const qJ = globalEnd(l.data.qXJ ?? 0, l.data.qYJ, l.data.qZJ, line?.qJ);
       out.push(...distributedVectorsToSolver(m, qI, qJ, l.data.a ?? 0, l.data.b ?? m.axes.L, true, line?.source ?? 'external'));
     } else if (l.type === 'pointOnElement') {
       const m = axialOnly(l.data.elementId);

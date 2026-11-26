@@ -1,4 +1,5 @@
-import { accountingMemberPieces, withAccountingOrigin } from './accounting-source';
+import { accountingMemberPieces } from './accounting-source';
+import { withAccountingOrigin } from './accounting-source';
 /**
  * Members of variable section, solved as chains of prismatic pieces and reported as themselves.
  *

@@ -2,7 +2,7 @@
 
 ## Wall–slab mesh contact
 
-A wall edge can run through a slab cell even when the wall and slab share some node IDs. Those isolated connections do not establish a shared mesh edge. Analysis now checks for this contact and identifies the wall, slab and nearby wall nodes. An edge that pierces the slab interior triggers the same refusal even when both endpoints are away from the slab plane. Subdivide the wall and slab along the intersection and share the junction edges before solving.
+A wall edge can run through a slab cell even when the wall and slab share some node IDs. Those isolated connections do not establish a shared mesh edge. Analysis now checks for this contact and shows the wall, slab and wall edge. An edge that pierces the slab interior triggers the same refusal even when both endpoints are away from the slab plane. Subdivide the wall and slab along the intersection and share the junction edges before solving.
 
 In the #2430 witness, a frame connected the wall base to a fixed slab node. The previous application solve reported 16 kN of vertical support reactions from the slab’s uniform 1 kN/m² pressure on a 4 × 4 m slab. Both wall bases carried zero vertical reaction. The previous application also solved the #2429 oblique CAD wall in both fixed-division and target-size meshing and reported 16 kN despite the missing shared edges. Extending the #2430 wall above the slab placed both of its vertical edges through the slab face. The previous application still returned the slab result with zero vertical reaction at the two wall bases. These models now stop with a wall–slab message before returning structural results. Conforming junctions and the separately supported control beyond the contact limit continue to solve.
 
@@ -20,7 +20,9 @@ When a variable section or an interior point load divides a member into temporar
 
 A distributed load transferred to a truss must reach its designated end nodes. Analysis refuses a misplaced end force even when the total force and torque agree. The case wrench still checks both the anchor loads and the equivalent distributed load of a tendon. The external member line-load measure counts the applied line loads, so an internally equilibrated tendon and gravity can share a case.
 
-For a member that carries bending, the solve also compares the tendon’s distributed force and station first moment separately from external loads. When a curved tendon’s equivalent line load is moved to the member ends, those forces remain in the case wrench, including in factored combinations.
+The same distinction applies when a curved tendon’s equivalent line load is moved to the member ends. Those forces remain in the case wrench, including in factored combinations. The member line-load measure records only external loads.
+
+For a member that carries bending, a separate check also compares the tendon’s distributed force and station first moment.
 
 ## Use the selected plane for Basic P-Delta
 

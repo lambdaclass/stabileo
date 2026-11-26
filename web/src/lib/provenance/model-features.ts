@@ -3,7 +3,7 @@ import { dyadicInteger } from '../engine/accounting-math';
 import { hasBoundedRafterGap, type GravityModel } from '../engine/loads/plan-gravity';
 import type { Constraint3D } from '../engine/types-3d';
 import { hasMalformedAuthoredLoad, invalidPlanarPointTorsion, isFiniteInputNumber } from '../engine/model-input-numbers';
-import { PLANAR_LINE_COMPONENT_CUTOFF, TRUSS_LOAD_COMPONENT_CUTOFF } from '../engine/member-loads';
+import { PLANAR_LINE_COMPONENT_CUTOFF, trussComponentBelowCutoff } from '../engine/member-loads';
 import { POINT_END_TOL } from '../engine/member-point-loads';
 import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
 import { seismicRegenerationGeometry } from '../engine/loads/seismic-mass';
@@ -372,7 +372,7 @@ function addSelfWeightFeatures(
       if (!a || !b) continue;
       if (space) {
         const end = intensity * Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)) / 2;
-        if ((intensity > 0 && intensity < TRUSS_LOAD_COMPONENT_CUTOFF) || (end > 0 && end < TRUSS_LOAD_COMPONENT_CUTOFF)) {
+        if ((intensity > 0 && trussComponentBelowCutoff(intensity)) || (end > 0 && trussComponentBelowCutoff(end))) {
           features.add('smallMemberSelfWeight');
         }
       } else if (intensity > 0 && weight.direction !== 'Y'
@@ -542,7 +542,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     }
     const issue = plateAnalysisIssue(plates);
     if (issue && issue.kind !== 'unmeshed') f.add('plateAnalysisIssue');
-    if (issue?.kind === 'wallSlab' && !('node' in issue.joint)) f.add('wallSlabInteriorContact');
+    if (issue?.kind === 'wallSlab' && 'contact' in issue.joint) f.add('wallSlabInteriorContact');
   }
   if (quads.some((q) => q?.curved)) f.add('curvedShells');
   if ([...quads, ...values(s.plates)].some((q) => offsetMoves(q?.offset))) f.add('eccentricities');

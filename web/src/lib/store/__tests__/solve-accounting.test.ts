@@ -24,17 +24,18 @@ import {
   addPlateLoad, applyPlateMeshes, createPlate, meshBeforeAnalysis, planPlateMesh, plateEntry, plateStatus, setPlateMeshSpec, setPlateSideArc,
 } from '../physical-plates';
 
-const fault = vi.hoisted(() => ({ dropSceneCase: 0, integrateDrift: 0, signedForceDelta: 0, dropMemberLoad: false, dropFactoredAxialLine: false, misrouteLineEnd: null as { from: number; to: number } | null, misrouteFactoredLineEnd: 0, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, assemblyDrift: null as { shell: number; relative: number; strip?: boolean } | null, combinationDrift: null as { shell: number; relative: number } | null, dropNodalFy: false, shiftNotionalCase: 0, dropOpposedSources: undefined as "case" | "split" | undefined, dropProjectedFz: false, factoredCellShifts: new Map<number, number>() }));
+const fault = vi.hoisted(() => ({ dropSceneCase: 0, integrateDrift: 0, signedForceDelta: 0, dropMemberLoad: false, dropFactoredAxialLine: false, misrouteLineEnd: null as { from: number; to: number } | null, misrouteFactoredLineEnd: 0, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, assemblyDrift: null as { shell: number; relative: number } | null, combinationDrift: null as { shell: number; relative: number } | null, dropNodalFy: false }));
+const sourceFault = vi.hoisted(() => ({ shiftNotionalCase: 0, dropOpposedSources: undefined as "case" | "split" | undefined, dropProjectedFz: false, factoredCellShifts: new Map<number, number>(), stripAssemblyMagnitude: false }));
 
 vi.mock('../../engine/case-effects', async importOriginal => {
   const original = await importOriginal<typeof import('../../engine/case-effects')>();
   function drop<M extends ModelData>(expanded: M): M {
-    if (fault.dropOpposedSources === 'case') return {
+    if (sourceFault.dropOpposedSources === 'case') return {
       ...expanded,
       loads: expanded.loads.filter(load => load.type !== 'distributed3d'),
     };
-    if (fault.shiftNotionalCase) {
-      const actions = expanded.loads.filter(load => load.type === 'nodal3d' && load.data.caseId === fault.shiftNotionalCase);
+    if (sourceFault.shiftNotionalCase) {
+      const actions = expanded.loads.filter(load => load.type === 'nodal3d' && load.data.caseId === sourceFault.shiftNotionalCase);
       const shifts = new Map(actions.map((load, i) => [load, [1, -2, 1][i]!]));
       return { ...expanded, loads: expanded.loads.map(load =>
         load.type === 'nodal3d' && shifts.has(load) ? withAccountingOrigin({ ...load, data: { ...load.data, fy: load.data.fy + shifts.get(load)! } }, load) : load) };
@@ -58,7 +59,7 @@ vi.mock('../../geometry/plane-projection', async importOriginal => {
     ...original,
     remapNodalLoad2D: (...args: Parameters<typeof original.remapNodalLoad2D>) => {
       const force = original.remapNodalLoad2D(...args);
-      return fault.dropProjectedFz ? { ...force, fy: 0 } : force;
+      return sourceFault.dropProjectedFz ? { ...force, fy: 0 } : force;
     },
   };
 });
@@ -69,7 +70,7 @@ vi.mock('../../model/edit/member-split', async importOriginal => {
     ...original,
     splitElementLoads: (...args: Parameters<typeof original.splitElementLoads>) => {
       const split = original.splitElementLoads(...args);
-      if (fault.dropOpposedSources !== 'split') return split;
+      if (sourceFault.dropOpposedSources !== 'split') return split;
       return { ...split, added: split.added.filter(load => load.type !== 'distributed3d') };
     },
   };
@@ -127,7 +128,7 @@ vi.mock('../../engine/accounting-math', async importOriginal => {
         scaled.data.nodeId = fault.misrouteFactoredLineEnd;
       }
       const cell = factoredCellOwners.get(source);
-      if (scaled.type === 'nodal' && cell !== undefined) scaled.data.fz *= fault.factoredCellShifts.get(cell) ?? 1;
+      if (scaled.type === 'nodal' && cell !== undefined) scaled.data.fz *= sourceFault.factoredCellShifts.get(cell) ?? 1;
       const sign = combinationSigns.get(source);
       if (fault.combinationDrift && sign !== undefined && scaled.type === 'nodal') {
         scaled.data.fz *= 1 + sign * fault.combinationDrift.relative;
@@ -142,7 +143,7 @@ vi.mock('../../engine/solver-shells', async importOriginal => {
     ...original,
     convertSurfaceLoad: (...args: Parameters<typeof original.convertSurfaceLoad>) => {
       const assembled = original.convertSurfaceLoad(...args);
-      if (fault.factoredCellShifts.has(args[0].quadId)) {
+      if (sourceFault.factoredCellShifts.has(args[0].quadId)) {
         for (const row of assembled) factoredCellOwners.set(row, args[0].quadId);
       }
       if (args[0].quadId === fault.combinationDrift?.shell) {
@@ -156,7 +157,7 @@ vi.mock('../../engine/solver-shells', async importOriginal => {
       const drift = fault.assemblyDrift;
       if (!drift || args[0].quadId !== drift.shell) return assembled;
       return assembled.map((row, i) => row.type === 'nodal'
-        ? { ...row, data: { ...row.data, fz: row.data.fz * (1 + ((drift.strip ? i === 1 || i === 2 : i % 2) ? -drift.relative : drift.relative)) } }
+        ? { ...row, data: { ...row.data, fz: row.data.fz * (1 + ((sourceFault.stripAssemblyMagnitude ? i === 1 || i === 2 : i % 2) ? -drift.relative : drift.relative)) } }
         : row);
     },
   };
@@ -219,10 +220,11 @@ beforeEach(() => {
   fault.surfaceFactorOffset = 0;
   fault.cornerPressureDelta = 0;
   fault.assemblyDrift = null;
+  sourceFault.stripAssemblyMagnitude = false;
   fault.combinationDrift = null;
   fault.dropNodalFy = false;
-  fault.shiftNotionalCase = 0;
-  fault.dropOpposedSources = undefined;
+  sourceFault.shiftNotionalCase = 0;
+  sourceFault.dropOpposedSources = undefined;
 });
 
 function cantilever(mode: '2d' | '3d') {
@@ -1022,10 +1024,10 @@ it.each(['xz', 'yz'] as const)('#2586 the planar P-Delta action uses and checks 
     expect(pdeltaBasic2D(false, uiStore.drawPlane2D)).toMatchObject({
       results: { reactions: [expect.objectContaining({ rz: expect.closeTo(3, 10) })] },
     });
-    fault.dropProjectedFz = true;
+    sourceFault.dropProjectedFz = true;
     expect(await outcome(() => pdeltaBasic2D(false, uiStore.drawPlane2D))).toMatch(/case.*Fz.*-3.*0/i);
   } finally {
-    fault.dropProjectedFz = false;
+    sourceFault.dropProjectedFz = false;
     uiStore.drawPlane2D = 'xy';
   }
 });
@@ -1706,7 +1708,8 @@ it('#2470 two shell pressures cannot cancel a lost assembly moment', async () =>
   ];
   const control = buildSolverInput3D(model)?.loads;
   expect(control).toHaveLength(8);
-  fault.assemblyDrift = { shell: quadId, relative: 0.125, strip: true };
+  sourceFault.stripAssemblyMagnitude = true;
+  fault.assemblyDrift = { shell: quadId, relative: 0.125 };
   for (const solve of paths) expect.soft(await outcome(solve)).toMatch(/case.*#1.*M[xy]/i);
 });
 
@@ -1823,7 +1826,7 @@ it('#2586 P-Delta refuses a cell-pressure fault introduced only in combination f
   };
   check(solveCombinations3D(pdelta, cases, combos));
   try {
-    for (const [index, cell] of cells.entries()) fault.factoredCellShifts.set(cell, index === 0 || index === 3 ? 2 : 0);
+    for (const [index, cell] of cells.entries()) sourceFault.factoredCellShifts.set(cell, index === 0 || index === 3 ? 2 : 0);
     check(solveCombinations3D(model, cases, combos));
     for (const solve of [
       () => solveCombinations3D(pdelta, cases, combos),
@@ -1831,7 +1834,7 @@ it('#2586 P-Delta refuses a cell-pressure fault introduced only in combination f
       () => runDirectAnalysis(pdelta, cases, combos, { includeSelfWeight: false }),
     ]) expect.soft(await outcome(solve)).toMatch(/case.*Strip slab.*quad #.*Fz/i);
   } finally {
-    fault.factoredCellShifts.clear();
+    sourceFault.factoredCellShifts.clear();
   }
 });
 
@@ -1941,7 +1944,7 @@ it.each(['split', 'case'] as const)('#2586 retains opposing generated sources ac
   expect(modalMass()).toMatchObject({ report: expect.any(Object) });
   expect(paths.linear()).toMatchObject({ reactions: [expect.objectContaining({ fz: expect.closeTo(5, 10) })] });
   expect(await paths.pdeltaParallel()).toMatchObject({ perCombo: expect.any(Map) });
-  fault.dropOpposedSources = stage;
+  sourceFault.dropOpposedSources = stage;
   try {
     for (const [name, solve] of Object.entries(paths)) expect.soft(await outcome(solve), name).toMatch(/case.*#1.*Fz/i);
     expect.soft(await outcome(modalMass), 'modal mass').toMatch(/case.*#1.*Fz/i);
@@ -1952,7 +1955,7 @@ it.each(['split', 'case'] as const)('#2586 retains opposing generated sources ac
         new Set([notional.id]))), 'derived notional load').toMatch(/case.*#1.*Fz/i);
     }
   } finally {
-    fault.dropOpposedSources = undefined;
+    sourceFault.dropOpposedSources = undefined;
   }
 });
 
@@ -2027,7 +2030,7 @@ it.each([false, true])(
       type: 'nodal', data: { nodeId, fx: expect.closeTo(0, 12), fy: expected, fz: expect.closeTo(0, 12), mx: expect.closeTo(0, 12), my: expect.closeTo(0, 12), mz: expect.closeTo(0, 12) },
     })));
     expect(solveCombinations3D(model, cases, combos)).toMatchObject({ perCombo: expect.any(Map) });
-    fault.shiftNotionalCase = 1;
+    sourceFault.shiftNotionalCase = 1;
     const paths = {
       wires, advanced: () => buildSolverInput3D(expanded()),
       linear: () => solveCombinations3D(model, cases, combos),

@@ -156,8 +156,8 @@ export class LoadVector {
   }
 }
 
-export const memberLineSources = ['external', 'prestress'] as const;
-export type MemberLineSource = (typeof memberLineSources)[number];
+export type MemberLineSource = 'external' | 'prestress';
+export const memberLineSources: readonly MemberLineSource[] = ['external', 'prestress'];
 
 type AssembledMagnitudes3D =
   | { force: LoadVector; couple: LoadVector; memberLine?: { member: number; end: 'i' | 'j'; source: MemberLineSource } }
@@ -182,6 +182,15 @@ export function positionAt(start: Vector, axis: Vector, station: number | LoadSc
 }
 
 export type MemberLinePieces = ReadonlyMap<number, { member: number; offset: number; scale: number }>;
+
+function lineForces(a: number, b: number, qI: LoadVector, qJ: LoadVector) {
+  const length = new LoadScalar(b - a);
+  const half = length.divide(2), third = length.divide(3);
+  return [
+    [new LoadScalar(a).add(third), qI.scale(half)],
+    [new LoadScalar(b).subtract(third), qJ.scale(half)],
+  ] as const;
+}
 
 export class Wrench {
   private readonly memberLines: Partial<Record<MemberLineSource, Map<number, Wrench>>> = {};
@@ -262,19 +271,14 @@ export class Wrench {
     return LoadVector.from(vector('total'), vector('magnitude'), vector('underflow'));
   }
 
-  line(
-    start: Vector, axis: Vector, a: number, b: number, qI: LoadVector, qJ: LoadVector,
-    member?: number, source: MemberLineSource = 'external',
-  ): void {
-    const length = new LoadScalar(b - a);
-    const half = length.divide(2), third = length.divide(3);
-    const parts = [
-      [new LoadScalar(a).add(third), qI.scale(half)],
-      [new LoadScalar(b).subtract(third), qJ.scale(half)],
-    ] as const;
-    for (const [station, force] of parts) {
+  memberLine(id: number, a: number, b: number, qI: LoadVector, qJ: LoadVector, source: MemberLineSource): void {
+    for (const [station, force] of lineForces(a, b, qI, qJ)) this.memberLineForce(id, station, force, source);
+  }
+
+  line(start: Vector, axis: Vector, a: number, b: number, qI: LoadVector, qJ: LoadVector, member?: number): void {
+    for (const [station, force] of lineForces(a, b, qI, qJ)) {
       this.apply(positionAt(start, axis, station), force);
-      if (member !== undefined) this.memberLineForce(member, station, force, source);
+      if (member !== undefined) this.memberLineForce(member, station, force);
     }
   }
 }

@@ -213,23 +213,26 @@ export function planarSelfWeightComponents(
   return Math.max(Math.abs(axial), Math.abs(transverse)) > PLANAR_LINE_COMPONENT_CUTOFF ? { axial, transverse } : null;
 }
 
-export function* selfWeightSources(
-  model: ModelData, entries: readonly SelfWeightLoad[], includeShells: boolean,
+export function* memberSelfWeightSources(
+  model: ModelData, entry: SelfWeightLoad, members: SelfWeightScope['members'],
 ): Iterable<SelfWeightSource> {
+  const { caseId, direction, factor } = entry;
   const weight = createSectionWeight(model.materials);
+  for (const el of model.elements.values()) {
+    if (members && !members.has(el.id)) continue;
+    const sec = model.sections.get(el.sectionId);
+    if (!sec || !model.materials.get(el.materialId)) continue;
+    const intensity = weight(sec, el.materialId) * factor;
+    if (intensity !== 0) yield { caseId, id: el.id, direction, kind: 'member', intensity, factor };
+  }
+}
+
+export function* selfWeightSources(model: ModelData, entries: readonly SelfWeightLoad[]): Iterable<SelfWeightSource> {
   for (const entry of entries) {
     const { caseId, direction, factor } = entry;
-    if (!includeShells && factor === 0 && entry.elements === undefined) continue;
     const scope = selfWeightScope(model, entry);
-    if (!includeShells && factor === 0) continue;
-    for (const el of model.elements.values()) {
-      if (scope.members && !scope.members.has(el.id)) continue;
-      const sec = model.sections.get(el.sectionId);
-      if (!sec || !model.materials.get(el.materialId)) continue;
-      const intensity = weight(sec, el.materialId) * factor;
-      if (intensity !== 0) yield { caseId, id: el.id, direction, kind: 'member', intensity, factor };
-    }
-    if (!includeShells || factor === 0) continue;
+    yield* memberSelfWeightSources(model, entry, scope.members);
+    if (factor === 0) continue;
     for (const kind of ['plate', 'quad'] as const) {
       const shells = kind === 'plate' ? model.plates : model.quads;
       const include = kind === 'plate' ? scope.plates : scope.quads;

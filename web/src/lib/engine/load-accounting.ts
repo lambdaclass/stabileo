@@ -1,4 +1,5 @@
-import { accountingOrigin, accountingCaseSources, accountingMemberPieces, accountingProjection, accountingSource, scenarioIntents, scenarioSurfaceExpectations, scenarioSurfaceIntentOf, type ScenarioSurfaceIntent } from './accounting-source';
+import { accountingCaseSources, accountingMemberPieces, accountingProjection, accountingSource, scenarioIntents, scenarioSurfaceExpectations, scenarioSurfaceIntentOf, type ScenarioSurfaceIntent } from './accounting-source';
+import { accountingOrigin } from './accounting-source';
 import { tp } from '../i18n';
 import type { Load, PointLoadOnElement } from '../store/model.svelte';
 import type { FloorLoadDef } from '../model/loads/floor-definitions';
@@ -6,7 +7,8 @@ import type { ModelData } from './solver-service';
 import type { SolverInput, SolverLoad } from './types';
 import type { SolverInput3D, SolverLoad3D } from './types-3d';
 import { computeLocalAxes3D, memberRoll, type LocalAxes3D } from './local-axes-3d';
-import { memberFrame3D, memberRef3D, takesNoBending, type MemberRef } from './member-loads';
+import { memberFrame3D, memberRef3D, type MemberRef } from './member-loads';
+import { takesNoBending } from './member-loads';
 import { tendonLineIntensity } from './prestress';
 import { shouldEmbedFlat2DModelIn3D } from './model-embedding';
 import { planarLoadDirection } from './planar-load-direction';
@@ -433,7 +435,10 @@ function assembled3D(
             case: label, member, end: end.toUpperCase(), actual: nodeId, expected,
           }));
         }
-        result.memberLineForce(member, new LoadScalar(end === 'i' ? 0 : ref.axes.L), force, source);
+        if (source === 'external') {
+          result.memberLineForce(member, new LoadScalar(end === 'i' ? 0 : ref.axes.L), force);
+        }
+        else result.memberLineForce(member, new LoadScalar(end === 'i' ? 0 : ref.axes.L), force, source);
       }
       continue;
     }
@@ -463,7 +468,12 @@ function assembled3D(
       const line = magnitudes && 'qI' in magnitudes ? magnitudes : undefined;
       result.line(start, axes.ex, d.a ?? 0, d.b ?? axes.L,
         localVector(axes, d.qXI ?? 0, d.qYI, d.qZI, line?.qI),
-        localVector(axes, d.qXJ ?? 0, d.qYJ, d.qZJ, line?.qJ), elementId, line?.source);
+        localVector(axes, d.qXJ ?? 0, d.qYJ, d.qZJ, line?.qJ), line?.source === 'prestress' ? undefined : elementId);
+      if (line?.source === 'prestress') {
+        result.memberLine(elementId, d.a ?? 0, d.b ?? axes.L,
+          localVector(axes, d.qXI ?? 0, d.qYI, d.qZI, line.qI),
+          localVector(axes, d.qXJ ?? 0, d.qYJ, d.qZJ, line.qJ), line.source);
+      }
     } else {
       const d = load.data;
       result.apply(positionAt(start, axes.ex, d.a), localVector(axes, 0, d.py, d.pz));

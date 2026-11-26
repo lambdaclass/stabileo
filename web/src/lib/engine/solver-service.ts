@@ -1,4 +1,5 @@
-import { accountingCaseSources, accountingMemberPieces, accountingProjection, accountingSource, copyAccountingLoad, type AccountingCaseSources, type ScenarioSurfaceIntent } from './accounting-source';
+import { accountingCaseSources, accountingMemberPieces, accountingProjection, accountingSource, copyAccountingLoad, scenarioSurfaceIntentOf, type AccountingCaseSources, type ScenarioSurfaceIntent } from './accounting-source';
+import { accountingOrigin } from './accounting-source';
 import { EngineCheckError, EngineUnavailableError } from './engine-unavailable';
 import { LoadVector, scaleAssembledMagnitudes3D, zero, type MemberLinePieces, type Wrench } from './accounting-math';
 import { accountCombination, accountLoads2D, accountSource3D, accountWeight2D, hasGeneratedSource, weightSource3D, type CheckedSource3D, loadAccounting3D, loadCaseBatches, verifyFactoredScenarioNode, verifyScenarioSurfaceLoads } from './load-accounting';
@@ -35,9 +36,11 @@ import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from '
 import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D } from './orphan-rotations-3d';
 import { unheldNodalMoment2D } from './orphan-rotations-2d';
 import { computeLocalAxes3D, memberRoll } from './local-axes-3d';
-import { PLANAR_LINE_COMPONENT_CUTOFF, distributedGlobalEnds, localDistributedToSolver, distributedSolverRow3D, globalDistributedToSolver, transverseToNodes, memberRef3D, takesNoBending as memberTakesNoBending } from './member-loads';
+import { distributedGlobalEnds, distributedSolverRow3D, globalDistributedToSolver, transverseToNodes, memberRef3D, takesNoBending as memberTakesNoBending } from './member-loads';
+import { PLANAR_LINE_COMPONENT_CUTOFF, localDistributedToSolver } from './member-loads';
 export { memberRef3D } from './member-loads';
-import { InvalidSelfWeightScope, selfWeightFor, selfWeightMemberProjection, selfWeightSources, selfWeightSolverLoads, snapshotSelfWeightProjection, type SelfWeightMemberProjection, type RecordSelfWeight, planarSelfWeightComponents } from './self-weight';
+import { InvalidSelfWeightScope, selfWeightFor, selfWeightMemberProjection, selfWeightScope, selfWeightSolverLoads, snapshotSelfWeightProjection, type SelfWeightMemberProjection } from './self-weight';
+import { memberSelfWeightSources, selfWeightSources, type RecordSelfWeight, planarSelfWeightComponents } from './self-weight';
 import type { SelfWeightLoad } from './analysis-settings';
 import type { SolverInput3D, SolverSection3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, NonlinearReport } from './types-3d';
 import { analyzeKinematics, type KinematicResult } from './kinematic-2d';
@@ -524,20 +527,25 @@ function convertSolverLoads2D(
     if (!Number.isFinite(weight.factor)) throw new PlaneSelfWeightError(t('svc.selfWeightNonFinite'));
     if (weight.factor !== 0 && weight.direction === 'Y') throw new PlaneSelfWeightError(t('svc.selfWeightOutsidePlane'));
   }
-  for (const source of selfWeightSources(model, weights, false)) {
-    const before = solverLoads.length;
-    const elem = model.elements.get(source.id)!;
-    const ni = model.nodes.get(elem.nodeI);
-    const nj = model.nodes.get(elem.nodeJ);
-    if (ni && nj) {
-      const projected = planarSelfWeightComponents(source.direction, source.intensity, nj.x - ni.x, nj.y - ni.y);
-      if (projected) {
-        const { axial, transverse } = projected;
-        if (transverse !== 0) solverLoads.push({ type: 'distributed', data: { elementId: elem.id, qI: transverse, qJ: transverse } });
-        if (axial !== 0) solverLoads.push({ type: 'axialDistributed', data: { elementId: elem.id, qI: axial, qJ: axial } });
+  for (const weight of weights) {
+    if (weight.factor === 0 && weight.elements === undefined) continue;
+    const { members } = selfWeightScope(model, weight);
+    if (weight.factor === 0) continue;
+    for (const source of memberSelfWeightSources(model, weight, members)) {
+      const before = solverLoads.length;
+      const elem = model.elements.get(source.id)!;
+      const ni = model.nodes.get(elem.nodeI);
+      const nj = model.nodes.get(elem.nodeJ);
+      if (ni && nj) {
+        const projected = planarSelfWeightComponents(source.direction, source.intensity, nj.x - ni.x, nj.y - ni.y);
+        if (projected) {
+          const { axial, transverse } = projected;
+          if (transverse !== 0) solverLoads.push({ type: 'distributed', data: { elementId: elem.id, qI: transverse, qJ: transverse } });
+          if (axial !== 0) solverLoads.push({ type: 'axialDistributed', data: { elementId: elem.id, qI: axial, qJ: axial } });
+        }
       }
+      recordWeight(source, solverLoads.slice(before));
     }
-    recordWeight(source, solverLoads.slice(before));
   }
   return solverLoads;
 }
@@ -1662,13 +1670,14 @@ export function buildSolverLoads3D(
       if (!m) continue;
       const { a = 0, b = m.axes.L } = d;
       validateMemberLoadInterval(d.elementId, a, b, m.axes.L, m.points);
+      const axialOnly = takesNoBending(d.elementId);
       if ((d.frame ?? 'local') === 'local') {
         const y = userLeftHand ? -1 : 1;
-        emit(...localDistributedToSolver(m, [d.qXI ?? 0, y * d.qYI, d.qZI],
-          [d.qXJ ?? 0, y * d.qYJ, d.qZJ], a, b));
+        emitAssembled(...localDistributedToSolver(m, [d.qXI ?? 0, y * d.qYI, d.qZI],
+          [d.qXJ ?? 0, y * d.qYJ, d.qZJ], a, b, axialOnly));
       } else {
         const { gI, gJ } = distributedGlobalEnds(d, m.axes, userLeftHand);
-        emit(...globalDistributedToSolver(m, gI, gJ, a, b));
+        emitAssembled(...globalDistributedToSolver(m, gI, gJ, a, b, axialOnly));
       }
     } else if (l.type === 'pointOnElement') {
       // A plane point load in the space axes (`planePointLoad3D`), then as a space one: its
@@ -1768,7 +1777,7 @@ export function buildSolverLoads3D(
 
   // Self-weight: a member load along the member, and the corners' shares on a shell.
   const selfWeightLoads = Array.isArray(selfWeight) ? selfWeight : selfWeightFor(model, null, selfWeight);
-  for (const source of selfWeightSources(model, selfWeightLoads, true)) {
+  for (const source of selfWeightSources(model, selfWeightLoads)) {
     const rows = selfWeightSolverLoads(model, source, refOf, takesNoBending);
     opts.recordWeight?.(source, rows);
     solverLoads.push(...rows);
