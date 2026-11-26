@@ -347,3 +347,44 @@ for (const dim of ['2d', '3d']) {
     }
   }
 }
+
+if (process.env.RUN_KNOWN_WRONG_2584_SSI === '1') {
+  const solver = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/ssi-artificial-rotation.json', import.meta.url)));
+  const load = solver.loads[0].data.fz;
+  for (const inertia of [2 ** -44, 2 ** -36]) {
+    solver.sections[1].iy = inertia;
+    const solve = soilSprings => JSON.parse(engine.solve_ssi_3d(JSON.stringify({
+      solver, soilSprings, maxIter: 3, tolerance: 1e-10,
+    })));
+    assert.throws(() => solve([]), codedRankError);
+    const result = solve([{ nodeId: 2, direction: 2, curve: { type: 'custom', points: [[0, 0], [1, 1]] }, tributaryLength: 1 }]);
+    const tip = result.results.displacements.find(({ nodeId }) => nodeId === 2);
+    assert.equal(result.converged, true);
+    assert.ok(Math.abs(tip.uz / load - 1) <= 1e-12);
+    assert.ok(Math.abs(tip.ry / load + 1) <= 1e-12);
+    assert.ok(Math.abs(result.springResults[0].reaction / load - 1) <= 1e-12);
+  }
+}
+
+for (const dim of ['2d', '3d']) {
+  const planar = structuredClone(truss);
+  Object.assign(planar.elements[1], { type: 'frame', hingeEnd: true });
+  planar.loads = [{ type: 'nodal', data: { nodeId: 3, fx: 0, fz: 0.125, my: 0 } }];
+  const solver = dim === '2d' ? planar : spatial(planar);
+  delete solver.supports[2];
+  solver.nodes[3] = dim === '2d' ? { id: 3, x: 2, z: 0 } : { id: 3, x: 2, y: 0, z: 0 };
+  solver.constraints = [{
+    type: 'rigidLink', masterNode: 2, slaveNode: 3, dofs: dim === '2d' ? [] : [0, 1, 2, 3, 4, 5],
+  }];
+  const solve = soilSprings => JSON.parse(engine[`solve_ssi_${dim}`](JSON.stringify({
+    solver, soilSprings, maxIter: 3, tolerance: 1e-10,
+  })));
+  assert.throws(() => solve([]), codedRankError);
+  const result = solve([{
+    nodeId: 3, direction: dim === '2d' ? 1 : 2,
+    curve: { type: 'custom', points: [[0, 0], [1, 1]] }, tributaryLength: 1,
+  }]);
+  assert.equal(result.converged, true);
+  assert.equal(result.springResults[0].displacement, planar.loads[0].data.fz);
+  assert.equal(result.springResults[0].reaction, planar.loads[0].data.fz);
+}

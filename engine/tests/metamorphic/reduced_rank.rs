@@ -778,3 +778,97 @@ fn released_rotation_can_move_an_offset_rigid_link_slave() {
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
+
+fn unit_soil_spring(node_id: usize, direction: usize) -> dedaliano_engine::solver::ssi::SoilSpring {
+    use dedaliano_engine::solver::{soil_curves::SoilCurve, ssi::SoilSpring};
+    SoilSpring {
+        node_id,
+        direction,
+        tributary_length: 1.0,
+        curve: SoilCurve::Custom { points: vec![[0.0, 0.0], [1.0, 1.0]] },
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2584"]
+fn ssi_artificial_rotation_cannot_hold_a_spatial_mechanism() {
+    use dedaliano_engine::{solver::{dof::DofNumbering, ssi::*}, types::SolverInput3D};
+    let solver: SolverInput3D = serde_json::from_str(include_str!("../fixtures/ssi-artificial-rotation.json")).unwrap();
+    let load = solver.sections["1"].iy / 8.0;
+    let mut padded = crate::case::pad_3d(&solver).0;
+    let mut section = padded.sections["1"].clone();
+    section.id = 2;
+    section.iy = section.iz;
+    padded.sections.insert("2".into(), section);
+    for element in padded.elements.values_mut().filter(|e| e.id != 1) {
+        element.section_id = 2;
+    }
+
+    let mut failures = Vec::new();
+    for (sparse, model) in [(false, solver), (true, padded)] {
+        assert_eq!(DofNumbering::build_3d(&model).n_free >= linear::SPARSE_THRESHOLD, sparse);
+        for inertia in [2_f64.powi(-44), 2_f64.powi(-36)] {
+            let mut solver = model.clone();
+            solver.sections.get_mut("1").unwrap().iy = inertia;
+            let mut input = SSIInput3D {
+                solver, soil_springs: vec![], max_iter: 3, tolerance: 1e-10,
+            };
+            report(&format!("spatial SSI sway, sparse={sparse}, I_y={inertia:e}"), solve_ssi_3d(&input), &mut failures);
+            input.soil_springs.push(unit_soil_spring(2, 2));
+            match solve_ssi_3d(&input) {
+                Ok(result) => {
+                    let tip = result.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
+                    if !(result.converged && (tip.uz / load - 1.0).abs() <= 1e-12
+                        && (tip.ry / load + 1.0).abs() <= 1e-12
+                        && (result.spring_results[0].reaction / load - 1.0).abs() <= 1e-12)
+                    {
+                        failures.push(format!("spatial SSI with soil, sparse={sparse}, I_y={inertia:e}: {tip:?}"));
+                    }
+                }
+                Err(error) => failures.push(error),
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn ssi_released_offset_link_needs_transverse_restraint() {
+    use dedaliano_engine::{
+        solver::ssi::*,
+        types::{RigidLinkConstraint, SolverNode},
+    };
+    let load = 0.125;
+    let mut planar = truss();
+    let beam = planar.elements.get_mut("1").unwrap();
+    beam.elem_type = "frame".into();
+    beam.hinge_end = true;
+    planar.supports.remove("2");
+    planar.nodes.insert("3".into(), SolverNode { id: 3, x: 2.0, z: 0.0 });
+    planar.loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: load, my: 0.0 }));
+    let mut spatial = embed_2d(&planar, Plane::XZ).unwrap();
+    let link = |dofs| Constraint::RigidLink(RigidLinkConstraint { master_node: 2, slave_node: 3, dofs });
+    planar.constraints = vec![link(vec![])];
+    spatial.constraints = vec![link(vec![0, 1, 2, 3, 4, 5])];
+
+    let mut failures = Vec::new();
+    for (planar, spatial) in [
+        (planar.clone(), spatial.clone()),
+        (crate::case::pad_2d(&planar).0, crate::case::pad_3d(&spatial).0),
+    ] {
+        let mut plane = SSIInput { solver: planar, soil_springs: vec![], max_iter: 3, tolerance: 1e-10 };
+        let mut space = SSIInput3D { solver: spatial, soil_springs: vec![], max_iter: 3, tolerance: 1e-10 };
+        report("planar offset link", solve_ssi_2d(&plane), &mut failures);
+        report("spatial offset link", solve_ssi_3d(&space), &mut failures);
+        plane.soil_springs.push(unit_soil_spring(3, 1));
+        space.soil_springs.push(unit_soil_spring(3, 2));
+        let planar = solve_ssi_2d(&plane).unwrap();
+        let spatial = solve_ssi_3d(&space).unwrap();
+        assert!(planar.converged && spatial.converged);
+        for spring in [&planar.spring_results[0], &spatial.spring_results[0]] {
+            assert_eq!(spring.displacement, load);
+            assert_eq!(spring.reaction, load);
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
