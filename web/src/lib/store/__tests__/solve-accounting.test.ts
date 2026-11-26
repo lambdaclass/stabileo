@@ -27,6 +27,8 @@ import {
 const fault = vi.hoisted(() => ({ dropSceneCase: 0, integrateDrift: 0, signedForceDelta: 0, dropMemberLoad: false, dropFactoredAxialLine: false, misrouteLineEnd: null as { from: number; to: number } | null, misrouteFactoredLineEnd: 0, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, assemblyDrift: null as { shell: number; relative: number } | null, combinationDrift: null as { shell: number; relative: number } | null, dropNodalFy: false }));
 const sourceFault = vi.hoisted(() => ({ shiftNotionalCase: 0, dropOpposedSources: undefined as "case" | "split" | undefined, dropProjectedFz: false, factoredCellShifts: new Map<number, number>(), stripAssemblyMagnitude: false }));
 
+const slabRoutingFault = vi.hoisted(() => ({ from: 0, to: 0, nodes: new Map<number, number>(), pressure: false }));
+
 vi.mock('../../engine/case-effects', async importOriginal => {
   const original = await importOriginal<typeof import('../../engine/case-effects')>();
   function drop<M extends ModelData>(expanded: M): M {
@@ -143,6 +145,14 @@ vi.mock('../../engine/solver-shells', async importOriginal => {
     ...original,
     convertSurfaceLoad: (...args: Parameters<typeof original.convertSurfaceLoad>) => {
       const assembled = original.convertSurfaceLoad(...args);
+      if (args[0].quadId === slabRoutingFault.from) {
+        if (slabRoutingFault.pressure) return [{ type: 'quadPressure', data: { elementId: slabRoutingFault.to, pressure: args[0].q } }] as unknown as SolverLoad3D[];
+        for (const [i, row] of assembled.entries()) {
+          if (row.type !== 'nodal') continue;
+          row.data.nodeId = slabRoutingFault.nodes.get(row.data.nodeId) ?? row.data.nodeId;
+          if (slabRoutingFault.nodes.size === 0) row.data.fz += i % 2 === Math.floor(i / 2) ? 0.25 : -0.25;
+        }
+      }
       if (sourceFault.factoredCellShifts.has(args[0].quadId)) {
         for (const row of assembled) factoredCellOwners.set(row, args[0].quadId);
       }
@@ -1777,8 +1787,8 @@ it('#2470 cancelling slab definitions must each reach their assigned cells once'
   }
 });
 
-function stripSlab(strips: number) {
-  const outline = [[0, 0], [strips, 0], [strips, 1], [0, 1]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+function stripSlab(strips: number, z = 0) {
+  const outline = [[0, 0], [strips, 0], [strips, 1], [0, 1]].map(([x, y]) => modelStore.addNode(x!, y!, z));
   for (const node of outline) modelStore.addSupport(node, 'fixed3d');
   const slab = createPlate({
     name: 'Strip slab', outline, materialId: 1, thickness: 0.2,
@@ -2169,3 +2179,37 @@ it('#2471 refuses a sign-reversing truss line whose end forces reach the same no
   fault.misrouteLineEnd = { from: planarJ, to: planarI };
   expect(() => embedded()).toThrow(caseDiagnostic);
 });
+
+const replayReview2607 = it.skipIf(process.env.STABILEO_REPLAY_2607 !== '1');
+
+replayReview2607.each(['wrong shell', 'wrong nodes', 'wrong forces'] as const)(
+  'known wrong result: #2607 — slab accounting refuses %s with the same wrench', async mode => {
+    const lower = stripSlab(1);
+    const upper = stripSlab(1, 3);
+    addPlateLoad(lower, 1, 3);
+    addPlateLoad(upper, 1, 3);
+    syncDefinedLoadsForAnalysis();
+    const model = modelStore.model;
+    const from = plateEntry(lower)!.group.members.quads![0]!;
+    const to = plateEntry(upper)!.group.members.quads![0]!;
+    const lowerNodes = model.quads!.get(from)!.nodes;
+    const upperNodes = model.quads!.get(to)!.nodes;
+    const connected = { ...model, elements: new Map(model.elements).set(500, {
+      id: 500, nodeI: lowerNodes[0]!, nodeJ: upperNodes[0]!,
+      sectionId: model.sections.keys().next().value!, materialId: model.materials.keys().next().value!, type: 'frame' as const,
+    }) };
+    expect(buildSolverInput3D(connected)?.loads).toHaveLength(8);
+    try {
+      slabRoutingFault.from = from;
+      slabRoutingFault.to = to;
+      slabRoutingFault.pressure = mode === 'wrong shell';
+      slabRoutingFault.nodes = mode === 'wrong nodes' ? new Map(lowerNodes.map((node, i) => [node, upperNodes[i]!])) : new Map();
+      await expectSlabCellRefusal(connected);
+    } finally {
+      slabRoutingFault.from = 0;
+      slabRoutingFault.to = 0;
+      slabRoutingFault.nodes.clear();
+      slabRoutingFault.pressure = false;
+    }
+  },
+);

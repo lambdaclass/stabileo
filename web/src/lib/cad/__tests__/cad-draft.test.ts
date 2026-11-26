@@ -566,3 +566,47 @@ it.each([0, 0.002, 0.011])('#2607 wall end outside a conforming slab snaps at of
   const slabNodes = new Set([...model.plates.values()].flatMap(p => p.nodes));
   expect([...wallNodes].filter(id => slabNodes.has(id)).length).toBeGreaterThan(1);
 });
+
+const replayReview2607 = it.skipIf(process.env.STABILEO_REPLAY_2607 !== '1');
+
+replayReview2607.each([0.0201, 0.0211])('known wrong result: #2607 — floor interface pairs two close column stacks at %s m', last => {
+  const plan = (xs: number[]): ArchPlan => ({
+    ...reviewPlan(), slabs: [], walls: [],
+    columns: xs.map(x => ({ at: { x, y: 0 }, sizeSource: 'default' })),
+    beams: xs.slice(0, -1).map(x => ({ a: { x, y: 0 }, b: { x: xs.at(-1)!, y: 0 } })),
+  });
+  const draft = buildDraft({
+    floorPlans: [{ plan: plan([0, 0.011, 4]), fromFloor: 1, toFloor: 1 }, { plan: plan([0.009, last, 4]), fromFloor: 2, toFloor: 2 }],
+    assumptions: { ...reviewSettings, nFloors: 2, storyHeights: [3, 3] }, source: SOURCE,
+  });
+  const model = snapshotToModelShape(draft.snapshot);
+  const columns = [...model.elements.values()].filter(({ nodeI, nodeJ }) => model.nodes.get(nodeI)!.z !== model.nodes.get(nodeJ)!.z);
+  const lower = new Map(columns.filter(e => model.nodes.get(e.nodeJ)!.z === 3).map(e => [model.nodes.get(e.nodeJ)!.x, e.nodeJ]));
+  const upper = new Map(columns.filter(e => model.nodes.get(e.nodeJ)!.z === 6).map(e => [model.nodes.get(e.nodeJ)!.x, e.nodeI]));
+  expect(upper.get(4)).toBe(lower.get(4));
+  if (last - 0.011 < reviewSettings.snapTolerance) {
+    expect(upper.get(0.009)).toBe(lower.get(0));
+    expect(upper.get(last)).toBe(lower.get(0.011));
+  } else {
+    expect(upper.get(0.009)).toBe(lower.get(0.011));
+    expect(upper.get(last)).not.toBe(lower.get(0.011));
+  }
+});
+
+replayReview2607.each(['fixedDivisions', 'targetSize'] as const)('known wrong result: #2607 — %s snaps physical wall ends inside the slab', meshMode => {
+  for (const offset of [0, 0.002, 0.011]) {
+    const plan = reviewPlan();
+    const end = { x: 2, y: 3 };
+    plan.columns.push({ at: { x: end.x + offset, y: end.y }, sizeSource: 'default' });
+    plan.walls = [{ a: { x: 0, y: 1 }, b: end, thicknessSource: 'default' }];
+    const draft = generateRcDraft(plan, { ...reviewSettings, meshMode }, SOURCE);
+    const model = snapshotToModelShape(draft.snapshot);
+    const column = [...model.elements.values()].find(e => model.nodes.get(e.nodeJ)!.x === end.x + offset)!;
+    const wallNodes = new Set([...model.quads.values()].flatMap(q => q.nodes));
+    const slabNodes = new Set([...model.plates.values()].flatMap(p => p.nodes));
+    expect(draft.counts.slabTriangles).toBeGreaterThan(0);
+    expect(slabNodes.has(column.nodeJ)).toBe(true);
+    expect.soft(wallNodes.has(column.nodeJ), String(offset)).toBe(offset < reviewSettings.snapTolerance);
+    expect([...wallNodes].filter(id => slabNodes.has(id)).length).toBeGreaterThan(1);
+  }
+});

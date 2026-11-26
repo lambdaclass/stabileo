@@ -192,3 +192,13 @@ it('#2586 partitions one attached gap at a canopy edge', () => {
     }
   }
 });
+
+it.skipIf(process.env.STABILEO_REPLAY_2607 !== '1').each([[4, 6], [2, 4]] as const)(
+  'known wrong result: #2607 — shell and rafter conserve a full-width gap [%s, %s]', (start, end) => {
+    const developed = Math.hypot(10, 2) / 10;
+    const { model } = offsetRoof(0.02, 0, 1, false, [start, end]);
+    const plan = roofPlan(model);
+    expect(plan.outcome).toBe('READY');
+    expect(plan.levels.reduce((total, level) => total + level.superimposedKN, 0)).toBeCloseTo(40 * developed, 10);
+  },
+);

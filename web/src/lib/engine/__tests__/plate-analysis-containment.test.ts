@@ -830,3 +830,46 @@ it('#2580 refuses a wall edge that shares slab corners across an unmeshed diagon
   expect(await runGlobalSolve({ directBase: true })).toEqual({ ok: false, error: refusal });
   expect(resultsStore.results3D).toBeNull();
 });
+
+function edgePointJoint(clearance: number, conforming: boolean) {
+  const node = modelStore.addNode;
+  const a = node(0, 0, 0), b = node(0, 2, 0), c = node(0, 2, 4), d = node(0, 0, 4);
+  const e = node(-1, 2 + clearance, 2), f = node(1, 2 + clearance, 2);
+  const g = node(1, 4, 2), h = node(-1, 4, 2);
+  for (const id of [a, b, e, f, g, h]) modelStore.addSupport(id, 'fixed3d');
+  modelStore.addElement(a, e);
+  if (conforming) {
+    const contact = node(0, 2, 2);
+    const mid = node(0, 0, 2);
+    const top = node(0, 4, 2);
+    modelStore.addQuad([a, b, contact, mid], 1, 0.15);
+    modelStore.addQuad([mid, contact, c, d], 1, 0.15);
+    modelStore.addSurfaceLoad3D(modelStore.addQuad([e, contact, top, h], 1, 0.15), 1);
+    modelStore.addSurfaceLoad3D(modelStore.addQuad([contact, f, g, top], 1, 0.15), 1);
+  } else {
+    modelStore.addQuad([a, b, c, d], 1, 0.15);
+    modelStore.addSurfaceLoad3D(modelStore.addQuad([e, f, g, h], 1, 0.15), 1);
+  }
+}
+
+it.skipIf(process.env.STABILEO_REPLAY_2607 !== '1').each(directEntries)(
+  'known wrong result: #2607 — the %s entry refuses a wall and slab touching at unmatched edge interiors', async (entry, solve) => {
+    edgePointJoint(0, false);
+    const result = await solve();
+    expect(result && typeof result === 'object' ? 'returned a result' : result)
+      .toEqual(entry === 'reproducible input' ? null : expect.stringMatching(/wall q1.*slab q2/i));
+  },
+);
+
+it.skipIf(process.env.STABILEO_REPLAY_2607 !== '1')('known wrong result: #2607 — global analysis refuses unmatched edge-to-edge contact', async () => {
+  edgePointJoint(0, false);
+  expect(await runGlobalSolve({ directBase: true })).toEqual({ ok: false, error: expect.stringMatching(/wall q1.*slab q2/i) });
+  expect(resultsStore.results3D).toBeNull();
+});
+
+it.each([[0, true], [2 * PLATE_EDGE_TOL, false]] as const)('#2607 edge contact clearance %s and shared station %s preserve slab pressure', (clearance, conforming) => {
+  edgePointJoint(clearance, conforming);
+  const result = modelStore.solve3D(false, false, true);
+  if (!result || typeof result === 'string') throw new Error(String(result));
+  expect(result.reactions.reduce((sum, support) => sum + support.fz, 0)).toBeCloseTo(2 * (2 - clearance), 8);
+});
