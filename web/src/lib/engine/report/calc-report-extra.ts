@@ -11,9 +11,10 @@ import { t, tp } from '../../i18n';
 import type { KinematicReport } from '../kinematic-report';
 import type { AnalysisResults, FullEnvelope } from '../types';
 import type { AnalysisResults3D, FullEnvelope3D } from '../types-3d';
-import { computePlanarDiagramExtrema } from '../diagrams';
-import { computeSpatialDiagramExtrema, type Diagram3DKind } from '../diagrams-3d';
-import { memberEnvelopeOrdinates, type DiagramOrdinate } from '../member-diagram';
+import { memberEndForces2D } from '../diagrams';
+import { memberEndForces3D, type Diagram3DKind } from '../diagrams-3d';
+import { bindMemberEnvelopeEnds, unavailableDiagramExtrema, type DiagramOrdinate } from '../member-diagram';
+import { memberForceExtrema } from '../member-force-extrema';
 import type { FigureContent } from '../../export/view-figure';
 
 /** A result the reader can have as a table, a diagram, or both. */
@@ -168,16 +169,6 @@ function cutLabel({ x, side }: Extreme, format: LengthFmt): string {
   return format(x, side !== undefined) + (side === 'left' ? '⁻' : side === 'right' ? '⁺' : '');
 }
 
-function envelopeExtreme(values: ReturnType<typeof memberEnvelopeOrdinates>): Extreme {
-  let best: Extreme = { value: 0, x: 0 };
-  for (const { t, value, x, side } of values) {
-    if (Math.abs(value) > Math.abs(best.value)) {
-      best = { value, x, ...(t > 0 && t < 1 && side && { side }) };
-    }
-  }
-  return best;
-}
-
 /** Under the table of an envelope: what its values are, and that one row mixes combinations. */
 function envelopeNote(): string {
   return `<p class="table-note">${esc(t('calcReport.envelopeForcesNote'))}</p>`;
@@ -201,20 +192,18 @@ export function forceTable2D(
   const sym = kind === 'moment' ? 'M' : kind === 'shear' ? 'V' : 'N';
   const sign = kind === 'moment' ? -1 : 1;
   const h: string[] = [`<table><tr><th>${t('table.elemLabel')}</th><th>${sym}<sub>I</sub> (${unit})</th><th>${sym}<sub>J</sub> (${unit})</th><th>${esc(t('calcReport.maxAbs'))} (${unit})</th><th>x (${lenUnit})</th></tr>`];
-  const env = envelope ? new Map(envelope[kind].elements.map((e) => [e.elementId, e])) : null;
+  bindMemberEnvelopeEnds(envelope);
+  const env = envelope ? new Map(envelope[kind].elements.map(e => [e.elementId, e])) : null;
   for (const ef of r.elementForces) {
-    let vI: number, vJ: number, best: Extreme;
-    if (env) {
-      const e = env.get(ef.elementId);
-      if (!e?.tPositions.length) { h.push(`<tr><td>${ef.elementId}</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>`); continue; }
-      const vals = memberEnvelopeOrdinates(e, ef.length).map(v => ({ ...v, value: sign * v.value }));
-      vI = vals[0]!.value; vJ = vals[vals.length - 1]!.value; best = envelopeExtreme(vals);
-    } else {
-      const extrema = computePlanarDiagramExtrema(kind, ef);
-      vI = sign * extrema.startValue;
-      vJ = sign * extrema.endValue;
-      best = { value: sign * extrema.maxAbsValue, x: extrema.maxAbsX, side: extrema.maxAbsSide };
+    if (env && !env.get(ef.elementId)?.tPositions.length) {
+      h.push(`<tr><td>${ef.elementId}</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>`);
+      continue;
     }
+    const [vI, vJ] = memberEndForces2D(ef, kind).map(value => sign * value) as [number, number];
+    const extrema = memberForceExtrema(ef, kind);
+    if (extrema.kind === 'bounded') throw unavailableDiagramExtrema();
+    const { absolute } = extrema;
+    const best = { ...absolute, value: sign * absolute.value, side: absolute.t > 0 && absolute.t < 1 ? absolute.side : undefined };
     h.push(`<tr><td>${ef.elementId}</td><td class="num">${F(vI)}</td><td class="num">${F(vJ)}</td><td class="num">${F(best.value)}</td><td class="num">${cutLabel(best, lenFmt)}</td></tr>`);
   }
   h.push('</table>');
@@ -239,22 +228,19 @@ export function forceTable3D(
 ): string {
   const cols: Col3[] = kind === 'moment' ? [['My', 'momentY'], ['Mz', 'momentZ'], ['Mx', 'torsion']]
     : kind === 'shear' ? [['Vy', 'shearY'], ['Vz', 'shearZ']] : [['N', 'axial']];
+  bindMemberEnvelopeEnds(envelope);
   const envOf = new Map(cols.map(([, k]) => [k, envelope ? new Map(envelope[k].elements.map((e) => [e.elementId, e])) : null]));
   const h: string[] = [`<table><tr><th>${t('table.elemLabel')}</th><th>${t('tables.end')}</th>${cols.map(([c]) => `<th>${c} (${unit})</th>`).join('')}</tr>`];
   for (const ef of r.elementForces) {
     const results = cols.map(([, k]) => {
       const env = envOf.get(k);
-      if (env) {
-        const e = env.get(ef.elementId);
-        const values = e ? memberEnvelopeOrdinates(e, ef.length) : [];
-        if (!values.length) return null;
-        return { startValue: values[0]!.value, endValue: values.at(-1)!.value, best: envelopeExtreme(values) };
-      }
-      const result = computeSpatialDiagramExtrema(ef, k);
-      const best = {
-        value: result.maxAbsValue, x: result.extrema ? undefined : result.maxAbsX, side: result.maxAbsSide,
-      };
-      return { startValue: result.startValue, endValue: result.endValue, best };
+      if (env && !env.get(ef.elementId)?.tPositions.length) return null;
+      const [startValue, endValue] = memberEndForces3D(ef, k);
+      const extrema = memberForceExtrema(ef, k);
+      if (extrema.kind === 'bounded') return { startValue, endValue, best: { value: extrema.bound, x: undefined, side: undefined } };
+      const { absolute } = extrema;
+      const best = { ...absolute, side: absolute.t > 0 && absolute.t < 1 ? absolute.side : undefined };
+      return { startValue, endValue, best };
     });
     for (const [end, key] of [['I', 'startValue'], ['J', 'endValue']] as const) {
       const cells = results.map(result => `<td class="num">${result ? F(result[key]) : '—'}</td>`).join('');

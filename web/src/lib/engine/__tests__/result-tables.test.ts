@@ -1,10 +1,11 @@
+import { memberForceExtrema } from '../member-force-extrema';
 /**
  * The across-combination tables: every value comes from a result set, with where and under what.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import { summaryRows, envelopeRows, allRows, maxByType, rowsOf, toCsv, columnsOf, whereOf, type Source } from '../result-tables';
 import { magnitudeCombination } from '../combination-methods';
-import { evaluateDiagramAt, memberCriticalOrdinates3D, memberEndForces3D } from '../diagrams-3d';
+import { computeGlobalMax3D, evaluateDiagramAt, memberCriticalOrdinates3D, memberEndForces3D } from '../diagrams-3d';
 import { criticalForceStations, extractForcesAtStation } from '../station-forces';
 import { envelopeMembers, pruneScopes } from '../result-scopes';
 import { DEFAULT_AXES } from '../../axes/frame';
@@ -712,6 +713,15 @@ describe('spatial cantilever end queries', () => {
         const ends = rowsOf('forces', results, canonical);
         for (const [column, kind, component] of [[3, 'torsion', 'T'], [4, 'momentY', 'My'], [5, 'momentZ', 'Mz']] as const) {
           const applied = moments[column - 3]!;
+          const range = memberForceExtrema(member, kind);
+          expect.soft(range.kind).toBe('exact');
+          if (range.kind !== 'exact') throw new Error('Member extrema unavailable');
+          expect.soft(range.min.value).toBeCloseTo(atI ? 0 : -applied, 10);
+          expect.soft(range.min.x).toBeGreaterThanOrEqual(0);
+          expect.soft(range.min.x).toBeLessThanOrEqual(atI || atJ ? length : a);
+          expect.soft(evaluateDiagramAt(member, kind, range.min)).toBeCloseTo(atI ? 0 : -applied, 10);
+          expect.soft(computeGlobalMax3D([member], kind)).toBeCloseTo(atI ? 0 : applied, 10);
+
           const query = buildQueryRows([member], component);
           const expected = [atI ? 0 : -applied, atJ ? -applied : 0];
           for (const [i, end] of ['i', 'j'].entries()) {

@@ -28,8 +28,9 @@
   import { placementStore } from '../lib/store/placement.svelte';
   import { drawPlacementGhost } from '../lib/canvas/draw-placement';
   import { drawDiagrams, drawEnvelopeDiagrams, computeDiagramGlobalMax, setDiagramUnitSystem, type DiagramKind } from '../lib/canvas/draw-diagrams';
+  import { forcePeakScale, memberForceExtrema } from '../lib/engine/member-force-extrema';
   import { computeDiagramValueAt, computeDisplacementAt, memberEndForces2D, memberEndSections2D } from '../lib/engine/diagrams';
-  import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../lib/engine/member-diagram';
+  import { DIAGRAM_EXTREMA_UNAVAILABLE, unavailableDiagramExtrema } from '../lib/engine/member-diagram';
   import { solverBendingForces2D } from '../lib/engine/transverse-sign-2d';
   import { effectiveBendingInertia } from '../lib/engine/solver-service';
   import { computeLocalAxes3D } from '../lib/engine/local-axes-3d';
@@ -640,11 +641,20 @@
     let colorMapValues: { values: Map<number, number>; kind: string } | null = null;
     if (resultsStore.results && dtNow() === 'axialColor') {
       // Axial color: blue = compression, red = tension, intensity by magnitude
+      const axial = new Map<number, number>();
       let globalMaxN = 0;
-      for (const ef of resultsStore.results.elementForces) {
-        const [ni, nj] = memberEndForces2D(ef, 'axial');
-        const absN = Math.max(Math.abs(ni), Math.abs(nj));
-        if (absN > globalMaxN) globalMaxN = absN;
+      try {
+        for (const ef of resultsStore.results.elementForces) {
+          const range = memberForceExtrema(ef, 'axial');
+          if (range.kind === 'bounded') throw unavailableDiagramExtrema();
+          axial.set(ef.elementId, range.absolute.value);
+          globalMaxN = Math.max(globalMaxN, Math.abs(range.absolute.value));
+        }
+      } catch (error) {
+        if (!(error instanceof Error) || error.message !== DIAGRAM_EXTREMA_UNAVAILABLE) throw error;
+        if (exportFrame) throw error;
+        drawTooltip(12, 32, [diagramExtremaNotice()]);
+        globalMaxN = 0;
       }
       if (globalMaxN > 1e-10) {
         const axTheme = canvasTheme();
@@ -669,23 +679,21 @@
           const g = (i: number, base: number) => Math.round(rgb[i] * n + base * (1 - n));
           return `rgb(${g(0, 143)},${g(1, 163)},${g(2, 179)})`;
         };
-        for (const ef of resultsStore.results.elementForces) {
-          const [ni, nj] = memberEndForces2D(ef, 'axial');
-          const avgN = (ni + nj) / 2;
-          const intensity = Math.min(Math.abs(avgN) / globalMaxN, 1.0);
-          if (avgN > 0.001) {
-            colorMapOverrides.set(ef.elementId, mix(tensionRgb, intensity));
-          } else if (avgN < -0.001) {
-            colorMapOverrides.set(ef.elementId, mix(compressionRgb, intensity));
+        for (const [id, n] of axial) {
+          const intensity = Math.min(Math.abs(n) / globalMaxN, 1.0);
+          if (n > 0.001) {
+            colorMapOverrides.set(id, mix(tensionRgb, intensity));
+          } else if (n < -0.001) {
+            colorMapOverrides.set(id, mix(compressionRgb, intensity));
           } else {
-            colorMapOverrides.set(ef.elementId, axTheme.neutralMember);
+            colorMapOverrides.set(id, axTheme.neutralMember);
           }
         }
       }
     } else if (resultsStore.results && dtNow() === 'colorMap') {
       const kind = resultsStore.colorMapKind;
       let globalMax = 0;
-      const elemMaxes = new Map<number, number>();
+      let elemMaxes = new Map<number, number>();
 
       if (kind === 'stressRatio' || kind === 'vonMises' || kind === 'sigmaMax' || kind === 'tauMax') {
         for (const ef of resultsStore.results.elementForces) {
@@ -712,20 +720,17 @@
         }
         if (kind === 'stressRatio') globalMax = 1.0; // fixed scale: 0% → 100%+ of fy
       } else {
-        for (const ef of resultsStore.results.elementForces) {
-          /*
-           * A 2D frame has one bending axis and one shear, so the 3D names for
-           * them land on the same two quantities. Accepting both spellings
-           * matters because the quantity is chosen in a control shared with 3D:
-           * without this, switching a 2D moment diagram to a colour map fell
-           * through to the axial branch and painted N.
-           */
-          const component = kind === 'moment' || kind === 'momentY' || kind === 'momentZ' ? 'moment'
-            : kind === 'shear' || kind === 'shearY' || kind === 'shearZ' ? 'shear' : 'axial';
-          const [i, j] = memberEndForces2D(ef, component);
-          const val = Math.max(Math.abs(i), Math.abs(j));
-          elemMaxes.set(ef.elementId, val);
-          if (val > globalMax) globalMax = val;
+        const component = kind === 'moment' || kind === 'momentY' || kind === 'momentZ' ? 'moment'
+          : kind === 'shear' || kind === 'shearY' || kind === 'shearZ' ? 'shear' : 'axial';
+        try {
+          const scale = forcePeakScale(resultsStore.results.elementForces, component);
+          globalMax = scale.max;
+          elemMaxes = scale.values;
+        } catch (error) {
+          if (!(error instanceof Error) || error.message !== DIAGRAM_EXTREMA_UNAVAILABLE) throw error;
+          resultsStore.setColourScale(null);
+          if (exportFrame) throw error;
+          drawTooltip(12, 32, [diagramExtremaNotice()]);
         }
       }
 

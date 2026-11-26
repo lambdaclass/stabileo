@@ -1,3 +1,4 @@
+import { envelopeForceExtrema } from './member-diagram';
 // Moving load analysis — envelope of moving load trains across a structure
 
 import type { SolverInput, SolverLoad, AnalysisResults, FullEnvelope } from './types';
@@ -483,16 +484,19 @@ function elementExtremesFromPointwise(
   full: FullEnvelope | undefined,
 ): void {
   if (!full) return;
+  const lengths = new Map(full.maxAbsResults.elementForces.map(ef => [ef.elementId, ef.length]));
   const apply = (
-    curves: { elements: Array<{ elementId: number; posValues: number[]; negValues: number[] }> } | undefined,
+    curves: FullEnvelope['moment'] | undefined,
     pos: 'mMaxPos' | 'vMaxPos' | 'nMaxPos',
     neg: 'mMaxNeg' | 'vMaxNeg' | 'nMaxNeg',
   ) => {
     for (const e of curves?.elements ?? []) {
       const env = envelope.get(e.elementId);
-      if (!env) continue;
-      for (const v of e.posValues) if (v > env[pos]) env[pos] = v;
-      for (const v of e.negValues) if (v < env[neg]) env[neg] = v;
+      const length = lengths.get(e.elementId);
+      if (!env || length === undefined) continue;
+      const range = envelopeForceExtrema(e, length);
+      env[pos] = Math.max(env[pos], range.max.value);
+      env[neg] = Math.min(env[neg], range.min.value);
     }
   };
   apply(full.moment, 'mMaxPos', 'mMaxNeg');

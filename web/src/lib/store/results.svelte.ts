@@ -1,3 +1,4 @@
+import { maxMemberForce } from '../engine/member-force-extrema';
 import { bindMemberEnvelopeEnds } from '../engine/member-diagram';
 import { memberEndSections2D } from '../engine/diagrams';
 import { uiStore } from './ui.svelte';
@@ -1380,19 +1381,11 @@ function createResultsStore() {
     },
 
     get maxMoment(): number {
-      const r = this.results;
-      if (!r) return 0;
-      return Math.max(...r.elementForces.map(f =>
-        Math.max(Math.abs(f.mStart), Math.abs(f.mEnd))
-      ));
+      return maxMemberForce(this.results?.elementForces ?? [], 'moment');
     },
 
     get maxShear(): number {
-      const r = this.results;
-      if (!r) return 0;
-      return Math.max(...r.elementForces.map(f =>
-        Math.max(Math.abs(f.vStart), Math.abs(f.vEnd))
-      ));
+      return maxMemberForce(this.results?.elementForces ?? [], 'shear');
     },
 
     // Read through `engine-diagnostics.ts`: the engine's own lines come without a source and in English.

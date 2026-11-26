@@ -1,9 +1,11 @@
+import { memberForceExtrema } from '../engine/member-force-extrema';
+import { unavailableDiagramExtrema } from '../engine/member-diagram';
 // Render M, V, N diagrams on Canvas 2D
 
 import { transverseSign } from '../engine/transverse-sign-2d';
 import type { AnalysisResults, EnvelopeDiagramData } from '../engine/types';
 import { createLabelCollector, type LabelCollector } from './label-layout';
-import { computeElementDiagram, computePlanarDiagramExtrema, type ElementDiagram } from '../engine/diagrams';
+import { computeElementDiagram, type ElementDiagram } from '../engine/diagrams';
 import { type UnitSystem, formatDiagramValue, toDisplay } from '../utils/units';
 import { formatBound } from '../utils/certificate-format';
 
@@ -47,7 +49,11 @@ const DIAGRAM_COLORS: Record<DiagramKind, { fill: string; stroke: string; text: 
  * Used to establish a consistent scale when overlaying multiple diagrams.
  */
 export function computeDiagramGlobalMax(results: AnalysisResults, kind: DiagramKind): number {
-  return results.elementForces.reduce((max, ef) => Math.max(max, Math.abs(computePlanarDiagramExtrema(kind, ef, 'diagram').maxAbsValue)), 0);
+  return results.elementForces.reduce((max, ef) => {
+    const range = memberForceExtrema(ef, kind, 'diagram');
+    if (range.kind === 'bounded') throw unavailableDiagramExtrema();
+    return Math.max(max, Math.abs(range.absolute.value));
+  }, 0);
 }
 
 /**

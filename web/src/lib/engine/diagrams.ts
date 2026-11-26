@@ -2,7 +2,7 @@
 // Given end forces and distributed load, compute intermediate values
 
 import { computeDeformedShape as wasmComputeDeformedShape } from './wasm-solver';
-import { checkedCurveValue, checkedSectionValue, curveExtrema, diagramCriticalPoints, diagramCurvePoints, envelopeMemberEndValues, diagramLineValue, distributedActionTerms, fullSpanFallback, indexDiagramExtrema, inwardMemberEndValues, maxAbsDiagramOrdinate, memberDiagram, memberSectionStation, prepareCurveExtrema, unavailableDiagramExtrema, type DiagramOrdinate, type DiagramStation } from './member-diagram';
+import { checkedCurveValue, checkedSectionValue, curveExtrema, diagramCriticalPoints, diagramCurvePoints, envelopeMemberEndValues, diagramLineValue, distributedActionTerms, fullSpanFallback, indexDiagramExtrema, inwardMemberEndValues, diagramOrdinateExtrema, memberDiagram, memberSectionStation, prepareCurveExtrema, unavailableDiagramExtrema, type DiagramOrdinate, type DiagramStation } from './member-diagram';
 
 export interface DiagramPoint extends DiagramStation {
   /** World coordinates */
@@ -115,13 +115,8 @@ function buildDiagram(
 }
 
 function planarExtrema(critical: readonly DiagramOrdinate[]) {
-  let maxValue = -Infinity, minValue = Infinity;
-  for (const { value } of critical) {
-    if (value > maxValue) maxValue = value;
-    if (value < minValue) minValue = value;
-  }
-  const { t: maxAbsT, value: maxAbsValue, side: maxAbsSide } = maxAbsDiagramOrdinate(critical);
-  return { maxValue, minValue, maxAbsT, maxAbsValue, maxAbsSide };
+  const { min, max, abs } = diagramOrdinateExtrema(critical);
+  return { min, max, absolute: abs, maxValue: max.value, minValue: min.value, maxAbsT: abs.t, maxAbsValue: abs.value, maxAbsSide: abs.side };
 }
 
 export function computePlanarDiagramExtrema(kind: PlanarKind, ef: PlanarForces, faces?: 'diagram') {
@@ -130,6 +125,9 @@ export function computePlanarDiagramExtrema(kind: PlanarKind, ef: PlanarForces, 
   const extrema = planarExtrema(critical);
   return {
     ...extrema,
+    min: { ...extrema.min, x: curve.cutDistances.get(extrema.min.t) ?? extrema.min.t * ef.length },
+    max: { ...extrema.max, x: curve.cutDistances.get(extrema.max.t) ?? extrema.max.t * ef.length },
+    absolute: { ...extrema.absolute, x: curve.cutDistances.get(extrema.absolute.t) ?? extrema.absolute.t * ef.length },
     startValue: critical[0]!.value,
     endValue: critical.at(-1)!.value,
     maxAbsX: curve.cutDistances.get(extrema.maxAbsT) ?? extrema.maxAbsT * ef.length,

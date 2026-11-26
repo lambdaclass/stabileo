@@ -1,7 +1,6 @@
 import type { AnalysisResults, ElementForces } from './types';
 import type { AnalysisResults3D, ElementForces3D } from './types-3d';
-import { computeSpatialDiagramExtrema } from './diagrams-3d';
-import { computePlanarDiagramExtrema } from './diagrams';
+import { exactForcePeak, memberForceExtrema } from './member-force-extrema';
 
 export interface GoverningComboRef {
   comboId: number;
@@ -33,13 +32,12 @@ export type Component2D = typeof components2D[number];
 type Magnitude = { value: number; bounded?: true };
 
 export function governingMagnitude3D(ef: ElementForces3D, component: Component3D): Magnitude {
-  const d = computeSpatialDiagramExtrema(ef, component);
-  const value = Math.abs(d.maxAbsValue);
-  return d.extrema === 'bounded' ? { value, bounded: true } : { value };
+  const range = memberForceExtrema(ef, component);
+  return range.kind === 'bounded' ? { value: range.bound, bounded: true } : { value: Math.abs(range.absolute.value) };
 }
 
 export function peakAlong(kind: Component2D, ef: ElementForces): number {
-  return Math.abs(computePlanarDiagramExtrema(kind, ef).maxAbsValue);
+  return exactForcePeak(ef, kind);
 }
 
 export function governingMagnitude2D(ef: ElementForces, component: Component2D): number {

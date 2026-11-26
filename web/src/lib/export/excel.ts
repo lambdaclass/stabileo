@@ -1,4 +1,4 @@
-import { memberEndForces2D, memberEndSections2D } from '../engine/diagrams';
+import { memberEndSections2D } from '../engine/diagrams';
 import { memberEndSections3D } from '../engine/diagrams-3d';
 import { resultComponents } from '../axes/result-components';
 /**
@@ -38,8 +38,8 @@ type XlsxModule = typeof import('xlsx');
 let XLSX!: XlsxModule;
 import { exportMessages } from './containment';
 import { modelStore, resultsStore, uiStore } from '../store';
-import { activePerCombo3D, activeCombinations } from '../store/active-results';
-import { computeStationDemands } from '../engine/verification-service';
+import { activePerCombo3D } from '../store/active-results';
+import { exactForcePeak, maxMemberForce } from '../engine/member-force-extrema';
 import type { AnalysisResults } from '../engine/types';
 import type { AnalysisResults3D } from '../engine/types-3d';
 import { t } from '../i18n';
@@ -170,27 +170,18 @@ function createSummarySheet(): Xlsx.WorkSheet {
 
   if (is3D && r3d) {
     data.push([t('excel.maxResults')]);
-    let maxDisp = 0, maxN = 0, maxVy = 0, maxVz = 0, maxMy = 0, maxMz = 0, maxMx = 0;
+    let maxDisp = 0;
     for (const d of r3d.displacements) {
       const mag = Math.sqrt(d.ux ** 2 + d.uy ** 2 + d.uz ** 2);
       maxDisp = Math.max(maxDisp, mag);
     }
-    for (const ef of r3d.elementForces) {
-      const [i, j] = memberEndSections3D(ef);
-      maxN = Math.max(maxN, Math.abs(i.n), Math.abs(j.n));
-      maxVy = Math.max(maxVy, Math.abs(i.vy), Math.abs(j.vy));
-      maxVz = Math.max(maxVz, Math.abs(i.vz), Math.abs(j.vz));
-      maxMx = Math.max(maxMx, Math.abs(i.mx), Math.abs(j.mx));
-      maxMy = Math.max(maxMy, Math.abs(i.my), Math.abs(j.my));
-      maxMz = Math.max(maxMz, Math.abs(i.mz), Math.abs(j.mz));
-    }
     data.push([t('excel.maxDisplacement'), (maxDisp * 1000).toFixed(4), 'mm']);
-    data.push([t('excel.maxN'), maxN.toFixed(2), 'kN']);
-    data.push([t('excel.maxVy'), maxVy.toFixed(2), 'kN']);
-    data.push([t('excel.maxVz'), maxVz.toFixed(2), 'kN']);
-    data.push([t('excel.maxMx'), maxMx.toFixed(2), 'kN·m']);
-    data.push([t('excel.maxMy'), maxMy.toFixed(2), 'kN·m']);
-    data.push([t('excel.maxMz'), maxMz.toFixed(2), 'kN·m']);
+    data.push([t('excel.maxN'), maxMemberForce(r3d.elementForces, 'axial').toFixed(2), 'kN']);
+    data.push([t('excel.maxVy'), maxMemberForce(r3d.elementForces, 'shearY').toFixed(2), 'kN']);
+    data.push([t('excel.maxVz'), maxMemberForce(r3d.elementForces, 'shearZ').toFixed(2), 'kN']);
+    data.push([t('excel.maxMx'), maxMemberForce(r3d.elementForces, 'torsion').toFixed(2), 'kN·m']);
+    data.push([t('excel.maxMy'), maxMemberForce(r3d.elementForces, 'momentY').toFixed(2), 'kN·m']);
+    data.push([t('excel.maxMz'), maxMemberForce(r3d.elementForces, 'momentZ').toFixed(2), 'kN·m']);
     data.push([]);
 
     let sumFx = 0, sumFy = 0, sumFz = 0, sumMx2 = 0, sumMy2 = 0, sumMz2 = 0;
@@ -212,12 +203,7 @@ function createSummarySheet(): Xlsx.WorkSheet {
     data.push([t('excel.maxMoment'), resultsStore.maxMoment.toFixed(2), 'kN·m']);
     data.push([t('excel.maxShear'), resultsStore.maxShear.toFixed(2), 'kN']);
 
-    let maxAxial = 0;
-    for (const ef of r2d.elementForces) {
-      const [ni, nj] = memberEndForces2D(ef, 'axial');
-      maxAxial = Math.max(maxAxial, Math.abs(ni), Math.abs(nj));
-    }
-    data.push([t('excel.maxAxial'), maxAxial.toFixed(2), 'kN']);
+    data.push([t('excel.maxAxial'), maxMemberForce(r2d.elementForces, 'axial').toFixed(2), 'kN']);
     data.push([]);
 
     let sumRx = 0, sumRz = 0, sumMy = 0;
@@ -320,9 +306,9 @@ function createElementsSheet(): Xlsx.WorkSheet {
           Number(i.n.toFixed(4)), Number(j.n.toFixed(4)),
           Number(i.v.toFixed(4)), Number(j.v.toFixed(4)),
           Number(i.m.toFixed(4)), Number(j.m.toFixed(4)),
-          Number(Math.max(Math.abs(i.n), Math.abs(j.n)).toFixed(4)),
-          Number(Math.max(Math.abs(i.v), Math.abs(j.v)).toFixed(4)),
-          Number(Math.max(Math.abs(i.m), Math.abs(j.m)).toFixed(4)),
+          Number(exactForcePeak(forces, 'axial').toFixed(4)),
+          Number(exactForcePeak(forces, 'shear').toFixed(4)),
+          Number(exactForcePeak(forces, 'moment').toFixed(4)),
         );
       } else {
         row.push('-', '-', '-', '-', '-', '-', '-', '-', '-');
@@ -561,46 +547,22 @@ export function combinationPeakRows(): Array<[string, number, number, number, nu
   const is3D = uiStore.is3DWorkspace;
   const data: Array<[string, number, number, number, number]> = [];
 
-  /*
-   * The force peaks used to read one guessed set of field names for both dimensions (`mz`, `vy`,
-   * `n`, `momentI`…) that neither result type has, so every force column of this sheet was zero
-   * for every combination — in a sheet whose whole purpose is to say which combination produces
-   * the largest force. In 3D they are now read ALONG each member, at the stations design uses
-   * (`computeStationDemands`), because the member ends miss the midspan moment of every beam
-   * carrying a span load. Displacements are nodal.
-   */
   type Peaks = { disp: number; moment: number; shear: number; axial: number };
-  const absMax = (vals: number[]) => vals.reduce((m, v) => (Number.isFinite(v) ? Math.max(m, Math.abs(v)) : m), 0);
   const peaks2D = (r: AnalysisResults): Peaks => ({
     disp: r.displacements.reduce((m, d) => Math.max(m, Math.hypot(d.ux, d.uz)), 0),
-    moment: absMax(r.elementForces.flatMap(f => memberEndForces2D(f, 'moment'))),
-    shear: absMax(r.elementForces.flatMap(f => memberEndForces2D(f, 'shear'))),
-    axial: absMax(r.elementForces.flatMap(f => memberEndForces2D(f, 'axial'))),
+    moment: maxMemberForce(r.elementForces, 'moment'),
+    shear: maxMemberForce(r.elementForces, 'shear'),
+    axial: maxMemberForce(r.elementForces, 'axial'),
   });
-
-  let rows: Array<[number, Peaks]>;
-  if (is3D) {
-    // In PRO the sheet lists the combinations design reads: the active list.
-    const perCombo = activePerCombo3D();
-    const md = { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports };
-    const { stations } = computeStationDemands(perCombo, activeCombinations(), md as never);
-    const along = new Map<number, Omit<Peaks, 'disp'>>();
-    for (const esr of stations.values()) {
-      for (const cr of esr.comboResults) {
-        const p = along.get(cr.comboId) ?? { moment: 0, shear: 0, axial: 0 };
-        p.moment = Math.max(p.moment, absMax(cr.stations.flatMap((st) => [st.my, st.mz])));
-        p.shear = Math.max(p.shear, absMax(cr.stations.flatMap((st) => [st.vy, st.vz])));
-        p.axial = Math.max(p.axial, absMax(cr.stations.map((st) => st.n)));
-        along.set(cr.comboId, p);
-      }
-    }
-    rows = [...perCombo].map(([id, r]: [number, AnalysisResults3D]) => [id, {
-      disp: r.displacements.reduce((m, d) => Math.max(m, Math.hypot(d.ux, d.uy, d.uz)), 0),
-      ...(along.get(id) ?? { moment: 0, shear: 0, axial: 0 }),
-    }]);
-  } else {
-    rows = [...resultsStore.perCombo].map(([id, r]) => [id, peaks2D(r)]);
-  }
+  const peaks3D = (r: AnalysisResults3D): Peaks => ({
+    disp: r.displacements.reduce((m, d) => Math.max(m, Math.hypot(d.ux, d.uy, d.uz)), 0),
+    moment: Math.max(maxMemberForce(r.elementForces, 'momentY'), maxMemberForce(r.elementForces, 'momentZ')),
+    shear: Math.max(maxMemberForce(r.elementForces, 'shearY'), maxMemberForce(r.elementForces, 'shearZ')),
+    axial: maxMemberForce(r.elementForces, 'axial'),
+  });
+  const rows = is3D
+    ? [...activePerCombo3D()].map(([id, r]) => [id, peaks3D(r)] as const)
+    : [...resultsStore.perCombo].map(([id, r]) => [id, peaks2D(r)] as const);
   const comboName = new Map(modelStore.model.combinations.map((c) => [c.id, combinationNameShown(c)]));
   for (const [id, p] of rows) {
     data.push([

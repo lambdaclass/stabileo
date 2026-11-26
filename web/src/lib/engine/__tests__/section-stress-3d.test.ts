@@ -873,9 +873,14 @@ it('known wrong result: #2581 a transverse action at I does not create a false z
   }
 });
 
-it.skip('known wrong result: #2581 recovers a cantilever axial point action without smearing either side', () => {
+it('known wrong result: #2581 recovers a cantilever axial point action without smearing either side', () => {
   const f = makeEF({ length: 6, nStart: 20, nEnd: 0, pointLoadsX: [{ a: 3, p: 20 }] });
   expect.soft(interpolateForces3D(f, 0.25).N).toBe(20);
   expect.soft(interpolateForces3D(f, 0.75).N).toBe(0);
+  expect(interpolateForces3D(f, { t: 0.5, distance: 3 }).N).toBe(20);
+  expect(interpolateForces3D(f, { t: 0.5, distance: 3, right: true }).N).toBe(0);
+  expect(interpolateForces3D(f, 0).N).toBe(20);
+  expect(interpolateForces3D(f, 1).N).toBe(0);
+  expect(() => interpolateForces3D(f, -Number.EPSILON)).toThrow('solver.diagramExtremaUnavailable');
+  expect(() => interpolateForces3D(f, 1 + Number.EPSILON)).toThrow('solver.diagramExtremaUnavailable');
 });
-

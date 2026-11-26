@@ -10,7 +10,8 @@ import * as THREE from 'three';
 import { canvasUnitSystem } from '../canvas/canvas-units';
 import { fixedQuantity, displacementText } from '../utils/unit-format';
 import { modelStore, uiStore, resultsStore } from '../store';
-import { tp } from '../i18n';
+import { t, tp } from '../i18n';
+import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../engine/member-diagram';
 import { forEachElementVisual } from './scene-sync';
 export { forEachElementVisual };
 import { colourScaleSource } from '../store/result-view';
@@ -791,7 +792,7 @@ function applyFrameHeatmap(
   const project2D = projectFlag();
 
   // Pass 1: sample values for all elements and find global max
-  const elemSamples = new Map<number, number[]>();
+  const elemSamples = new Map<number, ReturnType<typeof sampleElementValues>>();
   let globalMax = 0;
 
   /*
@@ -803,24 +804,30 @@ function applyFrameHeatmap(
    * below about mirroring onto the batched mesh was true and useless — it
    * mirrored an empty sample set.
    */
-  forEachElementVisual(ctx, (id) => {
-    const ef = forcesMap.get(id);
-    if (!ef) return;
-    const sec = getSectionProps(id);
-    if (!sec) return;
-    /*
-     * Utilisation divides by fy, so a member whose material has none cannot
-     * be painted honestly — substituting a default strength graded a concrete
-     * member against steel nobody entered, while the panel warned the measure
-     * "cannot be computed". Skip it, as the 2D map does.
-     */
-    if (variable === 'stressRatio' && sec.fy === null) return;
-    const values = sampleElementValues(ef, variable, sec);
-    elemSamples.set(id, values);
-    for (const v of values) {
-      if (v > globalMax) globalMax = v;
-    }
-  });
+  try {
+    forEachElementVisual(ctx, (id) => {
+      const ef = forcesMap.get(id);
+      if (!ef) return;
+      const sec = getSectionProps(id);
+      if (!sec || (variable === 'stressRatio' && sec.fy === null)) return;
+      const sample = sampleElementValues(ef, variable, sec);
+      elemSamples.set(id, sample);
+      globalMax = Math.max(globalMax, sample.peak);
+    });
+  } catch (error) {
+    if (!(error instanceof Error) || error.message !== DIAGRAM_EXTREMA_UNAVAILABLE) throw error;
+    resultsStore.setColourScale(null);
+    forEachElementVisual(ctx, (id, group) => {
+      if (group) {
+        showOriginalMeshes(group, true);
+        setGroupColor(group, 0x555555);
+      }
+      ctx.elementsBatched.setBaseColor(id, 0x555555);
+    });
+    ctx.elementsBatched.flush();
+    uiStore.toast(t(DIAGRAM_EXTREMA_UNAVAILABLE), 'error');
+    return;
+  }
 
   /*
    * Utilisation is read against a FIXED scale: 1.00 is the limit, whatever
@@ -842,8 +849,8 @@ function applyFrameHeatmap(
     // The overlay cylinders can only hang off a Group; ids without one are
     // covered by the batched-colour mirror below, which is what wireframe
     // actually renders.
-    const values = elemSamples.get(id);
-    if (!values) {
+    const sample = elemSamples.get(id);
+    if (!sample) {
       // Element has no sampled data — ensure originals stay visible (dimmed)
       showOriginalMeshes(group, true);
       setGroupColor(group, 0x555555);
@@ -866,7 +873,7 @@ function applyFrameHeatmap(
     // Hide original mesh, show heatmap overlay
     showOriginalMeshes(group, false);
 
-    const heatMesh = createHeatmapCylinder(ef.length, values, globalMax);
+    const heatMesh = createHeatmapCylinder(ef.length, sample.stations, globalMax);
     const sceneI = projectNodeToScene(nI, project2D);
     const sceneJ = projectNodeToScene(nJ, project2D);
     orientHeatmapMesh(heatMesh, sceneI, sceneJ);
@@ -879,16 +886,12 @@ function applyFrameHeatmap(
   // instead of always axial force. Uses the same heatmapColor/globalMax mapping
   // as the textured cylinders above.
   forEachElementVisual(ctx, (id) => {
-    const values = elemSamples.get(id);
-    if (!values || values.length === 0) {
+    const sample = elemSamples.get(id);
+    if (!sample) {
       ctx.elementsBatched.setBaseColor(id, 0x555555);
       return;
     }
-    let peak = 0;
-    for (const v of values) if (v > peak) peak = v;
-    // Unclamped on purpose: past the top of the scale the shared ramp answers
-    // magenta (utilisation over fy), which clamping to 1 would paint as red.
-    const norm = globalMax > 0 ? peak / globalMax : 0;
+    const norm = globalMax > 0 ? sample.peak / globalMax : 0;
     ctx.elementsBatched.setBaseColor(id, heatmapColor(norm));
   });
   ctx.elementsBatched.flush();

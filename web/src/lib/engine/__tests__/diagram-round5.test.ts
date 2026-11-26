@@ -1,3 +1,5 @@
+import { memberForceExtrema } from '../member-force-extrema';
+import { interpolateForces3D } from '../section-stress-3d';
 import { expect, it } from 'vitest';
 import { computeDiagramValueAt, computeElementDiagram, prepareDiagramValueAt } from '../diagrams';
 import { computeDiagram3D, criticalDiagramStations3D, evaluateDiagramAt, prepareDiagramEvaluator3D } from '../diagrams-3d';
@@ -865,5 +867,37 @@ it('known wrong result: #2295 transfers the midpoint moment of the loaded roof g
     expect.soft(() => expect(evaluateDiagramAt(ef, 'momentY', 0.5)).toBe(moment)).not.toThrow();
     expect.soft(() => expect(prepareDiagramEvaluator3D(ef, 'momentY')(0.5)).toBe(moment)).not.toThrow();
     expect.soft(computeDiagramValueAt3DWasm('momentY', 0.5, ef)).toBeCloseTo(moment, 12);
+  }
+});
+
+it('locates both signed envelope extrema from linear and P-Delta results in both dimensions', () => {
+  const span = 6;
+  const [plane, space] = cantilevers(span);
+  const planar = [], planarNonlinear = [], spatial = [], spatialNonlinear = [];
+  for (const p of [100, -60]) {
+    plane.loads = [{ type: 'pointOnElement', data: { elementId: 1, a: span, p: 0, px: p } }];
+    space.loads = [{ type: 'pointOnElement', data: { elementId: 1, a: span, px: p, py: 0, pz: 0 } }];
+    const pn = solvePDelta(plane), sn = solvePDelta3D(space);
+    expect(pn.converged && sn.converged).toBe(true);
+    for (const result of [sn.results, solve3D(space)]) {
+      expect(interpolateForces3D(result.elementForces[0]!, 0.25).N).toBeCloseTo(p, 10);
+    }
+    planar.push(solve(plane)); planarNonlinear.push(pn.results);
+    spatial.push(solve3D(space)); spatialNonlinear.push(sn.results);
+  }
+  const envelopes = [
+    computeEnvelope(planar)!.maxAbsResults,
+    computeEnvelope(planarNonlinear)!.maxAbsResults,
+    computeEnvelope3D(spatial)!.maxAbsResults3D,
+    computeEnvelope3D(spatialNonlinear)!.maxAbsResults3D,
+  ];
+  for (const result of envelopes) {
+    const range = memberForceExtrema(result.elementForces[0]!, 'axial');
+    expect(range.kind).toBe('envelope');
+    if (range.kind !== 'envelope') throw new Error('Envelope branches unavailable');
+    expect(range.max.value).toBeCloseTo(100, 10);
+    expect(range.min.value).toBeCloseTo(-60, 10);
+    expect(range.max.x).toBe(0);
+    expect(range.min.x).toBe(0);
   }
 });

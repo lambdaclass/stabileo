@@ -1,4 +1,5 @@
-import { bindMemberEnvelopeEnds } from './member-diagram';
+import { bindMemberEnvelopeEnds, unavailableDiagramExtrema } from './member-diagram';
+import { maxMemberForce } from './member-force-extrema';
 import { memberEndSections2D } from './diagrams';
 import { memberEndSections3D } from './diagrams-3d';
 import { resultComponents } from '../axes/result-components';
@@ -513,16 +514,13 @@ function buildForcesSection(data: CalcReportData, num = '5'): string {
   if (data.is3D && data.results3D) {
     const forces = data.results3D.elementForces;
     // Summary
-    let maxN = 0, maxVy = 0, maxVz = 0, maxMy = 0, maxMz = 0, maxMx = 0;
-    for (const ef of forces) {
-      const [i, j] = memberEndSections3D(ef);
-      maxN = Math.max(maxN, Math.abs(i.n), Math.abs(j.n));
-      maxVy = Math.max(maxVy, Math.abs(i.vy), Math.abs(j.vy));
-      maxVz = Math.max(maxVz, Math.abs(i.vz), Math.abs(j.vz));
-      maxMx = Math.max(maxMx, Math.abs(i.mx), Math.abs(j.mx));
-      maxMy = Math.max(maxMy, Math.abs(i.my), Math.abs(j.my));
-      maxMz = Math.max(maxMz, Math.abs(i.mz), Math.abs(j.mz));
-    }
+    if (data.provenance.kind === 'envelope' && !data.envelope3D) throw unavailableDiagramExtrema();
+    const maxN = maxMemberForce(forces, 'axial');
+    const maxVy = maxMemberForce(forces, 'shearY');
+    const maxVz = maxMemberForce(forces, 'shearZ');
+    const maxMx = maxMemberForce(forces, 'torsion');
+    const maxMy = maxMemberForce(forces, 'momentY');
+    const maxMz = maxMemberForce(forces, 'momentZ');
 
     h.push(`<h2>${num}.1 ${t('calcReport.forceSummary')}</h2>`);
     h.push(`<table><tr><th>${t('report.quantity')}</th><th>${t('calcReport.maxAbsValue')}</th><th>${t('report.unit')}</th></tr>`);
@@ -548,13 +546,10 @@ function buildForcesSection(data: CalcReportData, num = '5'): string {
     if (condensed) h.push(`<p class="table-note">${esc(tp('calcReport.showingForces', { n: forces.length }))}</p>`);
   } else if (data.results2D) {
     const forces = data.results2D.elementForces;
-    let maxN = 0, maxV = 0, maxM = 0;
-    for (const ef of forces) {
-      const [i, j] = memberEndSections2D(ef);
-      maxN = Math.max(maxN, Math.abs(i.n), Math.abs(j.n));
-      maxV = Math.max(maxV, Math.abs(i.v), Math.abs(j.v));
-      maxM = Math.max(maxM, Math.abs(i.m), Math.abs(j.m));
-    }
+    if (data.provenance.kind === 'envelope' && !data.envelope2D) throw unavailableDiagramExtrema();
+    const maxN = maxMemberForce(forces, 'axial');
+    const maxV = maxMemberForce(forces, 'shear');
+    const maxM = maxMemberForce(forces, 'moment');
 
     h.push(`<h2>${num}.1 ${t('calcReport.forceSummary')}</h2>`);
     h.push(`<table><tr><th>${t('report.quantity')}</th><th>${t('calcReport.maxAbsValue')}</th><th>${t('report.unit')}</th></tr>`);

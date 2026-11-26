@@ -34,7 +34,7 @@ async function workbook() {
   return (sheet: string) => utils.sheet_to_json<Array<string | number>>(book.Sheets[sheet]!, { header: 1 });
 }
 
-it.skip('known wrong result: #2581 planar workbook summary and combination report PL/4', async () => {
+it('known wrong result: #2581 planar workbook summary and combination report PL/4', async () => {
   const span = 6, load = 20;
   const member = beam(false, span, true);
   const dead = modelStore.addLoadCase('Workbook dead', 'D');
@@ -43,15 +43,19 @@ it.skip('known wrong result: #2581 planar workbook summary and combination repor
   const solved = modelStore.solveCombinations(false);
   if (!solved || typeof solved === 'string') throw new Error(String(solved));
   resultsStore.setCombinationResults(solved.perCase, solved.perCombo, solved.envelope);
+  resultsStore.activeView = 'combo';
   const sheets = await workbook();
   expect.soft(combinationPeakRows()[0]?.[2]).toBe(load * span / 4);
   expect.soft(Number(sheets(t('excel.sheetSummary')).find(row => row[0] === t('excel.maxMoment'))?.[1])).toBe(load * span / 4);
+  resultsStore.activeView = 'envelope';
+  const envelopeSheets = await workbook();
+  expect(Number(envelopeSheets(t('excel.sheetSummary')).find(row => row[0] === t('excel.maxMoment'))?.[1])).toBe(load * span / 4);
 });
 
-it.skip('known wrong result: #2581 planar workbook summary and Elements include the interior axial peak', async () => {
+it('known wrong result: #2581 planar workbook summary and Elements include the interior axial peak', async () => {
   const span = 4, intensity = 8;
   const member = beam(false, span, false);
-  modelStore.addDistributedLoad(member, intensity, -intensity, 0, false);
+  modelStore.addDistributedLoad(member, intensity, -intensity, 90, false);
   const solved = modelStore.solve(false);
   if (!solved || typeof solved === 'string') throw new Error(String(solved));
   resultsStore.setResults(solved);
@@ -61,13 +65,23 @@ it.skip('known wrong result: #2581 planar workbook summary and Elements include 
   expect.soft(element?.[columns!.indexOf('|N|max')]).toBe(intensity * span / 4);
 });
 
-it.skip('known wrong result: #2581 spatial workbook summary gives wL²/8', async () => {
+it('known wrong result: #2581 spatial workbook summary gives wL²/8', async () => {
   const span = 6, intensity = 10;
   const member = beam(true, span, true);
-  modelStore.addDistributedLoad3D(member, 0, 0, -intensity, -intensity);
+  const dead = modelStore.addLoadCase('Workbook spatial dead', 'D');
+  modelStore.addDistributedLoad3D(member, 0, 0, -intensity, -intensity, undefined, undefined, dead);
+  modelStore.addCombination('1.0D', [{ caseId: dead, factor: 1 }]);
   const solved = modelStore.solve3D(false);
   if (!solved || typeof solved === 'string') throw new Error(String(solved));
   resultsStore.setResults3D(solved);
   const sheets = await workbook();
-  expect(Number(sheets(t('excel.sheetSummary')).find(row => row[0] === t('excel.maxMy'))?.[1])).toBe(intensity * span ** 2 / 8);
+  const peak = intensity * span ** 2 / 8;
+  expect(Number(sheets(t('excel.sheetSummary')).find(row => row[0] === t('excel.maxMy'))?.[1])).toBe(peak);
+  const combinations = modelStore.solveCombinations3D(false);
+  if (!combinations || typeof combinations === 'string') throw new Error(String(combinations));
+  resultsStore.setCombinationResults3D(combinations.perCase, combinations.perCombo, combinations.envelope);
+  expect(combinationPeakRows()[0]?.[2]).toBe(peak);
+  resultsStore.activeView = 'envelope';
+  const envelopeSheets = await workbook();
+  expect(Number(envelopeSheets(t('excel.sheetSummary')).find(row => row[0] === t('excel.maxMy'))?.[1])).toBe(peak);
 });

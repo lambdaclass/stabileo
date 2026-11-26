@@ -1,3 +1,4 @@
+import { EngineMessageError } from '../codes/message';
 import { distanceUnits, envelopeJumpCuts, type DiagramCutLocation } from './diagram-cut';
 import type { ElementEnvelopeDiagram, FullEnvelope } from './types';
 import type { FullEnvelope3D } from './types-3d';
@@ -498,11 +499,17 @@ export function bindMemberEnvelopeEnds<E extends FullEnvelope | FullEnvelope3D |
   return envelope;
 }
 
-export function envelopeMemberEndValues(member: MemberEndRecord, kind: string): [number, number] | undefined {
+export function boundMemberEnvelopeDiagram(member: MemberEndRecord, kind: string): ElementEnvelopeDiagram | undefined {
   const byKind = envelopeMemberDiagrams.get(member);
   if (!byKind) return undefined;
   const curve = byKind.get(kind)?.get(member.elementId);
   if (!curve) throw unavailableDiagramExtrema();
+  return curve;
+}
+
+export function envelopeMemberEndValues(member: MemberEndRecord, kind: string): [number, number] | undefined {
+  const curve = boundMemberEnvelopeDiagram(member, kind);
+  if (!curve) return undefined;
   const values = memberEnvelopeOrdinates(curve, member.length);
   const i = values[0], j = values.at(-1);
   if (i?.t !== 0 || j?.t !== 1) throw unavailableDiagramExtrema();
@@ -527,7 +534,7 @@ function isInwardEndpointFace(t: number, right?: boolean): boolean {
   return face === undefined || right === undefined || face === right;
 }
 
-export function memberEnvelopeBounds(diagram: ElementEnvelopeDiagram, length: number) {
+export function memberEnvelopeBounds(diagram: ElementEnvelopeDiagram, length: number, facesMode?: 'diagram') {
   const faces = new Map<number, { x: number; side: 'left' | 'right' }>();
   for (const { index, distance: x } of envelopeJumpCuts(diagram, length)) {
     faces.set(index, { x, side: 'left' });
@@ -535,7 +542,7 @@ export function memberEnvelopeBounds(diagram: ElementEnvelopeDiagram, length: nu
   }
   return diagram.tPositions.flatMap((t, i) => {
     const face = faces.get(i);
-    if (!isInwardEndpointFace(t, face && face.side === 'right')) return [];
+    if (!(facesMode === 'diagram' && t === 0) && !isInwardEndpointFace(t, face && face.side === 'right')) return [];
     const pos = diagram.posValues[i] ?? 0, neg = diagram.negValues[i] ?? 0;
     return [{ t, x: t * length, pos, neg, ...face }];
   });
@@ -545,6 +552,27 @@ export function memberEnvelopeOrdinates(diagram: ElementEnvelopeDiagram, length:
   return memberEnvelopeBounds(diagram, length).map(({ pos, neg, ...station }) => ({
     ...station, value: Math.abs(neg) > Math.abs(pos) ? neg : pos,
   }));
+}
+
+export function envelopeForceExtrema(diagram: ElementEnvelopeDiagram, length: number, faces?: 'diagram') {
+  const { tPositions, posValues, negValues } = diagram;
+  if (!Number.isFinite(length) || length <= 0 ||
+    tPositions.length !== posValues.length || tPositions.length !== negValues.length ||
+    tPositions[0] !== 0 || tPositions.at(-1) !== 1) throw unavailableDiagramExtrema();
+  for (const [i, t] of tPositions.entries()) {
+    const pos = posValues[i]!, neg = negValues[i]!;
+    if (!Number.isFinite(t) || (i > 0 && t < tPositions[i - 1]!) ||
+      !Number.isFinite(pos) || pos < 0 || !Number.isFinite(neg) || neg > 0) throw unavailableDiagramExtrema();
+  }
+  const stations = memberEnvelopeBounds(diagram, length, faces);
+  const upper = stations.map(({ pos, neg, ...station }) => ({ ...station, value: pos }));
+  const lower = stations.map(({ pos, neg, ...station }) => ({ ...station, value: neg }));
+  const max = diagramOrdinateExtrema(upper).max;
+  const min = diagramOrdinateExtrema(lower).min;
+  const positiveFirst = max.t < min.t ||
+    (max.t === min.t && !(max.side === 'right' && min.side === 'left'));
+  const { abs: absolute } = diagramOrdinateExtrema(positiveFirst ? [max, min] : [min, max]);
+  return { kind: 'envelope' as const, min, max, absolute };
 }
 
 export function diagramCriticalPoints(
@@ -621,9 +649,26 @@ function visitCriticalPoints(
   }
 }
 
-export function maxAbsDiagramOrdinate(critical: readonly DiagramOrdinate[]): DiagramOrdinate {
-  return critical.reduce((best, point) => Math.abs(point.value) > Math.abs(best.value) ? point : best,
-    { t: 0, value: 0 });
+export interface DiagramOrdinateExtrema<T extends DiagramOrdinate> {
+  min: T;
+  max: T;
+  abs: T;
+}
+
+export function includeDiagramOrdinate<T extends DiagramOrdinate>(range: DiagramOrdinateExtrema<T> | undefined, point: T): DiagramOrdinateExtrema<T> {
+  if (!Number.isFinite(point.value)) throw unavailableDiagramExtrema();
+  if (!range) return { min: point, max: point, abs: point };
+  if (point.value < range.min.value) range.min = point;
+  if (point.value > range.max.value) range.max = point;
+  if (Math.abs(point.value) > Math.abs(range.abs.value)) range.abs = point;
+  return range;
+}
+
+export function diagramOrdinateExtrema<T extends DiagramOrdinate>(critical: readonly T[]): DiagramOrdinateExtrema<T> {
+  let range: DiagramOrdinateExtrema<T> | undefined;
+  for (const point of critical) range = includeDiagramOrdinate(range, point);
+  if (!range) throw unavailableDiagramExtrema();
+  return range;
 }
 
 export function diagramCurvePoints(curve: DiagramValues, critical: readonly DiagramOrdinate[]): DiagramOrdinate[] {
@@ -638,7 +683,7 @@ export function diagramCurvePoints(curve: DiagramValues, critical: readonly Diag
 }
 
 export function unavailableDiagramExtrema(): Error {
-  return new Error(DIAGRAM_EXTREMA_UNAVAILABLE);
+  return new EngineMessageError({ key: DIAGRAM_EXTREMA_UNAVAILABLE });
 }
 
 const floatBits = new DataView(new ArrayBuffer(8));

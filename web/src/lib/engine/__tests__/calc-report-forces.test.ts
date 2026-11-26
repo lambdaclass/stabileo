@@ -1,3 +1,4 @@
+import { forcePeakScale } from '../member-force-extrema';
 /**
  * The report's internal-force tables: each member's ends and the largest value along it, with
  * where it is — for one load state, for the envelope, in 2D and in 3D — and the figure numbers.
@@ -386,19 +387,19 @@ describe('default report whole-member peaks', () => {
     return num(summary[index]![1]!);
   };
 
-  it.skip('known wrong result: #2581 planar default report gives wL²/8', () => {
+  it('known wrong result: #2581 planar default report gives wL²/8', () => {
     const f = ef2D({ length: 6, vStart: 30, vEnd: -30, qI: -10, qJ: -10 });
     expect(peak(report('moment', { content: undefined, results2D: r2D(f) }), 2)).toBe(10 * 6 ** 2 / 8);
   });
 
-  it.skip('known wrong result: #2581 spatial default report gives wL²/8 on both bending axes', () => {
+  it('known wrong result: #2581 spatial default report gives wL²/8 on both bending axes', () => {
     const f = ef3D({ vyStart: 30, vyEnd: -30, vzStart: 30, vzEnd: -30, qYI: -10, qYJ: -10, qZI: -10, qZJ: -10 });
     const html = report('moment', { content: undefined, is3D: true, analysisMode: '3D', results3D: r3D(f) });
     expect(peak(html, 4)).toBe(10 * 6 ** 2 / 8);
     expect(peak(html, 5)).toBe(10 * 6 ** 2 / 8);
   });
 
-  it.skip('known wrong result: #2581 default report uses the envelope rather than the combined end records', () => {
+  it('known wrong result: #2581 default report uses the envelope rather than the combined end records', () => {
     const f = ef2D({ length: 6 });
     const results = r2D(f);
     const env = computeEnvelope([results, r2D(ef2D({ length: 6, vStart: -30, vEnd: 30, qI: 10, qJ: 10 }))]);
@@ -408,3 +409,25 @@ describe('default report whole-member peaks', () => {
   });
 });
 
+
+it('the planar force colours and legend use the same exact magnitudes for both members', () => {
+  const span = 6, intensity = 10;
+  const a = ef2D({ elementId: 1, length: span, vStart: intensity * span / 2, vEnd: -intensity * span / 2, qI: -intensity, qJ: -intensity });
+  const b = ef2D({ ...a, elementId: 2, vStart: a.vStart / 2, vEnd: a.vEnd / 2, qI: a.qI / 2, qJ: a.qJ / 2 });
+  const moment = intensity * span ** 2 / 8;
+  expect(forcePeakScale([a, b], 'moment')).toEqual({ max: moment, values: new Map([[1, moment], [2, moment / 2]]) });
+
+  const c = ef2D({ elementId: 1, length: 4, qI: 8, qJ: -8 });
+  const d = ef2D({ ...c, elementId: 2, qI: c.qI / 2, qJ: c.qJ / 2 });
+  const shear = c.qI * c.length / 4;
+  expect(forcePeakScale([c, d], 'shear')).toEqual({ max: shear, values: new Map([[1, shear], [2, shear / 2]]) });
+});
+
+it('a default report refuses a conservative-only peak while a flat exact load state remains reportable', () => {
+  const leaf = ef3D({ nStart: 12, nEnd: 12 });
+  const inner = ef3D({ combined: { method: 'srss', parts: [leaf, ef3D({})] } });
+  const outer = ef3D({ combined: { method: 'abs', parts: [inner, ef3D({})] } });
+  const html = (f: ElementForces3D) => report('axial', { content: undefined, is3D: true, results3D: r3D(f) });
+  expect(() => html(outer)).toThrow('solver.diagramExtremaUnavailable');
+  expect(num(rows(html(inner))[0]![1]!)).toBe(12);
+});

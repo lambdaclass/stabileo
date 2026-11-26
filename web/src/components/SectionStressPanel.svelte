@@ -664,7 +664,11 @@
     if (ran !== null) return null;
     const err = failures[uses3DPath ? '3D' : '2D'];
     if (err === undefined) return null;
-    return { unavailable: isEngineUnavailable(err), message: engineFailureText(err) };
+    return {
+      unavailable: isEngineUnavailable(err),
+      message: err instanceof Error && err.message === DIAGRAM_EXTREMA_UNAVAILABLE
+        ? t(DIAGRAM_EXTREMA_UNAVAILABLE) : engineFailureText(err),
+    };
   });
   const resolved = $derived(uses3DPath ? analysis3D?.resolved : analysis2D?.resolved);
 

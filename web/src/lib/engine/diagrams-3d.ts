@@ -3,7 +3,7 @@
 // using equilibrium equations with distributed and point loads.
 
 import { type UnitSystem, formatDiagramValue } from '../utils/units';
-import { absolutePolynomialBranches, addMagnitudeBounds, checkedCurveValue, diagramCriticalPoints, diagramCurvePoints, envelopeMemberEndValues, fullSpanFallback, indexDiagramExtrema, inwardMemberEndValues, maxAbsDiagramOrdinate, memberEndFace, memberSectionStation, memberDiagram, curveExtrema, prepareCurveExtrema, prepareMagnitudeExtrema, sortedStations, spanCuts, spanResultantExtrema, unavailableDiagramExtrema, visitContinuousSpanCriticalPoints, visitMemberCriticalPoints, type DiagramCurve, type DiagramExtremum, type DiagramOrdinate, type DiagramStation, type PolynomialBranch } from './member-diagram';
+import { absolutePolynomialBranches, addMagnitudeBounds, checkedCurveValue, diagramCriticalPoints, diagramCurvePoints, envelopeMemberEndValues, fullSpanFallback, indexDiagramExtrema, inwardMemberEndValues, diagramOrdinateExtrema, memberEndFace, memberSectionStation, memberDiagram, curveExtrema, prepareCurveExtrema, prepareMagnitudeExtrema, sortedStations, spanCuts, spanResultantExtrema, unavailableDiagramExtrema, visitContinuousSpanCriticalPoints, visitMemberCriticalPoints, type DiagramCurve, type DiagramExtremum, type DiagramOrdinate, type DiagramStation, type PolynomialBranch } from './member-diagram';
 import { distanceUnits, exactCutUnits, sameCutLocation, type DiagramCutLocation } from './diagram-cut';
 import type { ElementForces3D, EnvelopeDiagramData3D } from './types-3d';
 
@@ -39,8 +39,7 @@ interface SpatialCurve extends Pick<DiagramCurve, 'cuts' | 'mayHaveJump' | 'valu
 }
 
 function maxMagnitude(curve: SpatialCurve): number {
-  if (curve.magnitudeBound) return curve.magnitudeBound();
-  return diagramCriticalPoints(curve, curve.extrema()).reduce((max, p) => Math.max(max, Math.abs(p.value)), 0);
+  return Math.abs(spatialExtrema(curve, spatialCriticalPoints(curve)).maxAbsValue);
 }
 
 function transverseActions(ef: ElementForces3D, aboutY: boolean) {
@@ -352,14 +351,18 @@ function visitSpatialCriticalOrdinates(curve: SpatialCurve, emit: VisitSpatialOr
     visitMemberCriticalPoints(curve, extrema, visit);
     return;
   }
-  const points = diagramCriticalPoints(curve, extrema.filter(peak => !peak.aliased));
-  let min = Infinity, max = -Infinity;
-  for (const { value } of points) {
-    min = Math.min(min, value);
-    max = Math.max(max, value);
+  for (const { t, value, right, side } of spatialCriticalPoints(curve, undefined, extrema)) {
+    visit(t, value, right ? true : undefined, side);
   }
-  if (extrema.some(peak => peak.aliased && (peak.value < min || peak.value > max))) throw unavailableDiagramExtrema();
-  for (const { t, value, right, side } of points) visit(t, value, right ? true : undefined, side);
+}
+
+function spatialCriticalPoints(curve: SpatialCurve, faces?: 'diagram', extrema = curve.extrema()): DiagramOrdinate[] {
+  const aliased = extrema.filter(peak => peak.aliased);
+  if (!aliased.length) return diagramCriticalPoints(curve, extrema, faces);
+  const points = diagramCriticalPoints(curve, extrema.filter(peak => !peak.aliased), faces);
+  const { min, max } = diagramOrdinateExtrema(points);
+  if (aliased.some(peak => peak.value < min.value || peak.value > max.value)) throw unavailableDiagramExtrema();
+  return points;
 }
 
 const spanStart = Object.freeze(memberSectionStation({ t: 0 }));
@@ -418,18 +421,17 @@ export function visitMemberCriticalOrdinates3D(
 }
 
 function spatialExtrema(curve: SpatialCurve, critical: readonly DiagramOrdinate[]) {
-  let maxValue = -Infinity, minValue = Infinity;
-  for (const { value } of critical) {
-    if (value > maxValue) maxValue = value;
-    if (value < minValue) minValue = value;
-  }
+  const { min, max, abs } = diagramOrdinateExtrema(critical);
   if (curve.magnitudeBound) {
-    const bound = Math.max(curve.magnitudeBound(), Math.abs(maxValue), Math.abs(minValue));
+    const bound = Math.max(curve.magnitudeBound(), Math.abs(abs.value));
     if (!Number.isFinite(bound)) throw unavailableDiagramExtrema();
     return { maxValue: bound, minValue: -bound, maxAbsValue: bound, extrema: 'bounded' as const };
   }
-  const { t, value: maxAbsValue, side: maxAbsSide } = maxAbsDiagramOrdinate(critical);
-  return { maxValue, minValue, maxAbsValue, maxAbsX: curve.cutLocations.get(t)?.x ?? t * curve.length, maxAbsSide };
+  const locate = (point: DiagramOrdinate) => ({ ...point, x: curve.cutLocations.get(point.t)?.x ?? point.t * curve.length });
+  return {
+    min: locate(min), max: locate(max), absolute: locate(abs), maxValue: max.value, minValue: min.value,
+    maxAbsValue: abs.value, maxAbsX: locate(abs).x, maxAbsSide: abs.side,
+  };
 }
 
 const leafEndFields = {
@@ -467,9 +469,9 @@ export function memberEndSections3D(ef: ElementForces3D) {
   ] as const;
 }
 
-export function computeSpatialDiagramExtrema(ef: ElementForces3D, kind: Diagram3DKind) {
+export function computeSpatialDiagramExtrema(ef: ElementForces3D, kind: Diagram3DKind, faces?: 'diagram') {
   const curve = spatialCurve(ef, kind);
-  const critical = diagramCriticalPoints(curve, curve.extrema());
+  const critical = spatialCriticalPoints(curve, faces);
   const range = spatialExtrema(curve, critical);
   return {
     ...range,
@@ -481,7 +483,7 @@ export function computeSpatialDiagramExtrema(ef: ElementForces3D, kind: Diagram3
 
 export function computeDiagram3D(ef: ElementForces3D, kind: Diagram3DKind): ElementDiagram3D {
   const curve = spatialCurve(ef, kind);
-  const critical = diagramCriticalPoints(curve, curve.extrema(), 'diagram');
+  const critical = spatialCriticalPoints(curve, 'diagram');
   const points = diagramCurvePoints(curve, critical);
   const range = spatialExtrema(curve, critical);
   return { elementId: ef.elementId, points, ...range, minValue: range.extrema && ef.combined ? 0 : range.minValue };
@@ -496,8 +498,7 @@ export function computeGlobalMax3D(
 ): number {
   let globalMax = 0;
   for (const ef of elementForces) {
-    const curve = spatialCurve(ef, kind);
-    const d = spatialExtrema(curve, diagramCriticalPoints(curve, curve.extrema(), 'diagram'));
+    const d = computeSpatialDiagramExtrema(ef, kind, 'diagram');
     globalMax = Math.max(globalMax, Math.abs(d.maxValue), Math.abs(d.minValue));
   }
   return globalMax;
@@ -510,17 +511,12 @@ export function computeGlobalMax3D(
  */
 export function envelopeDiagrams3D(env: EnvelopeDiagramData3D, elementId: number): ElementDiagram3D[] {
   const e = env.elements.find((e) => e.elementId === elementId);
-  if (!e) return [];
+  if (!e?.tPositions.length) return [];
   return [e.posValues, e.negValues].map((values) => {
-    let maxValue = -Infinity, minValue = Infinity, maxAbsValue = 0;
-    const points = e.tPositions.map((t, i) => {
-      const value = values[i] ?? 0;
-      maxValue = Math.max(maxValue, value); minValue = Math.min(minValue, value);
-      if (Math.abs(value) > Math.abs(maxAbsValue)) maxAbsValue = value;
-      return { t, value };
-    });
-    return { elementId, points, maxValue, minValue, maxAbsValue };
-  }).filter((d) => d.points.length > 0);
+    const points = e.tPositions.map((t, i) => ({ t, value: values[i]! }));
+    const { min, max, abs } = diagramOrdinateExtrema(points);
+    return { elementId, points, maxValue: max.value, minValue: min.value, maxAbsValue: abs.value };
+  });
 }
 
 /**

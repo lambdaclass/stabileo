@@ -1,0 +1,47 @@
+{
+  "id": "exact-member-force-peaks",
+  "date": "2026-11-26",
+  "prs": [
+    2581
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "members"
+    ],
+    "any": [
+      "memberLoads",
+      "selfWeight",
+      "combinations",
+      "magnitudeCombinations"
+    ]
+  },
+  "quantities": [
+    "diagrams",
+    "sectionStress"
+  ],
+  "title": {
+    "en": "Exact member force peaks",
+    "es": "Extremos exactos de esfuerzos en barras",
+    "pt": "Extremos exatos de esforços em barras",
+    "de": "Exakte Extremwerte der Stabschnittgrößen",
+    "fr": "Extrema exacts des efforts dans les barres",
+    "tr": "Eleman iç kuvvetlerinin kesin uç değerleri",
+    "zh": "杆件内力的精确极值",
+    "hu": "A rúderők pontos szélsőértékei"
+  },
+  "explanation": {
+    "en": "Force summaries use extrema along the whole member. Spatial section stress uses the concurrent forces at the selected cut.",
+    "es": "Los resúmenes de esfuerzos usan los extremos de toda la barra. Las tensiones de sección en 3D usan los esfuerzos concurrentes en el corte elegido.",
+    "pt": "Os resumos de esforços usam os extremos ao longo da barra. As tensões da seção em 3D usam os esforços simultâneos no corte escolhido.",
+    "de": "Die Schnittgrößenübersichten verwenden die Extremwerte entlang des gesamten Stabs. Räumliche Querschnittsspannungen verwenden die gleichzeitig am gewählten Schnitt wirkenden Schnittgrößen.",
+    "fr": "Les synthèses d’efforts utilisent les extrema sur toute la barre. Les contraintes de section en 3D utilisent les efforts concomitants à la coupe choisie.",
+    "tr": "İç kuvvet özetleri elemanın tamamındaki uç değerleri kullanır. Uzaysal kesit gerilmeleri seçilen kesitteki eşzamanlı iç kuvvetleri kullanır.",
+    "zh": "内力汇总采用整根杆件的极值。空间截面应力采用所选截面上同时作用的内力。",
+    "hu": "Az erőösszesítések a teljes rúd mentén keresik a szélsőértékeket. A térbeli keresztmetszeti feszültség a kiválasztott szelvény egyidejű igénybevételeiből számol."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-exact-member-force-peaks.md",
+    "heading": "Exact member force peaks in summaries and exports"
+  }
+}

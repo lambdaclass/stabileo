@@ -111,11 +111,12 @@ describe('colour maps in wireframe render mode (no element groups)', () => {
   });
 });
 
-it.skip('known wrong result: #2581 the spatial force legend includes a point-load peak between texture stations', () => {
+it('known wrong result: #2581 the spatial force legend includes a point-load peak between texture stations', () => {
   const { tie } = twoBarModel();
   const batched = new ElementsBatched();
   const ctx = context(batched);
   const span = 4, at = 1.125, load = 64;
+  batched.upsert(tie, 0, 0, 0, span, 0, 0);
   const reaction = load * (span - at) / span;
   resultsStore.setResults3D({
     displacements: [], reactions: [],
@@ -123,10 +124,12 @@ it.skip('known wrong result: #2581 the spatial force legend includes a point-loa
       elementId: tie, length: span, nStart: 0, nEnd: 0, mxStart: 0, mxEnd: 0,
       vyStart: 0, vyEnd: 0, vzStart: reaction, vzEnd: reaction - load,
       myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0, qZI: 0, qZJ: 0,
+      releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false,
+      releaseTStart: false, releaseTEnd: false,
       qYI: 0, qYJ: 0, distributedLoadsY: [], pointLoadsY: [],
       distributedLoadsZ: [], pointLoadsZ: [{ a: at, p: -load }],
     }],
-  } as NonNullable<typeof resultsStore.results3D>);
+  });
   resultsStore.diagramType = 'colorMap';
   resultsStore.colorMapKind = 'momentY';
   try {
@@ -136,4 +139,3 @@ it.skip('known wrong result: #2581 the spatial force legend includes a point-loa
     resultsStore.clear3D();
   }
 });
-

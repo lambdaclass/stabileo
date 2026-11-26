@@ -1,3 +1,4 @@
+import { criticalMemberForceExtrema3D } from './member-force-extrema';
 /**
  * The result tables read across many combinations at once.
  *
@@ -28,7 +29,7 @@ import type { ElementDesignDemands, GoverningDemand } from './station-design-for
 import { criticalForceStations, stationTs, type StationSpec } from './station-forces';
 import { memberEndFace, memberSectionStation, unavailableDiagramExtrema, type DiagramStation } from './member-diagram';
 import { sameCutLocation } from './diagram-cut';
-import { memberEndForces3D, prepareDiagramEvaluator3D, visitMemberCriticalOrdinates3D, type Diagram3DKind } from './diagrams-3d';
+import { memberEndForces3D, prepareDiagramEvaluator3D, type Diagram3DKind } from './diagrams-3d';
 import { resultComponents } from '../axes/result-components';
 import { makeFrame, type AxesChoice } from '../axes/frame';
 
@@ -225,8 +226,10 @@ export function summaryRows(kind: TableKind, sources: readonly Source[], opts: T
       const diagrams = opts.resultant ? [...forceDiagrams, ...resultantDiagrams] : forceDiagrams;
       for (const ef of source.results.elementForces) {
         if (opts.entities && !opts.entities.has(ef.elementId)) continue;
-        visitMemberCriticalOrdinates3D(ef, diagrams, (c, t, value, x, _right, side) => {
-          visit(c, value, ef.elementId, t === 0 ? 'i' : t === 1 ? 'j' : undefined, x, side);
+        criticalMemberForceExtrema3D(ef, diagrams).forEach((range, c) => {
+          for (const { t, value, x, side } of [range.max, range.min]) {
+            visit(c, value, ef.elementId, t === 0 ? 'i' : t === 1 ? 'j' : undefined, x, side);
+          }
         });
       }
     } else {
