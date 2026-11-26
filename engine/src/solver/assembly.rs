@@ -3113,16 +3113,21 @@ pub fn assemble_stiffness_sparse_3d(input: &SolverInput3D, dof_num: &DofNumberin
         None
     };
 
-    // Filter triplets for Kff (free-free block)
-    let mut ff_rows = Vec::new();
-    let mut ff_cols = Vec::new();
-    let mut ff_vals = Vec::new();
-    for i in 0..trip_rows.len() {
-        if trip_rows[i] < nf && trip_cols[i] < nf {
-            ff_rows.push(trip_rows[i]); ff_cols.push(trip_cols[i]); ff_vals.push(trip_vals[i]);
+    let (mut ff_rows, mut ff_cols, mut ff_vals) = (trip_rows, trip_cols, trip_vals);
+    let mut kept = 0;
+    for i in 0..ff_rows.len() {
+        if ff_rows[i] < nf && ff_cols[i] < nf {
+            ff_rows[kept] = ff_rows[i];
+            ff_cols[kept] = ff_cols[i];
+            ff_vals[kept] = ff_vals[i];
+            kept += 1;
         }
     }
+    ff_rows.truncate(kept);
+    ff_cols.truncate(kept);
+    ff_vals.truncate(kept);
     let mut k_ff = CscMatrix::from_triplets(nf, &ff_rows, &ff_cols, &ff_vals);
+    drop((ff_rows, ff_cols, ff_vals));
     // Drop tiny entries to match from_dense_symmetric behavior — prevents
     // spurious near-zero entries from making Cholesky succeed on singular matrices.
     k_ff.drop_below_threshold(1e-30);
