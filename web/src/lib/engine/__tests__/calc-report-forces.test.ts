@@ -339,3 +339,33 @@ it.each([
   const [row] = rows(report('shear', { results2D }));
   expect(row?.slice(1).map(num)).toEqual([4, 8, 8, length]);
 });
+
+
+const inwardEndRegression = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
+
+inwardEndRegression('known wrong result: #2581 reads both planar ends inside a point-load jump in the full report', async () => {
+  await initSolver();
+  const length = 4, tip = 24, point = 15;
+  const input: SolverInput = {
+    nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: length, z: 0 }]]),
+    materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
+    sections: new Map([[1, { id: 1, a: 0.01, iz: 0.0001 }]]),
+    elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]]),
+    supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
+    loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -tip, my: 0 } }],
+  };
+  for (const a of [0, length * (1 - Number.EPSILON), length, undefined]) {
+    const loaded: SolverInput = a === undefined ? input : {
+      ...input, loads: [...input.loads, { type: 'pointOnElement', data: { elementId: 1, a, p: point } }],
+    };
+    const nonlinear = solvePDelta(loaded);
+    expect(nonlinear.converged).toBe(true);
+    const inwardI = a !== undefined && a > 0 ? tip - point : tip;
+    const inwardJ = a === length ? tip - point : tip;
+    for (const [mode, results2D] of [['linear', solve(loaded)], ['P-Delta', nonlinear.results]] as const) {
+      const cells = rows(report('shear', { results2D, content: undefined }));
+      expect.soft(cells.find(row => row[1] === 'I')?.[3], `${mode}, station ${a}, I`).toBe(inwardI.toFixed(2));
+      expect.soft(cells.find(row => row[0] === 'J')?.[2], `${mode}, station ${a}, J`).toBe(inwardJ.toFixed(2));
+    }
+  }
+});

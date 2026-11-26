@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import { summaryRows, envelopeRows, allRows, maxByType, rowsOf, toCsv, columnsOf, whereOf, type Source } from '../result-tables';
 import { magnitudeCombination } from '../combination-methods';
-import { memberCriticalOrdinates3D } from '../diagrams-3d';
+import { memberCriticalOrdinates3D, memberEndForces3D } from '../diagrams-3d';
 import { criticalForceStations, extractForcesAtStation } from '../station-forces';
 import { envelopeMembers, pruneScopes } from '../result-scopes';
 import { DEFAULT_AXES } from '../../axes/frame';
@@ -13,12 +13,16 @@ import { uiStore } from '../../store/ui.svelte';
 import '../../store/index';
 import { initSolver, solve3D, solvePDelta3D } from '../wasm-solver';
 import { publishCombinations3D, activePerCombo3D, activeCombinations } from '../../store/active-results';
-import { computeStationDemands } from '../verification-service';
+import { computeStationDemands, steelDemandOf } from '../verification-service';
 import { combinationPeakRows } from '../../export/excel';
 import { resultSheets } from '../../export/workbook-results';
 import { envelopeSectionHtml } from '../report/project-sections';
 import { forceTable3D } from '../report/calc-report-extra';
 import { buildQueryRows } from '../result-query';
+import { ConcurrentDemand } from '../concurrent-demand';
+import { computeElementStress3D } from '../section-stress-3d';
+import { generateCalcReportHtml } from '../calc-report';
+import { stationForces3D } from '../../section/panel';
 import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../member-diagram';
 import type { AnalysisResults3D, ElementForces3D, SolverInput3D } from '../types-3d';
 
@@ -547,4 +551,81 @@ it('known wrong result: #2581 exports only inward ends and both interior jump fa
   };
   expect(buildQueryRows(control.results.elementForces, 'N', { envelope: legacy }).map(row => row.value)).toEqual([0, 0]);
   expect(rowsOf('forces', control.results, criticalOptions).map(row => row.x)).toEqual([0, 1, 2, 3, 4]);
+});
+
+const inwardEndRegression = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
+
+inwardEndRegression('known wrong result: #2581 reads the J cell inside the point-load jump', async () => {
+  await initSolver();
+  const length = 4;
+  const tip = 24, point = 15;
+  const input: SolverInput3D = {
+    nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: length, y: 0, z: 0 }]]),
+    materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
+    sections: new Map([[1, { id: 1, a: 0.01, iz: 0.0001, iy: 0.0001, j: 0.0001 }]]),
+    elements: new Map([[7, {
+      id: 7, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1,
+      releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false,
+      releaseTStart: false, releaseTEnd: false,
+    }]]),
+    supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
+    loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -tip, fz: -tip, mx: 0, my: 0, mz: 0 } }],
+  };
+  for (const a of [0, length * (1 - Number.EPSILON), length, undefined]) {
+    const loaded: SolverInput3D = a === undefined ? input : {
+      ...input, loads: [...input.loads, { type: 'pointOnElement', data: { elementId: 7, a, py: point, pz: point } }],
+    };
+    const nonlinear = solvePDelta3D(loaded);
+    expect(nonlinear.converged).toBe(true);
+    const inwardI = a !== undefined && a > 0 ? tip - point : tip;
+    const inwardJ = a === length ? tip - point : tip;
+    for (const [mode, results] of [['linear', solve3D(loaded)], ['P-Delta', nonlinear.results]] as const) {
+      const basis = `${mode}, point station ${a}. Equilibrium on the free side of the cut includes the tip force and any point force beyond the cut.`;
+      const force = results.elementForces[0]!;
+      expect.soft(force.vyEnd, basis).toBeCloseTo(tip, 12);
+      for (const [component, kind, column] of [['Vy', 'shearY', 1], ['Vz', 'shearZ', 2]] as const) {
+        const ends = memberEndForces3D(force, kind);
+        expect.soft(ends[0], basis).toBeCloseTo(inwardI, 12);
+        expect.soft(ends[1], basis).toBeCloseTo(inwardJ, 12);
+        expect.soft(buildQueryRows([force], component).find(row => row.end === 'j')?.value, basis).toBeCloseTo(inwardJ, 12);
+        const source = { ...A, results };
+        for (const stations of [2, 5, 'critical'] as const) {
+          const row = rowsOf('forces', results, { ...canonical, stations }).find(row => row.end === 'j');
+          expect.soft(row?.values[column], basis).toBeCloseTo(inwardJ, 12);
+          const envelope = envelopeRows('forces', [source], { ...canonical, stations }).find(row => row.end === 'j');
+          expect.soft(envelope?.max[column]?.value, basis).toBeCloseTo(inwardJ, 12);
+        }
+      }
+      const report = forceTable3D('shear', results, value => value.toFixed(2), 'kN', String, 'm');
+      expect.soft(report, basis).toContain(`<td>J</td><td class="num">${inwardJ.toFixed(2)}</td><td class="num">${inwardJ.toFixed(2)}</td>`);
+      const fullReport = generateCalcReportHtml({
+        config: { projectName: 'P', engineerName: '', companyName: '', date: '', notes: '' },
+        is3D: true, analysisMode: '3D', provenance: { kind: 'single' }, hasDesignChecks: false,
+        nodes: [], elements: [], materials: [], sections: [], supports: [], loads: [], loadCases: [], combinations: [],
+        results3D: results,
+      });
+      expect.soft(fullReport, basis).toContain(`<td>J</td><td class="num">0</td><td class="num">${inwardJ.toFixed(2)}</td><td class="num">${inwardJ.toFixed(2)}</td>`);
+      const end = ConcurrentDemand.endpoints(force).find(demand => demand.stationT === 1);
+      expect.soft(end?.forces.vy, basis).toBeCloseTo(inwardJ, 12);
+      expect.soft(end?.forces.vz, basis).toBeCloseTo(inwardJ, 12);
+      expect.soft(steelDemandOf(force).Vu, basis).toBeCloseTo(Math.max(inwardI, inwardJ), 12);
+      const section = stationForces3D(force, 1);
+      expect.soft(section.vy, basis).toBeCloseTo(inwardJ, 12);
+      expect.soft(section.vz, basis).toBeCloseTo(inwardJ, 12);
+      const stress = computeElementStress3D(force, 1, 1, 1);
+      expect.soft(stress.end.tauMax, basis).toBeCloseTo(Math.hypot(inwardJ, inwardJ) * 1.2, 12);
+    }
+  }
+});
+
+inwardEndRegression('known wrong result: #2581 excludes the exterior axial value at J', () => {
+  const length = 4, tip = 24, point = 15;
+  const force = { ...reviewForces, length, nStart: tip - point, nEnd: tip, pointLoadsX: [{ a: length, p: -point }] };
+  const { results } = reviewSources(force)[0]!;
+  expect.soft(memberEndForces3D(force, 'axial')).toEqual([tip - point, tip - point]);
+  expect.soft(buildQueryRows([force], 'N').find(row => row.end === 'j')?.value).toBe(tip - point);
+  expect.soft(rowsOf('forces', results, canonical).find(row => row.end === 'j')?.values[0]).toBe(tip - point);
+  expect.soft(ConcurrentDemand.endpoints(force).find(demand => demand.stationT === 1)?.forces.n).toBe(tip - point);
+  expect.soft(steelDemandOf(force).Nt).toBe(tip - point);
+  expect.soft(stationForces3D(force, 1).n).toBe(tip - point);
 });
