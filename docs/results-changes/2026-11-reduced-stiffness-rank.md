@@ -122,6 +122,11 @@ largest assembled diagonal. It cannot change the free stiffness at the
 cantilever tip. The material rank check now accepts the same equilibrium
 as the linear solve for both tested stiffnesses of the fixed member.
 
+The rank checks share a row-index lookup for diagonal shifts and refuse a
+missing diagonal. The tangent CSC builder already inserts each diagonal and
+sorts lower-triangle entries by row. This preserves both inertia endpoints on
+current solver inputs and guards the rank proof against a change in storage order.
+
 ## Check SSI secant rank using physical stiffness
 
 SSI now checks the unpinned structural and soil stiffness together. Both the

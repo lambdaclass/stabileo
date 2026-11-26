@@ -1181,13 +1181,12 @@ fn resolves_rank(
     let envelope = scaled(magnitude, groups, group_of, &weights);
     let margin = envelope.sym_mat_vec(&vec![ROUNDING * f64::EPSILON; envelope.n]);
     let mut shifted = scaled_operator.clone();
-    for (j, radius) in margin.into_iter().enumerate() {
-        let Some(p) = (shifted.col_ptr[j]..shifted.col_ptr[j + 1])
-            .find(|&p| shifted.row_idx[p] == j) else { return false };
-        shifted.values[p] -= radius;
-        if !radius.is_finite() || shifted.values[p] <= 0.0 {
-            return false;
-        }
+    if !update_stored_diagonal(&mut shifted, |j, value| {
+        let radius = margin[j];
+        let shifted = value - radius;
+        (radius.is_finite() && shifted > 0.0).then_some(shifted)
+    }) {
+        return false;
     }
     let owned;
     let symbolic = match symbolic {
@@ -1267,13 +1266,23 @@ fn tangent_has_resolved_rank(
     let mut shifted = CscMatrix::from_triplets(k.n, &rows, &cols, &values);
     let symbolic = symbolic_cholesky(&shifted);
     let Some(lower) = sparse_negative_inertia(&symbolic, &shifted) else { return false };
-    set_upper_tangent_diagonal(&mut shifted, |j| scale(j, j, diagonal[j]) + margin[j]);
+    if !update_stored_diagonal(&mut shifted, |j, _| Some(scale(j, j, diagonal[j]) + margin[j])) {
+        return false;
+    }
     sparse_negative_inertia(&symbolic, &shifted) == Some(lower)
 }
 
-fn set_upper_tangent_diagonal(shifted: &mut CscMatrix, diagonal: impl Fn(usize) -> f64) -> bool {
-    for j in 0..shifted.n {
-        shifted.values[shifted.col_ptr[j]] = diagonal(j);
+fn update_stored_diagonal(k: &mut CscMatrix, update: impl Fn(usize, f64) -> Option<f64>) -> bool {
+    for column in 0..k.n {
+        let Some(entry) = (k.col_ptr[column]..k.col_ptr[column + 1])
+            .find(|&entry| k.row_idx[entry] == column)
+        else {
+            return false;
+        };
+        let Some(value) = update(column, k.values[entry]) else {
+            return false;
+        };
+        k.values[entry] = value;
     }
     true
 }
@@ -1671,9 +1680,8 @@ impl ProjectedRounding {
     fn resolved(&self, s: &CscMatrix, symbolic: &Rc<SymbolicCholesky>) -> bool {
         if self.dropped > RESOLVABLE { return false; }
         let mut shifted = s.clone();
-        for j in 0..s.n {
-            let Some(p) = (shifted.col_ptr[j]..shifted.col_ptr[j+1]).find(|&p| shifted.row_idx[p]==j) else { return false; };
-            shifted.values[p] -= self.retained[j] / RESOLVABLE;
+        if !update_stored_diagonal(&mut shifted, |j, value| Some(value - self.retained[j] / RESOLVABLE)) {
+            return false;
         }
         numeric_cholesky(symbolic, &shifted).is_some()
     }
@@ -2028,7 +2036,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2584"]
     fn tangent_upper_shift_updates_diagonal_after_off_diagonal() {
         let mut shifted = CscMatrix {
             n: 2,
@@ -2037,12 +2044,11 @@ mod tests {
             values: vec![-3.0, 7.0, 4.0],
         };
         let upper_diagonal = [-1.0, 6.0];
-        assert!(set_upper_tangent_diagonal(&mut shifted, |column| upper_diagonal[column]));
+        assert!(update_stored_diagonal(&mut shifted, |column, _| Some(upper_diagonal[column])));
         assert_eq!(shifted.values, [-1.0, 7.0, 6.0]);
     }
 
     #[test]
-    #[ignore = "known wrong result: #2584"]
     fn tangent_upper_shift_refuses_a_column_without_diagonal() {
         let mut shifted = CscMatrix {
             n: 2,
@@ -2050,7 +2056,7 @@ mod tests {
             row_idx: vec![0, 0],
             values: vec![-3.0, 7.0],
         };
-        assert!(!set_upper_tangent_diagonal(&mut shifted, |_| 1.0));
+        assert!(!update_stored_diagonal(&mut shifted, |_, _| Some(1.0)));
         assert_eq!(shifted.values[1], 7.0);
     }
 
