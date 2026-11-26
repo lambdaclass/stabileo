@@ -222,33 +222,50 @@ pub struct SolverInput<M = SolverMaterial, S = SolverSection, N = SolverNode, L 
 }
 
 fn planar_handedness<'de, D: de::Deserializer<'de>>(d: D) -> Result<(), D::Error> {
-    if bool::deserialize(d)? {
-        return Err(de::Error::custom("unsupported field `leftHand` for 2D analysis"));
+    require_planar_handedness(bool::deserialize(d)?)
+}
+
+fn require_planar_handedness<E: de::Error>(left_hand: bool) -> Result<(), E> {
+    if left_hand {
+        return Err(E::custom("unsupported field `leftHand` for 2D analysis"));
     }
     Ok(())
 }
 
+const PLANAR_SHELL_REFUSAL: &str = "Shell elements require 3D analysis";
+
 fn empty_shell_collection_2d<'de, D: de::Deserializer<'de>>(d: D) -> Result<(), D::Error> {
-    d.deserialize_any(EmptyShellCollection2D)
+    d.deserialize_any(EmptyTable { diagnostic: PLANAR_SHELL_REFUSAL, field: None })
 }
 
-struct EmptyShellCollection2D;
+struct EmptyTable<'a> {
+    diagnostic: &'a str,
+    field: Option<&'a str>,
+}
 
-impl EmptyShellCollection2D {
-    fn require_empty<E: de::Error>(empty: bool) -> Result<(), E> {
+impl EmptyTable<'_> {
+    fn require_empty<E: de::Error>(self, empty: bool) -> Result<(), E> {
         if empty {
             Ok(())
         } else {
-            Err(E::custom("Shell elements require 3D analysis"))
+            Err(E::custom(self.diagnostic))
         }
     }
 }
 
-impl<'de> de::Visitor<'de> for EmptyShellCollection2D {
+impl<'de> de::DeserializeSeed<'de> for EmptyTable<'_> {
+    type Value = ();
+
+    fn deserialize<D: de::Deserializer<'de>>(self, d: D) -> Result<(), D::Error> {
+        d.deserialize_any(self)
+    }
+}
+
+impl<'de> de::Visitor<'de> for EmptyTable<'_> {
     type Value = ();
 
     fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("an empty shell map or list")
+        f.write_str(self.diagnostic)
     }
 
     fn visit_unit<E: de::Error>(self) -> Result<(), E> {
@@ -260,11 +277,15 @@ impl<'de> de::Visitor<'de> for EmptyShellCollection2D {
     }
 
     fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<(), A::Error> {
-        Self::require_empty(map.next_key::<de::IgnoredAny>()?.is_none())
+        let empty = match self.field {
+            Some(field) => unique_table::is_empty(map, field)?,
+            None => map.next_key::<de::IgnoredAny>()?.is_none(),
+        };
+        self.require_empty(empty)
     }
 
     fn visit_seq<A: de::SeqAccess<'de>>(self, mut seq: A) -> Result<(), A::Error> {
-        Self::require_empty(seq.next_element::<de::IgnoredAny>()?.is_none())
+        self.require_empty(seq.next_element::<de::IgnoredAny>()?.is_none())
     }
 }
 
@@ -1568,74 +1589,139 @@ impl Default for TendonProfile {
     fn default() -> Self { TendonProfile::Straight }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", from = "StagedInputWire2D")]
-pub struct StagedInput {
-    pub nodes: HashMap<String, SolverNode>,
-    pub materials: HashMap<String, SolverMaterial>,
-    pub sections: HashMap<String, SolverSection>,
-    pub elements: HashMap<String, SolverElement>,
-    pub supports: HashMap<String, SolverSupport>,
-    pub loads: Vec<SolverLoad>,
-    pub stages: Vec<ConstructionStage>,
-    #[serde(default)]
-    pub constraints: Vec<Constraint>,
-}
+struct UnconsumedStagedFields<const SPATIAL: bool>;
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct StagedInputWire2D {
-    #[serde(flatten)]
-    solver: SolverInput,
-    stages: Vec<ConstructionStage>,
-}
-
-impl From<StagedInputWire2D> for StagedInput {
-    fn from(wire: StagedInputWire2D) -> Self {
-        let SolverInput { nodes, materials, sections, elements, supports, loads, constraints, .. } = wire.solver;
-        Self { nodes, materials, sections, elements, supports, loads, constraints, stages: wire.stages }
+impl<'de, const SPATIAL: bool> Deserialize<'de> for UnconsumedStagedFields<SPATIAL> {
+    fn deserialize<D: de::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        d.deserialize_map(Self)
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct StagedInput3D {
-    #[serde(deserialize_with = "unique_table::nodes")]
-    pub nodes: HashMap<String, SolverNode3D>,
-    #[serde(deserialize_with = "unique_table::materials")]
-    pub materials: HashMap<String, SolverMaterial>,
-    #[serde(deserialize_with = "unique_table::sections")]
-    pub sections: HashMap<String, SolverSection3D>,
-    #[serde(deserialize_with = "unique_table::elements")]
-    pub elements: HashMap<String, SolverElement3D>,
-    #[serde(deserialize_with = "unique_table::supports")]
-    pub supports: HashMap<String, SolverSupport3D>,
-    pub loads: Vec<SolverLoad3D>,
-    pub stages: Vec<ConstructionStage3D>,
-    #[serde(default)]
-    pub constraints: Vec<Constraint>,
-    /// Model-wide left-handed member axes, as on `SolverInput3D`. Without the
-    /// field serde dropped the app's `leftHand` and a left-handed model was
-    /// staged with right-handed member axes.
-    #[serde(default)]
-    pub left_hand: Option<bool>,
-    /*
-     * Shells. These had no field here at all, and the caller sends them:
-     * `input3DToWireObject` emits `plates` and `quads` for every 3D payload,
-     * so serde — with no `deny_unknown_fields` on this struct — dropped them
-     * without a word. A building staged with floor slabs and shear walls was
-     * analysed as the bare frame, and nothing said so.
-     *
-     * Defaulted so a payload that carries no shells still deserialises, and so
-     * older stored inputs keep working.
-     */
-    #[serde(default, deserialize_with = "unique_table::plates")]
-    pub plates: HashMap<String, SolverPlateElement>,
-    #[serde(default, deserialize_with = "unique_table::quads")]
-    pub quads: HashMap<String, SolverQuadElement>,
-    #[serde(default, deserialize_with = "unique_table::quad9s")]
-    pub quad9s: HashMap<String, SolverQuad9Element>,
+impl<'de, const SPATIAL: bool> de::Visitor<'de> for UnconsumedStagedFields<SPATIAL> {
+    type Value = Self;
+
+    fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("a staged solver model as a map")
+    }
+
+    fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<Self, A::Error> {
+        while let Some(field) = map.next_key::<String>()? {
+            let description = match field.as_str() {
+                "leftHand" if !SPATIAL => {
+                    require_planar_handedness(map.next_value()?)?;
+                    continue;
+                }
+                "masses" => {
+                    let refusal = EmptyTable { diagnostic: "unsupported field `masses`", field: None };
+                    let empty = if SPATIAL {
+                        map.next_value::<Option<MassInput3D>>()?.is_none_or(|mass| mass.is_empty())
+                    } else {
+                        map.next_value::<Option<MassInput>>()?.is_none_or(|mass| mass.is_empty())
+                    };
+                    refusal.require_empty(empty)?;
+                    continue;
+                }
+                "plates" | "quads" | "quad9s" | "curvedShells" | "solidShells" if !SPATIAL => {
+                    map.next_value_seed(EmptyTable { diagnostic: PLANAR_SHELL_REFUSAL, field: None })?;
+                    continue;
+                }
+                "connectors" => "Staged construction analysis does not support connector elements",
+                "solidShells" if SPATIAL => "Staged construction analysis does not support solid shell elements",
+                "curvedShells" if SPATIAL => "Staged construction analysis does not support curved shell elements",
+                "curvedBeams" if SPATIAL => "Staged construction analysis does not support curved beams",
+                "quad9s" if SPATIAL => "Nine-node shell elements are not yet supported in staged construction",
+                "solverOptions" => "Staged construction analysis does not support solver options",
+                _ => return Err(de::Error::custom(format_args!("unknown field `{field}`"))),
+            };
+            let message = format!("unsupported field `{field}` ({description})");
+            map.next_value_seed(EmptyTable { diagnostic: &message, field: Some(&field) })?;
+        }
+        Ok(self)
+    }
 }
+
+macro_rules! staged_input {
+    (
+        $(#[$derive:meta])* $name:ident, $spatial:literal;
+        $node:ty, $section:ty, $element:ty, $support:ty, $load:ty, $stage:ty;
+        { $($(#[$attr:meta])* $field:ident: $type:ty,)* }
+        { $($native:ident: $native_type:ty,)* }
+    ) => {
+        $(#[$derive])*
+        #[derive(Debug, Clone, Serialize)]
+        #[serde(rename_all = "camelCase")]
+        pub struct $name {
+            pub nodes: HashMap<String, $node>,
+            pub materials: HashMap<String, SolverMaterial>,
+            pub sections: HashMap<String, $section>,
+            pub elements: HashMap<String, $element>,
+            pub supports: HashMap<String, $support>,
+            pub loads: Vec<$load>,
+            pub stages: Vec<$stage>,
+            pub constraints: Vec<Constraint>,
+            $(pub $field: $type,)*
+            $(pub $native: $native_type,)*
+        }
+
+        impl<'de> Deserialize<'de> for $name {
+            fn deserialize<D: de::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+                #[derive(Deserialize)]
+                #[serde(rename_all = "camelCase")]
+                struct Wire {
+                    #[serde(deserialize_with = "unique_table::nodes")]
+                    nodes: HashMap<String, $node>,
+                    #[serde(deserialize_with = "unique_table::materials")]
+                    materials: HashMap<String, SolverMaterial>,
+                    #[serde(deserialize_with = "unique_table::sections")]
+                    sections: HashMap<String, $section>,
+                    #[serde(deserialize_with = "unique_table::elements")]
+                    elements: HashMap<String, $element>,
+                    #[serde(deserialize_with = "unique_table::supports")]
+                    supports: HashMap<String, $support>,
+                    loads: Vec<$load>,
+                    stages: Vec<$stage>,
+                    #[serde(default)]
+                    constraints: Vec<Constraint>,
+                    $($(#[$attr])* $field: $type,)*
+                    #[serde(flatten)]
+                    _unconsumed: UnconsumedStagedFields<$spatial>,
+                }
+
+                let Wire { nodes, materials, sections, elements, supports, loads, stages, constraints, $($field,)* _unconsumed: _ } =
+                    Wire::deserialize(d)?;
+                Ok(Self {
+                    nodes, materials, sections, elements, supports, loads, stages, constraints,
+                    $($field,)*
+                    $($native: Default::default(),)*
+                })
+            }
+        }
+    };
+}
+
+staged_input!(
+    StagedInput, false;
+    SolverNode, SolverSection, SolverElement, SolverSupport, SolverLoad, ConstructionStage;
+    {}
+    {}
+);
+
+staged_input!(
+    #[derive(Default)]
+    StagedInput3D, true;
+    SolverNode3D, SolverSection3D, SolverElement3D, SolverSupport3D, SolverLoad3D, ConstructionStage3D;
+    {
+        #[serde(default)]
+        left_hand: Option<bool>,
+        #[serde(default, deserialize_with = "unique_table::plates")]
+        plates: HashMap<String, SolverPlateElement>,
+        #[serde(default, deserialize_with = "unique_table::quads")]
+        quads: HashMap<String, SolverQuadElement>,
+    }
+    {
+        quad9s: HashMap<String, SolverQuad9Element>,
+    }
+);
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]

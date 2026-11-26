@@ -5,13 +5,13 @@ use std::fmt;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-struct Table<K, V> {
-    field: &'static str,
+struct Table<'a, K, V> {
+    field: &'a str,
     entries: PhantomData<(K, V)>,
 }
 
-impl<K, V> Table<K, V> {
-    fn new(field: &'static str) -> Self {
+impl<'a, K, V> Table<'a, K, V> {
+    fn new(field: &'a str) -> Self {
         Self {
             field,
             entries: PhantomData,
@@ -19,7 +19,7 @@ impl<K, V> Table<K, V> {
     }
 }
 
-impl<'de, K, V> Visitor<'de> for Table<K, V>
+impl<'de, K, V> Visitor<'de> for Table<'_, K, V>
 where
     K: Deserialize<'de> + Eq + Hash,
     V: Deserialize<'de>,
@@ -49,7 +49,11 @@ where
     }
 }
 
-struct OptionalTable<V>(Table<String, V>);
+pub(super) fn is_empty<'de, A: MapAccess<'de>>(map: A, field: &str) -> Result<bool, A::Error> {
+    Table::<String, de::IgnoredAny>::new(field).visit_map(map).map(|entries| entries.is_empty())
+}
+
+struct OptionalTable<V>(Table<'static, String, V>);
 
 impl<'de, V: Deserialize<'de>> Visitor<'de> for OptionalTable<V> {
     type Value = Option<HashMap<String, V>>;

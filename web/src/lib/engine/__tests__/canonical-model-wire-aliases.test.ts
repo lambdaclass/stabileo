@@ -634,7 +634,7 @@ it('refuses repeated compound-section material ratio keys in JSON', () => {
   }
 });
 
-it.skip.each([false, true])('known wrong result: #2588 — staged WASM refuses unconsumed tables (space = %s)', (spatial) => {
+it.each([false, true])('known wrong result: #2588 — staged WASM refuses unconsumed tables (space = %s)', (spatial) => {
   const solve = spatial ? wasm.solve_staged_3d : wasm.solve_staged_2d;
   const model = {
     ...(spatial ? space : planar),

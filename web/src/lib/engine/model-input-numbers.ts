@@ -618,11 +618,12 @@ const supportPlaneFields = {
   dofFrame: 'spatial', dofRestraints: 'spatial', dofLocalElementId: 'spatial', curves: 'spatial',
 } satisfies Record<keyof Support, SupportPlaneField>;
 
-function supportAllowsXYFallback(support: Record<string, unknown>): boolean {
+function supportAllowsPlaneInference(support: Record<string, unknown>, geometryIdentifiesPlane: boolean): boolean {
   const { type, isGlobal, angle } = support;
   const local = isGlobal === false;
   const untagged = isGlobal === undefined;
-  if (!isPlaneSupportType(type) || (!local && (type === 'rollerY' || type === 'rollerZ'))) return false;
+  if (!isPlaneSupportType(type)) return false;
+  if ((type === 'rollerY' || type === 'rollerZ') && !local && !(untagged && geometryIdentifiesPlane)) return false;
 
   return Object.entries(support).every(([field, value]) => {
     if (value === undefined) return true;
@@ -669,18 +670,20 @@ export function storedProjectPlane(snapshot: StoredProjectInput, constraints: re
   const loads = Array.isArray(snapshot.loads) ? snapshot.loads : [];
   const coordinate = (node: Record<string, unknown>, axis: typeof AXES[number]) =>
     axis === 'z' ? node.z ?? 0 : node[axis];
-  const candidates = DRAW_PLANES.filter(plane => {
+  const geometryPlanes = DRAW_PLANES.filter(plane => {
     const normal = NORMAL_AXIS[plane];
     const depth = nodes[0] && coordinate(nodes[0], normal);
-    return nodes.every(node => coordinate(node, normal) === depth)
-      && loads.every(load => storedLoadFitsPlane(load, plane));
+    return nodes.every(node => coordinate(node, normal) === depth);
   });
+  const supports = storedRows(snapshot.supports);
+  const candidates = geometryPlanes.filter(plane =>
+    loads.every(load => storedLoadFitsPlane(load, plane))
+    && supports.every(support => supportAllowsPlaneInference(support, geometryPlanes.length === 1)));
   if (candidates.length === 1) return candidates[0];
 
   if (candidates.length === 2 && candidates.includes('xy') && candidates.includes('xz')
       && nodes.every(node => node.y === 0 && coordinate(node, 'z') === 0)
       && !constraints.some(dependsOnXYConstraintAxes)
-      && storedRows(snapshot.supports).every(supportAllowsXYFallback)
       && loads.every(load => isRecord(load) && typeof load.type === 'string' && PLANAR_LOAD_TYPES.includes(load.type))) {
     return 'xy';
   }

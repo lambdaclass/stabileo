@@ -29,41 +29,11 @@ use super::sparse_tangent::{
     SparseSymbolicCache, cached_symbolic,
 };
 
-/// Model parts a staged payload can carry that the staged input has no field
-/// for: serde drops unknown fields, so these used to vanish from the analysis
-/// without a word (a staged model with connectors was solved without them).
-fn refuse_unrepresented(json: &str, keys: &[(&str, &str)]) -> Result<(), String> {
-    let v: serde_json::Value = serde_json::from_str(json).map_err(|e| format!("Parse error: {}", e))?;
-    for (key, what) in keys {
-        let present = match v.get(key) {
-            Some(serde_json::Value::Object(m)) => !m.is_empty(),
-            Some(serde_json::Value::Array(a)) => !a.is_empty(),
-            _ => false,
-        };
-        if present {
-            return Err(format!(
-                "Staged construction analysis does not support {what}; it would solve the model without them. \
-                 Remove them or use an analysis that supports them."
-            ));
-        }
-    }
-    Ok(())
-}
-
-/// Parse a 2D staged payload, refusing the model parts it cannot represent.
 pub fn parse_staged_2d(json: &str) -> Result<StagedInput, String> {
-    refuse_unrepresented(json, &[("connectors", "connector elements")])?;
     serde_json::from_str(json).map_err(|e| format!("Parse error: {}", e))
 }
 
-/// Parse a 3D staged payload, refusing the model parts it cannot represent.
 pub fn parse_staged_3d(json: &str) -> Result<StagedInput3D, String> {
-    refuse_unrepresented(json, &[
-        ("connectors", "connector elements"),
-        ("solidShells", "solid shell elements"),
-        ("curvedShells", "curved shell elements"),
-        ("curvedBeams", "curved beams"),
-    ])?;
     serde_json::from_str(json).map_err(|e| format!("Parse error: {}", e))
 }
 

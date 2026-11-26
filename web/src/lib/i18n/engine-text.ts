@@ -224,7 +224,7 @@ export function localizeEngineText(message: string): string {
 
 const UNKNOWN_FIELD = /(Parse error: (?:Error: )?)?unknown field [`']([^`'\n]+)[`'](?:, expected (?:one of )?(`[^`\n]+`(?:(?:, | or )`[^`\n]+`)*)|, (there are no fields))?(?: at line (\d+) column (\d+))?/g;
 
-const INVALID_FIELD = /(Parse error: (?:Error: )?)?(?:missing|unsupported|duplicate key in) field [`']([^`'\n]+)[`'](?: at line (\d+) column (\d+))?/g;
+const INVALID_FIELD = /(Parse error: (?:Error: )?)?(?:missing|unsupported|duplicate key in) field [`']([^`'\n]+)[`'](?: \(Staged construction analysis does not support [^\n)]+\)| \(Nine-node shell elements are not yet supported in staged construction\))?(?: at line (\d+) column (\d+))?/g;
 
 function inputDiagnostic(detail: string, prefix?: string, line?: string, column?: string): string {
   const message = prefix ? fill('svc.engine.inputParseError', { detail }) : detail;

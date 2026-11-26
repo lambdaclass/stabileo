@@ -603,7 +603,6 @@ fn staged_wire_fixtures_preserve_their_support_and_section_contracts() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2588"]
 fn staged_wire_refuses_tables_it_cannot_consume() {
     use crate::solver::staged::{parse_staged_2d, parse_staged_3d, solve_staged_2d, solve_staged_3d};
     use crate::types::{StagedInput, StagedInput3D};

@@ -400,7 +400,7 @@ it.each([
   expect(requireStoredProjectInput(snapshot)).toBe('xz');
 });
 
-it.skip.each(entries)('known wrong result: #2588 — %s checks supports when a legacy nodal force leaves only XY', async entry => {
+it.each(entries)('known wrong result: #2588 — %s checks supports when a legacy nodal force leaves only XY', async entry => {
   await initSolver();
   const { file, tip } = legacyLoadedCantilever({ type: 'spring', ky: 1, kz: 2 });
   modelStore.addNodalLoad(tip, 0, -10, 0, 1);
