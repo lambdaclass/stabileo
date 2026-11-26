@@ -423,7 +423,7 @@ for (const dim of ['2d', '3d']) {
     delete model.supports[2];
     model.nodes[3] = dim === '2d' ? {id: 3, x: 1 + offset, z: 0} : {id: 3, x: 1 + offset, y: 0, z: 0};
     model.constraints = [{
-      type: 'rigidLink', masterNode: 2, slaveNode: 3, dofs: dim === '2d' ? [] : [0, 1, 2, 3, 4, 5],
+      type: 'rigidLink', masterNode: 2, slaveNode: 3, dofs: dim === '2d' ? [0, 1, 2] : [0, 1, 2, 3, 4, 5],
     }];
     const linear = () => engine[`solve_${dim}`](model);
     const corotational = () => nonlinear('corotational', dim, model);
@@ -476,7 +476,7 @@ for (const dim of ['2d', '3d']) {
   }
   solver.nodes[3] = dim === '2d' ? { id: 3, x: 2, z: 0 } : { id: 3, x: 2, y: 0, z: 0 };
   solver.constraints = [{
-    type: 'rigidLink', masterNode: 2, slaveNode: 3, dofs: dim === '2d' ? [] : [0, 1, 2, 3, 4, 5],
+    type: 'rigidLink', masterNode: 2, slaveNode: 3, dofs: dim === '2d' ? [0, 1, 2] : [0, 1, 2, 3, 4, 5],
   }];
   const solve = soilSprings => JSON.parse(engine[`solve_ssi_${dim}`](JSON.stringify({
     solver, soilSprings, maxIter: 3, tolerance: 1e-10,

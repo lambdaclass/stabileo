@@ -1077,7 +1077,7 @@ fn hinged_2d_mechanisms_main_refuses_before_the_certificate_458() {
     let prepared = dedaliano_engine::solver::linear::prepare_static_2d(&hinged).unwrap();
     assert!(prepared.solve_loads(&[moment.clone()]).is_err(), "a prepared case adds the nodal moment");
     assert!(prepared.solve_loads(&[SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -1.0, my: 0.0 })]).is_ok());
-    for dofs in [vec![], vec![0, 1], vec![0, 1, 2]] {
+    for dofs in [None, Some(vec![0, 1]), Some(vec![0, 1, 2])] {
         let mut arm = hinged.clone();
         arm.nodes.insert("3".into(), SolverNode { id: 3, x: -1.0, z: 0.0 });
         arm.constraints.push(Constraint::RigidLink(RigidLinkConstraint { master_node: 1, slave_node: 3, dofs: dofs.clone() }));
@@ -3160,7 +3160,6 @@ fn issue_2535_plane_wire_accepts_empty_legacy_shell_lists_and_refuses_populated_
 }
 
 #[test]
-#[ignore = "known wrong result: #2588"]
 fn issue_2588_empty_rigid_link_mask_2d() {
     use dedaliano_engine::solver::pdelta::solve_pdelta_2d;
     use serde_json::json;
@@ -3187,7 +3186,6 @@ fn issue_2588_empty_rigid_link_mask_2d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2588"]
 fn issue_2588_empty_rigid_link_mask_3d() {
     use dedaliano_engine::solver::pdelta::solve_pdelta_3d;
     use serde_json::json;

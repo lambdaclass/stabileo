@@ -146,7 +146,7 @@ fn single_support_nodes<S>(supports: impl Iterator<Item = (usize, S)>) -> Vec<(u
 
 /// The restrained rows of the K the certificate checks for this 2D model.
 pub(crate) fn restrained_rows_2d(input: &SolverInput) -> Result<(DofNumbering, RestrainedRows), String> {
-    if !input.constraints.is_empty() || crate::ordered::values(&input.supports).any(|s| s.support_type == "inclinedRoller") {
+    if crate::types::Constraint::any_active(&input.constraints) || crate::ordered::values(&input.supports).any(|s| s.support_type == "inclinedRoller") {
         return Err("reactions not bounded: constraints or inclined supports".into());
     }
     let dof = DofNumbering::build_2d(input);
@@ -213,7 +213,7 @@ pub(crate) fn reaction_bounds_2d_with(
 /// The restrained rows and load assembly the certificate uses for this 3D model
 /// (already passed through `expand_curved_beams_3d`).
 pub(crate) fn restrained_rows_3d(input: &SolverInput3D) -> Result<(DofNumbering, RestrainedRows, bool), String> {
-    if !input.constraints.is_empty() || crate::ordered::values(&input.supports).any(|s| s.is_inclined.unwrap_or(false)) {
+    if crate::types::Constraint::any_active(&input.constraints) || crate::ordered::values(&input.supports).any(|s| s.is_inclined.unwrap_or(false)) {
         return Err("reactions not bounded: constraints or inclined supports".into());
     }
     let dof = DofNumbering::build_3d(input);

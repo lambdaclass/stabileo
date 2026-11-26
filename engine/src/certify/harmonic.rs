@@ -154,7 +154,7 @@ pub fn certify_harmonic_results_2d(
 ) -> HarmonicCertificate {
     let run = || -> Result<HarmonicCertificate, String> {
         let s = &input.solver;
-        if !s.constraints.is_empty() {
+        if crate::types::Constraint::any_active(&s.constraints) {
             return Err("unsupported: constraints".into());
         }
         let dof = DofNumbering::build_2d(s);
@@ -185,7 +185,7 @@ pub fn certify_harmonic_results_3d(
     let run = || -> Result<HarmonicCertificate, String> {
         // The model the solver analyzed, curved beams expanded.
         let s = &crate::solver::linear::expand_curved_beams_3d(&input.solver);
-        if !s.constraints.is_empty() {
+        if crate::types::Constraint::any_active(&s.constraints) {
             return Err("unsupported: constraints".into());
         }
         let dof = DofNumbering::build_3d(s);

@@ -1152,7 +1152,7 @@ pub fn check_suspicious_local_axes_3d(input: &SolverInput3D) -> Vec<StructuredDi
 /// kinematics are not plain node-to-node connections); the factorization
 /// checks still apply to them.
 pub fn check_rigid_body_restraint_3d(input: &SolverInput3D) -> Vec<StructuredDiagnostic> {
-    if !input.constraints.is_empty() || !input.connectors.is_empty() || !input.curved_beams.is_empty() {
+    if crate::types::Constraint::any_active(&input.constraints) || !input.connectors.is_empty() || !input.curved_beams.is_empty() {
         return Vec::new();
     }
     if crate::ordered::values(&input.supports).any(|s| s.is_inclined == Some(true)) {

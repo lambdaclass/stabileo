@@ -102,14 +102,12 @@
       {
         "type": "rigidLink",
         "masterNode": 1,
-        "slaveNode": 2,
-        "dofs": []
+        "slaveNode": 2
       },
       {
         "type": "rigidLink",
         "masterNode": 1,
-        "slaveNode": 3,
-        "dofs": []
+        "slaveNode": 3
       }
     ]
   },
@@ -244,14 +242,12 @@
       {
         "type": "rigidLink",
         "masterNode": 1,
-        "slaveNode": 2,
-        "dofs": []
+        "slaveNode": 2
       },
       {
         "type": "rigidLink",
         "masterNode": 1,
-        "slaveNode": 3,
-        "dofs": []
+        "slaveNode": 3
       }
     ]
   },

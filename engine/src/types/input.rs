@@ -1818,15 +1818,32 @@ pub enum Constraint {
 pub struct RigidLinkConstraint {
     pub master_node: usize,
     pub slave_node: usize,
-    /// DOFs to constrain on slave: 0=ux, 1=uz, 2=θ (2D); 0..5 (3D).
-    ///
-    /// Empty means different links in the two dimensions (docs/solver/assembly-constraints.md,
-    /// AC-3): in 3D (ux, uy, uz), all translations with the slave's rotation free (a pinned
-    /// arm); in 2D (ux, uz, θ), the rotation tied too (a fixed arm). List the DOFs to say which
-    /// link is meant: 2D [0, 1] is the 3D default, 3D [0..6] the 2D one. The web app lists them
-    /// when it sends a stored link to the 2D solver (`constraint-2d-remap.ts`).
-    #[serde(default)]
-    pub dofs: Vec<usize>,
+    #[serde(default, deserialize_with = "deserialize_rigid_link_dofs", skip_serializing_if = "Option::is_none")]
+    pub dofs: Option<Vec<usize>>,
+}
+
+fn deserialize_rigid_link_dofs<'de, D: de::Deserializer<'de>>(d: D) -> Result<Option<Vec<usize>>, D::Error> {
+    Vec::deserialize(d).map(Some)
+}
+
+impl RigidLinkConstraint {
+    pub fn effective_dofs(&self, dofs_per_node: usize) -> &[usize] {
+        const DEFAULT: [usize; 3] = [0, 1, 2];
+        self.dofs.as_deref().unwrap_or(&DEFAULT[..dofs_per_node.min(DEFAULT.len())])
+    }
+}
+
+impl Constraint {
+    pub fn is_active(&self) -> bool {
+        match self {
+            Self::RigidLink(link) => !link.effective_dofs(3).is_empty(),
+            _ => true,
+        }
+    }
+
+    pub fn any_active(constraints: &[Self]) -> bool {
+        constraints.iter().any(Self::is_active)
+    }
 }
 
 /// Diaphragm: nodes share in-plane rigid-body motion around a master.

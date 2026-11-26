@@ -36,7 +36,8 @@
 
 import { t, tp } from '../i18n';
 import { dyadicInteger } from './accounting-math';
-import { ModelInputError, requireEccentricReleaseMask, rigidLinkDofs } from './model-input-numbers';
+import { ModelInputError, requireEccentricReleaseMask } from './model-input-numbers';
+import { rigidLinkDofs } from './types-3d';
 import type { Constraint3D, EccentricConnectionConstraint, LinearMpcConstraint } from './types-3d';
 import type { DrawPlane } from '../geometry/plane-projection';
 
@@ -214,7 +215,7 @@ export function constraintsAcrossDepth(
   return constraints.filter((c) => {
     let ids: number[];
     if (c.type === 'rigidLink') {
-      if (c.dofs && c.dofs.length > 0 && c.dofs.every((d) => d >= 3)) return false;
+      if (rigidLinkDofs(c).every(d => d >= 3)) return false;
       ids = [c.masterNode, c.slaveNode];
     } else if (c.type === 'diaphragm') ids = [c.masterNode, ...c.slaveNodes];
     else return false;

@@ -969,7 +969,7 @@ fn moving_loads_with_constraints_uses_legacy_fallback() {
             nodes, materials, sections, elements, supports,
             loads: vec![],
             constraints: vec![Constraint::RigidLink(RigidLinkConstraint {
-                master_node: 4, slave_node: 2, dofs: vec![],
+                master_node: 4, slave_node: 2, dofs: None,
             })],
             connectors: HashMap::new(),
 

@@ -513,13 +513,14 @@ fn constraints(input: &SolverInput3D, model: &Model, kin: &mut Kinematics, dpn: 
     };
     for con in &input.constraints {
         match con {
-            Constraint::RigidLink(rl) => {
-                let dofs: Vec<usize> = if rl.dofs.is_empty() { (0..dpn.min(3)).collect() } else { rl.dofs.clone() };
+            Constraint::RigidLink(rl) if con.is_active() => {
+                let dofs = rl.effective_dofs(dpn);
                 let r = off(rl.master_node, rl.slave_node)?;
-                for d in dofs {
+                for &d in dofs {
                     kin.equation(need(rl.slave_node, d)?, rigid(rl.master_node, d, &r)?);
                 }
             }
+            Constraint::RigidLink(_) => {}
             Constraint::Diaphragm(dia) => {
                 // In-plane rigid motion: the plane's two translations follow
                 // the master's translation and its rotation about the normal,

@@ -264,10 +264,17 @@ export interface RigidLinkConstraint {
   type: 'rigidLink';
   masterNode: number;
   slaveNode: number;
-  /** Integer DOF indices to constrain on the slave (Rust `Vec<usize>`).
-   *  3D: 0=ux, 1=uy, 2=uz, 3=rx, 4=ry, 5=rz. Empty = all translational.
-   *  Do NOT pass DOF name strings; the solver expects indices. */
   dofs?: number[];
+}
+
+const defaultRigidLinkDofs = [0, 1, 2] as const;
+
+export function rigidLinkDofs(constraint: Pick<RigidLinkConstraint, 'dofs'>): readonly number[] {
+  return constraint.dofs ?? defaultRigidLinkDofs;
+}
+
+export function isActiveConstraint(constraint: Constraint3D): boolean {
+  return constraint.type !== 'rigidLink' || rigidLinkDofs(constraint).length > 0;
 }
 
 export interface DiaphragmConstraint {

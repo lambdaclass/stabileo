@@ -586,7 +586,7 @@ it('retains a unique XY interpretation for an X-aligned beam with the older fy s
   expect(modelStore.solve()).toEqual(reference);
 });
 
-it.runIf(process.env.REPLAY_2588 === '1').each(legacyNodalEntries)(
+it.each(legacyNodalEntries)(
   'known wrong result: #2588 — %s keeps conflicting projected point forces and moments from establishing XZ',
   async entry => {
     await initSolver();
@@ -603,11 +603,12 @@ it.runIf(process.env.REPLAY_2588 === '1').each(legacyNodalEntries)(
     const reference = modelStore.solve();
     expect(reference).toMatchObject({ displacements: expect.any(Array) });
     file.snapshot.drawPlane2D = undefined;
+    const lineLoads = [...file.snapshot.loads];
     const point = { id: file.snapshot.nextId.load++, elementId: member, a: 2, py: 0, pz: 0, caseId: 1 };
     for (const components of [{ py: -3 }, { mx: 3 }, { mz: 3 }]) {
-      file.snapshot.loads = [...modelStore.loads.filter(load => load.type === 'distributed3d'), {
+      file.snapshot.loads = [...lineLoads, {
         type: 'pointOnElement3d', data: { ...point, ...components, frame: 'projected' },
-      }] as typeof file.snapshot.loads;
+      }];
       open(entry, file);
       expect.soft(modelStore.snapshot().drawPlane2D).toBeUndefined();
       expect.soft(modelStore.solve()).toBe(t('svc.savedPlaneRequired'));
@@ -616,13 +617,13 @@ it.runIf(process.env.REPLAY_2588 === '1').each(legacyNodalEntries)(
       expect.soft(() => modelStore.buildSolverInput()).toThrow(t('svc.savedPlaneRequired'));
     }
     for (const components of [{}, { pz: -3 }, { my: 3 }]) {
-      file.snapshot.loads = [...modelStore.loads.filter(load => load.type === 'distributed3d'), {
+      file.snapshot.loads = [...lineLoads, {
         type: 'pointOnElement3d', data: { ...point, ...components, frame: 'projected' },
-      }] as typeof file.snapshot.loads;
+      }];
       open(entry, file);
       expect(modelStore.snapshot().drawPlane2D).toBe('xz');
     }
-    file.snapshot.loads = modelStore.loads.filter(load => load.type === 'distributed3d');
+    file.snapshot.loads = lineLoads;
     open(entry, file);
     expect(modelStore.solve()).toEqual(reference);
   },

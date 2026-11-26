@@ -734,7 +734,7 @@ pub fn add_random_constraints_2d(input: &mut SolverInput, seed: u64) {
                 if dofs.is_empty() { dofs.push(0); }
                 Constraint::EqualDOF(EqualDOFConstraint { master_node: master, slave_node: slave, dofs })
             }
-            1 if rot => Constraint::RigidLink(RigidLinkConstraint { master_node: master, slave_node: slave, dofs: vec![] }),
+            1 if rot => Constraint::RigidLink(RigidLinkConstraint { master_node: master, slave_node: slave, dofs: None }),
             _ => Constraint::LinearMPC(LinearMPCConstraint { terms: vec![
                 MPCTerm { node_id: slave, dof: 1, coefficient: 1.0 },
                 MPCTerm { node_id: master, dof: 1, coefficient: -rng.gen_range(0.5..2.0) },
@@ -1102,7 +1102,7 @@ pub fn add_random_constraints_3d(input: &mut SolverInput3D, seed: u64) {
                 if dofs.is_empty() { dofs.push(2); }
                 Constraint::EqualDOF(EqualDOFConstraint { master_node: master, slave_node: slave, dofs })
             }
-            1 => Constraint::RigidLink(RigidLinkConstraint { master_node: master, slave_node: slave, dofs: vec![] }),
+            1 => Constraint::RigidLink(RigidLinkConstraint { master_node: master, slave_node: slave, dofs: None }),
             2 => Constraint::Diaphragm(DiaphragmConstraint { master_node: master, slave_nodes: vec![slave], plane: "XY".into() }),
             _ => Constraint::LinearMPC(LinearMPCConstraint { terms: vec![
                 MPCTerm { node_id: slave, dof: 2, coefficient: 1.0 },

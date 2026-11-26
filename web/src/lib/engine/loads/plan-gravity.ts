@@ -42,7 +42,7 @@ import { compareClearance, doubledPlanPoint, dyadicInteger, exactBeamHeight, exa
 import { partitionGravityFloors } from './gravity-floor-ownership';
 import { preparePhysicalFloorLoad, type FloorBay, type FloorBeam, type FloorPanel, type FloorLoadResult, type SideStretch } from './floor-loads';
 import { EngineMessageError, msg, round, type EngineMessage } from '../../codes/message';
-import type { Constraint3D } from '../types-3d';
+import { isActiveConstraint, rigidLinkDofs, type Constraint3D } from '../types-3d';
 
 export interface GravityModel {
   nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
@@ -353,7 +353,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     return [x, y, z];
   };
   const fixedShellStations = directlyGroundedShells(model, carriers, terminals);
-  const frameComponents = opts.mode === 'panels' && opts.loadEveryPanel && !model.quads?.size && !model.constraints?.length
+  const frameComponents = opts.mode === 'panels' && opts.loadEveryPanel && !model.quads?.size && !model.constraints?.some(isActiveConstraint)
     ? new NodeComponents() : undefined;
   if (frameComponents) {
     for (const { nodeI, nodeJ } of model.elements.values()) frameComponents.join(nodeI, nodeJ);
@@ -700,7 +700,7 @@ function verticalShellLinks(model: GravityModel): VerticalShellLink[] {
   const dofIndices = [0, 1, 2, 3, 4, 5];
   for (const constraint of model.constraints ?? []) {
     if (constraint.type === 'rigidLink') {
-      const dofs = constraint.dofs?.length ? constraint.dofs : [0, 1, 2];
+      const dofs = rigidLinkDofs(constraint);
       const fullMotion = dofIndices.every(dof => dofs.includes(dof));
       if (dofs.includes(2)) add(constraint.masterNode, constraint.slaveNode, fullMotion ? 'fullMotion' : 'verticalMotion');
     } else if (constraint.type === 'eccentricConnection') {

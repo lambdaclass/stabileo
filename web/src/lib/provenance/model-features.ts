@@ -75,7 +75,7 @@ export const FEATURE_IDS = [
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'invalidSelfWeightTarget', 'scopedMemberSelfWeight', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'malformedAuthoredLoad',
-  'addedAuthoredLoadRefusal', 'legacyPlanarProjectPlane',
+  'addedAuthoredLoadRefusal', 'legacyPlanarProjectPlane', 'emptyRigidLinkMask',
   'malformedAuthoredStructure', 'separatedPlanarEccentricConnection', 'reducedPlanarMpc', 'xyConstraintProjection',
   'ssiHistory', 'recordedHarmonic', 'strongElasticModulusContrast', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase', 'loadPlanCombinationSupplements', 'flatRoofSnowCombinations',
@@ -641,7 +641,11 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   }
   if ([...supportedNodes.values()].some((n) => n > 1)) f.add('multipleSupportsOnNode');
 
-  const constraints = Array.isArray(s.constraints) ? s.constraints : [];
+  const emptyRigidLink = (c: Record<string, unknown>) =>
+    c?.type === 'rigidLink' && Array.isArray(c.dofs) && c.dofs.length === 0;
+  const storedConstraints = Array.isArray(s.constraints) ? s.constraints : [];
+  if (storedConstraints.some(emptyRigidLink)) f.add('emptyRigidLinkMask');
+  const constraints = storedConstraints.filter(c => !emptyRigidLink(c));
   if (constraints.length) f.add('constraints');
   if (constraints.some((c) => c && slaveNodes(c).some((n) => supportedNodes.has(n)))) f.add('constraintOnSupportedNode');
 

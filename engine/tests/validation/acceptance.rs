@@ -1794,7 +1794,7 @@ fn acceptance_5b_corotational_3d_rigid_link() {
         Constraint::RigidLink(RigidLinkConstraint {
             master_node: n_col + 1,
             slave_node: n_col + 2,
-            dofs: vec![0, 1, 2, 3, 4, 5],
+            dofs: Some(vec![0, 1, 2, 3, 4, 5]),
         }),
     ];
 
@@ -2027,7 +2027,7 @@ fn acceptance_5d_corotational_3d_linear_parity() {
         Constraint::RigidLink(RigidLinkConstraint {
             master_node: n_elem + 1,
             slave_node: n_elem + 2,
-            dofs: vec![0, 1, 2, 3, 4, 5],
+            dofs: Some(vec![0, 1, 2, 3, 4, 5]),
         }),
     ];
 
@@ -2156,7 +2156,7 @@ fn acceptance_5f_arc_length_rigid_link_parity() {
         Constraint::RigidLink(RigidLinkConstraint {
             master_node: 3,
             slave_node: 5,
-            dofs: vec![0, 1, 2], // all 2D DOFs
+            dofs: Some(vec![0, 1, 2]), // all 2D DOFs
         }),
     ];
 
@@ -2311,7 +2311,7 @@ fn acceptance_5h_fiber_nonlinear_3d_rigid_link() {
         Constraint::RigidLink(RigidLinkConstraint {
             master_node: n_col + 1,
             slave_node: n_col + 2,
-            dofs: vec![0, 1, 2, 3, 4, 5],
+            dofs: Some(vec![0, 1, 2, 3, 4, 5]),
         }),
     ];
 
@@ -2384,7 +2384,7 @@ fn acceptance_5i_contact_2d_rigid_link() {
     let mut solver = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, iz)], elems, sups, loads);
     solver.constraints = vec![
         Constraint::RigidLink(RigidLinkConstraint {
-            master_node: 2, slave_node: 5, dofs: vec![0, 1, 2],
+            master_node: 2, slave_node: 5, dofs: Some(vec![0, 1, 2]),
         }),
     ];
 
@@ -2474,7 +2474,7 @@ fn acceptance_5j_contact_3d_rigid_link() {
     input.constraints = vec![
         Constraint::RigidLink(RigidLinkConstraint {
             master_node: 2, slave_node: 5,
-            dofs: vec![0, 1, 2, 3, 4, 5],
+            dofs: Some(vec![0, 1, 2, 3, 4, 5]),
         }),
     ];
 
@@ -2638,7 +2638,7 @@ fn acceptance_5l_time_integration_3d_rigid_link() {
         Constraint::RigidLink(RigidLinkConstraint {
             master_node: n_col + 1,
             slave_node: n_col + 2,
-            dofs: vec![0, 1, 2, 3, 4, 5],
+            dofs: Some(vec![0, 1, 2, 3, 4, 5]),
         }),
     ];
 

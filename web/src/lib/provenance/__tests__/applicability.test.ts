@@ -931,7 +931,7 @@ it('rechecks kinematic motion and dormant stiffness changes in both dimensions',
   for (const analysisMode of ['2d', '3d', 'pro']) {
     for (const snapshot of [
       model({ analysisMode, elements: [member(1, 1, 'frame')] }),
-      model({ analysisMode, constraints: [{ type: 'rigidLink', masterNode: 1, slaveNode: 2, dofs: [] }] }),
+      model({ analysisMode, constraints: [{ type: 'rigidLink', masterNode: 1, slaveNode: 2 }] }),
       model({ analysisMode, supports: [[1, { nodeId: 1, type: 'spring', kx: 1 }]] as never }),
     ]) {
       expect(ids(snapshot)).toContain(id);
@@ -1240,5 +1240,16 @@ it.each(['production', 'test'] as const)('#2364 uses stable self-weight and sett
     expect(relevant(withRotation)).toEqual(mode === 'test' ? [...axesIds, 'workbook-support-rotations'] : []);
   } finally {
     vi.unstubAllGlobals();
+  }
+});
+
+it('rechecks saved results for an explicit empty rigid-link mask in Basic and Pro', () => {
+  const id = 'empty-rigid-link-mask';
+  for (const analysisMode of ['2d', '3d', 'pro']) {
+    const link = { type: 'rigidLink', masterNode: 1, slaveNode: 2 };
+    expect(ids(model({ analysisMode, constraints: [{ ...link, dofs: [] }] }))).toContain(id);
+    for (const constraint of [link, { ...link, dofs: [0, 1, 2] }]) {
+      expect(ids(model({ analysisMode, constraints: [constraint] }))).not.toContain(id);
+    }
   }
 });

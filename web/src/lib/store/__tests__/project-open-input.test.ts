@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { deflateSync, inflateSync } from 'fflate';
 import LZString from 'lz-string';
 import { t, tp } from '../../i18n';
-import { initSolver, solvePDelta, solvePDelta3D } from '../../engine/wasm-solver';
+import { initSolver, solve, solve3D, solvePDelta, solvePDelta3D } from '../../engine/wasm-solver';
 import { compressSnapshot, loadFromShareLink, loadFromURLHash } from '../../utils/url-sharing';
 import { acceptAutosavePayload, acceptSessionTabs, buildProjectFile, deserializeProject } from '../file';
 import { assessProject } from '../../provenance/applicability';
@@ -240,7 +240,7 @@ it.each(routes)('known wrong result: #2588 — %s refuses an implicit default ri
   file.snapshot.drawPlane2D = undefined;
   const link = { type: 'rigidLink' as const, masterNode: root, slaveNode: tip };
   const before = modelStore.snapshot();
-  for (const dofs of [undefined, [], [0, 1, 2], [0, 1, 2, 3, 4, 5]]) {
+  for (const dofs of [undefined, [0, 1, 2], [0, 1, 2, 3, 4, 5]]) {
     file.snapshot.constraints = [dofs === undefined ? link : { ...link, dofs }];
     const result = open(file, route);
     expect.soft(result.opened, String(dofs)).toBe(false);
@@ -249,6 +249,10 @@ it.each(routes)('known wrong result: #2588 — %s refuses an implicit default ri
     expect.soft(assessProject({ ...file.snapshot, analysisMode: '2d' }, null, '2d').changes.map(c => c.id))
       .toContain('xy-constraint-projection');
   }
+  file.snapshot.constraints = [{ ...link, dofs: [] }];
+  expect(open(file, route).opened).toBe(true);
+  expect(assessProject({ ...file.snapshot, analysisMode: '2d' }, null, '2d').changes.map(c => c.id))
+    .not.toContain('xy-constraint-projection');
 });
 
 it.each(['xy', 'xz'] as const)('solves default rigid links in explicit %s with the same translations as a listed mask', async plane => {
@@ -265,7 +269,6 @@ it.each(['xy', 'xz'] as const)('solves default rigid links in explicit %s with t
   };
   const reference = analyze([0, 1, 2]);
   expect(analyze()).toEqual(reference);
-  expect(analyze([])).toEqual(reference);
 
   file.snapshot.drawPlane2D = undefined;
   file.snapshot.nodes = file.snapshot.nodes.map(([id, node]) => [id, id === tip ? { ...node, y: 1 } : node]);
@@ -296,7 +299,7 @@ it('known wrong result: #2588 — a legacy v1 share with a guidedX support opens
   expect(modelStore.solve()).toBe(t('svc.savedPlaneRequired'));
 });
 
-it.runIf(process.env.REPLAY_2588 === '1').each(['xy', 'xz', 'pro'] as const)(
+it.each(['xy', 'xz', 'pro'] as const)(
   'known wrong result: #2588 — an empty rigid-link mask leaves the %s tip free',
   async mode => {
     await initSolver();
@@ -310,13 +313,14 @@ it.runIf(process.env.REPLAY_2588 === '1').each(['xy', 'xz', 'pro'] as const)(
       const linear = spatial ? modelStore.solve3D(false, false, true) : modelStore.solve();
       const asyncLinear = spatial ? await modelStore.solve3DAsync(false, false, true) : await modelStore.solveAsync();
       const nonlinear = spatial
-        ? solvePDelta3D(modelStore.buildSolverInput3D()!).results
-        : solvePDelta(modelStore.buildSolverInput()!).results;
+        ? solvePDelta3D(modelStore.buildSolverInput3D()!)
+        : solvePDelta(modelStore.buildSolverInput()!);
+      expect(nonlinear.converged).toBe(true);
       const tipUx = (result: typeof linear) => {
         if (!result || typeof result === 'string') throw new Error(String(result));
         return result.displacements.find(d => d.nodeId === tip)!.ux;
       };
-      return [linear, asyncLinear, nonlinear].map(result => tipUx(result));
+      return [linear, asyncLinear, nonlinear.results].map(result => tipUx(result));
     };
     const untied = await analyze([]);
     expect(untied.every(ux => ux > 0)).toBe(true);
@@ -327,3 +331,25 @@ it.runIf(process.env.REPLAY_2588 === '1').each(['xy', 'xz', 'pro'] as const)(
     expect(await analyze([link])).toEqual(translations);
   },
 );
+
+it.each(['2d', 'pro'] as const)('preserves an empty rigid-link mask at the %s WASM wire boundary', async mode => {
+  await initSolver();
+  const { root, tip } = frame(mode);
+  const link = { type: 'rigidLink' as const, masterNode: root, slaveNode: tip };
+  const analyze = (mask: typeof link & { dofs?: number[] } | undefined) => {
+    const constraints = mask ? [mask] : [];
+    if (mode === 'pro') {
+      const input = { ...modelStore.buildSolverInput3D()!, constraints };
+      return [solve3D(input), solvePDelta3D(input).results];
+    }
+    const input = { ...modelStore.buildSolverInput()!, constraints };
+    return [solve(input), solvePDelta(input).results];
+  };
+  const untied = analyze(undefined);
+  expect(analyze({ ...link, dofs: [] })).toEqual(untied);
+  const tied = analyze({ ...link, dofs: [0, 1, 2] });
+  for (const result of tied) {
+    expect(result.displacements).toContainEqual(expect.objectContaining({ nodeId: tip, ux: 0 }));
+  }
+  expect(analyze(link)).toEqual(tied);
+});

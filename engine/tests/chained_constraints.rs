@@ -539,7 +539,7 @@ fn mixed_rigid_link_then_equal_dof_chain() {
     input.constraints.push(Constraint::RigidLink(RigidLinkConstraint {
         master_node: 2,
         slave_node: 4,
-        dofs: vec![0, 1, 2, 3, 4, 5],
+        dofs: Some(vec![0, 1, 2, 3, 4, 5]),
     }));
     // EqualDOF: node 6 follows node 4 in uz
     input.constraints.push(Constraint::EqualDOF(EqualDOFConstraint {
@@ -619,7 +619,7 @@ fn diaphragm_with_rigid_link_subtree() {
     input.constraints.push(Constraint::RigidLink(RigidLinkConstraint {
         master_node: 4,
         slave_node: 8,
-        dofs: vec![0, 1, 2, 3, 4, 5],
+        dofs: Some(vec![0, 1, 2, 3, 4, 5]),
     }));
 
     let result = linear::solve_3d(&input).expect("Diaphragm + RigidLink chain should solve");
@@ -906,7 +906,7 @@ fn regression_2d_rigid_link_chain_kinematics() {
             Constraint::RigidLink(RigidLinkConstraint {
                 master_node: 2,
                 slave_node: 3,
-                dofs: vec![0, 1], // ux, uz
+                dofs: Some(vec![0, 1]), // ux, uz
             }),
             // EqualDOF: node 4 follows node 3 in uz
             Constraint::EqualDOF(EqualDOFConstraint {

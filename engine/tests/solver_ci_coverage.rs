@@ -429,7 +429,7 @@ fn constraint_rigid_link_3d_equilibrium() {
     input.constraints.push(Constraint::RigidLink(RigidLinkConstraint {
         master_node: 2,
         slave_node: 4,
-        dofs: vec![0, 1, 2, 3, 4, 5],
+        dofs: Some(vec![0, 1, 2, 3, 4, 5]),
     }));
 
     let result = linear::solve_3d(&input).expect("3D RigidLink solve should succeed");

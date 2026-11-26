@@ -30,7 +30,7 @@ pub fn mirror_3d(s: &SolverInput3D, axis: usize, t: [f64; 3]) -> TResult<SolverI
     if !(src.plates.is_empty() && src.quads.is_empty() && src.quad9s.is_empty() && src.solid_shells.is_empty() && src.curved_shells.is_empty()) {
         return unrep("shells and plates have no mirror rule yet");
     }
-    if !src.connectors.is_empty() || !src.constraints.is_empty() {
+    if !src.connectors.is_empty() || crate::types::Constraint::any_active(&src.constraints) {
         return unrep("connectors and constraints have no mirror rule yet");
     }
     let mut m = src.clone();

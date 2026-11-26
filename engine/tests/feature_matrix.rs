@@ -837,7 +837,7 @@ fn cases_2d() -> Vec<Case2> {
             m.frame(1, 1, 2).frame(3, 3, 4);
             m.sup(1, 1, "fixed").sup(2, 4, "rollerX");
             if link {
-                m.s.constraints.push(Constraint::RigidLink(RigidLinkConstraint { master_node: 2, slave_node: 3, dofs: vec![0, 1, 2] }));
+                m.s.constraints.push(Constraint::RigidLink(RigidLinkConstraint { master_node: 2, slave_node: 3, dofs: Some(vec![0, 1, 2]) }));
             }
             if stiff {
                 m.elem(2, "frame", 2, 3, RIGID_MAT, 4);
@@ -2475,7 +2475,7 @@ fn cases_3d() -> Vec<Case3> {
             m.elem(1, "frame", 1, 2, 1, 1).elem(3, "frame", 3, 4, 1, 1);
             m.sup(1, FIXED).sup(4, [false, true, true, true, false, false]);
             if link {
-                m.s.constraints.push(Constraint::RigidLink(RigidLinkConstraint { master_node: 2, slave_node: 3, dofs: vec![0, 1, 2, 3, 4, 5] }));
+                m.s.constraints.push(Constraint::RigidLink(RigidLinkConstraint { master_node: 2, slave_node: 3, dofs: Some(vec![0, 1, 2, 3, 4, 5]) }));
             }
             if stiff {
                 m.elem(2, "frame", 2, 3, RIGID_MAT, 4);

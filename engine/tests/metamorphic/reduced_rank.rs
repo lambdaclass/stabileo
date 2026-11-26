@@ -1156,8 +1156,8 @@ fn released_rotation_can_move_an_offset_rigid_link_slave() {
         let link = |dofs| Constraint::RigidLink(RigidLinkConstraint {
             master_node: 2, slave_node: 3, dofs
         });
-        planar.constraints = vec![link(vec![])];
-        space.constraints = vec![link(vec![0, 1, 2, 3, 4, 5])];
+        planar.constraints = vec![link(None)];
+        space.constraints = vec![link(Some(vec![0, 1, 2, 3, 4, 5]))];
 
         let mechanism = offset != 0.0 && released;
         let linear2 = linear::solve_2d(&planar);
@@ -1277,8 +1277,8 @@ fn ssi_released_offset_link_needs_transverse_restraint() {
     planar.loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: load, my: 0.0 }));
     let mut spatial = embed_2d(&planar, Plane::XZ).unwrap();
     let link = |dofs| Constraint::RigidLink(RigidLinkConstraint { master_node: 2, slave_node: 3, dofs });
-    planar.constraints = vec![link(vec![])];
-    spatial.constraints = vec![link(vec![0, 1, 2, 3, 4, 5])];
+    planar.constraints = vec![link(None)];
+    spatial.constraints = vec![link(Some(vec![0, 1, 2, 3, 4, 5]))];
 
     let mut failures = Vec::new();
     for (planar, spatial) in [

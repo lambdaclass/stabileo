@@ -3,7 +3,7 @@ import { DRAW_PLANES, isDrawPlane, type DrawPlane } from '../geometry/plane-proj
 import { isAnalysisMode, is3DWorkspace } from '../utils/workspace';
 import type { Element, Load, LoadCombination, Material, Support } from '../store/model.svelte';
 import { isPlaneSupportType, isSupportType, planeSupportUsesAngle } from '../model/support-types';
-import type { Constraint3D, LinearMpcConstraint, RigidLinkConstraint } from './types-3d';
+import { rigidLinkDofs, type Constraint3D, type LinearMpcConstraint } from './types-3d';
 import type { AnalysisSettings, SelfWeightLoad } from './analysis-settings';
 import type { StiffnessModifiers } from './member-behaviour';
 import type { ModelData } from './solver-service';
@@ -573,12 +573,6 @@ function requireUniqueStoredKeys(path: StoredStructuralTable, rows: unknown, key
   }
 }
 
-const defaultRigidLinkDofs = [0, 1, 2] as const;
-
-export function rigidLinkDofs(constraint: RigidLinkConstraint): readonly number[] {
-  return constraint.dofs?.length ? constraint.dofs : defaultRigidLinkDofs;
-}
-
 export function dependsOnXYConstraintAxes(constraint: Constraint3D): boolean {
   const differs = (dof: number) => dof === 1 || dof === 2 || dof === 4 || dof === 5;
   switch (constraint.type) {
@@ -655,6 +649,7 @@ function storedLoadFitsPlane(load: unknown, plane: DrawPlane): boolean {
   if (!isRecord(load) || !isRecord(load.data)) return true;
   const { type, data } = load;
   const normal = NORMAL_AXIS[plane];
+  const alongGlobalAxes = data.frame === 'global' || data.frame === 'projected';
   const zero = (prefix: string, axis: string, suffix = '') =>
     !isFiniteInputNumber(data[prefix + axis + suffix]) || data[prefix + axis + suffix] === 0;
   const rotationFits = (prefix: string) => AXES.every(axis => axis === normal || zero(prefix, axis));
@@ -662,9 +657,9 @@ function storedLoadFitsPlane(load: unknown, plane: DrawPlane): boolean {
     case 'nodal3d': return zero('f', normal) && rotationFits('m');
     case 'displacement3d': return zero('d', normal) && rotationFits('dr');
     case 'distributed3d':
-      return (data.frame !== 'global' && data.frame !== 'projected')
+      return !alongGlobalAxes
         || ['I', 'J'].every(end => zero('q', normal.toUpperCase(), end));
-    case 'pointOnElement3d': return data.frame !== 'global' || (zero('p', normal) && rotationFits('m'));
+    case 'pointOnElement3d': return !alongGlobalAxes || (zero('p', normal) && rotationFits('m'));
     case 'nodal':
       if (plane === 'xy') return zero('f', normal) && rotationFits('m');
       return (!isFiniteInputNumber(data.fz ?? data.fy) || (data.fz ?? data.fy) === 0)

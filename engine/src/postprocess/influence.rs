@@ -175,7 +175,7 @@ pub fn compute_influence_line(input: &InfluenceLineInput) -> Result<InfluenceLin
     // The prepared (factor-once) path has no constraint reduction: a model
     // with constraints is solved point by point through `solve_2d`, which has.
     let mut structured_diagnostics = Vec::new();
-    let prepared = if base.constraints.is_empty() { Some(prepare_static_2d(&base)?) } else { None };
+    let prepared = if !crate::types::Constraint::any_active(&base.constraints) { Some(prepare_static_2d(&base)?) } else { None };
     let solve_at = |loads: &[SolverLoad]| -> Result<AnalysisResults, String> {
         match &prepared {
             Some(p) => p.solve_loads(loads),
@@ -452,7 +452,7 @@ pub fn compute_influence_line_3d(input: &InfluenceLineInput3D) -> Result<Influen
     // presented as one that nothing loads.
     // As in 2D: constraints are solved point by point through `solve_3d`.
     let mut structured_diagnostics = Vec::new();
-    let prepared = if base.constraints.is_empty() { Some(prepare_static_3d(&base)?) } else { None };
+    let prepared = if !crate::types::Constraint::any_active(&base.constraints) { Some(prepare_static_3d(&base)?) } else { None };
     let solve_at = |loads: &[SolverLoad3D]| -> Result<AnalysisResults3D, String> {
         match &prepared {
             Some(p) => p.solve_loads(loads),

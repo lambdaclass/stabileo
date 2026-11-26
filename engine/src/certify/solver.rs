@@ -288,14 +288,14 @@ pub enum SolverAssembly {
 /// The assembly `solve_2d(input)` factored, given its results.
 pub fn solver_assembly_2d(input: &SolverInput, results: &AnalysisResults) -> SolverAssembly {
     let nf = DofNumbering::build_2d(input).n_free;
-    let sparse = if input.constraints.is_empty() { solver_used_sparse(nf) } else { constrained_solver_used_sparse(nf, results) };
+    let sparse = if !crate::types::Constraint::any_active(&input.constraints) { solver_used_sparse(nf) } else { constrained_solver_used_sparse(nf, results) };
     if sparse { SolverAssembly::Sparse } else { SolverAssembly::Dense }
 }
 
 /// The assembly `solve_3d(input)` factored.
 pub fn solver_assembly_3d(input: &SolverInput3D) -> SolverAssembly {
     let expanded = expand_curved_beams_3d(input);
-    if !expanded.constraints.is_empty() {
+    if crate::types::Constraint::any_active(&expanded.constraints) {
         return SolverAssembly::SparseConstrained3D;
     }
     if solver_used_sparse(DofNumbering::build_3d(&expanded).n_free) { SolverAssembly::Sparse } else { SolverAssembly::Dense }
@@ -329,11 +329,11 @@ pub fn certify_results_2d(input: &SolverInput, results: &AnalysisResults) -> Cer
 }
 
 fn needs_general_2d(input: &SolverInput) -> bool {
-    !input.constraints.is_empty() || crate::ordered::values(&input.supports).any(|s| s.support_type == "inclinedRoller")
+    crate::types::Constraint::any_active(&input.constraints) || crate::ordered::values(&input.supports).any(|s| s.support_type == "inclinedRoller")
 }
 
 fn needs_general_3d(input: &SolverInput3D) -> bool {
-    !input.constraints.is_empty() || crate::ordered::values(&input.supports).any(|s| s.is_inclined.unwrap_or(false))
+    crate::types::Constraint::any_active(&input.constraints) || crate::ordered::values(&input.supports).any(|s| s.is_inclined.unwrap_or(false))
 }
 
 /// Single case with constraints and/or inclined supports (see module docs).
@@ -347,7 +347,7 @@ fn certify_general_2d(input: &SolverInput, results: &AnalysisResults) -> Certifi
         return Certificate::uncertified("non-finite displacement in solver output");
     }
     let nf = dof_num.n_free;
-    if !input.constraints.is_empty() {
+    if crate::types::Constraint::any_active(&input.constraints) {
         return certify_constrained_2d(input, results, &dof_num, &u_glob);
     }
     if solver_used_sparse(nf) {
@@ -590,7 +590,7 @@ fn certify_general_3d(input: &SolverInput3D, results: &AnalysisResults3D) -> Cer
         return Certificate::uncertified("non-finite displacement in solver output");
     }
     let nf = dof_num.n_free;
-    if !input.constraints.is_empty() {
+    if crate::types::Constraint::any_active(&input.constraints) {
         // solve_constrained_3d: always the sparse assembly.
         if nf == 0 {
             return Certificate::uncertified("constrained model without free DOFs");
@@ -800,7 +800,7 @@ pub fn reduced_sparse_2d(
     input: &SolverInput,
     results: &AnalysisResults,
 ) -> Result<(CscMatrix, Vec<Interval>, Vec<f64>), Certificate> {
-    if !input.constraints.is_empty() {
+    if crate::types::Constraint::any_active(&input.constraints) {
         return Err(Certificate::uncertified("unsupported: constraints (constrained solver path)"));
     }
     if crate::ordered::values(&input.supports).any(|s| s.support_type == "inclinedRoller") {
@@ -830,7 +830,7 @@ fn reduced_sparse_3d_expanded(
     input: &SolverInput3D,
     results: &AnalysisResults3D,
 ) -> Result<(CscMatrix, Vec<Interval>, Vec<f64>), Certificate> {
-    if !input.constraints.is_empty() {
+    if crate::types::Constraint::any_active(&input.constraints) {
         return Err(Certificate::uncertified("unsupported: constraints (constrained solver path)"));
     }
     if crate::ordered::values(&input.supports).any(|s| s.is_inclined.unwrap_or(false)) {

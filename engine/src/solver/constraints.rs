@@ -415,14 +415,14 @@ pub fn validate_constraint_refs(
 ) -> Result<(), String> {
     for (i, constraint) in constraints.iter().enumerate() {
         match constraint {
-            Constraint::RigidLink(rl) => {
+            Constraint::RigidLink(rl) if constraint.is_active() => {
                 if !node_ids.contains(&rl.master_node) {
                     return Err(format!("Constraint {}: RigidLink master node {} does not exist", i, rl.master_node));
                 }
                 if !node_ids.contains(&rl.slave_node) {
                     return Err(format!("Constraint {}: RigidLink slave node {} does not exist", i, rl.slave_node));
                 }
-                for &dof in &rl.dofs {
+                for &dof in rl.effective_dofs(max_dofs_per_node) {
                     if dof >= max_dofs_per_node {
                         return Err(format!(
                             "Constraint {}: RigidLink references DOF {} but max is {} (0..{})",
@@ -431,6 +431,7 @@ pub fn validate_constraint_refs(
                     }
                 }
             }
+            Constraint::RigidLink(_) => {}
             Constraint::Diaphragm(dia) => {
                 if !node_ids.contains(&dia.master_node) {
                     return Err(format!("Constraint {}: Diaphragm master node {} does not exist", i, dia.master_node));
@@ -710,12 +711,8 @@ fn collect_dependent_dofs(
 
     match constraint {
         Constraint::RigidLink(rl) => {
-            let dofs = if rl.dofs.is_empty() {
-                (0..dof_num.dofs_per_node.min(3)).collect::<Vec<_>>()
-            } else {
-                rl.dofs.clone()
-            };
-            for &dof in &dofs {
+            let dofs = rl.effective_dofs(dof_num.dofs_per_node);
+            for &dof in dofs {
                 if let Some(&slave_global) = dof_num.map.get(&(rl.slave_node, dof)) {
                     let mut masters = Vec::new();
                     if let Some(&m) = dof_num.map.get(&(rl.master_node, dof)) {
@@ -910,12 +907,7 @@ fn build_constraint_transform_with_ties(
     for constraint in constraints {
         match constraint {
             Constraint::RigidLink(rl) => {
-                let dofs = if rl.dofs.is_empty() {
-                    // Default: all translational DOFs
-                    (0..dof_num.dofs_per_node.min(3)).collect::<Vec<_>>()
-                } else {
-                    rl.dofs.clone()
-                };
+                let dofs = rl.effective_dofs(dof_num.dofs_per_node);
 
                 // Get offset from master to slave
                 let (dx, dy, dz) = get_node_offset(
@@ -923,7 +915,7 @@ fn build_constraint_transform_with_ties(
                     node_by_id_2d.as_ref(), node_by_id_3d.as_ref(),
                 );
 
-                for &dof in &dofs {
+                for &dof in dofs {
                     if let Some(&slave_global) = dof_num.map.get(&(rl.slave_node, dof)) {
                         // Rigid body kinematics:
                         // 2D: u_slave_x = u_master_x - dy * θ_master
@@ -1583,7 +1575,7 @@ pub fn contain_constrained_2d(input: &ConstrainedInput, mut r: AnalysisResults) 
 }
 
 fn solve_constrained_2d_inner(input: &ConstrainedInput) -> Result<AnalysisResults, String> {
-    if input.constraints.is_empty() {
+    if !crate::types::Constraint::any_active(&input.constraints) {
         return linear::solve_2d(&input.solver);
     }
 
@@ -2054,7 +2046,7 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
 }
 
 pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: crate::known_issues::Analysis) -> Result<AnalysisResults3D, String> {
-    if input.constraints.is_empty() {
+    if !crate::types::Constraint::any_active(&input.constraints) {
         return linear::solve_3d(&input.solver);
     }
 
@@ -2438,7 +2430,7 @@ impl FreeConstraintSystem {
     }
 
     fn build_planar(input: &SolverInput, dof_num: &DofNumbering, preserve_exact_ties: bool) -> Result<Option<Self>, String> {
-        if input.constraints.is_empty() { return Ok(None); }
+        if !crate::types::Constraint::any_active(&input.constraints) { return Ok(None); }
         let inclined = inclined_dofs_2d(input, dof_num);
         let ct = build_constraint_transform_with_ties(
             &input.constraints, dof_num, Some(&input.nodes), None, &inclined, preserve_exact_ties,
@@ -2448,7 +2440,7 @@ impl FreeConstraintSystem {
 
     /// Build a constraint system for 3D.
     pub fn build_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Result<Option<Self>, String> {
-        if input.constraints.is_empty() { return Ok(None); }
+        if !crate::types::Constraint::any_active(&input.constraints) { return Ok(None); }
         let inclined = inclined_dofs_3d(input, dof_num);
         let ct = build_constraint_transform(&input.constraints, dof_num, None, Some(&input.nodes), &inclined)?;
         Ok(Some(Self::from_transform(&ct, dof_num.n_free, 3).with_inclined(inclined)))
@@ -3263,7 +3255,7 @@ mod tests {
             constraints: vec![Constraint::RigidLink(RigidLinkConstraint {
                 master_node: 1,
                 slave_node: 2,
-                dofs: vec![0, 1], // ux, uy
+                dofs: Some(vec![0, 1]), // ux, uy
             })],
         };
         let result = solve_constrained_2d(&input).unwrap();
@@ -3376,7 +3368,7 @@ mod tests {
         }
         let dof_num = DofNumbering { map, n_free: n * 6, n_total: n * 6, dofs_per_node: 6, node_order: (0..n).collect() };
         let constraints: Vec<Constraint> = (0..3_000)
-            .map(|k| Constraint::RigidLink(RigidLinkConstraint { master_node: 2 * k, slave_node: 2 * k + 1, dofs: vec![0, 1, 2, 3, 4, 5] }))
+            .map(|k| Constraint::RigidLink(RigidLinkConstraint { master_node: 2 * k, slave_node: 2 * k + 1, dofs: Some(vec![0, 1, 2, 3, 4, 5]) }))
             .collect();
         let t = std::time::Instant::now();
         let diags = validate_constraints(&constraints, &dof_num, None, Some(&nodes));

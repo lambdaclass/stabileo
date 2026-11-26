@@ -361,7 +361,7 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
     // position then reuses the factorization, rebuilding only its load vector.
     // Models with constraints keep the legacy per-position full solve (the
     // constrained solver handles each position's loads itself).
-    let prep_input = if solver_input.constraints.is_empty() {
+    let prep_input = if !crate::types::Constraint::any_active(&solver_input.constraints) {
         let mut pi = solver_input.clone();
         pi.loads = vec![];
         Some(pi)
@@ -718,7 +718,7 @@ pub fn solve_moving_loads_3d(input: &MovingLoadInput3D) -> Result<MovingLoadEnve
     // Prepare the structure once (assembly + factorization of K); each
     // position then reuses the factorization, rebuilding only its load vector.
     // Models with constraints keep the legacy per-position full solve.
-    let prep_input = if solver_input.constraints.is_empty() {
+    let prep_input = if !crate::types::Constraint::any_active(&solver_input.constraints) {
         let mut pi = solver_input.clone();
         pi.loads = vec![];
         Some(pi)

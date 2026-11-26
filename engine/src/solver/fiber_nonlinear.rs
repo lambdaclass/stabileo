@@ -161,7 +161,7 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
     }
 
     // Build constraint system (if constraints present)
-    if !input.solver.constraints.is_empty() {
+    if crate::types::Constraint::any_active(&input.solver.constraints) {
         return Err(CONSTRAINTS_REFUSED.to_string());
     }
     let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
@@ -1077,7 +1077,7 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
     }
 
     // Build constraint system (if constraints present)
-    if !input.solver.constraints.is_empty() {
+    if crate::types::Constraint::any_active(&input.solver.constraints) {
         return Err(CONSTRAINTS_REFUSED.to_string());
     }
     let cs = FreeConstraintSystem::build_3d(&input.solver, &dof_num)?;

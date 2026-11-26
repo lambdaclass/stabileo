@@ -938,7 +938,7 @@ fn staged_cables_refuse_unsupported_histories_and_loads() {
             profile: TendonProfile::Straight, mu: None, kappa: None,
         })),
         ("constraint", |s| s.constraints.push(Constraint::RigidLink(RigidLinkConstraint {
-            master_node: 1, slave_node: 2, dofs: vec![0, 1],
+            master_node: 1, slave_node: 2, dofs: Some(vec![0, 1]),
         }))),
     ];
     for n_elem in [20, 24] {

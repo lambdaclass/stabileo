@@ -678,7 +678,8 @@ pub(crate) fn solve_plastic_2d_body(input: &PlasticInput) -> Result<PlasticResul
         .collect();
     for c in &current_input.constraints {
         match c {
-            Constraint::RigidLink(rl) => rot_restrained.extend([rl.master_node, rl.slave_node]),
+            Constraint::RigidLink(rl) if c.is_active() => rot_restrained.extend([rl.master_node, rl.slave_node]),
+            Constraint::RigidLink(_) => {}
             Constraint::EqualDOF(eq) => rot_restrained.extend([eq.master_node, eq.slave_node]),
             Constraint::EccentricConnection(ec) => rot_restrained.extend([ec.master_node, ec.slave_node]),
             Constraint::Diaphragm(d) => rot_restrained.extend(d.slave_nodes.iter().copied().chain([d.master_node])),

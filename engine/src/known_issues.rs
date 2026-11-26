@@ -306,7 +306,7 @@ impl RotationDemand2D {
         unrestrained.extend(input.nodes.values().map(|n| n.id));
         unrestrained.retain(|id| !stiff.contains(id));
         let rigid_demand = input.constraints.iter().any(|c| matches!(c, Constraint::RigidLink(c)
-            if unrestrained.contains(&c.master_node) || unrestrained.contains(&c.slave_node)));
+            if !c.effective_dofs(3).is_empty() && (unrestrained.contains(&c.master_node) || unrestrained.contains(&c.slave_node))));
         Self { unrestrained, rigid_demand }
     }
 
@@ -318,7 +318,7 @@ impl RotationDemand2D {
 
 fn all_hinged_demand_2d(input: &SolverInput, loads: &[SolverLoad]) -> bool {
     let demanded = loads.iter().any(|l| matches!(l, SolverLoad::Nodal(l) if l.my != 0.0))
-        || input.constraints.iter().any(|c| matches!(c, Constraint::RigidLink(_)));
+        || input.constraints.iter().any(|c| matches!(c, Constraint::RigidLink(_)) && c.is_active());
     demanded && RotationDemand2D::new(input).demanded(loads)
 }
 
@@ -1150,7 +1150,7 @@ pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisRe
         supported: input.supports.values().map(|s| s.node_id).collect(),
         braced: input.supports.values().filter(square).filter(|s| matches!(s.support_type.as_str(), "fixed" | "pinned")).map(|s| s.node_id).collect(),
         clamped: input.supports.values().filter(square).filter(|s| s.support_type == "fixed").map(|s| s.node_id).collect(),
-        other_parts: !input.constraints.is_empty() || !input.connectors.is_empty(),
+        other_parts: crate::types::Constraint::any_active(&input.constraints) || !input.connectors.is_empty(),
     };
     second_order(&model)
 }
@@ -1178,7 +1178,7 @@ pub fn second_order_3d(input: &SolverInput3D, loads: &[SolverLoad3D], r: &Analys
         supported: input.supports.values().map(|s| s.node_id).collect(),
         braced: input.supports.values().filter(held).map(|s| s.node_id).collect(),
         clamped: input.supports.values().filter(held).filter(|s| s.rrx && s.rry && s.rrz && [s.krx, s.kry, s.krz].iter().all(Option::is_none)).map(|s| s.node_id).collect(),
-        other_parts: !input.constraints.is_empty() || !input.connectors.is_empty() || !input.plates.is_empty() || !input.quads.is_empty()
+        other_parts: crate::types::Constraint::any_active(&input.constraints) || !input.connectors.is_empty() || !input.plates.is_empty() || !input.quads.is_empty()
             || !input.quad9s.is_empty() || !input.solid_shells.is_empty() || !input.curved_shells.is_empty() || !input.curved_beams.is_empty(),
     };
     second_order(&model)
@@ -1308,7 +1308,7 @@ mod tests {
         let mut unloaded = plane.clone();
         unloaded.loads.clear();
         assert!(has(&for_2d_loads(&unloaded, &plane.loads, Analysis::Linear), "CERT-MECHANISM"), "a prepared case adds the nodal moment");
-        unloaded.constraints.push(Constraint::RigidLink(RigidLinkConstraint { master_node: 1, slave_node: 2, dofs: vec![] }));
+        unloaded.constraints.push(Constraint::RigidLink(RigidLinkConstraint { master_node: 1, slave_node: 2, dofs: None }));
         assert!(has(&for_2d(&unloaded, Analysis::Linear), "CERT-MECHANISM"), "an all-hinged node with a rigid arm is covered without nodal moment");
         unloaded.supports.get_mut("1").unwrap().kz = Some(1.0);
         assert!(!has(&for_2d(&unloaded, Analysis::Linear), "CERT-MECHANISM"), "a real rotational spring supplies stiffness");

@@ -311,8 +311,8 @@ fn transform_constraints_2d(cs: &[Constraint], iso: &Iso2) -> TResult<Vec<Constr
         out.push(match c {
             Constraint::RigidLink(rl) => {
                 let mut r = rl.clone();
-                if !rl.dofs.is_empty() {
-                    r.dofs = map_dofs_2d(&iso.q, &rl.dofs)?;
+                if let Some(dofs) = &rl.dofs {
+                    r.dofs = Some(map_dofs_2d(&iso.q, dofs)?);
                 }
                 Constraint::RigidLink(r)
             }
@@ -635,8 +635,8 @@ fn transform_constraints_3d(cs: &[Constraint], iso: &Iso3) -> TResult<Vec<Constr
         out.push(match c {
             Constraint::RigidLink(rl) => {
                 let mut x = rl.clone();
-                if !rl.dofs.is_empty() {
-                    x.dofs = map_dofs_3d(r, &rl.dofs)?;
+                if let Some(dofs) = &rl.dofs {
+                    x.dofs = Some(map_dofs_3d(r, dofs)?);
                 }
                 Constraint::RigidLink(x)
             }

@@ -346,7 +346,7 @@ for (const dimension of [2, 3]) {
         input.constraints = [kind === 'diaphragm'
           ? { type: kind, masterNode: 1, slaveNodes: [2], plane: 'XZ' }
           : kind === 'rigidLink'
-            ? { type: kind, masterNode: 1, slaveNode: 2, dofs: [] }
+            ? { type: kind, masterNode: 1, slaveNode: 2 }
             : { type: kind, masterNode: 1, slaveNode: 2, releases: [], offsetX: 2, offsetY: 0, offsetZ: 1 }];
         if (kind === 'diaphragm') input.supports[2] = { nodeId: 2, rx: false, ry: true, rz: false, rrx: false, rry: false, rrz: false };
         if (held) Object.assign(input.supports[1], dimension === 2 ? { type: 'fixed' } : { rrx: true, rry: true, rrz: true });

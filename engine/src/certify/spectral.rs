@@ -204,7 +204,7 @@ struct ModeCore {
 
 fn certify_2d_inner(input: &SpectralInput, results: &SpectralResult) -> Result<SpectralCertificate, String> {
     let solver = &input.solver;
-    if !solver.constraints.is_empty() {
+    if crate::types::Constraint::any_active(&solver.constraints) {
         return Err("unsupported: constraints".into());
     }
     let dof = DofNumbering::build_2d(solver);
@@ -269,7 +269,7 @@ fn certify_2d_inner(input: &SpectralInput, results: &SpectralResult) -> Result<S
 
 fn certify_3d_inner(input: &SpectralInput3D, results: &SpectralResult3D) -> Result<SpectralCertificate, String> {
     let solver = &input.solver;
-    if !solver.constraints.is_empty() {
+    if crate::types::Constraint::any_active(&solver.constraints) {
         return Err("unsupported: constraints".into());
     }
     if !solver.curved_beams.is_empty() {

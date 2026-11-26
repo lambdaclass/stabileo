@@ -140,7 +140,7 @@ pub fn solve_multi_case_2d(input: &MultiCaseInput) -> Result<MultiCaseResult, St
     // legacy per-case path for that (rare) configuration, mirroring the 3D
     // multi-case entry point. Clearing them here would silently solve the
     // unconstrained structure and present the results as final.
-    if !input.solver.constraints.is_empty() {
+    if crate::types::Constraint::any_active(&input.solver.constraints) {
         return solve_multi_case_2d_per_case(input);
     }
 
@@ -242,7 +242,7 @@ pub fn solve_multi_case_3d(input: &MultiCaseInput3D) -> Result<MultiCaseResult3D
 
     // Constraints delegate to the constrained solver per case — keep the
     // legacy per-case path for that (rare) configuration.
-    if !input.solver.constraints.is_empty() {
+    if crate::types::Constraint::any_active(&input.solver.constraints) {
         return solve_multi_case_3d_per_case(input);
     }
 

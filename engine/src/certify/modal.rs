@@ -139,7 +139,7 @@ pub fn certify_modal_2d(
     }
     let certificate = match err {
         Some(e) => ModalCertificate::uncertified(e),
-        None if input.constraints.is_empty() => certify_modes(&k, &m, &modes),
+        None if !crate::types::Constraint::any_active(&input.constraints) => certify_modes(&k, &m, &modes),
         None => {
             // The reduced pencil (CᵀKC, CᵀMC) the solver solves, enclosed
             // entrywise; modes read at the independent DOFs.
@@ -189,7 +189,7 @@ pub fn certify_modal_3d(
     }
     let certificate = match err {
         Some(e) => ModalCertificate::uncertified(e),
-        None if input.constraints.is_empty() => certify_modes(&k, &m, &modes),
+        None if !crate::types::Constraint::any_active(&input.constraints) => certify_modes(&k, &m, &modes),
         None => {
             // The reduced pencil (CᵀKC, CᵀMC) the solver solves, enclosed
             // entrywise; modes read at the independent DOFs.

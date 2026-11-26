@@ -152,7 +152,7 @@ fn certificate_for_result_2d(input: &SolverInput, results: BucklingResult) -> Re
                 rotate_inclined_f_2d(&mut phi, &it.dofs, &it.r);
             }
             let phi = &phi[..sys.dof_num.n_free];
-            if input.constraints.is_empty() {
+            if !crate::types::Constraint::any_active(&input.constraints) {
                 certify_critical_factor(&sys.k_ff, &sys.neg_kg_csc, mode.load_factor, phi)
             } else {
                 match build_constraint_transform(&input.constraints, &sys.dof_num, Some(&input.nodes), None, &inclined_dofs_2d(input, &sys.dof_num)) {
@@ -205,7 +205,7 @@ fn certificate_for_result_3d(input: &SolverInput3D, results: BucklingResult3D) -
     let certificate = match gather_buckling_mode_3d(&sys, &mode.displacements) {
         Ok(phi) => {
             let phi = &phi[..sys.dof_num.n_free];
-            if input.constraints.is_empty() {
+            if !crate::types::Constraint::any_active(&input.constraints) {
                 certify_critical_factor(&sys.k_ff, &sys.neg_kg_csc, mode.load_factor, phi)
             } else {
                 match build_constraint_transform(&input.constraints, &sys.dof_num, None, Some(&input.nodes), &inclined_dofs_3d(input, &sys.dof_num)) {

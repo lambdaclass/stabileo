@@ -1076,7 +1076,7 @@ fn tied_columns_2d() -> SolverInput {
     );
     input.constraints = vec![
         Constraint::EqualDOF(EqualDOFConstraint { master_node: 2, slave_node: 4, dofs: vec![0] }),
-        Constraint::RigidLink(RigidLinkConstraint { master_node: 5, slave_node: 4, dofs: vec![1] }),
+        Constraint::RigidLink(RigidLinkConstraint { master_node: 5, slave_node: 4, dofs: Some(vec![1]) }),
     ];
     input
 }
@@ -1124,7 +1124,7 @@ fn certify_constraints_3d() {
         vec![(1, vec![true; 6]), (3, vec![true; 6])],
         vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: 10.0, fy: 2.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.3, bw: None })],
     );
-    tied.constraints = vec![Constraint::RigidLink(RigidLinkConstraint { master_node: 2, slave_node: 4, dofs: vec![] })];
+    tied.constraints = vec![Constraint::RigidLink(RigidLinkConstraint { master_node: 2, slave_node: 4, dofs: None })];
     cases.push(("3d rigid link".to_string(), tied.clone()));
     for sup in tied.supports.values_mut() {
         if sup.node_id == 1 {

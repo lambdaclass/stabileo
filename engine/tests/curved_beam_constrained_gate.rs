@@ -79,7 +79,7 @@ fn buckling_818_curved_constraint_certificates_expand_the_same_model() {
         let mut input = arch_with_constraint();
         input.supports.insert("4".into(),serde_json::from_value(serde_json::json!({"nodeId":4,"rx":false,"ry":false,"rz":false,"rrx":false,"rry":false,"rrz":false,"kx":1000,"ky":1000,"kz":1000})).unwrap());
         input.constraints = vec![Constraint::RigidLink(RigidLinkConstraint {
-            master_node: if generated_master { 5 } else { 2 }, slave_node: 4, dofs: (0..6).collect(),
+            master_node: if generated_master { 5 } else { 2 }, slave_node: 4, dofs: Some((0..6).collect()),
         })];
         let expanded = linear::expand_curved_beams_3d(&input);
         let raw = solve_buckling_3d(&input,1).unwrap();

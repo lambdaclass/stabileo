@@ -221,7 +221,7 @@ fn link(b: &mut B, rng: &mut Rng) {
     let ties_rotation = rng.below(3) != 0;
     match rng.below(3) {
         0 if ties_rotation => b.constraints.push(json!({"type": "diaphragm", "masterNode": p, "slaveNodes": [s]})),
-        _ if ties_rotation => b.constraints.push(json!({"type": "rigidLink", "masterNode": p, "slaveNode": s, "dofs": []})),
+        _ if ties_rotation => b.constraints.push(json!({"type": "rigidLink", "masterNode": p, "slaveNode": s})),
         _ => b.constraints.push(json!({"type": "rigidLink", "masterNode": p, "slaveNode": s, "dofs": [0, 1]})),
     }
     if rng.below(2) == 0 {
