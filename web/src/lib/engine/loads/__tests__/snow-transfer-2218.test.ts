@@ -325,3 +325,21 @@ it.each([false, true])('#2218 positive pressure reaches each loaded one-way bay 
     }
   }
 });
+
+it.skipIf(process.env.STABILEO_REPLAY_2607 !== '1')('known wrong result: #2607 — snow detects a step on the second owned roof strip', () => {
+  const model = steppedRoof();
+  const layout = gravityLayout(model, { mode: 'panels', slab: 'oneWay', spanAxis: 'x', tributaryWidth: 1 });
+  const rectangle = (a: number, b: number): [number, number][] => [[a, 0], [b, 0], [b, 4], [a, 4]];
+  const lower = layout.panels.find(panel => panel.z === 3)!;
+  const upper = layout.panels.find(panel => panel.z === 5)!;
+  const clipped = { ...layout, panels: [
+    { ...lower, oneWaySpan: undefined, footprint: [[rectangle(0, 2)], [rectangle(4, 7.5)]] },
+    { ...upper, polygon: rectangle(3, 4) },
+  ] };
+  const steps = snowRoofSteps(model, clipped);
+  expect(steps).toHaveLength(1);
+  expect([steps[0]!.a[0], steps[0]!.b[0]]).toEqual([4, 4]);
+  expect(() => driftAndSlidingLoads(model, clipped, {
+    pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1,
+  })).toThrow('snow.refused.stepDriftTransfer');
+});

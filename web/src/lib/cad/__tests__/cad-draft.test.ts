@@ -598,13 +598,13 @@ replayReview2607.each(['fixedDivisions', 'targetSize'] as const)('known wrong re
     const plan = reviewPlan();
     const end = { x: 2, y: 3 };
     plan.columns.push({ at: { x: end.x + offset, y: end.y }, sizeSource: 'default' });
-    plan.walls = [{ a: { x: 0, y: 1 }, b: end, thicknessSource: 'default' }];
+    plan.walls = [{ a: { x: 1, y: 1 }, b: end, thicknessSource: 'default' }];
     const draft = generateRcDraft(plan, { ...reviewSettings, meshMode }, SOURCE);
     const model = snapshotToModelShape(draft.snapshot);
     const column = [...model.elements.values()].find(e => model.nodes.get(e.nodeJ)!.x === end.x + offset)!;
     const wallNodes = new Set([...model.quads.values()].flatMap(q => q.nodes));
     const slabNodes = new Set([...model.plates.values()].flatMap(p => p.nodes));
-    expect(draft.counts.slabTriangles).toBeGreaterThan(0);
+    expect(draft.counts.slabTriangles, JSON.stringify({ offset, warnings: draft.warnings })).toBeGreaterThan(0);
     expect(slabNodes.has(column.nodeJ)).toBe(true);
     expect.soft(wallNodes.has(column.nodeJ), String(offset)).toBe(offset < reviewSettings.snapTolerance);
     expect([...wallNodes].filter(id => slabNodes.has(id)).length).toBeGreaterThan(1);

@@ -832,7 +832,7 @@ it('#2580 refuses a wall edge that shares slab corners across an unmeshed diagon
 });
 
 function edgePointJoint(clearance: number, conforming: boolean) {
-  const node = modelStore.addNode;
+  const node = (x: number, y: number, z: number) => modelStore.addNode(x, y, z);
   const a = node(0, 0, 0), b = node(0, 2, 0), c = node(0, 2, 4), d = node(0, 0, 4);
   const e = node(-1, 2 + clearance, 2), f = node(1, 2 + clearance, 2);
   const g = node(1, 4, 2), h = node(-1, 4, 2);
