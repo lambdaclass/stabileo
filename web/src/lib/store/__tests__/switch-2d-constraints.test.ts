@@ -489,7 +489,7 @@ describe('a cut bends each member about the axis the space model bends it about 
   });
 });
 
-it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1')('known wrong result: #2588 — saved plane constraints require an unambiguous axis convention', () => {
+it('known wrong result: #2588 — saved plane constraints require an unambiguous axis convention', () => {
   const { b, d } = columnsInXZ();
   modelStore.addElement(b, d, 'frame');
   expect(sliceAt('xz', 0).ok).toBe(true);

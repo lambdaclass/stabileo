@@ -16,6 +16,7 @@ import {
   validateAndSolve2D, validateAndSolve2DAsync, validateAndSolve3D, validateAndSolve3DAsync,
 } from '../solver-service';
 import { solvePDelta, solvePDelta3D } from '../wasm-solver';
+import { constraintsInXY } from '../constraint-2d-remap';
 
 const loadCase = { id: 1, name: 'Test case', type: 'D' };
 const combo = { id: 1, name: 'Test combination', factors: [{ caseId: 1, factor: 1 }] };
@@ -217,6 +218,7 @@ describe('lossy structural dispatch', () => {
     const model = modelStore.model;
     model.constraints = [{ type: 'linearMPC', terms: [
       { nodeId: tip, dof: 0, coefficient: 1 }, { nodeId: tip, dof: 1, coefficient: -1 },
+      { nodeId: tip, dof: 2, coefficient: 1 },
     ] }];
     await refuses('constraints[0].terms', {
       builder: () => buildSolverInput2D(model),
@@ -289,12 +291,15 @@ it('solves a separated eccentric connection in plane', async () => {
   model.constraints = [{ ...constraint, releases: [...constraint.releases] }];
   expect.soft(await validateAndSolve2DAsync(model)).toEqual(control);
   expect.soft(validateAndSolve2D(model)).toEqual(control);
-  expect.soft(modelStore.solve(false, 'xy')).toEqual(control);
   const combination = solveCombinations2D(model, [loadCase], [combo]);
   expect.soft(combination && typeof combination !== 'string' ? combination.perCombo.get(combo.id) : undefined)
     .toMatchObject({ reactions: control.reactions, displacements: control.displacements });
   expect.soft(combination).toEqual(combinationControl);
+  const xzConstraints = model.constraints;
+  model.constraints = constraintsInXY('xz', xzConstraints);
+  expect.soft(modelStore.solve(false, 'xy')).toEqual(control);
   expect.soft(solvePDelta(modelStore.buildSolverInput(false, 'xy')!)).toEqual(advancedControl);
+  model.constraints = xzConstraints;
   expect.soft(buildSolverInput3D(model)?.constraints).toEqual(model.constraints);
   expect(assessProject(modelStore.snapshot(), null, 'basic').changes.map(change => change.id))
     .toContain('separated-planar-eccentric-connection');
@@ -562,7 +567,7 @@ it('preserves solved displacements when reducing overflowing homogeneous MPC ter
 it('scopes both constraint notices to the saved solve plane', () => {
   const model = modelStore.model;
   const offset = { type: 'eccentricConnection' as const, masterNode: root, slaveNode: tip, offsetX: 1, releases: [false, true, true] };
-  const term = { nodeId: root, dof: 1, coefficient: 1 };
+  const term = { nodeId: root, dof: 3, coefficient: 1 };
   const mpc = { type: 'linearMPC' as const, terms: [term, { ...term, coefficient: -1 }] };
   model.constraints = [offset, mpc];
   const previousPlane = uiStore.drawPlane2D;
@@ -721,9 +726,7 @@ it.each(['nodes', 'elements', 'supports', 'materials', 'sections', 'connectors']
   },
 );
 
-const reviewCase = it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1');
-
-reviewCase('known wrong result: #2588 — rejects a misspelled bending modifier before applying a fixture or solving', async () => {
+it('known wrong result: #2588 — rejects a misspelled bending modifier before applying a fixture or solving', async () => {
   const before = modelStore.snapshot();
   const input = fixture();
   const bad = { iZ: 0.5 };
@@ -741,7 +744,7 @@ reviewCase('known wrong result: #2588 — rejects a misspelled bending modifier 
   await refuses(field, analysisEntries());
 });
 
-reviewCase('known wrong result: #2588 — accepts recognized stiffness keys and applies a bending modifier', () => {
+it('known wrong result: #2588 — accepts recognized stiffness keys and applies a bending modifier', () => {
   const model = modelStore.model;
   model.loads = [{ type: 'nodal3d', data: { id: 1, nodeId: tip, fx: 0, fy: -1, fz: 0, mx: 0, my: 0, mz: 0, caseId: 1 } }];
   const tipUy = () => {
@@ -766,7 +769,7 @@ function basicPlaneEntries(plane: 'xy' | 'xz') {
   };
 }
 
-reviewCase('known wrong result: #2588 — XY retains a nonzero MPC between both in-plane translations', async () => {
+it('known wrong result: #2588 — XY retains a nonzero MPC between both in-plane translations', async () => {
   const model = modelStore.model;
   const terms = [{ nodeId: tip, dof: 0, coefficient: 1 }, { nodeId: tip, dof: 2, coefficient: -1 }];
   model.constraints = [{ type: 'linearMPC', terms }];
@@ -790,7 +793,7 @@ reviewCase('known wrong result: #2588 — XY retains a nonzero MPC between both 
   await refuses('constraints[0].terms', basicPlaneEntries('xy'));
 });
 
-reviewCase('known wrong result: #2588 — XY refuses a coupled normal Z offset and drops a separated one', async () => {
+it('known wrong result: #2588 — XY refuses a coupled normal Z offset and drops a separated one', async () => {
   const model = modelStore.model;
   const slave = modelStore.addNode(4, 0, 0);
   modelStore.addElement(tip, slave);

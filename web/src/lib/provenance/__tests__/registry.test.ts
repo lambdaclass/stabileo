@@ -187,7 +187,7 @@ it('serves the separated eccentric connection notice in the supplemental languag
   }
 });
 
-it('finds both malformed-input changes under PR 2588', () => {
-  const changes = RESULT_CHANGES.changes.filter(change => change.prs?.includes(2588)).map(change => change.id);
+it('finds both malformed-input changes under PRs 2583 and 2588', () => {
+  const changes = RESULT_CHANGES.changes.filter(change => change.prs?.some(pr => pr === 2583 || pr === 2588)).map(change => change.id);
   expect(changes).toEqual(expect.arrayContaining(['malformed-authored-loads', 'malformed-structural-input']));
 });

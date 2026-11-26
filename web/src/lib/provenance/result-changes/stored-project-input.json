@@ -1,12 +1,18 @@
 {
   "id": "stored-project-input",
   "date": "2026-11-25",
-  "prs": [2588],
+  "prs": [
+    2588
+  ],
   "area": "analysis",
   "when": {
-    "all": ["invalidStoredProjectInput"]
+    "all": [
+      "invalidStoredProjectInput"
+    ]
   },
-  "quantities": ["solve.ok"],
+  "quantities": [
+    "solve.ok"
+  ],
   "title": {
     "en": "Invalid saved project input",
     "es": "Datos inválidos en el proyecto guardado",
@@ -17,13 +23,13 @@
     "zh": "已保存项目中的无效输入"
   },
   "explanation": {
-    "en": "Project open refuses duplicate connector keys and invalid saved drawing planes. A project file with a duplicate connector key could previously solve with only the last connector for that key.",
-    "es": "Al abrir el proyecto se rechazan las claves de conectores duplicadas y los planos de dibujo guardados que sean inválidos. Antes, un archivo con una clave de conector duplicada podía resolverse usando solo el último conector de esa clave.",
-    "pt": "A abertura do projeto rejeita chaves de conectores duplicadas e planos de desenho salvos inválidos. Antes, um arquivo com uma chave de conector duplicada podia ser calculado usando apenas o último conector dessa chave.",
-    "de": "Beim Öffnen eines Projekts werden doppelte Schlüssel für Verbindungselemente und ungültige gespeicherte Zeichenebenen abgelehnt. Zuvor konnte bei doppelten Schlüsseln nur das jeweils letzte Verbindungselement in die Berechnung eingehen.",
-    "fr": "L’ouverture du projet refuse les clés de connecteurs en double et les plans de dessin enregistrés invalides. Auparavant, un fichier contenant une clé en double pouvait être calculé avec seulement le dernier connecteur associé à cette clé.",
-    "tr": "Proje açılırken yinelenen bağlantı elemanı anahtarları ve geçersiz kaydedilmiş çizim düzlemleri reddedilir. Daha önce yinelenen anahtara sahip bir dosya, o anahtara ait son bağlantı elemanı kullanılarak çözülebiliyordu.",
-    "zh": "打开项目时会拒绝重复的连接件键和无效的已保存绘图平面。此前，包含重复连接件键的文件可能只使用该键对应的最后一个连接件进行计算。"
+    "en": "Project open refuses duplicate structural table keys, invalid drawing planes and axis-sensitive planar constraints whose saved plane is missing. A repeat could previously replace a node or connector and change the analysis.",
+    "es": "Al abrir el proyecto se rechazan las claves duplicadas en tablas estructurales, los planos inválidos y las restricciones planas sensibles a los ejes si falta el plano guardado. Una clave repetida podía sustituir un nodo o conector y cambiar el análisis.",
+    "pt": "A abertura do projeto rejeita chaves duplicadas em tabelas estruturais, planos inválidos e restrições planas sensíveis aos eixos quando falta o plano salvo. Uma chave repetida podia substituir um nó ou conector e alterar a análise.",
+    "de": "Beim Öffnen werden doppelte Schlüssel in Tragwerkstabellen, ungültige Ebenen und achsenabhängige ebene Zwangsbedingungen ohne gespeicherte Ebene abgelehnt. Ein doppelter Schlüssel konnte einen Knoten oder Verbinder ersetzen und die Berechnung verändern.",
+    "fr": "L’ouverture refuse les clés en double dans les tables structurelles, les plans invalides et les liaisons planes sensibles aux axes si le plan enregistré manque. Une clé en double pouvait remplacer un nœud ou un connecteur et modifier le calcul.",
+    "tr": "Proje açılırken yapı tablolarındaki yinelenen anahtarlar, geçersiz düzlemler ve kayıtlı düzlemi eksik olan eksene bağlı düzlemsel kısıtlar reddedilir. Yinelenen bir anahtar bir düğümü veya bağlantı elemanını değiştirip analizi etkileyebiliyordu.",
+    "zh": "打开项目时会拒绝结构表中的重复键、无效的绘图平面，以及缺少已保存平面的轴向相关约束。重复键以前可能替换节点或连接件并改变分析结果。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-stored-project-input.md",

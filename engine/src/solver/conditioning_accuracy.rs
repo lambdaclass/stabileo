@@ -568,9 +568,12 @@ mod tests {
     #[test]
     fn nightly_plastic_input_and_minimum_never_panic() {
         let raw = include_bytes!("../../tests/fixtures/plastic-1953-nightly.bin");
-        let original: PlasticInput3D = serde_json::from_slice(&raw[2..]).unwrap();
+        let error = serde_json::from_slice::<PlasticInput3D>(&raw[2..]).err().unwrap();
+        assert!(error.to_string().contains("duplicate key in field `elements`"), "{error}");
+        let last_row_model = serde_json::from_slice::<serde_json::Value>(&raw[2..]).unwrap();
+        let last_row_input: PlasticInput3D = serde_json::from_value(last_row_model).unwrap();
         let minimum: PlasticInput3D = serde_json::from_str(include_str!("../../tests/fixtures/plastic-1953-min.json")).unwrap();
-        for input in [original, minimum] {
+        for input in [last_row_input, minimum] {
             let mut canonical = input.solver.clone();
             canonical.elements = canonical.elements.into_values().map(|e| (e.id.to_string(), e)).collect();
             let expected = super::super::linear::solve_3d(&canonical).unwrap();

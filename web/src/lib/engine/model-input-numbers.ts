@@ -4,6 +4,7 @@ import type { Element, Load, LoadCombination, Material, Support } from '../store
 import { isSupportType } from '../model/support-types';
 import type { Constraint3D, LinearMpcConstraint } from './types-3d';
 import type { AnalysisSettings, SelfWeightLoad } from './analysis-settings';
+import type { StiffnessModifiers } from './member-behaviour';
 import type { ModelData } from './solver-service';
 
 type NumberKeys<T> = { [K in keyof T]-?: Exclude<T[K], undefined> extends number ? K : never }[keyof T] & string;
@@ -284,6 +285,10 @@ function validateSupport(path: string, value: unknown): void {
   }
 }
 
+const stiffnessFields = {
+  a: 'optional', iy: 'optional', iz: 'optional', j: 'optional', preset: 'field',
+} satisfies Record<keyof StiffnessModifiers, InputField>;
+
 const elementFields = {
   id: true, name: true, type: true, nodeI: true, nodeJ: true, materialId: true, sectionId: true,
   releaseI: true, releaseJ: true, jointI: true, jointJ: true, hingeStart: true, hingeEnd: true,
@@ -339,7 +344,8 @@ function validateElement(path: string, value: unknown): void {
   if (row.stiffness !== undefined) {
     const at = `${path}.stiffness`;
     const stiffness = recordAt(at, row.stiffness);
-    recordNumbers(at, stiffness, { required: [], optional: ['a', 'iy', 'iz', 'j'] });
+    requireKnownFields(at, stiffness, stiffnessFields);
+    requireNumericFields(at, stiffness, stiffnessFields);
     optionalValue(`${at}.preset`, stiffness.preset, ['column', 'wallUncracked', 'wallCracked', 'beam', 'slab']);
   }
 }
@@ -507,15 +513,53 @@ export function fixtureRows(path: string, value: unknown): ModelRows {
   });
 }
 
-export function requireStoredProjectInput(snapshot: { drawPlane2D?: unknown; connectors?: unknown }): void {
-  requireInputField('drawPlane2D', snapshot.drawPlane2D === undefined || isDrawPlane(snapshot.drawPlane2D));
-  if (!Array.isArray(snapshot.connectors)) return;
+const storedStructuralTables = [
+  'nodes', 'elements', 'supports', 'materials', 'sections', 'connectors', 'plates', 'quads', 'groups', 'footings',
+] as const;
+type StoredStructuralTable = typeof storedStructuralTables[number];
+
+function requireUniqueStoredKeys(path: StoredStructuralTable, rows: unknown, keyOf: (row: unknown) => unknown): void {
+  if (!Array.isArray(rows)) return;
   const keys = new Set<unknown>();
-  for (const row of snapshot.connectors) {
-    if (!Array.isArray(row)) continue;
-    const [key] = row;
-    if (keys.has(key)) throw new InvalidModelInputField(typeof key === 'number' ? `connectors.${key}` : 'connectors');
+  for (const row of rows) {
+    const key = keyOf(row);
+    if (key === undefined) continue;
+    requireInputField(typeof key === 'number' ? `${path}.${key}` : path, !keys.has(key));
     keys.add(key);
+  }
+}
+
+export function dependsOnXYConstraintAxes(constraint: Constraint3D): boolean {
+  const differs = (dof: number) => dof === 1 || dof === 2 || dof === 4 || dof === 5;
+  switch (constraint.type) {
+    case 'linearMPC': return constraint.terms.some(term => term.coefficient !== 0 && differs(term.dof));
+    case 'rigidLink':
+    case 'equalDOF': return constraint.dofs?.some(differs) ?? false;
+    case 'diaphragm': return constraint.plane !== 'YZ';
+    case 'eccentricConnection': {
+      const { offsetY, offsetZ, releases } = constraint;
+      return (offsetY ?? 0) !== 0 || (offsetZ ?? 0) !== 0
+        || (releases?.[1] ?? false) !== (releases?.[2] ?? false)
+        || (releases?.[4] ?? false) !== (releases?.[5] ?? false);
+    }
+  }
+}
+
+export function requireStoredProjectInput(
+  snapshot: { drawPlane2D?: unknown; analysisMode?: unknown; constraints?: unknown }
+    & Partial<Record<StoredStructuralTable, unknown>>,
+): void {
+  requireInputField('drawPlane2D', snapshot.drawPlane2D === undefined || isDrawPlane(snapshot.drawPlane2D));
+  for (const table of storedStructuralTables) {
+    requireUniqueStoredKeys(table, snapshot[table], row => Array.isArray(row) ? row[0] : undefined);
+  }
+  requireUniqueStoredKeys('footings', snapshot.footings, row => {
+    const footing: unknown = Array.isArray(row) ? row[1] : row;
+    return isRecord(footing) ? footing.id : undefined;
+  });
+  if (snapshot.drawPlane2D === undefined && (snapshot.analysisMode === '2d' || snapshot.analysisMode === 'edu')) {
+    const index = migrateModelConstraints(snapshot.constraints).findIndex(dependsOnXYConstraintAxes);
+    requireInputField(`constraints[${index}]`, index === -1);
   }
 }
 

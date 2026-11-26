@@ -377,8 +377,9 @@ function storedProjectSnapshot(snapshot: ModelSnapshot, mode: ModelSnapshot['ana
 }
 
 function acceptStoredProjectSnapshot(snapshot: ModelSnapshot, mode: ModelSnapshot['analysisMode']): ModelSnapshot {
-  requireStoredProjectInput(snapshot);
-  return canonicalizeModelAliases(storedProjectSnapshot(snapshot, mode));
+  const stored = storedProjectSnapshot(snapshot, mode);
+  requireStoredProjectInput(stored);
+  return canonicalizeModelAliases(stored);
 }
 
 /**

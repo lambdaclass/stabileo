@@ -56,9 +56,18 @@ export function constraintsInXZ(plane: DrawPlane, constraints: readonly Constrai
     if (c.type === 'eccentricConnection') requireEccentricReleaseMask(`constraints[${index}].releases`, c.releases);
   }
   if (plane === 'xz') return [...constraints];
-  const axis = AXES_IN_XZ[plane];
+  return remapConstraintAxes(constraints, AXES_IN_XZ[plane], plane === 'yz' ? 3 : 5);
+}
+
+export function constraintsInXY(plane: DrawPlane, constraints: readonly Constraint3D[]): Constraint3D[] {
+  if (plane === 'xy') return [...constraints];
+  return remapConstraintAxes(constraintsInXZ(plane, constraints), AXES_IN_XZ.xy, 4);
+}
+
+function remapConstraintAxes(
+  constraints: readonly Constraint3D[], axis: [number, number, number], inPlaneRotation: number,
+): Constraint3D[] {
   const dof = (d: number) => (d < 3 ? axis[d] : 3 + axis[d - 3]);
-  const inPlaneRotation = plane === 'yz' ? 3 : 5;
   const letter = (c: string) => 'XYZ'[axis['XYZ'.indexOf(c)]] ?? c;
   return constraints.map((c): Constraint3D => {
     switch (c.type) {
@@ -83,10 +92,6 @@ export function constraintsInXZ(plane: DrawPlane, constraints: readonly Constrai
       }
     }
   });
-}
-
-export function constraintsForPlanarSolve(plane: DrawPlane, constraints: readonly Constraint3D[]): Constraint3D[] {
-  return constraintsInXZ(plane === 'xy' ? 'xz' : plane, constraints);
 }
 
 const PLANAR_TRANSLATIONS = [0, 2] as const;
@@ -179,13 +184,13 @@ export function classifyEccentricNormalOffset(c: EccentricConnectionConstraint):
   return PLANAR_TRANSLATIONS.every(dof => c.releases?.[dof] === true) ? 'separated' : 'coupled';
 }
 
-export function planeConstraintRefusal(constraints: readonly Constraint3D[] = [], offsetField: 'offsetX' | 'offsetY' = 'offsetY'): string | null {
+export function planeConstraintRefusal(constraints: readonly Constraint3D[] = [], plane: DrawPlane = 'xz'): string | null {
   for (const [index, c] of constraints.entries()) {
     if (c.type === 'linearMPC') {
       const terms = projectMpc(c.terms);
       if (typeof terms === 'string') return mpcRefusal(terms, index);
     } else if (c.type === 'eccentricConnection' && classifyEccentricNormalOffset(c) === 'coupled') {
-      return `${t('svc.constraintsCoupled')} constraints[${index}].${offsetField}`;
+      return `${t('svc.constraintsCoupled')} constraints[${index}].offset${NORMAL[plane].toUpperCase()}`;
     }
   }
   return null;

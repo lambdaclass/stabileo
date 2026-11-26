@@ -1,5 +1,5 @@
-import { classifyEccentricNormalOffset, constraintsForPlanarSolve, hasReducedPlanarMpc } from '../engine/constraint-2d-remap';
-import { hasMalformedAuthoredLoad, invalidPlanarPointTorsion, isFiniteInputNumber, ModelInputError, migrateModelConstraints, requireCombinationInput, requireStoredProjectInput, requireStructureInput } from '../engine/model-input-numbers';
+import { classifyEccentricNormalOffset, constraintsInXZ, hasReducedPlanarMpc } from '../engine/constraint-2d-remap';
+import { dependsOnXYConstraintAxes, hasMalformedAuthoredLoad, invalidPlanarPointTorsion, isFiniteInputNumber, ModelInputError, migrateModelConstraints, requireCombinationInput, requireStoredProjectInput, requireStructureInput } from '../engine/model-input-numbers';
 import { DRAW_PLANES, isDrawPlane, type DrawPlane } from '../geometry/plane-projection';
 import { POINT_END_TOL } from '../engine/member-point-loads';
 import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
@@ -65,7 +65,7 @@ export const FEATURE_IDS = [
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'invalidSelfWeightTarget', 'scopedMemberSelfWeight', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
-  'malformedAuthoredLoad', 'malformedAuthoredStructure', 'separatedPlanarEccentricConnection', 'reducedPlanarMpc',
+  'malformedAuthoredLoad', 'malformedAuthoredStructure', 'separatedPlanarEccentricConnection', 'reducedPlanarMpc', 'xyConstraintProjection',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase', 'loadPlanCombinationSupplements', 'flatRoofSnowCombinations',
   'occupiedGeneratedLoadCases', 'repeatedUngroupedRuleTerms', 'emptyManualLoadAlternatives', 'retiredAutoLoadsCases',
@@ -358,7 +358,8 @@ function addAuthoredStructureFeatures(s: FeatureSnapshot, features: Set<FeatureI
     if (features.has('plane2D')) {
       const plane = stampPlane ?? s.drawPlane2D;
       for (const plausible of isDrawPlane(plane) ? [plane] : DRAW_PLANES) {
-        const remapped = constraintsForPlanarSolve(plausible, constraints);
+        const remapped = constraintsInXZ(plausible, constraints);
+        if (plausible === 'xy' && constraints.some(dependsOnXYConstraintAxes)) features.add('xyConstraintProjection');
         if (remapped.some(c => c.type === 'eccentricConnection' && classifyEccentricNormalOffset(c) === 'separated')) {
           features.add('separatedPlanarEccentricConnection');
         }

@@ -62,7 +62,7 @@ import { weldTolerance } from '../model/weld-tolerance';
 import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
 import { prepareFixture, type JSONModel } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
-import { constraintsAcrossDepth, constraintsForPlanarSolve, planeConstraintRefusal } from '../engine/constraint-2d-remap';
+import { constraintsAcrossDepth, constraintsInXZ, planeConstraintRefusal } from '../engine/constraint-2d-remap';
 import { addsLoop, singleSolveModel } from '../engine/case-effects';
 import { t } from '../i18n';
 import { GRAVITY_SELF_WEIGHT, planSelfWeight, type SelfWeightLoad } from '../engine/analysis-settings';
@@ -1296,8 +1296,8 @@ function createModelStore() {
     const analysis = sw ? { selfWeight: sw } : undefined;
     const { nodes, elements, supports, loads, loadCases, materials, sections, connectors } = model;
     const source = { nodes, elements, supports, loads, loadCases, materials, sections, connectors, analysis };
-    const constraints = constraintsForPlanarSolve(plane, model.constraints);
-    const constraintRefusal = planeConstraintRefusal(constraints, plane === 'yz' ? 'offsetX' : 'offsetY');
+    const constraints = constraintsInXZ(plane, model.constraints);
+    const constraintRefusal = planeConstraintRefusal(constraints, plane);
     if (constraintRefusal) throw new ModelInputError(constraintRefusal);
     if (plane !== 'xy' && constraintsAcrossDepth(plane, model.constraints, (id) => model.nodes.get(id)).length > 0) return t('svc.constraintsCoupled');
     const remappedLoads = remapPlaneLoads(plane, source);
@@ -1951,6 +1951,7 @@ function createModelStore() {
      * changed footing.
      */
     restoreFoundationOnly(s: ModelSnapshot): void {
+      requireStoredProjectInput({ footings: s.footings });
       const nextFootings = new Map((s.footings ?? []).map(([id, f]) => [id, { ...f }]));
       const beforeFootings = JSON.stringify([...model.footings.entries()]);
       const afterFootings = JSON.stringify([...nextFootings.entries()]);
@@ -1983,6 +1984,7 @@ function createModelStore() {
      * `_onDesignChange`, because the design read the state being undone.
      */
     restoreDesignOnly(s: ModelSnapshot): void {
+      requireStoredProjectInput({ groups: s.groups });
       const nextGroups = new Map((s.groups ?? []).map(([id, g]) => [id, JSON.parse(JSON.stringify(g)) as ModelGroup]));
       const sameGroups = JSON.stringify([...model.groups.entries()]) === JSON.stringify([...nextGroups.entries()]);
       const nextDesign = s.designData !== undefined ? JSON.parse(JSON.stringify(s.designData)) : undefined;
@@ -2225,7 +2227,7 @@ function createModelStore() {
       const snapId = $state.snapshot(nextId);
       const result: ModelSnapshot = {
         name: snap.name,
-        ...(uiStore.analysisMode === '2d' ? { drawPlane2D: uiStore.drawPlane2D } : {}),
+        ...(!uiStore.is3DWorkspace ? { drawPlane2D: uiStore.drawPlane2D } : {}),
         nodes: Array.from(snap.nodes.entries()) as ModelSnapshot['nodes'],
         materials: Array.from(snap.materials.entries()) as ModelSnapshot['materials'],
         // `canonical` is a DERIVED cache keyed by the section's own dimensions,
@@ -2407,7 +2409,7 @@ function createModelStore() {
       // `hydrateProjectProvenance`, which file-open and tab-activation call.
       const { detailing: savedDetailing, ...modelFields } = rawSnapshot;
       const copy = plainDeepCopy(modelFields);
-      requireStoredProjectInput(copy);
+      requireStoredProjectInput({ ...copy, analysisMode: copy.analysisMode ?? uiStore.analysisMode });
       const constraints = migrateModelConstraints(copy.constraints);
       if (copy.combinations !== undefined) requireCombinationInput(copy.combinations);
       const s = canonicalizeModelAliases(copy);

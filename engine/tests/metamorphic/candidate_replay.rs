@@ -14,11 +14,15 @@ fn input(key: &str) -> Value {
 }
 
 fn refused(issue: u64, analysis: &str, prefix: &str, diagnostic: Option<Value>) {
-    let value = input(&format!("{issue}-body-0"));
+    let mut value = input(&format!("{issue}-body-0"));
+    let rows = value.as_object_mut().unwrap();
+    let name = rows.remove("_nightly_name");
+    let densities = rows.remove("_nightly_dens");
+    let name = name.as_ref().and_then(Value::as_str).unwrap_or("replay");
     let error = match corpus::parse(&value.to_string()).unwrap() {
         corpus::Model::D2(s) => {
-            let mut c = Case2::new(value["_nightly_name"].as_str().unwrap_or("replay"), s);
-            if let Some(d) = value.get("_nightly_dens") {
+            let mut c = Case2::new(name, s);
+            if let Some(d) = densities.as_ref() {
                 c.dens = serde_json::from_value(d.clone()).unwrap();
             }
             let a = ana2::rows()
@@ -28,8 +32,8 @@ fn refused(issue: u64, analysis: &str, prefix: &str, diagnostic: Option<Value>) 
             (a.run)(&c).expect_err("the reported input returned a result")
         }
         corpus::Model::D3(s) => {
-            let mut c = Case3::new(value["_nightly_name"].as_str().unwrap_or("replay"), s);
-            if let Some(d) = value.get("_nightly_dens") {
+            let mut c = Case3::new(name, s);
+            if let Some(d) = densities.as_ref() {
                 c.dens = serde_json::from_value(d.clone()).unwrap();
             }
             let a = ana3::rows()

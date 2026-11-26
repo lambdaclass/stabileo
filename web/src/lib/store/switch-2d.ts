@@ -39,7 +39,7 @@ import {
 import { sliceModelAtPlane, planeOffsets, type PlaneOffset, SLICE_TOL } from '../geometry/plane-slice';
 import { planeBending, type PlaneBending } from '../geometry/plane-cut-guard';
 import { ModelInputError } from '../engine/model-input-numbers';
-import { constraintsAcrossDepth, constraintsCoupledAcrossPlane, constraintsInXZ } from '../engine/constraint-2d-remap';
+import { constraintsAcrossDepth, constraintsCoupledAcrossPlane, constraintsInXY, constraintsInXZ } from '../engine/constraint-2d-remap';
 import type { Constraint3D } from '../engine/types-3d';
 import type { Section } from './model.svelte';
 
@@ -218,7 +218,7 @@ function land(m: {
   if (turned && backup) backup.turnedSections.push(...turned.added);
   modelStore.replaceModelData(
     m.nodes as never, m.elements as never, m.supports as never, m.loads as never,
-    turned?.sections, constraintsInXZ(plane, constraintsReaching(m.nodes.keys())),
+    turned?.sections, constraintsInXY(plane, constraintsReaching(m.nodes.keys())),
   );
   /*
    * The builder has already rewritten the coordinates into the 2D convention,

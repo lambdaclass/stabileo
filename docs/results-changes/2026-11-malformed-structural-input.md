@@ -35,3 +35,5 @@ WASM object analysis requires fixed-size sequences to be consumed in full. For e
 A single surviving nonzero planar MPC coefficient can be represented by one even when the exact sum is too large and no exact common scale fits. For finite binary64 maximum `M` and minimum positive value `m`, the grouped equation `(M + M + m) ux = 0` is equivalent to `ux = 0`, since the coefficient is strictly positive. The dimensional coupling and multicomponent representation checks still apply.
 
 The result notice uses the recorded solve plane when available and otherwise uses the saved project plane. For projects with neither, it checks all supported planar projections.
+
+Member stiffness modifier objects reject unknown keys in authored solves, snapshot restore and fixture validation. A key such as `iZ` previously allowed a solve with nominal bending stiffness. The diagnostic identifies the misspelled key.

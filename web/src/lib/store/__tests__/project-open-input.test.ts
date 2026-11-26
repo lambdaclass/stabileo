@@ -158,15 +158,13 @@ it.each(['xy', 'xz', 'yz', undefined] as const)('opens the saved plane %s throug
   }
 });
 
-const reviewCase = it.skipIf(process.env.STABILEO_REVIEW_REPRO !== '1');
-
 function duplicateNode(file: Project): Project {
   const nodes = file.snapshot.nodes;
   const [key, tip] = nodes[1]!;
   return { ...file, snapshot: { ...file.snapshot, nodes: [...nodes, [key, { ...tip, x: 6 }]] } };
 }
 
-reviewCase.each(routes)('known wrong result: #2588 — %s refuses conflicting node rows before restore', route => {
+it.each(routes)('known wrong result: #2588 — %s refuses conflicting node rows before restore', route => {
   const { file, tip } = frame('2d');
   const before = modelStore.snapshot();
   const invalid = duplicateNode(file);
@@ -176,7 +174,7 @@ reviewCase.each(routes)('known wrong result: #2588 — %s refuses conflicting no
   expect(modelStore.snapshot()).toEqual(before);
 });
 
-reviewCase.each(['2d', 'pro'] as const)('known wrong result: #2588 — %s restore refuses a conflicting span', async mode => {
+it.each(['2d', 'pro'] as const)('known wrong result: #2588 — %s restore refuses a conflicting span', async mode => {
   await initSolver();
   const { file, root, tip, force } = frame(mode);
   const original = { ...file.snapshot, connectors: [] };
@@ -203,7 +201,7 @@ reviewCase.each(['2d', 'pro'] as const)('known wrong result: #2588 — %s restor
   expect(modelStore.snapshot()).toEqual(before);
 });
 
-reviewCase.each(['elements', 'materials', 'sections', 'supports', 'plates', 'quads', 'groups', 'footings'] as const)(
+it.each(['elements', 'materials', 'sections', 'supports', 'plates', 'quads', 'groups', 'footings'] as const)(
   'known wrong result: #2588 — restore refuses a repeated key in %s', table => {
     const { file } = frame('pro');
     const { snapshot } = file;

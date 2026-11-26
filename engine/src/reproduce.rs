@@ -575,10 +575,7 @@ mod tests {
     }
 }
 
-
-#[cfg(test)]
 #[test]
-#[ignore = "known wrong result: #2588"]
 fn staged_wire_fixtures_preserve_their_support_and_section_contracts() {
     use crate::types::{StagedInput, StagedInput3D};
     use serde_json::Value;
