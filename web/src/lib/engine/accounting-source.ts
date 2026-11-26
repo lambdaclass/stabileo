@@ -13,6 +13,7 @@ export interface AccountingCaseSources {
 }
 
 export const accountingSource = Symbol();
+export const accountingMemberPieces = Symbol();
 export const scenarioSurfaceAdjustment = Symbol();
 export const accountingCaseSources = Symbol();
 export const accountingProjection = Symbol();

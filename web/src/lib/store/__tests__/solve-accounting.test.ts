@@ -22,7 +22,7 @@ import {
   addPlateLoad, applyPlateMeshes, createPlate, meshBeforeAnalysis, planPlateMesh, plateEntry, plateStatus, setPlateMeshSpec, setPlateSideArc,
 } from '../physical-plates';
 
-const fault = vi.hoisted(() => ({ dropSceneCase: 0, integrateDrift: 0, signedForceDelta: 0, dropMemberLoad: false, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, assemblyDrift: null as { shell: number; relative: number } | null, combinationDrift: null as { shell: number; relative: number } | null, dropNodalFy: false }));
+const fault = vi.hoisted(() => ({ dropSceneCase: 0, integrateDrift: 0, signedForceDelta: 0, dropMemberLoad: false, dropFactoredAxialLine: false, misrouteLineEnd: null as { from: number; to: number } | null, misrouteFactoredLineEnd: 0, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, assemblyDrift: null as { shell: number; relative: number } | null, combinationDrift: null as { shell: number; relative: number } | null, dropNodalFy: false }));
 
 vi.mock('../../engine/case-effects', async importOriginal => {
   const original = await importOriginal<typeof import('../../engine/case-effects')>();
@@ -82,7 +82,14 @@ vi.mock('../../engine/accounting-math', async importOriginal => {
     ...original,
     scaleAssembledMagnitudes3D: (...args: Parameters<typeof original.scaleAssembledMagnitudes3D>) => {
       original.scaleAssembledMagnitudes3D(...args);
-      const [source, scaled] = args;
+      const [source, scaled, factor] = args;
+      if (fault.dropFactoredAxialLine && factor !== 1 && scaled.type === 'distributed') {
+        scaled.data.qXI = 0;
+        scaled.data.qXJ = 0;
+      }
+      if (fault.misrouteFactoredLineEnd && factor !== 1 && scaled.type === 'nodal' && scaled.data.axialOf?.end === 'j') {
+        scaled.data.nodeId = fault.misrouteFactoredLineEnd;
+      }
       const sign = combinationSigns.get(source);
       if (fault.combinationDrift && sign !== undefined && scaled.type === 'nodal') {
         scaled.data.fz *= 1 + sign * fault.combinationDrift.relative;
@@ -132,6 +139,16 @@ vi.mock('../../engine/member-loads', async importOriginal => {
     globalDistributedToSolver: (...args: Parameters<typeof original.globalDistributedToSolver>) =>
       fault.dropMemberLoad || (fault.dropLineIntensity !== 0 && args[1][2] === fault.dropLineIntensity)
         ? [] : original.globalDistributedToSolver(...args),
+    transverseToNodes: (...args: Parameters<typeof original.transverseToNodes>) => {
+      const rows = original.transverseToNodes(...args);
+      const transfer = fault.misrouteLineEnd;
+      if (transfer && args[0].some(row => row.type === 'distributed')) {
+        for (const row of rows) {
+          if (row.type === 'nodal' && row.data.nodeId === transfer.from) row.data.nodeId = transfer.to;
+        }
+      }
+      return rows;
+    },
   };
 });
 
@@ -147,6 +164,9 @@ beforeEach(() => {
   fault.signedForceDelta = 0;
   fault.integrateDrift = 0;
   fault.dropMemberLoad = false;
+  fault.dropFactoredAxialLine = false;
+  fault.misrouteLineEnd = null;
+  fault.misrouteFactoredLineEnd = 0;
   fault.dropLineIntensity = 0;
   fault.scaleCaseLoad = 1;
   fault.momentDelta = 0;
@@ -1408,4 +1428,221 @@ it('#2543 refuses an incorrect pressure in a reference case used only for modal 
       expect.soft(() => masses(q, scoped)).toThrow(/case.*Modal mass reference.*q\[1\]/i);
     }
   }
+});
+
+it('#2471 detects a lost self-equilibrated line load in spatial analysis', async () => {
+  const member = cantilever('3d');
+  const model = modelStore.model;
+  model.loads.push({ type: 'distributed3d', data: {
+    id: 1, elementId: member, qXI: 2, qXJ: -2, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, frame: 'global', caseId: 1,
+  } });
+  const paths = {
+    linear: () => modelStore.solve3D(false, false, true),
+    async: () => modelStore.solve3DAsync(false, false, true),
+    advanced: () => buildSolverInput3D(model),
+    combinations: () => modelStore.solveCombinations3D(false, false, true),
+    parallel: () => modelStore.solveCombinations3DParallel(false, false, true),
+    direct: () => runDirectAnalysis(model, model.loadCases, model.combinations, { includeSelfWeight: false }),
+  };
+  expect(paths.advanced()?.loads).toEqual([expect.objectContaining({
+    type: 'distributed', data: expect.objectContaining({ elementId: member, qXI: 2, qXJ: -2 }),
+  })]);
+  expect(paths.linear()).toMatchObject({ elementForces: [expect.objectContaining({
+    distributedLoadsX: [{ qI: 2, qJ: -2, a: 0, b: 2 }],
+  })] });
+  fault.dropMemberLoad = true;
+  const diagnostic = expect.stringMatching(new RegExp('case.*member.*' + member + '.*Fx', 'i'));
+  for (const [path, solve] of Object.entries(paths)) expect.soft(await outcome(solve), path).toEqual(diagnostic);
+  expect.soft(modelStore.singleSolveInput3D(false, false, true)).toBeNull();
+  modelStore.setAnalysis({ perCombination: 'pdelta' });
+  expect.soft(await outcome(paths.combinations), 'P-Delta').toEqual(diagnostic);
+  expect.soft(await outcome(paths.parallel), 'parallel P-Delta').toEqual(diagnostic);
+
+  fault.dropMemberLoad = false;
+  modelStore.updateElement(member, { type: 'truss' });
+  const load = model.loads[0]!;
+  if (load.type !== 'distributed3d') throw new Error('Expected a spatial line load');
+  const setEndpointIntensity = (q: number) => {
+    load.data.qXI = q;
+    load.data.qXJ = -q;
+  };
+  const above = 2 ** -38;
+  setEndpointIntensity(above);
+  const expectedEndForce = above / 3;
+  expect(paths.advanced()?.loads).toEqual([
+    expect.objectContaining({ type: 'nodal', data: expect.objectContaining({ fx: expect.closeTo(expectedEndForce, 25) }) }),
+    expect.objectContaining({ type: 'nodal', data: expect.objectContaining({ fx: expect.closeTo(-expectedEndForce, 25) }) }),
+  ]);
+  setEndpointIntensity(2 ** -39);
+  expect(() => paths.advanced()).toThrow(/case.*member.*s·Fx/i);
+});
+
+it.each([
+  { method: 'P-Delta', cut: false },
+  { method: 'P-Delta', cut: true },
+  { method: 'active set', cut: false },
+  { method: 'active set', cut: true },
+])('#2471 refuses a line lost during combination scaling ($method, cut member: $cut)', async ({ method, cut }) => {
+  const member = cantilever('3d');
+  modelStore.model.loads.push({ type: 'distributed3d', data: {
+    id: 1, elementId: member, qXI: 2, qXJ: -2, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, frame: 'global', caseId: 1,
+  } });
+  if (cut) modelStore.model.loads.push({ type: 'pointOnElement3d', data: {
+    id: 2, elementId: member, a: 0.5, px: 0, py: 0, pz: 0, my: 1, frame: 'global', caseId: 1,
+  } });
+  for (const { id } of [...modelStore.combinations]) modelStore.removeCombination(id);
+  const comboId = modelStore.addCombination('Two dead loads', [{ caseId: 1, factor: 2 }]);
+  modelStore.setAnalysis({ perCombination: method === 'P-Delta' ? 'pdelta' : 'linear' });
+  if (method === 'active set') {
+    const { nodeI, nodeJ } = modelStore.elements.get(member)!;
+    modelStore.addNodalLoad3D(nodeJ, 0, 0, -1, 0, 0, 0, 1);
+    modelStore.updateSupport(nodeI, { uplift: true });
+  }
+  const model = modelStore.model;
+  const combo = model.combinations.find(c => c.id === comboId)!;
+  const cases = caseSolverLoads3D(model, model.loadCases, false, false);
+  const axialLines = (loads: readonly SolverLoad3D[]) => loads.flatMap(l => l.type === 'distributed' ? [[l.data.qXI, l.data.qXJ]] : []);
+  const original = axialLines(cases.get(1)!);
+  expect(original).toEqual(cut ? [[2, 1], [1, -2]] : [[2, -2]]);
+  expect(axialLines(comboSolverLoads3D(combo, cases))).toEqual(original.map(pair => pair.map(q => 2 * q!)));
+
+  const expectedReport = method === 'P-Delta' ? { secondOrder: expect.any(Object) } : { nonlinear: expect.any(Object) };
+  expect(modelStore.solveCombinations3D(false, false, true)).toMatchObject({
+    perCombo: new Map([[comboId, expect.objectContaining({ ...expectedReport, elementForces: expect.any(Array) })]]),
+  });
+  fault.dropFactoredAxialLine = true;
+  expect(axialLines(caseSolverLoads3D(model, model.loadCases, false, false).get(1)!)).toEqual(original);
+  const diagnostic = new RegExp('Two dead loads.*member.*' + member + '.*s·Fx.*assembled 0', 'i');
+  const paths = {
+    factored: () => comboSolverLoads3D(combo, cases),
+    sync: () => modelStore.solveCombinations3D(false, false, true),
+    parallel: () => modelStore.solveCombinations3DParallel(false, false, true),
+    direct: () => runDirectAnalysis(model, model.loadCases, [combo], { includeSelfWeight: false }),
+  };
+  for (const [path, solve] of Object.entries(paths)) {
+    const result = await outcome(solve);
+    expect.soft(typeof result === 'string' ? result : 'returned a result', path).toMatch(diagnostic);
+  }
+});
+
+it('#2471 detects a lost self-equilibrated line load before a planar projection solve', async () => {
+  const elementId = cantilever('2d');
+  const model = modelStore.model;
+  const cases = [{ id: 1, name: 'Dead', type: 'D' }, { id: 2, name: 'Live', type: 'L' }];
+  const combos = [{ id: 1, name: 'Dead only', factors: [{ caseId: 1, factor: 1 }] }];
+  const source: ModelData = {
+    ...model, loadCases: cases,
+    loads: [{ type: 'distributed3d', data: {
+      id: 1, elementId, qXI: 2, qXJ: -2, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, frame: 'global', caseId: 1,
+    } }],
+  };
+  const projected: ModelData = { ...model, loads: [], loadCases: cases, [accountingProjection]: { plane: 'xz', source } };
+  const complete: ModelData = { ...projected, loads: [{
+    type: 'distributed', data: { id: 1, elementId, qI: 2, qJ: -2, angle: 90, isGlobal: true, caseId: 1 },
+  }] };
+  expect(buildSolverInput2D(complete)?.loads).toEqual([expect.objectContaining({
+    type: 'axialDistributed', data: expect.objectContaining({ elementId, qI: 2, qJ: -2 }),
+  })]);
+  expect(validateAndSolve2D(complete)).toMatchObject({ elementForces: [expect.objectContaining({
+    distributedLoadsX: [{ qI: 2, qJ: -2, a: 0, b: 2 }],
+  })] });
+  const planar = (q: number): ModelData => ({
+    ...model, loads: [{ type: 'distributed', data: { id: 1, elementId, qI: q, qJ: -q, isGlobal: true, angle: 90 } }],
+  });
+  const above = 2 ** -33;
+  expect(validateAndSolve2D(planar(above))).toMatchObject({ elementForces: [expect.objectContaining({
+    distributedLoadsX: [{ qI: above, qJ: -above, a: 0, b: 2 }],
+  })] });
+  expect.soft(await outcome(() => validateAndSolve2D(planar(2 ** -34))), 'planar conversion cutoff')
+    .toEqual(expect.stringMatching(/case.*member.*s·Fx/i));
+  const diagnostic = expect.stringMatching(new RegExp('case.*member.*' + elementId + '.*Fx', 'i'));
+  const paths = {
+    linear: () => validateAndSolve2D(projected),
+    async: () => validateAndSolve2DAsync(projected),
+    pdelta: () => solvePDelta(buildSolverInput2D(projected)!),
+    batch: () => solveCombinations2D(projected, cases, combos),
+    fallback: () => solveCombinations2D(projected, cases.map(c => ({ ...c, name: 'Same' })), combos),
+  };
+  for (const [path, solve] of Object.entries(paths)) expect.soft(await outcome(solve), path).toEqual(diagnostic);
+});
+
+it('#2471 refuses a sign-reversing truss line whose end forces reach the same node', async () => {
+  const member = cantilever('3d');
+  modelStore.updateElement(member, { type: 'truss' });
+  const { nodeI, nodeJ } = modelStore.elements.get(member)!;
+  modelStore.addSupport(nodeJ, 'fixed3d');
+  modelStore.addLoadEntry({ type: 'distributed3d', data: {
+    id: 0, elementId: member, qXI: 2, qXJ: -2, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, frame: 'global', caseId: 1,
+  } });
+  for (const { id } of [...modelStore.combinations]) modelStore.removeCombination(id);
+  const comboId = modelStore.addCombination('Two truss loads', [{ caseId: 1, factor: 2 }]);
+  const model = modelStore.model;
+  const combo = model.combinations.find(c => c.id === comboId)!;
+  const paths = {
+    advanced: () => buildSolverInput3D(model),
+    linear: () => modelStore.solve3D(false, false, true),
+    async: () => modelStore.solve3DAsync(false, false, true),
+    combinations: () => modelStore.solveCombinations3D(false, false, true),
+    parallel: () => modelStore.solveCombinations3DParallel(false, false, true),
+    direct: () => runDirectAnalysis(model, model.loadCases, [combo], { includeSelfWeight: false }),
+  };
+  const expectedRows = [
+    expect.objectContaining({ type: 'nodal', data: expect.objectContaining({ nodeId: nodeI, fx: expect.closeTo(2 / 3, 12) }) }),
+    expect.objectContaining({ type: 'nodal', data: expect.objectContaining({ nodeId: nodeJ, fx: expect.closeTo(-2 / 3, 12) }) }),
+  ];
+  expect(paths.advanced()?.loads).toEqual(expectedRows);
+  expect(paths.linear()).toMatchObject({
+    reactions: expect.arrayContaining([
+      expect.objectContaining({ nodeId: nodeI, fx: expect.closeTo(-2 / 3, 12) }),
+      expect.objectContaining({ nodeId: nodeJ, fx: expect.closeTo(2 / 3, 12) }),
+    ]),
+  });
+
+  const caseDiagnostic = /load case.*redistributed.*node/i;
+  fault.misrouteLineEnd = { from: nodeJ, to: nodeI };
+  for (const [path, solve] of Object.entries(paths)) {
+    expect.soft(await outcome(solve), path).toEqual(expect.stringMatching(caseDiagnostic));
+  }
+  expect.soft(modelStore.singleSolveInput3D(false, false, true)).toBeNull();
+  modelStore.setAnalysis({ perCombination: 'pdelta' });
+  expect.soft(await outcome(paths.combinations), 'P-Delta case').toEqual(expect.stringMatching(caseDiagnostic));
+  expect.soft(await outcome(paths.parallel), 'parallel P-Delta case').toEqual(expect.stringMatching(caseDiagnostic));
+  fault.misrouteLineEnd = null;
+
+  const factored = () => comboSolverLoads3D(combo, caseSolverLoads3D(model, model.loadCases, false, false));
+  expect(factored()).toEqual([
+    expect.objectContaining({ type: 'nodal', data: expect.objectContaining({ nodeId: nodeI, fx: expect.closeTo(4 / 3, 12) }) }),
+    expect.objectContaining({ type: 'nodal', data: expect.objectContaining({ nodeId: nodeJ, fx: expect.closeTo(-4 / 3, 12) }) }),
+  ]);
+  fault.misrouteFactoredLineEnd = nodeI;
+  expect(paths.advanced()?.loads).toEqual(expectedRows);
+  const factoredDiagnostic = /two truss loads.*redistributed.*node/i;
+  for (const [path, solve] of Object.entries({ factored, sync: paths.combinations, parallel: paths.parallel, direct: paths.direct })) {
+    expect.soft(await outcome(solve), path).toEqual(expect.stringMatching(factoredDiagnostic));
+  }
+  fault.misrouteFactoredLineEnd = 0;
+  modelStore.updateSupport([...modelStore.supports.values()].find(s => s.nodeId === nodeI)!.id, { uplift: true });
+  modelStore.addNodalLoad3D(nodeI, 0, 0, -1, 0, 0, 0, 1);
+  modelStore.setAnalysis({ perCombination: 'linear' });
+  expect(paths.combinations()).toMatchObject({
+    perCombo: new Map([[comboId, expect.objectContaining({ nonlinear: expect.any(Object) })]]),
+  });
+  fault.misrouteFactoredLineEnd = nodeI;
+  expect.soft(await outcome(paths.combinations), 'active-set sync').toEqual(expect.stringMatching(factoredDiagnostic));
+  expect.soft(await outcome(paths.parallel), 'active-set parallel').toEqual(expect.stringMatching(factoredDiagnostic));
+  fault.misrouteFactoredLineEnd = 0;
+
+  modelStore.clear();
+  const planar = cantilever('2d');
+  modelStore.updateElement(planar, { type: 'truss' });
+  const { nodeI: planarI, nodeJ: planarJ } = modelStore.elements.get(planar)!;
+  modelStore.addSupport(planarJ, 'fixed');
+  modelStore.addDistributedLoad(planar, 2, -2, 0, true, 1);
+  const embedded = () => buildSolverInput3D(modelStore.model);
+  expect(embedded()?.loads).toEqual([
+    expect.objectContaining({ type: 'nodal', data: expect.objectContaining({ nodeId: planarI, fz: expect.closeTo(2 / 3, 12) }) }),
+    expect.objectContaining({ type: 'nodal', data: expect.objectContaining({ nodeId: planarJ, fz: expect.closeTo(-2 / 3, 12) }) }),
+  ]);
+  fault.misrouteLineEnd = { from: planarJ, to: planarI };
+  expect(() => embedded()).toThrow(caseDiagnostic);
 });

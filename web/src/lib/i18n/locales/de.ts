@@ -2,6 +2,7 @@ import type { Translations } from '../types';
 
 const de: Translations = {
   'svc.accountingMismatch': "Berechnung abgelehnt. Lastfall {case}, {component}. Eingegeben {entered}, assembliert {assembled}.",
+  'svc.accountingLineEnd': "Berechnung abgelehnt. Lastfall {case}, Stab {member}, Ende {end}. Die umgelagerte Last wirkt am Knoten {actual}. Erwartet wurde Knoten {expected}.",
   'svc.accountingUnsupported': "Berechnung abgelehnt. Kräfte und Momente von {kind} {id} im Lastfall {case} können nicht bilanziert werden.",
   'svc.accountingArea': "Berechnung abgelehnt. Platte {plate} hat eine andere Fläche oder Begrenzung im Rechenmodell. Vorgegebene Fläche {entered}, assemblierte Fläche {assembled}.",
   'svc.accountingSweep': "Berechnung abgelehnt. Platte {plate} hat einen anderen Bogenverlauf im Rechenmodell. Vorgegebene Fläche {entered}, assemblierte Fläche {assembled}.",
@@ -14250,6 +14251,7 @@ const de: Translations = {
   'plates.analysisMeshRefused': 'Vernetzung nicht möglich: {names}. Prüfen Sie ihre Elementgröße oder ihren Umriss.',
   "plates.analysisInvalid": "Berechnung abgebrochen. Korrigieren Sie die Geometrie oder Eigenschaften der ungültigen Platten: {names}.",
   "plates.analysisWallSlab": "Berechnung abgebrochen. Wand {wall} und Deckenplatte {slab} haben bei Knoten {node} keinen gemeinsamen Netzknoten. Vernetzen Sie den Anschluss mit gemeinsamen Knoten neu.",
+  "plates.analysisWallSlabFace": "Berechnung abgebrochen. Die Wand {wall} trifft die Deckenplatte {slab} nahe den Wandknoten {nodes} ohne gemeinsame Netzkante. Vernetzen Sie den Anschluss mit gemeinsamen Kanten neu.",
   'plates.meshedAtAnalysis': '{n} Platten vor der Berechnung vernetzt ({cells} Elemente)',
   'plates.liveNeedsMesh': '{n} Platten ohne aktuelles Netz: Die Live-Berechnung wartet auf die vollständige Berechnung, die sie vernetzt.',
   'plates.problem.needNodes': 'Mindestens drei vorhandene Knoten sind erforderlich.',

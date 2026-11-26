@@ -1,9 +1,9 @@
-import { accountingCaseSources, accountingProjection, accountingSource, copyAccountingLoad, scenarioSurfaceIntentOf, type AccountingCaseSources, type ScenarioSurfaceIntent } from './accounting-source';
+import { accountingCaseSources, accountingMemberPieces, accountingProjection, accountingSource, copyAccountingLoad, scenarioSurfaceIntentOf, type AccountingCaseSources, type ScenarioSurfaceIntent } from './accounting-source';
 import { EngineCheckError, EngineUnavailableError } from './engine-unavailable';
-import { scaleAssembledMagnitudes3D, type Wrench } from './accounting-math';
+import { LoadVector, scaleAssembledMagnitudes3D, zero, type MemberLinePieces, type Wrench } from './accounting-math';
 import { accountCombination, accountLoads2D, loadAccounting3D, loadCaseBatches, verifyFactoredScenarioNode, verifyScenarioSurfaceLoads } from './load-accounting';
 import { accountPlateGeometry, SolveAccountingError } from './plate-accounting';
-import { shouldEmbedFlat2DModelIn3D } from './model-embedding';
+import { mapModelNodeToSolver3D, shouldEmbedFlat2DModelIn3D } from './model-embedding';
 export { shouldEmbedFlat2DModelIn3D } from './model-embedding';
 import { MemberLoadIntervalError, validateMemberLoadInterval } from './member-span-loads';
 import { plainDeepCopy } from '../utils/plain-deep-copy';
@@ -35,7 +35,8 @@ import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from '
 import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D } from './orphan-rotations-3d';
 import { unheldNodalMoment2D } from './orphan-rotations-2d';
 import { computeLocalAxes3D, memberRoll } from './local-axes-3d';
-import { distributedGlobalEnds, globalDistributedToSolver, transverseToNodes, memberFrame3D, takesNoBending as memberTakesNoBending, type MemberRef } from './member-loads';
+import { distributedGlobalEnds, distributedSolverRow3D, globalDistributedToSolver, transverseToNodes, memberRef3D, takesNoBending as memberTakesNoBending } from './member-loads';
+export { memberRef3D } from './member-loads';
 import { InvalidSelfWeightScope, selfWeightFor, selfWeightMemberProjection, selfWeightScope, selfWeightSolverLoads, snapshotSelfWeightProjection, type SelfWeightMemberProjection } from './self-weight';
 import type { SelfWeightLoad } from './analysis-settings';
 import type { SolverInput3D, SolverSection3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, NonlinearReport } from './types-3d';
@@ -66,10 +67,7 @@ import { i18n, t, tp } from '../i18n';
 // Counts app-side structural-solve dispatches so browser tests can assert that a
 // reinforcement-only edit triggers none. Not part of the solver.
 import { noteStructuralSolve } from '../utils/solve-counter';
-import {
-  get2DDisplayNodalLoadVertical,
-  projectNodeToScene,
-} from '../geometry/coordinate-system';
+import { get2DDisplayNodalLoadVertical } from '../geometry/coordinate-system';
 
 import { loadMemberId, loadNodeId } from '../store/model.svelte';
 import type {
@@ -116,6 +114,7 @@ function thermalDepths(model: ModelData, elementId: number, embedded: boolean | 
 
 export interface ModelData {
   [accountingSource]?: ModelData;
+  [accountingMemberPieces]?: MemberLinePieces;
   [selfWeightMemberProjection]?: SelfWeightMemberProjection;
   [accountingProjection]?: { plane: 'xz' | 'yz'; source: ModelData };
   [accountingCaseSources]?: AccountingCaseSources;
@@ -154,6 +153,8 @@ function snapshotNonlinearModel(model: ModelData): ModelData {
   };
   const source = model[accountingSource];
   if (source) snapshot[accountingSource] = snapshotNonlinearModel(source);
+  const pieces = model[accountingMemberPieces];
+  if (pieces) snapshot[accountingMemberPieces] = snapshotMap(pieces);
   const projection = model[selfWeightMemberProjection];
   if (projection) snapshot[selfWeightMemberProjection] = snapshotSelfWeightProjection(projection);
   return snapshot;
@@ -194,11 +195,6 @@ function namedCombinationFactors(factors: LoadCombination['factors'], caseNames:
     const name = caseNames.get(caseId);
     return name === undefined ? [] : [[name, factor] as const];
   }));
-}
-
-function mapModelNodeToSolver3D(node: Node, project2DToXZ: boolean): { id: number; x: number; y: number; z: number } {
-  const pos = projectNodeToScene(node, project2DToXZ);
-  return { id: node.id, x: pos.x, y: pos.y, z: pos.z };
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────
@@ -1528,6 +1524,8 @@ function solveCombinations2DFallback(
 
 // ─── 3D: buildSolverInput3D ──────────────────────────────────────
 
+class PlanarPointLoadProjectionError extends Error {}
+
 /** Build a SolverInput3D from model data. Returns null if model is empty. */
 /** Build only the loads array for a 3D solver input (avoids rebuilding all structural Maps per case). */
 /*
@@ -1552,32 +1550,6 @@ function solveCombinations2DFallback(
  * reaches it, and as a statement about input, not about the stiffness. The
  * load arrows are drawn along the same displayed axis (`scene-sync`).
  */
-/**
- * A member's end nodes and local axes as the 3D solve builds them: nodes mapped as for the
- * input, the member's own local-Y vector, and its roll plus the section's rotation.
- */
-export function memberRef3D(model: ModelData, elementId: number, project2DToXZ = shouldEmbedFlat2DModelIn3D(model)): MemberRef | null {
-  const elem = model.elements.get(elementId);
-  if (!elem) return null;
-  if (!project2DToXZ) {
-    // The flexible segment the engine loads: offsets applied, local Y fixed as the input fixes it.
-    const f = memberFrame3D(model, elem);
-    return f && f.ax.L > 1e-10
-      ? { elementId, nodeI: elem.nodeI, nodeJ: elem.nodeJ, axes: { ex: f.ax.ex, ey: f.ax.ey, ez: f.ax.ez, L: f.ax.L }, points: [f.ni, f.nj], ...(f.armI ? { armI: f.armI, armJ: f.armJ } : {}) }
-      : null;
-  }
-  // A flat 2D model embedded in XZ: node to node, offsets are not expanded there.
-  const ni = model.nodes.get(elem.nodeI), nj = model.nodes.get(elem.nodeJ);
-  if (!ni || !nj) return null;
-  const a = mapModelNodeToSolver3D(ni, project2DToXZ), b = mapModelNodeToSolver3D(nj, project2DToXZ);
-  const rot = model.sections.get(elem.sectionId)?.rotation ?? 0;
-  if (!(Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z) > 1e-10)) return null;
-  const axes = computeLocalAxes3D(a, b, undefined, (elem.rollAngle ?? 0) + rot, false);
-  return { elementId, nodeI: elem.nodeI, nodeJ: elem.nodeJ, axes: { ex: axes.ex, ey: axes.ey, ez: axes.ez, L: axes.L }, points: [[a.x, a.y, a.z], [b.x, b.y, b.z]] };
-}
-
-class PlanarPointLoadProjectionError extends Error {}
-
 /**
  * The engine's loads for `loads`, plus self-weight.
  *
@@ -1651,8 +1623,8 @@ export function buildSolverLoads3D(
       const secRot1 = model.sections.get(elem.sectionId)?.rotation ?? 0;
       const axes = computeLocalAxes3D(niSolver, njSolver, elemLocalY, (elem.rollAngle ?? 0) + secRot1, leftHand);
 
-      const projectLoad = (q: number): { qY: number; qZ: number; qAxial: number } => {
-        if (Math.abs(q) < 1e-15) return { qY: 0, qZ: 0, qAxial: 0 };
+      const projectLoad = (q: number): LoadVector => {
+        if (Math.abs(q) < 1e-15) return LoadVector.from(zero());
         let dirX: number, dirY: number, dirZ: number;
         if (isGlobal) {
           dirX = Math.sin(angleRad);
@@ -1666,10 +1638,7 @@ export function buildSolverLoads3D(
           dirY = project2DToXZ ? 0 : (perpFactor * cosTheta + axialFactor * sinTheta);
           dirZ = project2DToXZ ? (perpFactor * cosTheta + axialFactor * sinTheta) : 0;
         }
-        const projY = dirX * axes.ey[0] + dirY * axes.ey[1] + dirZ * axes.ey[2];
-        const projZ = dirX * axes.ez[0] + dirY * axes.ez[1] + dirZ * axes.ez[2];
-        const projX = dirX * axes.ex[0] + dirY * axes.ex[1] + dirZ * axes.ex[2];
-        return { qY: projY * q, qZ: projZ * q, qAxial: projX * q };
+        return LoadVector.from([dirX, dirY, dirZ]).projectOnto(axes).scale(q);
       };
 
       const projI = projectLoad(d.qI);
@@ -1678,11 +1647,8 @@ export function buildSolverLoads3D(
       // Across the member and along it, one member load: the engine carries the axial part
       // (qX) along the span, so N varies as the load says. As loads at the end nodes it left the
       // member a constant N, the average of its true end values.
-      if ([projI.qY, projJ.qY, projI.qZ, projJ.qZ, projI.qAxial, projJ.qAxial].some((v) => Math.abs(v) > 1e-10)) {
-        emit({
-          type: 'distributed',
-          data: { elementId: d.elementId, qXI: projI.qAxial, qXJ: projJ.qAxial, qYI: projI.qY, qYJ: projJ.qY, qZI: projI.qZ, qZJ: projJ.qZ, a: d.a, b: d.b },
-        });
+      if ([...projI.value, ...projJ.value].some(v => Math.abs(v) > 1e-10)) {
+        emit(distributedSolverRow3D(d.elementId, projI, projJ, d.a, d.b));
       }
     } else if (l.type === 'distributed3d') {
       // Local, global or projected, with its axial part: one reading for every consumer.
