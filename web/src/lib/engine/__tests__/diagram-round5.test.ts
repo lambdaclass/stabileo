@@ -840,3 +840,32 @@ it('known wrong result: #2226 prepared piecewise shear retains the member and pi
     expect.soft(current({ t: 0.5 / 3, distance: 0.5, right: true })).toBe(0);
   }
 });
+
+const issue2295 = process.env.RUN_KNOWN_WRONG === '2295' ? it : it.skip;
+
+issue2295('known wrong result: #2295 transfers the midpoint moment of the loaded roof gap', () => {
+  const span = 10.198039027185569;
+  const start = -7.546548880117323;
+  const shear = 3;
+  const q = -2.9417420270727606;
+  const loads = [{ a: 4.079215610874228, b: 6.118823416311343, qI: q, qJ: q }];
+  const moment = 6.220803806583197;
+  const [plane, space] = cantilevers(span);
+  const planarNonlinear = solvePDelta(plane);
+  const spatialNonlinear = solvePDelta3D(space);
+  expect(planarNonlinear.converged && spatialNonlinear.converged).toBe(true);
+  for (const { elementForces: [f] } of [solve(plane), planarNonlinear.results]) {
+    const ef = { ...f!, mStart: -start, vStart: shear, distributedLoads: loads };
+    expect.soft(computeElementDiagram('moment', ef, 0, 0, span, 0).minValue).toBe(-moment);
+    expect.soft(() => expect(computeDiagramValueAt('moment', 0.5, ef)).toBe(-moment)).not.toThrow();
+    expect.soft(() => expect(prepareDiagramValueAt('moment', ef)(0.5)).toBe(-moment)).not.toThrow();
+    expect.soft(computeDiagramValueAtWasm('moment', 0.5, ef)).toBeCloseTo(-moment, 12);
+  }
+  for (const { elementForces: [f] } of [solve3D(space), spatialNonlinear.results]) {
+    const ef = { ...f!, myStart: start, vzStart: shear, distributedLoadsZ: loads };
+    expect.soft(computeDiagram3D(ef, 'momentY').maxValue).toBe(moment);
+    expect.soft(() => expect(evaluateDiagramAt(ef, 'momentY', 0.5)).toBe(moment)).not.toThrow();
+    expect.soft(() => expect(prepareDiagramEvaluator3D(ef, 'momentY')(0.5)).toBe(moment)).not.toThrow();
+    expect.soft(computeDiagramValueAt3DWasm('momentY', 0.5, ef)).toBeCloseTo(moment, 12);
+  }
+});

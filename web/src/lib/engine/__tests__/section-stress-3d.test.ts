@@ -842,3 +842,28 @@ describe('PR [12] section-analysis convention', () => {
     expect(a45.width).toBeGreaterThan(0.5);
   });
 });
+
+const issue2581Stress = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
+
+issue2581Stress('known wrong result: #2581 a transverse action at I does not create a false zero-shear suggestion', () => {
+  const length = 6;
+  const intensity = 12;
+  const inward = intensity * length / 6;
+  const end = inward - intensity * length / 2;
+  const load = [{ a: 0, b: length, qI: 0, qJ: -intensity }];
+  for (const atI of [inward + 4, 0]) {
+    const points = atI === 0 ? [] : [{ a: 0, p: atI }];
+    const ef = makeEF({
+      length, vyStart: inward - atI, vyEnd: end, vzStart: inward - atI, vzEnd: end,
+      distributedLoadsY: load, distributedLoadsZ: load, pointLoadsY: points, pointLoadsZ: points,
+    });
+    const expected = 1 / Math.sqrt(3);
+    const sections = suggestCriticalSections3D(ef);
+    for (const axis of ['Vy', 'Vz']) {
+      const cuts = sections.filter(section => section.reason.includes(`${axis}=0`));
+      expect.soft(cuts).toHaveLength(1);
+      expect.soft(cuts[0]?.t).toBeCloseTo(expected, 14);
+    }
+    expect.soft(sections.map(section => section.t)).toEqual(expect.arrayContaining([0, 0.5, 1]));
+  }
+});

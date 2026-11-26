@@ -579,3 +579,26 @@ it('reads a physical section only within the member', () => {
     expect(() => shearAt(x)).toThrow('solver.diagramExtremaUnavailable');
   }
 });
+
+const issue2581Section = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
+
+issue2581Section('known wrong result: #2581 physical planar sections use the member side at I and J', () => {
+  const length = 4;
+  const forces = {
+    length, vStart: 10, vEnd: -6, mStart: -1, mEnd: 11, nStart: 20, nEnd: 6, qI: 0, qJ: 0,
+    pointLoads: [
+      { a: 0, p: -8, px: 10, my: 20 },
+      { a: length, p: -8, px: 4, my: -8 },
+    ],
+  };
+  for (const [kind, expected] of [
+    ['shear', [2, 2, 2]],
+    ['axial', [10, 10, 10]],
+    ['moment', [19, 15, 11]],
+  ] as const) {
+    const shearBeforeJ = length - 4 * Number.EPSILON;
+    expect.soft([0, 2, length].map(x => computePlanarSectionValue(kind, x, forces))).toEqual(expected);
+    expect.soft(computePlanarSectionValue(kind, shearBeforeJ, forces)).toBeCloseTo(expected[2], 12);
+  }
+  expect(computeDiagramValueAt('shear', 0, forces)).toBe(10);
+});

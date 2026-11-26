@@ -156,3 +156,25 @@ it('#2226 refuses ambiguous point queries at either cut side, including across m
   expect(evaluateDiagramAt(pulse(a + 2 * Number.EPSILON), 'axial', a / length, true)).toBe(2);
   expect(evaluateDiagramAt(pulse(a), 'axial', a / length, true)).toBe(0);
 });
+
+const issue2581Bound = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
+
+issue2581Bound('known wrong result: #2581 a plotted magnitude bound covers the exterior I face', () => {
+  const exterior = 10;
+  const load = 8;
+  const inward = exterior - load;
+  for (const a of [0, 0.5, 1]) {
+    const leaf = { ...empty(), nStart: exterior, nEnd: inward, pointLoadsX: [{ a, p: load }] };
+    const inner = { ...empty(), combined: { method: 'srss' as const, parts: [leaf, empty()] } };
+    const member = { ...empty(), combined: { method: 'abs' as const, parts: [inner, empty()] } };
+    const piece = { ...empty(), pieces: [{ x0: 0, x1: 1, sectionId: 1, forces: member }] };
+    for (const forces of [member, piece]) {
+      const diagram = computeDiagram3D(forces, 'axial');
+      expect.soft(diagram.extrema).toBe('bounded');
+      expect.soft(diagram.points.find(point => point.t === 0 && !point.right)?.value).toBe(exterior);
+      expect.soft(diagram.maxAbsValue).toBe(exterior);
+      expect.soft(computeGlobalMax3D([forces], 'axial')).toBe(exterior);
+    }
+    expect(computeDiagram3D(inner, 'axial').maxAbsValue).toBe(exterior);
+  }
+});

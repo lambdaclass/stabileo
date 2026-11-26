@@ -646,6 +646,23 @@ mod round3_tests {
     use super::*;
 
     #[test]
+    #[ignore = "known wrong result: #2295"]
+    fn issue_2295_transfers_the_midpoint_moment_of_the_loaded_roof_gap() {
+        let a = 4.079215610874228;
+        let b = 6.118823416311343;
+        for sign in [-1.0, 1.0] {
+            let intensity = -2.9417420270727606;
+            let curve = Curve {
+                length: 10.198039027185569, start: -sign * 7.546548880117323, change: 0.0, slope: sign * 3.0,
+                response: Response::Moment(sign),
+                distributed: [DistributedLoadInfo { a, b, q_i: intensity, q_j: intensity }].into_iter().collect(),
+                points: std::iter::empty(),
+            };
+            assert_eq!(curve.checked_station_value(0.5, false), Ok(sign * 6.220803806583197));
+        }
+    }
+
+    #[test]
     fn issue_2437_interval_intensity_survives_overlapping_ramps() {
         let high = 2.0_f64.powi(54);
         let start = 1.0 / high;
