@@ -1014,6 +1014,19 @@ mod tests {
     use crate::metamorphic::planes::{embed_2d, Plane};
 
     #[test]
+    fn issue_1782_reversed_interior_station_preserves_the_subtraction_residual() {
+        let unit = 2.0_f64.powi(-53);
+        let start = 0.25 + 3.0 * unit;
+        let length = 1.5;
+        let end = start + length;
+        let position = 1.75 - 62.0 * unit;
+        assert_eq!(
+            sampled_axle_station(start, end, length, true, position, [0.0; 2], 0.0),
+            Ok(Some(65.0 * unit)),
+        );
+    }
+
+    #[test]
     fn simultaneous_entrance_and_exit_stage_only_the_axle_on_the_route() {
         let mut planar: SolverInput =
             serde_json::from_str(include_str!("../../tests/fixtures/moving-shear-2104.json")).unwrap();
