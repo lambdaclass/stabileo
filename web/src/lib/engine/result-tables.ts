@@ -226,7 +226,7 @@ export function summaryRows(kind: TableKind, sources: readonly Source[], opts: T
         if (opts.entities && !opts.entities.has(ef.elementId)) continue;
         visitMemberCriticalOrdinates3D(ef, diagrams, (c, t, value, x, _right, side) => {
           visit(c, value, ef.elementId, t === 0 ? 'i' : t === 1 ? 'j' : undefined, x, side);
-        });
+        }, true);
       }
     } else {
       eachRow(kind, source.results, opts, (entity, end, x, values) => values.forEach((value, c) => visit(c, value, entity, end, x)));

@@ -391,7 +391,7 @@ function visitLeafCriticalOrdinates(
 }
 
 export function visitMemberCriticalOrdinates3D(
-  ef: ElementForces3D, kinds: readonly CriticalDiagram3DKind[], visit: VisitSpatialOrdinate, inwardAtI = false,
+  ef: ElementForces3D, kinds: readonly CriticalDiagram3DKind[], visit: VisitSpatialOrdinate, inwardAtI: boolean,
 ): void {
   if (!ef.combined && !ef.pieces?.length) {
     visitLeafCriticalOrdinates(ef, kinds, visit, inwardAtI);

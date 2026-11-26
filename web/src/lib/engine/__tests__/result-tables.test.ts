@@ -455,9 +455,7 @@ it('known wrong result: #2226 evaluates every combination at each critical stati
   expect.soft(axial.map(row => [row[6], row[8], row.at(-1)])).toEqual([[100, high.name, '−'], [100, high.name, '+']]);
 });
 
-const issue2581 = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
-
-issue2581('known wrong result: #2581 summarizes only inward member-end forces', async () => {
+it('known wrong result: #2581 summarizes only inward member-end forces', async () => {
   await initSolver();
   const span = 4;
   const tipY = -3, tipZ = -4;
