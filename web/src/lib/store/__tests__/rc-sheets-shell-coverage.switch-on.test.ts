@@ -8,7 +8,7 @@ import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
 import { buildSheetRows, setSheetCode } from '../rc-sheets.svelte';
-import { PRO_EXAMPLES } from '../../data/pro-examples';
+import { galleryExample } from '../../data/__tests__/gallery-examples';
 import type { AnalysisResults3D } from '../../engine/types-3d';
 
 const missingCheck = (r: { verifications: Array<{ label: string; ok: boolean; demand?: string }> }) => r.verifications.find((v) => v.label === 'rcSheets.v.forcesMissing');
@@ -19,7 +19,7 @@ describe('slabs and walls whose shells one combination has no results for', () =
   beforeAll(async () => {
     await wasmSolver.initSolver();
     modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
-    await PRO_EXAMPLES.find((e) => e.id === 'pro-edificio-7p')!.load();
+    await galleryExample('pro-edificio-7p').load();
     ensurePhysicalModel();
     meshBeforeAnalysis.value = true;
     preparePlatesForAnalysis();

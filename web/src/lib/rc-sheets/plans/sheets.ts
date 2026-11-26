@@ -87,28 +87,37 @@ export function planDrawings(rows: PlanRows, sel: PlanSelection, o: PlanOptions)
       drawings.push(settingOutDrawing(lowest, settingOut(vertical, order, axes), { ...p, group: group('vertical', lowest.level) }));
     }
   }
-  for (const row of rows.column) {
-    if (!want('vertical', row.key, row.level)) continue;
-    drawings.push(...columnPlans(row, rows.column, { ...e, code: o.code, endZones: o.endZones, group: group('vertical', row.level) }));
-  }
-  for (const row of rows.wall) {
-    if (!want('vertical', row.key, row.level)) continue;
-    drawings.push(...wallPlans(row, rows.wall, { ...e, code: o.code, group: group('vertical', row.level) }));
-  }
+  drawings.push(...alike(rows.column.filter((r) => want('vertical', r.key, r.level)), (row) => columnPlans(row, rows.column, { ...e, code: o.code, endZones: o.endZones, group: group('vertical', row.level) })));
+  drawings.push(...alike(rows.wall.filter((r) => want('vertical', r.key, r.level)), (row) => wallPlans(row, rows.wall, { ...e, code: o.code, group: group('vertical', row.level) })));
   for (const plan of rows.slabPlan) {
     const pick = sel.element ? elementLevel !== undefined && plan.level === elementLevel : sel.families.includes('slab') && levelOk(sel, plan.level);
     if (!pick || !plan.packages.length) continue;
     drawings.push(...slabLevelPlans(plan, { ...p, code: o.code, slabCover: o.slabCover, group: group('slab', plan.level) }));
   }
-  for (const row of rows.footing ?? []) {
-    if (!want('footing', row.key, row.level)) continue;
-    drawings.push(...footingPlans(row, { ...e, code: o.code, group: group('footing', row.level) }));
-  }
-  for (const row of rows.stair ?? []) {
-    if (!want('stair', row.key, row.level)) continue;
-    drawings.push(...stairPlans(row, { ...e, code: o.code, group: group('stair', row.level) }));
-  }
+  drawings.push(...alike((rows.footing ?? []).filter((r) => want('footing', r.key, r.level)), (row) => footingPlans(row, { ...e, code: o.code, group: group('footing', row.level) })));
+  drawings.push(...alike((rows.stair ?? []).filter((r) => want('stair', r.key, r.level)), (row) => stairPlans(row, { ...e, code: o.code, group: group('stair', row.level) })));
   return { drawings, levels };
+}
+
+/**
+ * Elements whose drawings are the same but for their name drawn once, under all their names
+ * (`C1 = C2 = C3`), as a column schedule groups them: four identical columns of a storey were four
+ * elevations, four sections and four schedules on the sheet. The schedule is each one's.
+ */
+function alike<R extends { name: string }>(rows: readonly R[], draw: (row: R) => DrawingInput[]): DrawingInput[] {
+  const groups: Array<{ sig: string; rows: R[]; drawings: DrawingInput[] }> = [];
+  const anon = (d: DrawingInput, name: string) => ({ ...d, key: '', title: d.title.split(name).join('§'), primitives: d.primitives.map((p) => (p.kind === 'text' ? { ...p, text: p.text.split(name).join('§') } : p)) });
+  for (const row of rows) {
+    const ds = draw(row), sig = JSON.stringify(ds.map((d) => anon(d, row.name)));
+    const same = groups.find((g) => g.sig === sig);
+    if (same) same.rows.push(row);
+    else groups.push({ sig, rows: [row], drawings: ds });
+  }
+  return groups.flatMap((g) => {
+    if (g.rows.length === 1) return g.drawings;
+    const name = g.rows[0]!.name, all = g.rows.map((r) => r.name).join(' = ');
+    return g.drawings.map((d) => ({ ...d, title: d.title.split(name).join(all), primitives: d.primitives.map((p) => (p.kind === 'text' && p.text === name ? { ...p, text: all } : p)) }));
+  });
 }
 
 const ORDER: readonly SheetFormat[] = ['A3', 'A2', 'A1', 'A0'];

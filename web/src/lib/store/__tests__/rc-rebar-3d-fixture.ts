@@ -5,7 +5,7 @@ import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
-import { PRO_EXAMPLES } from '../../data/pro-examples';
+import { galleryExample } from '../../data/__tests__/gallery-examples';
 import { bar3dLength, type Frame, type Rebar3d, type V3 } from '../../rc-sheets/rebar-3d';
 import { scheduleElements, type PieceOptions, type PieceRows } from '../../rc-sheets/schedule/pieces';
 import { developedLength } from '../../rc-sheets/shape';
@@ -13,7 +13,7 @@ import { setFoundationSystem } from '../rc-sheets-footings';
 
 export async function solvedExample(id: string): Promise<void> {
   modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
-  await PRO_EXAMPLES.find((e) => e.id === id)!.load();
+  await galleryExample(id).load();
   ensurePhysicalModel();
   meshBeforeAnalysis.value = true;
   preparePlatesForAnalysis();

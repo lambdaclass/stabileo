@@ -19,14 +19,14 @@ import { DESIGN_OPTION_FLAGS, readDeflectionSettings, type AlternativeOptions, t
 import { defaultLevelName, sortedLevels } from '../model/grid';
 import { computeJointPsiFromModel } from '../engine/codes/argentina/cirsoc201';
 import { computeBeamCriticalSections } from '../engine/station-design-forces';
-import { beamFlangeSides } from '../engine/design/beam-flange';
+import { beamFlangeSides, beamSlabsBeside } from '../engine/design/beam-flange';
 import { columnJointSection, frameJoints, jointChecks, type JointContext } from '../rc-sheets/joints';
 import { withLapFit } from '../rc-sheets/column-ties';
 import { columnLeastMn } from '../engine/design/seismic/frame-checks';
 import { concreteFc, type DesignKind, type ProjectDesignData } from '../model/design-data';
 import { developsAtFace, lateralReadingOf, spanLateralReading } from '../model/lateral-system';
 import { beamDemands, columnDemands, levelGeometry, punchingDemands, slabDemands, wallDemands, type DemandGroup, type DemandInput, type DemandSet } from '../rc-sheets/demands';
-import { slabPlan, type LevelGeometry, type LevelPlan } from '../rc-sheets/slab-plan';
+import { atFloorHeight, slabPlan, type LevelGeometry, type LevelPlan } from '../rc-sheets/slab-plan';
 import type { PunchingRow } from '../rc-sheets/punching-row';
 import { FOUNDATION_SYSTEMS, type FootingRow, type FoundationSystem } from '../rc-sheets/footing-types';
 import { layoutSummary, type FoundationLayout } from '../rc-sheets/footing-layouts';
@@ -294,6 +294,12 @@ function storeyNamer(): (z: number) => string {
   return (z) => { const i = zs.findIndex((v) => Math.abs(v - z) < 0.05); return i >= 0 ? defaultLevelName(i) : `+${z.toFixed(2)}`; };
 }
 
+/** The storey a height stands in, by name: the highest level at or below it, as a stair is the stair of the floor it leaves. */
+function storeyBelowNamer(): (z: number) => string {
+  const named = storeyNamer(), zs = storeyElevations().sort((p, q) => p - q);
+  return (z) => { const below = zs.filter((v) => v <= z + 0.05); return named(below.length ? below[below.length - 1]! : z); };
+}
+
 /** The levels' names from the lowest up, those the rows name besides the grid's or the members' by their elevation. */
 function levelsUp(named: Iterable<string | undefined>): string[] {
   const grid = sortedLevels(modelStore.grid).map((l) => l.name);
@@ -326,15 +332,15 @@ export function topBarAt(slabs: readonly SlabRow[], level: string | undefined, a
 
 export function designSets(): { sets: DemandSet[]; basis: SheetRows['basis']; dead: AnalysisResults3D[] } {
   const combos = modelStore.combinations;
-  const deadIds = new Set(modelStore.model.loadCases.filter((c) => isDeadCase(c.type)).map((c) => c.id));
-  const dead = [...deadIds].map((id) => resultsStore.perCase3D.get(id)).filter((r): r is AnalysisResults3D => !!r);
+  const deadIds = modelStore.model.loadCases.filter((c) => isDeadCase(c.type) && resultsStore.perCase3D.has(c.id)).map((c) => c.id);
+  const dead = deadIds.map((id) => resultsStore.perCase3D.get(id)!);
   const solved = activePerCombo3D();
   const quake = seismicCaseIds();
   if (solved.size) {
     const sets = [...solved].map(([id, result]) => {
       const c = combos.find((x) => x.id === id);
       const factors = c?.factors ?? [];
-      return { name: c?.name ?? `#${id}`, result, deadFactor: factors.filter((f) => deadIds.has(f.caseId)).reduce((s, f) => s + f.factor, 0), seismic: factors.some((f) => quake.has(f.caseId) && f.factor !== 0), ...swayParts(factors, result) };
+      return { name: c?.name ?? `#${id}`, result, deadFactors: deadIds.map((d) => factors.filter((f) => f.caseId === d).reduce((s, f) => s + f.factor, 0)), seismic: factors.some((f) => quake.has(f.caseId) && f.factor !== 0), ...swayParts(factors, result) };
     });
     return { sets, basis: 'combinations', dead };
   }
@@ -346,7 +352,7 @@ function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces
   const supportsByNode = new Map([...modelStore.supports.values()].map((s) => [s.nodeId, s]));
   const namer = storeyNamer();
   const groups: DemandGroup[] = physicalGroups().map((g) => ({
-    id: g.id, name: g.name, kind: g.physical.kind, level: levelName(g.physical.levelFrom, namer),
+    id: g.id, name: g.name, kind: g.physical.kind, level: levelName(g.physical.levelFrom, namer), ...(g.physical.stair || (g.physical.kind === 'slab' && g.physical.provenance === 'inferred') ? { stair: true } : {}),
     elements: (g.members.elements ?? []).filter((id) => inConcrete(modelStore.elements.get(id)?.materialId)),
     quads: (g.members.quads ?? []).filter((id) => inConcrete(modelStore.quads.get(id)?.materialId)),
     plates: (g.members.plates ?? []).filter((id) => inConcrete(modelStore.plates.get(id)?.materialId)),
@@ -358,7 +364,7 @@ function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces
     storeyOf: (id) => storeys.get(id),
     shells: { nodes: modelStore.nodes, quads: modelStore.quads, plates: modelStore.plates },
     groups, sets, dead, faces: opts.faces,
-    ...((f) => ({ slabSides: (id: number) => f.get(id)?.sides.length ?? 0, ...(opts.flange ? { flangeSides: (id: number) => f.get(id)?.sides } : {}) }))(beamFlangeSides({ nodes: modelStore.nodes, elements: modelStore.elements, sections: modelStore.sections, quads: concreteQuads() })),
+    ...((fm) => ((f, sb) => ({ slabSides: (id: number) => f.get(id)?.sides.length ?? 0, slabsBeside: (id: number) => sb.get(id), ...(opts.flange ? { flangeSides: (id: number) => f.get(id)?.sides } : {}) }))(beamFlangeSides(fm), beamSlabsBeside(fm)))({ nodes: modelStore.nodes, elements: modelStore.elements, sections: modelStore.sections, quads: concreteQuads() }),
     faceOffset: (id, end) => {
       const e = modelStore.elements.get(id);
       const sec = e ? modelStore.sections.get(e.sectionId) : undefined;
@@ -660,7 +666,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     yield step();
   }
   const planOf = (g: LevelGeometry) => {
-    const rows = slab.filter((r) => (r.level ?? '') === g.level);
+    const rows = atFloorHeight(slab.filter((r) => (r.level ?? '') === g.level));
     const first = groupOf(rows[0]?.key ?? '');
     const ctx = { mat: { fc: fcOfShells(first?.members.quads ?? [], first?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: slabBars, bent: data.slabBentBars === true, columnInset: dd.covers.column + dd.stirrupDiaMm / 1000 + Math.max(0, ...dd.longDiametersMm.filter((x) => x <= 16)) / 2000, criteria: crit };
     return slabPlan(g.level, rows, g, ctx, rules.slabPlan);
@@ -817,7 +823,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     name: r.name, level: r.level, b: r.b, h: r.h, fc: fcOfElements(groupOf(r.key)?.members.elements), tu: Math.max(0, ...r.demand.cases.map((c) => c.tu ?? 0)),
   })));
   const apart = rules.piers ? [] : allPiers;
-  const stair = sheetStairs({ code, fmt, adopted: adoptedNow, diameters: slabBars, cover: dd.covers.slab, fy, fcOf: (q) => fcOfShells(q, []), levelAt: storeyNamer() });
+  const stair = sheetStairs({ code, fmt, adopted: adoptedNow, diameters: slabBars, cover: dd.covers.slab, fy, fcOf: (q) => fcOfShells(q, []), levelAt: storeyBelowNamer(), quads: concreteQuads() });
   return { stair: sort(stair), beam: sort(beam), line: sort(line), column: sort(withApart(columnsFinal, apart)), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(withApart(wall, apart)), punching: sort(punching), levels: levelsUp([...beam, ...columnsFinal, ...slab, ...wall, ...punching, ...stair].map((r) => r.level)), footing, footingLayouts: footingLayouts.map((l) => ({ ...l, summary: layoutSummary(l.rows, code) })), foundation: chosen, code: codeName, basis, combos: sets.length, left };
 }
 

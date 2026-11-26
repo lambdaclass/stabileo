@@ -13,7 +13,7 @@ import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
 import { buildSheetRows, setRcOption, setSheetCode } from '../rc-sheets.svelte';
-import { PRO_EXAMPLES } from '../../data/pro-examples';
+import { galleryExample } from '../../data/__tests__/gallery-examples';
 import { CRITERION, localizeCriterion } from '../../rc-sheets/criteria';
 import { optionRule } from '../../rc-sheets/design-options';
 import { rulesFor } from '../../rc-sheets/codes';
@@ -25,7 +25,7 @@ beforeAll(async () => { await wasmSolver.initSolver(); });
 describe('the seven-storey example', () => {
   it('cites the Stabileo criteria, never the course', async () => {
     modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
-    await PRO_EXAMPLES.find((e) => e.id === 'pro-edificio-7p')!.load();
+    await galleryExample('pro-edificio-7p').load();
     ensurePhysicalModel();
     meshBeforeAnalysis.value = true;
     preparePlatesForAnalysis();

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t, i18n } from '../../../lib/i18n';
+  import { t, tp, i18n } from '../../../lib/i18n';
   import { modelStore } from '../../../lib/store';
   import { rcSheetsData, setAdopted, setLineBentBars } from '../../../lib/store/rc-sheets.svelte';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
@@ -40,32 +40,6 @@
       </label>
     {/each}
   </fieldset>
-  <fieldset>
-    <legend>{t('rcSheets.line.supports')}</legend>
-    {#each line.adopted.supportTop as g, j (j)}
-      <label>
-        <span>{j + 1}</span>
-        <input type="number" min="0" max="12" value={g.count} aria-label={t('rcSheets.ed.count')} onchange={(e) => patch((a) => setGroup(a.supportTop[j]!, 'count', num(e)))} />
-        <select value={g.dia} aria-label={t('rcSheets.ed.dia')} onchange={(e) => patch((a) => setGroup(a.supportTop[j]!, 'dia', num(e)))}>{#each LONG as d (d)}<option value={d}>Ø{d}</option>{/each}</select>
-      </label>
-    {/each}
-  </fieldset>
-  <fieldset>
-    <legend>{t('rcSheets.line.spans')}</legend>
-    {#each line.adopted.spanBottom as g, k (k)}
-      <label>
-        <span>{line.spans[k]?.name}</span>
-        <input type="number" min="0" max="12" value={g.count} aria-label={t('rcSheets.ed.count')} onchange={(e) => patch((a) => setGroup(a.spanBottom[k]!, 'count', num(e)))} />
-        <select value={g.dia} aria-label={t('rcSheets.ed.dia')} onchange={(e) => patch((a) => setGroup(a.spanBottom[k]!, 'dia', num(e)))}>{#each LONG as d (d)}<option value={d}>Ø{d}</option>{/each}</select>
-        {#if line.adopted.stirrups?.[k]}
-          {@const st = line.adopted.stirrups[k]!}
-          <select value={st.dia} aria-label={t('rcSheets.col.stirrups')} onchange={(e) => patch((a) => { a.stirrups![k] = { ...a.stirrups![k]!, dia: num(e) }; })}>{#each SMALL as d (d)}<option value={d}>Ø{d}</option>{/each}</select>
-          <span>c/</span>
-          <input type="number" min="5" max="40" step="2.5" value={Math.round(st.spacing * 1000) / 10} aria-label={t('rcSheets.ed.spacing')} onchange={(e) => patch((a) => { a.stirrups![k] = { ...a.stirrups![k]!, spacing: num(e) / 100 }; })} />
-        {/if}
-      </label>
-    {/each}
-  </fieldset>
   <label class="rle-bent">
     <span>{t('rcSheets.line.bentOverride')}</span>
     <select value={bentChoice} data-testid="rc-line-bent-choice" onchange={(e) => { const v = e.currentTarget.value; setLineBentBars(line.key, v === 'project' ? null : v === 'on'); }}>
@@ -74,18 +48,50 @@
       <option value="off">{t('rcSheets.line.bentOff')}</option>
     </select>
   </label>
-  {#if line.adopted.bent}
-    <fieldset data-testid="rc-line-bent">
-      <legend>{t('rcSheets.line.kind.bent')}</legend>
-      {#each line.adopted.bent as g, k (k)}
-        <label>
-          <span>{line.spans[k]?.name}</span>
-          <input type="number" min="0" max="12" value={g.count} aria-label={t('rcSheets.ed.count')} onchange={(e) => patch((a) => setGroup(a.bent![k]!, 'count', num(e)))} />
-          <select value={g.dia} aria-label={t('rcSheets.ed.dia')} onchange={(e) => patch((a) => setGroup(a.bent![k]!, 'dia', num(e)))}>{#each LONG as d (d)}<option value={d}>Ø{d}</option>{/each}</select>
-        </label>
-      {/each}
-    </fieldset>
-  {/if}
+  <fieldset class="rle-along" data-testid="rc-line-along">
+    <legend>{t('rcSheets.line.along')}</legend>
+    <p class="hint">{t('rcSheets.line.alongHint')}</p>
+    <table>
+      <thead><tr><th></th><th>{t('rcSheets.line.extraTop')}</th><th>{t('rcSheets.line.extraBottom')}</th>{#if line.adopted.bent}<th>{t('rcSheets.line.kind.bent')}</th>{/if}<th>{t('rcSheets.col.stirrups')}</th></tr></thead>
+      <tbody>
+        {#each line.adopted.supportTop as g, j (j)}
+          <tr class="rle-support" data-testid="rc-line-support-{j}">
+            <th scope="row">{tp('rcSheets.line.supportN', { n: j + 1 })}</th>
+            <td>
+              <input type="number" min="0" max="12" value={g.count} aria-label={t('rcSheets.ed.count')} onchange={(e) => patch((a) => setGroup(a.supportTop[j]!, 'count', num(e)))} />
+              <select value={g.dia} aria-label={t('rcSheets.ed.dia')} onchange={(e) => patch((a) => setGroup(a.supportTop[j]!, 'dia', num(e)))}>{#each LONG as d (d)}<option value={d}>Ø{d}</option>{/each}</select>
+            </td>
+            <td></td>{#if line.adopted.bent}<td></td>{/if}<td></td>
+          </tr>
+          {#if j < line.adopted.spanBottom.length}
+            {@const k = j}
+            {@const sb = line.adopted.spanBottom[k]!}
+            <tr class="rle-span" data-testid="rc-line-span-{k}">
+              <th scope="row">{line.spans[k]?.name}</th>
+              <td></td>
+              <td>
+                <input type="number" min="0" max="12" value={sb.count} aria-label={t('rcSheets.ed.count')} onchange={(e) => patch((a) => setGroup(a.spanBottom[k]!, 'count', num(e)))} data-testid="rc-line-span-bottom-{k}" />
+                <select value={sb.dia} aria-label={t('rcSheets.ed.dia')} onchange={(e) => patch((a) => setGroup(a.spanBottom[k]!, 'dia', num(e)))}>{#each LONG as d (d)}<option value={d}>Ø{d}</option>{/each}</select>
+              </td>
+              {#if line.adopted.bent}
+                {@const bg = line.adopted.bent[k]}
+                <td>{#if bg}
+                  <input type="number" min="0" max="12" value={bg.count} aria-label={t('rcSheets.ed.count')} onchange={(e) => patch((a) => setGroup(a.bent![k]!, 'count', num(e)))} />
+                  <select value={bg.dia} aria-label={t('rcSheets.ed.dia')} onchange={(e) => patch((a) => setGroup(a.bent![k]!, 'dia', num(e)))}>{#each LONG as d (d)}<option value={d}>Ø{d}</option>{/each}</select>
+                {/if}</td>
+              {/if}
+              <td>{#if line.adopted.stirrups?.[k]}
+                {@const st = line.adopted.stirrups[k]!}
+                <select value={st.dia} aria-label={t('rcSheets.col.stirrups')} onchange={(e) => patch((a) => { a.stirrups![k] = { ...a.stirrups![k]!, dia: num(e) }; })}>{#each SMALL as d (d)}<option value={d}>Ø{d}</option>{/each}</select>
+                <span>c/</span>
+                <input type="number" min="5" max="40" step="2.5" value={Math.round(st.spacing * 1000) / 10} aria-label={t('rcSheets.ed.spacing')} onchange={(e) => patch((a) => { a.stirrups![k] = { ...a.stirrups![k]!, spacing: num(e) / 100 }; })} />
+              {/if}</td>
+            </tr>
+          {/if}
+        {/each}
+      </tbody>
+    </table>
+  </fieldset>
   <div class="rle-actions">
     {#if line.isAdopted}
       <button type="button" class="rcs-btn" onclick={() => setAdopted(line.key, null)}>{t('rcSheets.useProposal')}</button>
@@ -105,6 +111,12 @@
   label span { color: var(--st-text-2); min-width: 2.5em; }
   input[type='number'] { width: 4em; }
   input, select { font-size: 0.72rem; background: var(--st-surface); color: var(--st-text); border: 1px solid var(--st-hair); border-radius: 4px; padding: 1px 3px; }
+  .rle-along table { border-collapse: collapse; font-size: 0.72rem; }
+  .rle-along th, .rle-along td { padding: 2px 6px; text-align: left; white-space: nowrap; }
+  .rle-along thead th { font-size: 0.64rem; font-weight: 600; color: var(--st-text-3); }
+  .rle-along tbody th { font-weight: 500; color: var(--st-text-2); }
+  .rle-along tr.rle-span { background: var(--st-surface-2); }
+  .rle-along .hint { margin: 0 0 4px; }
   .rle-actions { display: flex; align-items: center; gap: 8px; align-self: center; flex-wrap: wrap; }
   .hint { font-size: 0.7rem; color: var(--st-text-3); }
   .rcs-btn { font-size: 0.72rem; border: 1px solid var(--st-hair); background: var(--st-surface-2); color: var(--st-text); border-radius: 4px; padding: 3px 8px; cursor: pointer; }

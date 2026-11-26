@@ -10,7 +10,7 @@ import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
 import { buildSheetRows } from '../rc-sheets.svelte';
 import { designData, patchDesignData } from '../design-data';
-import { PRO_EXAMPLES } from '../../data/pro-examples';
+import { galleryExample } from '../../data/__tests__/gallery-examples';
 import { setFoundationSystem } from '../rc-sheets-footings';
 import { PRESUMED_BEARING_RANGE, migrateDesignData } from '../../model/design-data';
 
@@ -19,7 +19,7 @@ afterEach(() => { uiStore.analysisMode = '3d'; });
 
 async function openSolved() {
   modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
-  await PRO_EXAMPLES.find((e) => e.id === 'rc-qa-diagnostic')!.load();
+  await galleryExample('rc-qa-diagnostic').load();
   syncDefinedLoadsForAnalysis(); recognizePhysicalElements();
   resultsStore.setResults3D(modelStore.solve3D(false, false, true) as never);
   publishCombinations3D(modelStore.solveCombinations3D(false, false, true) as never);

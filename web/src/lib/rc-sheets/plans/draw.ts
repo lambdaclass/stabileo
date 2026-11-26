@@ -11,7 +11,7 @@ import type { Fmt } from '../format';
 
 export type { Tr };
 
-export const COTA = 'ST-COTA', TEXTO = 'ST-TEXTO', HORM = 'ST-HORM', EJES = 'ST-EJES';
+export const COTA = 'ST-COTA', TEXTO = 'ST-TEXTO', HORM = 'ST-HORM', EJES = 'ST-EJES', RAYADO = 'ST-RAYADO';
 
 /** Top and bottom bars, bent-up bars, stirrups and ties, column bars, the four slab layers, a wall's verticals, horizontals and edge bars. */
 export type ArmLayer = 'SUP' | 'INF' | 'LEV' | 'EST' | 'LONG' | 'INFX' | 'INFY' | 'SUPX' | 'SUPY' | 'VERT' | 'HOR' | 'BORDE';
@@ -66,6 +66,22 @@ export function extent(ps: readonly Primitive[], scale: number): { x0: number; y
 export function framed(key: string, title: string, primitives: Primitive[], scale: number, group: string, margin = 4): DrawingInput {
   const b = extent(primitives, scale), m = margin * scale;
   return { key, title, primitives, width: b.x1 - b.x0 + 2 * m, height: b.y1 - b.y0 + 2 * m, origin: pt(b.x0 - m, b.y0 - m), scale, group };
+}
+
+/** Lines at 45° every `gap` across a rectangle, the hatching of concrete cut. */
+export function hatch(x0: number, y0: number, x1: number, y1: number, gap: number): Primitive[] {
+  const out: Primitive[] = [];
+  for (let c = x0 - (y1 - y0) + gap / 2; c < x1; c += gap) {
+    const a = pt(Math.max(x0, c), y0 + Math.max(0, x0 - c)), b = pt(Math.min(x1, c + (y1 - y0)), y0 + Math.min(y1 - y0, x1 - c));
+    if (b.x - a.x > 1e-6) out.push(seg(RAYADO, a, b));
+  }
+  return out;
+}
+
+/** A break line across a cut member from `y0` to `y1` at `x`: straight, with a Z at its middle, `s` the drawing's scale. */
+export function breakLine(x: number, y0: number, y1: number, s: number): Primitive {
+  const m = (y0 + y1) / 2, z = Math.min(1.2 * s, Math.abs(y1 - y0) / 4);
+  return { kind: 'polyline', layer: HORM, points: [pt(x, y0 - s), pt(x, m - z), pt(x + z, m - z / 3), pt(x - z, m + z / 3), pt(x, m + z), pt(x, y1 + s)] };
 }
 
 /** Centimetres, as the dimensions of a reinforcement drawing read. */

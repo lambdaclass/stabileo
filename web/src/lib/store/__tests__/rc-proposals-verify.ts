@@ -15,13 +15,13 @@ import { buildSheetRows, setSheetCode, type SheetRow } from '../rc-sheets.svelte
 import { patchDesignData, designData } from '../design-data';
 import { alternatives, lineAlternatives, noArrangement } from '../rc-sheets-resize';
 import { lineRowStatus } from '../../rc-sheets/beam-line';
-import { PRO_EXAMPLES } from '../../data/pro-examples';
+import { galleryExample } from '../../data/__tests__/gallery-examples';
 import { SHEET_CODE_LIST, type SheetCode } from '../../rc-sheets/types';
 import { setFoundationSystem } from '../rc-sheets-footings';
 
 export async function solveExample(id: string): Promise<void> {
   modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
-  await PRO_EXAMPLES.find((e) => e.id === id)!.load();
+  await galleryExample(id).load();
   ensurePhysicalModel();
   meshBeforeAnalysis.value = true;
   preparePlatesForAnalysis();

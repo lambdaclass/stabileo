@@ -86,7 +86,7 @@ describe('the concrete ghost of the sheets\' bars', () => {
     const rows = buildSheetRows();
     const bars = sheetBars3d(rows), ghosts = sheetGhosts3d(rows);
     expect(sheetGhosts3d(rows)).toBe(ghosts);
-    for (const f of REBAR_FAMILIES.filter((x) => x !== 'punching')) expect(ghosts.some((g) => g.family === f), f).toBe(f !== 'footing' || rows.footing.length > 0);
+    for (const f of REBAR_FAMILIES.filter((x) => x !== 'punching')) expect(ghosts.some((g) => g.family === f), f).toBe(f === 'footing' ? rows.footing.length > 0 : f === 'stair' ? rows.stair.length > 0 : true);
     expect(ghosts.some((g) => g.family === 'punching')).toBe(false);
     oneGhostEach(rows, ghosts, bars);
 

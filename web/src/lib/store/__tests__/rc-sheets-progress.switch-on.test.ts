@@ -14,7 +14,7 @@ import { footingPreview } from '../rc-sheets-footing-preview.svelte';
 import { sheetsProgress, sheetsSecondsLeft } from '../rc-sheets-progress.svelte';
 import { FOUNDATION_SYSTEMS } from '../../rc-sheets/footing-types';
 import { makeFmt } from '../../rc-sheets/format';
-import { PRO_EXAMPLES } from '../../data/pro-examples';
+import { galleryExample } from '../../data/__tests__/gallery-examples';
 import { i18n } from '../../i18n';
 import RcSheetsProgress from '../../../components/pro/rc-sheets/RcSheetsProgress.svelte';
 
@@ -40,7 +40,7 @@ describe('a sheets run on a building with footings', () => {
   beforeAll(async () => {
     await wasmSolver.initSolver();
     modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
-    await PRO_EXAMPLES.find((e) => e.id === 'rc-qa-diagnostic')!.load();
+    await galleryExample('rc-qa-diagnostic').load();
     ensurePhysicalModel();
     meshBeforeAnalysis.value = true;
     preparePlatesForAnalysis();

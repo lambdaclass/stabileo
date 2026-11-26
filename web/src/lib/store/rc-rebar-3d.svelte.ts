@@ -14,7 +14,7 @@ import type { SheetFamily } from '../rc-sheets/types';
 import { storeyOf } from '../rc-sheets/storeys';
 
 export type Rebar3dFamily = SheetFamily;
-export const REBAR_FAMILIES: readonly Rebar3dFamily[] = ['beam', 'column', 'slab', 'wall', 'punching', 'footing'];
+export const REBAR_FAMILIES: readonly Rebar3dFamily[] = ['beam', 'column', 'slab', 'wall', 'punching', 'footing', 'stair'];
 
 const GHOST_KEY = 'stabileo-rc-rebar-3d-ghost';
 
@@ -109,8 +109,10 @@ export function modelFrames(rows: SheetRows): Rebar3dFrames {
     strap(r, s) {
       const other = footings.get(s.partnerKey);
       if (!other || !s.line) return null;
-      const at = s.from ?? r.demand.at, k = s.axis === 'x' ? 0 : 1;
-      const toward = Math.sign((k === 0 ? other.demand.at.x - at.x : other.demand.at.y - at.y)) || 1;
+      const own = s.from ?? r.demand.at, k = s.axis === 'x' ? 0 : 1;
+      const fromOther = s.lineFrom === s.partnerKey && s.lineFrom !== r.key;
+      const at = fromOther ? (k === 0 ? { x: other.demand.at.x, y: own.y } : { x: own.x, y: other.demand.at.y }) : own, far = fromOther ? own : other.demand.at;
+      const toward = Math.sign((k === 0 ? far.x - at.x : far.y - at.y)) || 1;
       const under = r.founding, hMax = Math.max(...s.line.spans.map((sp) => sp.h));
       const x: V3 = k === 0 ? [toward, 0, 0] : [0, toward, 0];
       return { o: [at.x, at.y, under + r.adopted.h - hMax / 2], x, y: [-x[1], x[0], 0], z: [0, 0, 1] };

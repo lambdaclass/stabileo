@@ -3,6 +3,7 @@ import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../engine/member-diagram';
 import { shellCentreRows, shellLocalAxes, type ShellCentreRow, type ShellModel } from '../engine/shell-results';
 import { woodArmer } from '../engine/wood-armer';
 import { effectiveFlange, type FlangeSide } from '../codes/cirsoc201/effective-flange';
+import type { SlabBeside } from '../engine/design/beam-flange';
 import { wallBaseResultants } from './wall-design';
 import type { AnalysisResults3D, ElementForces3D } from '../engine/types-3d';
 import type { BeamComboForces, BeamDemand, BeamEnd, SectionEnv, SupportPost } from './beam-row';
@@ -22,6 +23,8 @@ type El = { id: number; nodeI: number; nodeJ: number; sectionId: number; type?: 
 
 export interface DemandGroup {
   id: number; name: string; kind: string;
+  /** A slab whose sloped shells the stairs design, never the slab panels: declared a stair, or recognized rather than declared a slab. */
+  stair?: boolean;
   level?: string;
   elements: number[]; quads: number[]; plates: number[];
 }
@@ -29,8 +32,8 @@ export interface DemandGroup {
 export interface DemandSet {
   name: string;
   result: AnalysisResults3D;
-  /** Sum of the factors the combination gives the dead-load cases. */
-  deadFactor?: number;
+  /** The factor the combination gives each of the input's `dead` cases, in their order. */
+  deadFactors?: readonly number[];
   /** The combination carries an earthquake case. */
   seismic?: boolean;
   /** Its wind and earthquake cases at their factors, first order: what sways a storey. */
@@ -64,6 +67,8 @@ export interface DemandInput {
   flangeSides?: (elementId: number) => readonly FlangeSide[] | undefined;
   /** On how many sides a beam element has slab. */
   slabSides?: (elementId: number) => number;
+  /** The slabs beside a beam element, for its drawing (`beamSlabsBeside`). */
+  slabsBeside?: (elementId: number) => readonly SlabBeside[] | undefined;
   /** A member's local axes as the solve builds them; absent, they are built from its nodes and roll. */
   axesOf?: (elementId: number) => { ex: V3; ey: V3; ez: V3 } | null;
 }
@@ -371,11 +376,23 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
         ...(m.slabSides ? { perimeter: span.some(({ e }) => m.slabSides!(e.id) < 2) } : {}),
         env,
         ...((fl) => (fl ? { flange: fl } : {}))(m.flangeSides && !turned ? flangeOf(m, span, sec.b, x1 - x0) : null),
+        ...((sl) => (sl ? { slabs: sl } : {}))(slabsAlong(m, span)),
         ...(missing.length ? { missing } : {}),
       });
     });
   }
   return out;
+}
+
+/** The slabs beside a span, sides read along the line: those of its middle element, else its first with any. */
+function slabsAlong(m: DemandInput, span: ReadonlyArray<{ e: El; forward: boolean }>): SlabBeside[] | null {
+  if (!m.slabsBeside) return null;
+  const order = [span[Math.floor(span.length / 2)]!, ...span];
+  for (const { e, forward } of order) {
+    const s = m.slabsBeside(e.id);
+    if (s?.length) return s.map((x) => ({ ...x, side: (forward ? x.side : -x.side) as 1 | -1 })).sort((x, y) => y.side - x.side);
+  }
+  return null;
 }
 
 /** Nodes a horizontal shell takes: a flat slab cuts a column into storeys as a beam does. */
@@ -435,7 +452,7 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
       const psiBot = pb ? (bottom.forward ? pb.psiA : pb.psiB) : 1, psiTop = pt ? (top.forward ? pt.psiB : pt.psiA) : 1;
       const at = (ef: ElementForces3D | undefined, forward: boolean, end: 'bottom' | 'top') =>
         ef ? extractForcesAtStation(ef, (end === 'bottom') === forward ? 0 : 1) : undefined;
-      const deadPu = deadBy.reduce((s, by) => s - (at(by.get(bottom.e.id), bottom.forward, 'bottom')?.n ?? 0), 0);
+      const deadPu = deadBy.map((by) => -(at(by.get(bottom.e.id), bottom.forward, 'bottom')?.n ?? 0));
       const cases: ColumnCase[] = [];
       const missing: string[] = [];
       const endMoments = (r: AnalysisResults3D | undefined) => {
@@ -460,7 +477,7 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
           .map((x) => ({ pu: -x.s.n, mx: x.s.my, my: x.s.mz }));
         cases.push({
           combo: set.name, pu: Math.max(-b.n, -t.n), puMin: Math.min(-b.n, -t.n),
-          ...(m.dead?.length && set.deadFactor !== undefined ? { puD: Math.max(0, set.deadFactor * deadPu) } : {}),
+          ...(deadPu.length && set.deadFactors?.length === deadPu.length ? { puD: Math.max(0, deadPu.reduce((sum, p, i) => sum + set.deadFactors![i]! * p, 0)) } : {}),
           mxTop: t.my, mxBot: b.my, myTop: t.mz, myBot: b.mz, vx, vy, tu,
           ...(axes ? { base: cutOf(b, axes, bottom.forward ? 1 : -1) } : {}),
           ...(inner.length ? { inner } : {}),
@@ -610,7 +627,7 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
         flipOf.set(`${kind === 'quad' ? 'q' : 'p'}${id}`, ax.ez[2] >= 0 ? 1 : -1);
       }
     }
-    if (!horizontal && g.kind !== 'slab') continue;
+    if (!horizontal && (g.kind !== 'slab' || g.stair)) continue;
     const h = thickness(g);
     if (!h) continue;
     const posts = slabPosts(m, keys, h);

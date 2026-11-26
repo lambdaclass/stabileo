@@ -59,6 +59,8 @@ export interface BeamDemand {
   faces?: { start: number; end: number; shearAt: number };
   /** The slab as a compression flange for sagging (Table 6.3.2.1), m. */
   flange?: { bf: number; hf: number };
+  /** The slabs beside the span, sides read along the line (+1 to its left), for its sections' drawing, m. */
+  slabs?: ReadonlyArray<{ side: 1 | -1; hf: number; top: number }>;
   /** The physical beam this span belongs to and its place in it. */
   line?: { group: number; index: number; spans: number; startNode: number; endNode: number; lineName: string };
   /** Envelope along the span over all combinations: largest sagging, hogging (kN·m) and shear (kN), each with its axial force (kN, + compression). */

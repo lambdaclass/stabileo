@@ -17,6 +17,7 @@ import { RESULTS_VERSION } from '../provenance/registry';
 import { untouchedDefaults, DEFAULT_CASE_NAME_KEYS } from '../model/default-loads';
 import { t } from '../i18n';
 import { msg } from '../codes/message';
+import type { FloorLoadDef } from '../model/loads/floor-definitions';
 import { hasModalSeismicDerivation, MODAL_SEISMIC_UNAVAILABLE } from '../engine/loads/seismic-generation';
 
 export interface ApplyLoadPlanOptions {
@@ -187,6 +188,11 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
       const ids = new Set(gone.loads);
       modelStore.replaceLoads(modelStore.loads.filter((l) => !ids.has(l.data.id)));
       for (const id of gone.combinations) modelStore.removeCombination(id);
+      const types = new Set(p.cases.map((c) => String(c.type)));
+      for (const g of [...modelStore.model.groups.values()]) {
+        const def = g.kind === 'floorLoad' ? g.data as unknown as FloorLoadDef & { generatedBy?: string } : null;
+        if (def?.generatedBy && types.has(modelStore.model.loadCases.find((c) => c.id === def.caseId)?.type ?? '')) modelStore.removeGroup(g.id);
+      }
       // And the composite cases the generator wrote for them, which nothing takes now: they
       // stayed, solved and listed (`takeBackCompositeCases`).
       takeBackCompositeCases();
@@ -237,12 +243,24 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
       const id = caseOf('T', th.caseIndex);
       if (id === undefined) continue;
       if (th.elementId !== undefined) modelStore.addThermalLoad(th.elementId, th.dtUniform, th.dtGradient, id);
-      else if (th.quadId !== undefined) modelStore.addThermalLoadQuad3D(th.quadId, th.dtUniform, th.dtGradient, id);
+      else if (th.quadId !== undefined && th.quadId > 0) modelStore.addThermalLoadQuad3D(th.quadId, th.dtUniform, th.dtGradient, id);
     }
+    const onPlates = new Map<string, { groupId: number; caseId: number; q: number; dir?: [number, number, number] }>();
     for (const s of p.surface) {
       const id = caseOf(s.caseType, s.caseIndex);
       if (id === undefined) continue;
+      if (s.quadId < 0) {
+        const dir = s.frame === 'global' ? s.dir : undefined;
+        const key = `${-s.quadId}:${id}:${dir ?? ''}`, d = onPlates.get(key);
+        onPlates.set(key, { groupId: -s.quadId, caseId: id, q: (d?.q ?? 0) + s.q, ...(dir ? { dir } : {}) });
+        continue;
+      }
       modelStore.addSurfaceLoad3D(s.quadId, s.q, id, { ...(s.frame ? { frame: s.frame, dir: s.dir, vary: s.vary } : {}), ...(s.on ? { on: s.on } : {}) });
+    }
+    for (const d of onPlates.values()) {
+      const def: FloorLoadDef & { generatedBy: string } = { caseId: d.caseId, q: d.q, target: { by: 'group', groupId: d.groupId }, distribution: 'slab', ...(d.dir ? { dir: d.dir } : {}), generatedBy: p.generatedBy ?? 'generator' };
+      const name = `${modelStore.model.groups.get(d.groupId)?.name ?? `#${d.groupId}`} · ${modelStore.model.loadCases.find((c) => c.id === d.caseId)?.name ?? d.caseId}`;
+      modelStore.addGroup(name, 'floorLoad', {}, { data: def as unknown as Record<string, unknown> });
     }
 
     // The user's own cases of a type the plan generates into a group of its own (the live load

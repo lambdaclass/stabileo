@@ -39,6 +39,8 @@ export interface FloorLoadDef {
   spanAxis?: 'x' | 'y';
   /** On an inclined floor, q per plan area. */
   perPlanArea?: boolean;
+  /** Onto the slab only: q along this global direction (a storey's horizontal force), not down. */
+  dir?: P3;
 }
 
 export interface ZoneData {
@@ -156,7 +158,7 @@ export function expandDefinition(m: DefinitionModel, def: FloorLoadDef, own: Gro
   if (def.distribution === 'slab') {
     const loads: Load[] = [];
     const extra = {
-      ...(def.perPlanArea ? { frame: 'projected' as const, dir: [0, 0, -1] as P3 } : {}),
+      ...(def.dir ? { frame: 'global' as const, dir: def.dir } : def.perPlanArea ? { frame: 'projected' as const, dir: [0, 0, -1] as P3 } : {}),
       ...(zone ? { region: { normal: [0, 0, 1] as P3, points: zone.outer, ...(zone.holes.length ? { holes: zone.holes } : {}) } } : {}),
     };
     // In a zone, only the shells it reaches: every shell of its plane was given a load, those

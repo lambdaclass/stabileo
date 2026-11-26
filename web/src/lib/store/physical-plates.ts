@@ -32,6 +32,7 @@ import { cross, type Vec3 } from '../model/edit/affine';
 import { generateMesh, MAX_MESH_CELLS, MAX_MESH_POINTS, type MeshOutput } from '../model/edit/mesher';
 import { frameAlong, gridMesh } from '../model/edit/grid-mesh';
 import { rectGrid } from '../model/edit/rect-grid';
+import { axisStations, linesAlong, type AxisLines } from '../model/edit/tartan';
 import { addedMeshStations, meshStations, sameMeshNode, sharedFrameStations, stationIndex, strictlyOrAt } from '../model/edit/mesh-stations';
 import { applyMesh, applyPlacedMesh, placeMesh, regionOccupied, validCells, type MeshPlacement } from '../model/edit/mesh-apply';
 import { weldTolerance } from '../model/weld-tolerance';
@@ -155,6 +156,40 @@ function footprintsOf(e: PlateEntry, geo: NonNullable<ReturnType<typeof plateGeo
   const x0 = Math.min(...corners.map((c) => c.x)), x1 = Math.max(...corners.map((c) => c.x)), y0 = Math.min(...corners.map((c) => c.y)), y1 = Math.max(...corners.map((c) => c.y));
   const near = columns.filter((c) => c.x > x0 - c.hx - 1e-6 && c.x < x1 + c.hx + 1e-6 && c.y > y0 - c.hy - 1e-6 && c.y < y1 + c.hy + 1e-6);
   return near.length ? { corners, columns: near, z } : null;
+}
+
+/** The lines of the plates being meshed together, by mesh size (`tartan.ts`); null outside such a run. */
+let tartan: Map<number, AxisLines> | null = null;
+
+/** Every coordinate the plates `ids` force along each global axis their planes contain, laid out at each one's mesh size. A slab's column faces are its floor's own, added by the slab: a column narrower above would otherwise put both faces on every floor. */
+function tartanOf(ids: Iterable<number>, specs: ReadonlyMap<number, PlateMeshSpec>, replaced?: ReadonlyMap<number, number>): Map<number, AxisLines> {
+  const forced = new Map<number, [number[], number[], number[]]>();
+  for (const id of ids) {
+    const e = plateEntry(id), spec = specs.get(id);
+    const f = e && spec ? featuresOf(e, replaced) : null;
+    if (!e || !spec || !f) continue;
+    const n = f.geo.frame.n, size = spec.size;
+    const lists = forced.get(size) ?? [[], [], []];
+    forced.set(size, lists);
+    const pts = [...f.geo.outer, ...f.geo.holes.flat(), ...(f.features?.points ?? []), ...(f.features?.segments.flat() ?? [])];
+    for (const k of [0, 1, 2] as const) if (Math.abs(n[k]) < 1e-9) for (const p of pts) lists[k].push(p[k]);
+  }
+  return new Map([...forced].map(([size, l]) => [size, l.map((v) => axisStations(v, size)) as unknown as AxisLines]));
+}
+
+/** The run's lines along a plate frame's directions, where it is in one. */
+function tartanLines(spec: PlateMeshSpec, frame: { o: Vec3; u: Vec3; v: Vec3 }, cells?: { a: number; b: number }): { u: number[] | null; v: number[] | null } | undefined {
+  const lines = tartan?.get(spec.size);
+  const on = (side: number | undefined) => side === undefined || Math.abs(side - spec.size) < 1e-9;
+  return lines ? { u: on(cells?.a) ? linesAlong(lines, frame.o, frame.u) : null, v: on(cells?.b) ? linesAlong(lines, frame.o, frame.v) : null } : undefined;
+}
+
+/** The run's lines along X and Y for a slab panel's column-section grid, where its cell along that axis is the run's size. */
+function tartanXY(spec: PlateMeshSpec, cells: { ax: number; ay: number }): { xs: readonly number[] | null; ys: readonly number[] | null } | null {
+  const lines = tartan?.get(spec.size);
+  if (!lines) return null;
+  const on = (side: number) => Math.abs(side - spec.size) < 1e-9;
+  return { xs: on(cells.ax) ? lines[0] : null, ys: on(cells.ay) ? lines[1] : null };
 }
 
 const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
@@ -670,12 +705,20 @@ function keptMeshNodes(e: PlateEntry): number {
  * The mesh each plate would get, without changing the model. `spec` overrides each plate's own
  * settings (the batch's common settings). Yields between plates and stops when `signal` aborts.
  */
+/** The run's lines for a batch planned together, as applying it lays them out (`conformingMeshes`). */
+function batchTartan(ids: readonly number[], spec?: Partial<PlateMeshSpec>): Map<number, AxisLines> {
+  const specs = new Map(ids.flatMap((id) => { const e = plateEntry(id); return e ? [[id, specOf(e, spec)] as const] : []; }));
+  const replaced = new Map<number, number>();
+  for (const key of ids.flatMap(plateShellKeys)) for (const n of (key[0] === 'q' ? modelStore.quads.get(+key.slice(1)) : modelStore.plates.get(+key.slice(1)))?.nodes ?? []) replaced.set(n, (replaced.get(n) ?? 0) + 1);
+  return tartanOf(specs.keys(), specs, replaced);
+}
+
 export async function planPlateMeshes(ids: readonly number[], spec?: Partial<PlateMeshSpec>, opts: { signal?: AbortSignal; onProgress?: (done: number, total: number) => void } = {}): Promise<PlateMeshPlan[] | null> {
   const out: PlateMeshPlan[] = [];
-  const meshedAgain = new Set(ids.flatMap(plateShellKeys));
+  const meshedAgain = new Set(ids.flatMap(plateShellKeys)), lines = batchTartan(ids, spec);
   for (let i = 0; i < ids.length; i++) {
     if (opts.signal?.aborted) return null;
-    const plan = planPlateMesh(ids[i]!, spec, { meshedAgain });
+    const plan = planPlateMesh(ids[i]!, spec, { meshedAgain, lines });
     if (plan) out.push(plan);
     opts.onProgress?.(i + 1, ids.length);
     if (ids.length > 1) await nextFrame();
@@ -684,12 +727,19 @@ export async function planPlateMeshes(ids: readonly number[], spec?: Partial<Pla
 }
 
 function planPlateMeshesNow(ids: readonly number[]): PlateMeshPlan[] {
-  const meshedAgain = new Set(ids.flatMap(plateShellKeys));
-  return ids.map((id) => planPlateMesh(id, undefined, { meshedAgain })).filter((plan): plan is PlateMeshPlan => !!plan);
+  const meshedAgain = new Set(ids.flatMap(plateShellKeys)), lines = batchTartan(ids);
+  return ids.map((id) => planPlateMesh(id, undefined, { meshedAgain, lines })).filter((plan): plan is PlateMeshPlan => !!plan);
 }
 
 /** One plate's plan, synchronously. */
-export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>, opts: { meshedAgain?: ReadonlySet<string>; replaced?: ReadonlyMap<number, number> } = {}): PlateMeshPlan | null {
+export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>, opts: { meshedAgain?: ReadonlySet<string>; replaced?: ReadonlyMap<number, number>; lines?: Map<number, AxisLines> } = {}): PlateMeshPlan | null {
+  if (!opts.lines) return planPlateMeshNow(id, specOverride, opts);
+  const outside = tartan;
+  tartan = opts.lines;
+  try { return planPlateMeshNow(id, specOverride, opts); } finally { tartan = outside; }
+}
+
+function planPlateMeshNow(id: number, specOverride?: Partial<PlateMeshSpec>, opts: { meshedAgain?: ReadonlySet<string>; replaced?: ReadonlyMap<number, number> } = {}): PlateMeshPlan | null {
   const e = plateEntry(id);
   if (!e) return null;
   const spec = specOf(e, specOverride);
@@ -739,8 +789,10 @@ export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>,
     const { gridCells, bandCells, cellA, cellB, ...mesh } = g;
     return preview(mesh, bandCells > 0, { grid: { gridCells, bandCells, cellA, cellB }, aDir: frame.u, bDir: frame.v });
   }
-  const general = generateMesh(input);
-  const mesh = general?.structured ? general : rectGridOf(f.geo, spec, f.features, neighbourEdges(e, f, opts.meshedAgain)) ?? general;
+  // In a run sharing grid lines, a rectilinear plate takes them: a mesh of its own divisions met its neighbours' only by slivers.
+  const shared = tartan ? rectGridOf(f.geo, spec, f.features, neighbourEdges(e, f, opts.meshedAgain)) : null;
+  const general = shared ? null : generateMesh(input);
+  const mesh = shared ?? (general?.structured ? general : rectGridOf(f.geo, spec, f.features, neighbourEdges(e, f, opts.meshedAgain)) ?? general);
   if (!mesh) return { ...base, mesh: null, refused: 'cannotMesh', cells: 0, quality: null, signature, input, mixed: false };
   if (mesh.cells.length > MAX_MESH_CELLS) return { ...base, mesh: null, refused: 'tooManyCells', cells: mesh.cells.length, quality: null, signature, input, mixed: false };
   return preview(mesh, spec.element === 'quad' && !mesh.structured);
@@ -795,9 +847,11 @@ function meshHangsNeighbours(e: PlateEntry, f = featuresOf(e)): boolean {
  * mesher meets better: the grid stands, and that neighbour waits for a mesh of its own.
  */
 function rectGridOf(geo: NonNullable<ReturnType<typeof plateGeometry>>, spec: PlateMeshSpec, features: { points: Vec3[]; segments: Array<[Vec3, Vec3]> } | null, shellNeighbours: ReadonlyArray<readonly [Vec3, Vec3]>, along?: { frame: PlateFrameLike; a: number; b: number }): MeshOutput | null {
+  const frame = along?.frame ?? geo.frame, lines = tartanLines(spec, frame, along ? { a: along.a, b: along.b } : undefined);
   const g = rectGrid({
-    frame: along?.frame ?? geo.frame, outer: geo.outer, holes: geo.holes, a: along?.a ?? spec.size, b: along?.b ?? spec.size, element: spec.element, maxCells: MAX_MESH_CELLS,
+    frame, outer: geo.outer, holes: geo.holes, a: along?.a ?? spec.size, b: along?.b ?? spec.size, element: spec.element, maxCells: MAX_MESH_CELLS,
     fixedPoints: features?.points ?? [], fixedSegments: spec.followMembers && features ? features.segments : [],
+    ...(lines ? { lines } : {}),
   });
   if (!g) return null;
   const corner = (p: Vec3) => [geo.outer, ...geo.holes].some((l) => l.some((q) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]) < 1e-6));
@@ -817,10 +871,10 @@ function footprintMesh(f: NonNullable<ReturnType<typeof featuresOf>>, fp: NonNul
   const segments = follow?.segments ?? [];
   if (segments.some(([a, b]) => Math.abs(a[0] - b[0]) > 1e-6 && Math.abs(a[1] - b[1]) > 1e-6)) return null;
   const points = follow ? follow.points : [...f.neighbours].map(v3).filter((p): p is Vec3 => !!p && onLoops(loops, p));
-  const ends = segments.flat();
-  const mesh = footprintGrid(fp.corners, cells, fp.columns, {
-    xs: [...points, ...ends].map((p) => p[0]),
-    ys: [...points, ...ends].map((p) => p[1]),
+  const ends = segments.flat(), lines = tartanXY(spec, cells);
+  const mesh = footprintGrid(fp.corners, { ...cells, ...(lines?.xs ? { ax: Infinity } : {}), ...(lines?.ys ? { ay: Infinity } : {}) }, fp.columns, {
+    xs: [...[...points, ...ends].map((p) => p[0]), ...(lines?.xs ?? [])],
+    ys: [...[...points, ...ends].map((p) => p[1]), ...(lines?.ys ?? [])],
   });
   if (!mesh) return null;
   const on = new Set(mesh.points.map((p) => `${Math.round(p[0] * 1e4)},${Math.round(p[1] * 1e4)}`));
@@ -992,19 +1046,33 @@ function withSharedMesh(p: ReadyPlateMesh, mesh: MeshOutput): ReadyPlateMesh {
   return { ...p, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), mixed: p.spec.element === 'quad' && !mesh.structured };
 }
 
-function refinePerforatedGrid(p: ReadyPlateMesh, stationsOn: (a: Vec3, b: Vec3) => Vec3[], weld: number): ReadyPlateMesh {
+/** A slab panel's column-section grid again, with a line through each of `fixedPoints` (`footprintGrid`). */
+function footprintRefined(p: ReadyPlateMesh, outer: readonly Vec3[], fixedPoints: readonly Vec3[]): MeshOutput | null {
+  const grid = gridOfSpec(p.spec), alongX = (p.aDir?.[0] ?? 1) !== 0;
+  const a = grid?.a ?? p.spec.size, b = grid?.b ?? p.spec.size, cells = { ax: alongX ? a : b, ay: alongX ? b : a }, lines = tartanXY(p.spec, cells);
+  return footprintGrid(outer.map(([x, y, z]) => ({ x, y, z })), { ax: lines?.xs ? Infinity : cells.ax, ay: lines?.ys ? Infinity : cells.ay, element: p.spec.element }, p.footprints!.columns, {
+    xs: [...fixedPoints.map((q) => q[0]), ...(lines?.xs ?? [])], ys: [...fixedPoints.map((q) => q[1]), ...(lines?.ys ?? [])],
+  });
+}
+
+/**
+ * A structured grid of quads met by its neighbours' nodes, meshed again with a line through each,
+ * so it stays a grid of rectangles where splitting its edge cells would skew them.
+ */
+function refineGridToStations(p: ReadyPlateMesh, stationsOn: (a: Vec3, b: Vec3) => Vec3[], weld: number): ReadyPlateMesh {
   const { outer, holes } = p.input;
-  if (!p.mesh.structured || p.spec.element !== 'quad' || !holes.length || outer.kind !== 'polygon') return p;
+  if (!p.mesh.structured || p.spec.element !== 'quad' || outer.kind !== 'polygon') return p;
   const holePoints = holes.flatMap(hole => hole.kind === 'polygon' ? [hole.points] : []);
   if (holePoints.length !== holes.length) return p;
   const stations = addedMeshStations(p.mesh, stationsOn, weld);
   if (!stations.length) return p;
   const { plane } = p.mesh;
   const fixedPoints = [...p.mesh.points, ...stations];
-  const refined = rectGrid({
+  const lines = tartanLines(p.spec, plane, { a: p.grid?.cellA ?? p.spec.size, b: p.grid?.cellB ?? p.spec.size });
+  const refined = p.footprints ? footprintRefined(p, outer.points, fixedPoints) : rectGrid({
     frame: { ...plane, n: cross(plane.u, plane.v) }, outer: outer.points, holes: holePoints,
     a: p.grid?.cellA ?? p.spec.size, b: p.grid?.cellB ?? p.spec.size, element: 'quad',
-    fixedPoints, maxCells: MAX_MESH_CELLS,
+    fixedPoints, maxCells: MAX_MESH_CELLS, ...(lines ? { lines } : {}),
   });
   if (!refined || refined.points.length > MAX_MESH_POINTS) return p;
   const indexed = stationIndex(refined.points);
@@ -1020,6 +1088,11 @@ function refinePerforatedGrid(p: ReadyPlateMesh, stationsOn: (a: Vec3, b: Vec3) 
 }
 
 function planConformingMeshes(plans: readonly PlateMeshPlan[], report: PlateMeshReport, forAnalysis: boolean): ReadyPlateMesh[] {
+  const outside = tartan;
+  try { return conformingMeshes(plans, report, forAnalysis); } finally { tartan = outside; }
+}
+
+function conformingMeshes(plans: readonly PlateMeshPlan[], report: PlateMeshReport, forAnalysis: boolean): ReadyPlateMesh[] {
   const requested = new Map(plans.map(p => [p.id, p]));
   const specs = new Map(plans.map(p => [p.id, p.spec]));
   const entries = physicalPlates();
@@ -1047,6 +1120,7 @@ function planConformingMeshes(plans: readonly PlateMeshPlan[], report: PlateMesh
         }
       }
     }
+    tartan = tartanOf(specs.keys(), specs, replaced);
     const drafts: ReadyPlateMesh[] = [];
     for (const [id, spec] of specs) {
       const p = planPlateMesh(id, spec, { meshedAgain, replaced });
@@ -1062,9 +1136,16 @@ function planConformingMeshes(plans: readonly PlateMeshPlan[], report: PlateMesh
     const frameNodes = memberChains(plateModel(), owned).flat();
     const frame = stationIndex([...new Set(frameNodes)].map(v3).filter((p): p is Vec3 => p !== null));
     const existing = [...untouched].map(([id, cells]) => ({ id, cells, stations: stationIndex(cells.flat()) }));
-    const preliminary = sharedStationsFor(drafts, existing, frame);
-    const grids = drafts.map((p, i) => refinePerforatedGrid(p, preliminary[i]!, weld));
-    const stationsFor = grids.some((p, i) => p !== drafts[i]) ? sharedStationsFor(grids, existing, frame) : preliminary;
+    // A grid met again passes the new stations on to its own neighbours, one plate further a pass
+    // (down a stack of walls a storey at a time): refined until none changes.
+    let grids: ReadyPlateMesh[] = drafts;
+    let stationsFor = sharedStationsFor(grids, existing, frame);
+    for (let pass = 0; pass <= drafts.length; pass++) {
+      const next = grids.map((p, i) => refineGridToStations(p, stationsFor[i]!, weld));
+      if (next.every((p, i) => p === grids[i])) break;
+      grids = next;
+      stationsFor = sharedStationsFor(grids, existing, frame);
+    }
     const final: ReadyPlateMesh[] = [];
     for (const [i, p] of grids.entries()) {
       const mesh = meshStations(p.mesh, stationsFor[i]!, weld);

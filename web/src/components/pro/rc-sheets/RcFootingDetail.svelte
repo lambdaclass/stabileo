@@ -2,7 +2,7 @@
   import { t, tp } from '../../../lib/i18n';
   import { modelStore, uiStore } from '../../../lib/store';
   import { rcSheetsData, setAdopted } from '../../../lib/store/rc-sheets.svelte';
-  import { FOOTING_DIAMETERS, setFootingSetup, writeFootingToModel } from '../../../lib/store/rc-sheets-footings';
+  import { FOOTING_DIAMETERS, setFootingSetup, writableFooting, writeFootingToModel } from '../../../lib/store/rc-sheets-footings';
   import { groupsLabel, stirrupsLabel } from '../../../lib/rc-sheets/bars';
   import { lineRowStatus } from '../../../lib/rc-sheets/beam-line';
   import RcLineSvg from './RcLineSvg.svelte';
@@ -202,7 +202,9 @@
           <span class="hint">{t('rcSheets.showingProposal')}</span>
           <button type="button" class="rcs-btn" onclick={() => setAdopted(row.key, row.proposed, false)} data-testid="rc-footing-adopt">{t('rcSheets.adoptProposal')}</button>
         {/if}
-        <button type="button" class="rcs-btn" onclick={toModel} title={t('rcSheets.foot.toModelHint')} data-testid="rc-footing-to-model">{t(row.demand.footing ? 'rcSheets.foot.toModel' : 'rcSheets.foot.newInModel')}</button>
+        {#if writableFooting(row)}
+          <button type="button" class="rcs-btn" onclick={toModel} title={t('rcSheets.foot.toModelHint')} data-testid="rc-footing-to-model">{t(row.demand.footing ? 'rcSheets.foot.toModel' : 'rcSheets.foot.newInModel')}</button>
+        {/if}
       </div>
     </div>
   {/if}

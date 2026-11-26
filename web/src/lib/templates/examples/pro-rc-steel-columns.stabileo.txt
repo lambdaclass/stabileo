@@ -1,0 +1,183 @@
+stabileo-model 1
+# A three-storey residential building: steel HEB columns, fixed at their base plates, carry concrete
+# beams and 14 cm slabs, a plate a bay; two by three bays of 7 × 6 m.
+name "Edificio de H.A. con columnas de acero"
+mode pro
+axes zUpStrongAxis
+
+node 1 0 0 0
+node 2 0 0 4
+node 3 0 0 7.5
+node 4 0 0 11
+node 5 0 6 0
+node 6 0 6 4
+node 7 0 6 7.5
+node 8 0 6 11
+node 9 0 12 0
+node 10 0 12 4
+node 11 0 12 7.5
+node 12 0 12 11
+node 13 0 18 0
+node 14 0 18 4
+node 15 0 18 7.5
+node 16 0 18 11
+node 17 7 0 0
+node 18 7 0 4
+node 19 7 0 7.5
+node 20 7 0 11
+node 21 7 6 0
+node 22 7 6 4
+node 23 7 6 7.5
+node 24 7 6 11
+node 25 7 12 0
+node 26 7 12 4
+node 27 7 12 7.5
+node 28 7 12 11
+node 29 7 18 0
+node 30 7 18 4
+node 31 7 18 7.5
+node 32 7 18 11
+node 33 14 0 0
+node 34 14 0 4
+node 35 14 0 7.5
+node 36 14 0 11
+node 37 14 6 0
+node 38 14 6 4
+node 39 14 6 7.5
+node 40 14 6 11
+node 41 14 12 0
+node 42 14 12 4
+node 43 14 12 7.5
+node 44 14 12 11
+node 45 14 18 0
+node 46 14 18 4
+node 47 14 18 7.5
+node 48 14 18 11
+
+material 1 name="Acero F-24" e=200000 nu=0.3 rho=77 alpha=0.000012 fy=240 fu=370 gradeId="iram-f24"
+material 2 name="Hormigón H-25" e=23500 nu=0.2 rho=25 alpha=0.00001 fy=25
+section 1 name="HEB 260" profileFamily="HEB" shape="H" a=0.0118 iy=0.0001492 iz=0.00005135 b=0.26 h=0.26 tw=0.01 tf=0.0175
+section 2 name="HEB 220" profileFamily="HEB" shape="H" a=0.0091 iy=0.00008091 iz=0.00002843 b=0.22 h=0.22 tw=0.0095 tf=0.016
+section 3 name="Viga 25×60" shape="rect" b=0.25 h=0.6 a=0.15 iy=0.0045 iz=0.00078125 j=0.002306747907
+section 4 name="Viga 20×50" shape="rect" b=0.2 h=0.5 a=0.1 iy=0.002083333333 iz=0.0003333333333 j=0.0009980501333
+member 1 frame 1 2 materialId=1 sectionId=1
+member 2 frame 2 3 materialId=1 sectionId=1
+member 3 frame 3 4 materialId=1 sectionId=2
+member 4 frame 5 6 materialId=1 sectionId=1
+member 5 frame 6 7 materialId=1 sectionId=1
+member 6 frame 7 8 materialId=1 sectionId=2
+member 7 frame 9 10 materialId=1 sectionId=1
+member 8 frame 10 11 materialId=1 sectionId=1
+member 9 frame 11 12 materialId=1 sectionId=2
+member 10 frame 13 14 materialId=1 sectionId=1
+member 11 frame 14 15 materialId=1 sectionId=1
+member 12 frame 15 16 materialId=1 sectionId=2
+member 13 frame 17 18 materialId=1 sectionId=1
+member 14 frame 18 19 materialId=1 sectionId=1
+member 15 frame 19 20 materialId=1 sectionId=2
+member 16 frame 21 22 materialId=1 sectionId=1
+member 17 frame 22 23 materialId=1 sectionId=1
+member 18 frame 23 24 materialId=1 sectionId=2
+member 19 frame 25 26 materialId=1 sectionId=1
+member 20 frame 26 27 materialId=1 sectionId=1
+member 21 frame 27 28 materialId=1 sectionId=2
+member 22 frame 29 30 materialId=1 sectionId=1
+member 23 frame 30 31 materialId=1 sectionId=1
+member 24 frame 31 32 materialId=1 sectionId=2
+member 25 frame 33 34 materialId=1 sectionId=1
+member 26 frame 34 35 materialId=1 sectionId=1
+member 27 frame 35 36 materialId=1 sectionId=2
+member 28 frame 37 38 materialId=1 sectionId=1
+member 29 frame 38 39 materialId=1 sectionId=1
+member 30 frame 39 40 materialId=1 sectionId=2
+member 31 frame 41 42 materialId=1 sectionId=1
+member 32 frame 42 43 materialId=1 sectionId=1
+member 33 frame 43 44 materialId=1 sectionId=2
+member 34 frame 45 46 materialId=1 sectionId=1
+member 35 frame 46 47 materialId=1 sectionId=1
+member 36 frame 47 48 materialId=1 sectionId=2
+member 37 frame 2 18 materialId=2 sectionId=3
+member 38 frame 18 34 materialId=2 sectionId=3
+member 39 frame 6 22 materialId=2 sectionId=3
+member 40 frame 22 38 materialId=2 sectionId=3
+member 41 frame 10 26 materialId=2 sectionId=3
+member 42 frame 26 42 materialId=2 sectionId=3
+member 43 frame 14 30 materialId=2 sectionId=3
+member 44 frame 30 46 materialId=2 sectionId=3
+member 45 frame 2 6 materialId=2 sectionId=4
+member 46 frame 6 10 materialId=2 sectionId=4
+member 47 frame 10 14 materialId=2 sectionId=4
+member 48 frame 18 22 materialId=2 sectionId=4
+member 49 frame 22 26 materialId=2 sectionId=4
+member 50 frame 26 30 materialId=2 sectionId=4
+member 51 frame 34 38 materialId=2 sectionId=4
+member 52 frame 38 42 materialId=2 sectionId=4
+member 53 frame 42 46 materialId=2 sectionId=4
+member 54 frame 3 19 materialId=2 sectionId=3
+member 55 frame 19 35 materialId=2 sectionId=3
+member 56 frame 7 23 materialId=2 sectionId=3
+member 57 frame 23 39 materialId=2 sectionId=3
+member 58 frame 11 27 materialId=2 sectionId=3
+member 59 frame 27 43 materialId=2 sectionId=3
+member 60 frame 15 31 materialId=2 sectionId=3
+member 61 frame 31 47 materialId=2 sectionId=3
+member 62 frame 3 7 materialId=2 sectionId=4
+member 63 frame 7 11 materialId=2 sectionId=4
+member 64 frame 11 15 materialId=2 sectionId=4
+member 65 frame 19 23 materialId=2 sectionId=4
+member 66 frame 23 27 materialId=2 sectionId=4
+member 67 frame 27 31 materialId=2 sectionId=4
+member 68 frame 35 39 materialId=2 sectionId=4
+member 69 frame 39 43 materialId=2 sectionId=4
+member 70 frame 43 47 materialId=2 sectionId=4
+member 71 frame 4 20 materialId=2 sectionId=3
+member 72 frame 20 36 materialId=2 sectionId=3
+member 73 frame 8 24 materialId=2 sectionId=3
+member 74 frame 24 40 materialId=2 sectionId=3
+member 75 frame 12 28 materialId=2 sectionId=3
+member 76 frame 28 44 materialId=2 sectionId=3
+member 77 frame 16 32 materialId=2 sectionId=3
+member 78 frame 32 48 materialId=2 sectionId=3
+member 79 frame 4 8 materialId=2 sectionId=4
+member 80 frame 8 12 materialId=2 sectionId=4
+member 81 frame 12 16 materialId=2 sectionId=4
+member 82 frame 20 24 materialId=2 sectionId=4
+member 83 frame 24 28 materialId=2 sectionId=4
+member 84 frame 28 32 materialId=2 sectionId=4
+member 85 frame 36 40 materialId=2 sectionId=4
+member 86 frame 40 44 materialId=2 sectionId=4
+member 87 frame 44 48 materialId=2 sectionId=4
+
+grid {"axes":[{"id":"ax-x1","name":"1","axis":"x","at":0},{"id":"ax-x2","name":"2","axis":"x","at":7},{"id":"ax-x3","name":"3","axis":"x","at":14},{"id":"ax-y1","name":"A","axis":"y","at":0},{"id":"ax-y2","name":"B","axis":"y","at":6},{"id":"ax-y3","name":"C","axis":"y","at":12},{"id":"ax-y4","name":"D","axis":"y","at":18}],"levels":[{"id":"lv-0","name":"PB","z":0},{"id":"lv-1","name":"1º piso","z":4},{"id":"lv-2","name":"2º piso","z":7.5},{"id":"lv-3","name":"Azotea","z":11}]}
+support 1 1 fixed3d
+support 2 5 fixed3d
+support 3 9 fixed3d
+support 4 13 fixed3d
+support 5 17 fixed3d
+support 6 21 fixed3d
+support 7 25 fixed3d
+support 8 29 fixed3d
+support 9 33 fixed3d
+support 10 37 fixed3d
+support 11 41 fixed3d
+support 12 45 fixed3d
+group 1 physicalMember "Losa 1A–2B · 1º piso" members={"nodes":[2,18,22,6]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.14,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 2 physicalMember "Losa 2A–3B · 1º piso" members={"nodes":[18,34,38,22]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.14,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 3 physicalMember "Losa 1B–2C · 1º piso" members={"nodes":[6,22,26,10]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.14,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 4 physicalMember "Losa 2B–3C · 1º piso" members={"nodes":[22,38,42,26]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.14,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 5 physicalMember "Losa 1C–2D · 1º piso" members={"nodes":[10,26,30,14]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.14,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 6 physicalMember "Losa 2C–3D · 1º piso" members={"nodes":[26,42,46,30]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.14,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 7 physicalMember "Losa 1A–2B · 2º piso" members={"nodes":[3,19,23,7]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.14,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 8 physicalMember "Losa 2A–3B · 2º piso" members={"nodes":[19,35,39,23]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.14,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 9 physicalMember "Losa 1B–2C · 2º piso" members={"nodes":[7,23,27,11]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.14,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 10 physicalMember "Losa 2B–3C · 2º piso" members={"nodes":[23,39,43,27]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.14,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 11 physicalMember "Losa 1C–2D · 2º piso" members={"nodes":[11,27,31,15]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.14,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 12 physicalMember "Losa 2C–3D · 2º piso" members={"nodes":[27,43,47,31]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.14,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 13 physicalMember "Losa 1A–2B · Azotea" members={"nodes":[4,20,24,8]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.14,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 14 physicalMember "Losa 2A–3B · Azotea" members={"nodes":[20,36,40,24]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.14,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 15 physicalMember "Losa 1B–2C · Azotea" members={"nodes":[8,24,28,12]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.14,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 16 physicalMember "Losa 2B–3C · Azotea" members={"nodes":[24,40,44,28]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.14,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 17 physicalMember "Losa 1C–2D · Azotea" members={"nodes":[12,28,32,16]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.14,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 18 physicalMember "Losa 2C–3D · Azotea" members={"nodes":[28,44,48,32]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.14,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+regulations {"version":2,"roles":{"basis":{"role":"basis","adapterId":"cirsoc101-2025-basis","nameKey":"regulations.name.cirsoc101","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{"generateCombinations":true,"dialog":{"comboSet":"ultimate","comboSource":"regulation","bothSenses":true,"patternsInCompanions":false}},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"loads":{"role":"loads","adapterId":"cirsoc101-2025-loads","nameKey":"regulations.name.cirsoc101","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{"occupancyKey":"vivienda","dead":[{"labelKey":"loads.dead.contrapiso_cemento","q":1.44},{"labelKey":"loads.dead.piso_baldosa_ceramica","q":0.28},{"labelKey":"loads.dead.cielo_acustico","q":0.05}],"tributaryWidth":3,"applyLiveReduction":true,"reductionElementKind":"interiorBeam","floorsSupported":1,"dialog":{"deadRows":[{"entryKey":"contrapiso_cemento","thickness":0.08,"onBattens":false,"q":0,"isPartition":false},{"entryKey":"piso_baldosa_ceramica","thickness":0,"onBattens":false,"q":0,"isPartition":false},{"entryKey":"cielo_acustico","thickness":0,"onBattens":false,"q":0,"isPartition":false}],"partitionLive":{"on":true,"q":0.75},"gravityMode":"panels","gravitySlab":"twoWay","gravitySpan":"x","gravityLoadEveryPanel":false,"roofCfg":{"enabled":false,"use":"maintenance","dead":null,"weight":null,"occupancyKey":"azotea_privada","slopeDeg":null},"livePatterns":"all","special":{"thermal":{"on":false,"dt":20,"grad":0},"soil":{"on":false,"gradeZ":0,"gamma":17.3,"k":0.5,"surcharge":0,"permanent":true,"sideOn":false,"sideX":0,"sideY":0},"fluid":{"on":false,"levelZ":3,"gamma":10,"insideOn":false,"insideX":0,"insideY":0}}}},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"wind":{"role":"wind","adapterId":"cirsoc102-2025","nameKey":"regulations.name.cirsoc102","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{"basicSpeed":45,"exposure":"B","enclosure":"enclosed","siteAltitudeM":0,"kzt":1,"kztSurveyed":false,"roofSlopeDeg":0,"dynamics":{"n1Source":"modal","beta":0.02,"rigidG":"default"},"dialog":{"windDirs":["+x","-x","+y","-y"],"windCaseSet":"all","windService":{"enabled":false,"v50":0,"mri":10},"windStructure":{"kind":"building","roof":"pitched","blocked":false,"towerSection":"square","round":false,"solidity":0.2,"diagonal":true,"members":"flat","clearance":2,"chimney":"roundRough","width":0,"diameter":0,"areaX":0,"areaY":0}}},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"snow":{"role":"snow","adapterId":"cirsoc104-2005","nameKey":"regulations.name.cirsoc104","edition":"2005","maturity":"IMPLEMENTED_PROVISIONAL","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"applied","appliedAtRevision":0,"refs":[]},"seismic":{"role":"seismic","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]},"thermal":{"role":"thermal","adapterId":"cirsoc101-2025-thermal","nameKey":"regulations.name.cirsoc101Thermal","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"concrete":{"role":"concrete","adapterId":"cirsoc","nameKey":"regulations.name.cirsoc201","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"steel":{"role":"steel","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]},"masonry":{"role":"masonry","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]},"timber":{"role":"timber","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]}}}
+

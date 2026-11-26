@@ -15,7 +15,7 @@ import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
 import { buildSheetRows, redesignerOf, setSheetCode } from '../rc-sheets.svelte';
 import { resizeHints } from '../rc-sheets-resize';
-import { PRO_EXAMPLES } from '../../data/pro-examples';
+import { galleryExample } from '../../data/__tests__/gallery-examples';
 import type { Serviceable } from '../../rc-sheets/deflection';
 
 beforeAll(async () => { await wasmSolver.initSolver(); });
@@ -23,7 +23,7 @@ beforeAll(async () => { await wasmSolver.initSolver(); });
 describe('the seven-storey balconies', () => {
   it('verify their deflection with the root strip\'s moment, tension-controlled, in CIRSOC, ACI and TS 500', async () => {
     modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
-    await PRO_EXAMPLES.find((e) => e.id === 'pro-edificio-7p')!.load();
+    await galleryExample('pro-edificio-7p').load();
     ensurePhysicalModel();
     meshBeforeAnalysis.value = true;
     preparePlatesForAnalysis();

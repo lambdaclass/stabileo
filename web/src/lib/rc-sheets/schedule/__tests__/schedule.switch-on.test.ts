@@ -80,6 +80,9 @@ describe('schedule rows and totals', () => {
     expect(s.total.kg).toBeCloseTo(kg16 + kg8 + kg10, 9);
     expect(s.total.withWaste).toBeCloseTo((kg16 + kg8 + kg10) * 1.15, 9);
     expect(scheduleOf(els, { code: 'cirsoc201-2025' }).waste).toBe(0.1);
+    const all = scheduleOf([...els, el('P1', [{ kind: 'punchingLeg', count: 8, shape: bar(0.6, 8) }], { family: 'punching' }), el('E1', [{ kind: 'stairMain', count: 9, shape: bar(4, 12) }], { family: 'stair' })], { code: 'cirsoc201-2025' });
+    expect(all.byFamily.map((x) => x.family)).toEqual(['column', 'slab', 'punching', 'stair']);
+    expect(all.byFamily.reduce((t, x) => t + x.kg, 0)).toBeCloseTo(all.total.kg, 9);
   });
 
   it('a mark longer than a stock bar is cut from as many stock bars as its length needs', () => {

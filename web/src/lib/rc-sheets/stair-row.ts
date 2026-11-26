@@ -101,16 +101,23 @@ function pick(as: number, sMax: number, diameters: readonly number[], least: num
   return { dia, spacing: spacingFor(as, dia, sMax) };
 }
 
-/** The stair's section: the landings, the flight's steps and its waist, in the plane of its run. */
+/**
+ * The stair's section: the landings, the flight's steps and its waist, in the plane of its run. The
+ * waist runs at the steps' slope, riser over tread, its top through their inner corners; it meets
+ * the head landing's soffit past the last riser.
+ */
 export function stairSection(spec: StairDesignSpec): StairSection {
   const treads = treadCount(spec.steps), run = treads * spec.tread, rise = spec.steps * spec.riser;
-  const angle = Math.atan2(rise, run), tan = Math.tan(angle), tv = spec.waist / Math.cos(angle);
-  const tl = spec.landingThickness ?? spec.waist, Lb = spec.landingBottom, Lt = spec.landingTop;
-  const sA = Lb + (tv - tl) / tan, sB = Lb + run + (tv - tl) / tan;
+  const m = spec.riser / spec.tread, angle = Math.atan(m), tv = spec.waist * Math.hypot(1, m);
+  const tl = spec.landingThickness ?? spec.waist, Lb = spec.landingBottom, Lt = spec.landingTop, end = Lb + run + Lt;
+  const sA = Lb + (tv - tl) / m, sB = Math.min(end, Lb + (rise - tl + tv) / m);
   const out: Array<[number, number]> = [[0, 0], [Lb, 0]];
   let s = Lb, z = 0;
   for (let i = 0; i < spec.steps; i++) { z += spec.riser; out.push([s, z]); if (i < treads) { s += spec.tread; out.push([s, z]); } }
-  out.push([Lb + run + Lt, rise], [Lb + run + Lt, rise - tl], [Math.max(sB, Lb + run - 1e-6), rise - tl], [Math.min(sA, Lb + 1e-6) < 0 ? 0 : sA, -tl], [0, -tl]);
+  out.push([end, rise], [end, rise - tl]);
+  if (sB < end - 1e-6) out.push([sB, rise - tl]);
+  else out.push([end, (end - Lb) * m - tv]);
+  out.push([Math.min(sA, Lb + 1e-6) < 0 ? 0 : sA, -tl], [0, -tl]);
   return { outline: out.map(([a, b]) => [r3(a), r3(b)] as [number, number]), run, rise, landingBottom: Lb, landingTop: Lt, tl, tv, angle };
 }
 
@@ -118,92 +125,125 @@ const lengthOf = (pts: ReadonlyArray<[number, number]>) => pts.slice(1).reduce((
 
 /**
  * The bars, in the section: s along the run from the foot support, z up from the foot landing's top.
- * The main bar follows the soffit up from the foot, bending at the foot of the flight, and runs on
- * past its head up to the landing's top cover and ld beyond the break; the landing's bar comes in
- * level from the head support and runs ld past the break into the flight, or hooks down where the
- * flight's top would leave it less; each end at a support turns a leg into the slab; the top bars
- * reach ℓn/4 + ld from each support's face.
+ * As the course and the stair detail draw them, the bars cross at the head:
+ *
+ * - the flight's bottom bar comes in along the foot landing's soffit, bends up at the foot of the
+ *   flight where the bend pushes into the concrete, runs up the waist and on, past the last riser,
+ *   to the head landing's top, where it runs ld or to the support and turns a leg down;
+ * - the head landing's bottom bar comes from its support along its soffit to where the flight's
+ *   top layer meets it, and runs up that layer ld into the flight;
+ * - a stair cast with its supports takes top bars over each, ℓn/4 + ld from the support: at the foot
+ *   along the landing's top and on up the flight's top layer, at the head along the landing's top as
+ *   far as the last riser, the landing's bottom bar crossing up the flight's top layer past it;
+ * - distribution bars across, on the bottom bars and under the top ones.
+ *
+ * Every bar keeps to the concrete: the waist's layers are parallel to its soffit and to the line
+ * of the steps' inner corners.
  */
 export function stairBars(spec: StairDesignSpec, sec: StairSection, a: StairAdopted, c: StairContext, ld: number, monolithic: boolean): StairBar[] {
-  const db = a.main.dia / 1000, e = c.cover + db / 2, w = spec.width, cos = Math.cos(sec.angle), sin = Math.sin(sec.angle), tan = Math.tan(sec.angle);
-  const Lb = sec.landingBottom, Lt = sec.landingTop, run = sec.run, rise = sec.rise, tl = sec.tl, end = Lb + run + Lt;
-  const soffitBar = (s: number) => (s - Lb) * tan - sec.tv + e / cos;
-  const onSoffit = (z: number) => Lb + (z + sec.tv - e / cos) / tan;
-  const count = (s: number) => Math.floor((w - 2 * c.cover) / s + 1e-9) + 1;
+  const db = a.main.dia / 1000, e = c.cover + db / 2, w = spec.width, m = Math.tan(sec.angle), root = Math.hypot(1, m), cos = 1 / root, sin = m / root;
+  const Lb = sec.landingBottom, Lt = sec.landingTop, run = sec.run, rise = sec.rise, tl = sec.tl, end = Lb + run + Lt, tv = sec.tv;
+  const soffitBar = (s: number) => (s - Lb) * m - tv + e * root;
+  const onSoffit = (z: number) => Lb + (z + tv - e * root) / m;
+  const count = (b: { dia: number; spacing: number }) => Math.floor((w - 2 * c.cover - b.dia / 1000) / b.spacing + 1e-9) + 1;
   const bars: StairBar[] = [];
-  const push = (role: StairBarRole, b: { dia: number; spacing: number }, pts: Array<[number, number]>, n = count(b.spacing)) => {
+  const push = (role: StairBarRole, b: { dia: number; spacing: number }, pts: Array<[number, number]>, n = count(b)) => {
     const p = pts.map(([x, y]) => [r3(x), r3(y)] as [number, number]);
     bars.push({ mark: '', role, dia: b.dia, spacing: b.spacing, count: n, shape: { pts: p, mandrel: (6 * b.dia) / 1000, dia: b.dia }, length: r3(lengthOf(p)) });
   };
-  const legBottom = tl - 2 * e;
+  const along = (from: [number, number], len: number, dir: 1 | -1): [number, number] => [from[0] + dir * len * cos, from[1] + dir * len * sin];
+  const legBottom = tl - 2 * e, sEnd = end - e;
   const main: Array<[number, number]> = [];
-  if (Lb > 0) {
-    main.push([c.cover + db / 2, -tl + e + legBottom], [c.cover + db / 2, -tl + e]);
-    main.push([onSoffit(-tl + e), -tl + e]);
-  } else {
-    const s0 = c.cover + db / 2, z0 = soffitBar(s0);
-    main.push([s0 + (tl - 2 * e) * sin, z0 + (tl - 2 * e) * cos], [s0, z0]);
-  }
+  if (Lb > 0) main.push([e, -tl + e + legBottom], [e, -tl + e], [onSoffit(-tl + e), -tl + e]);
+  else { const z0 = soffitBar(e); main.push([e + legBottom * sin, z0 + legBottom * cos], [e, z0]); }
+  const zCap = rise - e;
   if (Lt > 0) {
-    const zBreak = rise - tl + e, sBreak = onSoffit(zBreak), zCap = rise - e;
-    const climb = (zCap - zBreak) / sin;
-    if (climb >= ld) main.push([sBreak + ld * cos, zBreak + ld * sin]);
-    else main.push([sBreak + climb * cos, zCap], [sBreak + climb * cos + (ld - climb), zCap]);
+    const xt = onSoffit(zCap);
+    if (xt >= sEnd) main.push([sEnd, soffitBar(sEnd)], [sEnd, zCap]);
+    else if (xt + ld <= sEnd) main.push([xt, zCap], [xt + ld, zCap]);
+    else main.push([xt, zCap], [sEnd, zCap], [sEnd, zCap - legBottom]);
   } else {
-    const s1 = Lb + run - c.cover - db / 2, z1 = soffitBar(s1);
-    main.push([s1, z1], [s1 - (tl - 2 * e) * sin, z1 + (tl - 2 * e) * cos]);
+    const s1 = Lb + run - e, z1 = soffitBar(s1);
+    main.push([s1, z1], [s1 - legBottom * sin, z1 + legBottom * cos]);
   }
   push('main', a.main, main);
+  const topLine = (s: number, et: number) => (s - Lb) * m - et * root;
+  const onTopLine = (z: number, et: number) => Lb + (z + et * root) / m;
+  let crossRun: Array<[number, number]> = [];
   if (Lt > 0) {
-    const z = rise - tl + e, sBreak = onSoffit(z), sEnd = end - c.cover - db / 2;
-    const exit = Lb + (z + e) / tan, reach = Math.min(ld, Math.max(0, sBreak - Math.max(exit, Lb)));
-    const pts: Array<[number, number]> = [[sEnd, z + legBottom], [sEnd, z], [sBreak - reach, z]];
-    if (reach < ld - 1e-6) pts.push([sBreak - reach, Math.max(z - (12 * db), soffitBar(sBreak - reach))]);
-    push('landing', a.main, pts);
+    const zb = rise - tl + e, xx = Math.min(onTopLine(zb, e), sEnd), lo = Lb + 0.05;
+    const start = along([xx, zb], Math.min(ld, Math.max(0, (xx - lo) / cos)), -1);
+    push('landing', a.main, [start, [xx, zb], [sEnd, zb], [sEnd, zb + legBottom]]);
+    crossRun = [[xx, zb], [sEnd, zb]];
   }
   if (monolithic && a.top) {
-    const dt = a.top.dia / 1000, et = c.cover + dt / 2, reach = (Lb + run + Lt) / 4 + ld, leg = tl - 2 * et;
-    const topBar = (s: number) => (s - Lb) * tan - et / cos;
-    const onTop = (z: number) => Lb + (z + et / cos) / tan;
-    const along = (from: [number, number], len: number, dir: 1 | -1): [number, number] => [from[0] + dir * len * cos, from[1] + dir * len * sin];
-    const s0 = c.cover + dt / 2;
+    const dt = a.top.dia / 1000, et = c.cover + dt / 2, reach = end / 4 + ld, leg = tl - 2 * et;
+    const s0 = et;
     if (Lb > 0) {
-      const z = -et, sBreak = onTop(z), level = reach - (Lb - s0);
+      const z = -et, sBreak = onTopLine(z, et), level = reach - (sBreak - s0);
       if (level <= 0) push('topFoot', a.top, [[s0, z - leg], [s0, z], [s0 + reach, z]]);
       else {
-        const soffit = Lb + (z + sec.tv - e / cos) / tan, past = Math.min(ld, Math.max(0, soffit - sBreak));
+        const meet = Lb + (z + tv - et * root) / m, past = Math.min(ld, Math.max(0, meet - sBreak));
         push('topFoot', a.top, [[s0, z - leg], [s0, z], [sBreak + past, z]]);
-        const from = along([sBreak, topBar(sBreak)], Math.min(ld, (tl - 2 * et) / sin), -1);
-        push('topFootFlight', a.top, [from, along([sBreak, topBar(sBreak)], level, 1)]);
+        const from = along([sBreak, topLine(sBreak, et)], Math.min(ld, (tl - 2 * et) / sin), -1);
+        push('topFootFlight', a.top, [from, along([sBreak, topLine(sBreak, et)], level, 1)]);
       }
     } else {
-      const start: [number, number] = [s0, topBar(s0)];
+      const start: [number, number] = [s0, topLine(s0, et)];
       push('topFoot', a.top, [[start[0] + leg * sin, start[1] - leg * cos], start, along(start, reach, 1)]);
     }
-    const sEnd = end - c.cover - dt / 2;
+    const sTop = end - et;
     if (Lt > 0) {
-      const z = rise - et, sBreak = onTop(z), level = sEnd - sBreak;
-      const pts: Array<[number, number]> = [[sEnd, z - leg], [sEnd, z]];
-      if (reach <= level) pts.push([sEnd - reach, z]);
-      else pts.push([sBreak, z], along([sBreak, z], reach - level, -1));
-      push('topHead', a.top, pts);
+      const z = rise - et, sRiser = Lb + run + et, level = sTop - sRiser;
+      push('topHead', a.top, [[sTop, z - leg], [sTop, z], [sTop - Math.min(reach, level), z]]);
     } else {
-      const start: [number, number] = [sEnd, topBar(sEnd)];
+      const start: [number, number] = [sTop, topLine(sTop, et)];
       push('topHead', a.top, [[start[0] - leg * sin, start[1] - leg * cos], start, along(start, reach, -1)]);
     }
   }
-  const dd = a.dist.dia / 1000, across = w - 2 * c.cover, hook = Math.max(0.1, 12 * dd);
-  const bottomRun = lengthOf(main), nDist = Math.floor(bottomRun / a.dist.spacing + 1e-9) + 1;
-  push('dist', a.dist, [[0, hook], [0, 0], [across, 0], [across, hook]], nDist);
-  bars[bars.length - 1]!.rows = sample(main, nDist).map(([s, z]) => [r3(s), r3(z + db / 2 + dd / 2)] as [number, number]);
+  const dd = a.dist.dia / 1000, across = w - 2 * c.cover, hook = Math.max(0.1, 12 * dd), off = db / 2 + dd / 2;
+  const leaves = onSoffit(rise - tl + e);
+  const bottomRuns = [clipS(main.slice(Lb > 0 ? 1 : 0), -Infinity, Lt > 0 ? leaves : Infinity), ...(crossRun.length ? [clipS(crossRun, Lb + run, Infinity)] : [])].filter((r) => r.length > 1);
+  const rowsOn = (runs: Array<Array<[number, number]>>, dz: number) => runs.flatMap((r) => sample(r, Math.floor(lengthOf(r) / a.dist.spacing + 1e-9) + 1)).map(([s, z]) => [r3(s), r3(z + dz)] as [number, number]);
+  const bottomRows = rowsOn(bottomRuns, off * root);
+  push('dist', a.dist, [[0, hook], [0, 0], [across, 0], [across, hook]], bottomRows.length);
+  bars[bars.length - 1]!.rows = bottomRows;
+  const topRuns: Array<Array<[number, number]>> = [];
+  if (Lt > 0) {
+    topRuns.push(clipS(main, Math.min(onSoffit(zCap), sEnd), Infinity));
+    const land = bars.find((b) => b.role === 'landing');
+    if (land) topRuns.push(land.shape.pts.slice(0, 2) as Array<[number, number]>);
+  }
+  const topRows = rowsOn(topRuns.filter((r) => r.length > 1 && lengthOf(r) > 1e-6), -off * root);
   if (monolithic && a.top) {
     const tops = bars.filter((b) => b.role === 'topFoot' || b.role === 'topFootFlight' || b.role === 'topHead');
-    const rows = tops.flatMap((b) => sample(b.shape.pts.slice(1), Math.max(2, Math.floor(lengthOf(b.shape.pts.slice(1)) / a.dist.spacing) + 1))).map(([s, z]) => [r3(s), r3(z - (a.top!.dia / 1000) / 2 - dd / 2)] as [number, number]);
-    push('distTop', a.dist, [[0, -hook], [0, 0], [across, 0], [across, -hook]], rows.length);
-    bars[bars.length - 1]!.rows = rows;
+    const dt = a.top.dia / 1000;
+    const runsOf = (b: StairBar) => {
+      const pts = Lb > 0 && b.role === 'topFoot' ? clipS(b.shape.pts, -Infinity, Lb) : Lb > 0 && b.role === 'topFootFlight' ? clipS(b.shape.pts, Lb, Infinity) : b.shape.pts;
+      const legged = b.role === 'topFoot' || b.role === 'topHead';
+      return pts.slice(1).map((q, i) => [pts[i]!, q] as Array<[number, number]>).filter(([p0, q], i) => !(legged && i === 0) && Math.abs(q[0] - p0[0]) > 1e-6);
+    };
+    topRows.push(...tops.flatMap(runsOf).flatMap((r) => sample(r, Math.max(2, Math.floor(lengthOf(r) / a.dist.spacing) + 1))).map(([s, z]) => [r3(s), r3(z - (dt / 2 + dd / 2) * root)] as [number, number]));
+  }
+  if (topRows.length) {
+    push('distTop', a.dist, [[0, -hook], [0, 0], [across, 0], [across, -hook]], topRows.length);
+    bars[bars.length - 1]!.rows = topRows;
   }
   bars.forEach((b, i) => { b.mark = String(i + 1); });
   return bars;
+}
+
+/** The part of a polyline between `s0` and `s1` along the run. */
+function clipS(pts: ReadonlyArray<[number, number]>, s0: number, s1: number): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  const lerp = (a: [number, number], b: [number, number], s: number): [number, number] => { const t = (s - a[0]) / (b[0] - a[0]); return [s, a[1] + (b[1] - a[1]) * t]; };
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1]!, b = pts[i]!, lo = Math.min(a[0], b[0]), hi = Math.max(a[0], b[0]);
+    if (hi < s0 || lo > s1) continue;
+    if (Math.abs(b[0] - a[0]) < 1e-12) { out.push(a, b); continue; }
+    out.push(a[0] < s0 ? lerp(a, b, s0) : a[0] > s1 ? lerp(a, b, s1) : a, b[0] < s0 ? lerp(a, b, s0) : b[0] > s1 ? lerp(a, b, s1) : b);
+  }
+  return out.filter((p, k) => k === 0 || Math.hypot(p[0] - out[k - 1]![0], p[1] - out[k - 1]![1]) > 1e-9);
 }
 
 /** `n` points evenly along a polyline. */

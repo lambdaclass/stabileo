@@ -223,13 +223,14 @@
         </div>
       {/if}
       {#if tab === 'footing'}
-        <label class="rcw-ctl rcw-sizing"><span>{t('rcSheets.footSizing.label')}</span>
-          <select value={sizing} onchange={(e) => setFootingSizing((e.currentTarget as HTMLSelectElement).value as typeof sizing)} data-testid="rc-footing-sizing">
-            {#each FOOTING_SIZINGS as m (m)}<option value={m}>{t(`rcSheets.footSizing.${m}`)}</option>{/each}
-          </select>
-        </label>
-        {#if rows.footingLayouts?.length}<RcFootingLayouts layouts={rows.footingLayouts} adopted={rows.foundation ?? null} bind:preview={footingPreview.system} />{/if}
-        <RcPropertyLines rows={footingView} />
+        <RcFootingLayouts layouts={rows.footingLayouts ?? []} adopted={rows.foundation ?? null} bind:preview={footingPreview.system}>
+          {#snippet sizingField()}
+            <select id="rfl-sizing" value={sizing} onchange={(e) => setFootingSizing((e.currentTarget as HTMLSelectElement).value as typeof sizing)} data-testid="rc-footing-sizing">
+              {#each FOOTING_SIZINGS as m (m)}<option value={m}>{t(`rcSheets.footSizing.${m}`)}</option>{/each}
+            </select>
+          {/snippet}
+          {#snippet lines()}<RcPropertyLines rows={footingView} />{/snippet}
+        </RcFootingLayouts>
         {#if matCover}<p class="rcw-mat" data-testid="rc-footing-mat">{tp('rcSheets.foot.matCover', { share: Math.round(matCover.share * 100), limit: Math.round(matShare * 100), footings: Math.round(matCover.footings), plan: Math.round(matCover.plan) })}</p>{/if}
       {/if}
       {#if tab === 'slab' && slabView === 'plan'}
@@ -398,6 +399,5 @@
   .rcw-views button { border: 1px solid var(--st-hair); background: var(--st-surface-2); color: var(--st-text-2); border-radius: 4px; padding: 3px 10px; font-size: 0.74rem; cursor: pointer; }
   .rcw-views button.on { background: var(--st-accent, var(--st-surface-3)); color: var(--st-on-accent, var(--st-text)); }
   .rcw-views button:disabled { opacity: 0.5; cursor: default; }
-  .rcw-sizing { margin-bottom: 6px; }
   .rcw-mat { margin: 6px 0; font-size: 0.75rem; color: var(--st-warn); max-width: 90ch; }
 </style>

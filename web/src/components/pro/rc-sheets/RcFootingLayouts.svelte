@@ -8,10 +8,12 @@
   import { modelStore } from '../../../lib/store';
   import { designData, patchDesignData } from '../../../lib/store/design-data';
   import { findProfile } from '../../../lib/model/geotechnical';
-  import { FOUNDING_RANGE, PRESUMED_BEARING_RANGE, PRESUMED_PILE_RANGE, presumedPileOf, type PileLayer } from '../../../lib/model/design-data';
-  import { pileSpec } from '../../../lib/store/rc-sheets-footings';
+  import { FOUNDING_RANGE, MORE_PILES_MAX, PRESUMED_BEARING_RANGE, PRESUMED_PILE_RANGE, presumedPileOf, type PileLayer } from '../../../lib/model/design-data';
+  import { pileSpecs } from '../../../lib/store/rc-sheets-footings';
 
-  let { layouts, adopted, preview = $bindable() }: { layouts: readonly FoundationLayout[]; adopted: FoundationSystem | null; preview: FoundationSystem } = $props();
+  import type { Snippet } from 'svelte';
+
+  let { layouts, adopted, preview = $bindable(), sizingField, lines }: { layouts: readonly FoundationLayout[]; adopted: FoundationSystem | null; preview: FoundationSystem; sizingField?: Snippet; lines?: Snippet } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   const pct = (v: number | null) => (v === null ? '—' : `${fmt(v * 100, 0)} %`);
   const profile = $derived.by(() => {
@@ -37,8 +39,9 @@
     patchDesignData({ foundingElevation: -v });
   }
   const strata = $derived(!!profile?.strata?.length);
-  const spec = $derived.by(() => { void modelStore.designData; void modelStore.model.geotechnical; return pileSpec(); });
+  const specs = $derived.by(() => { void modelStore.designData; void modelStore.model.geotechnical; return pileSpecs(); });
   const layers = $derived(pile.layers ?? []);
+  const fromSoil = $derived(strata || layers.length > 0);
   const setLayers = (next: PileLayer[]) => patchDesignData({ presumedPile: { ...pile, layers: next } });
   function setLayer(i: number, k: keyof PileLayer, e: Event) {
     const el = e.currentTarget as HTMLInputElement, v = Number(el.value.replace(',', '.'));
@@ -48,18 +51,33 @@
   }
   const addLayer = () => setLayers([...layers, { to: Math.max(pile.length + 5, (layers.at(-1)?.to ?? 0) + 5), shaft: layers.at(-1)?.shaft ?? 30, tip: layers.at(-1)?.tip ?? 1500 }]);
   const removeLayer = (i: number) => setLayers(layers.filter((_, j) => j !== i));
-  function setPile(k: 'diameter' | 'length' | 'capacity', scale: number) {
+  const available = $derived([{ diameter: pile.diameter, capacity: pile.capacity }, ...(pile.more ?? [])]);
+  const writeAvailable = (list: Array<{ diameter: number; capacity: number }>) => { const [first, ...more] = list; patchDesignData({ presumedPile: { ...pile, diameter: first!.diameter, capacity: first!.capacity, more } }); };
+  function setAvailable(i: number, k: 'diameter' | 'capacity', scale: number) {
     return (e: Event) => {
-      const el = e.currentTarget as HTMLInputElement, v = Number(el.value) / scale, r = PRESUMED_PILE_RANGE[k];
-      if (!Number.isFinite(v) || v < r.min || v > r.max) { el.value = String(pile[k] * scale); return; }
-      patchDesignData({ presumedPile: { ...pile, [k]: v } });
+      const el = e.currentTarget as HTMLInputElement, v = Number(el.value.replace(',', '.')) / scale, r = PRESUMED_PILE_RANGE[k];
+      const clash = k === 'diameter' && available.some((x, j) => j !== i && Math.abs(x.diameter - v) < 1e-9);
+      if (!Number.isFinite(v) || v < r.min || v > r.max || clash) { el.value = String(Math.round(available[i]![k] * scale * 100) / 100); return; }
+      writeAvailable(available.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
     };
   }
+  function addAvailable() {
+    const last = available.at(-1)!, d = Math.min(PRESUMED_PILE_RANGE.diameter.max, Math.round((Math.max(...available.map((x) => x.diameter)) + 0.1) * 100) / 100);
+    if (available.some((x) => Math.abs(x.diameter - d) < 1e-9)) return;
+    writeAvailable([...available, { diameter: d, capacity: Math.round(last.capacity * (d / last.diameter) ** 2 / 50) * 50 }]);
+  }
+  const removeAvailable = (i: number) => writeAvailable(available.filter((_, j) => j !== i));
+  function setLength(e: Event) {
+    const el = e.currentTarget as HTMLInputElement, v = Number(el.value.replace(',', '.')), r = PRESUMED_PILE_RANGE.length;
+    if (!Number.isFinite(v) || v < r.min || v > r.max) { el.value = String(pile.length); return; }
+    patchDesignData({ presumedPile: { ...pile, length: v } });
+  }
+  const pilesSummary = $derived(`${specs.map((x) => `Ø${fmt(x.diameter * 100, 0)}`).join(' · ')} · ${fmt(pile.length, 1)} m`);
 </script>
 
 <div class="rfl" data-testid="rc-footing-layouts">
   <div class="rfl-head">
-    <span class="rfl-title">{t('rcSheets.foundation.layouts')}</span>
+    <span class="rfl-title">{t('rcSheets.foundation.title')}</span>
     {#if adopted}
       <span class="rfl-state on" data-testid="rc-foundation-adopted">{t('rcSheets.foundation.adopted')}: {t(`rcSheets.foundation.${adopted}`)}</span>
       <button type="button" class="pk-btn" onclick={() => setFoundationSystem(null)} data-testid="rc-foundation-clear">{t('rcSheets.foundation.clear')}</button>
@@ -67,45 +85,74 @@
       <span class="rfl-state" data-testid="rc-foundation-none">{t('rcSheets.foundation.none')}</span>
     {/if}
   </div>
-  <div class="rfl-fields">
-    <label class="rfl-soil">
-      <span>{t('rcSheets.foundation.qadm')}</span>
-      <input type="number" min={PRESUMED_BEARING_RANGE.min} max={PRESUMED_BEARING_RANGE.max} step="10" value={qadm} onchange={setQadm} data-testid="rc-foundation-qadm" />
+  <div class="rfl-block">
+    <span class="rfl-sub">{t('rcSheets.foundation.soil')}</span>
+    <div class="rfl-grid">
+      <label for="rfl-qadm">{t('rcSheets.foundation.qadm')}</label>
+      <input id="rfl-qadm" type="number" min={PRESUMED_BEARING_RANGE.min} max={PRESUMED_BEARING_RANGE.max} step="10" value={qadm} onchange={setQadm} data-testid="rc-foundation-qadm" />
       <span>kPa</span>
       <span class="hint">{profile ? `${t('rcSheets.foundation.qadmProfile')} «${profile.name}»` : t('rcSheets.foundation.qadmPresumed')}</span>
-    </label>
-    <label class="rfl-soil">
-      <span>{t('rcSheets.foundation.depth')}</span>
-      <input type="number" min="0" max={-FOUNDING_RANGE.min} step="0.1" value={depth} placeholder={t('rcSheets.foundation.depthAuto')} onchange={setDepth} data-testid="rc-foundation-depth" />
+      <label for="rfl-depth">{t('rcSheets.foundation.depth')}</label>
+      <input id="rfl-depth" type="number" min="0" max={-FOUNDING_RANGE.min} step="0.1" value={depth} placeholder={t('rcSheets.foundation.depthAuto')} onchange={setDepth} data-testid="rc-foundation-depth" />
       <span>m</span>
       <span class="hint">{t('rcSheets.foundation.depthHint')}</span>
-    </label>
+      {#if sizingField}
+        <label for="rfl-sizing">{t('rcSheets.footSizing.label')}</label>
+        <span class="rfl-wide">{@render sizingField()}</span>
+      {/if}
+    </div>
   </div>
-  {#if shown === 'piles'}
-    <label class="rfl-soil">
-      <span>{t('rcSheets.foundation.pile')}</span>
-      <span>{t('rcSheets.foundation.pileDiameter')}</span><input type="number" min={PRESUMED_PILE_RANGE.diameter.min * 100} max={PRESUMED_PILE_RANGE.diameter.max * 100} step="5" value={pile.diameter * 100} onchange={setPile('diameter', 100)} data-testid="rc-foundation-pile-diameter" /><span>cm</span>
-      <span>{t('rcSheets.foundation.pileLength')}</span><input type="number" min={PRESUMED_PILE_RANGE.length.min} max={PRESUMED_PILE_RANGE.length.max} step="0.5" value={pile.length} onchange={setPile('length', 1)} data-testid="rc-foundation-pile-length" /><span>m</span>
-      {#if !strata && !layers.length}<span>{t('rcSheets.foundation.pileCapacity')}</span><input type="number" min={PRESUMED_PILE_RANGE.capacity.min} max={PRESUMED_PILE_RANGE.capacity.max} step="50" value={pile.capacity} onchange={setPile('capacity', 1)} data-testid="rc-foundation-pile-capacity" /><span>kN</span>{/if}
-      <span class="hint">{strata ? t('rcSheets.foundation.pileStrata') : layers.length ? '' : t('rcSheets.foundation.pilePresumed')}</span>
-    </label>
-    {#if !strata}
-      <div class="rfl-layers" data-testid="rc-foundation-pile-layers">
-        <span class="rfl-sub">{t('rcSheets.foundation.pileLayers')}</span>
-        {#each layers as l, i (i)}
-          <div class="rfl-soil" data-testid="rc-foundation-pile-layer">
-            <span>{t('rcSheets.foundation.pileLayerTo')}</span><input type="number" min="0.1" max="200" step="0.5" value={l.to} onchange={(e) => setLayer(i, 'to', e)} data-testid="rc-foundation-pile-layer-to" /><span>m</span>
-            <span>{t('rcSheets.foundation.pileShaft')}</span><input type="number" min="0" max="2000" step="5" value={l.shaft} onchange={(e) => setLayer(i, 'shaft', e)} data-testid="rc-foundation-pile-layer-shaft" /><span>kPa</span>
-            <span>{t('rcSheets.foundation.pileTip')}</span><input type="number" min="0" max="50000" step="100" value={l.tip} onchange={(e) => setLayer(i, 'tip', e)} data-testid="rc-foundation-pile-layer-tip" /><span>kPa</span>
-            <button type="button" class="pk-btn" onclick={() => removeLayer(i)} data-testid="rc-foundation-pile-layer-remove">{t('rcSheets.foundation.pileRemoveLayer')}</button>
-          </div>
-        {/each}
-        <button type="button" class="pk-btn rfl-compare" onclick={addLayer} data-testid="rc-foundation-pile-add-layer">{t('rcSheets.foundation.pileAddLayer')}</button>
-        <span class="hint">{t('rcSheets.foundation.pileLayersHint')}</span>
-      </div>
-    {/if}
-    <span class="rfl-soil" data-testid="rc-foundation-pile-capacity-read">{t('rcSheets.foundation.pileComputed')}: <b>{fmt(spec.capacity, 0)} kN</b></span>
+  {#if lines}
+    <div class="rfl-block">
+      <span class="rfl-sub">{t('fdn.propertyLines')}</span>
+      {@render lines()}
+    </div>
   {/if}
+  {#if shown === 'piles'}
+    <details class="rfl-block rfl-fold" open={footingPreview.pilesOpen} ontoggle={(e) => (footingPreview.pilesOpen = (e.currentTarget as HTMLDetailsElement).open)} data-testid="rc-foundation-piles">
+      <summary><span class="rfl-sub">{t('rcSheets.foundation.pile')}</span> <span class="rfl-sum">{pilesSummary}</span></summary>
+      <table class="rfl-piles">
+        <thead><tr><th class="n">{t('rcSheets.foundation.pileDiameter')}</th><th class="n">{t('rcSheets.foundation.pileCapacity')}</th><th></th></tr></thead>
+        <tbody>
+          {#each available as a, i (i)}
+            <tr data-testid="rc-foundation-pile">
+              <td class="n"><input type="number" min={PRESUMED_PILE_RANGE.diameter.min * 100} max={PRESUMED_PILE_RANGE.diameter.max * 100} step="5" value={Math.round(a.diameter * 100)} onchange={setAvailable(i, 'diameter', 100)} data-testid={i === 0 ? 'rc-foundation-pile-diameter' : 'rc-foundation-pile-more-diameter'} /> cm</td>
+              <td class="n">
+                {#if fromSoil}<b data-testid={i === 0 ? 'rc-foundation-pile-capacity-read' : undefined}>{fmt(specs[i]?.capacity ?? 0, 0)}</b> kN
+                {:else}<input type="number" min={PRESUMED_PILE_RANGE.capacity.min} max={PRESUMED_PILE_RANGE.capacity.max} step="50" value={a.capacity} onchange={setAvailable(i, 'capacity', 1)} data-testid={i === 0 ? 'rc-foundation-pile-capacity' : 'rc-foundation-pile-more-capacity'} /> kN{/if}
+              </td>
+              <td>{#if i > 0}<button type="button" class="pk-btn" onclick={() => removeAvailable(i)} data-testid="rc-foundation-pile-remove">{t('rcSheets.foundation.pileRemoveLayer')}</button>{/if}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+      {#if available.length <= MORE_PILES_MAX}<button type="button" class="pk-btn rfl-compare" onclick={addAvailable} data-testid="rc-foundation-pile-add">{t('rcSheets.foundation.pileAdd')}</button>{/if}
+      <div class="rfl-grid">
+        <label for="rfl-pile-length">{t('rcSheets.foundation.pileLength')}</label>
+        <input id="rfl-pile-length" type="number" min={PRESUMED_PILE_RANGE.length.min} max={PRESUMED_PILE_RANGE.length.max} step="0.5" value={pile.length} onchange={setLength} data-testid="rc-foundation-pile-length" />
+        <span>m</span>
+        <span class="hint">{strata ? t('rcSheets.foundation.pileStrata') : layers.length ? t('rcSheets.foundation.pileFromLayers') : t('rcSheets.foundation.pilePresumed')}</span>
+      </div>
+      <span class="hint">{t('rcSheets.foundation.pilesHint')}</span>
+      {#if !strata}
+        <details class="rfl-layers" open={layers.length > 0} data-testid="rc-foundation-pile-layers">
+          <summary class="rfl-sub">{t('rcSheets.foundation.pileLayers')}</summary>
+          {#each layers as l, i (i)}
+            <div class="rfl-soil" data-testid="rc-foundation-pile-layer">
+              <span>{t('rcSheets.foundation.pileLayerTo')}</span><input type="number" min="0.1" max="200" step="0.5" value={l.to} onchange={(e) => setLayer(i, 'to', e)} data-testid="rc-foundation-pile-layer-to" /><span>m</span>
+              <span>{t('rcSheets.foundation.pileShaft')}</span><input type="number" min="0" max="2000" step="5" value={l.shaft} onchange={(e) => setLayer(i, 'shaft', e)} data-testid="rc-foundation-pile-layer-shaft" /><span>kPa</span>
+              <span>{t('rcSheets.foundation.pileTip')}</span><input type="number" min="0" max="50000" step="100" value={l.tip} onchange={(e) => setLayer(i, 'tip', e)} data-testid="rc-foundation-pile-layer-tip" /><span>kPa</span>
+              <button type="button" class="pk-btn" onclick={() => removeLayer(i)} data-testid="rc-foundation-pile-layer-remove">{t('rcSheets.foundation.pileRemoveLayer')}</button>
+            </div>
+          {/each}
+          <button type="button" class="pk-btn rfl-compare" onclick={addLayer} data-testid="rc-foundation-pile-add-layer">{t('rcSheets.foundation.pileAddLayer')}</button>
+          <span class="hint">{t('rcSheets.foundation.pileLayersHint')}</span>
+        </details>
+      {/if}
+    </details>
+  {/if}
+  {#if layouts.length}
+  <span class="rfl-sub rfl-gap">{t('rcSheets.foundation.layouts')}</span>
   <table>
     <thead><tr><th>{t('rcSheets.foundation.label')}</th><th class="n">{t('rcSheets.foundation.share')}</th><th class="n">m³</th><th class="n">kg</th><th>{t('rcSheets.foundation.parts')}</th><th class="n">{t('rcSheets.foundation.failing')}</th><th></th></tr></thead>
     <tbody>
@@ -135,6 +182,7 @@
   {:else if layouts.length < FOUNDATION_SYSTEMS.length}<button type="button" class="pk-btn rfl-compare" onclick={() => (footingPreview.compare = true)} data-testid="rc-foundation-compare">{t('rcSheets.foundation.compareAll')}</button>{/if}
   {#if layouts.some((l) => l.summary.needs !== null)}<p class="hint">{t('rcSheets.foundation.needsHint')}</p>{/if}
   {#if !adopted}<p class="hint">{t('rcSheets.foundation.noneHint')}</p>{/if}
+  {/if}
 </div>
 
 <style>
@@ -153,11 +201,21 @@
   .rfl-name[aria-pressed='true'] { font-weight: 600; }
   .tag { margin-left: 4px; font-size: 0.64rem; padding: 0 4px; border-radius: 3px; border: 1px solid var(--st-hair-strong); color: var(--st-text-2); }
   .tag.on { border-color: var(--st-ok); color: var(--st-ok); }
-  .rfl-fields { display: flex; flex-direction: column; gap: 2px; }
+  .rfl-block { display: flex; flex-direction: column; gap: 4px; padding: 6px 0 8px; border-bottom: 1px solid var(--st-hair); }
+  .rfl-grid { display: grid; grid-template-columns: max-content 7em max-content 1fr; gap: 4px 8px; align-items: center; font-size: 0.74rem; }
+  .rfl-grid > label { text-align: right; color: var(--st-text-2); }
+  .rfl-grid input { width: 100%; }
+  .rfl-fold > summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+  .rfl-sum { color: var(--st-text-2); font-size: 0.7rem; font-variant-numeric: tabular-nums; }
+  .rfl-piles { width: auto; }
+  .rfl-piles input { width: 5em; }
+  .rfl-gap { margin-top: 6px; }
+  .rfl-wide { grid-column: 2 / -1; }
   td.pending { text-align: left; color: var(--st-text-3); font-style: italic; }
   .rfl-compare { align-self: flex-start; }
-  .rfl-layers { display: flex; flex-direction: column; gap: 2px; margin: 0 0 6px 12px; }
-  .rfl-sub { color: var(--st-text-2); }
+  .rfl-layers { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 0; }
+  .rfl-layers > summary { cursor: pointer; }
+  .rfl-sub { color: var(--st-text-2); font-weight: 600; font-size: 0.7rem; }
   .rec { font-size: 0.64rem; color: var(--st-accent); border: 1px solid var(--st-accent); border-radius: 3px; padding: 0 3px; }
   .bad { color: var(--st-danger); font-weight: 600; }
   .needs { font-weight: 400; white-space: nowrap; }

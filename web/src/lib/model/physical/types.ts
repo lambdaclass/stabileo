@@ -33,6 +33,8 @@ export interface PhysicalData {
   retains?: { gradeZ: number; gamma: number; k: number; surcharge: number; side?: { x: number; y: number } };
   /** A wall's openings, along its length from its start and up from its level, m. */
   openings?: Array<{ offset: number; width: number; sill: number; height: number }>;
+  /** An inclined slab that is a stair flight: its risers, the last one arriving at the landing. */
+  stair?: { steps: number };
   /** Read only from projects saved before slabs were plates: in PRO made plates (`platesFromMeshAtSolve`), in Basic 3D meshed in place by the solve (`deferred-slabs.ts`). */
   meshAtSolve?: { size: number; meshed: boolean; panel: number[] };
 }

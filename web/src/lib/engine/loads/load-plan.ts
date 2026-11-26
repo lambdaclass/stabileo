@@ -1211,6 +1211,9 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
 
   const limits = codes.loads.generationBlockers({ occupancies: [occ, ...(roofOccupancy ? [roofOccupancy] : [])], roof: input.roof !== undefined });
   blockedKeys.push(...limits.messages, ...levelRefusals);
+  // A negative shell is a plate not meshed yet (`store/saved-loads.ts`): only a plain area load becomes its definition.
+  if (surface.some((s) => s.quadId < 0 && s.vary)) blockedKeys.push(msg('loadPlan.blocked.unmeshedPlatePressure'));
+  if (thermal.some((t) => t.quadId !== undefined && t.quadId < 0)) blockedKeys.push(msg('loadPlan.blocked.unmeshedPlateThermal'));
   refs.push(...limits.refs);
   assumptions.push(...(limits.notes ?? []));
 

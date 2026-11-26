@@ -1,3 +1,4 @@
+import { PHYSICAL_GROUP_KIND } from '../../model/physical/types';
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { historyStore, modelStore, uiStore, resultsStore } from '..';
@@ -18,13 +19,13 @@ const solve = () => {
 };
 
 describe('the stairs of the sheets', () => {
-  it('are none where the project has none, and each flight of the model and each stair of the desk otherwise', async () => {
+  it('are none where the project has none, and each flight of the model and each stair of the desk otherwise, never a slab declared one', async () => {
     modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
     await modelStore.loadExample('rc-beam-flexure');
     solve();
     expect(buildSheetRows().stair).toEqual([]);
 
-    const mat = [...modelStore.materials.values()][0]!.id;
+    const mat = [...modelStore.materials.values()].find((m) => m.name === 'H-25')!.id;
     const quads = buildFlightInto([{ x: 10, y: 0, z: 0 }, { x: 12.52, y: 0, z: 1.75 }, { x: 12.52, y: 1.2, z: 1.75 }, { x: 10, y: 1.2, z: 0 }], { divisions: 4, materialId: mat, waist: 0.18, stepLoad: 0, deadCase: modelStore.model.loadCases[0]!.id });
     for (const n of new Set(quads.flatMap((q) => modelStore.quads.get(q)!.nodes))) {
       const p = modelStore.nodes.get(n)!;
@@ -42,5 +43,10 @@ describe('the stairs of the sheets', () => {
     const desk = rows.stair.find((r) => r.demand.source === 'desk')!;
     expect(desk.name).toBe('Desk');
     expect(desk.status, desk.verifications.filter((v) => !v.ok).map((v) => v.label).join(', ')).toBe('ok');
+
+    const plate = [...modelStore.model.groups.values()].find((g) => g.kind === PHYSICAL_GROUP_KIND && (g.members.quads ?? []).includes(quads[0]!))!;
+    expect((plate.data as { provenance?: string }).provenance).toBe('inferred');
+    modelStore.model.groups = new Map([...modelStore.model.groups].map(([id, g]) => [id, id === plate.id ? { ...g, data: { ...g.data, kind: 'slab', provenance: 'declared' } } : g]));
+    expect(buildSheetRows().stair.map((r) => r.demand.source), 'a slab declared one, as a sloped roof is, is no flight').toEqual(['desk']);
   }, 300000);
 });

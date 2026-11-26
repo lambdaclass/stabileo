@@ -204,8 +204,8 @@ export function beamPlans(line: LineLayout, spans: readonly BeamRow[], o: BeamPl
   });
   for (const g of sections) {
     const notes = g.notes.map((n) => n.replace(/^↑ /, `${o.tr('rcSheets.col.top')}: `).replace(/^↓ /, `${o.tr('rcSheets.col.bottom')}: `));
-    const ps2 = sectionPrimitives(g.drawing, o, g.marks, [g.tags.length <= 2 ? g.tags.join(', ') : `${g.tags[0]} … (${g.tags.length})`, ...notes]);
-    out.push(framed(`${line.key}:sec-${g.label}`, o.tr('rcSheets.plans.section', { n: g.label }), ps2, s, o.group));
+    const ps2 = sectionPrimitives(g.drawing, o, g.marks, [g.tags.length <= 2 ? g.tags.join(', ') : `${g.tags[0]} … (${g.tags.length})`, ...notes], undefined, g.slabs);
+    out.push(framed(`${line.key}:sec-${g.label}`, `${line.name} · ${o.tr('rcSheets.plans.section', { n: g.label })}`, ps2, s, o.group));
   }
   if (!whole) {
     const sb = SCALES.find((x) => x >= s && (to - from) / x <= room) ?? s;

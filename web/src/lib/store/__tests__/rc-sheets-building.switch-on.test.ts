@@ -12,7 +12,7 @@ import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
 import { buildSheetRows } from '../rc-sheets.svelte';
-import { PRO_EXAMPLES } from '../../data/pro-examples';
+import { galleryExample } from '../../data/__tests__/gallery-examples';
 import { slabSpanKind } from '../../rc-sheets/slab-plan';
 
 beforeAll(async () => { await wasmSolver.initSolver(); });
@@ -27,7 +27,7 @@ function solve(combos: boolean) {
 describe('the seven-storey example in the sheets', () => {
   it('stands its core on its whole base, one wall a storey, and a balcony says it is one in its steps', async () => {
     modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
-    await PRO_EXAMPLES.find((e) => e.id === 'pro-edificio-7p')!.load();
+    await galleryExample('pro-edificio-7p').load();
     ensurePhysicalModel();
     meshBeforeAnalysis.value = true;
     expect(preparePlatesForAnalysis()).toMatchObject({ ok: true });

@@ -46,6 +46,7 @@ export const LAYERS: readonly LayerDef[] = [
   { name: 'ST-COTA', color: 3, weight: 0.18 },
   { name: 'ST-TEXTO', color: 7, weight: 0.18 },
   { name: 'ST-EJES', color: 8, weight: 0.13, dashed: true },
+  { name: 'ST-RAYADO', color: 8, weight: 0.13 },
 ];
 
 const BY = new Map(LAYERS.map((l) => [l.name, l]));

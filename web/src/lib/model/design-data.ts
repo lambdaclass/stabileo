@@ -199,12 +199,17 @@ export const PRESUMED_BEARING_RANGE = { min: 50, max: 1000, default: 150 } as co
 export interface PileLayer { to: number; shaft: number; tip: number }
 export interface PresumedPile {
   diameter: number; length: number; capacity: number;
+  /** More piles the design may use, each its diameter and, where no ground is stated, its allowable load: every cap tries them all and keeps the one that verifies with the least concrete. */
+  more?: Array<{ diameter: number; capacity: number }>;
   /** The ground by depth, top down: where stated, the pile's allowable load is read from it, tip on its section and friction on its skin, and `capacity` is not used. */
   layers?: PileLayer[];
 }
 
 /** The presumed pile's ranges and defaults: a bored pile of 50 cm, 12 m long, 600 kN allowable. */
 export const PRESUMED_PILE_RANGE = { diameter: { min: 0.3, max: 1.5, default: 0.5 }, length: { min: 3, max: 50, default: 12 }, capacity: { min: 100, max: 10000, default: 600 } } as const;
+
+/** How many piles besides the first the design tries. */
+export const MORE_PILES_MAX = 5;
 
 /** The presumed pile with the defaults where it states none. */
 export const presumedPileOf = (p: Partial<PresumedPile> | undefined): PresumedPile => {
@@ -213,7 +218,13 @@ export const presumedPileOf = (p: Partial<PresumedPile> | undefined): PresumedPi
   const layers = Array.isArray(p?.layers)
     ? p!.layers.filter((l): l is PileLayer => !!l && num(l.to, 0.1, 200) && num(l.shaft, 0, 2000) && num(l.tip, 0, 50000)).sort((a, b) => a.to - b.to)
     : [];
-  return { diameter: pick('diameter'), length: pick('length'), capacity: pick('capacity'), ...(layers.length ? { layers } : {}) };
+  const R = PRESUMED_PILE_RANGE, diameter = pick('diameter');
+  const more = Array.isArray(p?.more)
+    ? p!.more.filter((x) => !!x && num(x.diameter, R.diameter.min, R.diameter.max) && num(x.capacity, R.capacity.min, R.capacity.max))
+      .filter((x, i, all) => Math.abs(x.diameter - diameter) > 1e-9 && all.findIndex((y) => Math.abs(y.diameter - x.diameter) < 1e-9) === i).slice(0, MORE_PILES_MAX)
+      .map((x) => ({ diameter: x.diameter, capacity: x.capacity }))
+    : [];
+  return { diameter, length: pick('length'), capacity: pick('capacity'), ...(more.length ? { more } : {}), ...(layers.length ? { layers } : {}) };
 };
 
 /** The layers as strata top down, each as thick as the step to its bottom. */

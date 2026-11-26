@@ -90,6 +90,22 @@ describe('beam elevation', () => {
     expect(onLayer(s1, /^ST-ARM-(SUP|INF)-Ø/).filter((p) => p.kind === 'circle' && p.fill).length).toBeGreaterThan(3);
   });
 
+  it('draws the slab beside a beam in its sections, on its side, at its level, hatched and broken off, its thickness and drop dimensioned', () => {
+    const slabbed = twoSpanLine();
+    slabbed.rows.forEach((r) => { (r.demand as { slabs?: unknown }).slabs = [{ side: 1, hf: 0.12, top: 0 }, { side: -1, hf: 0.15, top: -0.05 }]; });
+    const secs = beamPlans(slabbed.line, slabbed.rows, beamOpts()).filter((d) => d.key.startsWith(`${slabbed.line.key}:sec-`));
+    expect(secs.length).toBeGreaterThan(0);
+    const s1 = secs[0]!;
+    const edges = s1.primitives.filter((p): p is Extract<Primitive, { kind: 'line' }> => p.kind === 'line' && p.layer === 'ST-HORM');
+    const level = (x: (p: Extract<Primitive, { kind: 'line' }>) => boolean) => edges.filter(x).map((p) => p.a.y).sort((a, b) => a - b);
+    expect(level((p) => Math.max(p.a.x, p.b.x) <= 0)).toEqual([380, 500]);
+    expect(level((p) => Math.min(p.a.x, p.b.x) >= 250)).toEqual([300, 450]);
+    expect(onLayer(s1, /^ST-RAYADO$/).length).toBeGreaterThan(10);
+    expect(onLayer(s1, /^ST-RAYADO$/).every((p) => p.kind === 'line' && Math.min(p.a.y, p.b.y) >= 300 - 1e-6 && Math.max(p.a.y, p.b.y) <= 500 + 1e-6 && (Math.max(p.a.x, p.b.x) <= 1e-6 || Math.min(p.a.x, p.b.x) >= 250 - 1e-6))).toBe(true);
+    expect(s1.primitives.filter((p) => p.kind === 'polyline' && p.layer === 'ST-HORM' && p.points.length === 6)).toHaveLength(2);
+    expect(dims(s1).map((d) => d.text)).toEqual(expect.arrayContaining(['12', '15', '−5', '25', '50']));
+  });
+
   it('cuts an elevation too long for the sheet at its axes, never inside a span, the span dimensions still adding up', () => {
     const long = twoSpanLine(6, 5);
     const ds = beamPlans(long.line, long.rows, beamOpts(300))
@@ -99,6 +115,20 @@ describe('beam elevation', () => {
     const ax = lineSupports(long.line).map((x) => x * 1000);
     const chain = ds.flatMap((d) => dims(d).filter((q) => ax.some((x) => close(q.a.x, x)) && ax.some((x) => close(q.b.x, x)) && q.offset < -25 && len(q) < long.line.length * 1000 - 1));
     expect(chain.reduce((s, d) => s + len(d), 0)).toBeCloseTo(long.line.length * 1000, 6);
+  });
+});
+
+describe('elements drawn alike', () => {
+  it('draws columns the same but for their name once, under all their names', () => {
+    const [low] = columnStack();
+    const twin = { ...low!, key: 'column:2:0', name: 'C2' }, other = { ...low!, key: 'column:3:0', name: 'C3', b: 0.5 };
+    const rows = { line: [], beam: [], column: [low!, twin, other], slab: [], slabPlan: [], wall: [] };
+    const { drawings } = planDrawings(rows, { families: ['vertical'], levels: null }, { format: 'A1', scales: DEFAULT_PLAN_SCALES, code: 'cirsoc201-2025', endZones: false, slabCover: 0.02, fmt, tr });
+    const titles = drawings.map((d) => d.title);
+    expect(titles.some((t) => t.includes('C1 = C2'))).toBe(true);
+    expect(titles.some((t) => t.includes('C2') && !t.includes('C1 = C2'))).toBe(false);
+    expect(titles.some((t) => t.includes('C3'))).toBe(true);
+    expect(drawings.length).toBe(2 * planDrawings({ ...rows, column: [low!] }, { families: ['vertical'], levels: null }, { format: 'A1', scales: DEFAULT_PLAN_SCALES, code: 'cirsoc201-2025', endZones: false, slabCover: 0.02, fmt, tr }).drawings.length);
   });
 });
 
