@@ -7,6 +7,8 @@ async function enterPlan(page: import('@playwright/test').Page) {
   await page.getByTestId('cam-menu').click();
   await page.getByTestId('nav-plan-view').click();
   await expect(page.getByTestId('plan-view-chip')).toBeVisible();
+  await page.locator('.cam-backdrop').click({ position: { x: 420, y: 460 } });
+  await expect(page.getByTestId('cam-menu-pop')).toHaveCount(0);
 }
 
 const census = (page: import('@playwright/test').Page) => page.evaluate(() => window.__stabileo.planCutCensus());
@@ -14,12 +16,13 @@ const census = (page: import('@playwright/test').Page) => page.evaluate(() => wi
 test.describe('@smoke the plan view', () => {
   test('looks straight down, stays orthographic and turns by quarters', async ({ pro: page }) => {
     await enterPlan(page);
+    await page.getByTestId('cam-menu').click();
     await expect(page.getByTestId('cam-projection-perspective')).toBeDisabled();
     await expect(page.getByTestId('cam-projection-orthographic')).toHaveAttribute('aria-checked', 'true');
     const plan = (await page.evaluate(() => window.__stabileo.cameraState()))!;
     expect(plan.polarDeg).toBeLessThan(0.001);
 
-    await page.mouse.click(30, 870);
+    await page.locator('.cam-backdrop').click({ position: { x: 420, y: 460 } });
     await page.getByTestId('plan-view-rotate-right').click();
     const turned = (await page.evaluate(() => window.__stabileo.cameraState()))!;
     expect(turned.polarDeg).toBeLessThan(0.001);
@@ -34,18 +37,31 @@ test.describe('@smoke the plan view', () => {
     expect(left.polarDeg, 'tipped off the pole again, so an orbit does not spin').toBeGreaterThan(0.5);
   });
 
+  test('fits its controls in one row and steps the cut by 5 cm', async ({ pro: page }) => {
+    await enterPlan(page);
+    const chip = page.getByTestId('plan-view-chip');
+    const [height, tallest] = await chip.evaluate((el) => [el.getBoundingClientRect().height, Math.max(...[...el.children].map((c) => c.getBoundingClientRect().height))]);
+    expect(height, 'one row').toBeLessThan(tallest * 1.8);
+    await expect(page.getByTestId('plan-view-cut')).toHaveValue('0.15');
+    await page.getByTestId('plan-view-cut-up').click();
+    await expect(page.getByTestId('plan-view-cut')).toHaveValue('0.20');
+    await page.getByTestId('plan-view-cut').focus();
+    await page.keyboard.press('Shift+ArrowUp');
+    await expect(page.getByTestId('plan-view-cut')).toHaveValue('0.70');
+    await page.getByTestId('plan-view-cut-down').click();
+    await expect(page.getByTestId('plan-view-cut')).toHaveValue('0.65');
+  });
+
   test('hides what lies under the level, or shows it faded', async ({ pro: page }) => {
     await enterPlan(page);
-    await page.mouse.click(30, 870);
-    const cut = page.getByTestId('plan-view-cut');
-    await cut.evaluate((el: HTMLInputElement) => {
-      el.value = String(Number(el.max) - 0.4);
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-    await expect(page.getByTestId('plan-view-below')).toHaveValue('hidden');
+    await page.getByTestId('plan-view-cut').fill('3,3');
+    await page.getByTestId('plan-view-cut').press('Enter');
+    await expect(page.getByTestId('plan-view-cut')).toHaveValue('3.30');
+    await expect(page.getByTestId('plan-view-below')).toHaveAttribute('aria-pressed', 'false');
     await expect.poll(async () => (await census(page)).hidden).toBeGreaterThan(0);
     const hidden = (await census(page)).hidden;
-    await page.getByTestId('plan-view-below').selectOption('ghost');
+    await page.getByTestId('plan-view-below').click();
+    await expect(page.getByTestId('plan-view-below')).toHaveAttribute('aria-pressed', 'true');
     await expect.poll(async () => (await census(page)).ghost).toBe(hidden);
     expect((await census(page)).hidden).toBe(0);
     await page.getByTestId('plan-view-exit').click();

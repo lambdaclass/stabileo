@@ -16,5 +16,5 @@ In the plan view a drag slides the floor with the pointer and stops when the poi
 the glide the 3D view keeps after a drag, and it slides over the level without rising or sinking.
 
 The plan view looks straight down, where it used to lean a degree, and stays orthographic while it
-is on. What lies wholly under the level is hidden; «Below the cut: Faded» shows it in halftone
-instead. Two buttons turn the plan by 90°, and the axes in the corner turn with it.
+is on. What lies wholly under the level is hidden; «Show below» shows it in halftone instead.
+The cut is set as a height over the level, typed or stepped 5 cm with the arrows or the wheel. Two buttons turn the plan by 90°, and the axes in the corner turn with it.
