@@ -2620,6 +2620,7 @@
       ]
     },
     "src/components/pro/design/DesignOptionsSections.svelte": null,
+    "src/components/pro/design/FlangeBeamsPicker.svelte": null,
     "src/components/pro/design/FoundationsPanel.svelte": {
       "source": "e27be57a3975fc1e72969fbc2a9f7442dfe2663f7828ad63bb04255c0fa6e7d1",
       "original": "1522b0aff70b4fca682e6c1df2a832431b06a2b3ea74f27524db65062172a3d2",
@@ -6342,7 +6343,7 @@
       ]
     },
     "src/lib/i18n/locales/de.ts": {
-      "source": "48df1b4a3052112076b2a48891f10b74f9d66d2ce9c65a3f07aec1cd41a93c7b",
+      "source": "d7b9aaab6c9000c515ae3999b63662aebc0b5d9e8989e3bcb650f7fb33181fb0",
       "original": "0b1cffc73c321c88dd80b93e39f81e925705babc0f2e91df63e10c19111fe052",
       "changes": [
         [
@@ -6734,18 +6735,18 @@
         ],
         [
           15153,
-          1072,
+          1083,
           []
         ],
         [
-          16230,
-          1039,
+          16241,
+          1037,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/en.ts": {
-      "source": "f99001f39db8cfb16202466252eb2ebb7e11c47183750ed36bdaff1fca9c85df",
+      "source": "661ad9b98b534b00c2c6104dde93f3d1c39b55b9681851c0baf0476ee99efe32",
       "original": "99343e2eeb7cf4140cbbcb69424c37461d3ec4e5c925d64439f6b56ee0e9e6b3",
       "changes": [
         [
@@ -7109,18 +7110,18 @@
         ],
         [
           15311,
-          1074,
+          1085,
           []
         ],
         [
-          16392,
-          1039,
+          16403,
+          1037,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/es.ts": {
-      "source": "44705a2384a1af4b9b5941d15bbd3b18041ab8667b097e1a991f31533f7111b7",
+      "source": "ccb4ed16262b56e6685056854555a6c89c57393865e12ffed0c106e9e309ccff",
       "original": "df939d2beed0420d6833617b3561c95098e34704ee1a3b4f15f21dda24fa4e09",
       "changes": [
         [
@@ -7484,18 +7485,18 @@
         ],
         [
           15300,
-          1074,
+          1085,
           []
         ],
         [
-          16381,
-          1039,
+          16392,
+          1037,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/fr.ts": {
-      "source": "df0599651847a9e0eac2b64794b9873ad2d1f7472e3a49d86242f7bc9bec976e",
+      "source": "9ebc90c5795e00e4600375cd12925fc965558964a5b969800211fa70299e0aa1",
       "original": "26693801514fc282fbb8a5a4ad627431cbfce3c6e3f0720639c8cb5cef4e4b20",
       "changes": [
         [
@@ -7887,12 +7888,12 @@
         ],
         [
           15153,
-          1072,
+          1083,
           []
         ],
         [
-          16230,
-          1039,
+          16241,
+          1037,
           []
         ]
       ]
@@ -7918,7 +7919,7 @@
       ]
     },
     "src/lib/i18n/locales/hu.ts": {
-      "source": "f3780f67ac69e21ccec6fba5a032513344211eb67343e4d322e6c8938492e8c1",
+      "source": "e06af3789a849e4ea41358b7335f34bcc92f5131dbb4bd032a37d0ad54083f23",
       "original": "050bb2fb50b6d61761b6836086403490f8b3deedc1ac4af88de298aa3fd3966e",
       "changes": [
         [
@@ -8244,7 +8245,7 @@
         ],
         [
           14811,
-          2171,
+          2180,
           [
             "  \"edu.game.hint\": \"Játék: egy szerkezet, három ábra, és csak az egyik helyes.\"",
             ""
@@ -8333,7 +8334,7 @@
       ]
     },
     "src/lib/i18n/locales/pt.ts": {
-      "source": "5839af57cd09846a91e8b905f67320de9b83de5faa6bf1ee16fc6b6805af0c7c",
+      "source": "2a5b1c7358da07ec9e4667ad8317c2667277252e94699270f660a98efa716e9a",
       "original": "f013a27bd1465964fefdc7d531a470bc4855e8593daa03ed54ed7453509bdd37",
       "changes": [
         [
@@ -8697,12 +8698,12 @@
         ],
         [
           14953,
-          1074,
+          1085,
           []
         ],
         [
-          16034,
-          1039,
+          16045,
+          1037,
           []
         ]
       ]
@@ -8728,7 +8729,7 @@
       ]
     },
     "src/lib/i18n/locales/same-as-english/de.ts": {
-      "source": "748cf2936514fa37b0487f48d201a2ad3ccf91932a8ad17640728949a5da6858",
+      "source": "c6751bc4b75c5ec642a7b3193f17a4bb885abd79e0ef6f9fe3d0407bc390da48",
       "original": "426e3c011a27f3891f74006946208bf0b3f3e47260d80fd464439638b177db2f",
       "changes": [
         [
@@ -8793,13 +8794,13 @@
         ],
         [
           612,
-          2,
+          3,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/same-as-english/fr.ts": {
-      "source": "e168c85795458084979aa84b43d175e6018049439a8a9656e129acbdccbb421e",
+      "source": "dee3632c3ffaae5e47acfdcdca79006501744d3e5de771a96a3d1d32c10c0a3c",
       "original": "01234681db94c5f4f167b39f026f48e365985ca6f4133000b38ee9ab9a078c71",
       "changes": [
         [
@@ -8870,13 +8871,13 @@
         ],
         [
           840,
-          2,
+          9,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/same-as-english/hu.ts": {
-      "source": "f962cd88f2e4fc246666639c693c326d28a04ed11920ab0ceeea5f9568cc6341",
+      "source": "871b78d7b03f2dcb7a453c84a93e4a073b24f099079785d694fd4fde83e7ae65",
       "original": "5f22842a39dccbaa605a69c116e208056c8506920aae998131025c25435da438",
       "changes": [
         [
@@ -8938,7 +8939,7 @@
         ],
         [
           425,
-          1,
+          2,
           [
             "  \"xls.col.supportType\""
           ]
@@ -8946,7 +8947,7 @@
       ]
     },
     "src/lib/i18n/locales/same-as-english/tr.ts": {
-      "source": "70814892fa4b049be6469ac45590c8e452cf8726d2a73c1d42687526ac48f80a",
+      "source": "5a41a01d71ffea96c44e55a597012e39e49209c6ecb756a6c41746dfe1bf59d6",
       "original": "ddcd3b5af23d0998a8b62b83ca205a741ad043d9f25c334810ae56f665d36530",
       "changes": [
         [
@@ -9008,7 +9009,7 @@
         ],
         [
           408,
-          2,
+          4,
           []
         ]
       ]
@@ -9030,7 +9031,7 @@
       ]
     },
     "src/lib/i18n/locales/tr.ts": {
-      "source": "7544516155fe891904d19eeffda06f720668b1309821c77f1112bd165f4fba44",
+      "source": "9ef495d156bac0c5e8fe2a731b3dcce46843627344931096b0139dab381e769c",
       "original": "dfae3be5cd45792b6b2c9720f3433a60bace6b76a70d785cd4f6cc88d7ef096f",
       "changes": [
         [
@@ -9401,18 +9402,18 @@
         ],
         [
           15153,
-          1072,
+          1083,
           []
         ],
         [
-          16230,
-          1039,
+          16241,
+          1037,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/zh.ts": {
-      "source": "16a3ad09c17f577efbed5560ed62d79b1e6dd281b53921f9ccefe09236e8e52d",
+      "source": "d7b77d6b3d8963312e6c2a786604f9dd01ffda62081a4da0282e98e6d5020df3",
       "original": "187ecdf53aa596a80d7c584c8c8fc84768c7dd6c4d6540750c3a9cdcf2caee26",
       "changes": [
         [
@@ -9727,7 +9728,7 @@
         ],
         [
           14833,
-          2173,
+          2182,
           []
         ]
       ]
@@ -10711,6 +10712,7 @@
     "src/lib/rc-sheets/elevation-layout.ts": null,
     "src/lib/rc-sheets/fixed-points.ts": null,
     "src/lib/rc-sheets/flange-bars.ts": null,
+    "src/lib/rc-sheets/flange-beams.ts": null,
     "src/lib/rc-sheets/footing-balance.ts": null,
     "src/lib/rc-sheets/footing-choice.ts": null,
     "src/lib/rc-sheets/footing-combined-row.ts": null,
