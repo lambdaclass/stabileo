@@ -27,6 +27,11 @@ import type { DefinitionModel } from '../../model/loads/floor-definitions';
 
 const dm = () => modelStore.model as unknown as DefinitionModel;
 
+function surfaceRefusal(caseId: number, quadId: number): string {
+  const name = modelStore.model.loadCases.find(c => c.id === caseId)!.name;
+  return tp('svc.accountingUnsupported', { case: `#${caseId} (${name})`, kind: 'surface3d', id: quadId });
+}
+
 function floor(z: number) {
   const n = (x: number, y: number) => modelStore.addNode(x, y, z);
   const a = [n(0, 0), n(6, 0), n(6, 5), n(0, 5)];
@@ -51,7 +56,8 @@ function floorWithCurvedBalcony(z: number) {
   expect(balcony.id).toBeGreaterThan(0);
 }
 
-const meshAll = (size = 0.5) => applyPlateMeshes(physicalPlates().map((p) => planPlateMesh(p.id, { size, element: 'quad', followMembers: true })!));
+const meshAll = (size = 0.5, element: 'quad' | 'tri' = 'quad') => applyPlateMeshes(physicalPlates().map(p =>
+  planPlateMesh(p.id, { size, element, followMembers: true })!));
 const zone = (pts: Array<[number, number]>, z: number, name: string) => createUseZone(pts.map(([x, y]) => ({ x, y })), z, name);
 /** The live loads the zones wrote, as total force per zone (q × the shell area each load covers). */
 function zoneTotals(): Map<number, number> {
@@ -245,32 +251,35 @@ describe('use zones over two floors', () => {
     expect(zoneLoadPlan()!.change).toHaveLength(0);
   });
 
-  it('solves with the zones loading the floor, and the reactions add up to their loads', () => {
-    modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
+  it.each(['tri', 'quad'] as const)('#2607 checks floor pressure after meshing with %s cells', element => {
     floor(3);
-    meshAll(0.5);
+    meshAll(0.5, element);
     const z1 = zone([[0, 0], [6, 0], [6, 5], [0, 5]], 3, 'Oficina');
     setZoneUse([z1], { occupancy: 'oficina', provenance: 'confirmed' });
     applyZoneLoadPlan(zoneLoadPlan()!);
     syncDefinedLoadsForAnalysis();
     const res = modelStore.solve3D(false, false, true);
+    if (element === 'quad') {
+      const load = modelStore.loads.find(l => l.type === 'surface3d' && l.data.quadId === 1);
+      expect(res).toBe(surfaceRefusal(load!.data.caseId!, 1));
+      return;
+    }
     expect(typeof res, String(res)).not.toBe('string');
     const fz = (res as AnalysisResults3D).reactions.reduce((s, x) => s + x.fz, 0);
     // The zone covers plate A less its hole: 2.5 × 29.
     expect(fz).toBeCloseTo(2.5 * 29, 5);
   });
 
-  const replayCornerAudit = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
   const reviewedTrapezoids = [
     { width: 4, topWidth: 3, height: 2, clippedWidth: 3, shares: [-3, 3, -4, 4] },
     { width: 2, topWidth: 1, height: 1, clippedWidth: 1, shares: [1, -1, 2, -2] },
   ];
   const cornerAuditRoutes = ['case', 'case async', 'linear', 'linear async', 'pdelta', 'pdelta async', 'uplift', 'uplift async', 'notional'];
-  replayCornerAudit.each([
+  it.each([
     ...reviewedTrapezoids.flatMap(geometry => cornerAuditRoutes.map(route => ({ ...geometry, route, perturb: true }))),
     ...reviewedTrapezoids.map(geometry => ({ ...geometry, route: 'case', perturb: false })),
     { ...reviewedTrapezoids[0]!, route: 'restored project', perturb: true },
-  ])('known wrong result: #2607 rejects clipped $width-to-$topWidth quad on $route (perturbed $perturb)', async ({
+  ])('#2607 refuses clipped $width-to-$topWidth quad on $route (perturbed $perturb)', async ({
     width, topWidth, height, clippedWidth, shares, route, perturb,
   }) => {
     const corners = [[0, 0], [width, 0], [topWidth, height], [0, height]] as const;
@@ -289,7 +298,6 @@ describe('use zones over two floors', () => {
     const load = modelStore.loads.find(l => l.type === 'surface3d' && l.data.fromDef !== undefined);
     if (load?.type !== 'surface3d') throw new Error('Expected a zone surface load');
     const caseId = load.data.caseId!;
-    const loadCase = modelStore.model.loadCases.find(c => c.id === caseId)!;
     for (const combo of modelStore.model.combinations) modelStore.removeCombination(combo.id);
     if (route === 'notional') {
       expect(modelStore.updateLoadCaseFields(caseId, { reference: true })).toBe(true);
@@ -329,9 +337,7 @@ describe('use zones over two floors', () => {
         : route.endsWith('async') ? await modelStore.solveCombinations3DParallel(false, false, true)
         : modelStore.solveCombinations3D(false, false, true);
       expect(observed).toBe(true);
-      expect(result).toBe(tp('svc.accountingUnsupported', {
-        case: `#${caseId} (${loadCase.name})`, kind: 'surface3d', id: quadId,
-      }));
+      expect(result).toBe(surfaceRefusal(caseId, quadId));
     } finally {
       integration.mockRestore();
     }
@@ -339,12 +345,13 @@ describe('use zones over two floors', () => {
 
   it.each([
     ...['case', 'case async', 'linear', 'linear async', 'pdelta', 'pdelta async', 'uplift', 'uplift async', 'notional']
-      .map(route => ({ route, topWidth: 5.875, delta: [47, -47, 48, -48], component: 'Fz', error: 'reversed corner direction' })),
-    { route: 'case', topWidth: 6, delta: [1, -1, 1, -1], component: 'Fz', error: 'alternating corner shares on a rectangle' },
-    { route: 'case', topWidth: 5.875, delta: [1, -1, 1, -1], component: 'My', error: 'bending moment' },
-    { route: 'case', topWidth: 5.875, delta: [1, 1, 1, 1], component: 'Fz', error: 'resultant force' },
-  ])('#2607 refuses a corrupted use-zone $error in $route', async ({ route, topWidth, delta, component, error }) => {
-    const shell = [[0, 0], [6, 0], [topWidth, 5], [0, 5]] as const;
+      .map(route => ({ route, delta: [47, -47, 47, -47], component: 'Fz', error: 'reversed corner direction' })),
+    { route: 'case', delta: [1, -1, 1, -1], component: 'Fz', error: 'alternating corner shares on a rectangle' },
+    { route: 'case', delta: [1, -1, 0, 0], component: 'My', error: 'moment about Y' },
+    { route: 'case', delta: [1, 0, 0, -1], component: 'Mx', error: 'moment about X' },
+    { route: 'case', delta: [1, 1, 1, 1], component: 'Fz', error: 'resultant force' },
+  ])('#2607 refuses a corrupted use-zone $error in $route', async ({ route, delta, component, error }) => {
+    const shell = [[0, 0], [6, 0], [6, 5], [0, 5]] as const;
     const nodes = shell.map(([x, y]) => modelStore.addNode(x, y, 3));
     for (const nodeId of nodes) modelStore.addSupport(nodeId, 'pinned3d');
     modelStore.addQuad(nodes as [number, number, number, number], 1, 0.15);
@@ -354,21 +361,25 @@ describe('use zones over two floors', () => {
     syncDefinedLoadsForAnalysis();
     const load = modelStore.loads.find(l => l.type === 'surface3d' && l.data.fromDef !== undefined);
     if (load?.type !== 'surface3d') throw new Error('Expected a zone surface load');
-    modelStore.addCombination('Zone live load', [{ caseId: load.data.caseId!, factor: 2 }]);
+    for (const combo of modelStore.model.combinations) modelStore.removeCombination(combo.id);
+    const caseId = load.data.caseId!;
     if (route === 'notional') {
+      expect(modelStore.updateLoadCaseFields(caseId, { reference: true })).toBe(true);
       const id = modelStore.addLoadCase('Notional from the zone', 'L');
-      modelStore.updateLoadCaseFields(id, { notional: { sourceCaseId: load.data.caseId!, ratio: 0.002, dir: '+X' } });
+      expect(modelStore.updateLoadCaseFields(id, { notional: { sourceCaseId: caseId, ratio: 0.002, dir: '+X' } })).toBe(true);
       modelStore.addCombination('Notional from the zone', [{ caseId: id, factor: 1 }]);
+    } else {
+      modelStore.addCombination('Zone live load', [{ caseId, factor: 2 }]);
     }
     if (route.startsWith('uplift')) modelStore.updateSupport(nodes[0]!, { uplift: true });
     modelStore.setAnalysis({ perCombination: route.startsWith('pdelta') ? 'pdelta' : 'linear' });
 
     const original = shellIntegration.shellLoadForces;
     if (error !== 'resultant force') expect(delta.reduce((sum, fz) => sum + fz, 0)).toBe(0);
-    if (error === 'reversed corner direction' || topWidth === 6) {
-      for (const axis of [0, 1] as const) {
-        expect(delta.reduce((sum, fz, i) => sum + fz * shell[i]![axis], 0)).toBe(0);
-      }
+    for (const [axis, name] of ['My', 'Mx'].entries()) {
+      const firstMoment = delta.reduce((sum, fz, i) => sum + fz * shell[i]![axis]!, 0);
+      if (component === name) expect(firstMoment).not.toBe(0);
+      else if (error !== 'resultant force') expect(firstMoment).toBe(0);
     }
     const corrupt = vi.spyOn(shellIntegration, 'shellLoadForces').mockImplementation((kind, points, spec) => {
       const result = original(kind, points, spec);
@@ -391,13 +402,31 @@ describe('use zones over two floors', () => {
     }
   });
 
+  it.each(reviewedTrapezoids)('#2607 accounts for every corner of a whole $width-to-$topWidth quad',
+    ({ width, topWidth, height }) => {
+      const nodes = [[0, 0], [width, 0], [topWidth, height], [0, height]]
+        .map(([x, y]) => modelStore.addNode(x!, y!, 3));
+      for (const id of nodes) modelStore.addSupport(id, 'pinned3d');
+      const quadId = modelStore.addQuad(nodes as [number, number, number, number], 1, 0.15);
+      const q = 1;
+      modelStore.addSurfaceLoad3D(quadId, q);
+      const result = modelStore.solve3D(false, false, true);
+      expect(result, String(result)).toEqual(expect.objectContaining({ reactions: expect.any(Array) }));
+      const { reactions } = result as AnalysisResults3D;
+      const lower = q * height * (2 * width + topWidth) / 12;
+      const upper = q * height * (width + 2 * topWidth) / 12;
+      for (const [i, expected] of [lower, lower, upper, upper].entries()) {
+        expect(reactions.find(r => r.nodeId === nodes[i])?.fz).toBeCloseTo(expected, 10);
+      }
+    });
+
   it.each([
     { topWidth: 5.875, reversed: false }, { topWidth: 5.875, reversed: true },
     { topWidth: 6, reversed: false }, { topWidth: 6, reversed: true },
   ])('#2607 accounts for overlapping openings (top width $topWidth, reversed $reversed)', ({ topWidth, reversed }) => {
     const nodes = [[0, 0], [6, 0], [topWidth, 5], [0, 5]].map(([x, y]) => modelStore.addNode(x!, y!, 3));
     for (const nodeId of nodes) modelStore.addSupport(nodeId, 'pinned3d');
-    modelStore.addQuad(nodes as [number, number, number, number], 1, 0.15);
+    const quadId = modelStore.addQuad(nodes as [number, number, number, number], 1, 0.15);
     const z = (outline: [number, number][], name: string) => zone(reversed ? outline.reverse() : outline, 3, name);
     const first = z([[1, 1], [2, 1], [2, 2], [1, 2]], 'Opening A');
     const second = z([[1.5, 1], [2.5, 1], [2.5, 2], [1.5, 2]], 'Opening B');
@@ -408,6 +437,11 @@ describe('use zones over two floors', () => {
     syncDefinedLoadsForAnalysis();
 
     const result = modelStore.solve3D(false, false, true);
+    if (topWidth !== 6) {
+      const load = modelStore.loads.find(l => l.type === 'surface3d' && l.data.quadId === quadId);
+      expect(result).toBe(surfaceRefusal(load!.data.caseId!, quadId));
+      return;
+    }
     expect(result, String(result)).toEqual(expect.objectContaining({ reactions: expect.any(Array) }));
     const { reactions } = result as AnalysisResults3D;
     const q = 2.5, covered = 3 * 4, opening = 1.5 * 1;
@@ -419,7 +453,7 @@ describe('use zones over two floors', () => {
   });
 
   it.each([false, true])('#2607 accounts for a clipped use-zone force and moments (uplift %s)', async uplift => {
-    const nodes = [[0, 0], [6, 0], [5.9, 5], [0, 5]].map(([x, y]) => modelStore.addNode(x!, y!, 3));
+    const nodes = [[0, 0], [6, 0], [6, 5], [0, 5]].map(([x, y]) => modelStore.addNode(x!, y!, 3));
     for (const nodeId of nodes) modelStore.addSupport(nodeId, 'pinned3d');
     modelStore.addQuad(nodes as [number, number, number, number], 1, 0.15);
     const width = 4.25, length = 3.75;
@@ -437,6 +471,11 @@ describe('use zones over two floors', () => {
       expect(res, String(res)).toEqual(expect.objectContaining({ reactions: expect.any(Array) }));
       const { reactions } = res as AnalysisResults3D;
       const q = 2.5 * factor, area = width * length;
+      const right = width * width / (2 * 6), top = length * length / (2 * 5);
+      const left = width - right, bottom = length - top;
+      for (const [i, share] of [left * bottom, right * bottom, right * top, left * top].entries()) {
+        expect.soft(reactions.find(r => r.nodeId === nodes[i])?.fz).toBeCloseTo(q * share, 10);
+      }
       expect.soft(reactions.reduce((sum, r) => sum + r.fz, 0)).toBeCloseTo(q * area, 5);
       expect.soft(reactions.reduce((sum, r) => sum + r.mx + modelStore.nodes.get(r.nodeId)!.y * r.fz, 0))
         .toBeCloseTo(q * area * length / 2, 5);

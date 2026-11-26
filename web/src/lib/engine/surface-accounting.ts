@@ -199,11 +199,6 @@ function nonAffineQuad({ u, v, w }: NonNullable<ReturnType<typeof surfaceGeometr
   return norm(w) > roundoff * Math.max(norm(u), norm(v));
 }
 
-export function clippedQuadNeedsResultant(points: Vector[]): boolean {
-  const geometry = surfaceGeometry(points);
-  return geometry !== null && nonAffineQuad(geometry);
-}
-
 export function accountUniformClippedSurface(out: Wrench, points: Vector[], spec: ShellLoadSpec): boolean {
   const geometry = surfaceGeometry(points), region = spec.region;
   if (!geometry || !region || spec.vary || spec.qNodes || !Number.isFinite(spec.q)) return false;

@@ -27,14 +27,14 @@
     "zh": "核算裁剪四边形单元上的用途分区压力"
   },
   "explanation": {
-    "en": "A closed-form polygon check verifies the force and moments of clipped use-zone pressure. Analysis refuses inconsistent delivery. Rerun the analysis.",
-    "es": "Una comprobación poligonal en forma cerrada verifica la fuerza y los momentos de la presión recortada de la zona de uso. El análisis se bloquea si la carga aplicada es incoherente. Repetí el análisis.",
-    "pt": "Uma verificação poligonal em forma fechada confere a força e os momentos da pressão recortada da zona de uso. A análise é bloqueada se a carga aplicada for inconsistente. Execute a análise novamente.",
-    "de": "Eine geschlossene Polygonberechnung prüft Kraft und Momente der zugeschnittenen Nutzungszonenlast. Bei widersprüchlicher Lastübertragung wird die Berechnung verweigert. Wiederholen Sie die Berechnung.",
-    "fr": "Un calcul polygonal en forme fermée vérifie la force et les moments de la pression découpée de la zone d’usage. L’analyse est bloquée si le chargement appliqué est incohérent. Relancez l’analyse.",
-    "hu": "Zárt alakú sokszögszámítás ellenőrzi a metszett használati zóna nyomásából származó erőt és nyomatékokat. Inkonzisztens teherátadás esetén az elemzés leáll. Futtassa újra az elemzést.",
-    "tr": "Kapalı biçimli çokgen hesabı, kırpılmış kullanım bölgesi basıncının kuvvetini ve momentlerini doğrular. Tutarsız yük aktarımında analiz durdurulur. Analizi yeniden çalıştırın.",
-    "zh": "使用闭式多边形公式核验裁剪后的用途分区压力产生的合力和力矩。荷载传递不一致时将拒绝分析。请重新运行分析。"
+    "en": "The audit checks each corner force on triangles and parallelograms. Analysis refuses clipped pressure on a non-affine quadrilateral and identifies the element. Remesh affected zones and rerun the analysis.",
+    "es": "La comprobación verifica la fuerza de cada vértice en triángulos y paralelogramos. El análisis se bloquea si hay presión recortada sobre un cuadrilátero no afín e identifica el elemento. Volvé a mallar las zonas afectadas y repetí el análisis.",
+    "pt": "A verificação confere a força em cada vértice de triângulos e paralelogramos. A análise é bloqueada se houver pressão recortada sobre um quadrilátero não afim e identifica o elemento. Gere novamente a malha das zonas afetadas e execute a análise.",
+    "de": "Die Prüfung kontrolliert die Kraft an jeder Ecke von Dreiecken und Parallelogrammen. Bei zugeschnittenem Druck auf einem nicht affinen Viereck wird die Berechnung verweigert und das Element angegeben. Vernetzen Sie die betroffenen Zonen neu und wiederholen Sie die Berechnung.",
+    "fr": "Le contrôle vérifie la force à chaque sommet des triangles et des parallélogrammes. L’analyse refuse une pression découpée sur un quadrilatère non affine et indique l’élément concerné. Remaillez les zones affectées et relancez l’analyse.",
+    "hu": "Az ellenőrzés a háromszögek és paralelogrammák minden csúcsában ellenőrzi az erőt. Nem affin négyszögre eső metszett nyomás esetén az elemzés leáll és megjelöli az elemet. Hálózza újra az érintett zónákat, és futtassa újra az elemzést.",
+    "tr": "Denetim, üçgenlerin ve paralelkenarların her köşesindeki kuvveti doğrular. Analiz, afin olmayan bir dörtgen üzerindeki kırpılmış basıncı reddeder ve elemanı belirtir. Etkilenen bölgeleri yeniden ağlayın ve analizi tekrar çalıştırın.",
+    "zh": "核查三角形和平行四边形各角点的力。遇到非仿射四边形上的裁剪压力时，分析会停止并指出相应单元。请重新划分受影响区域的网格，然后重新运行分析。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-cad-and-roof-load-intervals.md",
