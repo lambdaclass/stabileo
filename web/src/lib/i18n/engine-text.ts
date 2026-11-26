@@ -125,6 +125,7 @@ const reducedStiffnessRank: Record<Locale, string> = {
   pt: 'Não é possível determinar o posto da rigidez reduzida com a precisão da montagem. Verifique as liberações, os apoios, as molas e as restrições para identificar um mecanismo.',
   tr: 'İndirgenmiş rijitlik matrisinin mertebesi montaj hassasiyetiyle belirlenemiyor. Bir mekanizma olup olmadığını görmek için eleman mafsallarını, mesnetleri, yayları ve kısıtları kontrol edin.',
   zh: '在组装精度下无法判定约化刚度矩阵的秩。请检查杆端释放、支座、弹簧和约束是否形成机构。',
+  nl: 'De rang van de gereduceerde stijfheidsmatrix kan met de nauwkeurigheid van de assemblage niet worden bepaald. Controleer staafvrijgaven, opleggingen, veren en koppelingen op een mechanisme.',
 };
 registerFeatureDictionaries(Object.fromEntries(
   Object.entries(reducedStiffnessRank).map(([locale, message]) => [locale, { [REDUCED_STIFFNESS_RANK]: message }]),
@@ -141,6 +142,7 @@ const constraintStiffnessRank: Record<Locale, [string, string]> = {
   pt: ['A redução das restrições cancela contribuições de rigidez{where}. O arredondamento impede determinar a rigidez restante. Reduza os contrastes extremos de rigidez ou revise as restrições.', ' nos nós {nodes}'],
   tr: ['Kısıtların indirgenmesi{where} rijitlik katkılarını birbirini götürecek şekilde birleştiriyor. Yuvarlama kalan rijitliğin belirlenmesini engelliyor. Aşırı rijitlik farklarını azaltın veya kısıtları gözden geçirin.', ' {nodes} düğümlerinde'],
   zh: ['约束消元使刚度贡献{where}相互抵消。舍入误差导致剩余刚度无法判定。请减小过大的刚度差异或调整约束。', '在节点 {nodes} 处'],
+  nl: ['Het reduceren van de koppelingen heft stijfheidsbijdragen{where} op. Door afronding kan de resterende stijfheid niet worden bepaald. Verklein extreme stijfheidsverschillen of herzie de koppelingen.', ' in knopen {nodes}'],
 };
 registerFeatureDictionaries(Object.fromEntries(
   Object.entries(constraintStiffnessRank).map(([locale, [message, nodes]]) => [locale, {
