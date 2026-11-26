@@ -2,7 +2,7 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import { localizeEngineText } from '../engine-text';
 import { errorText } from '../../utils/error-text';
-import { setLocale } from '../index';
+import { setLocale, t } from '../index';
 
 afterAll(() => setLocale('en'));
 
@@ -105,6 +105,26 @@ describe('engine sentences', () => {
     });
     expect(localizeEngineText(errorText(refusal, 'Unknown error')))
       .toBe('Hay un mecanismo en el nudo 2. El nudo puede desplazarse sin deformar las barras articuladas conectadas ni violar las restricciones.');
+  });
+
+  it.skip('localizes the proven axial displacement components in every offered language (#2608)', async () => {
+    for (const locale of ['de', 'en', 'es', 'fr', 'hu', 'pt', 'tr', 'zh']) {
+      await setLocale(locale);
+      const cause = 'the structure is a mechanism at nodes [2]: a translation of this joint leaves all attached trusses unstrained and satisfies the restraints';
+      const message = cause + ' (displacement components: X, Z)';
+      const coded = JSON.stringify({
+        message,
+        structuredDiagnostics: [{ code: 'reduced_stiffness_rank', severity: 'error', nodeIds: [2], message }],
+      });
+      for (const text of [message, coded]) {
+        const translated = localizeEngineText(text);
+        expect(translated, locale).toContain(localizeEngineText(cause));
+        expect(translated, locale).toContain(t('kin.dof3dUx'));
+        expect(translated, locale).toContain(t('kin.dof3dUz'));
+        expect(translated, locale).not.toContain(t('kin.dof3dUy'));
+        expect(translated, locale).not.toContain('{components}');
+      }
+    }
   });
 
   it('localizes the proven released frame swing', async () => {

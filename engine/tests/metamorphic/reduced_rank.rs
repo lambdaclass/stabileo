@@ -714,6 +714,88 @@ fn sparse_drop_trusses(factor: f64) -> dedaliano_engine::types::SolverInput3D {
 }
 
 #[test]
+#[ignore = "known wrong result: #2608"]
+fn axial_joint_refusal_reports_admissible_displacement_components() {
+    use dedaliano_engine::solver::kinematic;
+
+    fn check(label: &str, refusal: Result<impl std::fmt::Debug, String>, axes: &str, failures: &mut Vec<String>) {
+        match refusal {
+            Err(error) if error.find('{').and_then(|start| serde_json::from_str::<serde_json::Value>(&error[start..]).ok())
+                .is_some_and(|value| {
+                    let diagnostic = &value["structuredDiagnostics"][0];
+                    let message = format!("the structure is a mechanism at nodes [2]: a translation of this joint leaves all attached trusses unstrained and satisfies the restraints (displacement components: {axes})");
+                    value["message"] == message
+                        && diagnostic["message"] == message
+                        && diagnostic["code"] == RANK_REFUSAL
+                        && diagnostic["severity"] == "error"
+                        && diagnostic["nodeIds"] == serde_json::json!([2])
+                }) => {}
+            Err(error) => failures.push(format!("{label}, expected {axes}: {error}")),
+            Ok(value) => failures.push(format!("{label}, expected {axes}: {value:?}")),
+        }
+    }
+
+    let mut input = truss();
+    input.nodes.insert("3".into(), serde_json::from_value(serde_json::json!({
+        "id": 3, "x": 2, "z": 0
+    })).unwrap());
+    let mut second = input.elements["1"].clone();
+    (second.id, second.node_i, second.node_j) = (2, 2, 3);
+    input.elements.insert("2".into(), second);
+    input.supports.remove("2");
+    let mut anchor = input.supports["1"].clone();
+    anchor.node_id = 3;
+    input.supports.insert("3".into(), anchor);
+    input.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: 1.0, fz: 0.0, my: 0.0 })];
+
+    let mut failures = Vec::new();
+    let analyses = [
+        "linear", "linear (dense reference)", "linear (WASM typed path)", "linear (sparse path)",
+        "linear (PCG)", "linear (load session)", "constrained", "certified linear",
+        "load combinations", "staged (one stage)", "Winkler (no foundation)", "contact (no gaps)",
+        "SSI (no soil springs)", "P-Delta", "corotational", "material nonlinear", "modal",
+        "certified modal",
+    ];
+    for (rise, planar_axes, spatial_axes) in [
+        (0.0, "Z", ["Z", "Y", "Z"]),
+        (1.0, "X, Z", ["X, Z", "X, Y", "Y, Z"]),
+    ] {
+        input.nodes.get_mut("2").unwrap().z = rise;
+        input.nodes.get_mut("3").unwrap().z = 2.0 * rise;
+        let planar = Case2::new("collinear truss", input.clone());
+        for row in crate::ana2::rows().into_iter().filter(|row| analyses.contains(&row.name)) {
+            check(&format!("2D {}", row.name), (row.run)(&planar), planar_axes, &mut failures);
+        }
+        let kinematic = kinematic::analyze_kinematics_2d(&planar.s);
+        assert!(!kinematic.is_solvable);
+        check("2D kinematics", Err::<(), _>(kinematic.diagnosis), planar_axes, &mut failures);
+        for (plane, axes) in Plane::ALL.into_iter().zip(spatial_axes) {
+            let spatial = Case3::new("embedded collinear truss", embed_2d(&planar.s, plane).unwrap());
+            for row in crate::ana3::rows().into_iter().filter(|row| analyses.contains(&row.name)) {
+                check(&format!("{plane:?} {}", row.name), (row.run)(&spatial), axes, &mut failures);
+            }
+            let kinematic = kinematic::analyze_kinematics_3d(&spatial.s);
+            assert!(!kinematic.is_solvable);
+            check("3D kinematics", Err::<(), _>(kinematic.diagnosis), axes, &mut failures);
+        }
+    }
+
+    let mut spatial = embed_2d(&input, Plane::XZ).unwrap();
+    spatial.supports.values_mut().find(|support| support.node_id == 2).unwrap().ry = false;
+    check("3D spatial truss", linear::solve_3d(&spatial), "X, Y, Z", &mut failures);
+    let restrain = |dof| Constraint::LinearMPC(LinearMPCConstraint {
+        terms: vec![MPCTerm { node_id: 2, dof, coefficient: 1.0 }],
+    });
+    spatial.constraints.push(restrain(2));
+    check("3D restrained Z", linear::solve_3d(&spatial), "Y", &mut failures);
+    spatial.constraints.push(restrain(1));
+    let solved = linear::solve_3d(&spatial).unwrap();
+    assert_eq!(solved.displacements.len(), 3);
+    assert!(solved.displacements.iter().all(|d| [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz] == [0.0; 6]));
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
 fn axial_joint_rank_does_not_depend_on_parallel_scatter() {
     let input = weak_parallel_trusses(1024);
     let base = Case2::new("parallel axial rows", input);
