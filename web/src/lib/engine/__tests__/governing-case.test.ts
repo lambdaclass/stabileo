@@ -99,9 +99,7 @@ it('#2273 withholds an exact governing claim if a possible winner has only a bou
   expect(select(21)).toMatchObject({ comboId: 2, value: 21 });
 });
 
-const issue2273 = process.env.RUN_KNOWN_WRONG === '2273' ? it : it.skip;
-
-issue2273('known wrong result: #2273 nested ABS uses a conservative bound in diagrams and governing selection', () => {
+it('known wrong result: #2273 nested ABS uses a conservative bound in diagrams and governing selection', () => {
   const pulse = (a: number) => ef3d({ pointLoadsX: [{ a, p: -10 }, { a: a + 1, p: 10 }] });
   const abs = (...parts: ElementForces3D[]) => ef3d({ combined: { method: 'abs', parts } });
   const first = pulse(0.5), second = pulse(2);

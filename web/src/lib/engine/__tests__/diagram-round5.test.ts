@@ -677,9 +677,7 @@ it('known wrong result: #2226 prepared planar and spatial curves retain their or
   }
 });
 
-const issue2226 = process.env.RUN_KNOWN_WRONG === '2226' ? it : it.skip;
-
-issue2226('known wrong result: #2226 prepared piecewise shear retains the member and piece geometry', () => {
+it('known wrong result: #2226 prepared piecewise shear retains the member and piece geometry', () => {
   const [, space] = cantilevers(2);
   const linear = solve3D(space);
   const nonlinear = solvePDelta3D(space);
