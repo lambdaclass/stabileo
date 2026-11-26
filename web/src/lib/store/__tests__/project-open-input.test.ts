@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { deflateSync, inflateSync } from 'fflate';
 import LZString from 'lz-string';
-import { tp } from '../../i18n';
-import { initSolver } from '../../engine/wasm-solver';
+import { t, tp } from '../../i18n';
+import { initSolver, solvePDelta } from '../../engine/wasm-solver';
 import { compressSnapshot, loadFromShareLink, loadFromURLHash } from '../../utils/url-sharing';
 import { acceptAutosavePayload, acceptSessionTabs, buildProjectFile, deserializeProject } from '../file';
+import { assessProject } from '../../provenance/applicability';
 import { modelStore } from '../model.svelte';
 import { uiStore } from '../ui.svelte';
 import { tabManager } from '../tabs.svelte';
@@ -49,10 +50,10 @@ function duplicate(file: Project): Project {
 }
 
 function sharePayload(file: Project, route: typeof routes[number]) {
-  const { nodes, materials, sections, elements, supports, loads, connectors, nextId, drawPlane2D } = file.snapshot;
+  const { nodes, materials, sections, elements, supports, loads, connectors, constraints, nextId, drawPlane2D } = file.snapshot;
   if (route === 'v1 share') {
     return LZString.compressToEncodedURIComponent(JSON.stringify({
-      analysisMode: file.analysisMode, nodes, materials, sections, elements, supports, loads, connectors, nextId, drawPlane2D,
+      analysisMode: file.analysisMode, nodes, materials, sections, elements, supports, loads, connectors, constraints, nextId, drawPlane2D,
     }));
   }
   const compressed = compressSnapshot({ ...file.snapshot, drawPlane2D: undefined, analysisMode: file.analysisMode });
@@ -232,4 +233,64 @@ it('#2588 restores spatial constraints from a tab during a planar session', () =
   tabManager.restoreSession([saved], saved.id);
   expect(uiStore.analysisMode).toBe('pro');
   expect(modelStore.model.constraints).toEqual(file.snapshot.constraints);
+});
+
+it.skip.each(routes)('known wrong result: #2588 — %s refuses an implicit default rigid link without its plane', route => {
+  const { file, root, tip } = frame('2d');
+  file.snapshot.drawPlane2D = undefined;
+  const link = { type: 'rigidLink' as const, masterNode: root, slaveNode: tip };
+  const before = modelStore.snapshot();
+  for (const dofs of [undefined, [], [0, 1, 2], [0, 1, 2, 3, 4, 5]]) {
+    file.snapshot.constraints = [dofs === undefined ? link : { ...link, dofs }];
+    const result = open(file, route);
+    expect.soft(result.opened, String(dofs)).toBe(false);
+    expect.soft(result.messages, String(dofs)).toContain(`${t('svc.savedPlaneRequired')} constraints[0]`);
+    expect.soft(modelStore.snapshot(), String(dofs)).toEqual(before);
+    expect.soft(assessProject({ ...file.snapshot, analysisMode: '2d' }, null, '2d').changes.map(c => c.id))
+      .toContain('xy-constraint-projection');
+  }
+});
+
+it.each(['xy', 'xz'] as const)('solves default rigid links in explicit %s with the same translations as a listed mask', async plane => {
+  await initSolver();
+  const { file, root, tip } = frame('2d');
+  const link = { type: 'rigidLink' as const, masterNode: root, slaveNode: tip };
+  file.snapshot.drawPlane2D = plane;
+  const analyze = (dofs?: number[]) => {
+    file.snapshot.constraints = [dofs === undefined ? link : { ...link, dofs }];
+    expect(open(file, 'file').opened).toBe(true);
+    const linear = modelStore.solve();
+    expect(linear).toMatchObject({ displacements: expect.arrayContaining([expect.objectContaining({ nodeId: tip, ux: 0 })]) });
+    return { linear, nonlinear: solvePDelta(modelStore.buildSolverInput()!).results };
+  };
+  const reference = analyze([0, 1, 2]);
+  expect(analyze()).toEqual(reference);
+  expect(analyze([])).toEqual(reference);
+
+  file.snapshot.drawPlane2D = undefined;
+  file.snapshot.constraints = [{ ...link, dofs: [0] }];
+  expect(open(file, 'file').opened).toBe(true);
+  expect(modelStore.solve()).toMatchObject({ displacements: expect.arrayContaining([
+    expect.objectContaining({ nodeId: tip, ux: 0 }),
+  ]) });
+});
+
+it('solves an unstamped spatial project with a default rigid link', async () => {
+  await initSolver();
+  const { file, root, tip } = frame('pro');
+  file.snapshot.constraints = [{ type: 'rigidLink', masterNode: root, slaveNode: tip }];
+  expect(open(file, 'file').opened).toBe(true);
+  expect(modelStore.solve3D(false, false, true)).toMatchObject({ displacements: expect.arrayContaining([
+    expect.objectContaining({ nodeId: tip, ux: 0 }),
+  ]) });
+});
+
+it.skip('known wrong result: #2588 — a legacy v1 share with a guidedX support opens with a blocked solve', () => {
+  const { file, tip } = frame('2d');
+  file.snapshot.drawPlane2D = undefined;
+  file.snapshot.supports.push([2, { id: 2, nodeId: tip, type: 'guidedX' }]);
+  file.snapshot.nextId.support = 3;
+  expect(open(file, 'v1 share').opened).toBe(true);
+  expect.soft(modelStore.snapshot().drawPlane2D).toBeUndefined();
+  expect(modelStore.solve()).toBe(t('svc.savedPlaneRequired'));
 });

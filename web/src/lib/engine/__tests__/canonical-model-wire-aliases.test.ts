@@ -146,6 +146,25 @@ it('#2532 WASM spatial solvers retain the applied nodal couple', () => {
   }
 });
 
+it.each([false, true])('solves a WASM object with JavaScript integer IDs (space = %s)', (spatial) => {
+  const model = spatial ? space : planar;
+  const solve = spatial ? solve_3d : solve_2d;
+  const load = 10;
+  const input = {
+    ...model,
+    loads: [{ type: 'nodal', data: {
+      nodeId: 2, fx: load, fz: 0, my: 0,
+      ...(spatial ? { fy: 0, mx: 0, mz: 0 } : {}),
+    } }],
+  };
+  const result = solve(input);
+  expect(result.displacements.map((row: { nodeId: number }) => row.nodeId).sort((a: number, b: number) => a - b)).toEqual([1, 2]);
+  expect(result.reactions).toEqual([expect.objectContaining({ nodeId: 1, [spatial ? 'fx' : 'rx']: -load })]);
+  for (const nodeI of [1.5, -1, 2 ** 32]) {
+    expect(() => solve({ ...input, elements: indexed({ ...input.elements[1]!, nodeI }) })).toThrow(/Parse error:/);
+  }
+});
+
 it.each([false, true])('refuses fields dropped by typed object and JSON analysis (space = %s)', (is3D) => {
   const model = is3D ? space : planar;
   const linear = is3D ? solve_3d : solve_2d;
