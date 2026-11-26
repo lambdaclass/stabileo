@@ -1,4 +1,5 @@
 import type { PostBody } from '../../types';
+import { nextReleaseAdvisoryBlocks } from '../../next-release-advisories';
 
 const body: PostBody = {
   "title": "安全公告：哪些结果发生了变化，以及该怎么做",
@@ -458,146 +459,7 @@ const body: PostBody = {
       "label": "SA-2026-107",
       "t": "受影响的输入和应采取的措施。"
     },
-    {
-      "k": "note",
-      "t": "SA-2026-108 — 0.6.4 之后的下一个版本。"
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-108-planar-projection-nodal-forces.md",
-      "label": "SA-2026-108",
-      "t": "受影响的输入和应采取的措施。"
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-109 — 0.6.4 之后的下一个版本。"
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-109-dxf-support-labels.md",
-      "label": "SA-2026-109",
-      "t": "受影响的输入和应采取的措施。"
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-110 — 0.6.4 之后的下一个版本。"
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-110-solver-json-boundary.md",
-      "label": "SA-2026-110",
-      "t": "受影响的输入和应采取的措施。"
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-111 — 0.6.4 之后的下一个版本。"
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-111-gravity-shared-deck-coverage.md",
-      "label": "SA-2026-111",
-      "t": "受影响的输入和应采取的措施。"
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-112 — 0.6.4 之后的下一个版本。"
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-112-basic-3d-shell-omission.md",
-      "label": "SA-2026-112",
-      "t": "受影响的输入和应采取的措施。"
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-113 — 0.6.4 之后的下一个版本。"
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-113-native-supplied-linear-certificates.md",
-      "label": "SA-2026-113",
-      "t": "受影响的输入和应采取的措施。"
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-114 — 0.6.4 之后的下一个版本。"
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-114-saved-combination-load-groups.md",
-      "label": "SA-2026-114",
-      "t": "受影响的输入和应采取的措施。"
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-115 — 0.6.4 之后的下一个版本。"
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-115-gravity-floor-region-ownership.md",
-      "label": "SA-2026-115",
-      "t": "受影响的输入和应采取的措施。"
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-116 — 0.6.4 之后的下一个版本。"
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-116-nonlinear-continuation-and-inclined-loads.md",
-      "label": "SA-2026-116",
-      "t": "受影响的输入和应采取的措施。"
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-117 — 0.6.4 之后的下一个版本。"
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-117-static-shell-self-weight-density.md",
-      "label": "SA-2026-117",
-      "t": "受影响的输入和应采取的措施。"
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-118 — 0.6.4 之后的下一个版本。"
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-118-self-weight-group-targets.md",
-      "label": "SA-2026-118",
-      "t": "受影响的输入和应采取的措施。"
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-119 — 0.6.4 之后的下一个版本。"
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-119-modal-mass-missing-density.md",
-      "label": "SA-2026-119",
-      "t": "受影响的输入和应采取的措施。"
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-120 — 0.6.4 之后的下一个版本。"
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-120-gravity-deck-load-placement.md",
-      "label": "SA-2026-120",
-      "t": "受影响的输入和应采取的措施。"
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-121 — 0.6.4 之后的下一个版本。"
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-121-planar-nonlinear-member-loads.md",
-      "label": "SA-2026-121",
-      "t": "受影响的输入和应采取的措施。"
-    },
+    ...nextReleaseAdvisoryBlocks('0.6.4 之后的下一个版本。', '受影响的输入和应采取的措施。'),
     {
       "k": "img",
       "base": "blog/recheck-stale",
@@ -1338,6 +1200,36 @@ const body: PostBody = {
           "SA-2026-121",
           "平面非线性分析可能给出错误的杆件荷载结果。请重新进行受影响的分析，包括用于确定延续分析初始状态的分析，并检查位移、支座反力和杆端内力。",
           "中",
+          "0.6.4 之后的下一个版本"
+        ],
+        [
+          "SA-2026-122",
+          "生成的组合可能遗漏必选备选工况或手动输入的屋面活荷载，采用错误的雪荷载基准，或纳入已失效的风荷载工况。请核对荷载、规则系数以及各包络所含的组合。从模型中删除经确认已失效的空荷载工况，包括在 0.6.4 版中已经为空的工况。重新生成组合，并在重新进行受影响的分析前，核实新组合不含这些工况的编号。",
+          "高",
+          "0.6.4 之后的下一个版本"
+        ],
+        [
+          "SA-2026-123",
+          "自动生成重力荷载时，可能保留净高不足的板区下方的荷载，或在上方覆盖条件无法确定时仍分配荷载。请重新生成受影响的重力荷载、屋面风荷载和雪荷载，核实其分配，并重新进行相关分析。",
+          "高",
+          "0.6.4 之后的下一个版本"
+        ],
+        [
+          "SA-2026-124",
+          "针对指定构件的自重可能遗漏已缺失的对象，或仅将选定杆件的自重施加到一段。请修正选定范围，核实实际施加的自重，重新进行受影响的分析，并重新计算平面动力学课程中采用杆件细分的响应。",
+          "高",
+          "0.6.4 之后的下一个版本"
+        ],
+        [
+          "SA-2026-125",
+          "原生引擎和 WASM 的运动学报告可能重复计算同一个刚性约束。请重新核查超静定次数、分类和诊断，并更新受影响的报告。",
+          "中",
+          "0.6.4 之后的下一个版本"
+        ],
+        [
+          "SA-2026-126",
+          "重复项可能遗漏起控制作用的荷载布置，或生成不含雪荷载的备选组合。请核对规则，重新生成受影响的组合和复合荷载工况，并重新进行分析、包络计算和设计验算。",
+          "高",
           "0.6.4 之后的下一个版本"
         ]
       ]

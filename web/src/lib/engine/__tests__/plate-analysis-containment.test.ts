@@ -76,8 +76,7 @@ const entries = [
 const directEntries = [
   ...entries,
   ['advanced input', () => {
-    try { modelStore.buildSolverInput3D(); } catch (error) { return (error as Error).message; }
-    return null;
+    try { return modelStore.buildSolverInput3D(); } catch (error) { return (error as Error).message; }
   }],
   ['reproducible input', () => modelStore.singleSolveInput3D(false, false, true)],
 ] as const;
@@ -398,12 +397,12 @@ it('#2409 accepts complete direct MPC ties at coincident shell endpoints', () =>
   expectLoadedSlab(modelStore.solve3D(false, false, true));
 });
 
-function wallUnderSlab(clearance = 0) {
+function wallUnderSlab(clearance = 0, xShift = 0) {
   const [corner] = loadedSlab();
-  const a = modelStore.addNode(1, 1, -clearance);
-  const b = modelStore.addNode(3, 2, -clearance);
-  const i = modelStore.addNode(1, 1, -3);
-  const j = modelStore.addNode(3, 2, -3);
+  const a = modelStore.addNode(1 + xShift, 1, -clearance);
+  const b = modelStore.addNode(3 + xShift, 2, -clearance);
+  const i = modelStore.addNode(1 + xShift, 1, -3);
+  const j = modelStore.addNode(3 + xShift, 2, -3);
   const wall = modelStore.addQuad([a, b, j, i], 1, 0.15);
   modelStore.addSupport(i, 'fixed3d');
   modelStore.addSupport(j, 'fixed3d');
@@ -423,6 +422,34 @@ it('#2430 refuses a supported wall ending inside a loaded slab face', async () =
   const outcome = await runGlobalSolve({ directBase: true });
   expect(outcome.ok ? 'returned a result' : outcome.error).toEqual(expect.stringMatching(/wall.*slab/i));
   expect(resultsStore.results3D).toBeNull();
+});
+
+it('#2430 refuses a wall edge piercing the interior of a loaded slab', async () => {
+  for (const [entry, solve] of directEntries) {
+    modelStore.clear();
+    const { wall } = wallUnderSlab(-1);
+    const result = await solve();
+    expect.soft(result && typeof result === 'object' ? 'returned a result' : result, entry)
+      .toEqual(entry === 'reproducible input' ? null : expect.stringMatching(new RegExp('wall q' + wall + '.*slab q1', 'i')));
+  }
+  modelStore.clear();
+  wallUnderSlab(-1);
+  const outcome = await runGlobalSolve({ directBase: true });
+  expect.soft(outcome.ok ? 'returned a result' : outcome.error).toEqual(expect.stringMatching(/wall.*slab/i));
+  expect(resultsStore.results3D).toBeNull();
+});
+
+it('#2430 refuses a piercing wall just inside the slab face', () => {
+  const { wall } = wallUnderSlab(-1, 3 - 2 * PLATE_EDGE_TOL);
+  expect(modelStore.solve3D(false, false, true)).toEqual(expect.stringMatching(new RegExp('wall q' + wall + '.*slab q1', 'i')));
+});
+
+it('#2430 solves a wall crossing the slab elevation outside the slab face', () => {
+  const { base } = wallUnderSlab(-1, 3 + 2 * PLATE_EDGE_TOL);
+  const result = modelStore.solve3D(false, false, true);
+  expectLoadedSlab(result);
+  if (!result || typeof result === 'string') throw new Error(String(result));
+  expect(result.reactions.filter(r => base.includes(r.nodeId)).map(r => r.fz)).toEqual([0, 0]);
 });
 
 it('#2430 a separately supported wall beyond the contact limit keeps the loaded slab result', () => {
@@ -587,4 +614,170 @@ it.each([['skew shared edge', skewWallSlab], ['slab corner', () => { cornerWall(
 it('#2586 still refuses a wall edge crossing the slab strictly inside the face', () => {
   cornerWall(2 * PLATE_EDGE_TOL);
   expect(modelStore.solve3D(false, false, true)).toMatch(/wall.*slab/i);
+});
+
+function loadedSeam(tilt = 0) {
+  const cos = Math.cos(tilt), sin = Math.sin(tilt);
+  const at = (x: number, y: number, z: number) => modelStore.addNode(x, y * cos - z * sin, y * sin + z * cos);
+  const a = at(0, 0, 0), b = at(2, 0, 0), c = at(4, 0, 0);
+  const d = at(0, 4, 0), e = at(2, 4, 0), f = at(4, 4, 0);
+  for (const nodes of [[a, b, e, d], [b, c, f, e]] as const) {
+    modelStore.addSurfaceLoad3D(modelStore.addQuad([...nodes], 1, 0.15), 1);
+  }
+  return { a, b, c, d, e, at };
+}
+
+function wallPiercingSeam() {
+  const { a, c, d, at } = loadedSeam();
+  for (const node of [a, c, d]) modelStore.addSupport(node, 'fixed3d');
+  const i = at(2, 1, -3), j = at(2, 3, -3);
+  const k = at(2, 1, 1), l = at(2, 3, 1);
+  modelStore.addSupport(i, 'fixed3d');
+  modelStore.addSupport(j, 'fixed3d');
+  modelStore.addElement(a, i);
+  return modelStore.addQuad([i, j, l, k], 1, 0.15);
+}
+
+it('#2430 refuses a wall piercing the internal edge of a loaded slab mesh', async () => {
+  for (const [entry, solve] of directEntries) {
+    modelStore.clear();
+    wallPiercingSeam();
+    const result = await solve();
+    expect.soft(result && typeof result === 'object' ? 'returned a result' : result, entry)
+      .toEqual(entry === 'reproducible input' ? null : expect.stringMatching(/wall q3.*slab q[12]/i));
+  }
+
+  modelStore.clear();
+  wallPiercingSeam();
+  const outcome = await runGlobalSolve({ directBase: true });
+  expect.soft(outcome.ok ? 'returned a result' : outcome.error).toEqual(expect.stringMatching(/wall q3.*slab q[12]/i));
+  expect(resultsStore.results3D).toBeNull();
+});
+
+it('#2430 solves a loaded acute wall joint that shares the slab seam', async () => {
+  for (const tilt of [0, 0.2]) {
+    modelStore.clear();
+    resultsStore.clear();
+    const { b, e, at } = loadedSeam(tilt);
+    const apex = at(3.5, 2, 1);
+    modelStore.addPlate([b, e, apex], 1, 0.15);
+    modelStore.addSupport(apex, 'fixed3d');
+
+    for (const [entry, solve] of directEntries) {
+      const result = await solve();
+      expect.soft(result, entry).not.toBeNull();
+      expect.soft(typeof result, entry + ': ' + String(result)).toBe('object');
+    }
+    const outcome = await runGlobalSolve({ directBase: true });
+    expect.soft(outcome).toMatchObject({ ok: true });
+    const result = resultsStore.results3D;
+    if (!result) throw new Error('Missing result at the shared acute joint');
+    expectLoadedSlab(result);
+    expect(result.reactions.map(r => r.nodeId)).toEqual([apex]);
+  }
+});
+
+
+function wallAtSlabPerimeter(inset: number) {
+  const [corner] = loadedSlab();
+  const x = 4 - inset;
+  const base = [modelStore.addNode(x, 1, -3), modelStore.addNode(x, 3, -3)] as const;
+  const top = [modelStore.addNode(x, 1, 1), modelStore.addNode(x, 3, 1)] as const;
+  for (const node of base) modelStore.addSupport(node, 'fixed3d');
+  modelStore.addElement(corner!, base[0]);
+  return { wall: modelStore.addQuad([...base, top[1], top[0]], 1, 0.15), base };
+}
+
+function wallWithSlopingTop(clearanceI: number, clearanceJ: number) {
+  const fixture = wallUnderSlab(clearanceI);
+  const node = modelStore.quads.get(fixture.wall)!.nodes[1]!;
+  modelStore.updateNode(node, 3, 2, -clearanceJ);
+  return fixture;
+}
+
+function diamondWall(conforming = false) {
+  const [a, b, c, d] = loadedSlab() as [number, number, number, number];
+  const base = modelStore.addNode(2, 2, -2);
+  const top = modelStore.addNode(2, 2, 2);
+  modelStore.addSupport(base, 'fixed3d');
+  if (!conforming) return modelStore.addQuad([a, base, c, top], 1, 0.15);
+  modelStore.removeQuad(1);
+  for (const nodes of [[a, b, c], [c, d, a]] as const) {
+    modelStore.addSurfaceLoad3D(modelStore.addPlate([...nodes], 1, 0.15), 1, undefined, { on: 'plate' });
+  }
+  modelStore.addPlate([a, base, c], 1, 0.15);
+  modelStore.addPlate([c, top, a], 1, 0.15);
+  return null;
+}
+
+it.each([
+  ['both crossing points inside the perimeter band', () => wallAtSlabPerimeter(PLATE_EDGE_TOL / 2).wall],
+  ['a sloping edge inside the contact band', () => wallWithSlopingTop(PLATE_EDGE_TOL / 4, PLATE_EDGE_TOL / 2).wall],
+  ['only part of a sloping edge inside the contact band', () => wallWithSlopingTop(PLATE_EDGE_TOL / 2, PLATE_EDGE_TOL * 2).wall],
+  ['a diamond face sharing only opposite corners', () => diamondWall()!],
+] as const)('known wrong result: #2430 — refuses %s', async (_label, wall) => {
+  for (const [entry, solve] of directEntries) {
+    modelStore.clear();
+    const id = wall();
+    const result = await solve();
+    expect.soft(result && typeof result === 'object' ? 'returned a result' : result, entry).toEqual(entry === 'reproducible input' ? null : expect.stringMatching(new RegExp('wall q' + id + '.*slab q1', 'i')));
+  }
+
+  modelStore.clear();
+  const id = wall();
+  const outcome = await runGlobalSolve({ directBase: true });
+  expect.soft(outcome.ok ? 'returned a result' : outcome.error).toEqual(expect.stringMatching(new RegExp('wall q' + id + '.*slab q1', 'i')));
+  expect(resultsStore.results3D).toBeNull();
+});
+
+it.each([
+  ['both crossings outside the perimeter band', () => wallAtSlabPerimeter(-PLATE_EDGE_TOL / 2)],
+  ['a sloping edge beyond the contact distance', () => wallWithSlopingTop(PLATE_EDGE_TOL * 2, PLATE_EDGE_TOL * 3)],
+] as const)('#2430 the loaded slab solves with %s', (_label, wall) => {
+  const { base } = wall();
+  const result = modelStore.solve3D(false, false, true);
+  expectLoadedSlab(result);
+  if (!result || typeof result === 'string') throw new Error(String(result));
+  expect(result.reactions.filter(r => base.includes(r.nodeId)).map(r => r.fz)).toEqual([0, 0]);
+});
+
+it('#2430 solves a diamond wall and slab that share the full diagonal edge', () => {
+  diamondWall(true);
+  expectLoadedSlab(modelStore.solve3D(false, false, true));
+});
+
+it('#2580 solves a wall that shares the slab edge within the contact band', async () => {
+  const a = modelStore.addNode(0, 0, 0);
+  const b = modelStore.addNode(4, 0, 0);
+  const c = modelStore.addNode(2, 4, 0);
+  const i = modelStore.addNode(0, PLATE_EDGE_TOL * 0.95, -PLATE_EDGE_TOL * 0.95);
+  const j = modelStore.addNode(4, PLATE_EDGE_TOL * 0.95, -PLATE_EDGE_TOL * 0.95);
+  modelStore.addSurfaceLoad3D(modelStore.addPlate([a, b, c], 1, 0.15), 1, undefined, { on: 'plate' });
+  modelStore.addQuad([a, i, j, b], 1, 0.15);
+  modelStore.addSupport(i, 'fixed3d');
+  modelStore.addSupport(j, 'fixed3d');
+
+  for (const [entry, solve] of directEntries) {
+    const result = await solve();
+    expect.soft(result, entry).not.toBeNull();
+    expect.soft(typeof result, entry + ': ' + String(result)).toBe('object');
+  }
+  const outcome = await runGlobalSolve({ directBase: true });
+  expect.soft(outcome).toMatchObject({ ok: true });
+  const result = resultsStore.results3D;
+  if (!result) throw new Error('Missing result for the shared wall edge');
+  expect(result.reactions.reduce((sum, support) => sum + support.fz, 0)).toBeCloseTo(4 * 4 / 2, 8);
+});
+
+it('#2580 refuses a wall edge that shares slab corners across an unmeshed diagonal', async () => {
+  const [a, , c] = loadedSlab();
+  const base = modelStore.addNode(2, 2, -2);
+  modelStore.addSupport(base, 'fixed3d');
+  const wall = modelStore.addPlate([a!, base, c!], 1, 0.15);
+  const refusal = expect.stringMatching(new RegExp('wall p' + wall + '.*slab q1', 'i'));
+  for (const [entry, solve] of directEntries) {
+    expect.soft(await solve(), entry).toEqual(entry === 'reproducible input' ? null : refusal);
+  }
+  expect(await runGlobalSolve({ directBase: true })).toEqual({ ok: false, error: refusal });
+  expect(resultsStore.results3D).toBeNull();
 });

@@ -1,4 +1,4 @@
-use crate::solver::support::{support_dofs_2d, support_dofs_3d};
+use crate::solver::support::{plain_rigid_dofs_2d, plain_rigid_dofs_3d, support_dofs_2d, support_dofs_3d};
 use crate::types::units::{ElasticInput2D, ElasticProperties2D};
 use std::borrow::Cow;
 use crate::types::*;
@@ -3160,28 +3160,6 @@ const SUPPORT_TYPES_2D: [&str; 11] = [
     "fixed", "pinned", "rollerX", "rollerY", "rollerZ", "guidedX", "guidedY", "guidedZ", "inclinedRoller", "spring", "free",
 ];
 
-fn zero_or_none(v: Option<f64>) -> bool {
-    v.is_none_or(|x| x == 0.0)
-}
-
-/// A 2D support that only restrains DOFs rigidly (no spring, settlement or angle).
-fn plain_rigid_2d(s: &SolverSupport) -> bool {
-    matches!(
-        s.support_type.as_str(),
-        "fixed" | "pinned" | "rollerX" | "rollerY" | "rollerZ" | "guidedX" | "guidedY" | "guidedZ"
-    ) && [support_dofs_2d(s)[0].spring, support_dofs_2d(s)[1].spring, support_dofs_2d(s)[2].spring, s.dx, s.dz, s.dry, s.angle].into_iter().all(zero_or_none)
-}
-
-/// A 3D support that only restrains DOFs rigidly (no spring, settlement or
-/// inclined direction).
-fn plain_rigid_3d(s: &SolverSupport3D) -> bool {
-    !s.is_inclined.unwrap_or(false)
-        && [s.normal_x, s.normal_y, s.normal_z].iter().all(Option::is_none)
-        && [support_dofs_3d(s)[0].spring, support_dofs_3d(s)[1].spring, support_dofs_3d(s)[2].spring, support_dofs_3d(s)[3].spring, support_dofs_3d(s)[4].spring, support_dofs_3d(s)[5].spring, support_dofs_3d(s)[6].spring, s.dx, s.dy, s.dz, s.drx, s.dry, s.drz]
-            .into_iter()
-            .all(zero_or_none)
-}
-
 /// A prescribed value that is not zero (an absent or zero field imposes nothing).
 fn imposed(v: Option<f64>) -> Option<f64> {
     v.filter(|x| x.abs() > 1e-15)
@@ -3330,7 +3308,7 @@ pub(crate) fn validate_input_2d_for_analysis(input: &SolverInput, analysis: crat
             ));
         }
     }
-    reject_ambiguous_shared_supports(input.supports.iter().map(|(k, s)| (s.node_id, k.as_str(), plain_rigid_2d(s))))?;
+    reject_ambiguous_shared_supports(input.supports.iter().map(|(k, s)| (s.node_id, k.as_str(), plain_rigid_dofs_2d(s).is_some())))?;
     super::support::validate_supports_2d(input)?;
     reject_unimposed_settlements_2d(input)?;
     // In 2D the model plane is the only diaphragm plane: the model lies in
@@ -3702,7 +3680,7 @@ pub(crate) fn validate_input_3d_for_analysis(input: &SolverInput3D, analysis: cr
             return Err(format!("Support on node {}: numeric fields must be finite", sup.node_id));
         }
     }
-    reject_ambiguous_shared_supports(input.supports.iter().map(|(k, s)| (s.node_id, k.as_str(), plain_rigid_3d(s))))?;
+    reject_ambiguous_shared_supports(input.supports.iter().map(|(k, s)| (s.node_id, k.as_str(), plain_rigid_dofs_3d(s).is_some())))?;
     reject_unknown_options(&input.solver_options, &input.constraints, &["XY", "XZ", "YZ"], true)?;
     // An inclined support needs its direction: without a non-zero normal it
     // used to solve silently as an ordinary support with its flags.

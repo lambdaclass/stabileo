@@ -180,6 +180,7 @@ jobs:
               - *tooling
               - 'web/**'
               - 'scripts/tests/modal-mass-range-wasm.mjs'
+              - 'scripts/tests/modal-null-wasm.mjs'
               - 'scripts/tests/containment-r18-wasm.mjs'
               - 'scripts/tests/containment-r19-wasm.mjs'
               - 'scripts/tests/ssi-elastic-2011-wasm.mjs'
@@ -219,6 +220,9 @@ jobs:
               - 'testing/scripts/nightly-*.py'
               - 'testing/scripts/tests/**'
               - 'scripts/replay-findings.py'
+              - 'scripts/migrate-nightly-findings.cjs'
+              - '.github/scripts/nightly-*.cjs'
+              - '.github/workflows/replay-findings.yml'
               - '.github/workflows/nightly.yml'
               - '.github/workflows/supply-chain.yml'
               - '.github/workflows/merge-queue-supersede.yml'
@@ -983,6 +987,8 @@ jobs:
         run: make test.engine.buckling-818-wasm
       - name: Modal physical mass range WASM regressions
         run: make test.engine.modal-mass-range-wasm
+      - name: Modal stiffness null direction WASM regressions
+        run: make test.engine.modal-null-wasm
       - name: SSI elastic refinement WASM regressions
         run: make test.engine.ssi-elastic-2011-wasm
 

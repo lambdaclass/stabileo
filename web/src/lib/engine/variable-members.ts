@@ -1,3 +1,4 @@
+import { accountingMemberPieces, withAccountingOrigin } from './accounting-source';
 /**
  * Members of variable section, solved as chains of prismatic pieces and reported as themselves.
  *
@@ -52,8 +53,8 @@
  *
  * Pure: no store.
  */
+import { projectSelfWeightMembers, selfWeightMemberProjection } from './self-weight';
 import type { ModelData } from './solver-service';
-import { accountingMemberStations, withAccountingOrigin } from './accounting-source';
 import type { AnalysisResults3D, ElementForces3D, Displacement3D, Constraint3D, ConnectorElement } from './types-3d';
 import type { ElementBucklingData3D } from './result-types';
 import type { Element, Section } from '../store/model.svelte';
@@ -365,19 +366,19 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
   }
   const geometry = memberLoadGeometry({ ...model, sections });
   const renamed = new Map<number, number[]>();
-  const stations = new Map(model[accountingMemberStations]);
+  const memberPieces = new Map(model[accountingMemberPieces]);
   for (const m of exp.members.values()) {
     const ids = m.pieces.map((p) => p.id);
     const partition = geometry.partition(model.elements.get(m.parentId)!, nodes, elements, ids);
     const bounds = partition.bounds(), lengths = partition.lengths;
-    const parent = stations.get(m.parentId);
+    const parent = memberPieces.get(m.parentId);
     m.pieces.forEach((p, k) => {
       p.x0 = bounds[k];
       p.x1 = bounds[k + 1];
-      stations.set(p.id, {
-        id: parent?.id ?? m.parentId,
-        offset: p.x0 * (parent?.scale ?? 1) + (parent?.offset ?? 0),
-        scale: (p.x1 - p.x0) / lengths[k]! * (parent?.scale ?? 1),
+      memberPieces.set(p.id, {
+        member: parent?.member ?? m.parentId,
+        offset: (parent?.offset ?? 0) + p.x0 * (parent?.scale ?? 1),
+        scale: (parent?.scale ?? 1) * ((p.x1 - p.x0) / lengths[k]!),
       });
     });
     const split = splitElementLoads(loads, m.parentId, bounds, ids, () => nextLoad++, lengths, partition.points, withAccountingOrigin);
@@ -386,8 +387,7 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
   }
 
   const rename = (ids: readonly number[]) => ids.flatMap((id) => renamed.get(id) ?? [id]);
-  const groups = (model as { groups?: Map<number, { members: { elements?: number[] } }> }).groups;
-  const analysis = (model as { analysis?: { selfWeight?: Array<{ elements?: number[] }> } }).analysis;
+  const { groups } = model;
   const supports = new Map([...model.supports].map(([id, s]) => {
     const own = (s as { dofLocalElementId?: number }).dofLocalElementId;
     const m = own !== undefined ? exp.members.get(own) : undefined;
@@ -396,11 +396,12 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
     return [id, { ...s, dofLocalElementId: at.id }] as const;
   }));
   return {
-    ...model, nodes, elements, sections, loads, supports, [accountingMemberStations]: stations,
+    ...model, nodes, elements, sections, loads, supports, [accountingMemberPieces]: memberPieces,
     ...(constraints !== model.constraints ? { constraints } : {}),
     ...(connectors !== model.connectors ? { connectors } : {}),
-    ...(groups ? { groups: new Map([...groups].map(([id, g]) => [id, g.members.elements ? { ...g, members: { ...g.members, elements: rename(g.members.elements) } } : g])) } : {}),
-    ...(analysis?.selfWeight ? { analysis: { ...analysis, selfWeight: analysis.selfWeight.map((r) => (r.elements ? { ...r, elements: rename(r.elements) } : r)) } } : {}),
+    [selfWeightMemberProjection]: projectSelfWeightMembers(model, renamed),
+    ...(groups ? { groups: new Map([...groups].map(([id, g]) => [id, Array.isArray(g?.members?.elements)
+      ? { ...g, members: { ...g.members, elements: rename(g.members.elements) } } : g])) } : {}),
   } as M;
 }
 
