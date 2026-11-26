@@ -176,25 +176,40 @@ vi.mock('../../engine/member-point-loads', async importOriginal => {
 
 vi.mock('../../engine/member-loads', async importOriginal => {
   const original = await importOriginal<typeof import('../../engine/member-loads')>();
-  const misrouteEnd = (rows: SolverLoad3D[], transferred: boolean) => {
+  const mocks = {
+    ...original,
+    globalDistributedToSolver: (...args: Parameters<typeof original.globalDistributedToSolver>) =>
+      fault.dropMemberLoad || (fault.dropLineIntensity !== 0 && args[1][2] === fault.dropLineIntensity)
+        ? [] : original.globalDistributedToSolver(...args),
+    localDistributedToSolver: (...args: Parameters<typeof original.localDistributedToSolver>) =>
+      fault.dropMemberLoad || (fault.dropLineIntensity !== 0 && args[1][2] === fault.dropLineIntensity)
+        ? [] : original.localDistributedToSolver(...args),
+
+    transverseToNodes: (...args: Parameters<typeof original.transverseToNodes>) => {
+      const rows = original.transverseToNodes(...args);
+      const transfer = fault.misrouteLineEnd;
+      if (transfer && args[0].some(row => row.type === 'distributed')) {
+        for (const row of rows) {
+          if (row.type === 'nodal' && row.data.nodeId === transfer.from) row.data.nodeId = transfer.to;
+        }
+      }
+      return rows;
+    },
+  };
+  const withEndFault = (convert: typeof original.globalDistributedToSolver): typeof convert => (...args) => {
+    const rows = convert(...args);
     const transfer = fault.misrouteLineEnd;
-    if (transfer && transferred) {
+    if (args[5] && transfer) {
       for (const row of rows) {
         if (row.type === 'nodal' && row.data.nodeId === transfer.from) row.data.nodeId = transfer.to;
       }
     }
     return rows;
   };
-  const dropsLine = (qI: readonly number[]) =>
-    fault.dropMemberLoad || (fault.dropLineIntensity !== 0 && qI[2] === fault.dropLineIntensity);
   return {
-    ...original,
-    globalDistributedToSolver: (...args: Parameters<typeof original.globalDistributedToSolver>) =>
-      dropsLine(args[1]) ? [] : misrouteEnd(original.globalDistributedToSolver(...args), args[5] === true),
-    localDistributedToSolver: (...args: Parameters<typeof original.localDistributedToSolver>) =>
-      dropsLine(args[1]) ? [] : misrouteEnd(original.localDistributedToSolver(...args), args[5] === true),
-    transverseToNodes: (...args: Parameters<typeof original.transverseToNodes>) =>
-      misrouteEnd(original.transverseToNodes(...args), args[0].some(row => row.type === 'distributed')),
+    ...mocks,
+    globalDistributedToSolver: withEndFault(mocks.globalDistributedToSolver),
+    localDistributedToSolver: withEndFault(mocks.localDistributedToSolver),
   };
 });
 
