@@ -345,6 +345,13 @@ fn benchmark_ssi_tz_shaft_friction() {
         tolerance: 1e-4,
     };
 
+    let refusal = solve_ssi_2d(&input).unwrap_err();
+    let refusal: serde_json::Value = serde_json::from_str(&refusal).unwrap();
+    assert_eq!(refusal["structuredDiagnostics"][0]["code"], "reduced_stiffness_rank");
+    assert_eq!(refusal["structuredDiagnostics"][0]["severity"], "error");
+
+    let mut input = input;
+    input.solver.supports.get_mut("1").unwrap().support_type = "fixed".into();
     let result = solve_ssi_2d(&input).expect("t-z SSI solve failed");
     assert!(result.converged, "t-z SSI should converge");
 
@@ -530,6 +537,13 @@ fn benchmark_ssi_vertical_pile_capacity() {
         tolerance: 1e-4,
     };
 
+    let refusal = solve_ssi_2d(&input).unwrap_err();
+    let refusal: serde_json::Value = serde_json::from_str(&refusal).unwrap();
+    assert_eq!(refusal["structuredDiagnostics"][0]["code"], "reduced_stiffness_rank");
+    assert_eq!(refusal["structuredDiagnostics"][0]["severity"], "error");
+
+    let mut input = input;
+    input.solver.supports.get_mut("1").unwrap().support_type = "fixed".into();
     let result = solve_ssi_2d(&input).expect("Vertical pile SSI solve failed");
     assert!(result.converged, "Vertical pile SSI should converge");
 

@@ -363,7 +363,12 @@ for (const dimension of [2, 3]) {
       const input = round3Model(`soft${dimension}`, pads);
       if (!soft) input.sections[1][dimension === 2 ? 'iz' : 'iy'] = 0.001;
       const result = JSON.parse(kinematics(JSON.stringify(input)));
-      assert.equal(result.isSolvable, true, JSON.stringify(result));
+      assert.equal(result.kinematicIsSolvable, true, JSON.stringify(result));
+      assert.equal(result.isSolvable, !(soft && dimension === 2), JSON.stringify(result));
+      if (!result.isSolvable) {
+        assert.equal(result.classification, 'indeterminate');
+        assert.equal(JSON.parse(result.diagnosis).structuredDiagnostics[0].code, 'reduced_stiffness_rank');
+      }
       assert.equal(result.mechanismModes, 0);
       if (soft) assert.throws(() => linear(input), dimension === 2 ? /constraint reduction/ : /coupled/);
       else linear(input);

@@ -455,7 +455,7 @@ impl PhysicalForces {
         u: &[f64],
         its: &[InclinedTransformData2D],
     ) -> Self {
-        let mut k = super::material_nonlinear::assemble_tangent_stiffness(input, dofs, states, &[]);
+        let mut k = super::material_nonlinear::assemble_tangent_stiffness(input, dofs, states);
         let mut unused = vec![0.0; dofs.n_total];
         for it in its {
             super::assembly::apply_inclined_transform_2d(
@@ -477,7 +477,7 @@ impl PhysicalForces {
         its: &[InclinedTransformData],
     ) -> Self {
         let mut k =
-            super::material_nonlinear::assemble_tangent_stiffness_3d(input, dofs, states, &[]);
+            super::material_nonlinear::assemble_tangent_stiffness_3d(input, dofs, states);
         let mut unused = vec![0.0; dofs.n_total];
         for it in its {
             super::assembly::apply_inclined_transform(
