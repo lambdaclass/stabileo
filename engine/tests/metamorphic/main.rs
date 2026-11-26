@@ -44,6 +44,7 @@ mod dynamic_accuracy;
 mod quick;
 mod regressions;
 mod reduced_rank;
+mod release_gauges;
 mod harmonic_linearity;
 mod harmonic_dc_equilibration;
 mod linear_identities;

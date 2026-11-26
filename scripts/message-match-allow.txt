@@ -63,6 +63,8 @@ web/src/lib/engine/known-issue-message.ts: const modes = [...d.message.matchAll(
 web/src/lib/engine/live-calc.ts: return lc.includes('mecanismo') || lc.includes('hipostática') || lc.includes('singular') || lc.includes('inestable')
 web/src/lib/engine/live-calc.ts: || lc.includes('mechanism') || lc.includes('hypostatic') || lc.includes('unstable');
 web/src/lib/engine/verification-service.ts: if (steps[steps.length - 1]?.startsWith('=== Resultado global')) steps[steps.length - 1] = steelResultLine(overallStatus);
+web/src/lib/i18n/engine-text.ts: const axialJoint = AXIAL_JOINT_REASON.exec(original);
+web/src/lib/i18n/engine-text.ts: const frameSwing = FRAME_SWING_REASON.exec(original);
 web/src/lib/i18n/engine-text.ts: const constraintRank = CONSTRAINT_RANK_REASON.exec(original);
 web/src/lib/i18n/engine-text.ts: if ((key === REDUCED_STIFFNESS_RANK && translatedRank) || !out.includes(en)) continue;
 web/src/lib/i18n/engine-text.ts: out = out.replace(/Non-finite number \((NaN|Infinity|-Infinity)\) at (\S+)/g, (_, value: string, path: string) =>

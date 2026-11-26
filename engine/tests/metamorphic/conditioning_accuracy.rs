@@ -278,3 +278,40 @@ fn conditional_elastic_2519_matches_the_independent_physical_response() {
         "Issue #2519 maximum scaled response error {worst:.6e} exceeds the conditional accuracy limit {tolerance:.6e} or is nonfinite. The 90-digit independent response supplies the reference; each component is normalized by the larger of its reference quantity scale and its physical scale derived from load and length.",
     );
 }
+
+#[test]
+fn issue_2519_conditional_linear_solution_matches_sparse_reference_in_each_unit_system() {
+    use dedaliano_engine::solver::constraints::{solve_constrained_3d, ConstrainedInput3D};
+    let Model::D3(input) = crate::corpus::parse(include_str!("../fixtures/conditional-rank-2519.json")).unwrap() else {
+        panic!("expected the archived spatial model");
+    };
+    let case = Case3::new("replay", input);
+    let mut failures = Vec::new();
+    for (length, force) in [(1.0, 1.0), (1e-3, 1e3), (25.0, 1e-2), (0.3048, 4.448)] {
+        let model = case.units(&Units::froude(length, force)).s;
+        assert!(stability::of_3d(&model).unwrap().needs_accuracy_check());
+        let (sparse, nodes, members) = crate::case::pad_3d(&model);
+        let mut reference = response::static_3d(&linear::solve_3d(&sparse).unwrap());
+        reference.retain_ids(&nodes, &members);
+        let mut pcg = sparse.clone();
+        pcg.solver_options = Some(SolverOptions {
+            method: Some("pcg".into()), preconditioner: None, tolerance: Some(1e-12), max_iterations: Some(100_000),
+        });
+        let constrained = ConstrainedInput3D { solver: model.clone(), constraints: model.constraints.clone() };
+        for (entry, answer) in [
+            ("linear", linear::solve_3d(&model)),
+            ("constrained", solve_constrained_3d(&constrained)),
+            ("PCG", linear::solve_3d(&pcg)),
+        ] {
+            match answer {
+                Ok(answer) => {
+                    let mut response = response::static_3d(&answer);
+                    response.retain_ids(&nodes, &members);
+                    compare(&response, &reference, &reference, force, length);
+                }
+                Err(error) => failures.push(format!("{entry} ({length}/{force}): {error}")),
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}

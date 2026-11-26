@@ -153,7 +153,7 @@ fn secant_system(
     force_rounding: &[f64],
 ) -> Result<SecantSystem, String> {
     let nf = base.n;
-    let SpringStiffness { rows, cols, vals, magnitude } = soil;
+    let SpringStiffness { rows, cols, vals, magnitude: soil_magnitude } = soil;
     let mut sr = Vec::new();
     let mut sc = Vec::new();
     let mut sv = Vec::new();
@@ -168,10 +168,10 @@ fn secant_system(
     let physical = add_stiffness(base, &soil);
     let reduced = cs.zip(reduced_base).map(|(cs, base)| add_stiffness(base, &cs.reduce_matrix_sparse(&soil)));
     let magnitude = match support_magnitude {
-        Some(base) => add_stiffness(base, &magnitude),
-        None => add_stiffness(&super::stability::absolute_stiffness(base), &magnitude),
+        Some(base) => add_stiffness(base, &soil_magnitude),
+        None => add_stiffness(&super::stability::absolute_stiffness(base), &soil_magnitude),
     };
-    let gauges = rank.check_secant(&physical, reduced.as_ref(), &magnitude, force, force_rounding)?;
+    let gauges = rank.check_secant(&physical, reduced.as_ref(), &magnitude, &soil_magnitude, force, force_rounding)?;
     Ok(SecantSystem { physical: reduced.unwrap_or(physical), gauges })
 }
 
@@ -1017,7 +1017,8 @@ mod refinement_scope_2072 {
         let mut force = vec![0.0; n];
         force[d] = evaluate_soil_curve(&curve, displacement).unwrap().0 + force_increment;
         let rank = OperatorRank::for_2d(&input.solver, &dofs, None);
-        let gauges = rank.check_secant(&k, None, &k, &force[..nf], &vec![0.0; nf]).unwrap();
+        let soil_magnitude = CscMatrix::from_triplets(nf, &[], &[], &[]);
+        let gauges = rank.check_secant(&k, None, &k, &soil_magnitude, &force[..nf], &vec![0.0; nf]).unwrap();
         let factor = SecantFactor::new(&k, false, &mut None, &mut None).unwrap();
         let mut state = SecantState {
             system: SecantSystem { physical: k, gauges },
