@@ -156,7 +156,12 @@ export const PLATE_EDGE_TOL = 1e-7;
 const axes = [0, 1, 2] as const;
 type Axis = typeof axes[number];
 type Vertex = { id: number; point: Vec3; shell: string; curved?: boolean };
-type Cell = { key: string; vertices: Vertex[]; frame: PlateFrame };
+type Cell = {
+  key: string;
+  vertices: Vertex[];
+  frame: PlateFrame;
+  connectsStation: (station: Vertex, a: Vertex, b: Vertex, t: number) => boolean;
+};
 
 type Station = Vertex & { incident: Array<{ point: Vec3; shell: string; curved?: boolean }> };
 
@@ -290,15 +295,17 @@ function clipInterval(interval: Interval, from: number, to: number): boolean {
   return interval[0] <= interval[1];
 }
 
-function clipFaceSection(
+function segmentMeetsFace(
   first: Vec3, last: Vec3, sides: readonly FaceSide[], interval: Interval, includeBoundary: boolean,
+  onPoint?: (station: number) => void,
 ): boolean {
   for (const { point, inward } of sides) {
     const from = signedDistance(first, point, inward);
     const to = signedDistance(last, point, inward);
     if ((!includeBoundary && from === 0 && to === 0) || !clipInterval(interval, from, to)) return false;
   }
-  return true;
+  if (interval[0] === interval[1]) onPoint?.(interval[0]);
+  return interval[0] < interval[1];
 }
 
 function pointMeetsFace(section: SectionPoint, sides: readonly FaceSide[]): boolean {
@@ -353,9 +360,7 @@ function sharedBoundarySeparates(wall: Cell, slab: Cell): boolean {
     && wallCorners.every(point => dot(point, normal) < -PLATE_EDGE_TOL * length);
 }
 
-function wallFaceContact(
-  wall: Cell, slab: Cell, sides: readonly FaceSide[], equations: EdgeEquations,
-): readonly number[] | undefined {
+function wallFaceContact(wall: Cell, slab: Cell, sides: readonly FaceSide[]): readonly number[] | undefined {
   const { o, u, v, n } = slab.frame;
   const slabNodes = new Set(slab.vertices.map(vertex => vertex.id));
   const distances = wall.vertices.map(({ id, point }) => slabNodes.has(id) ? 0 : signedDistance(point, o, n));
@@ -381,25 +386,22 @@ function wallFaceContact(
     const first = section[0]!, last = section[section.length - 1]!;
     const wallEdge = hasSectionEdge(wall, first, last);
     if (section.length === 2 && wallEdge && hasSectionEdge(slab, first, last)) return undefined;
-    const interval: Interval = [0, 1];
-    if (clipFaceSection(first.point, last.point, sides, interval, true)) {
-      const [lo, hi] = interval;
-      if (lo < hi) {
-        if (!wallEdge || clipFaceSection(first.point, last.point, sides, interval, false)) {
-          return [...new Set([...first.nodes, ...last.nodes])];
-        }
-      } else {
-        const at = lo === 0 ? first : lo === 1 ? last : undefined;
-        const edgeNodes = at ?? (wallEdge ? { nodes: [first.nodes[0]!, last.nodes[0]!] } : undefined);
-        if (edgeNodes?.nodes.length !== 1) {
-          const connected = edgeNodes && slab.vertices.some(station => {
-            const [a, b] = edgeNodes.nodes.map(id => wall.vertices.find(vertex => vertex.id === id)!);
-            const direction = sub(b!.point, a!.point);
-            const t = dot(sub(station.point, a!.point), direction) / dot(direction, direction);
-            return t >= 0 && t <= 1 && tiedToEdge(equations, station, a!, b!, t);
-          });
-          if (!connected) return [];
-        }
+    if (segmentMeetsFace(first.point, last.point, sides, [0, 1], !wallEdge)) {
+      return [...new Set([...first.nodes, ...last.nodes])];
+    }
+    let station: number | undefined;
+    segmentMeetsFace(first.point, last.point, sides, [0, 1], true, at => { station = at; });
+    if (station !== undefined) {
+      const endpoint = station === 0 ? first : station === 1 ? last : undefined;
+      const edgeNodes = endpoint?.nodes ?? (wallEdge ? [first.nodes[0]!, last.nodes[0]!] : undefined);
+      if (edgeNodes?.length !== 1) {
+        const connected = edgeNodes && slab.vertices.some(vertex => {
+          const [a, b] = edgeNodes.map(id => wall.vertices.find(candidate => candidate.id === id)!);
+          const edge = sub(b!.point, a!.point);
+          const t = dot(sub(vertex.point, a!.point), edge) / dot(edge, edge);
+          return t >= 0 && t <= 1 && wall.connectsStation(vertex, a!, b!, t);
+        });
+        if (!connected) return [];
       }
     }
   }
@@ -413,7 +415,7 @@ function wallFaceContact(
     if (!clipInterval(interval, PLATE_EDGE_TOL - Math.abs(from), PLATE_EDGE_TOL - Math.abs(to))) continue;
     if (norm(sub(last.point, first.point)) <= PLATE_EDGE_TOL
       || (signedDistance(last.point, first.point, u) === 0 && signedDistance(last.point, first.point, v) === 0)) continue;
-    if (clipFaceSection(first.point, last.point, sides, interval, false) && interval[0] < interval[1]) return [first.id, last.id];
+    if (segmentMeetsFace(first.point, last.point, sides, interval, false)) return [first.id, last.id];
   }
   return undefined;
 }
@@ -425,7 +427,7 @@ function faceBounds(vertices: readonly Vertex[], padding: number) {
   });
 }
 
-function interiorContact(walls: readonly Cell[], slabs: readonly Cell[], equations: EdgeEquations) {
+function interiorContact(walls: readonly Cell[], slabs: readonly Cell[]) {
   const slabEdges = new Map<string, FaceSide>();
   const faces = slabs.map(cell => {
     const { vertices, frame } = cell;
@@ -449,7 +451,7 @@ function interiorContact(walls: readonly Cell[], slabs: readonly Cell[], equatio
       if (bounds[0]!.lo > wallBounds[0]!.hi) break;
       if (axes.some(axis => wallBounds[axis]!.lo > bounds[axis]!.hi || wallBounds[axis]!.hi < bounds[axis]!.lo)) continue;
       if (sharedBoundarySeparates(wall, cell)) continue;
-      const contact = wallFaceContact(wall, cell, sides, equations);
+      const contact = wallFaceContact(wall, cell, sides);
       if (contact) return { wall: wall.key, slab: cell.key, contact };
     }
   }
@@ -459,6 +461,8 @@ function interiorContact(walls: readonly Cell[], slabs: readonly Cell[], equatio
 type WallSlabJoint = { wall: string; slab: string } & ({ node: number } | { contact: readonly number[] });
 
 export function nonconformingWallSlab(model: PlateAnalysisModel): WallSlabJoint | null {
+  const equations = edgeEquations(model.constraints);
+  const connectsStation: Cell['connectsStation'] = (station, a, b, t) => tiedToEdge(equations, station, a, b, t);
   const cells: Record<'slab' | 'wall', Cell[]> = { slab: [], wall: [] };
   for (const [prefix, shells] of [['q', model.quads], ['p', model.plates]] as const) {
     for (const shell of shells?.values() ?? []) {
@@ -470,11 +474,10 @@ export function nonconformingWallSlab(model: PlateAnalysisModel): WallSlabJoint 
       }
       if (vertices.length !== shell.nodes.length) continue;
       const frame = frameOfLoop(vertices.map(v => v.point));
-      if (frame && Number.isFinite(frame.n[2])) cells[plateKindOf({ frame })].push({ key, vertices, frame });
+      if (frame && Number.isFinite(frame.n[2])) cells[plateKindOf({ frame })].push({ key, vertices, frame, connectsStation });
     }
   }
   if (!cells.slab.length || !cells.wall.length) return null;
-  const equations = edgeEquations(model.constraints);
   const names = new Map<string, string>();
   const label = (key: string) => names.get(key) ?? key;
   for (const group of model.groups?.values() ?? []) {
@@ -494,7 +497,7 @@ export function nonconformingWallSlab(model: PlateAnalysisModel): WallSlabJoint 
       }
     }
   }
-  const interior = interiorContact(cells.wall, cells.slab, equations);
+  const interior = interiorContact(cells.wall, cells.slab);
   return interior && { ...interior, wall: label(interior.wall), slab: label(interior.slab) };
 }
 

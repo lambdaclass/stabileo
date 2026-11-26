@@ -65,13 +65,20 @@ export function caseMassLoads(
       return id === null || l.type !== 'nodal3d' ? [] : [{ elementId: id, down: -l.data.fz }];
     });
     const rest = own.filter((l) => WEIGHT.has(l.type) && carrierOf(l) === null);
-    const wire = input ? { loads: massSourceWireLoads3D(model, input, rest, leftHand, f.caseId) } : {
-      loads: buildSolverLoads3D(model, rest, [], leftHand, { forcesOnly: true }),
-    };
+    if (input) {
+      out.push({
+        caseId: f.caseId,
+        factor: f.factor,
+        loads: massSourceWireLoads3D(model, input, rest, leftHand, f.caseId),
+        surface,
+        ...(carried.length ? { carried } : {}),
+      });
+      continue;
+    }
     out.push({
       caseId: f.caseId,
       factor: f.factor,
-      ...wire,
+      loads: buildSolverLoads3D(model, rest, [], leftHand, { forcesOnly: true }),
       surface,
       ...(carried.length ? { carried } : {}),
     });
