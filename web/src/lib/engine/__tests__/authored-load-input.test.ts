@@ -99,6 +99,50 @@ function spaceBuilders() {
   };
 }
 
+async function outcome(run: () => unknown) {
+  try {
+    const result = await run();
+    return typeof result === 'string' ? result : typeof result;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
+async function refuses(field: string, entries: Record<string, () => unknown>) {
+  for (const [name, run] of Object.entries(entries)) {
+    expect.soft(await outcome(run), name).toContain(field);
+  }
+}
+
+function planeEntries() {
+  const model = modelStore.model;
+  return {
+    'plane builder': () => buildSolverInput2D(model),
+    'plane sync': () => validateAndSolve2D(model),
+    'plane async': () => validateAndSolve2DAsync(model),
+    'plane combinations': () => solveCombinations2D(model, [loadCase], [combo], false),
+    'plane P-Delta': () => solvePDelta(buildSolverInput2D(model)!),
+  };
+}
+
+function spaceEntries() {
+  const model = modelStore.model;
+  return {
+    'space builder': () => buildSolverInput3D(model),
+    'space prepared input': () => prepareSolverInput3D(model, false).build(model.loads),
+    'space loads only': () => buildSolverLoads3D(model, model.loads, false, false),
+    'space sync': () => validateAndSolve3D(model),
+    'space async': () => validateAndSolve3DAsync(model),
+    'space combinations': () => solveCombinations3D(model, [loadCase], [combo]),
+    'space parallel combinations': () => solveCombinations3DParallel(model, [loadCase], [combo]),
+    'space direct analysis': () => runDirectAnalysis(model, [loadCase], [combo], { includeSelfWeight: false }),
+    'space P-Delta': () => solvePDelta3D(buildSolverInput3D(model)!),
+    'space store sync': () => modelStore.solve3D(false, false, true),
+    'space store async': () => modelStore.solve3DAsync(false, false, true),
+    'space store builder': () => modelStore.buildSolverInput3D(),
+  };
+}
+
 describe('malformed authored loads', () => {
   it.each([
     ['unknown discriminator', { type: 'futureLoad', data: {} }, 'loads[0].type'],
