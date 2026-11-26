@@ -419,9 +419,7 @@ it('known wrong result: #2437 selects the jump face from the supplied physical d
   }
 });
 
-const spatialFaceRegression = process.env.RUN_KNOWN_WRONG === '2437' ? it : it.skip;
-
-spatialFaceRegression('known wrong result: #2437 applies the explicit spatial face at a physical cut', () => {
+it('known wrong result: #2437 applies the explicit spatial face at a physical cut', () => {
   const [, space] = cantilevers(2);
   const linear = solve3D(space);
   const nonlinear = solvePDelta3D(space);

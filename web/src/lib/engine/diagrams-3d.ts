@@ -395,13 +395,16 @@ export function getDiagramLocalDirection(kind: Diagram3DKind): 'y' | 'z' {
  * Evaluate the diagram value at a specific normalized position t ∈ [0,1].
  * Uses analytical equilibrium equations.
  */
-export function evaluateDiagramAt(ef: ElementForces3D, kind: Diagram3DKind, station: number | DiagramStation, right = false): number {
+export function evaluateDiagramAt(ef: ElementForces3D, kind: Diagram3DKind, station: number | DiagramStation, right?: boolean): number {
   return prepareDiagramEvaluator3D(ef, kind)(station, right);
 }
 
 export function prepareDiagramEvaluator3D(ef: ElementForces3D, kind: Diagram3DKind): (station: number | DiagramStation, right?: boolean) => number {
   const curve = spatialCurve(ef, kind);
-  return (station, right = false) => evaluateSpatialCurve(curve, typeof station === 'number' ? { t: station, right } : station);
+  return (station, right) => {
+    const at = typeof station === 'number' ? { t: station, right: false } : station;
+    return evaluateSpatialCurve(curve, right === undefined ? at : { ...at, right });
+  };
 }
 
 function evaluateSpatialCurve(curve: SpatialCurve, station: DiagramStation): number {
