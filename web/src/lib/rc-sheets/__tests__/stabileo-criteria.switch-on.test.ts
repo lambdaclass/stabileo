@@ -11,9 +11,11 @@ import { makeFmt } from '../format';
 import { compressionMargin, type BeamDemand, type SectionEnv } from '../beam-row';
 import { columnRow, type ColumnCase, type ColumnDemand } from '../column-row';
 import { slabPlan, type LevelGeometry, type PlanBeam } from '../slab-plan';
+import { tieLimits } from '../footing-row';
 import { meshArea } from '../bars';
 import { migrateDesignOptions } from '../design-options';
 import type { SlabDemand } from '../slab-row';
+import type { FootingContext, FootingDemand } from '../footing-types';
 import type { CheckLine, ColumnAdopted } from '../types';
 
 const fmt = makeFmt('.');
@@ -29,10 +31,13 @@ describe('the criteria as stored', () => {
     expect(c.beamKneeHaunch).toBeCloseTo(0.007, 15);
     expect([c.columnSwayKMin, c.columnBarPitch, c.columnCornerOnlyFace, c.columnRowClear]).toEqual([1.2, 0.3, 0.4, 4 / 3]);
     expect([c.slabOneWaySpacing, c.slabDistributionShare, c.slabJoinThickness, 1 / c.slabBendOneWay, 1 / c.slabBendTwoWay, c.slabMinThickness]).toEqual([0.25, 0.2, 0.02, 1 / 7, 1 / 8, 0.08]);
+    const t = tieLimits(c);
+    expect([t.maxNs, t.minH, t.maxE, t.slide, t.stretch, t.mu]).toEqual([1200, 1.5, 0.25, 1.5, 1 / 1000, Math.tan((2 / 3) * (30 * Math.PI) / 180)]);
+    expect([c.footingTieMinBars, c.footingTieMinWidth, c.footingTieMinDepth, c.footingTieDepthRatio]).toEqual([2, 0.15, 0.3, 10]);
   });
 
   it('keep only numbers within their range, integers where they count, and drop those at their default', () => {
-    expect(readCriteria({ beamStirrupSpacing: 25, slabOneWaySpacing: 99, columnSwayKMin: '1.5', beamStirrupDiameters: 2.5, columnBarPitch: 25, bogus: 3 })).toEqual({ beamStirrupSpacing: 25, columnBarPitch: 25 });
+    expect(readCriteria({ beamStirrupSpacing: 25, slabOneWaySpacing: 99, columnSwayKMin: '1.5', beamStirrupDiameters: 2.5, footingTieMinBars: 4, bogus: 3 })).toEqual({ beamStirrupSpacing: 25, footingTieMinBars: 4 });
     expect(readCriteria({ beamStirrupSpacing: 30, columnSwayKMin: 1.2 })).toBeUndefined();
     expect(readCriteria(null)).toBeUndefined();
     expect(criteriaOf({ beamStirrupSpacing: 25 }).beamStirrupSpacing).toBe(0.25);
@@ -44,8 +49,8 @@ describe('the criteria as stored', () => {
   });
 
   it('travel with the design options and survive a JSON round trip', () => {
-    const o = migrateDesignOptions(JSON.parse(JSON.stringify({ torsion: 'compatibility', criteria: { columnBarPitch: 25, beamMinDepth: 15, slabJoinThickness: 2 } })), undefined);
-    expect(o).toEqual({ torsion: 'compatibility', criteria: { columnBarPitch: 25, beamMinDepth: 15 } });
+    const o = migrateDesignOptions(JSON.parse(JSON.stringify({ torsion: 'compatibility', criteria: { columnBarPitch: 25, footingTieMaxLoad: 900, slabJoinThickness: 2 } })), undefined);
+    expect(o).toEqual({ torsion: 'compatibility', criteria: { columnBarPitch: 25, footingTieMaxLoad: 900 } });
   });
 
   it('are cited by a token the views translate', () => {
@@ -175,5 +180,39 @@ describe('slabs follow their criteria', () => {
     const p = slabPlan('N1', one, geom([0, 5]), { ...sctx, bent: true, criteria: withCrit({ slabBendTwoWay: 6 }) }, cirsoc.slabPlan);
     expect(p.rules.bendAt.twoWay).toBeCloseTo(1 / 6, 12);
     expect(slabPlan('N1', one, geom([0, 5]), { ...sctx, bent: true, criteria: withCrit({ slabBendTwoWay: 6 }) }, aci.slabPlan).rules.bendAt.twoWay).toBe(0.2);
+  });
+});
+
+describe('footings with a tie follow their criteria', () => {
+  const fctx: FootingContext = { fc: 25, fy: 420, cover: 0.05, sizing: 'full', diameters: [10, 12, 16, 20, 25], preferred: { x: 12, y: 12 }, columnBars: { count: 4, dia: 16, tension: false } };
+  const demand = (over: Partial<FootingDemand> = {}): FootingDemand => ({
+    key: 'footing:n1', name: 'C1', nodeId: 1, at: { x: 0, y: 0, z: 0 }, column: { b: 0.3, h: 0.3, storey: 3 },
+    service: { combo: 'D + L', N: 1300, Mx: 0, My: 0, Vx: 0, Vy: 0 }, lateralLeftOut: 0,
+    combos: [{ combo: 'U', N: 1800, Mx: 0, My: 0, Vx: 0, Vy: 0 }],
+    soil: { name: '', allowable: 150, presumed: true },
+    edge: { anchor: [-1, 0], source: 'row', balance: 'tie', partners: [{ axis: 'x', key: 'footing:n2', nodeId: 2, name: 'C2', L: 5, column: { b: 0.3, h: 0.3 } }] },
+    ...over,
+  });
+  const ok = (r: { verifications: Array<{ label: string; ok: boolean }> }, l: string) => r.verifications.find((v) => v.label === l)!.ok;
+
+  it('the load, the friction, the section and the bars', () => {
+    const r = cirsoc.footingRow(demand(), fctx, undefined, fmt);
+    expect(ok(r, 'rcSheets.v.footTieLoad')).toBe(false);
+    const c = withCrit({ footingTieMaxLoad: 1500, footingTieFriction: 36, footingTieMinDepth: 60, footingTieMinBars: 6 });
+    const s = cirsoc.footingRow(demand(), { ...fctx, criteria: c }, undefined, fmt);
+    expect(ok(s, 'rcSheets.v.footTieLoad')).toBe(true);
+    const t = s.edge!.ties[0]!;
+    expect(t.mu).toBeCloseTo(Math.tan(24 * Math.PI / 180), 12);
+    expect(t.h).toBeCloseTo(0.6, 9);
+    expect(t.count).toBeGreaterThanOrEqual(6);
+    expect(label(s, 'rcSheets.v.footTieLoad')!.clause).toBe(CRITERION);
+  });
+
+  it('the stretch and the offset', () => {
+    const r = cirsoc.footingRow(demand({ service: { combo: 'D + L', N: 600, Mx: 0, My: 0, Vx: 0, Vy: 0 }, combos: [{ combo: 'U', N: 840, Mx: 0, My: 0, Vx: 0, Vy: 0 }] }), { ...fctx, criteria: withCrit({ footingTieStretch: 4000, footingTieOffset: 10 }) }, undefined, fmt);
+    const t = r.edge!.ties[0]!;
+    expect(t.stretch!).toBeLessThanOrEqual(t.H / 4000 + 1e-12);
+    expect(label(r, 'rcSheets.v.footTieOffset')!.capacity).toContain('H/10');
+    expect(label(r, 'rcSheets.v.footTieStretch')!.capacity).toContain('H/4000');
   });
 });

@@ -56,18 +56,18 @@ function frame() {
 describe('the criteria in the design data', () => {
   it('are kept through a save and a load, and dropped at their defaults', () => {
     setCriterion('beamStirrupSpacing', 20);
-    setCriterion('beamMinDepth', 40);
+    setCriterion('footingTieMaxLoad', 900);
     setCriterion('slabJoinThickness', 2);
-    expect(storedDesignData().designOptions?.criteria).toEqual({ beamStirrupSpacing: 20, beamMinDepth: 40 });
+    expect(storedDesignData().designOptions?.criteria).toEqual({ beamStirrupSpacing: 20, footingTieMaxLoad: 900 });
     const loaded = migrateStoredDesignData(JSON.parse(JSON.stringify(storedDesignData())));
-    expect(loaded?.designOptions?.criteria).toEqual({ beamStirrupSpacing: 20, beamMinDepth: 40 });
+    expect(loaded?.designOptions?.criteria).toEqual({ beamStirrupSpacing: 20, footingTieMaxLoad: 900 });
     setDesignData(null);
     setDesignData(loaded!);
-    expect(sheetCriteria()).toEqual(criteriaOf({ beamStirrupSpacing: 20, beamMinDepth: 40 }));
+    expect(sheetCriteria()).toEqual(criteriaOf({ beamStirrupSpacing: 20, footingTieMaxLoad: 900 }));
     expect(migrateDesignData({ version: 1, designOptions: { criteria: { beamStirrupSpacing: 20 } } }).designOptions?.criteria).toEqual({ beamStirrupSpacing: 20 });
     setCriterion('beamStirrupSpacing', 30);
-    expect(designData().designOptions?.criteria).toEqual({ beamMinDepth: 40 });
-    setCriterion('beamMinDepth', null);
+    expect(designData().designOptions?.criteria).toEqual({ footingTieMaxLoad: 900 });
+    setCriterion('footingTieMaxLoad', null);
     expect(designData().designOptions?.criteria).toBeUndefined();
     setCriterion('columnBarPitch', 25);
     resetCriteria();

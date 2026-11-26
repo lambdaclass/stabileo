@@ -133,12 +133,12 @@ export interface PunchingReinforcement {
  * vn ≤ 0,5√f'c, s ≤ d/2, Av·fyt/(bo·s) ≥ vu/φ − vc; the lines run until the section at d/2 beyond
  * the last one carries vu with 0,17λs√f'c (that outer section taken as the rectangle around them).
  */
-export function designPunchingReinforcement(o: { vu: number; Vu: number; fc: number; fyt: number; b: number; h: number; d: number; bo: number; lambdaS: number; position: ColumnPosition; phi?: number }): PunchingReinforcement {
+export function designPunchingReinforcement(o: { vu: number; Vu: number; fc: number; fyt: number; b: number; h: number; d: number; bo: number; lambdaS: number; position: ColumnPosition; phi?: number; spacing?: number }): PunchingReinforcement {
   const phi = o.phi ?? 0.75, root = Math.sqrt(Math.min(o.fc, 70));
   const vc = 0.17 * o.lambdaS * root;
   const overCeiling = o.vu / phi > 0.5 * root + 1e-9;
   const vs = Math.max(0, o.vu / phi - vc);
-  const s = Math.floor((o.d / 2) / 0.025) * 0.025 || o.d / 2;
+  const s = o.spacing ?? (Math.floor((o.d / 2) / 0.025) * 0.025 || o.d / 2);
   const avPerLine = (vs * o.bo * s / o.fyt) * 1e6; // mm²
   const legDiameter = avPerLine / 4 > 50 ? 10 : 8;
   const legs = Math.max(4, Math.ceil(avPerLine / (Math.PI * legDiameter ** 2 / 4)));

@@ -1,4 +1,5 @@
 import type { ColumnRow } from './column-row';
+import type { FootingRow, StrapResult } from './footing-types';
 import type { LineLayout } from './beam-line';
 import type { SlabRow } from './slab-row';
 import type { WallRow } from './wall-row';
@@ -14,7 +15,11 @@ export interface Frame { o: V3; x: V3; y: V3; z: V3 }
 export const WORLD: Frame = { o: [0, 0, 0], x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] };
 
 export type RebarTone = 'continuous' | 'support' | 'span' | 'bent' | 'stirrup' | 'column' | 'tie' | 'dowel'
-  | 'bottomX' | 'bottomY' | 'topX' | 'topY' | 'vertical' | 'horizontal' | 'ubar' | 'wallTie' | 'punching';
+  | 'bottomX' | 'bottomY' | 'topX' | 'topY' | 'vertical' | 'horizontal' | 'ubar' | 'wallTie' | 'punching' | 'footingX' | 'footingY' | 'footingTop' | 'footingPunch' | 'pileBar' | 'pileHoop'
+  | 'strapMain' | 'strapStirrup';
+
+/** A foundation member's bars (a strap beam, a beam at the footings' level) in the foundations' tones: its stirrups apart from its longitudinal bars. */
+export const asFoundation = (b: Rebar3d): Rebar3d => ({ ...b, tone: b.tone === 'stirrup' ? 'strapStirrup' : 'strapMain' });
 
 export interface Rebar3d {
   element: string;
@@ -36,6 +41,8 @@ export interface Rebar3dFrames {
   line(l: LineLayout): Frame | null;
   column(r: ColumnRow): Frame | null;
   wall(r: WallRow): Frame | null;
+  footing(r: FootingRow): Frame | null;
+  strap(r: FootingRow, s: StrapResult): Frame | null;
   slabSoffit(r: SlabRow): number | null;
   /** A punching joint: at its node on the slab's mid-plane, axes the plan's. */
   punching?(r: PunchingRow): Frame | null;

@@ -1406,6 +1406,33 @@
         ]
       ]
     },
+    "src/components/pro/ProFoundationModelPanel.svelte": {
+      "source": "aa6fc7d9b29523b4e1a51b37097e30a33c4f92e25bb8555f229f759704cd1c4c",
+      "original": "833dbb11aa2d65d5cb5232540cc3eb3dd66e2ad9816432c8fedaeb2e1512e854",
+      "changes": [
+        [
+          18,
+          2,
+          []
+        ],
+        [
+          26,
+          1,
+          [
+            "  let lines = $state<PropertyLines>({});"
+          ]
+        ],
+        [
+          126,
+          1,
+          [
+            "        {#each [['minX', '−X'], ['maxX', '+X'], ['minY', '−Y'], ['maxY', '+Y']] as const as [k, label]}",
+            "          <label><input type=\"checkbox\" checked={!!lines[k]} onchange={() => (lines = { ...lines, [k]: !lines[k] })} data-testid=\"foundation-line-{k}\" /> {label}</label>",
+            "        {/each}"
+          ]
+        ]
+      ]
+    },
     "src/components/pro/ProFoundationSprings.svelte": {
       "source": "c733d3163523cec9f2fd7642c7bc49652189c52b2666aa69c50afee63c159e7a",
       "original": "125ecf6461fc16fce2ef27e51b354ea0484a21cea67333b2f8ba2e737f1626eb",
@@ -2219,6 +2246,7 @@
         ]
       ]
     },
+    "src/components/pro/design/PropertyLinesPicker.svelte": null,
     "src/components/pro/design/RcBendingSchedule.svelte": {
       "source": "e45878a73ba5cfc069b91734f670b360076612981bddd6e4d4752c6daa8fcabe",
       "original": "976740cd9d4fbb9f848f9de9210d901cbadf45f6bc92927548aff50ab8817f20",
@@ -2927,6 +2955,8 @@
     "src/components/pro/rc-sheets/RcCoversNotice.svelte": null,
     "src/components/pro/rc-sheets/RcExportLog.svelte": null,
     "src/components/pro/rc-sheets/RcFootingDetail.svelte": null,
+    "src/components/pro/rc-sheets/RcFootingGroupSvg.svelte": null,
+    "src/components/pro/rc-sheets/RcFootingLayouts.svelte": null,
     "src/components/pro/rc-sheets/RcFootingSvg.svelte": null,
     "src/components/pro/rc-sheets/RcLeftOut.svelte": null,
     "src/components/pro/rc-sheets/RcLineCharts.svelte": null,
@@ -2935,6 +2965,7 @@
     "src/components/pro/rc-sheets/RcLineSvg.svelte": null,
     "src/components/pro/rc-sheets/RcPierSection.svelte": null,
     "src/components/pro/rc-sheets/RcPlansExport.svelte": null,
+    "src/components/pro/rc-sheets/RcPropertyLines.svelte": null,
     "src/components/pro/rc-sheets/RcPunchingSvg.svelte": null,
     "src/components/pro/rc-sheets/RcRebar3d.svelte": null,
     "src/components/pro/rc-sheets/RcResize.svelte": null,
@@ -4403,6 +4434,26 @@
         ]
       ]
     },
+    "src/lib/engine/detailing/punching-moment.ts": {
+      "source": "a9e12c908a6c0cf27ce4cdd7e1651838eda29e4ab0084635cf245221aeee3f11",
+      "original": "6f945d21a30bca5f710d5e9e9e130d35b4f7806cffd0f3923ba4f09cb20b6389",
+      "changes": [
+        [
+          135,
+          1,
+          [
+            "export function designPunchingReinforcement(o: { vu: number; Vu: number; fc: number; fyt: number; b: number; h: number; d: number; bo: number; lambdaS: number; position: ColumnPosition; phi?: number }): PunchingReinforcement {"
+          ]
+        ],
+        [
+          140,
+          1,
+          [
+            "  const s = Math.floor((o.d / 2) / 0.025) * 0.025 || o.d / 2;"
+          ]
+        ]
+      ]
+    },
     "src/lib/engine/detailing/run-floor-design.ts": {
       "source": "25ad0a2cbe4b7afd34ec8f6b7a232b930cfde7d3212fa7fb8199294c99c4696b",
       "original": "1783464cbe59f6dac24e32962c1557ed089b559bf7b6d4f8963b23b8042d7c4e",
@@ -4744,6 +4795,26 @@
     },
     "src/lib/engine/detailing/wall-member.ts": {
       "original": "/**\n * A wall on one level as a member: its bars placed explicitly, its in-plane axial force and moment\n * checked on them by strain compatibility (the general section engine, the length as the depth),\n * its bending out of the plane checked on a metre strip in both directions (the vertical strip with\n * its share of the axial load, §11.5.2.2 reads it as a compression member), and the bars beside its\n * openings (§11.7.5.1: at least two Ø16 per side, or their area). When the distributed steel does\n * not carry the in-plane moment the design concentrates bars at both ends (boundary elements)\n * before closing the spacing.\n */\nimport type { WallReinforcement } from '../../design-contract/reinforcement';\nimport { momentCapacityAtAxial, axialRange } from '../codes/argentina/cirsoc-flex-surface';\nimport type { Bar } from '../codes/argentina/cirsoc201-section';\nimport { CIRSOC201_DESIGN_EDITION } from '../codes/argentina/cirsoc201-basis';\nimport { computeFlexureCapacity } from '../station-design-forces';\n\nconst area = (dMm: number) => Math.PI * (dMm / 1000) ** 2 / 4;\n\n/** The vertical bars of a wall in its section, x along the length, y across the thickness, m about the centre. */\nexport function wallVerticalBars(length: number, thickness: number, cover: number, r: WallReinforcement): Bar[] {\n  const out: Bar[] = [];\n  const hd = r.horizontal.diameter / 1000, vd = r.vertical.diameter / 1000;\n  // The verticals sit inside the horizontals on each curtain.\n  const ys = r.curtains === 2 ? [-(thickness / 2 - cover - hd - vd / 2), thickness / 2 - cover - hd - vd / 2] : [0];\n  const n = Math.max(2, Math.floor(length / r.vertical.spacing) + 1);\n  const span = length - 2 * (cover + hd + vd / 2);\n  for (const y of ys) for (let i = 0; i < n; i++) out.push({ x: -span / 2 + (span * i) / (n - 1), y, area: area(r.vertical.diameter) });\n  if (r.boundary && r.boundary.count > 0) {\n    // Each end's extra bars, split between the curtains, inward from the end bar at 2·db (≥ 50 mm).\n    const bd = r.boundary.diameter / 1000, pitch = Math.max(0.05, 2 * bd);\n    const per = Math.ceil(r.boundary.count / ys.length);\n    for (const end of [-1, 1]) for (const y of ys) for (let i = 0; i < per; i++) {\n      out.push({ x: end * (span / 2 - (i + 1) * pitch), y, area: area(r.boundary.diameter) });\n    }\n  }\n  return out;\n}\n\nexport interface WallCheck { category: string; utilization: number; description: string; ok: boolean }\n\n/** In-plane P–M on the wall's own bars, at its axial load in its own direction. */\nexport function wallInPlane(o: { length: number; thickness: number; cover: number; fc: number; fy: number; pu: number; mu: number; r: WallReinforcement }): WallCheck & { phiMn: number } {\n  const bars = wallVerticalBars(o.length, o.thickness, o.cover, o.r);\n  const outline = { kind: 'rect' as const, b: o.length, h: o.thickness };\n  const mat = { fc: o.fc, fy: o.fy, edition: CIRSOC201_DESIGN_EDITION };\n  const range = axialRange(outline, bars, mat);\n  let u: number, phiMn = 0;\n  if (o.pu > range.max || o.pu < range.min) u = Number.POSITIVE_INFINITY;\n  else if (o.mu < 1e-6) u = o.pu > 0 ? o.pu / Math.max(range.max, 1e-9) : 0;\n  else {\n    // In-plane bending: the strain varies along the length, the section's x.\n    const cap = momentCapacityAtAxial(outline, bars, mat, o.pu, 1e-9, o.mu);\n    phiMn = cap?.phiMn ?? 0;\n    u = phiMn > 1e-9 ? o.mu / phiMn : Number.POSITIVE_INFINITY;\n  }\n  return {\n    category: 'In-plane P-M', utilization: u, ok: u <= 1 + 1e-9, phiMn,\n    description: `Pu = ${o.pu.toFixed(0)} kN, Mu = ${o.mu.toFixed(0)} kN·m, φMn = ${phiMn.toFixed(0)} kN·m on ${bars.length} bars (strain compatibility)`,\n  };\n}\n\n/** Out of the plane, on a metre strip: the verticals with the axial share, the horizontals alone. */\nexport function wallOutOfPlane(o: { length: number; thickness: number; cover: number; fc: number; fy: number; pu: number; muV: number; muH: number; r: WallReinforcement }): WallCheck[] {\n  const out: WallCheck[] = [];\n  const t = o.thickness;\n  if (o.muV > 1e-6) {\n    const stripBars: Bar[] = [];\n    const per = 1 / o.r.vertical.spacing;\n    const ys = o.r.curtains === 2 ? [-(t / 2 - o.cover - o.r.horizontal.diameter / 1000 - o.r.vertical.diameter / 2000), t / 2 - o.cover - o.r.horizontal.diameter / 1000 - o.r.vertical.diameter / 2000] : [0];\n    for (const y of ys) stripBars.push({ x: 0, y, area: area(o.r.vertical.diameter) * per });\n    const outline = { kind: 'rect' as const, b: 1, h: t };\n    const Pm = Math.max(0, o.pu / Math.max(o.length, 1e-6));\n    const cap = momentCapacityAtAxial(outline, stripBars, { fc: o.fc, fy: o.fy, edition: CIRSOC201_DESIGN_EDITION }, Pm, o.muV, 1e-9);\n    const u = cap && cap.phiMn > 1e-9 ? o.muV / cap.phiMn : Number.POSITIVE_INFINITY;\n    out.push({ category: 'Out-of-plane (vertical bars)', utilization: u, ok: u <= 1 + 1e-9, description: `Mu = ${o.muV.toFixed(1)} kN·m/m at Pu = ${Pm.toFixed(0)} kN/m, φMn = ${(cap?.phiMn ?? 0).toFixed(1)} kN·m/m` });\n  }\n  if (o.muH > 1e-6) {\n    const As = (area(o.r.horizontal.diameter) / o.r.horizontal.spacing) * 1e4; // one curtain, cm²/m\n    const d = o.r.curtains === 2 ? t - o.cover - o.r.horizontal.diameter / 2000 : t / 2;\n    const phiMn = computeFlexureCapacity(As, 1, d, o.fc, o.fy)?.phiMn ?? 0;\n    const u = phiMn > 1e-9 ? o.muH / phiMn : Number.POSITIVE_INFINITY;\n    out.push({ category: 'Out-of-plane (horizontal bars)', utilization: u, ok: u <= 1 + 1e-9, description: `Mu = ${o.muH.toFixed(1)} kN·m/m, φMn = ${phiMn.toFixed(1)} kN·m/m` });\n  }\n  return out;\n}\n\n/** §11.7.5.1: beside each side of each opening, at least the area of 2Ø16. */\nexport function wallOpenings(openingCount: number, r: WallReinforcement): WallCheck | null {\n  if (!(openingCount > 0)) return null;\n  const need = 2 * area(16);\n  const have = r.openings ? r.openings.count * area(r.openings.diameter) : 0;\n  return {\n    category: 'Openings (§11.7.5)', utilization: have > 0 ? need / have : Number.POSITIVE_INFINITY, ok: have >= need - 1e-12,\n    description: `${openingCount} opening(s): ${r.openings ? `${r.openings.count}Ø${r.openings.diameter}` : 'no bars'} beside each side, at least 2Ø16 (${(need * 1e4).toFixed(2)} cm²)`,\n  };\n}\n\n/**\n * The wall's reinforcement as the design proposes it: the distributed minimum at the given bar,\n * then boundary bars at both ends while the in-plane P–M does not hold (2 to 8 bars of Ø12 to\n * Ø25 each end), then the opening bars.\n */\nexport function proposeWallReinforcement(o: {\n  length: number; thickness: number; cover: number; fc: number; fy: number; pu: number; mu: number;\n  barDiameterMm: number; verticalSpacing: number; horizontalSpacing: number; curtains: 1 | 2; openingCount: number;\n}): WallReinforcement {\n  const base: WallReinforcement = {\n    vertical: { diameter: o.barDiameterMm, spacing: o.verticalSpacing },\n    horizontal: { diameter: o.barDiameterMm, spacing: o.horizontalSpacing },\n    curtains: o.curtains,\n    ...(o.openingCount > 0 ? { openings: { count: 2, diameter: 16 } } : {}),\n  };\n  const holds = (r: WallReinforcement) => wallInPlane({ ...o, r }).ok;\n  if (holds(base)) return base;\n  for (const diameter of [12, 16, 20, 25]) for (const count of [2, 4, 6, 8]) {\n    const r = { ...base, boundary: { count, diameter } };\n    if (holds(r)) return r;\n  }\n  return { ...base, boundary: { count: 8, diameter: 25 } };\n}\n"
+    },
+    "src/lib/engine/foundation/strap-footing.ts": {
+      "source": "15fd2ff64f08ed104d5974d168bfbb6718b3058945ab2562f4f1d6f8a3171af1",
+      "original": "cd21b991bf994ede56fd103d7cedfbd14cd4c8ef13cb1b1e0b5f8956c5607afd",
+      "changes": [
+        [
+          77,
+          14,
+          []
+        ],
+        [
+          159,
+          1,
+          [
+            "      const force = pair.map((p, k) => (Math.abs(P * along.c[k]!) + Math.abs(w.c[k]!)) / (p.L - along.c[k]!));",
+            "      const relief = pair.map((p, k) => (P * along.c[k]! - Math.abs(w.c[k]!)) / (p.L - along.c[k]!));",
+            "      const moment = pair.map((_, k) => Math.abs(P * along.c[k]!) + Math.abs(w.c[k]!));"
+          ]
+        ]
+      ]
     },
     "src/lib/engine/generated/result-sites-ts.ts": {
       "source": "198ac2b3739726fe6826337c2897fbeb20c083e770a7a5c864d94badcbca1b26",
@@ -5498,7 +5569,7 @@
       ]
     },
     "src/lib/i18n/locales/de.ts": {
-      "source": "a302c031d4b26cbf55bea84482b9c168bc26488018269e3367019b37b2cfcf68",
+      "source": "b52cde5729e3ea74c2b7670818079eb0f21ada70b4411039941b8ece5763db96",
       "original": "0b1cffc73c321c88dd80b93e39f81e925705babc0f2e91df63e10c19111fe052",
       "changes": [
         [
@@ -5814,18 +5885,18 @@
         ],
         [
           15107,
-          1050,
+          1054,
           []
         ],
         [
-          16162,
-          702,
+          16166,
+          938,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/en.ts": {
-      "source": "5cf72e5e830bcd92db585c81a7d1e2aec4bb1ef6010d7b7c3895e5490d0fadc0",
+      "source": "2cd3cbfdb92a1e06276885186f14ac6da5eb89e373508a93f0d3e1ba84b50cfa",
       "original": "99343e2eeb7cf4140cbbcb69424c37461d3ec4e5c925d64439f6b56ee0e9e6b3",
       "changes": [
         [
@@ -6113,18 +6184,18 @@
         ],
         [
           15265,
-          1052,
+          1056,
           []
         ],
         [
-          16324,
-          702,
+          16328,
+          938,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/es.ts": {
-      "source": "211c842519726ad70167c1e885cd9da35e539007092f228c51e3be99ae51c1d9",
+      "source": "14c430570e9aed5ea67a0b2764c65723ac1aaf4e70c4451b5721bafaa9aa6bfc",
       "original": "df939d2beed0420d6833617b3561c95098e34704ee1a3b4f15f21dda24fa4e09",
       "changes": [
         [
@@ -6412,18 +6483,18 @@
         ],
         [
           15254,
-          1052,
+          1056,
           []
         ],
         [
-          16313,
-          702,
+          16317,
+          938,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/fr.ts": {
-      "source": "1591651e7c5cfdb9dcf67d5ad43504e6b7857603c841caf3b99631811f8ec6c1",
+      "source": "55f98ea385c8ea8f952c2f6634b9ee436062e949e1154e1b7d1a2d4cf3497660",
       "original": "26693801514fc282fbb8a5a4ad627431cbfce3c6e3f0720639c8cb5cef4e4b20",
       "changes": [
         [
@@ -6739,12 +6810,12 @@
         ],
         [
           15107,
-          1050,
+          1054,
           []
         ],
         [
-          16162,
-          702,
+          16166,
+          938,
           []
         ]
       ]
@@ -6770,7 +6841,7 @@
       ]
     },
     "src/lib/i18n/locales/hu.ts": {
-      "source": "de5eb7b092c674018ab161885e02e63eab259f5f9a69f58042599661f37fb7e5",
+      "source": "23d1d8d0c18074d84edbac7ee3e7d01001c1bc4aef16727fa9787f6e2d3b449e",
       "original": "050bb2fb50b6d61761b6836086403490f8b3deedc1ac4af88de298aa3fd3966e",
       "changes": [
         [
@@ -7020,7 +7091,7 @@
         ],
         [
           14765,
-          1812,
+          2052,
           [
             "  \"edu.game.hint\": \"Játék: egy szerkezet, három ábra, és csak az egyik helyes.\"",
             ""
@@ -7109,7 +7180,7 @@
       ]
     },
     "src/lib/i18n/locales/pt.ts": {
-      "source": "192f68be664b4616470e43551c0a9cfa928aa479291d02a99dbd0a7050042918",
+      "source": "02e7dbff05d63645ab897304e34233990c073988d122f3c55f477a42c74cd582",
       "original": "f013a27bd1465964fefdc7d531a470bc4855e8593daa03ed54ed7453509bdd37",
       "changes": [
         [
@@ -7397,12 +7468,12 @@
         ],
         [
           14907,
-          1052,
+          1056,
           []
         ],
         [
-          15966,
-          702,
+          15970,
+          938,
           []
         ]
       ]
@@ -7428,28 +7499,33 @@
       ]
     },
     "src/lib/i18n/locales/same-as-english/de.ts": {
-      "source": "f84e86fb765c9145a642d19234ba441f8ecaaae83eef1bac2b12141c3b517aef",
+      "source": "748cf2936514fa37b0487f48d201a2ad3ccf91932a8ad17640728949a5da6858",
       "original": "426e3c011a27f3891f74006946208bf0b3f3e47260d80fd464439638b177db2f",
       "changes": [
         [
-          322,
+          142,
+          1,
+          []
+        ],
+        [
+          323,
           1,
           [
             "  'loads.cirsoc101.reduction.applied',"
           ]
         ],
         [
-          324,
+          325,
           3,
           []
         ],
         [
-          328,
+          329,
           5,
           []
         ],
         [
-          362,
+          363,
           0,
           [
             "  'mesher.auto',",
@@ -7457,28 +7533,23 @@
           ]
         ],
         [
-          381,
+          382,
           1,
           []
         ],
         [
-          449,
-          9,
+          450,
+          10,
           []
         ],
         [
-          460,
+          462,
           1,
           []
         ],
         [
-          466,
+          468,
           5,
-          []
-        ],
-        [
-          473,
-          1,
           []
         ],
         [
@@ -7487,35 +7558,45 @@
           []
         ],
         [
-          610,
+          477,
+          1,
+          []
+        ],
+        [
+          612,
           2,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/same-as-english/fr.ts": {
-      "source": "d23c49a65d51969d85fe618a5da58387322a5128951582a189df42da94b1e8ee",
+      "source": "e168c85795458084979aa84b43d175e6018049439a8a9656e129acbdccbb421e",
       "original": "01234681db94c5f4f167b39f026f48e365985ca6f4133000b38ee9ab9a078c71",
       "changes": [
         [
-          413,
+          180,
+          1,
+          []
+        ],
+        [
+          414,
           2,
           [
             "  'loads.cirsoc101.reduction.applied',"
           ]
         ],
         [
-          416,
+          417,
           4,
           []
         ],
         [
-          422,
+          423,
           6,
           []
         ],
         [
-          463,
+          464,
           0,
           [
             "  'mesher.auto',",
@@ -7524,95 +7605,95 @@
           ]
         ],
         [
-          584,
-          15,
+          585,
+          18,
           []
         ],
         [
-          601,
+          605,
           1,
           []
         ],
         [
-          608,
+          612,
           1,
-          []
-        ],
-        [
-          610,
-          3,
           []
         ],
         [
           614,
+          3,
+          []
+        ],
+        [
+          618,
           1,
           []
         ],
         [
-          620,
+          624,
           1,
           []
         ],
         [
-          622,
+          626,
           1,
           []
         ],
         [
-          836,
+          840,
           2,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/same-as-english/hu.ts": {
-      "source": "b7ffa8678cbd060392c32d257003ed16e65232cdb75394b85d079e14f70953b4",
+      "source": "f962cd88f2e4fc246666639c693c326d28a04ed11920ab0ceeea5f9568cc6341",
       "original": "5f22842a39dccbaa605a69c116e208056c8506920aae998131025c25435da438",
       "changes": [
         [
-          221,
+          100,
+          1,
+          []
+        ],
+        [
+          222,
           1,
           [
             "  \"loads.cirsoc101.reduction.applied\","
           ]
         ],
         [
-          223,
+          224,
           1,
           []
         ],
         [
-          225,
+          226,
           3,
           []
         ],
         [
-          305,
-          5,
+          306,
+          6,
           []
         ],
         [
-          311,
-          1,
-          []
-        ],
-        [
-          318,
+          313,
           1,
           []
         ],
         [
           320,
-          3,
-          []
-        ],
-        [
-          324,
           1,
           []
         ],
         [
-          330,
+          322,
+          3,
+          []
+        ],
+        [
+          326,
           1,
           []
         ],
@@ -7622,7 +7703,12 @@
           []
         ],
         [
-          423,
+          334,
+          1,
+          []
+        ],
+        [
+          425,
           1,
           [
             "  \"xls.col.supportType\""
@@ -7631,53 +7717,53 @@
       ]
     },
     "src/lib/i18n/locales/same-as-english/tr.ts": {
-      "source": "318e6ce7611c0eab15242e674b0fbd97882c844475b958d90c0517379c239b2f",
+      "source": "70814892fa4b049be6469ac45590c8e452cf8726d2a73c1d42687526ac48f80a",
       "original": "ddcd3b5af23d0998a8b62b83ca205a741ad043d9f25c334810ae56f665d36530",
       "changes": [
         [
-          215,
+          100,
+          1,
+          []
+        ],
+        [
+          216,
           1,
           [
             "  'loads.cirsoc101.reduction.applied',"
           ]
         ],
         [
-          217,
+          218,
           2,
           []
         ],
         [
-          220,
+          221,
           3,
           []
         ],
         [
-          295,
-          5,
+          296,
+          6,
           []
         ],
         [
-          301,
-          1,
-          []
-        ],
-        [
-          308,
+          303,
           1,
           []
         ],
         [
           310,
-          2,
-          []
-        ],
-        [
-          313,
           1,
           []
         ],
         [
-          319,
+          312,
+          2,
+          []
+        ],
+        [
+          315,
           1,
           []
         ],
@@ -7687,25 +7773,35 @@
           []
         ],
         [
-          406,
+          323,
+          1,
+          []
+        ],
+        [
+          408,
           2,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/same-as-english/zh.ts": {
-      "source": "a27030b706867b4afd3956194e7215a0489b86905076de9830f805e2a4e9fddc",
+      "source": "cfe105a470d793b45a27842b74a5ba8ad9c54181e22570b0bb9d433d625b4524",
       "original": "5a8d1655ae34a0e28e34f0ec172077eb4a6fec886b1368e2872761a7f26a29ee",
       "changes": [
         [
-          181,
-          3,
+          54,
+          1,
+          []
+        ],
+        [
+          182,
+          4,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/tr.ts": {
-      "source": "0aaf33efc641ab3d6b7adbbc8fce0d98db55135edcf1dd41a3e56edf166d3415",
+      "source": "e68fa8df14b49ef04104fa7709199a83aa655aa48e4c1cd43f508d28e58a8ea6",
       "original": "dfae3be5cd45792b6b2c9720f3433a60bace6b76a70d785cd4f6cc88d7ef096f",
       "changes": [
         [
@@ -8000,18 +8096,18 @@
         ],
         [
           15107,
-          1050,
+          1054,
           []
         ],
         [
-          16162,
-          702,
+          16166,
+          938,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/zh.ts": {
-      "source": "c16fbcf4f51f363977a23173dd6a7cb079d9d975a42626a9c54236338b7a2934",
+      "source": "cfafeec9c0f759fbb336553f5d7065ec6d3075511112ba5abe53fa226a3d18f7",
       "original": "187ecdf53aa596a80d7c584c8c8fc84768c7dd6c4d6540750c3a9cdcf2caee26",
       "changes": [
         [
@@ -8245,7 +8341,7 @@
         ],
         [
           14787,
-          1814,
+          2054,
           []
         ]
       ]
@@ -8568,7 +8664,7 @@
       ]
     },
     "src/lib/model/design-data.ts": {
-      "source": "934da89bc47a817276c240553f1843329dfe93badd5f0cd2c7a4c712216fc2e7",
+      "source": "e1f075f710aba04febfe74385e23d45fbdf3beb1c50ced45812de493af1fedcb",
       "original": "e45f0506b5654ec576bb879d9d847d071b49538897c20af3680b2e2f6c1c74f8",
       "changes": [
         [
@@ -8591,50 +8687,55 @@
         ],
         [
           16,
-          1,
+          3,
           []
         ],
         [
-          46,
+          48,
           1,
           [
             "  /** The stirrup or tie diameter the cover-to-centroid arithmetic assumes, mm. */"
           ]
         ],
         [
-          51,
+          53,
           2,
           []
         ],
         [
-          56,
+          58,
           9,
           [
             "  /** The diameter of a wall's vertical and horizontal bars, mm. */"
           ]
         ],
         [
-          132,
+          68,
+          8,
+          []
+        ],
+        [
+          142,
           4,
           []
         ],
         [
-          140,
-          33,
+          150,
+          57,
           []
         ],
         [
-          176,
+          210,
           4,
           []
         ],
         [
-          181,
+          215,
           1,
           []
         ],
         [
-          185,
+          219,
           2,
           [
             "    stirrupDiaMm: 8,",
@@ -8642,15 +8743,15 @@
           ]
         ],
         [
-          189,
-          6,
+          223,
+          7,
           [
             "    stirrupDiametersMm: BAR_DIAMETERS_MM.filter((d) => d <= 12),",
             "    wallBarDiaMm: 12,"
           ]
         ],
         [
-          199,
+          234,
           3,
           [
             " * The minimum clear cover, m, of CIRSOC 201-2025 Table 20.5.1.3.1 for cast-in-place concrete",
@@ -8658,7 +8759,7 @@
           ]
         ],
         [
-          203,
+          238,
           2,
           [
             "export function minimumCover(kind: DesignKind, exposure: Exposure, largestBarMm: number): number {",
@@ -8670,7 +8771,7 @@
           ]
         ],
         [
-          207,
+          242,
           12,
           [
             "/** The largest bar a kind of element may take under these data, mm. */",
@@ -8679,58 +8780,58 @@
           ]
         ],
         [
-          222,
+          257,
           1,
           [
             "  return DESIGN_KINDS.map((kind) => ({ kind, cover: d.covers[kind], minimum: minimumCover(kind, d.exposure[kind], largestBar(d, kind)) }))"
           ]
         ],
         [
-          226,
+          261,
           1,
           [
             "/** Every cover set to the table's minimum for its exposure: the CIRSOC preset. */"
           ]
         ],
         [
-          229,
+          264,
           1,
           [
             "  for (const k of DESIGN_KINDS) covers[k] = minimumCover(k, d.exposure[k], largestBar(d, k));"
           ]
         ],
         [
-          234,
+          269,
           16,
           []
         ],
         [
-          263,
+          298,
           2,
           []
         ],
         [
-          269,
+          304,
           1,
           [
             "    stirrupDiaMm: BAR_DIAMETERS_MM.includes(e.stirrupDiaMm as number) ? (e.stirrupDiaMm as number) : def.stirrupDiaMm,"
           ]
         ],
         [
-          273,
-          6,
+          308,
+          10,
           [
             "    stirrupDiametersMm: known(e.stirrupDiametersMm, def.stirrupDiametersMm),",
             "    wallBarDiaMm: BAR_DIAMETERS_MM.includes(e.wallBarDiaMm as number) ? (e.wallBarDiaMm as number) : def.wallBarDiaMm,"
           ]
         ],
         [
-          280,
+          319,
           2,
           []
         ],
         [
-          284,
+          323,
           1,
           []
         ]
@@ -8778,8 +8879,9 @@
     },
     "src/lib/model/edit/mesh-stations.ts": null,
     "src/lib/model/edit/rect-grid.ts": null,
+    "src/lib/model/foundation/edges.ts": null,
     "src/lib/model/foundation/generate.ts": {
-      "source": "d63a64a3df31155864496ae4f7395e2f5216eb3719248a0550bd0407e80d91bc",
+      "source": "0207e73afbf3fcb943a4c5761d694fbdbc97f318591356f676e68bc45cfe0526",
       "original": "c819828a842345467ade84aa71cbfd7184587506195bb337632fd2754e07413c",
       "changes": [
         [
@@ -8793,23 +8895,78 @@
           []
         ],
         [
-          109,
+          20,
+          2,
+          []
+        ],
+        [
+          23,
+          1,
+          [
+            "export type PropertyLines = { minX?: boolean; maxX?: boolean; minY?: boolean; maxY?: boolean };"
+          ]
+        ],
+        [
+          53,
+          14,
+          [
+            "  const pts = nodeIds.map((id) => modelStore.nodes.get(id)!).filter(Boolean);",
+            "  const out = new Map<number, [number, number]>();",
+            "  if (pts.length === 0) return out;",
+            "  const minX = Math.min(...pts.map((p) => p.x)), maxX = Math.max(...pts.map((p) => p.x));",
+            "  const minY = Math.min(...pts.map((p) => p.y)), maxY = Math.max(...pts.map((p) => p.y));",
+            "  for (const p of pts) {",
+            "    const ax = lines.minX && Math.abs(p.x - minX) < TOL ? -1 : lines.maxX && Math.abs(p.x - maxX) < TOL ? 1 : 0;",
+            "    const ay = lines.minY && Math.abs(p.y - minY) < TOL ? -1 : lines.maxY && Math.abs(p.y - maxY) < TOL ? 1 : 0;",
+            "    out.set(p.id, [ax, ay]);",
+            "  }",
+            "  return out;"
+          ]
+        ],
+        [
+          114,
           1,
           []
         ],
         [
-          116,
+          121,
           1,
           [
             "/** A wall stood on the ground: its base nodes fixed where they have no support. A model step. */"
           ]
         ],
         [
-          119,
+          124,
           7,
           [
             "  const add = wallBaseNodes(wallGroupId).filter((n) => !held.has(n));",
             "  if (add.length) modelStore.batch(() => { for (const n of add) modelStore.addSupport(n, 'fixed3d'); });"
+          ]
+        ],
+        [
+          205,
+          1,
+          []
+        ],
+        [
+          208,
+          5,
+          [
+            "    for (const [dx, dy] of [[ax, 0], [0, ay]] as Array<[number, number]>) {",
+            "      if (!dx && !dy) continue;",
+            "      const p = P(f.nodeId);",
+            "      // Inwards is away from the property line: the footing's centre lies that way.",
+            "      const inward = [-dx, -dy];",
+            "      let best: { id: number; d: number } | null = null;",
+            "      for (const g of fs) {",
+            "        if (g.id === f.id) continue;",
+            "        const q = P(g.nodeId);",
+            "        const v = [q.x - p.x, q.y - p.y], d = Math.hypot(v[0]!, v[1]!);",
+            "        if (d < TOL) continue;",
+            "        const cos = (v[0]! * inward[0]! + v[1]! * inward[1]!) / d;",
+            "        if (cos > Math.cos(Math.PI / 12) && (!best || d < best.d)) best = { id: g.nodeId, d };",
+            "      }",
+            "      if (best && !out.some((s) => (s.a === f.nodeId && s.b === best!.id) || (s.b === f.nodeId && s.a === best!.id))) out.push({ a: f.nodeId, b: best.id, kind: 'strap' });"
           ]
         ]
       ]
@@ -9048,6 +9205,7 @@
     "src/lib/rc-sheets/cutoff.ts": null,
     "src/lib/rc-sheets/deflection.ts": null,
     "src/lib/rc-sheets/demands.ts": null,
+    "src/lib/rc-sheets/design-memo.ts": null,
     "src/lib/rc-sheets/design-options.ts": null,
     "src/lib/rc-sheets/drawing.ts": null,
     "src/lib/rc-sheets/ec2/basis.ts": null,
@@ -9062,15 +9220,35 @@
     "src/lib/rc-sheets/ec2/slab-row.ts": null,
     "src/lib/rc-sheets/ec2/wall-row.ts": null,
     "src/lib/rc-sheets/elevation-layout.ts": null,
+    "src/lib/rc-sheets/footing-balance.ts": null,
+    "src/lib/rc-sheets/footing-choice.ts": null,
+    "src/lib/rc-sheets/footing-combined-row.ts": null,
+    "src/lib/rc-sheets/footing-combined.ts": null,
     "src/lib/rc-sheets/footing-demands.ts": null,
     "src/lib/rc-sheets/footing-design.ts": null,
     "src/lib/rc-sheets/footing-detail.ts": null,
+    "src/lib/rc-sheets/footing-dowels.ts": null,
+    "src/lib/rc-sheets/footing-edges.ts": null,
+    "src/lib/rc-sheets/footing-group-detail.ts": null,
+    "src/lib/rc-sheets/footing-group-propose.ts": null,
+    "src/lib/rc-sheets/footing-group-row.ts": null,
+    "src/lib/rc-sheets/footing-group-straps.ts": null,
+    "src/lib/rc-sheets/footing-group.ts": null,
+    "src/lib/rc-sheets/footing-layout.ts": null,
+    "src/lib/rc-sheets/footing-layouts.ts": null,
     "src/lib/rc-sheets/footing-mechanics.ts": null,
     "src/lib/rc-sheets/footing-mesh.ts": null,
+    "src/lib/rc-sheets/footing-needs.ts": null,
     "src/lib/rc-sheets/footing-overlaps.ts": null,
+    "src/lib/rc-sheets/footing-punching-row.ts": null,
+    "src/lib/rc-sheets/footing-punching.ts": null,
     "src/lib/rc-sheets/footing-row.ts": null,
     "src/lib/rc-sheets/footing-steps.ts": null,
+    "src/lib/rc-sheets/footing-strap.ts": null,
+    "src/lib/rc-sheets/footing-tie-bars.ts": null,
+    "src/lib/rc-sheets/footing-ties.ts": null,
     "src/lib/rc-sheets/footing-types.ts": null,
+    "src/lib/rc-sheets/footing-winkler.ts": null,
     "src/lib/rc-sheets/format.ts": null,
     "src/lib/rc-sheets/joints.ts": null,
     "src/lib/rc-sheets/line-charts.ts": null,
@@ -9080,11 +9258,16 @@
     "src/lib/rc-sheets/pier-row.ts": null,
     "src/lib/rc-sheets/pier-section.ts": null,
     "src/lib/rc-sheets/piers.ts": null,
+    "src/lib/rc-sheets/pile-cap-detail.ts": null,
+    "src/lib/rc-sheets/pile-cap-row.ts": null,
+    "src/lib/rc-sheets/pile-cap.ts": null,
     "src/lib/rc-sheets/plans/beam-annotations.ts": null,
     "src/lib/rc-sheets/plans/beam-elevation.ts": null,
     "src/lib/rc-sheets/plans/clip.ts": null,
     "src/lib/rc-sheets/plans/column-elevation.ts": null,
     "src/lib/rc-sheets/plans/draw.ts": null,
+    "src/lib/rc-sheets/plans/footing-detail.ts": null,
+    "src/lib/rc-sheets/plans/footing-group-plans.ts": null,
     "src/lib/rc-sheets/plans/schedule-table.ts": null,
     "src/lib/rc-sheets/plans/section.ts": null,
     "src/lib/rc-sheets/plans/sheets.ts": null,
@@ -9094,6 +9277,7 @@
     "src/lib/rc-sheets/punching-bars.ts": null,
     "src/lib/rc-sheets/punching-row.ts": null,
     "src/lib/rc-sheets/rebar-3d-columns.ts": null,
+    "src/lib/rc-sheets/rebar-3d-footing-groups.ts": null,
     "src/lib/rc-sheets/rebar-3d-geometry.ts": null,
     "src/lib/rc-sheets/rebar-3d-ghost.ts": null,
     "src/lib/rc-sheets/rebar-3d-lines.ts": null,
@@ -10681,6 +10865,7 @@
     "src/lib/store/rc-sheets-covers.ts": null,
     "src/lib/store/rc-sheets-documents.ts": null,
     "src/lib/store/rc-sheets-exports.ts": null,
+    "src/lib/store/rc-sheets-footing-preview.svelte.ts": null,
     "src/lib/store/rc-sheets-footings.ts": null,
     "src/lib/store/rc-sheets-ifc.ts": null,
     "src/lib/store/rc-sheets-piers.ts": null,

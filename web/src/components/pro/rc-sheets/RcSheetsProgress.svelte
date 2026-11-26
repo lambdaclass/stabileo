@@ -1,13 +1,27 @@
 <script lang="ts">
-  import { tp } from '../../../lib/i18n';
-  import type { SheetProgress } from '../../../lib/store/rc-sheets-progress.svelte';
+  import { i18n, t, tp } from '../../../lib/i18n';
+  import { sheetsProgress, sheetsSecondsLeft, type SheetProgress } from '../../../lib/store/rc-sheets-progress.svelte';
 
   let { progress }: { progress: SheetProgress } = $props();
+  let tick = $state(performance.now());
+  $effect(() => {
+    const id = setInterval(() => { tick = performance.now(); }, 500);
+    return () => clearInterval(id);
+  });
+  const left = $derived(sheetsSecondsLeft(progress, sheetsProgress.startedAt, tick));
+  const layout = $derived(progress.phase === 'foundations' ? progress.layout : undefined);
+  const secs = (s: number) => Math.ceil(s).toLocaleString(i18n.locale);
 </script>
 
 <div class="rsp" role="status" data-testid="rc-progress">
   <progress max={Math.max(1, progress.total)} value={progress.done}></progress>
-  <span data-testid="rc-progress-count">{tp(progress.phase === 'demands' ? 'rcSheets.progressDemands' : 'rcSheets.progressDesign', { done: progress.done, total: progress.total })}</span>
+  {#if layout}
+    <span data-testid="rc-progress-count">{tp('rcSheets.progressFoundations', { index: layout.index, count: layout.count, layout: t(`rcSheets.foundation.${layout.system}`) })}</span>
+    <span data-testid="rc-progress-footing">{layout.grouping ? t('rcSheets.progressFoundationsGroup') : layout.levelling ? t('rcSheets.progressFoundationsLevel') : tp('rcSheets.progressFoundationsFooting', { done: layout.footing, total: layout.footings })}</span>
+  {:else}
+    <span data-testid="rc-progress-count">{tp(progress.phase === 'demands' ? 'rcSheets.progressDemands' : 'rcSheets.progressDesign', { done: progress.done, total: progress.total })}</span>
+  {/if}
+  {#if left !== null}<span data-testid="rc-progress-left">{tp('solveProgress.left', { s: secs(left) })}</span>{/if}
 </div>
 
 <style>

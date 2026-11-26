@@ -1,7 +1,7 @@
 /**
- * How a column storey's bars go on from the storey below: the bars from below are cranked in at
- * 1:6 by one bar's diameter, so they lap in contact beside this storey's bars, which stand
- * straight at the faces (§10.7.4.1, §25.5.1.3; FIUBA §11.5, §15.7, Fig. 7.8.1);
+ * How a column storey's bars go on from the storey below: the bars from below (or a footing's
+ * dowels) are cranked in at 1:6 by one bar's diameter, so they lap in contact beside this storey's
+ * bars, which stand straight at the faces (§10.7.4.1, §25.5.1.3; FIUBA §11.5, §15.7, Fig. 7.8.1);
  * where its faces step in, the crank takes the step as well or, past the offset the code allows a
  * crank, the bars stop and leave the lap to separate dowels (ACI 318-19 and CIRSOC 201-2025
  * §10.7.4.1–10.7.4.2: 75 mm; the FIUBA notes round it to 80 mm, §15.7, and the code in force

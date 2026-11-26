@@ -12,14 +12,20 @@
   import RcWallDetail from './RcWallDetail.svelte';
   import RcPunchingSvg from './RcPunchingSvg.svelte';
   import RcResize from './RcResize.svelte';
+  import RcFootingDetail from './RcFootingDetail.svelte';
   import { showRebarOf } from '../../../lib/store/rc-rebar-3d.svelte';
 
   let { row: r, rows, code, endZones, slabCover, onleave }: { row: SheetRow; rows: SheetRows; code: SheetCode; endZones: boolean; slabCover: number; onleave: () => void } = $props();
 </script>
 
 {#if r.family !== 'punching'}<button type="button" class="rcs-btn rcw-3d" onclick={() => { showRebarOf(r); onleave(); }} data-testid="rc-view-3d">{t('rcSheets.r3d.show')}</button>{/if}
-<RcResize row={r} walls={rows.wall} {onleave} />
-{#if r.family !== 'punching'}<RcRowEditor row={r} />{/if}
+{#if r.family === 'footing'}
+  {#if r.status === 'fail' && !r.isAdopted}<RcResize row={r} walls={rows.wall} {onleave} />{/if}
+  <RcFootingDetail row={r} {code} />
+{:else}
+  <RcResize row={r} walls={rows.wall} {onleave} />
+  {#if r.family !== 'punching'}<RcRowEditor row={r} />{/if}
+{/if}
 {#if r.family === 'column'}
   <div class="rcw-secs">
     <RcColumnSection row={r} all={rows.column} {code} {endZones} />

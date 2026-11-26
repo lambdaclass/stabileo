@@ -23,21 +23,23 @@ import { beamPlans } from './beam-elevation';
 import { columnPlans } from './column-elevation';
 import { slabLevelPlans } from './slab-level';
 import { wallPlans } from './wall-detail';
+import { footingPlans } from './footing-detail';
+import type { FootingRow } from '../footing-types';
 import type { Tr } from './draw';
 import type { StructurePlan } from '../structure-plan';
 import { structurePlanDrawing } from './structure-plan';
 
 export type PlanFormat = 'A3' | 'A1' | 'A0';
 export const PLAN_FORMATS: readonly PlanFormat[] = ['A3', 'A1', 'A0'];
-export type PlanFamily = 'beam' | 'vertical' | 'slab';
-export const PLAN_FAMILIES: readonly PlanFamily[] = ['beam', 'vertical', 'slab'];
+export type PlanFamily = 'beam' | 'vertical' | 'slab' | 'footing';
+export const PLAN_FAMILIES: readonly PlanFamily[] = ['beam', 'vertical', 'slab', 'footing'];
 
 /** Elevations and sections 1:`elevation`, slab plans 1:`plan`. */
 export interface PlanScales { elevation: number; plan: number }
 export const DEFAULT_PLAN_SCALES: PlanScales = { elevation: 20, plan: 50 };
 
 /** `structure`: each family's level plans, drawn ahead of its elements when families are asked for. */
-export interface PlanRows { line: LineLayout[]; beam: BeamRow[]; column: ColumnRow[]; slab: SlabRow[]; slabPlan: LevelPlan[]; wall: WallRow[]; structure?: readonly StructurePlan[] }
+export interface PlanRows { line: LineLayout[]; beam: BeamRow[]; column: ColumnRow[]; slab: SlabRow[]; slabPlan: LevelPlan[]; wall: WallRow[]; footing?: FootingRow[]; structure?: readonly StructurePlan[] }
 
 /** The families and levels to draw (all levels when `levels` is null), or one element by its row key. */
 export interface PlanSelection { families: readonly PlanFamily[]; levels: readonly string[] | null; element?: string }
@@ -84,6 +86,10 @@ export function planDrawings(rows: PlanRows, sel: PlanSelection, o: PlanOptions)
     const pick = sel.element ? elementLevel !== undefined && plan.level === elementLevel : sel.families.includes('slab') && levelOk(sel, plan.level);
     if (!pick || !plan.packages.length) continue;
     drawings.push(...slabLevelPlans(plan, { ...p, code: o.code, slabCover: o.slabCover, group: group('slab', plan.level) }));
+  }
+  for (const row of rows.footing ?? []) {
+    if (!want('footing', row.key, row.level)) continue;
+    drawings.push(...footingPlans(row, { ...e, code: o.code, group: group('footing', row.level) }));
   }
   return { drawings, levels };
 }

@@ -8,18 +8,22 @@ import type { MemoriaElement } from '../report/memoria/types';
 import { groupsLabel, meshLabel, stirrupsLabel } from '../rc-sheets/bars';
 import { columnLabel, tieLabel, type ColumnRow } from '../rc-sheets/column-row';
 import { wallLabel, type WallRow } from '../rc-sheets/wall-row';
+import { dowelsText } from '../rc-sheets/footing-dowels';
 import { SLAB_FACES, type SlabRow } from '../rc-sheets/slab-row';
 import { SHEET_CODES, type CheckLine, type SheetCode } from '../rc-sheets/types';
 import { localizeCriterion } from '../rc-sheets/criteria';
 import type { BeamRow } from '../rc-sheets/beam-row';
 import type { LineLayout } from '../rc-sheets/beam-line';
 import type { PunchingRow } from '../rc-sheets/punching-row';
+import type { FootingRow } from '../rc-sheets/footing-types';
+import { meshText } from '../rc-sheets/footing-mesh';
 
 type Tr = (key: string, params?: Record<string, string | number>) => string;
 
 export interface SheetsForMemoria {
   beam: readonly BeamRow[]; line: readonly LineLayout[]; column: readonly ColumnRow[];
   slab: readonly SlabRow[]; wall: readonly WallRow[]; punching: readonly PunchingRow[];
+  footing?: readonly FootingRow[];
 }
 
 /** The regulation id and edition the memoria's rows cite for each code the sheets design to. */
@@ -112,6 +116,18 @@ export function sheetsMemoriaElements(rows: SheetsForMemoria, code: SheetCode, t
     out.push({
       id: `rc-${r.key}`, family: 'slab', name: `${r.name} — ${tr('rcSheets.family.punching')}`, ...level(r.level),
       data: [[tr('rcSheets.s.punchPosition'), r.position], codeDatum], rows: checks(r.verifications), notes: [],
+    });
+  }
+  for (const r of rows.footing ?? []) {
+    out.push({
+      id: `rc-${r.key}`, family: 'footing', name: r.name, ...level(r.level),
+      data: [
+        ...(r.B > 0 ? [[tr('memo.el.size'), `${n2(r.B)} × ${n2(r.L)} × ${n2(r.h)} m`] as [string, string]] : []),
+        ...(r.uncovered ? [] : [[tr('rcSheets.foot.mesh.x'), meshText(r.adopted.x)], [tr('rcSheets.foot.mesh.y'), meshText(r.adopted.y)]] as Array<[string, string]>),
+        ...(r.adopted.dowels && !r.uncovered ? [[tr('rcSheets.foot.dowels'), dowelsText(r)] as [string, string]] : []),
+        codeDatum,
+      ],
+      rows: checks(r.verifications), notes: [], ...held(r.isAdopted),
     });
   }
   return out;

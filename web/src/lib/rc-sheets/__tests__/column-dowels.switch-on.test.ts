@@ -1,17 +1,23 @@
 /**
  * The bars that join a column storey to what is below it: the lap is designed (§25.5.5.1 in
  * compression, a third longer under 21 MPa; a class B tension lap where a bar is in tension,
- * never shorter than the compression one; tension under chapter 18), the bottom storey stands on
- * its support with nothing lapped, and the bars from below are cranked in at 1:6 by one bar's
- * diameter so they lap beside the bars above, which stand straight at the faces.
+ * never shorter than the compression one; tension under chapter 18), the bottom storey laps with
+ * its footing's dowels as any storey with the one below, and the bars from below and the dowels
+ * are cranked in at 1:6 by one bar's diameter so they lap beside the bars above, which stand
+ * straight at the faces.
  */
 import { describe, it, expect } from 'vitest';
 import { columnRow, columnSplice, tensionLap, type ColumnDemand, type ColumnRow } from '../column-row';
 import { CRANK_SLOPE, inwardOf, lapOffset } from '../column-stack';
 import { columnBarPieces, columnStorey, lapStart, storeyBars, storeyRun } from '../column-run';
 import { compressionLapMm } from '../../codes/cirsoc201/anchorage';
+import { footingDemands, type FootingDemandInput } from '../footing-demands';
+import { footingDetail } from '../footing-detail';
+import { scheduleElements } from '../schedule/pieces';
 import { rulesFor } from '../codes';
 import { makeFmt } from '../format';
+import { developedLength } from '../shape';
+import type { FootingContext } from '../footing-types';
 
 const f = makeFmt('.');
 const ctx = { mat: { fc: 25, fy: 420 }, cover: 0.025, tieDia: 8, diameters: [12, 16, 20, 25] };
@@ -50,17 +56,19 @@ describe('the lap of a column\'s bars', () => {
     expect(seismic.lap!.tension).toBe(true);
   });
 
-  it('of the bottom storey is none: it stands on its support with nothing lapped', () => {
+  it('of the bottom storey on a footing is its lap with the dowels, checked as any storey\'s', () => {
     const own = { corner: 16, nx: 1, dx: 16, ny: 1, dy: 16, tieDia: 8, tieSpacing: 0.15 };
-    const bottom = columnRow(storey(0, 0.4, 1500, 5), ctx, own, f);
-    expect(bottom.lap).toBeUndefined();
-    expect(bottom.verifications.map((v) => v.label)).not.toContain('rcSheets.v.colSpliceC');
+    const bottom = columnRow(storey(0, 0.4, 1500, 5), ctx, own, f, { fromBelow: true, onFooting: true });
+    expect(bottom.onFooting).toBe(true);
+    expect(bottom.lap!.length).toBeCloseTo(columnSplice(ctx, 16, false).length, 9);
+    expect(bottom.verifications.map((v) => v.label)).toContain('rcSheets.v.colSpliceC');
+    expect(columnRow(storey(0, 0.4, 1500, 5), ctx, own, f).lap).toBeUndefined();
   });
 });
 
 describe('the crank of the bars from below', () => {
   const own = { corner: 20, nx: 1, dx: 16, ny: 1, dy: 16, tieDia: 8, tieSpacing: 0.15 };
-  const low = columnRow(storey(0, 0.4, 1500, 5), ctx, own, f);
+  const low = columnRow(storey(0, 0.4, 1500, 5), ctx, own, f, { fromBelow: true, onFooting: true });
   const high = (b: number): ColumnRow => columnRow(storey(1, b, 1000, 5), ctx, own, f, { fromBelow: true, offset: (0.4 - b) / 2, belowDia: 20 });
 
   it('turns a corner along its diagonal, a face bar square to its face, by the larger bar\'s diameter', () => {
@@ -102,9 +110,48 @@ describe('the crank of the bars from below', () => {
     expect(columnStorey([low, far], far).dowels).toBe(true);
   });
 
-  it('starts the bottom storey\'s bars at its node, and a storey\'s above at its lap, under chapter 18 at the middle half', () => {
+  it('starts the bottom storey\'s bars at the footing\'s top, where the dowels\' lap starts, under chapter 18 at the middle half', () => {
     expect(lapStart(low, 'cirsoc201-2025')).toBe(0);
-    const up = high(0.4), confined = { ...up, confinement: { lo: 0.5, so: 0.1 } };
-    expect(lapStart(confined, 'aci318-19')).toBeCloseTo(0.5 / 2 + 2.5 / 2 - up.lap!.length / 2, 9);
+    const confined = { ...low, confinement: { lo: 0.5, so: 0.1 } };
+    expect(lapStart(confined, 'aci318-19')).toBeCloseTo(2.5 / 2 - low.lap!.length / 2, 9);
+  });
+});
+
+describe('a footing\'s dowels', () => {
+  const reaction = (nodeId: number, fz: number) => ({ nodeId, fx: 0, fy: 0, fz, mx: 0, my: 0, mz: 0 });
+  const input: FootingDemandInput = {
+    supportNodes: [1], nodes: new Map([[1, { x: 0, y: 0, z: 0 }]]), footings: [],
+    columnAt: () => ({ b: 0.4, h: 0.4, name: 'C1' }), soilOf: () => ({ name: 'S', allowable: 200 }),
+    sets: [{ name: 'U', result: { reactions: [reaction(1, 900)] } }],
+    cases: [{ type: 'D', result: { reactions: [reaction(1, 400)] } }, { type: 'L', result: { reactions: [reaction(1, 200)] } }],
+  };
+  const fctx = (bars: FootingContext['columnBars']): FootingContext => ({ fc: 25, fy: 420, cover: 0.05, sizing: 'full', diameters: [10, 12, 16], columnBars: bars });
+  const row = (bars: FootingContext['columnBars']) => rulesFor('cirsoc201-2025').footingRow(footingDemands(input)[0]!, fctx(bars), undefined, f);
+
+  it('lap with the column\'s bars over the column\'s own lap, starting where it starts', () => {
+    const r = row({ count: 8, dia: 16, tension: false, lap: 0.55, lapFrom: 0.3 });
+    expect(r.dowels).toMatchObject({ lap: 0.55, above: 0.3, offset: 0.016 });
+    const plain = row({ count: 8, dia: 16, tension: false });
+    expect(plain.dowels!.lap).toBeCloseTo(compressionLapMm(420, 16, 25) / 1000, 9);
+    expect(row({ count: 8, dia: 16, tension: true }).dowels!.lap).toBeGreaterThanOrEqual(plain.dowels!.lap - 1e-9);
+  });
+
+  it('hook at the bottom mat, rise through the footing, crank in one bar\'s diameter at 1:6 to end at its top and stand the lap over it', () => {
+    const r = row({ count: 8, dia: 16, tension: false, lap: 0.48, lapFrom: 0 });
+    const det = footingDetail(r, R), dw = det.dowels!;
+    const [foot, heel, bend, crank, top] = dw.shape.pts;
+    expect(foot![0]).toBe(dw.foot);
+    expect(heel).toEqual([0, 0]);
+    expect(crank![1]).toBeCloseTo(r.h - dw.z, 9);
+    expect(-crank![0]).toBeCloseTo(0.016, 9);
+    expect((crank![1] - bend![1]) * CRANK_SLOPE).toBeCloseTo(Math.abs(crank![0] - bend![0]), 9);
+    expect(top![1] - crank![1]).toBeCloseTo(0.48, 9);
+    expect(top![0]).toBe(crank![0]);
+    expect(dw.z + top![1]).toBeCloseTo(r.h + 0.48, 9);
+    const el = scheduleElements({ line: [], column: [], slab: [], wall: [], footing: [r] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
+    const piece = el[0]!.pieces.find((p) => p.kind === 'dowel')!;
+    expect(piece.count).toBe(8);
+    expect(developedLength(piece.shape)).toBeCloseTo(developedLength(dw.shape), 9);
+    expect(developedLength(piece.shape)).toBeGreaterThan(r.h - dw.z + 0.48);
   });
 });

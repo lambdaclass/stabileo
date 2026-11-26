@@ -18,8 +18,10 @@ import type { Footing } from '../footing';
 import type { PhysicalData } from '../physical/types';
 import { levelAt } from '../physical/recognize';
 import { declare, nextName } from '../building/declare';
+import { planHalf } from '../building/build-on-grid';
+import { anchorsOf, inwardPartner, type PropertyLines } from './edges';
 
-export type PropertyLines = { minX?: boolean; maxX?: boolean; minY?: boolean; maxY?: boolean };
+export type { PropertyLines };
 
 const TOL = 1e-3;
 
@@ -49,17 +51,20 @@ export function columnOn(nodeId: number): number | undefined {
 
 /** Where each node's footing is held: against the property lines it stands on, inward. */
 export function anchorsFor(nodeIds: number[], lines: PropertyLines): Map<number, [number, number]> {
-  const pts = nodeIds.map((id) => modelStore.nodes.get(id)!).filter(Boolean);
-  const out = new Map<number, [number, number]>();
-  if (pts.length === 0) return out;
-  const minX = Math.min(...pts.map((p) => p.x)), maxX = Math.max(...pts.map((p) => p.x));
-  const minY = Math.min(...pts.map((p) => p.y)), maxY = Math.max(...pts.map((p) => p.y));
-  for (const p of pts) {
-    const ax = lines.minX && Math.abs(p.x - minX) < TOL ? -1 : lines.maxX && Math.abs(p.x - maxX) < TOL ? 1 : 0;
-    const ay = lines.minY && Math.abs(p.y - minY) < TOL ? -1 : lines.maxY && Math.abs(p.y - maxY) < TOL ? 1 : 0;
-    out.set(p.id, [ax, ay]);
-  }
-  return out;
+  const halfAt = (id: number): [number, number] | null => {
+    for (const e of modelStore.elements.values()) {
+      if (e.nodeI !== id && e.nodeJ !== id) continue;
+      const a = modelStore.nodes.get(e.nodeI), b = modelStore.nodes.get(e.nodeJ);
+      if (a && b && Math.abs(a.x - b.x) < 1e-6 && Math.abs(a.y - b.y) < 1e-6) { const h = planHalf(e.id); if (h) return h; }
+    }
+    return null;
+  };
+  return anchorsOf(nodeIds.map((id) => {
+    const n = modelStore.nodes.get(id);
+    if (!n) return null;
+    const h = halfAt(id);
+    return { id, x: n.x, y: n.y, ...(h ? { hx: h[0], hy: h[1] } : {}) };
+  }).filter((p): p is { id: number; x: number; y: number; hx?: number; hy?: number } => !!p), lines);
 }
 
 /** Footings under the nodes given, one each, in one undo step. Returns their ids. */
@@ -198,23 +203,14 @@ export function proposeStraps(): BeamProposal[] {
   const fs = [...modelStore.model.footings.values()];
   const P = (id: number) => modelStore.nodes.get(id)!;
   const out: BeamProposal[] = [];
+  const pts = fs.map((g) => ({ id: g.id, nodeId: g.nodeId, x: P(g.nodeId).x, y: P(g.nodeId).y }));
   for (const f of fs) {
     const [ax, ay] = f.anchor ?? [0, 0];
-    for (const [dx, dy] of [[ax, 0], [0, ay]] as Array<[number, number]>) {
-      if (!dx && !dy) continue;
-      const p = P(f.nodeId);
-      // Inwards is away from the property line: the footing's centre lies that way.
-      const inward = [-dx, -dy];
-      let best: { id: number; d: number } | null = null;
-      for (const g of fs) {
-        if (g.id === f.id) continue;
-        const q = P(g.nodeId);
-        const v = [q.x - p.x, q.y - p.y], d = Math.hypot(v[0]!, v[1]!);
-        if (d < TOL) continue;
-        const cos = (v[0]! * inward[0]! + v[1]! * inward[1]!) / d;
-        if (cos > Math.cos(Math.PI / 12) && (!best || d < best.d)) best = { id: g.nodeId, d };
-      }
-      if (best && !out.some((s) => (s.a === f.nodeId && s.b === best!.id) || (s.b === f.nodeId && s.a === best!.id))) out.push({ a: f.nodeId, b: best.id, kind: 'strap' });
+    const p = pts.find((q) => q.id === f.id)!;
+    for (const dir of [[ax, 0], [0, ay]] as Array<[number, number]>) {
+      if (!dir[0] && !dir[1]) continue;
+      const best = inwardPartner(p, dir, pts);
+      if (best && !out.some((s) => (s.a === f.nodeId && s.b === best.nodeId) || (s.b === f.nodeId && s.a === best.nodeId))) out.push({ a: f.nodeId, b: best.nodeId, kind: 'strap' });
     }
   }
   return out;

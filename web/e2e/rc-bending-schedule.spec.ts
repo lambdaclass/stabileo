@@ -23,6 +23,10 @@ if (BUILD_FEATURES.proRcSheets) {
     await page.getByTestId('rc-open-beam').click();
 
     const ws = page.getByTestId('rc-sheets-workspace');
+    // The frame models no footing: the recommended layout is adopted so its footings enter the schedule.
+    await ws.getByTestId('rc-tab-footing').click();
+    await ws.getByTestId('rc-foundation-adopt-auto').click();
+    await expect(ws.getByTestId('rc-foundation-adopted')).toBeVisible();
     await ws.getByTestId('rc-tab-schedule').click();
     const view = ws.getByTestId('rc-schedule-view');
     await expect(view).toBeVisible();
@@ -39,6 +43,7 @@ if (BUILD_FEATURES.proRcSheets) {
     expect(unifiedRows).toBeGreaterThan(2);
     await expect(view.locator('[data-testid="rc-bbs-use"][data-family="beam"]').first()).toBeVisible();
     await expect(view.locator('[data-testid="rc-bbs-use"][data-family="column"]').first()).toBeVisible();
+    await expect(view.locator('[data-testid="rc-bbs-use"][data-family="footing"]').first()).toBeVisible();
     // Each row draws its piece, the legs dimensioned.
     const sketch = rows.first().getByTestId('rc-bbs-sketch');
     await expect(sketch.locator('path')).toHaveAttribute('d', /^M[\d.]+ [\d.]+ L/);
@@ -64,7 +69,7 @@ if (BUILD_FEATURES.proRcSheets) {
     await view.getByTestId('rc-bbs-view-family').click();
     await expect(view).toHaveAttribute('data-view', 'family');
     const heads = view.getByTestId('rc-bbs-group-head');
-    expect(await heads.count()).toBe(2);
+    expect(await heads.count()).toBe(3);
     expect(await grandKg()).toBeCloseTo(kg, 0);
     const familyRows = await rows.count();
     const firstGroupRows = await view.getByTestId('rc-bbs-group').first().getByTestId('rc-bbs-row').count();

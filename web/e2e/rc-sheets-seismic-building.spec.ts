@@ -57,7 +57,7 @@ if (BUILD_FEATURES.proRcSheets) {
 
     await designSeismic(page);
 
-    for (const f of ['beam', 'vertical']) {
+    for (const f of ['beam', 'vertical', 'footing']) {
       const open = page.getByTestId(`rc-open-${f}`);
       if (!(await open.isEnabled())) continue;
       await expect(open, `${f} rows`).toContainText(/\b0 failing/);
@@ -80,7 +80,7 @@ if (BUILD_FEATURES.proRcSheets) {
     await loadModel(page, 'pro-edificio-7p');
     await solveModel(page);
     await designSeismic(page);
-    await expect(page.getByTestId('rc-open-beam'), 'beam rows').toContainText(/\b0 failing/);
+    for (const f of ['beam', 'footing']) await expect(page.getByTestId(`rc-open-${f}`), `${f} rows`).toContainText(/\b0 failing/);
     await expect(page.getByTestId('rc-open-vertical')).toContainText(/\b3 failing/);
     await slabsHold(page);
 

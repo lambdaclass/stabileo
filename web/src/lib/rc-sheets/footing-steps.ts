@@ -2,10 +2,32 @@ import type { Fmt } from './format';
 import type { FootingAnalysis, FootingRowCode, Proposal } from './footing-design';
 import { ASSUMED_FILL_WEIGHT, CONCRETE_WEIGHT } from './footing-mechanics';
 import { meshText } from './footing-mesh';
-import type { FootingAdopted, FootingContext, FootingDemand } from './footing-types';
+import type { FootingAdopted, FootingContext, FootingDemand, FootingEdgeResult } from './footing-types';
 import type { Step, StepGroup } from './types';
 
-export function footingSteps(d: FootingDemand, c: FootingContext, r: FootingAnalysis, a: FootingAdopted, code: FootingRowCode, fmt: Fmt, prop: Proposal | null): StepGroup[] {
+/** A footing at a line: its position and balance, each strap's e, V, R1, M and the relief not taken, each tie's pull and steel, and the moment left to the column. */
+export function edgeSteps(ed: FootingEdgeResult, fmt: Fmt): Step[] {
+  const cm = (v: number) => fmt(v * 100, 0);
+  return [
+    { label: `rcSheets.footPos.${ed.position}`, value: '' },
+    { label: `rcSheets.footBal.${ed.balance}`, value: '' },
+    ...ed.straps.flatMap((t): Step[] => [
+      { label: 'rcSheets.s.footStrapGeom', formula: `${t.axis.toUpperCase()} → ${t.partner}: e · L`, value: `${cm(t.e)} · ${cm(t.L)} cm` },
+      { label: 'rcSheets.s.footStrapV', formula: 'V = (P1·e + |w|)/(L − e)', value: `${fmt(t.V, 1)} kN${t.combo ? ` (${t.combo})` : ''}` },
+      { label: 'rcSheets.s.footStrapM', formula: 'M = P1·e + |w|', value: `${fmt(t.M, 1)} kN·m` },
+      { label: 'rcSheets.s.footStrapR1', formula: 'R1 = P1 + V = P1·L/(L − e) (w = 0)', value: `${fmt(t.P1, 1)} → ${fmt(t.R1, 1)} kN (×${fmt(t.factor, 3)})` },
+      { label: 'rcSheets.s.footStrapRelief', formula: 'ΔR2 = (P1·e − |w|)/(L − e)', value: `${fmt(t.relief, 1)} kN` },
+      { label: 'rcSheets.s.footStrapSection', formula: 'h ≥ máx(L/8; hbase + 10 cm; 40 cm)', value: `${cm(t.b)} × ${cm(t.h)} cm` },
+    ]),
+    ...ed.ties.flatMap((t): Step[] => [
+      { label: 'rcSheets.s.footTieT', formula: 'Tu = (Pu·e + |w|)/H', value: `${fmt(t.Tu, 1)} kN (H = ${fmt(t.H, 2)} m)` },
+      { label: 'rcSheets.s.footTieAs', formula: 'Ast = Tu/(0,90·fy)', value: `${fmt(t.asReq, 2)} cm² → ${t.count} Ø${t.dia} (${fmt(t.asProvided, 2)} cm²)`, ok: t.asProvided >= t.asReq - 1e-6 },
+    ]),
+    ...(ed.columnMoment > 1e-6 ? [{ label: 'rcSheets.s.footColumnMoment', formula: 'Mu = Nu·e + |w|', value: `${fmt(ed.columnMoment, 1)} kN·m` }] : []),
+  ];
+}
+
+export function footingSteps(d: FootingDemand, c: FootingContext, r: FootingAnalysis, a: FootingAdopted, code: FootingRowCode, fmt: Fmt, prop: Proposal | null, edge?: FootingEdgeResult): StepGroup[] {
   const cm = (v: number) => fmt(v * 100, 0);
   const b = r.bearing, s = d.service;
   const soil: Step[] = [
@@ -15,8 +37,8 @@ export function footingSteps(d: FootingDemand, c: FootingContext, r: FootingAnal
       { label: 'rcSheets.s.footWeight', formula: `G = (${CONCRETE_WEIGHT}·h + γs·(z − h))·B·L`, value: `${fmt(b.weight, 1)} kN (γs = ${fmt(d.soil?.unitWeight ?? ASSUMED_FILL_WEIGHT, 0)} kN/m³${d.soil?.unitWeight ? '' : ' *'})` },
       { label: 'rcSheets.s.footEcc', formula: 'e = M/(N + G)', value: `${fmt(b.ex * 100, 1)} · ${fmt(b.ey * 100, 1)} cm` },
       { label: 'rcSheets.s.footPressure', formula: 'qmáx · qmín · qmed', value: `${fmt(b.qMax, 0)} · ${fmt(b.qMin, 0)} · ${fmt(b.qMean, 0)} kPa`, ok: b.ok },
-      { label: 'rcSheets.s.footAllowable', formula: 'qadm · k·qadm', value: b.allowable ? `${fmt(b.allowable, 0)} · ${fmt(b.edgeFactor * b.allowable, 0)} kPa (${d.soil?.name ?? ''})` : '—' },
-      { label: 'rcSheets.s.footContactShare', formula: 'A contacto / A', value: `${fmt(b.contact * 100, 0)} %` },
+      { label: 'rcSheets.s.footAllowable', formula: 'qadm · k·qadm', value: b.allowable ? `${fmt(b.allowable, 0)} · ${fmt(b.edgeFactor * b.allowable, 0)} kPa${d.soil?.presumed ? ' *' : ` (${d.soil?.name ?? ''})`}` : '—' },
+      { label: 'rcSheets.s.footContactShare', formula: 'A′ / A', value: `${fmt(b.contact * 100, 0)} %` },
     ] : []),
   ];
   const size: Step[] = [
@@ -54,6 +76,7 @@ export function footingSteps(d: FootingDemand, c: FootingContext, r: FootingAnal
   ];
   return [
     { title: 'rcSheets.g.footSoil', steps: soil },
+    ...(edge ? [{ title: 'rcSheets.g.footEdge', steps: edgeSteps(edge, fmt) }] : []),
     { title: 'rcSheets.g.footSize', steps: size },
     { title: 'rcSheets.g.footFlexure', steps: [...dirSteps(r.x), ...dirSteps(r.y)] },
     { title: 'rcSheets.g.footShear', steps: shear },

@@ -26,6 +26,14 @@ import { developsAtFace, lateralReadingOf, spanLateralReading } from '../model/l
 import { beamDemands, columnDemands, levelGeometry, punchingDemands, slabDemands, wallDemands, type DemandGroup, type DemandInput, type DemandSet } from '../rc-sheets/demands';
 import { slabPlan, type LevelGeometry, type LevelPlan } from '../rc-sheets/slab-plan';
 import type { PunchingRow } from '../rc-sheets/punching-row';
+import { FOUNDATION_SYSTEMS, type FootingRow, type FoundationSystem } from '../rc-sheets/footing-types';
+import { layoutSummary, type FoundationLayout } from '../rc-sheets/footing-layouts';
+import { footingPreview } from './rc-sheets-footing-preview.svelte';
+import { currentFootingDemands, designFootingStraps, footingContext, footingRowOf, footingSizing, foundationRowsSteps, foundationSystem, isFootingKey, solutionsOf, strapKeyOf, withAdoptedCombined } from './rc-sheets-footings';
+import { withOverlaps } from '../rc-sheets/footing-overlaps';
+import { withStrapBeams } from '../rc-sheets/footing-strap';
+import { tiePulls, withPulls } from '../rc-sheets/footing-ties';
+import { leverOf } from '../rc-sheets/footing-design';
 import { sheetStoreys, swayParts } from './rc-sheets-sway';
 import { setBeamAggregate } from '../rc-sheets/bars';
 import { setRowClearFactor } from '../rc-sheets/column-layout';
@@ -41,10 +49,10 @@ import { makeFmt, type Fmt } from '../rc-sheets/format';
 import { defaultRcSheetsData, RC_SHEETS_LOGIC, SHEET_CODES, SHEET_FAMILIES, SLAB_BAR_RANGE, listIn, withMissingForces, type SheetCode, type Adopted, type BeamAdopted, type ColumnAdopted, type RcSheetsData, type StoredRcSheets, type SheetFamily, type SlabAdopted, type TorsionMode, type WallAdopted } from '../rc-sheets/types';
 import type { AnalysisResults3D } from '../engine/types-3d';
 import { sheetsLeftOut, type LeftOut } from '../rc-sheets/coverage';
-import { designPierAt, memberAxes, storeyPiers, withApart, withPierColumns, type PierHooks } from './rc-sheets-piers';
+import { designPierAt, foundationPiers, memberAxes, storeyPiers, withApart, withPierColumns, withPierFeet, withWallFeet, type PierHooks } from './rc-sheets-piers';
 import { legOfPier, type PierDesign } from '../rc-sheets/pier-row';
 
-export type SheetRow = BeamRow | ColumnRow | SlabRow | WallRow | PunchingRow;
+export type SheetRow = BeamRow | ColumnRow | SlabRow | WallRow | PunchingRow | FootingRow;
 
 export interface SheetRows {
   beam: BeamRow[];
@@ -56,6 +64,12 @@ export interface SheetRows {
   slabPlan: LevelPlan[];
   wall: WallRow[];
   punching: PunchingRow[];
+  /** The adopted foundation layout's footings; none until one is adopted. */
+  footing: FootingRow[];
+  /** Every layout the building's foundation may take, to compare and adopt, the recommendation (`auto`) among them. */
+  footingLayouts?: FoundationLayout[];
+  /** The layout adopted, or none. */
+  foundation?: FoundationSystem | null;
   /** The levels the rows are named by, from the lowest up: what `storeys.ts` reads a member's storey against. */
   levels?: string[];
   /** The regulation the rows are computed with. */
@@ -106,9 +120,28 @@ export function proposalBasis(dd: ProjectDesignData = designData()): string {
   });
 }
 
+/** The soil and the property lines, which only the footings' proposals read, as one string. */
+export function foundationBasis(dd: ProjectDesignData = designData()): string {
+  return JSON.stringify({ bearing: dd.presumedBearingKPa, ...(dd.presumedPile ? { pile: dd.presumedPile } : {}), lines: dd.propertyLines ?? null });
+}
+
+/** A basis stored before the soil and the property lines had one of their own still holds the members' proposals it was written for. */
+function sameProposalBasis(stored: string | undefined): boolean {
+  const now = proposalBasis();
+  if (stored === now || !stored) return stored === now;
+  try {
+    const { bearing: _b, pile: _p, lines: _l, ...rest } = JSON.parse(stored) as Record<string, unknown>;
+    return JSON.stringify(rest) === now;
+  } catch { return false; }
+}
+
 /** What adopted proposals hold under: the code, whether the seismic provisions apply, the proposals' logic and the design data they read. */
-const adoptionStamp = (d: Pick<RcSheetsData, 'seismic'>, code: SheetCode): Pick<RcSheetsData, 'adoptedCode' | 'adoptedSeismic' | 'adoptedLogic' | 'adoptedBasis'> =>
-  ({ adoptedCode: code, adoptedSeismic: seismicIn(d, code) ? true : undefined, adoptedLogic: RC_SHEETS_LOGIC, adoptedBasis: proposalBasis() });
+const adoptionStamp = (d: Pick<RcSheetsData, 'seismic'>, code: SheetCode): Pick<RcSheetsData, 'adoptedCode' | 'adoptedSeismic' | 'adoptedLogic' | 'adoptedBasis' | 'adoptedFoundationBasis'> =>
+  ({ adoptedCode: code, adoptedSeismic: seismicIn(d, code) ? true : undefined, adoptedLogic: RC_SHEETS_LOGIC, adoptedBasis: proposalBasis(), adoptedFoundationBasis: foundationBasis() });
+
+/** A footing adopted while no layout is: the layout shown then is adopted with it, since a footing's bars belong to its layout. */
+const withPreviewedLayout = (d: RcSheetsData, keys: readonly string[]): RcSheetsData =>
+  foundationSystem(d) === null && keys.some(isFootingKey) ? { ...d, foundationSystem: footingPreview.system } : d;
 
 /** The sheets' own data, without the options the design data hold (an older project kept them here). */
 function ownSheets(d: Partial<RcSheetsData>): StoredRcSheets {
@@ -124,7 +157,7 @@ export const saveRcSheetsData = save;
 
 /** Bars set for a row: by hand (the editor), kept whatever the code; `null` goes back to the proposal. */
 export function setAdopted(key: string, value: Adopted | null, byHand = true): void {
-  const d = rcSheetsData();
+  const d = value ? withPreviewedLayout(rcSheetsData(), [key]) : rcSheetsData();
   const code = sheetCode();
   const adopted = { ...(byHand ? d.adopted : liveAdopted(d, code)) };
   const edited = new Set(d.edited ?? []);
@@ -133,7 +166,7 @@ export function setAdopted(key: string, value: Adopted | null, byHand = true): v
 }
 
 export function adoptAll(rows: ReadonlyArray<{ key: string; proposed: unknown }>): void {
-  const d = rcSheetsData();
+  const d = withPreviewedLayout(rcSheetsData(), rows.map((r) => r.key));
   const live = liveAdopted(d, sheetCode());
   const adopted = { ...live };
   for (const r of rows) if (!adopted[r.key]) adopted[r.key] = JSON.parse(JSON.stringify(r.proposed)) as Adopted;
@@ -142,9 +175,12 @@ export function adoptAll(rows: ReadonlyArray<{ key: string; proposed: unknown }>
 
 /** The adopted bars that hold under `code`: those set by hand always, the adopted proposals only under the code, seismic option, proposals' logic and design data they were adopted for. */
 export function liveAdopted(d: RcSheetsData, code: SheetCode): Record<string, Adopted> {
-  if (!d.adoptedCode || (d.adoptedCode === code && (d.adoptedSeismic === true) === seismicIn(d, code) && d.adoptedLogic === RC_SHEETS_LOGIC && d.adoptedBasis === proposalBasis())) return d.adopted;
+  if (!d.adoptedCode) return d.adopted;
   const edited = new Set(d.edited ?? []);
-  return Object.fromEntries(Object.entries(d.adopted).filter(([k]) => edited.has(k)));
+  const members = d.adoptedCode === code && (d.adoptedSeismic === true) === seismicIn(d, code) && d.adoptedLogic === RC_SHEETS_LOGIC && sameProposalBasis(d.adoptedBasis);
+  if (!members) return Object.fromEntries(Object.entries(d.adopted).filter(([k]) => edited.has(k)));
+  if (d.adoptedFoundationBasis === undefined || d.adoptedFoundationBasis === foundationBasis()) return d.adopted;
+  return Object.fromEntries(Object.entries(d.adopted).filter(([k]) => !isFootingKey(k) || edited.has(k)));
 }
 
 /** The rows the engineer edited by hand. */
@@ -463,7 +499,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const code = sheetCode();
   const rules = rulesFor(code);
   const codeName = SHEET_CODES[code].name;
-  if (!sets.length) return { beam: [], line: [], column: [], slab: [], slabPlan: [], wall: [], punching: [], code: codeName, basis, combos: 0 };
+  if (!sets.length) return { beam: [], line: [], column: [], slab: [], slabPlan: [], wall: [], punching: [], footing: [], code: codeName, basis, combos: 0 };
   const dd = designData();
   const adoptedNow = liveAdopted(rcSheetsData(), code);
   const data = rcSheetsData();
@@ -497,7 +533,9 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const D = dem;
   const allPiers = storeyPiers(D.walls, D.columns);
   const piers = rules.piers ? allPiers.filter((p) => p.columns.length) : [];
-  const total = D.beams.length * 2 + D.columns.length + D.slabs.length + D.walls.length + D.punching.length;
+  const supported = new Set([...modelStore.supports.values()].map((x) => x.nodeId));
+  let feet = withAdoptedCombined(currentFootingDemands(sets, storeyNamer(), foundationPiers(allPiers, D.walls, D.columns, supported)), adoptedNow);
+  const total = D.beams.length * 2 + D.columns.length + D.slabs.length + D.walls.length + D.punching.length + (feet.length ? FOUNDATION_SYSTEMS.length * feet.length : 0);
   let done = 0;
   const step = (): SheetProgress => ({ phase: 'design', done: ++done, total });
   const groupsById = new Map(physicalGroups().map((g) => [g.id, g]));
@@ -568,13 +606,15 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     yield step();
   }
   const below = new Map<number, ColumnRow>();
+  const founded = feet.length > 0 && foundationSystem(data) !== null;
+  const onFooting = new Set(founded ? feet.flatMap((f) => [f.column?.rowKey, f.carried?.column?.rowKey]).filter((k): k is string => !!k) : []);
   const columnCtxOf = (d: (typeof D.columns)[number], minMn: ReadonlyMap<string, number> = new Map()) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: coverOf('column', d.key), tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, seismic: seismic && !lateralColumn(d.key) ? { ...seismic, gravity: true as const } : seismic, ...coverTable, ...(minMn.has(d.key) ? { minMn: minMn.get(d.key) } : {}), criteria: crit });
   const columnAt = (d: (typeof D.columns)[number], minMn: ReadonlyMap<string, number>): ColumnRow => {
     const ctx = columnCtxOf(d, minMn);
     const a = adoptedNow[d.key] as ColumnAdopted | undefined;
     const g = Number(d.key.split(':')[1]);
     const prev = below.get(g);
-    const stack: StackPlace = prev ? stackOver(prev, d) : {};
+    const stack: StackPlace = prev ? stackOver(prev, d) : onFooting.has(d.key) ? { fromBelow: true, onFooting: true } : {};
     const row = withMissingForces(withLapFit(cached(d, [code, ctx, a, dec, stack], () => rules.columnRow(d, ctx, a, fmt, stack)), code, fmt), d.missing);
     rowFc.set(d.key, ctx.mat.fc);
     redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => withMissingForces(withLapFit(rules.columnRow(x, withRedesign(ctx, o), undefined, fmt, stack), code, fmt), x.missing)) as Redesign);
@@ -674,7 +714,11 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   if (pierDone.size) {
     column = withPierColumns(D.columns, column, pierDone, pierHooks, (d, before) => { below.set(Number(d.key.split(':')[1]), before); return columnAt(d, new Map()); });
     for (const r of column) if (r.pier) redesigners.delete(r.key);
+    feet = withPierFeet(feet, pierDone, (d) => wallCtxOf(d).mat.fc, dd.covers.wall, fy);
   }
+  feet = withWallFeet(feet, wall);
+  const onFootingWalls = new Set(founded ? feet.flatMap((f) => f.pier?.walls ?? []) : []);
+  wall.forEach((r, i) => { if (onFootingWalls.has(r.key)) wall[i] = { ...r, onFooting: true }; });
   const punching: PunchingRow[] = [];
   const slabStrength = new Map<(typeof D.punching)[number]['slab'], number>();
   for (const d of D.punching) {
@@ -698,6 +742,46 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     yield step();
   }
   const sort = <T extends { level?: string; name: string }>(rows: T[]) => rows.sort((a, b) => (a.level ?? '').localeCompare(b.level ?? '', undefined, { numeric: true }) || a.name.localeCompare(b.name, undefined, { numeric: true }));
+  const layout = function* (system: FoundationSystem, own: boolean, index: number): Generator<SheetProgress, FootingRow[]> {
+    const base = done;
+    const redo = (k: string, f: unknown) => { if (own) redesigners.set(k, f as Redesign); };
+    const it = foundationRowsSteps(feet, {
+      rules, adopted: adoptedNow, sizing: footingSizing(data), columns: column, fmt, redo,
+      system, solutions: solutionsOf(data.footingSetup), matShare: crit.footingMatShare, ...(dd.foundingElevation !== undefined ? { founding: dd.foundingElevation } : {}),
+    });
+    let rows: FootingRow[];
+    for (;;) {
+      const r = it.next();
+      if (r.done) { rows = r.value; break; }
+      const s = r.value;
+      done = base + Math.min(feet.length - 1, s.levelling ? feet.length - 1 : Math.round(feet.length * s.footing / Math.max(1, s.footings)));
+      yield { phase: 'foundations', done, total, layout: { system, index, count: FOUNDATION_SYSTEMS.length, footing: s.footing, footings: s.footings, levelling: s.levelling, ...(s.grouping ? { grouping: true as const } : {}) } };
+    }
+    done = base + feet.length;
+    yield { phase: 'foundations', done, total, layout: { system, index, count: FOUNDATION_SYSTEMS.length, footing: feet.length, footings: feet.length, levelling: false } };
+    const pulls = tiePulls(rows, (q, H, from) => q.column?.storey ?? Math.max(0, H - leverOf(from.demand, from.adopted.h)), feet);
+    if (pulls.size) rows = rows.map((r) => { const p = pulls.get(r.key); if (!p) return r; const f = footingRowOf(withPulls(r.demand, p), rules, adoptedNow, footingSizing(data), column, fmt); redo(r.key, f.redo); return f.row; });
+    const straps = designFootingStraps(rows, {
+      rules, fmt, baseOf: (k) => D.beams.find((b) => b.key === k), adoptedOf: (g) => adoptedNow[`line:${g}`],
+      ctxOf: (base, r) => (base ? beamCtx(base) : { mat: { fc: footingContext(r.demand, footingSizing(data), column).fc, fy }, cover: dd.covers.footing, stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, torsion: data.torsion, ...coverTable, ...defl, criteria: crit }),
+    });
+    rows = rows.map((r) => withStrapBeams(r, straps, (s) => strapKeyOf(r, s)));
+    if (own) for (const sd of straps.values()) {
+      if (sd.group === undefined) continue;
+      const g = sd.group;
+      const li = line.findIndex((l) => l.key === `line:${g}`);
+      if (li >= 0) line[li] = sd.line;
+      const bi = beam.findIndex((b) => b.key === sd.beam.key);
+      if (bi >= 0) beam[bi] = { ...sd.beam, isAdopted: !!adoptedNow[`line:${g}`] };
+      lineRedesigners.set(g, (o) => { const r = sd.redo(o.b ?? sd.b, o.h ?? sd.h, o.fc); return { line: r.line, spans: [r.beam], status: lineRowStatus(r.line, [r.beam]) }; });
+    }
+    return sort(withOverlaps(rows));
+  };
+  const chosen = feet.length ? foundationSystem(data) : null;
+  const footing = chosen ? yield* layout(chosen, true, 1) : [];
+  const others = new Map<FoundationSystem, FootingRow[]>();
+  for (const sys of FOUNDATION_SYSTEMS) if (feet.length && sys !== chosen) others.set(sys, yield* layout(sys, false, others.size + (chosen ? 2 : 1)));
+  const footingLayouts = FOUNDATION_SYSTEMS.flatMap((sys) => { const rows = sys === chosen ? footing : others.get(sys); return rows ? [{ system: sys, rows }] : []; });
   const framed = column.filter((r) => !r.pier);
   const checked = seismic ? jointChecks(framed, beam, modelStore.nodes, fmt, joint) : framed;
   const checkedBy = new Map(checked.map((x) => [x.key, x]));
@@ -707,7 +791,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     name: r.name, level: r.level, b: r.b, h: r.h, fc: fcOfElement(groupOf(r.key)?.members.elements?.[0]), tu: Math.max(0, ...r.demand.cases.map((c) => c.tu ?? 0)),
   })));
   const apart = rules.piers ? [] : allPiers;
-  return { beam: sort(beam), line: sort(line), column: sort(withApart(columnsFinal, apart)), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(withApart(wall, apart)), punching: sort(punching), levels: levelsUp([...beam, ...columnsFinal, ...slab, ...wall, ...punching].map((r) => r.level)), code: codeName, basis, combos: sets.length, left };
+  return { beam: sort(beam), line: sort(line), column: sort(withApart(columnsFinal, apart)), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(withApart(wall, apart)), punching: sort(punching), levels: levelsUp([...beam, ...columnsFinal, ...slab, ...wall, ...punching].map((r) => r.level)), footing, footingLayouts: footingLayouts.map((l) => ({ ...l, summary: layoutSummary(l.rows, code) })), foundation: chosen, code: codeName, basis, combos: sets.length, left };
 }
 
 function leftOut(rowKeys: string[], columns: Parameters<typeof sheetsLeftOut>[0]['columns']): LeftOut[] {

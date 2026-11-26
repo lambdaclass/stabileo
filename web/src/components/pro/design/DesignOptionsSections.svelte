@@ -9,22 +9,24 @@
    * where it does not.
    */
   import Hint from '../Hint.svelte';
-  import { t, i18n } from '../../../lib/i18n';
+  import { t, tp, i18n } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { modelStore } from '../../../lib/store';
   import { designData, patchDesignData } from '../../../lib/store/design-data';
   import { rcSheetsData, seismicAdvice, setAlternativeOptions, setColumnEndZones, setDeflectionSettings, setRcOption, setTorsionMode, sheetCode } from '../../../lib/store/rc-sheets.svelte';
   import { acceptedClassesAfter, DEFLECTION_SUPPORTS, LOAD_MONTHS, optionRule, type DeflectionSupport, type DesignOptionFlag, type DesignOptionKey, type LoadMonths } from '../../../lib/rc-sheets/design-options';
   import { DEFAULT_CREEP, DEFAULT_MONTHS, DEFAULT_SUPPORTS } from '../../../lib/rc-sheets/deflection';
-  import { MIN_TIE_SPACING_RANGE } from '../../../lib/model/design-data';
+  import { MIN_TIE_SPACING_RANGE, PRESUMED_BEARING_RANGE, FOUNDING_RANGE } from '../../../lib/model/design-data';
   import { AGGREGATE_RANGE } from '../../../lib/rc-sheets/types';
   import { localizeCriterion } from '../../../lib/rc-sheets/criteria';
   import { concreteClasses, DEFAULT_FC_MAX } from '../../../lib/rc-sheets/concrete-classes';
   import type { TorsionMode } from '../../../lib/rc-sheets/types';
   import SeismicEditor from '../desk/seismic/SeismicEditor.svelte';
+  import PropertyLinesPicker from './PropertyLinesPicker.svelte';
   import ProDeflectionLimits from '../ProDeflectionLimits.svelte';
   import { setBeamsLateral } from '../../../lib/store/lateral-system';
   import StabileoCriteria from './StabileoCriteria.svelte';
+  import { PROPERTY_SIDES } from '../../../lib/model/foundation/edges';
 
   const code = $derived.by(() => { void modelStore.designData; return sheetCode(); });
   const d = $derived.by(() => { void modelStore.designData; return designData(); });
@@ -169,6 +171,26 @@
   </div>
   <div class="do-sub" data-testid="design-data-deflection-limits">
     <ProDeflectionLimits />
+  </div>
+</details>
+
+<details class="pk-card do" data-testid="design-options-foundations">
+  <summary><span class="do-h">{t('designData.foundations')}</span> <span class="do-sum" data-testid="design-options-foundations-summary">{tp('designData.presumedBearingSummary', { v: fmt(d.presumedBearingKPa, 0) })}{#if d.propertyLines} · {t('fdn.propertyLines')} {PROPERTY_SIDES.filter((k) => d.propertyLines?.[k]).map((k) => ({ minX: '−X', maxX: '+X', minY: '−Y', maxY: '+Y' })[k]).join(' ')}{/if}</span></summary>
+  <div class="do-opt">
+    <label class="do-inline">{t('designData.presumedBearing')}
+      <input type="number" min={PRESUMED_BEARING_RANGE.min} max={PRESUMED_BEARING_RANGE.max} step="10" value={d.presumedBearingKPa} onchange={(e) => { const v = Number(e.currentTarget.value); if (v >= PRESUMED_BEARING_RANGE.min && v <= PRESUMED_BEARING_RANGE.max) patchDesignData({ presumedBearingKPa: v }); else e.currentTarget.value = String(d.presumedBearingKPa); }} data-testid="design-data-presumed-bearing" /> {'kPa'}
+    </label>
+    <Hint text={t('designData.presumedBearingHint')} />
+  </div>
+  <div class="do-opt">
+    <label class="do-inline">{t('designData.foundingElevation')}
+      <input type="number" min={FOUNDING_RANGE.min} max={FOUNDING_RANGE.max} step="0.05" value={d.foundingElevation ?? ''} placeholder={t('designData.foundingAuto')} onchange={(e) => { const raw = e.currentTarget.value.trim(); const v = Number(raw); if (raw === '') patchDesignData({ foundingElevation: undefined }); else if (Number.isFinite(v) && v >= FOUNDING_RANGE.min && v <= FOUNDING_RANGE.max) patchDesignData({ foundingElevation: v }); else e.currentTarget.value = d.foundingElevation === undefined ? '' : String(d.foundingElevation); }} data-testid="design-data-founding" /> {'m'}
+    </label>
+    <Hint text={t('designData.foundingElevationHint')} />
+  </div>
+  <div class="do-opt">
+    <span class="do-inline">{t('fdn.propertyLines')} <PropertyLinesPicker testid="design-data-property-line" /></span>
+    <Hint text={t('designData.propertyLinesHint')} />
   </div>
 </details>
 
