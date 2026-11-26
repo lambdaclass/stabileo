@@ -1654,6 +1654,10 @@ export function combineResultsBatch3D(
   return results.map(result => result == null ? null : results3DFromWasm(result));
 }
 
+function bindSpatialEnvelope(envelope: FullEnvelope3D | null, sources: readonly AnalysisResults3D[]): FullEnvelope3D | null {
+  return bindEnvelopeQuerySources(bindMemberEnvelopeEnds(envelope), sources);
+}
+
 export function combineResultsEnvelope3D(
   combinations: Array<Array<{ caseId: number; factor: number }>>,
   perCase: Map<number, AnalysisResults3D>,
@@ -1669,7 +1673,7 @@ export function combineResultsEnvelope3D(
   const combinations3D = results.map(result => result == null ? null : results3DFromWasm(result));
   return {
     combinations: combinations3D,
-    envelope: bindEnvelopeQuerySources(bindMemberEnvelopeEnds(envelope), combinations3D.filter(result => result !== null)),
+    envelope: bindSpatialEnvelope(envelope, combinations3D.filter(result => result !== null)),
   };
 }
 
@@ -1688,7 +1692,7 @@ export function computeEnvelope3D(results: AnalysisResults3D[]): FullEnvelope3D 
   // Solver output — no guard (see combineResults).
   if (results.some(r => r.magnitude || r.elementForces.some(f => f.combined))) throw unavailableDiagramExtrema();
   if (!results.some(r => r.elementForces.some(f => f.pieces?.length))) {
-    return bindEnvelopeQuerySources(bindMemberEnvelopeEnds(wasmComputeEnvelope3d(results)), results);
+    return bindSpatialEnvelope(wasmComputeEnvelope3d(results), results);
   }
   const expanded = results.map(reexpandVariableResults);
   if (expanded.some(r => r.results.elementForces.some(f => f.pieces?.length))) throw unavailableDiagramExtrema();
@@ -2285,8 +2289,8 @@ export function solveMultiCase3D(config: any): any {
       for (const cr of result.combinationResults ?? []) stripStabilisedReactions(cr.results, input);
       if (result.envelope?.maxAbsResults3D) stripStabilisedReactions(result.envelope.maxAbsResults3D, input);
     }
-    bindEnvelopeQuerySources(bindMemberEnvelopeEnds(result?.envelope),
-      (result?.combinationResults ?? []).map(({ results }: { results: AnalysisResults3D }) => results));
+    const combinations = result?.combinationResults?.map(({ results }: { results: AnalysisResults3D }) => results) ?? [];
+    bindSpatialEnvelope(result?.envelope ?? null, combinations);
     return result;
   } catch (e: any) {
     const panicMsg = captured.length > 0 ? captured.join('\n') : '';

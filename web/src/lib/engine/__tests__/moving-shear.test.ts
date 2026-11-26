@@ -586,6 +586,50 @@ for (const [mode, run] of [['sync', solveMovingLoads], ['async', solveMovingLoad
   }
 }
 
+for (const [mode, run] of [['sync', solveMovingLoads], ['async', solveMovingLoadsAsync]] as const) {
+  it.each([
+    { marker: 'explicit', endLoad: 10 },
+    { marker: 'inferred', endLoad: 10 },
+    { marker: 'inferred equalized by the axle', endLoad: -4 },
+  ])(`known wrong result: #2581 ${mode} moving summary uses the inward shear with an $marker cut`, async ({ marker, endLoad }) => {
+    const length = 4, weight = 4;
+    const { plane } = reviewSpan(length, 0, true);
+    const config = { train: { name: 'one axle', axles: [{ offset: 0, weight }] }, step: length, pathElementIds: [1] };
+    const prepare = wasm.prepareLoadSession2D;
+    const compute = wasm.computeEnvelope;
+    const prepareWithEndLoad = vi.spyOn(wasm, 'prepareLoadSession2D').mockImplementation(input => {
+      const session = prepare(input);
+      return { ...session, solve: loads => session.solve([
+        ...loads, { type: 'pointOnElement', data: { elementId: 1, a: 0, p: endLoad } },
+      ]) };
+    });
+    const publishBothFaces = vi.spyOn(wasm, 'computeEnvelope').mockImplementation(results => {
+      const envelope = compute(results)!;
+      const shear = envelope.shear.elements[0]!;
+      const exterior = results.map(result => computeDiagramValueAt('shear', 0, result.elementForces[0]!));
+      shear.tPositions.unshift(0);
+      shear.posValues.unshift(Math.max(0, ...exterior));
+      shear.negValues.unshift(Math.min(0, ...exterior));
+      shear.jumpCuts = marker === 'explicit' ? [{ index: 0, distance: 0 }] : undefined;
+      return envelope;
+    });
+    try {
+      const result = await run(plane, config);
+      if (typeof result === 'string') throw new Error(result);
+      const shear = result.fullEnvelope!.shear.elements[0]!;
+      const explanation = 'The fixed support carries the stationary load at I. Only the axle approach crosses the inward cuts.';
+      expect.soft(result.elements.get(1)?.vMaxNeg, explanation).toBeCloseTo(-weight, 9);
+      expect.soft(result.elements.get(1)?.vMaxPos, explanation).toBeCloseTo(weight, 9);
+      expect.soft(shear.posValues.slice(0, 2)).toEqual([Math.max(0, -endLoad), weight]);
+      expect.soft(shear.negValues.slice(0, 2)).toEqual([Math.min(0, -endLoad), 0]);
+      expect.soft(shear.jumpCuts).toEqual([{ index: 0, distance: 0 }]);
+    } finally {
+      publishBothFaces.mockRestore();
+      prepareWithEndLoad.mockRestore();
+    }
+  });
+}
+
 it('#2101 — planar pointwise shear includes both midspan axle cuts', async () => {
   const length = 8, weight = 40;
   const { plane } = reviewSpan(length, 0, true);

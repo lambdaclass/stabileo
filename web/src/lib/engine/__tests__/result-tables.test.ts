@@ -14,7 +14,7 @@ import { resultsStore } from '../../store/results.svelte';
 import { computeSectionProperties } from '../../data/section-shapes';
 import { uiStore } from '../../store/ui.svelte';
 import '../../store/index';
-import { combineResultsEnvelope3D, computeEnvelope3D, initSolver, solve3D, solvePDelta3D } from '../wasm-solver';
+import { combineResultsEnvelope3D, computeEnvelope3D, initSolver, input3DToWireObject, solve3D, solveMultiCase3D, solvePDelta3D } from '../wasm-solver';
 import { publishCombinations3D, activePerCombo3D, activeCombinations } from '../../store/active-results';
 import { computeStationDemands, steelDemandOf } from '../verification-service';
 import { combinationPeakRows } from '../../export/excel';
@@ -27,11 +27,11 @@ import { computeElementStress3D } from '../section-stress-3d';
 import { generateCalcReportHtml } from '../calc-report';
 import { stationForces3D } from '../../section/panel';
 import { DIAGRAM_EXTREMA_UNAVAILABLE, memberEnvelopeOrdinates } from '../member-diagram';
-import { buildSolverInput3D } from '../solver-service';
+import { buildSolverInput3D, solveCombinations3D, solveCombinations3DParallel } from '../solver-service';
 import { POINT_END_TOL } from '../member-point-loads';
 import { expandVariableMembers, variableExpansionFor } from '../variable-members';
 import { collapseVariableResults } from '../variable-member-results';
-import type { AnalysisResults3D, ElementForces3D, SolverInput3D } from '../types-3d';
+import type { AnalysisResults3D, ElementForces3D, SolverInput3D, SolverLoad3D } from '../types-3d';
 
 const disp = (nodeId: number, ux: number, uz: number) => ({ nodeId, ux, uy: 0, uz, rx: 0, ry: 0, rz: 0 });
 const set = (d: ReturnType<typeof disp>[]) => ({ displacements: d, reactions: [], elementForces: [] }) as unknown as AnalysisResults3D;
@@ -747,6 +747,58 @@ describe('spatial cantilever end queries', () => {
         }
       }
     }
+  });
+
+  const tipLoad = 10;
+  function expectFactoredTipShears(envelope: NonNullable<ReturnType<typeof computeEnvelope3D>>) {
+    const rows = buildQueryRows(envelope.maxAbsResults3D.elementForces, 'Vz', { envelope });
+    for (const end of ['i', 'j']) {
+      const at = rows.filter(row => row.end === end);
+      expect(at).toHaveLength(2);
+      expect.soft(extremeRow(at, 'min')?.value, 'Cantilever shear equals the factored downward tip load').toBeCloseTo(tipLoad, 12);
+      expect.soft(extremeRow(at, 'max')?.value).toBeCloseTo(2 * tipLoad, 12);
+    }
+  }
+
+  it.each(['prepared', 'constrained'] as const)(
+    'known wrong result: #2581 $0 WASM multi-case envelope keeps the signed combination minimum',
+    mode => {
+      const input = buildSolverInput3D(modelStore.model, false, false)!;
+      if (mode === 'constrained') {
+        const root = [...input.supports.values()][0]!.nodeId;
+        input.constraints = [{ type: 'equalDOF', masterNode: root, slaveNode: tip, dofs: [1] }];
+      }
+      const tipForce = (fz: number): SolverLoad3D => ({
+        type: 'nodal', data: { nodeId: tip, fx: 0, fy: 0, fz, mx: 0, my: 0, mz: 0 },
+      });
+      const result = solveMultiCase3D({
+        solver: mode === 'prepared' ? input : input3DToWireObject(input),
+        loadCases: [
+          { name: 'tip', loads: [tipForce(-tipLoad)] },
+          { name: 'unused', loads: [tipForce(-10 * tipLoad)] },
+        ],
+        combinations: [{ name: 'one', factors: { tip: 1 } }, { name: 'two', factors: { tip: 2 } }],
+      });
+      expect(result.combinationResults).toHaveLength(2);
+      expect(result.caseResults).toHaveLength(2);
+      expectFactoredTipShears(result.envelope);
+    },
+  );
+
+  it.each([
+    ['synchronous', solveCombinations3D],
+    ['asynchronous', solveCombinations3DParallel],
+  ] as const)('known wrong result: #2581 %s spatial combination solve publishes signed end queries', async (_mode, run) => {
+    const loadCase = modelStore.addLoadCase('Tip', 'L');
+    modelStore.addLoadEntry({
+      type: 'nodal3d', data: { id: 1, nodeId: tip, fx: 0, fy: 0, fz: -tipLoad, mx: 0, my: 0, mz: 0, caseId: loadCase },
+    });
+    const one = modelStore.addCombination('one', [{ caseId: loadCase, factor: 1 }]);
+    const two = modelStore.addCombination('two', [{ caseId: loadCase, factor: 2 }]);
+    const combinations = modelStore.combinations.filter(combination => combination.id === one || combination.id === two);
+    const result = await run(modelStore.model, modelStore.loadCases, combinations);
+    if (!result || typeof result === 'string') throw new Error(String(result));
+    expectFactoredTipShears(result.envelope);
   });
 
   it('keeps the case ends when publishing or viewing a variable-member envelope', () => {
