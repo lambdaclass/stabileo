@@ -1,7 +1,7 @@
 import { accountingCaseSources, accountingMemberPieces, accountingProjection, accountingSource, scenarioIntents, scenarioSurfaceExpectations, scenarioSurfaceIntentOf, type ScenarioSurfaceIntent } from './accounting-source';
 import { accountingOrigin } from './accounting-source';
 import { tp } from '../i18n';
-import type { Load, PointLoadOnElement } from '../store/model.svelte';
+import type { Load, Node, PointLoadOnElement } from '../store/model.svelte';
 import type { FloorLoadDef } from '../model/loads/floor-definitions';
 import type { ModelData } from './solver-service';
 import type { SolverInput, SolverLoad } from './types';
@@ -16,10 +16,12 @@ import { transverseSign } from './transverse-sign-2d';
 import { add, cross, mul, agreesAtScale, assembledMagnitudes3D, memberLineSources, LoadScalar, LoadVector, norm, positionAt, sub, unit, xyz, zero, Wrench, type Vector } from './accounting-math';
 import { accountSurface, expectedSurfaceNodeForces } from './surface-accounting';
 import type { ShellLoadSpec } from './shell-load-integration';
+import { quadGaussSamples } from './solver-shells';
 import { selfWeightDirection, type SelfWeightSource } from './self-weight';
 import { SolveAccountingError, type PlateMeasure } from './plate-accounting';
 
 type Frame = 'xy' | 'xz' | 'space';
+const coordinateComponents = ['X', 'Y', 'Z'];
 const components = ['Fx', 'Fy', 'Fz', 'Mx', 'My', 'Mz'];
 const inPlane = (frame: Frame, x: number, y: number): Vector => frame === 'xz' ? [x, 0, y] : [x, y, 0];
 const planeMoment = (frame: Frame, m: number): LoadVector => LoadVector.from(frame === 'xz' ? [0, -m, 0] : [0, 0, m]);
@@ -36,9 +38,11 @@ function unsupported(model: ModelData, caseId: number, kind: string, id: number)
 function compareComponent(
   label: string, component: string, entered: number, assembled: number, scale: number, underflow: number,
 ): void {
-  if (!agreesAtScale(entered, assembled, scale, underflow)) {
-    throw new SolveAccountingError(tp('svc.accountingMismatch', { case: label, component, entered, assembled }));
-  }
+  if (!agreesAtScale(entered, assembled, scale, underflow)) mismatch(label, component, entered, assembled);
+}
+
+function mismatch(label: string, component: string, entered: number, assembled: number): never {
+  throw new SolveAccountingError(tp('svc.accountingMismatch', { case: label, component, entered, assembled }));
 }
 
 function compareMeasures(label: string, names: readonly string[], entered: Wrench, assembled: Wrench): void {
@@ -524,15 +528,59 @@ export function accountWeight2D(model: ModelData, input: SolverInput, source: Se
   compare(weightLabel(model, source), expected, assembled2D(model, input, rows, source.caseId));
 }
 
-export type CheckedSource3D = { label: string; expected: Wrench; rows: readonly SolverLoad3D[]; nodeId?: number };
+type WrenchSource3D = { label: string; expected: Wrench; rows: readonly SolverLoad3D[]; nodeId?: number };
+type QuadWeightReceipt = {
+  label: string;
+  rows: readonly SolverLoad3D[];
+  id: number;
+  corners: ReadonlyMap<number, { node: Node; share: number }>;
+  direction: Vector;
+  weightPerArea: number;
+  gravityFactor: number;
+  additions: number;
+};
+
+export type CheckedSource3D = WrenchSource3D | QuadWeightReceipt;
+
+function verifyQuadWeight(
+  model: ModelData, input: SolverInput3D, caseId: number, source: QuadWeightReceipt,
+  factor: number, rows: readonly SolverLoad3D[],
+): void {
+  const { label, direction, weightPerArea, gravityFactor, additions } = source;
+  if (rows.length !== source.corners.size) mismatch(label, tp('whatif.loads'), source.corners.size, rows.length);
+  const seen = new Set<number>();
+  const multiplications = 2 + Number(factor !== 1);
+  const ku = (additions + multiplications) * (Number.EPSILON / 2);
+  const gamma = ku / (1 - ku);
+  for (const row of rows) {
+    if (row.type !== 'nodal') unsupported(model, caseId, 'quad', source.id);
+    const { nodeId, fx, fy, fz, mx, my, mz } = row.data;
+    const corner = source.corners.get(nodeId), wireNode = input.nodes.get(nodeId);
+    if (!corner || !wireNode || seen.has(nodeId)) unsupported(model, caseId, 'node', nodeId);
+    seen.add(nodeId);
+    const nodeLabel = `${label} · ${tp('whatif.node', { n: nodeId })}`;
+    const wirePosition = xyz(wireNode);
+    for (const [i, position] of xyz(corner.node).entries()) {
+      compareComponent(nodeLabel, coordinateComponents[i]!, position, wirePosition[i]!, 0, 0);
+    }
+    const weight = new LoadScalar(weightPerArea).scale(corner.share).scale(gravityFactor).scale(factor);
+    for (const [i, actual] of [fx, fy, fz, mx, my, mz].entries()) {
+      const expected = weight.scale(direction[i] ?? 0);
+      const bound = (2 * gamma / (1 - gamma)) * Math.abs(expected.value) + 2 * expected.underflow;
+      if (!Number.isFinite(bound) || !Number.isFinite(actual) || !Number.isFinite(expected.value)
+        || Math.abs(expected.value - actual) > bound) {
+        mismatch(nodeLabel, components[i]!, expected.value, actual);
+      }
+    }
+  }
+}
 
 export function accountSource3D(
   model: ModelData, input: SolverInput3D, caseId: number, source: CheckedSource3D, factor = 1, rows = source.rows,
 ) {
+  if ('corners' in source) return verifyQuadWeight(model, input, caseId, source, factor, rows);
   if (rows.length !== source.rows.length) {
-    throw new SolveAccountingError(tp('svc.accountingMismatch', {
-      case: source.label, component: tp('whatif.loads'), entered: source.rows.length, assembled: rows.length,
-    }));
+    mismatch(source.label, tp('whatif.loads'), source.rows.length, rows.length);
   }
   if (source.nodeId !== undefined) {
     for (const row of rows) {
@@ -546,40 +594,46 @@ export function accountSource3D(
 }
 
 export function weightSource3D(model: ModelData, embedded: boolean, source: SelfWeightSource, rows: readonly SolverLoad3D[]): CheckedSource3D {
-  const expected = wrenchForModel(model);
+  const label = weightLabel(model, source);
   const dir = selfWeightDirection(source);
+  const node = (id: number) => model.nodes.get(id) ?? unsupported(model, source.caseId, 'node', id);
+  if (source.kind === 'quad') {
+    const shell = model.quads?.get(source.id);
+    if (!shell) unsupported(model, source.caseId, source.kind, source.id);
+    const [a, b, c, d] = shell.nodes;
+    const nodes = [node(a), node(b), node(c), node(d)] as const;
+    const samples = Array.from(quadGaussSamples(nodes)).reverse();
+    const corners = new Map(nodes.map((node, i) => [node.id, {
+      node, share: samples.reduce((sum, sample) => sum + sample.area * sample.shapes[i]!, 0),
+    }]));
+    return {
+      label, id: source.id, corners, rows, direction: dir, additions: samples.length - 1,
+      weightPerArea: model.materials.get(shell.materialId)!.rho * shell.thickness, gravityFactor: source.factor,
+    };
+  }
+  const expected = wrenchForModel(model);
   if (source.kind === 'member') {
     const member = model.elements.get(source.id)!;
     const frame = embedded ? null : memberFrame3D(model, member);
     if (!embedded && !frame) unsupported(model, source.caseId, source.kind, source.id);
     const at = (id: number): Vector => {
-      const { x, y } = model.nodes.get(id)!;
+      const { x, y } = node(id);
       return [x, 0, y];
     };
     memberWeight(expected, source, frame ? frame.ni : at(member.nodeI), frame ? frame.nj : at(member.nodeJ), dir);
   } else {
-    const shell = (source.kind === 'plate' ? model.plates : model.quads)?.get(source.id);
+    const shell = model.plates?.get(source.id);
     if (!shell) unsupported(model, source.caseId, source.kind, source.id);
-    const [a, b, c, d] = shell.nodes.map(id => xyz(model.nodes.get(id) ?? unsupported(model, source.caseId, 'node', id)));
-    const u = sub(b!, a!), v = sub(d ?? c!, a!);
+    const [a, b, c] = shell.nodes.map(id => xyz(node(id)));
+    const u = sub(b!, a!), v = sub(c!, a!);
+    const area = norm(cross(u, v)) / 2;
     const weight = LoadVector.from(dir).scale(source.intensity);
-    if (!d) {
-      const area = norm(cross(u, v)) / 2;
-      expected.apply(add(a!, mul(add(u, v), 1 / 3)), weight.scale(area));
-    } else {
-      const w = sub(sub(sub(c!, a!), u), v);
-      const g = 1 / (2 * Math.sqrt(3));
-      for (const s of [0.5 - g, 0.5 + g]) for (const t of [0.5 - g, 0.5 + g]) {
-        const point = add(a!, add(mul(u, s), add(mul(v, t), mul(w, s * t))));
-        const area = norm(cross(add(u, mul(w, t)), add(v, mul(w, s)))) / 4;
-        expected.apply(point, weight.scale(area));
-      }
-    }
+    expected.apply(add(a!, mul(add(u, v), 1 / 3)), weight.scale(area));
   }
-  return { label: weightLabel(model, source), expected, rows };
+  return { label, expected, rows };
 }
 
-type GeneratedMeasure = Pick<CheckedSource3D, 'expected' | 'nodeId'>;
+type GeneratedMeasure = Pick<WrenchSource3D, 'expected' | 'nodeId'>;
 
 function generatedExpected(
   model: ModelData, loads: readonly Load[], frame: 'xz' | 'space', leftHand: boolean, caseId: number, factor: number,
