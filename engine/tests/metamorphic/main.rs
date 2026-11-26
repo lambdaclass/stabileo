@@ -34,6 +34,9 @@ mod checks3;
 mod corpus;
 mod modal_checks;
 mod modal_mass_range;
+mod modal_released_axis;
+mod released_tip_mechanisms;
+mod material_released_rotation;
 mod modal_null;
 mod parity;
 mod nightly_tolerances;
@@ -41,6 +44,7 @@ mod dynamic_accuracy;
 mod quick;
 mod regressions;
 mod harmonic_linearity;
+mod harmonic_dc_equilibration;
 mod linear_identities;
 mod completeness;
 mod response;
@@ -275,4 +279,24 @@ fn issue_2125_ground_motion_preserves_half_turn_symmetry() {
     assert!(failures.is_empty(), "{failures:?}");
 }
 
+mod moving_shear;
+
+#[test]
+fn inclined_support_moving_shear_is_invariant_under_ci_rotation() {
+    let seed = 20261018;
+    let model = corpus::cases_3d(corpus::Tier::Pr, seed).into_iter()
+        .find(|c| c.name == "feature_matrix/3d-inclined-support-roller-normal-at-30--with")
+        .unwrap();
+    let analysis: Vec<_> = ana3::rows().into_iter().filter(|a| a.name == "moving loads").collect();
+    let tally = Tally::default();
+    let ctx = checks3::Ctx { tally: &tally, rng_seed: seed };
+    checks3::check_case(&ctx, &model, &analysis, &["rotation"]);
+    assert!(tally.failures().is_empty(), "{}", tally.failures().join("\n"));
+    assert_eq!(tally.cells.lock().unwrap()[&("moving loads".into(), "rotation".into())].pass, 1);
+}
+
 mod support_invariance;
+
+mod conditional_elastic_equilibration;
+
+mod axial_tip_mechanisms;

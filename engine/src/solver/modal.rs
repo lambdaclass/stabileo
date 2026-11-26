@@ -440,6 +440,46 @@ impl<'a> ModalStiffness<'a> {
         work
     }
 
+    fn prepare_released_gauges(
+        &self,
+        mass: &mut MassRange,
+        input: &SolverInput3D,
+        dof: &DofNumbering,
+        constraints: Option<&FreeConstraintSystem>,
+        artificial: &[usize],
+    ) -> Result<(), String> {
+        if dof.dofs_per_node != 6 {
+            return Ok(());
+        }
+        for mut axis in super::stability::isolated_released_rotations_3d(input, dof) {
+            let already_pinned = axis.iter().all(|&(i, value, error)| {
+                (value == 0.0 && error == 0.0) || artificial.contains(&i)
+            });
+            if let Some(cs) = constraints {
+                for (coordinate, _, _) in &mut axis {
+                    *coordinate = cs.c_ff.isolated_unit_column(*coordinate)
+                        .ok_or_else(stiffness_conditioning_refusal)?;
+                }
+            }
+            if already_pinned || !mass.is_proven_massless(&axis) {
+                continue;
+            }
+            let StiffnessMatrix::Sparse(k) = self.matrix else { unreachable!() };
+            if !(0..k.n).all(|row| {
+                let mut force = Work::default();
+                for &(col, value, roundoff) in &axis {
+                    force.product(self.value(row, col), self.roundoff.error(row, col), value, roundoff);
+                }
+                force.contains_zero()
+            }) {
+                return Err(stiffness_conditioning_refusal());
+            }
+            let scale = axis.iter().map(|&(i, _, _)| self.value(i, i).abs()).fold(0.0, f64::max);
+            mass.register_released_gauge(&axis, scale).ok_or_else(stiffness_conditioning_refusal)?;
+        }
+        Ok(())
+    }
+
     fn reject_massive_null_translation(
         &self,
         mass: &MassRange,
@@ -720,7 +760,7 @@ pub fn solve_modal_3d(
     // reduce as sparse triple products, no dense n² allocation anywhere.
     // In the inclined-support frames K was assembled in.
     let its = &sasm.inclined_transforms;
-    let (m_sparse_ff, mass_range) = assemble_modal_mass_3d(input, &dof_num, densities, its, cs.as_ref())?;
+    let (m_sparse_ff, mut mass_range) = assemble_modal_mass_3d(input, &dof_num, densities, its, cs.as_ref())?;
 
     // Reduced-space matrices owned here so both branches can borrow them.
     let k_red;
@@ -733,6 +773,7 @@ pub fn solve_modal_3d(
         (&sasm.k_ff, &m_sparse_ff)
     };
     let stiffness = ModalStiffness::sparse(k_solve, &stiffness_roundoff);
+    stiffness.prepare_released_gauges(&mut mass_range, input, &dof_num, cs.as_ref(), &sasm.artificial_dofs)?;
     stiffness.reject_massive_null_translation(&mass_range, &dof_num, cs.as_ref(), its, &[0, 1, 2])?;
     let mut structured_diagnostics = known_model;
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Modal));

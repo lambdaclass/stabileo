@@ -31,6 +31,7 @@ import { caseOrder, caseReductionRatio, reductionApplies } from './case-rules';
 export { caseOrder, reductionApplies } from './case-rules';
 import { listed } from './combination-methods';
 import { sumCombinationFactors } from './wasm-solver';
+import { isVehicleAxle, vehiclePositionCaseIds } from './vehicles';
 
 function scaleCaseLoad(load: Load, factor: number): Load {
   const scaled = scaledLoad(load, factor);
@@ -41,7 +42,16 @@ function scaleCaseLoad(load: Load, factor: number): Load {
   }) : scaled;
 }
 
-type CaseLike = Pick<LoadCase, 'id' | 'type' | 'includes' | 'notional' | 'reduction'>;
+type CaseLike = Pick<LoadCase, 'id' | 'type' | 'includes' | 'notional' | 'reduction' | 'alternatives'>;
+
+function keepVehicleAxleIdentity<M extends ModelData>(model: M, cases: readonly CaseLike[]): M {
+  const positionCases = vehiclePositionCaseIds(cases);
+  if (positionCases.size === 0) return model;
+  const loads = model.loads.map((load): Load =>
+    load.type === 'pointOnElement3d' && !load.data.vehicleAxle && isVehicleAxle(load.data, positionCases)
+      ? { ...load, data: { ...load.data, vehicleAxle: true } } : load);
+  return { ...model, loads };
+}
 
 const DIRS: Record<'+X' | '-X' | '+Y' | '-Y', [number, number]> = { '+X': [1, 0], '-X': [-1, 0], '+Y': [0, 1], '-Y': [0, -1] };
 
@@ -70,6 +80,7 @@ export function withCaseEffects<M extends ModelData>(
   model: M, cases: readonly CaseLike[], opts: { includeSelfWeight: boolean; leftHand: boolean },
   caseIds?: ReadonlySet<number>,
 ): M {
+  model = keepVehicleAxleIdentity(model, cases);
   const scope = caseIds && cases.some(c => !caseIds.has(c.id)) ? caseIds : undefined;
   const hasEffects = hasCaseEffects(cases);
   if (!scope && !hasEffects) return model;
@@ -260,6 +271,7 @@ function singleSolveTerms(sources: AccountingCaseSources): Map<number, Array<{ c
 export function singleSolveModel<M extends ModelData>(model: M, cases: readonly SingleCase[]): M {
   if (cases.every((c) => listed(c) && !reductionApplies(c))) return model;
   const byId = new Map(cases.map((c) => [c.id, c]));
+  model = keepVehicleAxleIdentity(model, cases);
   const own = loadCaseBatches(model.loads);
   const isListed = (id: number) => !byId.has(id) || listed(byId.get(id)!);
   const sources = caseSources(own, byId, caseOrder(cases).looped, isListed, { include: id => !isListed(id) });

@@ -328,6 +328,23 @@ fn embedded_moving_input(input: &MovingLoadInput, plane: dedaliano_engine::metam
     }
 }
 
+fn planar_sample(input: &MovingLoadInput, position: f64) -> ElementForces {
+    use dedaliano_engine::solver::{linear::solve_2d, moving_loads::{build_load_path, moving_loads_at_position_2d}};
+    let mut solver = input.solver.clone();
+    let path = build_load_path(&solver, input.path_element_ids.as_deref()).unwrap();
+    solver.loads = moving_loads_at_position_2d(&solver, &input.train, &path, position).unwrap();
+    solve_2d(&solver).unwrap().element_forces.remove(0)
+}
+
+fn spatial_sample(input: &MovingLoadInput3D, position: f64) -> ElementForces3D {
+    use dedaliano_engine::solver::{linear::solve_3d, moving_loads::{build_load_path_3d, moving_loads_at_position_3d}};
+    let mut solver = input.solver.clone();
+    let path = build_load_path_3d(&solver, input.path_element_ids.as_deref()).unwrap();
+    let gravity = input.gravity_direction.as_deref().unwrap_or("z");
+    solver.loads = moving_loads_at_position_3d(&solver, &input.train, gravity, &path, position).unwrap();
+    solve_3d(&solver).unwrap().element_forces.remove(0)
+}
+
 fn assert_planar_value(actual: f64, expected: f64) {
     assert!((actual - expected).abs() <= 1e-9 * expected.abs().max(1.0), "actual {actual}, expected {expected}");
 }
@@ -371,33 +388,51 @@ fn issue_1782_inclined_moving_axial_matches_embedded_2d() {
     use dedaliano_engine::metamorphic::planes::Plane;
     use dedaliano_engine::solver::moving_loads::solve_moving_loads_2d;
     let input = planar_moving_input(6.0);
-    let expected = inclined_midpoint_axial_extremum(&input);
+    let midpoint = inclined_midpoint_axial_extremum(&input);
+    let face = 2.0 * midpoint;
     let reference = solve_moving_loads_2d(&input).unwrap();
     let r = &reference.elements["1"];
     assert!(r.n_max_pos.abs().max(r.n_max_neg.abs()) > 1.0);
     assert_eq!(reference.num_positions, 3);
-    assert_planar_value(r.n_max_pos, expected);
-    assert_planar_value(r.n_max_neg, -expected);
-    println!("inclined 2D axial envelope: [{}, {}] kN; equilibrium: ±{expected} kN", r.n_max_neg, r.n_max_pos);
+    assert_planar_value(r.n_max_pos, face);
+    assert_planar_value(r.n_max_neg, -face);
+    let midspan = planar_sample(&input, input.step.unwrap());
+    assert_planar_value(midspan.n_start.max(midspan.n_end), midpoint);
+    assert_planar_value(midspan.n_start.min(midspan.n_end), -midpoint);
     let mut endpoints = input.clone();
     endpoints.step = Some(2.0 * input.step.unwrap());
     let endpoint_reference = solve_moving_loads_2d(&endpoints).unwrap();
     assert_eq!(endpoint_reference.num_positions, 2);
-    assert_planar_value(endpoint_reference.elements["1"].n_max_pos, 0.0);
-    assert_planar_value(endpoint_reference.elements["1"].n_max_neg, 0.0);
+    assert_planar_value(endpoint_reference.elements["1"].n_max_pos, face);
+    assert_planar_value(endpoint_reference.elements["1"].n_max_neg, -face);
+    for position in [0.0, endpoints.step.unwrap()] {
+        let exact = planar_sample(&endpoints, position);
+        assert_planar_value(exact.n_start, 0.0);
+        assert_planar_value(exact.n_end, 0.0);
+    }
     for plane in Plane::ALL {
-        let result = solve_moving_loads_3d(&embedded_moving_input(&input, plane)).unwrap();
+        let embedded = embedded_moving_input(&input, plane);
+        let result = solve_moving_loads_3d(&embedded).unwrap();
         let e = &result.elements["1"];
         assert_eq!(result.num_positions, reference.num_positions);
         assert_planar_value(e.n_max_pos, r.n_max_pos);
         assert_planar_value(e.n_max_neg, r.n_max_neg);
-        assert_planar_value(e.n_max_pos, expected);
-        assert_planar_value(e.n_max_neg, -expected);
-        println!("inclined {plane:?} axial envelope: [{}, {}] kN; equilibrium: ±{expected} kN", e.n_max_neg, e.n_max_pos);
-        let endpoint_result = solve_moving_loads_3d(&embedded_moving_input(&endpoints, plane)).unwrap();
+        assert_planar_value(e.n_max_pos, face);
+        assert_planar_value(e.n_max_neg, -face);
+        let midspan = spatial_sample(&embedded, input.step.unwrap());
+        assert_planar_value(midspan.n_start.max(midspan.n_end), midpoint);
+        assert_planar_value(midspan.n_start.min(midspan.n_end), -midpoint);
+
+        let embedded = embedded_moving_input(&endpoints, plane);
+        let endpoint_result = solve_moving_loads_3d(&embedded).unwrap();
         assert_eq!(endpoint_result.num_positions, 2);
-        assert_planar_value(endpoint_result.elements["1"].n_max_pos, 0.0);
-        assert_planar_value(endpoint_result.elements["1"].n_max_neg, 0.0);
+        assert_planar_value(endpoint_result.elements["1"].n_max_pos, face);
+        assert_planar_value(endpoint_result.elements["1"].n_max_neg, -face);
+        for position in [0.0, endpoints.step.unwrap()] {
+            let exact = spatial_sample(&embedded, position);
+            assert_planar_value(exact.n_start, 0.0);
+            assert_planar_value(exact.n_end, 0.0);
+        }
     }
 }
 
@@ -812,15 +847,36 @@ fn issue_1782_endpoint_axles_are_carried_by_supports() {
         let r = solve_moving_loads_2d(&input).unwrap();
         assert_eq!(r.num_positions, 2);
         let e = &r.elements["1"];
-        for value in [e.n_max_neg, e.n_max_pos, e.v_max_neg, e.v_max_pos, e.m_max_neg, e.m_max_pos] {
+        let weight = input.train.axles[0].weight;
+        for value in [e.n_max_neg, e.n_max_pos, e.m_max_neg, e.m_max_pos] {
             assert_planar_value(value, 0.0);
         }
+        assert_planar_value(e.v_max_pos, weight);
+        assert_planar_value(e.v_max_neg, -weight);
+        for position in [0.0, length] {
+            let f = planar_sample(&input, position);
+            for value in [f.n_start, f.n_end, f.v_start, f.v_end, f.m_start, f.m_end] {
+                assert_planar_value(value, 0.0);
+            }
+        }
         for plane in Plane::ALL {
-            let r = solve_moving_loads_3d(&embedded_moving_input(&input, plane)).unwrap();
+            let embedded = embedded_moving_input(&input, plane);
+            let r = solve_moving_loads_3d(&embedded).unwrap();
             assert_eq!(r.num_positions, 2);
             let e = &r.elements["1"];
-            for value in [e.n_max_neg, e.n_max_pos, e.vy_max_neg, e.vy_max_pos, e.vz_max_neg, e.vz_max_pos, e.my_max_neg, e.my_max_pos, e.mz_max_neg, e.mz_max_pos] {
+            for value in [e.n_max_neg, e.n_max_pos, e.my_max_neg, e.my_max_pos, e.mz_max_neg, e.mz_max_pos] {
                 assert_planar_value(value, 0.0);
+            }
+            let (vy, vz) = if plane == Plane::XY { (weight, 0.0) } else { (0.0, weight) };
+            assert_planar_value(e.vy_max_pos, vy);
+            assert_planar_value(e.vy_max_neg, -vy);
+            assert_planar_value(e.vz_max_pos, vz);
+            assert_planar_value(e.vz_max_neg, -vz);
+            for position in [0.0, length] {
+                let f = spatial_sample(&embedded, position);
+                for value in [f.n_start, f.n_end, f.vy_start, f.vy_end, f.vz_start, f.vz_end, f.my_start, f.my_end, f.mz_start, f.mz_end] {
+                    assert_planar_value(value, 0.0);
+                }
             }
         }
     }
@@ -837,23 +893,26 @@ fn issue_1782_sampled_axle_at_rounded_support_2d() {
         }
         input.train.axles[0].offset = 8.0;
         input.step = Some(length);
+        let weight = input.train.axles[0].weight;
         let e = &solve_moving_loads_2d(&input).unwrap().elements["1"];
-        assert_planar_value(e.v_max_pos, 0.0);
-        assert_planar_value(e.v_max_neg, 0.0);
+        assert_planar_value(e.v_max_pos, weight);
+        assert_planar_value(e.v_max_neg, -weight);
+        let exact = planar_sample(&input, length - 8.0);
+        assert_planar_value(exact.v_start, 0.0);
+        assert_planar_value(exact.v_end, 0.0);
 
         input.train.axles[0].offset = 0.0;
         input.step = Some(length / 2.0);
-        let e = &solve_moving_loads_2d(&input).unwrap().elements["1"];
-        let half_weight = input.train.axles[0].weight / 2.0;
-        assert_planar_value(e.v_max_pos, half_weight);
-        assert_planar_value(e.v_max_neg, -half_weight);
+        let midpoint = planar_sample(&input, length / 2.0);
+        assert_planar_value(midpoint.v_start, weight / 2.0);
+        assert_planar_value(midpoint.v_end, -weight / 2.0);
 
-        input.step = Some(length - 8.0 * f64::EPSILON);
-        let e = &solve_moving_loads_2d(&input).unwrap().elements["1"];
-        assert_planar_value(e.v_max_pos - e.v_max_neg, 0.0);
-        input.step = Some(length - 9.0 * f64::EPSILON);
-        let e = &solve_moving_loads_2d(&input).unwrap().elements["1"];
-        assert_planar_value(e.v_max_pos - e.v_max_neg, 2.0 * half_weight);
+        let inside = length - 8.0 * f64::EPSILON;
+        let outside = length - 9.0 * f64::EPSILON;
+        let exact = planar_sample(&input, inside);
+        assert_planar_value(exact.v_start - exact.v_end, 0.0);
+        let span = planar_sample(&input, outside);
+        assert_planar_value(span.v_start - span.v_end, weight);
     }
 }
 
@@ -868,28 +927,31 @@ fn issue_1782_sampled_axle_at_rounded_support_3d() {
         }
         input.train.axles[0].offset = 8.0;
         input.step = Some(length);
-        let r = solve_moving_loads_3d(&embedded_moving_input(&input, Plane::XZ)).unwrap();
+        let weight = input.train.axles[0].weight;
+        let embedded = embedded_moving_input(&input, Plane::XZ);
+        let r = solve_moving_loads_3d(&embedded).unwrap();
         let e = &r.elements["1"];
-        for value in [e.vy_max_pos, e.vy_max_neg, e.vz_max_pos, e.vz_max_neg] {
+        assert_planar_value(e.vy_max_pos, 0.0);
+        assert_planar_value(e.vy_max_neg, 0.0);
+        assert_planar_value(e.vz_max_pos, weight);
+        assert_planar_value(e.vz_max_neg, -weight);
+        let exact = spatial_sample(&embedded, length - 8.0);
+        for value in [exact.vy_start, exact.vy_end, exact.vz_start, exact.vz_end] {
             assert_planar_value(value, 0.0);
         }
 
         input.train.axles[0].offset = 0.0;
         input.step = Some(length / 2.0);
-        let r = solve_moving_loads_3d(&embedded_moving_input(&input, Plane::XZ)).unwrap();
-        let e = &r.elements["1"];
-        let half_weight = input.train.axles[0].weight / 2.0;
-        assert_planar_value(e.vy_max_pos.max(e.vz_max_pos), half_weight);
-        assert_planar_value(e.vy_max_neg.min(e.vz_max_neg), -half_weight);
+        let embedded = embedded_moving_input(&input, Plane::XZ);
+        let midpoint = spatial_sample(&embedded, length / 2.0);
+        assert_planar_value(midpoint.vz_start, weight / 2.0);
+        assert_planar_value(midpoint.vz_end, -weight / 2.0);
 
-        let shear_range = |input: &MovingLoadInput| {
-            let r = solve_moving_loads_3d(&embedded_moving_input(input, Plane::XZ)).unwrap();
-            let e = &r.elements["1"];
-            e.vy_max_pos.max(e.vz_max_pos) - e.vy_max_neg.min(e.vz_max_neg)
-        };
-        input.step = Some(length - 8.0 * f64::EPSILON);
-        assert_planar_value(shear_range(&input), 0.0);
-        input.step = Some(length - 9.0 * f64::EPSILON);
-        assert_planar_value(shear_range(&input), 2.0 * half_weight);
+        let inside = length - 8.0 * f64::EPSILON;
+        let outside = length - 9.0 * f64::EPSILON;
+        let exact = spatial_sample(&embedded, inside);
+        assert_planar_value(exact.vz_start - exact.vz_end, 0.0);
+        let span = spatial_sample(&embedded, outside);
+        assert_planar_value(span.vz_start - span.vz_end, weight);
     }
 }

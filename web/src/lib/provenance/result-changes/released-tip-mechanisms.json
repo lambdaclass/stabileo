@@ -1,0 +1,34 @@
+{
+  "id": "released-tip-mechanisms",
+  "date": "2026-11-25",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "allOf": [["hinges"], ["analysis:linear", "analysis:pdelta", "analysis:buckling", "analysis:plastic", "analysis:nonlinear", "pathAnalysis"]]
+  },
+  "quantities": ["solve.ok", "stages", "finalResults"],
+  "title": {
+    "en": "Elastic mechanisms at unrestrained member tips",
+    "es": "Mecanismos elásticos en extremos libres de barras",
+    "pt": "Mecanismos elásticos nas extremidades livres de barras",
+    "de": "Elastische Mechanismen an freien Stabenden",
+    "fr": "Mécanismes élastiques aux extrémités libres des barres",
+    "hu": "Rugalmas mechanizmusok a rudak szabad végein",
+    "tr": "Tutulmamış çubuk uçlarındaki elastik mekanizmalar",
+    "zh": "杆件自由端的弹性机构"
+  },
+  "explanation": {
+    "en": "Elastic analysis refuses when an unrestrained member tip can swing without strain about a bending release at the attached end. Re-run affected analyses.",
+    "es": "El análisis elástico rechaza el modelo si el extremo libre de una barra puede girar sin deformarse alrededor de una articulación de flexión en el extremo conectado. Repita los análisis afectados.",
+    "pt": "A análise elástica recusa o modelo quando a extremidade livre de uma barra pode girar sem deformação em torno de uma rótula de flexão na extremidade conectada. Refaça as análises afetadas.",
+    "de": "Die elastische Berechnung lehnt Modelle ab, bei denen ein freies Stabende ohne Verzerrung um ein Biegegelenk am angeschlossenen Ende schwingen kann. Wiederholen Sie betroffene Berechnungen.",
+    "fr": "L’analyse élastique rejette le modèle si l’extrémité libre d’une barre peut pivoter sans déformation autour d’une articulation de flexion à l’extrémité raccordée. Relancez les analyses concernées.",
+    "hu": "A rugalmas számítás elutasítja a modellt, ha egy rúd szabad vége alakváltozás nélkül elfordulhat a csatlakozó végen lévő hajlítási csukló körül. Futtassa újra az érintett számításokat.",
+    "tr": "Elastik analiz, bir çubuğun tutulmamış ucu bağlı uçtaki eğilme mafsalı etrafında şekil değiştirmeden dönebildiğinde modeli reddeder. Etkilenen analizleri yeniden çalıştırın.",
+    "zh": "如果杆件自由端可绕连接端的弯曲铰转动而不产生应变，弹性分析将拒绝求解。请重新运行受影响的分析。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-released-tip-mechanisms.md",
+    "heading": "Elastic mechanisms at unrestrained member tips"
+  }
+}

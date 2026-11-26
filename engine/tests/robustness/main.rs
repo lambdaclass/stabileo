@@ -10,6 +10,8 @@ mod common;
 #[path = "../fuzz_models/mod.rs"]
 mod fuzz_models;
 
+#[path = "../axial_tip_refusals.rs"]
+mod axial_tip_refusals;
 #[path = "../codeaster_regressions.rs"]
 mod codeaster_regressions;
 #[path = "../determinism.rs"]

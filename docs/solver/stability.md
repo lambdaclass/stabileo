@@ -222,15 +222,28 @@ stability refusal. Unit changes and relabelling preserve the structural graph.
 ### 2.4 Conditional response accuracy
 
 The single accuracy constant is `stability::CONDITIONAL_ACCURACY = 1e-4`.
-For a conditionally admitted matrix, every dense, sparse, PCG and constrained linear
-solve computes a compensated residual `r = b - Kx`, retaining product errors with FMA
-and summation errors. It reuses the existing factorization to solve `K dx = r`, checks
-`||dx||∞/||x||∞` in diagonal energy coordinates (`y_i = sqrt(|K_ii|) x_i`), and applies
-that one correction. These operations are algebraically a solve in
-`D⁻¹ K D⁻¹`, using the existing unscaled factors. The existing six-step 3D sparse
-refinement remains active as well. A nonfinite correction/estimate, or an estimate above
-the accuracy constant, refuses with the conditioning reason. An exactly zero response
-and zero correction have estimate zero.
+For a conditionally admitted matrix, dense and sparse elastic factorizations use the
+congruence `D⁻¹ K D⁻¹` with `D_ii = sqrt(K_ii)` after the physical free coordinates
+have been selected and any admissible null rotations pinned. The equilibrated direct
+factor also handles conditionally admitted solves requested with PCG.
+
+The solve retains the factor for the initial response and compensated residual
+corrections to the original equations `K dx = b - Kx`. Products use FMA to retain
+roundoff, and residual accumulation retains summation errors. Within six iterations,
+the energy-coordinate correction must reach eight machine epsilons relative to the
+response. The final correction in the same coordinates still has to satisfy the
+`1e-4` limit before it is applied. A zero response with a zero correction is exact.
+A nonfinite or unresolved response refuses. The existing spatial sparse refinement
+and physical force checks remain active.
+
+For straight spatial frame systems whose stiffness is entirely represented by
+unreleased members, the solver also evaluates the physical stiffness action in
+member-local coordinates. The equilibrated factor corrects this defect using the
+same bounded refinement. The calculation expands prescribed and constrained
+coordinates before recovery and returns the defect in the active solve coordinates.
+This keeps the weaker stiffness terms available when the assembled global matrix
+has already rounded them. A physical correction must satisfy the existing
+conditional accuracy limit before a result can be returned.
 
 The recovered member endpoint forces are transformed to global axes and balanced against
 applied nodal loads at every free node, including support springs, connectors and shell

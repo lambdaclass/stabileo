@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { computeDiagramValueAtWasm, computeDiagrams2D, computeEnvelope, extractBeamStations, extractBeamStationsGrouped, solve, solveMovingLoads, solvePDelta } from '../wasm-solver';
+import { computeDiagramValueAtWasm, computeDiagrams2D, computeEnvelope, extractBeamStations, extractBeamStationsGrouped, movingAxleStation, solve, solveMovingLoads, solvePDelta } from '../wasm-solver';
 import type { AnalysisResults, SolverInput } from '../types';
 import {
   computeElementDiagram,
@@ -519,7 +519,7 @@ it('#1782 the planar WASM moving envelope uses the in-member shear at either end
   }
 });
 
-it('known wrong result: #1782 — the planar WASM moving sweep resolves an axle at a rounded support', () => {
+it('#1782 — the planar WASM moving sweep recovers shear at rounded support faces', () => {
   const length = 1 + Number.EPSILON, weight = 40;
   const solver: SolverInput = {
     nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: length, z: 0 }]]),
@@ -533,12 +533,21 @@ it('known wrong result: #1782 — the planar WASM moving sweep resolves an axle 
   const run = (offset: number, step: number) => solveMovingLoads({
     solver, train: { name: 'one axle', axles: [{ offset, weight }] }, step,
   }).elements['1'];
-  expect.soft(run(8, length).vMaxPos).toBeCloseTo(0, 12);
-  expect.soft(run(8, length).vMaxNeg).toBeCloseTo(0, 12);
-  expect(run(0, length / 2).vMaxPos).toBeCloseTo(weight / 2, 12);
-  expect(run(0, length / 2).vMaxNeg).toBeCloseTo(-weight / 2, 12);
-  const within = run(0, length - 8 * Number.EPSILON);
-  const outside = run(0, length - 9 * Number.EPSILON);
-  expect(within.vMaxPos - within.vMaxNeg).toBeCloseTo(0, 12);
-  expect(outside.vMaxPos - outside.vMaxNeg).toBeCloseTo(weight, 12);
+  const rounded = run(8, length);
+  expect.soft(rounded.vMaxPos).toBeCloseTo(weight, 12);
+  expect.soft(rounded.vMaxNeg).toBeCloseTo(-weight, 12);
+
+  const pointLoad = { type: 'pointOnElement' as const, data: { elementId: 1, a: length / 2, p: -weight } };
+  const midpoint = solve({ ...solver, loads: [pointLoad] }).elementForces[0];
+  expect(midpoint.vStart).toBeCloseTo(weight / 2, 12);
+  expect(midpoint.vEnd).toBeCloseTo(-weight / 2, 12);
+  const sampledMidpoint = run(0, length / 2);
+  expect(sampledMidpoint.vMaxPos).toBeCloseTo(weight, 12);
+  expect(sampledMidpoint.vMaxNeg).toBeCloseTo(-weight, 12);
+
+  const within = length - 8 * Number.EPSILON;
+  const outside = length - 9 * Number.EPSILON;
+  const place = (a: number) => movingAxleStation(0, length, length, false, a, 0, 0, 0);
+  expect(place(within)).toBe(length);
+  expect(place(outside)).toBe(outside);
 });
