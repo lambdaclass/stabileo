@@ -1,6 +1,6 @@
 macro_rules! producer_row {
     (material $($record:tt)*) => {
-        producer_row!(@row "SolverMaterial", [name, fc, fy, rho], $($record)*);
+        producer_row!(@row "SolverMaterial", [name, fc, fy, fu, rho], $($record)*);
     };
     (section_2d $($record:tt)*) => {
         producer_row!(@row "SolverSection", [name, iy, j, b, h, rotation], $($record)*);
@@ -19,7 +19,6 @@ macro_rules! producer_row {
         }
     ) => {
         $(#[$derive])*
-        #[serde(rename_all = "camelCase")]
         pub struct $name {
             $($(#[$attr])* pub $field: $type,)+
         }

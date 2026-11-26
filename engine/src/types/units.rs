@@ -623,6 +623,7 @@ mod wire {
     use crate::types::{numeric, producer_row::producer_row};
     producer_row! { material
         #[derive(Debug, Clone, Copy, Serialize)]
+        #[serde(rename_all = "camelCase")]
         pub struct SolverMaterial {
             #[serde(deserialize_with = "numeric::id::required")]
             pub id: usize,
@@ -635,6 +636,7 @@ mod wire {
 
     producer_row! { section_2d
         #[derive(Debug, Clone, Copy, Serialize)]
+        #[serde(rename_all = "camelCase")]
         pub struct SolverSection {
             pub id: usize,
             pub a: Area,
@@ -646,6 +648,7 @@ mod wire {
 
     producer_row! { section_3d
         #[derive(Debug, Clone, Serialize)]
+        #[serde(rename_all = "camelCase")]
         pub struct SolverSection3D {
             pub id: usize,
             #[serde(default)]
@@ -849,6 +852,7 @@ mod wire {
 
     producer_row! { support_3d
         #[derive(Debug, Clone, Serialize)]
+        #[serde(rename_all = "camelCase")]
         pub struct SolverSupport3D {
             #[serde(deserialize_with = "numeric::node_id::required")]
             pub node_id: usize,

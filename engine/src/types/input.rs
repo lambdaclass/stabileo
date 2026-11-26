@@ -9,6 +9,7 @@ pub type SolverNode = super::model_aliases::PlanarNode<f64>;
 
 producer_row! { material
     #[derive(Debug, Clone, Serialize)]
+    #[serde(rename_all = "camelCase")]
     pub struct SolverMaterial {
         #[serde(deserialize_with = "numeric::id::required")]
         pub id: usize,
@@ -21,6 +22,7 @@ producer_row! { material
 
 producer_row! { section_2d
     #[derive(Debug, Clone, Serialize)]
+    #[serde(rename_all = "camelCase")]
     pub struct SolverSection {
         pub id: usize,
         pub a: f64,  // m²
@@ -402,6 +404,7 @@ pub struct SolverNode3D {
 
 producer_row! { section_3d
     #[derive(Debug, Clone, Serialize)]
+    #[serde(rename_all = "camelCase")]
     pub struct SolverSection3D {
         pub id: usize,
         #[serde(default)]
@@ -471,6 +474,7 @@ pub struct SolverElement3D {
 
 producer_row! { support_3d
     #[derive(Debug, Clone, Serialize)]
+    #[serde(rename_all = "camelCase")]
     pub struct SolverSupport3D {
         #[serde(deserialize_with = "numeric::node_id::required")]
         pub node_id: usize,

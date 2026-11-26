@@ -359,7 +359,7 @@ fn producer_wire_metadata_is_accepted_by_native_wire_types() {
         "sections": {"1": {"id":1,"a":0.18,"iy":0.0054,"iz":0.00135,"j":0.001}},
         "supports": {"1": {"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}}
     });
-    let material = [("name", json!("H25")), ("fc", json!(25)), ("fy", json!(420)), ("rho", json!(25))];
+    let material = [("name", json!("H25")), ("fc", json!(25)), ("fy", json!(420)), ("fu", json!(400)), ("rho", json!(25))];
     let section = [("b", json!(0.3)), ("h", json!(0.6)), ("rotation", json!(0))];
     let planar_section = [
         ("name", json!("RC")), ("iy", json!(0.0054)), ("j", json!(0.001)),
