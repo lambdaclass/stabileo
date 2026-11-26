@@ -476,8 +476,10 @@ describe('magnitude exports and signed consumers #2581', () => {
     expect(magnitudeSummary).not.toContain(t('excel.equilibriumCheck'));
   });
 
-  it('known wrong result: #2581 the calculation report identifies magnitude forces without a signed summary', () => {
-    const { signedSource, magnitudeSource } = solvedPortal('srss');
+  it.skip.each([
+    ['srss', false], ['abs', false], ['srss', true], ['abs', true],
+  ] as const)('known wrong result: #2581 the default 3D report shows %s force peaks (P-Delta: %s)', (method, pdelta) => {
+    const { signedSource, magnitudeSource } = solvedPortal(method, pdelta);
     const report = ({ name, results }: typeof signedSource) => {
       const data: CalcReportData = {
         config: { projectName: 'Portal', engineerName: '', companyName: '', date: '', notes: '' },
@@ -494,6 +496,8 @@ describe('magnitude exports and signed consumers #2581', () => {
     expect(magnitude).toContain(t('figures.magnitudes'));
     expect(magnitude).toContain(t('calcReport.endForces'));
     expect(magnitude).not.toContain(t('calcReport.forceSummary'));
+    const summary = magnitude.match(/<h2>[^<]*Peak Force Magnitudes<\/h2>\s*<table>(.*?)<\/table>/s)?.[1];
+    expect(summary?.match(/<td class="num">/g)).toHaveLength(6);
     expect(magnitude).not.toContain(t('calcReport.reactionBalanceNote'));
   });
 });

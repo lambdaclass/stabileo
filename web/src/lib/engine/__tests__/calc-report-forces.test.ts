@@ -1,3 +1,5 @@
+import { t } from '../../i18n';
+import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../member-diagram';
 import { readFileSync } from 'node:fs';
 import { render } from 'svelte/server';
 import QuickInfoCard from '../../../components/viewport/QuickInfoCard.svelte';
@@ -898,4 +900,26 @@ it('known wrong result: #2581 converge every calc report force table requires th
     diagramsOnly.rows.axial = { table: false, diagram: true };
     expect(rows(report('axial', { ...data, content: diagramsOnly }))).toEqual([]);
   }
+});
+
+it.skip.each(['srss', 'abs'] as const)('known wrong result: #2581 reports the exact interior %s peak in the default 3D report', method => {
+  const triangular = ef3D({ vzStart: 10, vzEnd: -20, qZJ: -10, distributedLoadsZ: [{ qI: 0, qJ: -10, a: 0, b: 6 }] });
+  const member = ef3D({ combined: { method, parts: [triangular, triangular] } });
+  const html = report('moment', {
+    is3D: true, analysisMode: '3D', content: undefined, results3D: { ...r3D(member), magnitude: { method } },
+  });
+  const peak = 10 * 6 ** 2 / (9 * Math.sqrt(3)) * (method === 'srss' ? Math.sqrt(2) : 2);
+  const summary = rows(html).slice(0, 6);
+  expect(summary.find(row => row[0] === t('calcReport.momentY'))?.[1]).toBe(peak.toFixed(2));
+});
+
+it.skip('known wrong result: #2581 marks every bounded magnitude peak as unavailable', () => {
+  const leaf = ef3D({ nStart: 5, nEnd: 5 });
+  const inner = ef3D({ combined: { method: 'abs', parts: [leaf, leaf] } });
+  const member = ef3D({ combined: { method: 'abs', parts: [inner, leaf] } });
+  const html = report('axial', {
+    is3D: true, analysisMode: '3D', content: undefined, results3D: { ...r3D(member), magnitude: { method: 'abs' } },
+  });
+  expect(rows(html).slice(0, 6).map(row => row[1])).toEqual(Array(6).fill(t(DIAGRAM_EXTREMA_UNAVAILABLE)));
+  expect(rows(html).slice(6).map(row => row.find(cell => cell === '15.00'))).toEqual(['15.00', '15.00']);
 });

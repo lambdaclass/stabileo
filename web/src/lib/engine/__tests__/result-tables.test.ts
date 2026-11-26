@@ -702,6 +702,39 @@ describe('spatial cantilever end queries', () => {
     }
   });
 
+  it.skip('known wrong result: #2581 envelopes the signed +10 and -8 spatial case forces', () => {
+    const loadId = modelStore.addLoadEntry({
+      type: 'nodal3d', data: { id: 1, nodeId: tip, fx: 10, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 },
+    });
+    const plus = solveModel();
+    expect(modelStore.updateLoad(loadId, { fx: -8 })).toBe(true);
+    const minus = solveModel();
+
+    for (const [mode, first] of plus.entries()) {
+      const sources = [{ ...A, results: first }, { ...B, results: minus[mode]! }];
+      const envelope = computeEnvelope3D(sources.map(source => source.results))!;
+      const aggregate = { id: 3, name: 'Envelope', results: envelope.maxAbsResults3D };
+      const detached = bindMemberEnvelopeEnds(structuredClone(envelope));
+      for (const stations of [2, 5, 'critical'] as const) {
+        const opts = { ...canonical, stations, resultant: false };
+        const direct = envelopeRows('forces', sources, opts);
+        const aggregated = envelopeRows('forces', [aggregate], opts);
+        expect(direct).not.toHaveLength(0);
+        expect.soft(aggregated).toHaveLength(direct.length);
+        for (const row of aggregated) {
+          expect.soft(row.entity).toBe(elementId);
+          expect.soft(row.max[0]?.value).toBeCloseTo(10, 12);
+          expect.soft(row.min[0]?.value).toBeCloseTo(-8, 12);
+        }
+        expect.soft(envelopeRows('forces', [aggregate, ...sources], opts)).toEqual(direct);
+        expect.soft(() => envelopeRows('forces', [{ ...aggregate, results: detached.maxAbsResults3D }], opts))
+          .toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+        expect.soft(() => envelopeRows('forces', [aggregate], { ...opts, resultant: true }))
+          .toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+      }
+    }
+  });
+
   it('known wrong result: #2581 queries signed bounds from linear and P-Delta case envelopes', () => {
     const positive = 100, negative = -60;
     const id = modelStore.addLoadEntry({
