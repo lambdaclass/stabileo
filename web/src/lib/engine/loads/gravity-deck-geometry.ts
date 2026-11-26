@@ -1,7 +1,8 @@
+import type { GravityShellKey } from './gravity-shell-partition';
 import type { Polygon } from 'polygon-clipping';
 import { orient2d, orient3d } from 'robust-predicates';
 import { msg } from '../../codes/message';
-import { footprintArea, footprintBounds, footprintIntersection, planarShell, refuseGravityGeometry, type GravityShellKey, type ShellPlane } from './gravity-shell-partition';
+import { footprintArea, footprintBounds, footprintIntersection, planarShell, refuseGravityGeometry, type ShellPlane } from './gravity-shell-partition';
 
 type Point = Polygon[number][number];
 type Point3 = [number, number, number];

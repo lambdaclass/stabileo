@@ -124,7 +124,7 @@ export function partitionGravityFloors<S extends Shell>(
     const [bayLow, bayHigh] = bay.geometry.range;
     const mayCoverEaves = bay.footprint[0].length === 1 && bayLow === bayHigh && shell.shell.pitched && shell.geometry.range[0] >= bayHigh;
     if (mayCoverEaves && attachment === 'independent' && independentDecks(shell.shell, bay.bay)) {
-      const independent = independentShells.get(bay.bay) ?? new Set<number>();
+      const independent = independentShells.get(bay.bay) ?? new Set<GravityShellKey>();
       independent.add(shell.shell.key);
       independentShells.set(bay.bay, independent);
       continue;

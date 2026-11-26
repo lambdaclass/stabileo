@@ -356,7 +356,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     return [x, y, z];
   };
   const fixedShellStations = directlyGroundedShells(model, carriers, terminals);
-  const frameComponents = opts.mode === 'panels' && opts.loadEveryPanel && !model.quads?.size && !model.constraints?.length
+  const frameComponents = opts.mode === 'panels' && opts.loadEveryPanel && !(model.quads?.size || model.plates?.size) && !model.constraints?.length
     ? new NodeComponents() : undefined;
   if (frameComponents) {
     for (const { nodeI, nodeJ } of model.elements.values()) frameComponents.join(nodeI, nodeJ);
@@ -1034,8 +1034,7 @@ function independentDecks(model: GravityModel) {
     if (type !== 'truss' || !fixed.has(nodeI) || !fixed.has(nodeJ)) connection.join(nodeI, nodeJ);
   }
   for (const { nodeI, nodeJ } of model.connectors?.values() ?? []) connection.join(nodeI, nodeJ);
-  for (const { nodes } of model.quads?.values() ?? []) join(nodes);
-  for (const { nodes } of model.plates?.values() ?? []) join(nodes);
+  for (const { cell } of gravityShellCells(model)) join(cell.nodes);
   for (const constraint of model.constraints ?? []) {
     if (constraint.type === 'linearMPC') join(constraint.terms.map(term => term.nodeId));
     else if (constraint.type === 'diaphragm') join([constraint.masterNode, ...constraint.slaveNodes]);
