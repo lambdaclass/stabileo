@@ -20,6 +20,8 @@
  *
  * Pure.
  */
+import { boundSpatialEnvelope, unavailableDiagramExtrema } from '../engine/member-diagram';
+import { expandSignedEnvelopeMembers } from '../engine/result-query';
 import { arcThroughThree, type ArcSpec } from './curved-member';
 import { computeDiagram3D, type Diagram3DKind } from '../engine/diagrams-3d';
 import type { ElementForces3D } from '../engine/types-3d';
@@ -141,7 +143,7 @@ export function pieceOf(m: PieceModel, elementId: number, meshNodes: ReadonlySet
   return { kind, ...(kind === 'arc' ? { arcId: e.arc!.id } : {}), segments, length: s, start, end: last.reversed ? le.nodeI : le.nodeJ };
 }
 
-export interface PieceStation { s: number; value: number; elementId: number }
+export interface PieceStation { s: number; value: number; elementId: number; envelopeCase?: number }
 
 /**
  * One internal force along a piece, from its segments' own diagrams: each segment's samples at
@@ -149,15 +151,24 @@ export interface PieceStation { s: number; value: number; elementId: number }
  * has no forces in `forces`.
  */
 export function pieceDiagram(piece: Piece, forces: ReadonlyMap<number, ElementForces3D>, kind: Diagram3DKind): PieceStation[] | null {
-  const out: PieceStation[] = [];
-  for (const seg of piece.segments) {
-    const ef = forces.get(seg.elementId);
-    if (!ef) return null;
-    const d = computeDiagram3D(ef, kind);
-    const pts = seg.reversed ? [...d.points].reverse().map((p) => ({ t: 1 - p.t, value: p.value })) : d.points;
-    for (const p of pts) out.push({ s: seg.s0 + p.t * seg.length, value: p.value, elementId: seg.elementId });
+  const members = piece.segments.map(seg => forces.get(seg.elementId)).filter(member => member !== undefined);
+  if (members.length !== piece.segments.length) {
+    if (members.some(member => boundSpatialEnvelope(member))) throw unavailableDiagramExtrema();
+    return null;
   }
-  return out;
+  const cases = expandSignedEnvelopeMembers(members);
+  const stationsFor = (records: readonly ElementForces3D[], envelopeCase?: number): PieceStation[] =>
+    piece.segments.flatMap((seg, index) => {
+      const { points } = computeDiagram3D(records[index]!, kind);
+      const ordered = seg.reversed ? [...points].reverse() : points;
+      return ordered.map(({ t, value }) => ({
+        s: seg.s0 + (seg.reversed ? 1 - t : t) * seg.length,
+        value,
+        elementId: seg.elementId,
+        ...(envelopeCase !== undefined && { envelopeCase }),
+      }));
+    });
+  return cases ? cases.flatMap(({ members }, index) => stationsFor(members, index + 1)) : stationsFor(members);
 }
 
 /** The largest and smallest of a piece's diagram, where they are. */

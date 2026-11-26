@@ -11,12 +11,14 @@
   import { PIECE_KINDS, PIECE_UNIT, pieceCsv } from '../../../lib/model/piece-csv';
   import { downloadBlob } from '../../../lib/store/document-exports';
   import { currentResultProvenance } from '../../../lib/store/result-provenance';
+  import { engineGuarded, runEngineAction } from '../../../lib/store/engine-action';
   import type { Diagram3DKind } from '../../../lib/engine/diagrams-3d';
 
   const p = $derived.by(() => { void modelStore.modelVersion; void uiStore.selectedElements; return selectedPiece(); });
   const forces = $derived(new Map((resultsStore.results3D?.elementForces ?? []).map((f) => [f.elementId, f])));
   let kind = $state<Diagram3DKind>('momentZ');
-  const stations = $derived(p && forces.size ? pieceDiagram(p, forces, kind) : null);
+  const diagram = $derived(engineGuarded(() => p && forces.size ? pieceDiagram(p, forces, kind) : null));
+  const stations = $derived(diagram.value);
   const ext = $derived(stations ? pieceExtremes(stations) : null);
   const name = $derived.by(() => {
     if (!p) return '';
@@ -27,30 +29,35 @@
 
   const W = 320, H = 140, PAD = 18;
   const plot = $derived.by(() => {
-    if (!p || !stations?.length) return null;
-    const vs = stations.map((s) => s.value);
-    const lo = Math.min(0, ...vs), hi = Math.max(0, ...vs);
+    if (!p || !stations?.length || !ext) return null;
+    const lo = Math.min(0, ext.min.value), hi = Math.max(0, ext.max.value);
     const span = hi - lo || 1;
     const sx = (s: number) => PAD + (s / (p.length || 1)) * (W - 2 * PAD);
     const sy = (v: number) => H - PAD - ((v - lo) / span) * (H - 2 * PAD);
-    // One path per segment: the joints are not bridged.
-    const paths = p.segments.map((seg) => stations.filter((s) => s.elementId === seg.elementId).map((s, i) => `${i ? 'L' : 'M'}${sx(s.s).toFixed(1)},${sy(s.value).toFixed(1)}`).join(''));
-    const joints = p.segments.slice(1).map((seg) => sx(seg.s0));
-    return { paths, joints, zero: sy(0) };
+    const paths = new Map<string, string[]>();
+    for (const station of stations) {
+      const key = `${station.elementId}:${station.envelopeCase ?? 0}`;
+      let path = paths.get(key);
+      if (!path) paths.set(key, path = []);
+      path.push(`${path.length ? 'L' : 'M'}${sx(station.s).toFixed(1)},${sy(station.value).toFixed(1)}`);
+    }
+    return { paths: [...paths.values()].map(path => path.join('')), sy };
   });
 
   function exportCsv() {
     if (!p) return;
     const prov = currentResultProvenance();
-    const csv = pieceCsv({
-      piece: p, name, source: prov.scope, forces,
+    const piece = p;
+    const csv = runEngineAction(() => pieceCsv({
+      piece, name, source: prov.scope, forces,
       header: [
         `Stabileo ${prov.appVersion} · ${name}`,
         `${t('pieces.csvCoordinate')}`,
         `${t('pieces.csvAxes')}`,
         `results ${prov.resultsHash ?? '-'} · model ${prov.modelHash}`,
       ],
-    });
+    }));
+    if (csv === undefined) return;
     downloadBlob(`${name.replace(/\s+/g, '-')}.csv`, 'text/csv', csv);
   }
 </script>
@@ -63,7 +70,9 @@
         {#each PIECE_KINDS as k (k)}<button class:on={kind === k} onclick={() => (kind = k)} data-testid="piece-kind-{k}">{LABEL[k]}</button>{/each}
       </div>
     </header>
-    {#if !stations}
+    {#if diagram.error}
+      <p class="prs-dim">{diagram.error}</p>
+    {:else if !stations}
       <p class="prs-dim">{t('pieces.noResults')}</p>
     {:else if plot && ext}
       <svg viewBox="0 0 {W} {H}" width={W} height={H} aria-label={t('pieces.diagramLabel')} data-testid="piece-diagram">

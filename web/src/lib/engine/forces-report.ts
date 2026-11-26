@@ -43,6 +43,7 @@
 import { resultComponents } from '../axes/result-components';
 import { axesStore } from '../axes/axes.svelte';
 import type { AnalysisResults3D } from './types-3d';
+import { expandSignedEnvelopeMembers } from './result-query';
 import {
   criticalForceStations, extractForcesAtStation, type StationForces,
 } from './station-forces';
@@ -147,6 +148,15 @@ const round = (v: number, digits: number): Cell => {
   return Object.is(r, -0) ? 0 : r;
 };
 
+function expandForcesBlock(label: string, results: AnalysisResults3D): ForcesBlock[] {
+  const cases = expandSignedEnvelopeMembers(results.elementForces);
+  if (!cases) return [{ label, results }];
+  return cases.map(({ result, members }, index) => ({
+    label: label ? `${label} · ${index + 1}` : String(index + 1),
+    results: { ...result, elementForces: members },
+  }));
+}
+
 /**
  * The result sets to tabulate.
  *
@@ -156,13 +166,13 @@ const round = (v: number, digits: number): Cell => {
  * "Combination 1" for a single un-combined solve would be a claim about the load case.
  */
 export function forcesBlocks(cfg: RcForcesReportConfig, src: ForcesReportSource): ForcesBlock[] {
-  if (src.perCombo.size === 0) return [{ label: '', results: src.results }];
+  if (src.perCombo.size === 0) return expandForcesBlock('', src.results);
   const ids = cfg.comboIds === null ? [...src.perCombo.keys()] : cfg.comboIds;
   const out: ForcesBlock[] = [];
   for (const id of ids) {
     const results = src.perCombo.get(id);
     if (!results) continue;
-    out.push({ label: src.comboNames.get(id) ?? String(id), results });
+    out.push(...expandForcesBlock(src.comboNames.get(id) ?? String(id), results));
   }
   return out;
 }

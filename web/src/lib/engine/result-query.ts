@@ -116,7 +116,14 @@ export function envelopeSourcesByMember(envelope: FullEnvelope3D) {
   return indexedEnvelopeSources(envelope)?.index?.byMember;
 }
 
-export function expandSignedEnvelopeMember(member: ElementForces3D, envelope = boundSpatialEnvelope(member)) {
+interface SignedEnvelopeMember {
+  result: AnalysisResults3D;
+  member: ElementForces3D;
+}
+
+function expandSignedEnvelopeMember(
+  member: ElementForces3D, envelope = boundSpatialEnvelope(member),
+): SignedEnvelopeMember[] | undefined {
   if (!envelope) return undefined;
   const binding = indexedEnvelopeSources(envelope);
   const index = binding?.index;
@@ -129,9 +136,26 @@ export function expandSignedEnvelopeMember(member: ElementForces3D, envelope = b
   });
 }
 
+export function expandSignedEnvelopeMembers(members: readonly ElementForces3D[]) {
+  const bound = members.find(member => boundSpatialEnvelope(member));
+  if (!bound) return undefined;
+  const envelope = boundSpatialEnvelope(bound)!;
+  let cases: { result: AnalysisResults3D; members: ElementForces3D[] }[] | undefined;
+  for (const member of members) {
+    if (boundSpatialEnvelope(member) !== envelope) throw unavailableDiagramExtrema();
+    const constituents = expandSignedEnvelopeMember(member, envelope)!;
+    if (!cases) {
+      cases = constituents.map(({ result, member }) => ({ result, members: [member] }));
+      continue;
+    }
+    constituents.forEach(({ member }, index) => cases![index]!.members.push(member));
+  }
+  return cases;
+}
+
 function appendEnvelopeQueryRows(
   rows: QueryRow[], elementId: number, component: ForceComponent,
-  constituents: NonNullable<ReturnType<typeof expandSignedEnvelopeMember>>,
+  constituents: readonly SignedEnvelopeMember[],
 ): void {
   const starts = new Set<number>(), ends = new Set<number>();
   for (const { member } of constituents) {

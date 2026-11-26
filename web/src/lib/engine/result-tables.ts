@@ -24,7 +24,7 @@ import { criticalMemberForceExtrema3D } from './member-force-extrema';
 
 import type { AnalysisResults3D, ElementForces3D } from './types-3d';
 import type { Quantity } from '../utils/units';
-import { csvCell, expandSignedEnvelopeMember } from './result-query';
+import { csvCell, expandSignedEnvelopeMembers } from './result-query';
 import type { ElementDesignDemands, GoverningDemand } from './station-design-forces';
 import { criticalForceStations, stationTs, type StationSpec } from './station-forces';
 import { boundSpatialEnvelope, memberEndFace, memberSectionStation, requireConcurrentSectionForces, unavailableDiagramExtrema, type DiagramStation } from './member-diagram';
@@ -315,17 +315,11 @@ function requireEnvelopeMemberCoverage(sources: readonly AnalysisResults3D[], en
 }
 
 function signedForceResults(results: AnalysisResults3D, entities: TableOptions['entities']): AnalysisResults3D[] | undefined {
-  const selected = (member: ElementForces3D) => !entities || entities.has(member.elementId);
-  const aggregate = results.elementForces.find(member => selected(member) && boundSpatialEnvelope(member));
-  if (!aggregate) return undefined;
-  const envelope = boundSpatialEnvelope(aggregate)!;
-  const cases = expandSignedEnvelopeMember(aggregate, envelope)!.map(({ result }) => result);
+  const members = entities ? results.elementForces.filter(member => entities.has(member.elementId)) : results.elementForces;
+  const expansion = expandSignedEnvelopeMembers(members);
+  if (!expansion) return undefined;
+  const cases = expansion.map(({ result }) => result);
   requireEnvelopeMemberCoverage([results, ...cases], entities);
-  for (const member of results.elementForces) {
-    if (member === aggregate || !selected(member)) continue;
-    if (boundSpatialEnvelope(member) !== envelope) throw unavailableDiagramExtrema();
-    expandSignedEnvelopeMember(member, envelope);
-  }
   return cases;
 }
 

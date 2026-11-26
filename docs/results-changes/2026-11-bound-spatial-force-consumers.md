@@ -6,6 +6,11 @@ forces of −80 kN and +30 kN reports −80 kN as the minimum and +30 kN as the
 maximum. A single max-absolute end force previously yielded −80 kN for both.
 Incomplete constituent coverage produces an unavailable-extrema diagnostic.
 
+The raw forces report writes a separate result block for each constituent
+when it is given a bound envelope. The piece view computes its signed
+extrema and plots curves from those same cases. The piece CSV tags each
+curve's rows with its constituent position in the envelope.
+
 The Excel Summary for an active spatial SRSS or ABS combination shows the
 exact peak magnitude of each force and moment component, using the same
 calculation as the printable report. A component with only a conservative

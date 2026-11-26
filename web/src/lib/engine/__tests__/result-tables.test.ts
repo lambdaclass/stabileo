@@ -791,7 +791,7 @@ describe('spatial cantilever end queries', () => {
     }
   });
 
-  it.skip('known wrong result: #2581 raw forces report reads both constituent blocks', () => {
+  it('known wrong result: #2581 raw forces report reads both constituent blocks', () => {
     const id = modelStore.addLoadEntry({
       type: 'nodal3d', data: { id: 1, nodeId: tip, fx: -80, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 },
     });
@@ -821,7 +821,7 @@ describe('spatial cantilever end queries', () => {
     }
   });
 
-  it.skip('known wrong result: #2581 piece extrema and CSV retain both signed constituent curves', () => {
+  it('known wrong result: #2581 piece extrema and CSV retain both signed constituent curves', () => {
     const id = modelStore.addLoadEntry({
       type: 'nodal3d', data: { id: 1, nodeId: tip, fx: -80, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 },
     });
