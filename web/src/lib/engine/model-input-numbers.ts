@@ -2,7 +2,7 @@ import { t, tp } from '../i18n';
 import { DRAW_PLANES, isDrawPlane, type DrawPlane } from '../geometry/plane-projection';
 import { isAnalysisMode, is3DWorkspace } from '../utils/workspace';
 import type { Element, Load, LoadCombination, Material, Support } from '../store/model.svelte';
-import { isPlaneSupportType, isSupportType } from '../model/support-types';
+import { isSupportType } from '../model/support-types';
 import type { Constraint3D, LinearMpcConstraint } from './types-3d';
 import type { AnalysisSettings, SelfWeightLoad } from './analysis-settings';
 import type { StiffnessModifiers } from './member-behaviour';
@@ -605,6 +605,33 @@ function storedRows(rows: unknown): Array<Record<string, unknown>> {
   return rows.flatMap(row => Array.isArray(row) && isRecord(row[1]) ? [row[1]] : []);
 }
 
+const xyFallbackSupportTypes = ['fixed', 'pinned', 'guidedX', 'rollerX', 'spring'] as const satisfies readonly Support['type'][];
+
+const xyFallbackSupportFields: Partial<Record<string, 'invariant' | 'planar' | 'neutral'>> = {
+  id: 'invariant', nodeId: 'invariant', type: 'invariant', isGlobal: 'invariant',
+  dx: 'invariant', kx: 'invariant',
+  angle: 'planar', dy: 'planar', dz: 'planar', dry: 'planar', drz: 'planar',
+  ky: 'planar', kz: 'planar',
+  drx: 'neutral', krx: 'neutral', kry: 'neutral', krz: 'neutral',
+  normalX: 'neutral', normalY: 'neutral', normalZ: 'neutral',
+  isInclined: 'neutral', uplift: 'neutral',
+} satisfies Partial<Record<keyof Support, 'invariant' | 'planar' | 'neutral'>>;
+
+function supportAllowsXYFallback(support: Record<string, unknown>): boolean {
+  const local = support.isGlobal === false;
+  const invariantType = xyFallbackSupportTypes.some(type => type === support.type);
+  const localRoller = local && (support.type === 'rollerY' || support.type === 'rollerZ');
+  if (!invariantType && !localRoller) return false;
+
+  return Object.entries(support).every(([field, value]) => {
+    if (value === undefined) return true;
+    if (!Object.hasOwn(xyFallbackSupportFields, field)) return false;
+    const rule = xyFallbackSupportFields[field];
+    return rule === 'invariant' || (rule === 'planar' && local)
+      || (value === 0 || value === false);
+  });
+}
+
 function storedLoadFitsPlane(load: unknown, plane: DrawPlane): boolean {
   if (!isRecord(load) || !isRecord(load.data)) return true;
   const { type, data } = load;
@@ -644,7 +671,7 @@ export function storedProjectPlane(snapshot: StoredProjectInput, constraints: re
   if (candidates.length === 2 && candidates.includes('xy') && candidates.includes('xz')
       && nodes.every(node => node.y === 0 && coordinate(node, 'z') === 0)
       && !constraints.some(dependsOnXYConstraintAxes)
-      && storedRows(snapshot.supports).every(s => isPlaneSupportType(s.type))
+      && storedRows(snapshot.supports).every(supportAllowsXYFallback)
       && loads.every(load => isRecord(load) && typeof load.type === 'string' && PLANAR_LOAD_TYPES.includes(load.type))) {
     return 'xy';
   }

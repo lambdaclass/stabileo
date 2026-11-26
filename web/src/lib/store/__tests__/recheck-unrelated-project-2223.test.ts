@@ -287,7 +287,7 @@ function legacyLoadedCantilever(support: Omit<Support, 'id' | 'nodeId'>) {
   return { file, tip };
 }
 
-it.skip.each(entries)('known wrong result: #2588 — %s requires a plane for a global Z restraint on an X-aligned beam', async entry => {
+it.each(entries)('known wrong result: #2588 — %s requires a plane for a global Z restraint on an X-aligned beam', async entry => {
   await initSolver();
   const { file, tip } = legacyLoadedCantilever({
     type: 'rollerZ', isGlobal: true, dofFrame: 'global',
@@ -306,14 +306,15 @@ it.skip.each(entries)('known wrong result: #2588 — %s requires a plane for a g
   expect.soft(await modelStore.solveAsync()).toBe(t('svc.savedPlaneRequired'));
   expect.soft(modelStore.solveCombinations()).toBe(t('svc.savedPlaneRequired'));
   expect.soft(() => modelStore.buildSolverInput()).toThrow(t('svc.savedPlaneRequired'));
-  expect.soft(assessProject(legacy.snapshot, null, '2d').changes.map(change => change.id))
+  expect.soft(assessProject({ ...legacy.snapshot, analysisMode: legacy.analysisMode }, null, '2d').changes.map(change => change.id))
     .toContain('legacy-planar-project-plane');
 
   uiStore.drawPlane2D = 'xz';
   expect(modelStore.solve()).toEqual(reference);
+  expect(buildProjectFile().snapshot.drawPlane2D).toBe('xz');
 });
 
-it.skip.each([
+it.each([
   { type: 'rollerZ', isGlobal: true },
   { type: 'rollerY' },
   { type: 'rollerX', angle: 30 },
@@ -325,11 +326,12 @@ it.skip.each([
   { type: 'fixed', dz: 1 },
 ] satisfies Omit<Support, 'id' | 'nodeId'>[])('known wrong result: #2588 — a directional support %j prevents the XY fallback', support => {
   const { file } = legacyLoadedCantilever(support);
-  expect(requireStoredProjectInput({ ...file.snapshot, drawPlane2D: undefined })).toBeUndefined();
-  expect(requireStoredProjectInput(file.snapshot)).toBe('xz');
+  const snapshot = { ...file.snapshot, analysisMode: file.analysisMode };
+  expect(requireStoredProjectInput({ ...snapshot, drawPlane2D: undefined })).toBeUndefined();
+  expect(requireStoredProjectInput(snapshot)).toBe('xz');
 });
 
-it.skip.each([
+it.each([
   { type: 'rollerX' },
   { type: 'rollerZ', isGlobal: false },
   { type: 'spring', isGlobal: false, ky: 1 },

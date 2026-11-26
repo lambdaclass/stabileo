@@ -1,9 +1,10 @@
 import { test, expect, bootPro } from './fixtures';
+import type { Release } from '../src/lib/store/model.svelte';
 import { readRegistry } from '../scripts/result-changes/registry.mjs';
 
 test.use({ recheckNotice: 'assert' });
 
-const rel = { tx: false, ry: false, rz: false, my: false, mz: false, t: false };
+const rel = { my: false, mz: false, t: false } satisfies Release;
 
 function shearProject(solvedWith?: object) {
   return {
