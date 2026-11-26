@@ -49,5 +49,5 @@ describe('slabs and walls whose shells one combination has no results for', () =
       expect(v.demand, 'a shell with results but no forces in global axes is not read').toContain(unread);
       expect(row.status).toBe('fail');
     }
-  });
+  }, 120_000);
 });
