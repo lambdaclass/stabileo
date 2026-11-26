@@ -235,6 +235,14 @@ test.engine.targeted:
 test.engine.reduced-rank-wasm: wasm
 	$(NIX_RUN) node scripts/tests/reduced-rank-wasm.mjs
 
+.PHONY: test.engine.release-gauges-wasm
+test.engine.release-gauges-wasm: wasm
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.release-gauges.XXXXXX"); modal=$$(mktemp "$(CURDIR)/.modal-release-gauges.XXXXXX"); plate=$$(mktemp "$(CURDIR)/.plate-release-gauge.XXXXXX"); connector=$$(mktemp "$(CURDIR)/.connector-release-gauge.XXXXXX"); trap '"'"'rm -f -- "$$cases" "$$modal" "$$plate" "$$connector"'"'"' EXIT; MATERIAL_RELEASE_WASM_CASES="$$cases" MODAL_RELEASE_WASM_CASES="$$modal" ATTACHED_RELEASE_WASM_CASES="$$plate" SUPPORTED_RELEASE_WASM_CASES="$$connector" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=release_gauges::; node scripts/tests/release-gauges-wasm.mjs "$$cases" "$$modal" "$$plate" "$$connector"'
+
+.PHONY: test.engine.staged-force-parity-wasm
+test.engine.staged-force-parity-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-force-parity-wasm.mjs
+
 NEWMARK_DIR = $(CURDIR)/research/benchmarks/newmark-1959
 research.newmark.replay:
 	NEWMARK_REPLAY_OUT=$(NEWMARK_DIR)/results/stabileo_results.json NEWMARK_VALIDATION_OUT=$(NEWMARK_DIR)/VALIDATION.json \

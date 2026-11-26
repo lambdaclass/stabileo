@@ -157,11 +157,13 @@ pub fn solve_modal_2d(
             (k_ff, m_csc)
         };
         let ns = k_solve.n;
-        ModalStiffness::sparse(&k_solve, &stiffness_roundoff).reject_massive_null_translation(&mass_range, &dof_num, cs.as_ref(), &its, &[0, 2])?;
-        rank.check_rounding(
-            k_before_constraints.as_ref().unwrap_or(&k_solve),
-            k_before_constraints.as_ref().map(|_| &k_solve),
-            support_magnitude.as_ref(),
+        ModalStiffness::sparse(&k_solve, &stiffness_roundoff).check_before_eigensolve(
+            &mass_range, &dof_num, cs.as_ref(), &its, &[0, 2], &rank,
+            || rank.check_rounding(
+                k_before_constraints.as_ref().unwrap_or(&k_solve),
+                k_before_constraints.as_ref().map(|_| &k_solve),
+                support_magnitude.as_ref(),
+            ),
         )?;
         let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(&k_solve, |observe| {
             mass_range.solve_sparse(&k_solve, &m_solve, num_modes, observe)
@@ -197,10 +199,12 @@ pub fn solve_modal_2d(
         } else {
             (k_ff.clone(), m_ff.clone(), nf)
         };
-        ModalStiffness::dense(&k_solve, ns, &stiffness_roundoff).reject_massive_null_translation(&mass_range, &dof_num, cs.as_ref(), &its, &[0, 2])?;
         let operator = CscMatrix::from_dense_symmetric_exact(&k_ff, nf);
         let reduced = cs.as_ref().map(|_| CscMatrix::from_dense_symmetric_exact(&k_solve, ns));
-        rank.check_rounding(&operator, reduced.as_ref(), support_magnitude.as_ref())?;
+        ModalStiffness::dense(&k_solve, ns, &stiffness_roundoff).check_before_eigensolve(
+            &mass_range, &dof_num, cs.as_ref(), &its, &[0, 2], &rank,
+            || rank.check_rounding(&operator, reduced.as_ref(), support_magnitude.as_ref()),
+        )?;
         let result = mass_range.solve_dense(&k_solve, &m_solve, num_modes)
             .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(ns))?;
         crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::dense_stiffness_conditioning(&k_solve, ns).into_iter().collect());
@@ -451,6 +455,40 @@ impl<'a> ModalStiffness<'a> {
         work
     }
 
+    fn check_before_eigensolve(
+        &self,
+        mass: &MassRange,
+        dof: &DofNumbering,
+        constraints: Option<&FreeConstraintSystem>,
+        inclined: &[impl InclinedFrame],
+        axes: &[usize],
+        rank: &super::stability::OperatorRank<'_>,
+        check_rounding: impl FnOnce() -> Result<(), String>,
+    ) -> Result<(), String> {
+        use super::structural_kinematics::MechanismWitness;
+        let witness = rank.structural_witness();
+        if let Some(witness @ MechanismWitness::AxialJoint { .. }) = witness {
+            return Err(super::stability::structural_verdict(witness).refusal().unwrap());
+        }
+        self.reject_massive_null_translation(mass, dof, constraints, inclined, axes)?;
+        let (nodes, translation) = match witness {
+            Some(MechanismWitness::FrameSwing { node, planar_component }) => {
+                (vec![node], planar_component.unwrap_or("ux, uy or uz"))
+            }
+            Some(MechanismWitness::Unrestrained { frame_nodes, planar_component, .. }) if !frame_nodes.is_empty() => {
+                (frame_nodes, planar_component.unwrap_or("ux, uy or uz"))
+            }
+            _ => return check_rounding(),
+        };
+        let diagnostic = super::stability::frame_swing_diagnostic(&nodes).with_phase("modal");
+        let message = format!(
+            "Modal analysis: {}. The swing moves node {} along {translation}. No modes are returned.",
+            diagnostic.message, nodes[0],
+        );
+        let payload = serde_json::json!({ "message": message, "structuredDiagnostics": [diagnostic] });
+        Err(format!("{MODAL_MECHANISM}: {payload}"))
+    }
+
     fn prepare_released_gauges(
         &self,
         mass: &mut MassRange,
@@ -462,17 +500,13 @@ impl<'a> ModalStiffness<'a> {
         if dof.dofs_per_node != 6 {
             return Ok(());
         }
-        for mut axis in super::stability::isolated_released_rotations_3d(input, dof) {
-            let already_pinned = axis.iter().all(|&(i, value, error)| {
-                (value == 0.0 && error == 0.0) || artificial.contains(&i)
-            });
-            if let Some(cs) = constraints {
-                for (coordinate, _, _) in &mut axis {
-                    *coordinate = cs.c_ff.isolated_unit_column(*coordinate)
-                        .ok_or_else(stiffness_conditioning_refusal)?;
-                }
+        let constraint_nodes = super::assembly::constraint_nodes(&input.constraints);
+        for release in super::stability::isolated_released_rotations_3d(input, dof) {
+            if constraint_nodes.contains(&release.node) || release.already_pinned(artificial) {
+                continue;
             }
-            if already_pinned || !mass.is_proven_massless(&axis) {
+            let Some(axis) = release.project(constraints) else { continue; };
+            if !mass.is_proven_massless(&axis) {
                 continue;
             }
             let StiffnessMatrix::Sparse(k) = self.matrix else { unreachable!() };
@@ -786,8 +820,10 @@ pub fn solve_modal_3d(
     let rank = super::stability::OperatorRank::for_3d(input, &dof_num, cs.as_ref());
     let stiffness = ModalStiffness::sparse(k_solve, &stiffness_roundoff);
     stiffness.prepare_released_gauges(&mut mass_range, input, &dof_num, cs.as_ref(), &sasm.artificial_dofs)?;
-    stiffness.reject_massive_null_translation(&mass_range, &dof_num, cs.as_ref(), its, &[0, 1, 2])?;
-    rank.check_rounding(&sasm.k_ff, cs.as_ref().map(|_| k_solve), sasm.support_magnitude.as_ref())?;
+    stiffness.check_before_eigensolve(
+        &mass_range, &dof_num, cs.as_ref(), its, &[0, 1, 2], &rank,
+        || rank.check_rounding(&sasm.k_ff, cs.as_ref().map(|_| k_solve), sasm.support_magnitude.as_ref()),
+    )?;
     let mut structured_diagnostics = known_model;
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Modal));
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_conditioning(&sasm.k_ff).into_iter().collect());
