@@ -83,16 +83,21 @@ it.each(['plate', 'quad'] as const)('#2472 applies the static density notice to 
   }
 });
 
-it.each(['plate', 'quad'] as const)('#2472 refuses negative %s self-weight on the saved solve paths', async kind => {
-  const { area, material, model } = shell(kind, -1);
-  const paths = {
+function savedSolvePaths(model: ReturnType<typeof shell>['model']) {
+  const pdelta = { ...model, analysis: { ...model.analysis, perCombination: 'pdelta' as const } };
+  return {
     single: () => modelStore.solve3D(true, false, true),
     asyncSingle: () => modelStore.solve3DAsync(true, false, true),
     linearCombination: () => solveCombinations3D(model, cases, combinations, true),
     asyncLinearCombination: () => solveCombinations3DParallel(model, cases, combinations, true),
-    pdeltaCombination: () => solveCombinations3D({ ...model, analysis: { perCombination: 'pdelta' } }, cases, combinations, true),
-    asyncPdeltaCombination: () => solveCombinations3DParallel({ ...model, analysis: { perCombination: 'pdelta' } }, cases, combinations, true),
+    pdeltaCombination: () => solveCombinations3D(pdelta, cases, combinations, true),
+    asyncPdeltaCombination: () => solveCombinations3DParallel(pdelta, cases, combinations, true),
   };
+}
+
+it.each(['plate', 'quad'] as const)('#2472 refuses negative %s self-weight on the saved solve paths', async kind => {
+  const { area, material, model } = shell(kind, -1);
+  const paths = savedSolvePaths(model);
   for (const rho of [-1, -Number.MIN_VALUE, 0, 1]) {
     material.rho = rho;
     for (const [path, solve] of Object.entries(paths)) {
@@ -107,6 +112,36 @@ it.each(['plate', 'quad'] as const)('#2472 refuses negative %s self-weight on th
         if (!answer || typeof answer === 'string') throw new Error(`${label}: ${answer}`);
         const result: AnalysisResults3D | undefined = 'perCombo' in answer ? answer.perCombo.get(1) : answer;
         expect.soft(result?.reactions.reduce((total, reaction) => total + reaction.fz, 0), label).toBeCloseTo(rho * thickness * area, 10);
+      }
+    }
+  }
+});
+
+const issue2472 = process.env.RUN_KNOWN_WRONG === '2472' ? it : it.skip;
+
+issue2472.each(['plate', 'quad'] as const)('known wrong result: #2472 validates and solves zero %s self-weight', async kind => {
+  const { area, material, model } = shell(kind, -1);
+  const support = model.supports.values().next().value!;
+  for (const method of [undefined, 'solveEach', 'superpose'] as const) {
+    if (method) modelStore.updateSupport(support.id, { uplift: true });
+    for (const factor of [0, 1]) {
+      model.analysis = { selfWeight: [{ ...gravity, factor }], combinationMethod: method };
+      const { pdeltaCombination, asyncPdeltaCombination, ...paths } = savedSolvePaths(model);
+      const selected = method ? paths : { ...paths, pdeltaCombination, asyncPdeltaCombination };
+      for (const rho of [-1, -Number.MIN_VALUE, 0, 1]) {
+        material.rho = rho;
+        for (const [path, solve] of Object.entries(selected)) {
+          const label = `${kind}/${method ?? 'linear or P-Delta'}/${path}/factor ${factor}/density ${rho}`;
+          const answer = await solve();
+          if (rho < 0) {
+            expect.soft(answer, label).toBe(tp('svc.engine.invalidDensity', { id: String(material.id), value: String(rho) }));
+          } else {
+            expect.soft(typeof answer, label).not.toBe('string');
+            const result = answer && typeof answer !== 'string' ? ('perCombo' in answer ? answer.perCombo.get(1) : answer) : undefined;
+            expect.soft(result?.reactions.reduce((total, reaction) => total + reaction.fz, 0), label)
+              .toBeCloseTo(factor * rho * thickness * area, 10);
+          }
+        }
       }
     }
   }
