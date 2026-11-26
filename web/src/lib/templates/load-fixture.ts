@@ -125,7 +125,12 @@ export function loadFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLo
 }
 
 export function prepareFixture(json: JSONModel, opts: FixtureLoadOptions = {}): (api: FixtureLoader) => void {
-  const canonical = checkedFixture(json);
+  requireLoadCollection(json.loads);
+  requireFixtureStructure(json);
+  const constraints = migrateModelConstraints(json.constraints);
+  json = { ...json, constraints: constraints.map(constraint => ({ ...constraint })) };
+  const canonical = canonicalizeModelAliases(json);
+  validateFixtureReferences(canonical);
   return (api) => {
     const load = () => replayFixture(canonical, api, opts);
     if (api.replay) api.replay(load);
@@ -141,21 +146,21 @@ function fixtureSupportElement(support: JSONModel['supports'][number], elementId
   return reference;
 }
 
-export function validateFixtureReferences(json: JSONModel): void {
-  checkedFixture(json);
-}
-
-function checkedFixture(json: JSONModel): JSONModel {
-  requireLoadCollection(json.loads);
+function requireFixtureStructure(json: JSONModel): void {
   requireStructureInput({
     nodes: fixtureRows('nodes', json.nodes), elements: fixtureRows('elements', json.elements),
     supports: fixtureRows('supports', json.supports), materials: fixtureRows('materials', json.materials),
     sections: fixtureRows('sections', json.sections), analysis: json.analysis,
   });
+}
+
+export function validateFixtureReferences(json: JSONModel): void {
+  requireLoadCollection(json.loads);
+  requireFixtureStructure(json);
   json = canonicalizeModelAliases(json);
   requireLoadInput(json.loads);
   requireCombinationInput(json.combinations);
-  const constraints = migrateModelConstraints(json.constraints);
+  migrateModelConstraints(json.constraints);
   const ids = new Set(json.elements.map(e => e.id));
   const targets = {
     node: { field: 'nodeId', ids: new Set(json.nodes.map(node => node.id)) },
@@ -172,7 +177,6 @@ function checkedFixture(json: JSONModel): JSONModel {
   }
   for (const support of json.supports) fixtureSupportElement(support, id => ids.has(id) ? id : undefined);
   for (const rule of json.analysis?.selfWeight ?? []) selfWeightScope({ elements: ids }, rule);
-  return { ...json, constraints: constraints.map(constraint => ({ ...constraint })) };
 }
 
 function replayFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOptions): void {
