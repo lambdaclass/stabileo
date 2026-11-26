@@ -2,6 +2,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { decompressSnapshot } from '../../../lib/utils/url-sharing';
 import { modelStore } from '../../../lib/store/model.svelte';
 import { solve, solveBuckling, initSolver } from '../../../lib/engine/wasm-solver';
+import { restrainedComponents } from '../../../lib/engine/force-method/primary';
 import { editorUrl } from '../share';
 import { buildModel, EXAMPLE, TOOL_IDS, workedExamples } from '../calculators';
 
@@ -80,6 +81,7 @@ it('#2588 opens the column tool’s guided support', () => {
   const imported = modelStore.buildSolverInput(false)!;
   const guided = [...imported.supports.values()].find(support => support.type === 'guidedX')!;
   expect(guided).toBeDefined();
+  expect(restrainedComponents(guided)).toEqual([false, true, true]);
   expect(modelStore.buildSolverInput3D()!.supports.get(guided.nodeId)).toMatchObject({
     rx: false, ry: true, rz: true, rrx: true, rry: true, rrz: true,
   });

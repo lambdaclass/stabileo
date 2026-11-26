@@ -4,4 +4,4 @@ Stabileo can solve models that carry display and design metadata on elastic mate
 
 The accepted metadata is named in one schema shared by the typed and legacy decoders. The solver uses the same material constants, section properties and restraint values for a model with or without the metadata. Misspelled structural fields, such as `asYY` or `rrX`, still produce a parse error.
 
-The column buckling tool’s editor link restores its guided support with the same free translation and restrained rotations as the tool model.
+The column buckling tool’s editor link restores its guided support with the same free translation and restrained rotations as the tool model. The planar force method counts both of the guide’s restrained components.
