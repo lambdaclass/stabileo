@@ -1,4 +1,4 @@
-import { offsetRoof } from '../../engine/loads/__tests__/gravity-offset-roof-fixture';
+import { doubleAttachedRoof, offsetRoof, triangulateRoof } from '../../engine/loads/__tests__/gravity-offset-roof-fixture';
 import { expect, it } from 'vitest';
 import { assessProject } from '../applicability';
 import { RESULT_CHANGES } from '../full-registry';
@@ -93,4 +93,19 @@ it('#2586 requires an actual paired roof attachment with a bounded gap', () => {
   expect.soft(check([4, 6], false, 'panels')).toBe(false);
   expect.soft(check(false, true, 'panels')).toBe(false);
   expect.soft(check([4, 6], true, 'width')).toBe(false);
+});
+
+it.each([false, true])('#2607 older panel gravity with stacked gap decks requires regeneration (triangles %s)', triangles => {
+  const id = 'gravity-attached-gap-decks';
+  const quads = doubleAttachedRoof(false, [4, 6], true);
+  const model = triangles ? triangulateRoof(quads) : { ...quads, plates: undefined };
+  const result = (mode: 'panels' | 'width', constraints: FeatureSnapshot['constraints']) => changes({
+    ...legacyPanel, analysisMode: '3d', nodes: [...model.nodes], elements: [...model.elements],
+    quads: [...model.quads], plates: model.plates && [...model.plates], constraints,
+    regulations: { roles: { loads: { adapterId: 'cirsoc-101', settings: { dialog: { gravityMode: mode } } } } },
+  });
+  const constraints = model.constraints.map(link => ({ ...link }));
+  expect(result('panels', constraints)).toContain(id);
+  expect(result('panels', [])).not.toContain(id);
+  expect(result('width', constraints)).not.toContain(id);
 });

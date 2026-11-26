@@ -525,10 +525,7 @@ it('#2607 a separated off-center ridge is checked on both roof profiles', () => 
     }
   }
 });
-
-const review2607 = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
-
-review2607('known wrong result: #2607 — a low intervening roof preserves adjacent drift', () => {
+it('#2607 a low intervening roof preserves adjacent drift', () => {
   const gravity = { mode: 'panels', slab: 'oneWay', spanAxis: 'x' } as const;
   const inputs = { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1 };
   const config = { ...snow, roofKind: 'mono', slippery: false } as const;
@@ -572,8 +569,8 @@ review2607('known wrong result: #2607 — a low intervening roof preserves adjac
   }
 });
 
-review2607.each([[0.004, 0.004, true], [-0.004, -0.009, true], [-0.004, -0.011, false]] as const)(
-  'known wrong result: #2607 — step edge mismatch %s to %s', (near, far, matches) => {
+it.each([[0.004, 0.004, true], [-0.004, -0.009, true], [-0.004, -0.011, false]] as const)(
+  '#2607 step edge mismatch %s to %s', (near, far, matches) => {
     const model = steppedRoof();
     for (const node of model.nodes.values()) if (node.z === 5 && node.x === 0) node.x = node.y === 0 ? near : far;
     const gravity = { mode: 'panels' } as const;
@@ -598,7 +595,7 @@ review2607.each([[0.004, 0.004, true], [-0.004, -0.009, true], [-0.004, -0.011, 
   },
 );
 
-review2607.each([0.009, 0.011])('known wrong result: #2607 — same-level roof fetch across a %s m seam', gap => {
+it.each([0.009, 0.011])('#2607 same-level roof fetch across a %s m seam', gap => {
   const model = mesh([
     [[0, 0, 3], [7.5, 0, 3], [7.5, 4, 3], [0, 4, 3]],
     [[-7.5, 0, 5], [0, 0, 5], [0, 4, 5], [-7.5, 4, 5]],
@@ -610,4 +607,26 @@ review2607.each([0.009, 0.011])('known wrong result: #2607 — same-level roof f
   const { pd, w } = stepDrift({ ...inputs, stepHeight: 2, luUpper: gap < 0.01 ? 35 : 7.5, luLower: 7.5 });
   expect(rows).toHaveLength(2);
   expect(rows.reduce((sum, row) => sum - row.q * (row.b! - row.a!), 0)).toBeCloseTo(4 * pd * w / 2, 10);
+});
+
+it('#2607 refuses an intervening canopy that crosses the receiving edge elevation', () => {
+  const roofs = [
+    [[0, 0, 3], [7.5, 0, 3], [7.5, 4, 3], [0, 4, 3]],
+    [[-8.5, 0, 5], [-1, 0, 5], [-1, 4, 5], [-8.5, 4, 5]],
+    [[-0.8, 0, 2.95], [-0.2, 0, 2.95], [-0.2, 4, 2.95], [-0.8, 4, 2.95]],
+  ];
+  const model = mesh([...roofs,
+    [[-0.8, 0, 2.95], [-0.5, 0, 3.05], [-0.5, 4, 3.05], [-0.8, 4, 2.95]],
+    [[-0.5, 0, 3.05], [-0.2, 0, 2.95], [-0.2, 4, 2.95], [-0.5, 4, 3.05]],
+  ]);
+  const layout = gravityLayout(mesh(roofs), { mode: 'panels', slab: 'oneWay', spanAxis: 'x', tributaryWidth: 1 });
+  const canopy = layout.panels.findIndex(panel => panel.z === 2.95);
+  const surfaces = roofSurfaceModel(model);
+  expect(surfaces.panel(canopy, layout).elevation([-0.5, 2])).toBe(3.05);
+  expect(surfaces.panel(canopy, layout).elevation([-0.8, 2])).toBe(2.95);
+  const inputs = { pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1 };
+  expect(() => driftAndSlidingLoads(model, layout, inputs, surfaces)).toThrow('snow.refused.stepDriftTransfer');
+  const config = { ...snow, roofKind: 'mono', slippery: false } as const;
+  expect(snowLoadCases({ model, layout, snow: config, tributaryWidth: 1 }))
+    .toMatchObject({ result: { refused: 'snow.refused.stepDriftTransfer' }, cases: [] });
 });

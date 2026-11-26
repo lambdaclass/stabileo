@@ -224,6 +224,7 @@ export function hasBoundedRafterGap(model: GravityModel): boolean {
     const members = candidates.filter(e => beamLike(model, e).ok).map(e => e.id);
     const coverage = attachedShellCoverage(model, candidates, members, carriers, links, groundedStations(model));
     for (const [id, attached] of coverage) {
+      if (attached === 'conflictingGapDecks') return true;
       if (typeof attached !== 'object' || !attached.gaps.length) continue;
       const { nodeI, nodeJ } = model.elements.get(id)!;
       const a = model.nodes.get(nodeI)!, b = model.nodes.get(nodeJ)!;
@@ -280,7 +281,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     if (original !== 'full' && attached === 'unresolvedOffset') {
       refuseGravityGeometry(msg('loadPlan.gravity.offsetRafter', { id: e.id }));
     }
-    if (original === 'partial' || (original !== 'full' && attached === 'partial')) {
+    if (attached === 'conflictingGapDecks' || original === 'partial' || (original !== 'full' && attached === 'partial')) {
       refuseGravityGeometry(msg('loadPlan.gravity.unresolvedMember', { id: e.id }));
     }
     const covered = original === 'full' || attached === 'full' || (typeof attached === 'object' && !attached.gaps.length);
@@ -686,7 +687,7 @@ export const MAX_DECK_SPAN = 12;
 
 type ShellCoverage = 'none' | 'partial' | 'full';
 type RunInterval = [number, number];
-type AttachmentCoverage = ShellCoverage | 'unresolvedOffset' | { gaps: WidthSpan[]; runGaps: readonly CertifiedGap[] };
+type AttachmentCoverage = ShellCoverage | 'unresolvedOffset' | 'conflictingGapDecks' | { gaps: WidthSpan[]; runGaps: readonly CertifiedGap[] };
 type ShellOffset = { offset: Segment[0]; error: number; shellNode: number };
 type ShellAttachment = { offset: Segment[0]; anchors: Set<number>; shellNodes: Set<number>; error: number };
 
@@ -771,7 +772,7 @@ function shellOffsets(
   return offsets;
 }
 
-type CertifiedGap = WidthSpan & DeckFootprint & { sides: RunInterval };
+type CertifiedGap = WidthSpan & DeckFootprint;
 
 function certifiedGap([start, end]: Segment, t0: number, t1: number, sides: RunInterval): CertifiedGap {
   const dx = end[0] - start[0], dy = end[1] - start[1];
@@ -782,7 +783,7 @@ function certifiedGap([start, end]: Segment, t0: number, t1: number, sides: RunI
     start[0] + t * dx - side * dy / length, start[1] + t * dy + side * dx / length,
   ]);
   const width = hi - lo;
-  return { t0, t1, width, sides, footprint: [[footprint]], geometry: memberStrip([start, end], width).geometry };
+  return { t0, t1, width, footprint: [[footprint]], geometry: memberStrip([start, end], width).geometry };
 }
 
 function boundedGapSpans([start, end]: Segment, intervals: readonly RunInterval[], carriers: readonly ShellCarrier[]): CertifiedGap[] | undefined {
@@ -875,9 +876,8 @@ function rigidShellCoverage(
         attachments.push({ offset, error, anchors: new Set([nodeId]), shellNodes: new Set([shellNode]) });
       }
     }
-    let coverage: ShellCoverage | 'unresolvedOffset' = 'none';
+    let coverage: Exclude<AttachmentCoverage, object> = 'none';
     let gapSpans: CertifiedGap[] | undefined;
-    const gapClaims: CertifiedGap[] = [];
     const unresolvedVerticalAnchors = new Set<number>();
     for (const { offset, anchors, shellNodes, error } of attachments) {
       if (Math.abs(offset[2]) >= MIN_STOREY_HEADROOM) continue;
@@ -902,20 +902,9 @@ function rigidShellCoverage(
         ? shellTrace(runTrace, carriers).gaps : [];
       if (gaps.length && gaps.every(([t0, t1]) => t0 > 0 && t1 < 1)) {
         const certified = boundedGapSpans(runTrace, gaps, carriers);
-        if (!certified || coverage !== 'none' || (gapSpans && (
-          certified.length !== gapSpans.length || gapSpans.some(({ t0, t1, sides }, i) => {
-            const match = certified[i]!;
-            return t0 !== match.t0 || t1 !== match.t1 ||
-              sides[1] < match.sides[0] || match.sides[1] < sides[0];
-          })
-        ))) { coverage = 'partial'; break; }
-        gapClaims.push(...certified);
-        gapSpans = gapSpans?.map(({ t0, t1, sides }, i) => {
-          const match = certified[i]!;
-          return certifiedGap(runTrace, t0, t1, [
-            Math.min(sides[0], match.sides[0]), Math.max(sides[1], match.sides[1]),
-          ]);
-        }) ?? certified;
+        if (!certified || coverage !== 'none') { coverage = 'partial'; break; }
+        if (gapSpans) { coverage = 'conflictingGapDecks'; break; }
+        gapSpans = certified;
       } else if (anchors.size > 1 && covered.every(state => state === 'full')) {
         if (gapSpans) { coverage = 'partial'; break; }
         coverage = 'full';
@@ -929,7 +918,7 @@ function rigidShellCoverage(
       coverage = 'unresolvedOffset';
     }
     if (gapSpans && coverage === 'none' && !unresolvedVerticalAnchors.size) {
-      const overlaps = gapClaims.some(gap => claimedGaps.some(other => deckOverlaps(gap, other).some(part => !part.separated(TOL))));
+      const overlaps = gapSpans.some(gap => claimedGaps.some(other => deckOverlaps(gap, other).some(part => !part.separated(TOL))));
       if (overlaps) {
         for (const id of ids) byMember.set(id, 'partial');
         continue;
@@ -945,9 +934,7 @@ function rigidShellCoverage(
         for (const id of ids) byMember.set(id, 'partial');
         continue;
       }
-      const start = attachmentPoint(run.a, [0, 0, 0]), end = attachmentPoint(run.b, [0, 0, 0]);
-      claimedGaps.push(...gapClaims);
-      const runGaps = gapSpans.map(({ t0, t1, sides }) => certifiedGap([start, end], t0, t1, sides));
+      claimedGaps.push(...gapSpans);
       for (const { id, a, b, start, end } of parts) {
         const tolerance = 64 * Number.EPSILON * Math.max(1, Math.abs(a), Math.abs(b));
         const gaps: WidthSpan[] = [];
@@ -958,7 +945,7 @@ function rigidShellCoverage(
           const last = ((a < b ? hi : lo) - a) / (b - a);
           gaps.push({ t0: Math.max(0, first), t1: Math.min(1, last), width });
         }
-        byMember.set(id, { gaps: gaps.sort((a, b) => a.t0 - b.t0), runGaps });
+        byMember.set(id, { gaps: gaps.sort((a, b) => a.t0 - b.t0), runGaps: gapSpans });
       }
     } else if (coverage !== 'none' || gapSpans) {
       for (const id of ids) byMember.set(id, coverage === 'none' ? 'partial' : coverage);

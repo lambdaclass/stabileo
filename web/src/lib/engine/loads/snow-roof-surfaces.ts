@@ -6,6 +6,8 @@ import { UNBALANCED_WIDTH_LIMIT } from '../../codes/cirsoc104/snow';
 import { MAX_ADJACENT_ROOF_SEPARATION } from '../../codes/cirsoc104/drift';
 import { roundoff } from '../accounting-math';
 import { footprintIntersection } from './gravity-shell-partition';
+import { EngineMessageError, msg } from '../../codes/message';
+import type { Polygon } from 'polygon-clipping';
 
 type P2 = [number, number];
 type Point = { x: number; y: number; z?: number };
@@ -229,6 +231,8 @@ export interface RoofGeometry {
 
 
 const PANEL_ELEVATION_TOL = 0.05;
+export const SNOW_EDGE_COINCIDENCE = 0.01;
+export const STEP_DRIFT_REFUSAL = 'snow.refused.stepDriftTransfer';
 
 export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
   const exposed = roofMembers(model);
@@ -363,7 +367,8 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
       const m = roof.find(r => r.id === id)!;
       return segmentAbovePanel(m.a, m.b, p.polygon, p.z);
     }));
-    return { resolved, planes: eligible, planeAt: at, slope: at(centre)?.slope ?? 0, slopeAt: (pt: P2) => at(pt)?.slope ?? 0, elevation: (pt: P2) => at(pt)?.elevation(pt) ?? (datum ? Z(datum) : p?.z ?? 0) };
+    const datumZ = datum ? Z(datum) : p?.z ?? 0;
+    return { resolved, datumZ, planes: eligible, planeAt: at, slope: at(centre)?.slope ?? 0, slopeAt: (pt: P2) => at(pt)?.slope ?? 0, elevation: (pt: P2) => at(pt)?.elevation(pt) ?? datumZ };
   };
   const cache = new WeakMap<GravityLayout, Map<number, ReturnType<typeof readPanel>>>();
   const panel = (index: number, layout?: GravityLayout) => {
@@ -669,16 +674,17 @@ export function snowEdgeRoundoff([x, y]: P2, ...points: P2[]): number {
 function clearRoofGap(
   roofs: SnowRoofComponent[], lo: number, hi: number,
   point: (t: number) => P2, upperPoint: (t: number) => P2, station: (point: P2) => number, error: number,
+  obstructs: (roof: SnowRoofComponent, part: Polygon, from: number, to: number) => boolean,
 ): [number, number][] {
   const a = point(lo), b = point(hi), c = upperPoint(hi), d = upperPoint(lo);
   const width = Math.hypot(d[0] - a[0], d[1] - a[1]);
   const inset = Math.min(error / width, 0.25);
   const inside = ([x, y]: P2, [tx, ty]: P2): P2 => [x + (tx - x) * inset, y + (ty - y) * inset];
   const corridor = [[inside(a, d), inside(b, c), inside(c, b), inside(d, a)]];
-  const blocked = roofs.flatMap(roof => footprintIntersection(corridor, [roof.polygon, ...roof.holes]).flatMap(([ring]) => {
-    if (!ring) return [];
-    const stations = ring.map(station);
-    return [[Math.min(...stations), Math.max(...stations)] as [number, number]];
+  const blocked = roofs.flatMap(roof => footprintIntersection(corridor, [roof.polygon, ...roof.holes]).flatMap(part => {
+    const stations = part[0]!.map(station);
+    const from = Math.max(lo, Math.min(...stations)), to = Math.min(hi, Math.max(...stations));
+    return to - from > error && obstructs(roof, part, from, to) ? [[from, to] as const] : [];
   })).sort(([a], [b]) => a - b);
   const clear: [number, number][] = [];
   let start = lo;
@@ -694,10 +700,9 @@ type PanelSurface = ReturnType<ReturnType<typeof snowRoofSurfaces>>;
 type EdgeElevation = { point: P2; lowerZ: number; upperZ: number };
 
 function roofEdgeElevations(
-  a: P2, b: P2, offset: P2, layout: GravityLayout, lower: PanelSurface, upper: PanelSurface,
+  a: P2, b: P2, above: (point: P2) => P2, layout: GravityLayout, lower: PanelSurface, upper: PanelSurface,
 ): EdgeElevation[] {
   const point = (t: number): P2 => [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
-  const above = ([x, y]: P2): P2 => [x + offset[0], y + offset[1]];
   const panelOutlines = layout.panels.map(p => p.polygon);
   const level = layout.panels.map(p => [p.z - PANEL_ELEVATION_TOL, p.z - PANEL_ELEVATION_TOL] as const);
   const cuts = new Set<number>();
@@ -733,13 +738,26 @@ function roofEdgeElevations(
   return values;
 }
 
+function roofObstructs(
+  part: Polygon, surface: PanelSurface, receiver: readonly EdgeElevation[],
+): boolean {
+  const elevations = [surface.datumZ, ...surface.planes.flatMap(plane =>
+    footprintIntersection(part, [plane.polygon]).flat(2).map(plane.elevation))];
+  const lowerEdge = receiver.map(({ lowerZ }) => lowerZ);
+  if ([...elevations, ...lowerEdge].every(Number.isFinite)) {
+    if (Math.max(...elevations) < Math.min(...lowerEdge)) return false;
+    if (Math.min(...elevations) >= Math.max(...lowerEdge)) return true;
+  }
+  throw new EngineMessageError(msg(STEP_DRIFT_REFUSAL));
+}
+
 export function snowRoofEdgePairs(
   model: WindModel, layout: GravityLayout, surfaces = snowRoofSurfaces(model, layout), includeAdjacent = true,
 ) {
   const roofs = snowRoofComponents(layout);
   const boundaries = roofs.map(roof => ({ roof, edges: roofEdges(roof) }));
   const pairs: Array<{
-    lower: number; upper: number; a: P2; b: P2; separation: number; upperOffset: P2; inward: P2;
+    lower: number; upper: number; a: P2; b: P2; separation: number; above: (point: P2) => P2; below: (point: P2) => P2; displaced: boolean; inward: P2;
     lowerOutline: P2[]; elevations: EdgeElevation[]; lowerComponent: SnowRoofComponent; upperComponent: SnowRoofComponent;
   }> = [];
   for (const { roof: L, edges: lowerEdges } of boundaries) for (const { roof: U, edges: upperEdges } of boundaries) {
@@ -752,25 +770,40 @@ export function snowRoofEdgePairs(
       for (const { a: c, b: d, inward: upperInward } of upperEdges) {
         const error = snowEdgeRoundoff(a, b, c, d);
         const nc = normal(c), nd = normal(d);
-        const coincident = Math.abs(nc) <= error && Math.abs(nd) <= error;
-        const separation = coincident ? 0 : -(nc + nd) / 2;
-        if (!coincident && (!includeAdjacent || separation <= error || separation >= MAX_ADJACENT_ROOF_SEPARATION ||
-          Math.abs(nc - nd) > error || inward[0] * upperInward[0] + inward[1] * upperInward[1] >= 0)) continue;
-        const lo = Math.max(0, Math.min(along(c), along(d))), hi = Math.min(len, Math.max(along(c), along(d)));
+        const tc = along(c), td = along(d);
+        const lo = Math.max(0, Math.min(tc, td)), hi = Math.min(len, Math.max(tc, td));
         if (hi - lo <= 0.1) continue;
-        const upperOffset: P2 = [-separation * inward[0], -separation * inward[1]];
-        const upperPoint = (t: number): P2 => {
-          const [x, y] = point(t);
-          return [x + upperOffset[0], y + upperOffset[1]];
+        const opposed = inward[0] * upperInward[0] + inward[1] * upperInward[1] < 0;
+        const parallel = Math.abs(nc - nd) <= error;
+        const gap = -(nc + nd) / 2;
+        const open = opposed && parallel && gap > error;
+        const exact = Math.abs(nc) <= error && Math.abs(nd) <= error;
+        const coincident = exact || (opposed && !open && Math.max(Math.abs(nc), Math.abs(nd)) <= SNOW_EDGE_COINCIDENCE);
+        if (!coincident && !(includeAdjacent && open && gap < MAX_ADJACENT_ROOF_SEPARATION)) continue;
+        const separation = coincident ? 0 : gap;
+        const displaced = !exact;
+        const offset = (t: number) => open ? -gap : displaced ? nc + (nd - nc) * (t - tc) / (td - tc) : 0;
+        const move = ([x, y]: P2, sign: number): P2 => {
+          const distance = sign * offset(along([x, y]));
+          return [x + distance * inward[0], y + distance * inward[1]];
         };
-        const spans = coincident ? [[lo, hi] as const] : clearRoofGap(roofs, lo, hi, point, upperPoint, along, error);
+        const above = (pt: P2) => move(pt, 1), below = (pt: P2) => move(pt, -1);
+        const lowSurface = surfaces(lower), highSurface = surfaces(upper);
+        const elevationsFor = (from: number, to: number) => roofEdgeElevations(point(from), point(to), above, layout, lowSurface, highSurface);
+        const fullElevations = elevationsFor(lo, hi);
+        const rises = (values: EdgeElevation[]) => values.some(({ lowerZ, upperZ }) => upperZ - lowerZ > 1e-8);
+        if (!rises(fullElevations)) continue;
+        const spans = separation === 0 ? [[lo, hi] as const] : clearRoofGap(
+          roofs, lo, hi, point, t => above(point(t)), along, error,
+          (roof, part, from, to) => roofObstructs(part, surfaces(roof.k), elevationsFor(from, to)),
+        );
         for (const [from, to] of spans) {
           if (to - from <= 0.1) continue;
           const start = point(from), end = point(to);
-          const elevations = roofEdgeElevations(start, end, upperOffset, layout, surfaces(lower), surfaces(upper));
-          if (!elevations.some(({ lowerZ, upperZ }) => upperZ - lowerZ > 1e-8)) continue;
+          const elevations = from === lo && to === hi ? fullElevations : elevationsFor(from, to);
+          if (!rises(elevations)) continue;
           pairs.push({
-            lower, upper, a: start, b: end, separation, upperOffset, inward,
+            lower, upper, a: start, b: end, separation, above, below, displaced, inward,
             lowerOutline, elevations, lowerComponent: L, upperComponent: U,
           });
         }

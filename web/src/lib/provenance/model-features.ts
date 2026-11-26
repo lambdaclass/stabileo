@@ -794,11 +794,12 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   }
   if (unverifiedSeismicLoads(s).length > 0) f.add(UNVERIFIED_SEISMIC_FEATURE);
   const hasShellGravity = shellGravity || ['shellLevel', 'slopedShells', 'partlyUnderShells'].some(kind => loadNoteKeys.has(`loadPlan.gravity.${kind}`));
-  if (hasShellGravity || (gravityMode === 'panels' && memberGravity && quads.length > 0)) f.add('generatedPanelGravityShells');
+  const hasShellGeometry = quads.length > 0 || values(s.plates).length > 0;
+  if (hasShellGravity || (gravityMode === 'panels' && memberGravity && hasShellGeometry)) f.add('generatedPanelGravityShells');
   const inferredPanelMode = hasShellGravity || loadNoteKeys.has('loadPlan.gravity.panels') || loadNoteKeys.has('loadPlan.gravity.width');
   if (gravityMode !== 'width' && (hasShellGravity || (memberGravity && (gravityMode === 'panels' || inferredPanelMode)))) f.add('generatedPanelGravity');
   const widthMode = gravityMode === 'width' || (gravityMode !== 'panels' && !inferredPanelMode);
-  if (!widthMode && f.has('generatedPanelGravityShells') && quads.length && elements.length) {
+  if (!widthMode && f.has('generatedPanelGravityShells') && hasShellGeometry && elements.length) {
     const geometry = plateAnalysisModel(s);
     if (hasBoundedRafterGap({
       nodes: new Map([...geometry.nodes].map(([id, node]) => [id, { id, ...node }])),
@@ -806,6 +807,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
         id: element.id, nodeI: element.nodeI, nodeJ: element.nodeJ, type: element.type === 'truss' ? 'truss' : 'frame',
       }])),
       quads: new Map([...geometry.quads ?? []].map(([id, shell]) => [id, { id, nodes: [...shell.nodes] }])),
+      plates: new Map([...geometry.plates ?? []].map(([id, shell]) => [id, { id, nodes: [...shell.nodes] }])),
       supports: geometrySupports(s), constraints: roofAttachmentConstraints(s),
     })) f.add('roofShellFrameLinks');
   }

@@ -47,15 +47,16 @@ export function offsetRoof(offset: number, angle = 0, mirror = 1, subdivide = fa
   return { model, stations, rafter };
 }
 
-export function doubleAttachedRoof(subdivide: boolean, secondGap: readonly [number, number] = [4, 6]) {
-  const { model, rafter } = offsetRoof(0.04, 0, 1, subdivide, [4, 6], 3, 5);
-  const { model: second } = offsetRoof(0.04, 0, 1, subdivide, secondGap, 3, 5);
+export function doubleAttachedRoof(subdivide: boolean, secondGap: readonly [number, number] = [4, 6], stacked = false) {
+  const [edgeWidth, endWidth] = stacked ? [3, 5] : [1.5, 6.5];
+  const { model, rafter } = offsetRoof(0.04, 0, 1, subdivide, [4, 6], edgeWidth, endWidth);
+  const { model: second } = offsetRoof(0.04, 0, stacked ? 1 : -1, subdivide, secondGap, edgeWidth, endWidth);
   const start = model.nodes.size;
   for (const { nodes, ...quad } of second.quads.values()) {
     for (const nodeId of nodes) {
       const id = start + nodeId;
       const node = second.nodes.get(nodeId)!;
-      model.nodes.set(id, { ...node, id, z: node.z! - 0.08 });
+      model.nodes.set(id, { ...node, id, z: node.z! - (stacked ? 0.08 : 0) });
     }
     const id = model.quads.size + 1;
     model.quads.set(id, { ...quad, id, nodes: nodes.map(nodeId => start + nodeId) });
@@ -64,6 +65,14 @@ export function doubleAttachedRoof(subdivide: boolean, secondGap: readonly [numb
     ...link, masterNode: index === 0 ? rafter[0]! : rafter.at(-1)!, slaveNode: start + link.masterNode,
   }));
   return model;
+}
+
+export function triangulateRoof<T extends ReturnType<typeof offsetRoof>['model']>(model: T) {
+  const plates = new Map([...model.quads.values()].flatMap(({ id, nodes: [a, b, c, d], ...shell }) => [
+    [2 * id - 1, { ...shell, id: 2 * id - 1, nodes: [a!, b!, c!] }],
+    [2 * id, { ...shell, id: 2 * id, nodes: [a!, c!, d!] }],
+  ] as const));
+  return { ...model, quads: new Map<number, never>(), plates };
 }
 
 export function roofPlan(model: LoadModelData, mode: 'panels' | 'width' = 'panels') {

@@ -1,0 +1,35 @@
+{
+  "id": "snow-roof-edge-matching-and-obstruction",
+  "date": "2026-11-26",
+  "prs": [2607],
+  "area": "loads",
+  "when": {
+    "all": ["space3D", "snow", "generatedLoads", "frameMembers"]
+  },
+  "quantities": ["*", "solve.ok"],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Use physical roof edges and elevations for snow drift",
+    "es": "Usar los bordes y cotas reales para la acumulación de nieve",
+    "pt": "Usar bordas e cotas reais para a acumulação de neve",
+    "de": "Tatsächliche Dachkanten und Höhen für Schneeverwehungen verwenden",
+    "fr": "Utiliser les rives et altitudes réelles pour les congères",
+    "tr": "Kar birikimi için gerçek çatı kenarlarını ve kotlarını kullan",
+    "zh": "根据实际屋面边缘和标高计算积雪漂移",
+    "hu": "A tényleges tetőélek és magasságok használata hótorlasznál"
+  },
+  "explanation": {
+    "en": "Regenerate affected snow loads. Near-coincident edges can form a step or join same-level panels. An intervening roof below the receiver leaves the drift path clear.",
+    "es": "Regenerá las cargas de nieve afectadas. Bordes casi coincidentes pueden formar un desnivel o unir paños al mismo nivel. Una cubierta intermedia por debajo de la receptora deja libre el paso.",
+    "pt": "Gere novamente as cargas de neve afetadas. Bordas quase coincidentes podem formar um desnível ou unir painéis no mesmo nível. Uma cobertura intermediária abaixo da receptora deixa o caminho livre.",
+    "de": "Erzeugen Sie die betroffenen Schneelasten neu. Nahezu deckungsgleiche Kanten können eine Dachstufe bilden oder gleich hohe Felder verbinden. Ein dazwischenliegendes Dach unterhalb des Lastempfängers lässt den Verwehungsweg frei.",
+    "fr": "Régénérez les charges de neige concernées. Des rives presque jointives peuvent former un décrochement ou relier des panneaux de même niveau. Une toiture intermédiaire sous le plan récepteur laisse le passage libre.",
+    "tr": "Etkilenen kar yüklerini yeniden oluşturun. Birbirine çok yakın kenarlar kot farkı oluşturabilir veya aynı seviyedeki panelleri birleştirebilir. Alıcıdan aşağıda kalan bir ara çatı kar taşınımını engellemez.",
+    "zh": "请重新生成受影响的雪荷载。近似重合的边缘可形成屋面高差或连接同高板格。低于接收屋面的中间屋面不会阻挡积雪漂移。",
+    "hu": "Generálja újra az érintett hóterheket. A közel egybeeső élek tetőlépcsőt alkothatnak vagy azonos szintű mezőket kapcsolhatnak össze. A fogadó tetőnél alacsonyabb közbenső tető szabadon hagyja a hó útját."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gap-decks-and-snow-edges.md",
+    "heading": "Use physical roof edges and elevations for snow drift"
+  }
+}

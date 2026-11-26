@@ -3,7 +3,7 @@ import { buildLoadPlan, roofWeightFor, roofWeightOf } from '../load-plan';
 import { gravityLayout } from '../plan-gravity';
 import { planAreaLoads } from '../plan-area-loads';
 import { snowDriftRefusal } from '../snow-drift-loads';
-import { doubleAttachedRoof, offsetRoof, roofPlan } from './gravity-offset-roof-fixture';
+import { doubleAttachedRoof, offsetRoof, roofPlan, triangulateRoof } from './gravity-offset-roof-fixture';
 import { input } from './gravity-width-mass-fixture';
 
 const options = { mode: 'panels', tributaryWidth: 3 } as const;
@@ -307,13 +307,11 @@ it('#2607 a cover crossing the rafter only shelters part of its certified gap fo
     }
   }
 });
-
-const review2607 = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
-
-review2607.each([false, true])('known wrong result: #2607 — distinct attached decks refuse a single gap transfer (split %s)', split => {
+it.each([[false, false], [true, false], [false, true], [true, true]] as const)('#2607 distinct attached decks refuse a single gap transfer (split %s, triangles %s)', (split, triangles) => {
   const reason = { key: 'loadPlan.gravity.unresolvedMember', params: { id: 1 } };
   for (const reverse of [false, true]) {
-    const model = doubleAttachedRoof(split);
+    const quads = doubleAttachedRoof(split, [4, 6], true);
+    const model = triangles ? triangulateRoof(quads) : quads;
     if (reverse) model.constraints.reverse();
     expect.soft(roofPlan(model)).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [reason], distributed: [], surface: [] });
     expect.soft(() => gravityLayout(model, { ...options, uniformPressure: true })).toThrow(expect.objectContaining(reason));
@@ -323,15 +321,16 @@ review2607.each([false, true])('known wrong result: #2607 — distinct attached 
   }
 });
 
-review2607.each([false, true])('known wrong result: #2607 — gap exposure uses the attached plane (split %s)', split => {
+it.each([[false, false], [true, false], [false, true], [true, true]] as const)('#2607 gap exposure uses the attached plane (split %s, triangles %s)', (split, triangles) => {
   for (const [rise, width, sheltered] of [[-0.02, 4, false], [0.03, 4, false], [0.03, 2, false], [0.07, 4, true]] as const) {
-    const { model } = offsetRoof(0.04, 0, 1, split, [4, 6]);
+    const { model: quads } = offsetRoof(0.04, 0, 1, split, [4, 6]);
     const nodes = [[4, 0], [6, 0], [6, width], [4, width]].map(([x, y]) => {
-      const id = model.nodes.size + 1;
-      model.nodes.set(id, { id, x: x!, y: y!, z: 3 + x! / 5 + rise });
+      const id = quads.nodes.size + 1;
+      quads.nodes.set(id, { id, x: x!, y: y!, z: 3 + x! / 5 + rise });
       return id;
     });
-    model.quads.set(3, { id: 3, nodes, materialId: 1, thickness: 0.1 });
+    quads.quads.set(3, { id: 3, nodes, materialId: 1, thickness: 0.1 });
+    const model = triangles ? triangulateRoof(quads) : quads;
     expect.soft(() => roofWeightFor(model, options, options.tributaryWidth, 1)).not.toThrow();
     expect.soft(() => snowDriftRefusal(model)).not.toThrow();
     expect.soft(roofPlan(model).outcome).toBe('READY');
@@ -343,6 +342,12 @@ review2607.each([false, true])('known wrong result: #2607 — gap exposure uses 
       floor: { dead: 1, lo: 2, liveOf: () => 2 },
       roof: { use: 'occupancy', weight: 'heavy', dead: 1, slopePercent: 20, lo: 3, liveOf: () => 3 },
     }).distributed.filter(row => row.caseType === 'L');
-    expect.soft(distributed, `rise ${rise}`).toEqual([expect.objectContaining({ elementId, q: -4 * (sheltered ? 2 : 3) })]);
+    const developed = Math.hypot(10, 2) / 10;
+    const expected = { elementId, q: -4 * (sheltered ? 2 : 3) };
+    expect.soft(distributed, `rise ${rise}`).toEqual([expect.objectContaining(expected)]);
+    if (distributed.length === 1) {
+      expect.soft(distributed[0]!.a ?? 0).toBeCloseTo(split ? 0 : 4 * developed, 10);
+      expect.soft(distributed[0]!.b ?? 2 * developed).toBeCloseTo((split ? 2 : 6) * developed, 10);
+    }
   }
 });
