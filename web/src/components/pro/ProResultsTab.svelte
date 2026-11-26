@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../../lib/engine/member-diagram';
+  import { unavailableDiagramExtrema } from '../../lib/engine/member-diagram';
+  import { engineGuarded } from '../../lib/store/engine-action';
   import { memberEndDisplay3D } from '../../lib/engine/diagrams-3d';
   import { resultComponents } from '../../lib/axes/result-components';
   import { axesStore } from '../../lib/axes/axes.svelte';
@@ -223,21 +224,18 @@
   });
 
   const isEnvelopeView = $derived(resultsStore.activeView === 'envelope');
-  const activeRows = $derived.by(() => {
-    if (!results || !queryComponent) return [];
+  const query = $derived(engineGuarded(() => {
+    if (!queryComponent) return [];
     const envelope = isEnvelopeView ? resultsStore.fullEnvelope3D : undefined;
-    if (envelope === null) return null;
-    try {
-      return buildQueryRows(results.elementForces, queryComponent, { elementIds: scopeIds, envelope });
-    } catch (error) {
-      if (error instanceof Error && error.message === DIAGRAM_EXTREMA_UNAVAILABLE) return null;
-      throw error;
-    }
-  });
-  const filteredRows = $derived(filterByAbsThreshold(activeRows ?? [], queryThreshold));
+    if (envelope === null) throw unavailableDiagramExtrema();
+    if (!results) return [];
+    const rows = buildQueryRows(results.elementForces, queryComponent, { elementIds: scopeIds, envelope });
+    return filterByAbsThreshold(rows, queryThreshold);
+  }));
+  const filteredRows = $derived(query.value);
   const MAX_RENDER_ROWS = 500;
-  const renderRows = $derived(filteredRows.length > MAX_RENDER_ROWS ? filteredRows.slice(0, MAX_RENDER_ROWS) : filteredRows);
-  const activeExtreme = $derived(extremeRow(filteredRows, queryMode));
+  const renderRows = $derived(filteredRows?.slice(0, MAX_RENDER_ROWS));
+  const activeExtreme = $derived(filteredRows && extremeRow(filteredRows, queryMode));
 
   // Single source descriptor derived from resultsStore.activeView (the source
   // of truth for what results3D holds). Both the on-screen label and the CSV
@@ -261,10 +259,10 @@
 
   /** What the queried component is, for the threshold, the card and the rows in the display units. */
   const queryQty = $derived<'force' | 'moment'>(queryComponent === 'N' || queryComponent === 'Vy' || queryComponent === 'Vz' ? 'force' : 'moment');
-  const exportCount = $derived(filteredRows.length);
+  const exportCount = $derived(filteredRows?.length ?? 0);
 
   // Element ids the current query resolves to (for viewport highlight).
-  const queryElementIds = $derived(filteredRows.map((r) => r.elementId));
+  const queryElementIds = $derived(filteredRows?.map((r) => r.elementId) ?? []);
 
   function sameSet(a: Set<number>, b: Iterable<number>): boolean {
     const bs = b instanceof Set ? b : new Set(b);
@@ -323,7 +321,13 @@
   }));
 
   function exportQueryCsv() {
-    const csv = rowsToCsv(filteredRows, exportMeta);
+    const { value, error } = query;
+    if (error !== null) {
+      uiStore.toast(error, 'error');
+      return;
+    }
+    if (!value.length) return;
+    const csv = rowsToCsv(value, exportMeta);
     void downloadResultText(csv, `stabileo-query-${queryComponent}-${exportMeta.sourceKind}.csv`, 'text/csv;charset=utf-8;');
   }
 
@@ -730,14 +734,14 @@
                 <span class="pqc-val">{queryComponent} = {fmtQ(activeExtreme.value, queryQty)} {unitQ(queryQty)}</span>
                 <span class="pqc-meta">{t('pro.elemLabel')} {activeExtreme.elementId} · {t('pro.queryEnd')} {activeExtreme.end} · {activeSourceLabel}</span>
               </div>
-            {:else if activeRows === null}
-              <div class="pro-query-empty" role="status">{t(DIAGRAM_EXTREMA_UNAVAILABLE)}</div>
+            {:else if query.error !== null}
+              <div id="pro-query-error" class="pro-query-empty" role="status">{query.error}</div>
             {:else}
               <div class="pro-query-empty">{t('pro.queryNoRows')}</div>
             {/if}
 
             <!-- Rows table -->
-            {#if filteredRows.length}
+            {#if filteredRows?.length}
               <div class="pro-query-rowcount">{t('pro.queryRowCount').replace('{n}', String(filteredRows.length))}</div>
               <div class="pro-res-table-wrap pro-query-tablewrap">
                 <table class="pro-res-table">
@@ -760,7 +764,8 @@
               {/if}
             {/if}
 
-            <button class="pro-query-export" onclick={exportQueryCsv} disabled={!exportCount}>
+            <button class="pro-query-export" onclick={exportQueryCsv} disabled={!exportCount}
+              aria-describedby={query.error === null ? undefined : 'pro-query-error'}>
               {t('pro.queryExportCsv')}
             </button>
             {#if exportCount}

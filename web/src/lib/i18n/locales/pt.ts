@@ -12221,6 +12221,7 @@ const pt: Translations = {
   'calcReport.showingTopDisp': 'Exibindo os 20 nós de maior deslocamento, de {n} no total.',
   'calcReport.atNode': 'no nó {n}',
   'calcReport.forceSummary': 'Resumo de esforços',
+  'calcReport.magnitudeForceSummary': 'Magnitudes máximas dos esforços',
   'calcReport.maxAbsValue': 'Máx. |valor|',
   'calcReport.shearY': 'Cortante Y (Vy)',
   'calcReport.shearZ': 'Cortante Z (Vz)',

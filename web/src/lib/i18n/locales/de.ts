@@ -12040,6 +12040,7 @@ const de: Translations = {
   'calcReport.showingTopDisp': 'Die 20 Knoten mit der größten Verschiebung von insgesamt {n} werden angezeigt.',
   'calcReport.atNode': 'an Knoten {n}',
   'calcReport.forceSummary': 'Schnittgrößenübersicht',
+  'calcReport.magnitudeForceSummary': 'Maximale Schnittgrößenbeträge',
   'calcReport.maxAbsValue': 'Max. |Wert|',
   'calcReport.shearY': 'Querkraft Y (Vy)',
   'calcReport.shearZ': 'Querkraft Z (Vz)',

@@ -12049,6 +12049,7 @@ const tr: Translations = {
   'calcReport.showingTopDisp': 'Yer değiştirme büyüklüğüne göre {n} düğümden ilk 20\'si gösteriliyor.',
   'calcReport.atNode': '{n} numaralı düğümde',
   'calcReport.forceSummary': 'İç kuvvet özeti',
+  'calcReport.magnitudeForceSummary': 'En büyük iç kuvvet büyüklükleri',
   'calcReport.maxAbsValue': 'Maks. |değer|',
   'calcReport.shearY': 'Kesme Y (Vy)',
   'calcReport.shearZ': 'Kesme Z (Vz)',

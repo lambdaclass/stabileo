@@ -12579,6 +12579,7 @@ const en: Record<string, string> = {
   'calcReport.showingTopDisp': 'Showing top 20 of {n} nodes by displacement magnitude.',
   'calcReport.atNode': 'at node {n}',
   'calcReport.forceSummary': 'Force Summary',
+  'calcReport.magnitudeForceSummary': 'Peak Force Magnitudes',
   'calcReport.maxAbsValue': 'Max |Value|',
   'calcReport.shearY': 'Shear Y (Vy)',
   'calcReport.shearZ': 'Shear Z (Vz)',

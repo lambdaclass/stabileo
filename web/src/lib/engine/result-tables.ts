@@ -212,6 +212,13 @@ function beatsCriticalExtreme(sign: 1 | -1, value: number, entity: number, x: nu
 const forceDiagrams: readonly Diagram3DKind[] = ['axial', 'shearY', 'shearZ', 'torsion', 'momentY', 'momentZ'];
 const resultantDiagrams: readonly (readonly [Diagram3DKind, Diagram3DKind])[] = [['shearY', 'shearZ'], ['momentY', 'momentZ']];
 
+function requireSignedEnvelopeMember(member: ElementForces3D, byMember: ReadonlyMap<number, ElementForces3D>): ElementForces3D {
+  const signed = byMember.get(member.elementId);
+  if (!signed || signed.length !== member.length) throw unavailableDiagramExtrema();
+  requireConcurrentSectionForces(signed);
+  return signed;
+}
+
 /** For each column, the largest and the smallest value over every row of every source. */
 export function summaryRows(kind: TableKind, sources: readonly Source[], opts: TableOptions): Array<{ column: Column; max: Extreme | null; min: Extreme | null }> {
   const cols = columnsOf(kind, opts);
@@ -251,9 +258,7 @@ export function summaryRows(kind: TableKind, sources: readonly Source[], opts: T
         const membersByCase = envelopeSourcesByMember(envelope);
         if (!cases || !membersByCase) throw unavailableDiagramExtrema();
         for (const [index, result] of cases.entries()) {
-          const signed = membersByCase[index]!.get(member.elementId);
-          if (!signed || signed.length !== member.length) throw unavailableDiagramExtrema();
-          requireConcurrentSectionForces(signed);
+          const signed = requireSignedEnvelopeMember(member, membersByCase[index]!);
           if (!named!.has(result)) visitMember(signed);
         }
       }
@@ -317,16 +322,40 @@ function requireEnvelopeMemberCoverage(sources: readonly Source[], entities: Tab
   }
 }
 
+function signedForceEnvelopeSources(sources: readonly Source[], entities: TableOptions['entities']): Source[] {
+  let named: Set<AnalysisResults3D> | undefined;
+  return sources.flatMap(source => {
+    const selected = (member: ElementForces3D) => !entities || entities.has(member.elementId);
+    const aggregate = source.results.elementForces.find(member => selected(member) && boundSpatialEnvelope(member));
+    if (!aggregate) return [source];
+    const envelope = boundSpatialEnvelope(aggregate)!;
+    const members = source.results.elementForces.filter(selected);
+    const cases = envelopeQuerySources(envelope);
+    const byMember = envelopeSourcesByMember(envelope);
+    if (!cases || !byMember || members.some(member => boundSpatialEnvelope(member) !== envelope)) throw unavailableDiagramExtrema();
+
+    const constituents = cases.map(results => ({ ...source, results }));
+    requireEnvelopeMemberCoverage([source, ...constituents], entities);
+    for (const [i, result] of cases.entries()) {
+      if (result.magnitude) throw unavailableDiagramExtrema();
+      for (const member of members) requireSignedEnvelopeMember(member, byMember[i]!);
+    }
+    const namedResults = named ??= new Set(sources.map(source => source.results));
+    return constituents.filter(({ results }) => !namedResults.has(results));
+  });
+}
+
 /** For each node or member end (or station), the largest and smallest value of each column over the sources. */
 export function envelopeRows(kind: TableKind, sources: readonly Source[], opts: TableOptions): EnvelopeRow[] {
   const eligible = extremaResultSources(sources, opts.signedOnly);
-  if (kind === 'forces') requireEnvelopeMemberCoverage(eligible, opts.entities);
+  const cases = kind === 'forces' && !opts.resultant ? signedForceEnvelopeSources(eligible, opts.entities) : eligible;
+  if (kind === 'forces') requireEnvelopeMemberCoverage(cases, opts.entities);
   const byKey = new Map<number | string, EnvelopeRow>();
   const critical = opts.stations === 'critical';
   const spec = opts.stations ?? 2;
   const atStations = kind === 'forces' && !usesMemberEnds(spec);
-  const sharedStations = kind === 'forces' && critical ? criticalEnvelopeStations(eligible, opts) : undefined;
-  for (const source of eligible) {
+  const sharedStations = kind === 'forces' && critical ? criticalEnvelopeStations(cases, opts) : undefined;
+  for (const source of cases) {
     eachRow(kind, source.results, opts, (entity, end, x, values, side) => {
       const key = atStations || end === 'j' ? `${entity}:${end ?? ''}:${(critical ? x : x?.toFixed(6)) ?? ''}:${side ?? ''}` : entity;
       const row = byKey.get(key);

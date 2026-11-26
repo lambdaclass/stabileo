@@ -12140,6 +12140,7 @@ const zh: Translations = {
   "calcReport.showingTopDisp": "按位移大小显示 {n} 个节点中的前 20 个。",
   "calcReport.atNode": "在节点 {n}",
   "calcReport.forceSummary": "内力汇总",
+  "calcReport.magnitudeForceSummary": "内力峰值幅值",
   "calcReport.maxAbsValue": "最大 |值|",
   "calcReport.shearY": "剪力 Y (Vy)",
   "calcReport.shearZ": "剪力 Z (Vz)",

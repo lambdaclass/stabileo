@@ -12040,6 +12040,7 @@ const fr: Translations = {
   'calcReport.showingTopDisp': 'Affichage des 20 premiers nœuds sur {n} par amplitude de déplacement.',
   'calcReport.atNode': 'au nœud {n}',
   'calcReport.forceSummary': 'Synthèse des efforts',
+  'calcReport.magnitudeForceSummary': 'Valeurs absolues maximales des efforts',
   'calcReport.maxAbsValue': 'Max |valeur|',
   'calcReport.shearY': 'Effort tranchant Y (Vy)',
   'calcReport.shearZ': 'Effort tranchant Z (Vz)',

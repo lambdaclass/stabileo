@@ -702,7 +702,7 @@ describe('spatial cantilever end queries', () => {
     }
   });
 
-  it.skip('known wrong result: #2581 envelopes the signed +10 and -8 spatial case forces', () => {
+  it('known wrong result: #2581 envelopes the signed +10 and -8 spatial case forces', () => {
     const loadId = modelStore.addLoadEntry({
       type: 'nodal3d', data: { id: 1, nodeId: tip, fx: 10, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 },
     });
@@ -811,7 +811,18 @@ describe('spatial cantilever end queries', () => {
   });
 
   const tipLoad = 10;
+  function expectSignedEndTable(envelope: NonNullable<ReturnType<typeof computeEnvelope3D>>, min: number, max: number) {
+    const aggregate = { id: 3, name: 'Envelope', results: envelope.maxAbsResults3D };
+    const rows = envelopeRows('forces', [aggregate], canonical);
+    expect(rows.map(row => row.end)).toEqual(['i', 'j']);
+    for (const row of rows) {
+      expect(row.min[2]?.value).toBeCloseTo(min, 12);
+      expect(row.max[2]?.value).toBeCloseTo(max, 12);
+    }
+  }
+
   function expectFactoredTipShears(envelope: NonNullable<ReturnType<typeof computeEnvelope3D>>) {
+    expectSignedEndTable(envelope, tipLoad, 2 * tipLoad);
     const rows = buildQueryRows(envelope.maxAbsResults3D.elementForces, 'Vz', { envelope });
     for (const end of ['i', 'j']) {
       const at = rows.filter(row => row.end === end);
@@ -889,6 +900,7 @@ describe('spatial cantilever end queries', () => {
     const checkEnds = () => {
       const active = resultsStore.fullEnvelope3D!;
       expect(active.maxAbsResults3D.elementForces.map(force => force.elementId)).toEqual([elementId]);
+      expectSignedEndTable(active, values[0]!, values[1]!);
       const rows = buildQueryRows(resultsStore.results3D!.elementForces, 'Vz', { envelope: active });
       for (const end of ['i', 'j']) {
         const at = rows.filter(row => row.end === end);
@@ -908,6 +920,7 @@ describe('spatial cantilever end queries', () => {
     });
     for (const collapsed of [[...resultsStore.perCase3D.values()], nonlinear]) {
       const direct = computeEnvelope3D(collapsed)!;
+      expectSignedEndTable(direct, values[0]!, values[1]!);
       const member = direct.maxAbsResults3D.elementForces[0]!;
       expect(member.pieces).toHaveLength(2);
       for (const end of memberEndForces3D(member, 'shearZ')) expect(end).toBeCloseTo(values[1]!, 12);

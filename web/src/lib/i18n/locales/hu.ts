@@ -11684,6 +11684,7 @@ const hu: Translations = {
   "calcReport.showingTopDisp": "A {n} csomópontból az elmozdulás nagysága szerinti első 20 látható.",
   "calcReport.atNode": "a(z) {n} csomópontnál",
   "calcReport.forceSummary": "Erők összefoglalója",
+  "calcReport.magnitudeForceSummary": "Az igénybevételek legnagyobb abszolút értékei",
   "calcReport.maxAbsValue": "Max |érték|",
   "calcReport.shearY": "Nyíróerő Y (Vy)",
   "calcReport.shearZ": "Nyíróerő Z (Vz)",

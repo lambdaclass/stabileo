@@ -1,0 +1,43 @@
+{
+  "id": "spatial-force-reports",
+  "date": "2026-11-26",
+  "prs": [
+    2581
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "members",
+      "combinations"
+    ]
+  },
+  "quantities": [
+    "diagrams",
+    "envelope"
+  ],
+  "title": {
+    "en": "Magnitude peaks and signed spatial force tables",
+    "es": "Picos de magnitud y tablas de esfuerzos espaciales con signo",
+    "pt": "Picos de magnitude e tabelas de esforços espaciais com sinal",
+    "de": "Betragsspitzen und vorzeichenbehaftete räumliche Schnittgrößentabellen",
+    "fr": "Pics en valeur absolue et tableaux des efforts spatiaux signés",
+    "tr": "Büyüklük tepe değerleri ve işaretli uzaysal iç kuvvet tabloları",
+    "zh": "幅值峰值和带符号的空间内力表",
+    "hu": "Abszolút csúcsértékek és előjeles térbeli igénybevételi táblázatok"
+  },
+  "explanation": {
+    "en": "3D calculation reports show exact SRSS and ABS peaks or mark them unavailable. Spatial force tables recover signed bounds from the solved cases of the envelope.",
+    "es": "Los informes de cálculo 3D muestran los picos exactos de SRSS y ABS o los marcan como no disponibles. Las tablas de esfuerzos espaciales recuperan los límites con signo de los casos resueltos de la envolvente.",
+    "pt": "Os relatórios de cálculo 3D mostram os picos exatos de SRSS e ABS ou indicam que estão indisponíveis. As tabelas de esforços espaciais recuperam os limites com sinal dos casos resolvidos da envoltória.",
+    "de": "3D-Berechnungsberichte zeigen exakte SRSS- und ABS-Spitzenwerte oder kennzeichnen sie als nicht verfügbar. Räumliche Schnittgrößentabellen ermitteln vorzeichenbehaftete Grenzen aus den berechneten Lastfällen der Einhüllenden.",
+    "fr": "Les rapports de calcul 3D affichent les pics exacts de SRSS et d’ABS ou les indiquent comme indisponibles. Les tableaux des efforts spatiaux retrouvent les bornes signées à partir des cas résolus de l’enveloppe.",
+    "tr": "3B hesap raporları kesin SRSS ve ABS tepe değerlerini gösterir veya bunları kullanılamaz olarak işaretler. Uzaysal iç kuvvet tabloları, zarfın çözülmüş yük durumlarından işaretli sınırları elde eder.",
+    "zh": "三维计算报告显示精确的 SRSS 和 ABS 峰值，或将其标记为不可用。空间内力表从包络的已求解工况中获取带符号的上下限。",
+    "hu": "A 3D számítási jelentések megadják a pontos SRSS- és ABS-csúcsértékeket, vagy jelzik, hogy nem állnak rendelkezésre. A térbeli igénybevételi táblázatok a burkoló megoldott tehereseteiből számítják az előjeles határértékeket."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-spatial-force-reports.md",
+    "heading": "Magnitude peaks and signed spatial force tables"
+  }
+}

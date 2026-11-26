@@ -476,7 +476,7 @@ describe('magnitude exports and signed consumers #2581', () => {
     expect(magnitudeSummary).not.toContain(t('excel.equilibriumCheck'));
   });
 
-  it.skip.each([
+  it.each([
     ['srss', false], ['abs', false], ['srss', true], ['abs', true],
   ] as const)('known wrong result: #2581 the default 3D report shows %s force peaks (P-Delta: %s)', (method, pdelta) => {
     const { signedSource, magnitudeSource } = solvedPortal(method, pdelta);

@@ -12568,6 +12568,7 @@ const es: Record<string, string> = {
   'calcReport.showingTopDisp': 'Se muestran los 20 nodos de mayor desplazamiento, de {n} en total.',
   'calcReport.atNode': 'en el nodo {n}',
   'calcReport.forceSummary': 'Resumen de esfuerzos',
+  'calcReport.magnitudeForceSummary': 'Magnitudes máximas de los esfuerzos',
   'calcReport.maxAbsValue': 'Máx. |valor|',
   'calcReport.shearY': 'Corte Y (Vy)',
   'calcReport.shearZ': 'Corte Z (Vz)',

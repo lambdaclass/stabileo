@@ -1,5 +1,6 @@
-import { bindMemberEnvelopeEnds, unavailableDiagramExtrema } from './member-diagram';
+import { bindMemberEnvelopeEnds, DIAGRAM_EXTREMA_UNAVAILABLE, unavailableDiagramExtrema } from './member-diagram';
 import { maxMemberForce } from './member-force-extrema';
+import { engineFailureMessage } from './engine-unavailable';
 import { memberEndComponents2D } from './diagrams';
 import { memberEndComponents3D } from './diagrams-3d';
 import { resultComponents } from '../axes/result-components';
@@ -516,27 +517,31 @@ function buildForcesSection(data: CalcReportData, num = '5'): string {
 
   if (data.is3D && data.results3D) {
     const forces = data.results3D.elementForces;
-    if (!data.results3D.magnitude) {
-      const maxN = maxMemberForce(forces, 'axial');
-      const maxVy = maxMemberForce(forces, 'shearY');
-      const maxVz = maxMemberForce(forces, 'shearZ');
-      const maxMx = maxMemberForce(forces, 'torsion');
-      const maxMy = maxMemberForce(forces, 'momentY');
-      const maxMz = maxMemberForce(forces, 'momentZ');
+    const magnitude = data.results3D.magnitude !== undefined;
+    const components = [
+      ['axial', 'tooltip.diagAxial.title', F, uf],
+      ['shearY', 'calcReport.shearY', F, uf],
+      ['shearZ', 'calcReport.shearZ', F, uf],
+      ['torsion', 'calcReport.torsionMx', M, um],
+      ['momentY', 'calcReport.momentY', M, um],
+      ['momentZ', 'calcReport.momentZ', M, um],
+    ] as const;
 
-      h.push(`<h2>${num}.1 ${t('calcReport.forceSummary')}</h2>`);
-      h.push(`<table><tr><th>${t('report.quantity')}</th><th>${t('calcReport.maxAbsValue')}</th><th>${t('report.unit')}</th></tr>`);
-      h.push(`<tr><td>${t('tooltip.diagAxial.title')}</td><td class="num">${F(maxN)}</td><td>${uf}</td></tr>`);
-      h.push(`<tr><td>${t('calcReport.shearY')}</td><td class="num">${F(maxVy)}</td><td>${uf}</td></tr>`);
-      h.push(`<tr><td>${t('calcReport.shearZ')}</td><td class="num">${F(maxVz)}</td><td>${uf}</td></tr>`);
-      h.push(`<tr><td>${t('calcReport.torsionMx')}</td><td class="num">${M(maxMx)}</td><td>${um}</td></tr>`);
-      h.push(`<tr><td>${t('calcReport.momentY')}</td><td class="num">${M(maxMy)}</td><td>${um}</td></tr>`);
-      h.push(`<tr><td>${t('calcReport.momentZ')}</td><td class="num">${M(maxMz)}</td><td>${um}</td></tr>`);
-      h.push('</table>');
+    h.push(`<h2>${num}.1 ${t(magnitude ? 'calcReport.magnitudeForceSummary' : 'calcReport.forceSummary')}</h2>`);
+    h.push(`<table><tr><th>${t('report.quantity')}</th><th>${t('calcReport.maxAbsValue')}</th><th>${t('report.unit')}</th></tr>`);
+    for (const [kind, label, format, unit] of components) {
+      let value: string;
+      try {
+        value = format(maxMemberForce(forces, kind));
+      } catch (error) {
+        if (!magnitude || engineFailureMessage(error)?.key !== DIAGRAM_EXTREMA_UNAVAILABLE) throw error;
+        value = esc(t(DIAGRAM_EXTREMA_UNAVAILABLE));
+      }
+      h.push(`<tr><td>${t(label)}</td><td class="num">${value}</td><td>${unit}</td></tr>`);
     }
+    h.push('</table>');
 
-    // Per-element table
-    h.push(`<h2>${num}.${data.results3D.magnitude ? 1 : 2} ${t('calcReport.endForces')}</h2>`);
+    h.push(`<h2>${num}.2 ${t('calcReport.endForces')}</h2>`);
     const condensed = forces.length > 40;
     h.push(`<table style="font-size:7.5pt"><tr><th>${t('table.elemLabel')}</th><th>${t('tables.end')}</th><th>N (${uf})</th><th>Vy (${uf})</th><th>Vz (${uf})</th><th>Mx (${um})</th><th>My (${um})</th><th>Mz (${um})</th></tr>`);
     const showForces = condensed ? forces.slice(0, 30) : forces;

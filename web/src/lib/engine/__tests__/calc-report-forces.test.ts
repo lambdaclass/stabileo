@@ -902,7 +902,7 @@ it('known wrong result: #2581 converge every calc report force table requires th
   }
 });
 
-it.skip.each(['srss', 'abs'] as const)('known wrong result: #2581 reports the exact interior %s peak in the default 3D report', method => {
+it.each(['srss', 'abs'] as const)('known wrong result: #2581 reports the exact interior %s peak in the default 3D report', method => {
   const triangular = ef3D({ vzStart: 10, vzEnd: -20, qZJ: -10, distributedLoadsZ: [{ qI: 0, qJ: -10, a: 0, b: 6 }] });
   const member = ef3D({ combined: { method, parts: [triangular, triangular] } });
   const html = report('moment', {
@@ -913,7 +913,7 @@ it.skip.each(['srss', 'abs'] as const)('known wrong result: #2581 reports the ex
   expect(summary.find(row => row[0] === t('calcReport.momentY'))?.[1]).toBe(peak.toFixed(2));
 });
 
-it.skip('known wrong result: #2581 marks every bounded magnitude peak as unavailable', () => {
+it('known wrong result: #2581 marks every bounded magnitude peak as unavailable', () => {
   const leaf = ef3D({ nStart: 5, nEnd: 5 });
   const inner = ef3D({ combined: { method: 'abs', parts: [leaf, leaf] } });
   const member = ef3D({ combined: { method: 'abs', parts: [inner, leaf] } });
