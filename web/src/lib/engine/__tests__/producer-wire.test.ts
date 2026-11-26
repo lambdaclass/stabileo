@@ -120,14 +120,14 @@ it('#2588 permits orphan rotation metadata on generated supports', () => {
   expectSolutions(spatialRoutes(wire));
 });
 
-it.skip('known wrong result: #2588 accepts the planar recovery adapter’s shared shear area row', () => {
+it('#2588 accepts the planar recovery adapter’s shared shear area row', () => {
   const planar = beam();
   const section = { ...planar.sections.get(1)!, asY: 0.01, asZ: 0.01 };
   planar.sections.set(1, section);
   expectSolutions(planarRoutes(input2DToWireObject(planar)));
 });
 
-it.skip('known wrong result: #2588 accepts the spatial design adapters’ concrete and steel section rows', () => {
+it('#2588 accepts the spatial design adapters’ concrete and steel section rows', () => {
   const spatial = space();
   const base = spatial.sections.get(1)!;
   const concrete = { ...base, fc: 30, fy: 420, cover: 0.025, stirrupDia: 8 };

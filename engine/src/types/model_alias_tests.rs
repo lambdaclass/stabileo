@@ -377,10 +377,15 @@ fn producer_wire_metadata_is_accepted_by_native_wire_types() {
         ("name", json!("H25")), ("fc", json!(25)), ("fy", json!(420)),
         ("fu", json!(400)), ("rho", json!(25)),
     ];
-    let section = [("b", json!(0.3)), ("h", json!(0.6)), ("rotation", json!(0))];
+    let section = [
+        ("b", json!(0.3)), ("h", json!(0.6)), ("rotation", json!(0)), ("fc", json!(30)),
+        ("fy", json!(420)), ("cover", json!(0.025)), ("stirrupDia", json!(8)),
+        ("shape", json!("I")), ("tw", json!(0.0071)), ("tf", json!(0.0107)),
+        ("t", json!(null)), ("fabrication", json!("rolled")),
+    ];
     let planar_section = [
         ("name", json!("RC")), ("iy", json!(0.0054)), ("j", json!(0.001)),
-        section[0].clone(), section[1].clone(), section[2].clone(),
+        section[0].clone(), section[1].clone(), section[2].clone(), ("asZ", json!(0.01)),
     ];
     let support = [
         ("id", json!(1)), ("type", json!("fixed")), ("stabilised", json!("created")),

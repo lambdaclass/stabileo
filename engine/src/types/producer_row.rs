@@ -3,10 +3,10 @@ macro_rules! producer_row {
         producer_row!(@row "SolverMaterial", [name, fc, fy, fu, rho], $($record)*);
     };
     (section_2d $($record:tt)*) => {
-        producer_row!(@row "SolverSection", [name, iy, j, b, h, rotation], $($record)*);
+        producer_row!(@row "SolverSection", [name, iy, j, b, h, rotation, as_z], $($record)*);
     };
     (section_3d $($record:tt)*) => {
-        producer_row!(@row "SolverSection3D", [b, h, rotation], $($record)*);
+        producer_row!(@row "SolverSection3D", [b, h, rotation, fc, fy, cover, stirrup_dia, shape, tw, tf, t, fabrication], $($record)*);
     };
     (support_3d $($record:tt)*) => {
         producer_row!(@row "SolverSupport3D", [id, r#type, stabilised, stabilised_axes], $($record)*);
