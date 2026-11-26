@@ -4,9 +4,11 @@
   import { exampleProgress } from '../../lib/store/example-progress.svelte';
 
   const p = $derived(exampleProgress.now);
+  const startedAt = $derived(p?.startedAt);
   let tick = $state(performance.now());
   $effect(() => {
-    if (!p) return;
+    if (startedAt === undefined) return;
+    tick = performance.now();
     const id = setInterval(() => { tick = performance.now(); }, 250);
     return () => clearInterval(id);
   });
