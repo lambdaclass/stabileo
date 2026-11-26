@@ -716,3 +716,35 @@ fn staged_wire_refuses_tables_it_cannot_consume() {
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
+
+#[cfg(test)]
+#[test]
+#[ignore = "known wrong result: #2588"]
+fn issue_2588_3d_staged_wire_refuses_unknown_load_index_field() {
+    use crate::solver::staged::{parse_staged_3d, solve_staged_3d};
+    use serde_json::json;
+
+    let mut wire = json!({
+        "nodes": {"1": {"id": 1, "x": 0, "y": 0, "z": 0}, "2": {"id": 2, "x": 1, "y": 0, "z": 0}},
+        "materials": {"1": {"id": 1, "e": 1, "nu": 0}},
+        "sections": {"1": {"id": 1, "a": 1, "iy": 1, "iz": 1, "j": 1}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+        "supports": {"1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}},
+        "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 1, "fy": 0, "fz": 0, "mx": 0, "my": 0, "mz": 0}}],
+        "stages": [{"name": "Load beam", "elementsAdded": [1], "supportsAdded": [1]}]
+    });
+    let solve = |wire: &serde_json::Value| {
+        let model = parse_staged_3d(&wire.to_string())?;
+        let result = solve_staged_3d(&model)?;
+        Ok::<_, String>(result.final_results.displacements.iter().find(|d| d.node_id == 2).unwrap().ux)
+    };
+
+    assert_eq!(solve(&wire).unwrap(), 0.0);
+    wire["stages"][0]["loadIndices"] = json!([0]);
+    assert!(solve(&wire).unwrap() > 0.0);
+    let stage = wire["stages"][0].as_object_mut().unwrap();
+    let indices = stage.remove("loadIndices").unwrap();
+    stage.insert("loadsIndices".into(), indices);
+    let result = solve(&wire);
+    assert!(matches!(&result, Err(error) if error.contains("unknown field `loadsIndices`")), "{result:?}");
+}

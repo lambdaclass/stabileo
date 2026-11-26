@@ -3212,3 +3212,67 @@ fn issue_2588_empty_rigid_link_mask_3d() {
     assert_eq!(tied, [0.0; 2]);
     assert_eq!(analyze(json!([{"type": "rigidLink", "masterNode": 1, "slaveNode": 2}])), tied);
 }
+
+#[test]
+#[ignore = "known wrong result: #2588"]
+fn issue_2588_exported_default_rigid_link_2d() {
+    use dedaliano_engine::solver::pdelta::solve_pdelta_2d;
+    use serde_json::json;
+
+    let base = make_beam(2, 4.0, E, 0.045, 3.375e-4, "fixed", None, vec![
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 10.0, fz: 0.0, my: 0.0 }),
+    ]);
+    let analyze = |constraints| {
+        let mut wire = serde_json::to_value(&base).unwrap();
+        wire["constraints"] = constraints;
+        let model: SolverInput = serde_json::from_str(&wire.to_string()).unwrap();
+        let linear = solve_2d(&model).unwrap();
+        let nonlinear = solve_pdelta_2d(&model, 20, 1e-8).unwrap();
+        assert!(nonlinear.converged);
+        let ux = |result: &AnalysisResults| result.displacements.iter().find(|d| d.node_id == 3).unwrap().ux;
+        (serde_json::to_value(&model).unwrap()["constraints"].clone(), [ux(&linear), ux(&nonlinear.results)])
+    };
+
+    let untied = analyze(json!([])).1;
+    assert!(untied.iter().all(|&ux| ux > 0.0));
+    assert_eq!(analyze(json!([{"type": "rigidLink", "masterNode": 1, "slaveNode": 3, "dofs": [1]}])).1, untied);
+    let tied = analyze(json!([{"type": "rigidLink", "masterNode": 1, "slaveNode": 3, "dofs": [0, 1, 2]}])).1;
+    assert_eq!(tied, [0.0; 2]);
+
+    let archived = json!([{"type": "rigidLink", "masterNode": 1, "slaveNode": 3, "dofs": []}]);
+    assert_eq!(analyze(archived.clone()), (archived.clone(), tied));
+    assert_eq!(analyze(json!([{"type": "rigidLink", "masterNode": 1, "slaveNode": 3}])), (archived, tied));
+}
+
+#[test]
+#[ignore = "known wrong result: #2588"]
+fn issue_2588_exported_default_rigid_link_3d() {
+    use dedaliano_engine::solver::pdelta::solve_pdelta_3d;
+    use serde_json::json;
+
+    let base = make_3d_beam(2, 4.0, E, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], None, vec![
+        SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: 3, fx: 10.0, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+        }),
+    ]);
+    let analyze = |constraints| {
+        let mut wire = serde_json::to_value(&base).unwrap();
+        wire["constraints"] = constraints;
+        let model: SolverInput3D = serde_json::from_str(&wire.to_string()).unwrap();
+        let linear = solve_3d(&model).unwrap();
+        let nonlinear = solve_pdelta_3d(&model, 20, 1e-8).unwrap();
+        assert!(nonlinear.converged);
+        let ux = |result: &AnalysisResults3D| result.displacements.iter().find(|d| d.node_id == 3).unwrap().ux;
+        (serde_json::to_value(&model).unwrap()["constraints"].clone(), [ux(&linear), ux(&nonlinear.results)])
+    };
+
+    let untied = analyze(json!([])).1;
+    assert!(untied.iter().all(|&ux| ux > 0.0));
+    assert_eq!(analyze(json!([{"type": "rigidLink", "masterNode": 1, "slaveNode": 3, "dofs": [1]}])).1, untied);
+    let tied = analyze(json!([{"type": "rigidLink", "masterNode": 1, "slaveNode": 3, "dofs": [0, 1, 2]}])).1;
+    assert_eq!(tied, [0.0; 2]);
+
+    let archived = json!([{"type": "rigidLink", "masterNode": 1, "slaveNode": 3, "dofs": []}]);
+    assert_eq!(analyze(archived.clone()), (archived.clone(), tied));
+    assert_eq!(analyze(json!([{"type": "rigidLink", "masterNode": 1, "slaveNode": 3}])), (archived, tied));
+}

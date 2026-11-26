@@ -129,6 +129,22 @@ describe('advanced analyses: 3D payloads the engine accepts', () => {
     expect(res.stages[0].stageName).toBe('Etapa 1');
   });
 
+  it.runIf(process.env.REPLAY_2588 === '1')('known wrong result: #2588 — rejects a misspelled staged load-index field', () => {
+    const solver = input3D();
+    const supportNodes = [...new Set([...modelStore.supports.values()].map(s => s.nodeId))];
+    const [stage] = stagedStagesPayload([{
+      name: 'Apply load', elementsAdded: [...modelStore.elements.keys()], elementsRemoved: [],
+      platesAdded: [], platesRemoved: [], quadsAdded: [], quadsRemoved: [], caseIds: [1],
+    }], new Map([[1, [0]]]), supportNodes);
+    const { loadIndices, ...unloaded } = stage;
+    const solve = (row: object) => solveStaged3D({ solver, stages: [row] });
+    const displacements = (row: object): { ux: number; uy: number; uz: number }[] => solve(row).finalResults.displacements;
+
+    expect(displacements(unloaded).every(d => d.ux === 0 && d.uy === 0 && d.uz === 0)).toBe(true);
+    expect(displacements(stage).some(d => d.ux !== 0 || d.uy !== 0 || d.uz !== 0)).toBe(true);
+    expect(() => solve({ ...unloaded, loadsIndices: loadIndices })).toThrow(/unknown field `loadsIndices`/);
+  });
+
   it('creep takes parameters per material and steps keyed on tDays', () => {
     const creepParams: Record<string, unknown> = {};
     for (const [id] of modelStore.materials) {

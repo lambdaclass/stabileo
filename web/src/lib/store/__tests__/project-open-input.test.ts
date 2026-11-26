@@ -353,3 +353,39 @@ it.each(['2d', 'pro'] as const)('preserves an empty rigid-link mask at the %s WA
   }
   expect(analyze(link)).toEqual(tied);
 });
+
+
+const historicalLinkRoutes = ['file', 'v1 share', 'v2 share', 'v2 embed', 'data hash', 'embed hash', 'restore'] as const;
+
+it.runIf(process.env.REPLAY_2588 === '1').each(
+  (['xy', 'xz', 'pro'] as const).flatMap(mode => historicalLinkRoutes.map(route => [mode, route] as const)),
+)('known wrong result: #2588 — %s %s restores the historical empty rigid-link default', async (mode, route) => {
+  await initSolver();
+  const spatial = mode === 'pro';
+  const { root, tip } = frame(spatial ? 'pro' : '2d');
+  modelStore.addElement(tip, modelStore.addNode(10, 0), 'frame');
+  const file = buildProjectFile();
+  if (!spatial) file.snapshot.drawPlane2D = mode;
+  const link = { type: 'rigidLink' as const, masterNode: root, slaveNode: tip };
+  const analyze = async (constraints: typeof file.snapshot.constraints) => {
+    file.snapshot.constraints = constraints;
+    if (route === 'restore') modelStore.restore(file.snapshot);
+    else expect(open(file, route).opened).toBe(true);
+    const linear = spatial ? modelStore.solve3D(false, false, true) : modelStore.solve();
+    const asyncLinear = spatial ? await modelStore.solve3DAsync(false, false, true) : await modelStore.solveAsync();
+    const nonlinear = spatial ? solvePDelta3D(modelStore.buildSolverInput3D()!) : solvePDelta(modelStore.buildSolverInput()!);
+    expect(nonlinear.converged).toBe(true);
+    return [linear, asyncLinear, nonlinear.results].map(result => {
+      if (!result || typeof result === 'string') throw new Error(String(result));
+      return result.displacements.find(d => d.nodeId === tip)!.ux;
+    });
+  };
+
+  const untied = await analyze([]);
+  expect(untied.every(ux => ux > 0)).toBe(true);
+  const translations = await analyze([{ ...link, dofs: [0, 1, 2] }]);
+  expect(translations).toEqual([0, 0, 0]);
+  expect(await analyze([link])).toEqual(translations);
+  expect(await analyze([{ ...link, dofs: [] }])).toEqual(translations);
+  expect(modelStore.model.constraints).toEqual([{ ...link, dofs: [] }]);
+});
