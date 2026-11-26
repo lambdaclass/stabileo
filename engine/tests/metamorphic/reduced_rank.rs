@@ -512,27 +512,7 @@ fn collinear_truss_scatter_cannot_create_transverse_stiffness() {
 
     let mut failures = Vec::new();
     for weak_members in [16, 1024] {
-        let mut model = truss();
-        let chord = 41.0_f64.sqrt();
-        let direction = 4.0 / chord;
-        let area = chord / (direction * direction);
-        model.sections.get_mut("1").unwrap().a = area;
-        let mut weak = model.sections["1"].clone();
-        weak.id = 2;
-        weak.a *= 0.36 * f64::EPSILON;
-        model.sections.insert("2".into(), weak);
-        let tip = model.nodes.get_mut("2").unwrap();
-        (tip.x, tip.z) = (4.0, 5.0);
-        model.supports.remove("2");
-        model.loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 1, fx: 1.0, fz: 0.0, my: 0.0,
-        })];
-        for id in 2..=weak_members + 1 {
-            let mut element = model.elements["1"].clone();
-            element.id = id;
-            element.section_id = 2;
-            model.elements.insert(id.to_string(), element);
-        }
+        let model = weak_parallel_trusses(weak_members);
         let padded = crate::case::pad_2d(&model).0;
         for (sparse, input) in [(false, model), (true, padded)] {
             for restrained in [false, true] {
@@ -678,6 +658,447 @@ fn ssi_released_tip_torque_respects_supported_springs_and_soil_direction_validat
     let answer = solve_ssi_3d(&input).unwrap();
     assert!(answer.converged);
     assert_eq!(answer.results.displacements.iter().find(|d| d.node_id == 2).unwrap().rx, 1.0);
+}
+
+fn weak_parallel_trusses(weak_members: usize) -> SolverInput {
+    let mut input = truss();
+    let length = 41.0_f64.sqrt();
+    let direction = 4.0 / length;
+    let area = length / (direction * direction);
+    input.sections.get_mut("1").unwrap().a = area;
+    let mut weak = input.sections["1"].clone();
+    weak.id = 2;
+    weak.a *= 0.36 * f64::EPSILON;
+    input.sections.insert("2".into(), weak);
+    let tip = input.nodes.get_mut("2").unwrap();
+    (tip.x, tip.z) = (4.0, 5.0);
+    input.supports.remove("2");
+    input.loads = vec![SolverLoad::Nodal(SolverNodalLoad {
+        node_id: 1, fx: 1.0, fz: 0.0, my: 0.0,
+    })];
+    for id in 2..=weak_members + 1 {
+        let mut element = input.elements["1"].clone();
+        element.id = id;
+        element.section_id = 2;
+        input.elements.insert(id.to_string(), element);
+    }
+    input
+}
+
+fn sparse_drop_trusses(factor: f64) -> dedaliano_engine::types::SolverInput3D {
+    let first = [2.0_f64, 2.0, -0.5];
+    let second = [0.0_f64, 1.0, 1.0];
+    let length = |xyz: [f64; 3]| xyz.iter().map(|value| value.powi(2)).sum::<f64>().sqrt();
+    serde_json::from_value(serde_json::json!({
+        "nodes": {
+            "1": {"id": 1, "x": first[0], "y": first[1], "z": first[2]},
+            "2": {"id": 2, "x": 0, "y": 0, "z": 0},
+            "3": {"id": 3, "x": second[0], "y": second[1], "z": second[2]}
+        },
+        "elements": {
+            "1": {"id": 1, "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1, "type": "truss"},
+            "2": {"id": 2, "nodeI": 3, "nodeJ": 2, "materialId": 1, "sectionId": 2, "type": "truss"}
+        },
+        "materials": {"1": {"id": 1, "e": 0.001, "nu": 0.3}},
+        "sections": {
+            "1": {"id": 1, "a": factor * 5e-31 * length(first).powi(3), "iy": 1, "iz": 1, "j": 1},
+            "2": {"id": 2, "a": factor * 4e-30 * length(second).powi(3), "iy": 1, "iz": 1, "j": 1}
+        },
+        "supports": {
+            "1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true},
+            "3": {"nodeId": 3, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}
+        },
+        "masses": {"nodal": [{"nodeId": 2, "mass": 1}]},
+        "loads": [{"type": "nodal", "data": {"nodeId": 1, "fx": 1, "fy": 0, "fz": 0, "mx": 0, "my": 0, "mz": 0}}]
+    })).unwrap()
+}
+
+#[test]
+fn axial_joint_refusal_reports_admissible_displacement_components() {
+    use dedaliano_engine::solver::kinematic;
+
+    fn check(label: &str, refusal: Result<impl std::fmt::Debug, String>, axes: &str, failures: &mut Vec<String>) {
+        match refusal {
+            Err(error) if error.find('{').and_then(|start| serde_json::from_str::<serde_json::Value>(&error[start..]).ok())
+                .is_some_and(|value| {
+                    let diagnostic = &value["structuredDiagnostics"][0];
+                    let message = format!("the structure is a mechanism at nodes [2]: a translation of this joint leaves all attached trusses unstrained and satisfies the restraints (displacement components: {axes})");
+                    value["message"] == message
+                        && diagnostic["message"] == message
+                        && diagnostic["code"] == RANK_REFUSAL
+                        && diagnostic["severity"] == "error"
+                        && diagnostic["nodeIds"] == serde_json::json!([2])
+                }) => {}
+            Err(error) => failures.push(format!("{label}, expected {axes}: {error}")),
+            Ok(value) => failures.push(format!("{label}, expected {axes}: {value:?}")),
+        }
+    }
+
+    let mut input = truss();
+    input.nodes.insert("3".into(), serde_json::from_value(serde_json::json!({
+        "id": 3, "x": 2, "z": 0
+    })).unwrap());
+    let mut second = input.elements["1"].clone();
+    (second.id, second.node_i, second.node_j) = (2, 2, 3);
+    input.elements.insert("2".into(), second);
+    input.supports.remove("2");
+    let mut anchor = input.supports["1"].clone();
+    anchor.node_id = 3;
+    input.supports.insert("3".into(), anchor);
+    input.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: 1.0, fz: 0.0, my: 0.0 })];
+
+    let mut failures = Vec::new();
+    let analyses = [
+        "linear", "linear (dense reference)", "linear (WASM typed path)", "linear (sparse path)",
+        "linear (PCG)", "linear (load session)", "constrained", "certified linear",
+        "load combinations", "staged (one stage)",
+        "SSI (no soil springs)", "P-Delta", "corotational", "material nonlinear", "modal",
+        "certified modal",
+    ];
+    for (rise, planar_axes, spatial_axes) in [
+        (0.0, "Z", ["Z", "Y", "Z"]),
+        (1.0, "X, Z", ["X, Z", "X, Y", "Y, Z"]),
+    ] {
+        input.nodes.get_mut("2").unwrap().z = rise;
+        input.nodes.get_mut("3").unwrap().z = 2.0 * rise;
+        let planar = Case2::new("collinear truss", input.clone());
+        for row in crate::ana2::rows().into_iter().filter(|row| analyses.contains(&row.name)) {
+            check(&format!("2D {}", row.name), (row.run)(&planar), planar_axes, &mut failures);
+        }
+        let kinematic = kinematic::analyze_kinematics_2d(&planar.s);
+        assert!(!kinematic.is_solvable);
+        check("2D kinematics", Err::<(), _>(kinematic.diagnosis), planar_axes, &mut failures);
+        for (plane, axes) in Plane::ALL.into_iter().zip(spatial_axes) {
+            let spatial = Case3::new("embedded collinear truss", embed_2d(&planar.s, plane).unwrap());
+            for row in crate::ana3::rows().into_iter().filter(|row| analyses.contains(&row.name)) {
+                check(&format!("{plane:?} {}", row.name), (row.run)(&spatial), axes, &mut failures);
+            }
+            let kinematic = kinematic::analyze_kinematics_3d(&spatial.s);
+            assert!(!kinematic.is_solvable);
+            check("3D kinematics", Err::<(), _>(kinematic.diagnosis), axes, &mut failures);
+        }
+    }
+
+    let mut spatial = embed_2d(&input, Plane::XZ).unwrap();
+    spatial.supports.values_mut().find(|support| support.node_id == 2).unwrap().ry = false;
+    check("3D spatial truss", linear::solve_3d(&spatial), "X, Y, Z", &mut failures);
+    let restrain = |dof| Constraint::LinearMPC(LinearMPCConstraint {
+        terms: vec![MPCTerm { node_id: 2, dof, coefficient: 1.0 }],
+    });
+    spatial.constraints.push(restrain(2));
+    check("3D restrained Z", linear::solve_3d(&spatial), "Y", &mut failures);
+    spatial.constraints.push(restrain(1));
+    let solved = linear::solve_3d(&spatial).unwrap();
+    assert_eq!(solved.displacements.len(), 3);
+    assert!(solved.displacements.iter().all(|d| [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz] == [0.0; 6]));
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn kinematics_distinguishes_a_proven_mechanism_from_unknown_rank() {
+    use dedaliano_engine::solver::kinematic::{analyze_kinematics_2d, analyze_kinematics_3d};
+
+    let mut failures = Vec::new();
+    for (kind, witness) in [
+        ("frame", "a frame can swing about a released end"),
+        ("truss", "a translation of this joint leaves all attached trusses unstrained"),
+    ] {
+        for anchor_spring in [None, Some(1.0)] {
+            let mut input = truss();
+            let tip = input.nodes.get_mut("2").unwrap();
+            (tip.x, tip.z) = (3.0, 4.0);
+            let member = input.elements.get_mut("1").unwrap();
+            member.elem_type = kind.into();
+            member.hinge_start = kind == "frame";
+            if kind == "truss" {
+                let mut parallel = member.clone();
+                parallel.id = 2;
+                input.elements.insert("2".into(), parallel);
+            }
+            let mut tip_restraint = input.supports.remove("2").unwrap();
+            tip_restraint.support_type = "rollerX".into();
+            tip_restraint.ky = None;
+            if let Some(kx) = anchor_spring {
+                let anchor = input.supports.get_mut("1").unwrap();
+                anchor.support_type = "guidedX".into();
+                anchor.kx = Some(kx);
+            }
+
+            for restrained in [false, true] {
+                if restrained {
+                    input.supports.insert("2".into(), tip_restraint.clone());
+                }
+                let spatial = embed_2d(&input, Plane::XZ).unwrap();
+                for (dim, result) in [
+                    ("2D", analyze_kinematics_2d(&input)),
+                    ("3D", analyze_kinematics_3d(&spatial)),
+                ] {
+                    let expected = if restrained {
+                        result.is_solvable && result.kinematic_is_solvable && result.mechanism_modes == 0
+                    } else {
+                        result.classification == "hypostatic"
+                            && !result.is_solvable
+                            && !result.kinematic_is_solvable
+                            && result.mechanism_modes >= 1
+                            && result.mechanism_nodes.contains(&2)
+                            && ((dim == "2D" && kind == "frame")
+                                || (result.diagnosis.contains(RANK_REFUSAL) && result.diagnosis.contains(witness)))
+                    };
+                    if !expected {
+                        failures.push(format!("{dim} {kind}, anchor spring {anchor_spring:?}, restrained {restrained}: {result:?}"));
+                    }
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn axial_joint_rank_does_not_depend_on_parallel_scatter() {
+    let input = weak_parallel_trusses(1024);
+    let base = Case2::new("parallel axial rows", input);
+    let angle = 0.4_f64;
+    let rotated = base.iso(&Iso2::rotation(angle)).unwrap();
+    let translated = base.iso(&Iso2::rotation(0.0).translated(16.0, -8.0)).unwrap();
+    let scaled = base.units(&Units::froude(0.3048, 4.448));
+    let mut failures = Vec::new();
+    for (frame, case) in [("original", base), ("rotated", rotated), ("translated", translated), ("scaled", scaled)] {
+        let spatial = Case3::new("parallel axial rows", embed_2d(&case.s, Plane::XZ).unwrap());
+        for row in crate::ana2::rows().into_iter().filter(|row| [
+            "linear", "linear (dense reference)", "linear (WASM typed path)", "linear (sparse path)",
+            "linear (PCG)", "linear (load session)", "constrained", "staged (one stage)",
+            "modal", "material nonlinear",
+        ].contains(&row.name)) {
+            report(&format!("{frame} 2D {}", row.name), (row.run)(&case), &mut failures);
+        }
+        for row in crate::ana3::rows().into_iter().filter(|row| [
+            "linear", "linear (sparse path)", "linear (PCG)", "linear (load session)", "constrained",
+            "staged (one stage)", "modal", "material nonlinear",
+        ].contains(&row.name)) {
+            report(&format!("{frame} 3D {}", row.name), (row.run)(&spatial), &mut failures);
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn sparse_drop_cannot_restrain_the_third_translation() {
+    let mut failures = Vec::new();
+    for factor in [1.0, 4.0] {
+        let case = Case3::new("two axial rows", sparse_drop_trusses(factor));
+        for row in crate::ana3::rows().into_iter().filter(|row| [
+            "linear", "linear (sparse path)", "linear (PCG)", "linear (load session)", "constrained",
+            "staged (one stage)", "modal", "material nonlinear",
+        ].contains(&row.name)) {
+            report(&format!("stiffness factor {factor} {}", row.name), (row.run)(&case), &mut failures);
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn weak_parallel_trusses_keep_independently_supported_results() {
+    let mut held = weak_parallel_trusses(1024);
+    held.loads = vec![SolverLoad::Nodal(SolverNodalLoad {
+        node_id: 2, fx: 1.0, fz: 0.0, my: 0.0,
+    })];
+    let mut spring = truss().supports.remove("2").unwrap();
+    spring.angle = None;
+
+    for add_spring in [false, true] {
+        let mut planar = held.clone();
+        if add_spring {
+            planar.supports.insert("2".into(), spring.clone());
+        }
+        let mut spatial = embed_2d(&planar, Plane::XZ).unwrap();
+        if !add_spring {
+            planar.constraints.push(Constraint::LinearMPC(LinearMPCConstraint {
+                terms: vec![MPCTerm { node_id: 2, dof: 1, coefficient: 1.0 }],
+            }));
+            spatial.constraints.push(Constraint::LinearMPC(LinearMPCConstraint {
+                terms: vec![MPCTerm { node_id: 2, dof: 2, coefficient: 1.0 }],
+            }));
+        }
+        let planar = linear::solve_2d(&planar).unwrap();
+        let spatial = linear::solve_3d(&spatial).unwrap();
+        let planar_tip = planar.displacements.iter().find(|d| d.node_id == 2).unwrap();
+        let spatial_tip = spatial.displacements.iter().find(|d| d.node_id == 2).unwrap();
+        assert_eq!(planar.displacements.len(), 2);
+        assert_eq!(spatial.displacements.len(), 2);
+        assert_eq!(spatial_tip.uy, 0.0);
+        let (planar_bits, spatial_bits) = if add_spring {
+            ([4612952655822585061, 13831680355561634567], [4612952655822585056, 13831680355561634560])
+        } else {
+            ([4607182418800017408, 0], [4607182418800016672, 0])
+        };
+        assert_eq!([planar_tip.ux, planar_tip.uz].map(f64::to_bits), planar_bits);
+        assert_eq!([spatial_tip.ux, spatial_tip.uz].map(f64::to_bits), spatial_bits);
+    }
+}
+
+fn assert_terminal_swing(label: &str, result: Result<impl std::fmt::Debug, String>, failures: &mut Vec<String>) {
+    match result {
+        Err(error) if error.contains(RANK_REFUSAL) && error.contains("a frame can swing about a released end") => {}
+        Err(error) => failures.push(format!("{label}: {error}")),
+        Ok(_) => failures.push(format!("{label}: returned a result")),
+    }
+}
+
+#[test]
+fn planar_released_swing_respects_the_exact_mpc_subspace() {
+    let mut input = model("2380").s;
+    input.nodes.get_mut("1").unwrap().x = 0.0;
+    input.nodes.get_mut("1").unwrap().z = 0.0;
+    input.nodes.get_mut("2").unwrap().x = 1.0;
+    input.nodes.get_mut("2").unwrap().z = 1.0;
+    input.constraints.push(Constraint::LinearMPC(LinearMPCConstraint {
+        terms: vec![
+            MPCTerm { node_id: 2, dof: 0, coefficient: 1.0 },
+            MPCTerm { node_id: 2, dof: 1, coefficient: 1.0 },
+        ],
+    }));
+    let case = Case2::new("swing within constraint", input.clone());
+    let mut failures = Vec::new();
+    assert_terminal_swing("classification", classification_2d(&case), &mut failures);
+    assert_terminal_swing("linear", linear::solve_2d(&input), &mut failures);
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+
+    let Constraint::LinearMPC(mpc) = &mut input.constraints[0] else { unreachable!() };
+    mpc.terms[1].coefficient = -1.0;
+    assert!(stability::of_2d(&input).unwrap().is_stable());
+    let response = linear::solve_2d(&input).unwrap();
+    assert!(response.displacements.iter().all(|u| u.ux == 0.0 && u.uz == 0.0 && u.ry == 0.0));
+}
+
+#[test]
+fn released_swing_rotation_mpc_agrees_with_xz_embedding() {
+    let mut planar = model("2380").s;
+    planar.nodes.get_mut("1").unwrap().x = 0.0;
+    planar.nodes.get_mut("1").unwrap().z = 0.0;
+    planar.nodes.get_mut("2").unwrap().x = 1.0;
+    planar.nodes.get_mut("2").unwrap().z = 1.0;
+    let mut spatial = embed_2d(&planar, Plane::XZ).unwrap();
+    let entries = ["linear", "constrained", "P-Delta", "corotational", "material nonlinear", "modal"];
+    let rows2 = crate::ana2::rows();
+    let rows3 = crate::ana3::rows();
+    let mut failures = Vec::new();
+
+    for (dof_2d, dof_3d, transverse) in [(0, 0, -1.0), (1, 2, 1.0)] {
+        for permits_swing in [true, false] {
+            let coefficient = if permits_swing { -transverse } else { transverse };
+            let tie = |translation, rotation, coefficient| {
+                vec![Constraint::LinearMPC(LinearMPCConstraint {
+                    terms: vec![
+                        MPCTerm { node_id: 2, dof: translation, coefficient: 1.0 },
+                        MPCTerm { node_id: 2, dof: rotation, coefficient },
+                    ],
+                })]
+            };
+            planar.constraints = tie(dof_2d, 2, coefficient);
+            spatial.constraints = tie(dof_3d, 4, coefficient * Plane::XZ.normal()[1]);
+            let case2 = Case2::new("planar rotation MPC", planar.clone());
+            let case3 = Case3::new("spatial rotation MPC", spatial.clone());
+            let label = format!("translation DOF {dof_2d}, permits_swing={permits_swing}");
+            for (dimension, verdict) in [
+                ("2D", stability::of_2d(&planar).unwrap()),
+                ("3D", stability::of_3d(&spatial).unwrap()),
+            ] {
+                if permits_swing {
+                    assert_terminal_swing(
+                        &format!("{label} {dimension} classification"),
+                        verdict.refusal().map_or(Ok(()), Err),
+                        &mut failures,
+                    );
+                } else {
+                    assert!(verdict.is_stable(), "{label} {dimension}: {:?}", verdict.refusal());
+                }
+            }
+            for name in entries {
+                let result2 = (rows2.iter().find(|row| row.name == name).unwrap().run)(&case2);
+                let result3 = (rows3.iter().find(|row| row.name == name).unwrap().run)(&case3);
+                for (dimension, result) in [("2D", result2), ("3D", result3)] {
+                    let entry = format!("{label} {dimension} {name}");
+                    if permits_swing {
+                        assert_terminal_swing(&entry, result, &mut failures);
+                    } else if let Err(error) = result {
+                        failures.push(format!("{entry}: {error}"));
+                    }
+                }
+            }
+            if !permits_swing {
+                let response = linear::solve_2d(&planar).unwrap();
+                assert_eq!(response.displacements.len(), 2);
+                assert!(response.displacements.iter().all(|u| [u.ux, u.uz, u.ry] == [0.0; 3]));
+                let response = linear::solve_3d(&spatial).unwrap();
+                assert_eq!(response.displacements.len(), 2);
+                assert!(response.displacements.iter().all(|u| [u.ux, u.uy, u.uz, u.rx, u.ry, u.rz] == [0.0; 6]));
+            }
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "For chord (1, 1), planar CCW rotation gives (ux, uz, ry) = (-1, 1, 1) times the rotation amplitude. XZ maps this to (ux, uz, ry) = (-1, 1, -1). A tie that annihilates this vector admits the swing. Reversing its rotation coefficient adds an independent restraint.
+{}",
+        failures.join("
+")
+    );
+}
+
+fn check_spatial_terminal_swing(issue: &str, entry: &str) {
+    let base = space_model(issue);
+    let row = crate::ana3::rows().into_iter().find(|row| row.name == entry).unwrap();
+    let mut rng = Rng::new(2026111404217 ^ hash(row.name));
+    let frames = [
+        ("original", base.clone()),
+        ("rotated", base.iso(&crate::checks3::rotation_for(&row, &mut rng)).unwrap()),
+        ("translated", base.iso(&dedaliano_engine::metamorphic::transform::Iso3::axis_permutation(0).translated([3.0, -5.0, 7.0])).unwrap()),
+        ("scaled", base.units(&Units::froude(25.0, 1e-2))),
+    ];
+    for (label, case) in frames {
+        let error = (row.run)(&case).expect_err("the analysis returned results for a released swing");
+        assert!(error.starts_with("the structure is a mechanism at nodes [2]: a node can move freely"), "{label}: {error}");
+        let verdict = stability::of_3d(&case.s).unwrap();
+        assert_eq!(verdict.verdict, stability::Verdict::Mechanism, "{label}");
+        assert_eq!(verdict.reason, stability::Reason::FreeTranslation, "{label}");
+        assert_eq!(verdict.mode_nodes, [2], "{label}");
+    }
+}
+
+
+#[test]
+fn issue_2119_terminal_swing_has_a_structural_witness() {
+    check_spatial_terminal_swing("2119", "contact (no gaps)");
+}
+
+#[test]
+fn issue_2134_terminal_swing_has_a_structural_witness() {
+    check_spatial_terminal_swing("2134", "Winkler (no foundation)");
+}
+
+#[test]
+fn issue_2139_terminal_swing_has_a_structural_witness() {
+    check_spatial_terminal_swing("2139", "plastic collapse");
+}
+
+fn check_embedded_terminal_swing(issue: &str) {
+    let base = model(issue);
+    let mut failures = Vec::new();
+    for plane in Plane::ALL {
+        let spatial = embed_2d(&base.s, plane).unwrap();
+        assert_terminal_swing("spatial embedding", linear::solve_3d(&spatial), &mut failures);
+    }
+    assert!(failures.is_empty(), "#{}:\n{}", issue, failures.join("\n"));
+}
+
+#[test]
+fn issue_2190_terminal_swing_has_a_structural_witness() {
+    check_embedded_terminal_swing("2190");
+}
+
+#[test]
+fn issue_2266_terminal_swing_has_a_structural_witness() {
+    check_embedded_terminal_swing("2266");
 }
 
 #[test]

@@ -1,0 +1,32 @@
+{
+  "id": "material-release-gauges",
+  "date": "2026-11-25",
+  "prs": [],
+  "area": "analysis",
+  "quantities": ["solve.ok", "displacements.rx", "displacements.ry", "displacements.rz"],
+  "when": { "allOf": [["space3D"], ["hinges"], ["constraints"], ["analysis:nonlinear"]] },
+  "title": {
+    "en": "Material analysis of released frame ends",
+    "es": "Análisis de material con extremos de barra articulados",
+    "pt": "Análise de material com extremidades de barra articuladas",
+    "de": "Materialanalyse bei gelenkigen Stabenden",
+    "fr": "Analyse matérielle des extrémités de barre articulées",
+    "hu": "Csuklós rúdvégek anyagi vizsgálata",
+    "tr": "Mafsallı çubuk uçlarında malzeme analizi",
+    "zh": "杆端释放的材料分析"
+  },
+  "explanation": {
+    "en": "Spatial material analysis now sets a reference for a released end rotation that can move without strain or applied work. Recheck saved material analyses of models with releases.",
+    "es": "El análisis de material 3D ahora fija una referencia para el giro liberado de un extremo que puede moverse sin deformación ni trabajo de las cargas. Volvé a verificar los análisis de material guardados de modelos con articulaciones.",
+    "pt": "A análise de material 3D agora define uma referência para a rotação liberada de uma extremidade que pode se mover sem deformação nem trabalho das cargas. Confira novamente as análises de material salvas de modelos com rótulas.",
+    "de": "Die räumliche Materialanalyse setzt nun einen Bezugswert für eine gelenkig freigegebene Enddrehung, die ohne Verformung oder Lastarbeit möglich ist. Prüfen Sie gespeicherte Materialanalysen von Modellen mit Gelenken erneut.",
+    "fr": "L’analyse matérielle 3D fixe désormais une référence pour une rotation libérée en bout de barre qui peut se produire sans déformation ni travail des charges. Vérifiez les analyses matérielles enregistrées pour les modèles articulés.",
+    "hu": "A térbeli anyagi vizsgálat referenciaszöget jelöl ki az olyan felszabadított rúdvégi elforduláshoz, amely alakváltozás és a terhek munkája nélkül lehetséges. Ellenőrizze újra a csuklós modellek mentett anyagi vizsgálatait.",
+    "tr": "Uzaysal malzeme analizi artık şekil değiştirme veya yük işi olmadan gerçekleşebilen serbest uç dönmesi için bir referans belirliyor. Mafsallı modellerin kaydedilmiş malzeme analizlerini yeniden kontrol edin.",
+    "zh": "空间材料分析现为可在无应变且外力不做功的情况下发生的释放端转动设置参考值。请复核含杆端释放模型的已保存材料分析。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-material-release-gauges.md",
+    "heading": "Released rotations with independent constraints (2026-11-25)"
+  }
+}

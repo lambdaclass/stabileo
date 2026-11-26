@@ -48,6 +48,7 @@ pub(super) fn find_swings(input: &SolverInput, dof: &DofNumbering) -> Vec<Transl
             rotation_springs.insert(support.node_id);
         }
     }
+    let positions: BTreeMap<_, _> = input.nodes.values().map(|node| (node.id, node)).collect();
     let free = |node, local| dof.global_dof(node, local).filter(|&index| index < dof.n_free);
     groups.into_values().filter_map(|nodes| {
         let mut pivots = nodes.keys().copied().filter(|node| {
@@ -74,6 +75,9 @@ pub(super) fn find_swings(input: &SolverInput, dof: &DofNumbering) -> Vec<Transl
                 dofs.push(free(node, 2)?);
             }
         }
-        (!moving.is_empty()).then_some(TranslationMechanism { nodes: moving, dofs })
+        let tip = positions.get(moving.first()?)?;
+        let pivot = positions.get(&pivot)?;
+        let component = if (tip.z - pivot.z).abs() > (tip.x - pivot.x).abs() { "ux" } else { "uz" };
+        Some(TranslationMechanism::planar_swing(moving, dofs, component))
     }).collect()
 }

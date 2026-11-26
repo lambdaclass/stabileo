@@ -211,7 +211,7 @@ fn invariance_reported_seeds_are_refused_or_stable() {
                 assert!(dedaliano_engine::solver::stability::of_2d(&input).unwrap().is_stable(), "2D/{seed}");
                 unit_invariant_2d(&input, &r, &format!("#762 2D/{seed}"));
             }
-            Err(e) => assert!(e.starts_with("the structure is a mechanism"), "#762 2D/{seed}: expected NUM-INVARIANCE warning or the stability refusal, got {e}"),
+            Err(e) => assert!(crate::common::rank_refusal_message(&e).starts_with("the structure is a mechanism"), "#762 2D/{seed}: expected NUM-INVARIANCE warning or the stability refusal, got {e}"),
         }
     }
     for seed in [20761,20788] {

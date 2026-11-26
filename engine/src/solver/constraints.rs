@@ -1708,11 +1708,7 @@ fn solve_constrained_2d_dense_validated(
     let load_rounding = super::load_work::assembly_rounding_2d(&input.solver,&input.solver.loads,dof_num,&asm.inclined_transforms_2d);
     let load_rounding = fcs.reduce_load_rounding(&f_f,&load_rounding);
     let f_reduced = fcs.reduce_vector(&f_f);
-    let numbering = dof_num;
-    let rank_numbering = super::stability::RankNumbering::new(numbering, support_magnitude.as_ref());
-    let dof_num = &rank_numbering;
-    let stability = fcs.stability(&crate::linalg::sparse::CscMatrix::from_dense_symmetric(&k_reduced, n_free_indep), dof_num, &CscMatrix::from_dense_symmetric(&k_ff, nf), &super::stability::coupling_2d(&input.solver, dof_num), &super::stability::elastic_releases_2d(&input.solver, dof_num));
-    let dof_num = numbering;
+    let stability = super::stability::classify_free_stiffness(&CscMatrix::from_dense_symmetric(&k_ff, nf), &CscMatrix::from_dense_symmetric(&k_reduced, n_free_indep), dof_num, true, Some(&fcs), &super::stability::elastic_kinematics_2d(&input.solver, dof_num), &super::stability::ReleasedRotations::default(), &[], support_magnitude.as_ref(), &[]);
     refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let u_indep = {
         let mut k_pinned = k_reduced.clone();
@@ -1927,11 +1923,7 @@ pub(super) fn solve_constrained_2d_sparse(
     let load_rounding = super::load_work::assembly_rounding_2d(&input.solver,&input.solver.loads,dof_num,&stiff.inclined_transforms_2d);
     let load_rounding = fcs.reduce_load_rounding(&f_f,&load_rounding);
     let f_reduced = fcs.reduce_vector(&f_f);
-    let numbering = dof_num;
-    let rank_numbering = super::stability::RankNumbering::new(numbering, stiff.support_magnitude.as_ref());
-    let dof_num = &rank_numbering;
-    let stability = fcs.stability(&k_reduced, dof_num, k_ff, &super::stability::coupling_2d(&input.solver, dof_num), &super::stability::elastic_releases_2d(&input.solver, dof_num));
-    let dof_num = numbering;
+    let stability = super::stability::classify_free_stiffness(k_ff, &k_reduced, dof_num, true, Some(&fcs), &super::stability::elastic_kinematics_2d(&input.solver, dof_num), &super::stability::ReleasedRotations::default(), &[], stiff.support_magnitude.as_ref(), &[]);
     refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let k_pinned = stability.pin_sparse(&k_reduced);
     let symbolic = std::rc::Rc::new(symbolic_cholesky(&k_pinned));
@@ -2172,11 +2164,7 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
     let f_reduced = fcs.reduce_vector(&f_f);
     let containment_conditioning = crate::known_issues::sparse_conditioning(k_ff)
         .or_else(|| crate::known_issues::sparse_conditioning(&k_reduced));
-    let numbering = dof_num;
-    let rank_numbering = super::stability::RankNumbering::new(&numbering, sasm.support_magnitude.as_ref());
-    let dof_num = rank_numbering;
-    let stability = fcs.stability(&k_reduced, &dof_num, k_ff, &super::stability::coupling_3d(&input.solver, &dof_num), &super::stability::elastic_releases_3d(&input.solver, &dof_num));
-    let dof_num = numbering;
+    let stability = super::stability::classify_free_stiffness(k_ff, &k_reduced, &dof_num, false, Some(&fcs), &super::stability::elastic_kinematics_3d(&input.solver, &dof_num), &super::stability::released_rotations_3d(&input.solver, &dof_num), &[], sasm.support_magnitude.as_ref(), &[]);
     refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let k_pinned = stability.pin_sparse(&k_reduced);
     let symbolic = std::rc::Rc::new(symbolic_cholesky(&k_pinned));
@@ -2539,10 +2527,6 @@ impl FreeConstraintSystem {
     /// constraint definitions, not from the shape of C_ff — see the field.
     pub fn is_dependent(&self, i: usize) -> bool {
         self.dependent[i]
-    }
-
-    pub(crate) fn stability(&self, k_reduced: &CscMatrix, dof_num: &super::stability::RankNumbering, k_original: &CscMatrix, coupling: &[(usize, usize)], releases: &super::stability::ReleasedRotations) -> super::stability::Stability {
-        self.stability_excluding(k_reduced, dof_num, k_original, coupling, releases, &[], dof_num.support_magnitude())
     }
 
     pub(crate) fn stability_excluding(&self, k_reduced: &CscMatrix, dof_num: &DofNumbering, k_original: &CscMatrix, coupling: &[(usize, usize)], releases: &super::stability::ReleasedRotations, inactive: &[usize], support_magnitude: Option<&CscMatrix>) -> super::stability::Stability {
