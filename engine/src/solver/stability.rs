@@ -2028,6 +2028,33 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "known wrong result: #2584"]
+    fn tangent_upper_shift_updates_diagonal_after_off_diagonal() {
+        let mut shifted = CscMatrix {
+            n: 2,
+            col_ptr: vec![0, 1, 3],
+            row_idx: vec![0, 0, 1],
+            values: vec![-3.0, 7.0, 4.0],
+        };
+        let upper_diagonal = [-1.0, 6.0];
+        assert!(set_upper_tangent_diagonal(&mut shifted, |column| upper_diagonal[column]));
+        assert_eq!(shifted.values, [-1.0, 7.0, 6.0]);
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2584"]
+    fn tangent_upper_shift_refuses_a_column_without_diagonal() {
+        let mut shifted = CscMatrix {
+            n: 2,
+            col_ptr: vec![0, 1, 2],
+            row_idx: vec![0, 0],
+            values: vec![-3.0, 7.0],
+        };
+        assert!(!set_upper_tangent_diagonal(&mut shifted, |_| 1.0));
+        assert_eq!(shifted.values[1], 7.0);
+    }
+
+    #[test]
     fn signed_tangent_rank_survives_a_small_positive_diagonal() {
         for (last, resolved) in [(1.0, true), (0.0, false)] {
             let k = CscMatrix::from_dense_symmetric_exact(&[
