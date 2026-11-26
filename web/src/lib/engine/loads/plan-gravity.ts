@@ -363,9 +363,10 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   for (const { z, floor } of prepared) {
     const res = floor.generate(ownership?.bays);
     const owned = ownership ? floor.bays.flatMap((bay): OwnedPanel[] => {
-      const { region: footprint, deck, independentShells } = ownership.bays.get(bay)!;
+      const assignment = ownership.bays.get(bay);
+      if (!assignment?.deck) refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
+      const { region: footprint, deck: geometry } = assignment;
       if (!footprint.length) return [];
-      if (!deck) refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
       const panel = res.panels[bay.index];
       const own = panel?.own;
       const pieces = (own?.loads ?? []).map(l => physicalPiece({
@@ -375,7 +376,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       const areaScale = bay.boundary.reduce((sum, ring) => sum + ringArea(ring), 0);
       const area = verifyBayArea(z, footprint, areaScale, pieces, points);
       if (!panel || !own) refuseGravityGeometry(msg('loadPlan.gravity.areaResultant', { z }));
-      return [{ panel, footprint, geometry: { ...deck, independentShells }, area, areaScale, own, pieces, points }];
+      return [{ panel, footprint, geometry, area, areaScale, own, pieces, points }];
     }) : [];
     levels.set(z, { res, owned });
     panelsAt.set(z, ownership ? owned : floor.bays.map(bay => ({

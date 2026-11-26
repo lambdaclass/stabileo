@@ -154,11 +154,11 @@ for (const angle of [0, 0.37]) for (const mirror of [-1, 1]) it(`#2197 hole-cros
   const partitionGravityFloors = floorOwnership.partitionGravityFloors;
   vi.spyOn(floorOwnership, 'partitionGravityFloors').mockImplementation((...args) => {
     const ownership = partitionGravityFloors(...args);
-    for (const bay of ownership.bays.keys()) {
+    for (const [bay, { deck }] of ownership.bays) {
       const polygon = bay.boundary[0]!;
       const x = polygon.reduce((v, p) => v + mirror * (p[0] * Math.cos(angle) + p[1] * Math.sin(angle)), 0) / polygon.length;
       const y = polygon.reduce((v, p) => v - p[0] * Math.sin(angle) + p[1] * Math.cos(angle), 0) / polygon.length;
-      if (x > 3 && x < 5 && y > -1 && y < 1) ownership.bays.set(bay, { partition: { kind: 'shell' }, region: [] });
+      if (x > 3 && x < 5 && y > -1 && y < 1) ownership.bays.set(bay, { partition: { kind: 'shell' }, region: [], deck });
     }
     return ownership;
   });

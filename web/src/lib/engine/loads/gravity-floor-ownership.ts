@@ -34,9 +34,14 @@ function connectedPitchedRoofs<S extends Shell>(shells: readonly ShellDeck<S>[])
   return shellEdgeComponents(shells.filter(({ shell }) => shell.pitched), ({ shell }) => shell.nodes);
 }
 
-export type BayAssignment =
-  | { partition: { kind: 'uncovered' }; region: [Polygon]; deck: Deck; independentShells?: ReadonlySet<GravityShellKey> }
-  | { partition: { kind: 'shell' }; region: []; deck?: never; independentShells?: never };
+export type BayAssignment = {
+  deck: Deck & { independentShells: ReadonlySet<GravityShellKey> };
+} & (
+  | { partition: { kind: 'uncovered' }; region: [Polygon] }
+  | { partition: { kind: 'shell' }; region: [] }
+);
+
+const noIndependentShells: ReadonlySet<GravityShellKey> = new Set();
 
 const bayMembers = (bay: FloorBay) => [...bay.members].sort((a, b) => a - b).join(', ');
 
@@ -142,11 +147,12 @@ export function partitionGravityFloors<S extends Shell>(
 
   const assignments = new Map<FloorBay, BayAssignment>();
   const shellBayMembers = new Map<GravityShellKey, Set<number>>();
-  for (const { bay, footprint: [footprint], boundaryNodes, geometry: deck } of bayCarriers) {
+  for (const { bay, footprint: [footprint], boundaryNodes, geometry } of bayCarriers) {
+    const deck = { ...geometry, independentShells: independentShells.get(bay) ?? noIndependentShells };
     const match = matches.get(bay);
     const covering = match?.roof ?? match?.covering ?? [];
     if (!covering.length) {
-      assignments.set(bay, { partition: { kind: 'uncovered' }, region: [footprint], deck, independentShells: independentShells.get(bay) });
+      assignments.set(bay, { partition: { kind: 'uncovered' }, region: [footprint], deck });
       continue;
     }
     const footprints = covering.flatMap(shell => shell.footprint);
@@ -165,7 +171,7 @@ export function partitionGravityFloors<S extends Shell>(
     if (!agrees(areas.value, union, union) || !agrees(footprintArea(unionFootprints([footprint, ...footprints])), union, union)) {
       refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
     }
-    assignments.set(bay, { partition: { kind: 'shell' }, region: [] });
+    assignments.set(bay, { partition: { kind: 'shell' }, region: [], deck });
     for (const { shell } of covering) {
       const members = shellBayMembers.get(shell.key) ?? new Set<number>();
       for (const member of bay.members) members.add(member);

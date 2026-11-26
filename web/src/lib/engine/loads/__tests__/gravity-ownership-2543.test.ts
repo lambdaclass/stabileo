@@ -502,9 +502,7 @@ const coplanarOptions = { mode: 'panels', slab: 'oneWay', spanAxis: 'y', tributa
 const coplanarPlan = (model: LoadModelData, loadEveryPanel: boolean) =>
   buildLoadPlan(input(model, { gravity: { ...coplanarOptions, loadEveryPanel }, snow: siteSnow }));
 
-const bayAssignmentRegression = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
-
-bayAssignmentRegression('known wrong result: #2607 both bay assignments retain the independent shell evidence', () => {
+it('#2607 both bay assignments retain the independent shell evidence', () => {
   const partition = vi.spyOn(floorOwnership, 'partitionGravityFloors');
   try {
     gravityLayout(coplanarCover(true, 1, 0), coplanarOptions);
