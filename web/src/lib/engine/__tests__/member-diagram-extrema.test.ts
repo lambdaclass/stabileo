@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { polynomialValue, preparePolynomialSign, roundDiagramSum } from '../diagram-sum';
 import { memberDiagram } from '../member-diagram';
 import { computeElementDiagram } from '../diagrams';
 import { computeDiagram3D, criticalDiagramStations3D, type Diagram3DKind } from '../diagrams-3d';
@@ -131,4 +132,29 @@ it('known wrong result: #2581 reuses the cut interval polynomial across componen
   expect.soft(curve.value({ t: 0.5 })).toBe(5);
   expect.soft(curve.polynomial(0.25, 1, 2, length)).not.toEqual(second);
   expect.soft(curve.polynomial(0, 1)).not.toEqual(first);
+});
+
+it('classifies normalized root probes on both sides of cancellation and outside the fast range', () => {
+  const subnormal = Number.MIN_VALUE;
+  const polynomials = [
+    [[-0.125], [0.75], [-1, -0.5 / 2], [1]],
+    [[subnormal, -0.125], [0.75], [-0.75], [0.5]],
+    [[0, 0, -subnormal, 0, 0], [subnormal], [], []],
+    [[-1], [2], [], []],
+    [[-0.5], [1]],
+    [[-0.5], [], [], [], [1]],
+  ];
+  const nearSignBound = 2 ** -39;
+  const probes = [-1, 0, subnormal, 1, 2,
+    0.5 - nearSignBound - Number.EPSILON, 0.5 - nearSignBound, 0.5 - nearSignBound + Number.EPSILON,
+    0.5 - Number.EPSILON, 0.5, 0.5 + Number.EPSILON,
+    0.5 + nearSignBound - Number.EPSILON, 0.5 + nearSignBound, 0.5 + nearSignBound + Number.EPSILON,
+  ];
+  for (const p of polynomials) {
+    const sign = preparePolynomialSign(p);
+    for (const x of probes) {
+      const expected = Math.sign(roundDiagramSum(polynomialValue(p, x)));
+      expect.soft(sign(x)).toBe(expected);
+    }
+  }
 });

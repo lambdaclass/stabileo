@@ -295,11 +295,13 @@ export function envelopeRows(kind: TableKind, sources: readonly Source[], opts: 
       for (let c = 0; c < values.length; c++) {
         const value = values[c]!;
         const max = row.max[c]!, min = row.min[c]!;
-        if (value - max.value > (critical ? 0 : extremeTieTolerance(value, max.value))) {
+        const rise = value - max.value;
+        if (rise > 0 && (critical || rise > extremeTieTolerance(value, max.value))) {
           max.value = value;
           max.source = source;
         }
-        if (min.value - value > (critical ? 0 : extremeTieTolerance(value, min.value))) {
+        const fall = min.value - value;
+        if (fall > 0 && (critical || fall > extremeTieTolerance(value, min.value))) {
           min.value = value;
           min.source = source;
         }

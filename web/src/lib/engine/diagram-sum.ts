@@ -79,13 +79,16 @@ function accumulatePreparedCoefficient(next: DiagramAccumulator, c: PreparedCoef
   if (c.acceptsMore) appendScaledTerms(next, value, x);
 }
 
-export function prepareRoundedPolynomial(coefficients: DiagramPolynomial): (x: number) => number {
-  if (coefficients.length === 0) return () => 0;
-  const prepared = coefficients.map(terms => {
+function preparePolynomialCoefficients(coefficients: DiagramPolynomial): PreparedCoefficient[] {
+  return coefficients.map(terms => {
     const coefficient: PreparedCoefficient = { partials: [], size: 0, acceptsMore: true };
     coefficient.acceptsMore = appendTerms(coefficient, terms);
     return coefficient;
   });
+}
+
+function roundPreparedPolynomial(prepared: PreparedCoefficient[]): (x: number) => number {
+  if (prepared.length === 0) return () => 0;
   const a: DiagramAccumulator = { partials: [], size: 0 };
   const b: DiagramAccumulator = { partials: [], size: 0 };
   const leading = prepared.pop()!;
@@ -109,6 +112,28 @@ export function prepareRoundedPolynomial(coefficients: DiagramPolynomial): (x: n
       next = previous;
     }
     return roundPartials(value.partials, value.size);
+  };
+}
+
+export function prepareRoundedPolynomial(coefficients: DiagramPolynomial): (x: number) => number {
+  return roundPreparedPolynomial(preparePolynomialCoefficients(coefficients));
+}
+
+export function preparePolynomialSign(coefficients: DiagramPolynomial): (x: number) => number {
+  const prepared = preparePolynomialCoefficients(coefficients);
+  if (coefficients.length > 4 || coefficients.some(terms =>
+    terms.length > 4 || terms.some(term => !(Math.abs(term) <= 1)))) {
+    const compensated = roundPreparedPolynomial(prepared);
+    return x => Math.sign(compensated(x));
+  }
+  const [constant = 0, linear = 0, quadratic = 0, cubic = 0] =
+    prepared.map(({ partials, size }) => roundPartials(partials, size));
+  const compensated = roundPreparedPolynomial(prepared);
+  const roundoffBound = 2 ** -39;
+  return x => {
+    const estimate = constant + x * (linear + x * (quadratic + x * cubic));
+    if (x >= 0 && x <= 1 && Math.abs(estimate) > roundoffBound) return Math.sign(estimate);
+    return Math.sign(compensated(x));
   };
 }
 

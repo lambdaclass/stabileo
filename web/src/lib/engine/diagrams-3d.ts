@@ -3,7 +3,7 @@
 // using equilibrium equations with distributed and point loads.
 
 import { type UnitSystem, formatDiagramValue } from '../utils/units';
-import { absolutePolynomialBranches, addMagnitudeBounds, checkedCurveValue, diagramCriticalPoints, diagramCurvePoints, fullSpanFallback, indexDiagramExtrema, maxAbsDiagramOrdinate, memberDiagram, curveExtrema, prepareCurveExtrema, prepareMagnitudeExtrema, sortedStations, spanCuts, spanResultantExtrema, unavailableDiagramExtrema, visitDiagramCriticalPoints, type DiagramCurve, type DiagramExtremum, type DiagramOrdinate, type DiagramStation, type PolynomialBranch } from './member-diagram';
+import { absolutePolynomialBranches, addMagnitudeBounds, checkedCurveValue, diagramCriticalPoints, diagramCurvePoints, fullSpanFallback, indexDiagramExtrema, maxAbsDiagramOrdinate, memberDiagram, curveExtrema, prepareCurveExtrema, prepareMagnitudeExtrema, sortedStations, spanCuts, spanResultantExtrema, unavailableDiagramExtrema, visitContinuousSpanCriticalPoints, visitDiagramCriticalPoints, type DiagramCurve, type DiagramExtremum, type DiagramOrdinate, type DiagramStation, type PolynomialBranch } from './member-diagram';
 import { distanceUnits, exactCutUnits, sameCutLocation, type DiagramCutLocation } from './diagram-cut';
 import type { ElementForces3D, EnvelopeDiagramData3D } from './types-3d';
 
@@ -353,6 +353,8 @@ function visitSpatialCriticalOrdinates(curve: SpatialCurve, inwardAtI: boolean, 
   for (const { t, value, right, side } of points) visit(t, value, right ? true : undefined, side);
 }
 
+const spanStart = Object.freeze({ t: 0 }), spanEnd = Object.freeze({ t: 1 });
+
 function visitLeafCriticalOrdinates(
   ef: ElementForces3D, kinds: readonly CriticalDiagram3DKind[], visit: VisitSpatialOrdinate, inwardAtI: boolean,
 ): void {
@@ -371,15 +373,16 @@ function visitLeafCriticalOrdinates(
     }
     const a = component(kind[0]), b = component(kind[1]);
     if (a.cuts === spanCuts && b.cuts === spanCuts) {
-      const span = {
-        cuts: spanCuts,
-        mayHaveJump: a.mayHaveJump || b.mayHaveJump,
-        value: (station: DiagramStation) => Math.hypot(a.value(station), b.value(station)),
-      };
       const extrema = a.constant && b.constant ? []
         : spanResultantExtrema(a.polynomial(0, 1, 0, length), b.polynomial(0, 1, 0, length), length);
-      visitDiagramCriticalPoints(span, extrema, inwardAtI, (t, value, right, side) =>
-        visit(column, t, value, t * length, right, side));
+      const value = (station: DiagramStation) => Math.hypot(a.value(station), b.value(station));
+      const emit = (t: number, ordinate: number, right?: true, side?: DiagramOrdinate['side']) =>
+        visit(column, t, ordinate, t * length, right, side);
+      if (!a.mayHaveJump && !b.mayHaveJump) {
+        visitContinuousSpanCriticalPoints(value(spanStart), value(spanEnd), extrema, inwardAtI, emit);
+      } else {
+        visitDiagramCriticalPoints({ cuts: spanCuts, mayHaveJump: true, value }, extrema, inwardAtI, emit);
+      }
       continue;
     }
     const curve = magnitudeCurve([new SpatialLeafCurve(length, a), new SpatialLeafCurve(length, b)], 'srss', length, true);
