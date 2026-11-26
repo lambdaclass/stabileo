@@ -478,6 +478,7 @@ describe('the safety-advisories post quotes the advisories', () => {
     hu: 'Az egy helyre eső tengelyterhelés és állandó pontteher egyetlen, együttes nyíróerőugrást okoz. A két teher közötti nyíróerőnek egyoldali határértékei vannak, amikor a tengely megközelíti vagy éppen elhagyja a pontterhet. Ellenőrizze mindkét határértéket a pontteher előtt és után közvetlenül elhelyezkedő tengellyel.',
     tr: 'Aks ve kalıcı tekil yük tam olarak aynı konumdayken iki yük birlikte tek bir kesme kuvveti sıçraması oluşturur. Aks tekil yüke yaklaşırken veya onu geçerken iki yük arasındaki kesme kuvvetinin tek taraflı limitleri vardır. Aks tekil yükün hemen önündeyken ve hemen arkasındayken her iki limiti de kontrol edin.',
     zh: '车轴与永久点荷载的位置完全重合时，两项荷载共同产生一次剪力跳变。车轴接近或刚越过该荷载时，两者之间的剪力分别趋于相应的单侧极限。请检查车轴紧邻该荷载前后两个位置所对应的单侧极限。',
+    nl: 'Bij exact samenvallen geven de as en de permanente puntlast samen één sprong in de dwarskracht. De dwarskracht ertussen heeft eenzijdige limieten wanneer de as de last nadert of passeert. Controleer beide limieten met de as net vóór en net na de last.',
   };
 
   it.each(advisoryLocales)('SA-2026-129 coincidence and both approach limits appear in %s', (locale) => {

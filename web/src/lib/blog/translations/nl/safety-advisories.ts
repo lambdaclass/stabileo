@@ -1243,6 +1243,18 @@ const body: PostBody = {
           "Conversie kon normaalkrachtbelastingen met tekenwisseling op vlakke staven of ruimtelijke vakwerken weglaten. Verifieer de verdeelde belastingen en hun equivalente eindkrachten en bereken daarna getroffen analyses, omhullenden en ontwerptoetsingen opnieuw.",
           "Gemiddeld",
           "Volgende release na 0.6.4"
+        ],
+        [
+          "SA-2026-129",
+          "Bewegende-belastingomhullenden konden dwarskracht of normaalkracht verkeerd weergeven, en opgeslagen voertuigposities konden sprongen in de normaalkracht in ruimtelijke vakwerken weglaten. Bij exact samenvallen geven de as en de permanente puntlast samen één sprong in de dwarskracht. De dwarskracht ertussen heeft eenzijdige limieten wanneer de as de last nadert of passeert. Controleer beide limieten met de as net vóór en net na de last. Bereken de getroffen omhullenden opnieuw, genereer opgeslagen gevallen opnieuw en voer afhankelijke berekeningen en ontwerptoetsingen opnieuw uit.",
+          "Hoog",
+          "Volgende release na 0.6.4"
+        ],
+        [
+          "SA-2026-130",
+          "Vlakke elastische berekening kon zonder waarschuwing alleen nulverplaatsingen teruggeven voor een mechanisme. Controleer buigscharnieren en opleggingen, los onbedoelde mechanismen op en voer getroffen berekeningen en ontwerptoetsingen opnieuw uit.",
+          "Hoog",
+          "Volgende release na 0.6.4"
         ]
       ]
     },
