@@ -18,7 +18,7 @@ pub(crate) trait IncrementalProblem {
     /// with the tangent it factorized first in this increment.
     fn correct(&mut self, lag_tangent: bool) -> Result<(), String>;
     /// The current state converged: it is the one to return to.
-    fn commit(&mut self);
+    fn commit(&mut self) -> Result<(), String>;
     /// Return to the last committed state.
     fn rollback(&mut self);
 }
@@ -74,7 +74,7 @@ pub(crate) fn solve_by_load_increments<P: IncrementalProblem + ?Sized, I: Iterat
             problem.rollback();
             break;
         }
-        problem.commit();
+        problem.commit()?;
         outcome.load_factor = load_factor;
     }
     Ok(outcome)
@@ -143,8 +143,9 @@ mod tests {
             self.u += self.residual / tangent;
             Ok(())
         }
-        fn commit(&mut self) {
+        fn commit(&mut self) -> Result<(), String> {
             self.committed = self.u;
+            Ok(())
         }
         fn rollback(&mut self) {
             self.u = self.committed;
