@@ -3,6 +3,7 @@
    * The beams that take the slab as their flange: every beam, or a list built by typing their
    * names or from what is selected in the model, its entries ticked to be removed or shown.
    */
+  import Hint from '../Hint.svelte';
   import { t, tp } from '../../../lib/i18n';
   import { modelStore, uiStore } from '../../../lib/store';
   import { designData } from '../../../lib/store/design-data';
@@ -54,7 +55,7 @@
         <button type="button" onclick={() => add(inModel)} data-testid="dd-flange-add">{t('designData.flange.addSelected')}</button>
       </div>
     {:else}
-      <p class="fb-hint">{t('designData.flange.selectHint')}</p>
+      <Hint text={t('designData.flange.selectHint')} />
     {/if}
 
     {#if listed.length}
@@ -86,7 +87,7 @@
   .fb-add input { flex: 1; min-width: 0; font-size: 0.72rem; padding: 2px 6px; border: 1px solid var(--st-hair); border-radius: 4px; background: var(--st-surface); color: var(--st-text); }
   .fb-sel { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 6px; border: 1px dashed var(--st-accent); border-radius: 4px; }
   .fb-names { color: var(--st-text); font-weight: 600; }
-  .fb-hint, .fb-empty { margin: 0; color: var(--st-text-3); }
+  .fb-empty { margin: 0; color: var(--st-text-3); }
   .fb-warn { margin: 0; color: var(--st-warn, var(--st-text-2)); }
   .fb-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .fb-tools label { display: inline-flex; align-items: center; gap: 4px; color: var(--st-text-2); }
