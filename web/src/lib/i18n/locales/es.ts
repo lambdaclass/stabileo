@@ -6592,6 +6592,7 @@ const es: Record<string, string> = {
   "planDraw.topFlush": "Cara superior en el nivel",
   "planDraw.topFlushHint": "La cara superior de la viga en el nivel, como la de la losa; cuelga por debajo.",
   "planDraw.exit": "Dejar de dibujar",
+  "planDraw.rectangular": "Usar un rectángulo de b × h",
   "planDraw.step.corners.0": "Hacé clic en una esquina de la columna",
   "planDraw.step.corners.1": "Hacé clic en la esquina opuesta",
   "planDraw.step.point.0": "Hacé clic donde va el punto fijo",

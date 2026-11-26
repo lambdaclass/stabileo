@@ -6339,6 +6339,7 @@ const zh: Translations = {
   "planDraw.topFlush": "顶面在楼层",
   "planDraw.topFlushHint": "梁的顶面在楼层上，与楼板顶面齐平；梁向下悬挂。",
   "planDraw.exit": "停止绘制",
+  "planDraw.rectangular": "改用 b × h 矩形",
   "planDraw.step.corners.0": "点击柱的一个角点",
   "planDraw.step.corners.1": "点击对角",
   "planDraw.step.point.0": "点击固定点所在位置",

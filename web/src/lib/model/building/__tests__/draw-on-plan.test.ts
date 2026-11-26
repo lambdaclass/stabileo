@@ -61,6 +61,25 @@ describe('a column drawn on the plan', () => {
     expect(modelStore.elements.size).toBe(1);
   });
 
+  it('is fixed at its base only when it starts on the lowest level', () => {
+    placeColumnOnPlan({ footprint: footprintAt({ x: 0, y: 0 }, 0.3, 0.3, 0, [0, 0]), fixedPoint: [0, 0], levels, levelFrom: 'N1', levelTo: 'N2', materialId: 1, fixBase: true });
+    expect(modelStore.supports.size).toBe(0);
+    placeColumnOnPlan({ footprint: footprintAt({ x: 0, y: 0 }, 0.3, 0.3, 0, [0, 0]), fixedPoint: [0, 0], levels, levelFrom: 'N0', levelTo: 'N1', materialId: 1, fixBase: true });
+    expect([...modelStore.supports.values()].map((s) => nodeOf(s.nodeId).z ?? 0)).toEqual([0]);
+  });
+
+  it('declared over the storeys it adds, not the ones another column already holds', () => {
+    column(0, 0);
+    const r = placeColumnOnPlan({ footprint: footprintAt({ x: 0, y: 0 }, 0.3, 0.3, 0, [0, 0]), fixedPoint: [0, 0], levels, levelFrom: 'N0', levelTo: 'N2', materialId: 1 });
+    expect(r.bars).toHaveLength(1);
+    expect(physicalGroups().find((g) => g.id === r.groupId)!.physical).toMatchObject({ levelFrom: 'N1', levelTo: 'N2' });
+  });
+
+  it('with a section of the model, keeps it', () => {
+    const r = placeColumnOnPlan({ footprint: footprintAt({ x: 0, y: 0 }, 0.2, 0.2, 0, [0, 0]), fixedPoint: [0, 0], levels, levelFrom: 'N0', levelTo: 'N1', materialId: 1, sectionId: 1 });
+    expect(modelStore.elements.get(r.bars[0]!)!.sectionId).toBe(1);
+  });
+
   it('refuses one level, or no size', () => {
     expect(placeColumnOnPlan({ footprint: footprintAt({ x: 0, y: 0 }, 0.3, 0.3, 0, [0, 0]), fixedPoint: [0, 0], levels, levelFrom: 'N1', levelTo: 'N1', materialId: 1 }).refused).toBe('levels');
     expect(placeColumnOnPlan({ footprint: footprintAt({ x: 0, y: 0 }, 0, 0.3, 0, [0, 0]), fixedPoint: [0, 0], levels, levelFrom: 'N0', levelTo: 'N1', materialId: 1 }).refused).toBe('size');
@@ -100,6 +119,35 @@ describe('a beam drawn on the plan', () => {
     expect(modelStore.elements.size).toBe(3);
     const at = ends(r.bars[0]!)[0]!;
     expect([...modelStore.elements.values()].filter((e) => e.nodeI === at.id || e.nodeJ === at.id)).toHaveLength(3);
+  });
+
+  it('ending on another beam drawn off its nodes, joins it on its own line and cuts it there', () => {
+    column(0, 0); column(6, 0);
+    beam({ x: -0.15, y: -0.05 }, { x: 6.15, y: -0.05 });
+    const r = beam({ x: 3, y: -0.05 }, { x: 3, y: 4 });
+    expect(modelStore.elements.size).toBe(2 + 3);
+    const e = modelStore.elements.get(r.bars[0]!)!;
+    const at = nodeOf(e.nodeI);
+    expect([at.x, at.y, at.z]).toEqual([expect.closeTo(3, 9), expect.closeTo(0, 9), 3]);
+    expect(e.offset!.i).toEqual({ x: expect.closeTo(0, 9), y: expect.closeTo(-0.05, 9), z: 0 });
+    expect([...modelStore.elements.values()].filter((b) => b.nodeI === at.id || b.nodeJ === at.id)).toHaveLength(3);
+  });
+
+  it('crossing another beam, both are cut at the crossing and share its node', () => {
+    beam({ x: 0, y: 2 }, { x: 6, y: 2 });
+    const r = beam({ x: 3, y: 0 }, { x: 3, y: 4 });
+    expect(r.bars).toHaveLength(2);
+    expect(modelStore.elements.size).toBe(4);
+    const shared = [...modelStore.nodes.values()].find((n) => Math.hypot(n.x - 3, n.y - 2) < 1e-9 && n.z === 3)!;
+    expect([...modelStore.elements.values()].filter((b) => b.nodeI === shared.id || b.nodeJ === shared.id)).toHaveLength(4);
+  });
+
+  it('does not frame into a vertical bar declared as something else', () => {
+    const a = modelStore.addNode(2, 0, 0), b = modelStore.addNode(2, 0, 3);
+    const id = modelStore.addElement(a, b);
+    modelStore.updateElement(id, { sectionId: 1 });
+    modelStore.addGroup('D1', 'physicalMember', { elements: [id] }, { origin: 'user', data: { kind: 'brace', provenance: 'declared' } });
+    expect(columnSnapPoints(3)).toEqual([]);
   });
 
   it('from its two faces: the axis between them and the width', () => {

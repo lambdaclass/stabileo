@@ -75,8 +75,9 @@
     const l = levels.find((x) => x.id === workLevel);
     if (l) uiStore.setActiveLevel(l.z);
     const sec = modelStore.sections.get(section);
+    const rect = sec?.shape === 'rect';
     Object.assign(planDraw.column, { typology, fixedPoint: [...fixedPoint] as [number, number], angle, fixBase, levelFrom: '', levelTo: '',
-      ...(sec?.shape === 'rect' && sec.b && sec.h ? { b: sec.b, h: sec.h } : {}) });
+      sectionId: sec && !rect ? sec.id : null, ...(sec?.b && sec.h ? { b: sec.b, h: sec.h } : {}) });
     planDraw.start('column');
     report(t('planDraw.started.column'));
   }

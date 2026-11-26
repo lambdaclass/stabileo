@@ -3,6 +3,7 @@ import { modelStore } from './model.svelte';
 import { buildingUi } from './building-ui.svelte';
 import { t, tp } from '../i18n';
 import type { Level } from '../model/grid';
+import { typologyFamily } from '../model/building/typology-defaults';
 import {
   beamAxis, beamFromFaces, footprintAt, footprintCorners, footprintFromCorners, footprintFromSide,
   placeBeamOnPlan, placeColumnOnPlan, type Footprint, type P2, type PlanPlaced,
@@ -19,15 +20,19 @@ let points = $state<P2[]>([]);
 let hover = $state<P2 | null>(null);
 let typed = $state('');
 let ortho = $state(false);
-const column = $state({ mode: 'corners' as ColumnMode, b: 0.3, h: 0.3, angle: 0, fixedPoint: [0, 0] as [number, number], levelFrom: '', levelTo: '', fixBase: true, typology: 'concrete' });
-const beam = $state({ mode: 'axis' as BeamMode, width: 0.2, height: 0.5, align: 0 as -1 | 0 | 1, topFlush: true, typology: 'dropped' });
+const column = $state({ mode: 'corners' as ColumnMode, b: 0.3, h: 0.3, angle: 0, fixedPoint: [0, 0] as [number, number], levelFrom: '', levelTo: '', fixBase: true, typology: 'concrete', sectionId: null as number | null });
+const beam = $state({ mode: 'axis' as BeamMode, width: 0.2, height: 0.5, align: 0 as -1 | 0 | 1, topFlush: true, typology: 'dropped', sectionId: null as number | null });
+let modeBefore: 'wireframe' | 'solid' | 'sections' | null = null;
 
 const levels = (): Level[] => [...(modelStore.grid?.levels ?? [])].sort((a, b) => a.z - b.z);
 const levelHere = (): Level | undefined => levels().find((l) => Math.abs(l.z - uiStore.nodeCreateZ) < 1e-6);
 
+/** Whether the next point draws a line from the last one, which is what Shift squares. */
+const linear = () => points.length === 1 && (kind === 'beam' || column.mode === 'side');
+
 function constrain(p: P2): P2 {
   const last = points[points.length - 1];
-  if (!ortho || !last) return p;
+  if (!ortho || !last || !linear()) return p;
   return Math.abs(p.x - last.x) >= Math.abs(p.y - last.y) ? { x: p.x, y: last.y } : { x: last.x, y: p.y };
 }
 
@@ -51,31 +56,41 @@ function beamLine(pts: readonly P2[]): { a: P2; b: P2; width: number } | null {
   return pts.length >= 3 ? beamFromFaces(pts[0]!, pts[1]!, pts[2]!) : null;
 }
 
-function report(r: PlanPlaced, what: 'column' | 'beam') {
+function report(r: PlanPlaced, what: 'column' | 'beam'): boolean {
   if (r.refused) uiStore.toast(t(`planDraw.refused.${r.refused}`), 'error');
   else if (r.created === 0) uiStore.toast(t('planDraw.nothing'), 'info');
   else uiStore.toast(tp(`planDraw.placed.${what}`, { n: r.bars.length }), 'success');
+  return !r.refused;
 }
 
 function commit(pts: P2[]) {
   const level = levelHere();
-  const materialId = buildingUi.materialFor('concrete');
   if (kind === 'column') {
     const f = columnFootprint(pts);
-    if (!f) return;
-    const from = column.levelFrom || level?.id || '';
-    const above = levels().find((l) => l.z > (level?.z ?? -Infinity) + 1e-6);
-    const to = column.levelTo || above?.id || '';
-    report(placeColumnOnPlan({ footprint: f, fixedPoint: column.fixedPoint, levels: levels(), levelFrom: from, levelTo: to, materialId, typology: column.typology, fixBase: column.fixBase }), 'column');
-    if (column.mode !== 'point') { column.b = Math.round(f.b * 100) / 100; column.h = Math.round(f.h * 100) / 100; }
     points = [];
+    if (!f) { uiStore.toast(t('planDraw.refused.size'), 'error'); return; }
+    const all = levels();
+    const from = column.levelFrom || level?.id || '';
+    const start = all.find((l) => l.id === from);
+    const to = column.levelTo || all.find((l) => l.z > (start?.z ?? Infinity) + 1e-6)?.id || '';
+    const materialId = buildingUi.materialFor(typologyFamily('column', column.typology));
+    const placed = report(placeColumnOnPlan({
+      footprint: f, fixedPoint: column.fixedPoint, levels: all, levelFrom: from, levelTo: to, materialId,
+      typology: column.typology, fixBase: column.fixBase, ...(column.sectionId !== null ? { sectionId: column.sectionId } : {}),
+    }), 'column');
+    if (placed && column.mode !== 'point' && column.sectionId === null) { column.b = Math.round(f.b * 100) / 100; column.h = Math.round(f.h * 100) / 100; }
     return;
   }
   const line = beamLine(pts);
-  if (!line || !level) { if (!level) uiStore.toast(t('planDraw.noLevel'), 'error'); points = []; return; }
-  report(placeBeamOnPlan({ a: line.a, b: line.b, width: line.width, height: beam.height, level, materialId, typology: beam.typology, topFlush: beam.topFlush }), 'beam');
-  if (beam.mode === 'faces') beam.width = Math.round(line.width * 100) / 100;
-  points = beam.mode === 'axis' ? [pts[1]!] : [];
+  if (!level) { uiStore.toast(t('planDraw.noLevel'), 'error'); points = []; return; }
+  if (!line) { uiStore.toast(t('planDraw.refused.size'), 'error'); points = []; return; }
+  const materialId = buildingUi.materialFor(typologyFamily('beam', beam.typology));
+  const placed = report(placeBeamOnPlan({
+    a: line.a, b: line.b, width: line.width, height: beam.height, level, materialId, typology: beam.typology, topFlush: beam.topFlush,
+    ...(beam.sectionId !== null ? { sectionId: beam.sectionId } : {}),
+  }), 'beam');
+  if (placed && beam.mode === 'faces') beam.width = Math.round(line.width * 100) / 100;
+  points = placed && beam.mode === 'axis' ? [pts[1]!] : [];
 }
 
 export const planDraw = {
@@ -96,13 +111,24 @@ export const planDraw = {
     return `${m}.${Math.min(points.length, NEED[m] - 1)}`;
   },
   start(k: PlanDrawKind) {
-    kind = k; points = []; typed = ''; hover = null;
+    kind = k; points = []; typed = ''; hover = null; ortho = false;
     uiStore.workingPlane = 'XY';
     uiStore.planView3D = true;
     uiStore.currentTool = 'pan';
-    uiStore.renderMode3D = 'sections';
+    if (uiStore.renderMode3D !== 'sections') { modeBefore ??= uiStore.renderMode3D; uiStore.renderMode3D = 'sections'; }
   },
-  stop() { kind = null; points = []; typed = ''; hover = null; },
+  stop() {
+    if (kind === null) return;
+    kind = null; points = []; typed = ''; hover = null; ortho = false;
+    if (modeBefore) { uiStore.renderMode3D = modeBefore; modeBefore = null; }
+  },
+  /** Another way of drawing: what was half drawn the other way is dropped. */
+  setMode(m: ColumnMode | BeamMode) {
+    if (kind === 'column') column.mode = m as ColumnMode; else beam.mode = m as BeamMode;
+    points = []; typed = '';
+  },
+  /** Whether a key typed now belongs to the drawing: a length needs a point to start from. */
+  get typing() { return points.length > 0; },
   add(p: P2) {
     if (!kind) return;
     const q = constrain(p);

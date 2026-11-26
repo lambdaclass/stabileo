@@ -2298,6 +2298,7 @@
     return uiStore.snapWorld3D(pos.x, pos.y, pos.z);
   }
 
+  let columnSnapCache: { key: string; points: ReturnType<typeof columnSnapPoints> } | null = null;
   function planDrawPoint(e: MouseEvent): { x: number; y: number; mode?: string; label?: string } | null {
     const ground = getGroundIntersection(e);
     if (!ground || !camera || !container) return null;
@@ -2308,7 +2309,9 @@
       const d = Math.hypot(x - ground.x, y - ground.y);
       if (d <= tol && (!best || d < best.d)) best = { x, y, d, mode };
     };
-    for (const p of columnSnapPoints(z)) offer(p.x, p.y, p.kind === 'corner' ? 'endpoint' : p.kind === 'face' ? 'midpoint' : 'center');
+    const key = `${modelStore.modelVersion}:${z}`;
+    if (columnSnapCache?.key !== key) columnSnapCache = { key, points: columnSnapPoints(z) };
+    for (const p of columnSnapCache.points) offer(p.x, p.y, p.kind === 'corner' ? 'endpoint' : p.kind === 'face' ? 'midpoint' : 'center');
     for (const n of modelStore.nodes.values()) if (Math.abs((n.z ?? 0) - z) < 1e-6) offer(n.x, n.y, 'node');
     const b = best as { x: number; y: number; d: number; mode: string } | null;
     if (b) return { x: b.x, y: b.y, mode: b.mode, label: t(`planDraw.snap.${b.mode}`) };

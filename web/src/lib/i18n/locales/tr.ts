@@ -6155,6 +6155,7 @@ const tr: Translations = {
   "planDraw.topFlush": "Üst yüz kotta",
   "planDraw.topFlushHint": "Kirişin üst yüzü kotta, döşemenin üst yüzü gibi; altına sarkar.",
   "planDraw.exit": "Çizimi bitir",
+  "planDraw.rectangular": "Bunun yerine b × h dikdörtgen kullan",
   "planDraw.step.corners.0": "Kolonun bir köşesine tıklayın",
   "planDraw.step.corners.1": "Karşı köşeye tıklayın",
   "planDraw.step.point.0": "Sabit noktanın yerine tıklayın",

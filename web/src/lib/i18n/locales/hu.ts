@@ -5866,6 +5866,7 @@ const hu: Translations = {
   "planDraw.topFlush": "Felső sík a szinten",
   "planDraw.topFlushHint": "A gerenda felső síkja a szinten, mint a födémé; alatta lóg.",
   "planDraw.exit": "Rajzolás befejezése",
+  "planDraw.rectangular": "Helyette b × h téglalap használata",
   "planDraw.step.corners.0": "Kattintson az oszlop egyik sarkára",
   "planDraw.step.corners.1": "Kattintson a szemközti sarokra",
   "planDraw.step.point.0": "Kattintson oda, ahol a fix pont van",

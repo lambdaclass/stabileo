@@ -6599,6 +6599,7 @@ const en: Record<string, string> = {
   "planDraw.topFlush": "Top on the level",
   "planDraw.topFlushHint": "The beam's top face on the level, as the slab's top; it hangs below it.",
   "planDraw.exit": "Stop drawing",
+  "planDraw.rectangular": "Use a rectangle of b × h instead",
   "planDraw.step.corners.0": "Click a corner of the column",
   "planDraw.step.corners.1": "Click the opposite corner",
   "planDraw.step.point.0": "Click where the fixed point goes",

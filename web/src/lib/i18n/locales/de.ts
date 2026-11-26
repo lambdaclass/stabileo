@@ -6146,6 +6146,7 @@ const de: Translations = {
   "planDraw.topFlush": "Oberkante auf der Ebene",
   "planDraw.topFlushHint": "Die Oberkante des Balkens auf der Ebene, wie die der Decke; er hängt darunter.",
   "planDraw.exit": "Zeichnen beenden",
+  "planDraw.rectangular": "Stattdessen ein Rechteck b × h verwenden",
   "planDraw.step.corners.0": "Klicken Sie auf eine Ecke der Stütze",
   "planDraw.step.corners.1": "Klicken Sie auf die gegenüberliegende Ecke",
   "planDraw.step.point.0": "Klicken Sie, wo der Festpunkt liegt",

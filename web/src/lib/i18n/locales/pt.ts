@@ -6029,6 +6029,7 @@ const pt: Translations = {
   "planDraw.topFlush": "Face superior no nível",
   "planDraw.topFlushHint": "A face superior da viga no nível, como a da laje; ela fica pendurada abaixo.",
   "planDraw.exit": "Parar de desenhar",
+  "planDraw.rectangular": "Usar um retângulo de b × h",
   "planDraw.step.corners.0": "Clique num canto do pilar",
   "planDraw.step.corners.1": "Clique no canto oposto",
   "planDraw.step.point.0": "Clique onde fica o ponto fixo",

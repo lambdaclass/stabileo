@@ -102,18 +102,27 @@ function axesOf(id: number) {
 
 /**
  * Turn a vertical bar about its axis so its local y runs along the footprint's first side, and
- * give it the b × h section that footprint has (b along local y, as `planHalf` reads it).
+ * give it the b × h section that footprint has (b along local y, as `planHalf` reads it), or the
+ * section given.
  */
-function seatColumnSection(id: number, f: Footprint): void {
+function seatColumnSection(id: number, f: Footprint, sectionId?: number): void {
   const want = footprintAngle(f);
-  for (const roll of [want, -want, want + 90, -want + 90, want - 90, -want - 90]) {
+  const rolls = [want, -want, want + 90, -want + 90, want - 90, -want - 90];
+  const along = (roll: number) => {
     modelStore.updateElement(id, { rollAngle: roll });
     const ax = axesOf(id);
-    const alongU = Math.abs(ax.ey[0] * f.u.x + ax.ey[1] * f.u.y);
-    if (alongU > 1 - 1e-6) { modelStore.updateElement(id, { sectionId: rectSection(f.b, f.h) }); return; }
-    const alongV = Math.abs(ax.ey[0] * f.v.x + ax.ey[1] * f.v.y);
-    if (alongV > 1 - 1e-6) { modelStore.updateElement(id, { sectionId: rectSection(f.h, f.b) }); return; }
+    return { u: Math.abs(ax.ey[0] * f.u.x + ax.ey[1] * f.u.y), v: Math.abs(ax.ey[0] * f.v.x + ax.ey[1] * f.v.y) };
+  };
+  let best = { roll: want, u: -1 };
+  for (const roll of rolls) {
+    const a = along(roll);
+    if (a.u > 1 - 1e-6) { modelStore.updateElement(id, { sectionId: sectionId ?? rectSection(f.b, f.h) }); return; }
+    if (a.u > best.u) best = { roll, u: a.u };
   }
+  if (sectionId === undefined) {
+    for (const roll of rolls) if (along(roll).v > 1 - 1e-6) { modelStore.updateElement(id, { sectionId: rectSection(f.h, f.b) }); return; }
+  }
+  modelStore.updateElement(id, { rollAngle: best.roll, sectionId: sectionId ?? rectSection(f.b, f.h) });
 }
 
 export interface ColumnOnPlan {
@@ -123,7 +132,10 @@ export interface ColumnOnPlan {
   levelFrom: string;
   levelTo: string;
   materialId: number;
+  /** A section of the model to give it; absent, the footprint's b × h rectangle. */
+  sectionId?: number;
   typology?: string;
+  /** Fixed at its base, when it starts on the lowest level. */
   fixBase?: boolean;
 }
 
@@ -145,19 +157,22 @@ export function placeColumnOnPlan(c: ColumnOnPlan): PlanPlaced {
     const offset = Math.hypot(shift.x, shift.y) > 1e-9 ? { offset: { frame: 'global' as const, i: shift, j: shift } } : {};
     const ids = lv.map((l) => nodeAt(at.x, at.y, l.z));
     const mine: number[] = [];
+    const spans: number[] = [];
     for (let k = 0; k + 1 < ids.length; k++) {
       const there = barBetween(ids[k]!, ids[k + 1]!);
       if (there !== undefined && held.has(there)) continue;
       const id = there ?? modelStore.addElement(ids[k]!, ids[k + 1]!);
       modelStore.updateElement(id, { materialId: c.materialId, ...offset } as never);
-      seatColumnSection(id, c.footprint);
+      seatColumnSection(id, c.footprint, c.sectionId);
       mine.push(id);
+      spans.push(k);
     }
     if (mine.length === 0) return;
     const base = ids[0]!;
-    if (c.fixBase && ![...modelStore.supports.values()].some((s) => s.nodeId === base)) modelStore.addSupport(base, 'fixed3d');
+    const lowest = Math.min(...c.levels.map((l) => l.z));
+    if (c.fixBase && spans[0] === 0 && Math.abs(lv[0]!.z - lowest) < 1e-9 && ![...modelStore.supports.values()].some((s) => s.nodeId === base)) modelStore.addSupport(base, 'fixed3d');
     out.groupId = declare(nextName('C')(), { elements: mine }, {
-      kind: 'column', provenance: 'declared', levelFrom: lv[0]!.id, levelTo: lv[lv.length - 1]!.id,
+      kind: 'column', provenance: 'declared', levelFrom: lv[spans[0]!]!.id, levelTo: lv[spans[spans.length - 1]! + 1]!.id,
       fixedPoint: [...c.fixedPoint], ...(c.typology ? { typology: c.typology } : {}),
     });
     out.created = 1;
@@ -170,7 +185,12 @@ export function placeColumnOnPlan(c: ColumnOnPlan): PlanPlaced {
 export function columnsAtLevel(z: number): Array<{ node: number; footprint: Footprint; element: number }> {
   const out: Array<{ node: number; footprint: Footprint; element: number }> = [];
   const seen = new Set<number>();
+  const other = new Set<number>();
+  for (const g of modelStore.model.groups.values()) {
+    if (g.kind === PHYSICAL_GROUP_KIND && (g.data as { kind?: string } | undefined)?.kind !== 'column') for (const id of g.members.elements ?? []) other.add(id);
+  }
   for (const e of modelStore.elements.values()) {
+    if (other.has(e.id)) continue;
     const a = modelStore.nodes.get(e.nodeI), b = modelStore.nodes.get(e.nodeJ);
     if (!a || !b || Math.hypot(b.x - a.x, b.y - a.y) > 1e-6 || Math.abs((b.z ?? 0) - (a.z ?? 0)) < 1e-6) continue;
     const at = Math.abs((a.z ?? 0) - z) < 1e-6 ? a : Math.abs((b.z ?? 0) - z) < 1e-6 ? b : null;
@@ -216,6 +236,8 @@ export interface BeamOnPlan {
   width: number; height: number;
   level: Level;
   materialId: number;
+  /** A section of the model to give it; absent, the width × height rectangle. */
+  sectionId?: number;
   typology?: string;
   /** The top face on the level (the slab's top), the axis half a depth below. */
   topFlush?: boolean;
@@ -230,7 +252,7 @@ export interface BeamOnPlan {
 export function placeBeamOnPlan(d: BeamOnPlan): PlanPlaced {
   const L = Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y);
   if (L < 0.05) return { created: 0, bars: [], refused: 'length' };
-  if (d.width < 0.01 || d.height < 0.01) return { created: 0, bars: [], refused: 'size' };
+  if (d.sectionId === undefined && (d.width < 0.01 || d.height < 0.01)) return { created: 0, bars: [], refused: 'size' };
   const z = d.level.z;
   const t = { x: (d.b.x - d.a.x) / L, y: (d.b.y - d.a.y) / L };
   const param = (p: P2) => (p.x - d.a.x) * t.x + (p.y - d.a.y) * t.y;
@@ -239,12 +261,30 @@ export function placeBeamOnPlan(d: BeamOnPlan): PlanPlaced {
   modelStore.batch(() => {
     const nodeAt = nodeFinder();
     const columns = columnsAtLevel(z);
+    const onLevel = (n: number) => Math.abs((modelStore.nodes.get(n)?.z ?? NaN) - z) < 1e-6;
+    const drawn = [...modelStore.elements.values()].filter((e) => onLevel(e.nodeI) && onLevel(e.nodeJ)).map((e) => {
+      const a = modelStore.nodes.get(e.nodeI)!, b = modelStore.nodes.get(e.nodeJ)!;
+      const g = e.offset?.frame === 'global' ? e.offset : undefined;
+      return { id: e.id, a, b, A: { x: a.x + (g?.i?.x ?? 0), y: a.y + (g?.i?.y ?? 0) }, B: { x: b.x + (g?.j?.x ?? 0), y: b.y + (g?.j?.y ?? 0) } };
+    });
     type Station = { s: number; node: number };
     const stations: Station[] = [];
+    const cuts: Array<{ bar: number; node: number }> = [];
+    const onBar = (bar: (typeof drawn)[number], u: number) => nodeAt(bar.a.x + (bar.b.x - bar.a.x) * u, bar.a.y + (bar.b.y - bar.a.y) * u, z);
     const endNode = (s: number): number => {
       const p = onAxis(s);
       const col = columns.find((c) => inside(c.footprint, p, INSIDE_M));
-      return col ? col.node : nodeAt(p.x, p.y, z);
+      if (col) return col.node;
+      for (const bar of drawn) {
+        const dx = bar.B.x - bar.A.x, dy = bar.B.y - bar.A.y, l2 = dx * dx + dy * dy;
+        if (l2 < 1e-12) continue;
+        const u = ((p.x - bar.A.x) * dx + (p.y - bar.A.y) * dy) / l2;
+        if (u <= 1e-6 || u >= 1 - 1e-6 || Math.hypot(bar.A.x + dx * u - p.x, bar.A.y + dy * u - p.y) > INSIDE_M) continue;
+        const node = onBar(bar, u);
+        cuts.push({ bar: bar.id, node });
+        return node;
+      }
+      return nodeAt(p.x, p.y, z);
     };
     const n0 = endNode(0), n1 = endNode(L);
     stations.push({ s: 0, node: n0 }, { s: L, node: n1 });
@@ -254,6 +294,18 @@ export function placeBeamOnPlan(d: BeamOnPlan): PlanPlaced {
       if (s <= 0 || s >= L) continue;
       if (inside(c.footprint, onAxis(s), INSIDE_M)) stations.push({ s, node: c.node });
     }
+    for (const bar of drawn) {
+      if ([bar.a.id, bar.b.id].some((n) => stations.some((st) => st.node === n)) || cuts.some((c) => c.bar === bar.id)) continue;
+      const ex = bar.B.x - bar.A.x, ey = bar.B.y - bar.A.y;
+      const den = t.x * ey - t.y * ex;
+      if (Math.abs(den) < 1e-9) continue;
+      const wx = bar.A.x - d.a.x, wy = bar.A.y - d.a.y;
+      const s = (wx * ey - wy * ex) / den, u = (wx * t.y - wy * t.x) / den;
+      if (s <= 1e-6 || s >= L - 1e-6 || u <= 1e-6 || u >= 1 - 1e-6) continue;
+      const node = onBar(bar, u);
+      cuts.push({ bar: bar.id, node });
+      stations.push({ s, node });
+    }
     for (const [id, n] of modelStore.nodes) {
       if (Math.abs((n.z ?? 0) - z) > 1e-6 || stations.some((st) => st.node === id)) continue;
       const s = param(n);
@@ -261,10 +313,12 @@ export function placeBeamOnPlan(d: BeamOnPlan): PlanPlaced {
       if (s > 1e-6 && s < L - 1e-6 && Math.hypot(p.x - n.x, p.y - n.y) < WELD_M) stations.push({ s, node: id });
     }
     stations.sort((p, q) => p.s - q.s);
-    const levelBars = [...modelStore.elements.values()].filter((e) => [e.nodeI, e.nodeJ].every((n) => Math.abs((modelStore.nodes.get(n)?.z ?? NaN) - z) < 1e-6)).map((e) => e.id);
+    if (cuts.length) splitAtNodes(new Set(cuts.map((c) => c.bar)), cuts.map((c) => c.node));
+    const levelBars = [...modelStore.elements.values()].filter((e) => onLevel(e.nodeI) && onLevel(e.nodeJ)).map((e) => e.id);
     if (levelBars.length) splitAtNodes(levelBars, [n0, n1]);
     const held = heldByPhysical();
-    const sectionId = rectSection(d.width, d.height);
+    const sectionId = d.sectionId ?? rectSection(d.width, d.height);
+    const height = d.sectionId !== undefined ? modelStore.sections.get(d.sectionId)?.h ?? d.height : d.height;
     const mine: number[] = [];
     for (let k = 0; k + 1 < stations.length; k++) {
       const p = stations[k]!, q = stations[k + 1]!;
@@ -274,7 +328,7 @@ export function placeBeamOnPlan(d: BeamOnPlan): PlanPlaced {
       const id = there ?? modelStore.addElement(p.node, q.node);
       const shift = (st: Station) => {
         const n = modelStore.nodes.get(st.node)!, a = onAxis(st.s);
-        return { x: a.x - n.x, y: a.y - n.y, z: d.topFlush ? -d.height / 2 : 0 };
+        return { x: a.x - n.x, y: a.y - n.y, z: d.topFlush ? -height / 2 : 0 };
       };
       const i = shift(p), j = shift(q);
       const any = [i, j].some((v) => Math.hypot(v.x, v.y, v.z) > 1e-9);

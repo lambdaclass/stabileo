@@ -2,6 +2,7 @@
   import { planDraw, type BeamMode, type ColumnMode } from '../../lib/store/plan-draw.svelte';
   import { t } from '../../lib/i18n';
   import { uiStore } from '../../lib/store/ui.svelte';
+  import { modelStore } from '../../lib/store/model.svelte';
 
   const COLUMN_MODES: ColumnMode[] = ['corners', 'point', 'side'];
   const BEAM_MODES: BeamMode[] = ['axis', 'faces'];
@@ -13,19 +14,29 @@
 
   $effect(() => { if (!uiStore.planView3D || (uiStore.currentTool !== 'pan' && uiStore.currentTool !== 'select')) planDraw.stop(); });
 
+  const sectionName = (id: number | null) => (id === null ? null : modelStore.sections.get(id)?.name ?? null);
+
   function onKey(e: KeyboardEvent) {
     if (e.key === 'Shift') planDraw.ortho = e.type === 'keydown';
-    if (e.type !== 'keydown') return;
+    if (e.type !== 'keydown' || e.ctrlKey || e.metaKey || e.altKey) return;
     const el = e.target as HTMLElement | null;
-    if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) { if (e.key === 'Escape') el.blur(); return; }
-    if (/^[0-9.,]$/.test(e.key)) { planDraw.type(e.key); e.preventDefault(); }
-    else if (e.key === 'Enter') { planDraw.enter(); e.preventDefault(); }
-    else if (e.key === 'Backspace') { planDraw.back(); e.preventDefault(); }
-    else if (e.key === 'Escape') { planDraw.cancel(); e.preventDefault(); }
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) {
+      if (e.key === 'Escape' || e.key === 'Enter') el.blur();
+      return;
+    }
+    const take = () => { e.preventDefault(); e.stopPropagation(); };
+    if (/^[0-9.,]$/.test(e.key)) { if (planDraw.typing) { planDraw.type(e.key); take(); } }
+    else if (e.key === 'Enter') { planDraw.enter(); take(); }
+    else if (e.key === 'Backspace') { planDraw.back(); take(); }
+    else if (e.key === 'Escape') { planDraw.cancel(); take(); }
   }
+  $effect(() => {
+    const keys = (e: KeyboardEvent) => onKey(e);
+    window.addEventListener('keydown', keys, true);
+    window.addEventListener('keyup', keys, true);
+    return () => { window.removeEventListener('keydown', keys, true); window.removeEventListener('keyup', keys, true); };
+  });
 </script>
-
-<svelte:window onkeydown={onKey} onkeyup={onKey} />
 
 <div class="pd" role="toolbar" aria-label={t(`planDraw.${planDraw.kind}`)} data-testid="plan-draw-bar">
   <div class="pd-row">
@@ -33,11 +44,15 @@
     <span class="pd-sep"></span>
     {#if planDraw.kind === 'column'}
       <div class="pd-seg" role="radiogroup">
-        {#each COLUMN_MODES as m (m)}<button class:on={c.mode === m} role="radio" aria-checked={c.mode === m} onclick={() => (c.mode = m)} data-testid="plan-draw-mode-{m}">{t(`planDraw.mode.${m}`)}</button>{/each}
+        {#each COLUMN_MODES as m (m)}<button class:on={c.mode === m} role="radio" aria-checked={c.mode === m} onclick={() => planDraw.setMode(m)} data-testid="plan-draw-mode-{m}">{t(`planDraw.mode.${m}`)}</button>{/each}
       </div>
       <span class="pd-sep"></span>
-      <label class="pd-size" title={t('planDraw.columnSizeHint')}>b <input value={cm(c.b)} onchange={(e) => { const v = toM(e.currentTarget.value); if (v) c.b = v; }} data-testid="plan-draw-b" />
-        × h <input value={cm(c.h)} onchange={(e) => { const v = toM(e.currentTarget.value); if (v) c.h = v; }} data-testid="plan-draw-h" /> cm</label>
+      {#if sectionName(c.sectionId)}
+        <span class="pd-size" data-testid="plan-draw-section">{sectionName(c.sectionId)} <button class="pd-x" onclick={() => (c.sectionId = null)} aria-label={t('planDraw.rectangular')} title={t('planDraw.rectangular')}>×</button></span>
+      {:else}
+        <label class="pd-size" title={t('planDraw.columnSizeHint')}>b <input value={cm(c.b)} onchange={(e) => { const v = toM(e.currentTarget.value); if (v) c.b = v; }} data-testid="plan-draw-b" />
+          × h <input value={cm(c.h)} onchange={(e) => { const v = toM(e.currentTarget.value); if (v) c.h = v; }} data-testid="plan-draw-h" /> cm</label>
+      {/if}
       {#if c.mode === 'point'}
         <label class="pd-size">∠ <input value={c.angle} onchange={(e) => { const v = parseFloat(e.currentTarget.value.replace(',', '.')); if (Number.isFinite(v)) c.angle = v; }} data-testid="plan-draw-angle" />°</label>
       {/if}
@@ -53,11 +68,15 @@
       <label class="pd-size">{t('planDraw.to')} <select bind:value={c.levelTo} data-testid="plan-draw-to"><option value="">{t('planDraw.nextLevel')}</option>{#each levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}</select></label>
     {:else}
       <div class="pd-seg" role="radiogroup">
-        {#each BEAM_MODES as m (m)}<button class:on={b.mode === m} role="radio" aria-checked={b.mode === m} onclick={() => (b.mode = m)} data-testid="plan-draw-mode-{m}">{t(`planDraw.mode.${m}`)}</button>{/each}
+        {#each BEAM_MODES as m (m)}<button class:on={b.mode === m} role="radio" aria-checked={b.mode === m} onclick={() => planDraw.setMode(m)} data-testid="plan-draw-mode-{m}">{t(`planDraw.mode.${m}`)}</button>{/each}
       </div>
       <span class="pd-sep"></span>
-      <label class="pd-size" title={t('planDraw.beamSizeHint')}>b <input value={cm(b.width)} onchange={(e) => { const v = toM(e.currentTarget.value); if (v) b.width = v; }} data-testid="plan-draw-width" />
-        × h <input value={cm(b.height)} onchange={(e) => { const v = toM(e.currentTarget.value); if (v) b.height = v; }} data-testid="plan-draw-height" /> cm</label>
+      {#if sectionName(b.sectionId)}
+        <span class="pd-size" data-testid="plan-draw-section">{sectionName(b.sectionId)} <button class="pd-x" onclick={() => (b.sectionId = null)} aria-label={t('planDraw.rectangular')} title={t('planDraw.rectangular')}>×</button></span>
+      {:else}
+        <label class="pd-size" title={t('planDraw.beamSizeHint')}>b <input value={cm(b.width)} onchange={(e) => { const v = toM(e.currentTarget.value); if (v) b.width = v; }} data-testid="plan-draw-width" />
+          × h <input value={cm(b.height)} onchange={(e) => { const v = toM(e.currentTarget.value); if (v) b.height = v; }} data-testid="plan-draw-height" /> cm</label>
+      {/if}
       {#if b.mode === 'axis'}
         <div class="pd-seg" role="radiogroup" aria-label={t('planDraw.align')} title={t('planDraw.align')}>
           {#each ALIGN as [v, g] (v)}<button class:on={b.align === v} role="radio" aria-checked={b.align === v} onclick={() => (b.align = v)} title={t(`planDraw.align.${v}`)} data-testid="plan-draw-align-{v}">{g}</button>{/each}

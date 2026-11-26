@@ -6146,6 +6146,7 @@ const fr: Translations = {
   "planDraw.topFlush": "Dessus au niveau",
   "planDraw.topFlushHint": "La face supérieure de la poutre au niveau, comme celle de la dalle ; elle pend en dessous.",
   "planDraw.exit": "Arrêter de dessiner",
+  "planDraw.rectangular": "Utiliser plutôt un rectangle b × h",
   "planDraw.step.corners.0": "Cliquez sur un coin du poteau",
   "planDraw.step.corners.1": "Cliquez sur le coin opposé",
   "planDraw.step.point.0": "Cliquez là où va le point fixe",

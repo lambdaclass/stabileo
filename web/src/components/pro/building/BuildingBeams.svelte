@@ -76,8 +76,9 @@
       const l = levels.find((x) => x.id === workLevel);
       if (l) uiStore.setActiveLevel(l.z);
       const sec = modelStore.sections.get(sectionX);
+      const rect = sec?.shape === 'rect';
       Object.assign(planDraw.beam, { typology, topFlush, align: align === 'perimeter' ? 0 : Math.sign(align) as -1 | 0 | 1,
-        ...(sec?.shape === 'rect' && sec.b && sec.h ? { width: sec.b, height: sec.h } : {}) });
+        sectionId: sec && !rect ? sec.id : null, ...(sec?.b && sec.h ? { width: sec.b, height: sec.h } : {}) });
       planDraw.start('beam');
       report(t('planDraw.started.beam'));
       return;
