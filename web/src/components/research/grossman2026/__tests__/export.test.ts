@@ -1,5 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { t } from '../../../../lib/i18n';
+import { SETTLEMENT_CASE_ID } from '../../../../lib/engine/settlement-case';
+import type { AnalysisResults } from '../../../../lib/engine/types';
 import { initSolver, solvePDelta } from '../../../../lib/engine/wasm-solver';
 import { modelStore } from '../../../../lib/store/model.svelte';
 import { uiStore } from '../../../../lib/store/ui.svelte';
@@ -21,7 +23,6 @@ it('keeps small strains and exact seeds in the saved label', () => {
   expect(text).toContain('12,345,678');
   expect(text).toContain('0.875');
 });
-
 
 const strain = 0.01;
 const settledStrip: StripResult = {
@@ -47,13 +48,12 @@ afterEach(() => {
   uiStore.drawPlane2D = 'xy';
 });
 
-it.skip.each([
+it.each([
   { mode: 'embed', open: 'hash', url: embeddedEditorUrl },
   { mode: 'data', open: 'hash', url: fullEditorUrl },
   { mode: 'embed', open: 'paste', url: embeddedEditorUrl },
   { mode: 'data', open: 'paste', url: fullEditorUrl },
-])('known wrong result: #2588 — $mode via $open restores the spring strip in XY', async ({ mode, open, url }) => {
-  await initSolver();
+])('$mode via $open restores the spring strip in XY', async ({ mode, open, url }) => {
   const link = await url(settledStrip, label);
   uiStore.drawPlane2D = 'xz';
   vi.stubGlobal('window', { dispatchEvent: vi.fn() });
@@ -68,20 +68,26 @@ it.skip.each([
   expect(uiStore.drawPlane2D).toBe('xy');
   expect(uiStore.analysisPlane2D).toBe('xy');
 
+  await initSolver();
   const linear = modelStore.solve();
-  const worker = await modelStore.solveAsync();
-  const combined = modelStore.solveCombinations();
-  const nonlinear = solvePDelta(modelStore.buildSolverInput()!);
-  expect(linear).toMatchObject({ elementForces: expect.any(Array) });
-  if (typeof linear !== 'object' || !linear) throw new Error(String(linear));
+  if (!linear || typeof linear === 'string') throw new Error(String(linear));
   for (const member of linear.elementForces) {
     expect(member.nStart / 1000).toBeCloseTo(settledStrip.force[member.elementId - 1]!, 10);
   }
   expect(linear.elementForces).toHaveLength(settledStrip.bonds.length);
-  expect(worker).toMatchObject({ elementForces: linear.elementForces });
-  expect(combined).toMatchObject({ perCase: expect.any(Map) });
+  expect(await modelStore.solveAsync()).toMatchObject({ elementForces: linear.elementForces });
+
+  const caseId = modelStore.model.loadCases[0]!.id;
+  const combinationId = modelStore.addCombination('Settlement', [{ caseId, factor: 1 }]);
+  const combined = modelStore.solveCombinations();
+  if (!combined || typeof combined === 'string') throw new Error(String(combined));
+  expect(combined.perCase.get(SETTLEMENT_CASE_ID)?.elementForces.map(member => member.nStart)).toEqual(linear.elementForces.map(member => member.nStart));
+  expect(combined.perCombo.get(combinationId)?.elementForces.find(member => member.elementId === 1)?.nStart).toBe(linear.elementForces.find(member => member.elementId === 1)?.nStart);
+
+  const nonlinear = solvePDelta(modelStore.buildSolverInput()!);
   expect(nonlinear.converged).toBe(true);
-  expect(nonlinear.results.elementForces.find(member => member.elementId === 1)?.nStart).toBe(linear.elementForces.find(member => member.elementId === 1)?.nStart);
+  const nonlinearResults: AnalysisResults = nonlinear.results;
+  expect(nonlinearResults.elementForces.find(member => member.elementId === 1)?.nStart).toBe(linear.elementForces.find(member => member.elementId === 1)?.nStart);
 });
 
 it('asks for the plane of an unstamped spring strip with a transverse settlement', async () => {
