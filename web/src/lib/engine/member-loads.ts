@@ -119,6 +119,8 @@ export interface MemberRef {
   points?: readonly [Vec3, Vec3];
 }
 
+export const PLANAR_LINE_COMPONENT_CUTOFF = 1e-10;
+
 export function distributedSolverRow3D(elementId: number, qI: LoadVector, qJ: LoadVector, a?: number, b?: number, source: MemberLineSource = 'external'): SolverLoad3D {
   const [qXI, qYI, qZI] = qI.value, [qXJ, qYJ, qZJ] = qJ.value;
   const row: SolverLoad3D = { type: 'distributed', data: { elementId, qXI, qXJ, qYI, qYJ, qZI, qZJ, a, b } };
@@ -134,11 +136,20 @@ export function globalDistributedToSolver(m: MemberRef, gI: Vec3, gJ: Vec3, a: n
   return distributedVectorsToSolver(m, LoadVector.from(gI), LoadVector.from(gJ), a, b, axialOnly, 'external');
 }
 
+export function localDistributedToSolver(m: MemberRef, qI: Vec3, qJ: Vec3, a: number, b: number, axialOnly = false): SolverLoad3D[] {
+  return localDistributedVectorsToSolver(m, LoadVector.from(qI), LoadVector.from(qJ), a, b, axialOnly, 'external');
+}
+
 function distributedVectorsToSolver(
   m: MemberRef, gI: LoadVector, gJ: LoadVector, a: number, b: number, axialOnly: boolean, source: MemberLineSource,
 ): SolverLoad3D[] {
-  const { ex, ey, ez, L } = m.axes;
   const qI = gI.projectOnto(m.axes), qJ = gJ.projectOnto(m.axes);
+  return localDistributedVectorsToSolver(m, qI, qJ, a, b, axialOnly, source);
+}
+
+function localDistributedVectorsToSolver(
+  m: MemberRef, qI: LoadVector, qJ: LoadVector, a: number, b: number, axialOnly: boolean, source: MemberLineSource,
+): SolverLoad3D[] {
   if (!axialOnly) {
     return [...qI.value, ...qJ.value].some(v => v !== 0) ? [distributedSolverRow3D(m.elementId, qI, qJ, a, b, source)] : [];
   }
@@ -146,7 +157,21 @@ function distributedVectorsToSolver(
   const span = trapezoidSpan(a, b);
   if (!span) return [];
   const out: SolverLoad3D[] = [];
+  appendDistributedEndNodeRows(out, m, qI, qJ, span, source);
+  return out;
+}
+
+export function trussComponentBelowCutoff(value: number): boolean {
   const tiny = (v: number) => Math.abs(v) < 1e-12;
+  return tiny(value);
+}
+
+function appendDistributedEndNodeRows(
+  out: SolverLoad3D[], m: MemberRef, qI: LoadVector, qJ: LoadVector,
+  span: NonNullable<ReturnType<typeof trapezoidSpan>>, source: MemberLineSource,
+): void {
+  const { ex, ey, ez, L } = m.axes;
+  const tiny = trussComponentBelowCutoff;
   const toNodes = (vI: LoadVector, vJ: LoadVector, axial = false) => {
     let fI = LoadVector.from(zero()), fJ = LoadVector.from(zero());
     for (const [q, station] of [[vI, span.stationI], [vJ, span.stationJ]] as const) {
@@ -172,7 +197,6 @@ function distributedVectorsToSolver(
   const transverse = (q: LoadVector) => q.componentAlong(1, ey).add(q.componentAlong(2, ez));
   if ([qI.value[1], qI.value[2], qJ.value[1], qJ.value[2]].some(v => !tiny(v))) toNodes(transverse(qI), transverse(qJ));
   if (!(tiny(qI.value[0]) && tiny(qJ.value[0]))) toNodes(qI.componentAlong(0, ex), qJ.componentAlong(0, ex), true);
-  return out;
 }
 
 /** Members that work one way only: axial members to the active-set loop (`member-behaviour.ts`). */

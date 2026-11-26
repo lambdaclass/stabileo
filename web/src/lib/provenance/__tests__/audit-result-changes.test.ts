@@ -177,6 +177,30 @@ it('#2297 shell notices require a zero or possibly cancelling factor', () => {
   expect.soft(notice([dead, { caseId: 2, factor: Number.MIN_VALUE }])).toBe(false);
 });
 
+it('#2586 compares generated member loads within each effective case', () => {
+  const model: FeatureSnapshot = {
+    analysisMode: 'pro',
+    loadCases: [{ id: 1, type: 'E', alternatives: 'E' }, { id: 2, type: 'E', alternatives: 'E' }],
+    loads: [
+      { type: 'distributed3d', data: { elementId: 1, caseId: 1, frame: 'global', qZI: 3, qZJ: 3, generatedBy: 'inpres103-2018' } },
+      { type: 'distributed3d', data: { elementId: 1, caseId: 2, frame: 'global', qZI: -3, qZJ: -3, generatedBy: 'inpres103-2018' } },
+    ],
+  };
+  const opposed = (loadCases: FeatureSnapshot['loadCases'], loads = model.loads) =>
+    modelFeatures({ ...model, loadCases, loads }).has('opposedGeneratedLineLoads');
+  const include = (factor: number) => ({
+    id: 3, includes: [{ caseId: 1, factor: 1 }, { caseId: 2, factor }],
+  });
+  expect.soft(opposed(model.loadCases)).toBe(false);
+  expect.soft(opposed(model.loadCases, model.loads!.map(load => ({ ...load, data: { ...load.data, caseId: 1 } })))).toBe(true);
+  expect.soft(opposed([...model.loadCases!, include(1)])).toBe(true);
+  expect.soft(opposed([...model.loadCases!, include(0)])).toBe(false);
+  expect.soft(opposed([...model.loadCases!, include(-1)])).toBe(false);
+  expect.soft(opposed([...model.loadCases!, include(-1), { id: 4, includes: [{ caseId: 3, factor: 1 }, { caseId: 2, factor: 1 }] }])).toBe(true);
+  expect.soft(opposed([...model.loadCases!, { id: 3, includes: [...include(1).includes, { caseId: 2, factor: -1 }] }])).toBe(false);
+  expect.soft(opposed([...model.loadCases!, { id: 3, includes: [...include(1).includes, { caseId: 3, factor: 1 }] }])).toBe(false);
+});
+
 it.each(['invalid-self-weight-target', 'subdivided-member-self-weight'])('#2565 — registers %s in every shipped locale', id => {
   const change = RESULT_CHANGES.changes.find(c => c.id === id);
   expect(change).toBeDefined();
