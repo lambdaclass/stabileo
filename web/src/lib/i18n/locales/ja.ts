@@ -3762,6 +3762,12 @@ const ja: Translations = {
   "svc.engine.missingSelfWeightTarget": "自重の適用対象 {kind} {id} が存在しません。対象を復元するか、自重の適用対象を変更してください。",
   "svc.engine.invalidDensity": "材料 {id} の密度 (rho) に有限かつ非負の数値を入力してください（受け取った値: {value}）。",
   "svc.engine.nonnegativeMassDensity": "質量密度は有限かつ非負でなければなりません",
+  "svc.engine.unknownInputField": "不明なフィールド {path}。",
+  "svc.engine.allowedInputFields": "使用できるフィールド: {fields}。",
+  "svc.engine.noInputFields": "フィールドは指定できません。",
+  "svc.engine.inputParseError": "入力の解析エラー：{detail}",
+  "svc.engine.inputLocation": "（{line} 行、{column} 列）",
+  "svc.savedPlaneRequired": "保存したプロジェクトを解析する前に作図平面を選択してください。",
   "svc.engine.invalidInputField": "フィールド {path} が指定されていないか、サポートされていない値が指定されています。",
   "svc.engine.nonFiniteNumber": "{path} に有限の数値を入力してください（受け取った値: {value}）。",
 } as const satisfies Record<string, string>;

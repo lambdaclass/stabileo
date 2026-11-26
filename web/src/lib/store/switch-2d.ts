@@ -38,7 +38,8 @@ import {
 } from '../geometry/plane-projection';
 import { sliceModelAtPlane, planeOffsets, type PlaneOffset, SLICE_TOL } from '../geometry/plane-slice';
 import { planeBending, type PlaneBending } from '../geometry/plane-cut-guard';
-import { constraintsAcrossDepth, constraintsCoupledAcrossPlane, constraintsInXZ } from '../engine/constraint-2d-remap';
+import { ModelInputError } from '../engine/model-input-numbers';
+import { constraintsAcrossDepth, constraintsCoupledAcrossPlane, constraintsInXY, constraintsInXZ } from '../engine/constraint-2d-remap';
 import type { Constraint3D } from '../engine/types-3d';
 import type { Section } from './model.svelte';
 
@@ -217,7 +218,7 @@ function land(m: {
   if (turned && backup) backup.turnedSections.push(...turned.added);
   modelStore.replaceModelData(
     m.nodes as never, m.elements as never, m.supports as never, m.loads as never,
-    turned?.sections, constraintsInXZ(plane, constraintsReaching(m.nodes.keys())),
+    turned?.sections, constraintsInXY(plane, constraintsReaching(m.nodes.keys())),
   );
   /*
    * The builder has already rewritten the coordinates into the 2D convention,
@@ -251,7 +252,12 @@ function cutBending(plane: DrawPlane, kept: Iterable<number>, landed: Iterable<n
     return { error: 'slice.constraintsCrossCut' };
   }
   const reaching = constraintsReaching(inCut);
-  if (constraintsCoupledAcrossPlane(constraintsInXZ(plane, reaching)).length > 0) return { error: 'slice.constraintsCoupled' };
+  try {
+    if (constraintsCoupledAcrossPlane(constraintsInXZ(plane, reaching)).length > 0) return { error: 'slice.constraintsCoupled' };
+  } catch (error) {
+    if (error instanceof ModelInputError) return { error: error.message };
+    throw error;
+  }
   if (constraintsAcrossDepth(plane, reaching, (id) => modelStore.nodes.get(id)).length > 0) return { error: 'slice.constraintsCoupled' };
   const bending = planeBending(plane, members, modelStore.elements, modelStore.nodes, modelStore.sections);
   if (bending.offAxis.length > 0) return { error: 'slice.sectionAxis' };

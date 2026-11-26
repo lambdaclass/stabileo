@@ -11,7 +11,7 @@ use dedaliano_engine::solver::{corotational, pdelta};
 use dedaliano_engine::types::*;
 
 fn issue_982() -> SolverInput {
-    serde_json::from_str(include_str!("../metamorphic_corpus/nightly/issue-982.json")).unwrap()
+    crate::common::nightly_solver(serde_json::from_str(include_str!("../metamorphic_corpus/nightly/issue-982.json")).unwrap()).unwrap()
 }
 
 fn issue_1465() -> SolverInput3D {
@@ -730,7 +730,7 @@ fn coupled_constraint_propagates_round_off_bound_across_connected_members() {
 
 #[test]
 fn issue_959_buckling_refuses_compression_recovered_only_from_roundoff() {
-    let solver: SolverInput = serde_json::from_str(include_str!("../metamorphic_corpus/nightly/issue-959.json")).unwrap();
+    let solver: SolverInput = crate::common::nightly_solver(serde_json::from_str(include_str!("../metamorphic_corpus/nightly/issue-959.json")).unwrap()).unwrap();
     for error in [
         solve_buckling_2d(&solver, 3).unwrap_err(),
         certify_buckling_2d(&solver, 3).unwrap_err(),

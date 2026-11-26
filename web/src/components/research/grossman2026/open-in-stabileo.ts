@@ -44,6 +44,7 @@ export function stripCompact(strip: StripResult, label: string, stamp?: unknown)
   });
   return {
     m: '2d',
+    dp: 'xy',
     nm: label,
     lx: 'zUpStrongAxis',
     sv: 6,

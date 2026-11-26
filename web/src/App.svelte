@@ -46,6 +46,8 @@
   import { EDIT_TOOLS } from './lib/store/ui.svelte';
   import { syncModelTabWithResults } from './lib/store/view-mode';
   import { t, i18n, setLocale } from './lib/i18n';
+  import { planeName } from './lib/axes/user-names';
+  import { DRAW_PLANES } from './lib/geometry/plane-projection';
   import { LOCALE_NAMES } from './lib/i18n/offered';
   import { OFFERED_LOCALES } from './lib/i18n/store.svelte';
   import { deleteSelection } from './lib/actions/delete-selection';
@@ -1769,6 +1771,17 @@
     <ToolOptionsBar />
   {/if}
 
+  {#if !uiStore.is3DWorkspace && uiStore.analysisPlane2D === undefined}
+    <div class="saved-plane-choice" role="group" aria-label={t('svc.savedPlaneRequired')}>
+      <span>{t('svc.savedPlaneRequired')}</span>
+      {#each DRAW_PLANES as plane (plane)}
+        <button type="button" onclick={() => { uiStore.drawPlane2D = plane; void requestAutosave('timer'); }}>
+          {planeName(plane)}
+        </button>
+      {/each}
+    </div>
+  {/if}
+
   <!--
     The bottom-bar reservation follows the bottom bar.
     ─────────────────────────────────────────────────
@@ -2507,6 +2520,14 @@
 </div>
 
 <style>
+  .saved-plane-choice {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+  }
+
   .import-textarea {
     width: 100%;
     background: var(--st-surface-2);

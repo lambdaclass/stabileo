@@ -30,7 +30,7 @@ for (const dim of [2, 3]) {
   if (dim === 3) {
     for (const n of Object.values(input.nodes)) n.y = 0;
     input.sections[1] = structuredClone(models[3].sections[1]);
-    input.supports[1] = { ...models[3].supports[4], id: 1, nodeId: 1 };
+    input.supports[1] = { ...models[3].supports[4], nodeId: 1 };
     input.supports[2] = { ...models[3].supports[2], isInclined: true, normalX: 1 };
     for (const load of input.loads) Object.assign(load.data, { fy: 0, mx: 0, mz: 0 });
   }

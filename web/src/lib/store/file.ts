@@ -1,5 +1,6 @@
 import { memberEndComponents2D } from '../engine/diagrams';
 import { memberEndComponents3D } from '../engine/diagrams-3d';
+import { ModelInputError, requireStoredProjectInput } from '../engine/model-input-numbers';
 import { resultComponents } from '../axes/result-components';
 import { exportMessages, warningImage, warningCanvas } from '../export/containment';
 // File operations: save/load projects, export results, autosave
@@ -311,7 +312,7 @@ function deserializeProjectWithNotice(text: string): boolean {
   try {
     return deserializeProject(text);
   } catch (error) {
-    if (!(error instanceof ModelAliasConflict)) throw error;
+    if (!(error instanceof ModelAliasConflict || error instanceof ModelInputError)) throw error;
     uiStore.toast(error.message, 'error');
     return false;
   }
@@ -332,7 +333,7 @@ function deserializeProject(text: string): boolean {
   if (!isValidDedalFile({ ...d, version: DEDAL_FILE_VERSION })) return false;
 
   const data = d as unknown as DedalFile;
-  const analysisMode = adoptStoredProject(data.snapshot, data.name, data.analysisMode);
+  adoptStoredProject(data.snapshot, data.name, data.analysisMode);
   if (data.axisConvention3D) uiStore.axisConvention3D = data.axisConvention3D;
   if (data.viewportPresentation3D) uiStore.viewportPresentation3D = data.viewportPresentation3D;
   // `!== undefined`, not truthiness: `false` is the value that most needs restoring, and a
@@ -341,7 +342,6 @@ function deserializeProject(text: string): boolean {
   uiStore.selfWeightCaseId = data.selfWeightCaseId ?? null;
   noteBasicSelfWeightRuleIfNeeded(data.selfWeightCaseId !== undefined, uiStore.analysisMode);
   viewVisibility.showAll();
-  validateAxisSafety(data.snapshot, analysisMode);
   resultsStore.clear(); // stale results dropped — the model must be re-solved
   resultsStore.forgetView();
   onProjectOpened(data.snapshot, uiStore.analysisMode);
@@ -373,8 +373,14 @@ export function adoptStoredProject(raw: ModelSnapshot, name: string, analysisMod
   return snapshot.analysisMode;
 }
 
-function storedProjectSnapshot(snapshot: ModelSnapshot, mode: ModelSnapshot['analysisMode']): ModelSnapshot {
+export function storedProjectSnapshot(snapshot: ModelSnapshot, mode: ModelSnapshot['analysisMode']): ModelSnapshot {
   return { ...snapshot, analysisMode: mode ?? snapshot.analysisMode };
+}
+
+function acceptStoredProjectSnapshot(snapshot: ModelSnapshot, mode: ModelSnapshot['analysisMode']): ModelSnapshot {
+  const stored = storedProjectSnapshot(snapshot, mode);
+  requireStoredProjectInput(stored);
+  return canonicalizeModelAliases(stored);
 }
 
 /**
@@ -397,6 +403,7 @@ export function onProjectOpened(snap: ModelSnapshot | undefined, analysisMode: s
     recheckStore.openProject({
       ...current,
       includeSelfWeight: usesSelfWeightToggle && uiStore.includeSelfWeight,
+      drawPlane2D: snap.drawPlane2D,
       solvedWith: snap.solvedWith,
       pendingRecheckNotice: snap.pendingRecheckNotice,
     } as never, analysisMode, snap.loads);
@@ -562,7 +569,7 @@ export function acceptSessionTabs(rawTabs: unknown): SessionTabsVerdict {
         verdict.dropped.push({ index, name: tabName });
       }
     } catch (error) {
-      if (!(error instanceof ModelAliasConflict)) throw error;
+      if (!(error instanceof ModelAliasConflict || error instanceof ModelInputError)) throw error;
       verdict.dropped.push({ index, name: tabName, reason: error.message });
     }
   });
@@ -577,12 +584,12 @@ function acceptSessionTab(raw: unknown): { tab: TabState; discardedHistory?: { r
     if (!SESSION_TAB_MODES.has(tab.analysisMode)) return null;
     const asFile = (snapshot: unknown) => ({ version: DEDAL_FILE_VERSION, name: tab.name, snapshot });
     if (!isValidDedalFile(asFile(tab.modelSnapshot))) return null;
-    tab.modelSnapshot = canonicalizeModelAliases({ ...tab.modelSnapshot, analysisMode: tab.analysisMode });
+    tab.modelSnapshot = acceptStoredProjectSnapshot(tab.modelSnapshot, tab.analysisMode);
     const normalizeHistory = (stack: ModelSnapshot[]) => {
       if (!Array.isArray(stack) || !stack.every(snap => isValidDedalFile(asFile(snap)))) {
         throw new Error(t('file.invalidFormat'));
       }
-      return stack.map(snap => canonicalizeModelAliases({ ...snap, analysisMode: snap.analysisMode ?? tab.analysisMode }));
+      return stack.map(snap => acceptStoredProjectSnapshot(snap, snap.analysisMode ?? tab.analysisMode));
     };
     let discardedHistory: { reason?: string } | undefined;
     try {
@@ -593,14 +600,14 @@ function acceptSessionTab(raw: unknown): { tab: TabState; discardedHistory?: { r
       tab.redoStack = [];
       tab.undoKinds = [];
       tab.redoKinds = [];
-      discardedHistory = error instanceof ModelAliasConflict ? { reason: error.message } : {};
+      discardedHistory = error instanceof ModelAliasConflict || error instanceof ModelInputError ? { reason: error.message } : {};
     }
     for (const snap of [tab.modelSnapshot, ...tab.undoStack, ...tab.redoStack]) {
       forgetSessionDemandRevisions(snap);
     }
     return { tab, discardedHistory };
   } catch (error) {
-    if (error instanceof ModelAliasConflict) throw error;
+    if (error instanceof ModelAliasConflict || error instanceof ModelInputError) throw error;
     return null;
   }
 }
@@ -665,33 +672,6 @@ function validateDedalFile(data: unknown): data is DedalFile {
   }
 
   return true;
-}
-
-/**
- * Axis safety validation for loaded files.
- * Checks that 2D snapshots don't contain mixed z coordinates that would indicate
- * a 3D model was saved with the wrong analysisMode.
- */
-function validateAxisSafety(snapshot: ModelSnapshot, mode: NonNullable<ModelSnapshot['analysisMode']> = '2d'): void {
-  if (is3DWorkspace(mode)) return; // 3D/PRO files can have any coordinates
-
-  const nodes = snapshot.nodes;
-  if (nodes.length === 0) return;
-
-  let hasNonZeroZ = false;
-  for (const [, node] of nodes) {
-    if (node.z !== undefined && node.z !== 0) {
-      hasNonZeroZ = true;
-      break;
-    }
-  }
-
-  // If a 2D file has non-zero z coordinates, upgrade it to 3D mode
-  // to prevent the model from being silently flattened
-  if (hasNonZeroZ) {
-    uiStore.analysisMode = '3d';
-    console.warn('[Dedaliano] File loaded as 2D but contains non-zero Z coordinates — upgraded to 3D mode');
-  }
 }
 
 // ─── Save / Load ────────────────────────────────────────────────
@@ -955,10 +935,10 @@ export function acceptAutosavePayload(raw: unknown, onRefusal?: (reason: string)
   if (typeof data.version !== 'string' || !KNOWN_VERSIONS.has(data.version)) return null;
   if (!isValidDedalFile(data)) return null;
   try {
-    data.snapshot = canonicalizeModelAliases(storedProjectSnapshot(data.snapshot, data.analysisMode));
+    data.snapshot = acceptStoredProjectSnapshot(data.snapshot, data.analysisMode);
     data.analysisMode = data.snapshot.analysisMode;
   } catch (error) {
-    if (!(error instanceof ModelAliasConflict)) throw error;
+    if (!(error instanceof ModelAliasConflict || error instanceof ModelInputError)) throw error;
     onRefusal?.(error.message);
     return null;
   }

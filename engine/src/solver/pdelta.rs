@@ -753,7 +753,7 @@ mod tests {
         use serde_json::Value;
 
         let fixtures: Value = serde_json::from_str(include_str!("../../tests/fixtures/candidate-replay.json")).unwrap();
-        let original: SolverInput = serde_json::from_value(fixtures["1901-body-0"].clone()).unwrap();
+        let original: SolverInput = crate::common::nightly_solver(fixtures["1901-body-0"].clone()).unwrap();
         let rotated = transform_2d(&original, &Iso2::rotation(37.0_f64.to_radians())).unwrap();
         let embeddings: Value = serde_json::from_str(include_str!("../../tests/fixtures/candidate-1901-embeddings.json")).unwrap();
         let mut cases = serde_json::Map::new();
@@ -872,7 +872,10 @@ mod tests {
 
     #[test]
     fn r19_spatial_physical_dense_sparse() {
-        let mut model: SolverInput = serde_json::from_str(include_str!("../../tests/metamorphic_corpus/nightly/issue-971.json")).unwrap();
+        let mut model: SolverInput = crate::common::nightly_solver_from_str(include_str!(
+            "../../tests/metamorphic_corpus/nightly/issue-971.json"
+        ))
+        .unwrap();
         for reflected in [false,true] {
             if reflected {
                 for n in model.nodes.values_mut() { n.z = -n.z; }

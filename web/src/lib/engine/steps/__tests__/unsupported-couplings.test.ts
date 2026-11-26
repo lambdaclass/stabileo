@@ -22,7 +22,7 @@ for (const method of [...continuous, ...frames]) {
       expect(method.applies(context())).toEqual({ ok: true });
       const member = [...modelStore.elements.values()][0]!;
       if (coupling === 'constraint') {
-        modelStore.addConstraint({ type: 'equalDOF', masterNode: member.nodeI, slaveNode: member.nodeJ, dofs: [4] });
+        modelStore.addConstraint({ type: 'equalDOF', masterNode: member.nodeI, slaveNode: member.nodeJ, dofs: [5] });
       } else {
         modelStore.addConnector({ nodeI: member.nodeI, nodeJ: member.nodeJ, kAxial: 1e6, kShear: 1e6, kMoment: 1e3 });
       }

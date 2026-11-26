@@ -1029,7 +1029,10 @@ mod tests {
     #[test]
     fn simultaneous_entrance_and_exit_stage_only_the_axle_on_the_route() {
         let mut planar: SolverInput =
-            serde_json::from_str(include_str!("../../tests/fixtures/moving-shear-2104.json")).unwrap();
+            crate::common::nightly_solver_from_str(include_str!(
+                "../../tests/fixtures/moving-shear-2104.json"
+            ))
+            .unwrap();
         planar.loads.clear();
         let path = build_load_path(&planar, Some(&[1])).unwrap();
         let spatial = embed_2d(&planar, Plane::XZ).unwrap();

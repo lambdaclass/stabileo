@@ -1623,6 +1623,7 @@ fn issue_1892_final_round_moving_moments_use_each_members_distance() {
     v["supports"]["1"] = serde_json::json!({"id": 1, "nodeId": 1, "type": "fixed"});
     for key in ["fy", "mx", "mz"] { v["loads"][0]["data"].as_object_mut().unwrap().remove(key); }
     for node in v["nodes"].as_object_mut().unwrap().values_mut() { node.as_object_mut().unwrap().remove("y"); }
+    crate::common::use_planar_fixture_sections(&mut v);
     let c2 = Case2::new("unequal members", serde_json::from_value(v).unwrap());
     for r in [(ana2("moving loads").run)(&c2).unwrap(), (ana3("moving loads").run)(&c3).unwrap()] {
         for tag in ["M", "My", "Mz"] {

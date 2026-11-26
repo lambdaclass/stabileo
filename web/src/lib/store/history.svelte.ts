@@ -24,6 +24,7 @@ export interface ModelSnapshot {
    */
   presentation3D?: import('../geometry/coordinate-system').ViewportPresentation3D;
   analysisMode?: '2d' | '3d' | 'pro' | 'edu';
+  drawPlane2D?: import('../geometry/plane-projection').DrawPlane;
   /** Where the model came from (e.g. CAD-derived draft) and review status. */
   provenance?: ModelProvenance;
   /** Local-axis convention. 'zUpStrongAxis' is the corrected (and only) one;

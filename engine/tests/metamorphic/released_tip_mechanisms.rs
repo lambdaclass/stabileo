@@ -21,7 +21,7 @@ fn case_2d(issue: &str) -> Case2 {
         "2029" | "2061" | "2063" => NOVEMBER_13,
         _ => FIXTURES,
     };
-    Case2::new("replay", serde_json::from_value(model(fixtures, issue)).unwrap())
+    Case2::new("replay", crate::common::nightly_solver(model(fixtures, issue)).unwrap())
 }
 
 fn case_3d(issue: &str) -> Case3 {
@@ -29,7 +29,7 @@ fn case_3d(issue: &str) -> Case3 {
         "2119" | "2139" => FIXTURES,
         _ => NOVEMBER_13,
     };
-    Case3::new("replay", serde_json::from_value(model(fixtures, issue)).unwrap())
+    Case3::new("replay", crate::common::nightly_solver(model(fixtures, issue)).unwrap())
 }
 
 fn images_2d(case: &Case2, analysis: &str, seed: u64) -> Vec<Case2> {

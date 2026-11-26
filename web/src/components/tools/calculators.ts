@@ -40,7 +40,7 @@ export function buildModel(id: ToolId, input: Parameters): SolverInput {
   const nodes: SolverInput['nodes'] = new Map(xs.map((x, j) => [j + 1, { id: j + 1, x, z: 0 }]));
   const elements: SolverInput['elements'] = new Map(xs.slice(1).map((_, j) => [j + 1, { id: j + 1, type: 'frame', nodeI: j + 1, nodeJ: j + 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]));
   const supports: SolverInput['supports'] = new Map([[1, { id: 1, nodeId: 1, type: id === 'simply-supported-beam' || column && p.k === 1 ? 'pinned' : 'fixed' }]]);
-  if (id === 'simply-supported-beam' || column && p.k !== 2) supports.set(2, { id: 2, nodeId: xs.length, type: (column && p.k === 0.5 ? 'guidedX' : 'rollerX') as import('../../lib/engine/types').SupportType });
+  if (id === 'simply-supported-beam' || column && p.k !== 2) supports.set(2, { id: 2, nodeId: xs.length, type: column && p.k === 0.5 ? 'guidedX' : 'rollerX' });
   const loads: SolverInput['loads'] = column ? [{ type: 'nodal', data: { nodeId: xs.length, fx: -1, fz: 0, my: 0 } }] : p.uniform ? [...elements.keys()].map(elementId => ({ type: 'distributed', data: { elementId, qI: -p.load, qJ: -p.load } })) : [{ type: 'nodal', data: { nodeId: xs.indexOf(p.position) + 1, fx: 0, fz: -p.load, my: 0 } }];
   return { nodes, elements, supports, loads, materials: new Map([[1, { id: 1, e: p.e, nu: 0.3 }]]), sections: new Map([[1, { id: 1, a: 0.01, iz: p.i }]]) };
 }

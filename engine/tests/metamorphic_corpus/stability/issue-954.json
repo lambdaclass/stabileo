@@ -7,13 +7,11 @@
  "connectors": {},
  "constraints": [
   {
-   "dofs": [],
    "masterNode": 3,
    "slaveNode": 2,
    "type": "rigidLink"
   },
   {
-   "dofs": [],
    "masterNode": 4,
    "slaveNode": 5,
    "type": "rigidLink"
