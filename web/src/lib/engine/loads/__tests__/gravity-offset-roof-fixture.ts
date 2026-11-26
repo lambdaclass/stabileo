@@ -2,7 +2,7 @@ import type { RigidLinkConstraint } from '../../types-3d';
 import { buildLoadPlan, type LoadModelData } from '../load-plan';
 import { input } from './gravity-width-mass-fixture';
 
-export function offsetRoof(offset: number, angle = 0, mirror = 1, subdivide = false, gap: boolean | readonly [number, number] = false, width = 4) {
+export function offsetRoof(offset: number, angle = 0, mirror = 1, subdivide = false, gap: boolean | readonly [number, number] = false, width = 4, endWidth = width) {
   const nodes: LoadModelData['nodes'] = new Map();
   const elements: LoadModelData['elements'] = new Map();
   const quads = new Map<number, { id: number; nodes: number[]; materialId: number; thickness: number }>();
@@ -13,7 +13,7 @@ export function offsetRoof(offset: number, angle = 0, mirror = 1, subdivide = fa
     return id;
   }
   const elevation = (x: number) => 3 + x / 5;
-  const row = (x: number) => [node(x, 0, elevation(x)), node(x, width, elevation(x))] as const;
+  const row = (x: number) => [node(x, 0, elevation(x)), node(x, x === 0 || x === 10 ? endWidth : width, elevation(x))] as const;
   const first = row(0), last = row(10);
   function shell([a, d]: ReturnType<typeof row>, [b, c]: ReturnType<typeof row>) {
     const id = quads.size + 1;
@@ -45,6 +45,25 @@ export function offsetRoof(offset: number, angle = 0, mirror = 1, subdivide = fa
     sections: new Map([[1, { id: 1, a: 0.1 }]]), materials: new Map([[1, { id: 1, rho: 25 }]]), loadCases: [],
   };
   return { model, stations, rafter };
+}
+
+export function doubleAttachedRoof(subdivide: boolean, secondGap: readonly [number, number] = [4, 6]) {
+  const { model, rafter } = offsetRoof(0.04, 0, 1, subdivide, [4, 6], 3, 5);
+  const { model: second } = offsetRoof(0.04, 0, 1, subdivide, secondGap, 3, 5);
+  const start = model.nodes.size;
+  for (const { nodes, ...quad } of second.quads.values()) {
+    for (const nodeId of nodes) {
+      const id = start + nodeId;
+      const node = second.nodes.get(nodeId)!;
+      model.nodes.set(id, { ...node, id, z: node.z! - 0.08 });
+    }
+    const id = model.quads.size + 1;
+    model.quads.set(id, { ...quad, id, nodes: nodes.map(nodeId => start + nodeId) });
+  }
+  second.constraints.forEach((link, index) => model.constraints.push({
+    ...link, masterNode: index === 0 ? rafter[0]! : rafter.at(-1)!, slaveNode: start + link.masterNode,
+  }));
+  return model;
 }
 
 export function roofPlan(model: LoadModelData, mode: 'panels' | 'width' = 'panels') {

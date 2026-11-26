@@ -769,7 +769,19 @@ function shellOffsets(
   return offsets;
 }
 
-type CertifiedGap = WidthSpan & DeckFootprint;
+type CertifiedGap = WidthSpan & DeckFootprint & { sides: RunInterval };
+
+function certifiedGap([start, end]: Segment, t0: number, t1: number, sides: RunInterval): CertifiedGap {
+  const dx = end[0] - start[0], dy = end[1] - start[1];
+  const length = Math.hypot(dx, dy);
+  const [lo, hi] = sides;
+  const ring: PlanPoint[] = [[t0, lo], [t1, lo], [t1, hi], [t0, hi]];
+  const footprint = ring.map(([t, side]): PlanPoint => [
+    start[0] + t * dx - side * dy / length, start[1] + t * dy + side * dx / length,
+  ]);
+  const width = hi - lo;
+  return { t0, t1, width, sides, footprint: [[footprint]], geometry: memberStrip([start, end], width).geometry };
+}
 
 function boundedGapSpans([start, end]: Segment, intervals: readonly RunInterval[], carriers: readonly ShellCarrier[]): CertifiedGap[] | undefined {
   const dx = end[0] - start[0], dy = end[1] - start[1];
@@ -818,11 +830,7 @@ function boundedGapSpans([start, end]: Segment, intervals: readonly RunInterval[
       if (shell.every(([station]) => station <= a + error) || shell.every(([station]) => station >= b - error)) continue;
       if (footprintIntersection(gap, [shell.map(([x, y]): PlanPoint => [x, y])]).length) return undefined;
     }
-    const width = hi - lo;
-    const { geometry } = memberStrip([start, end], width);
-    const footprint = gap.map(ring => ring.map(([station, side]): PlanPoint =>
-      [start[0] + (station * dx - side * dy) / length, start[1] + (station * dy + side * dx) / length]));
-    spans.push({ t0, t1, width, footprint: [footprint], geometry });
+    spans.push(certifiedGap([start, end], t0, t1, left));
   }
   return spans;
 }
@@ -890,9 +898,20 @@ function rigidShellCoverage(
       const gaps = anchored && Math.hypot(offset[0], offset[1]) <= error && Math.abs(runTrace[1][2] - runTrace[0][2]) > TOL
         ? shellTrace(runTrace, carriers).gaps : [];
       if (gaps.length && gaps.every(([t0, t1]) => t0 > 0 && t1 < 1)) {
-        if (gapSpans || coverage !== 'none') { coverage = 'partial'; break; }
-        gapSpans = boundedGapSpans(runTrace, gaps, carriers);
-        if (!gapSpans) { coverage = 'partial'; break; }
+        const certified = boundedGapSpans(runTrace, gaps, carriers);
+        if (!certified || coverage !== 'none' || (gapSpans && (
+          certified.length !== gapSpans.length || gapSpans.some(({ t0, t1, sides }, i) => {
+            const match = certified[i]!;
+            return t0 !== match.t0 || t1 !== match.t1 ||
+              sides[1] < match.sides[0] || match.sides[1] < sides[0];
+          })
+        ))) { coverage = 'partial'; break; }
+        gapSpans = gapSpans?.map(({ t0, t1, sides }, i) => {
+          const match = certified[i]!;
+          return certifiedGap(runTrace, t0, t1, [
+            Math.min(sides[0], match.sides[0]), Math.max(sides[1], match.sides[1]),
+          ]);
+        }) ?? certified;
       } else if (anchors.size > 1 && covered.every(state => state === 'full')) {
         if (gapSpans) { coverage = 'partial'; break; }
         coverage = 'full';

@@ -11,7 +11,7 @@ import { expectMembraneRefusalAsync } from '../../../engine/__tests__/containmen
  * there as CSV (`stabileo/<model>/<sheet>.csv`): every case and combination, every node, every
  * member at 0, L/12 … L. That is what the comparison outside the repository reads.
  */
-import { describe, it, beforeAll, beforeEach } from 'vitest';
+import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,7 +22,7 @@ import '../../../store';
 import { initSolver } from '../../../engine/wasm-solver';
 import { solveCombinations3D } from '../../../engine/solver-service';
 import { publishCombinations3D } from '../../../store/active-results';
-import { currentWorkbookSheets } from '../../../store/project-workbook';
+import { currentWorkbookSheets, workbookEstimate } from '../../../store/project-workbook';
 import { toCsv } from '../../../engine/result-tables';
 import { expectBaseline } from '../../__tests__/result-baseline';
 import { VALIDATION_MODELS, loadValidationModel, type ValidationModelId } from '../index';
@@ -53,6 +53,14 @@ async function solved(id: ValidationModelId) {
   if (!r || typeof r === 'string') throw new Error(`${id}: ${String(r)}`);
   publishCombinations3D({ perCase: r.perCase, perCombo: new Map(), envelope: r.envelope });
 }
+
+it('#2586 validation-02 exports the solved offset members with their explicit self-weight', async () => {
+  await solved('validation-02');
+  for (const options of [{}, { results: false, design: false }]) {
+    expect.soft(() => currentWorkbookSheets(5, options)).not.toThrow();
+    expect.soft(() => workbookEstimate(5, options)).not.toThrow();
+  }
+});
 
 describe.each(Object.keys(VALIDATION_MODELS) as ValidationModelId[])('%s', (id) => {
   it('matches its baseline' + (REF ? ', and writes its workbook' : ''), async () => {
