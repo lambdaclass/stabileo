@@ -941,11 +941,11 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
             input, &active_elements, &active_supports, &active_plates, &active_quads, stage,
         );
 
-        let asm_dense = if use_sparse {
-            None
+        let (asm_dense, support_magnitude) = if use_sparse {
+            (None, None)
         } else {
-            let asm = super::assembly::without_artificial_stiffness(|| super::assembly::assemble_3d_with_magnitude(&stage_input, &dof_num));
-            Some(asm)
+            let (assembly, magnitude) = super::assembly::without_artificial_stiffness(|| assemble_3d_with_magnitude(&stage_input, &dof_num));
+            (Some(assembly), magnitude)
         };
         let asm_trips = if use_sparse {
             Some(assemble_staged_3d_triplets(&stage_input, &dof_num))
@@ -956,12 +956,12 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         recovery_history.advance(
             StageStiffnessFingerprint::from_assembly(
                 stage_stiffness_contributors_3d(&stage_input),
-                n, asm_dense.as_ref().map(|a| &a.0),
+                n, asm_dense.as_ref(),
                 asm_trips.as_ref().map(|a| (a.rows.as_slice(), a.cols.as_slice(), a.vals.as_slice())),
             ),
             &cumulative_u,
             stage_results.last().is_some_and(|r| r.results.element_forces.iter().any(|f| [f.n_start, f.n_end, f.vy_start, f.vy_end, f.vz_start, f.vz_end, f.mx_start, f.mx_end, f.my_start, f.my_end, f.mz_start, f.mz_end].iter().any(|v| *v != 0.0))),
-            asm_dense.as_ref().map_or_else(|| &asm_trips.as_ref().unwrap().f, |a| &a.0.f),
+            asm_dense.as_ref().map_or_else(|| &asm_trips.as_ref().unwrap().f, |a| &a.f),
             unloaded_removal_only,
         );
         // Build prescribed displacement vector
@@ -1001,7 +1001,7 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
             }
             f_f = ff;
         } else {
-            let asm = &asm_dense.as_ref().unwrap().0;
+            let asm = asm_dense.as_ref().unwrap();
             let free_idx: Vec<usize> = (0..nf).collect();
             let rest_idx: Vec<usize> = (nf..n).collect();
             let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
@@ -1032,11 +1032,11 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
         let mut conditioning = None;
         let u_s_inc = solve_stage_free(
             &k_physical, asm_trips.as_ref().and_then(|t| t.support_magnitude.as_ref())
-                .or_else(|| asm_dense.as_ref().and_then(|a| a.1.as_ref())),
+                .or(support_magnitude.as_ref()),
             &dof_num, cs.as_ref(), false, &connected_nodes_3d(&stage_input),
             &super::stability::coupling_3d(&stage_input, &dof_num),
             &super::stability::elastic_releases_3d(&stage_input, &dof_num), &f_f,
-            &asm_trips.as_ref().map_or_else(|| &asm_dense.as_ref().unwrap().0.f, |t| &t.f)[..nf],
+            &asm_trips.as_ref().map_or_else(|| &asm_dense.as_ref().unwrap().f, |t| &t.f)[..nf],
             &applied[..nf], &cumulative_rounding, &incremental_rounding, use_sparse,
             &mut sparse_sym_cache, &mut conditioning,
             Some(super::conditioning_accuracy::PhysicalFrameSystem {
@@ -1045,7 +1045,7 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
                 inclined: &[],
                 constraints: cs.as_ref(),
                 prescribed: &du_r,
-                applied: asm_trips.as_ref().map_or_else(|| &asm_dense.as_ref().unwrap().0.f, |t| &t.f),
+                applied: asm_trips.as_ref().map_or_else(|| &asm_dense.as_ref().unwrap().f, |t| &t.f),
             }),
         )?;
 

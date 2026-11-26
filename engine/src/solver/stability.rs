@@ -774,11 +774,18 @@ pub(crate) fn released_rotations_3d(input: &SolverInput3D, dof: &DofNumbering) -
 pub(super) fn released_rotations_in_frames(
     input: &SolverInput3D, dof: &DofNumbering, frame: impl Fn(&SolverElement3D) -> Option<[[f64; 3]; 3]>,
 ) -> Option<ReleasedRotations> {
+    let frames = crate::ordered::values(&input.elements).filter(|e| e.elem_type == "frame")
+        .map(|e| frame(e).map(|axes| (e, axes))).collect::<Option<Vec<_>>>()?;
+    Some(released_rotations_from_frames(input, dof, frames))
+}
+
+fn released_rotations_from_frames(
+    input: &SolverInput3D, dof: &DofNumbering, frames: Vec<(&SolverElement3D, [[f64; 3]; 3])>,
+) -> ReleasedRotations {
     let mut axes: BTreeMap<usize, Vec<[f64; 3]>> = BTreeMap::new();
     let mut released = std::collections::BTreeSet::new();
     let mut directions = Vec::new();
-    for e in crate::ordered::values(&input.elements).filter(|e| e.elem_type == "frame") {
-        let [ex, ey, ez] = frame(e)?;
+    for (e, [ex, ey, ez]) in frames {
         let frame_rounding = super::load_work::frame_rounding(&[ex,ey,ez]);
         for (node, ry, rz, own_rt) in [(e.node_i, e.release_my_start, e.release_mz_start, e.release_t_start), (e.node_j, e.release_my_end, e.release_mz_end, e.release_t_end)] {
             let warping = input.sections.values().find(|s| s.id == e.section_id).is_some_and(|s| s.cw.is_some_and(|cw| cw > 0.0));
@@ -812,7 +819,7 @@ pub(super) fn released_rotations_in_frames(
             rows.push(row);
         }
     }
-    Some(ReleasedRotations { rows, nodes: released, directions, ..ReleasedRotations::default() })
+    ReleasedRotations { rows, nodes: released, directions, ..ReleasedRotations::default() }
 }
 
 pub(super) fn isolated_released_rotations_3d(
@@ -1749,15 +1756,38 @@ pub(crate) fn analyze_free_stiffness_excluding(
     (reduced, stability)
 }
 
+pub(super) struct RankNumbering<'a> {
+    numbering: &'a DofNumbering,
+    support_magnitude: Option<&'a CscMatrix>,
+}
+
+impl<'a> RankNumbering<'a> {
+    pub(super) fn new(numbering: &'a DofNumbering, support_magnitude: Option<&'a CscMatrix>) -> Self {
+        Self { numbering, support_magnitude }
+    }
+
+    pub(super) fn support_magnitude(&self) -> Option<&'a CscMatrix> {
+        self.support_magnitude
+    }
+}
+
+impl std::ops::Deref for RankNumbering<'_> {
+    type Target = DofNumbering;
+
+    fn deref(&self) -> &Self::Target {
+        self.numbering
+    }
+}
+
 pub(crate) fn prepare_free_stiffness(
     k: &CscMatrix,
-    dof: &DofNumbering,
+    dof: &RankNumbering,
     two_d: bool,
     constraints: Option<&crate::solver::constraints::FreeConstraintSystem>,
     coupling: &[(usize, usize)],
-    releases: &ReleasedRotations, support_magnitude: Option<&CscMatrix>,
+    releases: &ReleasedRotations,
 ) -> Result<(CscMatrix, Stability), String> {
-    let (reduced, stability) = analyze_free_stiffness(k, dof, two_d, constraints, coupling, releases, support_magnitude);
+    let (reduced, stability) = analyze_free_stiffness(k, dof, two_d, constraints, coupling, releases, dof.support_magnitude());
     if let Some(refusal) = stability.refusal() { return Err(refusal); }
     Ok((stability.pin_sparse(&reduced), stability))
 }
@@ -1822,7 +1852,7 @@ impl<'a> OperatorRank<'a> {
         releases: &ReleasedRotations,
     ) -> Stability {
         if let (Some(constraints), Some(reduced)) = (self.constraints, reduced) {
-            constraints.stability(reduced, self.dof, free, &self.coupling, releases, support_magnitude)
+            constraints.stability_excluding(reduced, self.dof, free, &self.coupling, releases, &[], support_magnitude)
         } else {
             analyze_free_stiffness(free, self.dof, self.two_d, self.constraints, &self.coupling, releases, support_magnitude).1
         }
@@ -1976,11 +2006,19 @@ impl<'a> OperatorRank<'a> {
     }
 }
 
+fn of_assembled(k: &[f64], dof: &DofNumbering, two_d: bool, fcs: Option<crate::solver::constraints::FreeConstraintSystem>, coupling: &[(usize, usize)], releases: &ReleasedRotations) -> Stability {
+    analyze_free_stiffness(&dense_free_block(k, dof), dof, two_d, fcs.as_ref(), coupling, releases, None).1
+}
+
 pub fn of_2d(input: &SolverInput) -> Result<Stability, String> {
     let dof = DofNumbering::build_2d(input);
     let (asm, support_magnitude) = crate::solver::assembly::without_artificial_stiffness(|| crate::solver::assembly::assemble_2d_with_magnitude(input, &dof));
     let fcs = crate::solver::constraints::FreeConstraintSystem::build_2d(input, &dof)?;
-    Ok(analyze_free_stiffness(&dense_free_block(&asm.k, &dof), &dof, true, fcs.as_ref(), &coupling_2d(input, &dof), &elastic_releases_2d(input, &dof), support_magnitude.as_ref()).1)
+    if let Some(magnitude) = support_magnitude.as_ref() {
+        return Ok(analyze_free_stiffness(&dense_free_block(&asm.k, &dof), &dof, true, fcs.as_ref(),
+            &coupling_2d(input, &dof), &elastic_releases_2d(input, &dof), Some(magnitude)).1);
+    }
+    Ok(of_assembled(&asm.k, &dof, true, fcs, &coupling_2d(input, &dof), &elastic_releases_2d(input, &dof)))
 }
 
 pub fn of_3d(input: &SolverInput3D) -> Result<Stability, String> {
@@ -1988,7 +2026,11 @@ pub fn of_3d(input: &SolverInput3D) -> Result<Stability, String> {
     let dof = DofNumbering::build_3d(input);
     let (asm, support_magnitude) = crate::solver::assembly::without_artificial_stiffness(|| crate::solver::assembly::assemble_3d_with_magnitude(input, &dof));
     let fcs = crate::solver::constraints::FreeConstraintSystem::build_3d(input, &dof)?;
-    Ok(analyze_free_stiffness(&dense_free_block(&asm.k, &dof), &dof, false, fcs.as_ref(), &coupling_3d(input, &dof), &elastic_releases_3d(input, &dof), support_magnitude.as_ref()).1)
+    if let Some(magnitude) = support_magnitude.as_ref() {
+        return Ok(analyze_free_stiffness(&dense_free_block(&asm.k, &dof), &dof, false, fcs.as_ref(),
+            &coupling_3d(input, &dof), &elastic_releases_3d(input, &dof), Some(magnitude)).1);
+    }
+    Ok(of_assembled(&asm.k, &dof, false, fcs, &coupling_3d(input, &dof), &elastic_releases_3d(input, &dof)))
 }
 
 #[cfg(test)]

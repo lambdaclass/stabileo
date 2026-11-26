@@ -248,7 +248,7 @@ fn solve_nonlinear_material_2d_inner(
                 Some(cs) => cs.reduce_vector(&r_free),
                 None => r_free,
             };
-            let delta_u_indep = tangent.solve(rhs, &mut sparse_sym_cache, None)?;
+            let delta_u_indep = tangent.solve(rhs, &mut sparse_sym_cache)?;
             let delta_u_f = if let Some(ref cs) = cs {
                 cs.expand_solution(&delta_u_indep, MasterMotion::Homogeneous)
             } else {
@@ -832,28 +832,14 @@ impl MaterialTangent {
         Ok(Self::Dense(solve))
     }
 
-    fn solve(
-        self, rhs: Vec<f64>, cache: &mut Option<SparseSymbolicCache>,
-        gauges: Option<&super::stability::Stability>,
-    ) -> Result<Vec<f64>, String> {
-        let mut solution = match self {
-            Self::Dense(mut k) => {
+    fn solve(self, rhs: Vec<f64>, cache: &mut Option<SparseSymbolicCache>) -> Result<Vec<f64>, String> {
+        match self {
+            Self::Dense(k) => {
                 let n = rhs.len();
-                if let Some(gauges) = gauges { gauges.pin_dense(&mut k, n); }
-                solve_system(k, rhs, n)?
+                solve_system(k, rhs, n)
             }
-            Self::Sparse(k) => {
-                let k = match gauges {
-                    Some(gauges) if !gauges.free.is_empty() => gauges.pin_sparse(&k),
-                    _ => k,
-                };
-                solve_tangent_sparse(&k, &rhs, cache)?
-            }
-        };
-        if let Some(gauges) = gauges {
-            MaterialReleaseGauges::remove_free_rotation(gauges, &mut solution);
+            Self::Sparse(k) => solve_tangent_sparse(&k, &rhs, cache),
         }
-        Ok(solution)
     }
 }
 
@@ -1271,11 +1257,21 @@ fn solve_nonlinear_material_3d_inner(
             // the structure it iterated on: a diaphragm-tied pair of columns
             // was solved as two independent columns, and a node tied only by
             // a constraint left the tangent singular.
-            let rhs = match &cs {
+            let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
+            let rhs_s = match &cs {
                 Some(cs) => cs.reduce_vector(&r_free),
                 None => r_free,
             };
-            let delta_u_indep = tangent.solve(rhs, &mut sparse_sym_cache, Some(&gauges.reduced))?;
+            let mut delta_u_indep = if let MaterialTangent::Sparse(k_s_csc) = tangent {
+                let k_s_csc = if gauges.reduced.free.is_empty() { k_s_csc } else { gauges.reduced.pin_sparse(&k_s_csc) };
+                solve_tangent_sparse(&k_s_csc, &rhs_s, &mut sparse_sym_cache)?
+            } else if let MaterialTangent::Dense(mut k_s) = tangent {
+                gauges.reduced.pin_dense(&mut k_s, ns);
+                solve_system(k_s, rhs_s, ns)?
+            } else {
+                unreachable!()
+            };
+            MaterialReleaseGauges::remove_free_rotation(&gauges.reduced, &mut delta_u_indep);
             let delta_u_f = match &cs {
                 Some(cs) => cs.expand_solution(&delta_u_indep, MasterMotion::Homogeneous),
                 None => delta_u_indep,
