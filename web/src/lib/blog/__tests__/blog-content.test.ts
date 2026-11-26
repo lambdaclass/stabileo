@@ -429,6 +429,45 @@ describe('the safety-advisories post quotes the advisories', () => {
     expect.soft(blogRow?.[1], `${locale}: blog`).toContain(emptyCaseRecovery[locale]);
   });
 
+  it.skip('known wrong result: #2430 — SA-2026-127 requires connectivity along the full wall–slab junction', () => {
+    const advisory = readFileSync(new URL('SA-2026-127-unmeshed-wall-slab-junctions.md', advisoryDirectory), 'utf8');
+    const fixedIn = advisory.split('## Fixed in\n')[1]?.split('\n## ')[0]?.replace(/\s+/g, ' ');
+    const index = readFileSync(new URL('README.md', advisoryDirectory), 'utf8');
+    const indexRow = index.split('\n').find((line) => line.startsWith('| [SA-2026-127]('));
+    expect.soft(fixedIn).toContain('shared mesh connectivity along the entire intended junction');
+    expect.soft(indexRow).toContain('without shared mesh connectivity along the entire junction');
+  });
+
+  function expectAdvisoryWording(locale: PublicLocale, advisoryId: string, wording: string): void {
+    const release = locale === 'en' ? 'v0.6.4.md' : `v0.6.4.${locale}.md`;
+    const notes = readFileSync(new URL(`../releases/${release}`, advisoryDirectory), 'utf8');
+    const releaseRow = notes.split('\n').find((line) => line.startsWith(`| [${advisoryId}](`));
+    const summary = advisoryBlocks(locale).find((block) => block.k === 'table');
+    const blogRow = summary?.rows.find(([id]) => id === advisoryId);
+    expect.soft(releaseRow, `${locale}: release notes`).toContain(wording);
+    expect.soft(blogRow?.[1], `${locale}: blog`).toContain(wording);
+  }
+
+  it.skip.each<[PublicLocale, string]>([
+    ['en', 'along the entire intended junction'],
+    ['es', 'a lo largo de toda la unión prevista'],
+    ['pt', 'ao longo de toda a junção prevista'],
+    ['de', 'über die gesamte vorgesehene Anschlusslänge'],
+    ['fr', 'sur toute la longueur de la jonction prévue'],
+    ['hu', 'a tervezett csatlakozás teljes hosszában'],
+    ['tr', 'amaçlanan birleşimin tamamı boyunca'],
+    ['zh', '沿整个预期连接线'],
+  ])('known wrong result: #2430 — SA-2026-127 %s requires full-length shared mesh connectivity', (locale, wording) => {
+    expectAdvisoryWording(locale, 'SA-2026-127', wording);
+  });
+
+  it.skip.each<[PublicLocale, string]>([
+    ['es', 'barras de modelos planos (2D), independientemente de su sección'],
+    ['pt', 'barras de modelos planos (2D), independentemente da seção transversal'],
+  ])('known wrong result: #2471 — SA-2026-128 %s identifies 2D models regardless of section', (locale, wording) => {
+    expectAdvisoryWording(locale, 'SA-2026-128', wording);
+  });
+
   const generatedCombinationsAdvisory = new URL(
     '../../../../../docs/advisories/SA-2026-122-generated-load-combinations.md',
     import.meta.url,
