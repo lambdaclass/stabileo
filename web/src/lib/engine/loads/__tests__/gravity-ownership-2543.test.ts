@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import type { Constraint3D } from '../../types-3d';
 import { buildLoadPlan, roofWeightFor, type LoadModelData } from '../load-plan';
 import { gravityLayout, MIN_STOREY_HEADROOM } from '../plan-gravity';
@@ -11,6 +11,7 @@ import { applyLoadPlan } from '../../../store/apply-load-plan';
 import { modelStore } from '../../../store/index';
 import { snow } from './snow-roof-plane-fixture';
 import { snowLoadCases } from '../snow-loads';
+import * as floorOwnership from '../gravity-floor-ownership';
 
 type Point = [number, number];
 const rectangle = (x0: number, y0: number, x1: number, y1: number): Point[] =>
@@ -480,4 +481,82 @@ it('#2607 a shell below an independently supported bay leaves the bay roof and s
   const plan = buildLoadPlan(input(supported, { gravity, snow: siteSnow }));
   expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
   expect(plan.distributed.some(load => load.caseType === 'S' && load.q < 0)).toBe(true);
+});
+
+
+function coplanarCover(split: boolean, rise?: number, upperStart = 4) {
+  const { model, ring, quad, node, member } = fixture();
+  const boundary = ring([[0, 0], [4, 0], [8, 0], [8, 4], [4, 4], [0, 4]], 3);
+  if (split) member(boundary[1]!, boundary[4]!);
+  quad([boundary[0]!, boundary[1]!, boundary[4]!, boundary[5]!]);
+  if (rise !== undefined) {
+    quad(rectangle(upperStart, 0, 8, 4).map(([x, y]) => node([x, y], 3 + rise + y / 4)));
+  }
+  return {
+    ...model,
+    supports: new Map([...model.nodes.keys()].map(id => [id, { id, nodeId: id, type: 'fixed3d' as const }])),
+  } satisfies LoadModelData;
+}
+
+const coplanarOptions = { mode: 'panels', slab: 'oneWay', spanAxis: 'y', tributaryWidth: 3 } as const;
+const coplanarPlan = (model: LoadModelData, loadEveryPanel: boolean) =>
+  buildLoadPlan(input(model, { gravity: { ...coplanarOptions, loadEveryPanel }, snow: siteSnow }));
+
+const bayAssignmentRegression = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
+
+bayAssignmentRegression('known wrong result: #2607 both bay assignments retain the independent shell evidence', () => {
+  const partition = vi.spyOn(floorOwnership, 'partitionGravityFloors');
+  try {
+    gravityLayout(coplanarCover(true, 1, 0), coplanarOptions);
+    expect(partition).toHaveBeenCalledTimes(1);
+    const ownership = partition.mock.results[0]!.value as ReturnType<typeof floorOwnership.partitionGravityFloors>;
+    const byKind = new Map([...ownership.bays.values()].map(assignment => [assignment.partition.kind, assignment]));
+    expect(byKind.get('shell')).toMatchObject({ region: [], deck: { independentShells: new Set(['quad:2']) } });
+    expect(byKind.get('uncovered')).toMatchObject({ deck: { independentShells: new Set(['quad:2']) } });
+  } finally {
+    partition.mockRestore();
+  }
+});
+
+it.each([false, true])('#2607 partial coplanar cover blocks snow generation and apply (%s)', loadEveryPanel => {
+  const model = coplanarCover(false, 1 / 1024);
+  const options = { ...coplanarOptions, loadEveryPanel };
+  const reason = { key: 'loadPlan.gravity.differentDeck' };
+  const plan = coplanarPlan(model, loadEveryPanel);
+  expect(plan).toMatchObject({
+    outcome: 'BLOCKED', blockedKeys: [reason], cases: [], distributed: [], nodal: [], surface: [],
+  });
+  expect(() => gravityLayout(model, options)).toThrow(expect.objectContaining(reason));
+  expect(() => roofWeightFor(model, options, options.tributaryWidth, 1)).toThrow(expect.objectContaining(reason));
+  expect(() => snowDriftRefusal(model)).toThrow(expect.objectContaining(reason));
+  expect(() => snowLoadCases({ model, snow: siteSnow, tributaryWidth: options.tributaryWidth }))
+    .toThrow(expect.objectContaining(reason));
+  expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf: key => key })).toEqual(reason);
+});
+
+it.each([false, true])('#2607 a separate sheltered bay retains floor area and receives no snow (%s)', loadEveryPanel => {
+  const model = coplanarCover(true, 1 / 1024);
+  const options = { ...coplanarOptions, loadEveryPanel };
+  const layout = gravityLayout(model, options);
+  expect(layout.panels).toMatchObject([{ roof: false }]);
+  expect([...layout.areaOf.values()].reduce((sum, area) => sum + area, 0)).toBeCloseTo(4 * 4, 10);
+  expect(layout.roofShells).toEqual(new Set(['quad:1', 'quad:2']));
+  expect(snowDriftRefusal(model)).toBeUndefined();
+  const direct = snowLoadCases({ model, layout, snow: siteSnow, tributaryWidth: options.tributaryWidth });
+  expect(direct?.result.refused).toBeUndefined();
+  expect(direct?.cases.length).toBeGreaterThan(0);
+  expect(direct?.cases.flatMap(entry => entry.distributed)).toEqual([]);
+  expect(direct?.cases.flatMap(entry => entry.nodal)).toEqual([]);
+
+  const plan = coplanarPlan(model, loadEveryPanel);
+  expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+  expect(plan.distributed.some(load => load.caseType === 'D' && load.q < 0)).toBe(true);
+  expect(plan.distributed.filter(load => load.caseType === 'S')).toEqual([]);
+  expect(plan.nodal.filter(load => load.caseType === 'S')).toEqual([]);
+
+  const touching = coplanarPlan(coplanarCover(true, 0), loadEveryPanel);
+  expectRefusal(touching, 'loadPlan.gravity.mixedExposure');
+  const exposed = coplanarPlan(coplanarCover(true), loadEveryPanel);
+  expect(exposed.outcome, JSON.stringify(exposed.blockedKeys)).toBe('READY');
+  expect(exposed.distributed.some(load => load.caseType === 'S' && load.q < 0)).toBe(true);
 });
