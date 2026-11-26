@@ -199,49 +199,51 @@ export const exampleEntry = (e: Entry): ProExample => {
   return ex;
 };
 
+const entry = exampleEntry;
+
 export const PRO_EXAMPLES: readonly ProExample[] = [
   // ── Reinforced concrete buildings ── their loads, wind included, from the load generator; the
   // earthquake is for the reader to add there, with the site's zone and soil.
-  exampleEntry({ id: 'pro-rc-house', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagShells'], stats: { nodes: 27, members: 42, plates: 8 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
-  exampleEntry({ id: 'pro-rc-four-storey', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagWind'], stats: { nodes: 60, members: 116, plates: 24 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
-  exampleEntry({ id: 'pro-rc-steel-columns', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagSteel'], stats: { nodes: 48, members: 87, plates: 18 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
-  exampleEntry({ id: 'pro-rc-lift-core', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagCore'], stats: { nodes: 164, members: 238, plates: 107 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
-  exampleEntry({ id: 'pro-rc-party-wall', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagStair'], stats: { nodes: 416, members: 410, plates: 287 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
+  entry({ id: 'pro-rc-house', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagShells'], stats: { nodes: 27, members: 42, plates: 8 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
+  entry({ id: 'pro-rc-four-storey', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagWind'], stats: { nodes: 60, members: 116, plates: 24 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
+  entry({ id: 'pro-rc-steel-columns', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagSteel'], stats: { nodes: 48, members: 87, plates: 18 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
+  entry({ id: 'pro-rc-lift-core', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagCore'], stats: { nodes: 164, members: 238, plates: 107 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
+  entry({ id: 'pro-rc-party-wall', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagStair'], stats: { nodes: 416, members: 410, plates: 287 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
 
   // ── Steel buildings ──
-  exampleEntry({ id: 'pro-plane-frame-seismic', source: 'code', group: 'steelBuildings', tags: ['pro.tagSteel', 'pro.tagSeismic'], stats: { nodes: 20, members: 28 }, selfWeight: 'all', combinations: 'regulation' }),
-  exampleEntry({ id: 'pro-steel-building-slabs', source: 'code', group: 'steelBuildings', tags: ['pro.tagSteel', 'pro.tagShells'], stats: { nodes: 99, members: 153, plates: 48 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
-  exampleEntry({ id: 'torre-irregular-con-retiros', source: 'fixture', group: 'steelBuildings', tags: ['pro.tagSteel', 'pro.tagDrift'], stats: { nodes: 556, members: 1420 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: 'pro-plane-frame-seismic', source: 'code', group: 'steelBuildings', tags: ['pro.tagSteel', 'pro.tagSeismic'], stats: { nodes: 20, members: 28 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: 'pro-steel-building-slabs', source: 'code', group: 'steelBuildings', tags: ['pro.tagSteel', 'pro.tagShells'], stats: { nodes: 99, members: 153, plates: 48 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
+  entry({ id: 'torre-irregular-con-retiros', source: 'fixture', group: 'steelBuildings', tags: ['pro.tagSteel', 'pro.tagDrift'], stats: { nodes: 556, members: 1420 }, selfWeight: 'all', combinations: 'regulation' }),
 
   // ── From CAD ── their dead load holds the slab's weight, and their provenance lists the
   // combinations they were drafted with.
-  exampleEntry({ id: 'cad-arch-only-dxf', source: 'fixture', group: 'cad', tags: ['pro.tagRC', 'pro.tagCad'], stats: { nodes: 800, members: 1000, shells: 720 }, selfWeight: 'none', combinations: 'own' }),
-  exampleEntry({ id: 'cad-arch-structure-dxf', source: 'fixture', group: 'cad', tags: ['pro.tagRC', 'pro.tagCad'], stats: { nodes: 1681, members: 840, shells: 870 }, selfWeight: 'none', combinations: 'own' }),
+  entry({ id: 'cad-arch-only-dxf', source: 'fixture', group: 'cad', tags: ['pro.tagRC', 'pro.tagCad'], stats: { nodes: 800, members: 1000, shells: 720 }, selfWeight: 'none', combinations: 'own' }),
+  entry({ id: 'cad-arch-structure-dxf', source: 'fixture', group: 'cad', tags: ['pro.tagRC', 'pro.tagCad'], stats: { nodes: 1681, members: 840, shells: 870 }, selfWeight: 'none', combinations: 'own' }),
 
   // ── Sheds and industrial buildings ──
-  exampleEntry({ id: 'pipe-rack', source: 'fixture', group: 'industrial', tags: ['pro.tagSteel', 'pro.tagIndustrial'], stats: { nodes: 64, members: 138 }, selfWeight: 'all', combinations: 'regulation' }),
-  exampleEntry({ id: 'pro-simple-shed', source: 'code', group: 'industrial', tags: ['pro.tagSteel', 'pro.tagWind'], stats: { nodes: 80, members: 197 }, selfWeight: 'all', combinations: 'regulation' }),
-  exampleEntry({ id: 'pro-crane-hangar', source: 'code', group: 'industrial', tags: ['pro.tagCrane', 'pro.tagPDelta'], stats: { nodes: 222, members: 467 }, selfWeight: 'all', combinations: 'own' }),
-  exampleEntry({ id: '3d-nave-industrial', source: 'fixture', group: 'industrial', tags: ['pro.tagSteel', 'pro.tagCrane'], stats: { nodes: 232, members: 729 }, selfWeight: 'all', combinations: 'regulation' }),
-  exampleEntry({ id: 'pro-concrete-wall-storehouse', source: 'code', group: 'industrial', tags: ['pro.tagRC', 'pro.tagShells'], stats: { nodes: 480, members: 317, shells: 288 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: 'pipe-rack', source: 'fixture', group: 'industrial', tags: ['pro.tagSteel', 'pro.tagIndustrial'], stats: { nodes: 64, members: 138 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: 'pro-simple-shed', source: 'code', group: 'industrial', tags: ['pro.tagSteel', 'pro.tagWind'], stats: { nodes: 80, members: 197 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: 'pro-crane-hangar', source: 'code', group: 'industrial', tags: ['pro.tagCrane', 'pro.tagPDelta'], stats: { nodes: 222, members: 467 }, selfWeight: 'all', combinations: 'own' }),
+  entry({ id: '3d-nave-industrial', source: 'fixture', group: 'industrial', tags: ['pro.tagSteel', 'pro.tagCrane'], stats: { nodes: 232, members: 729 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: 'pro-concrete-wall-storehouse', source: 'code', group: 'industrial', tags: ['pro.tagRC', 'pro.tagShells'], stats: { nodes: 480, members: 317, shells: 288 }, selfWeight: 'all', combinations: 'regulation' }),
 
   // ── Towers ──
-  exampleEntry({ id: 'pro-guyed-tower', source: 'code', group: 'towers', tags: ['pro.tagCables', 'pro.tagTensionOnly'], stats: { nodes: 90, members: 261 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: 'pro-guyed-tower', source: 'code', group: 'towers', tags: ['pro.tagCables', 'pro.tagTensionOnly'], stats: { nodes: 90, members: 261 }, selfWeight: 'all', combinations: 'regulation' }),
   // The platform's "E" is wave and current, not an earthquake: it keeps its own combinations.
-  exampleEntry({ id: 'offshore-platform', source: 'fixture', group: 'towers', tags: ['pro.tagSteel', 'pro.tagOffshore'], stats: { nodes: 203, members: 780 }, selfWeight: 'all', combinations: 'own' }),
-  exampleEntry({ id: 'xl-diagrid-tower', source: 'fixture', group: 'towers', tags: ['pro.tagScale', 'pro.tagDrift'], stats: { nodes: 1090, members: 3414 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: 'offshore-platform', source: 'fixture', group: 'towers', tags: ['pro.tagSteel', 'pro.tagOffshore'], stats: { nodes: 203, members: 780 }, selfWeight: 'all', combinations: 'own' }),
+  entry({ id: 'xl-diagrid-tower', source: 'fixture', group: 'towers', tags: ['pro.tagScale', 'pro.tagDrift'], stats: { nodes: 1090, members: 3414 }, selfWeight: 'all', combinations: 'regulation' }),
 
   // ── Bridges and long spans ──
-  exampleEntry({ id: 'cable-stayed-bridge', source: 'fixture', group: 'longspan', tags: ['pro.tagCables', 'pro.tagBridge'], stats: { nodes: 66, members: 113 }, selfWeight: 'all', combinations: 'regulation' }),
-  exampleEntry({ id: 'geodesic-dome', source: 'fixture', group: 'longspan', tags: ['pro.tagRoof', 'pro.tagLattice'], stats: { nodes: 337, members: 961 }, selfWeight: 'all', combinations: 'regulation' }),
-  exampleEntry({ id: 'full-stadium', source: 'fixture', group: 'longspan', tags: ['pro.tagRoof', 'pro.tagBowl'], stats: { nodes: 360, members: 870, shells: 144 }, selfWeight: 'all', combinations: 'regulation' }),
-  exampleEntry({ id: 'suspension-bridge', source: 'fixture', group: 'longspan', tags: ['pro.tagCables', 'pro.tagBridge'], stats: { nodes: 374, members: 932 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: 'cable-stayed-bridge', source: 'fixture', group: 'longspan', tags: ['pro.tagCables', 'pro.tagBridge'], stats: { nodes: 66, members: 113 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: 'geodesic-dome', source: 'fixture', group: 'longspan', tags: ['pro.tagRoof', 'pro.tagLattice'], stats: { nodes: 337, members: 961 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: 'full-stadium', source: 'fixture', group: 'longspan', tags: ['pro.tagRoof', 'pro.tagBowl'], stats: { nodes: 360, members: 870, shells: 144 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: 'suspension-bridge', source: 'fixture', group: 'longspan', tags: ['pro.tagCables', 'pro.tagBridge'], stats: { nodes: 374, members: 932 }, selfWeight: 'all', combinations: 'regulation' }),
 
   // ── Foundations ── the ribs lie inside the slab: only the slab's weight is counted.
-  exampleEntry({ id: 'mat-foundation', source: 'fixture', group: 'foundations', tags: ['pro.tagFoundation', 'pro.tagSoil'], stats: { nodes: 72, members: 127, shells: 56 }, selfWeight: 'shells', combinations: 'regulation' }),
+  entry({ id: 'mat-foundation', source: 'fixture', group: 'foundations', tags: ['pro.tagFoundation', 'pro.tagSoil'], stats: { nodes: 72, members: 127, shells: 56 }, selfWeight: 'shells', combinations: 'regulation' }),
 
   // ── Showcase ──
-  exampleEntry({ id: 'la-bombonera', source: 'fixture', group: 'showcase', tags: ['pro.tagBowl', 'pro.tagScale'], stats: { nodes: 1005, members: 2476, shells: 120 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: 'la-bombonera', source: 'fixture', group: 'showcase', tags: ['pro.tagBowl', 'pro.tagScale'], stats: { nodes: 1005, members: 2476, shells: 120 }, selfWeight: 'all', combinations: 'regulation' }),
 ];
 
 /**
