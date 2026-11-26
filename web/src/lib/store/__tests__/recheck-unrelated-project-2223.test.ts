@@ -440,7 +440,7 @@ it('keeps the XY solution when a legacy nodal force leaves only XY and the sprin
   expect(modelStore.solve()).toEqual(reference);
 });
 
-it.skip.each(entries)('known wrong result: #2588 — %s requires a plane for a legacy guidedX support', async entry => {
+it.each(entries)('known wrong result: #2588 — %s requires a plane for a legacy guidedX support', async entry => {
   await initSolver();
   const { file, tip } = legacyLoadedCantilever({ type: 'guidedX' });
   for (const plane of ['xy', 'xz'] as const) {
@@ -490,7 +490,7 @@ it.each(['xy', 'xz'] as const)('infers %s when the geometry identifies the plane
   expect(modelStore.solve()).toEqual(reference);
 });
 
-it.skip('known wrong result: #2588 — a legacy transverse load cannot select the plane of a guidedX support', () => {
+it('known wrong result: #2588 — a legacy transverse load cannot select the plane of a guidedX support', () => {
   const { file, tip } = legacyLoadedCantilever({ type: 'guidedX' });
   modelStore.addNodalLoad(tip, 0, -10, 0, 1);
   file.snapshot.loads = buildProjectFile().snapshot.loads;

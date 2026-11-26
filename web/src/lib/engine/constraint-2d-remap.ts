@@ -36,7 +36,7 @@
 
 import { t, tp } from '../i18n';
 import { dyadicInteger } from './accounting-math';
-import { ModelInputError, requireEccentricReleaseMask } from './model-input-numbers';
+import { ModelInputError, requireEccentricReleaseMask, rigidLinkDofs } from './model-input-numbers';
 import type { Constraint3D, EccentricConnectionConstraint, LinearMpcConstraint } from './types-3d';
 import type { DrawPlane } from '../geometry/plane-projection';
 
@@ -223,7 +223,7 @@ export function constraintsAcrossDepth(
   });
 }
 
-function mapDofs(dofs: number[] | undefined): number[] | undefined {
+function mapDofs(dofs: readonly number[] | undefined): number[] | undefined {
   if (!dofs) return undefined;
   return dofs
     .map(d => DOF_3D_TO_2D[d])
@@ -241,10 +241,7 @@ export function constraintsTo2D(constraints: Constraint3D[] | undefined): Constr
   for (const [index, c] of constraints.entries()) {
     switch (c.type) {
       case 'rigidLink': {
-        // No DOFs listed: all translational, as the space solve reads it; listed for the plane
-        // solver, whose own default would tie the rotation as well.
-        if (!c.dofs || c.dofs.length === 0) { out.push({ ...c, dofs: [0, 1] }); break; }
-        const dofs = mapDofs(c.dofs);
+        const dofs = mapDofs(rigidLinkDofs(c));
         if (!dofs || dofs.length === 0) break; // only out-of-plane DOFs
         out.push({ ...c, dofs });
         break;

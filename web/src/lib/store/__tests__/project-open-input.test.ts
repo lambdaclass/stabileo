@@ -235,7 +235,7 @@ it('#2588 restores spatial constraints from a tab during a planar session', () =
   expect(modelStore.model.constraints).toEqual(file.snapshot.constraints);
 });
 
-it.skip.each(routes)('known wrong result: #2588 — %s refuses an implicit default rigid link without its plane', route => {
+it.each(routes)('known wrong result: #2588 — %s refuses an implicit default rigid link without its plane', route => {
   const { file, root, tip } = frame('2d');
   file.snapshot.drawPlane2D = undefined;
   const link = { type: 'rigidLink' as const, masterNode: root, slaveNode: tip };
@@ -285,7 +285,7 @@ it('solves an unstamped spatial project with a default rigid link', async () => 
   ]) });
 });
 
-it.skip('known wrong result: #2588 — a legacy v1 share with a guidedX support opens with a blocked solve', () => {
+it('known wrong result: #2588 — a legacy v1 share with a guidedX support opens with a blocked solve', () => {
   const { file, tip } = frame('2d');
   file.snapshot.drawPlane2D = undefined;
   file.snapshot.supports.push([2, { id: 2, nodeId: tip, type: 'guidedX' }]);

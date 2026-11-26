@@ -3,7 +3,7 @@ import { DRAW_PLANES, isDrawPlane, type DrawPlane } from '../geometry/plane-proj
 import { isAnalysisMode, is3DWorkspace } from '../utils/workspace';
 import type { Element, Load, LoadCombination, Material, Support } from '../store/model.svelte';
 import { isPlaneSupportType, isSupportType, planeSupportUsesAngle } from '../model/support-types';
-import type { Constraint3D, LinearMpcConstraint } from './types-3d';
+import type { Constraint3D, LinearMpcConstraint, RigidLinkConstraint } from './types-3d';
 import type { AnalysisSettings, SelfWeightLoad } from './analysis-settings';
 import type { StiffnessModifiers } from './member-behaviour';
 import type { ModelData } from './solver-service';
@@ -573,12 +573,18 @@ function requireUniqueStoredKeys(path: StoredStructuralTable, rows: unknown, key
   }
 }
 
+const defaultRigidLinkDofs = [0, 1, 2] as const;
+
+export function rigidLinkDofs(constraint: RigidLinkConstraint): readonly number[] {
+  return constraint.dofs?.length ? constraint.dofs : defaultRigidLinkDofs;
+}
+
 export function dependsOnXYConstraintAxes(constraint: Constraint3D): boolean {
   const differs = (dof: number) => dof === 1 || dof === 2 || dof === 4 || dof === 5;
   switch (constraint.type) {
     case 'linearMPC': return constraint.terms.some(term => term.coefficient !== 0 && differs(term.dof));
-    case 'rigidLink':
-    case 'equalDOF': return constraint.dofs?.some(differs) ?? false;
+    case 'rigidLink': return rigidLinkDofs(constraint).some(differs);
+    case 'equalDOF': return constraint.dofs.some(differs);
     case 'diaphragm': return constraint.plane !== 'YZ';
     case 'eccentricConnection': {
       const { offsetY, offsetZ, releases } = constraint;
@@ -618,11 +624,14 @@ const supportPlaneFields = {
   dofFrame: 'spatial', dofRestraints: 'spatial', dofLocalElementId: 'spatial', curves: 'spatial',
 } satisfies Record<keyof Support, SupportPlaneField>;
 
-function supportAllowsPlaneInference(support: Record<string, unknown>, geometryIdentifiesPlane: boolean): boolean {
+function supportAllowsPlaneInference(
+  support: Record<string, unknown>, geometryIdentifiesPlane: boolean, geometryAndGlobalLoadsIdentifyPlane: boolean,
+): boolean {
   const { type, isGlobal, angle } = support;
   const local = isGlobal === false;
   const untagged = isGlobal === undefined;
   if (!isPlaneSupportType(type)) return false;
+  if (type === 'guidedX' && !geometryAndGlobalLoadsIdentifyPlane) return false;
   if ((type === 'rollerY' || type === 'rollerZ') && !local && !(untagged && geometryIdentifiesPlane)) return false;
 
   return Object.entries(support).every(([field, value]) => {
@@ -676,9 +685,13 @@ export function storedProjectPlane(snapshot: StoredProjectInput, constraints: re
     return nodes.every(node => coordinate(node, normal) === depth);
   });
   const supports = storedRows(snapshot.supports);
-  const candidates = geometryPlanes.filter(plane =>
-    loads.every(load => storedLoadFitsPlane(load, plane))
-    && supports.every(support => supportAllowsPlaneInference(support, geometryPlanes.length === 1)));
+  const isLegacyNodal = (load: unknown) => isRecord(load) && load.type === 'nodal';
+  const legacyNodalLoads = loads.filter(isLegacyNodal);
+  const otherLoads = loads.filter(load => !isLegacyNodal(load));
+  const globalPlanes = geometryPlanes.filter(plane => otherLoads.every(load => storedLoadFitsPlane(load, plane)));
+  const candidates = globalPlanes.filter(plane =>
+    legacyNodalLoads.every(load => storedLoadFitsPlane(load, plane))
+    && supports.every(support => supportAllowsPlaneInference(support, geometryPlanes.length === 1, globalPlanes.length === 1)));
   if (candidates.length === 1) return candidates[0];
 
   if (candidates.length === 2 && candidates.includes('xy') && candidates.includes('xz')
