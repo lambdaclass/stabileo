@@ -586,10 +586,8 @@ for (const [mode, run] of [['sync', solveMovingLoads], ['async', solveMovingLoad
   }
 }
 
-const review2581 = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
-
 for (const [mode, run] of [['sync', solveMovingLoads], ['async', solveMovingLoadsAsync]] as const) {
-  review2581.each([
+  it.each([
     { marker: 'explicit', endLoad: 10 },
     { marker: 'inferred', endLoad: 10 },
     { marker: 'inferred equalized by the axle', endLoad: -4 },

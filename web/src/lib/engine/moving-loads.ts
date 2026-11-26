@@ -1,6 +1,6 @@
 // Moving load analysis — envelope of moving load trains across a structure
 
-import type { SolverInput, SolverLoad, AnalysisResults, FullEnvelope } from './types';
+import type { SolverInput, SolverLoad, AnalysisResults, ElementForces, FullEnvelope } from './types';
 import { errorText as baseErrorText } from '../utils/error-text';
 import { computeEnvelope, prepareLoadSession2D, isWasmReady, movingSegmentRoundoff } from './wasm-solver';
 import { analyzeKinematics, type KinematicResult } from './kinematic-2d';
@@ -8,7 +8,8 @@ import { t } from '../i18n';
 import { localizeEngineText } from '../i18n/engine-text';
 import { withoutSettlement } from './settlement-case';
 import { computeDiagramValueAt } from './diagrams';
-import { inwardEnvelopeEndIndices } from './member-diagram';
+import { inwardEnvelopeEndIndices, memberEnvelopeBounds } from './member-diagram';
+import { envelopeJumpCuts } from './diagram-cut';
 import { locateAxle, locateAxlePlacement, checkAxlePath, referenceGrid, referenceStation, type ReferencePosition, type RouteSegment } from './moving-axle-station';
 import { axleFaceForce, MovingSample, recoverAxleFace, type AxleFace, type FaceLoads } from './moving-sample';
 
@@ -461,39 +462,23 @@ function planarPositionPasses(train: LoadTrain, path: PathSegment[], step: numbe
   return [forward, { train: reverse, refs: grid.positions(true) }];
 }
 
-/**
- * Per-element extremes, taken from the POINTWISE envelope rather than from
- * element end values.
- *
- * The envelope built while sweeping compares `ef.mStart` and `ef.mEnd`, which
- * are the moments at the two ENDS of a member. A simply supported span modelled
- * as one element has zero moment at both ends at every load position, so the
- * per-element envelope came out at 1e-14 for a beam whose real envelope peaks
- * at PL/4 — the entire result, missed, because the maximum lives in the span.
- *
- * The pointwise envelope already samples along each member, so the extremes are
- * read from it. Nothing extra is solved.
- *
- * It went unnoticed because the viewport draws the pointwise curves and never
- * reads this map. That makes it a trap rather than a visible bug: the next
- * caller wanting "the worst moment in member 3" would reach for the obvious
- * field and get zero.
- */
 function elementExtremesFromPointwise(
   envelope: MovingLoadEnvelope['elements'],
-  full: FullEnvelope | undefined,
+  full: FullEnvelope,
+  members: ReadonlyMap<number, ElementForces>,
 ): void {
-  if (!full) return;
   const apply = (
-    curves: { elements: Array<{ elementId: number; posValues: number[]; negValues: number[] }> } | undefined,
+    curves: FullEnvelope['moment'],
     pos: 'mMaxPos' | 'vMaxPos' | 'nMaxPos',
     neg: 'mMaxNeg' | 'vMaxNeg' | 'nMaxNeg',
   ) => {
-    for (const e of curves?.elements ?? []) {
+    for (const e of curves.elements) {
       const env = envelope.get(e.elementId);
       if (!env) continue;
-      for (const v of e.posValues) if (v > env[pos]) env[pos] = v;
-      for (const v of e.negValues) if (v < env[neg]) env[neg] = v;
+      for (const bounds of memberEnvelopeBounds(e, members.get(e.elementId)!.length)) {
+        env[pos] = Math.max(env[pos], bounds.pos);
+        env[neg] = Math.min(env[neg], bounds.neg);
+      }
     }
   };
   apply(full.moment, 'mMaxPos', 'mMaxNeg');
@@ -501,14 +486,16 @@ function elementExtremesFromPointwise(
   apply(full.axial, 'nMaxPos', 'nMaxNeg');
 }
 
-function includeAxleFaces(full: FullEnvelope, faces: PlanarSweepResults['faces']): void {
-  const byId = new Map(full.maxAbsResults.elementForces.map(ef => [ef.elementId, ef]));
+function includeAxleFaces(
+  full: FullEnvelope, faces: PlanarSweepResults['faces'], members: ReadonlyMap<number, ElementForces>,
+): void {
   for (const kind of ['shear', 'axial'] as const) {
     const diagram = full[kind];
     for (const element of diagram.elements) {
       const ranges = faces.get(element.elementId)?.[kind];
       if (!ranges) continue;
-      const forces = byId.get(element.elementId)!;
+      const forces = members.get(element.elementId)!;
+      element.jumpCuts ??= envelopeJumpCuts(element, forces.length);
       const indices = inwardEnvelopeEndIndices(element, forces.length);
       for (const end of [0, 1] as const) {
         const index = indices[end];
@@ -529,12 +516,15 @@ function movingEnvelope(sweep: PlanarSweepResults, train: LoadTrain, path: PathS
   if (positions.length === 0) return t('train.noPositionSolved');
   try {
     const fullEnvelope = computePointwiseEnvelope(results);
-    if (fullEnvelope) includeAxleFaces(fullEnvelope, faces);
     const elements = new Map<number, ElementEnvelope>();
     for (const { elementId } of path) {
       elements.set(elementId, { mMaxPos: 0, mMaxNeg: 0, vMaxPos: 0, vMaxNeg: 0, nMaxPos: 0, nMaxNeg: 0 });
     }
-    elementExtremesFromPointwise(elements, fullEnvelope);
+    if (fullEnvelope) {
+      const members = new Map(fullEnvelope.maxAbsResults.elementForces.map(ef => [ef.elementId, ef]));
+      includeAxleFaces(fullEnvelope, faces, members);
+      elementExtremesFromPointwise(elements, fullEnvelope, members);
+    }
     const structuredDiagnostics = [...new Map(results.flatMap(r => r.structuredDiagnostics ?? []).map(d => [JSON.stringify(d), d])).values()];
     return { structuredDiagnostics, elements, positions, fullEnvelope, train, path };
   } catch (e) {

@@ -748,7 +748,6 @@ describe('spatial cantilever end queries', () => {
     }
   });
 
-  const review2581 = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
   const tipLoad = 10;
   function expectFactoredTipShears(envelope: NonNullable<ReturnType<typeof computeEnvelope3D>>) {
     const rows = buildQueryRows(envelope.maxAbsResults3D.elementForces, 'Vz', { envelope });
@@ -760,7 +759,7 @@ describe('spatial cantilever end queries', () => {
     }
   }
 
-  review2581.each(['prepared', 'constrained'] as const)(
+  it.each(['prepared', 'constrained'] as const)(
     'known wrong result: #2581 $0 WASM multi-case envelope keeps the signed combination minimum',
     mode => {
       const input = buildSolverInput3D(modelStore.model, false, false)!;
@@ -785,7 +784,7 @@ describe('spatial cantilever end queries', () => {
     },
   );
 
-  review2581.each([
+  it.each([
     ['synchronous', solveCombinations3D],
     ['asynchronous', solveCombinations3DParallel],
   ] as const)('known wrong result: #2581 %s spatial combination solve publishes signed end queries', async (_mode, run) => {
@@ -793,9 +792,10 @@ describe('spatial cantilever end queries', () => {
     modelStore.addLoadEntry({
       type: 'nodal3d', data: { id: 1, nodeId: tip, fx: 0, fy: 0, fz: -tipLoad, mx: 0, my: 0, mz: 0, caseId: loadCase },
     });
-    modelStore.addCombination('one', [{ caseId: loadCase, factor: 1 }]);
-    modelStore.addCombination('two', [{ caseId: loadCase, factor: 2 }]);
-    const result = await run(modelStore.model, modelStore.loadCases, modelStore.combinations);
+    const one = modelStore.addCombination('one', [{ caseId: loadCase, factor: 1 }]);
+    const two = modelStore.addCombination('two', [{ caseId: loadCase, factor: 2 }]);
+    const combinations = modelStore.combinations.filter(combination => combination.id === one || combination.id === two);
+    const result = await run(modelStore.model, modelStore.loadCases, combinations);
     if (!result || typeof result === 'string') throw new Error(String(result));
     expectFactoredTipShears(result.envelope);
   });

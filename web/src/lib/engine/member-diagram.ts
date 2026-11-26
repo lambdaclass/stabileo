@@ -544,7 +544,7 @@ function absoluteEnvelopeBound(pos: number, neg: number): number {
   return Math.abs(neg) > Math.abs(pos) ? neg : pos;
 }
 
-function memberEnvelopeBounds(diagram: ElementEnvelopeDiagram, length: number) {
+export function memberEnvelopeBounds(diagram: ElementEnvelopeDiagram, length: number) {
   const faces = new Map<number, { x: number; side: 'left' | 'right' }>();
   for (const { index, distance: x } of envelopeJumpCuts(diagram, length)) {
     faces.set(index, { x, side: 'left' });

@@ -1,0 +1,32 @@
+{
+  "id": "inward-moving-summary",
+  "date": "2026-11-26",
+  "prs": [2581],
+  "area": "analysis",
+  "when": { "all": ["plane2D", "members", "movingLoads"] },
+  "quantities": ["movingLoads"],
+  "title": {
+    "en": "Inward faces in planar moving-load summaries",
+    "es": "Caras interiores en los resúmenes de cargas móviles planas",
+    "pt": "Faces internas nos resumos de cargas móveis planas",
+    "de": "Innere Stabendseiten in Übersichten für ebene Wanderlasten",
+    "fr": "Faces intérieures dans les récapitulatifs de charges mobiles planes",
+    "tr": "Düzlemsel hareketli yük özetlerinde iç yüzler",
+    "zh": "平面移动荷载汇总采用杆端内侧",
+    "hu": "Belső rúdvégi oldalak a síkbeli mozgóterhek összegzésében"
+  },
+  "explanation": {
+    "en": "The moving-load member summary uses the inward face at each member end and both faces at jumps within the span.",
+    "es": "El resumen de cargas móviles de la barra usa la cara interior en cada extremo y ambas caras en los saltos dentro del tramo.",
+    "pt": "O resumo de cargas móveis da barra usa a face interna em cada extremidade e ambas as faces nas descontinuidades dentro do vão.",
+    "de": "Die Wanderlastübersicht eines Stabs verwendet die innere Seite an jedem Stabende und beide Seiten an Sprungstellen im Feld.",
+    "fr": "Le récapitulatif des charges mobiles d’une barre utilise la face intérieure à chaque extrémité et les deux faces aux discontinuités dans la portée.",
+    "tr": "Elemanın hareketli yük özeti, her eleman ucunda iç yüzü ve açıklık içindeki süreksizliklerde iki yüzü de kullanır.",
+    "zh": "杆件移动荷载汇总在两端使用内侧截面值，在跨内跳变处使用两侧截面值。",
+    "hu": "A rúd mozgóteher-összegzése mindkét rúdvégen a belső oldalt, a fesztávon belüli ugrásoknál pedig mindkét oldalt használja."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-inward-moving-summary.md",
+    "heading": "Inward faces in planar moving-load summaries"
+  }
+}
