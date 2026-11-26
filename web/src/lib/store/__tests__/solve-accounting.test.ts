@@ -26,7 +26,7 @@ import {
 } from '../physical-plates';
 
 const fault = vi.hoisted(() => ({ dropSceneCase: 0, integrateDrift: 0, signedForceDelta: 0, dropMemberLoad: false, dropFactoredAxialLine: false, misrouteLineEnd: null as { from: number; to: number } | null, misrouteFactoredLineEnd: 0, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, assemblyDrift: null as { shell: number; relative: number } | null, combinationDrift: null as { shell: number; relative: number } | null, dropNodalFy: false }));
-const quadWeightFault = vi.hoisted(() => ({ relative: 0, alternating: false }));
+const quadWeightFault = vi.hoisted(() => ({ relative: 0, alternating: false, factored: 0 }));
 const sourceFault = vi.hoisted(() => ({ shiftNotionalCase: 0, dropOpposedSources: undefined as "case" | "split" | undefined, dropProjectedFz: false, factoredCellShifts: new Map<number, number>(), stripAssemblyMagnitude: false }));
 
 vi.mock('../../engine/case-effects', async importOriginal => {
@@ -122,6 +122,9 @@ vi.mock('../../engine/accounting-math', async importOriginal => {
     scaleAssembledMagnitudes3D: (...args: Parameters<typeof original.scaleAssembledMagnitudes3D>) => {
       original.scaleAssembledMagnitudes3D(...args);
       const [source, scaled, factor] = args;
+      if (quadWeightFault.factored && factor !== 1 && scaled.type === 'nodal') {
+        scaled.data.fz *= 1 + quadWeightFault.factored;
+      }
       if (fault.dropFactoredAxialLine && factor !== 1 && scaled.type === 'distributed') {
         scaled.data.qXI = 0;
         scaled.data.qXJ = 0;
@@ -236,6 +239,7 @@ beforeEach(() => {
   meshBeforeAnalysis.value = true;
   quadWeightFault.relative = 0;
   quadWeightFault.alternating = false;
+  quadWeightFault.factored = 0;
   fault.dropSceneCase = 0;
   fault.signedForceDelta = 0;
   fault.integrateDrift = 0;
@@ -1927,6 +1931,7 @@ it('#2586 accepts the CAD arch quad weight on every spatial solve path', async (
     parallel: () => asynchronous(model),
     pdelta: () => synchronous(pdelta),
     pdeltaParallel: () => asynchronous(pdelta),
+    direct: () => runDirectAnalysis(model, cases, combos, { includeSelfWeight: true }),
     nonlinearCombinations: () => synchronous(active),
     nonlinearParallel: () => asynchronous(active),
   };
@@ -1949,6 +1954,11 @@ it('#2586 accepts the CAD arch quad weight on every spatial solve path', async (
     ...Object.entries(paths), ...Object.entries(combinations), ['prepared input', wires], ['notional gravity', reference],
   ] as const) {
     expect.soft(await outcome(solve), name).toMatch(/self-weight.*Fz/i);
+  }
+  quadWeightFault.relative = 0;
+  quadWeightFault.factored = 1e-9;
+  for (const solve of [combinations.pdelta, combinations.pdeltaParallel, combinations.direct]) {
+    expect.soft(await outcome(solve)).toMatch(/self-weight.*Fz/i);
   }
 });
 
