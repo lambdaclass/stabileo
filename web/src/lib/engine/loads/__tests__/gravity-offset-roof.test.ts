@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import { buildLoadPlan, roofWeightFor, roofWeightOf } from '../load-plan';
 import { gravityLayout } from '../plan-gravity';
 import { snowDriftRefusal } from '../snow-drift-loads';
-import { offsetRoof, roofPlan } from './gravity-offset-roof-fixture';
+import { doubleAttachedRoof, offsetRoof, roofPlan } from './gravity-offset-roof-fixture';
 import { input } from './gravity-width-mass-fixture';
 
 const options = { mode: 'panels', tributaryWidth: 3 } as const;
@@ -112,6 +112,40 @@ it('#2295 the rafter receives the uncovered part of a rigidly attached roof run'
   }
 });
 
+
+const matchingAttachments = process.env.RUN_KNOWN_WRONG === '2295' ? it : it.skip;
+
+matchingAttachments('known wrong result: #2295 two attached shell traces leave the same bounded gap and load it once', () => {
+  const developed = Math.hypot(10, 2) / 10;
+  for (const split of [false, true]) for (const reverse of [false, true]) {
+    const model = doubleAttachedRoof(split);
+    if (reverse) model.constraints.reverse();
+    const id = split ? 2 : 1;
+    const plan = roofPlan(model);
+    expect(plan.outcome).toBe('READY');
+    const dead = plan.distributed.filter(load => load.caseType === 'D');
+    expect(dead).toEqual([expect.objectContaining({ elementId: id, q: -3, frame: 'global' })]);
+    expect(dead[0]?.a ?? 0).toBeCloseTo(split ? 0 : 4 * developed, 10);
+    expect(dead[0]?.b ?? 2 * developed).toBeCloseTo((split ? 2 : 6) * developed, 10);
+    expect(plan.surface.filter(load => load.caseType === 'D')).toHaveLength(4);
+    expect(plan.levels.reduce((sum, level) => sum + level.superimposedKN, 0)).toBeCloseTo((64 + 6) * developed, 10);
+    expect(gravityLayout(model, options).roofAreaOf.get(id)).toBeCloseTo(6, 10);
+    expect(() => roofWeightFor(model, options, options.tributaryWidth, 1)).not.toThrow();
+    expect(() => snowDriftRefusal(model)).not.toThrow();
+  }
+});
+
+it('#2295 conflicting bounded gaps refuse the attached run', () => {
+  const reason = { key: 'loadPlan.gravity.unresolvedMember', params: { id: 1 } };
+  for (const split of [false, true]) for (const reverse of [false, true]) {
+    const model = doubleAttachedRoof(split, [3, 6]);
+    if (reverse) model.constraints.reverse();
+    expect(roofPlan(model)).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [reason], distributed: [], surface: [] });
+    expect(() => gravityLayout(model, options)).toThrow(expect.objectContaining(reason));
+    expect(() => roofWeightFor(model, options, options.tributaryWidth, 1)).toThrow(expect.objectContaining(reason));
+    expect(() => snowDriftRefusal(model)).toThrow(expect.objectContaining(reason));
+  }
+});
 
 function roofWithTwoGaps(split: boolean, shelter: boolean) {
   const { model, rafter } = offsetRoof(0.02, 0, 1, false, [2, 8]);
