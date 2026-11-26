@@ -202,3 +202,29 @@ it.skipIf(process.env.STABILEO_REPLAY_2607 !== '1').each([[4, 6], [2, 4]] as con
     expect(plan.levels.reduce((total, level) => total + level.superimposedKN, 0)).toBeCloseTo(40 * developed, 10);
   },
 );
+
+it.skipIf(process.env.STABILEO_REPLAY_2607 !== '1').each(['unequal edges', 'two rafters'] as const)(
+  'known wrong result: #2607 — refuse a gap without one certified transfer (%s)', mode => {
+    const { model } = offsetRoof(0.02, 0, 1, false, [4, 6]);
+    const upper = model.quads.get(2)!.nodes;
+    if (mode === 'unequal edges') {
+      model.nodes.get(upper[2]!)!.y = 3;
+      model.nodes.get(upper[3]!)!.y = 3;
+    } else {
+      const farEnds = [model.quads.get(1)!.nodes[3]!, upper[2]!];
+      const ends = farEnds.map(masterNode => {
+        const master = model.nodes.get(masterNode)!;
+        const id = model.nodes.size + 1;
+        model.nodes.set(id, { ...master, id, z: master.z! - 0.02 });
+        model.constraints.push({ type: 'rigidLink', masterNode, slaveNode: id, dofs: [0, 1, 2, 3, 4, 5] });
+        return id;
+      });
+      model.elements.set(2, { ...model.elements.get(1)!, id: 2, nodeI: ends[0]!, nodeJ: ends[1]! });
+    }
+    expect(roofPlan(model)).toMatchObject({
+      outcome: 'BLOCKED', blockedKeys: [expect.objectContaining({ key: 'loadPlan.gravity.unresolvedMember' })],
+      distributed: [], surface: [],
+    });
+    expect(roofPlan(model, 'width').outcome).toBe('READY');
+  },
+);

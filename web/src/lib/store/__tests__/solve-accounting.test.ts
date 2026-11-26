@@ -17,6 +17,7 @@ import { agrees, roundoff } from '../../engine/accounting-math';
 import { runGlobalSolve, runLiveCalc } from '../../engine/live-calc';
 import { solveBuckling, solveBuckling3D, solveModal, solveModal3D, solvePDelta, solvePDelta3D } from '../../engine/wasm-solver';
 import { modelStore, resultsStore, uiStore } from '..';
+import { NO_RELEASE } from '../model.svelte';
 import { createArc, remakeArc } from '../curved-members';
 import { whatIf } from '../whatif.svelte';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
@@ -146,11 +147,11 @@ vi.mock('../../engine/solver-shells', async importOriginal => {
     convertSurfaceLoad: (...args: Parameters<typeof original.convertSurfaceLoad>) => {
       const assembled = original.convertSurfaceLoad(...args);
       if (args[0].quadId === slabRoutingFault.from) {
-        if (slabRoutingFault.pressure) return [{ type: 'quadPressure', data: { elementId: slabRoutingFault.to, pressure: args[0].q } }] as unknown as SolverLoad3D[];
+        if (slabRoutingFault.pressure) return [{ type: 'quadPressure', data: { elementId: slabRoutingFault.to, pressure: -args[0].q } }] as unknown as SolverLoad3D[];
         for (const [i, row] of assembled.entries()) {
           if (row.type !== 'nodal') continue;
           row.data.nodeId = slabRoutingFault.nodes.get(row.data.nodeId) ?? row.data.nodeId;
-          if (slabRoutingFault.nodes.size === 0) row.data.fz += i % 2 === Math.floor(i / 2) ? 0.25 : -0.25;
+          if (slabRoutingFault.nodes.size === 0) row.data.fz += i % 2 === 0 ? 0.25 : -0.25;
         }
       }
       if (sourceFault.factoredCellShifts.has(args[0].quadId)) {
@@ -2196,7 +2197,7 @@ replayReview2607.each(['wrong shell', 'wrong nodes', 'wrong forces'] as const)(
     const upperNodes = model.quads!.get(to)!.nodes;
     const connected = { ...model, elements: new Map(model.elements).set(500, {
       id: 500, nodeI: lowerNodes[0]!, nodeJ: upperNodes[0]!,
-      sectionId: model.sections.keys().next().value!, materialId: model.materials.keys().next().value!, type: 'frame' as const,
+      sectionId: model.sections.keys().next().value!, materialId: model.materials.keys().next().value!, type: 'frame' as const, releaseI: NO_RELEASE, releaseJ: NO_RELEASE,
     }) };
     expect(buildSolverInput3D(connected)?.loads).toHaveLength(8);
     try {

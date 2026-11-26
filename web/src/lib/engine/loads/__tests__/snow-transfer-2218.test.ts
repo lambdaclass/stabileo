@@ -4,7 +4,7 @@ import { teAt } from '../../../i18n/engine-text';
 import { expect, it } from 'vitest';
 import { driftAndSlidingLoads } from '../snow-drift-loads';
 import { gravityLayout } from '../plan-gravity';
-import { snowRoofSteps } from '../snow-roof-surfaces';
+import { roofSurfaceModel, snowRoofSteps } from '../snow-roof-surfaces';
 import { snowLoadCases } from '../snow-loads';
 import { buildLoadPlan } from '../load-plan';
 import { pressure, regulations, snow } from './snow-roof-plane-fixture';
@@ -339,7 +339,17 @@ it.skipIf(process.env.STABILEO_REPLAY_2607 !== '1')('known wrong result: #2607 â
   const steps = snowRoofSteps(model, clipped);
   expect(steps).toHaveLength(1);
   expect([steps[0]!.a[0], steps[0]!.b[0]]).toEqual([4, 4]);
+  const geometry = roofSurfaceModel(model);
+  const surfaces = {
+    ...geometry,
+    resolves: () => true,
+    panel: (index: number) => ({
+      ...geometry.panel(index, layout), elevation: () => clipped.panels[index]!.z,
+    }),
+    edgeHeights: (_a: [number, number], _b: [number, number], _layout: typeof layout, first: number, second: number) =>
+      [clipped.panels[first]!.z - clipped.panels[second]!.z],
+  };
   expect(() => driftAndSlidingLoads(model, clipped, {
     pg: 1, balanced: 0.7, pf: 0.7, slippery: false, tributaryWidth: 1,
-  })).toThrow('snow.refused.stepDriftTransfer');
+  }, surfaces)).toThrow('snow.refused.stepDriftTransfer');
 });
