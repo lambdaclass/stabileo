@@ -1912,7 +1912,7 @@ fn assemble_frame_corotational_3d(
 ) {
     assemble_frame_corotational_3d_prepared(
         dof_num, elem, node_i, node_j, e, a, iy, iz, j, g, phi_y, phi_z,
-        u_full, f_int, scatter, left_hand, None,
+        u_full, f_int, scatter, left_hand, None, true,
     );
 }
 
@@ -1934,6 +1934,7 @@ fn assemble_frame_corotational_3d_prepared(
     scatter: &mut impl FnMut(usize, usize, f64),
     left_hand: bool,
     prepared: Option<&FrameReference3D>,
+    build_tangent: bool,
 ) {
     let (dx0, dy0, dz0, l0) = if let Some(reference) = prepared {
         reference.chord
@@ -2052,6 +2053,10 @@ fn assemble_frame_corotational_3d_prepared(
             f_int[elem_dofs[i14]] += f_global[i12];
         }
     }
+
+    // Modified Newton can consume only these forces once its factor is kept.
+    // All geometry, force and Wagner calculations above are shared unchanged.
+    if !build_tangent { return; }
 
     // Tangent stiffness: T_n^T * K_local * T_n
     let k_glob = transform_stiffness(&k_local, &t_n, 12);

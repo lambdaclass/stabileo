@@ -164,6 +164,19 @@ impl<'a> PreparedCorotational3D<'a> {
         scatter: &mut impl FnMut(usize, usize, f64),
         left_hand: bool,
     ) {
+        self.assemble_impl(dofs, u, forces, scatter, left_hand, true);
+    }
+
+    pub(super) fn assemble_forces(
+        &self, dofs: &DofNumbering, u: &[f64], forces: &mut [f64], left_hand: bool,
+    ) {
+        self.assemble_impl(dofs, u, forces, &mut |_, _, _| {}, left_hand, false);
+    }
+
+    fn assemble_impl(
+        &self, dofs: &DofNumbering, u: &[f64], forces: &mut [f64],
+        scatter: &mut impl FnMut(usize, usize, f64), left_hand: bool, build_tangent: bool,
+    ) {
         for m in &self.members {
             if m.elem.elem_type == "truss" || m.elem.elem_type == "cable" {
                 assemble_truss_corotational_3d(
@@ -188,6 +201,7 @@ impl<'a> PreparedCorotational3D<'a> {
                     scatter,
                     left_hand,
                     m.reference.as_ref(),
+                    build_tangent,
                 );
             }
         }
