@@ -3,14 +3,14 @@ import { gravityLayout } from '../plan-gravity';
 import { planAreaLoads } from '../plan-area-loads';
 import { snowLoadCases } from '../snow-loads';
 import { buildLoadPlan, type LoadModelData } from '../load-plan';
-import { mesh, transform } from './snow-surface-round2-fixture';
+import { mesh, transform, transformWithDyadicBasis } from './snow-surface-round2-fixture';
 import { remeshSnowRoof } from './snow-remesh-invariance';
 import { snow, regulations } from './snow-roof-plane-fixture';
 
 const regression = it;
 
 type Mode = 'panels' | 'width';
-function witness(mode: Mode, z = 4, angle = 0, split = 2, reverse = false, offset = 0) {
+function witness(mode: Mode, z = 4, angle = 0, split = 2, reverse = false, offset = 0, rotate = transform) {
   const lower = mode === 'panels' ? [[5, -1, z], [7, -1, z], [7, 1, z], [5, 1, z]] : [[5, 0, z], [7, 0, z]];
   const model = mesh([lower, [[0, offset, 3], [8, offset, 7]]]);
   const targets = new Set([...model.elements.keys()].slice(0, mode === 'panels' ? 4 : 1));
@@ -19,7 +19,9 @@ function witness(mode: Mode, z = 4, angle = 0, split = 2, reverse = false, offse
     const e = model.elements.get(rafter)!;
     [e.nodeI, e.nodeJ] = [e.nodeJ, e.nodeI];
   }
-  return { model: transform(remeshSnowRoof(model, new Map([[rafter, split]])).model, angle, 0), targets, area: mode === 'panels' ? 4 : 2 };
+  const refined = remeshSnowRoof(model, new Map([[rafter, split]])).model;
+  rotate(refined, angle, 0);
+  return { model: refined, targets, area: mode === 'panels' ? 4 : 2 };
 }
 
 function checkLoads(model: LoadModelData, targets: Set<number>, mode: Mode, area: number, roof: boolean, checkSnow = false, loadEveryPanel = true) {
@@ -54,6 +56,22 @@ for (const mode of ['panels', 'width'] as const) for (const angle of [0, 0.37]) 
     for (const split of [1, 2, 3, 8]) {
       const { model, targets, area } = witness(mode, 4, angle, split, reverse);
       checkLoads(model, targets, mode, area, false, true);
+    }
+  });
+}
+
+for (const reverse of [false, true]) {
+  it(`#2197 local upper rafter covers a separate lower width with a dyadic rotation ${reverse}`, () => {
+    const rotate: typeof transform = (refined, angle) => {
+      for (const node of refined.nodes.values()) {
+        node.x = Math.round(node.x * 16) / 16;
+        if (node.z !== 4) node.z = 3 + node.x / 2;
+      }
+      return transformWithDyadicBasis(refined, angle);
+    };
+    for (const split of [1, 2, 3, 8]) {
+      const { model, targets, area } = witness('width', 4, 0.37, split, reverse, 0, rotate);
+      checkLoads(model, targets, 'width', area, false, true);
     }
   });
 }

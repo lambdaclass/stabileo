@@ -87,3 +87,99 @@ describe('renumber', () => {
     expect(JSON.stringify(modelStore.snapshot())).toBe(before);
   });
 });
+
+it.each(['explicit', 'group'] as const)(
+  '#2565 — checks the actual ID claims for a missing %s member selector',
+  kind => {
+    const { beam, top1, top2, base1, base2 } = scrambled();
+    const shell = modelStore.addQuad([base1, base2, top2, top1], 1, 0.2);
+    const missing = 20;
+    const ids = [missing + 3, missing];
+    const group = modelStore.addGroup('Stale members', 'selection', { elements: ids });
+    modelStore.setAnalysis({ selfWeight: [{
+      caseId: 1, direction: 'Z', factor: -1,
+      ...(kind === 'explicit' ? { elements: ids } : { groupId: group }),
+    }] });
+    expect.soft(renumber({ nodes: false, members: false, shells: true, order: 'xyz', start: missing }))
+      .toMatchObject({ changedShells: 1 });
+    expect.soft(modelStore.quads.get(missing)?.nodes).toEqual([base1, base2, top2, top1]);
+    expect.soft(modelStore.quads.has(shell)).toBe(false);
+
+    const opts = { nodes: false, members: true, order: 'xyz' as const };
+    expect.soft(renumber({ ...opts, only: { elements: new Set([beam]) }, start: missing - 1 }))
+      .toMatchObject({ changedMembers: 1 });
+    const before = modelStore.snapshot();
+    expect.soft(renumber({ ...opts, start: missing }))
+      .toMatchObject({ refused: 'selfWeight', message: expect.stringMatching(/member.*20.*missing/i) });
+    expect.soft(modelStore.snapshot()).toEqual(before);
+  },
+);
+
+it.each(['plates', 'quads'] as const)(
+  '#2565 — a shell remap only claims IDs in its own %s namespace',
+  family => {
+    const { top1, top2, base1, base2 } = scrambled();
+    const p = modelStore.addPlate([base1, base2, top1], 1, 0.2);
+    const q = modelStore.addQuad([base1, base2, top2, top1], 1, 0.2);
+    const target = family === 'plates' ? `p${p}` : `q${q}`;
+    const other = family === 'plates' ? `q${q}` : `p${p}`;
+    const missing = 10;
+    const groupId = modelStore.addGroup('Shells with stale targets', 'selection', { [family]: [missing + 1, missing] });
+    modelStore.setAnalysis({ selfWeight: [{ caseId: 1, groupId, direction: 'Z', factor: -1 }] });
+    const opts = { nodes: false, members: false, shells: true, order: 'xyz' as const, start: missing };
+
+    expect.soft(renumber({ ...opts, only: { shells: new Set([other]) } })).toMatchObject({ changedShells: 1 });
+    const before = modelStore.snapshot();
+    expect.soft(renumber({ ...opts, only: { shells: new Set([target]) } }))
+      .toMatchObject({ refused: 'selfWeight', message: expect.stringMatching(/10.*missing/i) });
+    expect.soft(modelStore.snapshot()).toEqual(before);
+  },
+);
+
+it.each(['explicit', 'group'] as const)(
+  '#2565 — a fractional ID cannot hide member 20 in the %s selector',
+  kind => {
+    const { beam } = scrambled();
+    const groupId = modelStore.addGroup('Gravity members', 'selection', { elements: [1.5, 20] });
+    const rule = { caseId: 1, direction: 'Z', factor: -1 } as const;
+    modelStore.setAnalysis({ selfWeight: [{
+      ...rule, ...(kind === 'explicit' ? { elements: [1.5, 20] } : { groupId }),
+    }] });
+    const opts = { nodes: false, members: true, order: 'xyz' as const, only: { elements: new Set([beam]) } };
+
+    expect(renumber({ ...opts, start: 19 })).toMatchObject({ changedMembers: 1 });
+    const before = modelStore.snapshot();
+    const undoCount = historyStore.undoCount;
+    const claim = { ...opts, only: { elements: new Set([19]) }, start: 20 };
+    expect.soft(renumber(claim)).toMatchObject({ refused: 'selfWeight', message: expect.stringMatching(/member.*20.*missing/i) });
+    expect.soft(modelStore.snapshot()).toEqual(before);
+    expect.soft(historyStore.undoCount).toBe(undoCount);
+
+    modelStore.restore(before);
+    modelStore.setGroupMembers(groupId, { elements: [19] });
+    modelStore.setAnalysis({ selfWeight: [{
+      ...rule, ...(kind === 'explicit' ? { elements: [19] } : { groupId }),
+    }] });
+    expect(renumber(claim)).toMatchObject({ changedMembers: 1 });
+    const selected = kind === 'explicit'
+      ? modelStore.analysis?.selfWeight?.[0]?.elements
+      : modelStore.model.groups.get(groupId)?.members.elements;
+    expect(selected).toEqual([20]);
+  },
+);
+
+it.each(['plates', 'quads'] as const)(
+  '#2565 — bad member IDs cannot hide a claimed target in %s',
+  family => {
+    const { top1, top2, base1, base2 } = scrambled();
+    const plate = modelStore.addPlate([base1, base2, top1], 1, 0.2);
+    const quad = modelStore.addQuad([base1, base2, top2, top1], 1, 0.2);
+    const selected = family === 'plates' ? `p${plate}` : `q${quad}`;
+    const groupId = modelStore.addGroup('Gravity shells', 'selection', { elements: [1.5], [family]: [20] });
+    modelStore.setAnalysis({ selfWeight: [{ caseId: 1, direction: 'Z', factor: -1, groupId }] });
+    const before = modelStore.snapshot();
+    expect.soft(renumber({ nodes: false, members: false, shells: true, order: 'xyz', only: { shells: new Set([selected]) }, start: 20 }))
+      .toMatchObject({ refused: 'selfWeight', message: expect.stringMatching(/20.*missing/i) });
+    expect(modelStore.snapshot()).toEqual(before);
+  },
+);

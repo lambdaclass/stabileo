@@ -191,3 +191,18 @@ describe('the generated model reads as metallic', () => {
     }
   });
 });
+
+it('rejects a generated missing self-weight target before replacing the active project', () => {
+  const opts = { source: 'generator-truss' as const, atIso: AT, params: {} };
+  const original = emitModel(generateTruss({ panelsPerHalf: 3 }), { name: 'Original truss', profiles: PROFILES });
+  applyGeneratedModel(original, opts);
+  historyStore.clear();
+  const before = modelStore.snapshot();
+
+  const replacement = emitModel(generateTruss({ panelsPerHalf: 4 }), { name: 'Replacement truss', profiles: PROFILES });
+  const missing = Math.max(...replacement.json.elements.map(e => e.id)) + 1;
+  replacement.json.analysis = { ...replacement.json.analysis, selfWeight: [{ caseId: 1, direction: 'Z', factor: -1, elements: [missing] }] };
+  expect(() => applyGeneratedModel(replacement, opts)).toThrow(new RegExp(`self-weight.*member.*${missing}.*missing`, 'i'));
+  expect(modelStore.snapshot()).toEqual(before);
+  expect(historyStore.undoCount).toBe(0);
+});

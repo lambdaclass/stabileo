@@ -8,8 +8,9 @@ No scheduled job may reach the merge queue's runners (`stabileo`, `stabileo-pr`,
 to enforce it. `fuzz` goes to the nightly pool only when `STABILEO_NIGHTLY_POOL=true` too, and
 otherwise to `ubuntu-24.04`. Dispatches
 on other branches always use hosted runners and dry-run reporting. There is no
-pull-request trigger. The plan and findings jobs always run on GitHub-hosted
-runners. Only `findings` has `issues: write`; compute jobs have `contents: read`.
+pull-request trigger. The plan, findings and replay jobs run on GitHub-hosted
+runners. The findings and replay report jobs can update finding issues.
+Replay compute jobs only need repository contents.
 
 **Alerting** (`.github/workflows/verification-alert.yml`, `.github/scripts/verification-alert.cjs`).
 A failed, timed-out or cancelled scheduled run of `nightly.yml`, `differential.yml`, `verify.yml`,
@@ -120,23 +121,63 @@ A classified replay finding replaces its original placeholder; unsuccessful or
 interrupted replays retain the original model and reproduction command. Replay
 and reduction share a 14-minute budget within the 15-minute collection step.
 Metamorphic exports retain the case name and densities because
-those affect transformations and dynamic checks. A finding is keyed by **check + failure kind + normalized root-cause message**,
-independent of model and seed. Differential numerical signatures include the
-analysis, failing quantity and component from `worst`, excluding instance IDs,
-time-step indices and numeric results. Other normalized causes aggregate across
-analyses and relations. Normalization strips case
-wrappers, IDs and numbers while preserving semantic distinctions such as tangent
-versus effective stiffness. Transformed-model failures after an accepted original
-are input-consistency findings labeled `invariance-refusal`; numeric mismatches
-are labeled `wrong-result-candidate`. Each issue also has `safety` and
-`nightly-finding` labels, per-run finding/analysis/relation/model counts, and one
-smallest available reduced reproducer with its seed, commit/run link, reduction
-status and replay command. Original model hashes retain model counts across
-reduction (older artifacts fall back to the reduced model hash).
-Oversized JSON remains
-complete in the linked artifact. Repeated findings update the same issue;
-closed findings are reopened when they recur. Rerunning the reporter does not
-repeat the same run-attempt comment. Green nights never close issues.
+those affect transformations and dynamic checks. A defect signature uses the
+check (including its analysis), finding kind, and normalized cause (including
+any stable diagnostic code). For structural model checks, the signature excludes
+the seed, model hash, relation, instance IDs, and numeric results. Differential findings with a
+`worst` list distinguish the quantities being compared. Transformed-model
+failures after an accepted original are labeled `invariance-refusal` and
+numeric mismatches are labeled `wrong-result-candidate`. Fuzz crash
+diagnostics are grouped within a target. When a crash is described only by
+its artifact filename, the exact input bytes identify the finding.
+
+The reporter shows the smallest available reproducer for each reported defect.
+The replay inventory retains every distinct structural test, exact model and
+seed combination, and every distinct fuzz input per target. The issue body and
+up to five sighting comments include a machine-readable
+reproducer block. After five comments, the issue body keeps a cumulative count
+and the latest overflow batch. The first overflow remains eligible for closure
+when every retained input passes. Replacing that batch or encountering a legacy
+overflow of uncertain completeness blocks automatic closure. If a legacy body
+has no room for the overflow batch, a bounded sighting comment preserves the new
+evidence alongside the old body. Large finding files are referenced by digest.
+When the inventory of references also exceeds the inline limit, the workflow
+uploads a replay manifest before publishing the sighting. Inventories above the
+per-file replay limit use an index that names each chunk by digest. Replay
+verifies the index, every chunk, and each referenced finding's digest and
+selector. A verified copy with the same test, exact model and seed can replace
+an expired reference even if its diagnostics differ. Closed findings can
+reopen when they recur.
+
+On scheduled runs, the nightly workflow uses `replay-findings.yml` to replay
+the saved inputs against that night's main commit. Closure requires three
+consecutive UTC nights of explicit passes for every stored reproducer.
+Each worker binds its result to the exact replay input and checked-out commit.
+The report accepts only partials that match its replay snapshot and expected
+commit. Refused wrong-result inputs, unresolved artifacts, unsupported legacy
+records, and failed replay jobs leave the issue open. A false-rejection finding
+requires explicit acceptance by the differential check. A new sighting in the
+same nightly run also prevents counting a pass. Current-format sightings require
+their primary machine-readable inventory. A legacy sighting can use its inline
+model when the report establishes a single finding and the inline integers and
+seed are safe. When the report cannot establish all original inputs, recover
+the original run's exact test, model and seed inventory before closing the
+issue manually. An arbitrary batch added to the issue cannot establish which
+finding files the historical reporter grouped together.
+
+The manual replay workflow defaults to reporting and has an explicit close
+option. Both closure modes recheck the live issue body and bot sightings
+against their replay snapshot. Bot comments with reporter evidence and a
+missing or malformed run marker keep the issue open. The publishing and
+closure jobs share a concurrency group that queues pending jobs.
+
+The offline migration planner takes a JSON issue export with the `number`,
+`title`, `body`, `createdAt` or `created_at`, `state`, and `labels` fields.
+Run `node scripts/migrate-nightly-findings.cjs open-issues.json` to print the
+oldest issue to keep and the proposed duplicates for each signature. The
+plan includes issues with insufficient information as `unresolved`, including
+bare fuzz crashes whose exact bytes are unavailable. Preserve any distinct
+reproducer from a duplicate before closing it.
 
 The reducer repeatedly deletes loads or members while preserving solvability
 and the **same** failing test and stable failure signature. Candidates must still

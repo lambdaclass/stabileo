@@ -4,7 +4,7 @@
   "prs": [
     2429,
     2430,
-    2586
+    2580
   ],
   "area": "analysis",
   "when": {
@@ -16,27 +16,27 @@
     "solve.ok"
   ],
   "title": {
-    "en": "Wall edges inside slab faces",
-    "es": "Bordes de muros en el interior de losas",
-    "pt": "Bordas de paredes no interior de lajes",
-    "de": "Wandkanten im Inneren von Deckenplatten",
-    "fr": "Bords de voiles à l’intérieur des dalles",
-    "hu": "Falélek a födémelemek belsejében",
-    "tr": "Döşeme elemanlarının içindeki duvar kenarları",
-    "zh": "楼板单元内部的墙边"
+    "en": "Wall–slab mesh contact",
+    "es": "Contacto de mallas entre muro y losa",
+    "pt": "Contato entre as malhas da parede e da laje",
+    "de": "Netzkontakt zwischen Wand und Deckenplatte",
+    "fr": "Contact de maillage entre voile et dalle",
+    "hu": "A fal és a födém hálójának érintkezése",
+    "tr": "Duvar ve döşeme ağlarının teması",
+    "zh": "墙体与楼板的网格接触"
   },
   "explanation": {
-    "en": "Spatial analysis stops when a wall and slab intersect along a line without compatible mesh edges. Join the meshes along the intersection before solving.",
-    "es": "El análisis espacial se detiene cuando un muro y una losa se intersectan a lo largo de una línea sin bordes de malla compatibles. Uní las mallas a lo largo de la intersección antes de calcular.",
-    "pt": "A análise espacial é interrompida quando uma parede e uma laje se interceptam ao longo de uma linha sem arestas de malha compatíveis. Una as malhas ao longo da interseção antes de calcular.",
-    "de": "Die räumliche Berechnung stoppt, wenn Wand und Decke sich entlang einer Linie ohne kompatible Netzkanten schneiden. Verbinden Sie die Netze vor der Berechnung entlang der Schnittlinie.",
-    "fr": "Le calcul spatial s’arrête lorsqu’un voile et une dalle se coupent le long d’une ligne sans arêtes de maillage compatibles. Reliez les maillages le long de l’intersection avant le calcul.",
-    "hu": "A térbeli számítás leáll, ha egy fal és egy födém olyan vonal mentén metszi egymást, ahol nincsenek kompatibilis hálóélek. A számítás előtt illessze össze a hálókat a metszésvonal mentén.",
-    "tr": "Duvar ile döşeme uyumlu ağ kenarları olmayan bir çizgi boyunca kesiştiğinde üç boyutlu analiz durur. Çözümden önce ağları kesişim çizgisi boyunca birleştirin.",
-    "zh": "当墙与楼板沿一条没有兼容网格边的线相交时，空间分析会停止。求解前请沿交线连接两侧网格。"
+    "en": "Spatial analysis stops where a wall meets a slab without a shared mesh edge. This includes a wall face crossing the slab between shared corners and a sloping top inside the contact band. Remesh the junction with shared edges. A wall and slab that share the full intersection as a mesh edge can be analyzed.",
+    "es": "El análisis espacial se detiene cuando un muro encuentra una losa sin un borde de malla compartido. Esto incluye una cara del muro que atraviesa la losa entre esquinas compartidas y una coronación inclinada dentro de la banda de contacto. Volvé a mallar la unión con bordes compartidos. Se puede analizar un muro y una losa que comparten toda la intersección como borde de malla.",
+    "pt": "A análise espacial é interrompida quando uma parede encontra uma laje sem uma borda de malha compartilhada. Isso inclui uma face que atravessa a laje entre cantos comuns e um topo inclinado dentro da faixa de contato. Remalhe a junção com bordas compartilhadas. É possível analisar uma parede e uma laje que compartilham toda a interseção como borda de malha.",
+    "de": "Die räumliche Berechnung stoppt, wenn eine Wand ohne gemeinsame Netzkante auf eine Deckenplatte trifft. Das gilt auch für Schnitte zwischen gemeinsamen Eckpunkten und geneigte Wandoberkanten im Kontaktbereich. Vernetzen Sie den Anschluss mit gemeinsamen Kanten. Wand und Deckenplatte können berechnet werden, wenn der gesamte Schnitt eine gemeinsame Netzkante bildet.",
+    "fr": "Le calcul spatial s’arrête lorsqu’un voile rencontre une dalle sans bord de maillage commun. Cela inclut une face de voile qui traverse la dalle entre deux sommets communs et un sommet de voile incliné dans la bande de contact. Remaillez la jonction avec des bords communs. Le calcul reste possible quand toute l’intersection du voile et de la dalle forme une arête de maillage commune.",
+    "hu": "A térbeli számítás leáll, ha a fal közös hálóél nélkül találkozik a födémmel. Ide tartozik a födémet közös csúcsok között metsző falfelület és az érintkezési sávon belüli ferde falél. Hálózza újra a csatlakozást közös élekkel. A fal és a födém számítható, ha a teljes metszésvonal közös hálóél.",
+    "tr": "Bir duvar döşemeye ortak ağ kenarı olmadan temas ederse üç boyutlu analiz durur. Buna döşemeyi ortak köşeler arasında kesen duvar yüzü ve temas bandı içindeki eğimli duvar tepesi dahildir. Birleşimi ortak kenarlarla yeniden ağlayın. Kesişimin tamamı ortak bir ağ kenarıysa duvar ve döşeme analiz edilebilir.",
+    "zh": "墙体与楼板相接但没有共用网格边时，空间分析会停止。这包括墙面在共用角点之间穿过楼板，以及位于接触带内的倾斜墙顶。请重新划分连接处的网格，使两者共用边。 墙体与楼板的整条交线均为共用网格边时，可以进行分析。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-load-accounting-and-wall-contact.md",
-    "heading": "Wall edges inside slab faces"
+    "heading": "Wall–slab mesh contact"
   }
 }

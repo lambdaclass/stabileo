@@ -4,8 +4,10 @@ import { modelStore } from '../model.svelte';
 import { uiStore } from '../ui.svelte';
 import { recheckStore } from '../recheck.svelte';
 import { tabManager } from '../tabs.svelte';
+import type { CombinationCase } from '../../engine/loads/combination-cases';
 import { migrateSelfWeightIfNeeded } from '../self-weight-migration';
 import { compressSnapshot, loadFromShareLink, loadFromURLHash } from '../../utils/url-sharing';
+import { assessProject } from '../../provenance/applicability';
 import { RESULT_CHANGES } from '../../provenance/full-registry';
 import { RESULTS_VERSION } from '../../provenance/registry';
 import { stampSolve } from '../../provenance/solve-stamp';
@@ -112,3 +114,49 @@ for (const [analysis, latest, issue] of [
     });
   }
 }
+
+const rankingNotice = 'repeated-combination-pattern-ranking';
+const flatRoofNote = { key: 'loads.cirsoc101.note.snowAsFlatRoof' };
+const implicitSnow = { symbol: 'S', factor: 1 } as const;
+const explicitSnow = { ...implicitSnow, snowBasis: 'flatRoof' } as const;
+const roofLive = { symbol: 'Lr', factor: 1.5 } as const;
+const mixedSnowRule = {
+  id: 'mixed-snow', purpose: 'strength' as const, notes: [flatRoofNote],
+  terms: [implicitSnow, explicitSnow, roofLive],
+};
+
+const mixedSnowCases: CombinationCase[] = [
+  { id: 1, type: 'S', name: 'Physical snow', alternatives: 'snow' },
+  { id: 2, type: 'S', name: 'Flat-roof snow', alternatives: 'snow', snowBasis: 'flatRoof' },
+  { id: 3, type: 'S', name: 'Partial flat-roof snow', alternatives: 'snow', snowBasis: 'flatRoof', pattern: true },
+  { id: 4, type: 'Lr', name: 'Roof live', alternatives: 'roof' },
+  { id: 5, type: 'Lr', name: 'Partial roof live', alternatives: 'roof', pattern: true },
+];
+
+for (const entry of ['file', 'autosave', 'session'] as const) {
+  for (const [mode, analysis] of [['2d', 'linear'], ['3d', 'linear'], ['pro', 'nonlinear']] as const) {
+    it(`#2569 ${entry} recheck requests regeneration for the mixed legacy snow rule in ${mode} after ${analysis}`, async () => {
+      const file = project(mode, analysis, RESULTS_VERSION - 1);
+      file.snapshot.combinationRules = [mixedSnowRule];
+      file.snapshot.loadCases = mixedSnowCases;
+      open(entry, file);
+      await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+      expect.soft(recheckStore.captureNotice()?.features).toContain('repeatedCombinationRuleActions');
+      const notice = recheckStore.assessment?.changes.find(change => change.id === rankingNotice);
+      expect.soft(notice?.requiresLoadRegeneration).toBe(true);
+      expect(notice?.prs).toContain(2590);
+    });
+  }
+}
+
+it('#2569 recheck keeps separate snow actions and zero factors out of the ranking notice', () => {
+  const controls = [
+    { ...mixedSnowRule, notes: [] },
+    { ...mixedSnowRule, terms: [{ ...implicitSnow, group: 'north roof' }, explicitSnow, roofLive] },
+    { ...mixedSnowRule, terms: [implicitSnow, { ...explicitSnow, factor: 0 }, roofLive] },
+  ];
+  for (const rule of controls) {
+    const assessment = assessProject({ combinationRules: [rule] }, null, 'pro');
+    expect(assessment.changes.map(change => change.id)).not.toContain(rankingNotice);
+  }
+});

@@ -24,17 +24,18 @@ import {
   addPlateLoad, applyPlateMeshes, createPlate, meshBeforeAnalysis, planPlateMesh, plateEntry, plateStatus, setPlateMeshSpec, setPlateSideArc,
 } from '../physical-plates';
 
-const fault = vi.hoisted(() => ({ dropSceneCase: 0, integrateDrift: 0, signedForceDelta: 0, dropMemberLoad: false, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, assemblyDrift: null as { shell: number; relative: number; strip?: boolean } | null, combinationDrift: null as { shell: number; relative: number } | null, dropNodalFy: false, shiftNotionalCase: 0, dropOpposedSources: undefined as "case" | "split" | undefined, dropProjectedFz: false, factoredCellShifts: new Map<number, number>() }));
+const fault = vi.hoisted(() => ({ dropSceneCase: 0, integrateDrift: 0, signedForceDelta: 0, dropMemberLoad: false, dropFactoredAxialLine: false, misrouteLineEnd: null as { from: number; to: number } | null, misrouteFactoredLineEnd: 0, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, assemblyDrift: null as { shell: number; relative: number } | null, combinationDrift: null as { shell: number; relative: number } | null, dropNodalFy: false }));
+const sourceFault = vi.hoisted(() => ({ shiftNotionalCase: 0, dropOpposedSources: undefined as "case" | "split" | undefined, dropProjectedFz: false, factoredCellShifts: new Map<number, number>(), stripAssemblyMagnitude: false }));
 
 vi.mock('../../engine/case-effects', async importOriginal => {
   const original = await importOriginal<typeof import('../../engine/case-effects')>();
   function drop<M extends ModelData>(expanded: M): M {
-    if (fault.dropOpposedSources === 'case') return {
+    if (sourceFault.dropOpposedSources === 'case') return {
       ...expanded,
       loads: expanded.loads.filter(load => load.type !== 'distributed3d'),
     };
-    if (fault.shiftNotionalCase) {
-      const actions = expanded.loads.filter(load => load.type === 'nodal3d' && load.data.caseId === fault.shiftNotionalCase);
+    if (sourceFault.shiftNotionalCase) {
+      const actions = expanded.loads.filter(load => load.type === 'nodal3d' && load.data.caseId === sourceFault.shiftNotionalCase);
       const shifts = new Map(actions.map((load, i) => [load, [1, -2, 1][i]!]));
       return { ...expanded, loads: expanded.loads.map(load =>
         load.type === 'nodal3d' && shifts.has(load) ? withAccountingOrigin({ ...load, data: { ...load.data, fy: load.data.fy + shifts.get(load)! } }, load) : load) };
@@ -58,7 +59,7 @@ vi.mock('../../geometry/plane-projection', async importOriginal => {
     ...original,
     remapNodalLoad2D: (...args: Parameters<typeof original.remapNodalLoad2D>) => {
       const force = original.remapNodalLoad2D(...args);
-      return fault.dropProjectedFz ? { ...force, fy: 0 } : force;
+      return sourceFault.dropProjectedFz ? { ...force, fy: 0 } : force;
     },
   };
 });
@@ -69,7 +70,7 @@ vi.mock('../../model/edit/member-split', async importOriginal => {
     ...original,
     splitElementLoads: (...args: Parameters<typeof original.splitElementLoads>) => {
       const split = original.splitElementLoads(...args);
-      if (fault.dropOpposedSources !== 'split') return split;
+      if (sourceFault.dropOpposedSources !== 'split') return split;
       return { ...split, added: split.added.filter(load => load.type !== 'distributed3d') };
     },
   };
@@ -118,9 +119,16 @@ vi.mock('../../engine/accounting-math', async importOriginal => {
     ...original,
     scaleAssembledMagnitudes3D: (...args: Parameters<typeof original.scaleAssembledMagnitudes3D>) => {
       original.scaleAssembledMagnitudes3D(...args);
-      const [source, scaled] = args;
+      const [source, scaled, factor] = args;
+      if (fault.dropFactoredAxialLine && factor !== 1 && scaled.type === 'distributed') {
+        scaled.data.qXI = 0;
+        scaled.data.qXJ = 0;
+      }
+      if (fault.misrouteFactoredLineEnd && factor !== 1 && scaled.type === 'nodal' && scaled.data.axialOf?.end === 'j') {
+        scaled.data.nodeId = fault.misrouteFactoredLineEnd;
+      }
       const cell = factoredCellOwners.get(source);
-      if (scaled.type === 'nodal' && cell !== undefined) scaled.data.fz *= fault.factoredCellShifts.get(cell) ?? 1;
+      if (scaled.type === 'nodal' && cell !== undefined) scaled.data.fz *= sourceFault.factoredCellShifts.get(cell) ?? 1;
       const sign = combinationSigns.get(source);
       if (fault.combinationDrift && sign !== undefined && scaled.type === 'nodal') {
         scaled.data.fz *= 1 + sign * fault.combinationDrift.relative;
@@ -135,7 +143,7 @@ vi.mock('../../engine/solver-shells', async importOriginal => {
     ...original,
     convertSurfaceLoad: (...args: Parameters<typeof original.convertSurfaceLoad>) => {
       const assembled = original.convertSurfaceLoad(...args);
-      if (fault.factoredCellShifts.has(args[0].quadId)) {
+      if (sourceFault.factoredCellShifts.has(args[0].quadId)) {
         for (const row of assembled) factoredCellOwners.set(row, args[0].quadId);
       }
       if (args[0].quadId === fault.combinationDrift?.shell) {
@@ -149,7 +157,7 @@ vi.mock('../../engine/solver-shells', async importOriginal => {
       const drift = fault.assemblyDrift;
       if (!drift || args[0].quadId !== drift.shell) return assembled;
       return assembled.map((row, i) => row.type === 'nodal'
-        ? { ...row, data: { ...row.data, fz: row.data.fz * (1 + ((drift.strip ? i === 1 || i === 2 : i % 2) ? -drift.relative : drift.relative)) } }
+        ? { ...row, data: { ...row.data, fz: row.data.fz * (1 + ((sourceFault.stripAssemblyMagnitude ? i === 1 || i === 2 : i % 2) ? -drift.relative : drift.relative)) } }
         : row);
     },
   };
@@ -168,7 +176,7 @@ vi.mock('../../engine/member-point-loads', async importOriginal => {
 
 vi.mock('../../engine/member-loads', async importOriginal => {
   const original = await importOriginal<typeof import('../../engine/member-loads')>();
-  return {
+  const mocks = {
     ...original,
     globalDistributedToSolver: (...args: Parameters<typeof original.globalDistributedToSolver>) =>
       fault.dropMemberLoad || (fault.dropLineIntensity !== 0 && args[1][2] === fault.dropLineIntensity)
@@ -176,6 +184,32 @@ vi.mock('../../engine/member-loads', async importOriginal => {
     localDistributedToSolver: (...args: Parameters<typeof original.localDistributedToSolver>) =>
       fault.dropMemberLoad || (fault.dropLineIntensity !== 0 && args[1][2] === fault.dropLineIntensity)
         ? [] : original.localDistributedToSolver(...args),
+
+    transverseToNodes: (...args: Parameters<typeof original.transverseToNodes>) => {
+      const rows = original.transverseToNodes(...args);
+      const transfer = fault.misrouteLineEnd;
+      if (transfer && args[0].some(row => row.type === 'distributed')) {
+        for (const row of rows) {
+          if (row.type === 'nodal' && row.data.nodeId === transfer.from) row.data.nodeId = transfer.to;
+        }
+      }
+      return rows;
+    },
+  };
+  const withEndFault = (convert: typeof original.globalDistributedToSolver): typeof convert => (...args) => {
+    const rows = convert(...args);
+    const transfer = fault.misrouteLineEnd;
+    if (args[5] && transfer) {
+      for (const row of rows) {
+        if (row.type === 'nodal' && row.data.nodeId === transfer.from) row.data.nodeId = transfer.to;
+      }
+    }
+    return rows;
+  };
+  return {
+    ...mocks,
+    globalDistributedToSolver: withEndFault(mocks.globalDistributedToSolver),
+    localDistributedToSolver: withEndFault(mocks.localDistributedToSolver),
   };
 });
 
@@ -191,6 +225,9 @@ beforeEach(() => {
   fault.signedForceDelta = 0;
   fault.integrateDrift = 0;
   fault.dropMemberLoad = false;
+  fault.dropFactoredAxialLine = false;
+  fault.misrouteLineEnd = null;
+  fault.misrouteFactoredLineEnd = 0;
   fault.dropLineIntensity = 0;
   fault.scaleCaseLoad = 1;
   fault.momentDelta = 0;
@@ -198,10 +235,11 @@ beforeEach(() => {
   fault.surfaceFactorOffset = 0;
   fault.cornerPressureDelta = 0;
   fault.assemblyDrift = null;
+  sourceFault.stripAssemblyMagnitude = false;
   fault.combinationDrift = null;
   fault.dropNodalFy = false;
-  fault.shiftNotionalCase = 0;
-  fault.dropOpposedSources = undefined;
+  sourceFault.shiftNotionalCase = 0;
+  sourceFault.dropOpposedSources = undefined;
 });
 
 function cantilever(mode: '2d' | '3d') {
@@ -1001,10 +1039,10 @@ it.each(['xz', 'yz'] as const)('#2586 the planar P-Delta action uses and checks 
     expect(pdeltaBasic2D(false, uiStore.drawPlane2D)).toMatchObject({
       results: { reactions: [expect.objectContaining({ rz: expect.closeTo(3, 10) })] },
     });
-    fault.dropProjectedFz = true;
+    sourceFault.dropProjectedFz = true;
     expect(await outcome(() => pdeltaBasic2D(false, uiStore.drawPlane2D))).toMatch(/case.*Fz.*-3.*0/i);
   } finally {
-    fault.dropProjectedFz = false;
+    sourceFault.dropProjectedFz = false;
     uiStore.drawPlane2D = 'xy';
   }
 });
@@ -1523,6 +1561,54 @@ it('#2471 detects a lost self-equilibrated line load in spatial analysis', async
   expect(() => paths.advanced()).toThrow(/case.*member.*s·Fx/i);
 });
 
+it.each([
+  { method: 'P-Delta', cut: false },
+  { method: 'P-Delta', cut: true },
+  { method: 'active set', cut: false },
+  { method: 'active set', cut: true },
+])('#2471 refuses a line lost during combination scaling ($method, cut member: $cut)', async ({ method, cut }) => {
+  const member = cantilever('3d');
+  modelStore.model.loads.push({ type: 'distributed3d', data: {
+    id: 1, elementId: member, qXI: 2, qXJ: -2, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, frame: 'global', caseId: 1,
+  } });
+  if (cut) modelStore.model.loads.push({ type: 'pointOnElement3d', data: {
+    id: 2, elementId: member, a: 0.5, px: 0, py: 0, pz: 0, my: 1, frame: 'global', caseId: 1,
+  } });
+  for (const { id } of [...modelStore.combinations]) modelStore.removeCombination(id);
+  const comboId = modelStore.addCombination('Two dead loads', [{ caseId: 1, factor: 2 }]);
+  modelStore.setAnalysis({ perCombination: method === 'P-Delta' ? 'pdelta' : 'linear' });
+  if (method === 'active set') {
+    const { nodeI, nodeJ } = modelStore.elements.get(member)!;
+    modelStore.addNodalLoad3D(nodeJ, 0, 0, -1, 0, 0, 0, 1);
+    modelStore.updateSupport(nodeI, { uplift: true });
+  }
+  const model = modelStore.model;
+  const combo = model.combinations.find(c => c.id === comboId)!;
+  const cases = caseSolverLoads3D(model, model.loadCases, false, false);
+  const axialLines = (loads: readonly SolverLoad3D[]) => loads.flatMap(l => l.type === 'distributed' ? [[l.data.qXI, l.data.qXJ]] : []);
+  const original = axialLines(cases.get(1)!);
+  expect(original).toEqual(cut ? [[2, 1], [1, -2]] : [[2, -2]]);
+  expect(axialLines(comboSolverLoads3D(combo, cases))).toEqual(original.map(pair => pair.map(q => 2 * q!)));
+
+  const expectedReport = method === 'P-Delta' ? { secondOrder: expect.any(Object) } : { nonlinear: expect.any(Object) };
+  expect(modelStore.solveCombinations3D(false, false, true)).toMatchObject({
+    perCombo: new Map([[comboId, expect.objectContaining({ ...expectedReport, elementForces: expect.any(Array) })]]),
+  });
+  fault.dropFactoredAxialLine = true;
+  expect(axialLines(caseSolverLoads3D(model, model.loadCases, false, false).get(1)!)).toEqual(original);
+  const diagnostic = new RegExp('Two dead loads.*member.*' + member + '.*s·Fx.*assembled 0', 'i');
+  const paths = {
+    factored: () => comboSolverLoads3D(combo, cases),
+    sync: () => modelStore.solveCombinations3D(false, false, true),
+    parallel: () => modelStore.solveCombinations3DParallel(false, false, true),
+    direct: () => runDirectAnalysis(model, model.loadCases, [combo], { includeSelfWeight: false }),
+  };
+  for (const [path, solve] of Object.entries(paths)) {
+    const result = await outcome(solve);
+    expect.soft(typeof result === 'string' ? result : 'returned a result', path).toMatch(diagnostic);
+  }
+});
+
 it('#2471 detects a lost self-equilibrated line load before a planar projection solve', async () => {
   const elementId = cantilever('2d');
   const model = modelStore.model;
@@ -1637,7 +1723,8 @@ it('#2470 two shell pressures cannot cancel a lost assembly moment', async () =>
   ];
   const control = buildSolverInput3D(model)?.loads;
   expect(control).toHaveLength(8);
-  fault.assemblyDrift = { shell: quadId, relative: 0.125, strip: true };
+  sourceFault.stripAssemblyMagnitude = true;
+  fault.assemblyDrift = { shell: quadId, relative: 0.125 };
   for (const solve of paths) expect.soft(await outcome(solve)).toMatch(/case.*#1.*M[xy]/i);
 });
 
@@ -1754,7 +1841,7 @@ it('#2586 P-Delta refuses a cell-pressure fault introduced only in combination f
   };
   check(solveCombinations3D(pdelta, cases, combos));
   try {
-    for (const [index, cell] of cells.entries()) fault.factoredCellShifts.set(cell, index === 0 || index === 3 ? 2 : 0);
+    for (const [index, cell] of cells.entries()) sourceFault.factoredCellShifts.set(cell, index === 0 || index === 3 ? 2 : 0);
     check(solveCombinations3D(model, cases, combos));
     for (const solve of [
       () => solveCombinations3D(pdelta, cases, combos),
@@ -1762,7 +1849,7 @@ it('#2586 P-Delta refuses a cell-pressure fault introduced only in combination f
       () => runDirectAnalysis(pdelta, cases, combos, { includeSelfWeight: false }),
     ]) expect.soft(await outcome(solve)).toMatch(/case.*Strip slab.*quad #.*Fz/i);
   } finally {
-    fault.factoredCellShifts.clear();
+    sourceFault.factoredCellShifts.clear();
   }
 });
 
@@ -1872,7 +1959,7 @@ it.each(['split', 'case'] as const)('#2586 retains opposing generated sources ac
   expect(modalMass()).toMatchObject({ report: expect.any(Object) });
   expect(paths.linear()).toMatchObject({ reactions: [expect.objectContaining({ fz: expect.closeTo(5, 10) })] });
   expect(await paths.pdeltaParallel()).toMatchObject({ perCombo: expect.any(Map) });
-  fault.dropOpposedSources = stage;
+  sourceFault.dropOpposedSources = stage;
   try {
     for (const [name, solve] of Object.entries(paths)) expect.soft(await outcome(solve), name).toMatch(/case.*#1.*Fz/i);
     expect.soft(await outcome(modalMass), 'modal mass').toMatch(/case.*#1.*Fz/i);
@@ -1883,7 +1970,7 @@ it.each(['split', 'case'] as const)('#2586 retains opposing generated sources ac
         new Set([notional.id]))), 'derived notional load').toMatch(/case.*#1.*Fz/i);
     }
   } finally {
-    fault.dropOpposedSources = undefined;
+    sourceFault.dropOpposedSources = undefined;
   }
 });
 
@@ -1958,7 +2045,7 @@ it.each([false, true])(
       type: 'nodal', data: { nodeId, fx: expect.closeTo(0, 12), fy: expected, fz: expect.closeTo(0, 12), mx: expect.closeTo(0, 12), my: expect.closeTo(0, 12), mz: expect.closeTo(0, 12) },
     })));
     expect(solveCombinations3D(model, cases, combos)).toMatchObject({ perCombo: expect.any(Map) });
-    fault.shiftNotionalCase = 1;
+    sourceFault.shiftNotionalCase = 1;
     const paths = {
       wires, advanced: () => buildSolverInput3D(expanded()),
       linear: () => solveCombinations3D(model, cases, combos),
@@ -2000,4 +2087,85 @@ it('#2586 skips a disabled planar self-weight rule before reading its scope or d
       expect.soft(await outcome(() => buildSolverInput2D(on))).toMatch(stale ? /group.*9000/i : /density/i);
     }
   }
+});
+
+it('#2471 refuses a sign-reversing truss line whose end forces reach the same node', async () => {
+  const member = cantilever('3d');
+  modelStore.updateElement(member, { type: 'truss' });
+  const { nodeI, nodeJ } = modelStore.elements.get(member)!;
+  modelStore.addSupport(nodeJ, 'fixed3d');
+  modelStore.addLoadEntry({ type: 'distributed3d', data: {
+    id: 0, elementId: member, qXI: 2, qXJ: -2, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, frame: 'global', caseId: 1,
+  } });
+  for (const { id } of [...modelStore.combinations]) modelStore.removeCombination(id);
+  const comboId = modelStore.addCombination('Two truss loads', [{ caseId: 1, factor: 2 }]);
+  const model = modelStore.model;
+  const combo = model.combinations.find(c => c.id === comboId)!;
+  const paths = {
+    advanced: () => buildSolverInput3D(model),
+    linear: () => modelStore.solve3D(false, false, true),
+    async: () => modelStore.solve3DAsync(false, false, true),
+    combinations: () => modelStore.solveCombinations3D(false, false, true),
+    parallel: () => modelStore.solveCombinations3DParallel(false, false, true),
+    direct: () => runDirectAnalysis(model, model.loadCases, [combo], { includeSelfWeight: false }),
+  };
+  const expectedRows = [
+    expect.objectContaining({ type: 'nodal', data: expect.objectContaining({ nodeId: nodeI, fx: expect.closeTo(2 / 3, 12) }) }),
+    expect.objectContaining({ type: 'nodal', data: expect.objectContaining({ nodeId: nodeJ, fx: expect.closeTo(-2 / 3, 12) }) }),
+  ];
+  expect(paths.advanced()?.loads).toEqual(expectedRows);
+  expect(paths.linear()).toMatchObject({
+    reactions: expect.arrayContaining([
+      expect.objectContaining({ nodeId: nodeI, fx: expect.closeTo(-2 / 3, 12) }),
+      expect.objectContaining({ nodeId: nodeJ, fx: expect.closeTo(2 / 3, 12) }),
+    ]),
+  });
+
+  const caseDiagnostic = /load case.*redistributed.*node/i;
+  fault.misrouteLineEnd = { from: nodeJ, to: nodeI };
+  for (const [path, solve] of Object.entries(paths)) {
+    expect.soft(await outcome(solve), path).toEqual(expect.stringMatching(caseDiagnostic));
+  }
+  expect.soft(modelStore.singleSolveInput3D(false, false, true)).toBeNull();
+  modelStore.setAnalysis({ perCombination: 'pdelta' });
+  expect.soft(await outcome(paths.combinations), 'P-Delta case').toEqual(expect.stringMatching(caseDiagnostic));
+  expect.soft(await outcome(paths.parallel), 'parallel P-Delta case').toEqual(expect.stringMatching(caseDiagnostic));
+  fault.misrouteLineEnd = null;
+
+  const factored = () => comboSolverLoads3D(combo, caseSolverLoads3D(model, model.loadCases, false, false));
+  expect(factored()).toEqual([
+    expect.objectContaining({ type: 'nodal', data: expect.objectContaining({ nodeId: nodeI, fx: expect.closeTo(4 / 3, 12) }) }),
+    expect.objectContaining({ type: 'nodal', data: expect.objectContaining({ nodeId: nodeJ, fx: expect.closeTo(-4 / 3, 12) }) }),
+  ]);
+  fault.misrouteFactoredLineEnd = nodeI;
+  expect(paths.advanced()?.loads).toEqual(expectedRows);
+  const factoredDiagnostic = /two truss loads.*redistributed.*node/i;
+  for (const [path, solve] of Object.entries({ factored, sync: paths.combinations, parallel: paths.parallel, direct: paths.direct })) {
+    expect.soft(await outcome(solve), path).toEqual(expect.stringMatching(factoredDiagnostic));
+  }
+  fault.misrouteFactoredLineEnd = 0;
+  modelStore.updateSupport([...modelStore.supports.values()].find(s => s.nodeId === nodeI)!.id, { uplift: true });
+  modelStore.addNodalLoad3D(nodeI, 0, 0, -1, 0, 0, 0, 1);
+  modelStore.setAnalysis({ perCombination: 'linear' });
+  expect(paths.combinations()).toMatchObject({
+    perCombo: new Map([[comboId, expect.objectContaining({ nonlinear: expect.any(Object) })]]),
+  });
+  fault.misrouteFactoredLineEnd = nodeI;
+  expect.soft(await outcome(paths.combinations), 'active-set sync').toEqual(expect.stringMatching(factoredDiagnostic));
+  expect.soft(await outcome(paths.parallel), 'active-set parallel').toEqual(expect.stringMatching(factoredDiagnostic));
+  fault.misrouteFactoredLineEnd = 0;
+
+  modelStore.clear();
+  const planar = cantilever('2d');
+  modelStore.updateElement(planar, { type: 'truss' });
+  const { nodeI: planarI, nodeJ: planarJ } = modelStore.elements.get(planar)!;
+  modelStore.addSupport(planarJ, 'fixed');
+  modelStore.addDistributedLoad(planar, 2, -2, 0, true, 1);
+  const embedded = () => buildSolverInput3D(modelStore.model);
+  expect(embedded()?.loads).toEqual([
+    expect.objectContaining({ type: 'nodal', data: expect.objectContaining({ nodeId: planarI, fz: expect.closeTo(2 / 3, 12) }) }),
+    expect.objectContaining({ type: 'nodal', data: expect.objectContaining({ nodeId: planarJ, fz: expect.closeTo(-2 / 3, 12) }) }),
+  ]);
+  fault.misrouteLineEnd = { from: planarJ, to: planarI };
+  expect(() => embedded()).toThrow(caseDiagnostic);
 });

@@ -7,6 +7,8 @@ import { type Side, type SideShare } from './floor-tributary';
 type Point = [number, number];
 type Point3 = [number, number, number];
 export type ShellPlane = (point: Point) => number;
+export type PlaneBasis = [Point3, Point3, Point3];
+export type FittedShellPlane = ShellPlane & { basis: PlaneBasis };
 
 export function refuseGravityGeometry(reason: EngineMessage): never {
   throw new EngineMessageError(reason);
@@ -181,7 +183,7 @@ export function partitionShellCoverage(sides: Side[], holes: Side[][], shells: P
   };
 }
 
-export function planarShell(id: number, vertices: Point3[]): ShellPlane | undefined {
+export function planarShell(id: number, vertices: Point3[]): FittedShellPlane | undefined {
   const [origin, ...corners] = [...vertices].sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);
   if (!origin) return undefined;
   const edges = corners.map(p => p.map((v, k) => v - origin[k]!) as Point3);
@@ -192,15 +194,18 @@ export function planarShell(id: number, vertices: Point3[]): ShellPlane | undefi
     u[2] * v[0] - u[0] * v[2],
     u[0] * v[1] - u[1] * v[0],
   ];
-  const normals = c ? [cross(a, b), cross(a, c), cross(b, c)] : [cross(a, b)];
-  const normal = normals.sort((u, v) => Math.hypot(...v) - Math.hypot(...u))[0]!;
+  const pairs: [number, number][] = c ? [[0, 1], [0, 2], [1, 2]] : [[0, 1]];
+  const { normal, basis } = pairs.map(([i, j]) => ({
+    normal: cross(edges[i]!, edges[j]!), basis: [origin, corners[i]!, corners[j]!] as PlaneBasis,
+  })).sort((u, v) => Math.hypot(...v.normal) - Math.hypot(...u.normal))[0]!;
   const norm = Math.hypot(...normal);
   const scale = Math.max(...vertices.flat().map(Math.abs), ...edges.map(edge => Math.hypot(...edge)));
   const error = 64 * Number.EPSILON * scale * norm;
   if (!vertices.every(p => Math.abs(p.reduce((sum, v, k) => sum + (v - origin[k]!) * normal[k]!, 0)) <= error)) {
     refuseGravityGeometry(msg('loadPlan.gravity.nonplanarShell', { id }));
   }
-  return ([x, y]) => origin[2] - ((x - origin[0]) * normal[0]! + (y - origin[1]) * normal[1]!) / normal[2]!;
+  const height: ShellPlane = ([x, y]) => origin[2] - ((x - origin[0]) * normal[0]! + (y - origin[1]) * normal[1]!) / normal[2]!;
+  return Object.assign(height, { basis });
 }
 
 type Footprint = Polygon | MultiPolygon;

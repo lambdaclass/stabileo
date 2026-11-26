@@ -1,4 +1,5 @@
-import { accountingOrigin, accountingCaseSources, accountingMemberStations, type AuthoredStation, accountingProjection, accountingSource, scenarioIntents, scenarioSurfaceExpectations, scenarioSurfaceIntentOf, type ScenarioSurfaceIntent } from './accounting-source';
+import { accountingCaseSources, accountingMemberPieces, accountingProjection, accountingSource, scenarioIntents, scenarioSurfaceExpectations, scenarioSurfaceIntentOf, type ScenarioSurfaceIntent } from './accounting-source';
+import { accountingOrigin } from './accounting-source';
 import { tp } from '../i18n';
 import type { Load, PointLoadOnElement } from '../store/model.svelte';
 import type { FloorLoadDef } from '../model/loads/floor-definitions';
@@ -6,11 +7,13 @@ import type { ModelData } from './solver-service';
 import type { SolverInput, SolverLoad } from './types';
 import type { SolverInput3D, SolverLoad3D } from './types-3d';
 import { computeLocalAxes3D, memberRoll, type LocalAxes3D } from './local-axes-3d';
-import { memberFrame3D, takesNoBending } from './member-loads';
+import { memberFrame3D, memberRef3D, type MemberRef } from './member-loads';
+import { takesNoBending } from './member-loads';
 import { tendonLineIntensity } from './prestress';
+import { shouldEmbedFlat2DModelIn3D } from './model-embedding';
 import { planarLoadDirection } from './planar-load-direction';
 import { transverseSign } from './transverse-sign-2d';
-import { add, cross, mul, agreesAtScale, assembledMagnitudes3D, LoadScalar, LoadVector, norm, positionAt, sub, unit, xyz, zero, Wrench, type Vector } from './accounting-math';
+import { add, cross, mul, agreesAtScale, assembledMagnitudes3D, memberLineSources, LoadScalar, LoadVector, norm, positionAt, sub, unit, xyz, zero, Wrench, type Vector } from './accounting-math';
 import { accountSurface, expectedSurfaceNodeForces } from './surface-accounting';
 import type { ShellLoadSpec } from './shell-load-integration';
 import { selfWeightDirection, type SelfWeightSource } from './self-weight';
@@ -49,16 +52,16 @@ const stationComponents = ['Fx', 'Fy', 'Fz', 's·Fx', 's·Fy', 's·Fz'];
 
 function compare(label: string, entered: Wrench, assembled: Wrench): void {
   compareMeasures(label, components, entered, assembled);
-  const first = entered.memberLineMeasures, second = assembled.memberLineMeasures;
-  if (!first && !second) return;
   const empty = new Wrench();
-  for (const id of new Set([...(first?.keys() ?? []), ...(second?.keys() ?? [])])) {
-    compareMeasures(`${label} · ${tp('whatif.member', { n: id })}`, stationComponents,
-      first?.get(id) ?? empty, second?.get(id) ?? empty);
+  for (const source of memberLineSources) {
+    const first = entered.memberLineMeasures(source), second = assembled.memberLineMeasures(source);
+    if (!first && !second) continue;
+    for (const id of new Set([...(first?.keys() ?? []), ...(second?.keys() ?? [])])) {
+      compareMeasures(`${label} · ${tp('whatif.member', { n: id })}`, stationComponents,
+        first?.get(id) ?? empty, second?.get(id) ?? empty);
+    }
   }
 }
-
-export const redistributedLineLoads = new WeakMap<SolverLoad3D, { member: number; station: number }>();
 
 type ScenarioNodeForce = { shellId: number; nodeId: number; force: LoadVector };
 
@@ -197,10 +200,8 @@ export function verifyScenarioSurfaceLoads(
 }
 
 function localVector(axes: LocalAxes3D, x: number, y: number, z: number, budget?: LoadVector): LoadVector {
-  const along = LoadVector.from(axes.ex).scale(new LoadScalar(x, budget?.underflow[0]), budget?.magnitude[0]);
-  const transverseY = LoadVector.from(axes.ey).scale(new LoadScalar(y, budget?.underflow[1]), budget?.magnitude[1]);
-  const transverseZ = LoadVector.from(axes.ez).scale(new LoadScalar(z, budget?.underflow[2]), budget?.magnitude[2]);
-  return along.add(transverseY.add(transverseZ));
+  const local = LoadVector.from([x, y, z], budget?.magnitude, budget?.underflow);
+  return local.componentAlong(0, axes.ex).add(local.componentAlong(1, axes.ey).add(local.componentAlong(2, axes.ez)));
 }
 
 function coordinates(point: Vector, id: number) {
@@ -235,8 +236,12 @@ function enteredMoment(d: PointLoadOnElement): number {
   return d.my || d.mz || 0;
 }
 
+function wrenchForModel(model: ModelData): Wrench {
+  return new Wrench(model[accountingMemberPieces]);
+}
+
 function enteredLoads(model: ModelData, loads: readonly Load[], frame: Frame, leftHand: boolean, caseId: number, definitions: ReadonlySet<number>): Wrench {
-  const out = new Wrench();
+  const out = wrenchForModel(model);
   const at = (id: number): Vector => {
     const node = model.nodes.get(id);
     if (!node) return unsupported(model, caseId, 'node', id);
@@ -329,7 +334,7 @@ function enteredLoads(model: ModelData, loads: readonly Load[], frame: Frame, le
         const { amount, magnitude } = tendonLineIntensity(load.data, length);
         const transverse = LoadVector.from(axes.ez).scale(amount, magnitude);
         const span = new LoadScalar(length);
-        out.memberLineForce(member.id, span.divide(2), transverse.scale(span));
+        out.memberLineForce(member.id, span.divide(2), transverse.scale(span), 'prestress');
       }
       continue;
     }
@@ -358,7 +363,7 @@ function enteredLoads(model: ModelData, loads: readonly Load[], frame: Frame, le
 }
 
 function assembled2D(model: ModelData, input: SolverInput, loads: readonly SolverLoad[], caseId: number): Wrench {
-  const result = new Wrench();
+  const result = wrenchForModel(model);
   const at = (id: number): Vector => {
     const node = input.nodes.get(id);
     if (!node) return unsupported(model, caseId, 'node', id);
@@ -395,16 +400,17 @@ function assembled2D(model: ModelData, input: SolverInput, loads: readonly Solve
 }
 
 function assembled3D(
-  model: ModelData, input: SolverInput3D, loads: readonly SolverLoad3D[], caseId: number,
-  authoredStations?: ReadonlyMap<number, AuthoredStation>,
+  model: ModelData, input: SolverInput3D, loads: readonly SolverLoad3D[], caseId: number, label: string,
 ): Wrench {
-  const result = new Wrench();
+  const result = wrenchForModel(model);
   const at = (id: number): Vector => {
     const node = input.nodes.get(id);
     if (!node) return unsupported(model, caseId, 'node', id);
     return xyz(node);
   };
   const frames = new Map<number, { start: Vector; axes: LocalAxes3D }>();
+  const members = new Map<number, MemberRef>();
+  let embedded: boolean | undefined;
   for (const load of loads) {
     const kind: string = load.type;
     if (kind === 'thermal' || kind === 'plateThermal' || kind === 'quadThermal' || kind === 'curvedShellThermal') continue;
@@ -414,12 +420,25 @@ function assembled3D(
       const nodal = magnitudes && 'force' in magnitudes ? magnitudes : undefined;
       const force = LoadVector.from([fx, fy, fz], nodal?.force.magnitude, nodal?.force.underflow);
       result.apply(at(nodeId), force, LoadVector.from([mx, my, mz], nodal?.couple.magnitude, nodal?.couple.underflow));
-      const redistributed = redistributedLineLoads.get(load);
+      const redistributed = nodal?.memberLine;
       if (redistributed) {
-        const parent = authoredStations?.get(redistributed.member);
-        const station = new LoadScalar(redistributed.station);
-        result.memberLineForce(parent?.id ?? redistributed.member,
-          parent ? station.scale(parent.scale).add(new LoadScalar(parent.offset)) : station, force);
+        const { member, end, source } = redistributed;
+        let ref = members.get(member);
+        if (!ref) {
+          ref = memberRef3D(model, member, embedded ??= shouldEmbedFlat2DModelIn3D(model)) ?? undefined;
+          if (!ref) unsupported(model, caseId, kind, member);
+          members.set(member, ref);
+        }
+        const expected = end === 'i' ? ref.nodeI : ref.nodeJ;
+        if (nodeId !== expected) {
+          throw new SolveAccountingError(tp('svc.accountingLineEnd', {
+            case: label, member, end: end.toUpperCase(), actual: nodeId, expected,
+          }));
+        }
+        if (source === 'external') {
+          result.memberLineForce(member, new LoadScalar(end === 'i' ? 0 : ref.axes.L), force);
+        }
+        else result.memberLineForce(member, new LoadScalar(end === 'i' ? 0 : ref.axes.L), force, source);
       }
       continue;
     }
@@ -449,7 +468,12 @@ function assembled3D(
       const line = magnitudes && 'qI' in magnitudes ? magnitudes : undefined;
       result.line(start, axes.ex, d.a ?? 0, d.b ?? axes.L,
         localVector(axes, d.qXI ?? 0, d.qYI, d.qZI, line?.qI),
-        localVector(axes, d.qXJ ?? 0, d.qYJ, d.qZJ, line?.qJ), authoredStations?.get(elementId) ?? elementId);
+        localVector(axes, d.qXJ ?? 0, d.qYJ, d.qZJ, line?.qJ), line?.source === 'prestress' ? undefined : elementId);
+      if (line?.source === 'prestress') {
+        result.memberLine(elementId, d.a ?? 0, d.b ?? axes.L,
+          localVector(axes, d.qXI ?? 0, d.qYI, d.qZI, line.qI),
+          localVector(axes, d.qXJ ?? 0, d.qYJ, d.qZJ, line.qJ), line.source);
+      }
     } else {
       const d = load.data;
       result.apply(positionAt(start, axes.ex, d.a), localVector(axes, 0, d.py, d.pz));
@@ -495,12 +519,12 @@ export function accountWeight2D(model: ModelData, input: SolverInput, source: Se
   const el = model.elements.get(source.id)!;
   const a = model.nodes.get(el.nodeI)!, b = model.nodes.get(el.nodeJ)!;
   const [x, , z] = selfWeightDirection(source);
-  const expected = new Wrench();
+  const expected = wrenchForModel(model);
   memberWeight(expected, source, [a.x, a.y, 0], [b.x, b.y, 0], [x, z, 0]);
   compare(weightLabel(model, source), expected, assembled2D(model, input, rows, source.caseId));
 }
 
-export type CheckedSource3D = { label: string; expected: Wrench; rows: readonly SolverLoad3D[]; stations?: ReadonlyMap<number, AuthoredStation>; nodeId?: number };
+export type CheckedSource3D = { label: string; expected: Wrench; rows: readonly SolverLoad3D[]; nodeId?: number };
 
 export function accountSource3D(
   model: ModelData, input: SolverInput3D, caseId: number, source: CheckedSource3D, factor = 1, rows = source.rows,
@@ -518,11 +542,11 @@ export function accountSource3D(
   }
   const expected = new Wrench();
   expected.addScaled(source.expected, factor);
-  compare(source.label, expected, assembled3D(model, input, rows, caseId, source.stations));
+  compare(source.label, expected, assembled3D(model, input, rows, caseId, source.label));
 }
 
 export function weightSource3D(model: ModelData, embedded: boolean, source: SelfWeightSource, rows: readonly SolverLoad3D[]): CheckedSource3D {
-  const expected = new Wrench();
+  const expected = wrenchForModel(model);
   const dir = selfWeightDirection(source);
   if (source.kind === 'member') {
     const member = model.elements.get(source.id)!;
@@ -732,7 +756,6 @@ export function loadAccounting3D(
       const receipt: CheckedSource3D = {
         label: sourceLabel(model, caseId, original), expected: expectedSource?.expected ?? new Wrench(),
         rows: delivered.get(original) ?? [],
-        stations: source !== model ? model[accountingMemberStations] : undefined,
         nodeId: expectedSource?.nodeId,
       };
       accountSource3D(model, input, caseId, receipt);
@@ -754,7 +777,7 @@ export function loadAccounting3D(
           ? { totals: new Wrench(), names: [], slabs: undefined }
           : expected(caseId);
       const label = [caseLabel(model, caseId), ...names].join(' · ');
-      compare(label, totals, assembled3D(model, input, assembled, caseId, source !== model ? model[accountingMemberStations] : undefined));
+      compare(label, totals, assembled3D(model, input, assembled, caseId, label));
       const intents = checkAuthored ? (!effects || effects.targets.has(caseId) ? scenarioExpected(caseId) : []) : undefined;
       verifyScenarioSurfaceLoads(source, caseId, loads, sources, label, intents);
       if (slabs) {
@@ -795,5 +818,6 @@ export function accountCombination(
 ): void {
   const entered = new Wrench();
   for (const { factor, totals } of terms) entered.addScaled(totals, factor);
-  compare(`#${id} (${name})`, entered, assembled3D(model, input, loads, id, model[accountingSource] ? model[accountingMemberStations] : undefined));
+  const label = `#${id} (${name})`;
+  compare(label, entered, assembled3D(model, input, loads, id, label));
 }
