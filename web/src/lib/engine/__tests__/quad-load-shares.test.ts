@@ -30,6 +30,17 @@ describe('a uniform load on a quad', () => {
     expect((0 + 0 + 3 + 3) / 4).toBe(1.5);
   });
 
+  it('#2586 keeps trapezoid corner shares under exact coordinate translations', () => {
+    const shares = (x: number, y: number, z: number) => quadCornerShares([
+      n(1, x, y, z), n(2, x + 6, y, z), n(3, x + 4, y + 3, z), n(4, x + 2, y + 3, z),
+    ]);
+    const local = shares(0, 0, 0);
+    for (const [i, share] of local.entries()) expect(share).toBeCloseTo(i < 2 ? 3.5 : 2.5, 12);
+    const shift = 2 ** 40;
+    expect(shares(shift, -shift, shift)).toEqual(local);
+    expect(shares(-shift, shift, -shift)).toEqual(local);
+  });
+
   it('is what the surface load and the self-weight hand the engine', () => {
     const nodes = new Map([n(1, 0, 0), n(2, 6, 0), n(3, 4, 3), n(4, 2, 3)].map((p) => [p.id, p]));
     const quads = new Map([[1, { id: 1, nodes: [1, 2, 3, 4] as [number, number, number, number], materialId: 1, thickness: 0.2 }]]);

@@ -1,3 +1,4 @@
+import cadArch from '../../templates/fixtures/cad-arch-structure-dxf.json';
 import { pdeltaBasic2D } from '../../actions/second-order';
 import { modelFeatures } from '../../provenance/model-features';
 import { beforeEach, expect, it, vi } from 'vitest';
@@ -26,6 +27,7 @@ import {
 } from '../physical-plates';
 
 const fault = vi.hoisted(() => ({ dropSceneCase: 0, integrateDrift: 0, signedForceDelta: 0, dropMemberLoad: false, dropFactoredAxialLine: false, misrouteLineEnd: null as { from: number; to: number } | null, misrouteFactoredLineEnd: 0, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, assemblyDrift: null as { shell: number; relative: number } | null, combinationDrift: null as { shell: number; relative: number } | null, dropNodalFy: false }));
+const quadWeightFault = vi.hoisted(() => ({ relative: 0, alternating: false, factored: 0 }));
 const sourceFault = vi.hoisted(() => ({ shiftNotionalCase: 0, dropOpposedSources: undefined as "case" | "split" | undefined, dropProjectedFz: false, factoredCellShifts: new Map<number, number>(), stripAssemblyMagnitude: false }));
 
 const slabRoutingFault = vi.hoisted(() => ({ from: 0, to: 0, nodes: new Map<number, number>(), pressure: false, pressureKind: 'quadPressure' }));
@@ -123,6 +125,9 @@ vi.mock('../../engine/accounting-math', async importOriginal => {
     scaleAssembledMagnitudes3D: (...args: Parameters<typeof original.scaleAssembledMagnitudes3D>) => {
       original.scaleAssembledMagnitudes3D(...args);
       const [source, scaled, factor] = args;
+      if (quadWeightFault.factored && factor !== 1 && scaled.type === 'nodal') {
+        scaled.data.fz *= 1 + quadWeightFault.factored;
+      }
       if (fault.dropFactoredAxialLine && factor !== 1 && scaled.type === 'distributed') {
         scaled.data.qXI = 0;
         scaled.data.qXJ = 0;
@@ -144,6 +149,17 @@ vi.mock('../../engine/solver-shells', async importOriginal => {
   const original = await importOriginal<typeof import('../../engine/solver-shells')>();
   return {
     ...original,
+    quadSelfWeightLoads: (...args: Parameters<typeof original.quadSelfWeightLoads>) => {
+      const rows = original.quadSelfWeightLoads(...args);
+      if (quadWeightFault.relative) {
+        for (const [i, row] of rows.entries()) {
+          if (row.type !== 'nodal') continue;
+          const sign = quadWeightFault.alternating && i % 2 ? -1 : 1;
+          row.data.fz *= 1 + sign * quadWeightFault.relative;
+        }
+      }
+      return rows;
+    },
     convertSurfaceLoad: (...args: Parameters<typeof original.convertSurfaceLoad>) => {
       const assembled = original.convertSurfaceLoad(...args);
       if (args[0].quadId === slabRoutingFault.from) {
@@ -232,6 +248,9 @@ beforeEach(() => {
   uiStore.useNative3DPresentation();
   uiStore.includeSelfWeight = false;
   meshBeforeAnalysis.value = true;
+  quadWeightFault.relative = 0;
+  quadWeightFault.alternating = false;
+  quadWeightFault.factored = 0;
   fault.dropSceneCase = 0;
   fault.signedForceDelta = 0;
   fault.integrateDrift = 0;
@@ -1882,6 +1901,103 @@ it('rejects relocating both opposing pressures to the same cell while retaining 
   expect(loads.map(l => l.data.q).sort((a, b) => a - b)).toEqual([-3, -3, 3, 3]);
   expect(buildSolverInput3D(model)?.loads).toHaveLength(16);
   await expectSlabCellRefusal({ ...model, loads: loads.map(load => ({ ...load, data: { ...load.data, quadId: cell } })) });
+});
+
+function cadArchQuad() {
+  const quad = cadArch.quads.find(q => q.id === 381)!;
+  const [a, b, c, d] = quad.nodes.map(id => cadArch.nodes.find(n => n.id === id)!);
+  const material = cadArch.materials.find(m => m.id === quad.materialId)!;
+  const nodes = [a!, b!, c!, d!];
+  const corners = nodes.map(p => modelStore.addNode(p.x, p.y, p.z)) as [number, number, number, number];
+  const support = modelStore.addSupport(corners[0], 'fixed3d');
+  for (const id of corners.slice(1)) modelStore.addSupport(id, 'fixed3d');
+  modelStore.addQuad(corners, material.id, quad.thickness);
+  const model: ModelData = { ...modelStore.model, materials: new Map([[material.id, material]]) };
+  const width = b!.x - a!.x;
+  const left = d!.y - a!.y, right = c!.y - b!.y;
+  const weight = material.rho * quad.thickness * (width * (left + right) / 2);
+  return { model, support, weight };
+}
+
+it('#2586 accepts the CAD arch quad weight on every spatial solve path', async () => {
+  const { model, support, weight } = cadArchQuad();
+  const cases = [{ id: 1, name: 'Gravity', type: 'D' as const }];
+  const combos = [{ id: 1, name: 'Factored gravity', factors: [{ caseId: 1, factor: 1.4 }] }];
+  const pdelta: ModelData = { ...model, analysis: { ...model.analysis, perCombination: 'pdelta' } };
+  const active: ModelData = {
+    ...model,
+    supports: new Map(model.supports).set(support, { ...model.supports.get(support)!, uplift: true }),
+  };
+  const synchronous = (m: ModelData) => solveCombinations3D(m, cases, combos, true);
+  const asynchronous = (m: ModelData) => solveCombinations3DParallel(m, cases, combos, true);
+  const wires = () => buildSolverInput3D(model, true);
+  const assertWeight = (answer: Awaited<ReturnType<typeof validateAndSolve3DAsync>>, expected: number, path: string) => {
+    expect.soft(answer, path).toMatchObject({ reactions: expect.any(Array) });
+    if (answer && typeof answer !== 'string') {
+      expect.soft(answer.reactions.reduce((sum, row) => sum + row.fz, 0), path).toBeCloseTo(expected, 10);
+    }
+  };
+  const paths = {
+    single: () => validateAndSolve3D(model, true),
+    async: () => validateAndSolve3DAsync(model, true),
+    nonlinear: () => validateAndSolve3D(active, true),
+    nonlinearAsync: () => validateAndSolve3DAsync(active, true),
+  };
+  for (const [name, solve] of Object.entries(paths)) assertWeight(await solve(), weight, name);
+  const combinations = {
+    linear: () => synchronous(model),
+    parallel: () => asynchronous(model),
+    pdelta: () => synchronous(pdelta),
+    pdeltaParallel: () => asynchronous(pdelta),
+    direct: () => runDirectAnalysis(model, cases, combos, { includeSelfWeight: true }),
+    nonlinearCombinations: () => synchronous(active),
+    nonlinearParallel: () => asynchronous(active),
+  };
+  for (const [name, solve] of Object.entries(combinations)) {
+    const answer = await solve();
+    assertWeight(answer && typeof answer !== 'string' ? answer.perCombo.get(1) ?? null : answer, weight * 1.4, name);
+  }
+  const assembled = wires();
+  expect(assembled).not.toBeNull();
+  assertWeight(solvePDelta3D(assembled!).results ?? null, weight, 'direct P-Delta');
+
+  const source = { caseId: 1, direction: 'Z' as const, factor: -1 };
+  const derived = { ...model, analysis: { ...model.analysis, selfWeight: [source] } };
+  const reference = () => notionalSourceLoads3D(derived, false, source.caseId, [], prepareSolverInput3D(model, false).build([])!);
+  const actions = reference();
+  expect(actions).toHaveLength(4);
+  expect(actions.reduce((sum, row) => sum + (row.type === 'nodal' ? row.data.fz : 0), 0)).toBeCloseTo(-weight, 10);
+  quadWeightFault.relative = 1e-9;
+  for (const [name, solve] of [
+    ...Object.entries(paths), ...Object.entries(combinations), ['prepared input', wires], ['notional gravity', reference],
+  ] as const) {
+    expect.soft(await outcome(solve), name).toMatch(/self-weight.*Fz/i);
+  }
+  quadWeightFault.relative = 0;
+  quadWeightFault.factored = 1e-9;
+  for (const solve of [combinations.pdelta, combinations.pdeltaParallel, combinations.direct]) {
+    expect.soft(await outcome(solve)).toMatch(/self-weight.*Fz/i);
+  }
+});
+
+it('#2586 checks quad self-weight just inside and outside its corner sum error bound', async () => {
+  const corners = [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) =>
+    modelStore.addNode(x!, y!, 0)) as [number, number, number, number];
+  for (const id of corners) modelStore.addSupport(id, 'fixed3d');
+  modelStore.addQuad(corners, 1, 1);
+  const model = modelStore.model;
+  model.materials.get(1)!.rho = 1;
+  const wires = () => buildSolverInput3D(model, true);
+  quadWeightFault.alternating = true;
+
+  quadWeightFault.relative = 4 * Number.EPSILON;
+  const answer = validateAndSolve3D(model, true);
+  expect(answer).toMatchObject({ reactions: expect.any(Array) });
+  if (!answer || typeof answer === 'string') throw new Error(String(answer));
+  expect(answer.reactions.reduce((sum, row) => sum + row.fz, 0)).toBeCloseTo(4, 12);
+
+  quadWeightFault.relative = 6 * Number.EPSILON;
+  expect(await outcome(wires)).toMatch(/self-weight.*node.*Fz/i);
 });
 
 it('balances trapezoidal quad self-weight about its area centroid', async () => {
