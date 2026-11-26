@@ -653,7 +653,7 @@ function receivingSnowForce(model: ReturnType<typeof mesh>, rows: readonly Omit<
   return rows.reduce((sum, row) => {
     const member = model.elements.get(row.elementId)!;
     const a = model.nodes.get(member.nodeI)!, b = model.nodes.get(member.nodeJ)!;
-    if (a.x < 0 || b.x < 0) return sum;
+    if (a.z !== 3 || b.z !== 3 || a.x < 0 || b.x < 0) return sum;
     return sum - (row.q + (row.qJ ?? row.q)) / 2 * ((row.b ?? Math.hypot(b.x - a.x, b.y - a.y)) - (row.a ?? 0));
   }, 0);
 }
