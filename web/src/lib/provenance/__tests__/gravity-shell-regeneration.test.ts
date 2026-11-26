@@ -74,8 +74,17 @@ it('#2512 explicit width gravity does not qualify for panel gravity regeneration
   expect(features.has('generatedPanelGravity')).toBe(false);
 });
 
+const registryRegression = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
+
 it('#2586 requires an actual paired roof attachment with a bounded gap', () => {
-  const id = 'gravity-attached-rafter-gaps';
+  checkRafterGapRegeneration('gravity-attached-rafter-gaps');
+});
+
+registryRegression('known wrong result: #2607 bounded attached roof gaps have a separate width regeneration notice', () => {
+  checkRafterGapRegeneration('gravity-attached-rafter-gap-width');
+});
+
+function checkRafterGapRegeneration(id: string) {
   const check = (gap: false | readonly [number, number], paired: boolean, mode: 'width' | 'panels') => {
     const { model } = offsetRoof(0.02, 0.53, 1, true, gap);
     const remote = [...model.nodes.values()].at(-1)!;
@@ -93,7 +102,7 @@ it('#2586 requires an actual paired roof attachment with a bounded gap', () => {
   expect.soft(check([4, 6], false, 'panels')).toBe(false);
   expect.soft(check(false, true, 'panels')).toBe(false);
   expect.soft(check([4, 6], true, 'width')).toBe(false);
-});
+}
 
 it.each([false, true])('#2607 older panel gravity with stacked gap decks requires regeneration (triangles %s)', triangles => {
   const id = 'gravity-attached-gap-decks';
