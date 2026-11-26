@@ -113,9 +113,7 @@ it('#2295 the rafter receives the uncovered part of a rigidly attached roof run'
 });
 
 
-const matchingAttachments = process.env.RUN_KNOWN_WRONG === '2295' ? it : it.skip;
-
-matchingAttachments('known wrong result: #2295 two attached shell traces leave the same bounded gap and load it once', () => {
+it('#2295 two attached shell traces leave the same bounded gap and load it once', () => {
   const developed = Math.hypot(10, 2) / 10;
   for (const split of [false, true]) for (const reverse of [false, true]) {
     const model = doubleAttachedRoof(split);

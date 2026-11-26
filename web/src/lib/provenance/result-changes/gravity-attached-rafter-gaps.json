@@ -28,14 +28,14 @@
     "zh": "在连接屋面的有界缺口处传递重力荷载"
   },
   "explanation": {
-    "en": "Two rigid end ties establish which roof intervals belong to the shells. The configured tributary width loads only the remaining rafter intervals. Regenerate affected gravity loads.",
-    "es": "Dos vínculos rígidos en los extremos establecen qué tramos corresponden a las superficies. El ancho tributario configurado carga solo los tramos restantes de la viga. Regenerá las cargas de gravedad afectadas.",
-    "pt": "Vínculos rígidos nas duas extremidades definem os trechos que pertencem às cascas. A largura de influência configurada carrega apenas os trechos restantes da barra. Regenere as cargas gravitacionais afetadas.",
-    "de": "Starre Verbindungen an beiden Enden bestimmen die von den Schalen getragenen Abschnitte. Die eingestellte Einflussbreite belastet nur die übrigen Sparrenabschnitte. Erzeugen Sie betroffene Lasten neu.",
-    "fr": "Deux liaisons rigides aux extrémités établissent les intervalles portés par les coques. La largeur tributaire choisie ne charge que les autres tronçons du chevron. Régénérez les charges concernées.",
-    "hu": "A két merev végkapcsolat kijelöli a héj által hordott szakaszokat. A megadott tehergyűjtő szélesség csak a többi szarufaszakaszt terheli. Generálja újra az érintett terheket.",
-    "tr": "İki rijit uç bağlantısı, kabukların taşıdığı aralıkları belirler. Seçilen yük toplama genişliği yalnızca kalan mertek parçalarına yük uygular. Etkilenen düşey yükleri yeniden oluşturun.",
-    "zh": "两端刚性连接确定由壳单元承载的区间。设定的负荷宽度仅作用于其余椽条区间。请重新生成受影响的重力荷载。"
+    "en": "The rigid end ties must identify the same uncovered intervals across the attached shell traces. The configured tributary width loads only the remaining rafter intervals. Regenerate affected gravity loads.",
+    "es": "Los vínculos rígidos en los extremos deben identificar los mismos tramos descubiertos en las superficies vinculadas. El ancho tributario configurado carga solo los tramos restantes de la viga. Regenerá las cargas de gravedad afectadas.",
+    "pt": "Os vínculos rígidos nas extremidades devem identificar os mesmos trechos descobertos nas cascas vinculadas. A largura de influência configurada carrega apenas os trechos restantes da barra. Regenere as cargas gravitacionais afetadas.",
+    "de": "Die starren Endverbindungen müssen für die angeschlossenen Schalen dieselben ungedeckten Abschnitte ergeben. Die eingestellte Einflussbreite belastet nur die übrigen Sparrenabschnitte. Erzeugen Sie betroffene Lasten neu.",
+    "fr": "Les liaisons rigides aux extrémités doivent définir les mêmes intervalles découverts pour les coques liées. La largeur tributaire choisie ne charge que les autres tronçons du chevron. Régénérez les charges concernées.",
+    "hu": "A merev végkapcsolatoknak ugyanazokat a fedetlen szakaszokat kell kijelölniük a kapcsolt héjaknál. A megadott tehergyűjtő szélesség csak a többi szarufaszakaszt terheli. Generálja újra az érintett terheket.",
+    "tr": "Rijit uç bağlantıları, bağlı kabuklar için aynı açık aralıkları belirlemelidir. Seçilen yük toplama genişliği yalnızca kalan mertek parçalarına yük uygular. Etkilenen düşey yükleri yeniden oluşturun.",
+    "zh": "两端刚性连接必须为相连的壳单元确定相同的未覆盖区间。设定的负荷宽度仅作用于其余椽条区间。请重新生成受影响的重力荷载。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-generated-source-accounting.md",

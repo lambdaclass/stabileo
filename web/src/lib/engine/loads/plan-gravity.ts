@@ -816,12 +816,14 @@ function rigidShellCoverage(
         break;
       }
       const anchored = [run.a, run.b].every(end => [...anchors].some(id => model.nodes.get(id) === end));
-      const runTrace: Segment = [attachmentPoint(run.a, offset), attachmentPoint(run.b, offset)];
+      const runTrace: Segment = [attachmentPoint(run.a, [0, 0, offset[2]]), attachmentPoint(run.b, [0, 0, offset[2]])];
       const gaps = anchored && Math.hypot(offset[0], offset[1]) <= error && Math.abs(runTrace[1][2] - runTrace[0][2]) > TOL
         ? shellTrace(runTrace, carriers).gaps : [];
       if (gaps.length && gaps.every(([t0, t1]) => t0 > 0 && t1 < 1)) {
-        if (gapIntervals || coverage !== 'none') { coverage = 'partial'; break; }
-        gapIntervals = gaps;
+        const conflicting = gapIntervals && (gaps.length !== gapIntervals.length ||
+          gapIntervals.some(([start, end], i) => start !== gaps[i]![0] || end !== gaps[i]![1]));
+        if (conflicting || coverage !== 'none') { coverage = 'partial'; break; }
+        gapIntervals ??= gaps;
       } else if (anchors.size > 1 && covered.every(state => state === 'full')) {
         if (gapIntervals) { coverage = 'partial'; break; }
         coverage = 'full';

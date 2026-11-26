@@ -54,9 +54,7 @@ async function solved(id: ValidationModelId) {
   publishCombinations3D({ perCase: r.perCase, perCombo: new Map(), envelope: r.envelope });
 }
 
-const validationWorkbook = process.env.RUN_KNOWN_WRONG === '2586' ? it : it.skip;
-
-validationWorkbook('known wrong result: #2586 validation-02 exports the solved offset members with their explicit self-weight', async () => {
+it('#2586 validation-02 exports the solved offset members with their explicit self-weight', async () => {
   await solved('validation-02');
   for (const options of [{}, { results: false, design: false }]) {
     expect.soft(() => currentWorkbookSheets(5, options)).not.toThrow();

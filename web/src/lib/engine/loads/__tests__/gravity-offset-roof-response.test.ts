@@ -178,9 +178,7 @@ it('#2295 linear and P-Delta reactions include the shell loads and the rafter ga
   }
 });
 
-const matchingAttachments = process.env.RUN_KNOWN_WRONG === '2295' ? it : it.skip;
-
-matchingAttachments('known wrong result: #2295 linear and P-Delta reactions include both attached shell pairs and one gap load', () => {
+it('#2295 linear and P-Delta reactions include both attached shell pairs and one gap load', () => {
   for (const subdivided of [false, true]) {
     checkGapResponse(doubleAttachedRoof(subdivided), subdivided, 64);
   }
