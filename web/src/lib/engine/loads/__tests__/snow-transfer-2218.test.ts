@@ -953,3 +953,39 @@ it.each([false, true])('#2607 a concave two-way receiver refuses positive step d
     expect.soft(plan.outcome).toBe('READY');
   }
 });
+
+const replayRound11Snow = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
+
+function checkShortStep(overlap: number, separation: number) {
+  const model = mesh([
+    [[0, 0, 3], [7.5, 0, 3], [7.5, 4, 3], [0, 4, 3]],
+    [[-7.5 - separation, -4, 5], [-separation, -4, 5], [-separation, overlap, 5], [-7.5 - separation, overlap, 5]],
+  ]);
+  const layout = gravityLayout(model, { ...adjacentGravity, tributaryWidth: 1 });
+  const pairs = snowRoofEdgePairs(model, layout).filter(pair => layout.panels[pair.lower]!.z === 3);
+  expect.soft(pairs).toHaveLength(Number(overlap > 0));
+  if (pairs.length) expect.soft(Math.hypot(pairs[0]!.a[0] - pairs[0]!.b[0], pairs[0]!.a[1] - pairs[0]!.b[1])).toBeCloseTo(overlap, 10);
+  const surcharge = (balanced: number) => {
+    const { pd, w } = stepDrift({ ...adjacentInputs, balanced, stepHeight: 2, luUpper: 7.5, luLower: 7.5, separation });
+    return overlap * pd * w / 2;
+  };
+  const drift = driftAndSlidingLoads(model, layout, adjacentInputs);
+  expect.soft(receivingSnowForce(model, drift.distributed)).toBeCloseTo(surcharge(adjacentInputs.balanced), 10);
+  const cases = snowLoadCases({ model, layout, snow: adjacentConfig, tributaryWidth: 1 })!;
+  expect(cases.result.refused).toBeUndefined();
+  const plan = adjacentPlan(model);
+  expect(plan.outcome).toBe('READY');
+  const snowCase = plan.cases.findIndex(spec => spec.type === 'S');
+  const expected = 30 * cases.result.ps + surcharge(cases.result.ps);
+  expect.soft(receivingSnowForce(model, cases.cases[0]!.distributed)).toBeCloseTo(expected, 10);
+  expect.soft(receivingSnowForce(model, plan.distributed.filter(row => row.caseType === 'S' && row.caseIndex === snowCase)))
+    .toBeCloseTo(expected, 10);
+}
+
+replayRound11Snow.each([0.05, 0.08])('known wrong result: #2607 evaluates drift on a %s m shared edge', overlap => {
+  checkShortStep(overlap, 0);
+});
+
+it.each([[0.05, 0.005], [0, 0], [0, 0.005], [0.12, 0]])(
+  '#2607 short roof step checks overlap %s and gap %s', checkShortStep,
+);

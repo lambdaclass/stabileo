@@ -388,20 +388,38 @@ it('#2543 solves the generated inclined fringe force and moment in both WASM dim
   }
 });
 
+function supportedLocalBay(roofBase: number) {
+  const { model, ring, quad, node } = fixture();
+  const lower = ring(rectangle(2, 0, 6, 4), 3);
+  const upper = rectangle(0, 0, 6, 4).map(point => node(point, roofBase + point[0] / 4));
+  quad(upper);
+  return {
+    ...model,
+    supports: new Map([...lower, ...upper].map(id => [id, { id, nodeId: id, type: 'fixed3d' as const }])),
+  } satisfies LoadModelData;
+}
+
 const replayLocalBay = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
 
 replayLocalBay('known wrong result: #2607 a separately supported pitched roof clears the bay across their overlap', () => {
-  const { model, ring, quad, node } = fixture();
-  const lower = ring(rectangle(2, 0, 6, 4), 3);
-  const upper = rectangle(0, 0, 6, 4).map(point => node(point, 2.75 + point[0] / 4));
-  quad(upper);
-  const supported: LoadModelData = {
-    ...model,
-    supports: new Map([...lower, ...upper].map(id => [id, { id, nodeId: id, type: 'fixed3d' }])),
-  };
+  const supported = supportedLocalBay(2.75);
   const layout = gravityLayout(supported, { mode: 'panels', tributaryWidth: 3 });
   expect.soft([...layout.areaOf.values()].reduce((sum, area) => sum + area, 0)).toBeCloseTo(16, 10);
   const plan = planFor(supported);
   expect.soft(plan.outcome).toBe('READY');
   expect.soft(plan.levels.reduce((sum, level) => sum + level.superimposedKN, 0)).toBeCloseTo(16 + 4 * Math.hypot(6, 1.5), 10);
+  expect.soft(planFor(supported, true).levels.reduce((sum, level) => sum + level.superimposedKN, 0))
+    .toBeCloseTo(16 + 4 * Math.hypot(6, 1.5), 10);
+  expect.soft(snowDriftRefusal(supported)).toBeUndefined();
+});
+
+it('#2607 refuses a supported pitched roof that crosses the bay inside the overlap', () => {
+  const model = supportedLocalBay(2.25);
+  const gravity = { mode: 'panels', tributaryWidth: 3 } as const;
+  const reason = expect.objectContaining({ key: 'loadPlan.gravity.differentDeck' });
+  expectRefusal(planFor(model), 'loadPlan.gravity.differentDeck');
+  expectRefusal(planFor(model, true), 'loadPlan.gravity.differentDeck');
+  expect(() => gravityLayout(model, gravity)).toThrow(reason);
+  expect(() => roofWeightFor(model, gravity, 3, 1)).toThrow(reason);
+  expect(() => snowDriftRefusal(model)).toThrow(reason);
 });

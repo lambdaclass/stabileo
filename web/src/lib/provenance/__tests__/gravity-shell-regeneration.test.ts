@@ -135,3 +135,38 @@ it.each(['linear', 'pdelta'] as const)(
     }
   },
 );
+
+const replayRound11Provenance = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
+
+function checkLegacyPanelDerivation(triangles: boolean, gravityMode?: 'panels' | 'width') {
+  const { model: source } = offsetRoof(0.02, 0, 1, false, [4, 6]);
+  const model = triangles ? triangulateRoof(source) : { ...source, plates: undefined };
+  for (const analysisMode of ['3d', 'pro']) {
+    const snapshot: FeatureSnapshot = {
+      ...legacy, analysisMode, nodes: [...model.nodes], elements: [...model.elements],
+      quads: [...model.quads], plates: model.plates && [...model.plates],
+      constraints: model.constraints.map(link => ({ ...link })),
+      designData: { loadBasis: { derivation: [{ key: 'loadPlan.gravity.panels' }] } },
+      regulations: { roles: { loads: { adapterId: 'cirsoc-101', settings: { dialog: { gravityMode } } } } },
+    };
+    const panel = gravityMode !== 'width';
+    const features = modelFeatures(snapshot);
+    expect.soft(features.has('generatedPanelGravityShells')).toBe(panel);
+    expect.soft(features.has('roofShellFrameLinks')).toBe(panel);
+    for (const analysis of ['linear', 'pdelta'] as const) {
+      const notices = assessProject(snapshot, stampSolve(analysis, null)).changes.map(entry => entry.id);
+      for (const id of [change.id, 'gravity-attached-rafter-gap-width', 'gravity-stacked-rafter-gap-exposure']) {
+        expect.soft(notices.includes(id)).toBe(panel);
+      }
+    }
+  }
+}
+
+replayRound11Provenance.each([false, true])('known wrong result: #2607 infers older shell panel gravity from derivation (triangles %s)', triangles => {
+  checkLegacyPanelDerivation(triangles);
+});
+
+it.each([false, true])('#2607 respects explicit gravity mode with a panel derivation (triangles %s)', triangles => {
+  checkLegacyPanelDerivation(triangles, 'panels');
+  checkLegacyPanelDerivation(triangles, 'width');
+});

@@ -394,3 +394,37 @@ it.each([0, 5])(
     expect.soft(plan.distributed.find(row => row.elementId === 2 && row.caseType === 'D')?.q).toBeCloseTo(-8, 10);
   },
 );
+
+const replayRound11MemberCover = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
+
+function checkRafterBelowGap(y: number, sheltered: boolean) {
+  const { model } = offsetRoof(0.02, 0, 1, false, [4, 6]);
+  const nodeI = model.nodes.size + 1, nodeJ = nodeI + 1;
+  model.nodes.set(nodeI, { id: nodeI, x: 4.5, y, z: 2.9 });
+  model.nodes.set(nodeJ, { id: nodeJ, x: 5.5, y, z: 3.1 });
+  model.elements.set(2, { id: 2, nodeI, nodeJ, sectionId: 1, materialId: 1, type: 'frame' });
+  const layout = gravityLayout(model, options);
+  expect.soft(layout.roof.has(2)).toBe(!sheltered);
+  expect.soft((sheltered ? layout.areaOf : layout.roofAreaOf).get(2)).toBeCloseTo(3, 10);
+  const actions = planAreaLoads({
+    layout, tributaryWidth: 3, floor: { dead: 1, lo: 2, liveOf: () => 2 },
+    roof: { use: 'occupancy', weight: 'heavy', dead: 2, slopePercent: 0 },
+  });
+  expect.soft(actions.distributed.filter(row => row.elementId === 2 && row.caseType === 'D'))
+    .toMatchObject([{ q: sheltered ? -3 : -6 }]);
+  expect.soft(roofPlan(model).outcome).toBe('READY');
+  const plan = buildLoadPlan(input(model, {
+    gravity: { mode: 'panels' },
+    roof: { use: 'occupancy', occupancyKey: 'vivienda', weight: 'heavy', dead: 2, slopeDeg: 0 },
+  }));
+  expect.soft(plan.distributed.filter(row => row.elementId === 2 && row.caseType === 'D'))
+    .toMatchObject([{ q: sheltered ? -3 : -6 }]);
+}
+
+replayRound11MemberCover.each([1, 2])('known wrong result: #2607 shelters the individual rafter at y = %s beneath a certified gap', y => {
+  checkRafterBelowGap(y, true);
+});
+
+it('#2607 exposes the individual rafter outside the certified gap footprint', () => {
+  checkRafterBelowGap(2 + 1e-6, false);
+});

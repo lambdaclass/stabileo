@@ -879,3 +879,47 @@ it('#2607 an alternating path keeps the only physical floor joint', () => {
   expect(upper.nodeI).toBe(node(L.x, 3));
   expect(upper.nodeI).not.toBe(node(M.x, 3));
 });
+
+const replayRound11Cad = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
+
+describe.each(['fixedDivisions', 'targetSize'] as const)('#2607 conforming wall near a free beam endpoint in %s mode', meshMode => {
+  function endpointDrafts(gap: number) {
+    const plan = reviewPlan();
+    const a = { x: -2, y: -0.003 }, b = { x: 2 - gap, y: -0.003 };
+    const end = { x: 2, y: 0 };
+    plan.beams = [{ a, b }, { a: reviewOutline[2]!, b: reviewOutline[3]! }, { a, b: reviewOutline[3]! }];
+    plan.columns = [a, reviewOutline[2]!, reviewOutline[3]!].map(at => ({ at, sizeSource: 'default' }));
+    plan.walls = [{ a: end, b: { x: 3, y: 3 }, thicknessSource: 'default' }];
+    const settings = { ...reviewSettings, meshMode, meshTargetSize: 1 };
+    return [
+      () => generateRcDraft(plan, settings, SOURCE),
+      () => buildDraft({ plan, assumptions: settings, source: SOURCE }),
+      () => buildDraft({
+        floorPlans: [{ plan, fromFloor: 1, toFloor: 1 }, { plan: { ...plan, slabs: [], walls: [] }, fromFloor: 2, toFloor: 2 }],
+        assumptions: { ...settings, nFloors: 2, storyHeights: [3, 3] }, source: SOURCE,
+      }),
+    ];
+  }
+
+  replayRound11Cad.each([0.006, -0.006])('known wrong result: #2607 refuses a detached wall node %s m from the free endpoint', gap => {
+    for (const generate of endpointDrafts(gap)) {
+      expect.soft(generate).toThrow(expect.objectContaining({
+        key: 'cad.disconnectedWallBeam',
+        params: { wall: expect.any(Number), beam: expect.any(Number) },
+      }));
+    }
+  });
+
+  it('keeps the wall and the free beam endpoint separate outside CAD snap tolerance', () => {
+    for (const generate of endpointDrafts(0.011)) {
+      const draft = generate();
+      const model = snapshotToModelShape(draft.snapshot);
+      const wallEnd = [...model.nodes.values()].find(n => n.x === 2 && n.y === 0 && n.z === 3)!;
+      const beamEnd = [...model.nodes.values()].find(n => n.x === 2 - 0.011 && n.y === -0.003 && n.z === 3)!;
+      expect([...model.plates.values()].some(plate => plate.nodes.includes(wallEnd.id))).toBe(true);
+      expect([...model.quads.values()].some(wall => wall.nodes.includes(wallEnd.id))).toBe(true);
+      expect([...model.elements.values()].some(member => member.nodeI === beamEnd.id || member.nodeJ === beamEnd.id)).toBe(true);
+      expect([...model.elements.values()].some(member => member.nodeI === wallEnd.id || member.nodeJ === wallEnd.id)).toBe(false);
+    }
+  });
+});
