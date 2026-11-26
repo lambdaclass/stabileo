@@ -103,3 +103,16 @@ describe('§9.7.3 where a bar may stop', () => {
     expect(at500).toEqual(CIRSOC_LINE.cutoff({ ...input, fy: 420 }));
   });
 });
+
+describe('the shear a cut-off is judged by', () => {
+  const base = { d: 0.5, diameterMm: 16, vn: 300, b: 0.3, fy: 420, continuingDoubleArea: false, inTensionZone: true, edition: '2025' as never, towardEnd: false };
+
+  it('is the larger of the samples either side, not the nearest', () => {
+    const stations = [{ x: 0, v: 0 }, { x: 2, v: 250 }];
+    expect(evaluateCutoff({ ...base, theoretical: 1.1, stations }).legality).not.toBe('lowShear');
+  });
+
+  it('is never taken as zero where no shear was read', () => {
+    expect(evaluateCutoff({ ...base, theoretical: 1, stations: [] }).legality).not.toBe('lowShear');
+  });
+});

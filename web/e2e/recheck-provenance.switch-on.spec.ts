@@ -12,6 +12,15 @@ import { BUILD_FEATURES } from './build-features';
 import { BUILD_OFFERED_LOCALES } from './build-locales';
 import { test, expect, loadModel, solveModel, bootPro } from './fixtures';
 import type { Locator, Page } from '@playwright/test';
+
+/** Opens the notices board, unless a workspace covers it and the stale notice stands over that on its own. */
+async function openBoard(page: import('@playwright/test').Page) {
+  const toggle = page.getByTestId('containment-toggle'), banner = page.getByTestId('recheck-stale-banner');
+  await expect(toggle.or(banner).first()).toBeVisible();
+  if (await banner.isVisible()) return;
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+}
+
 if (BUILD_FEATURES.proPlatesUnified) {
 
   // Vite names the lazy chunk after applicability.ts; full-registry.ts is its static dependency.
@@ -100,6 +109,7 @@ if (BUILD_FEATURES.proPlatesUnified) {
       expect(after).toEqual(before);
       expect((await recheck(page)).stale).toBe(true);
       await page.getByTestId('recheck-later').click();
+      await openBoard(page);
       await expect(page.getByTestId('recheck-stale-banner')).toBeVisible();
     });
 
@@ -135,6 +145,7 @@ if (BUILD_FEATURES.proPlatesUnified) {
       await page.getByTestId('recheck-later').click();
       await expect(notice).toBeHidden();
       // Acknowledged, not re-run: still stale, and the banner says so.
+      await openBoard(page);
       await expect(page.getByTestId('recheck-stale-banner')).toBeVisible();
       expect((await recheck(page)).stale).toBe(true);
       expect((await page.evaluate(() => window.__stabileo.resultProvenance()) as { stale: boolean }).stale).toBe(true);
@@ -277,20 +288,23 @@ if (BUILD_FEATURES.proPlatesUnified) {
         await expect(page.getByTestId('recheck-rerun')).toBeEnabled();
         await page.getByTestId('recheck-later').click();
         await expect(notice).toBeHidden();
-        await expect(page.getByTestId('recheck-stale-banner')).toBeVisible();
+        await openBoard(page);
+      await expect(page.getByTestId('recheck-stale-banner')).toBeVisible();
         const acknowledged = await recheck(page);
         expect(acknowledged.noticeOpen).toBe(false);
         expect(acknowledged.stale).toBe(true);
 
         expect(await page.evaluate(x => window.__stabileoActions.loadProject(x), f)).toBe(true);
-        await expect(page.getByTestId('recheck-stale-banner')).toBeVisible();
+        await openBoard(page);
+      await expect(page.getByTestId('recheck-stale-banner')).toBeVisible();
         await expect(notice).toBeHidden();
         expect((await recheck(page)).noticeOpen).toBe(false);
         expect((await recheck(page)).stale).toBe(true);
         await page.reload();
         await page.waitForFunction(() => !!window.__stabileoActions);
         expect(await page.evaluate(x => window.__stabileoActions.loadProject(x), f)).toBe(true);
-        await expect(page.getByTestId('recheck-stale-banner')).toBeVisible();
+        await openBoard(page);
+      await expect(page.getByTestId('recheck-stale-banner')).toBeVisible();
         await expect(notice).toBeHidden();
 
         // «Continue» covered that solve and its set of changes only: the same model solved by another older build asks again.
@@ -319,7 +333,8 @@ if (BUILD_FEATURES.proPlatesUnified) {
         await expect(page.locator('#rc-title')).toHaveText(CHANGED);
         await page.getByTestId('recheck-later').click();
         await expect(page.getByTestId('recheck-notice')).toBeHidden();
-        await expect(page.getByTestId('recheck-stale-banner')).toBeVisible();
+        await openBoard(page);
+      await expect(page.getByTestId('recheck-stale-banner')).toBeVisible();
       });
     });
   }

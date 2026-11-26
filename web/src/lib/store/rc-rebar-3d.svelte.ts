@@ -27,7 +27,7 @@ export function saveGhostPreference(on: boolean): void {
 }
 
 export const rebarView = $state<{ on: boolean; row: { key: string; name: string; keys?: readonly string[] } | null; level: string; families: Record<Rebar3dFamily, boolean>; ghost: boolean }>({
-  on: false, row: null, level: '', families: { beam: true, column: true, slab: true, wall: true, footing: true, punching: true }, ghost: readGhostPreference(),
+  on: false, row: null, level: '', families: { beam: true, column: true, slab: true, wall: true, footing: true, punching: true, stair: true }, ghost: readGhostPreference(),
 });
 
 export function showRebarOf(row: { key: string; name: string; keys?: readonly string[] }): void {

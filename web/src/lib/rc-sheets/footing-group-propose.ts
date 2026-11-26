@@ -8,6 +8,9 @@ import { minThickness, preferredDiameters, type FootingRowCode } from './footing
 import { analyseGroup, extraPositions, groupBearing, groupRoom, groupThicknessHolds, heldAcross, placeMembers, strappedAcross, type GroupAnalysis } from './footing-group';
 import type { FootingAdopted, FootingContext, FootingDowels, FootingGroup, FootingMesh, GroupExtra, PunchingFix } from './footing-types';
 
+/** The most a group's plan grows for its bars' anchorage, m: a hook needs well under it. */
+const ANCHOR_GROWTH_LIMIT = 1.5;
+
 const STEP = 0.1, STEP_H = 0.05, MAX_PLAN = 60, MAX_H = 2.5;
 /** Past an outer column's axis a free edge runs at least this far, and this far past its face, m. */
 const OVERHANG = 0.5, PAST_FACE = 0.25;
@@ -154,6 +157,7 @@ export function proposeGroup(g: FootingGroup, c: FootingContext, code: FootingRo
   const growAxes: readonly Axis[] = across ? [across] : ['x', 'y'];
   const noBars = { x: { dia: 0, spacing: 0 }, y: { dia: 0, spacing: 0 } };
   let blocked = false;
+  let anchorGrowth = Math.ceil(ANCHOR_GROWTH_LIMIT / STEP);
   for (let step = 0; step < 400; step++) {
     const size = sizeOf();
     const s = groupBearing(g, size);
@@ -166,7 +170,7 @@ export function proposeGroup(g: FootingGroup, c: FootingContext, code: FootingRo
     const a = { ...size, ...proposeGroupBars(g, c, size, code) };
     const r = analyseGroup(g, c, a, code);
     if (!groupThicknessHolds(r, false)) h += STEP_H;
-    else if (!r.anchorage.ok && grow(['x', 'y'])) continue;
+    else if (!r.anchorage.ok && anchorGrowth > 0 && grow(['x', 'y'])) { anchorGrowth--; continue; }
     else {
       const fixes = groupPunchingFixes(r, a);
       if (!fixes) h += STEP_H;

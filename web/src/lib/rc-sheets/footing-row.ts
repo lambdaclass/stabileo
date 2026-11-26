@@ -1,5 +1,5 @@
 import type { Fmt } from './format';
-import { analyseFooting, CIRSOC_ONE_WAY, foundingOf, MIN_D, pedestalOf, proposeFooting, spacingClause, type FootingAnalysis, type FootingRowCode, type PlanCap } from './footing-design';
+import { analyseFooting, CIRSOC_ONE_WAY, foundingOf, MIN_D, pedestalOf, pedestalSectionOf, proposeFooting, spacingClause, type FootingAnalysis, type FootingRowCode, type PlanCap } from './footing-design';
 import { ceilTo } from './footing-mechanics';
 import { soilChecks, strapPullChecks, upliftChecks } from './footing-needs';
 import { meshText } from './footing-mesh';
@@ -140,7 +140,7 @@ const emptyRow = (d: FootingDemand, c: FootingContext, line: CheckLine, a?: Foot
     family: 'footing', key: d.key, name: d.name, level: d.level, demand: d, ...z, cover: c.cover, proposed: z, adopted: z, isAdopted: false,
     sizing: { mode: c.sizing, reached: false, from: 'none' }, bearing: null, layers: { lower: 'x', dx: 0, dy: 0, d: 0 },
     x: null, y: null, punching: null, dowels: null, utilization: 0, verifications: [line], combos: { headers: [], rows: [] }, status: 'none', generous: false, steps: [],
-    founding: foundingOf(d, z.h), pedestal: pedestalOf(d, z.h),
+    founding: foundingOf(d, z.h), pedestal: pedestalOf(d, z.h), pedestalSection: pedestalSectionOf(d, z.h, c),
   };
 };
 
@@ -178,7 +178,7 @@ function designOf(code: FootingRowCode): FootingRowFn {
       dowels: r.dowels ? { count: r.dowels.count, dia: r.dowels.dia, ldc: Math.max(r.dowels.ldc, r.dowels.ldh), available: r.dowels.available, lap: r.dowels.lap, tension: r.dowels.tension, above: r.dowels.above, offset: r.dowels.offset } : null,
       utilization: Math.max(0, ...ratios.filter(Number.isFinite)), verifications: v, combos: combosOf(r, fmt), status, generous: false,
       steps: footingSteps(d, c, r, a, code, fmt, prop, edge),
-      founding: foundingOf(d, a.h), pedestal: pedestalOf(d, a.h),
+      founding: foundingOf(d, a.h), pedestal: pedestalOf(d, a.h), pedestalSection: pedestalSectionOf(d, a.h, c),
       ...(edge ? { edge } : {}),
     };
   };

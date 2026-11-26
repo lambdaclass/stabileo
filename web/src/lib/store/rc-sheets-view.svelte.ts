@@ -19,6 +19,7 @@ import { activeResultSet3D } from './active-results';
 import { decimalFor, makeFmt } from '../rc-sheets/format';
 import { sheetsProgress } from './rc-sheets-progress.svelte';
 import { foundationStamp } from './rc-sheets-footings';
+import { footingPreview } from './rc-sheets-footing-preview.svelte';
 
 /** What the rows were designed from: what makes them out of date when it changes. */
 interface Stamp {
@@ -44,7 +45,7 @@ const setProgress = (p: SheetProgress | null) => {
 
 function stampNow(): Stamp {
   void modelStore.designData;
-  const { adopted, bentLines, footingSetup, footingSizing, foundationSystem, edited: _edited, adoptedCode: _adoptedCode, adoptedSeismic: _adoptedSeismic, adoptedLogic: _adoptedLogic, adoptedBasis: _adoptedBasis, adoptedFoundationBasis: _adoptedFoundationBasis, schedule: _schedule, code: _code, ...sheets } = rcSheetsData();
+  const { adopted, bentLines, footingSetup, footingSizing, foundationSystem, edited: _edited, adoptedCode: _adoptedCode, adoptedSeismic: _adoptedSeismic, adoptedLogic: _adoptedLogic, adoptedBasis: _adoptedBasis, adoptedFoundationBasis: _adoptedFoundationBasis, schedule: _schedule, code: _code, fixedPoints: _fixed, ...sheets } = rcSheetsData();
   // The options as the design reads them: an option stated at its default is no change.
   const { rcSheets: _, designOptions, propertyLines, foundingElevation, presumedBearingKPa, presumedPile, ...own } = designData();
   const rest = { ...own, designOptions: { ...optionsView(designOptions), criteria: criteriaKey(designOptions?.criteria), deflection: designOptions?.deflection ?? null, alternatives: designOptions?.alternatives ?? null } };
@@ -52,7 +53,7 @@ function stampNow(): Stamp {
     // The result shown is a view of these, not an input: the combinations', or with none the one set designed.
     results: resultsStore.perCombo3D.size ? resultsStore.perCase3D : activeResultSet3D(), perCombo: resultsStore.perCombo3D, groups: modelStore.model.groups,
     modelVersion: modelStore.modelVersion,
-    design: JSON.stringify({ rest, sheets, code: sheetCode() }), adopted: JSON.stringify({ adopted: adopted ?? null, bentLines, footingSetup, footingSizing, propertyLines, foundationSystem, foundingElevation, presumedBearingKPa, presumedPile }),
+    design: JSON.stringify({ rest, sheets, code: sheetCode() }), adopted: JSON.stringify({ adopted: adopted ?? null, bentLines, footingSetup, footingSizing, propertyLines, foundationSystem, foundingElevation, presumedBearingKPa, presumedPile, shown: foundationSystem ? null : footingPreview.system, compare: footingPreview.compare }),
     footings: JSON.stringify({ footingSetup, footingSizing, propertyLines, foundationSystem, foundingElevation, presumedBearingKPa, presumedPile }), locale: i18n.locale, foundation: foundationStamp(),
   };
 }

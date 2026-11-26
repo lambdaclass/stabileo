@@ -9,6 +9,9 @@ import { wallLabel, type WallRow } from './wall-row';
 import type { CheckLine } from './types';
 import type { PunchingRow } from './punching-row';
 import type { FootingRow } from './footing-types';
+import type { StairRow } from './stair-row';
+import { purchaseOrder, type PurchaseOrder } from './schedule/order';
+import type { SettingOut } from './fixed-points';
 import { meshText } from './footing-mesh';
 import { dowelsText } from './footing-dowels';
 import { groupDowelRows } from './footing-group-detail';
@@ -23,7 +26,7 @@ const cm = (v: number) => Math.round(v * 100);
 const fmtOf = (v: number, digits = 2): string => v.toFixed(digits);
 const worst = (v: CheckLine[]) => Math.max(0, ...v.map((x) => x.ratio ?? 0));
 
-export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; column: ColumnRow[]; slab: SlabRow[]; wall: WallRow[]; punching?: PunchingRow[]; footing?: FootingRow[]; code: string }, tr: Tr, bending?: BendingSchedule): WorkbookSheet[] {
+export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; column: ColumnRow[]; slab: SlabRow[]; wall: WallRow[]; punching?: PunchingRow[]; footing?: FootingRow[]; stair?: StairRow[]; levels?: string[]; code: string }, tr: Tr, bending?: BendingSchedule, setting?: readonly SettingOut[]): WorkbookSheet[] {
   const head = [`${tr('rcSheets.code')}: ${rows.code}`];
   const state = (s: string) => tr(`rcSheets.status.${s}`);
   const name = tr('rcSheets.col.name'), level = tr('rcSheets.col.level'), status = tr('rcSheets.col.status'), ratio = tr('rcSheets.col.ratio'), req = tr('rcSheets.req');
@@ -86,6 +89,14 @@ export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; c
     feet.push([safeText(r.name), safeText(r.level ?? ''), kind, cm(r.B), cm(r.L), cm(r.h), r2(r.founding), r2(r.demand.service?.N ?? 0), r2(r.bearing?.qMax ?? 0), r2(r.bearing?.allowable ?? 0),
       meshText(r.adopted.x), meshText(r.adopted.y), tops, dowels, punch, piles, r3(r.utilization), state(r.status)]);
   }
+  const stairs: WorkbookSheet['rows'] = [head, [name, level, tr('rcSheets.stair.col.flight'), 'ℓ (m)', 'h (cm)', 'Mu (kN·m/m)', tr('rcSheets.stair.bars.main'), tr('rcSheets.stair.bars.top'), tr('rcSheets.stair.bars.dist'), ratio, status]];
+  const cm1 = (v: number) => Math.round(v * 1000) / 10;
+  const stairBar = (b: { dia: number; spacing: number } | undefined) => (b ? `Ø${b.dia} c/${cm1(b.spacing)}` : '—');
+  for (const r of rows.stair ?? []) {
+    const s = r.demand.spec;
+    stairs.push([safeText(r.name), safeText(r.level ?? ''), `${s.steps} × ${cm1(s.riser)}/${cm1(s.tread)}`, r.design ? r2(r.design.geometry.span) : '—', cm(s.waist), r.design ? r2(r.design.mu) : '—',
+      stairBar(r.adopted.main), stairBar(r.adopted.top), stairBar(r.adopted.dist), r3(r.utilization), state(r.status)]);
+  }
   return [
     { name: tr('rcSheets.family.beam'), rows: beams },
     { name: tr('rcSheets.sheet.schedule'), rows: schedule },
@@ -94,6 +105,25 @@ export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; c
     { name: tr('rcSheets.family.slab'), rows: slabs },
     ...((rows.punching ?? []).length ? [{ name: tr('rcSheets.family.punching'), rows: punch }] : []),
     ...((rows.footing ?? []).length ? [{ name: tr('rcSheets.family.footing'), rows: feet }] : []),
+    ...((rows.stair ?? []).length ? [{ name: tr('rcSheets.family.stair'), rows: stairs }] : []),
     ...(bending?.rows.length ? scheduleSheets(bending, tr, rows.code) : []),
+    ...(setting?.length ? [settingOutSheet(setting, tr)] : []),
+    ...(bending?.rows.length ? [orderSheet(purchaseOrder({ line: rows.line ?? [], column: rows.column, slab: rows.slab, wall: rows.wall, footing: rows.footing ?? [], stair: rows.stair ?? [] }, bending, rows.levels ?? []), tr)] : []),
   ];
+}
+
+/** The purchase order's sheet: each level's concrete, its steel with the waste, kg per m³ and its stock bars by diameter, and the total. */
+function orderSheet(o: PurchaseOrder, tr: Tr): WorkbookSheet {
+  const dias = o.total.bars.map((b) => b.dia);
+  const rows: WorkbookSheet['rows'] = [[tr('rcSheets.order.title'), `${o.stockLength} m · ${Math.round(o.waste * 100)} %`], [tr('rcSheets.col.level'), tr('rcSheets.order.concrete'), 'kg', 'kg/m³', ...dias.map((d) => `Ø${d}`)]];
+  for (const l of [...o.levels, o.total]) rows.push([l === o.total ? tr('rcSheets.order.total') : safeText(l.level || '—'), Math.round(l.concrete * 100) / 100, Math.round(l.withWaste), l.ratio === null ? '—' : Math.round(l.ratio), ...dias.map((d) => l.bars.find((b) => b.dia === d)?.stockBars ?? 0)]);
+  return { name: tr('rcSheets.order.title'), rows };
+}
+
+/** The setting out: each column stack's fixed point from the origin and from its nearest axes, and how far its sections move off their axes. */
+function settingOutSheet(so: readonly SettingOut[], tr: Tr): WorkbookSheet {
+  const m3 = (v: number) => Math.round(v * 1000) / 1000;
+  const rows: WorkbookSheet['rows'] = [[tr('rcSheets.setting.title'), tr('rcSheets.setting.note')], [tr('rcSheets.col.name'), tr('rcSheets.fixed.title'), 'X (m)', 'Y (m)', tr('rcSheets.setting.axisX'), 'ΔX (m)', tr('rcSheets.setting.axisY'), 'ΔY (m)', tr('rcSheets.setting.shift')]];
+  for (const r of so) rows.push([safeText(r.name), tr(`rcSheets.fixed.kind.${r.kind}`), m3(r.x), m3(r.y), r.axisX?.name ?? '—', r.axisX ? m3(r.axisX.d) : '—', r.axisY?.name ?? '—', r.axisY ? m3(r.axisY.d) : '—', m3(r.shift)]);
+  return { name: tr('rcSheets.setting.title'), rows };
 }

@@ -4,12 +4,15 @@
   import { noticePrefs } from '../../lib/store/notice-prefs.svelte';
   import type { NoticeKind, NoticeLevel } from '../../lib/store/result-notices';
 
-  let { kind, level, summary, details = [], open = $bindable(false), testid, children }: {
+  let { kind, level, summary, details = [], open = $bindable(false), testid, children, actions }: {
     kind: NoticeKind; level: NoticeLevel; summary: string; details?: string[]; open?: boolean; testid?: string; children?: Snippet;
+    /** What the notice lets the reader do, shown under it whether its details are open or not. */
+    actions?: Snippet;
   } = $props();
 </script>
 
-<details class="notice lvl-{level}" bind:open data-testid={testid ?? 'notice-row'} data-kind={kind} data-level={level}>
+<div class="notice-row" data-testid={testid ?? 'notice-row'} data-kind={kind} data-level={level}>
+<details class="notice lvl-{level}" bind:open>
   <summary data-testid="notice-summary"><span class="dot" aria-hidden="true"></span><span class="text">{summary}</span></summary>
   <!-- Keyboard users must be able to focus and scroll the bounded details. -->
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
@@ -21,8 +24,12 @@
     {/if}
   </div>
 </details>
+{#if actions}<div class="notice-actions" data-testid="notice-actions">{@render actions()}</div>{/if}
+</div>
 
 <style>
+  .notice-row { min-width: 0; }
+  .notice-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 8px 2px 24px; }
   .notice { min-width: 0; border: 1px solid var(--st-hair); border-left: 3px solid var(--st-info); border-radius: 4px; background: var(--st-surface); color: var(--st-text); font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
   .notice.lvl-warning { border-left-color: var(--st-warn); }
   .notice.lvl-blocking { border-left-color: var(--st-danger); }

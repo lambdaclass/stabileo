@@ -31,11 +31,22 @@ describe('closing the analysis notice', () => {
     expect(shown(warning)).toContain('containment-notice');
   });
 
-  it('cannot close a refusal: it explains why there are no results', () => {
+  it('closes a refusal too, by the engine\'s messages Diagnostics restores it by, the results still withheld', () => {
     const refusal = { refused: true, messages: ['refused'] };
-    expect(shown(refusal)).not.toContain('containment-dismiss');
+    expect(shown(refusal)).toContain('data-testid="containment-dismiss"');
     containmentDismissal.dismiss(refusal.messages);
-    expect(shown(refusal)).toContain('containment-notice');
+    expect(shown(refusal)).not.toContain('containment-notice');
+    expect(render(ContainmentBanner, { props: { disposition: refusal } }).body).not.toContain('containment-notice');
+  });
+
+  it('keys an app notice by what it says and how grave it is, so a new one, or an advisory after a plain one, speaks again', () => {
+    const outdated = (key: string, level: 'warning' | 'blocking' = 'warning') => ({ kind: 'outdated' as const, level, details: [], key });
+    const withApp = (n: ReturnType<typeof outdated>) => render(ContainmentBanner, { props: { disposition: warning, extra: [n] } }).body;
+    containmentDismissal.dismiss(warning.messages);
+    expect(withApp(outdated('stale:2 changes'))).toContain('containment-notice');
+    containmentDismissal.dismiss([...warning.messages, 'stale:2 changes']);
+    expect(withApp(outdated('stale:2 changes'))).not.toContain('containment-notice');
+    expect(withApp(outdated('advisory:2 changes', 'blocking'))).toContain('containment-notice');
   });
 });
 

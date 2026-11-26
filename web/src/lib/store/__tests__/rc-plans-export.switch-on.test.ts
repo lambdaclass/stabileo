@@ -15,7 +15,7 @@ import { DEFAULT_PLAN_SCALES } from '../../rc-sheets/plans/sheets';
 import { columnStack, level, tr, twoSpanLine, wall } from '../../rc-sheets/plans/__tests__/fixtures';
 
 const { line, rows: beam } = twoSpanLine();
-const rows: SheetRows = { beam, line: [line], column: columnStack(), slab: level().rows, slabPlan: [level().plan], wall: [wall()], punching: [], footing: [], code: 'CIRSOC 201-2025', basis: 'combinations', combos: 1 };
+const rows: SheetRows = { beam, line: [line], column: columnStack(), slab: level().rows, slabPlan: [level().plan], wall: [wall()], punching: [], footing: [], stair: [], code: 'CIRSOC 201-2025', basis: 'combinations', combos: 1 };
 const req = (o: Partial<PlanExportRequest> = {}): PlanExportRequest => ({ selection: { families: ['beam'], levels: null }, format: 'A3', scales: DEFAULT_PLAN_SCALES, dxf: true, pdf: true, author: ' Ing. B. P. ', licence: '1234', ...o });
 const bytes = async (b: Blob) => new Uint8Array(await b.arrayBuffer());
 const latin1 = (b: Uint8Array) => Array.from(b, (c) => String.fromCharCode(c)).join('');

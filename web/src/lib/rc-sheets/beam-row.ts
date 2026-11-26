@@ -76,7 +76,7 @@ export interface BeamDemand {
 
 export interface SupportPost { name: string; b: number; h: number }
 
-export interface BeamEnd { kind: 'column' | 'support' | 'beam' | 'free'; /** Half the holding member's extent along the beam, m: at a support with none of its own, the beam crossing it there. */ half: number; /** A column that stops at the joint: a frame corner, where the bars turn round it. */ corner?: boolean }
+export interface BeamEnd { kind: 'column' | 'support' | 'beam' | 'free'; /** Half the holding member's extent along the beam, m: at a support with none of its own, the beam crossing it there. */ half: number; /** A column that stops at the joint: a frame corner, where the bars turn round it. */ corner?: boolean; /** Columns only above: the beam hangs from them, its end in tension. */ hanging?: boolean }
 
 export interface BeamContext extends TransverseList {
   mat: Materials;
@@ -103,7 +103,11 @@ export interface FlexureCheck { section: SectionName; sign: 'pos' | 'neg'; phiMn
 
 /** A section with axial force and no moment: its check, failing where the bars and concrete cannot take the force at all. */
 export const axialOnlyChecks = (flex: readonly FlexureCheck[], clause: string, fmt: Fmt): CheckLine[] =>
-  flex.filter((x) => !(x.mu > 1e-6) && Math.abs(x.nc ?? 0) > 1e-6).reduce<FlexureCheck[]>((w, x) => (w.some((y) => y.section === x.section) ? w : [...w, x]), [])
+  flex.filter((x) => !(x.mu > 1e-6) && Math.abs(x.nc ?? 0) > 1e-6).reduce<FlexureCheck[]>((w, x) => {
+    const i = w.findIndex((y) => y.section === x.section);
+    if (i < 0) return [...w, x];
+    return w[i]!.ok && !x.ok ? w.map((y, j) => (j === i ? x : y)) : w;
+  }, [])
     .map((x) => check('rcSheets.v.axialOnly', x.ok, { clause, demand: `N = ${fmt(x.nc ?? 0)} kN (${x.section})` }));
 
 export interface BeamRow {
@@ -447,6 +451,18 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
       seis = seisOf(proposed);
     }
   };
+  const loopCombos = () => {
+    for (let k = 0; holds() && k < MAX_ITERATIONS; k++) {
+      const t = comboTable(d, c, proposed, fmt);
+      if (t.rows.every((r) => r.ok)) return;
+      const next = improveForCombos(proposed, t, d, c);
+      if (JSON.stringify(next) === JSON.stringify(proposed)) return;
+      iterations++;
+      proposed = next;
+      ev = evaluate(d, c, proposed, req); seis = seisOf(proposed);
+      loop();
+    }
+  };
   loop();
   if (!adopted && !ev.flex.every((f) => f.ok)) {
     const faces = searchFaces(proposed, Math.max(bottomReq, compBottom), Math.max(topReq, compTop), d, c, (x) => flexChecks(c, d, x).every((f) => f.ok));
@@ -454,6 +470,7 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
     ev = evaluate(d, c, proposed, req); seis = seisOf(proposed);
     if (faces) loop();
   }
+  if (!adopted) loopCombos();
   const a = adopted ?? proposed;
   const e = adopted ? evaluate(d, c, a, req) : ev;
   const seisA = adopted ? seisOf(a) : seis;
@@ -461,6 +478,7 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
   const { al: alReq, alMin } = ta, sMaxA = ta.sMax;
 
   const f2 = (v: number) => fmt(v);
+  const combos = comboTable(d, c, a, fmt);
   const verifications: CheckLine[] = [
     ...e.flex.filter((x) => x.mu > 1e-6).map((x) => check(x.sign === 'pos' ? `rcSheets.v.flexPos.${x.section}` : `rcSheets.v.flexNeg.${x.section}`, x.ok, {
       clause: '§22.2, §21.2', demand: `${f2(x.mu)} kN·m`, capacity: `${f2(x.phiMn)} kN·m`, ratio: ratioOf(x.mu, x.phiMn),
@@ -486,6 +504,7 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
     ...(c.coverTable ? [mainCoverCheck(c.cover, a.stirrups.dia, largestBar(a), c.coverTable.control, fmt)] : []),
     ...(skin ? [check('rcSheets.v.skin', true, { clause: '§9.7.2.3', capacity: `Ø${skin.diameter} c/${fmt(skin.spacing * 100, 1)} cm` })] : []),
     ...(seisA?.checks ?? []),
+    ...((w) => (w ? [check('rcSheets.v.everyCombo', w.ok, { clause: '§22.2, §22.5, §22.7', demand: w.combo, ratio: w.ratio })] : []))(worstCombo(combos)),
   ];
   const allOk = verifications.every((v) => v.ok);
   const generous = isGenerous(verifications);
@@ -508,7 +527,7 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
   return {
     family: 'beam', key: d.key, name: d.name, level: d.level, b: d.b, h: d.h, length: d.length, demand: d,
     req: { bottom: bottomReq, top: topReq, bottomAt: gPos.s, topAt: gNeg.s, stirrupPerLeg: perLeg, legs, sMax, al: Math.max(alReq, alMin), torsionNeglected: tor.neglect, tuDesign, tuNeglect: PHI_V * tor0.Tcr / 4, skin: skin ? { dia: skin.diameter, spacing: skin.spacing } : null, bySection, ...(compTop > 0 || compBottom > 0 ? { compression: { top: compTop, bottom: compBottom } } : {}) },
-    proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : iterations, flexure: e.flex, verifications, combos: comboTable(d, c, a, fmt),
+    proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : iterations, flexure: e.flex, verifications, combos: { headers: combos.headers, rows: combos.rows.map(({ short: _, ...r }) => r) },
     status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
   };
 }
@@ -522,7 +541,7 @@ export function mainCoverCheck(cover: number, stirrupMm: number, db: number, con
 const largestBar = (a: BeamAdopted): number =>
   Math.max(0, ...[...a.top, ...a.bottom, ...Object.values(a.at ?? {}).flatMap((x) => [...x.top, ...x.bottom])].filter((g) => g.count > 0).map((g) => g.dia));
 
-function comboTable(d: BeamDemand, c: BeamContext, a: BeamAdopted, fmt: Fmt): ComboTable {
+function comboTable(d: BeamDemand, c: BeamContext, a: BeamAdopted, fmt: Fmt): { headers: string[]; rows: Array<ComboTable['rows'][number] & { short: { bottom: boolean; top: boolean; stirrups: boolean } }> } {
   const sd = a.stirrups.dia;
   const p = paramsOf(d, c, sd);
   const S = barsAt(a, 'start'), M = barsAt(a, 'span'), E = barsAt(a, 'end');
@@ -548,9 +567,29 @@ function comboTable(d: BeamDemand, c: BeamContext, a: BeamAdopted, fmt: Fmt): Co
     const tor = checkTorsion(p, shearTorsion(k.v, t), EDITION);
     const stir = ratioOf((sh.AvOverSReq ?? 0) / legs + (tor.neglect ? 0 : tor.AtOverS), perLegProvided);
     const ratio = Math.max(flex, stir, ratioOf(k.v, sh.phiVn));
-    return { combo: k.combo, values: [fmt(k.mStart, 1), fmt(k.mSpan, 1), fmt(k.mEnd, 1), fmt(k.v, 1), fmt(k.t, 1), fmt(k.nSpan, 1)], ratio, ok: ratio <= 1 + 1e-6 };
+    const sag = Math.max(mRatio(Math.max(0, k.mStart), o + 3, o + 1), mRatio(Math.max(0, k.mSpan), o, o + 5), mRatio(Math.max(0, k.mEnd), o + 4, o + 2), ratioOf(k.mPos, cap(posAt[sp])));
+    const short = { bottom: sag > 1 + 1e-6, top: flex > 1 + 1e-6 && sag <= flex - 1e-9, stirrups: Math.max(stir, ratioOf(k.v, sh.phiVn)) > 1 + 1e-6 };
+    return { combo: k.combo, values: [fmt(k.mStart, 1), fmt(k.mSpan, 1), fmt(k.mEnd, 1), fmt(k.v, 1), fmt(k.t, 1), fmt(k.nSpan, 1)], ratio, ok: ratio <= 1 + 1e-6, short };
   });
   return { headers: ['M i', 'M x*', 'M j', 'V', 'T', 'N'], rows };
+}
+
+/** The combination the adopted bars fit worst, when one of them does not. */
+const worstCombo = (t: ReturnType<typeof comboTable>) => t.rows.reduce<(typeof t.rows)[number] | undefined>((w, x) => (!w || x.ratio > w.ratio ? x : w), undefined);
+
+/** More of what a failing combination lacks: steel on the face its moment pulls, or stirrups. */
+function improveForCombos(a: BeamAdopted, t: ReturnType<typeof comboTable>, d: BeamDemand, c: BeamContext): BeamAdopted {
+  const next: BeamAdopted = JSON.parse(JSON.stringify(a));
+  const bad = t.rows.filter((r) => !r.ok);
+  const sd = next.stirrups.dia;
+  if (bad.some((r) => r.short.bottom)) next.bottom = bumpFace(next.bottom, d, c, sd);
+  if (bad.some((r) => r.short.top)) next.top = bumpFace(next.top, d, c, sd);
+  if (bad.some((r) => r.short.stirrups)) {
+    const more = moreStirrup(next.stirrups, c, 0.15);
+    if (more) next.stirrups = more;
+    else if (moreLegsHold(next)) next.stirrups.legs += 2;
+  }
+  return next;
 }
 
 /** The thinnest of the beams' bars in the project's list that `ok` takes, else the thickest of them, mm. */

@@ -6,16 +6,21 @@
   import { defaultPlanAuthor, exportRcPlans } from '../../../lib/store/rc-plans-export';
   import { sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
   import RcExportLog from './RcExportLog.svelte';
+  import { shownFootings } from '../../../lib/rc-sheets/footing-layouts';
+  import { footingPreview } from '../../../lib/store/rc-sheets-footing-preview.svelte';
   import { DEFAULT_PLAN_SCALES, PLAN_FAMILIES, PLAN_FORMATS, type PlanFamily, type PlanFormat } from '../../../lib/rc-sheets/plans/sheets';
 
-  let { rows, current = null, onclose }: { rows: SheetRows; current?: { key: string; name: string } | null; onclose: () => void } = $props();
+  let { rows: all, current = null, onclose }: { rows: SheetRows; current?: { key: string; name: string } | null; onclose: () => void } = $props();
+  /** The footings drawn are the ones shown: the adopted layout's, else the one being looked at, said so beside the family. */
+  const rows = $derived(all.foundation ? all : { ...all, footing: shownFootings(all, footingPreview.system) });
+  const previewed = $derived(all.foundation ? null : footingPreview.system);
 
   const SCALES = [10, 20, 25, 50, 75, 100, 200];
   const allLevels = $derived([...new Set([...rows.line, ...rows.column, ...rows.wall, ...rows.footing].map((r) => r.level ?? '').concat(rows.slabPlan.map((p) => p.level)))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
-  const has = (f: PlanFamily) => (f === 'beam' ? rows.line.length : f === 'vertical' ? rows.column.length + rows.wall.length : f === 'slab' ? rows.slabPlan.some((p) => p.packages.length) ? 1 : 0 : rows.footing.filter((r) => !r.uncovered && r.B > 0).length) > 0;
+  const has = (f: PlanFamily) => (f === 'beam' ? rows.line.length : f === 'vertical' ? rows.column.length + rows.wall.length : f === 'slab' ? rows.slabPlan.some((p) => p.packages.length) ? 1 : 0 : f === 'stair' ? rows.stair.filter((r) => !r.unsupported).length : rows.footing.filter((r) => !r.uncovered && r.B > 0).length) > 0;
 
   let scope = $state<'current' | 'families'>(current ? 'current' : 'families');
-  let families = $state<Record<PlanFamily, boolean>>({ beam: true, vertical: true, slab: true, footing: true });
+  let families = $state<Record<PlanFamily, boolean>>({ beam: true, vertical: true, slab: true, footing: true, stair: true });
   let levels = $state<Record<string, boolean>>({});
   let format = $state<PlanFormat>('A3');
   let elevation = $state(DEFAULT_PLAN_SCALES.elevation);
@@ -51,7 +56,7 @@
       {#if scope === 'families'}
         <div class="rcp-row" role="group" aria-label={t('rcSheets.plans.families')}>
           {#each PLAN_FAMILIES as f (f)}
-            <label class:off={!has(f)}><input type="checkbox" bind:checked={families[f]} disabled={!has(f)} data-testid="rc-plans-family-{f}" /> {t(`rcSheets.tab.${f}`)}</label>
+            <label class:off={!has(f)}><input type="checkbox" bind:checked={families[f]} disabled={!has(f)} data-testid="rc-plans-family-{f}" /> {t(`rcSheets.tab.${f}`)}{#if f === 'footing' && previewed && has(f)} <span class="rcp-note" data-testid="rc-plans-footing-preview">({tp('rcSheets.plans.footingPreview', { layout: t(`rcSheets.foundation.${previewed}`) })})</span>{/if}</label>
           {/each}
         </div>
         <div class="rcp-row" role="group" aria-label={t('rcSheets.plans.levels')}>
@@ -92,6 +97,7 @@
 </div>
 
 <style>
+  .rcp-note { color: var(--st-text-3); }
   .rcp-back { position: absolute; inset: 0; z-index: 5; background: rgba(0, 0, 0, 0.35); display: flex; align-items: flex-start; justify-content: center; padding-top: 64px; }
   .rcp { width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 96px); overflow: auto; background: var(--st-surface); border: 1px solid var(--st-hair); border-radius: 8px; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; font-size: 0.74rem; color: var(--st-text); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3); }
   h4 { margin: 0; font-family: var(--st-display); font-size: 0.86rem; }

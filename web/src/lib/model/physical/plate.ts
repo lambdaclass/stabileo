@@ -414,6 +414,15 @@ export function onOutline(geo: PlateGeometry, p: Vec3): boolean {
 
 const r6 = (v: number) => (Math.round(v * 1e6) / 1e6).toString();
 
+/** Where a mesh's key gives the column sections a slab's mesh represents: only the plates read them, the analysis never. */
+export const PLATE_FOOTPRINTS = '#fp:';
+
+/** The part of a stored mesh key the analysis checks: a file saved before the column sections were kept apart has them at its end. */
+export const analysedSignature = (meshed: { signature: string }): string => {
+  const at = meshed.signature.indexOf(PLATE_FOOTPRINTS);
+  return at < 0 ? meshed.signature : meshed.signature.slice(0, at);
+};
+
 /**
  * What a mesh is made from, as one string: equal strings, the same mesh. Written in the plate's own
  * axes, so a plate moved or turned whole with what it meets (a copy) keeps a current mesh.

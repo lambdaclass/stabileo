@@ -1,5 +1,5 @@
 import type { Fmt } from './format';
-import { foundingOf, MIN_D, pedestalOf, spacingClause, type FootingRowCode } from './footing-design';
+import { foundingOf, MIN_D, pedestalOf, pedestalSectionOf, spacingClause, type FootingRowCode } from './footing-design';
 import { meshText } from './footing-mesh';
 import { soilChecks, upliftChecks } from './footing-needs';
 import { analyseCombined, proposeCombined, type CombinedAnalysis } from './footing-combined';
@@ -103,7 +103,7 @@ export function combinedRow(d: FootingDemand, c: FootingContext, adopted: Footin
     combos: { headers: ['N', 'Mx', 'My', 'qu,max'], rows: r.combos.map((k) => ({ combo: k.combo, values: [fmt(k.N, 1), fmt(k.mx, 1), fmt(k.my, 1), fmt(k.qMax, 0)], ratio: k.ratio, ok: k.ratio <= 1 + 1e-6 })) },
     status, generous: false,
     steps: steps(d, r, a, code, fmt, prop ? prop.reached : null),
-    founding: foundingOf(d, a.h), pedestal: pedestalOf(d, a.h),
+    founding: foundingOf(d, a.h), pedestal: pedestalOf(d, a.h), pedestalSection: pedestalSectionOf(d, a.h, c),
     combined: {
       axis: r.axis, second: d.carried!.name, secondKey: d.carried!.key, spacing: Math.hypot(r.cols[1].x - r.cols[0].x, r.cols[1].y - r.cols[0].y),
       mBottom: r.along.mu, mTop: r.top.mu, asTop: r.top.asReq, asTopProvided: r.top.asProvided, phiMnTop: r.top.phiMn,

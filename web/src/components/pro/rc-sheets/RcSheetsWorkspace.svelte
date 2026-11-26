@@ -58,7 +58,7 @@
   let highlight = $state<string[]>([]);
 
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
-  const EMPTY: SheetRows = { beam: [], line: [], column: [], slab: [], slabPlan: [], wall: [], punching: [], footing: [], code: '', basis: 'combinations', combos: 0 };
+  const EMPTY: SheetRows = { beam: [], line: [], column: [], slab: [], slabPlan: [], wall: [], punching: [], footing: [], stair: [], code: '', basis: 'combinations', combos: 0 };
   followSheetEdits();
   const stale = $derived(sheetsStale());
   const code = $derived.by(() => { void modelStore.designData; return sheetCode(); });
@@ -158,7 +158,7 @@
 
 <svelte:window onkeydown={onkey} />
 
-<div class="rcw" class:st-panel-scrollbars={uiStore.panelScrollbars && !uiStore.isMobile} use:portal role="dialog" aria-modal="true" aria-label={t('rcSheets.title')} data-testid="rc-sheets-workspace">
+<div class="rcw st-pro-surface" class:st-panel-scrollbars={uiStore.panelScrollbars && !uiStore.isMobile} use:portal role="dialog" aria-modal="true" aria-label={t('rcSheets.title')} data-testid="rc-sheets-workspace">
   <header class="rcw-head" title={basisText} bind:this={head} data-testid="rc-head" data-fit={fitStart}>
     <strong class="rcw-name">{t('rcSheets.title')}</strong>
     <span class="rcw-code" data-testid="rc-code"><RcCodePicker compact /></span>
@@ -186,7 +186,7 @@
       <button type="button" class="rcs-btn" title={t('rcSheets.adoptAll')} onclick={() => adoptAll(shown.filter((r): r is Exclude<ListRow, { family: 'punching' }> => r.family !== 'punching'))} disabled={!shown.length}><span class="wide">{t('rcSheets.adoptAll')}</span><span class="narrow">{t('rcSheets.adoptAllShort')}</span></button>
       <button type="button" class="rcs-btn" title={t('rcSheets.plans.export')} onclick={() => (plansOpen = true)} disabled={!sheetsRun.rows || !drawable} data-testid="rc-plans-export"><span class="wide">{t('rcSheets.plans.export')}</span><span class="narrow">{t('rcSheets.plans.exportShort')}</span></button>
       <button type="button" class="rcs-btn" onclick={() => { rebarView.row = null; rebarView.level = ''; rebarView.on = true; onclose(); }} disabled={!drawable} data-testid="rc-view-3d-all">{t('rcSheets.r3d.title')}</button>
-      <button type="button" class="rcs-btn" title={t('rcSheets.export')} onclick={() => downloadRcSheets(rows, t)} data-testid="rc-export-workbook" disabled={stale || !rows.beam.length && !rows.column.length && !rows.slab.length && !rows.wall.length && !rows.punching.length && !rows.footing.length}><span class="wide">{t('rcSheets.export')}</span><span class="narrow">{t('rcSheets.exportShort')}</span></button>
+      <button type="button" class="rcs-btn" title={t('rcSheets.export')} onclick={() => downloadRcSheets(rows, t)} data-testid="rc-export-workbook" disabled={stale || !rows.beam.length && !rows.column.length && !rows.slab.length && !rows.wall.length && !rows.punching.length && !rows.footing.length && !rows.stair.length}><span class="wide">{t('rcSheets.export')}</span><span class="narrow">{t('rcSheets.exportShort')}</span></button>
     </div>
     <button type="button" class="rcs-btn rcw-close" onclick={onclose} aria-label={t('rcSheets.close')} data-testid="rc-close">✕</button>
   </header>
@@ -246,6 +246,9 @@
               <th>{t('rcSheets.line.runBottom')}</th><th>{t('rcSheets.line.runTop')}</th><th>{t('rcSheets.line.supports')}</th><th>{t('rcSheets.line.spans')} +</th><th>{t('rcSheets.col.stirrups')}</th><th class="n">{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
           {:else if tab === 'punching'}
             <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>{t('rcSheets.s.punchPosition')}</th><th class="n">Vu</th><th class="n">φVc</th><th class="n">{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
+          {:else if tab === 'stair'}
+            <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>{t('rcSheets.stair.col.flight')}</th><th class="n">ℓ</th><th class="n">h</th>
+              <th>{t('rcSheets.stair.bars.main')}</th><th>{t('rcSheets.stair.bars.top')}</th><th>{t('rcSheets.stair.bars.dist')}</th><th class="n">{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
           {:else if tab === 'footing'}
             <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>{t('rcSheets.foot.kind')}</th><th>B × L × h</th><th class="n">N</th><th class="n">{t('rcSheets.foot.soil')}</th>
               <th>{t('rcSheets.foot.mesh.x')}</th><th>{t('rcSheets.foot.mesh.y')}</th><th>{t('rcSheets.foot.dowels')}</th><th class="n">{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
@@ -283,6 +286,15 @@
                 <td data-testid="rc-punch-position">{r.position === 'interior' || r.position === 'edge' || r.position === 'corner' ? t(`rcSheets.punchPos.${r.position}`) : '—'}</td>
                 <td class="n">{f1(r.vu)}</td>
                 <td class="n">{f1(r.phiVc)}</td>
+                <td class="n">{fmt(r.utilization, 2)}</td>
+              {:else if r.family === 'stair'}
+                {@const bar = (b: { dia: number; spacing: number } | undefined) => (b ? `Ø${b.dia} c/${fmt(b.spacing * 100, 0)}` : '—')}
+                <td data-testid="rc-stair-flight">{r.demand.spec.steps} × {fmt(r.demand.spec.riser * 100, 1)}/{fmt(r.demand.spec.tread * 100, 1)}{#if r.demand.source === 'model'}<span class="dim" title={t('rcSheets.stair.fromModel')}> · {t('rcSheets.stair.model')}</span>{/if}</td>
+                <td class="n">{r.design ? f2(r.design.geometry.span) : '—'}</td>
+                <td class="n">{fmt(r.demand.spec.waist * 100, 0)}</td>
+                <td>{bar(r.adopted.main)}</td>
+                <td>{bar(r.adopted.top)}</td>
+                <td>{bar(r.adopted.dist)}</td>
                 <td class="n">{fmt(r.utilization, 2)}</td>
               {:else if r.family === 'footing'}
                 <td data-testid="rc-footing-kind" data-kind={r.cap ? 'pileCap' : r.group ? r.group.kind : r.combined ? 'combined' : r.edge?.position ?? 'centred'}>{r.cap ? t('rcSheets.footKind.pileCap') : r.group ? t(`rcSheets.footKind.${r.group.kind}`) : r.combined ? t('rcSheets.footKind.combined') : t(`rcSheets.footPos.${r.edge?.position ?? 'centred'}`)}{#if r.cap}<span class="dim"> · {r.cap.piles.length} Ø{Math.round(r.cap.diameter * 100)}</span>{/if}{#if r.edge}<span class="dim"> · {t(`rcSheets.footBal.short.${r.edge.balance}`)}</span>{/if}{#if r.group}<span class="dim"> · {r.group.columns.length}</span>{/if}</td>

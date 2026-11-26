@@ -14,6 +14,8 @@ import { CRITERION, critOf } from './criteria';
 import { developedLength, hookedStraight, shapeWeight, type BarShape } from './shape';
 import { BEAM_BAR_RANGE, check, governingRatio, GENEROUS_BELOW, isGenerous, listIn, nextTie, ratioOf, tieFloorOf, type BarGroup, type BeamAdopted, type CheckLine, type RowStatus, type StepGroup, type Stirrups } from './types';
 
+const SHEAR_PHI = 0.75;
+
 const EDITION = '2025' as const;
 const STOCK_LENGTH = 12;
 /** A column's longitudinal bar the beam's bars stop inside of, m. */
@@ -104,7 +106,7 @@ export const CIRSOC_LINE: LineCode = {
   jointHooked: (c, dia) => Math.max((c.mat.fy * dia) / (5.4 * developmentSqrtFc(c.mat.fc)), 8 * dia, 150) / 1000,
   stirrupMax: (c, b, d, sd) => transverseSpacingLimits(EDITION, { VsRequired: 0, bw: b, d, fc: c.mat.fc, cover: c.cover, stirrupDiaMm: sd }).alongMax,
   text: {
-    cutoff: { notInTension: '§9.7.3.5: M = 0', lowShear: '§9.7.3.5(a): Vu ≤ ⅔·Vn', doubleArea: '§9.7.3.5(b): As,cont ≥ 2·As,req; Vu ≤ ¾·Vn', extraStirrups: '§9.7.3.5(c): s ≤ d/8; Av/s ≥ 0.41·bw/fyt', illegal: '—' },
+    cutoff: { notInTension: '§9.7.3.5: M = 0', lowShear: '§9.7.3.5(a): Vu ≤ ⅔·φVn', doubleArea: '§9.7.3.5(b): As,cont ≥ 2·As,req; Vu ≤ ¾·φVn', extraStirrups: '§9.7.3.5(c): s ≤ d/8; Av/s ≥ 0.41·bw/fyt', illegal: '—' },
     clause: { envelope: '§9.7.3, §22.2', bottomRun: '§9.7.3.8.1, §9.7.3.8.2', fit: '§25.2.1', hooks: '§25.4.3', splices: '§25.5.2', shear: '§22.5, §9.7.6.2.2', seismicBent: '§18.6.3', integrity: '§9.7.7.1, §9.7.7.5', inflection: '§9.7.3.8.3', straightEnd: '§9.7.3.8.1, §9.7.3.8.3(a)', hook180: '§25.3.1', jointHooks: '§18.8.5.1' },
     formula: { capacity: 'φMn(x) ≥ Mu(x) ∀x', cut: '§9.7.3.3, §9.7.3.2: x(φMn,cont = Mu) + max(d; 12·db) ≥ c + ld', third: '§9.7.3.8.4: As⁻/3 → x(M = 0) + max(d; 12·db; ln/16)' },
   },
@@ -537,10 +539,10 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
     const contCap = (sign: 'pos' | 'neg') => spans.map((s, k) => capQueries((s.row.demand.env ?? []).map((e) => (sign === 'pos' ? query(s, [a.bottom], [a.top], sdOf(k), true, e.nPos ?? 0) : query(s, [a.top], [a.bottom], sdOf(k), false, e.nNeg ?? 0)))));
     const capPos = contCap('pos'), capNeg = contCap('neg');
     const stOf = (k: number) => a.stirrups?.[k] ?? spans[k]!.row.proposed.stirrups;
-    const vnOf = spans.map((s, k) => code.shear(c, query(s, [a.bottom], [a.top], sdOf(k), false), stOf(k)).nominal);
+    const vnOf = spans.map((s, k) => code.shear(c, query(s, [a.bottom], [a.top], sdOf(k), false), stOf(k)).design);
     const legality = (k: number, x: number, face: 'top' | 'bottom', dia: number, towardEnd: boolean): { legality: CutoffLegality; ok: boolean } => {
       const s = spans[k]!, env = s.row.demand.env ?? [];
-      if (!env.length) return { legality: 'notInTension', ok: true };
+      if (!env.length) return { legality: 'illegal', ok: false };
       const i = env.reduce((b, e, j) => (Math.abs(e.x - x) < Math.abs(env[b]!.x - x) ? j : b), 0);
       const m = face === 'bottom' ? env[i]!.pos : env[i]!.neg, cap = (face === 'bottom' ? capPos : capNeg)[k]![i] ?? 0;
       const ext = Math.max(s.d, 12 * dia / 1000);
@@ -549,7 +551,10 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
         vn: vnOf[k]!, b: s.b, fy: c.mat.fy, continuingDoubleArea: cap >= 2 * m - 1e-6, inTensionZone: m > 1e-6, towardEnd,
       });
       const st = stOf(k), x3 = r.extraStirrups;
-      return { legality: r.legality, ok: r.legality !== 'illegal' && (!x3 || (st.spacing <= x3.maxSpacing + 1e-9 && st.legs * barArea(st.dia) * 1e-4 / st.spacing >= x3.minAvOverS - 1e-12)) };
+      if (!x3) return { legality: r.legality, ok: r.legality !== 'illegal' };
+      const vuHere = Math.max(...[...env].sort((p, q) => Math.abs(p.x - x) - Math.abs(q.x - x)).slice(0, 2).map((e) => Math.abs(e.v)));
+      const spare = SHEAR_PHI * x3.minAvOverS * shearFy(c.mat.fy) * 1000 * s.d;
+      return { legality: r.legality, ok: st.spacing <= x3.maxSpacing + 1e-9 && vnOf[k]! >= vuHere + spare - 1e-9 };
     };
     const cuts: Array<{ face: 'top' | 'bottom'; x: number; legality: CutoffLegality; bar: number }> = [];
     const joined: Array<{ bar: number; from: number; to: number; supports: [number, number] }> = [];

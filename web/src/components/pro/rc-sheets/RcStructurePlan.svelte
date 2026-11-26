@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { fixedSymbol, type ColumnFixed } from '../../../lib/rc-sheets/fixed-points';
+  import { FIXED_SYMBOL_M } from '../../../lib/rc-sheets/plans/structure-plan';
   import { i18n, t, tp, tpn } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { scaleBarLength, type PlanItem, type Pt, type StructurePlan } from '../../../lib/rc-sheets/structure-plan';
@@ -35,6 +37,14 @@
   const shown = $derived(plan.items.find((it) => it.key === hovered));
   const onkey = (e: KeyboardEvent, key: string) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onopen(key); } };
   const family = $derived(t(plan.family === 'vertical' ? 'rcSheets.tab.vertical' : `rcSheets.family.${plan.family}`));
+  /** The fixed point as a filled circle, half circle or quarter circle, on screen. */
+  function fixedPath(f: ColumnFixed): string {
+    const sym = fixedSymbol(f, Math.max(5 / k, FIXED_SYMBOL_M)), r = sym.r * k, c = [sx(sym.c[0]), sy(sym.c[1])] as const;
+    if (sym.kind === 'circle') return `M ${c[0] - r} ${c[1]} a ${r} ${r} 0 1 0 ${2 * r} 0 a ${r} ${r} 0 1 0 ${-2 * r} 0 Z`;
+    const p = (deg: number) => [c[0] + r * Math.cos((deg * Math.PI) / 180), c[1] - r * Math.sin((deg * Math.PI) / 180)] as const;
+    const a = p(sym.start), b = p(sym.end);
+    return `M ${c[0]} ${c[1]} L ${a[0]} ${a[1]} A ${r} ${r} 0 0 1 ${b[0]} ${b[1]} Z`;
+  }
 </script>
 
 <figure class="rst" data-testid="rc-struct-plan" data-family={plan.family} data-level={plan.level}>
@@ -71,6 +81,7 @@
           {:else if it.kind === 'column'}
             <polygon points={pts(it.outline)} class="solid" />
             {#each it.rebars as r, j (j)}<circle cx={sx(r.at[0])} cy={sy(r.at[1])} r={Math.max(1, (r.dia / 2000) * k)} class="rebar" />{/each}
+            {#if it.fixed}<path d={fixedPath(it.fixed)} class="fixed" data-testid="rc-struct-fixed" data-kind={it.fixed.kind} />{/if}
           {:else}
             <polygon points={pts(it.outline)} class="solid" />
           {/if}
@@ -108,6 +119,7 @@
   .bubble { fill: var(--st-surface); stroke: var(--st-text-3); stroke-width: 0.8; }
   .bname { font-size: 9px; fill: var(--st-text-2); text-anchor: middle; dominant-baseline: central; }
   .item { cursor: pointer; outline: none; }
+  .fixed { fill: #d4145a; stroke: var(--st-surface); stroke-width: 0.8; }
   .beam { stroke: var(--c); opacity: 0.35; stroke-linecap: butt; }
   .beam-axis { stroke: var(--c); stroke-width: 1.2; }
   .cut { fill: var(--st-surface); stroke: var(--c); stroke-width: 1; }

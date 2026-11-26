@@ -42,15 +42,19 @@ export function nearestSides(p: { x: number; y: number }, pts: readonly { x: num
 }
 
 /** The nearest of `others` inward from `p` across the line `dir` points to (a unit step in X or Y toward it), within 15° of square to it; null when none is. */
-export function inwardPartner<T extends Pt>(p: Pt, dir: [number, number], others: readonly T[]): (T & { d: number }) | null {
+export function inwardPartner<T extends Pt>(p: Pt, dir: [number, number], others: readonly T[], halfAcross = 0): (T & { d: number }) | null {
   const inward = [-dir[0], -dir[1]];
-  let best: (T & { d: number }) | null = null;
+  let best: (T & { d: number; along: number }) | null = null;
   for (const q of others) {
     if (q.id === p.id) continue;
     const v = [q.x - p.x, q.y - p.y], d = Math.hypot(v[0]!, v[1]!);
     if (d < TOL) continue;
-    const cos = (v[0]! * inward[0]! + v[1]! * inward[1]!) / d;
-    if (cos > Math.cos(STRAP_CONE) && (!best || d < best.d)) best = { ...q, d };
+    const along = v[0]! * inward[0]! + v[1]! * inward[1]!, across = Math.abs(v[0]! * inward[1]! - v[1]! * inward[0]!);
+    const ahead = along / d > Math.cos(STRAP_CONE) || (along > TOL && across <= halfAcross + TOL);
+    const key = halfAcross > 0 ? along : d;
+    if (ahead && (!best || key < best.along)) best = { ...q, d, along: key };
   }
-  return best;
+  if (!best) return null;
+  const { along: _, ...hit } = best;
+  return hit as T & { d: number };
 }

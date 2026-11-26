@@ -32,6 +32,7 @@ export function meshSpan(dir: 'x' | 'y', a: Pick<FootingAdopted, 'B' | 'L' | 'ex
   if (!(m.dia > 0) || !(m.spacing > 0)) return { positions: [], inBand: 0 };
   const across = dir === 'x' ? a.L : a.B;
   const lo = -across / 2 + cover + m.dia / 2000, hi = -lo;
+  if (m.bands && m.bands.count > 0) return pileBandSpan(m, m.bands, lo, hi);
   if (!isBanded(dir, a.B, a.L) || !(m.outer && m.outer > 0)) return { positions: evenly(lo, hi, m.spacing), inBand: 0 };
   const width = Math.min(a.B, a.L), centre = dir === 'x' ? -a.ey : -a.ex;
   const b0 = Math.max(lo, centre - width / 2), b1 = Math.min(hi, centre + width / 2);
@@ -39,6 +40,18 @@ export function meshSpan(dir: 'x' | 'y', a: Pick<FootingAdopted, 'B' | 'L' | 'ex
   const below = b0 - lo > 1e-6 ? evenly(lo, b0, m.outer).slice(0, -1) : [];
   const above = hi - b1 > 1e-6 ? evenly(b1, hi, m.outer).slice(1) : [];
   return { positions: [...below, ...band, ...above], inBand: band.length, band: { lo: b0, hi: b1 } };
+}
+
+/** Bars at least this far apart, centre to centre, m: the bar and the clear gap §25.2.1 asks. */
+export const barPitch = (dia: number): number => dia / 1000 + Math.max(0.025, dia / 1000);
+
+/** A cap's mesh with its bands: `count` bars evenly across each band, the mesh's bars kept a pitch clear of them. */
+function pileBandSpan(m: FootingMesh, b: NonNullable<FootingMesh['bands']>, lo: number, hi: number): MeshSpan {
+  const db = m.dia / 1000, pitch = barPitch(m.dia);
+  const spans = b.at.map((c) => ({ lo: Math.max(lo, c - b.width / 2 + db / 2), hi: Math.min(hi, c + b.width / 2 - db / 2) }));
+  const inside = spans.flatMap((s) => (b.count === 1 ? [(s.lo + s.hi) / 2] : Array.from({ length: b.count }, (_, i) => s.lo + ((s.hi - s.lo) * i) / (b.count - 1))));
+  const outside = evenly(lo, hi, m.spacing).filter((p) => spans.every((s) => p < s.lo - pitch + 1e-9 || p > s.hi + pitch - 1e-9));
+  return { positions: [...outside, ...inside].sort((p, q) => p - q), inBand: inside.length };
 }
 
 /** Bars in a layer and their area, cm², with the band's. */
@@ -50,7 +63,7 @@ export function meshArea(dir: 'x' | 'y', a: Pick<FootingAdopted, 'B' | 'L' | 'ex
 const cmText = (s: number) => String(Math.round(s * 1000) / 10);
 
 export const meshText = (m: FootingMesh): string => (m.dia > 0
-  ? `Ø${m.dia} c/${cmText(m.spacing)}${m.outer ? ` (${cmText(m.outer)})` : ''}`
+  ? `Ø${m.dia} c/${cmText(m.spacing)}${m.outer ? ` (${cmText(m.outer)})` : ''}${m.bands?.count ? ` + ${m.bands.at.length}×${m.bands.count}Ø${m.dia}` : ''}`
   : '—');
 
 /**

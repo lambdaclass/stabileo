@@ -1,3 +1,4 @@
+import type { SoilStratum } from '../model/geotechnical';
 import type { CheckLine, ComboTable, RowStatus, StepGroup } from './types';
 import type { BeamRow } from './beam-row';
 import type { LineLayout } from './beam-line';
@@ -78,7 +79,11 @@ export type FoundationSystem = 'auto' | 'footings' | 'strips' | 'mat' | 'piles';
 export const FOUNDATION_SYSTEMS: readonly FoundationSystem[] = ['auto', 'footings', 'strips', 'mat', 'piles'];
 
 /** The piles a column is founded on: diameter and length, m, the allowable load of one, kN, from the soil profile's strata or presumed, and the group's efficiency. */
-export interface PileSpec { diameter: number; length: number; capacity: number; source: 'strata' | 'presumed'; efficiency: number }
+export interface PileSpec {
+  diameter: number; length: number; capacity: number; source: 'strata' | 'layers' | 'presumed'; efficiency: number;
+  /** The project's own layers of ground, depths from the ground at the column's foot: a cap founded deeper reads its piles from its own underside down. */
+  strata?: readonly SoilStratum[];
+}
 
 /** A pile cap's piles as adopted: where each stands from the cap's centroid, m, their diameter and length, and each pile's bars and hoops. */
 export interface CapPiles { diameter: number; length: number; at: Array<[number, number]>; bars: { count: number; dia: number }; hoop: { dia: number; spacing: number } }
@@ -87,15 +92,21 @@ export interface CapPiles { diameter: number; length: number; at: Array<[number,
 export interface CapResult {
   piles: Array<{ x: number; y: number; service: number; factored: number }>;
   diameter: number; length: number; capacity: number; source: PileSpec['source']; efficiency: number; spacing: number;
+  /** How deep the pile heads stand under the column's foot, m: the layers are read from there down. */
+  head: number;
+  /** The deepest layer stated, m below the column's foot, when the pile's toe goes past it: no tip is counted there and the cap fails. */
+  beyond?: number;
   /** The cap's top cover, m: the footings' own; its bottom bars sit over the pile heads instead (`FootingRow.cover`). */
   topCover: number;
   group: { service: number; capacity: number };
   /** The cap is deep (every pile within twice the cap's depth over the pile heads of the column's axis, §13.2.6.5): read by struts and ties (ch. 23). */
   deep: boolean;
-  stm: { z: number; theta: number; tx: number; ty: number; asx: number; asy: number; node: { column: number; columnCap: number; pile: number; pileCap: number } } | null;
+  stm: { z: number; theta: number; tx: number; ty: number; asx: number; asy: number; /** Whether the ties along each axis lie in bands over lines of piles. */ banded: { x: boolean; y: boolean }; /** The steel each tie is read with, cm²: its bands' bars, or the whole mesh where there are none. */ tie: { x: number; y: number }; /** The mesh's steel between the bands, as laid, cm², where two bands or more leave room between them. */ mesh: { x: number | null; y: number | null }; /** Each band's bars centre to centre, m, and the least the code allows. */ pitch: { x: { at: number; least: number } | null; y: { at: number; least: number } | null }; node: { column: number; columnCap: number; pile: number; pileCap: number } } | null;
   shear: Array<{ dir: 'x' | 'y'; at: number; vu: number; phiVc: number }>;
   punching: Array<{ at: string; vu: number; phiVc: number; bo: number; combo: string }>;
   section: { pu: number; phiPn: number; as: number; asMin: number };
+  /** A pile pulled: its largest service and factored pull, kN, the allowable shaft friction of one pile (null where the ground is not stated by depth), the share of it the criterion counts in tension and what that gives, and its bars' φ·As·fy. */
+  tension: { service: number; factored: number; shaft: number | null; share: number; capacity: number; phiTn: number };
   /** The ties between caps where no strap balances the cap: their force, kN (a share of the largest column load), and steel, cm². */
   tie: { force: number; as: number } | null;
 }
@@ -188,7 +199,11 @@ export type FootingSizing = 'full' | 'minimum' | 'reinforce';
 export const FOOTING_SIZINGS: readonly FootingSizing[] = ['full', 'minimum', 'reinforce'];
 
 /** A bottom layer: bars `dia` at `spacing`, m; a short-direction layer of a rectangular footing at `outer` outside its central band (§13.3.3.3). */
-export interface FootingMesh { dia: number; spacing: number; outer?: number }
+export interface FootingMesh {
+  dia: number; spacing: number; outer?: number;
+  /** A pile cap's bands over its lines of piles: each centred `at` m across the layer, `width` wide, with `count` bars in place of the mesh's there. */
+  bands?: { at: number[]; width: number; count: number };
+}
 
 export interface FootingDowels { count: number; dia: number }
 
@@ -319,6 +334,8 @@ export interface FootingRow {
   founding: number;
   /** The column's stretch below its foot down to the footing's top, m: the pedestal the common founding level asks for. */
   pedestal: number;
+  /** That pedestal's section, m, wider than the column it carries; absent with none. */
+  pedestalSection?: { b: number; h: number } | null;
   /** A strip or a mat: its columns, strips and bands. */
   group?: GroupResult;
   /** A pile cap: its piles and how it reads. */

@@ -33,7 +33,7 @@
   const yLayer = $derived(det.layers.find((l) => l.dir === 'y'));
   const legOf = (pts: Array<[number, number]>) => Math.abs(pts.find((q) => Math.abs(q[1]) > 1e-9)?.[1] ?? 0);
   const hookUp = $derived(xLayer ? legOf(xLayer.shape.pts) : 0);
-  const topLeg = $derived(det.top ? legOf(det.top.shape.pts) : 0);
+
 </script>
 
 <figure class="rft" data-testid="rc-footing-figure">
@@ -56,12 +56,12 @@
           {:else}<line x1={PX(p)} y1={PY(l.from)} x2={PX(p)} y2={PY(l.to)} class="bar y" data-testid="rc-footing-bar-y" />{/if}
         {/each}
       {/each}
-      {#if det.top}
-        {#each det.top.positions as p, i (i)}
-          {#if det.top.dir === 'x'}<line x1={PX(det.top.from)} y1={PY(p)} x2={PX(det.top.to)} y2={PY(p)} class="bar top" data-testid="rc-footing-bar-top" />
-          {:else}<line x1={PX(p)} y1={PY(det.top.from)} x2={PX(p)} y2={PY(det.top.to)} class="bar top" data-testid="rc-footing-bar-top" />{/if}
+      {#each det.tops as t, j (j)}
+        {#each t.positions as p, i (i)}
+          {#if t.dir === 'x'}<line x1={PX(t.from)} y1={PY(p)} x2={PX(t.to)} y2={PY(p)} class="bar top" data-testid="rc-footing-bar-top" />
+          {:else}<line x1={PX(p)} y1={PY(t.from)} x2={PX(p)} y2={PY(t.to)} class="bar top" data-testid="rc-footing-bar-top" />{/if}
         {/each}
-      {/if}
+      {/each}
       {#each det.straps as st, i (i)}
         <rect x={PX(st.rect.x0)} y={PY(st.rect.y1)} width={(st.rect.x1 - st.rect.x0) * k} height={(st.rect.y1 - st.rect.y0) * k} class="strap" data-testid="rc-footing-strap" />
         <text x={PX((st.rect.x0 + st.rect.x1) / 2)} y={PY(st.rect.y1) - 3} class="lbl small">{st.axis === 'x' ? `→ ${st.partner}` : ''}</text>
@@ -94,11 +94,14 @@
       {#if xLayer}
         <polyline points={[...(xLayer.ends[0] ? [[xLayer.from, xLayer.z + hookUp]] : []), [xLayer.from, xLayer.z], [xLayer.to, xLayer.z], ...(xLayer.ends[1] ? [[xLayer.to, xLayer.z + hookUp]] : [])].map(([x, z]) => `${SX(x!)},${SZ(z!)}`).join(' ')} class="bar x" data-testid="rc-footing-section-x" />
       {/if}
-      {#if det.top && det.top.dir === 'x'}
-        <polyline points={[[det.top.from, det.top.z - topLeg], [det.top.from, det.top.z], [det.top.to, det.top.z], [det.top.to, det.top.z - topLeg]].map(([x, z]) => `${SX(x!)},${SZ(z!)}`).join(' ')} class="bar top" data-testid="rc-footing-section-top" />
-      {:else if det.top}
-        {#each det.top.positions as p, i (i)}<circle cx={SX(p)} cy={SZ(det.top.z)} r={Math.max(1.5, (det.top.dia / 2000) * ks)} class="dot top" />{/each}
-      {/if}
+      {#each det.tops as t, j (j)}
+        {#if t.dir === 'x'}
+          {@const leg = legOf(t.shape.pts)}
+          <polyline points={[[t.from, t.z - leg], [t.from, t.z], [t.to, t.z], [t.to, t.z - leg]].map(([x, z]) => `${SX(x!)},${SZ(z!)}`).join(' ')} class="bar top" data-testid="rc-footing-section-top" />
+        {:else}
+          {#each t.positions as p, i (i)}<circle cx={SX(p)} cy={SZ(t.z)} r={Math.max(1.5, (t.dia / 2000) * ks)} class="dot top" />{/each}
+        {/if}
+      {/each}
       {#each det.lines.filter((ln) => ln.axis === 'x') as ln, i (i)}
         <line x1={SX(ln.at)} y1={PAD - 6} x2={SX(ln.at)} y2={secH - PAD + 6} class="pline" />
       {/each}

@@ -125,14 +125,31 @@ describe('the notice over the model', () => {
     expect(html).toContain('ENGINE B');
   });
 
-  it('leaves a hidden kind out, and never a refusal', async () => {
+  it('leaves a hidden kind out, and never a refusal, which can still be closed for the session', async () => {
     const { noticePrefs } = await import('../notice-prefs.svelte');
     noticePrefs.hide('conditioning');
     noticePrefs.hide('secondOrderUnchecked');
     expect(await banner([d('LIN-SECOND-ORDER-UNBOUNDED'), d('NUM-INVARIANCE')])).not.toContain('containment-notice');
     const refused = await banner([d('NUM-INVARIANCE'), d('BU-BOUND', 'error')]);
     expect(refused).toContain('data-level="blocking"');
-    expect(refused).not.toContain('containment-dismiss');
+    expect(refused).toContain('containment-dismiss');
     expect(refused).not.toContain('notice-hide-kind');
+  });
+});
+
+describe('the app\'s own notices on the board', () => {
+  it('sit with the engine\'s, most severe first, each kind once', async () => {
+    const { boardNotices } = await import('../result-notices');
+    const engine = [{ kind: 'conditioning' as const, level: 'warning' as const, details: ['x'] }];
+    const app = [{ kind: 'underReview' as const, level: 'info' as const, details: [] }, { kind: 'outdated' as const, level: 'blocking' as const, details: [] }];
+    expect(boardNotices(engine, app).map((n) => n.kind)).toEqual(['outdated', 'conditioning', 'underReview']);
+    expect(boardNotices([{ kind: 'outdated', level: 'warning', details: ['engine'] }], app).filter((n) => n.kind === 'outdated')).toHaveLength(1);
+  });
+
+  it('can hide the review notice for good, never the out-of-date one', async () => {
+    const { HIDEABLE_KINDS } = await import('../result-notices');
+    expect(HIDEABLE_KINDS).toContain('underReview');
+    expect(HIDEABLE_KINDS).not.toContain('outdated');
+    expect(HIDEABLE_KINDS).not.toContain('withheld');
   });
 });

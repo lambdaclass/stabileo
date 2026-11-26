@@ -1,7 +1,8 @@
 /**
  * A pile's allowable capacity from the strata it crosses: the allowable shaft friction of each
  * stratum over the pile's perimeter and the length within it, and the allowable tip resistance
- * of the stratum its tip stands in over its section. The strata's values are allowable ones, as a
+ * of the stratum its tip stands in over its section, the pile's head `head` m below the top of
+ * the first stratum. The strata's values are allowable ones, as a
  * soil report gives them, so no further factor is applied here.
  *
  * And how a cap lays its piles out: by count, at a spacing between centres.
@@ -11,18 +12,18 @@ import type { PileLayout } from '../footing';
 
 export interface PileCapacity { shaft: number; tip: number; total: number; tipStratum: string | null; beyondStrata: boolean }
 
-export function pileCapacity(strata: readonly SoilStratum[], diameter: number, length: number): PileCapacity {
-  const perimeter = Math.PI * diameter, area = (Math.PI * diameter * diameter) / 4;
+export function pileCapacity(strata: readonly SoilStratum[], diameter: number, length: number, head = 0): PileCapacity {
+  const perimeter = Math.PI * diameter, area = (Math.PI * diameter * diameter) / 4, toe = head + length;
   let depth = 0, shaft = 0, tip = 0, tipStratum: string | null = null;
   for (const s of strata) {
-    const within = Math.max(0, Math.min(length, depth + s.thickness) - depth);
+    const within = Math.max(0, Math.min(toe, depth + s.thickness) - Math.max(head, depth));
     shaft += s.shaftFrictionKPa * perimeter * within;
-    if (length <= depth + s.thickness + 1e-9 && tipStratum === null) { tip = s.tipResistanceKPa * area; tipStratum = s.name; }
+    if (toe <= depth + s.thickness + 1e-9 && tipStratum === null) { tip = s.tipResistanceKPa * area; tipStratum = s.name; }
     depth += s.thickness;
-    if (depth >= length) break;
+    if (depth >= toe) break;
   }
   // A pile longer than the strata stated stands in ground nobody described: no tip is counted.
-  return { shaft, tip, total: shaft + tip, tipStratum, beyondStrata: length > depth + 1e-9 };
+  return { shaft, tip, total: shaft + tip, tipStratum, beyondStrata: toe > depth + 1e-9 };
 }
 
 /** Pile centres in the cap's plan, about its centre: 1, 2 in a line, 3 in a triangle, 4 square, more in two rows. */

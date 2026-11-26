@@ -61,8 +61,10 @@ it('known wrong result: #2199 the shared notice reaches generated loads and inde
     '../../App.svelte', '../pro/ProAutoLoadsDialog.svelte', '../pro/ProFloorLoadSection.svelte',
     '../pro/ProDesignTab.svelte', '../pro/desk/DesignDesk.svelte', '../pro/desk/DeskInspector.svelte', '../pro/design/RebarWorkspaceHeader.svelte',
     '../pro/design/SheetsPanel.svelte', '../pro/design/MemoriaDialog.svelte', '../pro/ProOtherCodesPanel.svelte', '../pro/desk/codes/ForeignCodesEditor.svelte',
-  ]) expect(/<OutdatedNotice[^>]*\baudit=/.test(source(path)), path).toBe(true);
+  ]) expect(/<OutdatedNotice[^>]*\baudit=/.test(source(path)) || (path === '../../App.svelte' && boardCarriesAudit(source(path))), path).toBe(true);
 });
+
+const boardCarriesAudit = (app: string) => /kind: 'underReview'/.test(app) && /underAudit\(/.test(app) && /<ContainmentBanner[^>]*\bextra=\{appNotices\}/.test(app);
 
 it('known wrong result: #2199 the audit notice is translated in every shipped locale including Hungarian', async () => {
   const dictionaries = import.meta.glob('../../lib/i18n/locales/{en,es,pt,de,fr,tr,hu}.ts');

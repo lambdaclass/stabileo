@@ -13,13 +13,17 @@
   import RcPunchingSvg from './RcPunchingSvg.svelte';
   import RcResize from './RcResize.svelte';
   import RcFootingDetail from './RcFootingDetail.svelte';
+  import RcStairDetail from './RcStairDetail.svelte';
+  import RcFixedPoint from './RcFixedPoint.svelte';
   import { showRebarOf } from '../../../lib/store/rc-rebar-3d.svelte';
 
   let { row: r, rows, code, endZones, slabCover, onleave }: { row: SheetRow; rows: SheetRows; code: SheetCode; endZones: boolean; slabCover: number; onleave: () => void } = $props();
 </script>
 
 {#if r.family !== 'punching'}<button type="button" class="rcs-btn rcw-3d" onclick={() => { showRebarOf(r); onleave(); }} data-testid="rc-view-3d">{t('rcSheets.r3d.show')}</button>{/if}
-{#if r.family === 'footing'}
+{#if r.family === 'stair'}
+  <RcStairDetail row={r} />
+{:else if r.family === 'footing'}
   {#if r.status === 'fail' && !r.isAdopted}<RcResize row={r} walls={rows.wall} {onleave} />{/if}
   <RcFootingDetail row={r} {code} />
 {:else}
@@ -27,6 +31,7 @@
   {#if r.family !== 'punching'}<RcRowEditor row={r} />{/if}
 {/if}
 {#if r.family === 'column'}
+  <RcFixedPoint row={r} />
   <div class="rcw-secs">
     <RcColumnSection row={r} all={rows.column} {code} {endZones} />
     <RcColumnElevation row={r} {code} {endZones} />
@@ -39,10 +44,12 @@
   <div class="rcw-secs"><RcPunchingSvg fig={r.figure} name={r.name} /></div>
 {/if}
 <RcChecks lines={r.verifications} kind={r.family === 'beam' || r.family === 'column' ? r.family : undefined} />
-<details open={r.status === 'fail'}>
-  <summary>{t('rcSheets.combo.title')} ({r.combos.rows.length})</summary>
-  <RcCombos table={r.combos} />
-</details>
+{#if 'combos' in r}
+  <details open={r.status === 'fail'}>
+    <summary>{t('rcSheets.combo.title')} ({r.combos.rows.length})</summary>
+    <RcCombos table={r.combos} />
+  </details>
+{/if}
 <details open>
   <summary>{t('rcSheets.steps')}</summary>
   <RcSteps groups={r.steps} />

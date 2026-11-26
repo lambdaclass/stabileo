@@ -26,7 +26,7 @@ import { physicalDataOf, type PhysicalData } from '../model/physical';
 import { levelAt } from '../model/physical/recognize';
 import {
   DEFAULT_PLATE_MESH, externalFeatures, gridOfSpec, memberChains, meshQuality, onOutline, plateGeometry, plateKindOf, plateLoops, plateMeshInput, plateProblem,
-  plateSignature, plateSurfaceOf, type MeshQuality, type PlateMeshSpec, type PlateProblem, type PlateSurface,
+  PLATE_FOOTPRINTS, plateSignature, plateSurfaceOf, type MeshQuality, type PlateMeshSpec, type PlateProblem, type PlateSurface,
 } from '../model/physical/plate';
 import { cross, type Vec3 } from '../model/edit/affine';
 import { generateMesh, MAX_MESH_CELLS, MAX_MESH_POINTS, type MeshOutput } from '../model/edit/mesher';
@@ -158,7 +158,7 @@ function footprintsOf(e: PlateEntry, geo: NonNullable<ReturnType<typeof plateGeo
 }
 
 const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
-const FOOTPRINTS = '#fp:';
+const FOOTPRINTS = PLATE_FOOTPRINTS;
 
 /** What a mesh is made from (`plateSignature`), with the column sections it represents. */
 function signatureOf(e: PlateEntry, f: NonNullable<ReturnType<typeof featuresOf>>, spec: PlateMeshSpec): string {

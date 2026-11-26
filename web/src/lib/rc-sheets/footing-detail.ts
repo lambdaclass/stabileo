@@ -1,7 +1,7 @@
 import { hookedStraight, type BarShape, type BendRules } from './shape';
 import { DOWEL_INSET, columnRects, dowelShape } from './footing-dowels';
 import { meshSpan, type MeshSpan } from './footing-mesh';
-import type { FootingRow } from './footing-types';
+import type { FootingMesh, FootingRow } from './footing-types';
 
 export interface FootingLayerBars extends MeshSpan {
   dir: 'x' | 'y'; dia: number;
@@ -23,8 +23,8 @@ export interface FootingDetail {
   /** A combined footing's second column. */
   second: Rect | null;
   layers: FootingLayerBars[];
-  /** A combined footing's top bars, along its columns' line, hooked down at both ends. */
-  top: FootingLayerBars | null;
+  /** The top bars, hooked down at both ends: a combined footing's along its columns' line, a pile cap's along each axis a load off its piles bends it upward on, the outer layer first. */
+  tops: FootingLayerBars[];
   /** The footing's sides at a property line: along X at x = `at`, or along Y at y = `at`, m. */
   lines: Array<{ axis: 'x' | 'y'; at: number }>;
   /** Each strap beam over the footing: its plan from the column to past the footing's edge toward its partner, m, and the partner's name. */
@@ -66,13 +66,19 @@ export function footingDetail(r: Pick<FootingRow, 'adopted' | 'cover' | 'layers'
     const xs = [column.x0 + DOWEL_INSET, column.x1 - DOWEL_INSET], inward = xs.map((x, i) => Math.abs(x + (i === 0 ? -1 : 1) * out.foot) > hx + 1e-9);
     dowels = { count: dw.count, dia: dw.dia, shape: out.shape, turned: turned.shape, foot: out.foot, rise: out.rise, z: out.z, offset: place.offset, crankAt: out.crankAt, xs, inward };
   }
-  let top: FootingLayerBars | null = null;
-  const t = a.top, axis = r.combined?.axis;
-  if (t && axis && t.dia > 0 && t.spacing > 0) {
-    const len = (axis === 'x' ? a.B : a.L) - 2 * c, db = t.dia / 1000;
-    const shape = hookedStraight(0, len, 0, t.dia, R.mandrel(t.dia, 'longitudinal'), [true, true], -1, R.extension(t.dia, 90, 'longitudinal'));
-    top = { dir: axis, dia: t.dia, z: a.h - c - db / 2, from: -len / 2, to: len / 2, hooked: true, ends: [true, true], shape, ...meshSpan(axis, { B: a.B, L: a.L, ex: 0, ey: 0 }, { dia: t.dia, spacing: t.spacing }, c) };
-  }
+  const topLayer = (axis: 'x' | 'y', t: FootingMesh, below: number): FootingLayerBars => {
+    const len = (axis === 'x' ? a.B : a.L) - 2 * c, db = t.dia / 1000, z = a.h - c - below - db / 2;
+    const bent = (ext: number) => hookedStraight(0, len, 0, t.dia, R.mandrel(t.dia, 'longitudinal'), [true, true], -1, ext);
+    const full = R.extension(t.dia, 90, 'longitudinal'), reach = z + Math.min(...bent(full).pts.map((p) => p[1]));
+    // A shallow footing's legs would otherwise reach through the bottom cover.
+    const shape = reach < c + db / 2 ? bent(Math.max(0, full - (c + db / 2 - reach))) : bent(full);
+    return { dir: axis, dia: t.dia, z, from: -len / 2, to: len / 2, hooked: true, ends: [true, true], shape, ...meshSpan(axis, { B: a.B, L: a.L, ex: 0, ey: 0 }, { dia: t.dia, spacing: t.spacing }, c) };
+  };
+  const laid = (m: FootingMesh | undefined): m is FootingMesh => !!m && m.dia > 0 && m.spacing > 0;
+  const tops: FootingLayerBars[] = [];
+  const axis = r.combined?.axis;
+  if (axis && laid(a.top)) tops.push(topLayer(axis, a.top, 0));
+  else if (a.piles && a.tops) for (const dir of ['x', 'y'] as const) { const m = a.tops[dir]; if (laid(m)) tops.push(topLayer(dir, m, tops.reduce((t, l) => t + l.dia / 1000, 0))); }
   const anchor = r.demand.edge?.anchor ?? [0, 0];
   const lines: FootingDetail['lines'] = [];
   if (anchor[0]) lines.push({ axis: 'x', at: (anchor[0] * a.B) / 2 });
@@ -86,5 +92,5 @@ export function footingDetail(r: Pick<FootingRow, 'adopted' | 'cover' | 'layers'
       : { x0: cx - s.b / 2, x1: cx + s.b / 2, y0: Math.min(cy, past), y1: Math.max(cy, past) };
     return { axis: s.axis, rect, b: s.b, h: s.h, toward, partner: s.partner, name: s.line?.name ?? '' };
   });
-  return { B: a.B, L: a.L, h: a.h, cover: c, column, second, layers, top, lines, straps, dowels };
+  return { B: a.B, L: a.L, h: a.h, cover: c, column, second, layers, tops, lines, straps, dowels };
 }

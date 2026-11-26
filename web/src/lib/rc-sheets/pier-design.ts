@@ -92,8 +92,7 @@ export function zoneBarsInPlan(z: ZoneBars): Array<P & { dia: number }> {
 export function legBarsInPlan(l: LegBars): Array<P & { dia: number; boundary: boolean }> {
   const { u, n, mid, L } = unit(l.wall);
   const own = wallVerticalBars(L, l.wall.thickness, l.cover, l.adopted);
-  const nDist = (l.adopted.curtains === 2 ? 2 : 1) * Math.max(2, Math.floor(L / l.adopted.vertical.spacing) + 1);
-  return own.map((b, i) => ({ x: mid.x + b.x * u.x + b.y * n.x, y: mid.y + b.x * u.y + b.y * n.y, dia: i < nDist ? l.adopted.vertical.diameter : l.adopted.boundary!.diameter, boundary: i >= nDist }));
+  return own.map((b) => ({ x: mid.x + b.x * u.x + b.y * n.x, y: mid.y + b.x * u.y + b.y * n.y, dia: b.boundary ? l.adopted.boundary!.diameter : l.adopted.vertical.diameter, boundary: !!b.boundary }));
 }
 
 /** The pier's bars about its centroid: the columns' and the walls' outside the columns, a wall bar dropped where another already stands. */

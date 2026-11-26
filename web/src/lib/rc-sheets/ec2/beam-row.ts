@@ -3,7 +3,7 @@ import { barArea, faceLayout, groupsArea, moreStirrup, proposeBeamFace, proposeS
 import { beamBarWhere, hangerBar, peakSection, searchFaces } from '../beam-row';
 import { SECTION_NAMES, type BeamContext, type BeamDemand, type BeamRow, type FlexureCheck, type SectionName } from '../beam-row';
 import type { Fmt } from '../format';
-import { type BarGroup, type BeamAdopted, type Signed, isGenerous } from '../types';
+import { type BarGroup, type BeamAdopted, type Signed, check, isGenerous } from '../types';
 import { GAMMA_G, flexuralSteel, matOf, minSteel, shearCapacity, type Ec2Set, type FlexReq, type Mat } from './basis';
 import { barsAt, beamCapacity, geomOf, hoopPerimeter, tensionWidth } from './beam-section';
 import { crackFace, interactionStrut, skinBars, torsionGeom, torsionMax, torsionSteel, type CrackRead, type Skin, type TorsionGeom } from './beam-checks';
@@ -232,9 +232,28 @@ export function makeBeamRow(set: Ec2Set) {
       ev = evaluate(set, d, c, proposed, req, m);
       if (faces) loop();
     }
+    for (let k = 0; !adopted && ev.all && k < MAX_ITERATIONS; k++) {
+      const bad = beamCombos(set, d, c, proposed, req, m, fmt).rows.filter((r) => !r.ok);
+      if (!bad.length) break;
+      const next: BeamAdopted = JSON.parse(JSON.stringify(proposed));
+      const sd = next.stirrups.dia;
+      if (bad.some((r) => r.short.bottom)) next.bottom = bumpFace(next.bottom, d, c, sd);
+      if (bad.some((r) => r.short.top)) next.top = bumpFace(next.top, d, c, sd);
+      if (bad.some((r) => r.short.stirrups)) next.stirrups = moreStirrup(next.stirrups, c, Math.min(0.15, roundDown(req.sMax))) ?? { ...next.stirrups, legs: next.stirrups.legs + 2 };
+      if (JSON.stringify(next) === JSON.stringify(proposed)) break;
+      iterations++;
+      proposed = next;
+      ev = evaluate(set, d, c, proposed, req, m);
+      loop();
+    }
     const a = adopted ?? proposed;
     const e = adopted ? evaluate(set, d, c, a, req, m) : ev;
-    const verifications = beamVerifications(set, d, req, e, a, m, fmt);
+    const combos = beamCombos(set, d, c, a, req, m, fmt);
+    const worst = combos.rows.reduce<(typeof combos.rows)[number] | undefined>((w, x) => (!w || x.ratio > w.ratio ? x : w), undefined);
+    const verifications = [
+      ...beamVerifications(set, d, req, e, a, m, fmt),
+      ...(worst ? [check('rcSheets.v.everyCombo', worst.ok, { clause: '6.1, 6.2, 6.3', demand: worst.combo, ratio: worst.ratio })] : []),
+    ];
     const allOk = verifications.every((v) => v.ok);
     const generous = isGenerous(verifications);
     const gPos = req.items.filter((x) => x.sign === 'pos').reduce((w, x) => (x.req > w.req + 1e-9 || (Math.abs(x.req - w.req) <= 1e-9 && x.mu > w.mu) ? x : w));
@@ -248,7 +267,7 @@ export function makeBeamRow(set: Ec2Set) {
         ...(req.compTop > 0 || req.compBottom > 0 ? { compression: { top: req.compTop, bottom: req.compBottom } } : {}),
       },
       proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : iterations, flexure: e.flex, verifications,
-      combos: beamCombos(set, d, c, a, req, m, fmt),
+      combos: { headers: combos.headers, rows: combos.rows.map(({ short: _, ...r }) => r) },
       status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous,
       steps: beamSteps(set, d, c, req, e, a, m, fmt, { gPos, gNeg, adopted: !!adopted, iterations, verified: ev.all }),
     };

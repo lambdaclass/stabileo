@@ -177,15 +177,22 @@ export function extraIn(a: Pick<FootingAdopted, 'extra'>, dir: Axis, face: 'bott
   return t;
 }
 
-/** Past the outer columns' inner faces to the edges, the least of all four, m: where the bottom bars, hooked at the ends, develop. */
+/** Past the outer columns' inner faces to the edges, the least of all four, m: where the bottom bars, hooked at the ends, develop. A direction with no cantilever on either side develops them from its middle, where its span moment peaks, to the edge. */
 export function groupRoom(cols: readonly Placed[], a: Pick<FootingAdopted, 'B' | 'L'>, cover: number): number {
   const room = (dir: Axis) => {
     const S = dir === 'x' ? a.B : a.L;
     const pos = (p: Placed) => (dir === 'x' ? p.x : p.y), half = (p: Placed) => (dir === 'x' ? p.b : p.h) / 2;
-    return Math.min(S / 2 - Math.max(...cols.map((p) => pos(p) - half(p))), S / 2 + Math.min(...cols.map((p) => pos(p) + half(p))));
+    const hiOver = S / 2 - Math.max(...cols.map((p) => pos(p) + half(p))), loOver = S / 2 + Math.min(...cols.map((p) => pos(p) - half(p)));
+    const hi = hiOver > NO_CANTILEVER ? S / 2 - Math.max(...cols.map((p) => pos(p) - half(p))) : Infinity;
+    const lo = loOver > NO_CANTILEVER ? S / 2 + Math.min(...cols.map((p) => pos(p) + half(p))) : Infinity;
+    const held = Math.min(hi, lo);
+    return Number.isFinite(held) ? held : S / 2;
   };
   return Math.min(room('x'), room('y')) - cover;
 }
+
+/** A side whose edge is this close to its outer columns' faces has no cantilever past them, m: no moment to develop there, its bars end hooked at the edge. */
+const NO_CANTILEVER = 0.05;
 
 /** The flexural modulus the strips' rigidity and springs are read with, kPa: Ec = 4700·√f'c on a cracked inertia of 0,7 (Cim. §7). */
 export const groupModulus = (fc: number): number => 0.7 * 4.7e6 * Math.sqrt(fc);

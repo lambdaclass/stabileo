@@ -282,7 +282,7 @@ describe('the options the design takes before it starts, in the design data', ()
 
   it('each changes the sheets, leaves them out of date and proposes again what was adopted from a proposal', async () => {
     frame();
-    const conc = [...modelStore.materials.values()][0]!.id;
+    const conc = [...modelStore.materials.values()].find((m) => m.name === 'H-30')!.id;
     const [a, b] = [...modelStore.nodes.values()].filter((n) => (n.z ?? 0) > 2.9 && n.x < 5.1).sort((p, q) => p.x - q.x);
     const c = modelStore.addNode(5, 4, 3), dd = modelStore.addNode(0, 4, 3);
     modelStore.addQuad([a!.id, b!.id, c, dd], conc, 0.15);

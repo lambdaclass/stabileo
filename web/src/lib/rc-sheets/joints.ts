@@ -1,6 +1,7 @@
 import { seismicFrameChecks, type FrameMember } from '../engine/design/seismic/frame-checks';
 import type { SeismicDesignSettings } from '../model/seismic-design';
 import type { BarGroup } from './types';
+import { groupsArea } from './bars';
 import type { BeamRow } from './beam-row';
 import { columnBars, type ColumnRow } from './column-row';
 import type { Fmt } from './format';
@@ -20,6 +21,11 @@ export function columnJointSection(r: ColumnRow, fc: number, fy: number, cover: 
   };
 }
 
+/** The bottom bars of the beam's section that holds most: the frame checks take one bottom face, and more steel there asks more of the column and the joint. */
+export function mostBottom(at: (s: 'start' | 'span' | 'end') => { top: BarGroup[]; bottom: BarGroup[] }): BarGroup[] {
+  return (['start', 'span', 'end'] as const).map((s) => at(s).bottom).reduce((w, x) => (groupsArea(x) > groupsArea(w) + 1e-12 ? x : w));
+}
+
 /** The frame's joints as the frame checks read them, and each column row's member id among them. */
 export function frameJoints(columns: ColumnRow[], beams: BeamRow[], nodes: ReadonlyMap<number, P>, c: JointContext): { joints: ReturnType<typeof seismicFrameChecks>['joints']; columnId: Map<ColumnRow, number> } {
   const members: FrameMember[] = [];
@@ -32,7 +38,7 @@ export function frameJoints(columns: ColumnRow[], beams: BeamRow[], nodes: Reado
     members.push({
       id: -(i + 1), kind: 'beam', role: 'primary', nodeI: line.startNode, nodeJ: line.endNode, L: b.length,
       b: b.b, h: b.h, cover: c.beamCover, fc: c.beamFc(b), fy: c.fy, stirrupDia: st.dia,
-      r: { regions: { topStartLayers: layers(at('start').top), topEndLayers: layers(at('end').top), bottomSpanLayers: layers(at('span').bottom), stirrupsSupport: stirrups }, stirrups },
+      r: { regions: { topStartLayers: layers(at('start').top), topEndLayers: layers(at('end').top), bottomSpanLayers: layers(mostBottom(at)), stirrupsSupport: stirrups }, stirrups },
       ...(b.demand.faces ? { faceHalf: [b.demand.faces.start, b.demand.faces.end] as [number, number] } : {}),
     });
   });

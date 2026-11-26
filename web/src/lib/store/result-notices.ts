@@ -5,16 +5,20 @@
  * never be hidden.
  */
 export const NOTICE_KINDS = [
-  'withheld', 'secondOrder', 'secondOrderUnchecked', 'largeDisplacement', 'conditioning', 'shellMesh', 'limitation', 'selfCheck', 'discretization',
+  'withheld', 'outdated', 'secondOrder', 'secondOrderUnchecked', 'largeDisplacement', 'conditioning', 'shellMesh', 'limitation', 'selfCheck', 'discretization', 'underReview',
 ] as const;
 export type NoticeKind = typeof NOTICE_KINDS[number];
 export type NoticeLevel = 'blocking' | 'warning' | 'info';
-export const HIDEABLE_KINDS: readonly NoticeKind[] = NOTICE_KINDS.filter((k) => k !== 'withheld');
+export const HIDEABLE_KINDS: readonly NoticeKind[] = NOTICE_KINDS.filter((k) => k !== 'withheld' && k !== 'outdated');
 
 export interface ResultNotice {
   kind: NoticeKind;
   level: NoticeLevel;
   details: string[];
+  /** The sentence the row says, where it is not the kind's own (a count, a name). */
+  summary?: string;
+  /** What tells this notice from an earlier one of its kind when the board was closed on it: a new one shows the board again. */
+  key?: string;
 }
 
 const KIND_BY_PHASE: Record<string, NoticeKind> = {
@@ -38,7 +42,7 @@ export function knownIssueKind(d: { phase?: string; severity?: string }): Notice
 
 export function kindLevel(kind: NoticeKind): NoticeLevel {
   if (kind === 'withheld') return 'blocking';
-  return kind === 'secondOrderUnchecked' || kind === 'discretization' ? 'info' : 'warning';
+  return kind === 'secondOrderUnchecked' || kind === 'discretization' || kind === 'underReview' ? 'info' : 'warning';
 }
 
 /**
@@ -68,4 +72,9 @@ export function topLevel(notices: readonly ResultNotice[]): NoticeLevel | null {
 
 export function visibleNotices(notices: readonly ResultNotice[], isHidden: (kind: NoticeKind) => boolean): ResultNotice[] {
   return notices.filter((n) => n.level === 'blocking' || !isHidden(n.kind));
+}
+
+/** The engine's notices and the app's own (results out of date, features under review) as one list, most severe first. */
+export function boardNotices(engine: readonly ResultNotice[], app: readonly ResultNotice[]): ResultNotice[] {
+  return sortNotices([...engine, ...app.filter((n) => !engine.some((e) => e.kind === n.kind))]);
 }

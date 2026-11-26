@@ -10,6 +10,7 @@ import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
 import { sheetRowsSteps, setSheetCode, type SheetProgress } from '../rc-sheets.svelte';
 import { setFoundationSystem } from '../rc-sheets-footings';
+import { footingPreview } from '../rc-sheets-footing-preview.svelte';
 import { sheetsProgress, sheetsSecondsLeft } from '../rc-sheets-progress.svelte';
 import { FOUNDATION_SYSTEMS } from '../../rc-sheets/footing-types';
 import { makeFmt } from '../../rc-sheets/format';
@@ -48,6 +49,7 @@ describe('a sheets run on a building with footings', () => {
     publishCombinations3D(modelStore.solveCombinations3D(false, false, true) as never);
     setSheetCode('cirsoc201-2025');
     setFoundationSystem(null);
+    footingPreview.compare = true;
     const it = sheetRowsSteps(makeFmt(','));
     for (let r = it.next(); !r.done; r = it.next()) seen.push(r.value);
   }, 600_000);

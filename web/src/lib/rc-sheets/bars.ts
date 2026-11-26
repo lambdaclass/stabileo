@@ -3,6 +3,8 @@ import { chooseBars } from '../engine/codes/argentina/cirsoc201-bars';
 import { barsPerRow, layerClearBetween, minClearSpacingInLayer } from '../codes/cirsoc201/spacing';
 import { minMandrelDiameter, standardHook } from '../codes/cirsoc201/bar-geometry';
 import type { BendRules } from './shape';
+import { decimalFor } from './format';
+import { i18n } from '../i18n';
 import { DEFAULT_AGGREGATE_MM, SLAB_BAR_RANGE, allowedTie, inRange, nextTie, tieDiametersOf, tieFloorOf, type BarGroup, type MeshBars, type Stirrups, type TransverseList } from './types';
 
 export const barArea = (dia: number): number => rebarGroupArea({ count: 1, diameter: dia });
@@ -12,9 +14,12 @@ export const groupsArea = (groups: readonly BarGroup[]): number => groups.reduce
 export const groupsLabel = (groups: readonly BarGroup[]): string =>
   groups.filter((g) => g.count > 0).map((g) => `${g.count} Ø${g.dia}`).join(' + ') || '—';
 
-export const stirrupsLabel = (s: Stirrups): string => `${s.legs > 2 ? `${s.legs}r ` : ''}Ø${s.dia} c/${Math.round(s.spacing * 100)}`;
+/** A spacing in centimetres as it was checked: 12.5 stays 12.5, never 13, which would place less steel. */
+const cm = (spacing: number): string => String(Math.round(spacing * 1000) / 10).replace('.', decimalFor(i18n.locale));
 
-export const meshLabel = (m: MeshBars): string => `Ø${m.dia} c/${Math.round(m.spacing * 100)}`;
+export const stirrupsLabel = (s: Stirrups): string => `${s.legs > 2 ? `${s.legs}r ` : ''}Ø${s.dia} c/${cm(s.spacing)}`;
+
+export const meshLabel = (m: MeshBars): string => `Ø${m.dia} c/${cm(m.spacing)}`;
 
 export const meshArea = (m: MeshBars): number => (m.spacing > 0 ? barArea(m.dia) / m.spacing : 0);
 

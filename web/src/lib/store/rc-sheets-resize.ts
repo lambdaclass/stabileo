@@ -140,7 +140,7 @@ export function resizeHints(row: SheetRow): ResizeHint[] {
         { what: 'punchDrop', direction: 'grow', from: [0, 0], to: dropPanel(row.key, d) },
       ];
     }
-    case 'footing': return [];
+    case 'footing': case 'stair': return [];
   }
 }
 

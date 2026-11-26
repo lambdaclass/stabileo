@@ -24,6 +24,7 @@ import type { FootingRow, FoundationSystem } from '../../rc-sheets/footing-types
 import { sheetBars3d, pieceOptions } from '../rc-rebar-3d.svelte';
 import { scheduleElements } from '../../rc-sheets/schedule/pieces';
 import { rcSheetsWorkbook } from '../../rc-sheets/workbook';
+import { footingPreview } from '../rc-sheets-footing-preview.svelte';
 
 beforeAll(async () => {
   await wasmSolver.initSolver();
@@ -50,8 +51,11 @@ function foundation(lines: PropertyLines | undefined, system: FoundationSystem):
 }
 
 describe('the seven-storey foundation', () => {
-  it('is a step apart: with none adopted the structure is complete and nothing of the foundation is drawn, scheduled or exported; four layouts are offered to compare', () => {
+  it('is a step apart: with none adopted the structure is complete and nothing of the foundation is drawn, scheduled or exported; the layouts are offered to compare', () => {
+    expect(buildSheetRows().footingLayouts!.map((l) => l.system)).toEqual(['auto']);
+    footingPreview.compare = true;
     const rows = buildSheetRows();
+    footingPreview.compare = false;
     expect(rows.foundation).toBeNull();
     expect(rows.footing).toEqual([]);
     expect(rows.column.length).toBeGreaterThan(0);

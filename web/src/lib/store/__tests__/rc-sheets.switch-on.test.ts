@@ -189,7 +189,7 @@ describe('reinforcement sheets from a solved model', () => {
 
   it('takes the slab on one side as an L flange for the sagging moment when asked', () => {
     frame();
-    const conc = [...modelStore.materials.values()][0]!.id;
+    const conc = [...modelStore.materials.values()].find((m) => m.name === 'H-30')!.id;
     const [a, b] = [...modelStore.nodes.values()].filter((n) => (n.z ?? 0) > 2.9 && n.x < 5.1).sort((p, q) => p.x - q.x);
     const c = modelStore.addNode(5, 4, 3), d = modelStore.addNode(0, 4, 3);
     modelStore.addQuad([a!.id, b!.id, c, d], conc, 0.15);
@@ -202,9 +202,21 @@ describe('reinforcement sheets from a solved model', () => {
     expect(beam.steps[0]!.steps.some((x) => x.label === 'rcSheets.s.flange')).toBe(true);
   });
 
+  it('takes no flange from a steel deck beside the beam', () => {
+    frame();
+    const steel = modelStore.addMaterial({ name: 'F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 240 });
+    const [a, b] = [...modelStore.nodes.values()].filter((n) => (n.z ?? 0) > 2.9 && n.x < 5.1).sort((p, q) => p.x - q.x);
+    const c = modelStore.addNode(5, 4, 3), d = modelStore.addNode(0, 4, 3);
+    modelStore.addQuad([a!.id, b!.id, c, d], steel, 0.01);
+    modelStore.addSupport(c, 'pinned3d'); modelStore.addSupport(d, 'pinned3d');
+    solve();
+    setRcOption('flange', true);
+    expect(buildSheetRows().beam[0]!.demand.flange).toBeUndefined();
+  });
+
   it('stops the flange at half the clear distance to the next parallel web', () => {
     frame();
-    const conc = [...modelStore.materials.values()][0]!.id;
+    const conc = [...modelStore.materials.values()].find((m) => m.name === 'H-30')!.id;
     const [a, b] = [...modelStore.nodes.values()].filter((n) => (n.z ?? 0) > 2.9 && n.x < 5.1).sort((p, q) => p.x - q.x);
     const c = modelStore.addNode(5, 4, 3), d = modelStore.addNode(0, 4, 3);
     modelStore.addQuad([a!.id, b!.id, c, d], conc, 0.15);

@@ -42,7 +42,7 @@ export interface DemandSet {
 export interface DemandInput {
   nodes: ReadonlyMap<number, Pt>;
   elements: ReadonlyMap<number, El>;
-  sections: ReadonlyMap<number, { id: number; b?: number; h?: number }>;
+  sections: ReadonlyMap<number, { id: number; b?: number; h?: number; rotation?: number }>;
   supportNodes: ReadonlySet<number>;
   shells: ShellModel;
   groups: readonly DemandGroup[];
@@ -167,10 +167,38 @@ function runStations(m: DemandInput, run: Array<{ e: El; forward: boolean }>, se
   for (const { e, forward } of run) {
     const L = lengthOf(m, e);
     const ef: ElementForces3D | undefined = by.get(e.id);
-    if (ef) for (const t of designStations(ef)) out.push({ x: offset + (forward ? t : 1 - t) * L, s: extractForcesAtStation(ef, t) });
+    if (ef) for (const t of designStations(ef)) out.push({ x: offset + (forward ? t : 1 - t) * L, s: unrolled(m, e, extractForcesAtStation(ef, t)) });
     offset += L;
   }
   return out;
+}
+
+/** Where along a run any combination puts a concentrated load, m from its start. */
+function pointLoadsAlong(m: DemandInput, run: ReadonlyArray<{ e: El; forward: boolean }>): number[] {
+  const out: number[] = [];
+  let offset = 0;
+  for (const { e, forward } of run) {
+    const L = lengthOf(m, e);
+    for (const set of m.sets) {
+      const ef = forcesOf(set).get(e.id);
+      for (const p of [...(ef?.pointLoadsY ?? []), ...(ef?.pointLoadsZ ?? [])]) if (Math.abs(p.p) > 1e-9) out.push(offset + (forward ? p.a : L - p.a));
+    }
+    offset += L;
+  }
+  return out;
+}
+
+/** The least width and depth among a run's pieces: a piece of smaller section is checked with no more than it has. Null where one has no rectangle. */
+function smallestSection(m: DemandInput, run: ReadonlyArray<{ e: El }>): { b: number; h: number } | null {
+  const secs = run.map(({ e }) => m.sections.get(e.sectionId));
+  if (!secs.every((x) => x?.b && x?.h)) return null;
+  return { b: Math.min(...secs.map((x) => x!.b!)), h: Math.min(...secs.map((x) => x!.h!)) };
+}
+
+/** A member's forces in the frame of its roll turned back by half a turn when it is past a quarter: rolled 180° its local y and z point the other way, and its sagging would read as hogging. */
+function unrolled(m: DemandInput, e: El, f: StationForces): StationForces {
+  const r = ((((e.rollAngle ?? 0) + (m.sections.get(e.sectionId)?.rotation ?? 0)) % 360) + 360) % 360;
+  return r >= 135 && r < 315 ? { ...f, vy: -f.vy, vz: -f.vz, my: -f.my, mz: -f.mz } : f;
 }
 
 const upright = (e: El) => { const r = ((((e.rollAngle ?? 0) % 180) + 180) % 180); return r < 5 || r > 175; };
@@ -184,7 +212,7 @@ function forcesAt(m: DemandInput, run: Array<{ e: El; forward: boolean }>, set: 
       const ef = by.get(e.id);
       if (!ef || L <= 0) return undefined;
       const local = Math.min(1, Math.max(0, (x - offset) / L));
-      const f = extractForcesAtStation(ef, forward ? local : 1 - local);
+      const f = unrolled(m, e, extractForcesAtStation(ef, forward ? local : 1 - local));
       // Along the line read backwards a member's shear changes sign; its bending moment does not.
       return forward ? f : { ...f, vy: -f.vy, vz: -f.vz };
     }
@@ -234,8 +262,9 @@ function endOf(m: DemandInput, inc: Map<number, El[]>, mine: ReadonlySet<number>
   const others = (inc.get(node) ?? []).filter((o) => !mine.has(o.id));
   const posts = others.filter((o) => isVertical(m, o));
   if (posts.length) {
-    const up = posts.some((o) => zOf(m.nodes.get(o.nodeI === node ? o.nodeJ : o.nodeI)) > zOf(m.nodes.get(node)) + 1e-6);
-    return { kind: 'column', half, ...(up ? {} : { corner: true }) };
+    const rises = (o: El) => zOf(m.nodes.get(o.nodeI === node ? o.nodeJ : o.nodeI)) > zOf(m.nodes.get(node)) + 1e-6;
+    const up = posts.some(rises);
+    return { kind: 'column', half, ...(up ? {} : { corner: true }), ...(posts.every(rises) ? { hanging: true } : {}) };
   }
   const beam = others.find((o) => o.type !== 'truss');
   const crossing = beam ? (m.sections.get(beam.sectionId)?.b ?? 0) / 2 : 0;
@@ -272,8 +301,8 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
     });
     spans.forEach((span, k) => {
       const first = span[0]!.e;
-      const sec = m.sections.get(first.sectionId);
-      if (!sec?.b || !sec?.h) return;
+      const sec = smallestSection(m, span);
+      if (!sec) return;
       const turned = !upright(first) && Math.abs((((first.rollAngle ?? 0) % 180) + 180) % 180 - 90) < 5;
       const flex: 'my' | 'mz' = turned ? 'mz' : 'my';
       const shear: 'vz' | 'vy' = turned ? 'vy' : 'vz';
@@ -287,7 +316,10 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
       const startNode = span[0]!.forward ? first.nodeI : first.nodeJ, endNode = lastEl.forward ? lastEl.e.nodeJ : lastEl.e.nodeI;
       const endS = endOf(m, inc, mine, startNode, m.faceOffset?.(first.id, span[0]!.forward ? 'i' : 'j') ?? 0, wallAcross(m, walls, startNode, first));
       const endE = endOf(m, inc, mine, endNode, m.faceOffset?.(lastEl.e.id, lastEl.forward ? 'j' : 'i') ?? 0, wallAcross(m, walls, endNode, lastEl.e));
-      const v0 = !m.faces ? 0 : endS.kind === 'beam' ? x0 : Math.min(x0 + dv, L / 2), v1 = !m.faces ? L : endE.kind === 'beam' ? x1 : Math.max(x1 - dv, L / 2);
+      const pointAt = pointLoadsAlong(m, span);
+      const shearAtFace = (end: BeamEnd, from: number, to: number) => end.kind === 'beam' || end.kind === 'free' || !!end.hanging || pointAt.some((x) => x > Math.min(from, to) - 1e-9 && x < Math.max(from, to) + 1e-9);
+      const v0 = !m.faces ? 0 : shearAtFace(endS, x0, Math.min(x0 + dv, L / 2)) ? x0 : Math.min(x0 + dv, L / 2);
+      const v1 = !m.faces ? L : shearAtFace(endE, Math.max(x1 - dv, L / 2), x1) ? x1 : Math.max(x1 - dv, L / 2);
       let xStar = (x0 + x1) / 2, best = 0;
       stations.forEach((list) => { for (const { x, s } of list) if (x >= x0 - 1e-9 && x <= x1 + 1e-9 && s[flex] > best) { best = s[flex]; xStar = x; } });
       const start = emptySection(x0), mid = emptySection(xStar), end = emptySection(x1);
@@ -394,8 +426,8 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
     const deepest = (node: number) => Math.max(0, ...(inc.get(node) ?? []).filter((o) => !mine.has(o.id) && !isVertical(m, o)).map((o) => m.sections.get(o.sectionId)?.h ?? 0));
     storeys.forEach((st, k) => {
       const bottom = st[0]!, top = st[st.length - 1]!;
-      const sec = m.sections.get(bottom.e.sectionId);
-      if (!sec?.b || !sec?.h) return;
+      const sec = smallestSection(m, st);
+      if (!sec) return;
       const nBot = bottom.forward ? bottom.e.nodeI : bottom.e.nodeJ, nTop = top.forward ? top.e.nodeJ : top.e.nodeI;
       const L = st.reduce((s, r) => s + lengthOf(m, r.e), 0);
       const lu = Math.max(0.1, L - (deepest(nBot) + deepest(nTop)) / 2);
@@ -476,9 +508,10 @@ function slabPosts(m: DemandInput, keys: ReadonlySet<string>, h: number): Array<
 /**
  * A slab on posts checked in one-way shear as a wide beam (§22.5, §8.4.3.2): the shear across a
  * whole cut of the panel, averaged along it, on every cut farther than c/2 + d from the posts.
- * Its largest |qx| and |qy|, kN/m; null for a slab with no posts, which reads its elements' peak.
+ * Its largest |qx| and |qy|, kN/m; null for a slab with no posts, which reads its elements' peak, and
+ * null in a direction whose every cut runs within reach of a post, which reads its elements there.
  */
-export function wideBeamShear(rows: ReadonlyArray<{ key: string; q: readonly number[] }>, boxes: ReadonlyMap<string, { x0: number; x1: number; y0: number; y1: number }>, posts: ReadonlyArray<{ p: Pt; r: number }>): { qx: number; qy: number } | null {
+export function wideBeamShear(rows: ReadonlyArray<{ key: string; q: readonly number[] }>, boxes: ReadonlyMap<string, { x0: number; x1: number; y0: number; y1: number }>, posts: ReadonlyArray<{ p: Pt; r: number }>): { qx: number | null; qy: number | null } | null {
   if (!posts.length) return null;
   const cut = (axis: 'x' | 'y', comp: 0 | 1) => {
     const bins = new Map<number, { sum: number; width: number }>();
@@ -492,7 +525,8 @@ export function wideBeamShear(rows: ReadonlyArray<{ key: string; q: readonly num
       b.sum += Math.abs(r.q[comp]!) * w; b.width += w;
       bins.set(at, b);
     }
-    return Math.max(0, ...[...bins.values()].filter((b) => b.width > 1e-12).map((b) => b.sum / b.width));
+    const means = [...bins.values()].filter((b) => b.width > 1e-12).map((b) => b.sum / b.width);
+    return means.length ? Math.max(0, ...means) : null;
   };
   return { qx: cut('x', 0), qy: cut('y', 1) };
 }
@@ -596,33 +630,37 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
     const fromFace = (c: { x: number; y: number }, axis: 'x' | 'y') =>
       axis === 'x' ? Math.min(c.x - ext.x0 - faces.x0, ext.x1 - faces.x1 - c.x) : Math.min(c.y - ext.y0 - faces.y0, ext.y1 - faces.y1 - c.y);
     const combos: SlabComboForces[] = [];
+    const missing: string[] = [];
     const field = new Map<string, NonNullable<SlabDemand['topField']>[number]>();
     for (const set of m.sets) {
       const c: SlabComboForces = { combo: set.name, bottomX: 0, bottomY: 0, topX: 0, topY: 0, qx: 0, qy: 0 };
       const shears: Array<{ key: string; q: readonly number[] }> = [];
+      const tops: Array<{ key: string; topX: number; topY: number }> = [];
+      const read = new Set<string>();
       for (const row of shellRowsIn(set, m.shells, keys)) {
         const key = `${row.kind === 'quad' ? 'q' : 'p'}${row.id}`;
         if (!keys.has(key) || !row.global) continue;
+        read.add(key);
         const k = flipOf.get(key) ?? 1;
         const mo = row.global.moment;
         const wa = woodArmer(k * mo.xx, k * mo.yy, k * mo.xy);
-        for (const f of SLAB_FACE_KEYS) {
-          c[f] = Math.max(c[f], wa[f]);
-          if (wa[f] > best[f].value) best[f] = { value: wa[f], source: { combo: set.name } };
-        }
-        if (wa.topX > 1e-6 || wa.topY > 1e-6) {
-          const ct = centre.get(key);
-          const fe = field.get(key) ?? (ct ? { x: ct.x, y: ct.y, topX: 0, topY: 0, box: boxOf.get(key)! } : undefined);
-          if (fe) { fe.topX = Math.max(fe.topX, wa.topX); fe.topY = Math.max(fe.topY, wa.topY); field.set(key, fe); }
-        }
+        for (const f of SLAB_FACE_KEYS) c[f] = Math.max(c[f], wa[f]);
+        if (wa.topX > 1e-6 || wa.topY > 1e-6) tops.push({ key, topX: wa.topX, topY: wa.topY });
         const sh = row.global.shear;
         if (sh && !nearColumn.has(key)) { shears.push({ key, q: sh }); c.qx = Math.max(c.qx, Math.abs(sh[0])); c.qy = Math.max(c.qy, Math.abs(sh[1])); }
       }
       const wide = wideBeamShear(shears, boxOf, posts);
-      if (wide) { c.qx = wide.qx; c.qy = wide.qy; }
-      else if (shears.length) {
-        const along = (axis: 'x' | 'y', comp: 0 | 1) => shearAtCritical(shears.flatMap((r) => { const ct = centre.get(r.key); return ct ? [{ dist: fromFace(ct, axis), q: Math.abs(r.q[comp]!) }] : []; }), dSlab);
-        c.qx = along('x', 0); c.qy = along('y', 1);
+      const along = (axis: 'x' | 'y', comp: 0 | 1) => shearAtCritical(shears.flatMap((r) => { const ct = centre.get(r.key); return ct ? [{ dist: fromFace(ct, axis), q: Math.abs(r.q[comp]!) }] : []; }), dSlab);
+      if (wide || shears.length) {
+        c.qx = wide?.qx ?? (shears.length ? along('x', 0) : c.qx);
+        c.qy = wide?.qy ?? (shears.length ? along('y', 1) : c.qy);
+      }
+      if (read.size < keys.size) { missing.push(set.name); continue; }
+      for (const f of SLAB_FACE_KEYS) if (c[f] > best[f].value) best[f] = { value: c[f], source: { combo: set.name } };
+      for (const t of tops) {
+        const ct = centre.get(t.key);
+        const fe = field.get(t.key) ?? (ct ? { x: ct.x, y: ct.y, topX: 0, topY: 0, box: boxOf.get(t.key)! } : undefined);
+        if (fe) { fe.topX = Math.max(fe.topX, t.topX); fe.topY = Math.max(fe.topY, t.topY); field.set(t.key, fe); }
       }
       if (c.qx > q.x.value) q.x = { value: c.qx, source: { combo: set.name } };
       if (c.qy > q.y.value) q.y = { value: c.qy, source: { combo: set.name } };
@@ -634,6 +672,7 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
       key: `slab:${g.id}`, name: g.name, level: g.level,
       lx: bounds.x1 - bounds.x0, ly: bounds.y1 - bounds.y0, bounds, h, m: best, q, combos,
       ...(field.size ? { topField: [...field.values()] } : {}),
+      ...(missing.length ? { missing } : {}),
     });
   }
   return out;
@@ -738,13 +777,16 @@ export function wallDemands(m: DemandInput): WallDemand[] {
       const held = baseNodes.filter((nd) => m.supportNodes.has(nd) || framed.has(nd) || (shellsAt.get(nd) ?? []).some((x) => x.minZ < lo - 1e-3 || (!own.has(x.key) && x.flat)));
       const baseBy = new Map(base.map((x) => [x.key, x]));
       const combos: WallComboForces[] = [];
+      const missing: string[] = [];
       for (const set of m.sets) {
         let muV = 0, muH = 0;
         const g: CutForces = { n: 0, mx: 0, my: 0, vx: 0, vy: 0 };
         const strips: Parameters<typeof wallBaseResultants>[0][number][] = [];
+        const read = new Set<string>();
         for (const row of shellRowsIn(set, m.shells, keys)) {
           const key = `${row.kind === 'quad' ? 'q' : 'p'}${row.id}`;
           if (!keys.has(key) || !row.global) continue;
+          read.add(key);
           muV = Math.max(muV, Math.abs(tensorAlong(row.global.moment, v, v)));
           muH = Math.max(muH, Math.abs(tensorAlong(row.global.moment, u, u)));
           const b = baseBy.get(key);
@@ -759,12 +801,14 @@ export function wallDemands(m: DemandInput): WallDemand[] {
           g.n += f; g.mx += f * y - vy * dz; g.my += -f * x + vx * dz;
           g.vx += vx; g.vy += vy;
         }
+        if (read.size < keys.size) { missing.push(set.name); continue; }
         const { pu, mu, vu } = wallBaseResultants(strips, centre);
         combos.push({ combo: set.name, pu, mu: Math.abs(mu), vu: Math.abs(vu), muV, muH, global: g });
       }
       out.push({
         key: `wall:${g.id}:${k}`, name: g.name, level: m.levelAt ? m.levelAt(lo) : g.level,
         length, height: hi - lo, thickness, baseElements: base.length, plan: basePlan(base.flatMap((x) => x.pts), uOf), z: lo, base: { nodes: baseNodes.length, held: held.length, unheld: baseNodes.filter((nd) => !held.includes(nd)) }, baseNodes, combos,
+        ...(missing.length ? { missing } : {}),
       });
     }
   }
@@ -778,6 +822,22 @@ function basePlan(pts: readonly Pt[], uOf: (p: Pt) => number): { x1: number; y1:
 
 type PunchingShell = { kind: 'quad' | 'plate'; id: number };
 type SheetPunchingDemand = PunchingDemand & { slab: readonly PunchingShell[] };
+
+/** Beams reach the joint along both plan axes: they, not the slab around the column, take its load. */
+function framedBothWays(m: DemandInput, at: readonly El[], node: number): boolean {
+  const dirs = at.filter((o) => !isVertical(m, o)).map((o) => {
+    const a = m.nodes.get(o.nodeI === node ? o.nodeI : o.nodeJ)!, b = m.nodes.get(o.nodeI === node ? o.nodeJ : o.nodeI)!;
+    return Math.abs(b.x - a.x) >= Math.abs(b.y - a.y) ? 'x' : 'y';
+  });
+  return dirs.includes('x') && dirs.includes('y');
+}
+
+/** The column standing on the joint, whatever group it was drawn in. */
+function columnAbove(m: DemandInput, at: readonly El[], node: number, below: El): { e: El; forward: boolean } | undefined {
+  const z = zOf(m.nodes.get(node));
+  const e = at.find((o) => o !== below && isVertical(m, o) && zOf(m.nodes.get(o.nodeI === node ? o.nodeJ : o.nodeI)) > z + 1e-6);
+  return e ? { e, forward: e.nodeI === node } : undefined;
+}
 
 export function punchingDemands(m: DemandInput): SheetPunchingDemand[] {
   const inc = incidence(m);
@@ -821,8 +881,8 @@ export function punchingDemands(m: DemandInput): SheetPunchingDemand[] {
       const node = r.forward ? r.e.nodeJ : r.e.nodeI;
       const shells = shellsAt.get(node);
       if (!shells?.length) return;
-      if ((inc.get(node) ?? []).some((o) => !isVertical(m, o))) return;
-      const above = run[i + 1];
+      if (framedBothWays(m, inc.get(node) ?? [], node)) return;
+      const above = run[i + 1] ?? columnAbove(m, inc.get(node) ?? [], node, r.e);
       const sec = m.sections.get(r.e.sectionId);
       const p = m.nodes.get(node)!;
       const forces: SlabJointForce[] = m.sets.map((set, k) => {

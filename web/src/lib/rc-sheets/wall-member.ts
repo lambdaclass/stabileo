@@ -16,23 +16,31 @@ import { computeFlexureCapacity } from '../engine/station-design-forces';
 const area = (dMm: number) => Math.PI * (dMm / 1000) ** 2 / 4;
 
 /** The vertical bars of a wall in its section, x along the length, y across the thickness, m about the centre. */
-export function wallVerticalBars(length: number, thickness: number, cover: number, r: WallReinforcement): Bar[] {
-  const out: Bar[] = [];
+export function wallVerticalBars(length: number, thickness: number, cover: number, r: WallReinforcement): Array<Bar & { boundary?: true }> {
+  const out: Array<Bar & { boundary?: true }> = [];
   const hd = r.horizontal.diameter / 1000, vd = r.vertical.diameter / 1000;
   // The verticals sit inside the horizontals on each curtain.
   const ys = r.curtains === 2 ? [-(thickness / 2 - cover - hd - vd / 2), thickness / 2 - cover - hd - vd / 2] : [0];
   const n = Math.max(2, Math.floor(length / r.vertical.spacing) + 1);
   const span = length - 2 * (cover + hd + vd / 2);
-  for (const y of ys) for (let i = 0; i < n; i++) out.push({ x: -span / 2 + (span * i) / (n - 1), y, area: area(r.vertical.diameter) });
+  const edge: Array<Bar & { boundary: true }> = [];
   if (r.boundary && r.boundary.count > 0) {
     // Each end's extra bars, split between the curtains, inward from the end bar at 2·db (≥ 50 mm).
     const bd = r.boundary.diameter / 1000, pitch = Math.max(0.05, 2 * bd);
     const per = Math.ceil(r.boundary.count / ys.length);
     for (const end of [-1, 1]) for (const y of ys) for (let i = 0; i < per; i++) {
-      out.push({ x: end * (span / 2 - (i + 1) * pitch), y, area: area(r.boundary.diameter) });
+      edge.push({ x: end * (span / 2 - (i + 1) * pitch), y, area: area(r.boundary.diameter), boundary: true });
     }
   }
-  return out;
+  // A distributed bar closer to an edge bar than the clear spacing §25.2.3 asks is not there to count.
+  const clear = (bd: number) => Math.max(0.025, vd, bd);
+  const bdOf = r.boundary ? r.boundary.diameter / 1000 : 0;
+  for (const y of ys) for (let i = 0; i < n; i++) {
+    const x = -span / 2 + (span * i) / (n - 1);
+    if (edge.some((b) => b.y === y && Math.abs(b.x - x) - (vd + bdOf) / 2 < clear(bdOf) - 1e-9)) continue;
+    out.push({ x, y, area: area(r.vertical.diameter) });
+  }
+  return [...out, ...edge];
 }
 
 export interface WallCheck { category: string; utilization: number; description: string; ok: boolean }
@@ -45,7 +53,7 @@ export function wallInPlane(o: { length: number; thickness: number; cover: numbe
   const range = axialRange(outline, bars, mat);
   let u: number, phiMn = 0, c: number | undefined;
   if (o.pu > range.max || o.pu < range.min) u = Number.POSITIVE_INFINITY;
-  else if (o.mu < 1e-6) u = o.pu > 0 ? o.pu / Math.max(range.max, 1e-9) : 0;
+  else if (o.mu < 1e-6) u = o.pu > 0 ? o.pu / Math.max(range.max, 1e-9) : o.pu < 0 ? o.pu / Math.min(range.min, -1e-9) : 0;
   else {
     // In-plane bending: the strain varies along the length, the section's x.
     const cap = momentCapacityAtAxial(outline, bars, mat, o.pu, 1e-9, o.mu);
@@ -69,8 +77,10 @@ export function wallOutOfPlane(o: { length: number; thickness: number; cover: nu
     const ys = o.r.curtains === 2 ? [-(t / 2 - o.cover - o.r.horizontal.diameter / 1000 - o.r.vertical.diameter / 2000), t / 2 - o.cover - o.r.horizontal.diameter / 1000 - o.r.vertical.diameter / 2000] : [0];
     for (const y of ys) stripBars.push({ x: 0, y, area: area(o.r.vertical.diameter) * per });
     const outline = { kind: 'rect' as const, b: 1, h: t };
-    const Pm = Math.max(0, o.pu / Math.max(o.length, 1e-6));
-    const cap = momentCapacityAtAxial(outline, stripBars, { fc: o.fc, fy: o.fy, edition: CIRSOC201_DESIGN_EDITION }, Pm, o.muV, 1e-9);
+    const Pm = o.pu / Math.max(o.length, 1e-6);
+    const mat = { fc: o.fc, fy: o.fy, edition: CIRSOC201_DESIGN_EDITION };
+    const strip = axialRange(outline, stripBars, mat);
+    const cap = Pm > strip.max || Pm < strip.min ? null : momentCapacityAtAxial(outline, stripBars, mat, Pm, o.muV, 1e-9);
     const u = cap && cap.phiMn > 1e-9 ? o.muV / cap.phiMn : Number.POSITIVE_INFINITY;
     out.push({ category: 'Out-of-plane (vertical bars)', utilization: u, ok: u <= 1 + 1e-9, description: `Mu = ${o.muV.toFixed(1)} kN·m/m at Pu = ${Pm.toFixed(0)} kN/m, φMn = ${(cap?.phiMn ?? 0).toFixed(1)} kN·m/m` });
   }

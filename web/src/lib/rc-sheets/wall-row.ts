@@ -19,6 +19,8 @@ export interface WallComboForces { combo: string; pu: number; mu: number; vu: nu
 
 export interface WallDemand {
   key: string; name: string; level?: string;
+  /** Combinations with no results for some of its shells: their forces were not read. */
+  missing?: string[];
   /** m. */
   length: number; height: number; thickness: number;
   /** Elements along the base cut: one cannot resolve an in-plane moment from its centre stress. */
@@ -84,7 +86,7 @@ export interface WallRow {
 const rhoOf = (m: { diameter: number; spacing: number }, curtains: number, t: number) => (m.spacing > 0 ? curtains * barArea(m.diameter) * 1e-4 / (m.spacing * t) : 0);
 
 export const wallLabel = (a: WallAdopted): string =>
-  `${a.curtains}× V Ø${a.vertical.diameter} c/${Math.round(a.vertical.spacing * 100)} · H Ø${a.horizontal.diameter} c/${Math.round(a.horizontal.spacing * 100)}${a.boundary && a.boundary.count > 0 ? ` · ${a.boundary.count} Ø${a.boundary.diameter}` : ''}`;
+  `${a.curtains}× V Ø${a.vertical.diameter} c/${Math.round(a.vertical.spacing * 1000) / 10} · H Ø${a.horizontal.diameter} c/${Math.round(a.horizontal.spacing * 1000) / 10}${a.boundary && a.boundary.count > 0 ? ` · ${a.boundary.count} Ø${a.boundary.diameter}` : ''}`;
 
 interface Eval {
   pm: number[]; out: number[]; shear: number[];
