@@ -103,7 +103,7 @@ fn issue_1989_nodal_displacement_oracle_rejects_zero_and_empty_3d() {
 #[test]
 fn issue_1989_rank_two_modal_oracle_rejects_empty_and_wrong_eigenvalues() {
     let value = witness("1965");
-    let original: SolverInput = serde_json::from_value(value.clone()).unwrap();
+    let original: SolverInput = crate::common::nightly_solver(value.clone()).unwrap();
     let densities = serde_json::from_value(value["_nightly_dens"].clone()).unwrap();
     let base = certify::modal::certify_modal_2d(&original, &densities, 6).unwrap();
     let reference = modal_eigenvalues(&base.results);
@@ -163,7 +163,11 @@ fn issue_1962_buckling_accepts_record_ids_independent_of_map_keys() {
 #[test]
 fn issue_1963_plastic_accepts_record_ids_independent_of_map_keys() {
     let bytes = raw("1963");
-    let input: PlasticInput3D = serde_json::from_slice(&bytes[2..]).unwrap();
+    let wire = &bytes[2..];
+    let error = serde_json::from_slice::<PlasticInput3D>(wire).unwrap_err();
+    assert!(error.to_string().contains("duplicate key in field `elements`"), "{error}");
+    let last_row_control: Value = serde_json::from_slice(wire).unwrap();
+    let input: PlasticInput3D = serde_json::from_value(last_row_control).unwrap();
     if let Ok(result) = plastic::solve_plastic_3d(&input) {
         finite(&result);
     }
@@ -181,8 +185,8 @@ fn issue_1964_linear_certificate_accepts_record_ids_independent_of_map_keys() {
 #[test]
 fn issue_1965_rotation_preserves_the_two_finite_modes_of_rank_two_mass() {
     let value = witness("1965");
-    let original: SolverInput = serde_json::from_value(value.clone()).unwrap();
-    let rotated: SolverInput = serde_json::from_value(witness("rotated-1965")).unwrap();
+    let original: SolverInput = crate::common::nightly_solver(value.clone()).unwrap();
+    let rotated: SolverInput = crate::common::nightly_solver(witness("rotated-1965")).unwrap();
     let densities = serde_json::from_value(value["_nightly_dens"].clone()).unwrap();
     let base = certify::modal::certify_modal_2d(&original, &densities, 6).unwrap();
     let result = certify::modal::certify_modal_2d(&rotated, &densities, 6).unwrap();

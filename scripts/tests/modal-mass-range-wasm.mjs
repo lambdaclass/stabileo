@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { nightlySolverFixture } from './nightly-solver-fixture.mjs';
 import { readFileSync } from 'node:fs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 
@@ -12,7 +13,7 @@ for (const [name, expected] of [
   ['1965', [229973.5106775624807203244627724831574865, 6243695.142236023281772709849489862244977]],
   ['rotated-1965', [229973.5106775600935160982784968364555173, 6243695.142236013914171040611438743782218]],
 ]) {
-  const input = JSON.stringify({ solver: triage[name], densities: triage['1965']._nightly_dens });
+  const input = JSON.stringify({ solver: nightlySolverFixture(triage[name]), densities: triage['1965']._nightly_dens });
   const raw = JSON.parse(engine.solve_modal_2d(input, 6));
   const checked = JSON.parse(engine.certify_modal_2d(input, 6));
   assert.deepEqual(raw, checked.results);

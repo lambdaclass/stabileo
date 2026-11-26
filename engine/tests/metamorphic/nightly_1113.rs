@@ -338,8 +338,8 @@ fn issue_2012_archived_pair_preserves_source_and_scaled_physics() {
             !(value.is_null() && matches!(field.as_str(), "angle" | "dry" | "dx" | "dz" | "kx" | "ky" | "kz"))
         });
     }
-    let input: SolverInput = serde_json::from_value(source).unwrap();
-    let transformed: SolverInput = serde_json::from_value(witness("transformed-2012")).unwrap();
+    let input: SolverInput = crate::common::nightly_solver(source).unwrap();
+    let transformed: SolverInput = crate::common::nightly_solver(witness("transformed-2012")).unwrap();
     assert_eq!(
         serde_json::to_value(transformed).unwrap(),
         serde_json::to_value(scale_2d(&input, &Units::froude(0.001, 1000.0))).unwrap()

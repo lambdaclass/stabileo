@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { nightlySolverFixture } from './nightly-solver-fixture.mjs';
 import { readFileSync } from 'node:fs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 engine.initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
@@ -37,7 +38,8 @@ for (const dim of [2,3]) {
     }
   }
 }
-const spring = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/cause-c-replay.json', import.meta.url)))['1463'];
+const archive = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/cause-c-replay.json', import.meta.url)));
+const spring = nightlySolverFixture(archive['1463']);
 for (const entry of ['solve_time_history','certify_time_history']) {
   assert.throws(() => engine[`${entry}_3d`](JSON.stringify(wrapper(spring,'newmark'))), error => {
     const diagnostic = JSON.parse(String(error)).structuredDiagnostics[0];

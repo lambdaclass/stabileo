@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
+import { nightlySolverFixture } from './nightly-solver-fixture.mjs';
 import { readFileSync } from 'node:fs';
 import { initSync, solve_2d, solve_3d, solve_staged_2d, solve_staged_3d } from '../../web/src/lib/wasm/dedaliano_engine.js';
 
 initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
-const { _nightly_dens, _nightly_name, ...archived } = JSON.parse(readFileSync(new URL('../../engine/tests/metamorphic_corpus/nightly/issue-1085.json', import.meta.url)));
+const archived = nightlySolverFixture(JSON.parse(readFileSync(new URL('../../engine/tests/metamorphic_corpus/nightly/issue-1085.json', import.meta.url))));
 
 function model(dim, copies, factor, linked) {
   const source = structuredClone(archived);

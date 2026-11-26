@@ -15,9 +15,7 @@ fn input(key: &str) -> Value {
 
 fn refused(issue: u64, analysis: &str, prefix: &str, diagnostic: Option<Value>) {
     let mut value = input(&format!("{issue}-body-0"));
-    let rows = value.as_object_mut().unwrap();
-    let name = rows.remove("_nightly_name");
-    let densities = rows.remove("_nightly_dens");
+    let (name, densities) = crate::common::take_nightly_metadata(&mut value);
     let name = name.as_ref().and_then(Value::as_str).unwrap_or("replay");
     let error = match corpus::parse(&value.to_string()).unwrap() {
         corpus::Model::D2(s) => {

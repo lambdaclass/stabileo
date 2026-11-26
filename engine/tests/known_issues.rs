@@ -2852,7 +2852,22 @@ fn issue_1753_three_hinge_arch_snapshot_preserves_exact_statics_and_current_warn
             .map(|entry| (entry["id"].to_string(), entry.clone()))
             .collect::<serde_json::Map<_, _>>().into();
     }
-    let input: SolverInput = serde_json::from_value(fixture).unwrap();
+    for material in fixture["materials"].as_object_mut().unwrap().values_mut() {
+        *material = serde_json::json!({"id": material["id"], "e": material["e"], "nu": material["nu"]});
+    }
+    for section in fixture["sections"].as_object_mut().unwrap().values_mut() {
+        *section = serde_json::json!({"id": section["id"], "a": section["a"], "iz": section["iz"]});
+    }
+    for load in fixture["loads"].as_array_mut().unwrap() {
+        load["data"].as_object_mut().unwrap().remove("id");
+    }
+    let wire = serde_json::json!({
+        "nodes": fixture["nodes"], "materials": fixture["materials"],
+        "sections": fixture["sections"], "elements": fixture["elements"],
+        "supports": fixture["supports"], "loads": fixture["loads"],
+        "constraints": fixture["constraints"],
+    });
+    let input: SolverInput = serde_json::from_value(wire).unwrap();
     let result = solve_2d(&input).unwrap();
     let total: f64 = input.loads.iter().map(|load| match load {
         SolverLoad::Nodal(load) => -load.fz,
@@ -3109,7 +3124,6 @@ fn issue_2535_plane_wire_input_rejects_shells_before_they_disappear() {
     let input = make_beam(4, 4.0, E, 0.045, 3.375e-4, "fixed", None, tip(-10.0));
     let mut wire = serde_json::to_value(input).unwrap();
     wire["quads"] = serde_json::json!({});
-    wire["maxIter"] = serde_json::json!(20);
     let plane: SolverInput = serde_json::from_value(wire.clone()).unwrap();
     assert!(solve_2d(&plane).is_ok());
     assert!(dedaliano_engine::solver::pdelta::solve_pdelta_2d(&plane, 20, 1e-4).is_ok());
@@ -3117,6 +3131,11 @@ fn issue_2535_plane_wire_input_rejects_shells_before_they_disappear() {
     let mut staged = wire.clone();
     staged["stages"] = serde_json::json!([]);
     assert!(dedaliano_engine::solver::staged::parse_staged_2d(&staged.to_string()).is_ok());
+
+    let mut misplaced_option = wire.clone();
+    misplaced_option["maxIter"] = serde_json::json!(20);
+    let error = serde_json::from_value::<SolverInput>(misplaced_option).unwrap_err();
+    assert!(error.to_string().contains("unknown field `maxIter`"), "{error}");
 
     wire["quads"] = serde_json::json!({"1": {"id": 1, "nodes": [1, 2, 3, 4], "materialId": 1, "thickness": 0.32}});
     let error = serde_json::from_value::<SolverInput>(wire.clone()).unwrap_err();
@@ -3140,7 +3159,7 @@ fn issue_2535_plane_wire_accepts_empty_legacy_shell_lists_and_refuses_populated_
         "loadIndices": [0]
     }]);
     let values = |wire: &serde_json::Value| {
-        let plane: SolverInput = serde_json::from_value(wire.clone()).unwrap();
+        let plane: SolverInput = serde_json::from_value(crate::common::staged_model_without_history(wire.clone())).unwrap();
         let linear = solve_2d(&plane).unwrap();
         let nonlinear = dedaliano_engine::solver::pdelta::solve_pdelta_2d(&plane, 20, 1e-4).unwrap();
         let staged = solve_staged_2d(&parse_staged_2d(&wire.to_string()).unwrap()).unwrap();
@@ -3154,7 +3173,7 @@ fn issue_2535_plane_wire_accepts_empty_legacy_shell_lists_and_refuses_populated_
         assert_eq!(values(&legacy), expected, "{field}");
 
         legacy[field] = serde_json::json!([{"id": 1}]);
-        let error = serde_json::from_value::<SolverInput>(legacy.clone()).unwrap_err();
+        let error = serde_json::from_value::<SolverInput>(crate::common::staged_model_without_history(legacy.clone())).unwrap_err();
         assert!(error.to_string().contains("Shell elements require 3D analysis"), "{field}: {error}");
         let error = parse_staged_2d(&legacy.to_string()).unwrap_err();
         assert!(error.contains("Shell elements require 3D analysis"), "{field}: {error}");

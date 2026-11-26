@@ -305,6 +305,9 @@ fn compatible_3d_load_reaches_every_static_entry_point() {
 
 fn member_2d(end: &str) -> SolverInput {
     let mut v = fixture();
+    assert_eq!(v.as_object_mut().unwrap().remove("curvedBeams"), Some(json!([])));
+    assert_eq!(v.as_object_mut().unwrap().remove("leftHand"), Some(Value::Null));
+    crate::common::use_planar_fixture_sections(&mut v);
     v["nodes"] = json!({"1":{"id":1,"x":0.0,"z":0.0},"2":{"id":2,"x":3.0,"z":2.0}});
     v["elements"] = json!({"1":{"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1,"hingeStart":end=="Start","hingeEnd":end=="End"}});
     let free = if end == "Start" { 1 } else { 2 };

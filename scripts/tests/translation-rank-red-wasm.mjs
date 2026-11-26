@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
+import { nightlySolverFixture } from './nightly-solver-fixture.mjs';
 import { readFileSync } from 'node:fs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 engine.initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
 const fixtures = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/cause-c-replay.json', import.meta.url)));
-const { _nightly_dens: densities, _nightly_name, ...planar } = fixtures['1095'];
+const densities = fixtures['1095']._nightly_dens;
+const planar = nightlySolverFixture(fixtures['1095']);
 const failures = [];
 let checks = 0;
 function check(label, run) {
