@@ -4506,7 +4506,7 @@
       ]
     },
     "src/lib/engine/design/beam-flange.ts": {
-      "source": "553d425c4b46660fbeabc961695e85a2ca1d2cdb5da293c7fd74d76912effaf8",
+      "source": "7bfee66ddd787f61e16ea2017d5cf971ef27691771912afed3687d75334b02c7",
       "original": "2d479cad29e0ed695cdcffe7b942ee7ca410199d48c15d3d526f22c44bb4e40a",
       "changes": [
         [
@@ -4533,7 +4533,7 @@
         ],
         [
           179,
-          38,
+          37,
           []
         ]
       ]
@@ -6107,7 +6107,7 @@
       ]
     },
     "src/lib/engine/model-diagnostics.ts": {
-      "source": "404de4fb531e9f9ab81deeec6cb8eb40bc7cc9b184b8c63df26dbb16c68c7631",
+      "source": "b5bd6720b302648ce9a269cba7ffb94d2d43608410a72df487de8ce81878795f",
       "original": "e7cc4fc1e28f6bd5df0f685c3f49f2828d9e21b66910332143a998dcd88cf1a7",
       "changes": [
         [
@@ -6117,7 +6117,7 @@
         ],
         [
           664,
-          23,
+          24,
           []
         ]
       ]
@@ -6317,7 +6317,7 @@
       ]
     },
     "src/lib/i18n/locales/de.ts": {
-      "source": "d7b9aaab6c9000c515ae3999b63662aebc0b5d9e8989e3bcb650f7fb33181fb0",
+      "source": "5d5039b421d144eca19b280cbe27352d1f7889046a84ac413333505adef878d5",
       "original": "0b1cffc73c321c88dd80b93e39f81e925705babc0f2e91df63e10c19111fe052",
       "changes": [
         [
@@ -6720,7 +6720,7 @@
       ]
     },
     "src/lib/i18n/locales/en.ts": {
-      "source": "661ad9b98b534b00c2c6104dde93f3d1c39b55b9681851c0baf0476ee99efe32",
+      "source": "d0df21c83ddfdcacd54c4c8afc4a26302368c24fce192f4210f8dc29a8c3e3fa",
       "original": "99343e2eeb7cf4140cbbcb69424c37461d3ec4e5c925d64439f6b56ee0e9e6b3",
       "changes": [
         [
@@ -7095,7 +7095,7 @@
       ]
     },
     "src/lib/i18n/locales/es.ts": {
-      "source": "ccb4ed16262b56e6685056854555a6c89c57393865e12ffed0c106e9e309ccff",
+      "source": "3b6e91f7a52dc306d83e45a9303b1f59f7e8dc5b061ac39369adb72306b892fc",
       "original": "df939d2beed0420d6833617b3561c95098e34704ee1a3b4f15f21dda24fa4e09",
       "changes": [
         [
@@ -7470,7 +7470,7 @@
       ]
     },
     "src/lib/i18n/locales/fr.ts": {
-      "source": "9ebc90c5795e00e4600375cd12925fc965558964a5b969800211fa70299e0aa1",
+      "source": "5b2d8336d7e8c95c9ab31e7cf42d7a8f65f494ede45cbf70b179963aeb766231",
       "original": "26693801514fc282fbb8a5a4ad627431cbfce3c6e3f0720639c8cb5cef4e4b20",
       "changes": [
         [
@@ -7893,7 +7893,7 @@
       ]
     },
     "src/lib/i18n/locales/hu.ts": {
-      "source": "e06af3789a849e4ea41358b7335f34bcc92f5131dbb4bd032a37d0ad54083f23",
+      "source": "744e58f4bc59243219b9a957e753872700e14cae873ab67e6f239bb0c5095f49",
       "original": "050bb2fb50b6d61761b6836086403490f8b3deedc1ac4af88de298aa3fd3966e",
       "changes": [
         [
@@ -8308,7 +8308,7 @@
       ]
     },
     "src/lib/i18n/locales/pt.ts": {
-      "source": "2a5b1c7358da07ec9e4667ad8317c2667277252e94699270f660a98efa716e9a",
+      "source": "65823947791e5c5613ddb838592f9808e645de946bbf203a3130f7bad8d44b03",
       "original": "f013a27bd1465964fefdc7d531a470bc4855e8593daa03ed54ed7453509bdd37",
       "changes": [
         [
@@ -9005,7 +9005,7 @@
       ]
     },
     "src/lib/i18n/locales/tr.ts": {
-      "source": "9ef495d156bac0c5e8fe2a731b3dcce46843627344931096b0139dab381e769c",
+      "source": "2a5ab49f129587db5a8c64e08aecec53a82c3205c78a72fd832a4f710cd5bb8d",
       "original": "dfae3be5cd45792b6b2c9720f3433a60bace6b76a70d785cd4f6cc88d7ef096f",
       "changes": [
         [
@@ -9387,7 +9387,7 @@
       ]
     },
     "src/lib/i18n/locales/zh.ts": {
-      "source": "d7b77d6b3d8963312e6c2a786604f9dd01ffda62081a4da0282e98e6d5020df3",
+      "source": "e0cb5773873640ded8168555b65e42067df7e60cd05d895c3972062ae52b1c62",
       "original": "187ecdf53aa596a80d7c584c8c8fc84768c7dd6c4d6540750c3a9cdcf2caee26",
       "changes": [
         [
@@ -11460,7 +11460,7 @@
       ]
     },
     "src/lib/store/ifc-export.ts": {
-      "source": "2aebb19c28849f351b73b6384977dcedd82fb3c32ed44968569c55d4396aaa80",
+      "source": "64630cd75e443f08109b37ef650dbc2ffc31cdccabef5420d04a905d324c9e5f",
       "original": "3cb12dcfcd9168b848ec65215ce0a34c1560d3fc70c18114bf6a711d32a29269",
       "changes": [
         [
@@ -11501,55 +11501,67 @@
           []
         ],
         [
-          245,
+          180,
+          1,
+          [
+            "  const members: IfcExportInput['members'] = [];"
+          ]
+        ],
+        [
+          195,
+          1,
+          []
+        ],
+        [
+          246,
           1,
           [
             "    if (flatPlate) { slabs.push({ ...flatPlate, id: `slab-${gr.name}`, name: gr.name }); continue; }"
           ]
         ],
         [
-          255,
+          256,
           1,
           []
         ],
         [
-          262,
+          263,
           2,
           [
             "      walls.push({ id: `wall-${gr.name}`, name: gr.name, a: [a[0], a[1], z0], b: [b[0], b[1], z0], height: z1 - z0, thickness: t, ...(material ? { material } : {}) });"
           ]
         ],
         [
-          272,
+          273,
           1,
           [
             "  const bars: IfcExportInput['bars'] = detailingStore.assemblies.flatMap((a) => {"
           ]
         ],
         [
-          279,
+          280,
           1,
           []
         ],
         [
-          288,
+          289,
           3,
           [
             "  const buildingProps: Record<string, string | number> = pv.state === 'empty' ? {} : {"
           ]
         ],
         [
-          294,
+          295,
           1,
           []
         ],
         [
-          296,
+          297,
           18,
           []
         ],
         [
-          327,
+          328,
           1,
           [
             "  return writeIfc(input);"
