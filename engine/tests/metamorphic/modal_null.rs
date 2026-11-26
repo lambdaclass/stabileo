@@ -64,8 +64,10 @@ fn assert_null(result: Result<Value, String>, node: usize) {
 }
 
 fn issue_case(seed: u64, certified: bool, relabel: bool) {
+    let mut value: Value = serde_json::from_str(FIXTURE).unwrap();
+    crate::common::take_nightly_metadata(&mut value);
+    let input: SolverInput3D = serde_json::from_value(value.clone()).unwrap();
     let value: Value = serde_json::from_str(FIXTURE).unwrap();
-    let input: SolverInput3D = crate::common::nightly_solver(value.clone()).unwrap();
     let mut base = Case3::new(value["_nightly_name"].as_str().unwrap(), input);
     base.dens = serde_json::from_value(value["_nightly_dens"].clone()).unwrap();
     let name = if certified {
@@ -173,7 +175,7 @@ fn planar(
         model["supports"][&key] =
             json!({"id":id,"nodeId":id,"type":"spring","kx":1.0,"ky":1.0,"kz":1.0});
     }
-    crate::common::nightly_solver(model).unwrap()
+    serde_json::from_value(model).unwrap()
 }
 
 #[test]
@@ -309,7 +311,8 @@ fn spatial_independent_spring_restores_modes_on_the_issue_model() {
     let mut model: Value = serde_json::from_str(FIXTURE).unwrap();
     let densities = serde_json::from_value(model["_nightly_dens"].clone()).unwrap();
     model["supports"]["4"]["ky"] = model["supports"]["4"]["kx"].clone();
-    let input: SolverInput3D = crate::common::nightly_solver(model).unwrap();
+    crate::common::take_nightly_metadata(&mut model);
+    let input: SolverInput3D = serde_json::from_value(model).unwrap();
     for api in ["solve_modal_3d", "certify_modal_3d"] {
         record_case(api, 6, &input, &densities, json!({"modes":6,"nulls":0}));
     }
@@ -400,7 +403,7 @@ fn review_tied_translation_survives_stiffness_cancellation() {
         ]);
         for stiffness in [0.0, 0.25] {
             value["supports"]["1"]["kx"] = json!(stiffness);
-            let mut input: SolverInput = crate::common::nightly_solver(value.clone()).unwrap();
+            let mut input: SolverInput = serde_json::from_value(value.clone()).unwrap();
             let mut spatial = embed_2d(&input, Plane::ALL[0]).unwrap();
             input.constraints = serde_json::from_value(ties.clone()).unwrap();
             spatial.constraints = serde_json::from_value(ties.clone()).unwrap();
@@ -433,7 +436,7 @@ fn review_rank_one_mass_detects_a_resolved_small_projection() {
                 {"nodeId":2,"dof":axis,"coefficient":-1.0},
                 {"nodeId":1,"dof":0,"coefficient":1.0}
             ]}]);
-            let mut input: SolverInput = crate::common::nightly_solver(value.clone()).unwrap();
+            let mut input: SolverInput = serde_json::from_value(value.clone()).unwrap();
             let mut spatial = embed_2d(&input, Plane::ALL[0]).unwrap();
             input.constraints = serde_json::from_value(tie(1)).unwrap();
             spatial.constraints = serde_json::from_value(tie(2)).unwrap();
