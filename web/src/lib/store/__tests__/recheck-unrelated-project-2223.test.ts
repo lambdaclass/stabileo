@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { adoptStoredProject, buildProjectFile, deserializeProject, onProjectOpened } from '../file';
-import { modelStore } from '../model.svelte';
+import { modelStore, type Support } from '../model.svelte';
 import { uiStore } from '../ui.svelte';
 import { recheckStore } from '../recheck.svelte';
 import { tabManager } from '../tabs.svelte';
@@ -13,6 +13,7 @@ import { RESULTS_VERSION } from '../../provenance/registry';
 import { stampSolve } from '../../provenance/solve-stamp';
 import { initSolver, solvePDelta } from '../../engine/wasm-solver';
 import { t } from '../../i18n';
+import { requireStoredProjectInput } from '../../engine/model-input-numbers';
 import { deflateSync, inflateSync } from 'fflate';
 import '../index';
 
@@ -267,5 +268,80 @@ it.each(['xz', 'yz'] as const)('known wrong result: #2588 — a global load reso
   const file = buildProjectFile();
   open('file', { ...file, snapshot: { ...file.snapshot, drawPlane2D: undefined } });
   expect.soft(uiStore.drawPlane2D).toBe(plane);
+  expect(modelStore.solve()).toEqual(reference);
+});
+
+function legacyLoadedCantilever(support: Omit<Support, 'id' | 'nodeId'>) {
+  uiStore.analysisMode = '2d';
+  uiStore.drawPlane2D = 'xz';
+  uiStore.includeSelfWeight = false;
+  const root = modelStore.addNode(0, 0);
+  const tip = modelStore.addNode(5, 0);
+  const member = modelStore.addElement(root, tip, 'frame');
+  modelStore.addSupport(root, 'fixed');
+  modelStore.addDistributedLoad(member, -10, -10, undefined, false, 1);
+  modelStore.addCombination('D', [{ caseId: 1, factor: 1 }]);
+  const file = buildProjectFile();
+  file.snapshot.supports.push([2, { ...support, id: 2, nodeId: tip }]);
+  file.snapshot.nextId.support = 3;
+  return { file, tip };
+}
+
+it.skip.each(entries)('known wrong result: #2588 — %s requires a plane for a global Z restraint on an X-aligned beam', async entry => {
+  await initSolver();
+  const { file, tip } = legacyLoadedCantilever({
+    type: 'rollerZ', isGlobal: true, dofFrame: 'global',
+    dofRestraints: { tx: false, ty: false, tz: true, rx: false, ry: false, rz: false },
+  });
+  open(entry, file);
+  const reference = modelStore.solve();
+  expect(reference).toMatchObject({ displacements: expect.arrayContaining([
+    expect.objectContaining({ nodeId: tip, uz: expect.any(Number) }),
+  ]) });
+
+  const legacy = { ...file, snapshot: { ...file.snapshot, drawPlane2D: undefined } };
+  open(entry, legacy);
+  expect.soft(buildProjectFile().snapshot.drawPlane2D).toBeUndefined();
+  expect.soft(modelStore.solve()).toBe(t('svc.savedPlaneRequired'));
+  expect.soft(await modelStore.solveAsync()).toBe(t('svc.savedPlaneRequired'));
+  expect.soft(modelStore.solveCombinations()).toBe(t('svc.savedPlaneRequired'));
+  expect.soft(() => modelStore.buildSolverInput()).toThrow(t('svc.savedPlaneRequired'));
+  expect.soft(assessProject(legacy.snapshot, null, '2d').changes.map(change => change.id))
+    .toContain('legacy-planar-project-plane');
+
+  uiStore.drawPlane2D = 'xz';
+  expect(modelStore.solve()).toEqual(reference);
+});
+
+it.skip.each([
+  { type: 'rollerZ', isGlobal: true },
+  { type: 'rollerY' },
+  { type: 'rollerX', angle: 30 },
+  { type: 'pinned', dofRestraints: { tx: true, ty: true, tz: false, rx: false, ry: false, rz: false } },
+  { type: 'spring', isGlobal: true, ky: 1 },
+  { type: 'spring', kz: 1 },
+  { type: 'spring', kry: 1 },
+  { type: 'spring', curves: { z: [[0, 0], [1, 1]] } },
+  { type: 'fixed', dz: 1 },
+] satisfies Omit<Support, 'id' | 'nodeId'>[])('known wrong result: #2588 — a directional support %j prevents the XY fallback', support => {
+  const { file } = legacyLoadedCantilever(support);
+  expect(requireStoredProjectInput({ ...file.snapshot, drawPlane2D: undefined })).toBeUndefined();
+  expect(requireStoredProjectInput(file.snapshot)).toBe('xz');
+});
+
+it.skip.each([
+  { type: 'rollerX' },
+  { type: 'rollerZ', isGlobal: false },
+  { type: 'spring', isGlobal: false, ky: 1 },
+  { type: 'spring', isGlobal: true, ky: 0, kz: 0, kx: 1 },
+] satisfies Omit<Support, 'id' | 'nodeId'>[])('known wrong result: #2588 — a plane-independent support %j keeps the legacy XY solution', async support => {
+  await initSolver();
+  const { file } = legacyLoadedCantilever(support);
+  const xy = { ...file, snapshot: { ...file.snapshot, drawPlane2D: 'xy' as const } };
+  open('file', xy);
+  const reference = modelStore.solve();
+  expect(reference).toMatchObject({ displacements: expect.any(Array) });
+  open('file', { ...xy, snapshot: { ...xy.snapshot, drawPlane2D: undefined } });
+  expect(buildProjectFile().snapshot.drawPlane2D).toBe('xy');
   expect(modelStore.solve()).toEqual(reference);
 });
