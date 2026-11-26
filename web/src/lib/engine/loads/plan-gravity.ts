@@ -391,10 +391,6 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       footprint: [bay.boundary], geometry: physicalDeck(bay.boundaryNodes.flat().map(coordinates)),
     })));
   }
-  const gapDecks = [...new Set(out.widthMembers.flatMap(({ elementId }) => {
-    const attached = attachedCoverage.get(elementId);
-    return typeof attached === 'object' ? attached.runGaps : [];
-  }))];
   const wideCandidates = opts.loadEveryPanel ? [] : [...levels].flatMap(([z, { owned }]) =>
     owned.filter(({ panel }) => isWideDeck(panel.polygon)).map(panel => ({ z, ...panel })));
   const wide = new Map<number, DeckFootprint[]>();
@@ -403,7 +399,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     for (const [z, { owned }] of levels) {
       panelsAt.set(z, owned.filter(({ panel }) => !isWideDeck(panel.polygon)));
     }
-    const preliminary = notADeck(model, carriers, coverage(model, out.zOf, panelsAt, coverShells, gapDecks), true);
+    const preliminary = notADeck(model, carriers, coverage(model, out.zOf, panelsAt, coverShells), true);
     for (const { z, panel, footprint, geometry } of wideCandidates) {
       const reason = preliminary.why(panel.polygon, { footprint, geometry });
       deckReasons.set(panel, reason);
@@ -411,7 +407,11 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       source.set(z, [...source.get(z) ?? [], { footprint, geometry }]);
     }
   }
-  const preliminaryCover = coverage(model, out.zOf, panelsAt, coverShells, gapDecks, wide);
+  const gapDecks = [...new Set(out.widthMembers.flatMap(({ elementId }) => {
+    const attached = attachedCoverage.get(elementId);
+    return typeof attached === 'object' ? attached.runGaps : [];
+  }))];
+  const preliminaryCover = coverage(model, out.zOf, panelsAt, coverShells, wide, gapDecks);
   const panelSides = new Map<number, SideStretch[]>();
   for (const { res } of levels.values()) for (const pn of res.panels) for (const [id, sides] of pn.own?.sides ?? []) {
     (panelSides.get(id) ?? panelSides.set(id, []).get(id)!).push(...sides);
@@ -553,7 +553,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   })]));
 
   const coverAbove = opts.mode === 'panels' && (dropped.size || fringeKept.size)
-    ? coverage(model, out.zOf, selectedPanels, coverShells, gapDecks, wide)
+    ? coverage(model, out.zOf, selectedPanels, coverShells, wide, gapDecks)
     : preliminaryCover;
   const levelOrder = [...levels.keys()].sort((a, b) => a - b);
   for (const z of levels.keys()) for (const b of flatAt.get(z) ?? []) {
@@ -1900,8 +1900,8 @@ function memberGeometry(model: GravityModel, ids: Iterable<number>) {
 /** How far above `zTop` the lowest panel, slab or beam over a plan point is (see the header); Infinity when none is. */
 function coverage(
   model: GravityModel, zOf: Map<number, number>, panelsAt: ReadonlyMap<number, DeckFootprint[]>,
-  carriers: readonly ShellCarrier[], gaps: readonly CertifiedGap[],
-  rejected: ReadonlyMap<number, DeckFootprint[]> = new Map(),
+  carriers: readonly ShellCarrier[], rejected: ReadonlyMap<number, DeckFootprint[]> = new Map(),
+  gaps: readonly CertifiedGap[] = [],
 ) {
   const shells = carriers.map(shell => ({ ...shell, id: shell.coverageId }));
   const footprints = [...panelsAt].flatMap(([z, polys]) => unionFootprints(polys.flatMap(panel => panel.footprint)).map(rings => ({ z, rings: rings.map(openRing) })));

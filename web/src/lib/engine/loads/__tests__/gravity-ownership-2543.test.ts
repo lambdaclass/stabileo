@@ -388,7 +388,7 @@ it('#2543 solves the generated inclined fringe force and moment in both WASM dim
   }
 });
 
-const replayLocalBay = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
+const replayLocalBay = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
 
 replayLocalBay('known wrong result: #2607 a separately supported pitched roof clears the bay across their overlap', () => {
   const { model, ring, quad, node } = fixture();
