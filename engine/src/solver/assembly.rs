@@ -829,6 +829,7 @@ pub(super) fn assemble_stiffness_2d_recording(
 
     // Apply 2D inclined support transformations (stiffness only; the force
     // vector rotation happens in `assemble_load_vector_2d`)
+    let mut unrotated_magnitude = None;
     let mut inclined_transforms_2d = Vec::new();
     for sup in crate::ordered::values(&input.supports) {
         if sup.support_type == "inclinedRoller" {
@@ -839,6 +840,11 @@ pub(super) fn assemble_stiffness_2d_recording(
                 dof_num.map.get(&(sup.node_id, 1)),
             ) {
                 let dofs = [d0, d1];
+                unrotated_magnitude.get_or_insert_with(|| absolute_dense_matrix(&k_global, n));
+                rotate_inclined_k_2d(&mut k_global, n, &dofs, &r);
+                if let Some(roundoff) = roundoff.as_deref_mut() {
+                    roundoff.rotate(dofs, &r);
+                }
                 inclined_transforms_2d.push(InclinedTransformData2D {
                     node_id: sup.node_id,
                     dofs,
@@ -848,13 +854,8 @@ pub(super) fn assemble_stiffness_2d_recording(
         }
     }
 
-    let support_magnitude = dense_support_magnitude(&k_global, dof_num, &inclined_transforms_2d);
-    for frame in &inclined_transforms_2d {
-        frame.rotate_dense(&mut k_global, n);
-        if let Some(roundoff) = roundoff.as_deref_mut() {
-            roundoff.rotate(frame.dofs, &frame.r);
-        }
-    }
+    let support_magnitude = unrotated_magnitude
+        .map(|magnitude| free_magnitude(magnitude, dof_num.n_free, &inclined_transforms_2d));
     StiffnessAssembly2D {
         support_magnitude,
         k: k_global,
@@ -2618,17 +2619,25 @@ pub(crate) fn triplet_magnitude<T: InclinedFrame>(
         }
         return CscMatrix::from_triplets(dof.n_free, &fr, &fc, &fv);
     }
+    free_magnitude(absolute_triplet_matrix(dof.n_total, rows, cols, values), dof.n_free, frames)
+}
+
+pub(super) fn absolute_triplet_matrix(n: usize, rows: &[usize], cols: &[usize], values: &[f64]) -> CscMatrix {
     let values: Vec<_> = values.iter().map(|v| v.abs()).collect();
-    free_magnitude(CscMatrix::from_triplets(dof.n_total, rows, cols, &values), dof.n_free, frames)
+    CscMatrix::from_triplets(n, rows, cols, &values)
+}
+
+fn absolute_dense_matrix(k: &[f64], n: usize) -> CscMatrix {
+    let mut magnitude = CscMatrix::from_dense_symmetric_exact(k, n);
+    magnitude.values.iter_mut().for_each(|value| *value = value.abs());
+    magnitude
 }
 
 pub(crate) fn dense_support_magnitude<T: InclinedFrame>(
     k: &[f64], dof: &DofNumbering, frames: &[T],
 ) -> Option<CscMatrix> {
     if frames.is_empty() { return None; }
-    let mut magnitude = CscMatrix::from_dense_symmetric_exact(k, dof.n_total);
-    magnitude.values.iter_mut().for_each(|value| *value = value.abs());
-    Some(free_magnitude(magnitude, dof.n_free, frames))
+    Some(free_magnitude(absolute_dense_matrix(k, dof.n_total), dof.n_free, frames))
 }
 
 /// Rotate a symmetric matrix given as triplets over all DOFs (each unordered
@@ -3128,6 +3137,7 @@ pub(super) fn assemble_stiffness_sparse_3d_recording(
     if let Some(roundoff) = roundoff.as_deref_mut() {
         roundoff.record_symmetric(&trip_rows, &trip_cols, &trip_vals);
     }
+    let mut unrotated_magnitude = None;
     let mut inclined_transforms = Vec::new();
     for sup in crate::ordered::values(&input.supports) {
         if sup.is_inclined.unwrap_or(false) {
@@ -3141,6 +3151,16 @@ pub(super) fn assemble_stiffness_sparse_3d_recording(
                         dof_num.map.get(&(sup.node_id, 2)),
                     ) {
                         let dofs = [d0, d1, d2];
+                        unrotated_magnitude.get_or_insert_with(|| {
+                            absolute_triplet_matrix(n, &trip_rows, &trip_cols, &trip_vals)
+                        });
+                        apply_inclined_transform_triplets_k(
+                            &mut trip_rows, &mut trip_cols, &mut trip_vals,
+                            &dofs, &r,
+                        );
+                        if let Some(roundoff) = roundoff.as_deref_mut() {
+                            roundoff.rotate(dofs, &r);
+                        }
                         inclined_transforms.push(InclinedTransformData { node_id: sup.node_id, dofs, r });
                     }
                 }
@@ -3148,15 +3168,8 @@ pub(super) fn assemble_stiffness_sparse_3d_recording(
         }
     }
 
-    let support_magnitude = (!inclined_transforms.is_empty()).then(|| {
-        triplet_magnitude(&trip_rows, &trip_cols, &trip_vals, dof_num, &inclined_transforms)
-    });
-    for frame in &inclined_transforms {
-        InclinedFrame::rotate_triplets(frame, &mut trip_rows, &mut trip_cols, &mut trip_vals);
-        if let Some(roundoff) = roundoff.as_deref_mut() {
-            roundoff.rotate(frame.dofs, &frame.r);
-        }
-    }
+    let support_magnitude = unrotated_magnitude
+        .map(|magnitude| free_magnitude(magnitude, nf, &inclined_transforms));
 
     // Compact zeroed-out triplets left by inclined support transforms
     if !inclined_transforms.is_empty() {
