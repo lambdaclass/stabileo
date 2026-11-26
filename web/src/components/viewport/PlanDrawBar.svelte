@@ -1,6 +1,6 @@
 <script lang="ts">
   import { planDraw, type BeamMode, type ColumnMode } from '../../lib/store/plan-draw.svelte';
-  import { t } from '../../lib/i18n';
+  import { t, tp } from '../../lib/i18n';
   import { uiStore } from '../../lib/store/ui.svelte';
   import { modelStore } from '../../lib/store/model.svelte';
 
@@ -82,6 +82,7 @@
           {#each ALIGN as [v, g] (v)}<button class:on={b.align === v} role="radio" aria-checked={b.align === v} onclick={() => (b.align = v)} title={t(`planDraw.align.${v}`)} data-testid="plan-draw-align-{v}">{g}</button>{/each}
         </div>
       {/if}
+      {#if planDraw.beamLevel}<span class="pd-size" title={t('planDraw.onLevelHint')} data-testid="plan-draw-level">{tp('planDraw.onLevel', { level: planDraw.beamLevel.name })}</span>{/if}
       <label class="pd-check" title={t('planDraw.topFlushHint')}><input type="checkbox" bind:checked={b.topFlush} data-testid="plan-draw-top-flush" /> {t('planDraw.topFlush')}</label>
     {/if}
     <span class="pd-sep"></span>

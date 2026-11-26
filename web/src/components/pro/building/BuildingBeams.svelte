@@ -22,7 +22,6 @@
   let { report }: { report: (text: string) => void } = $props();
 
   const grid = $derived(modelStore.grid);
-  const levels = $derived([...(grid?.levels ?? [])].sort((a, b) => a.z - b.z));
   const sections = $derived([...modelStore.sections.values()]);
   let typology = $state('dropped'), sectionX = $state(0), sectionY = $state(0), wantX = $state(true), wantY = $state(true);
   /** Where a beam sits across its axis: −1, centred, +1, or the edges' beams flush with the columns' outer face. */
@@ -69,12 +68,9 @@
     uiStore.setSelection(new Set(), new Set(r.bars), false);
     report(tp('grid.frameCreated', { members: r.elements, nodes: r.nodes, welded: r.welded, duplicates: r.duplicates }));
   }
-  let drawKind = $state<'beam' | 'brace'>('beam'), workLevel = $state('');
-  $effect(() => { if (!levels.some((l) => l.id === workLevel)) workLevel = levels[1]?.id ?? levels[0]?.id ?? ''; });
+  let drawKind = $state<'beam' | 'brace'>('beam');
   function draw() {
     if (drawKind === 'beam') {
-      const l = levels.find((x) => x.id === workLevel);
-      if (l) uiStore.setActiveLevel(l.z);
       const sec = modelStore.sections.get(sectionX);
       const rect = sec?.shape === 'rect';
       Object.assign(planDraw.beam, { typology, topFlush, align: align === 'perimeter' ? 0 : Math.sign(align) as -1 | 0 | 1,
@@ -84,8 +80,6 @@
       return;
     }
     nextMember.physical = { kind: drawKind, typology: drawKind === 'brace' ? (fam === 'timber' ? 'timber' : 'steel') : typology };
-    const l = levels.find((x) => x.id === workLevel);
-    if (l) uiStore.setActiveLevel(l.z);
     uiStore.currentTool = 'element';
     report(t(drawKind === 'brace' ? 'building.beam.drawingBrace' : 'building.beam.drawing'));
   }
@@ -153,9 +147,6 @@
         <button class="pk-btn" class:on={drawKind === k} role="radio" aria-checked={drawKind === k} onclick={() => (drawKind = k)} data-testid="building-draw-{k}">{t(`physical.kind.${k}`)}</button>
       {/each}
     </div>
-    <label class="bk-field">{t('building.workLevel')}
-      <select bind:value={workLevel}>{#each levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}</select>
-    </label>
     <button class="pk-btn" onclick={draw} data-testid="building-beams-draw">{t('building.draw')}</button>
   </div>
 </section>

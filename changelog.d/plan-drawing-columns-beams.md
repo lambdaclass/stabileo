@@ -11,3 +11,11 @@ so it can run flush with the column's face; a column it crosses cuts it, and a b
 there. Points snap to the template, the columns' corners, faces and centres, and the nodes; a level
 with no template snaps to the one under it. Shift draws orthogonally, and a length typed and Enter
 places the next point.
+
+The building is modelled by storeys. A storey runs from its level to the next one, and the Building
+panel shows which one is being modelled, with its template or a button to load one. Its template is
+that floor's plan: its columns and walls are drawn from its level to the one above, and its beams and
+slabs on the one above, its ceiling. The plan view of a storey cuts at its ceiling, so the beams just
+drawn show, and draws the ceiling's slab in halftone. What sits on its floor belongs to the storey
+below and is hidden with it, except on the lowest level. The levels come first in Levels and grid,
+followed by the template and then the axes; until there are two levels, the panel says what is missing.

@@ -49,6 +49,8 @@ test.describe('@smoke drawing the building on the plan', () => {
     await page.getByTestId('building-tab-beams').click();
     await page.getByTestId('building-beams-draw').click();
     await expect(page.getByTestId('plan-draw-bar')).toContainText(/Viga|Beam/);
+    await expect(page.getByTestId('building-storey-select').locator('option:checked'), 'the storey stays the one its columns were drawn on').toContainText('N0');
+    await expect(page.getByTestId('plan-draw-level'), 'and its beams go on its ceiling').toContainText('N1');
     await page.getByTestId('plan-draw-width').fill('20');
     await page.getByTestId('plan-draw-width').press('Enter');
     await page.getByTestId('plan-draw-height').fill('50');

@@ -21,7 +21,6 @@
   let { report }: { report: (text: string) => void } = $props();
 
   const grid = $derived(modelStore.grid);
-  const levels = $derived([...(grid?.levels ?? [])].sort((a, b) => a.z - b.z));
   const sections = $derived([...modelStore.sections.values()]);
   let typology = $state('concrete'), section = $state(0), fixBase = $state(true), angle = $state(0);
   let fixedPoint = $state<[number, number]>([0, 0]);
@@ -69,11 +68,7 @@
     uiStore.setSelection(new Set(), new Set(r.bars), false);
     report(tp('grid.frameCreated', { members: r.elements, nodes: r.nodes, welded: r.welded, duplicates: r.duplicates }));
   }
-  let workLevel = $state('');
-  $effect(() => { if (!levels.some((l) => l.id === workLevel)) workLevel = levels[0]?.id ?? ''; });
   function draw() {
-    const l = levels.find((x) => x.id === workLevel);
-    if (l) uiStore.setActiveLevel(l.z);
     const sec = modelStore.sections.get(section);
     const rect = sec?.shape === 'rect';
     Object.assign(planDraw.column, { typology, fixedPoint: [...fixedPoint] as [number, number], angle, fixBase, levelFrom: '', levelTo: '',
@@ -122,9 +117,6 @@
 
   <h5 class="bk-h">{t('building.drawTitle')}</h5>
   <div class="bk-row">
-    <label class="bk-field">{t('building.workLevel')}
-      <select bind:value={workLevel}>{#each levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}</select>
-    </label>
     <button class="pk-btn" onclick={draw} data-testid="building-columns-draw">{t('building.col.draw')}</button>
   </div>
 </section>

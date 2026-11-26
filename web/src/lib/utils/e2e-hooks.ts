@@ -178,7 +178,7 @@ export interface StabileoTestHooks {
    */
   nodeMarkersDrawn(): boolean;
   /** Objects under the plan view's level that its last pass hid or drew in halftone. */
-  planCutCensus(): { hidden: number; ghost: number };
+  planCutCensus(): { hidden: number; ghost: number; overhead: number };
   /** How the node markers are drawn now: 'points', 'spheres' or 'mesh' (`NodeMarkerStyle`). */
   nodeMarkerStyle(): string | null;
   /** Member diagrams the 3D scene holds right now (0 when none is drawn). */

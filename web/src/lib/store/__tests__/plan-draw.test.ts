@@ -56,6 +56,30 @@ describe('drawing on the plan', () => {
     expect(planDraw.hover).toEqual({ x: 4, y: 0 });
   });
 
+  it('on a storey, draws its columns from its level up and its beams on its ceiling', () => {
+    uiStore.nodeCreateZ = 0;
+    planDraw.start('column');
+    planDraw.setMode('point');
+    planDraw.add({ x: 0, y: 0 });
+    planDraw.add({ x: 5, y: 0 });
+    planDraw.start('beam');
+    expect(planDraw.z).toBe(3);
+    expect(planDraw.beamLevel?.name).toBe('P1');
+    planDraw.beam.align = 0;
+    planDraw.add({ x: 0, y: 0 });
+    planDraw.add({ x: 5, y: 0 });
+    const zs = (id: number) => { const e = modelStore.elements.get(id)!; return [modelStore.nodes.get(e.nodeI)!.z ?? 0, modelStore.nodes.get(e.nodeJ)!.z ?? 0]; };
+    const all = [...modelStore.elements.keys()].map(zs);
+    expect(all).toEqual([[0, 3], [0, 3], [3, 3]]);
+  });
+
+  it('on the top level, with no ceiling, draws its beams on it', () => {
+    uiStore.nodeCreateZ = 3;
+    planDraw.start('beam');
+    expect(planDraw.z).toBe(3);
+    expect(planDraw.beamLevel?.name).toBe('P1');
+  });
+
   it('does not chain from a beam that was refused', () => {
     uiStore.nodeCreateZ = 3;
     planDraw.start('beam');

@@ -33,7 +33,8 @@
   import { currentShellContourField, shellStressInputs } from '../lib/store/shell-contour';
   import { shellComponentValue, shellComponentMeta, shellComponentLabelKey } from '../lib/engine/shell-stress';
   import { toneObject } from '../lib/viewport3d/category-tone';
-  import { toneBelowPlanCut, clearPlanCut, planFloorFor, planClipZ } from '../lib/viewport3d/plan-cut';
+  import { toneBelowPlanCut, clearPlanCut, planCutFor, planClipZ } from '../lib/viewport3d/plan-cut';
+  import { storeyAt } from '../lib/model/storeys';
   import { viewCategories, type ViewCategory } from '../lib/store/view-categories.svelte';
   import { syncUnderlays } from '../lib/three/underlay-3d';
   import { syncFootings } from '../lib/three/footings-3d';
@@ -1358,9 +1359,11 @@
     for (const g of [resultsCtx?.nodeLabelsGroup, resultsCtx?.elementLabelsGroup, resultsCtx?.shellLabelsGroup]) toneObject(g, s('labels'));
     toneObject(underlaysGroup, s('underlays'));
     for (const [obj, c] of sceneHost.toned) toneObject(obj, s(c));
-    const cut = uiStore.planView3D && uiStore.planCutZ !== null ? { floorZ: planFloorFor(uiStore.nodeCreateZ), below: uiStore.planBelow } : null;
-    toneBelowPlanCut(planned, cut);
-    nodesInstanced.setClipBelow(cut?.below === 'hidden' ? cut.floorZ : null);
+    const storey = storeyAt(modelStore.grid?.levels ?? [], uiStore.nodeCreateZ);
+    const cut = uiStore.planView3D && uiStore.planCutZ !== null
+      ? planCutFor(uiStore.nodeCreateZ, { lowest: storey.lowest, ceiling: storey.ceiling !== null, below: uiStore.planBelow }) : null;
+    toneBelowPlanCut(planned, cut, [shellsParent]);
+    nodesInstanced.setClipBelow(cut?.below === 'hidden' ? cut.nodeFloorZ : null);
     elementsBatched.setPlanFloor(cut?.floorZ ?? null, cut?.below ?? 'hidden');
   }
   // Decorative overlays (member/shell local-axis triads, offset viz) fully rebuild
@@ -2303,7 +2306,7 @@
     const ground = getGroundIntersection(e);
     if (!ground || !camera || !container) return null;
     const tol = worldPerPixel(camera, ground, container.clientHeight) * 10;
-    const z = uiStore.nodeCreateZ;
+    const z = planDraw.z;
     let best: { x: number; y: number; d: number; mode: string } | null = null;
     const offer = (x: number, y: number, mode: string) => {
       const d = Math.hypot(x - ground.x, y - ground.y);
@@ -2339,7 +2342,7 @@
   function refreshPlanHint(cx: number, cy: number, p: { x: number; y: number; mode?: string; label?: string } | null) {
     if (!container) return;
     const rect = container.getBoundingClientRect();
-    const z = uiStore.nodeCreateZ;
+    const z = planDraw.z;
     const outline = planDraw.preview.map((q) => { const s = projectToScreen(q.x, q.y, z); return `${s.x},${s.y}`; }).join(' ');
     const h = planDraw.hover;
     const snap = h && p?.mode ? (() => { const s = projectToScreen(h.x, h.y, z); return { sx: s.x, sy: s.y, mode: p.mode!, ...(p.label ? { label: p.label } : {}) }; })() : null;
@@ -4111,15 +4114,15 @@
 
   /** What the plan view replaced, put back when it is left. */
   let beforePlan: { mode: 'perspective' | 'orthographic'; tool: typeof uiStore.currentTool } | null = null;
-  /** Above the working level, a little over its floor: the beams and the slab on it stay, the storeys above go. */
+  /** With no level above, the cut a little over the floor: the beams and the slab on it stay. */
   const PLAN_CUT_M = 0.15;
   /**
-   * The plan view on level `z`: the camera over it and the plan's own cut a little above its floor.
-   * The cut plane a person set stays as it was: the two are separate (QA of 20-oct).
+   * The plan view of the storey on level `z`: the camera over it and the plan's own cut at the next
+   * level, its ceiling, so its beams and slab show. The cut plane a person set stays as it was.
    */
   function followLevel(z: number) {
     if (!camera || !controls) return;
-    uiStore.planCutZ = z + PLAN_CUT_M;
+    uiStore.planCutZ = storeyAt(modelStore.grid?.levels ?? [], z).ceiling?.z ?? z + PLAN_CUT_M;
     const dz = z - controls.target.z;
     controls.target.z += dz;
     camera.position.z += dz;
@@ -4173,13 +4176,14 @@
     untrack(() => { if (uiStore.planView3D && beforePlan) turnPlan(); });
   });
   $effect(() => {
-    void uiStore.planView3D; void uiStore.planCutZ; void uiStore.planBelow; void uiStore.nodeCreateZ;
+    void uiStore.planView3D; void uiStore.planCutZ; void uiStore.planBelow; void uiStore.nodeCreateZ; void modelStore.grid;
     toneDirty = true;
     invalidate();
   });
   // The working level moves the plan view with it: the camera and the cut follow.
   $effect(() => {
     const z = uiStore.nodeCreateZ;
+    void (modelStore.grid?.levels ?? []).map((l) => l.z).join();
     untrack(() => { if (uiStore.planView3D && beforePlan) followLevel(z); });
   });
 

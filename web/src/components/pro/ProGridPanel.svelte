@@ -104,6 +104,52 @@
 
 <div class="pk gr" data-testid="grid-panel">
   <section class="pk-card">
+    <h4 class="pk-heading">{t('grid.levelsTitle')}</h4>
+    <Hint text={t('grid.levelsHint')} />
+    <div class="pk-row gr-wrap">
+      <label class="gr-field gr-grow">{t('grid.heights')}
+        <span class="gr-unit"><input bind:value={heights} placeholder="3; 3; 3" data-testid="grid-heights" /> {lenUnit}</span>
+      </label>
+      <label class="gr-field gr-narrow">{t('grid.base')}
+        <QuantityInput bind:value={base} quantity="length" />
+      </label>
+      <label class="gr-field gr-grow">{t('grid.levelNames')}
+        <input bind:value={names} placeholder={t('grid.levelNamesPlaceholder')} />
+      </label>
+      <button class="pk-btn pk-btn-primary" disabled={!parseBays(heights)} onclick={generateLevels} data-testid="grid-generate-levels">{t('grid.generate')}</button>
+    </div>
+    {#if levels.length > 0}
+      <table class="gr-table">
+        <thead><tr><th>{t('grid.name')}</th><th>{axisName(2).toLowerCase()} ({unitQ('length')})</th><th>{t('storeys.similarTo')}</th><th title={t('storeys.spliceHint')}>{t('storeys.splice')}</th><th>{t('storeys.color')}</th><th>{t('grid.workHere')}</th><th></th></tr></thead>
+        <tbody>
+          {#each [...levels].reverse() as l (l.id)}
+            {@const active = activeZ !== null && Math.abs(activeZ - l.z) < 1e-6}
+            <tr class:gr-active={active} data-testid="grid-level-{l.name}">
+              <td><input class="gr-cell" value={l.name} onchange={(e) => editLevel(l, { name: e.currentTarget.value.trim() || l.name })} /></td>
+              <td><QuantityInput cls="gr-cell gr-num" wrap="gr-qi" showUnit={false} value={sg('z') * l.z} quantity="length" onchange={(v) => editLevel(l, { z: sg('z') * v })} /></td>
+              <td>
+                <select class="gr-cell" value={l.similarTo ?? ''} onchange={(e) => editLevel(l, { similarTo: e.currentTarget.value || undefined })} aria-label={tp('storeys.similarToOf', { name: l.name })} data-testid="grid-similar-{l.name}">
+                  <option value="">{masters.has(l.id) ? t('storeys.master') : '—'}</option>
+                  {#each levels.filter((x) => x.id !== l.id && !x.similarTo) as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
+                </select>
+              </td>
+              <td><input type="checkbox" checked={!!l.splice} onchange={(e) => editLevel(l, { splice: e.currentTarget.checked || undefined })} aria-label={tp('storeys.spliceOf', { name: l.name })} data-testid="grid-splice-{l.name}" /></td>
+              <td><input type="color" class="gr-color" value={l.color ?? '#8fa3b3'} onchange={(e) => editLevel(l, { color: e.currentTarget.value })} aria-label={tp('storeys.colorOf', { name: l.name })} /></td>
+              <td><input type="radio" name="gr-active" checked={active} onchange={() => uiStore.setActiveLevel(l.z)} aria-label={tp('grid.workOn', { name: l.name })} data-testid="grid-activate-{l.name}" /></td>
+              <td><button class="pk-btn gr-del" title={t('grid.remove')} onclick={() => removeLevel(l)}>×</button></td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    {/if}
+    {#if levels.length > 1}<Hint text={t('storeys.hint')} />{/if}
+    {#each similarIssues as i (i.level + i.issue)}<p class="pk-warn" data-testid="grid-similar-issue">{tp(`storeys.issue.${i.issue}`, { name: levels.find((l) => l.id === i.level)?.name ?? i.level })}</p>{/each}
+    <label class="pk-row gr-check"><input type="checkbox" bind:checked={uiStore.snapToAxes} data-testid="grid-snap" /> {t('grid.snap')}</label>
+  </section>
+
+  <UnderlayCard />
+
+  <section class="pk-card">
     <h4 class="pk-heading">{t('grid.axesTitle')}</h4>
     <Hint text={t('grid.axesHint')} />
     {#each [{ axis: 'x' as const, d: bx, list: xs }, { axis: 'y' as const, d: by, list: ys }] as row (row.axis)}
@@ -150,50 +196,6 @@
   </section>
 
   <section class="pk-card">
-    <h4 class="pk-heading">{t('grid.levelsTitle')}</h4>
-    <Hint text={t('grid.levelsHint')} />
-    <div class="pk-row gr-wrap">
-      <label class="gr-field gr-grow">{t('grid.heights')}
-        <span class="gr-unit"><input bind:value={heights} placeholder="3; 3; 3" data-testid="grid-heights" /> {lenUnit}</span>
-      </label>
-      <label class="gr-field gr-narrow">{t('grid.base')}
-        <QuantityInput bind:value={base} quantity="length" />
-      </label>
-      <label class="gr-field gr-grow">{t('grid.levelNames')}
-        <input bind:value={names} placeholder={t('grid.levelNamesPlaceholder')} />
-      </label>
-      <button class="pk-btn pk-btn-primary" disabled={!parseBays(heights)} onclick={generateLevels} data-testid="grid-generate-levels">{t('grid.generate')}</button>
-    </div>
-    {#if levels.length > 0}
-      <table class="gr-table">
-        <thead><tr><th>{t('grid.name')}</th><th>{axisName(2).toLowerCase()} ({unitQ('length')})</th><th>{t('storeys.similarTo')}</th><th title={t('storeys.spliceHint')}>{t('storeys.splice')}</th><th>{t('storeys.color')}</th><th>{t('grid.workHere')}</th><th></th></tr></thead>
-        <tbody>
-          {#each [...levels].reverse() as l (l.id)}
-            {@const active = activeZ !== null && Math.abs(activeZ - l.z) < 1e-6}
-            <tr class:gr-active={active} data-testid="grid-level-{l.name}">
-              <td><input class="gr-cell" value={l.name} onchange={(e) => editLevel(l, { name: e.currentTarget.value.trim() || l.name })} /></td>
-              <td><QuantityInput cls="gr-cell gr-num" wrap="gr-qi" showUnit={false} value={sg('z') * l.z} quantity="length" onchange={(v) => editLevel(l, { z: sg('z') * v })} /></td>
-              <td>
-                <select class="gr-cell" value={l.similarTo ?? ''} onchange={(e) => editLevel(l, { similarTo: e.currentTarget.value || undefined })} aria-label={tp('storeys.similarToOf', { name: l.name })} data-testid="grid-similar-{l.name}">
-                  <option value="">{masters.has(l.id) ? t('storeys.master') : '—'}</option>
-                  {#each levels.filter((x) => x.id !== l.id && !x.similarTo) as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
-                </select>
-              </td>
-              <td><input type="checkbox" checked={!!l.splice} onchange={(e) => editLevel(l, { splice: e.currentTarget.checked || undefined })} aria-label={tp('storeys.spliceOf', { name: l.name })} data-testid="grid-splice-{l.name}" /></td>
-              <td><input type="color" class="gr-color" value={l.color ?? '#8fa3b3'} onchange={(e) => editLevel(l, { color: e.currentTarget.value })} aria-label={tp('storeys.colorOf', { name: l.name })} /></td>
-              <td><input type="radio" name="gr-active" checked={active} onchange={() => uiStore.setActiveLevel(l.z)} aria-label={tp('grid.workOn', { name: l.name })} data-testid="grid-activate-{l.name}" /></td>
-              <td><button class="pk-btn gr-del" title={t('grid.remove')} onclick={() => removeLevel(l)}>×</button></td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    {/if}
-    {#if levels.length > 1}<Hint text={t('storeys.hint')} />{/if}
-    {#each similarIssues as i (i.level + i.issue)}<p class="pk-warn" data-testid="grid-similar-issue">{tp(`storeys.issue.${i.issue}`, { name: levels.find((l) => l.id === i.level)?.name ?? i.level })}</p>{/each}
-    <label class="pk-row gr-check"><input type="checkbox" bind:checked={uiStore.snapToAxes} data-testid="grid-snap" /> {t('grid.snap')}</label>
-  </section>
-
-  <section class="pk-card">
     <h4 class="pk-heading">{t('grid.fromModelTitle')}</h4>
     <Hint text={t('grid.fromModelHint')} />
     <button class="pk-btn" disabled={modelStore.nodes.size === 0} onclick={readFromModel} data-testid="grid-from-model">{t('grid.fromModel')}</button>
@@ -203,7 +205,6 @@
     {#each issues as i (i)}<p class="pk-hint gr-warn">{issueText(i)}</p>{/each}
   </section>
 
-  <UnderlayCard />
   <LinkedModelsCard />
 
   {#if levels.length >= 2}

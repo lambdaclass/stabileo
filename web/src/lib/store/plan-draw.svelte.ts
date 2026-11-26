@@ -4,6 +4,7 @@ import { buildingUi } from './building-ui.svelte';
 import { t, tp } from '../i18n';
 import type { Level } from '../model/grid';
 import { typologyFamily } from '../model/building/typology-defaults';
+import { storeyAt } from '../model/storeys';
 import {
   beamAxis, beamFromFaces, footprintAt, footprintCorners, footprintFromCorners, footprintFromSide,
   placeBeamOnPlan, placeColumnOnPlan, type Footprint, type P2, type PlanPlaced,
@@ -26,6 +27,8 @@ let modeBefore: 'wireframe' | 'solid' | 'sections' | null = null;
 
 const levels = (): Level[] => [...(modelStore.grid?.levels ?? [])].sort((a, b) => a.z - b.z);
 const levelHere = (): Level | undefined => levels().find((l) => Math.abs(l.z - uiStore.nodeCreateZ) < 1e-6);
+/** A storey's beams frame its ceiling: the next level up, or the level itself on the top one. */
+const beamLevel = (): Level | undefined => (levelHere() ? storeyAt(levels(), uiStore.nodeCreateZ).ceiling ?? levelHere() : undefined);
 
 /** Whether the next point draws a line from the last one, which is what Shift squares. */
 const linear = () => points.length === 1 && (kind === 'beam' || column.mode === 'side');
@@ -82,11 +85,12 @@ function commit(pts: P2[]) {
     return;
   }
   const line = beamLine(pts);
-  if (!level) { uiStore.toast(t('planDraw.noLevel'), 'error'); points = []; return; }
+  const ceiling = beamLevel();
+  if (!ceiling) { uiStore.toast(t('planDraw.noLevel'), 'error'); points = []; return; }
   if (!line) { uiStore.toast(t('planDraw.refused.size'), 'error'); points = []; return; }
   const materialId = buildingUi.materialFor(typologyFamily('beam', beam.typology));
   const placed = report(placeBeamOnPlan({
-    a: line.a, b: line.b, width: line.width, height: beam.height, level, materialId, typology: beam.typology, topFlush: beam.topFlush,
+    a: line.a, b: line.b, width: line.width, height: beam.height, level: ceiling, materialId, typology: beam.typology, topFlush: beam.topFlush,
     ...(beam.sectionId !== null ? { sectionId: beam.sectionId } : {}),
   }), 'beam');
   if (placed && beam.mode === 'faces') beam.width = Math.round(line.width * 100) / 100;
@@ -105,6 +109,10 @@ export const planDraw = {
   column,
   beam,
   get levels() { return levels(); },
+  /** The level the next click lands on: the storey's floor for a column, its ceiling for a beam. */
+  get z(): number { return kind === 'beam' ? beamLevel()?.z ?? uiStore.nodeCreateZ : uiStore.nodeCreateZ; },
+  /** The level a beam is placed on, while drawing beams. */
+  get beamLevel(): Level | undefined { return kind === 'beam' ? beamLevel() : undefined; },
   /** What a click needs next, as a key of `planDraw.step.*`. */
   get step(): string {
     const m = mode();
