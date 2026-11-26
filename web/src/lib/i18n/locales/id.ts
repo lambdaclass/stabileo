@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const id: Translations = {
+  'cad.disconnectedWallBeam': "Elemen dinding segi empat {wall} berada dalam toleransi snap CAD balok {beam} dan tidak memiliki simpul bersama. Sejajarkan ujung dinding dengan balok pada gambar.",
   'svc.accountingMismatch': "Analisis ditolak. Kasus beban {case}, {component}. Nilai masukan {entered}, nilai rakitan {assembled}.",
   'svc.accountingUnsupported': "Analisis ditolak. Gaya dan momen {kind} {id} pada kasus beban {case} tidak dapat diperhitungkan.",
   'svc.accountingArea': "Analisis ditolak. Pelat {plate} memiliki luas atau batas yang berbeda pada model penyelesaian. Luas yang ditetapkan {entered}, luas rakitan {assembled}.",

@@ -92,17 +92,19 @@ function clearanceOver(part: Polygon, lower: DeckSurface, upper: DeckSurface) {
     const plan = doubledPlanPoint(point);
     return { base: elevationRange(lower, plan), top: elevationRange(upper, plan) };
   };
+  let heights: ReturnType<typeof elevationPair>[] | undefined;
+  const bounds = () => heights ??= part.flat().map(elevationPair);
+  const smallest = ({ base, top }: ReturnType<typeof elevationPair>, limit: number) => compareClearance(top[0], base[1], limit);
+  const largest = ({ base, top }: ReturnType<typeof elevationPair>, limit: number) => compareClearance(top[1], base[0], limit);
   const determinate = hasHeight(lower) && hasHeight(upper);
   const band = (min: number, max: number): Band => {
     if (lower.range[0] === lower.range[1] && upper.range[0] === upper.range[1]) return deckRangeBand(lower, upper, min, max);
-    const bounds = part.flat().map(elevationPair);
-    const smallest = ({ base, top }: typeof bounds[number], limit: number) => compareClearance(top[0], base[1], limit);
-    const largest = ({ base, top }: typeof bounds[number], limit: number) => compareClearance(top[1], base[0], limit);
-    if (bounds.every(pair => largest(pair, min) <= 0) || bounds.every(pair => smallest(pair, max) >= 0)) return 'none';
-    return bounds.every(pair => coversBand(smallest(pair, min), largest(pair, max), determinate)) ? 'full' : 'partial';
+    if (bounds().every(pair => largest(pair, min) <= 0) || bounds().every(pair => smallest(pair, max) >= 0)) return 'none';
+    return bounds().every(pair => coversBand(smallest(pair, min), largest(pair, max), determinate)) ? 'full' : 'partial';
   };
   return {
     part, band,
+    strictlyAbove: (limit: number) => bounds().every(pair => smallest(pair, limit) > 0),
     separated: (limit: number) => {
       const samples = part.flat().map(heightPair);
       return samples.every(p => above(p.topLow, p.baseHigh, limit) > 0)

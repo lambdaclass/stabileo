@@ -395,8 +395,6 @@ it.each([0, 5])(
   },
 );
 
-const replayRound11MemberCover = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
-
 function checkRafterBelowGap(y: number, sheltered: boolean) {
   const { model } = offsetRoof(0.02, 0, 1, false, [4, 6]);
   const nodeI = model.nodes.size + 1, nodeJ = nodeI + 1;
@@ -421,7 +419,7 @@ function checkRafterBelowGap(y: number, sheltered: boolean) {
     .toMatchObject([{ q: sheltered ? -3 : -6 }]);
 }
 
-replayRound11MemberCover.each([1, 2])('known wrong result: #2607 shelters the individual rafter at y = %s beneath a certified gap', y => {
+it.each([1, 2])('#2607 shelters the individual rafter at y = %s beneath a certified gap', y => {
   checkRafterBelowGap(y, true);
 });
 

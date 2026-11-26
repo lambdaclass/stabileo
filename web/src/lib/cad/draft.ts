@@ -34,6 +34,7 @@ import {
 import { resolveSection } from './specs';
 import { ROOM_CATEGORY_LOADS } from './rooms';
 import { t, tp } from '../i18n';
+import { EngineMessageError, msg } from '../codes/message';
 import type { SectionScheduleEntry, SpecSource } from './types';
 import type { MemberOffset } from '../model/element-3d-metadata';
 import { findCoincidentNode, beamThrough } from '../engine/mesh-weld';
@@ -800,7 +801,7 @@ export function generateRcDraft(
   const tightPoints = [...tightStations.values()];
   const stationTolerance = (p: CadPt) => tightStations.has(`${p.x}|${p.y}`)
     || tightPoints.some(n => dist(n, p) < PLATE_EDGE_TOL) ? PLATE_EDGE_TOL : tol;
-  const wallEndNodes = new Set<number>();
+  const wallEndNodes = new Map<number, number>();
   let wallScheduleHits = 0;
   for (const run of wallRuns) {
     const segments = splitSegmentsAtPoints([run], stations, PLATE_EDGE_TOL, 0)
@@ -820,15 +821,15 @@ export function generateRcDraft(
         const n1 = b.node(end.x, end.y, z0, endWeld);
         const n2 = b.node(end.x, end.y, z1, endWeld);
         const n3 = b.node(start.x, start.y, z1, startWeld);
+        const wall = b.quad([n0, n1, n2, n3], t);
         if (start === run.a) {
-          wallEndNodes.add(n0);
-          wallEndNodes.add(n3);
+          wallEndNodes.set(n0, wall);
+          wallEndNodes.set(n3, wall);
         }
         if (end === run.b) {
-          wallEndNodes.add(n1);
-          wallEndNodes.add(n2);
+          wallEndNodes.set(n1, wall);
+          wallEndNodes.set(n2, wall);
         }
-        b.quad([n0, n1, n2, n3], t);
       }
     }
   }
@@ -859,10 +860,10 @@ export function generateRcDraft(
   }
 
   // ── Split beams at shell nodes (PR [8] mesh logic) ────────
+  const nodeById = (id: number) => b.nodes[id - 1];
+  const beamTraces = new Map(certifiedBeams);
   let beamsSplit = 0;
   if (a.splitBeams) {
-    const nodeById = (id: number) => b.nodes[id - 1];
-    const beamTraces = new Map(certifiedBeams);
     const shellNodeIds = new Set([...conformingNodes, ...[...b.quads, ...b.plates].flatMap(q => q.nodes)]);
     // Split beams to a FIXED POINT: a split creates new shorter sub-beams, and
     // another shell node may lie on a newly-created sub-beam (common where
@@ -908,6 +909,27 @@ export function generateRcDraft(
       if (trace) remaining.get(trace)!.delete(beamEdgeKey(element.nodeI, element.nodeJ));
     }
     if ([...remaining.values()].some(edges => edges.size > 0)) throw new Error(t('cad.generateFailed'));
+  }
+
+  const beamSegments = b.elements.flatMap(({ id, nodeI, nodeJ }) => {
+    const start = nodeById(nodeI)!, end = nodeById(nodeJ)!;
+    const z = start.z ?? 0;
+    const slabEdge = beamTraces.get(id)?.edges.has(beamEdgeKey(nodeI, nodeJ));
+    return z === (end.z ?? 0) && !slabEdge ? [{ id, start, end, z }] : [];
+  });
+  for (const [node, wall] of wallEndNodes) {
+    if (!conformingNodes.has(node)) continue;
+    const { x, y, z = 0 } = nodeById(node)!;
+    for (const { id, start, end, z: beamZ } of beamSegments) {
+      if (node === start.id || node === end.id || Math.abs(beamZ - z) >= tol) continue;
+      const dx = end.x - start.x, dy = end.y - start.y;
+      const length = Math.hypot(dx, dy);
+      const station = length > 0 ? Math.max(0, Math.min(length, (x - start.x) * (dx / length) + (y - start.y) * (dy / length))) : 0;
+      const fraction = length > 0 ? station / length : 0;
+      if (Math.hypot(x - (start.x + fraction * dx), y - (start.y + fraction * dy), z - beamZ) < tol) {
+        throw new EngineMessageError(msg('cad.disconnectedWallBeam', { wall, beam: id }));
+      }
+    }
   }
 
   // Final offset-element count (splits at shell nodes copy the parallel

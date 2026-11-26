@@ -7,6 +7,8 @@
   import { fragmentFromSnapshot } from '../lib/model/edit/fragment-code';
   import { placementStore } from '../lib/store/placement.svelte';
   import { t, tp } from '../lib/i18n';
+  import { EngineMessageError } from '../lib/codes/message';
+  import { te } from '../lib/i18n/engine-text';
   import { parseCadDxf, unsupportedFileKind, suggestUnitFromExtent, cadImportProblem } from '../lib/cad/parse';
   import { organizeImported } from '../lib/model/building/organize-import';
   import { meshSettingsValid } from '../lib/cad/draft';
@@ -658,7 +660,7 @@
       }
     } catch (e) {
       const showDetail = import.meta.env.DEV || import.meta.env.MODE === 'test';
-      genError = {
+      genError = e instanceof EngineMessageError ? { message: te(e) } : {
         message: t('cad.generateFailed'),
         detail: showDetail ? (e instanceof Error ? (e.stack ?? e.message) : String(e)) : undefined,
       };

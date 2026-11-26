@@ -880,8 +880,6 @@ it('#2607 an alternating path keeps the only physical floor joint', () => {
   expect(upper.nodeI).not.toBe(node(M.x, 3));
 });
 
-const replayRound11Cad = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
-
 describe.each(['fixedDivisions', 'targetSize'] as const)('#2607 conforming wall near a free beam endpoint in %s mode', meshMode => {
   function endpointDrafts(gap: number) {
     const plan = reviewPlan();
@@ -901,7 +899,7 @@ describe.each(['fixedDivisions', 'targetSize'] as const)('#2607 conforming wall 
     ];
   }
 
-  replayRound11Cad.each([0.006, -0.006])('known wrong result: #2607 refuses a detached wall node %s m from the free endpoint', gap => {
+  it.each([0.006, -0.006])('#2607 refuses a detached wall node %s m from the free endpoint', gap => {
     for (const generate of endpointDrafts(gap)) {
       expect.soft(generate).toThrow(expect.objectContaining({
         key: 'cad.disconnectedWallBeam',

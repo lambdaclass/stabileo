@@ -1,6 +1,6 @@
 import { agrees, roundoff, Sum } from '../accounting-math';
 import { ringArea } from './gravity-shell-partition';
-import { MIN_COINCIDENT_ROOF_EDGE_OVERLAP, SNOW_EDGE_COINCIDENCE, STEP_DRIFT_REFUSAL, snowCoordinate, snowEdgeRoundoff, snowRoofComponents, snowRoofEdgePairs, snowRoofSurfaces, snowSegmentCuts, roofSurfaceModel } from './snow-roof-surfaces';
+import { SNOW_EDGE_COINCIDENCE, STEP_DRIFT_REFUSAL, snowCoordinate, snowEdgeRoundoff, snowRoofComponents, snowRoofEdgePairs, snowRoofSurfaces, snowSegmentCuts, roofSurfaceModel } from './snow-roof-surfaces';
 import { gravityLayout, widthSpans, type GravityLayout, type GravityModel } from './plan-gravity';
 import { driftShapeMargins, stepDriftMargins, stepDrift, parapetDrift, slidingSnow, REF_DRIFT, REF_DRIFT_ADJACENT, REF_FIG9, REF_PARAPET, REF_SLIDING, type StepDrift } from '../../codes/cirsoc104/drift';
 import { EngineMessageError, msg, round, type EngineMessage } from '../../codes/message';
@@ -16,6 +16,8 @@ type RoofComponent = ReturnType<typeof snowRoofComponents>[number];
 type EdgeLine = ReturnType<typeof lineInto>;
 
 interface Band { bounded?: boolean; margins: (d: number, t: number) => number[]; distanceBreaks?: number[]; p0: P2; u: P2; len: number; n: P2; on: readonly RoofComponent[]; p: (d: number, t: number) => number }
+
+const MIN_WHOLE_BAND_JOIN = 0.1;
 
 const dot = (a: P2, b: P2) => a[0] * b[0] + a[1] * b[1];
 const sub = (a: P2, b: P2): P2 => [a[0] - b[0], a[1] - b[1]];
@@ -461,7 +463,7 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
           const mid = outside(atEdge((from + to) / 2));
           if (covers.some(p => within(mid, p.polygon, -1) && !p.holes.some(hole => within(mid, hole, -1))
             && surfaceModel.edgeHeights(a, b, layout, p.k, L.k).every(h => h >= -0.05))) return;
-          const lower = roofOf(L, MIN_COINCIDENT_ROOF_EDGE_OVERLAP);
+          const lower = roofOf(L, MIN_WHOLE_BAND_JOIN);
           const lu = Math.max(0, ...lower.flatMap((p) => p.polygon.map((v) => dot(sub(v, a), line.n))));
           const point = (t: number): P2 => [a[0] + t * line.u[0], a[1] + t * line.u[1]];
           const reportBand = (local: (pt: P2) => StepDrift, margins: (pt: P2) => number[], clearHeight: (pt: P2) => number, report: (dr: StepDrift, pt: P2, from: number, to: number) => void) => {
@@ -562,7 +564,7 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
         if (!sl.applies) continue;
         if (!refs.includes(REF_SLIDING)) refs.push(REF_SLIDING);
         bands.push({ margins: (d, t) => [4.5 - d, source.elevation([a[0] + (t + t0) * line.u[0], a[1] + (t + t0) * line.u[1]]) - surfaces(L.k).elevation([a[0] + (t + t0) * line.u[0], a[1] + (t + t0) * line.u[1]]) - 1e-8], distanceBreaks: [4.5], p0: [a[0] + line.u[0] * t0, a[1] + line.u[1] * t0], u: line.u, len: t1 - t0, n: line.n,
-          on: roofOf(L, MIN_COINCIDENT_ROOF_EDGE_OVERLAP), p: (d, t) => {
+          on: roofOf(L, MIN_WHOLE_BAND_JOIN), p: (d, t) => {
             const pt: P2 = [a[0] + (t + t0) * line.u[0], a[1] + (t + t0) * line.u[1]];
             return d <= 4.5 && source.elevation(pt) > surfaces(L.k).elevation(pt) + 1e-8 ? sl.intensity : 0;
           } });

@@ -1,5 +1,6 @@
 import type { Translations } from '../types';
 const hi: Translations = {
+  'cad.disconnectedWallBeam': "दीवार का चतुर्भुज तत्व {wall}, बीम {beam} की CAD स्नैप सहनशीलता के भीतर है और दोनों की कोई साझा गाँठ नहीं है। चित्र में दीवार के सिरे को बीम से संरेखित करें।",
   'loadPlan.gravity.offsetShellDeck': "शेल {id} अलग ऊँचाई पर स्थित ओवरलैप करते बीम पैनल (सदस्य {members}) से ऊर्ध्वाधर दिशा में जुड़ा है। शेल, कनेक्शन या पैनल की ज्यामिति ठीक करें, या क्षेत्रीय भार हाथ से केवल एक बार लगाएँ।",
   'loadPlan.gravity.areaResultant': "बनाए गए भार ऊँचाई {z} पर निर्धारित फ़र्श क्षेत्र के अनुरूप नहीं हैं।",
   'loadPlan.gravity.caseResultant': "ऊँचाई {z} पर बनाए गए {action} भार निर्धारित क्षेत्र पर दबाव को संतुलित नहीं करते।",

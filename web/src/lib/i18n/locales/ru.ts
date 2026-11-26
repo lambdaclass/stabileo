@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const ru: Translations = {
+  'cad.disconnectedWallBeam': "Четырёхугольный элемент стены {wall} находится в пределах допуска привязки САПР к балке {beam} и не имеет с ней общего узла. Совместите торец стены с балкой на чертеже.",
   'svc.accountingMismatch': "Расчёт отклонён. Нагружение {case}, компонент {component}. Задано {entered}, собрано {assembled}.",
   'svc.accountingUnsupported': "Расчёт отклонён. Нельзя учесть силы и моменты {kind} {id} в нагружении {case}.",
   'svc.accountingArea': "Расчёт отклонён. Площадь или контур плиты {plate} в расчётной модели отличаются. Заданная площадь {entered}, собранная площадь {assembled}.",

@@ -954,8 +954,6 @@ it.each([false, true])('#2607 a concave two-way receiver refuses positive step d
   }
 });
 
-const replayRound11Snow = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
-
 function checkShortStep(overlap: number, separation: number) {
   const model = mesh([
     [[0, 0, 3], [7.5, 0, 3], [7.5, 4, 3], [0, 4, 3]],
@@ -982,7 +980,7 @@ function checkShortStep(overlap: number, separation: number) {
     .toBeCloseTo(expected, 10);
 }
 
-replayRound11Snow.each([0.05, 0.08])('known wrong result: #2607 evaluates drift on a %s m shared edge', overlap => {
+it.each([0.05, 0.08])('#2607 evaluates drift on a %s m shared edge', overlap => {
   checkShortStep(overlap, 0);
 });
 

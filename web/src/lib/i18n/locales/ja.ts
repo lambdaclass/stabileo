@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const ja: Translations = {
+  'cad.disconnectedWallBeam': "壁の四角形要素 {wall} は梁 {beam} の CAD スナップ許容範囲内にあり、共有節点がありません。図面で壁端と梁を合わせてください。",
   'svc.accountingMismatch': "解析を拒否しました。荷重ケース {case}、成分 {component}。入力値 {entered}、組立値 {assembled}。",
   'svc.accountingUnsupported': "解析を拒否しました。荷重ケース {case} の {kind} {id} の力とモーメントを集計できません。",
   'svc.accountingArea': "解析を拒否しました。ソルバー内のプレート {plate} の面積または境界が異なります。指定面積 {entered}、組立面積 {assembled}。",

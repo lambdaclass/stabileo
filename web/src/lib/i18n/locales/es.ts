@@ -1,4 +1,5 @@
 const es: Record<string, string> = {
+  'cad.disconnectedWallBeam': "El cuadrilátero de muro {wall} está dentro de la tolerancia de ajuste CAD de la viga {beam} y no comparte un nudo con ella. Alineá el extremo del muro con la viga en el dibujo.",
   'svc.accountingMismatch': "Análisis rechazado. Caso de carga {case}, {component}. Valor ingresado {entered}, valor ensamblado {assembled}.",
   'svc.accountingLineEnd': "Análisis rechazado. Caso de carga {case}, extremo {end} de la barra {member}. La carga redistribuida llegó al nodo {actual}. Se esperaba el nodo {expected}.",
   'svc.accountingUnsupported': "Análisis rechazado. En el caso de carga {case} no se pueden contabilizar las fuerzas ni los momentos de {kind} {id}.",

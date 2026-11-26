@@ -1905,8 +1905,11 @@ function coverage(
 ) {
   const shells = carriers.map(shell => ({ ...shell, id: shell.coverageId }));
   const footprints = [...panelsAt].flatMap(([z, polys]) => unionFootprints(polys.flatMap(panel => panel.footprint)).map(rings => ({ z, rings: rings.map(openRing) })));
-  const panels = [...panelsAt.values()].flat();
-  const areaCovers: Array<DeckFootprint & { id?: number }> = [...panels, ...shells, ...gaps];
+  const areaCovers: Array<{ deck: DeckFootprint; shell?: ShellCarrier }> = [
+    ...[...panelsAt.values()].flat().map(deck => ({ deck })),
+    ...shells.map(shell => ({ deck: shell, shell })),
+    ...gaps.map(deck => ({ deck })),
+  ];
   const rejectedPanels = [...rejected.values()].flat();
   const geometry = memberGeometry(model, zOf.keys());
   const byMember = new Map(geometry.map(member => [member.id, member]));
@@ -1956,16 +1959,11 @@ function coverage(
     };
     let uncertain = false;
     if (includeAreaCover) {
-      for (const panel of panels) {
-        if (!panel.footprint.some(poly => footprintContains(query, poly))) continue;
-        const cover = deckCover(panel.geometry);
-        if (cover === 'full') return true;
-        uncertain ||= cover === 'partial';
-      }
-      for (const shell of shells) {
-        if (shell.id === ownShell || !footprintContains(query, [shell.poly])) continue;
-        const basis = !shell.geometry.exactHeight && containingShellFacet(shell, query);
-        const cover = deckCover(shell.geometry, basis ? point => exactPlaneHeight(basis, point) : undefined);
+      for (const { deck, shell } of areaCovers) {
+        if (shell && shell.id === ownShell) continue;
+        if (!deck.footprint.some(poly => footprintContains(query, poly))) continue;
+        const basis = shell && !deck.geometry.exactHeight && containingShellFacet(shell, query);
+        const cover = deckCover(deck.geometry, basis ? point => exactPlaneHeight(basis, point) : undefined);
         if (cover === 'full') return true;
         uncertain ||= cover === 'partial';
       }
@@ -2006,8 +2004,8 @@ function coverage(
     const cover: Polygon[] = [];
     let partial = false;
     const compare = (upper: DeckFootprint) => deckOverlapsInBand(lower, upper, MIN_COVER_RISE, Infinity);
-    for (const upper of areaCovers) {
-      if (upper === lower || (ownShell !== undefined && upper.id === ownShell)) continue;
+    for (const { deck: upper, shell } of areaCovers) {
+      if (upper === lower || (shell && shell.id === ownShell)) continue;
       if (isIndependentShell(lower, upper)) {
         cover.push(...deckOverlaps(lower, upper).map(overlap => overlap.part));
         continue;

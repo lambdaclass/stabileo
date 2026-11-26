@@ -399,9 +399,7 @@ function supportedLocalBay(roofBase: number) {
   } satisfies LoadModelData;
 }
 
-const replayLocalBay = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
-
-replayLocalBay('known wrong result: #2607 a separately supported pitched roof clears the bay across their overlap', () => {
+it('#2607 a separately supported pitched roof clears the bay across their overlap', () => {
   const supported = supportedLocalBay(2.75);
   const layout = gravityLayout(supported, { mode: 'panels', tributaryWidth: 3 });
   expect.soft([...layout.areaOf.values()].reduce((sum, area) => sum + area, 0)).toBeCloseTo(16, 10);

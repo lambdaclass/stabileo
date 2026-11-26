@@ -1,5 +1,6 @@
 import type { Translations } from '../types';
 const pt: Translations = {
+  'cad.disconnectedWallBeam': "O quadrilátero de parede {wall} está dentro da tolerância de ajuste CAD da viga {beam} e não compartilha um nó com ela. Alinhe a extremidade da parede e a viga no desenho.",
   'svc.accountingMismatch': "Análise recusada. Caso de carga {case}, {component}. Valor introduzido {entered}, valor montado {assembled}.",
   'svc.accountingLineEnd': "Análise recusada. Caso de carga {case}, extremidade {end} da barra {member}. A carga redistribuída chegou ao nó {actual}. Esperava-se o nó {expected}.",
   'svc.accountingUnsupported': "Análise recusada. No caso de carga {case}, não é possível contabilizar as forças e os momentos de {kind} {id}.",

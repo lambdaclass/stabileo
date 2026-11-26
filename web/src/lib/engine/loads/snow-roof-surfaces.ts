@@ -234,7 +234,6 @@ export interface RoofGeometry {
 
 const PANEL_ELEVATION_TOL = 0.05;
 export const SNOW_EDGE_COINCIDENCE = 0.01;
-export const MIN_COINCIDENT_ROOF_EDGE_OVERLAP = 0.1;
 export const STEP_DRIFT_REFUSAL = 'snow.refused.stepDriftTransfer';
 
 export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
@@ -669,7 +668,7 @@ function roofEdges(roof: SnowRoofComponent) {
     return outline.flatMap((a, i) => {
       const b = outline[(i + 1) % outline.length]!;
       const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-      if (len < 1e-9 || side === 0) return [];
+      if (!(len > 0) || side === 0) return [];
       const u: P2 = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
       const inward: P2 = [-u[1] * side, u[0] * side];
       return [{ a, b, len, u, inward, outline }];
@@ -787,12 +786,16 @@ export function snowRoofEdgePairs(
   model: WindModel, layout: GravityLayout, surfaces = snowRoofSurfaces(model, layout), includeAdjacent = true,
 ) {
   const roofs = snowRoofComponents(layout);
-  const boundaries = roofs.map(roof => ({ roof, edges: roofEdges(roof) }));
+  const boundaries = roofs.map(roof => {
+    const origin = roof.polygon[0]!;
+    const error = roof.polygon.reduce((size, vertex) => Math.max(size, snowEdgeRoundoff(origin, vertex)), 0);
+    return { roof, edges: roofEdges(roof), error };
+  });
   const pairs: Array<{
     lower: number; upper: number; a: P2; b: P2; separation: number; above: (point: P2) => P2; below: (point: P2) => P2; displaced: boolean; inward: P2;
     lowerOutline: P2[]; elevations: EdgeElevation[]; lowerComponent: SnowRoofComponent; upperComponent: SnowRoofComponent;
   }> = [];
-  for (const { roof: L, edges: lowerEdges } of boundaries) for (const { roof: U, edges: upperEdges } of boundaries) {
+  for (const { roof: L, edges: lowerEdges, error: lowerError } of boundaries) for (const { roof: U, edges: upperEdges, error: upperError } of boundaries) {
     const { k: lower } = L, { k: upper } = U;
     if (lower === upper) continue;
     for (const { a, b, len, u, inward, outline: lowerOutline } of lowerEdges) {
@@ -800,7 +803,7 @@ export function snowRoofEdgePairs(
       const normal = (p: P2) => (p[0] - a[0]) * inward[0] + (p[1] - a[1]) * inward[1];
       const point = (t: number): P2 => [a[0] + t * u[0], a[1] + t * u[1]];
       for (const { a: c, b: d, inward: upperInward } of upperEdges) {
-        const error = snowEdgeRoundoff(a, b, c, d);
+        const error = Math.max(lowerError, upperError, snowEdgeRoundoff(a, b, c, d));
         const nc = normal(c), nd = normal(d);
         const tc = along(c), td = along(d);
         let lo = Math.max(0, Math.min(tc, td)), hi = Math.min(len, Math.max(tc, td));
@@ -815,9 +818,7 @@ export function snowRoofEdgePairs(
         const coincident = exact || (opposed && greatest <= error && least >= -SNOW_EDGE_COINCIDENCE);
         const gapAt = (t: number) => exact ? 0 : parallel ? gap : signedGap(t);
         const skew = !coincident && !parallel;
-        if (coincident) {
-          if (hi - lo <= MIN_COINCIDENT_ROOF_EDGE_OVERLAP) continue;
-        } else {
+        if (!coincident) {
           if (!includeAdjacent || !opposed) continue;
           if (greatest <= error || least >= MAX_ADJACENT_ROOF_SEPARATION) continue;
           const atGap = (width: number) => lo + (hi - lo) * (width - fromGap) / (toGap - fromGap);

@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const tr: Translations = {
+  'cad.disconnectedWallBeam': "{wall} numaralı dörtgen duvar elemanı, {beam} numaralı kirişin CAD yakalama toleransı içinde ve kirişle ortak bir düğümü yok. Çizimde duvar ucunu kirişle hizalayın.",
   'svc.accountingMismatch': "Analiz reddedildi. Yük durumu {case}, {component}. Girilen {entered}, birleştirilen {assembled}.",
   'svc.accountingLineEnd': "Analiz reddedildi. Yük durumu {case}, {member} numaralı elemanın {end} ucu. Yeniden dağıtılan yük {actual} düğümüne uygulandı. Beklenen düğüm {expected}.",
   'svc.accountingUnsupported': "Analiz reddedildi. {case} yük durumunda {kind} {id} için kuvvet ve moment hesabı yapılamıyor.",

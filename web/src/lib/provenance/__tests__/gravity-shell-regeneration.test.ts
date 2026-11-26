@@ -136,8 +136,6 @@ it.each(['linear', 'pdelta'] as const)(
   },
 );
 
-const replayRound11Provenance = process.env.RUN_KNOWN_WRONG === '2607' ? it : it.skip;
-
 function checkLegacyPanelDerivation(triangles: boolean, gravityMode?: 'panels' | 'width') {
   const { model: source } = offsetRoof(0.02, 0, 1, false, [4, 6]);
   const model = triangles ? triangulateRoof(source) : { ...source, plates: undefined };
@@ -162,7 +160,7 @@ function checkLegacyPanelDerivation(triangles: boolean, gravityMode?: 'panels' |
   }
 }
 
-replayRound11Provenance.each([false, true])('known wrong result: #2607 infers older shell panel gravity from derivation (triangles %s)', triangles => {
+it.each([false, true])('#2607 infers older shell panel gravity from derivation (triangles %s)', triangles => {
   checkLegacyPanelDerivation(triangles);
 });
 

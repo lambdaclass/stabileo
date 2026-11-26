@@ -1,0 +1,43 @@
+{
+  "id": "cad-disconnected-wall-beam",
+  "date": "2026-11-26",
+  "prs": [
+    2607
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "cadImportedDraft",
+      "cadWallSlabMesh"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Refuse disconnected CAD wall ends near beams",
+    "es": "Rechazar extremos de muro CAD desconectados cerca de vigas",
+    "pt": "Recusar extremidades de paredes CAD desconectadas perto de vigas",
+    "de": "Unverbundene CAD-Wandenden nahe Trägern ablehnen",
+    "fr": "Refuser les extrémités de murs CAO non raccordées près des poutres",
+    "hu": "A gerendák mellett leválasztott CAD-falvégek elutasítása",
+    "tr": "Kiriş yakınındaki bağlantısız CAD duvar uçlarını reddet",
+    "zh": "拒绝梁附近未连接的 CAD 墙端"
+  },
+  "explanation": {
+    "en": "Regenerate affected CAD drafts. Generation refuses a wall end within the CAD snap tolerance of an eligible beam if it has no shared joint.",
+    "es": "Volvé a generar los borradores CAD afectados. Se impide la generación si un extremo de muro queda dentro de la tolerancia de ajuste CAD de una viga apta sin compartir un nudo.",
+    "pt": "Gere novamente os rascunhos CAD afetados. A geração é impedida quando uma parede está dentro da tolerância de ajuste CAD de uma viga elegível sem um nó em comum.",
+    "de": "Erzeugen Sie die betroffenen CAD-Entwürfe neu. Liegt ein Wandende innerhalb der CAD-Fangtoleranz eines geeigneten Trägers ohne gemeinsamen Knoten, wird der Entwurf abgelehnt.",
+    "fr": "Régénérez les ébauches CAO concernées. La génération est refusée si une extrémité de mur est dans la tolérance d’accrochage d’une poutre admissible sans partager de nœud avec elle.",
+    "hu": "Készítse újra az érintett CAD-vázlatokat. A generálás elutasítja az alkalmas gerenda CAD illesztési tűrésén belüli falvéget, ha nincs közös csomópontjuk.",
+    "tr": "Etkilenen CAD taslaklarını yeniden oluşturun. Uygun bir kirişin CAD yakalama toleransı içindeki duvar ucu ortak düğüme sahip değilse taslak reddedilir.",
+    "zh": "请重新生成受影响的 CAD 草案。如果墙端位于可连接梁的 CAD 捕捉容差范围内但没有共用节点，系统会拒绝生成。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-wall-deck-and-step-geometry.md",
+    "heading": "Refuse disconnected CAD wall ends near beams"
+  }
+}
