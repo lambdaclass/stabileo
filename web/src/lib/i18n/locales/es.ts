@@ -1041,6 +1041,7 @@ const es: Record<string, string> = {
   'fm.s9.bad': "No coinciden: la mayor diferencia es {d}.",
   'fm.s9.flex': "Flexibilidades",
   'fm.s9.stiff': "Rigideces",
+  'fm.err.axialTrussPoint3d': 'El procedimiento de flexibilidad en 3D no puede recuperar cargas axiales puntuales en el interior de barras de celosía. Use el método de rigidez.',
   'fm.err.hypostatic': "La estructura es un mecanismo (GH < 0): no se puede resolver.",
   'fm.err.noRedundants': "Ninguna elección de incógnitas deja una fundamental estable: probablemente la estructura sea en parte un mecanismo.",
   'fm.err.unstable': "La estructura no es estable.",

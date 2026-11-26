@@ -664,7 +664,11 @@ fn scaled_loads_3d(input: &SolverInput3D, factor: f64) -> SolverInput3D {
                     *v *= factor;
                 }
             }
-            SolverLoad3D::PointOnElement(p) => { p.py *= factor; p.pz *= factor; }
+            SolverLoad3D::PointOnElement(p) => {
+                p.px *= factor;
+                p.py *= factor;
+                p.pz *= factor;
+            }
             _ => {}
         }
     }
@@ -2893,21 +2897,20 @@ fn elastic_corotational_forces_3d(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
 
     #[test]
-    #[ignore = "known wrong result: #2101"]
     fn spatial_axle_point_force_scales_all_components_at_a_partial_step() {
-        let mut input: SolverInput3D = serde_json::from_value(serde_json::json!({
+        let input: SolverInput3D = serde_json::from_value(serde_json::json!({
             "nodes": {}, "elements": {}, "materials": {}, "sections": {}, "supports": {},
             "loads": [{"type":"pointOnElement","data":{"elementId":1,"a":2.5,"px":-8.0,"py":0.0,"pz":-6.0}}]
         })).unwrap();
-        input = scaled_loads_3d(&input, 0.5);
-        let [SolverLoad3D::PointOnElement(axle)] = input.loads.as_slice() else {
+        let scaled = scaled_loads_3d(&input, 0.5);
+        let [SolverLoad3D::PointOnElement(axle)] = scaled.loads.as_slice() else {
             panic!("expected one point force");
         };
         assert_eq!((axle.a, axle.px, axle.py, axle.pz), (2.5, -4.0, 0.0, -3.0));
     }
-    use std::collections::HashMap;
 
     #[test]
     fn ends_a_whole_turn_apart_are_refused_whichever_turn_is_meant() {

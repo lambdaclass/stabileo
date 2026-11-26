@@ -943,6 +943,7 @@ const pt: Translations = {
   'fm.s9.bad': "Não coincidem: a maior diferença é {d}.",
   'fm.s9.flex': "Flexibilidade",
   'fm.s9.stiff': "Rigidez",
+  'fm.err.axialTrussPoint3d': 'O passo a passo da flexibilidade em 3D não recupera cargas axiais pontuais no interior de barras de treliça. Use o método da rigidez.',
   'fm.err.hypostatic': "A estrutura é um mecanismo (GH < 0): não pode ser resolvida.",
   'fm.err.noRedundants': "Nenhuma escolha de incógnitas deixa uma fundamental estável: provavelmente a estrutura é em parte um mecanismo.",
   'fm.err.unstable': "A estrutura não é estável.",

@@ -30,6 +30,7 @@
  *
  * Pure of stores: the model and its combinations come in, results go out.
  */
+import { pointGlobal } from './member-point-loads';
 import { modelNumberRefusal } from './model-input-numbers';
 import { plateAnalysisRefusal } from './plate-analysis-refusal';
 import type { ModelData } from './solver-service';
@@ -155,11 +156,11 @@ export function nodeGravity(input: SolverInput3D, loads: SolverLoad3D[], leftHan
     } else if (l.type === 'pointOnElement') {
       const m = axesOf(l.data.elementId);
       if (!m) continue;
-      const { ey, ez, L } = m.axes;
-      const g = (i: 0 | 1 | 2) => l.data.py * ey[i]! + l.data.pz * ez[i]!;
-      add(m.e.nodeI, -g(2) * (1 - l.data.a / L));
-      add(m.e.nodeJ, -g(2) * (l.data.a / L));
-      hx += g(0); hy += g(1);
+      const { F: [fx, fy, fz] } = pointGlobal(l.data, m.axes);
+      const shareJ = l.data.a / m.axes.L;
+      add(m.e.nodeI, -fz * (1 - shareJ));
+      add(m.e.nodeJ, -fz * shareJ);
+      hx += fx; hy += fy;
     }
   }
   return { gravity, lateral: { x: hx, y: hy } };

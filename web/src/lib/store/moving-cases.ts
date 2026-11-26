@@ -18,7 +18,7 @@ import { t, tp } from '../i18n';
 import { buildSolverInput3D } from '../engine/solver-service';
 import { withoutSettlement } from '../engine/settlement-case';
 import { buildPath3D } from '../engine/moving-loads-3d';
-import { alignSecondLine, passCount, positionPasses, trainModelLoads } from '../engine/vehicles';
+import { alignSecondLine, movingGroup, passCount, positionPasses, trainModelLoads } from '../engine/vehicles';
 import { errorText } from '../utils/error-text';
 import { referenceStation } from '../engine/moving-axle-station';
 import { localizeEngineText } from '../i18n/engine-text';
@@ -28,7 +28,7 @@ import type { LoadTrain } from '../engine/moving-loads';
 export const MAX_POSITION_CASES = 150;
 
 /** The alternatives group of a vehicle's position cases. */
-export const movingGroup = (vehicle: string) => `move:${vehicle}`;
+export { movingGroup };
 
 /**
  * Writes the cases of `trains` (one vehicle's, named `vehicle`) along the path, the second wheel

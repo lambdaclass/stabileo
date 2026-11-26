@@ -20,9 +20,22 @@
  * Pure.
  */
 import type { LoadTrain } from './moving-loads';
-import type { Load } from '../store/model.svelte';
+import type { Load, LoadCase, PointLoadOnElement3D } from '../store/model.svelte';
 import type { PathSegment3D } from './moving-loads-3d';
 import { checkAxlePath, locateAxle, referenceGrid, referenceStation, type ReferencePosition } from './moving-axle-station';
+
+const MOVING_GROUP_PREFIX = 'move:';
+
+export const movingGroup = (vehicle: string) => MOVING_GROUP_PREFIX + vehicle;
+
+export function vehiclePositionCaseIds(cases: readonly Pick<LoadCase, 'id' | 'alternatives'>[] = []): Set<number> {
+  return new Set(cases.filter(c => c.alternatives?.startsWith(MOVING_GROUP_PREFIX)).map(c => c.id));
+}
+
+export function isVehicleAxle(load: PointLoadOnElement3D, positionCases: ReadonlySet<number>): boolean {
+  return load.vehicleAxle === true || (load.caseId !== undefined && positionCases.has(load.caseId)
+    && load.frame === 'global' && !load.px && !load.py && !load.mx && !load.my && !load.mz);
+}
 
 export interface Vehicle extends LoadTrain {
   /** The gap before axle `axle` (its offset minus the previous one's) ranging over [min, max]. */
@@ -148,7 +161,7 @@ export function trainModelLoads(train: LoadTrain, ref: ReferencePosition, path: 
       if ('nodeId' in at) {
         out.push({ type: 'nodal3d', data: { id: 0, nodeId: at.nodeId, fx: 0, fy: 0, fz, mx: 0, my: 0, mz: 0, caseId } });
       } else {
-        out.push({ type: 'pointOnElement3d', data: { id: 0, elementId: at.elementId, a: at.a, px: 0, py: 0, pz: fz, frame: 'global', caseId } });
+        out.push({ type: 'pointOnElement3d', data: { id: 0, elementId: at.elementId, a: at.a, px: 0, py: 0, pz: fz, frame: 'global', vehicleAxle: true, caseId } });
       }
     }
   }

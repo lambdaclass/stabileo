@@ -1055,6 +1055,7 @@ const zh: Translations = {
   "fm.s9.bad": "两者不一致，最大差值为 {d}。",
   "fm.s9.flex": "柔度法",
   "fm.s9.stiff": "刚度法",
+  "fm.err.axialTrussPoint3d": "三维柔度法演示无法恢复桁架杆件内部轴向集中力的结果。请使用刚度法。",
   "fm.err.hypostatic": "结构为机构（GH < 0）：无法求解。",
   "fm.err.noRedundants": "没有任何一种多余未知力的取法能得到稳定的基本结构，结构可能部分为机构。",
   "fm.err.unstable": "结构不稳定。",

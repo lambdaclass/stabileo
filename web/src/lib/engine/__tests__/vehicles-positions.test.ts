@@ -6,7 +6,10 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import '../../store';
-import { initSolver, solve3D, solveCorotational3D, solvePDelta3D } from '../wasm-solver';
+import { initSolver, solve3D, solveCorotational3D, solvePDelta3D, solvePDelta3DWire } from '../wasm-solver';
+import { solve_3d, solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
+import { finishSolve3D } from '../solve-finish';
+import { setWorkerFactoryForTests } from '../solver-pool';
 import {
   buildSolverInput3D, solveCombinations3D, solveCombinations3DParallel, validateAndSolve3D, validateAndSolve3DAsync,
 } from '../solver-service';
@@ -17,6 +20,10 @@ import {
 } from '../vehicles';
 import { addPositionCases, MAX_POSITION_CASES } from '../../store/moving-cases';
 import { buildCriticalStations, extractForcesAtStation } from '../station-forces';
+import type { AnalysisResults3D } from '../types-3d';
+import { lumpedNodalForces } from '../advanced-analyses';
+import { nodeGravity } from '../direct-analysis';
+import { solveForceMethod3D } from '../force-method/solve-3d';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => { modelStore.clear(); });
@@ -205,7 +212,7 @@ it('#2101 — an imported vehicle keeps an indexed tip sample on both wheel line
   if (!('cases' in result)) throw new Error(result.error);
   expect(result.cases).toBe(3);
   const last = modelStore.model.loadCases.filter((c) => c.type === 'Tr').at(-1)!;
-  const loads = modelStore.model.loads.filter((l) => l.data.caseId === last.id);
+  const loads = modelStore.model.loads.filter((l) => l.data.caseId === last!.id);
   const tips = [ids, other].map((line) => modelStore.model.elements.get(line[1])!.nodeJ);
   expect(loads.map((load) => [load.type, 'nodeId' in load.data ? load.data.nodeId : undefined, 'fz' in load.data ? load.data.fz : undefined]))
     .toEqual(tips.map((node) => ['nodal3d', node, -50]));
@@ -227,6 +234,33 @@ function inclinedCantilever(type: 'frame' | 'truss') {
   return member;
 }
 
+function useAxleTestWorker(requests: string[]) {
+  setWorkerFactoryForTests(() => ({
+    onmessage: null,
+    onerror: null,
+    postMessage(raw) {
+      const msg = structuredClone(raw);
+      queueMicrotask(() => {
+        const reply = (data: unknown) => this.onmessage?.({ data: structuredClone(data) } as MessageEvent);
+        if (msg.type === 'init') {
+          reply({ type: 'ready' });
+          return;
+        }
+        requests.push(msg.type);
+        try {
+          const result = msg.type === 'pdelta3d'
+            ? solvePDelta3DWire(msg.input, msg.maxIter, msg.tol, solve_pdelta_3d)
+            : finishSolve3D(solve_3d(msg.input), msg.input);
+          reply({ type: 'result', id: msg.id, result });
+        } catch (error) {
+          reply({ type: 'result', id: msg.id, error: String(error) });
+        }
+      });
+    },
+    terminate() {},
+  }));
+}
+
 async function checkSavedMidpoint(type: 'frame' | 'truss') {
   const member = inclinedCantilever(type);
   const weight = 10, length = 5, station = length / 2;
@@ -236,13 +270,13 @@ async function checkSavedMidpoint(type: 'frame' | 'truss') {
   expect(addPositionCases(train.name, [train], [member], [], station)).toMatchObject({ cases: 3 });
   const [first, midpoint, last] = modelStore.model.loadCases.filter(c => c.alternatives === 'move:one axle');
   const saved = JSON.parse(JSON.stringify(modelStore.model.loads)) as typeof modelStore.model.loads;
-  expect(saved.filter(l => l.data.caseId === first.id).map(l => l.type)).toEqual(['nodal3d']);
-  expect(saved.filter(l => l.data.caseId === last.id).map(l => l.type)).toEqual(['nodal3d']);
-  const loads = saved.filter(l => l.data.caseId === midpoint.id);
+  expect(saved.filter(l => l.data.caseId === first!.id).map(l => l.type)).toEqual(['nodal3d']);
+  expect(saved.filter(l => l.data.caseId === last!.id).map(l => l.type)).toEqual(['nodal3d']);
+  const loads = saved.filter(l => l.data.caseId === midpoint!.id);
   expect(loads).toHaveLength(1);
   expect(loads[0]).toMatchObject({ type: 'pointOnElement3d', data: { a: station, frame: 'global', pz: -weight } });
   const model = { ...modelStore.model, loads };
-  const cuts = (result: Pick<ReturnType<typeof solve3D>, 'elementForces'> | string | null | undefined) => {
+  const cuts = (result: Pick<AnalysisResults3D, 'elementForces'> | string | null | undefined) => {
     if (!result || typeof result === 'string') throw new Error(String(result));
     const ef = result.elementForces.find(f => f.elementId === member)!;
     return [0.25, 0.75].map(t => extractForcesAtStation(ef, t).n);
@@ -258,24 +292,70 @@ async function checkSavedMidpoint(type: 'frame' | 'truss') {
   };
   expectCuts(cuts(validateAndSolve3D(model)));
   expectCuts(cuts(await validateAndSolve3DAsync(model)));
-  const combinations = [{ id: 1, name: 'At midpoint', factors: [{ caseId: midpoint.id, factor: 1 }] }];
+  const combinations = [{ id: 1, name: 'At midpoint', factors: [{ caseId: midpoint!.id, factor: 1 }] }];
   for (const method of ['linear', 'pdelta'] as const) {
     const input = { ...model, analysis: { ...model.analysis, perCombination: method } };
     const reference = method === 'linear' || type === 'frame' ? sample : cuts(solvePDelta3D(sampled).results);
     for (const solve of [solveCombinations3D, solveCombinations3DParallel]) {
-      const bundle = await solve(input, [midpoint], combinations);
+      const bundle = await solve(input, [midpoint!], combinations);
       expectCuts(cuts(typeof bundle === 'string' ? bundle : bundle?.perCombo.get(1)), reference);
     }
   }
   if (type === 'truss') {
     const sweepResult = solveCorotational3D(sampled);
-    const savedResult = solveCorotational3D(buildSolverInput3D(model)!);
+    const savedInput = buildSolverInput3D(model)!;
+    const { gravity, lateral } = nodeGravity(savedInput, savedInput.loads);
+    expect([...gravity.values()]).toHaveLength(2);
+    for (const share of gravity.values()) expect(share).toBeCloseTo(weight / 2, 9);
+    expect(Math.hypot(lateral.x, lateral.y)).toBeCloseTo(0, 9);
+    for (const [fx, fy, fz] of lumpedNodalForces(savedInput).values()) {
+      expect(Math.hypot(fx, fy)).toBeCloseTo(0, 9);
+      expect(fz).toBeCloseTo(-weight / 2, 9);
+    }
+    expect(() => solveForceMethod3D(savedInput)).toThrow('axialTrussPoint3d');
+    const savedResult = solveCorotational3D(savedInput);
     expect(sweepResult.converged && savedResult.converged).toBe(true);
     expectCuts(cuts(savedResult.results), cuts(sweepResult.results));
+
+    const partial = solveCorotational3D(savedInput, 1);
+    expect(partial.converged).toBe(false);
+    expect(partial.loadFactor).toBe(0);
+    expectCuts(cuts(partial.results), [0, 0]);
+
+    const legacyLoads = loads.map(load => {
+      if (load.type !== 'pointOnElement3d') return load;
+      const { vehicleAxle, ...data } = load.data;
+      expect(vehicleAxle).toBe(true);
+      return { ...load, data };
+    });
+    const legacy = { ...model, loads: legacyLoads };
+    expectCuts(cuts(validateAndSolve3D(legacy)));
+    for (const end of [0, length]) {
+      const endLoads = legacyLoads.map(load => load.type === 'pointOnElement3d'
+        ? { ...load, data: { ...load.data, a: end } } : load);
+      const endInput = buildSolverInput3D({ ...legacy, loads: endLoads })!;
+      expect(endInput.loads.every(load => load.type === 'nodal')).toBe(true);
+      expectCuts(cuts(solve3D(endInput)), cuts(solve3D({ ...base, loads: trainLoads(base, path, train, end) })));
+    }
+    const included = { id: midpoint!.id + 10, name: 'Included axle', type: 'Tr' as const,
+      includes: [{ caseId: midpoint!.id, factor: 2 }] };
+    const bundle = solveCombinations3D(legacy, [midpoint!, included], [
+      { id: 1, name: 'Included axle', factors: [{ caseId: included.id, factor: 1 }] },
+    ]);
+    expectCuts(cuts(typeof bundle === 'string' ? bundle : bundle?.perCombo.get(1)), sample.map(n => 2 * n));
   }
 }
 
-it.skip('known wrong result: #2101 — a saved truss midpoint axle preserves the spatial sweep axial cuts', () =>
-  checkSavedMidpoint('truss'));
+it('#2101 — a saved truss midpoint axle preserves the spatial sweep axial cuts', async () => {
+  const requests: string[] = [];
+  useAxleTestWorker(requests);
+  try {
+    await checkSavedMidpoint('truss');
+    expect(requests.filter(type => type === 'solve3d')).toHaveLength(2);
+    expect(requests.filter(type => type === 'pdelta3d')).toHaveLength(1);
+  } finally {
+    setWorkerFactoryForTests(null);
+  }
+});
 
 it('a saved frame midpoint axle preserves the spatial sweep axial cuts', () => checkSavedMidpoint('frame'));

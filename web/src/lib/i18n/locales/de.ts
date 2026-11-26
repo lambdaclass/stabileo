@@ -697,6 +697,7 @@ const de: Translations = {
   'fm.s9.bad': 'Sie stimmen nicht überein — größte Differenz {d}.',
   'fm.s9.flex': 'Kraftgrößen',
   'fm.s9.stiff': 'Weggrößen',
+  'fm.err.axialTrussPoint3d': 'Die 3D-Flexibilitätsmethode kann axiale Einzellasten im Inneren von Fachwerkstäben nicht auswerten. Verwenden Sie die Steifigkeitsmethode.',
   'fm.err.hypostatic': 'Das Tragwerk ist ein Mechanismus (GH < 0): Es kann nicht berechnet werden.',
   'fm.err.noRedundants': 'Keine Wahl der Überzähligen ergibt ein stabiles Grundsystem — das Tragwerk ist wahrscheinlich teilweise ein Mechanismus.',
   'fm.err.unstable': 'Das Tragwerk ist nicht stabil.',

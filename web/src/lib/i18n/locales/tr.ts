@@ -706,6 +706,7 @@ const tr: Translations = {
   'fm.s9.bad': 'Uyuşmuyorlar — en büyük fark {d}.',
   'fm.s9.flex': 'Esneklik',
   'fm.s9.stiff': 'Rijitlik',
+  'fm.err.axialTrussPoint3d': '3B esneklik yöntemi, kafes çubuklarının içindeki eksenel tekil yükleri hesaplayamaz. Rijitlik yöntemini kullanın.',
   'fm.err.hypostatic': 'Yapı bir mekanizmadır (GH < 0): çözülemez.',
   'fm.err.noRedundants': 'Hiçbir hiperstatik bilinmeyen seçimi kararlı bir esas sistem bırakmıyor — yapı muhtemelen kısmen bir mekanizma.',
   'fm.err.unstable': 'Yapı kararlı değil.',

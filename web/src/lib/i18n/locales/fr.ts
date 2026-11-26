@@ -697,6 +697,7 @@ const fr: Translations = {
   'fm.s9.bad': 'Elles ne concordent pas — plus grande différence : {d}.',
   'fm.s9.flex': 'Flexibilités',
   'fm.s9.stiff': 'Rigidités',
+  'fm.err.axialTrussPoint3d': 'La méthode des forces en 3D ne restitue pas les charges axiales ponctuelles à l’intérieur des barres de treillis. Utilisez la méthode de rigidité.',
   'fm.err.hypostatic': 'La structure est un mécanisme (GH < 0) : elle ne peut pas être résolue.',
   'fm.err.noRedundants': 'Aucun choix d\'inconnues hyperstatiques ne laisse une structure de base stable — la structure est probablement en partie un mécanisme.',
   'fm.err.unstable': 'La structure n\'est pas stable.',

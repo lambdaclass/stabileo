@@ -695,6 +695,7 @@ const hu: Translations = {
   "fm.s9.bad": "Nem egyeznek — a legnagyobb eltérés {d}.",
   "fm.s9.flex": "Hajlékonysági",
   "fm.s9.stiff": "Merevségi",
+  "fm.err.axialTrussPoint3d": "A 3D rugalmassági módszer nem számítja ki a rácsrúd belsejében ható koncentrált tengelyirányú terhek hatását. Használja a merevségi módszert.",
   "fm.err.hypostatic": "A szerkezet mechanizmus (GH < 0): nem oldható meg.",
   "fm.err.noRedundants": "A határozatlan erők egyetlen választása sem ad stabil alaprendszert — a szerkezet valószínűleg részben mechanizmus.",
   "fm.err.unstable": "A szerkezet nem stabil.",

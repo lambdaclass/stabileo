@@ -23,6 +23,7 @@ import type { StructuredDiagnostic } from './types';
  */
 import { prepareLoadSession3D, movingSegmentRoundoff } from './wasm-solver';
 import { computeLocalAxes3D } from './local-axes-3d';
+import { localPointForce, memberPointForceRow3D } from './member-point-loads';
 import { evaluateDiagramAt } from './diagrams-3d';
 import { criticalForceStations, extractForcesAtStation } from './station-forces';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D } from './types-3d';
@@ -114,7 +115,7 @@ function addTrain(
     const localY = e.localYx !== undefined && e.localYy !== undefined && e.localYz !== undefined
       ? { x: e.localYx, y: e.localYy, z: e.localYz } : undefined;
     const axes = computeLocalAxes3D(ni, nj, localY, e.rollAngle ?? 0, input.leftHand);
-    const force: AxleFace['force'] = [-weight * axes.ex[2], -weight * axes.ey[2], -weight * axes.ez[2]];
+    const force = localPointForce(axes, [0, 0, -weight]);
     return { e, force };
   };
   for (const axle of train.axles) {
@@ -136,9 +137,9 @@ function addTrain(
       continue;
     }
     const { segment: seg, a } = at;
-    const { e, force: [px, py, pz] } = axleOn(seg.elementId, axle.weight);
-    if (px !== 0 || py !== 0 || pz !== 0) {
-      sample.loads.push({ type: 'pointOnElement', data: { elementId: e.id, a, px, py, pz } });
+    const { e, force } = axleOn(seg.elementId, axle.weight);
+    if (force.some(component => component !== 0)) {
+      sample.loads.push(memberPointForceRow3D(e.id, a, force));
     }
   }
 }

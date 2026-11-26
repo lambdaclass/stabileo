@@ -1048,6 +1048,7 @@ const en: Record<string, string> = {
   'fm.s9.bad': "They do not agree — largest difference {d}.",
   'fm.s9.flex': "Flexibility",
   'fm.s9.stiff': "Stiffness",
+  'fm.err.axialTrussPoint3d': 'The 3D flexibility walkthrough cannot recover axial point loads inside truss members. Use the stiffness method.',
   'fm.err.hypostatic': "The structure is a mechanism (GH < 0): it cannot be solved.",
   'fm.err.noRedundants': "No choice of redundants leaves a stable primary structure — the structure is probably partly a mechanism.",
   'fm.err.unstable': "The structure is not stable.",
