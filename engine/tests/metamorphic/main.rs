@@ -280,3 +280,5 @@ fn issue_2125_ground_motion_preserves_half_turn_symmetry() {
 }
 
 mod support_invariance;
+
+mod conditional_elastic_equilibration;
