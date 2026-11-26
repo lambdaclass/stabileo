@@ -79,14 +79,15 @@ it('strictly decodes the gallery, bundled fixture and model-code template produc
 const beam = () => beamFrame.build(defaults(beamFrame.params));
 const space = () => earthquake.build({ ...defaults(earthquake.params), storeys: 1 });
 
-it.skip('known wrong result: #2588 permits the #2171 material and section rows in both dimensions', () => {
+it('#2588 permits the #2171 material and section rows in both dimensions', () => {
   const planar = beam();
   const spatial = space();
   const material = { ...planar.materials.get(1)!, name: 'H25', fc: 25, fy: 420 };
-  const shape = { b: 0.3, h: 0.6 };
+  const shape = { b: 0.3, h: 0.6, rotation: 0 };
   const section = { ...spatial.sections.get(1)!, name: 'RC', ...shape };
-  planar.materials.set(1, material);
-  spatial.materials.set(1, material);
+  const materialWithDensity = { ...material, rho: 25 };
+  planar.materials.set(1, materialWithDensity);
+  spatial.materials.set(1, materialWithDensity);
   planar.sections.set(1, section);
   spatial.sections.set(1, section);
 
@@ -94,20 +95,22 @@ it.skip('known wrong result: #2588 permits the #2171 material and section rows i
   expectSolutions(spatialRoutes(input3DToWireObject(spatial)));
 });
 
-it.skip('known wrong result: #2588 permits the planar seismic adapter’s shared section rows', () => {
+it('#2588 permits the planar seismic adapter’s shared section rows', () => {
   const planar = beam();
   const section = { ...planar.sections.get(1)!, iy: 1e-4, j: 1e-4 };
   planar.sections.set(1, section);
   expectSolutions(planarRoutes(input2DToWireObject(planar)));
 });
 
-it.skip('known wrong result: #2588 permits orphan rotation metadata on generated supports', () => {
+it('#2588 permits orphan rotation metadata on generated supports', () => {
   const spatial = space();
   const member = [...spatial.elements.values()][0]!;
   spatial.nodes = new Map([...spatial.nodes].filter(([id]) => id === member.nodeI || id === member.nodeJ));
   spatial.elements = new Map([[member.id, { ...member, releaseTEnd: true }]]);
   spatial.supports = new Map([...spatial.supports].filter(([id]) => id === member.nodeI));
   delete spatial.masses;
+  const fixed = { ...spatial.supports.get(member.nodeI)!, id: member.nodeI, type: 'fixed' };
+  spatial.supports.set(member.nodeI, fixed);
   const wire = input3DToWireObject(exactOrphanRotations3D(spatial));
   expect(Object.values(wire.supports).some(support => support.stabilised && support.stabilisedAxes)).toBe(true);
   expectSolutions(spatialRoutes(wire));

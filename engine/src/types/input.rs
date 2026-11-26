@@ -1,4 +1,4 @@
-use super::{numeric, unique_table};
+use super::{numeric, producer_row::producer_row, unique_table};
 use serde::{de, Deserialize, Serialize};
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -7,27 +7,29 @@ use std::marker::PhantomData;
 
 pub type SolverNode = super::model_aliases::PlanarNode<f64>;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct SolverMaterial {
-    #[serde(deserialize_with = "numeric::id::required")]
-    pub id: usize,
-    #[serde(deserialize_with = "numeric::e::required")]
-    pub e: f64,  // MPa
-    #[serde(deserialize_with = "numeric::nu::required")]
-    pub nu: f64,
+producer_row! { material
+    #[derive(Debug, Clone, Serialize)]
+    pub struct SolverMaterial {
+        #[serde(deserialize_with = "numeric::id::required")]
+        pub id: usize,
+        #[serde(deserialize_with = "numeric::e::required")]
+        pub e: f64,  // MPa
+        #[serde(deserialize_with = "numeric::nu::required")]
+        pub nu: f64,
+    }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct SolverSection {
-    pub id: usize,
-    pub a: f64,  // m²
-    pub iz: f64, // m⁴
-    #[serde(default)]
-    /// m², 2D shear area for the in-plane transverse shear (local y), paired with
-    /// `iz`: φ = 12·E·Iz/(G·as_y·L²). Note the 3D `as_y` pairs with `iy` instead.
-    pub as_y: Option<f64>,
+producer_row! { section_2d
+    #[derive(Debug, Clone, Serialize)]
+    pub struct SolverSection {
+        pub id: usize,
+        pub a: f64,  // m²
+        pub iz: f64, // m⁴
+        #[serde(default)]
+        /// m², 2D shear area for the in-plane transverse shear (local y), paired with
+        /// `iz`: φ = 12·E·Iz/(G·as_y·L²). Note the 3D `as_y` pairs with `iy` instead.
+        pub as_y: Option<f64>,
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -398,34 +400,35 @@ pub struct SolverNode3D {
     pub z: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct SolverSection3D {
-    pub id: usize,
-    #[serde(default)]
-    pub name: Option<String>,
-    pub a: f64,
-    pub iy: f64,
-    pub iz: f64,
-    pub j: f64,
-    #[serde(default)]
-    pub cw: Option<f64>,
-    #[serde(default)]
-    /// m², shear area paired with `iy` (bending about local y, so shear along
-    /// local z): φy = 12·E·Iy/(G·as_y·L²). Not the area for a force along y.
-    pub as_y: Option<f64>,
-    #[serde(default)]
-    /// m², shear area paired with `iz` (bending about local z, shear along local y).
-    pub as_z: Option<f64>,
-    /// Shear-centre coordinate along local y, measured from the centroid (m).
-    /// Only the geometric stiffness reads it (flexural-torsional buckling of
-    /// monosymmetric and asymmetric sections, e.g. channels, tees, angles).
-    /// `None` = 0 (doubly symmetric, or point-symmetric like a Z or cruciform).
-    #[serde(default)]
-    pub shear_center_y: Option<f64>,
-    /// Shear-centre coordinate along local z, measured from the centroid (m).
-    #[serde(default)]
-    pub shear_center_z: Option<f64>,
+producer_row! { section_3d
+    #[derive(Debug, Clone, Serialize)]
+    pub struct SolverSection3D {
+        pub id: usize,
+        #[serde(default)]
+        pub name: Option<String>,
+        pub a: f64,
+        pub iy: f64,
+        pub iz: f64,
+        pub j: f64,
+        #[serde(default)]
+        pub cw: Option<f64>,
+        #[serde(default)]
+        /// m², shear area paired with `iy` (bending about local y, so shear along
+        /// local z): φy = 12·E·Iy/(G·as_y·L²). Not the area for a force along y.
+        pub as_y: Option<f64>,
+        #[serde(default)]
+        /// m², shear area paired with `iz` (bending about local z, shear along local y).
+        pub as_z: Option<f64>,
+        /// Shear-centre coordinate along local y, measured from the centroid (m).
+        /// Only the geometric stiffness reads it (flexural-torsional buckling of
+        /// monosymmetric and asymmetric sections, e.g. channels, tees, angles).
+        /// `None` = 0 (doubly symmetric, or point-symmetric like a Z or cruciform).
+        #[serde(default)]
+        pub shear_center_y: Option<f64>,
+        /// Shear-centre coordinate along local z, measured from the centroid (m).
+        #[serde(default)]
+        pub shear_center_z: Option<f64>,
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -466,69 +469,70 @@ pub struct SolverElement3D {
     pub roll_angle: Option<f64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct SolverSupport3D {
-    #[serde(deserialize_with = "numeric::node_id::required")]
-    pub node_id: usize,
-    pub rx: bool,
-    pub ry: bool,
-    pub rz: bool,
-    pub rrx: bool,
-    pub rry: bool,
-    pub rrz: bool,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::kx::optional", skip_serializing_if = "Option::is_none")]
-    pub kx: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::ky::optional", skip_serializing_if = "Option::is_none")]
-    pub ky: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::kz::optional", skip_serializing_if = "Option::is_none")]
-    pub kz: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::krx::optional", skip_serializing_if = "Option::is_none")]
-    pub krx: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::kry::optional", skip_serializing_if = "Option::is_none")]
-    pub kry: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::krz::optional", skip_serializing_if = "Option::is_none")]
-    pub krz: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::dx::optional", skip_serializing_if = "Option::is_none")]
-    pub dx: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::dy::optional", skip_serializing_if = "Option::is_none")]
-    pub dy: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::dz::optional", skip_serializing_if = "Option::is_none")]
-    pub dz: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::drx::optional", skip_serializing_if = "Option::is_none")]
-    pub drx: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::dry::optional", skip_serializing_if = "Option::is_none")]
-    pub dry: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::drz::optional", skip_serializing_if = "Option::is_none")]
-    pub drz: Option<f64>,
-    #[serde(default)]
-    pub rw: Option<bool>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::kw::optional", skip_serializing_if = "Option::is_none")]
-    pub kw: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::normal_x::optional", skip_serializing_if = "Option::is_none")]
-    pub normal_x: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::normal_y::optional", skip_serializing_if = "Option::is_none")]
-    pub normal_y: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::normal_z::optional", skip_serializing_if = "Option::is_none")]
-    pub normal_z: Option<f64>,
-    #[serde(default)]
-    pub is_inclined: Option<bool>,
+producer_row! { support_3d
+    #[derive(Debug, Clone, Serialize)]
+    pub struct SolverSupport3D {
+        #[serde(deserialize_with = "numeric::node_id::required")]
+        pub node_id: usize,
+        pub rx: bool,
+        pub ry: bool,
+        pub rz: bool,
+        pub rrx: bool,
+        pub rry: bool,
+        pub rrz: bool,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::kx::optional", skip_serializing_if = "Option::is_none")]
+        pub kx: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::ky::optional", skip_serializing_if = "Option::is_none")]
+        pub ky: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::kz::optional", skip_serializing_if = "Option::is_none")]
+        pub kz: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::krx::optional", skip_serializing_if = "Option::is_none")]
+        pub krx: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::kry::optional", skip_serializing_if = "Option::is_none")]
+        pub kry: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::krz::optional", skip_serializing_if = "Option::is_none")]
+        pub krz: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::dx::optional", skip_serializing_if = "Option::is_none")]
+        pub dx: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::dy::optional", skip_serializing_if = "Option::is_none")]
+        pub dy: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::dz::optional", skip_serializing_if = "Option::is_none")]
+        pub dz: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::drx::optional", skip_serializing_if = "Option::is_none")]
+        pub drx: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::dry::optional", skip_serializing_if = "Option::is_none")]
+        pub dry: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::drz::optional", skip_serializing_if = "Option::is_none")]
+        pub drz: Option<f64>,
+        #[serde(default)]
+        pub rw: Option<bool>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::kw::optional", skip_serializing_if = "Option::is_none")]
+        pub kw: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::normal_x::optional", skip_serializing_if = "Option::is_none")]
+        pub normal_x: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::normal_y::optional", skip_serializing_if = "Option::is_none")]
+        pub normal_y: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::normal_z::optional", skip_serializing_if = "Option::is_none")]
+        pub normal_z: Option<f64>,
+        #[serde(default)]
+        pub is_inclined: Option<bool>,
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
