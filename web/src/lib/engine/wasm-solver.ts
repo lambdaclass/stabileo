@@ -1,7 +1,7 @@
 import { computeDiagram3D } from './diagrams-3d';
-import { bindEnvelopeQuerySources } from './result-query';
+import { bindSpatialEnvelope } from './result-query';
 import { bindMemberEnvelopeEnds, requireConcurrentSectionForces, unavailableDiagramExtrema } from './member-diagram';
-import { collapseVariableEnvelope, reexpandVariableResults, sameVariableLayout } from './variable-member-results';
+import { collapseVariableEnvelopeGeometry, reexpandVariableResults, sameVariableLayout } from './variable-member-results';
 import { registerMemberIntervalKernel } from './member-interval-kernel';
 import { CodedRefusal, asCodedRefusal, isContainmentRefusal, refusedWithCode } from './containment-error';
 import { element3DToWire, results3DFromWasm, resultsFromWasm, type AnalysisResultsWire, type AnalysisResults3DWire, load3DToWire, loadToWire, materialToWire, node3DToWire, nodeToWire, section3DToWire, sectionToWire, support3DToWire, supportToWire, type Element3DWire, type ElasticMaterialWire, type ElasticSection3DWire, type ElasticSectionWire, type Load3DWire, type LoadWire, type Node3DWire, type NodeWire, type Support3DWire, type SupportWire } from './unit-types';
@@ -1654,10 +1654,6 @@ export function combineResultsBatch3D(
   return results.map(result => result == null ? null : results3DFromWasm(result));
 }
 
-function bindSpatialEnvelope(envelope: FullEnvelope3D | null, sources: readonly AnalysisResults3D[]): FullEnvelope3D | null {
-  return bindEnvelopeQuerySources(bindMemberEnvelopeEnds(envelope), sources);
-}
-
 export function combineResultsEnvelope3D(
   combinations: Array<Array<{ caseId: number; factor: number }>>,
   perCase: Map<number, AnalysisResults3D>,
@@ -1703,7 +1699,7 @@ export function computeEnvelope3D(results: AnalysisResults3D[]): FullEnvelope3D 
   if (expanded.some(({ results, exp }) => !sameVariableLayout(layout, exp) ||
     results.elementForces.some(ef => lengths.get(ef.elementId) !== ef.length))) throw unavailableDiagramExtrema();
   const raw = wasmComputeEnvelope3d(expanded.map(r => r.results));
-  return bindEnvelopeQuerySources(raw && collapseVariableEnvelope(raw, layout), results);
+  return bindSpatialEnvelope(raw && collapseVariableEnvelopeGeometry(raw, layout), results);
 }
 
 // ─── Influence Lines ─────────────────────────────────────────────

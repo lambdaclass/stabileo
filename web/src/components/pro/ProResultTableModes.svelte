@@ -81,10 +81,13 @@
   const withStations = $derived(!isNode && stations > 2);
   const cols = $derived(columnsOf(kind, opts));
 
-  const all = $derived(mode === 'all' ? allRows(kind, sources, opts, byEntity ? 'entity' : 'source') : []);
-  const summary = $derived(mode === 'summary' ? summaryRows(kind, sources, opts) : []);
+  const guardedAll = $derived(engineGuarded(() => mode === 'all' ? allRows(kind, sources, opts, byEntity ? 'entity' : 'source') : []));
+  const guardedSummary = $derived(engineGuarded(() => mode === 'summary' ? summaryRows(kind, sources, opts) : []));
+  const all = $derived(guardedAll.value ?? []);
+  const summary = $derived(guardedSummary.value ?? []);
   const guardedEnvelope = $derived(engineGuarded(() => mode === 'envelope' ? envelopeRows(kind, sources, opts) : []));
   const envelope = $derived(guardedEnvelope.value ?? []);
+  const tableError = $derived(guardedAll.error ?? guardedSummary.error ?? guardedEnvelope.error);
   // Station demands are the engine's: its absence or refusal is shown in place of the rows.
   const guardedByType = $derived(engineGuarded(() => {
     if (mode !== 'maxType' || resultsStore.knownIssues3D.refused) return [];
@@ -163,8 +166,8 @@
   {/each}
   </div>
   {#if mode !== 'current'}
-    <button class="pk-btn tm-csv" onclick={csv} disabled={!!guardedEnvelope.error} data-testid="tm-csv">CSV</button>
-    <button class="pk-btn tm-csv" onclick={xlsx} disabled={!!guardedEnvelope.error} data-testid="tm-xlsx">Excel</button>
+    <button class="pk-btn tm-csv" onclick={csv} disabled={!!tableError} data-testid="tm-csv">CSV</button>
+    <button class="pk-btn tm-csv" onclick={xlsx} disabled={!!tableError} data-testid="tm-xlsx">Excel</button>
   {/if}
 </div>
 
@@ -208,7 +211,9 @@
   </div>
 {/if}
 
-{#if mode === 'all'}
+{#if tableError}
+  <p class="tm-cap" role="alert">{tableError}</p>
+{:else if mode === 'all'}
   <div class="pro-res-table-wrap">
     <table class="pro-res-table" data-testid="tm-all">
       <thead><tr><th>{t('tables.source')}</th><th>{isNode ? t('pro.nodeLabel') : t('pro.elemLabel')}</th>{#if !isNode}<th>{withStations ? 'x (m)' : 'Ext.'}</th>{/if}{#each cols as c (c.key)}<th>{c.label} ({unitQ(c.qty)})</th>{/each}</tr></thead>
@@ -238,8 +243,6 @@
       </tbody>
     </table>
   </div>
-{:else if mode === 'envelope' && guardedEnvelope.error}
-  <p class="tm-cap" role="alert">{guardedEnvelope.error}</p>
 {:else if mode === 'envelope'}
   <div class="pro-res-table-wrap">
     <table class="pro-res-table" data-testid="tm-envelope">

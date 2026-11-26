@@ -1,0 +1,35 @@
+{
+  "id": "spatial-envelope-convergence",
+  "date": "2026-11-26",
+  "prs": [2581],
+  "area": "analysis",
+  "when": {
+    "all": ["space3D", "members"],
+    "any": ["memberLoads", "combinations"]
+  },
+  "quantities": ["diagrams", "envelope"],
+  "title": {
+    "en": "Spatial envelope cuts and signed force extrema",
+    "es": "Secciones de envolventes espaciales y extremos de esfuerzos con signo",
+    "pt": "Cortes de envoltórias espaciais e extremos de esforços com sinal",
+    "de": "Schnitte räumlicher Einhüllender und vorzeichenbehaftete Schnittgrößenextrema",
+    "fr": "Sections des enveloppes spatiales et extrema signés des efforts",
+    "tr": "Uzaysal zarf kesitleri ve işaretli iç kuvvet uç değerleri",
+    "zh": "空间包络截面和带符号的内力极值",
+    "hu": "Térbeli burkolók metszetei és előjeles igénybevételi szélsőértékek"
+  },
+  "explanation": {
+    "en": "Spatial envelopes evaluate cuts in each source and use inward member ends. Critical force summaries use signed case extrema, and member resultants require simultaneous components.",
+    "es": "Las envolventes espaciales evalúan los cortes en cada fuente y usan las caras interiores de los extremos de barra. Los resúmenes de esfuerzos críticos usan los extremos con signo de cada caso y las resultantes requieren componentes simultáneas.",
+    "pt": "As envoltórias espaciais avaliam os cortes em cada fonte e usam as faces internas das extremidades das barras. Os resumos de esforços críticos usam os extremos com sinal de cada caso e as resultantes exigem componentes simultâneas.",
+    "de": "Räumliche Einhüllende werten die Schnitte je Quelle aus und verwenden die inneren Stabendflächen. Übersichten kritischer Schnittgrößen nutzen vorzeichenbehaftete Extrema der Lastfälle, und Resultierende erfordern gleichzeitig auftretende Komponenten.",
+    "fr": "Les enveloppes spatiales évaluent les sections pour chaque source et utilisent les faces intérieures des extrémités des barres. Les synthèses des efforts critiques utilisent les extrema signés des cas, et les résultantes exigent des composantes simultanées.",
+    "tr": "Uzaysal zarflar kesitleri her kaynakta değerlendirir ve eleman uçlarının iç yüzlerini kullanır. Kritik iç kuvvet özetleri yük durumlarının işaretli uç değerlerini kullanır ve bileşkeler eşzamanlı bileşenler gerektirir.",
+    "zh": "空间包络在各个来源中评估截面，并采用杆件端部的内侧值。关键内力汇总使用各工况带符号的极值，杆件内力合成要求各分量同时出现。",
+    "hu": "A térbeli burkolók forrásonként értékelik a metszeteket, és a rúdvégek belső oldalát használják. A kritikus igénybevételek összesítése a teheresetek előjeles szélsőértékeit használja, az eredőkhöz pedig egyidejű komponensek szükségesek."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-spatial-envelope-convergence.md",
+    "heading": "Spatial envelope cuts and signed force extrema"
+  }
+}

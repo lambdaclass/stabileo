@@ -8,7 +8,7 @@ import { t } from '../i18n';
 import { localizeEngineText } from '../i18n/engine-text';
 import { withoutSettlement } from './settlement-case';
 import { computeDiagramValueAt } from './diagrams';
-import { envelopeForceExtrema, inwardEnvelopeEndIndices } from './member-diagram';
+import { envelopeForceExtrema, inwardEnvelopeEndIndices, unavailableDiagramExtrema } from './member-diagram';
 import { envelopeJumpCuts } from './diagram-cut';
 import { locateAxle, locateAxlePlacement, checkAxlePath, referenceGrid, referenceStation, type ReferencePosition, type RouteSegment } from './moving-axle-station';
 import { axleFaceForce, MovingSample, recoverAxleFace, type AxleFace, type FaceLoads } from './moving-sample';
@@ -94,7 +94,7 @@ export interface MovingLoadEnvelope {
   /** All individual results for animation */
   positions: Array<{ refPosition: number; results: AnalysisResults }>;
   /** Pointwise envelope for dual-curve rendering */
-  fullEnvelope?: FullEnvelope;
+  fullEnvelope: FullEnvelope;
   /** Load train used (for axle visualization) */
   train: LoadTrain;
   /** Path segments (for axle position reconstruction) */
@@ -515,15 +515,14 @@ function movingEnvelope(sweep: PlanarSweepResults, train: LoadTrain, path: PathS
   if (positions.length === 0) return t('train.noPositionSolved');
   try {
     const fullEnvelope = computePointwiseEnvelope(results);
+    if (!fullEnvelope) throw unavailableDiagramExtrema();
     const elements = new Map<number, ElementEnvelope>();
     for (const { elementId } of path) {
       elements.set(elementId, { mMaxPos: 0, mMaxNeg: 0, vMaxPos: 0, vMaxNeg: 0, nMaxPos: 0, nMaxNeg: 0 });
     }
-    if (fullEnvelope) {
-      const members = new Map(fullEnvelope.maxAbsResults.elementForces.map(ef => [ef.elementId, ef]));
-      includeAxleFaces(fullEnvelope, faces, members);
-      elementExtremesFromPointwise(elements, fullEnvelope, members);
-    }
+    const members = new Map(fullEnvelope.maxAbsResults.elementForces.map(ef => [ef.elementId, ef]));
+    includeAxleFaces(fullEnvelope, faces, members);
+    elementExtremesFromPointwise(elements, fullEnvelope, members);
     const structuredDiagnostics = [...new Map(results.flatMap(r => r.structuredDiagnostics ?? []).map(d => [JSON.stringify(d), d])).values()];
     return { structuredDiagnostics, elements, positions, fullEnvelope, train, path };
   } catch (e) {

@@ -751,7 +751,7 @@ it('known wrong result: #2581 converge interactive tables and member hover agree
   }
 });
 
-it.skip('known wrong result: #2581 converge quick info formats the signed peak across unequal ends', () => {
+it('known wrong result: #2581 converge quick info formats the signed peak across unequal ends', () => {
   modelStore.clear();
   const previousQuickInfo = viewState.quickInfo;
   try {
@@ -773,7 +773,7 @@ it.skip('known wrong result: #2581 converge quick info formats the signed peak a
   }
 });
 
-it.skip('known wrong result: #2581 converge ordinary rebased cuts sample each spatial case in its own span', () => {
+it('known wrong result: #2581 converge ordinary rebased cuts sample each spatial case in its own span', () => {
   const local = 0.1;
   const split = ef3D({
     length: 2,
@@ -797,15 +797,36 @@ it.skip('known wrong result: #2581 converge ordinary rebased cuts sample each sp
   const atRoundedCut = ef3D({ length: 2, pointLoadsZ: [{ a: location.x, p: 5 }], vzEnd: 5 });
   expect(spatialDiagrams.evaluateDiagramAt(atRoundedCut, 'shearZ', at, true)).toBe(0);
   expect(spatialDiagrams.evaluateDiagramAt(atRoundedCut, 'shearZ', { ...at, location: undefined }, true)).toBe(5);
+  const roundedBoundary = {
+    ...split,
+    pieces: [
+      { x0: 0, x1: location.x, sectionId: 1, forces: ef3D({ length: location.x, vzStart: 2, vzEnd: 2 }) },
+      { x0: location.x, x1: 2, sectionId: 2, forces: ef3D({ length: 2 - location.x, vzStart: 5, vzEnd: 5 }) },
+    ],
+  };
+  expect(spatialDiagrams.evaluateDiagramAt(roundedBoundary, 'shearZ', at, true)).toBe(2);
+  const ahead = { x: 1 + 0.2, rebased: { offset: 1, local: { x: 0.2 } } };
+  const atAhead = { t: ahead.x / 2, distance: ahead.x, location: ahead };
+  const jumpAhead = ef3D({ length: 2, vzEnd: 5, pointLoadsZ: [{ a: ahead.x, p: 5 }] });
+  expect(spatialDiagrams.evaluateDiagramAt(jumpAhead, 'shearZ', atAhead, false)).toBe(5);
   const intensity = 2 ** 55;
   const continuous = ef3D({
     length: 2, vzStart: -location.x * intensity, vzEnd: (2 - location.x) * intensity,
     distributedLoadsZ: [{ a: 0, b: 2, qI: intensity, qJ: intensity }],
   });
   expect(spatialDiagrams.evaluateDiagramAt(continuous, 'shearZ', at)).toBe((local - (location.x - 1)) * intensity);
+  const beside = (local: number) => ({
+    t: 0.25, distance: 1, location: { x: 1, rebased: { offset: 1, local: { x: local } } },
+  });
+  const torsion = ef3D({ length: 4, mxEnd: 4 });
+  expect(() => spatialDiagrams.evaluateDiagramAt(torsion, 'torsion', beside(Number.MIN_VALUE)))
+    .toThrow('solver.diagramExtremaUnavailable');
+  expect(spatialDiagrams.evaluateDiagramAt(torsion, 'torsion', beside(4 * Number.MIN_VALUE))).toBe(1);
+  const constant = ef3D({ length: 4, mxStart: 1, mxEnd: 1 });
+  expect(spatialDiagrams.evaluateDiagramAt(constant, 'torsion', beside(Number.MIN_VALUE))).toBe(1);
 });
 
-it.skip('known wrong result: #2581 converge spatial envelope ranges use inward end faces', () => {
+it('known wrong result: #2581 converge spatial envelope ranges use inward end faces', () => {
   const cases = [
     { tPositions: [0, 0, 1], posValues: [10, 0, 0], negValues: [0, 0, 0] },
     { tPositions: [0, 1, 1], posValues: [0, 0, 10], negValues: [0, 0, -10] },

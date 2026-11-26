@@ -133,7 +133,7 @@ it('known wrong result: #2226 sync and async planar sweeps capture an axle betwe
 });
 
 
-it.skip.each([
+it.each([
   ['sync', solveMovingLoads],
   ['async', solveMovingLoadsAsync],
 ] as const)('known wrong result: #2581 converge a %s planar sweep requires a merged envelope', async (_mode, run) => {

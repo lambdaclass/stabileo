@@ -11,7 +11,7 @@
 
 import type { AnalysisResults3D, ElementForces3D, FullEnvelope3D } from './types-3d';
 import { memberEndForces3D, type Diagram3DKind } from './diagrams-3d';
-import { unavailableDiagramExtrema } from './member-diagram';
+import { bindMemberEnvelopeEnds, unavailableDiagramExtrema } from './member-diagram';
 
 // ─── Components ───────────────────────────────────────────────
 
@@ -80,6 +80,12 @@ export function bindEnvelopeQuerySources<E extends FullEnvelope3D | null>(
 ): E {
   if (envelope && sources.length) envelopeCases.set(envelope, { sources: [...sources] });
   return envelope;
+}
+
+export function bindSpatialEnvelope<E extends FullEnvelope3D | null>(
+  envelope: E, sources: readonly AnalysisResults3D[],
+): E {
+  return bindEnvelopeQuerySources(bindMemberEnvelopeEnds(envelope), sources);
 }
 
 export function envelopeQuerySources(envelope: FullEnvelope3D): readonly AnalysisResults3D[] | undefined {

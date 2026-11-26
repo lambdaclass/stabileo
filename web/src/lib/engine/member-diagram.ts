@@ -1,5 +1,5 @@
 import { EngineMessageError } from '../codes/message';
-import { distanceUnits, envelopeJumpCuts, type DiagramCutLocation } from './diagram-cut';
+import { distanceFromUnits, distanceUnits, envelopeJumpCuts, type DiagramCutLocation } from './diagram-cut';
 import type { ElementEnvelopeDiagram, FullEnvelope } from './types';
 import type { ElementForces3D, FullEnvelope3D } from './types-3d';
 import { polynomialValue, preparePolynomialSign, roundDiagramSum, sumDiagramTerms, type DiagramPolynomial, type DiagramSum } from './diagram-sum';
@@ -345,6 +345,26 @@ function moveOrdinate(ordinate: DiagramSum, p: DiagramPolynomial, u: number, ste
   return sumDiagramTerms([
     ...ordinate, ...slope.map(term => sign * step * term), ...curvature.map(term => sign * step * (step * term)),
   ]);
+}
+
+export function valueAtExactDistance(curve: DiagramCurve, units: bigint, right?: boolean): number {
+  const distance = distanceFromUnits(units);
+  const t = distance / curve.length;
+  const rounded = distanceUnits(distance);
+  if (units === rounded) return curve.value({ t, distance, right });
+  if (units <= 0n || units >= distanceUnits(curve.length)) throw unavailableDiagramExtrema();
+
+  const cuts = [...curve.cutDistances];
+  const upper = cuts.findIndex(([, x]) => distanceUnits(x) > units);
+  const [lo, x0] = cuts[upper - 1]!, [hi, x1] = cuts[upper]!;
+  const width = x1 - x0;
+  const u = (distance - x0) / width;
+  const p = curve.polynomial(lo, hi, x0, x1);
+  const unit = distanceUnits(1);
+  const widthUnits = distanceUnits(width);
+  const offset = distanceFromUnits((units - distanceUnits(x0)) * unit - distanceUnits(u) * widthUnits, widthUnits);
+  if (offset === 0 && p.slice(1).some(coefficient => coefficient.length)) throw unavailableDiagramExtrema();
+  return roundDiagramSum(moveOrdinate(polynomialValue(p, u), p, u, offset));
 }
 
 function diagramExtremum(

@@ -16,6 +16,18 @@ export function distanceUnits(value: number): bigint {
   return bits >> 63n ? -units : units;
 }
 
+export function distanceFromUnits(units: bigint, divisor = 1n): number {
+  const magnitude = units < 0n ? -units : units;
+  const shift = Math.max(0, (magnitude / divisor).toString(2).length - 53);
+  const scale = divisor << BigInt(shift);
+  const significand = magnitude / scale;
+  const remainder = 2n * (magnitude % scale);
+  const rounded = remainder > scale || (remainder === scale && significand % 2n !== 0n)
+    ? significand + 1n : significand;
+  const distance = Number(rounded) * 2 ** (shift - 1074);
+  return units < 0n ? -distance : distance;
+}
+
 export function exactCutUnits(cut: DiagramCutLocation): bigint {
   return cut.rebased ? distanceUnits(cut.rebased.offset) + exactCutUnits(cut.rebased.local) : distanceUnits(cut.x);
 }

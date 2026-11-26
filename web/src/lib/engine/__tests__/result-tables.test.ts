@@ -675,6 +675,33 @@ describe('spatial cantilever end queries', () => {
     return [linear, nonlinear.results].map(result => collapseVariableResults(result, expansion));
   }
 
+  it('known wrong result: #2581 converge signed spatial envelopes preserve concurrence and attained minima', () => {
+    const tension = 10, shearY = 3, shearZ = 4;
+    const loadId = modelStore.addLoadEntry({
+      type: 'nodal3d', data: { id: 1, nodeId: tip, fx: tension, fy: -shearY, fz: 0, mx: 0, my: 0, mz: 0 },
+    });
+    const y = solveModel();
+    expect(modelStore.updateLoad(loadId, { fx: 2 * tension, fy: 0, fz: -shearZ })).toBe(true);
+    const z = solveModel();
+
+    for (const [mode, first] of y.entries()) {
+      const cases = [first, z[mode]!];
+      const results = computeEnvelope3D(cases)!.maxAbsResults3D;
+      const opts = { ...canonical, resultant: true };
+      for (const stations of [undefined, 5, 'critical'] as const) {
+        if (stations !== 'critical') {
+          expect.soft(() => summaryRows('forces', [{ ...A, results }], { ...opts, stations }))
+            .toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+        }
+        expect.soft(() => rowsOf('forces', results, { ...opts, stations })).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+      }
+      const critical = summaryRows('forces', [{ ...A, results }], { ...opts, stations: 'critical' });
+      expect.soft(critical.find(row => row.column.key === 'n')?.min?.value).toBeCloseTo(tension, 12);
+      expect.soft(critical.find(row => row.column.key === 'n')?.max?.value).toBeCloseTo(2 * tension, 12);
+      expect.soft(critical.find(row => row.column.key === 'v')?.max?.value).toBeCloseTo(shearZ, 12);
+    }
+  });
+
   it('known wrong result: #2581 queries signed bounds from linear and P-Delta case envelopes', () => {
     const positive = 100, negative = -60;
     const id = modelStore.addLoadEntry({
@@ -838,12 +865,21 @@ describe('spatial cantilever end queries', () => {
       }
     };
     checkEnds();
-    const collapsed = [...resultsStore.perCase3D.values()];
-    const direct = computeEnvelope3D(collapsed)!;
-    const member = direct.maxAbsResults3D.elementForces[0]!;
-    expect(member.pieces).toHaveLength(2);
-    for (const end of memberEndForces3D(member, 'shearZ')) expect(end).toBeCloseTo(values[1]!, 12);
-    expect(() => requireConcurrentSectionForces(member)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+    const input = buildSolverInput3D(expandVariableMembers(modelStore.model), false, false)!;
+    const nonlinear = values.map(value => {
+      const loads = input.loads.map(load => load.type === 'nodal' && load.data.nodeId === tip
+        ? { ...load, data: { ...load.data, fz: -value } } : load);
+      const result = solvePDelta3D({ ...input, loads });
+      expect(result.converged).toBe(true);
+      return collapseVariableResults(result.results, variableExpansionFor(modelStore.model));
+    });
+    for (const collapsed of [[...resultsStore.perCase3D.values()], nonlinear]) {
+      const direct = computeEnvelope3D(collapsed)!;
+      const member = direct.maxAbsResults3D.elementForces[0]!;
+      expect(member.pieces).toHaveLength(2);
+      for (const end of memberEndForces3D(member, 'shearZ')) expect(end).toBeCloseTo(values[1]!, 12);
+      expect(() => requireConcurrentSectionForces(member)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
+    }
     const viewed = envelopeOver(new Map(), [], resultsStore.perCase3D, [...cases.keys()]);
     expect(viewed).not.toBeNull();
     resultsStore.viewEnvelope3D(viewed, 'Variable member cases');
@@ -924,7 +960,7 @@ it('known wrong result: #2581 converge a force envelope requires the same member
 });
 
 
-it.skip('known wrong result: #2581 converge end resultants never combine independent envelope winners', async () => {
+it('known wrong result: #2581 converge end resultants never combine independent envelope winners', async () => {
   await initSolver();
   const y = reviewSources({ ...reviewForces, vyStart: 3, vyEnd: 3, vzStart: 0, vzEnd: 0 })[0]!;
   const z = { ...B, results: reviewSources({ ...reviewForces, vzStart: 4, vzEnd: 4 })[0]!.results };
@@ -939,7 +975,7 @@ it.skip('known wrong result: #2581 converge end resultants never combine indepen
   expect.soft(() => envelopeRows('forces', [envelope], opts)).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
 });
 
-it.skip.each([1, -1])('known wrong result: #2581 converge critical envelope summaries report attained signed extrema (%s)', async sign => {
+it.each([1, -1])('known wrong result: #2581 converge critical envelope summaries report attained signed extrema (%s)', async sign => {
   await initSolver();
   const sources = [10, 20].map((v, i) => ({
     ...[A, B][i]!,
@@ -959,7 +995,7 @@ it.skip.each([1, -1])('known wrong result: #2581 converge critical envelope summ
   expect.soft(() => axial([{ ...aggregate, results: detached.maxAbsResults3D }])).toThrow(DIAGRAM_EXTREMA_UNAVAILABLE);
 });
 
-it.skip('known wrong result: #2581 converge spatial WASM envelope paths share their finalizer', () => {
+it('known wrong result: #2581 converge spatial WASM envelope paths share their finalizer', () => {
   const source = readFileSync(new URL('../wasm-solver.ts', import.meta.url), 'utf8');
   const compute = source.slice(source.indexOf('export function computeEnvelope3D('), source.indexOf('export function computeInfluenceLineWasm('));
   expect(compute.match(/return bindSpatialEnvelope\(/g)).toHaveLength(2);

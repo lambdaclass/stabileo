@@ -22,12 +22,12 @@ import { criticalMemberForceExtrema3D } from './member-force-extrema';
  * Pure functions over solved results; the component wires them to the active combinations.
  */
 
-import type { AnalysisResults3D } from './types-3d';
+import type { AnalysisResults3D, ElementForces3D } from './types-3d';
 import type { Quantity } from '../utils/units';
-import { csvCell } from './result-query';
+import { csvCell, envelopeQuerySources, envelopeSourcesByMember } from './result-query';
 import type { ElementDesignDemands, GoverningDemand } from './station-design-forces';
 import { criticalForceStations, stationTs, type StationSpec } from './station-forces';
-import { memberEndFace, memberSectionStation, unavailableDiagramExtrema, type DiagramStation } from './member-diagram';
+import { boundSpatialEnvelope, memberEndFace, memberSectionStation, requireConcurrentSectionForces, unavailableDiagramExtrema, type DiagramStation } from './member-diagram';
 import { sameCutLocation } from './diagram-cut';
 import { memberEndForces3D, prepareDiagramEvaluator3D, type Diagram3DKind } from './diagrams-3d';
 import { resultComponents } from '../axes/result-components';
@@ -127,6 +127,7 @@ function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visi
   const ends = usesMemberEnds(spec);
   for (const f of r.elementForces) {
     if (!keep(f.elementId)) continue;
+    if (opts.resultant && (!r.magnitude || boundSpatialEnvelope(f))) requireConcurrentSectionForces(f);
     if (ends) {
       const endForces = forceDiagrams.map(kind => memberEndForces3D(f, kind));
       visit(f.elementId, 'i', 0, fin(endForces.map(([i]) => i)));
@@ -218,7 +219,9 @@ export function summaryRows(kind: TableKind, sources: readonly Source[], opts: T
   const min: Array<Extreme | null> = cols.map(() => null);
   const critical = kind === 'forces' && opts.stations === 'critical';
   const beats = critical ? beatsCriticalExtreme : beatsExtreme;
-  for (const source of extremaResultSources(sources, opts.signedOnly)) {
+  const eligible = extremaResultSources(sources, opts.signedOnly);
+  const named = critical ? new Set(eligible.map(source => source.results)) : undefined;
+  for (const source of eligible) {
     const visit = (c: number, value: number, entity: number, end: Extreme['end'], x: number | undefined, side?: Extreme['side']) => {
       if (!Number.isFinite(value)) return;
       const newMax = beats(1, value, entity, x, max[c]!);
@@ -230,13 +233,29 @@ export function summaryRows(kind: TableKind, sources: readonly Source[], opts: T
     };
     if (critical) {
       const diagrams = opts.resultant ? [...forceDiagrams, ...resultantDiagrams] : forceDiagrams;
-      for (const ef of source.results.elementForces) {
-        if (opts.entities && !opts.entities.has(ef.elementId)) continue;
-        criticalMemberForceExtrema3D(ef, diagrams).forEach((range, c) => {
+      const visitMember = (member: ElementForces3D) => {
+        criticalMemberForceExtrema3D(member, diagrams).forEach((range, c) => {
           for (const { t, value, x, side } of [range.max, range.min]) {
-            visit(c, value, ef.elementId, t === 0 ? 'i' : t === 1 ? 'j' : undefined, x, side);
+            visit(c, value, member.elementId, t === 0 ? 'i' : t === 1 ? 'j' : undefined, x, side);
           }
         });
+      };
+      for (const member of source.results.elementForces) {
+        if (opts.entities && !opts.entities.has(member.elementId)) continue;
+        const envelope = boundSpatialEnvelope(member);
+        if (!envelope) {
+          visitMember(member);
+          continue;
+        }
+        const cases = envelopeQuerySources(envelope);
+        const membersByCase = envelopeSourcesByMember(envelope);
+        if (!cases || !membersByCase) throw unavailableDiagramExtrema();
+        for (const [index, result] of cases.entries()) {
+          const signed = membersByCase[index]!.get(member.elementId);
+          if (!signed || signed.length !== member.length) throw unavailableDiagramExtrema();
+          requireConcurrentSectionForces(signed);
+          if (!named!.has(result)) visitMember(signed);
+        }
       }
     } else {
       eachRow(kind, source.results, opts, (entity, end, x, values) => values.forEach((value, c) => visit(c, value, entity, end, x)));
