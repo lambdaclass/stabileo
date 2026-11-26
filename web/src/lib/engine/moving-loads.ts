@@ -697,7 +697,7 @@ export function computePointwiseEnvelope(
         let maxPos = 0;
         let maxNeg = 0;
 
-        const cutSides = kind !== 'shear' || t === 1 ? [false] : t === 0 ? [true] : [false, true];
+        const cutSides = kind === 'moment' || t === 1 ? [false] : t === 0 ? [true] : [false, true];
         for (const res of results) {
           if (eIdx >= res.elementForces.length) continue;
           const ef = res.elementForces[eIdx];

@@ -120,11 +120,11 @@ export function workerPDelta(pdelta3DInWorker: (wire: unknown, maxIter: number, 
  * Member loads are given to their end nodes by statics, as a simply supported span would, which
  * is what "the gravity load at that level" means for a load applied between floors.
  */
-export function nodeGravity(input: SolverInput3D, loads: SolverLoad3D[], leftHand = false): { gravity: Map<number, number>; lateral: { x: number; y: number } } {
+export function nodeGravity(input: SolverInput3D, loads: SolverLoad3D[], displayLeftHand = false): { gravity: Map<number, number>; lateral: { x: number; y: number } } {
   const gravity = new Map<number, number>();
   const add = (id: number, g: number) => gravity.set(id, (gravity.get(id) ?? 0) + g);
   let hx = 0, hy = 0;
-  const axesOf = (elementId: number) => {
+  const axesOf = (elementId: number, leftHand: boolean | undefined) => {
     const e = input.elements.get(elementId);
     if (!e) return null;
     const a = input.nodes.get(e.nodeI), b = input.nodes.get(e.nodeJ);
@@ -137,7 +137,7 @@ export function nodeGravity(input: SolverInput3D, loads: SolverLoad3D[], leftHan
       add(l.data.nodeId, -l.data.fz);
       hx += l.data.fx; hy += l.data.fy;
     } else if (l.type === 'distributed') {
-      const m = axesOf(l.data.elementId);
+      const m = axesOf(l.data.elementId, displayLeftHand);
       if (!m) continue;
       const { ex, ey, ez, L } = m.axes;
       const a = l.data.a ?? 0, b = l.data.b ?? L, span = b - a;
@@ -154,7 +154,7 @@ export function nodeGravity(input: SolverInput3D, loads: SolverLoad3D[], leftHan
       add(m.e.nodeJ, -tz * (xc / L));
       hx += total(0); hy += total(1);
     } else if (l.type === 'pointOnElement') {
-      const m = axesOf(l.data.elementId);
+      const m = axesOf(l.data.elementId, input.leftHand);
       if (!m) continue;
       const { F: [fx, fy, fz] } = pointGlobal(l.data, m.axes);
       const shareJ = l.data.a / m.axes.L;

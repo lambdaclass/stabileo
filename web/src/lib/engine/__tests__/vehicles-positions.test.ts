@@ -361,7 +361,7 @@ it('#2101 — a saved truss midpoint axle preserves the spatial sweep axial cuts
 
 it('a saved frame midpoint axle preserves the spatial sweep axial cuts', () => checkSavedMidpoint('frame'));
 
-it.skip('known wrong result: #2101 — a saved rolled truss axle has the same gravity in either display convention', async () => {
+it('#2101 — a saved rolled truss axle has the same gravity in either display convention', async () => {
   const member = inclinedCantilever('truss');
   modelStore.updateElement(member, { rollAngle: 90 });
   const weight = 10, station = 2.5, ratio = 0.002;
@@ -372,7 +372,8 @@ it.skip('known wrong result: #2101 — a saved rolled truss axle has the same gr
   const notional = { id: midpoint.id + 10, name: 'Axle notional', type: 'N' as const,
     notional: { sourceCaseId: midpoint.id, ratio, dir: '+X' as const } };
   const combo = { id: 1, name: 'At midpoint', factors: [{ caseId: midpoint.id, factor: 1 }] };
-  const worker = workerPDelta(async (wire, maxIter, tol) => solvePDelta3DWire(wire, maxIter, tol, solve_pdelta_3d));
+  const worker = workerPDelta(async (wire, maxIter, tol) =>
+    solvePDelta3DWire(wire as Parameters<typeof solvePDelta3DWire>[0], maxIter, tol, solve_pdelta_3d));
   const memberEnds = model.elements.get(member)!;
   for (const leftHand of [false, true]) {
     const opts = { leftHand, includeSelfWeight: false };

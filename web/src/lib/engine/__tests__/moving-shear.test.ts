@@ -562,7 +562,7 @@ it('#2101 — planar pointwise shear uses the inward cut at each member end', ()
   }
 });
 
-it.skip('known wrong result: #2101 — planar pointwise axial includes both midspan axle cuts', async () => {
+it('#2101 — planar pointwise axial includes both midspan axle cuts', async () => {
   const runLength = 6, rise = 8, weight = 100;
   const length = Math.hypot(runLength, rise);
   const projection = weight * rise / length;
@@ -591,7 +591,7 @@ it.skip('known wrong result: #2101 — planar pointwise axial includes both mids
   }
 });
 
-it.skip('known wrong result: #2101 — planar pointwise axial uses the inward cut at both ends', () => {
+it('#2101 — planar pointwise axial uses the inward cut at both ends', () => {
   const length = 10, force = 80;
   const { plane } = reviewSpan(length, 0, true);
   plane.loads = [0, length].map(a => ({
