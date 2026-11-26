@@ -22,7 +22,8 @@ import { addPositionCases, MAX_POSITION_CASES } from '../../store/moving-cases';
 import { buildCriticalStations, extractForcesAtStation } from '../station-forces';
 import type { AnalysisResults3D } from '../types-3d';
 import { lumpedNodalForces } from '../advanced-analyses';
-import { nodeGravity } from '../direct-analysis';
+import { mainThreadPDelta, nodeGravity, runDirectAnalysis, workerPDelta } from '../direct-analysis';
+import { withCaseEffects } from '../case-effects';
 import { solveForceMethod3D } from '../force-method/solve-3d';
 
 beforeAll(async () => { await initSolver(); });
@@ -359,3 +360,46 @@ it('#2101 — a saved truss midpoint axle preserves the spatial sweep axial cuts
 });
 
 it('a saved frame midpoint axle preserves the spatial sweep axial cuts', () => checkSavedMidpoint('frame'));
+
+it.skip('known wrong result: #2101 — a saved rolled truss axle has the same gravity in either display convention', async () => {
+  const member = inclinedCantilever('truss');
+  modelStore.updateElement(member, { rollAngle: 90 });
+  const weight = 10, station = 2.5, ratio = 0.002;
+  const train = { name: 'one axle', axles: [{ offset: 0, weight }] };
+  expect(addPositionCases(train.name, [train], [member], [], station)).toMatchObject({ cases: 3 });
+  const midpoint = modelStore.model.loadCases.filter(c => c.alternatives === 'move:one axle')[1]!;
+  const model = { ...modelStore.model, loads: modelStore.model.loads.filter(l => l.data.caseId === midpoint.id) };
+  const notional = { id: midpoint.id + 10, name: 'Axle notional', type: 'N' as const,
+    notional: { sourceCaseId: midpoint.id, ratio, dir: '+X' as const } };
+  const combo = { id: 1, name: 'At midpoint', factors: [{ caseId: midpoint.id, factor: 1 }] };
+  const worker = workerPDelta(async (wire, maxIter, tol) => solvePDelta3DWire(wire, maxIter, tol, solve_pdelta_3d));
+  const memberEnds = model.elements.get(member)!;
+  for (const leftHand of [false, true]) {
+    const opts = { leftHand, includeSelfWeight: false };
+    const input = buildSolverInput3D(model, false, leftHand)!;
+    const { gravity, lateral } = nodeGravity(input, input.loads, leftHand);
+    expect.soft(gravity.get(memberEnds.nodeI), `gravity at I, leftHand=${leftHand}`).toBeCloseTo(weight / 2, 9);
+    expect.soft(gravity.get(memberEnds.nodeJ), `gravity at J, leftHand=${leftHand}`).toBeCloseTo(weight / 2, 9);
+    expect.soft(Math.hypot(lateral.x, lateral.y), `lateral resultant, leftHand=${leftHand}`).toBeCloseTo(0, 9);
+
+    const prepared = withCaseEffects(model, [midpoint, notional], opts);
+    const notionalLoads = prepared.loads.filter(l => l.data.caseId === notional.id);
+    expect(notionalLoads).toHaveLength(2);
+    for (const load of notionalLoads) {
+      expect(load.type).toBe('nodal3d');
+      if (load.type === 'nodal3d') expect.soft(load.data.fx, `notional case, leftHand=${leftHand}`).toBeCloseTo(ratio * weight / 2, 9);
+    }
+
+    for (const run of [mainThreadPDelta, worker]) {
+      const result = await runDirectAnalysis(model, [midpoint], [combo], { ...opts, run });
+      if (typeof result === 'string') throw new Error(result);
+      expect(result.perCombo.has(combo.id)).toBe(true);
+      const info = result.info.get(combo.id)!;
+      expect.soft(['+X', '-X', '+Y', '-Y'], `notional direction, leftHand=${leftHand}`).toContain(info.notional);
+      const reactions = result.perCombo.get(combo.id)!.reactions;
+      const forceX = reactions.reduce((sum, reaction) => sum + reaction.fx, 0);
+      const forceY = reactions.reduce((sum, reaction) => sum + reaction.fy, 0);
+      expect.soft(Math.hypot(forceX, forceY), `notional resultant, leftHand=${leftHand}`).toBeCloseTo(ratio * weight, 9);
+    }
+  }
+});

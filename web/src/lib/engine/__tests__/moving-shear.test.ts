@@ -561,3 +561,47 @@ it('#2101 — planar pointwise shear uses the inward cut at each member end', ()
     expect.soft(shear.negValues[index], `V- at ${station}`).toBeCloseTo(0, 9);
   }
 });
+
+it.skip('known wrong result: #2101 — planar pointwise axial includes both midspan axle cuts', async () => {
+  const runLength = 6, rise = 8, weight = 100;
+  const length = Math.hypot(runLength, rise);
+  const projection = weight * rise / length;
+  const train = { name: 'one axle', axles: [{ offset: 0, weight }] };
+  const config = { train, step: length / 2, pathElementIds: [1] };
+  for (const [x, z] of [[runLength, rise], [length, 0]]) {
+    const { plane } = reviewSpan(x, z, true);
+    const axial = z === 0 ? 0 : projection;
+    for (const run of [solveMovingLoads, solveMovingLoadsAsync]) {
+      const result = await run(plane, config);
+      if (typeof result === 'string') throw new Error(result);
+      expect(result.positions.map(position => position.refPosition)).toEqual([0, length / 2, length]);
+      const envelope = result.fullEnvelope!.axial.elements[0];
+      for (const [station, positive, negative] of [
+        [0, 0, -axial],
+        [0.45, 0, -axial / 2],
+        [0.5, axial / 2, -axial / 2],
+        [0.55, axial / 2, 0],
+        [1, axial, 0],
+      ]) {
+        const index = envelope.tPositions.indexOf(station);
+        expect.soft(envelope.posValues[index], `${run.name} N+ at ${station}, rise ${z}`).toBeCloseTo(positive, 9);
+        expect.soft(envelope.negValues[index], `${run.name} N- at ${station}, rise ${z}`).toBeCloseTo(negative, 9);
+      }
+    }
+  }
+});
+
+it.skip('known wrong result: #2101 — planar pointwise axial uses the inward cut at both ends', () => {
+  const length = 10, force = 80;
+  const { plane } = reviewSpan(length, 0, true);
+  plane.loads = [0, length].map(a => ({
+    type: 'pointOnElement', data: { elementId: 1, a, p: 0, px: -force },
+  }));
+  const result = wasm.solve(plane);
+  expect(result.reactions.map(reaction => reaction.rx)).toEqual([force, force]);
+  const axial = computePointwiseEnvelope([result])!.axial.elements[0];
+  for (const [index, station] of axial.tPositions.entries()) {
+    expect.soft(axial.posValues[index], `N+ at ${station}`).toBeCloseTo(0, 9);
+    expect.soft(axial.negValues[index], `N- at ${station}`).toBeCloseTo(0, 9);
+  }
+});
