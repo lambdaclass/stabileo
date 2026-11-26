@@ -275,6 +275,25 @@ const reviewForces: ElementForces3D = {
 const criticalOptions = { ...canonical, stations: 'critical', resultant: true } as const;
 const reviewSources = (forces: ElementForces3D) => [{ ...A, results: { ...A.results, elementForces: [forces] } }];
 
+const scaleRegression = process.env.RUN_KNOWN_WRONG === '2581' ? it : it.skip;
+
+scaleRegression('known wrong result: #2581 shares component curves between the report summary and its resultants', () => {
+  let reads = 0;
+  const loads = [{ a: 0, b: 1, qI: 8, qJ: 8 }];
+  const forces: ElementForces3D = {
+    ...reviewForces, vyStart: -3, vyEnd: 5, vzStart: -7, vzEnd: 1,
+    get distributedLoadsY() {
+      reads++;
+      return loads;
+    },
+    distributedLoadsZ: loads,
+  };
+  const html = envelopeSectionHtml(reviewSources(forces), key => key, 'Envelope').join('');
+  expect.soft(html).toContain('<td>V (kN)</td>');
+  expect.soft(html).toContain('<td class="num">2.828</td><td>7 @ 0.63</td>');
+  expect(reads).toBe(2);
+});
+
 it('known wrong result: #2226 refuses distinct transverse jumps that round to the same rebased cut', () => {
   const first = 0.25 - 2 ** -55;
   const second = 0.25;
