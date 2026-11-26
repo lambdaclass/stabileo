@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { ElementForces3D } from '../types-3d';
+import type { ElementForces3D, EnvelopeDiagramData3D } from '../types-3d';
 import {
   buildQueryRows,
   extremeRow,
@@ -173,4 +173,44 @@ describe('result-query: flat CSV serialization with metadata', () => {
     // …while negative NUMERIC values are untouched
     expect(csv.split('\n')[1]).toContain(',-5,');
   });
+});
+
+it.skip('known wrong result: #2581 preserves both signed bounds on the inward face of each end', () => {
+  const elementId = 7;
+  const forces = [ef(elementId), ef(8)];
+  for (const faces of [{}, { jumpCuts: [{ index: 0, distance: 0 }, { index: 3, distance: 1 }] }]) {
+    const envelope: EnvelopeDiagramData3D = {
+      kind: 'shearY', globalMax: 400,
+      elements: [{
+        elementId, tPositions: [0, 0, 0.5, 1, 1],
+        posValues: [300, 100, 200, 40, 400], negValues: [-300, -60, -200, -80, -400],
+        ...faces,
+      }],
+    };
+    const rows = buildQueryRows(forces, 'Vy', { envelope, elementIds: [8, elementId] });
+    expect.soft(rows.map(({ end, value }) => [end, value])).toEqual([
+      ['i', 100], ['i', -60], ['j', 40], ['j', -80],
+    ]);
+    expect.soft(extremeRow(rows, 'max')).toMatchObject({ end: 'i', value: 100 });
+    expect.soft(extremeRow(rows, 'min')).toMatchObject({ end: 'j', value: -80 });
+    expect.soft(extremeRow(rows, 'absmax')).toMatchObject({ end: 'i', value: 100 });
+
+    const retained = filterByAbsThreshold(rows, 60);
+    expect.soft(retained.map(({ value }) => value)).toEqual([100, -60, -80]);
+    expect.soft(filterByAbsThreshold(rows, 61).map(({ value }) => value)).toEqual([100, -80]);
+    const csv = rowsToCsv(retained, META);
+    expect.soft(csv).toContain(',7,i,-60,kN');
+    expect.soft(csv).toContain(',7,j,-80,kN');
+  }
+});
+
+it.skip('known wrong result: #2581 keeps the positive envelope bound when the negative bound governs the magnitude', () => {
+  const envelope: EnvelopeDiagramData3D = {
+    kind: 'axial', globalMax: 100,
+    elements: [{ elementId: 7, tPositions: [0, 1], posValues: [60, 0], negValues: [-100, -20] }],
+  };
+  const rows = buildQueryRows([ef(7)], 'N', { envelope });
+  expect.soft(extremeRow(rows, 'max')).toMatchObject({ end: 'i', value: 60 });
+  expect.soft(extremeRow(rows, 'absmax')).toMatchObject({ end: 'i', value: -100 });
+  expect.soft(rows.filter(({ end }) => end === 'j').map(({ value }) => value)).toEqual([-20]);
 });

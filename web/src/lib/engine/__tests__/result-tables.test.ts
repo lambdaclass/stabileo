@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import { summaryRows, envelopeRows, allRows, maxByType, rowsOf, toCsv, columnsOf, whereOf, type Source } from '../result-tables';
 import { magnitudeCombination } from '../combination-methods';
-import { memberCriticalOrdinates3D, memberEndForces3D } from '../diagrams-3d';
+import { evaluateDiagramAt, memberCriticalOrdinates3D, memberEndForces3D } from '../diagrams-3d';
 import { criticalForceStations, extractForcesAtStation } from '../station-forces';
 import { envelopeMembers, pruneScopes } from '../result-scopes';
 import { DEFAULT_AXES } from '../../axes/frame';
@@ -18,12 +18,16 @@ import { combinationPeakRows } from '../../export/excel';
 import { resultSheets } from '../../export/workbook-results';
 import { envelopeSectionHtml } from '../report/project-sections';
 import { forceTable3D } from '../report/calc-report-extra';
-import { buildQueryRows } from '../result-query';
+import { buildQueryRows, extremeRow } from '../result-query';
 import { ConcurrentDemand } from '../concurrent-demand';
 import { computeElementStress3D } from '../section-stress-3d';
 import { generateCalcReportHtml } from '../calc-report';
 import { stationForces3D } from '../../section/panel';
 import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../member-diagram';
+import { buildSolverInput3D } from '../solver-service';
+import { POINT_END_TOL } from '../member-point-loads';
+import { expandVariableMembers, variableExpansionFor } from '../variable-members';
+import { collapseVariableResults } from '../variable-member-results';
 import type { AnalysisResults3D, ElementForces3D, SolverInput3D } from '../types-3d';
 
 const disp = (nodeId: number, ux: number, uz: number) => ({ nodeId, ux, uy: 0, uz, rx: 0, ry: 0, rz: 0 });
@@ -641,4 +645,86 @@ it('known wrong result: #2581 reads the aggregate spatial J cell from its case e
     expect.soft(rowsOf('forces', results, canonical).find(row => row.end === 'j')?.values[1]).toBe(end);
     expect.soft(buildQueryRows(results.elementForces, 'Vy').find(row => row.end === 'j')?.value).toBe(end);
   }
+});
+
+describe('spatial cantilever end queries', () => {
+  const length = 4;
+  let elementId: number, tip: number;
+
+  beforeAll(async () => { await initSolver(); });
+  beforeEach(() => {
+    uiStore.analysisMode = '3d';
+    modelStore.clear();
+    const root = modelStore.addNode(0, 0, 0);
+    tip = modelStore.addNode(length, 0, 0);
+    elementId = modelStore.addElement(root, tip, 'frame');
+    modelStore.addSupport(root, 'fixed3d');
+  });
+
+  function solveModel() {
+    const model = expandVariableMembers(modelStore.model);
+    const input = buildSolverInput3D(model, false, false)!;
+    const linear = solve3D(input);
+    const nonlinear = solvePDelta3D(input);
+    expect(nonlinear.converged).toBe(true);
+    const expansion = variableExpansionFor(modelStore.model);
+    return [linear, nonlinear.results].map(result => collapseVariableResults(result, expansion));
+  }
+
+  it.skip('known wrong result: #2581 queries signed bounds from linear and P-Delta case envelopes', () => {
+    const positive = 100, negative = -60;
+    const id = modelStore.addLoadEntry({
+      type: 'nodal3d', data: { id: 1, nodeId: tip, fx: 0, fy: -positive, fz: -positive, mx: 0, my: 0, mz: 0 },
+    });
+    const plus = solveModel();
+    expect(modelStore.updateLoad(id, { fy: -negative, fz: -negative })).toBe(true);
+    const minus = solveModel();
+
+    for (const [i, result] of plus.entries()) {
+      const envelope = computeEnvelope3D([result, minus[i]!])!;
+      for (const [kind, component] of [['shearY', 'Vy'], ['shearZ', 'Vz']] as const) {
+        const rows = buildQueryRows(envelope.maxAbsResults3D.elementForces, component, { envelope: envelope[kind] });
+        for (const end of ['i', 'j'] as const) {
+          const at = rows.filter(row => row.end === end);
+          expect.soft(extremeRow(at, 'max')?.value).toBeCloseTo(positive, 12);
+          expect.soft(extremeRow(at, 'min')?.value).toBeCloseTo(negative, 12);
+          expect.soft(extremeRow(at, 'absmax')?.value).toBeCloseTo(positive, 12);
+        }
+        const single = buildQueryRows(result.elementForces, component);
+        expect.soft(single).toHaveLength(2);
+        for (const row of single) expect.soft(row.value).toBeCloseTo(positive, 12);
+      }
+    }
+  });
+
+  it.each([0, POINT_END_TOL / 2, length / 4, 3 * length / 4, length - POINT_END_TOL / 2, length])(
+    'selects the member side of bending couples and torque applied at %s m',
+    a => {
+      const moments = [12, 16, 20] as const;
+      modelStore.addLoadEntry({
+        type: 'pointOnElement3d',
+        data: { id: 1, elementId, a, py: 0, pz: 0, mx: moments[0], my: moments[1], mz: moments[2] },
+      });
+      const atI = a <= POINT_END_TOL, atJ = a >= length - POINT_END_TOL;
+      for (const results of solveModel()) {
+        const member = results.elementForces.find(f => f.elementId === elementId)!;
+        expect.soft(member.pieces?.length ?? 0).toBe(atI || atJ ? 0 : 2);
+        const ends = rowsOf('forces', results, canonical);
+        for (const [column, kind, component] of [[3, 'torsion', 'T'], [4, 'momentY', 'My'], [5, 'momentZ', 'Mz']] as const) {
+          const applied = moments[column - 3]!;
+          const query = buildQueryRows([member], component);
+          const expected = [atI ? 0 : -applied, atJ ? -applied : 0];
+          for (const [i, end] of ['i', 'j'].entries()) {
+            expect.soft(memberEndForces3D(member, kind)[i]).toBeCloseTo(expected[i]!, 10);
+            expect.soft(query.find(row => row.end === end)?.value).toBeCloseTo(expected[i]!, 10);
+            expect.soft(ends.find(row => row.end === end)?.values[column]).toBeCloseTo(expected[i]!, 10);
+          }
+          if (!atI && !atJ) {
+            expect.soft(evaluateDiagramAt(member, kind, a / length, false)).toBeCloseTo(-applied, 10);
+            expect.soft(evaluateDiagramAt(member, kind, a / length, true)).toBeCloseTo(0, 10);
+          }
+        }
+      }
+    },
+  );
 });
