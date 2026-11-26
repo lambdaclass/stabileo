@@ -11,7 +11,7 @@ import { assessProject } from '../../provenance/applicability';
 import { RESULT_CHANGES } from '../../provenance/full-registry';
 import { RESULTS_VERSION } from '../../provenance/registry';
 import { stampSolve } from '../../provenance/solve-stamp';
-import { initSolver } from '../../engine/wasm-solver';
+import { initSolver, solvePDelta } from '../../engine/wasm-solver';
 import { t } from '../../i18n';
 import { deflateSync, inflateSync } from 'fflate';
 import '../index';
@@ -192,7 +192,7 @@ it('#2569 recheck keeps separate snow actions and zero factors out of the rankin
   }
 });
 
-it.skip.each(entries)('known wrong result: #2588 — %s recovers an inclined legacy XZ or YZ frame', async entry => {
+it.each(entries)('known wrong result: #2588 — %s recovers an inclined legacy XZ or YZ frame', async entry => {
   await initSolver();
   for (const plane of ['xz', 'yz'] as const) {
     uiStore.analysisMode = '2d';
@@ -206,6 +206,8 @@ it.skip.each(entries)('known wrong result: #2588 — %s recovers an inclined leg
     modelStore.addCombination('D', [{ caseId: 1, factor: 1 }]);
     const file = buildProjectFile();
     const reference = modelStore.solve(false, plane);
+    const secondOrder = solvePDelta(modelStore.buildSolverInput(false, plane)!);
+    expect(secondOrder.results.displacements).toEqual(expect.arrayContaining([expect.objectContaining({ nodeId: tip })]));
     expect(reference).toMatchObject({ displacements: expect.arrayContaining([
       expect.objectContaining({ nodeId: tip, uz: expect.any(Number) }),
     ]) });
@@ -218,13 +220,14 @@ it.skip.each(entries)('known wrong result: #2588 — %s recovers an inclined leg
     expect.soft(await modelStore.solveAsync()).toEqual(reference);
     const input = modelStore.buildSolverInput();
     expect.soft(input?.nodes.get(tip)).toMatchObject({ x: 5, z: 3 });
+    if (input) expect.soft(solvePDelta(input).results.displacements).toEqual(secondOrder.results.displacements);
     const combinations = modelStore.solveCombinations();
     expect.soft(combinations && typeof combinations !== 'string' && combinations.perCase.get(1)?.displacements)
       .toEqual(reference && typeof reference !== 'string' && reference.displacements);
   }
 });
 
-it.skip.each(['file', 'share'] as const)('known wrong result: #2588 — %s blocks an ambiguous plane until selected', async entry => {
+it.each(entries)('known wrong result: #2588 — %s blocks an ambiguous plane until selected', async entry => {
   await initSolver();
   uiStore.analysisMode = '2d';
   uiStore.drawPlane2D = 'xy';
@@ -232,7 +235,7 @@ it.skip.each(['file', 'share'] as const)('known wrong result: #2588 — %s block
   const tip = modelStore.addNode(5, 1, 3);
   modelStore.addElement(root, tip, 'frame');
   modelStore.addSupport(root, 'fixed');
-  modelStore.addNodalLoad3D(tip, 10, 0, 0, 0, 0, 0, 1);
+  modelStore.addNodalLoad3D(tip, 0, 0, 0, 0, 10, 0, 1);
   const reference = modelStore.solve(false, 'xz');
   expect(reference).toMatchObject({ displacements: expect.any(Array) });
   const file = buildProjectFile();
@@ -250,7 +253,7 @@ it.skip.each(['file', 'share'] as const)('known wrong result: #2588 — %s block
   expect(buildProjectFile().snapshot.drawPlane2D).toBe('xz');
 });
 
-it.skip.each(['xz', 'yz'] as const)('known wrong result: #2588 — a global load resolves an otherwise ambiguous %s frame', async plane => {
+it.each(['xz', 'yz'] as const)('known wrong result: #2588 — a global load resolves an otherwise ambiguous %s frame', async plane => {
   await initSolver();
   uiStore.analysisMode = '2d';
   uiStore.drawPlane2D = plane;

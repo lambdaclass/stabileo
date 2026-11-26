@@ -1,8 +1,8 @@
 import { t, tp } from '../i18n';
-import { isDrawPlane } from '../geometry/plane-projection';
+import { DRAW_PLANES, isDrawPlane, type DrawPlane } from '../geometry/plane-projection';
 import { isAnalysisMode, is3DWorkspace } from '../utils/workspace';
 import type { Element, Load, LoadCombination, Material, Support } from '../store/model.svelte';
-import { isSupportType } from '../model/support-types';
+import { isPlaneSupportType, isSupportType } from '../model/support-types';
 import type { Constraint3D, LinearMpcConstraint } from './types-3d';
 import type { AnalysisSettings, SelfWeightLoad } from './analysis-settings';
 import type { StiffnessModifiers } from './member-behaviour';
@@ -53,7 +53,7 @@ const loadMetadataFields = {
   thermal: {},
   nodal3d: {},
   distributed3d: { frame: true },
-  pointOnElement3d: { frame: true },
+  pointOnElement3d: { frame: true, vehicleAxle: true },
   surface3d: { dir: true, qNodes: true, vary: true, region: true, frame: true, on: true },
   thermalQuad3d: { on: true },
   prestress3d: {},
@@ -140,25 +140,26 @@ function isLoadType(type: unknown): type is Load['type'] {
   return typeof type === 'string' && Object.hasOwn(loadFields, type);
 }
 
-function requireLoadSelectors(path: string, type: Load['type'], data: Record<string, unknown>): void {
+function requireLoadSelectors(path: string, type: Load['type'], data: Record<string, unknown>, strict: boolean): void {
   const { isGlobal, frame, on } = data;
   const planarMember = type === 'distributed' || type === 'pointOnElement';
   const spatialFrame = type === 'distributed3d' || type === 'pointOnElement3d' || type === 'surface3d';
   const shellTarget = type === 'surface3d' || type === 'thermalQuad3d';
-  requireInputField(`${path}.isGlobal`, isGlobal === undefined || (planarMember && typeof isGlobal === 'boolean'));
-  requireInputField(`${path}.frame`, frame === undefined || (spatialFrame && (frame === 'local' || frame === 'global'
+  requireInputField(`${path}.isGlobal`, (!strict && !planarMember) || isGlobal === undefined || (planarMember && typeof isGlobal === 'boolean'));
+  requireInputField(`${path}.frame`, (!strict && !spatialFrame) || frame === undefined || (spatialFrame && (frame === 'local' || frame === 'global'
     || (frame === 'projected' && type !== 'pointOnElement3d'))));
-  requireInputField(`${path}.on`, on === undefined || (shellTarget && on === 'plate'));
+  requireInputField(`${path}.on`, (!strict && !shellTarget) || on === undefined || (shellTarget && on === 'plate'));
 }
 
-function requireLoadRecord(load: unknown, i: number) {
+function requireLoadRecord(load: unknown, i: number, strict = true) {
   const row = `loads[${i}]`;
   requireInputField(`${row}.type`, isRecord(load) && isLoadType(load.type));
-  requireKnownFields(row, load, loadRecordFields);
+  if (strict) requireKnownFields(row, load, loadRecordFields);
   const path = `${row}.data`;
   const { type, data } = load;
   requireInputField(path, isRecord(data));
-  requireLoadSelectors(path, type, data);
+  requireLoadSelectors(path, type, data, strict);
+  if (!strict) return { path, type, data };
   const fields: NumericFieldNames & { basicProjection?: NumericFieldNames } = loadFields[type];
   for (const key of Object.keys(data)) {
     const allowed = Object.hasOwn(commonLoadFields, key) || Object.hasOwn(loadMetadataFields[type], key)
@@ -169,10 +170,10 @@ function requireLoadRecord(load: unknown, i: number) {
   return { path, type, data };
 }
 
-function requireProjectionNumbers({ path, type, data }: ReturnType<typeof requireLoadRecord>): void {
+function requireProjectionNumbers({ path, type, data }: ReturnType<typeof requireLoadRecord>, strict = true): void {
   const fields = loadFields[type].basicProjection;
   if (fields) recordNumbers(path, data, fields);
-  if (type === 'nodal') requirePlanarNodalMoment(path, data);
+  if (strict && type === 'nodal') requirePlanarNodalMoment(path, data);
   if (type === 'nodal') numberAt(`${path}.fz/fy`, data.fz ?? data.fy);
 }
 
@@ -240,18 +241,30 @@ export function loadInputRefusal(loads: unknown): string | null {
   return modelInputError(() => requireLoadInput(loads))?.message ?? null;
 }
 
-export function hasMalformedAuthoredLoad(loads: unknown, basicProjection: boolean): boolean {
-  if (loads === undefined) return false;
-  return modelInputError(() => {
-    requireLoadCollection(loads);
-    for (const [i, load] of loads.entries()) {
-      const row = requireLoadRecord(load, i);
-      const fields = loadFields[row.type];
-      if (basicProjection && fields.basicProjection) recordNumbers(row.path, row.data, fields);
-      if (basicProjection) requireProjectionNumbers(row);
-      else if (row.type === 'nodal') requirePlanarNodalMoment(row.path, row.data);
+export function authoredLoadIssues(loads: unknown, basicProjection: boolean): Set<'malformedAuthoredLoad' | 'addedAuthoredLoadRefusal'> {
+  const issues = new Set<'malformedAuthoredLoad' | 'addedAuthoredLoadRefusal'>();
+  if (loads === undefined) return issues;
+  if (!Array.isArray(loads)) {
+    issues.add('malformedAuthoredLoad');
+    return issues;
+  }
+  for (const [i, load] of loads.entries()) {
+    const released = modelInputError(() => {
+      const row = requireLoadRecord(load, i, false);
+      if (basicProjection) requireProjectionNumbers(row, false);
+    });
+    if (released) {
+      issues.add('malformedAuthoredLoad');
+      continue;
     }
-  }) !== null;
+    const added = modelInputError(() => {
+      const { path, type, data } = requireLoadRecord(load, i);
+      if (basicProjection && loadFields[type].basicProjection) recordNumbers(path, data, loadFields[type]);
+      if (type === 'nodal') requirePlanarNodalMoment(path, data);
+    });
+    if (added) issues.add('addedAuthoredLoadRefusal');
+  }
+  return issues;
 }
 
 function recordAt(path: string, value: unknown): Record<string, unknown> {
@@ -273,8 +286,13 @@ function booleanAt(path: string, value: unknown): void {
   requireInputField(path, typeof value === 'boolean');
 }
 
-function validateSupport(path: string, value: unknown): void {
-  const row = recordAt(path, value);
+export function supportWithStoredId<T extends object>(id: number, row: T): T {
+  return 'id' in row && row.id !== undefined ? row : { ...row, id };
+}
+
+function validateSupport(path: string, value: unknown, storedKey?: number): void {
+  const record = recordAt(path, value);
+  const row = storedKey === undefined ? record : supportWithStoredId(storedKey, record);
   requireKnownFields(path, row, supportFields);
   requireNumericFields(path, row, supportFields);
   requireInputField(`${path}.type (${String(row.type)})`, isSupportType(row.type));
@@ -558,10 +576,69 @@ export function dependsOnXYConstraintAxes(constraint: Constraint3D): boolean {
   }
 }
 
-export function requireStoredProjectInput(
-  snapshot: { drawPlane2D?: unknown; analysisMode?: unknown; constraints?: unknown }
-    & Partial<Record<StoredStructuralTable, unknown>>,
-): void {
+type StoredProjectInput = {
+  drawPlane2D?: unknown;
+  analysisMode?: unknown;
+  constraints?: unknown;
+  loads?: unknown;
+} & Partial<Record<StoredStructuralTable, unknown>>;
+
+const NORMAL_AXIS = { xy: 'z', xz: 'y', yz: 'x' } as const;
+const AXES = ['x', 'y', 'z'] as const;
+const PLANAR_LOAD_TYPES = ['nodal', 'distributed', 'pointOnElement', 'thermal'];
+
+function storedRows(rows: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(rows)) return [];
+  return rows.flatMap(row => Array.isArray(row) && isRecord(row[1]) ? [row[1]] : []);
+}
+
+function storedLoadFitsPlane(load: unknown, plane: DrawPlane): boolean {
+  if (!isRecord(load) || !isRecord(load.data)) return true;
+  const { type, data } = load;
+  const normal = NORMAL_AXIS[plane];
+  const zero = (prefix: string, axis: string, suffix = '') =>
+    !isFiniteInputNumber(data[prefix + axis + suffix]) || data[prefix + axis + suffix] === 0;
+  const rotationFits = (prefix: string) => AXES.every(axis => axis === normal || zero(prefix, axis));
+  switch (type) {
+    case 'nodal3d': return zero('f', normal) && rotationFits('m');
+    case 'displacement3d': return zero('d', normal) && rotationFits('dr');
+    case 'distributed3d':
+      return (data.frame !== 'global' && data.frame !== 'projected')
+        || ['I', 'J'].every(end => zero('q', normal.toUpperCase(), end));
+    case 'pointOnElement3d': return data.frame !== 'global' || (zero('p', normal) && rotationFits('m'));
+    case 'nodal':
+      return plane === 'xy' || ((!isFiniteInputNumber(data.fz ?? data.fy) || (data.fz ?? data.fy) === 0)
+        && zero('m', 'y') && zero('m', 'z') && (plane !== 'yz' || zero('f', 'x')));
+  }
+  return true;
+}
+
+export function storedProjectPlane(snapshot: StoredProjectInput, constraints: readonly Constraint3D[]): DrawPlane | undefined {
+  if (isDrawPlane(snapshot.drawPlane2D)) return snapshot.drawPlane2D;
+  if (!Array.isArray(snapshot.elements) || snapshot.elements.length === 0) return 'xy';
+  const nodes = storedRows(snapshot.nodes);
+  const loads = Array.isArray(snapshot.loads) ? snapshot.loads : [];
+  const coordinate = (node: Record<string, unknown>, axis: typeof AXES[number]) =>
+    axis === 'z' ? node.z ?? 0 : node[axis];
+  const candidates = DRAW_PLANES.filter(plane => {
+    const normal = NORMAL_AXIS[plane];
+    const depth = nodes[0] && coordinate(nodes[0], normal);
+    return nodes.every(node => coordinate(node, normal) === depth)
+      && loads.every(load => storedLoadFitsPlane(load, plane));
+  });
+  if (candidates.length === 1) return candidates[0];
+
+  if (candidates.length === 2 && candidates.includes('xy') && candidates.includes('xz')
+      && nodes.every(node => node.y === 0 && coordinate(node, 'z') === 0)
+      && !constraints.some(dependsOnXYConstraintAxes)
+      && storedRows(snapshot.supports).every(s => isPlaneSupportType(s.type))
+      && loads.every(load => isRecord(load) && typeof load.type === 'string' && PLANAR_LOAD_TYPES.includes(load.type))) {
+    return 'xy';
+  }
+  return undefined;
+}
+
+export function requireStoredProjectInput(snapshot: StoredProjectInput): DrawPlane | undefined {
   requireInputField('drawPlane2D', snapshot.drawPlane2D === undefined || isDrawPlane(snapshot.drawPlane2D));
   for (const table of storedStructuralTables) {
     requireUniqueStoredKeys(table, snapshot[table], row => Array.isArray(row) ? row[0] : undefined);
@@ -571,10 +648,15 @@ export function requireStoredProjectInput(
     return isRecord(footing) ? footing.id : undefined;
   });
   const { analysisMode } = snapshot;
-  if (snapshot.drawPlane2D === undefined && isAnalysisMode(analysisMode) && !is3DWorkspace(analysisMode)) {
-    const index = migrateModelConstraints(snapshot.constraints).findIndex(dependsOnXYConstraintAxes);
-    requireInputField(`constraints[${index}]`, index === -1);
+  if (!isAnalysisMode(analysisMode) || is3DWorkspace(analysisMode)) return undefined;
+  if (isDrawPlane(snapshot.drawPlane2D)) return snapshot.drawPlane2D;
+  const constraints = migrateModelConstraints(snapshot.constraints);
+  const plane = storedProjectPlane(snapshot, constraints);
+  if (plane === undefined || plane === 'xy') {
+    const index = constraints.findIndex(dependsOnXYConstraintAxes);
+    if (index !== -1) throw new ModelInputError(`${t('svc.savedPlaneRequired')} constraints[${index}]`);
   }
+  return plane;
 }
 
 export function requireStructureInput(model: {
@@ -585,13 +667,13 @@ export function requireStructureInput(model: {
   sections: ModelRows;
   connectors?: ModelRows;
   analysis?: unknown;
-}, { allowStoredNullDensity = false } = {}): void {
+}, { allowStoredNullDensity = false, storedSupportKeys = false } = {}): void {
   for (const [id, node] of model.nodes) {
     const path = `nodes.${id}`;
     recordNumbers(path, recordAt(path, node), { required: ['id', 'x', 'y'], optional: ['z'] });
   }
   for (const [id, element] of model.elements) validateElement(`elements.${id}`, element);
-  for (const [id, support] of model.supports) validateSupport(`supports.${id}`, support);
+  for (const [id, support] of model.supports) validateSupport(`supports.${id}`, support, storedSupportKeys ? id : undefined);
   for (const [id, section] of model.sections) validateSection(`sections.${id}`, section);
   for (const [id, material] of model.materials) {
     const path = `materials.${id}`;

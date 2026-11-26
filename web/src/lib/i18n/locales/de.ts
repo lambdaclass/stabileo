@@ -3940,6 +3940,7 @@ const de: Translations = {
   "svc.engine.noInputFields": "Es sind keine Felder zulässig.",
   "svc.engine.inputParseError": "Fehler beim Lesen der Eingabe: {detail}",
   "svc.engine.inputLocation": "(Zeile {line}, Spalte {column})",
+  "svc.savedPlaneRequired": "Wählen Sie vor der Berechnung dieses gespeicherten Projekts die Zeichenebene.",
   "svc.engine.invalidInputField": "Das Feld {path} fehlt oder enthält einen nicht unterstützten Wert.",
   "svc.engine.nonFiniteNumber": "Geben Sie für {path} eine endliche Zahl ein (erhaltener Wert: {value}).",
   'svc.engine.zeroDiagonal': 'Alle Diagonalelemente sind null: singuläre Matrix',

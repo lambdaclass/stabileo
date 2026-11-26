@@ -56,24 +56,27 @@ export function constraintsInXZ(plane: DrawPlane, constraints: readonly Constrai
     if (c.type === 'eccentricConnection') requireEccentricReleaseMask(`constraints[${index}].releases`, c.releases);
   }
   if (plane === 'xz') return [...constraints];
-  return remapConstraintAxes(constraints, AXES_IN_XZ[plane], plane === 'yz' ? 3 : 5);
+  return remapConstraintAxes(constraints, AXES_IN_XZ[plane]);
 }
 
 export function constraintsInXY(plane: DrawPlane, constraints: readonly Constraint3D[]): Constraint3D[] {
   if (plane === 'xy') return [...constraints];
-  return remapConstraintAxes(constraintsInXZ(plane, constraints), AXES_IN_XZ.xy, 4);
+  return remapConstraintAxes(constraintsInXZ(plane, constraints), AXES_IN_XZ.xy);
 }
 
 function remapConstraintAxes(
-  constraints: readonly Constraint3D[], axis: [number, number, number], inPlaneRotation: number,
+  constraints: readonly Constraint3D[], axis: [number, number, number],
 ): Constraint3D[] {
+  const [x, y, z] = axis;
+  const inversions = Number(x > y) + Number(x > z) + Number(y > z);
+  const rotationSign = inversions % 2 === 0 ? 1 : -1;
   const dof = (d: number) => (d < 3 ? axis[d] : 3 + axis[d - 3]);
   const letter = (c: string) => 'XYZ'[axis['XYZ'.indexOf(c)]] ?? c;
   return constraints.map((c): Constraint3D => {
     switch (c.type) {
       case 'rigidLink': return c.dofs ? { ...c, dofs: c.dofs.map(dof) } : { ...c };
       case 'equalDOF': return { ...c, dofs: c.dofs.map(dof) };
-      case 'linearMPC': return { ...c, terms: c.terms.map((t) => ({ ...t, dof: dof(t.dof), coefficient: t.dof === inPlaneRotation ? -t.coefficient : t.coefficient })) };
+      case 'linearMPC': return { ...c, terms: c.terms.map((t) => ({ ...t, dof: dof(t.dof), coefficient: t.dof < 3 ? t.coefficient : rotationSign * t.coefficient })) };
       case 'diaphragm': {
         const name = (c.plane ?? 'XY').toUpperCase();
         return /^[XYZ]{2}$/.test(name) ? { ...c, plane: [...name].map(letter).sort().join('') } : { ...c };

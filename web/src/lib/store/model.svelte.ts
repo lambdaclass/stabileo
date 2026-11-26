@@ -1,4 +1,5 @@
-import { ModelInputError, migrateModelConstraints, modelInputRefusal, requireCombinationInput, requireLoadInput, requireModelInput, requireStoredProjectInput, requireStructureInput } from '../engine/model-input-numbers';
+import { is3DWorkspace, isAnalysisMode } from '../utils/workspace';
+import { ModelInputError, migrateModelConstraints, modelInputRefusal, requireCombinationInput, requireLoadInput, requireModelInput, requireStoredProjectInput, requireStructureInput, supportWithStoredId } from '../engine/model-input-numbers';
 import { canonicalizeLoadAliases, canonicalizeModelAliases, NO_RELEASE } from '../model/canonical-aliases';
 import { accountingProjection, scenarioSurfaceAdjustment } from '../engine/accounting-source';
 import { globalAxes } from '../features';
@@ -1290,6 +1291,7 @@ function createModelStore() {
    * The returned object is a shallow copy safe for passing to solver functions.
    */
   function remapModelForPlane(plane: DrawPlane, includeSelfWeight = false): ModelData | string {
+    if (uiStore.analysisPlane2D === undefined) throw new ModelInputError(t('svc.savedPlaneRequired'));
     const shellRefusal = shellsRequirePro3D(model);
     if (shellRefusal) return shellRefusal;
     requireModelInput(model);
@@ -2229,7 +2231,7 @@ function createModelStore() {
       const snapId = $state.snapshot(nextId);
       const result: ModelSnapshot = {
         name: snap.name,
-        ...(!uiStore.is3DWorkspace ? { drawPlane2D: uiStore.drawPlane2D } : {}),
+        ...(!uiStore.is3DWorkspace ? { drawPlane2D: uiStore.analysisPlane2D } : {}),
         nodes: Array.from(snap.nodes.entries()) as ModelSnapshot['nodes'],
         materials: Array.from(snap.materials.entries()) as ModelSnapshot['materials'],
         // `canonical` is a DERIVED cache keyed by the section's own dimensions,
@@ -2411,12 +2413,14 @@ function createModelStore() {
       // `hydrateProjectProvenance`, which file-open and tab-activation call.
       const { detailing: savedDetailing, ...modelFields } = rawSnapshot;
       const copy = plainDeepCopy(modelFields);
-      requireStoredProjectInput({ ...copy, analysisMode: copy.analysisMode ?? uiStore.analysisMode });
+      const mode = isAnalysisMode(copy.analysisMode) ? copy.analysisMode : uiStore.analysisMode;
+      const plane = requireStoredProjectInput({ ...copy, analysisMode: mode });
       const constraints = migrateModelConstraints(copy.constraints);
       if (copy.combinations !== undefined) requireCombinationInput(copy.combinations);
       const s = canonicalizeModelAliases(copy);
-      requireStructureInput(s, { allowStoredNullDensity: true });
+      requireStructureInput(s, { allowStoredNullDensity: true, storedSupportKeys: true });
       beforeInstall?.();
+      if (!is3DWorkspace(mode)) uiStore.analysisPlane2D = plane;
       loadEpoch++;
       _onReplaced?.();
       const migratedDetailing = restoreDetailing(savedDetailing);
@@ -2447,7 +2451,7 @@ function createModelStore() {
         const [k, v] = supEntries[i];
         if (!seenNodes.has(v.nodeId)) {
           seenNodes.add(v.nodeId);
-          dedupedEntries.push([k, v]);
+          dedupedEntries.push([k, supportWithStoredId(k, v)]);
         }
       }
       dedupedEntries.reverse();
@@ -3878,6 +3882,7 @@ function createModelStore() {
       _onReplaced?.();
       _onNewProject?.();
       if (!_undoBatching) _pushUndo?.();
+      if (uiStore.analysisPlane2D === undefined) uiStore.drawPlane2D = 'xy';
       model.name = t('tabBar.newStructure');
       model.nodes = new Map();
       model.elements = new Map();
@@ -4183,18 +4188,18 @@ function createModelStore() {
       return analysisFor(isPro, includeSelfWeight);
     },
 
-    solve(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): AnalysisResults | string | null {
+    solve(includeSelfWeight = false, drawPlane: DrawPlane = uiStore.drawPlane2D): AnalysisResults | string | null {
       return solveSingle2D(drawPlane, includeSelfWeight, validateAndSolve2D);
     },
 
     /** Async 2D solve via the worker pool (UI stays responsive). Same result
      *  shape and string-error semantics as solve(). */
-    async solveAsync(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): Promise<AnalysisResults | string | null> {
+    async solveAsync(includeSelfWeight = false, drawPlane: DrawPlane = uiStore.drawPlane2D): Promise<AnalysisResults | string | null> {
       return solveSingle2D(drawPlane, includeSelfWeight, validateAndSolve2DAsync);
     },
 
     /** Build a SolverInput from the current model state (no validation). Returns null if model is empty. */
-    buildSolverInput(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): SolverInput | null {
+    buildSolverInput(includeSelfWeight = false, drawPlane: DrawPlane = uiStore.drawPlane2D): SolverInput | null {
       const mapped = remapModelForPlane(drawPlane, includeSelfWeight);
       if (typeof mapped === 'string') return null;
       return buildSolverInput2D(mapped, includeSelfWeight);
@@ -4550,7 +4555,7 @@ function createModelStore() {
     },
 
     /** Solve all load cases and combine. Returns per-case + per-combo + envelope results. */
-    solveCombinations(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): { perCase: Map<number, AnalysisResults>; perCombo: Map<number, AnalysisResults>; envelope: FullEnvelope } | string | null {
+    solveCombinations(includeSelfWeight = false, drawPlane: DrawPlane = uiStore.drawPlane2D): { perCase: Map<number, AnalysisResults>; perCombo: Map<number, AnalysisResults>; envelope: FullEnvelope } | string | null {
       const mapped = mappedSolveModel(drawPlane, includeSelfWeight);
       if (typeof mapped === 'string') return mapped;
       return solveCombinations2D(mapped, model.loadCases, model.combinations, includeSelfWeight);

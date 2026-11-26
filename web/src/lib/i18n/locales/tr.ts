@@ -3949,6 +3949,7 @@ const tr: Translations = {
   "svc.engine.noInputFields": "Hiçbir alana izin verilmez.",
   "svc.engine.inputParseError": "Girdi okuma hatası: {detail}",
   "svc.engine.inputLocation": "({line}. satır, {column}. sütun)",
+  "svc.savedPlaneRequired": "Bu kayıtlı projeyi analiz etmeden önce çizim düzlemini seçin.",
   "svc.engine.invalidInputField": "{path} alanı eksik veya desteklenmeyen bir değer içeriyor.",
   "svc.engine.nonFiniteNumber": "{path} alanına sonlu bir sayı girin (alınan değer: {value}).",
   'svc.engine.zeroDiagonal': 'Köşegen terimlerin tümü sıfır: tekil matris',

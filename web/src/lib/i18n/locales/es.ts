@@ -4337,6 +4337,7 @@ const es: Record<string, string> = {
   "svc.engine.noInputFields": "No se admite ningún campo.",
   "svc.engine.inputParseError": "Error de análisis: {detail}",
   "svc.engine.inputLocation": "(línea {line}, columna {column})",
+  "svc.savedPlaneRequired": "Elegí el plano de dibujo antes de analizar este proyecto guardado.",
   "svc.engine.invalidInputField": "Falta el campo {path} o su valor no es compatible.",
   "svc.engine.nonFiniteNumber": "Ingresá un número finito en {path} (valor recibido: {value}).",
   'svc.engine.zeroDiagonal': "Todas las entradas de la diagonal son cero: matriz singular",

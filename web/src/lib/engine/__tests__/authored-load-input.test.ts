@@ -394,7 +394,7 @@ it('refuses a misspelled load frame on an inclined member', async () => {
     'fixture replay': () => loadFixture(fixture, modelStore.fixtureApi() as never),
     'example apply': () => modelStore.loadExample(fixture.name, async () => fixture),
   });
-  expect(assessProject(modelStore.snapshot(), null, 'pro').changes.map(change => change.id)).toContain('malformed-authored-loads');
+  expect(assessProject(modelStore.snapshot(), null, 'pro').changes.map(change => change.id)).toContain('authored-load-validation');
 });
 
 it.each([null, {}])('refuses and flags a non-array loads collection (%j)', async (loads) => {
@@ -450,8 +450,8 @@ it.each([
   setLoad({ type: 'nodal', data: { ...data, [field]: value } });
   const saved: ReturnType<typeof modelStore.snapshot> = JSON.parse(JSON.stringify(modelStore.snapshot()));
   const part = `loads[0].data.${field}`;
-  expect.soft(assessProject(saved, null, 'basic').changes.map(entry => entry.id)).toContain('malformed-authored-loads');
-  expect.soft(modelFeatures({ ...saved, loads: [] }, { storedLoads: saved.loads })).toContain('malformedAuthoredLoad');
+  expect.soft(assessProject(saved, null, 'basic').changes.map(entry => entry.id)).toContain('authored-load-validation');
+  expect.soft(modelFeatures({ ...saved, loads: [] }, { storedLoads: saved.loads })).toContain('addedAuthoredLoadRefusal');
   expect(deserializeProjectOrThrow(JSON.stringify({ ...JSON.parse(serializeProject()), snapshot: saved }))).toBe(true);
   expect.soft(modelStore.model.loads[0]).toMatchObject({ type: 'nodal', data: { [field]: value } });
   const fixture: JSONModel = {

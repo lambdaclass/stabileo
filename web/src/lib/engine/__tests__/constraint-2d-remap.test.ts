@@ -118,7 +118,7 @@ describe('UI-authored 3D constraints survive the real 2D wire', () => {
   });
 });
 
-it.skip.each([
+it.each([
   { plane: 'xy', horizontal: 0, normal: 5, orthogonal: 3, mappedOrthogonal: 3 },
   { plane: 'yz', horizontal: 1, normal: 3, orthogonal: 4, mappedOrthogonal: 3 },
 ] as const)('known wrong result: #2588 — $plane reflects axial MPC coefficients and preserves signed displacement', async ({

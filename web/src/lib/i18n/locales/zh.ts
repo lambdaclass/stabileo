@@ -4140,6 +4140,7 @@ const zh: Translations = {
   "svc.engine.noInputFields": "不允许任何字段。",
   "svc.engine.inputParseError": "输入解析错误：{detail}",
   "svc.engine.inputLocation": "（第 {line} 行，第 {column} 列）",
+  "svc.savedPlaneRequired": "分析此已保存的项目之前，请选择绘图平面。",
   "svc.engine.invalidInputField": "字段 {path} 缺失或包含不受支持的值。",
   "svc.engine.nonFiniteNumber": "请为 {path} 输入有限数值（收到的值为 {value}）。",
   "svc.engine.unresolvedMovingAxle": "无法确定移动荷载路径节点处的车轴位置。",

@@ -572,7 +572,7 @@ describe('which registered changes concern a model', () => {
     expect(ids(model({ loads }), previous)).toEqual([]);
   });
 
-  it.skip.each(['2d', '3d'] as const)('known wrong result: #2588 — %s does not mistake the support tuple key for missing structural input', analysisMode => {
+  it.each(['2d', '3d'] as const)('known wrong result: #2588 — %s does not mistake the support tuple key for missing structural input', analysisMode => {
     const change = 'malformed-structural-input';
     const type = analysisMode === '2d' ? 'fixed' : 'fixed3d';
     const snapshot = model({

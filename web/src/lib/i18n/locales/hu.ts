@@ -3710,6 +3710,7 @@ const hu: Translations = {
   "svc.engine.noInputFields": "Egyetlen mező sem megengedett.",
   "svc.engine.inputParseError": "Hiba a bemenet értelmezésekor: {detail}",
   "svc.engine.inputLocation": "({line}. sor, {column}. oszlop)",
+  "svc.savedPlaneRequired": "A mentett projekt számítása előtt válassza ki a rajzsíkot.",
   "svc.engine.invalidInputField": "A(z) {path} mező hiányzik vagy nem támogatott értéket tartalmaz.",
   "svc.engine.nonFiniteNumber": "Adjon meg véges számot itt: {path} (kapott érték: {value}).",
   "svc.engine.zeroDiagonal": "Minden átlóelem nulla: szinguláris mátrix",

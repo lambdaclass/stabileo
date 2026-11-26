@@ -2,7 +2,7 @@
 
 #### Refuse malformed inputs before solver conversion
 
-Analysis rejects positional WASM materials, load selectors from another schema, unknown member keys and excess eccentric release entries. Fixture replay names malformed structural rows before applying the model. Saved null load records produce an input notice. See [the structural results change](../docs/results-changes/2026-11-malformed-structural-input.md) and [the load results change](../docs/results-changes/2026-11-malformed-authored-loads.md).
+Analysis rejects positional WASM materials, load selectors from another schema, unknown member keys and excess eccentric release entries. Fixture replay names malformed structural rows before applying the model. Saved null load records produce an input notice. See [the structural results change](../docs/results-changes/2026-11-malformed-structural-input.md) and [the load results change](../docs/results-changes/2026-11-authored-load-validation.md).
 
 #### Retain planar multipoint constraints after cancellation
 

@@ -4,6 +4,7 @@ import { DEFAULT_OSNAP, OSNAP_MODES, type OsnapMode } from '../model/osnap-modes
 import type { NodeStylePref } from '../three/nodes-instanced';
 import { DEFAULT_WORKING_PLANE, VERTICAL_AXIS, type ViewportPresentation3D } from '../geometry/coordinate-system';
 import { isUnitSystem, type UnitSystem } from '../utils/units';
+import type { DrawPlane } from '../geometry/plane-projection';
 import { is3DWorkspace, isAnalysisMode, type AnalysisMode } from '../utils/workspace';
 
 /**
@@ -543,7 +544,7 @@ function createUIStore() {
   // 'xy' = default 2D convention (X horizontal, Y vertical)
   // 'xz' = X horizontal, Z vertical (e.g. for models built in the XZ plane)
   // 'yz' = Y horizontal, Z vertical
-  let drawPlane2D = $state<'xy' | 'xz' | 'yz'>('xy');
+  let analysisPlane2D = $state<DrawPlane | undefined>('xy');
 
   /**
    * Whether the "what do we carry into 2D" dialog is open.
@@ -1316,8 +1317,10 @@ function createUIStore() {
       viewportPresentation3D = is3DWorkspace(analysisMode) && _isModelFlat2D?.() === true ? 'upright2dIn3d' : 'native3d';
     },
     _setModelFlatnessProvider(fn: () => boolean) { _isModelFlat2D = fn; },
-    get drawPlane2D() { return drawPlane2D; },
-    set drawPlane2D(v: 'xy' | 'xz' | 'yz') { drawPlane2D = v; },
+    get drawPlane2D() { return analysisPlane2D ?? 'xy'; },
+    set drawPlane2D(v: DrawPlane) { analysisPlane2D = v; },
+    get analysisPlane2D() { return analysisPlane2D; },
+    set analysisPlane2D(v: DrawPlane | undefined) { analysisPlane2D = v; },
     get switchTo2DPrompt() { return switchTo2DPrompt; },
     set switchTo2DPrompt(v: boolean) { switchTo2DPrompt = v; },
     get simplified2DMode() { return simplified2DMode; },

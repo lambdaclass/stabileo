@@ -3777,6 +3777,7 @@ const id: Translations = {
   "svc.engine.noInputFields": "Tidak ada kolom yang diizinkan.",
   "svc.engine.inputParseError": "Kesalahan saat membaca masukan: {detail}",
   "svc.engine.inputLocation": "(baris {line}, kolom {column})",
+  "svc.savedPlaneRequired": "Pilih bidang gambar sebelum menganalisis proyek tersimpan ini.",
   "svc.engine.invalidInputField": "Kolom {path} tidak ada atau berisi nilai yang tidak didukung.",
   "svc.engine.nonFiniteNumber": "Masukkan bilangan berhingga untuk {path} (nilai yang diterima: {value}).",
 } as const satisfies Record<string, string>;

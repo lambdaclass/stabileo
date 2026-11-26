@@ -331,7 +331,7 @@ function deserializeProject(text: string): boolean {
   if (!isValidDedalFile({ ...d, version: DEDAL_FILE_VERSION })) return false;
 
   const data = d as unknown as DedalFile;
-  const analysisMode = adoptStoredProject(data.snapshot, data.name, data.analysisMode);
+  adoptStoredProject(data.snapshot, data.name, data.analysisMode);
   if (data.axisConvention3D) uiStore.axisConvention3D = data.axisConvention3D;
   if (data.viewportPresentation3D) uiStore.viewportPresentation3D = data.viewportPresentation3D;
   // `!== undefined`, not truthiness: `false` is the value that most needs restoring, and a
@@ -340,7 +340,6 @@ function deserializeProject(text: string): boolean {
   uiStore.selfWeightCaseId = data.selfWeightCaseId ?? null;
   noteBasicSelfWeightRuleIfNeeded(data.selfWeightCaseId !== undefined, uiStore.analysisMode);
   viewVisibility.showAll();
-  validateAxisSafety(data.snapshot, analysisMode);
   resultsStore.clear(); // stale results dropped — the model must be re-solved
   resultsStore.forgetView();
   onProjectOpened(data.snapshot, uiStore.analysisMode);
@@ -391,9 +390,6 @@ function acceptStoredProjectSnapshot(snapshot: ModelSnapshot, mode: ModelSnapsho
 export function onProjectOpened(snap: ModelSnapshot | undefined, analysisMode: string | undefined): void {
   noteAxisConventionMigrationIfNeeded(snap, analysisMode);
   if (snap) {
-    if (!is3DWorkspace(analysisMode ?? snap.analysisMode ?? '2d')) {
-      uiStore.drawPlane2D = snap.drawPlane2D ?? 'xy';
-    }
     // Assess the model that restore actually installed (including legacy defaults,
     // such as Wind/Earthquake load cases), which is also what the next save writes.
     // Otherwise reloading that save adds applicability to the unread notice and
@@ -674,33 +670,6 @@ function validateDedalFile(data: unknown): data is DedalFile {
   }
 
   return true;
-}
-
-/**
- * Axis safety validation for loaded files.
- * Checks that 2D snapshots don't contain mixed z coordinates that would indicate
- * a 3D model was saved with the wrong analysisMode.
- */
-function validateAxisSafety(snapshot: ModelSnapshot, mode: NonNullable<ModelSnapshot['analysisMode']> = '2d'): void {
-  if (is3DWorkspace(mode)) return; // 3D/PRO files can have any coordinates
-
-  const nodes = snapshot.nodes;
-  if (nodes.length === 0) return;
-
-  let hasNonZeroZ = false;
-  for (const [, node] of nodes) {
-    if (node.z !== undefined && node.z !== 0) {
-      hasNonZeroZ = true;
-      break;
-    }
-  }
-
-  // If a 2D file has non-zero z coordinates, upgrade it to 3D mode
-  // to prevent the model from being silently flattened
-  if (hasNonZeroZ) {
-    uiStore.analysisMode = '3d';
-    console.warn('[Dedaliano] File loaded as 2D but contains non-zero Z coordinates — upgraded to 3D mode');
-  }
 }
 
 // ─── Save / Load ────────────────────────────────────────────────

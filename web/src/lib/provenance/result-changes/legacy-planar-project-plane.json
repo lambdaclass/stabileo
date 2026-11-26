@@ -1,0 +1,32 @@
+{
+  "id": "legacy-planar-project-plane",
+  "date": "2026-11-26",
+  "prs": [2588],
+  "area": "analysis",
+  "when": {
+    "all": ["plane2D", "legacyPlanarProjectPlane"]
+  },
+  "quantities": ["*", "solve.ok"],
+  "title": {
+    "en": "Drawing planes in older planar projects",
+    "es": "Planos de dibujo en proyectos planos antiguos",
+    "pt": "Planos de desenho em projetos planos antigos",
+    "de": "Zeichenebenen in älteren ebenen Projekten",
+    "fr": "Plans de dessin des anciens projets plans",
+    "tr": "Eski düzlemsel projelerde çizim düzlemleri",
+    "zh": "旧版平面项目的绘图平面"
+  },
+  "explanation": {
+    "en": "Older planar projects recover their drawing plane from saved geometry and loads when the plane is clear. Otherwise you must select the plane before analysis. Recalculate to check results in the intended plane.",
+    "es": "Los proyectos planos antiguos recuperan el plano de dibujo de la geometría y las cargas guardadas cuando es inequívoco. En caso de duda, elegí el plano antes de calcular. Recalculá para verificar los resultados en el plano previsto.",
+    "pt": "Projetos planos antigos recuperam o plano de desenho da geometria e das cargas salvas quando ele é inequívoco. Em caso de dúvida, selecione o plano antes da análise. Recalcule no plano pretendido.",
+    "de": "Ältere ebene Projekte übernehmen die Zeichenebene aus der gespeicherten Geometrie und den Lasten, wenn sie eindeutig ist. Wählen Sie bei Mehrdeutigkeit vor der Berechnung eine Ebene. Berechnen Sie das Modell in der vorgesehenen Ebene erneut.",
+    "fr": "Les anciens projets plans retrouvent leur plan de dessin si la géométrie et les charges enregistrées le déterminent. En cas d’ambiguïté, sélectionnez le plan avant le calcul. Recalculez dans le plan prévu.",
+    "tr": "Eski düzlemsel projelerde çizim düzlemi, açıksa kayıtlı geometri ve yüklerden belirlenir. Belirsizse analizden önce düzlemi seçin. Sonuçları amaçlanan düzlemde yeniden hesaplayın.",
+    "zh": "当保存的几何和荷载可以唯一确定绘图平面时，旧版平面项目会恢复该平面。否则请在分析前选择平面，并在预期平面内重新计算。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-legacy-planar-project-plane.md",
+    "heading": "Drawing planes in older planar projects"
+  }
+}

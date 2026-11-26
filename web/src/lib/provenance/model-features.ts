@@ -1,5 +1,5 @@
 import { classifyEccentricNormalOffset, constraintsInXZ, hasReducedPlanarMpc } from '../engine/constraint-2d-remap';
-import { dependsOnXYConstraintAxes, hasMalformedAuthoredLoad, invalidPlanarPointTorsion, isFiniteInputNumber, ModelInputError, migrateModelConstraints, requireCombinationInput, requireStoredProjectInput, requireStructureInput } from '../engine/model-input-numbers';
+import { dependsOnXYConstraintAxes, authoredLoadIssues, invalidPlanarPointTorsion, isFiniteInputNumber, ModelInputError, migrateModelConstraints, requireCombinationInput, requireStoredProjectInput, requireStructureInput, storedProjectPlane } from '../engine/model-input-numbers';
 import { DRAW_PLANES, isDrawPlane, type DrawPlane } from '../geometry/plane-projection';
 import { POINT_END_TOL } from '../engine/member-point-loads';
 import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
@@ -65,7 +65,7 @@ export const FEATURE_IDS = [
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'invalidSelfWeightTarget', 'scopedMemberSelfWeight', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
-  'malformedAuthoredLoad',
+  'malformedAuthoredLoad', 'addedAuthoredLoadRefusal', 'legacyPlanarProjectPlane',
   'malformedAuthoredStructure', 'separatedPlanarEccentricConnection', 'reducedPlanarMpc', 'xyConstraintProjection',
   'ssiHistory', 'recordedHarmonic', 'strongElasticModulusContrast', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase', 'loadPlanCombinationSupplements', 'flatRoofSnowCombinations',
@@ -357,6 +357,9 @@ function addAuthoredStructureFeatures(s: FeatureSnapshot, features: Set<FeatureI
     const constraints = migrateModelConstraints(s.constraints);
     if (s.combinations !== undefined) requireCombinationInput(s.combinations);
     if (features.has('plane2D')) {
+      if (s.elements?.length && s.drawPlane2D === undefined && storedProjectPlane(s, constraints) !== 'xy') {
+        features.add('legacyPlanarProjectPlane');
+      }
       const plane = stampPlane ?? s.drawPlane2D;
       for (const plausible of isDrawPlane(plane) ? [plane] : DRAW_PLANES) {
         const remapped = constraintsInXZ(plausible, constraints);
@@ -370,7 +373,7 @@ function addAuthoredStructureFeatures(s: FeatureSnapshot, features: Set<FeatureI
     requireStructureInput({
       nodes: s.nodes ?? [], elements: s.elements ?? [], supports: s.supports ?? [],
       materials: s.materials ?? [], sections: s.sections ?? [], connectors: s.connectors, analysis: s.analysis,
-    });
+    }, { storedSupportKeys: true });
   } catch (error) {
     if (!(error instanceof ModelInputError)) throw error;
     features.add('malformedAuthoredStructure');
@@ -578,9 +581,9 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   }
   const rawStoredLoads = ctx.storedLoads === undefined ? s.loads : ctx.storedLoads;
   const basicProjection = f.has('plane2D');
-  if (hasMalformedAuthoredLoad(s.loads, basicProjection) ||
-      (rawStoredLoads !== s.loads && hasMalformedAuthoredLoad(rawStoredLoads, basicProjection))) {
-    f.add('malformedAuthoredLoad');
+  for (const feature of authoredLoadIssues(s.loads, basicProjection)) f.add(feature);
+  if (rawStoredLoads !== s.loads) {
+    for (const feature of authoredLoadIssues(rawStoredLoads, basicProjection)) f.add(feature);
   }
   const loads = featureLoads(s.loads);
   const storedLoads = rawStoredLoads === s.loads ? loads : featureLoads(rawStoredLoads);

@@ -3774,6 +3774,7 @@ const ko: Translations = {
   "svc.engine.noInputFields": "허용되는 필드가 없습니다.",
   "svc.engine.inputParseError": "입력 구문 분석 오류: {detail}",
   "svc.engine.inputLocation": "({line}행, {column}열)",
+  "svc.savedPlaneRequired": "저장된 프로젝트를 해석하기 전에 도면 평면을 선택하세요.",
   "svc.engine.invalidInputField": "{path} 필드가 없거나 지원되지 않는 값이 들어 있습니다.",
   "svc.engine.nonFiniteNumber": "{path}에 유한한 수를 입력하세요(받은 값: {value}).",
 } as const satisfies Record<string, string>;

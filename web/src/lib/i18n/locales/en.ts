@@ -4344,6 +4344,7 @@ const en: Record<string, string> = {
   "svc.engine.noInputFields": "No fields are allowed.",
   "svc.engine.inputParseError": "Parse error: {detail}",
   "svc.engine.inputLocation": "(line {line}, column {column})",
+  "svc.savedPlaneRequired": "Choose a drawing plane before analyzing this saved project.",
   "svc.engine.invalidInputField": "Field {path} is missing or has an unsupported value.",
   "svc.engine.nonFiniteNumber": "Enter a finite number for {path} (received {value}).",
   'svc.engine.zeroDiagonal': "All diagonal entries are zero: singular matrix",

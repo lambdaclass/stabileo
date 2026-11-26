@@ -3788,6 +3788,7 @@ const it: Translations = {
   "svc.engine.noInputFields": "Non è consentito alcun campo.",
   "svc.engine.inputParseError": "Errore di lettura dei dati: {detail}",
   "svc.engine.inputLocation": "(riga {line}, colonna {column})",
+  "svc.savedPlaneRequired": "Scegli il piano di disegno prima di analizzare questo progetto salvato.",
   "svc.engine.invalidInputField": "Il campo {path} è mancante o contiene un valore non supportato.",
   "svc.engine.nonFiniteNumber": "Inserisci un numero finito per {path} (valore ricevuto: {value}).",
 };

@@ -215,11 +215,20 @@ it('serves the separated eccentric connection notice in the supplemental languag
 
 it('finds both malformed-input changes under PR 2588', () => {
   const changes = RESULT_CHANGES.changes.filter(change => change.prs?.includes(2588)).map(change => change.id);
-  expect(changes).toEqual(expect.arrayContaining(['malformed-authored-loads', 'malformed-structural-input']));
+  expect(changes).toEqual(expect.arrayContaining(['authored-load-validation', 'malformed-structural-input']));
 });
 
-it.skip('known wrong result: #2588 — registers added load validation separately from the released change', () => {
+it('known wrong result: #2588 — registers added load validation separately from the released change', () => {
   const entries = RESULT_CHANGES.changes;
   expect.soft(entries.find(change => change.id === 'malformed-authored-loads')?.prs).toEqual([]);
   expect(entries.find(change => change.id === 'authored-load-validation')?.prs).toEqual([2588]);
+  const found = (loads: FeatureSnapshot['loads']) => assessProject({ loads }, unknownStamp(), 'pro').changes.map(change => change.id);
+  const distributed = { type: 'distributed3d', data: { elementId: 1, qYI: 0, qYJ: 0, qZI: -1, qZJ: -1 } };
+  const mistyped = found([{ ...distributed, data: { ...distributed.data, fram: 'global' } }]);
+  expect(mistyped).toContain('authored-load-validation');
+  expect(mistyped).not.toContain('malformed-authored-loads');
+  const badSelector = found([{ ...distributed, data: { ...distributed.data, frame: 'unknown' } }]);
+  expect(badSelector).toContain('malformed-authored-loads');
+  expect(badSelector).not.toContain('authored-load-validation');
+  expect(found([distributed])).not.toContain('authored-load-validation');
 });

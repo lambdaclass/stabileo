@@ -3940,6 +3940,7 @@ const fr: Translations = {
   "svc.engine.noInputFields": "Aucun champ n’est autorisé.",
   "svc.engine.inputParseError": "Erreur de lecture des données : {detail}",
   "svc.engine.inputLocation": "(ligne {line}, colonne {column})",
+  "svc.savedPlaneRequired": "Choisissez le plan de dessin avant de calculer ce projet enregistré.",
   "svc.engine.invalidInputField": "Le champ {path} est manquant ou contient une valeur non prise en charge.",
   "svc.engine.nonFiniteNumber": "Saisissez un nombre fini pour {path} (valeur reçue : {value}).",
   'svc.engine.zeroDiagonal': 'Tous les termes diagonaux sont nuls : matrice singulière',
