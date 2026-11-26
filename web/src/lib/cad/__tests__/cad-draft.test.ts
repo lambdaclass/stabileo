@@ -467,8 +467,6 @@ it.each(['fixedDivisions', 'targetSize'] as const)('#2429 %s meshes the full int
   checkWallTrace(meshMode, 'interior');
 });
 
-
-const reviewCad = process.env.STABILEO_REPLAY_2607 ? it : it.skip;
 const reviewOutline = [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }, { x: 0, y: 4 }];
 const reviewSettings = assumptions({ nFloors: 1, storyHeights: [3], liveLoad: 0, generateCombos: false });
 
@@ -482,7 +480,7 @@ function reviewPlan(): ArchPlan {
   };
 }
 
-reviewCad.each([0, 0.002, 0.009, 0.011])('known wrong result: #2607 range columns join at CAD tolerance with offset %s', offset => {
+it.each([0, 0.002, 0.009, 0.011])('#2607 range columns join at CAD tolerance with offset %s', offset => {
   const lower = reviewPlan();
   const end = { x: 4 + offset, y: 0 };
   const upper: ArchPlan = {
@@ -506,7 +504,7 @@ reviewCad.each([0, 0.002, 0.009, 0.011])('known wrong result: #2607 range column
   else expect(top!.nodeI).not.toBe(bottom!.nodeJ);
 });
 
-reviewCad('known wrong result: #2607 range assembly preserves mesh vertices within CAD snap distance', () => {
+it('#2607 range assembly preserves mesh vertices within CAD snap distance', () => {
   const lower = reviewPlan();
   lower.walls[0]!.a = { x: 0.002, y: 1 };
   const upper = reviewPlan();
@@ -530,7 +528,7 @@ reviewCad('known wrong result: #2607 range assembly preserves mesh vertices with
   expect(cells(combined)).toEqual(lowerCells);
 });
 
-reviewCad.each(['fixedDivisions', 'targetSize'] as const)('known wrong result: #2607 %s follows the welded endpoints of the slab beam', meshMode => {
+it.each(['fixedDivisions', 'targetSize'] as const)('#2607 %s follows the welded endpoints of the slab beam', meshMode => {
   const plan = reviewPlan();
   const left = { x: 0, y: 2.002 }, right = { x: 4, y: 2 };
   plan.columns = [left, right].map(at => ({ at, sizeSource: 'default' }));
@@ -554,7 +552,7 @@ reviewCad.each(['fixedDivisions', 'targetSize'] as const)('known wrong result: #
   expect(lengths.reduce((a, b) => a + b, 0)).toBeCloseTo(Math.hypot(right.x - left.x, right.y - left.y), 8);
 });
 
-reviewCad.each([0, 0.002, 0.011])('known wrong result: #2607 wall end outside a conforming slab snaps at offset %s', offset => {
+it.each([0, 0.002, 0.011])('#2607 wall end outside a conforming slab snaps at offset %s', offset => {
   const plan = reviewPlan();
   const end = { x: 5, y: 3 };
   plan.columns.push({ at: { x: end.x + offset, y: end.y }, sizeSource: 'default' });

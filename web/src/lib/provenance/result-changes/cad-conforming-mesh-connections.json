@@ -1,0 +1,42 @@
+{
+  "id": "cad-conforming-mesh-connections",
+  "date": "2026-11-26",
+  "prs": [
+    2607
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "cadWallSlabMesh"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Preserve CAD connections in conforming slab drafts",
+    "es": "Conservar las uniones CAD en borradores con losas de malla compatible",
+    "pt": "Preservar ligações CAD em rascunhos com malha de laje compatível",
+    "de": "CAD-Anschlüsse bei Entwürfen mit konformem Deckennetz erhalten",
+    "fr": "Conserver les liaisons CAO dans les ébauches à maillage de dalle conforme",
+    "hu": "CAD-kapcsolatok megőrzése illeszkedő födémháló esetén",
+    "tr": "Uyumlu döşeme ağı içeren CAD taslaklarında bağlantıları koruma",
+    "zh": "保留协调楼板网格草稿中的 CAD 连接"
+  },
+  "explanation": {
+    "en": "Regenerate affected CAD drafts and rerun analysis. Adjacent floor ranges and ordinary wall joints use the configured snap tolerance. The slab mesh follows the welded beam endpoints.",
+    "es": "Volvé a generar los borradores CAD afectados y repetí el análisis. Los tramos de pisos adyacentes y las uniones comunes de muros usan la tolerancia configurada. La malla sigue los extremos unidos de las vigas.",
+    "pt": "Gere novamente os rascunhos CAD afetados e repita a análise. Faixas de pavimentos adjacentes e juntas comuns de paredes usam a tolerância configurada. A malha segue as extremidades unidas das vigas.",
+    "de": "Erstellen Sie die betroffenen CAD-Entwürfe neu und wiederholen Sie die Berechnung. Benachbarte Geschossbereiche und reguläre Wandanschlüsse nutzen die eingestellte Fangtoleranz. Das Deckennetz folgt den zusammengeführten Balkenendpunkten.",
+    "fr": "Régénérez les ébauches CAO concernées et relancez le calcul. Les plages d’étages adjacentes et les raccords ordinaires de voiles utilisent la tolérance configurée. Le maillage suit les extrémités raccordées des poutres.",
+    "hu": "Generálja újra az érintett CAD-vázlatokat, és futtassa újra az elemzést. A szomszédos szinttartományok és a szokásos falcsomópontok a beállított illesztési tűrést használják. A födémháló a gerendák összevont végpontjait követi.",
+    "tr": "Etkilenen CAD taslaklarını yeniden oluşturun ve analizi tekrarlayın. Komşu kat aralıkları ve sıradan perde birleşimleri ayarlanan yakalama toleransını kullanır. Döşeme ağı birleştirilmiş kiriş uçlarını izler.",
+    "zh": "请重新生成受影响的 CAD 草稿并重新分析。相邻楼层段和普通墙节点采用配置的捕捉容差。楼板网格沿合并后的梁端布置。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-cad-connectivity-and-seismic-story-loads.md",
+    "heading": "Preserve CAD connections in conforming slab drafts"
+  }
+}

@@ -458,7 +458,6 @@ it('#2430 transfers the entire slab load into the wall when both share the inter
   for (const support of result.reactions) expect(support.fz).toBeCloseTo(4 * 4 / 2, 8);
 });
 
-
 function throughSlab(y: number, bottom = -1, left = 1, right = 3) {
   const [corner] = loadedSlab();
   const points: [number, number, number][] = [[left, y, bottom], [right, y, bottom], [right, y, 1], [left, y, 1]];
@@ -591,10 +590,8 @@ it('#2586 still refuses a wall edge crossing the slab strictly inside the face',
 });
 
 
-const reviewPlate = process.env.STABILEO_REPLAY_2607 ? it : it.skip;
-
-reviewPlate.each([[3, 4, [74, 73]], [117, 112, [92]]] as const)(
-  'known wrong result: #2607 stadium slab %s and wall %s share a compatible boundary',
+it.each([[3, 4, [74, 73]], [117, 112, [92]]] as const)(
+  '#2607 stadium slab %s and wall %s share a compatible boundary',
   (slabId, wallId, shared) => {
     const slab = stadium.quads.find(q => q.id === slabId)!;
     const wall = stadium.quads.find(q => q.id === wallId)!;
@@ -618,21 +615,21 @@ function apexWall(offset: number, position = 2) {
   return [a, b];
 }
 
-reviewPlate.each(directEntries)('known wrong result: #2607 the %s entry refuses an unmatched wall apex in a slab face', async (entry, solve) => {
+it.each(directEntries)('#2607 the %s entry refuses an unmatched wall apex in a slab face', async (entry, solve) => {
   apexWall(0);
   const result = await solve();
   expect(result && typeof result === 'object' ? 'returned a result' : result)
     .toEqual(entry === 'reproducible input' ? null : expect.stringMatching(/wall p1.*slab q1/i));
 });
 
-reviewPlate.each([0, PLATE_EDGE_TOL / 2])('known wrong result: #2607 global analysis refuses a triangular wall apex at clearance %s', async clearance => {
+it.each([0, PLATE_EDGE_TOL / 2])('#2607 global analysis refuses a triangular wall apex at clearance %s', async clearance => {
   apexWall(-clearance);
   expect(await runGlobalSolve({ directBase: true })).toEqual({ ok: false, error: expect.stringMatching(/wall p1.*slab q1/i) });
   expect(resultsStore.results3D).toBeNull();
 });
 
-reviewPlate.each([[-2 * PLATE_EDGE_TOL, 2], [0, -2 * PLATE_EDGE_TOL]])(
-  'known wrong result: #2607 a triangular wall clear of the slab keeps the pressure result (%s, %s)',
+it.each([[-2 * PLATE_EDGE_TOL, 2], [0, -2 * PLATE_EDGE_TOL]])(
+  '#2607 a triangular wall clear of the slab keeps the pressure result (%s, %s)',
   (offset, position) => {
     const base = apexWall(offset, position);
     const result = modelStore.solve3D(false, false, true);

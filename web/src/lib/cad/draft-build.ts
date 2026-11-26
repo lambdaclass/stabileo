@@ -26,7 +26,6 @@ import {
 } from './infer';
 import { pointInPolygon } from './geometry';
 import type { ModelSnapshot } from '../store/history.svelte';
-import { PLATE_EDGE_TOL } from '../model/physical/plate-analysis';
 
 export interface InferenceOptions {
   /** Drop beam-layer fragments not connected to any column (leaders/annotation). */
@@ -216,7 +215,7 @@ function buildSinglePlan(input: BuildDraftInput): RcDraftResult {
 
 // ── Multi-floor composition (Layer 3) ─────────────────────────────
 
-interface RangeBuild { result: RcDraftResult; zShift: number; spec: FloorPlanSpec }
+interface RangeBuild { result: RcDraftResult; zShift: number; localTop: number; spec: FloorPlanSpec }
 
 function cumulativeHeights(heights: number[]): number[] {
   const out = [0];
@@ -264,7 +263,8 @@ function buildMultiFloor(input: BuildDraftInput, gapWarnings: FloorRangeIssue[] 
     if ((result.counts.columns + result.counts.beams) === 0) {
       rangeIssues.push({ severity: 'error', message: `emptyFloorRange:${tp('cad.range.emptyDetail', { label: spec.label ?? t('cad.range.planFallback'), from: spec.fromFloor, to: spec.toFloor })}` });
     }
-    builds.push({ result, zShift: cum[spec.fromFloor - 1], spec });
+    const localTop = rangeAssumptions.storyHeights.reduce((sum, height) => sum + height, 0);
+    builds.push({ result, zShift: cum[spec.fromFloor - 1], localTop, spec });
   }
 
   const { result: merged, rangeElemIds, rangeQuadIds, rangePlateIds } = mergeRanges(builds, input.assumptions);
@@ -308,6 +308,41 @@ function buildMultiFloor(input: BuildDraftInput, gapWarnings: FloorRangeIssue[] 
   return merged;
 }
 
+type RangeNode = ModelSnapshot['nodes'][number][1];
+
+function rangeInterfaceMatches(
+  below: RangeNode[], above: RangeNode[], tolerance: number,
+): Map<number, number> {
+  const key = (x: number, y: number) => `${x}|${y}`;
+  const index = new Map<string, RangeNode[]>();
+  for (const node of below) {
+    const cell = key(Math.floor(node.x / tolerance), Math.floor(node.y / tolerance));
+    const entries = index.get(cell);
+    if (entries) entries.push(node);
+    else index.set(cell, [node]);
+  }
+  const pairs: Array<{ from: number; to: number; distance: number }> = [];
+  for (const node of above) {
+    const x = Math.floor(node.x / tolerance), y = Math.floor(node.y / tolerance);
+    for (const dx of [-1, 0, 1]) for (const dy of [-1, 0, 1]) {
+      for (const target of index.get(key(x + dx, y + dy)) ?? []) {
+        const rx = target.x - node.x, ry = target.y - node.y;
+        if (Math.abs(rx) < tolerance && Math.abs(ry) < tolerance) {
+          pairs.push({ from: node.id, to: target.id, distance: Math.hypot(rx, ry) });
+        }
+      }
+    }
+  }
+  const matches = new Map<number, number>();
+  const used = new Set<number>();
+  for (const { from, to } of pairs.sort((a, b) => a.distance - b.distance)) {
+    if (matches.has(from) || used.has(to)) continue;
+    matches.set(from, to);
+    used.add(to);
+  }
+  return matches;
+}
+
 /** Merge per-range RcDraftResults into one snapshot (weld by coordinate,
  *  renumber ids, dedup sections, regenerate base supports). Also returns, per
  *  range (aligned with `builds`), the global element/quad ids it contributed —
@@ -315,7 +350,6 @@ function buildMultiFloor(input: BuildDraftInput, gapWarnings: FloorRangeIssue[] 
 function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions):
   { result: RcDraftResult; rangeElemIds: number[][]; rangeQuadIds: number[][]; rangePlateIds: number[][] } {
   const cadWallSlabMesh = builds.some(({ result }) => result.provenance.cadWallSlabMesh);
-  const tol = cadWallSlabMesh ? PLATE_EDGE_TOL : assumptions.snapTolerance;
   const nodes: ModelSnapshot['nodes'] = [];
   const elements: ModelSnapshot['elements'] = [];
   const quads: NonNullable<ModelSnapshot['quads']> = [];
@@ -323,22 +357,6 @@ function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions):
   const sections: ModelSnapshot['sections'] = [];
   const loads: ModelSnapshot['loads'] = [];
   let nextNode = 1, nextElem = 1, nextQuad = 1, nextPlate = 1, nextLoad = 1;
-
-  // Global node weld by rounded coordinate.
-  const nodeKey = (x: number, y: number, z: number) =>
-    `${Math.round(x / tol)}|${Math.round(y / tol)}|${Math.round(z / tol)}`;
-  const nodeAt = new Map<string, number>();
-  const weldNode = (x: number, y: number, z: number): number => {
-    const key = nodeKey(x, y, z);
-    const found = nodeAt.get(key);
-    if (found != null) return found;
-    const id = nextNode++;
-    const n: { id: number; x: number; y: number; z?: number } = { id, x, y };
-    if (z !== 0) n.z = z;
-    nodes.push([id, n]);
-    nodeAt.set(key, id);
-    return id;
-  };
 
   // Section dedup by name.
   const sectionByName = new Map<string, number>();
@@ -360,16 +378,26 @@ function mergeRanges(builds: RangeBuild[], assumptions: RcDraftAssumptions):
   const rangeQuadIds: number[][] = [];
   const rangePlateIds: number[][] = [];
 
-  for (const { result, zShift, spec } of builds) {
+  let previous: { floor: number; surface: RangeNode[] } | undefined;
+  for (const { result, zShift, localTop, spec } of builds) {
     const snap = result.snapshot;
     const myElems: number[] = [];
     const myQuads: number[] = [];
     const myPlates: number[] = [];
-    const localToGlobalNode = new Map<number, number>();
-    for (const [, n] of snap.nodes) {
-      const gid = weldNode(n.x, n.y, (n.z ?? 0) + zShift);
-      localToGlobalNode.set(n.id, gid);
+    const localToGlobalNode = previous?.floor === spec.fromFloor - 1
+      ? rangeInterfaceMatches(previous.surface, snap.nodes.flatMap(([, n]) => (n.z ?? 0) === 0 ? [n] : []), assumptions.snapTolerance)
+      : new Map<number, number>();
+    const surface: RangeNode[] = [];
+    for (const [, node] of snap.nodes) {
+      if (localToGlobalNode.has(node.id)) continue;
+      const id = nextNode++;
+      const z = (node.z ?? 0) + zShift;
+      const global = { id, x: node.x, y: node.y, ...(z !== 0 && { z }) };
+      nodes.push([id, global]);
+      localToGlobalNode.set(node.id, id);
+      if ((node.z ?? 0) === localTop) surface.push(global);
     }
+    previous = { floor: spec.toFloor, surface };
     const localToGlobalSection = new Map<number, number>();
     for (const [, s] of snap.sections) {
       let gid = sectionByName.get(s.name);

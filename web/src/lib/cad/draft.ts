@@ -591,11 +591,15 @@ export function generateRcDraft(
   let isolatedSlabs = 0;
   const conformingNodes = new Set<number>();
   const slabBounds = new Map(plan.slabs.map(slab => [slab, polygonBBox(slab.outline)]));
-  const structuralPoints = b.nodes.filter(n => (n.z ?? 0) === floorLevels[0]);
-  const analyticalBeams = plannedSegs.map(({ a: start, b: end, shift }) => {
-    const move = (p: CadPt): CadPt => ({ x: p.x + (shift?.x ?? 0), y: p.y + (shift?.y ?? 0) });
-    return { a: move(start), b: move(end) };
-  });
+  const frameAtFloor = new Map(floorLevels.map(z => [z, {
+    points: [] as CadPt[],
+    beams: [] as Array<{ a: CadPt; b: CadPt }>,
+  }]));
+  for (const node of b.nodes) frameAtFloor.get(node.z ?? 0)?.points.push(node);
+  for (const beam of b.elements.slice(columnElementCount)) {
+    const start = b.nodes[beam.nodeI - 1]!, end = b.nodes[beam.nodeJ - 1]!;
+    frameAtFloor.get(start.z ?? 0)?.beams.push({ a: start, b: end });
+  }
 
   for (const slab of plan.slabs) {
     // Skip slabs with no structural support (not a beam edge, not adjacent to
@@ -618,11 +622,15 @@ export function generateRcDraft(
         || bounds.maxX + tol < box.minX || box.maxX + tol < bounds.minX
         || bounds.maxY + tol < box.minY || box.maxY + tol < bounds.minY)) {
       const longestSide = Math.max(...slab.outline.map((p, i) => dist(p, slab.outline[(i + 1) % slab.outline.length]!)));
-      const mesh = meshSlabAlongWalls(slab.outline, wallRuns, analyticalBeams, structuralPoints,
-        meshMode === 'targetSize' ? effTarget : longestSide / fixedN,
-        meshMode === 'fixedDivisions' ? fixedN : undefined);
-      if (mesh) {
-        for (const z of floorLevels) {
+      const meshes = floorLevels.map(z => {
+        const { beams, points } = frameAtFloor.get(z)!;
+        return meshSlabAlongWalls(slab.outline, wallRuns, beams, points,
+          meshMode === 'targetSize' ? effTarget : longestSide / fixedN,
+          meshMode === 'fixedDivisions' ? fixedN : undefined);
+      });
+      if (meshes.every(mesh => mesh !== null)) {
+        for (const [i, mesh] of meshes.entries()) {
+          const z = floorLevels[i]!;
           const thickness = slabThicknessAt(slab, z);
           const ids = mesh.points.map(({ x, y }) => b.node(x, y, z, PLATE_EDGE_TOL));
           ids.forEach(id => conformingNodes.add(id));
@@ -730,17 +738,20 @@ export function generateRcDraft(
   const wallQuadStart = b.quads.length;
   const slabNodeIds = new Set([...b.quads, ...b.plates].flatMap(q => q.nodes));
   const slabStations = new Map<string, CadPt>();
+  const tightStations = new Map<string, CadPt>();
   for (const n of b.nodes) {
-    if (slabNodeIds.has(n.id)) slabStations.set(`${n.x}|${n.y}`, n);
+    const key = `${n.x}|${n.y}`;
+    if (slabNodeIds.has(n.id)) slabStations.set(key, n);
+    if (conformingNodes.has(n.id)) tightStations.set(key, n);
   }
   const stations = [...slabStations.values()];
+  const tightPoints = [...tightStations.values()];
+  const stationTolerance = (p: CadPt) => tightStations.has(`${p.x}|${p.y}`)
+    || tightPoints.some(n => dist(n, p) < PLATE_EDGE_TOL) ? PLATE_EDGE_TOL : tol;
   let wallScheduleHits = 0;
   for (const run of wallRuns) {
-    const hasConformingStation = b.nodes.some(n => conformingNodes.has(n.id)
-      && (dist(n, run.a) <= PLATE_EDGE_TOL || dist(n, run.b) <= PLATE_EDGE_TOL
-        || pointOnSegment(n, run.a, run.b, PLATE_EDGE_TOL) !== null));
-    const stationWeld = hasConformingStation ? PLATE_EDGE_TOL : tol;
-    const segments = splitSegmentsAtPoints([run], stations, PLATE_EDGE_TOL);
+    const segments = splitSegmentsAtPoints([run], stations, PLATE_EDGE_TOL)
+      .map(segment => ({ ...segment, startWeld: stationTolerance(segment.a), endWeld: stationTolerance(segment.b) }));
     for (let k = 0; k < a.nFloors; k++) {
       const r = resolveSection(
         'wall', run.mark, k + 1, schedules,
@@ -751,11 +762,11 @@ export function generateRcDraft(
       if (r.source === 'schedule') wallScheduleHits++;
       const t = r.t ?? a.wallThickness;
       const z0 = levels[k], z1 = levels[k + 1];
-      for (const { a: start, b: end } of segments) {
-        const n0 = b.node(start.x, start.y, z0, stationWeld);
-        const n1 = b.node(end.x, end.y, z0, stationWeld);
-        const n2 = b.node(end.x, end.y, z1, stationWeld);
-        const n3 = b.node(start.x, start.y, z1, stationWeld);
+      for (const { a: start, b: end, startWeld, endWeld } of segments) {
+        const n0 = b.node(start.x, start.y, z0, startWeld);
+        const n1 = b.node(end.x, end.y, z0, endWeld);
+        const n2 = b.node(end.x, end.y, z1, endWeld);
+        const n3 = b.node(start.x, start.y, z1, startWeld);
         b.quad([n0, n1, n2, n3], t);
       }
     }
@@ -790,8 +801,7 @@ export function generateRcDraft(
   let beamsSplit = 0;
   if (a.splitBeams) {
     const nodeById = (id: number) => b.nodes.find((nn) => nn.id === id);
-    // Every distinct node referenced by a shell quad.
-    const shellNodeIds = [...new Set(b.quads.flatMap((q) => q.nodes))];
+    const shellNodeIds = new Set([...b.quads, ...b.plates].flatMap(q => q.nodes));
     // Split beams to a FIXED POINT: a split creates new shorter sub-beams, and
     // another shell node may lie on a newly-created sub-beam (common where
     // closely-spaced structural lines make short stubs). Re-scan all shell
@@ -802,7 +812,9 @@ export function generateRcDraft(
         const nn = nodeById(nid);
         if (!nn) continue;
         for (let guard = 0; guard < 4; guard++) {
-          const hit = beamThrough(nodeById, b.elements, nn.x, nn.y, nn.z ?? 0, conformingNodes.has(nid) ? PLATE_EDGE_TOL : tol);
+          const hit = conformingNodes.has(nid)
+            ? beamThrough(nodeById, b.elements, nn.x, nn.y, nn.z ?? 0, PLATE_EDGE_TOL, 0)
+            : beamThrough(nodeById, b.elements, nn.x, nn.y, nn.z ?? 0, tol);
           if (!hit) break;
           b.splitElement(hit.id, nid);
           beamsSplit++;

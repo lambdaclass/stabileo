@@ -122,9 +122,7 @@ it('#2330 a connected X transfers inertia on each upper brace span', () => {
 });
 
 
-const reviewSeismic = process.env.STABILEO_REPLAY_2607 ? it : it.skip;
-
-reviewSeismic.each([false, true])('known wrong result: #2607 a crossed column keeps its story overturning (reversed: %s)', reversed => {
+it.each([false, true])('#2607 a crossed column keeps its story overturning (reversed: %s)', reversed => {
   const model = bracedFrame();
   model.nodes.set(6, { id: 6, x: 2, y: 0, z: 0 });
   model.nodes.set(7, { id: 7, x: 2, y: 0, z: 4 });

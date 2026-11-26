@@ -1,0 +1,40 @@
+{
+  "id": "wall-slab-point-contact",
+  "date": "2026-11-26",
+  "prs": [
+    2607
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "wallSlabPointContact"
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Check wall corners inside slab faces",
+    "es": "Comprobar vértices de muro en el interior de las caras de losa",
+    "pt": "Verificar vértices de paredes no interior de faces de lajes",
+    "de": "Wandecken im Inneren von Deckenflächen prüfen",
+    "fr": "Vérifier les sommets de voiles à l’intérieur des faces de dalles",
+    "hu": "Falcsúcsok ellenőrzése a födémelemek belsejében",
+    "tr": "Döşeme yüzünün içindeki perde köşelerini kontrol etme",
+    "zh": "检查楼板面内部的墙角"
+  },
+  "explanation": {
+    "en": "Analysis stops when a wall corner touches the inside of a slab cell without a shared mesh node. Remesh the joint with a shared node before solving.",
+    "es": "El análisis se detiene si un vértice de muro toca el interior de una celda de losa sin un nodo de malla compartido. Volvé a mallar la unión con un nodo compartido antes de calcular.",
+    "pt": "A análise é interrompida quando um vértice de parede toca o interior de uma célula de laje sem um nó de malha compartilhado. Remalhe a junta com um nó compartilhado antes de calcular.",
+    "de": "Die Berechnung stoppt, wenn eine Wandecke das Innere einer Deckenzelle ohne gemeinsamen Netzknoten berührt. Vernetzen Sie den Anschluss mit einem gemeinsamen Knoten neu.",
+    "fr": "Le calcul s’arrête si un sommet de voile touche l’intérieur d’une cellule de dalle sans nœud de maillage commun. Remaillez la jonction avec un nœud commun avant le calcul.",
+    "hu": "A számítás leáll, ha a falcsúcs közös hálócsomópont nélkül érinti a födémelem belsejét. Hálózza újra a csatlakozást közös csomóponttal a számítás előtt.",
+    "tr": "Bir perde köşesi ortak ağ düğümü olmadan döşeme hücresinin içine değerse analiz durur. Çözümden önce birleşimi ortak bir düğümle yeniden ağlayın.",
+    "zh": "如果墙角接触楼板单元内部且没有共用网格节点，分析会停止。请在求解前重新划分连接处的网格并共用节点。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-cad-connectivity-and-seismic-story-loads.md",
+    "heading": "Check wall corners inside slab faces"
+  }
+}

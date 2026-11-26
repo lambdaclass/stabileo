@@ -1,5 +1,5 @@
 import type { Constraint3D, LinearMpcConstraint } from '../../engine/types-3d';
-import { cross, dot, type Vec3 } from '../edit/affine';
+import { cross, dot, unit, type Vec3 } from '../edit/affine';
 import { pieceOf, type PieceModel } from '../curve-entity';
 import {
   arcInterior, circleThrough, externalFeatures, frameOfLoop, plateGeometry, plateKindOf, plateLoops,
@@ -294,6 +294,37 @@ function faceSection(cell: Cell, plane: PlateFrame, direction: Vec3, origin: Vec
   return { lo: Math.min(...cuts), hi: Math.max(...cuts), edges };
 }
 
+function sharedBoundarySeparates(wall: Cell, slab: Cell): boolean {
+  const shared = slab.vertices.filter(({ id }) => wall.vertices.some(v => v.id === id));
+  if (shared.length === 0 || shared.length > 2) return false;
+  const [origin, end] = shared as [Vertex, Vertex?];
+  let direction: Vec3 | undefined;
+  if (end) {
+    const includesEdge = (cell: Cell) => cell.vertices.some(({ id }, i, vertices) => {
+      const next = vertices[(i + 1) % vertices.length]!.id;
+      return (id === origin.id && next === end.id) || (id === end.id && next === origin.id);
+    });
+    if (!includesEdge(wall) || !includesEdge(slab)) return false;
+    const edge = sub(end.point, origin.point);
+    if (!(norm(edge) > PLATE_EDGE_TOL)) return false;
+    direction = unit(edge);
+  }
+  const separatedCorners = (cell: Cell) => cell.vertices
+    .filter(v => v.id !== origin.id && v.id !== end?.id)
+    .map(({ point }) => sub(point, origin.point));
+  const wallCorners = separatedCorners(wall), slabCorners = separatedCorners(slab);
+  const side = (corners: Vec3[]) => corners.reduce<Vec3>((sum, point) => {
+    const vector = direction ? cross(cross(direction, point), direction) : point;
+    return [sum[0] + vector[0], sum[1] + vector[1], sum[2] + vector[2]];
+  }, [0, 0, 0]);
+  const wallSide = side(wallCorners), slabSide = side(slabCorners);
+  if (!(norm(wallSide) > PLATE_EDGE_TOL && norm(slabSide) > PLATE_EDGE_TOL)) return false;
+  const normal = sub(unit(slabSide), unit(wallSide));
+  const length = norm(normal);
+  return slabCorners.every(point => dot(point, normal) > PLATE_EDGE_TOL * length)
+    && wallCorners.every(point => dot(point, normal) < -PLATE_EDGE_TOL * length);
+}
+
 function throughFaces(wall: Cell, slab: Cell): boolean {
   const chord = cross(wall.frame.n, slab.frame.n);
   const length = norm(chord);
@@ -336,27 +367,27 @@ function interiorContact(walls: readonly Cell[], slabs: readonly Cell[]) {
 
   for (const wall of walls) {
     const extents = faceBounds(wall);
-    for (const { cell, bounds } of faces) {
+    for (const { cell, bounds, sides } of faces) {
       if (bounds[0]!.lo > extents[0]!.hi) break;
       if (axes.some(axis => extents[axis]!.lo > bounds[axis]!.hi || extents[axis]!.hi < bounds[axis]!.lo)) continue;
+      if (sharedBoundarySeparates(wall, cell)) continue;
       if (throughFaces(wall, cell)) return { wall: wall.key, slab: cell.key, trace: true as const };
-    }
-    for (const [index, first] of wall.vertices.entries()) {
-      const last = wall.vertices[(index + 1) % wall.vertices.length]!;
-      const a = first.point, b = last.point;
-      if (norm(sub(a, b)) <= PLATE_EDGE_TOL) continue;
-      const right = Math.max(a[0], b[0]);
-      for (const { cell, bounds, sides } of faces) {
-        if (bounds[0]!.lo > right) break;
+      for (const [index, first] of wall.vertices.entries()) {
+        const last = wall.vertices[(index + 1) % wall.vertices.length]!;
+        const a = first.point, b = last.point;
+        if (norm(sub(a, b)) <= PLATE_EDGE_TOL) continue;
         if (axes.some(axis => Math.min(a[axis], b[axis]) > bounds[axis]!.hi
           || Math.max(a[axis], b[axis]) < bounds[axis]!.lo)) continue;
         const fromPlane = planeDistance(a, cell.frame), toPlane = planeDistance(b, cell.frame);
-        const contact = { wall: wall.key, slab: cell.key, edge: [first.id, last.id] as const };
+        const joint = { wall: wall.key, slab: cell.key };
+        const contact = { ...joint, edge: [first.id, last.id] as const };
         if (fromPlane !== 0 || toPlane !== 0) {
-          if ((fromPlane < 0 && toPlane > 0) || (toPlane < 0 && fromPlane > 0)) {
-            const t = fromPlane / (fromPlane - toPlane);
-            if (sides.every(({ point, inward }) =>
-              (1 - t) * dot(sub(a, point), inward) + t * dot(sub(b, point), inward) > PLATE_EDGE_TOL)) return contact;
+          const crossesPlane = (fromPlane < 0 && toPlane > 0) || (toPlane < 0 && fromPlane > 0);
+          const t = fromPlane === 0 ? 0 : toPlane === 0 ? 1 : crossesPlane ? fromPlane / (fromPlane - toPlane) : null;
+          if (t !== null && sides.every(({ point, inward }) =>
+            (1 - t) * dot(sub(a, point), inward) + t * dot(sub(b, point), inward) > PLATE_EDGE_TOL)) {
+            if (t === 0 || t === 1) return { ...joint, vertex: t === 0 ? first.id : last.id };
+            return contact;
           }
           continue;
         }
@@ -379,7 +410,7 @@ function interiorContact(walls: readonly Cell[], slabs: readonly Cell[]) {
   return null;
 }
 
-type WallSlabJoint = { wall: string; slab: string } & ({ node: number } | { edge: readonly [number, number] } | { trace: true });
+type WallSlabJoint = { wall: string; slab: string } & ({ node: number } | { vertex: number } | { edge: readonly [number, number] } | { trace: true });
 
 export function nonconformingWallSlab(model: PlateAnalysisModel): WallSlabJoint | null {
   const cells: Record<'slab' | 'wall', Cell[]> = { slab: [], wall: [] };

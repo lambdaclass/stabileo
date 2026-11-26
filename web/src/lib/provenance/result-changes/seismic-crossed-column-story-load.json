@@ -1,0 +1,43 @@
+{
+  "id": "seismic-crossed-column-story-load",
+  "date": "2026-11-26",
+  "prs": [
+    2607
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "generatedSeismicLoads",
+      "crossedSeismicColumn"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Keep crossed columns loaded at story elevation",
+    "es": "Mantener la carga de las columnas cruzadas en la cota del piso",
+    "pt": "Manter a carga de pilares cruzados na cota do pavimento",
+    "de": "Lasten gekreuzter Stützen auf Geschosshöhe ansetzen",
+    "fr": "Appliquer la charge des poteaux traversés à la hauteur de l’étage",
+    "hu": "A keresztezett oszlopok terhe a szint magasságában marad",
+    "tr": "Çaprazla kesişen kolon yüklerini kat kotunda tutma",
+    "zh": "将交叉柱的荷载保持在楼层标高"
+  },
+  "explanation": {
+    "en": "Regenerate affected seismic loads. A diagonal crossing leaves column inertia at the story elevation and preserves its overturning moment.",
+    "es": "Regenerá las cargas sísmicas afectadas. El cruce con una diagonal mantiene la inercia de la columna en la cota del piso y conserva su momento de vuelco.",
+    "pt": "Regenere as cargas sísmicas afetadas. O cruzamento com uma diagonal mantém a inércia do pilar na cota do pavimento e preserva o momento de tombamento.",
+    "de": "Erzeugen Sie betroffene Erdbebenlasten neu. Beim Kreuzen einer Diagonale bleibt die Stützenträgheit auf Geschosshöhe und ihr Kippmoment erhalten.",
+    "fr": "Régénérez les charges sismiques concernées. Le croisement avec une diagonale maintient l’inertie du poteau à la hauteur de l’étage et conserve son moment de renversement.",
+    "hu": "Generálja újra az érintett szeizmikus terheket. Az átló keresztezésekor az oszlop tehetetlenségi ereje a szint magasságában hat, így megmarad a billentőnyomatéka.",
+    "tr": "Etkilenen deprem yüklerini yeniden oluşturun. Diyagonal kesişimi kolon ataletini kat kotunda ve devrilme momentini korur.",
+    "zh": "请重新生成受影响的地震荷载。斜撑交叉时，柱的惯性荷载保持在楼层标高，倾覆力矩得以保留。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-cad-connectivity-and-seismic-story-loads.md",
+    "heading": "Keep crossed columns loaded at story elevation"
+  }
+}
