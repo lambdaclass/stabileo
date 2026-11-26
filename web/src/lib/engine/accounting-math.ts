@@ -50,6 +50,17 @@ export class Sum {
   get value(): number { return this.sum + this.correction; }
 }
 
+const coordinateBits = new DataView(new ArrayBuffer(Float64Array.BYTES_PER_ELEMENT));
+
+export function dyadicInteger(value: number): bigint {
+  coordinateBits.setFloat64(0, value);
+  const bits = coordinateBits.getBigUint64(0);
+  const exponent = (bits >> 52n) & 0x7ffn;
+  const fraction = bits & 0xfffffffffffffn;
+  const magnitude = exponent === 0n ? fraction : ((1n << 52n) | fraction) << (exponent - 1n);
+  return bits >> 63n ? -magnitude : magnitude;
+}
+
 const absolute = ([x, y, z]: Vector): Vector => [Math.abs(x), Math.abs(y), Math.abs(z)];
 
 function crossMagnitude([x, y, z]: Vector, [fx, fy, fz]: Vector): Vector {
@@ -157,6 +168,7 @@ export class LoadVector {
 }
 
 export type MemberLineSource = 'external' | 'prestress';
+export const memberLineSources: readonly MemberLineSource[] = ['external', 'prestress'];
 
 type AssembledMagnitudes3D =
   | { force: LoadVector; couple: LoadVector; memberLine?: { member: number; end: 'i' | 'j'; source: MemberLineSource } }
@@ -182,8 +194,17 @@ export function positionAt(start: Vector, axis: Vector, station: number | LoadSc
 
 export type MemberLinePieces = ReadonlyMap<number, { member: number; offset: number; scale: number }>;
 
+function lineForces(a: number, b: number, qI: LoadVector, qJ: LoadVector) {
+  const length = new LoadScalar(b - a);
+  const half = length.divide(2), third = length.divide(3);
+  return [
+    [new LoadScalar(a).add(third), qI.scale(half)],
+    [new LoadScalar(b).subtract(third), qJ.scale(half)],
+  ] as const;
+}
+
 export class Wrench {
-  private memberLines?: Map<number, Wrench>;
+  private readonly memberLines: Partial<Record<MemberLineSource, Map<number, Wrench>>> = {};
   private readonly components: WrenchComponent[] = Array.from({ length: 6 }, () => ({
     total: new Sum(), magnitude: new Sum(), underflow: new Sum(),
   }));
@@ -208,28 +229,30 @@ export class Wrench {
   addScaled(other: Wrench, factor: number): void {
     const force = other.read(0), moment = other.read(3);
     this.addTotals(factor === 1 ? force : force.scale(factor), factor === 1 ? moment : moment.scale(factor));
-    for (const [id, measure] of other.memberLines ?? []) this.memberLineMeasure(id).addScaled(measure, factor);
+    for (const source of memberLineSources) {
+      for (const [id, measure] of other.memberLines[source] ?? []) this.memberLineMeasure(id, source).addScaled(measure, factor);
+    }
   }
 
-  get memberLineMeasures(): ReadonlyMap<number, Wrench> | undefined { return this.memberLines; }
+  memberLineMeasures(source: MemberLineSource): ReadonlyMap<number, Wrench> | undefined { return this.memberLines[source]; }
 
-  private memberLineMeasure(id: number): Wrench {
-    this.memberLines ??= new Map();
-    let measure = this.memberLines.get(id);
+  private memberLineMeasure(id: number, source: MemberLineSource): Wrench {
+    const lines = this.memberLines[source] ??= new Map();
+    let measure = lines.get(id);
     if (!measure) {
       measure = new Wrench();
-      this.memberLines.set(id, measure);
+      lines.set(id, measure);
     }
     return measure;
   }
 
-  memberLineForce(id: number, station: LoadScalar, force: LoadVector): void {
+  memberLineForce(id: number, station: LoadScalar, force: LoadVector, source: MemberLineSource = 'external'): void {
     const piece = this.memberPieces?.get(id);
     if (piece) {
       station = station.scale(piece.scale).add(new LoadScalar(piece.offset));
       id = piece.member;
     }
-    this.memberLineMeasure(id).addTotals(force, force.scale(station));
+    this.memberLineMeasure(id, source).addTotals(force, force.scale(station));
   }
 
   toWorld(plane: 'xz' | 'yz', origin: Vector): Wrench {
@@ -239,8 +262,10 @@ export class Wrench {
     const force = toWorldVector(this.read(0)), moment = toWorldVector(this.read(3));
     const world = new Wrench();
     world.addTotals(force, moment.add(force.momentAt(origin)));
-    for (const [id, measure] of this.memberLines ?? []) {
-      world.memberLineMeasure(id).addTotals(toWorldVector(measure.read(0)), toWorldVector(measure.read(3)));
+    for (const source of memberLineSources) {
+      for (const [id, measure] of this.memberLines[source] ?? []) {
+        world.memberLineMeasure(id, source).addTotals(toWorldVector(measure.read(0)), toWorldVector(measure.read(3)));
+      }
     }
     return world;
   }
@@ -257,14 +282,12 @@ export class Wrench {
     return LoadVector.from(vector('total'), vector('magnitude'), vector('underflow'));
   }
 
+  memberLine(id: number, a: number, b: number, qI: LoadVector, qJ: LoadVector, source: MemberLineSource): void {
+    for (const [station, force] of lineForces(a, b, qI, qJ)) this.memberLineForce(id, station, force, source);
+  }
+
   line(start: Vector, axis: Vector, a: number, b: number, qI: LoadVector, qJ: LoadVector, member?: number): void {
-    const length = new LoadScalar(b - a);
-    const half = length.divide(2), third = length.divide(3);
-    const parts = [
-      [new LoadScalar(a).add(third), qI.scale(half)],
-      [new LoadScalar(b).subtract(third), qJ.scale(half)],
-    ] as const;
-    for (const [station, force] of parts) {
+    for (const [station, force] of lineForces(a, b, qI, qJ)) {
       this.apply(positionAt(start, axis, station), force);
       if (member !== undefined) this.memberLineForce(member, station, force);
     }

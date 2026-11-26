@@ -8,14 +8,22 @@ In the #2430 witness, a frame connected the wall base to a fixed slab node. The 
 
 A wall piercing the common edge of two slab cells also stops before solving if the crossing has no shared mesh connection. The preflight clips the full wall-face intersection against the slab cell. It detects crossings immediately inside the perimeter and a face cut between two shared corners when the mesh lacks the intervening edge. A sloping wall top inside the contact band also stops analysis. Conforming inclined walls and a wall with a fully shared diagonal edge continue to solve. The preflight accepts a two-point section when its node IDs form an edge of both cells. This keeps the joint eligible for analysis even when another edge of the same wall cell lies within the slab cell’s contact band.
 
+A wall edge that crosses the plane of an intermediate slab is checked at the plane intersection. The solve stops if that intersection lies strictly inside a slab cell and the edge passes through the slab without a shared mesh station. The preflight also intersects the two faces and checks their common trace for compatible edges. A wall extending from x = −1 m to x = 5 m at y = 2 m and through z = 0 intersects a 4 m square slab along its full 4 m width. Neither wall edge crosses the slab face. This model now stops with an intersection message. A wall clear of the slab and a wall with a shared trace still solve. The preflight classifies wall nodes against the slab plane and accounts for roundoff at a conforming skew joint. A wall edge that crosses the slab plane only at a slab corner no longer requires a shared edge when the model already declares compatible motion at the corner.
+
 ## Per-member line-load accounting
 
 The case-wide force and moment can both be zero for an axial load that reverses sign along a member. A 2 m span with endpoint intensities of +2 and −2 kN/m has zero net force and a signed station first moment of −4/3 kN·m. Dropping that load on the previous application path could pass the case balance and remove the member’s axial response.
 
-The solve input check now compares each member’s distributed-force components and their station first moments alongside the case wrench. This covers planar projection, spatial assembly and factored spatial combinations. The refusal identifies the load case, member and component. A correct distribution continues to give the same numerical result.
+The solve input check now compares each member’s distributed-force components and their station first moments alongside the case wrench. This covers planar projection, spatial assembly and factored spatial combinations. The check detects a zero-resultant axial loss when the station first moment changes beyond tolerance. Three consecutive equal intervals with intensities +q, −2q and +q have zero resultant and zero station first moment, so those two measures coincide before and after deleting all three intervals. The refusal identifies the load case, member and component. A correct distribution continues to give the same numerical result.
 
 When a variable section or an interior point load divides a member into temporary pieces, the planar and spatial load checks measure both the entered and assembled loads from the original member’s start. The check carries the magnitudes of the terms in each basis conversion through the comparison. Skew members, variable members and planar models embedded for workbook export retain their valid results.
 
 A distributed load transferred to a truss must reach its designated end nodes. Analysis refuses a misplaced end force even when the total force and torque agree. The case wrench still checks both the anchor loads and the equivalent distributed load of a tendon. The external member line-load measure counts the applied line loads, so an internally equilibrated tendon and gravity can share a case.
 
 The same distinction applies when a curved tendon’s equivalent line load is moved to the member ends. Those forces remain in the case wrench, including in factored combinations. The member line-load measure records only external loads.
+
+For a member that carries bending, a separate check also compares the tendon’s distributed force and station first moment.
+
+## Use the selected plane for Basic P-Delta
+
+The Basic P-Delta action now prepares the model in the same selected plane as the linear solve. In an XZ or YZ projection the input check compares the delivered load with the spatial source before second-order analysis. For a cantilever with a 3 kN downward tip load in either plane the vertical support reaction is 3 kN. If preparation drops the downward component the action stops with the force accounting diagnostic.

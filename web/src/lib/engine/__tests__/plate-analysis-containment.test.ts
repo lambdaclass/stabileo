@@ -485,6 +485,137 @@ it('#2430 transfers the entire slab load into the wall when both share the inter
 });
 
 
+function throughSlab(y: number, bottom = -1, left = 1, right = 3) {
+  const [corner] = loadedSlab();
+  const points: [number, number, number][] = [[left, y, bottom], [right, y, bottom], [right, y, 1], [left, y, 1]];
+  const [a, b, c, d] = points.map(([x, py, z]) => modelStore.addNode(x, py, z)) as [number, number, number, number];
+  modelStore.addSupport(a, 'fixed3d');
+  modelStore.addSupport(b, 'fixed3d');
+  modelStore.addQuad([a, b, c, d], 1, 0.15);
+  modelStore.addElement(corner!, a);
+}
+
+it.each(directEntries)(
+  'the %s entry refuses a wall passing through a slab',
+  async (entry, solve) => {
+    throughSlab(2);
+    expect(await solve()).toEqual(entry === 'reproducible input' ? null : expect.stringMatching(/wall.*slab/i));
+  },
+);
+
+it('global analysis refuses a wall passing through a slab', async () => {
+  throughSlab(2);
+  expect(await runGlobalSolve({ directBase: true })).toEqual({ ok: false, error: expect.stringMatching(/wall.*slab/i) });
+  expect(resultsStore.results3D).toBeNull();
+});
+
+it.each([[2, 0.01], [-0.01, -1]])('solves the loaded slab and a wall clear of its face at y=%s, bottom=%s', (y, bottom) => {
+  throughSlab(y, bottom);
+  expectLoadedSlab(modelStore.solve3D(false, false, true));
+});
+
+it.each(directEntries)('#2586 the %s entry refuses a wall spanning the slab face', async (entry, solve) => {
+  throughSlab(2, -1, -1, 5);
+  expect(await solve()).toEqual(entry === 'reproducible input' ? null : expect.stringMatching(/wall.*slab/i));
+});
+
+it('#2586 global solve refuses a face intersection with no wall-edge crossings', async () => {
+  throughSlab(2, -1, -1, 5);
+  expect(await runGlobalSolve({ directBase: true })).toEqual({ ok: false, error: expect.stringMatching(/wall.*slab/i) });
+  expect(resultsStore.results3D).toBeNull();
+});
+
+it('solves when the wide wall crosses the slab plane beyond its face', () => {
+  throughSlab(-2 * PLATE_EDGE_TOL, -1, -1, 5);
+  expectLoadedSlab(modelStore.solve3D(false, false, true));
+});
+
+it('transfers the slab load across a shared wall trace with wall cells above and below', () => {
+  const at = (x: number, y: number, z: number) => modelStore.addNode(x, y, z);
+  const a = at(0, 0, 0), b = at(4, 0, 0), c = at(0, 4, 0), d = at(4, 4, 0);
+  const left = at(0, 2, 0), right = at(4, 2, 0);
+  const i = at(0, 2, -1), j = at(4, 2, -1);
+  for (const cells of [[a, b, right, left], [left, right, d, c]] as const) {
+    modelStore.addSurfaceLoad3D(modelStore.addQuad([...cells], 1, 0.15), 1);
+  }
+  modelStore.addQuad([i, j, right, left], 1, 0.15);
+  modelStore.addQuad([left, right, at(4, 2, 1), at(0, 2, 1)], 1, 0.15);
+  modelStore.addSupport(i, 'fixed3d');
+  modelStore.addSupport(j, 'fixed3d');
+  const result = modelStore.solve3D(false, false, true);
+  expectLoadedSlab(result);
+  if (!result || typeof result === 'string') throw new Error(String(result));
+  expect(result.reactions.map(reaction => reaction.nodeId).sort((a, b) => a - b)).toEqual([i, j]);
+  for (const reaction of result.reactions) expect(reaction.fz).toBeCloseTo(8, 8);
+});
+
+function skewWallSlab() {
+  const at = ([x, y, z]: number[]) => modelStore.addNode(x!, y!, z!);
+  const translate = (p: number[], v: number[]) => p.map((x, i) => x + v[i]!);
+  const a = [0.3, 11.78, 0.32], span = [4.11, 0.11, 1.01], width = [-0.32, 2.24, 0.21], drop = [0.15, -0.12, -2.21];
+  const b = translate(a, span);
+  const left = at(a), right = at(b);
+  const i = at(translate(a, drop)), j = at(translate(b, drop));
+  const slab = modelStore.addQuad([at(translate(a, width)), at(translate(b, width)), right, left], 1, 0.15);
+  modelStore.addSurfaceLoad3D(slab, 1);
+  modelStore.addQuad([i, j, right, left], 1, 0.15);
+  modelStore.addSupport(i, 'fixed3d');
+  modelStore.addSupport(j, 'fixed3d');
+  const area = Math.sqrt(span.reduce((s, x) => s + x * x, 0) * width.reduce((s, x) => s + x * x, 0)
+    - span.reduce((s, x, k) => s + x * width[k]!, 0) ** 2);
+  return { area, bases: [i, j] };
+}
+
+function cornerWall(offset: number) {
+  const [corner] = loadedSlab();
+  const a = modelStore.addNode(offset, offset, -1), b = modelStore.addNode(offset - 2, offset + 2, -1);
+  const c = modelStore.addNode(offset - 2, offset + 2, 1), d = modelStore.addNode(offset, offset, 1);
+  modelStore.addSupport(a, 'fixed3d');
+  modelStore.addSupport(b, 'fixed3d');
+  modelStore.addQuad([a, b, c, d], 1, 0.15);
+  modelStore.addElement(corner!, a);
+  if (offset !== 0) return;
+  const support = [...modelStore.supports.values()].find(entry => entry.nodeId === corner)!;
+  modelStore.removeSupport(support.id);
+  for (const dof of [0, 1, 2, 3, 4, 5]) {
+    modelStore.addConstraint({
+      type: 'linearMPC', terms: [
+        { nodeId: corner!, dof, coefficient: 2 }, { nodeId: a, dof, coefficient: -1 }, { nodeId: d, dof, coefficient: -1 },
+      ],
+    });
+  }
+}
+
+it.each([['skew shared edge', skewWallSlab], ['slab corner', () => { cornerWall(0); }]] as const)(
+  '#2586 accepts wall contact at a %s',
+  async (_, setup) => {
+    for (const [entry, solve] of entries) {
+      modelStore.clear();
+      setup();
+      const result = await solve();
+      expect.soft(result, entry).toBeTypeOf('object');
+      expect.soft(result, entry).not.toBeNull();
+    }
+    modelStore.clear();
+    const expected = setup();
+    expect(() => modelStore.buildSolverInput3D()).not.toThrow();
+    expect(modelStore.singleSolveInput3D(false, false, true)).not.toBeNull();
+    expect(await runGlobalSolve({ directBase: true })).toMatchObject({ ok: true });
+    const result = resultsStore.results3D;
+    if (!expected) {
+      expectLoadedSlab(result);
+      return;
+    }
+    expect(result?.reactions.map(reaction => reaction.nodeId).sort((a, b) => a - b)).toEqual(expected.bases);
+    expect(result?.reactions.reduce((sum, reaction) => sum + reaction.fz, 0)).toBeCloseTo(expected.area, 8);
+  },
+);
+
+it('#2586 still refuses a wall edge crossing the slab strictly inside the face', () => {
+  cornerWall(2 * PLATE_EDGE_TOL);
+  expect(modelStore.solve3D(false, false, true)).toMatch(/wall.*slab/i);
+});
+
 function loadedSeam(tilt = 0) {
   const cos = Math.cos(tilt), sin = Math.sin(tilt);
   const at = (x: number, y: number, z: number) => modelStore.addNode(x, y * cos - z * sin, y * sin + z * cos);

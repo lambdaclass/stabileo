@@ -1,4 +1,5 @@
 import { accountingMemberPieces } from './accounting-source';
+import { withAccountingOrigin } from './accounting-source';
 /**
  * Members of variable section, solved as chains of prismatic pieces and reported as themselves.
  *
@@ -329,7 +330,7 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
       a: l.data.a, nodeI: e.nodeI, loadId: l.data.id, elementId: e.id,
       shortProjection: planarPointProjectionTooShort(j.x - i.x, j.y - i.y),
     };
-    return { ...l, data: { ...l.data, [planarPointOrigin]: origin } };
+    return withAccountingOrigin({ ...l, data: { ...l.data, [planarPointOrigin]: origin } }, l);
   });
   for (const nd of planned.nodes) nodes.set(nd.id, nd as never);
   for (const m of exp.members.values()) elements.delete(m.parentId);
@@ -381,7 +382,7 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
         scale: (parent?.scale ?? 1) * ((p.x1 - p.x0) / lengths[k]!),
       });
     });
-    const split = splitElementLoads(loads, m.parentId, bounds, ids, () => nextLoad++, lengths, partition.points);
+    const split = splitElementLoads(loads, m.parentId, bounds, ids, () => nextLoad++, lengths, partition.points, withAccountingOrigin);
     loads = [...split.kept, ...split.added];
     renamed.set(m.parentId, ids);
   }

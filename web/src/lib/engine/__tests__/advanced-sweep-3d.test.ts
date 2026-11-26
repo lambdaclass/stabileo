@@ -1212,3 +1212,25 @@ describe('kinematic 3D', () => {
     expect(rep!.degree).toBe(k3.degree);
   });
 });
+
+
+it('keeps the authored local components on a skew frame', () => {
+  for (const seed of [1, 2, 3]) {
+    buildRandom('skew-frame', seed);
+    const input = input3D()!;
+    const local = modelStore.loads.filter(load => load.type === 'distributed3d')
+      .filter(load => !load.data.frame || load.data.frame === 'local');
+    expect(local.length, 'local distributed loads for seed ' + seed).toBeGreaterThan(0);
+    for (const { data: d } of local) {
+      expect(input.loads, 'seed ' + seed + ', member ' + d.elementId).toContainEqual({
+        type: 'distributed',
+        data: {
+          elementId: d.elementId,
+          qXI: d.qXI ?? 0, qXJ: d.qXJ ?? 0,
+          qYI: d.qYI, qYJ: d.qYJ, qZI: d.qZI, qZJ: d.qZJ,
+          a: d.a ?? 0, b: expect.any(Number),
+        },
+      });
+    }
+  }
+});
