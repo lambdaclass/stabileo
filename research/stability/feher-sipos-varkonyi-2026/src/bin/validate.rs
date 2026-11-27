@@ -210,3 +210,16 @@ fn paper_fields_are_exact_even_within_solver_roundoff() {
     }
     assert!(close(&row, &row, "checks[0]").is_ok());
 }
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn paper_coordinates_and_unrecognized_quantities_are_exact() {
+    let mut accepted = Vec::new();
+    for field in ["reference_delta", "paper_theta", "paper_delta", "new_quantity"] {
+        let fresh = json!({field: 1.36});
+        let stale = json!({field: 1.360001});
+        if close(&fresh, &stale, "row").is_ok() { accepted.push(field); }
+    }
+    assert!(accepted.is_empty(), "stale fields accepted: {accepted:?}");
+    assert!(close(&json!({"computed_delta": 1.36}), &json!({"computed_delta": 1.360001}), "row").is_ok());
+}
