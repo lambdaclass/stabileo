@@ -219,6 +219,12 @@ impl SparseTransform {
         k_red
     }
 
+    pub fn is_identity(&self) -> bool {
+        self.n_rows == self.n_cols
+            && self.col_idx.len() == self.n_rows
+            && (0..self.n_rows).all(|i| self.row_ptr[i] == i && self.col_idx[i] == i && self.vals[i] == 1.0)
+    }
+
     /// Reduced matrix K_red = C^T · K · C with K sparse symmetric (lower-triangle
     /// CSC). Returns lower-triangle CSC of the symmetric n_cols × n_cols result.
     /// Cost O(Σ_{(l,l')∈K} deg(l)·deg(l')) — near-linear in nnz(K) for the

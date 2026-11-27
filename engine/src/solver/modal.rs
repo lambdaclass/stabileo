@@ -765,6 +765,20 @@ pub struct ModeShape3D {
 }
 
 /// Solve 3D modal analysis.
+/// The modal solves run inside `f` condense the massless coordinates of a sparse model before
+/// the eigen solve, as they did before solving the uncondensed pencil: what that is compared
+/// with.
+#[doc(hidden)]
+pub fn with_condensed_mass_range<T>(f: impl FnOnce() -> T) -> T {
+    super::modal_mass::with_condensed_mass_range(f)
+}
+
+/// How many modal solves of this thread took the uncondensed pencil.
+#[doc(hidden)]
+pub fn uncondensed_solves() -> usize {
+    super::modal_mass::uncondensed_solves()
+}
+
 pub fn solve_modal_3d(
     input: &SolverInput3D,
     densities: &HashMap<String, f64>,

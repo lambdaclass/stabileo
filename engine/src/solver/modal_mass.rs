@@ -499,11 +499,18 @@ impl MassRange {
             )?;
             return (result.values.len() == count.min(self.rank)).then_some(result);
         }
+        let uncondensed = self.rank > CONDENSED_RANK && 2 * count < self.rank && !CONDENSED.with(|on| on.get());
+        if uncondensed && self.transform.is_identity() {
+            return self.solve_sparse_implicit(stiffness, count, observe);
+        }
         {
             use crate::linalg::sparse_chol::{numeric_cholesky, symbolic_cholesky};
             let symbolic = std::rc::Rc::new(symbolic_cholesky(stiffness));
             let factor = numeric_cholesky(&symbolic, stiffness);
             observe(factor.as_ref());
+        }
+        if uncondensed {
+            return self.solve_sparse_implicit(&self.transform.reduce_sparse(stiffness), count, &mut |_| {});
         }
         let condensed = self.condensed(stiffness)?;
         let result = crate::linalg::lanczos::lanczos_generalized_eigen_sparse_observed(
@@ -517,6 +524,62 @@ impl MassRange {
             return None;
         }
         self.recover(&condensed, result)
+    }
+}
+
+/// The mass rank up to which the massless coordinates are condensed whatever is asked for: the
+/// condensed pencil is then small enough for the dense eigen solve, which also gives every
+/// mode of it. Over it they are condensed only when half the finite modes or more are asked
+/// for, which the Krylov space of the uncondensed pencil does not give.
+const CONDENSED_RANK: usize = 200;
+
+thread_local! {
+    static CONDENSED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    static UNCONDENSED_SOLVES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+pub(super) fn uncondensed_solves() -> usize {
+    UNCONDENSED_SOLVES.with(|count| count.get())
+}
+
+/// Run `f` with the sparse modal solve condensing the massless coordinates, as it did before
+/// `solve_sparse_implicit`: what that is compared with.
+pub(super) fn with_condensed_mass_range<T>(f: impl FnOnce() -> T) -> T {
+    let before = CONDENSED.with(|on| on.replace(true));
+    let out = f();
+    CONDENSED.with(|on| on.set(before));
+    out
+}
+
+impl MassRange {
+    /// The modes of the pencil on the mass range without forming the condensed stiffness: the
+    /// massless coordinates stay in the stiffness and have no mass, so the finite eigenvalues
+    /// of (K, M) are those of the condensed pencil and each vector already carries them.
+    /// `stiffness` is in the coordinates of the range, and its factor is what `observe` sees.
+    fn solve_sparse_implicit(
+        &self,
+        stiffness: &CscMatrix,
+        count: usize,
+        observe: &mut dyn FnMut(Option<&crate::linalg::sparse_chol::NumericCholesky>),
+    ) -> Option<EigenResult> {
+        UNCONDENSED_SOLVES.with(|solves| solves.set(solves.get() + 1));
+        let n = self.transform.n_rows;
+        let mass = self.mass_on_range();
+        let want = count.min(self.rank);
+        let result = crate::linalg::lanczos::lanczos_generalized_eigen_sparse_observed(stiffness, &mass, want, 0.0, observe)?;
+        if result.values.len() != want {
+            return None;
+        }
+        let found = result.values.len();
+        let mut vectors = vec![0.0; n * found];
+        for j in 0..found {
+            let column: Vec<_> = (0..n).map(|i| result.vectors[i * found + j]).collect();
+            let column = self.transform.mul_vec(&column);
+            for i in 0..n {
+                vectors[i * found + j] = column[i];
+            }
+        }
+        Some(EigenResult { values: result.values, vectors })
     }
 }
 
