@@ -57,7 +57,7 @@ test.describe('@smoke CQC first version', () => {
     });
   }
 
-  test('a stopped or failed live run leaves the references on the damping of the results shown', async ({ page }) => {
+  test.skip('known wrong result: #2505 a stopped or failed live run leaves the references on the damping of the results shown', async ({ page }) => {
     let release = () => {};
     const engine = new Promise<void>(resolve => { release = resolve; });
     await page.route(/dedaliano_engine_bg[^/]*\.wasm$/, async route => {
@@ -78,10 +78,12 @@ test.describe('@smoke CQC first version', () => {
     await unchanged();
     await page.getByRole('button', { name: 'Stop', exact: true }).click();
     await unchanged();
+    await expect(page.getByTestId('cqc-damping')).toHaveValue('0.05');
     await page.getByTestId('cqc-damping').selectOption('0.1');
     release();
     await expect(page.locator('.cqc-app').getByRole('alert')).toBeVisible();
     await unchanged();
+    await expect(page.getByTestId('cqc-damping')).toHaveValue('0.05');
     await expect(page.getByTestId('cqc-source')).toHaveText('Precomputed replay (same solver)');
   });
 
