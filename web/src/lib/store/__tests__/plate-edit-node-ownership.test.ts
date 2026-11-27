@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, expect, it } from 'vitest';
 import { modelStore } from '..';
 import { modelFeatures } from '../../provenance/model-features';
+import { meshDeferredSlabs, simplifySlabs } from '../../model/building/deferred-slabs';
 import { closePlateHole, setPlateSideSagitta } from '../plate-shape';
 import { applyPlateMeshes, applyPlateMeshesAsync, clearPlateMesh, createPlate, deletePlate, plateEntry, plateSides, planPlateMesh, setPlateSideArc } from '../physical-plates';
 
@@ -93,4 +94,39 @@ it('identifies plate edits that can affect the saved mass distribution', () => {
   expect(feature()).toBe(false);
   modelStore.setMassSource({ kind: 'custom', factors: [], points: [...points, { nodeId: hole[0]!, m: 3 }] });
   expect(feature()).toBe(true);
+});
+
+it.skip.each([applyPlateMeshes, applyPlateMeshesAsync])('known wrong result: clearing a physical plate mesh drops a separately authored rigid link (%p)', async apply => {
+  const { id, outline } = fixture();
+  const plan = planPlateMesh(id, { size: 1, element: 'quad', followMembers: false });
+  if (!plan?.mesh) throw Error(String(plan?.refused));
+  expect((await apply([plan])).refused).toEqual([]);
+  const [slaveNode] = plateLoops(plateEntry(id)!.group).owned;
+  if (slaveNode === undefined) throw Error('expected a mesh node');
+  const link = { type: 'rigidLink' as const, masterNode: outline[0]!, slaveNode, dofs: [0, 1, 2, 3, 4, 5] };
+  modelStore.addConstraint(link);
+  reopen();
+  clearPlateMesh(id);
+  expect(modelStore.model.constraints).toContainEqual(link);
+  expect(modelStore.nodes.has(slaveNode)).toBe(true);
+});
+
+it.skip('known wrong result: simplifying a deferred slab erases an authored link and point mass', () => {
+  modelStore.clear();
+  const panel = [[0, 0], [4, 0], [4, 4], [0, 4]].map(([x,y]) => modelStore.addNode(x!, y!)) as [number, number, number, number];
+  const quad = modelStore.addQuad(panel, 1, 0.15);
+  const id = modelStore.addGroup('L1', 'physicalMember', { quads: [quad] }, { data: { kind: 'slab', provenance: 'declared', meshAtSolve: { size: 1, meshed: false, panel } } });
+  expect(meshDeferredSlabs().slabs).toBe(1);
+  const free = [...modelStore.nodes.keys()].filter(n => !panel.includes(n));
+  const [slaveNode, massNode] = free;
+  if (slaveNode === undefined || massNode === undefined) throw Error('expected two mesh nodes');
+  const link = { type: 'rigidLink' as const, masterNode: panel[0], slaveNode };
+  const points = [{ nodeId: massNode, m: 3 }];
+  modelStore.addConstraint(link);
+  modelStore.setMassSource({ kind: 'custom', factors: [], points });
+  expect(simplifySlabs([id]).slabs).toBe(1);
+  expect(modelStore.model.constraints).toContainEqual(link);
+  expect(modelStore.nodes.has(slaveNode)).toBe(true);
+  expect(modelStore.model.massSource?.points).toEqual(points);
+  expect(modelStore.nodes.has(massNode)).toBe(true);
 });
