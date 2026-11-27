@@ -85,3 +85,19 @@ it.skip('known wrong result: #2461 checks an entire selection before clearing ei
   expect(clearPlateMesh([empty.id])).not.toHaveProperty('refused');
   expect(plateShellKeys(empty.id)).toHaveLength(0);
 });
+
+it.skip.each(['own', 'other group', 'orphan'] as const)('known wrong result: #2461 refuses to clear a pressure whose %s target cannot follow the mesh', async owner => {
+  const { addFloorLoadDef } = await import('../defined-loads');
+  const { id, keys } = panel('quad');
+  const quadId = Number(keys[0]!.slice(1));
+  if (owner === 'orphan') modelStore.addSurfaceLoad3D(quadId, -2, 1, { fromDef: 99999 });
+  else {
+    const own = { quads: [quadId] };
+    const target = owner === 'own' ? { by: 'own' as const }
+      : { by: 'group' as const, groupId: modelStore.addGroup('Loaded cell', 'selection', own) };
+    addFloorLoadDef('Cell pressure', { caseId: 1, q: -2, distribution: 'slab', target }, own);
+  }
+  const before = modelStore.snapshot();
+  expect.soft(clearPlateMesh(id)).toMatchObject({ refused: ['Loaded panel'] });
+  expect(modelStore.snapshot()).toEqual(before);
+});
