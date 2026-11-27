@@ -359,3 +359,15 @@ it('#2239 physical detailing reads a representable explicit cage without a legac
   const bars = result.assemblies.flatMap(a => a.bars).filter(b => b.role === 'longitudinal' && b.ownerElementIds.includes(10));
   expect(bars.map(b => b.diameterMm)).toEqual([20, 20, 20, 20]);
 });
+
+it.skip('known wrong result: unnumbered beam cutoff — keeps both right-hand cutoff checks independent of remote shear demand', () => {
+  function rightCuts(multiplier: number) {
+    const model = scenario();
+    model.contexts.get(12)!.stations!.comboResults[0]!.stations[0]!.vz *= multiplier;
+    const notes = runDetailing(model).assemblies.flatMap(a => a.provenance.trace)
+      .filter(note => note.includes('9.7.3.5(') && /superior J|Corte derecho/.test(note));
+    expect(notes).toHaveLength(2);
+    return notes;
+  }
+  expect(rightCuts(2)).toEqual(rightCuts(1));
+});
