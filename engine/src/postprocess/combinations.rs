@@ -501,6 +501,12 @@ fn combined_screen_2d(resolved: &ResolvedFactors, cases: &[(usize, &AnalysisResu
         let factor = resolved.terms.iter().find(|&&(_, s)| s == slot).map_or(0.0, |&(factor, _)| factor);
         (factor.abs(), r.result_summary.as_ref(), r.element_forces.iter().any(axial_2d))
     }));
+    let extra: f64 = resolved.contributions(cases).map(|(factor, _, r)| {
+        let summary = r.result_summary.as_ref();
+        let excess = summary.and_then(|s| s.second_order_physical_bound.zip(s.second_order_ratio)).map_or(0.0, |(bound, ratio)| (bound - ratio).max(0.0));
+        factor.abs() * excess
+    }).sum();
+    let ratio = ratio.map(|r| r + extra);
     let diagnostics = crate::known_issues::combined_second_order(carried.iter(), resolved.terms.iter().any(|&(factor, _)| factor < 0.0), ratio);
     (ratio, diagnostics)
 }

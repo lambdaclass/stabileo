@@ -3355,7 +3355,6 @@ fn rotary_inertia_warns_about_unbounded_modes_and_identifies_each_member_family_
 }
 
 #[test]
-#[ignore = "known wrong result: #370"]
 fn a_semicircle_uses_its_arc_for_the_deep_member_screen() {
     let mut arch = arch3d();
     for (id, x, z) in [("1", 0.0, 0.0), ("200", 1.0, 1.0), ("5", 2.0, 0.0)] {

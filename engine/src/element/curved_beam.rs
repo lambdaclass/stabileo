@@ -117,6 +117,54 @@ impl ArcSectionFrame {
     }
 }
 
+struct CircularArc {
+    center: [f64; 3],
+    radius: f64,
+    n_hat: [f64; 3],
+    u_axis: [f64; 3],
+    v_axis: [f64; 3],
+    angle_end: f64,
+}
+
+fn circular_arc(p_start: [f64; 3], p_mid: [f64; 3], p_end: [f64; 3]) -> Option<CircularArc> {
+
+    let ab = sub(p_mid, p_start);
+    let ac = sub(p_end, p_start);
+
+    let normal = cross(ab, ac);
+    let normal_len = norm(normal);
+
+    if normal_len < 1e-14 {
+        return None;
+    }
+
+    let n_hat = scale(normal, 1.0 / normal_len);
+
+    let m_ab = midpoint(p_start, p_mid);
+    let m_ac = midpoint(p_start, p_end);
+
+    let d_ab = cross(ab, n_hat);
+    let d_ac = cross(ac, n_hat);
+
+    let rhs = sub(m_ac, m_ab);
+    let center = intersect_lines(m_ab, d_ab, m_ac, d_ac, rhs);
+
+    let radius = dist(center, p_start);
+
+    let u_axis = scale(sub(p_start, center), 1.0 / radius);
+    let v_axis = cross(n_hat, u_axis);
+
+    let angle_end = angle_of(sub(p_end, center), u_axis, v_axis);
+    let angle_mid = angle_of(sub(p_mid, center), u_axis, v_axis);
+
+    let angle_end = fix_arc_direction(angle_mid, angle_end);
+    Some(CircularArc { center, radius, n_hat, u_axis, v_axis, angle_end })
+}
+
+pub(crate) fn arc_length(start: [f64; 3], mid: [f64; 3], end: [f64; 3]) -> f64 {
+    circular_arc(start, mid, end).map_or_else(|| dist(start, end), |arc| arc.radius * arc.angle_end.abs())
+}
+
 /// Expand a curved beam definition into straight frame segments.
 ///
 /// # Arguments
@@ -136,54 +184,10 @@ pub fn expand_curved_beam(
 ) -> CurvedBeamExpansion {
     let n = input.num_segments.max(1);
 
-    // ---------- fit circle through 3 points in 3D ----------
-
-    // Vectors from start to mid and start to end.
-    let ab = sub(p_mid, p_start);
-    let ac = sub(p_end, p_start);
-
-    // Normal to the plane defined by the three points.
-    let normal = cross(ab, ac);
-    let normal_len = norm(normal);
-
-    // Degenerate (collinear) points – fall back to a straight line.
-    if normal_len < 1e-14 {
+    let Some(CircularArc { center, radius, n_hat, u_axis, v_axis, angle_end }) = circular_arc(p_start, p_mid, p_end) else {
         return expand_straight(input, p_start, p_end, n, next_node_id, next_elem_id);
-    }
-
-    let n_hat = scale(normal, 1.0 / normal_len);
-
-    // Midpoints of segments start-mid and start-end.
-    let m_ab = midpoint(p_start, p_mid);
-    let m_ac = midpoint(p_start, p_end);
-
-    // Perpendicular bisector directions (lie in the plane).
-    let d_ab = cross(ab, n_hat);
-    let d_ac = cross(ac, n_hat);
-
-    // Find center: m_ab + s * d_ab == m_ac + t * d_ac
-    // Solve for s using the component with the largest magnitude to avoid division by near-zero.
-    let rhs = sub(m_ac, m_ab);
-    let center = intersect_lines(m_ab, d_ab, m_ac, d_ac, rhs);
-
-    let radius = dist(center, p_start);
-
-    // ---------- local 2D coordinate system in the arc plane ----------
-
-    // u-axis: center -> start (unit)
-    let u_axis = scale(sub(p_start, center), 1.0 / radius);
-    // v-axis: n_hat x u_axis (right-hand rule within the plane)
-    let v_axis = cross(n_hat, u_axis);
-
-    let angle_start = 0.0_f64; // by construction
-    let angle_end = angle_of(sub(p_end, center), u_axis, v_axis);
-    let angle_mid = angle_of(sub(p_mid, center), u_axis, v_axis);
-
-    // Ensure the arc passes through p_mid. If angle_mid is not between
-    // angle_start (0) and angle_end when traversing in the chosen direction,
-    // we go the long way around.
-    let angle_end = fix_arc_direction(angle_mid, angle_end);
-
+    };
+    let angle_start = 0.0;
     // ---------- generate points along the arc ----------
 
     let mut new_nodes: Vec<(usize, f64, f64, f64)> = Vec::with_capacity(n.saturating_sub(1));

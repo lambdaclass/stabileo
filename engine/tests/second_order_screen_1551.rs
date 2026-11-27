@@ -703,7 +703,6 @@ fn review_pinned_roller_is_screened_against_the_continuous_column() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1551"]
 fn an_isolated_cantilever_cannot_hide_a_portal_in_the_near_band() {
     let unit = solve_buckling_2d(&portal("pinned", 1.0, 0.01), 1).unwrap().modes[0].load_factor;
     let mut value = serde_json::to_value(portal("pinned", unit / 17.0, 0.01)).unwrap();

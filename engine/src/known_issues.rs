@@ -942,7 +942,7 @@ pub(crate) struct ScreenModel {
     pub bars: Vec<ScreenBar>,
     pub position: std::collections::HashMap<usize, [f64; 3]>,
     pub supported: std::collections::HashSet<usize>,
-    pub braced: std::collections::HashSet<usize>,
+    pub translations: std::collections::HashMap<usize, [bool; 3]>,
     pub clamped: std::collections::HashSet<usize>,
     pub other_parts: bool,
 }
@@ -1025,7 +1025,15 @@ pub(crate) fn second_order(m: &ScreenModel, global: impl FnOnce() -> Option<f64>
         (Some(&a), Some(&c)) => norm(sub(c, a)),
         _ => f64::NAN,
     };
-    let braced = |chain: &[usize]| { let ends = chain_ends(m, chain); ends.len() == 2 && ends.iter().all(|n| m.braced.contains(n)) };
+    let braced = |chain: &[usize]| {
+        let ends = chain_ends(m, chain);
+        let [a, b] = ends.as_slice() else { return false };
+        let (Some(pa), Some(pb)) = (m.position.get(a), m.position.get(b)) else { return false };
+        let chord = sub(*pb, *pa);
+        ends.iter().all(|node| m.translations.get(node).is_some_and(|held| {
+            (0..3).all(|axis| held[axis] || (chord[axis] != 0.0 && (0..3).all(|j| j == axis || chord[j] == 0.0)))
+        }))
+    };
     let clamped = |chain: &[usize]| chain.iter().any(|&i| {
         let b = &m.bars[i];
         (0..2).any(|k| m.clamped.contains(&b.ends[k]) && !b.hinged[k])
@@ -1056,7 +1064,27 @@ pub(crate) fn second_order(m: &ScreenModel, global: impl FnOnce() -> Option<f64>
             unbound(&chain, n, &mut largest);
             continue;
         };
-        let ratio = n * k * k / euler(&chain);
+        let compression = if frame && k == 1.0 && chain.len() > 1 {
+            let ends = chain_ends(m, &chain);
+            let start = m.position[&ends[0]];
+            let span = norm(sub(m.position[&ends[1]], start));
+            let chord = sub(m.position[&ends[1]], start);
+            let straight = span.is_finite() && span > 0.0 && chain.iter().all(|&i| m.bars[i].ends.iter().all(|id| {
+                let delta = sub(m.position[id], start);
+                (0..3).all(|j| delta[j] * chord[(j+1)%3] == delta[(j+1)%3] * chord[j])
+                    && dot(delta, chord) >= 0.0 && dot(delta, chord) <= dot(chord, chord)
+            }));
+            if straight {
+                let cosine_weight = |t: f64| t + (std::f64::consts::TAU * t).sin() / std::f64::consts::TAU;
+                let first = chain.iter().map(|&i| {
+                    let bar = &m.bars[i];
+                    let [a, b] = bar.ends.map(|id| norm(sub(m.position[&id], start)) / span);
+                    bar.compression.max(0.0) * (cosine_weight(b) - cosine_weight(a)).abs()
+                }).sum::<f64>();
+                n.min(first + n / 4.0)
+            } else { n }
+        } else { n };
+        let ratio = compression * k * k / euler(&chain);
         let ids = chain.iter().map(|&i| m.bars[i].id);
         largest = if ratio.is_nan() { f64::INFINITY } else { largest.max(ratio) };
         if !(ratio <= SECOND_ORDER_RATIO) {
@@ -1153,6 +1181,11 @@ fn compression(n_start: f64, n_end: f64, span: Option<&f64>) -> f64 {
 
 /// [`second_order`] for a 2D result.
 pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisResults) -> (Vec<StructuredDiagnostic>, f64) {
+    let (findings, ratio, _) = second_order_2d_with_bound(input, loads, r);
+    (findings, ratio)
+}
+
+pub(crate) fn second_order_2d_with_bound(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisResults) -> (Vec<StructuredDiagnostic>, f64, Option<f64>) {
     let mut span: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
     for load in loads {
         let (id, total) = match load {
@@ -1163,7 +1196,74 @@ pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisRe
         *span.entry(id).or_default() += total;
     }
     let n: std::collections::HashMap<usize, f64> = r.element_forces.iter().map(|f| (f.element_id, compression(f.n_start, f.n_end, span.get(&f.element_id)))).collect();
-    second_order(&screen_model_2d(input, &n), || crate::solver::buckling::critical_factor_reciprocal_2d(input, loads, r))
+    let model = screen_model_2d(input, &n);
+    if !model.other_parts && n.values().any(|&force| force > 0.0) {
+        let mut incident = std::collections::BTreeMap::<usize, Vec<usize>>::new();
+        for bar in &model.bars {
+            let [i, j] = bar.ends;
+            incident.entry(i).or_default().push(j);
+            incident.entry(j).or_default().push(i);
+        }
+        let mut components = Vec::new();
+        while let Some((&first, _)) = incident.first_key_value() {
+            let mut nodes = std::collections::HashSet::new();
+            let mut stack = vec![first];
+            while let Some(id) = stack.pop() {
+                if let Some(neighbors) = incident.remove(&id) {
+                    nodes.insert(id);
+                    stack.extend(neighbors);
+                }
+            }
+            components.push(nodes);
+        }
+        if components.len() > 1 {
+            let (mut found, mut ratio, mut physical) = (Vec::new(), 0.0_f64, 0.0_f64);
+            for nodes in components {
+                let mut part = input.clone();
+                part.nodes.retain(|_, nd| nodes.contains(&nd.id));
+                part.supports.retain(|_, sp| nodes.contains(&sp.node_id));
+                part.elements.retain(|_, e| nodes.contains(&e.node_i));
+                let members: std::collections::HashSet<_> = part.elements.values().map(|e| e.id).collect();
+                let part_loads: Vec<_> = loads.iter().filter(|load| match load {
+                    SolverLoad::Nodal(p) => nodes.contains(&p.node_id),
+                    SolverLoad::Distributed(p) => members.contains(&p.element_id),
+                    SolverLoad::Thermal(p) => members.contains(&p.element_id),
+                    SolverLoad::PointOnElement(p) => members.contains(&p.element_id),
+                    SolverLoad::AxialDistributed(p) => members.contains(&p.element_id),
+                }).cloned().collect();
+                let mut response = r.clone();
+                response.displacements.retain(|d| nodes.contains(&d.node_id));
+                response.element_forces.retain(|f| members.contains(&f.element_id));
+                let (diagnostics, observed, upper) = second_order_component(&part, &part_loads, &response, &n, &screen_model_2d(&part, &n));
+                attach(&mut found, diagnostics);
+                ratio = ratio.max(observed);
+                physical = physical.max(upper.unwrap_or(observed));
+            }
+            return (found, ratio, (physical > ratio).then_some(physical));
+        }
+    }
+    second_order_component(input, loads, r, &n, &model)
+}
+
+fn second_order_component(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisResults, n: &std::collections::HashMap<usize, f64>, model: &ScreenModel) -> (Vec<StructuredDiagnostic>, f64, Option<f64>) {
+    let mut physical = None;
+    let mut global_needed = false;
+    let (mut found, ratio) = second_order(model, || {
+        global_needed = true;
+        let (estimate, upper) = crate::solver::buckling::critical_factor_reciprocal_2d(input, loads, r, n)?;
+        physical = upper;
+        Some(estimate)
+    });
+    let known_band = if found.iter().any(|d| d.phase.as_deref() == Some("LIN-SECOND-ORDER")) {
+        f64::INFINITY
+    } else if found.iter().any(|d| d.phase.as_deref() == Some("LIN-SECOND-ORDER-NEAR")) {
+        SECOND_ORDER_RATIO
+    } else { SECOND_ORDER_RATIO / SECOND_ORDER_NEAR_FACTOR };
+    if global_needed && physical.is_none_or(|upper| upper > known_band)
+        && !found.iter().any(|d| d.phase.as_deref() == Some("LIN-SECOND-ORDER-UNBOUNDED")) {
+        found.push(whole_frame("LIN-SECOND-ORDER-UNBOUNDED"));
+    }
+    (found, ratio, physical.filter(|&upper| upper > ratio))
 }
 
 fn screen_model_2d(input: &SolverInput, n: &std::collections::HashMap<usize, f64>) -> ScreenModel {
@@ -1177,7 +1277,10 @@ fn screen_model_2d(input: &SolverInput, n: &std::collections::HashMap<usize, f64
         bars,
         position: input.nodes.values().map(|n| (n.id, [n.x, 0.0, n.z])).collect(),
         supported: input.supports.values().map(|s| s.node_id).collect(),
-        braced: input.supports.values().filter(square).filter(|s| matches!(s.support_type.as_str(), "fixed" | "pinned")).map(|s| s.node_id).collect(),
+        translations: input.supports.values().filter(square).filter(|s| s.support_type != "inclinedRoller").map(|s| {
+            let [x, z, _] = crate::solver::support::support_dofs_2d(s).map(|d| d.restrained);
+            (s.node_id, [x, true, z])
+        }).collect(),
         clamped: input.supports.values().filter(square).filter(|s| s.support_type == "fixed").map(|s| s.node_id).collect(),
         other_parts: !input.constraints.is_empty() || !input.connectors.is_empty(),
     }
@@ -1211,7 +1314,9 @@ fn screen_model_3d(input: &SolverInput3D, n: &std::collections::HashMap<usize, f
         bars,
         position: input.nodes.values().map(|n| (n.id, [n.x, n.y, n.z])).collect(),
         supported: input.supports.values().map(|s| s.node_id).collect(),
-        braced: input.supports.values().filter(held).map(|s| s.node_id).collect(),
+        translations: input.supports.values().filter(|s| s.is_inclined != Some(true)).map(|s| {
+            (s.node_id, [s.rx && s.kx.is_none(), s.ry && s.ky.is_none(), s.rz && s.kz.is_none()])
+        }).collect(),
         clamped: input.supports.values().filter(held).filter(|s| s.rrx && s.rry && s.rrz && [s.krx, s.kry, s.krz].iter().all(Option::is_none)).map(|s| s.node_id).collect(),
         other_parts: !input.constraints.is_empty() || !input.connectors.is_empty() || !input.plates.is_empty() || !input.quads.is_empty()
             || !input.quad9s.is_empty() || !input.solid_shells.is_empty() || !input.curved_shells.is_empty() || !input.curved_beams.is_empty(),
@@ -1258,12 +1363,11 @@ fn rotary_inertia(m: &ScreenModel, curved: Vec<usize>, has_curved: bool) -> Vec<
         }).collect()
 }
 
-/// The polygon start–mid–end is shorter than the arc, so the length errs toward warning.
 fn deep_curved_beams(input: &SolverInput3D) -> Vec<usize> {
     let at = |id: usize| input.nodes.values().find(|n| n.id == id).map(|n| [n.x, n.y, n.z]);
     input.curved_beams.iter().enumerate().filter(|(_, c)| {
         let l = match (at(c.node_start), at(c.node_mid), at(c.node_end)) {
-            (Some(a), Some(b), Some(e)) => norm(sub(b, a)) + norm(sub(e, b)),
+            (Some(a), Some(b), Some(e)) => crate::element::curved_beam::arc_length(a, b, e),
             _ => f64::NAN,
         };
         let r = input.sections.values().find(|s| s.id == c.section_id).map_or(f64::NAN, |s| (s.iy.max(s.iz) / s.a).sqrt());

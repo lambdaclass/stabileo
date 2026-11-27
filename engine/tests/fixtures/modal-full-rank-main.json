@@ -160,6 +160,13 @@
       },
       "structuredDiagnostics": [
         {
+          "code": "known_issue",
+          "severity": "warning",
+          "message": "Omitting bending rotary inertia can overestimate bending frequencies. The member geometry alone does not bound the error for the modes used. Verify the dynamic response (known issue #370, NL-DYNAMIC-MODES)",
+          "phase": "NL-DYNAMIC-MODES",
+          "value": 370
+        },
+        {
           "code": "residual_ok",
           "severity": "info",
           "message": "PASS: self-check modal_residual:1: 0.000e0 (warning at 1.000e-6, refusal at 1.000e-3)",
@@ -511,6 +518,13 @@
         ]
       },
       "structuredDiagnostics": [
+        {
+          "code": "known_issue",
+          "severity": "warning",
+          "message": "Omitting bending rotary inertia can overestimate bending frequencies. The member geometry alone does not bound the error for the modes used. Verify the dynamic response (known issue #370, NL-DYNAMIC-MODES)",
+          "phase": "NL-DYNAMIC-MODES",
+          "value": 370
+        },
         {
           "code": "known_issue",
           "severity": "warning",

@@ -826,7 +826,8 @@ impl PreparedStatic2D<'_> {
         let summary = r.result_summary.get_or_insert_with(Default::default);
         summary.member_chords = Some(chords);
         summary.member_spans = Some(spans);
-        let (second, ratio) = crate::known_issues::second_order_2d(&self.input, loads, &r);
+        let (second, ratio, physical) = crate::known_issues::second_order_2d_with_bound(&self.input, loads, &r);
+        r.result_summary.get_or_insert_with(Default::default).second_order_physical_bound = physical;
         crate::known_issues::attach(&mut r.structured_diagnostics, second);
         r.result_summary.get_or_insert_with(Default::default).second_order_ratio = Some(ratio);
         crate::known_issues::refuse(&r.structured_diagnostics)?;
