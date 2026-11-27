@@ -141,10 +141,8 @@ jobs:
         if: steps.scope.outputs.research == 'true'
         run: |
           if [ ! -e route-main/web/scripts/italian-route-bytes.mjs ]; then
-            meter=scripts/check-research-route-size.mjs
-            mkdir -p route-main/web/.route-partition
-            cp "web/$meter" web/scripts/{italian-route-bytes,research-route-budget}.mjs route-main/web/.route-partition/
-            (cd route-main/web && nix develop ../.. -c node ".route-partition/${meter##*/}" --baseline "$RUNNER_TEMP/route-partition.json" --update)
+            meter="$GITHUB_WORKSPACE/web/scripts/check-research-route-size.mjs"
+            (cd route-main/web && nix develop ../.. -c node "$meter" --baseline "$RUNNER_TEMP/route-partition.json" --update)
             (cd web && nix develop .. -c node "$meter" --baseline "$RUNNER_TEMP/route-partition.json")
           fi
       - run: nix develop . -c node --test research/fracture/shauer-2025/wasm/check.test.mjs

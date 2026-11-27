@@ -43,7 +43,7 @@ it.each([
   ["generator.assume.latticeBasesPinnedNoOutOfPlane", "dai vincoli traslazionali alla base"],
   ["generator.webPattern.pratt", "carichi gravitazionali"],
   ["generator.webPattern.howe", "carichi gravitazionali"],
-  ["c301.d.uShearLag", "U = min({raw}, 0,9)"],
+  ["c301.d.uShearLag", "U = min(1 − x̄/L, 0,9)"],
   ["steel.grades.subtitle", "sola scelta della classe"],
   ["steel.e4.gap.warpingConstant", "la sezione selezionata non la dichiara"],
   ["steel.e4.notImplemented", "per questa selezione"],
@@ -182,10 +182,12 @@ it('uses Italian decimal commas for all three buckling coefficients and their co
   ]);
 });
 
-it.skip.each(['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh'] as const)(
+it.each(['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh'] as const)(
   'known wrong result: #2595 — %s shows both the raw and capped D.3.2 factor',
   locale => {
-    const template = allDictFor(locale)['c301.d.uShearLag'];
+    const dict = allDictFor(locale);
+    const template = dict['c301.d.uShearLag'];
+    expect(template.trim()).toBe(dict['steel.tc.calc.u']);
     for (const offset of [15, 10, 5]) {
       const length = 100;
       const raw = 1 - offset / length;

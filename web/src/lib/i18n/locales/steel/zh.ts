@@ -1,3 +1,4 @@
+import { shearLagTrace } from '../../../codes/cirsoc301/shear-lag-trace';
 import type { Translations } from '../../types';
 
 const steelZh: Translations = {
@@ -1202,7 +1203,7 @@ const steelZh: Translations = {
   "steel.tc.calc.connection": "连接：{what}",
   "steel.tc.calc.bolted": "螺栓连接，{lines} 排 × {n} 个 M{d} 螺栓，{hole} 孔，栓距 {pitch} mm，连接板件：{connected}",
   "steel.tc.calc.welded": "焊接，{weld} 焊缝，L = {L} mm，连接板件：{connected}",
-  "steel.tc.calc.u": "U = 1 − x̄/L = 1 − {xBar}/{L} = {raw} ≤ 0.9 → {U}  (D.3.2)",
+  "steel.tc.calc.u": shearLagTrace('.'),
   "steel.tc.calc.uFloor": "U ≥ A connected/Ag = {Aconn}/{Ag} = {U}  (D.3，开口截面)",
   "steel.tc.calc.weldNoHoles": "焊接连接无孔：An = Ag  (B.4.2.2)",
   "steel.tc.calc.plateTable": "板件沿两边焊接：L = {L} mm，w = {w} mm → U = {U}  (D.3(2)(d))",
@@ -1237,7 +1238,7 @@ const steelZh: Translations = {
   "c301.d.uGiven": "  U = {U}（给定）",
   "c301.d.allConnected": "  所有板件均连接：Ae = An  (D.3(1))",
   "c301.d.plateWeld": "  带纵向焊缝的板件：L = {L} mm，w = {w} mm → U = {U}  (D.3.5)",
-  "c301.d.uShearLag": "  U = 1 − x̄/L = 1 − {xBar}/{L} = {raw} ≤ 0.9 → {U}  (D.3.2)",
+  "c301.d.uShearLag": '  ' + shearLagTrace('.'),
   "c301.d.uFloor": "  U ≥ A connected/Ag = {U}  (D.3，开口截面)",
   "c301.d.aeBase": "  Ae = {base}·U  ({clause})",
   "c301.e.title": "§E — 受压：",

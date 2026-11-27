@@ -1,3 +1,4 @@
+import { shearLagTrace } from '../../../codes/cirsoc301/shear-lag-trace';
 /** O cálculo CIRSOC 301 que o motor emite (`cirsoc301_check.rs`), em português. Ver c301-es.ts. */
 const c301Pt: Record<string, string> = {
   'c301.text': '{text}',
@@ -14,7 +15,7 @@ const c301Pt: Record<string, string> = {
   'c301.d.uGiven': '  U = {U} (dado)',
   'c301.d.allConnected': '  Todos os elementos ligados: Ae = An  (D.3(1))',
   'c301.d.plateWeld': '  Chapa com soldas longitudinais: L = {L} mm, w = {w} mm → U = {U}  (D.3.5)',
-  'c301.d.uShearLag': '  U = 1 − x̄/L = 1 − {xBar}/{L} = {raw} ≤ 0,9 → {U}  (D.3.2)',
+  'c301.d.uShearLag': '  ' + shearLagTrace(','),
   'c301.d.uFloor': '  U ≥ A ligada/Ag = {U}  (D.3, seções abertas)',
   'c301.d.aeBase': '  Ae = {base}·U  ({clause})',
 

@@ -1,3 +1,4 @@
+import { shearLagTrace } from '../../../codes/cirsoc301/shear-lag-trace';
 import type { Translations } from '../../types';
 
 const steelIt: Translations = {
@@ -1202,7 +1203,7 @@ const steelIt: Translations = {
   "steel.tc.calc.connection": "Collegamento: {what}",
   "steel.tc.calc.bolted": "bullonato, {lines} file × {n} bulloni M{d}, fori {hole}, passo {pitch} mm, collegato tramite: {connected}",
   "steel.tc.calc.welded": "saldato, saldature {weld}, L = {L} mm, collegato tramite: {connected}",
-  "steel.tc.calc.u": "1 − x̄/L = 1 − {xBar}/{L} = {raw}. U = min(1 − x̄/L, 0,9) = {U}  (D.3.2)",
+  "steel.tc.calc.u": shearLagTrace(','),
   "steel.tc.calc.uFloor": "U ≥ A collegata/Ag = {Aconn}/{Ag} = {U}  (D.3, sezioni aperte)",
   "steel.tc.calc.weldNoHoles": "Nessun foro nel collegamento saldato: An = Ag  (B.4.2.2)",
   "steel.tc.calc.plateTable": "Piastra saldata lungo entrambi i bordi: L = {L} mm, w = {w} mm → U = {U}  (D.3(2)(d))",
@@ -1237,7 +1238,7 @@ const steelIt: Translations = {
   "c301.d.uGiven": "  U = {U} (dato)",
   "c301.d.allConnected": "  Ogni elemento collegato: Ae = An  (D.3(1))",
   "c301.d.plateWeld": "  Piastra con saldature longitudinali: L = {L} mm, w = {w} mm → U = {U}  (D.3.5)",
-  "c301.d.uShearLag": "  1 − x̄/L = 1 − {xBar}/{L} = {raw}. U = min({raw}, 0,9) = {U}  (D.3.2)",
+  "c301.d.uShearLag": '  ' + shearLagTrace(','),
   "c301.d.uFloor": "  U ≥ A collegata/Ag = {U}  (D.3, sezioni aperte)",
   "c301.d.aeBase": "  Ae = {base}·U  ({clause})",
   "c301.e.title": "§E — Compressione:",

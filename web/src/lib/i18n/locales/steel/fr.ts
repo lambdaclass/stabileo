@@ -1,3 +1,4 @@
+import { shearLagTrace } from '../../../codes/cirsoc301/shear-lag-trace';
 import type { Translations } from '../../types';
 
 const steelFr: Translations = {
@@ -1257,7 +1258,7 @@ const steelFr: Translations = {
   'steel.tc.calc.connection': 'Assemblage : {what}',
   'steel.tc.calc.bolted': 'boulonné, {lines} file(s) × {n} boulon(s) M{d}, trous {hole}, entraxe {pitch} mm, assemblé par : {connected}',
   'steel.tc.calc.welded': 'soudé, cordons {weld}, L = {L} mm, assemblé par : {connected}',
-  'steel.tc.calc.u': 'U = 1 − x̄/L = 1 − {xBar}/{L} = {raw} ≤ 0.9 → {U}  (D.3.2)',
+  'steel.tc.calc.u': shearLagTrace('.'),
   'steel.tc.calc.uFloor': 'U ≥ A assemblée/Ag = {Aconn}/{Ag} = {U}  (D.3, sections ouvertes)',
   'steel.tc.calc.weldNoHoles': 'Pas de trous dans l\'assemblage soudé : An = Ag  (B.4.2.2)',
   'steel.tc.calc.plateTable': 'Plat soudé le long des deux bords : L = {L} mm, w = {w} mm → U = {U}  (D.3(2)(d))',
@@ -1357,7 +1358,7 @@ const steelFr: Translations = {
   'c301.d.uGiven': '  U = {U} (donné)',
   'c301.d.allConnected': '  Tous les éléments assemblés : Ae = An  (D.3(1))',
   'c301.d.plateWeld': '  Plat avec cordons longitudinaux : L = {L} mm, w = {w} mm → U = {U}  (D.3.5)',
-  'c301.d.uShearLag': '  U = 1 − x̄/L = 1 − {xBar}/{L} = {raw} ≤ 0.9 → {U}  (D.3.2)',
+  'c301.d.uShearLag': '  ' + shearLagTrace('.'),
   'c301.d.uFloor': '  U ≥ A assemblée/Ag = {U}  (D.3, sections ouvertes)',
   'c301.d.aeBase': '  Ae = {base}·U  ({clause})',
   'c301.e.title': '§E — Compression :',

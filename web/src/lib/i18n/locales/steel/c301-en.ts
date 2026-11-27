@@ -1,3 +1,4 @@
+import { shearLagTrace } from '../../../codes/cirsoc301/shear-lag-trace';
 /** The CIRSOC 301 calculation the engine emits (`cirsoc301_check.rs`), in English. See c301-es.ts. */
 const c301En: Record<string, string> = {
   'c301.text': '{text}',
@@ -14,7 +15,7 @@ const c301En: Record<string, string> = {
   'c301.d.uGiven': '  U = {U} (given)',
   'c301.d.allConnected': '  Every element connected: Ae = An  (D.3(1))',
   'c301.d.plateWeld': '  Plate with longitudinal welds: L = {L} mm, w = {w} mm → U = {U}  (D.3.5)',
-  'c301.d.uShearLag': '  U = 1 − x̄/L = 1 − {xBar}/{L} = {raw} ≤ 0.9 → {U}  (D.3.2)',
+  'c301.d.uShearLag': '  ' + shearLagTrace('.'),
   'c301.d.uFloor': '  U ≥ A connected/Ag = {U}  (D.3, open sections)',
   'c301.d.aeBase': '  Ae = {base}·U  ({clause})',
 

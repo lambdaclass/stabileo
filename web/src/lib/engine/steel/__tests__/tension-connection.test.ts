@@ -30,7 +30,7 @@ const IPE200: TensionSectionInput = { shape: 'I', h: 0.2, b: 0.1, tw: 0.0056, tf
 describe('single angle bolted on one leg — D.3(2)(a), B.4.2.2', () => {
   // 1 line of 4 × M20, standard holes, pitch 70 mm, leg h connected.
   const end: EndConnection = { kind: 'bolted', connected: 'legH', diameterMm: 20, holeKind: 'standard', boltsPerLine: 4, lines: 1, pitchMm: 70 };
-  it.skip('known wrong result: #2595 — the connection trace separates raw shear lag from its cap', () => {
+  it('known wrong result: #2595 — the connection trace separates raw shear lag from its cap', () => {
     const r = ok(endNetArea(L100, { ...end, pitchMm: 200 }));
     const raw = 1 - r.xBar! / r.L!;
     expect(raw).toBeGreaterThan(0.9);

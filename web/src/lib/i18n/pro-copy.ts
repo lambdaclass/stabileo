@@ -22,7 +22,7 @@ const DESIGN_OR_AI: Record<CopyLocale, RegExp> = {
   fr: /dimensionnement|ferraillage|armature|\bIA\b/i,
   tr: /tasarım|donatı|yapay zek|\bYZ\b/i,
   hu: /[Mm]éretez|[Vv]asal|[Rr]észletez|[Mm]esterséges intelligenci|\b(MI|AI)\b/,
-  it: /dimensionament|progettazione|progetto (?:secondo norma|normativo)|armatur|intelligenza artificiale|\bIA\b|\b(?:modulo|assistente|funzion[ei]|strument[oi]) AI(?=\s*(?:[.,;:!?]|$)|\s+(?:è|sono|in beta)\b)/i,
+  it: /dimensionament|progettazione|progetto (?:secondo norma|normativo)|armatur|intelligenza artificiale|\bIA\b|\b(?:modulo|assistente|funzion[ei]|strument[oi]) AI(?=\s*(?:[.,;:!?]|$)|\s+(?:è|sono|in beta)(?=\s|[.,;:!?]|$))/i,
   zh: /设计|配筋|详图|人工智能|\bAI\b/,
 };
 

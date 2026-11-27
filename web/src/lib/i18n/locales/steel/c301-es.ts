@@ -1,3 +1,4 @@
+import { shearLagTrace } from '../../../codes/cirsoc301/shear-lag-trace';
 /**
  * El cálculo CIRSOC 301 que emite el motor (`engine/src/postprocess/cirsoc301_check.rs`), en
  * castellano. Cada clave es un paso `{ key, params }`; los números llegan crudos y se formatean
@@ -19,7 +20,7 @@ const c301Es: Record<string, string> = {
   'c301.d.uGiven': '  U = {U} (dado)',
   'c301.d.allConnected': '  Todos los elementos unidos: Ae = An  (D.3(1))',
   'c301.d.plateWeld': '  Chapa con cordones longitudinales: L = {L} mm, w = {w} mm → U = {U}  (D.3.5)',
-  'c301.d.uShearLag': '  U = 1 − x̄/L = 1 − {xBar}/{L} = {raw} ≤ 0,9 → {U}  (D.3.2)',
+  'c301.d.uShearLag': '  ' + shearLagTrace(','),
   'c301.d.uFloor': '  U ≥ A unida/Ag = {U}  (D.3, secciones abiertas)',
   'c301.d.aeBase': '  Ae = {base}·U  ({clause})',
 

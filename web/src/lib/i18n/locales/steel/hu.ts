@@ -1,3 +1,4 @@
+import { shearLagTrace } from '../../../codes/cirsoc301/shear-lag-trace';
 import type { Translations } from '../../types';
 
 const steelHu: Translations = {
@@ -1202,7 +1203,7 @@ const steelHu: Translations = {
   "steel.tc.calc.connection": "Kapcsolat: {what}",
   "steel.tc.calc.bolted": "csavarozott, {lines} sor × {n} db M{d} csavar, {hole} furatok, osztás {pitch} mm, ezen keresztül kapcsolt: {connected}",
   "steel.tc.calc.welded": "hegesztett, {weld} varratok, L = {L} mm, ezen keresztül kapcsolt: {connected}",
-  "steel.tc.calc.u": "U = 1 − x̄/L = 1 − {xBar}/{L} = {raw} ≤ 0,9 → {U}  (D.3.2)",
+  "steel.tc.calc.u": shearLagTrace(','),
   "steel.tc.calc.uFloor": "U ≥ A kapcsolt/Ag = {Aconn}/{Ag} = {U}  (D.3, nyitott keresztmetszetek)",
   "steel.tc.calc.weldNoHoles": "A hegesztett kapcsolatban nincsenek furatok: An = Ag  (B.4.2.2)",
   "steel.tc.calc.plateTable": "Mindkét szélén hegesztett lemez: L = {L} mm, w = {w} mm → U = {U}  (D.3(2)(d))",
@@ -1302,7 +1303,7 @@ const steelHu: Translations = {
   "c301.d.uGiven": "  U = {U} (megadva)",
   "c301.d.allConnected": "  Minden elem kapcsolt: Ae = An  (D.3(1))",
   "c301.d.plateWeld": "  Hosszirányú varratokkal hegesztett lemez: L = {L} mm, w = {w} mm → U = {U}  (D.3.5)",
-  "c301.d.uShearLag": "  U = 1 − x̄/L = 1 − {xBar}/{L} = {raw} ≤ 0,9 → {U}  (D.3.2)",
+  "c301.d.uShearLag": '  ' + shearLagTrace(','),
   "c301.d.uFloor": "  U ≥ A kapcsolt/Ag = {U}  (D.3, nyitott keresztmetszetek)",
   "c301.d.aeBase": "  Ae = {base}·U  ({clause})",
   "c301.e.title": "§E — Nyomás:",
