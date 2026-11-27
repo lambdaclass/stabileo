@@ -9,3 +9,5 @@ Regenerating curved wind pressure also restores the local moment checks used for
 Declared plates must meet at shared edge nodes in both profiles. Member splits refuse a positive load overlap below the existing geometry limit.
 
 Production drawing again preserves the flat quadrilateral formulation unless curved is explicitly selected.
+
+The published shell panel again counts triangles and quads separately, shows each plate's mesh status and explains how shared nodes transfer load to supporting members. Its mesh display starts on.

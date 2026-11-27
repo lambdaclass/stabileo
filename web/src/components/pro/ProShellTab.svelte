@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { unifiedPlates } from '../../lib/features';
   import { modelStore, uiStore } from '../../lib/store';
   import { disconnectedShellCount } from '../../lib/store/plate-diagnostics';
   import ProMesher from './ProMesher.svelte';
@@ -14,6 +13,7 @@
   import { platesFromShells } from '../../lib/store/plates-from-shells';
   import PlatePanel from './plates/PlatePanel.svelte';
   import PlateBrowser from './plates/PlateBrowser.svelte';
+  import PlateList from './plates/PlateList.svelte';
   import WriteInPanelButton from './WriteInPanelButton.svelte';
   import WriteCard from './WriteCard.svelte';
   import Icon from '../ribbon/Icon.svelte';
@@ -112,6 +112,8 @@
    * nothing says so, and whether four points are coplanar is arithmetic
    * rather than a matter of opinion.
    */
+  let showMeshGen = $state(false);
+  let showShellInfo = $state(true);
   let newCurved = $state(false);
   const newOutOfPlane = $derived(quadOutOfPlane(newGiven.map(Number)));
 
@@ -213,7 +215,11 @@
     boxes hold.
   -->
   <div class="pro-shells-header">
-    <span class="pro-shells-count" data-testid="plates-count">{tp('plates.header', { plates: physicalCount, elements: quadCount + plateCount })}</span>
+    {#if __PUBLIC_FEATURES__.proPlatesUnified}
+      <span class="pro-shells-count" data-testid="plates-count">{tp('plates.header', { plates: physicalCount, elements: quadCount + plateCount })}</span>
+    {:else}
+      <span class="pro-shells-count">{tp('pro.nPlatesQuads', { plates: plateCount, quads: quadCount })}</span>
+    {/if}
     <span class="pro-shells-actions">
     <button
       class="dim-like"
@@ -246,7 +252,7 @@
           <button type="button" class:on={!circle && drawState.plateCorners === 'outline'} aria-pressed={!circle && drawState.plateCorners === 'outline'} onclick={() => cornersAs('outline')} title={t('drawBar.outlineHint')} data-testid="write-corners-outline">{t('drawBar.outline')}</button>
           <button type="button" class:on={!circle && drawState.plateCorners === 3} aria-pressed={!circle && drawState.plateCorners === 3} onclick={() => cornersAs(3)} data-testid="write-corners-3">{t('drawBar.triangle')}</button>
           <button type="button" class:on={!circle && drawState.plateCorners === 4} aria-pressed={!circle && drawState.plateCorners === 4} onclick={() => cornersAs(4)} data-testid="write-corners-4">{t('drawBar.quad')}</button>
-          {#if unifiedPlates()}<button type="button" class:on={circle} aria-pressed={circle} onclick={() => (circle = true)} data-testid="write-corners-circle">{t('drawBar.circle')}</button>{/if}
+          {#if __PUBLIC_FEATURES__.proPlatesUnified}<button type="button" class:on={circle} aria-pressed={circle} onclick={() => (circle = true)} data-testid="write-corners-circle">{t('drawBar.circle')}</button>{/if}
         </div>
         {#if circle}
           <label>{t('plates.circle.center')} <input type="text" class="node-input outline-input" placeholder="x; y; z" bind:value={circleCenter} data-testid="plate-circle-center" /></label>
@@ -317,22 +323,43 @@
       </WriteCard>
     {/if}
 
-    {#if unifiedPlates()}
+    {#if __PUBLIC_FEATURES__.proPlatesUnified}
       <div class="pro-shells-scope" role="radiogroup" aria-label={t('plates.pickScope')} data-testid="plates-scope">
       <button role="radio" aria-checked={uiStore.shellPickScope === 'plate'} class:on={uiStore.shellPickScope === 'plate'} onclick={() => toScope('plate')} data-testid="plates-scope-plate">{tp('plates.scopePlates', { n: physicalCount })}</button>
       <button role="radio" aria-checked={uiStore.shellPickScope === 'element'} class:on={uiStore.shellPickScope === 'element'} onclick={() => toScope('element')} data-testid="plates-scope-element">{tp('plates.scopeElements', { n: quadCount + plateCount })}</button>
       </div>
     {:else}
-      <PlateBrowser />
       <PlatePanel />
-      <details>
-        <summary>{t('pro.meshGenerator')}</summary>
-        <ProMesher />
-        <ProSurfaces />
-      </details>
+      <PlateList />
+      <div class="section">
+        <button class="section-toggle" onclick={() => showMeshGen = !showMeshGen}>
+          <span class="toggle-arrow">{showMeshGen ? '\u25BE' : '\u25B8'}</span>
+          {t('pro.meshGenerator')}
+        </button>
+        {#if showMeshGen}
+          <div class="section-body">
+            <ProMesher />
+            <div class="mesh-hint" style="margin-top: 8px; font-weight: 600;">{t('surface.title')}</div>
+            <ProSurfaces />
+            <div class="shell-info">
+              <button class="shell-info-toggle" onclick={() => showShellInfo = !showShellInfo}>
+                <span>{showShellInfo ? '▾' : '▸'}</span> {t('pro.shellInfoTitle')}
+              </button>
+              {#if showShellInfo}
+                <div class="shell-info-body">
+                  <p>{t('pro.shellInfoTransfer')}</p>
+                  <p>{t('pro.shellInfoMesh')}</p>
+                  <p>{t('pro.shellInfoSplit')}</p>
+                  <p>{t('pro.shellInfoSlab')}</p>
+                </div>
+              {/if}
+            </div>
+          </div>
+        {/if}
+      </div>
     {/if}
 
-    {#if unifiedPlates() && uiStore.shellPickScope === 'plate'}
+    {#if __PUBLIC_FEATURES__.proPlatesUnified && uiStore.shellPickScope === 'plate'}
       <PlateBrowser />
       <PlatePanel />
     {:else}
@@ -578,6 +605,18 @@
   }
   .curved-check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
   .curved-check input { cursor: pointer; }
+  .shell-info {
+    margin: 6px 8px 10px;
+    border: 1px solid var(--st-surface-3);
+    border-radius: 4px;
+    background: rgba(20, 40, 60, 0.4);
+  }
+  .shell-info-toggle {
+    width: 100%; text-align: left; background: none; border:  1px solid var(--st-hair); cursor: pointer;
+    color: var(--st-text-2); font-size: 0.72rem; font-weight: 600; padding: 7px 9px;
+  }
+  .shell-info-body { padding: 0 10px 8px; }
+  .shell-info-body p { margin: 4px 0; font-size: 0.68rem; line-height: 1.4; color: var(--st-text-2); }
   .shell-warn {
     margin: 0 8px 8px; padding: 6px 9px; border-radius: 4px;
     background: rgba(120, 80, 0, 0.25); border: 1px solid var(--st-warn);

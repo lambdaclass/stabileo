@@ -32,17 +32,25 @@ it('counts raw shells with unattached corners in the published shell panel', () 
   check(0);
 });
 
-it.skip('known wrong result: the published panel obscures the raw shell inventory and the mesh transfer explanation', () => {
+it('shows the published raw shell inventory, plate status and mesh display default', () => {
   modelStore.clear();
   const ids = [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x,y]) => modelStore.addNode(x!, y!, 0)) as [number, number, number, number];
   const plate = createPlate({ outline: ids, thickness: 0.15, materialId: 1 });
   if ('problem' in plate) throw Error(plate.problem);
+  const above = ids.map(n => {
+    const p = modelStore.nodes.get(n)!;
+    return modelStore.addNode(p.x, p.y, 3);
+  });
+  const upper = createPlate({ outline: above, thickness: 0.15, materialId: 1 });
+  if ('problem' in upper) throw Error(upper.problem);
+  uiStore.shellPickScope = 'plate';
   modelStore.addQuad(ids, 1, 0.15);
   modelStore.addPlate([ids[0], ids[1], ids[2]], 1, 0.15);
   const html = render(ProShellTab).body;
   const unified = Boolean(__PUBLIC_FEATURES__.proPlatesUnified);
   expect(html.includes(t('pro.nPlatesQuads').replace('{plates}', '1').replace('{quads}', '1'))).toBe(!unified);
-  expect(html.includes(t('plates.status.unmeshed'))).toBe(!unified);
+  const status = html.match(/<span class="chip chip-unmeshed[^"]*">([^<]*)<\/span>/)?.[1];
+  expect(status).toBe(unified ? undefined : t('plates.status.unmeshed'));
   expect(html.includes('data-testid="plate-filter-level"')).toBe(unified);
   expect(uiStore.platesShowMesh).toBe(unified ? null : true);
 });

@@ -972,7 +972,7 @@ function createUIStore() {
       selectedElements = new Set(ids);
       setShells(new Set());
     },
-    get platesShowMesh() { return platesShowMesh; },
+    get platesShowMesh() { return unifiedPlates() ? platesShowMesh : platesShowMesh ?? true; },
     set platesShowMesh(v: boolean | null) { platesShowMesh = v; },
     set shellPickScope(v: 'plate' | 'element') { shellPickScope = v; },
     /** How the store finds a plate's shells; set once by `physical-plates.ts`. */
