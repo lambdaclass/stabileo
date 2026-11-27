@@ -1,7 +1,7 @@
 <script lang="ts">
   import { plainNumber } from '../../lib/utils/units';
   import { readAlpha, alphaField } from '../../lib/material/custom-material';
-  import { thermalAlphaOf } from '../../lib/engine/thermal-alpha';
+  import { thermalAlphaForDisplay } from '../../lib/engine/thermal-alpha';
   /**
    * The PRO materials tab: the list of materials, and one way to add to it.
    *
@@ -265,7 +265,7 @@
                   data-testid={`mat-alpha-${m.id}`}
                   aria-label={t('materials.alpha')}
                   value={alphaField(m.alpha)}
-                  placeholder={String(+(thermalAlphaOf(m) * 1e6).toFixed(2))}
+                  placeholder={String(+(thermalAlphaForDisplay(m) * 1e6).toFixed(2))}
                   onchange={(e) => setAlpha(m.id, e.currentTarget.value)}
                 />
               </td>

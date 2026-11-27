@@ -56,7 +56,7 @@ import { expandShellOffsets, modelHasShellOffsets } from './shell-offsets';
 import { enrichComboShellStresses, envelopeShellStresses } from './shell-combos';
 import { axialShares, combineShares, giveBackAxialShares } from './axial-shares';
 import { addSettlementCase, addSettlementCase2D, hasSettlement, withoutSettlement, SETTLEMENT_CASE_ID } from './settlement-case';
-import { memberAlphaOf, ENGINE_ALPHA } from './thermal-alpha';
+import { thermalAlphaOf, ENGINE_ALPHA } from './thermal-alpha';
 import { isVehicleAxle, vehiclePositionCaseIds } from './vehicles';
 import { localPointForce, memberPointForceRow3D, pointGlobal, pointToSolver, pointToEnds, PointLoadNeedsCut, planePointLoad3D, pointWithCoupleToEnds, planarMoment3D, planarPointOrigin, requirePlanarNodalMoment, requirePlanarPointMoment, PlanarLoadMomentError, type PlanePointLoadLike } from './member-point-loads';
 import { ModelInputError, modelInputRefusal, requireCombinationInput, requireLoadInput, requireModelInput } from './model-input-numbers';
@@ -86,7 +86,7 @@ import type {
  */
 function thermalAlphaOfElement(model: { elements: Map<number, { materialId: number }>; materials: Map<number, Material> }, elementId: number): number | undefined {
   const e = model.elements.get(elementId);
-  return memberAlphaOf(e ? model.materials.get(e.materialId) : undefined);
+  return thermalAlphaOf(e ? model.materials.get(e.materialId) : undefined);
 }
 
 /**
@@ -1789,7 +1789,7 @@ export function buildSolverLoads3D(
       const tq = l.data as ThermalLoadQuad3D;
       const quad = tq.on === 'plate' ? model.plates?.get(tq.quadId) : model.quads?.get(tq.quadId);
       const curved = tq.on !== 'plate' && !!model.quads?.get(tq.quadId)?.curved;
-      emit(...convertThermalQuadLoad(tq, memberAlphaOf(quad ? model.materials.get(quad.materialId) : undefined), curved));
+      emit(...convertThermalQuadLoad(tq, thermalAlphaOf(quad ? model.materials.get(quad.materialId) : undefined), curved));
     }
   }
 

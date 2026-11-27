@@ -13,7 +13,7 @@
  * is the declared grade's, or else read from E, in bands no two families share: concrete
  * 15–50 GPa, aluminium 60–80 GPa, steel 180–220 GPa. Not from fy, which cannot tell timber
  * from concrete or aluminium from steel. Anything else — timber and masonry among them, whose
- * moduli overlap — has no α the app knows (`memberAlphaOf` is undefined): the load goes without
+ * moduli overlap — has no α the app knows (`thermalAlphaOf` is undefined): the load goes without
  * one, the engine keeps its default and says so, until the material states one.
  */
 import type { StructuralMaterialFamily } from './steel/material-family';
@@ -47,15 +47,15 @@ export function thermalFamilyOf(material: AlphaReadableMaterial | undefined | nu
 }
 
 /** The α a material is solved with, 1/°C. */
-export function thermalAlphaOf(material: AlphaReadableMaterial | undefined | null): number {
-  return memberAlphaOf(material) ?? ENGINE_ALPHA;
+export function thermalAlphaForDisplay(material: AlphaReadableMaterial | undefined | null): number {
+  return thermalAlphaOf(material) ?? ENGINE_ALPHA;
 }
 
 /**
  * The α a member's thermal load is sent with: the material's own, or its family's when the
  * family is known; undefined when neither is (the engine then keeps its default and warns).
  */
-export function memberAlphaOf(material: AlphaReadableMaterial | undefined | null): number | undefined {
+export function thermalAlphaOf(material: AlphaReadableMaterial | undefined | null): number | undefined {
   if (material?.alpha != null) return material.alpha;
   const family = thermalFamilyOf(material);
   return family === 'unknown' ? undefined : FAMILY_ALPHA[family];

@@ -4,7 +4,7 @@
   import { t } from '../../lib/i18n';
   import QuantityInput from '../pro/loads/QuantityInput.svelte';
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
-  import { thermalAlphaOf } from '../../lib/engine/thermal-alpha';
+  import { thermalAlphaForDisplay } from '../../lib/engine/thermal-alpha';
   import {
     readCustomMaterial, customMaterialForm, saveCustomMaterial, type CustomMaterialForm,
   } from '../../lib/material/custom-material';
@@ -30,7 +30,7 @@
     rho: badRho !== null ? null : form.rho,
     fy: badFy !== null ? -1 : form.fy,
   }, stored));
-  const familyAlpha = $derived(String(+(thermalAlphaOf({ e: form.e ?? undefined, gradeId: stored?.gradeId }) * 1e6).toPrecision(3)));
+  const familyAlpha = $derived(String(+(thermalAlphaForDisplay({ e: form.e ?? undefined, gradeId: stored?.gradeId }) * 1e6).toPrecision(3)));
   const extraSummary = $derived(
     `fy ${form.fy !== null ? `${fmtQ(form.fy, 'stress')} ${unitQ('stress')}` : '—'} · α ${form.alpha.trim() || familyAlpha}·10⁻⁶/°C`,
   );

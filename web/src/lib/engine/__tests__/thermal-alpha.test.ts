@@ -6,7 +6,7 @@ import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';
 import '../../store/index';
 import { initSolver } from '../wasm-solver';
-import { thermalAlphaOf, thermalFamilyOf, ENGINE_ALPHA } from '../thermal-alpha';
+import { thermalAlphaOf, thermalAlphaForDisplay, thermalFamilyOf, ENGINE_ALPHA } from '../thermal-alpha';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => { uiStore.analysisMode = 'pro'; });
@@ -35,7 +35,8 @@ describe('the thermal expansion coefficient', () => {
     expect(thermalFamilyOf({ e: 200_000 })).toBe('steel');
     expect(thermalFamilyOf({ e: 70_000 })).toBe('aluminium');
     expect(thermalFamilyOf({ e: 11_000 })).toBe('unknown');   // timber or masonry: not told apart
-    expect(thermalAlphaOf({ e: 11_000 })).toBe(ENGINE_ALPHA);
+    expect(thermalAlphaForDisplay({ e: 11_000 })).toBe(ENGINE_ALPHA);
+    expect(thermalAlphaOf({ e: 11_000 })).toBeUndefined();
     expect(thermalAlphaOf({ e: 11_000, alpha: 5e-6 })).toBe(5e-6);
   });
 
