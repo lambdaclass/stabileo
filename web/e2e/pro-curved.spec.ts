@@ -85,6 +85,36 @@ test.describe('@smoke PRO — curved geometry', () => {
       await expect(page.getByTestId('quad-curved-hint')).toHaveCount(0);
     });
   } else {
+    test.skip('known wrong result: a warped quad warns before a flat solve and preserves an explicit curved choice', async ({ pro: page }) => {
+      await page.getByTestId('pr-stage-model').click();
+      await page.getByTestId('pr-cmd-nodes').click();
+      await page.getByTestId('write-node').click();
+      for (const [x, y, z] of [[0, 0, 0], [4, 0, 0], [4, 3, 0.2], [0, 3, 0], [4, 3, 0]] as const) {
+        await page.getByTestId('write-node-x').fill(String(x));
+        await page.getByTestId('write-node-y').fill(String(y));
+        await page.getByTestId('write-node-z').fill(String(z));
+        await page.getByTestId('write-node-card-submit').click();
+      }
+      await expect.poll(() => page.evaluate(() => window.__stabileo.nodeCount())).toBe(5);
+      await page.getByTestId('pr-cmd-shells').click();
+      await page.getByTestId('write-plate').click();
+      await page.getByTestId('write-corners-4').click();
+      for (let i = 0; i < 4; i++) await page.getByTestId(`shell-node-${i}`).fill(String(i + 1));
+      const hint = page.getByTestId('quad-curved-hint');
+      await expect(hint).toBeVisible();
+      await page.getByTestId('shell-node-2').fill('5');
+      await expect(hint).toHaveCount(0);
+      await page.getByTestId('shell-node-2').fill('3');
+      await page.getByTestId('quad-curved').check();
+      await expect(hint).toHaveCount(0);
+      await page.getByTestId('write-plate-card-submit').click();
+      const quad = await page.evaluate(() => JSON.parse(window.__stabileo.serializeProject()).snapshot.quads[0][1]);
+      expect(quad.curved).toBe(true);
+      for (let i = 0; i < 4; i++) await page.getByTestId(`shell-node-${i}`).fill(String(i + 1));
+      await expect(page.getByTestId('quad-curved')).not.toBeChecked();
+      await expect(hint).toBeVisible();
+    });
+
     test('the curved option appears once there are four corners to curve', async ({ pro: page }) => {
       /* Three points are coplanar by definition, so a triangle is never a
          cáscara — the control is offered where it can mean something. */
