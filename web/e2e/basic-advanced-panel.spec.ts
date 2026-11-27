@@ -88,17 +88,26 @@ for (const [label, viewport] of [['390×844', { width: 390, height: 844 }], ['36
 for (const solved of ['2d', '3d'] as const) {
   test(`@smoke section picking requires results in the active workspace after a ${solved} solve`, async ({ page }) => {
     await boot(page);
-    await page.evaluate(async mode => {
-      await window.__stabileoActions.loadExample(mode === '2d' ? 'portal-frame' : '3d-portal-frame');
-      await window.__stabileoActions.solve();
-    }, solved);
-    await expect.poll(() => page.evaluate(() => window.__stabileo.hasDrawnResults())).toBe(true);
-    await page.evaluate(mode => window.__stabileoActions.showWorkspace(mode), solved === '2d' ? '3d' : '2d');
-    await expect.poll(() => page.evaluate(() => window.__stabileo.hasDrawnResults())).toBe(false);
+    const other = solved === '2d' ? '3d' : '2d';
+    await page.evaluate(mode => window.__stabileoActions.loadExample(mode === '2d' ? 'portal-frame' : '3d-portal-frame'), solved);
+    await page.evaluate(mode => window.__stabileoActions.showWorkspace(mode), other);
+    await openAdvancedList(page);
+    await page.evaluate(([source, active]) => {
+      window.__stabileoActions.showWorkspace(source);
+      window.__stabileoActions.solveOnMainThread();
+      window.__stabileoActions.showWorkspace(active);
+    }, [solved, other] as const);
+    const slots = () => page.evaluate(mode => ({
+      active: window.__stabileo.hasDrawnResults(),
+      other: mode === '2d' ? window.__stabileo.verticalReaction2D() : window.__stabileo.verticalReaction3D(),
+    }), solved);
+    await expect.poll(slots).toEqual({ active: false, other: expect.any(Number) });
     await openAdvancedFunction(page, 'stress');
     await expect(page.getByTestId('adv-launcher')).toBeVisible();
     await expect(page.getByTestId('adv-running')).toHaveCount(0);
+    expect(await slots()).toEqual({ active: false, other: expect.any(Number) });
     await page.evaluate(mode => window.__stabileoActions.showWorkspace(mode), solved);
+    await page.evaluate(() => window.__stabileoActions.solve());
     await expect.poll(() => page.evaluate(() => window.__stabileo.hasDrawnResults())).toBe(true);
     await openAdvancedFunction(page, 'stress');
     await expect(page.getByTestId('adv-running')).toHaveAttribute('data-adv', 'stress');

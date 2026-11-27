@@ -98,6 +98,8 @@ export interface TestHooks {
   nodeScreenPos(id: number): { x: number; y: number } | null;
   diagramMembers(): number;
   hasDrawnResults(): boolean;
+  verticalReaction2D(): number | null;
+  verticalReaction3D(): number | null;
   screenFrame(): { drawn: boolean; held: boolean; diagram: string; maxMoment: number | null };
   freshMaxMoment(): number | null;
   designRunId(): string | null;
@@ -186,6 +188,7 @@ export interface TestActions {
   /** Open a project from its `.ded` JSON, as File → Open does. False when refused. */
   loadProject(file: Record<string, unknown>): boolean;
   solve(): Promise<void>;
+  solveOnMainThread(): string | null;
   openDesignTab(): void;
   computeDemands(): unknown;
   codeCheck(): unknown;
