@@ -41,15 +41,15 @@ def relative(computed, reference):
 
 def max_relative(a, b, path='$'):
     if isinstance(a, dict):
-        if not (a.keys() == b.keys()):
+        if a.keys() != b.keys():
             raise ValueError(path)
         return max([max_relative(a[k], b[k], f'{path}.{k}') for k in a] or [0.0])
     if isinstance(a, list):
-        if not (len(a) == len(b)):
+        if len(a) != len(b):
             raise ValueError(path)
         return max([max_relative(x, y, f'{path}[{i}]') for i, (x, y) in enumerate(zip(a, b))] or [0.0])
     if isinstance(a, bool) or not isinstance(a, (int, float)):
-        if not (a == b):
+        if a != b:
             raise ValueError((path, a, b))
         return 0.0
     return abs(a - b) / max(abs(a), abs(b), 1.0)
@@ -77,9 +77,9 @@ def evidence(fresh):
     published = load(HERE / 'reference-results/limit-load.json')
     reference = {'loadFactor': case['reference'], **case['crownReference']}
     tolerance = {'loadFactor': case['relativeTolerance'], **case['crownRelativeTolerance']}
-    if not (published['normalizedLimitLoad'] == reference['loadFactor']):
+    if published['normalizedLimitLoad'] != reference['loadFactor']:
         raise ValueError("Invalid benchmark data: published['normalizedLimitLoad'] == reference['loadFactor']")
-    if not (published['crownAtLimitPoint'] == case['crownReference']):
+    if published['crownAtLimitPoint'] != case['crownReference']:
         raise ValueError("Invalid benchmark data: published['crownAtLimitPoint'] == case['crownReference']")
     limit = fresh['limitPoint']
     computed = {'loadFactor': limit['loadFactor'], **limit['crown']}
@@ -99,7 +99,7 @@ def evidence(fresh):
                    'observed': loads[-1] / peak, 'tolerance': 0.95, 'passed': loads[-1] / peak <= 0.95})
     meshes = fresh['convergence']['meshes']
     safety = fresh['convergence']['gciSafetyFactor']
-    if not ([m['elements'] for m in meshes] == [20, 40, 80]):
+    if [m['elements'] for m in meshes] != [20, 40, 80]:
         raise ValueError("Invalid benchmark data: [m['elements'] for m in meshes] == [20, 40, 80]")
     for row_id, key, name in QUANTITIES:
         q20, q40, q80 = (m[key] for m in meshes)
@@ -199,16 +199,16 @@ def main(mode, export):
         (HERE / 'reference-results/published_comparison.json').write_text(comparison_text)
         (HERE / 'reference-results/MANIFEST.json').write_text(dump(manifest(files)))
     else:
-        if not (all(recorded.get(key) == value for key, value in metadata.items())):
+        if any(recorded.get(key) != value for key, value in metadata.items()):
             raise ValueError('replay manifest is stale')
         committed = {name: (HERE / 'reference-results' / name).read_text() for name in files}
         stale = differences(load(HERE / 'VALIDATION.json'), validation)
-        if not (not stale):
+        if stale:
             raise ValueError('VALIDATION.json is not what the fresh run gives: ' + '; '.join(stale[:5]))
         stale = differences(json.loads(committed['published_comparison.json']), comparison)
-        if not (not stale):
+        if stale:
             raise ValueError('published_comparison.json is stale: ' + '; '.join(stale[:5]))
-        if not (load(HERE / 'reference-results/MANIFEST.json') == manifest(committed)):
+        if load(HERE / 'reference-results/MANIFEST.json') != manifest(committed):
             raise ValueError('MANIFEST.json hashes are stale')
     print(json.dumps({'mode': mode, 'checks': len(validation['checks']), 'comparisonRows': len(comparison['checks']), 'failed': failed}))
 

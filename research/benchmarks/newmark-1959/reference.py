@@ -14,7 +14,7 @@ stiffness, mass = 1000 * e * area / length, density * area * length / 3 / 1000
 if not (math.isclose(stiffness, ref['stiffness'], rel_tol=1e-12) and math.isclose(mass, ref['mass'], rel_tol=1e-12)):
     raise ValueError("Invalid benchmark data: math.isclose(stiffness, ref['stiffness'], rel_tol=1e-12) and math.isclose(mass, ref['mass'], rel_tol=1e-12)")
 omega = math.sqrt(stiffness / mass)
-if not (math.isclose(omega, ref['omega'], rel_tol=1e-12)):
+if not math.isclose(omega, ref['omega'], rel_tol=1e-12):
     raise ValueError("Invalid benchmark data: math.isclose(omega, ref['omega'], rel_tol=1e-12)")
 period, amplitude = 2 * math.pi / omega, ref['force'] / stiffness
 runs = []
@@ -35,16 +35,16 @@ if sys.argv[1:] == ['--write']:
     (here / 'reference-results' / 'MANIFEST.json').write_text(json.dumps(manifest, indent=2) + '\n')
 committed = target.read_text()
 manifest = json.loads((here / 'reference-results' / 'MANIFEST.json').read_text())
-if not (manifest['files_sha256'] == {'closed-form.json': hashlib.sha256(committed.encode()).hexdigest()}):
+if manifest['files_sha256'] != {'closed-form.json': hashlib.sha256(committed.encode()).hexdigest()}:
     raise ValueError('MANIFEST.json hashes are stale: rerun with --write')
 stored = json.loads(committed)
-if not (len(stored['runs']) == len(runs)):
+if len(stored['runs']) != len(runs):
     raise ValueError((len(stored['runs']), len(runs)))
 for a, b in zip(stored['runs'], runs):
     for key in b:
-        if not (math.isclose(a[key], b[key], rel_tol=1e-12, abs_tol=1e-15)):
+        if not math.isclose(a[key], b[key], rel_tol=1e-12, abs_tol=1e-15):
             raise ValueError((key, a[key], b[key]))
 for key in ('omega', 'period', 'amplitude'):
-    if not (math.isclose(stored[key], reference[key], rel_tol=1e-12)):
+    if not math.isclose(stored[key], reference[key], rel_tol=1e-12):
         raise ValueError('Invalid benchmark data: math.isclose(stored[key], reference[key], rel_tol=1e-12)')
 print(text, end='')

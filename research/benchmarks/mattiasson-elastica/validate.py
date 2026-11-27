@@ -49,7 +49,7 @@ def evidence(native, mesh):
     cases = data['cases']
     tolerance = data['accuracyTolerance']
     by_id = {r['id']: r for r in native}
-    if not ([r['id'] for r in native] == [c['id'] for c in cases]):
+    if [r['id'] for r in native] != [c['id'] for c in cases]:
         raise ValueError("Invalid benchmark data: [r['id'] for r in native] == [c['id'] for c in cases]")
     checks = []
     full = sum(tip(c, by_id[c['id']]) is not None for c in cases)
@@ -135,11 +135,11 @@ def main(mode, native, mesh):
         (HERE / 'reference-results/MANIFEST.json').write_text(dump(manifest(files)))
     else:
         committed = {name: (HERE / 'reference-results' / name).read_text() for name in files}
-        if not (same(load(HERE / 'VALIDATION.json'), validation)):
+        if not same(load(HERE / 'VALIDATION.json'), validation):
             raise ValueError('VALIDATION.json is not what the fresh run gives')
-        if not (same(json.loads(committed['published_comparison.json']), comparison)):
+        if not same(json.loads(committed['published_comparison.json']), comparison):
             raise ValueError('published_comparison.json is stale')
-        if not (load(HERE / 'reference-results/MANIFEST.json') == manifest(committed)):
+        if load(HERE / 'reference-results/MANIFEST.json') != manifest(committed):
             raise ValueError('MANIFEST.json hashes are stale')
 
 
