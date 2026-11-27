@@ -4,10 +4,13 @@ export function prunePublicBuildBranches(content, features) {
   if (!content.includes('__PUBLIC_FEATURES__.')) return { code: content };
   const unknown = Symbol();
   const changes = [];
-  const discarded = [];
-  function remove(start, end, featureGuard = false) {
+  const discarded = new Set();
+  function remove(start, end) {
     changes.push([start, end, '']);
-    if (featureGuard) discarded.push(content.slice(start, end));
+  }
+  function componentNames(node) {
+    if (node.type === 'Component') discarded.add(node.name.split('.')[0]);
+    for (const child of children(node)) componentNames(child);
   }
   function value(node, flags) {
     const key = /^__PUBLIC_FEATURES__\.(accounts|research|tools|diagramGame|globalAxes|proPlatesUnified|proRcSheets)$/.exec(content.slice(node.start, node.end));
@@ -46,10 +49,12 @@ export function prunePublicBuildBranches(content, features) {
       if (condition !== unknown) {
         const nodes = (condition ? node.consequent : node.alternate)?.nodes ?? [];
         const featureGuard = flags.has('proPlatesUnified') || flags.has('proRcSheets');
-        if (!nodes.length) remove(node.start, node.end, featureGuard);
+        const inactive = condition ? node.alternate : node.consequent;
+        if (featureGuard && inactive) componentNames(inactive);
+        if (!nodes.length) remove(node.start, node.end);
         else {
-          remove(node.start, nodes[0].start, featureGuard);
-          remove(nodes.at(-1).end, node.end, featureGuard);
+          remove(node.start, nodes[0].start);
+          remove(nodes.at(-1).end, node.end);
           nodes.forEach(child => visit(child, node));
         }
         return;
@@ -64,17 +69,63 @@ export function prunePublicBuildBranches(content, features) {
       else if (child && typeof child === 'object') visit(child, node);
     }
   }
-  visit(parse(content, { modern: true }).fragment);
+  const component = parse(content, { modern: true });
+  visit(component.fragment);
+  function children(node) {
+    return Object.values(node).flat().filter(child => child && typeof child.type === 'string');
+  }
+  function shadowsFeatures(node, parent) {
+    if (node.type === 'Identifier' && node.name === '__PUBLIC_FEATURES__') {
+      return parent?.type !== 'MemberExpression' || parent.object !== node;
+    }
+    return children(node).some(child => shadowsFeatures(child, node));
+  }
+  function selectedBranch(expression) {
+    if (expression?.type !== 'ConditionalExpression') return null;
+    const flags = new Set();
+    const condition = value(expression.test, flags);
+    if (condition === unknown || !flags.size || [...flags].some(key =>
+      !['proPlatesUnified', 'proRcSheets'].includes(key) || typeof features[key] !== 'boolean')) return null;
+    return condition ? expression.consequent : expression.alternate;
+  }
+  function scriptChoices(node) {
+    const chosen = selectedBranch(node);
+    if (chosen) {
+      changes.push([node.start, chosen.start, '('], [chosen.end, node.end, ')']);
+      scriptChoices(chosen);
+      return;
+    }
+    if (node.type === 'ArrayExpression' && node.elements.every(Boolean)) {
+      for (const item of node.elements) {
+        const branch = item.type === 'SpreadElement' && selectedBranch(item.argument);
+        if (branch?.type === 'ArrayExpression' && !branch.elements.length) {
+          const suffix = content.slice(item.end, node.end);
+          const comma = /^\s*,/.exec(suffix);
+          if (comma || /^\s*\]$/.test(suffix)) {
+            remove(item.start, item.end + (comma?.[0].length ?? 0));
+            continue;
+          }
+        }
+        scriptChoices(item);
+      }
+      return;
+    }
+    for (const child of children(node)) scriptChoices(child);
+  }
+  const scripts = [component.instance, component.module].filter(Boolean);
+  if (!scripts.some(script => shadowsFeatures(script.content))) {
+    for (const script of scripts) scriptChoices(script.content);
+  }
   let code = content;
   for (const [start, end, replacement] of changes.sort((a, b) => b[0] - a[0])) code = code.slice(0, start) + replacement + code.slice(end);
   if (!changes.length) return { code };
   const retained = parse(code, { modern: true });
   const imports = [...retained.instance?.content.body ?? [], ...retained.module?.content.body ?? []]
     .filter(node => node.type === 'ImportDeclaration' && node.source.value.endsWith('.svelte')
-      && node.specifiers.length === 1 && node.specifiers[0].type === 'ImportDefaultSpecifier');
+      && node.specifiers.length === 1 && ['ImportDefaultSpecifier', 'ImportNamespaceSpecifier'].includes(node.specifiers[0].type));
   for (const declaration of imports.sort((a, b) => b.start - a.start)) {
     const name = declaration.specifiers[0].local.name;
-    if (!discarded.some(markup => markup.includes(`<${name}`))) continue;
+    if (!discarded.has(name)) continue;
     const remainder = code.slice(0, declaration.start) + code.slice(declaration.end);
     if (!remainder.includes(name)) code = remainder;
   }

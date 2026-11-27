@@ -432,6 +432,7 @@ test('known wrong result: #1928 the level-centre table and its labels belong to 
       } });
       const chunk = (Array.isArray(result) ? result[0] : result).output.find(output => output.type === 'chunk');
       assert.equal(chunk.imports.some(id => id.includes('ProLevelCentresTable')), plates);
+      assert.equal(chunk.imports.some(id => id.endsWith('/level-centres')), false);
       assert.equal(chunk.code.includes('centres.title'), plates);
       const config = await resolveConfig({ root, configFile }, 'build', 'production');
       const dictionary = config.plugins.find(plugin => plugin.name === 'public-i18n');

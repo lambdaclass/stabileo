@@ -87,7 +87,7 @@ test('known wrong result: #1928 the original switches retain the published compo
   assert.equal(prunePublicBuildBranches(independent, off).code, header);
 });
 
-test.skip('known wrong result: #1928 resolve physical report options before Svelte compiles the released script', () => {
+test('known wrong result: #1928 resolve physical report options before Svelte compiles the released script', () => {
   const wrap = body => '<script>' + body + '</script>';
   const source = wrap("const rows = [first(), ...(__PUBLIC_FEATURES__.proPlatesUnified ? [centres()] : []), last()]; const label = __PUBLIC_FEATURES__.proPlatesUnified ? 'quality' : 'diagnostics';");
   for (const enabled of [false, true]) {
@@ -98,5 +98,37 @@ test.skip('known wrong result: #1928 resolve physical report options before Svel
     };
     const rows = enabled ? '[first(), ...([centres()]), last()]' : '[first(), last()]';
     assert.equal(read(output), read(wrap('const rows = ' + rows + "; const label = '" + (enabled ? 'quality' : 'diagnostics') + "';")));
+  }
+});
+
+test('script choices preserve sparse arrays, side effects, comments and local feature bindings', () => {
+  const flags = { ...off, proPlatesUnified: false };
+  const run = (source, prune) => {
+    const input = '<script>' + source + '</script>';
+    const code = prune ? prunePublicBuildBranches(input, flags).code : input;
+    return Function('__PUBLIC_FEATURES__', code.slice(8, -9) + '\nreturn result;')(flags);
+  };
+  for (const source of [
+    'let n = 0; const items = [n++, ...(__PUBLIC_FEATURES__.proPlatesUnified ? [n++] : []) /* trailing */, n++]; const result = [items, n];',
+    'const items = [1,, ...(__PUBLIC_FEATURES__.proPlatesUnified ? [3] : []),,4]; const result = [items.length, Object.keys(items)];',
+    'let n = 0; const result = [n++ && __PUBLIC_FEATURES__.proPlatesUnified ? 7 : 9, n];',
+    'const local = __PUBLIC_FEATURES__ => __PUBLIC_FEATURES__.proPlatesUnified ? 1 : 2; const result = local({proPlatesUnified: true});',
+    'const result = 2 * (__PUBLIC_FEATURES__.proPlatesUnified ? 1 : 2 + 3);',
+  ]) assert.deepEqual(run(source, true), run(source, false));
+});
+
+test('only remove the optional report namespace when its view and script uses have gone', () => {
+  const source = "<script>import * as Panel from './Panel.svelte'; const count = __PUBLIC_FEATURES__.proPlatesUnified ? Panel.count() : 0;</script>{#if __PUBLIC_FEATURES__.proPlatesUnified}<Panel.default />{/if}";
+  assert.doesNotMatch(prunePublicBuildBranches(source, { proPlatesUnified: false }).code, /Panel/);
+  assert.match(prunePublicBuildBranches(source, { proPlatesUnified: true }).code, /import \* as Panel/);
+  const used = source.replace('</script>', ' Panel.initialize();</script>');
+  assert.match(prunePublicBuildBranches(used, { proPlatesUnified: false }).code, /import \* as Panel/);
+});
+
+test('a similarly named component or comment cannot remove a separate module initialization', () => {
+  const header = "<script>import * as Panel from './Panel.svelte';</script>";
+  for (const markup of ['<PanelOptions />', '<!-- <Panel.default /> -->']) {
+    const input = header + '{#if __PUBLIC_FEATURES__.proRcSheets}' + markup + '{/if}';
+    assert.equal(prunePublicBuildBranches(input, off).code, header);
   }
 });

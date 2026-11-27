@@ -1,3 +1,7 @@
+<script module lang="ts">
+  export { centreLevels } from '../../lib/store/level-centres';
+</script>
+
 <script lang="ts">
   /** Each level's weight, centre of mass, centre of rigidity and the eccentricity between them (`store/level-centres.ts`). */
   import Hint from './Hint.svelte';
