@@ -147,7 +147,7 @@ describe('a rectangular column, as a whole section', () => {
     expect(notDeducted.Pn).toBeCloseTo(Po + 0.85 * 25000 * Ast, 1);
   });
 
-  it.skip.each([false, true])('uses every concrete polygon ring in section resistance with opening=%s (known wrong result: #1928)', (opening) => {
+  it.each([false, true])('uses every concrete polygon ring in section resistance with opening=%s', (opening) => {
     const rect: Outline = { ...outline, ...(opening ? { hole: { b: 0.10, h: 0.10 } } : {}) };
     const rings = outlineRings(rect);
     const polygon = { kind: 'polygon' as const, ...rings };
