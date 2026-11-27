@@ -73,8 +73,8 @@ pub fn natural(strip: &Strip, shortening: f64) -> Result<Equilibrium, String> {
         state = next;
         from_input = next_input;
     }
-    let h = state.height(strip);
-    at_height(strip, &mut Assembler::new(strip), &state, h, Free::Shortening)
+    state.clamps = target;
+    settle(strip, &mut Assembler::new(strip), &state)
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -83,7 +83,7 @@ pub struct PathPoint {
     pub load: f64,
     pub height: f64,
     pub mid_angle: f64,
-    pub spectrum: Spectrum,
+    pub spectrum: Option<Spectrum>,
 }
 
 pub struct Path {
@@ -106,7 +106,7 @@ fn arc_length(strip: &Strip, from: &Equilibrium, pattern: Clamps, stiffness: f64
     let mut assembler = Assembler::new(strip);
     let mut polisher = Assembler::new(strip);
     let mut record = |s: Equilibrium, points: &mut Vec<PathPoint>, states: &mut Vec<Equilibrium>| {
-        let spec = if eigen { spectrum(strip, &mut assembler, &s.q) } else { Spectrum::default() };
+        let spec = eigen.then(|| spectrum(strip, &mut assembler, &s.q));
         points.push(PathPoint { shortening: s.clamps.shortening(), load: s.clamps.load, height: s.height(strip), mid_angle: s.mid_angle(strip), spectrum: spec });
         states.push(s);
     };

@@ -8,7 +8,6 @@ import tempfile
 import unittest
 
 
-@unittest.skip("known wrong result: #2320")
 class PublicationTest(unittest.TestCase):
     def test_mesh_claim_names_its_refinement_interval(self):
         study = Path(__file__).resolve().parents[1]

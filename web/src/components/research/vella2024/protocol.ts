@@ -15,9 +15,8 @@ export type Settings = {
 
 export type Frame = { t: number; mu: number; theta: number; height: number; x: number[]; z: number[] };
 
-/** Every jump-only value is a number when `snapped` and null otherwise. */
 export type Outcome = {
-  snapped: boolean; tSnap: number | null; muSnap: number | null; tEnd: number | null; thetaBefore: number; thetaDuring: number | null;
+  snapped: boolean; tSnap: number | null; muSnap: number | null; tEnd: number | null; thetaBefore: number; thetaBeforeMuA: number; thetaDuring: number | null;
   amplification: number | null; amplificationFromMuA: number | null; steps: number; newtonIterations: number; truncated: boolean;
 };
 
@@ -31,7 +30,6 @@ export type SnapRun = {
   rateMS: number;
 };
 
-/** An amplification at or above this is called an asymmetric snap (our threshold, not the paper's). */
 export const ASYMMETRIC = 2;
 export const RATE_RANGE = [0.005, 0.7] as const;
 export const SEED_RANGE = [1e-4, 1e-2] as const;
@@ -53,9 +51,14 @@ export function decodeRun(value: unknown): SnapRun {
   const k = t?.t?.length ?? 0;
   if (!k || !(['t', 'mu', 'thetaMin', 'thetaMax', 'height'] as const).every(key => numbers(t[key], k))) throw new Error('Invalid trace');
   const o = r.outcome;
-  if (!o || typeof o.snapped !== 'boolean' || !finite(o.thetaBefore)) throw new Error('Invalid outcome');
-  const jump = [o.tSnap, o.muSnap, o.tEnd, o.thetaDuring, o.amplification, o.amplificationFromMuA];
-  if (o.snapped ? !jump.every(finite) : !jump.every(v => v === null)) throw new Error('Invalid outcome');
+  const magnitude = (v: unknown) => finite(v) && v >= 0;
+  if (!o || typeof o.snapped !== 'boolean' || !magnitude(o.thetaBefore) || !magnitude(o.thetaBeforeMuA)) throw new Error('Invalid outcome');
+  const ratio = (v: number | null, before: number) => before === 0 ? v === null : magnitude(v);
+  if (o.snapped) {
+    if (!finite(o.tSnap) || !finite(o.muSnap) || !finite(o.tEnd) || o.tEnd < o.tSnap || !magnitude(o.thetaDuring)
+      || !ratio(o.amplification, o.thetaBefore) || !ratio(o.amplificationFromMuA, o.thetaBeforeMuA)) throw new Error('Invalid outcome');
+  } else if (r.frames.some(f => f.height > 0) || t.height.some(h => h > 0)
+    || [o.tSnap, o.muSnap, o.tEnd, o.thetaDuring, o.amplification, o.amplificationFromMuA].some(v => v !== null)) throw new Error('Invalid outcome');
   const m = r.mode;
   if (!m || !(['x', 'z', 'dx', 'dz'] as const).every(key => numbers(m[key], nodes))) throw new Error('Invalid mode');
   const rateMS = (r as { rate_m_s?: number }).rate_m_s ?? r.rateMS;

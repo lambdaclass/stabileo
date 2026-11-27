@@ -1,6 +1,6 @@
 import { CATALOGUE_SUMMARIES } from './catalogue-summaries';
 
-type Summary = { en: string; es: string; pt: string; hu: string; zh: string };
+type Summary = { en: string; es: string; pt: string; hu: string; zh: string; de?: string; fr?: string; tr?: string };
 
 /** `en` is the papers.yaml summary each translation was made from; a test fails when they differ. */
 export const SUMMARIES: Record<string, Summary> = {
@@ -41,6 +41,9 @@ export const SUMMARIES: Record<string, Summary> = {
     zh: "针对平衡集具有复杂拓扑的结构，提出准静态形状控制方法，并将其应用于在固定荷载下弯成两个旋转夹具的板条，选取始终停留在稳定平衡状态上的作动器路径，其中包括一条在两种稳定形状之间不发生突跳屈曲的路径。",
   },
   'wang-2024': {
+    de: 'Ein schräg eingespannter Stahlstreifen schlägt beim Auseinanderziehen durch. Versuche und Stabsimulationen zeigen, dass nur langsame Entlastung eine kleine Asymmetrie verstärkt. Im Zweimassenmodell durchläuft die langsame Bewegung einen Bereich mit negativer antisymmetrischer Steifigkeit.',
+    fr: 'Une lame d’acier encastrée en biais se retourne quand ses extrémités s’écartent. Les essais et les simulations montrent que seule une libération lente amplifie une petite asymétrie. Dans le modèle à deux masses, les trajectoires rapides évitent la zone de raideur antisymétrique négative.',
+    tr: 'Uçları açılı ankastre çelik şerit, uçlar birbirinden uzaklaştırıldığında sıçrar. Deneyler ve çubuk simülasyonları küçük bir asimetrinin yalnızca yavaş bırakmada büyüdüğünü gösterir. İki kütleli modelde hızlı yörüngeler antisimetrik rijitliğin negatif olduğu bölgeye girmez.',
     en: "A steel strip clamped at an angle at both ends has a natural and an inverted shape; when its ends are pulled apart the inverted shape disappears and the strip snaps. Linear stability predicts an asymmetric snap, but experiments and discrete-elastic-rod simulations show that only slow releases amplify a small asymmetry, while fast ones snap symmetrically. A two-mass von Mises truss explains this as a transient passage through a region of state space where the asymmetric stiffness is negative, which fast trajectories skip.",
     es: "Una lámina de acero empotrada en ángulo en ambos extremos tiene una forma natural y una invertida; al separar sus extremos la forma invertida desaparece y la lámina salta. La estabilidad lineal predice un salto asimétrico, pero los experimentos y las simulaciones con varillas elásticas discretas muestran que solo las liberaciones lentas amplifican una asimetría pequeña, mientras que las rápidas saltan simétricas. Una armadura de von Mises de dos masas lo explica como un paso transitorio por una región del espacio de estados donde la rigidez asimétrica es negativa, que las trayectorias rápidas saltean.",
     pt: "Uma lâmina de aço engastada em ângulo nas duas extremidades tem uma forma natural e uma invertida; ao separar as extremidades a forma invertida desaparece e a lâmina salta. A estabilidade linear prevê um salto assimétrico, mas experimentos e simulações com hastes elásticas discretas mostram que só as liberações lentas amplificam uma assimetria pequena, enquanto as rápidas saltam simétricas. Uma treliça de von Mises de duas massas explica isso como uma passagem transitória por uma região do espaço de estados onde a rigidez assimétrica é negativa, que as trajetórias rápidas pulam.",
@@ -88,6 +91,6 @@ export const SUMMARIES: Record<string, Summary> = {
 /** A catalogue summary in `locale`, or the papers.yaml text when it has no translation there. */
 export function summaryIn(paper: { id: string; summary?: string | null }, locale: string): string {
   const own = SUMMARIES[paper.id];
-  if (own && own.en === paper.summary && (locale === 'es' || locale === 'pt' || locale === 'hu' || locale === 'zh')) return own[locale];
+  if (own && own.en === paper.summary && Object.hasOwn(own, locale)) return own[locale as keyof Summary] ?? paper.summary;
   return paper.summary ?? '';
 }

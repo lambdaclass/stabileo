@@ -34,10 +34,11 @@ pub fn fold() -> (f64, f64) {
 }
 
 /// τ on the natural (0, 2π) or inverted (2π, τ_fold) branch at a given µ.
-pub fn tau_at(mu_value: f64, inverted: bool) -> f64 {
-    if inverted {
-        bisect(|t| mu(t) - mu_value, 2.0 * PI + 1e-9, fold().0)
-    } else {
-        bisect(|t| mu(t) - mu_value, 1e-6, 2.0 * PI - 1e-9)
-    }
+pub fn tau_at(mu_value: f64, inverted: bool) -> Option<f64> {
+    let (lo, hi) = if inverted { (2.0 * PI + 1e-9, fold().0) } else { (1e-6, 2.0 * PI - 1e-9) };
+    let residual = |t| mu(t) - mu_value;
+    let (a, b) = (residual(lo), residual(hi));
+    if a == 0.0 { return Some(lo); }
+    if b == 0.0 { return Some(hi); }
+    (a.is_finite() && b.is_finite() && a.signum() != b.signum()).then(|| bisect(residual, lo, hi))
 }

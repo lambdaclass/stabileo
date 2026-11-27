@@ -105,7 +105,9 @@ impl Profile {
         let past = |b: f64| if before { t > b } else { t >= b };
         let removed = |t: f64| if ramp > 0.0 && t < ramp { 0.5 * a * t * t } else { speed * (t - 0.5 * ramp) };
         let (v0, braking) = (self.speed_at_stop(), self.braking());
-        let d = if t <= stop {
+        let d = if t <= 0.0 {
+            0.0
+        } else if t <= stop {
             removed(t)
         } else {
             let tau = (t - stop).min(braking);
@@ -148,8 +150,6 @@ pub struct Trace {
     pub height: Vec<f64>,
 }
 
-/// Every jump-only value is `Some` exactly when `snapped`: the midpoint crossed the clamps' line
-/// and its first height maximum after the crossing was observed.
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Outcome {
@@ -161,6 +161,7 @@ pub struct Outcome {
     pub t_end: Option<f64>,
     /// max |θ| before t = 0 and during the jump (0 < t ≤ t_end).
     pub theta_before: f64,
+    pub theta_before_mu_a: f64,
     pub theta_during: Option<f64>,
     /// Eq. (2): theta_during / theta_before.
     pub amplification: Option<f64>,
@@ -187,9 +188,10 @@ pub struct Jump {
 impl Outcome {
     pub fn jump(&self) -> Result<Jump, String> {
         match (self.t_snap, self.mu_snap, self.t_end, self.theta_during, self.amplification, self.amplification_from_mu_a) {
-            (Some(t_snap), Some(mu_snap), Some(t_end), Some(theta_during), Some(amplification), Some(amplification_from_mu_a)) if self.snapped => {
+            (Some(t_snap), Some(mu_snap), Some(t_end), Some(theta_during), Some(amplification), Some(amplification_from_mu_a)) if self.snapped && [t_snap, mu_snap, t_end, theta_during, amplification, amplification_from_mu_a].into_iter().all(f64::is_finite) => {
                 Ok(Jump { t_snap, mu_snap, t_end, theta_during, amplification, amplification_from_mu_a })
             }
+            _ if self.snapped => Err("undefined jump amplification".into()),
             _ => Err("the strip did not snap".into()),
         }
     }
@@ -586,7 +588,7 @@ fn integrate(settings: &Settings, start: &Equilibrium, mu_star: f64, mu_a: f64, 
     let t_a = when(mu_a);
     let clock = |t: f64| (t - t_star) / T_OSC;
 
-    let mut integrator = integrator(settings, start, free)?;
+    let mut integrator = integrator(settings, start, Profile { stop: when(STOPPER), ..free })?;
     let mid = strip.mid();
     let fine = (0.125 / settings.dt).round().max(1.0) as usize;
     let coarse = (((settings.start - mu_star) / settings.rate) / 60.0).max(0.125);
@@ -608,7 +610,8 @@ fn integrate(settings: &Settings, start: &Equilibrium, mu_star: f64, mu_a: f64, 
             return Err("stopped".into());
         }
         let after = settings.after * T_OSC;
-        let result = integrator.advance(t, dt, &mut |integrator, now| {
+        let h = if t == 0.0 && t_a > 0.0 && t_a <= dt { 0.5 * t_a } else { dt };
+        let result = integrator.advance(t, h, &mut |integrator, now| {
             let q = &integrator.q;
             let (theta, height) = (q[DOFS * mid + 2], q[DOFS * mid + 1]);
             let falling = samples.last().is_some_and(|last| height < last.height);
@@ -619,7 +622,7 @@ fn integrate(settings: &Settings, start: &Equilibrium, mu_star: f64, mu_a: f64, 
                 ended = true;
                 end_time = now + after;
             }
-            if integrator.motion.profile.stop.is_infinite() && (ended || mu <= STOPPER) {
+            if ended && now < integrator.motion.profile.stop {
                 integrator.motion.profile.stop = now;
                 integrator.jump(now)?;
             }
@@ -657,8 +660,12 @@ fn integrate(settings: &Settings, start: &Equilibrium, mu_star: f64, mu_a: f64, 
         }
     }
     frames.extend(recent);
+    let last = samples.last().unwrap();
+    if frames.last().is_none_or(|f| f.t != last.t) {
+        frames.push(frame(&strip, &integrator.q, last.t, last.mu));
+    }
 
-    let mut outcome = outcome(&samples, clock(t_a), step, integrator.iterations)?;
+    let mut outcome = outcome(&samples, clock(t_a), step, integrator.iterations, |time| mu_at(t_star + time * T_OSC, &integrator.motion.profile))?;
     outcome.truncated = truncated;
     let trace = bin(&samples, 1500, step);
     Ok(Simulation { settings: *settings, frames, trace, outcome })
@@ -681,14 +688,16 @@ fn bin(samples: &[Sample], count: usize, steps: usize) -> Trace {
     trace
 }
 
-fn outcome(samples: &[Sample], t_a: f64, steps: usize, newton_iterations: usize) -> Result<Outcome, String> {
+fn outcome(samples: &[Sample], t_a: f64, steps: usize, newton_iterations: usize, mu_at: impl Fn(f64) -> f64) -> Result<Outcome, String> {
     let before = samples.iter().filter(|s| s.t < 0.0).map(|s| s.theta.abs()).fold(0.0, f64::max);
+    let before_a = samples.iter().filter(|s| s.t < t_a).map(|s| s.theta.abs()).fold(0.0, f64::max);
     let mut outcome = Outcome {
         snapped: false,
         t_snap: None,
         mu_snap: None,
         t_end: None,
         theta_before: before,
+        theta_before_mu_a: before_a,
         theta_during: None,
         amplification: None,
         amplification_from_mu_a: None,
@@ -709,14 +718,17 @@ fn outcome(samples: &[Sample], t_a: f64, steps: usize, newton_iterations: usize)
     let t_end = samples[e].t;
     let max_abs = |from: f64| samples.iter().filter(|s| s.t > from && s.t <= t_end).map(|s| s.theta.abs()).fold(0.0, f64::max);
     let during = max_abs(0.0);
-    let before_a = samples.iter().filter(|s| s.t < t_a).map(|s| s.theta.abs()).fold(0.0, f64::max);
+    let previous = &samples[k.checked_sub(1).ok_or("unbracketed midpoint crossing")?];
+    let fraction = -previous.height / (samples[k].height - previous.height);
     outcome.snapped = true;
-    outcome.t_snap = Some(samples[k].t);
-    outcome.mu_snap = Some(samples[k].mu);
+    let crossing = previous.t + fraction * (samples[k].t - previous.t);
+    outcome.t_snap = Some(crossing);
+    outcome.mu_snap = Some(mu_at(crossing));
+
     outcome.t_end = Some(t_end);
     outcome.theta_during = Some(during);
-    outcome.amplification = Some(during / before);
-    outcome.amplification_from_mu_a = Some(max_abs(t_a) / before_a);
+    outcome.amplification = (before > 0.0).then(|| during / before).filter(|v| v.is_finite());
+    outcome.amplification_from_mu_a = (before_a > 0.0).then(|| max_abs(t_a) / before_a).filter(|v| v.is_finite());
     Ok(outcome)
 }
 
@@ -743,7 +755,10 @@ mod tests {
     #[test]
     fn the_profile_moves_continuously_and_jumps_only_at_its_transitions() {
         let p = Profile { speed: 2.0, ramp: 0.5, stop: 3.0 };
-        for tau in p.transitions() {
+        for (tau, distance) in p.transitions().into_iter().zip([0.0, 0.5, 5.5, 6.0]) {
+            for t in [tau.next_down(), tau, tau.next_up()] {
+                assert!((p.at(t, false).0 - distance).abs() <= 1e-15);
+            }
             let (d0, v0, _) = p.at(tau, true);
             let (d1, v1, _) = p.at(tau, false);
             assert!((d0 - d1).abs() < 1e-15 && (v0 - v1).abs() < 1e-15, "{tau}");
@@ -844,13 +859,14 @@ mod tests {
         assert!(short < 0.05 * scale && short < long, "{short} and {long} against {scale}");
     }
     #[test]
-    #[ignore = "known wrong result: #2320"]
     fn review_snapped_with_zero_pre_fold_angle_has_no_ratio() {
         let samples: Vec<_> = [(-1., -1.), (0.5, -0.5), (1., 0.5), (2., 1.), (3., 0.5)].into_iter()
             .enumerate().map(|(step, (t, height))| Sample { t, height, mu: 1.0, theta: 0.0, step }).collect();
-        let result = outcome(&samples, -0.5, 4, 4).unwrap();
+        let result = outcome(&samples, -0.5, 4, 4, |_| 1.0).unwrap();
         assert!(result.snapped);
         assert_eq!(result.amplification, None);
         assert_eq!(result.amplification_from_mu_a, None);
+        let invalid = Outcome { amplification: Some(f64::NAN), amplification_from_mu_a: Some(1.0), ..result };
+        assert!(invalid.jump().is_err());
     }
 }

@@ -21,8 +21,8 @@ fn small_angle_branches_follow_the_shallow_heights() {
     let strip = Strip { n: 48, alpha, slenderness: 2e4 };
     let up = natural(&strip, 0.6 * alpha * alpha).unwrap();
     let (_, down) = invert(&strip, &up, false).unwrap();
-    let exact_up = shallow::height(shallow::tau_at(0.6, false));
-    let exact_down = shallow::height(shallow::tau_at(0.6, true));
+    let exact_up = shallow::height(shallow::tau_at(0.6, false).unwrap());
+    let exact_down = shallow::height(shallow::tau_at(0.6, true).unwrap());
     assert!((up.height(&strip) / alpha / exact_up - 1.0).abs() < 2e-3);
     assert!((down.height(&strip) / alpha / exact_down - 1.0).abs() < 2e-3);
 }
@@ -53,7 +53,6 @@ fn the_inverted_state_loses_stability_to_an_antisymmetric_mode_before_its_fold()
     }
 }
 #[test]
-#[ignore = "known wrong result: #2320"]
 fn review_natural_clamps_are_prescribed_and_optional_spectra_are_absent() {
     let strip = Strip { n: 24, alpha: PI / 12.0, slenderness: 2126.0 };
     for mu in [0.25, 0.6] {
@@ -70,7 +69,6 @@ fn review_natural_clamps_are_prescribed_and_optional_spectra_are_absent() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2320"]
 fn review_only_bracketed_roots_and_converging_meshes_supply_values() {
     let fold = shallow::fold();
     for (mu, valid) in [(0.2, false), (fold.1, true), (0.6, true)] {

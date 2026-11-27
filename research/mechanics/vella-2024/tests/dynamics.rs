@@ -89,7 +89,6 @@ fn a_stopper_reached_before_the_snap_does_not_end_the_jump_window() {
     assert!(sim.trace.height.last().unwrap() < &peak, "the run ended while the height was still rising");
 }
 #[test]
-#[ignore = "known wrong result: #2320"]
 fn review_stopper_is_the_scheduled_start_of_braking() {
     for one_end in [true, false] {
         let s = Settings { rate: 0.7, dt: 0.1, ramp: 0.0, one_end, ..base() };
@@ -99,7 +98,6 @@ fn review_stopper_is_the_scheduled_start_of_braking() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2320"]
 fn review_crossing_and_terminal_frame_follow_accepted_states() {
     let sim = run(base());
     let t = &sim.trace;
@@ -111,7 +109,6 @@ fn review_crossing_and_terminal_frame_follow_accepted_states() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2320"]
 fn review_jump_window_matches_independent_height_peak() {
     let sim = run(Settings { after: 0.0, ..base() });
     let trace = &sim.trace;

@@ -52,7 +52,7 @@
   const values = $derived(showMode ? run.mode.dz : asymmetry(frame.z));
   const range = $derived(showMode ? Math.max(...run.mode.dz.map(Math.abs)) : asymmetryRange);
   const snapped = $derived(run.outcome.snapped);
-  const symmetric = $derived(snapped && run.outcome.amplification! < ASYMMETRIC);
+  const belowThreshold = $derived(run.outcome.amplification !== null && run.outcome.amplification < ASYMMETRIC);
   const stale = $derived(!sameSettings(run.settings, settings));
   const atPaper = $derived(sameSettings(settings, PAPER));
 
@@ -183,7 +183,7 @@
 <ExperimentShell paperId="wang-2024" name={s.title} lead={s.lead} introInArticle compactHeader locale={publicI18n.locale}
   sourcePath="research/mechanics/vella-2024"
   referenceLabel={s.referenceLabel}
-  verification={{ reference: { kind: 'checks', passed: own.filter(c => c.passed).length, total: own.length, href: '#checks' }, published: { kind: 'checks', passed: published_.filter(c => c.passed).length, total: published_.length + validation.not_reproduced.length, href: '#checks' } }}
+  verification={{ reference: { kind: 'checks', passed: own.filter(c => c.passed).length, total: own.length, href: '#internal-checks' }, published: { kind: 'checks', passed: published_.filter(c => c.passed).length, total: published_.length + validation.not_reproduced.length, href: '#checks' } }}
   actions={{ goToStep, setParams, showTab: setTab }}>
   {#snippet article()}
     <h2>{s.showsHeading}</h2>
@@ -213,6 +213,11 @@
     <h2 id="checks">{s.checksHeading}</h2>
     <p>{s.checksIntro}</p>
     <SnapChecks {s} rows={[...published_, ...validation.not_reproduced]} />
+    <h3 id="internal-checks">{s.referenceLabel}</h3>
+    <table class="internal-checks">
+      <thead><tr><th>{s.table.quantity}</th><th>{s.table.ours}</th><th>{s.tolerance}</th></tr></thead>
+      <tbody>{#each own as c}<tr><th scope="row" lang="en">{c.metric}</th><td>{c.passed ? '✓' : '✗'} {num(c.observed, { sig: 4 })}</td><td>{num(c.tolerance, { sig: 4 })}</td></tr>{/each}</tbody>
+    </table>
     <h3>{s.differencesHeading}</h3>
     <p>{fill(s.toyRate, { paper: num(diff.toy_critical_rate.paper, { dp: 4 }), ours: num(diff.toy_critical_rate.ours, { dp: 4 }), diff: `+${pct(diff.toy_critical_rate.relative)}` })}</p>
     <p>{fill(s.figureCompare, { oneEnd: pct(diff.figure_2c.median_abs_error_one_end), envelope: pct(diff.figure_2c.median_abs_error_envelope), paperBelow: num(diff.figure_2c.paper_first_rate_below_2, { sig: 2 }), oursBelow: num(diff.figure_2c.ours_one_end_first_rate_below_2, { sig: 2 }) })}</p>
@@ -231,7 +236,7 @@
   {#snippet app()}
     <div lang={publicI18n.locale} class="snap-app" bind:this={host} data-source={source} data-step={playback.shown} data-tab={tab}
       data-rate={run.settings.rate} data-alpha={run.settings.alpha} data-one-end={run.settings.oneEnd} data-amplification={run.outcome.amplification}
-      data-snapped={snapped} data-symmetric={symmetric} data-stale={stale} data-busy={busy}
+      data-snapped={snapped} data-below-threshold={belowThreshold} data-stale={stale} data-busy={busy}
       onpointerdowncapture={() => playback.interact()} onkeydowncapture={() => playback.interact()} onwheelcapture={() => playback.interact()} role="group" aria-label={s.title}>
       <PaneTabs label={s.tabsLabel} tabs={[{ id: 'snap', label: s.tabs.snap }, { id: 'stability', label: s.tabs.stability }, { id: 'rates', label: s.tabs.rates }]}
         bind:active={() => tab, setTab} oninteract={() => playback.interact()} />
@@ -263,13 +268,17 @@
             {#if peaks.zeros > 0}<p class="caption">{fill(s.thetaZero, { count: String(peaks.zeros) })}</p>{/if}
             <LineChart series={heightSeries} xLabel={s.timeAxis} yLabel={s.heightAxis} height={160} marker={frame.t} />
           {:else}
-            <LineChart series={rateSeries} xLabel={s.rateAxis} yLabel={s.ratesAxis} height={240} log marker={run.settings.rate} rules={[{ y: ASYMMETRIC, text: `A = ${ASYMMETRIC}` }]} dataTable />
+            <p class="caption" data-rate-provenance>{fill(s.rateReference, { alpha: degrees(d.base.alpha), n: String(d.base.n), both: s.protocols.both, start: num(d.base.start, { sig: 3 }), seed: num(d.base.imperfection, { sig: 2 }), one: s.protocols.one, far: num(d.one_end_start, { sig: 3 }), rate: num(run.settings.rate, { sig: 3 }) })}</p>
+            {#snippet scatter(series: import('../shauer2025/protocol').Series, sx: (v: number) => number, sy: (v: number) => number)}
+              {#each series.points as p}<circle cx={sx(p[0])} cy={sy(p[1])} r="3" style:fill={series.color} fill-opacity="0.85" />{/each}
+            {/snippet}
+            <LineChart {scatter} series={rateSeries} xLabel={s.rateAxis} yLabel={s.ratesAxis} height={240} log marker={run.settings.rate} rules={[{ y: ASYMMETRIC, text: `A = ${ASYMMETRIC}` }]} dataTable />
           {/if}
         {/if}
         <dl class="summary">
           {#if run.outcome.snapped}
-            <dt>{s.summary.amplification}</dt><dd>{num(run.outcome.amplification!, { sig: 3 })}</dd>
-            <dt>{s.summary.verdict}</dt><dd>{symmetric ? s.summary.symmetric : s.summary.asymmetric}</dd>
+            <dt>{s.summary.amplification}</dt><dd>{run.outcome.amplification === null ? `— (${s.summary.before} = 0)` : num(run.outcome.amplification, { sig: 3 })}</dd>
+            <dt>{s.summary.verdict}</dt><dd>{run.outcome.amplification === null ? '—' : belowThreshold ? s.summary.symmetric : s.summary.asymmetric}</dd>
             <dt>{s.summary.snapAt}</dt><dd>{fill('t = {t} T_osc, µ = {mu}', { t: num(run.outcome.tSnap!, { dp: 2 }), mu: num(run.outcome.muSnap!, { dp: 4 }) })}</dd>
           {:else}
             <dt>{s.summary.verdict}</dt><dd data-no-snap>{s.summary.noSnap}</dd>

@@ -1,13 +1,13 @@
 {
   "produced_by": "make evidence.research.vella: cargo run --release --bin replay (replay.json) and --bin validate -- --write (study.json, published_comparison.json, ../VALIDATION.json), on the engine of this commit",
   "published_inputs": "published.json transcribes arXiv:2312.13908v2 (sha256 33d95f01b305100739562691008f63d97ee2d4262eb573ecc022060f47fa0329) with page sources; fig2c_digitized.csv is the output of reference/digitize_fig2c.py (PyMuPDF 1.26.5) on that PDF",
-  "toolchain": "rustc 1.99.1; macOS 26 arm64 for the committed files",
+  "toolchain": "rustc 1.99.1 (58cf8f9c3 2026-10-13); Linux x86_64",
   "files_sha256": {
     "published.json": "2624a26068f90847b85884ae771e22993de1837c75ba26b20bd56befafbc7fa7",
     "fig2c_digitized.csv": "2498a29beed27db90065a5c847e322e7aeae325ca57db121d2f94a72afccb046",
-    "study.json": "f8b0a4fcad2af0b0e393a8817f88bbb0e094e8576c86f85fb72741875418dc79",
-    "replay.json": "cd882093db873bef3dbdb328ec31dc0637b6b03f540bc945169eda2f6d921045",
-    "published_comparison.json": "a461caf7f38fe824636b0cfdd4e0a04127513fd8185243dbbecb6bab7ccef9c4"
+    "study.json": "4db1582e0721c7909c7c3a5e5541c78aeba526a1aa1d946348f46092f0bd458e",
+    "replay.json": "2a763a0a4b6c7c481745a6fd8de56113fb5efc638afae321d7f2a4707c6cb72e",
+    "published_comparison.json": "f89e9feaa888ac04cfcdfc1804e1beb6837f9d5ba49555c3b8c0671433969e06"
   },
   "not_hashed": "../VALIDATION.json: research/tools/catalog.py accepts hashed files only inside reference-results/ (as for every other crate); instead `validate` (CI's research job) recomputes it and fails if the stored file differs from a fresh run."
 }

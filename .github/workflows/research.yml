@@ -459,6 +459,7 @@ jobs:
       - name: Prepare Nix shell (infrastructure retries)
         run: |
           .github/scripts/retry-infra.sh nix develop --command true
+      - run: python3 -B -I research/mechanics/vella-2024/tests/publication.py
       - run: nix develop -c cargo test --release --locked --manifest-path research/mechanics/vella-2024/Cargo.toml
       - run: nix develop -c cargo clippy --release --locked --all-targets --manifest-path research/mechanics/vella-2024/Cargo.toml -- -D warnings
       - run: nix develop -c cargo run --release --locked --manifest-path research/mechanics/vella-2024/Cargo.toml --bin validate

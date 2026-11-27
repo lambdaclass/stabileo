@@ -1,5 +1,6 @@
 use serde_json::{json, Map, Value};
-use snap_symmetry_vella_2024::study::{study, BranchPoint, Study, ASYMMETRIC, PHASES, RATES};
+use snap_symmetry_vella_2024::study::{first_downward_bracket, study, BranchPoint, Figure2a, Study, ASYMMETRIC, PAPER_ALPHA, PHASES, RATES};
+use snap_symmetry_vella_2024::units::SIMULATIONS;
 use std::{fs, path::Path};
 
 fn check(id: &str, metric: &str, observed: f64, tolerance: f64, source: &str) -> Value {
@@ -52,6 +53,14 @@ fn least(values: &[f64], what: &str) -> Result<f64, String> {
     Ok(finite(values, what)?.into_iter().fold(f64::INFINITY, f64::min))
 }
 
+fn exact_values(actual: impl Iterator<Item=f64>, expected: &[f64]) -> bool {
+    let mut actual: Vec<_> = actual.collect();
+    let mut expected = expected.to_vec();
+    actual.sort_by(f64::total_cmp);
+    expected.sort_by(f64::total_cmp);
+    actual == expected
+}
+
 /// Every run the checks reduce over is present, snapped (its jump metrics are finite) and
 /// finite before anything is reduced.
 fn complete(s: &Study) -> Result<(), String> {
@@ -64,7 +73,7 @@ fn complete(s: &Study) -> Result<(), String> {
         for p in points.iter() {
             finite(&[p.amplification, p.amplification_from_mu_a, p.t_snap, p.mu_snap, p.theta_before, p.theta_during], &format!("{name} at {}", p.rate))?;
             if name == "seeded" {
-                finite(&[p.envelope], &format!("seeded envelope at {}", p.rate))?;
+                finite(&[p.envelope.ok_or("missing envelope")?], &format!("seeded envelope at {}", p.rate))?;
             }
         }
     }
@@ -73,25 +82,29 @@ fn complete(s: &Study) -> Result<(), String> {
         return Err(format!("unseeded: rates {unseeded:?}"));
     }
     finite(&d.unseeded.iter().map(|u| u[1]).collect::<Vec<_>>(), "unseeded")?;
-    let expected: [(&str, usize); 5] = [("dt", 4), ("hht", 4), ("imperfection", 5), ("n", 3), ("start", 4)];
+    let expected: [(&str, &[f64]); 5] = [
+        ("dt", &[0.02, 0.01, 0.005, 0.0025]), ("hht", &[-0.05, -0.1, -0.2, -0.3]),
+        ("imperfection", &[1e-4, 3e-4, 1e-3, 3e-3, 1e-2]), ("n", &[24., 48., 96.]),
+        ("start", &[0.4, 0.6, 1.0, d.one_end_start]),
+    ];
     for rate in [0.03, 0.1] {
-        for (parameter, count) in expected {
+        for (parameter, values) in expected {
             let rows: Vec<_> = d.sensitivity.iter().filter(|x| x.parameter == parameter && x.rate == rate).collect();
-            if rows.len() != count {
-                return Err(format!("sensitivity {parameter} at {rate}: {} runs, expected {count}", rows.len()));
+            if !exact_values(rows.iter().map(|x| x.value), values) {
+                return Err(format!("sensitivity {parameter} at {rate}: expected each of {values:?} once"));
             }
             for x in rows {
                 finite(&[x.value, x.amplification, x.envelope, x.t_snap, x.mu_snap], &format!("sensitivity {parameter} = {} at {rate}", x.value))?;
             }
         }
     }
-    if d.sensitivity.len() != 2 * expected.iter().map(|e| e.1).sum::<usize>() {
+    if d.sensitivity.len() != 2 * expected.iter().map(|e| e.1.len()).sum::<usize>() {
         return Err(format!("sensitivity: {} runs", d.sensitivity.len()));
     }
-    if d.figure_2a.len() != 2 {
+    if !exact_values(d.figure_2a.iter().map(|f| f.rate_m_s), &[0.0018, 0.2466]) {
         return Err("figure 2a: two runs expected".into());
     }
-    let seeded_runs = RATES.len() * PHASES + 2 * expected.iter().map(|e| e.1).sum::<usize>() * PHASES;
+    let seeded_runs = RATES.len() * PHASES + 2 * expected.iter().map(|e| e.1.len()).sum::<usize>() * PHASES;
     let others = RATES.len() + d.unseeded.len() + d.figure_2a.len();
     if d.runs != seeded_runs + others {
         return Err(format!("{} dynamic runs, expected {}", d.runs, seeded_runs + others));
@@ -114,16 +127,20 @@ fn zero_crossing(branch: &[BranchPoint], value: impl Fn(&BranchPoint) -> f64) ->
 
 /// |slope of travel against time on the constant-speed part before µ* (−1 ≤ t/T_osc ≤ 0) / the
 /// run's |ΔL̇| − 1|, over both Fig. 2a runs.
-fn figure_2a_rate(s: &Study) -> Result<f64, String> {
-    let mut worst = 0.0f64;
-    for f in &s.dynamics.figure_2a {
+fn figure_2a_rate(figures: &[Figure2a]) -> Result<f64, String> {
+    let mm_per_mu = 1000.0 * PAPER_ALPHA.powi(2) * SIMULATIONS.length;
+    let mut errors = Vec::new();
+    for f in figures {
         let window: Vec<usize> = (0..f.trace.t.len()).filter(|&i| (-1.0..=0.0).contains(&f.trace.t[i])).collect();
         let (&a, &b) = window.first().zip(window.last()).filter(|(a, b)| a < b).ok_or("figure 2a: no constant-speed window")?;
-        let slope = (f.travel_mm[b] - f.travel_mm[a]) * 1e-3 / (f.time_s[b] - f.time_s[a]);
-        worst = worst.max((slope / f.rate_m_s - 1.0).abs());
+        let duration = f.time_s[b] - f.time_s[a];
+        let clamp_mm = (f.trace.mu[a] - f.trace.mu[b]) * mm_per_mu;
+        for distance_mm in [f.travel_mm[b] - f.travel_mm[a], clamp_mm] {
+            let slope_mm_s = distance_mm / duration;
+            errors.push((0.001 * slope_mm_s / f.rate_m_s - 1.0).abs());
+        }
     }
-    finite(&[worst], "figure 2a rate")?;
-    Ok(worst)
+    largest(&errors, "figure 2a slope")
 }
 
 fn first_below(points: &[(f64, f64)], level: f64) -> f64 {
@@ -171,7 +188,7 @@ fn evidence(s: &Study, root: &Path) -> Result<(Value, Value), String> {
     let height_a = zero_crossing(&diagram.inverted, |p| p.spectrum.omega2_antisymmetric)?;
     let height_fold = zero_crossing(&diagram.inverted, |p| p.spectrum.omega2_symmetric)?;
     let heights = largest(&[(height_a - diagram.critical.height_a).abs(), (height_fold - diagram.critical.height_star).abs()], "critical heights")?;
-    let rate_units = figure_2a_rate(s)?;
+    let rate_units = figure_2a_rate(&d.figure_2a)?;
     let mut checks = vec![
         check("order-mu-a", "alpha = pi/12: observed order of convergence of mu_A over 24/48/96 elements, distance from 2", order(s.paper.mu_a.order), 0.2, "mesh study"),
         check("order-mu-star", "alpha = pi/12: observed order of convergence of mu* over 24/48/96 elements, distance from 2", order(s.paper.mu_star.order), 0.2, "mesh study"),
@@ -182,20 +199,21 @@ fn evidence(s: &Study, root: &Path) -> Result<(Value, Value), String> {
         check("fast-symmetric", "seeded, rates >= 0.3: largest amplification / 2", fast / ASYMMETRIC, 1.0, "paper Fig. 2c: A ~ 1 at fast rates"),
         check("dt", "amplification change from dt = 0.005 to 0.0025 T_osc, rates 0.03 and 0.1", dt_change, 0.02, "time-step study"),
         check("critical-heights", "alpha = pi/12, 48 elements: |h_A - h where omega2_antisymmetric crosses zero| and |h* - h where omega2_symmetric crosses zero| along the drawn inverted branch, in alpha L (linear interpolation between points 0.002 apart)", heights, CROSSING_TOLERANCE, "diagram"),
-        check("fig2a-rate", "Fig. 2a runs: |slope of travel_mm against time_s for -1 <= t/T_osc <= 0 / rate_m_s - 1|", rate_units, 1e-9, "units"),
+        check("fig2a-rate", "Fig. 2a runs: abs(0.001 * slope_mm_s / rate_m_s - 1), largest error for the paper time coordinate and clamp travel from shortening, -1 <= t/T_osc <= 0", rate_units, 1e-9, "units"),
     ];
     let figure = figure_2c(root);
     let one_end: Vec<(f64, f64)> = d.one_end.iter().map(|x| (x.rate, x.amplification)).collect();
-    let envelope: Vec<(f64, f64)> = d.seeded.iter().map(|x| (x.rate, x.envelope)).collect();
-    published_checks.push(published(
-        "fig2c-transition",
-        "Fig. 2c simulations: rate where A first falls below 2 (paper: first digitized point; ours: largest A over twelve seed phases); the paper's points cross A = 2 anywhere between 0.147 and 0.186",
-        first_below(&figure, ASYMMETRIC),
-        d.transition_envelope,
-        true,
-        0.2,
+    let envelope: Vec<(f64, f64)> = d.seeded.iter().map(|x| (x.rate, x.envelope.unwrap())).collect();
+    let paper = first_downward_bracket(&figure)?.map(|(rate, _)| rate);
+    let model = first_downward_bracket(&envelope)?.map(|(rate, _)| rate);
+    let mut transition = published(
+        "fig2c-transition", "Fig. 2c: first sampled rate below A = 2 after a downward crossing, paper simulations and twelve-phase model envelope",
+        paper[1], model[1], true, 0.2,
         "arXiv:2312.13908v2 p. 3, Fig. 2(c), read off the figure (reference/digitize_fig2c.py)",
-    ));
+    );
+    transition["paper_bracket"] = json!(paper);
+    transition["model_bracket"] = json!(model);
+    published_checks.push(transition);
     checks.extend(published_checks.iter().cloned());
     let band: Vec<(f64, f64)> = figure.iter().copied().filter(|p| (0.04..=0.1).contains(&p.0)).collect();
     let median_in_band = |ours: &[(f64, f64)]| {
@@ -237,7 +255,7 @@ fn evidence(s: &Study, root: &Path) -> Result<(Value, Value), String> {
             "paper_first_rate_below_2": first_below(&figure, ASYMMETRIC), "ours_one_end_first_rate_below_2": first_below(&one_end, ASYMMETRIC),
             "ours_seeded_transition": d.transition, "ours_envelope_transition": d.transition_envelope},
     });
-    published_checks.retain(|c| c["passed"] == true);
+    published_checks.extend(not_reproduced.iter().cloned());
     assert!(not_reproduced.iter().all(|c| c["passed"] == false), "a comparison listed as not reproduced now passes: move it to the checks");
     let validation = json!({
         "checks": checks,
@@ -250,9 +268,6 @@ fn evidence(s: &Study, root: &Path) -> Result<(Value, Value), String> {
 
 /// Linear interpolation of an eigenvalue between branch points 0.002 αL apart: README, Tolerances.
 const CROSSING_TOLERANCE: f64 = 1e-4;
-
-/// Post-jump Newton failures counted over the study: README, Tolerances.
-const TRUNCATION_BAND: f64 = 2.0;
 
 /// The bands are justified in the README (Evidence); `passed` and every non-number must match exactly.
 fn compare(a: &Value, b: &Value, path: &str, band: Option<f64>, out: &mut Vec<String>) {
@@ -285,8 +300,14 @@ fn compare(a: &Value, b: &Value, path: &str, band: Option<f64>, out: &mut Vec<St
                 }
                 let band = match k.as_str() {
                     "observed" => observed_band,
-                    "truncated_runs" => Some(TRUNCATION_BAND),
-                    _ => spectrum_band(x, y, k),
+                    "truncated_runs" | "runs" => Some(0.0),
+                    _ => {
+                        let band = spectrum_band(x, y, k);
+                        if band.is_some() && v.as_f64().unwrap().signum() != y[k].as_f64().unwrap().signum() {
+                            out.push(format!("{path}: stability sign changed"));
+                        }
+                        band
+                    },
                 };
                 compare(v, &y[k], &path, band, out);
             }
@@ -372,7 +393,7 @@ mod tests {
     use snap_symmetry_vella_2024::study::richardson;
 
     fn study_of(omegas: [f64; 3]) -> Value {
-        let r = richardson(omegas[0], omegas[1], omegas[2]);
+        let r = richardson(omegas[0], omegas[1], omegas[2]).unwrap();
         json!({"meshes": omegas.map(|w| json!({"omega_antisymmetric": w})), "omega": {"value": r.value, "order": r.order, "correction": r.correction}})
     }
 
@@ -412,10 +433,11 @@ mod tests {
     }
 
     #[test]
-    fn truncated_runs_may_differ_by_the_band_only() {
+    fn truncated_run_counts_match_exactly() {
         let count = |n: usize| json!({"dynamics": {"runs": 707, "truncated_runs": n}});
-        assert!(stale(&count(8), &count(9)).is_empty());
-        assert!(stale(&count(11), &count(9)).is_empty());
+        assert_eq!(stale(&count(8), &count(9)).len(), 1);
+        assert_eq!(stale(&count(11), &count(9)).len(), 1);
+        assert!(stale(&count(9), &count(9)).is_empty());
         assert_eq!(stale(&count(12), &count(9)).len(), 1);
         assert_eq!(stale(&json!({"dynamics": {"runs": 706, "truncated_runs": 9}}), &count(9)).len(), 1);
     }
@@ -426,25 +448,31 @@ mod tests {
         assert!(stale(&spectrum(0.07153081671261309), &spectrum(0.07152997994083818)).is_empty());
         assert_eq!(stale(&spectrum(0.0725), &spectrum(0.07152997994083818)).len(), 1);
     }
-#[test]
-#[ignore = "known wrong result: #2320"]
+    #[test]
     fn review_counts_and_stability_signs_must_agree() {
         assert!(!stale(&json!({"truncated_runs": 10}), &json!({"truncated_runs": 9})).is_empty());
         let pair = |x| json!({"omega2_symmetric": x, "omega2_antisymmetric": -195.0});
         assert!(!stale(&pair(-0.00008), &pair(0.00008)).is_empty());
     }
     #[test]
-    #[ignore = "known wrong result: #2320"]
     fn review_incomplete_evidence_cannot_pass_reductions() {
-        let mut s = study().unwrap();
-        complete(&s).unwrap();
-        s.dynamics.figure_2a[0].time_s.fill(0.0);
-        s.dynamics.figure_2a[0].travel_mm.fill(0.0);
-        assert!(figure_2a_rate(&s).is_err());
-        s.dynamics.figure_2a[0].rate_m_s = s.dynamics.figure_2a[1].rate_m_s;
-        assert!(complete(&s).is_err());
-        s.dynamics.figure_2a[0].rate_m_s = 0.0018;
-        s.dynamics.sensitivity[0].value = s.dynamics.sensitivity[1].value;
-        assert!(complete(&s).is_err());
+        use snap_symmetry_vella_2024::dynamics::Trace;
+        let valid = Figure2a { truncated: false, rate_m_s: 0.0018, rate: 1.0,
+            time_s: vec![-1.0, 0.0], travel_mm: vec![-1.8, 0.0],
+            trace: Trace { t: vec![-1.0, 0.0], mu: vec![0.0018 / (PAPER_ALPHA.powi(2) * SIMULATIONS.length), 0.0], ..Trace::default() }, amplification: 1.0 };
+        assert!(figure_2a_rate(std::slice::from_ref(&valid)).unwrap() < 1e-14);
+        let mut stationary = valid.clone();
+        stationary.trace.mu.fill(0.0);
+        assert_eq!(figure_2a_rate(&[stationary]).unwrap(), 1.0);
+        let mut undefined = valid.clone();
+        undefined.time_s.fill(0.0);
+        undefined.travel_mm.fill(0.0);
+        assert!(figure_2a_rate(&[valid, undefined]).is_err());
+        for expected in [&[0.0018, 0.2466][..], &[0.02, 0.01, 0.005, 0.0025]] {
+            assert!(exact_values(expected.iter().copied().rev(), expected));
+            let mut repeated = expected.to_vec();
+            repeated[0] = repeated[1];
+            assert!(!exact_values(repeated.into_iter(), expected));
+        }
     }
 }

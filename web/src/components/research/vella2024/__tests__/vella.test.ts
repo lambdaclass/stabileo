@@ -35,7 +35,8 @@ const JUMP = ['tSnap', 'muSnap', 'tEnd', 'thetaDuring', 'amplification', 'amplif
 const noSnap = () => ({ ...replay, outcome: { ...replay.outcome, snapped: false, ...Object.fromEntries(JUMP.map(k => [k, null])) } });
 
 it('decodes a run without a snap as an explicit no-snap outcome, with no snap frame', () => {
-  const run = decodeRun(noSnap());
+  const run = decodeRun({ ...noSnap(), frames: replay.frames.slice(0, replay.frames.findIndex(f => f.height > 0)),
+    trace: Object.fromEntries(Object.entries(replay.trace).map(([k, values]) => [k, values.slice(0, replay.trace.height.findIndex(h => h > 0))])) });
   expect(run.outcome.snapped).toBe(false);
   expect(run.outcome.amplification).toBeNull();
   expect(snapFrame(run)).toBeNull();
@@ -97,7 +98,14 @@ it('keeps the evidence consistent with what the page states', () => {
   for (const c of validation.checks) expect(c.passed).toBe(c.observed <= c.tolerance);
   expect(comparison.checks.length).toBeGreaterThan(5);
   for (const c of comparison.checks) {
-    expect(c.passed).toBe(true);
+    expect(c.passed).toBe(c.observed <= c.tolerance);
+    if (c.reference === undefined || c.computed === undefined) {
+      expect(['fig2c-amplitude', 'fig2c-amplitude-one-end']).toContain(c.id);
+      const rows = validation.differences.figure_2c.rows.filter(r => r.rate >= 0.04 && r.rate <= 0.1);
+      const errors = rows.map(r => Math.abs(c.id === 'fig2c-amplitude' ? r.envelope_error : r.one_end_error)).sort((a, b) => a - b);
+      expect(c.observed).toBeCloseTo(errors[Math.floor(errors.length / 2)], 12);
+      continue;
+    }
     const observed = c.relative ? Math.abs(c.computed / c.reference - 1) : Math.abs(c.computed - c.reference);
     expect(observed).toBeCloseTo(c.observed, 12);
   }
@@ -145,16 +153,20 @@ it('labels every source in every locale with the same pages, equations and figur
   }
 });
 
-const review = it.skip;
 
-review('rejects contradicted outcomes and invalid jump magnitudes or intervals', () => {
+
+it('rejects contradicted outcomes and invalid jump magnitudes or intervals', () => {
   expect(() => decodeRun(noSnap())).toThrow('Invalid outcome');
+  const zero = { ...replay.outcome, thetaBefore: 0, amplification: null };
+  expect(decodeRun({ ...replay, outcome: zero }).outcome.amplification).toBeNull();
+  expect(() => decodeRun({ ...replay, outcome: { ...zero, amplification: 0 } })).toThrow('Invalid outcome');
+  expect(decodeRun({ ...replay, outcome: { ...replay.outcome, tEnd: replay.outcome.tSnap, thetaDuring: 0, amplification: 0 } }).outcome.tEnd).toBe(replay.outcome.tSnap);
   for (const key of ['amplification', 'amplificationFromMuA', 'thetaBefore', 'thetaDuring'])
     expect(() => decodeRun({ ...replay, outcome: { ...replay.outcome, [key]: -1 } })).toThrow('Invalid outcome');
   expect(() => decodeRun({ ...replay, outcome: { ...replay.outcome, tEnd: replay.outcome.tSnap - 1 } })).toThrow('Invalid outcome');
 });
 
-review('publishes each paper verdict and both sampling brackets', () => {
+it('publishes each paper verdict and both sampling brackets', () => {
   expect(comparison.checks.filter(c => !c.passed)).toEqual(validation.not_reproduced);
   const transition = comparison.checks.find(c => c.id === 'fig2c-transition')!;
   const bracket = (pairs: number[][]) => {
@@ -162,39 +174,47 @@ review('publishes each paper verdict and both sampling brackets', () => {
     return [pairs[k - 1][0], pairs[k][0]];
   };
   expect(transition).toMatchObject({
+    reference: bracket(parseFigure(figureCsv).simulation)[1],
+    computed: bracket(study.dynamics.seeded.map(p => [p.rate, p.envelope]))[1],
     paper_bracket: bracket(parseFigure(figureCsv).simulation),
     model_bracket: bracket(study.dynamics.seeded.map(p => [p.rate, p.envelope])),
   });
 });
 
-review('uses the paper time coordinate even after the clamps stop', () => {
+it('uses the paper time coordinate even after the clamps stop', () => {
   for (const run of study.dynamics.figure_2a) {
     expect(run.travel_mm.at(-1)).toBeCloseTo(run.time_s.at(-1)! * run.rate_m_s * 1000, 12);
   }
   expect(validation.checks.find(c => c.id === 'fig2a-rate')!.metric).toContain('0.001 * slope_mm_s / rate_m_s');
 });
 
-review('identifies truncated phases and the sense of the first seeded crossing', () => {
+it('identifies truncated phases and the sense of the first seeded crossing', () => {
   const d = study.dynamics;
   expect(d).toHaveProperty('first_downward_crossing_A2');
   expect(d).toHaveProperty('truncated_settings');
-  expect(Reflect.get(d, 'truncated_settings')).toHaveLength(d.truncated_runs);
+  const records = d.truncated_settings;
+  expect(records).toHaveLength(d.truncated_runs);
+  for (const p of d.seeded) expect(p.truncated).toBe(records.some(r => r.sweep === 'seeded' && r.settings.rate === p.rate));
+  for (const p of d.sensitivity) {
+    const matches = records.filter(r => r.sweep === p.parameter && r.settings.rate === p.rate && Reflect.get(r.settings, p.parameter) === p.value);
+    expect(p.truncated).toBe(matches.length > 0);
+  }
   for (const p of [...d.seeded, ...d.sensitivity]) expect(p).toHaveProperty('truncated');
 });
 
-review('ends playback at the final solver state', () => {
+it('ends playback at the final solver state', () => {
   expect(replay.frames.at(-1)!.t).toBe(replay.trace.t.at(-1));
   expect(replay.frames.at(-1)!.height).toBe(replay.trace.height.at(-1));
 });
 
-review('offers the Wang catalogue summary and quantitative verdict in every research locale', () => {
+it('offers the Wang catalogue summary and quantitative verdict in every research locale', () => {
   const paper = papers.papers.find(p => p.id === 'wang-2024')!;
   for (const locale of PUBLIC_LOCALES) {
     const copy = translations[locale as keyof typeof translations];
     if (locale !== 'en') expect(summaryIn(paper, locale)).not.toEqual(paper.summary);
-    expect(copy.summary.symmetric).toContain('A < 2');
-    expect(copy.summary.asymmetric).toContain('A ≥ 2');
+    expect(copy.summary.symmetric).toBe('A < 2');
+    expect(copy.summary.asymmetric).toBe('A ≥ 2');
     expect(copy.stale).toContain(copy.computedWith);
-    expect(copy.reproduces.join(' ')).toContain('Fig. 2c');
+    expect(copy.reproduces.join(' ')).toContain('A < 2');
   }
 });

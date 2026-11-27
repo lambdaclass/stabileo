@@ -10,7 +10,7 @@ use crate::toy::Toy;
 use crate::units::{EXPERIMENTS, SIMULATIONS};
 use serde::Serialize;
 use std::f64::consts::PI;
-use std::sync::atomic::{AtomicUsize, Ordering};
+
 
 pub const PAPER_ALPHA: f64 = PI / 12.0;
 pub const START: f64 = 0.6;
@@ -20,7 +20,6 @@ pub const SHALLOW_ALPHA: f64 = 0.02;
 pub const SHALLOW_SLENDERNESS: f64 = 2e4;
 pub const RATES: [f64; 17] = [0.005, 0.0075, 0.01, 0.015, 0.02, 0.03, 0.04, 0.05, 0.06, 0.08, 0.1, 0.12, 0.15, 0.2, 0.3, 0.5, 0.7];
 pub const PHASES: usize = 12;
-/// An amplification at or above this marks the snap as asymmetric (SUPUESTO).
 pub const ASYMMETRIC: f64 = 2.0;
 
 /// The page's default run: the paper's strip and clamp angle, both clamps moving apart, the
@@ -69,10 +68,12 @@ pub struct Extrapolated {
     pub correction: f64,
 }
 
-pub fn richardson(coarse: f64, medium: f64, fine: f64) -> Extrapolated {
-    let order = ((medium - coarse) / (fine - medium)).abs().log2();
+pub fn richardson(coarse: f64, medium: f64, fine: f64) -> Option<Extrapolated> {
+    let ratio = (medium - coarse) / (fine - medium);
+    if !ratio.is_finite() || ratio <= 1.0 { return None; }
+    let order = ratio.log2();
     let correction = (fine - medium) / (2f64.powf(order) - 1.0);
-    Extrapolated { value: fine + correction, order, correction }
+    (fine + correction).is_finite().then_some(Extrapolated { value: fine + correction, order, correction })
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -86,6 +87,10 @@ pub struct Convergence {
 }
 
 pub fn convergence(alpha: f64, slenderness: f64, meshes: &[usize]) -> Result<Convergence, String> {
+    let k = meshes.len();
+    if k < 3 || !meshes[k - 3..].windows(2).all(|w| w[0].checked_mul(2) == Some(w[1])) {
+        return Err("Richardson requires three successively doubled meshes".into());
+    }
     let mut points = vec![];
     for &n in meshes {
         let strip = Strip { n, alpha, slenderness };
@@ -94,14 +99,13 @@ pub fn convergence(alpha: f64, slenderness: f64, meshes: &[usize]) -> Result<Con
         let s = spectrum(&strip, &mut Assembler::new(&strip), &quarter.q);
         points.push(MeshPoint { n, mu_a: c.mu_a, mu_star: c.mu_star, omega_antisymmetric: s.omega2_antisymmetric.sqrt(), omega_symmetric: s.omega2_symmetric.sqrt() });
     }
-    let k = points.len();
-    let r = |f: &dyn Fn(&MeshPoint) -> f64| richardson(f(&points[k - 3]), f(&points[k - 2]), f(&points[k - 1]));
+    let r = |f: &dyn Fn(&MeshPoint) -> f64| richardson(f(&points[k - 3]), f(&points[k - 2]), f(&points[k - 1])).ok_or("mesh differences do not support Richardson extrapolation");
     Ok(Convergence {
         alpha,
         slenderness,
-        mu_a: r(&|p| p.mu_a),
-        mu_star: r(&|p| p.mu_star),
-        omega: r(&|p| p.omega_antisymmetric),
+        mu_a: r(&|p| p.mu_a)?,
+        mu_star: r(&|p| p.mu_star)?,
+        omega: r(&|p| p.omega_antisymmetric)?,
         meshes: points,
     })
 }
@@ -193,20 +197,22 @@ pub fn diagram(alpha: f64, n: usize) -> Result<Diagram, String> {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct RatePoint {
+    pub truncated: bool,
     pub rate: f64,
     pub amplification: f64,
     pub amplification_from_mu_a: f64,
     /// Largest amplification over the seed's phase (seeded runs only).
-    pub envelope: f64,
+    pub envelope: Option<f64>,
     pub t_snap: f64,
     pub mu_snap: f64,
     pub theta_before: f64,
     pub theta_during: f64,
 }
 
-fn rate_point(sim: &Simulation, envelope: f64) -> Result<RatePoint, String> {
+fn rate_point(sim: &Simulation, envelope: Option<f64>, truncated: bool) -> Result<RatePoint, String> {
     let j = sim.outcome.jump()?;
     Ok(RatePoint {
+        truncated,
         rate: sim.settings.rate,
         amplification: j.amplification,
         amplification_from_mu_a: j.amplification_from_mu_a,
@@ -218,32 +224,44 @@ fn rate_point(sim: &Simulation, envelope: f64) -> Result<RatePoint, String> {
     })
 }
 
-static RUNS: AtomicUsize = AtomicUsize::new(0);
-static TRUNCATED: AtomicUsize = AtomicUsize::new(0);
-
-fn run(settings: &Settings, prepared: &(Equilibrium, Critical)) -> Result<Simulation, String> {
-    let sim = simulate(settings, &prepared.0, prepared.1.mu_star, prepared.1.mu_a, &mut |_| false)?;
-    sim.outcome.jump().map_err(|e| format!("{e} (µ̇ = {}, phase {})", settings.rate, settings.phase))?;
-    RUNS.fetch_add(1, Ordering::Relaxed);
-    if sim.outcome.truncated {
-        TRUNCATED.fetch_add(1, Ordering::Relaxed);
-    }
-    Ok(sim)
+#[derive(Default)]
+struct Runs {
+    count: usize,
+    truncated: Vec<RunRecord>,
 }
 
-/// The run at the seed's phase 0 and the largest amplification over PHASES phases.
-fn envelope(settings: &Settings, prepared: &(Equilibrium, Critical)) -> Result<(Simulation, f64), String> {
-    let first = run(settings, prepared)?;
-    let mut best = first.outcome.jump()?.amplification;
-    for k in 1..PHASES {
-        let s = Settings { phase: 2.0 * PI * k as f64 / PHASES as f64, ..*settings };
-        best = best.max(run(&s, prepared)?.outcome.jump()?.amplification);
+#[derive(Clone, Debug, Serialize)]
+pub struct RunRecord {
+    pub sweep: String,
+    pub settings: Settings,
+}
+
+impl Runs {
+    fn run(&mut self, sweep: &str, settings: &Settings, prepared: &(Equilibrium, Critical)) -> Result<Simulation, String> {
+        let sim = simulate(settings, &prepared.0, prepared.1.mu_star, prepared.1.mu_a, &mut |_| false)?;
+        if !sim.outcome.snapped { return Err(format!("no snap for {settings:?}")); }
+        self.count += 1;
+        if sim.outcome.truncated {
+            self.truncated.push(RunRecord { sweep: sweep.into(), settings: *settings });
+        }
+        Ok(sim)
     }
-    Ok((first, best))
+
+    fn envelope(&mut self, sweep: &str, settings: &Settings, prepared: &(Equilibrium, Critical)) -> Result<(Simulation, f64, bool), String> {
+        let prior = self.truncated.len();
+        let first = self.run(sweep, settings, prepared)?;
+        let mut best = first.outcome.jump()?.amplification;
+        for k in 1..PHASES {
+            let s = Settings { phase: 2.0 * PI * k as f64 / PHASES as f64, ..*settings };
+            best = best.max(self.run(sweep, &s, prepared)?.outcome.jump()?.amplification);
+        }
+        Ok((first, best, self.truncated.len() != prior))
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Sensitivity {
+    pub truncated: bool,
     pub parameter: String,
     pub value: f64,
     pub rate: f64,
@@ -256,10 +274,9 @@ pub struct Sensitivity {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Figure2a {
+    pub truncated: bool,
     pub rate_m_s: f64,
     pub rate: f64,
-    /// The trace's times in s (trace.t is in T_osc; t = 0 at µ = µ*), and the clamp's travel
-    /// −tΔL̇ in mm, zero at µ = µ*.
     pub time_s: Vec<f64>,
     pub travel_mm: Vec<f64>,
     pub trace: Trace,
@@ -281,93 +298,104 @@ pub struct Dynamics {
     pub figure_2a: Vec<Figure2a>,
     /// Lowest rate at which the seeded amplification (phase 0, and its phase envelope) falls
     /// below ASYMMETRIC, interpolated on log µ̇.
+    #[serde(rename = "first_downward_crossing_A2")]
     pub transition: f64,
     pub transition_envelope: f64,
     /// Dynamic runs in this study, and how many stopped early after their jump.
     pub runs: usize,
     pub truncated_runs: usize,
+    pub truncated_settings: Vec<RunRecord>,
+    pub unseeded_truncated: Vec<bool>,
 }
 
-fn crossing(points: &[RatePoint], value: impl Fn(&RatePoint) -> f64) -> f64 {
-    for w in points.windows(2) {
-        let (a, b) = (value(&w[0]), value(&w[1]));
-        if a >= ASYMMETRIC && b < ASYMMETRIC {
-            let f = (a - ASYMMETRIC) / (a - b);
-            return (w[0].rate.ln() + f * (w[1].rate.ln() - w[0].rate.ln())).exp();
-        }
-    }
-    f64::NAN
+pub fn first_downward_bracket(points: &[(f64, f64)]) -> Result<[(f64, f64); 2], String> {
+    points.windows(2).find(|w| w[0].1 >= ASYMMETRIC && w[1].1 < ASYMMETRIC)
+        .map(|w| [w[0], w[1]]).ok_or_else(|| "missing downward crossing of A = 2".into())
+}
+
+fn crossing(points: &[RatePoint], value: impl Fn(&RatePoint) -> f64) -> Result<f64, String> {
+    let curve: Vec<_> = points.iter().map(|p| (p.rate, value(p))).collect();
+    let [(r0, a), (r1, b)] = first_downward_bracket(&curve)?;
+    let fraction = (a - ASYMMETRIC) / (a - b);
+    Ok((r0.ln() + fraction * (r1.ln() - r0.ln())).exp())
 }
 
 pub fn dynamics() -> Result<Dynamics, String> {
+    let mut runs = Runs::default();
     let base = default_settings();
     let strip = base.strip();
     let prepared = prepare(&strip, START)?;
     let mut seeded = vec![];
     for &rate in &RATES {
-        let (first, best) = envelope(&Settings { rate, ..base }, &prepared)?;
-        seeded.push(rate_point(&first, best)?);
+        let (first, best, truncated) = runs.envelope("seeded", &Settings { rate, ..base }, &prepared)?;
+        seeded.push(rate_point(&first, Some(best), truncated)?);
     }
     let one_end_start = 0.2 / (PAPER_ALPHA * PAPER_ALPHA);
     let far = prepare(&strip, one_end_start)?;
     let mut one_end = vec![];
     for &rate in &RATES {
         let s = Settings { rate, start: one_end_start, one_end: true, imperfection: 0.0, ..base };
-        one_end.push(rate_point(&run(&s, &far)?, f64::NAN)?);
+        let sim = runs.run("one_end", &s, &far)?;
+        one_end.push(rate_point(&sim, None, sim.outcome.truncated)?);
     }
     let mut unseeded = vec![];
+    let mut unseeded_truncated = vec![];
     for rate in [0.01, 0.03, 0.1, 0.3] {
-        let sim = run(&Settings { rate, imperfection: 0.0, ..base }, &prepared)?;
+        let sim = runs.run("unseeded", &Settings { rate, imperfection: 0.0, ..base }, &prepared)?;
         let worst = sim.trace.theta_max.iter().chain(&sim.trace.theta_min).fold(0.0f64, |m, v| m.max(v.abs()));
+        unseeded_truncated.push(sim.outcome.truncated);
         unseeded.push([rate, worst]);
     }
     let mut sensitivity = vec![];
-    let mut add = |parameter: &str, value: f64, (sim, envelope): &(Simulation, f64)| -> Result<(), String> {
+    let mut add = |parameter: &str, value: f64, (sim, envelope, truncated): &(Simulation, f64, bool)| -> Result<(), String> {
         let j = sim.outcome.jump()?;
-        sensitivity.push(Sensitivity { parameter: parameter.into(), value, rate: sim.settings.rate, amplification: j.amplification, envelope: *envelope, t_snap: j.t_snap, mu_snap: j.mu_snap });
+        sensitivity.push(Sensitivity { truncated: *truncated, parameter: parameter.into(), value, rate: sim.settings.rate, amplification: j.amplification, envelope: *envelope, t_snap: j.t_snap, mu_snap: j.mu_snap });
         Ok(())
     };
     for rate in [0.03, 0.1] {
         for dt in [0.02, 0.01, 0.005, 0.0025] {
-            add("dt", dt, &envelope(&Settings { rate, dt, ..base }, &prepared)?)?;
+            add("dt", dt, &runs.envelope("dt", &Settings { rate, dt, ..base }, &prepared)?)?;
         }
         for hht in [-0.05, -0.1, -0.2, -0.3] {
-            add("hht", hht, &envelope(&Settings { rate, hht, ..base }, &prepared)?)?;
+            add("hht", hht, &runs.envelope("hht", &Settings { rate, hht, ..base }, &prepared)?)?;
         }
         for seed in [1e-4, 3e-4, 1e-3, 3e-3, 1e-2] {
-            add("imperfection", seed, &envelope(&Settings { rate, imperfection: seed, ..base }, &prepared)?)?;
+            add("imperfection", seed, &runs.envelope("imperfection", &Settings { rate, imperfection: seed, ..base }, &prepared)?)?;
         }
         for n in [24, 48, 96] {
             let s = Settings { rate, n, ..base };
             let p = if n == MESH { prepared.clone() } else { prepare(&s.strip(), START)? };
-            add("n", n as f64, &envelope(&s, &p)?)?;
+            add("n", n as f64, &runs.envelope("n", &s, &p)?)?;
         }
         for start in [0.4, 0.6, 1.0, one_end_start] {
             let s = Settings { rate, start, ..base };
             let p = if start == START { prepared.clone() } else if start == one_end_start { far.clone() } else { prepare(&strip, start)? };
-            add("start", start, &envelope(&s, &p)?)?;
+            add("start", start, &runs.envelope("start", &s, &p)?)?;
         }
     }
     let mut figure_2a = vec![];
-    let a2l_mm = PAPER_ALPHA * PAPER_ALPHA * SIMULATIONS.length * 1e3;
+
     for rate_m_s in [0.0018, 0.2466] {
         let rate = rate_m_s * SIMULATIONS.rate_factor(PAPER_ALPHA);
         let s = Settings { rate, start: one_end_start, one_end: true, imperfection: 0.0, ..base };
-        let sim = run(&s, &far)?;
+        let sim = runs.run("figure_2a", &s, &far)?;
         figure_2a.push(Figure2a {
+            truncated: sim.outcome.truncated,
             rate_m_s,
             rate,
             time_s: sim.trace.t.iter().map(|t| t * SIMULATIONS.t_osc()).collect(),
-            travel_mm: sim.trace.mu.iter().map(|mu| (far.1.mu_star - mu) * a2l_mm).collect(),
+            travel_mm: sim.trace.t.iter().map(|t| t * SIMULATIONS.t_osc() * rate_m_s * 1000.0).collect(),
             trace: sim.trace.clone(),
             amplification: sim.outcome.jump()?.amplification,
         });
     }
     Ok(Dynamics {
-        runs: RUNS.load(Ordering::Relaxed),
-        truncated_runs: TRUNCATED.load(Ordering::Relaxed),
-        transition: crossing(&seeded, |p| p.amplification),
-        transition_envelope: crossing(&seeded, |p| p.envelope),
+        runs: runs.count,
+        truncated_runs: runs.truncated.len(),
+        truncated_settings: runs.truncated,
+        unseeded_truncated,
+        transition: crossing(&seeded, |p| p.amplification)?,
+        transition_envelope: crossing(&seeded, |p| p.envelope.unwrap())?,
         base,
         critical: prepared.1.clone(),
         seeded,
@@ -454,4 +482,21 @@ pub fn study() -> Result<Study, String> {
             ramp: SIMULATIONS.ramp(0.01),
         },
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn run_accounting_belongs_to_each_study() {
+        let settings = Settings { n: 8, rate: 0.1, ..default_settings() };
+        let prepared = prepare(&settings.strip(), settings.start).unwrap();
+        let mut first = Runs::default();
+        let mut second = Runs::default();
+        first.run("seeded", &settings, &prepared).unwrap();
+        second.run("seeded", &settings, &prepared).unwrap();
+        first.run("one_end", &Settings { one_end: true, ..settings }, &prepared).unwrap();
+        assert_eq!((first.count, second.count), (2, 1));
+    }
 }

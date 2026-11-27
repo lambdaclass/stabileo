@@ -1011,6 +1011,7 @@ evidence.research.heyman:
 VELLA_DIR = research/mechanics/vella-2024
 .PHONY: test.research.vella evidence.research.vella
 test.research.vella:
+	python3 -B -I $(VELLA_DIR)/tests/publication.py
 	$(NIX_RUN) cargo test --locked --release --manifest-path $(VELLA_DIR)/Cargo.toml
 	$(NIX_RUN) cargo run --locked --release --manifest-path $(VELLA_DIR)/Cargo.toml --bin validate
 

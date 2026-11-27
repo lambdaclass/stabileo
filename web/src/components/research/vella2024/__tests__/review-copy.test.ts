@@ -7,11 +7,11 @@ const analytical = {
   tr: 'analitik referans', zh: '解析基准',
 };
 
-it.skip.each(Object.entries(translations))('%s identifies the analytical benchmark and the independent simulation', (locale, copy) => {
+it.each(Object.entries(translations))('%s identifies the analytical benchmark and the independent simulation', (locale, copy) => {
   expect(copy.model).toContain(analytical[locale as keyof typeof analytical]);
 });
 
-it.skip.each(Object.entries(translations))('%s distinguishes growth, peak angle and the transition verdict', (_locale, copy) => {
+it.each(Object.entries(translations))('%s distinguishes growth, peak angle and the transition verdict', (_locale, copy) => {
   for (const id of ['fig2c-amplitude', 'fig2c-amplitude-one-end']) expect(copy.rows[id]).toMatch(/ A(?: |,|，|$)/);
   expect(copy.summary.symmetric).toBe('A < 2');
   expect(copy.summary.asymmetric).toBe('A ≥ 2');
@@ -19,6 +19,6 @@ it.skip.each(Object.entries(translations))('%s distinguishes growth, peak angle 
   expect(copy.doesnt.join(' ')).not.toContain('A < 2');
 });
 
-it.skip('states the Hungarian critical-rate discrepancy as a complete comparison', () => {
+it('states the Hungarian critical-rate discrepancy as a complete comparison', () => {
   expect(translations.hu.doesnt.join(' ')).toMatch(/10 %-kal eltér/);
 });

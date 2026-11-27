@@ -89,6 +89,7 @@ floor of the internal force).
   never starts the end timer. A run whose midpoint never crosses reports no snap (`snapped: false`,
   every jump value null); a crossing whose first maximum is not observed, or a Newton failure
   before the jump has ended, is an error, never a truncated result.
+  The crossing time is interpolated between the last nonpositive and first positive height and shortening is evaluated from the clamp law there. If either pre-jump angle maximum is exactly zero, its amplification ratio is undefined (`null`), including when the strip snapped. The final frame is the last accepted state.
 
 ## Results
 
@@ -135,19 +136,17 @@ The analytic shallow values computed here: τ* = 8.98682 (paper 8.987), τ_fold 
 | 0.7 | 0.792 | 0.922 | 0.945 | 0.0547 |
 
 Replay (default): |µ̇| = 0.01 (4.31 mm/s for the paper's strip), seed 10⁻³ rad, A = 34.4, snap at
-µ = 0.2273, 1.82 T_osc after µ*. Both clamps without a seed: largest |θ| ≤ 2.0 × 10⁻¹⁰ rad at
+µ = 0.2273, 1.81 T_osc after µ*. Both clamps without a seed: largest |θ| ≤ 2.0 × 10⁻¹⁰ rad at
 |µ̇| = 0.01–0.3 (round-off, amplified at slow rates). Fig. 2a's rates on the one-clamp protocol:
 1.8 mm/s (|µ̇| = 0.0042) gives A = 175, 246.6 mm/s (|µ̇| = 0.572) gives A = 1.07.
 
 Times in `study.json` and on the page are in T_osc, which is 0.01718 s for the simulated strip
 (`units.t_osc_simulations`; t* = 0.15908 s is `units.time_unit_simulations`). Each Fig. 2a run
-also stores `time_s`, and `validate` checks that its travel against `time_s` on the constant-speed
-part before µ* has the slope `rate_m_s`: at 246.6 mm/s the trace moves 0.02118 mm per
+also stores `time_s` and the paper coordinate `travel_mm = 1000 × rate_m_s × time_s`. This coordinate advances after the clamps stop. Before µ*, its slope in mm/s converts to the prescribed speed in m/s: at 246.6 mm/s the trace moves 0.02118 mm per
 0.005 T_osc = 8.59 × 10⁻⁵ s.
 
 **Against Fig. 2c (simulations).** The largest A over phase falls below 2 at |µ̇| ≈
-0.161, the one-clamp curve at 0.15; the paper's points first fall below 2 at
-|µ̇| ≈ 0.185 (−13 % and −19 %). Between |µ̇| = 0.04 and 0.1 the paper's 11 points are 11.5–35.6 and
+0.161 by log-rate interpolation. Using the first sampled rate below 2 for both curves gives 0.20 for the envelope and 0.1855 for the digitized paper simulations. The model brackets this crossing between 0.15 and 0.20, the paper between 0.1801 and 0.1855. Between |µ̇| = 0.04 and 0.1 the paper's 11 points are 11.5–35.6 and
 ours 2.9–10.1 (largest over phase) or 2.2–7.1 (one clamp), lower at every one of them by a factor
 of 2.9–4.2 and 3.8–8.2. Over the paper's 49 points up to |µ̇| = 0.3 the median relative difference
 is 36 % (largest over phase) and 55 % (one clamp); above |µ̇| ≈ 0.2, where both are near 1, ours is
@@ -169,10 +168,7 @@ shows for the toy model, so only the envelope is a fair comparison. Row-by-row n
 
 A at a single phase is sensitive to anything that shifts the phase of the antisymmetric oscillation
 when the strip reaches the amplification region (mesh, start); the largest A over phase is stable to
-3 % in mesh and Δt. Nine of the 707 dynamic runs of the study stopped early on macOS, eight on
-Linux CI, after their jump had ended, where Newton failed on 2⁸ substeps of the post-snap ringing;
-the amplification had been measured, and a failure before the jump ends stops the study with an
-error.
+3 % for refinement from 48 to 96 elements at the two tabulated rates. At rate 0.1 the larger change from 24 to 48 elements is visible in the table. Each truncated run and its sweep and phase appear in `dynamics.truncated_settings`. A marked envelope includes at least one run that stopped after its jump. A failure before the first height maximum aborts the study.
 
 
 ### Toy model
@@ -190,11 +186,11 @@ not checked.
 
 Reproduced, within the stated tolerances: the shallow theory's µ_A, µ*, τ*, τ_fold; our
 finite-element µ_A, µ* and the natural frequency 57.86 in the shallow limit; the toy model's
-constants, frequencies and t_osc; the bifurcation order at α = π/12; the qualitative rate effect
+constants, frequencies and t_osc; Fig. 2c’s first sampled envelope rate below A = 2 (within 20 %); the bifurcation order at α = π/12; the qualitative rate effect
 (slow releases amplify a small asymmetry by tens, fast ones snap symmetrically, both ends without a
 seed stay symmetric).
 
-Not reproduced: the amplitudes and transition rate of Fig. 2c (trend only); the toy model's critical
+Not reproduced: the amplification factors of Fig. 2c in the comparison band; the toy model's critical
 rate (about 10 % off); the experiments (no laboratory comparison is claimed); the paper's DER code,
 which is not published, so its seed, time origin and snap window are our assumptions. Gravity,
 damping, rotary inertia and the stopper's impact are not modelled.
@@ -205,15 +201,14 @@ damping, rotary inertia and the stopper's impact are not modelled.
 orders, bifurcation order, symmetry without a seed, the rate effect, time step, the critical
 heights against the branch's eigenvalue crossings, the Fig. 2a rate against its travel and time)
 and 13 against
-numbers printed in the paper (also in `reference-results/published_comparison.json`), including the
-rate at which Fig. 2c's amplification falls below 2 (0.161 against 0.186, within 20 %, the spread of
+numbers in the paper (all 16 paper verdicts appear in `reference-results/published_comparison.json`), including the
+rate at which Fig. 2c's amplification falls below 2 (0.20 against 0.1855, within 20 %, the spread of
 the paper's own points around A = 2). `not_reproduced` lists the comparisons we fail, each with its
 number and the tolerance it would need: Fig. 2c's amplitudes between |µ̇| = 0.04 and 0.1 (median
 |A_ours/A_paper − 1| = 0.73 for the largest A over phase, 0.84 for one clamp, against 0.25) and the
 toy model's critical rate (|0.1052/0.0961 − 1| = 0.094 against 0.01). `differences` keeps the
 row-by-row Fig. 2c numbers. The page's badge against the paper counts all of them: 13 of 16, marked
-as failing. The catalogue keeps `reproduced_published_results: true` because the printed numbers
-listed above are reproduced; its status is `interactive`, not `published-figures-compared`.
+as failing. The catalogue records the partial reproduction in its relevance text. Its all-passed flag is false and its status is `interactive`.
 
 The catalogue area is `metamaterials`, the area of the catalogue's two other snap-through papers
 (Zmyślony, Khan & Biggins 2026; Fehér 2026), so the gallery's area filter groups them.
@@ -234,8 +229,9 @@ The catalogue area is `metamaterials`, the area of the catalogue's two other sna
   cross zero, read by linear interpolation between branch points 0.002 αL apart (5 % of that
   step; observed 4.1 × 10⁻⁶). The old heights, in L, were off by the factor α = 0.26 and fail it
   by 0.10.
-- Fig. 2a rate: 10⁻⁹ relative between the travel's slope against `time_s` and `rate_m_s`; both
-  come from closed-form clamp motion, so only round-off separates them (observed 4.9 × 10⁻¹⁴).
+- Fig. 2a speed uses a relative tolerance of 10⁻⁹. Over the same pre-fold window, the validator
+  compares both the slope of the paper time coordinate and the clamp speed recovered independently
+  from shortening with the prescribed speed in m/s.
 - Before reducing, `validate` checks that every run it reduces over is present (the 17 rates of
   both sweeps, the four unseeded rates, the 40 sensitivity runs, both Fig. 2a runs, 707 runs in
   all), snapped, and finite; a missing run or a NaN fails instead of vanishing in a max or min.
@@ -267,11 +263,7 @@ The catalogue area is `metamaterials`, the area of the catalogue's two other sna
     drift through d₁ and d₂, plus 10⁻¹² relative; the mesh values themselves are compared under
     the usual band, so a stale order with unchanged inputs still fails.
 
-  - The number of runs stopped early (`truncated_runs`) counts Newton solves of the post-snap
-    ringing that sit at the edge of convergence, so whether one of them converges is decided by
-    round-off: it was 9 on macOS and 8 on Linux CI, with every other number of the study inside
-    its band. It enters no reported number, since each of those runs had already measured its
-    jump, and it may differ by 2.
+  - The truncated-run count, identities and affected summaries must match exactly. A platform-dependent Newton failure changes the evidence and requires review. Spectral values within the paired numerical band of zero are marked in `unresolved_signs`. A change of sign is always reported.
 
   The verdicts themselves, the counts of points and runs, and every other non-number must match
   exactly.

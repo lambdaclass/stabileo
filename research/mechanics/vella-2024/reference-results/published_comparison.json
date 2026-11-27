@@ -45,10 +45,10 @@
       "tolerance": 1e-12
     },
     {
-      "computed": 0.2500392870323144,
+      "computed": 0.2500392867690624,
       "id": "mu-a-fe",
       "metric": "FE, alpha = 0.02, L/h = 2e4, Richardson over 24/48/96 elements: mu_A",
-      "observed": 0.00015714812925748944,
+      "observed": 0.00015714707624958635,
       "passed": true,
       "reference": 0.25,
       "relative": true,
@@ -56,10 +56,10 @@
       "tolerance": 0.0003
     },
     {
-      "computed": 0.2470946996797411,
+      "computed": 0.24709469967615835,
       "id": "mu-star-fe",
       "metric": "FE, alpha = 0.02, L/h = 2e4, Richardson over 24/48/96 elements: mu* against the exact fold of Eq. (S15)",
-      "observed": 0.0001807712836376929,
+      "observed": 0.0001807712691357377,
       "passed": true,
       "reference": 0.2470500401268646,
       "relative": true,
@@ -67,10 +67,10 @@
       "tolerance": 0.0003
     },
     {
-      "computed": 57.85681696144374,
+      "computed": 57.85681695699664,
       "id": "omega-fe",
       "metric": "FE, alpha = 0.02, natural state at mu = 1/4: lowest (antisymmetric) frequency against sqrt(3348.04)",
-      "observed": 0.0000938998055944884,
+      "observed": 0.0000938998824512316,
       "passed": true,
       "reference": 57.862250215490235,
       "relative": true,
@@ -133,15 +133,50 @@
       "tolerance": 0.001
     },
     {
-      "computed": 0.1608475164968385,
+      "computed": 0.2,
       "id": "fig2c-transition",
-      "metric": "Fig. 2c simulations: rate where A first falls below 2 (paper: first digitized point; ours: largest A over twelve seed phases); the paper's points cross A = 2 anywhere between 0.147 and 0.186",
-      "observed": 0.1328974851922452,
+      "metric": "Fig. 2c: first sampled rate below A = 2 after a downward crossing, paper simulations and twelve-phase model envelope",
+      "model_bracket": [
+        0.15,
+        0.2
+      ],
+      "observed": 0.0781671159029651,
+      "paper_bracket": [
+        0.1801,
+        0.1855
+      ],
       "passed": true,
       "reference": 0.1855,
       "relative": true,
       "source": "arXiv:2312.13908v2 p. 3, Fig. 2(c), read off the figure (reference/digitize_fig2c.py)",
       "tolerance": 0.2
+    },
+    {
+      "id": "fig2c-amplitude",
+      "metric": "Fig. 2c simulations, 0.04 <= mu_dot <= 0.1: median |A_ours / A_paper - 1|, our largest A over twelve seed phases (ours lower at every point)",
+      "observed": 0.7308589805107242,
+      "passed": false,
+      "source": "arXiv:2312.13908v2 p. 3, Fig. 2(c), read off the figure (reference/digitize_fig2c.py)",
+      "tolerance": 0.25
+    },
+    {
+      "id": "fig2c-amplitude-one-end",
+      "metric": "Fig. 2c simulations, 0.04 <= mu_dot <= 0.1: median |A_ours / A_paper - 1|, our one-clamp protocol from DeltaL/L = 0.2 (ours lower at every point)",
+      "observed": 0.8422225097423848,
+      "passed": false,
+      "source": "arXiv:2312.13908v2 p. 3, Fig. 2(c), read off the figure (reference/digitize_fig2c.py)",
+      "tolerance": 0.25
+    },
+    {
+      "computed": 0.1051508223134337,
+      "id": "toy-critical-rate",
+      "metric": "toy model critical rate: |ours / paper - 1|; ours integrates (S84)-(S85) and bisects on whether the trajectory reaches f < 0, the paper's comes from the near-saddle-node reduction (S87)-(S92)",
+      "observed": 0.09418129358411753,
+      "passed": false,
+      "reference": 0.0961,
+      "relative": true,
+      "source": "arXiv:2312.13908v2 p. 4, Fig. 4 caption; 0.096 on p. 25",
+      "tolerance": 0.01
     }
   ]
 }

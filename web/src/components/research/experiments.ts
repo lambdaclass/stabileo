@@ -1,3 +1,5 @@
+import { snapCard } from './vella2024/card';
+
 /**
  * The experiments that run on this site, and the ones being built. The gallery and the
  * experiment pages read this; papers.json (the catalogue) is joined to it by `paperId`.
@@ -149,10 +151,10 @@ export const EXPERIMENTS: Experiment[] = [
   {
     paperId: 'wang-2024',
     path: '/research/mechanics/vella-2024',
-    name: 'Why a snapping strip turns lopsided only when released slowly',
-    hook: 'A steel strip clamped at an angle snaps from its inverted to its natural shape. Pull the ends apart slowly and a tiny asymmetry grows tens of times during the jump; pull fast and it snaps symmetrically.',
+    name: snapCard.en.title,
+    hook: snapCard.en.hook,
     thumbnail: 'research-thumbs/vella-2024.svg',
-    thumbnailAlt: 'Shapes of the strip from our run: the inverted arch, the lopsided jump and the natural arch',
+    thumbnailAlt: 'Shapes of the strip from our run: the inverted arch, the lopsided jump and the post-snap shape',
     thumbnailQuery: '',
     code: 'https://github.com/lambdaclass/stabileo/tree/main/research/mechanics/vella-2024',
   },

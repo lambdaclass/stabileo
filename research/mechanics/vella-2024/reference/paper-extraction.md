@@ -106,7 +106,7 @@ factor is 2.321 s/m; the page reports both \|µ̇\| and the corresponding \|ΔL�
    "in the main text, we substitute µ = µ_A − \|µ̇\|τ so that the quasi-static instability occurs
    at τ = 0". We use µ* and report the µ_A variant too.
 2. **Toy frequencies.** Linearising (S74)–(S75) with the kinetic energy (S73) gives
-   (ω_S/t_osc)² = ½(a₂ − a₃µ + 3a₄ψ_N²) and (ω_A/t_osc)² = 2(b₁ − b₂µ + b₃ψ_N²). At µ = 1/4 these are
+   (ω_S/t_osc)² = ½(a₂ − a₃µ + 3a₄ψ_N²) and (ω_A/t_osc)² = 2(b₁ − b₂µ + b₃ψ_N²). At µ = 1/4 their square roots are
    0.663 (symmetric) and 0.732 (antisymmetric): the labels in the text (p. 22) are swapped, and
    (S78)–(S79) as printed lack the factors ½ and 2 and carry a 3 in (S79). t_osc = 2π/0.663 = 9.477
    agrees with the text.

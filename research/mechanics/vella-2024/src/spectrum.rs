@@ -4,9 +4,10 @@ use serde::Serialize;
 
 /// Lowest eigenvalues of the tangent on the free DOFs, split by the left–right mirror of the
 /// strip, and the lowest squared frequencies of K φ = ω² M φ with the rotations condensed out
-/// (no rotary inertia). ω² < 0 is the growth rate λ² of the paper's Eq. (S18).
+/// (no rotary inertia).
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct Spectrum {
+    pub unresolved_signs: Vec<&'static str>,
     pub stiffness_symmetric: f64,
     pub stiffness_antisymmetric: f64,
     pub omega2_symmetric: f64,
@@ -188,6 +189,15 @@ pub fn spectrum(strip: &Strip, assembler: &mut Assembler, q: &[f64]) -> Spectrum
         } else {
             out.stiffness_antisymmetric = stiffness;
             out.omega2_antisymmetric = w2;
+        }
+    }
+    for (s, a, keys) in [
+        (out.stiffness_symmetric, out.stiffness_antisymmetric, ["stiffness_symmetric", "stiffness_antisymmetric"]),
+        (out.omega2_symmetric, out.omega2_antisymmetric, ["omega2_symmetric", "omega2_antisymmetric"]),
+    ] {
+        let band = 1e-8 + 1e-6 * s.abs().max(a.abs());
+        for (value, key) in [s, a].into_iter().zip(keys) {
+            if value.abs() <= band { out.unresolved_signs.push(key); }
         }
     }
     out

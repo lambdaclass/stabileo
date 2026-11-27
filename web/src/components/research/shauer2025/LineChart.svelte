@@ -4,7 +4,7 @@
    * ours on top as a thin line, so agreement reads as a line inside a halo. A legend and a data table
    * sit below the plot; a crosshair tooltip reads every series at the nearest x.
    */
-  import { tick } from 'svelte';
+  import { tick, type Snippet } from 'svelte';
   import { chartReadout } from './chart-readout';
   import { chartStrings } from '../shell/chart-strings';
   import type { Series } from './protocol';
@@ -13,6 +13,7 @@
   type Label = { x: number; y: number; text: string; anchor?: 'start' | 'middle' | 'end'; dy?: number };
   let {
     series,
+    scatter,
     xLabel,
     yLabel,
     height = 260,
@@ -28,6 +29,7 @@
     scrubber = false,
   }: {
     series: Series[];
+    scatter?: Snippet<[Series, (v: number) => number, (v: number) => number]>;
     xLabel: string;
     yLabel: string;
     height?: number;
@@ -151,8 +153,8 @@
     <defs><clipPath id={clipId}><rect x={M.l} y={M.t - 6} width={width - M.l - M.r} height={height - M.t - M.b + 12} /></clipPath></defs>
     <g clip-path="url(#{clipId})">
       {#each ordered as s (s.name)}
-        {#if s.markers}
-          {#each s.points as p, i (i)}<circle cx={sx(p[0])} cy={sy(p[1])} r="3" style:fill={s.color} fill-opacity="0.85" />{/each}
+        {#if s.markers && scatter}
+          {@render scatter(s, sx, sy)}
         {:else if s.dashed}
           <path d={path(s.points)} fill="none" style:stroke={s.color} stroke-width="6" stroke-opacity="0.35" stroke-linecap="round" stroke-linejoin="round" />
         {:else}
@@ -160,7 +162,7 @@
         {/if}
       {/each}
       {#if marker !== null}
-        <line x1={sx(marker)} x2={sx(marker)} y1={M.t} y2={height - M.b} class="marker" />
+        <line x1={sx(marker)} x2={sx(marker)} y1={M.t} y2={height - M.b} class="marker" data-marker={marker} />
         {#each atMarker as m (m.s.name)}
           {#if m.p}<circle cx={sx(m.p[0])} cy={sy(m.p[1])} r="4" style:fill={m.s.color} stroke="var(--st-surface, #0f1e2b)" stroke-width="2" />{/if}
         {/each}
