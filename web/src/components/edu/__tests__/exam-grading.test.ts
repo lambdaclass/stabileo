@@ -37,7 +37,7 @@ function seedsWithDifferentSupports(): [number, number] {
 }
 
 describe('the exercise an assignment stores', () => {
-  it.skip('known wrong result: #1927 — the question envelope cannot regenerate a grading key or produce a mark', () => {
+  it('known wrong result: #1927 — the question envelope cannot regenerate a grading key or produce a mark', () => {
     const questions = exerciseFromEnvelope({
       stabileoExercise: 1, questionsOnly: true,
       exercise: { ...spec(), kinematicQuestion: {}, diagramShapeQuestions: [{ diagram: 'M' }], characteristics: [], diagramQuestions: [] },

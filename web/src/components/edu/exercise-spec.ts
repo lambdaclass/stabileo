@@ -302,6 +302,7 @@ export interface SectionDataItem {
 }
 
 export interface EduExerciseSpec {
+  questionsOnly?: true;
   id: string;
   title: string;
   description: string;

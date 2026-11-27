@@ -129,17 +129,17 @@ export function toExercise(spec: ResolvedExerciseSpec, who: { legajo?: string } 
     characteristics: spec.characteristics.map((c) => ({
       label: c.label,
       unit: c.unit,
-      getCorrect: (forces) => evaluateAnswer(c.answer, forces, stressCtx()),
+      getCorrect: (forces) => spec.questionsOnly ? null : evaluateAnswer(c.answer, forces, stressCtx()),
     })),
     diagramQuestions: spec.diagramQuestions.map((q) => ({
       question: q.question,
       unit: q.unit,
-      getCorrect: (forces) => evaluateAnswer(q.answer, forces, stressCtx()),
+      getCorrect: (forces) => spec.questionsOnly ? null : evaluateAnswer(q.answer, forces, stressCtx()),
     })),
     kinematicQuestion: spec.kinematicQuestion,
     diagramShapeQuestions: spec.diagramShapeQuestions?.map((q) => ({
       diagram: q.diagram,
-      getCorrect: (forces) => shapeAnswer(q, forces),
+      getCorrect: (forces) => spec.questionsOnly ? null : shapeAnswer(q, forces),
     })),
     diagramSketchQuestions: spec.diagramSketchQuestions,
     allowReveal: spec.allowReveal,

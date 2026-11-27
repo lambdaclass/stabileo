@@ -75,6 +75,7 @@ const fixed = (v: number | null) => (v === null || !Number.isFinite(v) ? undefin
 
 /** Rebuilds the variant the submission was made against, solves it and marks every keyed answer again. Null when it cannot. */
 export function remarkSubmission(spec: EduExerciseSpec, sub: Submission): Remark | null {
+  if (spec.questionsOnly) return null;
   const { which, seedMismatch } = submissionVariant(spec, sub);
   if (isParametric(spec) && which === undefined) return null;
   let ex;

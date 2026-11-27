@@ -123,14 +123,14 @@ export function variantOf(spec: EduExerciseSpec, which?: number | Variant): Reso
     diagramQuestions: spec.diagramQuestions.map((q) => ({ ...q, question: fill(q.question) })),
   };
   if (spec.sectionData) out.sectionData = spec.sectionData.map((d) => ({ label: fill(d.label), value: fill(d.value) }));
-  if (spec.diagramShapeQuestions) {
+  if (spec.diagramShapeQuestions && !spec.questionsOnly) {
     out.diagramShapeQuestions = spec.diagramShapeQuestions.map((q) => ({
       diagram: q.diagram,
       correct: parametric ? 'auto' : q.correct,
     }));
   }
   if (parametric) {
-    if (spec.kinematicQuestion) {
+    if (spec.kinematicQuestion && !spec.questionsOnly) {
       const k = kinematicsOf(model);
       if (k) out.kinematicQuestion = k;
       else delete out.kinematicQuestion;

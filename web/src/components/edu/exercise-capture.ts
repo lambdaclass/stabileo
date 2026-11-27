@@ -159,6 +159,7 @@ function round(v: number): number {
 export const EXERCISE_FILE_VERSION = 1;
 
 export interface ExerciseFile {
+  questionsOnly?: true;
   stabileoExercise: number;
   exercise: EduExerciseSpec;
 }
@@ -214,6 +215,7 @@ export function fromFile(text: string): ParseResult {
   }
   const exercise = {
     ...ex,
+    ...(f.questionsOnly === true ? { questionsOnly: true } : {}),
     supports: ex.supports ?? [],
     characteristics: ex.characteristics ?? [],
     diagramQuestions: ex.diagramQuestions ?? [],

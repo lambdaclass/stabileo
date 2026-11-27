@@ -115,7 +115,7 @@ The admin site shows nothing from these tables.
 { "revision": 1, "answers": { … }, "client_score": 0.75 }
 ```
 
-The app stores the exercise as an exercise file's envelope (`{"stabileoExercise": 1, "exercise": {…}}`) and the answers as a submission (`{"stabileoSubmission": 1, "exerciseId", "exerciseTitle", "student": "", "submittedAt", "seed", "answers": [{"key", "label", "answer", "unit"?, "outcome", "sketch"?}]}`), the same shape a downloaded hand-in has, so the owner's browser marks it again with the attempt's `seed`. The server keeps both as opaque objects.
+The app stores the exercise as an exercise file's envelope (`{"stabileoExercise": 1, "exercise": {…}}`) and the answers as a submission (`{"stabileoSubmission": 1, "exerciseId", "exerciseTitle", "student": "", "submittedAt", "seed", "answers": [{"key", "label", "answer", "unit"?, "outcome", "sketch"?}]}`), the same shape a downloaded hand-in has, so the owner's browser marks it again with the attempt's `seed`. The server stores both envelopes. Before reveal, the student receives a question-only exercise with the model, prompts and parameter definitions. The attempt response includes the original grading specification only once reveal is allowed.
 
 `now` is the server's clock, so the app can count down without trusting the computer's. `closed` is `submitted_at` set or `now` past `deadline_at` plus the grace. `reveal_allowed` is `closed` for `on_submit`, and `now` past both `closes_at` plus grace and every outstanding attempt deadline plus grace for `after_close`. `status` is `upcoming` before `opens_at`, `closed` after `closes_at`, else `open`.
 
