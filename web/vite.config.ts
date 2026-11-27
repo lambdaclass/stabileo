@@ -85,17 +85,16 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
     watch(file);
     const pruneEntries = !eager();
     const { accounts, diagramGame, proPlatesUnified, proRcSheets, tools } = features();
+    const entryKey = (line: string) => /^\s*(['"])([^'"]+)\1: /.exec(line)?.[2];
     const lines = readFileSync(file, 'utf8').split('\n').filter((line) => {
-      const key = /^\s*(['"])([^'"]+)\1: /.exec(line)?.[2];
+      const key = entryKey(line);
       if (!key) return false;
       if (proPlatesUnified && key.startsWith('mesher.')) return dictionary === 'mesher';
       if (dictionary === 'mesher') return false;
       const publicAccountEntry = /^(?:legal\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(key);
       if (pruneEntries) {
         if (!proPlatesUnified) {
-          if (/^loads\.asce7\.(period|system|ui)\./.test(key)) return false;
-          if (/^loads\.ec\.(exposure|period|terrain|ui)\./.test(key)) return false;
-          if (key.startsWith('loads.tr.system.')) return false;
+          if (/^loads\.(asce7|ec|tr)\./.test(key)) return false;
           if (key === 'drawBar.circle' || /^plates\.(circle|shape|shapeProblem|meshShort|unified)\./.test(key)) return false;
           if (/^plates\.meshState(?:WillMesh|Missing|AsCame|Ready|Kept)$/.test(key)) return false;
         }
@@ -114,6 +113,12 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
       const publicEntry = PUBLIC_KEY_PREFIXES.some(prefix => key.startsWith(prefix)) && (!publicAccountEntry || accounts);
       return publicEntry === (dictionary === 'public');
     });
+    if (dictionary === 'app') {
+      const messages = resolve(__dirname, 'src/lib/i18n/locales/load-basis', `${loc}.ts`);
+      watch(messages);
+      const loadBasis = readFileSync(messages, 'utf8').split('\n').filter(entryKey).join('\n');
+      lines.unshift(`...{\n${loadBasis}\n},`);
+    }
     return `{\n${lines.join('\n')}\n}`;
   };
   return {

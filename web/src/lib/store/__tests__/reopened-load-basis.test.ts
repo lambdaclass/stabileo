@@ -1,5 +1,6 @@
 import { afterEach, expect, it } from 'vitest';
 import { modelStore, resultsStore, uiStore } from '../index';
+import { buildProjectFile, deserializeProject } from '../file';
 import { memoriaInput } from '../memoria-inputs';
 import { renderMemoriaHtml, type RenderContext } from '../../report/memoria/render';
 import { teAt } from '../../i18n/engine-text';
@@ -8,7 +9,7 @@ import saved from './fixtures/adopted-frame.json';
 
 afterEach(() => { modelStore.clear(); resultsStore.clear(); });
 
-it.skip('known wrong result: #1928 reopened load derivations print in the report language without activating their generators', () => {
+it('known wrong result: #1928 reopened load derivations print in the report language without activating their generators', () => {
   const derivation: EngineMessage[] = [
     { key: 'loads.ec.snow.duoAsMono' },
     { key: 'loads.ec.live.localQk', params: { occupancy: { key: 'loads.ec.occ.A_floor' }, force: 3 } },
@@ -20,7 +21,7 @@ it.skip('known wrong result: #1928 reopened load derivations print in the report
   modelStore.clear();
   resultsStore.clear();
   uiStore.analysisMode = 'pro';
-  modelStore.restore(frame as never);
+  expect(deserializeProject(JSON.stringify({ ...buildProjectFile(), snapshot: frame }))).toBe(true);
   for (const locale of ['en', 'es', 'pt']) {
     const ctx: RenderContext = {
       tr: (key, params) => teAt({ key, params }, locale),
@@ -32,7 +33,7 @@ it.skip('known wrong result: #1928 reopened load derivations print in the report
     const html = renderMemoriaHtml(input, new Set(['actions']), ctx, locale);
     for (const message of derivation) {
       expect(html).not.toContain(message.key);
-      expect(html).toContain(ctx.msg(message).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;'));
+      expect(html).toContain(ctx.msg(message).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;'));
     }
     expect(html).not.toContain('loads.ec.occ.A_floor');
   }
