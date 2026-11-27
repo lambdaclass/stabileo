@@ -23,7 +23,9 @@ it('known wrong result: #1928 the published floor load editor offers a slab afte
     for (const id of ids) expect.soft(html.includes(`value="g:${id}"`)).toBe(unified);
     expect(html).toContain('value="sel"');
   }
-  applyPlateMeshes(await planPlateMeshes([ids[0]!], { size: 1 }));
+  const meshes = await planPlateMeshes([ids[0]!], { size: 1 });
+  expect.assert(meshes);
+  applyPlateMeshes(meshes);
   expect(options()).toContain(`value="g:${ids[0]}"`);
   expect(options().includes(`value="g:${ids[1]}"`)).toBe(unified);
 });
