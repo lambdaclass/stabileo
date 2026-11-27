@@ -41,6 +41,15 @@ class BenchmarkOutputs(unittest.TestCase):
                 file.write_text(json.dumps({'checks': incomplete}))
                 self.reject(folder)
 
+    @unittest.skip('known wrong result: #2505')
+    def test_hard_plate_replay_contains_one_displacement_per_mesh_node(self):
+        folder = self.benchmark('benchmarks/navier-plate')
+        file = folder / 'results/stabileo_results.json'
+        data = json.loads(file.read_text())
+        data['hard_rows'][0]['values'].append(0)
+        file.write_text(json.dumps(data))
+        self.reject(folder)
+
     def test_portal_requires_every_recorded_node_and_member(self):
         folder = self.benchmark('benchmarks/plastic-collapse')
         file = folder / 'results/stabileo_results.json'
