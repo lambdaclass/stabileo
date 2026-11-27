@@ -125,7 +125,9 @@ def valid_checks(checks, published=False):
                     if lo > hi:
                         return False
                     distances.append(max(0, lo - value, value - hi))
-                elif c["metric"].startswith("absolute difference") and len(sample) == 2:
+                elif c.get("id") == "fig7" and c.get("orientation_unit") == "rad" and len(sample) == 3:
+                    distances.append(abs(sample[2] - sample[1]))
+                elif c.get("id") != "fig7" and c["metric"].startswith("absolute difference") and len(sample) == 2:
                     distances.append(abs(sample[1] - sample[0]))
                 else:
                     return False

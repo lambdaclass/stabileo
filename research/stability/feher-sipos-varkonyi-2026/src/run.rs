@@ -74,19 +74,17 @@ fn load_arch(state: &State, target: Setting) -> Result<State, PathError> {
 }
 
 fn load_arch_with(state: &State, target: Setting, advance: impl Fn(&State, Setting) -> Result<State, String>) -> Result<State, PathError> {
-    let mut inverted_endpoint = false;
-    let mut stable_inversion = false;
+    let mut inverted_landings = 0;
     for pieces in 1..=32 {
         let mut current = state.clone();
         for i in 1..=pieces {
             let q = state.setting.q + (target.q - state.setting.q) * i as f64 / pieces as f64;
             let Ok(next) = advance(&current, Setting { q, ..target }) else { break };
-            if current.jump_to(&next) > SNAP {
-                let landed = next.snapshot();
-                if pieces == 1 {
-                    inverted_endpoint = landed.y_mid < 0.;
-                } else if inverted_endpoint && current.snapshot().y_mid > 0. && landed.y_mid < 0. && landed.stable {
-                    stable_inversion = true;
+            let landed = next.snapshot();
+            if !landed.stable { break; }
+            if landed.y_mid <= 0. || current.jump_to(&next) > SNAP {
+                if landed.y_mid < 0. && current.snapshot().y_mid > 0. {
+                    inverted_landings += 1;
                 }
                 break;
             }
@@ -94,7 +92,7 @@ fn load_arch_with(state: &State, target: Setting, advance: impl Fn(&State, Setti
             if i == pieces { return Ok(current); }
         }
     }
-    Err(if stable_inversion { PathError::StartSnaps } else { PathError::StartUnsolved })
+    Err(if inverted_landings >= 2 { PathError::StartSnaps } else { PathError::StartUnsolved })
 }
 
 /// The path of Section 3.4 with the far corner of the rectangle at
@@ -174,7 +172,6 @@ fn start_recovers_when_a_full_increment_fails_but_half_steps_converge() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn start_rejects_an_indefinite_positive_height_landing() {
     let start = Setting { theta: 1., delta: 0., q: 0. };
     let arch = bend(20, start, Distribution::Uniform, 2).unwrap();
@@ -186,7 +183,6 @@ fn start_rejects_an_indefinite_positive_height_landing() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn start_recognizes_repeat_inversion_after_a_failed_full_increment() {
     let start = Setting { theta: 1., delta: 0., q: 0. };
     let arch = bend(20, start, Distribution::Uniform, 2).unwrap();

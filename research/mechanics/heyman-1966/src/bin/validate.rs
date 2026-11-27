@@ -70,6 +70,19 @@ fn publish(directory: &str, out: &Value, comparison: &Value) {
         let rows = evidence["checks"].as_array().expect("missing checks");
         assert!(!rows.is_empty() && rows.iter().all(|row| row["passed"] == true), "failed required checks");
     }
+    let rows = comparison["checks"].as_array().unwrap();
+    let mut ids: Vec<_> = rows.iter().map(|r| r["id"].as_str().expect("missing comparison id")).collect();
+    let mut expected = Vec::new();
+    for angle in [60, 90, 120, 145] {
+        for solution in ["ccr", "milankovitch"] {
+            for quantity in ["eta", "beta", "h"] {
+                expected.push(format!("{solution}-{angle}-{quantity}"));
+            }
+        }
+    }
+    ids.sort_unstable();
+    expected.sort_unstable();
+    assert_eq!(ids, expected, "incomplete Rizzi table");
     std::fs::write(format!("{directory}/VALIDATION.json"), serde_json::to_string_pretty(out).unwrap() + "\n").unwrap();
     std::fs::write(format!("{directory}/reference-results/published_comparison.json"), serde_json::to_string_pretty(comparison).unwrap() + "\n").unwrap();
 }
@@ -230,13 +243,15 @@ fn a_failed_check_preserves_both_evidence_files() {
         assert!(outcome.is_err());
         for path in &paths { assert_eq!(std::fs::read_to_string(path).unwrap(), "previous"); }
     }
-    publish(folder.to_str().unwrap(), &pass, &pass);
-    for path in &paths { assert_eq!(serde_json::from_slice::<Value>(&std::fs::read(path).unwrap()).unwrap(), pass); }
+    let complete = read("published_comparison.json");
+    publish(folder.to_str().unwrap(), &pass, &complete);
+    for (path, expected) in paths.iter().zip([pass, complete]) {
+        assert_eq!(serde_json::from_slice::<Value>(&std::fs::read(path).unwrap()).unwrap(), expected);
+    }
     std::fs::remove_dir_all(folder).unwrap();
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn a_partial_rizzi_table_cannot_be_published() {
     let folder = std::path::Path::new(HERE).join("target").join(format!("partial-table-{}", std::process::id()));
     std::fs::create_dir_all(folder.join("reference-results")).unwrap();

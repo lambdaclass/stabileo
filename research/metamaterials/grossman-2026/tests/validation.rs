@@ -51,7 +51,10 @@ impl Checks {
     fn paper_curve(&mut self, id: &str, name: &str, source: &str, samples: Vec<Vec<f64>>, metric: &str, observed: f64, tolerance: f64) {
         let points = samples.len();
         assert!(observed.is_finite() && points >= 2 && samples.iter().flatten().all(|x| x.is_finite()));
-        self.1.push(serde_json::json!({ "id": id, "name": name, "source": source, "unit": "", "points": points, "samples": samples, "metric": metric, "observed": observed, "tolerance": tolerance, "passed": observed <= tolerance }));
+        let mut row = serde_json::json!({ "id": id, "name": name, "source": source, "unit": "", "points": points, "samples": samples, "metric": metric, "observed": observed, "tolerance": tolerance, "passed": observed <= tolerance });
+        if id == "fig7" { row["orientation_unit"] = serde_json::json!("rad"); }
+        assert!(consistent_curve(&row));
+        self.1.push(row);
     }
 }
 
@@ -99,6 +102,27 @@ fn records_match(a: &[Check], b: &[Check]) -> bool {
     })
 }
 
+fn consistent_curve(row: &serde_json::Value) -> bool {
+    let Some(samples) = row.get("samples") else { return true };
+    let Some(samples) = samples.as_array() else { return false };
+    if samples.len() < 2 || row["points"].as_u64() != Some(samples.len() as u64) { return false; }
+    let mut worst = 0.0_f64;
+    for sample in samples {
+        let Some(values) = sample.as_array() else { return false };
+        let Some(values) = values.iter().map(|v| v.as_f64()).collect::<Option<Vec<_>>>() else { return false };
+        let distance = match (row["id"].as_str(), values.as_slice()) {
+            (Some("fig5-periodic"), [_, lo, hi, y]) if lo <= hi => (lo - y).max(y - hi).max(0.0),
+            (Some("fig7"), [_, reference, y]) if row["orientation_unit"] == "rad" => (reference - y).abs(),
+            (Some("eq9" | "honey-3" | "honey-6"), [reference, y]) => (reference - y).abs(),
+            _ => return false,
+        };
+        worst = worst.max(distance);
+    }
+    let (Some(tolerance), Some(observed)) = (row["tolerance"].as_f64(), row["observed"].as_f64()) else { return false };
+    row["passed"].as_bool() == Some(worst <= tolerance)
+        && (observed - worst).abs() <= 1e-12 + 1e-8 * worst.abs()
+}
+
 fn rows_match(a: &serde_json::Value, b: &serde_json::Value) -> bool {
     use serde_json::Value;
     match (a, b) {
@@ -107,6 +131,7 @@ fn rows_match(a: &serde_json::Value, b: &serde_json::Value) -> bool {
             a.is_finite() && b.is_finite() && (a - b).abs() <= 1e-12 + 1e-8 * a.abs().max(b.abs())
         }
         (Value::Array(a), Value::Array(b)) => a.len() == b.len() && a.iter().zip(b).all(|(a, b)| rows_match(a, b)),
+        (Value::Object(_), Value::Object(_)) if !consistent_curve(a) || !consistent_curve(b) => false,
         (Value::Object(a), Value::Object(b)) => a.len() == b.len() && a.iter().all(|(k, v)| b.get(k).is_some_and(|w| {
             match k.as_str() {
                 "tolerance" | "points" | "reference" => v == w,
@@ -351,7 +376,7 @@ fn part_b(c: &mut Checks) {
     for p in points {
         let (t, y) = (p[0].as_f64().unwrap(), p[1].as_f64().unwrap());
         let ours = moduli::uniaxial(&r.c, PI / 2.0 - t).unwrap().0 * tri_area;
-        samples.push(vec![y, ours]);
+        samples.push(vec![t, y, ours]);
         worst = finite_max([worst, (ours - y).abs()]);
     }
     c.at_most("Fig. 7 calculation line (741 points) = equal-weight Young's modulus x triangle area", "max |Y difference|", worst, 0.01);
@@ -533,7 +558,6 @@ fn published_curve_metadata_is_exact() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn committed_samples_must_still_meet_the_paper_tolerance() {
     let row = read_json("reference-results/published_comparison.json")["checks"][0].clone();
     let mut stale = row.clone();
@@ -543,7 +567,6 @@ fn committed_samples_must_still_meet_the_paper_tolerance() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn fig7_preserves_the_published_orientations_in_radians() {
     let published = read_json("reference-results/published_comparison.json");
     let row = published["checks"].as_array().unwrap().iter().find(|r| r["id"] == "fig7").unwrap();
