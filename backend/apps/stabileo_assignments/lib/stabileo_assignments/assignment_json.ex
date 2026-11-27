@@ -67,8 +67,40 @@ defmodule StabileoAssignments.AssignmentJSON do
       reveal: assignment.reveal,
       closes_at: assignment.closes_at,
       reveal_allowed: reveal,
-      exercise: assignment.exercise,
+      exercise: if(reveal, do: assignment.exercise, else: questions(assignment.exercise)),
       now: now
     }
+  end
+
+  defp questions(%{"stabileoExercise" => 1, "exercise" => spec}) when is_map(spec) do
+    fields =
+      ~w(id title description difficulty category solverType model params supports diagramSketchQuestions sectionData freeBody)
+
+    prompts =
+      spec
+      |> Map.take(fields)
+      |> question_rows(spec, "characteristics", ~w(label unit))
+      |> question_rows(spec, "diagramQuestions", ~w(question unit))
+      |> question_rows(spec, "diagramShapeQuestions", ~w(diagram))
+
+    prompts =
+      if is_map(spec["kinematicQuestion"]),
+        do: Map.put(prompts, "kinematicQuestion", %{}),
+        else: prompts
+
+    %{"stabileoExercise" => 1, "questionsOnly" => true, "exercise" => prompts}
+  end
+
+  defp questions(legacy) when is_map(legacy), do: Map.take(legacy, ["id"])
+  defp questions(_), do: %{}
+
+  defp question_rows(prompts, spec, key, fields) do
+    case spec[key] do
+      rows when is_list(rows) ->
+        Map.put(prompts, key, for(row <- rows, is_map(row), do: Map.take(row, fields)))
+
+      _ ->
+        prompts
+    end
   end
 end
