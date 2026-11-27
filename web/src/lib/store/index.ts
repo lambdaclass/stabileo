@@ -194,7 +194,12 @@ resultsStore._setScreenModelCapture(() => {
   type GeometryMaps = Pick<typeof modelStore, 'nodes' | 'elements' | 'plates' | 'quads'>;
   let cached: (GeometryMaps & { version: number; result: unknown; ok: boolean }) | undefined;
   return {
-    nodes, elements, sections, materials, analysis: { ...modelStore.analysis },
+    nodes, elements, sections, materials, supports: new Map([...modelStore.supports].map(([id, support]) => [id, { ...support }])),
+    loads: modelStore.loads.map(load => ({ ...load, data: { ...load.data } } as typeof load)),
+    loadCases: modelStore.model.loadCases.map(c => ({ ...c })), combinations: modelStore.model.combinations.map(c => ({ ...c, factors: c.factors.map(f => ({ ...f })) })),
+    plates: new Map(modelStore.plates), quads: new Map(modelStore.quads), groups: new Map(modelStore.model.groups),
+    includeSelfWeight: uiStore.includeSelfWeight, planeAnalysis: modelStore.solveAnalysis(false, uiStore.includeSelfWeight),
+    analysis: { ...modelStore.analysis },
     fits(result) {
       const version = modelStore.modelVersion;
       if (cached?.version === version && cached.result === result && cached.nodes === modelStore.nodes

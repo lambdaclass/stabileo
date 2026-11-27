@@ -4,6 +4,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { modelStore, resultsStore, uiStore, historyStore, verificationStore } from '..';
+import { displayedLoads2D } from '../displayed-loads-2d';
 import { whatIf } from '../whatif.svelte';
 import { runLiveCalc } from '../../engine/live-calc';
 import { initSolver } from '../../engine/wasm-solver';
@@ -253,7 +254,7 @@ it.each(['modeShape', 'bucklingMode'] as const)('known wrong result: #1927 — a
   expect(resultsStore.screen.modeDisplacements).toEqual(modes[0]!.displacements);
 });
 
-it.skip.each(['modeShape', 'bucklingMode'] as const)('known wrong result: #1927 — a plane %s keeps its selected mode while held', async diagram => {
+it.each(['modeShape', 'bucklingMode'] as const)('known wrong result: #1927 — a plane %s keeps its selected mode while held', async diagram => {
   const result = await solvedPortal();
   const modes = [{ displacements: result.displacements }];
   if (diagram === 'modeShape') resultsStore.setModalResult({ modes } as never);
@@ -261,4 +262,23 @@ it.skip.each(['modeShape', 'bucklingMode'] as const)('known wrong result: #1927 
   editE(2);
   expect(resultsStore.screen.diagram).toBe(diagram);
   expect(resultsStore.screen.planarMode?.displacements).toEqual(result.displacements);
+});
+
+it('known wrong result: #1927 — the held free body keeps the loads and supports of its reactions', async () => {
+  const shown = await solvedPortal();
+  resultsStore.diagramType = 'despiece';
+  const loads = displayedLoads2D().map(l => l.data.id);
+  const [supportId] = modelStore.supports.keys();
+  expect(loads.length).toBeGreaterThan(0);
+  expect(shown.reactions.length).toBeGreaterThan(0);
+  modelStore.removeLoad(loads[0]);
+  modelStore.removeSupport(supportId);
+  expect(resultsStore.screen.held).toBe(true);
+  expect(resultsStore.screen.diagram).toBe('despiece');
+  expect(resultsStore.screen.results?.reactions).toEqual(shown.reactions);
+  expect(displayedLoads2D().map(l => l.data.id)).toEqual(loads);
+  expect(resultsStore.screen.model?.supports.has(supportId)).toBe(true);
+  resultsStore.releaseScreen();
+  expect(displayedLoads2D().some(l => l.data.id === loads[0])).toBe(false);
+  expect(modelStore.supports.has(supportId)).toBe(false);
 });

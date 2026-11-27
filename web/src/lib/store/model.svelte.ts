@@ -4206,24 +4206,24 @@ function createModelStore() {
     },
 
     // ─── Load Case Colors ───
-    getLoadCaseColor(caseId: number): string {
+    getLoadCaseColor(caseId: number, cases = model.loadCases): string {
       const TYPE_COLORS: Record<string, string> = {
         'D': '#ff4444', 'L': '#4ea8de', 'W': '#4ecdc4', 'E': '#e9c46a',
         'S': '#b0bec5', 'T': '#ff8a65', 'Lr': '#7986cb', 'R': '#4db6ac', 'H': '#9575cd',
       };
       const ROTATING_COLORS = ['#a855f7', '#f97316', '#22d3ee', '#84cc16', '#f43f5e'];
-      const lc = model.loadCases.find(c => c.id === caseId);
+      const lc = cases.find(c => c.id === caseId);
       if (!lc) return '#ff4444';
       if (lc.type && TYPE_COLORS[lc.type]) return TYPE_COLORS[lc.type];
       // Fallback: check name for backward compat with old models
       if (TYPE_COLORS[lc.name]) return TYPE_COLORS[lc.name];
       // For custom cases, assign rotating colors based on position
-      const idx = model.loadCases.filter(c => !(c.type && TYPE_COLORS[c.type]) && !TYPE_COLORS[c.name]).indexOf(lc);
+      const idx = cases.filter(c => !(c.type && TYPE_COLORS[c.type]) && !TYPE_COLORS[c.name]).indexOf(lc);
       return ROTATING_COLORS[idx % ROTATING_COLORS.length];
     },
 
-    getLoadCaseName(caseId: number): string {
-      const lc = model.loadCases.find(c => c.id === caseId);
+    getLoadCaseName(caseId: number, cases = model.loadCases): string {
+      const lc = cases.find(c => c.id === caseId);
       if (!lc) return '?';
       return lc.type || lc.name || '?';
     },
@@ -5062,11 +5062,11 @@ function createModelStore() {
     },
 
     // Get element length
-    getElementLength(elemId: number): number {
-      const elem = model.elements.get(elemId);
+    getElementLength(elemId: number, geometry: Pick<StructureModel, 'nodes' | 'elements'> = model): number {
+      const elem = geometry.elements.get(elemId);
       if (!elem) return 0;
-      const ni = model.nodes.get(elem.nodeI);
-      const nj = model.nodes.get(elem.nodeJ);
+      const ni = geometry.nodes.get(elem.nodeI);
+      const nj = geometry.nodes.get(elem.nodeJ);
       if (!ni || !nj) return 0;
       const dz = (nj.z ?? 0) - (ni.z ?? 0);
       return Math.sqrt((nj.x - ni.x) ** 2 + (nj.y - ni.y) ** 2 + dz ** 2);
@@ -5074,13 +5074,13 @@ function createModelStore() {
 
     /** Get angle (radians) of element connected to node. If multiple, returns average.
      *  Angle is measured from positive X axis. 0 = horizontal right, PI/2 = up. */
-    getElementAngleAtNode(nodeId: number): number {
+    getElementAngleAtNode(nodeId: number, geometry: Pick<StructureModel, 'nodes' | 'elements'> = model): number {
       let sumAngle = 0;
       let count = 0;
-      for (const elem of model.elements.values()) {
+      for (const elem of geometry.elements.values()) {
         if (elem.nodeI === nodeId || elem.nodeJ === nodeId) {
-          const ni = model.nodes.get(elem.nodeI);
-          const nj = model.nodes.get(elem.nodeJ);
+          const ni = geometry.nodes.get(elem.nodeI);
+          const nj = geometry.nodes.get(elem.nodeJ);
           if (!ni || !nj) continue;
           // Angle from the node's perspective (pointing away from the node)
           let angle: number;

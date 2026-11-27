@@ -190,7 +190,7 @@
 
   /** Get a node projected to the current 2D drawing plane. */
   function getProjectedNode(id: number) {
-    const n = modelStore.getNode(id);
+    const n = modelForFrame().nodes.get(id);
     return n ? project2DNode(n) : undefined;
   }
 
@@ -212,6 +212,8 @@
   let exportFrame: ExportFrame | null = null;
   const dtNow = () => (exportFrame ? diagramFor(exportFrame.content) : resultsStore.screen.diagram);
   const resNow = () => (exportFrame ? resultsStore.results : resultsStore.screen.results);
+  const screenModel = $derived(resultsStore.screen.model ?? modelStore.model);
+  const modelForFrame = () => exportFrame ? modelStore.model : screenModel;
   const HELD_DIM_MS = 250;
   const valuesNow = () => (exportFrame ? exportFrame.options.values : resultsStore.showDiagramValues);
   const reactionsNow = () => (exportFrame
@@ -266,9 +268,8 @@
     animating =
       (resultsStore.ilAnimating && !!resultsStore.influenceLine) ||
       (resultsStore.animateDeformed && dtNow() === 'deformed' && !!resNow()) ||
-      (resultsStore.diagramType === 'modeShape' && !!resultsStore.modalResult) ||
-      (resultsStore.diagramType === 'bucklingMode' && !!resultsStore.bucklingResult) ||
-      (resultsStore.diagramType === 'despiece' && !!resultsStore.results && (performance.now() - despieceStart) < DESPIECE_ANIM_MS);
+      !!resultsStore.screen.planarMode ||
+      (dtNow() === 'despiece' && !!resNow() && (performance.now() - despieceStart) < DESPIECE_ANIM_MS);
     // If we just became animating, kick the loop
     if ((animating || uiStore.continuousRendering) && !wasAnimating && rafId === null) {
       rafId = requestAnimationFrame(drawOnce);
@@ -296,7 +297,7 @@
   });
   // Despiece: restart the pull-apart animation whenever the view (re)activates.
   $effect(() => {
-    if (resultsStore.diagramType === 'despiece') {
+    if (resultsStore.screen.diagram === 'despiece') {
       despieceStart = performance.now();
       updateAnimating();
       invalidate();
@@ -347,7 +348,7 @@
   $effect(() => { uiStore.showNodeLabels; uiStore.showElementLabels; uiStore.showLengths; invalidate(); });
   $effect(() => { uiStore.elementColorMode; invalidate(); });
   // Each member's group, only while colouring by group.
-  const memberGroups = $derived(uiStore.elementColorMode === 'byGroup' ? firstGroupIndex([...modelStore.model.groups.values()].filter((g) => g.kind !== 'floorLoad')) : null);
+  const memberGroups = $derived(uiStore.elementColorMode === 'byGroup' ? firstGroupIndex([...screenModel.groups.values()].filter((g) => g.kind !== 'floorLoad')) : null);
   $effect(() => { void memberGroups; invalidate(); });
   $effect(() => { uiStore.localAxesMode3D; uiStore.elementSelectionManual; invalidate(); });
   $effect(() => { uiStore.hideLoadsWithDiagram; invalidate(); });
@@ -382,21 +383,22 @@
 
   // Draw context helper for canvas renderers
   function makeDrawContext() {
+    const drawnModel = modelForFrame();
     return {
       ctx: ctx!,
       worldToScreen: (wx: number, wy: number) => uiStore.worldToScreen(wx, wy),
-      getNode: (id: number) => { const n = modelStore.getNode(id); return n ? project2DNode(n) : undefined; },
+      getNode: (id: number) => { const n = drawnModel.nodes.get(id); return n ? project2DNode(n) : undefined; },
       // A hidden member is not drawn: no diagram, no deformed shape, no loads on it.
       getElement: (id: number) => {
-        const elem = viewVisibility.isElementHidden(id) ? undefined : (resultsStore.screen.model?.elements ?? modelStore.elements).get(id);
+        const elem = viewVisibility.isElementHidden(id) ? undefined : drawnModel.elements.get(id);
         return elem ? { nodeI: elem.nodeI, nodeJ: elem.nodeJ, materialId: elem.materialId, sectionId: elem.sectionId, type: elem.type } : undefined;
       },
       getMaterial: (id: number) => {
-        const mat = (resultsStore.screen.model?.materials ?? modelStore.materials).get(id);
+        const mat = drawnModel.materials.get(id);
         return mat ? { e: mat.e } : undefined;
       },
       getSection: (id: number) => {
-        const sec = (resultsStore.screen.model?.sections ?? modelStore.sections).get(id);
+        const sec = drawnModel.sections.get(id);
         // 2D bending uses effective inertia (accounts for section rotation via Mohr)
         return sec ? { iz: effectiveBendingInertia(sec) } : undefined;
       },
@@ -431,10 +433,11 @@
    * tail and running straight through the node it was applied to.
    */
   function memberScreenSegments(): { x1: number; y1: number; x2: number; y2: number }[] {
+    const drawnModel = modelForFrame();
     const segs: { x1: number; y1: number; x2: number; y2: number }[] = [];
-    for (const el of modelStore.elements.values()) {
-      const a = modelStore.getNode(el.nodeI);
-      const b = modelStore.getNode(el.nodeJ);
+    for (const el of drawnModel.elements.values()) {
+      const a = drawnModel.nodes.get(el.nodeI);
+      const b = drawnModel.nodes.get(el.nodeJ);
       if (!a || !b) continue;
       const pa = project2DNode(a);
       const pb = project2DNode(b);
@@ -443,7 +446,7 @@
       segs.push({ x1: sa.x, y1: sa.y, x2: sb.x, y2: sb.y });
     }
     if (nodeLabelsNow()) {
-      for (const n of modelStore.nodes.values()) {
+      for (const n of drawnModel.nodes.values()) {
         const pn = project2DNode(n);
         const s = uiStore.worldToScreen(pn.x, pn.y);
         segs.push({ x1: s.x, y1: s.y - 12, x2: s.x + 14, y2: s.y + 2 });
@@ -474,7 +477,7 @@
   onMount(() => {
     const unregisterFigures = registerFigure2D({
       render: renderExportFrame,
-      nodes: () => [...modelStore.nodes.values()].filter((n) => !viewVisibility.isNodeHidden(n.id)).map((n) => project2DNode(n)),
+      nodes: () => [...modelStore.model.nodes.values()].filter((n) => !viewVisibility.isNodeHidden(n.id)).map((n) => project2DNode(n)),
     });
     ctx = canvas.getContext('2d')!;
     // Text on the drawing follows the reader's label size (Settings › Model).
@@ -494,7 +497,7 @@
 
     // Listen for zoom-to-fit events (same mechanism as Viewport3D)
     const handleZoomToFitEvent = (retries = 3) => {
-      if (modelStore.nodes.size === 0) return;
+      if (modelStore.model.nodes.size === 0) return;
       /*
        * Wait for the canvas to have its final size before framing against it.
        *
@@ -515,7 +518,7 @@
         requestAnimationFrame(() => handleZoomToFitEvent(retries - 1));
         return;
       }
-      const projected = [...modelStore.nodes.values()].map(n => project2DNode(n));
+      const projected = [...modelStore.model.nodes.values()].map(n => project2DNode(n));
       uiStore.zoomToFit(projected, canvas.width, canvas.height);
       invalidate();
     };
@@ -529,21 +532,21 @@
     const onZoomToSelection = () => {
       const ids = new Set<number>(uiStore.selectedNodes);
       for (const id of uiStore.selectedElements) {
-        const e = modelStore.elements.get(id);
+        const e = modelStore.model.elements.get(id);
         if (e) { ids.add(e.nodeI); ids.add(e.nodeJ); }
       }
       for (const id of uiStore.selectedSupports) {
-        const sup = modelStore.supports.get(id);
+        const sup = modelStore.model.supports.get(id);
         if (sup) ids.add(sup.nodeId);
       }
-      for (const load of modelStore.loads) {
+      for (const load of modelStore.model.loads) {
         if (!uiStore.selectedLoads.has(load.data.id)) continue;
         const d = load.data as { nodeId?: number; elementId?: number };
         if (d.nodeId !== undefined) ids.add(d.nodeId);
-        const e = d.elementId !== undefined ? modelStore.elements.get(d.elementId) : undefined;
+        const e = d.elementId !== undefined ? modelStore.model.elements.get(d.elementId) : undefined;
         if (e) { ids.add(e.nodeI); ids.add(e.nodeJ); }
       }
-      const pts = [...ids].map((id) => modelStore.getNode(id)).filter((n) => !!n).map((n) => project2DNode(n!));
+      const pts = [...ids].map((id) => modelStore.model.nodes.get(id)).filter((n) => !!n).map((n) => project2DNode(n!));
       if (!pts.length) return;
       uiStore.zoomToFit(pts, canvas.width, canvas.height);
       invalidate();
@@ -578,6 +581,7 @@
   let lastFrameTime = 0;
 
   function draw() {
+    const drawnModel = modelForFrame();
     if (!ctx) return;
     const shown = resNow();
     const probe = import.meta.env.VITE_E2E === '1' && !exportFrame && new URLSearchParams(location.search).has('e2e');
@@ -705,10 +709,10 @@
 
       if (kind === 'stressRatio' || kind === 'vonMises' || kind === 'sigmaMax' || kind === 'tauMax') {
         for (const ef of shown.elementForces) {
-          const elem = (resultsStore.screen.model?.elements ?? modelStore.elements).get(ef.elementId);
+          const elem = drawnModel.elements.get(ef.elementId);
           if (!elem) continue;
-          const sec = (resultsStore.screen.model?.sections ?? modelStore.sections).get(elem.sectionId);
-          const mat = (resultsStore.screen.model?.materials ?? modelStore.materials).get(elem.materialId);
+          const sec = drawnModel.sections.get(elem.sectionId);
+          const mat = drawnModel.materials.get(elem.materialId);
           /*
            * `fy` is required by the RATIO alone — it is the denominator. Von
            * Mises, the normal stress and the shear stress are absolute
@@ -773,7 +777,7 @@
 
     // Pre-compute bar count per node (for hinge offset logic)
     const nodeBarCount = new Map<number, number>();
-    for (const elem of modelStore.elements.values()) {
+    for (const elem of drawnModel.elements.values()) {
       nodeBarCount.set(elem.nodeI, (nodeBarCount.get(elem.nodeI) ?? 0) + 1);
       nodeBarCount.set(elem.nodeJ, (nodeBarCount.get(elem.nodeJ) ?? 0) + 1);
     }
@@ -782,7 +786,7 @@
     // own separated solid members + ghost remnants; the full member would
     // otherwise show through under the dashed remnant).
     if (dtNow() !== 'despiece') {
-      for (const elem of modelStore.elements.values()) {
+      for (const elem of drawnModel.elements.values()) {
         if (viewVisibility.isElementHidden(elem.id)) continue;
         const color = colorMapOverrides.get(elem.id);
         ctx.globalAlpha = color ? resultOpacity : 1;
@@ -830,7 +834,7 @@
     ctx.globalAlpha = 1;
 
     // Draw supports, unless the reader turned them off or hid their node
-    if (uiStore.showSupports) for (const sup of modelStore.supports.values()) {
+    if (uiStore.showSupports) for (const sup of drawnModel.supports.values()) {
       if (viewVisibility.isNodeHidden(sup.nodeId)) continue;
       drawSupport(sup);
     }
@@ -845,7 +849,7 @@
     if (loadsVisible) {
     // A load is hidden with the node or member it stands on.
     // A reaction figure must carry the same applied loads as its selected result.
-    const figureLoads = exportFrame?.content === 'reactions' ? displayedLoads2D() : modelStore.loads;
+    const figureLoads = exportFrame?.content === 'reactions' ? displayedLoads2D() : drawnModel.loads;
     const shownLoads = viewVisibility.active ? figureLoads.filter((l) => !isLoadHidden(l.data as never)) : figureLoads;
 
     // Draw nodal loads (grouped by node for stacked labels)
@@ -863,7 +867,7 @@
           const caseId = (ld.data as any).caseId ?? 1;
           drawNodalLoad(
             ld,
-            modelStore.getLoadCaseColor(caseId),
+            modelStore.getLoadCaseColor(caseId, drawnModel.loadCases),
             caseLabel(caseId),
             currentFrameLabels!,
           );
@@ -882,7 +886,7 @@
             elementId: d.elementId, qI: d.qI, qJ: d.qJ,
             angle: d.angle, isGlobal: d.isGlobal,
             a: d.a, b: d.b,
-            caseColor: modelStore.getLoadCaseColor(caseId),
+            caseColor: modelStore.getLoadCaseColor(caseId, drawnModel.loadCases),
             caseName: caseLabel(caseId),
           };
         });
@@ -912,7 +916,7 @@
             elementId: d.elementId, a: d.a, p: d.p,
             px: d.px, my: d.my ?? d.mz,
             angle: d.angle, isGlobal: d.isGlobal,
-            caseColor: modelStore.getLoadCaseColor(caseId),
+            caseColor: modelStore.getLoadCaseColor(caseId, drawnModel.loadCases),
             caseName: caseLabel(caseId),
           };
         });
@@ -949,7 +953,7 @@
           pos.refPosition,
           env.train,
           env.path,
-          (id: number) => modelStore.getNode(id),
+          (id: number) => drawnModel.nodes.get(id),
         );
         if (axlePositions.length > 0) {
           drawMovingLoadAxles(axlePositions, makeDrawContext());
@@ -960,18 +964,18 @@
     // Draw selected load highlights
     if (!exportFrame && uiStore.selectedLoads.size > 0) {
       for (const loadId of uiStore.selectedLoads) {
-        const load = modelStore.model.loads.find(l => l.data.id === loadId);
+        const load = drawnModel.loads.find(l => l.data.id === loadId);
         if (!load) continue;
         let hx = 0, hy = 0;
         if (load.type === 'nodal') {
           const d = load.data as { nodeId: number };
-          const node = modelStore.getNode(d.nodeId);
+          const node = drawnModel.nodes.get(d.nodeId);
           if (!node) continue;
           const pn = project2DNode(node);
           hx = pn.x; hy = pn.y;
         } else {
           const d = load.data as { elementId: number; a?: number };
-          const elem = modelStore.elements.get(d.elementId);
+          const elem = drawnModel.elements.get(d.elementId);
           if (!elem) continue;
           const ni = getProjectedNode(elem.nodeI);
           const nj = getProjectedNode(elem.nodeJ);
@@ -1002,7 +1006,7 @@
     }
 
     // Draw nodes (projected to current 2D drawing plane)
-    for (const node of modelStore.nodes.values()) {
+    for (const node of drawnModel.nodes.values()) {
       if (viewVisibility.isNodeHidden(node.id)) continue;
       drawNode(project2DNode(node));
     }
@@ -1179,32 +1183,15 @@
      * modes, listed them, and left the structure standing still.
      */
     const mdt = dtNow();
-    if (mdt === 'modeShape' && resultsStore.modalResult) {
-      const mode = resultsStore.modalResult.modes[resultsStore.activeModeIndex];
-      if (mode) {
-        const animScale = 50 / uiStore.zoom * Math.sin(performance.now() / 500);
-        const mdc = {
-          ctx,
-          worldToScreen: (wx: number, wy: number) => uiStore.worldToScreen(wx, wy),
-          nodes: modelStore.nodes as Map<number, { x: number; y: number }>,
-          elements: modelStore.elements as Map<number, { nodeI: number; nodeJ: number }>,
-        };
-        drawModeShape(mode.displacements, mdc, uiStore.zoom, animScale, '#4ecdc4');
-      }
-    } else if (mdt === 'bucklingMode' && resultsStore.bucklingResult) {
-      const mode = resultsStore.bucklingResult.modes[resultsStore.activeBucklingMode];
-      if (mode) {
-        const animScale = 50 / uiStore.zoom * Math.sin(performance.now() / 500);
-        const mdc = {
-          ctx,
-          worldToScreen: (wx: number, wy: number) => uiStore.worldToScreen(wx, wy),
-          ...modeDrawGeometry(resultsStore.bucklingResult, {
-            nodes: modelStore.nodes as Map<number, { x: number; y: number }>,
-            elements: modelStore.elements as Map<number, { nodeI: number; nodeJ: number }>,
-          }),
-        };
-        drawModeShape(mode.displacements, mdc, uiStore.zoom, animScale, '#e96941');
-      }
+    const mode = resultsStore.screen.planarMode;
+    if (mode && (mdt === 'modeShape' || mdt === 'bucklingMode')) {
+      const animScale = 50 / uiStore.zoom * Math.sin(performance.now() / 500);
+      const mdc = {
+        ctx,
+        worldToScreen: (wx: number, wy: number) => uiStore.worldToScreen(wx, wy),
+        ...modeDrawGeometry(mode.result, drawnModel),
+      };
+      drawModeShape(mode.displacements, mdc, uiStore.zoom, animScale, mdt === 'modeShape' ? '#4ecdc4' : '#e96941');
     }
 
     /*
@@ -1238,14 +1225,14 @@
         const fbNote = despieceNote2D();
         const fbActs = despieceDrawsActions(fbNote);
         const reactions = new Map<number, { rx: number; rz: number; my: number }>();
-        for (const sup of modelStore.supports.values()) {
-          const r = resultsStore.getReaction(sup.nodeId);
+        for (const sup of drawnModel.supports.values()) {
+          const r = shown.reactions.find(r => r.nodeId === sup.nodeId);
           if (r) reactions.set(sup.nodeId, { rx: r.rx, rz: r.rz, my: r.my });
         }
-        const despieceElements = [...modelStore.elements.values()].map(e => ({ id: e.id, nodeI: e.nodeI, nodeJ: e.nodeJ }));
-        const despieceNode = (id: number) => { const n = modelStore.getNode(id); return n ? project2DNode(n) : undefined; };
+        const despieceElements = [...drawnModel.elements.values()].map(e => ({ id: e.id, nodeI: e.nodeI, nodeJ: e.nodeJ }));
+        const despieceNode = (id: number) => { const n = drawnModel.nodes.get(id); return n ? project2DNode(n) : undefined; };
         const despieceForces = (id: number) => {
-          const f = resultsStore.getElementForces(id);
+          const f = shown.elementForces.find(f => f.elementId === id);
           return f ? { elementId: f.elementId, nStart: f.nStart, nEnd: f.nEnd, vStart: f.vStart, vEnd: f.vEnd, mStart: f.mStart, mEnd: f.mEnd } : undefined;
         };
         // One free-body drawing for the screen and the figures (`canvas/free-body.ts`): pieces cut
@@ -1328,7 +1315,7 @@
               if (Math.abs(m) > 1e-9) drawMomentSymbol(ctx!, s.x, s.y, m, LOAD, 16 * vSize);
             } else if (load.type === 'distributed' || load.type === 'pointOnElement') {
               const d = load.data as { elementId: number; qI?: number; qJ?: number; a?: number; b?: number; p?: number; px?: number; my?: number; mz?: number; angle?: number; isGlobal?: boolean };
-              const el = modelStore.elements.get(d.elementId); if (!el) continue;
+              const el = drawnModel.elements.get(d.elementId); if (!el) continue;
               const ni = baseCtx.getNode(el.nodeI), nj = baseCtx.getNode(el.nodeJ); if (!ni || !nj) continue;
               const span = fbSpan(el.id, ni, nj);
               const elemCtx = { ...baseCtx, getNode: (id: number) => id === el.nodeI ? span.aI : id === el.nodeJ ? span.aJ : baseCtx.getNode(id) };
@@ -1467,8 +1454,8 @@
         const mdc = {
           ctx,
           worldToScreen: (wx: number, wy: number) => uiStore.worldToScreen(wx, wy),
-          nodes: modelStore.nodes as Map<number, { x: number; y: number }>,
-          elements: modelStore.elements as Map<number, { nodeI: number; nodeJ: number }>,
+          nodes: drawnModel.nodes as Map<number, { x: number; y: number }>,
+          elements: drawnModel.elements as Map<number, { nodeI: number; nodeJ: number }>,
         };
         drawPlasticHinges(resultsStore.plasticResult, resultsStore.plasticStep, mdc, uiStore.zoom);
       }
@@ -1566,10 +1553,10 @@
       const s = uiStore.worldToScreen(sq.worldX, sq.worldY);
 
       // Find element direction for perpendicular line
-      const elem = modelStore.elements.get(sq.elementId);
+      const elem = drawnModel.elements.get(sq.elementId);
       if (elem) {
-        const ni = modelStore.getNode(elem.nodeI);
-        const nj = modelStore.getNode(elem.nodeJ);
+        const ni = drawnModel.nodes.get(elem.nodeI);
+        const nj = drawnModel.nodes.get(elem.nodeJ);
         if (ni && nj) {
           const edx = nj.x - ni.x;
           const edy = nj.y - ni.y;
@@ -1734,7 +1721,7 @@
   /** A value beside a member's midpoint, on a dark box so it reads over any colour. */
   function drawMemberValueLabel(elementId: number, label: string, color: string) {
     if (!ctx || viewVisibility.isElementHidden(elementId)) return;
-    const elem = modelStore.elements.get(elementId);
+    const elem = modelStore.model.elements.get(elementId);
     if (!elem) return;
     const ni = getProjectedNode(elem.nodeI);
     const nj = getProjectedNode(elem.nodeJ);
@@ -1773,7 +1760,7 @@
     ctx.textBaseline = 'alphabetic';
     for (const { nodeId, magnitude } of picks) {
       if (viewVisibility.isNodeHidden(nodeId)) continue;
-      const n = modelStore.getNode(nodeId), d = byId.get(nodeId);
+      const n = modelStore.model.nodes.get(nodeId), d = byId.get(nodeId);
       if (!n || !d) continue;
       const p = project2DNode(n);
       const s = uiStore.worldToScreen(p.x + d.ux * scale, p.y + d.uz * scale);
@@ -1793,8 +1780,8 @@
   }
 
   function drawElement(elem: { id: number; type: string; nodeI: number; nodeJ: number; materialId: number; sectionId: number; releaseI?: { my: boolean; mz: boolean; t: boolean }; releaseJ?: { my: boolean; mz: boolean; t: boolean } }, colorOverride?: string, nodeBarCount?: Map<number, number>) {
-    const niRaw = modelStore.getNode(elem.nodeI);
-    const njRaw = modelStore.getNode(elem.nodeJ);
+    const niRaw = modelForFrame().nodes.get(elem.nodeI);
+    const njRaw = modelForFrame().nodes.get(elem.nodeJ);
     if (!niRaw || !njRaw) return;
     const ni = project2DNode(niRaw);
     const nj = project2DNode(njRaw);
@@ -1808,7 +1795,7 @@
       showLengths: exportFrame ? exportFrame.options.lengths : uiStore.showLengths,
       zoom: uiStore.zoom,
       diagramType: dtNow(),
-      worldLength: modelStore.getElementLength(elem.id),
+      worldLength: modelStore.getElementLength(elem.id, modelForFrame()),
       labels: currentFrameLabels,
     };
     _drawElement(ctx!, elem, ni, nj, opts, colorOverride, nodeBarCount);
@@ -1828,7 +1815,7 @@
   function drawLocalAxes2D() {
     const mode = uiStore.localAxesMode3D; // unified Basic "Local axes" setting
     if (mode === 'never') return;
-    const showAll = mode === 'always' && modelStore.elements.size <= 1500;
+    const showAll = mode === 'always' && modelForFrame().elements.size <= 1500;
     // "When selected" = manual selection only (result-query/AI highlights excluded),
     // consistent with the 3D triads.
     const selected = showAll || !uiStore.elementSelectionManual ? null : uiStore.selectedElements;
@@ -1837,11 +1824,11 @@
     const leftHand = uiStore.axisConvention3D === 'leftHand';
     const AX = 34; // arrow length in px (legible at normal zoom; zoom-independent)
 
-    for (const elem of modelStore.elements.values()) {
+    for (const elem of modelForFrame().elements.values()) {
       const isSel = selected ? selected.has(elem.id) : false;
       if (!showAll && !isSel) continue;
-      const niRaw = modelStore.getNode(elem.nodeI);
-      const njRaw = modelStore.getNode(elem.nodeJ);
+      const niRaw = modelForFrame().nodes.get(elem.nodeI);
+      const njRaw = modelForFrame().nodes.get(elem.nodeJ);
       if (!niRaw || !njRaw) continue;
       const ni = project2DNode(niRaw);
       const nj = project2DNode(njRaw);
@@ -1900,20 +1887,20 @@
   }
 
   function drawSupport(sup: { id: number; nodeId: number; type: string; dx?: number; dz?: number; dry?: number; dy?: number; drz?: number; angle?: number; isGlobal?: boolean }) {
-    const node = modelStore.getNode(sup.nodeId);
+    const node = modelForFrame().nodes.get(sup.nodeId);
     if (!node) return;
     const pn = project2DNode(node);
     const screen = uiStore.worldToScreen(pn.x, pn.y);
-    _drawSupport(ctx!, sup, screen, !exportFrame && uiStore.selectedSupports.has(sup.id), (nid) => modelStore.getElementAngleAtNode(nid));
+    _drawSupport(ctx!, sup, screen, !exportFrame && uiStore.selectedSupports.has(sup.id), (nid) => modelStore.getElementAngleAtNode(nid, modelForFrame()));
   }
 
   /** A load's case, written before its value: not in Basic with load cases off, where none shows. */
   function caseLabel(caseId: number): string | undefined {
-    return uiStore.showLoadCasePicker ? modelStore.getLoadCaseName(caseId) : undefined;
+    return uiStore.showLoadCasePicker ? modelStore.getLoadCaseName(caseId, modelForFrame().loadCases) : undefined;
   }
 
   function drawNodalLoad(load: { type: string; data: any }, caseColor: string | undefined, caseName: string | undefined, labels: LabelCollector) {
-    const node = modelStore.getNode(load.data.nodeId);
+    const node = modelForFrame().nodes.get(load.data.nodeId);
     if (!node) return;
     const pn = project2DNode(node);
     const screen = uiStore.worldToScreen(pn.x, pn.y);
@@ -1925,7 +1912,7 @@
     if (!res) return;
     _drawReactions(ctx!, res.reactions as ReactionData[], (nodeId) => {
       // A reaction is drawn with its support: not at a node the view hides.
-      const node = viewVisibility.isNodeHidden(nodeId) ? undefined : modelStore.getNode(nodeId);
+      const node = viewVisibility.isNodeHidden(nodeId) ? undefined : modelForFrame().nodes.get(nodeId);
       if (!node) return null;
       const pn = project2DNode(node);
       return uiStore.worldToScreen(pn.x, pn.y);
@@ -1936,7 +1923,7 @@
     const forces = resultsStore.constraintForces;
     if (!forces || forces.length === 0) return;
     _drawConstraintForces(ctx!, forces as ConstraintForceData[], (nodeId) => {
-      const node = modelStore.getNode(nodeId);
+      const node = modelForFrame().nodes.get(nodeId);
       if (!node) return null;
       const pn = project2DNode(node);
       return uiStore.worldToScreen(pn.x, pn.y);

@@ -18,6 +18,7 @@ import { t } from '../i18n';
 // reinforcement-only edit triggers none. Covers the worker/parallel solve paths too.
 import { noteStructuralSolve } from '../utils/solve-counter';
 import { resultsToDrawnAxes, envelopeToDrawnAxes, type SignOf } from '../engine/transverse-sign-2d';
+import { planeLoadView } from './displayed-loads-2d';
 import { createScreenHold, type ScreenModelSnapshot } from './screen-hold.svelte';
 
 export type DiagramType = 'none' | 'moment' | 'shear' | 'axial' | 'deformed' | 'colorMap' | 'axialColor' | 'verification' | 'influenceLine' | 'modeShape' | 'bucklingMode' | 'plasticHinges' | 'despiece'
@@ -430,6 +431,12 @@ function createResultsStore() {
     get results3D() { return api.results3D; },
     get overlayResults3D(): AnalysisResults3D | null { return api.overlayResults3D; },
     get overlayLabel() { return overlayLabel; },
+    get planeLoadView() { return planeLoadView(api.results); },
+    get planarMode() {
+      const result = diagramType === 'bucklingMode' ? api.bucklingResult : null;
+      const mode = result?.modes[activeBucklingMode] ?? (diagramType === 'modeShape' ? api.modalResult?.modes[activeModeIndex] : null);
+      return mode?.displacements.length ? { displacements: mode.displacements, result } : null;
+    },
     get modeDisplacements(): Displacement3D[] | null {
       if (diagramType === 'modeShape') return api.modalResult3D?.modes[activeModeIndex]?.displacements ?? null;
       if (diagramType === 'bucklingMode') return api.bucklingResult3D?.modes[activeBucklingMode]?.displacements ?? null;
@@ -440,7 +447,7 @@ function createResultsStore() {
     get fullEnvelope() { return api.fullEnvelope; },
     get fullEnvelope3D() { return api.fullEnvelope3D; },
     get showReactions() { return showReactions; },
-  }, (d) => STATIC_DIAGRAMS_2D.includes(d) || STATIC_DIAGRAMS_3D.includes(d));
+  }, (d, view) => (d === 'despiece' && !!view.results) || STATIC_DIAGRAMS_2D.includes(d) || STATIC_DIAGRAMS_3D.includes(d));
 
   const api = {
     /** Wired in store/index.ts. Fired on every fresh-solve results publish
@@ -814,6 +821,7 @@ function createResultsStore() {
       hold();
       this.clearAdvanced();
       staticUnder2D();
+      screen.publish();
       modalResult = r;
       activeModeIndex = 0;
       diagramType = 'modeShape';
@@ -827,6 +835,7 @@ function createResultsStore() {
       hold();
       this.clearAdvanced();
       staticUnder2D();
+      screen.publish();
       bucklingResult = r;
       activeBucklingMode = 0;
       diagramType = 'bucklingMode';
