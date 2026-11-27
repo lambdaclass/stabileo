@@ -32,19 +32,41 @@ let shipped;
 function shippedAllowances() {
   const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
   if (!shipped) {
-    shipped = routeAllowances(read('./research-route-allowances.json'), module => existsSync(new URL('../' + module, import.meta.url)));
+    const data = read('./research-route-allowances.json');
+    shipped = routeAllowances(data, module => existsSync(new URL('../' + module, import.meta.url)));
+    const { routes, bytes, measurement } = JSON.parse(data).landingPublicDictionaries;
+    if (!measurement.trim() || !measuredLocales.every(locale => Number.isSafeInteger(bytes[locale]) && bytes[locale] > 0)) {
+      throw new Error('Invalid landing dictionary measurement');
+    }
+    for (const route of routes) shipped[route].publicDictionaryLimits = bytes;
     for (const allowance of Object.values(shipped)) allowance.introduction = Boolean(allowance.localeLimits);
   }
   return shipped;
 }
 
-function checkLocaleGrowth(route, locale, limit, before, after) {
+function checkLocaleGrowth(route, locale, limit, before, after, allowance) {
   const count = (value) => {
     if (!Number.isSafeInteger(value) || value < 0) throw new Error(`Invalid ${route} ${locale} resource measurement`);
     return value;
   };
-  const growth = count(after?.[locale]) - count(before?.[locale]);
+  const dictionaryLimit = allowance.publicDictionaryLimits?.[locale];
+  function outsideDictionary(parts) {
+    const total = count(parts?.[locale]);
+    if (dictionaryLimit === undefined) return total;
+    const dictionary = count(parts.alternatives?.[locale]?.localized[locale] ?? 0);
+    if (dictionary > total) throw new Error(`Invalid ${route} ${locale} dictionary measurement`);
+    return total - dictionary;
+  }
+  const dictionary = after?.alternatives?.[locale]?.localized[locale];
+  if (dictionaryLimit !== undefined && dictionary > dictionaryLimit) {
+    throw new Error(`${route} ${locale} public dictionary size ${dictionary} exceeds ${dictionaryLimit} bytes`);
+  }
+  const current = outsideDictionary(after);
+  const growth = current - outsideDictionary(before);
   if (growth > limit) throw new Error(`${route} ${locale} resource growth ${growth} exceeds ${limit} bytes`);
+  if (allowance.introduction && current > limit) {
+    throw new Error(`${route} ${locale} resource size ${current} exceeds ${limit} bytes`);
+  }
 }
 
 export function checkResearchIsolation(rows, allowances = {}, beforeLocales, afterLocales) {
@@ -60,10 +82,7 @@ export function checkResearchIsolation(rows, allowances = {}, beforeLocales, aft
     const after = afterLocales?.[row.route];
     const limits = Object.entries(allowance.localeLimits);
     for (const [locale, limit] of limits) {
-      checkLocaleGrowth(row.route, locale, limit, before, after);
-      if (allowance.introduction && after[locale] > limit) {
-        throw new Error(row.route + ' ' + locale + ' resource size ' + after[locale] + ' exceeds ' + limit + ' bytes');
-      }
+      checkLocaleGrowth(row.route, locale, limit, before, after, allowance);
     }
     const shared = (total, parts) => parts.shared ?? total - limits.reduce((sum, [locale]) => sum + parts[locale], 0);
     const sharedBefore = shared(row.before, before);

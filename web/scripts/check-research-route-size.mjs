@@ -35,6 +35,7 @@ export async function checkRouteSize({ build = viteBuild, files = fs, process = 
   const localized = {};
   try {
     function generateBundle(_options, bundle) {
+      const staticImports = new Set(Object.values(bundle).flatMap(output => output.imports ?? []));
       for (const output of Object.values(bundle)) {
         if (output.type === 'chunk' && baselinePath) {
           chunkLocaleBytes.set(output.fileName, localeBytes(output.code, Object.keys(output.modules)));
@@ -43,7 +44,14 @@ export async function checkRouteSize({ build = viteBuild, files = fs, process = 
         if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/tools/') || id.includes('/components/examples/') || id.includes('/components/diagram-game/') || id.includes('/components/games/'))) toolsChunks.add(output.fileName);
         if (output.type === 'chunk') {
           const locales = Object.keys(output.modules).filter(id => id.startsWith('\0virtual:public-i18n/'));
-          if (locales.length) publicLocaleChunks.set(output.fileName, locales.map(id => id.split('/').at(-1)).sort().join('+'));
+          if (locales.length) {
+            if (Object.keys(output.modules).length !== 1 || !output.isDynamicEntry || output.isEntry ||
+                output.facadeModuleId !== locales[0] || staticImports.has(output.fileName) ||
+                output.imports.length || output.dynamicImports.length) {
+              throw new Error(`Expected a dedicated lazy public dictionary for ${locales.join(', ')}`);
+            }
+            publicLocaleChunks.set(output.fileName, locales[0].split('/').at(-1));
+          }
         }
         if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/research/') || /\/research\/.*\.json$/.test(id))) {
           researchChunks.add(output.fileName);

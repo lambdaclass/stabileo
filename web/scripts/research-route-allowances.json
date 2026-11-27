@@ -1,4 +1,17 @@
-{"routes": {
+{
+  "landingPublicDictionaries": {
+    "routes": [
+      "/en/",
+      "/es/",
+      "/pt/"
+    ],
+    "bytes": {
+      "it": 10768,
+      "nl": 10545
+    },
+    "measurement": "Run node scripts/check-research-route-size.mjs --baseline landing.json --update from web/ in the pinned production shell. Read localized['/en/'].alternatives[locale].localized[locale] (identical for /es/ and /pt/). UTF-8 bytes of the minified translated literals in the dedicated dynamic chunk. Keys, wrappers and loader code retain their existing limits."
+  },
+"routes": {
   "/en/": [{"bytes": 400, "reason": "#1916 Hungarian, the seventh offered language: its name and lazy loader", "module": "src/lib/i18n/offered.ts"}, {"bytes": 803, "reason": "#2256 Chinese, the eighth offered language: its name and lazy loader", "module": "src/lib/i18n/offered.ts"}, {"bytes": 821, "reason": "#2595 Italian, the ninth offered language: its name and lazy loader", "module": "src/lib/i18n/offered.ts", "locale": "it"}, {"bytes": 823, "reason": "#2613 Dutch, the tenth offered language: its name and lazy loader", "module": "src/lib/i18n/offered.ts", "locale": "nl"}],
   "/es/": [{"bytes": 400, "reason": "#1916 Hungarian, the seventh offered language: its name and lazy loader", "module": "src/lib/i18n/offered.ts"}, {"bytes": 803, "reason": "#2256 Chinese, the eighth offered language: its name and lazy loader", "module": "src/lib/i18n/offered.ts"}, {"bytes": 821, "reason": "#2595 Italian, the ninth offered language: its name and lazy loader", "module": "src/lib/i18n/offered.ts", "locale": "it"}, {"bytes": 823, "reason": "#2613 Dutch, the tenth offered language: its name and lazy loader", "module": "src/lib/i18n/offered.ts", "locale": "nl"}],
   "/pt/": [{"bytes": 400, "reason": "#1916 Hungarian, the seventh offered language: its name and lazy loader", "module": "src/lib/i18n/offered.ts"}, {"bytes": 803, "reason": "#2256 Chinese, the eighth offered language: its name and lazy loader", "module": "src/lib/i18n/offered.ts"}, {"bytes": 821, "reason": "#2595 Italian, the ninth offered language: its name and lazy loader", "module": "src/lib/i18n/offered.ts", "locale": "it"}, {"bytes": 823, "reason": "#2613 Dutch, the tenth offered language: its name and lazy loader", "module": "src/lib/i18n/offered.ts", "locale": "nl"}],

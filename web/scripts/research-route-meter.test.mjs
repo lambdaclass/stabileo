@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 
-function routeFixture(t) {
+function routeFixture(t, configure = '') {
   const cli = fileURLToPath(new URL('./check-research-route-size.mjs', import.meta.url));
   const root = mkdtempSync(join(dirname(cli), '.route-meter-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -26,11 +26,11 @@ function routeFixture(t) {
   const pages = ['src/components/tools/load-page.ts', 'src/components/research/load-page.ts',
     'src/components/tools/ToolViewer.svelte', 'src/components/tools/MainBatchTool.svelte'];
   for (const page of pages) write(page, 'globalThis.page = ' + JSON.stringify(page));
-  write('vite.config.mjs', 'export default ' + JSON.stringify({
+  write('vite.config.mjs', 'const config = ' + JSON.stringify({
     define: { '__PUBLIC_FEATURES__.research': 'false', '__PUBLIC_FEATURES__.tools': 'false' },
     build: { minify: false, rollupOptions: { input: ['index.html', ...pages] } },
-  }));
-  return { write, run, dictionary, baseline, root };
+  }) + ';\n' + configure + '\nexport default config;');
+  return { write, run, dictionary, baseline };
 }
 
 test('The route CLI measures a loaded dictionary and rejects one byte past its isolated limit', t => {
@@ -56,16 +56,13 @@ test('The route CLI measures a loaded dictionary and rejects one byte past its i
   assert.match(over.stderr, /nl resource size 1321349 exceeds 1321348/);
 });
 
-test.skip('known wrong result: #2613 — only an individually lazy public dictionary is an alternative', t => {
-  const { root, write, run } = routeFixture(t);
-  const config = readFileSync(join(root, 'vite.config.mjs'), 'utf8').replace('export default ', '');
-  write('vite.config.mjs', `const config = ${config};
+test('known wrong result: #2613 — only an individually lazy public dictionary is an alternative', t => {
+  const { write, run } = routeFixture(t, String.raw`
     config.plugins = [{
       name: 'public-locale-fixture',
       resolveId(id) { if (id.startsWith('virtual:public-i18n/')) return '\0' + id; },
       load(id) { if (id.startsWith('\0virtual:public-i18n/')) return 'export default {title:' + JSON.stringify(id.slice(-2)) + '}'; }
-    }];
-    export default config;`.replaceAll('\0', '\\0'));
+    }];`);
   write('src/labels.js', 'export default {}');
   const imports = "globalThis.app = () => import('./App.js');";
   const cases = [

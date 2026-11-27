@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { build } from 'vite';
+import { chromium, expect } from '@playwright/test';
 import { disabledFeatures, withProductionFeatures } from './public-features-test-fixture.mjs';
 
 async function landingBuild(features) {
@@ -39,7 +40,7 @@ async function landingBuild(features) {
     visit(landing.fileName);
     const modules = [...seen].flatMap(file => Object.keys(chunks.get(file)?.modules ?? {}));
     const directLazyModules = [...seen].flatMap(file => chunks.get(file)?.dynamicImports ?? []).flatMap(file => Object.keys(chunks.get(file)?.modules ?? {}));
-    return { manifest, modules, directLazyModules, emittedModules: [...chunks.values()].flatMap(chunk => Object.keys(chunk.modules)) };
+    return { output, manifest, modules, directLazyModules, emittedModules: [...chunks.values()].flatMap(chunk => Object.keys(chunk.modules)) };
   };
   return features ? withProductionFeatures(features, run) : run();
 }
@@ -110,4 +111,45 @@ test('the examples worker builds without browser dictionaries', async () => {
       lib: { entry: resolve(root, 'src/components/examples/run.worker.ts'), formats: ['es'], fileName: 'worker' },
     },
   });
+});
+
+test('public navigation fetches only the dictionary of the selected landing language', async t => {
+  const { output } = await landingBuild();
+  const files = new Map(output.map(item => [item.fileName, item]));
+  const dictionaries = new Map(output.filter(item => item.type === 'chunk' && item.facadeModuleId?.startsWith('\0virtual:public-i18n/'))
+    .map(chunk => [chunk.fileName, chunk.facadeModuleId.split('/').at(-1)]));
+  const headings = {
+    en: 'Structural analysis you can check.',
+    it: 'Analisi strutturale che puoi verificare.',
+    nl: 'Constructieberekening die je kunt controleren.',
+  };
+  const browser = await chromium.launch();
+  t.after(() => browser.close());
+  for (const start of Object.keys(headings)) {
+    const page = await browser.newPage({ locale: start === 'nl' ? 'it-IT' : 'nl-NL' });
+    const requests = [];
+    await page.route('**/*', route => {
+      const url = new URL(route.request().url());
+      if (url.origin !== 'http://landing.test') return route.abort();
+      const path = url.pathname.slice(1);
+      const item = files.get(route.request().isNavigationRequest() ? 'index.html' : path);
+      if (!item) return route.fulfill({ status: 404 });
+      if (dictionaries.has(path)) requests.push(dictionaries.get(path));
+      if (item.type === 'chunk') return route.fulfill({ contentType: 'text/javascript', body: item.code });
+      return route.fulfill({ contentType: path.endsWith('.css') ? 'text/css' : 'text/html', body: item.source });
+    });
+    await page.goto(`http://landing.test/${start}/`);
+    const expected = start === 'en' ? [] : [start];
+    await expect(page.locator('#app .landing h1')).toHaveText(headings[start]);
+    assert.deepEqual(requests, expected);
+    for (const next of start === 'it' ? ['nl', 'it'] : ['it', 'nl']) {
+      await page.getByTestId('nav-lang-button').click();
+      await page.getByTestId('nav-lang-list').locator(`[data-value="${next}"]`).click();
+      await expect(page).toHaveURL(`http://landing.test/${next}/`);
+      await expect(page.locator('#app .landing h1')).toHaveText(headings[next]);
+      if (!expected.includes(next)) expected.push(next);
+      assert.deepEqual(requests, expected);
+    }
+    await page.close();
+  }
 });

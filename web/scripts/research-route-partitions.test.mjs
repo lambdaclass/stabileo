@@ -51,7 +51,7 @@ test('known wrong result: #2613 — the migration comparison obtains its meter i
   assert.equal((script.match(/node "\$meter"/g) ?? []).length, 2);
 });
 
-test.skip('known wrong result: #2613 — landing dictionary introductions pay only for the selected chunk', () => {
+test('known wrong result: #2613 — landing dictionary introductions pay only for the selected chunk', () => {
   const before = footprint(0, 0, false);
   const allowances = { [route]: { bytes: 5, localeLimits: { it: 0, nl: 5 }, introduction: true, publicDictionaryLimits: { nl: 10 } } };
   function check(copy, outside, shared) {
@@ -64,4 +64,20 @@ test.skip('known wrong result: #2613 — landing dictionary introductions pay on
   assert.throws(() => check(11, 0, 0), /nl public dictionary/);
   assert.throws(() => check(9, 6, 0), /nl resource/);
   assert.throws(() => check(10, 5, 129), /shared/);
+});
+
+test('each shipped landing dictionary is capped at its measured translated bytes', () => {
+  for (const route of ['/en/', '/es/', '/pt/']) {
+    for (const [locale, cap] of Object.entries({ it: 10768, nl: 10545 })) {
+      const snapshot = size => measureRouteFiles([], new Map([['dictionary.js', locale]]), () => size,
+        new Map([['dictionary.js', { it: 0, nl: 0, [locale]: size }]]));
+      const check = size => {
+        const before = snapshot(cap), after = snapshot(size);
+        reviewRouteGrowth({ [route]: before.bytes }, { [route]: after.bytes }, 'true', undefined,
+          { [route]: before.localeSizes }, { [route]: after.localeSizes });
+      };
+      check(cap);
+      assert.throws(() => check(cap + 1), /public dictionary size/);
+    }
+  }
 });
