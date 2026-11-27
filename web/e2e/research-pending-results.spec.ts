@@ -172,3 +172,31 @@ test('@smoke an interrupted refined Lee solve exposes an undetermined peak', asy
   await expect(page.getByTestId('lee-limit')).toHaveText('Unavailable');
   await expect(page.locator('.rs-verify dd').first().getByRole('link')).toHaveAttribute('href', /lee-frame-1968\/VALIDATION\.json$/);
 });
+
+test('@smoke known wrong result: #2505 restarting the cable replay clears a live failure', async ({ page }) => {
+  test.skip(!process.env.RUN_KNOWN_WRONG, 'known wrong result: #2505');
+  await page.addInitScript(() => {
+    window.Worker = class {
+      onerror?: () => void;
+      postMessage() { this.onerror?.(); }
+      terminate() {}
+    } as unknown as typeof Worker;
+  });
+  await page.goto('/en/research/optimisation/fairclough-2026/');
+  await page.locator('.rs-xlink').filter({ hasText: '1.65' }).click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  await page.getByRole('button', { name: 'Restart', exact: true }).click();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+test('@smoke known wrong result: #2505 a pending portal has no governing result for the requested ratio', async ({ page }) => {
+  test.skip(!process.env.RUN_KNOWN_WRONG, 'known wrong result: #2505');
+  await page.route(/dedaliano_engine_bg[^/]*\.wasm/, () => {});
+  await page.goto('/en/research/benchmarks/plastic-collapse/');
+  await page.getByTestId('ratio').fill('4');
+  await expect(page.getByTestId('governs')).toBeHidden();
+  await expect(page.getByTestId('collapse-factor')).toBeHidden();
+  await expect(page.getByTestId('check')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Stop', exact: true }).click();
+  await expect(page.getByTestId('collapse-factor')).toBeVisible();
+});

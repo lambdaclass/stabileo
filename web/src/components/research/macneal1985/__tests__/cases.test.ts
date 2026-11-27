@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import data from '../../../../../../engine/tests/benchmarks/macneal_harder.json';
-import { cases, compare, counts, distortable, nativeOnly, PAPER_SKEW, refusalFor, runCases, runVariant, skewedCase, skewOffset, tolerance, verdict, viewerData, type Case, type Result } from '../cases';
+import { cases, compare, counts, inputFor, distortable, nativeOnly, PAPER_SKEW, refusalFor, runCases, runVariant, skewedCase, skewOffset, tolerance, verdict, viewerData, type Case, type Result } from '../cases';
 import { editorSnapshot, editorURL } from '../editor';
 import { caseLabel, comparisonNames, nativeReason, pageLocale, strings } from '../i18n';
 import published from '../../../../../../research/benchmarks/macneal-harder-1985/reference-results/published_comparison.json';
@@ -339,4 +339,15 @@ it('surfaces an unrelated variant solve error without claiming issue 798', async
     expect(result.refused).not.toBe(true);
     expect(result.issue).toBeUndefined();
   } finally { solve.mockRestore(); }
+});
+
+it('returns the measured tip on the linked gentle skew meshes', async () => {
+  await initSolver();
+  for (const [direction, angle] of [['out', 20], ['in', 5]] as const) {
+    const c = skewedCase(byId(`mitc4-parallelogram-${direction}`), angle);
+    const displacements = solve3D(inputFor(c) as Parameters<typeof solve3D>[0]).displacements;
+    const values = c.measurement.nodes.map(id => displacements.find(d => d.nodeId === id)![c.measurement.component as 'ux' | 'uy' | 'uz']);
+    const expected = values.reduce((a, b) => a + b, 0) / values.length;
+    expect((await runVariant(c)).value).toBe(expected);
+  }
 });
