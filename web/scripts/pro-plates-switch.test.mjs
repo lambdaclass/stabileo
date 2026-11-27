@@ -120,7 +120,7 @@ test('load and reinforcement editors publish their own labels independently', as
   }
 });
 
-test('the EC2 member resistance reads placed reinforcement and draft profiles only in their builds', { skip: 'known wrong result: sheet reinforcement replaces published EC2 member steel' }, async () => {
+test('the EC2 member resistance reads placed reinforcement and draft profiles only in their builds', async () => {
   for (const [plates, sheets] of [[false, false], [true, false], [false, true], [true, true]]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates, proRcSheets: sheets }, async configFile => {
       const entry = resolve(root, 'ec2-column-profile.mjs');

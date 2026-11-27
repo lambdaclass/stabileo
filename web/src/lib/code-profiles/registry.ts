@@ -10,12 +10,16 @@ import en1992uk from './profiles/rc/bs-en-1992-1-1.json';
 
 export const SHIPPED_PROFILES: readonly unknown[] = [cirsoc101, en1990, en1990uk, asce7, ts498, en1992, en1992uk];
 
-const DOCS = indexProfiles(SHIPPED_PROFILES);
+let documents: ReturnType<typeof indexProfiles>;
 const resolved = new Map<string, CodeProfile>();
 
 export function profile(id: string): CodeProfile {
   let p = resolved.get(id);
-  if (!p) { p = resolveProfile(id, DOCS); resolved.set(id, p); }
+  if (!p) {
+    documents ??= indexProfiles(SHIPPED_PROFILES);
+    p = resolveProfile(id, documents);
+    resolved.set(id, p);
+  }
   return p;
 }
 

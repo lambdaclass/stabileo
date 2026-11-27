@@ -28,6 +28,7 @@
  *    corners, so either plane reads half the steel on each side. The least As whose resistance
  *    carries every demand, by bisection. Minimum and maximum steel of 9.5.2(2) and (3).
  */
+import { reinforcementSheets } from '../../../features';
 import { statusOfRatio, type CheckInput, type CheckRow } from '../../../design-contract';
 import { ec2Material, type Ec2Params } from './ec2-params';
 
@@ -46,10 +47,18 @@ export function sectionResistance(x: number, s: PlaneSection, m: Mat, es: number
   const sig = (e: number) => Math.max(-m.fyd, Math.min(m.fyd, es * e)) * 1000; // kPa
   const depth = Math.min(m.lambda * x, h);
   const fc = m.eta * m.fcd * 1000 * b * depth;
-  const steel = s.bars ?? [{ at: h / 2 - d2, as: as / 2 }, { at: -(h / 2 - d2), as: as / 2 }];
-  let n = fc, mm = fc * (h / 2 - depth / 2);
-  for (const bar of steel) { const f = bar.as * sig(strain(h / 2 - bar.at)); n += f; mm += f * bar.at; }
-  return { n, m: mm };
+  if (reinforcementSheets() && s.bars) {
+    let n = fc;
+    let moment = fc * (h / 2 - depth / 2);
+    for (const bar of s.bars) {
+      const force = bar.as * sig(strain(h / 2 - bar.at));
+      n += force;
+      moment += force * bar.at;
+    }
+    return { n, m: moment };
+  }
+  const f1 = (as / 2) * sig(strain(d2)), f2 = (as / 2) * sig(strain(h - d2));
+  return { n: fc + f1 + f2, m: fc * (h / 2 - depth / 2) + f1 * (h / 2 - d2) - f2 * (h / 2 - d2) };
 }
 
 /** Moment the section resists at axial force N (compression positive), kN·m; null when N is beyond it. */
@@ -169,7 +178,7 @@ function planeReading(
   const MEd = !slender ? Math.max(M02, floor)
     : !i.braced ? Math.max(M02 + M2, floor)
     : Math.max(M02, Math.max(0.6 * M02 + 0.4 * M01, 0.4 * M02) + M2, M01 + M2 / 2, floor);
-  const MRd = momentAt(N, { b: pl.b, h: pl.h, d2, as: asPlane, ...(pl.bars ? { bars: pl.bars } : {}) }, m, p.es);
+  const MRd = momentAt(N, { b: pl.b, h: pl.h, d2, as: asPlane, ...(reinforcementSheets() && pl.bars ? { bars: pl.bars } : {}) }, m, p.es);
   return { M01, M02, rm, ei, e0, n, lambda, lambdaLim, slender, M2, MEd, MRd, imperfect };
 }
 

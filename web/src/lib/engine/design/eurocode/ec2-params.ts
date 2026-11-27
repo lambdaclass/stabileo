@@ -41,13 +41,22 @@ export interface Ec2Params {
   es: number;
 }
 
-export const EC2_RECOMMENDED: Ec2Params = ec2ParamsOf(rcProfile('en-1992-1-1'));
-const ukParams = ec2ParamsOf(rcProfile('bs-en-1992-1-1'));
-export const EC2_UK: Ec2Params = unifiedPlates() ? ukParams : {
-  ...ukParams,
-  xuLimitLow: EC2_RECOMMENDED.xuLimitLow,
-  xuLimitHigh: EC2_RECOMMENDED.xuLimitHigh,
+export const EC2_RECOMMENDED: Ec2Params = unifiedPlates() ? ec2ParamsOf(rcProfile('en-1992-1-1')) : {
+  code: 'en-1992-1-1',
+  gammaC: 1.5, gammaS: 1.15,
+  alphaCC: 1.0, alphaCCShear: 1.0, alphaCT: 1.0,
+  crdc: 0.18 / 1.5, k1: 0.15, vminCoeff: 0.035,
+  cotThetaMin: 1, cotThetaMax: 2.5,
+  nu1Factor: 1,
+  xuLimitLow: 0.45, xuLimitHigh: 0.35,
+  beamMinFctm: 0.26, beamMinAbs: 0.0013, beamMaxRatio: 0.04,
+  linkMinCoeff: 0.08, linkMaxSpacing: 0.75,
+  colMinN: 0.1, colMinAbs: 0.002, colMaxRatio: 0.04,
+  lambdaLimCoeff: 20,
+  es: 200000,
 };
+
+export const EC2_UK: Ec2Params = unifiedPlates() ? ec2ParamsOf(rcProfile('bs-en-1992-1-1')) : { ...EC2_RECOMMENDED, code: 'bs-en-1992-1-1', alphaCC: 0.85, alphaCCShear: 1.0 };
 
 export interface Ec2Material {
   fcd: number; fcdShear: number; fctm: number; fcm: number; ecm: number;
