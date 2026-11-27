@@ -70,3 +70,19 @@ it('beam midspan cannot yield in the reverse bending sense', async () => {
   }
   expect(hinges()).toBe(false);
 });
+
+it.skipIf(!process.env.RUN_KNOWN_WRONG)('known wrong result: #2505 checks either member end at the left joint on both sides of the mechanism transitions', async () => {
+  for (const vertical of [0.5, 0.75, 3, 4]) {
+    const p = { ...PAPER, vertical };
+    const result = await run(p);
+    const hinge = result.steps.flatMap(s => s.hingesFormed ?? []).find(h => hingeNode(h) === 2)!;
+    expect(checks(result, p).find(c => c.id === 'hinges')?.passed).toBe(true);
+    const column = hinge.elementId === 1;
+    hinge.elementId = column ? 2 : 1;
+    hinge.end = column ? 'start' : 'end';
+    hinge.momentY *= -1;
+    expect(checks(result, p).find(c => c.id === 'hinges')?.passed).toBe(true);
+    hinge.momentY *= -1;
+    expect(checks(result, p).find(c => c.id === 'hinges')?.passed).toBe(false);
+  }
+});

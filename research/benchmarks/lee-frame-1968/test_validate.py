@@ -10,6 +10,14 @@ spec.loader.exec_module(lee)
 
 
 class LeeEvidence(unittest.TestCase):
+    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
+    def test_different_minima_cannot_be_mixed_in_an_extrapolation(self):
+        values = [next(r['firstPeak'] for r in self.run['study'] if r['split'] == split and r['stepScale'] == 1) for split in (1, 2, 4)]
+        a, b, c = values
+        expected = c + (c - b) / ((a - b) / (b - c) - 1)
+        for row in lee.evidence(self.run)[1]['checks'][1:]:
+            self.assertEqual(row['computed'], expected)
+
     def test_declared_readings_and_limits_are_exact(self):
         row = {'reference': 1.0, 'computed': 1.0, 'observed': 0.0, 'tolerance': 1e-10}
         for key in ('reference', 'tolerance'):

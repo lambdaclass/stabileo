@@ -121,8 +121,7 @@ fn lee_frame_first_peak_converges_in_mesh_and_step() {
         let spread = same.iter().cloned().fold(f64::MIN, f64::max) - same.iter().cloned().fold(f64::MAX, f64::min);
         assert!(spread < step_bound, "{} elements: step-size spread {spread}", 20 * split);
     }
-    let finest_step = |split: usize| peaks.iter().filter(|p| p.0 == split).min_by(|a, b| a.1.total_cmp(&b.1)).unwrap().2;
-    let (p20, p40, p80) = (finest_step(1), finest_step(2), finest_step(4));
+    let [p20, p40, p80] = mesh_peaks(&peaks).unwrap();
     assert!(p20 > p40 && p40 > p80);
     let ratio = (p20 - p40) / (p40 - p80);
     println!("mesh change ratio {ratio}");
@@ -144,4 +143,18 @@ fn repeated_step_scales_cannot_verify_refinement() {
     assert!(!independent_steps(&[(1, 0.5, 1.), (1, 0.5, 1.)], 1));
     assert!(!independent_steps(&[(1, 0.5, 1.), (1, 1., 1.), (1, 1., 1.)], 1));
     assert!(independent_steps(&[(1, 0.5, 1.), (1, 1., 1.)], 1));
+}
+
+fn mesh_peaks(peaks: &[(usize, f64, f64)]) -> Option<[f64; 3]> {
+    let finest = |split| peaks.iter().filter(|p| p.0 == split).min_by(|a, b| a.1.total_cmp(&b.1)).map(|p| p.2);
+    Some([finest(1)?, finest(2)?, finest(4)?])
+}
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn lee_frame_mesh_ratio_holds_the_step_scale_fixed() {
+    let mut cases = vec![(1, 1., 3.), (2, 1., 2.), (4, 1., 1.), (1, 0.5, 99.)];
+    assert_eq!(mesh_peaks(&cases), Some([3., 2., 1.]));
+    cases[2].1 = 0.25;
+    assert_eq!(mesh_peaks(&cases), None);
 }
