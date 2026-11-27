@@ -38,3 +38,21 @@ it.each([[0.5, 3], [1, 3], [4, 3], [2, 2.5], [2, 5]])('collapses at the lowest h
   expect(list.map(c => c.id)).toContain('hinges');
   expect(list.filter(c => !c.passed)).toEqual([]);
 });
+
+it.skip.each([0.75, 3])('known wrong result: #2505 tied portal at V/H=%s still checks actual hinge moments', async vertical => {
+  const model = { ...PAPER, vertical };
+  const result = await run(model);
+  const hingeCheck = () => checks(result, model).find(c => c.id === 'hinges')?.passed;
+  expect(hingeCheck()).toBe(true);
+  result.steps.find(s => s.hingesFormed?.length)!.hingesFormed![0].momentY = 0;
+  expect(hingeCheck()).toBe(false);
+});
+
+it.skip.each(['horizontal', 'vertical'] as const)('known wrong result: #2505 pure loading checks equilibrium with zero %s load', async direction => {
+  const model = { ...PAPER, [direction]: 0 };
+  const result = await run(model);
+  expect(checks(result, model).find(c => c.id === 'equilibrium')?.passed).toBe(true);
+  const reaction = result.steps[0].results.reactions![0];
+  reaction[direction === 'horizontal' ? 'fx' : 'fz'] += portal.equilibriumTolerance * 2;
+  expect(checks(result, model).find(c => c.id === 'equilibrium')?.passed).toBe(false);
+});

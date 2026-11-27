@@ -303,3 +303,16 @@ describe('containment explanation is localized', () => {
     }
   });
 });
+
+it.skip('known wrong result: #2505 a variant initialization rejection reaches the page as a failure', async () => {
+  const engine = await import('../../../../lib/engine/wasm-solver');
+  vi.spyOn(engine, 'initSolver').mockRejectedValueOnce(new Error('unavailable module'));
+  const result = await runVariant(cases.find(c => c.id === 'mitc4-parallelogram-out')!);
+  expect(result).toMatchObject({ value: null, error: null, pass: false, failure: 'Error: unavailable module' });
+  expect(result.refused).toBeUndefined();
+});
+
+it('holds back in-plane variant results with the original issue', async () => {
+  const result = await runVariant(cases.find(c => c.id === 'mitc4-parallelogram-in')!);
+  expect(result).toMatchObject({ issue: 798, refused: true, value: null, error: null, pass: false });
+});
