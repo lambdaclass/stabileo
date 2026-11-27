@@ -52,7 +52,7 @@ it('renders the page, shell and metadata language in all eight locales', () => {
   }
 });
 
-it.skip.each(PUBLIC_LOCALES)('known wrong result: #2595 — the %s Checks paragraph identifies the validated roof nodes and rounded native maximum', locale => {
+it.each(PUBLIC_LOCALES)('known wrong result: #2595 — the %s Checks paragraph identifies the validated roof nodes and rounded native maximum', locale => {
   setLocale(locale);
   const { body } = render(CqcPage);
   const paragraph = body.match(/<h2 id="checks"[^>]*>[^<]+<\/h2>\s*<p[^>]*>([^<]+)<\/p>/)?.[1] ?? '';

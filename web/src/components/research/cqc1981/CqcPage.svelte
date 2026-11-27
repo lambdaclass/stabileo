@@ -5,6 +5,7 @@
   import { Playback } from '../shell/playback.svelte';
   import { num } from '../shell/format';
   import { benchmark, difference, impliedRho, projection, recompute, roof, type Results } from './benchmark';
+  import { roofNodeIds } from './checks';
   import replay from '../../../../../research/benchmarks/cqc-1981/results/stabileo_results.json';
   import validation from '../../../../../research/benchmarks/cqc-1981/VALIDATION.json';
   import { cqcLocale, cqcStrings } from './strings';
@@ -111,7 +112,7 @@
       </table>
       <h2>{s.roofHeading}</h2>
       <table data-testid="cqc-roof"><thead><tr><th scope="col">{s.node}</th><th scope="col">{s.rule}</th><th scope="col">{s.reference}</th><th scope="col">{s.result}</th></tr></thead>
-        <tbody>{#each [0, 1] as i}{#each ['SRSS', 'CQC'] as name}{@const key = name as 'SRSS' | 'CQC'}<tr><th scope="row">{5 + i}</th><td>{key}</td><td>{num(1000 * benchmark.reference[key === 'SRSS' ? 'roofSRSS' : 'roofCQC'][i], { dp: 6 })}</td><td data-testid={`roof-${5 + i}-${key}`}>{num(1000 * roof(results[key])[i], { dp: 6 })}</td></tr>{/each}{/each}</tbody>
+        <tbody>{#each roofNodeIds as nodeId, i}{#each ['SRSS', 'CQC'] as name}{@const key = name as 'SRSS' | 'CQC'}<tr><th scope="row">{nodeId}</th><td>{key}</td><td>{num(1000 * benchmark.reference[key === 'SRSS' ? 'roofSRSS' : 'roofCQC'][i], { dp: 6 })}</td><td data-testid={`roof-${nodeId}-${key}`}>{num(1000 * roof(results[key])[i], { dp: 6 })}</td></tr>{/each}{/each}</tbody>
       </table>
       <h2>{s.modalHeading}</h2>
       <table data-testid="cqc-modal"><thead><tr><th scope="col">{s.quantity}</th><th scope="col">{s.reference}</th><th scope="col">{s.result}</th></tr></thead>
