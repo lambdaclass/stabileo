@@ -358,7 +358,7 @@ exit 0
                            capture_output=True)
             self.assertIn('scope=full\n', output.read_text())
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
-        self.assertIn('BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}', workflow)
+        self.assertIn('BASE_SHA: ${{ steps.base.outputs.sha }}', workflow)
         self.assertIn('HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}', workflow)
 
     def test_site_scope_runs_the_whole_smoke_suite(self):
