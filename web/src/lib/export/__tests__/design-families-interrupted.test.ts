@@ -6,7 +6,7 @@ import { designFamiliesWithWorkerYields, familyOf, ready } from './design-famili
 
 afterEach(() => { vi.restoreAllMocks(); });
 
-it.skip.each(['sync', 'worker'] as const)('known wrong result: #1927 — %s reports only pieces reached in this frame invocation', async (entry) => {
+it.each(['sync', 'worker'] as const)('known wrong result: #1927 — %s reports only pieces reached in this frame invocation', async (entry) => {
   await ready('rc-qa-diagnostic');
   const families = ['column', 'beam'] as const;
   const run = (maxRunMs?: number) => entry === 'sync'
@@ -39,7 +39,7 @@ it.skip.each(['sync', 'worker'] as const)('known wrong result: #1927 — %s repo
   expect(detail).not.toHaveBeenCalled();
 });
 
-it.skip.each(['autoDesign', 'designAll'] as const)('known wrong result: #1927 — %s returns a translated interruption', async (command) => {
+it.each(['autoDesign', 'designAll'] as const)('known wrong result: #1927 — %s returns a translated interruption', async (command) => {
   await ready('rc-qa-diagnostic');
   expect(designRunStore.computeDemands().ok).toBe(true);
   let now = 0;

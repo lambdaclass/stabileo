@@ -317,7 +317,7 @@
             <tr data-testid={`design-result-${f.family}`} class={f.state}>
               <th scope="row">{t(`design.families.${f.family}`)}</th>
               <td class="state">{t(`design.families.state.${f.state}`)}</td>
-              {#if f.state === 'designed'}
+              {#if f.state === 'designed' || f.errorKey === 'design.cmd.truncated'}
                 <td>{f.processed}</td>
                 <td>{f.designed}</td>
                 <td>{f.refused}</td>
