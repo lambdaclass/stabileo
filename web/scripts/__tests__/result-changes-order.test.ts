@@ -212,3 +212,12 @@ describe('results versions from the order changes reach main', { timeout: 60_000
     expect(readRegistryAt('HEAD~2', root)).toBeNull();
   });
 });
+
+it.skip.each([
+  ['it', 'Rigenera W e Wa', 'sollecitazioni delle aste, le reazioni e gli spostamenti'],
+  ['nl', 'Genereer W en Wa opnieuw', 'staafkrachten, oplegreacties en verplaatsingen'],
+] as const)('known wrong result: #2613 — %s explains what to regenerate before rechecking wind', (locale, action, affected) => {
+  const notice = readRegistry().changes.find(change => change.id === 'wind-two-part-moments');
+  expect(notice?.explanation[locale]).toContain(action);
+  expect(notice?.explanation[locale]).toContain(affected);
+});
