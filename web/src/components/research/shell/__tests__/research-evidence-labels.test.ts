@@ -31,3 +31,13 @@ it.each(['de', 'fr', 'tr'] as const)('localizes all three research fields in %s'
     expect(fieldName(field)).not.toEqual(english);
   }
 });
+
+it.skipIf(!process.env.RUN_KNOWN_WRONG)('known wrong result: #2505 localizes the exact circle target', () => {
+  for (const [locale, label] of Object.entries({
+    en: 'exact', es: 'exacto', pt: 'exato', de: 'exakt', fr: 'exact', tr: 'kesin', hu: 'egzakt', zh: '精确',
+  })) {
+    setPublicLocale(locale as typeof PUBLIC_LOCALES[number]);
+    const row = render(Shape).body.split(shapeStrings().arcNote)[1].split('</p>')[0];
+    expect(row.replace(/<!--.*?-->/gs, '')).toContain(`<sub>${label}</sub> = 0`);
+  }
+});

@@ -33,3 +33,32 @@ test('a paper disagreement retains the solved volume and a failed comparison', (
   assert.equal(comparison.computed, layout.volume);
   assert.equal(comparison.passed, false);
 });
+
+const knownWrong = { skip: process.env.RUN_KNOWN_WRONG ? false : 'known wrong result: #2505' };
+
+test('omitted weight solves the paper case and invalid explicit weights are refused', knownWrong, () => {
+  assert.equal(recompute(), recompute(1.65));
+  for (const weight of [NaN, Infinity, -Infinity, 0, -1, 2.5]) {
+    assert.throws(() => recompute(weight), /outside/);
+  }
+});
+
+for (const weight of [1.66, 1.85]) {
+  for (const [name, mutate] of Object.entries({
+    volume: layout => { layout.volume *= 2; },
+    elevation: layout => { layout.curves[0][16][2] += 0.5; },
+    plan: layout => { layout.curves[0][16][1] += 0.5; },
+    equilibrium: layout => {
+      const edge = layout.forces.findIndex(force => force[0] > 1e-5);
+      layout.forces[edge] = [0, 0, 0];
+      layout.curves.shift();
+    },
+  })) {
+    test(`the ${weight} result rejects altered ${name}`, knownWrong, () => {
+      const layout = JSON.parse(recompute(weight));
+      assert.equal(validateLayout(layout, weight), layout);
+      mutate(layout);
+      assert.throws(() => validateLayout(layout, weight), new RegExp(name));
+    });
+  }
+}
