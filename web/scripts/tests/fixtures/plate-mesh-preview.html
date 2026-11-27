@@ -11,9 +11,12 @@
   setLocale('en');
   modelStore.clear();
   uiStore.analysisMode = 'pro';
-  const ids = [0, 3].map(z => {
+  const query = new URLSearchParams(location.search);
+  const ids = [0, 3].map((z, index) => {
     const outline = [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x, y, z));
-    return createPlate({ outline, materialId: 1, thickness: 0.15 }).id;
+    const id = createPlate({ outline, materialId: 1, thickness: 0.15 }).id;
+    if (index < Number(query.get('refused'))) modelStore.updateNode(outline[2], 2, 2, z + 1);
+    return id;
   });
   if (new URLSearchParams(location.search).has('adopted')) {
     const id = ids[0];
@@ -25,6 +28,7 @@
   const testid = id => document.querySelector('[data-testid="' + id + '"]');
   window.previewFixture = {
     closed: false,
+    refusal: () => uiStore.toasts.findLast(toast => toast.type === 'error')?.message,
     async batch(count, stopAt) {
       const controller = new AbortController();
       if (stopAt === 0) controller.abort();

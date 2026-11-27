@@ -33,6 +33,24 @@ for (const mode of ['production', 'test']) {
           await expect.poll(() => page.evaluate(() => window.previewFixture.cells()[1])).toBeGreaterThan(0);
           assert.equal(await page.evaluate(() => window.previewFixture.cells()[0]), 0);
         });
+        await t.test('mixed and wholly refused batches keep the refusal visible', async () => {
+          await page.goto(url.href + '?refused=2');
+          await expect(page.locator('tr.refused')).toHaveCount(2);
+          const apply = page.getByTestId('plate-mesh-apply');
+          await expect(apply).toBeDisabled();
+          assert.deepEqual(await page.evaluate(() => window.previewFixture.cells()), [0, 0]);
+          await page.goto(url.href + '?refused=1');
+          await expect(page.locator('tr.refused')).toHaveCount(1);
+          await apply.click();
+          if (mode === 'production') {
+            await expect(page.getByTestId('plate-mesh-result')).toContainText('1');
+            assert.equal(await page.evaluate(() => window.previewFixture.closed), false);
+          } else {
+            await expect.poll(() => page.evaluate(() => window.previewFixture.refusal())).toContain('1');
+            assert.equal(await page.evaluate(() => window.previewFixture.closed), true);
+          }
+          assert.ok(await page.evaluate(() => window.previewFixture.cells()[0] > 0));
+        });
         await t.test('an adopted shell keeps both explicit dimensions', async () => {
           for (const [a, b] of [[2, 1.5], [1, 1], [0.75, 0.5]]) {
             await page.goto(url.href + '?adopted&a=' + a + '&b=' + b);
