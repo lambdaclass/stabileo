@@ -47,8 +47,5 @@ it.each([
   ]),
 ])('defines positive moment by tension on the bottom fibre in the Dutch %s', (_, label) => {
   expect(label).toMatch(momentConvention);
-});
-
-it('#2613 — rejects positive bending defined by tension in the top fibre', () => {
-  expect('positief bij trek in de bovenvezel, negatief bij trek in de ondervezel').not.toMatch(momentConvention);
+  expect(label).not.toMatch(/positief bij trek in de bovenvezel/i);
 });

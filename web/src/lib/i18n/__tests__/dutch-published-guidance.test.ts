@@ -115,12 +115,6 @@ it.each([
   ["course.second-order.doc.compare.rigid", "geometrische stijfheidsmatrix en de discretisatie"],
   ["course.second-order.doc.bk.det.caption", "nulpunten én sprongen bij polen"],
   ["steps.m.so-buckling-kg.opt.chord.help", "alleen de eigenvormen die door verplaatsbare knopen kunnen worden weergegeven"],
-  ["seismic.system.mas_solid_confined_plain", "omsloten"],
-  ["seismic.system.mas_solid_confined_reinforced", "omsloten"],
-  ["seismic.system.mas_clayblock_confined_plain", "omsloten"],
-  ["seismic.system.mas_clayblock_confined_reinforced", "omsloten"],
-  ["seismic.system.mas_concreteblock_confined_plain", "omsloten"],
-  ["seismic.system.mas_concreteblock_confined_reinforced", "omsloten"],
   ["seismic.system.mas_solid_unconfined", "niet-omsloten metselwerk"],
   ["stress.eccentricBiaxialNote", "lokale horizontale z-as"],
   ["loads.cirsoc102.meanRoofHeight", "dakhoogte"],
@@ -187,4 +181,12 @@ it.each(['nl', 'it'] as const)('known wrong result: #2613 — the 0.5.0 safety s
   const excerpt = findPost('stabileo-0-5-0')!.i18n[locale]!.excerpt;
   expect(excerpt.length).toBeGreaterThanOrEqual(90);
   expect(excerpt.length).toBeLessThanOrEqual(300);
+});
+
+it.each(['solid', 'clayblock', 'concreteblock'])('known wrong result: #2613 — confined %s masonry is distinguished from unconfined masonry', material => {
+  for (const [kind, description] of [['plain', 'omsloten metselwerk'], ['reinforced', 'omsloten gewapend metselwerk']]) {
+    const label = nl['seismic.system.mas_' + material + '_confined_' + kind];
+    expect(label).toContain('— ' + description);
+    expect(label).not.toContain('niet-omsloten');
+  }
 });

@@ -133,3 +133,11 @@ it('gives every card its own paper’s lead in every language, never another pap
     for (const [, hook] of hooks) expect(body).toContain(hook.replace(/&/g, '&amp;').replace(/</g, '&lt;'));
   }
 });
+
+it.skip('known wrong result: #2613 — Italian gallery identifies the English-only article before navigation', () => {
+  setLocale('it');
+  const cards = render(Gallery).body.match(/<li class="rs-g-runcard[^>]*>[\s\S]*?<\/li>/g) ?? [];
+  const notice = 'Questo articolo è disponibile solo in inglese.';
+  expect(cards.filter(card => card.includes(notice))).toHaveLength(1);
+  expect(cards.find(card => card.includes(notice))).toContain('shell-obstacle-course');
+});
