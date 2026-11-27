@@ -74,8 +74,9 @@
   }
 
   const ownerOf = (e: Entry) => (e.kind === 'fn' ? e.fn : e.owner);
+  const withheld = (e: Entry) => e.kind === 'step' && e.owner.id === 'plastic';
   const blockedReason = (e: Entry) => unavailable(ownerOf(e), modelState) === 'plane' ? 'advanced.only2d'
-    : e.kind === 'step' && e.owner.id === 'plastic' ? 'knownIssue.PL-2D-INVARIANCE' : null;
+    : withheld(e) ? 'knownIssue.PL-2D-INVARIANCE' : null;
   const blocked = (e: Entry) => blockedReason(e) !== null;
 
   function open(e: Entry): void {
@@ -92,7 +93,7 @@
     if (ev.isComposing) return;
     if (ev.key === 'Enter') {
       const exact = flat.find(e => e.kind === 'step' && both(methodTitle(e.method)).some(name => fold(name) === fold(advancedList.query)));
-      if (exact && blockedReason(exact) === 'knownIssue.PL-2D-INVARIANCE') { ev.preventDefault(); return; }
+      if (exact && withheld(exact)) { ev.preventDefault(); return; }
       const first = flat.find(entry => !blocked(entry));
       if (first) { ev.preventDefault(); open(first); }
     } else if (ev.key === 'Escape') {

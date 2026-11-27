@@ -89,7 +89,7 @@ export const FEATURE_IDS = [
 export type FeatureId = (typeof FEATURE_IDS)[number];
 
 type Entries<T> = Array<[number, T]> | undefined;
-interface Mat { id: number; userDefined?: boolean; rho?: unknown; fy?: number; gradeId?: string; name?: string; e?: number }
+interface Mat { id: number; rho?: unknown; fy?: number; gradeId?: string; name?: string; e?: number }
 interface TensionEndSnapshot { kind?: string; connected?: string; webLines?: number; stagger?: { sMm?: number; gMm?: number } }
 const staggerGiven = (st: TensionEndSnapshot['stagger']) => !!st && [st.sMm, st.gMm].every((v) => typeof v === 'number' && Number.isFinite(v) && v > 0);
 interface Elem {
@@ -123,7 +123,7 @@ interface FeatureSnapshotFields {
   nodeToSurfacePairs?: unknown[];
   upliftSupports?: unknown[];
   nodes?: Entries<{ x: number; y: number; z?: number }>;
-  materials?: Entries<Mat & { alpha?: number }>;
+  materials?: Entries<Mat & { alpha?: number; userDefined?: boolean }>;
   elements?: Entries<Elem>;
   sections?: Entries<{ id: number; a?: number; shearAreas?: unknown }>;
   fiberSections?: Record<string, { materials?: Array<{ type?: string }> }>;

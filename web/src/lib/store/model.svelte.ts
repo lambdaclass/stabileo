@@ -4745,7 +4745,7 @@ function createModelStore() {
       };
     },
 
-    async loadExample(name: string, fixture?: () => Promise<unknown>, opts: {
+    async loadExample(name: string, fixture?: () => Promise<unknown>, options: {
       keepCombinations?: boolean;
       defaults?: { material: Material; section: Section };
     } = {}): Promise<void> {
@@ -4758,16 +4758,17 @@ function createModelStore() {
       // [] for the example's own rule: the example solved without its self-weight.
       const json = await loader() as JSONModel;
       validateFixtureReferences(json);
+      const first = json.materials.find(m => m.id === defaultMaterial.id && m.name === defaultMaterial.name && m.e === defaultMaterial.e);
+      const opts = { ...options, firstMaterialInstalled: !!first };
       this.batch(() => {
         this.clear();
         if (opts.defaults) {
           model.materials.set(1, structuredClone(opts.defaults.material));
           model.sections.set(1, resolveDefaultSection(structuredClone(opts.defaults.section)));
+        } else if (first && (fixture || Object.entries(first).some(([key, value]) => defaultMaterial[key as keyof Material] !== value))) {
+          model.materials.set(first.id, { ...first } as Material);
         }
-        loadFixture(json, this.fixtureApi() as any, {
-          keepCombinations: opts.keepCombinations,
-          exampleMaterial: !fixture || opts.defaults ? { ...defaultMaterial } : undefined,
-        });
+        loadFixture(json, this.fixtureApi() as any, opts);
 
         // Settle canonical state once the whole model is in place. Sections the
         // fixture added are already resolved (addSection resolves per add, and

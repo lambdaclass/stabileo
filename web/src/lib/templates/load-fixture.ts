@@ -112,7 +112,7 @@ export interface FixtureLoader {
 }
 
 interface FixtureLoadOptions {
-  exampleMaterial?: Readonly<Record<string, unknown>>;
+  firstMaterialInstalled?: boolean;
   keepCombinations?: boolean;
 }
 
@@ -192,9 +192,8 @@ function replayFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOpt
   const quadMap = new Map<number, number>();
 
   for (const mat of json.materials) {
-    const seed = opts.exampleMaterial;
-    const useSeed = mat.id === 1 && seed && Object.entries(mat).every(([key, value]) => seed[key] === value);
-    matMap.set(mat.id, useSeed ? 1 : api.addMaterial(withoutId(mat)));
+    const installed = mat.id === 1 && opts.firstMaterialInstalled;
+    matMap.set(mat.id, installed ? mat.id : api.addMaterial(withoutId(mat)));
   }
 
   // Sections (skip id=1 default — update if fixture overrides)
