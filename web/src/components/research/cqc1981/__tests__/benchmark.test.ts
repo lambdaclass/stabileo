@@ -1,3 +1,4 @@
+import { numbers } from '../../__tests__/localized-numbers';
 import { expect, it, vi } from 'vitest';
 import { benchmark, closedForm, DAMPING, difference, impliedRho, model, projection, recompute, roof, type Results } from '../benchmark';
 import { translations } from '../strings';
@@ -62,14 +63,13 @@ it('dispatches both combinations through production WASM wrappers with the modal
 });
 
 it('supplies complete keys with the same numbers in all eight locales', () => {
-  const numbers = (v: unknown) => (JSON.stringify(v).match(/\d+(?:[.,]\d+)*/g) ?? []).map(n => n.replace(',', '.'));
   for (const locale of ['es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'] as const) {
     expect(Object.keys(translations[locale]).sort()).toEqual(Object.keys(translations.en).sort());
     expect(translations[locale].limitations).toHaveLength(3);
     expect(translations[locale].title).not.toEqual(translations.en.title);
     expect(translations[locale].lead).not.toEqual(translations.en.lead);
     for (const key of Object.keys(translations.en) as (keyof typeof translations.en)[]) {
-      expect(numbers(translations[locale][key]).sort(), `${locale}.${key}`).toEqual(numbers(translations.en[key]).sort());
+      expect(numbers(JSON.stringify(translations[locale][key]), locale).sort(), `${locale}.${key}`).toEqual(numbers(JSON.stringify(translations.en[key]), "en").sort());
     }
   }
 });
