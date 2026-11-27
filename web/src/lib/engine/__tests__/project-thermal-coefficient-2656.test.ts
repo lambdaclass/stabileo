@@ -1,11 +1,42 @@
-import { beforeAll, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { clearSolveResultCache } from '../solver-service';
+import { setWorkerFactoryForTests, type WorkerLike } from '../solver-pool';
+import { afterAll, beforeAll, expect, it, vi } from 'vitest';
 import { initSolver, solvePDelta, solvePDelta3D } from '../wasm-solver';
 import type { AnalysisResults } from '../types';
 import type { AnalysisResults3D } from '../types-3d';
 import { modelStore, uiStore } from '../../store';
 import { buildProjectFile, deserializeProject } from '../../store/file';
 
-beforeAll(initSolver);
+const jobs: string[] = [];
+let lastReply: unknown;
+let dispatch: (msg: unknown) => Promise<void>;
+
+beforeAll(async () => {
+  await initSolver();
+  const module = await WebAssembly.compile(readFileSync(new URL('../../wasm/dedaliano_engine_bg.wasm', import.meta.url)));
+  const scope = { postMessage: (_msg: any) => {}, onmessage: undefined as unknown as (event: { data: unknown }) => Promise<void> };
+  vi.stubGlobal('self', scope);
+  await import('../solver-worker');
+  dispatch = msg => scope.onmessage({ data: msg });
+  await dispatch({ type: 'init', wasmModule: module });
+  setWorkerFactoryForTests((): WorkerLike => ({
+    onmessage: null, onerror: null, terminate() {},
+    postMessage(msg) {
+      if (msg.type === 'init') {
+        this.onmessage?.({ data: { type: 'ready' } } as MessageEvent);
+        return;
+      }
+      jobs.push(msg.type);
+      scope.postMessage = reply => {
+        lastReply = reply.result;
+        this.onmessage?.({ data: structuredClone(reply) } as MessageEvent);
+      };
+      void dispatch(structuredClone(msg));
+    },
+  }));
+});
+afterAll(() => { setWorkerFactoryForTests(null); vi.unstubAllGlobals(); });
 
 async function checkDisplacement(workspace: '2d' | '3d', alpha: number | undefined, worker = false, strain = 0, secondOrder = false, gradient = 0) {
   modelStore.clear();
@@ -26,12 +57,18 @@ async function checkDisplacement(workspace: '2d' | '3d', alpha: number | undefin
   modelStore.clear();
   expect(deserializeProject(project)).toBe(true);
   expect(modelStore.materials.get(material)?.alpha).toBe(alpha);
+  const start = jobs.length;
+  if (worker) clearSolveResultCache();
   const result: AnalysisResults | AnalysisResults3D | string | null = secondOrder
     ? (workspace === '2d' ? solvePDelta(modelStore.buildSolverInput()!).results : solvePDelta3D(modelStore.buildSolverInput3D()!).results)
     : workspace === '2d'
     ? (worker ? await modelStore.solveAsync() : modelStore.solve())
     : (worker ? await modelStore.solve3DAsync() : modelStore.solve3D());
   if (!result || typeof result === 'string') throw new Error(String(result));
+  if (worker) {
+    expect(jobs.slice(start)).toContain(workspace === '2d' ? 'solve' : 'solve3d');
+    expect(result.displacements).toEqual((lastReply as AnalysisResults).displacements);
+  }
   const diagnostics = {
     assembly: result.diagnostics ?? [],
     solver: result.solverDiagnostics ?? [],

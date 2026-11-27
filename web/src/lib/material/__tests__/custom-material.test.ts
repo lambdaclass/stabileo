@@ -117,6 +117,7 @@ describe('saving a hand-entered material', () => {
     const file = JSON.stringify(buildProjectFile());
     modelStore.clear();
     expect(deserializeProject(file)).toBe(true);
+    if (micro === 0) expect(customMaterialForm(modelStore.materials.get(id)!).alpha).toBe('0');
     expect(Number(customMaterialForm(modelStore.materials.get(id)!).alpha)).toBeCloseTo(micro, 12);
     expect(modelStore.materials.get(id)?.alpha).toBe(micro * 1e-6);
   });
@@ -167,14 +168,14 @@ describe('saving a hand-entered material', () => {
     expect(modelStore.materials.size).toBe(before);
   });
 
-  it('edits in place: drops the catalogue grade the numbers no longer match, keeps f\'c, and clears a blank fy and α', () => {
+  it('edits in place: drops the catalogue grade the numbers no longer match, clears inherited concrete strength, and clears a blank fy and α', () => {
     const id = modelStore.addMaterial({ name: 'F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 235, fu: 370, fc: 30, alpha: 12e-6, gradeId: 'ar-f24' });
     const r = readCustomMaterial(form({ name: 'F-24 reducido', e: 180000, nu: '0.3', rho: 78.5 }));
     if (!r.ok) throw new Error(r.reasonKey);
     expect(saveCustomMaterial(r.choice, id)).toBe(id);
     const m = modelStore.materials.get(id)!;
-    expect(m).toMatchObject({ name: 'F-24 reducido', e: 180000, nu: 0.3, rho: 78.5, fc: 30, userDefined: true });
-    for (const key of ['fy', 'fu', 'alpha', 'gradeId'] as const) expect(m[key], key).toBeUndefined();
+    expect(m).toMatchObject({ name: 'F-24 reducido', e: 180000, nu: 0.3, rho: 78.5, userDefined: true });
+    for (const key of ['fc', 'fy', 'fu', 'alpha', 'gradeId'] as const) expect(m[key], key).toBeUndefined();
     historyStore.undo();
     expect(modelStore.materials.get(id)).toMatchObject({ name: 'F-24', e: 200000, fy: 235, fu: 370, alpha: 12e-6, gradeId: 'ar-f24' });
   });

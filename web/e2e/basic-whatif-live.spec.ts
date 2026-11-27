@@ -11,7 +11,7 @@ test.describe('@slow explore live', () => {
     await page.addInitScript(() => { try { localStorage.setItem('liveCalc', 'false'); } catch { /* private mode */ } });
     await page.goto('/app/basic?e2e=1');
     await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
-    await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+    await page.evaluate(() => window.__stabileoActions.loadExample('simply-supported'));
     await page.evaluate(() => window.__stabileoActions.solve());
     await page.getByTestId('rb-cmd-momentY').click();
     const frame = () => page.evaluate(() => window.__stabileo.screenFrame());
@@ -22,6 +22,7 @@ test.describe('@slow explore live', () => {
     await expect(panel).toBeVisible();
     await expect.poll(async () => (await frame()).drawn).toBe(true);
     const before = (await frame()).maxMoment!;
+    expect(before).toBeCloseTo(10 * 6 ** 2 / 8, 9);
 
     // A slower machine: each solve then spans frames, so the frames between an edit and its solve are sampled.
     const cdp = await page.context().newCDPSession(page);
@@ -60,6 +61,7 @@ test.describe('@slow explore live', () => {
     const fresh = await page.evaluate(() => window.__stabileo.freshMaxMoment());
     expect(fresh).not.toBeNull();
     expect(Math.abs(last.maxMoment! - fresh!)).toBeLessThan(1e-9 * Math.max(1, fresh!));
+    expect(last.maxMoment!).toBeCloseTo(3 * 10 * 6 ** 2 / 8, 9);
     expect(last.maxMoment!).toBeGreaterThan(before);
   });
 });
@@ -152,9 +154,9 @@ test('@slow a pending moment diagram never connects its old forces to a moved en
       const movedPixels = patch();
       const after = ends.splice(0);
       const frame = window.__stabileo.screenFrame();
-      window.__stabileoActions.moveNode(tip.id, tip.x, tip.y, tip.z ?? 0);
-      await paint();
-      window.__stabileoActions.moveNode(tip.id, tip.x + 1, tip.y, tip.z ?? 0);
+      const moved = JSON.parse(window.__stabileo.serializeProject());
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (!window.__stabileoActions.loadProject(moved)) throw Error('Model reopen failed');
       await paint();
       return { changed: movedPixels !== previousPixels, matchesModel: movedPixels === patch(), original, expected, after, frame };
     } finally {
@@ -175,6 +177,8 @@ test('@slow disabling live calculation cancels the queued edit solve', async ({ 
   await page.evaluate(() => window.__stabileoActions.loadExample('simply-supported'));
   await page.evaluate(() => window.__stabileoActions.solve());
   await page.clock.install();
+  const starts = () => page.evaluate(() => window.__stabileo.solveCount());
+  const before = await starts();
   await page.evaluate(async () => {
     const actions = window.__stabileoActions;
     actions.setLiveCalc(true);
@@ -185,5 +189,38 @@ test('@slow disabling live calculation cancels the queued edit solve', async ({ 
     actions.setLiveCalc(false);
   });
   await page.clock.runFor(500);
+  expect(await starts()).toBe(before);
   expect(await page.evaluate(() => window.__stabileo.viewportPick().hasResults)).toBe(false);
+  await page.evaluate(() => {
+    const actions = window.__stabileoActions;
+    actions.setLiveCalc(true);
+    const node = JSON.parse(window.__stabileo.serializeProject()).snapshot.nodes[1][1];
+    actions.moveNode(node.id, node.x + 1, node.y, node.z ?? 0);
+  });
+  await page.clock.runFor(500);
+  await expect.poll(starts).toBeGreaterThan(before);
+});
+
+test('@slow axial paint shows the opposite forces on a fixed bar under a central axial load', async ({ page }) => {
+  await page.goto('/app/basic?e2e=1');
+  await page.waitForFunction(() => !!window.__stabileoActions && window.__stabileo.solverReady());
+  await page.evaluate(async () => {
+    await window.__stabileoActions.loadExample('simply-supported');
+    const file = JSON.parse(window.__stabileo.serializeProject());
+    for (const [, support] of file.snapshot.supports) support.type = 'fixed';
+    const [id] = file.snapshot.elements[0];
+    file.snapshot.loads = [{ type: 'pointOnElement', data: { id: 1, elementId: id, a: 3, px: 10, p: 0 } }];
+    if (!window.__stabileoActions.loadProject(file)) throw Error('Bar reopen failed');
+    await window.__stabileoActions.solve();
+  });
+  await openAdvancedFunction(page, 'whatif');
+  const labels = await page.locator('.viewport2d-wrapper canvas').first().evaluateHandle(el => {
+    const ctx = (el as HTMLCanvasElement).getContext('2d')!;
+    const texts = new Set<string>();
+    const draw = ctx.fillText.bind(ctx);
+    ctx.fillText = (label, ...args) => { texts.add(label); draw(label, ...args); };
+    return texts;
+  });
+  await page.getByTestId('whatif-paint-axial').click();
+  await expect.poll(() => labels.evaluate(s => [...s].join(' '))).toMatch(/-5\.0.*\+5\.0|\+5\.0.*-5\.0/);
 });

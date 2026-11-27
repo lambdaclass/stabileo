@@ -226,3 +226,22 @@ it.each(['2d', '3d'] as const)('keeps the applied loads consistent with the pend
     expect(resultsStore.screen.results3D).toBeNull();
   }
 });
+
+it.each(['plate', 'quad', 'curved'] as const)('drops a space reaction when only the %s is removed', async kind => {
+  uiStore.analysisMode = '3d';
+  await modelStore.loadExample('3d-portal-frame');
+  const frame = modelStore.solve3D();
+  if (!frame || typeof frame === 'string') throw Error(String(frame));
+  const nodes = [...modelStore.nodes.keys()].slice(0, 4) as [number, number, number, number];
+  const shell = kind === 'plate' ? modelStore.addPlate([nodes[0], nodes[1], nodes[2]], 1, 0.2)
+    : modelStore.addQuad(nodes, 1, 0.2, { curved: kind === 'curved' });
+  resultsStore.setResults3D(frame);
+  resultsStore.diagramType = 'momentY';
+  resultsStore.clear({ keepScreen: true });
+  expect(resultsStore.screen.held).toBe(true);
+  const before = [...modelStore.nodes.keys()];
+  if (kind === 'plate') modelStore.removePlate(shell);
+  else modelStore.removeQuad(shell);
+  expect([...modelStore.nodes.keys()]).toEqual(before);
+  expect(resultsStore.screen.results3D).toBeNull();
+});

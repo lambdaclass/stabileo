@@ -41,14 +41,17 @@ describe('applyGeneratedModel — undo', () => {
   it('retains the generated material even when its name and E match the initial steel', async () => {
     const g = emitModel(generateTruss({ panelsPerHalf: 3 }), { name: 'Truss', profiles: PROFILES });
     const material = g.json.materials[0];
-    Object.assign(material, { fy: 310, rho: 76, nu: 0.27 });
+    modelStore.clear();
+    const defaults = { material: { ...modelStore.materials.get(1)! }, section: { ...modelStore.sections.get(1)! } };
+    Object.assign(material, { name: defaults.material.name, e: defaults.material.e, alpha: -5e-6, fy: 310, rho: 76, nu: 0.27 });
     for (const apply of [
       () => applyGeneratedModel(g, { source: 'generator-truss', atIso: AT, params: {} }),
       () => modelStore.loadExample('authored', async () => g.json),
+      () => modelStore.loadExample('authored', async () => g.json, { defaults }),
     ]) {
       await apply();
       const first = [...modelStore.elements.values()][0]!;
-      expect(modelStore.materials.get(first.materialId)).toMatchObject({ name: material.name, fy: 310, rho: 76, nu: 0.27 });
+      expect(modelStore.materials.get(first.materialId)).toMatchObject({ name: material.name, alpha: -5e-6, fy: 310, rho: 76, nu: 0.27 });
     }
   });
 

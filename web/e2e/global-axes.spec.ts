@@ -1,8 +1,29 @@
 import { test, expect } from './fixtures';
+import { openAdvancedFunction } from './advanced-panel';
 import { BUILD_FEATURES } from './build-features';
 
 if (BUILD_FEATURES.globalAxes) test.describe('Global axes enabled', () => {
 
+
+  test('@smoke Explore shows the signed load and mapped restraint options in its tabs', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('stabileo-axes', JSON.stringify({ up: '-Y', right: '+X', hand: 'right' })));
+    await page.goto('/app/basic?e2e=1');
+    await page.waitForFunction(() => !!window.__stabileoActions && window.__stabileo.solverReady());
+    await page.evaluate(async () => {
+      await window.__stabileoActions.loadExample('cantilever');
+      const file = JSON.parse(window.__stabileo.serializeProject());
+      file.snapshot.loads = [{ type: 'pointOnElement', data: { id: 1, elementId: 1, a: 1, p: 7, isGlobal: true } }];
+      if (!window.__stabileoActions.loadProject(file)) throw Error('Cantilever reopen failed');
+    });
+    await openAdvancedFunction(page, 'whatif');
+    await page.getByTestId('whatif-tab-loads').click();
+    await expect(page.getByRole('tabpanel')).toContainText('P=-7');
+    await page.getByTestId('adv-close').click();
+    await page.evaluate(() => window.__stabileoActions.loadExample('3d-portal-frame'));
+    await openAdvancedFunction(page, 'whatif');
+    await page.getByTestId('whatif-tab-supports').click();
+    await expect(page.getByRole('tabpanel').locator('option[value="rollerZ"]').first()).toHaveText('Roller Y');
+  });
 
   test('@smoke with Y chosen as up, a node written at Y = 3 is stored three metres up and the tables follow', async ({ pro: page }) => {
     const triad = (await page.getByTestId('axes-open-3d').boundingBox())!;

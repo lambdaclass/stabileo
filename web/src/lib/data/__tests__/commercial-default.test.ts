@@ -63,7 +63,7 @@ describe('a deliberate choice is never overwritten', () => {
     // An IPN in F-36 draws the pairing NOTE — a statement about supply — and
     // that is the whole response. Warning and silently correcting are
     // different things, and only one of them respects the user.
-    expect(commercialDefaultFor('IPN', { gradeId: 'iram-f36' }, 'AR')).toBeNull();
+    expect(commercialDefaultFor('IPN', { userDefined: false, gradeId: 'iram-f36' }, 'AR')).toBeNull();
   });
 
   it('leaves a material the user entered by its own numbers alone', () => {

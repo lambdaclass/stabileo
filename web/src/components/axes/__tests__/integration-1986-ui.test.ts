@@ -7,7 +7,7 @@ import { dsmInFrame } from '../../../lib/axes/dsm-frame';
 import { solveDetailed } from '../../../lib/engine/solver-detailed';
 import { afterEach, beforeAll, expect, it, vi } from 'vitest';
 import { render } from 'svelte/server';
-import WhatIfLoads from '../../whatif/WhatIfLoads.svelte';
+import WhatIfPanel from '../../WhatIfPanel.svelte';
 import WhatIfSupports from '../../whatif/WhatIfSupports.svelte';
 import LoadSketch from '../../pro/loads/LoadSketch.svelte';
 import SupportsTable from '../../tables/SupportsTable.svelte';
@@ -31,7 +31,7 @@ it('known wrong result: #1986 Explore displays the global plane point load in th
   modelStore.addPointLoadOnElement([...modelStore.elements.keys()][0]!, 1, 7, { isGlobal: true });
   axesStore.choice = { up: '-Y', right: '+X', hand: 'right' };
   whatIf.open();
-  expect(render(WhatIfLoads).body).toContain('P=-7');
+  expect(render(WhatIfPanel).body).toContain('P=-7');
 });
 
 it('renders both global line load endpoints in the selected vertical direction', async () => {
@@ -43,7 +43,7 @@ it('renders both global line load endpoints in the selected vertical direction',
   modelStore.addDistributedLoad(member, 4, 8, 0, false);
   axesStore.choice = { up: '-Z', right: '+X', hand: 'right' };
   whatIf.open();
-  const html = render(WhatIfLoads).body;
+  const html = render(WhatIfPanel).body;
   expect(html).toContain('q=-3.00→-7.00 kN/m');
   expect(html).toContain('q=4.00→8.00 kN/m');
 });
@@ -81,8 +81,9 @@ it('known wrong result: #1986 storey shear magnitudes use the axis names of thei
 it('names the existing custom restraint in the Explore support editor', () => {
   uiStore.analysisMode = 'pro';
   const node = modelStore.addNode(0, 0, 0);
-  modelStore.addSupport(node, 'custom3d');
+  const id = modelStore.addSupport(node, 'custom3d');
   whatIf.open();
+  whatIf.setSupportType(id, 'pinned3d');
   expect(render(WhatIfSupports).body).toMatch(/<option value="custom3d"[^>]*>Custom<\/option>/);
 });
 

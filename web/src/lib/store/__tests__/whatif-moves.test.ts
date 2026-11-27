@@ -8,6 +8,7 @@ import { modelStore, historyStore, uiStore } from '..';
 import * as calc from '../../engine/live-calc';
 import { resultsStore } from '..';
 import { render } from 'svelte/server';
+import WhatIfMembers from '../../../components/whatif/WhatIfMembers.svelte';
 import WhatIfPanel from '../../../components/WhatIfPanel.svelte';
 import { i18n, setLocale } from '../../i18n';
 import { whatIf } from '../whatif.svelte';
@@ -125,10 +126,12 @@ it('formats a response change with the active French percent convention', () => 
     modelStore.addNodalLoad(n2, 0, P);
     resultsStore.setResults(solve());
     whatIf.open();
-    whatIf.setLoadFactor(0, 1.015);
+    for (const factor of [1.015, 1.004, 0.996]) {
+    whatIf.setLoadFactor(0, factor);
     settle();
     resultsStore.setResults(solve());
-    expect(render(WhatIfPanel).body).toContain(new Intl.NumberFormat('fr', { style: 'percent', maximumFractionDigits: 1 }).format(0.015));
+    expect(render(WhatIfPanel).body).toContain(new Intl.NumberFormat('fr', { style: 'percent', maximumFractionDigits: 1 }).format(Math.abs(factor - 1)));
+    }
   } finally {
     setLocale(originalLocale);
   }
@@ -419,6 +422,12 @@ it('summarizes the transverse resultants of a space cantilever', () => {
     vzStart: 0.5, vyStart: -1.5, qZI: -2, qZJ: -2, qYI: 2, qYJ: 2 };
   const peak = Math.SQRT2 * (1 - 0.25 ** 2);
   expect(response3D({ ...result, elementForces: [member] }).moment).toBeCloseTo(peak, 12);
+  const constant = { ...member, vyStart: 0, vzStart: 0, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, myStart: 10, mzStart: 10 };
+  const pair = { ...constant, combined: { method: 'abs' as const, parts: [constant, { ...constant, mzStart: -10 }] } };
+  whatIf.open();
+  resultsStore.setResults3D({ ...result, elementForces: [pair] });
+  expect(response3D(resultsStore.results3D!).moment).toBeCloseTo(Math.hypot(20, 20), 12);
+  expect(render(WhatIfPanel).body).toMatch(/upper bound/i);
   for (const method of ['abs', 'srss'] as const) {
     const combined = { ...member, combined: { method, parts: [member, member] } };
     expect(response3D({ ...result, elementForces: [combined] }).moment)
@@ -467,5 +476,59 @@ it('shows a nonzero displacement at two fixed display decimals', () => {
     expect(render(WhatIfPanel).body.match(/data-testid="whatif-resp-delta"[\s\S]*?<td class="wif-now[^>]*>(.*?)<\/td>/)?.[1]).toMatch(/E-/i);
   } finally {
     displayUnits.setDecimals('displacement', null);
+  }
+});
+
+it('reads vertical displacement from a legacy plane result', () => {
+  modelStore.addNodalLoad(n2, 0, P);
+  const result = solve();
+  expect(response2D({ ...result, displacements: [{ nodeId: n2, ux: 3, uy: 4, ry: 0 }] as never }).delta).toBe(5);
+});
+
+it('compares only the selected case or combination to its original response', () => {
+  modelStore.addNodalLoad(n2, 0, P);
+  const result = solve();
+  resultsStore.setCombinationResults(new Map([[1, result], [2, result]]), new Map([[1, result]]), null);
+  resultsStore.activeCaseId = 1;
+  whatIf.open();
+  expect(whatIf.reference).toEqual(response2D(result));
+  resultsStore.activeCaseId = 2;
+  expect(whatIf.reference).toBeNull();
+  resultsStore.activeComboId = 1;
+  resultsStore.activeView = 'combo';
+  expect(whatIf.reference).toBeNull();
+  resultsStore.activeCaseId = 1;
+  expect(whatIf.reference).toEqual(response2D(result));
+});
+
+it('identifies each thermal load by member and signed uniform change and gradient', () => {
+  modelStore.addThermalLoad(m1, 10, -4);
+  modelStore.addThermalLoad(m2, -10, 4);
+  modelStore.loads.forEach((load, i) => {
+    const label = loadLabel(load, i);
+    const d = load.data;
+    expect(label).toContain('B' + d.elementId);
+    expect(label).toContain('ΔT=' + d.dtUniform);
+    expect(label).toContain('ΔTg=' + d.dtGradient);
+  });
+});
+
+it.each(['2d', '3d'] as const)('edits original members across a moving split in %s', mode => {
+  uiStore.analysisMode = mode;
+  if (mode === '2d') modelStore.addNodalLoad(n2, 0, P);
+  else modelStore.addNodalLoad3D(n2, 0, 0, P, 0, 0, 0);
+  whatIf.open();
+  whatIf.setMember(m1, 'e', 2);
+  whatIf.setRelease(m1, 'j', { my: true, mz: false, t: false });
+  for (const station of [0.35, 0.65]) {
+    whatIf.setLoadAlong(0, m1, station);
+    settle();
+    const segments = [...modelStore.elements.values()].filter(e => e.id !== m2);
+    expect(segments).toHaveLength(2);
+    expect(segments[0].materialId).toBe(segments[1].materialId);
+    expect(segments.find(e => e.nodeJ === n2)?.releaseJ.my).toBe(true);
+    const html = render(WhatIfMembers).body;
+    expect(html).toContain('data-testid="whatif-member-' + m1 + '"');
+    expect(html).not.toContain('data-testid="whatif-member-' + segments.find(e => e.id !== m1)!.id + '"');
   }
 });

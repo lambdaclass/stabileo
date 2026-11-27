@@ -136,6 +136,11 @@ test.describe('@smoke plane-only functions in a 3D workspace', () => {
       await expect(search).toHaveValue(query);
       await search.fill('');
     }
+    await search.fill('Influence line');
+    await expect(page.getByTestId('adv-step-influenceLine')).toBeDisabled();
+    await search.press('Enter');
+    await expect(search).toHaveValue('Influence line');
+    await expect(page.getByTestId('adv-running')).toHaveCount(0);
     await search.fill('influence');
     await expect(page.getByTestId('adv-step-influenceLine')).toBeDisabled();
     const hits = page.getByTestId('adv-search-results').getByRole('button');

@@ -121,3 +121,26 @@ it('a framed 2D workbook keeps the empty depth column and round trips independen
     });
   }
 });
+
+it.each([undefined, false, true])('round trips the material selection and signed coefficients with userDefined=%s', userDefined => {
+  modelStore.clear();
+  const a = modelStore.addNode(0, 0), b = modelStore.addNode(4, 0);
+  const member = modelStore.addElement(a, b);
+  for (const alpha of [undefined, -5e-6, 0, 7e-6]) {
+    const material = modelStore.addMaterial({ name: 'Specimen', e: 173219, nu: 0.27, rho: 76, gradeId: 'iram-f36', userDefined, alpha });
+    modelStore.updateElementMaterial(member, material);
+    const sheets = Object.fromEntries(currentWorkbookSheets(2, { results: false }).map(s => [s.name, s.rows]));
+    expect(applyWorkbook(sheets).problems).toEqual([]);
+    const saved = modelStore.materials.get(modelStore.elements.get(member)!.materialId)!;
+    expect([saved.gradeId, saved.userDefined, saved.alpha]).toEqual(['iram-f36', userDefined, alpha]);
+  }
+});
+
+it.each([-0.001, 0.001, 'bad'])('refuses an invalid workbook coefficient %s before replacing the model', alpha => {
+  modelStore.clear();
+  const node = modelStore.addNode(7, 11);
+  const sheets = { Nodes: [['id', 'x', 'y', 'z'], [1, 0, '', 0]],
+    Materials: [['id', 'name', 'E', 'nu', 'alpha [1/°C]'], [1, 'Test', 173219, 0.27, alpha]] };
+  expect(applyWorkbook(sheets).problems).toContainEqual(expect.objectContaining({ sheet: 'Materials', column: 'alpha', blocking: true }));
+  expect(modelStore.nodes.get(node)?.x).toBe(7);
+});

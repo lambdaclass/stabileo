@@ -63,6 +63,7 @@ describe('the Advanced panel speaks words, not keys', () => {
       for (const k of KEYS) {
         const v = DICTS[loc][k] ?? '';
         const en = placeholders(DICTS.en[k] ?? '');
+        for (const p of en) if (!placeholders(v).has(p)) bad.push(`${loc}: ${k} lost {${p}}`);
         for (const p of placeholders(v)) if (!en.has(p)) bad.push(`${loc}: ${k} has {${p}}`);
         for (const m of v.matchAll(/[a-zA-Z][\w-]*(?:\.[\w-]+)+/g)) if (ALL_KEYS.has(m[0])) bad.push(`${loc}: ${k} shows the key ${m[0]}`);
         if (/\b[a-z]+[A-Z][a-z]+[A-Za-z]*\b/.test(v.replace(/\{\w+\}/g, ''))) bad.push(`${loc}: ${k} shows an identifier: ${v.slice(0, 80)}`);

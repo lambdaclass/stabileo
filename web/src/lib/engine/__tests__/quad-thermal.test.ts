@@ -34,7 +34,7 @@ describe.each(['quad', 'curved', 'plate'] as const)('thermal load on a %s', (kin
       if (!result || typeof result === 'string') throw new Error(String(result));
       return result.displacements.find(d => d.nodeId === nodes[1])!.ry;
     };
-    if (kind === 'quad') expect(rotation(5e-6, true)).toBeCloseTo(5e-6 * 10 * 4 / 0.2, 12);
+    expect(rotation(5e-6, true)).toBeCloseTo(5e-6 * 10 * 4 / 0.2, 12);
     const positive = rotation(5e-6);
     expect(Math.abs(positive)).toBeGreaterThan(0);
     expect(rotation(-5e-6)).toBeCloseTo(-positive, 12);

@@ -124,3 +124,27 @@ it('names the Z roller in every support dictionary', () => {
     expect(dict['pro.rollerZ'], locale).toBe(dict['pro.rollerY'].replace('Y', 'Z'));
   }
 });
+
+it('translates Explore, launcher search, mobile tabs and the material form in every offered language', () => {
+  const keys = [
+    'advCat.search.label', 'advCat.search.placeholder', 'advCat.search.clear', 'advCat.search.results',
+    'advCat.search.empty', 'advCat.search.emptyHint', 'advCat.search.step', 'advCat.search.stepOf',
+    'table.addMaterial', 'tabBar.tabs', 'tabBar.switcher', 'tabBar.renameTab',
+    'tabBar.tabName', 'whatif.atPlace', 'whatif.alongMember', 'whatif.show',
+    'whatif.showResults', 'whatif.showLoads', 'whatif.nodes', 'whatif.noLoads',
+    'whatif.noSupports', 'whatif.factor', 'whatif.position', 'whatif.atNode',
+    'whatif.pickMember', 'whatif.pickNode', 'whatif.manyNodes', 'whatif.supportN',
+    'whatif.supportType', 'whatif.paint', 'whatif.paint.axial', 'whatif.paint.moment',
+    'whatif.paint.ratio', 'whatif.resp.delta', 'whatif.resp.momentResultant', 'whatif.resp.shearResultant',
+    'whatif.invalidPlacement', 'whatif.resp.moment', 'whatif.resp.shear', 'whatif.resp.axial',
+    'whatif.resp.reaction', 'whatif.resp.original', 'whatif.resp.now', 'matEdit.nameLabel',
+    'matEdit.e', 'matEdit.nu', 'matEdit.gamma', 'matEdit.fy',
+    'matEdit.alpha', 'matEdit.extra', 'matEdit.fyHelp', 'matEdit.save',
+    'matEdit.delete', 'matEdit.invent', 'materials.alphaInvalid',
+    'materials.alphaHelp',
+  ];
+  for (const [locale, dict] of Object.entries(ALL_DICTS)) {
+    for (const key of keys) expect.soft(dict[key]?.trim(), locale + ' ' + key).toBeTruthy();
+    expect.soft(dict['materials.alphaHelp'], locale).toMatch(/12.*12|12.*23.*12/);
+  }
+});
