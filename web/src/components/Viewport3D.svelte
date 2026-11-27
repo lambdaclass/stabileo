@@ -780,8 +780,8 @@
     function isAnimating(): boolean {
       const dt = resultsStore.screen.diagram;
       const animDeformed = resultsStore.animateDeformed && dt === 'deformed' && !!resultsStore.screen.results3D;
-      const animMode = dt === 'modeShape' && !!resultsStore.modalResult3D;
-      const animBuckling = dt === 'bucklingMode' && !!resultsStore.bucklingResult3D;
+      const animMode = dt === 'modeShape' && !!resultsStore.screen.modeDisplacements;
+      const animBuckling = dt === 'bucklingMode' && !!resultsStore.screen.modeDisplacements;
       // Despiece is a one-shot pull-apart; keep rendering only while it plays.
       const animDespiece = dt === 'despiece' && !!resultsStore.results3D
         && (performance.now() - despieceStart) < DESPIECE_ANIM_MS + 80;
@@ -948,8 +948,8 @@
       // Animate deformed shape (oscillating scale like 2D viewport)
       const _dt = resultsStore.screen.diagram;
       const _animDeformed = resultsStore.animateDeformed && _dt === 'deformed' && resultsStore.screen.results3D;
-      const _animMode = _dt === 'modeShape' && resultsStore.modalResult3D;
-      const _animBuckling = _dt === 'bucklingMode' && resultsStore.bucklingResult3D;
+      const _animMode = _dt === 'modeShape' && resultsStore.screen.modeDisplacements;
+      const _animBuckling = _dt === 'bucklingMode' && resultsStore.screen.modeDisplacements;
       if (_animDeformed || _animMode || _animBuckling) {
         if (_animMode || _animBuckling) {
           // Mode shapes always animate — syncDeformed handles the sin() internally
@@ -1818,7 +1818,7 @@
     resultsStore.diagramScale;
     resultsStore.showDiagramValues;
     resultsStore.drawPositiveTowardLocalAxes; // rebuild diagrams immediately on toggle (no re-solve)
-    resultsStore.overlayResults3D;
+    resultsStore.screen.overlayResults3D;
     resultsStore.screen.envelopeActive;
     resultsStore.screen.fullEnvelope3D;
     uiStore.unitSystem; // value labels are in the chosen units
@@ -4603,9 +4603,9 @@
         <span class="legend-color" style="background: {diagramLegend.color};"></span>
         <span class="legend-text">{diagramLegend.name}</span>
       {/if}
-      {#if resultsStore.overlayResults3D && resultsStore.overlayLabel}
+      {#if resultsStore.screen.overlayResults3D && resultsStore.screen.overlayLabel}
         <span class="legend-color" style="background: #FFA500; margin-left: 8px;"></span>
-        <span class="legend-text">{t('viewport3d.overlay').replace('{label}', resultsStore.overlayLabel)}</span>
+        <span class="legend-text">{t('viewport3d.overlay').replace('{label}', resultsStore.screen.overlayLabel)}</span>
       {/if}
     </div>
   {/if}

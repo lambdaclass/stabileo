@@ -183,7 +183,7 @@ resultsStore._setTransverseSignProvider((elementId) => {
 uiStore._setReleaseLiveScreen(() => resultsStore.releaseScreen());
 
 resultsStore._setScreenModelCapture(() => {
-  const nodes = new Map([...modelStore.nodes].map(([id, n]) => [id, [n.x, n.y, n.z] as const]));
+  const nodes = new Map([...modelStore.nodes].map(([id, n]) => [id, { ...n }]));
   const elements = new Map([...modelStore.elements].map(([id, e]) => [id, { ...e }]));
   const memberGeometry = (e: Element) => JSON.stringify([e.type, e.nodeI, e.nodeJ, e.offset, e.localYx, e.localYy, e.localYz, e.rollAngle]);
   const shellGeometry = (s: Plate | Quad) => JSON.stringify([s.nodes, s.offset]);
@@ -194,14 +194,14 @@ resultsStore._setScreenModelCapture(() => {
   type GeometryMaps = Pick<typeof modelStore, 'nodes' | 'elements' | 'plates' | 'quads'>;
   let cached: (GeometryMaps & { version: number; result: unknown; ok: boolean }) | undefined;
   return {
-    elements, sections, materials,
+    nodes, elements, sections, materials, analysis: { ...modelStore.analysis },
     fits(result) {
       const version = modelStore.modelVersion;
       if (cached?.version === version && cached.result === result && cached.nodes === modelStore.nodes
           && cached.elements === modelStore.elements && cached.plates === modelStore.plates && cached.quads === modelStore.quads) return cached.ok;
       const ok = nodes.size === modelStore.nodes.size && elements.size === modelStore.elements.size
         && plates.size === modelStore.plates.size && quads.size === modelStore.quads.size
-        && [...nodes].every(([id, [x, y, z]]) => {
+        && [...nodes].every(([id, { x, y, z }]) => {
           const n = modelStore.nodes.get(id);
           return n?.x === x && n.y === y && n.z === z;
         })

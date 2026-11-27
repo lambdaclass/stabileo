@@ -226,7 +226,7 @@ it('known wrong result: #1927 — restoring identical geometry keeps the solved 
   expect(getSectionProps(id)).toEqual(original);
 });
 
-it.skip('known wrong result: #1927 — a held spatial diagram retains its comparison forces, coordinates and stiffness settings', () => {
+it('known wrong result: #1927 — a held spatial diagram retains its comparison forces, coordinates and stiffness settings', () => {
   const member = solvedCantilever3D();
   const r = resultsStore.results3D!;
   resultsStore.diagramType = 'momentZ';
@@ -234,7 +234,7 @@ it.skip('known wrong result: #1927 — a held spatial diagram retains its compar
   const overlay = resultsStore.overlayResults3D;
   const node = modelStore.elements.get(member)!.nodeJ;
   const z = modelStore.nodes.get(node)!.z;
-  const shear = modelStore.analysis.shearDeformation;
+  const shear = modelStore.analysis?.shearDeformation;
   modelStore.setAnalysis({ shearDeformation: 'none' });
   resultsStore.clear({ keepScreen: true });
   expect(resultsStore.screen.overlayResults3D).toBe(overlay);
@@ -242,7 +242,7 @@ it.skip('known wrong result: #1927 — a held spatial diagram retains its compar
   expect(resultsStore.screen.model?.analysis.shearDeformation).toBe(shear);
 });
 
-it.skip.each(['modeShape', 'bucklingMode'] as const)('known wrong result: #1927 — a held %s keeps the selected displacement field', dt => {
+it.each(['modeShape', 'bucklingMode'] as const)('known wrong result: #1927 — a held %s keeps the selected displacement field', dt => {
   solvedCantilever3D();
   const r = resultsStore.results3D!;
   const modes = [{ modeNumber: 1, frequency: 1, loadFactor: 1, displacements: r.displacements }];

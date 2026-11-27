@@ -61,20 +61,21 @@ function projectFlag(): boolean {
 export const DIAGRAM_3D_TYPES: Set<string> = new Set(['momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion']);
 
 /** Build a node map projected to scene coordinates (handles 2D→XZ swap for embedded models). */
-let projectedNodesCache: { key: string; map: Map<number, { id: number; x: number; y: number; z?: number }> } | null = null;
+let projectedNodesCache: { source: typeof modelStore.nodes; key: string; map: Map<number, { id: number; x: number; y: number; z?: number }> } | null = null;
 
 function getProjectedNodes(): Map<number, { id: number; x: number; y: number; z?: number }> {
   const project2D = projectFlag();
   // Node coords only change with modelVersion — one rebuild per edit total,
   // not one per animation frame / per results publish.
   const key = `${modelStore.modelVersion}|${project2D}`;
-  if (projectedNodesCache?.key === key) return projectedNodesCache.map;
+  const source = resultsStore.screen.model?.nodes ?? modelStore.nodes;
+  if (projectedNodesCache?.key === key && projectedNodesCache.source === source) return projectedNodesCache.map;
   const projected = new Map<number, { id: number; x: number; y: number; z?: number }>();
-  for (const [id, n] of modelStore.nodes) {
+  for (const [id, n] of source) {
     const p = projectNodeToScene(n, project2D);
     projected.set(id, { id, x: p.x, y: p.y, z: p.z });
   }
-  projectedNodesCache = { key, map: projected };
+  projectedNodesCache = { key, source, map: projected };
   return projected;
 }
 
@@ -144,7 +145,6 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   if (!ctx.initialized) return;
 
   const dt = resultsStore.screen.diagram;
-  const isDeformedLike = dt === 'deformed' || dt === 'modeShape' || dt === 'bucklingMode';
   /*
    * A time-history instant takes the deformed view when the user asked to see it, and only for
    * the model it was computed on: a frame keyed by node id over an edited model would move the
@@ -155,8 +155,7 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
 
   // Restore element opacity when not showing deformed shape
   // A mode shape needs its own analysis, not a static solve.
-  const shapeShown = (dt === 'modeShape' && !!resultsStore.modalResult3D) || (dt === 'bucklingMode' && !!resultsStore.bucklingResult3D);
-  const showingDeformed = (resultsStore.screen.results3D && isDeformedLike) || shapeShown || thFrame;
+  const showingDeformed = (dt === 'deformed' && resultsStore.screen.results3D) || resultsStore.screen.modeDisplacements || thFrame;
   for (const group of ctx.elementGroups.values()) {
     group.traverse((child) => {
       // Skip picking helpers, heatmap overlays and section edge outlines —
@@ -215,35 +214,12 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     displacements = r3d.displacements;
     // Scale x1 = true physical deformation (1:1). No auto-amplification.
     // The user increases the scale slider to amplify if needed.
-  } else if (dt === 'modeShape') {
-    const modal = resultsStore.modalResult3D;
-    if (!modal || !modal.modes.length) { dropDeformed(); return; }
-    const mode = modal.modes[resultsStore.activeModeIndex];
+  } else if (dt === 'modeShape' || dt === 'bucklingMode') {
+    const mode = resultsStore.screen.modeDisplacements;
     if (!mode) { dropDeformed(); return; }
-    /*
-     * A mode is a shape with no physical amplitude (the eigenvector is
-     * normalized to max = 1), so its largest motion spans 15 % of the structure
-     * whatever the deformed view's scale, as the 2D view draws it at a fixed
-     * size. This used that scale divided by 100, from when it started at 100;
-     * since it starts at 1 a mode moved 0.15 % of the structure and read as
-     * standing still, and at 1000 it would span 150 %.
-     */
-    const structureSize = computeStructureBBox();
-    const modeScale = structureSize * MODE_SPAN;
-    scale = modeScale * Math.sin(performance.now() / 500);
-    displacements = mode.displacements;
-    modeColor = 0x7fd4cc; // --st-value
-  } else if (dt === 'bucklingMode') {
-    const buckling = resultsStore.bucklingResult3D;
-    if (!buckling || !buckling.modes.length) { dropDeformed(); return; }
-    const mode = buckling.modes[resultsStore.activeBucklingMode];
-    if (!mode) { dropDeformed(); return; }
-    // As a mode shape: 15 % of the structure.
-    const structureSize = computeStructureBBox();
-    const modeScale = structureSize * MODE_SPAN;
-    scale = modeScale * Math.sin(performance.now() / 500);
-    displacements = mode.displacements;
-    modeColor = 0xd9a441; // --st-warn
+    scale = computeStructureBBox() * MODE_SPAN * Math.sin(performance.now() / 500);
+    displacements = mode;
+    modeColor = dt === 'modeShape' ? 0x7fd4cc : 0xd9a441;
   } else {
     // Any other diagram — including 'none' after a model swap.
     dropDeformed();
@@ -290,7 +266,7 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   if (staticDeformed && exact) {
     eiMap = new Map<number, ElementEI>();
     for (const [id, elem] of (resultsStore.screen.model?.elements ?? modelStore.elements)) {
-      const ei = eiOf((resultsStore.screen.model?.materials ?? modelStore.materials).get(elem.materialId), (resultsStore.screen.model?.sections ?? modelStore.sections).get(elem.sectionId), modelStore.analysis);
+      const ei = eiOf((resultsStore.screen.model?.materials ?? modelStore.materials).get(elem.materialId), (resultsStore.screen.model?.sections ?? modelStore.sections).get(elem.sectionId), resultsStore.screen.model?.analysis ?? modelStore.analysis);
       if (ei) eiMap.set(id, ei);
     }
   }
@@ -440,7 +416,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
     publishDiagramState(ctx.diagramGroup.children.length);
 
     // Overlay diagram (comparison)
-    const overlay3D = resultsStore.overlayResults3D;
+    const overlay3D = resultsStore.screen.overlayResults3D;
     if (overlay3D) {
       ctx.overlayDiagramGroup = createDiagramGroup3D(
         visibleElements(resultsStore.screen.model?.elements),

@@ -428,6 +428,13 @@ function createResultsStore() {
   const screen = createScreenHold({
     get results() { return api.results; },
     get results3D() { return api.results3D; },
+    get overlayResults3D(): AnalysisResults3D | null { return api.overlayResults3D; },
+    get overlayLabel() { return overlayLabel; },
+    get modeDisplacements(): Displacement3D[] | null {
+      if (diagramType === 'modeShape') return api.modalResult3D?.modes[activeModeIndex]?.displacements ?? null;
+      if (diagramType === 'bucklingMode') return api.bucklingResult3D?.modes[activeBucklingMode]?.displacements ?? null;
+      return null;
+    },
     get diagram() { return diagramType; },
     get envelopeActive() { return api.isEnvelopeActive; },
     get fullEnvelope() { return api.fullEnvelope; },
@@ -886,6 +893,7 @@ function createResultsStore() {
       hold();
       this.clearAdvanced();
       staticUnder3D();
+      screen.publish();
       modalResult3D = r;
       activeModeIndex = 0;
       diagramType = 'modeShape';
@@ -904,6 +912,7 @@ function createResultsStore() {
       hold();
       this.clearAdvanced();
       staticUnder3D();
+      screen.publish();
       bucklingResult3D = r;
       activeBucklingMode = 0;
       diagramType = 'bucklingMode';

@@ -338,7 +338,7 @@ function createDesignRunStore() {
      * never redesigned.
      */
     opts: { maxRunMs?: number; deferDetailing?: boolean; edited?: 'keep' | 'overwrite' } = {},
-  ): CommandResult & { outcomes?: ReadonlyMap<number, MemberDesignOutcome> } {
+  ): CommandResult & { outcomes?: ReadonlyMap<number, MemberDesignOutcome>; unreached?: ReadonlySet<number> } {
     lastError = null;
     const a = adapter();
     if (!a) return fail('design.error.noAdapter');
@@ -381,7 +381,7 @@ function createDesignRunStore() {
       const status = summary.aborted
         ? fail('design.cmd.truncated', { notReached: summary.notReached })
         : { ok: true };
-      return { ...status, outcomes: summary.outcomes };
+      return { ...status, outcomes: summary.outcomes, unreached: summary.aborted ? new Set(all.map(ctx => ctx.elementId).filter(id => !summary.outcomes.has(id))) : undefined };
     } finally {
       running = false;
       phase = 'idle';
@@ -606,10 +606,12 @@ function createDesignRunStore() {
             else if (o.accepted) designed += 1;
             else notModelled += 1;
           }
+          const notReached = ids.filter(id => run?.unreached?.has(id)).length;
+          const failed = run && !run.ok && (!run.unreached || notReached > 0);
           families.push({
-            family: f, state: run?.ok ? 'designed' : 'failed',
+            family: f, state: failed ? 'failed' : 'designed',
             processed: designed + refused + notModelled, designed, refused, notModelled,
-            ...(run && !run.ok && { errorKey: run.reasonKey, errorParams: run.params }),
+            ...(failed && { errorKey: run.reasonKey, errorParams: run.unreached ? { notReached } : run.params }),
           });
         }
       }

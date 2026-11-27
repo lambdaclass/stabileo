@@ -1,7 +1,8 @@
-import type { AnalysisResults, Element, Section, Material } from './model.svelte';
+import type { AnalysisResults, Element, Section, Material, Node } from './model.svelte';
+import type { AnalysisSettings } from '../engine/analysis-settings';
 import type { DiagramType } from './results.svelte';
 import type { FullEnvelope } from '../engine/types';
-import type { AnalysisResults3D, FullEnvelope3D } from '../engine/types-3d';
+import type { AnalysisResults3D, FullEnvelope3D, Displacement3D } from '../engine/types-3d';
 
 export interface ScreenView {
   results: AnalysisResults | null;
@@ -11,6 +12,9 @@ export interface ScreenView {
   fullEnvelope: FullEnvelope | null;
   fullEnvelope3D: FullEnvelope3D | null;
   showReactions: boolean;
+  overlayResults3D: AnalysisResults3D | null;
+  overlayLabel: string;
+  modeDisplacements: Displacement3D[] | null;
 }
 
 export interface ResultTopology {
@@ -20,6 +24,8 @@ export interface ResultTopology {
 
 export interface ScreenModelSnapshot {
   fits(results: ResultTopology): boolean;
+  nodes: Map<number, Node>;
+  analysis: AnalysisSettings;
   elements: Map<number, Element>;
   sections: Map<number, Section>;
   materials: Map<number, Material>;
@@ -33,11 +39,11 @@ export function createScreenHold(live: Readonly<ScreenView>, drawable: (d: Diagr
   let capture: (() => ScreenModelSnapshot) | undefined;
   let published: ScreenModelSnapshot | undefined;
 
-  const isLive = () => live.results !== null || live.results3D !== null;
+  const isLive = () => live.results !== null || live.results3D !== null || live.modeDisplacements !== null;
   const shown = (): Held | null => {
     const h = hold;
     if (!h || isLive()) return null;
-    const r = h.results ?? h.results3D;
+    const r = h.results ?? h.results3D ?? (h.modeDisplacements && { displacements: h.modeDisplacements, elementForces: [] });
     return r && published?.fits(r) ? h : null;
   };
 
@@ -52,6 +58,9 @@ export function createScreenHold(live: Readonly<ScreenView>, drawable: (d: Diagr
     get envelopeActive() { const h = shown(); return h ? h.envelopeActive : live.envelopeActive; },
     get fullEnvelope() { const h = shown(); return h ? h.fullEnvelope : live.fullEnvelope; },
     get fullEnvelope3D() { const h = shown(); return h ? h.fullEnvelope3D : live.fullEnvelope3D; },
+    get overlayResults3D() { return (shown() ?? live).overlayResults3D; },
+    get overlayLabel() { return (shown() ?? live).overlayLabel; },
+    get modeDisplacements() { return (shown() ?? live).modeDisplacements; },
     get showReactions() { const h = shown(); return h ? h.showReactions : live.showReactions; },
   };
 
@@ -60,13 +69,13 @@ export function createScreenHold(live: Readonly<ScreenView>, drawable: (d: Diagr
     /** With nothing published, keeps the picture an earlier clear held. */
     keep(): void {
       if (!isLive()) return;
-      hold = drawable(live.diagram) || (live.diagram === 'none' && live.showReactions) ? { ...live, since: performance.now() } : null;
+      hold = live.modeDisplacements || drawable(live.diagram) || (live.diagram === 'none' && live.showReactions) ? { ...live, since: performance.now() } : null;
     },
     release(): void { hold = null; },
     /** A diagram picked while the re-solve is pending. */
     pick(diagram: DiagramType): void {
-      if (!hold) return;
-      hold = drawable(diagram) || (diagram === 'none' && hold.showReactions) ? { ...hold, diagram } : null;
+      if (!hold || hold.diagram === diagram) return;
+      hold = drawable(diagram) || (diagram === 'none' && hold.showReactions) ? { ...hold, diagram, modeDisplacements: null } : null;
     },
     setModelCapture(fn: () => ScreenModelSnapshot): void { capture = fn; },
     publish(): void { hold = null; published = capture?.(); },

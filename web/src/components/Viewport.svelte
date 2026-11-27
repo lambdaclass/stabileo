@@ -621,6 +621,7 @@
 
     // Advance IL animation
     const now = performance.now();
+    const resultOpacity = resultsStore.screen.held && !exportFrame && now - resultsStore.screen.heldSince > HELD_DIM_MS ? 0.45 : 1;
     if (resultsStore.ilAnimating && resultsStore.influenceLine && lastFrameTime > 0) {
       const dt = (now - lastFrameTime) / 1000; // seconds
       const speed = resultsStore.ilAnimSpeed * 0.3; // base: ~3.3s to traverse
@@ -783,12 +784,18 @@
     if (dtNow() !== 'despiece') {
       for (const elem of modelStore.elements.values()) {
         if (viewVisibility.isElementHidden(elem.id)) continue;
-        drawElement(elem, colorMapOverrides.get(elem.id), nodeBarCount);
+        const color = colorMapOverrides.get(elem.id);
+        ctx.globalAlpha = color ? resultOpacity : 1;
+        drawElement(elem, color, nodeBarCount);
       }
     }
 
+    ctx.globalAlpha = 1;
+
     // Member local axes (Basic 2D): one unified "Local axes" setting (localAxesMode3D).
     if (!exportFrame) drawLocalAxes2D();
+
+    ctx.globalAlpha = resultOpacity;
 
     // Draw axial value labels when axialColor mode is active
     if (shown && dtNow() === 'axialColor') {
@@ -819,6 +826,8 @@
         drawMemberValueLabel(eid, text, '#e8eef4');
       }
     }
+
+    ctx.globalAlpha = 1;
 
     // Draw supports, unless the reader turned them off or hid their node
     if (uiStore.showSupports) for (const sup of modelStore.supports.values()) {
@@ -1209,7 +1218,7 @@
 
     // Draw results
     if (shown) {
-      ctx.globalAlpha = resultsStore.screen.held && !exportFrame && now - resultsStore.screen.heldSince > HELD_DIM_MS ? 0.45 : 1;
+      ctx.globalAlpha = resultOpacity;
       const dt = dtNow();
       setDiagramUnitSystem(uiStore.unitSystem);
 

@@ -39,7 +39,7 @@ it.each(['sync', 'worker'] as const)('known wrong result: #1927 — %s reports o
   expect(detail).not.toHaveBeenCalled();
 });
 
-it.skip.each(['sync', 'worker'] as const)('known wrong result: #1927 — %s reports only unfinished families as truncated', async entry => {
+it.each(['sync', 'worker'] as const)('known wrong result: #1927 — %s reports only unfinished families as truncated', async entry => {
   await ready('rc-qa-diagnostic');
   let now = 0;
   vi.spyOn(performance, 'now').mockImplementation(() => now);
