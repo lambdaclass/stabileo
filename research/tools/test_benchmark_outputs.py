@@ -50,6 +50,69 @@ const createServer = async settings => {
 """.replace('EXPORT', json.dumps(export)).replace('REPLACEMENT', replacement)
         checker.write_text(source.replace('const server = await createServer', wrapper + 'const server = await createServer'))
 
+    @unittest.skip("known wrong result: #2505")
+    def test_portal_step_measurements_and_event_identity(self):
+        folder = self.benchmark('benchmarks/plastic-collapse')
+        path = folder / 'results/stabileo_results.json'
+        original = path.read_text()
+        for mutation in ['null displacement', 'step load', 'hinge step']:
+            with self.subTest(mutation=mutation):
+                data = json.loads(original)
+                steps = data['result']['steps']
+                if mutation == 'null displacement':
+                    steps[0]['results']['displacements'][0]['ux'] = None
+                elif mutation == 'step load':
+                    steps[1]['loadFactor'] += 1
+                else:
+                    steps[0]['hingesFormed'], steps[1]['hingesFormed'] = steps[1]['hingesFormed'], steps[0]['hingesFormed']
+                path.write_text(json.dumps(data))
+                self.reject(folder)
+
+    @unittest.skip("known wrong result: #2505")
+    def test_plate_rejects_extra_soft_and_hard_rows(self):
+        folder = self.benchmark('benchmarks/navier-plate')
+        path = folder / 'results/stabileo_results.json'
+        original = path.read_text()
+        for field in ('rows', 'hard_rows'):
+            with self.subTest(field=field):
+                data = json.loads(original)
+                data[field].append(data[field][0])
+                path.write_text(json.dumps(data))
+                self.reject(folder)
+
+    @unittest.skip("known wrong result: #2505")
+    def test_shell_requires_all_meshes_and_finite_fresh_evidence(self):
+        folder = self.benchmark('benchmarks/shell-obstacle-course')
+        native_dir = root / 'research/benchmarks/shell-obstacle-course/results'
+        checker = folder / 'wasm/check.mjs'
+        source = checker.read_text()
+        for mutation in ('missing mesh', 'measurement', 'null observation'):
+            with self.subTest(mutation=mutation):
+                checker.write_text(source)
+                if mutation == 'missing mesh':
+                    checker.write_text(source.replace('const rows = await runCases();', """cases.splice(cases.findIndex(c => c.id === 'hemisphere-8'), 1);
+  const rows = (await runCases()).filter(r => r.id !== 'hemisphere-8');"""))
+                elif mutation == 'measurement':
+                    path = folder / 'results/wasm-results.json'
+                    rows = json.loads(path.read_text())
+                    next(r for r in rows if r['id'] == 'cylinder-12')['value'] *= 0.99
+                    path.write_text(json.dumps(rows))
+                else:
+                    shutil.copyfile(native_dir / 'wasm-results.json', folder / 'results/wasm-results.json')
+                    path = folder / 'VALIDATION.json'
+                    data = json.loads(path.read_text())
+                    next(r for r in data['checks'] if r['id'] == 'parity')['observed'] = None
+                    path.write_text(json.dumps(data))
+                self.reject(folder, native_dir)
+
+    @unittest.skip("known wrong result: #2505")
+    def test_macneal_distorted_reference_must_match_regular_reference(self):
+        folder = self.benchmark('benchmarks/macneal-harder-1985')
+        checker = folder / 'wasm/check.mjs'
+        checker.write_text(checker.read_text().replace('const rows = await runCases();',
+            "cases.find(c => c.id === 'mitc4-trapezoidal-out').reference = 0.45;\n  const rows = await runCases();"))
+        self.reject(folder, native, '--write')
+
     def test_optimized_newmark_check_rejects_a_stale_period(self):
         folder = self.benchmark('benchmarks/newmark-1959')
         script = folder / 'reference.py'
