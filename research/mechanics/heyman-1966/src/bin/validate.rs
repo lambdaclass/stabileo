@@ -65,6 +65,11 @@ fn read(name: &str) -> Value {
     serde_json::from_str(&std::fs::read_to_string(format!("{HERE}/reference-results/{name}")).unwrap()).unwrap()
 }
 
+fn publish(directory: &str, out: &Value, comparison: &Value) {
+    std::fs::write(format!("{directory}/VALIDATION.json"), serde_json::to_string_pretty(out).unwrap() + "\n").unwrap();
+    std::fs::write(format!("{directory}/reference-results/published_comparison.json"), serde_json::to_string_pretty(comparison).unwrap() + "\n").unwrap();
+}
+
 fn main() {
     let write = std::env::args().any(|a| a == "--write");
     let mut checks = vec![];
@@ -193,8 +198,7 @@ fn main() {
         println!("{} {} {:.3e} (≤ {})", if c["passed"] == true { "ok  " } else { "FAIL" }, c["id"].as_str().unwrap(), c["observed"].as_f64().unwrap(), c["tolerance"]);
     }
     if write {
-        std::fs::write(format!("{HERE}/VALIDATION.json"), serde_json::to_string_pretty(&out).unwrap() + "\n").unwrap();
-        std::fs::write(format!("{HERE}/reference-results/published_comparison.json"), serde_json::to_string_pretty(&comparison).unwrap() + "\n").unwrap();
+        publish(HERE, &out, &comparison);
     } else {
         let mut stale = false;
         for (name, fresh, stored) in [("VALIDATION.json", &out, read_root("VALIDATION.json")), ("reference-results/published_comparison.json", &comparison, read("published_comparison.json"))] {
@@ -207,4 +211,23 @@ fn main() {
         }
     }
     std::process::exit(if failed == 0 { 0 } else { 1 });
+}
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn a_failed_check_preserves_both_evidence_files() {
+    let folder = std::path::Path::new(HERE).join("target").join(format!("publication-{}", std::process::id()));
+    std::fs::create_dir_all(folder.join("reference-results")).unwrap();
+    let paths = [folder.join("VALIDATION.json"), folder.join("reference-results/published_comparison.json")];
+    for path in &paths { std::fs::write(path, "previous").unwrap(); }
+    let pass = json!({"checks": [{"passed": true}]});
+    let fail = json!({"checks": [{"passed": false}]});
+    for (validation, published) in [(&fail, &pass), (&pass, &fail)] {
+        let outcome = std::panic::catch_unwind(|| publish(folder.to_str().unwrap(), validation, published));
+        assert!(outcome.is_err());
+        for path in &paths { assert_eq!(std::fs::read_to_string(path).unwrap(), "previous"); }
+    }
+    publish(folder.to_str().unwrap(), &pass, &pass);
+    for path in &paths { assert_eq!(serde_json::from_slice::<Value>(&std::fs::read(path).unwrap()).unwrap(), pass); }
+    std::fs::remove_dir_all(folder).unwrap();
 }

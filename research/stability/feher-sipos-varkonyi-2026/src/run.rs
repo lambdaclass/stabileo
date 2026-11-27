@@ -70,7 +70,10 @@ impl std::fmt::Display for PathError {
 }
 
 fn load_arch(state: &State, target: Setting) -> Result<State, PathError> {
-    let advance = |s: &State, to| s.advance(to, 4).or_else(|_| s.advance(to, 40));
+    load_arch_with(state, target, |s, to| s.advance(to, 4).or_else(|_| s.advance(to, 40)))
+}
+
+fn load_arch_with(state: &State, target: Setting, advance: impl Fn(&State, Setting) -> Result<State, String>) -> Result<State, PathError> {
     let trial = advance(state, target).map_err(|_| PathError::StartUnsolved)?;
     if state.jump_to(&trial) <= SNAP {
         return Ok(trial);
@@ -162,4 +165,18 @@ pub fn path_with(theta: f64, delta: f64, q: f64, distribution: Distribution, ele
         "snaps": snaps,
         "frames": frames,
     }))
+}
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn start_recovers_when_a_full_increment_fails_but_half_steps_converge() {
+    let start = Setting { theta: 1.0, delta: 0.0, q: 0.0 };
+    let arch = bend(20, start, Distribution::Uniform, 2).unwrap();
+    let target = Setting { q: LOAD_STEP, ..start };
+    let result = load_arch_with(&arch, target, |s, to| {
+        if to.q - s.setting.q > LOAD_STEP / 2.0 { return Err("full increment failed".into()); }
+        s.advance(to, 4)
+    }).unwrap();
+    assert_eq!(result.setting.q, target.q);
+    assert!(result.snapshot().y_mid > 0.0);
 }

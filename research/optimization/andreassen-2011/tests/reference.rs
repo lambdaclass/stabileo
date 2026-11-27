@@ -112,8 +112,25 @@ fn authors_iterations() {
             for key in ["name", "metric", "tolerance", "passed"] {
                 assert_eq!(r[key], c[key], "VALIDATION.json is stale at {key}: rerun with UPDATE_VALIDATION=1");
             }
-            let (a, b, tolerance) = (r["observed"].as_f64().unwrap(), c["observed"].as_f64().unwrap(), c["tolerance"].as_f64().unwrap());
-            assert!((a - b).abs() <= 0.01 * tolerance, "VALIDATION.json is stale for {}: recorded {a}, measured {b}", c["name"]);
+            assert!(fresh_observation(r, c), "VALIDATION.json is stale for {}: recorded {}, measured {}", c["name"], r["observed"], c["observed"]);
         }
     }
+}
+
+fn fresh_observation(recorded: &serde_json::Value, fresh: &serde_json::Value) -> bool {
+    let a = recorded["observed"].as_f64().unwrap();
+    let b = fresh["observed"].as_f64().unwrap();
+    (a - b).abs() <= 0.01 * fresh["tolerance"].as_f64().unwrap()
+}
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn stale_zero_cannot_erase_measured_iteration_errors() {
+    let validation: serde_json::Value = serde_json::from_str(include_str!("../VALIDATION.json")).unwrap();
+    let row = &validation["checks"][1];
+    let mut stale = row.clone();
+    stale["observed"] = serde_json::json!(0);
+    assert!(row["observed"].as_f64().unwrap() > 0.0);
+    assert!(!fresh_observation(&stale, row));
+    assert!(fresh_observation(row, row));
 }
