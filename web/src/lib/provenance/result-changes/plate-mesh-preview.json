@@ -1,0 +1,38 @@
+{
+  "id": "plate-mesh-preview",
+  "date": "2026-11-27",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "physicalPlateDefinitions"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plate-mesh-preview.md",
+    "heading": "Check meshes applied after stopping a preview"
+  },
+  "title": {
+    "en": "Plate meshes applied after Stop",
+    "es": "Mallas de placa aplicadas tras detener la vista previa",
+    "pt": "Malhas de placa aplicadas após parar a prévia",
+    "de": "Nach Abbruch der Vorschau übernommene Plattennetze",
+    "fr": "Maillages de plaques appliqués après arrêt de l’aperçu",
+    "tr": "Önizleme durdurulduktan sonra uygulanan plak ağları",
+    "zh": "停止预览后应用的板网格",
+    "hu": "Az előnézet leállítása után alkalmazott lemezháló"
+  },
+  "explanation": {
+    "en": "After stopping a replacement preview, Apply could use the previous mesh. Check element types and cell sizes on the plate, then remesh and rerun if needed.",
+    "es": "Al detener una nueva vista previa, Aplicar podía usar la malla anterior. Compruebe el tipo y las dimensiones de los elementos y, si hace falta, vuelva a mallar y calcular.",
+    "pt": "Ao parar uma nova prévia, Aplicar podia usar a malha anterior. Verifique os tipos e as dimensões dos elementos e, se necessário, refaça a malha e a análise.",
+    "de": "Nach Abbruch einer neuen Vorschau konnte das vorherige Netz übernommen werden. Elementtypen und Zellgrößen prüfen. Bei Bedarf neu vernetzen und berechnen.",
+    "fr": "Après l’arrêt d’un nouvel aperçu, Appliquer pouvait utiliser le maillage précédent. Vérifiez le type et les dimensions des éléments et, si nécessaire, refaites le maillage et le calcul.",
+    "tr": "Yeni önizleme durdurulduğunda Uygula önceki ağı kullanabiliyordu. Eleman türlerini ve boyutlarını kontrol edin. Gerekirse ağı yeniden oluşturup analizi tekrarlayın.",
+    "zh": "停止新的预览后，应用操作可能采用上一次的网格。请检查板单元类型和尺寸，必要时重新划分网格并重新分析。",
+    "hu": "Az új előnézet leállítása után az előző háló kerülhetett a modellbe. Ellenőrizze az elemtípusokat és a cellaméreteket, szükség esetén hálózzon és számoljon újra."
+  }
+}

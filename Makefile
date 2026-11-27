@@ -1442,7 +1442,7 @@ test.web.pro-plates-switch:
 
 .PHONY: test.web.production-mesher
 test.web.production-mesher:
-	nix develop .\#e2e --command node --test web/scripts/tests/pro-mesher-inputs.test.mjs
+	nix develop .\#e2e --command node --test --test-concurrency=1 web/scripts/tests/pro-mesher-inputs.test.mjs web/scripts/tests/plate-mesh-preview.test.mjs
 
 .PHONY: test.engine.nonlinear-drivers-2510-wasm
 test.engine.nonlinear-drivers-2510-wasm: wasm scripts/tests/arc-review-wasm.mjs scripts/tests/planar-exact-member-actions.mjs scripts/tests/fixtures/planar-exact-member-actions.json scripts/tests/fixtures/planar-member-rotation.json scripts/tests/fixtures/planar-chord-equilibrium.json

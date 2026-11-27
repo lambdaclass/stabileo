@@ -14493,6 +14493,7 @@ const zh: Translations = {
   "plates.kindHead": "类型",
   "plates.quality": "质量",
 
+  "plates.qualityCell": "最小角 {angle}°，{poor} 个较差",
   "plates.meshKind.structured": "网格上的四边形",
   "plates.meshKind.fromTriangles": "由三角形生成的四边形（非结构化）",
   "plates.meshKind.mixed": "混合：{n} 个三角形",
@@ -14506,6 +14507,7 @@ const zh: Translations = {
   "plates.localLoadsWarn": "在当前网格的单元上手工施加的 {n} 项荷载不会沿用；请将其施加在板上。",
   "plates.keptNodesNote": "当前网格的 {n} 个节点因被其他对象使用而保留，新网格将穿过它们。",
 
+  "plates.planTotal": "共 {cells} 个单元，尺寸 {size} {unit}。质量较差：夹角小于 {angle}° 或边长相差悬殊。",
   "plates.close": "关闭",
   "plates.apply": "应用",
   "plates.applyDropping": "不带局部荷载应用",

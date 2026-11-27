@@ -93,7 +93,9 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
       if (dictionary === 'mesher') return false;
       const publicAccountEntry = /^(?:legal\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(key);
       if (pruneEntries) {
+        if (proPlatesUnified && /^plates\.(?:qualityCell|planTotal)$/.test(key)) return false;
         if (!proPlatesUnified) {
+          if (/^plates\.(?:firstSide|drawingLabel|qualityGood|qualityPoor|qualityHint|planTotalOnly|localLoadsWarnOne|keptNodesNoteOne|remeshNote(?:One|Some|All))$/.test(key)) return false;
           if (/^loads\.(asce7|ec|tr)\./.test(key)) return false;
           if (/^ex\.pro-rc-(house|four-storey|steel-columns|lift-core|party-wall)(\.|$)/.test(key)) return false;
           if (/^pro\.(examples\.(loading\.|group(Rc|Steel)Buildings$)|tag(Core|Stair)$|stats\.plates$)/.test(key)) return false;

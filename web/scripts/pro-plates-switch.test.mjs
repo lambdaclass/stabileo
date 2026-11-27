@@ -432,7 +432,7 @@ test('known wrong result: #1928 the level-centre table and its labels belong to 
   }
 });
 
-test.skip('known wrong result: #1928 published mesh previews have their released quality and total captions', async () => {
+test('published mesh previews have their released quality and total captions', async () => {
   for (const plates of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
       const config = await resolveConfig({ root, configFile }, 'build', 'production');

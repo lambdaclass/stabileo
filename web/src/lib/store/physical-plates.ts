@@ -742,7 +742,7 @@ export async function planPlateMeshes(ids: readonly number[], spec?: Partial<Pla
     opts.onProgress?.(i + 1, ids.length);
     if (ids.length > 1) await nextFrame();
   }
-  return out;
+  return opts.signal?.aborted ? null : out;
 }
 
 function planPlateMeshesNow(ids: readonly number[]): PlateMeshPlan[] {
@@ -1118,7 +1118,8 @@ function planConformingMeshes(plans: readonly PlateMeshPlan[], report: PlateMesh
 
 function conformingMeshes(plans: readonly PlateMeshPlan[], report: PlateMeshReport, forAnalysis: boolean): ReadyPlateMesh[] {
   const requested = new Map(plans.map(p => [p.id, p]));
-  const specs = new Map(plans.map(p => [p.id, p.spec]));
+  const participating = forAnalysis ? plans : plans.filter(readyPlateMesh);
+  const specs = new Map(participating.map(p => [p.id, p.spec]));
   const entries = physicalPlates();
   const shellOwners = new Map(entries.flatMap(e => plateShellKeys(e.id).map(key => [key, e.id] as const)));
   const shells = [
@@ -1187,7 +1188,8 @@ function conformingMeshes(plans: readonly PlateMeshPlan[], report: PlateMeshRepo
           return candidate.stations.between(a, b).some(p => !sameMeshNode(p, a, weld) && !sameMeshNode(p, b, weld));
         }))) continue;
         const e = id === undefined ? null : plateEntry(id);
-        if (!e) report.refused.push({ id: candidate.id, reason: 'cannotMesh' });
+        const preview = id === undefined ? undefined : requested.get(id);
+        if (!e || (!forAnalysis && preview && !readyPlateMesh(preview))) report.refused.push({ id: candidate.id, reason: 'cannotMesh' });
         else if (localLoadsOn(e)) report.refused.push({ id: e.id, reason: 'localLoads' });
         else {
           specs.set(e.id, specOf(e));
@@ -1211,6 +1213,11 @@ function conformingMeshes(plans: readonly PlateMeshPlan[], report: PlateMeshRepo
 function meshingRun(plans: readonly PlateMeshPlan[], forAnalysis = false) {
   const report: PlateMeshReport = { plates: 0, cells: 0, refused: [], droppedLocalLoads: 0, keptNodes: 0 };
   const ok = planConformingMeshes(plans, report, forAnalysis);
+  if (!forAnalysis) {
+    for (const plan of plans) {
+      if (!readyPlateMesh(plan)) report.refused.push({ id: plan.id, reason: plan.refused ?? 'cannotMesh' });
+    }
+  }
   const current = ok.length ? physicalPlates().filter((e) => plateStatus(e.id) === 'current').map((e) => e.id) : [];
   const meshed: number[] = [];
   let loadDefsChanged = false;

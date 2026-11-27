@@ -390,14 +390,14 @@ describe('a physical plate', () => {
 
 describe('manually applying mixed plate previews', () => {
   for (const [entry, apply] of [['sync', applyPlateMeshes], ['async', applyPlateMeshesAsync]] as const) {
-    it.skip('known wrong result: #1928 ' + entry + ' applies independent accepted plans and refuses a changed batch', async () => {
+    it(entry + ' applies independent accepted plans and refuses a changed batch', async () => {
       for (const stale of [false, true]) {
         modelStore.clear();
         historyStore.clear();
         const rings = [0, 3].map(z => [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x!, y!, z)));
         const ids = rings.map(outline => {
           const result = createPlate({ outline, materialId: 1, thickness: 0.15 });
-          if (!result.ok) throw Error(result.reason);
+          if ('problem' in result) throw Error(result.problem);
           return result.id;
         });
         const warp = () => modelStore.updateNode(rings[0]![2]!, 2, 2, 1);

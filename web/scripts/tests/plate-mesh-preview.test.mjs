@@ -7,7 +7,7 @@ import { createServer } from 'vite';
 const root = fileURLToPath(new URL('../../', import.meta.url));
 
 for (const mode of ['production', 'test']) {
-  test.skip('known wrong result: #1928 the ' + mode + ' mesh dialog applies only its current preview and respects stored cell sizes', async t => {
+  test('the ' + mode + ' mesh dialog applies only its current preview and respects stored cell sizes', async t => {
     const server = await createServer({ root, mode, server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
     try {
       await server.listen();
