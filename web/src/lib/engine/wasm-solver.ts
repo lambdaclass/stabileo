@@ -424,7 +424,10 @@ export async function initSolver(): Promise<void> {
     wasmReviewModelSanity = wasm.review_model_sanity ?? null;
 
     wasmReady = true;
-  })();
+  })().catch(error => {
+    wasmInitPromise = null;
+    throw error;
+  });
   return wasmInitPromise;
 }
 

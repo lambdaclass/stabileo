@@ -50,7 +50,7 @@ describe('roof and cylinder builders', () => {
   }, 120_000);
 });
 
-it.skip('known wrong result: #2505 — only selectable group and mesh combinations can produce a viewer case', () => {
+it('only selectable group and mesh combinations can produce a viewer case', () => {
   for (const [group, n] of [['hemisphere', 10], ['unknown', 10], ['roof', 1], ['cylinder', 21]] as const) {
     expect(() => caseFor(group as Parameters<typeof caseFor>[0], n)).toThrow(RangeError);
   }

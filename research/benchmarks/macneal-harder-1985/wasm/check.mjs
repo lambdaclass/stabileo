@@ -79,8 +79,8 @@ try {
   checks.push(check(`roof-16 (shared shell obstacle course input): relative error of the WASM midside deflection against Table 5(a) ${roofCase.reference}`, relative(roof, roofCase.reference), tolerance));
 
   const SOURCE = { beam: 'MacNeal & Harder (1985), Table 3, p. 10 (geometry Fig. 4, p. 7)', roof: 'MacNeal & Harder (1985), Table 5(a), p. 11 (normalization value; model Fig. 8, p. 8)' };
-  const TOL = 'relative error, |Stabileo − paper| / paper; tolerance 2% = the paper’s grade A (p. 14)';
-  const row = (id, name, source, reference, computed) => ({ id, name, source, unit: '', reference, computed, metric: TOL, observed: relative(computed, reference), tolerance, passed: relative(computed, reference) <= tolerance });
+  const TOL = 'relative error, |Stabileo − paper| / paper; Stabileo passes below 2%; the paper awards grade A at or below 2% (p. 14)';
+  const row = (id, name, source, reference, computed) => ({ id, name, source, unit: '', reference, computed, metric: TOL, observed: relative(computed, reference), tolerance, passed: relative(computed, reference) < tolerance });
   const published = [
     row('straight-regular-out', 'Straight cantilever, regular 6×1 MITC4 mesh, out-of-plane tip displacement', SOURCE.beam, caseOf('mitc4-regular-out').reference, byId('mitc4-regular-out').value),
     row('straight-regular-in', 'Straight cantilever, regular 6×1 MITC4 mesh, in-plane tip displacement', SOURCE.beam, caseOf('mitc4-regular-in').reference, byId('mitc4-regular-in').value),

@@ -9,7 +9,7 @@
       "unit": "",
       "reference": 0.4321,
       "computed": 0.4234856436387048,
-      "metric": "relative error, |Stabileo − paper| / paper; tolerance 2% = the paper’s grade A (p. 14)",
+      "metric": "relative error, |Stabileo − paper| / paper; Stabileo passes below 2%; the paper awards grade A at or below 2% (p. 14)",
       "observed": 0.019936024904640606,
       "tolerance": 0.02,
       "passed": true
@@ -21,7 +21,7 @@
       "unit": "",
       "reference": 0.1081,
       "computed": 0.10707215714712653,
-      "metric": "relative error, |Stabileo − paper| / paper; tolerance 2% = the paper’s grade A (p. 14)",
+      "metric": "relative error, |Stabileo − paper| / paper; Stabileo passes below 2%; the paper awards grade A at or below 2% (p. 14)",
       "observed": 0.009508259508542713,
       "tolerance": 0.02,
       "passed": true
@@ -33,7 +33,7 @@
       "unit": "",
       "reference": 0.4321,
       "computed": 0.4162053611745954,
-      "metric": "relative error, |Stabileo − paper| / paper; tolerance 2% = the paper’s grade A (p. 14)",
+      "metric": "relative error, |Stabileo − paper| / paper; Stabileo passes below 2%; the paper awards grade A at or below 2% (p. 14)",
       "observed": 0.036784630468420725,
       "tolerance": 0.02,
       "passed": false
@@ -45,7 +45,7 @@
       "unit": "",
       "reference": 0.4321,
       "computed": 0.4225724018592625,
-      "metric": "relative error, |Stabileo − paper| / paper; tolerance 2% = the paper’s grade A (p. 14)",
+      "metric": "relative error, |Stabileo − paper| / paper; Stabileo passes below 2%; the paper awards grade A at or below 2% (p. 14)",
       "observed": 0.022049521269931736,
       "tolerance": 0.02,
       "passed": false
@@ -57,7 +57,7 @@
       "unit": "",
       "reference": 0.3024,
       "computed": 0.3024255392135953,
-      "metric": "relative error, |Stabileo − paper| / paper; tolerance 2% = the paper’s grade A (p. 14)",
+      "metric": "relative error, |Stabileo − paper| / paper; Stabileo passes below 2%; the paper awards grade A at or below 2% (p. 14)",
       "observed": 0.00008445507141293468,
       "tolerance": 0.02,
       "passed": true

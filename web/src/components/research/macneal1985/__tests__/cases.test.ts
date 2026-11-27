@@ -316,3 +316,14 @@ it('holds back in-plane variant results with the original issue', async () => {
   const result = await runVariant(cases.find(c => c.id === 'mitc4-parallelogram-in')!);
   expect(result).toMatchObject({ issue: 798, refused: true, value: null, error: null, pass: false });
 });
+
+it('surfaces an unrelated variant solve error without claiming issue 798', async () => {
+  const engine = await import('../../../../lib/engine/wasm-solver');
+  const solve = vi.spyOn(engine, 'solve3D').mockImplementationOnce(() => { throw new Error('backend unavailable'); });
+  try {
+    const result = await runVariant(cases.find(c => c.id === 'mitc4-parallelogram-in')!);
+    expect(result).toMatchObject({ value: null, error: null, pass: false, failure: 'Error: backend unavailable' });
+    expect(result.refused).not.toBe(true);
+    expect(result.issue).toBeUndefined();
+  } finally { solve.mockRestore(); }
+});

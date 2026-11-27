@@ -3,6 +3,6 @@
   "source": "Tables 3 and 5, pp. 10–11; inputs in engine/tests/benchmarks/macneal_harder.json and shell_obstacle_course.json",
   "command": "node research/benchmarks/macneal-harder-1985/wasm/check.mjs <native results> [--write]",
   "files_sha256": {
-    "published_comparison.json": "8aa9e731b801bb42aff3a7ce6a9d46e86daf3baa9dfeb52e1c36355917dd6c54"
+    "published_comparison.json": "cad95ebe5d6c6f1d47f537aaf27b902ccd27a61a165c9f6726260323374e28ad"
   }
 }

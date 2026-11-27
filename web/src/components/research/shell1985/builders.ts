@@ -76,7 +76,15 @@ export const BUILT = ['roof', 'cylinder'] as const;
 export type BuiltGroup = (typeof BUILT)[number];
 export const MESH_RANGE = { min: 2, max: 20 };
 
-export function caseFor(group: BuiltGroup, n: number): Case & { built: boolean } {
+export type Group = BuiltGroup | 'hemisphere';
+export function meshOptions(group: string): number[] {
+  if (group === 'roof' || group === 'cylinder') {
+    return Array.from({ length: MESH_RANGE.max - MESH_RANGE.min + 1 }, (_, i) => MESH_RANGE.min + i);
+  }
+  return cases.filter(c => c.group === group).map(c => c.mesh);
+}
+export function caseFor(group: Group, n: number): Case & { built: boolean } {
+  if (!meshOptions(group).includes(n)) throw new RangeError(`Unavailable shell mesh: ${group} ${n}`);
   const fixture = cases.find(c => c.group === group && c.mesh === n);
   if (fixture) return { ...fixture, built: false };
   const template = cases.find(c => c.group === group)!;

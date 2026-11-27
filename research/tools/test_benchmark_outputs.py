@@ -49,7 +49,6 @@ const createServer = async settings => {
 """.replace('EXPORT', json.dumps(export)).replace('REPLACEMENT', replacement)
         checker.write_text(source.replace('const server = await createServer', wrapper + 'const server = await createServer'))
 
-    @unittest.skip('known wrong result: #2505')
     def test_every_mesh_reaction_is_included_in_the_plate_verdict(self):
         folder = self.benchmark('benchmarks/navier-plate')
         self.wrap_export(folder, 'solve3D', """input => {
@@ -59,7 +58,6 @@ const createServer = async settings => {
         }""")
         self.reject(folder)
 
-    @unittest.skip('known wrong result: #2505')
     def test_plate_uses_fresh_coarse_series_in_truncation_and_paper_rows(self):
         folder = self.benchmark('benchmarks/navier-plate')
         self.wrap_export(folder, 'navierCenter', '(...args) => actual.navierCenter(...args) + (args.length ? 0 : 5e-13)')
@@ -73,7 +71,6 @@ const createServer = async settings => {
         series = lambda directory: next(r['computed'] for r in published(directory) if r['id'] == 'series')
         self.assertGreater(series(folder), series(original))
 
-    @unittest.skip('known wrong result: #2505')
     def test_portal_requires_live_nodes_and_the_complete_sweep(self):
         folder = self.benchmark('benchmarks/plastic-collapse')
         checker = folder / 'wasm/check.mjs'

@@ -9,13 +9,12 @@
   import ScalarFieldViewer from '../../viewport/ScalarFieldViewer.svelte';
   import ConvergencePlot from './ConvergencePlot.svelte';
   import { cases, nativeOnly, runCases, finest, groups, viewerData, signedReference, shown, responseRatio, type Case, type Result } from './cases';
-  import { caseFor, MESH_RANGE, type BuiltGroup } from './builders';
+  import { caseFor, meshOptions as options, type Group, type BuiltGroup } from './builders';
   import { editorURL } from './editor';
   import { shellLocale, strings } from './i18n';
   import validation from '../../../../../research/benchmarks/shell-obstacle-course/VALIDATION.json';
   const HEMISPHERE_TEST = 'shell_benchmark::benchmark_hemisphere_hole_convergence';
 
-  type Group = 'roof' | 'cylinder' | 'hemisphere';
   type Check = { id: string; kind: string; observed: number; tolerance: number; passed: boolean };
   const checks = validation.checks as Check[];
   const lang = $derived(shellLocale(publicI18n.locale));
@@ -34,12 +33,9 @@
   let token = 0;
 
   const isBuilt = (g: Group): g is BuiltGroup => g !== 'hemisphere';
-  const options = (g: Group) => isBuilt(g)
-    ? Array.from({ length: MESH_RANGE.max - MESH_RANGE.min + 1 }, (_, i) => MESH_RANGE.min + i)
-    : cases.filter(c => c.group === g).map(c => c.mesh);
   const choices = $derived(options(selected));
   const index = $derived(Math.max(0, choices.indexOf(meshes[selected])));
-  const current = $derived<Case & { built?: boolean }>(isBuilt(selected) ? caseFor(selected, meshes[selected]) : cases.find(c => c.group === selected && c.mesh === meshes[selected])!);
+  const current = $derived(caseFor(selected, meshes[selected]));
   const result = $derived(rows.find(r => r.id === current.id) ?? built[current.id]);
   const view = $derived(viewerData(current, result));
   const passed = $derived(finest.filter(c => rows.find(r => r.id === c.id)?.pass).length);
@@ -105,7 +101,7 @@
   });
 
   function setMesh(group: Group, n: number) {
-    if (!['roof', 'cylinder', 'hemisphere'].includes(group) || !options(group).includes(n)) return;
+    if (!options(group).includes(n)) return;
     selected = group;
     meshes = { ...meshes, [group]: n };
     tab = 'viewer';
