@@ -37,6 +37,15 @@ function seedsWithDifferentSupports(): [number, number] {
 }
 
 describe('the exercise an assignment stores', () => {
+  it.skip('known wrong result: #1927 — the question envelope cannot regenerate a grading key or produce a mark', () => {
+    const questions = exerciseFromEnvelope({
+      stabileoExercise: 1, questionsOnly: true,
+      exercise: { ...spec(), kinematicQuestion: {}, diagramShapeQuestions: [{ diagram: 'M' }], characteristics: [], diagramQuestions: [] },
+    })!;
+    expect(variantOf(questions, 42).kinematicQuestion).toEqual({});
+    expect(variantOf(questions, 42).diagramShapeQuestions).toEqual([{ diagram: 'M' }]);
+    expect(gradeAttempt(questions, 42, {})).toBeNull();
+  });
   it('round-trips through the envelope, and anything else reads as none', () => {
     expect(exerciseFromEnvelope(exerciseEnvelope(spec()))).toEqual(spec());
     expect(exerciseFromEnvelope({ title: 'x' })).toBeNull();
