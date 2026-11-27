@@ -16,6 +16,22 @@ describe('addShellOnCorners', () => {
     expect(addShellOnCorners([a!, b!, c!, d!], mat(), 0.2)).toEqual({ key: expect.stringMatching(/^q\d+$/) });
   });
 
+  it.skip('known wrong result: #2535 drawing warped corners in production keeps the flat formulation', () => {
+    const [a, b, c, d] = square();
+    modelStore.updateNode(c!, 1, 1, 0.1);
+    for (const curved of [undefined, false, true]) {
+      const made = addShellOnCorners([a!, b!, c!, d!], mat(), 0.2, curved);
+      expect(made).toHaveProperty('key');
+      const entry = 'key' in made && modelStore.quads.get(Number(made.key.slice(1)));
+      expect(Boolean(entry && entry.curved)).toBe(curved === true);
+    }
+    drawState.plateCorners = 4;
+    drawState.startPlate();
+    for (const id of [a!, b!, c!, d!]) drawState.pickPlateNode(id);
+    expect(modelStore.quads.size).toBe(4);
+    expect([...modelStore.quads.values()].at(-1)?.curved).toBeFalsy();
+  });
+
   it('says what is wrong instead of adding', () => {
     const [a, b, c] = square();
     expect(addShellOnCorners([a!, b!], mat(), 0.2)).toEqual({ error: 'pro.shellNeedNodes' });
