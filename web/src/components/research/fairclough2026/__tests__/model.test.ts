@@ -108,6 +108,6 @@ it('uses the selected public language for the page and its shared shell', async 
   } finally { setLocale(original); }
 });
 
-it.skip('known wrong result: #2505 untabulated weight cannot relabel a solved layout', () => {
+it('untabulated weight cannot relabel a solved layout', () => {
   expect(() => validateLayout(result.layout, 1.66)).toThrow();
 });

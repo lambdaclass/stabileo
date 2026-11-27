@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { publicI18n } from '../../../lib/i18n/store.svelte';
+  import { comparisonStrings } from '../shell/comparison-strings';
+  import { BUILD_COMMIT } from '../../../lib/build-info';
   import ExperimentShell from '../shell/ExperimentShell.svelte';
   import StabileoViewer from '../shell/StabileoViewer.svelte';
   import LineChart from '../shauer2025/LineChart.svelte';
@@ -77,7 +79,7 @@
 <ExperimentShell compactHeader paperId="lee-frame-1968" name={s.title} lead={s.lead}
   sourcePath="research/benchmarks/lee-frame-1968"
   actions={{ goToStep: i => playback.seek(i), setParams: p => { if (splits.includes(p.split as Split)) { split = p.split as Split; run(); } }, showTab: () => {} }}
-  verification={{ reference: { kind: 'checks', passed: validation.checks.filter(c => c.passed).length, total: validation.checks.length, href: '#checks' }, published: { kind: 'none', why: s.paperWhy } }} referenceLabel={s.validationLabel}
+  verification={{ reference: { kind: 'checks', passed: validation.checks.filter(c => c.passed).length, total: validation.checks.length, href: `https://github.com/lambdaclass/stabileo/blob/${BUILD_COMMIT}/research/benchmarks/lee-frame-1968/VALIDATION.json` }, published: { kind: 'none', why: s.paperWhy } }} referenceLabel={s.validationLabel}
   comparison={publishedRows.checks} comparisonNames={rowNames}>
   {#snippet article()}
     <h2>{s.model}</h2><p>{s.description}</p><p>{s.method}</p>
@@ -99,7 +101,7 @@
       <h2>{s.results}</h2>
       <LineChart {series} xLabel={s.displacement} yLabel={s.load} height={230} ariaLabel={s.chartLabel} nearest="xy" point={current ? at(current) : null} rules={[{ y: publishedRows.checks[0].reference, text: s.reference }]} />
       <div class="table-scroll" id="checks"><table><thead><tr><th></th><th>{s.peak}</th></tr></thead><tbody>
-        <tr><th>{fill(s.rowShown, { n: String(20 * shownSplit) })}</th><td data-testid="lee-limit">{peak !== null ? fmt(peak) : busy ? '…' : s.notReached}</td></tr>
+        <tr><th>{fill(s.rowShown, { n: String(20 * shownSplit) })}</th><td data-testid="lee-limit">{peak !== null ? fmt(peak) : busy ? '…' : failure ? comparisonStrings().unavailable : s.notReached}</td></tr>
         <tr><th>{fill(s.rowNative, { n: String(20 * shownSplit) })}</th><td data-testid="lee-native">{fmt(native)}</td></tr>
       </tbody></table></div>
     </div>

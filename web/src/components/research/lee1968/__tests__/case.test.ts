@@ -128,7 +128,7 @@ it('rejects invalid interior loads even with a finite final load', () => {
   }
 });
 
-it.skip('known wrong result: #2505 a frame endpoint must match the last measured step', () => {
+it('a frame endpoint must match the last measured step', () => {
   const run = { converged: true, finalLoadFactor: 2.5, steps: [1, 2, 1.5, 1].map(loadFactor => ({ loadFactor })),
     results: { displacements: replay.frames[0].displacement } };
   expect(() => frameFrom(run, 4)).toThrow('invalid');

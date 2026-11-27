@@ -3,6 +3,7 @@
    * What an experiment has been checked against, in words: the authors' code and the paper's own
    * figures are separate questions, and a "no" is stated as a fact with its reason, not a badge.
    */
+  import { comparisonStrings } from './comparison-strings';
   import { rs } from '../i18n';
   import type { Check } from './context';
   let { reference, published, referenceLabel = null, publishedLabel }: { reference: Check; published: Check; referenceLabel?: string | null; publishedLabel?: string } = $props();
@@ -15,7 +16,9 @@
     <div>
       <dt>{label}</dt>
       <dd>
-        {#if check.kind === 'checks'}
+        {#if check.kind === 'checks' && check.total === 0}
+          {comparisonStrings().unavailable}
+        {:else if check.kind === 'checks'}
           {#if check.passed === check.total}<span class="ok" aria-hidden="true">✓</span>{:else}<span class="no" aria-hidden="true">✗</span>{/if}
           {check.passed} {s.of} {check.total} {s.checksPass}{#if check.href}{' · '}<a href={check.href}>{s.seeChecks}</a>{/if}
         {:else}

@@ -10,7 +10,7 @@ const server = await createServer({ root: web.pathname, configFile: false, serve
 after(() => server.close());
 const { validateLayout, paperComparison } = await server.ssrLoadModule('/src/components/research/fairclough2026/model.ts');
 
-test('recovery at the requested weight checks both elevations and the section areas', { skip: 'known wrong result: #2505' }, () => {
+test('recovery at the requested weight checks both elevations and the section areas', () => {
   for (const weight of [0.5, 1.66, 1.85, 2.2]) {
     const layout = JSON.parse(recompute(weight));
     assert.equal(validateLayout(layout, weight), layout);
@@ -22,7 +22,7 @@ test('recovery at the requested weight checks both elevations and the section ar
   }
 });
 
-test('a paper disagreement retains the solved volume and a failed comparison', { skip: 'known wrong result: #2505' }, () => {
+test('a paper disagreement retains the solved volume and a failed comparison', () => {
   const weight = 1.85;
   const layout = JSON.parse(recompute(weight));
   const published = JSON.parse(readFileSync(new URL('../reference-results/published_comparison.json', import.meta.url))).checks;

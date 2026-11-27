@@ -102,6 +102,9 @@ def valid_checks(checks, published=False):
     def text(value):
         return isinstance(value, str) and bool(value.strip())
 
+    def matches_observation(c, expected):
+        return expected <= c["tolerance"] and math.isclose(c["observed"], expected, rel_tol=1e-9)
+
     def paper_row(c):
         if not text(c.get("name")) or not text(c.get("source")) or not isinstance(c.get("unit", ""), str):
             return False
@@ -124,7 +127,7 @@ def valid_checks(checks, published=False):
                 else:
                     return False
             expected = max(distances)
-            return expected <= c["tolerance"] and math.isclose(c["observed"], expected, rel_tol=1e-9)
+            return matches_observation(c, expected)
         reference, computed = c.get("reference"), c.get("computed")
         if not finite_number(reference) or not finite_number(computed):
             return False
@@ -135,7 +138,7 @@ def valid_checks(checks, published=False):
             expected = abs(computed - reference) / abs(reference)
         else:
             return False
-        return expected <= c["tolerance"] and abs(c["observed"] - expected) <= 1e-9 * max(1.0, expected)
+        return matches_observation(c, expected)
 
     return isinstance(checks, list) and bool(checks) and all(
         isinstance(c, dict) and c.get("passed") is True and

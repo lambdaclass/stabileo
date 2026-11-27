@@ -12,7 +12,6 @@ row = {'name': 'response', 'source': 'paper', 'metric': 'absolute difference', '
 
 
 class PublishedEvidence(unittest.TestCase):
-    @unittest.skip("known wrong result: #2505")
     def test_an_in_tolerance_scalar_still_reports_its_actual_error(self):
         measurement = {**row, 'reference': 1, 'computed': 1 + 5e-10, 'tolerance': 1e-9}
         self.assertFalse(catalog.valid_checks([measurement], published=True))

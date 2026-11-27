@@ -3,7 +3,7 @@
    * The paper's numbers next to Stabileo's and their difference, one row per check of the
    * experiment's published_comparison.json. Rows are the evidence CI checked, never retyped.
    */
-  import { comparisonShape, comparisonPasses, type PublishedRow } from './context';
+  import { comparisonDifference, comparisonShape, comparisonPasses, type PublishedRow } from './context';
   import { comparisonStrings } from './comparison-strings';
   import { num } from './format';
   import Sci from './Sci.svelte';
@@ -34,6 +34,7 @@
       {#each rows as r, i (r.id ?? r.name)}
         {@const shape = comparisonShape(r)}
         {@const passed = comparisonPasses(r)}
+        {@const difference = comparisonDifference(r)}
         <tr>
           <th scope="row">{names[r.id ?? r.name] ?? r.name}{#if i === 0 || rows[i - 1].source !== r.source}<span class="src" lang="en">{r.source}</span>{/if}</th>
           {#if shape === 'curve'}
@@ -42,7 +43,7 @@
             <td>{#if Number.isFinite(r.reference)}{@render value(r.reference!, r.unit ?? '')}{:else}{s.unavailable}{/if}</td>
             <td>{#if Number.isFinite(r.computed)}{@render value(r.computed!, r.unit ?? '')}{:else}{s.unavailable}{/if}</td>
           {/if}
-          <td>{#if shape !== 'unavailable' && Number.isFinite(r.observed)}{@render gap(r.observed, r)}{:else}{s.unavailable}{/if}</td>
+          <td>{#if Number.isFinite(difference)}{@render gap(difference, r)}{:else}{s.unavailable}{/if}</td>
           <td><span class={passed ? 'ok' : 'bad'} aria-label={passed ? s.within : s.outside}>{passed ? '✓' : '✗'}</span> {@render gap(r.tolerance, r)}</td>
         </tr>
       {/each}

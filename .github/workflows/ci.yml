@@ -1302,6 +1302,7 @@ jobs:
       - name: The five-node gridshell bundle reproduces Table 1 (Node)
         run: |
           nix develop --command node research/optimisation/fairclough-2026/wasm/check.mjs
+          nix develop --command node --test research/optimisation/fairclough-2026/wasm/test-layout.mjs
           nix develop --command python3 -B research/tools/test_benchmark_outputs.py BenchmarkOutputs.test_fairclough_needs_every_weight
       - name: Shape-control bundle distinguishes continuous loading, snapping and nonconvergence
         run: nix develop --command node --test research/stability/feher-sipos-varkonyi-2026/test_path.mjs

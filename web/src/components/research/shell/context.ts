@@ -39,7 +39,21 @@ export function comparisonShape(row: PublishedRow) {
   return 'unavailable';
 }
 
+export function comparisonDifference(row: PublishedRow): number {
+  const shape = comparisonShape(row);
+  if (shape === 'curve') return row.observed;
+  if (shape === 'scalar') {
+    const difference = Math.abs(row.computed! - row.reference!);
+    const metric = row.metric.toLowerCase();
+    if (metric.startsWith('absolute')) return difference;
+    if (metric.startsWith('relative') && row.reference !== 0) return difference / Math.abs(row.reference!);
+  }
+  return NaN;
+}
+
 export function comparisonPasses(row: PublishedRow) {
-  return comparisonShape(row) !== 'unavailable' && row.passed === true && Number.isFinite(row.observed)
+  const difference = comparisonDifference(row);
+  return Number.isFinite(difference) && difference <= row.tolerance && row.passed === true && Number.isFinite(row.observed)
+    && Math.abs(row.observed - difference) <= 1e-9 * Math.max(difference, row.observed)
     && Number.isFinite(row.tolerance) && row.observed >= 0 && row.observed <= row.tolerance;
 }

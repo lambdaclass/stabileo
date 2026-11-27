@@ -33,7 +33,7 @@ it('only adjacent finite convergence samples form segments', () => {
   }
 });
 
-it.skip('known wrong result: #2505 rejects a stale scalar error and displays the measured gap', () => {
+it('rejects a stale scalar error and displays the measured gap', () => {
   for (const [metric, gap] of [['absolute', '2'], ['relative difference', '100']] as const) {
     const html = table({ metric, reference: 2, computed: 4 });
     expect(html).toContain('✗');
@@ -41,7 +41,7 @@ it.skip('known wrong result: #2505 rejects a stale scalar error and displays the
   }
 });
 
-it.skip('known wrong result: #2505 empty verification has no successful verdict or link', () => {
+it('empty verification has no successful verdict or link', () => {
   const empty = { kind: 'checks' as const, passed: 0, total: 0, href: '#checks' };
   const html = render(VerificationSummary, { props: { reference: empty, published: empty } }).body;
   expect(html).toContain('Unavailable');

@@ -1,12 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import ComparisonTable from '../shell/ComparisonTable.svelte';
   import ExperimentShell from '../shell/ExperimentShell.svelte';
   import ExperimentLink from '../shell/ExperimentLink.svelte';
   import StabileoViewer from '../shell/StabileoViewer.svelte';
   import { Playback } from '../shell/playback.svelte';
   import { rs, researchLocale } from '../i18n';
   import { fs } from './i18n';
-  import { editorHash, validateLayout, viewerData, PAPER_UNIT_WEIGHT, type Layout } from './model';
+  import { editorHash, paperComparison, validateLayout, viewerData, PAPER_UNIT_WEIGHT, type Layout } from './model';
   import { num } from '../shell/format';
   import result from '../../../../../research/optimisation/fairclough-2026/results/stabileo_results.json';
   import reference from '../../../../../research/optimisation/fairclough-2026/reference-results/five-node.json';
@@ -22,6 +23,7 @@
   let layout = $state<Layout>(result.layout);
   let unitWeight = $state(PAPER_UNIT_WEIGHT);
   let computedWeight = $state(PAPER_UNIT_WEIGHT);
+  const selectedComparison = $derived(paperComparison(layout, computedWeight));
   const atPaper = $derived(computedWeight === PAPER_UNIT_WEIGHT);
   let plan = $state(false);
   let author = $state(false);
@@ -80,13 +82,13 @@
   actions={{goToStep:()=>restart(),setParams,showTab:()=>{plan=!plan;stop();}}}>
   {#snippet article()}
     <h2>{text.model}</h2><p>{text.method}</p>
-    <h2>{text.comparison}</h2>
+    <h2>{text.comparison} · ρgL/σ = {num(PAPER_UNIT_WEIGHT, { dp: 2 })}</h2>
     <dl><dt>{text.published}</dt><dd>{format(published.checks[0].reference)}</dd><dt>{text.reference}</dt><dd>{format(reference.volume)}</dd><dt>{text.rust}</dt><dd data-testid="volume">{format(atPaper ? layout.volume : result.layout.volume)}</dd></dl>
     <p>{text.source}</p><p><a href="https://doi.org/10.15131/shef.data.29046755.v1">{text.reference}</a></p>
     <p>{text.tableRows} {#each comparison as r, i}{#if i > 0}{' · '}{/if}<ExperimentLink params={{ pg: unitWeightOf(r.id) }}>ρgL/σ = {num(unitWeightOf(r.id), { dp: 2 })}</ExperimentLink>{/each}</p>
     <h2 id="checks">{text.scope}</h2><p>{text.agreement}</p>
     <h2>{text.engine}</h2><p>{text.engineText}</p>
-    <p>{text.balance}: {new Intl.NumberFormat(researchLocale(), {maximumSignificantDigits:3}).format(result.engine.relative_balance_error)}</p>
+    <p>{text.balance} (ρgL/σ = {num(PAPER_UNIT_WEIGHT, { dp: 2 })}): {new Intl.NumberFormat(researchLocale(), {maximumSignificantDigits:3}).format(result.engine.relative_balance_error)}</p>
     <h2>{text.limitations}</h2><p>{text.missing}</p>
   {/snippet}
   {#snippet app()}
@@ -98,6 +100,7 @@
       <StabileoViewer plane={plan ? 'plan' : 'elevation'} {...view} cellSize={2} title={text.area} unit="F/σ" height="clamp(10rem, 45dvh, 23rem)" lineWidth={5}
         showMesh={false} oninteract={stop} editorButton={false} ariaLabel={`${author ? text.author : text.own} · ${text.alt}`}/>
       <p>{text.volume}: <strong data-testid="selected-volume">{format(author ? reference.volume : layout.volume)}</strong> · {text.height}: <span data-testid="selected-height">{format(author ? reference.elevations[4] : layout.nodes[4][2])}</span> · ρgL/σ = <span data-testid="unit-weight">{num(computedWeight, { dp: 2 })}</span></p>
+      {#if selectedComparison && !author}<ComparisonTable rows={[selectedComparison]} names={comparisonNames} />{/if}
       <label class="weight">{text.unitWeight} <strong>{num(unitWeight, { dp: 2 })}</strong>
         <input id="fairclough-unit-weight" type="range" min="0.5" max="2.2" step="0.01" bind:value={unitWeight} onchange={run} aria-describedby="fairclough-unit-weight-hint" />
         <span id="fairclough-unit-weight-hint" class="hint">{text.unitWeightHint}</span>

@@ -23,14 +23,22 @@ export function validateLayout(value: unknown, unitWeight = PAPER_UNIT_WEIGHT): 
     || !v.curves.every(c => c.length === 33 && c.every(p => p.length === 4 && p.every(Number.isFinite) && p[3] > 0))
     || !Number.isFinite(v.primal_residual) || v.primal_residual < 0 || v.primal_residual > 1e-8
     || !Number.isFinite(v.dual_residual) || v.dual_residual < 0 || v.dual_residual > 1e-8) throw new Error('Invalid five-node layout');
-  const active = v.edges.filter((_, i) => v.forces[i][0] > 1e-5);
-  if (active.length !== v.curves.length || active.some(([start, end], i) =>
-    [0, 1].some(axis => v.curves[i][0][axis] !== v.nodes[start][axis]
-      || Math.abs(v.curves[i][32][axis] - v.nodes[end][axis]) > 1e-12))) {
-    throw new Error('Missing or mismatched active member curve');
-  }
-  const row = published.checks.find(r => Number(r.id.slice('table1-v5-'.length)) === unitWeight);
-  if (row && Math.abs(v.volume - row.reference) > row.tolerance) throw new Error('Volume differs from the published weight row');
+  const active = v.edges.map(([start, end], i) => ({ start, end, force: v.forces[i] })).filter(edge => edge.force[0] > 1e-5);
+  if (active.length !== v.curves.length) throw new Error('Missing active member curve');
+  active.forEach(({ start, end, force: [thrust, qa] }, i) => {
+    const a = v.nodes[start], b = v.nodes[end], curve = v.curves[i];
+    if (curve[0][0] !== a[0] || curve[0][1] !== a[1]) throw new Error('Mismatched active member start endpoint');
+    for (const [endpoint, node] of [[curve[0], a], [curve[32], b]]) {
+      if (Math.abs(endpoint[0] - node[0]) > 1e-12 || Math.abs(endpoint[1] - node[1]) > 1e-12
+        || Math.abs(endpoint[2] - node[2]) > 1e-5) throw new Error('Mismatched active member endpoint');
+    }
+    const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const theta = Math.atan(qa / thrust);
+    for (const [sample, point] of curve.entries()) {
+      const expected = thrust / Math.cos(theta - unitWeight * length * sample / 32);
+      if (!Number.isFinite(expected) || Math.abs(point[3] - expected) > 1e-12) throw new Error('Inconsistent active member area at requested weight');
+    }
+  });
   if (unitWeight !== PAPER_UNIT_WEIGHT) return v;
   function matches(actual: unknown, expected: unknown): boolean {
     if (typeof expected === 'number') return typeof actual === 'number' && Number.isFinite(actual) && Math.abs(actual - expected) <= 1e-8 * Math.max(1, Math.abs(expected));
@@ -41,6 +49,13 @@ export function validateLayout(value: unknown, unitWeight = PAPER_UNIT_WEIGHT): 
     if (!matches(v[key], result.layout[key])) throw new Error('Layout differs from committed solver result');
   }
   return v;
+}
+
+export function paperComparison(layout: Layout, weight: number) {
+  const row = published.checks.find(r => Number(r.id.slice('table1-v5-'.length)) === weight);
+  if (!row) return null;
+  const observed = Math.abs(layout.volume - row.reference);
+  return { ...row, computed: layout.volume, observed, passed: observed <= row.tolerance };
 }
 
 export function viewerData(curves: number[][][], plan: boolean) {
