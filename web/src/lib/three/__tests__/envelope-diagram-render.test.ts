@@ -15,7 +15,7 @@ function render(posValues: number[], negValues: number[], globalMax = 100, showV
   }, 'momentY', 1, showValues);
 }
 
-it.skip('known wrong result: #2581 uses the magnitude of each signed spatial envelope curve', () => {
+it('known wrong result: #2581 uses the magnitude of each signed spatial envelope curve', () => {
   for (const { upper, lower, curve } of [
     { upper: [-100, 0], lower: [-100, 0], curve: 'pos' },
     { upper: [100, 0], lower: [100, 0], curve: 'neg' },

@@ -226,7 +226,7 @@ it('known wrong result: #2581 preserves both signed bounds on the inward face of
   }
 });
 
-it.skip('known wrong result: #2581 refuses a selected member absent from the spatial envelope', () => {
+it('known wrong result: #2581 refuses a selected member absent from the spatial envelope', () => {
   const envelope = envelopeFixture({
     kind: 'shearY', globalMax: 400,
     elements: [{

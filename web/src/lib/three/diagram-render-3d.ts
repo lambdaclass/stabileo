@@ -1,4 +1,4 @@
-import { envelopeForceExtrema } from '../engine/member-diagram';
+import { envelopePlotPeakIndices } from '../engine/member-diagram';
 // Three.js rendering of 3D force/moment diagrams
 // Creates filled mesh polygons perpendicular to elements, showing diagram values
 // in the local Y or Z direction depending on the diagram kind.
@@ -377,15 +377,16 @@ export function createEnvelopeDiagramGroup3D(
     const { perpVec, sign } = computeDiagramDisplayDirection(axes, perpDir, towardLocalAxes);
 
     const length = Math.hypot(nJ.x - nI.x, nJ.y - nI.y, (nJ.z ?? 0) - (nI.z ?? 0));
-    const range = envelopeForceExtrema(envElem, length, 'diagram');
+    const peakIndices = envelopePlotPeakIndices(envElem, length);
     // Draw both positive and negative envelope curves
     for (const curveType of ['pos', 'neg'] as const) {
       const values = curveType === 'pos' ? envElem.posValues : envElem.negValues;
       const colors = curveType === 'pos' ? ENVELOPE_POS_COLOR : ENVELOPE_NEG_COLOR;
 
       // Check if this curve has any significant values
-      const extreme = curveType === 'pos' ? range.max : range.min;
-      const maxAbs = Math.abs(extreme.value);
+      const extremeIdx = peakIndices[curveType];
+      const extremeVal = values[extremeIdx]!;
+      const maxAbs = Math.abs(extremeVal);
       if (maxAbs < globalMax * 0.001) continue;
 
       const positions: number[] = [];
@@ -456,9 +457,7 @@ export function createEnvelopeDiagramGroup3D(
 
         // Max value markers
         if (showValues) {
-          const extremeVal = extreme.value;
-          const extremeIdx = envElem.tPositions.findIndex((t, i) => t === extreme.t && values[i] === extremeVal);
-          if (extremeIdx >= 0 && maxAbs > globalMax * 0.05) {
+          if (maxAbs > globalMax * 0.05) {
             const sphereRadius = modelSize * 0.008;
             const spriteScale = modelSize * 0.04;
             const sphereGeo = new THREE.SphereGeometry(sphereRadius, 12, 8);

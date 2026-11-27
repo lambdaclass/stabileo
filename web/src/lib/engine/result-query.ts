@@ -182,9 +182,14 @@ export function buildQueryRows(
   const members = opts.envelope?.maxAbsResults3D.elementForces ?? forces;
   let source = members;
   if (opts.elementIds) {
-    const wanted = new Set(opts.elementIds);
-    const byId = new Map(members.map((ef) => [ef.elementId, ef]));
-    source = [...wanted].map((id) => byId.get(id)).filter((ef): ef is ElementForces3D => ef != null);
+    const isEnvelope = Boolean(opts.envelope) || members.some(member => boundSpatialEnvelope(member));
+    const byId = new Map(members.map(member => [member.elementId, member]));
+    source = [];
+    for (const id of new Set(opts.elementIds)) {
+      const member = byId.get(id);
+      if (member) source.push(member);
+      else if (isEnvelope) throw unavailableDiagramExtrema();
+    }
   }
   if (opts.envelope && !envelopeQuerySources(opts.envelope)) throw unavailableDiagramExtrema();
   const rows: QueryRow[] = [];
