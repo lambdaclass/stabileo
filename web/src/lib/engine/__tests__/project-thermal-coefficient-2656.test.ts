@@ -32,11 +32,11 @@ function checkDisplacement(workspace: '2d' | '3d', alpha: number) {
   expect(ux, JSON.stringify(diagnostics)).toBeCloseTo(alpha * temperature * length, 12);
 }
 
-const issue2491 = process.env.RUN_KNOWN_WRONG === '2491' ? it : it.skip;
+const issue2656 = process.env.RUN_KNOWN_WRONG === '2656' ? it : it.skip;
 
 for (const workspace of ['2d', '3d'] as const) {
   for (const alpha of [0, -5e-6]) {
-    issue2491(`known wrong result: #2491 uses the project's explicit α=${alpha} for free expansion in ${workspace}`, () => {
+    issue2656(`known wrong result: #2656 uses the project's explicit α=${alpha} for free expansion in ${workspace}`, () => {
       checkDisplacement(workspace, alpha);
     });
   }
