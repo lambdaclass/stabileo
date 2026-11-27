@@ -135,3 +135,14 @@ fn stale_zero_cannot_erase_measured_iteration_errors() {
     assert!(!fresh_observation(&stale, row));
     assert!(fresh_observation(row, row));
 }
+
+#[test]
+fn observation_freshness_distinguishes_zero_and_each_roundoff_budget() {
+    let row = |name: &str, observed: f64| serde_json::json!({"name": name, "metric": "difference", "observed": observed});
+    for (name, budget, outside) in [("residual", 1e-15, 1e-14), ("ft1", 2.1e-11, 2.2e-11)] {
+        assert!(!fresh_observation(&row(name, 0.), &row(name, 1e-16)));
+        assert!(!fresh_observation(&row(name, 1e-16), &row(name, 0.)));
+        assert!(fresh_observation(&row(name, budget), &row(name, 2. * budget)));
+        assert!(!fresh_observation(&row(name, outside), &row(name, 2. * outside)));
+    }
+}

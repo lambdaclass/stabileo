@@ -160,8 +160,8 @@ test('@smoke a failed portal variant has no result or evidence link', async ({ p
   await page.route(/dedaliano_engine_bg[^/]*\.wasm/, route => route.abort());
   await page.goto('/en/research/benchmarks/plastic-collapse/');
   await page.getByTestId('ratio').fill('4');
-  await expect(page.getByTestId('source')).toHaveText('No result for these inputs');
-  await expect(page.getByRole('alert')).toContainText('No result for these inputs');
+  await expect(page.getByTestId('source')).toHaveText('The solve did not finish');
+  await expect(page.getByRole('alert')).toContainText('The solve did not finish');
   await expect(page.locator('.rs-verify dd').first()).toHaveText('Unavailable');
   await expect(page.locator('.rs-verify dd').first().getByRole('link')).toHaveCount(0);
 });

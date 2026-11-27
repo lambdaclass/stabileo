@@ -14,6 +14,10 @@ fn validate_at(dir: &str) {
     for check in validation["checks"].as_array().unwrap() {
         assert_eq!(check["passed"], true, "{check}");
     }
+    let beta = comparison["checks"].as_array().unwrap().iter().find(|r| r["id"] == "beta-closed").unwrap();
+    assert_eq!(beta["reference"], paper["closed_form"]["beta"]);
+    assert!(beta["observed"].as_f64().unwrap() > beta["tolerance"].as_f64().unwrap());
+    assert_eq!(beta["passed"], false);
     for (file, record) in [("VALIDATION.json", validation), ("reference-results/published_comparison.json", comparison)] {
         let path = std::path::Path::new(dir).join(file);
         let bytes = serde_json::to_string_pretty(&record).unwrap() + "\n";

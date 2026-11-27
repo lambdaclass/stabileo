@@ -102,3 +102,17 @@ it('uses the selected public language for the page and its shared shell', async 
 it('untabulated weight cannot relabel a solved layout', () => {
   expect(() => validateLayout(result.layout, 1.66)).toThrow();
 });
+
+it('pairs the fixed-weight article volume with its own Table 1 row after reordering', async () => {
+  const { render } = await import('svelte/server');
+  const published = (await import('../../../../../../research/optimisation/fairclough-2026/reference-results/published_comparison.json')).default;
+  const { default: Page } = await import('../FaircloughPage.svelte');
+  const rows = published.checks;
+  const before = render(Page).body.match(/<dl[^>]*>(.*?)<\/dl>/s)![1];
+  rows.reverse();
+  try {
+    expect(render(Page).body.match(/<dl[^>]*>(.*?)<\/dl>/s)![1]).toBe(before);
+  } finally {
+    rows.reverse();
+  }
+});

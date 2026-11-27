@@ -90,3 +90,14 @@ fn steep_segment_refines_with_distinct_increments() {
     assert!((heights[0] - heights[1]).abs() < 1e-7, "{heights:?}");
     assert!((heights[1] - heights[2]).abs() < 1e-7, "{heights:?}");
 }
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn shallow_cut_cycle_reaches_the_inverted_branch_and_returns_to_zero_load() {
+    use cut_strip_feher_2026::{load_cycle, CYCLE_LOAD_STEP, HEIGHT_INCREMENT};
+    let cycle = load_cycle(&Strip { a: 0.5, b: 0.2 }, LENGTH / 2., 4., CYCLE_LOAD_STEP, HEIGHT_INCREMENT).unwrap();
+    assert!(cycle["lost_at"].is_null(), "{}", cycle["lost_at"]);
+    let snap = cycle["snaps"].as_array().unwrap().iter().find(|e| e["loading"] == true).unwrap();
+    assert!(snap["from"].as_f64().unwrap() > 0. && snap["to"].as_f64().unwrap() < 0.);
+    assert_eq!(cycle["points"].as_array().unwrap().last().unwrap()[0], 0.);
+}

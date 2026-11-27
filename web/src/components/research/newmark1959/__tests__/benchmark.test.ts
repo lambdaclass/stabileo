@@ -86,3 +86,11 @@ describe('Newmark SDOF benchmark', () => {
     }
   });
 });
+
+it('bounds the coarse trace by the actual phase separation of two cosines', () => {
+  const ratio = Math.max(...benchmark.ratios);
+  const lag = steps(ratio) * (2 * Math.PI * ratio - 2 * Math.atan(Math.PI * ratio));
+  expect(phaseLagBound(ratio)).toBeCloseTo(2 * amplitude * Math.sin(Math.min(Math.PI, lag) / 2) + 1e-10, 14);
+  const r = replay.runs.find(r => r.ratio === ratio)!;
+  expect(() => summarize(ratio, r.time, r.u.map(() => 0))).toThrow();
+});

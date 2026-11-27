@@ -150,3 +150,31 @@ it.each(Object.entries(strings))('signed shell validation and recorded mesh cove
   const withheld = { en: 'withholds', es: 'retiene', pt: 'retém', de: 'zurück', fr: 'retient', tr: 'vermez', hu: 'visszatartja', zh: '暂不提供' };
   expect(s.verdictText).toContain(withheld[locale as keyof typeof withheld]);
 });
+
+it('withholds the glyph and count together when a claimed pass exceeds the measured limit', async () => {
+  const { render } = await import('svelte/server');
+  const validation = (await import('../../../../../../research/benchmarks/shell-obstacle-course/VALIDATION.json')).default;
+  const { default: Page } = await import('../ShellPage.svelte');
+  const row = validation.checks.find(c => c.id === 'parity')!;
+  const original = row.observed;
+  try {
+    row.observed = row.tolerance;
+    expect(render(Page).body).toContain('9 of 9');
+    row.observed = row.tolerance * 2;
+    const html = render(Page).body;
+    expect(html).toContain('8 of 9');
+    expect(html.match(/data-testid="validation-checks"(.*?)<\/table>/s)![1].match(/✗/g)).toHaveLength(1);
+  } finally {
+    row.observed = original;
+  }
+});
+
+it('keeps the roof displacement consistent with the percent and names either missing refusal', async () => {
+  const { strings } = await import('../i18n');
+  for (const s of Object.values(strings)) {
+    expect(s.auditText.replaceAll(',', '.')).toContain('0.30242554');
+    expect(s.auditText.replaceAll(',', '.')).toContain('0.0084');
+  }
+  expect(strings.de.checkRefusals).toContain('von beiden Laufzeiten');
+  expect(strings.hu.checkRefusals).toContain('legalább az egyik');
+});

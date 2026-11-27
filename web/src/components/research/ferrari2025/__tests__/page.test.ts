@@ -114,3 +114,7 @@ for (const locale of PUBLIC_LOCALES) {
     expect(body).toContain(new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(0.1));
   });
 }
+
+it('identifies the normalized fifth-degree fit in every method', () => {
+  for (const s of Object.values(translations)) expect(s.method).toContain('λ(θ) = λ₁(1 + αθ + βθ² + …)');
+});

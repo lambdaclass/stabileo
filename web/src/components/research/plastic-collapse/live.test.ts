@@ -86,3 +86,25 @@ it('checks either member end at the left joint on both sides of the mechanism tr
     expect(checks(result, p).find(c => c.id === 'hinges')?.passed).toBe(false);
   }
 });
+
+it.each([0.5, 4])('rejects an empty hinge event, a missing hinge and unbalanced load at V/H=%s', async ratio => {
+  const p = { ...PAPER, vertical: ratio * PAPER.horizontal };
+  const result = await run(p);
+  const passes = (r: Result, id: string) => checks(r, p).find(c => c.id === id)!.passed;
+  expect(passes(result, 'hinges')).toBe(true);
+  const empty = { ...result.steps[0], hingesFormed: [] };
+  expect(passes({ ...result, steps: [...result.steps, empty] }, 'hinges')).toBe(false);
+  const missing = structuredClone(result);
+  for (const s of missing.steps) s.hingesFormed = s.hingesFormed?.filter(h => hingeNode(h) !== (ratio === 4 ? 5 : 2));
+  expect(passes(missing, 'hinges')).toBe(false);
+  result.steps[0].results.reactions![0].fx += 2e-8 * p.horizontal * result.collapseFactor;
+  expect(passes(result, 'equilibrium')).toBe(false);
+});
+
+it('finds combined collapse below equal elementary bounds for the longer portal', async () => {
+  const p = { ...PAPER, span: 8, height: 2, mp: 200, horizontal: 1, vertical: 0.5 };
+  expect(governing(p)).toBe('combined');
+  expect(mechanisms(p)).toEqual({ beam: 400, sway: 400, combined: 300 });
+  const result = await run(p);
+  expect(Math.abs(result.collapseFactor - 300)).toBeLessThan(portal.tolerance);
+});
