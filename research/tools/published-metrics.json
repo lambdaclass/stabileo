@@ -5,7 +5,8 @@
     "absolute difference",
     "absolute volume difference",
     "absolute difference (printed to two decimals)",
-    "absolute difference (printed to five decimals)"
+    "absolute difference (printed to five decimals)",
+    "absolute difference (tolerance: the error bar on that side plus 0.003 digitization)"
   ],
   "relative": [
     "relative",
