@@ -181,3 +181,18 @@ it('uses Italian decimal commas for all three buckling coefficients and their co
     ['7,837', '4,972 (−37 %)', '7,889 (+0,7 %)'],
   ]);
 });
+
+it.skip.each(['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh'] as const)(
+  'known wrong result: #2595 — %s shows both the raw and capped D.3.2 factor',
+  locale => {
+    const template = allDictFor(locale)['c301.d.uShearLag'];
+    for (const offset of [15, 10, 5]) {
+      const length = 100;
+      const raw = 1 - offset / length;
+      const values: Record<string, number> = { xBar: offset, L: length, raw, U: Math.min(raw, 0.9) };
+      const trace = template.replace(/\{(\w+)\}/g, (_, key: string) => String(values[key]));
+      expect(trace).toContain(`1 − ${offset}/${length} = ${raw}`);
+      expect(trace.replace('0,9', '0.9')).toContain(`U = min(1 − x̄/L, 0.9) = ${values.U}`);
+    }
+  },
+);

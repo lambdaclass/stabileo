@@ -30,6 +30,15 @@ const IPE200: TensionSectionInput = { shape: 'I', h: 0.2, b: 0.1, tw: 0.0056, tf
 describe('single angle bolted on one leg — D.3(2)(a), B.4.2.2', () => {
   // 1 line of 4 × M20, standard holes, pitch 70 mm, leg h connected.
   const end: EndConnection = { kind: 'bolted', connected: 'legH', diameterMm: 20, holeKind: 'standard', boltsPerLine: 4, lines: 1, pitchMm: 70 };
+  it.skip('known wrong result: #2595 — the connection trace separates raw shear lag from its cap', () => {
+    const r = ok(endNetArea(L100, { ...end, pitchMm: 200 }));
+    const raw = 1 - r.xBar! / r.L!;
+    expect(raw).toBeGreaterThan(0.9);
+    expect(r.U).toBe(0.9);
+    const trace = r.steps.find(line => line.includes('(D.3.2)'));
+    expect(trace).toContain(`= ${raw.toFixed(3)}. U = min(1 − x̄/L, 0,9) = ${r.U.toFixed(3)}`);
+  });
+
   it('An with the +2 mm hole, x̄ of the angle, U = 1 − x̄/L', () => {
     const r = ok(endNetArea(L100, end));
     // hole 22 (Tabla J.3.3) + 2 = 24 mm; An = 1920 − 24·10 = 1680 mm²
