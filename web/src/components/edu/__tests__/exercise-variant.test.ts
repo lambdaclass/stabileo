@@ -195,3 +195,12 @@ it('known wrong result: #1927 — the validation limit counts complete support c
   expect(boundary.every(combo => Object.keys(combo).length === 8)).toBe(true);
   expect(() => supportCombos({ values: {}, supportChoices: choices })).toThrow(/256/);
 });
+
+it.skip('known wrong result: #1927 — missing diagram and characteristic values remain unavailable', () => {
+  const at = { kind: 'at', force: 'moment', element: 0, t: 0 } as const;
+  const exercise = toExercise(variantOf(beam({
+    characteristics: [{ label: 'M', unit: 'kN·m', answer: at }],
+    diagramQuestions: [{ question: 'M', unit: 'kN·m', answer: at }],
+  }), 0));
+  for (const q of [...exercise.characteristics, ...exercise.diagramQuestions]) expect(q.getCorrect([])).toBeNull();
+});

@@ -195,3 +195,13 @@ describe('the exercise list', () => {
     expect(previewText('{L} m with {P} kN and {x}', params)).toBe('4–8 m with 10 kN and {x}');
   });
 });
+
+it.skip('known wrong result: #1927 — axial force cannot mask a transverse imbalance or a spurious moment', () => {
+  const model: ModelSpec = { nodes: [[0, 0], [4, 0]], elements: [[0, 1]], supports: [] };
+  const bar: FreeBodyBar = { nodes: [0, 1], elements: [{ index: 0, forward: true }] };
+  const truth = { i: { Fx: 1000, Fy: 0, M: 0 }, j: { Fx: -1000, Fy: 0, M: 0 } };
+  expect(studentBalanced(model, bar, truth, truth)).toBe(true);
+  for (const changed of [{ Fy: 40 }, { M: 40 }]) {
+    expect(studentBalanced(model, bar, { ...truth, i: { ...truth.i, ...changed } }, truth)).toBe(false);
+  }
+});

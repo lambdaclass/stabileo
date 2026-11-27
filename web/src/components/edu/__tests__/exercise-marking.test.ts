@@ -118,3 +118,33 @@ describe('the teacher marks against the student\'s own variant', () => {
     expect(markNumber('', 10, true)).toBe('pending');
   });
 });
+
+it.skip('known wrong result: #1927 — numeric answers consume the full token and retain the sign of small reactions', () => {
+  for (const token of ['1/2', '1kN', '1 0', 'Infinity']) expect(markNumber(token, 1, true)).toBe('pending');
+  for (const sign of [-1, 1]) {
+    expect(markNumber(String(-sign * 0.09), sign * 0.005, true)).toBe('incorrect');
+    expect(markNumber(String(sign * 0.005), sign * 0.005, true)).toBe('correct');
+  }
+  expect(markNumber(' 1,25e1 ', 12.5, true)).toBe('correct');
+});
+
+it.skip('known wrong result: #1927 — re-marking rebuilds the assigned rows and their units', async () => {
+  const { questionKeys } = await import('../exam-grading');
+  const sub = rightAnswersFor('3003');
+  const resolved = variantOf(spec(), studentSeed(spec().id, sub.legajo!));
+  const row = { ...sub.answers[0]!, label: 'bogus', unit: 'bogus' };
+  sub.answers = [row, row, { ...row, key: 'r:0:bogus' }];
+  const marked = remarkSubmission(spec(), sub)!;
+  expect(marked.answers.map(a => a.key)).toEqual(questionKeys(resolved));
+  expect(marked.answers[0]).toMatchObject({ outcome: 'correct', unit: 'kN', label: row.key && resolved.supports[0]!.label + ' — Rx' });
+  expect(marked.answers.slice(1).every(a => a.outcome === 'pending')).toBe(true);
+});
+
+it.skip('known wrong result: #1927 — a fractional or suffixed degree cannot earn integer credit', () => {
+  const base = getExerciseSpecs().find(s => !s.params && s.kinematicQuestion?.classification === 'hyperstatic')!;
+  const deg = base.kinematicQuestion!.degree!;
+  for (const [token, expected] of [[String(deg), 'correct'], [deg + '.9', 'pending'], [deg + 'junk', 'pending']]) {
+    const sub = { ...rightAnswersFor('3003'), answers: [{ key: 'kd', label: 'degree', answer: token!, outcome: 'correct' as const }] };
+    expect(remarkSubmission(base, sub)!.answers.find(a => a.key === 'kd')?.outcome).toBe(expected);
+  }
+});

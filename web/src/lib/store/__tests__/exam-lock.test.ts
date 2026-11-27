@@ -63,3 +63,12 @@ describe('the exam lock fails open', () => {
     expect(examLock.serverNow()).toBe(T0 + 10 * 60_000);
   });
 });
+
+it.skip('known wrong result: #1927 — changing the wall clock during an attempt preserves the remaining exam time', () => {
+  examLock.engage({ deadlineAt: iso(T0 + 60_000), serverNow: iso(T0) });
+  vi.spyOn(Date, 'now').mockReturnValue(T0 + 120_000);
+  try {
+    vi.advanceTimersByTime(5000);
+    expect(examLock.remainingMs()).toBe(55_000);
+  } finally { vi.restoreAllMocks(); }
+});
