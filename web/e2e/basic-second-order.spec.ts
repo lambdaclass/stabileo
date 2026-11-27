@@ -12,6 +12,25 @@ test.describe('@slow second order and buckling in Basic', () => {
     await page.getByTestId('rb-cmd-advanced').click();
   });
 
+  for (const space of [false, true]) test('a tension-only bar returns from buckling without opening a mode in ' + (space ? '3D' : '2D'), async ({ page }) => {
+    await page.evaluate(async space => {
+      await window.__stabileoActions.loadExample('cantilever');
+      const file = JSON.parse(window.__stabileo.serializeProject());
+      file.analysisMode = space ? '3d' : '2d';
+      const [, bar] = file.snapshot.elements[0];
+      file.snapshot.supports[0][1].type = space ? 'fixed3d' : 'fixed';
+      file.snapshot.loads = [{ type: space ? 'nodal3d' : 'nodal', data: {
+        id: 1, nodeId: bar.nodeJ, fx: 10, fy: 0, fz: 0, mx: 0, my: 0, mz: 0,
+      } }];
+      if (!window.__stabileoActions.loadProject(file)) throw Error('Cantilever reopen failed');
+    }, space);
+    await openAdvancedFunction(page, 'buckling');
+    await expect(page.getByText('No member is in compression under these loads: there is no buckling to compute.', { exact: true })).toBeVisible();
+    await expect(page.getByTestId('adv-launcher')).toBeVisible();
+    await expect(page.getByTestId('adv-running')).toHaveCount(0);
+    await expect(page.getByTestId('buckling-how')).toHaveCount(0);
+  });
+
   test('recovers from a refused thermal teaching solve by switching back to the engine', async ({ page }) => {
     const opened = await page.evaluate(() => {
       const file = JSON.parse(window.__stabileo.serializeProject());
