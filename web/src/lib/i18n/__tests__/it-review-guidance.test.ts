@@ -198,3 +198,9 @@ it.each(['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh'] as const)(
     }
   },
 );
+
+it.skip.each(['de', 'fr'] as const)('known wrong result: #2595 — %s prints the decimal comma in both caps', locale => {
+  for (const key of ['c301.d.uShearLag', 'steel.tc.calc.u']) {
+    expect(allDictFor(locale)[key]).toContain('0,9)');
+  }
+});

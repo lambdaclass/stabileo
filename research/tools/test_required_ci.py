@@ -150,6 +150,14 @@ check_stacked_group(['web/src/lib/provenance/result-changes.json'], 'false')
 check_stacked_group(['research/papers.json'], 'true')
 
 measured = [step for step in route if 'check-research-route-size.mjs' in step.get('run', '')]
+@unittest.skip("known wrong result: #2595")
+def check_transition_meter():
+    step = next(s for s in route if 'transition' in s.get('name', '').lower())
+    assert re.fullmatch(r'[0-9a-f]{40}', step['env']['METER_REV'])
+    assert 'git archive "$METER_REV" web/scripts' in step['run']
+    assert step['run'].count('node "$meter"') == 2
+
+
 assert measured and all('if' not in step for step in measured)
 assert measured[0]['env']['RESEARCH_ISOLATION'] == '${{ steps.scope.outputs.research }}'
 assert not any(line.strip().startswith('cp ') for line in measured[0]['run'].splitlines())
