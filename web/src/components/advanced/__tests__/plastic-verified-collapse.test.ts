@@ -85,7 +85,9 @@ describe('the collapse plateau follows the mechanism along the chosen axis', () 
     const m = html.match(/<line class="ln plateau[^"]*" x1="([-\d.e]+)"[^>]*x2="([-\d.e]+)"/);
     return m ? Math.sign(+m[2] - +m[1]) : 0;
   };
-  const formedLast = r.hinges.findIndex((h, i) => h.kind === 'bending' && r.steps.at(-1)!.hingesFormed.includes(h) && i >= 0);
+  const last = r.steps.at(-1)!;
+  const eventIndex = last.hingesFormed.findIndex(hinge => hinge.kind === 'bending');
+  const formedLast = last.trace.events[eventIndex]?.hinge ?? -1;
 
   it('a sway portal: the top sways one way, a restrained support component and a hinge formed last its own way', async () => {
     expect(r.isMechanism && !r.unresolved).toBe(true);
@@ -94,7 +96,8 @@ describe('the collapse plateau follows the mechanism along the chosen axis', () 
     expect(await plateau({ kind: 'node', node: 1, dof: 'ux' })).toBe(0);
     expect(await plateau({ kind: 'node', node: 1, dof: 'ry' })).toBe(0);
     expect(formedLast).toBeGreaterThanOrEqual(0);
-    expect(r.steps.at(-1)!.rotations[formedLast]).toBe(0);
+    expect(r.hinges[formedLast]).toMatchObject({ elementId: last.hingesFormed[eventIndex]!.elementId, kind: 'bending' });
+    expect(last.rotations[formedLast]).toBe(0);
     const k = r.hinges.map((h, i) => ({ h, i })).filter(({ h }) => h.kind === 'bending' && h.unloadedAt === undefined).findIndex(({ i }) => i === formedLast);
     expect(await plateau({ kind: 'hinge', hinge: formedLast })).toBe(Math.sign(view.hinges[k].theta));
     expect(Math.sign(view.hinges[k].theta)).toBe(-1);
