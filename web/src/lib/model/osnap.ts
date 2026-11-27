@@ -140,6 +140,25 @@ function crossing(a: [P, P], b: [P, P]): P | null {
   return [a[0][0] + t * r[0], a[0][1] + t * r[1]];
 }
 
+/** The captured segments of the visible drawings laid at `z` that come within `r` of (x, y), laid on the model. */
+export function segmentsNear(list: readonly Underlay[], x: number, y: number, r: number, z: number): Array<[P, P]> {
+  const out: Array<[P, P]> = [];
+  for (const u of list) {
+    if (!u.visible || Math.abs(u.z - z) > 1e-6) continue;
+    const idx = indexOf(u);
+    const k = Math.ceil(r / idx.cell) + 1;
+    const cx = Math.floor(x / idx.cell), cy = Math.floor(y / idx.cell);
+    const ids = new Set<number>();
+    for (let i = cx - k; i <= cx + k; i++) for (let j = cy - k; j <= cy + k; j++) for (const s of idx.segments.get(`${i},${j}`) ?? []) ids.add(s);
+    for (const s of ids) {
+      const [a, b] = idx.segs[s]!;
+      const f = foot([x, y], a, b), t = Math.max(0, Math.min(1, f.t));
+      if (Math.hypot(a[0] + t * (b[0] - a[0]) - x, a[1] + t * (b[1] - a[1]) - y) <= r) out.push([a, b]);
+    }
+  }
+  return out;
+}
+
 /** The level whose drawings a point on level `z` snaps to: its own, else the nearest one under it that has any. */
 export function underlayLevelFor(list: readonly Underlay[], z: number): number | null {
   let below: number | null = null;

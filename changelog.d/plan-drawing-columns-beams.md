@@ -38,3 +38,14 @@ Walls are drawn on the plan as rectangles too, from «Draw walls on the plan». 
 thickness, and the wall stands from the storey's level to its ceiling. An end inside a column goes to
 the column's line, and the wall is meshed at once, so the columns and beams in its plane share its
 nodes. On the lowest level its base is held.
+
+One drawing bar serves the whole storey. Column, Wall, Beam and Slab are switched in the bar itself,
+or with one key each (C, W, B and S in English), and the Building panel follows. «Capture» takes a
+column from the template with one click inside its outline, at any angle, with that outline as its
+section. It takes a beam with one click between the two lines of a wall: the beam takes the wall's
+width and runs from the support on one side of the click to the one on the other. Each end of a beam
+frames into the column, wall or beam it reaches, and an end up to 30 cm short of one is carried on to
+its face. While it is drawn, what it frames into is outlined and named («C1 → C2 · 5.70 × 0.20 m»).
+What was placed is said in the bar rather than in a toast over the drawing. The plan view frames the
+template close, clear of the bar. Placing between axes folds away in the Columns and Beams tabs until
+the grid has axes.

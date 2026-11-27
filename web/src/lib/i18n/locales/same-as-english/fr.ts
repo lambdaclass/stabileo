@@ -782,6 +782,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'viewMenu.sections',
   'planDraw.mode.corners',
   'planDraw.mode.rect',
+  'planDraw.mode.capture',
   'viewer.mode.3d',
   'viewer.mode.plan',
   'viewport.compression',

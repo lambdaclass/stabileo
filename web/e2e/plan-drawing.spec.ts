@@ -1,6 +1,6 @@
 import { test, expect, ribbonCmd } from './fixtures';
 import type { Page } from '@playwright/test';
-import { simplePlanDxf } from '../src/lib/cad/__tests__/dxf-fixture';
+import { buildDxf, dxfLine, dxfLwPolyline, simplePlanDxf } from '../src/lib/cad/__tests__/dxf-fixture';
 
 test.use({ viewport: { width: 1400, height: 900 } });
 
@@ -48,7 +48,7 @@ test.describe('@smoke drawing the building on the plan', () => {
     await page.getByTestId('plan-draw-exit').click();
     await page.getByTestId('building-tab-beams').click();
     await page.getByTestId('building-beams-draw').click();
-    await expect(page.getByTestId('plan-draw-bar')).toContainText(/Viga|Beam/);
+    await expect(page.getByTestId('plan-draw-kind-beam')).toHaveAttribute('aria-checked', 'true');
     await expect(page.getByTestId('building-storey-select').locator('option:checked'), 'the storey stays the one its columns were drawn on').toContainText('N0');
     await expect(page.getByTestId('plan-draw-level'), 'and its beams go on its ceiling').toContainText('N1');
     await page.getByTestId('plan-draw-mode-axis').click();
@@ -196,11 +196,72 @@ test.describe('@smoke drawing the building on the plan', () => {
     await page.getByTestId('plan-draw-exit').click();
     await page.getByTestId('building-tab-walls').click();
     await page.getByTestId('building-walls-draw').click();
-    await expect(page.getByTestId('plan-draw-bar')).toContainText(/Tabique|Wall/);
+    await expect(page.getByTestId('plan-draw-kind-wall')).toHaveAttribute('aria-checked', 'true');
     await click(page, 0.15, -0.1, 0);
     await click(page, 5.85, 0.1, 0);
     await expect.poll(async () => (await model(page)).groups?.find(([, g]) => g.data?.kind === 'wall')?.[1].data).toMatchObject({ kind: 'wall', levelFrom: expect.any(String), levelTo: expect.any(String) });
     const m = await model(page);
     expect(m.elements.length, 'the columns are cut to share the wall’s mesh').toBeGreaterThan(2);
+  });
+
+  test('on a template, a click inside each column and between the lines of each wall captures them, and the bar switches kinds', async ({ pro: page }) => {
+    const rect = (x: number, y: number) => dxfLwPolyline('COLS', [[x - 0.15, y - 0.15], [x + 0.15, y - 0.15], [x + 0.15, y + 0.15], [x - 0.15, y + 0.15]], true);
+    const walls = [
+      dxfLine('MUROS', 0.15, -0.15, 5.85, -0.15), dxfLine('MUROS', 0.15, 0.05, 5.85, 0.05),
+      dxfLine('MUROS', 0.15, 5.15, 5.85, 5.15), dxfLine('MUROS', 0.15, 4.95, 5.85, 4.95),
+      dxfLine('MUROS', -0.15, 0.15, -0.15, 4.85), dxfLine('MUROS', 0.05, 0.15, 0.05, 4.85),
+      dxfLine('MUROS', 6.15, 0.15, 6.15, 4.85), dxfLine('MUROS', 5.95, 0.15, 5.95, 4.85),
+    ];
+    const dxf = buildDxf({ insunits: 6, layers: ['COLS', 'MUROS'], entities: [rect(0, 0), rect(6, 0), rect(6, 5), rect(0, 5), ...walls].join('\n') });
+    await page.getByTestId('pr-stage-model').click();
+    await ribbonCmd(page, 'building');
+    await page.getByTestId('grid-heights').fill('3');
+    await page.getByTestId('grid-generate-levels').click();
+    await page.getByTestId('underlay-file').setInputFiles({ name: 'walls.dxf', mimeType: 'application/dxf', buffer: Buffer.from(dxf) });
+    await page.getByTestId('underlay-unit').selectOption('m');
+    await page.getByTestId('underlay-level').selectOption({ label: 'N0' });
+    await page.getByTestId('underlay-lay').click();
+    await page.getByTestId('grid-open-building').click();
+    const shift = await page.evaluate(() => { const u = JSON.parse(window.__stabileo.serializeProject()).snapshot.underlays[0]; return { x: u.dx, y: u.dy }; });
+    const X = (x: number) => x + shift.x, Y = (y: number) => y + shift.y;
+    const r6 = (v: number) => Math.round(v * 1e6) / 1e6 + 0;
+
+    await page.getByTestId('building-columns-draw').click();
+    await page.getByTestId('plan-draw-mode-capture').click();
+    for (const [x, y] of [[0, 0], [6, 0], [6, 5], [0, 5]] as const) await click(page, X(x + 0.06), Y(y + 0.09), 0);
+    await expect.poll(async () => (await model(page)).groups?.filter(([, g]) => g.data?.kind === 'column').length).toBe(4);
+    await expect(page.getByTestId('plan-draw-last')).toContainText('C4');
+    let m = await model(page);
+    expect(m.nodes.filter(([, n]) => (n.z ?? 0) === 0).map(([, n]) => [r6(n.x - shift.x), r6(n.y - shift.y)]), 'each on the centre of its outline').toEqual([[0, 0], [6, 0], [6, 5], [0, 5]]);
+
+    await page.keyboard.press('b');
+    await expect(page.getByTestId('plan-draw-kind-beam')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByTestId('building-tab-beams'), 'the panel follows').toHaveAttribute('aria-selected', 'true');
+    await page.getByTestId('plan-draw-mode-capture').click();
+    const inWall = await at(page, X(3), Y(-0.05), 3);
+    await page.mouse.move(inWall.x, inWall.y);
+    await page.mouse.move(inWall.x + 1, inWall.y);
+    await expect(page.getByTestId('plan-draw-frames'), 'the two columns it frames into').toHaveCount(2);
+    await page.mouse.click(inWall.x, inWall.y);
+    await click(page, X(3), Y(5.05), 3);
+    await expect.poll(async () => (await model(page)).elements.length).toBe(6);
+    m = await model(page);
+    const pos = new Map(m.nodes);
+    const tops = (ids: number[]) => ids.map((id) => { const n = pos.get(id)!; return [r6(n.x - shift.x), r6(n.y - shift.y), n.z ?? 0]; });
+    expect(tops([m.elements[4]![1].nodeI, m.elements[4]![1].nodeJ]), 'from column to column, at its ceiling').toEqual([[0, 0, 3], [6, 0, 3]]);
+
+    await page.getByTestId('plan-draw-mode-rect').click();
+    await page.getByTestId('plan-draw-snaps').click();
+    await page.getByTestId('plan-snap-on').uncheck();
+    await page.getByTestId('plan-draw-snaps').click();
+    await click(page, X(2.9), Y(0.3), 3);
+    await click(page, X(3.1), Y(4.7), 3);
+    await expect.poll(async () => (await model(page)).elements.length, 'the beams it falls short of are reached and cut').toBe(9);
+    m = await model(page);
+    const last = m.elements[m.elements.length - 1]![1];
+    const pos2 = new Map(m.nodes);
+    const [ni, nj] = [last.nodeI, last.nodeJ].map((id) => { const n = pos2.get(id)!; return [n.x - shift.x, n.y - shift.y]; });
+    expect([ni![1], nj![1]].map(r6), 'on the axes of the two beams').toEqual([0, 5]);
+    for (const n of [ni!, nj!]) expect(Math.abs(n[0]! - 3), 'where it was drawn, to the free point’s centimetre').toBeLessThan(0.011);
   });
 });

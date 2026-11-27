@@ -1,25 +1,9 @@
 import { modelStore } from '../../store/model.svelte';
 import { createPlate } from '../../store/physical-plates';
 import type { Level } from '../grid';
-import { PHYSICAL_GROUP_KIND } from '../physical/types';
 import { nextName } from './declare';
 import { beamsAtLevel, columnsAtLevel, footprintCorners, nodeFinder, type P2 } from './draw-on-plan';
-
-function wallsAtLevel(z: number): Array<{ A: P2; B: P2; width: number }> {
-  const out: Array<{ A: P2; B: P2; width: number }> = [];
-  for (const g of modelStore.model.groups.values()) {
-    if (g.kind !== PHYSICAL_GROUP_KIND || (g.data as { kind?: string } | undefined)?.kind !== 'wall') continue;
-    const ids = new Set<number>(g.members.nodes ?? []);
-    for (const q of g.members.quads ?? []) for (const n of modelStore.quads.get(q)?.nodes ?? []) ids.add(n);
-    for (const q of g.members.plates ?? []) for (const n of modelStore.plates.get(q)?.nodes ?? []) ids.add(n);
-    const pts = [...ids].map((i) => modelStore.nodes.get(i)).filter((n) => n && Math.abs((n.z ?? 0) - z) < 1e-6).map((n) => ({ x: n!.x, y: n!.y }));
-    let best: [P2, P2] | null = null, far = 0;
-    for (const p of pts) for (const q of pts) { const d = Math.hypot(q.x - p.x, q.y - p.y); if (d > far) { far = d; best = [p, q]; } }
-    const t = (g.data as { surface?: { thickness?: number } } | undefined)?.surface?.thickness ?? 0.2;
-    if (best && far > 0.05) out.push({ A: best[0], B: best[1], width: t });
-  }
-  return out;
-}
+import { wallsAtLevel } from './plan-supports';
 
 export type EdgeSupport = 'beam' | 'wall' | 'free';
 export interface SlabEdge { a: P2; b: P2; support: EdgeSupport; line?: { a: P2; b: P2 } }

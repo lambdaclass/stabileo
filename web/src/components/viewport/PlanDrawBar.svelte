@@ -1,13 +1,14 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { planDraw, STRUCTURE_SNAPS, type BeamMode, type ColumnMode } from '../../lib/store/plan-draw.svelte';
+  import { planDraw, PLAN_DRAW_KINDS, STRUCTURE_SNAPS, type BeamMode, type ColumnMode, type PlanDrawKind } from '../../lib/store/plan-draw.svelte';
   import { OSNAP_MODES } from '../../lib/model/osnap-modes';
   import { t, tp } from '../../lib/i18n';
   import { uiStore } from '../../lib/store/ui.svelte';
   import { modelStore } from '../../lib/store/model.svelte';
 
-  const COLUMN_MODES: ColumnMode[] = ['corners', 'point', 'side'];
-  const BEAM_MODES: BeamMode[] = ['rect', 'axis', 'faces'];
+  const COLUMN_MODES: ColumnMode[] = ['corners', 'capture', 'point', 'side'];
+  const BEAM_MODES: BeamMode[] = ['rect', 'capture', 'axis', 'faces'];
+  const keyOf = (k: PlanDrawKind) => t(`planDraw.key.${k}`).toLowerCase();
   const ALIGN = [[1, '◧'], [0, '◫'], [-1, '◨']] as const;
   const cm = (m: number) => Math.round(m * 1000) / 10;
   const toM = (v: string) => { const n = parseFloat(v.replace(',', '.')); return Number.isFinite(n) && n > 0 ? n / 100 : null; };
@@ -38,6 +39,10 @@
     else if (e.key === 'Enter') { if (planDraw.typed) { planDraw.enter(); take(); } }
     else if (e.key === 'Backspace') { planDraw.back(); take(); }
     else if (e.key === 'Escape') { planDraw.cancel(); if (pending) take(); }
+    else if (e.key.length === 1 && !pending) {
+      const k = PLAN_DRAW_KINDS.find((x) => keyOf(x) === e.key.toLowerCase());
+      if (k) { planDraw.switchTo(k); take(); }
+    }
   }
   $effect(() => {
     const keys = (e: KeyboardEvent) => onKey(e);
@@ -49,13 +54,54 @@
 
 <div class="pd" role="toolbar" aria-label={t(`planDraw.${planDraw.kind}`)} data-testid="plan-draw-bar">
   <div class="pd-row">
-    <strong>{t(`planDraw.${planDraw.kind}`)}</strong>
-    <span class="pd-sep"></span>
+    <div class="pd-seg pd-kinds" role="radiogroup" aria-label={t('planDraw.kinds')}>
+      {#each PLAN_DRAW_KINDS as k (k)}
+        <button class:on={planDraw.kind === k} role="radio" aria-checked={planDraw.kind === k} onclick={() => planDraw.switchTo(k)}
+                title="{t(`planDraw.${k}`)} ({t(`planDraw.key.${k}`)})" data-testid="plan-draw-kind-{k}">{t(`planDraw.${k}`)}<kbd>{t(`planDraw.key.${k}`)}</kbd></button>
+      {/each}
+    </div>
     {#if planDraw.kind === 'column'}
-      <div class="pd-seg" role="radiogroup">
-        {#each COLUMN_MODES as m (m)}<button class:on={c.mode === m} role="radio" aria-checked={c.mode === m} onclick={() => planDraw.setMode(m)} data-testid="plan-draw-mode-{m}">{t(`planDraw.mode.${m}`)}</button>{/each}
-      </div>
       <span class="pd-sep"></span>
+      <div class="pd-seg" role="radiogroup">
+        {#each COLUMN_MODES as m (m)}<button class:on={c.mode === m} role="radio" aria-checked={c.mode === m} disabled={m === 'capture' && !planDraw.canCapture}
+          title={t(m === 'capture' ? (planDraw.canCapture ? 'planDraw.captureColumnHint' : 'planDraw.captureNeedsTemplate') : `planDraw.mode.${m}`)} onclick={() => planDraw.setMode(m)} data-testid="plan-draw-mode-{m}">{t(`planDraw.mode.${m}`)}</button>{/each}
+      </div>
+    {:else if planDraw.kind === 'beam'}
+      <span class="pd-sep"></span>
+      <div class="pd-seg" role="radiogroup">
+        {#each BEAM_MODES as m (m)}<button class:on={b.mode === m} role="radio" aria-checked={b.mode === m} disabled={m === 'capture' && !planDraw.canCapture}
+          title={t(m === 'capture' ? (planDraw.canCapture ? 'planDraw.captureBeamHint' : 'planDraw.captureNeedsTemplate') : `planDraw.mode.${m}`)} onclick={() => planDraw.setMode(m)} data-testid="plan-draw-mode-{m}">{t(`planDraw.mode.${m}`)}</button>{/each}
+      </div>
+    {/if}
+    <span class="pd-grow"></span>
+    <div class="pd-snaps">
+      <button class="pd-snap-btn" class:on={planDraw.snap.on} aria-expanded={snapsOpen} onclick={() => (snapsOpen = !snapsOpen)} title={t('planDraw.snapsHint')} data-testid="plan-draw-snaps">
+        {t('planDraw.snaps')}{planDraw.snap.on ? '' : ` · ${t('planDraw.free')}`} ▾</button>
+      {#if snapsOpen}
+        <div class="pd-snap-pop" role="group" aria-label={t('planDraw.snaps')} data-testid="plan-draw-snaps-pop">
+          <label class="pd-check"><input type="checkbox" checked={planDraw.snap.on} onchange={(e) => planDraw.setSnap('on', e.currentTarget.checked)} data-testid="plan-snap-on" /> <b>{t('planDraw.snapsOn')}</b></label>
+          <label class="pd-check"><input type="checkbox" checked={planDraw.orthoLock} onchange={(e) => (planDraw.orthoLock = e.currentTarget.checked)} data-testid="plan-snap-ortho" /> {t('planDraw.orthoLock')}</label>
+          <div class="pd-snap-group" class:off={!planDraw.snap.on}>
+            <span>{t('planDraw.snapGroup.template')}</span>
+            <label class="pd-check"><input type="checkbox" checked={planDraw.snap.template} disabled={!planDraw.snap.on} onchange={(e) => planDraw.setSnap('template', e.currentTarget.checked)} data-testid="plan-snap-template" /> {t('planDraw.snapTemplate')}</label>
+            {#each OSNAP_MODES as m (m)}
+              <label class="pd-check pd-sub"><input type="checkbox" checked={uiStore.osnapModes.has(m)} disabled={!planDraw.snap.on || !planDraw.snap.template} onchange={() => uiStore.toggleOsnap(m)} data-testid="plan-osnap-{m}" /> {t(`osnap.${m}`)}</label>
+            {/each}
+          </div>
+          <div class="pd-snap-group" class:off={!planDraw.snap.on}>
+            <span>{t('planDraw.snapGroup.model')}</span>
+            {#each STRUCTURE_SNAPS as k (k)}
+              <label class="pd-check"><input type="checkbox" checked={planDraw.snap[k]} disabled={!planDraw.snap.on} onchange={(e) => planDraw.setSnap(k, e.currentTarget.checked)} data-testid="plan-snap-{k}" /> {t(`planDraw.snapTo.${k}`)}</label>
+            {/each}
+          </div>
+          <p class="pd-snap-note">{t('planDraw.snapsNote')}</p>
+        </div>
+      {/if}
+    </div>
+    <button class="pd-x" onclick={() => planDraw.stop()} aria-label={t('planDraw.exit')} title={t('planDraw.exit')} data-testid="plan-draw-exit">×</button>
+  </div>
+  <div class="pd-row pd-params">
+    {#if planDraw.kind === 'column'}
       {#if sectionName(c.sectionId)}
         <span class="pd-size" data-testid="plan-draw-section">{sectionName(c.sectionId)} <button class="pd-x" onclick={() => (c.sectionId = null)} aria-label={t('planDraw.rectangular')} title={t('planDraw.rectangular')}>×</button></span>
       {:else}
@@ -82,10 +128,6 @@
       <label class="pd-size" title={t('planDraw.slabThicknessHint')}>{t('planDraw.thickness')} <input value={cm(sl.thickness)} onchange={(e) => { const v = toM(e.currentTarget.value); if (v) sl.thickness = v; }} data-testid="plan-draw-thickness" /> cm</label>
       {#if planDraw.beamLevel}<span class="pd-size" title={t('planDraw.onLevelHint')} data-testid="plan-draw-level">{tp('planDraw.onLevel', { level: planDraw.beamLevel.name })}</span>{/if}
     {:else}
-      <div class="pd-seg" role="radiogroup">
-        {#each BEAM_MODES as m (m)}<button class:on={b.mode === m} role="radio" aria-checked={b.mode === m} onclick={() => planDraw.setMode(m)} data-testid="plan-draw-mode-{m}">{t(`planDraw.mode.${m}`)}</button>{/each}
-      </div>
-      <span class="pd-sep"></span>
       {#if sectionName(b.sectionId)}
         <span class="pd-size" data-testid="plan-draw-section">{sectionName(b.sectionId)} <button class="pd-x" onclick={() => (b.sectionId = null)} aria-label={t('planDraw.rectangular')} title={t('planDraw.rectangular')}>×</button></span>
       {:else}
@@ -100,44 +142,22 @@
       {#if planDraw.beamLevel}<span class="pd-size" title={t('planDraw.onLevelHint')} data-testid="plan-draw-level">{tp('planDraw.onLevel', { level: planDraw.beamLevel.name })}</span>{/if}
       <label class="pd-check" title={t('planDraw.topFlushHint')}><input type="checkbox" bind:checked={b.topFlush} data-testid="plan-draw-top-flush" /> {t('planDraw.topFlush')}</label>
     {/if}
-    <span class="pd-sep"></span>
-    <div class="pd-snaps">
-      <button class="pd-snap-btn" class:on={planDraw.snap.on} aria-expanded={snapsOpen} onclick={() => (snapsOpen = !snapsOpen)} title={t('planDraw.snapsHint')} data-testid="plan-draw-snaps">
-        {t('planDraw.snaps')}{planDraw.snap.on ? '' : ` · ${t('planDraw.free')}`} ▾</button>
-      {#if snapsOpen}
-        <div class="pd-snap-pop" role="group" aria-label={t('planDraw.snaps')} data-testid="plan-draw-snaps-pop">
-          <label class="pd-check"><input type="checkbox" checked={planDraw.snap.on} onchange={(e) => planDraw.setSnap('on', e.currentTarget.checked)} data-testid="plan-snap-on" /> <b>{t('planDraw.snapsOn')}</b></label>
-          <label class="pd-check"><input type="checkbox" checked={planDraw.orthoLock} onchange={(e) => (planDraw.orthoLock = e.currentTarget.checked)} data-testid="plan-snap-ortho" /> {t('planDraw.orthoLock')}</label>
-          <div class="pd-snap-group" class:off={!planDraw.snap.on}>
-            <span>{t('planDraw.snapGroup.template')}</span>
-            <label class="pd-check"><input type="checkbox" checked={planDraw.snap.template} disabled={!planDraw.snap.on} onchange={(e) => planDraw.setSnap('template', e.currentTarget.checked)} data-testid="plan-snap-template" /> {t('planDraw.snapTemplate')}</label>
-            {#each OSNAP_MODES as m (m)}
-              <label class="pd-check pd-sub"><input type="checkbox" checked={uiStore.osnapModes.has(m)} disabled={!planDraw.snap.on || !planDraw.snap.template} onchange={() => uiStore.toggleOsnap(m)} data-testid="plan-osnap-{m}" /> {t(`osnap.${m}`)}</label>
-            {/each}
-          </div>
-          <div class="pd-snap-group" class:off={!planDraw.snap.on}>
-            <span>{t('planDraw.snapGroup.model')}</span>
-            {#each STRUCTURE_SNAPS as k (k)}
-              <label class="pd-check"><input type="checkbox" checked={planDraw.snap[k]} disabled={!planDraw.snap.on} onchange={(e) => planDraw.setSnap(k, e.currentTarget.checked)} data-testid="plan-snap-{k}" /> {t(`planDraw.snapTo.${k}`)}</label>
-            {/each}
-          </div>
-          <p class="pd-snap-note">{t('planDraw.snapsNote')}</p>
-        </div>
-      {/if}
-    </div>
-    <span class="pd-sep"></span>
-    <button class="pd-x" onclick={() => planDraw.stop()} aria-label={t('planDraw.exit')} title={t('planDraw.exit')} data-testid="plan-draw-exit">×</button>
   </div>
-  <p class="pd-step" data-testid="plan-draw-step">{t(`planDraw.step.${planDraw.step}`)} · {t('planDraw.keys')}</p>
+    <p class="pd-step">{#if planDraw.last}<span class="pd-last" role="status" data-testid="plan-draw-last">{planDraw.last}</span> · {/if}<span data-testid="plan-draw-step">{t(`planDraw.step.${planDraw.step}`)}</span> · {t('planDraw.keys')}</p>
 </div>
 
 <style>
   .pd { padding: 4px 8px; font-size: 0.72rem; color: var(--st-text); background: color-mix(in srgb, var(--st-surface) 94%, transparent);
         border: 1px solid color-mix(in srgb, var(--st-accent) 45%, transparent); border-radius: var(--st-radius); box-shadow: 0 4px 14px rgb(0 0 0 / 0.3); }
   .pd-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; white-space: nowrap; }
+  .pd-params { margin-top: 3px; }
+  .pd-grow { flex: 1; }
   .pd-sep { width: 1px; align-self: stretch; margin: 2px 0; background: var(--st-hair-strong); }
   .pd-seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: 4px; background: var(--st-surface-2); }
   .pd-seg button { border: none; background: none; color: var(--st-text-2); font-size: 0.7rem; padding: 2px 7px; border-radius: 3px; cursor: pointer; }
+  .pd-seg button:disabled { opacity: 0.4; cursor: default; }
+  .pd-kinds button { font-weight: 600; }
+  .pd-kinds kbd { margin-left: 4px; font: inherit; font-size: 0.6rem; font-weight: 400; color: var(--st-text-3); }
   .pd-seg button.on { background: var(--st-surface-3); color: var(--st-accent); box-shadow: inset 0 0 0 1px var(--st-hair-strong); }
   .pd-size, .pd-check { display: inline-flex; align-items: center; gap: 3px; color: var(--st-text-2); }
   .pd-size input { width: 3.2em; font: inherit; text-align: right; color: var(--st-text); background: var(--st-surface); border: 1px solid var(--st-hair-strong); border-radius: 4px; padding: 1px 4px; }
@@ -158,4 +178,5 @@
   .pd-sub { padding-left: 14px; }
   .pd-snap-note { margin: 2px 0 0; font-size: 0.64rem; color: var(--st-text-3); }
   .pd-step { margin: 3px 0 0; font-size: 0.66rem; color: var(--st-text-3); }
+  .pd-last { color: var(--st-ok); }
 </style>

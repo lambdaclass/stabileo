@@ -7,6 +7,7 @@ import type { Vec3 } from '../edit/affine';
 import type { Level } from '../grid';
 import { PHYSICAL_GROUP_KIND } from '../physical/types';
 import { declare, nextName } from './declare';
+import { beamEnds, supportsAtLevel, type Support } from './plan-supports';
 
 export type P2 = { x: number; y: number };
 
@@ -251,13 +252,15 @@ export interface BeamOnPlan {
  * column's face, say) while it frames into the columns. Declared one physical beam.
  */
 export function placeBeamOnPlan(d: BeamOnPlan): PlanPlaced {
-  const L = Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y);
-  if (L < 0.05) return { created: 0, bars: [], refused: 'length' };
+  if (Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y) < 0.05) return { created: 0, bars: [], refused: 'length' };
   if (d.sectionId === undefined && (d.width < 0.01 || d.height < 0.01)) return { created: 0, bars: [], refused: 'size' };
   const z = d.level.z;
-  const t = { x: (d.b.x - d.a.x) / L, y: (d.b.y - d.a.y) / L };
-  const param = (p: P2) => (p.x - d.a.x) * t.x + (p.y - d.a.y) * t.y;
-  const onAxis = (s: number): P2 => ({ x: d.a.x + t.x * s, y: d.a.y + t.y * s });
+  const ends = beamEnds(d.a, d.b, supportsAtLevel(z));
+  const A = ends.a, B = ends.b;
+  const L = Math.hypot(B.x - A.x, B.y - A.y);
+  const t = { x: (B.x - A.x) / L, y: (B.y - A.y) / L };
+  const param = (p: P2) => (p.x - A.x) * t.x + (p.y - A.y) * t.y;
+  const onAxis = (s: number): P2 => ({ x: A.x + t.x * s, y: A.y + t.y * s });
   const out: PlanPlaced = { created: 0, bars: [] };
   modelStore.batch(() => {
     const nodeAt = nodeFinder();
@@ -272,22 +275,28 @@ export function placeBeamOnPlan(d: BeamOnPlan): PlanPlaced {
     const stations: Station[] = [];
     const cuts: Array<{ bar: number; node: number }> = [];
     const onBar = (bar: (typeof drawn)[number], u: number) => nodeAt(bar.a.x + (bar.b.x - bar.a.x) * u, bar.a.y + (bar.b.y - bar.a.y) * u, z);
-    const endNode = (s: number): number => {
+    const endNode = (s: number, on: Support | null): number => {
       const p = onAxis(s);
-      const col = columns.find((c) => inside(c.footprint, p, INSIDE_M));
-      if (col) return col.node;
-      for (const bar of drawn) {
-        const dx = bar.B.x - bar.A.x, dy = bar.B.y - bar.A.y, l2 = dx * dx + dy * dy;
-        if (l2 < 1e-12) continue;
-        const u = ((p.x - bar.A.x) * dx + (p.y - bar.A.y) * dy) / l2;
-        if (u <= 1e-6 || u >= 1 - 1e-6 || Math.hypot(bar.A.x + dx * u - p.x, bar.A.y + dy * u - p.y) > INSIDE_M) continue;
-        const node = onBar(bar, u);
+      if (on?.node !== undefined) return on.node;
+      if (on?.nodes?.length) {
+        let best = on.nodes[0]!, far = Infinity;
+        for (const id of on.nodes) { const n = modelStore.nodes.get(id)!; const dd = Math.hypot(n.x - p.x, n.y - p.y); if (dd < far) { far = dd; best = id; } }
+        return best;
+      }
+      const bar = on?.bar;
+      if (bar) {
+        const e = { x: bar.B.x - bar.A.x, y: bar.B.y - bar.A.y }, M = Math.hypot(e.x, e.y);
+        const den = t.x * e.y - t.y * e.x;
+        const u = Math.abs(den) < 1e-9 ? ((p.x - bar.A.x) * e.x + (p.y - bar.A.y) * e.y) / (M * M) : ((bar.A.x - A.x) * t.y - (bar.A.y - A.y) * t.x) / den;
+        if (u * M <= 0.05) return bar.i;
+        if ((1 - u) * M <= 0.05) return bar.j;
+        const node = nodeAt(bar.a.x + (bar.b.x - bar.a.x) * u, bar.a.y + (bar.b.y - bar.a.y) * u, z);
         cuts.push({ bar: bar.id, node });
         return node;
       }
       return nodeAt(p.x, p.y, z);
     };
-    const n0 = endNode(0), n1 = endNode(L);
+    const n0 = endNode(0, ends.start), n1 = endNode(L, ends.end);
     stations.push({ s: 0, node: n0 }, { s: L, node: n1 });
     for (const c of columns) {
       if (c.node === n0 || c.node === n1) continue;
@@ -300,7 +309,7 @@ export function placeBeamOnPlan(d: BeamOnPlan): PlanPlaced {
       const ex = bar.B.x - bar.A.x, ey = bar.B.y - bar.A.y;
       const den = t.x * ey - t.y * ex;
       if (Math.abs(den) < 1e-9) continue;
-      const wx = bar.A.x - d.a.x, wy = bar.A.y - d.a.y;
+      const wx = bar.A.x - A.x, wy = bar.A.y - A.y;
       const s = (wx * ey - wy * ex) / den, u = (wx * t.y - wy * t.x) / den;
       if (s <= 1e-6 || s >= L - 1e-6 || u <= 1e-6 || u >= 1 - 1e-6) continue;
       const node = onBar(bar, u);

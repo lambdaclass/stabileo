@@ -113,11 +113,13 @@
     {#if uiStore.designInPro}<label class="bk-field">{t('building.col.cover')} <input type="number" min="10" step="5" placeholder={t('building.col.coverProject')} value={cover ?? ''} onchange={(e) => (cover = e.currentTarget.value === '' ? null : Number(e.currentTarget.value))} data-testid="building-col-cover" /></label>{/if}
   </div>
 
-  <h5 class="bk-h">{t('building.betweenAxesTitle')}</h5>
+  <details class="bk-axes" open={(grid?.axes.length ?? 0) > 0} data-testid="building-columns-axes">
+    <summary class="bk-h">{t('building.betweenAxesTitle')}</summary>
   <BuildingRange bind:x0 bind:x1 bind:y0 bind:y1 bind:levelFrom bind:levelTo levelsLabel={t('building.col.levels')} />
   <button class="pk-btn pk-btn-primary" disabled={count === 0} onclick={place} data-testid="building-columns-place">
     {count ? tp('building.col.place', { n: count }) : t('grid.frameNothing')}
   </button>
+  </details>
 
 </section>
 
@@ -128,6 +130,8 @@
   .bk-field input[type='number'] { width: 4.5rem; font-size: 0.72rem; }
   .bk-field select { font-size: 0.72rem; max-width: 12rem; }
   .bk-check { display: flex; align-items: center; gap: 4px; font-size: 0.7rem; color: var(--st-text-2); }
+  .bk-axes { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--st-hair); }
+  .bk-axes summary { cursor: pointer; }
   .bk-h { margin: 8px 0 2px; font-size: 0.72rem; font-weight: 600; color: var(--st-text-2); }
   .bk-warn { color: var(--st-warn); }
   .bk-fp { display: grid; grid-template-columns: repeat(3, 12px); gap: 2px; padding: 2px; border: 1px dashed var(--st-hair-strong); }

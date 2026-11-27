@@ -11,12 +11,18 @@ import {
 } from '../model/building/draw-on-plan';
 import { framingAt, placeSlabOnPlan, slabFraming, type FramingAt, type SlabEdge } from '../model/building/slab-on-plan';
 import { placeWallOnPlan } from '../model/building/wall-on-plan';
+import { beamEnds, clipToSupports, supportCorners, supportsAtLevel, type Support } from '../model/building/plan-supports';
+import { captureBand, captureRect } from '../model/building/template-capture';
+import { segmentsNear, underlayLevelFor } from '../model/osnap';
+import type { BuildingTool } from './building-ui.svelte';
 
 export type PlanDrawKind = 'column' | 'beam' | 'slab' | 'wall';
-export type ColumnMode = 'point' | 'corners' | 'side';
-export type BeamMode = 'rect' | 'axis' | 'faces';
+export type ColumnMode = 'point' | 'corners' | 'side' | 'capture';
+export type BeamMode = 'rect' | 'capture' | 'axis' | 'faces';
+export const PLAN_DRAW_KINDS: readonly PlanDrawKind[] = ['column', 'wall', 'beam', 'slab'];
+const TOOL_OF: Record<PlanDrawKind, BuildingTool> = { column: 'columns', wall: 'walls', beam: 'beams', slab: 'slabs' };
 
-const NEED: Record<ColumnMode | BeamMode, number> = { point: 1, corners: 2, side: 3, rect: 2, axis: 2, faces: 3 };
+const NEED: Record<ColumnMode | BeamMode, number> = { point: 1, corners: 2, side: 3, capture: 1, rect: 2, axis: 2, faces: 3 };
 
 /** What a point snaps to while drawing on the plan, each turned on or off; `on` is all of them at once (F3). */
 export const STRUCTURE_SNAPS = ['column', 'beam', 'node', 'axes', 'grid'] as const;
@@ -33,6 +39,8 @@ const snap = $state<typeof snapDefaults>((() => {
 function saveSnaps() { try { localStorage.setItem(SNAP_KEY, JSON.stringify(snap)); } catch { /* not kept */ } }
 
 let kind = $state<PlanDrawKind | null>(null);
+/** What the last click placed, said in the bar rather than in a toast over the drawing. */
+let last = $state('');
 let points = $state<P2[]>([]);
 let hover = $state<P2 | null>(null);
 let typed = $state('');
@@ -46,6 +54,35 @@ const slab = $state({ thickness: 0.15, typology: 'solid' });
 let framingCache: { key: string; at: FramingAt } | null = null;
 const wall = $state({ typology: 'concrete', meshSize: 1, fixBase: true });
 let modeBefore: 'wireframe' | 'solid' | 'sections' | null = null;
+/** What a beam on the level drawn can frame into, read once per model change. */
+let supportsCache: { key: string; list: Support[] } | null = null;
+function supports(z: number): Support[] {
+  const key = `${modelStore.modelVersion}:${z}`;
+  if (supportsCache?.key !== key) supportsCache = { key, list: supportsAtLevel(z) };
+  return supportsCache.list;
+}
+
+/** The template a click on this storey captures: its own, else the one it borrows from below. */
+function templateNear(): ((x: number, y: number, r: number) => Array<[[number, number], [number, number]]>) | null {
+  const z = underlayLevelFor(modelStore.underlays, uiStore.nodeCreateZ);
+  return z === null ? null : (x, y, r) => segmentsNear(modelStore.underlays, x, y, r, z);
+}
+let captureCache: { key: string; column: Footprint | null; beam: { a: P2; b: P2; width: number } | null } | null = null;
+/** What a click at `p` captures on the template: the column outline around it, or the beam in the wall band it is in. */
+function captured(p: P2): { column: Footprint | null; beam: { a: P2; b: P2; width: number } | null } {
+  const key = `${modelStore.modelVersion}:${uiStore.nodeCreateZ}:${kind}:${p.x.toFixed(4)},${p.y.toFixed(4)}`;
+  if (captureCache?.key === key) return captureCache;
+  const near = templateNear();
+  let column: Footprint | null = null, beam: { a: P2; b: P2; width: number } | null = null;
+  if (near && kind === 'column') column = captureRect(near, p);
+  if (near && kind === 'beam') {
+    const band = captureBand(near, p);
+    const ceiling = beamLevel();
+    if (band && ceiling) beam = { ...clipToSupports(band.a, band.b, p, supports(ceiling.z)), width: band.width };
+  }
+  captureCache = { key, column, beam };
+  return captureCache;
+}
 
 const levels = (): Level[] => [...(modelStore.grid?.levels ?? [])].sort((a, b) => a.z - b.z);
 const levelHere = (): Level | undefined => levels().find((l) => Math.abs(l.z - uiStore.nodeCreateZ) < 1e-6);
@@ -61,6 +98,13 @@ function constrain(p: P2): P2 {
   return Math.abs(p.x - last.x) >= Math.abs(p.y - last.y) ? { x: p.x, y: last.y } : { x: last.x, y: p.y };
 }
 
+/** The beam the points and the pointer give, before its ends are carried to what they frame into. */
+function beamShape(pts: readonly P2[]): { a: P2; b: P2; width: number } | null {
+  if (beam.mode === 'capture') return beamLine(pts);
+  if (beam.mode === 'faces' && pts.length < 3) return null;
+  return pts.length >= 2 ? beamLine(pts) : null;
+}
+
 const mode = (): ColumnMode | BeamMode => (kind === 'column' ? column.mode : kind === 'beam' ? beam.mode : 'rect');
 
 function band(a: P2, b: P2, width: number): P2[] {
@@ -71,12 +115,14 @@ function band(a: P2, b: P2, width: number): P2[] {
 }
 
 function columnFootprint(pts: readonly P2[]): Footprint | null {
+  if (column.mode === 'capture') return pts[0] ? captured(pts[0]).column : null;
   if (column.mode === 'point') return pts[0] ? footprintAt(pts[0], column.b, column.h, column.angle, column.fixedPoint) : null;
   if (column.mode === 'corners') return pts.length >= 2 ? footprintFromCorners(pts[0]!, pts[1]!) : null;
   return pts.length >= 3 ? footprintFromSide(pts[0]!, pts[1]!, pts[2]!) : null;
 }
 
 function beamLine(pts: readonly P2[]): { a: P2; b: P2; width: number } | null {
+  if (beam.mode === 'capture') return pts[0] ? captured(pts[0]).beam : null;
   if (beam.mode === 'rect') return pts.length >= 2 ? beamFromRect(pts[0]!, pts[1]!) : null;
   if (beam.mode === 'axis') return pts.length >= 2 ? { ...beamAxis(pts[0]!, pts[1]!, beam.width, beam.align), width: beam.width } : null;
   return pts.length >= 3 ? beamFromFaces(pts[0]!, pts[1]!, pts[2]!) : null;
@@ -85,7 +131,7 @@ function beamLine(pts: readonly P2[]): { a: P2; b: P2; width: number } | null {
 function report(r: PlanPlaced, what: 'column' | 'beam'): boolean {
   if (r.refused) uiStore.toast(t(`planDraw.refused.${r.refused}`), 'error');
   else if (r.created === 0) uiStore.toast(t('planDraw.nothing'), 'info');
-  else uiStore.toast(tp(`planDraw.placed.${what}`, { n: r.bars.length }), 'success');
+  else last = `✓ ${(r.groupId !== undefined ? modelStore.model.groups.get(r.groupId)?.name : undefined) ?? tp(`planDraw.placed.${what}`, { n: r.bars.length })}`;
   return !r.refused;
 }
 
@@ -94,7 +140,7 @@ function commit(pts: P2[]) {
   if (kind === 'column') {
     const f = columnFootprint(pts);
     points = [];
-    if (!f) { uiStore.toast(t('planDraw.refused.size'), 'error'); return; }
+    if (!f) { uiStore.toast(t(column.mode === 'capture' ? 'planDraw.refused.noOutline' : 'planDraw.refused.size'), 'error'); return; }
     const all = levels();
     const from = column.levelFrom || level?.id || '';
     const start = all.find((l) => l.id === from);
@@ -117,7 +163,7 @@ function commit(pts: P2[]) {
     const r = placeWallOnPlan({ a: line.a, b: line.b, thickness: line.width, levels: levels(), levelFrom: level.id, levelTo: top.id,
       materialId: buildingUi.concreteId, meshSize: wall.meshSize, typology: wall.typology, fixBase: wall.fixBase });
     if (r.created === 0) uiStore.toast(t(r.refused === 'size' || r.refused === 'levels' ? `planDraw.refused.${r.refused}` : `building.refused.${r.refused ?? 'cannotMesh'}`), 'error');
-    else uiStore.toast(tp('planDraw.placed.wall', { level: level.name, top: top.name, n: r.shells }), 'success');
+    else last = `✓ ${tp('planDraw.placed.wall', { level: level.name, top: top.name, n: r.shells })}`;
     return;
   }
   if (kind === 'slab') {
@@ -126,12 +172,13 @@ function commit(pts: P2[]) {
     const r = placeSlabOnPlan({ corners: rectCorners(pts[0]!, pts[1]!), level: ceiling, thickness: slab.thickness, materialId: buildingUi.concreteId, typology: slab.typology });
     if (r.refused) { uiStore.toast(t(`planDraw.refused.${r.refused}`), 'error'); return; }
     const free = r.edges.filter((e) => e.support === 'free').length;
-    uiStore.toast(free ? tp('planDraw.placed.slabFree', { n: free, level: ceiling.name }) : tp('planDraw.placed.slab', { level: ceiling.name }), free ? 'info' : 'success');
+    if (free) uiStore.toast(tp('planDraw.placed.slabFree', { n: free, level: ceiling.name }), 'info');
+    last = `✓ ${free ? tp('planDraw.placed.slabFree', { n: free, level: ceiling.name }) : tp('planDraw.placed.slab', { level: ceiling.name })}`;
     return;
   }
   const line = beamLine(pts);
   if (!ceiling) { uiStore.toast(t('planDraw.noLevel'), 'error'); points = []; return; }
-  if (!line) { uiStore.toast(t('planDraw.refused.size'), 'error'); points = []; return; }
+  if (!line) { uiStore.toast(t(beam.mode === 'capture' ? 'planDraw.refused.noBand' : 'planDraw.refused.size'), 'error'); points = []; return; }
   const materialId = buildingUi.materialFor(typologyFamily('beam', beam.typology));
   const placed = report(placeBeamOnPlan({
     a: line.a, b: line.b, width: line.width, height: beam.height, level: ceiling, materialId, typology: beam.typology, topFlush: beam.topFlush,
@@ -143,6 +190,7 @@ function commit(pts: P2[]) {
 
 export const planDraw = {
   get active() { return kind !== null; },
+  get last() { return last; },
   get kind() { return kind; },
   get points() { return points; },
   get hover() { return hover; },
@@ -160,6 +208,10 @@ export const planDraw = {
   slab,
   wall,
   get levels() { return levels(); },
+  /** Whether a click captures what is around it on the template, so the pointer is not snapped. */
+  get capturing() { return mode() === 'capture'; },
+  /** Whether the storey has a template to capture outlines and wall bands from. */
+  get canCapture() { return underlayLevelFor(modelStore.underlays, uiStore.nodeCreateZ) !== null; },
   /** The level the next click lands on: the storey's floor for a column, its ceiling for a beam. */
   get z(): number { return kind === 'beam' || kind === 'slab' ? beamLevel()?.z ?? uiStore.nodeCreateZ : uiStore.nodeCreateZ; },
   /** The level a beam or a slab is placed on, while drawing them. */
@@ -173,13 +225,31 @@ export const planDraw = {
     if (framingCache?.key !== key) framingCache = { key, at: framingAt(z) };
     return slabFraming(rectCorners(points[0]!, hover), z, framingCache.at);
   },
+  /** Another kind drawn on the same storey; the Building panel shows its tool. */
+  switchTo(k: PlanDrawKind) {
+    if (kind === k) return;
+    this.start(k);
+    buildingUi.tool = TOOL_OF[k];
+  },
+  /** What the beam the pointer gives frames into at each end, outlined, and the two names. */
+  get frames(): { outlines: P2[][]; text: string } | null {
+    if (kind !== 'beam') return null;
+    const line = beamShape(hover ? [...points, hover] : points);
+    const ceiling = beamLevel();
+    if (!line || !ceiling) return null;
+    const e = beamEnds(line.a, line.b, supports(ceiling.z));
+    const name = (s: Support | null) => (s ? s.name ?? t(`planDraw.support.${s.kind}`) : t('planDraw.support.none'));
+    const L = Math.hypot(e.b.x - e.a.x, e.b.y - e.a.y);
+    return { outlines: [e.start, e.end].filter((x): x is Support => !!x).map(supportCorners), text: `${name(e.start)} → ${name(e.end)} · ${L.toFixed(2)} × ${line.width.toFixed(2)} m` };
+  },
   /** What a click needs next, as a key of `planDraw.step.*`. */
   get step(): string {
     const m = mode();
+    if (m === 'capture') return `capture.${kind}`;
     return `${m}.${Math.min(points.length, NEED[m] - 1)}`;
   },
   start(k: PlanDrawKind) {
-    kind = k; points = []; typed = ''; hover = null; ortho = false;
+    kind = k; points = []; typed = ''; hover = null; ortho = false; last = '';
     uiStore.workingPlane = 'XY';
     uiStore.planView3D = true;
     uiStore.currentTool = 'pan';
@@ -232,21 +302,19 @@ export const planDraw = {
     if (kind === 'column') {
       const f = columnFootprint(pts);
       if (f) return footprintCorners(f);
-      return pts.length === 2 ? pts : [];
+      return pts.length === 2 && column.mode === 'side' ? pts : [];
     }
     if (kind === 'slab') return pts.length >= 2 ? rectCorners(pts[0]!, pts[1]!) : [];
     if (kind === 'wall') { if (pts.length < 2) return []; const l = beamFromRect(pts[0]!, pts[1]!); return l ? band(l.a, l.b, l.width) : rectCorners(pts[0]!, pts[1]!); }
-    if (beam.mode === 'rect' && pts.length >= 2) { const l = beamFromRect(pts[0]!, pts[1]!); return l ? band(l.a, l.b, l.width) : rectCorners(pts[0]!, pts[1]!); }
-    if (beam.mode === 'axis' && pts.length >= 2) { const a = beamAxis(pts[0]!, pts[1]!, beam.width, beam.align); return band(a.a, a.b, beam.width); }
-    if (beam.mode === 'faces') {
-      const l = pts.length >= 3 ? beamFromFaces(pts[0]!, pts[1]!, pts[2]!) : null;
-      if (l) return band(l.a, l.b, l.width);
-      return pts.length === 2 ? pts : [];
-    }
-    return [];
+    const line = beamShape(pts);
+    const ceiling = beamLevel();
+    if (line) { const e = ceiling ? beamEnds(line.a, line.b, supports(ceiling.z)) : line; return band(e.a, e.b, line.width); }
+    if (beam.mode === 'rect' && pts.length >= 2) return rectCorners(pts[0]!, pts[1]!);
+    return beam.mode === 'faces' && pts.length === 2 ? pts : [];
   },
   /** A rectangle's two sides, from the first corner to the pointer, while one is drawn. */
   get size(): string | null {
+    if (kind === 'column' && column.mode === 'capture' && hover) { const f = captured(hover).column; return f ? `${f.b.toFixed(2)} × ${f.h.toFixed(2)} m` : null; }
     const rect = kind === 'slab' || kind === 'wall' || (kind === 'beam' && beam.mode === 'rect') || (kind === 'column' && column.mode === 'corners');
     const p = points[0];
     return rect && points.length === 1 && p && hover ? `${Math.abs(hover.x - p.x).toFixed(2)} × ${Math.abs(hover.y - p.y).toFixed(2)} m` : null;

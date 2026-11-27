@@ -2319,6 +2319,7 @@
   function planDrawPoint(e: MouseEvent): { x: number; y: number; mode?: string; label?: string } | null {
     const ground = getGroundIntersection(e);
     if (!ground || !camera || !container) return null;
+    if (planDraw.capturing) return { x: ground.x, y: ground.y };
     const free = { x: Math.round(ground.x * 100) / 100, y: Math.round(ground.y * 100) / 100 };
     const sn = planDraw.snap;
     if (!sn.on) return free;
@@ -2354,7 +2355,7 @@
     if (sn.grid) { const s = uiStore.snapWorld3D(ground.x, ground.y, z); return { x: s.x, y: s.y, mode: 'grid' }; }
     return free;
   }
-  let planHint = $state<{ snap: { sx: number; sy: number; mode: string; label?: string } | null; outline: string; mx: number; my: number; text: string; free: Array<{ x1: number; y1: number; x2: number; y2: number }> } | null>(null);
+  let planHint = $state<{ snap: { sx: number; sy: number; mode: string; label?: string } | null; outline: string; frames: string[]; mx: number; my: number; text: string; free: Array<{ x1: number; y1: number; x2: number; y2: number }> } | null>(null);
   let planHintFrame = 0;
   let planHintEvent: MouseEvent | null = null;
   let planLast: { cx: number; cy: number; p: { x: number; y: number; mode?: string; label?: string } | null } | null = null;
@@ -2379,13 +2380,15 @@
     const h = planDraw.hover;
     const snap = h && p?.mode ? (() => { const s = projectToScreen(h.x, h.y, z); return { sx: s.x, sy: s.y, mode: p.mode!, ...(p.label ? { label: p.label } : {}) }; })() : null;
     const len = planDraw.rubber;
-    const text = planDraw.typed ? `${planDraw.typed} m ⏎` : planDraw.size ?? (len !== null ? `${len.toFixed(2)} m` : '');
+    const into = planDraw.frames;
+    const frames = (into?.outlines ?? []).map((o) => o.map((q) => { const s = projectToScreen(q.x, q.y, z); return `${s.x},${s.y}`; }).join(' '));
+    const text = planDraw.typed ? `${planDraw.typed} m ⏎` : into?.text ?? planDraw.size ?? (len !== null ? `${len.toFixed(2)} m` : '');
     const free = planDraw.slabEdges.filter((ed) => ed.support === 'free').map((ed) => { const a = projectToScreen(ed.a.x, ed.a.y, z), b = projectToScreen(ed.b.x, ed.b.y, z); return { x1: a.x, y1: a.y, x2: b.x, y2: b.y }; });
-    planHint = { snap, outline, mx: cx - rect.left, my: cy - rect.top, text, free };
+    planHint = { snap, outline, frames, mx: cx - rect.left, my: cy - rect.top, text, free };
   }
   $effect(() => {
     void planDraw.points; void planDraw.typed; void planDraw.column.b; void planDraw.column.h; void planDraw.column.angle; void planDraw.column.fixedPoint;
-    void planDraw.beam.width; void planDraw.beam.align;
+    void planDraw.beam.width; void planDraw.beam.align; void planDraw.kind; void planDraw.column.mode; void planDraw.beam.mode;
     if (!planDraw.active) { planHint = null; return; }
     untrack(() => { if (planLast) refreshPlanHint(planLast.cx, planLast.cy, planLast.p); });
   });
@@ -4168,10 +4171,22 @@
   function framePlan() {
     if (!camera || !controls) return;
     let { center, maxDim } = _getModelBounds(modelStore.nodes);
-    // With no model yet, the plan frames the templates laid to draw it over.
-    const drawn = modelStore.nodes.size === 0 && uiStore.analysisMode === 'pro' ? laidExtent(modelStore.underlays) : null;
-    if (drawn) { center = new THREE.Vector3((drawn.x0 + drawn.x1) / 2, (drawn.y0 + drawn.y1) / 2, 0); maxDim = Math.max(drawn.x1 - drawn.x0, drawn.y1 - drawn.y0, 4); }
-    placeOverhead(camera, controls, { x: center.x, y: center.y, z: uiStore.nodeCreateZ }, maxDim * 1.8, uiStore.planRotation, OVERHEAD_TIP);
+    // The plan frames the templates laid to draw over, with what is already drawn, close.
+    const laid = uiStore.analysisMode === 'pro' ? laidExtent(modelStore.underlays) : null;
+    let near = 1.8;
+    if (laid) {
+      const h = modelStore.nodes.size ? maxDim / 2 : 0;
+      const b = modelStore.nodes.size
+        ? { x0: Math.min(laid.x0, center.x - h), x1: Math.max(laid.x1, center.x + h), y0: Math.min(laid.y0, center.y - h), y1: Math.max(laid.y1, center.y + h) }
+        : laid;
+      center = new THREE.Vector3((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, 0);
+      maxDim = Math.max(b.x1 - b.x0, b.y1 - b.y0, 4);
+      near = 1.45;
+      // Held a little high, clear of the drawing bar along the bottom of the view.
+      const r = (uiStore.planRotation * Math.PI) / 180, lift = maxDim * 0.1;
+      center = new THREE.Vector3(center.x + Math.sin(r) * lift, center.y - Math.cos(r) * lift, 0);
+    }
+    placeOverhead(camera, controls, { x: center.x, y: center.y, z: uiStore.nodeCreateZ }, maxDim * near, uiStore.planRotation, OVERHEAD_TIP);
     if (camera === orthoCamera) syncOrthoFrustum(container ? container.clientWidth / container.clientHeight : 1);
     invalidate();
   }
@@ -4549,7 +4564,8 @@
   {/snippet}
   {#if planDraw.active && planHint}
     <svg class="node-hint plan-draw-hint" aria-hidden="true" data-testid="plan-draw-hint">
-      {#if planHint.outline}<polygon points={planHint.outline} />{/if}
+      {#each planHint.frames as f, i (i)}<polygon class="pd-frames" points={f} data-testid="plan-draw-frames" />{/each}
+      {#if planHint.outline}<polygon points={planHint.outline} data-testid="plan-draw-outline" />{/if}
       {#each planHint.free as f, i (i)}<line class="pd-free" x1={f.x1} y1={f.y1} x2={f.x2} y2={f.y2} data-testid="plan-draw-free-edge" />{/each}
       {#if planHint.snap}<g data-testid="plan-draw-snap" data-mode={planHint.snap.mode}>{@render osnapGlyph(planHint.snap.mode, planHint.snap.sx, planHint.snap.sy, planHint.snap.label)}</g>{/if}
       {#if planHint.text}<text class="nh-text" x={planHint.mx + 14} y={planHint.my + 22}>{planHint.text}</text>{/if}
@@ -4869,6 +4885,7 @@
   .node-hint { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; overflow: visible; }
   .plan-draw-hint .pd-free { stroke: var(--st-warn, #e0a030); stroke-width: 3; }
   .plan-draw-hint polygon { fill: color-mix(in srgb, var(--st-accent) 18%, transparent); stroke: var(--st-accent); stroke-width: 1.5; stroke-dasharray: 5 3; }
+  .plan-draw-hint polygon.pd-frames { fill: color-mix(in srgb, var(--st-ok, #3fb68b) 22%, transparent); stroke: var(--st-ok, #3fb68b); stroke-width: 2; stroke-dasharray: none; }
   .vp-plan-draw { position: absolute; left: 50%; bottom: 52px; transform: translateX(-50%); width: max-content; max-width: calc(100% - 24px); z-index: 7; }
   .nh-member { stroke: var(--st-accent); stroke-width: 6; stroke-linecap: round; opacity: 0.45; }
   .nh-split { fill: var(--st-surface); stroke: var(--st-accent); stroke-width: 2; }

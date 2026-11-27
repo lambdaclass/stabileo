@@ -364,6 +364,8 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'otherCodes.col.status',
   'perf.cholesky',
   'physical.name',
+  'planDraw.key.beam',
+  'planDraw.key.wall',
   'pieces.dir.x',
   'pieces.dir.y',
   'pieces.dir.z',
