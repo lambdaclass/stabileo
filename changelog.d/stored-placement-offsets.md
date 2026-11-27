@@ -10,3 +10,5 @@ The published shell panel again counts triangular and quadrilateral shells with 
 The saved placement notice reads the same metadata as the project importer in the published application and the production comparison.
 
 With sheets disabled the specifications panel also omits the placement editor from the compiled application.
+
+The setting-out drawer's translations now ship with sheets. The ordinary model placement tool retains its own labels.

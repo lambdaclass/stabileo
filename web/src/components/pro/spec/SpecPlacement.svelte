@@ -32,9 +32,9 @@
 
 <div class="pk" data-testid="spec-placement">
   <section class="pk-card">
-    <h4 class="pk-heading">{t('placement.reference')}</h4>
-    <Hint text={t('placement.referenceHint')} />
-    <div class="pl-refs" role="radiogroup" aria-label={t('placement.reference')}>
+    <h4 class="pk-heading">{t('rcSheets.placement.reference')}</h4>
+    <Hint text={t('rcSheets.placement.referenceHint')} />
+    <div class="pl-refs" role="radiogroup" aria-label={t('rcSheets.placement.reference')}>
       {#each LEVEL_REFERENCES as r (r)}
         {@const f = FIG[r]}
         <button type="button" class="pl-ref" class:on={reference === r} role="radio" aria-checked={reference === r} onclick={() => setLevelReference(r)} data-testid="placement-ref-{r}">
@@ -43,27 +43,27 @@
             <rect x="38" y={14 + f.beam} width="20" height="28" class="beam" />
             <line x1="0" x2="96" y1="14" y2="14" class="node" />
           </svg>
-          <span>{t(`placement.ref.${r}`)}</span>
-          <small>{t(`placement.ref.${r}Hint`)}</small>
+          <span>{t(`rcSheets.placement.ref.${r}`)}</span>
+          <small>{t(`rcSheets.placement.ref.${r}Hint`)}</small>
         </button>
       {/each}
     </div>
-    {#if !reference}<p class="pk-warn" data-testid="placement-unset">{t('placement.unset')}</p>{/if}
+    {#if !reference}<p class="pk-warn" data-testid="placement-unset">{t('rcSheets.placement.unset')}</p>{/if}
     <label class="pk-check pl-edges">
       <input type="checkbox" checked={!!placement.edges} onchange={(e) => setEdgesFlush(e.currentTarget.checked)} data-testid="placement-edges" />
-      {t('placement.edges')}
+      {t('rcSheets.placement.edges')}
     </label>
-    <Hint text={t('placement.edgesHint')} />
-    {#if reference && reference !== 'axes'}<p class="pl-note" data-testid="placement-joint">{t(reference === 'slabTop' ? 'placement.jointSlabTop' : 'placement.jointSlabAxis')}</p>{/if}
+    <Hint text={t('rcSheets.placement.edgesHint')} />
+    {#if reference && reference !== 'axes'}<p class="pl-note" data-testid="placement-joint">{t(reference === 'slabTop' ? 'rcSheets.placement.jointSlabTop' : 'rcSheets.placement.jointSlabAxis')}</p>{/if}
   </section>
 
   <section class="pk-card">
-    <h4 class="pk-heading">{t('placement.columns')}</h4>
-    <Hint text={t('placement.columnsHint')} />
+    <h4 class="pk-heading">{t('rcSheets.placement.columns')}</h4>
+    <Hint text={t('rcSheets.placement.columnsHint')} />
     {#if stacks.length}
       <div class="pl-all">
-        <span>{t('placement.allColumns')}</span>
-        <div class="pl-grid" role="radiogroup" aria-label={t('placement.allColumns')}>
+        <span>{t('rcSheets.placement.allColumns')}</span>
+        <div class="pl-grid" role="radiogroup" aria-label={t('rcSheets.placement.allColumns')}>
           {#each grid as [sx, sy] (`${sx},${sy}`)}
             {@const k = kindAt(sx, sy)}
             <button type="button" class:on={allKind === k} role="radio" aria-checked={allKind === k} title={t(`rcSheets.fixed.kind.${k}`)} aria-label={t(`rcSheets.fixed.kind.${k}`)} onclick={() => setColumnFixedPoint(null, k)} data-testid="placement-all-{k}"></button>
@@ -76,10 +76,10 @@
             {@const own = placement && columnPointIsOwn(s.key)}
             <tr data-testid="placement-stack">
               <th scope="row">{s.name}</th>
-              <td class="pl-xy">{tp('placement.at', { x: fmt(s.xy[0] ?? 0), y: fmt(s.xy[1] ?? 0) })}</td>
+              <td class="pl-xy">{tp('rcSheets.placement.at', { x: fmt(s.xy[0] ?? 0), y: fmt(s.xy[1] ?? 0) })}</td>
               <td>
-                <select value={own || !placement.edges ? kindOf(s.key) : ''} onchange={(e) => setColumnFixedPoint(s.key, e.currentTarget.value === '' ? null : e.currentTarget.value as FixedPointKind)} aria-label={tp('placement.stackOf', { name: s.name || tp('placement.at', { x: fmt(s.xy[0] ?? 0), y: fmt(s.xy[1] ?? 0) }) })}>
-                  {#if placement.edges}<option value="">{tp('placement.byEdge', { kind: t(`rcSheets.fixed.kind.${kindOf(s.key)}`) })}</option>{/if}
+                <select value={own || !placement.edges ? kindOf(s.key) : ''} onchange={(e) => setColumnFixedPoint(s.key, e.currentTarget.value === '' ? null : e.currentTarget.value as FixedPointKind)} aria-label={tp('rcSheets.placement.stackOf', { name: s.name || tp('rcSheets.placement.at', { x: fmt(s.xy[0] ?? 0), y: fmt(s.xy[1] ?? 0) }) })}>
+                  {#if placement.edges}<option value="">{tp('rcSheets.placement.byEdge', { kind: t(`rcSheets.fixed.kind.${kindOf(s.key)}`) })}</option>{/if}
                   {#each FIXED_POINT_KINDS as k (k)}<option value={k}>{t(`rcSheets.fixed.kind.${k}`)}</option>{/each}
                 </select>
               </td>
@@ -88,7 +88,7 @@
         </tbody>
       </table>
     {:else}
-      <p class="pl-note">{t('placement.noStacks')}</p>
+      <p class="pl-note">{t('rcSheets.placement.noStacks')}</p>
     {/if}
   </section>
 </div>

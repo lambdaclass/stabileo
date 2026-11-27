@@ -161,7 +161,7 @@ test('the saved load message catalog is independent of Turkish generator forms',
   }
 });
 
-test('placement uses the sheet labels only in the setting-out drawer and preserves the viewport tool', { skip: 'known wrong result: #1928' }, async () => {
+test('placement uses the sheet labels only in the setting-out drawer and preserves the viewport tool', async () => {
   for (const plates of [false, true]) {
     for (const sheets of [false, true]) {
       await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates, proRcSheets: sheets }, async configFile => {

@@ -95,11 +95,12 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
       if (pruneEntries) {
         if (!proPlatesUnified) {
           if (/^loads\.(asce7|ec|tr)\./.test(key)) return false;
+          if (key === 'quickEdit.meshPlate' || /^combos\.rules\.(seed|none)Code$/.test(key)) return false;
           if (key === 'drawBar.circle' || /^plates\.(circle|shape|shapeProblem|meshShort|unified)\./.test(key)) return false;
           if (/^plates\.meshState(?:WillMesh|Missing|AsCame|Ready|Kept)$/.test(key)) return false;
         }
         if (!proRcSheets) {
-          if (key.startsWith('rcSheets.')) return false;
+          if (key === 'spec.section.placement' || key.startsWith('rcSheets.')) return false;
           if (/^designData\.(alt|crit|criteria|deflectionSupports|flange|opt)\./.test(key)) return false;
         }
         if (!ADMIN && key.startsWith('admin.')) return false;
