@@ -1156,7 +1156,8 @@ fn issue_758_confirmation_rejects_the_earlier_unconservative_factors() {
 
     let (link, mp) = input(&find("2d-constraint--rigid-link--offset-beam-equiv"));
     assert_eq!(confirm_2d(&link.solver, &mp, &none, 140.0 / 3.0), Confirmation::Exact);
-    assert!(matches!(confirm_2d(&link.solver, &mp, &none, 48770.074890207594), Confirmation::Contradicted { reason, lower } if reason.contains("bounds the collapse factor") && lower <= 140.0 / 3.0 && lower >= 140.0 / 3.0 * (1.0 - 1e-6)));
+    let rejected = confirm_2d(&link.solver, &mp, &none, 48770.074890207594);
+    assert!(matches!(&rejected, Confirmation::Contradicted { reason, lower } if reason.contains("bounds the collapse factor") && *lower <= 140.0 / 3.0 && *lower >= 140.0 / 3.0 * (1.0 - 1e-6)), "{rejected:?}");
 
     let settlement = find("2d-prescribed-displacement-support-settlement-equiv");
     let (base, mp) = input(&settlement);

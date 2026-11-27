@@ -281,12 +281,15 @@ fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Hash
         }
         model.nodal[node] = centre;
     }
-    let bounds = format!("the exact certificate bounds the collapse factor by [{lower}, {up}]");
     if lower > up { return Err(format!("inconsistent static and kinematic bounds [{lower}, {up}]")); }
-    Ok(if lambda > up * (1.0 + 1e-7) || lambda < lower * (1.0 - 1e-6) {
+    let contradicted = lambda > up * (1.0 + 1e-7) || lambda < lower * (1.0 - 1e-6);
+    if !contradicted && lower >= lambda * (1.0 - 1e-6) && lambda >= up * (1.0 - 1e-6) {
+        return Ok(FactorCheck::Bending { lower, upper: up });
+    }
+    let lower = lower * (1.0 - 1e-9);
+    let bounds = format!("the exact certificate bounds the collapse factor by [{lower}, {up}]");
+    Ok(if contradicted {
         FactorCheck::Contradicted { reason: format!("{bounds}, not {lambda}"), lower }
-    } else if lower >= lambda * (1.0 - 1e-6) && lambda >= up * (1.0 - 1e-6) {
-        FactorCheck::Bending { lower, upper: up }
     } else {
         FactorCheck::Bracketed { reason: format!("{bounds}, too far apart to confirm {lambda}"), lower, upper: up }
     })

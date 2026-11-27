@@ -913,10 +913,15 @@ fn two_independent_partial_diagonals_publish_the_checked_interval() {
             beam.loads.push(SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id, q_i, q_j, a: Some(a), b: Some(b) }));
         }
     }
-    let wire = LimitInput { solver: beam, mp: HashMap::from([("1".into(), 1.0), ("2".into(), 2.0)]), np: HashMap::from([("1".into(), 10.0), ("2".into(), 10.0)]) };
-    let result = certified_limit_2d(&wire).unwrap();
-    assert_eq!(result.confirmation, Confirmation::Exact);
-    assert_eq!((result.lambda, result.lambda_upper), (1.0, 1.0));
+    let mut wire = LimitInput { solver: beam, mp: HashMap::from([("1".into(), 1.0), ("2".into(), 2.0)]), np: HashMap::from([("1".into(), 10.0), ("2".into(), 10.0)]) };
+    let check = |wire: &LimitInput| {
+        let result = certified_limit_2d(wire).unwrap();
+        assert_eq!(result.confirmation, Confirmation::Exact);
+        assert_eq!((result.lambda, result.lambda_upper), (1.0, 1.0));
+    };
+    check(&wire);
+    wire.solver.loads.retain(|load| matches!(load, SolverLoad::Nodal(_)));
+    check(&wire);
 }
 
 #[test]
