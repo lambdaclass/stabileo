@@ -116,7 +116,6 @@ defmodule StabileoAssignments.Controllers.AssignmentControllerTest do
     assert body["meta"]["total"] == 1
   end
 
-  @tag skip: "known wrong result: #1927"
   test "a false opening is rejected on create and update", %{token: token} do
     invalid = %{"opens_at" => false}
 
@@ -131,7 +130,6 @@ defmodule StabileoAssignments.Controllers.AssignmentControllerTest do
            |> get_in(["details", "opens_at"])
   end
 
-  @tag skip: "known wrong result: #1927"
   test "a title can use the full grapheme limit with joined emoji", %{token: token} do
     title = String.duplicate("👩‍👩‍👧‍👦", 120)
     id = create(token, %{"title" => title})["id"]
@@ -142,7 +140,6 @@ defmodule StabileoAssignments.Controllers.AssignmentControllerTest do
            |> get_in(["details", "title"])
   end
 
-  @tag skip: "known wrong result: #1927"
   test "update and delete count expired hand-ins on their first owner read", %{token: token} do
     for method <- [:put, :delete] do
       data = create(token)

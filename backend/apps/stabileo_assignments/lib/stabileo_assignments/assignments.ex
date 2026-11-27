@@ -34,7 +34,7 @@ defmodule StabileoAssignments.Assignments do
   def get(%Account{} = account, id) do
     with :ok <- enabled(),
          {:ok, assignment} <- fetch(account, id) do
-      {:ok, {assignment, Map.fetch!(counts([assignment.id], now()), assignment.id)}}
+      {:ok, with_counts(assignment)}
     end
   end
 
@@ -44,7 +44,8 @@ defmodule StabileoAssignments.Assignments do
       attrs =
         params
         |> attrs()
-        |> Map.update(:opens_at, now, &(&1 || now))
+        |> Map.put_new(:opens_at, nil)
+        |> default_opening(now)
         |> Map.put(:account_id, account_id)
 
       insert_with_code(account_id, attrs, codes, 3)
@@ -87,18 +88,13 @@ defmodule StabileoAssignments.Assignments do
   @doc "Locks the row, so an attempt cannot start between the check for attempts and the new exercise."
   def update(%Account{} = account, id, params) do
     with :ok <- enabled() do
-      Repo.transaction(fn ->
-        update_locked(
-          account,
-          id,
-          case attrs(params) do
-            %{opens_at: nil} = attrs -> %{attrs | opens_at: now()}
-            attrs -> attrs
-          end
-        )
-      end)
+      attrs = params |> attrs() |> default_opening(now())
+      Repo.transaction(fn -> update_locked(account, id, attrs) end)
     end
   end
+
+  defp default_opening(%{opens_at: nil} = attrs, now), do: %{attrs | opens_at: now}
+  defp default_opening(attrs, _now), do: attrs
 
   defp update_locked(account, id, attrs) do
     with {:ok, assignment} <- fetch(account, id, lock: true),
@@ -194,15 +190,13 @@ defmodule StabileoAssignments.Assignments do
   end
 
   defp with_counts(assignment),
-    do: {assignment, Map.fetch!(counts([assignment.id]), assignment.id)}
+    do: {assignment, Map.fetch!(counts([assignment.id], now()), assignment.id)}
 
-  defp counts(ids, at \\ nil) do
-    if at,
-      do:
-        StabileoAssignments.Exams.finalize_expired(
-          from(t in AssignmentAttempt, where: t.assignment_id in ^ids),
-          at
-        )
+  defp counts(ids, at) do
+    StabileoAssignments.Exams.finalize_expired(
+      from(t in AssignmentAttempt, where: t.assignment_id in ^ids),
+      at
+    )
 
     found =
       from(t in AssignmentAttempt,

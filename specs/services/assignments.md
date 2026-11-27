@@ -117,7 +117,7 @@ The admin site shows nothing from these tables.
 
 The app stores the exercise as an exercise file's envelope (`{"stabileoExercise": 1, "exercise": {…}}`) and the answers as a submission (`{"stabileoSubmission": 1, "exerciseId", "exerciseTitle", "student": "", "submittedAt", "seed", "answers": [{"key", "label", "answer", "unit"?, "outcome", "sketch"?}]}`), the same shape a downloaded hand-in has, so the owner's browser marks it again with the attempt's `seed`. The server keeps both as opaque objects.
 
-`now` is the server's clock, so the app can count down without trusting the computer's. `closed` is `submitted_at` set or `now` past `deadline_at` plus the grace. `reveal_allowed` is `closed` for `on_submit`, and `now` past `closes_at` plus the grace for `after_close`. `status` is `upcoming` before `opens_at`, `closed` after `closes_at`, else `open`.
+`now` is the server's clock, so the app can count down without trusting the computer's. `closed` is `submitted_at` set or `now` past `deadline_at` plus the grace. `reveal_allowed` is `closed` for `on_submit`, and `now` past both `closes_at` plus grace and every outstanding attempt deadline plus grace for `after_close`. `status` is `upcoming` before `opens_at`, `closed` after `closes_at`, else `open`.
 
 ### In the app
 
@@ -177,7 +177,7 @@ None: seeds create accounts only.
 | Deadline near `closes_at` | `deadline_at` is `closes_at` |
 | Autosave before / after deadline plus 30 s | 200, stored / 409 `attempt_closed`, last autosave kept |
 | Submit, then submit or autosave again | 200 with `submitted_at` / 409 `attempt_submitted` |
-| `reveal_allowed` | `on_submit`: after submit or deadline. `after_close`: only after `closes_at` |
+| `reveal_allowed` | `on_submit`: after submit or deadline. `after_close`: only after the closing time and every outstanding deadline, including grace |
 | Owner's attempt list | Student name and email, seed, answers, score; paginated, searchable |
 | Flag off | 403 `assignments_disabled` everywhere |
 | Disabled owner | Their exam is a 404 to students |
