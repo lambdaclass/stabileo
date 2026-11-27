@@ -34,7 +34,7 @@ let accessToken: string | null = null;
 let ownRefreshToken: string | null = null;
 let refreshing: Promise<RefreshOutcome> | null = null;
 let initializing: Promise<void> | null = null;
-let initPending = false;
+let initialized = false;
 
 /**
  * A "no" to anonymous usage holds from either side once someone signs in: the account's turns this
@@ -148,19 +148,23 @@ export const authStore = {
   init(): Promise<void> {
     if (!accounts()) return Promise.resolve();
     // A second caller during the first read must wait for its session refresh, not start a config-only read.
-    if (initPending && initializing) return initializing;
+    if (initializing) return initializing;
     const restore = status === 'anonymous' && readRefreshToken() !== null;
     if (restore) status = 'loading';
-    initPending = true;
+    initialized = false;
     initializing = Promise.all([loadConfig(), restore ? refreshSession() : Promise.resolve('ok')]).then(([, outcome]) => {
+      initialized = serverConfig !== null && outcome !== 'unavailable';
       if (outcome !== 'ok' && status === 'loading') status = account ? 'authenticated' : 'anonymous';
-    }).finally(() => { initPending = false; });
+    }).catch(error => {
+      if (status === 'loading') status = account ? 'authenticated' : 'anonymous';
+      throw error;
+    }).finally(() => { initializing = null; });
     return initializing;
   },
 
   /** Settles once the server's switches and any stored session have been read, starting that if nothing has. */
   ready(): Promise<void> {
-    return initializing ?? authStore.init();
+    return initializing ?? (initialized ? Promise.resolve() : authStore.init());
   },
 
   /**

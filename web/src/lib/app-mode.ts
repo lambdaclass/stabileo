@@ -13,7 +13,7 @@ export function modeToPath(mode: AppMode): string {
 
 /** The mode an address names; anything else is Basic. */
 export function pathToMode(pathname: string): AppMode {
-  if (examCodeFromPath(pathname)) return 'educativo';
+  if (pathname === '/app/exam' || pathname.startsWith('/app/exam/')) return 'educativo';
   if (pathname === '/app/pro' || pathname === '/app/pro/') return 'pro';
   if (pathname === '/app/education' || pathname === '/app/education/') return 'educativo';
   return 'basico';

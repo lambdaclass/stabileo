@@ -283,7 +283,7 @@ it('known wrong result: #1927 — the held free body keeps the loads and support
   expect(modelStore.supports.has(supportId)).toBe(false);
 });
 
-it.skip('known wrong result: #1927 — review keeps member labels and point probes on the displayed solve', async () => {
+it('known wrong result: #1927 — review keeps member labels and point probes on the displayed solve', async () => {
   const result = await solvedPortal();
   editE(2);
   const member = result.elementForces[0];

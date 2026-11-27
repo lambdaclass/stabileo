@@ -160,7 +160,7 @@ export function specModelData(model: ModelSpec): ModelData {
   if (!section) throw new Error(tp('xls.err.sectionUnknown', { name: model.profile! }));
   const loads: Load[] = [];
   for (const l of model.nodalLoads ?? []) {
-    loads.push({ type: 'nodal', data: { id: loads.length + 1, nodeId: l.node + 1, fx: l.fx ?? 0, fz: l.fy ?? 0, my: l.mz ?? 0 } } as Load);
+    loads.push({ type: 'nodal', data: { id: loads.length + 1, nodeId: l.node + 1, fx: l.fx ?? 0, fz: l.fy ?? 0, my: l.mz ?? 0 } });
   }
   for (const l of model.distributedLoads ?? []) {
     loads.push({ type: 'distributed', data: { id: loads.length + 1, elementId: l.element + 1, qI: l.qI, qJ: l.qJ ?? l.qI } } as Load);

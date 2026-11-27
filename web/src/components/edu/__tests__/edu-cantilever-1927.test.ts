@@ -13,7 +13,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it.skip('known wrong result: #1927 — a loaded educational cantilever loses its grade when the tangent becomes unstable', () => {
+it('known wrong result: #1927 — a loaded educational cantilever loses its grade when the tangent becomes unstable', () => {
   vi.stubGlobal('window', { dispatchEvent: vi.fn() });
   const toast = vi.spyOn(uiStore, 'toast');
   modelStore.clear();

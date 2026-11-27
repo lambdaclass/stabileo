@@ -656,7 +656,7 @@ describe('consents and server switches', () => {
   });
 });
 
-it.skip.each(['config', 'refresh'])('known wrong result: #1927 — review retries an unavailable %s on ready', async failed => {
+it.each(['config', 'refresh'])('known wrong result: #1927 — review retries an unavailable %s on ready', async failed => {
   storage.set('stabileo-refresh-token', 'refresh-0');
   const { authStore } = await load();
   const config = () => json(200, { user_login_enabled: true });

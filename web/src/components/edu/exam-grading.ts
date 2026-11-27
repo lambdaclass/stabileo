@@ -1,5 +1,5 @@
 import type { JsonObject } from '../../lib/api/assignments';
-import { fromFile, toFile } from './exercise-capture';
+import { readExerciseEnvelope, toFile } from './exercise-capture';
 import type { EduExerciseSpec, ResolvedExerciseSpec } from './exercise-spec';
 import { fromSubmissionFile, type Submission, type SubmittedAnswer } from './exercise-submission';
 import { remarkSubmission, type RemarkedAnswer } from './exercise-marking';
@@ -12,7 +12,7 @@ export function exerciseEnvelope(spec: EduExerciseSpec): JsonObject {
 }
 
 export function exerciseFromEnvelope(json: unknown): EduExerciseSpec | null {
-  const r = fromFile(JSON.stringify(json ?? null));
+  const r = readExerciseEnvelope(JSON.stringify(json ?? null));
   return r.ok ? r.exercise : null;
 }
 
@@ -46,7 +46,7 @@ export function gradeAttempt(spec: EduExerciseSpec, seed: number, stored: unknow
   try { resolved = variantOf(spec, seed); } catch { return null; }
   const base = storedSubmission(stored);
   if (!base && (!stored || typeof stored !== 'object' || Array.isArray(stored) || Object.keys(stored).length !== 0)) return null;
-  if (base && (base.exerciseId !== spec.id || base.answers.some(row => !row.key))) return null;
+  if (base && base.exerciseId !== spec.id) return null;
   const at = new Date(base?.submittedAt || 0);
   if (!Number.isFinite(at.getTime())) return null;
   const submission: Submission = {

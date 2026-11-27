@@ -22,6 +22,7 @@
   } from './exercise-spec';
   import { stressContext } from './exercise-stress';
   import { saveToLibrary, toShareLink } from './exercise-library';
+  import { initSolver } from '../../lib/engine/wasm-solver';
   import { solveForEdu } from './edu-solver';
   import { ALL_PROFILES } from '../../lib/data/steel-profiles';
   import { EXERCISE_EXAMPLES, fromExample, fromFileDed, fromShareUrl, hasDrawnModel, detectKinematics } from './exercise-source';
@@ -411,12 +412,12 @@
   function openFile(e: Event) {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
-    file.text().then((text) => {
+    Promise.all([file.text(), initSolver()]).then(([text]) => {
       const r = fromFile(text);
       if (!r.ok) { importError = r.error; return; }
       importError = '';
       onsaved(r.exercise);
-    });
+    }).catch(() => { importError = t('edu.engineNotReady'); });
   }
 
   const elementCount = $derived(captured?.spec?.elements.length ?? 0);

@@ -317,7 +317,7 @@ describe('during the attempt', () => {
     expect([s.phase, s.note]).toEqual(['closed', 'autoSubmitted']);
   });
 
-  it.skip.each([false, true])('known wrong result: #1927 — review retries early manual hand-in with the exact frozen body after refresh %s', async refresh => {
+  it.each([false, true])('known wrong result: #1927 — review retries early manual hand-in with the exact frozen body after refresh %s', async refresh => {
     const { s, api } = await running();
     api.submit.mockRejectedValueOnce(new Error('network'));
     s.update(answer('final'));
@@ -329,7 +329,7 @@ describe('during the attempt', () => {
     expect(s.phase).toBe('closed');
   });
 
-  it.skip('known wrong result: #1927 — review ignores unreadable refresh times during an active attempt', async () => {
+  it('known wrong result: #1927 — review ignores unreadable refresh times during an active attempt', async () => {
     const { s, api } = await running();
     s.update(answer('mine'));
     api.attempt.mockResolvedValueOnce(attempt({ deadline_at: 'invalid', now: iso(T0 + 4_000_000) }));
@@ -340,7 +340,7 @@ describe('during the attempt', () => {
     expect(examLock.remainingMs()).toBe(3_600_000);
   });
 
-  it.skip('known wrong result: #1927 — keeps the valid deadline on an autosave acknowledgement with unreadable timing', async () => {
+  it('known wrong result: #1927 — keeps the valid deadline on an autosave acknowledgement with unreadable timing', async () => {
     const { s, api } = await running();
     s.update(answer('saved'));
     api.saveAnswers.mockImplementationOnce(async (_id, answers) => attempt({ answers, revision: 1, now: iso(T0 + 4_000_000), deadline_at: 'invalid' }));

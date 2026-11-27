@@ -68,10 +68,12 @@ describe('a submission carries the variant it was made against', () => {
     }
   });
 
-  it('drops a seed or a variant that is not one', () => {
-    const r = fromSubmissionFile(JSON.stringify({ ...rightAnswersFor('1'), seed: -3, variant: { values: { L: 'x' }, supports: {} } }));
+  it('drops a negative seed and refuses a corrupted variant', () => {
+    const submission = { ...rightAnswersFor('1'), seed: -3 };
+    const r = fromSubmissionFile(JSON.stringify(submission));
     expect(r.ok && r.submission.seed).toBe(undefined);
-    expect(r.ok && r.submission.variant).toBe(undefined);
+    const invalid = { ...submission, variant: { values: { L: 'x' }, supports: {} } };
+    expect(fromSubmissionFile(JSON.stringify(invalid))).toEqual({ ok: false, error: 'incomplete' });
   });
 });
 

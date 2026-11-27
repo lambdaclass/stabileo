@@ -249,7 +249,7 @@ it('known wrong result: #1927 — rotating an axial bar preserves the transverse
   }
 });
 
-it.skip.each([NaN, Infinity, -Infinity])('known wrong result: #1927 — review withholds an unavailable free-body component %s', async value => {
+it.each([NaN, Infinity, -Infinity])('known wrong result: #1927 — review withholds an unavailable free-body component %s', async value => {
   const { render } = await import('svelte/server');
   const { default: Drawing } = await import('../FreeBodyStep.svelte');
   const model: ModelSpec = { nodes: [[0, 0], [1, 0]], elements: [[0, 1]], supports: [] };

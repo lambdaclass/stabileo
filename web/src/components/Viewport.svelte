@@ -165,8 +165,8 @@
 
   // Clear diagram query/hover when results or diagram type changes
   $effect(() => {
-    resultsStore.diagramType;
-    resultsStore.results;
+    resultsStore.screen.diagram;
+    resultsStore.screen.results;
     diagramQuery = null;
     diagramHover = null;
   });
@@ -212,6 +212,8 @@
   let exportFrame: ExportFrame | null = null;
   const dtNow = () => (exportFrame ? diagramFor(exportFrame.content) : resultsStore.screen.diagram);
   const resNow = () => (exportFrame ? resultsStore.results : resultsStore.screen.results);
+  const forcesForFrame = (id: number) => resNow()?.elementForces.find(f => f.elementId === id);
+  const displacementForFrame = (id: number) => resNow()?.displacements.find(d => d.nodeId === id);
   const screenModel = $derived(resultsStore.screen.model ?? modelStore.model);
   const modelForFrame = () => exportFrame ? modelStore.model : screenModel;
   const HELD_DIM_MS = 250;
@@ -1520,7 +1522,7 @@
       return;
     }
 
-    if (diagramQuery && resultsStore.results) {
+    if (diagramQuery && shown) {
       const dt = dtNow();
       if (dt === 'moment' || dt === 'shear' || dt === 'axial') {
         const s = uiStore.worldToScreen(diagramQuery.worldX, diagramQuery.worldY);
@@ -1548,7 +1550,7 @@
     }
 
     // Draw stress query marker (section analysis point)
-    if (resultsStore.stressQuery && resultsStore.results) {
+    if (resultsStore.stressQuery && shown) {
       const sq = resultsStore.stressQuery;
       const s = uiStore.worldToScreen(sq.worldX, sq.worldY);
 
@@ -1587,7 +1589,7 @@
     }
 
     // Draw diagram hover crosshair + tooltip (only if no click query active)
-    if (diagramHover && resultsStore.results && !diagramQuery) {
+    if (diagramHover && shown && !diagramQuery) {
       const dt = dtNow();
       if (dt === 'moment' || dt === 'shear' || dt === 'axial' || dt === 'deformed' || dt === 'colorMap') {
         const s = uiStore.worldToScreen(diagramHover.worldX, diagramHover.worldY);
@@ -1639,32 +1641,32 @@
 
     // Draw hover tooltip (suppress when diagram hover or diagram query is active to avoid overlap)
     if (uiStore.currentTool === 'select' && !boxSelect && draggedNodeId === null && !diagramHover && !diagramQuery) {
-      const hoverNode = findNearestNode(uiStore.worldX, uiStore.worldY, pickTol(PICK_PX.tight));
+      const hoverNode = _findNearestNode(uiStore.worldX, uiStore.worldY, pickTol(PICK_PX.tight), pickable(modelForFrame()).nodes);
       if (hoverNode) {
         const lines: string[] = [t('viewport.nodeTooltip').replace('{id}', String(hoverNode.id))];
         lines.push(`(${fmtCoord(twoD.x(hoverNode.x))}, ${fmtCoord(twoD.z(get2DDisplayedVertical(hoverNode)))}) ${unitQ('length')} [${twoD.horizontal}, ${twoD.vertical}]`);
         // Show displacement if results exist
-        if (resultsStore.results) {
-          const d = resultsStore.getDisplacement(hoverNode.id);
+        if (shown) {
+          const d = displacementForFrame(hoverNode.id);
           if (d) {
             lines.push(`δ: ${displacementText(Math.sqrt(d.ux**2 + get2DDisplayDisplacementVertical(d)**2), 3, uiStore.unitSystem)}`);
           }
-          const r = resultsStore.getReaction(hoverNode.id);
+          const r = resNow()?.reactions.find(r => r.nodeId === hoverNode.id);
           if (r) {
             const rb = forceReactionBound(certificateStore.reactionBound<ReactionBound2D>(false, hoverNode.id));
             const pm = rb === null ? '' : ` ± ${formatBound(toQ(rb, 'force'))}`;
-            lines.push(`R: ${fmtQ(resultComponents(axesStore.frame, resultsStore.results).plane(r.rx, 'x'), 'force')}; ${fmtQ(resultComponents(axesStore.frame, resultsStore.results).plane(r.rz, 'z'), 'force')}${pm} ${unitQ('force')}`);
+            lines.push(`R: ${fmtQ(resultComponents(axesStore.frame, shown).plane(r.rx, 'x'), 'force')}; ${fmtQ(resultComponents(axesStore.frame, shown).plane(r.rz, 'z'), 'force')}${pm} ${unitQ('force')}`);
           }
         }
         drawTooltip(uiStore.mouseX + 15, uiStore.mouseY - 10, lines);
       } else {
-        const hoverElem = findNearestElement(uiStore.worldX, uiStore.worldY, pickTol(PICK_PX.tight));
+        const hoverElem = findNearestElement(uiStore.worldX, uiStore.worldY, pickTol(PICK_PX.tight), modelForFrame());
         if (hoverElem) {
           const lines: string[] = [t('viewport.elemTooltip').replace('{id}', String(hoverElem.id)).replace('{type}', hoverElem.type)];
-          const L = modelStore.getElementLength(hoverElem.id);
+          const L = modelStore.getElementLength(hoverElem.id, modelForFrame());
           lines.push(`L: ${fmtCoord(L)} ${unitQ('length')}`);
-          if (resultsStore.results) {
-            const f = resultsStore.getElementForces(hoverElem.id);
+          if (shown) {
+            const f = forcesForFrame(hoverElem.id);
             if (f) {
               lines.push(`M: ${fmtQ(f.mStart, 'moment')}/${fmtQ(f.mEnd, 'moment')} ${unitQ('moment')}`);
               lines.push(`V: ${fmtQ(f.vStart, 'force')}/${fmtQ(f.vEnd, 'force')} ${unitQ('force')}`);
@@ -1721,7 +1723,7 @@
   /** A value beside a member's midpoint, on a dark box so it reads over any colour. */
   function drawMemberValueLabel(elementId: number, label: string, color: string) {
     if (!ctx || viewVisibility.isElementHidden(elementId)) return;
-    const elem = modelStore.model.elements.get(elementId);
+    const elem = modelForFrame().elements.get(elementId);
     if (!elem) return;
     const ni = getProjectedNode(elem.nodeI);
     const nj = getProjectedNode(elem.nodeJ);
@@ -1760,7 +1762,7 @@
     ctx.textBaseline = 'alphabetic';
     for (const { nodeId, magnitude } of picks) {
       if (viewVisibility.isNodeHidden(nodeId)) continue;
-      const n = modelStore.model.nodes.get(nodeId), d = byId.get(nodeId);
+      const n = modelForFrame().nodes.get(nodeId), d = byId.get(nodeId);
       if (!n || !d) continue;
       const p = project2DNode(n);
       const s = uiStore.worldToScreen(p.x + d.ux * scale, p.y + d.uz * scale);
@@ -2270,12 +2272,12 @@
 
       if (sm === 'stress') {
         // ── Stress mode: click on element → stress query + diagram query ──
-        const dt = resultsStore.diagramType;
-        if (resultsStore.results) {
-          const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.tight));
+        const dt = dtNow();
+        if (resNow()) {
+          const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.tight), modelForFrame());
           if (nearElem) {
-            const ni = modelStore.getNode(nearElem.nodeI);
-            const nj = modelStore.getNode(nearElem.nodeJ);
+            const ni = getProjectedNode(nearElem.nodeI);
+            const nj = getProjectedNode(nearElem.nodeJ);
             if (ni && nj) {
               const edx = nj.x - ni.x;
               const edy = nj.y - ni.y;
@@ -2286,7 +2288,7 @@
               const wy = ni.y + t * edy;
               resultsStore.stressQuery = { elementId: nearElem.id, t, worldX: wx, worldY: wy };
               if (dt === 'moment' || dt === 'shear' || dt === 'axial') {
-                const ef = resultsStore.getElementForces(nearElem.id);
+                const ef = forcesForFrame(nearElem.id);
                 if (ef) {
                   const value = diagramPointValue(dt, t, ef);
                   if (value === null) {
@@ -2392,24 +2394,23 @@
         diagramQuery = null;
 
         // Diagram query still works for reading values (but no stress query)
-        const dt = resultsStore.diagramType;
-        if (resultsStore.results && (dt === 'moment' || dt === 'shear' || dt === 'axial')) {
-          const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.tight));
+        const dt = dtNow();
+        if (resNow() && (dt === 'moment' || dt === 'shear' || dt === 'axial')) {
+          const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.tight), modelForFrame());
           if (nearElem) {
-            const ni = modelStore.getNode(nearElem.nodeI);
-            const nj = modelStore.getNode(nearElem.nodeJ);
+            const ni = getProjectedNode(nearElem.nodeI);
+            const nj = getProjectedNode(nearElem.nodeJ);
             if (ni && nj) {
               const edx = nj.x - ni.x;
               const edy = nj.y - ni.y;
               const lenSq = edx * edx + edy * edy;
               let t = ((world.x - ni.x) * edx + (world.y - ni.y) * edy) / lenSq;
               t = Math.max(0, Math.min(1, t));
-              const ef = resultsStore.getElementForces(nearElem.id);
+              const ef = forcesForFrame(nearElem.id);
               if (ef) {
-                const value = computeDiagramValueAt(dt as 'moment' | 'shear' | 'axial', t, ef);
-                const wx = ni.x + t * edx;
-                const wy = ni.y + t * edy;
-                diagramQuery = { elementId: nearElem.id, t, value, worldX: wx, worldY: wy };
+                const value = diagramPointValue(dt, t, ef);
+                if (value === null) uiStore.toast(diagramExtremaNotice(), 'error');
+                else diagramQuery = { elementId: nearElem.id, t, value, worldX: ni.x + t * edx, worldY: ni.y + t * edy };
               }
             }
           }
@@ -2527,10 +2528,11 @@
     }
 
     // Diagram hover: compute value at mouse projection on nearest element
-    if (resultsStore.results && !isPanning && draggedNodeId === null) {
-      const dt = resultsStore.diagramType;
+    const shown = resNow();
+    if (shown && !isPanning && draggedNodeId === null) {
+      const dt = dtNow();
       if (dt === 'moment' || dt === 'shear' || dt === 'axial' || dt === 'deformed' || dt === 'colorMap') {
-        const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.loose));
+        const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.loose), modelForFrame());
         if (nearElem) {
           const ni = getProjectedNode(nearElem.nodeI);
           const nj = getProjectedNode(nearElem.nodeJ);
@@ -2544,7 +2546,7 @@
             const wy = ni.y + t * edy;
 
             if (dt === 'moment' || dt === 'shear' || dt === 'axial') {
-              const ef = resultsStore.getElementForces(nearElem.id);
+              const ef = forcesForFrame(nearElem.id);
               if (ef) {
                 const value = diagramPointValue(dt, t, ef);
                 diagramHover = { elementId: nearElem.id, t, value, worldX: wx, worldY: wy };
@@ -2555,16 +2557,16 @@
               // Compute displacement using Hermite cubic interpolation (same as drawDeformed)
               // Linear interpolation gives wrong values when both end nodes have zero displacement
               // (e.g. simply supported beam: uy=0 at both ends, but deflects at midspan)
-              const di = resultsStore.getDisplacement(nearElem.nodeI);
-              const dj = resultsStore.getDisplacement(nearElem.nodeJ);
-              const ef = resultsStore.getElementForces(nearElem.id);
+              const di = displacementForFrame(nearElem.nodeI);
+              const dj = displacementForFrame(nearElem.nodeJ);
+              const ef = forcesForFrame(nearElem.id);
               if (di && dj && ef && ni && nj) {
                 // Get EI for particular solution
-                const elem = (resultsStore.screen.model?.elements ?? modelStore.elements).get(nearElem.id);
+                const elem = modelForFrame().elements.get(nearElem.id);
                 let EI: number | undefined;
                 if (elem) {
-                  const mat = (resultsStore.screen.model?.materials ?? modelStore.materials).get(elem.materialId);
-                  const sec = (resultsStore.screen.model?.sections ?? modelStore.sections).get(elem.sectionId);
+                  const mat = modelForFrame().materials.get(elem.materialId);
+                  const sec = modelForFrame().sections.get(elem.sectionId);
                   if (mat && sec) EI = mat.e * 1000 * effectiveBendingInertia(sec); // kN·m²
                 }
                 // A truss member stays straight between its nodes (see draw-deformed.ts).
@@ -2587,9 +2589,9 @@
                 diagramHover = {
                   elementId: nearElem.id, t, value: totalDisp, worldX: wx, worldY: wy,
                   lines: [
-                    `${TWO_D_DISPLACEMENT_LABELS.horizontal}: ${displacementText(resultComponents(axesStore.frame, resultsStore.results).plane(ux, 'x') / 1000, 3, uiStore.unitSystem)}`,
-                    `${TWO_D_DISPLACEMENT_LABELS.vertical}: ${displacementText(resultComponents(axesStore.frame, resultsStore.results).plane(uz, 'z') / 1000, 3, uiStore.unitSystem)}`,
-                    `${TWO_D_DISPLACEMENT_LABELS.rotation}: ${resultComponents(axesStore.frame, resultsStore.results).plane(ry, 'rot').toFixed(4)} rad`,
+                    `${TWO_D_DISPLACEMENT_LABELS.horizontal}: ${displacementText(resultComponents(axesStore.frame, shown).plane(ux, 'x') / 1000, 3, uiStore.unitSystem)}`,
+                    `${TWO_D_DISPLACEMENT_LABELS.vertical}: ${displacementText(resultComponents(axesStore.frame, shown).plane(uz, 'z') / 1000, 3, uiStore.unitSystem)}`,
+                    `${TWO_D_DISPLACEMENT_LABELS.rotation}: ${resultComponents(axesStore.frame, shown).plane(ry, 'rot').toFixed(4)} rad`,
                   ],
                 };
               } else {
@@ -2597,7 +2599,7 @@
               }
             } else if (dt === 'colorMap') {
               // Show the colorMap kind's value
-              const ef = resultsStore.getElementForces(nearElem.id);
+              const ef = forcesForFrame(nearElem.id);
               if (ef) {
                 const cmKind = resultsStore.colorMapKind;
                 let value: number | null;
@@ -2615,9 +2617,9 @@
                 } else {
                   // The painter's own value for the stress maps (MPa, or σ/fy for the ratio). This
                   // used to add |N|, |M| and |V| and call it a ratio, in no unit at all.
-                  const elem = (resultsStore.screen.model?.elements ?? modelStore.elements).get(nearElem.id);
-                  const sec = elem ? (resultsStore.screen.model?.sections ?? modelStore.sections).get(elem.sectionId) : undefined;
-                  const mat = elem ? (resultsStore.screen.model?.materials ?? modelStore.materials).get(elem.materialId) : undefined;
+                  const elem = modelForFrame().elements.get(nearElem.id);
+                  const sec = elem ? modelForFrame().sections.get(elem.sectionId) : undefined;
+                  const mat = elem ? modelForFrame().materials.get(elem.materialId) : undefined;
                   const st = sec && mat ? computeElementStress(ef, sec, mat) : null;
                   value = !st ? NaN
                     : cmKind === 'stressRatio' ? (st.ratio ?? NaN)
@@ -3078,9 +3080,9 @@
    * here, so nothing hidden or turned off is clicked, hovered, dragged,
    * loaded, edited or taken by a marquee.
    */
-  function pickable() {
+  function pickable(model: ReturnType<typeof modelForFrame> = modelStore.model) {
     return pickable2D(
-      { nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports, loads: modelStore.model.loads },
+      model,
       {
         anyHidden: viewVisibility.active,
         isNodeHidden: (id) => viewVisibility.isNodeHidden(id),
@@ -3136,16 +3138,16 @@
   }
 
   /** Build a projected node map for hit testing / picking in the current 2D plane. */
-  function getProjectedNodes(): Map<number, { id: number; x: number; y: number }> {
+  function getProjectedNodes(nodes = modelStore.nodes): Map<number, { id: number; x: number; y: number }> {
     const map = new Map<number, { id: number; x: number; y: number }>();
-    for (const node of modelStore.nodes.values()) {
+    for (const node of nodes.values()) {
       map.set(node.id, project2DNode(node));
     }
     return map;
   }
 
-  function findNearestElement(x: number, y: number, maxDist: number) {
-    return _findNearestElement(x, y, maxDist, pickable().elements, getProjectedNodes());
+  function findNearestElement(x: number, y: number, maxDist: number, model: ReturnType<typeof modelForFrame> = modelStore.model) {
+    return _findNearestElement(x, y, maxDist, pickable(model).elements, getProjectedNodes(model.nodes));
   }
 
   function findNearestSupport(x: number, y: number, maxDist: number) {

@@ -26,7 +26,7 @@ import type { StructureModel, Node, Element, Support, Load } from '../../lib/sto
 import type { ModelSpec, EduExerciseSpec } from './exercise-spec';
 import { t, tp } from '../../lib/i18n';
 import { lintParams } from './exercise-params';
-import { variantOf } from './exercise-variant';
+import { lintVariants, variantOf } from './exercise-variant';
 
 /** What could not be captured, so the teacher is told rather than surprised. */
 export interface CaptureWarning {
@@ -186,7 +186,7 @@ export type ParseResult =
  * file should be told that, not handed a half-built exercise that fails later
  * with something cryptic in front of a class.
  */
-export function fromFile(text: string): ParseResult {
+export function readExerciseEnvelope(text: string): ParseResult {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -228,4 +228,15 @@ export function fromFile(text: string): ParseResult {
     return { ok: false, error: tp('edu.capture.errBadParams', { error: (e as Error).message }) };
   }
   return { ok: true, exercise };
+}
+
+export function fromFile(text: string): ParseResult {
+  const parsed = readExerciseEnvelope(text);
+  if (!parsed.ok) return parsed;
+  try {
+    const { problems } = lintVariants(parsed.exercise);
+    return problems.length ? { ok: false, error: tp('edu.capture.errBadParams', { error: problems[0]! }) } : parsed;
+  } catch (error) {
+    return { ok: false, error: tp('edu.capture.errBadParams', { error: error instanceof Error ? error.message : String(error) }) };
+  }
 }

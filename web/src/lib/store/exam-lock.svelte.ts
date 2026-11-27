@@ -53,7 +53,7 @@ export const examLock = {
   },
 
   leaveRoom(): void {
-    examLock.release('left');
+    if (locked) examLock.release('left');
     room = false;
   },
 
@@ -76,23 +76,26 @@ export const examLock = {
   },
 
   /** Locks until the deadline plus the grace. Refuses (and stays open) when that has already passed or the times are unreadable. */
-  engage({ deadlineAt, serverNow }: EngageInput): boolean {
+  engage(timing: EngageInput): boolean {
+    return examLock.updateDeadline(timing) === 'locked';
+  },
+
+  updateDeadline({ deadlineAt, serverNow }: EngageInput): 'invalid' | 'expired' | 'locked' {
     const deadline = Date.parse(deadlineAt);
-    examLock.syncClock(serverNow);
-    if (!Number.isFinite(deadline) || !Number.isFinite(Date.parse(serverNow))) {
-      examLock.release('error');
-      return false;
-    }
+    const now = Date.parse(serverNow);
+    if (!Number.isFinite(deadline) || !Number.isFinite(now)) return 'invalid';
+    offsetMs = now - clock();
     deadlineMs = deadline;
     locked = true;
     reason = null;
     scheduleRelease(deadline);
-    return locked;
+    return locked ? 'locked' : 'expired';
   },
 
   release(why: ReleaseReason): void {
     clearTimer();
     reason = why;
+    deadlineMs = null;
     locked = false;
   },
 

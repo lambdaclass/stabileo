@@ -10,7 +10,7 @@
   import { publicHref } from '../../lib/i18n/public-routes';
   import { goPublic } from '../landing/landing-utils';
   import { solveForEdu } from './edu-solver';
-  import { isSolverReady } from '../../lib/engine/wasm-solver';
+  import { initSolver, isSolverReady } from '../../lib/engine/wasm-solver';
   import { eduStore } from './edu-store.svelte';
   import ExerciseAuthor from './ExerciseAuthor.svelte';
   import type { EduExerciseSpec } from './exercise-spec';
@@ -81,6 +81,13 @@
 
   $effect(() => {
     library = loadLibrary();
+    if (!location.hash.includes('edu-ex=')) return;
+    let mounted = true;
+    void initSolver().then(() => { if (mounted) openSharedExercise(); }, () => { if (mounted) linkNotice = t('edu.engineNotReady'); });
+    return () => { mounted = false; };
+  });
+
+  function openSharedExercise() {
     /*
      * A link hands over ONE exercise, so it opens it.
      *
@@ -103,7 +110,7 @@
         linkNotice = shared.error;
       }
     }
-  });
+  }
 
   let currentSpec = $state<EduExerciseSpec | null>(null);
   let legajoInput = $state('');

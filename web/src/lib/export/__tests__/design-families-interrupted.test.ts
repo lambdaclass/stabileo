@@ -17,6 +17,7 @@ it.each(['sync', 'worker'] as const)('known wrong result: #1927 — %s reports o
   const full = await run();
   expect(full.ok).toBe(true);
   for (const f of families) expect(familyOf(full, f).processed).toBeGreaterThan(0);
+  expect(familyOf(full, 'column').designed).toBeGreaterThan(0);
   clock.mockImplementation(() => ++now);
   const detail = vi.spyOn(detailingStore, 'generate');
   const empty = await run(0);
@@ -39,7 +40,7 @@ it.each(['sync', 'worker'] as const)('known wrong result: #1927 — %s reports o
   expect(detail).not.toHaveBeenCalled();
 });
 
-it.skip.each(['sync', 'worker'] as const)('known wrong result: #1927 — review withholds undetailed %s family results after interruption', async entry => {
+it.each(['sync', 'worker'] as const)('known wrong result: #1927 — review withholds undetailed %s family results after interruption', async entry => {
   await ready('rc-qa-diagnostic');
   let now = 0;
   vi.spyOn(performance, 'now').mockImplementation(() => now);

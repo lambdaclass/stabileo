@@ -124,10 +124,10 @@ it.each([
   ['es', 'componente transversal', 'par puntual', 'fibra extrema superior', 'todos los intentos', 'independiente'],
   ['pt', 'componente transversal', 'binário pontual', 'fibra extrema superior', 'todas as tentativas', 'independente'],
   ['de', 'Querkomponente', 'Einzelmoment', 'oberen Randfaser', 'alle Bearbeitungs-', 'unabhängig'],
-  ['fr', 'composante transversale', 'couple ponctuel', 'fibre extrême supérieure', 'tous les délais', 'indépendamment'],
+  ['fr', 'composante transversale', 'couple ponctuel', 'fibre extrême supérieure', 'chaque tentative', 'indépendamment'],
   ['tr', 'enine bileşen', 'Tekil moment', 'en üst lif', 'tüm denemelerin', 'bağımsız'],
   ['hu', 'keresztirányú összetevő', 'Pontszerű nyomaték', 'felső szélső szál', 'valamennyi kitöltési', 'önállóan'],
-  ['zh', '横向分量', '集中力偶', '上缘纤维', '所有考生', '独立'],
+  ['zh', '横向分量', '集中力偶', '上缘纤维', '每次作答', '独立'],
 ])('known wrong result: #1927 — %s distinguishes point forces from couples and names the grading conditions', (locale, transverse, couple, fiber, attempts, grading) => {
   const dict = ALL_DICTS[locale];
   const shape = dict['exam.explain.shape'].toLowerCase();
@@ -147,7 +147,7 @@ it('states the factor units, the modal estimate assumptions and the scope of exp
   expect(notice.explanation.hu).toMatch(/lépésenkénti statikai és kinematikai módszer.*teherszorzó közölhető/i);
 });
 
-it.skip('known wrong result: #1927 — review checks exam attempts, determinacy and rotary-inertia assumptions', () => {
+it('known wrong result: #1927 — review checks exam attempts, determinacy and rotary-inertia assumptions', () => {
   for (const key of ['exam.revealAfterClose', 'exam.resultsLater']) {
     expect.soft(ALL_DICTS.fr[key]).toContain('chaque tentative');
     expect.soft(ALL_DICTS.zh[key]).toContain('每次作答');
@@ -156,7 +156,7 @@ it.skip('known wrong result: #1927 — review checks exam attempts, determinacy 
   for (const locale of ['pt', 'tr']) expect.soft(ALL_DICTS[locale]['knownIssue.NL-DYNAMIC-GAPS']).toContain('Rayleigh');
 });
 
-it.skip('known wrong result: #1551 — review publishes the continuous bound and combination warning in each translation', () => {
+it('known wrong result: #1551 — review publishes the continuous bound and combination warning in each translation', () => {
   const change = JSON.parse(readFileSync(join(import.meta.dirname, '../../provenance/result-changes/linear-second-order-critical-factor-2d.json'), 'utf8'));
   for (const [lang, bound, combination] of [
     ['es', 'continuas', 'combinaciones'], ['pt', 'contínuas', 'combinações'], ['de', 'kontinuierliche', 'Lastkombinationen'],

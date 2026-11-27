@@ -99,8 +99,8 @@ export function isSketch(v: unknown): v is Sketch {
 function isVariant(v: unknown): v is Variant {
   if (!v || typeof v !== 'object') return false;
   const { values, supports } = v as Variant;
-  return !!values && typeof values === 'object' && Object.values(values).every((x) => Number.isFinite(x))
-    && !!supports && typeof supports === 'object' && Object.values(supports).every((x) => typeof x === 'string');
+  return !!values && typeof values === 'object' && !Array.isArray(values) && Object.values(values).every((x) => Number.isFinite(x))
+    && !!supports && typeof supports === 'object' && !Array.isArray(supports) && Object.values(supports).every((x) => typeof x === 'string');
 }
 
 export function toSubmissionFile(sub: Submission): string {
@@ -129,11 +129,11 @@ export function fromSubmissionFile(text: string): SubmissionParse {
   if (typeof o.exerciseId !== 'string' || typeof o.exerciseTitle !== 'string') {
     return { ok: false, error: 'incomplete' };
   }
-  if (!Array.isArray(o.answers)) return { ok: false, error: 'incomplete' };
+  if (!Array.isArray(o.answers) || ('variant' in o && !isVariant(o.variant))) return { ok: false, error: 'incomplete' };
 
   const answers: SubmittedAnswer[] = [];
   for (const a of o.answers as SubmittedAnswer[]) {
-    if (!a || typeof a.label !== 'string') return { ok: false, error: 'incomplete' };
+    if (!a || typeof a.label !== 'string' || ('sketch' in a && !isSketch(a.sketch))) return { ok: false, error: 'incomplete' };
     answers.push({
       ...(typeof a.key === 'string' ? { key: a.key } : {}),
       label: a.label,

@@ -138,7 +138,7 @@ test('@slow known wrong result: #1927 — held stress-map strokes and value labe
   expect(samples.labels.at(-1)).toBe(samples.expected);
 });
 
-test.skip('@slow known wrong result: #1927 — the point probe reads the moment on the held canvas', async ({ page }) => {
+test('@slow known wrong result: #1927 — the point probe reads the moment on the held canvas', async ({ page }) => {
   await page.goto('/app/basic?e2e=1');
   await page.evaluate(() => window.__stabileoActions.loadExample('simply-supported'));
   await page.evaluate(() => window.__stabileoActions.setLiveCalc(true));

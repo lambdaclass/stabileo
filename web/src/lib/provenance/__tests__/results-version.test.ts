@@ -208,7 +208,7 @@ for (const mode of ['2d', '3d', 'pro']) it(`retains the exact generated snow not
   }
 });
 
-it.skip('known wrong result: #2539 — review distinguishes a bare node from a nonlinear spring or member', () => {
+it('known wrong result: #2539 — review distinguishes a bare node from a nonlinear spring or member', () => {
   const change = RESULT_CHANGES.changes.find(c => c.id === 'dynamics-rotary-inertia-advisory-deep-members')!;
   const affected = (snapshot: FeatureSnapshot) => assessProject(snapshot, {
     resultsVersion: change.resultsVersion - 1, recorded: [...ANALYSIS_KINDS], analyses: ['nonlinear'],

@@ -45,18 +45,24 @@ export function solveForEdu(): void {
   const exercise = eduStore.exercise;
   const usePDelta = exercise?.solverType === 'pdelta';
 
+  function refuse(message: string) {
+    eduStore.results = null;
+    resultsStore.clear();
+    uiStore.toast(message, 'error');
+  }
+
   let r: ReturnType<typeof modelStore.solve>;
 
   if (usePDelta) {
     try {
       const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
       if (!input) {
-        uiStore.toast(t('results.emptyModelError'), 'error');
+        refuse(t('results.emptyModelError'));
         return;
       }
       r = solveEduPDelta(input);
     } catch (error) {
-      uiStore.toast(errorText(error, t('results.emptyModelError')), 'error');
+      refuse(errorText(error, t('results.emptyModelError')));
       return;
     }
   } else {
@@ -65,11 +71,11 @@ export function solveForEdu(): void {
 
   // Hard errors (validation failures, mechanisms, solver errors) stay visible.
   if (typeof r === 'string') {
-    uiStore.toast(r, 'error');
+    refuse(r);
     return;
   }
   if (!r) {
-    uiStore.toast(t('results.emptyModelError'), 'error');
+    refuse(t('results.emptyModelError'));
     return;
   }
 
@@ -77,7 +83,7 @@ export function solveForEdu(): void {
   // displacement field means the "result" is not a result; refuse to publish it
   // so nothing downstream can grade against it.
   if (hasInvalid2DDisplacements(r.displacements)) {
-    uiStore.toast(t('results.numericError'), 'error');
+    refuse(t('results.numericError'));
     return;
   }
 

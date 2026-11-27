@@ -251,7 +251,7 @@ it('known wrong result: #1927 — validation checks each requested sketch member
   expect(checkResolved({ ...ex, diagramSketchQuestions: [{ diagram: 'M', elementIndex: 5 }] })).not.toEqual([]);
 });
 
-it.skip('known wrong result: #1927 — review rejects an imported non-default mechanism', async () => {
+it('known wrong result: #1927 — review rejects an imported non-default mechanism', async () => {
   const { fromFile, toFile } = await import('../exercise-capture');
   const { fromShareLink, toShareLink } = await import('../exercise-library');
   const base = beam();

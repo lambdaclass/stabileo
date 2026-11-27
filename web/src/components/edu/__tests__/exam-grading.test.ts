@@ -176,7 +176,7 @@ it('known wrong result: #1927 — every numbered step localizes its position as 
   }
 });
 
-it.skip('known wrong result: #1927 — review grades keyed work alongside unattributed legacy rows', () => {
+it('known wrong result: #1927 — review grades keyed work alongside unattributed legacy rows', () => {
   const base = spec();
   const rows = rightReactions(base, 5);
   const extra = { label: 'Legacy row', answer: 'legacy entry', outcome: 'correct' as const };
@@ -186,7 +186,7 @@ it.skip('known wrong result: #1927 — review grades keyed work alongside unattr
   expect(grade?.total).toBe(questionKeys(variantOf(base, 5)).length);
 });
 
-it.skip('known wrong result: #1927 — review independently marks a legacy file with a known exercise', async () => {
+it('known wrong result: #1927 — review independently marks a legacy file with a known exercise', async () => {
   const { render } = await import('svelte/server');
   const { default: Review } = await import('../SubmissionReview.svelte');
   const base = spec();

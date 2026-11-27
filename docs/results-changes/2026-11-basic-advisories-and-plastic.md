@@ -38,7 +38,7 @@ straight beam. It does not bound a structural mode or higher modes.
 Modal, spectral, time-history and harmonic analyses identify deep frame members and curved
 beam input indices separately, using the circular arc length for a curved member, under `NL-DYNAMIC-GAPS`. Other beam models receive
 `NL-DYNAMIC-MODES` because the mode-specific error is unknown. Material nonlinear analyses
-receive `NL-UNCONVERGED-INCREMENT`. Only diagnostic codes and references change.
+receive `NL-UNCONVERGED-INCREMENT`. On reopening an older project, a nonlinear analysis setting alone can no longer trigger this notice for a node-only model. Older files with no element inventory still receive the conservative recheck notice. Only diagnostic codes and references change.
 
 ## Basic 2D plastic collapse at the certified limit-analysis factor
 

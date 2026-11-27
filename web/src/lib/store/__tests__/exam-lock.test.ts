@@ -25,7 +25,7 @@ describe('the exam lock fails open', () => {
     vi.advanceTimersByTime(1);
     expect(examLock.locked).toBe(false);
     expect(examLock.releaseReason).toBe('deadline');
-    expect(examLock.remainingMs()).toBe(0);
+    expect(examLock.remainingMs()).toBeNull();
   });
 
   it('refuses to lock past the grace, or on times it cannot read', () => {
@@ -33,7 +33,7 @@ describe('the exam lock fails open', () => {
     expect(examLock.locked).toBe(false);
     expect(examLock.engage({ deadlineAt: 'soon', serverNow: iso(T0) })).toBe(false);
     expect(examLock.locked).toBe(false);
-    expect(examLock.releaseReason).toBe('error');
+    expect(examLock.releaseReason).toBe('deadline');
   });
 
   it.each(['submitted', 'error', 'disabled', 'left'] as const)('lifts on %s and records why', (why) => {
@@ -83,7 +83,7 @@ it.each([-5000, 5000])('known wrong result: #1927 — an active lock reschedules
   expect(examLock.locked).toBe(false);
 });
 
-it.skip.each(['serverNow', 'deadlineAt'])('known wrong result: #1927 — review preserves active lock on invalid %s', field => {
+it.each(['serverNow', 'deadlineAt'])('known wrong result: #1927 — review preserves active lock on invalid %s', field => {
   examLock.engage({ deadlineAt: iso(T0 + 60_000), serverNow: iso(T0) });
   expect(examLock.engage({ deadlineAt: iso(T0 + 100_000), serverNow: iso(T0 + 70_000), [field]: 'invalid' })).toBe(false);
   expect.soft(examLock.locked).toBe(true);
@@ -91,7 +91,7 @@ it.skip.each(['serverNow', 'deadlineAt'])('known wrong result: #1927 — review 
   expect(examLock.serverNow()).toBe(T0);
 });
 
-it.skip.each(['submitted', 'deadline', 'error'] as const)('known wrong result: #1927 — review preserves %s on room exit and stops countdown', reason => {
+it.each(['submitted', 'deadline', 'error'] as const)('known wrong result: #1927 — review preserves %s on room exit and stops countdown', reason => {
   examLock.enterRoom();
   examLock.engage({ deadlineAt: iso(T0 + 60_000), serverNow: iso(T0) });
   examLock.release(reason);

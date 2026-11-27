@@ -25,7 +25,7 @@
   }
   let { submission, spec, onclose }: Props = $props();
 
-  const remark = $derived(spec && submission.exerciseRevision ? remarkSubmission(spec, submission) : null);
+  const remark = $derived(spec ? remarkSubmission(spec, submission) : null);
   const rows = $derived<RemarkedAnswer[]>(remark?.answers ?? submission.answers.map((a) => ({ ...a, recorded: a.outcome })));
   const score = $derived(scoreOf({ ...submission, answers: rows }));
   const variantText = $derived(spec && remark?.variant ? describeVariant(spec, remark.variant) : '');
@@ -70,6 +70,7 @@
       {t('edu.review.remarked')}
       {#if remark.changed > 0}{tp('edu.review.changed', { n: remark.changed })}{/if}
     </p>
+    {#if !submission.exerciseRevision}<p class="note">{t('edu.review.legacyRevision')}</p>{/if}
     {#if remark.seedMismatch}<p class="note warn">{t('edu.review.seedMismatch')}</p>{/if}
   {:else if spec === null}
     <p class="note">{t('edu.review.unknownExercise')}</p>
@@ -109,8 +110,8 @@
     </tbody>
   </table>
 
-  {#if spec && submission.answers.some(a => !a.key)}
-    <p class="note warn">{t('edu.review.remarkFailed')}</p>
+  {#if remark && submission.answers.some(a => !a.key)}
+    <p class="note">{t('edu.review.legacyRows')}</p>
     {#each submission.answers.filter(a => !a.key) as a}
       <p>{a.label} — {a.answer} {a.unit ?? ''}</p>
     {/each}

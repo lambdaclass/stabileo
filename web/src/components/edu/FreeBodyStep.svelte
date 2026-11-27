@@ -2,7 +2,7 @@
   import { formatParam } from './exercise-variant';
   import { t, tp } from '../../lib/i18n';
   import type { ModelSpec } from './exercise-spec';
-  import { formatAnswer, readAnswer, withinTolerance } from './exercise-marking';
+  import { formatAnswer, markNumber, readAnswer } from './exercise-marking';
   import {
     BAR_ENDS, END_DOFS, barName, endElement, freeBodyKey, freeBodyUnit, studentBalanced,
     type BarEnd, type BarTruth, type EndAction, type EndDof, type FreeBodyBar,
@@ -30,9 +30,15 @@
 
   const num = (s: string | undefined) => readAnswer(s ?? '');
   const fmt = (v: number) => String(Number(formatAnswer(v)));
+  const component = (b: number, end: BarEnd, dof: EndDof) => truth?.[b]?.[end]?.[dof] ?? null;
+
+  function componentState(b: number, end: BarEnd, dof: EndDof): VerifState {
+    if (exam || !Number.isFinite(component(b, end, dof))) return 'pending';
+    return verif[freeBodyKey(b, end, dof)] ?? 'pending';
+  }
 
   function barDone(b: number): boolean {
-    return BAR_ENDS.every((end) => END_DOFS.every((dof) => verif[freeBodyKey(b, end, dof)] === 'correct'));
+    return BAR_ENDS.every(end => END_DOFS.every(dof => componentState(b, end, dof) === 'correct'));
   }
 
   function verify() {
@@ -47,9 +53,9 @@
         for (const dof of END_DOFS) {
           const key = freeBodyKey(b, end, dof);
           const v = num(answers[key]);
-          if (v === null) { next[key] = 'pending'; entered = false; continue; }
+          next[key] = markNumber(answers[key] ?? '', component(b, end, dof), true);
+          if (next[key] === 'pending' || v === null) { entered = false; continue; }
           student[end][dof] = v;
-          next[key] = withinTolerance(v, truth[b]![end][dof]) ? 'correct' : 'incorrect';
           if (next[key] === 'incorrect') wrong = true;
         }
       }
@@ -64,7 +70,7 @@
   }
 
   function reveal(key: string, value: number) {
-    answers = { ...answers, [key]: fmt(value) };
+    answers = { ...answers, [key]: formatAnswer(value) };
     revealed = { ...revealed, [key]: true };
     verif = { ...verif, [key]: 'correct' };
   }
@@ -107,7 +113,7 @@
     const p = at(model.nodes[node]!), q = at(model.nodes[other]!);
     const ol = Math.hypot(p.x - q.x, p.y - q.y) || 1;
     const out = { x: (p.x - q.x) / ol, y: (p.y - q.y) / ol };
-    const stateOf = (key: string, v: number | null): VerifState | 'empty' => (v === null ? 'empty' : exam ? 'pending' : verif[key] ?? 'pending');
+    const stateOf = (dof: EndDof, v: number | null): VerifState | 'empty' => v === null ? 'empty' : componentState(b, end, dof);
     const perp = Math.abs(out.x) > 1e-6 ? { x: 0, y: -1 } : { x: 1, y: 0 };
     const blockRight = out.x + perp.x >= 0, blockUp = out.y + perp.y < 0;
     const glyphs: Glyph[] = [];
@@ -122,7 +128,7 @@
       const tail = outward ? p : { x: p.x - d.x * ARROW, y: p.y - d.y * ARROW };
       const tip = outward ? { x: p.x + d.x * ARROW, y: p.y + d.y * ARROW } : p;
       const far = outward ? tip : tail;
-      const state = stateOf(key, v);
+      const state = stateOf(dof, v);
       glyphs.push({
         d: `M${tail.x},${tail.y} L${tip.x},${tip.y}`, head: arrowHead(tip, d.x, d.y), state, tag: dof,
         tx: dof === 'Fx' ? far.x : far.x + (blockRight ? -5 : 5), ty: dof === 'Fx' ? far.y - 5 : far.y + (d.y > 0 === outward ? 10 : -2),
@@ -132,7 +138,7 @@
     }
     const key = freeBodyKey(b, end, 'M');
     const v = num(answers[key]);
-    const mState = stateOf(key, v);
+    const mState = stateOf('M', v);
     glyphs.push({ ...couple(p, Math.atan2(out.y, out.x), v === null || v >= 0), state: mState, tag: '', tx: 0, ty: 0, anchor: 'start' });
     lines.push({ text: v === null ? 'M ?' : `M = ${fmt(v)}`, state: mState });
     const block: Block = { x: p.x + (blockRight ? 20 : -20), y: blockUp ? p.y - 52 : p.y + 30, anchor: blockRight ? 'start' : 'end', lines };
@@ -275,7 +281,7 @@
       <div class="fb-inputs">
         {#each END_DOFS as dof}
           {@const key = freeBodyKey(active, e.end, dof)}
-          {@const state = exam ? 'pending' : verif[key] ?? 'pending'}
+          {@const state = componentState(active, e.end, dof)}
           <div class="fb-input-group">
             <label class="fb-input" class:verif-correct={state === 'correct'} class:verif-incorrect={state === 'incorrect'}>
               <span class="fb-name">{dof}</span>

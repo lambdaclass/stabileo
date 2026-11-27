@@ -13,7 +13,7 @@ export type ExamNote = 'autoSubmitted' | 'lateSubmit' | 'submitFailed' | null;
 
 export interface ExamSessionDeps {
   api: Pick<typeof examsApi, 'get' | 'start' | 'attempt' | 'saveAnswers' | 'submit'>;
-  lock: Pick<typeof examLock, 'engage' | 'release' | 'syncClock' | 'remainingMs' | 'locked' | 'serverNow'>;
+  lock: Pick<typeof examLock, 'updateDeadline' | 'release' | 'syncClock' | 'remainingMs' | 'locked' | 'serverNow'>;
   auth: { ready(): Promise<void>; readonly isAuthenticated: boolean; readonly assignmentsEnabled: boolean; readonly userLoginEnabled: boolean };
   score?: (spec: EduExerciseSpec, seed: number, answers: unknown) => number | null;
   debounceMs?: number;
@@ -85,11 +85,23 @@ function createAttemptSession(deps: ExamSessionDeps) {
     return examSubmission(spec!, attempt!.seed, answers) as unknown as Record<string, unknown>;
   }
 
+  function applyAttemptClock(a: Attempt): boolean {
+    const timing = { deadlineAt: a.deadline_at, serverNow: a.now };
+    if (lock.updateDeadline(timing) === 'invalid') return false;
+    if (frozen) return true;
+    if (deadlineTimer !== null) clearTimeout(deadlineTimer);
+    deadlineTimer = setTimeout(() => void session.submit(true), lock.remainingMs() ?? 0);
+    return true;
+  }
+
   function adopt(a: Attempt): void {
     if (disposed) return;
+    if (!a.closed && !applyAttemptClock(a)) {
+      if (!lock.locked) fail(null);
+      return;
+    }
     revision = a.revision;
     attempt = a;
-    lock.syncClock(a.now);
     const parsed = exerciseFromEnvelope(a.exercise);
     if (!parsed) {
       fail(null);
@@ -104,15 +116,7 @@ function createAttemptSession(deps: ExamSessionDeps) {
       phase = 'closed';
       return;
     }
-    if (!lock.engage({ deadlineAt: a.deadline_at, serverNow: a.now })) {
-      if (!Number.isFinite(Date.parse(a.deadline_at)) || !Number.isFinite(Date.parse(a.now))) {
-        fail(null);
-        return;
-      }
-    }
     phase = 'running';
-    if (deadlineTimer !== null) clearTimeout(deadlineTimer);
-    deadlineTimer = setTimeout(() => void session.submit(true), lock.remainingMs() ?? 0);
   }
 
   async function openAttempt(fetch: () => Promise<Attempt>): Promise<void> {
@@ -163,17 +167,15 @@ function createAttemptSession(deps: ExamSessionDeps) {
       revision = Math.max(revision, a.revision);
       if (disposed || frozen || phase !== 'running') return;
       pendingSave = null;
-      attempt = a;
-      lock.syncClock(a.now);
       if (a.closed) {
         dirty = false;
         adopt(a);
         return;
       }
+      if (applyAttemptClock(a)) attempt = a;
       dirty ||= canonicalJson(answers) !== canonicalJson(sent.answers.answers);
       saveState = dirty ? 'pending' : 'saved';
       if (dirty && saveTimer === null) saveTimer = setTimeout(() => { saveTimer = null; void session.flush(); }, debounceMs);
-      if (!lock.locked && phase === 'running') lock.engage({ deadlineAt: a.deadline_at, serverNow: a.now });
     } catch (e) {
       if (disposed || frozen) return;
       if (e instanceof ApiError && e.code === 'stale_revision') {
@@ -242,12 +244,10 @@ function createAttemptSession(deps: ExamSessionDeps) {
         saveState = 'failed';
         note = 'submitFailed';
         const untilDeadline = Date.parse(attempt.deadline_at) - lock.serverNow();
-        if (untilDeadline <= 0 || auto) {
-          const grace = untilDeadline + EXAM_GRACE_MS;
-          if (deadlineTimer !== null) clearTimeout(deadlineTimer);
-          if (grace > 0) deadlineTimer = setTimeout(() => void session.submit(true), Math.min(retryMs, grace));
-          else await closeFromServer();
-        }
+        const grace = untilDeadline + EXAM_GRACE_MS;
+        if (deadlineTimer !== null) clearTimeout(deadlineTimer);
+        if (grace > 0) deadlineTimer = setTimeout(() => void session.submit(auto || untilDeadline <= retryMs), Math.min(retryMs, grace));
+        else await closeFromServer();
       }
     } finally {
       busy = false;
@@ -351,7 +351,7 @@ function createAttemptSession(deps: ExamSessionDeps) {
     dispose(): void {
       disposed = true;
       stopTimers();
-      lock.release('left');
+      if (lock.locked || !attempt) lock.release('left');
     },
   };
   return session;

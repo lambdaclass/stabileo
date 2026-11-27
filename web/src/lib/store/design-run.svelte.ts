@@ -589,29 +589,36 @@ function createDesignRunStore() {
           .filter((f) => chosen.has(f))
           .flatMap((f) => byFamily.get(f) ?? []);
         const run = target.length ? autoDesign(target, { ...opts, deferDetailing: true }) : undefined;
-        if (run?.ok) detailingStore.generate({ verifierId: opts.verifierId });
+        let completion = run;
+        if (run?.ok && !detailingStore.generate({ verifierId: opts.verifierId })) {
+          completion = detailingStore.lastError
+            ? fail('design.reason.generic', { detail: detailingStore.lastError })
+            : fail('report.qty.noDetailing');
+        }
 
         for (const f of FRAME_FAMILIES) {
           if (!chosen.has(f)) { families.push(emptyFamilyResult(f, 'skipped')); continue; }
           const ids = byFamily.get(f) ?? [];
           if (ids.length === 0) { families.push(emptyFamilyResult(f, 'noElements')); continue; }
+          let processed = 0;
           let designed = 0;
           let refused = 0;
           let notModelled = 0;
           for (const id of ids) {
             const reached = run?.outcomes?.get(id);
             if (!reached) continue;
+            processed++;
             const o = verificationStore.outcomeFor(id) ?? reached;
             if (o.outcome !== 'VERIFIED') refused += 1;
-            else if (o.accepted) designed += 1;
-            else notModelled += 1;
+            else if (!o.accepted) notModelled += 1;
+            else if (completion?.ok) designed += 1;
           }
           const notReached = ids.filter(id => run?.unreached?.has(id)).length;
-          const failed = run && !run.ok && (!run.unreached || notReached > 0);
+          const failure = completion?.ok === false ? completion : undefined;
           families.push({
-            family: f, state: failed ? 'failed' : 'designed',
-            processed: designed + refused + notModelled, designed, refused, notModelled,
-            ...(failed && { errorKey: run.reasonKey, errorParams: run.unreached ? { notReached } : run.params }),
+            family: f, state: failure ? 'failed' : 'designed',
+            processed, designed, refused, notModelled,
+            ...(failure && { errorKey: failure.reasonKey, errorParams: run?.unreached ? { notReached } : failure.params }),
           });
         }
       }

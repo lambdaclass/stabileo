@@ -5,7 +5,7 @@ import { designFamiliesWithWorkerYields, familyOf, ready } from './design-famili
 
 afterEach(() => vi.restoreAllMocks());
 
-it.skip.each(['sync', 'worker'] as const)('known wrong result: #1927 — %s cannot count undetailed reinforcement after a detailing failure', async entry => {
+it.each(['sync', 'worker'] as const)('known wrong result: #1927 — %s cannot count undetailed reinforcement after a detailing failure', async entry => {
   await ready('rc-qa-diagnostic');
   const detail = vi.spyOn(detailingStore, 'generate').mockReturnValue(null);
   const report = entry === 'sync' ? designRunStore.designFamilies(['column'])
