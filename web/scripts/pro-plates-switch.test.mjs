@@ -633,13 +633,14 @@ test('known wrong result: #1928 ordinary column design has no sheet layout depen
   assert.ok(chunk.exports.includes('endZoneFor'));
 });
 
-test.skip('known wrong result: #1928 the published mesh error legend and warning retain their release presentation', async () => {
+test('known wrong result: #1928 the published mesh error legend and warning retain their release presentation', async () => {
   const entry = resolve(root, 'src/components/DiscretizationStatus.svelte');
   for (const plates of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
       const result = await build({ root, configFile, logLevel: 'silent', build: {
         write: false, lib: { entry, formats: ['es'] },
-        rollupOptions: { external: (id, from) => from === entry && !id.includes('?svelte&type=style') },
+        rollupOptions: { external: (id, from) => (from === entry || from?.endsWith('/DiscretizationWarning.svelte'))
+          && !id.endsWith('/DiscretizationWarning.svelte') && !id.includes('?svelte&type=style') },
       } });
       const output = (Array.isArray(result) ? result[0] : result).output;
       const chunk = output.find(item => item.type === 'chunk');

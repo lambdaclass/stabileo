@@ -1,4 +1,3 @@
-import { unifiedPlates } from '../features';
 /**
  * The discretization (mesh) error of the 3D linear static result on screen
  * (testing/docs/DISCRETIZATION.md). An ESTIMATE, never a certificate: the certificate
@@ -308,12 +307,14 @@ function createDiscretizationStore() {
      * bottom colour. `clipped` says the top colour also stands for larger values.
      */
     mapRange(): { min: number; max: number; clipped?: boolean } {
+      if (__PUBLIC_FEATURES__.proPlatesUnified) {
+        const threshold = estimate.status === 'done' ? 100 * estimate.estimate.threshold : 5;
+        return errorMapRange([...this.elementMap().values()], threshold);
+      }
+      let max = 0;
+      for (const v of this.elementMap().values()) if (v > max) max = v;
       const thr = estimate.status === 'done' ? 100 * estimate.estimate.threshold : 5;
-      const values = this.elementMap().values();
-      if (unifiedPlates()) return errorMapRange([...values], thr);
-      let max = 2 * thr;
-      for (const value of values) max = Math.max(max, value);
-      return { min: 0, max };
+      return { min: 0, max: Math.max(2 * thr, max) };
     },
 
     /** Element indicators keyed as the 3D viewport keys shells (`p12`, `q7`). */
