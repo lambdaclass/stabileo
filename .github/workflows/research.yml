@@ -299,20 +299,20 @@ jobs:
       - name: Compare the page runner through the production WASM wrapper
         run: |
           nix develop -c node research/benchmarks/macneal-harder-1985/wasm/check.mjs "$RUNNER_TEMP/macneal-native.json"
-          nix develop -c python3 -B research/tools/test_benchmark_outputs.py BenchmarkOutputs.test_macneal_rejects_stale_measurements_even_with_a_matching_digest "$RUNNER_TEMP/macneal-native.json"
+          nix develop -c python3 -B research/tools/test_benchmark_outputs.py BenchmarkOutputs.test_macneal_rejects_stale_measurements_even_with_a_matching_digest BenchmarkOutputs.test_macneal_distorted_reference_must_match_regular_reference "$RUNNER_TEMP/macneal-native.json"
       - name: Test measurement and editor handoff
         run: nix develop -c sh -c 'cd web && npx vitest run src/components/research/macneal1985/__tests__/cases.test.ts'
       - name: Navier plate production WASM against the series, the native replay and the published example
         run: |
           nix develop -c node research/benchmarks/navier-plate/wasm/check.mjs
-          nix develop -c python3 -B research/tools/test_benchmark_outputs.py BenchmarkOutputs.test_hard_plate_replay_contains_one_displacement_per_mesh_node BenchmarkOutputs.test_every_mesh_reaction_is_included_in_the_plate_verdict BenchmarkOutputs.test_plate_uses_fresh_coarse_series_in_truncation_and_paper_rows
+          nix develop -c python3 -B research/tools/test_benchmark_outputs.py BenchmarkOutputs.test_hard_plate_replay_contains_one_displacement_per_mesh_node BenchmarkOutputs.test_plate_rejects_extra_soft_and_hard_rows BenchmarkOutputs.test_every_mesh_reaction_is_included_in_the_plate_verdict BenchmarkOutputs.test_plate_uses_fresh_coarse_series_in_truncation_and_paper_rows
           nix develop -c sh -c 'cd web && npx vitest run src/components/research/navier1823'
       - name: Plastic collapse native assertions
         run: nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test integration plastic_collapse_benchmark::portal_combined_mechanism
       - name: Plastic collapse production WASM against the hand bounds, the native replay and VALIDATION.json
         run: |
           nix develop -c node research/benchmarks/plastic-collapse/wasm/check.mjs
-          nix develop -c python3 -B research/tools/test_benchmark_outputs.py BenchmarkOutputs.test_portal_requires_every_recorded_node_and_member BenchmarkOutputs.test_portal_requires_live_nodes_and_the_complete_sweep
+          nix develop -c python3 -B research/tools/test_benchmark_outputs.py BenchmarkOutputs.test_portal_requires_every_recorded_node_and_member BenchmarkOutputs.test_portal_step_measurements_and_event_identity BenchmarkOutputs.test_portal_requires_live_nodes_and_the_complete_sweep
           nix develop -c sh -c 'cd web && npx vitest run src/components/research/plastic-collapse'
       - name: Mattiasson native regression assertions
         run: nix develop -c cargo test --locked --release --manifest-path engine/Cargo.toml --test validation corotational_benchmarks
@@ -352,6 +352,7 @@ jobs:
       - name: Compare shell obstacle course native and production WASM results
         run: |
           nix develop -c node research/benchmarks/shell-obstacle-course/wasm/check.mjs "$RUNNER_TEMP/shell-native"
+          SHELL_OBSTACLE_RESULTS="$RUNNER_TEMP/shell-native" nix develop -c python3 -B research/tools/test_benchmark_outputs.py BenchmarkOutputs.test_shell_requires_all_meshes_and_finite_fresh_evidence
           nix develop -c python3 -B research/benchmarks/shell-obstacle-course/wasm/test_native.py "$RUNNER_TEMP/shell-native"
       - name: Test shell measurement, projection and editor handoff
         run: nix develop -c sh -c 'cd web && npx vitest run src/components/research/shell1985'

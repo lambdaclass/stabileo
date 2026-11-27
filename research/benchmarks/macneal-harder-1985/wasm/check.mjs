@@ -12,7 +12,11 @@ const server = await createServer({ root: new URL('../../../../web/', import.met
 try {
   const { cases, runCases, tolerance } = await server.ssrLoadModule('/src/components/research/macneal1985/cases.ts');
   const engine = await server.ssrLoadModule('/src/lib/engine/wasm-solver.ts');
+  const table3 = new Map(['in', 'out'].map(direction => [direction, cases.find(c => c.id === `mitc4-regular-${direction}`).reference]));
   const rows = await runCases();
+  for (const c of cases.filter(c => c.id.startsWith('mitc4-'))) {
+    assert.equal(c.reference, table3.get(c.id.split('-').at(-1)), `${c.id}: Table 3 reference`);
+  }
   assert.equal(rows.length, cases.length);
   assert.equal(native.length, cases.length);
   assert.equal(new Set(native.map(r => r.id)).size, cases.length);
@@ -112,7 +116,7 @@ try {
     writeFileSync(files.comparison, text(comparison));
     writeFileSync(files.manifest, text(manifest(text(comparison))));
   } else {
-    const same = (a, b, path, scale) => {
+    const same = (a, b, path, scale = 0) => {
       if (typeof a === 'number' && typeof b === 'number') {
         const allowed = path.endsWith('.computed') ? 1e-9 * Math.abs(a)
           : path.endsWith('.observed') ? Math.min(1e-9, 0.1 * scale) : 0;

@@ -30,19 +30,25 @@ try {
   list.push(check('our example: |left roof corner moment − (3Mp − λHh)| from statics', Math.abs(moments.get(1).myEnd - cornerMoment(lambda, PAPER)), portal.tolerance));
   function byModelId(records, key, model) {
     const ids = Object.values(model).map(item => item.id).sort((a, b) => a - b);
-    assert.deepEqual(records.map(record => record[key]).sort((a, b) => a - b), ids);
+    assert.deepEqual(records.map(record => record[key]).sort((a, b) => a - b), ids, `portal ${key} identities`);
     return new Map(records.map(record => [record[key], record]));
   }
   function pageVerdicts(output, parameters) {
     const verdicts = pageChecks(output, parameters);
     const ids = ['collapse', 'mechanism', 'hinges', 'yield', 'equilibrium'];
     if (governing(parameters) === 'combined') ids.push('corner');
-    assert.deepEqual(verdicts.map(c => c.id).sort(), ids.sort());
+    assert.deepEqual(verdicts.map(c => c.id).sort(), ids.sort(), 'portal check identities');
     return verdicts;
   }
   assert.equal(replay.steps.length, result.steps.length);
   let du = 0;
   result.steps.forEach((step, index) => {
+    const event = portal.events[index];
+    for (const measurement of [step, replay.steps[index]]) {
+      assert.ok(Number.isFinite(measurement.loadFactor) && Math.abs(measurement.loadFactor - event.loadFactor) <= portal.tolerance, `portal step ${index}: load`);
+      assert.deepEqual(measurement.hingesFormed.map(h => [h.elementId, h.end, Math.sign(h.momentY), h.step]),
+        [[event.elementId, event.end, event.momentSign, index]], `portal step ${index}: hinge`);
+    }
     const recorded = replay.steps[index].results;
     for (const [field, key, model, components] of [
       ['displacements', 'nodeId', portal.input.solver.nodes, ['ux', 'uz']],
@@ -52,6 +58,7 @@ try {
       const reference = byModelId(recorded[field], key, model);
       for (const [id, value] of actual) {
         for (const component of components) {
+          assert.ok(Number.isFinite(value[component]) && Number.isFinite(reference.get(id)[component]), `portal ${field} ${component}: finite measurement`);
           const difference = Math.abs(value[component] - reference.get(id)[component]);
           assert.ok(Number.isFinite(difference), component);
           if (field === 'displacements') du = Math.max(du, difference);

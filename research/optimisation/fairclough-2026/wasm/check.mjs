@@ -10,7 +10,7 @@ const evidenceRoot = new URL('../', import.meta.url);
 const recorded = JSON.parse(fs.readFileSync(new URL('results/stabileo_results.json', evidenceRoot))).layout;
 const published = JSON.parse(fs.readFileSync(new URL('reference-results/published_comparison.json', evidenceRoot))).checks;
 const weights = ['1.65', '1.68', '1.72', '1.76', '1.80', '1.85', '2.00'];
-assert.deepEqual(published.map(row => row.id).sort(), weights.map(weight => 'table1-v5-' + weight));
+assert.deepEqual(published.map(row => row.id).sort(), weights.map(weight => 'table1-v5-' + weight), 'Table 1 weight identities');
 for (const row of published) {
   const weight = Number(row.id.slice('table1-v5-'.length));
   const volume = JSON.parse(module.recompute(weight)).volume;

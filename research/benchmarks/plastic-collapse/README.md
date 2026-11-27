@@ -118,7 +118,7 @@ warnings, every event λ against the native events (1e-6), the hinge order and |
 yield admissibility (1e-9), equilibrium (1e-9 absolute), the left-corner statics (1e-6), and
 WASM against the committed native replay (nodal ux/uz 1e-9 m, λ 1e-6); for five variants
 (V/H = 0.5, 1, 4 at h = 3 m; h = 2.5 and 5 m at V/H = 2), λ against the lowest hand bound
-(1e-6), the relative equilibrium (1e-8) and the page checks. All 24 pass.
+(1e-6), relative equilibrium (1e-8) and the page checks. The hinge order is pinned for the original portal. At V/H = 4 the beam mechanism requires its three hinges and permits a base to yield first. All 24 pass.
 
 There is no published comparison: Horne (1979) was not available to us, and the example is
 ours, so no paper value exists to compare. The catalogue status is `numerically-validated`.

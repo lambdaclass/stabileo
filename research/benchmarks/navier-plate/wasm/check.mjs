@@ -39,12 +39,15 @@ try {
   const compareField = (input, values, recorded) => {
     const count = Object.keys(input.nodes).length;
     assert.equal(values.length, count);
-    assert.equal(recorded.length, count);
+    assert.equal(recorded.length, count, 'recorded plate displacement count');
     values.forEach((v, k) => {
       assert.ok(Number.isFinite(v) && Number.isFinite(recorded[k]));
       parity = Math.max(parity, Math.abs(v - recorded[k]));
     });
   };
+  const identity = c => [c.family, c.n];
+  assert.deepEqual(replay.rows.map(identity), fixture.cases.map(identity), 'soft replay mesh identities');
+  assert.deepEqual(replay.hard_rows.map(identity), m.hardCases.map(i => identity(fixture.cases[i])), 'hard replay mesh identities');
   const soft = { DKT: [], MITC4: [] };
   fixture.cases.forEach((c, i) => {
     const values = solve(c.input);

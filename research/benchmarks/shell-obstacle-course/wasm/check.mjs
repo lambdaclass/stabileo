@@ -37,7 +37,18 @@ try {
   const fixture = JSON.parse(readFileSync(new URL('../../../../engine/tests/benchmarks/shell_obstacle_course.json', import.meta.url), 'utf8'));
   const rows = await runCases();
   const native = id => JSON.parse(readFileSync(`${nativeDir}/${id}.json`, 'utf8'));
-  assert.deepEqual(rows.map(r => r.id).sort(), cases.map(c => c.id).sort());
+  const ids = ['roof-6', 'roof-8', 'roof-12', 'roof-16', 'cylinder-6', 'cylinder-8', 'cylinder-12', 'cylinder-16', 'hemisphere-4', 'hemisphere-8', 'hemisphere-16'].sort();
+  for (const list of [cases, rows]) assert.deepEqual(list.map(r => r.id).sort(), ids, 'required shell meshes');
+  const recorded = JSON.parse(readFileSync(`${here}results/wasm-results.json`, 'utf8'));
+  assert.deepEqual(recorded.map(r => r.id).sort(), ids, 'recorded shell meshes');
+  function signedError(row, c) {
+    const reference = signedReference(c);
+    assert.ok(Number.isFinite(row.value) && Math.sign(row.value) === Math.sign(reference), `${c.id}: signed displacement`);
+    const error = Math.abs(row.value / reference - 1);
+    assert.ok(Number.isFinite(row.error) && Math.abs(error - row.error) <= Number.EPSILON * Math.max(1, error), `${c.id}: reported error`);
+    assert.equal(row.pass, error < c.tolerance, `${c.id}: accuracy verdict`);
+    return error;
+  }
   let parity = 0;
   let notRefused = 0;
   for (const row of rows) {
@@ -49,6 +60,10 @@ try {
       if (!refused) notRefused++;
       continue;
     }
+    const c = cases.find(c => c.id === row.id);
+    const previous = recorded.find(r => r.id === c.id);
+    for (const measurement of [row, ref, previous]) signedError(measurement, c);
+    assert.ok(Math.abs(previous.value - row.value) <= 1e-9 * Math.abs(row.value), `${c.id}: recorded displacement`);
     assert.ok(!row.refused && !ref.refused, row.id);
     assert.ok(row.value !== null && Number.isFinite(row.value), `${row.id}: ${row.failure}`);
     assert.equal(row.pass, ref.pass, `${row.id}: WASM/native pass mismatch`);
@@ -65,9 +80,9 @@ try {
   }));
   const cylinder32 = native('cylinder-32');
   const target = fixture.nativeCases.find(c => c.id === 'cylinder-32');
-  assert.equal(cylinder32.id, target.id);
-  assert.ok(cylinder32.pass === true && !cylinder32.failure && !cylinder32.refused && Number.isFinite(cylinder32.value));
-  const cylinderError = Math.abs(cylinder32.value / signedReference(target) - 1);
+  assert.equal(cylinder32.id, target.id, 'cylinder-32: identity');
+  assert.ok(cylinder32.pass === true && !cylinder32.failure && !cylinder32.refused && Number.isFinite(cylinder32.value), 'cylinder-32: expected native solution');
+  const cylinderError = signedError(cylinder32, target);
   const cylinderErrors = [...cases.filter(c => c.group === 'cylinder').map(c => byId(c.id).error), cylinderError];
   const convergence = Math.max(...cylinderErrors.slice(1).map((e, i) => e / cylinderErrors[i]));
   const check = (id, metric, kind, observed, tolerance, passed) => ({ id, metric, kind, observed, tolerance, passed });
@@ -115,7 +130,7 @@ try {
     assert.deepEqual(committed.checks.map(c => [c.id, c.metric, c.kind, c.passed, c.tolerance]), checks.map(c => [c.id, c.metric, c.kind, c.passed, c.tolerance]), 'VALIDATION.json is stale: rerun with --write');
     for (const [i, c] of checks.entries()) {
       const was = committed.checks[i].observed;
-      assert.ok(Math.abs(was - c.observed) <= Math.max(1e-9 * Math.abs(c.observed), 1e-15), `${c.id}: committed ${was}, recomputed ${c.observed}`);
+      assert.ok(Number.isFinite(was) && Number.isFinite(c.observed) && Math.abs(was - c.observed) <= Math.max(1e-9 * Math.abs(c.observed), 1e-15), `${c.id}: committed ${was}, recomputed ${c.observed}`);
     }
     assert.equal(readFileSync(paths.references, 'utf8'), json(references), 'references.json is stale: rerun with --write');
     const manifest = JSON.parse(readFileSync(paths.manifest, 'utf8'));
