@@ -29,6 +29,8 @@ import {
 } from '../model/physical/plate';
 import { generateMesh, MAX_MESH_CELLS, type MeshOutput } from '../model/edit/mesher';
 import { frameAlong, gridMesh } from '../model/edit/grid-mesh';
+import { rectangleOpening } from '../model/edit/rect-opening';
+import type { Vec3 } from '../model/edit/affine';
 import { applyPlacedMesh, placeMesh, regionOccupied, type MeshPlacement } from '../model/edit/mesh-apply';
 import { mergeCollinear } from '../model/edit/merge-collinear';
 import { addFloorLoadDef } from './defined-loads';
@@ -206,6 +208,33 @@ export function setPlateHoles(id: number, holes: number[][]): PlateProblem | nul
   return null;
 }
 
+export interface RectPlateOpening {
+  center: Vec3;
+  width: number;
+  height: number;
+  u?: Vec3;
+  v?: Vec3;
+}
+
+/** Add one axis-aligned rectangular opening to a plate, in the plate's own frame. */
+export function addPlateRectOpening(id: number, opening: RectPlateOpening): PlateProblem | null {
+  const e = plateEntry(id);
+  if (!e) return 'needNodes';
+  const geo = plateGeometry(plateModel(), e.group);
+  if (!geo) return 'noArea';
+  const loop = rectangleOpening(opening.center, opening.u ?? geo.frame.u, opening.v ?? geo.frame.v, opening.width, opening.height);
+  if (!loop) return 'noArea';
+  const before = new Set(modelStore.nodes.keys());
+  let problem: PlateProblem | null = null;
+  modelStore.batch(() => {
+    const hole = loop.map(([x, y, z]) => modelStore.addNodeWelded(x, y, z));
+    const created = hole.filter((id) => !before.has(id));
+    problem = setPlateHoles(id, [...plateLoops(e.group).holes, hole]);
+    if (problem) for (const id of created) modelStore.removeNode(id);
+  });
+  return problem;
+}
+
 /**
  * Make an outline side curved through a node, or straight again (`mid` null). `side` k is the
  * side from the k-th corner of the outline (curved sides' points not counted) to the next.
@@ -374,6 +403,7 @@ export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>)
     const frame = grid.orient === 'globalX' ? frameAlong(f.geo.frame, [1, 0, 0]) : f.geo.frame;
     const g = gridMesh({
       outer: f.geo.outer, holes: f.geo.holes, frame, a: grid.a, b: grid.b, element: 'quad',
+      ...(spec.divisions ? { divisions: spec.divisions } : {}),
       ...(input.sides ? { sides: input.sides } : {}), fixedPoints: input.fixedPoints ?? [], fixedSegments: input.fixedSegments ?? [],
     });
     if (!g) return { ...base, mesh: null, refused: 'cannotMesh', cells: 0, quality: null, signature, input, mixed: false };
