@@ -585,7 +585,7 @@ test('known wrong result: #1928 the surface gallery and physical-piece labels fo
   }
 });
 
-test.skip('known wrong result: #1928 published dictionary entries keep their release order', async () => {
+test('known wrong result: #1928 published dictionary entries keep their release order', async () => {
   const config = await resolveConfig({ root }, 'build', 'production');
   const dictionary = config.plugins.find(plugin => plugin.name === 'public-i18n');
   for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'hu']) {
