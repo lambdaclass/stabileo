@@ -3,6 +3,10 @@ import { timeHistoryRefusal, modalMechanismRefusal } from '../time-history-refus
 import { OFFERED_LOCALES } from '../../../i18n/offered';
 import { teAt } from '../../../i18n/engine-text';
 
+function expectLocalized(key: string, locale: string, rendered: string) {
+  expect(rendered, locale).not.toBe(key);
+}
+
 const refusalLocales = new Set([...OFFERED_LOCALES, 'hu']);
 
 const engineText = 'TH-NONFINITE: Time history: the response is not finite (NaN or infinite) from step 12 (t = 0.024 s); no result is returned';
@@ -15,7 +19,7 @@ describe('timeHistoryRefusal', () => {
   it('reads the refusal of non-finite peak reactions, which has no step', () => {
     const m = timeHistoryRefusal('TH-NONFINITE: Time history: the reactions at the peak response are not finite (NaN or infinite); no result is returned');
     expect(m).toEqual({ key: 'pro.th.refusal.nonFiniteReactions' });
-    for (const locale of refusalLocales) expect(teAt(m!, locale), locale).not.toBe('pro.th.refusal.nonFiniteReactions');
+    for (const locale of refusalLocales) expectLocalized(m!.key, locale, teAt(m!, locale));
   });
 
   it('leaves every other engine error to be shown as it is', () => {
@@ -42,7 +46,7 @@ describe('the refusals of a singular mass', () => {
     it(`maps ${key} and translates it in every offered language`, () => {
       const m = timeHistoryRefusal(text);
       expect(m).toEqual({ key });
-      for (const locale of refusalLocales) expect(teAt(m!, locale), locale).not.toBe(key);
+      for (const locale of refusalLocales) expectLocalized(key, locale, teAt(m!, locale));
     });
   }
 });
@@ -90,4 +94,9 @@ it('translates an unresolved positive modal frequency as stiffness conditioning'
     structuredDiagnostics: [{ code: 'modal_stiffness_conditioning', severity: 'error' }],
   });
   expect(modalMechanismRefusal(text)).toEqual({ key: 'advanced.modalStiffnessConditioning', params: {} });
+});
+
+it.skip.each(['nl', 'it'])('known wrong result: #2613 — the refusal oracle detects English fallback in %s', locale => {
+  const key = 'pro.th.refusal.nonFiniteReactions';
+  expect(() => expectLocalized(key, locale, teAt({ key }, 'en'))).toThrow();
 });

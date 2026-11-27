@@ -120,3 +120,15 @@ it('#2532 translates the discarded session history warning in every locale dicti
     expect.soft(dict['file.sessionHistoryDiscarded'], code).toContain('{names}');
   }
 });
+
+it.skip.each(['it', 'nl'])('known wrong result: #2613 — a changed English failure message needs review in %s', code => {
+  const original = en['adv.failed'];
+  const localized = ALL_DICTS[code]['adv.failed'];
+  try {
+    en['adv.failed'] = ALL_DICTS[code]['adv.failed'] = 'Analysis failed';
+    expect(translated(code)).not.toContain('adv.failed');
+  } finally {
+    en['adv.failed'] = original;
+    ALL_DICTS[code]['adv.failed'] = localized;
+  }
+});

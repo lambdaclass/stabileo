@@ -90,3 +90,9 @@ it('matches the closed form through the real production WASM boundary', async ()
     }
   }
 });
+
+it.skip('known wrong result: #2613 — distinguishes opposite signs in the characteristic equation', () => {
+  const equation = translations.en.equations;
+  expect(equation).toContain('det(K − ω²M) = 0');
+  expect(numbers(equation.replace('K − ω²M', 'K + ω²M'))).not.toEqual(numbers(equation));
+});

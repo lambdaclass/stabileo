@@ -6,6 +6,7 @@ import { RESULT_CHANGES } from '../../provenance/full-registry';
 import { allDictFor } from '../locales/all';
 import { unfinishedProClaims } from '../pro-copy';
 
+const momentConvention = /positief.*trek.*ondervezel/;
 const nl = allDictFor('nl');
 
 it.each([
@@ -43,5 +44,9 @@ it.each([
     id, RESULT_CHANGES.changes.find(change => change.id === id)?.title.nl,
   ]),
 ])('defines positive moment by tension on the bottom fibre in the Dutch %s', (_, label) => {
-  expect(label).toMatch(/positief.*trek.*ondervezel/);
+  expect(label).toMatch(momentConvention);
+});
+
+it.skip('known wrong result: #2613 — rejects positive bending defined by tension in the top fibre', () => {
+  expect('positief bij trek in de bovenvezel, negatief bij trek in de ondervezel').not.toMatch(momentConvention);
 });

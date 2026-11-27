@@ -186,3 +186,58 @@ test('credits only literal Italian copy in the emitted chunk', () => {
   assert.equal(italianCopyBytes(dedicated, ['/app/src/lib/i18n/locales/steel/it.ts'], parseAst), 2 * Buffer.byteLength(data));
   assert.equal(italianCopyBytes(dedicated, ['/app/src/lib/i18n/locales/steel/it.ts', 'other.ts'], parseAst), 0);
 });
+
+test.skip('known wrong result: #2613 — a partitioned route requires both locale measurements', () => {
+  assert.throws(() => reviewRouteGrowth({ '/app/basic': 0 }, { '/app/basic': 1400000 }, 'true'), /measurement/i);
+});
+
+test.skip('known wrong result: #2613 — shrinking the Italian alternative cannot increase the Dutch charge', async () => {
+  const { publicDictionaryFootprint } = await import('./route-locale-bytes.mjs');
+  const measure = it => publicDictionaryFootprint([
+    { bytes: 100, localized: { it: 0, nl: 0 } },
+    { bytes: it, localized: { it, nl: 0 } },
+    { bytes: 1100, localized: { it: 0, nl: 1100 } },
+  ]);
+  assert.equal(measure(100).bytes, 1100);
+  assert.equal(measure(1000).localized.nl, measure(100).localized.nl);
+});
+
+test.skip('known wrong result: #2613 — only verified translation bindings earn locale bytes', async () => {
+  const { localeBytes } = await import('./route-locale-bytes.mjs');
+  const code = 'const en={text:"Bolt"},it={text:"Vite"},nl={text:"Bout"};export const tables={en,it,nl}';
+  const actual = localeBytes(code, ['labels.ts']);
+  assert.ok(actual.it >= Buffer.byteLength('"Vite"'));
+  assert.ok(actual.nl >= Buffer.byteLength('"Bout"'));
+  assert.deepEqual(localeBytes('const options={nl:{text:"unrelated"}}', ['feature.ts']), { it: 0, nl: 0 });
+});
+
+test.skip('known wrong result: #2613 — old route baselines apply the shared limit without locale credit', async () => {
+  const { reviewRouteBaseline } = await import('./research-route-budget.mjs');
+  const previous = { routes: { '/en/': 100 } };
+  const allowances = { '/en/': { bytes: 23, localeLimits: { it: 10, nl: 10 } } };
+  const compare = bytes => reviewRouteBaseline(previous, { '/en/': bytes }, { '/en/': { it: 0, nl: 0, shared: bytes } }, 'true', allowances);
+  compare(90);
+  compare(231);
+  assert.throws(() => compare(232), /research isolation/);
+});
+
+test.skip('known wrong result: #2613 — the emitted route fixture charges every loaded chunk at its byte limit', async () => {
+  const { measureRouteFiles, localeBytes } = await import('./route-locale-bytes.mjs');
+  const code = 'const en={text:"Bolt"},nl={text:"Bout"};export const words={en,nl}';
+  const files = new Set(['entry.js', 'feature.js', 'entry.css', 'public-nl.js']);
+  const alternatives = new Set(['public-en.js', 'public-nl.js']);
+  const sizes = new Map([['entry.js', 211], ['feature.js', Buffer.byteLength(code)], ['entry.css', 19], ['public-en.js', 700], ['public-nl.js', 610]]);
+  const measure = suffix => {
+    const emitted = code.replace('Bout', 'Bout' + suffix);
+    sizes.set('feature.js', Buffer.byteLength(emitted));
+    return measureRouteFiles(files, alternatives, file => sizes.get(file), new Map([['feature.js', localeBytes(emitted, ['feature.ts'])]]));
+  };
+  const base = measure('');
+  assert.equal(base.bytes, 930 + Buffer.byteLength(code));
+  const compare = suffix => {
+    const next = measure(suffix);
+    reviewRouteGrowth({ fixture: base.bytes }, { fixture: next.bytes }, 'true', { fixture: { bytes: 5, localeLimits: { it: 0, nl: 5 } } }, { fixture: base.localeSizes }, { fixture: next.localeSizes });
+  };
+  compare('12345');
+  assert.throws(() => compare('123456'), /nl resource growth/);
+});
