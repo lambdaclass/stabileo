@@ -67,8 +67,8 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
     resolveId: {
       order: 'pre',
       handler(id, importer) {
-        if (features.proRcSheets && id === './rc-sheet-readers' && importer?.startsWith(resolve(__dirname, 'src/lib/store') + '/')) {
-          return resolve(__dirname, 'src/lib/store/active-rc-sheet-readers.ts');
+        if (features.proRcSheets && (id === './rc-sheet-readers' || id === './rc-sheets-documents') && importer?.startsWith(resolve(__dirname, 'src/lib/store') + '/')) {
+          return resolve(__dirname, 'src/lib/store/active-' + id.slice(2) + '.ts');
         }
       },
     },

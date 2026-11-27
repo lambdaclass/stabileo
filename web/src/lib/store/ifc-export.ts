@@ -28,7 +28,6 @@ import { gridFromModel, sortedLevels } from '../model/grid';
 import { columnShapeOf } from '../engine/design/shaped-column';
 import { samplePath } from '../codes/cirsoc201/bar-geometry';
 import { writeIfc, type IfcExportInput, type ProfileSpec, type V3 } from '../ifc/ifc-writer';
-import { withIfcGrid } from '../ifc/ifc-grid';
 import { verificationStore } from './verification.svelte';
 import type { SpanRef } from '../engine/design/design-spans';
 import { memberOffsetAt } from '../engine/member-offsets';
@@ -37,11 +36,8 @@ import { ifcPhysicalBodies } from './ifc-physical';
 import { designData } from './design-data';
 import { provenanceLines } from '../export/provenance-attach';
 import type { ResultProvenance } from '../provenance/result-provenance';
-import { sheetsForDocuments } from './rc-sheets-reinforcement';
-import { columnFixedPoints, sheetRowElements, sheetsIfcBars } from './rc-sheets-ifc';
-import { sheetsSchedule } from './rc-sheets-schedule';
+import { sheetDocuments } from './rc-sheets-documents';
 import type { MemoriaElement } from '../report/memoria/types';
-import { rowBars } from '../rc-sheets-readers/memoria';
 
 /** The `LateralSystem` property of a beam, by the reading its design used (`model/lateral-system.ts`). */
 const IFC_LATERAL: Record<'lateral' | 'gravity' | 'undeclared', string> = {
@@ -63,12 +59,6 @@ const IFC_VERDICT: Record<string, string> = {
   'verdict.project.unchecked': '{n} not verified',
 };
 
-/** The labels of a sheet row's bars as the file states them (English, as every other property). */
-const IFC_BARS: Record<string, string> = {
-  'rcSheets.col.bottom': 'bottom', 'rcSheets.col.top': 'top', 'rcSheets.col.stirrups': 'stirrups', 'rcSheets.col.bars': 'bars', 'rcSheets.col.ties': 'ties',
-  'memo.rc.supportTop': 'top at supports', 'rcSheets.face.bottomX': 'bottom X', 'rcSheets.face.bottomY': 'bottom Y', 'rcSheets.face.topX': 'top X', 'rcSheets.face.topY': 'top Y',
-};
-const barsText = (r: Parameters<typeof rowBars>[0]) => rowBars(r).map(([k, v]) => `${IFC_BARS[k] ?? k}: ${v}`).join('; ');
 /** The member's state (`memoElementState`): a row not evaluated, or a hold of the member's verdict, is not a pass, whatever its local checks read. */
 function stateOfMemo(e: MemoriaElement): { u: number | null; fail: boolean; family: string; open: boolean; heldBy: string[] } {
   const ratios = e.rows.map((r) => r.ratio).filter((x): x is number => x !== null && Number.isFinite(x));
@@ -116,24 +106,7 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
     const id = Number(/^[esm](\d+)$/.exec(e.id)?.[1]);
     if (Number.isFinite(id)) state.set(id, stateOfMemo(e));
   }
-  const sheets = __PUBLIC_FEATURES__.proRcSheets ? sheetsForDocuments() : null;
-  const sheetEls = sheets ? new Map(memo.elements.filter((e) => e.id.startsWith('rc-')).map((e) => [e.id.slice(3), e])) : undefined;
-  const sheetOf = sheets ? new Map<number, { row: string; bars: string }>() : undefined;
-  if (sheets && sheetEls && sheetOf) {
-    const rowsByKey = new Map<string, Parameters<typeof rowBars>[0]>([...sheets.beam, ...sheets.column].map((r) => [r.key, r]));
-    for (const [key, ids] of sheetRowElements(sheets)) {
-      const e = sheetEls.get(key), r = rowsByKey.get(key);
-      if (!e || !r) continue;
-      for (const id of ids) { if (!state.has(id)) state.set(id, stateOfMemo(e)); sheetOf.set(id, { row: e.name, bars: barsText(r) }); }
-    }
-  }
-  /** A slab's or a wall's rows of the sheets, by the physical element's name. */
-  const sheetProps = (kind: 'slab' | 'wall', name: string): Record<string, string | number> => {
-    const own = sheets ? (kind === 'slab' ? sheets.slab : sheets.wall).filter((r) => r.name === name) : [];
-    const st = own.map((r) => sheetEls?.get(r.key)).filter((e): e is MemoriaElement => !!e).map(stateOfMemo);
-    if (!st.length) return {};
-    return { Reinforcement: own.map((r) => `${r.level ? `${r.level}: ` : ''}${barsText(r)}`).join(' | '), DesignState: st.some((x) => x.fail) ? 'fails' : st.some((x) => x.open) ? 'not fully verified' : 'satisfies' };
-  };
+  const sheets = __PUBLIC_FEATURES__.proRcSheets ? sheetDocuments?.ifc(memo.elements, state, stateOfMemo) : null;
   // Bars generated from an earlier model say so, on the assembly and on the members they belong to.
   const outdated = detailingStore.modelStale;
   const detailed = new Set(detailingStore.assemblies.flatMap((a) => a.elementIds));
@@ -158,7 +131,7 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
       // `Utilization` is the worst LOCAL check; `DesignState` the member's verdict, `HeldBy` what holds it.
       Section: section, ...(s?.u !== null && s?.u !== undefined ? { Utilization: Math.round(s.u * 1000) / 1000, UtilizationScope: 'worst local check of the section' } : {}), DesignState: label,
       ...(s?.heldBy.length ? { HeldBy: s.heldBy.join('; ') } : {}), ...refusal,
-      ...(sheetOf?.has(id) ? { ReinforcementSheet: sheetOf.get(id)!.row, Reinforcement: sheetOf.get(id)!.bars } : {}),
+      ...(sheets?.members.has(id) ? { ReinforcementSheet: sheets.members.get(id)!.row, Reinforcement: sheets.members.get(id)!.bars } : {}),
       ...(detailed.has(id) ? { DetailingState: outdated ? 'outdated: the model changed after the detailing' : 'current' } : {}),
       // A beam's role in the lateral system as its design read it (§9.7.3.8.2): an undeclared one
       // was designed as part of it, and the file says so.
@@ -243,7 +216,7 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
     // A physical plate lying flat: its own outline and holes, curved sides drawn in 5° steps, mesh
     // or not; net of the frame when its mesh gives that body.
     const flatPlate = gr.plate && gr.kind === 'slab' ? plateIfcSlab(gr.plate, gr.keys.map((k) => bodies.slab(k))) : null;
-    if (flatPlate) { slabs.push({ ...flatPlate, id: `slab-${gr.name}`, name: gr.name, ...(sheets ? { props: { ...flatPlate.props, ...sheetProps('slab', gr.name) } } : {}) }); continue; }
+    if (flatPlate) { slabs.push({ ...flatPlate, id: `slab-${gr.name}`, name: gr.name, ...(sheets ? { props: { ...flatPlate.props, ...sheets.surfaceProps('slab', gr.name) } } : {}) }); continue; }
     const ss = gr.keys.map((k) => shellBy.get(k)).filter((x): x is NonNullable<typeof x> => !!x);
     if (!ss.length) continue;
     const pts = ss.flatMap((s) => s.nodes.map(P)).filter((p): p is V3 => !!p);
@@ -253,7 +226,7 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
       const net = gr.keys.map((k) => bodies.slab(k));
       slabs.push({
         id: `slab-${gr.name}`, name: gr.name, outline: hull(pts).map((p) => [p[0], p[1], z] as V3), thickness: t, ...(material ? { material } : {}),
-        ...(sheets && Object.keys(sheetProps('slab', gr.name)).length ? { props: sheetProps('slab', gr.name) } : {}),
+        ...(sheets && Object.keys(sheets.surfaceProps('slab', gr.name)).length ? { props: sheets.surfaceProps('slab', gr.name) } : {}),
         ...(net.every((x) => x) ? { prisms: net.flatMap((x) => x!) } : {}),
       });
     } else {
@@ -261,7 +234,7 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
       let a = pts[0]!, b = pts[0]!, d = -1;
       for (const p of pts) for (const q of pts) { const e = Math.hypot(p[0] - q[0], p[1] - q[1]); if (e > d) { d = e; a = p; b = q; } }
       walls.push({ id: `wall-${gr.name}`, name: gr.name, a: [a[0], a[1], z0], b: [b[0], b[1], z0], height: z1 - z0, thickness: t, ...(material ? { material } : {}),
-        ...(sheets && Object.keys(sheetProps('wall', gr.name)).length ? { props: sheetProps('wall', gr.name) } : {}) });
+        ...(sheets && Object.keys(sheets.surfaceProps('wall', gr.name)).length ? { props: sheets.surfaceProps('wall', gr.name) } : {}) });
     }
   }
 
@@ -277,7 +250,7 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
       assembly: outdated ? `${a.id} (OUTDATED)` : a.id, length: b.cuttingLength, points: samplePath(b, 0.02).map((p) => [p.x, p.y, p.z] as V3),
     }));
   });
-  const bars = __PUBLIC_FEATURES__.proRcSheets && sheets ? detailedBars.concat(sheetsIfcBars(sheets)) : detailedBars;
+  const bars = __PUBLIC_FEATURES__.proRcSheets && sheets ? detailedBars.concat(sheets.bars()) : detailedBars;
 
   const parts: IfcExportInput['parts'] = steelJoints().flatMap((j) => (jointDesignStore.designFor(j.nodeId, j.elementIds).typology?.parts ?? []).map((p, k) => ({
     id: `${j.nodeId}:${k}`, kind: p.kind, joint: `N${j.nodeId}`, center: [p.center.x, p.center.y, p.center.z] as V3, u: [p.u.x, p.u.y, p.u.z] as V3, v: [p.v.x, p.v.y, p.v.z] as V3, size: p.size, material: 'F-24',
@@ -286,13 +259,13 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
   // The project's verdict over its concrete design members (`member-verdict.ts`), on the building:
   // no member's «satisfies» and no favourable local ratio reads as the project's approval.
   const pv = projectVerdict();
-  const rebarKg = sheets ? sheetsSchedule(sheets).total.kg : 0;
+  const rebarKg = sheets?.mass() ?? 0;
   const buildingProps: Record<string, string | number> = pv.state === 'empty' ? (rebarKg > 0 ? { ReinforcementMassKg: Math.round(rebarKg * 10) / 10 } : {}) : {
     ...(rebarKg > 0 ? { ReinforcementMassKg: Math.round(rebarKg * 10) / 10 } : {}),
     ProjectDesignState: pv.state === 'conforms' ? 'every concrete design member satisfies' : `not approved: ${pv.conforming} of ${pv.total} concrete design members satisfy`,
     ...(pv.state === 'held' ? { ProjectHeldBy: projectVerdictLines(pv, (k, p) => IFC_VERDICT[k]?.replace(/\{n\}/g, String(p?.n ?? '')) ?? k).reasons.join('; ') } : {}),
   };
-  if (startOf) columnFixedPoints(members, startOf);
+  if (startOf) sheetDocuments?.columnFixedPoints(members, startOf);
   return { project: { name: projectName, time: new Date().toISOString().slice(0, 19), app: 'Stabileo' }, buildingProps, storeys, members, slabs, walls, footings, bars, parts };
 }
 
@@ -315,7 +288,7 @@ export function exportProjectIfc(tr: Tr, locale: string, projectName: string, pr
     input.buildingProps = { ...input.buildingProps, ...Object.fromEntries(lines.map(([k, v], i) => [`Provenance_${String(i + 1).padStart(2, '0')}_${k.replace(/[^\w]+/g, '_')}`, v])) };
   }
   const step = writeIfc(input);
-  return __PUBLIC_FEATURES__.proRcSheets ? withIfcGrid(step, modelStore.grid?.axes ?? [], planExtent()) : step;
+  return __PUBLIC_FEATURES__.proRcSheets && sheetDocuments ? sheetDocuments.withIfcGrid(step, modelStore.grid?.axes ?? [], planExtent()) : step;
 }
 
 /** A member of a curved member: which arc, and which of its analysis segments. */

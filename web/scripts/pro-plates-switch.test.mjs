@@ -467,7 +467,7 @@ test('reading member reinforcement does not link disabled sheet designers', asyn
   }
 });
 
-test.skip('known wrong result: #2655 the released document builders do not load the reinforcement sheet implementations', async () => {
+test('the released document builders do not load the reinforcement sheet implementations', async () => {
   for (const sheets of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proRcSheets: sheets }, async configFile => {
       for (const name of ['memoria-inputs', 'ifc-export']) {
