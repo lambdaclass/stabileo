@@ -76,3 +76,11 @@ describe('§25.4.2.4 — general development length', () => {
     expect(favourableRow({ diameterMm: 10, clearSpacingMm: 140, clearCoverMm: 25, minimumStirrups: false })).toBe(true);
   });
 });
+
+it.skip('known wrong result: #1928 the sheet development explanation states the transverse index actually used', () => {
+  const bars = { diameterMm: 20, fy: 420, fc: 25, favourableSpacing: false, edition: '2025' as const };
+  for (const ktrMm of [0, 7]) {
+    const r = deriveDevelopment({ ...bars, confinement: { cbMm: 24, ktrMm } });
+    expect(r.derivation.params?.ktr).toBe(ktrMm);
+  }
+});
