@@ -1,3 +1,4 @@
+import { gravityShellCells, gravityShellKey, type GravityShellTarget } from './gravity-shell-partition';
 import type { LoadModelData, LevelMass, PlannedDistributed, PlannedNodal } from './load-plan';
 import { widthSpans, type GravityLayout } from './plan-gravity';
 import type { AreaLoadsResult } from './plan-area-loads';
@@ -13,7 +14,7 @@ type LineGeometry = { elementId: number; nodeI: MassNode; nodeJ: MassNode; lengt
 type LineWeight = LineGeometry & { wi: number; wj: number; width?: number };
 export type MassMember = LineWeight & { kind: 'member' };
 type MassAtNode = LineWeight & { kind: 'nodal'; node: MassNode };
-export type MassShell = { kind: 'shell'; quadId: number; on?: 'plate'; nodes: MassNode[]; density: number };
+export type MassShell = GravityShellTarget & { kind: 'shell'; nodes: MassNode[]; density: number };
 export type SeismicMass = MassMember | MassAtNode | MassShell;
 export type SeismicLevel = LevelMass & { mass: SeismicMass[]; planWidth: { x: number; y: number }; snowWeightKN: number; unresolvedWeight: boolean; refusals: Set<MassRefusal> };
 type SeismicGeometryRefusal = 'seismicBase' | 'seismicSteppedBase' | 'seismicDisconnected' | 'seismicBelowDatum' | 'seismicAmbiguousStory' | 'seismicStoryPrecision';
@@ -201,13 +202,11 @@ function seismicTopology(model: SeismicGeometry) {
     next(e.nodeI, nodeJ, e.id);
     next(e.nodeJ, nodeI, e.id);
   }
-  const shells = [...model.quads?.values() ?? []].map(q => ({ ...q, on: undefined }));
-  const plates = [...model.plates?.values() ?? []].map(q => ({ ...q, on: 'plate' as const }));
-  const surfaces = [...shells, ...plates].map(q => {
+  const surfaces = [...gravityShellCells(model)].map(({ cell: q, target }) => {
     const corners = q.nodes.map(id => nodes.get(id)).filter((n): n is MassNode => n !== undefined);
-    const valid = q.nodes.length === (q.on ? 3 : 4) && corners.length === q.nodes.length
+    const valid = q.nodes.length === (target.on ? 3 : 4) && corners.length === q.nodes.length
       && corners.every(n => [n.x, n.y, n.z].every(Number.isFinite));
-    return { q, corners: valid ? corners : undefined };
+    return { q, target, corners: valid ? corners : undefined };
   });
   const surfaceNodes = new Set(surfaces.flatMap(({ q }) => q.nodes));
   const segments: StructuralSegment[] = [...geometry.values()].map(g => [g.nodeI, g.nodeJ]);
@@ -515,14 +514,14 @@ export function buildSeismicModel(
   const deferWeight = (source: Source, l: () => SeismicLevel, m: SeismicMass | null, weight: number) =>
     distribute.push(() => record(l(), source, m, weight));
 
-  const shellPressures = new Map(layout.shellQuads.map(s => [s.quadId, s]));
-  for (const { q, corners } of surfaces) {
+  const shellPressures = new Map(layout.shells.map(s => [gravityShellKey(s.target), s]));
+  for (const { q, target, corners } of surfaces) {
     if (!corners) {
       distribute.push(() => { for (const l of levels) deny(l, 'shell'); });
       continue;
     }
     const density = q.thickness! * (model.materials.get(q.materialId!)?.rho ?? NaN);
-    const p = area.massOfQuad(q.id), shell = q.on ? undefined : shellPressures.get(q.id);
+    const p = area.massOfShell(target), shell = shellPressures.get(gravityShellKey(target));
     if (q.curved || hasShellOffset(q) || !Number.isFinite(density) || density < 0 || !(q.thickness! > 0) ||
       !corners.every(n => n.z === corners[0]!.z)) {
       const lo = Math.min(...corners.map(n => n.z)), hi = Math.max(...corners.map(n => n.z));
@@ -530,7 +529,7 @@ export function buildSeismicModel(
       continue;
     }
     const l = level(corners[0]!.z);
-    const m: MassShell = { kind: 'shell', quadId: q.id, on: q.on, nodes: corners, density: 1 };
+    const m: MassShell = { kind: 'shell', ...target, nodes: corners, density: 1 };
     const jacobianSigns = corners.map((n, i) => {
       const a = corners[(i + 1) % corners.length]!, b = corners[(i + corners.length - 1) % corners.length]!;
       return Math.sign((a.x - n.x) * (b.y - n.y) - (a.y - n.y) * (b.x - n.x));

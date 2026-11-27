@@ -129,7 +129,7 @@ export function snowLoadCases(input: SnowCasesInput): {
     roof: { kind: shapedKind ? 'mono' : kind, slopeDeg, W: geometry.W, slippery: input.snow.slippery },
   });
   if (!result.refused) {
-    const refused = snowDriftRefusal(input.model as GravityModel, input.layout, driftSurfaces);
+    const refused = snowDriftRefusal(input.model as GravityModel, input.layout, driftSurfaces, input.tributaryWidth);
     if (refused) result.refused = refused;
   }
   if (result.refused) return { result, geometry, cases: [], derivation: [], refs: [], surfaces: [] };

@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, onTestFinished } from 'vitest';
 import { modelStore } from '../model.svelte';
-import '../index';
+import { uiStore } from '../index';
 import { applyLoadPlan, loadStateForPlan } from '../apply-load-plan';
 import { buildLoadPlan, describePlanDelta, type LoadPlanInput } from '../../engine/loads/load-plan';
+import { regulations } from '../../engine/loads/__tests__/snow-roof-plane-fixture';
 import { defaultRegulations, type ProjectRegulations } from '../../codes/roles';
 import { defaultCombinations, defaultLoadCases, DEFAULT_CASE_NAME_KEYS } from '../../model/default-loads';
 import { t } from '../../i18n';
@@ -218,4 +219,88 @@ it('#2512 restored platforms with a second tie keep both pressures at a fixed ma
   const dead = modelStore.model.loadCases.find(c => c.type === 'D')!;
   expect(modelStore.model.loads.filter(load => load.type === 'surface3d' && load.data.caseId === dead.id))
     .toEqual([lower.quad, upper.quad].map(quadId => expect.objectContaining({ data: expect.objectContaining({ quadId, q: 1 }) })));
+});
+
+it('applied gravity on independently supported decks reaches both bearings', async () => {
+  const mode = uiStore.analysisMode;
+  onTestFinished(() => { uiStore.analysisMode = mode; });
+  uiStore.analysisMode = 'pro';
+  modelStore.clear();
+  const ring = (z0: number, z1: number) => {
+    const nodes = [
+      modelStore.addNode(0, 0, z0), modelStore.addNode(10, 0, z0),
+      modelStore.addNode(10, 6, z1), modelStore.addNode(0, 6, z1),
+    ] as [number, number, number, number];
+    for (const id of nodes) modelStore.addSupport(id, 'fixed3d');
+    return nodes;
+  };
+  const lower = ring(3, 3);
+  const mid = modelStore.addNode(0, 3, 3);
+  const cycle = [...lower, mid];
+  for (const [index, id] of cycle.entries()) modelStore.addElement(id, cycle[(index + 1) % cycle.length]!);
+  const upper = ring(3, 6);
+  const material = modelStore.model.materials.keys().next().value!;
+  modelStore.addQuad(upper, material, 0.15);
+  modelStore.addElement(lower[2], upper[2], 'truss');
+
+  modelStore.restore(JSON.parse(JSON.stringify(modelStore.snapshot())));
+  const input = planInput();
+  const plan = buildLoadPlan({
+    ...input, gravity: { mode: 'panels' }, regulations: regulations(),
+    model: { ...input.model, supports: modelStore.supports }, dead: [{ labelKey: 'a', q: 1 }],
+  });
+  expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+  expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf })).toBeUndefined();
+  const loadCase = modelStore.model.loadCases.find(entry => entry.type === 'D')!;
+  const combination = modelStore.addCombination('Bearing reactions', [{ caseId: loadCase.id, factor: 1 }]);
+  for (const result of [modelStore.solve3D(false, false, true), await modelStore.solve3DAsync(false, false, true)]) {
+    if (!result || typeof result === 'string') throw new Error(String(result));
+    expect(result.reactions.length).toBe(8);
+  }
+  expect(modelStore.singleSolveInput3D(false, false, true)).toBeTruthy();
+  expect(modelStore.buildSolverInput3D()).toBeTruthy();
+  for (const perCombination of ['linear', 'pdelta'] as const) {
+    modelStore.setAnalysis({ perCombination });
+    for (const bundle of [
+      modelStore.solveCombinations3D(false, false, true),
+      await modelStore.solveCombinations3DParallel(false, false, true),
+    ]) {
+      if (!bundle || typeof bundle === 'string') throw new Error(String(bundle));
+      const { reactions } = bundle.perCombo.get(combination)!;
+      const force = (ids: number[]) => reactions.filter(row => ids.includes(row.nodeId)).reduce((sum, row) => sum + row.fz, 0);
+      expect(force(lower)).toBeCloseTo(60, 8);
+      expect(force(upper)).toBeCloseTo(10 * Math.sqrt(45), 8);
+    }
+  }
+});
+
+it('#2607 a restored rafter gap blocks generation and application without replacing existing rows', () => {
+  modelStore.clear();
+  const node = (x: number, y: number, drop = 0) => modelStore.addNode(x, y, 3 + x / 5 - drop);
+  const a = node(0, 0), b = node(10, 0);
+  const i = node(0, 0, 0.02), j = node(10, 0, 0.02);
+  const member = modelStore.addElement(i, j);
+  const material = modelStore.model.materials.keys().next().value!;
+  modelStore.addQuad([a, node(4, -2), node(4, 2), node(0, 4)], material, 0.1);
+  modelStore.addQuad([node(6, -2), b, node(10, 4), node(6, 2)], material, 0.1);
+  for (const [masterNode, slaveNode] of [[a, i], [b, j]] as const) {
+    modelStore.addConstraint({ type: 'rigidLink', masterNode, slaveNode, dofs: [0, 1, 2, 3, 4, 5] });
+  }
+  const projectInput = planInput();
+  const width = buildLoadPlan({ ...projectInput, gravity: { mode: 'width' } });
+  expect(width.outcome).toBe('READY');
+  expect(applyLoadPlan(width, { clearExisting: true, bothSenses: true, nameOf })).toBeUndefined();
+
+  modelStore.restore(JSON.parse(JSON.stringify(modelStore.snapshot())));
+  const before = modelStore.snapshot();
+  expect(before.loads).toContainEqual(expect.objectContaining({
+    type: 'distributed3d', data: expect.objectContaining({ elementId: member }),
+  }));
+  const restored = planInput();
+  const model = { ...restored.model, constraints: modelStore.model.constraints };
+  const plan = buildLoadPlan({ ...restored, model, gravity: { mode: 'panels' } });
+  const reason = { key: 'loadPlan.gravity.rafterGap', params: { members: String(member), gap: '4–6' } };
+  expect(plan).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [reason], distributed: [], nodal: [], surface: [] });
+  expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf })).toEqual(reason);
+  expect(modelStore.snapshot()).toEqual(before);
 });

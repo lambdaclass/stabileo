@@ -899,6 +899,23 @@ for (const surface of ['quads', 'plates'] as const) {
   });
 }
 
+it.each(['quads', 'plates'] as const)('#2429 gravity on a connected flat %s cell participates in seismic traction', surface => {
+  const model = mixedSeismicModel(surface);
+  tieFloor(model, 2, 4);
+  const plan = buildLoadPlan(request(model, {}, {
+    gravity: { mode: 'panels' }, dead: [{ labelKey: 'a', q: 2 }],
+  }));
+  const area = surface === 'quads' ? 4 : 2;
+  const target = { quadId: 1, ...(surface === 'plates' ? { on: 'plate' } : {}) };
+  expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+  expect(plan.factors.baseShear?.value).toBeCloseTo(4 + 3 * area, 10);
+  expect(plan.surface.filter(load => load.caseType === 'D')).toEqual([{ ...target, caseType: 'D', q: 2 }]);
+  expect(plan.surface.filter(load => load.caseType === 'E')).toMatchObject([
+    { ...target, frame: 'global', dir: [1, 0, 0], q: 1 },
+    { ...target, frame: 'global', dir: [1, 0, 0], q: 2 },
+  ]);
+});
+
 it('#2316 a mixed model refuses a shell with an unlocatable corner', () => {
   const model = mixedSeismicModel('quads');
   model.nodes.get(3)!.z = NaN;

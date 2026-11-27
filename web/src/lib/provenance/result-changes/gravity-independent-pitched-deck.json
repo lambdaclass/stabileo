@@ -1,0 +1,43 @@
+{
+  "id": "gravity-independent-pitched-deck",
+  "date": "2026-11-25",
+  "prs": [
+    2291,
+    2607
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "generatedPanelGravityShells"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Gravity on an independently supported bay below a pitched shell",
+    "es": "Gravedad en un paño con apoyos independientes bajo una placa inclinada",
+    "pt": "Gravidade em um painel com apoios independentes sob uma casca inclinada",
+    "de": "Schwerkraftlasten auf einem unabhängig gelagerten Feld unter einer geneigten Schale",
+    "fr": "Charges gravitaires sur une travée indépendante sous une coque inclinée",
+    "tr": "Eğimli kabuk altında bağımsız mesnetli açıklıkta yerçekimi yükleri",
+    "zh": "倾斜壳下独立支承板格的重力荷载",
+    "hu": "Függetlenül megtámasztott mező gravitációs terhei ferde héj alatt"
+  },
+  "explanation": {
+    "en": "Regenerate panel gravity loads. A pitched shell and horizontal bay with separate vertical restraints and load paths now each retain their gravity load.",
+    "es": "Regenerá las cargas gravitatorias por paños. Una placa inclinada y un paño horizontal con apoyos verticales y caminos de carga independientes conservan sus cargas gravitatorias.",
+    "pt": "Gere novamente as cargas gravitacionais por painéis. Uma casca inclinada e um painel horizontal com apoios verticais e caminhos de carga independentes conservam suas cargas gravitacionais.",
+    "de": "Erzeugen Sie die Schwerkraftlasten für Felder neu. Eine geneigte Schale und ein horizontales Feld mit getrennten vertikalen Lagern und Lastpfaden behalten jeweils ihre Schwerkraftlasten.",
+    "fr": "Régénérez les charges gravitaires par panneaux. Une coque inclinée et une travée horizontale à appuis verticaux et chemins de charge distincts conservent chacune leurs charges gravitaires.",
+    "tr": "Panel yerçekimi yüklerini yeniden üretin. Ayrı düşey mesnetleri ve yük yolları olan eğimli kabuk ve yatay açıklık kendi yerçekimi yüklerini korur.",
+    "zh": "请重新生成按板格分配的重力荷载。具有独立竖向支承和传力路径的倾斜壳与水平板格各自保留其重力荷载。",
+    "hu": "Generálja újra a mezőnkénti gravitációs terheket. A külön függőleges támaszokkal és teherutakkal rendelkező ferde héj és vízszintes mező megtartja a saját gravitációs terheit."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-supported-deck-and-step-drift.md",
+    "heading": "Gravity on an independently supported bay below a pitched shell"
+  }
+}

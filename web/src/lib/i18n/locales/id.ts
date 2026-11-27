@@ -3,6 +3,7 @@ import type { Translations } from '../types';
 const id: Translations = {
   'svc.accountingMismatch': "Analisis ditolak. Kasus beban {case}, {component}. Nilai masukan {entered}, nilai rakitan {assembled}.",
   'svc.accountingUnsupported': "Analisis ditolak. Gaya dan momen {kind} {id} pada kasus beban {case} tidak dapat diperhitungkan.",
+  'svc.accountingSurfaceProjection': "Analisis ditolak. Pada kasus beban {case}, arah proyeksi wilayah beban sejajar atau hampir sejajar dengan elemen cangkang #{id}.",
   'svc.accountingArea': "Analisis ditolak. Pelat {plate} memiliki luas atau batas yang berbeda pada model penyelesaian. Luas yang ditetapkan {entered}, luas rakitan {assembled}.",
   'svc.accountingSweep': "Analisis ditolak. Busur tepi pelat {plate} berbeda pada model penyelesaian. Luas yang ditetapkan {entered}, luas rakitan {assembled}.",
   'svc.accountingShellEdits': "Pelat {plate} tidak dapat dibuatkan mesh ulang karena offset atau perubahan kelengkungan cangkang akan hilang.",
@@ -22,6 +23,7 @@ const id: Translations = {
   'loadPlan.gravity.memberSlopeLimit': "Batang {id} terlalu dekat dengan batas kemiringan untuk dipastikan sebagai pemikul beban gravitasi. Tetapkan bebannya secara eksplisit.",
   'snow.refused.stepDriftTransfer': "Pembangkitan beban salju tidak dapat menyalurkan timbunan pada undakan atap ke batang pemikul secara andal. Tetapkan beban salju secara eksplisit.",
   'loadPlan.gravity.unresolvedMember': "Batang {id} hanya tertutup sebagian oleh cangkang dan penyaluran beban panel belum dapat ditentukan.",
+  'loadPlan.gravity.rafterGap': "Ada celah pada dek atap pada posisi {gap} m dalam proyeksi denah sepanjang batang {members}. Modelkan dek di atas celah atau tetapkan beban di sana secara eksplisit.",
   'loadPlan.gravity.offsetRafter': "Batang {id} terhubung kaku ke cangkang atap pada offset yang menghalangi penetapan beban gravitasi secara otomatis. Tetapkan beban area satu kali secara manual.",
   'loadPlan.gravity.differentDeck': "Cangkang yang menutupi panel balok harus berada pada pelat yang sama.",
   'loadPlan.gravity.differentSlopedDeck': "Cangkang miring yang menutupi panel balok harus berada pada pelat yang sama.",

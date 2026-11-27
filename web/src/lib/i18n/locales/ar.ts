@@ -3,6 +3,7 @@ import type { Translations } from '../types';
 const ar: Translations = {
   'svc.accountingMismatch': "رُفض التحليل. حالة الحمل {case}، المركبة {component}. المُدخل {entered}، المُجمّع {assembled}.",
   'svc.accountingUnsupported': "رُفض التحليل. لا يمكن حساب قوى وعزوم {kind} {id} في حالة الحمل {case}.",
+  'svc.accountingSurfaceProjection': "رُفض التحليل. في حالة الحمل {case}، اتجاه إسقاط منطقة الحمل موازٍ أو شبه موازٍ لعنصر القشرة رقم {id}.",
   'svc.accountingArea': "رُفض التحليل. مساحة اللوح {plate} أو حدوده مختلفة في نموذج الحل. المساحة المحددة {entered}، والمساحة المجمّعة {assembled}.",
   'svc.accountingSweep': "رُفض التحليل. مسار الحافة القوسية للوح {plate} مختلف في نموذج الحل. المساحة المحددة {entered}، والمساحة المجمّعة {assembled}.",
   'svc.accountingShellEdits': "لا يمكن إعادة تشبيك اللوح {plate} لأن ذلك سيحذف إزاحة القشرة أو تعديل انحنائها.",
@@ -22,6 +23,7 @@ const ar: Translations = {
   'loadPlan.gravity.memberSlopeLimit': "ميل العنصر {id} قريب جدًا من الحد بحيث لا يمكن تصنيفه بثقة كعنصر حامل لأحمال الجاذبية. حدّد أحماله صراحةً.",
   'snow.refused.stepDriftTransfer': "يتعذر نقل حمل تراكم الثلوج عند فرق منسوب السقف إلى العناصر الحاملة بشكل موثوق. حدّد أحمال الثلوج صراحةً.",
   'loadPlan.gravity.unresolvedMember': "العنصر {id} مغطى جزئيًا بقشرية ولم يتحدد انتقال الحمل من اللوح.",
+  'loadPlan.gravity.rafterGap': "توجد فجوة في ألواح السقف عند المحطات {gap} م على امتداد المسقط الأفقي للأعضاء {members}. نمذج بلاطة السقف فوق الفجوة أو عيّن الأحمال عليها صراحةً.",
   'loadPlan.gravity.offsetRafter': "العضو {id} متصل بشكل صلب بغلاف السقف بإزاحة لا يمكن معها تحديد حامل حمل الجاذبية تلقائيًا. عيّن حمل المساحة مرة واحدة يدويًا.",
   'loadPlan.gravity.differentDeck': "يجب أن تنتمي القشرية التي تغطي لوح الكمرات إلى البلاطة نفسها.",
   'loadPlan.gravity.differentSlopedDeck': "يجب أن تنتمي القشرية المائلة التي تغطي لوح الكمرات إلى البلاطة نفسها.",

@@ -133,14 +133,14 @@ it('#2512 the centre beam in a subdivided bay leaves its own shell exposed', () 
     expect(expected).toHaveLength(1);
     const plan = buildLoadPlan(input(model, { gravity, roof }));
     expect(plan.surface.filter(load => load.caseType === 'Lr')).toEqual(expected);
-    expect(gravityLayout(model, { ...gravity, tributaryWidth: 3 }).roofQuads.has(1)).toBe(true);
+    expect(gravityLayout(model, { ...gravity, tributaryWidth: 3 }).roofShells.has('quad:1')).toBe(true);
     expect(roofWeightFor(model, gravity, 3, 0)).toBe(roofWeightFor(isolated, gravity, 3, 0));
     const covered = subdividedShellBay(true);
-    expect(gravityLayout(covered, { ...gravity, tributaryWidth: 3 }).roofQuads.has(1)).toBe(false);
+    expect(gravityLayout(covered, { ...gravity, tributaryWidth: 3 }).roofShells.has('quad:1')).toBe(false);
     expect(buildLoadPlan(input(covered, { gravity, roof })).surface.filter(load => load.caseType === 'Lr')).toEqual([]);
     const separate = subdividedShellBay(false, 2.8);
     separate.constraints.length = 0;
-    expect(gravityLayout(separate, { ...gravity, tributaryWidth: 3 }).roofQuads.has(1)).toBe(false);
+    expect(gravityLayout(separate, { ...gravity, tributaryWidth: 3 }).roofShells.has('quad:1')).toBe(false);
     expect(buildLoadPlan(input(separate, { gravity, roof })).surface.filter(load => load.caseType === 'Lr')).toEqual([]);
     deadResultant(separate, loadEveryPanel, [1], 2 * area);
   }
@@ -814,7 +814,7 @@ for (const loadEveryPanel of [false, true]) {
       expect(plan.nodal).toEqual([]);
       expect(plan.levels.reduce((sum, level) => sum + level.superimposedKN, 0)).toBeCloseTo(2 * 6 * Math.hypot(5, 1) * pressure, 10);
       const layout = gravityLayout(model, { ...gravity, tributaryWidth: 3 });
-      expect(layout.roofQuads).toEqual(new Set(model.quads.keys()));
+      expect(layout.roofShells).toEqual(new Set([...model.quads.keys()].map(id => `quad:${id}`)));
       expect(layout.widthMembers).toEqual([]);
       expect(layout.pieces).toEqual([]);
       expect(roofWeightFor(model, gravity, 3, pressure)).toEqual(roofWeightFor(isolated, gravity, 3, pressure));

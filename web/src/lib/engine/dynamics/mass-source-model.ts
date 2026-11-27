@@ -18,7 +18,7 @@ import type { Load, SurfaceLoad3D } from '../../store/model.svelte';
 import { surfaceDownwardPressure } from '../solver-shells';
 import { withCaseEffects } from '../case-effects';
 import { accountingCaseSources, scenarioSurfaceExpectations } from '../accounting-source';
-import { checkedScenarioSurfacePressures } from '../load-accounting';
+import { checkedScenarioSurfacePressures, verifyMassSurfaceRegion } from '../load-accounting';
 import { massWeightLoads, WEIGHT_CASE } from './mass-weights';
 import type { SolverInput3D } from '../types-3d';
 import {
@@ -50,7 +50,9 @@ export function caseMassLoads(
     // (`shell-load-integration.ts`), spread over the shell: a suction or a wall pressure weighs nothing.
     const surface = own.filter((l) => l.type === 'surface3d').flatMap((l) => {
       const d = l.data as SurfaceLoad3D;
-      const q = surfaceDownwardPressure({ ...d, ...checked.get(l) }, model.quads as never, model.nodes as never, model.plates as never);
+      const spec = { ...d, ...checked.get(l) };
+      verifyMassSurfaceRegion(model, f.caseId, spec);
+      const q = surfaceDownwardPressure(spec, model.quads as never, model.nodes as never, model.plates as never);
       return q === null ? [] : [{ quadId: d.quadId, q, ...(d.on ? { on: d.on } : {}) }];
     });
     // A nodal load that names its member (a floor's share at a re-entrant corner) weighs on it,

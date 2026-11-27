@@ -12,6 +12,9 @@ A reference gravity case can feed a notional case even when the gravity case is 
 
 Derived notional nodal loads are also checked at their authored nodes. For three equally spaced nodes with forces of 3 kN each, shifting the row forces by +1, −2 and +1 kN leaves both the resultant and its first moment unchanged. The per-action receipts reject that shift in the original case and in a case that includes it. The line-load applicability check compares opposing forces within each effective case. Mutually exclusive cases only contribute to that comparison if a composed case brings their loads together.
 
+## Check assembled slab targets and nodal forces
+
+Whole-slab accounting checks the actual shell family and cell for pressure rows, and the force delivered to every authored mesh node for nodal rows. Two horizontal slabs can have identical pressure wrenches even at different elevations. Routing a row to the upper slab therefore has to fail independently of the force and moment totals. The same cell receipt is checked after case inclusion and combination factoring.
 For every plate or quad covered by a spatial self-weight rule, assembly validates the material density before multiplying by the rule's factor. It retains the corner load rows when their force is zero, so an applicable rule with zero density or factor still has a case result. This preserves the main branch's behavior in single, linear combination, P-Delta and active-set solves. Invalid density is refused even at a zero factor.
 
 ## Transfer connected X-brace inertia on the brace spans
@@ -35,3 +38,7 @@ In the #2295 model, the two shell regions cover 32 m² of horizontal projection.
 ## Preserve distributed loads in the member axes
 
 Spatial analysis sends locally specified distributed components to the solver in their entered axes, including the displayed local Y sign convention. Global components are resolved onto the member axes once. A frame retains its line load, and a truss receives its statically equivalent end forces. This removes round-trip projection error that could produce unintended components or stop analysis on a skew frame. The skew-frame sweep now prepares all 30 of its original models and the modal stiffness-scaling check runs with its original expected values.
+
+## Verify surface-load delivery on the intended shell
+
+The generated-source ledger checks pressure rows against the authored shell family and cell ID. For equivalent nodal rows it checks the force at every intended node. Identical horizontal shells at different heights have the same wrench under a vertical pressure. Alternating force errors at the four corners of a square can also preserve the wrench. Both errors now refuse before dispatch. The same receipt follows the surface load through case inclusion and combination factoring.

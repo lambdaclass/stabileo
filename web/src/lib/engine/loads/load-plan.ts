@@ -24,6 +24,7 @@
  * Pure: no store, no runes. Forces kN, lengths m, pressures kPa.
  */
 
+import { gravityShellCells, gravityShellKey, gravityShellSurfaceArea, type GravityShellTarget } from './gravity-shell-partition';
 import { engineFailureMessage } from '../engine-unavailable';
 import { memberMeanArea } from '../../section/variable';
 import type { CombinationInputs, LoadCombinationSpec, LoadSymbol } from '../../codes/cirsoc101/combinations';
@@ -64,7 +65,7 @@ export interface LoadModelData extends GravityModel {
   }>;
   sections: Map<number, { id: number; a: number; drawn?: DrawnSection }>;
   /**
-   * Quads, for a floor or roof drawn with shells (`plan-gravity.ts`); their thickness and material
+   * Shells for a floor or roof (`plan-gravity.ts`); their thickness and material
    * weigh a roof for §4.8.1.
    */
   quads?: Map<number, PlanShell>;
@@ -323,10 +324,8 @@ export interface PlannedDistributed {
   qYJ?: number;
 }
 
-/** An area load on a quad, kN/m², positive downward (`SurfaceLoad3D`). */
-export interface PlannedSurface {
-  quadId: number;
-  on?: 'plate';
+/** An area load on a shell, kN/m², positive downward (`SurfaceLoad3D`). */
+export interface PlannedSurface extends GravityShellTarget {
   caseType: PlannedCase['type'];
   caseIndex?: number;
   q: number;
@@ -509,27 +508,17 @@ export function selfWeightByLevel(
     for (const lv of ends) weights[lv] += w / ends.length;
   }
   let skippedShells = 0;
-  for (const q of model.quads?.values() ?? []) {
+  for (const { cell: q } of gravityShellCells(model)) {
     const pts = q.nodes.map((id) => model.nodes.get(id));
     const rho = q.materialId !== undefined ? model.materials.get(q.materialId)?.rho : undefined;
     if (pts.some((p) => !p) || !(q.thickness! > 0) || rho === undefined || !(rho >= 0)) { skippedShells++; continue; }
     const xyz = pts.map((p) => [p!.x, p!.y, elevationOf(p!)] as [number, number, number]);
     const corners = q.nodes.map((id) => levelOfNode.get(id)).filter((lv) => lv !== undefined);
     if (corners.length === 0) { skippedShells++; continue; }
-    const w = q.thickness! * rho * surfaceArea(xyz);
+    const w = q.thickness! * rho * gravityShellSurfaceArea(xyz);
     for (const lv of corners) weights[lv] += w / corners.length;
   }
   return { weights, skipped, skippedShells };
-}
-
-function surfaceArea(p: Array<[number, number, number]>): number {
-  let s = 0;
-  for (let i = 1; i + 1 < p.length; i++) {
-    const a = p[0]!, b = p[i]!, c = p[i + 1]!;
-    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
-    s += Math.hypot(u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!) / 2;
-  }
-  return s;
 }
 
 /**
@@ -555,11 +544,11 @@ export function roofWeightOf(model: LoadModelData, layout: GravityLayout, dead: 
       const L = Math.hypot(nJ.x - nI.x, nJ.y - nI.y, elevationOf(nJ) - elevationOf(nI));
       kN += sectionWeight(sec, el.materialId) * L * share;
     }
-    const roofShells = layout.shellQuads.filter(shell => layout.roofQuads.has(shell.quadId));
-    for (const shell of roofShells) area += shell.area;
-    const structure = roofShells.map(shell => ({ quadId: shell.quadId, surface: shell.area / shell.cos }));
-    for (const shell of structure) {
-      const q = model.quads?.get(shell.quadId);
+    const roofShells = layout.shells.filter(shell => layout.roofShells.has(gravityShellKey(shell.target)));
+    for (const shell of roofShells) {
+      area += shell.area;
+      const { quadId, on } = shell.target;
+      const q = (on === 'plate' ? model.plates : model.quads)?.get(quadId);
       const rho = q?.materialId !== undefined ? model.materials.get(q.materialId)?.rho : undefined;
       if (!q || !(q.thickness! > 0) || rho === undefined || !(rho >= 0)) { known = false; continue; }
       kN += q.thickness! * rho * shell.surface;
@@ -779,7 +768,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     derivation.push(note);
   }
   // A flat roof may well carry the floors' screed and tiles; a pitched one with no slab, on rafters or trusses, may not.
-  if (input.roof?.deadFromFloors && input.roof.slopeDeg >= PITCHED_ROOF_DEG && ![...layout.areaOf.values()].some((a) => a > 0) && layout.shellQuads.length === 0) {
+  if (input.roof?.deadFromFloors && input.roof.slopeDeg >= PITCHED_ROOF_DEG && ![...layout.areaOf.values()].some((a) => a > 0) && layout.shells.length === 0) {
     return { ...empty, blockedKeys: [msg('loadPlan.blocked.roofDeadWithoutFloors')] };
   }
   /*
@@ -844,7 +833,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
       derivation.push(msg('loadPlan.derivation.roofOccupancy', { occupancy: msg(roofOcc.labelKey), lo: rlo, dead: round(r.dead, 3), n: layout.roof.size }));
     } else {
       roofLoads = { dead: r.dead, use: 'maintenance', weight: roofWeight, slopePercent };
-      derivation.push(msg('loadPlan.derivation.roofDead', { dead: round(r.dead, 3), n: layout.roof.size + layout.roofQuads.size }));
+      derivation.push(msg('loadPlan.derivation.roofDead', { dead: round(r.dead, 3), n: layout.roof.size + layout.roofShells.size }));
     }
   }
   const area = planAreaLoads({
@@ -942,9 +931,9 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
       level.live += carried * pressures.live;
     }
   }
-  for (const shell of layout.shellQuads) {
+  for (const shell of layout.shells) {
     const level = byArea[levelIndexOf(shell.z)]!;
-    const pressures = area.massOfQuad(shell.quadId);
+    const pressures = area.massOfShell(shell.target);
     level.area += shell.area;
     level.dead += shell.area / shell.cos * pressures.dead;
     level.live += shell.area * pressures.live;

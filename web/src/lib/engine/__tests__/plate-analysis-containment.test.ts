@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, beforeEach, expect, it } from 'vitest';
-import { PLATE_EDGE_TOL } from '../../model/physical/plate-analysis';
+import stadium from '../../templates/fixtures/full-stadium.json';
+import { nonconformingWallSlab, PLATE_EDGE_TOL } from '../../model/physical/plate-analysis';
 import { modelStore, resultsStore, uiStore } from '../../store';
 import { addPlateLoad, createPlate, meshBeforeAnalysis, plateStatus, preparePlatesForAnalysis } from '../../store/physical-plates';
 import { runDirectAnalysis } from '../direct-analysis';
@@ -484,7 +485,6 @@ it('#2430 transfers the entire slab load into the wall when both share the inter
   for (const support of result.reactions) expect(support.fz).toBeCloseTo(4 * 4 / 2, 8);
 });
 
-
 function throughSlab(y: number, bottom = -1, left = 1, right = 3) {
   const [corner] = loadedSlab();
   const points: [number, number, number][] = [[left, y, bottom], [right, y, bottom], [right, y, 1], [left, y, 1]];
@@ -616,6 +616,55 @@ it('#2586 still refuses a wall edge crossing the slab strictly inside the face',
   expect(modelStore.solve3D(false, false, true)).toMatch(/wall.*slab/i);
 });
 
+
+it.each([[3, 4, [74, 73]], [117, 112, [92]]] as const)(
+  '#2607 stadium slab %s and wall %s share a compatible boundary',
+  (slabId, wallId, shared) => {
+    const slab = stadium.quads.find(q => q.id === slabId)!;
+    const wall = stadium.quads.find(q => q.id === wallId)!;
+    expect(slab.nodes.filter(id => wall.nodes.includes(id))).toEqual(shared);
+    expect(nonconformingWallSlab({
+      nodes: new Map(stadium.nodes.map(n => [n.id, n])),
+      elements: new Map(),
+      quads: new Map([[slab.id, slab], [wall.id, wall]]),
+    })).toBeNull();
+  },
+);
+
+function apexWall(offset: number, position = 2) {
+  const [corner] = loadedSlab();
+  const a = modelStore.addNode(1, position, -3), b = modelStore.addNode(3, position, -3);
+  const apex = modelStore.addNode(2, position, offset);
+  modelStore.addPlate([a, b, apex], 1, 0.15);
+  modelStore.addSupport(a, 'fixed3d');
+  modelStore.addSupport(b, 'fixed3d');
+  modelStore.addElement(corner!, a);
+  return [a, b];
+}
+
+it.each(directEntries)('#2607 the %s entry refuses an unmatched wall apex in a slab face', async (entry, solve) => {
+  apexWall(0);
+  const result = await solve();
+  expect(result && typeof result === 'object' ? 'returned a result' : result)
+    .toEqual(entry === 'reproducible input' ? null : expect.stringMatching(/wall p1.*slab q1/i));
+});
+
+it.each([0, PLATE_EDGE_TOL / 2])('#2607 global analysis refuses a triangular wall apex at clearance %s', async clearance => {
+  apexWall(-clearance);
+  expect(await runGlobalSolve({ directBase: true })).toEqual({ ok: false, error: expect.stringMatching(/wall p1.*slab q1/i) });
+  expect(resultsStore.results3D).toBeNull();
+});
+
+it.each([[-2 * PLATE_EDGE_TOL, 2], [0, -2 * PLATE_EDGE_TOL]])(
+  '#2607 a triangular wall clear of the slab keeps the pressure result (%s, %s)',
+  (offset, position) => {
+    const base = apexWall(offset, position);
+    const result = modelStore.solve3D(false, false, true);
+    expectLoadedSlab(result);
+    if (!result || typeof result === 'string') throw new Error(String(result));
+    expect(result.reactions.filter(r => base.includes(r.nodeId)).map(r => r.fz)).toEqual([0, 0]);
+  },
+);
 function loadedSeam(tilt = 0) {
   const cos = Math.cos(tilt), sin = Math.sin(tilt);
   const at = (x: number, y: number, z: number) => modelStore.addNode(x, y * cos - z * sin, y * sin + z * cos);

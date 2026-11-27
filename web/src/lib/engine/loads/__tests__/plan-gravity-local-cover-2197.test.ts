@@ -151,8 +151,8 @@ for (const covered of [false, true]) it(`#2197 shell coverage uses the same loca
   for (const id of [...model.elements.keys()]) if (targets.has(id) || !covered) model.elements.delete(id);
   model.quads = new Map([[1, { id: 1, nodes: [1, 2, 3, 4] }]]);
   const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1 });
-  expect(layout.shellQuads).toHaveLength(1);
-  expect(layout.roofQuads.has(1)).toBe(!covered);
+  expect(layout.shells).toHaveLength(1);
+  expect(layout.roofShells.has('quad:1')).toBe(!covered);
   const area = planAreaLoads({ layout, tributaryWidth: 1, floor: { dead: 1, lo: 2, liveOf: () => 2 }, roof: { dead: 3, use: 'occupancy', weight: 'light', slopePercent: 0, lo: 4, liveOf: () => 4 } });
   expect(area.surface.find(s => s.quadId === 1 && s.caseType === 'D')!.q).toBe(covered ? 1 : 3);
 });

@@ -1,0 +1,42 @@
+{
+  "id": "gravity-independent-deck-overlap",
+  "date": "2026-11-26",
+  "prs": [
+    2607
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "generatedPanelGravityShells"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Check independent deck clearance within the overlap",
+    "es": "Comprobar la separación de paños independientes en el área superpuesta",
+    "pt": "Verificar a folga de painéis independentes na sobreposição",
+    "de": "Abstand unabhängiger Decken in der Überlappung prüfen",
+    "fr": "Vérifier le dégagement des planchers indépendants dans la zone de recouvrement",
+    "hu": "Független födémek távolságának ellenőrzése az átfedésben",
+    "tr": "Bağımsız döşeme açıklığını örtüşme alanında denetle",
+    "zh": "在重叠范围内检查独立楼板的净距"
+  },
+  "explanation": {
+    "en": "Regenerate affected panel gravity loads. A separately supported beam bay can retain its floor load if the pitched shell clears it within the plan overlap.",
+    "es": "Regenerá las cargas gravitatorias de paneles afectadas. Un paño de vigas apoyado independientemente puede conservar su carga de piso si la lámina inclinada lo despeja en el área superpuesta en planta.",
+    "pt": "Gere novamente as cargas gravitacionais dos painéis afetados. Um painel de vigas com apoios independentes pode manter sua carga de piso se a casca inclinada estiver acima dele na sobreposição em planta.",
+    "de": "Erzeugen Sie die betroffenen Schwerkraftlasten neu. Ein getrennt gelagertes Trägerfeld kann seine Deckenlast behalten, wenn die geneigte Schale im überlappenden Grundrissbereich darüber liegt.",
+    "fr": "Régénérez les charges gravitaires des panneaux concernés. Une travée de poutres sur appuis indépendants peut conserver sa charge de plancher si la coque inclinée la surplombe dans la zone de recouvrement.",
+    "hu": "Generálja újra az érintett mezők gravitációs terheit. A külön megtámasztott gerendamező megtarthatja födémterhét, ha a ferde héj az alaprajzi átfedésben fölötte marad.",
+    "tr": "Etkilenen panel yerçekimi yüklerini yeniden oluşturun. Ayrı mesnetli bir kiriş gözü, eğimli kabuk plandaki örtüşmede üzerinde kalıyorsa döşeme yükünü koruyabilir.",
+    "zh": "请重新生成受影响板格的重力荷载。如果斜壳在平面重叠区域内高于独立支承的梁板格，该板格可保留楼面荷载。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-wall-deck-and-step-geometry.md",
+    "heading": "Check independent deck clearance within the overlap"
+  }
+}

@@ -3,6 +3,7 @@ import type { Translations } from '../types';
 const ko: Translations = {
   'svc.accountingMismatch': "해석을 거부했습니다. 하중 케이스 {case}, 성분 {component}. 입력값 {entered}, 조립값 {assembled}.",
   'svc.accountingUnsupported': "해석을 거부했습니다. 하중 케이스 {case}의 {kind} {id}에 대한 힘과 모멘트를 집계할 수 없습니다.",
+  'svc.accountingSurfaceProjection': "해석을 거부했습니다. 하중 케이스 {case}에서 하중 영역의 투영 방향이 쉘 요소 #{id}와 평행하거나 거의 평행합니다.",
   'svc.accountingArea': "해석을 거부했습니다. 솔버의 판 {plate} 면적 또는 경계가 다릅니다. 지정 면적 {entered}, 조립 면적 {assembled}.",
   'svc.accountingSweep': "해석을 거부했습니다. 솔버의 판 {plate} 곡선 모서리 경로가 다릅니다. 지정 면적 {entered}, 조립 면적 {assembled}.",
   'svc.accountingShellEdits': "판 {plate}의 메시를 다시 생성하면 셸 오프셋 또는 곡률 편집이 사라지므로 실행할 수 없습니다.",
@@ -22,6 +23,7 @@ const ko: Translations = {
   'loadPlan.gravity.memberSlopeLimit': "부재 {id}의 경사가 중력 하중을 지지하는 부재의 판정 한계에 너무 가깝습니다. 하중을 명시적으로 지정하세요.",
   'snow.refused.stepDriftTransfer': "지붕 단차의 눈 쌓임으로 인한 하중을 지지 부재에 안정적으로 전달할 수 없습니다. 적설 하중을 명시적으로 지정하세요.",
   'loadPlan.gravity.unresolvedMember': "부재 {id}는 쉘에 일부만 덮여 있으며 패널의 하중 전달을 결정할 수 없습니다.",
+  'loadPlan.gravity.rafterGap': "부재 {members}의 평면 투영을 따라 {gap} m 위치에 지붕 데크의 틈이 있습니다. 틈을 덮는 데크를 모델링하거나 그 위치의 하중을 명시적으로 지정하세요.",
   'loadPlan.gravity.offsetRafter': "부재 {id}이(가) 지붕 셸에 강접합되어 있지만 오프셋 때문에 중력 하중을 자동으로 배정할 수 없습니다. 면 하중을 수동으로 한 번만 배정하세요.",
   'loadPlan.gravity.differentDeck': "보 패널을 덮는 쉘은 패널과 같은 데크에 속해야 합니다.",
   'loadPlan.gravity.differentSlopedDeck': "보 패널을 덮는 경사 쉘은 패널과 같은 데크에 속해야 합니다.",

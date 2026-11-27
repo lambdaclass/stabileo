@@ -9,7 +9,7 @@ import { expandDefinition } from '../../../model/loads/floor-definitions';
 import { buildSolverInput3D } from '../../solver-service';
 import { withMassSource } from '../../dynamics/mass-source-model';
 import { G } from '../../dynamics/requests';
-import { buildLoadPlan, roofWeightFor, type LoadModelData, type LoadPlanInput } from '../load-plan';
+import { buildLoadPlan, roofWeightFor, roofWeightOf, type LoadModelData, type LoadPlanInput } from '../load-plan';
 import { defaultRegulations, type ProjectRegulations } from '../../../codes/roles';
 import { snowDriftRefusal } from '../snow-drift-loads';
 import type { EngineMessage } from '../../../codes/message';
@@ -818,6 +818,57 @@ it('#2291 a detached sloped shell starting at bay level blocks gravity', () => {
   checkBlockedGravity(model, differentDeck);
 });
 
+it.each([false, true])('#2607 pinned truss ends keep supported decks independent (%s)', loadEveryPanel => {
+  const model = floor(1, 1, 10, 6);
+  const shell = rectangularShell(model, 1, 0, 10, 3 + 1 / 1024, 6 + 1 / 1024);
+  model.supports = new Map([...model.nodes.keys()].map(id => [id, { id, nodeId: id, type: 'pinned3d' }]));
+  const bridge = { ...model.elements.get(1)!, id: 1000, nodeI: 4, nodeJ: shell[2]!, type: 'truss' as const };
+  model.elements.set(bridge.id, bridge);
+  const gravity = { mode: 'panels', loadEveryPanel, tributaryWidth: 3 } as const;
+  const layout = gravityLayout(model, gravity);
+  expect([...layout.areaOf.values()].reduce((sum, area) => sum + area, 0)).toBeCloseTo(60, 9);
+  const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }], gravity }));
+  expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+  expect(-totalKN(plan.distributed.filter(load => load.caseType === 'D'), model)).toBeCloseTo(60, 9);
+  expect(surfaceKN(plan.surface.filter(load => load.caseType === 'D'), model)).toBeCloseTo(10 * Math.sqrt(45), 9);
+  expect(() => roofWeightFor(model, gravity, 3, 1)).not.toThrow();
+  expect(() => snowDriftRefusal(model)).not.toThrow();
+});
+
+it('#2291 detached independently supported roof and bay both carry gravity', () => {
+  for (const angle of [0, 0.37]) for (const cuts of [[], [0.25, 0.75]]) for (const loadEveryPanel of [false, true]) {
+    const model = floor(1, 1, 10, 6);
+    const clearance = 1 / 1024;
+    const shell = rectangularShell(model, 1, 0, 10, 3 + clearance, 6 + clearance);
+    const supports = new Map([...model.nodes.keys()].map(id => [id, { id, nodeId: id, type: 'fixed3d' as const }]));
+    model.supports = supports;
+    subdivideMembers(model, cuts);
+    rotatePlan(model, angle);
+    const gravity = { mode: 'panels', loadEveryPanel } as const;
+    const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }], gravity }));
+    expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+    expect(-totalKN(plan.distributed.filter(load => load.caseType === 'D'), model)).toBeCloseTo(60, 9);
+    expect(surfaceKN(plan.surface.filter(load => load.caseType === 'D'), model)).toBeCloseTo(10 * Math.sqrt(45), 9);
+    expect(gravityLayout(model, { ...gravity, tributaryWidth: 3 }).areaOf.size).toBe(model.elements.size);
+    expect(() => roofWeightFor(model, gravity, 3, 1)).not.toThrow();
+    const bridge = { ...model.elements.get(1)!, id: 1000, nodeI: 4, nodeJ: shell[3]!, type: 'truss' as const };
+    model.elements.set(bridge.id, bridge);
+    expect(buildLoadPlan(planInput(model, { gravity })).outcome).toBe('READY');
+    model.supports = new Map([...supports].map(([id, support]) => [id, id !== 4 ? support : {
+      ...support, type: 'custom3d' as const,
+      dofRestraints: { tx: false, ty: true, tz: true, rx: false, ry: false, rz: false },
+    }]));
+    checkBlockedGravity(model, differentDeck);
+    model.elements.delete(bridge.id);
+    model.supports = supports;
+    model.connectors = new Map([[1, { nodeI: 1, nodeJ: shell[2]! }]]);
+    checkBlockedGravity(model, differentDeck);
+    model.connectors = undefined;
+    supports.delete(1);
+    checkBlockedGravity(model, differentDeck);
+  }
+});
+
 it('#2295 a rafter beneath a shell gap needs two independently tied ends', () => {
   const { model } = offsetRoof(0.02, 0, 1, false, [4, 6]);
   model.constraints.pop();
@@ -882,7 +933,7 @@ function checkOwnedFloor(model: LoadModelData, owners: number[], expected: numbe
     expect(plan.combinations.length).toBeGreaterThan(0);
 
     const layout = gravityLayout(model, { ...gravity, tributaryWidth: 3 });
-    expect(layout.shellQuads.map(quad => quad.quadId).sort((a, b) => a - b)).toEqual(owners);
+    expect(layout.shells.map(shell => shell.target.quadId).sort((a, b) => a - b)).toEqual(owners);
     expect([...layout.areaByLevel.values()].reduce((total, area) => total + area, 0)).toBeCloseTo(expected, 10);
     expect(roofWeightFor(model, gravity, 3, 1)).toBe('heavy');
     expect(() => snowDriftRefusal(model)).not.toThrow();
@@ -1366,7 +1417,7 @@ for (const end of [10, 6]) it(`#2512 shell-owned bay area cannot mask a lower ro
       expect(plan.surface.filter(load => load.caseType === 'Lr')).toEqual(expectedRoof);
       expect(surfaceKN(plan.surface.filter(load => load.caseType === 'Lr'), model)).toBeGreaterThan(0);
       expect(deadLoadKN(plan, model)).toBeCloseTo(60, 10);
-      expect(gravityLayout(model, { ...input.gravity, tributaryWidth: 3 }).roofQuads.has(1)).toBe(true);
+      expect(gravityLayout(model, { ...input.gravity, tributaryWidth: 3 }).roofShells.has('quad:1')).toBe(true);
     } else {
       expect(plan).toMatchObject({
         outcome: 'BLOCKED', blockedKeys: [differentDeck], cases: [], surface: [], distributed: [], nodal: [],
@@ -1630,7 +1681,7 @@ it('#2512 width diagnostics follow the shell boundary and panel actions require 
     rectangularShell(model, 1, 0, 10, 3);
     rectangularShell(model, 2, edge, 10, 6);
     const width = gravityLayout(model, { mode: 'width', tributaryWidth: 3 });
-    expect(width.roofQuads.has(1)).toBe(edge > 5);
+    expect(width.roofShells.has('quad:1')).toBe(edge > 5);
     const panels = { mode: 'panels', tributaryWidth: 3 } as const;
     expect(() => gravityLayout(model, panels)).toThrow(expect.objectContaining({ key: 'loadPlan.gravity.mixedExposure' }));
     const layout = gravityLayout(model, { ...panels, uniformPressure: true });
@@ -1671,3 +1722,115 @@ it('#2512 case accounting refuses lost and excess emitted panel loads', () => {
 });
 
 const gravityLayoutBeforeFault = gravityLayout;
+
+it.each(['panels', 'width'] as const)('#2429 %s gravity retains the beam loads beside a vertical triangle', mode => {
+  const model = floor(1, 1, 4, 4);
+  model.nodes.set(5, { id: 5, x: 0, y: 0, z: 0 });
+  model.plates = new Map([[1, { id: 1, nodes: [1, 2, 5] }]]);
+  const plan = buildLoadPlan(planInput(model, { gravity: { mode }, dead: [{ labelKey: 'a', q: 1 }], tributaryWidth: 3 }));
+  expect(plan.outcome).toBe('READY');
+  expect(plan.surface).toEqual([]);
+  expect(totalKN(plan.distributed.filter(load => load.caseType === 'D'), model)).toBeCloseTo(mode === 'panels' ? -4 * 4 : -4 * 4 * 3, 8);
+});
+
+
+it('#2429 automatic panel gravity delivers pressure to triangles and distinguishes a quad with the same ID', () => {
+  const model = floor(1, 1, 4, 4);
+  model.sections.set(1, { id: 1, a: 0.125 });
+  model.plates = new Map([
+    [1, { id: 1, nodes: [1, 2, 4], thickness: 0.2, materialId: 1 }],
+    [2, { id: 2, nodes: [1, 4, 3], thickness: 0.2, materialId: 1 }],
+  ]);
+  const upper = [[0, 0], [4, 0], [4, 4], [0, 4]];
+  const nodes = upper.map(([x, y], i) => {
+    const id = i + 5;
+    model.nodes.set(id, { id, x: x!, y: y!, z: 6 });
+    return id;
+  });
+  model.quads = new Map([[1, { id: 1, nodes, thickness: 0.2, materialId: 1 }]]);
+  const dead = [{ labelKey: 'a', q: 1 }];
+  const plan = buildLoadPlan(planInput(model, { dead }));
+  expect.soft(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+  expect.soft(plan.distributed).toEqual([]);
+  expect.soft(plan.nodal).toEqual([]);
+  const expectedPressures = [
+    { quadId: 1, caseType: 'D', q: 1 },
+    { quadId: 1, on: 'plate', caseType: 'D', q: 1 },
+    { quadId: 2, on: 'plate', caseType: 'D', q: 1 },
+  ];
+  expect.soft(plan.surface.filter(load => load.caseType === 'D')).toEqual(expectedPressures);
+  const roof = { use: 'maintenance', weight: 'heavy', dead: 2, slopeDeg: 0 } as const;
+  const preview = buildLoadPlan(planInput(model, { dead, roof }));
+  expect.soft(preview.blockedKeys).toEqual([{ key: 'loadPlan.blocked.concentratedRoof' }]);
+  expect.soft(preview.surface.filter(load => load.caseType === 'D')).toEqual([
+    { ...expectedPressures[0], q: 2 }, ...expectedPressures.slice(1),
+  ]);
+  const levels = preview.levels.map(({ elevation, planAreaM2, superimposedKN, selfWeightKN }) =>
+    ({ elevation, planAreaM2, superimposedKN, selfWeightKN }));
+  expect.soft(levels).toEqual([
+    { elevation: 3, planAreaM2: 16, superimposedKN: 16, selfWeightKN: 130 },
+    { elevation: 6, planAreaM2: 16, superimposedKN: 32, selfWeightKN: 80 },
+  ]);
+  const gravity = { mode: 'panels', tributaryWidth: 3 } as const;
+  expect(roofWeightFor(model, gravity, 3, 2)).toBe('heavy');
+  expect(roofWeightOf(model, gravityLayout(model, gravity), 2).structure).toBeCloseTo(5, 8);
+});
+
+it('#2429 triangles above an explicit-width floor shield all four beams', () => {
+  const model = floor(1, 1, 4, 4);
+  const upper = [[-1, -1], [5, -1], [5, 5], [-1, 5]];
+  const nodes = upper.map(([x, y], i) => {
+    const id = i + 5;
+    model.nodes.set(id, { id, x: x!, y: y!, z: 6 });
+    return id;
+  });
+  model.plates = new Map([
+    [1, { id: 1, nodes: [nodes[0]!, nodes[1]!, nodes[2]!] }],
+    [2, { id: 2, nodes: [nodes[0]!, nodes[2]!, nodes[3]!] }],
+  ]);
+  const gravity = { mode: 'width' } as const;
+  const plan = buildLoadPlan(planInput(model, {
+    gravity, dead: [{ labelKey: 'a', q: 1 }],
+    roof: { use: 'maintenance', weight: 'heavy', dead: 2, slopeDeg: 0 },
+  }));
+  expect.soft(plan.blockedKeys).toEqual([{ key: 'loadPlan.blocked.concentratedRoof' }]);
+  expect.soft(plan.surface).toEqual([]);
+  expect.soft(totalKN(plan.distributed.filter(load => load.caseType === 'D'), model)).toBeCloseTo(-48, 8);
+  expect(gravityLayout(model, { ...gravity, tributaryWidth: 3 }).roof).toEqual(new Set());
+});
+
+it('#2607 a central shell cover leaves both owned bay components', () => {
+  const model = floor(1, 1, 10, 6);
+  rectangularShell(model, 1, 4, 6, 4);
+  const layout = gravityLayout(model, { mode: 'panels', slab: 'oneWay', spanAxis: 'x', tributaryWidth: 3, uniformPressure: true });
+  expect(layout.panels).toHaveLength(1);
+  expect(layout.panels[0]).toMatchObject({ footprint: expect.any(Array) });
+  const panel = layout.panels[0]!;
+  expect(panel.footprint!.map(polygon => [Math.min(...polygon[0]!.map(point => point[0])), Math.max(...polygon[0]!.map(point => point[0]))]))
+    .toEqual([[0, 4], [6, 10]]);
+  expect(panel.oneWaySpan).toBeUndefined();
+});
+
+it.each([1, MIN_STOREY_HEADROOM + 0.01])('#2607 separate decks stand on their own columns at clearance %s', clearance => {
+  const model = floor(1, 1, 10, 6);
+  const upper = rectangularShell(model, 1, -1, 11, 3 + clearance);
+  for (const id of upper) {
+    const point = model.nodes.get(id)!;
+    point.y += point.y === 0 ? -1 : 1;
+  }
+  const supports = new Map<number, { nodeId: number; type: 'fixed3d' }>();
+  model.supports = supports;
+  for (const id of [1, 2, 3, 4, ...upper]) {
+    const point = model.nodes.get(id)!;
+    const ground = id + 1000;
+    model.nodes.set(ground, { id: ground, x: point.x, y: point.y, z: upper.includes(id) ? -1 : 0 });
+    model.elements.set(ground, { id: ground, nodeI: ground, nodeJ: id, sectionId: 1, materialId: 1 });
+    supports.set(ground, { nodeId: ground, type: 'fixed3d' });
+  }
+  const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }] }));
+  expect(plan.outcome).toBe('READY');
+  expect(-totalKN(plan.distributed.filter(load => load.caseType === 'D'), model)).toBeCloseTo(60, 9);
+  expect(surfaceKN(plan.surface.filter(load => load.caseType === 'D'), model)).toBeCloseTo(12 * 8, 9);
+  const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 3 });
+  expect(layout.areaByLevel.get(3)).toBeCloseTo(60, 9);
+});

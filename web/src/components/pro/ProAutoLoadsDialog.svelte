@@ -411,6 +411,7 @@
       plates: modelStore.model.plates as never,
       supports: modelStore.supports,
       constraints: modelStore.model.constraints,
+      connectors: modelStore.model.connectors,
     };
   }
 

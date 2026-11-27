@@ -18,6 +18,7 @@ import { agrees, roundoff } from '../../engine/accounting-math';
 import { runGlobalSolve, runLiveCalc } from '../../engine/live-calc';
 import { solveBuckling, solveBuckling3D, solveModal, solveModal3D, solvePDelta, solvePDelta3D } from '../../engine/wasm-solver';
 import { modelStore, resultsStore, uiStore } from '..';
+import { NO_RELEASE } from '../model.svelte';
 import { createArc, remakeArc } from '../curved-members';
 import { whatIf } from '../whatif.svelte';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
@@ -28,6 +29,8 @@ import {
 const fault = vi.hoisted(() => ({ dropSceneCase: 0, integrateDrift: 0, signedForceDelta: 0, dropMemberLoad: false, dropFactoredAxialLine: false, misrouteLineEnd: null as { from: number; to: number } | null, misrouteFactoredLineEnd: 0, dropLineIntensity: 0, scaleCaseLoad: 1, momentDelta: 0, stalePlanarMoment: 0, surfaceFactorOffset: 0, cornerPressureDelta: 0, assemblyDrift: null as { shell: number; relative: number } | null, combinationDrift: null as { shell: number; relative: number } | null, dropNodalFy: false }));
 const quadWeightFault = vi.hoisted(() => ({ relative: 0, alternating: false, factored: 0 }));
 const sourceFault = vi.hoisted(() => ({ shiftNotionalCase: 0, dropOpposedSources: undefined as "case" | "split" | undefined, dropProjectedFz: false, factoredCellShifts: new Map<number, number>(), stripAssemblyMagnitude: false }));
+
+const slabRoutingFault = vi.hoisted(() => ({ from: 0, to: 0, nodes: new Map<number, number>(), pressure: false, pressureKind: 'quadPressure' }));
 
 vi.mock('../../engine/case-effects', async importOriginal => {
   const original = await importOriginal<typeof import('../../engine/case-effects')>();
@@ -159,6 +162,14 @@ vi.mock('../../engine/solver-shells', async importOriginal => {
     },
     convertSurfaceLoad: (...args: Parameters<typeof original.convertSurfaceLoad>) => {
       const assembled = original.convertSurfaceLoad(...args);
+      if (args[0].quadId === slabRoutingFault.from) {
+        if (slabRoutingFault.pressure) return [{ type: slabRoutingFault.pressureKind, data: { elementId: slabRoutingFault.to, pressure: -args[0].q } }] as unknown as SolverLoad3D[];
+        for (const [i, row] of assembled.entries()) {
+          if (row.type !== 'nodal') continue;
+          row.data.nodeId = slabRoutingFault.nodes.get(row.data.nodeId) ?? row.data.nodeId;
+          if (slabRoutingFault.nodes.size === 0) row.data.fz += i % 2 === 0 ? 0.25 : -0.25;
+        }
+      }
       if (sourceFault.factoredCellShifts.has(args[0].quadId)) {
         for (const row of assembled) factoredCellOwners.set(row, args[0].quadId);
       }
@@ -1055,9 +1066,16 @@ it.each(['xz', 'yz'] as const)('#2586 the planar P-Delta action uses and checks 
   uiStore.analysisMode = '2d';
   uiStore.drawPlane2D = plane;
   try {
-    expect(pdeltaBasic2D(false, uiStore.drawPlane2D)).toMatchObject({
-      results: { reactions: [expect.objectContaining({ rz: expect.closeTo(3, 10) })] },
+    expect(modelStore.solve(false, plane)).toMatchObject({
+      reactions: [expect.objectContaining({ nodeId: root, rz: expect.closeTo(3, 10), my: expect.closeTo(3 * 2, 10) })],
     });
+    const secondOrder = pdeltaBasic2D(false, plane);
+    expect(secondOrder).toMatchObject({
+      results: { reactions: [expect.objectContaining({ nodeId: root, rz: expect.closeTo(3, 10) })] },
+    });
+    if (!secondOrder || typeof secondOrder === 'string') throw new Error(String(secondOrder));
+    const deflection = secondOrder.results.displacements.find(node => node.nodeId === tip)!.uz;
+    expect(secondOrder.results.reactions[0]!.my).toBeCloseTo(3 * 2 - 2 * deflection, 10);
     sourceFault.dropProjectedFz = true;
     expect(await outcome(() => pdeltaBasic2D(false, uiStore.drawPlane2D))).toMatch(/case.*Fz.*-3.*0/i);
   } finally {
@@ -1796,8 +1814,8 @@ it('#2470 cancelling slab definitions must each reach their assigned cells once'
   }
 });
 
-function stripSlab(strips: number) {
-  const outline = [[0, 0], [strips, 0], [strips, 1], [0, 1]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+function stripSlab(strips: number, z = 0) {
+  const outline = [[0, 0], [strips, 0], [strips, 1], [0, 1]].map(([x, y]) => modelStore.addNode(x!, y!, z));
   for (const node of outline) modelStore.addSupport(node, 'fixed3d');
   const slab = createPlate({
     name: 'Strip slab', outline, materialId: 1, thickness: 0.2,
@@ -2361,3 +2379,101 @@ it('#2471 refuses a sign-reversing truss line whose end forces reach the same no
   fault.misrouteLineEnd = { from: planarJ, to: planarI };
   expect(() => embedded()).toThrow(caseDiagnostic);
 });
+
+it.each(['wrong shell', 'wrong nodes', 'wrong forces'] as const)(
+  '#2607 slab accounting refuses %s with the same wrench', async mode => {
+    const lower = stripSlab(1);
+    const upper = stripSlab(1, 3);
+    addPlateLoad(lower, 1, 3);
+    addPlateLoad(upper, 1, 3);
+    syncDefinedLoadsForAnalysis();
+    const model = modelStore.model;
+    const from = plateEntry(lower)!.group.members.quads![0]!;
+    const to = plateEntry(upper)!.group.members.quads![0]!;
+    const lowerNodes = model.quads!.get(from)!.nodes;
+    const upperNodes = model.quads!.get(to)!.nodes;
+    const connected = { ...model, elements: new Map(model.elements).set(500, {
+      id: 500, nodeI: lowerNodes[0]!, nodeJ: upperNodes[0]!,
+      sectionId: model.sections.keys().next().value!, materialId: model.materials.keys().next().value!, type: 'frame' as const, releaseI: NO_RELEASE, releaseJ: NO_RELEASE,
+    }) };
+    expect(buildSolverInput3D(connected)?.loads).toHaveLength(8);
+    try {
+      slabRoutingFault.from = from;
+      slabRoutingFault.to = to;
+      slabRoutingFault.pressure = mode === 'wrong shell';
+      slabRoutingFault.nodes = mode === 'wrong nodes' ? new Map(lowerNodes.map((node, i) => [node, upperNodes[i]!])) : new Map();
+      await expectSlabCellRefusal(connected);
+    } finally {
+      slabRoutingFault.from = 0;
+      slabRoutingFault.to = 0;
+      slabRoutingFault.nodes.clear();
+      slabRoutingFault.pressure = false;
+    }
+  },
+);
+
+it.each(['wrong shell', 'wrong shell kind', 'wrong nodes', 'wrong forces'] as const)(
+  '#2607 generated surface rejects %s at equal wrench', async mode => {
+    const lower = stripSlab(1);
+    const upper = stripSlab(1, 3);
+    const otherKind = mode === 'wrong shell kind' ? [[-0.5, 1 / 6], [1.5, 1 / 6], [0.5, 7 / 6]].map(([x, y]) => {
+      const id = modelStore.addNode(x!, y!, 6);
+      modelStore.addSupport(id, 'fixed3d');
+      return id;
+    }) as [number, number, number] : undefined;
+    const otherId = otherKind ? modelStore.addPlate(otherKind, 1, 0.2) : undefined;
+    const model = modelStore.model;
+    const from = plateEntry(lower)!.group.members.quads![0]!;
+    const to = plateEntry(upper)!.group.members.quads![0]!;
+    const lowerNodes = model.quads!.get(from)!.nodes;
+    const upperNodes = model.quads!.get(to)!.nodes;
+    const elements = new Map(model.elements);
+    const connect = (id: number, nodeI: number, nodeJ: number) => elements.set(id, {
+      id, nodeI, nodeJ, sectionId: model.sections.keys().next().value!, materialId: model.materials.keys().next().value!,
+      type: 'frame', releaseI: NO_RELEASE, releaseJ: NO_RELEASE,
+    });
+    connect(500, lowerNodes[0]!, upperNodes[0]!);
+    if (otherKind) {
+      expect(otherId).toBe(from);
+      connect(501, upperNodes[0]!, otherKind[0]);
+    }
+    const connected: ModelData = {
+      ...model,
+      elements,
+      loads: [{ type: 'surface3d', data: { id: 1, caseId: 1, quadId: from, q: 3, frame: 'global' } }],
+      analysis: { ...model.analysis, perCombination: 'pdelta' },
+    };
+    const cases = modelStore.loadCases;
+    const combos = modelStore.combinations;
+    const advanced = () => buildSolverInput3D(connected);
+    const paths = {
+      linear: () => validateAndSolve3D(connected),
+      async: () => validateAndSolve3DAsync(connected),
+      advanced,
+      resolvedCase: () => caseSolverLoads3D(connected, cases, false, false),
+      linearCombo: () => solveCombinations3D({ ...connected, analysis: { ...connected.analysis, perCombination: 'linear' } }, cases, combos),
+      pdelta: () => solveCombinations3D(connected, cases, combos),
+      parallel: () => solveCombinations3DParallel(connected, cases, combos),
+      direct: () => runDirectAnalysis(connected, cases, combos, { includeSelfWeight: false }),
+      notionalSource: () => notionalSourceLoads3D(connected, false, 1, [], valid!),
+    };
+    const valid = advanced();
+    expect(valid?.loads).toEqual(lowerNodes.map(nodeId => expect.objectContaining({
+      type: 'nodal', data: expect.objectContaining({ nodeId, fz: expect.closeTo(-3 / lowerNodes.length, 12) }),
+    })));
+    try {
+      slabRoutingFault.from = from;
+      slabRoutingFault.to = otherId ?? to;
+      slabRoutingFault.pressure = mode === 'wrong shell' || mode === 'wrong shell kind';
+      slabRoutingFault.pressureKind = otherKind ? 'pressure' : 'quadPressure';
+      slabRoutingFault.nodes = mode === 'wrong nodes' ? new Map(lowerNodes.map((node, i) => [node, upperNodes[i]!])) : new Map();
+      for (const [path, solve] of Object.entries(paths)) expect.soft(await outcome(solve), path).toMatch(/case.*load.*#1/i);
+    } finally {
+      slabRoutingFault.from = 0;
+      slabRoutingFault.to = 0;
+      slabRoutingFault.nodes.clear();
+      slabRoutingFault.pressure = false;
+      slabRoutingFault.pressureKind = 'quadPressure';
+    }
+  },
+);

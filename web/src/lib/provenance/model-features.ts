@@ -4,6 +4,7 @@ import { DRAW_PLANES, isDrawPlane, type DrawPlane } from '../geometry/plane-proj
 import { caseOrder, caseReductionRatio } from '../engine/case-rules';
 import { dyadicInteger } from '../engine/accounting-math';
 import { hasBoundedRafterGap, type GravityModel } from '../engine/loads/plan-gravity';
+import { triangularGravityFootprint } from '../engine/loads/gravity-shell-partition';
 import type { Constraint3D } from '../engine/types-3d';
 import { PLANAR_LINE_COMPONENT_CUTOFF, trussComponentBelowCutoff } from '../engine/member-loads';
 import { POINT_END_TOL } from '../engine/member-point-loads';
@@ -67,12 +68,12 @@ export const FEATURE_IDS = [
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'unrestrainedAxialTip', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
-  'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
-  'physicalPlateDefinitions', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
+  'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'triangularGravityFootprint', 'triangularPlates', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
+  'physicalPlateDefinitions', 'wholeSlabLoadDefinitions', 'shellPressureLoads', 'clippedShellPressure', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
-  'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
+  'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'zoneSurfaceLoads', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'invalidSelfWeightTarget', 'scopedMemberSelfWeight', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'malformedAuthoredLoad',
   'addedAuthoredLoadRefusal', 'legacyPlanarProjectPlane', 'emptyRigidLinkMask',
@@ -588,6 +589,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     return !isFiniteInputNumber(rho) || rho < 0;
   })) f.add('invalidDynamicMaterialDensity');
   if (quads.length || values(s.plates).length || values(s.solidShells).length) f.add('shells');
+  if (values(s.plates).length) f.add('triangularPlates');
   if (mode !== 'pro' && (quads.length || values(s.plates).length)) f.add('shellsInBasic');
   const physicalPlates = new Set((Array.isArray(s.groups) ? s.groups : []).flatMap(entry =>
     plateSurfaceOf({ data: entry?.[1]?.data as Record<string, unknown> }) ? [entry[0]] : []));
@@ -604,6 +606,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   }
   if (f.has('space3D') && (f.has('shells') || s.groups?.length)) {
     const plates = plateAnalysisModel(s);
+    if (triangularGravityFootprint(plates) !== undefined) f.add('triangularGravityFootprint');
     const editedQuads = new Set((s.quads ?? []).filter(([, shell]) => shell?.curved || shell?.offset !== undefined).map(([id]) => id));
     const editedTriangles = new Set((s.plates ?? []).filter(([, shell]) => shell?.offset !== undefined).map(([id]) => id));
     for (const group of plates.groups?.values() ?? []) {
@@ -743,6 +746,10 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   for (const l of loads) {
     const t = hasLoadType(l) ? l.type : '';
     const d = l.data ?? {};
+    if (t === 'surface3d') {
+      f.add('shellPressureLoads');
+      if (d.region !== undefined) f.add('clippedShellPressure');
+    }
     if ((t === 'pointOnElement3d' || (t === 'pointOnElement' && f.has('space3D')))
       && typeof d.a === 'number' && d.a > 0) {
       const member = elementById.get(d.elementId as number);
@@ -859,11 +866,12 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   }
   if (unverifiedSeismicLoads(s).length > 0) f.add(UNVERIFIED_SEISMIC_FEATURE);
   const hasShellGravity = shellGravity || ['shellLevel', 'slopedShells', 'partlyUnderShells'].some(kind => loadNoteKeys.has(`loadPlan.gravity.${kind}`));
-  if (hasShellGravity || (gravityMode === 'panels' && memberGravity && quads.length > 0)) f.add('generatedPanelGravityShells');
+  const hasShellGeometry = quads.length > 0 || values(s.plates).length > 0;
   const inferredPanelMode = hasShellGravity || loadNoteKeys.has('loadPlan.gravity.panels') || loadNoteKeys.has('loadPlan.gravity.width');
-  if (gravityMode !== 'width' && (hasShellGravity || (memberGravity && (gravityMode === 'panels' || inferredPanelMode)))) f.add('generatedPanelGravity');
-  const widthMode = gravityMode === 'width' || (gravityMode !== 'panels' && !inferredPanelMode);
-  if (!widthMode && f.has('generatedPanelGravityShells') && quads.length && elements.length) {
+  const panelMode = gravityMode !== 'width' && (gravityMode === 'panels' || inferredPanelMode);
+  if (hasShellGravity || (panelMode && memberGravity && hasShellGeometry)) f.add('generatedPanelGravityShells');
+  if (panelMode && (hasShellGravity || memberGravity)) f.add('generatedPanelGravity');
+  if (panelMode && f.has('generatedPanelGravityShells') && hasShellGeometry && elements.length) {
     const geometry = plateAnalysisModel(s);
     if (hasBoundedRafterGap({
       nodes: new Map([...geometry.nodes].map(([id, node]) => [id, { id, ...node }])),
@@ -871,16 +879,17 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
         id: element.id, nodeI: element.nodeI, nodeJ: element.nodeJ, type: element.type === 'truss' ? 'truss' : 'frame',
       }])),
       quads: new Map([...geometry.quads ?? []].map(([id, shell]) => [id, { id, nodes: [...shell.nodes] }])),
+      plates: new Map([...geometry.plates ?? []].map(([id, shell]) => [id, { id, nodes: [...shell.nodes] }])),
       supports: geometrySupports(s), constraints: roofAttachmentConstraints(s),
     })) f.add('roofShellFrameLinks');
   }
-  if (widthMode && (memberGravity || generatedSeismic)) f.add('generatedWidthGravity');
+  if (!panelMode && (memberGravity || generatedSeismic)) f.add('generatedWidthGravity');
   const floorDefs = values(s.groups).filter(g => g?.kind === 'floorLoad');
   if (floorDefs.length) f.add('areaDeadLoads');
   for (const g of floorDefs) {
     const data = g.data as { target?: { by?: string; groupId?: number }; distribution?: string; q?: number; caseId?: number } | undefined;
     if (!data) continue;
-    if (data.target?.by === 'zone' && data.distribution !== 'slab') f.add('memberFloorZones');
+    if (data.target?.by === 'zone') f.add(data.distribution === 'slab' ? 'zoneSurfaceLoads' : 'memberFloorZones');
     if (data.distribution === 'slab' && data.target?.by === 'group' && typeof data.q === 'number') {
       notePressureSign(`group:${data.caseId}:${data.target.groupId}`, data.q);
     }

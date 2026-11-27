@@ -35,6 +35,68 @@ export function ringArea(ring: Point[]): number {
   return Math.abs(twiceArea.value / 2);
 }
 
+export type GravityShellTarget = { quadId: number; on?: 'plate' };
+export type GravityShellKey = `${'quad' | 'plate'}:${number}`;
+
+export function gravityShellKey(target: GravityShellTarget): GravityShellKey {
+  return `${target.on ?? 'quad'}:${target.quadId}`;
+}
+
+export function shellEdgeComponents<S>(shells: readonly S[], nodesOf: (shell: S) => readonly number[]) {
+  const edges = (nodes: readonly number[]) => nodes.map((a, i) => {
+    const b = nodes[(i + 1) % nodes.length]!;
+    return a < b ? `${a}:${b}` : `${b}:${a}`;
+  });
+  const byEdge = new Map<string, S[]>();
+  for (const shell of shells) for (const edge of edges(nodesOf(shell))) {
+    const adjacent = byEdge.get(edge) ?? [];
+    adjacent.push(shell);
+    byEdge.set(edge, adjacent);
+  }
+  const components = new Map<S, S[]>();
+  for (const seed of shells) {
+    if (components.has(seed)) continue;
+    const connected = new Set([seed]);
+    for (const shell of connected) for (const edge of edges(nodesOf(shell))) {
+      for (const neighbour of byEdge.get(edge) ?? []) connected.add(neighbour);
+      byEdge.delete(edge);
+    }
+    const group = [...connected];
+    for (const shell of group) components.set(shell, group);
+  }
+  return components;
+}
+
+export function* gravityShellCells<Cell extends { id: number }>(model: {
+  quads?: ReadonlyMap<number, Cell>;
+  plates?: ReadonlyMap<number, Cell>;
+}): Iterable<{ cell: Cell; target: GravityShellTarget }> {
+  for (const cell of model.quads?.values() ?? []) yield { cell, target: { quadId: cell.id } };
+  for (const cell of model.plates?.values() ?? []) yield { cell, target: { quadId: cell.id, on: 'plate' } };
+}
+
+export function gravityShellSurfaceArea(p: Array<[number, number, number]>): number {
+  let s = 0;
+  for (let i = 1; i + 1 < p.length; i++) {
+    const a = p[0]!, b = p[i]!, c = p[i + 1]!;
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+    s += Math.hypot(u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!) / 2;
+  }
+  return s;
+}
+
+export function triangularGravityFootprint(model: {
+  nodes: ReadonlyMap<number, { x: number; y: number }>;
+  plates?: ReadonlyMap<number, { id: number; nodes: readonly number[] }>;
+}): number | undefined {
+  for (const plate of model.plates?.values() ?? []) {
+    const nodes = plate.nodes.map(id => model.nodes.get(id));
+    if (nodes.length !== 3 || nodes.some(node => !node)) continue;
+    if (ringArea(nodes.map(node => [node!.x, node!.y])) > 0) return plate.id;
+  }
+  return undefined;
+}
+
 export function footprintArea(region: MultiPolygon): number {
   const area = new Sum();
   for (const poly of region) {

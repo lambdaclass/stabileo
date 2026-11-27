@@ -1,3 +1,4 @@
+import type { GravityShellKey } from './gravity-shell-partition';
 import type { Polygon } from 'polygon-clipping';
 import { orient2d, orient3d } from 'robust-predicates';
 import { msg } from '../../codes/message';
@@ -11,6 +12,7 @@ type HeightRange = readonly [number, number];
 export type DeckSurface = {
   range: HeightRange;
   heights: (point: Point) => HeightRange;
+  independentShells?: ReadonlySet<GravityShellKey>;
   exactHeight?: (point: DoubledPlanPoint) => Elevation;
 };
 
@@ -90,17 +92,19 @@ function clearanceOver(part: Polygon, lower: DeckSurface, upper: DeckSurface) {
     const plan = doubledPlanPoint(point);
     return { base: elevationRange(lower, plan), top: elevationRange(upper, plan) };
   };
+  let heights: ReturnType<typeof elevationPair>[] | undefined;
+  const bounds = () => heights ??= part.flat().map(elevationPair);
+  const smallest = ({ base, top }: ReturnType<typeof elevationPair>, limit: number) => compareClearance(top[0], base[1], limit);
+  const largest = ({ base, top }: ReturnType<typeof elevationPair>, limit: number) => compareClearance(top[1], base[0], limit);
   const determinate = hasHeight(lower) && hasHeight(upper);
   const band = (min: number, max: number): Band => {
     if (lower.range[0] === lower.range[1] && upper.range[0] === upper.range[1]) return deckRangeBand(lower, upper, min, max);
-    const bounds = part.flat().map(elevationPair);
-    const smallest = ({ base, top }: typeof bounds[number], limit: number) => compareClearance(top[0], base[1], limit);
-    const largest = ({ base, top }: typeof bounds[number], limit: number) => compareClearance(top[1], base[0], limit);
-    if (bounds.every(pair => largest(pair, min) <= 0) || bounds.every(pair => smallest(pair, max) >= 0)) return 'none';
-    return bounds.every(pair => coversBand(smallest(pair, min), largest(pair, max), determinate)) ? 'full' : 'partial';
+    if (bounds().every(pair => largest(pair, min) <= 0) || bounds().every(pair => smallest(pair, max) >= 0)) return 'none';
+    return bounds().every(pair => coversBand(smallest(pair, min), largest(pair, max), determinate)) ? 'full' : 'partial';
   };
   return {
     part, band,
+    strictlyAbove: (limit: number) => bounds().every(pair => smallest(pair, limit) > 0),
     separated: (limit: number) => {
       const samples = part.flat().map(heightPair);
       return samples.every(p => above(p.topLow, p.baseHigh, limit) > 0)
@@ -129,10 +133,13 @@ export function deckOverlaps(lower: DeckFootprint, upper: DeckFootprint) {
   });
 }
 
-export function deckOverlapsInBand(lower: DeckFootprint, upper: DeckFootprint, min: number, max: number) {
+export function deckOverlapsInBand(
+  lower: DeckFootprint, upper: DeckFootprint, min: number, max: number, lowerBound: 'closed' | 'open' = 'closed',
+) {
   if (deckRangeBand(lower.geometry, upper.geometry, min, max) === 'none') return [];
-  return deckOverlaps(lower, upper).flatMap(({ part, band, margin }) => {
-    const coverage = band(min, max);
+  return deckOverlaps(lower, upper).flatMap(({ part, band, margin, strictlyAbove }) => {
+    const inBand = band(min, max);
+    const coverage = inBand === 'full' && lowerBound === 'open' && !strictlyAbove(min) ? 'partial' : inBand;
     return coverage === 'none' ? [] : [{ part, coverage, margin }];
   });
 }

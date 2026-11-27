@@ -11,7 +11,7 @@
  * Pure: no store.
  */
 import { agrees, Sum } from '../accounting-math';
-import { refuseGravityGeometry } from './gravity-shell-partition';
+import { gravityShellKey, refuseGravityGeometry, type GravityShellTarget } from './gravity-shell-partition';
 import { widthSpans, type GravityLayout, type GravityModel } from './plan-gravity';
 import { adjacentSpanPatterns, layoutSpans, layoutUnits, type Unit } from './plan-spans';
 import { roofLiveLoad, type RoofWeight } from '../../codes/cirsoc101/roof-live';
@@ -63,7 +63,7 @@ export interface AreaLoad {
   /** The arrangement this load belongs to, by `AreaLoadsResult.arrangements`; absent: the full load. */
   arrangement?: number;
 }
-export interface AreaSurface { quadId: number; caseType: AreaCaseType; q: number }
+export interface AreaSurface extends GravityShellTarget { caseType: AreaCaseType; q: number }
 
 /** A panel's share past a side's end, at its node: kN along Z (negative down). */
 /** A panel's share at a re-entrant corner: at the node, `carrier` the side's member it belongs to. */
@@ -82,22 +82,22 @@ export interface AreaLoadsResult {
   /** kN/m² of dead and of (unreduced) live load a floor's and a roof's area bring to the seismic mass. */
   floorMass: { dead: number; live: number };
   roofMass: { dead: number; live: number };
-  massOfQuad: (quadId: number) => { dead: number; live: number };
+  massOfShell: (target: GravityShellTarget) => { dead: number; live: number };
 }
 
 export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
   const { layout } = i;
   const roof = i.roof;
   const isRoof = (id: number) => !!roof && layout.roof.has(id);
-  const isRoofQuad = (id: number) => !!roof && layout.roofQuads.has(id);
+  const isRoofShell = (target: GravityShellTarget) => !!roof && layout.roofShells.has(gravityShellKey(target));
   const floorMass = { dead: i.floor.dead, live: i.floor.lo };
   const roofMass = roof ? { dead: roof.dead, live: roof.use === 'occupancy' ? roof.lo ?? 0 : 0 } : floorMass;
   const out: AreaLoadsResult = {
     distributed: [], nodal: [], surface: [], planned: new Set(), arranged: new Set(), arrangements: [], derivation: [], refs: [], floorMass, roofMass,
-    massOfQuad: (id) => (isRoofQuad(id) ? roofMass : floorMass),
+    massOfShell: (target) => (isRoofShell(target) ? roofMass : floorMass),
   };
 
-  const shellsById = new Map(layout.shellQuads.map(shell => [shell.quadId, shell]));
+  const shellsByKey = new Map(layout.shells.map(shell => [gravityShellKey(shell.target), shell]));
   const lrOf = new Map<number, number>();
   if (roof?.use === 'maintenance') {
     let first: EngineMessage | null = null;
@@ -119,7 +119,7 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
    * One area load on what carries it: `qOf(id, roof)` for a member's floor or roof part,
    * `perProjection` for loads given per horizontal area.
    */
-  const put = (caseType: AreaCaseType, qOf: (id: number, roof: boolean) => number, qOfQuad: (id: number) => number, perProjection: boolean,
+  const put = (caseType: AreaCaseType, qOf: (id: number, roof: boolean) => number, qOfShell: (target: GravityShellTarget) => number, perProjection: boolean,
     arrangement?: { index: number; loads: (u: Unit) => boolean }) => {
     const arr = arrangement !== undefined ? { arrangement: arrangement.index } : {};
     const totals = new Map<number, { input: Sum; output: Sum; magnitude: Sum }>();
@@ -142,8 +142,8 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
       if (!m.spans) add(z, 'input', pressure * (i.tributaryWidth * measure));
       for (const span of m.spans ?? []) add(z, 'input', pressure * (span.width * (span.t1 - span.t0) * measure));
     }
-    if (!arrangement) for (const shell of layout.shellQuads) {
-      add(shell.z, 'input', qOfQuad(shell.quadId) * (perProjection ? shell.area : shell.cos > 0 ? shell.surface : NaN));
+    if (!arrangement) for (const shell of layout.shells) {
+      add(shell.z, 'input', qOfShell(shell.target) * (perProjection ? shell.area : shell.cos > 0 ? shell.surface : NaN));
     }
 
     const distributedStart = out.distributed.length, nodalStart = out.nodal.length, surfaceStart = out.surface.length;
@@ -176,9 +176,9 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
         if (arrangement === undefined) out.planned.add(caseType);
       }
     }
-    if (!arrangement) for (const sq of layout.shellQuads) {
-      const q = qOfQuad(sq.quadId) * (perProjection ? sq.cos : 1);
-      if (q > 0) { out.surface.push({ quadId: sq.quadId, caseType, q }); out.planned.add(caseType); }
+    if (!arrangement) for (const sq of layout.shells) {
+      const q = qOfShell(sq.target) * (perProjection ? sq.cos : 1);
+      if (q > 0) { out.surface.push({ ...sq.target, caseType, q }); out.planned.add(caseType); }
     }
 
     for (const load of out.distributed.slice(distributedStart)) {
@@ -191,7 +191,7 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
     }
     for (const load of out.nodal.slice(nodalStart)) add(levels.get(load)!, 'output', -load.fz);
     for (const load of out.surface.slice(surfaceStart)) {
-      const shell = shellsById.get(load.quadId)!;
+      const shell = shellsByKey.get(gravityShellKey(load))!;
       add(shell.z, 'output', load.q * shell.surface);
     }
     for (const [z, total] of totals) {
@@ -201,15 +201,15 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
     }
   };
 
-  put('D', (_id, atRoof) => (atRoof ? roof!.dead : i.floor.dead), (id) => (isRoofQuad(id) ? roof!.dead : i.floor.dead), false);
+  put('D', (_id, atRoof) => (atRoof ? roof!.dead : i.floor.dead), (target) => (isRoofShell(target) ? roof!.dead : i.floor.dead), false);
   // On a slab of shells the live load is not a member's: it goes unreduced.
   const liveQ = (id: number, atRoof: boolean) => (atRoof ? (roof!.use === 'occupancy' ? roof!.liveOf?.(id) ?? 0 : 0) : i.floor.liveOf(id));
-  put('L', liveQ, (id) => (isRoofQuad(id) ? (roof!.use === 'occupancy' ? roof!.lo ?? 0 : 0) : i.floor.lo), true);
+  put('L', liveQ, (target) => (isRoofShell(target) ? (roof!.use === 'occupancy' ? roof!.lo ?? 0 : 0) : i.floor.lo), true);
   const lrQ = (id: number, atRoof: boolean) => (atRoof ? lrOf.get(id) ?? 0 : 0);
   if (roof?.use === 'maintenance') {
     // A slab of shells is not a member with a tributary area: R1 = 1 there, the largest Lr.
     const shellLr = roofLiveLoad({ weight: roof.weight, atM2: 0, slopePercent: roof.slopePercent }).lr;
-    put('Lr', lrQ, (id) => (isRoofQuad(id) ? shellLr : 0), true);
+    put('Lr', lrQ, (target) => (isRoofShell(target) ? shellLr : 0), true);
   }
   const mode = i.patterns === true ? 'checkerboard' : i.patterns === false || i.patterns === undefined ? 'none' : i.patterns;
   if (mode !== 'none') {

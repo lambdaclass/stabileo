@@ -1,4 +1,4 @@
-import { offsetRoof } from '../../engine/loads/__tests__/gravity-offset-roof-fixture';
+import { doubleAttachedRoof, offsetRoof, triangulateRoof } from '../../engine/loads/__tests__/gravity-offset-roof-fixture';
 import { expect, it } from 'vitest';
 import { assessProject } from '../applicability';
 import { RESULT_CHANGES } from '../full-registry';
@@ -75,7 +75,14 @@ it('#2512 explicit width gravity does not qualify for panel gravity regeneration
 });
 
 it('#2586 requires an actual paired roof attachment with a bounded gap', () => {
-  const id = 'gravity-attached-rafter-gaps';
+  checkRafterGapRegeneration('gravity-attached-rafter-gaps');
+});
+
+it('#2607 bounded attached roof gaps have a refusal and regeneration notice', () => {
+  checkRafterGapRegeneration('gravity-rafter-gap-refusal');
+});
+
+function checkRafterGapRegeneration(id: string) {
   const check = (gap: false | readonly [number, number], paired: boolean, mode: 'width' | 'panels') => {
     const { model } = offsetRoof(0.02, 0.53, 1, true, gap);
     const remote = [...model.nodes.values()].at(-1)!;
@@ -93,4 +100,71 @@ it('#2586 requires an actual paired roof attachment with a bounded gap', () => {
   expect.soft(check([4, 6], false, 'panels')).toBe(false);
   expect.soft(check(false, true, 'panels')).toBe(false);
   expect.soft(check([4, 6], true, 'width')).toBe(false);
+}
+
+it.each([false, true])('#2607 older panel gravity with stacked gap decks requires regeneration (triangles %s)', triangles => {
+  const id = 'gravity-rafter-gap-refusal';
+  const quads = doubleAttachedRoof(false, [4, 6], true);
+  const model = triangles ? triangulateRoof(quads) : { ...quads, plates: undefined };
+  const result = (mode: 'panels' | 'width', constraints: FeatureSnapshot['constraints']) => changes({
+    ...legacyPanel, analysisMode: '3d', nodes: [...model.nodes], elements: [...model.elements],
+    quads: [...model.quads], plates: model.plates && [...model.plates], constraints,
+    regulations: { roles: { loads: { adapterId: 'cirsoc-101', settings: { dialog: { gravityMode: mode } } } } },
+  });
+  const constraints = model.constraints.map(link => ({ ...link }));
+  expect(result('panels', constraints)).toContain(id);
+  expect(result('panels', [])).not.toContain(id);
+  expect(result('width', constraints)).not.toContain(id);
+});
+
+it.each(['linear', 'pdelta'] as const)(
+  '#2607 an older %s result with unequal gap end widths requires regeneration', analysis => {
+    const { model } = offsetRoof(0.02, 0, 1, true, [4, 6]);
+    for (const node of model.nodes.values()) if (node.x === 6) node.y *= 1.5;
+    for (const [mode, paired, affected] of [['panels', true, true], ['panels', false, false], ['width', true, false]] as const) {
+      const snapshot = {
+        ...legacyPanel, analysisMode: 'pro', nodes: [...model.nodes], elements: [...model.elements],
+        quads: [...model.quads],
+        constraints: (paired ? model.constraints : model.constraints.slice(0, 1)).map(link => ({ ...link })),
+        regulations: { roles: { loads: { adapterId: 'cirsoc-101', settings: { dialog: { gravityMode: mode } } } } },
+      } satisfies FeatureSnapshot;
+      const stamp = { ...stampSolve(analysis, null), resultsVersion: change.resultsVersion };
+      const notices = assessProject(snapshot, stamp).changes.map(c => c.id);
+      expect.soft(modelFeatures(snapshot).has('roofShellFrameLinks')).toBe(affected);
+      expect.soft(notices.includes('gravity-rafter-gap-refusal')).toBe(affected);
+    }
+  },
+);
+
+function checkLegacyPanelDerivation(triangles: boolean, gravityMode?: 'panels' | 'width') {
+  const { model: source } = offsetRoof(0.02, 0, 1, false, [4, 6]);
+  const model = triangles ? triangulateRoof(source) : { ...source, plates: undefined };
+  for (const analysisMode of ['3d', 'pro']) {
+    const snapshot: FeatureSnapshot = {
+      ...legacy, analysisMode, nodes: [...model.nodes], elements: [...model.elements],
+      quads: [...model.quads], plates: model.plates && [...model.plates],
+      constraints: model.constraints.map(link => ({ ...link })),
+      designData: { loadBasis: { derivation: [{ key: 'loadPlan.gravity.panels' }] } },
+      regulations: { roles: { loads: { adapterId: 'cirsoc-101', settings: { dialog: { gravityMode } } } } },
+    };
+    const panel = gravityMode !== 'width';
+    const features = modelFeatures(snapshot);
+    expect.soft(features.has('generatedPanelGravityShells')).toBe(panel);
+    expect.soft(features.has('roofShellFrameLinks')).toBe(panel);
+    for (const analysis of ['linear', 'pdelta'] as const) {
+      const notices = assessProject(snapshot, stampSolve(analysis, null)).changes.map(entry => entry.id);
+      for (const id of [change.id, 'gravity-rafter-gap-refusal']) {
+        expect.soft(notices.includes(id)).toBe(panel);
+      }
+    }
+  }
+}
+
+it.each([false, true])('#2607 infers older shell panel gravity from derivation (triangles %s)', triangles => {
+  checkLegacyPanelDerivation(triangles);
+});
+
+it.each([false, true])('#2607 respects explicit gravity mode with a panel derivation (triangles %s)', triangles => {
+  checkLegacyPanelDerivation(triangles, 'panels');
+  checkLegacyPanelDerivation(triangles, 'width');
 });

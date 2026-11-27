@@ -1,0 +1,32 @@
+{
+  "id": "shell-region-projection",
+  "date": "2026-11-27",
+  "prs": [2607],
+  "area": "analysis",
+  "when": { "all": ["space3D"], "any": ["clippedShellPressure", "zoneSurfaceLoads"] },
+  "quantities": ["*", "solve.ok"],
+  "title": {
+    "en": "Check clipped shell pressure in the load region projection",
+    "es": "Verificar la presión recortada en la proyección de la región de carga",
+    "pt": "Verificar a pressão recortada na projeção da região de carga",
+    "de": "Zugeschnittenen Schalendruck in der Projektion des Lastbereichs prüfen",
+    "fr": "Vérifier la pression découpée dans la projection de la zone de charge",
+    "hu": "A metszett héjnyomás ellenőrzése a teherterület vetületében",
+    "tr": "Kırpılmış kabuk basıncını yük bölgesi izdüşümünde doğrula",
+    "zh": "在荷载区域的投影平面中核查裁剪壳压力"
+  },
+  "explanation": {
+    "en": "An applicable pressure region whose projection direction is parallel or nearly parallel to a shell now stops analysis and identifies that shell. Review the affected pressure regions and run the analysis again.",
+    "es": "Si una región de presión aplicable se proyecta en una dirección paralela o casi paralela al elemento de superficie, el análisis se detiene e identifica el elemento. Revisá las regiones afectadas y volvé a calcular.",
+    "pt": "Se a projeção de uma região de pressão aplicável for paralela ou quase paralela ao elemento de casca, a análise para e identifica o elemento. Revise as regiões afetadas e execute a análise novamente.",
+    "de": "Verläuft die Projektion eines wirksamen Druckbereichs parallel oder nahezu parallel zur Schale, wird die Berechnung abgebrochen und das Element angegeben. Prüfen Sie die betroffenen Bereiche und berechnen Sie das Modell erneut.",
+    "fr": "Si la projection d’une zone de pression applicable est parallèle ou presque parallèle à la coque, l’analyse s’arrête et identifie l’élément. Vérifiez les zones concernées et relancez l’analyse.",
+    "hu": "Ha a ható nyomástartomány vetítési iránya párhuzamos vagy közel párhuzamos a héjjal, a számítás leáll és megjelöli az elemet. Ellenőrizze az érintett tartományokat, majd futtassa újra a számítást.",
+    "tr": "Etkin bir basınç bölgesinin izdüşüm yönü kabuğa paralel veya neredeyse paralelse analiz durur ve eleman belirtilir. Etkilenen bölgeleri inceleyip analizi yeniden çalıştırın.",
+    "zh": "适用压力区域的投影方向与壳单元平行或近乎平行时，分析会停止并指出该单元。请检查受影响的压力区域，然后重新运行分析。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-shell-region-projection.md",
+    "heading": "Shell pressure regions are checked in their authored projection"
+  }
+}

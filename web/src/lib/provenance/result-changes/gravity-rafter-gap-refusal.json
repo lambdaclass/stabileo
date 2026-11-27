@@ -1,0 +1,33 @@
+{
+  "id": "gravity-rafter-gap-refusal",
+  "date": "2026-11-26",
+  "prs": [2607],
+  "area": "loads",
+  "when": { "all": ["generatedPanelGravityShells", "roofShellFrameLinks"] },
+  "quantities": ["*", "solve.ok"],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Refuse automatic panel gravity at attached rafter gaps",
+    "es": "Bloquear la generación automática de cargas gravitatorias en huecos junto a cabios vinculados",
+    "pt": "Bloquear cargas gravitacionais automáticas em aberturas junto a caibros conectados",
+    "de": "Automatische Flächenlasten bei Lücken an angeschlossenen Sparren verweigern",
+    "fr": "Bloquer les charges gravitaires automatiques aux ouvertures sur chevrons liés",
+    "hu": "Automatikus gravitációs terhek letiltása kapcsolt szarufák nyílásainál",
+    "tr": "Bağlı mertek açıklıklarında otomatik düşey yükleri durdur",
+    "zh": "在相连椽条的缺口处停止自动板格重力荷载生成"
+  },
+  "explanation": {
+    "en": "Model the deck over the opening or assign the loads there explicitly. Regenerate affected stored panel gravity and snow loads before solving again.",
+    "es": "Modelá la cubierta sobre el hueco o asigná allí las cargas explícitamente. Regenerá las cargas gravitatorias y de nieve guardadas que estén afectadas antes de volver a resolver.",
+    "pt": "Modele a cobertura sobre a abertura ou atribua explicitamente as cargas nesse trecho. Gere novamente as cargas gravitacionais e de neve afetadas antes de resolver.",
+    "de": "Modellieren Sie die Dachfläche über der Lücke oder geben Sie die Lasten dort ausdrücklich vor. Erzeugen Sie betroffene gespeicherte Flächen- und Schneelasten vor der nächsten Berechnung neu.",
+    "fr": "Modélisez la toiture au-dessus de l’ouverture ou appliquez les charges explicitement à cet endroit. Régénérez les charges gravitaires et de neige concernées avant de relancer le calcul.",
+    "hu": "Modellezze a tetőlemezt a nyílás fölött, vagy adja meg ott közvetlenül a terheket. Új számítás előtt generálja újra az érintett tárolt gravitációs terheket és hóterheket.",
+    "tr": "Açıklığın üzerindeki döşemeyi modelleyin veya buradaki yükleri açıkça tanımlayın. Yeniden çözmeden önce etkilenen kayıtlı düşey ve kar yüklerini yeniden oluşturun.",
+    "zh": "请对缺口上方的屋面板建模，或显式指定该处的荷载。再次求解前，请重新生成受影响的已保存板格重力荷载和雪荷载。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-rafter-gap-refusal.md",
+    "heading": "Refuse automatic panel gravity at attached rafter gaps"
+  }
+}

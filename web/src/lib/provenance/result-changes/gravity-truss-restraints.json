@@ -1,0 +1,33 @@
+{
+  "id": "gravity-truss-restraints",
+  "date": "2026-11-27",
+  "prs": [2607],
+  "area": "loads",
+  "when": { "all": ["space3D", "shells", "generatedPanelGravity"], "any": ["trussMembers", "roofShellFrameLinks"] },
+  "quantities": ["*", "solve.ok"],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Recognize translationally restrained truss ends in panel gravity",
+    "es": "Reconocer extremos de barras de celosía con traslaciones restringidas en las cargas de paños",
+    "pt": "Reconhecer extremidades de barras de treliça com translações restringidas nas cargas de painéis",
+    "de": "Translationsfeste Fachwerkstabenden in der Feldlasterzeugung berücksichtigen",
+    "fr": "Reconnaître les extrémités de barres de treillis bloquées en translation pour les charges de panneaux",
+    "hu": "Elmozdulásban megtámasztott rácsrúdvégek figyelembevétele a panelterheknél",
+    "tr": "Panel yüklerinde ötelemeleri kısıtlanmış kafes çubuk uçlarını tanı",
+    "zh": "面板重力荷载识别平移受约束的桁架杆端"
+  },
+  "explanation": {
+    "en": "A concentric truss between fully restrained translations no longer prevents independent deck loading. Review and regenerate panel gravity loads.",
+    "es": "Una barra de celosía concéntrica con todas las traslaciones de sus extremos restringidas permite cargar los paños de forma independiente. Revisá y regenerá las cargas.",
+    "pt": "Uma barra de treliça concêntrica com as translações de ambas as extremidades restringidas permite carregar os painéis de forma independente. Revise e gere novamente as cargas.",
+    "de": "Ein zentrischer Fachwerkstab mit beidseitig gesperrten Translationen lässt unabhängige Feldbelastung zu. Prüfen und erzeugen Sie die Feldlasten erneut.",
+    "fr": "Une barre de treillis centrée, bloquée en translation aux deux extrémités, permet de charger les panneaux indépendamment. Vérifiez et régénérez les charges.",
+    "hu": "A mindkét végén elmozdulásban rögzített központos rácsrúd mellett a panelek egymástól függetlenül terhelhetők. Ellenőrizze és generálja újra a panelterheket.",
+    "tr": "Her iki ucunda ötelemeleri engellenen eksenel kafes çubuğu, döşemelerin bağımsız yüklenmesine izin verir. Panel yüklerini inceleyip yeniden üretin.",
+    "zh": "两端平移均受约束的同心桁架杆允许楼面独立加载。请检查并重新生成面板重力荷载。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-truss-restraints.md",
+    "heading": "Independent panel decks joined by a restrained truss"
+  }
+}
