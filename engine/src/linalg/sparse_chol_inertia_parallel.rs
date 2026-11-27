@@ -25,6 +25,37 @@ thread_local! {
 
 const UNMARKED: usize = usize::MAX;
 
+/// From which panel a supernode is counted over several threads, and the columns of a block.
+#[derive(Clone, Copy)]
+struct Wide {
+    entries: usize,
+    width: usize,
+    block: usize,
+}
+
+const WIDE: Wide = Wide { entries: 1 << 18, width: 64, block: 32 };
+
+/// Subtracts from `target` each column times its factor, in the order given, entry by entry.
+fn subtract_dense(target: &mut [f64], columns: &[(&[f64], f64)]) {
+    let mut fours = columns.chunks_exact(4);
+    for four in &mut fours {
+        let ((a, ua), (b, ub), (c, uc), (d, ud)) = (four[0], four[1], four[2], four[3]);
+        for ((((t, &a), &b), &c), &d) in target.iter_mut().zip(a).zip(b).zip(c).zip(d) {
+            let mut value = *t;
+            value -= ua * a;
+            value -= ub * b;
+            value -= uc * c;
+            value -= ud * d;
+            *t = value;
+        }
+    }
+    for &(a, ua) in fours.remainder() {
+        for (t, &a) in target.iter_mut().zip(a) {
+            *t -= ua * a;
+        }
+    }
+}
+
 /// Marks of one factorization are told from those an earlier one left on the same thread.
 static MARKS: AtomicUsize = AtomicUsize::new(0);
 
@@ -40,6 +71,7 @@ struct Plan<'a> {
     children: Vec<Vec<usize>>,
     subtree_cost: Vec<f64>,
     grain: f64,
+    wide: Wide,
     marks: usize,
     negative: AtomicUsize,
     failed: AtomicBool,
@@ -71,14 +103,11 @@ impl Plan<'_> {
             return;
         }
         if self.subtree_cost[t] <= self.grain {
-            WORKSPACE.with(|ws| {
-                let mut ws = ws.borrow_mut();
-                for s in self.subtree(t) {
-                    if !self.supernode(s, &mut ws) {
-                        return;
-                    }
+            for s in self.subtree(t) {
+                if !self.supernode_either(s) {
+                    return;
                 }
-            });
+            }
             return;
         }
         rayon::scope(|scope| {
@@ -87,8 +116,175 @@ impl Plan<'_> {
             }
         });
         if !self.stopped() {
-            WORKSPACE.with(|ws| self.supernode(t, &mut ws.borrow_mut()));
+            self.supernode_either(t);
         }
+    }
+
+    /// The workspace of the thread is borrowed only where nothing is handed to other threads.
+    fn supernode_either(&self, t: usize) -> bool {
+        let s = self.sym.snode_start[t];
+        let width = self.end(t) - s;
+        let rows = self.sym.l_col_ptr[s + 1] - self.sym.l_col_ptr[s];
+        if width >= self.wide.width && width * rows >= self.wide.entries && rayon::current_num_threads() > 1 {
+            self.supernode_wide(t)
+        } else {
+            WORKSPACE.with(|ws| self.supernode(t, &mut ws.borrow_mut()))
+        }
+    }
+
+    fn refuse(&self, flag: &AtomicBool) -> bool {
+        flag.store(true, Ordering::Relaxed);
+        false
+    }
+
+    /// `supernode` for a wide one, over several threads. Each column first takes, on its own
+    /// thread, its contributors from earlier supernodes, ascending; then the columns are
+    /// eliminated a block at a time, the columns after a block taking its columns in order.
+    /// Every entry and every pivot scale has the terms of `column` in the same order.
+    fn supernode_wide(&self, t: usize) -> bool {
+        use rayon::prelude::*;
+        let sym = self.sym;
+        let s = sym.snode_start[t];
+        let e = self.end(t);
+        let width = e - s;
+        let base = sym.l_col_ptr[s];
+        let rows = sym.l_col_ptr[s + 1] - base;
+        if (0..width).any(|c| sym.l_col_ptr[s + c + 1] - sym.l_col_ptr[s + c] != rows - c) {
+            return self.refuse(&self.inconsistent);
+        }
+        let mut mark = vec![UNMARKED; sym.n];
+        let mut waiting = Vec::new();
+        let mut lists: Vec<Vec<(usize, usize)>> = Vec::with_capacity(width);
+        for j in s..e {
+            waiting.clear();
+            mark[j] = j;
+            for &start in &self.row_cols[self.row_ptr[j]..self.row_ptr[j + 1]] {
+                let mut k = start;
+                while mark[k] != j {
+                    mark[k] = j;
+                    waiting.push(k);
+                    let parent = sym.parent[k];
+                    if parent < 0 || parent as usize > j {
+                        return self.refuse(&self.inconsistent);
+                    }
+                    k = parent as usize;
+                }
+            }
+            waiting.sort_unstable();
+            let mut list = Vec::with_capacity(waiting.len());
+            let mut inside = 0;
+            for &k in &waiting {
+                let entry = unsafe { *self.next.0.add(k) };
+                if entry >= sym.l_col_ptr[k + 1] || sym.l_row_idx[entry] != j {
+                    return self.refuse(&self.inconsistent);
+                }
+                unsafe { *self.next.0.add(k) = entry + 1 };
+                if k < s { list.push((k, entry)) } else { inside += 1 }
+            }
+            if inside != j - s {
+                return self.refuse(&self.inconsistent);
+            }
+            lists.push(list);
+        }
+        drop(mark);
+        let l = self.l.0;
+        let mut panel = vec![0.0f64; width * rows];
+        let mut scale = vec![0.0f64; width];
+        panel.par_chunks_mut(rows).zip(scale.par_iter_mut()).zip(lists.par_iter()).enumerate().for_each(|(c, ((column, scale), list))| {
+            let l = self.l.0;
+            WORKSPACE.with(|ws| {
+                let mut ws = ws.borrow_mut();
+                if ws.x.len() < sym.n {
+                    ws.x.resize(sym.n, 0.0);
+                    ws.mark.resize(sym.n, UNMARKED);
+                }
+                let Workspace { x, sources, .. } = &mut *ws;
+                let j = s + c;
+                let range = sym.l_col_ptr[j]..sym.l_col_ptr[j + 1];
+                for p in range.clone() {
+                    x[sym.l_row_idx[p]] = 0.0;
+                }
+                for p in sym.pa_col_ptr[j]..sym.pa_col_ptr[j + 1] {
+                    x[sym.pa_row_idx[p]] = self.a.values[sym.pa_src[p]];
+                }
+                let mut sum = x[j].abs();
+                let mut at = 0;
+                while at < list.len() {
+                    let (k, pos) = list[at];
+                    sources.clear();
+                    while sources.len() < 4 && list.get(at).map(|pair| pair.0) == Some(k + sources.len()) && self.supernode[k + sources.len()] == self.supernode[k] {
+                        let (source, entry) = list[at];
+                        let value = unsafe { *l.add(entry) };
+                        let factor = unsafe { *self.d.0.add(source) } * value;
+                        sum += (factor * value).abs();
+                        sources.push((entry - sym.l_col_ptr[k], factor));
+                        at += 1;
+                    }
+                    let last = k + sources.len() - 1;
+                    let values = unsafe { std::slice::from_raw_parts(l.add(sym.l_col_ptr[k]) as *const f64, sym.l_col_ptr[last + 1] - sym.l_col_ptr[k]) };
+                    subtract_scattered(x, &sym.l_row_idx[pos..sym.l_col_ptr[k + 1]], values, sources);
+                }
+                *scale = sum;
+                for (value, &row) in column[c..].iter_mut().zip(&sym.l_row_idx[range]) {
+                    *value = x[row];
+                }
+            });
+        });
+        drop(lists);
+        let mut pivots = vec![0.0f64; width];
+        let mut block_from = 0;
+        while block_from < width {
+            let block_to = (block_from + self.wide.block).min(width);
+            for c in block_from..block_to {
+                let (before, after) = panel.split_at_mut(c * rows);
+                let column = &mut after[..rows];
+                let mut sum = scale[c];
+                let mut sources: Vec<(&[f64], f64)> = Vec::with_capacity(c - block_from);
+                for k in block_from..c {
+                    let source = &before[k * rows..(k + 1) * rows];
+                    let factor = pivots[k] * source[c];
+                    sum += (factor * source[c]).abs();
+                    sources.push((&source[c..], factor));
+                }
+                subtract_dense(&mut column[c..], &sources);
+                let pivot = column[c];
+                if !pivot.is_finite() || pivot.abs() <= 64.0 * f64::EPSILON * sum.max(f64::MIN_POSITIVE) {
+                    return self.refuse(&self.failed);
+                }
+                pivots[c] = pivot;
+                column[c] = 1.0;
+                for value in &mut column[c + 1..] {
+                    *value /= pivot;
+                    if !value.is_finite() {
+                        return self.refuse(&self.failed);
+                    }
+                }
+            }
+            let (head, tail) = panel.split_at_mut(block_to * rows);
+            let (head, pivots) = (&*head, &pivots);
+            tail.par_chunks_mut(rows).zip(scale[block_to..].par_iter_mut()).enumerate().for_each(|(i, (column, scale))| {
+                let c = block_to + i;
+                let mut sum = *scale;
+                let mut sources: Vec<(&[f64], f64)> = Vec::with_capacity(block_to - block_from);
+                for k in block_from..block_to {
+                    let source = &head[k * rows..(k + 1) * rows];
+                    let factor = pivots[k] * source[c];
+                    sum += (factor * source[c]).abs();
+                    sources.push((&source[c..], factor));
+                }
+                subtract_dense(&mut column[c..], &sources);
+                *scale = sum;
+            });
+            block_from = block_to;
+        }
+        let own = unsafe { std::slice::from_raw_parts_mut(l.add(base), sym.l_col_ptr[e] - base) };
+        for c in 0..width {
+            unsafe { *self.d.0.add(s + c) = pivots[c] };
+            let at = sym.l_col_ptr[s + c] - base;
+            own[at..at + rows - c].copy_from_slice(&panel[c * rows + c..(c + 1) * rows]);
+        }
+        self.negative.fetch_add(pivots.iter().filter(|pivot| **pivot < 0.0).count(), Ordering::Relaxed);
+        true
     }
 
     fn supernode(&self, t: usize, ws: &mut Workspace) -> bool {
@@ -188,6 +384,13 @@ impl Plan<'_> {
     }
 }
 
+fn wide() -> Wide {
+    #[cfg(test)]
+    return tests::WIDE_AS.with(|wide| wide.get());
+    #[cfg(not(test))]
+    WIDE
+}
+
 fn finest() -> bool {
     #[cfg(test)]
     return tests::FINEST.with(|finest| finest.get());
@@ -273,6 +476,7 @@ pub(super) fn unpivoted_ldl_parallel(sym: &SymbolicCholesky, a: &CscMatrix) -> O
         children,
         subtree_cost,
         grain: if finest() { 0.0 } else { total / (64.0 * rayon::current_num_threads() as f64) },
+        wide: wide(),
         marks: MARKS.fetch_add(n + 1, Ordering::Relaxed),
         negative: AtomicUsize::new(0),
         failed: AtomicBool::new(false),
@@ -303,6 +507,7 @@ mod tests {
 
     thread_local! {
         pub(super) static FINEST: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+        pub(super) static WIDE_AS: std::cell::Cell<Wide> = const { std::cell::Cell::new(WIDE) };
     }
 
     type Bits = Option<(usize, Vec<u64>, Vec<u64>)>;
@@ -315,12 +520,24 @@ mod tests {
         unpivoted_ldl_in_order(symbolic, a).map(|(negative, d, l)| (negative, bits(&d), bits(&l)))
     }
 
+    const EVERY_SUPERNODE_WIDE: [Wide; 3] = [
+        Wide { entries: 0, width: 2, block: 3 },
+        Wide { entries: 0, width: 2, block: 1 },
+        Wide { entries: 0, width: 2, block: 64 },
+    ];
+
     fn in_pool(threads: usize, finest: bool, symbolic: &SymbolicCholesky, a: &CscMatrix) -> Bits {
+        in_pool_as(threads, finest, WIDE, symbolic, a)
+    }
+
+    fn in_pool_as(threads: usize, finest: bool, wide: Wide, symbolic: &SymbolicCholesky, a: &CscMatrix) -> Bits {
         let pool = rayon::ThreadPoolBuilder::new().num_threads(threads).build().unwrap();
         pool.install(|| {
             FINEST.with(|f| f.set(finest));
+            WIDE_AS.with(|w| w.set(wide));
             let out = unpivoted_ldl_parallel(symbolic, a);
             FINEST.with(|f| f.set(false));
+            WIDE_AS.with(|w| w.set(WIDE));
             match out {
                 Outcome::Factor(negative, d, l) => Some((negative, bits(&d), bits(&l))),
                 Outcome::Refused => None,
@@ -374,6 +591,9 @@ mod tests {
             for (threads, finest) in [(1, false), (1, true), (3, false), (3, true)] {
                 assert_eq!(in_pool(threads, finest, &symbolic, &matrix), expected, "case {case}, {threads} threads, finest {finest}");
             }
+            for (at, wide) in EVERY_SUPERNODE_WIDE.into_iter().enumerate() {
+                assert_eq!(in_pool_as(2 + at, at == 1, wide, &symbolic, &matrix), expected, "case {case}, every supernode wide, block {at}");
+            }
             for value in [0.0, f64::NAN, f64::INFINITY, f64::MAX, 1e-300] {
                 let mut broken = matrix.clone();
                 let column = (case * 13) % matrix.n;
@@ -384,6 +604,7 @@ mod tests {
                 for (threads, finest) in [(3, false), (2, true)] {
                     assert_eq!(in_pool(threads, finest, &symbolic, &broken), expected, "case {case} with {value:?}, {threads} threads, finest {finest}");
                 }
+                assert_eq!(in_pool_as(3, false, EVERY_SUPERNODE_WIDE[case % 3], &symbolic, &broken), expected, "case {case} with {value:?}, every supernode wide");
             }
         }
         assert!(compared > 300_000 && refused > 50 && negative > 20, "{compared} entries compared, {refused} refused, {negative} with negative pivots");
@@ -420,6 +641,38 @@ mod tests {
             assert_eq!(in_pool(threads, false, &symbolic, &matrix), expected, "{threads} threads");
         }
         assert_eq!(in_pool(4, true, &symbolic, &matrix), expected);
+        for wide in EVERY_SUPERNODE_WIDE {
+            assert_eq!(in_pool_as(4, false, wide, &symbolic, &matrix), expected);
+        }
+    }
+
+    #[test]
+    fn a_wide_supernode_over_threads_refuses_a_pivot_at_the_threshold_as_one_thread_does() {
+        for n in [3, 6, 14, 40] {
+            let (mut rows, mut cols, mut values) = (Vec::new(), Vec::new(), Vec::new());
+            for j in 0..n {
+                for i in j..n {
+                    rows.push(i);
+                    cols.push(j);
+                    values.push(if i == j { if j % 3 == 0 { -2.0 - j as f64 } else { 2.0 + j as f64 } } else { ((i * 17 + j * 31) % 23) as f64 / 23.0 - 0.5 });
+                }
+            }
+            let matrix = CscMatrix::from_triplets(n, &rows, &cols, &values);
+            let symbolic = crate::linalg::sparse_chol::symbolic_cholesky_with_perm(&matrix, &(0..n).collect::<Vec<_>>());
+            assert_eq!(symbolic.snode_start, vec![0]);
+            let last = matrix.values.len() - 1;
+            let pivot = f64::from_bits(in_order(&symbolic, &matrix).expect("resolved pivots").1[n - 1]);
+            let cancelled = matrix.values[last] - pivot;
+            let (mut refused, mut accepted) = (0, 0);
+            for step in 1..600 {
+                let mut changed = matrix.clone();
+                changed.values[last] = cancelled + step as f64 * 4.0 * f64::EPSILON * cancelled.abs();
+                let expected = in_order(&symbolic, &changed);
+                if expected.is_some() { accepted += 1 } else { refused += 1 }
+                assert_eq!(in_pool_as(3, false, EVERY_SUPERNODE_WIDE[step % 3], &symbolic, &changed), expected, "order {n}, step {step}");
+            }
+            assert!(refused > 5 && accepted > 5, "order {n}: {refused} refused, {accepted} accepted");
+        }
     }
 
     #[test]
