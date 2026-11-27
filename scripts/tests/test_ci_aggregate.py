@@ -158,7 +158,7 @@ class ParityWorkflow(unittest.TestCase):
         (web / 'config').mkdir(parents=True)
         (web / 'config/features.json').write_text('{"production":{},"test":{}}')
         (web / 'package-lock.json').write_text('{}')
-        build = 'mkdir dist && cat page > dist/index.html && git rev-parse HEAD >> dist/index.html'
+        build = 'mkdir dist && cat page > dist/index.html && echo "${GITHUB_SHA:-$(git rev-parse HEAD)}" >> dist/index.html'
         (web / 'package.json').write_text(json.dumps({'scripts': {'build': build}}))
         (web / 'page').write_text('old page\n')
         (self.repo / 'Makefile').write_text(

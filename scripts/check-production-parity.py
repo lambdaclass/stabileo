@@ -351,7 +351,7 @@ def check(args, source):
         raise SystemExit('Switch-off production engine inputs differ from the reference:\n  ' + '\n  '.join(sorted(engine_paths)))
     timestamp = int(git(source, 'show', '-s', '--format=%ct', head))
     date = datetime.fromtimestamp(timestamp, timezone.utc).date().isoformat()
-    env = {**os.environ, 'GITHUB_SHA': base, 'PRERENDER_GITHUB_STARS': 'none', 'PRERENDER_BUILD_DATE': date}
+    env = {**os.environ, 'GITHUB_SHA': head, 'PRERENDER_GITHUB_STARS': 'none', 'PRERENDER_BUILD_DATE': date}
     for key in ('VITE_E2E', 'VITE_APP_TYPE', 'STABILEO_E2E_PROFILE', 'PRERENDER_ONLY', 'PRERENDER_OUT'):
         env.pop(key, None)
 
