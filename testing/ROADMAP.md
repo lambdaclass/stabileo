@@ -95,6 +95,25 @@ depth items 6 and 10), design-check properties (item 2) and validation against e
 
 **Metrics** (on the [dashboard](docs/DASHBOARD.md)): share of solves with per-model cross-checks and their disagreements; certified results exportable as bundles; kernels proved through Aeneas; certificate kinds formalized; bug-bounty reports received, accepted and fixed.
 
+### Consistency and oracle tests (2026-11-27)
+
+The silent wrong results found in November were mostly the same number disagreeing between two places, envelopes read as one load case, and checks that could not fail. These tests catch each class on every model in CI instead of one bug at a time.
+
+1. **Sheets read demands from the solver's exact results, enforced in CI.** [#2627](https://github.com/lambdaclass/stabileo/issues/2627) Every demand on a reinforcement sheet comes from the shared exact-results API. A CI gate solves every gallery model and checks each sheet demand against the solver, and a source guard fails if sheet code computes peaks from member ends.
+2. **Same number everywhere.** [#2628](https://github.com/lambdaclass/stabileo/issues/2628) Every value shown for a member is identical in the results table, tooltip, calc report, Excel, PDF and sheet, checked by one harness over the corpus.
+3. **Equilibrium on every combination of every corpus model.** [#2629](https://github.com/lambdaclass/stabileo/issues/2629) Reactions equal applied loads, foundation loads equal column reactions, slab strip moments add up to the panel static moment; no hand-written expected values.
+4. **Envelope invariants as properties.** [#2630](https://github.com/lambdaclass/stabileo/issues/2630) An envelope bounds every case, min ≤ max, a magnitude result is at least the signed one, and an envelope is never consumed as one physical case.
+5. **Metamorphic tests for loads, design and sheets.** [#2631](https://github.com/lambdaclass/stabileo/issues/2631) Load scaling, mirroring, rotation, unit changes, member splitting, and planar models in the 3D solver against the 2D solver.
+6. **Round-trip invariance.** [#2632](https://github.com/lambdaclass/stabileo/issues/2632) Save and reopen, share import, archive load, and export then import give identical inputs and results.
+7. **Differential testing against an independent reference solver.** [#2633](https://github.com/lambdaclass/stabileo/issues/2633) A simple dense stiffness solver, used only in tests, agrees with the engine on thousands of random small frames.
+8. **Every audit and guard can fail.** [#2634](https://github.com/lambdaclass/stabileo/issues/2634) Each runtime audit, accounting check and source guard has a negative test with deliberately broken input that it must catch.
+9. **Textbook benchmarks with published answers.** [#2635](https://github.com/lambdaclass/stabileo/issues/2635) Beams, frames, slabs and per-code design capacities with expected values cited from the published source.
+
+**Exit criteria (Consistency and oracle tests).**
+- Items 1 to 4 and 8 run in CI on the whole gallery and acceptance corpus with zero disagreements.
+- Items 5 to 7 run in CI and every disagreement found is a triaged issue.
+- Every audit and source guard in the codebase has a failing-input test (item 8).
+
 ### Trust and verification backlog
 
 What remains after the October 2026 safety wave (certified solver, differential testing against seven solvers, fuzzing and mutation testing, feature matrix, certified design checks, model sanity review). Each item closes a way results can still be silently wrong or a way verification can silently stop working.
