@@ -2,7 +2,7 @@ import { card } from './card';
 
 const en = {
   ...card.en,
-  lead: 'Three curved-shell benchmarks solved by the production MITC4 element in your browser. Change the mesh and the engine solves it again; every failure stays visible.',
+  lead: 'The production MITC4 element runs three curved-shell benchmarks in your browser. The hemisphere is withheld under #798. Change the mesh and the engine solves it again; every failure stays visible.',
   referenceLabel: 'Validation checks (native and WebAssembly)',
   publishedWhy: 'Not compared: the paper is not open access and we could not inspect its tables',
   running: 'Running production engine… {k}/{n}',
@@ -51,7 +51,7 @@ const en = {
   verdictHeading: 'Verdicts',
   verdictText: 'A row passes when its relative error, direction included, is strictly below 2%. That limit is the policy of Stabileo’s benchmark pages, not a tolerance from the paper. The headline counts the 16 × 16 meshes: the roof passes; the cylinder converges but is still 6.8% off at 16 × 16 (it reaches 1.0% at 32 × 32, in native CI only); the engine withholds the hemisphere (#798). Recorded validation (16 × 16): 1/3. A withheld row has no value or error and never passes.',
   validationHeading: 'Validation',
-  validationText: 'CI runs the browser meshes natively and in WebAssembly. The 32 × 32 cylinder convergence check runs only natively. These checks all pass. The accuracy failures of the coarser cylinder meshes are not among them; they stay visible in the results.',
+  validationText: 'CI runs the browser meshes natively and in WebAssembly. The 32 × 32 cylinder convergence check runs only natively. The accuracy failures of the coarser cylinder meshes are not among them; they stay visible in the results.',
   check: 'Check',
   observed: 'Observed',
   tolerance: 'Tolerance',
@@ -88,7 +88,7 @@ export type ShellStrings = typeof en;
 
 const es: ShellStrings = {
   ...card.es,
-  lead: 'Tres ensayos de cáscaras curvas resueltos en tu navegador con el elemento MITC4 de producción. Cambiá la malla y el motor la vuelve a resolver; cada falla queda a la vista.',
+  lead: 'El elemento MITC4 de producción ejecuta tres ensayos de cáscaras curvas en tu navegador. El resultado de la semiesfera se retiene por #798. Cambiá la malla y el motor la vuelve a resolver; cada falla queda a la vista.',
   referenceLabel: 'Verificaciones (nativo y WebAssembly)',
   publishedWhy: 'No comparado: el artículo no es de acceso abierto y no pudimos revisar sus tablas',
   running: 'Ejecutando el motor de producción… {k}/{n}',
@@ -137,7 +137,7 @@ const es: ShellStrings = {
   verdictHeading: 'Veredictos',
   verdictText: 'Una fila cumple cuando su error relativo, con sentido incluido, es estrictamente menor que el 2%. Ese límite es la política de las páginas de ensayos de Stabileo, no una tolerancia del artículo. El titular cuenta las mallas de 16 × 16: la cubierta cumple; el cilindro converge pero a 16 × 16 todavía está a 6,8% (llega a 1,0% con 32 × 32, solo en la CI nativa); el motor retiene el hemisferio (#798). Validación registrada (16 × 16): 1/3. Una fila retenida no tiene valor ni error y nunca cumple.',
   validationHeading: 'Validación',
-  validationText: 'La CI resuelve las mallas del navegador en código nativo y en WebAssembly. La comprobación de convergencia del cilindro de 32 × 32 solo se ejecuta en código nativo. Todas estas verificaciones se cumplen. Las fallas de precisión de las mallas más gruesas del cilindro no están entre ellas; siguen a la vista en los resultados.',
+  validationText: 'La CI resuelve las mallas del navegador en código nativo y en WebAssembly. La comprobación de convergencia del cilindro de 32 × 32 solo se ejecuta en código nativo. Las fallas de precisión de las mallas más gruesas del cilindro no están entre ellas; siguen a la vista en los resultados.',
   check: 'Verificación',
   observed: 'Observado',
   tolerance: 'Tolerancia',
@@ -172,7 +172,7 @@ const es: ShellStrings = {
 
 const pt: ShellStrings = {
   ...card.pt,
-  lead: 'Três testes de cascas curvas resolvidos no seu navegador com o elemento MITC4 de produção. Mude a malha e o motor a resolve de novo; cada falha fica visível.',
+  lead: 'O elemento MITC4 de produção executa três ensaios de cascas curvas no navegador. O resultado da semiesfera é retido devido a #798. Mude a malha e o motor a resolve de novo; cada falha fica visível.',
   referenceLabel: 'Verificações (nativo e WebAssembly)',
   publishedWhy: 'Não comparado: o artigo não é de acesso aberto e não pudemos consultar suas tabelas',
   running: 'Executando o motor de produção… {k}/{n}',
@@ -221,7 +221,7 @@ const pt: ShellStrings = {
   verdictHeading: 'Vereditos',
   verdictText: 'Uma linha passa quando seu erro relativo, com o sentido incluído, é estritamente menor que 2%. Esse limite é a política das páginas de testes do Stabileo, não uma tolerância do artigo. O resumo conta as malhas de 16 × 16: a cobertura passa; o cilindro converge, mas com 16 × 16 ainda está a 6,8% (chega a 1,0% com 32 × 32, apenas na CI nativa); o motor retém o hemisfério (#798). Validação registrada (16 × 16): 1/3. Uma linha retida não tem valor nem erro e nunca passa.',
   validationHeading: 'Validação',
-  validationText: 'A CI resolve as malhas do navegador em código nativo e em WebAssembly. A verificação de convergência do cilindro de 32 × 32 só é executada em código nativo. Todas estas verificações passam. As falhas de precisão das malhas mais grossas do cilindro não estão entre elas; continuam visíveis nos resultados.',
+  validationText: 'A CI resolve as malhas do navegador em código nativo e em WebAssembly. A verificação de convergência do cilindro de 32 × 32 só é executada em código nativo. As falhas de precisão das malhas mais grossas do cilindro não estão entre elas; continuam visíveis nos resultados.',
   check: 'Verificação',
   observed: 'Observado',
   tolerance: 'Tolerância',
@@ -256,7 +256,7 @@ const pt: ShellStrings = {
 
 const de: ShellStrings = {
   ...card.de,
-  lead: 'Drei Benchmarks gekrümmter Schalen, im Browser mit dem MITC4-Element der Produktions-Engine gelöst. Ändern Sie das Netz, und die Engine rechnet erneut; jeder Fehlschlag bleibt sichtbar.',
+  lead: 'Das MITC4-Element der Produktions-Engine berechnet drei gekrümmte Schalen im Browser. Für die Halbkugel wird wegen #798 kein Ergebnis ausgegeben. Ändern Sie das Netz, und die Engine rechnet erneut; jeder Fehlschlag bleibt sichtbar.',
   referenceLabel: 'Validierungsprüfungen (nativ und WebAssembly)',
   publishedWhy: 'Nicht verglichen: Der Artikel ist nicht frei zugänglich, seine Tabellen konnten wir nicht einsehen',
   running: 'Produktions-Engine läuft… {k}/{n}',
@@ -305,7 +305,7 @@ const de: ShellStrings = {
   verdictHeading: 'Bewertung',
   verdictText: 'Eine Zeile besteht, wenn ihr relativer Fehler, Richtung eingeschlossen, echt unter 2 % liegt. Diese Grenze ist die Regel der Benchmark-Seiten von Stabileo, keine Toleranz aus dem Artikel. Die Übersicht zählt die 16 × 16-Netze: Das Dach besteht; der Zylinder konvergiert, liegt bei 16 × 16 aber noch 6,8 % daneben (bei 32 × 32 sind es 1,0 %, nur in der nativen CI); die Halbkugel hält die Engine zurück (#798). Gespeichertes Prüfergebnis (16 × 16): 1/3. Eine zurückgehaltene Zeile hat weder Wert noch Fehler und besteht nie.',
   validationHeading: 'Validierung',
-  validationText: 'Die CI berechnet die Browsernetze nativ und mit WebAssembly. Die Konvergenzprüfung des 32 × 32-Zylindernetzes läuft nur nativ. Alle diese Prüfungen bestehen. Die Genauigkeitsfehler der gröberen Zylindernetze gehören nicht dazu; sie bleiben in den Ergebnissen sichtbar.',
+  validationText: 'Die CI berechnet die Browsernetze nativ und mit WebAssembly. Die Konvergenzprüfung des 32 × 32-Zylindernetzes läuft nur nativ. Die Genauigkeitsfehler der gröberen Zylindernetze gehören nicht dazu; sie bleiben in den Ergebnissen sichtbar.',
   check: 'Prüfung',
   observed: 'Beobachtet',
   tolerance: 'Toleranz',
@@ -340,7 +340,7 @@ const de: ShellStrings = {
 
 const fr: ShellStrings = {
   ...card.fr,
-  lead: 'Trois cas tests de coques courbes résolus dans votre navigateur avec l’élément MITC4 de production. Modifiez le maillage et le moteur le résout de nouveau ; chaque échec reste visible.',
+  lead: 'L’élément MITC4 de production traite trois cas de coques courbes dans le navigateur. Le résultat de l’hémisphère est bloqué en raison de #798. Modifiez le maillage et le moteur le résout de nouveau ; chaque échec reste visible.',
   referenceLabel: 'Vérifications de validation (natif et WebAssembly)',
   publishedWhy: 'Non comparé : l’article n’est pas en libre accès et nous n’avons pas pu consulter ses tableaux',
   running: 'Exécution du moteur de production… {k}/{n}',
@@ -389,7 +389,7 @@ const fr: ShellStrings = {
   verdictHeading: 'Verdicts',
   verdictText: 'Une ligne est réussie lorsque son erreur relative, sens compris, est strictement inférieure à 2 %. Cette limite est la règle des pages de cas tests de Stabileo, pas une tolérance de l’article. Le bilan compte les maillages 16 × 16 : le toit réussit ; le cylindre converge mais reste à 6,8 % en 16 × 16 (il atteint 1,0 % en 32 × 32, uniquement dans la CI native) ; le moteur retient l’hémisphère (#798). Résultat de validation enregistré (16 × 16): 1/3. Une ligne retenue n’a ni valeur ni erreur et n’est jamais réussie.',
   validationHeading: 'Validation',
-  validationText: 'La CI calcule les maillages du navigateur en natif et en WebAssembly. Le contrôle de convergence du cylindre en 32 × 32 est uniquement natif. Toutes ces vérifications réussissent. Les échecs de précision des maillages plus grossiers du cylindre n’en font pas partie ; ils restent visibles dans les résultats.',
+  validationText: 'La CI calcule les maillages du navigateur en natif et en WebAssembly. Le contrôle de convergence du cylindre en 32 × 32 est uniquement natif. Les échecs de précision des maillages plus grossiers du cylindre n’en font pas partie ; ils restent visibles dans les résultats.',
   check: 'Vérification',
   observed: 'Observé',
   tolerance: 'Tolérance',
@@ -424,7 +424,7 @@ const fr: ShellStrings = {
 
 const tr: ShellStrings = {
   ...card.tr,
-  lead: 'Eğrisel kabuklara ait üç kıyaslama problemi, üretim motorunun MITC4 elemanıyla tarayıcınızda çözülür. Ağı değiştirin, motor yeniden çözsün; her başarısız sonuç görünür kalır.',
+  lead: 'Üretim motorunun MITC4 elemanı tarayıcınızda üç eğrisel kabuk örneğini çalıştırır. #798 nedeniyle yarımküre sonucu verilmez. Ağı değiştirin, motor yeniden çözsün; her başarısız sonuç görünür kalır.',
   referenceLabel: 'Doğrulama kontrolleri (yerel ve WebAssembly)',
   publishedWhy: 'Karşılaştırılmadı: makale açık erişimli değil ve tablolarını inceleyemedik',
   running: 'Üretim motoru çalışıyor… {k}/{n}',
@@ -473,7 +473,7 @@ const tr: ShellStrings = {
   verdictHeading: 'Sonuçlar',
   verdictText: 'Bir satır, yön dahil bağıl hatası kesin olarak %2’nin altındaysa geçer. Bu sınır Stabileo kıyaslama sayfalarının kuralıdır, makaleden gelen bir tolerans değildir. Özet 16 × 16 ağları sayar: çatı geçer; silindir yakınsar ama 16 × 16’da hâlâ %6,8 uzaktadır (32 × 32’de %1,0’a iner, yalnızca yerel CI’da); yarım küreyi motor vermez (#798). Kayıtlı doğrulama sonucu (16 × 16): 1/3. Verilmeyen bir satırın değeri ve hatası yoktur ve asla geçmez.',
   validationHeading: 'Doğrulama',
-  validationText: 'CI, tarayıcı ağlarını hem yerel kodla hem de WebAssembly ile çözer. Silindirin 32 × 32 yakınsama kontrolü yalnızca yerel kodla çalışır. Bu kontrollerin hepsi geçer. Daha kaba silindir ağlarının doğruluk başarısızlıkları bunlar arasında değildir; sonuçlarda görünür kalırlar.',
+  validationText: 'CI, tarayıcı ağlarını hem yerel kodla hem de WebAssembly ile çözer. Silindirin 32 × 32 yakınsama kontrolü yalnızca yerel kodla çalışır. Daha kaba silindir ağlarının doğruluk başarısızlıkları bunlar arasında değildir; sonuçlarda görünür kalırlar.',
   check: 'Kontrol',
   observed: 'Gözlenen',
   tolerance: 'Tolerans',
@@ -508,7 +508,7 @@ const tr: ShellStrings = {
 
 const hu: ShellStrings = {
   ...card.hu,
-  lead: 'Három görbült héjfeladat, amelyet az éles számítómotor MITC4 eleme old meg a böngészőjében. Változtassa meg a hálót, és a motor újra megoldja; minden sikertelen eset látható marad.',
+  lead: 'A böngészőben az éles MITC4 elem három görbült héjfeladatot futtat. A félgömb eredményét a #798 miatt visszatartjuk. Változtassa meg a hálót, és a motor újra megoldja; minden sikertelen eset látható marad.',
   referenceLabel: 'Validációs ellenőrzések (natív és WebAssembly)',
   publishedWhy: 'Nincs összevetve: a cikk nem szabadon hozzáférhető, a táblázatait nem tudtuk megnézni',
   running: 'Az éles számítómotor fut… {k}/{n}',
@@ -557,7 +557,7 @@ const hu: ShellStrings = {
   verdictHeading: 'Értékelés',
   verdictText: 'Egy sor akkor felel meg, ha relatív hibája az irányt is beleértve szigorúan 2% alatt van. Ez a határ a Stabileo benchmarkoldalainak szabálya, nem a cikkből származó tűrés. Az összesítés a 16 × 16-os hálókat számolja: a tető megfelel; a henger konvergál, de 16 × 16-nál még 6,8%-kal eltér (32 × 32-nél 1,0%, csak a natív CI-ban); a félgömböt a számítómotor visszatartja (#798). Rögzített ellenőrzési eredmény (16 × 16): 1/3. A visszatartott sornak nincs értéke és hibája, és sosem felel meg.',
   validationHeading: 'Validálás',
-  validationText: 'A CI a böngészőben elérhető hálókat natív kóddal és WebAssemblyvel is megoldja. A henger 32 × 32-es konvergenciavizsgálata csak natív kóddal fut. Mindegyik ellenőrzés megfelel. A durvább hengerhálók pontossági hibái nincsenek köztük; azok az eredményekben láthatók maradnak.',
+  validationText: 'A CI a böngészőben elérhető hálókat natív kóddal és WebAssemblyvel is megoldja. A henger 32 × 32-es konvergenciavizsgálata csak natív kóddal fut. A durvább hengerhálók pontossági hibái nincsenek köztük; azok az eredményekben láthatók maradnak.',
   check: 'Ellenőrzés',
   observed: 'Mért',
   tolerance: 'Tűrés',
@@ -571,7 +571,7 @@ const hu: ShellStrings = {
   paperText: 'Belytschko et al. (1985) táblázatait nem tudtuk megnézni: a cikk nem szabadon hozzáférhető. A tető 0,3024-es referenciája MacNeal és Harder (1985) normalizáló értéke (5(a) táblázat, 11. o.), akik saját félgömbterhelésükre 0,0940-et adnak meg; a henger 1,8248 × 10⁻⁵-es referenciája a számítómotor tesztjeiből származik.',
   findingsHeading: 'Megállapítások',
   auditLink: '#810 · a tesztmodell javítása',
-  auditText: ': az audit nem a számítómotorban, hanem a tető és a henger tesztmodelljében talált hibákat: mesterséges megtámasztást a tető gerincén, hiányos szimmetriamegtámasztásokat a sarkokban és hiányzó tartozékterheket. A javított tető 16 × 16-nál −0,302426-ot ér el (0,0084%); a henger hibája 6 × 6-nál 37,9%-ról 16 × 16-nál 6,8%-ra, 32 × 32-nél 1,0%-ra csökken.',
+  auditText: ': az audit nem a számítómotorban, hanem a tető és a henger tesztmodelljében talált hibákat: mesterséges megtámasztást a tető gerincén, hiányos szimmetriamegtámasztásokat a sarkokban és a csomópontokhoz tartozó területekből számított csomóponti terhek hiányát. A javított tető 16 × 16-nál −0,302426-ot ér el (0,0084%); a henger hibája 6 × 6-nál 37,9%-ról 16 × 16-nál 6,8%-ra, 32 × 32-nél 1,0%-ra csökken.',
   ledgerBefore: 'A ',
   ledgerLink: 'megállapítások jegyzéke',
   ledgerMiddle: ' rögzíti a pontossági és modellkorlátokat. Az ',
@@ -592,7 +592,7 @@ const hu: ShellStrings = {
 
 const zh: ShellStrings = {
   ...card.zh,
-  lead: '三个曲壳基准算例，在你的浏览器中由生产环境的 MITC4 单元求解。改变网格，计算引擎会重新求解；每个未通过的结果都保持可见。',
+  lead: '生产环境的 MITC4 单元在浏览器中运行三个曲壳算例。因 #798 暂不提供半球结果。改变网格，计算引擎会重新求解；每个未通过的结果都保持可见。',
   referenceLabel: '验证检查（原生与 WebAssembly）',
   publishedWhy: '未比较：该论文不是开放获取，我们无法查看其表格',
   running: '生产环境计算引擎运行中… {k}/{n}',
@@ -641,7 +641,7 @@ const zh: ShellStrings = {
   verdictHeading: '结论',
   verdictText: '当一行的相对误差（包含方向）严格小于 2% 时判为通过。该限值是 Stabileo 基准页面的规则，并非论文中的容差。概要统计 16 × 16 网格：屋面通过；圆柱收敛，但在 16 × 16 时仍偏差 6.8%（在 32 × 32 时达到 1.0%，仅在原生 CI 中）；半球被计算引擎暂不提供（#798）。已记录的验证结果 (16 × 16): 1/3.暂不提供的行没有数值和误差，永远不算通过。',
   validationHeading: '验证',
-  validationText: 'CI 在原生环境和 WebAssembly 中计算浏览器所用的网格。圆柱的 32 × 32 收敛性检查仅在原生环境中运行。以下检查全部通过。较粗圆柱网格的精度未通过不在其中；它们在结果中仍然可见。',
+  validationText: 'CI 在原生环境和 WebAssembly 中计算浏览器所用的网格。圆柱的 32 × 32 收敛性检查仅在原生环境中运行。较粗圆柱网格的精度未通过不在其中；它们在结果中仍然可见。',
   check: '检查',
   observed: '观测值',
   tolerance: '容差',
@@ -655,7 +655,7 @@ const zh: ShellStrings = {
   paperText: '我们无法查看 Belytschko et al.（1985）的表格：该文章不是开放获取。屋面参考值 0.3024 是 MacNeal 和 Harder（1985）表 5(a)（第 11 页）的归一化值，他们对自己的半球加载给出 0.0940；圆柱参考值 1.8248 × 10⁻⁵ 来自计算引擎的测试。',
   findingsHeading: '发现',
   auditLink: '#810 · 测试模型修正',
-  auditText: '：审查发现的错误在屋面和圆柱的测试模型中，而不在计算引擎中：屋面顶部的人为支座、角点处不完整的对称约束以及缺失的从属荷载。修正后的屋面在 16 × 16 时达到 −0.302426（0.0084%）；圆柱误差从 6 × 6 的 37.9% 降到 16 × 16 的 6.8% 和 32 × 32 的 1.0%。',
+  auditText: '：审查发现的错误在屋面和圆柱的测试模型中，而不在计算引擎中：屋面顶部的人为支座、角点处不完整的对称约束以及缺失的按节点分担面积计算的节点荷载。修正后的屋面在 16 × 16 时达到 −0.302426（0.0084%）；圆柱误差从 6 × 6 的 37.9% 降到 16 × 16 的 6.8% 和 32 × 32 的 1.0%。',
   ledgerBefore: '',
   ledgerLink: '问题记录',
   ledgerMiddle: '记载了精度和模型方面的局限。',

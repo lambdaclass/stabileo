@@ -71,7 +71,11 @@ it('formats numbers in all six public locales', async () => {
   } finally { setLocale(original); }
 });
 
-it.skip('known wrong result: #2505 distinguishes grouped thousands from decimal fractions', () => {
+it('distinguishes grouped thousands from decimal fractions', () => {
+  for (const locale of ['en', 'zh']) {
+    expect(numbers('1,250', locale)).toEqual(['1250']);
+    expect(numbers('1.250', locale)).toEqual(['1.25']);
+  }
   for (const locale of ['en', 'zh', 'de', 'es', 'fr', 'hu', 'tr', 'pt']) {
     const format = new Intl.NumberFormat(locale, {useGrouping: true, minimumFractionDigits: 3});
     expect(numbers(format.format(1250), locale)).toEqual(['1250']);
@@ -90,7 +94,7 @@ const conditions = {
   zh: ['阻尼', '面内', '减半', '原因尚未确定'],
 };
 
-it.skip.each(Object.entries(conditions))('known wrong result: #2505 describes the actual loading, refusal and refinement in %s', (language, terms) => {
+it.each(Object.entries(conditions))('describes the actual loading, refusal and refinement in %s', (language, terms) => {
   const locale = language as keyof typeof conditions;
   expect(damping[locale].limitations[2]).toContain(terms[0]);
   expect(plate[locale].hardText).toContain(terms[1]);
@@ -100,7 +104,7 @@ it.skip.each(Object.entries(conditions))('known wrong result: #2505 describes th
   expect(shells[locale].validationText.split(/[.。]/).filter(Boolean)).toHaveLength(3);
 });
 
-it.skip('known wrong result: #2505 attributes missing roof loads to nodal tributary areas', () => {
+it('attributes missing roof loads to nodal tributary areas', () => {
   expect(shells.hu.auditText).toContain('csomópontokhoz tartozó terület');
   expect(shells.zh.auditText).toContain('节点分担面积');
 });
