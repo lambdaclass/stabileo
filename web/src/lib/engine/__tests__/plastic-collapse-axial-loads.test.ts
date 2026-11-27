@@ -51,6 +51,19 @@ describe('plastic collapse under loads along members', () => {
     expect(() => solve(2)).toThrow();
   });
 
+  it.skip('known wrong result: #758 — partial axial load on a diagonal retains certified bending collapse', () => {
+    const beam = model(1, [1], 'frame', [[1, 'fixed']], [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -1, my: 0 } }]);
+    beam.nodes.set(2, { id: 2, x: 1, z: 1 });
+    const solve = (b?: number) => plasticLimit2D({ ...beam, loads: [...beam.loads, {
+      type: 'axialDistributed', data: { elementId: 1, qI: 1, qJ: 1, b },
+    }] }, new Map([[1, 1]]), new Map([[1, 10]]));
+    const reference = solve();
+    expect(reference.confirmation.kind).toBe('exact');
+    expect(solve(0.75).confirmation.kind).toBe('exact');
+    expect(solve(0.75).lambda).toBeCloseTo(reference.lambda, 12);
+    expect(() => solve(2)).toThrow();
+  });
+
   it('a truss yields where |N| peaks inside it, not at its ends', () => {
     // Fixed at both ends, 4 m, q_x = 10 → −10 kN/m over [1.8, 2.2]: the load's resultant is 0,
     // the ends carry N = 1/15 and midspan N = −14/15. With Np = 1, λc = 15/14 (it was 15).

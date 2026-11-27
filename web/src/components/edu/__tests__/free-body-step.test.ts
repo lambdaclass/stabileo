@@ -238,3 +238,13 @@ it.each([[3, 0], [-3, 4], [0, 4]])('known wrong result: #1927 — interior coupl
   if (mz) expect(html).toMatch(new RegExp('A15,15 0 1 ' + (mz < 0 ? 1 : 0) + '[^"]+" class="load'));
   expect(html.includes('4 kN<')).toBe(fy === 4);
 });
+
+it.skip('known wrong result: #1927 — rotating an axial bar preserves the transverse and moment checks', () => {
+  const model: ModelSpec = { nodes: [[0, 0], [3, 4]], elements: [[0, 1]], supports: [] };
+  const bar: FreeBodyBar = { nodes: [0, 1], elements: [{ index: 0, forward: true }] };
+  const truth = { i: { Fx: 600, Fy: 800, M: 0 }, j: { Fx: -600, Fy: -800, M: 0 } };
+  expect(studentBalanced(model, bar, truth, truth)).toBe(true);
+  for (const change of [{ Fx: 596, Fy: 803 }, { M: 5 }]) {
+    expect(studentBalanced(model, bar, { ...truth, i: { ...truth.i, ...change } }, truth)).toBe(false);
+  }
+});
