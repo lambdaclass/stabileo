@@ -14,6 +14,7 @@ import { i18n, setLocale } from '../../i18n';
 import { whatIf } from '../whatif.svelte';
 import { fmtQ, unitQ, displayUnits } from '../display-units.svelte';
 import { loadLabel } from '../../whatif/load-label';
+import type { AnalysisResults3D } from '../../engine/types-3d';
 import { response2D, response3D } from '../../whatif/response';
 
 const P = -12;
@@ -729,7 +730,13 @@ it.each(['linear', 'second-order'] as const)('scales spatial cantilever bending 
   modelStore.addSupport(root, 'fixed3d');
   modelStore.addNodalLoad3D(tip, 0, 2, 3, 5, 0, 0);
   const response = () => {
-    const result = analysis === 'linear' ? modelStore.solve3D() : solvePDelta3D(modelStore.buildSolverInput3D()!).results;
+    let result: AnalysisResults3D | string | null;
+    if (analysis === 'linear') result = modelStore.solve3D();
+    else {
+      const solved = solvePDelta3D(modelStore.buildSolverInput3D()!);
+      expect(solved.converged).toBe(true);
+      result = solved.results;
+    }
     if (!result || typeof result === 'string') throw Error(String(result));
     return result.displacements.find(d => d.nodeId === tip)!;
   };
