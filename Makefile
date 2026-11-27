@@ -329,6 +329,7 @@ test.engine.gates: check.engine.acceptance-models test.engine.units-types
 	$(foreach m,$(GATE_TIMED_MODULES),($(NEXTEST) --test gates -E 'test(/^$(m)::/)' --test-threads 1) &&) true
 	$(NEXTEST) --run-ignored only -E '$(GATE_TIMED_IGNORED)' --test-threads 1
 	$(NEXTEST) --test certificates -E '$(GATE_CERTIFICATES)'
+	$(MAKE) test.engine.parallel-cholesky
 
 test.engine.metamorphic:
 	$(NEXTEST) --cargo-profile release $(foreach b,$(GATE_RELEASE_BINARIES),--test $(b))
@@ -1278,6 +1279,11 @@ test.engine.released-load-work-2023:
 	$(NIX_RUN) cargo test -p dedaliano-engine --release --lib solver::load_work::tests -- --nocapture
 	$(NIX_RUN) cargo test -p dedaliano-engine --release --lib solver::stability::tests -- --nocapture
 	$(NIX_RUN) cargo test -p dedaliano-engine --release --lib staged_round8 -- --nocapture
+
+.PHONY: test.engine.parallel-cholesky
+
+test.engine.parallel-cholesky:
+	$(NIX_RUN) cargo test -p dedaliano-engine --release --features parallel --lib sparse_chol
 
 .PHONY: test.engine.released-load-work-2023-parallel
 

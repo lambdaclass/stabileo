@@ -32,7 +32,30 @@ struct Plan<'a> {
     children: Vec<Vec<usize>>,
     subtree_cost: Vec<f64>,
     grain: f64,
+    wide: Wide,
     failed: AtomicBool,
+}
+
+/// From which panel a supernode is factored over several threads, and in what blocks.
+#[derive(Clone, Copy)]
+struct Wide {
+    entries: usize,
+    width: usize,
+    panel_block: usize,
+    target_block: Option<usize>,
+}
+
+const WIDE: Wide = Wide { entries: 1 << 18, width: 64, panel_block: 32, target_block: None };
+
+struct Updater {
+    start: usize,
+    width: usize,
+    base: usize,
+    rows: usize,
+    first: usize,
+    last: usize,
+    pairs: std::ops::Range<usize>,
+    runs: std::ops::Range<usize>,
 }
 
 impl Plan<'_> {
@@ -57,15 +80,12 @@ impl Plan<'_> {
             return;
         }
         if self.subtree_cost[t] <= self.grain {
-            WORKSPACE.with(|ws| {
-                let mut ws = ws.borrow_mut();
-                for s in self.subtree(t) {
-                    if !self.factor(s, &mut ws) {
-                        self.failed.store(true, Ordering::Relaxed);
-                        return;
-                    }
+            for s in self.subtree(t) {
+                if !self.factor_one(s) {
+                    self.failed.store(true, Ordering::Relaxed);
+                    return;
                 }
-            });
+            }
             return;
         }
         rayon::scope(|scope| {
@@ -76,10 +96,160 @@ impl Plan<'_> {
         if self.failed.load(Ordering::Relaxed) {
             return;
         }
-        let ok = WORKSPACE.with(|ws| self.factor(t, &mut ws.borrow_mut()));
-        if !ok {
+        if !self.factor_one(t) {
             self.failed.store(true, Ordering::Relaxed);
         }
+    }
+
+    /// The workspace of the thread is borrowed only where nothing is handed to other threads:
+    /// a thread that waits for them takes other supernodes meanwhile.
+    fn factor_one(&self, t: usize) -> bool {
+        let s = self.sym.snode_start[t];
+        let width = self.end(t) - s;
+        let rows = self.sym.l_col_ptr[s + 1] - self.sym.l_col_ptr[s];
+        if width >= self.wide.width && width * rows >= self.wide.entries && rayon::current_num_threads() > 1 {
+            self.factor_wide(t)
+        } else {
+            WORKSPACE.with(|ws| self.factor(t, &mut ws.borrow_mut()))
+        }
+    }
+
+    /// `factor` for a wide supernode, over several threads. The updates from earlier supernodes
+    /// go block of target columns by block, each taking its updaters in their order; the panel
+    /// is factored a block of columns at a time, and the columns after the block take its
+    /// columns in order, each on its own. Every entry has the subtractions of `factor` in the
+    /// same order.
+    fn factor_wide(&self, t: usize) -> bool {
+        use rayon::prelude::*;
+        let sym = self.sym;
+        let s = sym.snode_start[t];
+        let e = self.end(t);
+        let width = e - s;
+        let jb = sym.l_col_ptr[s];
+        let rows = sym.l_col_ptr[s + 1] - jb;
+        const ABSENT: usize = usize::MAX;
+        let mut position = vec![ABSENT; sym.n];
+        for p in 0..rows {
+            position[sym.l_row_idx[jb + p]] = p;
+        }
+        let mut panel = vec![0.0f64; width * rows];
+        for d in 0..width {
+            let j = s + d;
+            for p in sym.pa_col_ptr[j]..sym.pa_col_ptr[j + 1] {
+                panel[d * rows + position[sym.pa_row_idx[p]]] = self.a.values[sym.pa_src[p]];
+            }
+        }
+        let (mut pair_k, mut pair_j, mut runs, mut updaters) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
+        for &tk in &sym.snode_upd[t] {
+            let ks = sym.snode_start[tk];
+            let kb = sym.l_col_ptr[ks];
+            let krows = sym.l_col_ptr[ks + 1] - kb;
+            let k_row = &sym.l_row_idx[kb..kb + krows];
+            let p_lo = k_row.partition_point(|&r| r < s);
+            let p_hi = k_row.partition_point(|&r| r < e);
+            let (pairs_from, runs_from) = (pair_k.len(), runs.len());
+            for q in p_lo..krows {
+                let at = position[k_row[q]];
+                if at != ABSENT {
+                    pair_k.push(q);
+                    pair_j.push(at);
+                }
+            }
+            let count = pair_k.len() - pairs_from;
+            let (k, j) = (&pair_k[pairs_from..], &pair_j[pairs_from..]);
+            let mut first = 0;
+            for idx in 1..=count {
+                if idx == count || k[idx] != k[idx - 1] + 1 || j[idx] != j[idx - 1] + 1 {
+                    runs.push((first, idx));
+                    first = idx;
+                }
+            }
+            updaters.push(Updater { start: ks, width: self.end(tk) - ks, base: kb, rows: krows, first: p_lo, last: p_hi, pairs: pairs_from..pair_k.len(), runs: runs_from..runs.len() });
+        }
+        drop(position);
+        let block = self.wide.target_block.unwrap_or_else(|| (width / (4 * rayon::current_num_threads())).max(8));
+        panel.par_chunks_mut(block * rows).enumerate().for_each_init(Vec::new, |sources: &mut Vec<(usize, f64)>, (b, chunk)| {
+            let from_column = b * block;
+            let to_column = (from_column + block).min(width);
+            for u in &updaters {
+                let k_row = &sym.l_row_idx[u.base..u.base + u.rows];
+                let own = &k_row[u.first..u.last];
+                let lo = u.first + own.partition_point(|&r| r < s + from_column);
+                let hi = u.first + own.partition_point(|&r| r < s + to_column);
+                if lo == hi {
+                    continue;
+                }
+                let k_values = unsafe { std::slice::from_raw_parts(self.l.0.add(u.base) as *const f64, sym.l_col_ptr[u.start + u.width] - u.base) };
+                let (k, j, stretches) = (&pair_k[u.pairs.clone()], &pair_j[u.pairs.clone()], &runs[u.runs.clone()]);
+                let mut run0 = stretches.partition_point(|r| r.1 <= lo - u.first);
+                for pj in lo..hi {
+                    let jcol = k_row[pj] - s;
+                    let idx0 = pj - u.first;
+                    debug_assert_eq!(k[idx0], pj);
+                    sources.clear();
+                    for d in 0..u.width {
+                        let col_base = sym.l_col_ptr[u.start + d] - d - u.base;
+                        let factor = k_values[col_base + pj];
+                        if factor != 0.0 {
+                            sources.push((col_base, factor));
+                        }
+                    }
+                    while run0 < stretches.len() && stretches[run0].1 <= idx0 {
+                        run0 += 1;
+                    }
+                    for &(first, end) in &stretches[run0..] {
+                        let from = first.max(idx0);
+                        let target = &mut chunk[(jcol - from_column) * rows + j[from]..][..end - from];
+                        subtract_columns(target, k_values, sources, k[from]);
+                    }
+                }
+            }
+        });
+        let mut sources: Vec<(usize, f64)> = Vec::new();
+        let mut block_from = 0;
+        while block_from < width {
+            let block_to = (block_from + self.wide.panel_block).min(width);
+            for d in block_from..block_to {
+                let (before, after) = panel.split_at_mut(d * rows);
+                sources.clear();
+                for k in block_from..d {
+                    let f = before[k * rows + d];
+                    if f != 0.0 {
+                        sources.push((k * rows, f));
+                    }
+                }
+                subtract_columns(&mut after[d..rows], before, &sources, d);
+                let diag = after[d];
+                if !(diag > 1e-15) {
+                    return false;
+                }
+                let l = diag.sqrt();
+                after[d] = l;
+                for value in &mut after[d + 1..rows] {
+                    *value /= l;
+                }
+            }
+            let (head, tail) = panel.split_at_mut(block_to * rows);
+            let head = &*head;
+            tail.par_chunks_mut(rows).enumerate().for_each_init(Vec::new, |sources: &mut Vec<(usize, f64)>, (i, column)| {
+                let c = block_to + i;
+                sources.clear();
+                for k in block_from..block_to {
+                    let f = head[k * rows + c];
+                    if f != 0.0 {
+                        sources.push((k * rows, f));
+                    }
+                }
+                subtract_columns(&mut column[c..rows], head, sources, c);
+            });
+            block_from = block_to;
+        }
+        let own = unsafe { std::slice::from_raw_parts_mut(self.l.0.add(jb), sym.l_col_ptr[e] - jb) };
+        for d in 0..width {
+            let dst = sym.l_col_ptr[s + d] - jb;
+            own[dst..dst + rows - d].copy_from_slice(&panel[d * rows + d..d * rows + rows]);
+        }
+        true
     }
 
     /// Factors supernode `t` as `numeric_cholesky` does. Every supernode it reads is a
@@ -195,6 +365,13 @@ impl Plan<'_> {
     }
 }
 
+fn wide() -> Wide {
+    #[cfg(test)]
+    return tests::WIDE_AS.with(|wide| wide.get());
+    #[cfg(not(test))]
+    WIDE
+}
+
 fn finest() -> bool {
     #[cfg(test)]
     return tests::FINEST.with(|finest| finest.get());
@@ -230,12 +407,13 @@ pub(super) fn numeric_cholesky_parallel(sym: &Rc<SymbolicCholesky>, a: &CscMatri
     let total: f64 = roots.iter().map(|&t| subtree_cost[t]).sum();
     let mut l_values = vec![0.0f64; sym.l_nnz];
     let plan = Plan {
-        sym: &**sym,
+        sym,
         a,
         l: Factor(l_values.as_mut_ptr()),
         children,
         subtree_cost,
         grain: if finest() { 0.0 } else { total / (64.0 * rayon::current_num_threads() as f64) },
+        wide: wide(),
         failed: AtomicBool::new(false),
     };
     let plan = &plan;
@@ -257,18 +435,31 @@ mod tests {
 
     thread_local! {
         pub(super) static FINEST: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+        pub(super) static WIDE_AS: std::cell::Cell<Wide> = const { std::cell::Cell::new(WIDE) };
     }
 
     fn bits(factor: &Option<NumericCholesky>) -> Option<Vec<u64>> {
         factor.as_ref().map(|f| f.l_values.iter().map(|x| x.to_bits()).collect())
     }
 
+    const EVERY_SUPERNODE_WIDE: [Wide; 3] = [
+        Wide { entries: 0, width: 2, panel_block: 3, target_block: Some(1) },
+        Wide { entries: 0, width: 2, panel_block: 1, target_block: Some(2) },
+        Wide { entries: 0, width: 2, panel_block: 64, target_block: Some(5) },
+    ];
+
     fn in_pool(threads: usize, finest: bool, symbolic: &SymbolicCholesky, a: &CscMatrix) -> Option<Vec<u64>> {
+        in_pool_as(threads, finest, WIDE, symbolic, a)
+    }
+
+    fn in_pool_as(threads: usize, finest: bool, wide: Wide, symbolic: &SymbolicCholesky, a: &CscMatrix) -> Option<Vec<u64>> {
         let pool = rayon::ThreadPoolBuilder::new().num_threads(threads).build().unwrap();
         pool.install(|| {
             FINEST.with(|f| f.set(finest));
+            WIDE_AS.with(|w| w.set(wide));
             let out = bits(&numeric_cholesky_parallel(&Rc::new(symbolic.clone()), a));
             FINEST.with(|f| f.set(false));
+            WIDE_AS.with(|w| w.set(WIDE));
             out
         })
     }
@@ -320,6 +511,9 @@ mod tests {
             for (threads, finest) in [(1, false), (1, true), (3, false), (3, true)] {
                 assert_eq!(in_pool(threads, finest, &symbolic, &matrix), expected, "case {case}, {threads} threads, finest {finest}");
             }
+            for (at, wide) in EVERY_SUPERNODE_WIDE.into_iter().enumerate() {
+                assert_eq!(in_pool_as(2 + at, at == 1, wide, &symbolic, &matrix), expected, "case {case}, every supernode wide, blocks {at}");
+            }
             compared += expected.unwrap().len();
             let mut broken = matrix.clone();
             let column = (case * 13) % matrix.n;
@@ -330,6 +524,7 @@ mod tests {
                 for (threads, finest) in [(1, true), (3, false), (3, true)] {
                     assert_eq!(in_pool(threads, finest, &symbolic, &broken), None, "case {case} with {value:?}, {threads} threads, finest {finest}");
                 }
+                assert_eq!(in_pool_as(3, false, EVERY_SUPERNODE_WIDE[case % 3], &symbolic, &broken), None, "case {case} with {value:?}, every supernode wide");
             }
         }
         assert!(compared > 200_000 && branching > 30, "{compared} entries compared, {branching} trees with independent subtrees");
@@ -365,5 +560,40 @@ mod tests {
             assert_eq!(in_pool(threads, false, &symbolic, &matrix), expected, "{threads} threads");
         }
         assert_eq!(in_pool(4, true, &symbolic, &matrix), expected);
+        for wide in EVERY_SUPERNODE_WIDE {
+            assert_eq!(in_pool_as(4, false, wide, &symbolic, &matrix), expected);
+        }
+    }
+
+    #[test]
+    fn a_wide_panel_over_threads_has_the_bits_and_the_refusals_of_one_thread() {
+        for n in [2, 7, 33, 90] {
+            let (mut rows, mut cols, mut values) = (Vec::new(), Vec::new(), Vec::new());
+            for j in 0..n {
+                for i in j..n {
+                    rows.push(i);
+                    cols.push(j);
+                    values.push(if i == j { n as f64 } else if (i + 2 * j) % 5 == 0 { 0.0 } else { ((i * 17 + j * 31) % 23) as f64 / 23.0 - 0.5 });
+                }
+            }
+            let matrix = CscMatrix::from_triplets(n, &rows, &cols, &values);
+            let symbolic = crate::linalg::sparse_chol::symbolic_cholesky_with_perm(&matrix, &(0..n).collect::<Vec<_>>());
+            assert_eq!(symbolic.snode_start, vec![0]);
+            let mut accepted = 0;
+            for value in [0.0, -0.0, 1e-300, 1e-15, -1.0, f64::MAX, f64::INFINITY, f64::NEG_INFINITY, f64::NAN] {
+                for at in [0, 1, matrix.col_ptr[n / 2], matrix.values.len() - 1] {
+                    let mut changed = matrix.clone();
+                    changed.values[at] = value;
+                    for input in [&changed, &matrix] {
+                        let expected = bits(&numeric_cholesky_in_order(&Rc::new(symbolic.clone()), input));
+                        accepted += usize::from(expected.is_some());
+                        for wide in EVERY_SUPERNODE_WIDE {
+                            assert_eq!(in_pool_as(3, false, wide, &symbolic, input), expected, "order {n}, {value:?} at {at}");
+                        }
+                    }
+                }
+            }
+            assert!(accepted > 30, "order {n}: {accepted} factorizations accepted");
+        }
     }
 }
