@@ -5,7 +5,7 @@
   "area": "analysis",
   "when": {
     "any": [
-      "combinations"
+      "restrictedMemberForceTable"
     ]
   },
   "title": {

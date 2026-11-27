@@ -7,3 +7,5 @@ Removing a load, deleting its case, or clearing or remapping a constraint within
 For projects edited with a batched command, compare the saved loads, their case and target, and the constraint endpoints with the intended model. Correct any stale entries and rerun the affected analyses. A saved file cannot distinguish a reinstated load from one deliberately kept.
 
 Every editor and solver input now reads the same working list. Saving or undoing a completed edit preserves that list. Multiple imported loads now receive the same planar force and moment checks as an individual load. Conflicting entries refuse the entire insertion before accepting any load or assigning an ID.
+
+Opening a file can detect a saved load that names a missing case or a constraint that references a missing node. If the case and endpoints still exist, the file cannot show that a person once tried to remove the assignment. Compare these files with the intended load schedule and support conditions. This edit correction does not explain numerical differences when the same saved input is solved again.

@@ -1,3 +1,4 @@
+import { isMagnitudeCombination } from '../engine/result-scopes';
 import { needsOccupancyReview, type OccupancyBasis } from './occupancy-selection';
 import { classifyEccentricNormalOffset, constraintsInXZ, hasReducedPlanarMpc } from '../engine/constraint-2d-remap';
 import { dependsOnXYConstraintAxes, hasAddedAuthoredLoadRefusal, hasMalformedAuthoredLoad, invalidPlanarPointTorsion, isFiniteInputNumber, ModelInputError, migrateModelConstraints, requireCombinationInput, requireStoredProjectInput, requireStructureInput, storedProjectPlane } from '../engine/model-input-numbers';
@@ -74,7 +75,7 @@ export const FEATURE_IDS = [
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns', 'ukConcreteDesign', 'defaultDesignCovers',
   'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'savedWallDesign', 'ignoredAdoptedReinforcement', 'inactivePlacementRules', 'savedBeamDetailing', 'savedBarSchedule', 'shellEdgeLoads', 'eccentricities', 'unifiedCoarseShellRemesh', 'unifiedPlateSurfaceMesh',
   'deferredSlabPanels', 'physicalPlateDefinitions', 'physicalPlatePointMasses', 'plateMeshRigidLinks', 'curvedPlateOpenings', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
-  'storedLoadsOrConstraints', 'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
+  'orphanedBatchAssignment', 'restrictedMemberForceTable', 'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'windMemberAcrossLevel', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'unpublishedZoneLiveLoads', 'possibleOccupancySubstitution', 'magnitudeCombinations',
@@ -139,6 +140,7 @@ interface FeatureSnapshotFields {
     includes?: ReadonlyArray<{ caseId?: number; factor: number }>; reduction?: { ratio: number }; notional?: unknown;
   }>;
   combinations?: unknown[];
+  resultScopes?: { active?: number[] };
   combinationRules?: unknown[];
   solidShells?: Entries<ShellSnapshot>;
   quad9s?: Entries<ShellSnapshot>;
@@ -240,6 +242,30 @@ export const fromLoadPlan = (by: unknown): boolean => typeof by === 'string' && 
 
 function hasLoadType(load: FeatureLoad): load is FeatureLoad & { type: string } {
   return typeof load.type === 'string';
+}
+
+function orphanedBatchAssignment(s: FeatureSnapshot, loads: readonly FeatureLoad[], constraints: readonly Record<string, unknown>[]): boolean {
+  if (Array.isArray(s.loadCases)) {
+    const cases = new Set(s.loadCases.map(c => c.id));
+    if (loads.some(load => typeof load.data?.caseId === 'number' && !cases.has(load.data.caseId))) return true;
+  }
+  if (!Array.isArray(s.nodes) || !constraints.length) return false;
+  const nodes = new Set(s.nodes.map(([id]) => id));
+  return constraints.some(c => c && (
+    (typeof c.masterNode === 'number' && !nodes.has(c.masterNode)) || slaveNodes(c).some(id => !nodes.has(id))
+  ));
+}
+
+function restrictedMemberForceTable(s: FeatureSnapshot): boolean {
+  if (!Array.isArray(s.combinations)) return false;
+  const combos = s.combinations.filter((c): c is { id: number; method?: string } => typeof (c as { id?: unknown } | null)?.id === 'number');
+  if (!combos.length) return false;
+  const signed = combos.filter(c => !isMagnitudeCombination(c));
+  if (!signed.length) return true;
+  const active = s.resultScopes?.active;
+  if (!Array.isArray(active)) return false;
+  const selected = new Set(active);
+  return signed.some(c => !selected.has(c.id));
 }
 
 function featureLoads(loads: FeatureSnapshot['loads']): FeatureLoad[] {
@@ -814,7 +840,8 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   }
   const loads = featureLoads(s.loads);
   const storedLoads = rawStoredLoads === s.loads ? loads : featureLoads(rawStoredLoads);
-  if (storedLoads.length || constraints.length) f.add('storedLoadsOrConstraints');
+  if (orphanedBatchAssignment(s, storedLoads, constraints)) f.add('orphanedBatchAssignment');
+  if (mode === 'pro' && restrictedMemberForceTable(s)) f.add('restrictedMemberForceTable');
   const refusal = modelAliasRefusalFeature({
     nodes: values(s.nodes),
     elements,

@@ -9,3 +9,5 @@ On main revision 4ec9619b4, the regression cantilever with an empty active selec
 The maximum-by-type, structural steel and tension rupture tables now consult the same combination inventory. A missing or unsigned active design basis produces a translated refusal. The maximum table and its exports are unavailable until a complete source is present. A model with no design combinations can still use its signed single solve. No equilibrium, station recovery or resistance equation changed.
 
 Review previously exported maximum-by-type tables for models with combination scopes, then choose and solve the intended combinations before exporting again. The regression in the PRO component tests covers the table, export controls and steel readers for both analysis methods.
+
+The saved-project notice uses PRO models with a restricted active combination selection or only magnitude combinations. An incomplete set of solved combinations is transient and still triggers the table refusal at runtime. With the same analytical input this reporting change does not alter solver results.

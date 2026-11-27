@@ -234,7 +234,7 @@ it('known wrong result: #2588 — registers added load validation separately fro
   expect(found([distributed])).not.toContain('authored-load-validation');
 });
 
-describe.skip('known wrong result: #1928 model edits and report filters do not explain unrelated saved analyses', () => {
+describe('known wrong result: #1928 model edits and report filters do not explain unrelated saved analyses', () => {
   const load = { type: 'nodal', data: { id: 1, nodeId: 1, fx: 2, fz: 0, my: 0, caseId: 1 } };
   const cases = [{ id: 1, name: 'Permanent', type: 'D' }];
   const combos = [{ id: 1, name: 'Factored', factors: [{ caseId: 1, factor: 2 }] }];

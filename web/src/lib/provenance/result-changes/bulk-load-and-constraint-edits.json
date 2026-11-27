@@ -5,13 +5,9 @@
   "area": "loads",
   "when": {
     "any": [
-      "storedLoadsOrConstraints"
+      "orphanedBatchAssignment"
     ]
   },
-  "quantities": [
-    "*",
-    "solve.ok"
-  ],
   "title": {
     "en": "Review loads and constraints after batched edits",
     "es": "Revisá las cargas y restricciones después de una edición por lotes",
