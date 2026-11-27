@@ -80,7 +80,7 @@ test('both plate profiles build the checked-out solver, mesher, file reader and 
   }
 });
 
-test('both profiles retain the published landing versions through #2472', { skip: 'known wrong result: #2472' }, () => {
+test('both profiles retain the published landing versions through #2472', () => {
   const published = readRegistryAt('f237e68a5932fd485445162fe5ebeddf9ac167df');
   const current = new Map(readRegistry().changes.map(change => [change.id, change.resultsVersion]));
   for (const change of published.changes) {
