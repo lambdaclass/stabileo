@@ -119,7 +119,7 @@ test('load and reinforcement editors publish their own labels independently', as
   }
 });
 
-test('shape dialog translations follow the plate inspector independently of reinforcement sheets', { skip: 'known wrong result: #1928' }, async () => {
+test('shape dialog translations follow the plate inspector independently of reinforcement sheets', async () => {
   for (const plates of [false, true]) {
     for (const sheets of [false, true]) {
       await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates, proRcSheets: sheets }, async configFile => {
