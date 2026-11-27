@@ -24,7 +24,7 @@ it('known wrong result: #1928 the published floor load editor offers a slab afte
     expect(html).toContain('value="sel"');
   }
   const meshes = await planPlateMeshes([ids[0]!], { size: 1 });
-  expect.assert(meshes);
+  if (!meshes) throw new Error('The selected floor slab must have a mesh plan');
   applyPlateMeshes(meshes);
   expect(options()).toContain(`value="g:${ids[0]}"`);
   expect(options().includes(`value="g:${ids[1]}"`)).toBe(unified);
