@@ -97,8 +97,7 @@ Our example loads first (V/H = 2, h = 3 m). The page lets the reader change the 
 V/H (0.5–5) and the height h (2–5 m); each change rebuilds the shared case with the new roof
 height and vertical load and reruns `solvePlastic3D` in the browser. With L = 4 m the hand
 bounds give: sway governs below V/H = h/L, the beam mechanism above V/H = 4h/L, the combined
-mechanism in between. When two bounds coincide (within 1e-6) the hinge check is not applied,
-because either mechanism may form. For a variant the page checks: λ equals the lowest bound
+mechanism in between. Only mechanisms tied at the lowest bound (within 1e-6) can govern. At h = 3 m and V/H = 1.5 the sway and beam bounds coincide above the combined bound. At a governing tie the hinge locations may follow either mechanism. The member-end moments must still reach yield. For a variant the page checks: λ equals the lowest bound
 (1e-6), a mechanism without warnings, the hinge set of the governing mechanism (exact for sway
 and combined; for the beam mechanism, a partial mechanism, its three hinges must be among those
 formed, since a base can yield first, as at V/H = 4), |My| ≤ Mp at every member end, and

@@ -71,7 +71,7 @@ it('beam midspan cannot yield in the reverse bending sense', async () => {
   expect(hinges()).toBe(false);
 });
 
-it.skipIf(!process.env.RUN_KNOWN_WRONG)('known wrong result: #2505 checks either member end at the left joint on both sides of the mechanism transitions', async () => {
+it('checks either member end at the left joint on both sides of the mechanism transitions', async () => {
   for (const vertical of [0.5, 0.75, 3, 4]) {
     const p = { ...PAPER, vertical };
     const result = await run(p);

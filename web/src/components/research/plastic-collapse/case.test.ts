@@ -82,6 +82,11 @@ describe('model parameters', () => {
     expect(governing({ ...PAPER, vertical: 0.75 })).toBeNull();
     expect(governing({ ...PAPER, vertical: 3 })).toBeNull();
     expect(governing({ ...PAPER, height: 2 })).toBeNull();
+    const aboveMinimum = { ...PAPER, vertical: 1.5 };
+    const bounds = mechanisms(aboveMinimum);
+    expect(bounds.beam).toBe(bounds.sway);
+    expect(bounds.combined).toBeLessThan(bounds.beam);
+    expect(governing(aboveMinimum)).toBe('combined');
     expect(mechanisms({ ...PAPER, vertical: 4 }).beam).toBe(50);
   });
 });

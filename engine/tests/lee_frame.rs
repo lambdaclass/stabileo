@@ -146,12 +146,15 @@ fn repeated_step_scales_cannot_verify_refinement() {
 }
 
 fn mesh_peaks(peaks: &[(usize, f64, f64)]) -> Option<[f64; 3]> {
-    let finest = |split| peaks.iter().filter(|p| p.0 == split).min_by(|a, b| a.1.total_cmp(&b.1)).map(|p| p.2);
-    Some([finest(1)?, finest(2)?, finest(4)?])
+    let meshes = [1, 2, 4];
+    let scale = peaks.iter().filter(|p| p.0 == 1 && p.1.is_finite() && p.1 > 0.)
+        .map(|p| p.1)
+        .filter(|scale| meshes.iter().all(|split| peaks.iter().any(|p| p.0 == *split && p.1 == *scale)))
+        .min_by(f64::total_cmp)?;
+    Some(meshes.map(|split| peaks.iter().find(|p| p.0 == split && p.1 == scale).unwrap().2))
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn lee_frame_mesh_ratio_holds_the_step_scale_fixed() {
     let mut cases = vec![(1, 1., 3.), (2, 1., 2.), (4, 1., 1.), (1, 0.5, 99.)];
     assert_eq!(mesh_peaks(&cases), Some([3., 2., 1.]));

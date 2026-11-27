@@ -40,7 +40,7 @@
     {
       "name": "Mesh refinement: ratio of successive changes (4 for second order)",
       "metric": "absolute difference from 4",
-      "observed": 0.022944517077462923,
+      "observed": 0.13564031682260946,
       "tolerance": 1,
       "passed": true
     },
@@ -64,8 +64,8 @@
       "name": "First peak load, extrapolated to zero element length against Figure 10 reading",
       "metric": "absolute difference",
       "reference": 1.87,
-      "computed": 1.8556712907187858,
-      "observed": 0.014328709281214325,
+      "computed": 1.855716706023603,
+      "observed": 0.014283293976397049,
       "tolerance": 0.03,
       "passed": true
     },
@@ -73,8 +73,8 @@
       "name": "First peak load, extrapolated to zero element length against Galvão (2000)",
       "metric": "absolute difference",
       "reference": 1.86,
-      "computed": 1.8556712907187858,
-      "observed": 0.004328709281214316,
+      "computed": 1.855716706023603,
+      "observed": 0.00428329397639704,
       "tolerance": 0.005,
       "passed": true
     }

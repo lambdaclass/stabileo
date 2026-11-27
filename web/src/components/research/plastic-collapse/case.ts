@@ -139,6 +139,14 @@ export function checks(result: Result, p: Portal = PAPER): { id: CheckId; passed
   const { moments, reactions } = collapseState(result);
   const hingesMatch = !paper ? result.steps.every(s => (s.hingesFormed ?? []).every(h => {
     const node = hingeNode(h);
+    if (node === 2) {
+      return possible.some(mechanism => {
+        if (mechanism === 'combined') return false;
+        const columnSign = mechanism === 'beam' ? 1 : -1;
+        const sign = h.elementId === 1 ? columnSign : -columnSign;
+        return Math.abs(h.momentY - sign * mp) <= yieldTolerance * mp;
+      });
+    }
     const target = node === 5 || node === 1 || node === 4 ? mp : -mp;
     return Math.abs(h.momentY - target) <= yieldTolerance * mp;
   })) : result.steps.length === portal.events.length && result.steps.every((s, i) => {

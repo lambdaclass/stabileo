@@ -49,9 +49,9 @@ export function comparisonDifference(row: PublishedRow): number {
     let largest = 0;
     for (const p of row.samples) {
       if (!Array.isArray(p) || !p.every(Number.isFinite)) return NaN;
-      if (row.metric.startsWith('absolute distance outside the error bar') && p.length === 4 && p[1] <= p[2]) {
+      if (row.metric === 'absolute distance outside the error bar, largest' && p.length === 4 && p[1] <= p[2]) {
         largest = Math.max(largest, p[1] - p[3], p[3] - p[2]);
-      } else if (row.metric.startsWith('absolute difference') && (p.length === 2 || (p.length === 3 && row.orientation_unit === 'rad'))) {
+      } else if (['absolute difference in Y, largest', 'absolute difference in ν, largest', 'absolute difference'].includes(row.metric) && (p.length === 2 || (p.length === 3 && row.orientation_unit === 'rad'))) {
         largest = Math.max(largest, Math.abs(p[p.length - 1] - p[p.length - 2]));
       } else return NaN;
     }

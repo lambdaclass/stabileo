@@ -48,13 +48,17 @@ def evidence(fresh):
         scales = [r['stepScale'] for r in study if r['split'] == split]
         if len(set(scales)) != len(scales) or len(scales) < 2:
             raise ValueError('Expected distinct refinement step scales per mesh')
+    common = set.intersection(*({r['stepScale'] for r in study if r['split'] == split and r['stepScale'] > 0} for split in (1, 2, 4)))
+    if not common:
+        raise ValueError('Mesh refinement requires a common positive step scale')
+    scale = min(common)
     finest = {}
     for split in (1, 2, 4):
         values = [c['firstPeak'] for c in study if c['split'] == split]
         spread = max(values) - min(values)
         checks.append({'name': f'{20 * split} elements: smaller arc-length steps move the first peak', 'metric': 'largest change (kN)',
                        'observed': spread, 'tolerance': case['convergence']['stepEffectBound'], 'passed': spread < case['convergence']['stepEffectBound']})
-        finest[split] = min((c for c in study if c['split'] == split), key=lambda c: c['stepScale'])['firstPeak']
+        finest[split] = next(c['firstPeak'] for c in study if c['split'] == split and c['stepScale'] == scale)
     p20, p40, p80 = finest[1], finest[2], finest[4]
     ratio = (p20 - p40) / (p40 - p80) if p20 > p40 > p80 else None
     ratio_error = abs(ratio - 4) if ratio is not None else None

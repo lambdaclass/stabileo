@@ -10,7 +10,6 @@ spec.loader.exec_module(lee)
 
 
 class LeeEvidence(unittest.TestCase):
-    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
     def test_different_minima_cannot_be_mixed_in_an_extrapolation(self):
         values = [next(r['firstPeak'] for r in self.run['study'] if r['split'] == split and r['stepScale'] == 1) for split in (1, 2, 4)]
         a, b, c = values
@@ -40,7 +39,7 @@ class LeeEvidence(unittest.TestCase):
                 lee.evidence(self.run)
 
     def test_equal_or_reversed_refined_peaks_withhold_extrapolation(self):
-        p40 = min((r for r in self.run['study'] if r['split'] == 2), key=lambda r: r['stepScale'])['firstPeak']
+        p40 = next(r['firstPeak'] for r in self.run['study'] if r['split'] == 2 and r['stepScale'] == 1)
         for offset in (0, 1):
             for r in self.run['study']:
                 if r['split'] == 4:
@@ -76,6 +75,9 @@ class LeeEvidence(unittest.TestCase):
         self.assertEqual(extrapolated(), before)
         finest = min((r for r in self.run['study'] if r['split'] == 4), key=lambda r: r['stepScale'])
         finest['firstPeak'] += self.case['convergence']['absoluteTolerance'] / 2
+        self.assertEqual(extrapolated(), before)
+        common = next(r for r in self.run['study'] if r['split'] == 4 and r['stepScale'] == 1)
+        common['firstPeak'] += self.case['convergence']['absoluteTolerance'] / 2
         self.assertNotEqual(extrapolated(), before)
 
     def test_each_paper_row_is_required_once(self):

@@ -135,7 +135,7 @@ it('a frame endpoint must match the last measured step', () => {
   expect(frameFrom({ ...run, finalLoadFactor: 1 }, 4).load).toBe(1);
 });
 
-it.skipIf(!process.env.RUN_KNOWN_WRONG)('known wrong result: #2505 ties both extrapolations to the common-scale native peak study', () => {
+it('ties both extrapolations to the common-scale native peak study', () => {
   const [a, b, c] = ([1, 2, 4] as const).map(split => studyCase(split).firstPeak);
   const expected = c + (c - b) / ((a - b) / (b - c) - 1);
   for (const row of comparison.checks.filter(r => r.id.endsWith('-extrapolated'))) {

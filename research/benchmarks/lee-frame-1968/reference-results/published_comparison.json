@@ -18,9 +18,9 @@
       "source": "de Souza, Vanalli & de Luz (2020), doi:10.1155/2020/3613892, Figure 10, pinned path with Schweizerhof & Wriggers (1986): first peak measured in pixels, scale checked on the semirigid peak 2.1474 kN stated in Figure 11; reading uncertainty ±0.03 kN",
       "unit": "kN",
       "reference": 1.87,
-      "computed": 1.8556712907187858,
+      "computed": 1.855716706023603,
       "metric": "absolute difference",
-      "observed": 0.014328709281214325,
+      "observed": 0.014283293976397049,
       "tolerance": 0.03,
       "passed": true
     },
@@ -30,9 +30,9 @@
       "source": "Galvão (2000), point A, as tabulated by Neves (2025), Blucher Physics Proceedings XV ECFA, paper 2025030, Table 1; printed to 0.01 kN, tolerance half that unit",
       "unit": "kN",
       "reference": 1.86,
-      "computed": 1.8556712907187858,
+      "computed": 1.855716706023603,
       "metric": "absolute difference",
-      "observed": 0.004328709281214316,
+      "observed": 0.00428329397639704,
       "tolerance": 0.005,
       "passed": true
     }
