@@ -598,3 +598,25 @@ test('known wrong result: #1928 published dictionary entries keep their release 
     }
   }
 });
+
+test.skip('known wrong result: #1928 the released load dialog has no foreign code editor implementations', async () => {
+  const entry = resolve(root, 'src/components/pro/ProAutoLoadsDialog.svelte');
+  for (const plates of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
+      const result = await build({ root, configFile, logLevel: 'silent', build: {
+        write: false, lib: { entry, formats: ['es'] }, rollupOptions: {
+          external(id, from) {
+            if (!from || id.startsWith('\0')) return false;
+            return from === entry ? !id.startsWith('./load-codes/') : !id.startsWith('.');
+          },
+        },
+      } });
+      const chunks = (Array.isArray(result) ? result[0] : result).output.filter(item => item.type === 'chunk');
+      const modules = chunks.flatMap(chunk => Object.entries(chunk.modules).filter(([, mod]) => mod.renderedLength).map(([id]) => id));
+      for (const form of ['EcWindInput', 'EcSnowInput', 'EcSeismicInput', 'Ts498WindInput', 'Ts498SnowInput', 'TbdySeismicInput', 'Asce7WindInputs', 'Asce7SnowInputs', 'Asce7SeismicInputs']) {
+        assert.equal(modules.some(id => id.endsWith('/' + form + '.svelte')), plates, form);
+      }
+      assert.equal(modules.some(id => id.endsWith('/load-codes/nav-status.ts')), plates);
+    });
+  }
+});
