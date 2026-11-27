@@ -85,6 +85,44 @@ describe.skip('known wrong result: #1928 physical shells in the load generator',
     }
   });
 
+  it.each(['curved', 'offset', 'zero offset', 'concave'] as const)('checks the actual unmeshed %s surface before computing weights or writing loads', shape => {
+    const { id, top } = slab('straight');
+    const group = plateEntry(id)!;
+    if (shape === 'concave') {
+      const notch = modelStore.addNode(2, 2, 3);
+      modelStore.setGroupMembers(id, { nodes: [top[0]!, top[1]!, notch, top[2]!, top[3]!] });
+      modelStore.setGroupData(id, { ...group.group.data, surface: { ...group.surface, loops: [5] } });
+    } else {
+      const metadata = shape === 'curved' ? { curved: true } : { offset: { frame: 'global', x: 0, y: 0, z: shape === 'offset' ? 1 : 0 } };
+      modelStore.setGroupData(id, { ...group.group.data, surface: { ...group.surface, ...metadata } });
+    }
+    const p = plan();
+    if (__PUBLIC_FEATURES__.proPlatesUnified && shape !== 'zero offset') {
+      expect(p.blockedKeys).toContainEqual({ key: 'loadPlan.blocked.meshPhysicalPlate', params: { id } });
+      expect(p.outcome).toBe('BLOCKED');
+    } else {
+      expect(p.blockedKeys).toEqual([]);
+      expect(p.outcome).toBe('READY');
+      expect(p.surface.some(load => load.quadId === -id)).toBe(__PUBLIC_FEATURES__.proPlatesUnified);
+    }
+  });
+
+  it.each(['thermal', 'varying pressure', 'missing plate'] as const)('refuses virtual %s before changing the model', kind => {
+    const { id } = slab('straight');
+    const p = plan();
+    expect(p.outcome).toBe('READY');
+    const before = state();
+    const caseType = 'D' as const;
+    const target = -id;
+    if (kind === 'thermal') p.thermal = [{ quadId: target, dtUniform: 2, dtGradient: 0 }];
+    if (kind === 'varying pressure') p.surface = [{ quadId: target, caseType, q: 0, frame: 'global', dir: [0, 0, -1], vary: { dir: [1, 0, 0], c1: 0, q1: 0, c2: 6, q2: 2 } }];
+    if (kind === 'missing plate') p.surface = [{ quadId: target - 1, caseType, q: 2 }];
+    const expected = kind === 'thermal' ? { key: 'loadPlan.blocked.unmeshedPlateThermal' }
+      : kind === 'varying pressure' ? { key: 'loadPlan.blocked.unmeshedPlatePressure' } : { key: 'loadPlan.blocked.meshPhysicalPlate', params: { id: id + 1 } };
+    expect(applyLoadPlan(p, opts)).toEqual(expected);
+    expect(state()).toBe(before);
+  });
+
   it('refuses a stale virtual target before applying any load or case', () => {
     const { id, opening } = slab('straight');
     const p = plan();
