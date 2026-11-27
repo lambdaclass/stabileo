@@ -45,6 +45,7 @@ export const sharedSwitchOnUnitFiles = [
   'src/lib/store/__tests__/plate-edit-node-ownership.test.ts',
   'src/lib/store/__tests__/plate-opening-curvature.test.ts',
   'src/lib/store/__tests__/adopted-frame.test.ts',
+  'src/lib/store/__tests__/published-cracked-basis.test.ts',
   'src/lib/store/__tests__/stored-offset-profile.test.ts',
   'src/lib/rc-sheets/schedule/__tests__/exported-offcut.test.ts',
   'src/lib/i18n/__tests__/engine-purity.test.ts',

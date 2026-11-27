@@ -64,6 +64,14 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
       }
       return { define };
     },
+    resolveId: {
+      order: 'pre',
+      handler(id, importer) {
+        if (features.proRcSheets && id === './rc-sheet-readers' && importer?.startsWith(resolve(__dirname, 'src/lib/store') + '/')) {
+          return resolve(__dirname, 'src/lib/store/active-rc-sheet-readers.ts');
+        }
+      },
+    },
     configResolved(config) {
       e2e = config.env.VITE_E2E === '1';
     },

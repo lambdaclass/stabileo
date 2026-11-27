@@ -16,7 +16,7 @@ import type { AnalysisResults3D } from '../engine/types-3d';
 import { serviceSets, serviceDeflections, type MemberDeflection, type DeflectionBasis } from './service-deflection';
 import { checkDeflection, type DeflectionResult } from '../engine/codes/argentina/serviceability';
 import { crackedBasis, type CrackedBasis } from './cracked-deflection';
-import { sheetBeamBars, type SheetBeamBarsReader } from './rc-sheets-reinforcement';
+import { sheetBeamBars, type SheetBeamBarsReader } from './rc-sheet-readers';
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { memberKindOf } from '../engine/design/member-grouping';
 import { ruleFor, readDeflection, DEFAULT_BEAM_RULE, type DeflectionRule, type RuleContext } from '../engine/deflection-limits';
@@ -84,7 +84,7 @@ export function deflectionChecks(ids?: Iterable<number>): ServiceabilityRun {
   const ruled = new Map<number, DeflectionRule>();
   for (const id of candidates) { const r = ruleFor(id, limits, ctx); if (r) ruled.set(id, r); }
   const loads = loadSets();
-  const bars = sheetBeamBars();
+  const bars = __PUBLIC_FEATURES__.proRcSheets ? sheetBeamBars() : undefined;
   const rows = new Map<number, MemberServiceability>();
   for (const [id, d] of serviceDeflections(ruled.keys(), svc.sets)) {
     const rule = ruled.get(id);
@@ -129,7 +129,7 @@ function loadSets(): LoadSets | null {
  * of the live load applied after attachment; the project states no sustained share of the live
  * load, so all of it is taken as sustained, on the safe side: λΔ·δ(all) + [δ(all) − δ(D)].
  */
-function concreteRow(id: number, d: MemberDeflection, rule: DeflectionRule, over: number, svc: ReturnType<typeof serviceSets>, loads: LoadSets | null, bars: SheetBeamBarsReader):
+function concreteRow(id: number, d: MemberDeflection, rule: DeflectionRule, over: number, svc: ReturnType<typeof serviceSets>, loads: LoadSets | null, bars: SheetBeamBarsReader | undefined):
   { reading: DeflectionReading; check: DeflectionResult; cracked?: CrackedBasis } {
   const reading = tableReadingOf(rule.n);
   const at = (results: AnalysisResults3D) => {

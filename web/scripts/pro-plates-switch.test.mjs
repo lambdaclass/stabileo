@@ -449,13 +449,13 @@ test('published mesh previews have their released quality and total captions', a
   }
 });
 
-test.skip('known wrong result: #2655 reading member reinforcement does not link disabled sheet designers', async () => {
+test('reading member reinforcement does not link disabled sheet designers', async () => {
   for (const sheets of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proRcSheets: sheets }, async configFile => {
       const entry = resolve(root, 'src/lib/store/rc-sheets-reinforcement.ts');
       const result = await build({ root, configFile, logLevel: 'silent', build: {
         write: false, lib: { entry, formats: ['es'] }, rollupOptions: {
-          external: (id, from) => !!from && !id.startsWith('.') || !!from && /(?:\/rc-sheets\/|rc-sheets\.svelte|rc-sheets-view\.svelte)$/.test(id),
+          external: (id, from) => !!from && /(?:^\w|\/(?:rc-sheets(?:-view)?\.svelte|model\.svelte|results\.svelte|design-data|physical|i18n|format|demands|features)$)/.test(id),
         },
       } });
       const chunks = (Array.isArray(result) ? result[0] : result).output.filter(output => output.type === 'chunk');

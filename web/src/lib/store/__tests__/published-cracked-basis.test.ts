@@ -6,7 +6,7 @@ import saved from './fixtures/adopted-frame.json';
 
 afterEach(() => modelStore.clear());
 
-it.skip('known wrong result: #2655 the cracked-section entry uses only offered reinforcement sources', () => {
+it('the cracked-section entry uses only offered reinforcement sources', () => {
   const project = structuredClone(saved) as unknown as ModelSnapshot;
   const adoption = saved.designData.rcSheets.adopted['beam:1:0'];
   const faces = { top: adoption.top, bottom: adoption.bottom };

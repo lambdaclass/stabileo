@@ -13,28 +13,15 @@ import { computeDiagram3D } from '../engine/diagrams-3d';
 import { crackedInertia, crackingMoment, effectiveInertia, longTermMultiplier } from '../codes/cirsoc201/effective-inertia';
 import type { ElementForces3D } from '../engine/types-3d';
 import type { BeamRegions, LongBarGroup, RebarGroup, RebarLayer } from '../design-contract/reinforcement';
-import { faceLayout, groupsArea } from '../rc-sheets/bars';
-import { sheetBeamBars, type SheetBeamBarsReader } from './rc-sheets-reinforcement';
+import { adoptedSpanSteel, type SheetBeamBarsReader, type SpanSteel } from './rc-sheet-readers';
 
-export interface CrackedBasis { Ig: number; Icr: number; Ie: number; Mcr: number; Ma: number; rhoPrime: number; lambda: number; scale: number; bars: 'sheets' | 'member' }
+export interface CrackedBasis { Ig: number; Icr: number; Ie: number; Mcr: number; Ma: number; rhoPrime: number; lambda: number; scale: number; bars?: 'sheets' | 'member' }
 
 const area = (d: number) => (Math.PI * (d / 1000) ** 2) / 4;
 const layersArea = (l?: RebarLayer[]) => (l ?? []).reduce((s, x) => s + x.count * area(x.diameter), 0);
 const groupArea = (g?: RebarGroup) => (g ? g.count * area(g.diameter) : 0);
 const memberGroupsArea = (gs?: LongBarGroup[], keep: (g: LongBarGroup) => boolean = () => true) => (gs ?? []).filter(keep).reduce((s, g) => s + layersArea(g.layers), 0);
 const largest = (l?: RebarLayer[], g?: RebarGroup) => Math.max(0, ...(l ?? []).map((x) => x.diameter), g?.diameter ?? 0);
-
-interface SpanSteel { As: number; AsPrime: number; d: number; dPrime: number; bars: CrackedBasis['bars'] }
-
-function sheetSteel(span: number[], h: number, b: number, read: SheetBeamBarsReader): SpanSteel | null {
-  const bars = span.map(read).find((x) => !!x);
-  if (!bars || !bars.span.bottom.length) return null;
-  const cover = designData().covers.beam;
-  const As = groupsArea(bars.span.bottom) * 1e-4, AsPrime = groupsArea(bars.span.top) * 1e-4;
-  const d = h - faceLayout(bars.span.bottom, b, cover, bars.stirrupDia).centroidFromFace;
-  const dPrime = faceLayout(bars.span.top, b, cover, bars.stirrupDia).centroidFromFace;
-  return { As, AsPrime, d, dPrime, bars: 'sheets' };
-}
 
 function memberSteel(r: BeamRegions, h: number): SpanSteel | null {
   const As = r.bottomGroups?.length ? memberGroupsArea(r.bottomGroups) : layersArea(r.bottomSpanLayers) || groupArea(r.bottomSpan);
@@ -51,7 +38,7 @@ function memberSteel(r: BeamRegions, h: number): SpanSteel | null {
  * The basis for one span, from its bars and its first element's section and the service forces
  * given. `read` is the sheets' bars by element; pass one built once when checking many spans.
  */
-export function crackedBasis(span: number[], forces: ReadonlyMap<number, ElementForces3D>, read: SheetBeamBarsReader = sheetBeamBars()): CrackedBasis | null {
+export function crackedBasis(span: number[], forces: ReadonlyMap<number, ElementForces3D>, read?: SheetBeamBarsReader): CrackedBasis | null {
   const e = modelStore.elements.get(span[0]!);
   const sec = e && modelStore.sections.get(e.sectionId);
   const mat = e && modelStore.materials.get(e.materialId);
@@ -60,7 +47,8 @@ export function crackedBasis(span: number[], forces: ReadonlyMap<number, Element
   const fc = concreteFc(mat);
   if (!fc || !(mat.e > 0)) return null;
   const r = e.reinforcement?.regions as BeamRegions | undefined;
-  const steel = sheetSteel(span, sec.h, sec.b, read) ?? (r ? memberSteel(r, sec.h) : null);
+  const adopted = __PUBLIC_FEATURES__.proRcSheets ? adoptedSpanSteel(span, sec.h, sec.b, read) : null;
+  const steel = adopted ?? (r ? memberSteel(r, sec.h) : null);
   if (!steel) return null;
   const { As, AsPrime, d, dPrime } = steel;
   const n = 200000 / mat.e;
@@ -78,5 +66,6 @@ export function crackedBasis(span: number[], forces: ReadonlyMap<number, Element
   const rhoPrime = AsPrime / (sec.b * d);
   // The solver bent the beam on its section's own inertia about the depth.
   const Imodel = sec.iy ?? Ig;
-  return { Ig, Icr, Ie, Mcr, Ma, rhoPrime, lambda: longTermMultiplier(rhoPrime), scale: Imodel / Ie, bars: steel.bars };
+  const basis = { Ig, Icr, Ie, Mcr, Ma, rhoPrime, lambda: longTermMultiplier(rhoPrime), scale: Imodel / Ie };
+  return __PUBLIC_FEATURES__.proRcSheets ? { ...basis, bars: steel.bars } : basis;
 }
