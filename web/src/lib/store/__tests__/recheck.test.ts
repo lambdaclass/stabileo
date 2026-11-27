@@ -35,7 +35,7 @@ describe('recheckStore', () => {
     expect(await reopen(released.resultsVersion, [])).not.toContain(cutoff);
   });
 
-  it.skip('known wrong result: #1928 reading a published project warning only acknowledges it in the current session', async () => {
+  it('known wrong result: #1928 reading a published project warning only acknowledges it in the current session', async () => {
     const memory = new Map<string, string>();
     vi.stubGlobal('localStorage', {
       getItem: (key: string) => memory.get(key) ?? null,

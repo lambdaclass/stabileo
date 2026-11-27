@@ -37,19 +37,7 @@
 </script>
 
 {#if !__PUBLIC_FEATURES__.proPlatesUnified}
-  {#if extra.length}
-    <PublishedContainmentNotice {disposition}>
-      {#snippet additions()}
-        {#each extra as notice (notice.kind)}
-          <div>{summaryOf(notice)}</div>
-          {#each notice.details as line}<p>{line}</p>{/each}
-          {@render rowActions?.(notice.kind)}
-        {/each}
-      {/snippet}
-    </PublishedContainmentNotice>
-  {:else}
-    <PublishedContainmentNotice {disposition} />
-  {/if}
+  <PublishedContainmentNotice {disposition} />
 {:else}
   {#if notices.length && !containmentDismissal.isDismissed(messages)}
     <div class="containment-notice lvl-{level}" class:refused class:open role="alert" data-testid="containment-notice" data-level={level}>

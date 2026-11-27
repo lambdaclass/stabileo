@@ -170,7 +170,7 @@ it('renders the malformed-input notice for a saved null load', async () => {
   expect(render(RecheckNotice).body).toContain('data-change-id="malformed-authored-loads"');
 });
 
-it.skip('known wrong result: #1928 published rechecks require reading the notice before deferring or rerunning', async () => {
+it('known wrong result: #1928 published rechecks require reading the notice before deferring or rerunning', async () => {
   recheckStore.openProject({ elements: [[1, { type: 'frame' }]] } as never, 'pro');
   await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
   const html = render(RecheckNotice).body;

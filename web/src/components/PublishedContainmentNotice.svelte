@@ -1,15 +1,13 @@
 <script lang="ts">
-  import type { Snippet } from 'svelte';
   import { t } from '../lib/i18n';
-  let { disposition, additions }: { disposition: { refused: boolean; messages: string[] }; additions?: Snippet } = $props();
+  let { disposition }: { disposition: { refused: boolean; messages: string[] } } = $props();
   let open = $state(false);
 </script>
 
-{#if disposition.messages.length || additions}
+{#if disposition.messages.length}
   <div class="containment-notice" class:refused={disposition.refused} class:open role="alert" data-testid="containment-notice">
     <button class="cn-toggle" aria-expanded={open} onclick={() => (open = !open)} data-testid="containment-toggle">{open ? t('containment.less') : t('containment.more')}</button>
     {#each disposition.messages as message}<p>{message}</p>{/each}
-    {#if additions}<div class="additional-notice">{@render additions()}</div>{/if}
   </div>
 {/if}
 
@@ -18,7 +16,6 @@
   .containment-notice.refused { border-color: #b42318; background: #fff0ee; color: #7a1610; }
   p { margin: 4px 0; }
   .cn-toggle { display: none; }
-  .additional-notice { pointer-events: auto; }
   @media (max-width: 640px) {
     .containment-notice { display: flex; align-items: center; gap: 8px; padding: 2px 4px 2px 8px; }
     .containment-notice p { flex: 1; min-width: 0; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

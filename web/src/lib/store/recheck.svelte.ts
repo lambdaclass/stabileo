@@ -29,6 +29,7 @@ import type { DrawPlane } from '../geometry/plane-projection';
 import type { RecheckAssessment } from '../provenance/applicability';
 import type { Advisory } from '../provenance/advisories';
 import { analysesContext, freshStamp, readStamp, stampSolve, unknownStamp, type SolveStamp } from '../provenance/solve-stamp';
+import { unifiedPlates } from '../features';
 import { RESULTS_VERSION } from '../provenance/registry';
 import { recheckFeatures } from '../provenance/recheck-features';
 import { loadsGeneratedWith, UNVERIFIED_SEISMIC_FEATURE, type AnalysisKind, type FeatureSnapshot } from '../provenance/model-features';
@@ -63,7 +64,8 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
   /** The stamp the assessment was made against: a solve replaces `stamp` and ends staleness. */
   let assessedStampId = $state<string | null>(null);
   let currentAssessmentStampId = $state<string | null>(null);
-  let acknowledged = $state.raw<ReadonlySet<string>>(new Set(remember ? readAcknowledged() : []));
+  const persistAcknowledgements = remember && unifiedPlates();
+  let acknowledged = $state.raw<ReadonlySet<string>>(new Set(persistAcknowledgements ? readAcknowledged() : []));
 
   let outstanding = $state.raw<PendingRecheckNotice | undefined>(undefined);
   let pending = $state(false);
@@ -201,7 +203,7 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
     acknowledge(): void {
       if (!pending && assessedStampId) {
         acknowledged = new Set([...acknowledged, ackKey(assessedStampId)]);
-        if (remember) writeAcknowledged(acknowledged);
+        if (persistAcknowledgements) writeAcknowledged(acknowledged);
       }
     },
 

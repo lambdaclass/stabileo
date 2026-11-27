@@ -1,4 +1,5 @@
 <script lang="ts">
+  import OutdatedNotice from './components/pro/design/OutdatedNotice.svelte';
   import { modelAuditFeatures, underAudit, UNDER_AUDIT_URL } from './lib/provenance/under-audit';
   import { recheckBanner, boardCovered } from './lib/store/recheck-banner.svelte';
   import type { ResultNotice } from './lib/store/result-notices';
@@ -1459,6 +1460,7 @@
 
   const appNotices = $derived.by((): ResultNotice[] => {
     const out: ResultNotice[] = [];
+    if (!__PUBLIC_FEATURES__.proPlatesUnified) return out;
     if (recheckBanner.text && !boardCovered()) out.push({ kind: 'outdated', level: recheckBanner.alert ? 'blocking' : 'warning', details: [], key: `${recheckBanner.alert ? 'advisory' : 'stale'}:${recheckBanner.text}` });
     if (!deskUi.open && !rebarWorkspace.open && underAudit([...modelAuditFeatures(modelStore.model), ...(verificationStore.concrete.length ? ['rc-design' as const] : [])])) out.push({ kind: 'underReview', level: 'info', details: [] });
     return out;
@@ -2020,13 +2022,18 @@
 
     <div class="main-area" bind:this={mainAreaEl}>
       <main class="viewport-container">
-        <ContainmentBanner preserveModel extra={appNotices} actions={noticeActions} onDiagnostics={uiStore.appMode === 'pro' ? () => (uiStore.proActiveTab = 'diagnostics') : undefined} disposition={uiStore.is3DWorkspace ? resultsStore.knownIssues3D : resultsStore.knownIssues} diagnostics={uiStore.is3DWorkspace ? resultsStore.knownIssueDiagnostics3D : resultsStore.knownIssueDiagnostics}>
-        {#if !uiStore.is3DWorkspace}
-          <Viewport />
+        {#snippet viewport()}
+          {#if !uiStore.is3DWorkspace}
+            <Viewport />
+          {:else}
+            <Viewport3D />
+          {/if}
+        {/snippet}
+        {#if __PUBLIC_FEATURES__.proPlatesUnified}
+          <ContainmentBanner preserveModel extra={appNotices} actions={noticeActions} onDiagnostics={uiStore.appMode === 'pro' ? () => (uiStore.proActiveTab = 'diagnostics') : undefined} disposition={uiStore.is3DWorkspace ? resultsStore.knownIssues3D : resultsStore.knownIssues} diagnostics={uiStore.is3DWorkspace ? resultsStore.knownIssueDiagnostics3D : resultsStore.knownIssueDiagnostics} children={viewport} />
         {:else}
-          <Viewport3D />
+          <ContainmentBanner preserveModel disposition={uiStore.is3DWorkspace ? resultsStore.knownIssues3D : resultsStore.knownIssues} children={viewport} />
         {/if}
-        </ContainmentBanner>
         {#if uiStore.appMode === 'pro' || uiStore.appMode === 'basico'}<PlacementHud />{/if}
         {#if uiStore.appMode === 'pro'}{#if !uiStore.viewerMode}<StoreyScopeBar />{/if}<ProLinkedLayer />{/if}
         <!-- Instruction for the armed-but-unanswered stress mode. Inside the
@@ -2144,6 +2151,11 @@
           <KeyboardShortcuts enabled={editorActive} />
         {/if}
       </main>
+      {#if !__PUBLIC_FEATURES__.proPlatesUnified}
+        {#if !deskUi.open && !rebarWorkspace.open}
+          <OutdatedNotice audit={[...modelAuditFeatures(modelStore.model), ...(verificationStore.concrete.length ? ['rc-design' as const] : [])]} />
+        {/if}
+      {/if}
     </div>
 
     <!--
@@ -2439,7 +2451,7 @@
   The re-check notice for a project last solved with an older version, and the banner that keeps
   its results marked stale until they are re-run (`lib/store/recheck.svelte.ts`).
 -->
-<RecheckNotice hostedOnBoard />
+<RecheckNotice hostedOnBoard={__PUBLIC_FEATURES__.proPlatesUnified} />
 <WorkspaceSaveNotice />
 <ReproduceDialog />
 {#if __PUBLIC_FEATURES__.tools && mohrPanel.open}

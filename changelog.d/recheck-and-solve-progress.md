@@ -10,3 +10,5 @@ With unified plates disabled, the viewport keeps model refusals visible until th
 The published PRO gallery opens its existing models directly. Generated building examples, their progress messages and their plate counts are available with unified plates enabled.
 
 The published results table shows the full known-issue warning above the numeric tabs in both planar and spatial models. The original diagnostic identifiers remain visible to readers of the published table and PRO diagnostics.
+
+With unified plates disabled, the project recheck asks for acknowledgement when a saved project is reopened in a new session. The read checkbox, the stale-result actions and the under-review notice follow the published workflow.

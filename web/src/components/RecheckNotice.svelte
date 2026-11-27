@@ -1,5 +1,6 @@
 <script lang="ts">
   import { saveWorkspaceSettled, saveSession } from '../lib/store/file';
+  import { unifiedPlates } from '../lib/features';
   import { recheckStore } from '../lib/store/recheck.svelte';
   import { recheckBanner, boardCovered } from '../lib/store/recheck-banner.svelte';
   import { rerunAnalysisAndDesign, recheckKey } from '../lib/actions/recheck';
@@ -21,6 +22,12 @@
   function loadDetails() { return recheckStore.retry(); }
 
   let reviewing = $state(false);
+  let readIt = $state(false);
+  const needsAcknowledgement = $derived(!unifiedPlates() && recheckStore.noticeOpen && !readIt);
+  $effect(() => {
+    void recheckStore.assessment;
+    readIt = false;
+  });
   let busy = $state(false);
   let dialog = $state<HTMLDivElement | null>(null);
 
@@ -66,12 +73,13 @@
   }
 
   function acknowledge() {
+    if (!details || needsAcknowledgement) return;
     recheckStore.acknowledge();
     reviewing = false;
   }
 
   async function rerun() {
-    if (busy) return;
+    if (busy || !details || needsAcknowledgement) return;
     busy = true;
     recheckStore.acknowledge();
     reviewing = false;
@@ -83,6 +91,7 @@
       : tp('recheck.banner', { n: a.changes.length })
     : null);
   $effect(() => {
+    if (!hostedOnBoard || !unifiedPlates()) return;
     recheckBanner.text = bannerText;
     recheckBanner.alert = openAdvisories.length > 0;
     recheckBanner.canRerun = resolve && !recheckStore.solvedAgain;
@@ -91,6 +100,7 @@
     recheckBanner.rerun = rerun;
   });
   $effect(() => () => {
+    if (!hostedOnBoard || !unifiedPlates()) return;
     recheckBanner.text = null;
     recheckBanner.alert = false;
   });
@@ -160,14 +170,22 @@
       <footer class="rc-footer">
         {#if regenerate}<p class="rc-stale" data-testid="recheck-regenerate">{tp('recheck.regenerateLoads', { button: t('autoLoad.autoGenBtn') })}</p>{/if}
         {#if resolve}<p class="rc-stale">{t('recheck.staleWarning')}</p>{/if}
+        {#if !__PUBLIC_FEATURES__.proPlatesUnified}
+          {#if recheckStore.noticeOpen}
+            <label class="rc-ack">
+              <input type="checkbox" disabled={!details} bind:checked={readIt} data-testid="recheck-ack" />
+              {t('recheck.ack')}
+            </label>
+          {/if}
+        {/if}
         <div class="rc-actions">
           {#if recheckStore.noticeOpen}
-            <button class="rc-btn" disabled={!details} onclick={acknowledge} data-testid="recheck-later">{t('recheck.later')}</button>
+            <button class="rc-btn" disabled={!details || needsAcknowledgement} onclick={acknowledge} data-testid="recheck-later">{t('recheck.later')}</button>
           {:else}
             <button class="rc-btn" onclick={() => (reviewing = false)} data-testid="recheck-close">{t('provenance.reproduce.close')}</button>
           {/if}
           {#if resolve}
-            <button class="rc-btn rc-primary" disabled={!details || busy} onclick={rerun} data-testid="recheck-rerun">{t(recheckKey('recheck.rerun'))}</button>
+            <button class="rc-btn rc-primary" disabled={!details || needsAcknowledgement || busy} onclick={rerun} data-testid="recheck-rerun">{t(recheckKey('recheck.rerun'))}</button>
           {/if}
         </div>
       </footer>
@@ -222,7 +240,7 @@
     box-shadow: 0 8px 32px rgb(0 0 0 / 0.35);
     outline: none;
   }
-  .rc-title, .rc-intro, .rc-stale, .rc-actions { flex-shrink: 0; }
+  .rc-title, .rc-intro, .rc-stale, .rc-ack, .rc-actions { flex-shrink: 0; }
   .rc-title { margin: 0 0 6px; font-size: 0.95rem; font-weight: 600; color: var(--st-text); }
   .rc-recovery > :global(*) { flex-shrink: 0; }
   .rc-intro { margin: 0 0 12px; font-size: 0.75rem; line-height: 1.5; color: var(--st-text-2, var(--st-text)); }
@@ -236,6 +254,8 @@
   .rc-link { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; font-size: 0.75rem; color: var(--st-accent, #4a90d9); }
   .rc-stale { margin: 0 0 10px; font-size: 0.75rem; font-weight: 600; color: var(--st-warn, #d9a441); }
   .rc-footer { flex-shrink: 0; }
+  .rc-ack input { flex-shrink: 0; }
+  .rc-ack { min-height: 44px; cursor: pointer; display: flex; gap: 6px; align-items: center; font-size: 0.75rem; color: var(--st-text); margin-bottom: 12px; }
   .rc-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
   .rc-btn, .rc-banner-btn {
     min-height: 44px;
