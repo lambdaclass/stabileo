@@ -53,7 +53,7 @@ test.describe('@slow plan navigation', () => {
     await page.getByTestId('cam-menu').click();
     await page.getByTestId('nav-plan-view').click();
     await page.locator('.cam-backdrop').click({ position: { x: 200, y: 450 } }); // closes it: the state items keep it open
-    await expect(page.getByTestId('plan-view-chip')).toContainText(/N1/);
+    await expect(page.getByTestId('plan-view-level').locator('option:checked')).toContainText(/N1/);
     await expect.poll(async () => (await cam(page)).polarDeg).toBeLessThan(2);
     // Its cut is its own: the cut plane of the menu stays off, and its controls do not show.
     await expect(page.locator('.clip-controls')).toHaveCount(0);
@@ -73,9 +73,9 @@ test.describe('@slow plan navigation', () => {
     await expect(page.locator('.ctx-menu')).toHaveCount(0);
 
     // Another level, from the plan's chip: the view goes up with it.
-    await page.getByTestId('plan-view-level').selectOption({ label: await levels.nth(0).getAttribute('data-testid').then((x) => x!.replace('grid-activate-', '')) });
+    await page.getByTestId('plan-view-level').selectOption({ index: 0 }); // listed from the top level down, as the grid panel
     await expect.poll(async () => (await cam(page)).target[2]).toBeGreaterThan(c1.target[2] + 1);
-    await expect(page.getByTestId('plan-view-chip')).not.toContainText(/N1\b/);
+    await expect(page.getByTestId('plan-view-level').locator('option:checked')).not.toContainText(/N1\b/);
 
     // W moves the plan view as far as D does (laid flat from above, its direction had shrunk to
     // about 2 % of D's).

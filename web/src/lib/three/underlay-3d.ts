@@ -31,7 +31,7 @@ export function buildUnderlays(list: readonly Underlay[], activeZ: number | null
     const own = Math.min(1, Math.max(0.1, u.opacity ?? 0.9));
     const mat = new THREE.LineBasicMaterial({ color: COLOR, transparent: true, opacity: onLevel ? own : Math.min(own, 0.25), depthWrite: false });
     const lines = new THREE.LineSegments(geo, mat);
-    lines.renderOrder = -2;
+    lines.renderOrder = 2;
     lines.userData.noPick = true;
     lines.name = `underlay:${u.id}`;
     group.add(lines);
