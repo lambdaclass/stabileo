@@ -7,7 +7,7 @@
   import { Playback } from '../shell/playback.svelte';
   import { rs, researchLocale } from '../i18n';
   import { fs } from './i18n';
-  import { editorHash, paperComparison, validateLayout, viewerData, PAPER_UNIT_WEIGHT, type Layout } from './model';
+  import { editorHash, paperComparison, paperRow, unitWeightOf, validateLayout, viewerData, PAPER_UNIT_WEIGHT, type Layout } from './model';
   import { num } from '../shell/format';
   import result from '../../../../../research/optimisation/fairclough-2026/results/stabileo_results.json';
   import reference from '../../../../../research/optimisation/fairclough-2026/reference-results/five-node.json';
@@ -18,7 +18,7 @@
   const common = $derived(rs());
   const playback = new Playback();
   const comparison = published.checks;
-  const unitWeightOf = (id: string) => Number(id.slice('table1-v5-'.length));
+  const paperReference = paperRow(PAPER_UNIT_WEIGHT)?.reference;
   const comparisonNames = $derived(Object.fromEntries(comparison.map(r => [r.id, text.rowName.replace('{pg}', num(unitWeightOf(r.id), { dp: 2 }))])));
   let layout = $state<Layout>(result.layout);
   let unitWeight = $state(PAPER_UNIT_WEIGHT);
@@ -83,7 +83,7 @@
   {#snippet article()}
     <h2>{text.model}</h2><p>{text.method}</p>
     <h2>{text.comparison} · ρgL/σ = {num(PAPER_UNIT_WEIGHT, { dp: 2 })}</h2>
-    <dl><dt>{text.published}</dt><dd>{format(published.checks[0].reference)}</dd><dt>{text.reference}</dt><dd>{format(reference.volume)}</dd><dt>{text.rust}</dt><dd data-testid="volume">{format(atPaper ? layout.volume : result.layout.volume)}</dd></dl>
+    <dl><dt>{text.published}</dt><dd>{paperReference === undefined ? '—' : format(paperReference)}</dd><dt>{text.reference}</dt><dd>{format(reference.volume)}</dd><dt>{text.rust}</dt><dd data-testid="volume">{format(atPaper ? layout.volume : result.layout.volume)}</dd></dl>
     <p>{text.source}</p><p><a href="https://doi.org/10.15131/shef.data.29046755.v1">{text.reference}</a></p>
     <p>{text.tableRows} {#each comparison as r, i}{#if i > 0}{' · '}{/if}<ExperimentLink params={{ pg: unitWeightOf(r.id) }}>ρgL/σ = {num(unitWeightOf(r.id), { dp: 2 })}</ExperimentLink>{/each}</p>
     <h2 id="checks">{text.scope}</h2><p>{text.agreement}</p>

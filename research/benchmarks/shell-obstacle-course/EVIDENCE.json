@@ -5,7 +5,7 @@
   "fixtureSha256": "918c5dc2c5990970ad0a54488d31710f3eb32f8fdfd7b3ada2980e5c0eac0e45",
   "generator": "engine/tests/validation/benchmarks/shell_benchmark.rs::research_shell_fixture_matches_corrected_builders",
   "nativeResults": "results/<case-id>.json",
-  "wasmResults": "results/wasm-results.json",
+  "wasmResults": "results/stabileo_results.json",
   "environment": {
     "CARGO_TARGET_DIR": "/private/tmp/claude-501/codex-859m-target",
     "CARGO_BUILD_JOBS": 4,
@@ -80,7 +80,7 @@
   "containmentMerge": {
     "date": "2026-10-30",
     "scope": "PR #807 merge of origin/main (containment of #447 over the #810-corrected fixture); fixture unchanged",
-    "hemisphereDisposition": "Production withholds hemisphere 4/8/16 under SH-MITC4-DISTORTION (#798); results/hemisphere-*.json and wasm-results.json record the refusal from both runtimes. The earlier rows above predate the containment.",
+    "hemisphereDisposition": "Production withholds hemisphere 4/8/16 under SH-MITC4-DISTORTION (#798); results/hemisphere-*.json and stabileo_results.json record the refusal from both runtimes. The earlier rows above predate the containment.",
     "checks": [
       {
         "command": "cargo test --release --test validation shell_benchmark",

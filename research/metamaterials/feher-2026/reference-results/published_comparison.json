@@ -79,15 +79,14 @@
       "unit": "mm"
     },
     {
-      "computed": null,
+      "computed": 2.85,
       "id": "snap-through-0.5-0.2",
       "metric": "absolute difference",
       "name": "Snap-through load, B = 0.5L, a = 0.5, b = 0.2",
-      "observed": null,
+      "observed": 0.12699999999999978,
       "passed": false,
       "reference": 2.977,
       "source": "arXiv:2601.20793v2, Figure 10(a) p. 9, end of the unstable branch, digitized",
-      "status": "unresolved",
       "tolerance": 0.06,
       "unit": "N"
     },

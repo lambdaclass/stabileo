@@ -3,6 +3,6 @@
   "source": "../reference.py (reads engine/tests/benchmarks/newmark_1959.json)",
   "command": "python3 -I research/benchmarks/newmark-1959/reference.py --write",
   "files_sha256": {
-    "closed-form.json": "43a3f2a0f39a2fd3a8517c9083e510e28158dfd7f5f477fba1ff4ece29ae496e"
+    "closed-form.json": "368b5dbf6f182e548f3b20495e060aa7d3c836d4036e6c024a314b3f1a5c5699"
   }
 }

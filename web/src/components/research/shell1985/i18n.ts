@@ -1,13 +1,23 @@
-import recorded from '../../../../../research/benchmarks/shell-obstacle-course/results/wasm-results.json';
-import nativeCylinder from '../../../../../research/benchmarks/shell-obstacle-course/results/cylinder-32.json';
+import recorded from '../../../../../research/benchmarks/shell-obstacle-course/results/stabileo_results.json';
+import validation from '../../../../../research/benchmarks/shell-obstacle-course/VALIDATION.json';
+import references from '../../../../../research/benchmarks/shell-obstacle-course/reference-results/references.json';
 import { card } from './card';
+
+const roofValue = recorded.find(row => row.id === 'roof-16')!.value!;
+const roofReference = references.references.find(row => row.group === 'roof')!.signedReference;
+
+function auditText(locale: string, template: string) {
+  const value = new Intl.NumberFormat(locale, { maximumFractionDigits: 8 }).format(roofValue);
+  const difference = new Intl.NumberFormat(locale, { maximumFractionDigits: 4 }).format(100 * Math.abs(roofValue / roofReference - 1));
+  return template.replace('{roof}', value).replace('{difference}', difference);
+}
 
 function recordedVerdict(locale: string, template: string) {
   const finest = recorded.filter(row => row.id.endsWith('-16'));
   const percent = new Intl.NumberFormat(locale, { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 });
   return template.replace('{score}', `${finest.filter(row => row.pass).length}/${finest.length}`)
     .replace('{cylinder16}', percent.format(finest.find(row => row.id === 'cylinder-16')!.error!))
-    .replace('{cylinder32}', percent.format(nativeCylinder.error));
+    .replace('{cylinder32}', percent.format(validation.checks.find(c => c.id === 'cylinder-32')!.observed));
 }
 
 const en = {
@@ -75,7 +85,7 @@ const en = {
   paperText: 'We could not inspect the tables of Belytschko et al. (1985): the article is not open access. The roof reference 0.3024 is the normalization value of MacNeal and Harder (1985), Table 5(a), p. 11, which gives 0.0940 for their own hemisphere loading; the cylinder reference |u_y| = 1.8248 × 10⁻⁵ (u_y = −1.8248 × 10⁻⁵) is inherited from the engine tests.',
   findingsHeading: 'Findings',
   auditLink: '#810 · test-model correction',
-  auditText: ': the audit found errors in the roof and cylinder test models, not in the engine: an artificial pin at the roof crown, incomplete symmetry restraints at corners and missing tributary loads. The corrected roof reaches −0.302426 at 16 × 16 (0.0084%); the cylinder error falls from 37.9% at 6 × 6 to 6.8% at 16 × 16 and 1.0% at 32 × 32.',
+  auditText: auditText('en', ': the audit found errors in the roof and cylinder test models, not in the engine: an artificial pin at the roof crown, incomplete symmetry restraints at corners and missing tributary loads. The corrected roof reaches {roof} at 16 × 16 ({difference}%); the cylinder error falls from 37.9% at 6 × 6 to 6.8% at 16 × 16 and 1.0% at 32 × 32.'),
   ledgerBefore: 'The ',
   ledgerLink: 'findings ledger',
   ledgerMiddle: ' records the accuracy and model limitations. The ',
@@ -161,7 +171,7 @@ const es: ShellStrings = {
   paperText: 'No pudimos revisar las tablas de Belytschko et al. (1985): el artículo no es de acceso abierto. La referencia de la cubierta, 0,3024, es el valor de normalización de MacNeal y Harder (1985), tabla 5(a), p. 11, que da 0,0940 para su propia carga del hemisferio; la referencia del cilindro, |u_y| = 1,8248 × 10⁻⁵ (u_y = −1,8248 × 10⁻⁵), viene de los tests del motor.',
   findingsHeading: 'Hallazgos',
   auditLink: '#810 · corrección del modelo de prueba',
-  auditText: ': la auditoría encontró errores en los modelos de prueba de la cubierta y del cilindro, no en el motor: un apoyo artificial en la clave de la cubierta, restricciones de simetría incompletas en las esquinas y cargas tributarias faltantes. La cubierta corregida llega a −0,302426 con 16 × 16 (0,0084%); el error del cilindro baja de 37,9% con 6 × 6 a 6,8% con 16 × 16 y 1,0% con 32 × 32.',
+  auditText: auditText('es', ': la auditoría encontró errores en los modelos de prueba de la cubierta y del cilindro, no en el motor: un apoyo artificial en la clave de la cubierta, restricciones de simetría incompletas en las esquinas y cargas tributarias faltantes. La cubierta corregida llega a {roof} con 16 × 16 ({difference}%); el error del cilindro baja de 37,9% con 6 × 6 a 6,8% con 16 × 16 y 1,0% con 32 × 32.'),
   ledgerBefore: 'El ',
   ledgerLink: 'registro de hallazgos',
   ledgerMiddle: ' documenta las limitaciones de precisión y de modelo. El ',
@@ -245,7 +255,7 @@ const pt: ShellStrings = {
   paperText: 'Não pudemos consultar as tabelas de Belytschko et al. (1985): o artigo não é de acesso aberto. A referência da cobertura, 0,3024, é o valor de normalização de MacNeal e Harder (1985), tabela 5(a), p. 11, que dá 0,0940 para o seu próprio carregamento do hemisfério; a referência do cilindro, |u_y| = 1,8248 × 10⁻⁵ (u_y = −1,8248 × 10⁻⁵), vem dos testes do motor.',
   findingsHeading: 'Achados',
   auditLink: '#810 · correção do modelo de teste',
-  auditText: ': a auditoria encontrou erros nos modelos de teste da cobertura e do cilindro, não no motor: um apoio artificial na cumeeira da cobertura, restrições de simetria incompletas nos cantos e cargas tributárias faltantes. A cobertura corrigida chega a −0,302426 com 16 × 16 (0,0084%); o erro do cilindro cai de 37,9% com 6 × 6 para 6,8% com 16 × 16 e 1,0% com 32 × 32.',
+  auditText: auditText('pt', ': a auditoria encontrou erros nos modelos de teste da cobertura e do cilindro, não no motor: um apoio artificial na cumeeira da cobertura, restrições de simetria incompletas nos cantos e cargas tributárias faltantes. A cobertura corrigida chega a {roof} com 16 × 16 ({difference}%); o erro do cilindro cai de 37,9% com 6 × 6 para 6,8% com 16 × 16 e 1,0% com 32 × 32.'),
   ledgerBefore: 'O ',
   ledgerLink: 'registro de achados',
   ledgerMiddle: ' documenta as limitações de precisão e de modelo. O ',
@@ -323,13 +333,13 @@ const de: ShellStrings = {
   checkCylinder32: 'Gequetschter Zylinder 32 × 32 (nativ): relativer Fehler gegenüber −1,8248 × 10⁻⁵',
   checkConvergence: 'Gequetschter Zylinder 6 → 32: größtes Verhältnis aufeinanderfolgender Fehler (unter 1)',
   checkParity: 'WebAssembly gegenüber nativ, Dach und Zylinder: größte relative Abweichung',
-  checkRefusals: 'Halbkugelnetze, die nicht beide Laufzeiten mit #798 zurückhalten',
+  checkRefusals: 'Halbkugelnetze, die nicht von beiden Laufzeiten mit #798 zurückgehalten werden',
   checkBuilders: 'Browser-Generatoren gegenüber der Falldatei: größte relative Abweichung',
   paperHeading: 'Vergleich mit dem Artikel',
   paperText: 'Die Tabellen von Belytschko et al. (1985) konnten wir nicht einsehen: Der Artikel ist nicht frei zugänglich. Die Dachreferenz 0,3024 ist der Normierungswert von MacNeal und Harder (1985), Tabelle 5(a), S. 11, die für ihre eigene Belastung der Halbkugel 0,0940 angeben; die Zylinderreferenz |u_y| = 1,8248 × 10⁻⁵ (u_y = −1,8248 × 10⁻⁵) stammt aus den Engine-Tests.',
   findingsHeading: 'Befunde',
   auditLink: '#810 · Korrektur des Testmodells',
-  auditText: ': Das Audit fand Fehler in den Testmodellen von Dach und Zylinder, nicht in der Engine: ein künstliches Lager im Dachscheitel, unvollständige Symmetrielagerungen an den Ecken und fehlende Einzugslasten. Das korrigierte Dach erreicht −0,302426 bei 16 × 16 (0,0084 %); der Fehler des Zylinders sinkt von 37,9 % bei 6 × 6 auf 6,8 % bei 16 × 16 und 1,0 % bei 32 × 32.',
+  auditText: auditText('de', ': Das Audit fand Fehler in den Testmodellen von Dach und Zylinder, nicht in der Engine: ein künstliches Lager im Dachscheitel, unvollständige Symmetrielagerungen an den Ecken und fehlende Einzugslasten. Das korrigierte Dach erreicht {roof} bei 16 × 16 ({difference} %); der Fehler des Zylinders sinkt von 37,9 % bei 6 × 6 auf 6,8 % bei 16 × 16 und 1,0 % bei 32 × 32.'),
   ledgerBefore: 'Die ',
   ledgerLink: 'Befundliste',
   ledgerMiddle: ' dokumentiert die Genauigkeits- und Modellgrenzen. Das ',
@@ -413,7 +423,7 @@ const fr: ShellStrings = {
   paperText: 'Nous n’avons pas pu consulter les tableaux de Belytschko et al. (1985) : l’article n’est pas en libre accès. La référence du toit, 0,3024, est la valeur de normalisation de MacNeal et Harder (1985), tableau 5(a), p. 11, qui donnent 0,0940 pour leur propre chargement de l’hémisphère ; la référence du cylindre, |u_y| = 1,8248 × 10⁻⁵ (u_y = −1,8248 × 10⁻⁵), provient des tests du moteur.',
   findingsHeading: 'Constats',
   auditLink: '#810 · correction du modèle de test',
-  auditText: ' : l’audit a trouvé des erreurs dans les modèles de test du toit et du cylindre, pas dans le moteur : un appui artificiel au faîte du toit, des conditions de symétrie incomplètes aux coins et des charges tributaires manquantes. Le toit corrigé atteint −0,302426 en 16 × 16 (0,0084 %) ; l’erreur du cylindre passe de 37,9 % en 6 × 6 à 6,8 % en 16 × 16 et 1,0 % en 32 × 32.',
+  auditText: auditText('fr', ' : l’audit a trouvé des erreurs dans les modèles de test du toit et du cylindre, pas dans le moteur : un appui artificiel au faîte du toit, des conditions de symétrie incomplètes aux coins et des charges tributaires manquantes. Le toit corrigé atteint {roof} en 16 × 16 ({difference} %) ; l’erreur du cylindre passe de 37,9 % en 6 × 6 à 6,8 % en 16 × 16 et 1,0 % en 32 × 32.'),
   ledgerBefore: 'Le ',
   ledgerLink: 'registre des constats',
   ledgerMiddle: ' documente les limites de précision et de modèle. Le ',
@@ -497,7 +507,7 @@ const tr: ShellStrings = {
   paperText: 'Belytschko et al. (1985) tablolarını inceleyemedik: makale açık erişimli değil. Çatı referansı 0,3024, MacNeal ve Harder’ın (1985) Tablo 5(a), s. 11’deki normalleştirme değeridir; aynı tablo kendi yarım küre yüklemeleri için 0,0940 verir. Silindir referansı |u_y| = 1,8248 × 10⁻⁵ (u_y = −1,8248 × 10⁻⁵) motor testlerinden gelir.',
   findingsHeading: 'Bulgular',
   auditLink: '#810 · test modeli düzeltmesi',
-  auditText: ': denetim, hataları motorda değil çatı ve silindir test modellerinde buldu: çatı tepesinde yapay bir mesnet, köşelerde eksik simetri mesnetleri ve eksik etki alanı yükleri. Düzeltilmiş çatı 16 × 16’da −0,302426’ya ulaşır (%0,0084); silindirin hatası 6 × 6’da %37,9’dan 16 × 16’da %6,8’e ve 32 × 32’de %1,0’a düşer.',
+  auditText: auditText('tr', ': denetim, hataları motorda değil çatı ve silindir test modellerinde buldu: çatı tepesinde yapay bir mesnet, köşelerde eksik simetri mesnetleri ve eksik etki alanı yükleri. Düzeltilmiş çatı 16 × 16’da {roof}’ya ulaşır (%{difference}); silindirin hatası 6 × 6’da %37,9’dan 16 × 16’da %6,8’e ve 32 × 32’de %1,0’a düşer.'),
   ledgerBefore: '',
   ledgerLink: 'Bulgu kaydı',
   ledgerMiddle: ' doğruluk ve model sınırlamalarını belgeler. ',
@@ -575,13 +585,13 @@ const hu: ShellStrings = {
   checkCylinder32: 'Összenyomott henger 32 × 32 (natív): relatív hiba −1,8248 × 10⁻⁵-hez képest',
   checkConvergence: 'Összenyomott henger 6 → 32: egymást követő hibák legnagyobb aránya (1 alatt)',
   checkParity: 'WebAssembly a natívhoz képest, tető és henger: legnagyobb relatív eltérés',
-  checkRefusals: 'Félgömbhálók, amelyeket nem tart vissza mindkét futtatókörnyezet #798-cal',
+  checkRefusals: 'Félgömbhálók, amelyeket a két futtatókörnyezet közül legalább az egyik nem tart vissza #798-cal',
   checkBuilders: 'A böngésző generátorai az esetfájlhoz képest: legnagyobb relatív eltérés',
   paperHeading: 'A cikkel összevetve',
   paperText: 'Belytschko et al. (1985) táblázatait nem tudtuk megnézni: a cikk nem szabadon hozzáférhető. A tető 0,3024-es referenciája MacNeal és Harder (1985) normalizáló értéke (5(a) táblázat, 11. o.), akik saját félgömbterhelésükre 0,0940-et adnak meg; a henger |u_y| = 1,8248 × 10⁻⁵ (u_y = −1,8248 × 10⁻⁵)-es referenciája a számítómotor tesztjeiből származik.',
   findingsHeading: 'Megállapítások',
   auditLink: '#810 · a tesztmodell javítása',
-  auditText: ': az audit nem a számítómotorban, hanem a tető és a henger tesztmodelljében talált hibákat: mesterséges megtámasztást a tető gerincén, hiányos szimmetriamegtámasztásokat a sarkokban és a csomópontokhoz tartozó területekből számított csomóponti terhek hiányát. A javított tető 16 × 16-nál −0,302426-ot ér el (0,0084%); a henger hibája 6 × 6-nál 37,9%-ról 16 × 16-nál 6,8%-ra, 32 × 32-nél 1,0%-ra csökken.',
+  auditText: auditText('hu', ': az audit nem a számítómotorban, hanem a tető és a henger tesztmodelljében talált hibákat: mesterséges megtámasztást a tető gerincén, hiányos szimmetriamegtámasztásokat a sarkokban és a csomópontokhoz tartozó területekből számított csomóponti terhek hiányát. A javított tető 16 × 16-nál {roof}-ot ér el ({difference}%); a henger hibája 6 × 6-nál 37,9%-ról 16 × 16-nál 6,8%-ra, 32 × 32-nél 1,0%-ra csökken.'),
   ledgerBefore: 'A ',
   ledgerLink: 'megállapítások jegyzéke',
   ledgerMiddle: ' rögzíti a pontossági és modellkorlátokat. Az ',
@@ -665,7 +675,7 @@ const zh: ShellStrings = {
   paperText: '我们无法查看 Belytschko et al.（1985）的表格：该文章不是开放获取。屋面参考值 0.3024 是 MacNeal 和 Harder（1985）表 5(a)（第 11 页）的归一化值，他们对自己的半球加载给出 0.0940；圆柱参考值 |u_y| = 1.8248 × 10⁻⁵ (u_y = −1.8248 × 10⁻⁵) 来自计算引擎的测试。',
   findingsHeading: '发现',
   auditLink: '#810 · 测试模型修正',
-  auditText: '：审查发现的错误在屋面和圆柱的测试模型中，而不在计算引擎中：屋面顶部的人为支座、角点处不完整的对称约束以及缺失的按节点分担面积计算的节点荷载。修正后的屋面在 16 × 16 时达到 −0.302426（0.0084%）；圆柱误差从 6 × 6 的 37.9% 降到 16 × 16 的 6.8% 和 32 × 32 的 1.0%。',
+  auditText: auditText('zh', '：审查发现的错误在屋面和圆柱的测试模型中，而不在计算引擎中：屋面顶部的人为支座、角点处不完整的对称约束以及缺失的按节点分担面积计算的节点荷载。修正后的屋面在 16 × 16 时达到 {roof}（{difference}%）；圆柱误差从 6 × 6 的 37.9% 降到 16 × 16 的 6.8% 和 32 × 32 的 1.0%。'),
   ledgerBefore: '',
   ledgerLink: '问题记录',
   ledgerMiddle: '记载了精度和模型方面的局限。',

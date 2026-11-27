@@ -73,8 +73,11 @@ export function validateLayout(value: unknown, unitWeight = PAPER_UNIT_WEIGHT): 
   return v;
 }
 
+export const unitWeightOf = (id: string) => /^table1-v5-(\d+(?:\.\d+)?)$/.test(id) ? Number(id.slice('table1-v5-'.length)) : NaN;
+export const paperRow = (weight: number) => published.checks.find(r => unitWeightOf(r.id) === weight);
+
 export function paperComparison(layout: Layout, weight: number) {
-  const row = published.checks.find(r => Number(r.id.slice('table1-v5-'.length)) === weight);
+  const row = paperRow(weight);
   if (!row) return null;
   const observed = Math.abs(layout.volume - row.reference);
   return { ...row, computed: layout.volume, observed, passed: observed <= row.tolerance };

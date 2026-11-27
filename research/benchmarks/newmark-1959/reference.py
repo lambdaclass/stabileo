@@ -22,9 +22,11 @@ for ratio in case['ratios']:
     dt = ratio * period
     steps = round(case['cycles'] / ratio)
     theta = 2 * math.atan(omega * dt / 2)
+    lag = steps * (omega * dt - theta)
     runs.append({'ratio': ratio, 'steps': steps, 'theta': theta, 'discretePeriod': 2 * math.pi * dt / theta,
                  'elongation': 2 * math.pi * dt / theta / period - 1,
-                 'phaseLagBound': amplitude * min(2.0, steps * (omega * dt - theta))})
+                 'uncappedPhaseLagBound': amplitude * lag,
+                 'phaseLagBound': 2 * amplitude * math.sin(min(math.pi, lag) / 2)})
 reference = {'omega': omega, 'period': period, 'amplitude': amplitude, 'runs': runs}
 text = json.dumps(reference, indent=2) + '\n'
 target = here / 'reference-results' / 'closed-form.json'

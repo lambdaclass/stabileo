@@ -16,7 +16,7 @@ native = None
 class BenchmarkOutputs(unittest.TestCase):
     def test_all_shell_sources_have_a_single_solve_outcome(self):
         folder = self.benchmark('benchmarks/shell-obstacle-course')
-        recorded = folder / 'results/wasm-results.json'
+        recorded = folder / 'results/stabileo_results.json'
         original = json.loads(recorded.read_text())
         native_dir = folder / 'results'
         self.control(folder, native_dir, '--write')
@@ -182,12 +182,12 @@ const createServer = async settings => {
                     checker.write_text(source.replace('const rows = await runCases();', """cases.splice(cases.findIndex(c => c.id === 'hemisphere-8'), 1);
   const rows = (await runCases()).filter(r => r.id !== 'hemisphere-8');"""))
                 elif mutation == 'measurement':
-                    path = folder / 'results/wasm-results.json'
+                    path = folder / 'results/stabileo_results.json'
                     rows = json.loads(path.read_text())
                     next(r for r in rows if r['id'] == 'cylinder-12')['value'] *= 0.99
                     path.write_text(json.dumps(rows))
                 else:
-                    shutil.copyfile(root / 'research/benchmarks/shell-obstacle-course/results/wasm-results.json', folder / 'results/wasm-results.json')
+                    shutil.copyfile(root / 'research/benchmarks/shell-obstacle-course/results/stabileo_results.json', folder / 'results/stabileo_results.json')
                     path = folder / 'VALIDATION.json'
                     data = json.loads(path.read_text())
                     next(r for r in data['checks'] if r['id'] == 'parity')['observed'] = None

@@ -69,8 +69,8 @@
     active.onmessage = ({ data }: MessageEvent<{ kind: string; lambda?: number; frame?: Frame }>) => {
       if (worker !== active) return;
       if (data.kind === 'buckling' && data.lambda !== undefined) {
-        lambda = data.lambda; displayedMoment = requested; frames = [replay.frames[0]]; source = 'live';
-        playback.setCount(1);
+        lambda = data.lambda; displayedMoment = requested; frames = requested === MOMENTS[0] ? [replay.frames[0]] : []; source = 'live';
+        playback.setCount(frames.length);
       } else if (data.kind === 'frame' && data.frame) {
         frames = [...frames, data.frame]; playback.setCount(frames.length);
       } else if (data.kind === 'done') stop();
@@ -136,16 +136,18 @@
         {#if failed}<p role="alert">{s.failed}</p>{/if}
         <p data-testid="ferrari-buckling">λ₁ = {format(lambda)}</p>
       </div>
-      <StabileoViewer plane="elevation" xy={replay.nodes} cells={replay.cells} cellSize={2} values={null} displayMode="geometry" renderDiagnostics range={{ min: 0, max: 1 }}
-        displacement={shown.displacement} deformScale={1} showMesh={false} title={s.viewer}
-        height="min(52vh, 24rem)" view={[-0.1, -0.1, 1.1, 1.1]} editorButton={false} oninteract={() => { playback.interact(); playback.follow = false; }} />
-      <label>{s.step} {format(playback.shown + 1)} / {format(frames.length)}
-        <input type="range" min="0" max={frames.length - 1} value={playback.shown} oninput={e => playback.seek(Number(e.currentTarget.value))} />
-      </label>
-      <p>{s.lambda}: {format(shown.lambda)} · {s.theta}: {format(shown.theta)}</p>
-      <PlotXY series={[{ name: s.path, color: '#3987e5', kind: 'line', points: frames.map(f => ({ x: f.theta, y: f.lambda })) }]}
-        xLabel={s.theta} yLabel={s.lambda} ariaLabel={s.path}
-        current={{ x: shown.theta, y: shown.lambda, label: s.step }} />
+      {#if shown}
+        <StabileoViewer plane="elevation" xy={replay.nodes} cells={replay.cells} cellSize={2} values={null} displayMode="geometry" renderDiagnostics range={{ min: 0, max: 1 }}
+          displacement={shown.displacement} deformScale={1} showMesh={false} title={s.viewer}
+          height="min(52vh, 24rem)" view={[-0.1, -0.1, 1.1, 1.1]} editorButton={false} oninteract={() => { playback.interact(); playback.follow = false; }} />
+        <label>{s.step} {format(playback.shown + 1)} / {format(frames.length)}
+          <input type="range" min="0" max={frames.length - 1} value={playback.shown} oninput={e => playback.seek(Number(e.currentTarget.value))} />
+        </label>
+        <p>{s.lambda}: {format(shown.lambda)} · {s.theta}: {format(shown.theta)}</p>
+        <PlotXY series={[{ name: s.path, color: '#3987e5', kind: 'line', points: frames.map(f => ({ x: f.theta, y: f.lambda })) }]}
+          xLabel={s.theta} yLabel={s.lambda} ariaLabel={s.path}
+          current={{ x: shown.theta, y: shown.lambda, label: s.step }} />
+      {/if}
       <p class="notice">{s.pathNote}</p>
     </div>
   {/snippet}

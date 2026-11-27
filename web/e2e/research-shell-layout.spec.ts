@@ -63,7 +63,7 @@ test('@smoke research shell: the split grid holds only the head, article and app
         semantics: [...grid.attributes].map(a => a.name).filter(n => n === 'role' || n.startsWith('aria-')),
       };
     });
-    expect(shape, e.path).toEqual({ wrap: ['header.rs-shell-head', 'div.rs-shell-grid'], grid: ['article.rs-shell-article', 'aside.rs-shell-app'], display: 'contents', semantics: [] });
+    expect(shape, e.path).toEqual({ wrap: ['header.rs-shell-head', 'div.rs-shell-grid'], grid: ['aside.rs-shell-app', 'article.rs-shell-article'], display: 'contents', semantics: [] });
     checked++;
   }
   expect(checked).toBeGreaterThan(0);

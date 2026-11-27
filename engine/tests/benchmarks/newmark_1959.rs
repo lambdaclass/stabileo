@@ -94,7 +94,7 @@ fn newmark_1959_step_response() {
         assert!(period_difference < 0.005);
         assert!(measured > period);
         let phase_lag = input.n_steps as f64 * (omega * input.time_step - theta);
-        let bound = amplitude * phase_lag.min(2.0) + 1e-10;
+        let bound = 2.0 * amplitude * (phase_lag.min(PI) / 2.0).sin() + 1e-10;
         assert!(error < bound, "dt/T={ratio}: {error} exceeds the phase-lag bound {bound}");
         assert!(error > previous_error);
         if ratio == 0.025 { assert!(error < 0.0005); }

@@ -39,8 +39,10 @@ it.each([[0.5, 3], [1, 3], [4, 3], [2, 2.5], [2, 5]])('collapses at the lowest h
   expect(list.filter(c => !c.passed)).toEqual([]);
 });
 
-it.each([0.75, 3])('tied portal at V/H=%s still checks actual hinge moments', async vertical => {
-  const model = { ...PAPER, vertical };
+it.each([0.75, 3])('tied portal at V/H=%s still checks actual hinge moments', async ratio => {
+  const horizontal = 2 * PAPER.horizontal;
+  const model = { ...PAPER, horizontal, vertical: ratio * horizontal };
+  expect(governing(model)).toBeNull();
   const result = await run(model);
   const hingeCheck = () => checks(result, model).find(c => c.id === 'hinges')?.passed;
   expect(hingeCheck()).toBe(true);
@@ -72,8 +74,9 @@ it('beam midspan cannot yield in the reverse bending sense', async () => {
 });
 
 it('checks either member end at the left joint on both sides of the mechanism transitions', async () => {
-  for (const vertical of [0.5, 0.75, 3, 4]) {
-    const p = { ...PAPER, vertical };
+  for (const ratio of [0.5, 0.75, 3, 4]) {
+    const horizontal = 2 * PAPER.horizontal;
+    const p = { ...PAPER, horizontal, vertical: ratio * horizontal };
     const result = await run(p);
     const hinge = result.steps.flatMap(s => s.hingesFormed ?? []).find(h => hingeNode(h) === 2)!;
     expect(checks(result, p).find(c => c.id === 'hinges')?.passed).toBe(true);

@@ -1,4 +1,4 @@
-import metrics from '../../../../../research/tools/published-metrics.json';
+import metrics from './published-metrics.json';
 import { getContext, setContext } from 'svelte';
 
 /** What the article can ask of the app pane (links such as "watch step 54" or "try ℓ = 0.015"). */
@@ -73,9 +73,13 @@ export function comparisonDifference(row: PublishedRow): number {
   return NaN;
 }
 
+export function measurementPasses(row: Pick<PublishedRow, 'observed' | 'tolerance' | 'passed'>, relation: string) {
+  return row.passed === true && Number.isFinite(row.observed) && Number.isFinite(row.tolerance)
+    && row.observed >= 0 && (relation === '<' ? row.observed < row.tolerance : relation === '<=' && row.observed <= row.tolerance);
+}
+
 export function comparisonPasses(row: PublishedRow) {
   const difference = comparisonDifference(row);
-  return Number.isFinite(difference) && difference <= row.tolerance && row.passed === true && Number.isFinite(row.observed)
-    && Math.abs(row.observed - difference) <= 1e-9 * Math.max(difference, row.observed)
-    && Number.isFinite(row.tolerance) && row.observed >= 0 && row.observed <= row.tolerance;
+  return Number.isFinite(difference) && difference <= row.tolerance && measurementPasses(row, '<=')
+    && Math.abs(row.observed - difference) <= 1e-9 * Math.max(difference, row.observed);
 }

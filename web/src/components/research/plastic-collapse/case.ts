@@ -108,13 +108,19 @@ export function residual(result: Result, p: Portal = PAPER) {
   return { fx, fz, my };
 }
 
-/** Beam collapse is a partial mechanism: a base may yield before it forms, so its three hinges need only be among those formed. */
-function hingeSetMatches(nodes: number[], modes: Mechanism[]): boolean {
+function hingeSetMatches(nodes: number[], modes: Mechanism[], moments: ReturnType<typeof collapseState>['moments'], mp: number): boolean {
   const formed = new Set(nodes);
   const patterns = modes.map(mode => HINGES[mode].split(',').map(Number));
   const permitted = new Set(patterns.flat());
+  if (modes.length === 1 && modes[0] === 'beam') {
+    const atYield = (m: number | undefined, sign: number) => m !== undefined && Math.abs(m - sign * mp) <= portal.yieldTolerance * mp;
+    if (!atYield(moments.get(1)?.myEnd, 1) || !atYield(moments.get(2)?.myStart, -1)) return false;
+    for (const [base, column] of [[1, 1], [4, 3]]) {
+      if (atYield(moments.get(column)?.myStart, 1)) permitted.add(base);
+    }
+  }
   return formed.size === nodes.length && patterns.some(needed => needed.every(n => formed.has(n)))
-    && (modes.includes('beam') || nodes.every(n => permitted.has(n)));
+    && nodes.every(n => permitted.has(n));
 }
 
 export const RELATIVE_EQUILIBRIUM = 1e-8;
@@ -137,7 +143,8 @@ export function checks(result: Result, p: Portal = PAPER): { id: CheckId; passed
   const mode = possible.length === 1 ? possible[0] : null;
   const lambda = result.collapseFactor;
   const { moments, reactions } = collapseState(result);
-  const hingesMatch = !paper ? result.steps.every(s => (s.hingesFormed ?? []).every(h => {
+  const hingesMatch = !paper ? result.steps.every(s => !!s.hingesFormed?.length && s.hingesFormed.every(h => {
+    if (!elements.some(e => e.id === h.elementId) || !['start', 'end'].includes(h.end)) return false;
     const node = hingeNode(h);
     if (node === 2) {
       return possible.some(mechanism => {
@@ -183,7 +190,7 @@ export function checks(result: Result, p: Portal = PAPER): { id: CheckId; passed
   const list: { id: CheckId; passed: boolean }[] = [
     { id: 'collapse', passed: Math.abs(lambda - Math.min(...Object.values(bounds))) < tolerance },
     { id: 'mechanism', passed: result.isMechanism && !(result.warnings ?? []).length },
-    { id: 'hinges', passed: hingesMatch && hingesCarryForces && hingeSetMatches(hingeNodes, possible) },
+    { id: 'hinges', passed: hingesMatch && hingesCarryForces && hingeSetMatches(hingeNodes, possible, moments, mp) },
     { id: 'yield', passed: completeEvents && ends.length === 2 * elements.length && ends.every(m => Math.abs(m) <= mp * (1 + yieldTolerance)) && !yieldedOnTheWay },
     { id: 'equilibrium', passed: reactionsAtSupports && (paper ? [r.fx, r.fz, r.my].every(x => Math.abs(x) < equilibriumTolerance) : relativeResidual(r, lambda, p) < RELATIVE_EQUILIBRIUM) },
   ];

@@ -115,7 +115,7 @@ describe('two prerenders of one build are byte-identical (#875)', () => {
     const macneal = '/research/benchmarks/macneal-harder-1985';
     const plastic = '/research/benchmarks/plastic-collapse';
     await withDelayedSolver([shell, macneal, plastic], html => {
-      expect(html('en', shell)).toMatch(/data-testid="shell-summary"[^>]*>Finest selected meshes passing: \d+\/3/);
+      expect(html('en', shell)).toMatch(/data-testid="shell-summary"[^>]*>Cases passing at 16 × 16: 1\/3/);
       expect(html('en', macneal)).toContain('data-testid="summary-frame"');
       expect(html('en', plastic)).toMatch(/data-testid="source"[^>]*>Live computation/);
     });

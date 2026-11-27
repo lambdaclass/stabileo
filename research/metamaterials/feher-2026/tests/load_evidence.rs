@@ -6,13 +6,17 @@ fn comparison() -> Value {
 }
 
 #[test]
-fn failed_solve_has_no_measured_snap_load() {
+fn measured_shallow_cut_snap_is_published_with_the_failed_paper_comparison() {
     let evidence = comparison();
     let rows = evidence["checks"].as_array().unwrap();
-    let unresolved = rows.iter().find(|r| r["id"] == "snap-through-0.5-0.2").unwrap();
-    assert!(unresolved["computed"].is_null() && unresolved["observed"].is_null());
-    assert_eq!(unresolved["passed"], false);
-    assert_eq!(unresolved["status"], "unresolved");
+    let row = rows.iter().find(|r| r["id"] == "snap-through-0.5-0.2").unwrap();
+    let curves: Value = serde_json::from_str(include_str!("../reference-results/curves.json")).unwrap();
+    let cycle = curves.as_array().unwrap().iter().find(|c| c["span"] == 0.5 * LENGTH && c["b"] == 0.2).unwrap();
+    let snap = cycle["snaps"].as_array().unwrap().iter().find(|e| e["loading"] == true).unwrap();
+    assert_eq!(row["computed"], snap["load"]);
+    assert_eq!(row["observed"], (row["computed"].as_f64().unwrap() - row["reference"].as_f64().unwrap()).abs());
+    assert!(row["observed"].as_f64().unwrap() > row["tolerance"].as_f64().unwrap());
+    assert_eq!(row["passed"], false);
     for id in ["snap-through-0.5-0.5", "snap-back-0.5-0.5"] {
         assert!(rows.iter().find(|r| r["id"] == id).unwrap()["computed"].is_number());
     }
@@ -92,7 +96,6 @@ fn steep_segment_refines_with_distinct_increments() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn shallow_cut_cycle_reaches_the_inverted_branch_and_returns_to_zero_load() {
     use cut_strip_feher_2026::{load_cycle, CYCLE_LOAD_STEP, HEIGHT_INCREMENT};
     let cycle = load_cycle(&Strip { a: 0.5, b: 0.2 }, LENGTH / 2., 4., CYCLE_LOAD_STEP, HEIGHT_INCREMENT).unwrap();

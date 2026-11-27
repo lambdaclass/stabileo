@@ -130,7 +130,9 @@ pub const HEIGHT_INCREMENT: f64 = 10.0;
 
 fn advance(state: &State, strip: &Strip, span: f64, load: f64) -> Result<State, String> {
     let model = strip.model(PI / 2.0, Some(span), 1.0, load);
-    state.go(model.clone(), 2).or_else(|_| state.go(model, 50))
+    state.go(model.clone(), 2)
+        .or_else(|_| state.go(model.clone(), 50))
+        .or_else(|_| equilibrate(state.go(model, 1)?))
 }
 
 fn equilibrate(mut state: State) -> Result<State, String> {

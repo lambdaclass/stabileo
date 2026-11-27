@@ -39,7 +39,7 @@ try {
   const native = id => JSON.parse(readFileSync(`${nativeDir}/${id}.json`, 'utf8'));
   const ids = ['roof-6', 'roof-8', 'roof-12', 'roof-16', 'cylinder-6', 'cylinder-8', 'cylinder-12', 'cylinder-16', 'hemisphere-4', 'hemisphere-8', 'hemisphere-16'].sort();
   for (const list of [cases, rows]) assert.deepEqual(list.map(r => r.id).sort(), ids, 'required shell meshes');
-  const recorded = JSON.parse(readFileSync(`${here}results/wasm-results.json`, 'utf8'));
+  const recorded = JSON.parse(readFileSync(`${here}results/stabileo_results.json`, 'utf8'));
   assert.deepEqual(recorded.map(r => r.id).sort(), ids, 'recorded shell meshes');
   function signedError(row, c) {
     const reference = signedReference(c);
@@ -88,14 +88,17 @@ try {
   const cylinderError = signedError(cylinder32, target);
   const cylinderErrors = [...[6, 8, 12, 16].map(mesh => byId(`cylinder-${mesh}`).error), cylinderError];
   const convergence = Math.max(...cylinderErrors.slice(1).map((e, i) => e / cylinderErrors[i]));
-  const check = (id, metric, kind, observed, tolerance, passed) => ({ id, metric, kind, observed, tolerance, passed });
+  const check = (id, metric, kind, observed, tolerance, relation) => ({
+    id, metric, kind, observed, tolerance, relation,
+    passed: Number.isFinite(observed) && observed >= 0 && (relation === '<' ? observed < tolerance : relation === '<=' && observed <= tolerance),
+  });
   const checks = [
-    ...cases.filter(c => c.group === 'roof').map(c => check(c.id, `Scordelis–Lo roof ${c.mesh}×${c.mesh} (WASM): relative error of signed u_z against −0.3024`, 'relative', byId(c.id).error, c.tolerance, byId(c.id).error < c.tolerance)),
-    check('cylinder-32', 'Pinched cylinder 32×32 (native): relative error of signed u_y against −1.8248e-5', 'relative', cylinderError, 0.02, cylinderError < 0.02),
-    check('cylinder-convergence', 'Pinched cylinder 6, 8, 12, 16 (WASM) and 32 (native): largest ratio of successive relative errors, must be below 1', 'ratio', convergence, 1, convergence < 1),
-    check('parity', 'Roof and cylinder browser meshes: largest relative difference between WASM and native values', 'relative', parity, 1e-8, parity <= 1e-8),
-    check('hemisphere-refusals', 'Hemisphere 4, 8, 16: meshes not withheld by both runtimes with known issue #798 (SH-MITC4-DISTORTION)', 'count', notRefused, 0, notRefused === 0),
-    check('builders', 'Browser roof and cylinder builders against every engine-owned case input: largest relative difference', 'relative', builders, 1e-12, builders <= 1e-12),
+    ...cases.filter(c => c.group === 'roof').map(c => check(c.id, `Scordelis–Lo roof ${c.mesh}×${c.mesh} (WASM): relative error of signed u_z against −0.3024`, 'relative', byId(c.id).error, c.tolerance, '<')),
+    check('cylinder-32', 'Pinched cylinder 32×32 (native): relative error of signed u_y against −1.8248e-5', 'relative', cylinderError, 0.02, '<'),
+    check('cylinder-convergence', 'Pinched cylinder 6, 8, 12, 16 (WASM) and 32 (native): largest ratio of successive relative errors, must be below 1', 'ratio', convergence, 1, '<'),
+    check('parity', 'Roof and cylinder browser meshes: largest relative difference between WASM and native values', 'relative', parity, 1e-8, '<='),
+    check('hemisphere-refusals', 'Hemisphere 4, 8, 16: meshes not withheld by both runtimes with known issue #798 (SH-MITC4-DISTORTION)', 'count', notRefused, 0, '<='),
+    check('builders', 'Browser roof and cylinder builders against every engine-owned case input: largest relative difference', 'relative', builders, 1e-12, '<='),
   ];
   const references = {
     what: 'References used by the shell obstacle course page, read from the engine-owned case file by wasm/check.mjs.',
@@ -130,7 +133,7 @@ try {
     }));
   } else {
     const committed = JSON.parse(readFileSync(paths.validation, 'utf8'));
-    assert.deepEqual(committed.checks.map(c => [c.id, c.metric, c.kind, c.passed, c.tolerance]), checks.map(c => [c.id, c.metric, c.kind, c.passed, c.tolerance]), 'VALIDATION.json is stale: rerun with --write');
+    assert.deepEqual(committed.checks.map(c => [c.id, c.metric, c.kind, c.passed, c.tolerance, c.relation]), checks.map(c => [c.id, c.metric, c.kind, c.passed, c.tolerance, c.relation]), 'VALIDATION.json is stale: rerun with --write');
     for (const [i, c] of checks.entries()) {
       const was = committed.checks[i].observed;
       assert.ok(Number.isFinite(was) && Number.isFinite(c.observed) && Math.abs(was - c.observed) <= Math.max(1e-9 * Math.abs(c.observed), 1e-15), `${c.id}: committed ${was}, recomputed ${c.observed}`);

@@ -34,7 +34,7 @@ describe('Newmark SDOF benchmark', () => {
       r.u.forEach((u, i) => expect(Math.abs(u - amplitude * (1 - Math.cos(i * 2 * Math.atan(Math.PI * r.ratio))))).toBeLessThan(1e-10));
     }
     expect(replay.runs[0].maxError).toBeLessThan(0.0005);
-    expect(phaseLagBound(0.025)).toBeCloseTo(0.01 * 8 * Math.PI * (1 - Math.atan(Math.PI * 0.025) / (Math.PI * 0.025)), 9);
+    expect(phaseLagBound(0.025)).toBeCloseTo(0.02 * Math.sin(4 * Math.PI * (1 - Math.atan(Math.PI * 0.025) / (Math.PI * 0.025))) + 1e-10, 9);
   });
   it('recomputes every evidence check from the replay histories', () => {
     const computed = evaluate(replay.runs.map(r => summarize(r.ratio, r.time, r.u)));

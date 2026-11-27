@@ -82,7 +82,7 @@ branch (red) gives its snap-through and snap-back loads.
 | Case (a = 0.5) | Quantity | Paper | Ours | Difference |
 |---|---|---|---|---|
 | B = 0.5L, b = 0.2 | unloaded height (measured) | No zero-load marker | 125.8 mm | — |
-| B = 0.5L, b = 0.2 | snap-through load | 2.98 N | Unresolved | — |
+| B = 0.5L, b = 0.2 | snap-through load | 2.98 N | 2.85 N | −4.3 % |
 | B = 0.5L, b = 0.5 | unloaded height (measured) | No zero-load marker | 125.7 mm | — |
 | B = 0.5L, b = 0.5 | snap-through load | 2.22 N | 2.05 N | −7.7 % |
 | B = 0.5L, b = 0.5 | snap-back load | 0.96 N | 0.95 N | −1.4 % |
@@ -142,7 +142,7 @@ increments. The loaded-height query now refines each candidate with the free tan
 | Unloaded height, B = 0.75L, b = 0.2 (measured) | No zero-load marker | 86.60 mm | — | 0.7 mm |
 | Unloaded height, B = 0.75L, b = 0.5 (measured) | No zero-load marker | 85.70 mm | — | 0.7 mm |
 | Unloaded height, B = 0.75L, b = 0.8 (measured) | No zero-load marker | 82.00 mm | — | 0.7 mm |
-| Snap-through load, B = 0.5L, b = 0.2 | 2.977 N | Unresolved | — | 0.06 N |
+| Snap-through load, B = 0.5L, b = 0.2 | 2.977 N | 2.85 N | 0.127 N ✗ | 0.06 N |
 | Snap-through load, B = 0.5L, b = 0.5 | 2.221 N | 2.05 N | 0.171 N ✗ | 0.06 N |
 | Snap-back load, B = 0.5L, b = 0.5 | 0.963 N | 0.95 N | 0.013 N | 0.06 N |
 | Snap-through load, B = 0.75L, b = 0.2 | 1.637 N | 1.55 N | 0.087 N ✗ | 0.06 N |
@@ -156,7 +156,7 @@ two pixels on the load axis (0.004–0.005 N each). A failed solve leaves the sn
 The six lowest-load experimental markers lie at 0.037–0.038 N. None is within the two-pixel
 uncertainty of zero, so a comparison of measured and calculated unloaded height is unavailable.
 The largest absolute difference between the two model predictions at zero load is 0.0133 mm
-when rounded up. The measured downward jumps for the other two cases lie below the paper's
+when rounded up. The measured downward jumps for all three compared cases lie below the paper's
 computed limit loads. The catalog records `numerically-validated` and
 `reproduced_published_results: false`.
 

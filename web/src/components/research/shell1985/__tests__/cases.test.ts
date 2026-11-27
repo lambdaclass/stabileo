@@ -164,6 +164,14 @@ it('withholds the glyph and count together when a claimed pass exceeds the measu
     const html = render(Page).body;
     expect(html).toContain('8 of 9');
     expect(html.match(/data-testid="validation-checks"(.*?)<\/table>/s)![1].match(/✗/g)).toHaveLength(1);
+    const roof = validation.checks.find(c => c.id === 'roof-16')!;
+    const observed = roof.observed;
+    try {
+      roof.observed = roof.tolerance;
+      expect(render(Page).body).toContain('7 of 9');
+    } finally {
+      roof.observed = observed;
+    }
   } finally {
     row.observed = original;
   }

@@ -4,6 +4,7 @@
   import { holdPrerender } from '../../../lib/prerender-hold';
   import ExperimentShell from '../shell/ExperimentShell.svelte';
   import PaneTabs from '../shell/PaneTabs.svelte';
+  import { measurementPasses } from '../shell/context';
   import Sci from '../shell/Sci.svelte';
   import { num, sci } from '../shell/format';
   import ScalarFieldViewer from '../../viewport/ScalarFieldViewer.svelte';
@@ -15,8 +16,9 @@
   import validation from '../../../../../research/benchmarks/shell-obstacle-course/VALIDATION.json';
   const HEMISPHERE_TEST = 'shell_benchmark::benchmark_hemisphere_hole_convergence';
 
-  type Check = { id: string; kind: string; observed: number; tolerance: number; passed: boolean };
-  const checks = validation.checks as Check[];
+  type Check = (typeof validation.checks)[number];
+  const checks = validation.checks;
+  const passes = (c: Check) => measurementPasses(c, c.relation);
   const lang = $derived(shellLocale(publicI18n.locale));
   const s = $derived(strings[lang]);
 
@@ -121,7 +123,7 @@
   sourcePath="research/benchmarks/shell-obstacle-course"
   referenceLabel={s.referenceLabel}
   actions={{ goToStep: n => { meshes = { ...meshes, [selected]: choices[Math.max(0, Math.min(choices.length - 1, n))] }; }, setParams: p => { if (typeof p.mesh === 'number' && typeof p.group === 'string') setMesh(p.group as Group, p.mesh); }, showTab: t => { tab = t; } }}
-  verification={{ reference: { kind: 'checks', passed: checks.filter(c => c.passed).length, total: checks.length, href: '#validation' }, published: { kind: 'none', why: s.publishedWhy } }}>
+  verification={{ reference: { kind: 'checks', passed: checks.filter(passes).length, total: checks.length, href: '#validation' }, published: { kind: 'none', why: s.publishedWhy } }}>
   {#snippet article()}
     <h2>{s.obstacleHeading}</h2>
     <p>{s.obstacleText}</p>
@@ -146,7 +148,8 @@
         <thead><tr><th scope="col">{s.check}</th><th scope="col">{s.observed}</th><th scope="col">{s.tolerance}</th></tr></thead>
         <tbody>
           {#each checks as c (c.id)}
-            <tr><th scope="row">{checkName(c)}</th><td>{@render value(c.observed, c.kind)}</td><td><span class={c.passed ? 'ok' : 'bad'} aria-label={c.passed ? s.pass : s.fail}>{c.passed ? '✓' : '✗'}</span> {@render value(c.tolerance, c.kind)}</td></tr>
+            {@const passed = passes(c)}
+            <tr><th scope="row">{checkName(c)}</th><td>{@render value(c.observed, c.kind)}</td><td><span class={passed ? 'ok' : 'bad'} aria-label={passed ? s.pass : s.fail}>{passed ? '✓' : '✗'}</span> {@render value(c.tolerance, c.kind)}</td></tr>
           {/each}
         </tbody>
       </table>

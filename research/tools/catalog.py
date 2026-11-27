@@ -95,7 +95,7 @@ def crossref_block(doi):
     }
 
 
-with open(os.path.join(os.path.dirname(__file__), "published-metrics.json"), encoding="utf-8") as metric_file:
+with open(os.path.join(os.path.dirname(__file__), "../../web/src/components/research/shell/published-metrics.json"), encoding="utf-8") as metric_file:
     PUBLISHED_METRICS = json.load(metric_file)
 
 

@@ -20,7 +20,7 @@ const theta = (ratio: number) => 2 * Math.atan(Math.PI * ratio);
 export const discrete = (ratio: number, step: number) => amplitude * (1 - Math.cos(step * theta(ratio)));
 export const discretePeriod = (ratio: number) => period * Math.PI * ratio / Math.atan(Math.PI * ratio);
 export const steps = (ratio: number) => Math.round(caseData.cycles / ratio);
-export const phaseLagBound = (ratio: number) => amplitude * Math.min(2, steps(ratio) * (2 * Math.PI * ratio - theta(ratio))) + 1e-10;
+export const phaseLagBound = (ratio: number) => 2 * amplitude * Math.sin(Math.min(Math.PI, steps(ratio) * (2 * Math.PI * ratio - theta(ratio))) / 2) + 1e-10;
 export const PLAYBACK_SLOWDOWN = 2.5;
 export const playbackMs = (ratio: number) => 1000 * PLAYBACK_SLOWDOWN * period * ratio;
 export type Run = { ratio: number; time: number[]; u: number[]; measuredPeriod: number; maxError: number; discreteError: number };

@@ -9,7 +9,8 @@
       "theta": 0.15675784077829943,
       "discretePeriod": 0.6296083406154982,
       "elongation": 0.0020527962084226914,
-      "phaseLagBound": 0.0005148670419043544
+      "uncappedPhaseLagBound": 0.0005148670419043544,
+      "phaseLagBound": 0.0005148101749925308
     },
     {
       "ratio": 0.05,
@@ -17,7 +18,8 @@
       "theta": 0.3116129999390835,
       "discretePeriod": 0.6334526738626916,
       "elongation": 0.008171242600256035,
-      "phaseLagBound": 0.002037012335916666
+      "uncappedPhaseLagBound": 0.002037012335916666,
+      "phaseLagBound": 0.002033492321242898
     },
     {
       "ratio": 0.1,
@@ -25,7 +27,8 @@
       "theta": 0.6087915947292302,
       "discretePeriod": 0.6484717914332588,
       "elongation": 0.032074910622597264,
-      "phaseLagBound": 0.007810774395491382
+      "uncappedPhaseLagBound": 0.007810774395491382,
+      "phaseLagBound": 0.0076137325346067
     },
     {
       "ratio": 0.2,
@@ -33,7 +36,8 @@
       "theta": 1.1219642322172476,
       "discretePeriod": 0.7037375429756689,
       "elongation": 0.12003308603922846,
-      "phaseLagBound": 0.02
+      "uncappedPhaseLagBound": 0.026934565843733927,
+      "phaseLagBound": 0.019500032222274692
     }
   ]
 }
