@@ -14,7 +14,7 @@
 import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { historyStore, modelStore, uiStore } from '..';
-import { applyPlateMeshes, createPlate, physicalPlates, planPlateMesh, preparePlatesForAnalysis } from '../physical-plates';
+import { adoptCurrentMesh, applyPlateMeshes, createPlate, meshBeforeAnalysis, physicalPlates, planPlateMesh, preparePlatesForAnalysis } from '../physical-plates';
 import { applyZoneLoadPlan, confirmZoneUse, copyZonesToLevels, createUseZone, deleteUseZones, setZoneUse, suggestUse, useZones, zoneLoadPlan } from '../use-zones';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { serializeProject, deserializeProject } from '../file';
@@ -226,8 +226,45 @@ describe('use zones over two floors', () => {
 
   it('refuses preparation when the curved balcony leaves unmatched stations on the next slab', () => {
     floorWithCurvedBalcony(3);
-    expect(preparePlatesForAnalysis()).toEqual({ ok: false, reason: 'needsMesh', plates: ['B3'] });
-    expect(modelStore.solve3D(false, false, true)).toEqual(expect.stringContaining('B3'));
+    expect(preparePlatesForAnalysis().ok).toBe(true);
+    const cellsOf = (name: string) => {
+      const { members } = physicalPlates().find(p => p.name === name)!.group;
+      return [
+        ...(members.quads ?? []).map(id => ({ family: 'quad', id, nodes: modelStore.quads.get(id)!.nodes })),
+        ...(members.plates ?? []).map(id => ({ family: 'plate', id, nodes: modelStore.plates.get(id)!.nodes })),
+      ];
+    };
+    const onEdge = (node: number) => modelStore.nodes.get(node)!.x === 10;
+    const edge = (name: string) => new Set(cellsOf(name).flatMap(cell => cell.nodes.filter(onEdge)));
+    expect(edge('B3').size).toBeGreaterThan(2);
+    expect(edge('B3')).toEqual(edge('Bal3'));
+
+    const balcony = physicalPlates().find(p => p.name === 'Bal3')!;
+    const edgeIndex = (nodes: readonly number[]) => nodes.findIndex((id, i) => onEdge(id) && onEdge(nodes[(i + 1) % nodes.length]!));
+    const cell = cellsOf('Bal3').find(c => edgeIndex(c.nodes) >= 0)!;
+    const start = edgeIndex(cell.nodes);
+    const [a, b, ...rest] = [...cell.nodes.slice(start), ...cell.nodes.slice(0, start)];
+    const y = (modelStore.nodes.get(a!)!.y + modelStore.nodes.get(b!)!.y) / 2;
+    const mid = modelStore.addNode(10, y, 3);
+    const { materialId, thickness } = balcony.surface;
+    if (cell.family === 'quad') modelStore.removeQuad(cell.id);
+    else modelStore.removePlate(cell.id);
+    const triangles = [[a!, mid, rest.at(-1)!], [mid, b!, rest[0]!]];
+    if (rest.length === 2) triangles.push([mid, rest[0]!, rest[1]!]);
+    const ids = triangles.map(([i, j, k]) => modelStore.addPlate([i!, j!, k!], materialId, thickness));
+    const members = modelStore.model.groups.get(balcony.id)!.members;
+    modelStore.setGroupMembers(balcony.id, { ...members, nodes: [...members.nodes!, mid], plates: [...members.plates ?? [], ...ids] });
+    adoptCurrentMesh(balcony.id);
+    expect(edge('Bal3').has(mid)).toBe(true);
+    expect(edge('B3').has(mid)).toBe(false);
+    const previous = meshBeforeAnalysis.value;
+    try {
+      meshBeforeAnalysis.value = false;
+      expect(preparePlatesForAnalysis()).toEqual({ ok: false, reason: 'needsMesh', plates: ['B3'] });
+      expect(modelStore.solve3D(false, false, true)).toEqual(expect.stringContaining('B3'));
+    } finally {
+      meshBeforeAnalysis.value = previous;
+    }
   });
 
   it('puts a zone drawn before its plate is meshed onto the slab, not onto the members', () => {
