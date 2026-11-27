@@ -133,3 +133,20 @@ pub fn coefficients(n: usize, area: f64, h: f64, guess: f64) -> Coefficients {
     let cx = interpolate(&xis, &b);
     Coefficients { lambda: ct[1], alpha: ct[2] / ct[1], beta: ct[3] / ct[1], alpha_modal: cx[2] / cx[1], beta_modal: cx[3] / cx[1] }
 }
+
+#[cfg(test)]
+mod displacement_tests {
+    use super::*;
+
+    #[test]
+    #[ignore = "known wrong result: #2505"]
+    fn modal_vectors_require_one_finite_triplet_per_model_node() {
+        let node = |id| Displacement { node_id: id, ux: id as f64, uz: 0., ry: 0. };
+        for invalid in [vec![node(1), node(3)], vec![node(1), node(1), node(3)],
+                        vec![node(1), node(2), node(3), node(4)],
+                        vec![node(1), Displacement { ry: f64::NAN, ..node(2) }, node(3)]] {
+            assert!(std::panic::catch_unwind(|| vector(1, &invalid)).is_err());
+        }
+        assert_eq!(vector(1, &[node(3), node(1), node(2)]), vec![1.,0.,0.,2.,0.,0.,3.,0.,0.]);
+    }
+}
