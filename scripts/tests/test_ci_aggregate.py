@@ -314,7 +314,6 @@ class ParityWorkflow(unittest.TestCase):
             self.parity(merge, *args, f'PARITY_SIDE={side}', 'PARITY_RESEARCH_IN=shared', f'PARITY_OUT={side}.json')
         self.parity(merge, *args, 'PARITY_COMPARE=.')
 
-    @unittest.skip("known wrong result: #2657")
     def test_clean_merge_can_be_the_only_pair_requiring_parity(self):
         flags = self.repo / 'web/config/features.json'
 
@@ -352,7 +351,6 @@ class ParityWorkflow(unittest.TestCase):
         result = self.parity(merge, f'BASE={parent}', succeeds=False)
         self.assertIn('\n  web/dist/caption\n', result.stderr)
 
-    @unittest.skip("known wrong result: #2657")
     def test_declared_pr_edit_already_on_target_needs_no_replay(self):
         self.git('switch', '--quiet', '--detach', self.target)
         (self.repo / 'web/page').write_text('candidate page\n')
@@ -371,7 +369,6 @@ class ParityWorkflow(unittest.TestCase):
             result = self.parity(merge, *args, *mode, succeeds=False)
             self.assertIn('(1 output files):\n  web/dist/caption\n', result.stderr)
 
-    @unittest.skip("known wrong result: #2657")
     def test_matching_target_edit_and_outstanding_declaration_pass_together(self):
         self.git('switch', '--quiet', '--detach', self.head)
         head = self.commit('Declare the caption too', '--allow-empty', '-m', 'Production-Change: web/caption')
@@ -384,7 +381,6 @@ class ParityWorkflow(unittest.TestCase):
             with self.subTest(base=base):
                 self.parity(merge, f'BASE={base}', 'REQUIRE_PARITY=1')
 
-    @unittest.skip("known wrong result: #2657")
     def test_target_only_edit_cannot_validate_a_pr_declaration(self):
         self.git('switch', '--quiet', '--detach', self.head)
         head = self.commit('Declare a path untouched by the PR', '--allow-empty', '-m',

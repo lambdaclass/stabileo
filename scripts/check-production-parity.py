@@ -31,8 +31,8 @@ def git(source, *args):
     return subprocess.check_output(['git', *args], cwd=source)
 
 
-def trailers(source, base, key):
-    values = git(source, 'log', f'--format=%(trailers:key={key},valueonly)', f'{base}..HEAD')
+def trailers(source, base, key, head='HEAD'):
+    values = git(source, 'log', f'--format=%(trailers:key={key},valueonly)', f'{base}..{head}')
     return set(values.decode().splitlines()) - {''}
 
 
@@ -45,6 +45,30 @@ def profiles_enable_off_switch(before, after):
 def changed_paths(source, base, *paths):
     return set(os.fsdecode(path) for path in
                git(source, 'diff', '--name-only', '--no-renames', '-z', base, '--', *paths).split(b'\0') if path)
+
+
+def production_changes(source, base, head, paths):
+    declared = trailers(source, base, 'Production-Change', head)
+    if not declared:
+        return set()
+    invalid = 'Production-Change trailers must name actual changed paths outside the legacy overlay.'
+    if any(path.startswith('-') or path == LEGACY_OVERLAY for path in declared):
+        raise SystemExit(invalid)
+
+    remaining = declared.copy()
+    merges = git(source, 'log', '--first-parent', '--ancestry-path', '--min-parents=2', '--max-parents=2',
+                 '--format=%P', f'{base}..{head}')
+    for parents in merges.decode().splitlines():
+        target, pr = parents.split()
+        if git(source, 'rev-list', '--max-count=1', base, '--not', target):
+            continue
+        incoming = trailers(source, target, 'Production-Change', pr)
+        if incoming and incoming - changed_paths(source, f'{target}...{pr}'):
+            raise SystemExit(invalid)
+        remaining -= incoming
+    if remaining - paths:
+        raise SystemExit(invalid)
+    return declared & paths
 
 
 def snapshot(source, base, target, intended):
@@ -321,9 +345,7 @@ def check(args, source):
                 read_inventory(args.compare / 'candidate.json', 'candidate', head, base), base)
         return
 
-    intended = trailers(source, base, 'Production-Change')
-    if intended - paths or any(p.startswith('-') or p == LEGACY_OVERLAY for p in intended):
-        raise SystemExit('Production-Change trailers must name actual changed paths outside the legacy overlay.')
+    intended = production_changes(source, base, head, paths)
     engine_paths = changed_paths(source, base, *ENGINE_INPUTS) - intended
     engine_paths -= changed_paths(source, base, 'engine/src', 'engine/Cargo.toml')
     if engine_paths:

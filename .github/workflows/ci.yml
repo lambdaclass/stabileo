@@ -310,11 +310,19 @@ jobs:
           BASE: ${{ steps.base.outputs.sha }}
           CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          required=$(make --silent check.web.production-parity NIX_RUN= PARITY_PLAN=1)
-          case "$required" in true|false) ;; *) exit 1 ;; esac
+          first_parent=$(git rev-parse --verify "$GITHUB_SHA^1")
+          required=false
+          plan() {
+            local decision
+            decision=$(make --silent check.web.production-parity NIX_RUN= BASE="$1" CANDIDATE="$2" PARITY_PLAN=1)
+            case "$decision" in true) required=true ;; false) ;; *) exit 1 ;; esac
+          }
+          plan "$BASE" "$CANDIDATE"
+          if [[ "$BASE" != "$first_parent" || "$CANDIDATE" != "$GITHUB_SHA" ]]; then
+            plan "$first_parent" "$GITHUB_SHA"
+          fi
           echo "required=$required" >> "$GITHUB_OUTPUT"
           if [[ "$required" == true ]]; then
-            first_parent=$(git rev-parse --verify "$GITHUB_SHA^1")
             bases=("$first_parent")
             if [[ "$GITHUB_EVENT_NAME" == merge_group && "$BASE" != "$first_parent" ]]; then
               bases+=("$BASE")
