@@ -407,3 +407,27 @@ test('known wrong result: #1928 published CIRSOC tables and load modules exclude
     assert.deepEqual(inactive.map(([id]) => id), [], path);
   }
 });
+
+test.skip('known wrong result: #1928 the level-centre table and its labels belong to the unified results picker', async () => {
+  for (const plates of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
+      const entry = resolve(root, 'src/components/pro/ProResultsTab.svelte');
+      const result = await build({ root, configFile, logLevel: 'silent', build: {
+        write: false, lib: { entry, formats: ['es'] }, rollupOptions: { external: (_id, from) => from === entry },
+      } });
+      const chunk = (Array.isArray(result) ? result[0] : result).output.find(output => output.type === 'chunk');
+      assert.equal(chunk.imports.some(id => id.includes('ProLevelCentresTable')), plates);
+      assert.equal(chunk.code.includes('centres.title'), plates);
+      const config = await resolveConfig({ root, configFile }, 'build', 'production');
+      const dictionary = config.plugins.find(plugin => plugin.name === 'public-i18n');
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'hu']) {
+        const text = dictionary.load.call({ addWatchFile() {} }, '\0virtual:app-i18n/' + locale);
+        const module = await import('data:text/javascript;base64,' + Buffer.from(text).toString('base64'));
+        for (const key of ['centres.title', 'centres.hint', 'centres.level', 'centres.weight', 'centres.none', 'pro.elementQualityTitle']) {
+          assert.equal(Object.hasOwn(module[locale], key), plates, locale + ' ' + key);
+        }
+        assert.ok(module[locale]['pro.diagnosticsTitle']);
+      }
+    });
+  }
+});
