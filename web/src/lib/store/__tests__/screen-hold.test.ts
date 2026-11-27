@@ -131,3 +131,33 @@ describe('the picture held for a live re-solve', () => {
     expect(resultsStore.screen.held).toBe(false);
   });
 });
+
+it.skip.each(['reconnect', 'move'])('known wrong result: #1927 — a held diagram cannot follow a %s with identical IDs', async edit => {
+  const r = await solvedPortal();
+  const e = modelStore.elements.get(r.elementForces[0]!.elementId)!;
+  editE(2);
+  expect(resultsStore.screen.held).toBe(true);
+  if (edit === 'reconnect') {
+    const other = [...modelStore.nodes.keys()].find(n => n !== e.nodeI && n !== e.nodeJ)!;
+    modelStore.updateElement(e.id, { nodeJ: other });
+  } else {
+    const n = modelStore.nodes.get(e.nodeJ)!;
+    modelStore.updateNode(n.id, n.x + 1, n.y);
+  }
+  expect(resultsStore.screen.results).toBeNull();
+});
+
+it.skip('known wrong result: #1927 — reactions alone remain drawn through a live solve', async () => {
+  const r = await solvedPortal();
+  resultsStore.diagramType = 'none';
+  resultsStore.showReactions = true;
+  editE(2);
+  expect(resultsStore.screen.results).toBe(r);
+  expect(resultsStore.screen.showReactions).toBe(true);
+  expect(resultsStore.screen.diagram).toBe('none');
+  await runLiveCalc('2d', uiStore.axisConvention3D);
+  expect(resultsStore.screen.held).toBe(false);
+  expect(resultsStore.screen.results).not.toBeNull();
+  expect(resultsStore.screen.diagram).toBe('none');
+  expect(resultsStore.screen.showReactions).toBe(true);
+});
