@@ -4,6 +4,7 @@ import os
 import pathlib
 import re
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -11,11 +12,10 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
 class CiAggregate(unittest.TestCase):
-    @unittest.skip('known wrong result: outer parity selection leaks into fixture')
     def test_parity_fixture_uses_its_own_git_history_and_build_mode(self):
         env = {**os.environ, 'BASE': 'outer-repository-revision', 'PARITY_COMPARE': 'outer-inventories'}
         result = subprocess.run(
-            [os.sys.executable, '-B', __file__,
+            [sys.executable, '-B', __file__,
              'ParityWorkflow.test_candidate_defaults_to_merge_base_and_honours_explicit_base'],
             env=env, text=True, capture_output=True,
         )
@@ -159,7 +159,8 @@ class ParityWorkflow(unittest.TestCase):
         self.addCleanup(directory.cleanup)
         self.repo = pathlib.Path(directory.name)
         self.env = {key: value for key, value in os.environ.items()
-                    if key not in ('MAKEFLAGS', 'MFLAGS', 'MAKEOVERRIDES', 'MAKELEVEL')}
+                    if key not in ('MAKEFLAGS', 'MFLAGS', 'MAKEOVERRIDES', 'MAKELEVEL',
+                                   'BASE', 'CANDIDATE', 'REQUIRE_PARITY') and not key.startswith('PARITY_')}
         self.output = self.repo / 'github-output'
         self.git('init', '--quiet', '-b', 'target')
         self.git('config', 'user.name', 'Parity workflow fixture')
