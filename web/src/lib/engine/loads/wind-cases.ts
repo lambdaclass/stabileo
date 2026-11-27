@@ -151,14 +151,27 @@ export interface WindCasesInput {
 }
 
 /** All the cases the set asks for, with their loads. */
-export function windLoadCases(input: WindCasesInput): { cases: WindCaseLoads[]; notes: EngineMessage[] } {
-  const { model, set } = input;
+export function windLoadCases({ model, ...input }: WindCasesInput): { cases: WindCaseLoads[]; notes: EngineMessage[] } {
+  return windCasesForModel(model)(input);
+}
+
+function caseGeometry(model: WindModel) {
+  const roof = windRoofCarriers(model).members;
+  const xs = [...model.nodes.values()].map(n => n.x), ys = [...model.nodes.values()].map(n => n.y);
+  const bounds = { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
+  return { roof, bounds };
+}
+
+export function windCasesForModel(model: WindModel) {
+  let geometry: ReturnType<typeof caseGeometry> | undefined;
+  return (input: Omit<WindCasesInput, 'model'>) => casesForGeometry(input, geometry ??= caseGeometry(model));
+}
+
+function casesForGeometry(input: Omit<WindCasesInput, 'model'>, { roof, bounds }: ReturnType<typeof caseGeometry>) {
+  const { set } = input;
   const notes: EngineMessage[] = [];
   const cases: WindCaseLoads[] = [];
   const sensesOf = (a: Axis) => sensesOn(input.directions, a);
-  const roof = windRoofCarriers(model).members;
-  const xs = [...model.nodes.values()].map((n) => n.x), ys = [...model.nodes.values()].map((n) => n.y);
-  const bounds = { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
   const byAxis = new Map(input.axes.map((a) => [a.axis, a]));
   const signTxt = (s: number) => (s > 0 ? '+' : '−');
   const dirTxt = (a: Axis, s: Sense) => `${signTxt(s)}${a.toUpperCase()}`;
