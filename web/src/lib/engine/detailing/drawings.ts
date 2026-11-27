@@ -377,7 +377,7 @@ function noteLines(
     out.push(noteKey('detailing.note.hanger', { n: hangerTopMembers.length, list: hangerTopMembers.join(', ') }));
   }
   for (const u of unsupported) {
-    out.push(noteKey('detailing.note.unsupported', { key: u.key, message: u.message }));
+    out.push(u.params ? noteKey(u.key, u.params) : noteKey('detailing.note.unsupported', { key: u.key, message: u.message }));
   }
   /**
    * Conflicts: a legend, then a bounded list.

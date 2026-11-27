@@ -129,7 +129,7 @@ describe('a pin–fixed beam with mixed top layers', () => {
     const { bars } = generateBeamBars({
       ...groups, elementId: 1, L: ctx.L, b: ctx.section.b, h: ctx.section.h,
       d: ctx.section.h - cover - stirrupDia / 1000, cover, stirrupDia, fc, fy, maxAggregateSizeMm, edition,
-      stations, supportI: 'simple', supportJ: 'continuous', vn: Math.max(...stations.map(s => s.v)),
+      stations, supportI: 'simple', supportJ: 'continuous',
       lateralSystem: true, ld: anchorageFunctions({ fy, fc, favourableSpacing: true, psiT: 1.3, edition }).ld,
       origin: { x: 0, y: 0, z: 0 }, axis: { x: 1, y: 0, z: 0 }, up: { x: 0, y: 0, z: 1 },
       bentUp: { seismicDesign: 'unstated', optOut: false },

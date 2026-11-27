@@ -16167,6 +16167,7 @@ const zh: Translations = {
   "rcSheets.v.everyCombo": "各组合下采用钢筋的验算",
   "rcSheets.v.wallTieFloorBars": "边缘箍筋间距不小于设计数据的最小间距：较粗的竖向钢筋将其提高至 6·db 或 8·db",
   "rcSheets.v.wallTieFloor": "边缘箍筋间距不小于设计数据的最小间距：由墙厚或 hx 使其更密，而非钢筋",
+  "detailing.cutoff.unverified": "梁 {element}，x = {x} m。局部抗剪承载力和配筋不足以证明钢筋可在此处截断。",
   "detailing.schedule.spliceNote": "编号 {mark}（{length} m）长于 {stock} m 的定尺钢筋，需要搭接。",
   "rcSheets.v.lineEndAnchor": "端柱内的弯钩",
   "rcSheets.v.lineIntegrity": "周边梁整体性：连续的顶部和底部钢筋",

@@ -2614,7 +2614,6 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
       ...(designedStirrups ? { designedStirrups } : {}),
       supportI: supportKindAt(el.nodeI, id, input.elements),
       supportJ: supportKindAt(el.nodeJ, id, input.elements),
-      vn: Math.max(...stations.map((s) => s.v), 1),
       bottom: groups.bottom, topStart: groups.topStart, topEnd: groups.topEnd,
       topPurpose: groups.topPurpose,
       lateralSystem: lateralOf(id),
@@ -2694,6 +2693,10 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
       bars: [...gen.bars, ...transversePaths],
       requiredTransversePieces,
       unsupported: gen.unsupported,
+      cutoffConditions: gen.cutoffs.filter(cut => cut.legality === 'illegal').map(cut => ({
+        key: 'detailing.cutoff.unverified', scope: { elementIds: [id] }, refs: cut.refs,
+        params: { element: id, x: cut.actual.toFixed(3) }, message: `§9.7.3.5 · ${id} · ${cut.actual.toFixed(3)} m`,
+      })),
       maturity: deriveMaturity({
         implemented: true, refs: [...gen.refs, ...anchor.refs], benchmarks: [],
       }).maturity,

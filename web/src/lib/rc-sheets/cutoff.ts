@@ -16,12 +16,16 @@ export interface Cutoff {
 }
 
 /** The larger |V| of the two stations either side of x: between samples the shear is not known to be lower. None read, none allowed. */
-function shearAt(stations: readonly { x: number; v: number }[], x: number): number {
-  if (stations.length === 0) return Infinity;
+export function cutoffStations<T extends { x: number }>(stations: readonly T[], x: number): T[] {
+  if (stations.length === 0) return [];
   const sorted = [...stations].sort((a, b) => a.x - b.x);
   const after = sorted.findIndex((s) => s.x >= x - 1e-9);
-  const pair = after < 0 ? [sorted[sorted.length - 1]!] : after === 0 ? [sorted[0]!] : [sorted[after - 1]!, sorted[after]!];
-  return Math.max(...pair.map((s) => Math.abs(s.v)));
+  return after < 0 ? [sorted[sorted.length - 1]!] : after === 0 ? [sorted[0]!] : [sorted[after - 1]!, sorted[after]!];
+}
+
+export function cutoffPosition(theoretical: number, d: number, diameterMm: number, towardEnd: boolean): number {
+  const extension = Math.max(d, 12 * diameterMm / 1000);
+  return towardEnd ? theoretical + extension : theoretical - extension;
 }
 
 /**
@@ -33,6 +37,7 @@ function shearAt(stations: readonly { x: number; v: number }[], x: number): numb
  */
 export function evaluateCutoff(opts: {
   theoretical: number;
+  placedAt?: number;
   d: number;
   diameterMm: number;
   stations: readonly { x: number; v: number }[];
@@ -48,7 +53,7 @@ export function evaluateCutoff(opts: {
   towardEnd: boolean;
 }): Cutoff {
   const ext = Math.max(opts.d, 12 * opts.diameterMm / 1000);
-  const actual = opts.towardEnd ? opts.theoretical + ext : opts.theoretical - ext;
+  const actual = opts.placedAt ?? cutoffPosition(opts.theoretical, opts.d, opts.diameterMm, opts.towardEnd);
   const c = (id: string, label?: string) => clause('cirsoc-201', opts.edition, id, label);
   const baseRefs = [c('9.7.3.3', 'prolongación más allá del punto de corte')];
 
@@ -60,9 +65,13 @@ export function evaluateCutoff(opts: {
     };
   }
 
-  const vu = shearAt(opts.stations, actual);
+  const stations = cutoffStations(opts.stations, actual);
+  const vu = stations.length ? Math.max(...stations.map(s => Math.abs(s.v))) : Infinity;
   const refs = [...baseRefs, c('9.7.3.5', 'terminación en zona de tracción')];
 
+  if (!(opts.vn > 0 && Number.isFinite(opts.vn) && Number.isFinite(vu))) {
+    return { theoretical: opts.theoretical, actual, legality: 'illegal', refs, note: '§9.7.3.5 — Vu / φVn: —' };
+  }
   if (vu <= (2 / 3) * opts.vn) {
     return {
       theoretical: opts.theoretical, actual, legality: 'lowShear', refs,

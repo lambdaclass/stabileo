@@ -16440,6 +16440,7 @@ const hu: Translations = {
   "rcSheets.v.everyCombo": "Minden kombináció a választott vasalással",
   "rcSheets.v.wallTieFloorBars": "Szélső kengyelek nem sűrűbben a tervezési adatok legkisebb távolságánál: vastagabb függőleges vasakkal a 6·db vagy 8·db eléri azt",
   "rcSheets.v.wallTieFloor": "Szélső kengyelek nem sűrűbben a tervezési adatok legkisebb távolságánál: a fal vastagsága vagy hx akadályozza, nem a vasak",
+  "detailing.cutoff.unverified": "{element} gerenda, x = {x} m. A helyi nyírási ellenállás és a vasalás alapján a betonacél itt nem végződhet igazoltan.",
   "detailing.schedule.spliceNote": "A(z) {mark} jelű vas ({length} m) hosszabb a {stock} m-es kereskedelmi szálnál, toldás kell.",
   "rcSheets.v.tieList": "A tervezési adatokban engedélyezett kengyelátmérők",
   "rcSheets.v.longList": "A tervezési adatokban engedélyezett hosszvas-átmérők",

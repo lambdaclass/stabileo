@@ -64,7 +64,6 @@ function generated(fixture: unknown) {
         { x: L, mPos: 0, mNeg: seed.MuEnd, v: seed.VuSupport },
       ],
       supportI: 'continuous', supportJ: 'continuous',
-      vn: Math.max(seed.VuSupport, 1),
       bottom: g(st.bottomSpan!), topStart: g(st.topStart!), topEnd: g(st.topEnd!),
       lateralSystem: false,
       ld: (dia: number) => 40 * dia / 1000,

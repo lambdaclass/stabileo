@@ -360,7 +360,7 @@ it('#2239 physical detailing reads a representable explicit cage without a legac
   expect(bars.map(b => b.diameterMm)).toEqual([20, 20, 20, 20]);
 });
 
-it.skip('known wrong result: unnumbered beam cutoff — keeps both right-hand cutoff checks independent of remote shear demand', () => {
+it('keeps both right-hand cutoff checks independent of remote shear demand', () => {
   function rightCuts(multiplier: number) {
     const model = scenario();
     model.contexts.get(12)!.stations!.comboResults[0]!.stations[0]!.vz *= multiplier;
@@ -370,4 +370,25 @@ it.skip('known wrong result: unnumbered beam cutoff — keeps both right-hand cu
     return notes;
   }
   expect(rightCuts(2)).toEqual(rightCuts(1));
+});
+
+it('checks the placed section at each right-hand cut and blocks a missing axial action', () => {
+  const model = scenario();
+  const checked = runDetailing(model).assemblies;
+  const notes = checked.flatMap(a => a.provenance.trace);
+  const cornerRadius = (32 + 8) / 2000;
+  const barContact = (8 + 20) / 2000;
+  const depth = 0.60 - 0.025 - 0.004 - (cornerRadius - (cornerRadius - barContact) / Math.sqrt(2));
+  const vc = 0.17 * Math.sqrt(25) * 0.30 * depth * 1000;
+  const vs = 2 * 0.503e-4 * 420_000 * depth / 0.15;
+  const threshold = ((2 / 3) * 0.75 * (vc + vs)).toFixed(1);
+  for (const [cut, shear] of [['superior J', '105.0'], ['Corte derecho', '140.0']] as const) {
+    expect(notes.find(note => note.includes(cut) && note.includes('9.7.3.5(a)')))
+      .toContain(`Vu = ${shear} kN ≤ (2/3)φVn = ${threshold} kN`);
+  }
+  expect(checked.flatMap(a => a.unsupported).filter(u => u.key === 'detailing.cutoff.unverified')).toEqual([]);
+  model.contexts.get(12)!.stations!.comboResults[0]!.stations[7]!.n = NaN;
+  const refused = runDetailing(model).assemblies.flatMap(a => a.unsupported)
+    .filter(u => u.key === 'detailing.cutoff.unverified');
+  expect(refused.map(u => u.params?.x).sort()).toEqual(['4.668', '5.277']);
 });

@@ -116,3 +116,14 @@ describe('the shear a cut-off is judged by', () => {
     expect(evaluateCutoff({ ...base, theoretical: 1, stations: [] }).legality).not.toBe('lowShear');
   });
 });
+
+it('checks both design-strength limits including equality and refuses unavailable strength', () => {
+  const check = (v: number, vn = 120) => evaluateCutoff({
+    theoretical: 1, d: 0.5, diameterMm: 16, stations: [{ x: 0, v }, { x: 1, v }],
+    vn, b: 0.3, fy: 420, continuingDoubleArea: true, inTensionZone: true, edition: '2025', towardEnd: false,
+  }).legality;
+  expect([79, 80, 81, 89, 90, 91].map(v => check(v))).toEqual([
+    'lowShear', 'lowShear', 'doubleArea', 'doubleArea', 'doubleArea', 'extraStirrups',
+  ]);
+  for (const vn of [0, -1, Infinity, NaN]) expect(check(0, vn)).toBe('illegal');
+});

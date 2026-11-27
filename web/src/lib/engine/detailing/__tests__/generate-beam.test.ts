@@ -11,7 +11,7 @@ function envelope(L = 6, mMid = 200, mEnd = 150, v = 180): MomentStation[] {
     const x = (i / 10) * L;
     const s = x / L;
     out.push({
-      x,
+      x, axialCompression: 0,
       mPos: Math.max(0, mMid * 4 * s * (1 - s)),
       mNeg: Math.max(0, mEnd * (1 - 4 * s * (1 - s))),
       v: v * Math.abs(1 - 2 * s),
@@ -25,7 +25,6 @@ function input(over: Partial<BeamGenerationInput> = {}): BeamGenerationInput {
     elementId: 7, L: 6, b: 0.30, h: 0.60, d: 0.55, cover: 0.025, stirrupDia: 8,
     fc: 25, fy: 420, maxAggregateSizeMm: 20, edition: '2025',
     stations: envelope(), supportI: 'continuous', supportJ: 'continuous',
-    vn: 400,
     bottom: { count: 6, diameterMm: 20 },
     topStart: { count: 4, diameterMm: 16 },
     topEnd: { count: 4, diameterMm: 16 },
@@ -248,7 +247,7 @@ describe('beam bar generation', () => {
   });
 
   it('adds a §9.7.3.5(c) stirrup zone when a cut-off needs one', () => {
-    const g = generateBeamBars(input({ stations: envelope(6, 200, 150, 390), vn: 400 }));
+    const g = generateBeamBars(input({ stations: envelope(6, 200, 150, 390) }));
     const hasCutoffZone = g.stirrupZones.some((z) => z.reason === 'cutoff');
     const needed = g.cutoffs.some((c) => c.legality === 'extraStirrups');
     expect(hasCutoffZone).toBe(needed);

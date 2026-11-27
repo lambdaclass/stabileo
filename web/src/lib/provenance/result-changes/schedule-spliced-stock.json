@@ -1,0 +1,35 @@
+{
+  "id": "schedule-spliced-stock",
+  "date": "2026-11-27",
+  "prs": [],
+  "area": "design",
+  "when": {
+    "any": [
+      "concreteMembers"
+    ]
+  },
+  "title": {
+    "en": "Commercial stock for spliced bars",
+    "es": "Barras comerciales para marcas empalmadas",
+    "pt": "Barras comerciais para peças emendadas",
+    "de": "Handelslängen für gestoßene Stäbe",
+    "fr": "Longueurs commerciales des barres raccordées",
+    "hu": "Kereskedelmi szálhosszak toldott betonacélokhoz",
+    "tr": "Ekli donatı için ticari boy sayısı",
+    "zh": "接长钢筋的原材根数"
+  },
+  "explanation": {
+    "en": "Regenerate bar schedules and workbooks. Marks longer than stock now count the stock lengths needed for their scheduled pieces and identify the splice.",
+    "es": "Regenerá las planillas de despiece. Las marcas más largas que la barra comercial cuentan ahora las barras necesarias para sus piezas e indican el empalme.",
+    "pt": "Gere novamente as tabelas de corte. Para marcas maiores que o comprimento comercial, são contadas as barras necessárias para as peças e indicada a emenda.",
+    "de": "Erstellen Sie die Stahllisten erneut. Für Positionen über Handelslänge zählt die Liste die für die Teilstücke benötigten Stäbe und weist auf den Stoß hin.",
+    "fr": "Régénérez les nomenclatures. Pour les repères dépassant la longueur commerciale, elles comptent les barres nécessaires aux pièces prévues et signalent le raccord.",
+    "hu": "Készítse el újra a vaskimutatásokat. A kereskedelmi szálhossznál hosszabb tételeknél a kimutatás számolja a darabokhoz szükséges szálakat és jelzi a toldást.",
+    "tr": "Donatı cetvellerini yeniden oluşturun. Ticari boyu aşan pozlarda planlanan parçalar için gereken boylar sayılır ve ek belirtilir.",
+    "zh": "请重新生成钢筋下料表。对于超过原材长度的编号，表中现按计划分段计算所需原材根数，并注明接头。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-beam-cutoff-and-splice-stock.md",
+    "heading": "Commercial stock for spliced bars"
+  }
+}

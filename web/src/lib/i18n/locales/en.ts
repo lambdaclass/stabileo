@@ -16592,6 +16592,7 @@ const en: Record<string, string> = {
   "rcSheets.v.everyCombo": "Every combination with the adopted bars",
   "rcSheets.v.wallTieFloorBars": "Boundary ties no closer than the design data's least spacing: thicker vertical bars lift 6·db or 8·db to it",
   "rcSheets.v.wallTieFloor": "Boundary ties no closer than the design data's least spacing: the wall's thickness or hx keeps them closer, not the bars",
+  "detailing.cutoff.unverified": "Beam {element}, x = {x} m. The local shear resistance and reinforcement do not establish that the bar may end here.",
   "detailing.schedule.spliceNote": "Mark {mark} ({length} m) is longer than the {stock} m stock bar and needs a splice.",
   "rcSheets.v.lineEndAnchor": "Hook inside the end column",
   "rcSheets.v.lineIntegrity": "Perimeter beam integrity: continuous top and bottom bars",

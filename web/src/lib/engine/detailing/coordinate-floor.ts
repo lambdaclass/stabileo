@@ -51,6 +51,7 @@ export interface MemberBars {
   bars: BarPath[];
   /** Unsupported conditions the generator reported for this member. */
   unsupported: string[];
+  cutoffConditions?: UnsupportedCondition[];
   /** Maturity of the calculations behind this member's bars. */
   maturity: Maturity;
   /** Clauses applied. */
@@ -751,6 +752,7 @@ export function coordinateFloor(input: FloorCoordinationInput): FloorCoordinatio
       // A locked bar wins over its regenerated replacement, always.
       if (!lockedIds.has(b.id)) generated.push(b);
     }
+    unsupported.push(...m.cutoffConditions ?? []);
     for (const u of m.unsupported) {
       unsupported.push({
         key: 'generation',

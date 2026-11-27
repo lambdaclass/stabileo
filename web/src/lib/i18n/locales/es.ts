@@ -16581,6 +16581,7 @@ const es: Record<string, string> = {
   "rcSheets.v.everyCombo": "Cada combinación con lo adoptado",
   "rcSheets.v.wallTieFloorBars": "Estribos de borde no más juntos que la separación mínima de los datos de diseño: con barras verticales más gruesas, 6·db o 8·db la alcanza",
   "rcSheets.v.wallTieFloor": "Estribos de borde no más juntos que la separación mínima de los datos de diseño: lo impide el espesor del tabique o hx, no las barras",
+  "detailing.cutoff.unverified": "Viga {element}, x = {x} m. La resistencia local al corte y la armadura no justifican terminar la barra aquí.",
   "detailing.schedule.spliceNote": "La marca {mark} ({length} m) excede la barra comercial de {stock} m y requiere empalme.",
   "rcSheets.v.lineEndAnchor": "Gancho dentro de la columna extrema",
   "rcSheets.v.lineIntegrity": "Integridad de viga perimetral: armadura corrida arriba y abajo",

@@ -368,6 +368,8 @@ describe('bar bending schedule', () => {
     const s = buildSchedule(assignMarks([straight('a', -0.25, 14, 20)]));
     const workbook = scheduleToAoa(s, buildTitleBlock({ sheetNumber: '1', title: 'Barras', assembly: assembly(), clauses }));
     expect(workbook.flat().join(' ')).toMatch(/excede la barra comercial/);
+    expect(s.rows[0]).toMatchObject({ quantity: 1, totalLengthM: 14, stockBars: 2, offcutM: 10 });
+    expect(s.totals).toMatchObject({ quantity: 1, totalLengthM: 14, stockBars: 2, wasteM: 10 });
   });
 
   it('totals across all marks', () => {

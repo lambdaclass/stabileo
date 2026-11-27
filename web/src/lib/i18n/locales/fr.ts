@@ -16430,6 +16430,7 @@ const fr: Translations = {
   "rcSheets.v.everyCombo": "Chaque combinaison avec les armatures adoptées",
   "rcSheets.v.wallTieFloorBars": "Cadres de rive pas plus serrés que l'espacement minimal des données de calcul : des barres verticales plus grosses portent 6·db ou 8·db jusqu'à lui",
   "rcSheets.v.wallTieFloor": "Cadres de rive pas plus serrés que l'espacement minimal des données de calcul : l'épaisseur du voile ou hx l'en empêche, pas les barres",
+  "detailing.cutoff.unverified": "Poutre {element}, x = {x} m. La résistance locale au cisaillement et les armatures ne justifient pas un arrêt de barre ici.",
   "detailing.schedule.spliceNote": "La position {mark} ({length} m) dépasse la barre commerciale de {stock} m et demande un recouvrement.",
   "rcSheets.v.lineEndAnchor": "Crochet dans le poteau d'extrémité",
   "rcSheets.v.lineIntegrity": "Intégrité de la poutre de rive : barres filantes en haut et en bas",

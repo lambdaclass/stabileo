@@ -27,12 +27,13 @@ export function envelopeStations(ctx: MemberContext): MomentStation[] {
   for (const combo of sr.comboResults) {
     for (const st of combo.stations) {
       const key = Math.round(st.x * 1e6) / 1e6;
-      const cur = byX.get(key) ?? { x: key, mPos: 0, mNeg: 0, v: 0 };
+      const cur = byX.get(key) ?? { x: key, mPos: 0, mNeg: 0, v: 0, axialCompression: Infinity };
       // Local-y bending is the strong axis for a horizontal member under gravity.
       const m = st.my;
       cur.mPos = Math.max(cur.mPos, m > 0 ? m : 0);
       cur.mNeg = Math.max(cur.mNeg, m < 0 ? -m : 0);
       cur.v = Math.max(cur.v, Math.abs(st.vz), Math.abs(st.vy));
+      cur.axialCompression = Math.min(cur.axialCompression!, -st.n);
       byX.set(key, cur);
     }
   }
