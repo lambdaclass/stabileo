@@ -62,3 +62,25 @@ for (const offset of [-1e-7, 0, 1e-7]) it(`#2220 quadratic pressure keeps its ph
   for (const p of parts) if (p.a ** 2 + offset >= 0) { expect(p.q).toBeGreaterThanOrEqual(0); expect(p.qJ).toBeGreaterThanOrEqual(0); }
   expect(parts.reduce((sum, p) => sum + p.force, 0)).toBeCloseTo(1 / 3 + offset, 10);
 });
+
+it('a storey column under a CIRSOC 102 pressure takes a few loads that carry its four work moments', () => {
+  // From 2,8 m to 5,6 m: Kz constant up to 5 m, a power of the height above.
+  const z0 = 2.8, length = 2.8, knee = 5 - z0;
+  const p = (s: number) => 0.62 * (Math.max(5, z0 + s) / 365.76) ** (2 / 7);
+  const parts = integrateWindPressure(length, [knee], p);
+  expect(parts.length).toBeLessThanOrEqual(4);
+  for (const part of parts) expect(Math.min(part.q, part.qJ)).toBeGreaterThan(0);
+  const exact = (k: number) => {
+    const n = 200_000, h = length / n;
+    let sum = 0;
+    for (let i = 0; i <= n; i++) { const s = i * h; sum += (i === 0 || i === n ? 1 : i % 2 ? 4 : 2) * s ** k * p(s); }
+    return (sum * h) / 3;
+  };
+  for (const k of [0, 1, 2, 3]) {
+    const actual = parts.reduce((sum, q) => {
+      const slope = (q.qJ - q.q) / (q.b - q.a), intercept = q.q - slope * q.a;
+      return sum + intercept * (q.b ** (k + 1) - q.a ** (k + 1)) / (k + 1) + slope * (q.b ** (k + 2) - q.a ** (k + 2)) / (k + 2);
+    }, 0);
+    expect(actual).toBeCloseTo(exact(k), 8);
+  }
+});

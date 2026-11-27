@@ -11,6 +11,15 @@ import type { SolverInput } from '../../types';
 import type { SolverInput3D } from '../../types-3d';
 
 const solved = new Map<string, ReturnType<typeof solve> | ReturnType<typeof solve3D>>();
+/**
+ * A member's diagram against the exact field's: at its ends to `digits`, inside to 1e-3 of the
+ * largest value of that diagram along it, where linear parts stand for the curved field.
+ */
+function expectDiagram(actual: number, exact: number, t: number, largest: number, digits = 10): void {
+  if (t === 0 || t === 1) expect(actual).toBeCloseTo(exact, digits);
+  else expect(Math.abs(actual - exact)).toBeLessThanOrEqual(1e-3 * largest + 0.5 * 10 ** -digits);
+}
+
 const nativeCases: Array<Record<string, unknown>> = [];
 afterAll(() => {
   if (!nativeCases.length) return;
@@ -97,15 +106,16 @@ for (const entry of apexEntries) for (const variant of variants) for (const spat
       expectWindTips(out.displacements, [2], 'ux', (3 * length * integral(0, 2) - integral(0, 3)) / (6 * 200000 * 1000 * 1e-4), 10);
       expect(out.elementForces).toHaveLength(1);
       const f = out.elementForces[0]!;
-      for (const t of [0, 0.2, 0.5, 0.8, 1]) {
-        const at = t * length, shear = integral(at, 0), moment = integral(at, 1) - at * shear;
+      const stations = [0, 0.2, 0.5, 0.8, 1].map(t => { const at = t * length, shear = integral(at, 0); return { t, shear, moment: integral(at, 1) - at * shear }; });
+      const shearPeak = Math.max(...stations.map(s => Math.abs(s.shear))), momentPeak = Math.max(...stations.map(s => Math.abs(s.moment)));
+      for (const { t, shear, moment } of stations) {
         if ('vyStart' in f) {
-          expect(evaluateDiagramAt(f, 'shearY', t)).toBeCloseTo(-shear, 10);
-          expect(evaluateDiagramAt(f, 'momentZ', t)).toBeCloseTo(-moment, 10);
+          expectDiagram(evaluateDiagramAt(f, 'shearY', t), -shear, t, shearPeak);
+          expectDiagram(evaluateDiagramAt(f, 'momentZ', t), -moment, t, momentPeak);
           expect(evaluateDiagramAt(f, 'torsion', t)).toBeCloseTo(0, 10);
         } else {
-          expect(computeDiagramValueAt('shear', t, f)).toBeCloseTo(shear, 10);
-          expect(computeDiagramValueAt('moment', t, f)).toBeCloseTo(moment, 10);
+          expectDiagram(computeDiagramValueAt('shear', t, f), shear, t, shearPeak);
+          expectDiagram(computeDiagramValueAt('moment', t, f), moment, t, momentPeak);
         }
       }
     };

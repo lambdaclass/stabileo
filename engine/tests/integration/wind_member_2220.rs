@@ -290,6 +290,16 @@ fn check_pressure_cases(cases: Vec<&Value>) {
                 if let Some(key) = torsion {
                     assert!(force[key].as_f64().unwrap().abs() < 5e-11);
                 }
+                let expected_at = |t: f64| {
+                    let at = station + t * force["length"].as_f64().unwrap();
+                    (
+                        scale * shear_sign * integral(at, 0),
+                        scale * moment_sign * (integral(at, 1) - at * integral(at, 0)),
+                    )
+                };
+                let stations = [0.0, 0.2, 0.5, 0.8, 1.0].map(expected_at);
+                let largest_shear = stations.iter().map(|s| s.0.abs()).fold(0.0, f64::max);
+                let largest_moment = stations.iter().map(|s| s.1.abs()).fold(0.0, f64::max);
                 for t in [0.2, 0.5, 0.8] {
                     let at = station + t * force["length"].as_f64().unwrap();
                     let expected_shear = scale * shear_sign * integral(at, 0);
@@ -328,8 +338,9 @@ fn check_pressure_cases(cases: Vec<&Value>) {
                             ),
                         )
                     };
-                    assert!((actual_shear - expected_shear).abs() < 5e-9);
-                    assert!((actual_moment - expected_moment).abs() < 5e-9);
+                    // Inside a member linear parts stand for the curved field: its ends stay exact.
+                    assert!((actual_shear - expected_shear).abs() < 5e-9 + 1e-3 * largest_shear);
+                    assert!((actual_moment - expected_moment).abs() < 5e-9 + 1e-3 * largest_moment);
                 }
             }
         }

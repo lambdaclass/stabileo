@@ -120,7 +120,7 @@ describe('recheckStore', () => {
   it.each(['2d', '3d', 'pro'])('keeps the exact wind regeneration notices after re-solving in %s', async mode => {
     for (const type of ['W', 'Wa']) {
       const snapshot = { analysisMode: mode, loadCases: [{ id: 1, type }], loads: [{ type: 'distributed', data: { caseId: 1, generatedBy: 'load-plan' } }], designData: { loadBasis: { resultsVersion: 0 } }, solvedWith: recheckStore.capture() };
-      const expected = ['generated-area-loads-headroom', 'gravity-physical-thresholds', ...(mode === '2d' ? [] : ['gravity-resolved-cover']), 'gravity-retained-span-midpoint', 'snow-panel-geometry', 'wind-apex-torque', 'wind-band-width-and-shares', 'wind-carriers-and-continuous-width', 'wind-member-pressure-transfer', 'wind-physical-apex', 'wind-physical-pressure-field', 'wind-plan-couple-and-sign-face', 'wind-pressure-work-moments', 'wind-triangular-and-sign-minimum', 'wind-triangular-centroid'];
+      const expected = ['generated-area-loads-headroom', 'gravity-physical-thresholds', ...(mode === '2d' ? [] : ['gravity-resolved-cover']), 'gravity-retained-span-midpoint', 'snow-panel-geometry', 'wind-apex-torque', 'wind-band-width-and-shares', 'wind-carriers-and-continuous-width', 'wind-member-pressure-transfer', 'wind-physical-apex', 'wind-physical-pressure-field', 'wind-plan-couple-and-sign-face', 'wind-pressure-work-moments', 'wind-triangular-and-sign-minimum', 'wind-triangular-centroid', 'wind-two-part-moments'];
       expected.unshift('concentrated-live-actions');
       recheckStore.openProject(snapshot, mode);
       await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
